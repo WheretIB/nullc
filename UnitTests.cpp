@@ -33,15 +33,25 @@
 
 #pragma warning(disable: 4127)
 
+//#define ALLOC_TOP_DOWN
+
 void* testAlloc(int size)
 {
+#ifdef ALLOC_TOP_DOWN
+	return VirtualAlloc(NULL, size + 128, MEM_COMMIT | MEM_TOP_DOWN, PAGE_READWRITE);
+#else
 	return (char*)malloc(size + 128) + 128;
+#endif
 }
 void testDealloc(void* ptr)
 {
 	if(!ptr)
 		return;
+#ifdef ALLOC_TOP_DOWN
+	VirtualFree((char*)ptr - 128, 0, MEM_RELEASE);
+#else
 	free((char*)ptr - 128);
+#endif
 }
 
 nullres CompileFile(const char* fileName)

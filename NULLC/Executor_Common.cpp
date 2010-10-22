@@ -45,9 +45,9 @@ void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, 
 				upvalue->ptr = (unsigned int*)&paramBase[externals[i].target];
 			}else{	// Otherwise, we have to get pointer from functions' existing closure
 				// Pointer to previous closure is the last function parameter (offset of cmd.helper from stack frame base)
-				unsigned int *prevClosure = (unsigned int*)(intptr_t)*(int*)(&paramBase[helper]);
+				unsigned int *prevClosure = (unsigned int*)*(uintptr_t*)(&paramBase[helper]);
 				// Take pointer from inside the closure (externals[i].target is in bytes, but array is of unsigned int elements)
-				upvalue->ptr = (unsigned int*)(intptr_t)prevClosure[externals[i].target >> 2];
+				upvalue->ptr = *(unsigned int**)((char*)prevClosure + externals[i].target);
 			}
 			// Next upvalue will be current list head
 			upvalue->next = externalList[externals[i].closeListID & ~0x80000000];
