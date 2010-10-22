@@ -783,8 +783,11 @@ void AddReturnNode(const char* pos, bool yield)
 		expectedType = currDefinedFunc.back()->retType;
 		if(expectedType->refLevel || (expectedType->arrLevel && expectedType->arrSize == TypeInfo::UNSIZED_ARRAY))
 		{
-			CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdCheckedRet, expectedType->arrLevel ? expectedType->typeIndex : expectedType->subType->typeIndex));
-			((NodeUnaryOp*)CodeInfo::nodeList.back())->SetParentFunc(currDefinedFunc.back());
+			if(CodeInfo::nodeList.back()->nodeType != typeNodeZeroOp)
+			{
+				CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdCheckedRet, expectedType->arrLevel ? expectedType->typeIndex : expectedType->subType->typeIndex));
+				((NodeUnaryOp*)CodeInfo::nodeList.back())->SetParentFunc(currDefinedFunc.back());
+			}
 		}
 		// Check for errors
 		if(((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && expectedType != realRetType) || expectedType->subType != realRetType->subType)
@@ -4032,7 +4035,6 @@ void AddListGenerator(const char* pos, TypeInfo *rType)
 //		res.set(x, pos++);
 	AddGetAddressNode(pos, InplaceStr("res"));
 	AddGetAddressNode(pos, InplaceStr("x"));
-	AddGetVariableNode(pos);
 	AddGetAddressNode(pos, InplaceStr("pos"));
 	AddUnaryModifyOpNode(pos, OP_INCREMENT, OP_POSTFIX);
 	AddMemberFunctionCall(pos, "set", 2);
@@ -4043,7 +4045,6 @@ void AddListGenerator(const char* pos, TypeInfo *rType)
 
 //	__force_size(&res, pos);
 	AddGetAddressNode(pos, InplaceStr("res"));
-	//AddMemberAccessNode(pos, InplaceStr("size"));
 	AddGetAddressNode(pos, InplaceStr("pos"));
 	AddGetVariableNode(pos);
 	AddFunctionCallNode(pos, "__force_size", 2);

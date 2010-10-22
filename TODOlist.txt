@@ -11,8 +11,8 @@ Core:
 	18. f. stack trace with locals should print values
 	20. f. context address tracking in not neccessary in most cases (?)
 	21. u. need to clarify when external variables in a local function inside a coroutine are closed.
-	22. f. finalizers
 	23. f. move gen_list to base module as a generic function (?)
+	26. f. typedef should be exported
 
 Library:
 	1. f. string
@@ -198,3 +198,8 @@ DONE: short inline function in function pointer call
 DONE: multiple function prototypes should be disallowed
 DONE: Functions called without nullcInit should not crash
 DONE: sort
+DONE: finalizers
+DONE: nullcFinalize shouldn't destroy objects in memory
+DONE: @ followed by lexeme of operator should take an address of a function with operators' name
+DONE: fix process deadlock on breakpoint (and on infinite loops) in finalizer called by nullcFinalize
+DONE: list comprehension should support arrays of pointers

@@ -65,3 +65,11 @@ TEST_RESULT("List comprehension helper function collision resolve", testListComp
 const char	*testListComprehensionReturn =
 "int i = 10; auto x = { for(;0;){} if(--i) return 1; yield 15; }; return x.size;";
 TEST_RESULT("List comprehension with explicit return", testListComprehensionReturn, "0");
+
+const char	*testListComprehensionRef =
+"class Foo{ int a; }\r\n\
+void Foo:Foo(int x){ a = x; }\r\n\
+auto x = { for(int i=0;i<4;i++) yield new Foo(10+i); };\r\n\
+int z = 0; for(i in x) z += i.a;\r\n\
+return z;";
+TEST_RESULT("List comprehension for an array of references", testListComprehensionRef, "46");
