@@ -122,6 +122,9 @@ function toggleView(a, b, c)
 	<li>Statements</li>
 	<ol>
 		<li><a href="#if">if statement</a></li>
+		<ol>
+			<li><a href="#static_if">Static if</a></li>
+		</ol>
 		<li><a href="#for">for statement</a></li>
 		<ol>
 			<li><a href="#forsimple">C-style for</a></li>
@@ -418,6 +421,15 @@ function toggleView(a, b, c)
 	<span class="rword">if</span> statement evaluates result of expression "expr", and if result isn't equal to 0, evaluates expressions put in "trueBody". Otherwise, it evaluates expressions put in "falseBody".<br />
 	"trueBody" and "falseBody" may consist of a single expression or a block of expressions.<br />
 	<span class="rword">else</span> and "falseBody", may be omitted. In such case, if result of "expr" is zero, nothing is evaluated.<br />
+	
+	
+	<div class="subtopic">
+		<h4><a name="static_if">3.1.1 Static if</a></h4>
+
+		If an <span class="rword">@</span> is placed before an <span class="rword">if</span> expression, then, condition will be evaluated at compilation time (which is not always possible) and
+		the body will be compiled only if condition is true.<br />
+		This is most useful in generic functions where different codepaths can be made for different type groups and not all codepaths can be successfuly compiled with wrong type groups.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
