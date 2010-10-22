@@ -227,4 +227,7 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "class Foo<int>{ int a; } Foo<double> x;", "ERROR: there is already a type or an alias with the same name");
 
 	TEST_FOR_FAIL("parsing", "align(4) c", "ERROR: variable or class definition is expected after alignment specifier");
+
+	TEST_FOR_FAIL("parsing", "@if(1) }", "ERROR: expression not found after 'if'");
+	TEST_FOR_FAIL("parsing", "@if(0) return 1; else }", "ERROR: expression not found after 'else'");
 }
