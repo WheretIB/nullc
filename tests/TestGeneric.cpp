@@ -1112,3 +1112,12 @@ const char *testGeneric81 =
 "import test.generic_export9;\r\n\
 int z = 5; return foo(1, &z);";
 TEST_RESULT("Generic function import, imported reference depends on generic", testGeneric81, "6");
+
+const char *testGeneric82 =
+"void foo(generic arr, int ref(typeof(arr).target ref, typeof(arr).target ref) f){}\r\n\
+int bar(int ref x, y){ return 0; }\r\n\
+int[10] arr;\r\n\
+foo(arr, bar);\r\n\
+foo(arr, bar);\r\n\
+return 1;";
+TEST_RESULT("Generic function is instanced only once", testGeneric82, "1");
