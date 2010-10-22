@@ -237,9 +237,9 @@ const char *testGeneric20 =
 "auto sum(generic a, b, typeof(a*b) c){ return a + b * c; }\r\n\
 auto x = sum(3, 4.5, 2);\r\n\
 auto y = sum(3, 4, 2);\r\n\
-auto z = sum(3.5, 4, 2);\r\n\
+auto z = sum(3.5, 4, 2.0);\r\n\
 return 0;";
-TEST("Generic function import 2", testGeneric20, "0")
+TEST("Generic function import 3", testGeneric20, "0")
 {
 	CHECK_DOUBLE("x", 0, 12);
 	CHECK_INT("y", 0, 11);
@@ -253,7 +253,7 @@ import std.math;\r\n\
 auto a = foo(4, 8);\r\n\
 auto b = foo(2, 2.5);\r\n\
 return 1;";
-TEST("Generic function import 3", testGeneric21, "1")
+TEST("Generic function import 4", testGeneric21, "1")
 {
 	CHECK_INT("a", 0, 80);
 	CHECK_DOUBLE("b", 0, 10.25);
@@ -795,7 +795,6 @@ auto x = cons(5, cons(6, 7));\r\n\
 return car(x);";
 TEST_RESULT("Short inline function takes type from function pointer variable", testGeneric51, "5");
 
-
 const char *testGeneric52 =
 "auto cons(generic car, generic cdr)\r\n\
 {\r\n\
@@ -942,3 +941,131 @@ auto w = bind_first(joe, 1);\r\n\
 \r\n\
 return y() + z(9) + w(7, 100);";
 TEST_RESULT("Function type constrains 3", testGeneric60, "112");
+
+const char *testGeneric61 =
+"auto foo(generic ref l, int ref(typeof(l), typeof(l)) f){ int a = 4, b = 5; return f(&a, &b); }\r\n\
+\r\n\
+int k = 3;\r\n\
+return foo(&k, <i, j>{ *i + *j; });";
+TEST_RESULT("Short inline function a a place where 'generic ref' is used", testGeneric61, "9");
+
+const char *testGeneric62 =
+"auto foo(generic a, typeof(a) ref x){ return *x = a; }\r\n\
+auto foo(generic a, typeof(a) ref(int) f){ return f(a); }\r\n\
+\r\n\
+int i = 10;\r\n\
+auto x = foo(5, &i);\r\n\
+auto y = foo(4, auto(int i){ return -i; });\r\n\
+\r\n\
+return x - y;";
+TEST_RESULT("Generic function overloads", testGeneric62, "9");
+
+const char *testGeneric63 =
+"int foo(int a, generic x){ return a + x; }\r\n\
+return foo(3, 5);";
+TEST_RESULT("Generic function with a non-generic argument", testGeneric63, "8");
+
+const char *testGeneric64 =
+"class ph{}\r\n\
+auto operator()(ph a, generic i){ return -i; }\r\n\
+ph x;\r\n\
+return x(5);";
+TEST_RESULT("Generic operator", testGeneric64, "-5");
+
+const char *testGeneric65 =
+"auto lazy(generic f){ return auto(){ return f(); }; }\r\n\
+auto lazy(generic f, a0){ return auto(){ return f(a0); }; }\r\n\
+auto lazy(generic f, a0, a1){ return auto(){ return f(a0, a1); }; }\r\n\
+auto lazy(generic f, a0, a1, a2){ return auto(){ return f(a0, a1, a2); }; }\r\n\
+auto lazy(generic f, a0, a1, a2, a3){ return auto(){ return f(a0, a1, a2, a3); }; }\r\n\
+\r\n\
+int foo(){ return 5; }\r\n\
+int bar(int x){ return -x; }\r\n\
+int ken(int x, y){ return x - y; }\r\n\
+int joe(int x, y, z){ return x * y + z; }\r\n\
+\r\n\
+auto x0 = lazy(foo);\r\n\
+auto x1 = lazy(bar, 4);\r\n\
+auto x2 = lazy(ken, 2, 3);\r\n\
+auto x3 = lazy(joe, 10, 5, 3);\r\n\
+\r\n\
+auto y0 = x0();\r\n\
+auto y1 = x1();\r\n\
+auto y2 = x2();\r\n\
+auto y3 = x3();\r\n\
+\r\n\
+return y0+y1+y2+y3;";
+TEST_RESULT("Lazy function evaluation", testGeneric65, "53");
+
+const char *testGeneric66 =
+"int ref(int) x = auto(generic y){ return -y; };\r\n\
+return x(5);";
+TEST_RESULT("Generic function instance inference 1", testGeneric66, "-5");
+
+const char *testGeneric67 =
+"int foo(int ref(int) f){ return f(5); }\r\n\
+return foo(auto(generic y){ return -y; });";
+TEST_RESULT("Generic function instance inference 2", testGeneric67, "-5");
+
+const char *testGeneric68 =
+"int bar()\r\n\
+{\r\n\
+	int ref(int) x = auto(generic y){ return -y; };\r\n\
+	return x(5);\r\n\
+}\r\n\
+return bar();";
+TEST_RESULT("Generic function instance inference 3", testGeneric68, "-5");
+
+const char *testGeneric69 =
+"int bar()\r\n\
+{\r\n\
+	int foo(int ref(int) f){ return f(5); }\r\n\
+	return foo(auto(generic y){ return -y; });\r\n\
+}\r\n\
+return bar();";
+TEST_RESULT("Generic function instance inference 4", testGeneric69, "-5");
+
+const char *testGeneric70 =
+"int bar()\r\n\
+{\r\n\
+	int ref(int) x = coroutine auto(generic y){ yield 2; return -y; };\r\n\
+	return x(5) + x(5);\r\n\
+}\r\n\
+return bar();";
+TEST_RESULT("Generic function instance inference 5", testGeneric70, "-3");
+
+const char *testGeneric71 =
+"int bar()\r\n\
+{\r\n\
+	int foo(int ref(int) f){ return f(5) + f(5); }\r\n\
+	return foo(coroutine auto(generic y){ yield 2; return -y; });\r\n\
+}\r\n\
+return bar();";
+TEST_RESULT("Generic function instance inference 6", testGeneric71, "-3");
+
+const char *testGeneric72 =
+"int bar(int x){ return 6; }\r\n\
+auto foo(generic x, typeof(bar(bar(5))) y){ return x + y; }\r\n\
+return foo(3, 4);";
+TEST_RESULT("Function calls in generic function argument list", testGeneric72, "7");
+
+const char *testGeneric73 =
+"auto bar(generic y){ return -y; }\r\n\
+int test()\r\n\
+{\r\n\
+	auto foo(generic x, typeof(bar(5)) y){ return x + y; }\r\n\
+	return foo(3, 4);\r\n\
+}\r\n\
+return test() + bar(5);";
+TEST_RESULT("Generic function instance in typeof expression", testGeneric73, "2");
+
+const char *testGeneric74 =
+"int ref(int[4]) x = auto foo(generic x){ return x[0] + x[3]; };\r\n\
+return x({1, 2, 3, 4});";
+TEST_RESULT("Generic type inference to a type with sized array arguments", testGeneric74, "5");
+
+const char *testGeneric75 =
+"import std.algorithm;\r\n\
+int foo(int a, b){ return a + b; }\r\n\
+return bind_last(bind_first(foo, 5), 3)();";
+TEST_RESULT("Multiple generic function import", testGeneric75, "8");

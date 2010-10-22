@@ -364,3 +364,64 @@ lX[0] == 9 && lX[1] == 10 && lX[2] == 11 && lX[3] == 12 &&\r\n\
 l2X[0] == 5 && l2X[1] == 6 && l2X[2] == 7 && l2X[3] == 8 &&\r\n\
 x == 22 && y == 22 && z == 2 && w == 5;";
 TEST_RESULT("Functional primitives", testFunctional, "1");
+
+const char	*testBind =
+"class ph1{ } ph1 _1;\r\n\
+class ph2{ } ph2 _2;\r\n\
+\r\n\
+auto bind(generic f, generic v0)\r\n\
+{\r\n\
+	@if(typeof(v0) == ph1)\r\n\
+		return auto(typeof(f).argument[0] x){ return f(x); };\r\n\
+	else\r\n\
+		return auto(){ return f(v0); };\r\n\
+}\r\n\
+\r\n\
+auto bind(generic f, generic v0, v1)\r\n\
+{\r\n\
+	@if((typeof(v0) == ph1 || typeof(v0) == ph2) && (typeof(v1) == ph1 || typeof(v1) == ph2))\r\n\
+		return auto(typeof(f).argument[0] x, typeof(f).argument[0] y){ return f(typeof(v0) == ph1 ? x : y, typeof(v1) == ph1 ? x : y); };\r\n\
+	else if(typeof(v0) == ph1)\r\n\
+		return bind(auto(typeof(f).argument[0] x){ return f(x, v1); }, v0);\r\n\
+	else if(typeof(v0) == ph2 || typeof(v1) == ph2)\r\n\
+		return auto(typeof(f).argument[1] x, typeof(f).argument[0] y){ return f(typeof(v0) == ph2 ? y : v0, typeof(v1) == ph2 ? y : v1); };\r\n\
+	else\r\n\
+		return bind(auto(typeof(f).argument[0] x){ return f(v0, x); }, v1);\r\n\
+}\r\n\
+\r\n\
+int bar(int x){ return -x; }\r\n\
+int ken(int x, y){ return x - y; }\r\n\
+\r\n\
+auto x1 = bind(bar, 5);\r\n\
+auto x2 = bind(bar, _1);\r\n\
+\r\n\
+auto y1 = bind(ken, 34, 14); // 34 - 14\r\n\
+auto y2 = bind(ken, 5, _1); // 5 - x\r\n\
+auto y3 = bind(ken, _1, 2); // x - 2\r\n\
+auto y4 = bind(ken, _2, _1); // y - x\r\n\
+auto y5 = bind(ken, _1, _1); // x - x\r\n\
+auto y6 = bind(ken, _2, _2); // y - y\r\n\
+auto y7 = bind(ken, _2, 5); // y - 5\r\n\
+auto y8 = bind(ken, 10, _2); // 10 - y\r\n\
+\r\n\
+int r1 = y1(); // 20\r\n\
+int r2 = y2(2); // 3\r\n\
+int r3 = y3(12); // 10\r\n\
+int r4 = y4(12, 3); // -9\r\n\
+int r5 = y5(5, 3); // 0\r\n\
+int r6 = y6(5, 3); // 0\r\n\
+int r7 = y7(1000000, 7); // 2\r\n\
+int r8 = y8(1000000, 7); // 3\r\n\
+\r\n\
+return 1;";
+TEST("Function binding", testBind, "1")
+{
+	CHECK_INT("r1", 0, 20);
+	CHECK_INT("r2", 0, 3);
+	CHECK_INT("r3", 0, 10);
+	CHECK_INT("r4", 0, -9);
+	CHECK_INT("r5", 0, 0);
+	CHECK_INT("r6", 0, 0);
+	CHECK_INT("r7", 0, 2);
+	CHECK_INT("r8", 0, 3);
+}

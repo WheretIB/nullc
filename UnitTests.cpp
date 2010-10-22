@@ -97,6 +97,12 @@ void	RunTests(bool verbose)
 	//nullcSetFileReadHandler(TestFileLoad);
 
 	nullcInitTypeinfoModule();
+	nullcInitDynamicModule();
+	RunInterfaceTests();
+
+	nullcInitCustomAlloc(testAlloc, testDealloc, MODULE_PATH);
+
+	nullcInitTypeinfoModule();
 	nullcInitFileModule();
 	nullcInitMathModule();
 	nullcInitVectorModule();
@@ -117,8 +123,6 @@ void	RunTests(bool verbose)
 	//SpeedTestFile("raytrace.nc");
 	//SpeedTestFile("blob.nc");
 	return;*/
-
-	RunInterfaceTests();
 
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	if(!CompileFile("Modules/std/math.nc"))

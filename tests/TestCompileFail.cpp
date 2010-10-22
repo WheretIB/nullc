@@ -2,6 +2,25 @@
 
 #include "TestBase.h"
 
+void TEST_FOR_FAIL_FULL(const char* name, const char* str, const char* error)
+{
+	testsCount[TEST_FAILURE_INDEX]++;
+	nullres good = nullcCompile(str);
+	if(!good)
+	{
+		char buf[4096];
+		strncpy(buf, nullcGetLastError(), 4095); buf[4095] = 0;
+		if(strcmp(error, buf) != 0)
+		{
+			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error);
+		}else{
+			testsPassed[TEST_FAILURE_INDEX]++;
+		}
+	}else{
+		printf("Test \"%s\" failed to fail.\r\n", name);
+	}
+}
+
 void RunCompileFailTests()
 {
 	TEST_FOR_FAIL("Number not allowed in this base", "return 08;", "ERROR: digit 8 is not allowed in base 8");
@@ -53,7 +72,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Array overflow", "int[4] a; a[5] = 1; return 1;", "ERROR: array index out of bounds");
 
 	TEST_FOR_FAIL("No matching function", "int f(int a, b){ return 0; } int f(int a, long b){ return 0; } return f(1)'", "ERROR: can't find function 'f' with following parameters:");
-	TEST_FOR_FAIL("No clear decision", "int f(int a, b){ return 0; } int f(int a, long b){ return 0; } int f(){ return 0; } return f(1, 3.0)'", "ERROR: ambiguity, there is more than one overloaded function available for the call.");
+	TEST_FOR_FAIL("No clear decision", "int f(int a, b){ return 0; } int f(int a, long b){ return 0; } int f(){ return 0; } return f(1, 3.0)'", "ERROR: ambiguity, there is more than one overloaded function available for the call:");
 
 	TEST_FOR_FAIL("Array without member", "int[4] a; return a.m;", "ERROR: array doesn't have member with this name");
 	TEST_FOR_FAIL("No methods", "int[4] i; return i.ok();", "ERROR: function 'int[]::ok' is undefined");
@@ -255,11 +274,9 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar
 
 	TEST_FOR_FAIL("Short inline function at generic argument position", "auto foo(generic a, b, generic f){ return f(a, b); } return foo(5, 4, <x,y>{ x * y; });", "ERROR: cannot find function or variable 'foo' which accepts a function with 2 argument(s) as an argument #2");
 
-	TEST_FOR_FAIL("Inline generic function definition", "int foo(int ref(int) f){ return f(5); } return foo(int x(generic a){ return -a; });", "ERROR: can't find function 'foo' with following parameters:");
-
 	TEST_FOR_FAIL("Inline generic function pointer", "int foo(int ref(int) f){ return f(5); } int x(generic a){ return -a; } return foo(x);", "ERROR: can't take pointer to a generic function");
 	TEST_FOR_FAIL("Generic function pointer 2", "auto test(generic a, generic f){ return f(a); } auto foo(generic a){ return -a; } return test(5, foo);", "ERROR: can't take pointer to a generic function");
-	TEST_FOR_FAIL("typeof from a combination of generic arguments", "auto sum(generic a, b, typeof(a*b) c){ return a + b; } return sum(3, 4.5, double);", "ERROR: unable to call 'sum' after instantiating while matching argument vector");
+	TEST_FOR_FAIL("typeof from a combination of generic arguments", "auto sum(generic a, b, typeof(a*b) c){ return a + b; } return sum(3, 4.5, double);", "ERROR: can't find function 'sum' with following parameters:");
 
 	TEST_FOR_FAIL("coroutine cannot be a member function", "class Foo{} coroutine int Foo:bar(){ yield 1; return 0; } return 1;", "ERROR: coroutine cannot be a member function");
 
@@ -283,13 +300,54 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar
 	return foo();", "ERROR: function block depth (256) is too large to handle");
 
 	TEST_FOR_FAIL("typeid of auto", "typeof(auto);", "ERROR: cannot take typeid from auto type");
-
 	TEST_FOR_FAIL("conversion from void to basic type", "int foo(int a){ return -a; } void bar(){} return foo(bar());", "ERROR: can't find function 'foo' with following parameters:");
-
 	TEST_FOR_FAIL_GENERIC("buffer overrun prevention", "int foo(generic a){ return -; /* %s %s %s %s %s %s %s %s %s %s %s %s %s %s */ } return foo(1);", "ERROR: while instantiating generic function foo(generic)", "ERROR: expression not found after '-'");
-
 	TEST_FOR_FAIL("Infinite instantiation recursion", "auto foo(generic a){ typeof(a) ref x; return foo(x); } return foo(1); }", "ERROR: while instantiating generic function foo(generic)");
-
 	TEST_FOR_FAIL("Infinite instantiation recursion 2", "auto foo(generic a){ typeof(a) ref(typeof(a) ref, typeof(a) ref, typeof(a) ref) x; return foo(x); } return foo(1); }", "ERROR: while instantiating generic function foo(generic)");
+	TEST_FOR_FAIL("auto resolved to void", "void foo(){} auto x = foo();", "ERROR: r-value type is 'void'");
+	TEST_FOR_FAIL("unclear decision at return", "int foo(int x){ return -x; } int foo(float x){ return x * 2.0f; } auto bar(){ return foo; }", "ERROR: there are more than one 'foo' function, and the decision isn't clear");
 
+	TEST_FOR_FAIL_FULL("unclear target function",
+"int foo(int x){ return -x; }\r\n\
+int foo(float x){ return x * 2; }\r\n\
+int bar(int ref(int) f){ return f(5); }\r\n\
+int bar(int ref(float) f){ return f(10); }\r\n\
+return bar(foo);",
+"line 5 - ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n\
+  bar(int ref(float) or int ref(int))\r\n\
+ the only available are:\r\n\
+  bar(int ref(float))\r\n\
+  bar(int ref(int))\r\n\
+\r\n\
+  at \"return bar(foo);\"\r\n\
+                     ^\r\n");
+
+	TEST_FOR_FAIL_FULL("no target function",
+"int foo(double x){ return -x; }\r\n\
+int foo(float x){ return x * 2; }\r\n\
+int bar(int ref(int) f){ return f(5); }\r\n\
+return bar(foo);",
+"line 4 - ERROR: can't find function 'bar' with following parameters:\r\n\
+  bar(int ref(float) or int ref(double))\r\n\
+ the only available are:\r\n\
+  bar(int ref(int))\r\n\
+\r\n\
+  at \"return bar(foo);\"\r\n\
+                     ^\r\n");
+
+	TEST_FOR_FAIL("generic function instance type unknown", "auto y = auto(generic y){ return -y; };", "ERROR: cannot instance generic function, because target type is not known");
+
+	TEST_FOR_FAIL_FULL("cannot instance function in argument list", "int foo(int f){ return f; }\r\nreturn foo(auto(generic y){ return -y; });",
+"line 2 - ERROR: can't find function 'foo' with following parameters:\r\n\
+  foo(`function`)\r\n\
+ the only available are:\r\n\
+  foo(int)\r\n\
+\r\n\
+  at \"return foo(auto(generic y){ return -y; });\"\r\n\
+                                               ^\r\n");
+
+	TEST_FOR_FAIL("cannot instance function because target type is not a function", "int x = auto(generic y){ return -y; }; return x;", "ERROR: cannot instance generic function to a type 'int'");
+	TEST_FOR_FAIL("cannot select function overload", "int foo(int x){ return -x; } int foo(float x){ return x * 2; } int x = foo;", "ERROR: cannot select function overload for a type 'int'");
+	TEST_FOR_FAIL("Instanced inline function is wrong", "class X{} X x; int foo(int ref(int, X) f){ return f(5, x); } return foo(auto(generic y, double z){ return -y; });", "ERROR: cannot convert from 'int ref(int,double)' to 'int ref(int,X)'");
+	TEST_FOR_FAIL("Typeof in generic function shouldn't skip all errors", "auto foo(generic x, typeof(foo(5)) y){ return x + y; }", "ERROR: function 'foo' is undefined");
 }

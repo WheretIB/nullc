@@ -225,3 +225,45 @@ TEST_RESULT("typeof .arraySize 2", testTypeofPostExpression15, "-1");
 
 const char	*testTypeofPostExpression16 = "int ref(int, float) i; return typeof(i).argument.size;";
 TEST_RESULT("typeof .argument .size", testTypeofPostExpression16, "2");
+
+const char	*testFunctionTypeInference1 =
+"int foo(int x){ return -x; }\r\n\
+int foo(float x){ return x * 2.0f; }\r\n\
+int ref(int) bar(){ return foo; }\r\n\
+return bar()(5);";
+TEST_RESULT("Function overload type inference from the return type", testFunctionTypeInference1, "-5");
+
+const char	*testFunctionTypeInference2 =
+"int foo(int x){ return -x; }\r\n\
+int foo(float x){ return x * 2.0f; }\r\n\
+int ref(int) bar = foo;\r\n\
+return bar(5);";
+TEST_RESULT("Function overload type inference from assignment type 1", testFunctionTypeInference2, "-5");
+
+const char	*testFunctionTypeInference3 =
+"int foo(int x){ return -x; }\r\n\
+int foo(float x){ return x * 2.0f; }\r\n\
+int ref(int) bar;\r\n\
+bar = foo;\r\n\
+return bar(5);";
+TEST_RESULT("Function overload type inference from assignment type 2", testFunctionTypeInference3, "-5");
+
+const char	*testFunctionTypeInference4 =
+"int foo(int x){ return -x; }\r\n\
+int foo(float x){ return x * 2.0f; }\r\n\
+int bar(int ref(int) f = foo){ return foo(5); }\r\n\
+return bar();";
+TEST_RESULT("Function overload type inference in default function parameters", testFunctionTypeInference4, "-5");
+
+const char	*testFunctionTypeInference5 =
+"auto operator*(int ref(int) f1, f2){ return auto(float z){ return f1(f2(z)); }; }\r\n\
+\r\n\
+int foo(int x){ return -x; }\r\n\
+int foo(float x){ return x * 2; }\r\n\
+\r\n\
+int bar(int x){ return x - 5; }\r\n\
+\r\n\
+int test(int ref(float) f){ return f(10); }\r\n\
+\r\n\
+return test(foo * bar);";
+TEST_RESULT("Function overload type inference in function arguments", testFunctionTypeInference5, "-5");

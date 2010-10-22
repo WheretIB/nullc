@@ -3,6 +3,26 @@
 #include "TestBase.h"
 #include "../NULLC/nullc_debug.h"
 
+bool	initialized;
+
+#define TEST_COMPARE(test, result)\
+	testsCount[TEST_EXTRA_INDEX]++;\
+	if((test) != result)\
+	{\
+		printf("\"%s\" didn't return '%s'.\r\n", #test, #result);\
+	}else{\
+		testsPassed[TEST_EXTRA_INDEX]++;\
+	}
+
+#define TEST_COMPARES(test, result)\
+	testsCount[TEST_EXTRA_INDEX]++;\
+	if(strcmp((test), result) != 0)\
+	{\
+		printf("\"%s\" didn't return '%s'.\r\n", #test, result);\
+	}else{\
+		testsPassed[TEST_EXTRA_INDEX]++;\
+	}
+
 void RunInterfaceTests()
 {
 	unsigned int	testTarget[] = { NULLC_VM, NULLC_X86, NULLC_LLVM };
@@ -503,4 +523,80 @@ const char	*testDoubleRetrieval = "return 25.0;";
 		}
 	}
 	
+	nullcTerminate();
+	TEST_COMPARES(nullcGetLastError(), "");
+
+	TEST_COMPARE(nullcBuild("return 1;"), 0);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+
+	// double termination handling
+	nullcTerminate();
+	TEST_COMPARES(nullcGetLastError(), "");
+
+	TEST_COMPARE(nullcRun(), 0);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	TEST_COMPARE(nullcRunFunction("test", 1, 3), 0);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+
+	TEST_COMPARES(nullcGetResult(), "");
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	TEST_COMPARE(nullcGetResultInt(), 0);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	TEST_COMPARE(nullcGetResultDouble(), 0.0);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	TEST_COMPARE(nullcGetResultLong(), 0);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+
+	TEST_COMPARE(nullcAllocate(1024), NULL);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	nullcThrowError("ERROR: shouldn't throw");
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	NULLCFuncPtr fPtr = { 0, 0 };
+	TEST_COMPARE(nullcCallFunction(fPtr, 1, 2), false);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	TEST_COMPARE(nullcGetGlobal("test"), NULL);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	TEST_COMPARE(nullcSetGlobal("test", NULL), false);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	TEST_COMPARE(nullcGetFunction("test", &fPtr), false);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	TEST_COMPARE(nullcSetFunction("test", fPtr), false);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	TEST_COMPARE(nullcIsStackPointer(NULL), false);
+	TEST_COMPARE(nullcIsManagedPointer(NULL), false);
+
+	TEST_COMPARE(nullcCompile("return 1"), false);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	char *temp = NULL;
+	TEST_COMPARE(nullcGetBytecode(&temp), 0);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	TEST_COMPARE(nullcGetBytecodeNoCache(&temp), 0);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	nullcSaveListing("\\/\\/\\/\\/\\\\/\\");
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	nullcTranslateToC("\\/\\/\\/\\/\\\\/\\", "main");
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	nullcClean();
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	TEST_COMPARE(nullcLinkCode(temp), false);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+
+#ifdef NULLC_BUILD_X86_JIT
+	TEST_COMPARE(nullcSetJiTStack(NULL, NULL, true), false);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+#endif
+	TEST_COMPARE(nullcBindModuleFunction("std.test", NULL, "test", 0), false);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	TEST_COMPARE(nullcLoadModuleBySource("std.test", "return 1;"), false);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+	TEST_COMPARE(nullcLoadModuleByBinary("std.test", NULL), false);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
+
+	// double initialization check
+	nullcInit(MODULE_PATH);
+	TEST_COMPARES(nullcGetLastError(), "");
+	nullcInit(MODULE_PATH);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is already initialized");
+	nullcTerminate();
+	TEST_COMPARES(nullcGetLastError(), "");
 }
