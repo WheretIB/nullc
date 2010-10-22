@@ -38,6 +38,7 @@ void BinaryCache::Terminate()
 	cache.reset();
 
 	delete[] lastBytecode;
+	lastBytecode = NULL;
 }
 
 void BinaryCache::PutBytecode(const char* path, const char* bytecode)
