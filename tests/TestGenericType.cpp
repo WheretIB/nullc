@@ -498,4 +498,3 @@ auto y = x.foo;\r\n\
 auto z = s.foo;\r\n\
 return int(y() + z());";
 TEST_RESULT("Function call by pointer in a member function", testGenericType39, "-44");
-

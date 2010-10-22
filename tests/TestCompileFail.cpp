@@ -496,4 +496,16 @@ return int(y() + z());",
                                ^\r\n\
 ");
 
+	TEST_FOR_FAIL("pointer to a generic function", "class Foo{ auto foo(generic x){ return -x; } } Foo z; auto y = z.foo; return y(5);", "ERROR: can't take pointer to a generic function");
+	TEST_FOR_FAIL("pointer to a generic function 2", "class Foo{ auto foo(int x){ return -x; } auto foo(generic x){ return -x; } auto bar(){ return foo; } } Foo z; auto y = z.bar(); return y(5);", "ERROR: can't take pointer to a generic function");
+
+	TEST_FOR_FAIL("short inline function fail in variable 1", "int foo(int x){ return 2 * x; } int bar(int a, int ref(double) y){ return y(5.0); } auto x = bar; return x(foo, <x>{ -x; });", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #1");
+	TEST_FOR_FAIL("short inline function fail in variable 2", "int bar(int ref(double) y){ return y(5.0); } auto x = bar; int foo(int x){ return x(<x>{ -x; }); }", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #0");
+	TEST_FOR_FAIL("short inline function fail in variable 3", "int bar(int ref(double) y){ return y(5.0); } auto x = bar; int foo(){ return x(1, <x>{ -x; }); }", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #1");
+
+	TEST_FOR_FAIL("generic type member function doesn't exist", "class Foo<T>{ T x; } Foo<int> y; auto z = y.bar; return 1;", "ERROR: function 'Foo::bar' is undefined");
+
+	TEST_FOR_FAIL("generic function default argument value 2", "auto foo(int y = 1, generic x){}", "ERROR: default argument values are unsupported in generic functions");
+
+	TEST_FOR_FAIL("typedef dies after a generic function instance in an incorrect scope", "auto foo(generic x){ typedef typeof(x) T; T a = x * 2; return a; } int bar(){ int x = foo(5); T y; return x; } return bar();", "ERROR: variable or function 'T' is not defined");
 }

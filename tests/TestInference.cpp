@@ -280,3 +280,14 @@ int[] arr1 = { 2, 3 };\r\n\
 foo(arr1, <int i>{ -i; });\r\n\
 return arr1[0];";
 TEST_RESULT("Conversion from reference to type in a short inline function", testShortFunctionArgumentConversion, "-3");
+
+const char	*testFunctionTypeInference6 = 
+"class Foo\r\n\
+{\r\n\
+	int foo(int x){ return -x; }\r\n\
+	int foo(double x){ return 2*x; }\r\n\
+}\r\n\
+Foo bar(){ Foo r; return r; }\r\n\
+int ref(int) z = bar().foo;\r\n\
+return z(5);";
+TEST_RESULT("Member function overload type inference after function that returned non-reference type", testFunctionTypeInference6, "-5");
