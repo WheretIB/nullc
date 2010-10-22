@@ -340,10 +340,10 @@ public:
 		}
 		firstShotR = lastShotR = NULL;
 	}
-	void	TakeSnapshot(AreaLine *start, ChangeFlag changeFlag, unsigned int linesAffected, bool redo = false, bool clearRedo = true)
+	void	AddSnapshotToList(bool redoList = false)
 	{
-		Snapshot *&firstShot = redo ? firstShotR : firstShotU;
-		Snapshot *&lastShot = redo ? lastShotR : lastShotU;
+		Snapshot *&firstShot = redoList ? firstShotR : firstShotU;
+		Snapshot *&lastShot = redoList ? lastShotR : lastShotU;
 		// Create linked list
 		if(!firstShot)
 		{
@@ -355,6 +355,11 @@ public:
 			lastShot->nextShot->nextShot = NULL;
 			lastShot = lastShot->nextShot;
 		}
+	}
+	void	TakeSnapshot(AreaLine *start, ChangeFlag changeFlag, unsigned int linesAffected, bool redo = false, bool clearRedo = true)
+	{
+		Snapshot *&lastShot = redo ? lastShotR : lastShotU;
+		AddSnapshotToList(redo);
 		// If snapshot is taken for undo, remove all redo snapshots (unless undo is made during redo)
 		if(clearRedo)
 		{
@@ -366,6 +371,7 @@ public:
 			}
 			firstShotR = lastShotR = NULL;
 		}
+		lastShot->dirty = true;
 		// Type of edit and lines affected by it
 		lastShot->type = changeFlag;
 		lastShot->lines = linesAffected;
@@ -487,6 +493,68 @@ public:
 		InvalidateRect(data->areaWnd, NULL, false);
 	}
 
+	void	SaveHistory(FILE *fOut)
+	{
+		Snapshot *curr = firstShotU ? (firstShotU->dirty ? NULL : firstShotU) : NULL; // If first shot is dirty don't save anything
+		fwrite(&curr, sizeof(Snapshot*), 1, fOut); // Pointer will mark that we have a snapshot
+		while(curr && !curr->dirty)
+		{
+			fwrite(curr, sizeof(Snapshot), 1, fOut); // Save snapshot
+			AreaLine *line = curr->first;
+			while(line)
+			{
+				fwrite(line, sizeof(AreaLine), 1, fOut); // Save line
+				if(line->maxLength != DEFAULT_STRING_LENGTH)
+					fwrite(line->data, sizeof(AreaChar), line->maxLength, fOut); // Save extra character buffer
+				line = line->next;
+			}
+
+			curr = curr->nextShot;
+		}
+	}
+	void	LoadHistory(FILE *fIn)
+	{
+		assert(!firstShotU); // We must load snapshots into an empty history
+		Snapshot *currShot = NULL;
+		fread(&currShot, sizeof(Snapshot*), 1, fIn); // Load pointer that marks that we have a snapshot
+		while(currShot)
+		{
+			AddSnapshotToList(); // lastShotU points to added snapshot
+			Snapshot *_nextShot = lastShotU->nextShot, *_prevShot = lastShotU->prevShot; // These two pointers will be corrupted
+			fread(lastShotU, sizeof(Snapshot), 1, fIn); // Load snapshot
+			currShot = lastShotU->nextShot;	// Pointer marks that we have a next snapshot
+			lastShotU->nextShot = _nextShot; lastShotU->prevShot = _prevShot; // Restore corrupted pointers
+			AreaLine *line = lastShotU->first; // Pointer marks that we have a line to load
+			lastShotU->first = NULL; // Clear snapshot lines, they aren't loaded yet
+			AreaLine *curr = NULL; // List of loaded lines
+			while(line)
+			{
+				curr = InsertLineAfter(curr); // Add new line
+				if(!lastShotU->first)
+					lastShotU->first = curr; // Set line list
+				fread(curr, sizeof(AreaLine), 1, fIn); // Load line
+				line = curr->next; // Pointer marks that we have a next line to load
+				curr->next = NULL; // Clear it, we haven't loaded next line yet
+				if(curr->maxLength != DEFAULT_STRING_LENGTH)
+				{
+					curr->data = new AreaChar[curr->maxLength];
+					fread(curr->data, sizeof(AreaChar), curr->maxLength, fIn);
+				}else{
+					curr->data = curr->startBuf; // Fixup pointer to data
+				}
+			}
+		}
+	}
+	void ValidateHistory()
+	{
+		Snapshot *curr = firstShotU;
+		while(curr)
+		{
+			curr->dirty = false;
+			curr = curr->nextShot;
+		}
+	}
+
 	struct Snapshot
 	{
 		~Snapshot()
@@ -508,6 +576,8 @@ public:
 		unsigned int	cursorX, cursorY;
 		unsigned int	selectStartX, selectStartY, selectEndX, selectEndY;
 		bool			selectionOn;
+
+		bool			dirty;
 
 		Snapshot		*nextShot, *prevShot;
 	};
@@ -955,6 +1025,31 @@ void RichTextarea::ResetUpdate(HWND wnd)
 	TextareaData *data = GetData(wnd);
 
 	data->needUpdate = false;
+}
+
+
+void RichTextarea::SaveHistory(HWND wnd, FILE *fOut)
+{
+	TextareaData *data = GetData(wnd);
+	data->history->SaveHistory(fOut);
+}
+
+void RichTextarea::LoadHistory(HWND wnd, FILE *fIn)
+{
+	if(wnd)
+	{
+		TextareaData *data = GetData(wnd);
+		data->history->LoadHistory(fIn);
+	}else{
+		HistoryManager mgr(NULL);
+		mgr.LoadHistory(fIn);
+	}
+}
+
+void RichTextarea::ValidateHistory(HWND wnd)
+{
+	TextareaData *data = GetData(wnd);
+	data->history->ValidateHistory();
 }
 
 // Selection made by user can have ending point _before_ the starting point
