@@ -5,6 +5,7 @@
 #define _WIN32_WINNT 0x0501
 #define _WIN32_WINDOWS 0x0501
 #include <windows.h>
+#include <stdio.h>
 
 #define FONT_STYLE_COUNT 16
 #define LINE_STYLE_COUNT 8
@@ -59,6 +60,10 @@ namespace RichTextarea
 	void			ScrollToLine(HWND wnd, unsigned int line);
 
 	void SetTooltipClickCallback(void (*)(HWND, LineIterator));
+
+	void	SaveHistory(HWND wnd, FILE *fOut);
+	void	LoadHistory(HWND wnd, FILE *fIn);
+	void	ValidateHistory(HWND wnd);
 
 	LRESULT CALLBACK TextareaProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM lParam);
 	VOID CALLBACK AreaCursorUpdate(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime);
