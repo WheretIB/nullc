@@ -308,6 +308,7 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 			CodeInfo::funcInfo[funcID]->generic = NULL;
 			CodeInfo::funcInfo[funcID]->genericBase = fInfo->generic;
 
+			fProto->address |= 0x80000000;
 			// Reparse function code
 			FunctionStart(pos);
 			const char *lastFunc = SetCurrentFunction(NULL);
