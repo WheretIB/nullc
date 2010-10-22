@@ -692,3 +692,12 @@ const char *testGeneric45 =
 }\r\n\
 return foo(6);";
 TEST_RESULT("Generic function test (recursion in local generic function)", testGeneric45, "720");
+
+const char *testGeneric46 =
+"auto fact(generic x){ if(x < 1) return typeof(x)(1); return x * fact(x-1); }\r\n\
+auto foo(generic a)\r\n\
+{\r\n\
+	return fact(a);\r\n\
+}\r\n\
+return foo(6);";
+TEST_RESULT("Generic function test (recursion in a delayed instance)", testGeneric46, "720");
