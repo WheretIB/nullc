@@ -140,20 +140,20 @@ return 0;";
 #ifdef NULLC_STACK_TRACE_WITH_LOCALS
 const char *error = "Assertion failed\r\n\
 Call stack:\r\n\
-global scope (at recall(2);)\r\n\
-inside (at recall(x-1);)\r\n\
+global scope (line 7: at recall(2);)\r\n\
+inside (line 5: at recall(x-1);)\r\n\
  param 0: int x (at base+0 size 4)\r\n\
-inside (at recall(x-1);)\r\n\
+inside (line 5: at recall(x-1);)\r\n\
  param 0: int x (at base+0 size 4)\r\n\
-inside (at assert(x);)\r\n\
+inside (line 4: at assert(x);)\r\n\
  param 0: int x (at base+0 size 4)\r\n";
 #else
 const char *error = "Assertion failed\r\n\
 Call stack:\r\n\
-global scope (at recall(2);)\r\n\
-inside (at recall(x-1);)\r\n\
-inside (at recall(x-1);)\r\n\
-inside (at assert(x);)\r\n";
+global scope (line 7: at recall(2);)\r\n\
+inside (line 5: at recall(x-1);)\r\n\
+inside (line 5: at recall(x-1);)\r\n\
+inside (line 4: at assert(x);)\r\n";
 #endif
 struct Test_testMultipleTransiotions : TestQueue
 {

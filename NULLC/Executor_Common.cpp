@@ -102,6 +102,7 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 
 	FastVector<ExternFuncInfo> &exFunctions = NULLC::commonLinker->exFunctions;
 	FastVector<char> &exSymbols = NULLC::commonLinker->exSymbols;
+	FastVector<ExternModuleInfo> &exModules = NULLC::commonLinker->exModules;
 
 	struct SourceInfo
 	{
@@ -123,11 +124,11 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 		current += SafeSprintf(current, bufSize - int(current - start), "%s", address == -1 ? "external" : "global scope");
 	if(address != -1)
 	{
-		unsigned int line = 0;
+		unsigned int infoID = 0;
 		unsigned int i = address - 1;
-		while((line < infoSize - 1) && (i >= exInfo[line + 1].byteCodePos))
-			line++;
-		const char *codeStart = source + exInfo[line].sourceOffset;
+		while((infoID < infoSize - 1) && (i >= exInfo[infoID + 1].byteCodePos))
+			infoID++;
+		const char *codeStart = source + exInfo[infoID].sourceOffset;
 		// Find beginning of the line
 		while(codeStart != source && *(codeStart-1) != '\n')
 			codeStart--;
@@ -135,11 +136,30 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 		while(*codeStart == ' ' || *codeStart == '\t')
 			codeStart++;
 		const char *codeEnd = codeStart;
+		// Find corresponding module
+		unsigned moduleID = ~0u;
+		for(unsigned l = 0; l < exModules.size(); l++)
+		{
+			if(codeStart >= source + exModules[l].sourceOffset && codeStart < source + exModules[l].sourceOffset + exModules[l].sourceSize)
+				moduleID = l;
+		}
+		const char *start = NULL;
+		if(moduleID != ~0u)
+			start = source + exModules[moduleID].sourceOffset;
+		else
+			start = source + exModules[exModules.size()-1].sourceOffset + exModules[exModules.size()-1].sourceSize;
+		// Find line number
+		unsigned line = 0;
+		while(start != codeStart)
+		{
+			if(*start++ == '\n')
+				line++;
+		}
 		// Find ending of the line
 		while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
 			codeEnd++;
 		int codeLength = (int)(codeEnd - codeStart);
-		current += SafeSprintf(current, bufSize - int(current - start), " (at %.*s)\r\n", codeLength, codeStart);
+		current += SafeSprintf(current, bufSize - int(current - start), " (line %d: at %.*s)\r\n", line + 1, codeLength, codeStart);
 	}
 #ifdef NULLC_STACK_TRACE_WITH_LOCALS
 	FastVector<ExternLocalInfo> &exLocals = NULLC::commonLinker->exLocals;
