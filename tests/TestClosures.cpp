@@ -402,3 +402,18 @@ a.y = 9;\r\n\
 auto f = a.sum();\r\n\
 return f();";
 TEST_RESULT("Class member capture in local functions.", testClassMemberCaptureInLocalFunction2, "13");
+
+const char	*testExternalAutoDerefVariable =
+"int rand(int ref() f) \r\n\
+{ \r\n\
+	return f();\r\n\
+} \r\n\
+int[8] array = 4;\r\n\
+auto main()\r\n\
+{\r\n\
+	for(i in array) \r\n\
+		i = rand(auto(){ return i * 2; }); \r\n\
+}\r\n\
+main();\r\n\
+return array[2];";
+TEST_RESULT("External variable that should be dereferenced automatically.", testExternalAutoDerefVariable, "8");
