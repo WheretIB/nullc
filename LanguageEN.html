@@ -1046,9 +1046,9 @@ function toggleView(a, b, c)
 }</span><span class="comment">
 // Comparison operator
 </span><span class="rword">int operator </span>==<span class="bold">(</span><span class="rword">IntPair ref </span><span class="var">a</span>, <span class="var">b</span><span class="bold">){ </span><span class="rword">return </span><span class="var">a</span>.<span class="var">a </span>== <span class="var">b</span>.<span class="var">a </span>&& <span class="var">a</span>.<span class="var">b </span>== <span class="var">b</span>.<span class="var">b</span><span class="bold">; }</span><span class="comment">
-// Lexographical "less" comparison operator
+// Lexicographical "less" comparison operator
 </span><span class="rword">int operator </span>&lt;<span class="bold">(</span><span class="rword">IntPair ref </span><span class="var">a</span>, <span class="var">b</span><span class="bold">){ </span><span class="rword">return </span><span class="var">a</span>.<span class="var">a </span>== <span class="var">b</span>.<span class="var">a </span>? <span class="var">a</span>.<span class="var">b </span>&lt; <span class="var">b</span>.<span class="var">b </span>: <span class="var">a</span>.<span class="var">a </span>&lt; <span class="var">b</span>.<span class="var">a</span><span class="bold">; }</span><span class="comment">
-// Lexographical "greater" comparison operator
+// Lexicographical "greater" comparison operator
 </span><span class="rword">int operator </span>&gt;<span class="bold">(</span><span class="rword">IntPair ref </span><span class="var">a</span>, <span class="var">b</span><span class="bold">){ </span><span class="rword">return </span><span class="var">a</span>.<span class="var">a </span>== <span class="var">b</span>.<span class="var">a </span>? <span class="var">a</span>.<span class="var">b </span>&gt; <span class="var">b</span>.<span class="var">b </span>: <span class="var">a</span>.<span class="var">a </span>&gt; <span class="var">b</span>.<span class="var">a</span><span class="bold">; }</span><span class="comment">
 
 // Create an array of objects
