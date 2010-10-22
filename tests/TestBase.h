@@ -202,7 +202,7 @@ Test_##code test_##code;
 	nullres good = nullcCompile(str);\
 	if(!good)\
 	{\
-		char buf[512];\
+		char buf[1024];\
 		strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));\
 		if(char *lineEnd = strchr(buf, '\r'))\
 			*lineEnd = 0;\
@@ -223,7 +223,7 @@ Test_##code test_##code;
 	nullres good = nullcCompile(str);\
 	if(!good)\
 	{\
-		char buf[512];\
+		char buf[1024];\
 		strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));\
 		if(memcmp(buf, error1, strlen(error1)) != 0)\
 		{\
