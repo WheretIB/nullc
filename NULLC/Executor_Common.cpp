@@ -65,36 +65,40 @@ void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, 
 	}
 }
 
-void CloseUpvalues(char* paramBase, unsigned int argument)
+void CloseUpvalues(char* paramBase, unsigned int depth, unsigned int argument)
 {
+	assert(depth);
 	// Array of upvalue lists
 	ExternFuncInfo::Upvalue **externalList = &NULLC::commonLinker->exCloseLists[0];
-	// Current upvalue and previous
-	ExternFuncInfo::Upvalue *curr = externalList[argument];
-	// While we have an upvalue that points to address larger than base (so that in recursive function call only last functions upvalues will be closed)
-	while(curr && ((char*)curr->ptr >= paramBase || (char*)curr->ptr < GC::unmanageableBase))
+	for(unsigned i = 0; i < depth; i++)
 	{
-		// Save pointer to next upvalue
-		ExternFuncInfo::Upvalue *next = curr->next;
-		// And save the size of target variable
-		unsigned int size = curr->size;
-		
-		// Delete upvalue from list (move global list head to the next element)
-		externalList[argument] = curr->next;
-
-		// If target value is placed on the heap, we skip copy because it won't die
-		if((char*)curr->ptr < GC::unmanageableBase || (char*)curr->ptr >= GC::unmanageableTop)
+		// Current upvalue and previous
+		ExternFuncInfo::Upvalue *curr = externalList[argument + i];
+		// While we have an upvalue that points to address larger than base (so that in recursive function call only last functions upvalues will be closed)
+		while(curr && ((char*)curr->ptr >= paramBase || (char*)curr->ptr < GC::unmanageableBase))
 		{
+			// Save pointer to next upvalue
+			ExternFuncInfo::Upvalue *next = curr->next;
+			// And save the size of target variable
+			unsigned int size = curr->size;
+			
+			// Delete upvalue from list (move global list head to the next element)
+			externalList[argument] = curr->next;
+
+			// If target value is placed on the heap, we skip copy because it won't die
+			if((char*)curr->ptr < GC::unmanageableBase || (char*)curr->ptr >= GC::unmanageableTop)
+			{
+				curr = next;
+				continue;
+			}
+
+			// Copy target variable data to upvalue
+			memcpy(&curr->next, curr->ptr, size);
+			curr->ptr = (unsigned int*)&curr->next;
+
+			// Proceed to the next upvalue
 			curr = next;
-			continue;
 		}
-
-		// Copy target variable data to upvalue
-		memcpy(&curr->next, curr->ptr, size);
-		curr->ptr = (unsigned int*)&curr->next;
-
-		// Proceed to the next upvalue
-		curr = next;
 	}
 }
 
@@ -150,16 +154,16 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 			if(codeStart >= source + exModules[l].sourceOffset && codeStart < source + exModules[l].sourceOffset + exModules[l].sourceSize)
 				moduleID = l;
 		}
-		const char *start = NULL;
+		const char *moduleStart = NULL;
 		if(moduleID != ~0u)
-			start = source + exModules[moduleID].sourceOffset;
+			moduleStart = source + exModules[moduleID].sourceOffset;
 		else
-			start = source + exModules[exModules.size()-1].sourceOffset + exModules[exModules.size()-1].sourceSize;
+			moduleStart = source + exModules[exModules.size()-1].sourceOffset + exModules[exModules.size()-1].sourceSize;
 		// Find line number
 		unsigned line = 0;
-		while(start != codeStart)
+		while(moduleStart != codeStart)
 		{
-			if(*start++ == '\n')
+			if(*moduleStart++ == '\n')
 				line++;
 		}
 		// Find ending of the line

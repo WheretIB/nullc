@@ -2556,6 +2556,9 @@ void FunctionEnd(const char* pos)
 	if(newType && lastFunc.type == FunctionInfo::THISCALL)
 		methodCount++;
 
+	if(lastFunc.maxBlockDepth > 255)
+		ThrowError(pos, "ERROR: function block depth (%d) is too large to handle", lastFunc.maxBlockDepth);
+
 	currType = lastFunc.retType;
 }
 

@@ -272,4 +272,13 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which acce
 	TEST_FOR_FAIL("unimplemented local function", "int foo(){ int bar(); return bar(); } return foo();", "ERROR: local function 'bar' went out of scope unimplemented");
 
 	TEST_FOR_FAIL("wrong implementation scope", "int foo(int x){ int bar(); int y = bar(); int help(){ int bar(){ return -x; } return bar(); } help(); return y; } return foo(5);", "ERROR: function implementation is found in scope different from function prototype");
+
+	TEST_FOR_FAIL("block depth is too large", "int foo()\
+	{\
+	{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{\
+			int a = 4; int test(){ return a; }\
+			}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}\
+		return 1;\
+	}\
+	return foo();", "ERROR: function block depth (256) is too large to handle");
 }

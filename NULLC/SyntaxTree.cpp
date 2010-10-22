@@ -370,7 +370,10 @@ void NodeReturnOp::Compile()
 	if(retSize != 0 && retSize < 4)
 		retSize = 4;
 	if(parentFunction && parentFunction->closeUpvals)
-		cmdList.push_back(VMCmd(cmdCloseUpvals, (unsigned short)CodeInfo::FindFunctionByPtr(parentFunction), 0));
+	{
+		assert(parentFunction->maxBlockDepth);
+		cmdList.push_back(VMCmd(cmdCloseUpvals, (unsigned char)(parentFunction->maxBlockDepth), (unsigned short)parentFunction->indexInArr, 0));
+	}
 	// If return is from coroutine, we either need to reset jumpOffset to the beginning of a function, or set it to instruction after return
 	if(parentFunction && parentFunction->type == FunctionInfo::COROUTINE)
 		cmdList.push_back(VMCmd(cmdYield, 0, yieldResult, parentFunction->allParamSize));	// yieldResult == true means save state and yield
@@ -402,7 +405,10 @@ void NodeBlock::Compile()
 	// Compute value that we're going to return
 	first->Compile();
 	if(parentFunction->closeUpvals)
-		cmdList.push_back(VMCmd(cmdCloseUpvals, (unsigned short)CodeInfo::FindFunctionByPtr(parentFunction), stackFrameShift));
+	{
+		assert(parentFunction->maxBlockDepth - stackFrameShift > 0);
+		cmdList.push_back(VMCmd(cmdCloseUpvals, (unsigned char)(parentFunction->maxBlockDepth - stackFrameShift), (unsigned short)parentFunction->indexInArr, stackFrameShift));
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
