@@ -877,7 +877,7 @@ bool ParseVariableDefine(Lexeme** str)
 	return true;
 }
 
-bool ParseIfExpr(Lexeme** str)
+bool ParseIfExpr(Lexeme** str, bool isStatic)
 {
 	if(!ParseLexem(str, lex_if))
 		return false;
@@ -889,6 +889,64 @@ bool ParseIfExpr(Lexeme** str)
 		ThrowError((*str)->pos, "ERROR: condition not found in 'if' statement");
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError((*str)->pos, "ERROR: closing ')' not found after 'if' condition");
+	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && isStatic)
+	{
+		int result = ((NodeNumber*)CodeInfo::nodeList.back())->GetInteger();
+		CodeInfo::nodeList.pop_back();
+		if(!ParseLexem(str, lex_ofigure))
+			ThrowError((*str)->pos, "ERROR: '{' not found after 'if' in static if");
+		if(!result)
+		{
+			unsigned braces = 1;
+			while(braces)
+			{
+				if((*str)->type == lex_none)
+					ThrowError((*str)->pos, "ERROR: unknown lexeme in 'if' body");
+				if(ParseLexem(str, lex_ofigure))
+					braces++;
+				else if(ParseLexem(str, lex_cfigure))
+					braces--;
+				else
+					(*str)++;
+			}
+			if(ParseLexem(str, lex_else))
+			{
+				if(!ParseLexem(str, lex_ofigure))
+					ThrowError((*str)->pos, "ERROR: '{' not found after 'else' in static if");
+				if(!ParseCode(str))
+					ThrowError((*str)->pos, "ERROR: expression not found after 'else'");
+				if(!ParseLexem(str, lex_cfigure))
+					ThrowError((*str)->pos, "ERROR: '}' not found");
+			}else{
+				AddVoidNode();
+			}
+		}else{
+			if(!ParseCode(str))
+				ThrowError((*str)->pos, "ERROR: expression not found after 'if'");
+			if(!ParseLexem(str, lex_cfigure))
+				ThrowError((*str)->pos, "ERROR: '}' not found");
+			if(ParseLexem(str, lex_else))
+			{
+				if(!ParseLexem(str, lex_ofigure))
+					ThrowError((*str)->pos, "ERROR: '{' not found after 'else' in static if");
+				unsigned braces = 1;
+				while(braces)
+				{
+					if((*str)->type == lex_none)
+						ThrowError((*str)->pos, "ERROR: unknown lexeme in 'else' body");
+					if(ParseLexem(str, lex_ofigure))
+						braces++;
+					else if(ParseLexem(str, lex_cfigure))
+						braces--;
+					else
+						(*str)++;
+				}
+			}
+		}
+		return true;
+	}
+	if(CodeInfo::nodeList.back()->nodeType != typeNodeNumber && isStatic)
+		ThrowError((*str)->pos, "ERROR: couldn't evaluate condition at compilation time");
 	if(!ParseExpression(str))
 		ThrowError((*str)->pos, "ERROR: expression not found after 'if'");
 
@@ -1720,6 +1778,13 @@ bool ParseExpression(Lexeme** str)
 		if(!ParseFunctionDefinition(str, true))
 			ThrowError((*str)->pos, "ERROR: '(' expected after function name");
 		break;
+	case lex_at:
+		if((*str)[1].type == lex_if)
+		{
+			(*str)++;
+			ParseIfExpr(str, true);
+			return true;
+		}
 	default:
 		if(ParseSelectType(str))
 		{

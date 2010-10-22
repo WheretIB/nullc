@@ -310,3 +310,17 @@ auto x2 = foldl(arr2, <i,j>{ i/j; });\r\n\
 \r\n\
 return int(x1 + x2);";
 TEST_RESULT("Generic function test (short inline function select with better inference)", testGeneric26, "35");
+
+const char *testGeneric27 =
+"auto div(generic a, generic b)\r\n\
+{\r\n\
+	@if(typeof(a) == int && typeof(b) == int)\r\n\
+	{\r\n\
+		if(b == 0)\r\n\
+			return 0;\r\n\
+	}\r\n\
+	return a/b;\r\n\
+}\r\n\
+div(4.0, 2.0);\r\n\
+return div(4, 0);";
+TEST_RESULT("Generic function test (using a static if)", testGeneric27, "0");

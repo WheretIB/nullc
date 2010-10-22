@@ -193,4 +193,15 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).argument.lastu;", "ERROR: expected 'first'/'last' at this point");
 	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).returnee;", "ERROR: expected 'argument'/'return'/'target' at this point");
 	TEST_FOR_FAIL("parsing", "int u; return int == typeof(&u).targetme;", "ERROR: expected 'argument'/'return'/'target' at this point");
+
+	TEST_FOR_FAIL("parsing", "@if(1) int a; else float a;", "ERROR: '{' not found after 'if' in static if");
+	TEST_FOR_FAIL("parsing", "@if(0){ int #; else float a;", "ERROR: unknown lexeme in 'if' body");
+	TEST_FOR_FAIL("parsing", "@if(0){ int a; }else float b;", "ERROR: '{' not found after 'else' in static if");
+	TEST_FOR_FAIL("parsing", "@if(0){ int a; }else{", "ERROR: expression not found after 'else'");
+	TEST_FOR_FAIL("parsing", "@if(0){ int a; }else{ float b;", "ERROR: '}' not found");
+	TEST_FOR_FAIL("parsing", "@if(1){", "ERROR: expression not found after 'if'");
+	TEST_FOR_FAIL("parsing", "@if(1){ int a; ", "ERROR: '}' not found");
+	TEST_FOR_FAIL("parsing", "@if(1){ int a; }else float b;", "ERROR: '{' not found after 'else' in static if");
+	TEST_FOR_FAIL("parsing", "@if(1){ int a; }else{ float #;", "ERROR: unknown lexeme in 'else' body");
+	TEST_FOR_FAIL("parsing", "@if((auto(){ return 1; })()){ int a; }", "ERROR: couldn't evaluate condition at compilation time");
 }
