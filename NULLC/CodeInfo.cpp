@@ -111,7 +111,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 int CodeInfo::FindFunctionByName(unsigned int hash, int startPos)
 {
 	for(int i = startPos; i >= 0; i--)
-		if(funcInfo[i]->nameHash == hash && funcInfo[i]->visible && !((funcInfo[i]->address & 0x80000000) && !(funcInfo[i]->address == ~0u)))
+		if(funcInfo[i]->nameHash == hash && funcInfo[i]->visible && !((funcInfo[i]->address & 0x80000000) && !(funcInfo[i]->address == -1)))
 			return i;
 
 	return -1;
