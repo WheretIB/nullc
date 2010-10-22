@@ -101,8 +101,6 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 	const char *start = current;
 
 	FastVector<ExternFuncInfo> &exFunctions = NULLC::commonLinker->exFunctions;
-	FastVector<ExternLocalInfo> &exLocals = NULLC::commonLinker->exLocals;
-	FastVector<ExternTypeInfo> &exTypes = NULLC::commonLinker->exTypes;
 	FastVector<char> &exSymbols = NULLC::commonLinker->exSymbols;
 
 	struct SourceInfo
@@ -144,6 +142,8 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 		current += SafeSprintf(current, bufSize - int(current - start), " (at %.*s)\r\n", codeLength, codeStart);
 	}
 #ifdef NULLC_STACK_TRACE_WITH_LOCALS
+	FastVector<ExternLocalInfo> &exLocals = NULLC::commonLinker->exLocals;
+	FastVector<ExternTypeInfo> &exTypes = NULLC::commonLinker->exTypes;
 	if(funcID != -1)
 	{
 		for(unsigned int i = 0; i < exFunctions[funcID].localCount + exFunctions[funcID].externCount; i++)
