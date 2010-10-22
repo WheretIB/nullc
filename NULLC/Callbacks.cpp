@@ -2652,7 +2652,7 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 				fRating += 5;	// type ref -> auto ref
 			else if(expectedType == typeObject)
 				fRating += 10;	// type -> type ref -> auto ref
-			else if(expectedType->type == TypeInfo::TYPE_COMPLEX || paramType->type == TypeInfo::TYPE_COMPLEX)
+			else if(expectedType->type == TypeInfo::TYPE_COMPLEX || paramType->type == TypeInfo::TYPE_COMPLEX || paramType->type == TypeInfo::TYPE_VOID)
 				return ~0u;		// If one of types is complex, and they aren't equal, function cannot match
 			else if(paramType->subType != expectedType->subType)
 				return ~0u;		// Pointer or array with a different type inside. Doesn't matter if simple or complex.
