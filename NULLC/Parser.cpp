@@ -893,10 +893,11 @@ bool ParseIfExpr(Lexeme** str, bool isStatic)
 	{
 		int result = ((NodeNumber*)CodeInfo::nodeList.back())->GetInteger();
 		CodeInfo::nodeList.pop_back();
-		if(!ParseLexem(str, lex_ofigure))
+		if((*str)->type != lex_ofigure)
 			ThrowError((*str)->pos, "ERROR: '{' not found after 'if' in static if");
 		if(!result)
 		{
+			(*str)++;
 			unsigned braces = 1;
 			while(braces)
 			{
@@ -911,20 +912,16 @@ bool ParseIfExpr(Lexeme** str, bool isStatic)
 			}
 			if(ParseLexem(str, lex_else))
 			{
-				if(!ParseLexem(str, lex_ofigure))
+				if((*str)->type != lex_ofigure)
 					ThrowError((*str)->pos, "ERROR: '{' not found after 'else' in static if");
-				if(!ParseCode(str))
+				if(!ParseExpression(str))
 					ThrowError((*str)->pos, "ERROR: expression not found after 'else'");
-				if(!ParseLexem(str, lex_cfigure))
-					ThrowError((*str)->pos, "ERROR: '}' not found");
 			}else{
 				AddVoidNode();
 			}
 		}else{
-			if(!ParseCode(str))
+			if(!ParseExpression(str))
 				ThrowError((*str)->pos, "ERROR: expression not found after 'if'");
-			if(!ParseLexem(str, lex_cfigure))
-				ThrowError((*str)->pos, "ERROR: '}' not found");
 			if(ParseLexem(str, lex_else))
 			{
 				if(!ParseLexem(str, lex_ofigure))

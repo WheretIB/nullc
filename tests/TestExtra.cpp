@@ -242,12 +242,12 @@ const char	*testStaticIf2 =
 "int a = 4;\r\n\
 @if(typeof(a) == int)\r\n\
 {\r\n\
-	int[1] f; f[0] = a;\r\n\
+	a = 5;\r\n\
 }else{\r\n\
 	int[-1] f;\r\n\
 }\r\n\
-return f[0];";
-TEST_RESULT("Static if test 2", testStaticIf2, "4");
+return a;";
+TEST_RESULT("Static if test 2", testStaticIf2, "5");
 
 const char	*testStaticIf3 =
 "int a = 4;\r\n\
@@ -255,7 +255,7 @@ const char	*testStaticIf3 =
 {\r\n\
 	int[-1] f;\r\n\
 }else{\r\n\
-	int[1] f; f[0] = a;\r\n\
+	 a = 5;\r\n\
 }\r\n\
-return f[0];";
-TEST_RESULT("Static if test 3", testStaticIf3, "4");
+return a;";
+TEST_RESULT("Static if test 3", testStaticIf3, "5");
