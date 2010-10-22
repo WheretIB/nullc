@@ -657,6 +657,8 @@ namespace RichTextarea
 		data->areaTextSize = 16 * 1024;
 		data->areaText = new char[data->areaTextSize];
 		data->areaTextEx = new char[data->areaTextSize];
+		memset(data->areaText, 0, data->areaTextSize);
+		memset(data->areaTextEx, 0, data->areaTextSize);
 
 		// Create first line of text
 		data->currLine = data->firstLine = InsertLineAfter(NULL);
@@ -812,6 +814,8 @@ void TextareaData::ExtendLinearTextBuffer()
 		delete[] areaTextEx;
 		areaText = new char[areaTextSize];
 		areaTextEx = new char[areaTextSize];
+		memset(areaText, 0, areaTextSize);
+		memset(areaTextEx, 0, areaTextSize);
 	}
 }
 
@@ -964,6 +968,12 @@ const char* RichTextarea::GetCachedAreaText(HWND wnd)
 {
 	TextareaData *data = GetData(wnd);
 	return data->areaText;
+}
+
+const char* RichTextarea::GetAreaStyle(HWND wnd)
+{
+	TextareaData *data = GetData(wnd);
+	return data->areaTextEx;
 }
 
 // Function that sets the text in text area
