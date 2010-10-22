@@ -285,8 +285,4 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar
 	TEST_FOR_FAIL("typeid of auto", "typeof(auto);", "ERROR: cannot take typeid from auto type");
 
 	TEST_FOR_FAIL("conversion from void to basic type", "int foo(int a){ return -a; } void bar(){} return foo(bar());", "ERROR: can't find function 'foo' with following parameters:");
-
-	TEST_FOR_FAIL_GENERIC("function constraints are not satisfied", "auto foo(generic a, generic b) where typeof(a) == int && typeof(b) == double{ return a + b; } return foo(1, 3);", "ERROR: while instantiating generic function foo(generic, generic)", "ERROR: function constraints are not satisfied");
-
-	TEST_FOR_FAIL_GENERIC("function constraints are not satisfied 2", "auto foo(generic a) where typeof(a).argument.size == 2{ return a(3, 4); } int bar(int a, b, c){ return a + b; } return foo(bar);", "ERROR: while instantiating generic function foo(generic)", "ERROR: function constraints are not satisfied");
 }

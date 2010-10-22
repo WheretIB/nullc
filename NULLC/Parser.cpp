@@ -582,27 +582,6 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 	return true;
 }
 
-bool ParseFunctionConstraints(Lexeme** str, bool instanceTime)
-{
-	Lexeme *start = *str;
-	if((*str)->type == lex_string && (*str)->length == 5 && memcmp((*str)->pos, "where", 5) == 0)
-	{
-		(*str)++;
-		if(!ParseTernaryExpr(str))
-			ThrowError((*str)->pos, "ERROR: expression expected after 'where'");
-		if(instanceTime || !FunctionGeneric(false))
-		{
-			if(CodeInfo::nodeList.back()->nodeType != typeNodeNumber)
-				ThrowError(start->pos, "ERROR: couldn't evaluate condition at compilation time");
-			int result = ((NodeNumber*)CodeInfo::nodeList.back())->GetInteger();
-			if(!result)
-				ThrowError(start->pos, "ERROR: function constraints are not satisfied");
-		}
-		CodeInfo::nodeList.pop_back();
-	}
-	return true;
-}
-
 bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 {
 	Lexeme *start = *str - 1;
@@ -691,8 +670,6 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError((*str)->pos, "ERROR: ')' not found after function variable list");
-
-	ParseFunctionConstraints(str, false);
 
 	if(ParseLexem(str, lex_semicolon))
 	{
