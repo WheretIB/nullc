@@ -465,4 +465,7 @@ return int(foo(b) + foo(c));",
 	TEST_FOR_FAIL("generic instance type invisible after instance 2", "class Foo<T>{ T x; } Foo<int> x; Foo<int> y; T a;", "ERROR: variable or function 'T' is not defined");
 
 	TEST_FOR_FAIL("generic function specialization fail 6", "class Foo<T>{ T x; } Foo<int> a; a.x = 5; auto foo(Foo<generic> m){ return -m.x; } return foo(&a);", "ERROR: can't find function 'foo' with following parameters:");
+
+	TEST_FOR_FAIL("external function definition syntax inside a type 1", "class Foo{ void Foo:foo(){} }", "ERROR: cannot continue type 'Foo' definition inside 'Foo' type. Possible cause: external member function definition syntax inside a class");
+	TEST_FOR_FAIL("external function definition syntax inside a type 2", "class Bar{} class Foo{ void Bar:foo(){} }", "ERROR: cannot continue type 'Bar' definition inside 'Foo' type. Possible cause: external member function definition syntax inside a class");
 }

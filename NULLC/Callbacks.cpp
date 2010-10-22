@@ -278,6 +278,9 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 			FunctionInfo *fInfo = fProto->genericBase->parent;
 			// There may be a type in definition, and we must save it
 			TypeInfo *currDefinedType = newType;
+			unsigned int currentDefinedTypeMethodCount = methodCount;
+			newType = NULL;
+			methodCount = 0;
 			if(fInfo->type == FunctionInfo::THISCALL)
 			{
 				currType = fInfo->parentClass;
@@ -286,7 +289,7 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 
 			// Function return type
 			currType = fType->retType;
-			FunctionAdd(pos, fInfo->name);
+			FunctionAdd(pos, fInfo->parentClass ? strchr(fInfo->name, ':') : fInfo->name);
 
 			// New function type is equal to generic function type no matter where we create an instance of it
 			CodeInfo::funcInfo.back()->type = fInfo->type;
@@ -329,6 +332,7 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 			if(fInfo->type == FunctionInfo::THISCALL)
 				TypeStop();
 			// Restore type that was in definition
+			methodCount = currentDefinedTypeMethodCount;
 			newType = currDefinedType;
 
 			// Remove function definition node, it was placed to funcDefList in FunctionEnd
@@ -3109,6 +3113,9 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /
 
 	// There may be a type in definition, and we must save it
 	TypeInfo *currDefinedType = newType;
+	unsigned int currentDefinedTypeMethodCount = methodCount;
+	newType = NULL;
+	methodCount = 0;
 	if(fInfo->type == FunctionInfo::THISCALL)
 	{
 		currType = forcedParentType ? forcedParentType : fInfo->parentClass;
@@ -3121,7 +3128,9 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /
 	currType = fType->retType;
 	if(forcedParentType)
 		assert(strchr(fInfo->name, ':'));
-	FunctionAdd(pos, forcedParentType ? strchr(fInfo->name, ':') + 2 : fInfo->name);
+	else if(fInfo->parentClass)
+		assert(strchr(fInfo->name, ':'));
+	FunctionAdd(pos, forcedParentType ? strchr(fInfo->name, ':') + 2 : (fInfo->parentClass ? strchr(fInfo->name, ':') : fInfo->name));
 
 	// New function type is equal to generic function type no matter where we create an instance of it
 	CodeInfo::funcInfo.back()->type = fInfo->type;
@@ -3208,6 +3217,7 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /
 	if(fInfo->type == FunctionInfo::THISCALL)
 		TypeStop();
 	// Restore type that was in definition
+	methodCount = currentDefinedTypeMethodCount;
 	newType = currDefinedType;
 
 	// A true function instance can only be created in the same scope as the base function
@@ -3912,6 +3922,8 @@ void TypeFinish()
 // Before we add member function outside of the class definition, we should imitate that we're inside class definition
 void TypeContinue(const char* pos)
 {
+	if(newType)
+		ThrowError(pos, "ERROR: cannot continue type '%s' definition inside '%s' type. Possible cause: external member function definition syntax inside a class", currType->GetFullTypeName(), newType->GetFullTypeName());
 	newType = currType;
 	newType->definitionDepth = varInfoTop.size();
 	// Add all member variables to global scope
