@@ -197,7 +197,7 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail)
 					if(!genericType)
 						SelectTypeByPointer(GetSelectedType()->funcType->paramType[request]);
 				}else{
-					ThrowError(curr->pos, "ERROR: expected 'first'/'last'/'[N]' at this point");
+					ThrowError(curr->pos, "ERROR: expected 'first'/'last' at this point");
 				}
 			}else if(ParseLexem(&curr, lex_return)){
 				if(!genericType)

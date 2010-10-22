@@ -233,3 +233,41 @@ TEST("Generic function import 3", testGeneric21, "1")
 	CHECK_INT("a", 0, 80);
 	CHECK_DOUBLE("b", 0, 10.25);
 }
+
+const char *testGeneric22 =
+"auto foo(generic a){}\r\n\
+foo(1);\r\n\
+foo(5.0);\r\n\
+return 1;";
+TEST_RESULT("Generic function with no code inside", testGeneric22, "1");
+
+const char *testGeneric23 =
+"class list_node\r\n\
+{\r\n\
+	list_node ref next;\r\n\
+	int value;\r\n\
+}\r\n\
+\r\n\
+auto range(list_node ref c)\r\n\
+{\r\n\
+	return coroutine auto(){ while(c){ yield c.value; c = c.next; } return 0; };\r\n\
+}\r\n\
+\r\n\
+auto prod(generic f)\r\n\
+{\r\n\
+	int product = 1;\r\n\
+	for(i in f)\r\n\
+		product *= i;\r\n\
+	return product;\r\n\
+}\r\n\
+\r\n\
+// Create a list of two numbers\r\n\
+list_node list;\r\n\
+list.value = 2;\r\n\
+list.next = new list_node;\r\n\
+list.next.value = 5;\r\n\
+\r\n\
+auto a = prod(range(list));\r\n\
+auto b = prod(coroutine auto(){ list_node ref c = &list; while(c){ yield c.value; c = c.next; } return 0; });\r\n\
+return a + b;";
+TEST_RESULT("Generic function accepting a coroutine", testGeneric23, "20");
