@@ -337,7 +337,7 @@ namespace ColorerGrammar
 				((chP('=')[ColorText] >> (term5 | epsP[LogError("ERROR: expression not found after '='")])) | epsP);
 			vardefsub	=	addvarp >> *(chP(',')[ColorText] >> vardefsub);
 			vardef		=
-				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
+				((strP("align")[ColorRWord] >> chP('(')[ColorText] >> intP[ColorReal] >> chP(')')[ColorText]) | (strP("noalign")[ColorRWord] | epsP)) >>
 				(typeExpr - (typeExpr >> chP('('))) >> 
 				(
 					(
