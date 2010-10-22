@@ -112,6 +112,7 @@ function toggleView(a, b, c)
 		<ol>
 			<li><a href="#gc">Garbage collection</a></li>
 			<li><a href="#constructor">Constructor call</a></li>
+			<li><a href="#finalize">Object finalization</a></li>
 		</ol>
 		<li><a href="#break">break expression</a></li>
 		<li><a href="#continue">continue expression</a></li>
@@ -344,6 +345,16 @@ function toggleView(a, b, c)
 		</p>
 		To define a constructor for a type, add a member function with the name equal to the class name.		
 	</div>
+	<div class="subtopic">
+		<h3><a name="finalize">2.4.3 Object finalization</a></h3>
+		
+		If a class implements a "finalize" function which doesn't accept any arguments, then when GC finds that the class instance is not referenced any more, this function will be called
+		to perform any kind of clean-up you may want to do on it.<br />
+		Finalizable class has a restriction that other classes do not have: it cannot be placed on stack or be a member of some other class, only references to it or arrays with implicit size
+		can be created.<br />
+		<br />
+		It is strongly not recommended to create new references to an object from its finalizer because finalizer runs automatically only once per class instance.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
@@ -421,8 +432,7 @@ function toggleView(a, b, c)
 	<span class="rword">if</span> statement evaluates result of expression "expr", and if result isn't equal to 0, evaluates expressions put in "trueBody". Otherwise, it evaluates expressions put in "falseBody".<br />
 	"trueBody" and "falseBody" may consist of a single expression or a block of expressions.<br />
 	<span class="rword">else</span> and "falseBody", may be omitted. In such case, if result of "expr" is zero, nothing is evaluated.<br />
-	
-	
+
 	<div class="subtopic">
 		<h4><a name="static_if">3.1.1 Static if</a></h4>
 

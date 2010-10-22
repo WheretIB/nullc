@@ -7,12 +7,12 @@ Core:
 	11. f. function should know if it is used as pointer, so that closure will not be created or closed(?)
 	13. f. coroutine should access context variables without one extra indirection.
 	15. f. AST optimizations shouldn't be disabled when translation to C or LLVM is enabled.
-	16. f. Forced pointer call foo!() ?
 	18. f. stack trace with locals should print values
 	20. f. context address tracking in not neccessary in most cases (?)
 	21. u. need to clarify when external variables in a local function inside a coroutine are closed.
 	23. f. move gen_list to base module as a generic function (?)
 	26. f. typedef should be exported
+	27. f. ability to replace parts of function type with generic (?)
 
 Library:
 	1. f. string
@@ -26,6 +26,9 @@ SuperCalc:
 	4. f. Tooltips with variable values
 	7. b. Compiled modules must recompile after changes.
 	12 f. Editing code should be disabled\warning shown\edit & continue
+	13 f. persistent undo file in a temp folder
+	14 f. persistent undo on a per-file basis
+	15 b. breakpoint in generic function should break in all instances
 	
 DONE: ref variables - pointers
 DONE: multidimensional arrays
