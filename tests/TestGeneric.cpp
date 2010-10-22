@@ -202,3 +202,8 @@ auto cmp = { 8, 7, 4, 3, 2, 1, 0 };\r\n\
 int diff = 0; for(i in arr, j in cmp) diff += i-j;\r\n\
 return diff;";
 TEST_RESULT("Test for correct marking of dependent argument", testGeneric18, "0");
+
+const char *testGeneric19 =
+"auto func(generic a, b, typeof(a*b) ref(typeof(a), typeof(b)) f){ return f(a, b); }\r\n\
+return int(10 * func(3, 4.5, auto(int a, double b){ return a * b; }));";
+TEST_RESULT("Test for complex typeof usage on generics", testGeneric19, "135");

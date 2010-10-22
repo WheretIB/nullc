@@ -127,82 +127,94 @@ struct TypeHandler
 	TypeHandler	*next;
 };
 
-bool ParseSelectType(Lexeme** str, bool arrayType = true)
+bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail)
 {
 	if((*str)->type == lex_typeof)
 	{
 		(*str)++;
 		if(!ParseLexem(str, lex_oparen))
 			ThrowError((*str)->pos, "ERROR: typeof must be followed by '('");
-		if(ParseVaribleSet(str))
+
+		jmp_buf oldHandler;
+		memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
+		if(!genericOnFail || !setjmp(CodeInfo::errorHandler)) // if genericOnFail is enabled, we will set error handler
 		{
+			if(!ParseVaribleSet(str))
+				ThrowError((*str)->pos, "ERROR: expression not found after typeof(");
 			SetTypeOfLastNode();
-			if(!ParseLexem(str, lex_cparen))
-				ThrowError((*str)->pos, "ERROR: ')' not found after expression in typeof");
-			if(ParseLexem(str, lex_point))
+		}else{
+			if(!FunctionGeneric(false))
 			{
-				bool genericType = GetSelectedType() == typeGeneric;
-				// .argument .return .target
-				if((*str)->type == lex_string && memcmp((*str)->pos, "argument", 8) == 0)
+				memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
+				longjmp(CodeInfo::errorHandler, 1);
+			}
+			SelectTypeByPointer(typeGeneric);
+		}
+		if(genericOnFail)
+			memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
+		if(!ParseLexem(str, lex_cparen))
+			ThrowError((*str)->pos, "ERROR: ')' not found after expression in typeof");
+		if(ParseLexem(str, lex_point))
+		{
+			bool genericType = GetSelectedType() == typeGeneric;
+			// .argument .return .target
+			if((*str)->type == lex_string && memcmp((*str)->pos, "argument", 8) == 0)
+			{
+				(*str)++;
+				if(!GetSelectedType()->funcType && !genericType)
+					ThrowError((*str)->pos, "ERROR: 'argument' can only be applied to a function type, but we have '%s'", GetSelectedType()->GetFullTypeName());
+				if((*str)->type != lex_obracket && !ParseLexem(str, lex_point))
+					ThrowError((*str)->pos, "ERROR: expected '.first'/'.last'/'[N]' at this point");
+				unsigned paramCount = !genericType ? GetSelectedType()->funcType->paramCount : 0;
+				if((*str)->type == lex_string && memcmp((*str)->pos, "first", 5) == 0)
 				{
 					(*str)++;
-					if(!GetSelectedType()->funcType && !genericType)
-						ThrowError((*str)->pos, "ERROR: 'argument' can only be applied to a function type, but we have '%s'", GetSelectedType()->GetFullTypeName());
-					if((*str)->type != lex_obracket && !ParseLexem(str, lex_point))
-						ThrowError((*str)->pos, "ERROR: expected '.first'/'.last'/'[N]' at this point");
-					unsigned paramCount = !genericType ? GetSelectedType()->funcType->paramCount : 0;
-					if((*str)->type == lex_string && memcmp((*str)->pos, "first", 5) == 0)
-					{
-						(*str)++;
-						if(!genericType)
-						{
-							if(!paramCount)
-								ThrowError((*str)->pos, "ERROR: this function type '%s' doesn't have arguments", GetSelectedType()->GetFullTypeName());
-							SelectTypeByPointer(GetSelectedType()->funcType->paramType[0]);
-						}
-					}else if((*str)->type == lex_string && memcmp((*str)->pos, "last", 4) == 0){
-						(*str)++;
-						if(!genericType)
-						{
-							if(!paramCount)
-								ThrowError((*str)->pos, "ERROR: this function type '%s' doesn't have arguments", GetSelectedType()->GetFullTypeName());
-							SelectTypeByPointer(GetSelectedType()->funcType->paramType[paramCount-1]);
-						}
-					}else if(ParseLexem(str, lex_obracket)){
-						if((*str)->type != lex_number)
-							ThrowError((*str)->pos, "ERROR: argument number expected after '['");
-						unsigned request = atoi((*str)->pos);
-						if(request >= paramCount && !genericType)
-							ThrowError((*str)->pos, "ERROR: this function type '%s' has only %d argument(s)", GetSelectedType()->GetFullTypeName(), paramCount);
-						(*str)++;
-						if(!ParseLexem(str, lex_cbracket))
-							ThrowError((*str)->pos, "ERROR: expected ']'");
-						if(!genericType)
-							SelectTypeByPointer(GetSelectedType()->funcType->paramType[request]);
-					}else{
-						ThrowError((*str)->pos, "ERROR: expected 'first'/'last'/'[N]' at this point");
-					}
-				}else if(ParseLexem(str, lex_return)){
 					if(!genericType)
 					{
-						if(!GetSelectedType()->funcType)
-							ThrowError((*str)->pos, "ERROR: 'return' can only be applied to a function type, but we have '%s'", GetSelectedType()->GetFullTypeName());
-						SelectTypeByPointer(GetSelectedType()->funcType->retType);
+						if(!paramCount)
+							ThrowError((*str)->pos, "ERROR: this function type '%s' doesn't have arguments", GetSelectedType()->GetFullTypeName());
+						SelectTypeByPointer(GetSelectedType()->funcType->paramType[0]);
 					}
-				}else if((*str)->type == lex_string && memcmp((*str)->pos, "target", 6) == 0){
+				}else if((*str)->type == lex_string && memcmp((*str)->pos, "last", 4) == 0){
 					(*str)++;
 					if(!genericType)
 					{
-						if(!GetSelectedType()->refLevel && !GetSelectedType()->arrLevel)
-							ThrowError((*str)->pos, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%s'", GetSelectedType()->GetFullTypeName());
-						SelectTypeByPointer(GetSelectedType()->subType);
+						if(!paramCount)
+							ThrowError((*str)->pos, "ERROR: this function type '%s' doesn't have arguments", GetSelectedType()->GetFullTypeName());
+						SelectTypeByPointer(GetSelectedType()->funcType->paramType[paramCount-1]);
 					}
+				}else if(ParseLexem(str, lex_obracket)){
+					if((*str)->type != lex_number)
+						ThrowError((*str)->pos, "ERROR: argument number expected after '['");
+					unsigned request = atoi((*str)->pos);
+					if(request >= paramCount && !genericType)
+						ThrowError((*str)->pos, "ERROR: this function type '%s' has only %d argument(s)", GetSelectedType()->GetFullTypeName(), paramCount);
+					(*str)++;
+					if(!ParseLexem(str, lex_cbracket))
+						ThrowError((*str)->pos, "ERROR: expected ']'");
+					if(!genericType)
+						SelectTypeByPointer(GetSelectedType()->funcType->paramType[request]);
 				}else{
-					ThrowError((*str)->pos, "ERROR: expected 'argument'/'return'/'target' at this point");
+					ThrowError((*str)->pos, "ERROR: expected 'first'/'last'/'[N]' at this point");
 				}
+			}else if(ParseLexem(str, lex_return)){
+				if(!genericType)
+				{
+					if(!GetSelectedType()->funcType)
+						ThrowError((*str)->pos, "ERROR: 'return' can only be applied to a function type, but we have '%s'", GetSelectedType()->GetFullTypeName());
+					SelectTypeByPointer(GetSelectedType()->funcType->retType);
+				}
+			}else if((*str)->type == lex_string && memcmp((*str)->pos, "target", 6) == 0){
+				(*str)++;
+				if(!genericType)
+				{
+					if(!GetSelectedType()->refLevel && !GetSelectedType()->arrLevel)
+						ThrowError((*str)->pos, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%s'", GetSelectedType()->GetFullTypeName());
+					SelectTypeByPointer(GetSelectedType()->subType);
+				}
+			}else{
+				ThrowError((*str)->pos, "ERROR: expected 'argument'/'return'/'target' at this point");
 			}
-		}else{
-			ThrowError((*str)->pos, "ERROR: expression not found after typeof(");
 		}
 	}else if((*str)->type == lex_auto){
 		CALLBACK(SelectTypeByPointer(NULL));
@@ -463,7 +475,7 @@ bool ParseGenericType(Lexeme** str)
 bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 {
 	bool genericArg = false;
-	if(!ParseSelectType(str) && false == (genericArg = ParseGenericType(str)))
+	if(!ParseSelectType(str, true, true) && false == (genericArg = ParseGenericType(str)))
 		return true;
 
 	unsigned argID = 0;
@@ -498,7 +510,7 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		argID++;
 		bool lastGeneric = genericArg;
 		genericArg = false;
-		if(!ParseSelectType(str))
+		if(!ParseSelectType(str, true, true))
 		{
 			ParseGenericType(str);
 			genericArg = lastGeneric; // if there is no type and no generic, then this parameter is as generic as the last one

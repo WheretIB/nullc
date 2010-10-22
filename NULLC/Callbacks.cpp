@@ -2959,6 +2959,20 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		fInfo = CodeInfo::funcInfo[funcID];
 		fType = fInfo->funcType->funcType;
+
+		if(GetFunctionRating(fType, callArgCount) == ~0u)
+		{
+			char	errTemp[512];
+			char	*errPos = errTemp;
+			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "ERROR: unable to call '%s' after instantiating while matching argument vector\r\n\t(", fInfo->name);
+			for(unsigned i = 0; i < fType->paramCount; i++)
+				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", fType->paramType[i]->GetFullTypeName());
+			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n\tagainst parameters\r\n\t(");
+			for(unsigned i = 0; i < fType->paramCount; i++)
+				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", CodeInfo::nodeList[argOffset + i]->typeInfo->GetFullTypeName());
+			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")");
+			ThrowError(pos, errTemp);
+		}
 	}
 
 	if(fInfo && callArgCount < fType->paramCount)

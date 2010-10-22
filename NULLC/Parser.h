@@ -9,7 +9,7 @@ unsigned int ParseTypename(Lexeme** str);
 
 bool ParseNumber(Lexeme** str);
 bool ParseArrayDefinition(Lexeme** str);
-bool ParseSelectType(Lexeme** str, bool arrayType);
+bool ParseSelectType(Lexeme** str, bool arrayType = true, bool genericOnFail = false);
 
 bool ParseClassDefinition(Lexeme** str);
 
