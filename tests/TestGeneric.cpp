@@ -280,3 +280,33 @@ swap(&a, 8);\r\n\
 swap(&a, &b);\r\n\
 return a * 10 + b;";
 TEST_RESULT("Generic function test (generic ref construct) 2", testGeneric24, "38");
+
+const char *testGeneric25 =
+"auto foldl(generic array, typeof(array).target ref(typeof(array).target, typeof(array).target) f)\r\n\
+{\r\n\
+	auto tmp = array[0];\r\n\
+	for(int i = 1; i < array.size; i++)\r\n\
+		tmp = f(tmp, array[i]);\r\n\
+	return tmp;\r\n\
+}\r\n\
+auto arr = { 360, 4, 5 };\r\n\
+return foldl(arr, <i,j>{ i/j; });";
+TEST_RESULT("Generic function test (correct type index in linker)", testGeneric25, "18");
+
+const char *testGeneric26 =
+"auto foldl(generic array, typeof(array).target ref(typeof(array).target, typeof(array).target) f)\r\n\
+{\r\n\
+	auto tmp = array[0];\r\n\
+	for(int i = 1; i < array.size; i++)\r\n\
+		tmp = f(tmp, array[i]);\r\n\
+	return tmp;\r\n\
+}\r\n\
+\r\n\
+auto arr1 = { 350, 4, 5 };\r\n\
+auto x1 = foldl(arr1, <i,j>{ i/j; });\r\n\
+\r\n\
+auto arr2 = { 360.0, 4.0, 5.0 };\r\n\
+auto x2 = foldl(arr2, <i,j>{ i/j; });\r\n\
+\r\n\
+return int(x1 + x2);";
+TEST_RESULT("Generic function test (short inline function select with better inference)", testGeneric26, "35");

@@ -1034,6 +1034,15 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 		FunctionInfo *func = curr->value;
 		if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType && func->paramCount > currArgument)
 		{
+			unsigned tmpCount = func->funcType->funcType->paramCount;
+			func->funcType->funcType->paramCount = currArgument;
+			unsigned rating = GetFunctionRating(func->funcType->funcType, currArgument);
+			func->funcType->funcType->paramCount = tmpCount;
+			if(rating == ~0u)
+			{
+				curr = funcMap.next(curr);
+				continue;
+			}
 			TypeInfo *argType = NULL;
 			if(func->generic)
 			{
@@ -2404,9 +2413,9 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 		return ~0u;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
 
 	unsigned int fRating = 0;
-	for(unsigned int i = 0; i < currFunc->paramCount; i++)
+	for(unsigned int i = 0; i < callArgCount; i++)
 	{
-		NodeZeroOP* activeNode = CodeInfo::nodeList[CodeInfo::nodeList.size() - currFunc->paramCount + i];
+		NodeZeroOP* activeNode = CodeInfo::nodeList[CodeInfo::nodeList.size() - callArgCount + i];
 		TypeInfo *paramType = activeNode->typeInfo;
 		unsigned int	nodeType = activeNode->nodeType;
 		TypeInfo *expectedType = currFunc->paramType[i];

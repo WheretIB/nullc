@@ -5,6 +5,7 @@
 class TypeInfo;
 class VariableInfo;
 class FunctionInfo;
+class FunctionType;
 
 void CallbackInitialize();
 
@@ -129,6 +130,7 @@ void FunctionEnd(const char* pos);
 void FunctionToOperator(const char* pos);
 bool FunctionGeneric(bool setGeneric, unsigned pos = 0);
 
+unsigned GetFunctionRating(FunctionType *currFunc, unsigned callArgCount);
 bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false);
 bool PrepareMemberCall(const char* pos, const char* funcName = NULL);
 void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount);

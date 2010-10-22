@@ -194,3 +194,11 @@ TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpr
 
 const char	*testTypeofPostExpression7 = "float[4] a; return float == typeof(a).target;";
 TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression7, "1");
+
+const char	*testShortFunctionArgumentResolve = 
+"auto f1(int[] a, int ref(int) b){ a[0] = b(a[1]); }\r\n\
+auto f1(double[] a, double ref(double) b){ a[0] = b(a[1]); }\r\n\
+int[] arr1 = { 2, 3 };\r\n\
+f1(arr1, <i>{ i; });\r\n\
+return arr1[0];";
+TEST_RESULT("Resolve of short inline function type in a partially ambiguous situation", testShortFunctionArgumentResolve, "3");

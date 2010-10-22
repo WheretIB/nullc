@@ -136,3 +136,11 @@ int operator()(int ref x, int y){ return y * *x; }\r\n\
 int operator()(int ref x, int y, z){ return y * *x + z; }\r\n\
 return x() + x(10) + x(24, 4);";
 TEST_RESULT("Overloaded function call operator", testOverloadedOperatorFunctionCall, "148");
+
+const char	*testOverloadOfAnForwardDeclaredFunction =
+"int f(int a);\r\n\
+int a = f(1);\r\n\
+float f(int a){ return a; }\r\n\
+int f(int a){ return 1; }\r\n\
+return a;";
+TEST_RESULT("Overload of a forward-declared function", testOverloadOfAnForwardDeclaredFunction, "1");
