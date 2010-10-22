@@ -179,3 +179,26 @@ TEST("Generic function import 2", testGeneric17, "1")
 	CHECK_INT("a", 0, /*48*/32);
 	CHECK_DOUBLE("b", 0, /*10.25*/5);
 }
+
+const char *testGeneric18 =
+"void bubble_sort(generic arr, int ref(typeof(arr).target ref, typeof(arr).target ref) comp)\r\n\
+{\r\n\
+	for(int i = 0; i < arr.size; i++)\r\n\
+	{\r\n\
+		for(int j = i + 1; j < arr.size; j++)\r\n\
+		{\r\n\
+			if(comp(arr[i], arr[j]))\r\n\
+			{\r\n\
+				typeof(arr).target x = arr[i];\r\n\
+				arr[i] = arr[j];\r\n\
+				arr[j] = x;\r\n\
+			}\r\n\
+		}\r\n\
+	}\r\n\
+}\r\n\
+auto arr = { 1, 3, 7, 2, 4, 8, 0 };\r\n\
+bubble_sort(arr, <l, r>{ *l > *r; });\r\n\
+auto cmp = { 8, 7, 4, 3, 2, 1, 0 };\r\n\
+int diff = 0; for(i in arr, j in cmp) diff += i-j;\r\n\
+return diff;";
+TEST_RESULT("Test for correct marking of dependent argument", testGeneric18, "0");

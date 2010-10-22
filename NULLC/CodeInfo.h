@@ -123,7 +123,7 @@ namespace CodeInfo
 			for(T *curr = paramTypes; curr; curr = curr->next, i++)
 			{
 				bestFit->funcType->paramType[i] = curr->varType;
-				if(curr->varType != typeGeneric)
+				if(!curr->varType->dependsOnGeneric)
 					bestFit->funcType->paramSize += curr->varType->size > 4 ? curr->varType->size : 4;
 				else
 					skipIt = true; // generic function type shouldn't be saved to a type array
