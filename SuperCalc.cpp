@@ -652,7 +652,7 @@ bool SaveFileFromTab(const char *file, const char *data, HWND editWnd)
 
 void CloseTabWithFile(TabbedFiles::TabInfo &info)
 {
-	if(info.dirty && MessageBox(hWnd, "File was changed. Save changes?", "Warning", MB_YESNO) == IDYES)
+	if(info.dirty && info.last[0] != '?' && MessageBox(hWnd, "File was changed. Save changes?", "Warning", MB_YESNO) == IDYES)
 	{
 		SaveFileFromTab(info.name, RichTextarea::GetAreaText(info.window), info.window);
 	}
@@ -1623,8 +1623,20 @@ DWORD WINAPI CalcThread(void* param)
 	double time = myGetPreciseTime();
 	nullres goodRun = nullcRunFunction(NULL);
 	rres.time = myGetPreciseTime() - time;
-	rres.finished = true;
 	rres.result = goodRun;
+	if(goodRun)
+	{
+		const char *val = nullcGetResult();
+
+		SetWindowText(hResult, "Finalizing...");
+		nullcFinalize();
+
+		char	result[1024];
+		_snprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
+		result[1023] = '\0';
+		SetWindowText(hResult, result);
+	}
+	rres.finished = true;
 	SendMessage(rres.wnd, WM_USER + 1, 0, 0);
 	ExitThread(goodRun);
 }
@@ -2082,7 +2094,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				{
 					char buf[1024];
 					safeprintf(buf, 1024, "File '%s' was changed.\r\nSave changes?", TabbedFiles::GetTabInfo(hTabs, i).name);
-					if(TabbedFiles::GetTabInfo(hTabs, i).dirty && MessageBox(hWnd, buf, "Warning", MB_YESNO) == IDYES)
+					if(TabbedFiles::GetTabInfo(hTabs, i).dirty && TabbedFiles::GetTabInfo(hTabs, i).last[0] != '?' && MessageBox(hWnd, buf, "Warning", MB_YESNO) == IDYES)
 						SaveFileFromTab(TabbedFiles::GetTabInfo(hTabs, i).name, RichTextarea::GetAreaText(TabbedFiles::GetTabInfo(hTabs, i).window), TabbedFiles::GetTabInfo(hTabs, i).window);
 					fprintf(tabInfo, "%s\r\n", TabbedFiles::GetTabInfo(hTabs, i).name);
 
@@ -2106,14 +2118,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			if(runRes.result)
 			{
-				const char *val = nullcGetResult();
-
-				nullcFinalize();
-
-				_snprintf(result, 1024, "The answer is: %s [in %f]", val, runRes.time);
-				result[1023] = '\0';
-				SetWindowText(hResult, result);
-
 				RefreshBreakpoints();
 				FillVariableInfoTree();
 				TabbedFiles::SetCurrentTab(hDebugTabs, 1);
