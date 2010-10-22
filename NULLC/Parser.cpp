@@ -1579,7 +1579,15 @@ bool ParseTerminal(Lexeme** str)
 		break;
 	case lex_at:
 		if((*str)[1].type != lex_quotedstring)
-			ThrowError((*str)->pos, "ERROR: string expected after '@'");
+		{
+			(*str)++;
+			bool isOperator = ((*str)->type >= lex_add && (*str)->type <= lex_logxor) || ((*str)->type >= lex_set && (*str)->type <= lex_powset) || (*str)->type == lex_bitnot || (*str)->type == lex_lognot;
+			if(!isOperator)
+				ThrowError((*str)->pos, "ERROR: string expected after '@'");
+			AddGetAddressNode((*str)->pos, InplaceStr((*str)->pos, (*str)->pos + (*str)->length));
+			(*str)++;
+			return true;
+		}
 	case lex_quotedstring:
 		ParseString(str);
 		ParsePostExpressions(str);
