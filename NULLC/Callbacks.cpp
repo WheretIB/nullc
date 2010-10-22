@@ -46,9 +46,9 @@ FastVector<FunctionInfo*>	currDefinedFunc;
 HashMap<FunctionInfo*>		funcMap;
 HashMap<VariableInfo*>		varMap;
 
-void	AddFunctionToSortedList(void *info)
+void	AddFunctionToSortedList(FunctionInfo *info)
 {
-	funcMap.insert(((FunctionInfo*)info)->nameHash, (FunctionInfo*)info);
+	funcMap.insert(info->nameHash, info);
 }
 
 const char*	currFunction;
@@ -748,9 +748,28 @@ void AddContinueNode(const char* pos)
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
 
-void SelectTypeByPointer(void* type)
+void SelectTypeByPointer(TypeInfo* type)
 {
-	currType = (TypeInfo*)type;
+	currType = type;
+}
+
+void SelectTypeForGeneric(const char* pos, unsigned nodeIndex)
+{
+	if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeFuncDef)
+	{
+		CodeInfo::nodeList.push_back(CodeInfo::nodeList[nodeIndex]);
+		ConvertFunctionToPointer(pos);
+		NodeZeroOP *converted = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+		CodeInfo::nodeList[nodeIndex] = converted;
+	}else if(CodeInfo::nodeList[nodeIndex]->typeInfo->arrLevel && CodeInfo::nodeList[nodeIndex]->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY){
+		CodeInfo::nodeList.push_back(CodeInfo::nodeList[nodeIndex]);
+		ConvertArrayToUnsized(pos, CodeInfo::GetArrayType(CodeInfo::nodeList[nodeIndex]->typeInfo->subType, TypeInfo::UNSIZED_ARRAY));
+		NodeZeroOP *converted = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+		CodeInfo::nodeList[nodeIndex] = converted;
+	}
+	currType = CodeInfo::nodeList[nodeIndex]->typeInfo;
 }
 
 void SelectTypeByIndex(unsigned int index)
@@ -758,9 +777,9 @@ void SelectTypeByIndex(unsigned int index)
 	currType = CodeInfo::typeInfo[index];
 }
 
-void* GetSelectedType()
+TypeInfo* GetSelectedType()
 {
-	return (void*)currType;
+	return currType;
 }
 
 const char* GetSelectedTypeName()
@@ -768,7 +787,7 @@ const char* GetSelectedTypeName()
 	return currType->GetFullTypeName();
 }
 
-void* AddVariable(const char* pos, InplaceStr varName)
+VariableInfo* AddVariable(const char* pos, InplaceStr varName)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
@@ -1003,7 +1022,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 	}
 }
 
-void* GetCurrentArgumentType(const char *pos, unsigned arguments)
+TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 {
 	if(!currFunction)
 		ThrowError(pos, "ERROR: cannot infer type for inline function outside of the function call");
@@ -1015,7 +1034,67 @@ void* GetCurrentArgumentType(const char *pos, unsigned arguments)
 		FunctionInfo *func = curr->value;
 		if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType && func->paramCount > currArgument)
 		{
-			TypeInfo *argType = func->funcType->funcType->paramType[currArgument];
+			TypeInfo *argType = NULL;
+			if(func->generic)
+			{
+				// Having only a partial set of arguments, begin parsing arguments to the point that the current argument will be known
+				Lexeme *start = CodeInfo::lexStart + func->genericStart;
+
+				// Save current type
+				TypeInfo *lastType = currType;
+
+				unsigned nodeOffset = CodeInfo::nodeList.size() - currArgument;
+				// Move through all the arguments
+				VariableInfo *tempList = NULL;
+				for(unsigned argID = 0; argID <= currArgument; argID++)
+				{
+					if(argID)
+					{
+						assert(start->type == lex_comma);
+						start++;
+					}
+
+					bool genericArg = false;
+					if(!ParseSelectType(&start, false))
+						genericArg = start->type == lex_generic ? !!(start++) : false;
+					
+					if(argID != currArgument)
+					{
+						if(genericArg && nodeOffset)
+							SelectTypeForGeneric(pos, nodeOffset + argID);
+
+						assert(start->type == lex_string);
+						// Insert variable to a list so that a typeof can be taken from it
+						InplaceStr paramName = InplaceStr(start->pos, start->length);
+						VariableInfo *n = new VariableInfo(NULL, paramName, GetStringHash(paramName.begin, paramName.end), 0, currType, false);
+						varMap.insert(n->nameHash, n);
+						n->next = tempList;
+						tempList = n;
+						start++;
+						
+						if(start->type == lex_set)
+						{
+							assert(!"untested");
+							start++;
+							if(!ParseTernaryExpr(&start))
+								ThrowError(pos, "ERROR: default parameter value not found after '='");
+							CodeInfo::nodeList.pop_back();
+						}
+					}else{
+						if(genericArg)
+							currType = typeGeneric;
+					}
+				}
+				while(tempList)
+				{
+					varMap.remove(tempList->nameHash, tempList);
+					tempList = tempList->next;
+				}
+				argType = currType;
+				currType = lastType;
+			}else{
+				argType = func->funcType->funcType->paramType[currArgument];
+			}
 			if(argType->funcType && argType->funcType->paramCount == arguments)
 			{
 				if(preferredType && argType != preferredType)
@@ -1138,7 +1217,7 @@ void AddArrayIndexNode(const char* pos)
 }
 
 // Function for variable assignment in place of definition
-void AddDefineVariableNode(const char* pos, void* varInfo, bool noOverload)
+void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverload)
 {
 	CodeInfo::lastKnownStartPos = pos;
 	VariableInfo *variableInfo = (VariableInfo*)varInfo;
@@ -1435,7 +1514,7 @@ void AddInplaceVariable(const char* pos, TypeInfo* targetType)
 	// Set type to auto
 	currType = targetType;
 	// Add hidden variable
-	void *varInfo = AddVariable(pos, InplaceStr(arrName, length));
+	VariableInfo *varInfo = AddVariable(pos, InplaceStr(arrName, length));
 	// Set it to value on top of the stack
 	AddDefineVariableNode(pos, varInfo, true);
 	// Remove it from stack
@@ -1549,12 +1628,12 @@ void HandlePointerToObject(const char* pos, TypeInfo *dstType)
 }
 
 //////////////////////////////////////////////////////////////////////////
-void AddOneExpressionNode(void *retType)
+void AddOneExpressionNode(TypeInfo *retType)
 {
 	CodeInfo::nodeList.push_back(new NodeExpressionList(retType ? (TypeInfo*)retType : typeVoid));
 }
 
-void AddTwoExpressionNode(void *retType)
+void AddTwoExpressionNode(TypeInfo *retType)
 {
 	if(CodeInfo::nodeList.back()->nodeType != typeNodeExpressionList)
 		AddOneExpressionNode(retType);
@@ -1619,7 +1698,7 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 	CodeInfo::nodeList.push_back(arrayList);
 }
 
-void AddArrayIterator(const char* pos, InplaceStr varName, void* type, bool extra)
+void AddArrayIterator(const char* pos, InplaceStr varName, TypeInfo* type, bool extra)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
@@ -1938,6 +2017,17 @@ void FunctionAdd(const char* pos, const char* funcName)
 	currDefinedFunc.push_back(lastFunc);
 }
 
+bool FunctionGeneric(bool setGeneric, unsigned pos)
+{
+	FunctionInfo &lastFunc = *currDefinedFunc.back();
+	if(setGeneric)
+	{
+		lastFunc.generic = true;
+		lastFunc.genericStart = pos;
+	}
+	return lastFunc.generic;
+}
+
 void FunctionParameter(const char* pos, InplaceStr paramName)
 {
 	if(currType == typeVoid)
@@ -1945,7 +2035,7 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	unsigned int hash = GetStringHash(paramName.begin, paramName.end);
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
-	if(lastFunc.lastParam && !lastFunc.lastParam->varType)
+	if(lastFunc.lastParam && !lastFunc.lastParam->varType && !lastFunc.generic)
 		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
 
 	for(VariableInfo *info = lastFunc.firstParam; info; info = info->next)
@@ -2014,7 +2104,7 @@ void FunctionPrototype(const char* pos)
 	// Remove function arguments used to enable typeof
 	for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
 		varMap.remove(curr->nameHash, curr);
-	if(!lastFunc.retType)
+	if(!lastFunc.retType && !lastFunc.generic)
 		ThrowError(pos, "ERROR: function prototype with unresolved return type");
 	lastFunc.funcType = CodeInfo::GetFunctionType(lastFunc.retType, lastFunc.firstParam, lastFunc.paramCount);
 	currDefinedFunc.pop_back();
@@ -2205,7 +2295,7 @@ void FunctionEnd(const char* pos)
 		// Create a pointer to array
 		currType = CodeInfo::GetReferenceType(closureType);
 		lastFunc.extraParam->varType = currType;
-		void *varInfo = AddVariable(pos, InplaceStr(hiddenHame, length));
+		VariableInfo *varInfo = AddVariable(pos, InplaceStr(hiddenHame, length));
 
 		// Allocate array in dynamic memory
 		CodeInfo::nodeList.push_back(new NodeNumber((int)(lastFunc.externalSize), typeInt));
@@ -2333,7 +2423,11 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 		TypeInfo *expectedType = currFunc->paramType[i];
 		if(expectedType != paramType)
 		{
-			if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
+			if(expectedType == typeGeneric)	// generic function argument
+				continue;
+			else if(expectedType->dependsOnGeneric)	// generic function argument that is derivative from generic
+				fRating += 5;
+			else if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
 				fRating += 2;	// array -> class (unsized array)
 			else if(expectedType == typeAutoArray && paramType->arrLevel)
 				fRating += 10;	// array -> auto[]
@@ -2602,8 +2696,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		// Find the best suited function
 		bestFuncRating.resize(count);
 
-		unsigned int minRating = ~0u;
-		unsigned int minRatingIndex = ~0u;
+		unsigned int minRating = ~0u, minGenericRating = ~0u;
+		unsigned int minRatingIndex = ~0u, minGenericIndex = ~0u;
 		for(unsigned int k = 0; k < count; k++)
 		{
 			unsigned int argumentCount = callArgCount;
@@ -2646,16 +2740,36 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			}else{
 				bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, argumentCount);
 			}
-			if(bestFuncRating[k] < minRating)
+			if(bestFuncList[k]->generic)
 			{
-				minRating = bestFuncRating[k];
-				minRatingIndex = k;
+				if(bestFuncRating[k] < minGenericRating)
+				{
+					minGenericRating = bestFuncRating[k];
+					minGenericIndex = k;
+				}
+			}else{
+				if(bestFuncRating[k] < minRating)
+				{
+					minRating = bestFuncRating[k];
+					minRatingIndex = k;
+				}
 			}
 			while(argumentCount > callArgCount)
 			{
 				CodeInfo::nodeList.pop_back();
 				argumentCount--;
 			}
+		}
+		// Use generic function only if it is better that selected
+		if(minGenericRating < minRating)
+		{
+			minRating = bestFuncRating[minGenericIndex];
+			minRatingIndex = minGenericIndex;
+		}else{
+			// Otherwise, go as far as disabling all generic functions from selection
+			for(unsigned int k = 0; k < count; k++)
+				if(bestFuncList[k]->generic)
+					bestFuncRating[k] = ~0u;
 		}
 		// Maybe the function we found can't be used at all
 		if(minRatingIndex == ~0u)
@@ -2780,6 +2894,78 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")");
 			ThrowError(pos, errTemp);
 		}
+	}
+	NodeZeroOP *funcDefAtEnd = NULL;
+	if(fInfo && fInfo->generic)
+	{
+		// Get ID of the function that will be created
+		unsigned funcID = CodeInfo::funcInfo.size();
+
+		if(fInfo->type == FunctionInfo::THISCALL)
+		{
+			currType = fInfo->parentClass;
+			TypeContinue(pos);
+		}
+
+		// Function return type
+		currType = fType->retType;
+		FunctionAdd(pos, fInfo->name);
+
+		if(fInfo->type == FunctionInfo::COROUTINE)
+			CodeInfo::funcInfo.back()->type = FunctionInfo::COROUTINE;
+
+		Lexeme *start = CodeInfo::lexStart + fInfo->genericStart;
+		CodeInfo::lastKnownStartPos = NULL;
+
+		unsigned argOffset = CodeInfo::nodeList.size() - fType->paramCount;
+
+		jmp_buf oldHandler;
+		memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
+		if(!setjmp(CodeInfo::errorHandler))
+		{
+			ParseFunctionVariables(&start, CodeInfo::nodeList.size() - fType->paramCount + 1);
+			assert(start->type == lex_cparen);
+			start++;
+			assert(start->type == lex_ofigure);
+			start++;
+
+			CodeInfo::funcInfo[funcID]->generic = false;
+			CodeInfo::funcInfo[funcID]->genericStart = 0;
+
+			FunctionStart(pos);
+			const char *lastFunc = SetCurrentFunction(NULL);
+			if(!ParseCode(&start))
+				AddVoidNode();
+			SetCurrentFunction(lastFunc);
+
+			FunctionEnd(start->pos);
+		}else{
+			memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
+
+			char	errTemp[512];
+			char	*errPos = errTemp;
+			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "ERROR: while instantiating generic function %s(", fInfo->name);
+			for(unsigned i = 0; i < fType->paramCount; i++)
+				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", fType->paramType[i]->GetFullTypeName());
+			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n\tusing argument vector (");
+			for(unsigned i = 0; i < fType->paramCount; i++)
+				errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s%s", i == 0 ? "" : ", ", CodeInfo::nodeList[argOffset + i]->typeInfo->GetFullTypeName());
+			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), ")\r\n");
+			errPos += SafeSprintf(errPos, 512 - int(errPos - errTemp), "%s", CodeInfo::lastError.GetErrorString());
+			errPos -= 2;
+			*errPos++ = 0;
+			ThrowError(pos, errTemp);
+		}
+		memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
+
+		if(fInfo->type == FunctionInfo::THISCALL)
+			TypeStop();
+
+		funcDefAtEnd = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+
+		fInfo = CodeInfo::funcInfo[funcID];
+		fType = fInfo->funcType->funcType;
 	}
 
 	if(fInfo && callArgCount < fType->paramCount)
@@ -2946,6 +3132,14 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		uncalledPos = pos;
 	}
 #endif
+
+	if(funcDefAtEnd)
+	{
+		CodeInfo::nodeList.push_back(funcDefAtEnd);
+		NodeExpressionList *temp = new NodeExpressionList(CodeInfo::nodeList[CodeInfo::nodeList.size() - 2]->typeInfo);
+		temp->AddNode(false);
+		CodeInfo::nodeList.push_back(temp);
+	}
 
 	return true;
 }
@@ -3296,10 +3490,10 @@ struct TypeHandler
 	TypeHandler	*next;
 };
 
-void AddListGenerator(const char* pos, void *rType)
+void AddListGenerator(const char* pos, TypeInfo *rType)
 {
 //typedef int generic;
-	TypeInfo *retType = (TypeInfo*)rType;
+	TypeInfo *retType = rType;
 
 	currType = CodeInfo::GetArrayType(retType, TypeInfo::UNSIZED_ARRAY);
 
@@ -3315,7 +3509,7 @@ void AddListGenerator(const char* pos, void *rType)
 
 //	auto[] res = auto_array(generic, 1);
 	currType = typeAutoArray;
-	void *varInfo = AddVariable(pos, InplaceStr("res"));
+	VariableInfo *varInfo = AddVariable(pos, InplaceStr("res"));
 	currType = retType;
 	GetTypeId();
 	CodeInfo::nodeList.push_back(new NodeNumber(1, typeInt));

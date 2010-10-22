@@ -209,6 +209,10 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				Optimization="2"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="false"
+				FavorSizeOrSpeed="0"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS"
 				ExceptionHandling="0"
 				RuntimeLibrary="2"
@@ -963,6 +967,18 @@
 			</File>
 			<File
 				RelativePath=".\tests\TestGC.cpp"
+				>
+				<FileConfiguration
+					Name="Release_Notest|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\tests\TestGeneric.cpp"
 				>
 				<FileConfiguration
 					Name="Release_Notest|Win32"

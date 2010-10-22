@@ -90,7 +90,7 @@ TypeInfo*	ChooseBinaryOpResultType(TypeInfo* a, TypeInfo* b)
 		return a;
 	if(b->type == TypeInfo::TYPE_CHAR)
 		return b;
-	assert(false);
+	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unsupported argument type to a binary operation");
 	return NULL;
 }
 

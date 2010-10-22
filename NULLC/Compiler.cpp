@@ -33,6 +33,8 @@ TypeInfo*	typeObject = NULL;
 TypeInfo*	typeTypeid = NULL;
 TypeInfo*	typeAutoArray = NULL;
 
+TypeInfo*	typeGeneric = NULL;
+
 CompilerError::CompilerError(const char* errStr, const char* apprPos)
 {
 	Init(errStr, apprPos);
@@ -44,7 +46,7 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 	unsigned int len = (unsigned int)strlen(errStr) < ERROR_LENGTH ? (unsigned int)strlen(errStr) : ERROR_LENGTH - 1;
 	memcpy(error, errStr, len);
 	error[len] = 0;
-	if(apprPos)
+	if(apprPos >= codeStart && apprPos <= codeEnd)
 	{
 		const char *begin = apprPos;
 		while((begin >= codeStart) && (*begin != '\n') && (*begin != '\r'))
@@ -54,7 +56,7 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 
 		lineNum = 1;
 		const char *scan = codeStart;
-		while(scan && scan < begin)
+		while(*scan && scan < begin)
 			if(*(scan++) == '\n')
 				lineNum++;
 
@@ -77,6 +79,8 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 }
 
 const char *CompilerError::codeStart = NULL;
+const char *CompilerError::codeEnd = NULL;
+
 const char *nullcBaseCode = "\
 void assert(int val);\r\n\
 void assert(int val, char[] message);\r\n\
@@ -273,6 +277,12 @@ Compiler::Compiler()
 	typeAutoArray->AddMemberVariable("ptr", CodeInfo::GetReferenceType(typeVoid));
 	typeAutoArray->AddMemberVariable("size", typeInt);
 	typeAutoArray->size = 8 + NULLC_PTR_SIZE;
+
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "generic", 0, 0, 1, NULL, TypeInfo::TYPE_VOID);
+	info->size = 0;
+	info->dependsOnGeneric = true;
+	typeGeneric = info;
+	CodeInfo::typeInfo.push_back(info);
 
 	buildInTypes.resize(CodeInfo::typeInfo.size());
 	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));
@@ -701,7 +711,15 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			lastFunc->implemented = true;
 			lastFunc->funcType = CodeInfo::typeInfo[typeRemap[fInfo->funcType]];
 
-			lastFunc->retType = lastFunc->funcType->funcType->retType;
+			if(lastFunc->funcType == typeVoid)
+			{
+				lastFunc->generic = true;
+				lastFunc->genericStart = fInfo->rOffsets[0] + (CodeInfo::lexFullStart - CodeInfo::lexStart);
+				lastFunc->retType = fInfo->rOffsets[1] != ~0u ? CodeInfo::typeInfo[typeRemap[fInfo->rOffsets[1]]] : NULL;
+				lastFunc->funcType = CodeInfo::GetFunctionType(lastFunc->retType, lastFunc->firstParam, lastFunc->paramCount);
+			}else{
+				lastFunc->retType = lastFunc->funcType->funcType->retType;
+			}
 
 			if(fInfo->parentType != ~0u && !fInfo->externCount)
 			{
@@ -818,14 +836,17 @@ bool Compiler::Compile(const char* str, bool noClear)
 	}
 	unsigned int lexStreamStart = lexer.GetStreamSize();
 	lexer.Lexify(str);
+	unsigned int lexStreamEnd = lexer.GetStreamSize();
 
 	const char	*moduleName[32];
 	const char	*moduleData[32];
+	unsigned	moduleStream[32];
 	unsigned int moduleCount = 0;
 
 	if(BinaryCache::GetBytecode("$base$.nc"))
 	{
 		moduleName[moduleCount] = "$base$.nc";
+		moduleStream[moduleCount] = 0;
 		moduleData[moduleCount++] = BinaryCache::GetBytecode("$base$.nc");
 	}
 
@@ -879,7 +900,13 @@ bool Compiler::Compile(const char* str, bool noClear)
 		if(!bytecode)
 		{
 			unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);
+			moduleStream[moduleCount] = lexer.GetStreamSize();
 			bytecode = BuildModule(path, pathNoImport);
+			start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
+		}else{
+			unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);
+			moduleStream[moduleCount] = lexer.GetStreamSize();
+			lexer.Lexify(bytecode + ((ByteCode*)bytecode)->offsetToSource);
 			start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
 		}
 		if(!bytecode)
@@ -896,6 +923,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		activeModules.push_back();
 		activeModules.back().name = moduleName[i];
 		activeModules.back().funcStart = CodeInfo::funcInfo.size();
+		CodeInfo::lexFullStart = lexer.GetStreamStart() + moduleStream[i];
 		if(!ImportModule(moduleData[i], moduleName[i], i + 1))
 			return false;
 		SetGlobalSize(0);
@@ -903,7 +931,10 @@ bool Compiler::Compile(const char* str, bool noClear)
 	}
 
 	CompilerError::codeStart = str;
+	CompilerError::codeEnd = (lexer.GetStreamStart() + lexStreamEnd)->pos;
 	CodeInfo::cmdInfoList.SetSourceStart(str);
+	CodeInfo::lexStart = lexer.GetStreamStart();
+	CodeInfo::lexFullStart = lexer.GetStreamStart() + lexStreamStart;
 
 	bool res;
 	if(!setjmp(CodeInfo::errorHandler))
@@ -1540,9 +1571,6 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	}
 
 	unsigned int offsetToFunc = size;
-	size += (CodeInfo::funcInfo.size() - functionsInModules) * sizeof(ExternFuncInfo);
-
-	unsigned int offsetToFirstLocal = size;
 
 	unsigned int clsListCount = 0;
 	unsigned int localCount = 0;
@@ -1572,6 +1600,10 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		for(FunctionInfo::ExternalInfo *curr = func->firstExternal; curr; curr = curr->next)
 			symbolStorageSize += (unsigned int)(curr->variable->name.end - curr->variable->name.begin) + 1;
 	}
+	size += (CodeInfo::funcInfo.size() - functionsInModules) * sizeof(ExternFuncInfo);
+
+	unsigned int offsetToFirstLocal = size;
+
 	size += localCount * sizeof(ExternLocalInfo);
 
 	size += clsListCount * sizeof(unsigned int);
@@ -1775,34 +1807,43 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		funcInfo.isNormal = refFunc->type == FunctionInfo::NORMAL ? 1 : 0;
 		funcInfo.funcCat = (unsigned char)refFunc->type;
 
-		funcInfo.retType = ExternFuncInfo::RETURN_UNKNOWN;
-		if(refFunc->retType->type == TypeInfo::TYPE_VOID)
-			funcInfo.retType = ExternFuncInfo::RETURN_VOID;
-		else if(refFunc->retType->type == TypeInfo::TYPE_FLOAT || refFunc->retType->type == TypeInfo::TYPE_DOUBLE)
-			funcInfo.retType = ExternFuncInfo::RETURN_DOUBLE;
-#ifdef NULLC_COMPLEX_RETURN
-		else if(refFunc->retType->type == TypeInfo::TYPE_CHAR ||
-			refFunc->retType->type == TypeInfo::TYPE_SHORT ||
-			refFunc->retType->type == TypeInfo::TYPE_INT)
-			funcInfo.retType = ExternFuncInfo::RETURN_INT;
-		else if(refFunc->retType->type == TypeInfo::TYPE_LONG)
-			funcInfo.retType = ExternFuncInfo::RETURN_LONG;
-		funcInfo.returnShift = (unsigned char)(refFunc->retType->size / 4);
-#else
-		else if(refFunc->retType->type == TypeInfo::TYPE_INT || refFunc->retType->size <= 4)
-			funcInfo.retType = ExternFuncInfo::RETURN_INT;
-		else if(refFunc->retType->type == TypeInfo::TYPE_LONG || refFunc->retType->size == 8)
-			funcInfo.retType = ExternFuncInfo::RETURN_LONG;
-#endif
-
 		funcInfo.funcType = refFunc->funcType->typeIndex;
 		funcInfo.parentType = (refFunc->parentClass ? refFunc->parentClass->typeIndex : ~0u);
-
-		CreateExternalInfo(funcInfo, *refFunc);
-
 		funcInfo.offsetToFirstLocal = localOffset;
-
 		funcInfo.paramCount = refFunc->paramCount;
+
+		if(!refFunc->generic)
+		{
+			funcInfo.retType = ExternFuncInfo::RETURN_UNKNOWN;
+			if(refFunc->retType->type == TypeInfo::TYPE_VOID)
+				funcInfo.retType = ExternFuncInfo::RETURN_VOID;
+			else if(refFunc->retType->type == TypeInfo::TYPE_FLOAT || refFunc->retType->type == TypeInfo::TYPE_DOUBLE)
+				funcInfo.retType = ExternFuncInfo::RETURN_DOUBLE;
+#ifdef NULLC_COMPLEX_RETURN
+			else if(refFunc->retType->type == TypeInfo::TYPE_CHAR ||
+				refFunc->retType->type == TypeInfo::TYPE_SHORT ||
+				refFunc->retType->type == TypeInfo::TYPE_INT)
+				funcInfo.retType = ExternFuncInfo::RETURN_INT;
+			else if(refFunc->retType->type == TypeInfo::TYPE_LONG)
+				funcInfo.retType = ExternFuncInfo::RETURN_LONG;
+			funcInfo.returnShift = (unsigned char)(refFunc->retType->size / 4);
+#else
+			else if(refFunc->retType->type == TypeInfo::TYPE_INT || refFunc->retType->size <= 4)
+				funcInfo.retType = ExternFuncInfo::RETURN_INT;
+			else if(refFunc->retType->type == TypeInfo::TYPE_LONG || refFunc->retType->size == 8)
+				funcInfo.retType = ExternFuncInfo::RETURN_LONG;
+#endif
+			CreateExternalInfo(funcInfo, *refFunc);
+		}else{
+			funcInfo.address = ~0u;
+			funcInfo.retType = ExternFuncInfo::RETURN_VOID;
+			funcInfo.funcType = 0;
+			memset(funcInfo.rOffsets, 0, 8 * sizeof(unsigned));
+			memset(funcInfo.fOffsets, 0, 8 * sizeof(unsigned));
+			funcInfo.ps3Callable = false;
+			funcInfo.rOffsets[0] = refFunc->genericStart - (CodeInfo::lexFullStart - CodeInfo::lexStart);
+			funcInfo.rOffsets[1] = refFunc->retType ? refFunc->retType->typeIndex : ~0u;
+		}
 
 		ExternLocalInfo::LocalType paramType = refFunc->firstParam ? ExternLocalInfo::PARAMETER : ExternLocalInfo::LOCAL;
 		if(refFunc->firstParam)
@@ -1811,8 +1852,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		{
 			code->firstLocal[localOffset].paramType = (unsigned short)paramType;
 			code->firstLocal[localOffset].defaultFuncId = curr->defaultValue ? (unsigned short)curr->defaultValueFuncID : 0xffff;
-			code->firstLocal[localOffset].type = curr->varType->typeIndex;
-			code->firstLocal[localOffset].size = curr->varType->size;
+			code->firstLocal[localOffset].type = curr->varType ? curr->varType->typeIndex : 0;
+			code->firstLocal[localOffset].size = curr->varType ? curr->varType->size : 0;
 			code->firstLocal[localOffset].offset = curr->pos;
 			code->firstLocal[localOffset].closeListID = 0;
 			code->firstLocal[localOffset].offsetToName = int(symbolPos - code->debugSymbols);
@@ -1856,7 +1897,6 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		funcInfo.closeListStart = refFunc->closeListStart = clsListCount;
 		if(refFunc->closeUpvals)
 			clsListCount += refFunc->maxBlockDepth;
-
 
 		// Fill up next
 		fInfo++;

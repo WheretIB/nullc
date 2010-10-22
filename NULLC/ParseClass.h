@@ -64,6 +64,7 @@ public:
 		memberCount = 0;
 		subType = childType;
 		hasPointers = (!!referenceLevel) || (arraySize == UNSIZED_ARRAY) || (subType && subType->hasPointers);
+		dependsOnGeneric = false;
 
 		alignBytes = 0;
 		paddingBytes = 0;
@@ -105,6 +106,7 @@ public:
 	unsigned int	refLevel;	// reference to a type depth
 	unsigned int	arrLevel;	// array to a type depth
 	bool			hasPointers;
+	bool			dependsOnGeneric;
 
 	unsigned int	arrSize;	// element count for an array
 	unsigned int	memberCount;
@@ -419,6 +421,8 @@ public:
 		implemented = false;
 		pure = false;
 		explicitlyReturned = false;
+		generic = false;
+		genericStart = 0;
 		functionNode = NULL;
 		type = NORMAL;
 		funcType = NULL;
@@ -510,6 +514,8 @@ public:
 	bool		implemented;			// false if only function prototype has been found.
 	bool		pure;					// function is pure and can possibly be evaluated at compile time
 	bool		explicitlyReturned;		// an explicit return from function was compiled
+	bool		generic;				// function is a template that will be resolved at the time of calling
+	unsigned	genericStart;
 	void		*functionNode;
 
 	enum FunctionCategory{ NORMAL, LOCAL, THISCALL, COROUTINE };

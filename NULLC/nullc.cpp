@@ -35,6 +35,8 @@ FastVector<NodeZeroOP*>		CodeInfo::nodeList;
 FastVector<NodeZeroOP*>		CodeInfo::funcDefList;
 const char*					CodeInfo::lastKnownStartPos = NULL;
 
+Lexeme						*CodeInfo::lexStart = NULL, *CodeInfo::lexFullStart = NULL;
+
 Compiler*	compiler;
 #ifndef NULLC_NO_EXECUTOR
 	Linker*		linker;

@@ -19,6 +19,8 @@ extern TypeInfo*	typeObject;
 extern TypeInfo*	typeTypeid;
 extern TypeInfo*	typeAutoArray;
 
+extern TypeInfo*	typeGeneric;
+
 // Information about code, function, variables, types, node, etc
 namespace CodeInfo
 {
@@ -48,6 +50,8 @@ namespace CodeInfo
 	// Command stream
 	extern SourceInfo				cmdInfoList;
 	extern FastVector<VMCmd>		cmdList;
+
+	extern Lexeme					*lexStart, *lexFullStart;
 
 	// —писок узлов, которые определ€ют код функции
 	extern FastVector<NodeZeroOP*>	funcDefList;
@@ -105,6 +109,7 @@ namespace CodeInfo
 				break;
 			}
 		}
+		bool skipIt = false;
 		// If none found, create new
 		if(!bestFit)
 		{
@@ -112,11 +117,16 @@ namespace CodeInfo
 			bestFit = typeInfo.back();
 			bestFit->CreateFunctionType(retType, paramCount);
 
+			bestFit->dependsOnGeneric = retType ? retType->dependsOnGeneric : true;
+
 			unsigned int i = 0;
 			for(T *curr = paramTypes; curr; curr = curr->next, i++)
 			{
 				bestFit->funcType->paramType[i] = curr->varType;
-				bestFit->funcType->paramSize += curr->varType->size > 4 ? curr->varType->size : 4;
+				if(curr->varType != typeGeneric)
+					bestFit->funcType->paramSize += curr->varType->size > 4 ? curr->varType->size : 4;
+				else
+					skipIt = true; // generic function type shouldn't be saved to a type array
 			}
 
 	#ifdef _DEBUG
@@ -125,8 +135,16 @@ namespace CodeInfo
 	#endif
 			bestFit->size = 4 + NULLC_PTR_SIZE;
 			bestFit->hasPointers = true;
+
+			if(!skipIt)
+			{
+				typeFunctions.push_back(bestFit);
+			}else{
+				bestFit->dependsOnGeneric = true;
+				typeInfo.pop_back();
+			}
 		}
-		typeFunctions.push_back(bestFit);
+		
 		return bestFit;
 	}
 

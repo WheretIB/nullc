@@ -248,4 +248,14 @@ return bar(<x>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which acc
 return bar(<>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which accepts a function with 0 argument(s) as an argument #0");
 
 	TEST_FOR_FAIL("Using an argument of a function in definition in expression", "auto foo(int a, int b = a){ return a + b; } return foo(5, 7);", "ERROR: variable or function 'a' is not defined");
+
+	TEST_FOR_FAIL("Short inline function at generic argument position", "auto foo(generic a, b, generic f){ return f(a, b); } return foo(5, 4, <x,y>{ x * y; });", "ERROR: cannot find function 'foo' which accepts a function with 2 argument(s) as an argument #2");
+
+	TEST_FOR_FAIL("Inline generic function definition", "int foo(int ref(int) f){ return f(5); } return foo(int x(generic a){ return -a; });", "ERROR: can't find function 'foo' with following parameters:");
+
+	TEST_FOR_FAIL("Inline generic function pointer", "int foo(int ref(int) f){ return f(5); } int x(generic a){ return -a; } return foo(x);", "ERROR: can't find function 'foo' with following parameters:");
+
+	TEST_FOR_FAIL("typeof from a combination of generic arguments", "auto sum(generic a, b, typeof(a*b) c){ return a + b; } return sum(3, 4.5, 5l);", "ERROR: unsupported argument type to a binary operation");
+
+	TEST_FOR_FAIL("error in generic function body", "auto sum(generic a, b, c){ return a + b + ; } return sum(3, 4.5, 5l);", "ERROR: while instantiating generic function sum(generic, generic, generic)");
 }
