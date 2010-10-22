@@ -10,6 +10,12 @@
 #include "Executor_Common.h"
 #include "includes/typeinfo.h"
 
+// memory structure				   |base->
+// small object storage:			marker, data...
+// big object storage:		size,	marker, data...
+// small array storage:				marker, count, data...
+// big array storage:		size,	marker, count, data...
+
 namespace NULLC
 {
 	static Linker	*linker = NULL;
@@ -21,20 +27,20 @@ namespace NULLC
 	static unsigned	OBJECT_FINALIZED	= 1 << 3;
 	static unsigned OBJECT_ARRAY		= 1 << 4;
 
-	void FinalizeObject(unsigned& marker, char* base)
+	void FinalizeObject(markerType& marker, char* base)
 	{
 		if(marker & NULLC::OBJECT_ARRAY)
 		{
-			unsigned count = *(unsigned*)(base + 4);
-			unsigned size = NULLC::linker->exTypes[marker >> 8].size;
-			NULLCRef r = { marker >> 8, base + 8 };
+			unsigned count = *(unsigned*)(base + sizeof(markerType));
+			unsigned size = NULLC::linker->exTypes[(unsigned)marker >> 8].size;
+			NULLCRef r = { (unsigned)marker >> 8, base + sizeof(markerType) + 4 }; // skip over marker and array size
 			for(unsigned i = 0; i < count; i++)
 			{
 				NULLC::finalizeList.push_back(r);
 				r.ptr += size;
 			}
 		}else{
-			NULLCRef r = { marker >> 8, base + 4 };
+			NULLCRef r = { (unsigned)marker >> 8, base + sizeof(markerType) }; // skip over marker
 			NULLC::finalizeList.push_back(r);
 		}
 		marker |= NULLC::OBJECT_FINALIZED;
@@ -45,7 +51,7 @@ template<int elemSize>
 union SmallBlock
 {
 	char			data[elemSize];
-	unsigned int	marker;
+	markerType		marker;
 	SmallBlock		*next;
 };
 
@@ -130,7 +136,7 @@ public:
 		{
 			if((char*)ptr >= (char*)curr->page && (char*)ptr <= (char*)curr->page + sizeof(MyLargeBlock))
 			{
-				if(((unsigned int)(intptr_t)((char*)ptr - (char*)curr->page) & (elemSize - 1)) == 4)
+				if(((unsigned int)(intptr_t)((char*)ptr - (char*)curr->page) & (elemSize - 1)) == sizeof(markerType))
 					return true;
 			}
 			curr = curr->next;
@@ -162,7 +168,7 @@ public:
 		if(ptr < best || ptr > (char*)best + sizeof(MyLargeBlock))
 			return NULL;
 		unsigned int fromBase = (unsigned int)(intptr_t)((char*)ptr - (char*)best->page);
-		return (char*)best->page + (fromBase & ~(elemSize - 1)) + 4;
+		return (char*)best->page + (fromBase & ~(elemSize - 1)) + sizeof(markerType);
 	}
 	void Mark(unsigned int number)
 	{
@@ -246,7 +252,7 @@ void* NULLC::AllocObject(int size, unsigned type)
 		return NULL;
 	}
 	void *data = NULL;
-	size += 4;
+	size += sizeof(markerType);
 
 	if((unsigned int)(usedMemory + size) > globalMemoryLimit)
 	{
@@ -299,7 +305,7 @@ void* NULLC::AllocObject(int size, unsigned type)
 				data = pool512.Alloc();
 				realSize = 512;
 			}else{
-				globalObjects.push_back(NULLC::alloc(size+4));
+				globalObjects.push_back(NULLC::alloc(size + 4));
 				if(globalObjects.back() == NULL)
 				{
 					nullcThrowError("Allocation failed.");
@@ -322,8 +328,8 @@ void* NULLC::AllocObject(int size, unsigned type)
 		finalize = OBJECT_FINALIZABLE;
 
 	memset(data, 0, size);
-	*(int*)data = finalize | (type << 8);
-	return (char*)data + 4;
+	*(markerType*)data = finalize | (type << 8);
+	return (char*)data + sizeof(markerType);
 }
 
 unsigned int NULLC::UsedMemory()
@@ -336,7 +342,8 @@ NULLCArray NULLC::AllocArray(int size, int count, unsigned type)
 	NULLCArray ret;
 	ret.ptr = 4 + (char*)AllocObject(count * size + 4, type);
 	((unsigned*)ret.ptr)[-1] = count;
-	((unsigned*)ret.ptr)[-2] |= OBJECT_ARRAY;
+	markerType *marker = (markerType*)((char*)ret.ptr - 4 - sizeof(markerType));
+	*marker |= OBJECT_ARRAY;
 	ret.len = count;
 	return ret;
 }
@@ -345,7 +352,10 @@ void NULLC::MarkMemory(unsigned int number)
 {
 	assert(number <= 1);
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
-		((unsigned int*)globalObjects[i])[1] = (((unsigned int*)globalObjects[i])[1] & ~NULLC::OBJECT_VISIBLE) | number;
+	{
+		markerType *marker = (markerType*)((char*)globalObjects[i] + 4);
+		*marker = (*marker & ~NULLC::OBJECT_VISIBLE) | number;
+	}
 	pool8.Mark(number);
 	pool16.Mark(number);
 	pool32.Mark(number);
@@ -375,7 +385,7 @@ bool NULLC::IsBasePointer(void* ptr)
 	// Search in global pool
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
 	{
-		if((char*)ptr - 8 == globalObjects[i])
+		if((char*)ptr - 4 - sizeof(markerType) == globalObjects[i])
 			return true;
 	}
 	return false;
@@ -402,7 +412,7 @@ void* NULLC::GetBasePointer(void* ptr)
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
 	{
 		if(ptr >= globalObjects[i] && ptr <= (char*)globalObjects[i] + *(unsigned int*)globalObjects[i])
-			return (char*)globalObjects[i] + 8;
+			return (char*)globalObjects[i] + 4 + sizeof(markerType);
 	}
 	return NULL;
 }
@@ -425,7 +435,7 @@ void NULLC::CollectMemory()
 	unsigned int unusedBlocks = 0;
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
 	{
-		unsigned &marker = ((unsigned int*)globalObjects[i])[1];
+		markerType &marker = *(markerType*)((char*)globalObjects[i] + 4);
 		if(!(marker & NULLC::OBJECT_VISIBLE))
 		{
 			if((marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
@@ -500,7 +510,7 @@ void NULLC::FinalizeMemory()
 	pool512.FreeMarked();
 	for(unsigned int i = 0; i < globalObjects.size(); i++)
 	{
-		unsigned &marker = ((unsigned int*)globalObjects[i])[1];
+		markerType &marker = *(markerType*)((char*)globalObjects[i] + 4);
 		if(!(marker & NULLC::OBJECT_VISIBLE) && (marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
 			NULLC::FinalizeObject(marker, (char*)globalObjects[i] + 4);
 	}

@@ -235,8 +235,8 @@ namespace GC
 				return;
 			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
 
-			// Marker is 4 bytes before the block
-			unsigned int *marker = (unsigned int*)(basePtr)-1;
+			// Marker is before the block
+			markerType	*marker = (markerType*)((char*)basePtr - sizeof(markerType));
 			GC_DEBUG_PRINT("\tMarker is %d\r\n", *marker);
 
 			// If block is unmarked
@@ -272,11 +272,12 @@ namespace GC
 			GC_DEBUG_PRINT("\tGlobal pointer %p\r\n", ptr);
 			// Get base pointer
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+			markerType	*marker = (markerType*)((char*)basePtr - sizeof(markerType));
 			// If there is no base pointer or memory already marked, exit
-			if(!basePtr || (*((unsigned int*)(basePtr) - 1) & 1))
+			if(!basePtr || (*marker & 1))
 				return;
 			// Mark memory as used
-			*((unsigned int*)(basePtr) - 1) |= 1;
+			*marker |= 1;
 		}else if(type.nameHash == autoArrayName){
 			NULLCAutoArray *data = (NULLCAutoArray*)ptr;
 			// Get real variable type
@@ -331,11 +332,12 @@ namespace GC
 				return;
 			// Get base pointer
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+			markerType	*marker = (markerType*)((char*)basePtr - sizeof(markerType));
 			// If there is no base pointer or memory already marked, exit
-			if(!basePtr || (*((unsigned int*)(basePtr) - 1) & 1))
+			if(!basePtr || (*marker & 1))
 				return;
 			// Mark memory as used
-			*((unsigned int*)(basePtr) - 1) |= 1;
+			*marker |= 1;
 			// Fixup target
 			CheckVariable(*rPtr, *realType);
 			// Exit
@@ -542,12 +544,11 @@ void MarkUsedBlocks()
 		while(curr)
 		{
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(curr);
-			if(basePtr && !(basePtr[-1] & 1))
-			{
+			markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
+			if(basePtr && !(*marker & 1))
 				curr = curr->next;
-			}else{
+			else
 				break;
-			}
 		}
 		// Change list head in global data
 		NULLC::commonLinker->exCloseLists[i] = curr;
@@ -555,12 +556,11 @@ void MarkUsedBlocks()
 		while(curr && curr->next)
 		{
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(curr->next);
-			if(basePtr && (basePtr[-1] & 1))
-			{
+			markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
+			if(basePtr && (*marker & 1))
 				curr = curr->next;
-			}else{
+			else
 				curr->next = curr->next->next;
-			}
 		}
 	}
 
@@ -592,7 +592,7 @@ void MarkUsedBlocks()
 			// If there is no base, this pointer points to memory that is not GCs memory
 			if(basePtr)
 			{
-				unsigned int *marker = (unsigned int*)(basePtr)-1;
+				markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
 				// If block is unmarked, mark it as used
 				if(!(*marker & 1))
 					*marker |= 1;
