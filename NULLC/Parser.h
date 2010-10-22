@@ -25,7 +25,7 @@ bool ParseAddVariable(Lexeme** str);
 bool ParseVariableDefineSub(Lexeme** str);
 bool ParseVariableDefine(Lexeme** str);
 
-bool ParseIfExpr(Lexeme** str);
+bool ParseIfExpr(Lexeme** str, bool isStatic = false);
 bool ParseForExpr(Lexeme** str);
 bool ParseWhileExpr(Lexeme** str);
 bool ParseDoWhileExpr(Lexeme** str);

@@ -228,3 +228,34 @@ TEST("Group of tests 5", testMissingTests5a, "2")
 	CHECK_LONG("b3", 0, 1);
 	CHECK_LONG("b4", 0, 0);
 }
+
+const char	*testStaticIf1 =
+"int a = 4;\r\n\
+@if(typeof(a) != int)\r\n\
+{\r\n\
+	int[-1] f;\r\n\
+}\r\n\
+return a;";
+TEST_RESULT("Static if test 1", testStaticIf1, "4");
+
+const char	*testStaticIf2 =
+"int a = 4;\r\n\
+@if(typeof(a) == int)\r\n\
+{\r\n\
+	int[1] f; f[0] = a;\r\n\
+}else{\r\n\
+	int[-1] f;\r\n\
+}\r\n\
+return f[0];";
+TEST_RESULT("Static if test 2", testStaticIf2, "4");
+
+const char	*testStaticIf3 =
+"int a = 4;\r\n\
+@if(typeof(a) != int)\r\n\
+{\r\n\
+	int[-1] f;\r\n\
+}else{\r\n\
+	int[1] f; f[0] = a;\r\n\
+}\r\n\
+return f[0];";
+TEST_RESULT("Static if test 3", testStaticIf3, "4");

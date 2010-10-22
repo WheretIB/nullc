@@ -572,6 +572,16 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 			AddFunctionCallNode(pos, id == cmdEqual ? "__pcomp" : "__pncomp", 2);
 			return;
 		}
+		if(left->nodeType == typeNodeConvertPtr && left->typeInfo == typeTypeid && left->typeInfo == right->typeInfo && left->nodeType == right->nodeType)
+		{
+			CodeInfo::nodeList.pop_back();
+			CodeInfo::nodeList.pop_back();
+			if(((NodeConvertPtr*)left)->GetFirstNode()->typeInfo == ((NodeConvertPtr*)right)->GetFirstNode()->typeInfo)
+				CodeInfo::nodeList.push_back(new NodeNumber(id == cmdEqual, typeInt));
+			else
+				CodeInfo::nodeList.push_back(new NodeNumber(id == cmdNEqual, typeInt));
+			return;
+		}
 	}
 	unsigned int aNodeType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->nodeType;
 	unsigned int bNodeType = CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->nodeType;
@@ -939,6 +949,8 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, bool preferLastFunct
 			if(fID == -1)
 				ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
 		}
+		if(CodeInfo::funcInfo[fID]->generic)
+			ThrowError(pos, "ERROR: can't take pointer to a generic function");
 
 		if(CodeInfo::funcInfo[fID]->type == FunctionInfo::LOCAL || CodeInfo::funcInfo[fID]->type == FunctionInfo::COROUTINE)
 		{

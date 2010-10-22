@@ -257,8 +257,8 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function 'bar' which acce
 
 	TEST_FOR_FAIL("Inline generic function definition", "int foo(int ref(int) f){ return f(5); } return foo(int x(generic a){ return -a; });", "ERROR: can't find function 'foo' with following parameters:");
 
-	TEST_FOR_FAIL("Inline generic function pointer", "int foo(int ref(int) f){ return f(5); } int x(generic a){ return -a; } return foo(x);", "ERROR: can't find function 'foo' with following parameters:");
-
+	TEST_FOR_FAIL("Inline generic function pointer", "int foo(int ref(int) f){ return f(5); } int x(generic a){ return -a; } return foo(x);", "ERROR: can't take pointer to a generic function");
+	TEST_FOR_FAIL("Generic function pointer 2", "auto test(generic a, generic f){ return f(a); } auto foo(generic a){ return -a; } return test(5, foo);", "ERROR: can't take pointer to a generic function");
 	TEST_FOR_FAIL("typeof from a combination of generic arguments", "auto sum(generic a, b, typeof(a*b) c){ return a + b; } return sum(3, 4.5, double);", "ERROR: unable to call 'sum' after instantiating while matching argument vector");
 
 	TEST_FOR_FAIL("error in generic function body", "auto sum(generic a, b, c){ return a + b + ; } return sum(3, 4.5, 5l);", "ERROR: while instantiating generic function sum(generic, generic, generic)");
