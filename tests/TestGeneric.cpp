@@ -1239,3 +1239,24 @@ const char *testGeneric91 =
 int bar(){ return foo(5); }\r\n\
 return bar();";
 TEST_RESULT("typedef in a generic function", testGeneric91, "10");
+
+const char *testGeneric92 =
+"class Foo\r\n\
+{\r\n\
+	int y;\r\n\
+	int boo(generic x){ return x * y; }\r\n\
+\r\n\
+	void Foo(int n){ y = n; }\r\n\
+}\r\n\
+auto ref[2] arr;\r\n\
+arr[0] = new Foo(20);\r\n\
+arr[1] = new Foo(4);\r\n\
+\r\n\
+int sum = 0;\r\n\
+for(i in arr)\r\n\
+	sum += i.boo(4); // 4 * 20 + 4 * 4 = 96\r\n\
+int sum2 = 0;\r\n\
+for(i in arr)\r\n\
+	sum2 += i.boo(2.5); // 2.5 * 20 + 2.5 * 4 = 60\r\n\
+	return sum * 100 + sum2;";
+TEST_RESULT("member generic function call through 'auto ref'", testGeneric92, "9660");

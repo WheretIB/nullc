@@ -290,7 +290,9 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 
 			// Function return type
 			currType = fType->retType;
-			FunctionAdd(pos, fInfo->parentClass ? strchr(fInfo->name, ':') : fInfo->name);
+			if(fInfo->parentClass)
+				assert(strchr(fInfo->name, ':'));
+			FunctionAdd(pos, fInfo->parentClass ? strchr(fInfo->name, ':') + 2 : fInfo->name);
 
 			// Get aliases from prototype argument list
 			AliasInfo *aliasFromParent = fProto->childAlias;
@@ -1500,30 +1502,64 @@ void AddSetVariableNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
+	// Take l-value
 	NodeZeroOP *left = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
+	// If we have a function call as an l-value...
 	if(left->nodeType == typeNodeFuncCall && ((NodeFuncCall*)left)->funcInfo)
 	{
+		// ...and that was an accessor "get" function call, we have to replace "get" function with "set" function
 		FunctionInfo *fInfo = ((NodeFuncCall*)left)->funcInfo;
 		if(fInfo->name[fInfo->nameLength-1] == '$')
 		{
+			// Replace function call node with 'this' pointer that function node had
 			CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = ((NodeFuncCall*)left)->GetFirstNode();
+			// If this is an accessor of a generic type, maybe we have to instance a "set" accessor function
+			if(fInfo->parentClass && fInfo->parentClass->genericBase)
+			{
+				TypeInfo *currentType = fInfo->parentClass;
+				// Get hash of the base class accessor name
+				unsigned accessorBaseHash = currentType->genericBase->nameHash;
+				accessorBaseHash = StringHashContinue(accessorBaseHash, "::");
+				const char *skipClassName = strchr(fInfo->name, ':');
+				assert(skipClassName);
+				accessorBaseHash = StringHashContinue(accessorBaseHash, skipClassName + 2);
+				// Clear selected function list
+				bestFuncList.clear();
+				SelectFunctionsForHash(accessorBaseHash, 0); // Select accessor functions from generic type base class
+				SelectFunctionsForHash(fInfo->nameHash, 0); // Select accessor functions from instanced class
+				// Select best function for the call
+				unsigned minRating = ~0u;
+				unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), 1, minRating);
+				if(minRating != ~0u)
+				{
+					// If a function is found and it is a generic function, instance it
+					FunctionInfo *fInfo = bestFuncList[minRatingIndex];
+					if(fInfo && fInfo->generic)
+					{
+						CreateGenericFunctionInstance(pos, fInfo, fInfo, currentType);
+						assert(fInfo->parentClass == currentType);
+						fInfo->parentClass = currentType;
+					}
+				}
+			}
+			// Try to call "set" accessor
 			if(AddFunctionCallNode(pos, fInfo->name, 1, true))
-				return;
+				return;	// If a call is successful, we are done
 			else
-				CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = left;
+				CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = left; // If failed, this is a read-only accessor so return l-value to original state
 		}
 	}
 
 	// Call overloaded operator with error suppression
 	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
 		return;
-
+	// Handle "auto ref" = "non-reference type" conversion
 	if(left->typeInfo == typeObject && CodeInfo::nodeList.back()->typeInfo->refLevel == 0)
 	{
-		NodeZeroOP *right = CodeInfo::nodeList.back();
-		CodeInfo::nodeList.pop_back();
-		CodeInfo::nodeList.push_back(new NodeConvertPtr(CodeInfo::GetReferenceType(right->typeInfo)));
-		CodeInfo::nodeList.push_back(right);
+		NodeZeroOP *right = CodeInfo::nodeList.back(); // take r-value
+		CodeInfo::nodeList.pop_back(); // temporarily remove it
+		CodeInfo::nodeList.push_back(new NodeConvertPtr(CodeInfo::GetReferenceType(right->typeInfo))); // convert "auto ref" to a reference of r-value type
+		CodeInfo::nodeList.push_back(right); // restore r-value, and now we have a natural "type ref" = "type" assignment 
 	}
 	CheckForImmutable(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, pos);
 
@@ -1620,25 +1656,79 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 			memberGet[memberNameLength] = '$';
 			memberGet[memberNameLength+1] = 0;
 			char *memberFuncName = GetClassFunctionName(currentType, memberGet);
-			if(AddFunctionCallNode(pos, memberFuncName, 0, true))
-			{
-				if(unifyTwo)
-					AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
-				return;
-			}
-			// If this is a generic type, try to instance a member function and take pointer to it
+
+			// If we have a generic type instance
 			if(currentType->genericBase)
 			{
-				memberGet[memberNameLength] = 0;
-				// Check that base class has this function
-				char *memberOrigName = GetClassFunctionName(currentType->genericBase, memberGet);
-				FunctionInfo **baseFunc = funcMap.find(GetStringHash(memberOrigName));
-				if(!baseFunc)
-					ThrowError(pos, "ERROR: function '%s' is undefined", memberOrigName);
+				// Get hash of an accessor function in a generic type base class
+				unsigned accessorBaseHash = currentType->genericBase->nameHash;
+				accessorBaseHash = StringHashContinue(accessorBaseHash, "::");
+				accessorBaseHash = StringHashContinue(accessorBaseHash, memberGet);
 
-				CreateGenericFunctionInstance(pos, *baseFunc, memberFunc, currentType);
-				memberFunc->parentClass = currentType;
+				// Get hashes of a regular functions in generic type base and instance class
+				memberGet[memberNameLength] = 0;
+				unsigned funcBaseHash = currentType->genericBase->nameHash;
+				funcBaseHash = StringHashContinue(funcBaseHash, "::");
+				funcBaseHash = StringHashContinue(funcBaseHash, memberGet);
+				unsigned funcInstancedHash = currentType->nameHash;
+				funcInstancedHash = StringHashContinue(funcInstancedHash, "::");
+				funcInstancedHash = StringHashContinue(funcInstancedHash, memberGet);
+
+				// Clear function selection
+				bestFuncList.clear();
+				SelectFunctionsForHash(funcBaseHash, 0); // Select regular functions from generic type base
+				SelectFunctionsForHash(funcInstancedHash, 0); // Select regular functions from instance class
+				// Choose best function
+				unsigned minRating = ~0u;
+				unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), 0, minRating);
+				if(minRating != ~0u)
+				{
+					// If a function is found and it is a generic function, instance it
+					FunctionInfo *fInfo = bestFuncList[minRatingIndex];
+					if(fInfo && fInfo->generic)
+					{
+						CreateGenericFunctionInstance(pos, fInfo, memberFunc, currentType);
+						assert(memberFunc->parentClass == currentType);
+						memberFunc->parentClass = currentType;
+					}
+				}else{
+					// Clear function selection
+					bestFuncList.clear();
+					SelectFunctionsForHash(accessorBaseHash, 0); // Select accessor functions from generic type base
+					SelectFunctionsForHash(GetStringHash(memberFuncName), 0); // Select accessor functions from instance class
+					// Choose best accessor
+					unsigned minRating = ~0u;
+					unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), 0, minRating);
+					if(minRating != ~0u)
+					{
+						// If a function is found and it is a generic function, instance it
+						FunctionInfo *fInfo = bestFuncList[minRatingIndex];
+						if(fInfo && fInfo->generic)
+						{
+							CreateGenericFunctionInstance(pos, fInfo, fInfo, currentType);
+							assert(fInfo->parentClass == currentType);
+							fInfo->parentClass = currentType;
+						}
+						// Call accessor
+						if(AddFunctionCallNode(pos, memberFuncName, 0, true))
+						{
+							if(unifyTwo)
+								AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
+							return; // Exit
+						}
+					}
+					// If an accessor is not found, throw an error
+					ThrowError(pos, "ERROR: member variable or function '%.*s' is not defined in class '%s'", varName.end-varName.begin, varName.begin, currentType->GetFullTypeName());
+				}
 			}else{
+				// Call accessor
+				if(AddFunctionCallNode(pos, memberFuncName, 0, true))
+				{
+					if(unifyTwo)
+						AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
+					return;
+				}
+				// If an accessor is not found, throw an error
 				ThrowError(pos, "ERROR: member variable or function '%.*s' is not defined in class '%s'", varName.end-varName.begin, varName.begin, currentType->GetFullTypeName());
 			}
 		}else{
@@ -1880,6 +1970,8 @@ void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred)
 		if(!dstPreferred->funcType)
 			ThrowError(pos, "ERROR: cannot select function overload for a type '%s'", dstPreferred->GetFullTypeName());
 		AddGetAddressNode(pos, InplaceStr(info->name), dstPreferred, thisNode);
+		if(CodeInfo::nodeList.back()->nodeType == typeNodeFunctionProxy)
+			ThrowError(pos, "ERROR: unable to select function overload for a type '%s'", dstPreferred->GetFullTypeName());
 	}
 }
 
@@ -2802,6 +2894,16 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 	// Save current type
 	TypeInfo *lastType = currType;
 
+	// Add aliases from member function parent type if it has one
+	if(fInfo->generic->parent->parentClass)
+	{
+		AliasInfo *baseClassAlias = fInfo->generic->parent->parentClass->childAlias;
+		while(baseClassAlias)
+		{
+			CodeInfo::classMap.insert(baseClassAlias->nameHash, baseClassAlias->type);
+			baseClassAlias = baseClassAlias->next;
+		}
+	}
 	// Reset function alias list
 	fInfo->childAlias = NULL;
 
@@ -2819,12 +2921,14 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 
 		bool genericArg = false, genericRef = false;
 		// Try to reparse the type
-		if(!ParseSelectType(&start, true, true))
+		while(!ParseSelectType(&start, true, true))
 		{
 			if(start->type == lex_generic) // If failed because of generic
 			{
 				genericArg = !!(start++); // move forward and mark argument as a generic
 			}else if(start->type == lex_less){ // If failed because of generic type specialization
+				genericArg = false;
+
 				TypeInfo *referenceType = CodeInfo::nodeList[nodeOffset + argID]->typeInfo; // Get type to which we are trying to specialize
 				// Strip type from references and arrays
 				TypeInfo *refTypeBase = referenceType;
@@ -2851,24 +2955,18 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 				while(refTypeBase->refLevel || refTypeBase->arrLevel)
 				{
 					if((refTypeBase->refLevel != selectedType->refLevel) || (refTypeBase->arrLevel != selectedType->arrLevel || refTypeBase->arrSize != selectedType->arrSize))
-					{
-						newRating = ~0u; // function is not instanced if there are any differences
-						return NULL;
-					}
+						break; // function type will be instanced to show a better function selection error
 					refTypeBase = refTypeBase->subType;
 					selectedType = selectedType->subType;
 				}
 				if(selectedType->genericBase != expectedType && !(selectedType->refLevel && selectedType->subType->genericBase == expectedType))
-				{
-					newRating = ~0u; // function is not instanced if there are any differences
-					return NULL;
-				}
-				genericArg = false;
+					break; // function type will be instanced to show a better function selection error
 			}else{ // If failed for other reasons, such as typeof that depends on generic
 				assert(argID);
 				TypeInfo *argType = fInfo->funcType->funcType->paramType[argID - 1];
 				genericArg = argType == typeGeneric || argType->dependsOnGeneric; // mark argument as a generic
 			}
+			break;
 		}
 		genericRef = start->type == lex_ref ? !!(start++) : false;
 
@@ -2909,6 +3007,16 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 		}
 		CodeInfo::classMap.remove(aliasCurr->nameHash, aliasCurr->type);
 		aliasCurr = aliasCurr->next;
+	}
+	// Remove aliases from member function parent type if it has one
+	if(fInfo->generic->parent->parentClass)
+	{
+		AliasInfo *baseClassAlias = fInfo->generic->parent->parentClass->childAlias;
+		while(baseClassAlias)
+		{
+			CodeInfo::classMap.remove(baseClassAlias->nameHash, baseClassAlias->type);
+			baseClassAlias = baseClassAlias->next;
+		}
 	}
 
 	// We have to create a function type for generated parameters
@@ -3036,7 +3144,113 @@ bool PrepareMemberCall(const char* pos, const char* funcName)
 	return true;
 }
 
-void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount)
+void SelectFunctionsForHash(unsigned funcNameHash, unsigned scope)
+{
+	HashMap<FunctionInfo*>::Node *curr = funcMap.first(funcNameHash);
+	while(curr)
+	{
+		FunctionInfo *func = curr->value;
+		if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType && func->vTopSize >= scope)
+			bestFuncList.push_back(func);
+		curr = funcMap.next(curr);
+	}
+}
+
+unsigned SelectBestFunction(const char *pos, unsigned count, unsigned callArgCount, unsigned int &minRating)
+{
+	// Find the best suited function
+	bestFuncRating.resize(count);
+
+	unsigned int minGenericRating = ~0u;
+	unsigned int minRatingIndex = ~0u, minGenericIndex = ~0u;
+	for(unsigned int k = 0; k < count; k++)
+	{
+		unsigned int argumentCount = callArgCount;
+		// Act as if default parameter values were passed
+		if(argumentCount < bestFuncList[k]->paramCount)
+		{
+			// Move to the last parameter
+			VariableInfo *param = bestFuncList[k]->firstParam;
+			for(unsigned int i = 0; i < argumentCount; i++)
+				param = param->next;
+			// While there are default values, put them
+			while(param && param->defaultValue)
+			{
+				argumentCount++;
+				CodeInfo::nodeList.push_back(param->defaultValue);
+				param = param->next;
+			}
+		}
+		if(argumentCount >= (bestFuncList[k]->paramCount - 1) && bestFuncList[k]->lastParam && bestFuncList[k]->lastParam->varType == typeObjectArray &&
+			!(argumentCount == bestFuncList[k]->paramCount && CodeInfo::nodeList.back()->typeInfo == typeObjectArray))
+		{
+			// If function accepts variable argument list
+			TypeInfo *&lastType = bestFuncList[k]->funcType->funcType->paramType[bestFuncList[k]->paramCount - 1];
+			assert(lastType == CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY));
+			unsigned int redundant = argumentCount - bestFuncList[k]->paramCount;
+			if(redundant == ~0u)
+				CodeInfo::nodeList.push_back(new NodeZeroOP(typeObjectArray));
+			else
+				CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - redundant);
+			// Change things in a way that this function will be selected (lie about real argument count and match last argument type)
+			lastType = CodeInfo::nodeList.back()->typeInfo;
+			bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, bestFuncList[k]->paramCount);
+			if(redundant == ~0u)
+				CodeInfo::nodeList.pop_back();
+			else
+				CodeInfo::nodeList.resize(CodeInfo::nodeList.size() + redundant);
+			if(bestFuncRating[k] != ~0u)
+				bestFuncRating[k] += 10 + (redundant == ~0u ? 5 : redundant * 5);	// Cost of variable arguments function
+			lastType = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
+		}else{
+			bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, argumentCount);
+		}
+		if(bestFuncList[k]->generic)
+		{
+			// If we have a positive rating, check that generic function constraints are satisfied
+			if(bestFuncRating[k] != ~0u)
+			{
+				unsigned newRating = bestFuncRating[k];
+				TypeInfo *tmpType = GetGenericFunctionRating(pos, bestFuncList[k], newRating, count);
+
+				bestFuncList[k]->generic->instancedType = tmpType;
+				bestFuncRating[k] = newRating;
+			}else{
+				bestFuncList[k]->generic->instancedType = NULL;
+			}
+			if(bestFuncRating[k] < minGenericRating)
+			{
+				minGenericRating = bestFuncRating[k];
+				minGenericIndex = k;
+			}
+		}else{
+			if(bestFuncRating[k] < minRating)
+			{
+				minRating = bestFuncRating[k];
+				minRatingIndex = k;
+			}
+		}
+		while(argumentCount > callArgCount)
+		{
+			CodeInfo::nodeList.pop_back();
+			argumentCount--;
+		}
+	}
+	// Use generic function only if it is better that selected
+	if(minGenericRating < minRating)
+	{
+		minRating = bestFuncRating[minGenericIndex];
+		minRatingIndex = minGenericIndex;
+	}else{
+		// Otherwise, go as far as disabling all generic functions from selection
+		for(unsigned int k = 0; k < count; k++)
+			if(bestFuncList[k]->generic)
+				bestFuncRating[k] = ~0u;
+	}
+	return minRatingIndex;
+}
+
+bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount, bool silent)
 {
 	// Check if type has any member functions
 	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1]->typeInfo;
@@ -3061,24 +3275,16 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 			ThrowError(pos, "ERROR: function '%s' is undefined in any of existing classes", funcName);
 
 		// Find best function fit
-		bestFuncRating.resize(count);
-
-		unsigned int minRating = ~0u;
-		unsigned int minRatingIndex = ~0u;
-		for(unsigned int k = 0; k < count; k++)
-		{
-			unsigned int argumentCount = callArgCount;
-			bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, argumentCount);
-			if(bestFuncRating[k] < minRating)
-			{
-				minRating = bestFuncRating[k];
-				minRatingIndex = k;
-			}
-		}
-		if(minRating != 0)
+		unsigned minRating = ~0u;
+		unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), callArgCount, minRating);
+		if(minRating == ~0u)
 			ThrowError(pos, "ERROR: none of the member ::%s functions can handle the supplied parameter list without conversions", funcName);
+		FunctionInfo *fInfo = bestFuncList[minRatingIndex];
+		if(fInfo && fInfo->generic)
+			CreateGenericFunctionInstance(pos, fInfo, fInfo, fInfo->parentClass);
+
 		// Get function type
-		TypeInfo *fType = bestFuncList[minRatingIndex]->funcType;
+		TypeInfo *fType = fInfo->funcType;
 
 		unsigned int lenStr = 5 + (int)strlen(funcName) + 1 + 32;
 		char *vtblName = AllocateString(lenStr);
@@ -3120,7 +3326,7 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.push_back(autoRef);
-		return;
+		return true;
 	}
 	CheckForImmutable(currentType, pos);
 	// Construct name in a form of Class::Function
@@ -3128,21 +3334,31 @@ void AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 	// If this is generic type instance, maybe the function is not instanced at the moment
 	if(currentType->subType->genericBase)
 	{
-		if(!funcMap.find(GetStringHash(memberFuncName)))
-		{
-			// Check that base class has this function
-			char *memberOrigName = GetClassFunctionName(currentType->subType->genericBase, funcName);
-			FunctionInfo **baseFunc = funcMap.find(GetStringHash(memberOrigName));
-			if(!baseFunc)
-				ThrowError(pos, "ERROR: function '%s' is undefined", memberOrigName);
+		bestFuncList.clear();
 
-			FunctionInfo *fResult = NULL;
-			CreateGenericFunctionInstance(pos, *baseFunc, fResult, currentType->subType);
-			fResult->parentClass = currentType->subType;
+		SelectFunctionsForHash(GetStringHash(memberFuncName), 0);
+		// Check that base class has this function
+		char *memberOrigName = GetClassFunctionName(currentType->subType->genericBase, funcName);
+		SelectFunctionsForHash(GetStringHash(memberOrigName), 0);
+
+		unsigned minRating = ~0u;
+		unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), callArgCount, minRating);
+		if(minRating == ~0u)
+		{
+			if(silent)
+				return false;
+			ThrowError(pos, "ERROR: function '%s' is undefined", memberOrigName);
+		}
+		FunctionInfo *fInfo = bestFuncList[minRatingIndex];
+		if(fInfo && fInfo->generic)
+		{
+			CreateGenericFunctionInstance(pos, fInfo, fInfo, currentType->subType);
+			assert(fInfo->parentClass == currentType->subType);
+			fInfo->parentClass = currentType->subType;
 		}
 	}
 	// Call it
-	AddFunctionCallNode(pos, memberFuncName, callArgCount);
+	return AddFunctionCallNode(pos, memberFuncName, callArgCount, silent);
 }
 
 void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorReport, char* errPos, const char* funcName, unsigned callArgCount, unsigned count)
@@ -3219,7 +3435,7 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /
 		assert(strchr(fInfo->name, ':'));
 	else if(fInfo->parentClass)
 		assert(strchr(fInfo->name, ':'));
-	FunctionAdd(pos, forcedParentType ? strchr(fInfo->name, ':') + 2 : (fInfo->parentClass ? strchr(fInfo->name, ':') : fInfo->name));
+	FunctionAdd(pos, forcedParentType ? strchr(fInfo->name, ':') + 2 : (fInfo->parentClass ? strchr(fInfo->name, ':') + 2 : fInfo->name));
 
 	// New function type is equal to generic function type no matter where we create an instance of it
 	CodeInfo::funcInfo.back()->type = fInfo->type;
@@ -3430,15 +3646,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 	//Find all functions with given name
 	bestFuncList.clear();
-
-	HashMap<FunctionInfo*>::Node *curr = funcMap.first(funcNameHash);
-	while(curr)
-	{
-		FunctionInfo *func = curr->value;
-		if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType && func->vTopSize >= scope)
-			bestFuncList.push_back(func);
-		curr = funcMap.next(curr);
-	}
+	SelectFunctionsForHash(funcNameHash, scope);
 	unsigned int count = bestFuncList.size();
 	
 	// If function wasn't found
@@ -3457,95 +3665,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	// If there is a name and it's not a variable that holds 
 	if(!vInfo && funcName)
 	{
-		// Find the best suited function
-		bestFuncRating.resize(count);
-
-		unsigned int minGenericRating = ~0u;
-		unsigned int minRatingIndex = ~0u, minGenericIndex = ~0u;
-		for(unsigned int k = 0; k < count; k++)
-		{
-			unsigned int argumentCount = callArgCount;
-			// Act as if default parameter values were passed
-			if(argumentCount < bestFuncList[k]->paramCount)
-			{
-				// Move to the last parameter
-				VariableInfo *param = bestFuncList[k]->firstParam;
-				for(unsigned int i = 0; i < argumentCount; i++)
-					param = param->next;
-				// While there are default values, put them
-				while(param && param->defaultValue)
-				{
-					argumentCount++;
-					CodeInfo::nodeList.push_back(param->defaultValue);
-					param = param->next;
-				}
-			}
-			if(argumentCount >= (bestFuncList[k]->paramCount - 1) && bestFuncList[k]->lastParam && bestFuncList[k]->lastParam->varType == typeObjectArray &&
-				!(argumentCount == bestFuncList[k]->paramCount && CodeInfo::nodeList.back()->typeInfo == typeObjectArray))
-			{
-				// If function accepts variable argument list
-				TypeInfo *&lastType = bestFuncList[k]->funcType->funcType->paramType[bestFuncList[k]->paramCount - 1];
-				assert(lastType == CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY));
-				unsigned int redundant = argumentCount - bestFuncList[k]->paramCount;
-				if(redundant == ~0u)
-					CodeInfo::nodeList.push_back(new NodeZeroOP(typeObjectArray));
-				else
-					CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - redundant);
-				// Change things in a way that this function will be selected (lie about real argument count and match last argument type)
-				lastType = CodeInfo::nodeList.back()->typeInfo;
-				bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, bestFuncList[k]->paramCount);
-				if(redundant == ~0u)
-					CodeInfo::nodeList.pop_back();
-				else
-					CodeInfo::nodeList.resize(CodeInfo::nodeList.size() + redundant);
-				if(bestFuncRating[k] != ~0u)
-					bestFuncRating[k] += 10 + (redundant == ~0u ? 5 : redundant * 5);	// Cost of variable arguments function
-				lastType = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
-			}else{
-				bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, argumentCount);
-			}
-			if(bestFuncList[k]->generic)
-			{
-				// If we have a positive rating, check that generic function constraints are satisfied
-				if(bestFuncRating[k] != ~0u)
-				{
-					unsigned newRating = bestFuncRating[k];
-					TypeInfo *tmpType = GetGenericFunctionRating(pos, bestFuncList[k], newRating, count);
-
-					bestFuncList[k]->generic->instancedType = tmpType;
-					bestFuncRating[k] = newRating;
-				}else{
-					bestFuncList[k]->generic->instancedType = NULL;
-				}
-				if(bestFuncRating[k] < minGenericRating)
-				{
-					minGenericRating = bestFuncRating[k];
-					minGenericIndex = k;
-				}
-			}else{
-				if(bestFuncRating[k] < minRating)
-				{
-					minRating = bestFuncRating[k];
-					minRatingIndex = k;
-				}
-			}
-			while(argumentCount > callArgCount)
-			{
-				CodeInfo::nodeList.pop_back();
-				argumentCount--;
-			}
-		}
-		// Use generic function only if it is better that selected
-		if(minGenericRating < minRating)
-		{
-			minRating = bestFuncRating[minGenericIndex];
-			minRatingIndex = minGenericIndex;
-		}else{
-			// Otherwise, go as far as disabling all generic functions from selection
-			for(unsigned int k = 0; k < count; k++)
-				if(bestFuncList[k]->generic)
-					bestFuncRating[k] = ~0u;
-		}
+		unsigned minRatingIndex = SelectBestFunction(pos, count, callArgCount, minRating);
 		// Maybe the function we found can't be used at all
 		if(minRatingIndex == ~0u)
 		{

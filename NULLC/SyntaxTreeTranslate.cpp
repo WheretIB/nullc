@@ -5,6 +5,15 @@
 
 #include <float.h>
 
+void GetEscapedName(char* result)
+{
+	unsigned int finalLength = strlen(result);
+	for(unsigned int k = 0; k < finalLength; k++)
+	{
+		if(result[k] == ':' || result[k] == '$' || result[k] == '[' || result[k] == ']' || result[k] == ' ' || result[k] == '(' || result[k] == ')' || result[k] == ',')
+			result[k] = '_';
+	}
+}
 
 void GetCFunctionName(char* fName, unsigned int size, FunctionInfo *funcInfo)
 {
@@ -182,12 +191,8 @@ void NodeUnaryOp::TranslateToC(FILE *fOut)
 		{
 			const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 			unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-			unsigned int length = SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin) - nameShift, local->name.begin+nameShift, local->pos);
-			for(unsigned int k = 0; k < length; k++)
-			{
-				if(name[k] == ':' || name[k] == '$')
-					name[k] = '_';
-			}
+			SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin) - nameShift, local->name.begin+nameShift, local->pos);
+			GetEscapedName(name);
 			fprintf(fOut, ", (void*)&%s", name);
 		}
 
@@ -203,9 +208,8 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 	if(parentFunction && parentFunction->closeUpvals)
 	{
 		OutputIdent(fOut);
+		fprintf(fOut, "{");
 		typeInfo->OutputCType(fOut, "");
-		fprintf(fOut, "__nullcRetVar%d;\r\n", retVarID);
-		OutputIdent(fOut);
 		fprintf(fOut, "__nullcRetVar%d = ", retVarID);
 		if(typeInfo != first->typeInfo)
 		{
@@ -244,7 +248,7 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 				const char *namePrefix = *curr->name.begin == '$' ? "__" : "";
 				unsigned int nameShift = *curr->name.begin == '$' ? 1 : 0;
 				sprintf(name, "%s%.*s_%d", namePrefix, int(curr->name.end - curr->name.begin) -nameShift, curr->name.begin+nameShift, curr->pos);
-			
+				GetEscapedName(name);
 				OutputIdent(fOut);
 				if(curr->nameHash == hashThis)
 					fprintf(fOut, "__nullcCloseUpvalue(__upvalue_%d___context, &__context);\r\n", CodeInfo::FindFunctionByPtr(curr->parentFunction));
@@ -265,7 +269,7 @@ void NodeReturnOp::TranslateToC(FILE *fOut)
 			fprintf(fOut, " = %d;\r\n", yieldResult ? (parentFunction->yieldCount + 1) : 0);
 		}
 		OutputIdent(fOut);
-		fprintf(fOut, "return __nullcRetVar%d;\r\n", retVarID++);
+		fprintf(fOut, "return __nullcRetVar%d;}\r\n", retVarID++);
 		if(yieldResult && parentFunction && parentFunction->type == FunctionInfo::COROUTINE)
 		{
 			OutputIdent(fOut);
@@ -350,7 +354,7 @@ void NodeBlock::TranslateToC(FILE *fOut)
 			const char *namePrefix = *curr->name.begin == '$' ? "__" : "";
 			unsigned int nameShift = *curr->name.begin == '$' ? 1 : 0;
 			sprintf(name, "%s%.*s_%d", namePrefix, int(curr->name.end - curr->name.begin) - nameShift, curr->name.begin+nameShift, curr->pos);
-		
+			GetEscapedName(name);
 			OutputIdent(fOut);
 			if(curr->nameHash == hashThis)
 				fprintf(fOut, "__nullcCloseUpvalue(__upvalue_%d___context, &__context);\r\n", CodeInfo::FindFunctionByPtr(curr->parentFunction));
@@ -403,12 +407,8 @@ void NodeFuncDef::TranslateToC(FILE *fOut)
 			OutputIdent(fOut);
 			const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 			unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-			unsigned int length = SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin) - nameShift, local->name.begin+nameShift, local->pos);
-			for(unsigned int k = 0; k < length; k++)
-			{
-				if(name[k] == ':' || name[k] == '$')
-					name[k] = '_';
-			}
+			SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin) - nameShift, local->name.begin+nameShift, local->pos);
+			GetEscapedName(name);
 			local->varType->OutputCType(fOut, name);
 			fprintf(fOut, ";\r\n");
 		}
@@ -498,7 +498,7 @@ void NodeFuncCall::TranslateToC(FILE *fOut)
 		if(funcInfo && funcInfo->extraParam)
 			fprintf(fOut, ")");
 	}else if(funcInfo){
-		fprintf(fOut, (funcInfo->nameHash == newSFuncHash || funcInfo->nameHash == newAFuncHash) ? "__nullcTR[%d]" : "(void*)0", funcInfo->nameHash == newSFuncHash ? typeInfo->subType->typeIndex : typeInfo->typeIndex);
+		fprintf(fOut, "(void*)0");
 	}
 	if(!funcInfo)
 		fprintf(fOut, ").context");
@@ -696,12 +696,8 @@ void NodeDereference::TranslateToC(FILE *fOut)
 		{
 			namePrefix = *closure->name.begin == '$' ? "__" : "";
 			nameShift = *closure->name.begin == '$' ? 1 : 0;
-			unsigned int length = SafeSprintf(closureName, NULLC_MAX_VARIABLE_NAME_LENGTH+32, closure->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(closure->name.end - closure->name.begin) - nameShift, closure->name.begin + nameShift, closure->pos);
-			for(unsigned int k = 0; k < length; k++)
-			{
-				if(closureName[k] == ':' || closureName[k] == '$')
-					closureName[k] = '_';
-			}
+			SafeSprintf(closureName, NULLC_MAX_VARIABLE_NAME_LENGTH+32, closure->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(closure->name.end - closure->name.begin) - nameShift, closure->name.begin + nameShift, closure->pos);
+			GetEscapedName(closureName);
 		}else{
 			closureName[0] = '\0';
 		}
@@ -740,6 +736,7 @@ void NodeDereference::TranslateToC(FILE *fOut)
 				namePrefix = *varInfo->name.begin == '$' ? "__" : "";
 				nameShift = *varInfo->name.begin == '$' ? 1 : 0;
 				SafeSprintf(variableName, NULLC_MAX_VARIABLE_NAME_LENGTH+32, "%s%.*s_%d", namePrefix, int(varInfo->name.end-varInfo->name.begin) - nameShift, varInfo->name.begin + nameShift, varInfo->pos);
+				GetEscapedName(variableName);
 			}
 
 			if(curr->targetPos == ~0u)
@@ -892,12 +889,8 @@ void NodeFunctionAddress::TranslateToC(FILE *fOut)
 				char closureName[NULLC_MAX_VARIABLE_NAME_LENGTH];
 				const char *namePrefix = *closure->name.begin == '$' ? "__" : "";
 				unsigned int nameShift = *closure->name.begin == '$' ? 1 : 0;
-				unsigned int length = sprintf(closureName, closure->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(closure->name.end - closure->name.begin) - nameShift, closure->name.begin + nameShift, closure->pos);
-				for(unsigned int k = 0; k < length; k++)
-				{
-					if(closureName[k] == ':' || closureName[k] == '$')
-						closureName[k] = '_';
-				}
+				sprintf(closureName, closure->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(closure->name.end - closure->name.begin) - nameShift, closure->name.begin + nameShift, closure->pos);
+				GetEscapedName(closureName);
 				fprintf(fOut, "%s", closureName);
 			}else{
 				first->TranslateToC(fOut);

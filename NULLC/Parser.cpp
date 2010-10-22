@@ -1091,8 +1091,33 @@ bool ParseAddVariable(Lexeme** str)
 			ThrowError((*str)->pos, "ERROR: expression not found after '='");
 		AddDefineVariableNode(curr->pos, varInfo);
 		AddPopNode((*str)->pos);
+	}else if(ParseLexem(str, lex_lognot)){
+		TypeInfo *info = GetSelectedType();
+		const char *name = info->genericBase ? info->genericBase->name : info->name;
+		AddGetAddressNode((*str)->pos, varInfo->name);
+		ParseLexem(str, lex_oparen);
+		const char *last = SetCurrentFunction(name);
+		unsigned int callArgCount = ParseFunctionArguments(str);
+		SetCurrentFunction(last);
+		AddMemberFunctionCall((*str)->pos, name, callArgCount);
+		AddPopNode((*str)->pos);
 	}else{
-		AddVariableReserveNode((*str)->pos);
+		// try to call constructor with no arguments
+		TypeInfo *info = GetSelectedType();
+		if(info && !info->refLevel && !info->arrLevel && !info->funcType && info->typeIndex > 8) // 9 basic types: void char short int long float double "auto ref" typeid
+		{
+			const char *name = info->genericBase ? info->genericBase->name : info->name;
+			AddGetAddressNode((*str)->pos, varInfo->name);
+			if(AddMemberFunctionCall((*str)->pos, name, 0, true))
+			{
+				AddPopNode((*str)->pos);
+			}else{
+				CodeInfo::nodeList.pop_back();
+				AddVariableReserveNode((*str)->pos);
+			}
+		}else{
+			AddVariableReserveNode((*str)->pos);
+		}
 	}
 	return true;
 }
@@ -1765,10 +1790,12 @@ bool ParseTerminal(Lexeme** str)
 	{
 		(*str)++;
 
-		if((*str)->type == lex_string && ((*str + 1)->type == lex_oparen || (*str + 1)->type == lex_less))
+		const char *pos = (*str)->pos;
+		if(!ParseSelectType(str, false))
+			ThrowError((*str)->pos, "ERROR: type name expected after 'new'");
+
+		if((*str)->type == lex_oparen)
 		{
-			if(!ParseSelectType(str, false))
-				ThrowError((*str)->pos, "ERROR: type name expected after 'new'");
 			TypeInfo *info = GetSelectedType();
 			const char *name = info->genericBase ? info->genericBase->name : info->name;
 			GetTypeSize((*str)->pos, false);
@@ -1782,10 +1809,6 @@ bool ParseTerminal(Lexeme** str)
 			FinishConstructorCall((*str)->pos);
 			return true;
 		}
-
-		const char *pos = (*str)->pos;
-		if(!ParseSelectType(str, false))
-			ThrowError((*str)->pos, "ERROR: type name expected after 'new'");
 
 		GetTypeSize((*str)->pos, false);
 

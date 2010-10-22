@@ -11,6 +11,7 @@ extern const char* binCommandToText[];
 extern const char* unaryCommandToText[];
 
 #ifdef NULLC_ENABLE_C_TRANSLATION
+void	GetEscapedName(char* result);
 void	GetCFunctionName(char* fName, unsigned int size, FunctionInfo *funcInfo);
 void	OutputCFunctionName(FILE *fOut, FunctionInfo *funcInfo);
 void	ResetTranslationState();

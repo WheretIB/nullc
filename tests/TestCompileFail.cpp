@@ -503,7 +503,7 @@ return int(y() + z());",
 	TEST_FOR_FAIL("short inline function fail in variable 2", "int bar(int ref(double) y){ return y(5.0); } auto x = bar; int foo(int x){ return x(<x>{ -x; }); }", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #0");
 	TEST_FOR_FAIL("short inline function fail in variable 3", "int bar(int ref(double) y){ return y(5.0); } auto x = bar; int foo(){ return x(1, <x>{ -x; }); }", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #1");
 
-	TEST_FOR_FAIL("generic type member function doesn't exist", "class Foo<T>{ T x; } Foo<int> y; auto z = y.bar; return 1;", "ERROR: function 'Foo::bar' is undefined");
+	TEST_FOR_FAIL("generic type member function doesn't exist", "class Foo<T>{ T x; } Foo<int> y; auto z = y.bar; return 1;", "ERROR: member variable or function 'bar' is not defined in class 'Foo<int>'");
 
 	TEST_FOR_FAIL("generic function default argument value 2", "auto foo(int y = 1, generic x){}", "ERROR: default argument values are unsupported in generic functions");
 
@@ -514,4 +514,6 @@ return int(y() + z());",
 	TEST_FOR_FAIL("generic instance type invisible after instance 3", "class Foo<T>{} void foo(Foo<@T> x){ T y; } Foo<int> a; foo(a); T x; return sizeof(x);", "ERROR: variable or function 'T' is not defined");
 
 	TEST_FOR_FAIL("generic instance type invisible after instance 3", "class Foo<T>{ T x; } void foo(Foo<@T>[] x){ x.x = 5; } Foo<int> a; foo(a); return a.x;", "ERROR: can't find function 'foo' with following parameters:");
+
+	TEST_FOR_FAIL("unable to select function overload", "class Foo{ int y; int boo(generic x){ return x * y; } int boo(int x){ return x * y; } } Foo x; x.y = 6; int ref(double) m = x.boo; return m(2.5);", "ERROR: unable to select function overload for a type 'int ref(double)'");
 }
