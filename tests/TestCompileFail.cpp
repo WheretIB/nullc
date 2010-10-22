@@ -283,4 +283,6 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar
 	return foo();", "ERROR: function block depth (256) is too large to handle");
 
 	TEST_FOR_FAIL("typeid of auto", "typeof(auto);", "ERROR: cannot take typeid from auto type");
+
+	TEST_FOR_FAIL("conversion from void to basic type", "int foo(int a){ return -a; } void bar(){} return foo(bar());", "ERROR: can't find function 'foo' with following parameters:");
 }
