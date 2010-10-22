@@ -347,7 +347,7 @@ namespace ColorerGrammar
 				);
 
 			ifExpr			=
-				strWP("if")[ColorRWord] >>
+				!chP('@')[ColorText] >> strWP("if")[ColorRWord] >>
 				(
 					('(' | epsP[LogError("ERROR: '(' not found after 'if'")])[ColorText] >>
 					(term5 | epsP[LogError("ERROR: condition not found in 'if' statement")]) >>
