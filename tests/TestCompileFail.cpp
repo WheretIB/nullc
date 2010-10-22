@@ -457,4 +457,6 @@ return int(foo(b) + foo(c));",
 	TEST_FOR_FAIL("generic function specialization fail 3", "class Bar<T>{ T ref ref y; } class Foo<T>{ T x; } auto foo(Foo<generic> a){ return a.x; } Bar<float> z; return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
 	TEST_FOR_FAIL("generic function specialization fail 4", "class Foo<T>{ T x; }auto foo(Foo<generic, int> a){ return a.x; }Foo<float> z;return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
 	TEST_FOR_FAIL("generic function specialization fail 5", "class Foo<T, U>{ T x; } auto foo(Foo<generic> a){ return a.x; } Foo<int, int> z; return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
+
+	TEST_FOR_FAIL("generic function specialization alias double", "class Foo<T, U>{ T x; } auto foo(Foo<@T, @T> x){ T y = x.x; return y + x.x; } Foo<int, float> a; return foo(a);", "ERROR: there is already a type or an alias with the same name");
 }

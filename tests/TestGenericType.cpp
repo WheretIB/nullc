@@ -390,3 +390,29 @@ Foo<int> b; Foo<float> c;\r\n\
 b.x = 6; c.x = 2;\r\n\
 return int(b + c);";
 TEST_RESULT("Generic function complex specialization (fail possibility 1)", testGenericType29, "8");
+
+const char *testGenericType30 =
+"class complex<T>{ T re, im; }\r\n\
+\r\n\
+double complex(double re, im){ return 1; }\r\n\
+auto operator * (complex<generic> a, b){ return 1; }\r\n\
+\r\n\
+int foo(complex<double> a, b)\r\n\
+{\r\n\
+	return complex(typeof(a.re)(a.re * b.re), 1.0);\r\n\
+}\r\n\
+complex<double> a, b;\r\n\
+return foo(a, b);";
+TEST_RESULT("Compiler current type change during constructor call", testGenericType30, "1");
+
+const char *testGenericType31 =
+"class Foo<T>{ T x; }\r\n\
+auto foo(Foo<@T> x)\r\n\
+{\r\n\
+	T y = x.x;\r\n\
+	return y + x.x;\r\n\
+}\r\n\
+Foo<int> a;\r\n\
+a.x = 5;\r\n\
+return foo(a);";
+TEST_RESULT("Generic function specialization for generic type with alias", testGenericType31, "10");

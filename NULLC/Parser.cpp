@@ -343,8 +343,10 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allo
 				if(!ParseSelectType(str))
 				{
 					// If we are allowed to failed to generic type and we have "generic"
-					if(genericOnFail && ParseLexem(str, lex_generic))
+					if(genericOnFail && (ParseLexem(str, lex_generic) || ParseLexem(str, lex_at)))
 					{
+						if((*str)[-1].type == lex_at && !ParseLexem(str, lex_string))
+							ThrowError((*str)->pos, "ERROR: type alias required after '@'");
 						// Remove nodes that are already created
 						for(unsigned i = 0; i < count; i++)
 							CodeInfo::nodeList.pop_back();
@@ -619,10 +621,25 @@ bool ParseGenericType(Lexeme** str, TypeInfo* preferredType)
 			}
 			if(!ParseSelectType(str))
 			{
-				if(!ParseLexem(str, lex_generic))
+				if(ParseLexem(str, lex_generic) || ParseLexem(str, lex_at))
+				{
+					if(!preferredType && (*str)[-1].type == lex_at && !ParseLexem(str, lex_string))
+						ThrowError((*str)->pos, "ERROR: type alias required after '@'");
+					if(preferredType) // If we are instancing a type
+					{
+						SelectTypeByPointer(forwList->type); // Select it
+						if((*str)[-1].type == lex_at)
+						{
+							assert((*str)->type == lex_string);
+							if(ParseSelectType(str))
+								ThrowError((*str - 1)->pos, "ERROR: there is already a type or an alias with the same name");
+							AddAliasType(InplaceStr((*str)->pos, (*str)->length));
+							(*str)++;
+						}
+					}
+				}else{
 					ThrowError((*str)->pos, count ? "ERROR: typename required after ','" : "ERROR: typename required after '<'");
-				else if(preferredType) // If we are instancing a type
-					SelectTypeByPointer(forwList->type); // Select it
+				}
 			}
 			if(preferredType) // If we are instancing a type push a node with selected type
 			{
@@ -1788,8 +1805,10 @@ bool ParseTerminal(Lexeme** str)
 				return true;
 			if(ParseLexem(str, lex_oparen))
 			{
+				TypeInfo *currType = GetSelectedType();
 				const char *last = SetCurrentFunction(GetSelectedTypeName());
 				unsigned int callArgCount = ParseFunctionArguments(str);
+				SelectTypeByPointer(currType);
 				SetCurrentFunction(last);
 				AddFunctionCallNode((*str)->pos, GetSelectedTypeName(), callArgCount);
 				ParsePostExpressions(str);
@@ -1923,7 +1942,7 @@ bool ParseTypedefExpr(Lexeme** str)
 
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 		ThrowError((*str)->pos, "ERROR: alias name length is limited to 2048 symbols");
-	CALLBACK(AddAliasType(InplaceStr((*str)->pos, (*str)->length)));
+	AddAliasType(InplaceStr((*str)->pos, (*str)->length));
 	(*str)++;
 	if(!ParseLexem(str, lex_semicolon))
 		ThrowError((*str)->pos, "ERROR: ';' not found after typedef");
