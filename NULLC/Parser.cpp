@@ -511,6 +511,8 @@ bool ParseClassDefinition(Lexeme** str)
 					ThrowError((*str)->pos, count ? "ERROR: generic type alias required after ','" : "ERROR: generic type alias required after '<'");
 				if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 					ThrowError((*str)->pos, "ERROR: alias name length is limited to 2048 symbols");
+				if(ParseSelectType(str))
+					ThrowError((*str)->pos, "ERROR: there is already a type or an alias with the same name");
 				(*str)++;
 				count++;
 			}while(ParseLexem(str, lex_comma));
