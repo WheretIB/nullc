@@ -715,3 +715,18 @@ auto x = new Foo<int>(8);\r\n\
 auto y = new Foo<double>();\r\n\
 return int(x.x * y.x);";
 TEST_RESULT("Constructor call after new with generic type instance 2", testGenericType48, "36");
+
+const char *testGenericType49 =
+"class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+	T y;\r\n\
+}\r\n\
+void foo(Foo<@T> ref x)\r\n\
+{\r\n\
+	x.x = 5;\r\n\
+}\r\n\
+Foo<int> a;\r\n\
+foo(a);\r\n\
+return a.x;";
+TEST_RESULT("Generic function is specialized for reference type but a non-reference is passed", testGenericType49, "5");

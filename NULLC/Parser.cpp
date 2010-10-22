@@ -720,7 +720,7 @@ bool ParseGenericType(Lexeme** str, TypeInfo* preferredType)
 		// Parse expressions after type
 		ParseTypePostExpressions(str, true, false);
 		if(!preferredType)
-			SelectTypeByPointer(typeGeneric);
+			SelectTypeByPointer(GetSelectedType()->refLevel ? CodeInfo::GetReferenceType(typeGeneric) : typeGeneric);
 		return true;
 	}
 	if(!ParseLexem(str, lex_generic))
