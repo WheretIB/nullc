@@ -813,6 +813,8 @@ bool ParseShortFunctionDefinition(Lexeme** str)
 			paramName[varName->length + 1] = 0;
 			AddGetAddressNode((*str)->pos, InplaceStr(paramName, varName->length + 1));
 			AddGetVariableNode((*str)->pos);
+			if(CodeInfo::nodeList.back()->typeInfo->refLevel && CodeInfo::nodeList.back()->typeInfo->subType == varInfo->varType)
+				CodeInfo::nodeList.push_back(new NodeDereference());
 			AddDefineVariableNode((*str)->pos, varInfo);
 			AddPopNode((*str)->pos);
 			wraps++;
