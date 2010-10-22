@@ -407,7 +407,7 @@ auto foo(int x)\r\n\
 }\r\n\
 foo(5)() + k();\r\n\
 return GC.UsedMemory() - start;";
-TEST_RESULT("Unused upvalues GC test", testUnusedUpvaluesGC2, "128");
+TEST_RESULT("Unused upvalues GC test", testUnusedUpvaluesGC2, sizeof(void*) == 8 ? "256" : "128");
 
 const char	*testDoubleMemoryRemovalGC =
 "import std.gc;\r\n\
@@ -428,7 +428,7 @@ auto foo(int x)\r\n\
 foo(5)() + k();\r\n\
 GC.CollectMemory();\r\n\
 return GC.UsedMemory() - start;";
-TEST_RESULT("Prevention of double memory removal", testDoubleMemoryRemovalGC, "64");
+TEST_RESULT("Prevention of double memory removal", testDoubleMemoryRemovalGC, sizeof(void*) == 8 ? "128" : "64");
 
 const char	*testDoubleMemoryRemovalGC2 =
 "import std.gc;\r\n\
