@@ -287,6 +287,24 @@ void ParseTypePostExpressions(Lexeme** str, bool arrayType, bool notType)
 	}
 }
 
+void ParseGenericEnd(Lexeme** str)
+{
+	// If it was '>>' which is now looks like '>', then check it back
+	if((*str)->type == lex_greater && (*str)->length == 2)
+	{
+		(*str)->type = lex_shr;
+		(*str)++;
+		return;
+	}
+	if(!ParseLexem(str, lex_greater))
+	{
+		if((*str)->type == lex_shr) // if we have '>>'
+			(*str)->type = lex_greater; // "parse" half of it and replace lexeme with '>' while preserving original length to restore later
+		else
+			ThrowError((*str)->pos, "ERROR: '>' expected after generic type alias list");
+	}
+}
+
 bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allowGeneric)
 {
 	bool notType = false;
@@ -364,8 +382,7 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allo
 				count++;
 			}while(ParseLexem(str, lex_comma));
 			TypeInstanceGeneric((*str)->pos, genericType, count);
-			if(!ParseLexem(str, lex_greater))
-				ThrowError((*str)->pos, "ERROR: '>' expected after generic type alias list");
+			ParseGenericEnd(str);
 		}
 	}else{
 		return false;
@@ -660,8 +677,7 @@ bool ParseGenericType(Lexeme** str, TypeInfo* preferredType)
 			// Instance type
 			TypeInstanceGeneric((*str)->pos, genericType, count);
 		}
-		if(!ParseLexem(str, lex_greater))
-			ThrowError((*str)->pos, "ERROR: '>' expected after generic type alias list");
+		ParseGenericEnd(str);
 		// Parse expressions after type
 		ParseTypePostExpressions(str, true, false);
 		if(!preferredType)

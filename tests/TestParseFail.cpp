@@ -221,4 +221,6 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "class Foo<T, U>{} Foo<int, int b;", "ERROR: '>' expected after generic type alias list");
 
 	TEST_FOR_FAIL("parsing", "class Foo{ int a; flaot b; }", "ERROR: 'flaot' is not a known type name");
+
+	TEST_FOR_FAIL("parsing", "class Foo<T>{ T a; } auto foo(Foo<@> x){} Foo<int> a; return foo(a);", "ERROR: type alias required after '@'");
 }

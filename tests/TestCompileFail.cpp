@@ -459,4 +459,8 @@ return int(foo(b) + foo(c));",
 	TEST_FOR_FAIL("generic function specialization fail 5", "class Foo<T, U>{ T x; } auto foo(Foo<generic> a){ return a.x; } Foo<int, int> z; return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
 
 	TEST_FOR_FAIL("generic function specialization alias double", "class Foo<T, U>{ T x; } auto foo(Foo<@T, @T> x){ T y = x.x; return y + x.x; } Foo<int, float> a; return foo(a);", "ERROR: there is already a type or an alias with the same name");
+
+	TEST_FOR_FAIL(">> after a non-nester generic type name", "class Foo<T>{ T t; } int c = 1; int a = Foo<int>> c;", "ERROR: operation > is not supported on 'typeid' and 'int'");
+
+	TEST_FOR_FAIL("generic instance type invisible after instance 2", "class Foo<T>{ T x; } Foo<int> x; Foo<int> y; T a;", "ERROR: variable or function 'T' is not defined");
 }
