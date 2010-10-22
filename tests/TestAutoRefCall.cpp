@@ -154,3 +154,12 @@ class Foo\r\n\
 }\r\n\
 return 1;";
 TEST_RESULT("Indirect function call in member function", testIndirectCallInMemberFunction, "1");
+
+LOAD_MODULE(test_autorefcall, "test.autorefcall", "class Proxy{ int foo(int x){ return x; } } int rc(auto ref z){ return z.foo(5); }");
+const char *testIndirectCallModules =
+"import test.autorefcall;\r\n\
+class Bar{ int u; }\r\n\
+int Bar:foo(int x){ return x + u; }\r\n\
+Bar m; m.u = 10;\r\n\
+return rc(m);";
+TEST_RESULT("Function call through 'auto ref', more types defined later", testIndirectCallModules, "15");

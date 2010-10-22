@@ -1887,11 +1887,11 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 		}else{
 			ExternTypeInfo &subType = exTypes[type.subType];
 //			printf("\tGlobal pointer %s %p (at %p)\r\n", symbols + subType.offsetToName, *rPtr, ptr);
-			unsigned int *marker = (unsigned int*)(*rPtr)-1;
+			unsigned int *marker = (unsigned int*)(*rPtr) - 1;
 //			printf("\tMarker is %d\r\n", *marker);
-			if(NULLC::IsBasePointer(*rPtr) && *marker == 42)
+			if(NULLC::IsBasePointer(*rPtr) && (*marker & 1))
 			{
-				*marker = 0;
+				*marker &= ~1;
 				if(type.subCat != ExternTypeInfo::CAT_NONE)
 					FixupVariable(*rPtr, subType);
 			}
@@ -1923,10 +1923,10 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 		// Get base pointer
 		unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
 		// If there is no base pointer or memory already marked, exit
-		if(!basePtr || !*((unsigned int*)(basePtr) - 1))
+		if(!basePtr || !(*((unsigned int*)(basePtr) - 1) & 1))
 			return;
 		// Mark memory as used
-		*((unsigned int*)(basePtr) - 1) = 0;
+		*((unsigned int*)(basePtr) - 1) &= ~1;
 	}else if(type.nameHash == ExPriv::autoArrayName){
 		NULLCAutoArray *data = (NULLCAutoArray*)ptr;
 		// Get real variable type
@@ -1986,10 +1986,10 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 		// Get base pointer
 		unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
 		// If there is no base pointer or memory already marked, exit
-		if(!basePtr || !*((unsigned int*)(basePtr) - 1))
+		if(!basePtr || !(*((unsigned int*)(basePtr) - 1) & 1))
 			return;
 		// Mark memory as used
-		*((unsigned int*)(basePtr) - 1) = 0;
+		*((unsigned int*)(basePtr) - 1) &= ~1;
 		// Fixup target
 		FixupVariable(*rPtr, *realType);
 		// Exit
@@ -2062,7 +2062,7 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 
 	SetUnmanagableRange(genParams.data, genParams.max);
 
-	NULLC::MarkMemory(42);
+	NULLC::MarkMemory(1);
 
 	ExPriv::oldBase = oldBase;
 	ExPriv::newBase = genParams.data;

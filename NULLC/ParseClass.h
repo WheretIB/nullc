@@ -86,6 +86,7 @@ public:
 		subType = childType;
 		hasPointers = (!!referenceLevel) || (arraySize == UNSIZED_ARRAY) || (subType && subType->hasPointers);
 		dependsOnGeneric = false;
+		hasFinalizer = false;
 
 		alignBytes = 0;
 		paddingBytes = 0;
@@ -128,6 +129,7 @@ public:
 	unsigned int	arrLevel;	// array to a type depth
 	bool			hasPointers;
 	bool			dependsOnGeneric;
+	bool			hasFinalizer;
 
 	unsigned int	arrSize;	// element count for an array
 	unsigned int	memberCount;

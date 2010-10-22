@@ -25,6 +25,7 @@ TEST_RESULT("GC recursion using arrays with implicit size, placed on the stack",
 
 const char	*testGarbageCollectionCorrectness =
 "import std.gc;\r\n\
+int start = GC.UsedMemory();\r\n\
 class A\r\n\
 {\r\n\
 	int a, b, c;\r\n\
@@ -42,11 +43,12 @@ arr1[1].d = new A;\r\n\
 arr1[1].e = new A;\r\n\
 arr1[1].f = new A;\r\n\
 GC.CollectMemory();\r\n\
-return GC.UsedMemory();";
+return GC.UsedMemory() - start;";
 TEST_RESULT("Garbage collection correctness.", testGarbageCollectionCorrectness, sizeof(void*) == 8 ? "544" : "272");
 
 const char	*testGarbageCollectionCorrectness2 =
 "import std.gc;\r\n\
+int start = GC.UsedMemory();\r\n\
 class A\r\n\
 {\r\n\
 	int a, b, c;\r\n\
@@ -66,11 +68,12 @@ arr1[1].f = new A;\r\n\
 arr1[0] = nullptr;\r\n\
 arr1[1] = nullptr;\r\n\
 GC.CollectMemory();\r\n\
-return GC.UsedMemory();";
+return GC.UsedMemory() - start;";
 TEST_RESULT("Garbage collection correctness 2.", testGarbageCollectionCorrectness2, sizeof(void*) == 8 ? "32" : "16");
 
 const char	*testGarbageCollectionCorrectness3 =
 "import std.gc;\r\n\
+int start = GC.UsedMemory();\r\n\
 class A\r\n\
 {\r\n\
 	int a, b, c;\r\n\
@@ -87,7 +90,7 @@ arr1[1].d = new A;\r\n\
 arr1[1].e = new A;\r\n\
 arr1[1].f = new A;\r\n\
 GC.CollectMemory();\r\n\
-return GC.UsedMemory();";
+return GC.UsedMemory() - start;";
 TEST_RESULT("Garbage collection correctness 3.", testGarbageCollectionCorrectness3, sizeof(void*) == 8 ? "544" : "272");
 
 const char	*testStackFrameSizeX64 =

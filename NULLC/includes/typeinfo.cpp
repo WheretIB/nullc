@@ -280,6 +280,11 @@ bool	nullcInitTypeinfoModule(Linker* linker)
 	return true;
 }
 
+void	nullcInitTypeinfoModuleLinkerOnly(Linker* linker)
+{
+	NULLCTypeInfo::linker = linker;
+}
+
 void	nullcDeinitTypeinfoModule()
 {
 	NULLCTypeInfo::linker = NULL;

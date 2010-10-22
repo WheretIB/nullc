@@ -350,4 +350,9 @@ return bar(foo);",
 	TEST_FOR_FAIL("cannot select function overload", "int foo(int x){ return -x; } int foo(float x){ return x * 2; } int x = foo;", "ERROR: cannot select function overload for a type 'int'");
 	TEST_FOR_FAIL("Instanced inline function is wrong", "class X{} X x; int foo(int ref(int, X) f){ return f(5, x); } return foo(auto(generic y, double z){ return -y; });", "ERROR: cannot convert from 'int ref(int,double)' to 'int ref(int,X)'");
 	TEST_FOR_FAIL("Typeof in generic function shouldn't skip all errors", "auto foo(generic x, typeof(foo(5)) y){ return x + y; }", "ERROR: function 'foo' is undefined");
+
+	TEST_FOR_FAIL("no finalizable objects on stack", "class Foo{int a;} void Foo:finalize(){} Foo x;", "ERROR: cannot create 'Foo' that implements 'finalize' on stack");
+	TEST_FOR_FAIL("no finalizable objects on stack 2", "class Foo{int a;} void Foo:finalize(){} auto x = *(new Foo);", "ERROR: cannot create 'Foo' that implements 'finalize' on stack");
+	TEST_FOR_FAIL("no finalizable objects on stack 3", "class Foo{int a;} void Foo:finalize(){} Foo[10] arr;", "ERROR: class 'Foo' implements 'finalize' so only an unsized array type can be created");
+	TEST_FOR_FAIL("no finalizable objects on stack 4", "class Foo{int a;} void Foo:finalize(){} class Bar{ Foo z; }", "ERROR: class 'Foo' implements 'finalize' so only a reference or an unsized array of 'Foo' can be put in a class");
 }

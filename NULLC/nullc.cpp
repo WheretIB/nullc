@@ -110,6 +110,10 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 
 	argBuf = (char*)NULLC::alloc(64 * 1024);
 
+#ifndef NULLC_NO_EXECUTOR
+	nullcInitTypeinfoModuleLinkerOnly(linker);
+#endif
+
 	initialized = true;
 }
 
@@ -834,6 +838,16 @@ const char*	nullcGetLastError()
 }
 
 #ifndef NULLC_NO_EXECUTOR
+nullres nullcFinalize()
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
+	FinalizeMemory();
+
+	return 1;
+}
+
 void* nullcAllocate(unsigned int size)
 {
 	using namespace NULLC;

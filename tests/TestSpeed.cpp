@@ -117,6 +117,7 @@ const char	*testGarbageCollection =
 "import std.random;\r\n\
 import std.io;\r\n\
 import std.gc;\r\n\
+int memStart = GC.UsedMemory();\r\n\
 \r\n\
 class A\r\n\
 {\r\n\
@@ -162,19 +163,19 @@ io.out << \"created \" << count << \" objects\" << io.endl;\r\n\
 io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 ws = WS;\r\n\
 a = nullptr;\r\n\
-arr = new Aref[1];\r\n\
+arr = nullptr;\r\n\
 GC.CollectMemory();\r\n\
 io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
 io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collection time: \" << GC.CollectTime() - collectTimeBegin << \"sec)\" << io.endl;\r\n\
-return GC.UsedMemory();";
+return GC.UsedMemory() - memStart;";
 
 	printf("Garbage collection\r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection, t, sizeof(void*) == 8 ? "16" : "8"))
+		if(Tests::RunCode(testGarbageCollection, t, "0"))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", t == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
@@ -183,6 +184,7 @@ const char	*testGarbageCollection2 =
 "import std.random;\r\n\
 import std.io;\r\n\
 import std.gc;\r\n\
+int memStart = GC.UsedMemory();\r\n\
 \r\n\
 class A\r\n\
 {\r\n\
@@ -232,19 +234,19 @@ io.out << \"created \" << count << \" objects\" << io.endl;\r\n\
 io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 ws = WS;\r\n\
 a = nullptr;\r\n\
-arr = new Aref[1];\r\n\
+arr = nullptr;\r\n\
 GC.CollectMemory();\r\n\
 io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
 io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collection time: \" << GC.CollectTime() - collectTimeBegin << \"sec)\" << io.endl;\r\n\
-return GC.UsedMemory();";
+return GC.UsedMemory() - memStart;";
 
 	printf("Garbage collection 2 \r\n");
 	for(int t = 0; t < 2; t++)
 	{
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection2, t, sizeof(void*) == 8 ? "16" : "8"))
+		if(Tests::RunCode(testGarbageCollection2, t, "0"))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", t == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
@@ -254,6 +256,7 @@ const char	*testGarbageCollection3 =
 import std.io;\r\n\
 import std.gc;\r\n\
 import std.list;\r\n\
+int memStart = GC.UsedMemory();\r\n\
 \r\n\
 list arr = list(int);\r\n\
 int count = 1 << 20;\r\n\
@@ -275,7 +278,7 @@ GC.CollectMemory();\r\n\
 io.out << \"destroyed \" << count << \" objects\" << io.endl;\r\n\
 io.out << \"Used memory: (\" << GC.UsedMemory() << \" bytes)\" << io.endl;\r\n\
 io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collection time: \" << GC.CollectTime() - collectTimeBegin << \"sec)\" << io.endl;\r\n\
-return GC.UsedMemory();";
+return GC.UsedMemory() - memStart;";
 
 	printf("Garbage collection 3\r\n");
 	for(int t = 0; t < 2; t++)

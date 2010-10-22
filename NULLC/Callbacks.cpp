@@ -918,6 +918,8 @@ VariableInfo* AddVariable(const char* pos, InplaceStr varName)
 		unsigned int offset = GetAlignmentOffset(pos, currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : currType->alignBytes);
 		varTop += offset;
 	}
+	if(currType && currType->hasFinalizer)
+		ThrowError(pos, "ERROR: cannot create '%s' that implements 'finalize' on stack", currType->GetFullTypeName());
 	CodeInfo::varInfo.push_back(new VariableInfo(currDefinedFunc.size() > 0 ? currDefinedFunc.back() : NULL, varName, hash, varTop, currType, currDefinedFunc.size() == 0));
 	varDefined = true;
 	CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
@@ -1410,6 +1412,9 @@ void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverlo
 		}
 		variableInfo->varType = realCurrType;
 		varTop += realCurrType->size;
+
+		if(variableInfo->varType->hasFinalizer)
+			ThrowError(pos, "ERROR: cannot create '%s' that implements 'finalize' on stack", variableInfo->varType->GetFullTypeName());
 	}
 
 	if(currDefinedFunc.size() && currDefinedFunc.back()->type == FunctionInfo::COROUTINE && variableInfo->blockDepth > currDefinedFunc[0]->vTopSize && variableInfo->pos > currDefinedFunc.back()->allParamSize)
@@ -2125,12 +2130,14 @@ void AddTypeAllocation(const char* pos)
 {
 	if(currType == typeVoid)
 		ThrowError(pos, "ERROR: cannot allocate space for void type");
+	CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
+	CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, (currType->arrLevel ? currType->subType : currType)->typeIndex));
 	if(currType->arrLevel == 0)
 	{
-		AddFunctionCallNode(pos, "__newS", 1);
+		AddFunctionCallNode(pos, "__newS", 2);
 		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(currType);
 	}else{
-		AddFunctionCallNode(pos, "__newA", 2);
+		AddFunctionCallNode(pos, "__newA", 3);
 		CodeInfo::nodeList.back()->typeInfo = currType;
 	}
 }
@@ -2175,6 +2182,7 @@ void BeginCoroutine()
 
 void FunctionAdd(const char* pos, const char* funcName)
 {
+	static unsigned int hashFinalizer = GetStringHash("finalize");
 	unsigned int funcNameHash = GetStringHash(funcName), origHash = funcNameHash;
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < CodeInfo::varInfo.size(); i++)
 	{
@@ -2199,6 +2207,8 @@ void FunctionAdd(const char* pos, const char* funcName)
 	lastFunc->retType = currType;
 	if(newType)
 	{
+		if(origHash == hashFinalizer)
+			newType->hasFinalizer = true;
 		lastFunc->type = FunctionInfo::THISCALL;
 		lastFunc->parentClass = newType;
 	}
@@ -2554,7 +2564,8 @@ void FunctionEnd(const char* pos)
 
 		// Allocate array in dynamic memory
 		CodeInfo::nodeList.push_back(new NodeNumber((int)(lastFunc.externalSize), typeInt));
-		AddFunctionCallNode(pos, "__newS", 1);
+		CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
+		AddFunctionCallNode(pos, "__newS", 2);
 		assert(closureType->size >= lastFunc.externalSize);
 		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(closureType);
 
@@ -3767,6 +3778,8 @@ void TypeAddMember(const char* pos, const char* varName)
 	newType->AddMemberVariable(varName, currType);
 	if(newType->size > 64 * 1024)
 		ThrowError(pos, "ERROR: class size cannot exceed 65535 bytes");
+	if(currType->hasFinalizer)
+		ThrowError(pos, "ERROR: class '%s' implements 'finalize' so only a reference or an unsized array of '%s' can be put in a class", currType->GetFullTypeName(), currType->GetFullTypeName());
 
 	VariableInfo *varInfo = (VariableInfo*)AddVariable(pos, InplaceStr(varName, (int)strlen(varName)));
 	varInfo->isGlobal = true;
@@ -3874,25 +3887,51 @@ void AddUnfixedArraySize()
 
 void CreateRedirectionTables()
 {
+	// Search for virtual function tables in imported modules so that we can add functions from new classes
+	unsigned continuations = 0;
+	for(unsigned i = 0; i < CodeInfo::varInfo.size(); i++)
+	{
+		// Name must start from $vtbl and must be at least 15 characters
+		if(int(CodeInfo::varInfo[i]->name.end - CodeInfo::varInfo[i]->name.begin) < 15 || memcmp(CodeInfo::varInfo[i]->name.begin, "$vtbl", 5) != 0)
+			continue;
+		CodeInfo::varInfo[i]->next = vtblList;
+		vtblList = CodeInfo::varInfo[i];
+		continuations++;
+	}
 	VariableInfo *curr = vtblList;
 	unsigned int num = 0;
 	while(curr)
 	{
-		unsigned int hash = GetStringHash(curr->name.begin + 15);
+		TypeInfo *funcType = NULL;
+		unsigned int hash = GetStringHash(curr->name.begin + 15); // 15 to skip $vtbl0123456789 from name
 
-		currType = curr->varType;
-		CodeInfo::nodeList.push_back(new NodeNumber(4, typeInt));
-		AddFunctionCallNode(CodeInfo::lastKnownStartPos, "__typeCount", 0);
-		AddFunctionCallNode(CodeInfo::lastKnownStartPos, "__newA", 2);
-		CodeInfo::nodeList.back()->typeInfo = currType;
-		CodeInfo::varInfo.push_back(curr);
-		curr->pos = varTop;
-		varTop += curr->varType->size;
+		// If this is continuation of an imported virtual table, find function type from has code in name
+		if(continuations)
+		{
+			unsigned typeHash = parseInteger(curr->name.begin + 5); // 5 to skip $vtbl
+			for(unsigned c = 0; !funcType && c < CodeInfo::typeFunctions.size(); c++)
+			{
+				if(CodeInfo::typeFunctions[c]->GetFullNameHash() == typeHash)
+					funcType = CodeInfo::typeFunctions[c];
+			}
+			AddVoidNode();
+			continuations--;
+		}else{
+			currType = curr->varType;
+			CodeInfo::nodeList.push_back(new NodeNumber(4, typeInt));
+			AddFunctionCallNode(CodeInfo::lastKnownStartPos, "__typeCount", 0);
+			CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
+			AddFunctionCallNode(CodeInfo::lastKnownStartPos, "__newA", 3);
+			CodeInfo::nodeList.back()->typeInfo = currType;
+			CodeInfo::varInfo.push_back(curr);
+			curr->pos = varTop;
+			varTop += curr->varType->size;
 
-		AddDefineVariableNode(CodeInfo::lastKnownStartPos, curr, true);
-		AddPopNode(CodeInfo::lastKnownStartPos);
+			AddDefineVariableNode(CodeInfo::lastKnownStartPos, curr, true);
+			AddPopNode(CodeInfo::lastKnownStartPos);
 
-		TypeInfo *funcType = (TypeInfo*)curr->prev;
+			funcType = (TypeInfo*)curr->prev;
+		}
 
 		bestFuncList.clear();
 		// Find all functions with called name that are member functions and have target type

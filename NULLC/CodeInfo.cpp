@@ -71,6 +71,9 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 
 	if(unFixed && type->unsizedType)
 		return type->unsizedType;
+	
+	if(!unFixed && type->hasFinalizer)
+		ThrowError(lastKnownStartPos, "ERROR: class '%s' implements 'finalize' so only an unsized array type can be created", type->GetFullTypeName());
 
 	// Search type list for the type that we need
 	TypeInfo *target = type->arrayType;
