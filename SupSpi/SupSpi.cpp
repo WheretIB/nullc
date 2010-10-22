@@ -6,8 +6,8 @@ namespace supspi
 
 	ChunkedStackPool<4092>	BaseP::parserPool;
 
-	std::vector<BaseP*>	uniqueParserList;
-	std::vector<BaseP*>	parserList;
+	FastVector<BaseP*>	uniqueParserList;
+	FastVector<BaseP*>	parserList;
 
 	Rule	nothing_P(){ return Rule(new NeverP()); }
 	Rule	eps_P(){ return Rule(new EpsilonP()); }

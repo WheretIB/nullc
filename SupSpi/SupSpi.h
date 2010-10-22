@@ -85,6 +85,75 @@ namespace supspi
 		unsigned int size;
 	};
 
+#ifndef _MSC_VER
+#undef __forceinline
+#define __forceinline inline
+#endif
+
+	template<typename T>
+	class FastVector
+	{
+	public:
+		FastVector()
+		{
+			data = &one;
+			memset(data, 0, sizeof(T));
+			max = 1;
+			count = 0;
+		}
+		~FastVector()
+		{
+			if(data != &one)
+				delete[] data;
+		}
+
+		__forceinline void		push_back(const T& val)
+		{
+			assert(data);
+			data[count++] = val;
+			if(count == max)
+				grow(count);
+		};
+		__forceinline unsigned int		size()
+		{
+			return count;
+		}
+		__forceinline T&		operator[](unsigned int index)
+		{
+			assert(index < count);
+			return data[index];
+		}
+		__forceinline void		resize(unsigned int newSize)
+		{
+			if(newSize >= max)
+				grow(newSize);
+			count = newSize;
+		}
+		__inline void	grow(unsigned int newSize)
+		{
+			if(max + (max >> 1) > newSize)
+				newSize = max + (max >> 1);
+			else
+				newSize += 32;
+			T* newData;
+			newData = new T[newSize];
+			assert(newData);
+			memset(newData, 0, newSize * sizeof(T));
+			memcpy(newData, data, max * sizeof(T));
+			if(data != &one)
+				delete[] data;
+			data = newData;
+			max = newSize;
+		}
+		T	*data;
+		T	one;
+		unsigned int	max, count;
+	private:
+		// Disable assignment and copy constructor
+		void operator =(FastVector &r);
+		FastVector(FastVector &r);
+	};
+
 	typedef void (*callBack)(char const*, char const*);
 
 	template<typename T>
@@ -181,7 +250,7 @@ namespace supspi
 	};
 
 	class BaseP;
-	extern std::vector<BaseP*>	uniqueParserList;
+	extern FastVector<BaseP*>	uniqueParserList;
 
 	typedef void (*SpaceRule)(char**);
 
@@ -189,7 +258,10 @@ namespace supspi
 	class BaseP
 	{
 	public:
-		BaseP(){ uniqueParserList.push_back(this); };
+		BaseP()
+		{
+			uniqueParserList.push_back(this);
+		};
 		virtual			~BaseP(){ }
 
 		virtual bool	Parse(char** str, SpaceRule space) = 0;
@@ -214,7 +286,7 @@ namespace supspi
 		static ChunkedStackPool<4092>	parserPool;
 	};
 
-	extern std::vector<BaseP*>	parserList;
+	extern FastVector<BaseP*>	parserList;
 
 	unsigned int AllocParser(BaseP* parser);
 	void		SetParser(unsigned int ptr, BaseP* parser);
@@ -224,20 +296,42 @@ namespace supspi
 	class Rule
 	{
 	public:
-		Rule(){ myParser = AllocParser(NULL); }
-		explicit Rule(BaseP* parser){ myParser = AllocParser(parser); }
-		explicit Rule(unsigned int ptr){ myParser = ptr; }
+		Rule()
+		{
+			myParser = AllocParser(NULL);
+		}
+		explicit Rule(BaseP* parser)
+		{
+			myParser = AllocParser(parser);
+		}
+		explicit Rule(unsigned int ptr)
+		{
+			myParser = ptr;
+		}
 		
 		Rule&	operator =(const Rule& r)
 		{
 			SetParser(myParser, GetParser(r.myParser));
 			return *this;
 		}
-		void	forceSet(unsigned int ptr){ myParser = ptr; }
+		void	forceSet(unsigned int ptr)
+		{
+			myParser = ptr;
+		}
 		
-		BaseP*	operator ->() const{ assert(GetParser(myParser) != NULL); return GetParser(myParser); }
-		BaseP*	getParser() const{ return GetParser(myParser); };
-		unsigned int	getPtr() const{ return myParser; }
+		BaseP*	operator ->() const
+		{
+			assert(GetParser(myParser) != NULL);
+			return GetParser(myParser);
+		}
+		BaseP*	getParser() const
+		{
+			return GetParser(myParser);
+		};
+		unsigned int	getPtr() const
+		{
+			return myParser;
+		}
 
 		template<typename ActionT>
 		Rule	operator [](ActionT act);
@@ -276,7 +370,9 @@ namespace supspi
 	class ActionP: public BaseP
 	{
 	public:
-		ActionP(Rule a, ActionT act): m_a(a.getPtr()), m_act(act){ }
+		ActionP(Rule a, ActionT act): m_a(a.getPtr()), m_act(act)
+		{
+		}
 		~ActionP(){ }
 
 		virtual bool	Parse(char** str, SpaceRule space)
@@ -303,7 +399,9 @@ namespace supspi
 	class NoSpaceP: public BaseP
 	{
 	public:
-		NoSpaceP(Rule a): m_sub(a.getPtr()){  }
+		NoSpaceP(Rule a): m_sub(a.getPtr())
+		{
+		}
 		~NoSpaceP(){ }
 
 		virtual bool	Parse(char** str, SpaceRule space)
@@ -326,7 +424,9 @@ namespace supspi
 	class LongestP: public BaseP
 	{
 	public:
-		LongestP(Rule a): m_altp(a.getPtr()){ }
+		LongestP(Rule a): m_altp(a.getPtr())
+		{
+		}
 		~LongestP(){ }
 
 		virtual bool	Parse(char** str, SpaceRule space)
@@ -634,7 +734,10 @@ namespace supspi
 	class RepeatP: public BaseP
 	{
 	public:
-		RepeatP(Rule a, unsigned int cnt): m_a(a.getPtr()){ m_cnt = cnt; }
+		RepeatP(Rule a, unsigned int cnt): m_a(a.getPtr())
+		{
+			m_cnt = cnt;
+		}
 		virtual ~RepeatP(){ }
 
 		virtual bool	Parse(char** str, SpaceRule space)
@@ -643,7 +746,6 @@ namespace supspi
 			unsigned int iter = 0;
 			for(;;)
 			{
-				//SkipSpaces(str, space);
 				if(!m_a->Parse(str, space))
 				{
 					if(!continueParse)
@@ -729,12 +831,12 @@ namespace supspi
 
 				if(oldAlter == ALTER_LONGEST)
 				{
-					if((unsigned int)(temp1-(*str)) >= (unsigned int)(temp2-(*str)))
+					if((unsigned int)((char*)temp1-(char*)(*str)) >= (unsigned int)((char*)temp2-(char*)(*str)))
 						arr[0]->Parse(str, space);
 					else
 						arr[1]->Parse(str, space);
 				}else{
-					if((unsigned int)(temp1-(*str)) <= (unsigned int)(temp2-(*str)))
+					if((unsigned int)((char*)temp1-(char*)(*str)) <= (unsigned int)((char*)temp2-(char*)(*str)))
 						arr[0]->Parse(str, space);
 					else
 						arr[1]->Parse(str, space);
@@ -795,13 +897,14 @@ namespace supspi
 	class ExcludeP: public BaseP
 	{
 	public:
-		ExcludeP(Rule a, Rule b): m_a(a.getPtr()), m_b(b.getPtr()){ }
+		ExcludeP(Rule a, Rule b): m_a(a.getPtr()), m_b(b.getPtr())
+		{
+		}
 		~ExcludeP(){ }
 
 		virtual bool	Parse(char** str, SpaceRule space)
 		{
 			char* curr = *str;
-			//SkipSpaces(str, space);
 			char* copy = *str;
 			if(!m_a->Parse(str, space))
 			{
@@ -824,7 +927,9 @@ namespace supspi
 	class NegateP: public BaseP
 	{
 	public:
-		NegateP(Rule a): m_a(a.getPtr()){ }
+		NegateP(Rule a): m_a(a.getPtr())
+		{
+		}
 		virtual ~NegateP(){ }
 
 		virtual bool	Parse(char** str, SpaceRule space)
