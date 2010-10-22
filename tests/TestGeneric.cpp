@@ -851,3 +851,38 @@ int bar()\r\n\
 \r\n\
 return bar();";
 TEST_RESULT("Function type constrains (delayed instance)", testGeneric54, "4");
+
+const char *testGeneric55 =
+"auto foo(generic a) where typeof(a).argument.size == 2\r\n\
+{\r\n\
+	return a(3, 4);\r\n\
+}\r\n\
+return foo(auto(int a, b){ return a + b; });";
+TEST_RESULT("Function type constrains (extended typeof expressions)", testGeneric55, "7");
+
+const char *testGeneric56 =
+"auto foo(generic ref a, generic b) where typeof(a).isReference && typeof(b) == typeof(a).target\r\n\
+{\r\n\
+	*a = b;\r\n\
+}\r\n\
+int a = 5;\r\n\
+foo(a, 4);\r\n\
+return a;";
+TEST_RESULT("Function type constrains (extended typeof expressions) 2", testGeneric56, "4");
+
+const char *testGeneric57 =
+"auto foo(generic a) where typeof(a).isArray == 1\r\n\
+{\r\n\
+	return a[1] - 3;\r\n\
+}\r\n\
+auto a = { 5, 7, 9 };\r\n\
+return foo(a);";
+TEST_RESULT("Function type constrains (extended typeof expressions) 3", testGeneric57, "4");
+
+const char *testGeneric58 =
+"auto foo(generic a) where typeof(a).isFunction && typeof(a).argument.size == 2\r\n\
+{\r\n\
+	return a(3, 4);\r\n\
+}\r\n\
+return foo(auto(int a, b){ return a + b; });";
+TEST_RESULT("Function type constrains (extended typeof expressions)", testGeneric58, "7");

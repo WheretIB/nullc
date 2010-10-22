@@ -171,25 +171,25 @@ const char	*testTypeofOnFunctionArgument = "auto foo(int a, typeof(a) b){ return
 TEST_RESULT("typeof on argument of a function in definition", testTypeofOnFunctionArgument, "12");
 
 const char	*testTypeofPostExpression1 = "double foo(int a, double b, long c){ return 0; } return int == typeof(foo).argument.first;";
-TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression1, "1");
+TEST_RESULT("typeof .argument .first", testTypeofPostExpression1, "1");
 
 const char	*testTypeofPostExpression2 = "double foo(int a, double b, long c){ return 0; } return long == typeof(foo).argument.last;";
-TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression2, "1");
+TEST_RESULT("typeof .argument .last", testTypeofPostExpression2, "1");
 
 const char	*testTypeofPostExpression3 = "double foo(int a, double b, long c){ return 0; } return double == typeof(foo).argument[1];";
-TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression3, "1");
+TEST_RESULT("typeof .argument []", testTypeofPostExpression3, "1");
 
 const char	*testTypeofPostExpression4 = "double foo(int a, double b, long c){ return 0; } return double == typeof(foo).return;";
-TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression4, "1");
+TEST_RESULT("typeof .return", testTypeofPostExpression4, "1");
 
 const char	*testTypeofPostExpression5 = "int ref a; return int == typeof(a).target;";
-TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression5, "1");
+TEST_RESULT("typeof .target", testTypeofPostExpression5, "1");
 
 const char	*testTypeofPostExpression6 = "char[] a; return char == typeof(a).target;";
-TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression6, "1");
+TEST_RESULT("typeof .target 2", testTypeofPostExpression6, "1");
 
 const char	*testTypeofPostExpression7 = "float[4] a; return float == typeof(a).target;";
-TEST_RESULT("typeof on argument of a function in definition", testTypeofPostExpression7, "1");
+TEST_RESULT("typeof .target 3", testTypeofPostExpression7, "1");
 
 const char	*testShortFunctionArgumentResolve = 
 "auto f1(int[] a, int ref(int) b){ a[0] = b(a[1]); }\r\n\
@@ -198,3 +198,30 @@ int[] arr1 = { 2, 3 };\r\n\
 f1(arr1, <i>{ i; });\r\n\
 return arr1[0];";
 TEST_RESULT("Resolve of short inline function type in a partially ambiguous situation", testShortFunctionArgumentResolve, "3");
+
+const char	*testTypeofPostExpression8 = "int i; return typeof(&i).isReference;";
+TEST_RESULT("typeof .isReference 1", testTypeofPostExpression8, "1");
+
+const char	*testTypeofPostExpression9 = "int i; return typeof(i).isReference;";
+TEST_RESULT("typeof .isReference 2", testTypeofPostExpression9, "0");
+
+const char	*testTypeofPostExpression10 = "int[6] i; return typeof(i).isArray;";
+TEST_RESULT("typeof .isArray 1", testTypeofPostExpression10, "1");
+
+const char	*testTypeofPostExpression11 = "int[6] i; return typeof(i[4]).isArray;";
+TEST_RESULT("typeof .isArray 2", testTypeofPostExpression11, "0");
+
+const char	*testTypeofPostExpression12 = "int ref() i; return typeof(i).isFunction;";
+TEST_RESULT("typeof .isFunction 1", testTypeofPostExpression12, "1");
+
+const char	*testTypeofPostExpression13 = "int ref() i; return typeof(i()).isFunction;";
+TEST_RESULT("typeof .isFunction 2", testTypeofPostExpression13, "0");
+
+const char	*testTypeofPostExpression14 = "int[4] i; return typeof(i).arraySize;";
+TEST_RESULT("typeof .arraySize 1", testTypeofPostExpression14, "4");
+
+const char	*testTypeofPostExpression15 = "int[] i; return typeof(i).arraySize;";
+TEST_RESULT("typeof .arraySize 2", testTypeofPostExpression15, "-1");
+
+const char	*testTypeofPostExpression16 = "int ref(int, float) i; return typeof(i).argument.size;";
+TEST_RESULT("typeof .argument .size", testTypeofPostExpression16, "2");

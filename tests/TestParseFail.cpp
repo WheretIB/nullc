@@ -204,4 +204,10 @@ void RunParseFailTests()
 
 	TEST_FOR_FAIL("parsing", "int foo(int a, b) where;", "ERROR: expression expected after 'where'");
 	TEST_FOR_FAIL("parsing", "import std.math; int foo(int a, b) where cos(a*b) < 0.5 { return a + b; }", "ERROR: couldn't evaluate condition at compilation time");
+
+	TEST_FOR_FAIL("parsing", "typeof(1).isReference.target x;", "ERROR: typeof expression result is not a type");
+	TEST_FOR_FAIL("parsing", "typeof(1).isReference ref x;", "ERROR: typeof expression result is not a type");
+	TEST_FOR_FAIL("parsing", "typeof(1).isReference[4] x;", "ERROR: typeof expression result is not a type");
+
+	TEST_FOR_FAIL("parsing", "typeof(1).arraySize x;", "ERROR: 'arraySize' can only be applied to an array type, but we have 'int'");
 }
