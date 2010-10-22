@@ -1054,13 +1054,13 @@ function toggleView(a, b, c)
 // Create an array of objects
 </span><span class="rword">auto </span><span class="vardef">arr </span>= { <span class="func">IntPair</span><span class="bold">(</span><span class="real">2</span>, <span class="real">4</span><span class="bold">)</span>, <span class="func">IntPair</span><span class="bold">(</span><span class="real">5</span>, <span class="real">8</span><span class="bold">)</span>, <span class="func">IntPair</span><span class="bold">(</span><span class="real">2</span>, <span class="real">3</span><span class="bold">)</span>, <span class="func">IntPair</span><span class="bold">(</span><span class="real">3</span>, <span class="real">1</span><span class="bold">)</span>, <span class="func">IntPair</span><span class="bold">(</span><span class="real">0</span>, <span class="real">1</span><span class="bold">)</span>, <span class="func">IntPair</span><span class="bold">(</span><span class="real">9</span>, <span class="real">1</span><span class="bold">) </span>};
 <span class="comment">
-</span><span class="func">sort</span><span class="bold">(</span><span class="var">arr</span>, @<span class="func">&lt;</span><span class="bold">)</span>;<span class="comment"> // For from 'smallest' to 'largest'
+</span><span class="func">sort</span><span class="bold">(</span><span class="var">arr</span>, @<span class="func">&lt;</span><span class="bold">)</span>;<span class="comment"> // Sort from 'smallest' to 'largest'
 </span><span class="rword">for</span>(<span class="vardef">i </span><span class="rword">in </span><span class="var">arr</span>)
 <span class="var">	io</span>.<span class="var">out </span>&lt;&lt; '<span class="string">(</span>' &lt;&lt; <span class="var">i</span>.<span class="var">a </span>&lt;&lt; "<span class="string">, </span>" &lt;&lt; <span class="var">i</span>.<span class="var">b </span>&lt;&lt; "<span class="string">); </span>";
 <span class="var">io</span>.<span class="var">out </span>&lt;&lt; <span class="var">io</span>.<span class="var">endl</span>;<span class="comment">
 // output: (0, 1); (2, 3); (2, 4); (3, 1); (5, 8); (9, 1);
 </span>
-<span class="func">sort</span><span class="bold">(</span><span class="var">arr</span>, @<span class="func">&gt;</span><span class="bold">)</span>;<span class="comment"> // For from 'largest' to 'smallest'
+<span class="func">sort</span><span class="bold">(</span><span class="var">arr</span>, @<span class="func">&gt;</span><span class="bold">)</span>;<span class="comment"> // Sort from 'largest' to 'smallest'
 </span><span class="rword">for</span>(<span class="vardef">i </span><span class="rword">in </span><span class="var">arr</span>)
 	<span class="var">io</span>.<span class="var">out </span>&lt;&lt; '<span class="string">(</span>' &lt;&lt; <span class="var">i</span>.<span class="var">a </span>&lt;&lt; "<span class="string">, </span>" &lt;&lt; <span class="var">i</span>.<span class="var">b </span>&lt;&lt; "<span class="string">); </span>";
 <span class="var">io</span>.<span class="var">out </span>&lt;&lt; <span class="var">io</span>.<span class="var">endl</span>;<span class="comment">
