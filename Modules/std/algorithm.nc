@@ -173,3 +173,51 @@ auto[] filter(auto[] arr, int ref(auto ref) f)
 	__force_size(n, el);
 	return n;
 }
+
+auto bind_first(generic f, v)
+{
+	@if(typeof(f).argument.size == 1)
+		return auto(){ return f(v); };
+	else if(typeof(f).argument.size == 2)
+		return auto(typeof(f).argument[1] v1){ return f(v, v1); };
+	else if(typeof(f).argument.size == 2)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2){ return f(v, v1, v2); };
+	else if(typeof(f).argument.size == 3)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2, typeof(f).argument[3] v3){ return f(v, v1, v2, v3); };
+	else if(typeof(f).argument.size == 4)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2, typeof(f).argument[3] v3, typeof(f).argument[4] v4){ return f(v, v1, v2, v3, v4); };
+	else if(typeof(f).argument.size == 5)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2, typeof(f).argument[3] v3, typeof(f).argument[4] v4, typeof(f).argument[5] v5){ return f(v, v1, v2, v3, v4, v5); };
+	else if(typeof(f).argument.size == 6)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2, typeof(f).argument[3] v3, typeof(f).argument[4] v4, typeof(f).argument[5] v5, typeof(f).argument[6] v6){ return f(v, v1, v2, v3, v4, v5, v6); };
+	else if(typeof(f).argument.size == 7)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2, typeof(f).argument[3] v3, typeof(f).argument[4] v4, typeof(f).argument[5] v5, typeof(f).argument[6] v6, typeof(f).argument[7] v7){ return f(v, v1, v2, v3, v4, v5, v6, v7); };
+	else if(typeof(f).argument.size == 8)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2, typeof(f).argument[3] v3, typeof(f).argument[4] v4, typeof(f).argument[5] v5, typeof(f).argument[6] v6, typeof(f).argument[7] v7, typeof(f).argument[8] v8){ return f(v, v1, v2, v3, v4, v5, v6, v7, v8); };
+	else
+		_unsupported_argument_count_;
+}
+
+auto bind_last(generic f, v)
+{
+	@if(typeof(f).argument.size == 1)
+		return auto(){ return f(v); };
+	else if(typeof(f).argument.size == 2)
+		return auto(typeof(f).argument[1] v1){ return f(v1, v); };
+	else if(typeof(f).argument.size == 2)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2){ return f(v1, v2, v); };
+	else if(typeof(f).argument.size == 3)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2, typeof(f).argument[3] v3){ return f(v1, v2, v3, v); };
+	else if(typeof(f).argument.size == 4)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2, typeof(f).argument[3] v3, typeof(f).argument[4] v4){ return f(v1, v2, v3, v4, v); };
+	else if(typeof(f).argument.size == 5)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2, typeof(f).argument[3] v3, typeof(f).argument[4] v4, typeof(f).argument[5] v5){ return f(v1, v2, v3, v4, v5, v); };
+	else if(typeof(f).argument.size == 6)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2, typeof(f).argument[3] v3, typeof(f).argument[4] v4, typeof(f).argument[5] v5, typeof(f).argument[6] v6){ return f(v1, v2, v3, v4, v5, v6, v); };
+	else if(typeof(f).argument.size == 7)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2, typeof(f).argument[3] v3, typeof(f).argument[4] v4, typeof(f).argument[5] v5, typeof(f).argument[6] v6, typeof(f).argument[7] v7){ return f(v1, v2, v3, v4, v5, v6, v7, v); };
+	else if(typeof(f).argument.size == 8)
+		return auto(typeof(f).argument[1] v1, typeof(f).argument[2] v2, typeof(f).argument[3] v3, typeof(f).argument[4] v4, typeof(f).argument[5] v5, typeof(f).argument[6] v6, typeof(f).argument[7] v7, typeof(f).argument[8] v8){ return f(v1, v2, v3, v4, v5, v6, v7, v8, v); };
+	else
+		_unsupported_argument_count_;
+}
