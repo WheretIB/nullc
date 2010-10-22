@@ -479,3 +479,23 @@ int ref() z = s.foo;\r\n\
 return int(y() + z());";
 TEST_RESULT("Taking pointer to a generic type member function (overload resolve)", testGenericType38, "76");
 
+const char *testGenericType39 =
+"class Foo<T>\r\n\
+{\r\n\
+	T a;\r\n\
+\r\n\
+	auto bar(int x){ return -x; }\r\n\
+	auto bar(float x){ return 2*x; }\r\n\
+}\r\n\
+int Foo:foo()\r\n\
+{\r\n\
+	int ref(int) m = bar;\r\n\
+	return m(a);\r\n\
+}\r\n\
+\r\n\
+Foo<int> x; x.a = 4; Foo<double> s; s.a = 40;\r\n\
+auto y = x.foo;\r\n\
+auto z = s.foo;\r\n\
+return int(y() + z());";
+TEST_RESULT("Function call by pointer in a member function", testGenericType39, "-44");
+

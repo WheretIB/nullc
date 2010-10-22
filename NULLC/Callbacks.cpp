@@ -1080,7 +1080,16 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, TypeInfo *forcedPref
 			fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
 
 			if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
-				ThrowError(pos, "ERROR: there are more than one '%.*s' function, and the decision isn't clear", varName.end-varName.begin, varName.begin);
+			{
+				FunctionInfo *fInfo = CodeInfo::funcInfo[fID];
+				if(fInfo->generic)
+					ThrowError(pos, "ERROR: can't take pointer to a generic function");
+				assert(!forcedThisNode);
+				GetFunctionContext(pos, fInfo, true);
+				fInfo->pure = false;
+				CodeInfo::nodeList.push_back(new NodeFunctionProxy(fInfo, pos, false, true));
+				return;
+			}
 		}
 		if(fID == -1)
 			fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
@@ -3649,7 +3658,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		CodeInfo::nodeList.pop_back();
 	}
 
-	if(funcName && funcAddr && newType)
+	if(funcName && funcAddr && newType && !vInfo)
 	{
 		CodeInfo::nodeList.push_back(funcAddr);
 		funcAddr = NULL;
