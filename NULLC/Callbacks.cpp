@@ -2753,16 +2753,36 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 				genericArg = !!(start++); // move forward and mark argument as a generic
 			}else if(start->type == lex_less){ // If failed because of generic type specialization
 				TypeInfo *referenceType = CodeInfo::nodeList[nodeOffset + argID]->typeInfo; // Get type to which we are trying to specialize
-				if(referenceType->genericBase != currType) // If its generic base is not equal to generic type expected at this point
+				// Strip type from references and arrays
+				TypeInfo *refTypeBase = referenceType;
+				while(refTypeBase->refLevel || refTypeBase->arrLevel)
+					refTypeBase = refTypeBase->subType;
+				TypeInfo *expectedType = currType;
+				if(refTypeBase->genericBase != expectedType) // If its generic base is not equal to generic type expected at this point
 				{
 					newRating = ~0u; // function is not instanced
 					return NULL;
 				}
-				if(!ParseGenericType(&start, referenceType->childAlias ? referenceType : NULL)) // It is possible that generic type argument count is incorrect
+				if(!ParseGenericType(&start, refTypeBase->childAlias ? refTypeBase : NULL)) // It is possible that generic type argument count is incorrect
 				{
 					newRating = ~0u; // function is not instanced
 					return NULL;
 				}
+				// Check that both types follow the same tree
+				refTypeBase = referenceType;
+				TypeInfo *selectedType = currType;
+				// Follow both types along a type tree
+				while(refTypeBase->refLevel || refTypeBase->arrLevel)
+				{
+					if((refTypeBase->refLevel != selectedType->refLevel) || (refTypeBase->arrLevel != selectedType->arrLevel || refTypeBase->arrSize != selectedType->arrSize))
+					{
+						newRating = ~0u; // function is not instanced if there are any differences
+						return NULL;
+					}
+					refTypeBase = refTypeBase->subType;
+					selectedType = selectedType->subType;
+				}
+				assert(refTypeBase->genericBase == expectedType);
 				genericArg = false;
 			}else{ // If failed for other reasons, such as typeof that depends on generic
 				assert(argID);

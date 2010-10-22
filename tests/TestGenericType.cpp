@@ -431,3 +431,18 @@ auto bar(Bar<@T, Foo<int>> z){ return z.s.t; }\r\n\
 Bar<int, Foo<int>> b; b.s.t = 5;\r\n\
 return bar(b);";
 TEST_RESULT("Nested generic type definition '>>' resolve 2", testGenericType33, "5");
+
+const char *testGenericType34 =
+"class Foo<T>{ T x; }\r\n\
+Foo<int> a; a.x = 5;\r\n\
+auto foo(Foo<generic> ref m){ return -m.x; }\r\n\
+return foo(&a);";
+TEST_RESULT("Generic type specialization to reference type", testGenericType34, "-5");
+
+const char *testGenericType35 =
+"class Foo<T>{ T x; }\r\n\
+Foo<int> a; a.x = 5;\r\n\
+auto foo(Foo<generic> ref m){ return -m.x; }\r\n\
+return foo(a);";
+TEST_RESULT("Generic type specialization to reference type 2", testGenericType35, "-5");
+
