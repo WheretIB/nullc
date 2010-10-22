@@ -45,6 +45,7 @@ namespace RichTextarea
 	void ClearAreaText(HWND wnd);
 	const char* GetAreaText(HWND wnd);
 	const char* GetCachedAreaText(HWND wnd);
+	const char* GetAreaStyle(HWND wnd);
 	void SetAreaText(HWND wnd, const char *text);
 
 	void UpdateArea(HWND wnd);

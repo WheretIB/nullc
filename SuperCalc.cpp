@@ -2652,6 +2652,80 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				stateAttach = true;
 			}
 				break;
+			case ID_SAVE_AS_HTML:
+			{
+				TabbedFiles::TabInfo currTab = TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs));
+
+				RichTextarea::BeginStyleUpdate(currTab.window);
+				colorer->ColorText(currTab.window, (char*)RichTextarea::GetAreaText(currTab.window), RichTextarea::SetStyleToSelection);
+				RichTextarea::EndStyleUpdate(currTab.window);
+				const char *text = RichTextarea::GetCachedAreaText(currTab.window);
+				const char *style = RichTextarea::GetAreaStyle(currTab.window);
+
+				// Create file name
+				safeprintf(result, 1024, "%s.html", currTab.last);
+				// Convert point in original file name into an underscore
+				char *curr = strchr(result, '.');
+				if(curr && curr[5] != 0)
+					*curr = '_';
+				// Create file
+				FILE *fHTML = fopen(result, "wb");
+				if(!fHTML)
+				{
+					MessageBox(hWnd, "Cannot save file as html (file creation failed)", "Error", MB_OK);
+					break;
+				}
+				fprintf(fHTML, "<!DOCTYPE html>\r\n");
+				fprintf(fHTML, "<html>\r\n<head>\r\n<meta charset=\"utf-8\">\r\n<title>%s</title>\r\n", currTab.name);
+				fprintf(fHTML, "<style type=\"text/css\">\r\n");
+				fprintf(fHTML, "pre.code{ background: #eee; font-family: Consolas, Courier New, monospace; font-size: 10pt; }\r\n");
+				fprintf(fHTML, "span.rword{color: #00f;}\r\n");
+				fprintf(fHTML, "span.func{color: #880000;font-style: italic;}\r\n");
+				fprintf(fHTML, "span.var{color: #555;}\r\n");
+				fprintf(fHTML, "span.vardef{color: #323232;}\r\n");
+				fprintf(fHTML, "span.bold{font-weight: bold;}\r\n");
+				fprintf(fHTML, "span.real{color: #008800;}\r\n");
+				fprintf(fHTML, "span.comment{color: #f0f;}\r\n");
+				fprintf(fHTML, "span.string{color: #880000;}\r\n");
+				fprintf(fHTML, "span.error{color: #f00;text-decoration: underline;}\r\n");
+				fprintf(fHTML, "</style>\r\n");
+				fprintf(fHTML, "</head>\r\n<body>\r\n<pre class=\"code\">\r\n");
+				const char *cText = text;
+				const char *cStyle = style;
+				char lastStyle = COLOR_CODE;
+				const char	*styleName[] = { "", "rword", "var", "vardef", "func", "", "bold", "string", "real", "real", "error", "comment" };
+				while(*cText)
+				{
+					if(*cStyle != lastStyle)
+					{
+						if(lastStyle != COLOR_CODE && lastStyle != COLOR_TEXT)
+							fprintf(fHTML, "</span>");
+						lastStyle = *cStyle;
+						assert((unsigned)lastStyle <= COLOR_COMMENT);
+						if(lastStyle != COLOR_CODE && lastStyle != COLOR_TEXT)
+							fprintf(fHTML, "<span class=\"%s\">", styleName[lastStyle]);
+					}
+					if(*cText == '\r')
+					{
+						fwrite("\r\n", 1, 2, fHTML);
+						cText++;
+						cStyle++;
+					}else if(*cText == '<'){
+						fwrite("&lt;", 1, 4, fHTML);
+					}else if(*cText == '>'){
+						fwrite("&gt;", 1, 4, fHTML);
+					}else{
+						fwrite(cText, 1, 1, fHTML);
+					}
+					cText++;
+					cStyle++;
+				}
+				if(lastStyle != COLOR_CODE && lastStyle != COLOR_TEXT)
+					fprintf(fHTML, "</span>");
+				fprintf(fHTML, "</pre>\r\n</body>\r\n</html>");
+				fclose(fHTML);
+			}
+				break;
 			default:
 				return DefWindowProc(hWnd, message, wParam, lParam);
 			}
