@@ -506,3 +506,191 @@ Foo<double> m;\r\n\
 m.set(4);\r\n\
 return int(m.x * 1.5);";
 TEST_RESULT("Generic type aliases are available in external unspecialized member function argument list", testGenericType40, "6");
+
+const char *testGenericType41 =
+"class Factorial<T>{}\r\n\
+auto Factorial<int[1]>:get(){ T arr; return arr; }\r\n\
+auto Factorial:get()\r\n\
+{\r\n\
+	Factorial<int[typeof(T).arraySize - 1]> x;\r\n\
+	int[typeof(x.get()).arraySize] m; // arraysize > 1 ? arraysize - 1 : 1;\r\n\
+	typeof(T).target[typeof(T).arraySize * typeof(m).arraySize] arr;\r\n\
+	return arr;\r\n\
+}\r\n\
+Factorial<int[8]> fact;\r\n\
+return typeof(fact.get()).arraySize;";
+TEST_RESULT("Generic type compile-time factorial", testGenericType41, "40320");
+
+const char *testGenericType42 =
+"class Natural<T>\r\n\
+{\r\n\
+	T x;\r\n\
+}\r\n\
+auto operator+(Natural<@T> x, Natural<@U> y)\r\n\
+{\r\n\
+	int[typeof(x.x).arraySize + typeof(y.x).arraySize] value;\r\n\
+	Natural<typeof(value)> result;\r\n\
+	return result;\r\n\
+}\r\n\
+auto operator-(Natural<@T> x, Natural<@U> y)\r\n\
+{\r\n\
+	int[typeof(x.x).arraySize - typeof(y.x).arraySize] value;\r\n\
+	Natural<typeof(value)> result;\r\n\
+	return result;\r\n\
+}\r\n\
+auto operator*(Natural<@T> x, Natural<@U> y)\r\n\
+{\r\n\
+	int[typeof(x.x).arraySize * typeof(y.x).arraySize] value;\r\n\
+	Natural<typeof(value)> result;\r\n\
+	return result;\r\n\
+}\r\n\
+auto operator/(Natural<@T> x, Natural<@U> y)\r\n\
+{\r\n\
+	int[typeof(x.x).arraySize / typeof(y.x).arraySize] value;\r\n\
+	Natural<typeof(value)> result;\r\n\
+	return result;\r\n\
+}\r\n\
+auto factorial(Natural<@T> x)\r\n\
+{\r\n\
+	Natural<int[1]> one;\r\n\
+	@if(typeof(x.x).arraySize > 1)\r\n\
+		return x * factorial(x - one);\r\n\
+	else\r\n\
+		return one;\r\n\
+}\r\n\
+\r\n\
+Natural<int[8]> a;\r\n\
+Natural<int[3]> b;\r\n\
+Natural<int[4]> c;\r\n\
+auto val1 = typeof(((a * b + a) / c).x).arraySize; // 8\r\n\
+\r\n\
+Natural<int[5]> f;\r\n\
+auto fact4 = typeof(factorial(f).x).arraySize; // 120\r\n\
+\r\n\
+return val1 + fact4;";
+TEST_RESULT("Generic type compile-time 2", testGenericType42, "128");
+
+const char *testGenericType43 =
+"class Natural<T>\r\n\
+{\r\n\
+	T ref x;\r\n\
+}\r\n\
+auto operator+(Natural<@T> x, Natural<@U> y)\r\n\
+{\r\n\
+	int[typeof(x.x).target.arraySize + typeof(y.x).target.arraySize] value;\r\n\
+	Natural<typeof(value)> result;\r\n\
+	return result;\r\n\
+}\r\n\
+auto operator-(Natural<@T> x, Natural<@U> y)\r\n\
+{\r\n\
+	int[typeof(x.x).target.arraySize - typeof(y.x).target.arraySize] value;\r\n\
+	Natural<typeof(value)> result;\r\n\
+	return result;\r\n\
+}\r\n\
+auto operator*(Natural<@T> x, Natural<@U> y)\r\n\
+{\r\n\
+	int[typeof(x.x).target.arraySize * typeof(y.x).target.arraySize] value;\r\n\
+	Natural<typeof(value)> result;\r\n\
+	return result;\r\n\
+}\r\n\
+auto operator/(Natural<@T> x, Natural<@U> y)\r\n\
+{\r\n\
+	int[typeof(x.x).target.arraySize / typeof(y.x).target.arraySize] value;\r\n\
+	Natural<typeof(value)> result;\r\n\
+	return result;\r\n\
+}\r\n\
+auto factorial(Natural<@T> x)\r\n\
+{\r\n\
+	Natural<int[1]> one;\r\n\
+	@if(typeof(x.x).target.arraySize > 1)\r\n\
+		return x * factorial(x - one);\r\n\
+	else\r\n\
+		return one;\r\n\
+}\r\n\
+\r\n\
+Natural<int[8]> a;\r\n\
+Natural<int[3]> b;\r\n\
+Natural<int[4]> c;\r\n\
+auto val1 = typeof(*((a * b + a) / c).x).arraySize; // 8\r\n\
+\r\n\
+Natural<int[10]> f;\r\n\
+auto fact4 = typeof(*factorial(f).x).arraySize; // 3628800\r\n\
+\r\n\
+return val1 + fact4;";
+TEST_RESULT("Generic type compile-time 3", testGenericType43, "3628808");
+
+const char *testGenericType44 =
+"class Foo<T>{ T x; }\r\n\
+auto foo(Foo<@T> x, Foo<@U> y)\r\n\
+{\r\n\
+	T a; U b;\r\n\
+	return sizeof(a) + sizeof(b);\r\n\
+}\r\n\
+Foo<int> a; Foo<double> b;\r\n\
+return foo(a, b);";
+TEST_RESULT("Generic function specialization for generic types with aliases", testGenericType44, "12");
+
+const char *testGenericType45 =
+"class Foo<T>{ T x; }\r\n\
+auto foo(Foo<@T> x, Foo<@U> y)\r\n\
+{\r\n\
+	T a; U b;\r\n\
+	return sizeof(a) + sizeof(b);\r\n\
+}\r\n\
+auto bar(Foo<@T> x, Foo<@U> y)\r\n\
+{\r\n\
+	Foo<int> a; Foo<double> b;\r\n\
+	return foo(a, b);\r\n\
+}\r\n\
+Foo<long> c; Foo<double> d;\r\n\
+return bar(c, d);";
+TEST_RESULT("Generic function specialization. aliases are taken from function prototype", testGenericType45, "12");
+
+const char *testGenericType46 =
+"class Natural<T>\r\n\
+{\r\n\
+	T ref x;\r\n\
+}\r\n\
+auto operator+(Natural<@T> x, Natural<@U> y)\r\n\
+{\r\n\
+	int[T.arraySize + U.arraySize] value;\r\n\
+	Natural<typeof(value)> result;\r\n\
+	return result;\r\n\
+}\r\n\
+auto operator-(Natural<@T> x, Natural<@U> y)\r\n\
+{\r\n\
+	int[T.arraySize - U.arraySize] value;\r\n\
+	Natural<typeof(value)> result;\r\n\
+	return result;\r\n\
+}\r\n\
+auto operator*(Natural<@T> x, Natural<@U> y)\r\n\
+{\r\n\
+	int[T.arraySize * U.arraySize] value;\r\n\
+	Natural<typeof(value)> result;\r\n\
+	return result;\r\n\
+}\r\n\
+auto operator/(Natural<@T> x, Natural<@U> y)\r\n\
+{\r\n\
+	int[T.arraySize / U.arraySize] value;\r\n\
+	Natural<typeof(value)> result;\r\n\
+	return result;\r\n\
+}\r\n\
+auto factorial(Natural<@T> x)\r\n\
+{\r\n\
+	Natural<int[1]> one;\r\n\
+	@if(T.arraySize > 1)\r\n\
+		return x * factorial(x - one);\r\n\
+	else\r\n\
+		return one;\r\n\
+}\r\n\
+\r\n\
+Natural<int[8]> a;\r\n\
+Natural<int[3]> b;\r\n\
+Natural<int[4]> c;\r\n\
+auto val1 = typeof((a * b + a) / c).x.target.arraySize; // 8\r\n\
+\r\n\
+Natural<int[10]> f;\r\n\
+auto fact4 = typeof(factorial(f)).x.target.arraySize; // 3628800\r\n\
+\r\n\
+return val1 + fact4;";
+TEST_RESULT("Generic type compile-time 4", testGenericType46, "3628808");

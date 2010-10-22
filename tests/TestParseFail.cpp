@@ -167,7 +167,7 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "void bar(void ref(int, int) x); bar(<i, j> i; });", "ERROR: '{' not found after function header");
 	TEST_FOR_FAIL("parsing", "void bar(void ref(int, int) x); bar(<i, j>{ i; );", "ERROR: '}' not found after function body");
 
-	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).name;", "ERROR: expected 'argument'/'return'/'target'/'isReference'/'isArray'/'isFunction'/'arraySize' at this point");
+	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).name;", "ERROR: expected extended typeof expression at this point");
 	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo(1,2,3)).argument;", "ERROR: 'argument' can only be applied to a function type, but we have 'double'");
 	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).argument;", "ERROR: expected '.first'/'.last'/'[N]'/'.size' at this point");
 	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).argument.;", "ERROR: expected 'first'/'last'/'size' at this point");
@@ -188,11 +188,11 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "int foo(generic a) return 1; }", "ERROR: '{' not found after function header");
 	TEST_FOR_FAIL("parsing", "int foo(generic a){ return ##a; }", "ERROR: unknown lexeme in function body");
 
-	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).arguments;", "ERROR: expected 'argument'/'return'/'target'/'isReference'/'isArray'/'isFunction'/'arraySize' at this point");
+	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).arguments;", "ERROR: expected extended typeof expression at this point");
 	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).argument.firsta;", "ERROR: expected 'first'/'last'/'size' at this point");
 	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).argument.lastu;", "ERROR: expected 'first'/'last'/'size' at this point");
-	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).returnee;", "ERROR: expected 'argument'/'return'/'target'/'isReference'/'isArray'/'isFunction'/'arraySize' at this point");
-	TEST_FOR_FAIL("parsing", "int u; return int == typeof(&u).targetme;", "ERROR: expected 'argument'/'return'/'target'/'isReference'/'isArray'/'isFunction'/'arraySize' at this point");
+	TEST_FOR_FAIL("parsing", "double foo(int i, j, k){ return i * j + k; } typeof(foo).returnee;", "ERROR: expected extended typeof expression at this point");
+	TEST_FOR_FAIL("parsing", "int u; return int == typeof(&u).targetme;", "ERROR: expected extended typeof expression at this point");
 
 	TEST_FOR_FAIL("parsing", "@if(0){ int #; else float a;", "ERROR: unknown lexeme in 'if' body");
 	TEST_FOR_FAIL("parsing", "@if(0){ int a; }else{", "ERROR: closing '}' not found");
@@ -230,4 +230,6 @@ void RunParseFailTests()
 
 	TEST_FOR_FAIL("parsing", "@if(1) }", "ERROR: expression not found after 'if'");
 	TEST_FOR_FAIL("parsing", "@if(0) return 1; else }", "ERROR: expression not found after 'else'");
+
+	TEST_FOR_FAIL("parsing", "class Foo{ int[5] arr; } return Foo.arr2.arraySize;", "ERROR: expected extended typeof expression or class member name at this point");
 }

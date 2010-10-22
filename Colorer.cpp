@@ -332,6 +332,21 @@ namespace ColorerGrammar
 					(strWP("ref")[ColorRWord] >> !(chP('(')[ColorText] >> !typeExpr >> *(chP(',')[ColorText] >> typeExpr) >> chP(')')[ColorText])) |
 					arrayDef
 				);
+			typeofPostExpr =
+				chP('.')[ColorText] >>
+				(
+					(
+						strP("argument")[ColorRWord] >>
+						((chP('.')[ColorText] >> (strP("first")[ColorRWord] | strP("last")[ColorRWord] | strP("size")[ColorRWord])) | (chP('[')[ColorText] >> intP[ColorReal] >> chP(']')[ColorText]))
+					) |
+					strP("return")[ColorRWord] |
+					strP("target")[ColorRWord] |
+					strP("isArray")[ColorRWord] |
+					strP("isFunction")[ColorRWord] |
+					strP("isReference")[ColorRWord] |
+					strP("arraySize")[ColorRWord] |
+					idP[ColorVar]
+				);
 			typeExpr	=
 				(
 					(strWP("auto") | typenameP(typeName))[ColorRWord] |
@@ -340,24 +355,11 @@ namespace ColorerGrammar
 						(chP('(')[ColorText] | epsP[LogError("ERROR: '(' not found after 'typeof'")]) >>
 						(term5 | epsP[LogError("ERROR: expression not found in 'typeof' statement")]) >>
 						(chP(')')[ColorText] | epsP[LogError("ERROR: ')' not found after 'typeof' statement")]) >>
-						*(
-							chP('.')[ColorText] >>
-							(
-								(
-									strP("argument")[ColorRWord] >>
-									((chP('.')[ColorText] >> (strP("first")[ColorRWord] | strP("last")[ColorRWord] | strP("size")[ColorRWord])) | (chP('[')[ColorText] >> intP[ColorReal] >> chP(']')[ColorText]))
-								) |
-								strP("return")[ColorRWord] |
-								strP("target")[ColorRWord] |
-								strP("isArray")[ColorRWord] |
-								strP("isFunction")[ColorRWord] |
-								strP("isReference")[ColorRWord] |
-								strP("arraySize")[ColorRWord]
-							)
-						)
+						*typeofPostExpr
 					)
 				) >>
-				typePostExpr;
+				typePostExpr >>
+				*typeofPostExpr;
 
 			classdef	=
 				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
@@ -643,7 +645,7 @@ namespace ColorerGrammar
 		// Parsing rules
 		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr, typeDef;
 		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, fcallpart, funcvars;
-		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr, oneLexOperator, typePostExpr;
+		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr, oneLexOperator, typePostExpr, typeofPostExpr;
 		// Main rule
 		Rule code;
 	};

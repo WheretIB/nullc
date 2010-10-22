@@ -220,7 +220,25 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : ((int)GetSelectedType()->arrSize), typeVoid));
 		notType = true;
 	}else{
-		ThrowError(curr->pos, "ERROR: expected 'argument'/'return'/'target'/'isReference'/'isArray'/'isFunction'/'arraySize' at this point");
+		if(curr->type == lex_string && !GetSelectedType()->refLevel && !GetSelectedType()->arrLevel && !GetSelectedType()->funcType) // if this is a class
+		{
+			if(!genericType)
+			{
+				TypeInfo *classType = GetSelectedType();
+				unsigned hash = GetStringHash(curr->pos, curr->pos + curr->length);
+
+				TypeInfo::MemberVariable *currMember = classType->firstVariable;
+				for(; currMember; currMember = currMember->next)
+					if(currMember->nameHash == hash)
+						break;
+				if(!currMember)
+					ThrowError(curr->pos, "ERROR: expected extended typeof expression or class member name at this point");
+				SelectTypeByPointer(currMember->type);
+			}
+			curr++;
+		}else{
+			ThrowError(curr->pos, "ERROR: expected extended typeof expression at this point");
+		}
 	}
 	*str = curr;
 	return true;
@@ -309,7 +327,7 @@ void ParseGenericEnd(Lexeme** str)
 	}
 }
 
-bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allowGeneric)
+bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allowGeneric, bool allowExtendedType)
 {
 	bool notType = false;
 	if((*str)->type == lex_typeof)
@@ -393,6 +411,8 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allo
 			TypeInstanceGeneric((*str)->pos, genericType, count);
 			ParseGenericEnd(str);
 		}
+		if(allowExtendedType)
+			while(ParseTypeofExtended(str, notType));
 	}else{
 		return false;
 	}
@@ -666,8 +686,6 @@ bool ParseGenericType(Lexeme** str, TypeInfo* preferredType)
 						if((*str)[-1].type == lex_at)
 						{
 							assert((*str)->type == lex_string);
-							if(ParseSelectType(str))
-								ThrowError((*str - 1)->pos, "ERROR: there is already a type or an alias with the same name");
 							AddAliasType(InplaceStr((*str)->pos, (*str)->length));
 							(*str)++;
 						}
@@ -824,7 +842,7 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 		}
 	}else if((*str)->type == lex_string && ((*str + 1)->type == lex_colon || (*str + 1)->type == lex_point || (*str + 1)->type == lex_less)){
 		TypeInfo *retType = (TypeInfo*)GetSelectedType();
-		if(!ParseSelectType(str, true, false, true))
+		if(!ParseSelectType(str, true, false, true, false))
 			ThrowError((*str)->pos, "ERROR: class name expected before ':' or '.'");
 		if((*str)->type == lex_point)
 			funcProperty = true;

@@ -458,7 +458,7 @@ return int(foo(b) + foo(c));",
 	TEST_FOR_FAIL("generic function specialization fail 4", "class Foo<T>{ T x; }auto foo(Foo<generic, int> a){ return a.x; }Foo<float> z;return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
 	TEST_FOR_FAIL("generic function specialization fail 5", "class Foo<T, U>{ T x; } auto foo(Foo<generic> a){ return a.x; } Foo<int, int> z; return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
 
-	TEST_FOR_FAIL("generic function specialization alias double", "class Foo<T, U>{ T x; } auto foo(Foo<@T, @T> x){ T y = x.x; return y + x.x; } Foo<int, float> a; return foo(a);", "ERROR: there is already a type or an alias with the same name");
+	TEST_FOR_FAIL("generic function specialization alias double", "class Foo<T, U>{ T x; } auto foo(Foo<@T, @T> x){ T y = x.x; return y + x.x; } Foo<int, float> a; return foo(a);", "ERROR: function 'foo' argument list has multiple 'T' aliases");
 
 	TEST_FOR_FAIL(">> after a non-nester generic type name", "class Foo<T>{ T t; } int c = 1; int a = Foo<int>> c;", "ERROR: operation > is not supported on 'typeid' and 'int'");
 
@@ -510,4 +510,6 @@ return int(y() + z());",
 	TEST_FOR_FAIL("typedef dies after a generic function instance in an incorrect scope", "auto foo(generic x){ typedef typeof(x) T; T a = x * 2; return a; } int bar(){ int x = foo(5); T y; return x; } return bar();", "ERROR: variable or function 'T' is not defined");
 
 	TEST_FOR_FAIL("alias redefinition in generic type definition", "class Foo<T, T>{ T x; } Foo<int, double> m;", "ERROR: there is already a type or an alias with the same name");
+
+	TEST_FOR_FAIL("generic instance type invisible after instance 3", "class Foo<T>{} void foo(Foo<@T> x){ T y; } Foo<int> a; foo(a); T x; return sizeof(x);", "ERROR: variable or function 'T' is not defined");
 }
