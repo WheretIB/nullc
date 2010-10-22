@@ -590,7 +590,7 @@ bool ParseFunctionConstraints(Lexeme** str, bool instanceTime)
 		(*str)++;
 		if(!ParseTernaryExpr(str))
 			ThrowError((*str)->pos, "ERROR: expression expected after 'where'");
-		if(!FunctionGeneric(false) || instanceTime)
+		if(instanceTime || !FunctionGeneric(false))
 		{
 			if(CodeInfo::nodeList.back()->nodeType != typeNodeNumber)
 				ThrowError(start->pos, "ERROR: couldn't evaluate condition at compilation time");
@@ -952,7 +952,7 @@ bool ParseIfExpr(Lexeme** str, bool isStatic)
 		CodeInfo::nodeList.pop_back();
 		if(!result)
 		{
-			unsigned braces = 0;
+			unsigned startBraces = ParseLexem(str, lex_ofigure), braces = startBraces;
 			for(;;)
 			{
 				if((*str)->type == lex_none)
@@ -961,7 +961,7 @@ bool ParseIfExpr(Lexeme** str, bool isStatic)
 				{
 					braces++;
 				}else if(ParseLexem(str, lex_cfigure)){
-					if(!--braces)
+					if(!--braces && startBraces)
 						break;
 				}else if(ParseLexem(str, lex_semicolon)){
 					if(!braces)
@@ -982,7 +982,7 @@ bool ParseIfExpr(Lexeme** str, bool isStatic)
 				ThrowError((*str)->pos, "ERROR: expression not found after 'if'");
 			if(ParseLexem(str, lex_else))
 			{
-				unsigned braces = 0;
+				unsigned startBraces = ParseLexem(str, lex_ofigure), braces = startBraces;
 				for(;;)
 				{
 					if((*str)->type == lex_none)
@@ -991,7 +991,7 @@ bool ParseIfExpr(Lexeme** str, bool isStatic)
 					{
 						braces++;
 					}else if(ParseLexem(str, lex_cfigure)){
-						if(!--braces)
+						if(!--braces && startBraces)
 							break;
 					}else if(ParseLexem(str, lex_semicolon)){
 						if(!braces)

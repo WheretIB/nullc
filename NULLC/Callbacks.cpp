@@ -1190,14 +1190,17 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 						start++;
 					}
 
-					bool genericArg = false;
+					bool genericArg = false, genericRef = false;;
 					if(!ParseSelectType(&start, false))
 						genericArg = start->type == lex_generic ? !!(start++) : false;
+					genericRef = start->type == lex_ref ? !!(start++) : false;
 					
 					if(argID != currArgument)
 					{
-						if(genericArg && nodeOffset)
+						if(genericArg)
 							SelectTypeForGeneric(pos, nodeOffset + argID);
+						if(genericRef)
+							currType = CodeInfo::GetReferenceType(currType);
 
 						assert(start->type == lex_string);
 						// Insert variable to a list so that a typeof can be taken from it

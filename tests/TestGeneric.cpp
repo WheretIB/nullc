@@ -70,6 +70,11 @@ const char *testGeneric8 =
 return sum(5, 11, <a, b>{ a + b; });";
 TEST_RESULT("Generic function test (short inline function)", testGeneric8, "16");
 
+const char *testGeneric8a =
+"auto sum(generic ref a, generic b, typeof(a).target ref(typeof(a).target, typeof(b)) function){ return function(*a, b); }\r\n\
+int a = 5; return sum(a, 11, <a, b>{ a + b; });";
+TEST_RESULT("Generic function test (short inline function) 2", testGeneric8a, "16");
+
 const char *testGeneric9 =
 "void swap(generic ref a, generic ref b){ typeof(a).target tmp = *a; *a = *b; *b = tmp; }\r\n\
 int a = 4, b = 7;\r\n\
@@ -831,16 +836,20 @@ return 0;";
 TEST_RESULT("Complex generic extra test (short inline function, chained typeof)", testGeneric52, "1234");
 
 const char *testGeneric53 =
-"auto foo(generic a, generic b) where typeof(a) == int && typeof(b) == double\r\n\
+"auto foo(generic a, generic b)\r\n\
 {\r\n\
-return int(a + b);\r\n\
+	@if(!(typeof(a) == int && typeof(b) == double))\r\n\
+		!\"unsatisfying arguments\";\r\n\
+	return int(a + b);\r\n\
 }\r\n\
 return foo(1, 3.0);";
 TEST_RESULT("Function type constrains", testGeneric53, "4");
 
 const char *testGeneric54 =
-"auto foo(generic a, generic b) where typeof(a) == int && typeof(b) == double\r\n\
+"auto foo(generic a, generic b)\r\n\
 {\r\n\
+	@if(!(typeof(a) == int && typeof(b) == double))\r\n\
+		!\"unsatisfying arguments\";\r\n\
 	return int(a + b);\r\n\
 }\r\n\
 \r\n\
@@ -853,16 +862,20 @@ return bar();";
 TEST_RESULT("Function type constrains (delayed instance)", testGeneric54, "4");
 
 const char *testGeneric55 =
-"auto foo(generic a) where typeof(a).argument.size == 2\r\n\
+"auto foo(generic a)\r\n\
 {\r\n\
+	@if(!(typeof(a).argument.size == 2))\r\n\
+		!\"unsatisfying arguments\";\r\n\
 	return a(3, 4);\r\n\
 }\r\n\
 return foo(auto(int a, b){ return a + b; });";
 TEST_RESULT("Function type constrains (extended typeof expressions)", testGeneric55, "7");
 
 const char *testGeneric56 =
-"auto foo(generic ref a, generic b) where typeof(a).isReference && typeof(b) == typeof(a).target\r\n\
+"auto foo(generic ref a, generic b)\r\n\
 {\r\n\
+	@if(!(typeof(a).isReference && typeof(b) == typeof(a).target))\r\n\
+		!\"unsatisfying arguments\";\r\n\
 	*a = b;\r\n\
 }\r\n\
 int a = 5;\r\n\
@@ -871,8 +884,10 @@ return a;";
 TEST_RESULT("Function type constrains (extended typeof expressions) 2", testGeneric56, "4");
 
 const char *testGeneric57 =
-"auto foo(generic a) where typeof(a).isArray == 1\r\n\
+"auto foo(generic a)\r\n\
 {\r\n\
+	@if(!(typeof(a).isArray == 1))\r\n\
+		!\"unsatisfying arguments\";\r\n\
 	return a[1] - 3;\r\n\
 }\r\n\
 auto a = { 5, 7, 9 };\r\n\
@@ -880,9 +895,50 @@ return foo(a);";
 TEST_RESULT("Function type constrains (extended typeof expressions) 3", testGeneric57, "4");
 
 const char *testGeneric58 =
-"auto foo(generic a) where typeof(a).isFunction && typeof(a).argument.size == 2\r\n\
+"auto foo(generic a)\r\n\
 {\r\n\
+	@if(!(typeof(a).isFunction && typeof(a).argument.size == 2))\r\n\
+		!\"unsatisfying arguments\";\r\n\
 	return a(3, 4);\r\n\
 }\r\n\
 return foo(auto(int a, b){ return a + b; });";
-TEST_RESULT("Function type constrains (extended typeof expressions)", testGeneric58, "7");
+TEST_RESULT("Function type constrains (extended typeof expressions) 4", testGeneric58, "7");
+
+const char *testGeneric59 =
+"auto foo(generic a)\r\n\
+{\r\n\
+	@if(typeof(a).isReference)\r\n\
+		return *a * 2;\r\n\
+	else\r\n\
+		return -a;\r\n\
+}\r\n\
+int a = 4;\r\n\
+auto b = foo(&a); // 8\r\n\
+auto c = foo(a); // -4\r\n\
+return b * 10 + -c;";
+TEST_RESULT("Function type constrains 2", testGeneric59, "84");
+
+const char *testGeneric60 =
+"auto bind_first(generic f, generic v)\r\n\
+{\r\n\
+	@if(typeof(f).argument.size == 1)\r\n\
+		return auto(){ return f(v); };\r\n\
+	else if(typeof(f).argument.size == 2)\r\n\
+		return auto(typeof(f).argument[1] x){ return f(v, x); };\r\n\
+	else if(typeof(f).argument.size == 3)\r\n\
+		return auto(typeof(f).argument[1] x, typeof(f).argument[2] y){ return f(v, x, y); };\r\n\
+	else\r\n\
+		!\"unsupported argument count\";\r\n\
+}\r\n\
+\r\n\
+int foo(){ return 5; }\r\n\
+int bar(int x){ return -x; }\r\n\
+int ken(int x, y){ return x + y; }\r\n\
+int joe(int x, y, z){ return x * y + z; }\r\n\
+\r\n\
+auto y = bind_first(bar, 7);\r\n\
+auto z = bind_first(ken, 3);\r\n\
+auto w = bind_first(joe, 1);\r\n\
+\r\n\
+return y() + z(9) + w(7, 100);";
+TEST_RESULT("Function type constrains 3", testGeneric60, "112");
