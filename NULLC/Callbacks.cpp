@@ -976,6 +976,11 @@ void GetTypeId(const char* pos)
 {
 	if(!currType)
 		ThrowError(pos, "ERROR: cannot take typeid from auto type");
+	if(CodeInfo::nodeList.size() && CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList.back()->typeInfo == typeVoid)
+	{
+		CodeInfo::nodeList.back()->typeInfo = typeInt;
+		return;
+	}
 	CodeInfo::nodeList.push_back(new NodeZeroOP(CodeInfo::GetReferenceType(currType)));
 	CodeInfo::nodeList.push_back(new NodeConvertPtr(typeObject));
 	CodeInfo::nodeList.back()->typeInfo = typeTypeid;

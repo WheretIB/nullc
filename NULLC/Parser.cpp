@@ -127,10 +127,13 @@ struct TypeHandler
 	TypeHandler	*next;
 };
 
-bool ParseTypeofExtended(Lexeme** str)
+bool ParseTypeofExtended(Lexeme** str, bool& notType)
 {
 	if(!ParseLexem(str, lex_point))
 		return false;
+
+	if(notType)
+		ThrowError((*str)->pos, "ERROR: typeof expression result is not a type");
 
 	// work around bug in msvs2008
 	Lexeme *curr = *str;
@@ -172,6 +175,10 @@ bool ParseTypeofExtended(Lexeme** str)
 				ThrowError(curr->pos, "ERROR: expected ']'");
 			if(!genericType)
 				SelectTypeByPointer(GetSelectedType()->funcType->paramType[request]);
+		}else if(curr->type == lex_string && curr->length == 4 && memcmp(curr->pos, "size", 4) == 0){
+			curr++;
+			CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (int)paramCount, typeVoid));
+			notType = true;
 		}else{
 			ThrowError(curr->pos, "ERROR: expected 'first'/'last' at this point");
 		}
@@ -190,6 +197,24 @@ bool ParseTypeofExtended(Lexeme** str)
 				ThrowError(curr->pos, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%s'", GetSelectedType()->GetFullTypeName());
 			SelectTypeByPointer(GetSelectedType()->subType);
 		}
+	}else if(curr->type == lex_string && curr->length == 11 && memcmp(curr->pos, "isReference", 11) == 0){
+		curr++;
+		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->refLevel ? 1 : 0), typeVoid));
+		notType = true;
+	}else if(curr->type == lex_string && curr->length == 7 && memcmp(curr->pos, "isArray", 7) == 0){
+		curr++;
+		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->arrLevel ? 1 : 0), typeVoid));
+		notType = true;
+	}else if(curr->type == lex_string && curr->length == 10 && memcmp(curr->pos, "isFunction", 10) == 0){
+		curr++;
+		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->funcType ? 1 : 0), typeVoid));
+		notType = true;
+	}else if(curr->type == lex_string && curr->length == 9 && memcmp(curr->pos, "arraySize", 9) == 0){
+		curr++;
+		if(!genericType && !GetSelectedType()->arrLevel)
+			ThrowError(curr->pos, "ERROR: 'arraySize' can only be applied to an array type, but we have '%s'", GetSelectedType()->GetFullTypeName());
+		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : ((int)GetSelectedType()->arrSize), typeVoid));
+		notType = true;
 	}else{
 		ThrowError(curr->pos, "ERROR: expected 'argument'/'return'/'target' at this point");
 	}
@@ -199,6 +224,7 @@ bool ParseTypeofExtended(Lexeme** str)
 
 bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail)
 {
+	bool notType = false;
 	if((*str)->type == lex_typeof)
 	{
 		(*str)++;
@@ -224,7 +250,7 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail)
 			memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 		if(!ParseLexem(str, lex_cparen))
 			ThrowError((*str)->pos, "ERROR: ')' not found after expression in typeof");
-		while(ParseTypeofExtended(str));
+		while(ParseTypeofExtended(str, notType));
 	}else if((*str)->type == lex_auto){
 		CALLBACK(SelectTypeByPointer(NULL));
 		(*str)++;
@@ -244,6 +270,8 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail)
 		{
 		case lex_ref:
 			(*str)++;
+			if(notType)
+				ThrowError((*str)->pos, "ERROR: typeof expression result is not a type");
 			if(ParseLexem(str, lex_oparen))
 			{
 				Lexeme *old = (*str) - 1;
@@ -285,6 +313,8 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail)
 			}
 			break;
 		case lex_obracket:
+			if(notType)
+				ThrowError((*str)->pos, "ERROR: typeof expression result is not a type");
 			if(arrayType)
 				ParseArrayDefinition(str);
 			else

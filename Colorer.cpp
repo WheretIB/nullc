@@ -211,10 +211,14 @@ namespace ColorerGrammar
 							(
 								(
 									strP("argument")[ColorRWord] >>
-									((chP('.')[ColorText] >> (strP("first")[ColorRWord] | strP("last")[ColorRWord])) | (chP('[')[ColorText] >> intP[ColorReal] >> chP(']')[ColorText]))
+									((chP('.')[ColorText] >> (strP("first")[ColorRWord] | strP("last")[ColorRWord] | strP("size")[ColorRWord])) | (chP('[')[ColorText] >> intP[ColorReal] >> chP(']')[ColorText]))
 								) |
 								strP("return")[ColorRWord] |
-								strP("target")[ColorRWord]
+								strP("target")[ColorRWord] |
+								strP("isArray")[ColorRWord] |
+								strP("isFunction")[ColorRWord] |
+								strP("isReference")[ColorRWord] |
+								strP("arraySize")[ColorRWord]
 							)
 						)
 					)
