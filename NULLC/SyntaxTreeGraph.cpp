@@ -124,10 +124,8 @@ void NodeUnaryOp::LogToStream(FILE *fGraph)
 void NodeReturnOp::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	if(typeInfo)
-		fprintf(fGraph, "%s ReturnOp :\r\n", typeInfo->GetFullTypeName());
-	else
-		fprintf(fGraph, "%s ReturnOp :\r\n", first->typeInfo->GetFullTypeName());
+	TypeInfo *tInfo = typeInfo ? typeInfo : first->typeInfo;
+	fprintf(fGraph, "%s ReturnOp (yield: %d yield result: %d):\r\n", tInfo->GetFullTypeName(), parentFunction ? parentFunction->type == FunctionInfo::COROUTINE : false, yieldResult);
 	GoDownB();
 	LogToStreamExtra(fGraph);
 	first->LogToStream(fGraph);
@@ -190,7 +188,7 @@ void NodeGetAddress::LogToStream(FILE *fGraph)
 		fprintf(fGraph, "%s '%.*s'", varInfo->varType->GetFullTypeName(), int(varInfo->name.end-varInfo->name.begin), varInfo->name.begin);
 	else
 		fprintf(fGraph, "$$$");
-	fprintf(fGraph, " (%d %s)\r\n", varInfo ? varInfo->pos : varAddress, (absAddress ? " absolute" : " relative"));
+	fprintf(fGraph, " (%d %s)\r\n", varInfo ? varInfo->pos : varAddress, (varInfo->isGlobal ? " absolute" : " relative"));
 	LogToStreamExtra(fGraph);
 }
 

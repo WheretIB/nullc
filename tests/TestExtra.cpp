@@ -259,3 +259,32 @@ const char	*testStaticIf3 =
 }\r\n\
 return a;";
 TEST_RESULT("Static if test 3", testStaticIf3, "5");
+
+const char	*testStaticIf4 =
+"auto foo(generic a)\r\n\
+{\r\n\
+	@if(typeof(a) == int)\r\n\
+		return 1;\r\n\
+	return 0;\r\n\
+}\r\n\
+\r\n\
+auto bar(generic a)\r\n\
+{\r\n\
+	@if(typeof(a) == int)\r\n\
+		return 1;\r\n\
+	else\r\n\
+		return 0;\r\n\
+}\r\n\
+\r\n\
+int a = foo(4);\r\n\
+int b = foo(4.0f);\r\n\
+int c = bar(3);\r\n\
+int d = bar(4l);\r\n\
+return 1;";
+TEST("Static if test 4", testStaticIf4, "1")
+{
+	CHECK_INT("a", 0, 1);
+	CHECK_INT("b", 0, 0);
+	CHECK_INT("c", 0, 1);
+	CHECK_INT("d", 0, 0);
+}

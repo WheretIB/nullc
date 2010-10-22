@@ -186,7 +186,7 @@ NodeNumber* NodeGetAddress::Evaluate(char *memory, unsigned int size)
 	(void)size;
 	if(head)
 		return NULL;
-	if(absAddress)
+	if(varInfo->isGlobal)
 		return NULL;
 	return new NodeNumber(int(trackAddress ? varInfo->pos : varAddress), typeInt);
 }

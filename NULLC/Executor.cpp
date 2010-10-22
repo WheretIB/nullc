@@ -1571,11 +1571,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			if(cmd.flag)
 			{
 				ExternFuncInfo::Upvalue *closurePtr = *((ExternFuncInfo::Upvalue**)(&genParams[cmd.argument + paramBase]));
+				RUNTIME_ERROR(closurePtr == NULL, "ERROR: null pointer access");
 				unsigned int offset = *closurePtr->ptr;
 				if(offset != 0)
 					cmdStream = cmdBase + offset;
 			}else{
 				ExternFuncInfo::Upvalue *closurePtr = *((ExternFuncInfo::Upvalue**)(&genParams[cmd.argument + paramBase]));
+				RUNTIME_ERROR(closurePtr == NULL, "ERROR: null pointer access");
 				// If helper is set, it's yield
 				if(cmd.helper)
 				{

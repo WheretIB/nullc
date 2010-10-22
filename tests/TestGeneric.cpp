@@ -98,6 +98,26 @@ TEST("Generic member function test", testGeneric10, "1084")
 	CHECK_LONG("c", 0, 14);
 }
 
+const char *testGeneric10a =
+"class Foo\r\n\
+{\r\n\
+	int x;\r\n\
+	auto foo(generic a){ return a * x; }\r\n\
+}\r\n\
+Foo x;\r\n\
+x.x = 2;\r\n\
+auto a = x.foo(5);\r\n\
+auto b = x.foo(3.5);\r\n\
+auto c = x.foo(7l);\r\n\
+\r\n\
+return int(a * 100 + b * 10 + c);";
+TEST("Generic member function test 2 ", testGeneric10a, "1084")
+{
+	CHECK_INT("a", 0, 10);
+	CHECK_DOUBLE("b", 0, 7);
+	CHECK_LONG("c", 0, 14);
+}
+
 const char *testGeneric11 =
 "int foo(int x)\r\n\
 {\r\n\
@@ -324,3 +344,233 @@ const char *testGeneric27 =
 div(4.0, 2.0);\r\n\
 return div(4, 0);";
 TEST_RESULT("Generic function test (using a static if)", testGeneric27, "0");
+
+const char *testGeneric28 =
+"int y = 4;\r\n\
+auto foo(generic a)\r\n\
+{\r\n\
+	return -y;\r\n\
+}\r\n\
+{\r\n\
+	int y = 2;\r\n\
+	return foo(4);\r\n\
+}";
+TEST_RESULT("Generic function test (taking variable from the correct scope)", testGeneric28, "-4");
+
+const char *testGeneric29 =
+"int y = 4;\r\n\
+auto foo(generic a)\r\n\
+{\r\n\
+return -y;\r\n\
+}\r\n\
+int bar(int y)\r\n\
+{\r\n\
+	return foo(4);\r\n\
+}\r\n\
+return bar(1);";
+TEST_RESULT("Generic function test (taking variable from the correct scope) 2", testGeneric29, "-4");
+
+const char *testGeneric30 =
+"int bar(int y)\r\n\
+{\r\n\
+	auto foo(generic a)\r\n\
+	{\r\n\
+		return -y;\r\n\
+	}\r\n\
+	{\r\n\
+		int y = 8;\r\n\
+		return foo(4);\r\n\
+	}\r\n\
+}\r\n\
+return bar(4);";
+TEST_RESULT("Generic function test (taking variable from the correct scope) 3", testGeneric30, "-4");
+
+const char *testGeneric31 =
+"auto foo(generic a)\r\n\
+{\r\n\
+	return -a;\r\n\
+}\r\n\
+int ref(int) f1;\r\n\
+auto xx(int ref(int) a){ return a; }\r\n\
+void bar()\r\n\
+{\r\n\
+	foo(4);\r\n\
+	f1 = xx(foo);\r\n\
+}\r\n\
+bar();\r\n\
+foo(4);\r\n\
+int ref(int) f2 = xx(foo);\r\n\
+return f1 == f2;";
+TEST_RESULT("Generic function test (locally instanced functions should not go out of scope)", testGeneric31, "1");
+
+const char *testGeneric32 =
+"import std.math;\r\n\
+auto foo(generic i){ return i * math.pi; }\r\n\
+return int(foo(3.));";
+TEST_RESULT("Generic function test (module variables should be in scope)", testGeneric32, "9");
+
+const char *testGeneric33 =
+"coroutine int rand(generic eqn)\r\n\
+{\r\n\
+	int current = 1;\r\n\
+	while(1)\r\n\
+		yield current++;\r\n\
+}\r\n\
+int[8] array;\r\n\
+auto main()\r\n\
+{\r\n\
+	for(i in array)\r\n\
+		i = rand(1);\r\n\
+} \r\n\
+main();\r\n\
+int diff = 0;\r\n\
+for(i in array, j in { 1, 2, 3, 4, 5, 6, 7, 8 })\r\n\
+	diff += i-j;\r\n\
+return diff;";
+TEST_RESULT("Generic function test (locally instanced coroutine context placement)", testGeneric33, "0");
+
+const char *testGeneric34 =
+"int j = 1;\r\n\
+coroutine int rand(generic eqn)\r\n\
+{\r\n\
+	int current = 1;\r\n\
+	while(1)\r\n\
+		yield j + current++;\r\n\
+}\r\n\
+int[8] array;\r\n\
+auto main()\r\n\
+{\r\n\
+	int j = 5;\r\n\
+	for(i in array)\r\n\
+		i = rand(1);\r\n\
+} \r\n\
+main();\r\n\
+int diff = 0;\r\n\
+for(i in array, j in { 2, 3, 4, 5, 6, 7, 8, 9 })\r\n\
+	diff += i-j;\r\n\
+return diff;";
+TEST_RESULT("Generic function test (locally instanced coroutine context placement) 2", testGeneric34, "0");
+
+const char *testGeneric35 =
+"int[8] array;\r\n\
+auto main()\r\n\
+{\r\n\
+	coroutine int rand(generic eqn)\r\n\
+	{\r\n\
+		int current = 1;\r\n\
+		while(1)\r\n\
+			yield current++;\r\n\
+	}\r\n\
+	for(i in array)\r\n\
+		i = rand(1);\r\n\
+} \r\n\
+main();\r\n\
+int diff = 0;\r\n\
+for(i in array, j in { 1, 2, 3, 4, 5, 6, 7, 8 })\r\n\
+	diff += i-j;\r\n\
+return diff;";
+TEST_RESULT("Generic function test (locally instanced coroutine context placement) 3", testGeneric35, "0");
+
+const char *testGeneric36 =
+"int bar(int y)\r\n\
+{\r\n\
+	auto foo(generic a)\r\n\
+	{\r\n\
+		return -y;\r\n\
+	}\r\n\
+	{\r\n\
+		int y = 8;\r\n\
+		foo(4);\r\n\
+	}\r\n\
+	y = -y;\r\n\
+	return foo(4);\r\n\
+}\r\n\
+return bar(4);";
+TEST_RESULT("Generic function test (locally instanced local function context placement)", testGeneric36, "4");
+
+const char *testGeneric37 =
+"int bar(int y)\r\n\
+{\r\n\
+	auto foo(generic a)\r\n\
+	{\r\n\
+		return -y;\r\n\
+	}\r\n\
+	{\r\n\
+		int y = 8;\r\n\
+		foo(4);\r\n\
+	}\r\n\
+	int z = 4;\r\n\
+	return foo(4);\r\n\
+}\r\n\
+return bar(4);";
+TEST_RESULT("Generic function test (locally instanced local function context placement) 2", testGeneric37, "-4");
+
+const char *testGeneric38 =
+"int bar(int y)\r\n\
+{\r\n\
+	auto foo(generic a)\r\n\
+	{\r\n\
+		return -y;\r\n\
+	}\r\n\
+	{\r\n\
+		int k = 3;\r\n\
+		{\r\n\
+			int y = 8;\r\n\
+			foo(4);\r\n\
+		}\r\n\
+	}\r\n\
+	int z = 4;\r\n\
+	return foo(4);\r\n\
+}\r\n\
+return bar(4);";
+TEST_RESULT("Generic function test (locally instanced local function context placement) 3", testGeneric38, "-4");
+
+const char *testGeneric39 =
+"int a = 4;\r\n\
+{\r\n\
+	int b = 5;\r\n\
+	coroutine int foo(generic x)\r\n\
+	{\r\n\
+		yield a + x;\r\n\
+		return b + x;\r\n\
+	}\r\n\
+	int c = 6;\r\n\
+	int bar()\r\n\
+	{\r\n\
+		return foo(1) + foo(1);\r\n\
+	}\r\n\
+	int d = foo(3);\r\n\
+	return bar();\r\n\
+}";
+TEST("Generic function test (locally instanced local function context placement) 4", testGeneric39, "11")
+{
+	CHECK_INT("a", 0, 4);
+	CHECK_INT("b", 0, 5);
+	CHECK_INT("c", 0, 6);
+	CHECK_INT("d", 0, 7);
+}
+
+const char *testGeneric40 =
+"int z = 0;\r\n\
+int bar(int y)\r\n\
+{\r\n\
+	auto foo(generic a)\r\n\
+	{\r\n\
+		return -y;\r\n\
+	}\r\n\
+	{\r\n\
+		int k = 3;\r\n\
+		{\r\n\
+			int y = 8;\r\n\
+			int hell()\r\n\
+			{\r\n\
+				return foo(4);\r\n\
+			}\r\n\
+			z = hell();\r\n\
+		}\r\n\
+	}\r\n\
+	int z = 4;\r\n\
+	return foo(4);\r\n\
+}\r\n\
+return bar(4) + z;";
+TEST_RESULT("Generic function test (locally instanced local function context placement) 4", testGeneric40, "-8");

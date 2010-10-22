@@ -306,3 +306,41 @@ for(i in list)\r\n\
 product *= i;\r\n\
 return product;";
 TEST_RESULT("Object iterator is a coroutine", testCorountineIterator, "10");
+
+const char *testCorountineScopes = 
+"coroutine int foo()\r\n\
+{\r\n\
+	int current = 0;\r\n\
+	{\r\n\
+		int current = 1;\r\n\
+	}\r\n\
+	return current;\r\n\
+}\r\n\
+return foo();";
+TEST_RESULT("Coroutine with multiple variables with the same name in different scopes", testCorountineScopes, "0");
+
+const char *testCorountinePrototype = 
+"coroutine int foo();\r\n\
+int a = foo();\r\n\
+coroutine int foo(){ yield 1; return 2; }\r\n\
+return a + foo();";
+TEST_RESULT("Coroutine prototype", testCorountinePrototype, "3");
+
+const char *testCorountinePrototype2 = 
+"coroutine int foo();\r\n\
+int bar()\r\n\
+{\r\n\
+	return foo();\r\n\
+}\r\n\
+coroutine int foo()\r\n\
+{\r\n\
+	return 5;\r\n\
+}\r\n\
+return bar();";
+TEST_RESULT("Coroutine prototype 2", testCorountinePrototype2, "5");
+
+const char	*testCoroutineImport2 =
+"import test.coroutine1;\r\n\
+auto x = foo;\r\n\
+return x() + x();";
+TEST_RESULT("Coroutine export and import 2", testCoroutineImport2, "21");

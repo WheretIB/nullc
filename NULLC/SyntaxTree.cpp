@@ -570,14 +570,16 @@ void NodeFuncCall::Compile()
 //////////////////////////////////////////////////////////////////////////
 // Node that fetches variable value
 
-NodeGetAddress::NodeGetAddress(VariableInfo* vInfo, int vAddress, bool absAddr, TypeInfo *retInfo)
+NodeGetAddress::NodeGetAddress(VariableInfo* vInfo, int vAddress, TypeInfo *retInfo)
 {
 	assert(retInfo);
 
 	varInfo = vInfo;
-	addressOriginal = varAddress = vAddress;
-	absAddress = absAddr;
+	varAddress = vAddress;
 	trackAddress = false;
+
+	assert(retInfo == vInfo->varType);
+	assert((unsigned)vAddress == vInfo->pos);
 
 	typeOrig = retInfo;
 	typeInfo = CodeInfo::GetReferenceType(typeOrig);
@@ -591,7 +593,7 @@ NodeGetAddress::~NodeGetAddress()
 
 bool NodeGetAddress::IsAbsoluteAddress()
 {
-	return absAddress;
+	return varInfo->isGlobal;
 }
 void NodeGetAddress::SetAddressTracking()
 {
@@ -621,7 +623,7 @@ void NodeGetAddress::Compile()
 
 	CompileExtra();
 
-	cmdList.push_back(VMCmd(cmdGetAddr, absAddress ? 0 : 1, trackAddress ? varInfo->pos : varAddress));
+	cmdList.push_back(VMCmd(cmdGetAddr, varInfo->isGlobal ? 0 : 1, trackAddress ? varInfo->pos : varAddress));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -992,7 +994,7 @@ NodeDereference::NodeDereference(FunctionInfo* setClosure, unsigned int offsetTo
 	readonly = isReadonly;
 
 #ifndef NULLC_ENABLE_C_TRANSLATION
-	if(first->nodeType == typeNodeGetAddress)
+	if(first->nodeType == typeNodeGetAddress && !static_cast<NodeGetAddress*>(first)->trackAddress)
 	{
 		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
 		addrShift = static_cast<NodeGetAddress*>(first)->varAddress;

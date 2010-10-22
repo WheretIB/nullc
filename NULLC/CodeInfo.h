@@ -144,9 +144,6 @@ namespace CodeInfo
 		return bestFit;
 	}
 
-	// Search for the variable starting from the end of a list. -1 is returned if the variable not found
-	int	FindVariableByName(unsigned int hash);
-
 	// Search for the function from specified position to the beginning of a list. -1 is returned if the function not found
 	int FindFunctionByName(unsigned int hash, int startPos);
 

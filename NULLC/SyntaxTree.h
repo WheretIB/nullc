@@ -332,7 +332,7 @@ protected:
 class NodeGetAddress: public NodeZeroOP
 {
 public:
-			NodeGetAddress(VariableInfo* variableInfo, int variableAddress, bool absoluteAddressation, TypeInfo *retInfo = NULL);
+			NodeGetAddress(VariableInfo* variableInfo, int variableAddress, TypeInfo *retInfo);
 	virtual ~NodeGetAddress();
 
 			bool IsAbsoluteAddress();
@@ -357,8 +357,8 @@ protected:
 
 	TypeInfo		*typeOrig;
 	VariableInfo	*varInfo;
-	int				varAddress, addressOriginal;
-	bool			absAddress, trackAddress;
+	int				varAddress;
+	bool			trackAddress;
 };
 
 class NodeGetUpvalue: public NodeZeroOP

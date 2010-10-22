@@ -528,7 +528,7 @@ void NodeGetAddress::TranslateToCEx(FILE *fOut, bool takeAddress)
 	{
 		const char *namePrefix = *varInfo->name.begin == '$' ? "__" : "";
 		unsigned int nameShift = *varInfo->name.begin == '$' ? 1 : 0;
-		fprintf(fOut, varAddress - addressOriginal ? "%s%.*s%+d" : "%s%.*s", namePrefix, int(varInfo->name.end-varInfo->name.begin) - nameShift, varInfo->name.begin + nameShift, (varAddress - addressOriginal) / (typeOrig->size ? typeOrig->size : 1));
+		fprintf(fOut, "%s%.*s", namePrefix, int(varInfo->name.end-varInfo->name.begin) - nameShift, varInfo->name.begin + nameShift);
 		if(varInfo->blockDepth > 1)
 			fprintf(fOut, "_%d", varInfo->pos);
 	}else{

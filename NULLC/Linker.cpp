@@ -361,6 +361,13 @@ bool Linker::LinkCode(const char *code)
 				return false;
 			}
 #endif
+			// For function prototypes
+			if(exFunctions.back().codeSize & 0x80000000)
+			{
+				// fix remapping table so that this function index will point to target function index
+				funcRemap.data[(exFunctions).count-1] = funcRemap[exFunctions.back().codeSize & ~0x80000000];
+				exFunctions.back().codeSize = 0;
+			}
 			// Move based pointer to the new section of symbol information
 			exFunctions.back().offsetToName += oldSymbolSize;
 			exFunctions.back().offsetToFirstLocal += oldLocalsSize;
