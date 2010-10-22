@@ -104,8 +104,6 @@ function toggleView(a, b, c)
 	<li>Interoperability with C code</li>
 	<ol>
 		<li><a href="#interop_bind">Binding functions to NULLC</a></li>
-		<li><a href="#interop_types">Special types</a></li>
-		<li><a href="#interop_extra">Extra notes</a></li>
 	</ol>
 </ol>
 <hr />
@@ -171,7 +169,13 @@ function toggleView(a, b, c)
 		This define will build a compiler-only version of NULLC library.<br />
 		This define is disabled by default.<br />
 	</div>
-
+	<div class="function">
+		<p class="code">
+<span class="rword">#define</span> <span class="comment">NULLC_AUTOBINDING</span><br />
+		</p>
+		This define will enable an automatic function binding on Windows and Linux. More information in a topic <a href="#interop_bind">Binding functions to NULLC</a><br />
+		This define is enabled by default.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
@@ -477,13 +481,28 @@ function toggleView(a, b, c)
 <h2 align="center">2. Interoperability with C code</h2>
 <div class="topic">
 	<h3><a name="interop_bind">2.1 Binding functions to NULLC</a></h3>
-</div>
-<hr />
-<div class="topic">
-	<h3><a name="interop_types">2.2 Special types</a></h3>
-</div>
-<hr /><div class="topic">
-	<h3><a name="interop_extra">2.3 Extra notes</a></h3>
+	Only functions with cdecl calling convention can be binded to NULLC.<br />
+	<br />
+	All basic numeric types are equal in representation to C++ types, except for "long" type which corresponds to 64bit "long long" type in C++.<br />
+	NULLC reference types are simple pointers.<br />
+	NULLC array with implicit size corresponds to NULLCArray struct.<br />
+	NULLC "auto ref" type corresponds to NULLCRef struct.<br />
+	NULLC function pointers correspond to NULLCFuncPtr struct.<br />
+	NULLC "auto[]" type corresponds to NULLCAutoArray struct.<br />
+	<br />
+	It is not recommended to pass NULLC classes and explicitly-sized arrays by value.<br />
+	<br />
+	If you want to bind class member function, it must accept pointer to class type as the <b>last</b> parameter.<br />
+	<br />
+	NULLC classes can be transformed into C structures by applying the same transformations used for function arguments.<br />
+	A care must be taken for class member alignment: members are aligned to their default align values, <b>but no more than 4 bytes</b> (see Basic types topic in language reference).<br />
+	So it is recommended to wrap C struct definition into a "#pragma pack(push, 4) ... #pragma pack(pop)".<br />
+	<br />
+	When binding a class member function, add "class::" before the function name (that's two ':' instead of one you see in externally defined member function).<br />
+	<br />
+	If NULLC_AUTOBINDING define is enabled, you can write NULLC_BIND before your functions and NULLC linker will bind them automatically.<br />
+	This works only for plain functions and not for class member functions.<br />
+	Under gcc, you must build NULLC with "-ldl" flag and build your application with "-rdynamic" and "-ldl" flags, in order for auto binding to work.<br />
 </div>
 <hr />
 	</body>
