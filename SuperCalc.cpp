@@ -2726,6 +2726,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				fclose(fHTML);
 			}
 				break;
+			case ID_CLOSE_TAB:
+				TabbedFiles::RemoveTab(hTabs, TabbedFiles::GetCurrentTab(hTabs));
+				break;
 			default:
 				return DefWindowProc(hWnd, message, wParam, lParam);
 			}
