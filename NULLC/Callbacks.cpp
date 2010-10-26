@@ -2301,6 +2301,9 @@ void AddForEachNode(const char* pos)
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 	// Unite initialization_part and while
 	AddTwoExpressionNode(NULL);
+
+	assert(cycleDepth.size() != 0);
+	cycleDepth.back()--;
 }
 
 void AddTypeAllocation(const char* pos, bool arrayType)
@@ -2318,6 +2321,37 @@ void AddTypeAllocation(const char* pos, bool arrayType)
 		AddFunctionCallNode(pos, "__newA", 3);
 		CodeInfo::nodeList.back()->typeInfo = currType;
 	}
+}
+
+void AddArrayConstructorCall(const char* pos)
+{
+	IncreaseCycleDepth();
+	BeginBlock();
+
+	TypeInfo *type = CodeInfo::nodeList.back()->typeInfo;
+	assert(type->refLevel && type->subType->arrLevel);
+	type = type->subType->subType;
+
+	char *arrName = AllocateString(16);
+	int length = sprintf(arrName, "$temp%d", inplaceVariableNum++);
+	InplaceStr vName = InplaceStr(arrName, length);
+
+	AddGetVariableNode(pos);
+	AddArrayIterator(pos, vName, NULL);
+
+	AddGetAddressNode(pos, vName);
+	AddMemberFunctionCall(pos, type->GetFullTypeName(), 0);
+	AddPopNode(pos);
+
+	EndBlock();
+	AddForEachNode(pos);
+	
+	NodeZeroOP *last = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+
+	NodeOneOP *wrap = new NodeOneOP();
+	wrap->SetFirstNode(last);
+	CodeInfo::nodeList.push_back(wrap);
 }
 
 void PrepareConstructorCall(const char* pos)
@@ -2674,6 +2708,7 @@ void FunctionEnd(const char* pos)
 	if(implementedPrototype && implementedPrototype->parentFunc != lastFunc.parentFunc)
 		ThrowError(pos, "ERROR: function implementation is found in scope different from function prototype");
 
+	assert(cycleDepth.back() == 0);
 	cycleDepth.pop_back();
 	// Save info about all local variables
 	for(int i = CodeInfo::varInfo.size()-1; i > (int)(varInfoTop.back().activeVarCnt + lastFunc.paramCount); i--)

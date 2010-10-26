@@ -521,4 +521,6 @@ return int(y() + z());",
 
 	TEST_FOR_FAIL("wrong array index argument count 1", "int[16] arr; return arr[]", "ERROR: can't find function '[]' with following parameters:");
 	TEST_FOR_FAIL("wrong array index argument count 2", "int[16] arr; return arr[2, 3]", "ERROR: can't find function '[]' with following parameters:");
+
+	TEST_FOR_FAIL("foreach restores cycle depth", "int[4] arr; for(i in arr){} break;", "ERROR: break level is greater that loop depth");
 }
