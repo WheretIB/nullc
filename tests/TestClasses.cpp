@@ -307,3 +307,16 @@ auto x = new Foo[32];\r\n\
 return x.size;";
 TEST_RESULT("constuctor call for every array element 1", testConstructorForArrayElements1, "32");
 
+const char	*testConstructorForArrayElements2 =
+"int m = 10;\r\n\
+class Foo\r\n\
+{\r\n\
+	int x;\r\n\
+	void Foo()\r\n\
+	{\r\n\
+		x = m++;\r\n\
+	}\r\n\
+}\r\n\
+auto x = new Foo[32];\r\n\
+return x[19].x;";
+TEST_RESULT("constuctor call for every array element 2", testConstructorForArrayElements2, "29");

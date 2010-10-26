@@ -117,6 +117,7 @@ void AddArrayIterator(const char* pos, InplaceStr varName, TypeInfo* type, bool 
 void MergeArrayIterators();
 
 void AddTypeAllocation(const char* pos, bool arrayType = false);
+void AddArrayConstructorCall(const char* pos);
 void PrepareConstructorCall(const char* pos);
 void FinishConstructorCall(const char* pos);
 bool HasConstructor(const char* pos, TypeInfo* type, unsigned arguments);
