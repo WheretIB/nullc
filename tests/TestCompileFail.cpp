@@ -516,4 +516,6 @@ return int(y() + z());",
 	TEST_FOR_FAIL("generic instance type invisible after instance 3", "class Foo<T>{ T x; } void foo(Foo<@T>[] x){ x.x = 5; } Foo<int> a; foo(a); return a.x;", "ERROR: can't find function 'foo' with following parameters:");
 
 	TEST_FOR_FAIL("unable to select function overload", "class Foo{ int y; int boo(generic x){ return x * y; } int boo(int x){ return x * y; } } Foo x; x.y = 6; int ref(double) m = x.boo; return m(2.5);", "ERROR: unable to select function overload for a type 'int ref(double)'");
+
+	TEST_FOR_FAIL("sizeof type in definition", "class Foo{ int t(){ return sizeof(Foo); } int x; } Foo m; return m.t();", "ERROR: cannot take size of a type in definition");
 }

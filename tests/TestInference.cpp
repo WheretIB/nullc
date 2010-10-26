@@ -370,3 +370,13 @@ auto foo(generic x, typeof(x).k l)\r\n\
 Foo m;\r\n\
 return foo(m, 3.0);";
 TEST_RESULT("extended typeof expressions (members) 17", testTypeofPostExpression17, "1");
+
+const char	*testSizeofInExternalFunction = 
+"class Foo\r\n\
+{\r\n\
+	int k;\r\n\
+}\r\n\
+auto Foo:s(){ return sizeof(Foo); }\r\n\
+Foo m;\r\n\
+return m.s();";
+TEST_RESULT("sizeof in external member funciton", testSizeofInExternalFunction, "4");
