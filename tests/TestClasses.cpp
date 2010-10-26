@@ -300,3 +300,10 @@ Foo m = Foo();\r\n\
 Foo n = Foo(5);\r\n\
 return (Foo() + Foo(5)).x;";
 TEST_RESULT("member constructor call on external static construction 2", testConstructorCallOnStaticConstruction2, "47");
+
+const char	*testConstructorForArrayElements1 =
+"class Foo{ int x; void Foo(){ x = 42; } }\r\n\
+auto x = new Foo[32];\r\n\
+return x.size;";
+TEST_RESULT("constuctor call for every array element 1", testConstructorForArrayElements1, "32");
+

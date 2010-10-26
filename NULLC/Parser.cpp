@@ -1823,7 +1823,7 @@ bool ParseTerminal(Lexeme** str)
 				ThrowError((*str)->pos, "ERROR: ']' not found after expression");
 		}
 		AddTypeAllocation(pos, arrayAlloc);
-		if(hasEmptyConstructor)
+		if(hasEmptyConstructor && !arrayAlloc)
 		{
 			PrepareConstructorCall((*str)->pos);
 			AddMemberFunctionCall((*str)->pos, name, 0);
