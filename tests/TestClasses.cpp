@@ -240,7 +240,7 @@ const char	*testClassConstructorStack =
 	int y;\r\n\
 	void Foo(int n){ y = n; }\r\n\
 }\r\n\
-Foo l!(5);\r\n\
+Foo l = Foo(5);\r\n\
 return l.y;";
 TEST_RESULT("manual constructor call for class instance on stack", testClassConstructorStack, "5");
 
@@ -285,3 +285,18 @@ const char	*testUnsizedArrayAllocation =
 auto x = new int_;\r\n\
 return 1;";
 TEST_RESULT("unsized array allocation", testUnsizedArrayAllocation, "1");
+
+const char	*testConstructorCallOnStaticConstruction1 =
+"class Foo{ int x; void Foo(int z){ x = z; } void Foo(){ x = 42; } }\r\n\
+Foo m = Foo();\r\n\
+Foo n = Foo(5);\r\n\
+return m.x - n.x;";
+TEST_RESULT("member constructor call on external static construction 1", testConstructorCallOnStaticConstruction1, "37");
+
+const char	*testConstructorCallOnStaticConstruction2 =
+"class Foo{ int x; void Foo(int z){ x = z; } void Foo(){ x = 42; } }\r\n\
+auto operator+(Foo ref a, b){ return Foo(a.x + b.x); }\r\n\
+Foo m = Foo();\r\n\
+Foo n = Foo(5);\r\n\
+return (Foo() + Foo(5)).x;";
+TEST_RESULT("member constructor call on external static construction 2", testConstructorCallOnStaticConstruction2, "47");
