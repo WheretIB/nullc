@@ -425,3 +425,75 @@ TEST("Function binding", testBind, "1")
 	CHECK_INT("r7", 0, 2);
 	CHECK_INT("r8", 0, 3);
 }
+
+const char	*testVectorSplice =
+"class vector<T>\r\n\
+{\r\n\
+	T[]		data;\r\n\
+	int		count;\r\n\
+}\r\n\
+void vector:push_back(generic val)\r\n\
+{\r\n\
+	if(count == data.size)\r\n\
+		this.grow();\r\n\
+	data[count++] = val;\r\n\
+}\r\n\
+void vector:pop_back()\r\n\
+{\r\n\
+	assert(count);\r\n\
+	count--;\r\n\
+}\r\n\
+auto vector:back()\r\n\
+{\r\n\
+	assert(count);\r\n\
+	return &data[count - 1];\r\n\
+}\r\n\
+auto vector:front()\r\n\
+{\r\n\
+	assert(count);\r\n\
+	return &data[0];\r\n\
+}\r\n\
+auto operator[](vector<generic> ref v, int index)\r\n\
+{\r\n\
+	assert(index < v.count);\r\n\
+	return &v.data[index];\r\n\
+}\r\n\
+void vector:grow()\r\n\
+{\r\n\
+	int nReserved = data.size + (data.size >> 1) + 1;\r\n\
+	T[] nArr = new T[nReserved];\r\n\
+	for(i in data, j in nArr)\r\n\
+		j = i;\r\n\
+	data = nArr;\r\n\
+}\r\n\
+auto vector:size()\r\n\
+{\r\n\
+	return count;\r\n\
+}\r\n\
+\r\n\
+class vector_splice<T>\r\n\
+{\r\n\
+	vector<T> ref base;\r\n\
+	int start, end;\r\n\
+}\r\n\
+auto operator[](vector<@T> ref a, int start, end)\r\n\
+{\r\n\
+	vector_splice<T> s;\r\n\
+	s.base = a;\r\n\
+	assert(start >= 0 && end >= 0 && start < a.size() && end >= start);\r\n\
+	s.start = start;\r\n\
+	s.end = end;\r\n\
+	return s;\r\n\
+}\r\n\
+auto operator[](vector_splice<@T> ref a, int index)\r\n\
+{\r\n\
+	assert(index >= 0 && index <= (a.end - a.start));\r\n\
+	return a.base[index + a.start];\r\n\
+}\r\n\
+auto arr = new vector<int>;\r\n\
+arr.push_back(1); arr.push_back(2); arr.push_back(3); arr.push_back(4);\r\n\
+\r\n\
+auto sp1 = arr[1, 3];\r\n\
+auto sp2 = arr[2, 2];\r\n\
+return sp1[2] + sp2[0] + arr[0, 0][0];";
+TEST_RESULT("Generic vector splice function", testVectorSplice, "8");

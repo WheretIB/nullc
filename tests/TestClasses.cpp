@@ -254,3 +254,34 @@ const char *testClassTypeAliasImport1 =
 void Foo:foo(){ T y; }\r\n\
 return 1;";
 TEST_RESULT("Import of class local aliases", testClassTypeAliasImport1, "1");
+
+const char	*testClassDefaultConstructorExplicitly =
+"class Foo\r\n\
+{\r\n\
+	int y;\r\n\
+}\r\n\
+auto x = new Foo();\r\n\
+return x.y;";
+TEST_RESULT("explicit constructor call calls default constructor", testClassDefaultConstructorExplicitly, "0");
+
+const char	*testClassConstructorImplicitCall =
+"class Foo\r\n\
+{\r\n\
+	int y;\r\n\
+	void Foo(){ y = 5; }\
+}\r\n\
+auto x = new Foo;\r\n\
+return x.y;";
+TEST_RESULT("implicit constructor call", testClassConstructorImplicitCall, "5");
+
+const char	*testSizedArrayAllocation =
+"typedef int[4] int4;\r\n\
+auto x = new int4;\r\n\
+return 1;";
+TEST_RESULT("sized array allocation", testSizedArrayAllocation, "1");
+
+const char	*testUnsizedArrayAllocation =
+"typedef int[] int_;\r\n\
+auto x = new int_;\r\n\
+return 1;";
+TEST_RESULT("unsized array allocation", testUnsizedArrayAllocation, "1");

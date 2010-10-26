@@ -2303,17 +2303,18 @@ void AddForEachNode(const char* pos)
 	AddTwoExpressionNode(NULL);
 }
 
-void AddTypeAllocation(const char* pos)
+void AddTypeAllocation(const char* pos, bool arrayType)
 {
 	if(currType == typeVoid)
 		ThrowError(pos, "ERROR: cannot allocate space for void type");
 	CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
 	CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, (currType->arrLevel ? currType->subType : currType)->typeIndex));
-	if(currType->arrLevel == 0)
+	if(!arrayType)
 	{
 		AddFunctionCallNode(pos, "__newS", 2);
 		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(currType);
 	}else{
+		assert(currType->arrSize == -1);
 		AddFunctionCallNode(pos, "__newA", 3);
 		CodeInfo::nodeList.back()->typeInfo = currType;
 	}
@@ -2349,6 +2350,32 @@ void FinishConstructorCall(const char* pos)
 	TypeInfo *resultType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
 	AddTwoExpressionNode(resultType);
 	AddTwoExpressionNode(resultType);
+}
+
+bool HasConstructor(const char* pos, TypeInfo* type, unsigned arguments)
+{
+	bestFuncList.clear();
+
+	if(type->refLevel || type->arrLevel || type->funcType)
+		return false;
+
+	unsigned funcHash = type->nameHash;
+	funcHash = StringHashContinue(funcHash, "::");
+	funcHash = StringHashContinue(funcHash, type->name);
+	SelectFunctionsForHash(funcHash, 0);
+
+	// For a generic type instance, check if base class has a constructor function
+	if(type->genericBase)
+	{
+		unsigned funcBaseHash = type->genericBase->nameHash;
+		funcBaseHash = StringHashContinue(funcBaseHash, "::");
+		funcBaseHash = StringHashContinue(funcBaseHash, type->genericBase->name);
+		SelectFunctionsForHash(funcBaseHash, 0);
+	}
+
+	unsigned minRating = ~0u;
+	SelectBestFunction(pos, bestFuncList.size(), arguments, minRating);
+	return minRating != ~0u;
 }
 
 bool defineCoroutine = false;

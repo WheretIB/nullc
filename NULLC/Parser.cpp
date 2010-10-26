@@ -1800,38 +1800,48 @@ bool ParseTerminal(Lexeme** str)
 		const char *pos = (*str)->pos;
 		if(!ParseSelectType(str, false))
 			ThrowError((*str)->pos, "ERROR: type name expected after 'new'");
+		
+		TypeInfo *info = GetSelectedType();
+		GetTypeSize((*str)->pos, false);
+		const char *name = info->genericBase ? info->genericBase->name : info->name;
+		bool hasEmptyConstructor = HasConstructor(pos, info, 0);
 
 		if((*str)->type == lex_oparen)
 		{
-			TypeInfo *info = GetSelectedType();
-			const char *name = info->genericBase ? info->genericBase->name : info->name;
-			GetTypeSize((*str)->pos, false);
+			ParseLexem(str, lex_oparen);
 			AddTypeAllocation((*str)->pos);
 			PrepareConstructorCall((*str)->pos);
-			ParseLexem(str, lex_oparen);
 			const char *last = SetCurrentFunction(name);
 			unsigned int callArgCount = ParseFunctionArguments(str);
 			if(!ParseLexem(str, lex_cparen))
 				ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
 			SetCurrentFunction(last);
-			AddMemberFunctionCall((*str)->pos, name, callArgCount);
+			if(!AddMemberFunctionCall((*str)->pos, name, callArgCount, callArgCount == 0)) // silence the error if default constructor is called
+				AddPopNode(pos);
 			FinishConstructorCall((*str)->pos);
 			return true;
 		}
 
-		GetTypeSize((*str)->pos, false);
-
+		bool arrayAlloc = false;
 		if(ParseLexem(str, lex_obracket))
 		{
 			AddUnfixedArraySize();
 			ConvertTypeToArray((*str)->pos);
+			arrayAlloc = true;
 
 			if(!ParseTernaryExpr(str))
 				ThrowError((*str)->pos, "ERROR: expression not found after '['");
 			if(!ParseLexem(str, lex_cbracket))
 				ThrowError((*str)->pos, "ERROR: ']' not found after expression");
 		}
-		AddTypeAllocation(pos);
+		AddTypeAllocation(pos, arrayAlloc);
+		if(hasEmptyConstructor)
+		{
+			PrepareConstructorCall((*str)->pos);
+			AddMemberFunctionCall((*str)->pos, name, 0);
+			FinishConstructorCall((*str)->pos);
+		}
+
 		return true;
 	}
 		break;
