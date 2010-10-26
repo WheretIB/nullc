@@ -150,6 +150,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	unsigned int usedIRegs = rvs, usedFRegs = 0;
 	// This two variables will help later to know we've reached the boundary of arguments that are placed in registers
 	unsigned int argsToIReg = 0, argsToFReg = 0;
+	bool onStack[32] = { false };
 	for(unsigned int k = 0; k < exFunctions[funcID].paramCount + (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 0 : 1); k++)
 	{
 		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
@@ -172,7 +173,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 			if(usedFRegs < NULLC_X64_FREGARGS)
 			{
 				usedFRegs++;
-				argsToFReg = k;
+				argsToFReg = k + 1;
 			}
 			break;
 		case ExternTypeInfo::TYPE_CHAR:
@@ -182,7 +183,9 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 			if(typeSize && usedIRegs < NULLC_X64_IREGARGS)
 			{
 				usedIRegs++;
-				argsToIReg = k;
+				argsToIReg = k + 1;
+				if(k < 32)
+					onStack[k] = true;
 			}
 			break;
 		case ExternTypeInfo::TYPE_COMPLEX:
@@ -201,7 +204,9 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 			// Request registers ($$ what about FP?)
 			usedIRegs += ((typeSize + 7) / 8);
 			// Mark this argument as being sent through stack
-			argsToIReg = k;
+			argsToIReg = k + 1;
+			if(k < 32)
+					onStack[k] = true;
 			break;
 		default:
 			assert(!"parameter type unsupported");
@@ -247,7 +252,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 #ifdef _WIN64
 			if(rvs + i > NULLC_X64_FREGARGS - 1)
 #else
-			if((unsigned)i > argsToFReg)
+			if((unsigned)i >= argsToFReg)
 #endif
 			{
 				// mov rsi, [rax+shift]
@@ -286,7 +291,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 #ifdef _WIN64
 			if(rvs + i > NULLC_X64_IREGARGS - 1)
 #else
-			if((unsigned)i > argsToIReg || !typeSize)
+			if((unsigned)i >= argsToIReg || !typeSize)
 #endif
 			{
 				// mov r12, [rax+shift]
@@ -362,7 +367,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 #else
 			// under linux, structure is passed through registers or stack
 			if(typeSize <= 16 && exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i].type != 7 &&
-				!(lType->subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(lType, exLinker)) && (unsigned)i <= argsToIReg)
+				!(lType->subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(lType, exLinker)) && i < 32 && onStack[i])
 			{
 				unsigned regCodes[] = { 0274, 0264, 0224, 0214, 0204, 0214 }; // rdi, rsi, rdx, rcx, r8, r9
 
