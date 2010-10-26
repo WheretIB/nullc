@@ -89,7 +89,7 @@ void SetTypeOfLastNode();
 void AddGetAddressNode(const char* pos, InplaceStr varName, TypeInfo *forcedPreferredType = NULL, NodeZeroOP *forcedThisNode = NULL);
 
 // Function for array indexing
-void AddArrayIndexNode(const char* pos);
+void AddArrayIndexNode(const char* pos, unsigned argumentCount = 1);
 
 // Function for variable assignment in place of definition
 void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverload = false);

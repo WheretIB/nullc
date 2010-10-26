@@ -601,8 +601,6 @@ unsigned int ParseFunctionArguments(Lexeme** str)
 		}
 	}
 	SetCurrentArgument(lastArgument);
-	if(!ParseLexem(str, lex_cparen))
-		ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
 	return callArgCount;
 }
 
@@ -634,6 +632,8 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 	const char *last = SetCurrentFunction(functionName);
 	// Parse function arguments
 	unsigned int callArgCount = ParseFunctionArguments(str);
+	if(!ParseLexem(str, lex_cparen))
+		ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
 	SetCurrentFunction(last);
 
 	if(memberFunctionCall)
@@ -1098,6 +1098,8 @@ bool ParseAddVariable(Lexeme** str)
 		ParseLexem(str, lex_oparen);
 		const char *last = SetCurrentFunction(name);
 		unsigned int callArgCount = ParseFunctionArguments(str);
+		if(!ParseLexem(str, lex_cparen))
+			ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
 		SetCurrentFunction(last);
 		AddMemberFunctionCall((*str)->pos, name, callArgCount);
 		AddPopNode((*str)->pos);
@@ -1653,11 +1655,14 @@ bool ParsePostExpression(Lexeme** str, bool *isFunctionCall = NULL)
 	}else if(ParseLexem(str, lex_obracket)){
 		if(isFunctionCall)
 			*isFunctionCall = false;
-		if(!ParseVaribleSet(str))
-			ThrowError((*str)->pos, "ERROR: expression not found after '['");
+
+		const char *last = SetCurrentFunction(NULL);
+		unsigned int callArgCount = ParseFunctionArguments(str);
 		if(!ParseLexem(str, lex_cbracket))
 			ThrowError((*str)->pos, "ERROR: ']' not found after expression");
-		AddArrayIndexNode((*str)->pos);
+		SetCurrentFunction(last);
+
+		AddArrayIndexNode((*str)->pos, callArgCount);
 	}else if(ParseLexem(str, lex_oparen)){
 		if(isFunctionCall)
 			*isFunctionCall = true;
@@ -1667,6 +1672,8 @@ bool ParsePostExpression(Lexeme** str, bool *isFunctionCall = NULL)
 
 		const char *last = SetCurrentFunction(NULL);
 		unsigned int callArgCount = ParseFunctionArguments(str);
+		if(!ParseLexem(str, lex_cparen))
+			ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
 		SetCurrentFunction(last);
 
 		CodeInfo::nodeList.push_back(fAddress);
@@ -1804,6 +1811,8 @@ bool ParseTerminal(Lexeme** str)
 			ParseLexem(str, lex_oparen);
 			const char *last = SetCurrentFunction(name);
 			unsigned int callArgCount = ParseFunctionArguments(str);
+			if(!ParseLexem(str, lex_cparen))
+				ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
 			SetCurrentFunction(last);
 			AddMemberFunctionCall((*str)->pos, name, callArgCount);
 			FinishConstructorCall((*str)->pos);
@@ -1883,6 +1892,8 @@ bool ParseTerminal(Lexeme** str)
 				TypeInfo *currType = GetSelectedType();
 				const char *last = SetCurrentFunction(GetSelectedTypeName());
 				unsigned int callArgCount = ParseFunctionArguments(str);
+				if(!ParseLexem(str, lex_cparen))
+					ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
 				SelectTypeByPointer(currType);
 				SetCurrentFunction(last);
 				AddFunctionCallNode((*str)->pos, GetSelectedTypeName(), callArgCount);
