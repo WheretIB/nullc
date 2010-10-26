@@ -571,18 +571,18 @@ class SphereNode\r\n\
 	Sphere ref sphere;\r\n\
 	SphereNode ref next;\r\n\
 	\r\n\
-	SphereNode ref SphereNode(Sphere ref sphere)\r\n\
+	auto SphereNode(Sphere ref sphere)\r\n\
 	{\r\n\
 		this.sphere = sphere;\r\n\
 		return this;\r\n\
 	}\r\n\
 	\r\n\
-	SphereNode ref add(Sphere ref sphere)\r\n\
-	{\r\n\
-		next = new SphereNode;\r\n\
-		next.SphereNode(sphere);\r\n\
-		return next;\r\n\
-	}\r\n\
+}\r\n\
+auto SphereNode:add(Sphere ref sphere)\r\n\
+{\r\n\
+	next = new SphereNode;\r\n\
+	next.SphereNode(sphere);\r\n\
+	return next;\r\n\
 }\r\n\
 \r\n\
 double focusZ = size;\r\n\
