@@ -1060,7 +1060,7 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 	}
 	if(arrSize > 100)
 	{
-		safeprintf(name, 256, "[100]-[%d]...", 100, arrSize);
+		safeprintf(name, 256, "[101]-[%d]...", arrSize);
 		helpInsert.item.pszText = name;
 		lastItem = TreeView_InsertItem(hVars, &helpInsert);
 	}
