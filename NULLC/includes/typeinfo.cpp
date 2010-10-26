@@ -5,6 +5,8 @@ namespace NULLCTypeInfo
 {
 	Linker *linker = NULL;
 
+	struct TypeID{ unsigned typeID; TypeID(unsigned id){ typeID = id; } };
+
 	int MemberCount(int* type)
 	{
 		assert(linker);
@@ -16,7 +18,7 @@ namespace NULLCTypeInfo
 		}
 		return exType.memberCount;
 	}
-	int MemberType(int member, int* type)
+	TypeID MemberType(int member, int* type)
 	{
 		assert(linker);
 		ExternTypeInfo &exType = linker->exTypes[*type];
@@ -31,7 +33,7 @@ namespace NULLCTypeInfo
 			return 0;
 		}
 		unsigned int *memberList = &linker->exTypeExtra[0];
-		return memberList[exType.memberOffset + member];
+		return TypeID(memberList[exType.memberOffset + member]);
 	}
 	NULLCArray MemberName(int member, int* type)
 	{
@@ -178,7 +180,7 @@ namespace NULLCTypeInfo
 		return ret;
 	}
 
-	int TypeSubType(int &typeID)
+	TypeID TypeSubType(int &typeID)
 	{
 		assert(linker);
 		ExternTypeInfo &type = linker->exTypes[typeID];
@@ -187,7 +189,7 @@ namespace NULLCTypeInfo
 			nullcThrowError("typeid::subType received type (%s) that neither pointer nor array", &linker->exSymbols[type.offsetToName]);
 			return -1;
 		}
-		return type.subType;
+		return TypeID(type.subType);
 	}
 
 	int TypeArraySize(int &typeID)
@@ -202,7 +204,7 @@ namespace NULLCTypeInfo
 		return type.arrSize;
 	}
 
-	int TypeReturnType(int &typeID)
+	TypeID TypeReturnType(int &typeID)
 	{
 		assert(linker);
 		ExternTypeInfo &type = linker->exTypes[typeID];
@@ -212,7 +214,7 @@ namespace NULLCTypeInfo
 			return -1;
 		}
 		unsigned int *memberList = &linker->exTypeExtra[0];
-		return memberList[type.memberOffset];
+		return TypeID(memberList[type.memberOffset]);
 	}
 
 	int TypeArgumentCount(int &typeID)
@@ -227,7 +229,7 @@ namespace NULLCTypeInfo
 		return type.memberCount;
 	}
 
-	int TypeArgumentType(int argument, int &typeID)
+	TypeID TypeArgumentType(int argument, int &typeID)
 	{
 		assert(linker);
 		ExternTypeInfo &type = linker->exTypes[typeID];
@@ -242,7 +244,7 @@ namespace NULLCTypeInfo
 			return -1;
 		}
 		unsigned int *memberList = &linker->exTypeExtra[0];
-		return memberList[type.memberOffset + argument + 1];
+		return TypeID(memberList[type.memberOffset + argument + 1]);
 	}
 }
 
@@ -353,5 +355,5 @@ int				nullcIsPointer(unsigned int id)
 
 unsigned int	nullcGetSubType(int id)
 {
-	return NULLCTypeInfo::TypeSubType(id);
+	return NULLCTypeInfo::TypeSubType(id).typeID;
 }
