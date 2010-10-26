@@ -2317,7 +2317,7 @@ void AddTypeAllocation(const char* pos, bool arrayType)
 		AddFunctionCallNode(pos, "__newS", 2);
 		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(currType);
 	}else{
-		assert(currType->arrSize == -1);
+		assert(currType->arrSize == TypeInfo::UNSIZED_ARRAY);
 		AddFunctionCallNode(pos, "__newA", 3);
 		CodeInfo::nodeList.back()->typeInfo = currType;
 	}
