@@ -116,9 +116,10 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount);
 void AddArrayIterator(const char* pos, InplaceStr varName, TypeInfo* type, bool extra = false);
 void MergeArrayIterators();
 
-void AddTypeAllocation(const char* pos);
+void AddTypeAllocation(const char* pos, bool arrayType = false);
 void PrepareConstructorCall(const char* pos);
 void FinishConstructorCall(const char* pos);
+bool HasConstructor(const char* pos, TypeInfo* type, unsigned arguments);
 
 void BeginCoroutine();
 void FunctionAdd(const char* pos, const char* funcName);
