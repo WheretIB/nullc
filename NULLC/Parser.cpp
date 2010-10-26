@@ -1091,18 +1091,6 @@ bool ParseAddVariable(Lexeme** str)
 			ThrowError((*str)->pos, "ERROR: expression not found after '='");
 		AddDefineVariableNode(curr->pos, varInfo);
 		AddPopNode((*str)->pos);
-	}else if(ParseLexem(str, lex_lognot)){
-		TypeInfo *info = GetSelectedType();
-		const char *name = info->genericBase ? info->genericBase->name : info->name;
-		AddGetAddressNode((*str)->pos, varInfo->name);
-		ParseLexem(str, lex_oparen);
-		const char *last = SetCurrentFunction(name);
-		unsigned int callArgCount = ParseFunctionArguments(str);
-		if(!ParseLexem(str, lex_cparen))
-			ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
-		SetCurrentFunction(last);
-		AddMemberFunctionCall((*str)->pos, name, callArgCount);
-		AddPopNode((*str)->pos);
 	}else{
 		// try to call constructor with no arguments
 		TypeInfo *info = GetSelectedType();

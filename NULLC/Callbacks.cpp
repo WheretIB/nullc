@@ -3681,6 +3681,32 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	SelectFunctionsForHash(funcNameHash, scope);
 	unsigned int count = bestFuncList.size();
 	
+	TypeInfo **info = NULL;
+	// If no functions are found, function name is a type name and a type has member constructors
+	if(count == 0 && NULL != (info = CodeInfo::classMap.find(funcNameHash)) && HasConstructor(pos, *info, callArgCount))
+	{
+		// Create temporary variable name
+		char *arrName = AllocateString(16);
+		int length = sprintf(arrName, "$temp%d", inplaceVariableNum++);
+		TypeInfo *saveCurrType = currType; // Save type in definition
+		currType = *info;
+		VariableInfo *varInfo = AddVariable(pos, InplaceStr(arrName, length)); // Create temporary variable
+		AddGetAddressNode(pos, InplaceStr(arrName, length)); // Get address
+		for(unsigned k = 0; k < callArgCount; k++) // Move address before arguments
+		{
+			NodeZeroOP *temp = CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - k];
+			CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - k] = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k];
+			CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k] = temp;
+		}
+		AddMemberFunctionCall(pos, funcName, callArgCount); // Call member constructor
+		AddPopNode(pos); // Remove result
+		CodeInfo::nodeList.push_back(new NodeGetAddress(varInfo, varInfo->pos, varInfo->varType)); // Get address
+		AddGetVariableNode(pos); // Dereference
+		AddTwoExpressionNode(*info); // Pack two nodes together
+		currType = saveCurrType; // Restore type in definition
+		return true;
+	}
+
 	// If function wasn't found
 	if(count == 0)
 	{
