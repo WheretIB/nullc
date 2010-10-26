@@ -144,3 +144,29 @@ float f(int a){ return a; }\r\n\
 int f(int a){ return 1; }\r\n\
 return a;";
 TEST_RESULT("Overload of a forward-declared function", testOverloadOfAnForwardDeclaredFunction, "1");
+
+const char	*testArrayIndexOverloadZeroMultiple =
+"class Foo\r\n\
+{\r\n\
+	int[16] arr;\r\n\
+}\r\n\
+auto operator[](Foo ref a){ return 42; }\r\n\
+auto operator[](Foo ref a, int i, j){ return &a.arr[i * 4 + j]; }\r\n\
+Foo x;\r\n\
+\r\n\
+x[1, 3] = 5;\r\n\
+return -x[1, 3] + x[];";
+TEST_RESULT("Array index overload with zero or multiple arguments", testArrayIndexOverloadZeroMultiple, "37");
+
+const char	*testArrayIndexOverloadZeroMultiple2 =
+"class Foo\r\n\
+{\r\n\
+	int[16] arr;\r\n\
+}\r\n\
+auto operator[](Foo ref a){ return 42; }\r\n\
+auto operator[](Foo ref a, int i, j){ return &a.arr[i * 4 + j]; }\r\n\
+Foo x;\r\n\
+Foo ref y = &x;\r\n\
+y[1, 3] = 5;\r\n\
+return (&y)[1, 3];";
+TEST_RESULT("Array index overload, check if pointer to array is derefenced", testArrayIndexOverloadZeroMultiple2, "5");

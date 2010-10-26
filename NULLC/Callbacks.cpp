@@ -1353,19 +1353,21 @@ void InlineFunctionImplicitReturn(const char* pos)
 }
 
 // Function for array indexing
-void AddArrayIndexNode(const char* pos)
+void AddArrayIndexNode(const char* pos, unsigned argumentCount)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
-	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->refLevel == 2)
+	if(CodeInfo::nodeList[CodeInfo::nodeList.size() - argumentCount - 1]->typeInfo->refLevel == 2)
 	{
-		NodeZeroOP *index = CodeInfo::nodeList.back();
-		CodeInfo::nodeList.pop_back();
+		NodeZeroOP *array = CodeInfo::nodeList[CodeInfo::nodeList.size() - argumentCount - 1];
+		CodeInfo::nodeList.push_back(array);
 		CodeInfo::nodeList.push_back(new NodeDereference());
-		CodeInfo::nodeList.push_back(index);
+		array = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+		CodeInfo::nodeList[CodeInfo::nodeList.size() - argumentCount - 1] = array;
 	}
 	// Call overloaded operator with error suppression
-	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", 2, true))
+	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", argumentCount + 1, argumentCount == 1)) // silent error only if there's one argument
 		return;
 
 	bool unifyTwo = false;
@@ -2858,10 +2860,11 @@ void FunctionToOperator(const char* pos)
 	static unsigned int hashSub = GetStringHash("-");
 	static unsigned int hashBitNot = GetStringHash("~");
 	static unsigned int hashLogNot = GetStringHash("!");
+	static unsigned int hashIndex = GetStringHash("[]");
 	static unsigned int hashFunc = GetStringHash("()");
 
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
-	if(lastFunc.nameHash != hashFunc && lastFunc.paramCount != 2 && !(lastFunc.paramCount == 1 && (lastFunc.nameHash == hashAdd || lastFunc.nameHash == hashSub || lastFunc.nameHash == hashBitNot || lastFunc.nameHash == hashLogNot)))
+	if(lastFunc.nameHash != hashFunc && lastFunc.nameHash != hashIndex && lastFunc.paramCount != 2 && !(lastFunc.paramCount == 1 && (lastFunc.nameHash == hashAdd || lastFunc.nameHash == hashSub || lastFunc.nameHash == hashBitNot || lastFunc.nameHash == hashLogNot)))
 		ThrowError(pos, "ERROR: binary operator definition or overload must accept exactly two arguments");
 	lastFunc.visible = true;
 }

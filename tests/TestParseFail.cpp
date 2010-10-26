@@ -81,7 +81,6 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "(1", "ERROR: closing ')' not found after '('");
 	TEST_FOR_FAIL("parsing", "*", "ERROR: variable name not found after '*'");
 	TEST_FOR_FAIL("parsing", "int i; i.", "ERROR: member variable expected after '.'");
-	TEST_FOR_FAIL("parsing", "int[4] i; i[", "ERROR: expression not found after '['");
 	TEST_FOR_FAIL("parsing", "int[4] i; i[2", "ERROR: ']' not found after expression");
 	TEST_FOR_FAIL("parsing", "&", "ERROR: variable not found after '&'");
 	TEST_FOR_FAIL("parsing", "!", "ERROR: expression not found after '!'");
