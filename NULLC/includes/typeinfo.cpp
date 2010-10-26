@@ -5,7 +5,8 @@ namespace NULLCTypeInfo
 {
 	Linker *linker = NULL;
 
-	struct TypeID{ unsigned typeID; TypeID(unsigned id){ typeID = id; } };
+	struct TypeID{ unsigned typeID;  };
+	TypeID getTypeID(unsigned id){ TypeID ret; ret.typeID = id; return ret; }
 
 	int MemberCount(int* type)
 	{
@@ -25,15 +26,15 @@ namespace NULLCTypeInfo
 		if(exType.subCat != ExternTypeInfo::CAT_CLASS)
 		{
 			nullcThrowError("typeid::memberType: type (%s) is not a class", &linker->exSymbols[exType.offsetToName]);
-			return 0;
+			return getTypeID(0);
 		}
 		if((unsigned int)member >= exType.memberCount)
 		{
 			nullcThrowError("typeid::memberType: member number illegal, type (%s) has only %d members", &linker->exSymbols[exType.offsetToName], exType.memberCount);
-			return 0;
+			return getTypeID(0);
 		}
 		unsigned int *memberList = &linker->exTypeExtra[0];
-		return TypeID(memberList[exType.memberOffset + member]);
+		return getTypeID(memberList[exType.memberOffset + member]);
 	}
 	NULLCArray MemberName(int member, int* type)
 	{
@@ -187,9 +188,9 @@ namespace NULLCTypeInfo
 		if(type.subCat != ExternTypeInfo::CAT_ARRAY && type.subCat != ExternTypeInfo::CAT_POINTER)
 		{
 			nullcThrowError("typeid::subType received type (%s) that neither pointer nor array", &linker->exSymbols[type.offsetToName]);
-			return -1;
+			return getTypeID(0);
 		}
-		return TypeID(type.subType);
+		return getTypeID(type.subType);
 	}
 
 	int TypeArraySize(int &typeID)
@@ -211,10 +212,10 @@ namespace NULLCTypeInfo
 		if(type.subCat != ExternTypeInfo::CAT_FUNCTION)
 		{
 			nullcThrowError("typeid::returnType received type (%s) that is not a function", &linker->exSymbols[type.offsetToName]);
-			return -1;
+			return getTypeID(0);
 		}
 		unsigned int *memberList = &linker->exTypeExtra[0];
-		return TypeID(memberList[type.memberOffset]);
+		return getTypeID(memberList[type.memberOffset]);
 	}
 
 	int TypeArgumentCount(int &typeID)
@@ -236,15 +237,15 @@ namespace NULLCTypeInfo
 		if(type.subCat != ExternTypeInfo::CAT_FUNCTION)
 		{
 			nullcThrowError("typeid::argumentType received type (%s) that is not a function", &linker->exSymbols[type.offsetToName]);
-			return -1;
+			return getTypeID(0);
 		}
 		if((unsigned int)argument >= type.memberCount)
 		{
 			nullcThrowError("typeid::argumentType: argument number illegal, function (%s) has only %d argument(s)", &linker->exSymbols[type.offsetToName], type.memberCount);
-			return -1;
+			return getTypeID(0);
 		}
 		unsigned int *memberList = &linker->exTypeExtra[0];
-		return TypeID(memberList[type.memberOffset + argument + 1]);
+		return getTypeID(memberList[type.memberOffset + argument + 1]);
 	}
 }
 
