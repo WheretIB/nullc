@@ -30,7 +30,7 @@ typeid	typeid:returnType();
 int		typeid:argumentCount();
 typeid	typeid:argumentType(int argument);
 
-// iteration over members
+// iteration over members of a type
 class member_iterator
 {
 	typeid classID;
@@ -65,6 +65,48 @@ auto member_iterator:next()
 	return ret;
 }
 
+auto ref	typeGetMember(auto ref obj, int member);
+auto ref	typeGetMember(auto ref obj, char[] name);
+
+// iteration over members of an object
+class member_iterator_obj
+{
+	typeid classID;
+	auto ref	obj;
+	int pos;
+}
+class member_info_obj
+{
+	typeid		type;
+	char[]		name;
+	auto ref	value;
+}
+auto typeid:members(auto ref obj)
+{
+	member_iterator_obj ret;
+	ret.classID = *this;
+	ret.obj = obj;
+	ret.pos = 0;
+	return ret;
+}
+auto member_iterator_obj:start()
+{
+	return this;
+}
+auto member_iterator_obj:hasnext()
+{
+	return pos < classID.memberCount();
+}
+auto member_iterator_obj:next()
+{
+	member_info_obj ret;
+	ret.type = classID.memberType(pos);
+	ret.name = classID.memberName(pos);
+	ret.value = typeGetMember(obj, pos);
+	pos++;
+	return ret;
+}
+
 // iteration over arguments
 class argument_iterator
 {
@@ -90,6 +132,3 @@ auto argument_iterator:next()
 {
 	return funcID.argumentType(pos++);
 }
-
-auto ref	typeGetMember(auto ref obj, int member);
-auto ref	typeGetMember(auto ref obj, char[] name);

@@ -2331,6 +2331,7 @@ void AddArrayConstructorCall(const char* pos)
 	TypeInfo *type = CodeInfo::nodeList.back()->typeInfo;
 	assert(type->refLevel && type->subType->arrLevel);
 	type = type->subType->subType;
+	assert(!type->refLevel && !type->arrLevel && !type->funcType);
 
 	char *arrName = AllocateString(16);
 	int length = sprintf(arrName, "$temp%d", inplaceVariableNum++);
@@ -2340,7 +2341,7 @@ void AddArrayConstructorCall(const char* pos)
 	AddArrayIterator(pos, vName, NULL);
 
 	AddGetAddressNode(pos, vName);
-	AddMemberFunctionCall(pos, type->GetFullTypeName(), 0);
+	AddMemberFunctionCall(pos, type->genericBase ? type->genericBase->name : type->name, 0);
 	AddPopNode(pos);
 
 	EndBlock();
@@ -2395,7 +2396,7 @@ bool HasConstructor(const char* pos, TypeInfo* type, unsigned arguments)
 
 	unsigned funcHash = type->nameHash;
 	funcHash = StringHashContinue(funcHash, "::");
-	funcHash = StringHashContinue(funcHash, type->name);
+	funcHash = StringHashContinue(funcHash, type->genericBase ? type->genericBase->name : type->name);
 	SelectFunctionsForHash(funcHash, 0);
 
 	// For a generic type instance, check if base class has a constructor function

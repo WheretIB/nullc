@@ -320,3 +320,99 @@ class Foo\r\n\
 auto x = new Foo[32];\r\n\
 return x[19].x;";
 TEST_RESULT("constuctor call for every array element 2", testConstructorForArrayElements2, "29");
+
+const char	*testImplicitConstructorCallForGenericType1 =
+"class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+	void Foo(){ x = 42; }\r\n\
+}\r\n\
+auto x = new Foo<int>;\r\n\
+return x.x;";
+TEST_RESULT("implicit constructor call for generic types 1", testImplicitConstructorCallForGenericType1, "42");
+
+const char	*testImplicitConstructorCallForGenericType2 =
+"class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+}\r\n\
+void Foo:Foo(){ x = 42; }\r\n\
+auto x = new Foo<int>;\r\n\
+return x.x;";
+TEST_RESULT("implicit constructor call for generic types 2", testImplicitConstructorCallForGenericType2, "42");
+
+const char	*testImplicitConstructorCallForGenericType3 =
+"class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+}\r\n\
+void Foo:Foo(){ x = 10; }\r\n\
+void Foo<int>:Foo(){ x = 42; }\r\n\
+auto x = new Foo<int>;\r\n\
+return x.x;";
+TEST_RESULT("implicit constructor call for generic types 3", testImplicitConstructorCallForGenericType3, "42");
+
+const char	*testImplicitConstructorCallForGenericType4 =
+"class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+	void Foo(){ x = 42; }\r\n\
+}\r\n\
+auto x = new Foo<int>();\r\n\
+return x.x;";
+TEST_RESULT("implicit constructor call for generic types 4", testImplicitConstructorCallForGenericType4, "42");
+
+const char	*testImplicitConstructorCallForGenericType5 =
+"class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+}\r\n\
+void Foo:Foo(){ x = 42; }\r\n\
+auto x = new Foo<int>();\r\n\
+return x.x;";
+TEST_RESULT("implicit constructor call for generic types 5", testImplicitConstructorCallForGenericType5, "42");
+
+const char	*testImplicitConstructorCallForGenericType6 =
+"class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+}\r\n\
+void Foo:Foo(){ x = 10; }\r\n\
+void Foo<int>:Foo(){ x = 42; }\r\n\
+auto x = new Foo<int>();\r\n\
+return x.x;";
+TEST_RESULT("implicit constructor call for generic types 6", testImplicitConstructorCallForGenericType6, "42");
+
+const char	*testConstructorForArrayElements3 =
+"int m = 10;\r\n\
+class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+	void Foo(){ x = m++; }\r\n\
+}\r\n\
+auto x = new Foo<int>[32];\r\n\
+return x[19].x;";
+TEST_RESULT("constuctor call for every array element 3", testConstructorForArrayElements3, "29");
+
+const char	*testConstructorForArrayElements4 =
+"int m = 10;\r\n\
+class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+}\r\n\
+void Foo:Foo(){ x = m++; }\r\n\
+auto x = new Foo<int>[32];\r\n\
+return x[19].x;";
+TEST_RESULT("constuctor call for every array element 4", testConstructorForArrayElements4, "29");
+
+const char	*testConstructorForArrayElements5 =
+"int m = 10;\r\n\
+class Foo<T>\r\n\
+{\r\n\
+T x;\r\n\
+}\r\n\
+void Foo:Foo(){ x = 10; }\r\n\
+void Foo<int>:Foo(){ x = m++; }\r\n\
+auto x = new Foo<int>[32];\r\n\
+return x[19].x;";
+TEST_RESULT("constuctor call for every array element 5", testConstructorForArrayElements5, "29");

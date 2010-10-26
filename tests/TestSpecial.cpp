@@ -497,3 +497,176 @@ auto sp1 = arr[1, 3];\r\n\
 auto sp2 = arr[2, 2];\r\n\
 return sp1[2] + sp2[0] + arr[0, 0][0];";
 TEST_RESULT("Generic vector splice function", testVectorSplice, "8");
+
+const char	*testAABBTransform =
+"import std.math;\r\n\
+import std.typeinfo;\r\n\
+import std.range;\r\n\
+\r\n\
+class vector3\r\n\
+{\r\n\
+	float x, y, z;\r\n\
+\r\n\
+	void vector3(){}\r\n\
+	void vector3(float x, y, z){ this.x = x; this.y = y; this.z = z; }\r\n\
+}\r\n\
+float min(float lhs, rhs)\r\n\
+{\r\n\
+	return lhs < rhs ? lhs : rhs;\r\n\
+}\r\n\
+\r\n\
+float max(float lhs, rhs)\r\n\
+{\r\n\
+	return lhs > rhs ? lhs : rhs;\r\n\
+}\r\n\
+\r\n\
+vector3 operator+(vector3 ref lhs, rhs)\r\n\
+{\r\n\
+	return vector3(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z);\r\n\
+}\r\n\
+\r\n\
+vector3 operator-(vector3 ref lhs, rhs)\r\n\
+{\r\n\
+	return vector3(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z);\r\n\
+}\r\n\
+\r\n\
+vector3 operator/(vector3 ref lhs, float rhs)\r\n\
+{\r\n\
+	return vector3(lhs.x / rhs, lhs.y / rhs, lhs.z / rhs);\r\n\
+}\r\n\
+\r\n\
+vector3 minimize(vector3 ref lhs, rhs)\r\n\
+{\r\n\
+	return vector3(min(lhs.x, rhs.x), min(lhs.y, rhs.y), min(lhs.z, rhs.z));\r\n\
+}\r\n\
+\r\n\
+vector3 maximize(vector3 ref lhs, rhs)\r\n\
+{\r\n\
+	return vector3(max(lhs.x, rhs.x), max(lhs.y, rhs.y), max(lhs.z, rhs.z));\r\n\
+}\r\n\
+\r\n\
+class aabb\r\n\
+{\r\n\
+	vector3 min;\r\n\
+	vector3 max;\r\n\
+\r\n\
+	void aabb() {}\r\n\
+	void aabb(vector3 ref min, vector3 ref max){ this.min = *min; this.max = *max; }\r\n\
+}\r\n\
+\r\n\
+aabb update_aabb(aabb ref b, vector3 ref p)\r\n\
+{\r\n\
+	return aabb(minimize(b.min, p), maximize(b.max, p));\r\n\
+}\r\n\
+\r\n\
+class matrix43\r\n\
+{\r\n\
+	float m00, m01, m02, m03;\r\n\
+	float m10, m11, m12, m13;\r\n\
+	float m20, m21, m22, m23;\r\n\
+}\r\n\
+\r\n\
+vector3 transform_point(vector3 ref v, matrix43 ref m)\r\n\
+{\r\n\
+	return vector3( v.x * m.m00 + v.y * m.m01 + v.z * m.m02 + m.m03,\r\n\
+		v.x * m.m10 + v.y * m.m11 + v.z * m.m12 + m.m13,\r\n\
+		v.x * m.m20 + v.y * m.m21 + v.z * m.m22 + m.m23);\r\n\
+}\r\n\
+\r\n\
+vector3 transform_vector(vector3 ref v, matrix43 ref m)\r\n\
+{\r\n\
+	return vector3( v.x * m.m00 + v.y * m.m01 + v.z * m.m02,\r\n\
+		v.x * m.m10 + v.y * m.m11 + v.z * m.m12,\r\n\
+		v.x * m.m20 + v.y * m.m21 + v.z * m.m22);\r\n\
+}\r\n\
+\r\n\
+aabb transform_aabb(aabb ref b, matrix43 ref m)\r\n\
+{\r\n\
+	auto corners =\r\n\
+	{\r\n\
+		vector3(b.max.x, b.min.y, b.min.z),\r\n\
+		vector3(b.max.x, b.max.y, b.min.z),\r\n\
+		vector3(b.min.x, b.max.y, b.min.z),\r\n\
+		vector3(b.min.x, b.min.y, b.max.z),\r\n\
+		vector3(b.max.x, b.min.y, b.max.z),\r\n\
+		vector3(b.max.x, b.max.y, b.max.z),\r\n\
+		vector3(b.min.x, b.max.y, b.max.z)\r\n\
+	};\r\n\
+\r\n\
+	vector3 corner = transform_point(b.min, m);\r\n\
+	aabb result = aabb(corner, corner);\r\n\
+\r\n\
+	for (int i = 0; i < 7; ++i)\r\n\
+		result = update_aabb(result, transform_point(corners[i], m));\r\n\
+\r\n\
+	return result;\r\n\
+}\r\n\
+\r\n\
+matrix43 matrix_abs(matrix43 ref m)\r\n\
+{\r\n\
+	matrix43 result;\r\n\
+\r\n\
+	result.m00 = abs(m.m00);\r\n\
+	result.m01 = abs(m.m01);\r\n\
+	result.m02 = abs(m.m02);\r\n\
+	result.m03 = abs(m.m03);\r\n\
+	result.m10 = abs(m.m10);\r\n\
+	result.m11 = abs(m.m11);\r\n\
+	result.m12 = abs(m.m12);\r\n\
+	result.m13 = abs(m.m13);\r\n\
+	result.m20 = abs(m.m20);\r\n\
+	result.m21 = abs(m.m21);\r\n\
+	result.m22 = abs(m.m22);\r\n\
+	result.m23 = abs(m.m23);\r\n\
+\r\n\
+	return result;\r\n\
+}\r\n\
+\r\n\
+aabb transform_aabb_fast(aabb ref b, matrix43 ref m)\r\n\
+{\r\n\
+	vector3 center = (b.min + b.max) / 2;\r\n\
+	vector3 extent = (b.max - b.min) / 2;\r\n\
+\r\n\
+	vector3 new_center = transform_point(center, m);\r\n\
+	vector3 new_extent = transform_vector(extent, matrix_abs(m));\r\n\
+\r\n\
+	return aabb(new_center - new_extent, new_center + new_extent);\r\n\
+}\r\n\
+\r\n\
+aabb transform_aabb_ultra_fast(aabb ref aabb_, matrix43 ref matrix)\r\n\
+{\r\n\
+	auto cx = (aabb_.min.x + aabb_.max.x) * 0.5f;\r\n\
+	auto cy = (aabb_.min.y + aabb_.max.y) * 0.5f;\r\n\
+	auto cz = (aabb_.min.z + aabb_.max.z) * 0.5f;\r\n\
+\r\n\
+	auto ex = aabb_.max.x - cx;\r\n\
+	auto ey = aabb_.max.y - cy;\r\n\
+	auto ez = aabb_.max.z - cz;\r\n\
+\r\n\
+	auto ncx = cx * matrix.m00 + cy * matrix.m01 + cz * matrix.m02 + matrix.m03;\r\n\
+	auto ncy = cx * matrix.m10 + cy * matrix.m11 + cz * matrix.m12 + matrix.m13;\r\n\
+	auto ncz = cx * matrix.m20 + cy * matrix.m21 + cz * matrix.m22 + matrix.m23;\r\n\
+\r\n\
+	auto nex = ex * abs(matrix.m00) + ey * abs(matrix.m01) + ez * abs(matrix.m02);\r\n\
+	auto ney = ex * abs(matrix.m10) + ey * abs(matrix.m11) + ez * abs(matrix.m12);\r\n\
+	auto nez = ex * abs(matrix.m20) + ey * abs(matrix.m21) + ez * abs(matrix.m22);\r\n\
+\r\n\
+	return aabb(vector3(ncx - nex, ncy - ney, ncz - nez), vector3(ncx + nex, ncy + ney, ncz + nez));\r\n\
+}\r\n\
+\r\n\
+aabb aabb_ = aabb(vector3(1, 2, 3), vector3(4, 9, 12));\r\n\
+matrix43 matrix;\r\n\
+for(i in range(1, 12), j in (matrix43).members(matrix))\r\n\
+	(float ref(j.value)) = i;\r\n\
+\r\n\
+float r = 0;\r\n\
+for (int i = 0; i < 100; ++i)\r\n\
+	r += transform_aabb(aabb_, matrix).min.y;\r\n\
+\r\n\
+for (int i = 0; i < 100; ++i)\r\n\
+	r += transform_aabb_fast(aabb_, matrix).min.y;\r\n\
+\r\n\
+for (int i = 0; i < 100; ++i)\r\n\
+	r += transform_aabb_ultra_fast(aabb_, matrix).min.y;\r\n\
+return int(r);";
+TEST_RESULT("AABB transformations", testAABBTransform, "13800");
