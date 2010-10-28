@@ -1385,7 +1385,7 @@ void InlineFunctionImplicitReturn(const char* pos)
 		curr->prev->next = new NodeReturnOp(true, currDefinedFunc.back()->retType, currDefinedFunc.back(), false);
 		if(!currDefinedFunc.back()->retType)
 		{
-			currDefinedFunc.back()->retType = node->typeInfo; // $$ get here
+			currDefinedFunc.back()->retType = node->typeInfo;
 			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
 		}
 	}else{
