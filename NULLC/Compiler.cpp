@@ -199,6 +199,9 @@ int __rncomp(auto ref a, b);\r\n\
 int __pcomp(void ref(int) a, void ref(int) b);\r\n\
 int __pncomp(void ref(int) a, void ref(int) b);\r\n\
 \r\n\
+int __acomp(auto[] a, b);\r\n\
+int __ancomp(auto[] a, b);\r\n\
+\r\n\
 int __typeCount();\r\n\
 \r\n\
 auto[] ref operator=(auto[] ref l, auto ref r);\r\n\
@@ -398,6 +401,9 @@ Compiler::Compiler()
 
 	AddModuleFunction("$base$", (void (*)())NULLC::FuncCompare, "__pcomp", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::FuncNCompare, "__pncomp", 0);
+
+	AddModuleFunction("$base$", (void (*)())NULLC::ArrayCompare, "__acomp", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::ArrayNCompare, "__ancomp", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::TypeCount, "__typeCount", 0);
 

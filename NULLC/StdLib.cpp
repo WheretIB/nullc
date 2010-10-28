@@ -783,6 +783,15 @@ int NULLC::FuncNCompare(NULLCFuncPtr a, NULLCFuncPtr b)
 	return a.context != b.context || a.id != b.id;
 }
 
+int NULLC::ArrayCompare(NULLCAutoArray a, NULLCAutoArray b)
+{
+	return a.len == b.len && a.ptr == b.ptr;
+}
+int NULLC::ArrayNCompare(NULLCAutoArray a, NULLCAutoArray b)
+{
+	return a.len != b.len || a.ptr != b.ptr;
+}
+
 int NULLC::TypeCount()
 {
 	return nullcGetTypeCount();
