@@ -264,13 +264,13 @@ void ParseTypePostExpressions(Lexeme** str, bool arrayType, bool notType, bool a
 					ThrowError((*str)->pos, "ERROR: return type of a function type cannot be auto");
 				TypeHandler *first = NULL, *handle = NULL;
 				unsigned int count = 0;
-				if(ParseSelectType(str) || (allowGenericType && ParseLexem(str, lex_generic) && (SelectTypeByPointer(typeGeneric), 1)))
+				if(ParseSelectType(str, true, allowGenericType, allowGenericType) || (allowGenericType && ParseGenericType(str, NULL, false)))
 				{
 					do
 					{
 						if(count)
 						{
-							ParseSelectType(str) || (allowGenericType && ParseLexem(str, lex_generic) && (SelectTypeByPointer(typeGeneric), 1));
+							ParseSelectType(str, true, allowGenericType, allowGenericType) || (allowGenericType && ParseGenericType(str, NULL, false));
 							handle->next = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
 							handle = handle->next;
 						}else{
@@ -387,10 +387,11 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allo
 			unsigned count = 0;
 			do
 			{
-				if(!ParseSelectType(str))
+				bool resolvedToGeneric = false;
+				if(!ParseSelectType(str) || (GetSelectedType() == typeGeneric && true == (resolvedToGeneric = true)))
 				{
 					// If we are allowed to failed to generic type and we have "generic"
-					if(genericOnFail && (ParseLexem(str, lex_generic) || ParseLexem(str, lex_at)))
+					if(genericOnFail && (resolvedToGeneric || (ParseLexem(str, lex_generic) || ParseLexem(str, lex_at))))
 					{
 						if((*str)[-1].type == lex_at && !ParseLexem(str, lex_string))
 							ThrowError((*str)->pos, "ERROR: type alias required after '@'");
@@ -419,7 +420,7 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allo
 		return false;
 	}
 
-	ParseTypePostExpressions(str, arrayType, notType);
+	ParseTypePostExpressions(str, arrayType, notType, false, allowGeneric);
 	return true;
 }
 
@@ -653,13 +654,8 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 bool ParseGenericFuntionType(Lexeme** str, TypeInfo* preferredType)
 {
 	Lexeme *curr = *str;
-	if(!ParseLexem(str, lex_generic))
-		return false;
 	if(!ParseLexem(str, lex_ref))
-	{
-		*str = curr;
 		return false;
-	}
 	if(!ParseLexem(str, lex_oparen))
 	{
 		*str = curr;
@@ -677,19 +673,30 @@ bool ParseGenericFuntionType(Lexeme** str, TypeInfo* preferredType)
 	TypeInfo *retType = preferredType->funcType->retType;
 	TypeHandler *handle = NULL, *first = NULL;
 	unsigned count = 0;
-	if(ParseSelectType(str) || ParseGenericFuntionType(str, preferredType->funcType->paramType[count]) || (ParseLexem(str, lex_generic) && (SelectTypeByPointer(typeGeneric), 1)))
+	if(ParseSelectType(str) || ParseGenericType(str, NULL, false))
 	{
 		do
 		{
+			if(count >= preferredType->funcType->paramCount)
+				return false;
 			if(count)
 			{
-				ParseSelectType(str) || ParseGenericFuntionType(str, preferredType->funcType->paramType[count]) || (ParseLexem(str, lex_generic) && (SelectTypeByPointer(typeGeneric), 1));
+				ParseSelectType(str) || ParseGenericType(str, NULL, false);
 				handle->next = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
 				handle = handle->next;
 			}else{
 				first = handle = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
 			}
+			if((*str)->type == lex_oparen)
+			{
+				(*str)--;
+				TypeInfo *referenceType = preferredType->funcType->paramType[count]; // Get type to which we are trying to specialize
+				if(!ParseGenericFuntionType(str, referenceType))
+					return false;
+			}
 			handle->varType = (TypeInfo*)GetSelectedType();
+			if(handle->varType == typeGeneric)
+				handle->varType = preferredType->funcType->paramType[count];
 			handle->next = NULL;
 			if(!handle->varType)
 				ThrowError((*str)->pos, "ERROR: parameter type of a function type cannot be auto");
@@ -703,7 +710,7 @@ bool ParseGenericFuntionType(Lexeme** str, TypeInfo* preferredType)
 	return true;
 }
 
-bool ParseGenericType(Lexeme** str, TypeInfo* preferredType)
+bool ParseGenericType(Lexeme** str, TypeInfo* preferredType, bool markFunction)
 {
 	// Parse possible generic type specialization
 	if(ParseLexem(str, lex_less))
@@ -780,7 +787,7 @@ bool ParseGenericType(Lexeme** str, TypeInfo* preferredType)
 	if(!ParseLexem(str, lex_generic))
 		return false;
 	SelectTypeByPointer(typeGeneric);
-	if(!preferredType)
+	if(!preferredType && markFunction)
 		FunctionGeneric(true);
 	if(ParseLexem(str, lex_ref))
 	{
@@ -798,7 +805,7 @@ bool ParseGenericType(Lexeme** str, TypeInfo* preferredType)
 bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 {
 	bool genericArg = false;
-	if(!ParseSelectType(str, true, true) && !ParseGenericType(str))
+	if(!ParseSelectType(str, true, true, true) && !ParseGenericType(str))
 		return true;
 
 	genericArg = GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
@@ -837,7 +844,7 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		argID++;
 		bool lastGeneric = genericArg;
 		genericArg = false;
-		if(!ParseSelectType(str, true, true))
+		if(!ParseSelectType(str, true, true, true))
 		{
 			if(!ParseGenericType(str))
 				genericArg = lastGeneric; // if there is no type and no generic, then this parameter is as generic as the last one
@@ -1885,6 +1892,7 @@ bool ParseTerminal(Lexeme** str)
 		{
 			AddUnfixedArraySize();
 			ConvertTypeToArray((*str)->pos);
+			info = GetSelectedType();
 			arrayAlloc = true;
 
 			if(!ParseTernaryExpr(str))
@@ -1892,6 +1900,7 @@ bool ParseTerminal(Lexeme** str)
 			if(!ParseLexem(str, lex_cbracket))
 				ThrowError((*str)->pos, "ERROR: ']' not found after expression");
 		}
+		SelectTypeByPointer(info);
 		AddTypeAllocation(pos, arrayAlloc);
 		if(hasEmptyConstructor)
 		{

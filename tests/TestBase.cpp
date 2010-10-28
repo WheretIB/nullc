@@ -84,7 +84,10 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 
 	double time = myGetPreciseTime();
 	nullres good = nullcCompile(code);
-	timeCompile += myGetPreciseTime() - time;
+	double timePassed = myGetPreciseTime() - time;
+	timeCompile += timePassed;
+//	if(timePassed > 1.0)
+//		printf("%s took %fms\n", message, timePassed);
 
 	time = myGetPreciseTime();
 	nullcSaveListing("asm.txt");

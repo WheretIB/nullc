@@ -2451,6 +2451,7 @@ bool HasConstructor(const char* pos, TypeInfo* type, unsigned arguments)
 	funcHash = StringHashContinue(funcHash, type->genericBase ? type->genericBase->name : type->name);
 	SelectFunctionsForHash(funcHash, 0);
 
+	unsigned baseFuncStart = bestFuncList.size();
 	// For a generic type instance, check if base class has a constructor function
 	if(type->genericBase)
 	{
@@ -2459,9 +2460,19 @@ bool HasConstructor(const char* pos, TypeInfo* type, unsigned arguments)
 		funcBaseHash = StringHashContinue(funcBaseHash, type->genericBase->name);
 		SelectFunctionsForHash(funcBaseHash, 0);
 	}
+	for(unsigned i = baseFuncStart; i < bestFuncList.size(); i++)
+	{
+		assert(bestFuncList[i]->generic);
+		assert(bestFuncList[i]->generic->parent);
+		assert(bestFuncList[i]->generic->parent->parentClass == type->genericBase);
+		bestFuncList[i]->generic->parent->parentClass = type;
+	}
 
 	unsigned minRating = ~0u;
 	SelectBestFunction(pos, bestFuncList.size(), arguments, minRating);
+
+	for(unsigned i = baseFuncStart; i < bestFuncList.size(); i++)
+		bestFuncList[i]->generic->parent->parentClass = type->genericBase;
 	return minRating != ~0u;
 }
 
@@ -3048,7 +3059,6 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 				genericArg = !!(start++); // move forward and mark argument as a generic
 				if(start[0].type == lex_ref && start[1].type == lex_oparen)
 				{
-					start--;
 					TypeInfo *referenceType = CodeInfo::nodeList[nodeOffset + argID]->typeInfo; // Get type to which we are trying to specialize
 					if(CodeInfo::nodeList[nodeOffset + argID]->nodeType == typeNodeFuncDef)
 						referenceType = ((NodeFuncDef*)CodeInfo::nodeList[nodeOffset + argID])->GetFuncInfo()->funcType;
@@ -3100,6 +3110,19 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 				genericArg = argType == typeGeneric || argType->dependsOnGeneric; // mark argument as a generic
 			}
 			break;
+		}
+		if(start->type == lex_oparen)
+		{
+			start--;
+			TypeInfo *referenceType = CodeInfo::nodeList[nodeOffset + argID]->typeInfo; // Get type to which we are trying to specialize
+			if(CodeInfo::nodeList[nodeOffset + argID]->nodeType == typeNodeFuncDef)
+				referenceType = ((NodeFuncDef*)CodeInfo::nodeList[nodeOffset + argID])->GetFuncInfo()->funcType;
+			if(!ParseGenericFuntionType(&start, referenceType))
+			{
+				newRating = ~0u; // function is not instanced
+				return NULL;
+			}
+			genericArg = false;
 		}
 		genericRef = start->type == lex_ref ? !!(start++) : false;
 
@@ -3472,13 +3495,23 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		SelectFunctionsForHash(GetStringHash(memberFuncName), 0);
 		// Check that base class has this function
 		char *memberOrigName = GetClassFunctionName(currentType->subType->genericBase, funcName);
+		unsigned baseFuncStart = bestFuncList.size();
 		SelectFunctionsForHash(GetStringHash(memberOrigName), 0);
+		for(unsigned i = baseFuncStart; i < bestFuncList.size(); i++)
+		{
+			assert(bestFuncList[i]->generic);
+			assert(bestFuncList[i]->generic->parent);
+			assert(bestFuncList[i]->generic->parent->parentClass == currentType->subType->genericBase);
+			bestFuncList[i]->generic->parent->parentClass = currentType->subType;
+		}
 
 		if(!silent && !bestFuncList.size())
 			ThrowError(pos, "ERROR: function '%s' is undefined", memberOrigName);
 
 		unsigned minRating = ~0u;
 		unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), callArgCount, minRating);
+		for(unsigned i = baseFuncStart; i < bestFuncList.size(); i++)
+			bestFuncList[i]->generic->parent->parentClass = currentType->subType->genericBase;
 		if(minRating == ~0u)
 		{
 			if(silent)
@@ -3799,28 +3832,34 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	
 	TypeInfo **info = NULL;
 	// If no functions are found, function name is a type name and a type has member constructors
-	if(count == 0 && NULL != (info = CodeInfo::classMap.find(funcNameHash)) && HasConstructor(pos, *info, callArgCount))
+	if(count == 0 && NULL != (info = CodeInfo::classMap.find(funcNameHash)))
 	{
-		// Create temporary variable name
-		char *arrName = AllocateString(16);
-		int length = sprintf(arrName, "$temp%d", inplaceVariableNum++);
-		TypeInfo *saveCurrType = currType; // Save type in definition
-		currType = *info;
-		VariableInfo *varInfo = AddVariable(pos, InplaceStr(arrName, length)); // Create temporary variable
-		AddGetAddressNode(pos, InplaceStr(arrName, length)); // Get address
-		for(unsigned k = 0; k < callArgCount; k++) // Move address before arguments
+		if((*info)->genericInfo)
+			ThrowError(pos, "ERROR: generic type arguments in <> are not found after constructor name");
+		if(HasConstructor(pos, *info, callArgCount))
 		{
-			NodeZeroOP *temp = CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - k];
-			CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - k] = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k];
-			CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k] = temp;
+			// Create temporary variable name
+			char *arrName = AllocateString(16);
+			int length = sprintf(arrName, "$temp%d", inplaceVariableNum++);
+			TypeInfo *saveCurrType = currType; // Save type in definition
+			currType = *info;
+			VariableInfo *varInfo = AddVariable(pos, InplaceStr(arrName, length)); // Create temporary variable
+			AddGetAddressNode(pos, InplaceStr(arrName, length)); // Get address
+			for(unsigned k = 0; k < callArgCount; k++) // Move address before arguments
+			{
+				NodeZeroOP *temp = CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - k];
+				CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - k] = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k];
+				CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k] = temp;
+			}
+			assert(0 == strcmp(funcName, (*info)->name));
+			AddMemberFunctionCall(pos, (*info)->genericBase ? (*info)->genericBase->name : (*info)->name, callArgCount); // Call member constructor
+			AddPopNode(pos); // Remove result
+			CodeInfo::nodeList.push_back(new NodeGetAddress(varInfo, varInfo->pos, varInfo->varType)); // Get address
+			AddGetVariableNode(pos); // Dereference
+			AddTwoExpressionNode(*info); // Pack two nodes together
+			currType = saveCurrType; // Restore type in definition
+			return true;
 		}
-		AddMemberFunctionCall(pos, funcName, callArgCount); // Call member constructor
-		AddPopNode(pos); // Remove result
-		CodeInfo::nodeList.push_back(new NodeGetAddress(varInfo, varInfo->pos, varInfo->varType)); // Get address
-		AddGetVariableNode(pos); // Dereference
-		AddTwoExpressionNode(*info); // Pack two nodes together
-		currType = saveCurrType; // Restore type in definition
-		return true;
 	}
 
 	// If function wasn't found

@@ -1330,3 +1330,70 @@ const char *testGeneric100 =
 }\r\n\
 return average(<x, y, z>{ x * y(2, 4) + z; });";
 TEST_RESULT("specialization for function pointer with short inline function 4", testGeneric100, "51");
+
+const char *testGeneric101 =
+"int average(int ref(generic) f, generic m)\r\n\
+{\r\n\
+	return f(m);\r\n\
+}\r\n\
+auto f1(int x){ return x * 5; }\r\n\
+auto f2(float x){ return x * 2.5; }\r\n\
+return average(f1, 40) + average(f2, 4);";
+TEST_RESULT("specialization for function pointer 4 (non generic return type)", testGeneric101, "210");
+
+const char *testGeneric102 =
+"int average(int ref(int ref(generic, int)) f)\r\n\
+{\r\n\
+	return f(<i, j>{ i + j; });\r\n\
+}\r\n\
+auto f1(int ref(int, int) x){ return x(1, 2) * 5; }\r\n\
+return average(f1);";
+TEST_RESULT("specialization for function pointer 4 (non generic return type, nested specialized type)", testGeneric102, "15");
+
+const char *testGeneric103 =
+"auto average(int ref(generic ref(generic, int)) f)\r\n\
+{\r\n\
+	return f(<i, j>{ i + j; });\r\n\
+}\r\n\
+auto f1(int ref(int, int) x){ return x(1, 2) * 5.0; }\r\n\
+auto x = average(f1);\r\n\
+return x == 15 && typeof(x) == double;";
+TEST_RESULT("specialization for function pointer 5 (generic return type in nested specialized type)", testGeneric103, "1");
+
+const char *testGeneric104 =
+"int average(int a, int ref(int ref(generic, int)) f)\r\n\
+{\r\n\
+	return f(<i, j>{ i + j; }) + a;\r\n\
+}\r\n\
+auto f1(int ref(int, int) x){ return x(1, 2) * 5; }\r\n\
+return average(5, f1);";
+TEST_RESULT("specialization for function pointer 6 (non generic return type, nested specialized type)", testGeneric104, "20");
+
+const char *testGeneric105 =
+"auto average(int a, int ref(generic ref(generic, int)) f)\r\n\
+{\r\n\
+	return a + f(<i, j>{ i + j; });\r\n\
+}\r\n\
+auto f1(int ref(int, int) x){ return x(1, 2) * 5.0; }\r\n\
+auto x = average(5, f1);\r\n\
+return x == 20 && typeof(x) == double;";
+TEST_RESULT("specialization for function pointer 7 (generic return type in nested specialized type)", testGeneric105, "1");
+
+const char *testGeneric106 =
+"int average(int ref(int, int ref(generic, int)) f)\r\n\
+{\r\n\
+	return f(5, <i, j>{ i + j; });\r\n\
+}\r\n\
+auto f1(int a, int ref(int, int) x){ return a + x(1, 2) * 5; }\r\n\
+return average(f1);";
+TEST_RESULT("specialization for function pointer 8 (non generic return type, nested specialized type)", testGeneric106, "20");
+
+const char *testGeneric107 =
+"auto average(int ref(int, generic ref(generic, int)) f)\r\n\
+{\r\n\
+	return f(5, <i, j>{ i + j; });\r\n\
+}\r\n\
+auto f1(int a, int ref(int, int) x){ return a + x(1, 2) * 5.0; }\r\n\
+auto x = average(f1);\r\n\
+return x == 20 && typeof(x) == double;";
+TEST_RESULT("specialization for function pointer 9 (generic return type in nested specialized type)", testGeneric107, "1");
