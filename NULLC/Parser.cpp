@@ -621,6 +621,8 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 	if(memberFunctionCall)
 		memberFunctionCall = PrepareMemberCall((*str)->pos, functionName);
 
+	TypeInfo *lValue = memberFunctionCall ? CodeInfo::nodeList.back()->typeInfo->subType : NULL;
+
 	// If it was a member function call, but isn't now, then we should take function pointer from the top of node list
 	NodeZeroOP *fAddress = NULL;
 	if(!memberFunctionCall && wasMemberCall)
@@ -628,7 +630,7 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 		fAddress = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
 	}
-	const char *last = SetCurrentFunction(functionName);
+	const char *last = SetCurrentFunction(memberFunctionCall ? GetClassFunctionName(lValue, InplaceStr(functionName)) : functionName);
 	// Parse function arguments
 	unsigned int callArgCount = ParseFunctionArguments(str);
 	if(!ParseLexem(str, lex_cparen))
