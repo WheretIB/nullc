@@ -1220,7 +1220,7 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	for(unsigned int arg = 0; arg < func.paramCount; arg++)
 	{
 		ExternLocalInfo &lInfo = codeLocals[func.offsetToFirstLocal + arg];
-		it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
+		it += safeprintf(it, 256 - int(it - name), "%s %s%s", codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName, arg == func.paramCount - 1 ? "" : ", ");
 	}
 	it += safeprintf(it, 256 - int(it - name), ")");
 
