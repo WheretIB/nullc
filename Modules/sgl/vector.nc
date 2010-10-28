@@ -1,4 +1,5 @@
 // sgl.vector
+import std.algorithm;
 
 class vector<T>
 {
@@ -208,4 +209,14 @@ auto vector:any(generic ref(T) f)
 	for(int i = 0; i < count && !c; i++) // exit immediately if one of elements passed the test
 		c = c || f(data[i]);
 	return c;
+}
+
+void vector_sort_impl(generic arr, generic pred)
+{
+	sort(arr.data, 0, arr.count, pred);
+}
+
+auto vector:sort(generic ref(T, T) pred)
+{
+	vector_sort_impl(this, pred);
 }
