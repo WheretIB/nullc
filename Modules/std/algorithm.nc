@@ -46,8 +46,8 @@ void partition(generic arr, int begin, middle, end, generic pred, int ref out_eq
 	int eqbeg = middle, eqend = middle + 1;
 
 	// expand equal range
-	while(eqbeg != begin && arr[eqbeg - 1] == arr[eqbeg]) --eqbeg;
-	while(eqend != end && arr[eqend] == arr[eqbeg]) ++eqend;
+	while(eqbeg != begin && equal(&arr[eqbeg - 1], &arr[eqbeg])) --eqbeg;
+	while(eqend != end && equal(&arr[eqend], &arr[eqbeg])) ++eqend;
 
 	// process outer elements
 	int ltend = eqbeg, gtbeg = eqend;
@@ -59,7 +59,7 @@ void partition(generic arr, int begin, middle, end, generic pred, int ref out_eq
 		{
 			if(!pred(arr[eqbeg], arr[gtbeg]))
 			{
-				if(arr[gtbeg] == arr[eqbeg])
+				if(equal(&arr[gtbeg], &arr[eqbeg]))
 					sort_swap(arr[gtbeg], arr[eqend++]);
 				else
 					break;
@@ -71,7 +71,7 @@ void partition(generic arr, int begin, middle, end, generic pred, int ref out_eq
 		{
 			if(!pred(arr[ltend - 1], arr[eqbeg]))
 			{
-				if(arr[eqbeg] == arr[ltend - 1])
+				if(equal(&arr[eqbeg], &arr[ltend - 1]))
 					sort_swap(arr[ltend - 1], arr[--eqbeg]);
 				else
 					break;
