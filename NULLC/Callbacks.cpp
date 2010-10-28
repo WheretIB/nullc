@@ -2524,8 +2524,12 @@ void FunctionAdd(const char* pos, const char* funcName)
 		if(CodeInfo::varInfo[i]->nameHash == funcNameHash)
 			ThrowError(pos, "ERROR: name '%s' is already taken for a variable in current scope", funcName);
 	}
+	bool functionLocal = false;
+	if(newType ? varInfoTop.size() > (newType->definitionDepth + 1) : varInfoTop.size() > 1)
+		functionLocal = true;
+
 	char *funcNameCopy = (char*)funcName;
-	if(newType)
+	if(newType && !functionLocal)
 	{
 		funcNameCopy = GetClassFunctionName(newType, funcName);
 		funcNameHash = GetStringHash(funcNameCopy);
@@ -2541,7 +2545,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 	lastFunc->vTopSize = (unsigned int)varInfoTop.size();
 	lastFunc->retType = currType;
 	currDefinedFunc.push_back(lastFunc);
-	if(newType)
+	if(newType && !functionLocal)
 	{
 		if(origHash == hashFinalizer)
 			newType->hasFinalizer = true;
@@ -2552,7 +2556,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 		if(newType->genericBase)
 			lastFunc->genericBase = newType->genericBase->genericInfo;
 	}
-	if(newType ? varInfoTop.size() > (newType->definitionDepth + 1) : varInfoTop.size() > 1)
+	if(functionLocal)
 	{
 		lastFunc->type = FunctionInfo::LOCAL;
 		lastFunc->parentClass = NULL;
@@ -3345,7 +3349,7 @@ void SelectFunctionsForHash(unsigned funcNameHash, unsigned scope)
 	}
 }
 
-unsigned SelectBestFunction(const char *pos, unsigned count, unsigned callArgCount, unsigned int &minRating)
+unsigned SelectBestFunction(const char *pos, unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType)
 {
 	// Find the best suited function
 	bestFuncRating.resize(count);
@@ -3400,7 +3404,11 @@ unsigned SelectBestFunction(const char *pos, unsigned count, unsigned callArgCou
 			if(bestFuncRating[k] != ~0u)
 			{
 				unsigned newRating = bestFuncRating[k];
+				TypeInfo *parentClass = bestFuncList[k]->parentClass;
+				if(forcedParentType && bestFuncList[k]->parentClass)
+					bestFuncList[k]->parentClass = forcedParentType;
 				TypeInfo *tmpType = GetGenericFunctionRating(pos, bestFuncList[k], newRating, count);
+				bestFuncList[k]->parentClass = parentClass;
 
 				bestFuncList[k]->generic->instancedType = tmpType;
 				bestFuncRating[k] = newRating;
@@ -3911,7 +3919,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	// If there is a name and it's not a variable that holds 
 	if(!vInfo && funcName)
 	{
-		unsigned minRatingIndex = SelectBestFunction(pos, count, callArgCount, minRating);
+		unsigned minRatingIndex = SelectBestFunction(pos, count, callArgCount, minRating, forcedParentType);
 		// Maybe the function we found can't be used at all
 		if(minRatingIndex == ~0u)
 		{

@@ -1859,3 +1859,19 @@ int Foo:foo(T ref x){ return *x; }\r\n\
 Foo<int> x;\r\n\
 return x.foo(1) + x.foo(2);";
 TEST_RESULT("when generic type member function is instanced, aliases are from instanced type", testGenericType124, "3");
+
+const char *testGenericType125 =
+"class Node<T>{}\r\n\
+class Foo{}\r\n\
+auto Node:first(int hash)\r\n\
+{\r\n\
+	Foo ref curr;\r\n\
+	return coroutine auto generator()\r\n\
+	{\r\n\
+		while(curr) break;\r\n\
+	};\r\n\
+}\r\n\
+Node<int> a;\r\n\
+a.first(1);\r\n\
+return 1;";
+TEST_RESULT("local function is local", testGenericType125, "1");
