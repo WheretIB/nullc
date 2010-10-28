@@ -1249,11 +1249,20 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 						start++;
 					}
 
-					bool genericArg = false, genericRef = false;;
+					bool genericArg = false, genericRef = false;
+
 					if(!ParseSelectType(&start))
 						genericArg = start->type == lex_generic ? !!(start++) : false;
 					genericRef = start->type == lex_ref ? !!(start++) : false;
-					
+
+					if(genericArg && genericRef && start->type == lex_oparen)
+					{
+						start--;
+						currType = NULL;
+						ParseTypePostExpressions(&start, false, false, true, true);
+						genericArg = genericRef = false;
+					}
+
 					if(argID != currArgument)
 					{
 						if(genericArg)
@@ -1341,12 +1350,22 @@ void InlineFunctionImplicitReturn(const char* pos)
 		NodeZeroOP *node = ((NodePopOp*)curr)->GetFirstNode();
 		CodeInfo::nodeList.push_back(node);
 		curr->prev->next = new NodeReturnOp(true, currDefinedFunc.back()->retType, currDefinedFunc.back(), false);
+		if(!currDefinedFunc.back()->retType)
+		{
+			currDefinedFunc.back()->retType = node->typeInfo; // $$ get here
+			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
+		}
 	}else{
 		if(curr->nodeType != typeNodePopOp)
 			return;
 		NodeZeroOP *node = ((NodePopOp*)curr)->GetFirstNode();
 		CodeInfo::nodeList.back() = node;
 		CodeInfo::nodeList.push_back(new NodeReturnOp(true, currDefinedFunc.back()->retType, currDefinedFunc.back(), false));
+		if(!currDefinedFunc.back()->retType)
+		{
+			currDefinedFunc.back()->retType = node->typeInfo;
+			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
+		}
 		AddOneExpressionNode(currDefinedFunc.back()->retType);
 	}
 	currDefinedFunc.back()->explicitlyReturned = true;
@@ -2994,6 +3013,19 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 			if(start->type == lex_generic) // If failed because of generic
 			{
 				genericArg = !!(start++); // move forward and mark argument as a generic
+				if(start[0].type == lex_ref && start[1].type == lex_oparen)
+				{
+					start--;
+					TypeInfo *referenceType = CodeInfo::nodeList[nodeOffset + argID]->typeInfo; // Get type to which we are trying to specialize
+					if(CodeInfo::nodeList[nodeOffset + argID]->nodeType == typeNodeFuncDef)
+						referenceType = ((NodeFuncDef*)CodeInfo::nodeList[nodeOffset + argID])->GetFuncInfo()->funcType;
+					if(!ParseGenericFuntionType(&start, referenceType))
+					{
+						newRating = ~0u; // function is not instanced
+						return NULL;
+					}
+					genericArg = false;
+				}
 			}else if(start->type == lex_less){ // If failed because of generic type specialization
 				genericArg = false;
 

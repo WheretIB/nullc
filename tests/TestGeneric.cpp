@@ -1260,3 +1260,73 @@ for(i in arr)\r\n\
 	sum2 += i.boo(2.5); // 2.5 * 20 + 2.5 * 4 = 60\r\n\
 	return sum * 100 + sum2;";
 TEST_RESULT("member generic function call through 'auto ref'", testGeneric92, "9660");
+
+const char *testGeneric93 =
+"auto average(generic ref(int) f)\r\n\
+{\r\n\
+	return f(6);\r\n\
+}\r\n\
+auto f(int x){ return x * 1.5; }\r\n\
+return int(average(f));";
+TEST_RESULT("specialization for function pointer", testGeneric93, "9");
+
+const char *testGeneric94 =
+"auto average(generic ref(int) f)\r\n\
+{\r\n\
+	return f(6);\r\n\
+}\r\n\
+return int(average(<i>{ i * 1.5; }));";
+TEST_RESULT("specialization for function pointer with short inline function", testGeneric94, "9");
+
+const char *testGeneric95 =
+"auto average(generic ref(int, generic, int) f)\r\n\
+{\r\n\
+	return f(8, 2.5, 3);\r\n\
+}\r\n\
+auto f1(int x, y, z){ return x * y + z; }\r\n\
+auto f2(int x, float y, int z){ return x * y + z; }\r\n\
+return average(f1) + int(average(f2));";
+TEST_RESULT("specialization for function pointer 2", testGeneric95, "42");
+
+const char *testGeneric96 =
+"auto average(generic ref(int, generic, int) f)\r\n\
+{\r\n\
+	return f(8, 2.5, 3);\r\n\
+}\r\n\
+return int(average(<x, float y, z>{ x * y + z; }));";
+TEST_RESULT("specialization for function pointer with short inline function 2", testGeneric96, "23");
+
+const char *testGeneric97 =
+"auto average(generic ref(int, generic, int) f)\r\n\
+{\r\n\
+return f(8, 2.5, 3);\r\n\
+}\r\n\
+return int(average(<x, int y, z>{ x * y + z; }));";
+TEST_RESULT("specialization for function pointer with short inline function 3", testGeneric97, "19");
+
+const char *testGeneric98 =
+"auto average(generic ref(generic, int, generic) f)\r\n\
+{\r\n\
+	return f(8.5, 2, 3.5);\r\n\
+}\r\n\
+auto f1(int x, y, z){ return x * y + z; }\r\n\
+auto f2(float x, int y, float z){ return x * y + z; }\r\n\
+return average(f1) + int(average(f2));";
+TEST_RESULT("specialization for function pointer 3", testGeneric98, "39");
+
+const char *testGeneric99 =
+"auto average(generic ref(int, int ref(int, int), int) f)\r\n\
+{\r\n\
+	return f(8, <i, j>{ i + j; }, 3);\r\n\
+}\r\n\
+auto f1(int x, int ref(int, int) y, int z){ return x * y(2, 4) + z; }\r\n\
+return int(average(f1));";
+TEST_RESULT("specialization for function pointer 3", testGeneric99, "51");
+
+const char *testGeneric100 =
+"auto average(generic ref(int, int ref(int, int), int) f)\r\n\
+{\r\n\
+	return f(8, <i, j>{ i + j; }, 3);\r\n\
+}\r\n\
+return average(<x, y, z>{ x * y(2, 4) + z; });";
+TEST_RESULT("specialization for function pointer with short inline function 4", testGeneric100, "51");

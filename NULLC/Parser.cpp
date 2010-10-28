@@ -244,7 +244,7 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 	return true;
 }
 
-void ParseTypePostExpressions(Lexeme** str, bool arrayType, bool notType)
+void ParseTypePostExpressions(Lexeme** str, bool arrayType, bool notType, bool allowAutoReturnType, bool allowGenericType)
 {
 	bool run = true;
 	while(run)
@@ -255,34 +255,33 @@ void ParseTypePostExpressions(Lexeme** str, bool arrayType, bool notType)
 			(*str)++;
 			if(notType)
 				ThrowError((*str)->pos, "ERROR: typeof expression result is not a type");
-			if(ParseLexem(str, lex_oparen))
+			if(ParseLexem(str, lex_oparen) || (allowGenericType && ParseLexem(str, lex_generic)))
 			{
 				Lexeme *old = (*str) - 1;
 				// Prepare function type
 				TypeInfo *retType = (TypeInfo*)GetSelectedType();
-				if(!retType)
+				if(!retType && !allowAutoReturnType)
 					ThrowError((*str)->pos, "ERROR: return type of a function type cannot be auto");
 				TypeHandler *first = NULL, *handle = NULL;
 				unsigned int count = 0;
-				if(ParseSelectType(str))
+				if(ParseSelectType(str) || (allowGenericType && ParseLexem(str, lex_generic) && (SelectTypeByPointer(typeGeneric), 1)))
 				{
-					count++;
-					first = handle = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
-					handle->varType = (TypeInfo*)GetSelectedType();
-					handle->next = NULL;
-					if(!handle->varType)
-						ThrowError((*str)->pos, "ERROR: parameter type of a function type cannot be auto");
-					while(ParseLexem(str, lex_comma))
+					do
 					{
-						count++;
-						ParseSelectType(str);
-						handle->next = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
-						handle = handle->next;
+						if(count)
+						{
+							ParseSelectType(str) || (allowGenericType && ParseLexem(str, lex_generic) && (SelectTypeByPointer(typeGeneric), 1));
+							handle->next = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
+							handle = handle->next;
+						}else{
+							first = handle = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
+						}
 						handle->varType = (TypeInfo*)GetSelectedType();
 						handle->next = NULL;
 						if(!handle->varType)
 							ThrowError((*str)->pos, "ERROR: parameter type of a function type cannot be auto");
-					}
+						count++;
+					}while(ParseLexem(str, lex_comma));
 				}
 				if(ParseLexem(str, lex_cparen))
 					SelectTypeByPointer(CodeInfo::GetFunctionType(retType, first, count));
@@ -649,6 +648,59 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 	return true;
 }
 
+bool ParseGenericFuntionType(Lexeme** str, TypeInfo* preferredType)
+{
+	Lexeme *curr = *str;
+	if(!ParseLexem(str, lex_generic))
+		return false;
+	if(!ParseLexem(str, lex_ref))
+	{
+		*str = curr;
+		return false;
+	}
+	if(!ParseLexem(str, lex_oparen))
+	{
+		*str = curr;
+		return false;
+	}
+	
+	assert(preferredType);
+
+	if(!preferredType->funcType)
+	{
+		*str = curr;
+		return false;
+	}
+
+	TypeInfo *retType = preferredType->funcType->retType;
+	TypeHandler *handle = NULL, *first = NULL;
+	unsigned count = 0;
+	if(ParseSelectType(str) || ParseGenericFuntionType(str, preferredType->funcType->paramType[count]) || (ParseLexem(str, lex_generic) && (SelectTypeByPointer(typeGeneric), 1)))
+	{
+		do
+		{
+			if(count)
+			{
+				ParseSelectType(str) || ParseGenericFuntionType(str, preferredType->funcType->paramType[count]) || (ParseLexem(str, lex_generic) && (SelectTypeByPointer(typeGeneric), 1));
+				handle->next = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
+				handle = handle->next;
+			}else{
+				first = handle = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
+			}
+			handle->varType = (TypeInfo*)GetSelectedType();
+			handle->next = NULL;
+			if(!handle->varType)
+				ThrowError((*str)->pos, "ERROR: parameter type of a function type cannot be auto");
+			count++;
+		}while(ParseLexem(str, lex_comma));
+	}
+	if(!ParseLexem(str, lex_cparen))
+		return false;
+
+	SelectTypeByPointer(CodeInfo::GetFunctionType(retType, first, count));
+	return true;
+}
+
 bool ParseGenericType(Lexeme** str, TypeInfo* preferredType)
 {
 	// Parse possible generic type specialization
@@ -726,9 +778,18 @@ bool ParseGenericType(Lexeme** str, TypeInfo* preferredType)
 	if(!ParseLexem(str, lex_generic))
 		return false;
 	SelectTypeByPointer(typeGeneric);
-	FunctionGeneric(true);
+	if(!preferredType)
+		FunctionGeneric(true);
 	if(ParseLexem(str, lex_ref))
+	{
 		SelectTypeByPointer(CodeInfo::GetReferenceType(typeGeneric));
+		if(ParseLexem(str, lex_oparen))
+		{
+			(*str) -= 2;
+			SelectTypeByPointer(typeGeneric);
+			ParseTypePostExpressions(str, false, false, false, true);
+		}
+	}
 	return true;
 }
 
@@ -1003,8 +1064,15 @@ bool ParseShortFunctionDefinition(Lexeme** str)
 		SelectTypeByPointer(type->funcType->paramType[currArg]);
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 			ThrowError((*str)->pos, "ERROR: parameter name length is limited to 2048 symbols");
+		if(imaginary && type->funcType->paramType[currArg] == typeGeneric)
+		{
+			SelectTypeByPointer(selType);
+			imaginary = false;
+		}
 		if(!imaginary || type->funcType->paramType[currArg] == selType)
 		{
+			if(GetSelectedType() == typeGeneric)
+				ThrowError((*str)->pos, "ERROR: function allows any type for this argument so it must be specified explicitly");
 			FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length));
 		}else{
 			char *paramName = (char*)stringPool.Allocate((*str)->length + 2);
@@ -1028,7 +1096,7 @@ bool ParseShortFunctionDefinition(Lexeme** str)
 	{
 		if(currArg != 0)
 			ParseLexem(str, lex_comma);
-		if(ParseSelectType(str) && type->funcType->paramType[currArg] != GetSelectedType())
+		if(ParseSelectType(str) && type->funcType->paramType[currArg] != GetSelectedType() && type->funcType->paramType[currArg] != typeGeneric)
 		{
 			Lexeme *varName = *str;
 			VariableInfo *varInfo = AddVariable((*str)->pos, InplaceStr(varName->pos, varName->length));

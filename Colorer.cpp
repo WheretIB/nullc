@@ -324,8 +324,8 @@ namespace ColorerGrammar
 			typePostExpr =
 				!(
 					chP('<')[ColorText] >>
-					(typeExpr | strP("generic")[ColorRWord] | (chP('@')[ColorText] >> idP[ColorRWord])) >>
-					*(chP(',') >> (typeExpr | strP("generic")[ColorRWord] | (chP('@')[ColorText] >> idP[ColorRWord]))) >>
+					(typeExpr | (chP('@')[ColorText] >> idP[ColorRWord])) >>
+					*(chP(',') >> (typeExpr | (chP('@')[ColorText] >> idP[ColorRWord]))) >>
 					chP('>')[ColorText]
 				) >>
 				*(
@@ -415,14 +415,14 @@ namespace ColorerGrammar
 				(chP(')')[ColorBold] | epsP[LogError("ERROR: ')' not found after function call")]);
 			funcvars	=
 				!(
-					(typeExpr | (strP("generic")[ColorRWord] >> !strP("ref")[ColorRWord]) | (idP[ColorErr] >> epsP[LogError("ERROR: function argument type expected after '('")])) >>
+					(typeExpr | (idP[ColorErr] >> epsP[LogError("ERROR: function argument type expected after '('")])) >>
 					((idP - typenameP(idP))[ColorVar] | epsP[LogError("ERROR: variable name expected after type")]) >>
 					!(chP('=')[ColorText] >> term4_9)
 				) >>
 				*(
 					chP(',')[ColorText] >>
 					(
-						!((typeExpr | (strP("generic")[ColorRWord] >> !strP("ref")[ColorRWord]))) >>
+						!typeExpr >>
 						((idP - typenameP(idP))[ColorVar] | epsP[LogError("ERROR: parameter name expected after ','")]) >>
 						!(chP('=')[ColorText] >> term4_9)
 					)
@@ -698,6 +698,7 @@ bool Colorer::ColorText(HWND wnd, char *text, void (*ColFunc)(HWND, unsigned int
 	ColorerGrammar::typeInfo.push_back(GetStringHash("double"));
 	ColorerGrammar::typeInfo.push_back(GetStringHash("typeid"));
 	ColorerGrammar::typeInfo.push_back(GetStringHash("const_string"));
+	ColorerGrammar::typeInfo.push_back(GetStringHash("generic"));
 
 	ColorerGrammar::logStream.str("");
 
