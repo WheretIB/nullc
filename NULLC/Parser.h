@@ -21,7 +21,7 @@ unsigned int ParseFunctionArguments(Lexeme** str);
 bool ParseFunctionCall(Lexeme** str);
 
 bool ParseGenericFuntionType(Lexeme** str, TypeInfo* preferredType = NULL);
-bool ParseGenericType(Lexeme** str, TypeInfo* preferredType = NULL);
+bool ParseGenericType(Lexeme** str, TypeInfo* preferredType = NULL, bool markFunction = true);
 bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset = 0);
 bool ParseFunctionDefinition(Lexeme** str, bool coroutine = false);
 

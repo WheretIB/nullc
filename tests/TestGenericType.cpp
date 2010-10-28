@@ -1824,3 +1824,38 @@ const char *testGenericType121 =
 Foo<int> m; m.x = 2;\r\n\
 return m.average(<i>{ -i; });";
 TEST_RESULT("generic member function instancing in a generic member function (imported class and functions)", testGenericType121, "-5");
+
+const char *testGenericType122 =
+"class Foo<T>\r\n\
+{\r\n\
+	T i;\r\n\
+}\r\n\
+auto foo(generic a, generic ref(Foo<typeof(a)>) m)\r\n\
+{\r\n\
+	Foo<typeof(a)> x;\r\n\
+	x.i = 5;\r\n\
+	return a + m(x);\r\n\
+}\r\n\
+return foo(1, <x>{ -x.i; });";
+TEST_RESULT("short inline function in argument with function with generic type depending on generic argument", testGenericType122, "-4");
+
+const char *testGenericType123 =
+"class Foo<T>\r\n\
+{\r\n\
+	T i;\r\n\
+}\r\n\
+auto foo(generic a, int ref(Foo<typeof(a)>) m)\r\n\
+{\r\n\
+	Foo<typeof(a)> x;\r\n\
+	x.i = 5;\r\n\
+	return a + m(x);\r\n\
+}\r\n\
+return foo(1, <x>{ x.i; });";
+TEST_RESULT("short inline function in argument with function with generic type depending on generic argument 2", testGenericType123, "6");
+
+const char *testGenericType124 =
+"class Foo<T>{}\r\n\
+int Foo:foo(T ref x){ return *x; }\r\n\
+Foo<int> x;\r\n\
+return x.foo(1) + x.foo(2);";
+TEST_RESULT("when generic type member function is instanced, aliases are from instanced type", testGenericType124, "3");

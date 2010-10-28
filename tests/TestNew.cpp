@@ -34,3 +34,6 @@ TEST_RESULT("Type constructor after new 2.", testConstructorAfterNew2, "4");
 
 const char	*testConstructorAfterNew3 = "class Test{ int x; } void Test:Test(){ } return (new Test()).x;";
 TEST_RESULT("Type constructor after new 3.", testConstructorAfterNew3, "0");
+
+const char	*testTypeChangeInArrayExpression = "int[] arr = new int[(int f(){ return 5; })()]; return arr.size;";
+TEST_RESULT("Type change in array size in new expression", testTypeChangeInArrayExpression, "5");

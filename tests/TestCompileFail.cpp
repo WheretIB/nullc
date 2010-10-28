@@ -531,4 +531,10 @@ return int(y() + z());",
 	TEST_FOR_FAIL("wrong function type passed for generic function specialization", "auto average(generic ref(int) f){ return f(8, 3); } auto f1(int x, int z){ return x + z; } return average(f1);", "ERROR: can't find function 'average' with following parameters:");
 
 	TEST_FOR_FAIL("cannot find suitable function", "class Foo<T>{} auto Foo:average(generic ref(int, T) f){ return f(5, 4); } Foo<int> m; return m.average(<x, y>{ 5+x+y; }, 4);", "ERROR: can't find function 'average' with following parameters:");
+
+	TEST_FOR_FAIL("wrong function type passed for generic function specialization", "auto average(generic ref(generic, int) f){ return f(4.0, 2); } auto f2(float x, y){ return x * 2.5; } return average(f2);", "ERROR: can't find function 'average' with following parameters:");
+	TEST_FOR_FAIL("wrong function type passed for generic function specialization", "auto average(int ref(generic, int) f){ return f(2, 4); } auto f2(float x, y){ return x * 2.5; } return average(f2);", "ERROR: can't find function 'average' with following parameters:");
+
+	TEST_FOR_FAIL("generic type constructor call without generic arguments", "class Foo<T>{ T curr; } auto Foo:Foo(int start){ curr = start; } Foo<int> a = Foo(5);", "ERROR: generic type arguments in <> are not found after constructor name");
+	TEST_FOR_FAIL_GENERIC("generic type constructor call without generic arguments 2", "class list<T>{} class list_iterator<T>{} auto list_iterator:list_iterator(){} auto list:sum(){for(i in list_iterator()){}} list<int> arr; arr.sum();", "ERROR: while instantiating generic function list::sum()", "ERROR: generic type arguments in <> are not found after constructor name");
 }

@@ -128,6 +128,8 @@ assert(20 == arr.max_element(<x>{ x.y; }));\r\n\
 	assert(20 == arr.max_element().y);\r\n\
 }\r\n\
 assert(2 == arr.count_if(<x>{ x.y > 8; }));\r\n\
+assert(0 == arr.count_if(<x>{ x.y > 100; }));\r\n\
+\r\n\
 assert(0 == arr.all(<x>{ x.y > 8; }));\r\n\
 assert(1 == arr.all(<x>{ x.y >= 1; }));\r\n\
 \r\n\
@@ -141,3 +143,55 @@ assert(arr[0].y == 1 && arr[1].y == 5 && arr[2].y == 10 && arr[3].y == 20);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("sgl.vector test (aggregation functions)", testSglVector7, "1");
+
+const char *testSglVector8 =
+"import sgl.vector;\r\n\
+\r\n\
+auto x = new vector<int>;\r\n\
+x.push_back(4);\r\n\
+x.push_back(3);\r\n\
+x.push_back(2);\r\n\
+x.push_back(1);\r\n\
+\r\n\
+for(i in x)\r\n\
+	i += 2;\r\n\
+int sum = 0;\r\n\
+for(i in x)\r\n\
+	sum += i;\r\n\
+return sum;";
+TEST_RESULT("sgl.vector test (iteration) 2", testSglVector8, "18");
+
+const char *testSglVector9 =
+"import std.math;\r\n\
+import sgl.vector;\r\n\
+import std.algorithm;\r\n\
+\r\n\
+auto arr = new vector<float3>;\r\n\
+arr.push_back(float3(0, 5, 0));\r\n\
+\r\n\
+assert(5 == arr.sum(<x>{ x.y; }));\r\n\
+assert(5 == arr.average(<x>{ x.y; }));\r\n\
+assert(5 == arr.min_element(<x>{ x.y; }));\r\n\
+assert(5 == arr.max_element(<x>{ x.y; }));\r\n\
+{ // make operators local to this block\r\n\
+	auto operator<(float3 ref a, b){ return a.y < b.y; }\r\n\
+	auto operator>(float3 ref a, b){ return a.y > b.y; }\r\n\
+	assert(5 == arr.min_element().y);\r\n\
+	assert(5 == arr.max_element().y);\r\n\
+}\r\n\
+assert(0 == arr.count_if(<x>{ x.y > 8; }));\r\n\
+assert(1 == arr.count_if(<x>{ x.y > 4; }));\r\n\
+\r\n\
+assert(0 == arr.all(<x>{ x.y > 8; }));\r\n\
+assert(1 == arr.all(<x>{ x.y > 1; }));\r\n\
+\r\n\
+assert(0 == arr.any(<x>{ x.y > 8; }));\r\n\
+assert(1 == arr.any(<x>{ x.y > 1; }));\r\n\
+\r\n\
+arr.sort(<x, y>{ x.y > y.y; });\r\n\
+assert(arr[0].y == 5);\r\n\
+arr.sort(<x, y>{ x.y < y.y; });\r\n\
+assert(arr[0].y == 5);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("sgl.vector test (aggregation functions) one element", testSglVector9, "1");

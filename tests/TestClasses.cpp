@@ -305,7 +305,7 @@ const char	*testConstructorForArrayElements1 =
 "class Foo{ int x; void Foo(){ x = 42; } }\r\n\
 auto x = new Foo[32];\r\n\
 return x.size;";
-TEST_RESULT("constuctor call for every array element 1", testConstructorForArrayElements1, "32");
+TEST_RESULT("constructor call for every array element 1", testConstructorForArrayElements1, "32");
 
 const char	*testConstructorForArrayElements2 =
 "int m = 10;\r\n\
@@ -319,7 +319,7 @@ class Foo\r\n\
 }\r\n\
 auto x = new Foo[32];\r\n\
 return x[19].x;";
-TEST_RESULT("constuctor call for every array element 2", testConstructorForArrayElements2, "29");
+TEST_RESULT("constructor call for every array element 2", testConstructorForArrayElements2, "29");
 
 const char	*testImplicitConstructorCallForGenericType1 =
 "class Foo<T>\r\n\
@@ -392,7 +392,7 @@ class Foo<T>\r\n\
 }\r\n\
 auto x = new Foo<int>[32];\r\n\
 return x[19].x;";
-TEST_RESULT("constuctor call for every array element 3", testConstructorForArrayElements3, "29");
+TEST_RESULT("constructor call for every array element 3", testConstructorForArrayElements3, "29");
 
 const char	*testConstructorForArrayElements4 =
 "int m = 10;\r\n\
@@ -403,7 +403,7 @@ class Foo<T>\r\n\
 void Foo:Foo(){ x = m++; }\r\n\
 auto x = new Foo<int>[32];\r\n\
 return x[19].x;";
-TEST_RESULT("constuctor call for every array element 4", testConstructorForArrayElements4, "29");
+TEST_RESULT("constructor call for every array element 4", testConstructorForArrayElements4, "29");
 
 const char	*testConstructorForArrayElements5 =
 "int m = 10;\r\n\
@@ -415,4 +415,22 @@ void Foo:Foo(){ x = 10; }\r\n\
 void Foo<int>:Foo(){ x = m++; }\r\n\
 auto x = new Foo<int>[32];\r\n\
 return x[19].x;";
-TEST_RESULT("constuctor call for every array element 5", testConstructorForArrayElements5, "29");
+TEST_RESULT("constructor call for every array element 5", testConstructorForArrayElements5, "29");
+
+const char	*testConstructorCallOnStaticConstructionOfGenericType1 =
+"class Foo<T>{ T curr; }\r\n\
+auto Foo:Foo(int start)\r\n\
+{\r\n\
+	curr = start;\r\n\
+}\r\n\
+Foo<int> a = Foo<int>(5);\r\n\
+return a.curr;";
+TEST_RESULT("member constructor call on external static construction of a generic type", testConstructorCallOnStaticConstructionOfGenericType1, "5");
+
+const char	*testCorrectTypeAliasesInAGenericTypeConstructor =
+"class Bar<T>{ Bar<T> ref x; }\r\n\
+class Foo<T>{ T curr; }\r\n\
+auto Foo:Foo(Bar<T> ref start){ curr = 5; }\r\n\
+auto a = Foo<int>(new Bar<int>);\r\n\
+return a.curr;";
+TEST_RESULT("correct type alias in a generic type constructor", testCorrectTypeAliasesInAGenericTypeConstructor, "5");
