@@ -827,6 +827,10 @@
 				Name="sgl"
 				>
 				<File
+					RelativePath="..\Modules\sgl\list.nc"
+					>
+				</File>
+				<File
 					RelativePath="..\Modules\sgl\vector.nc"
 					>
 				</File>
