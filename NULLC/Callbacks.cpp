@@ -676,6 +676,8 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
+	const char *opNames[] = { "+", "-", "*", "/", "**", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "&", "|", "^", "&&", "||", "^^" };
+
 	if(id == cmdEqual || id == cmdNEqual)
 	{
 		NodeZeroOP *left = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
@@ -715,7 +717,8 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 		}
 		if(right->typeInfo->arrLevel && right->typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY && right->typeInfo == left->typeInfo)
 		{
-			AddFunctionCallNode(pos, id == cmdEqual ? "__acomp" : "__ancomp", 2);
+			if(!AddFunctionCallNode(CodeInfo::lastKnownStartPos, opNames[id - cmdAdd], 2, true))
+				AddFunctionCallNode(pos, id == cmdEqual ? "__acomp" : "__ancomp", 2);
 			return;
 		}
 		if(left->nodeType == typeNodeConvertPtr && left->typeInfo == typeTypeid && left->typeInfo == right->typeInfo && left->nodeType == right->nodeType)
@@ -795,7 +798,6 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 		}
 	}
 
-	const char *opNames[] = { "+", "-", "*", "/", "**", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "&", "|", "^", "&&", "||", "^^" };
 	// Optimizations failed, perform operation in run-time
 	if(!AddFunctionCallNode(CodeInfo::lastKnownStartPos, opNames[id - cmdAdd], 2, true))
 		CodeInfo::nodeList.push_back(new NodeBinaryOp(id));
@@ -912,34 +914,14 @@ void SelectTypeByPointer(TypeInfo* type)
 	currType = type;
 }
 
-void SelectTypeForGeneric(const char* pos, unsigned nodeIndex, bool transformNodes)
+void SelectTypeForGeneric(unsigned nodeIndex)
 {
 	if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeFuncDef)
-	{
-		if(!transformNodes)
-		{
-			FunctionInfo *fInfo = ((NodeFuncDef*)CodeInfo::nodeList[nodeIndex])->GetFuncInfo();
-			currType = fInfo->funcType;
-			return;
-		}
-		CodeInfo::nodeList.push_back(CodeInfo::nodeList[nodeIndex]);
-		ConvertFunctionToPointer(pos);
-		NodeZeroOP *converted = CodeInfo::nodeList.back();
-		CodeInfo::nodeList.pop_back();
-		CodeInfo::nodeList[nodeIndex] = converted;
-	}else if(CodeInfo::nodeList[nodeIndex]->typeInfo->arrLevel && CodeInfo::nodeList[nodeIndex]->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && CodeInfo::nodeList[nodeIndex]->nodeType != typeNodeZeroOp){
-		if(!transformNodes)
-		{
-			currType = CodeInfo::GetArrayType(CodeInfo::nodeList[nodeIndex]->typeInfo->subType, TypeInfo::UNSIZED_ARRAY);
-			return;
-		}
-		CodeInfo::nodeList.push_back(CodeInfo::nodeList[nodeIndex]);
-		ConvertArrayToUnsized(pos, CodeInfo::GetArrayType(CodeInfo::nodeList[nodeIndex]->typeInfo->subType, TypeInfo::UNSIZED_ARRAY));
-		NodeZeroOP *converted = CodeInfo::nodeList.back();
-		CodeInfo::nodeList.pop_back();
-		CodeInfo::nodeList[nodeIndex] = converted;
-	}
-	currType = CodeInfo::nodeList[nodeIndex]->typeInfo;
+		currType = ((NodeFuncDef*)CodeInfo::nodeList[nodeIndex])->GetFuncInfo()->funcType;
+	else if(CodeInfo::nodeList[nodeIndex]->typeInfo->arrLevel && CodeInfo::nodeList[nodeIndex]->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && CodeInfo::nodeList[nodeIndex]->nodeType != typeNodeZeroOp)
+		currType = CodeInfo::GetArrayType(CodeInfo::nodeList[nodeIndex]->typeInfo->subType, TypeInfo::UNSIZED_ARRAY);
+	else
+		currType = CodeInfo::nodeList[nodeIndex]->typeInfo;
 }
 
 void SelectTypeByIndex(unsigned int index)
@@ -1317,7 +1299,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 					if(argID != currArgument)
 					{
 						if(genericArg)
-							SelectTypeForGeneric(pos, nodeOffset + argID, false);
+							SelectTypeForGeneric(nodeOffset + argID);
 						if(genericRef && !currType->refLevel)
 							currType = CodeInfo::GetReferenceType(currType);
 
@@ -2484,7 +2466,6 @@ bool HasConstructor(const char* pos, TypeInfo* type, unsigned arguments)
 	funcHash = StringHashContinue(funcHash, type->genericBase ? type->genericBase->name : type->name);
 	SelectFunctionsForHash(funcHash, 0);
 
-	unsigned baseFuncStart = bestFuncList.size();
 	// For a generic type instance, check if base class has a constructor function
 	if(type->genericBase)
 	{
@@ -2493,19 +2474,9 @@ bool HasConstructor(const char* pos, TypeInfo* type, unsigned arguments)
 		funcBaseHash = StringHashContinue(funcBaseHash, type->genericBase->name);
 		SelectFunctionsForHash(funcBaseHash, 0);
 	}
-	for(unsigned i = baseFuncStart; i < bestFuncList.size(); i++)
-	{
-		assert(bestFuncList[i]->generic);
-		assert(bestFuncList[i]->generic->parent);
-		assert(bestFuncList[i]->generic->parent->parentClass == type->genericBase);
-		bestFuncList[i]->generic->parent->parentClass = type;
-	}
 
 	unsigned minRating = ~0u;
-	SelectBestFunction(pos, bestFuncList.size(), arguments, minRating);
-
-	for(unsigned i = baseFuncStart; i < bestFuncList.size(); i++)
-		bestFuncList[i]->generic->parent->parentClass = type->genericBase;
+	SelectBestFunction(pos, bestFuncList.size(), arguments, minRating, type->genericBase ? type : NULL);
 	return minRating != ~0u;
 }
 
@@ -3164,7 +3135,7 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 		genericRef = start->type == lex_ref ? !!(start++) : false;
 
 		if(genericArg)
-			SelectTypeForGeneric(pos, nodeOffset + argID, false);
+			SelectTypeForGeneric(nodeOffset + argID);
 		if(genericRef && !currType->refLevel)
 			currType = CodeInfo::GetReferenceType(currType);
 
@@ -3405,8 +3376,11 @@ unsigned SelectBestFunction(const char *pos, unsigned count, unsigned callArgCou
 			{
 				unsigned newRating = bestFuncRating[k];
 				TypeInfo *parentClass = bestFuncList[k]->parentClass;
-				if(forcedParentType && bestFuncList[k]->parentClass)
+				if(forcedParentType && bestFuncList[k]->parentClass != forcedParentType)
+				{
+					assert(forcedParentType->genericBase == bestFuncList[k]->parentClass);
 					bestFuncList[k]->parentClass = forcedParentType;
+				}
 				TypeInfo *tmpType = GetGenericFunctionRating(pos, bestFuncList[k], newRating, count);
 				bestFuncList[k]->parentClass = parentClass;
 
@@ -3536,23 +3510,13 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		SelectFunctionsForHash(GetStringHash(memberFuncName), 0);
 		// Check that base class has this function
 		char *memberOrigName = GetClassFunctionName(currentType->subType->genericBase, funcName);
-		unsigned baseFuncStart = bestFuncList.size();
 		SelectFunctionsForHash(GetStringHash(memberOrigName), 0);
-		for(unsigned i = baseFuncStart; i < bestFuncList.size(); i++)
-		{
-			assert(bestFuncList[i]->generic);
-			assert(bestFuncList[i]->generic->parent);
-			assert(bestFuncList[i]->generic->parent->parentClass == currentType->subType->genericBase);
-			bestFuncList[i]->generic->parent->parentClass = currentType->subType;
-		}
 
 		if(!silent && !bestFuncList.size())
 			ThrowError(pos, "ERROR: function '%s' is undefined", memberOrigName);
 
 		unsigned minRating = ~0u;
-		unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), callArgCount, minRating);
-		for(unsigned i = baseFuncStart; i < bestFuncList.size(); i++)
-			bestFuncList[i]->generic->parent->parentClass = currentType->subType->genericBase;
+		unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), callArgCount, minRating, currentType->subType);
 		if(minRating == ~0u)
 		{
 			if(silent)
