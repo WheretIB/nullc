@@ -1798,3 +1798,11 @@ const char *testGenericType118 =
 auto ref x = new Foo<int>;\r\n\
 return x.boo(1, 2, 3) + x.boo(1, 2);";
 TEST_RESULT("Function call through 'auto ref' for generic type, selection of a variable argument function", testGenericType118, "5");
+
+const char *testGenericType119 =
+"class Foo<T>{ T x; }\r\n\
+auto Foo:sum(generic ref(T) f){ return f(10); }\r\n\
+auto Foo:average(generic ref(T) f){ return sum(f) / 2; }\r\n\
+Foo<int> m;\r\n\
+return m.average(<i>{ -i; });";
+TEST_RESULT("generic member funciton instancing in a generic member function", testGenericType119, "-5");
