@@ -523,4 +523,10 @@ return int(y() + z());",
 	TEST_FOR_FAIL("wrong array index argument count 2", "int[16] arr; return arr[2, 3]", "ERROR: can't find function '[]' with following parameters:");
 
 	TEST_FOR_FAIL("foreach restores cycle depth", "int[4] arr; for(i in arr){} break;", "ERROR: break level is greater that loop depth");
+
+	TEST_FOR_FAIL("short inline function in a place where function accepts generic function type specialization and one of arguments is generic", "auto average(generic ref(int, generic, int) f){ return f(8, 2.5, 3); } return average(<x, y, z>{ x * y + z; });", "ERROR: function allows any type for this argument so it must be specified explicitly");
+
+	TEST_FOR_FAIL("wrong function type passed for generic function specialization", "auto average(generic ref(int, float) f){ return f(8, 3); } auto f1(int x, int z){ return x * z; } return average(f1);", "ERROR: can't find function 'average' with following parameters:");
+	TEST_FOR_FAIL("wrong function type passed for generic function specialization", "auto average(generic ref(int, float) f){ return f(8, 3); } auto f1(int x){ return x; } return average(f1);", "ERROR: can't find function 'average' with following parameters:");
+	TEST_FOR_FAIL("wrong function type passed for generic function specialization", "auto average(generic ref(int) f){ return f(8, 3); } auto f1(int x, int z){ return x + z; } return average(f1);", "ERROR: can't find function 'average' with following parameters:");
 }

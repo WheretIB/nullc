@@ -669,10 +669,10 @@ float3 reflect(float3 normal, float3 dir, void* unused);
 MathConstants math;
 float2  float2__float2_float2_ref_float_float_(float x_0, float y_4, float2 * __context)
 {
-	float2 res_16;
-	*(&(&res_16)->x) = *(&x_0);
-	*(&(&res_16)->y) = *(&y_4);
-	return *(&res_16);
+	float2 res_12;
+	*(&(&res_12)->x) = *(&x_0);
+	*(&(&res_12)->y) = *(&y_4);
+	return *(&res_12);
 }
 float2  float2__xx__float2_ref__(float2 * __context)
 {
@@ -702,10 +702,10 @@ float2  float2__yy__float2_ref__(float2 * __context)
 }
 float2  float2__(float x_0, float y_4, void* unused)
 {
-	float2 ret_16;
-	*(&(&ret_16)->x) = *(&x_0);
-	*(&(&ret_16)->y) = *(&y_4);
-	return *(&ret_16);
+	float2 ret_12;
+	*(&(&ret_12)->x) = *(&x_0);
+	*(&(&ret_12)->y) = *(&y_4);
+	return *(&ret_12);
 }
 float2  __operatorAdd(float2 a_0, float2 b_8, void* unused)
 {
@@ -735,37 +735,37 @@ float2  __operatorDiv(float2 a_0, float b_8, void* unused)
 {
 	return float2__((*(&(&a_0)->x)) / (*(&b_8)), (*(&(&a_0)->y)) / (*(&b_8)), (void*)0);
 }
-float2 *  __operatorAddSet(float2 * a_0, float2 b_8, void* unused)
+float2 *  __operatorAddSet(float2 * a_0, float2 b_4, void* unused)
 {
-	*(&(*(&a_0))->x) += *(&(&b_8)->x);
-	*(&(*(&a_0))->y) += *(&(&b_8)->y);
-	return __nullcCheckedRet(__nullcTR[99], (*(&a_0)), (void*)&a_0, (void*)&b_8, (void*)&unused, 0);
+	*(&(*(&a_0))->x) += *(&(&b_4)->x);
+	*(&(*(&a_0))->y) += *(&(&b_4)->y);
+	return __nullcCheckedRet(__nullcTR[99], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
-float2 *  __operatorSubSet(float2 * a_0, float2 b_8, void* unused)
+float2 *  __operatorSubSet(float2 * a_0, float2 b_4, void* unused)
 {
-	*(&(*(&a_0))->x) -= *(&(&b_8)->x);
-	*(&(*(&a_0))->y) -= *(&(&b_8)->y);
-	return __nullcCheckedRet(__nullcTR[99], (*(&a_0)), (void*)&a_0, (void*)&b_8, (void*)&unused, 0);
+	*(&(*(&a_0))->x) -= *(&(&b_4)->x);
+	*(&(*(&a_0))->y) -= *(&(&b_4)->y);
+	return __nullcCheckedRet(__nullcTR[99], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
-float2 *  __operatorMulSet(float2 * a_0, float b_8, void* unused)
+float2 *  __operatorMulSet(float2 * a_0, float b_4, void* unused)
 {
-	*(&(*(&a_0))->x) *= *(&b_8);
-	*(&(*(&a_0))->y) *= *(&b_8);
-	return __nullcCheckedRet(__nullcTR[99], (*(&a_0)), (void*)&a_0, (void*)&b_8, (void*)&unused, 0);
+	*(&(*(&a_0))->x) *= *(&b_4);
+	*(&(*(&a_0))->y) *= *(&b_4);
+	return __nullcCheckedRet(__nullcTR[99], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
-float2 *  __operatorDivSet(float2 * a_0, float b_8, void* unused)
+float2 *  __operatorDivSet(float2 * a_0, float b_4, void* unused)
 {
-	*(&(*(&a_0))->x) /= *(&b_8);
-	*(&(*(&a_0))->y) /= *(&b_8);
-	return __nullcCheckedRet(__nullcTR[99], (*(&a_0)), (void*)&a_0, (void*)&b_8, (void*)&unused, 0);
+	*(&(*(&a_0))->x) /= *(&b_4);
+	*(&(*(&a_0))->y) /= *(&b_4);
+	return __nullcCheckedRet(__nullcTR[99], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float3  float3__float3_float3_ref_float_float_float_(float x_0, float y_4, float z_8, float3 * __context)
 {
-	float3 res_20;
-	*(&(&res_20)->x) = *(&x_0);
-	*(&(&res_20)->y) = *(&y_4);
-	*(&(&res_20)->z) = *(&z_8);
-	return *(&res_20);
+	float3 res_16;
+	*(&(&res_16)->x) = *(&x_0);
+	*(&(&res_16)->y) = *(&y_4);
+	*(&(&res_16)->z) = *(&z_8);
+	return *(&res_16);
 }
 float2  float3__xx__float2_ref__(float3 * __context)
 {
@@ -979,11 +979,11 @@ float3  float3__zzz__float3_ref__(float3 * __context)
 }
 float3  float3__(float x_0, float y_4, float z_8, void* unused)
 {
-	float3 ret_20;
-	*(&(&ret_20)->x) = *(&x_0);
-	*(&(&ret_20)->y) = *(&y_4);
-	*(&(&ret_20)->z) = *(&z_8);
-	return *(&ret_20);
+	float3 ret_16;
+	*(&(&ret_16)->x) = *(&x_0);
+	*(&(&ret_16)->y) = *(&y_4);
+	*(&(&ret_16)->z) = *(&z_8);
+	return *(&ret_16);
 }
 float3  __operatorAdd(float3 a_0, float3 b_12, void* unused)
 {
@@ -1013,42 +1013,42 @@ float3  __operatorDiv(float3 a_0, float b_12, void* unused)
 {
 	return float3__((*(&(&a_0)->x)) / (*(&b_12)), (*(&(&a_0)->y)) / (*(&b_12)), (*(&(&a_0)->z)) / (*(&b_12)), (void*)0);
 }
-float3 *  __operatorAddSet(float3 * a_0, float3 b_8, void* unused)
+float3 *  __operatorAddSet(float3 * a_0, float3 b_4, void* unused)
 {
-	*(&(*(&a_0))->x) += *(&(&b_8)->x);
-	*(&(*(&a_0))->y) += *(&(&b_8)->y);
-	*(&(*(&a_0))->z) += *(&(&b_8)->z);
-	return __nullcCheckedRet(__nullcTR[110], (*(&a_0)), (void*)&a_0, (void*)&b_8, (void*)&unused, 0);
+	*(&(*(&a_0))->x) += *(&(&b_4)->x);
+	*(&(*(&a_0))->y) += *(&(&b_4)->y);
+	*(&(*(&a_0))->z) += *(&(&b_4)->z);
+	return __nullcCheckedRet(__nullcTR[110], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
-float3 *  __operatorSubSet(float3 * a_0, float3 b_8, void* unused)
+float3 *  __operatorSubSet(float3 * a_0, float3 b_4, void* unused)
 {
-	*(&(*(&a_0))->x) -= *(&(&b_8)->x);
-	*(&(*(&a_0))->y) -= *(&(&b_8)->y);
-	*(&(*(&a_0))->z) -= *(&(&b_8)->z);
-	return __nullcCheckedRet(__nullcTR[110], (*(&a_0)), (void*)&a_0, (void*)&b_8, (void*)&unused, 0);
+	*(&(*(&a_0))->x) -= *(&(&b_4)->x);
+	*(&(*(&a_0))->y) -= *(&(&b_4)->y);
+	*(&(*(&a_0))->z) -= *(&(&b_4)->z);
+	return __nullcCheckedRet(__nullcTR[110], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
-float3 *  __operatorMulSet(float3 * a_0, float b_8, void* unused)
+float3 *  __operatorMulSet(float3 * a_0, float b_4, void* unused)
 {
-	*(&(*(&a_0))->x) *= *(&b_8);
-	*(&(*(&a_0))->y) *= *(&b_8);
-	*(&(*(&a_0))->z) *= *(&b_8);
-	return __nullcCheckedRet(__nullcTR[110], (*(&a_0)), (void*)&a_0, (void*)&b_8, (void*)&unused, 0);
+	*(&(*(&a_0))->x) *= *(&b_4);
+	*(&(*(&a_0))->y) *= *(&b_4);
+	*(&(*(&a_0))->z) *= *(&b_4);
+	return __nullcCheckedRet(__nullcTR[110], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
-float3 *  __operatorDivSet(float3 * a_0, float b_8, void* unused)
+float3 *  __operatorDivSet(float3 * a_0, float b_4, void* unused)
 {
-	*(&(*(&a_0))->x) /= *(&b_8);
-	*(&(*(&a_0))->y) /= *(&b_8);
-	*(&(*(&a_0))->z) /= *(&b_8);
-	return __nullcCheckedRet(__nullcTR[110], (*(&a_0)), (void*)&a_0, (void*)&b_8, (void*)&unused, 0);
+	*(&(*(&a_0))->x) /= *(&b_4);
+	*(&(*(&a_0))->y) /= *(&b_4);
+	*(&(*(&a_0))->z) /= *(&b_4);
+	return __nullcCheckedRet(__nullcTR[110], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float4  float4__float4_float4_ref_float_float_float_float_(float x_0, float y_4, float z_8, float w_12, float4 * __context)
 {
-	float4 res_24;
-	*(&(&res_24)->x) = *(&x_0);
-	*(&(&res_24)->y) = *(&y_4);
-	*(&(&res_24)->z) = *(&z_8);
-	*(&(&res_24)->w) = *(&w_12);
-	return *(&res_24);
+	float4 res_20;
+	*(&(&res_20)->x) = *(&x_0);
+	*(&(&res_20)->y) = *(&y_4);
+	*(&(&res_20)->z) = *(&z_8);
+	*(&(&res_20)->w) = *(&w_12);
+	return *(&res_20);
 }
 float2  float4__xx__float2_ref__(float4 * __context)
 {
@@ -2768,12 +2768,12 @@ float4  float4__wwww__float4_ref__(float4 * __context)
 }
 float4  float4__(float x_0, float y_4, float z_8, float w_12, void* unused)
 {
-	float4 ret_24;
-	*(&(&ret_24)->x) = *(&x_0);
-	*(&(&ret_24)->y) = *(&y_4);
-	*(&(&ret_24)->z) = *(&z_8);
-	*(&(&ret_24)->w) = *(&w_12);
-	return *(&ret_24);
+	float4 ret_20;
+	*(&(&ret_20)->x) = *(&x_0);
+	*(&(&ret_20)->y) = *(&y_4);
+	*(&(&ret_20)->z) = *(&z_8);
+	*(&(&ret_20)->w) = *(&w_12);
+	return *(&ret_20);
 }
 float4  __operatorAdd(float4 a_0, float4 b_16, void* unused)
 {
@@ -2803,37 +2803,37 @@ float4  __operatorDiv(float4 a_0, float b_16, void* unused)
 {
 	return float4__((*(&(&a_0)->x)) / (*(&b_16)), (*(&(&a_0)->y)) / (*(&b_16)), (*(&(&a_0)->z)) / (*(&b_16)), (*(&(&a_0)->w)) / (*(&b_16)), (void*)0);
 }
-float4 *  __operatorAddSet(float4 * a_0, float4 b_8, void* unused)
+float4 *  __operatorAddSet(float4 * a_0, float4 b_4, void* unused)
 {
-	*(&(*(&a_0))->x) += *(&(&b_8)->x);
-	*(&(*(&a_0))->y) += *(&(&b_8)->y);
-	*(&(*(&a_0))->z) += *(&(&b_8)->z);
-	*(&(*(&a_0))->w) += *(&(&b_8)->w);
-	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&b_8, (void*)&unused, 0);
+	*(&(*(&a_0))->x) += *(&(&b_4)->x);
+	*(&(*(&a_0))->y) += *(&(&b_4)->y);
+	*(&(*(&a_0))->z) += *(&(&b_4)->z);
+	*(&(*(&a_0))->w) += *(&(&b_4)->w);
+	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
-float4 *  __operatorSubSet(float4 * a_0, float4 b_8, void* unused)
+float4 *  __operatorSubSet(float4 * a_0, float4 b_4, void* unused)
 {
-	*(&(*(&a_0))->x) -= *(&(&b_8)->x);
-	*(&(*(&a_0))->y) -= *(&(&b_8)->y);
-	*(&(*(&a_0))->z) -= *(&(&b_8)->z);
-	*(&(*(&a_0))->w) -= *(&(&b_8)->w);
-	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&b_8, (void*)&unused, 0);
+	*(&(*(&a_0))->x) -= *(&(&b_4)->x);
+	*(&(*(&a_0))->y) -= *(&(&b_4)->y);
+	*(&(*(&a_0))->z) -= *(&(&b_4)->z);
+	*(&(*(&a_0))->w) -= *(&(&b_4)->w);
+	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
-float4 *  __operatorMulSet(float4 * a_0, float b_8, void* unused)
+float4 *  __operatorMulSet(float4 * a_0, float b_4, void* unused)
 {
-	*(&(*(&a_0))->x) *= *(&b_8);
-	*(&(*(&a_0))->y) *= *(&b_8);
-	*(&(*(&a_0))->z) *= *(&b_8);
-	*(&(*(&a_0))->w) *= *(&b_8);
-	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&b_8, (void*)&unused, 0);
+	*(&(*(&a_0))->x) *= *(&b_4);
+	*(&(*(&a_0))->y) *= *(&b_4);
+	*(&(*(&a_0))->z) *= *(&b_4);
+	*(&(*(&a_0))->w) *= *(&b_4);
+	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
-float4 *  __operatorDivSet(float4 * a_0, float b_8, void* unused)
+float4 *  __operatorDivSet(float4 * a_0, float b_4, void* unused)
 {
-	*(&(*(&a_0))->x) /= *(&b_8);
-	*(&(*(&a_0))->y) /= *(&b_8);
-	*(&(*(&a_0))->z) /= *(&b_8);
-	*(&(*(&a_0))->w) /= *(&b_8);
-	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&b_8, (void*)&unused, 0);
+	*(&(*(&a_0))->x) /= *(&b_4);
+	*(&(*(&a_0))->y) /= *(&b_4);
+	*(&(*(&a_0))->z) /= *(&b_4);
+	*(&(*(&a_0))->w) /= *(&b_4);
+	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&b_4, (void*)&unused, 0);
 }
 float3  float3__(float2 xy_0, float z_8, void* unused)
 {
@@ -2863,10 +2863,10 @@ float4  float4__(float x_0, float3 yzw_4, void* unused)
 {
 	return float4__(*(&x_0), *(&(&yzw_4)->x), *(&(&yzw_4)->y), *(&(&yzw_4)->z), (void*)0);
 }
-float4 *  __operatorSet(float4 * a_0, double_4_ xyzw_8, void* unused)
+float4 *  __operatorSet(float4 * a_0, double_4_ xyzw_4, void* unused)
 {
-	*(*(&a_0)) = float4__((float )(*(&(&xyzw_8)->ptr[__nullcIndex(0, 4u)])), (float )(*(&(&xyzw_8)->ptr[__nullcIndex(1, 4u)])), (float )(*(&(&xyzw_8)->ptr[__nullcIndex(2, 4u)])), (float )(*(&(&xyzw_8)->ptr[__nullcIndex(3, 4u)])), (void*)0);
-	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&xyzw_8, (void*)&unused, 0);
+	*(*(&a_0)) = float4__((float )(*(&(&xyzw_4)->ptr[__nullcIndex(0, 4u)])), (float )(*(&(&xyzw_4)->ptr[__nullcIndex(1, 4u)])), (float )(*(&(&xyzw_4)->ptr[__nullcIndex(2, 4u)])), (float )(*(&(&xyzw_4)->ptr[__nullcIndex(3, 4u)])), (void*)0);
+	return __nullcCheckedRet(__nullcTR[121], (*(&a_0)), (void*)&a_0, (void*)&xyzw_4, (void*)&unused, 0);
 }
 float3  reflect(float3 normal_0, float3 dir_12, void* unused)
 {
@@ -2887,152 +2887,152 @@ int __init_std_math_nc()
 	__nullcTR[4] = __nullcRegisterType(193495088u, "int", 4, __nullcTR[0], 0, 0);
 	__nullcTR[5] = __nullcRegisterType(274395349u, "short", 2, __nullcTR[0], 0, 0);
 	__nullcTR[6] = __nullcRegisterType(2090147939u, "char", 1, __nullcTR[0], 0, 0);
-	__nullcTR[7] = __nullcRegisterType(1166360283u, "auto ref", 12, __nullcTR[0], 2, NULLC_CLASS);
+	__nullcTR[7] = __nullcRegisterType(1166360283u, "auto ref", 8, __nullcTR[0], 2, NULLC_CLASS);
 	__nullcTR[8] = __nullcRegisterType(524429492u, "typeid", 4, __nullcTR[0], 0, NULLC_CLASS);
-	__nullcTR[9] = __nullcRegisterType(3198057556u, "void ref", 8, __nullcTR[0], 1, NULLC_POINTER);
-	__nullcTR[10] = __nullcRegisterType(4071234806u, "auto[]", 16, __nullcTR[0], 3, NULLC_CLASS);
-	__nullcTR[11] = __nullcRegisterType(3150998963u, "auto ref[]", 12, __nullcTR[7], -1, NULLC_ARRAY);
-	__nullcTR[12] = __nullcRegisterType(2550963152u, "void ref(int)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[13] = __nullcRegisterType(4133409083u, "char[]", 12, __nullcTR[6], -1, NULLC_ARRAY);
-	__nullcTR[14] = __nullcRegisterType(3878423506u, "void ref(int,char[])", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[15] = __nullcRegisterType(1362586038u, "int ref(char[],char[])", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[16] = __nullcRegisterType(3953727713u, "char[] ref(char[],char[])", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[17] = __nullcRegisterType(3214832952u, "char[] ref", 8, __nullcTR[13], 1, NULLC_POINTER);
-	__nullcTR[18] = __nullcRegisterType(90259294u, "char[] ref(char[] ref,char[])", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[19] = __nullcRegisterType(3410585167u, "char ref(char)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[20] = __nullcRegisterType(1890834067u, "short ref(short)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[21] = __nullcRegisterType(2745832905u, "int ref(int)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[22] = __nullcRegisterType(3458960563u, "long ref(long)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[23] = __nullcRegisterType(4223928607u, "float ref(float)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[24] = __nullcRegisterType(4226161577u, "double ref(double)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[25] = __nullcRegisterType(2570056003u, "void ref(char)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[26] = __nullcRegisterType(154671200u, "char ref", 8, __nullcTR[6], 1, NULLC_POINTER);
-	__nullcTR[27] = __nullcRegisterType(2657142493u, "char ref ref", 8, __nullcTR[26], 1, NULLC_POINTER);
-	__nullcTR[28] = __nullcRegisterType(3834141397u, "void ref(short)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[29] = __nullcRegisterType(3010777554u, "short ref", 8, __nullcTR[5], 1, NULLC_POINTER);
-	__nullcTR[30] = __nullcRegisterType(576776527u, "short ref ref", 8, __nullcTR[29], 1, NULLC_POINTER);
-	__nullcTR[31] = __nullcRegisterType(2671810221u, "int ref", 8, __nullcTR[4], 1, NULLC_POINTER);
-	__nullcTR[32] = __nullcRegisterType(3857294250u, "int ref ref", 8, __nullcTR[31], 1, NULLC_POINTER);
-	__nullcTR[33] = __nullcRegisterType(2580994645u, "void ref(long)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[34] = __nullcRegisterType(2414624818u, "long ref", 8, __nullcTR[3], 1, NULLC_POINTER);
-	__nullcTR[35] = __nullcRegisterType(799573935u, "long ref ref", 8, __nullcTR[34], 1, NULLC_POINTER);
-	__nullcTR[36] = __nullcRegisterType(3330106459u, "void ref(float)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[37] = __nullcRegisterType(1384297880u, "float ref", 8, __nullcTR[2], 1, NULLC_POINTER);
-	__nullcTR[38] = __nullcRegisterType(2577874965u, "float ref ref", 8, __nullcTR[37], 1, NULLC_POINTER);
-	__nullcTR[39] = __nullcRegisterType(60945760u, "void ref(double)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[40] = __nullcRegisterType(3234425245u, "double ref", 8, __nullcTR[1], 1, NULLC_POINTER);
-	__nullcTR[41] = __nullcRegisterType(1954705050u, "double ref ref", 8, __nullcTR[40], 1, NULLC_POINTER);
-	__nullcTR[42] = __nullcRegisterType(554739849u, "char[] ref()", 12, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[43] = __nullcRegisterType(2745156404u, "char[] ref(int)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[44] = __nullcRegisterType(2528639597u, "void ref ref(int)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[45] = __nullcRegisterType(262756424u, "int[]", 12, __nullcTR[4], -1, NULLC_ARRAY);
-	__nullcTR[46] = __nullcRegisterType(1780011448u, "int[] ref(int,int)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[47] = __nullcRegisterType(3724107199u, "auto ref ref(auto ref)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[48] = __nullcRegisterType(1137649267u, "auto[] ref", 8, __nullcTR[10], 1, NULLC_POINTER);
-	__nullcTR[49] = __nullcRegisterType(665024592u, "void ref(auto[] ref,auto[])", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[50] = __nullcRegisterType(2649967381u, "auto[] ref(auto[])", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[51] = __nullcRegisterType(2430896065u, "auto ref ref(auto ref,auto ref)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[52] = __nullcRegisterType(3364104125u, "void ref(auto ref,auto ref)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[53] = __nullcRegisterType(4131070326u, "int ref(auto ref,auto ref)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[54] = __nullcRegisterType(3761170085u, "void ref()", 12, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[55] = __nullcRegisterType(4190091973u, "int[] ref", 8, __nullcTR[45], 1, NULLC_POINTER);
-	__nullcTR[56] = __nullcRegisterType(844911189u, "void ref() ref(auto ref,int[] ref)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[57] = __nullcRegisterType(2816069557u, "char[] ref ref", 8, __nullcTR[17], 1, NULLC_POINTER);
-	__nullcTR[58] = __nullcRegisterType(2985493640u, "char[] ref ref(char[] ref,int[])", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[59] = __nullcRegisterType(2463794733u, "short[]", 12, __nullcTR[5], -1, NULLC_ARRAY);
-	__nullcTR[60] = __nullcRegisterType(3958330154u, "short[] ref", 8, __nullcTR[59], 1, NULLC_POINTER);
-	__nullcTR[61] = __nullcRegisterType(745297575u, "short[] ref ref", 8, __nullcTR[60], 1, NULLC_POINTER);
-	__nullcTR[62] = __nullcRegisterType(1935747820u, "short[] ref ref(short[] ref,int[])", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[63] = __nullcRegisterType(3010510963u, "float[]", 12, __nullcTR[2], -1, NULLC_ARRAY);
-	__nullcTR[64] = __nullcRegisterType(2248491120u, "float[] ref", 8, __nullcTR[63], 1, NULLC_POINTER);
-	__nullcTR[65] = __nullcRegisterType(1040232248u, "double[]", 12, __nullcTR[1], -1, NULLC_ARRAY);
-	__nullcTR[66] = __nullcRegisterType(2393077485u, "float[] ref ref", 8, __nullcTR[64], 1, NULLC_POINTER);
-	__nullcTR[67] = __nullcRegisterType(2697529781u, "double[] ref", 8, __nullcTR[65], 1, NULLC_POINTER);
-	__nullcTR[68] = __nullcRegisterType(2467461000u, "float[] ref ref(float[] ref,double[])", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[69] = __nullcRegisterType(2066091864u, "typeid ref(auto ref)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[70] = __nullcRegisterType(1908472638u, "int ref()", 12, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[71] = __nullcRegisterType(1268871368u, "int ref(typeid,typeid)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[72] = __nullcRegisterType(2688408224u, "int ref(void ref(int),void ref(int))", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[73] = __nullcRegisterType(451037873u, "auto[] ref ref(auto[] ref,auto ref)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[74] = __nullcRegisterType(3824954777u, "auto ref ref(auto ref,auto[] ref)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[75] = __nullcRegisterType(3832966281u, "auto[] ref ref(auto[] ref,auto[] ref)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[76] = __nullcRegisterType(477490926u, "auto ref ref(auto[] ref,int)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[77] = __nullcRegisterType(3720955042u, "const_string", 12, __nullcTR[0], 1, NULLC_CLASS);
-	__nullcTR[78] = __nullcRegisterType(1951548447u, "const_string ref", 8, __nullcTR[77], 1, NULLC_POINTER);
-	__nullcTR[79] = __nullcRegisterType(504936988u, "const_string ref ref", 8, __nullcTR[78], 1, NULLC_POINTER);
-	__nullcTR[80] = __nullcRegisterType(3099572969u, "const_string ref ref(const_string ref,char[])", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[81] = __nullcRegisterType(2016055718u, "const_string ref(char[])", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[82] = __nullcRegisterType(195623906u, "char ref(const_string ref,int)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[83] = __nullcRegisterType(3956827940u, "int ref(const_string,const_string)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[84] = __nullcRegisterType(3539544093u, "int ref(const_string,char[])", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[85] = __nullcRegisterType(730969981u, "int ref(char[],const_string)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[86] = __nullcRegisterType(727035222u, "const_string ref(const_string,const_string)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[87] = __nullcRegisterType(1003630799u, "const_string ref(const_string,char[])", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[88] = __nullcRegisterType(2490023983u, "const_string ref(char[],const_string)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[89] = __nullcRegisterType(3335638996u, "int ref(auto ref)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[90] = __nullcRegisterType(4064539429u, "void ref(auto[] ref,typeid,int)", 12, __nullcTR[0], 3, NULLC_FUNCTION);
-	__nullcTR[91] = __nullcRegisterType(3726221418u, "auto[] ref(typeid,int)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[92] = __nullcRegisterType(3504529713u, "typeid ref", 8, __nullcTR[8], 1, NULLC_POINTER);
-	__nullcTR[93] = __nullcRegisterType(527603730u, "void ref(auto ref,int)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[94] = __nullcRegisterType(4086116458u, "void ref(auto[] ref,int)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[95] = __nullcRegisterType(1812738619u, "void ref(auto ref)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[9] = __nullcRegisterType(3198057556u, "void ref", 4, __nullcTR[0], 1, NULLC_POINTER);
+	__nullcTR[10] = __nullcRegisterType(4071234806u, "auto[]", 12, __nullcTR[0], 3, NULLC_CLASS);
+	__nullcTR[11] = __nullcRegisterType(3150998963u, "auto ref[]", 8, __nullcTR[7], -1, NULLC_ARRAY);
+	__nullcTR[12] = __nullcRegisterType(2550963152u, "void ref(int)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[13] = __nullcRegisterType(4133409083u, "char[]", 8, __nullcTR[6], -1, NULLC_ARRAY);
+	__nullcTR[14] = __nullcRegisterType(3878423506u, "void ref(int,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[15] = __nullcRegisterType(1362586038u, "int ref(char[],char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[16] = __nullcRegisterType(3953727713u, "char[] ref(char[],char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[17] = __nullcRegisterType(3214832952u, "char[] ref", 4, __nullcTR[13], 1, NULLC_POINTER);
+	__nullcTR[18] = __nullcRegisterType(90259294u, "char[] ref(char[] ref,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[19] = __nullcRegisterType(3410585167u, "char ref(char)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[20] = __nullcRegisterType(1890834067u, "short ref(short)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[21] = __nullcRegisterType(2745832905u, "int ref(int)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[22] = __nullcRegisterType(3458960563u, "long ref(long)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[23] = __nullcRegisterType(4223928607u, "float ref(float)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[24] = __nullcRegisterType(4226161577u, "double ref(double)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[25] = __nullcRegisterType(2570056003u, "void ref(char)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[26] = __nullcRegisterType(154671200u, "char ref", 4, __nullcTR[6], 1, NULLC_POINTER);
+	__nullcTR[27] = __nullcRegisterType(2657142493u, "char ref ref", 4, __nullcTR[26], 1, NULLC_POINTER);
+	__nullcTR[28] = __nullcRegisterType(3834141397u, "void ref(short)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[29] = __nullcRegisterType(3010777554u, "short ref", 4, __nullcTR[5], 1, NULLC_POINTER);
+	__nullcTR[30] = __nullcRegisterType(576776527u, "short ref ref", 4, __nullcTR[29], 1, NULLC_POINTER);
+	__nullcTR[31] = __nullcRegisterType(2671810221u, "int ref", 4, __nullcTR[4], 1, NULLC_POINTER);
+	__nullcTR[32] = __nullcRegisterType(3857294250u, "int ref ref", 4, __nullcTR[31], 1, NULLC_POINTER);
+	__nullcTR[33] = __nullcRegisterType(2580994645u, "void ref(long)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[34] = __nullcRegisterType(2414624818u, "long ref", 4, __nullcTR[3], 1, NULLC_POINTER);
+	__nullcTR[35] = __nullcRegisterType(799573935u, "long ref ref", 4, __nullcTR[34], 1, NULLC_POINTER);
+	__nullcTR[36] = __nullcRegisterType(3330106459u, "void ref(float)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[37] = __nullcRegisterType(1384297880u, "float ref", 4, __nullcTR[2], 1, NULLC_POINTER);
+	__nullcTR[38] = __nullcRegisterType(2577874965u, "float ref ref", 4, __nullcTR[37], 1, NULLC_POINTER);
+	__nullcTR[39] = __nullcRegisterType(60945760u, "void ref(double)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[40] = __nullcRegisterType(3234425245u, "double ref", 4, __nullcTR[1], 1, NULLC_POINTER);
+	__nullcTR[41] = __nullcRegisterType(1954705050u, "double ref ref", 4, __nullcTR[40], 1, NULLC_POINTER);
+	__nullcTR[42] = __nullcRegisterType(554739849u, "char[] ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[43] = __nullcRegisterType(2745156404u, "char[] ref(int)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[44] = __nullcRegisterType(2528639597u, "void ref ref(int)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[45] = __nullcRegisterType(262756424u, "int[]", 8, __nullcTR[4], -1, NULLC_ARRAY);
+	__nullcTR[46] = __nullcRegisterType(1780011448u, "int[] ref(int,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[47] = __nullcRegisterType(3724107199u, "auto ref ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[48] = __nullcRegisterType(1137649267u, "auto[] ref", 4, __nullcTR[10], 1, NULLC_POINTER);
+	__nullcTR[49] = __nullcRegisterType(665024592u, "void ref(auto[] ref,auto[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[50] = __nullcRegisterType(2649967381u, "auto[] ref(auto[])", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[51] = __nullcRegisterType(2430896065u, "auto ref ref(auto ref,auto ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[52] = __nullcRegisterType(3364104125u, "void ref(auto ref,auto ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[53] = __nullcRegisterType(4131070326u, "int ref(auto ref,auto ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[54] = __nullcRegisterType(3761170085u, "void ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[55] = __nullcRegisterType(4190091973u, "int[] ref", 4, __nullcTR[45], 1, NULLC_POINTER);
+	__nullcTR[56] = __nullcRegisterType(844911189u, "void ref() ref(auto ref,int[] ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[57] = __nullcRegisterType(2816069557u, "char[] ref ref", 4, __nullcTR[17], 1, NULLC_POINTER);
+	__nullcTR[58] = __nullcRegisterType(2985493640u, "char[] ref ref(char[] ref,int[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[59] = __nullcRegisterType(2463794733u, "short[]", 8, __nullcTR[5], -1, NULLC_ARRAY);
+	__nullcTR[60] = __nullcRegisterType(3958330154u, "short[] ref", 4, __nullcTR[59], 1, NULLC_POINTER);
+	__nullcTR[61] = __nullcRegisterType(745297575u, "short[] ref ref", 4, __nullcTR[60], 1, NULLC_POINTER);
+	__nullcTR[62] = __nullcRegisterType(1935747820u, "short[] ref ref(short[] ref,int[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[63] = __nullcRegisterType(3010510963u, "float[]", 8, __nullcTR[2], -1, NULLC_ARRAY);
+	__nullcTR[64] = __nullcRegisterType(2248491120u, "float[] ref", 4, __nullcTR[63], 1, NULLC_POINTER);
+	__nullcTR[65] = __nullcRegisterType(1040232248u, "double[]", 8, __nullcTR[1], -1, NULLC_ARRAY);
+	__nullcTR[66] = __nullcRegisterType(2393077485u, "float[] ref ref", 4, __nullcTR[64], 1, NULLC_POINTER);
+	__nullcTR[67] = __nullcRegisterType(2697529781u, "double[] ref", 4, __nullcTR[65], 1, NULLC_POINTER);
+	__nullcTR[68] = __nullcRegisterType(2467461000u, "float[] ref ref(float[] ref,double[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[69] = __nullcRegisterType(2066091864u, "typeid ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[70] = __nullcRegisterType(1908472638u, "int ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[71] = __nullcRegisterType(1268871368u, "int ref(typeid,typeid)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[72] = __nullcRegisterType(2688408224u, "int ref(void ref(int),void ref(int))", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[73] = __nullcRegisterType(451037873u, "auto[] ref ref(auto[] ref,auto ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[74] = __nullcRegisterType(3824954777u, "auto ref ref(auto ref,auto[] ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[75] = __nullcRegisterType(3832966281u, "auto[] ref ref(auto[] ref,auto[] ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[76] = __nullcRegisterType(477490926u, "auto ref ref(auto[] ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[77] = __nullcRegisterType(3720955042u, "const_string", 8, __nullcTR[0], 1, NULLC_CLASS);
+	__nullcTR[78] = __nullcRegisterType(1951548447u, "const_string ref", 4, __nullcTR[77], 1, NULLC_POINTER);
+	__nullcTR[79] = __nullcRegisterType(504936988u, "const_string ref ref", 4, __nullcTR[78], 1, NULLC_POINTER);
+	__nullcTR[80] = __nullcRegisterType(3099572969u, "const_string ref ref(const_string ref,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[81] = __nullcRegisterType(2016055718u, "const_string ref(char[])", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[82] = __nullcRegisterType(195623906u, "char ref(const_string ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[83] = __nullcRegisterType(3956827940u, "int ref(const_string,const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[84] = __nullcRegisterType(3539544093u, "int ref(const_string,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[85] = __nullcRegisterType(730969981u, "int ref(char[],const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[86] = __nullcRegisterType(727035222u, "const_string ref(const_string,const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[87] = __nullcRegisterType(1003630799u, "const_string ref(const_string,char[])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[88] = __nullcRegisterType(2490023983u, "const_string ref(char[],const_string)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[89] = __nullcRegisterType(3335638996u, "int ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[90] = __nullcRegisterType(4064539429u, "void ref(auto[] ref,typeid,int)", 8, __nullcTR[0], 3, NULLC_FUNCTION);
+	__nullcTR[91] = __nullcRegisterType(3726221418u, "auto[] ref(typeid,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[92] = __nullcRegisterType(3504529713u, "typeid ref", 4, __nullcTR[8], 1, NULLC_POINTER);
+	__nullcTR[93] = __nullcRegisterType(527603730u, "void ref(auto ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[94] = __nullcRegisterType(4086116458u, "void ref(auto[] ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[95] = __nullcRegisterType(1812738619u, "void ref(auto ref)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
 	__nullcTR[96] = __nullcRegisterType(6493228u, "MathConstants", 16, __nullcTR[0], 2, NULLC_CLASS);
-	__nullcTR[97] = __nullcRegisterType(3875326121u, "MathConstants ref", 8, __nullcTR[96], 1, NULLC_POINTER);
-	__nullcTR[98] = __nullcRegisterType(1895912087u, "double ref(double,double,double)", 12, __nullcTR[0], 3, NULLC_FUNCTION);
+	__nullcTR[97] = __nullcRegisterType(3875326121u, "MathConstants ref", 4, __nullcTR[96], 1, NULLC_POINTER);
+	__nullcTR[98] = __nullcRegisterType(1895912087u, "double ref(double,double,double)", 8, __nullcTR[0], 3, NULLC_FUNCTION);
 	__nullcTR[99] = __nullcRegisterType(4256044333u, "float2", 8, __nullcTR[0], 2, NULLC_CLASS);
-	__nullcTR[100] = __nullcRegisterType(2568615123u, "float2 ref(float,float)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[101] = __nullcRegisterType(2750571050u, "float2 ref", 8, __nullcTR[99], 1, NULLC_POINTER);
-	__nullcTR[102] = __nullcRegisterType(1779669499u, "float2 ref()", 12, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[103] = __nullcRegisterType(1029629351u, "float2 ref ref", 8, __nullcTR[101], 1, NULLC_POINTER);
-	__nullcTR[104] = __nullcRegisterType(2519331085u, "void ref(float2)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[105] = __nullcRegisterType(2810325943u, "float2 ref(float2,float2)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[106] = __nullcRegisterType(3338924485u, "float2 ref(float2,float)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[107] = __nullcRegisterType(3159920773u, "float2 ref(float,float2)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[108] = __nullcRegisterType(583224465u, "float2 ref ref(float2 ref,float2)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[109] = __nullcRegisterType(668426079u, "float2 ref ref(float2 ref,float)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[100] = __nullcRegisterType(2568615123u, "float2 ref(float,float)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[101] = __nullcRegisterType(2750571050u, "float2 ref", 4, __nullcTR[99], 1, NULLC_POINTER);
+	__nullcTR[102] = __nullcRegisterType(1779669499u, "float2 ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[103] = __nullcRegisterType(1029629351u, "float2 ref ref", 4, __nullcTR[101], 1, NULLC_POINTER);
+	__nullcTR[104] = __nullcRegisterType(2519331085u, "void ref(float2)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[105] = __nullcRegisterType(2810325943u, "float2 ref(float2,float2)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[106] = __nullcRegisterType(3338924485u, "float2 ref(float2,float)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[107] = __nullcRegisterType(3159920773u, "float2 ref(float,float2)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[108] = __nullcRegisterType(583224465u, "float2 ref ref(float2 ref,float2)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[109] = __nullcRegisterType(668426079u, "float2 ref ref(float2 ref,float)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[110] = __nullcRegisterType(4256044334u, "float3", 12, __nullcTR[0], 3, NULLC_CLASS);
-	__nullcTR[111] = __nullcRegisterType(3886564502u, "float3 ref(float,float,float)", 12, __nullcTR[0], 3, NULLC_FUNCTION);
-	__nullcTR[112] = __nullcRegisterType(2751756971u, "float3 ref", 8, __nullcTR[110], 1, NULLC_POINTER);
-	__nullcTR[113] = __nullcRegisterType(2983941800u, "float3 ref ref", 8, __nullcTR[112], 1, NULLC_POINTER);
-	__nullcTR[114] = __nullcRegisterType(3071137468u, "float3 ref()", 12, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[115] = __nullcRegisterType(2519331118u, "void ref(float3)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[116] = __nullcRegisterType(3894790970u, "float3 ref(float3,float3)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[117] = __nullcRegisterType(1679830247u, "float3 ref(float3,float)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[118] = __nullcRegisterType(1832056551u, "float3 ref(float,float3)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[119] = __nullcRegisterType(4106114452u, "float3 ref ref(float3 ref,float3)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[120] = __nullcRegisterType(1816384513u, "float3 ref ref(float3 ref,float)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[111] = __nullcRegisterType(3886564502u, "float3 ref(float,float,float)", 8, __nullcTR[0], 3, NULLC_FUNCTION);
+	__nullcTR[112] = __nullcRegisterType(2751756971u, "float3 ref", 4, __nullcTR[110], 1, NULLC_POINTER);
+	__nullcTR[113] = __nullcRegisterType(2983941800u, "float3 ref ref", 4, __nullcTR[112], 1, NULLC_POINTER);
+	__nullcTR[114] = __nullcRegisterType(3071137468u, "float3 ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[115] = __nullcRegisterType(2519331118u, "void ref(float3)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[116] = __nullcRegisterType(3894790970u, "float3 ref(float3,float3)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[117] = __nullcRegisterType(1679830247u, "float3 ref(float3,float)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[118] = __nullcRegisterType(1832056551u, "float3 ref(float,float3)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[119] = __nullcRegisterType(4106114452u, "float3 ref ref(float3 ref,float3)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[120] = __nullcRegisterType(1816384513u, "float3 ref ref(float3 ref,float)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[121] = __nullcRegisterType(4256044335u, "float4", 16, __nullcTR[0], 4, NULLC_CLASS);
-	__nullcTR[122] = __nullcRegisterType(247594841u, "float4 ref(float,float,float,float)", 12, __nullcTR[0], 4, NULLC_FUNCTION);
-	__nullcTR[123] = __nullcRegisterType(2752942892u, "float4 ref", 8, __nullcTR[121], 1, NULLC_POINTER);
-	__nullcTR[124] = __nullcRegisterType(643286953u, "float4 ref ref", 8, __nullcTR[123], 1, NULLC_POINTER);
-	__nullcTR[125] = __nullcRegisterType(67638141u, "float4 ref()", 12, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[126] = __nullcRegisterType(2519331151u, "void ref(float4)", 12, __nullcTR[0], 1, NULLC_FUNCTION);
-	__nullcTR[127] = __nullcRegisterType(684288701u, "float4 ref(float4,float4)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[128] = __nullcRegisterType(20736009u, "float4 ref(float4,float)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[129] = __nullcRegisterType(504192329u, "float4 ref(float,float4)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[130] = __nullcRegisterType(3334037143u, "float4 ref ref(float4 ref,float4)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[131] = __nullcRegisterType(2964342947u, "float4 ref ref(float4 ref,float)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[132] = __nullcRegisterType(2011060230u, "float3 ref(float2,float)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[133] = __nullcRegisterType(1832056518u, "float3 ref(float,float2)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[134] = __nullcRegisterType(351965992u, "float4 ref(float3,float)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[135] = __nullcRegisterType(1070631033u, "float4 ref(float2,float2)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[136] = __nullcRegisterType(3253984809u, "float4 ref(float2,float,float)", 12, __nullcTR[0], 3, NULLC_FUNCTION);
-	__nullcTR[137] = __nullcRegisterType(2294885289u, "float4 ref(float,float,float2)", 12, __nullcTR[0], 3, NULLC_FUNCTION);
-	__nullcTR[138] = __nullcRegisterType(504192296u, "float4 ref(float,float3)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[122] = __nullcRegisterType(247594841u, "float4 ref(float,float,float,float)", 8, __nullcTR[0], 4, NULLC_FUNCTION);
+	__nullcTR[123] = __nullcRegisterType(2752942892u, "float4 ref", 4, __nullcTR[121], 1, NULLC_POINTER);
+	__nullcTR[124] = __nullcRegisterType(643286953u, "float4 ref ref", 4, __nullcTR[123], 1, NULLC_POINTER);
+	__nullcTR[125] = __nullcRegisterType(67638141u, "float4 ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[126] = __nullcRegisterType(2519331151u, "void ref(float4)", 8, __nullcTR[0], 1, NULLC_FUNCTION);
+	__nullcTR[127] = __nullcRegisterType(684288701u, "float4 ref(float4,float4)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[128] = __nullcRegisterType(20736009u, "float4 ref(float4,float)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[129] = __nullcRegisterType(504192329u, "float4 ref(float,float4)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[130] = __nullcRegisterType(3334037143u, "float4 ref ref(float4 ref,float4)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[131] = __nullcRegisterType(2964342947u, "float4 ref ref(float4 ref,float)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[132] = __nullcRegisterType(2011060230u, "float3 ref(float2,float)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[133] = __nullcRegisterType(1832056518u, "float3 ref(float,float2)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[134] = __nullcRegisterType(351965992u, "float4 ref(float3,float)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[135] = __nullcRegisterType(1070631033u, "float4 ref(float2,float2)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[136] = __nullcRegisterType(3253984809u, "float4 ref(float2,float,float)", 8, __nullcTR[0], 3, NULLC_FUNCTION);
+	__nullcTR[137] = __nullcRegisterType(2294885289u, "float4 ref(float,float,float2)", 8, __nullcTR[0], 3, NULLC_FUNCTION);
+	__nullcTR[138] = __nullcRegisterType(504192296u, "float4 ref(float,float3)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcTR[139] = __nullcRegisterType(4262891852u, "double[4]", 32, __nullcTR[1], 4, NULLC_ARRAY);
-	__nullcTR[140] = __nullcRegisterType(3368457716u, "float4 ref ref(float4 ref,double[4])", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[141] = __nullcRegisterType(1583994313u, "double[4] ref", 8, __nullcTR[139], 1, NULLC_POINTER);
+	__nullcTR[140] = __nullcRegisterType(3368457716u, "float4 ref ref(float4 ref,double[4])", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[141] = __nullcRegisterType(1583994313u, "double[4] ref", 4, __nullcTR[139], 1, NULLC_POINTER);
 	__nullcTR[142] = __nullcRegisterType(562572443u, "float4x4", 64, __nullcTR[0], 4, NULLC_CLASS);
-	__nullcTR[143] = __nullcRegisterType(3309272130u, "float ref ref(float2 ref,int)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[144] = __nullcRegisterType(3377073507u, "float ref ref(float3 ref,int)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[145] = __nullcRegisterType(3444874884u, "float ref ref(float4 ref,int)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[146] = __nullcRegisterType(4261839081u, "float ref()", 12, __nullcTR[0], 0, NULLC_FUNCTION);
-	__nullcTR[147] = __nullcRegisterType(2081580927u, "float ref(float2 ref,float2 ref)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[148] = __nullcRegisterType(289501729u, "float ref(float3 ref,float3 ref)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
-	__nullcTR[149] = __nullcRegisterType(2792389827u, "float ref(float4 ref,float4 ref)", 12, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[143] = __nullcRegisterType(3309272130u, "float ref ref(float2 ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[144] = __nullcRegisterType(3377073507u, "float ref ref(float3 ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[145] = __nullcRegisterType(3444874884u, "float ref ref(float4 ref,int)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[146] = __nullcRegisterType(4261839081u, "float ref()", 8, __nullcTR[0], 0, NULLC_FUNCTION);
+	__nullcTR[147] = __nullcRegisterType(2081580927u, "float ref(float2 ref,float2 ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[148] = __nullcRegisterType(289501729u, "float ref(float3 ref,float3 ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
+	__nullcTR[149] = __nullcRegisterType(2792389827u, "float ref(float4 ref,float4 ref)", 8, __nullcTR[0], 2, NULLC_FUNCTION);
 	__nullcRegisterMembers(__nullcTR[7], 2, __nullcTR[8], 0, __nullcTR[9], 4);
 	__nullcRegisterMembers(__nullcTR[8], 0);
-	__nullcRegisterMembers(__nullcTR[10], 3, __nullcTR[8], 0, __nullcTR[9], 4, __nullcTR[4], 12);
+	__nullcRegisterMembers(__nullcTR[10], 3, __nullcTR[8], 0, __nullcTR[9], 4, __nullcTR[4], 8);
 	__nullcRegisterMembers(__nullcTR[77], 1, __nullcTR[13], 0);
 	__nullcRegisterMembers(__nullcTR[96], 2, __nullcTR[1], 0, __nullcTR[1], 8);
 	__nullcRegisterMembers(__nullcTR[99], 2, __nullcTR[2], 0, __nullcTR[2], 4);
