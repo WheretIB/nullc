@@ -686,11 +686,36 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 			AddFunctionCallNode(pos, id == cmdEqual ? "__rcomp" : "__rncomp", 2);
 			return;
 		}
+		bool swapped = false;
+		if(left->typeInfo == typeVoid->refType)
+		{
+			CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = right;
+			CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = left;
+			NodeZeroOP *tmp = left; left = right; right = tmp;
+			swapped = true;
+		}
+		if(right->typeInfo == typeVoid->refType)
+		{
+			HandlePointerToObject(pos, left->typeInfo);
+			left = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
+			right = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
+			if(right->typeInfo == typeVoid->refType && swapped)
+			{
+				CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = left;
+				CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = right;
+				NodeZeroOP *tmp = left; left = right; right = tmp;
+			}
+		}
 		if(right->typeInfo->funcType && right->typeInfo->funcType == left->typeInfo->funcType)
 		{
 			CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo = CodeInfo::funcInfo[0]->funcType;
 			CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo = CodeInfo::funcInfo[0]->funcType;
 			AddFunctionCallNode(pos, id == cmdEqual ? "__pcomp" : "__pncomp", 2);
+			return;
+		}
+		if(right->typeInfo->arrLevel && right->typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY && right->typeInfo == left->typeInfo)
+		{
+			AddFunctionCallNode(pos, id == cmdEqual ? "__acomp" : "__ancomp", 2);
 			return;
 		}
 		if(left->nodeType == typeNodeConvertPtr && left->typeInfo == typeTypeid && left->typeInfo == right->typeInfo && left->nodeType == right->nodeType)
@@ -2049,6 +2074,14 @@ void HandlePointerToObject(const char* pos, TypeInfo *dstType)
 			CodeInfo::nodeList.back() = new NodeNumber(0, typeInt);
 			CodeInfo::nodeList.push_back(tmp);
 			AddTwoExpressionNode(dstType);
+			return;
+		}
+		// nullptr to function type conversion
+		if(dstType->funcType)
+		{
+			CodeInfo::nodeList.pop_back();
+			CodeInfo::nodeList.push_back(new NodeFunctionAddress(CodeInfo::funcInfo[0]));
+			CodeInfo::nodeList.back()->typeInfo = dstType;
 			return;
 		}
 	}
