@@ -823,6 +823,14 @@
 					</File>
 				</Filter>
 			</Filter>
+			<Filter
+				Name="sgl"
+				>
+				<File
+					RelativePath="..\Modules\sgl\vector.nc"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Executor_LLVM"

@@ -1720,6 +1720,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\tests\TestSglVector.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\tests\TestSpecial.cpp"
 				>
 				<FileConfiguration
