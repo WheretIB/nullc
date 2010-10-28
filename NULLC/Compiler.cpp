@@ -1046,7 +1046,8 @@ bool Compiler::Compile(const char* str, bool noClear)
 			moduleStream[moduleCount] = lexer.GetStreamSize();
 			bytecode = BuildModule(path, pathNoImport);
 			start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
-			moduleRange[moduleCount] = NULLC::CodeRange(lexer.GetStreamStart()[moduleStream[moduleCount]].pos, lexer.GetStreamStart()[moduleStream[moduleCount]].pos + ((ByteCode*)bytecode)->sourceSize);
+			if(bytecode)
+				moduleRange[moduleCount] = NULLC::CodeRange(lexer.GetStreamStart()[moduleStream[moduleCount]].pos, lexer.GetStreamStart()[moduleStream[moduleCount]].pos + ((ByteCode*)bytecode)->sourceSize);
 		}else{
 			unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);
 			moduleStream[moduleCount] = lexer.GetStreamSize();
