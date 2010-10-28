@@ -3709,6 +3709,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	FunctionType	*fType = NULL;
 
 	NodeZeroOP	*funcAddr = NULL;
+	TypeInfo	*forcedParentType = NULL;
 
 	// If we are inside member function, transform function name to a member function name (they have priority over global functions)
 	if(newType && funcName)
@@ -3727,6 +3728,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		FunctionInfo **info = funcMap.find(hash);
 		if(info || (newType->genericBase && funcMap.find(hashBase)))
 		{
+			forcedParentType = newType;
 			// If function is found, change function name hash to member function name hash
 			funcNameHash = info ? hash : hashBase;
 
@@ -3934,7 +3936,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	NodeZeroOP *funcDefAtEnd = NULL;
 	if(fInfo && fInfo->generic)
 	{
-		funcDefAtEnd = CreateGenericFunctionInstance(pos, fInfo, fInfo);
+		funcDefAtEnd = CreateGenericFunctionInstance(pos, fInfo, fInfo, forcedParentType);
 		fType = fInfo->funcType->funcType;
 	}
 

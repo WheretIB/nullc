@@ -1805,4 +1805,22 @@ auto Foo:sum(generic ref(T) f){ return f(10); }\r\n\
 auto Foo:average(generic ref(T) f){ return sum(f) / 2; }\r\n\
 Foo<int> m;\r\n\
 return m.average(<i>{ -i; });";
-TEST_RESULT("generic member funciton instancing in a generic member function", testGenericType119, "-5");
+TEST_RESULT("generic member function instancing in a generic member function", testGenericType119, "-5");
+
+const char *testGenericType120 =
+"import test.generic_type73;\r\n\
+auto Foo:sum(generic ref(T) f){ auto o = x; return f(10); }\r\n\
+auto Foo:average(generic ref(T) f){ return sum(f) / x; }\r\n\
+Foo<int> m; m.x = 2;\r\n\
+return m.average(<i>{ -i; });";
+TEST_RESULT("generic member function instancing in a generic member function (imported class)", testGenericType120, "-5");
+
+LOAD_MODULE(test_generic_type121, "test.generic_type121",
+"class Foo<T>{ T x; }\r\n\
+auto Foo:sum(generic ref(T) f){ auto o = x; return f(10); }\r\n\
+auto Foo:average(generic ref(T) f){ return sum(f) / x; }");
+const char *testGenericType121 =
+"import test.generic_type121;\r\n\
+Foo<int> m; m.x = 2;\r\n\
+return m.average(<i>{ -i; });";
+TEST_RESULT("generic member function instancing in a generic member function (imported class and functions)", testGenericType121, "-5");
