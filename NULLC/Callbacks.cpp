@@ -1213,22 +1213,26 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 	if(!currFunction)
 		ThrowError(pos, "ERROR: cannot infer type for inline function outside of the function call");
 
-	TypeInfo *preferredType = NULL;
-	HashMap<FunctionInfo*>::Node *currF = funcMap.first(GetStringHash(currFunction));
-	TypeInfo **typeInstance = NULL;
-	if(!currF)
+	HashMap<FunctionInfo*>::Node *currF = NULL;
+	if(newType)
 	{
-		if(const char *pos = strchr(currFunction, '<'))
-		{
-			if(pos < strchr(currFunction, ':'))
-			{
-				// find class to enable aliases
-				typeInstance = CodeInfo::classMap.find(GetStringHash(currFunction, strchr(currFunction, ':')));
-				unsigned betterHash = GetStringHash(currFunction, strchr(currFunction, '<'));
-				betterHash = StringHashContinue(betterHash, strchr(currFunction, ':'));
-				currF = funcMap.first(betterHash);
-			}
-		}
+		unsigned betterHash = newType->nameHash;
+		betterHash = StringHashContinue(betterHash, "::");
+		betterHash = StringHashContinue(betterHash, currFunction);
+		currF = funcMap.first(betterHash);
+	}
+	if(!currF)
+		currF = funcMap.first(GetStringHash(currFunction));
+	TypeInfo **typeInstance = NULL;
+	const char *tmpPos = NULL;
+	
+	if(!currF && (tmpPos = strchr(currFunction, '<')) != NULL && tmpPos < strchr(currFunction, ':'))
+	{
+		// find class to enable aliases
+		typeInstance = CodeInfo::classMap.find(GetStringHash(currFunction, strchr(currFunction, ':')));
+		unsigned betterHash = GetStringHash(currFunction, strchr(currFunction, '<'));
+		betterHash = StringHashContinue(betterHash, strchr(currFunction, ':'));
+		currF = funcMap.first(betterHash);
 	}
 	AliasInfo *info = typeInstance ? (*typeInstance)->childAlias : NULL;
 	while(info)
@@ -1236,6 +1240,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 		CodeInfo::classMap.insert(info->nameHash, info->type);
 		info = info->next;
 	}
+	TypeInfo *preferredType = NULL;
 	while(currF)
 	{
 		FunctionInfo *func = currF->value;
