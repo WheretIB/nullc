@@ -453,3 +453,13 @@ const char	*testShortFunctionInGenericFunctionCall =
 }\r\n\
 return int(average(<i>{ i += 4; i * 1.5; }));";
 TEST_RESULT("short function in a generic function call", testShortFunctionInGenericFunctionCall, "15");
+
+const char	*testTypePostExpression4 = 
+"class Foo{ int x; typedef int myInt; }\r\n\
+return int == Foo.myInt;";
+TEST_RESULT("extended typeof expressions after type 4 (child aliases)", testTypePostExpression4, "1");
+
+const char	*testTypePostExpression5 = 
+"class Foo{ int x; typedef double myDouble; typedef int myInt; }\r\n\
+return double == Foo.myDouble;";
+TEST_RESULT("extended typeof expressions after type 5 (child aliases)", testTypePostExpression5, "1");

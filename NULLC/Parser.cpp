@@ -232,8 +232,21 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 					if(currMember->nameHash == hash)
 						break;
 				if(!currMember)
-					ThrowError(curr->pos, "ERROR: expected extended typeof expression or class member name at this point");
-				SelectTypeByPointer(currMember->type);
+				{
+					// Check local type aliases
+					AliasInfo *alias = classType->childAlias;
+					while(alias)
+					{
+						if(alias->nameHash == hash)
+							break;
+						alias = alias->next;
+					}
+					if(!alias)
+						ThrowError(curr->pos, "ERROR: expected extended typeof expression, class member name or class typedef at this point");
+					SelectTypeByPointer(alias->type);
+				}else{
+					SelectTypeByPointer(currMember->type);
+				}
 			}
 			curr++;
 		}else{
