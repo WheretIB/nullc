@@ -940,7 +940,7 @@ int	safeprintf(char* dst, size_t size, const char* src, ...)
 ExternVarInfo	*codeVars = NULL;
 unsigned int	codeTypeCount = 0;
 ExternTypeInfo	*codeTypes = NULL;
-ExternFuncInfo	*codeFuntions = NULL;
+ExternFuncInfo	*codeFunctions = NULL;
 ExternLocalInfo	*codeLocals = NULL;
 unsigned int	*codeTypeExtra = NULL;
 char			*codeSymbols = NULL;
@@ -1212,7 +1212,7 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
 		return;
 
-	ExternFuncInfo	&func = codeFuntions[*(int*)(ptr + 4)];
+	ExternFuncInfo	&func = codeFunctions[*(int*)(ptr + 4)];
 	ExternTypeInfo	&returnType = codeTypes[codeTypeExtra[type.memberOffset]];
 
 	char *it = name;
@@ -1326,7 +1326,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 	codeTypeCount = stateRemote ? RemoteData::typeCount : 0;
 	codeVars		= stateRemote ? RemoteData::vars : nullcDebugVariableInfo(&variableCount);
 	codeTypes		= stateRemote ? RemoteData::types : nullcDebugTypeInfo(&codeTypeCount);
-	codeFuntions	= stateRemote ? RemoteData::functions : nullcDebugFunctionInfo(&functionCount);
+	codeFunctions	= stateRemote ? RemoteData::functions : nullcDebugFunctionInfo(&functionCount);
 	codeLocals		= stateRemote ? RemoteData::locals : nullcDebugLocalInfo(NULL);
 	codeTypeExtra	= stateRemote ? RemoteData::typeExtra : nullcDebugTypeExtraInfo(NULL);
 	codeSymbols		= stateRemote ? RemoteData::symbols : nullcDebugSymbols(NULL);
@@ -1388,7 +1388,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 		int funcID = -1;
 		for(unsigned int i = 0; i < functionCount; i++)
 		{
-			if(address > codeFuntions[i].address && address <= (codeFuntions[i].address + codeFuntions[i].codeSize))
+			if(address > codeFunctions[i].address && address <= (codeFunctions[i].address + codeFunctions[i].codeSize))
 			{
 				funcID = i;
 			}
@@ -1472,7 +1472,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 		// If we are not in global scope
 		if(funcID != -1)
 		{
-			ExternFuncInfo	&function = codeFuntions[funcID];
+			ExternFuncInfo	&function = codeFunctions[funcID];
 
 			// Align offset to the first variable (by 16 byte boundary)
 			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
@@ -2392,7 +2392,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 					codeVars = NULL;
 					codeTypes = NULL;
-					codeFuntions = NULL;
+					codeFunctions = NULL;
 					codeLocals = NULL;
 					codeTypeExtra = NULL;
 					codeSymbols = NULL;
