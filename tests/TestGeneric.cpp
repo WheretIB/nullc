@@ -1397,3 +1397,13 @@ auto f1(int a, int ref(int, int) x){ return a + x(1, 2) * 5.0; }\r\n\
 auto x = average(f1);\r\n\
 return x == 20 && typeof(x) == double;";
 TEST_RESULT("specialization for function pointer 9 (generic return type in nested specialized type)", testGeneric107, "1");
+
+const char *testGeneric108 =
+"class hashmap{ int ref(int) c; }\r\n\
+hashmap map;\r\n\
+\r\n\
+auto foo(hashmap m, generic key){}\r\n\
+foo(map, \"aaa\");\r\n\
+\r\n\
+return map.c == nullptr;";
+TEST_RESULT("test for function pointer corruption", testGeneric108, "1");

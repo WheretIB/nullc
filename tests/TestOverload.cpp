@@ -170,3 +170,8 @@ Foo ref y = &x;\r\n\
 y[1, 3] = 5;\r\n\
 return (&y)[1, 3];";
 TEST_RESULT("Array index overload, check if pointer to array is derefenced", testArrayIndexOverloadZeroMultiple2, "5");
+
+const char	*testDefaultArrayComparisonShouldntBreakUserDefined =
+"char[] a = \"hello\", b = \"hello\";\r\n\
+return a == b;";
+TEST_RESULT("Default array comparison function shouldn't break user defined functions", testDefaultArrayComparisonShouldntBreakUserDefined, "1");

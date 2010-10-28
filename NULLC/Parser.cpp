@@ -816,7 +816,7 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 	if(genericArg && nodeOffset)
 	{
 		TypeInfo *curr = GetSelectedType();
-		SelectTypeForGeneric((*str)->pos, nodeOffset - 1 + argID);
+		SelectTypeForGeneric(nodeOffset - 1 + argID);
 		if(curr->refLevel && !GetSelectedType()->refLevel)
 			SelectTypeByPointer(CodeInfo::GetReferenceType(GetSelectedType()));
 	}
@@ -857,7 +857,7 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		if(genericArg && nodeOffset)
 		{
 			TypeInfo *curr = GetSelectedType();
-			SelectTypeForGeneric((*str)->pos, nodeOffset - 1 + argID);
+			SelectTypeForGeneric(nodeOffset - 1 + argID);
 			if(curr->refLevel && !GetSelectedType()->refLevel)
 				SelectTypeByPointer(CodeInfo::GetReferenceType(GetSelectedType()));
 		}
