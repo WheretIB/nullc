@@ -445,3 +445,11 @@ auto Foo:foo(){ return average(<i>{ -i; }); }\r\n\
 Foo k;\r\n\
 return k.foo();";
 TEST_RESULT("short function in a member function call in a member function correct selection", testShortFunctionInMemberFunctionCall7, "-5");
+
+const char	*testShortFunctionInGenericFunctionCall = 
+"auto average(generic ref(int) f)\r\n\
+{\r\n\
+	return f(6);\r\n\
+}\r\n\
+return int(average(<i>{ i += 4; i * 1.5; }));";
+TEST_RESULT("short function in a generic function call", testShortFunctionInGenericFunctionCall, "15");
