@@ -329,7 +329,7 @@ namespace ColorerGrammar
 					chP('>')[ColorText]
 				) >>
 				*(
-					(strWP("ref")[ColorRWord] >> !(chP('(')[ColorText] >> !typeExpr >> *(chP(',')[ColorText] >> typeExpr) >> chP(')')[ColorText])) |
+					(strWP("ref")[ColorRWord] >> !(chP('(')[ColorText] >> !(typeExpr | idP[ColorRWord]) >> *(chP(',')[ColorText] >> (typeExpr | idP[ColorRWord])) >> chP(')')[ColorText])) |
 					arrayDef
 				);
 			typeofPostExpr =

@@ -3713,14 +3713,22 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	// If we are inside member function, transform function name to a member function name (they have priority over global functions)
 	if(newType && funcName)
 	{
-		unsigned int hash = newType->nameHash;
+		unsigned int hash = newType->nameHash, hashBase = ~0u;
 		hash = StringHashContinue(hash, "::");
 		hash = StringHashContinue(hash, funcName);
 
-		if(funcMap.find(hash))
+		if(newType->genericBase)
+		{
+			hashBase = newType->genericBase->nameHash;
+			hashBase = StringHashContinue(hashBase, "::");
+			hashBase = StringHashContinue(hashBase, funcName);
+		}
+
+		FunctionInfo **info = funcMap.find(hash);
+		if(info || (newType->genericBase && funcMap.find(hashBase)))
 		{
 			// If function is found, change function name hash to member function name hash
-			funcNameHash = hash;
+			funcNameHash = info ? hash : hashBase;
 
 			// Take "this" pointer
 			FunctionInfo *currFunc = currDefinedFunc.back();
