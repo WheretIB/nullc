@@ -401,3 +401,47 @@ auto Foo:average(generic ref(int, T) f){ return f(5, 4); }\r\n\
 Foo<int> m;\r\n\
 return m.average(<x, y>{ 5+x+y; });";
 TEST_RESULT("short function in a generic type member function call with generic type aliases", testShortFunctionInMemberFunctionCall3, "14");
+
+const char	*testShortFunctionInMemberFunctionCall4 = 
+"class Foo\r\n\
+{\r\n\
+	auto average(generic ref(int) f){ return f(5); }\r\n\
+	auto foo(){ return average(<i>{ -i; }); }\r\n\
+}\r\n\
+Foo k;\r\n\
+return k.foo();";
+TEST_RESULT("short function in a member function call in a member function", testShortFunctionInMemberFunctionCall4, "-5");
+
+const char	*testShortFunctionInMemberFunctionCall5 = 
+"class Foo\r\n\
+{\r\n\
+	typedef int T;\r\n\
+	auto average(generic ref(T) f){ return f(5); }\r\n\
+	auto foo(){ return average(<i>{ -i; }); }\r\n\
+}\r\n\
+Foo k;\r\n\
+return k.foo();";
+TEST_RESULT("short function in a member function call in a member function with aliases", testShortFunctionInMemberFunctionCall5, "-5");
+
+const char	*testShortFunctionInMemberFunctionCall6 = 
+"class Foo\r\n\
+{\r\n\
+	typedef int T;\r\n\
+	auto average(generic ref(T) f){ return f(5); }\r\n\
+}\r\n\
+auto Foo:foo(){ return average(<i>{ -i; }); }\r\n\
+Foo k;\r\n\
+return k.foo();";
+TEST_RESULT("short function in a member function call in a member function with aliases", testShortFunctionInMemberFunctionCall6, "-5");
+
+const char	*testShortFunctionInMemberFunctionCall7 = 
+"auto average(float ref(float) f){ return 10; }\r\n\
+class Foo\r\n\
+{\r\n\
+	typedef int T;\r\n\
+	auto average(int ref(T) f){ return f(5); }\r\n\
+}\r\n\
+auto Foo:foo(){ return average(<i>{ -i; }); }\r\n\
+Foo k;\r\n\
+return k.foo();";
+TEST_RESULT("short function in a member function call in a member function correct selection", testShortFunctionInMemberFunctionCall7, "-5");
