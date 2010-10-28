@@ -109,6 +109,7 @@ TEST_RESULT("sgl.vector test (array splices)", testSglVector6, "8");
 const char *testSglVector7 =
 "import std.math;\r\n\
 import sgl.vector;\r\n\
+import std.algorithm;\r\n\
 \r\n\
 auto arr = new vector<float3>;\r\n\
 arr.push_back(float3(0, 1, 0));\r\n\
@@ -132,6 +133,11 @@ assert(1 == arr.all(<x>{ x.y >= 1; }));\r\n\
 \r\n\
 assert(1 == arr.any(<x>{ x.y > 8; }));\r\n\
 assert(0 == arr.any(<x>{ x.y > 100; }));\r\n\
+\r\n\
+arr.sort(<x, y>{ x.y > y.y; });\r\n\
+assert(arr[0].y == 20 && arr[1].y == 10 && arr[2].y == 5 && arr[3].y == 1);\r\n\
+arr.sort(<x, y>{ x.y < y.y; });\r\n\
+assert(arr[0].y == 1 && arr[1].y == 5 && arr[2].y == 10 && arr[3].y == 20);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("sgl.vector test (aggregation functions)", testSglVector7, "1");
