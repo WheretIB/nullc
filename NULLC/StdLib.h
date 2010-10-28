@@ -81,4 +81,6 @@ namespace NULLC
 	void AssertCoroutine(NULLCRef f);
 
 	NULLCArray GetFinalizationList();
+
+	void	ArrayCopy(NULLCAutoArray dst, NULLCAutoArray src);
 }

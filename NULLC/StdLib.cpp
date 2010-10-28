@@ -340,7 +340,10 @@ unsigned int NULLC::UsedMemory()
 NULLCArray NULLC::AllocArray(int size, int count, unsigned type)
 {
 	NULLCArray ret;
+	ret.len = 0;
 	ret.ptr = 4 + (char*)AllocObject(count * size + 4, type);
+	if(!(ret.ptr - 4))
+		return ret;
 	((unsigned*)ret.ptr)[-1] = count;
 	markerType *marker = (markerType*)((char*)ret.ptr - 4 - sizeof(markerType));
 	*marker |= OBJECT_ARRAY;
@@ -447,6 +450,7 @@ void NULLC::CollectMemory()
 				globalObjects[i] = globalObjects.back();
 				globalObjects.pop_back();
 				unusedBlocks++;
+				i--;
 			}
 		}
 	}
@@ -926,4 +930,21 @@ NULLCArray NULLC::GetFinalizationList()
 	arr.ptr = (char*)finalizeList.data;
 	arr.len = finalizeList.size();
 	return arr;
+}
+
+void NULLC::ArrayCopy(NULLCAutoArray dst, NULLCAutoArray src)
+{
+	if(dst.ptr == src.ptr)
+		return;
+	if(dst.typeID != src.typeID)
+	{
+		nullcThrowError("ERROR: destination element type '%s' doesn't match source element type '%s'", nullcGetTypeName(dst.typeID), nullcGetTypeName(src.typeID));
+		return;
+	}
+	if(dst.len < src.len)
+	{
+		nullcThrowError("ERROR: destination array size '%d' is smaller than source array size '%s'", dst.len, src.len);
+		return;
+	}
+	memcpy(dst.ptr, src.ptr, nullcGetTypeSize(dst.typeID) * src.len);
 }
