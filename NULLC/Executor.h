@@ -75,6 +75,11 @@ private:
 	unsigned (*breakFunction)(unsigned int);
 	FastVector<VMCmd>	breakCode;
 
+#ifdef NULLC_VM_CALL_STACK_UNWRAP
+	FastVector<unsigned>	funcIDStack;
+	bool RunCallStackHelper(unsigned funcID, unsigned extraPopDW, unsigned callStackPos);
+#endif
+
 	bool RunExternalFunction(unsigned int funcID, unsigned int extraPopDW);
 
 	void FixupPointer(char* ptr, const ExternTypeInfo& type);

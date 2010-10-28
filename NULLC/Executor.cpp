@@ -3,6 +3,12 @@
 
 #include "StdLib.h"
 
+#ifdef NULLC_VM_CALL_STACK_UNWRAP
+#define NULLC_UNWRAP(x) x
+#else
+#define NULLC_UNWRAP(x)
+#endif
+
 int vmIntPow(int power, int number)
 {
 	int result = 1;
@@ -592,6 +598,7 @@ void Executor::InitExecution()
 		return;
 	}
 	fcallStack.clear();
+	NULLC_UNWRAP(funcIDStack.clear());
 
 	CommonSetLinker(exLinker);
 
@@ -1146,15 +1153,22 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			if(fAddress == EXTERNAL_FUNCTION)
 			{
 				fcallStack.push_back(cmdStream);
+#ifdef NULLC_VM_CALL_STACK_UNWRAP
+				funcIDStack.push_back(cmd.argument);
+				if(!RunCallStackHelper(cmd.argument, 0, finalReturn))
+#else
 				if(!RunExternalFunction(cmd.argument, 0))
+#endif
 				{
 					cmdStream = NULL;
 				}else{
 					cmdStream = fcallStack.back();
 					fcallStack.pop_back();
+					NULLC_UNWRAP(funcIDStack.pop_back());
 				}
 			}else{
 				fcallStack.push_back(cmdStream);
+				NULLC_UNWRAP(funcIDStack.push_back(cmd.argument));
 				cmdStream = cmdBase + fAddress;
 
 				char* oldBase = genParams.data;
@@ -1187,15 +1201,22 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			if(fAddress == EXTERNAL_FUNCTION)
 			{
 				fcallStack.push_back(cmdStream);
+#ifdef NULLC_VM_CALL_STACK_UNWRAP
+				funcIDStack.push_back(fID);
+				if(!RunCallStackHelper(fID, 1, finalReturn))
+#else
 				if(!RunExternalFunction(fID, 1))
+#endif
 				{
 					cmdStream = NULL;
 				}else{
 					cmdStream = fcallStack.back();
 					fcallStack.pop_back();
+					NULLC_UNWRAP(funcIDStack.pop_back());
 				}
 			}else{
 				fcallStack.push_back(cmdStream);
+				NULLC_UNWRAP(funcIDStack.push_back(fID));
 				cmdStream = cmdBase + fAddress;
 
 				char* oldBase = genParams.data;
@@ -1252,6 +1273,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			}
 			cmdStream = fcallStack.back();
 			fcallStack.pop_back();
+			NULLC_UNWRAP(funcIDStack.pop_back());
 			break;
 
 		case cmdPushVTop:
@@ -1669,6 +1691,20 @@ void Executor::Stop(const char* error)
 	callContinue = false;
 	SafeSprintf(execError, ERROR_BUFFER_SIZE, error);
 }
+
+#ifdef NULLC_VM_CALL_STACK_UNWRAP
+bool Executor::RunCallStackHelper(unsigned funcID, unsigned extraPopDW, unsigned callStackPos)
+{
+	const char *fName = exLinker->exSymbols.data + exFunctions[funcIDStack[callStackPos]].offsetToName;
+	(void)fName;
+	if(callStackPos + 1 < funcIDStack.size())
+	{
+		return RunCallStackHelper(funcID, extraPopDW, callStackPos + 1);
+	}else{
+		return RunExternalFunction(funcID, extraPopDW);
+	}
+}
+#endif
 
 #if !defined(__CELLOS_LV2__) && !defined(_M_X64)
 // X86 implementation
