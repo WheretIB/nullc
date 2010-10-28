@@ -1215,6 +1215,27 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 
 	TypeInfo *preferredType = NULL;
 	HashMap<FunctionInfo*>::Node *currF = funcMap.first(GetStringHash(currFunction));
+	TypeInfo **typeInstance = NULL;
+	if(!currF)
+	{
+		if(const char *pos = strchr(currFunction, '<'))
+		{
+			if(pos < strchr(currFunction, ':'))
+			{
+				// find class to enable aliases
+				typeInstance = CodeInfo::classMap.find(GetStringHash(currFunction, strchr(currFunction, ':')));
+				unsigned betterHash = GetStringHash(currFunction, strchr(currFunction, '<'));
+				betterHash = StringHashContinue(betterHash, strchr(currFunction, ':'));
+				currF = funcMap.first(betterHash);
+			}
+		}
+	}
+	AliasInfo *info = typeInstance ? (*typeInstance)->childAlias : NULL;
+	while(info)
+	{
+		CodeInfo::classMap.insert(info->nameHash, info->type);
+		info = info->next;
+	}
 	while(currF)
 	{
 		FunctionInfo *func = currF->value;
@@ -1327,6 +1348,13 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 	}
 	if(!preferredType)
 		ThrowError(pos, "ERROR: cannot find function or variable '%s' which accepts a function with %d argument(s) as an argument #%d", currFunction, arguments, currArgument);
+
+	info = typeInstance ? (*typeInstance)->childAlias : NULL;
+	while(info)
+	{
+		CodeInfo::classMap.remove(info->nameHash, info->type);
+		info = info->next;
+	}
 	return preferredType;
 }
 
@@ -3441,13 +3469,18 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		char *memberOrigName = GetClassFunctionName(currentType->subType->genericBase, funcName);
 		SelectFunctionsForHash(GetStringHash(memberOrigName), 0);
 
+		if(!silent && !bestFuncList.size())
+			ThrowError(pos, "ERROR: function '%s' is undefined", memberOrigName);
+
 		unsigned minRating = ~0u;
 		unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), callArgCount, minRating);
 		if(minRating == ~0u)
 		{
 			if(silent)
 				return false;
-			ThrowError(pos, "ERROR: function '%s' is undefined", memberOrigName);
+			char	*errPos = errorReport;
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: can't find function '%s' with following parameters:\r\n", funcName);
+			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, memberOrigName, callArgCount, bestFuncList.size());
 		}
 		FunctionInfo *fInfo = bestFuncList[minRatingIndex];
 		if(fInfo && fInfo->generic)

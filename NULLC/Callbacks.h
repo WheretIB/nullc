@@ -10,6 +10,8 @@ class NodeZeroOP;
 
 void CallbackInitialize();
 
+char* GetClassFunctionName(TypeInfo* type, InplaceStr funcName);
+
 const char*	SetCurrentFunction(const char* name);
 unsigned	SetCurrentArgument(unsigned argument);
 TypeInfo*	GetCurrentArgumentType(const char* pos, unsigned arguments);

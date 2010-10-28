@@ -379,4 +379,25 @@ const char	*testSizeofInExternalFunction =
 auto Foo:s(){ return sizeof(Foo); }\r\n\
 Foo m;\r\n\
 return m.s();";
-TEST_RESULT("sizeof in external member funciton", testSizeofInExternalFunction, "4");
+TEST_RESULT("sizeof in external member function", testSizeofInExternalFunction, "4");
+
+const char	*testShortFunctionInMemberFunctionCall = 
+"class Foo{}\r\n\
+auto Foo:average(generic ref(int) f){ return f(5); }\r\n\
+Foo m;\r\n\
+return m.average(<x>{ 5+x; });";
+TEST_RESULT("short function in a member function call", testShortFunctionInMemberFunctionCall, "10");
+
+const char	*testShortFunctionInMemberFunctionCall2 = 
+"class Foo<T>{}\r\n\
+auto Foo:average(generic ref(int) f){ return f(5); }\r\n\
+Foo<int> m;\r\n\
+return m.average(<x>{ 5+x; });";
+TEST_RESULT("short function in a generic type member function call", testShortFunctionInMemberFunctionCall2, "10");
+
+const char	*testShortFunctionInMemberFunctionCall3 = 
+"class Foo<T>{}\r\n\
+auto Foo:average(generic ref(int, T) f){ return f(5, 4); }\r\n\
+Foo<int> m;\r\n\
+return m.average(<x, y>{ 5+x+y; });";
+TEST_RESULT("short function in a generic type member function call with generic type aliases", testShortFunctionInMemberFunctionCall3, "14");
