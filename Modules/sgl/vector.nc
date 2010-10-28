@@ -49,8 +49,7 @@ void vector:grow()
 {
 	int nReserved = data.size + (data.size >> 1) + 1;
 	T[] nArr = new T[nReserved];
-	for(i in data, j in nArr)
-		j = i;
+	array_copy(nArr, data);
 	data = nArr;
 }
 auto vector:size()
