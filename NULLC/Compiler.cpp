@@ -49,6 +49,18 @@ TypeInfo*	typeAutoArray = NULL;
 
 TypeInfo*	typeGeneric = NULL;
 
+namespace NULLC
+{
+	struct CodeRange
+	{
+		CodeRange(): start(NULL), end(NULL){}
+		CodeRange(const char* start, const char* end): start(start), end(end){}
+		const char *start, *end;
+	};
+	CodeRange	codeSourceRange[32];
+	unsigned	codeCount;
+}
+
 CompilerError::CompilerError(const char* errStr, const char* apprPos)
 {
 	Init(errStr, apprPos);
@@ -60,16 +72,29 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 	unsigned int len = (unsigned int)strlen(errStr) < NULLC_ERROR_BUFFER_SIZE ? (unsigned int)strlen(errStr) : NULLC_ERROR_BUFFER_SIZE - 1;
 	memcpy(errLocal, errStr, len);
 	errLocal[len] = 0;
-	if(apprPos >= codeStart && apprPos <= codeEnd)
+	const char *intStart = codeStart, *intEnd = codeEnd;
+	if(apprPos < intStart || apprPos > intEnd)
+	{
+		for(unsigned i = 1; i < NULLC::codeCount; i++)
+		{
+			if(apprPos >= NULLC::codeSourceRange[i].start && apprPos <= NULLC::codeSourceRange[i].end)
+			{
+				intStart = NULLC::codeSourceRange[i].start;
+				intEnd = NULLC::codeSourceRange[i].end;
+				break;
+			}
+		}
+	}
+	if(apprPos >= intStart && apprPos <= intEnd)
 	{
 		const char *begin = apprPos;
-		while((begin >= codeStart) && (*begin != '\n') && (*begin != '\r'))
+		while((begin >= intStart) && (*begin != '\n') && (*begin != '\r'))
 			begin--;
 		if(begin < apprPos)
 			begin++;
 
 		lineNum = 1;
-		const char *scan = codeStart;
+		const char *scan = intStart;
 		while(*scan && scan < begin)
 			if(*(scan++) == '\n')
 				lineNum++;
@@ -956,13 +981,16 @@ bool Compiler::Compile(const char* str, bool noClear)
 	const char	*moduleName[32];
 	const char	*moduleData[32];
 	unsigned	moduleStream[32];
+	NULLC::CodeRange	moduleRange[32];
 	unsigned int moduleCount = 0;
 
 	if(BinaryCache::GetBytecode("$base$.nc"))
 	{
 		moduleName[moduleCount] = "$base$.nc";
 		moduleStream[moduleCount] = 0;
-		moduleData[moduleCount++] = BinaryCache::GetBytecode("$base$.nc");
+		moduleData[moduleCount] = BinaryCache::GetBytecode("$base$.nc");
+		moduleRange[moduleCount] = NULLC::CodeRange();
+		moduleCount++;
 	}
 
 	const char *importPath = BinaryCache::GetImportPath();
@@ -1018,11 +1046,13 @@ bool Compiler::Compile(const char* str, bool noClear)
 			moduleStream[moduleCount] = lexer.GetStreamSize();
 			bytecode = BuildModule(path, pathNoImport);
 			start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
+			moduleRange[moduleCount] = NULLC::CodeRange(lexer.GetStreamStart()[moduleStream[moduleCount]].pos, lexer.GetStreamStart()[moduleStream[moduleCount]].pos + ((ByteCode*)bytecode)->sourceSize);
 		}else{
 			unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);
 			moduleStream[moduleCount] = lexer.GetStreamSize();
 			lexer.Lexify(bytecode + ((ByteCode*)bytecode)->offsetToSource);
 			start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
+			moduleRange[moduleCount] = NULLC::CodeRange(lexer.GetStreamStart()[moduleStream[moduleCount]].pos, lexer.GetStreamStart()[lexer.GetStreamSize() - 1].pos);
 		}
 		if(!bytecode)
 			return false;
@@ -1033,6 +1063,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 
 	activeModules.clear();
 
+	NULLC::codeCount = moduleCount;
 	for(unsigned int i = 0; i < moduleCount; i++)
 	{
 		activeModules.push_back();
@@ -1043,6 +1074,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 			return false;
 		SetGlobalSize(0);
 		activeModules.back().funcCount = CodeInfo::funcInfo.size() - activeModules.back().funcStart;
+		NULLC::codeSourceRange[i] = moduleRange[i];
 	}
 
 	CompilerError::codeStart = str;
