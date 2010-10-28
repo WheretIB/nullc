@@ -234,6 +234,14 @@ void	RunTests(bool verbose)
 	if(!CompileFile("Modules/win/window.nc"))
 		printf("ERROR: failed to compile win.window for translation\n");
 	nullcTranslateToC("NULLC/translation/win_window.cpp", "__init_win_window_nc");
+
+	if(!nullcCompile("class Proxy{ int foo(int x){ return x; } } int rc(auto ref z){ return z.foo(5); }"))
+		printf("ERROR: failed to compile test_autorefcall for translation\n");
+	nullcTranslateToC("tests/translation/test_autorefcall.cpp", "__init_test_autorefcall_nc");
+
+	if(!nullcCompile("class Foo { typedef int T; }"))
+		printf("ERROR: failed to compile test_class_typedef for translation\n");
+	nullcTranslateToC("tests/translation/test_class_typedef.cpp", "__init_test_class_typedef_nc");
 #endif
 
 	RunCompileFailTests();
