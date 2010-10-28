@@ -47,6 +47,7 @@ struct NULLCAutoArray
 
 //#define NULLC_VM_PROFILE_INSTRUCTIONS
 //#define NULLC_STACK_TRACE_WITH_LOCALS
+//#define NULLC_VM_CALL_STACK_UNWRAP
 
 //#define NULLC_LOG_FILES
 #if defined(_MSC_VER) && defined(_DEBUG)
