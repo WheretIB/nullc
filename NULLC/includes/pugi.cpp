@@ -563,10 +563,16 @@ namespace NULLCPugiXML
 			encoding = r.encoding;
 		}
 	};
-	class xml_document
+
+	class xml_document_impl
 	{
 	public:
 		pugi::xml_document	*document;
+	};
+	class xml_document
+	{
+	public:
+		xml_document_impl	*impl;
 	};
 	
 	NULLCArray description(xml_parse_result* desc)
@@ -583,10 +589,11 @@ namespace NULLCPugiXML
 
 	xml_parse_result* xml_document__load(NULLCArray contents, unsigned int options, xml_document* document)
 	{
-		pugi::xml_document *doc = document->document;
+		if(!document->impl){ nullcThrowError("xml_document constructor wasn't called"); return NULL; }
+		pugi::xml_document *doc = document->impl->document;
 		if(!doc)
 		{
-			doc = document->document = (pugi::xml_document*)nullcAllocate(sizeof(pugi::xml_document));
+			doc = document->impl->document = (pugi::xml_document*)nullcAllocate(sizeof(pugi::xml_document));
 			::new(doc) pugi::xml_document();
 		}
 		xml_parse_result *res = (xml_parse_result*)nullcAllocate(sizeof(xml_parse_result));
@@ -596,10 +603,11 @@ namespace NULLCPugiXML
 
 	xml_parse_result* xml_document__load_file(NULLCArray name, unsigned int options, pugi::xml_encoding encoding, xml_document* document)
 	{
-		pugi::xml_document *doc = document->document;
+		if(!document->impl){ nullcThrowError("xml_document constructor wasn't called"); return NULL; }
+		pugi::xml_document *doc = document->impl->document;
 		if(!doc)
 		{
-			doc = document->document = (pugi::xml_document*)nullcAllocate(sizeof(pugi::xml_document));
+			doc = document->impl->document = (pugi::xml_document*)nullcAllocate(sizeof(pugi::xml_document));
 			::new(doc) pugi::xml_document();
 		}
 		xml_parse_result *res = (xml_parse_result*)nullcAllocate(sizeof(xml_parse_result));
@@ -609,10 +617,11 @@ namespace NULLCPugiXML
 
 	xml_parse_result* xml_document__load_buffer(NULLCArray contents, int size, unsigned int options, pugi::xml_encoding encoding, xml_document* document)
 	{
-		pugi::xml_document *doc = document->document;
+		if(!document->impl){ nullcThrowError("xml_document constructor wasn't called"); return NULL; }
+		pugi::xml_document *doc = document->impl->document;
 		if(!doc)
 		{
-			doc = document->document = (pugi::xml_document*)nullcAllocate(sizeof(pugi::xml_document));
+			doc = document->impl->document = (pugi::xml_document*)nullcAllocate(sizeof(pugi::xml_document));
 			::new(doc) pugi::xml_document();
 		}
 		xml_parse_result *res = (xml_parse_result*)nullcAllocate(sizeof(xml_parse_result));
@@ -622,10 +631,11 @@ namespace NULLCPugiXML
 
 	xml_parse_result* xml_document__load_buffer_inplace(NULLCArray contents, int size, unsigned int options, pugi::xml_encoding encoding, xml_document* document)
 	{
-		pugi::xml_document *doc = document->document;
+		if(!document->impl){ nullcThrowError("xml_document constructor wasn't called"); return NULL; }
+		pugi::xml_document *doc = document->impl->document;
 		if(!doc)
 		{
-			doc = document->document = (pugi::xml_document*)nullcAllocate(sizeof(pugi::xml_document));
+			doc = document->impl->document = (pugi::xml_document*)nullcAllocate(sizeof(pugi::xml_document));
 			::new(doc) pugi::xml_document();
 		}
 		xml_parse_result *res = (xml_parse_result*)nullcAllocate(sizeof(xml_parse_result));
@@ -635,7 +645,8 @@ namespace NULLCPugiXML
 
 	void xml_document__save(NULLCFuncPtr writer, NULLCArray indent, int flags, pugi::xml_encoding encoding, xml_document* document)
 	{
-		pugi::xml_document *doc = document->document;
+		if(!document->impl){ nullcThrowError("xml_document constructor wasn't called"); return; }
+		pugi::xml_document *doc = document->impl->document;
 		if(!doc)
 		{
 			nullcThrowError("xml_document::save document is empty, you must create document first");
@@ -647,7 +658,8 @@ namespace NULLCPugiXML
 
 	int xml_document__save_file(NULLCArray name, NULLCArray indent, int flags, pugi::xml_encoding encoding, xml_document* document)
 	{
-		pugi::xml_document *doc = document->document;
+		if(!document->impl){ nullcThrowError("xml_document constructor wasn't called"); return 0; }
+		pugi::xml_document *doc = document->impl->document;
 		if(!doc)
 		{
 			nullcThrowError("xml_document::save document is empty, you must create document first");
@@ -658,15 +670,26 @@ namespace NULLCPugiXML
 
 	xml_node	xml_document__root(xml_document* document)
 	{
-		pugi::xml_document *doc = document->document;
+		if(!document->impl){ nullcThrowError("xml_document constructor wasn't called"); return xml_node(); }
+		pugi::xml_document *doc = document->impl->document;
 		if(!doc)
 		{
-			doc = document->document = (pugi::xml_document*)nullcAllocate(sizeof(pugi::xml_document));
+			doc = document->impl->document = (pugi::xml_document*)nullcAllocate(sizeof(pugi::xml_document));
 			::new(doc) pugi::xml_document();
 		}
 		xml_node ret;
 		ret.node = doc->root();
 		return ret;
+	}
+
+	void	xml_document__finalize(xml_document_impl* document)
+	{
+		pugi::xml_document *doc = document->document;
+		if(doc)
+		{
+			doc->~xml_document();
+			document->document = NULL;
+		}
 	}
 }
 
@@ -683,6 +706,8 @@ bool	nullcInitPugiXMLModule()
 	REGISTER_FUNC(xml_document__save_file, "xml_document::save_file", 0);
 
 	REGISTER_FUNC(xml_document__root, "xml_document::root", 0);
+
+	REGISTER_FUNC(xml_document__finalize, "xml_document_impl::finalize", 0);
 
 	REGISTER_FUNC(xml_attribute__next_attribute, "xml_attribute::next_attribute", 0);
 	REGISTER_FUNC(xml_attribute__previous_attribute, "xml_attribute::previous_attribute", 0);
