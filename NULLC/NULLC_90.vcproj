@@ -631,18 +631,6 @@
 					>
 				</File>
 				<File
-					RelativePath=".\includes\hashmap.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\includes\hashmap.h"
-					>
-				</File>
-				<File
-					RelativePath="..\Modules\std\hashmap.nc"
-					>
-				</File>
-				<File
 					RelativePath=".\includes\io.cpp"
 					>
 				</File>
@@ -826,6 +814,10 @@
 			<Filter
 				Name="sgl"
 				>
+				<File
+					RelativePath="..\Modules\sgl\hashmap.nc"
+					>
+				</File>
 				<File
 					RelativePath="..\Modules\sgl\list.nc"
 					>
