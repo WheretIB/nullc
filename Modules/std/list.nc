@@ -1,102 +1,89 @@
-// std.list
-import std.typeinfo;
+// sgl.list
 
-class list_node
+class list_node<T>
 {
-	list_node ref prev, next;
-	auto ref elem;
-	auto ref parent;
+	list_node<T> ref prev, next;
+	T elem;
+	list<T> ref parent;
 }
 
-class list
+class list<T>
 {
-	typeid	elemType;
-	int		anyType;
-
-	list_node ref first;
-	list_node ref last;
+	list_node<T> ref first, last;
 }
 
-auto ref list_node.value()
+auto list_node.value()
 {
 	return elem;
 }
-auto ref list_node.value(auto ref val)
+auto list_node.value(T val)
 {
-	auto listParent = list ref(parent);
-	if(!listParent.anyType && typeid(val) != (isPointer(listParent.elemType) ? listParent.elemType.subType() : listParent.elemType))
-		assert(0, "list_node.value argument type (" + typeid(val).name + ") differs from list element type (" + listParent.elemType.name + ")");
-	return elem = duplicate(val);
+	return elem = val;
 }
 
-void list:list(typeid type = auto ref)
+void list:list()
 {
-	anyType = type == auto ref;
-	elemType = type;
 	first = last = nullptr;
 }
 
-list list(typeid type = auto ref)
+void list:push_back(T elem)
 {
-	list ret;
-	ret.list(type);
-	return ret;
-}
-
-void list:push_back(auto ref elem)
-{
-	if(!anyType && typeid(elem) != (isPointer(elemType) ? elemType.subType() : elemType))
-		assert(0, "list::push_back argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
 	if(!first)
 	{
-		first = last = new list_node;
-		first.prev = first.next = nullptr;
-		first.elem = isPointer(elemType) ? elem : duplicate(elem);
+		first = last = new list_node<T>;
+		last.prev = last.next = nullptr;
 	}else{
-		last.next = new list_node;
+		last.next = new list_node<T>;
 		last.next.prev = last;
 		last.next.next = nullptr;
 		last = last.next;
-		last.elem = isPointer(elemType) ? elem : duplicate(elem);
 	}
+	last.elem = elem;
 	last.parent = this;
 }
-void list:push_front(auto ref elem)
+void list:push_front(T elem)
 {
-	if(!anyType && typeid(elem) != elemType)
-		assert(0, "list::push_front argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
 	if(!first)
 	{
-		first = last = new list_node;
+		first = last = new list_node<T>;
 		first.prev = first.next = nullptr;
-		first.elem = isPointer(elemType) ? elem : duplicate(elem);
 	}else{
-		first.prev = new list_node;
+		first.prev = new list_node<T>;
 		first.prev.next = first;
 		first.prev.prev = nullptr;
 		first = first.prev;
-		first.elem = isPointer(elemType) ? elem : duplicate(elem);
 	}
-	last.parent = this;
+	first.elem = elem;
+	first.parent = this;
 }
-void list:insert(list_node ref it, auto ref elem)
+void list:pop_back()
 {
-	if(!anyType && typeid(elem) != elemType)
-		assert(0, "list::insert argument type (" + typeid(elem).name + ") differs from list element type (" + elemType.name + ")");
-	if(list ref(it.parent) != this)
+	if(!last)
+		assert(0, "list::pop_back list is empty");
+	last = last.prev;
+}
+void list:pop_front()
+{
+	if(!first)
+		assert(0, "list::pop_back list is empty");
+	first = first.next;
+}
+void list:insert(list_node<T> ref it, T elem)
+{
+	if(it.parent != this)
 		assert(0, "list::insert iterator is from a different list");
 	auto next = it.next;
-	it.next = new list_node;
-	it.next.elem = isPointer(elemType) ? elem : duplicate(elem);
+	it.next = new list_node<T>;
+	it.next.elem = elem;
 	it.next.prev = it;
 	it.next.next = next;
 	it.next.parent = this;
 	if(next)
 		next.prev = it.next;
 }
-void list:erase(list_node ref it)
+void list:erase(list_node<T> ref it)
 {
-	if(list ref(it.parent) != this)
+	if(it.parent != this)
 		assert(0, "list::insert iterator is from a different list");
 	auto prev = it.prev, next = it.next;
 	if(prev)
@@ -112,15 +99,15 @@ void list:clear()
 {
 	first = last = nullptr;
 }
-auto ref list:back()
+auto list:back()
 {
 	assert(first != nullptr, "list::back called on empty list");
-	return last.elem;
+	return &last.elem;
 }
-auto ref list:front()
+auto list:front()
 {
 	assert(first != nullptr, "list::front called on empty list");
-	return first.elem;
+	return &first.elem;
 }
 auto list:begin()
 {
@@ -136,23 +123,21 @@ int list:empty()
 }
 
 // iteration
-class list_iterator
+class list_iterator<T>
 {
-	list_node ref curr;
+	list_node<T> ref curr;
 }
-auto list_iterator(list_node ref start)
+auto list_iterator:list_iterator(list_node<T> ref start)
 {
-	list_iterator ret;
-	ret.curr = start;
-	return ret;
+	curr = start;
 }
-auto list:start()
+auto list_iterator:start()
 {
-	return list_iterator(this.first);
+	return *this;
 }
 auto list_iterator:next()
 {
-	auto ref ret = curr.elem;
+	auto ret = &curr.elem;
 	curr = curr.next;
 	return ret;
 }
@@ -160,3 +145,103 @@ auto list_iterator:hasnext()
 {
 	return curr ? 1 : 0;
 }
+auto list:start()
+{
+	return list_iterator<T>(this.first);
+}
+
+// aggregate function and other features on sequences
+
+auto list:sum(generic ref(T) f)
+{
+	typeof(f).return sum;
+	for(i in list_iterator<T>(first))
+		sum += f(i);
+	return sum;
+}
+
+auto list:average(generic ref(T) f)
+{
+	typeof(f).return sum;
+	int count = 0;
+	for(i in list_iterator<T>(first))
+	{
+		sum += f(i);
+		count++;
+	}
+	return sum / count;
+}
+
+auto list:min_element()
+{
+	auto min = first.elem;
+	for(i in list_iterator<T>(first.next))
+		min = i < min ? i : min;
+	return min;
+}
+
+auto list:max_element()
+{
+	auto max = first.elem;
+	for(i in list_iterator<T>(first.next))
+		max = i > max ? i : max;
+	return max;
+}
+
+auto list:min_element(generic ref(T) f)
+{
+	typeof(f).return min = f(first.elem), tmp;
+	for(i in list_iterator<T>(first.next))
+	{
+		tmp = f(i);
+		min = tmp < min ? tmp : min;
+	}
+	return min;
+}
+
+auto list:max_element(generic ref(T) f)
+{
+	typeof(f).return max = f(first.elem), tmp;
+	for(i in list_iterator<T>(first.next))
+	{
+		tmp = f(i);
+		max = tmp > max ? tmp : max;
+	}
+	return max;
+}
+
+auto list:count_if(generic ref(T) f)
+{
+	int c = 0;
+	for(i in list_iterator<T>(first))
+		if(f(i))
+			c++;
+	return c;
+}
+
+auto list:all(generic ref(T) f)
+{
+	int c = first ? 1 : 0;
+	for(i in list_iterator<T>(first))
+	{
+		c = c && f(i);
+		if(!c)
+			break; // exit immediately if one of elements doesn't pass the test
+	}
+	return c;
+}
+
+auto list:any(generic ref(T) f)
+{
+	int c = 0;
+	for(i in list_iterator<T>(first))
+	{
+		c = c || f(i);
+		if(c)
+			break; // exit immediately if one of elements passed the test
+	}
+	return c;
+}
+
+// operator = for list node element?
+// list with one element?

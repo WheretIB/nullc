@@ -65,11 +65,11 @@ TEST_RESULT("Array index overload call for pointer to array type", testArrayInde
 
 const char	*testArrayIndexOverloadPointers2 =
 "import std.vector;\r\n\
-vector v = vector(int);\r\n\
-vector ref vv = &v;\r\n\
+vector<int> v;\r\n\
+auto vv = &v;\r\n\
 vv.push_back(5);\r\n\
 v.push_back(7);\r\n\
-return int(vv[0]) + int(vv[1]);";
+return vv[0] + vv[1];";
 TEST_RESULT("Array index overload call for pointer to class type", testArrayIndexOverloadPointers2, "12");
 
 const char	*testLocalOperators =

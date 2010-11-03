@@ -1,7 +1,7 @@
 #include "TestBase.h"
 
 const char *testSglVector1 =
-"import sgl.vector;\r\n\
+"import std.vector;\r\n\
 \r\n\
 auto x = new vector<int>;\r\n\
 auto y = new vector<float>(14);\r\n\
@@ -10,7 +10,7 @@ return x.capacity() + y.capacity();";
 TEST_RESULT("sgl.vector test (constructors, capacity)", testSglVector1, "14");
 
 const char *testSglVector2 =
-"import sgl.vector;\r\n\
+"import std.vector;\r\n\
 \r\n\
 auto x = new vector<int>;\r\n\
 x.push_back(4);\r\n\
@@ -32,7 +32,7 @@ return 1;";
 TEST_RESULT("sgl.vector test (push_back, pop_back, size, read: [], back, front)", testSglVector2, "1");
 
 const char *testSglVector3 =
-"import sgl.vector;\r\n\
+"import std.vector;\r\n\
 \r\n\
 auto x = new vector<int>;\r\n\
 x.resize(4);\r\n\
@@ -55,7 +55,7 @@ return 1;";
 TEST_RESULT("sgl.vector test (resize, write: [], back, front)", testSglVector3, "1");
 
 const char *testSglVector4 =
-"import sgl.vector;\r\n\
+"import std.vector;\r\n\
 \r\n\
 auto x = new vector<int>;\r\n\
 x.reserve(42);\r\n\
@@ -78,7 +78,7 @@ return 1;";
 TEST_RESULT("sgl.vector test (reserve, resize, capacity, clear, destroy)", testSglVector4, "1");
 
 const char *testSglVector5 =
-"import sgl.vector;\r\n\
+"import std.vector;\r\n\
 \r\n\
 auto x = new vector<int>;\r\n\
 x.push_back(4);\r\n\
@@ -93,7 +93,7 @@ return sum;";
 TEST_RESULT("sgl.vector test (iteration)", testSglVector5, "10");
 
 const char *testSglVector6 =
-"import sgl.vector;\r\n\
+"import std.vector;\r\n\
 \r\n\
 auto arr = new vector<int>;\r\n\
 arr.push_back(1);\r\n\
@@ -108,7 +108,7 @@ TEST_RESULT("sgl.vector test (array splices)", testSglVector6, "8");
 
 const char *testSglVector7 =
 "import std.math;\r\n\
-import sgl.vector;\r\n\
+import std.vector;\r\n\
 import std.algorithm;\r\n\
 \r\n\
 auto arr = new vector<float3>;\r\n\
@@ -145,7 +145,7 @@ return 1;";
 TEST_RESULT("sgl.vector test (aggregation functions)", testSglVector7, "1");
 
 const char *testSglVector8 =
-"import sgl.vector;\r\n\
+"import std.vector;\r\n\
 \r\n\
 auto x = new vector<int>;\r\n\
 x.push_back(4);\r\n\
@@ -163,7 +163,7 @@ TEST_RESULT("sgl.vector test (iteration) 2", testSglVector8, "18");
 
 const char *testSglVector9 =
 "import std.math;\r\n\
-import sgl.vector;\r\n\
+import std.vector;\r\n\
 import std.algorithm;\r\n\
 \r\n\
 auto arr = new vector<float3>;\r\n\
@@ -195,3 +195,28 @@ assert(arr[0].y == 5);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("sgl.vector test (aggregation functions) one element", testSglVector9, "1");
+
+const char *testSglVector10 =
+"import std.vector;\r\n\
+\r\n\
+vector<auto ref> arr;\r\n\
+auto x1 = new double(7);\r\n\
+auto x2 = new float(3);\r\n\
+auto x3 = new int(4);\r\n\
+arr.push_back(x1);\r\n\
+arr.push_back(x2);\r\n\
+arr.push_back(x3);\r\n\
+\r\n\
+auto ref[3] flat;\r\n\
+for(i in flat, j in arr)\r\n\
+	i = j;\r\n\
+\r\n\
+assert(typeid(flat[0]) == double);\r\n\
+assert(typeid(flat[1]) == float);\r\n\
+assert(typeid(flat[2]) == int);\r\n\
+assert(double(flat[0]) == 7.0);\r\n\
+assert(float(flat[1]) == 3);\r\n\
+assert(int(flat[2]) == 4);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("sgl.vector test (auto ref elements)", testSglVector10, "1");

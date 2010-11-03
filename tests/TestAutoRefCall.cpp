@@ -117,7 +117,7 @@ p.points = { Point(40, 50), Point(30, 20), Point(40, 80), Point(140, 300), Point
 p.color.rgba(255, 50, 128, 255);\r\n\
 \r\n\
 // Create a list of shapes\r\n\
-list shapes = list();\r\n\
+list<auto ref> shapes;\r\n\
 shapes.push_back(l);\r\n\
 shapes.push_back(t);\r\n\
 shapes.push_back(p);\r\n\

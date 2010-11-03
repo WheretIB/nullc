@@ -45,7 +45,7 @@ return sum;";
 TEST_RESULT("For each on user type", testForEachUserType, "1496");
 
 const char	*testForEach2 =
-"import sgl.vector;\r\n\
+"import std.vector;\r\n\
 auto a = vector<int>();\r\n\
 a.push_back(4);\r\n\
 a.push_back(8);\r\n\
@@ -157,10 +157,10 @@ const char	*testForEach5 =
 "import std.vector;\r\n\
 class Test\r\n\
 {\r\n\
-	vector a;\r\n\
+	vector<int> a;\r\n\
 }\r\n\
 auto a = new Test;\r\n\
-a.a = vector(int);\r\n\
+a.a = vector<int>();\r\n\
 a.a.push_back(10);\r\n\
 a.a.push_back(105);\r\n\
 int sum = 0;\r\n\
@@ -171,15 +171,15 @@ TEST_RESULT("For each on a member of a type that we had a reference to", testFor
 const char	*testIllFormedForEach =
 "import std.vector;\r\n\
 \r\n\
-vector a = vector(vector, 3);\r\n\
-a.push_back(vector(int));\r\n\
-vector(a.back()).push_back(1);\r\n\
-vector(a.back()).push_back(2);\r\n\
-a.push_back(vector(int));\r\n\
-vector(a.back()).push_back(3);\r\n\
-vector(a.back()).push_back(4);\r\n\
+auto a = vector<vector<int>>(3);\r\n\
+a.push_back(vector<int>());\r\n\
+a.back().push_back(1);\r\n\
+a.back().push_back(2);\r\n\
+a.push_back(vector<int>());\r\n\
+a.back().push_back(3);\r\n\
+a.back().push_back(4);\r\n\
 int z = 1;\r\n\
-for(vector i in a, int x in i)\r\n\
+for(vector<int> i in a, int x in i)\r\n\
 	z = 0;\r\n\
 return z;";
 TEST_RESULT("Ill-formed for_each test", testIllFormedForEach, "1");

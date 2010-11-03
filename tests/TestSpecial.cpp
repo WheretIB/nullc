@@ -55,16 +55,16 @@ TEST_RESULT("Euler 90 (with decreased N) set range check", testEuler90, "283");
 
 const char	*testEuler122 =
 "import std.vector;\r\n\
-vector masked = vector(int);\r\n\
+vector<int> masked;\r\n\
 masked.resize(201);\r\n\
 masked[0] = masked[1] = 0;\r\n\
  \r\n\
-void fill(vector ref curr, int depth)\r\n\
+void fill(vector<int> ref curr, int depth)\r\n\
 {\r\n\
     if(depth > 5)\r\n\
         return;\r\n\
  \r\n\
-    vector added = vector(int);\r\n\
+ vector<int> added;\r\n\
  \r\n\
     for(int i in curr)\r\n\
     {\r\n\
@@ -85,7 +85,7 @@ void fill(vector ref curr, int depth)\r\n\
         curr.pop_back();\r\n\
     }\r\n\
 }\r\n\
-vector row = vector(int);\r\n\
+vector<int> row;\r\n\
 row.reserve(201);\r\n\
 row.push_back(1);\r\n\
  \r\n\
@@ -117,14 +117,13 @@ FunctionKV FunctionKV(pattern_matcher pattern, pattern_callback function)\r\n\
 }\r\n\
 class Function\r\n\
 {\r\n\
-	vector patterns;\r\n\
+	vector<FunctionKV> patterns;\r\n\
 	pattern_callback elseFunction;\r\n\
 	int binds;\r\n\
 	Function ref bind_function(pattern_matcher pattern, pattern_callback function)\r\n\
 	{\r\n\
 		if(!binds)\r\n\
 		{\r\n\
-			patterns = vector(FunctionKV);\r\n\
 			binds = 1;\r\n\
 		}\r\n\
 		patterns.push_back(FunctionKV(pattern, function));\r\n\
@@ -236,15 +235,15 @@ auto ref operator()(auto ref a, arg_list args)\r\n\
 {\r\n\
 	return function(a)(args);\r\n\
 }\r\n\
-list list(auto ref l)\r\n\
+list<auto ref> list(auto ref l)\r\n\
 {\r\n\
-	list ref u = l;\r\n\
+	list<auto ref> ref u = l;\r\n\
 	return *u;\r\n\
 }\r\n\
 auto ref list(arg_list args)\r\n\
 {\r\n\
-	auto r = new list;\r\n\
-	*r = list();\r\n\
+	auto r = new list<auto ref>;\r\n\
+	//*r = list();\r\n\
 	for(i in args)\r\n\
 		r.push_back(i);\r\n\
 	return r;\r\n\
@@ -272,8 +271,8 @@ auto ref bind_last(arg_list args)\r\n\
 // \r\n\
 auto ref map(arg_list args)\r\n\
 {\r\n\
-	auto r = new list;//();\r\n\
-	*r = list();\r\n\
+	auto r = new list<auto ref>;//();\r\n\
+	//*r = list();\r\n\
 	for(i in list(args[1]))\r\n\
 		r.push_back(args[0](i));	// apply function to every element\r\n\
 	return r; // return the new list\r\n\
@@ -341,12 +340,12 @@ int g1 = f5(_); // 101\r\n\
 auto f6 = bind_last(add, 200, 2);\r\n\
 int g2 = f6(_); // 202\r\n\
 \r\n\
-list l = map(bind_first(add, 8), list(1, 2, 3, 4));\r\n\
+list<auto ref> l = map(bind_first(add, 8), list(1, 2, 3, 4));\r\n\
 int[4] lX;\r\n\
 for(i in l, j in lX)\r\n\
 	j = int(i); // 9; 10; 11; 12\r\n\
 \r\n\
-list l2 = map(add, list(1, 2, 3, 4));\r\n\
+list<auto ref> l2 = map(add, list(1, 2, 3, 4));\r\n\
 int[4] l2X;\r\n\
 for(i in l2, j in l2X)\r\n\
 	j = int(i(4)); // 5; 6; 7; 8\r\n\
