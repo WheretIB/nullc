@@ -554,3 +554,14 @@ int ref(vector<foo<int>>) a = hash_value;\r\n\
 vector<foo<int>> n;\r\n\
 return a(n);";
 TEST_RESULT("generic function pointer resolve 7", testGenericTypePointerResolve7, "4");
+
+const char	*testTypeofExtenendedExpr = 
+"class Foo\r\n\
+{\r\n\
+	int a;\r\n\
+	const int c = 7;\r\n\
+}\r\n\
+assert(typeof(Foo.a.isReference) == int);\r\n\
+assert(typeof(Foo.c) == int);\r\n\
+return 1;";
+TEST_RESULT("typeof on extended typeof expressions", testTypeofExtenendedExpr, "1");

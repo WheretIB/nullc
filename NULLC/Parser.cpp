@@ -399,17 +399,18 @@ bool ParseSelectType(Lexeme** str, bool allowArray, bool allowGenericType, bool 
 		if(!ParseLexem(str, lex_oparen))
 			ThrowError((*str)->pos, "ERROR: typeof must be followed by '('");
 
+		unsigned nodeCount = CodeInfo::nodeList.size();
 		if(!ParseSelectType(str))
 		{	
 			jmp_buf oldHandler;
 			memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
-			unsigned nodeCount = CodeInfo::nodeList.size(); // Node count shouldn't change while we do this
 			if(!allowGenericType || !setjmp(CodeInfo::errorHandler)) // if allowGenericType is enabled, we will set error handler
 			{
 				if(!ParseVaribleSet(str))
 					ThrowError((*str)->pos, "ERROR: expression not found after typeof(");
 				SetTypeOfLastNode();
 			}else{
+				// Node count shouldn't change while we did this
 				if(!FunctionGeneric(false) || nodeCount != CodeInfo::nodeList.size())
 				{
 					memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
@@ -421,6 +422,10 @@ bool ParseSelectType(Lexeme** str, bool allowArray, bool allowGenericType, bool 
 				memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 		}else if(!GetSelectedType()){
 			ThrowError((*str)->pos, "ERROR: cannot take typeid from auto type");
+		}else{
+			// If there was a node pushed during type selection because of extended typeof expressions, get its type
+			if(CodeInfo::nodeList.size() == nodeCount + 1)
+				SetTypeOfLastNode();
 		}
 		if(!ParseLexem(str, lex_cparen))
 			ThrowError((*str)->pos, "ERROR: ')' not found after expression in typeof");
