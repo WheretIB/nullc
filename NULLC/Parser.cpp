@@ -798,8 +798,6 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 
 	if(ParseLexem(str, lex_set))
 	{
-		if(FunctionGeneric(false))
-			ThrowError((*str)->pos, "ERROR: default argument values are unsupported in generic functions");
 		FunctionPrepareDefault();
 		if(!ParseTernaryExpr(str))
 			ThrowError((*str)->pos, "ERROR: default parameter value not found after '='");
@@ -833,8 +831,6 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		
 		if(ParseLexem(str, lex_set))
 		{
-			if(FunctionGeneric(false))
-				ThrowError((*str)->pos, "ERROR: default argument values are unsupported in generic functions");
 			FunctionPrepareDefault();
 			if(!ParseTernaryExpr(str))
 				ThrowError((*str)->pos, "ERROR: default parameter value not found after '='");

@@ -93,7 +93,7 @@ FastVector<NodeZeroOP*>	paramNodes;
 
 void AddInplaceVariable(const char* pos, TypeInfo* targetType = NULL);
 void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType);
-NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, FunctionInfo*& fResult, TypeInfo* forcedParentType = NULL);
+NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, FunctionInfo*& fResult, unsigned callArgCount, TypeInfo* forcedParentType = NULL);
 void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred = NULL);
 void HandlePointerToObject(const char* pos, TypeInfo *dstType);
 void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorReport, char* errPos, const char* funcName, unsigned callArgCount, unsigned count);
@@ -1302,7 +1302,14 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 						tempList = n;
 						start++;
 						
-						assert(start->type != lex_set);
+						// If there is a default value
+						if(start->type == lex_set)
+						{
+							start++;
+							if(!ParseTernaryExpr(&start))
+								assert(0);
+							CodeInfo::nodeList.pop_back();
+						}
 					}else{
 						if(genericArg)
 							currType = typeGeneric;
@@ -1595,7 +1602,7 @@ void AddSetVariableNode(const char* pos)
 					FunctionInfo *fInfo = bestFuncList[minRatingIndex];
 					if(fInfo && fInfo->generic)
 					{
-						CreateGenericFunctionInstance(pos, fInfo, fInfo, currentType);
+						CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u, currentType);
 						assert(fInfo->parentClass == currentType);
 						fInfo->parentClass = currentType;
 					}
@@ -1746,7 +1753,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 					FunctionInfo *fInfo = bestFuncList[minRatingIndex];
 					if(fInfo && fInfo->generic)
 					{
-						CreateGenericFunctionInstance(pos, fInfo, memberFunc, currentType);
+						CreateGenericFunctionInstance(pos, fInfo, memberFunc, ~0u, currentType);
 						assert(memberFunc->parentClass == currentType);
 						memberFunc->parentClass = currentType;
 					}
@@ -1764,7 +1771,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 						FunctionInfo *fInfo = bestFuncList[minRatingIndex];
 						if(fInfo && fInfo->generic)
 						{
-							CreateGenericFunctionInstance(pos, fInfo, fInfo, currentType);
+							CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u, currentType);
 							assert(fInfo->parentClass == currentType);
 							fInfo->parentClass = currentType;
 						}
@@ -1990,7 +1997,7 @@ void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred)
 
 		for(unsigned i = 0; i < dstPreferred->funcType->paramCount; i++) // push function argument placeholders
 			CodeInfo::nodeList.push_back(new NodeZeroOP(dstPreferred->funcType->paramType[i]));
-		NodeZeroOP *funcDefAtEnd = CreateGenericFunctionInstance(pos, fInfo, fTarget);
+		NodeZeroOP *funcDefAtEnd = CreateGenericFunctionInstance(pos, fInfo, fTarget, ~0u);
 		for(unsigned i = 0; i < dstPreferred->funcType->paramCount; i++) // remove function argument placeholders
 			CodeInfo::nodeList.pop_back();
 
@@ -2048,7 +2055,7 @@ void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred)
 		}
 		FunctionInfo *fInfo = bestFuncList[minRatingIndex];
 		if(fInfo && fInfo->generic)
-			CreateGenericFunctionInstance(pos, fInfo, fInfo);
+			CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u);
 
 		for(unsigned i = 0; i < dstPreferred->funcType->paramCount; i++) // remove function argument placeholders
 			CodeInfo::nodeList.pop_back();
@@ -2652,11 +2659,7 @@ void FunctionPrototype(const char* pos)
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 	// Remove function arguments used to enable typeof
 	for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
-	{
-		if(lastFunc.generic && curr->defaultValue)
-			ThrowError(pos, "ERROR: default argument values are unsupported in generic functions");
 		varMap.remove(curr->nameHash, curr);
-	}
 	if(!lastFunc.retType && !lastFunc.generic)
 		ThrowError(pos, "ERROR: function prototype with unresolved return type");
 	lastFunc.funcType = CodeInfo::GetFunctionType(lastFunc.retType, lastFunc.firstParam, lastFunc.paramCount);
@@ -3126,6 +3129,15 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 			tempListE = n;
 		}
 		start++;
+
+		// If there is a default value
+		if(start->type == lex_set)
+		{
+			start++;
+			if(!ParseTernaryExpr(&start))
+				assert(0);
+			CodeInfo::nodeList.pop_back();
+		}
 	}
 	assert(start->type == lex_cparen);
 	start++;
@@ -3428,7 +3440,7 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 			ThrowError(pos, "ERROR: none of the member ::%s functions can handle the supplied parameter list without conversions", funcName);
 		FunctionInfo *fInfo = bestFuncList[minRatingIndex];
 		if(fInfo && fInfo->generic)
-			CreateGenericFunctionInstance(pos, fInfo, fInfo, fInfo->parentClass);
+			CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u, fInfo->parentClass);
 
 		// Get function type
 		TypeInfo *fType = fInfo->funcType;
@@ -3504,7 +3516,7 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		FunctionInfo *fInfo = bestFuncList[minRatingIndex];
 		if(fInfo && fInfo->generic)
 		{
-			CreateGenericFunctionInstance(pos, fInfo, fInfo, currentType->subType);
+			CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u, currentType->subType);
 			assert(fInfo->parentClass == currentType->subType);
 			fInfo->parentClass = currentType->subType;
 		}
@@ -3561,7 +3573,7 @@ void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorRe
 
 // Function expects that nodes with argument types are on top of nodeList
 // Return node with function definition if there was one
-NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /* generic function */, FunctionInfo*& fResult /* function instance */, TypeInfo* forcedParentType)
+NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, FunctionInfo*& fResult, unsigned callArgCount, TypeInfo* forcedParentType)
 {
 	if(instanceDepth++ > NULLC_MAX_GENERIC_INSTANCE_DEPTH)
 		ThrowError(pos, "ERROR: reached maximum generic function instance depth (%d)", NULLC_MAX_GENERIC_INSTANCE_DEPTH);
@@ -3588,6 +3600,20 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /
 	else if(fInfo->parentClass)
 		assert(strchr(fInfo->name, ':'));
 	FunctionAdd(pos, forcedParentType ? strchr(fInfo->name, ':') + 2 : (fInfo->parentClass ? strchr(fInfo->name, ':') + 2 : fInfo->name));
+
+	if(callArgCount != ~0u && callArgCount < fType->paramCount)
+	{
+		// Move to the last parameter
+		VariableInfo *param = fInfo->firstParam;
+		for(unsigned int i = 0; i < callArgCount; i++)
+			param = param->next;
+		// While there are default values, put them
+		while(param && param->defaultValue)
+		{
+			CodeInfo::nodeList.push_back(param->defaultValue);
+			param = param->next;
+		}
+	}
 
 	// New function type is equal to generic function type no matter where we create an instance of it
 	CodeInfo::funcInfo.back()->type = fInfo->type;
@@ -3682,6 +3708,12 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo /
 		longjmp(CodeInfo::errorHandler, 1);
 	}
 	memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
+
+	if(callArgCount != ~0u && callArgCount < fType->paramCount)
+	{
+		for(unsigned i = callArgCount; i < fType->paramCount; i++)
+			CodeInfo::nodeList.pop_back();
+	}
 
 	if(fInfo->type == FunctionInfo::THISCALL)
 		TypeStop();
@@ -3968,7 +4000,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	NodeZeroOP *funcDefAtEnd = NULL;
 	if(fInfo && fInfo->generic)
 	{
-		funcDefAtEnd = CreateGenericFunctionInstance(pos, fInfo, fInfo, forcedParentType);
+		funcDefAtEnd = CreateGenericFunctionInstance(pos, fInfo, fInfo, callArgCount, forcedParentType);
 		fType = fInfo->funcType->funcType;
 	}
 

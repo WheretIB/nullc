@@ -1422,3 +1422,119 @@ assert(typeof(a) == int);\r\n\
 assert(typeof(b) == double);\r\n\
 return 1;";
 TEST_RESULT("generic type alias for a regular argument", testGeneric109, "1");
+
+const char *testGeneric110 =
+"{\r\n\
+	auto foo(generic x, int a = 5){ return x * a; }\r\n\
+\r\n\
+	assert(foo(4) == 20);\r\n\
+	assert(foo(4, 3) == 12);\r\n\
+	assert(foo(5) == 25);\r\n\
+	assert(int(foo(2.2)) == 11);\r\n\
+	assert(int(foo(1.5, 6)) == 9);\r\n\
+	assert(int(foo(2.4)) == 12);\r\n\
+}\r\n\
+{\r\n\
+	auto foo(generic x, int a = 5){ return x * a; }\r\n\
+\r\n\
+	assert(foo(4, 3) == 12);\r\n\
+	assert(foo(5) == 25);\r\n\
+	assert(int(foo(1.5, 6)) == 9);\r\n\
+	assert(int(foo(2.4)) == 12);\r\n\
+}\r\n\
+return 1;";
+TEST_RESULT("generic functions with default argument values", testGeneric110, "1");
+
+const char *testGeneric111 =
+"int foo(int a){ return -a; }\r\n\
+\r\n\
+{\r\n\
+	auto bar(generic x, int ref(int) f = foo){ return f(x); }\r\n\
+	assert(bar(4) == -4);\r\n\
+}\r\n\
+{\r\n\
+	auto bar(generic x, int ref(int) f = foo){ return f(x); }\r\n\
+	assert(bar(4, <i>{ 2*i; }) == 8);\r\n\
+}\r\n\
+{\r\n\
+	auto bar(generic x = 10, int ref(int) f = foo){ return f(x); }\r\n\
+	assert(bar(4, <i>{ 2*i; }) == 8);\r\n\
+	assert(bar() == -10);\r\n\
+}\r\n\
+return 1;";
+TEST_RESULT("generic functions with default argument values 2", testGeneric111, "1");
+
+const char *testGeneric112 =
+"auto foo(generic x = 4){ return -x; }\r\n\
+\r\n\
+assert(typeof(foo(4.0)) == double);\r\n\
+assert(foo(4.0) == -4.0);\r\n\
+assert(foo() == -4);\r\n\
+assert(typeof(foo()) == int);\r\n\
+assert(typeof(foo(4.0)) == double);\r\n\
+assert(foo(4.0) == -4.0);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("generic functions with default argument values 3", testGeneric112, "1");
+
+LOAD_MODULE(test_generic_export10, "test.generic_export10", "auto foo(generic x, int a = 5){ return x * a; }");
+const char *testGeneric113 =
+"import test.generic_export10;\r\n\
+assert(foo(4) == 20);\r\n\
+assert(foo(4, 3) == 12);\r\n\
+assert(foo(5) == 25);\r\n\
+assert(int(foo(2.2)) == 11);\r\n\
+assert(int(foo(1.5, 6)) == 9);\r\n\
+assert(int(foo(2.4)) == 12);\r\n\
+return 1;";
+TEST_RESULT("generic functions with default argument values 4 (import)", testGeneric113, "1");
+
+const char *testGeneric114 =
+"import test.generic_export10;\r\n\
+assert(foo(4, 3) == 12);\r\n\
+assert(foo(5) == 25);\r\n\
+assert(int(foo(1.5, 6)) == 9);\r\n\
+assert(int(foo(2.4)) == 12);\r\n\
+return 1;";
+TEST_RESULT("generic functions with default argument values 5 (import)", testGeneric114, "1");
+
+LOAD_MODULE(test_generic_export11, "test.generic_export11", "auto foo(generic x, int a = 5){ return x * a; } assert(foo(4) == 20);");
+const char *testGeneric115 =
+"import test.generic_export11;\r\n\
+assert(foo(4) == 20);\r\n\
+assert(foo(4, 3) == 12);\r\n\
+assert(foo(5) == 25);\r\n\
+assert(int(foo(2.2)) == 11);\r\n\
+assert(int(foo(1.5, 6)) == 9);\r\n\
+assert(int(foo(2.4)) == 12);\r\n\
+return 1;";
+TEST_RESULT("generic functions with default argument values 6 (import)", testGeneric115, "1");
+
+const char *testGeneric116 =
+"import test.generic_export11;\r\n\
+assert(foo(4, 3) == 12);\r\n\
+assert(foo(5) == 25);\r\n\
+assert(int(foo(1.5, 6)) == 9);\r\n\
+assert(int(foo(2.4)) == 12);\r\n\
+return 1;";
+TEST_RESULT("generic functions with default argument values 7 (import)", testGeneric116, "1");
+
+LOAD_MODULE(test_generic_export12, "test.generic_export12", "int foo(int a){ return -a; } auto bar(generic x = 10, int ref(int) f = foo){ return f(x); }");
+const char *testGeneric117 =
+"import test.generic_export12;\r\n\
+assert(bar(4) == -4);\r\n\
+return 1;";
+TEST_RESULT("generic functions with default argument values 8 (import)", testGeneric117, "1");
+
+const char *testGeneric118 =
+"import test.generic_export12;\r\n\
+assert(bar(4, <i>{ 2*i; }) == 8);\r\n\
+return 1;";
+TEST_RESULT("generic functions with default argument values 8 (import)", testGeneric118, "1");
+
+const char *testGeneric119 =
+"import test.generic_export12;\r\n\
+assert(bar(4, <i>{ 2*i; }) == 8);\r\n\
+assert(bar() == -10);\r\n\
+return 1;";
+TEST_RESULT("generic functions with default argument values 8 (import)", testGeneric119, "1");

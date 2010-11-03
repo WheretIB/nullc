@@ -178,9 +178,6 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "return double == typeof(1).return;", "ERROR: 'return' can only be applied to a function type, but we have 'int'");
 	TEST_FOR_FAIL("parsing", "return double == typeof(1).target;", "ERROR: 'target' can only be applied to a pointer or array type, but we have 'int'");
 
-	TEST_FOR_FAIL("parsing", "auto foo(generic a = 5){ return -a; } return foo();", "ERROR: default argument values are unsupported in generic functions");
-	TEST_FOR_FAIL("parsing", "auto foo(generic a, b = 4){ return -a + b; } return foo(5);", "ERROR: default argument values are unsupported in generic functions");
-
 	TEST_FOR_FAIL("parsing", "coroutine int +foo(){}", "ERROR: function name not found after return type");
 
 	TEST_FOR_FAIL("parsing", "int foo(generic a);", "ERROR: generic function cannot be forward-declared");
