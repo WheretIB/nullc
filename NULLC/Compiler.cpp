@@ -600,13 +600,13 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				newInfo = CodeInfo::typeInfo.back();
 				CodeInfo::typeFunctions.push_back(newInfo);
 				newInfo->CreateFunctionType(CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset]]], tInfo->memberCount);
-				newInfo->dependsOnGeneric = newInfo->funcType->retType->dependsOnGeneric;
+
+				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
 
 				for(unsigned int n = 1; n < tInfo->memberCount + 1; n++)
 				{
 					newInfo->funcType->paramType[n-1] = CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset + n]]];
 					newInfo->funcType->paramSize += newInfo->funcType->paramType[n-1]->size > 4 ? newInfo->funcType->paramType[n-1]->size : 4;
-					newInfo->dependsOnGeneric |= newInfo->funcType->paramType[n-1]->dependsOnGeneric;
 				}
 
 #ifdef _DEBUG
@@ -634,7 +634,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 					}
 				}
 				newInfo->nextArrayType = tempInfo->arrayType;
-				newInfo->dependsOnGeneric = tempInfo->dependsOnGeneric;
+				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
 				tempInfo->arrayType = newInfo;
 				CodeInfo::typeArrays.push_back(newInfo);
 				break;
@@ -644,7 +644,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, tempInfo->refLevel + 1, 0, 1, tempInfo, TypeInfo::NULLC_PTR_TYPE));
 				newInfo = CodeInfo::typeInfo.back();
 				newInfo->size = NULLC_PTR_SIZE;
-				newInfo->dependsOnGeneric = tempInfo->dependsOnGeneric;
+				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
 
 				// Save it for future use
 				CodeInfo::typeInfo[typeRemap[tInfo->subType]]->refType = newInfo;
@@ -655,7 +655,8 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), symbols + tInfo->offsetToName);
 				newInfo = new TypeInfo(CodeInfo::typeInfo.size(), nameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 
-				newInfo->hasFinalizer = !!tInfo->hasFinalizer;
+				newInfo->hasFinalizer = tInfo->typeFlags & ExternTypeInfo::TYPE_HAS_FINALIZER;
+				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
 
 				CodeInfo::typeInfo.push_back(newInfo);
 				CodeInfo::classMap.insert(newInfo->GetFullNameHash(), newInfo);
@@ -671,7 +672,6 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 					{
 						newInfo->genericBase = CodeInfo::typeInfo[typeRemap[tInfo->definitionOffset & ~0x80000000]];
 					}else{ // Or because it is a generic type base
-						newInfo->dependsOnGeneric = true;
 						newInfo->genericInfo = newInfo->CreateGenericContext(tInfo->definitionOffset + int(CodeInfo::lexFullStart - CodeInfo::lexStart));
 
 						CodeInfo::nodeList.push_back(new NodeZeroOP());
@@ -1895,7 +1895,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		typeInfo.nameHash = refType.GetFullNameHash();
 
 		typeInfo.defaultAlign = (unsigned char)refType.alignBytes;
-		typeInfo.hasFinalizer = refType.hasFinalizer;
+		typeInfo.typeFlags = refType.hasFinalizer ? ExternTypeInfo::TYPE_HAS_FINALIZER : 0;
+		typeInfo.typeFlags |= refType.dependsOnGeneric ? ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC : 0;
 
 		typeInfo.pointerCount = refType.hasPointers;
 		if(refType.funcType != 0)						// Function type

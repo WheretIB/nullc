@@ -1960,3 +1960,17 @@ auto foo(Bar<int, @T> ref(int, @U) m){ assert(T == int); assert(U == float); aut
 Bar<int, int> ken(int a, float b){ Bar<int, int> r; r.x = a; r.y = b; return r; }\r\n\
 return foo(ken);";
 TEST_RESULT("Additional specialization test 7 (generic type alias in function type) and overloads", testGenericType132, "5");
+
+const char *testGenericType133 =
+"class Foo<T>{ T x; }\r\n\
+\r\n\
+int foo(Foo<Foo<@T>> a, int x){ return 1; }\r\n\
+int foo(Foo<@T> a, double x){ return 2; }\r\n\
+\r\n\
+Foo<int> a;\r\n\
+assert(foo(a, 2) == 2);\r\n\
+Foo<Foo<int>> b;\r\n\
+assert(foo(b, 2) == 1);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Additional specialization test 7 (multiple specializations for the same type)", testGenericType133, "1");

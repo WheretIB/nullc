@@ -165,7 +165,7 @@ void TypeFinish();
 void TypeContinue(const char* pos);
 void TypeStop();
 void TypeGeneric(unsigned pos);
-void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases);
+void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool genericTemp = false);
 
 void AddAliasType(InplaceStr aliasName);
 

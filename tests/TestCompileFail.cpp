@@ -443,7 +443,7 @@ return int(foo(b) + foo(c));",
   foo(Foo<float, float>)\r\n\
  the only available are:\r\n\
   int foo(Foo<int, int>)\r\n\
-  auto foo(Foo) instanced to\r\n\
+  auto foo(Foo<int, generic>) instanced to\r\n\
     foo(Foo<int, float>)\r\n\
 \r\n\
   at \"return int(foo(b) + foo(c));\"\r\n\
@@ -453,8 +453,8 @@ return int(foo(b) + foo(c));",
 	TEST_FOR_FAIL("generic function specialization fail", "class Bar{ typedef int ref iref; } class Foo<T>{ T x; } auto foo(Foo<generic> a){ return a.x; } Bar z; return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
 	TEST_FOR_FAIL("generic function specialization fail 2", "class Foo<T>{ T x; } auto foo(Foo<generic> a){ return a.x; } return foo(5);", "ERROR: can't find function 'foo' with following parameters:");
 	TEST_FOR_FAIL("generic function specialization fail 3", "class Bar<T>{ T ref ref y; } class Foo<T>{ T x; } auto foo(Foo<generic> a){ return a.x; } Bar<float> z; return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
-	TEST_FOR_FAIL("generic function specialization fail 4", "class Foo<T>{ T x; }auto foo(Foo<generic, int> a){ return a.x; }Foo<float> z;return foo(z);", "ERROR: generic type accepts only 1 argument(s)");
-	TEST_FOR_FAIL("generic function specialization fail 5", "class Foo<T, U>{ T x; } auto foo(Foo<generic> a){ return a.x; } Foo<int, int> z; return foo(z);", "ERROR: generic type expects 1 more argument(s)");
+	TEST_FOR_FAIL("generic function specialization fail 4", "class Foo<T>{ T x; }auto foo(Foo<generic, int> a){ return a.x; }Foo<float> z;return foo(z);", "ERROR: type has only '1' generic argument(s) while '2' specified");
+	TEST_FOR_FAIL("generic function specialization fail 5", "class Foo<T, U>{ T x; } auto foo(Foo<generic> a){ return a.x; } Foo<int, int> z; return foo(z);", "ERROR: there where only '1' argument(s) to a generic type that expects '2'");
 
 	TEST_FOR_FAIL("generic function specialization alias double", "class Foo<T, U>{ T x; } auto foo(Foo<@T, @T> x){ T y = x.x; return y + x.x; } Foo<int, float> a; return foo(a);", "ERROR: function 'foo' argument list has multiple 'T' aliases");
 

@@ -286,7 +286,7 @@ void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool 
 				TypeInfo *preferredType = instanceType ? (instanceType->funcType->paramCount ? instanceType->funcType->paramType[0] : NULL) : NULL;
 				TypeHandler *first = NULL, *handle = NULL;
 				unsigned int count = 0;
-				if(ParseSelectType(str, true, allowGenericType, allowGenericType, true, preferredType, instanceFailure))
+				if(ParseSelectType(str, true, allowGenericType, false, true, preferredType, instanceFailure))
 				{
 					do
 					{
@@ -298,7 +298,7 @@ void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool 
 						if(count)
 						{
 							preferredType = instanceType ? instanceType->funcType->paramType[count] : NULL;
-							ParseSelectType(str, true, allowGenericType, allowGenericType, true, preferredType, instanceFailure);
+							ParseSelectType(str, true, allowGenericType, false, true, preferredType, instanceFailure);
 							handle->next = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
 							handle = handle->next;
 						}else{
@@ -467,8 +467,6 @@ bool ParseSelectType(Lexeme** str, bool allowArray, bool allowGenericType, bool 
 			bool resolvedToGeneric = false;
 			do
 			{
-				if(instanceType && count >= aliasCount)
-					ThrowError((*str)->pos, "ERROR: generic type accepts only %d argument(s)", aliasCount);
 				if(!ParseSelectType(str, allowArray, allowGenericType, allowGenericBase, allowExtendedTypeof, instanceType ? forwList->type : NULL, instanceFailure))
 				{
 					if(instanceFailure)
@@ -486,18 +484,13 @@ bool ParseSelectType(Lexeme** str, bool allowArray, bool allowGenericType, bool 
 				if(instanceType)
 					forwList = forwList->next;
 			}while(ParseLexem(str, lex_comma));
-			if(instanceType && count != aliasCount)
-				ThrowError((*str)->pos, "ERROR: generic type expects %d more argument(s)", aliasCount - count);
 			// If type depends on generic
 			if(resolvedToGeneric)
 			{
 				if(!allowGenericType) // Fail if not allowed
 					ThrowError((*str)->pos, "ERROR: type depends on 'generic' in a context where it is not allowed");
-				// Remove pushed type IDs
-				for(unsigned i = 0; i < count; i++)
-					CodeInfo::nodeList.pop_back();
-				// Select this type as generic
-				SelectTypeByPointer(genericType);
+				// Instance type that has generic arguments
+				TypeInstanceGeneric((*str)->pos, genericType, count, true);
 			}else{
 				TypeInstanceGeneric((*str)->pos, genericType, count);
 			}
@@ -779,7 +772,7 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 {
 	bool genericArg = false;
-	if(!ParseSelectType(str, true, true, true))
+	if(!ParseSelectType(str, true, true))
 		return true;
 
 	genericArg = GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
@@ -818,7 +811,7 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		argID++;
 		bool lastGeneric = genericArg;
 		genericArg = false;
-		if(!ParseSelectType(str, true, true, true))
+		if(!ParseSelectType(str, true, true))
 			genericArg = lastGeneric; // if there is no type and no generic, then this parameter is as generic as the last one
 		genericArg |= GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
 		if(genericArg)

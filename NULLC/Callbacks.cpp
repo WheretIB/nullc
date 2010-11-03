@@ -2020,7 +2020,6 @@ void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred)
 		bestFuncList.clear();
 		// select all functions
 		SelectFunctionsForHash(info->nameHash, 0);
-		// $ remove functions with wrong type
 
 		for(unsigned i = 0; i < dstPreferred->funcType->paramCount; i++) // push function argument placeholders
 			CodeInfo::nodeList.push_back(new NodeZeroOP(dstPreferred->funcType->paramType[i]));
@@ -4364,7 +4363,7 @@ void TypeGeneric(unsigned pos)
 	currType = newType;
 }
 
-void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases)
+void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool genericTemp)
 {
 	Lexeme *start = CodeInfo::lexStart + base->genericInfo->start;
 	NodeZeroOP **aliasType = &CodeInfo::nodeList[CodeInfo::nodeList.size() - aliases];
@@ -4439,23 +4438,28 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases)
 	newType->genericBase = base;
 	newType->childAlias = aliasList;
 
-	// Reparse type body and format errors so that the user will know where it happened
 	jmp_buf oldHandler;
 	memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
-	if(!setjmp(CodeInfo::errorHandler))
+	if(!genericTemp)
 	{
-		ParseClassBody(&start);
-	}else{
-		memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
+		// Reparse type body and format errors so that the user will know where it happened
+		if(!setjmp(CodeInfo::errorHandler))
+		{
+			ParseClassBody(&start);
+		}else{
+			memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 
-		char	*errPos = errorReport;
-		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "ERROR: while instantiating generic type %s:\r\n", instancedType->name);
-		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s", CodeInfo::lastError.GetErrorString());
-		if(errPos[-2] == '\r' && errPos[-1] == '\n')
-			errPos -= 2;
-		*errPos++ = 0;
-		CodeInfo::lastError = CompilerError(errorReport, pos);
-		longjmp(CodeInfo::errorHandler, 1);
+			char	*errPos = errorReport;
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "ERROR: while instantiating generic type %s:\r\n", instancedType->name);
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s", CodeInfo::lastError.GetErrorString());
+			if(errPos[-2] == '\r' && errPos[-1] == '\n')
+				errPos -= 2;
+			*errPos++ = 0;
+			CodeInfo::lastError = CompilerError(errorReport, pos);
+			longjmp(CodeInfo::errorHandler, 1);
+		}
+	}else{
+		newType->dependsOnGeneric = true;
 	}
 	// Stop type definition
 	TypeFinish();

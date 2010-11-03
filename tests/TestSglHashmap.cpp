@@ -41,3 +41,12 @@ assert(map[\"hello\"] == 10);\r\n\
 return 1;";
 TEST_RESULT("sgl.hashmap test ([] read/write, find, remove, clear)", testSglHashmap1, "1");
 
+const char *testSglHashmap2 =
+"import sgl.hashmap;\r\n\
+\r\n\
+int hash_value(int v) { return v; }\r\n\
+hashmap<int, float> hh;\r\n\
+\r\n\
+hh[short(1)] = 6;\r\n\
+return int(hh[short(1)]);";
+TEST_RESULT("sgl.hashmap test (key is not an array)", testSglHashmap2, "6");

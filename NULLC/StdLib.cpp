@@ -324,7 +324,7 @@ void* NULLC::AllocObject(int size, unsigned type)
 		return NULL;
 	}
 	int finalize = 0;
-	if(type && linker->exTypes[type].hasFinalizer)
+	if(type && (linker->exTypes[type].typeFlags & ExternTypeInfo::TYPE_HAS_FINALIZER))
 		finalize = OBJECT_FINALIZABLE;
 
 	memset(data, 0, size);
