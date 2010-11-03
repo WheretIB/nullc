@@ -549,4 +549,7 @@ return int(y() + z());",
 	TEST_FOR_FAIL("multiple aliases with different type in argument list", "class Foo<T>{ void Foo(){} } auto foo(Foo<@T> a, b){} foo(Foo<int>(), Foo<double>());", "ERROR: can't find function 'foo' with following parameters:");
 
 	TEST_FOR_FAIL("typedef dies after a generic function instance 2", "class Foo<T>{ T x; } auto foo(Foo<@T> x, int ref(int, int) y){ return x.x * y(1, 2); } Foo<int> a; a.x = 2; assert(6 == foo(a, <i, j>{ i+j; })); T x; return x;", "ERROR: variable or function 'T' is not defined");
+
+	TEST_FOR_FAIL("generic in an illegal context", "auto foo(generic x){} class Bar<T>{ T x; } auto Bar:bar(generic y = foo(Bar<T>())){} return 1;", "ERROR: type depends on 'generic' in a context where it is not allowed");
+	TEST_FOR_FAIL("generic in an illegal context", "auto foo(generic x){} class Bar<T>{ T x; } auto Bar:bar(generic y = foo(T())){} return 1;", "ERROR: couldn't fully resolve type 'generic' for an argument 0 of a function 'foo'");
 }

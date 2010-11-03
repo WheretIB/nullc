@@ -1603,7 +1603,6 @@ void AddSetVariableNode(const char* pos)
 					if(fInfo && fInfo->generic)
 					{
 						CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u, currentType);
-						assert(fInfo->parentClass == currentType);
 						fInfo->parentClass = currentType;
 					}
 				}
@@ -1754,7 +1753,6 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 					if(fInfo && fInfo->generic)
 					{
 						CreateGenericFunctionInstance(pos, fInfo, memberFunc, ~0u, currentType);
-						assert(memberFunc->parentClass == currentType);
 						memberFunc->parentClass = currentType;
 					}
 				}else{
@@ -1772,7 +1770,6 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 						if(fInfo && fInfo->generic)
 						{
 							CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u, currentType);
-							assert(fInfo->parentClass == currentType);
 							fInfo->parentClass = currentType;
 						}
 						// Call accessor
@@ -3115,7 +3112,13 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		// type must be followed by argument name
 		assert(start->type == lex_string);
 
-		assert(!currType->dependsOnGeneric); // selected type must be fully resolved
+		if(currType->dependsOnGeneric)
+		{
+			for(unsigned int n = 0; n < argumentCount; n++)
+				CodeInfo::nodeList.pop_back();
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: couldn't fully resolve type '%s' for an argument %d of a function '%s'", referenceType->GetFullTypeName(), argID, fInfo->name);
+		}
+
 		// Insert variable to a list so that a typeof can be taken from it
 		InplaceStr paramName = InplaceStr(start->pos, start->length);
 		assert(currType);
@@ -3517,7 +3520,6 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		if(fInfo && fInfo->generic)
 		{
 			CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u, currentType->subType);
-			assert(fInfo->parentClass == currentType->subType);
 			fInfo->parentClass = currentType->subType;
 		}
 	}

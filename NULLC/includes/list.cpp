@@ -6,7 +6,7 @@ namespace NULLCList
 
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.list", (void(*)())NULLCList::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("old.list", (void(*)())NULLCList::funcPtr, name, index)) return false;
 bool	nullcInitListModule()
 {
 

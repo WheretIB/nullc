@@ -283,7 +283,7 @@ return *x.b;";
 TEST_RELOCATE("VM stack relocation with aligned class members", testStackRelocationClassAlignedMembers, "15");
 
 const char	*testAutoArrayRelocation =
-"import std.vector;\r\n\
+"import old.vector;\r\n\
 \r\n\
 class A\r\n\
 {\r\n\
@@ -308,7 +308,7 @@ return *test.a + *test.b;";
 TEST_RELOCATE("VM stack relocation (auto[] type)", testAutoArrayRelocation, "64");
 
 const char	*testAutoArrayRelocation2 =
-"import std.vector;\r\n\
+"import old.vector;\r\n\
 vector arr = vector(int);\r\n\
 void corrupt()\r\n\
 {\r\n\

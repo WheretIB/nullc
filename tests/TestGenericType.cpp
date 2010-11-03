@@ -2031,3 +2031,23 @@ auto foo(Foo<@T, @T> x){ return 2; }\r\n\
 Foo<int, int> a;\r\n\
 return foo(a);";
 TEST_RESULT("function with equal alias names is instanced only if alias types are equal", testGenericType137, "2");
+
+const char *testGenericType138 =
+"auto bar(auto ref x){ return x; }\r\n\
+auto bar(generic x){ @if(typeof(x).isReference) return x; else return &x; }\r\n\
+\r\n\
+class Foo<T>{}\r\n\
+\r\n\
+typeid Foo:foo(typeof(bar(T())) e){ return typeof(e); }\r\n\
+\r\n\
+Foo<int> test1;\r\n\
+assert(test1.foo(4) == int ref);\r\n\
+\r\n\
+Foo<int ref> test2; int t;\r\n\
+assert(test2.foo(&t) == int ref);\r\n\
+\r\n\
+Foo<auto ref> test3;\r\n\
+assert(test3.foo(4) == auto ref);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("improved error handling in typeof", testGenericType138, "1");

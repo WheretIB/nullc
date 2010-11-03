@@ -1,7 +1,7 @@
 #include "TestBase.h"
 
 const char *testSglHashmap1 =
-"import sgl.hashmap;\r\n\
+"import std.hashmap;\r\n\
 \r\n\
 hashmap<char[], int> map = hashmap<char[], int>();\r\n\
 \r\n\
@@ -42,7 +42,7 @@ return 1;";
 TEST_RESULT("sgl.hashmap test ([] read/write, find, remove, clear)", testSglHashmap1, "1");
 
 const char *testSglHashmap2 =
-"import sgl.hashmap;\r\n\
+"import std.hashmap;\r\n\
 \r\n\
 int hash_value(int v) { return v; }\r\n\
 hashmap<int, float> hh;\r\n\

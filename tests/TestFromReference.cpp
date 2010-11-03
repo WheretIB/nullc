@@ -127,14 +127,14 @@ TEST_RESULT("example of a random number generator", testReference7, "117331");
 const char	*testReference8 =
 "import std.vector;\r\n\
 // Function will return forward iterator over vectors' values\r\n\
-auto forward_iterator(vector ref x)\r\n\
+auto forward_iterator(vector<int> ref x)\r\n\
 {\r\n\
     // Every time the coroutine is called, it will return vector element and advance to the next\r\n\
-    coroutine auto ref iterate()\r\n\
+    coroutine auto iterate()\r\n\
     {\r\n\
         // Loop over all elements\r\n\
         for(int i = 0; i < x.size(); i++)\r\n\
-            yield x[i]; // and return them one after the other\r\n\
+            yield &x[i]; // and return them one after the other\r\n\
         // return statement can still be used in a coroutine.\r\n\
         return nullptr; // return null pointer to mark the end\r\n\
     }\r\n\
@@ -142,7 +142,7 @@ auto forward_iterator(vector ref x)\r\n\
     return iterate;\r\n\
 }\r\n\
 // create vector and add some numbers to it\r\n\
-vector a = vector(int);\r\n\
+vector<int> a = vector<int>();\r\n\
 a.push_back(4);\r\n\
 a.push_back(5);\r\n\
 a.push_back(40);\r\n\
@@ -154,7 +154,7 @@ auto it = forward_iterator(a);\r\n\
 int sum = 0;\r\n\
 auto ref x; // variable to hold the pointer to current element\r\n\
 while(x = it()) // iterate through all elements\r\n\
-    sum += int(x); // and add them together\r\n\
+	sum += int(x); // and add them together\r\n\
 return sum; // 49";
 TEST_RESULT("example of a forward iterator over vector contents", testReference8, "49");
 

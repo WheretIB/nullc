@@ -643,14 +643,6 @@
 					>
 				</File>
 				<File
-					RelativePath=".\includes\list.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\includes\list.h"
-					>
-				</File>
-				<File
 					RelativePath="..\Modules\std\list.nc"
 					>
 				</File>
@@ -728,14 +720,6 @@
 				</File>
 				<File
 					RelativePath="..\Modules\std\typeinfo.nc"
-					>
-				</File>
-				<File
-					RelativePath=".\includes\vector.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\includes\vector.h"
 					>
 				</File>
 				<File
@@ -822,8 +806,32 @@
 					RelativePath="..\Modules\sgl\list.nc"
 					>
 				</File>
+			</Filter>
+			<Filter
+				Name="old"
+				>
 				<File
-					RelativePath="..\Modules\sgl\vector.nc"
+					RelativePath=".\includes\list.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\list.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\old\list.nc"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\vector.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\vector.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\old\vector.nc"
 					>
 				</File>
 			</Filter>

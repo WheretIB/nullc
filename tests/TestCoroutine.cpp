@@ -253,7 +253,7 @@ return (t1 == 567856) + (t2 == 452345);";
 TEST_RESULT("Coroutine 13 (coroutine with local function inside, argument closure).", testCoroutine12, "2");
 
 const char	*testCoroutineExampleA =
-"import sgl.vector;\r\n\
+"import std.vector;\r\n\
 auto forward_iterator(vector<@T> ref x)\r\n\
 {\r\n\
 	coroutine auto iterate()\r\n\

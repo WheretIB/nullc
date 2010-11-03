@@ -165,7 +165,7 @@ namespace NULLCVector
 
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.vector", (void(*)())NULLCVector::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("old.vector", (void(*)())NULLCVector::funcPtr, name, index)) return false;
 bool	nullcInitVectorModule()
 {
 	REGISTER_FUNC(ConstructVector, "cConstructVector", 0);

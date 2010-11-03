@@ -259,7 +259,7 @@ return f[0]();";
 TEST_RESULT("Garbage collection correctness 10 (local member function context).", testGarbageCollectionCorrectness10, "13");
 
 const char	*testGarbageCollectionCorrectness11 =
-"import std.vector;\r\n\
+"import old.vector;\r\n\
 import std.gc;\r\n\
 \r\n\
 class A\r\n\
@@ -292,7 +292,7 @@ return 1;";
 TEST_RESULT("Garbage collection correctness 12 (auto ref recursion).", testGarbageCollectionCorrectness12, "1");
 
 const char	*testGarbageCollectionCorrectness13 =
-"import std.vector;\r\n\
+"import old.vector;\r\n\
 import std.gc;\r\n\
 vector arr = vector(int);\r\n\
 GC.CollectMemory();\r\n\
@@ -311,8 +311,8 @@ return *y;";
 TEST_RESULT("Garbage collection correctness 14 (extra function argument check).", testGarbageCollectionCorrectness14, "8");
 
 const char	*testGarbageCollectionCorrectness15 =
-"import std.vector;\r\n\
-import std.list;\r\n\
+"import old.vector;\r\n\
+import old.list;\r\n\
 import std.gc;\r\n\
 auto a = new list;\r\n\
 a.list(int);\r\n\

@@ -27,7 +27,7 @@ auto list_iterator:hasnext();!
 */
 
 const char *testSglList1 =
-"import sgl.list;\r\n\
+"import std.list;\r\n\
 \r\n\
 auto x = new list<int>;\r\n\
 x.push_back(4);\r\n\
@@ -57,7 +57,7 @@ return 1;";
 TEST_RESULT("sgl.list test (push_back, pop_back, push_front, pop_front, back, front, iteration)", testSglList1, "1");
 
 const char *testSglList2 =
-"import sgl.list;\r\n\
+"import std.list;\r\n\
 list<int> arr;\r\n\
 arr.push_back(1);\r\n\
 arr.push_back(2);\r\n\
@@ -70,7 +70,7 @@ return sum;";
 TEST_RESULT("sgl.list test (push_back, iteration)", testSglList2, "10");
 
 const char *testSglList3 =
-"import sgl.list;\r\n\
+"import std.list;\r\n\
 list<int> arr;\r\n\
 arr.push_back(1);\r\n\
 assert(!arr.empty());\r\n\
@@ -81,7 +81,7 @@ TEST_RESULT("sgl.list test (clear, empty)", testSglList3, "1");
 
 const char *testSglList4 =
 "import std.math;\r\n\
-import sgl.list;\r\n\
+import std.list;\r\n\
 \r\n\
 auto arr = new list<float3>;\r\n\
 arr.push_back(float3(0, 1, 0));\r\n\
@@ -113,7 +113,7 @@ TEST_RESULT("sgl.list test (aggregation functions)", testSglList4, "1");
 
 const char *testSglList5 =
 "import std.math;\r\n\
-import sgl.list;\r\n\
+import std.list;\r\n\
 \r\n\
 auto arr = new list<float3>;\r\n\
 arr.push_back(float3(0, 5, 0));\r\n\
@@ -139,3 +139,48 @@ assert(1 == arr.any(<x>{ x.y > 1; }));\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("sgl.list test (aggregation functions) one element", testSglList5, "1");
+
+const char *testSglList6 =
+"import std.list;\r\n\
+\r\n\
+list<auto ref> arr;\r\n\
+arr.push_back(new int(4));\r\n\
+arr.push_front(new double(7));\r\n\
+\r\n\
+auto m = arr.begin();\r\n\
+arr.insert(m, new float(3));\r\n\
+\r\n\
+auto ref[3] flat;\r\n\
+for(i in flat, j in arr)\r\n\
+i = j;\r\n\
+\r\n\
+assert(typeid(flat[0]) == double);\r\n\
+assert(typeid(flat[1]) == float);\r\n\
+assert(typeid(flat[2]) == int);\r\n\
+assert(double(flat[0]) == 7.0);\r\n\
+assert(float(flat[1]) == 3);\r\n\
+assert(int(flat[2]) == 4);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("sgl.list test (auto ref elements)", testSglList6, "1");
+
+const char *testSglList7 =
+"import std.list;\r\n\
+\r\n\
+list<int ref> arr;\r\n\
+arr.push_back(new int(4));\r\n\
+arr.push_front(new int(7));\r\n\
+\r\n\
+auto m = arr.begin();\r\n\
+arr.insert(m, new int(3));\r\n\
+\r\n\
+int[3] flat;\r\n\
+for(i in flat, j in arr)\r\n\
+	i = *j;\r\n\
+\r\n\
+assert(flat[0] == 7);\r\n\
+assert(flat[1] == 3);\r\n\
+assert(flat[2] == 4);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("sgl.list test (reference elements)", testSglList7, "1");
