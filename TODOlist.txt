@@ -11,15 +11,16 @@ Core:
 	20. f. context address tracking in not neccessary in most cases (?)
 	21. u. need to clarify when external variables in a local function inside a coroutine are closed.
 	23. f. move gen_list to base module as a generic function (?)
-	27. f. ability to replace parts of function type with generic (?)
+	28. u. how is generic variable argument function is instanced?
+	30. f. tuples and/or multiple return values 
 
 Library:
 	1. f. string
-	2. f. hash_map
-	4. f. containers for pointers
 
 Debug:
 	1. f. Breakpoints on x86
+	3. u. check all generic type tests with generic types _and_ functions that use these types in modules
+	4. u. check how generic type defined in model C is visible in module A with dependancy A->B->C
 
 SuperCalc:
 	4. f. Tooltips with variable values
@@ -206,3 +207,27 @@ DONE: @ followed by lexeme of operator should take an address of a function with
 DONE: fix process deadlock on breakpoint (and on infinite loops) in finalizer called by nullcFinalize
 DONE: list comprehension should support arrays of pointers
 DONE: typedef should be exported
+DONE: memberaccess is fixed for function pointer, but what if member function pointer is taken inside a class?
+DONE: looks like there could be failures in GC with pointers inside markers, because they are 8 bytes big.
+DONE: Foo<@T, @T> should fail
+DONE: recursive intantiation of a function with typedef should work
+DONE: extended typeof expresions should be able to access members
+DONE: extended typeof expressions should be available after type name
+DONE: Is it possible to shorten alias copy from parent?
+DONE: generic type constructor call
+DONE: add functions for bestFunctionList filling and for full rating calculation
+DONE: generic type accessors are instanced
+DONE: how varargs function is called through "auto ref"?
+DONE: how are generic functions called through "auto ref"?
+DONE: constructor call for an array of objects
+DONE: AddForEachNode doesn't decrease cycle count
+DONE: check all generic type tests with generic types in modules
+DONE: ability to replace parts of function type with generic
+DONE: aliases shouldn't be spilled in short function definition for generic function
+DONE: static constructor should default to... nothing, if not available
+DONE: support more assign and modify operators
+DONE: hash_map
+DONE: containers for pointers
+DONE: new StructName() { field1 = 1, field2 = 2 }
+DONE: prevent module from importing itself (and in any tree complexity)
+DONE: nullcSetJiTStack to a user buffer marks pages as noaccess but removes flag only on nullcSetJiTStack/destruction, need to clarify this in documentation.

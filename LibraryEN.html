@@ -252,6 +252,7 @@ function toggleView(a, b, c)
 		&nbsp;&nbsp;&nbsp;&nbsp;If <b>flagMemoryAllocated</b> is not set, <b>start</b> parameter is ignored.<br />
 		<br />
 		When <b>flagMemoryAllocated</b> is not set, <b>end</b> can be set to <span class="comment">NULL</span>, meaning that x86 parameter stack can grow indefinitely.<br />
+		When <b>flagMemoryAllocated</b> is set, <b>start</b> and <b>end</b> should point to a user-allocated buffer. After a call it shouldn't be accessed or deallocated before a call to nullcTerminate or a call to nullcSetJiTStack with a different buffer.<br />
 		Default mode: <b>start</b> = <span class="real">0x20000000</span>, <b>end</b> = <span class="comment">NULL</span>, <b>flagMemoryAllocated</b> = false<br />
 		Function is available if <span class="comment">NULLC_BUILD_X86_JIT</span> is enabled.<br />
 	</div>
