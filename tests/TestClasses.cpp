@@ -446,3 +446,74 @@ const char	*testDefaultStaticConstructor3 =
 auto foo(Foo<@T> m){ return sizeof(m); }\r\n\
 return foo(Foo<Foo<double>>());";
 TEST_RESULT("default static constructor 3", testDefaultStaticConstructor3, "16");
+
+const char	*testCustomConstructor1 =
+"class Foo{ int t; }\r\n\
+\r\n\
+auto x = new Foo(){ t = 5; };\r\n\
+assert(x.t == 5);\r\n\
+\r\n\
+auto y = new Foo{ t = 10; };\r\n\
+assert(y.t == 10);\r\n\
+\r\n\
+\r\n\
+class Bar{ int x, y; void Bar(){ x = 4; } }\r\n\
+\r\n\
+auto z = new Bar(){ y = 6; };\r\n\
+assert(z.x == 4);\r\n\
+assert(z.y == 6);\r\n\
+\r\n\
+auto w = new Bar{ y = 9; };\r\n\
+assert(w.x == 4);\r\n\
+assert(w.y == 9);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Custom constructor 1", testCustomConstructor1, "1");
+
+const char	*testCustomConstructor2 =
+"{\r\n\
+	class Ken{ int x, y; void Ken(int x){ this.x = x; } }\r\n\
+\r\n\
+	auto z = new Ken(2){ y = 6; };\r\n\
+	assert(z.x == 2);\r\n\
+	assert(z.y == 6);\r\n\
+\r\n\
+	auto w = new Ken{ y = 9; };\r\n\
+	assert(w.x == 0);\r\n\
+	assert(w.y == 9);\r\n\
+}\r\n\
+{\r\n\
+	class Ben{ int x, y; void Ben(int x){ this.x = x; } void Ben(){ x = 4; } }\r\n\
+\r\n\
+	auto z = new Ben(2){ y = 6; };\r\n\
+	assert(z.x == 2);\r\n\
+	assert(z.y == 6);\r\n\
+\r\n\
+	auto w = new Ben{ y = 9; };\r\n\
+	assert(w.x == 4);\r\n\
+	assert(w.y == 9);\r\n\
+}\r\n\
+return 1;";
+TEST_RESULT("Custom constructor 2", testCustomConstructor2, "1");
+
+const char	*testConstructorForArrayElements6 =
+"class Bar{ int x, y; void Bar(){ x = 4; } }\r\n\
+\r\n\
+Bar[16] z;\r\n\
+assert(z[0].x == 4);\r\n\
+assert(z[7].x == 4);\r\n\
+assert(z[15].x == 4);\r\n\
+\r\n\
+Bar[16][4] w;\r\n\
+assert(w[0][0].x == 4);\r\n\
+assert(w[0][3].x == 4);\r\n\
+assert(w[7][1].x == 4);\r\n\
+assert(w[15][0].x == 4);\r\n\
+assert(w[15][3].x == 4);\r\n\
+\r\n\
+Bar[] p;\r\n\
+Bar[4][] p2;\r\n\
+Bar[][4] p3;\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Default constructor call for array elements of an unsized array", testConstructorForArrayElements6, "1");

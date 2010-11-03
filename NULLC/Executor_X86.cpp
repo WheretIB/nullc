@@ -968,7 +968,7 @@ bool ExecutorX86::TranslateToNative()
 
 	if(codeRunning && functionAddress.max <= exFunctions.size() * 2)
 	{
-		unsigned *newStorage = new unsigned[exFunctions.size() * 3];
+		unsigned *newStorage = (unsigned*)NULLC::alloc(exFunctions.size() * 3 * sizeof(unsigned));
 		oldFunctionLists.push_back(FunctionListInfo(functionAddress.data, functionAddress.count));
 		functionAddress.data = newStorage;
 		functionAddress.count = exFunctions.size() * 2;
