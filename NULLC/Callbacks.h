@@ -120,7 +120,7 @@ void MergeArrayIterators();
 
 void AddTypeAllocation(const char* pos, bool arrayType = false);
 void AddArrayConstructorCall(const char* pos);
-void PrepareConstructorCall(const char* pos);
+NodeZeroOP* PrepareConstructorCall(const char* pos);
 void FinishConstructorCall(const char* pos);
 bool HasConstructor(TypeInfo* type, unsigned arguments);
 

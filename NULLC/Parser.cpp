@@ -1127,18 +1127,23 @@ bool ParseAddVariable(Lexeme** str)
 		AddDefineVariableNode(curr->pos, varInfo);
 		AddPopNode((*str)->pos);
 	}else{
-		// try to call constructor with no arguments
+		// Try to call constructor with no arguments
 		TypeInfo *info = GetSelectedType();
-		if(info && !info->refLevel && !info->arrLevel && !info->funcType && info->typeIndex > 8) // 9 basic types: void char short int long float double "auto ref" typeid
+		// Handle array types
+		TypeInfo *base = info;
+		while(base && base->arrLevel && base->arrSize != TypeInfo::UNSIZED_ARRAY) // Unsized arrays are not initialized
+			base = base->subType;
+		bool hasConstructor = base ? HasConstructor(base, 0) : NULL;
+		if(hasConstructor)
 		{
-			const char *name = info->genericBase ? info->genericBase->name : info->name;
+			const char *name = base->genericBase ? base->genericBase->name : base->name;
 			AddGetAddressNode((*str)->pos, varInfo->name);
-			if(AddMemberFunctionCall((*str)->pos, name, 0, true))
+			if(info->arrLevel)
 			{
-				AddPopNode((*str)->pos);
+				AddArrayConstructorCall((*str)->pos);
 			}else{
-				CodeInfo::nodeList.pop_back();
-				AddVariableReserveNode((*str)->pos);
+				AddMemberFunctionCall((*str)->pos, name, 0);
+				AddPopNode((*str)->pos);
 			}
 		}else{
 			AddVariableReserveNode((*str)->pos);
@@ -1717,6 +1722,40 @@ void ParsePostExpressions(Lexeme** str)
 		AddGetVariableNode((*str)->pos);
 }
 
+void ParseCustomConstructor(Lexeme** str, TypeInfo* resultType, NodeZeroOP* getPointer)
+{
+	if(!ParseLexem(str, lex_ofigure))
+		return;
+
+	static int constrNum = 0;
+	char	*functionName = AllocateString(16);
+	sprintf(functionName, "$funcc%d", constrNum++);
+
+	SelectTypeByPointer(resultType->subType);
+	TypeContinue((*str)->pos);
+
+	SelectTypeByPointer(typeVoid);
+	FunctionAdd((*str)->pos, functionName);
+	FunctionStart((*str)->pos);
+	const char *lastFunc = SetCurrentFunction(NULL);
+	if(!ParseCode(str))
+		AddVoidNode();
+	if(!ParseLexem(str, lex_cfigure))
+		ThrowError((*str)->pos, "ERROR: '}' sleepy");
+	SetCurrentFunction(lastFunc);
+	FunctionEnd((*str)->pos);
+	CodeInfo::nodeList.pop_back();
+
+	TypeStop();
+
+	NodeOneOP* wrap = new NodeOneOP();
+	wrap->SetFirstNode(getPointer);
+	CodeInfo::nodeList.push_back(wrap);
+	PrepareMemberCall((*str)->pos);
+	AddMemberFunctionCall((*str)->pos, functionName, 0);
+	AddTwoExpressionNode(resultType);
+}
+
 bool ParseTerminal(Lexeme** str)
 {
 	switch((*str)->type)
@@ -1833,7 +1872,14 @@ bool ParseTerminal(Lexeme** str)
 		{
 			ParseLexem(str, lex_oparen);
 			AddTypeAllocation((*str)->pos);
-			PrepareConstructorCall((*str)->pos);
+			NodeZeroOP *getPointer = PrepareConstructorCall((*str)->pos);
+
+			NodeOneOP *wrap = new NodeOneOP();
+			wrap->SetFirstNode(getPointer);
+			CodeInfo::nodeList.push_back(wrap);
+
+			PrepareMemberCall(pos);
+
 			const char *last = SetCurrentFunction(name);
 			unsigned int callArgCount = ParseFunctionArguments(str);
 			if(!ParseLexem(str, lex_cparen))
@@ -1841,7 +1887,10 @@ bool ParseTerminal(Lexeme** str)
 			SetCurrentFunction(last);
 			if(!AddMemberFunctionCall((*str)->pos, name, callArgCount, callArgCount == 0)) // silence the error if default constructor is called
 				AddPopNode(pos);
+
 			FinishConstructorCall((*str)->pos);
+			ParseCustomConstructor(str, getPointer->typeInfo->subType, getPointer);
+
 			return true;
 		}
 
@@ -1860,14 +1909,31 @@ bool ParseTerminal(Lexeme** str)
 		}
 		SelectTypeByPointer(info);
 		AddTypeAllocation(pos, arrayAlloc);
+		// Constructor with no arguments is called even if () are not written
 		if(hasEmptyConstructor)
 		{
-			PrepareConstructorCall((*str)->pos);
+			NodeZeroOP *getPointer = PrepareConstructorCall((*str)->pos);
+
+			NodeOneOP *wrap = new NodeOneOP();
+			wrap->SetFirstNode(getPointer);
+			CodeInfo::nodeList.push_back(wrap);
+
+			PrepareMemberCall(pos);
+
 			if(arrayAlloc)
+			{
 				AddArrayConstructorCall((*str)->pos);
-			else
+				FinishConstructorCall((*str)->pos);
+			}else{
 				AddMemberFunctionCall((*str)->pos, name, 0);
-			FinishConstructorCall((*str)->pos);
+				FinishConstructorCall((*str)->pos);
+				ParseCustomConstructor(str, getPointer->typeInfo->subType, getPointer);
+			}
+		}else if((*str)->type == lex_ofigure && !arrayAlloc){
+			// Custom construction
+			NodeZeroOP *getPointer = PrepareConstructorCall((*str)->pos);
+			ParseCustomConstructor(str, getPointer->typeInfo->subType, getPointer);
+			AddTwoExpressionNode(getPointer->typeInfo->subType);
 		}
 
 		return true;

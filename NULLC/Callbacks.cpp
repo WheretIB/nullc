@@ -2446,7 +2446,7 @@ void AddArrayConstructorCall(const char* pos)
 	TypeInfo *type = CodeInfo::nodeList.back()->typeInfo;
 	assert(type->refLevel && type->subType->arrLevel);
 	type = type->subType->subType;
-	assert(!type->refLevel && !type->arrLevel && !type->funcType);
+	assert(!type->refLevel && !type->funcType);
 
 	char *arrName = AllocateString(16);
 	int length = sprintf(arrName, "$temp%d", inplaceVariableNum++);
@@ -2456,8 +2456,13 @@ void AddArrayConstructorCall(const char* pos)
 	AddArrayIterator(pos, vName, NULL);
 
 	AddGetAddressNode(pos, vName);
-	AddMemberFunctionCall(pos, type->genericBase ? type->genericBase->name : type->name, 0);
-	AddPopNode(pos);
+	if(type->arrLevel)
+	{
+		AddArrayConstructorCall(pos);
+	}else{
+		AddMemberFunctionCall(pos, type->genericBase ? type->genericBase->name : type->name, 0);
+		AddPopNode(pos);
+	}
 
 	EndBlock();
 	AddForEachNode(pos);
@@ -2470,7 +2475,7 @@ void AddArrayConstructorCall(const char* pos)
 	CodeInfo::nodeList.push_back(wrap);
 }
 
-void PrepareConstructorCall(const char* pos)
+NodeZeroOP* PrepareConstructorCall(const char* pos)
 {
 	AddInplaceVariable(pos);
 	// This node will return pointer
@@ -2483,11 +2488,7 @@ void PrepareConstructorCall(const char* pos)
 	CodeInfo::nodeList.push_back(wrap);
 	AddGetVariableNode(pos);
 
-	wrap = new NodeOneOP();
-	wrap->SetFirstNode(getPointer);
-	CodeInfo::nodeList.push_back(wrap);
-
-	PrepareMemberCall(pos);
+	return getPointer;
 }
 
 void FinishConstructorCall(const char* pos)
