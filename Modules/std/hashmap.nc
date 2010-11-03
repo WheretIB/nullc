@@ -1,5 +1,0 @@
-// std.hashmap
-
-class hashmap
-{
-}
