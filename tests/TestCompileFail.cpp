@@ -445,7 +445,7 @@ return int(foo(b) + foo(c));",
   foo(Foo<float, float>)\r\n\
  the only available are:\r\n\
   int foo(Foo<int, int>)\r\n\
-  auto foo(generic) instanced to\r\n\
+  auto foo(Foo) instanced to\r\n\
     foo(Foo<int, float>)\r\n\
 \r\n\
   at \"return int(foo(b) + foo(c));\"\r\n\
@@ -455,8 +455,8 @@ return int(foo(b) + foo(c));",
 	TEST_FOR_FAIL("generic function specialization fail", "class Bar{ typedef int ref iref; } class Foo<T>{ T x; } auto foo(Foo<generic> a){ return a.x; } Bar z; return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
 	TEST_FOR_FAIL("generic function specialization fail 2", "class Foo<T>{ T x; } auto foo(Foo<generic> a){ return a.x; } return foo(5);", "ERROR: can't find function 'foo' with following parameters:");
 	TEST_FOR_FAIL("generic function specialization fail 3", "class Bar<T>{ T ref ref y; } class Foo<T>{ T x; } auto foo(Foo<generic> a){ return a.x; } Bar<float> z; return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
-	TEST_FOR_FAIL("generic function specialization fail 4", "class Foo<T>{ T x; }auto foo(Foo<generic, int> a){ return a.x; }Foo<float> z;return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
-	TEST_FOR_FAIL("generic function specialization fail 5", "class Foo<T, U>{ T x; } auto foo(Foo<generic> a){ return a.x; } Foo<int, int> z; return foo(z);", "ERROR: can't find function 'foo' with following parameters:");
+	TEST_FOR_FAIL("generic function specialization fail 4", "class Foo<T>{ T x; }auto foo(Foo<generic, int> a){ return a.x; }Foo<float> z;return foo(z);", "ERROR: generic type accepts only 1 argument(s)");
+	TEST_FOR_FAIL("generic function specialization fail 5", "class Foo<T, U>{ T x; } auto foo(Foo<generic> a){ return a.x; } Foo<int, int> z; return foo(z);", "ERROR: generic type expects 1 more argument(s)");
 
 	TEST_FOR_FAIL("generic function specialization alias double", "class Foo<T, U>{ T x; } auto foo(Foo<@T, @T> x){ T y = x.x; return y + x.x; } Foo<int, float> a; return foo(a);", "ERROR: function 'foo' argument list has multiple 'T' aliases");
 
@@ -541,4 +541,6 @@ return int(y() + z());",
 	TEST_FOR_FAIL_GENERIC("generic type member function local function is local", "class Foo<T>{ T x; } auto Foo:foo(){ auto bar(){ return x; } return this.bar(); } Foo<int> m; return m.foo();", "ERROR: while instantiating generic function Foo::foo()", "ERROR: function 'Foo::bar' is undefined");
 
 	TEST_FOR_FAIL_GENERIC("type aliases are taken from instance", "class Foo<T>{} auto Foo:foo(T key){ bar(10); } auto Foo:bar(T key){} Foo<char[]> map; map.foo(\"foo\"); return 1;", "ERROR: while instantiating generic function Foo::foo(generic)", "ERROR: can't find function 'bar' with following parameters:");
+
+	TEST_FOR_FAIL("wrong function return type", "int foo(int ref(generic) f){ return f(4); } auto f2(float x){ return x * 2.5; } return foo(f2);", "ERROR: can't find function 'foo' with following parameters:");
 }

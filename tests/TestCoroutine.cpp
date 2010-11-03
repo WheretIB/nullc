@@ -253,23 +253,23 @@ return (t1 == 567856) + (t2 == 452345);";
 TEST_RESULT("Coroutine 13 (coroutine with local function inside, argument closure).", testCoroutine12, "2");
 
 const char	*testCoroutineExampleA =
-"import std.vector;\r\n\
-auto forward_iterator(vector ref x)\r\n\
+"import sgl.vector;\r\n\
+auto forward_iterator(vector<@T> ref x)\r\n\
 {\r\n\
-	coroutine auto ref iterate()\r\n\
+	coroutine auto iterate()\r\n\
 	{\r\n\
 		for(int i = 0; i < x.size(); i++)\r\n\
-			yield x[i];\r\n\
+			yield &x[i];\r\n\
 		return nullptr;\r\n\
 	}\r\n\
 	return iterate;\r\n\
 }\r\n\
-vector a = vector(int);\r\n\
+auto a = vector<int>();\r\n\
 a.push_back(4);\r\n\
 a.push_back(5);\r\n\
 \r\n\
 auto i = forward_iterator(a);\r\n\
-return int(i()) + int(i());";
+return *i() + *i();";
 TEST_RESULT("Coroutine example A.", testCoroutineExampleA, "9");
 
 LOAD_MODULE(test_coroutine1, "test.coroutine1", "coroutine int foo(){ int i = 10; while(i) yield i++; }");

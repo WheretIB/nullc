@@ -1592,7 +1592,7 @@ void AddSetVariableNode(const char* pos)
 				SelectFunctionsForHash(fInfo->nameHash, 0); // Select accessor functions from instanced class
 				// Select best function for the call
 				unsigned minRating = ~0u;
-				unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), 1, minRating);
+				unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), 1, minRating, currentType);
 				if(minRating != ~0u)
 				{
 					// If a function is found and it is a generic function, instance it
@@ -3055,88 +3055,34 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 			start++;
 		}
 
-		bool genericArg = false, genericRef = false;
+		// Get type to which we resolve our generic argument
+		SelectTypeForGeneric(nodeOffset + argID);
+		TypeInfo *referenceType = currType;
+		// Flag of instantiation failure
+		bool instanceFailure = false;
+		// Set generic function as being in definition so that type aliases will get into functions alias list and will not spill to outer scope
+		currDefinedFunc.push_back(fInfo);
 		// Try to reparse the type
-		while(!ParseSelectType(&start, true, true))
+		if(!ParseSelectType(&start, true, true, false, true, referenceType, &instanceFailure))
 		{
-			if(start->type == lex_generic) // If failed because of generic
+			if(!instanceFailure)
 			{
-				genericArg = !!(start++); // move forward and mark argument as a generic
-				if(start[0].type == lex_ref && start[1].type == lex_oparen)
-				{
-					TypeInfo *referenceType = CodeInfo::nodeList[nodeOffset + argID]->typeInfo; // Get type to which we are trying to specialize
-					if(CodeInfo::nodeList[nodeOffset + argID]->nodeType == typeNodeFuncDef)
-						referenceType = ((NodeFuncDef*)CodeInfo::nodeList[nodeOffset + argID])->GetFuncInfo()->funcType;
-					if(!ParseGenericFuntionType(&start, referenceType))
-					{
-						newRating = ~0u; // function is not instanced
-						return NULL;
-					}
-					genericArg = false;
-				}
-			}else if(start->type == lex_less){ // If failed because of generic type specialization
-				genericArg = false;
-
-				TypeInfo *referenceType = CodeInfo::nodeList[nodeOffset + argID]->typeInfo; // Get type to which we are trying to specialize
-				// Strip type from references and arrays
-				TypeInfo *refTypeBase = referenceType;
-				while(refTypeBase->refLevel || refTypeBase->arrLevel)
-					refTypeBase = refTypeBase->subType;
-				TypeInfo *expectedType = currType;
-				if(refTypeBase->genericBase != expectedType) // If its generic base is not equal to generic type expected at this point
-				{
-					newRating = ~0u; // function is not instanced
-					return NULL;
-				}
-				// Set generic function as being in definition so that 
-				currDefinedFunc.push_back(fInfo);
-				if(!ParseGenericType(&start, refTypeBase->childAlias ? refTypeBase : NULL)) // It is possible that generic type argument count is incorrect
-				{
-					newRating = ~0u; // function is not instanced
-					return NULL;
-				}
-				currDefinedFunc.pop_back();
-				// Check that both types follow the same tree
-				refTypeBase = referenceType;
-				TypeInfo *selectedType = currType;
-				// Follow both types along a type tree
-				while(refTypeBase->refLevel || refTypeBase->arrLevel)
-				{
-					if((refTypeBase->refLevel != selectedType->refLevel) || (refTypeBase->arrLevel != selectedType->arrLevel || refTypeBase->arrSize != selectedType->arrSize))
-						break; // function type will be instanced to show a better function selection error
-					refTypeBase = refTypeBase->subType;
-					selectedType = selectedType->subType;
-				}
-				if(selectedType->genericBase != expectedType && !(selectedType->refLevel && selectedType->subType->genericBase == expectedType))
-					break; // function type will be instanced to show a better function selection error
-			}else{ // If failed for other reasons, such as typeof that depends on generic
 				assert(argID);
 				TypeInfo *argType = fInfo->funcType->funcType->paramType[argID - 1];
-				genericArg = argType == typeGeneric || argType->dependsOnGeneric; // mark argument as a generic
+				if(argType == typeGeneric || argType->dependsOnGeneric)
+					currType = referenceType;
 			}
-			break;
 		}
-		if(start->type == lex_oparen)
+		currDefinedFunc.pop_back();
+		if(instanceFailure)
 		{
-			start--;
-			TypeInfo *referenceType = CodeInfo::nodeList[nodeOffset + argID]->typeInfo; // Get type to which we are trying to specialize
-			if(CodeInfo::nodeList[nodeOffset + argID]->nodeType == typeNodeFuncDef)
-				referenceType = ((NodeFuncDef*)CodeInfo::nodeList[nodeOffset + argID])->GetFuncInfo()->funcType;
-			if(!ParseGenericFuntionType(&start, referenceType))
-			{
-				newRating = ~0u; // function is not instanced
-				return NULL;
-			}
-			genericArg = false;
+			newRating = ~0u; // function is not instanced
+			return NULL;
 		}
-		genericRef = start->type == lex_ref ? !!(start++) : false;
-
-		if(genericArg)
-			SelectTypeForGeneric(nodeOffset + argID);
-		if(genericRef && !currType->refLevel)
-			currType = CodeInfo::GetReferenceType(currType);
-
+		// type must be followed by argument name
 		assert(start->type == lex_string);
+
+		assert(!currType->dependsOnGeneric); // selected type must be fully resolved
 		// Insert variable to a list so that a typeof can be taken from it
 		InplaceStr paramName = InplaceStr(start->pos, start->length);
 		assert(currType);
