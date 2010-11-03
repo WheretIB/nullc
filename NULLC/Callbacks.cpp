@@ -2263,13 +2263,10 @@ void AddArrayIterator(const char* pos, InplaceStr varName, TypeInfo* type, bool 
 		CodeInfo::nodeList.push_back(wrap2);
 		if(getIterator->nodeType == typeNodeFunctionAddress)
 		{
-			// First closure element must be the coroutine state variable "$jmpOffset_ext"
-			TypeInfo *currentType = CodeInfo::nodeList.back()->typeInfo;
-			assert(currentType->subType);
-			TypeInfo::MemberVariable *curr = currentType->subType->firstVariable;
-			if(curr->nameHash != GetStringHash("$jmpOffset_ext"))
+			if(((NodeFunctionAddress*)getIterator)->funcInfo->type != FunctionInfo::COROUTINE)
 				ThrowError(pos, "ERROR: function is not a coroutine");
-			CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
+			// Here we have a node that holds pointer to context imagine that we have a int** that we will dereference two times to get "$jmpOffset_ext"
+			wrap2->typeInfo = CodeInfo::GetReferenceType(CodeInfo::GetReferenceType(typeInt));
 		}else{
 			// If we got the function pointer from a variable, we can't access member variable "$jmpOffset_ext" directly, so we cheat
 			wrap2->typeInfo = CodeInfo::GetReferenceType(CodeInfo::GetReferenceType(CodeInfo::GetReferenceType(typeInt)));
