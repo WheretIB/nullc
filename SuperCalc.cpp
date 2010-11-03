@@ -2712,6 +2712,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 						cStyle++;
 					}else if(*cText == '<'){
 						fwrite("&lt;", 1, 4, fHTML);
+					}else if(*cText == '\t'){
+						fwrite("    ", 1, 4, fHTML);
 					}else if(*cText == '>'){
 						fwrite("&gt;", 1, 4, fHTML);
 					}else{
