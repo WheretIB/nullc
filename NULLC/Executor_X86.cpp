@@ -370,7 +370,7 @@ ExecutorX86::~ExecutorX86()
 	NULLC::currExecutor = NULL;
 
 	for(unsigned i = 0; i < oldFunctionLists.size(); i++)
-		delete[] oldFunctionLists[i].list;
+		NULLC::dealloc(oldFunctionLists[i].list);
 	oldFunctionLists.clear();
 	functionAddress.clear();
 
@@ -654,6 +654,7 @@ void ExecutorX86::InitExecution()
 	callContinue = 1;
 
 	NULLC::stackReallocs = 0;
+	NULLC::dataHead->lastEDI = 0;
 	NULLC::dataHead->instructionPtr = NULL;
 	NULLC::dataHead->nextElement = NULL;
 
@@ -745,7 +746,8 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 #endif
 			return;
 		}else{
-			varSize += NULLC::dataHead->lastEDI;
+			if(NULLC::dataHead->lastEDI)
+				varSize = NULLC::dataHead->lastEDI;
 			memcpy(paramBase + varSize, arguments, exFunctions[functionID].bytesToPop);
 			binCodeStart = functionAddress[functionID * 2];
 		}
@@ -955,7 +957,7 @@ void ExecutorX86::ClearNative()
 	binCodeSize = 0;
 	lastInstructionCount = 0;
 	for(unsigned i = 0; i < oldFunctionLists.size(); i++)
-		delete[] oldFunctionLists[i].list;
+		NULLC::dealloc(oldFunctionLists[i].list);
 	oldFunctionLists.clear();
 
 	functionAddress.clear();
