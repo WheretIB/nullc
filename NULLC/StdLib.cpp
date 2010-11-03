@@ -21,11 +21,12 @@ namespace NULLC
 	static Linker	*linker = NULL;
 	FastVector<NULLCRef>	finalizeList;
 
-	static unsigned OBJECT_VISIBLE		= 1 << 0;
-	static unsigned OBJECT_FREED		= 1 << 1;
-	static unsigned	OBJECT_FINALIZABLE	= 1 << 2;
-	static unsigned	OBJECT_FINALIZED	= 1 << 3;
-	static unsigned OBJECT_ARRAY		= 1 << 4;
+	static uintptr_t OBJECT_VISIBLE		= 1 << 0;
+	static uintptr_t OBJECT_FREED		= 1 << 1;
+	static uintptr_t OBJECT_FINALIZABLE	= 1 << 2;
+	static uintptr_t OBJECT_FINALIZED	= 1 << 3;
+	static uintptr_t OBJECT_ARRAY		= 1 << 4;
+	static uintptr_t OBJECT_MASK		= OBJECT_VISIBLE | OBJECT_FREED;
 
 	void FinalizeObject(markerType& marker, char* base)
 	{
@@ -97,7 +98,7 @@ public:
 		if(freeBlocks && freeBlocks != &lastBlock)
 		{
 			result = freeBlocks;
-			freeBlocks = (MySmallBlock*)((intptr_t)freeBlocks->next & ~NULLC::OBJECT_FREED);
+			freeBlocks = (MySmallBlock*)((intptr_t)freeBlocks->next & ~NULLC::OBJECT_MASK);
 		}else{
 			if(lastNum == countInBlock)
 			{
@@ -325,7 +326,7 @@ void* NULLC::AllocObject(int size, unsigned type)
 	}
 	int finalize = 0;
 	if(type && (linker->exTypes[type].typeFlags & ExternTypeInfo::TYPE_HAS_FINALIZER))
-		finalize = OBJECT_FINALIZABLE;
+		finalize = (int)OBJECT_FINALIZABLE;
 
 	memset(data, 0, size);
 	*(markerType*)data = finalize | (type << 8);
