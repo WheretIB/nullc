@@ -181,7 +181,7 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 				SelectTypeByPointer(GetSelectedType()->funcType->paramType[request]);
 		}else if(curr->type == lex_string && curr->length == 4 && memcmp(curr->pos, "size", 4) == 0){
 			curr++;
-			CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (int)paramCount, typeVoid));
+			CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (int)paramCount, typeInt));
 			notType = true;
 		}else{
 			ThrowError(curr->pos, "ERROR: expected 'first'/'last'/'size' at this point");
@@ -203,21 +203,21 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 		}
 	}else if(curr->type == lex_string && curr->length == 11 && memcmp(curr->pos, "isReference", 11) == 0){
 		curr++;
-		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->refLevel ? 1 : 0), typeVoid));
+		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->refLevel ? 1 : 0), typeInt));
 		notType = true;
 	}else if(curr->type == lex_string && curr->length == 7 && memcmp(curr->pos, "isArray", 7) == 0){
 		curr++;
-		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->arrLevel ? 1 : 0), typeVoid));
+		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->arrLevel ? 1 : 0), typeInt));
 		notType = true;
 	}else if(curr->type == lex_string && curr->length == 10 && memcmp(curr->pos, "isFunction", 10) == 0){
 		curr++;
-		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->funcType ? 1 : 0), typeVoid));
+		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->funcType ? 1 : 0), typeInt));
 		notType = true;
 	}else if(curr->type == lex_string && curr->length == 9 && memcmp(curr->pos, "arraySize", 9) == 0){
 		curr++;
 		if(!genericType && !GetSelectedType()->arrLevel)
 			ThrowError(curr->pos, "ERROR: 'arraySize' can only be applied to an array type, but we have '%s'", GetSelectedType()->GetFullTypeName());
-		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : ((int)GetSelectedType()->arrSize), typeVoid));
+		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : ((int)GetSelectedType()->arrSize), typeInt));
 		notType = true;
 	}else{
 		if(curr->type == lex_string && !GetSelectedType()->refLevel && !GetSelectedType()->arrLevel && !GetSelectedType()->funcType) // if this is a class
@@ -245,7 +245,13 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 						ThrowError(curr->pos, "ERROR: expected extended typeof expression, class member name or class typedef at this point");
 					SelectTypeByPointer(alias->type);
 				}else{
-					SelectTypeByPointer(currMember->type);
+					if(currMember->defaultValue)
+					{
+						CodeInfo::nodeList.push_back(currMember->defaultValue);
+						notType = true;
+					}else{
+						SelectTypeByPointer(currMember->type);
+					}
 				}
 			}
 			curr++;
@@ -549,6 +555,47 @@ void ParseClassBody(Lexeme** str)
 	{
 		if(ParseTypedefExpr(str))
 			continue;
+		if(ParseLexem(str, lex_const))
+		{
+			if(!ParseSelectType(str))
+				ThrowError((*str)->pos, "ERROR: type name expected after const");
+			if(GetSelectedType() && (GetSelectedType()->type == TypeInfo::TYPE_COMPLEX || GetSelectedType()->refLevel || GetSelectedType()->type == TypeInfo::TYPE_VOID))
+				ThrowError((*str)->pos, "ERROR: only basic numeric types can be used as constants");
+			TypeInfo *constType = GetSelectedType();
+			TypeInfo::MemberVariable *prevConst = NULL;
+			do
+			{
+				if((*str)->type != lex_string)
+					ThrowError((*str)->pos, "ERROR: constant name expected after %s", prevConst ? "','" : "type");
+				if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+					ThrowError((*str)->pos, "ERROR: member name length is limited to 2048 symbols");
+				unsigned int memberNameLength = (*str)->length;
+				char	*memberName = (char*)stringPool.Allocate(memberNameLength + 2);
+				memcpy(memberName, (*str)->pos, memberNameLength);
+				memberName[memberNameLength] = 0;
+				(*str)++;
+				if(!ParseLexem(str, lex_set))
+				{
+					if(!prevConst)
+						ThrowError((*str)->pos, "ERROR: '=' not found after constant name");
+					if(prevConst->type != typeChar && prevConst->type != typeShort && prevConst->type != typeInt && prevConst->type != typeLong)
+						ThrowError((*str)->pos, "ERROR: only integer constant list gets automatically incremented by 1");
+					
+					CodeInfo::nodeList.push_back(prevConst->defaultValue);
+					CodeInfo::nodeList.push_back(new NodeNumber(1, typeInt));
+					AddBinaryCommandNode((*str)->pos, cmdAdd);
+				}else{
+					if(!ParseTernaryExpr(str))
+						ThrowError((*str)->pos, "ERROR: expression not found after '='");
+				}
+				SelectTypeByPointer(constType);
+				TypeAddConstant((*str)->pos, memberName);
+				prevConst = GetDefinedType()->lastVariable;
+			}while(ParseLexem(str, lex_comma));
+			if(!ParseLexem(str, lex_semicolon))
+				ThrowError((*str)->pos, "ERROR: ';' not found after constants");
+			continue;
+		}
 		if(!ParseSelectType(str))
 		{
 			if((*str)->type == lex_string)
@@ -1987,6 +2034,7 @@ bool ParseTerminal(Lexeme** str)
 			(*str)++;
 		}
 		bool isFunctionCall = !isCoroutine && (*str)->type != lex_typeof && (*str)->type != lex_auto && (*str + 1)->type == lex_oparen;
+		unsigned nodeCount = CodeInfo::nodeList.size();
 		if(!isFunctionCall && ParseSelectType(str))
 		{
 			if(ParseFunctionDefinition(str, isCoroutine))
@@ -2004,7 +2052,8 @@ bool ParseTerminal(Lexeme** str)
 				ParsePostExpressions(str);
 				return true;
 			}
-			GetTypeId((*str)->pos);
+			if(nodeCount == CodeInfo::nodeList.size())
+				GetTypeId((*str)->pos);
 			return true;
 		}
 	}

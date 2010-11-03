@@ -1052,11 +1052,6 @@ void GetTypeId(const char* pos)
 {
 	if(!currType)
 		ThrowError(pos, "ERROR: cannot take typeid from auto type");
-	if(CodeInfo::nodeList.size() && CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList.back()->typeInfo == typeVoid)
-	{
-		CodeInfo::nodeList.back()->typeInfo = typeInt;
-		return;
-	}
 	CodeInfo::nodeList.push_back(new NodeZeroOP(CodeInfo::GetReferenceType(currType)));
 	CodeInfo::nodeList.push_back(new NodeConvertPtr(typeObject));
 	CodeInfo::nodeList.back()->typeInfo = typeTypeid;
@@ -1164,6 +1159,11 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			for(; curr; curr = curr->next)
 				if(curr->nameHash == hash)
 					break;
+			if(curr && curr->defaultValue)
+			{
+				CodeInfo::nodeList.push_back(curr->defaultValue);
+				return;
+			}
 			if(curr && currDefinedFunc.size())
 			{
 				// Class members are accessed through 'this' pointer
@@ -1833,15 +1833,21 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 	// In case of a variable
 	if(!memberFunc)
 	{
-		// Shift pointer to member
+		if(curr->defaultValue)
+		{
+			CodeInfo::nodeList.pop_back();
+			CodeInfo::nodeList.push_back(curr->defaultValue);
+		}else{
+			// Shift pointer to member
 #ifndef NULLC_ENABLE_C_TRANSLATION
-		if(CodeInfo::nodeList.back()->nodeType == typeNodeGetAddress)
-			static_cast<NodeGetAddress*>(CodeInfo::nodeList.back())->ShiftToMember(curr);
-		else
+			if(CodeInfo::nodeList.back()->nodeType == typeNodeGetAddress)
+				static_cast<NodeGetAddress*>(CodeInfo::nodeList.back())->ShiftToMember(curr);
+			else
 #endif
-			CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
-		if(currentType->arrLevel || currentType == typeObject || currentType == typeAutoArray)
-			CodeInfo::nodeList.push_back(new NodeDereference(NULL, 0, true));
+				CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
+			if(currentType->arrLevel || currentType == typeObject || currentType == typeAutoArray)
+				CodeInfo::nodeList.push_back(new NodeDereference(NULL, 0, true));
+		}
 	}else{
 		if(memberFunc->generic)
 		{
@@ -4371,6 +4377,35 @@ void TypeAddMember(const char* pos, const char* varName)
 	varInfo->parentType = newType;
 }
 
+void TypeAddConstant(const char* pos, const char* constName)
+{
+	if(CodeInfo::nodeList.back()->nodeType != typeNodeNumber)
+		ThrowError(pos, "ERROR: expression didn't evaluate to a constant number");
+
+	unsigned size = newType->size;
+	unsigned memberCount = newType->memberCount;
+	bool hasPointers = newType->hasPointers;
+
+	if(currType)
+		((NodeNumber*)CodeInfo::nodeList.back())->ConvertTo(currType);
+	newType->AddMemberVariable(constName, currType ? currType : CodeInfo::nodeList.back()->typeInfo);
+	newType->lastVariable->defaultValue = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+
+	newType->size = size;
+	newType->memberCount = memberCount;
+	newType->hasPointers = hasPointers;
+
+	for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr && curr != newType->lastVariable; curr = curr->next)
+	{
+		if(curr->nameHash == newType->lastVariable->nameHash)
+			ThrowError(pos, "ERROR: name '%s' is already taken for a variable in current scope", constName);
+	}
+	VariableInfo *varInfo = (VariableInfo*)AddVariable(pos, InplaceStr(constName, (int)strlen(constName)));
+	varInfo->isGlobal = true;
+	varInfo->parentType = newType;
+}
+
 // End of type definition
 void TypeFinish()
 {
@@ -4572,6 +4607,11 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool
 	newType = currentDefinedType;
 
 	instanceDepth--;
+}
+
+TypeInfo* GetDefinedType()
+{
+	return newType;
 }
 
 void AddAliasType(InplaceStr aliasName)

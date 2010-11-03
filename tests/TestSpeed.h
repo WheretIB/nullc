@@ -6,3 +6,4 @@
 #endif
 
 void RunSpeedTests();
+void SpeedTestText(const char* name, const char* text);

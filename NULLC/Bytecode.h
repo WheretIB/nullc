@@ -29,6 +29,7 @@ struct ExternTypeInfo
 		unsigned int	arrSize;
 		unsigned int	memberCount;
 	};
+	unsigned int	constantCount;
 	union
 	{
 		unsigned int	subType;
@@ -220,6 +221,8 @@ struct ByteCode
 
 	unsigned int	typedefCount;
 	unsigned int	offsetToTypedef;
+
+	unsigned int	offsetToConstants;
 
 //	ExternTypeInfo	types[typeCount];
 

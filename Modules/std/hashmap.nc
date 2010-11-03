@@ -10,8 +10,8 @@ class hashmap_node<Key, Value>
 class hashmap<Key, Value>
 {
 	typedef hashmap_node<Key, Value> Node;
-	typedef int[1024] bucketCount;
-	typedef int[bucketCount.arraySize - 1] bucketMask;
+	const int bucketCount = 1024;
+	const int bucketMask = bucketCount - 1;
 
 	Node ref[]	entries;
 	int ref(Key)	compute_hash;
@@ -19,12 +19,12 @@ class hashmap<Key, Value>
 
 void hashmap:hashmap()
 {
-	entries = new hashmap_node<Key, Value> ref[bucketCount.arraySize];
+	entries = new hashmap_node<Key, Value> ref[bucketCount];
 	this.compute_hash = hash_value;
 }
 void hashmap:hashmap(int ref(Key) compute_hash)
 {
-	entries = new hashmap_node<Key, Value> ref[bucketCount.arraySize];
+	entries = new hashmap_node<Key, Value> ref[bucketCount];
 	this.compute_hash = compute_hash;
 }
 
@@ -44,8 +44,8 @@ auto operator[](hashmap<@K, @V> ref m, typeof(m).target.Key key)
 		return x;
 	}else{ // otherwise, add 
 		int hash = m.compute_hash(key);
-		int bucket = hash & typeof(m).target.bucketMask.arraySize;
-		typeof(m).target.Node ref n = new typeof(m).target.Node;
+		int bucket = hash & typeof(m).target.bucketMask;
+		auto n = new typeof(m).target.Node;
 		@if(typeof(key).isArray)
 		{
 			auto[] tmp = key;
@@ -62,7 +62,7 @@ auto operator[](hashmap<@K, @V> ref m, typeof(m).target.Key key)
 void hashmap:remove(Key key)
 {
 	int hash = compute_hash(key);
-	int bucket = hash & bucketMask.arraySize;
+	int bucket = hash & bucketMask;
 	Node ref curr = entries[bucket], prev = nullptr;
 	while(curr)
 	{
@@ -81,7 +81,7 @@ void hashmap:remove(Key key)
 auto hashmap:find(Key key)
 {
 	int hash = compute_hash(key);
-	int bucket = hash & bucketMask.arraySize;
+	int bucket = hash & bucketMask;
 	Node ref curr = entries[bucket];
 	while(curr)
 	{

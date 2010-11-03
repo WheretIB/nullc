@@ -517,3 +517,117 @@ Bar[][4] p3;\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("Default constructor call for array elements of an unsized array", testConstructorForArrayElements6, "1");
+
+const char	*testClassConstants1 =
+"class Foo\r\n\
+{\r\n\
+	int a;\r\n\
+	const int b = 6;\r\n\
+	const int c = 7, d = 8;\r\n\
+	const auto e = 9, f = 10;\r\n\
+	const auto g = 11, h;\r\n\
+}\r\n\
+\r\n\
+assert(Foo.b == 6);\r\n\
+\r\n\
+assert(Foo.c == 7);\r\n\
+assert(Foo.d == 8);\r\n\
+\r\n\
+assert(Foo.e == 9);\r\n\
+assert(Foo.f == 10);\r\n\
+\r\n\
+assert(Foo.g == 11);\r\n\
+assert(Foo.h == 12);\r\n\
+\r\n\
+assert(sizeof(Foo) == 4);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Class constants", testClassConstants1, "1");
+
+LOAD_MODULE(test_constant_export, "test.constant_export",
+"class Foo\r\n\
+{\r\n\
+	int a;\r\n\
+	const int b = 6;\r\n\
+	const int c = 7, d = 8;\r\n\
+	const auto e = 9, f = 10;\r\n\
+	const auto g = 11, h;\r\n\
+}");
+const char	*testClassConstantsImport1 =
+"import test.constant_export;\r\n\
+\r\n\
+assert(Foo.b == 6);\r\n\
+\r\n\
+assert(Foo.c == 7);\r\n\
+assert(Foo.d == 8);\r\n\
+\r\n\
+assert(Foo.e == 9);\r\n\
+assert(Foo.f == 10);\r\n\
+\r\n\
+assert(Foo.g == 11);\r\n\
+assert(Foo.h == 12);\r\n\
+\r\n\
+assert(sizeof(Foo) == 4);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Class constants import 1", testClassConstantsImport1, "1");
+
+LOAD_MODULE(test_constant_export2, "test.constant_export2",
+"class Foo\r\n\
+{\r\n\
+int a;\r\n\
+const double b = 6;\r\n\
+int c;\r\n\
+}");
+const char	*testClassConstantsImport2 =
+"import test.constant_export2;\r\n\
+\r\n\
+assert(Foo.a == int);\r\n\
+assert(Foo.b == 6);\r\n\
+assert(Foo.c == int);\r\n\
+\r\n\
+assert(sizeof(Foo) == 8);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Class constants import 2", testClassConstantsImport2, "1");
+
+const char	*testClassConstants2 =
+"class Foo\r\n\
+{\r\n\
+	const double v = 3;\r\n\
+}\r\n\
+auto x = Foo.v;\r\n\
+return typeof(x) == double;";
+TEST_RESULT("Class constants 2", testClassConstants2, "1");
+
+const char	*testClassConstants3 =
+"class Foo\r\n\
+{\r\n\
+	const int a = 5;\r\n\
+}\r\n\
+int Foo:foo(){ return a; }\r\n\
+Foo m;\r\n\
+return m.foo();";
+TEST_RESULT("Class constants 3", testClassConstants3, "5");
+
+const char	*testClassConstants4 =
+"class Foo\r\n\
+{\r\n\
+	const int a = 5;\r\n\
+	const int b = a + 5;\r\n\
+}\r\n\
+int Foo:foo(){ return a * b; }\r\n\
+Foo m;\r\n\
+return m.foo();";
+TEST_RESULT("Class constants 4", testClassConstants4, "50");
+
+const char	*testClassConstants5 =
+"class Foo\r\n\
+{\r\n\
+	const int c = 2, d = c * 2, e;\r\n\
+}\r\n\
+assert(Foo.c == 2);\r\n\
+assert(Foo.d == 4);\r\n\
+assert(Foo.e == 5);\r\n\
+return 1;";
+TEST_RESULT("Class constants 5", testClassConstants5, "1");
