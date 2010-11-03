@@ -18,8 +18,10 @@ struct ExternTypeInfo
 	enum SubCategory{ CAT_NONE, CAT_ARRAY, CAT_POINTER, CAT_FUNCTION, CAT_CLASS, };
 	SubCategory		subCat;
 
+	enum TypeFlags{ TYPE_HAS_FINALIZER = 1 << 0, TYPE_DEPENDS_ON_GENERIC = 1 << 1 };
+
 	unsigned char	defaultAlign;
-	unsigned char	hasFinalizer;
+	unsigned char	typeFlags; // TypeFlags
 	unsigned short	pointerCount;
 
 	union
