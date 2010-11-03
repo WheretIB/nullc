@@ -24,3 +24,9 @@ b = 5 / a;\r\n\
 c = 5 % a;\r\n\
 return b + c;";
 TEST_RESULT("Test for JiT error 2", testJiTError2, "3");
+
+const char *testJiTError3 = 
+"char a = 'a';\r\n\
+char b = a;\r\n\
+return 1;";
+TEST_RESULT("Test for JiT error 3", testJiTError3, "1");
