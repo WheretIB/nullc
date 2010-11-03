@@ -85,7 +85,7 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 			}
 		}
 	}
-	if(apprPos >= intStart && apprPos <= intEnd)
+	if(apprPos && apprPos >= intStart && apprPos <= intEnd)
 	{
 		const char *begin = apprPos;
 		while((begin >= intStart) && (*begin != '\n') && (*begin != '\r'))
@@ -1106,6 +1106,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 	ClearState();
 
 	activeModules.clear();
+	CodeInfo::lexStart = lexer.GetStreamStart();
 
 	NULLC::codeCount = moduleCount;
 	for(unsigned int i = 0; i < moduleCount; i++)
@@ -1124,7 +1125,6 @@ bool Compiler::Compile(const char* str, bool noClear)
 	CompilerError::codeStart = str;
 	CompilerError::codeEnd = (lexer.GetStreamStart() + lexStreamEnd - 1)->pos;
 	CodeInfo::cmdInfoList.SetSourceStart(CompilerError::codeStart, CompilerError::codeEnd);
-	CodeInfo::lexStart = lexer.GetStreamStart();
 	CodeInfo::lexFullStart = lexer.GetStreamStart() + lexStreamStart;
 
 	bool res;
