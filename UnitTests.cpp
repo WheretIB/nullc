@@ -34,6 +34,7 @@
 #pragma warning(disable: 4127)
 
 //#define ALLOC_TOP_DOWN
+//#define NO_CUSTOM_ALLOCATOR
 
 void* testAlloc(int size)
 {
@@ -102,15 +103,22 @@ void	RunTests(bool verbose)
 */
 
 	// Init NULLC
-	//nullcInit(MODULE_PATH);
+#ifdef NO_CUSTOM_ALLOCATOR
+	nullcInit(MODULE_PATH);
+#else
 	nullcInitCustomAlloc(testAlloc, testDealloc, MODULE_PATH);
+#endif
 	//nullcSetFileReadHandler(TestFileLoad);
 
 	nullcInitTypeinfoModule();
 	nullcInitDynamicModule();
 	RunInterfaceTests();
 
+#ifdef NO_CUSTOM_ALLOCATOR
+	nullcInit(MODULE_PATH);
+#else
 	nullcInitCustomAlloc(testAlloc, testDealloc, MODULE_PATH);
+#endif
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();

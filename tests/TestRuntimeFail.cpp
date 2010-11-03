@@ -225,7 +225,7 @@ struct Test_testDepthOverflow : TestQueue
 			if(!good)
 			{
 				const char *error = "ERROR: allocated stack overflow";
-				char buf[512];\
+				char buf[512];
 				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
@@ -243,6 +243,7 @@ struct Test_testDepthOverflow : TestQueue
 				printf("Test should have failed.\r\n");
 			}
 		}
+		nullcSetJiTStack((void*)0x20000000, NULL, false);
 		delete[] stackMem;
 	}
 };
@@ -272,6 +273,7 @@ struct Test_testGlobalOverflow : TestQueue
 		char *stackMem = new char[32*1024];
 		if(Tests::messageVerbose)
 			printf("Global overflow test\r\n");
+		nullcSetJiTStack(stackMem, stackMem + 32*1024, true);
 		{
 			testsCount[1]++;
 			nullcSetExecutor(NULLC_X86);
@@ -281,7 +283,7 @@ struct Test_testGlobalOverflow : TestQueue
 			if(!good)
 			{
 				const char *error = "ERROR: allocated stack overflow";
-				char buf[512];\
+				char buf[512];
 				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
@@ -299,6 +301,7 @@ struct Test_testGlobalOverflow : TestQueue
 				printf("Test should have failed.\r\n");
 			}
 		}
+		nullcSetJiTStack((void*)0x20000000, NULL, false);
 		delete[] stackMem;
 	}
 };
