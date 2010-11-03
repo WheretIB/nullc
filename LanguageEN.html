@@ -950,8 +950,8 @@ function toggleView(a, b, c)
 		If operator overloads are placed inside a class or a <a href="#funclocal" title="Local functions">function</a>, they will be visible until the end of a class or the end of a function.<br />
 		<br />
 		Following binary operators can be overloaded:<br />
-		+ - * / % ** < <= << > >= >> == != & | ^ && || ^^ = += -= *= /= **= []<br />
-		For operators = += -= *= /= **= and [], first argument should be a reference to a type, but this is not necessary.<br />
+		+ - * / % ** < <= << > >= >> == != & | ^ && || ^^ = += -= *= /= **= %= <<= >>= &= |= ^= []<br />
+		For operators = += -= *= /= **= %= <<= >>= &= |= ^= and [], first argument should be a reference to a type, but this is not necessary.<br />
 		<div class="example">
 			<p class="example_head" id="operator_ex_1a" onmousedown="toggleView(&quot;operator_ex_1a&quot;, &quot;operator_ex_1b&quot;, &quot;example of a binary operator overloading.&quot;);">Show example of a binary operator overloading.</p>
 			<p class="code example_body" id="operator_ex_1b">	
@@ -2110,7 +2110,7 @@ B int 5<br />
 	This is done after applying "Rule A"<br />
 	<br />
 	Rule C:<br />
-	In variable modification expression (+=, -=, *=, /=, **=) binary operation is performed as described in "Rule B",<br />
+	In variable modification expression (+=, -=, *=, /=, **=, %=, <<=, >>=, &=, |=, ^=) binary operation is performed as described in "Rule B",<br />
 	And result is converted to type of l-value.<br />
 	<p class="code">
 		<span class="rword">int</span> a = <span class="real">2</span>;<br />
@@ -2140,7 +2140,7 @@ B int 5<br />
 		<tr><td>15</td><td>left-to-right</td><td>^^</td></tr>
 		<tr><td>16</td><td>left-to-right</td><td>||</td></tr>
 		<tr><td>17</td><td>left-to-right</td><td>?:</td></tr>
-		<tr><td>18</td><td>right-to-left</td><td>= += -= *= /= **=</td></tr>
+		<tr><td>18</td><td>right-to-left</td><td>= += -= *= /= **= %= <<= >>= &= |= ^=</td></tr>
 	</table>
 </div>
 <hr />

@@ -653,7 +653,8 @@ namespace supspi
 			char* curr = *str;
 			if(space)
 				space(str);
-			if(memcmp(*str, m_str, m_len) != 0){
+			if(memcmp(*str, m_str, m_len) != 0)
+			{
 				(*str) = curr;
 				return false;
 			}else{
@@ -851,7 +852,7 @@ namespace supspi
 			arr[count++].forceSet(x.getPtr());
 		}
 	protected:
-		static const unsigned max = 32;
+		static const unsigned max = 36;
 		Rule	arr[max];
 		unsigned	count;
 	};

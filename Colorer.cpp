@@ -427,8 +427,9 @@ namespace ColorerGrammar
 						!(chP('=')[ColorText] >> term4_9)
 					)
 				)[OnError];
-			oneLexOperator = strP("**") | strP("<=") | strP(">=") | strP("!=") | strP("==") | strP("<<") | strP(">>") | strP("&&") | strP("||") | strP("^^") |
-				strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("**=") |
+			oneLexOperator = strP("<<=") | strP(">>=") | strP("**=") |
+				strP("**") | strP("<=") | strP(">=") | strP("!=") | strP("==") | strP("<<") | strP(">>") | strP("&&") | strP("||") | strP("^^") |
+				strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("%=") | strP("&=") | strP("|=") | strP("^=") |
 				chP('+') | chP('-') | chP('*') | chP('/') | chP('%') | chP('!') | chP('~') | chP('<') | chP('>') | chP('&') | chP('|') | chP('^') | chP('=');
 
 			funcdef		=
@@ -599,12 +600,12 @@ namespace ColorerGrammar
 				(typeExpr) |
 				(((+chP('*')[ColorText] >> term1) | appval) >> (strP("++")[ColorText] | strP("--")[ColorText] | (chP('.')[ColorText] >> funccall >> *postExpr) | epsP));
 			term2	=	term1 >> *((strP("**") - strP("**="))[ColorText] >> (term1 | epsP[LogError("ERROR: expression not found after operator **")]));
-			term3	=	term2 >> *(((chP('*') - strP("*=")) | (chP('/') - strP("/=")) | chP('%'))[ColorText] >> (term2 | epsP[LogError("ERROR: expression not found after operator")]));
-			term4	=	term3 >> *(((chP('+') - strP("+=")) | (chP('-') - strP("-=")))[ColorText] >> (term3 | epsP[LogError("ERROR: expression not found after operator")]));
-			term4_1	=	term4 >> *((strP("<<") | strP(">>"))[ColorText] >> (term4 | epsP[LogError("ERROR: expression not found after operator")]));
-			term4_2	=	term4_1 >> *((strP("<=") | strP(">=") | chP('<') | chP('>'))[ColorText] >> (term4_1 | epsP[LogError("ERROR: expression not found after operator")]));
+			term3	=	term2 >> *(((chP('*') - strP("*=") - strP("**=")) | (chP('/') - strP("/=")) | (chP('%') - strP("%=")))[ColorText] >> (term2 | epsP[LogError("ERROR: expression not found after operator * or / or %")]));
+			term4	=	term3 >> *(((chP('+') - strP("+=")) | (chP('-') - strP("-=")))[ColorText] >> (term3 | epsP[LogError("ERROR: expression not found after operator + or -")]));
+			term4_1	=	term4 >> *(((strP("<<") - strP("<<=")) | (strP(">>") - strP(">>=")))[ColorText] >> (term4 | epsP[LogError("ERROR: expression not found after operator << or >>")]));
+			term4_2	=	term4_1 >> *((strP("<=") | strP(">=") | (chP('<') - strP("<<=")) | (chP('>') - strP(">>=")))[ColorText] >> (term4_1 | epsP[LogError("ERROR: expression not found after operator <= or >= or < or >")]));
 			term4_4	=	term4_2 >> *((strP("==") | strP("!="))[ColorText] >> (term4_2 | epsP[LogError("ERROR: expression not found after operator")]));
-			term4_6	=	term4_4 >> *((strP("&&") | strP("||") | strP("^^") | chP('&') | chP('|') | chP('^'))[ColorText] >> (term4_4 | epsP[LogError("ERROR: expression not found after operator")]));
+			term4_6	=	term4_4 >> *((strP("&&") | strP("||") | strP("^^") | (chP('&') - strP("&=")) | (chP('|') - strP("|=")) | (chP('^') - strP("^=")))[ColorText] >> (term4_4 | epsP[LogError("ERROR: expression not found after operator")]));
 			term4_9	=	term4_6 >> 
 				!(
 					chP('?')[ColorText] >>
@@ -617,7 +618,7 @@ namespace ColorerGrammar
 				!(
 					(chP('=')[ColorText] >> term5) |
 					(
-						(strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("**="))[ColorText] >>
+						(strP("**=") | strP("<<=") | strP(">>=") | strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("%=") | strP("&=") | strP("|=") | strP("^="))[ColorText] >>
 						(term5 | epsP[LogError("ERROR: expression not found after assignment")]))
 					)
 				);

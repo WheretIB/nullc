@@ -463,7 +463,7 @@ bool ParseSelectType(Lexeme** str, bool allowArray, bool allowGenericType, bool 
 				}
 			}
 			TypeInfo *genericType = GetSelectedType();
-			unsigned count = 0, aliasCount = genericType->genericInfo->aliasCount;
+			unsigned count = 0;
 			bool resolvedToGeneric = false;
 			do
 			{
@@ -889,7 +889,7 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 		typeMethod = true;
 	}
 	char	*functionName = NULL;
-	if((*str)->type == lex_string || ((*str)->type >= lex_add && (*str)->type <= lex_logxor) || ((*str)->type >= lex_set && (*str)->type <= lex_powset) || (*str)->type == lex_bitnot || (*str)->type == lex_lognot)
+	if((*str)->type == lex_string || ((*str)->type >= lex_add && (*str)->type <= lex_logxor) || ((*str)->type >= lex_set && (*str)->type <= lex_xorset) || (*str)->type == lex_bitnot || (*str)->type == lex_lognot)
 	{
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 			ThrowError((*str)->pos, "ERROR: function name length is limited to 2048 symbols");
@@ -933,7 +933,7 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError((*str)->pos, "ERROR: ')' not found after function variable list");
 
-	bool isOperator = name[0].type == lex_operator && ((name[1].type >= lex_add && name[1].type <= lex_logxor) || name[1].type == lex_obracket || name[1].type == lex_oparen || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot);
+	bool isOperator = name[0].type == lex_operator && ((name[1].type >= lex_add && name[1].type <= lex_xorset) || name[1].type == lex_obracket || name[1].type == lex_oparen || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot);
 
 	if(ParseLexem(str, lex_semicolon))
 	{
@@ -1717,7 +1717,7 @@ void ParsePostExpressions(Lexeme** str)
 	bool hadPost = false;
 	while(ParsePostExpression(str, &lastIsFunctionCall))
 		hadPost = true;
-	if(hadPost && !lastIsFunctionCall && (*str)->type != lex_set && (*str)->type != lex_addset && (*str)->type != lex_subset && (*str)->type != lex_mulset && (*str)->type != lex_divset && (*str)->type != lex_powset)
+	if(hadPost && !lastIsFunctionCall && !((*str)->type >= lex_set && (*str)->type <= lex_xorset))
 		AddGetVariableNode((*str)->pos);
 }
 
@@ -1881,7 +1881,7 @@ bool ParseTerminal(Lexeme** str)
 		if((*str)[1].type != lex_quotedstring)
 		{
 			(*str)++;
-			bool isOperator = ((*str)->type >= lex_add && (*str)->type <= lex_logxor) || ((*str)->type >= lex_set && (*str)->type <= lex_powset) || (*str)->type == lex_bitnot || (*str)->type == lex_lognot;
+			bool isOperator = ((*str)->type >= lex_add && (*str)->type <= lex_logxor) || ((*str)->type >= lex_set && (*str)->type <= lex_xorset) || (*str)->type == lex_bitnot || (*str)->type == lex_lognot;
 			if(!isOperator)
 				ThrowError((*str)->pos, "ERROR: string expected after '@'");
 			AddGetAddressNode((*str)->pos, InplaceStr((*str)->pos, (*str)->pos + (*str)->length));
@@ -1957,7 +1957,7 @@ bool ParseTerminal(Lexeme** str)
 		}else if(ParseLexem(str, lex_inc)){
 			AddUnaryModifyOpNode((*str)->pos, OP_INCREMENT, OP_POSTFIX);
 		}else{
-			if(!lastIsFunctionCall && (*str)->type != lex_set && (*str)->type != lex_addset && (*str)->type != lex_subset && (*str)->type != lex_mulset && (*str)->type != lex_divset && (*str)->type != lex_powset)
+			if(!lastIsFunctionCall && !((*str)->type >= lex_set && (*str)->type <= lex_xorset))
 				AddGetVariableNode((*str)->pos);
 		}
 	}else{
@@ -2021,23 +2021,22 @@ bool ParseVaribleSet(Lexeme** str)
 	if(!ParseTernaryExpr(str))
 		return false;
 
+	Lexeme *curr = *str;
 	if(ParseLexem(str, lex_set))
 	{
 		if(ParseVaribleSet(str))
 			AddSetVariableNode((*str)->pos);
 		else
 			ThrowError((*str)->pos, "ERROR: expression not found after '='");
-	}else if(ParseLexem(str, lex_addset) || ParseLexem(str, lex_subset) || ParseLexem(str, lex_mulset) || ParseLexem(str, lex_divset)){
-		char op = (*str-1)->pos[0];
+	}else if((*str)->type >= lex_addset && (*str)->type <= lex_xorset){
+		(*str)++;
+		CmdID cmdID[] = { cmdAdd, cmdSub, cmdMul, cmdDiv, cmdPow, cmdMod, cmdShl, cmdShr, cmdBitAnd, cmdBitOr, cmdBitXor };
+		const char *cmdName[] = { "+=", "-=", "*=", "/=", "**=", "%=", "<<=", ">>=", "&=", "|=", "^=" };
+		assert((unsigned)(curr->type - lex_addset) <= 10);
 		if(ParseVaribleSet(str))
-			AddModifyVariableNode((*str)->pos, (CmdID)(op == '+' ? cmdAdd : (op == '-' ? cmdSub : (op == '*' ? cmdMul : cmdDiv))));
+			AddModifyVariableNode((*str)->pos, cmdID[curr->type - lex_addset], cmdName[curr->type - lex_addset]);
 		else
-			ThrowError((*str)->pos, "ERROR: expression not found after assignment operator");
-	}else if(ParseLexem(str, lex_powset)){
-		if(ParseVaribleSet(str))
-			AddModifyVariableNode((*str)->pos, cmdPow);
-		else
-			ThrowError((*str)->pos, "ERROR: expression not found after '**='");
+			ThrowError((*str)->pos, "ERROR: expression not found after '%s' operator", cmdName[curr->type - lex_addset]);
 	}
 
 	return true;

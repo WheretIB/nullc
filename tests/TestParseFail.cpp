@@ -104,8 +104,8 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "1?", "ERROR: expression not found after '?'");
 	TEST_FOR_FAIL("parsing", "1?2", "ERROR: ':' not found after expression in ternary operator");
 	TEST_FOR_FAIL("parsing", "1?2:", "ERROR: expression not found after ':'");
-	TEST_FOR_FAIL("parsing", "int i; i+=;", "ERROR: expression not found after assignment operator");
-	TEST_FOR_FAIL("parsing", "int i; i**=;", "ERROR: expression not found after '**='");
+	TEST_FOR_FAIL("parsing", "int i; i+=;", "ERROR: expression not found after '+=' operator");
+	TEST_FOR_FAIL("parsing", "int i; i**=;", "ERROR: expression not found after '**=' operator");
 	TEST_FOR_FAIL("parsing", "int i", "ERROR: ';' not found after variable definition");
 	TEST_FOR_FAIL("parsing", "int i; i = 5", "ERROR: ';' not found after expression");
 	TEST_FOR_FAIL("parsing", "{", "ERROR: closing '}' not found");

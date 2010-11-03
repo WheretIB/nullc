@@ -112,6 +112,11 @@ void Lexer::Lexify(const char* code)
 			break;
 		case '%':
 			lType = lex_mod;
+			if(code[1] == '=')
+			{
+				lType = lex_modset;
+				lLength = 2;
+			}
 			break;
 		case '<':
 			lType = lex_less;
@@ -122,6 +127,11 @@ void Lexer::Lexify(const char* code)
 			}else if(code[1] == '<'){
 				lType = lex_shl;
 				lLength = 2;
+				if(code[2] == '=')
+				{
+					lType = lex_shlset;
+					lLength = 3;
+				}
 			}
 			break;
 		case '>':
@@ -133,6 +143,11 @@ void Lexer::Lexify(const char* code)
 			}else if(code[1] == '>'){
 				lType = lex_shr;
 				lLength = 2;
+				if(code[2] == '=')
+				{
+					lType = lex_shrset;
+					lLength = 3;
+				}
 			}
 			break;
 		case '=':
@@ -163,6 +178,9 @@ void Lexer::Lexify(const char* code)
 			{
 				lType = lex_logand;
 				lLength = 2;
+			}else if(code[1] == '='){
+				lType = lex_andset;
+				lLength = 2;
 			}
 			break;
 		case '|':
@@ -171,6 +189,9 @@ void Lexer::Lexify(const char* code)
 			{
 				lType = lex_logor;
 				lLength = 2;
+			}else if(code[1] == '='){
+				lType = lex_orset;
+				lLength = 2;
 			}
 			break;
 		case '^':
@@ -178,6 +199,9 @@ void Lexer::Lexify(const char* code)
 			if(code[1] == '^')
 			{
 				lType = lex_logxor;
+				lLength = 2;
+			}else if(code[1] == '='){
+				lType = lex_xorset;
 				lLength = 2;
 			}
 			break;

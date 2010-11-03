@@ -108,7 +108,7 @@ const static bool	OP_PREFIX = 1;
 const static bool	OP_POSTFIX = 0;
 void AddUnaryModifyOpNode(const char* pos, bool isInc, bool prefixOp);
 
-void AddModifyVariableNode(const char* pos, CmdID cmd);
+void AddModifyVariableNode(const char* pos, CmdID cmd, const char* name);
 
 void AddOneExpressionNode(TypeInfo* retType = NULL);
 void AddTwoExpressionNode(TypeInfo* retType = NULL);
