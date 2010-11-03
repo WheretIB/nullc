@@ -82,6 +82,8 @@ private:
 	FastVector<TypeInfo*>			translationTypes;
 #endif
 
+	FastVector<unsigned>			importStack;
+
 	FastVector<ExternModuleInfo>	activeModules;
 	FastVector<char>				moduleSource;
 
