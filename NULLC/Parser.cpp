@@ -1831,7 +1831,7 @@ bool ParseTerminal(Lexeme** str)
 		TypeInfo *info = GetSelectedType();
 		GetTypeSize((*str)->pos, false);
 		const char *name = info->genericBase ? info->genericBase->name : info->name;
-		bool hasEmptyConstructor = HasConstructor(pos, info, 0);
+		bool hasEmptyConstructor = HasConstructor(info, 0);
 
 		if((*str)->type == lex_oparen)
 		{
