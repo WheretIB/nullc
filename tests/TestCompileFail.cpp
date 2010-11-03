@@ -21,6 +21,7 @@ void TEST_FOR_FAIL_FULL(const char* name, const char* str, const char* error)
 	}
 }
 
+
 void RunCompileFailTests()
 {
 	TEST_FOR_FAIL("Number not allowed in this base", "return 08;", "ERROR: digit 8 is not allowed in base 8");
@@ -558,3 +559,81 @@ return int(y() + z());",
 	TEST_FOR_FAIL("constnt couldn't be evaluated at compilation time", "int a = 4; class Foo{ const int b = a; }", "ERROR: expression didn't evaluate to a constant number");
 	TEST_FOR_FAIL("name occupied", "class Foo{ const int a = 1, a = 3; }", "ERROR: name 'a' is already taken for a variable in current scope");
 }
+
+const char	*testModuleImportsSelf1 = "import n; return 1;";
+struct Test_testModuleImportsSelf1 : TestQueue
+{
+	static const void* FileHandler(const char* name, unsigned int* size, int* nullcShouldFreePtr)
+	{
+		(void)name;
+		*nullcShouldFreePtr = 0;
+		*size = strlen(testModuleImportsSelf1) + 1;
+		return (const void*)testModuleImportsSelf1;
+	}
+	virtual void Run()
+	{
+		nullcSetFileReadHandler(FileHandler);
+		if(Tests::messageVerbose)
+			printf("Module imports itself 1 \r\n");
+
+		testsCount[TEST_FAILURE_INDEX]++;
+		nullres good = nullcCompile(testModuleImportsSelf1);
+		if(!good)
+		{
+			char buf[4096];
+			strncpy(buf, nullcGetLastError(), 4095); buf[4095] = 0;
+			if(strcmp("ERROR: found cyclic dependency on module 'n.nc' [in module Modules/n.nc]", buf) != 0)
+			{
+				printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", "Module imports itself 1", buf, "ERROR: found cyclic dependency on module 'n.nc' [in module Modules/n.nc]");
+			}else{
+				testsPassed[TEST_FAILURE_INDEX]++;
+			}
+		}else{
+			printf("Test \"%s\" failed to fail.\r\n", "Module imports itself 1");
+		}
+		nullcSetFileReadHandler(NULL);
+	}
+};
+Test_testModuleImportsSelf1 testModuleImportSelf1;
+
+const char	*testModuleImportsSelf2a = "import b; return 1;";
+const char	*testModuleImportsSelf2b = "import a; return 1;";
+struct Test_testModuleImportsSelf2 : TestQueue
+{
+	static const void* FileHandler(const char* name, unsigned int* size, int* nullcShouldFreePtr)
+	{
+		*nullcShouldFreePtr = 0;
+		if(name[0] == 'a')
+		{
+			*size = strlen(testModuleImportsSelf2a) + 1;
+			return (const void*)testModuleImportsSelf2a;
+		}else{
+			*size = strlen(testModuleImportsSelf2b) + 1;
+			return (const void*)testModuleImportsSelf2b;
+		}
+	}
+	virtual void Run()
+	{
+		nullcSetFileReadHandler(FileHandler);
+		if(Tests::messageVerbose)
+			printf("Module imports itself 2 \r\n");
+
+		testsCount[TEST_FAILURE_INDEX]++;
+		nullres good = nullcCompile(testModuleImportsSelf2a);
+		if(!good)
+		{
+			char buf[4096];
+			strncpy(buf, nullcGetLastError(), 4095); buf[4095] = 0;
+			if(strcmp("ERROR: found cyclic dependency on module 'a.nc' [in module Modules/a.nc] [in module Modules/b.nc]", buf) != 0)
+			{
+				printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", "Module imports itself 1", buf, "ERROR: found cyclic dependency on module 'a.nc' [in module Modules/a.nc] [in module Modules/b.nc]");
+			}else{
+				testsPassed[TEST_FAILURE_INDEX]++;
+			}
+		}else{
+			printf("Test \"%s\" failed to fail.\r\n", "Module imports itself 1");
+		}
+		nullcSetFileReadHandler(NULL);
+	}
+};
+Test_testModuleImportsSelf2 testModuleImportSelf2;

@@ -1002,6 +1002,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		moduleSource.clear();
 		dupStringsModule.Clear();
 		funcMap.clear();
+		importStack.clear();
 	}
 	unsigned int lexStreamStart = lexer.GetStreamSize();
 	lexer.Lexify(str);
@@ -1071,9 +1072,22 @@ bool Compiler::Compile(const char* str, bool noClear)
 		moduleName[moduleCount] = strcpy((char*)dupStringsModule.Allocate((unsigned int)strlen(pathNoImport) + 1), pathNoImport);
 		if(!bytecode)
 		{
+			unsigned pathHash = GetStringHash(pathNoImport);
+			for(unsigned i = 0; i < importStack.size(); i++)
+			{
+				if(pathHash == importStack[i])
+				{
+					char buf[512];
+					SafeSprintf(buf, 512, "ERROR: found cyclic dependency on module '%s'", pathNoImport);
+					CodeInfo::lastError.Init(buf, name->pos);
+					return false;
+				}
+			}
 			unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);
 			moduleStream[moduleCount] = lexer.GetStreamSize();
+			importStack.push_back(pathHash);
 			bytecode = BuildModule(path, pathNoImport);
+			importStack.pop_back();
 			start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
 			if(bytecode)
 				moduleRange[moduleCount] = NULLC::CodeRange(lexer.GetStreamStart()[moduleStream[moduleCount]].pos, lexer.GetStreamStart()[moduleStream[moduleCount]].pos + ((ByteCode*)bytecode)->sourceSize);
