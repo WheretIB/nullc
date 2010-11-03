@@ -2051,3 +2051,35 @@ assert(test3.foo(4) == auto ref);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("improved error handling in typeof", testGenericType138, "1");
+
+const char *testLogOrAndLogAndOperatorOverload2 =
+"class Foo<T>{ T x; }\r\n\
+\r\n\
+int operator||(Foo<@T> a, Foo<@T> ref() b)\r\n\
+{\r\n\
+	return int(a.x) || int(b().x);\r\n\
+}\r\n\
+int operator&&(Foo<@T> a, Foo<@T> ref() b)\r\n\
+{\r\n\
+	return int(a.x) && int(b().x);\r\n\
+}\r\n\
+Foo<int> a, b;\r\n\
+a.x = 1;\r\n\
+b.x = 0;\r\n\
+\r\n\
+Foo<int> k(){ assert(0); return Foo<int>(); } // never called!\r\n\
+\r\n\
+assert(a || k());\r\n\
+assert(!(b && k()));\r\n\
+\r\n\
+Foo<double> c, d;\r\n\
+c.x = 1;\r\n\
+d.x = 0;\r\n\
+\r\n\
+Foo<double> j(){ assert(0); return Foo<double>(); } // never called!\r\n\
+\r\n\
+assert(c || j());\r\n\
+assert(!(d && j()));\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("overloaded || and && operators do not break short-circuiting 2", testLogOrAndLogAndOperatorOverload2, "1");
