@@ -274,8 +274,6 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar
 
 	TEST_FOR_FAIL("Short inline function at generic argument position", "auto foo(generic a, b, generic f){ return f(a, b); } return foo(5, 4, <x,y>{ x * y; });", "ERROR: cannot find function or variable 'foo' which accepts a function with 2 argument(s) as an argument #2");
 
-	TEST_FOR_FAIL("Inline generic function pointer", "int foo(int ref(int) f){ return f(5); } int x(generic a){ return -a; } return foo(x);", "ERROR: can't take pointer to a generic function");
-	TEST_FOR_FAIL("Generic function pointer 2", "auto test(generic a, generic f){ return f(a); } auto foo(generic a){ return -a; } return test(5, foo);", "ERROR: can't take pointer to a generic function");
 	TEST_FOR_FAIL("typeof from a combination of generic arguments", "auto sum(generic a, b, typeof(a*b) c){ return a + b; } return sum(3, 4.5, double);", "ERROR: can't find function 'sum' with following parameters:");
 
 	TEST_FOR_FAIL("coroutine cannot be a member function", "class Foo{} coroutine int Foo:bar(){ yield 1; return 0; } return 1;", "ERROR: coroutine cannot be a member function");
@@ -496,9 +494,6 @@ return int(y() + z());",
                                ^\r\n\
 ");
 
-	TEST_FOR_FAIL("pointer to a generic function", "class Foo{ auto foo(generic x){ return -x; } } Foo z; auto y = z.foo; return y(5);", "ERROR: can't take pointer to a generic function");
-	TEST_FOR_FAIL("pointer to a generic function 2", "class Foo{ auto foo(int x){ return -x; } auto foo(generic x){ return -x; } auto bar(){ return foo; } } Foo z; auto y = z.bar(); return y(5);", "ERROR: can't take pointer to a generic function");
-
 	TEST_FOR_FAIL("short inline function fail in variable 1", "int foo(int x){ return 2 * x; } int bar(int a, int ref(double) y){ return y(5.0); } auto x = bar; return x(foo, <x>{ -x; });", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #1");
 	TEST_FOR_FAIL("short inline function fail in variable 2", "int bar(int ref(double) y){ return y(5.0); } auto x = bar; int foo(int x){ return x(<x>{ -x; }); }", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #0");
 	TEST_FOR_FAIL("short inline function fail in variable 3", "int bar(int ref(double) y){ return y(5.0); } auto x = bar; int foo(){ return x(1, <x>{ -x; }); }", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #1");
@@ -514,8 +509,6 @@ return int(y() + z());",
 	TEST_FOR_FAIL("generic instance type invisible after instance 3", "class Foo<T>{} void foo(Foo<@T> x){ T y; } Foo<int> a; foo(a); T x; return sizeof(x);", "ERROR: variable or function 'T' is not defined");
 
 	TEST_FOR_FAIL("generic instance type invisible after instance 3", "class Foo<T>{ T x; } void foo(Foo<@T>[] x){ x.x = 5; } Foo<int> a; foo(a); return a.x;", "ERROR: can't find function 'foo' with following parameters:");
-
-	TEST_FOR_FAIL("unable to select function overload", "class Foo{ int y; int boo(generic x){ return x * y; } int boo(int x){ return x * y; } } Foo x; x.y = 6; int ref(double) m = x.boo; return m(2.5);", "ERROR: unable to select function overload for a type 'int ref(double)'");
 
 	TEST_FOR_FAIL("sizeof type in definition", "class Foo{ int t(){ return sizeof(Foo); } int x; } Foo m; return m.t();", "ERROR: cannot take size of a type in definition");
 
@@ -543,4 +536,6 @@ return int(y() + z());",
 	TEST_FOR_FAIL_GENERIC("type aliases are taken from instance", "class Foo<T>{} auto Foo:foo(T key){ bar(10); } auto Foo:bar(T key){} Foo<char[]> map; map.foo(\"foo\"); return 1;", "ERROR: while instantiating generic function Foo::foo(generic)", "ERROR: can't find function 'bar' with following parameters:");
 
 	TEST_FOR_FAIL("wrong function return type", "int foo(int ref(generic) f){ return f(4); } auto f2(float x){ return x * 2.5; } return foo(f2);", "ERROR: can't find function 'foo' with following parameters:");
+
+	TEST_FOR_FAIL("unable to select function overload", "auto foo(generic x){ return -x; } int ref(int, double) a = foo;", "ERROR: unable to select function 'foo' overload for a type 'int ref(int,double)'");
 }

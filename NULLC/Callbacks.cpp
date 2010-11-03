@@ -1079,7 +1079,7 @@ void GetFunctionContext(const char* pos, FunctionInfo *fInfo, bool handleThisCal
 }
 
 // Function that retrieves variable address
-void AddGetAddressNode(const char* pos, InplaceStr varName, TypeInfo *forcedPreferredType, NodeZeroOP *forcedThisNode)
+void AddGetAddressNode(const char* pos, InplaceStr varName)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
@@ -1102,9 +1102,6 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, TypeInfo *forcedPref
 			if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
 			{
 				FunctionInfo *fInfo = CodeInfo::funcInfo[fID];
-				if(fInfo->generic)
-					ThrowError(pos, "ERROR: can't take pointer to a generic function");
-				assert(!forcedThisNode);
 				GetFunctionContext(pos, fInfo, true);
 				fInfo->pure = false;
 				CodeInfo::nodeList.push_back(new NodeFunctionProxy(fInfo, pos, false, true));
@@ -1119,35 +1116,17 @@ void AddGetAddressNode(const char* pos, InplaceStr varName, TypeInfo *forcedPref
 		if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
 		{
 			int fIdFirst = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
-			fID = -1;
-			TypeInfo *preferredType = forcedPreferredType;
-			if(preferredType)
-			{
-				HashMap<FunctionInfo*>::Node *curr = funcMap.first(hash);
-				while(curr)
-				{
-					FunctionInfo *func = curr->value;
-					if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType && func->funcType == preferredType)
-					{
-						fID = func->indexInArr;
-						break;
-					}
-					curr = funcMap.next(curr);
-				}
-			}
-			if(fID == -1)
-			{
-				CodeInfo::nodeList.push_back(new NodeFunctionProxy(CodeInfo::funcInfo[fIdFirst], pos));
-				return;
-			}
+			CodeInfo::nodeList.push_back(new NodeFunctionProxy(CodeInfo::funcInfo[fIdFirst], pos));
+			return;
 		}
 		FunctionInfo *fInfo = CodeInfo::funcInfo[fID];
 		if(fInfo->generic)
-			ThrowError(pos, "ERROR: can't take pointer to a generic function");
+		{
+			CodeInfo::nodeList.push_back(new NodeFunctionProxy(fInfo, pos, true));
+			return;
+		}
 
-		GetFunctionContext(pos, fInfo, !forcedThisNode);
-		if(forcedThisNode)
-			CodeInfo::nodeList.push_back(forcedThisNode);
+		GetFunctionContext(pos, fInfo, true);
 		// Create node that retrieves function address
 		fInfo->pure = false;
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(fInfo));
@@ -1796,8 +1775,6 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 			}
 		}else{
 			memberFunc = func->value;
-			if(memberFunc->generic)
-				ThrowError(pos, "ERROR: can't take pointer to a generic function");
 		}
 		if(func && funcMap.next(func))
 		{
@@ -1821,6 +1798,13 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		if(currentType->arrLevel || currentType == typeObject || currentType == typeAutoArray)
 			CodeInfo::nodeList.push_back(new NodeDereference(NULL, 0, true));
 	}else{
+		if(memberFunc->generic)
+		{
+			if(unifyTwo)
+				AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
+			CodeInfo::nodeList.push_back(new NodeFunctionProxy(memberFunc, pos, false, true));
+			return;
+		}
 		// In case of a function, get it's address
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(memberFunc));
 	}
@@ -2032,9 +2016,36 @@ void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred)
 		}
 		if(!dstPreferred->funcType)
 			ThrowError(pos, "ERROR: cannot select function overload for a type '%s'", dstPreferred->GetFullTypeName());
-		AddGetAddressNode(pos, InplaceStr(info->name), dstPreferred, thisNode);
-		if(CodeInfo::nodeList.back()->nodeType == typeNodeFunctionProxy)
-			ThrowError(pos, "ERROR: unable to select function overload for a type '%s'", dstPreferred->GetFullTypeName());
+
+		bestFuncList.clear();
+		// select all functions
+		SelectFunctionsForHash(info->nameHash, 0);
+		// $ remove functions with wrong type
+
+		for(unsigned i = 0; i < dstPreferred->funcType->paramCount; i++) // push function argument placeholders
+			CodeInfo::nodeList.push_back(new NodeZeroOP(dstPreferred->funcType->paramType[i]));
+
+		unsigned minRating = ~0u;
+		unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), dstPreferred->funcType->paramCount, minRating);
+
+		if(minRating == ~0u)
+		{
+			char *errPos = errorReport;
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: unable to select function '%s' overload for a type '%s'\r\n", info->name, dstPreferred->GetFullTypeName());
+			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, info->name, dstPreferred->funcType->paramCount, bestFuncList.size());
+		}
+		FunctionInfo *fInfo = bestFuncList[minRatingIndex];
+		if(fInfo && fInfo->generic)
+			CreateGenericFunctionInstance(pos, fInfo, fInfo);
+
+		for(unsigned i = 0; i < dstPreferred->funcType->paramCount; i++) // remove function argument placeholders
+			CodeInfo::nodeList.pop_back();
+
+		GetFunctionContext(pos, fInfo, !thisNode);
+		if(thisNode)
+			CodeInfo::nodeList.push_back(thisNode);
+		fInfo->pure = false;
+		CodeInfo::nodeList.push_back(new NodeFunctionAddress(fInfo));
 	}
 }
 
