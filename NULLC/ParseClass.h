@@ -313,6 +313,7 @@ public:
 		lastVariable->nameHash = GetStringHash(name);
 		lastVariable->type = type;
 		lastVariable->offset = size;
+		lastVariable->defaultValue = NULL;
 		size += type->size;
 		memberCount++;
 		if(type->hasPointers)
@@ -324,6 +325,7 @@ public:
 		unsigned int	nameHash;
 		TypeInfo		*type;
 		unsigned int	offset;
+		NodeZeroOP		*defaultValue;
 
 		MemberVariable	*next;
 	};

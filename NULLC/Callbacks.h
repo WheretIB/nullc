@@ -161,11 +161,13 @@ void EndSwitch();
 
 void TypeBegin(const char* pos, const char* end);
 void TypeAddMember(const char* pos, const char* varName);
+void TypeAddConstant(const char* pos, const char* constName);
 void TypeFinish();
 void TypeContinue(const char* pos);
 void TypeStop();
 void TypeGeneric(unsigned pos);
 void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool genericTemp = false);
+TypeInfo*	GetDefinedType();
 
 void AddAliasType(InplaceStr aliasName);
 

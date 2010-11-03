@@ -305,6 +305,8 @@ void Lexer::Lexify(const char* code)
 							lType = lex_align;
 						else if(memcmp(code, "yield", 5) == 0)
 							lType = lex_yield;
+						else if(memcmp(code, "const", 5) == 0)
+							lType = lex_const;
 						break;
 					case 6:
 						if(memcmp(code, "switch", 6) == 0)

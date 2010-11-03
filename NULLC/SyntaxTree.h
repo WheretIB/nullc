@@ -230,7 +230,7 @@ public:
 	}
 
 	bool		ConvertTo(TypeInfo *target);
-protected:
+public:
 	union Numbers
 	{
 		int integer;

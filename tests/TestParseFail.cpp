@@ -228,4 +228,15 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "@if(0) return 1; else }", "ERROR: expression not found after 'else'");
 
 	TEST_FOR_FAIL("parsing", "class Foo{ int[5] arr; } return Foo.arr2.arraySize;", "ERROR: expected extended typeof expression, class member name or class typedef at this point");
+
+	TEST_FOR_FAIL("parsing", "class Foo{ const; }", "ERROR: type name expected after const");
+	TEST_FOR_FAIL("parsing", "class Foo{ const int ref = nullptr; }", "ERROR: only basic numeric types can be used as constants");
+	TEST_FOR_FAIL("parsing", "class Foo{ const void a; }", "ERROR: only basic numeric types can be used as constants");
+	TEST_FOR_FAIL("parsing", "class Foo{ const int; }", "ERROR: constant name expected after type");
+	TEST_FOR_FAIL("parsing", "class Foo{ const int a; }", "ERROR: '=' not found after constant name");
+	TEST_FOR_FAIL("parsing", "class Foo{ const int a = ; }", "ERROR: expression not found after '='");
+	TEST_FOR_FAIL("parsing", "class Foo{ const int a = 4, ; }", "ERROR: constant name expected after ','");
+	TEST_FOR_FAIL("parsing", "class Foo{ const int a = 4, b }", "ERROR: ';' not found after constants");
+	TEST_FOR_FAIL("parsing", "class Foo{ const float a = 4, b; }", "ERROR: only integer constant list gets automatically incremented by 1");
+
 }

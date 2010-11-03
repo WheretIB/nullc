@@ -2125,3 +2125,67 @@ assert(x == y); //  Assertion Failed\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("Operator instancing test", testOperatorInstanceCorrectness, "1");
+
+const char *testConstantsInAGenericType =
+"class Foo<T>\r\n\
+{\r\n\
+	int a;\r\n\
+\r\n\
+	const int b = 6;\r\n\
+	const int c = 7, d = 8;\r\n\
+	const auto e = 9, f = 10;\r\n\
+	const auto g = sizeof(T), h;\r\n\
+}\r\n\
+\r\n\
+assert(Foo<int>.b == 6);\r\n\
+\r\n\
+assert(Foo<int>.c == 7);\r\n\
+assert(Foo<int>.d == 8);\r\n\
+\r\n\
+assert(Foo<int>.e == 9);\r\n\
+assert(Foo<int>.f == 10);\r\n\
+\r\n\
+assert(Foo<int>.g == 4);\r\n\
+assert(Foo<int>.h == 5);\r\n\
+\r\n\
+assert(Foo<double>.g == 8);\r\n\
+assert(Foo<double>.h == 9);\r\n\
+\r\n\
+assert(sizeof(Foo<int>) == 4);\r\n\
+assert(sizeof(Foo<double>) == 4);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Constants in a generic type test", testConstantsInAGenericType, "1");
+
+LOAD_MODULE(test_constant_export3, "test.constant_export3",
+"class Foo<T>\r\n\
+{\r\n\
+	int a;\r\n\
+\r\n\
+	const int b = 6;\r\n\
+	const int c = 7, d = 8;\r\n\
+	const auto e = 9, f = 10;\r\n\
+	const auto g = sizeof(T), h;\r\n\
+}");
+const char	*testConstantsInAGenericType2 =
+"import test.constant_export3;\r\n\
+\r\n\
+assert(Foo<int>.b == 6);\r\n\
+\r\n\
+assert(Foo<int>.c == 7);\r\n\
+assert(Foo<int>.d == 8);\r\n\
+\r\n\
+assert(Foo<int>.e == 9);\r\n\
+assert(Foo<int>.f == 10);\r\n\
+\r\n\
+assert(Foo<int>.g == 4);\r\n\
+assert(Foo<int>.h == 5);\r\n\
+\r\n\
+assert(Foo<double>.g == 8);\r\n\
+assert(Foo<double>.h == 9);\r\n\
+\r\n\
+assert(sizeof(Foo<int>) == 4);\r\n\
+assert(sizeof(Foo<double>) == 4);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Constants in a generic type test (import)", testConstantsInAGenericType2, "1");

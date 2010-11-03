@@ -689,6 +689,15 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			newInfo->alignBytes = tInfo->defaultAlign;
 		}
 	}
+#pragma pack(push, 1)
+	struct ConstantData
+	{
+		unsigned typeID;
+		long long value;
+	};
+#pragma pack(pop)
+	ConstantData *constantList = (ConstantData*)((char*)bCode + bCode->offsetToConstants);
+
 	for(unsigned int i = oldTypeCount; i < CodeInfo::typeInfo.size(); i++)
 	{
 		TypeInfo *type = CodeInfo::typeInfo[i];
@@ -712,6 +721,20 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				if(alignment && type->size % alignment != 0)
 					type->size += alignment - (type->size % alignment);
 				type->AddMemberVariable(nameCopy, memberType);
+			}
+			for(unsigned int n = 0; n < typeInfo->constantCount; n++)
+			{
+				TypeInfo *constantType = CodeInfo::typeInfo[typeRemap[constantList->typeID]];
+				NodeNumber *value = new NodeNumber(0, constantType);
+				value->num.integer64 = constantList->value;
+				constantList++;
+
+				unsigned int strLength = (unsigned int)strlen(memberName) + 1;
+				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), memberName);
+				memberName += strLength;
+
+				type->AddMemberVariable(nameCopy, typeVoid);
+				type->lastVariable->defaultValue = value;
 			}
 			if(type->size % 4 != 0)
 			{
@@ -1713,7 +1736,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	size += CodeInfo::typeInfo.size() * sizeof(ExternTypeInfo);
 
 	unsigned symbolStorageSize = 0;
-	unsigned allMemberCount = 0;
+	unsigned allMemberCount = 0, allConstantCount = 0;
 	unsigned typedefCount = 0;
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
@@ -1734,11 +1757,16 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 				symbolStorageSize += (unsigned int)strlen(curr->name) + 1;
 				if(curr->type->hasPointers)
 					allMemberCount += 2;
+				if(curr->defaultValue)
+					allConstantCount++;
 			}
 		}
 		allMemberCount += type->funcType ? type->funcType->paramCount + 1 : type->memberCount;
 	}
 	size += allMemberCount * sizeof(unsigned int);
+
+	unsigned int offsetToConstants = size;
+	size += allConstantCount * (sizeof(unsigned) + sizeof(long long)); // typeID + value
 
 	unsigned int functionsInModules = 0;
 	unsigned int offsetToModule = size;
@@ -1875,11 +1903,21 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->offsetToSymbols = offsetToSymbols;
 	code->debugSymbols = (*bytecode) + offsetToSymbols;
 
+	code->offsetToConstants = offsetToConstants;
+
 	char*	symbolPos = code->debugSymbols;
 
 	ExternTypeInfo *tInfo = FindFirstType(code);
 	code->firstType = tInfo;
 	unsigned int *memberList = (unsigned int*)(tInfo + CodeInfo::typeInfo.size());
+#pragma pack(push, 1)
+	struct ConstantData
+	{
+		unsigned typeID;
+		long long value;
+	};
+#pragma pack(pop)
+	ConstantData *constantList = (ConstantData*)((char*)code + code->offsetToConstants);
 	unsigned int memberOffset = 0;
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
@@ -1897,6 +1935,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		typeInfo.defaultAlign = (unsigned char)refType.alignBytes;
 		typeInfo.typeFlags = refType.hasFinalizer ? ExternTypeInfo::TYPE_HAS_FINALIZER : 0;
 		typeInfo.typeFlags |= refType.dependsOnGeneric ? ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC : 0;
+
+		typeInfo.constantCount = 0;
 
 		typeInfo.pointerCount = refType.hasPointers;
 		if(refType.funcType != 0)						// Function type
@@ -1919,12 +1959,29 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			typeInfo.subCat = ExternTypeInfo::CAT_CLASS;
 			typeInfo.memberCount = refType.memberCount;
 			typeInfo.memberOffset = memberOffset;
+			// Export type members
 			for(TypeInfo::MemberVariable *curr = refType.firstVariable; curr; curr = curr->next)
 			{
+				if(curr->defaultValue)
+					continue;
 				memberList[memberOffset++] = curr->type->typeIndex;
 				memcpy(symbolPos, curr->name, strlen(curr->name) + 1);
 				symbolPos += strlen(curr->name) + 1;
 			}
+			// Export type constants
+			for(TypeInfo::MemberVariable *curr = refType.firstVariable; curr; curr = curr->next)
+			{
+				if(!curr->defaultValue)
+					continue;
+				typeInfo.constantCount++;
+				assert(curr->defaultValue->nodeType == typeNodeNumber);
+				constantList->typeID = curr->defaultValue->typeInfo->typeIndex;
+				constantList->value = ((NodeNumber*)curr->defaultValue)->num.integer64;
+				constantList++;
+				memcpy(symbolPos, curr->name, strlen(curr->name) + 1);
+				symbolPos += strlen(curr->name) + 1;
+			}
+			// Export type pointer members for GC
 			typeInfo.pointerCount = 0;
 			for(TypeInfo::MemberVariable *curr = refType.firstVariable; curr; curr = curr->next)
 			{
