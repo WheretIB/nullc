@@ -48,6 +48,7 @@ TypeInfo*	typeTypeid = NULL;
 TypeInfo*	typeAutoArray = NULL;
 
 TypeInfo*	typeGeneric = NULL;
+TypeInfo*	typeBool = NULL;
 
 namespace NULLC
 {
@@ -339,6 +340,11 @@ Compiler::Compiler()
 	info->size = 0;
 	info->dependsOnGeneric = true;
 	typeGeneric = info;
+	CodeInfo::typeInfo.push_back(info);
+
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "bool", 0, 0, 1, NULL, TypeInfo::TYPE_CHAR);
+	info->size = 1;
+	typeBool = info;
 	CodeInfo::typeInfo.push_back(info);
 
 	buildInTypes.resize(CodeInfo::typeInfo.size());

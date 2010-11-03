@@ -276,9 +276,9 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd, unsigned int argument)
 	first = TakeLastNode();
 	// Resulting type is the same as source type with exception for logical NOT
 	bool logicalOp = cmd == cmdLogNot;
-	typeInfo = logicalOp ? typeInt : first->typeInfo;
+	typeInfo = logicalOp ? typeBool : first->typeInfo;
 
-	if(cmd != cmdCheckedRet && ((first->typeInfo->refLevel != 0 && !logicalOp) || (first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject)))
+	if(cmd != cmdCheckedRet && ((first->typeInfo->refLevel != 0 && !logicalOp) || (first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject) || (!logicalOp && first->typeInfo == typeBool)))
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmd - cmdNeg], first->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeUnaryOp;
@@ -776,6 +776,12 @@ void NodeVariableSet::Compile()
 	second->Compile();
 	ConvertFirstToSecond(second->typeInfo->stackType, asmST);
 
+	if(first->typeInfo->subType == typeBool && second->typeInfo != typeBool)
+	{
+		cmdList.push_back(VMCmd(cmdPushImmt, 0));
+		cmdList.push_back(VMCmd(cmdNEqual));
+	}
+
 	if(!knownAddress)
 		first->Compile();
 	if(arrSetAll)
@@ -902,6 +908,12 @@ void NodeVariableModify::Compile()
 
 	// Convert to the type of first operand
 	ConvertFirstToSecond(asmSTresult, asmSTfirst);
+
+	if(first->typeInfo->subType == typeBool && (second->typeInfo != typeBool || !(cmdID >= cmdBitAnd && cmdID <= cmdBitXor)))
+	{
+		cmdList.push_back(VMCmd(cmdPushImmt, 0));
+		cmdList.push_back(VMCmd(cmdNEqual));
+	}
 
 	// Calculate address of the first operand, if it isn't known
 	if(!knownAddress)
@@ -1280,7 +1292,9 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 	if(second->nodeType == typeNodeNumber && second->typeInfo != typeInfo)
 		((NodeNumber*)second)->ConvertTo(typeInfo);
 
-	typeInfo = logicalOp ? typeInt : typeInfo;
+	typeInfo = logicalOp ? typeBool : typeInfo;
+	if(typeInfo == typeBool && !logicalOp && !(cmd >= cmdBitAnd && cmd <= cmdBitXor))
+		typeInfo = typeInt;
 
 	nodeType = typeNodeBinaryOp;
 }

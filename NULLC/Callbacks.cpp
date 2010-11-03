@@ -582,7 +582,7 @@ void AddNegateNode(const char* pos)
 		return;
 
 	// If the last node is a number, we can just change sign of constant
-	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber)
+	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList.back()->typeInfo != typeBool)
 	{
 		TypeInfo *aType = CodeInfo::nodeList.back()->typeInfo;
 		NodeZeroOP* Rd = NULL;
@@ -619,7 +619,7 @@ void AddLogNotNode(const char* pos)
 		NodeZeroOP* Rd = NULL;
 		if(aType == typeLong)
 			Rd = new NodeNumber((long long)!static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetLong(), aType);
-		else if(aType == typeInt || aType == typeShort || aType == typeChar)
+		else if(aType == typeInt || aType == typeShort || aType == typeChar || aType == typeBool)
 			Rd = new NodeNumber(!static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger(), aType);
 		else
 			ThrowError(pos, "addLogNotNode() ERROR: unknown type %s", aType->name);
@@ -642,7 +642,7 @@ void AddBitNotNode(const char* pos)
 	if(CodeInfo::nodeList.back()->typeInfo == typeDouble || CodeInfo::nodeList.back()->typeInfo == typeFloat)
 		ThrowError(pos, "ERROR: binary NOT is not available on floating-point numbers");
 	// If the last node is a number, we can just make operation in compile-time
-	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber)
+	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList.back()->typeInfo != typeBool)
 	{
 		TypeInfo *aType = CodeInfo::nodeList.back()->typeInfo;
 		NodeZeroOP* Rd = NULL;

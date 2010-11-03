@@ -119,6 +119,22 @@ const char	*testFunc3 =
 return RecallerPtr(auto(int i){ return -i; });";
 TEST_RESULT("NULLC function call externally test 3", testFunc3, "-14");
 
+const char	*testFunc3b =
+"import func.test;\r\n\
+int a = 3;\r\n\
+int foo(int x)\r\n\
+{\r\n\
+	assert(x == 5);\r\n\
+	auto y = RecallerPtr(auto(int i){ return -i; });\r\n\
+	assert(x == 5);\r\n\
+	return y;\r\n\
+}\r\n\
+assert(a == 3);\r\n\
+auto m = foo(5);\r\n\
+assert(a == 3);\r\n\
+return m;";
+TEST_RESULT("NULLC function call externally test 3 b", testFunc3b, "-14");
+
 const char	*testFunc3Ptr =
 "import func.test;\r\n\
 auto RecallerPtr_ = RecallerPtr;\r\n\
@@ -140,7 +156,7 @@ int seed = 5987;\r\n\
 int[512] arr;\r\n\
 for(int i = 0; i < 512; i++)\r\n\
 	arr[i] = (((seed = seed * 214013 + 2531011) >> 16) & 0x7fff);\r\n\
-bubble(arr, auto(int a, b){ return a > b; });\r\n\
+bubble(arr, auto(int a, b){ return int(a > b); });\r\n\
 return arr[8];";
 TEST_RESULT("NULLC function call externally test 5", testFunc5, "32053");
 #endif

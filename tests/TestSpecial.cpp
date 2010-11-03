@@ -100,7 +100,7 @@ TEST_RESULT("Euler 122 (small depth) vector test", testEuler122, "79");
 const char	*testPatternMatching =
 "import std.vector;\r\n\
 \r\n\
-typedef int ref(auto ref[]) pattern_matcher;\r\n\
+typedef bool ref(auto ref[]) pattern_matcher;\r\n\
 typedef auto ref ref(auto ref[]) pattern_callback;\r\n\
 \r\n\
 class FunctionKV\r\n\

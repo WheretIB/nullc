@@ -41,6 +41,7 @@ enum LexemeType
 	lex_inc, lex_dec, // ++ --
 	lex_add, lex_sub, lex_mul, lex_div, lex_mod, lex_pow, lex_less, lex_lequal, lex_shl, lex_greater, lex_gequal, lex_shr, lex_equal, lex_nequal, // + - * / % ** < <= << > >= >> == !=
 	lex_bitand, lex_bitor, lex_bitxor, lex_logand, lex_logor, lex_logxor, // & | ^ && || ^^
+	lex_in,
 	lex_set, lex_addset, lex_subset, lex_mulset, lex_divset, lex_powset, lex_modset, lex_shlset, lex_shrset, lex_andset, lex_orset, lex_xorset, // = += -= *= /= **= %= <<= >>= &= |= ^=
 	lex_bitnot, lex_lognot,	// ~ !
 	lex_oparen, lex_cparen, lex_obracket, lex_cbracket, lex_ofigure, lex_cfigure, // ( ) [ ] { }
@@ -48,10 +49,10 @@ enum LexemeType
 	lex_if, lex_else, lex_for, lex_while, lex_do, lex_switch, lex_case,	lex_default, // if else for while switch case default
 	lex_break, lex_continue, lex_return, // break continue return
 	lex_ref, lex_auto, lex_class, lex_noalign, lex_align, // ref auto class noalign align
-	lex_typeof, lex_sizeof, lex_new, lex_operator, lex_typedef, lex_import, lex_in, lex_nullptr, // typeof sizeof new operator typedef import in nullptr
+	lex_typeof, lex_sizeof, lex_new, lex_operator, lex_typedef, lex_import, lex_nullptr, // typeof sizeof new operator typedef import in nullptr
 	lex_coroutine, lex_yield,	// coroutine yield
 	lex_at,	// @
-	lex_generic, lex_const, // generic const
+	lex_generic, lex_const, lex_true, lex_false, // generic const true false
 };
 
 struct Lexeme
