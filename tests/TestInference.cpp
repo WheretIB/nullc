@@ -555,7 +555,7 @@ vector<foo<int>> n;\r\n\
 return a(n);";
 TEST_RESULT("generic function pointer resolve 7", testGenericTypePointerResolve7, "4");
 
-const char	*testTypeofExtenendedExpr = 
+const char	*testTypeofExtenendedExpr1 = 
 "class Foo\r\n\
 {\r\n\
 	int a;\r\n\
@@ -564,4 +564,15 @@ const char	*testTypeofExtenendedExpr =
 assert(typeof(Foo.a.isReference) == int);\r\n\
 assert(typeof(Foo.c) == int);\r\n\
 return 1;";
-TEST_RESULT("typeof on extended typeof expressions", testTypeofExtenendedExpr, "1");
+TEST_RESULT("typeof on extended typeof expressions", testTypeofExtenendedExpr1, "1");
+
+const char	*testTypeofExtenendedExpr2 = 
+"class Foo\r\n\
+{\r\n\
+	const char a = 5;\r\n\
+	const short b = 7;\r\n\
+}\r\n\
+assert(typeof(Foo.a + Foo.b) == short);\r\n\
+assert(typeof(Foo.b + Foo.a) == short);\r\n\
+return 1;";
+TEST_RESULT("typeof on extended typeof expressions", testTypeofExtenendedExpr2, "1");

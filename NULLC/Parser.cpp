@@ -400,8 +400,14 @@ bool ParseSelectType(Lexeme** str, bool allowArray, bool allowGenericType, bool 
 			ThrowError((*str)->pos, "ERROR: typeof must be followed by '('");
 
 		unsigned nodeCount = CodeInfo::nodeList.size();
-		if(!ParseSelectType(str))
-		{	
+		Lexeme *curr = *str;
+		bool isType = ParseSelectType(str);
+		if(!isType || (*str)->type != lex_cparen)
+		{
+			// If ParseSelectType parser extended type expression that returned a number, remove that number
+			if(isType && CodeInfo::nodeList.size() == nodeCount + 1)
+				CodeInfo::nodeList.pop_back();
+			*str = curr;
 			jmp_buf oldHandler;
 			memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
 			if(!allowGenericType || !setjmp(CodeInfo::errorHandler)) // if allowGenericType is enabled, we will set error handler
