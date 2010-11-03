@@ -11,10 +11,8 @@ static void	Swap(T& a, T& b)
 
 // Functions to apply binary operations in compile-time
 template<typename T>
-inline T optDoOperation(CmdID cmd, T a, T b, bool swap = false)
+inline T optDoOperation(CmdID cmd, T a, T b)
 {
-	if(swap)
-		Swap(a, b);
 	if(cmd == cmdAdd)
 		return a + b;
 	if(cmd == cmdSub)

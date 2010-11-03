@@ -230,6 +230,8 @@ bool NodeNumber::ConvertTo(TypeInfo *target)
 		num.real = GetDouble();
 	}else if(target == typeLong){
 		num.integer64 = GetLong();
+	}else if(target == typeBool){
+		num.integer = !!GetInteger();
 	}else{
 		return false;
 	}

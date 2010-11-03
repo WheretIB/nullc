@@ -618,9 +618,9 @@ void AddLogNotNode(const char* pos)
 		TypeInfo *aType = CodeInfo::nodeList.back()->typeInfo;
 		NodeZeroOP* Rd = NULL;
 		if(aType == typeLong)
-			Rd = new NodeNumber((long long)!static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetLong(), aType);
+			Rd = new NodeNumber((long long)!static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetLong(), typeBool);
 		else if(aType == typeInt || aType == typeShort || aType == typeChar || aType == typeBool)
-			Rd = new NodeNumber(!static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger(), aType);
+			Rd = new NodeNumber(!static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger(), typeBool);
 		else
 			ThrowError(pos, "addLogNotNode() ERROR: unknown type %s", aType->name);
 
@@ -763,24 +763,23 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 		// If we have operation between two known numbers, we can optimize code by calculating the result in compile-time
 		TypeInfo *aType = Ad->typeInfo;
 		TypeInfo *bType = Bd->typeInfo;
+		TypeInfo *resType = ChooseBinaryOpResultType(aType, bType);
+		if(Ad->typeInfo != resType)
+			Ad->ConvertTo(resType);
+		if(Bd->typeInfo != resType)
+			Bd->ConvertTo(resType);
 
-		bool swapOper = false;
-		// Swap operands, to reduce number of combinations
-		if(((aType == typeFloat || aType == typeLong || aType == typeInt || aType == typeShort || aType == typeChar) && bType == typeDouble) ||
-			((aType == typeLong || aType == typeInt || aType == typeShort || aType == typeChar) && bType == typeFloat) ||
-			((aType == typeInt || aType == typeShort || aType == typeChar) && bType == typeLong))
-		{
-			Swap(Ad, Bd);
-			swapOper = true;
-		}
-
+		bool logicalOp = (id >= cmdLess && id <= cmdNEqual) || (id >= cmdLogAnd && id <= cmdLogXor);
 		NodeNumber *Rd = NULL;
-		if(Ad->typeInfo == typeDouble || Ad->typeInfo == typeFloat)
-			Rd = new NodeNumber(optDoOperation<double>(id, Ad->GetDouble(), Bd->GetDouble(), swapOper), typeDouble);
-		else if(Ad->typeInfo == typeLong)
-			Rd = new NodeNumber(optDoOperation<long long>(id, Ad->GetLong(), Bd->GetLong(), swapOper), typeLong);
-		else if(Ad->typeInfo == typeInt || Ad->typeInfo == typeShort || Ad->typeInfo == typeChar)
-			Rd = new NodeNumber(optDoOperation<int>(id, Ad->GetInteger(), Bd->GetInteger(), swapOper), typeInt);
+		if(resType->stackType == STYPE_DOUBLE)
+			Rd = new NodeNumber(optDoOperation<double>(id, Ad->GetDouble(), Bd->GetDouble()), resType);
+		else if(resType->stackType == STYPE_LONG)
+			Rd = new NodeNumber(optDoOperation<long long>(id, Ad->GetLong(), Bd->GetLong()), resType);
+		else if(resType->stackType == STYPE_INT)
+			Rd = new NodeNumber(optDoOperation<int>(id, Ad->GetInteger(), Bd->GetInteger()), resType);
+		if(logicalOp || (Ad->typeInfo == typeBool && Bd->typeInfo == typeBool && id >= cmdBitAnd && id <= cmdBitXor))
+			Rd->ConvertTo(typeBool);
+		assert(Rd);
 		CodeInfo::nodeList.push_back(Rd);
 		return;
 	}else if(aNodeType == typeNodeNumber || bNodeType == typeNodeNumber){
