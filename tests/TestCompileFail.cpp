@@ -552,4 +552,6 @@ return int(y() + z());",
 
 	TEST_FOR_FAIL("generic in an illegal context", "auto foo(generic x){} class Bar<T>{ T x; } auto Bar:bar(generic y = foo(Bar<T>())){} return 1;", "ERROR: type depends on 'generic' in a context where it is not allowed");
 	TEST_FOR_FAIL("generic in an illegal context", "auto foo(generic x){} class Bar<T>{ T x; } auto Bar:bar(generic y = foo(T())){} return 1;", "ERROR: couldn't fully resolve type 'generic' for an argument 0 of a function 'foo'");
+
+	TEST_FOR_FAIL("operator with short-circuit requirement", "int operator||(int a, b){ return 0; }", "ERROR: && or || operator definition or overload must accept a function returning desired type as the second argument (try int ref())");
 }

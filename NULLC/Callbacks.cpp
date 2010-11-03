@@ -672,6 +672,24 @@ void RemoveLastNode(bool swap)
 	}
 }
 
+void WrapNodeToFunction(const char* pos)
+{
+	NodeZeroOP *wrapee = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+
+	char	*functionName = AllocateString(16);
+	sprintf(functionName, "$funcw%d", inplaceVariableNum++);
+	currType = NULL;
+	FunctionAdd(pos, functionName);
+	FunctionStart(pos);
+	const char *lastFunc = SetCurrentFunction(NULL);
+	CodeInfo::nodeList.push_back(wrapee);
+	AddReturnNode(pos);
+	SetCurrentFunction(lastFunc);
+	FunctionEnd(pos);
+	ConvertFunctionToPointer(pos);
+}
+
 void AddBinaryCommandNode(const char* pos, CmdID id)
 {
 	CodeInfo::lastKnownStartPos = pos;
@@ -798,6 +816,12 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 		}
 	}
 
+	if((id == cmdLogAnd || id == cmdLogOr) && CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX)
+	{
+		WrapNodeToFunction(pos);
+		AddFunctionCallNode(CodeInfo::lastKnownStartPos, opNames[id - cmdAdd], 2);
+		return;
+	}
 	// Optimizations failed, perform operation in run-time
 	if(!AddFunctionCallNode(CodeInfo::lastKnownStartPos, opNames[id - cmdAdd], 2, true))
 		CodeInfo::nodeList.push_back(new NodeBinaryOp(id));
@@ -3016,10 +3040,14 @@ void FunctionToOperator(const char* pos)
 	static unsigned int hashLogNot = GetStringHash("!");
 	static unsigned int hashIndex = GetStringHash("[]");
 	static unsigned int hashFunc = GetStringHash("()");
+	static unsigned int hashLogAnd = GetStringHash("&&");
+	static unsigned int hashLogOr = GetStringHash("||");
 
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 	if(lastFunc.nameHash != hashFunc && lastFunc.nameHash != hashIndex && lastFunc.paramCount != 2 && !(lastFunc.paramCount == 1 && (lastFunc.nameHash == hashAdd || lastFunc.nameHash == hashSub || lastFunc.nameHash == hashBitNot || lastFunc.nameHash == hashLogNot)))
 		ThrowError(pos, "ERROR: binary operator definition or overload must accept exactly two arguments");
+	if((lastFunc.nameHash == hashLogAnd || lastFunc.nameHash == hashLogOr) && !lastFunc.lastParam->varType->funcType)
+		ThrowError(pos, "ERROR: && or || operator definition or overload must accept a function returning desired type as the second argument (try %s)", CodeInfo::GetFunctionType(lastFunc.lastParam->varType, lastFunc.lastParam->next, 0)->GetFullTypeName());
 	lastFunc.visible = true;
 }
 

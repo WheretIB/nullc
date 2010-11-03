@@ -175,3 +175,26 @@ const char	*testDefaultArrayComparisonShouldntBreakUserDefined =
 "char[] a = \"hello\", b = \"hello\";\r\n\
 return a == b;";
 TEST_RESULT("Default array comparison function shouldn't break user defined functions", testDefaultArrayComparisonShouldntBreakUserDefined, "1");
+
+const char	*testLogOrAndLogAndOperatorOverload1 =
+"class Foo{ int x; }\r\n\
+\r\n\
+int operator||(Foo a, Foo ref() b)\r\n\
+{\r\n\
+	return a.x || b().x;\r\n\
+}\r\n\
+int operator&&(Foo a, Foo ref() b)\r\n\
+{\r\n\
+	return a.x && b().x;\r\n\
+}\r\n\
+Foo a, b;\r\n\
+a.x = 1;\r\n\
+b.x = 0;\r\n\
+\r\n\
+Foo k(){ assert(0); return Foo(); } // never called!\r\n\
+\r\n\
+assert(a || k());\r\n\
+assert(!(b && k()));\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("overloaded || and && operators do not break short-circuiting", testLogOrAndLogAndOperatorOverload1, "1");
