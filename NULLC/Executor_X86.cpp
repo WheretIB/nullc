@@ -797,6 +797,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	memcpy(data.data, NULLC::errorHandler, sizeof(sigjmp_buf));
 	if(!(errorCode = sigsetjmp(NULLC::errorHandler, 1)))
 	{
+		unsigned savedSize = NULLC::dataHead->lastEDI;
 		void *dummy = NULL;
 		typedef	void (*nullcFunc)(int /*varSize*/, int* /*returnStruct*/, unsigned /*codeStart*/, void** /*genStackTop*/);
 		nullcFunc gate = (nullcFunc)(intptr_t)codeHead;
@@ -805,6 +806,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		res1 = returnStruct[0];
 		res2 = returnStruct[1];
 		resT = returnStruct[2];
+		NULLC::dataHead->lastEDI = savedSize;
 	}else{
 		if(errorCode == EXCEPTION_INT_DIVIDE_BY_ZERO)
 			strcpy(execError, "ERROR: integer division by zero");
@@ -853,6 +855,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 #else
 	__try
 	{
+		unsigned savedSize = NULLC::dataHead->lastEDI;
 		void *dummy = NULL;
 		typedef	void (*nullcFunc)(int /*varSize*/, int* /*returnStruct*/, unsigned /*codeStart*/, void** /*genStackTop*/);
 		nullcFunc gate = (nullcFunc)(intptr_t)codeHead;
@@ -861,6 +864,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		res1 = returnStruct[0];
 		res2 = returnStruct[1];
 		resT = returnStruct[2];
+		NULLC::dataHead->lastEDI = savedSize;
 	}__except(NULLC::CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
 		if(NULLC::expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
 			strcpy(execError, "ERROR: integer division by zero");

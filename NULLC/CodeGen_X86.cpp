@@ -627,6 +627,8 @@ void EMIT_OP_ADDR(x86Command op, x86Size size, unsigned int addr)
 
 void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 {
+	if(op == o_movsx)
+		op = o_mov;
 #ifdef NULLC_OPTIMIZE_X86
 	if(op == o_add && NULLC::reg[reg1].type == x86Argument::argNumber)
 	{
