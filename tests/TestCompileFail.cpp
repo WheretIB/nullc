@@ -456,7 +456,7 @@ return int(foo(b) + foo(c));",
 	TEST_FOR_FAIL("generic function specialization fail 4", "class Foo<T>{ T x; }auto foo(Foo<generic, int> a){ return a.x; }Foo<float> z;return foo(z);", "ERROR: type has only '1' generic argument(s) while '2' specified");
 	TEST_FOR_FAIL("generic function specialization fail 5", "class Foo<T, U>{ T x; } auto foo(Foo<generic> a){ return a.x; } Foo<int, int> z; return foo(z);", "ERROR: there where only '1' argument(s) to a generic type that expects '2'");
 
-	TEST_FOR_FAIL("generic function specialization alias double", "class Foo<T, U>{ T x; } auto foo(Foo<@T, @T> x){ T y = x.x; return y + x.x; } Foo<int, float> a; return foo(a);", "ERROR: function 'foo' argument list has multiple 'T' aliases");
+	TEST_FOR_FAIL("generic function specialization alias double", "class Foo<T, U>{ T x; } auto foo(Foo<@T, @T> x){ T y = x.x; return y + x.x; } Foo<int, float> a; return foo(a);", "ERROR: can't find function 'foo' with following parameters:");
 
 	TEST_FOR_FAIL(">> after a non-nester generic type name", "class Foo<T>{ T t; } int c = 1; int a = Foo<int>> c;", "ERROR: operation > is not supported on 'typeid' and 'int'");
 
@@ -548,5 +548,7 @@ return int(y() + z());",
 	TEST_FOR_FAIL("argument mistaken for generic", "auto foo(generic x, typeof(x) a, b){ } class Foo{} Foo a; foo(4, 4, a);", "ERROR: can't find function 'foo' with following parameters:");
 	TEST_FOR_FAIL("argument mistaken for generic", "class Tuple<T, U>{ T x; U y; } auto operator==(Tuple<@T, @U> ref a, b){ } Tuple<int, int> a; return a == 5;", "ERROR: operation == is not supported on 'Tuple<int, int>' and 'int'");
 
-	TEST_FOR_FAIL("multiple aliases with different type in argument list", "class Foo<T>{ void Foo(){} } auto foo(Foo<@T> a, b){} foo(Foo<int>(), Foo<double>());", "ERROR: function 'foo' argument list has multiple 'T' aliases");
+	TEST_FOR_FAIL("multiple aliases with different type in argument list", "class Foo<T>{ void Foo(){} } auto foo(Foo<@T> a, b){} foo(Foo<int>(), Foo<double>());", "ERROR: can't find function 'foo' with following parameters:");
+
+	TEST_FOR_FAIL("typedef dies after a generic function instance 2", "class Foo<T>{ T x; } auto foo(Foo<@T> x, int ref(int, int) y){ return x.x * y(1, 2); } Foo<int> a; a.x = 2; assert(6 == foo(a, <i, j>{ i+j; })); T x; return x;", "ERROR: variable or function 'T' is not defined");
 }

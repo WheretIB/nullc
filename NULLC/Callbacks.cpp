@@ -1263,9 +1263,20 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 
 					bool genericArg = false, genericRef = false;
 
-					if(!ParseSelectType(&start))
+					TypeInfo *referenceType = NULL;
+					if(argID != currArgument)
+					{
+						SelectTypeForGeneric(nodeOffset + argID);
+						referenceType = currType;
+					}
+					// Set generic function as being in definition so that type aliases will get into functions alias list and will not spill to outer scope
+					currDefinedFunc.push_back(func);
+					// Flag of instantiation failure
+					bool instanceFailure = false;
+					if(!ParseSelectType(&start, true, !!referenceType, false, true, referenceType, &instanceFailure))
 						genericArg = start->type == lex_generic ? !!(start++) : false;
 					genericRef = start->type == lex_ref ? !!(start++) : false;
+					currDefinedFunc.pop_back();
 
 					if(genericArg && genericRef && start->type == lex_oparen)
 					{
@@ -1296,6 +1307,12 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 						if(genericArg)
 							currType = typeGeneric;
 					}
+				}
+				// Remove all added aliases
+				while(func->childAlias)
+				{
+					CodeInfo::classMap.remove(func->childAlias->nameHash, func->childAlias->type);
+					func->childAlias = func->childAlias->next;
 				}
 				while(tempList)
 				{
@@ -1571,7 +1588,7 @@ void AddSetVariableNode(const char* pos)
 				SelectFunctionsForHash(fInfo->nameHash, 0); // Select accessor functions from instanced class
 				// Select best function for the call
 				unsigned minRating = ~0u;
-				unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), 1, minRating, currentType);
+				unsigned minRatingIndex = SelectBestFunction(bestFuncList.size(), 1, minRating, currentType);
 				if(minRating != ~0u)
 				{
 					// If a function is found and it is a generic function, instance it
@@ -1722,7 +1739,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 				SelectFunctionsForHash(funcInstancedHash, 0); // Select regular functions from instance class
 				// Choose best function
 				unsigned minRating = ~0u;
-				unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), 0, minRating);
+				unsigned minRatingIndex = SelectBestFunction(bestFuncList.size(), 0, minRating);
 				if(minRating != ~0u)
 				{
 					// If a function is found and it is a generic function, instance it
@@ -1740,7 +1757,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 					SelectFunctionsForHash(GetStringHash(memberFuncName), 0); // Select accessor functions from instance class
 					// Choose best accessor
 					unsigned minRating = ~0u;
-					unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), 0, minRating);
+					unsigned minRatingIndex = SelectBestFunction(bestFuncList.size(), 0, minRating);
 					if(minRating != ~0u)
 					{
 						// If a function is found and it is a generic function, instance it
@@ -2021,7 +2038,7 @@ void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred)
 			CodeInfo::nodeList.push_back(new NodeZeroOP(dstPreferred->funcType->paramType[i]));
 
 		unsigned minRating = ~0u;
-		unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), dstPreferred->funcType->paramCount, minRating);
+		unsigned minRatingIndex = SelectBestFunction(bestFuncList.size(), dstPreferred->funcType->paramCount, minRating);
 
 		if(minRating == ~0u)
 		{
@@ -2457,7 +2474,7 @@ void FinishConstructorCall(const char* pos)
 	AddTwoExpressionNode(resultType);
 }
 
-bool HasConstructor(const char* pos, TypeInfo* type, unsigned arguments)
+bool HasConstructor(TypeInfo* type, unsigned arguments)
 {
 	bestFuncList.clear();
 
@@ -2479,7 +2496,7 @@ bool HasConstructor(const char* pos, TypeInfo* type, unsigned arguments)
 	}
 
 	unsigned minRating = ~0u;
-	SelectBestFunction(pos, bestFuncList.size(), arguments, minRating, type->genericBase ? type : NULL);
+	SelectBestFunction(bestFuncList.size(), arguments, minRating, type->genericBase ? type : NULL);
 	return minRating != ~0u;
 }
 
@@ -3021,7 +3038,7 @@ void ThrowConstantFoldError(const char *pos)
 	}
 }
 
-TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigned &newRating, unsigned count)
+TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, unsigned count)
 {
 	// There could be function calls in constrain expression, so we backup current function and rating list
 	unsigned prevBackupSize = bestFuncListBackup.size();
@@ -3122,7 +3139,10 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 		while(aliasNext)
 		{
 			if(aliasCurr->nameHash == aliasNext->nameHash && aliasCurr->type != aliasNext->type)
-				ThrowError(pos, "ERROR: function '%s' argument list has multiple '%.*s' aliases", fInfo->name, aliasCurr->name.end - aliasCurr->name.begin, aliasCurr->name.begin);
+			{
+				newRating = ~0u; // function is not instanced
+				return NULL;
+			}
 			aliasNext = aliasNext->next;
 		}
 		CodeInfo::classMap.remove(aliasCurr->nameHash, aliasCurr->type);
@@ -3276,7 +3296,7 @@ void SelectFunctionsForHash(unsigned funcNameHash, unsigned scope)
 	}
 }
 
-unsigned SelectBestFunction(const char *pos, unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType)
+unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType)
 {
 	// Find the best suited function
 	bestFuncRating.resize(count);
@@ -3337,7 +3357,7 @@ unsigned SelectBestFunction(const char *pos, unsigned count, unsigned callArgCou
 					assert(forcedParentType->genericBase == bestFuncList[k]->parentClass);
 					bestFuncList[k]->parentClass = forcedParentType;
 				}
-				TypeInfo *tmpType = GetGenericFunctionRating(pos, bestFuncList[k], newRating, count);
+				TypeInfo *tmpType = GetGenericFunctionRating(bestFuncList[k], newRating, count);
 				bestFuncList[k]->parentClass = parentClass;
 
 				bestFuncList[k]->generic->instancedType = tmpType;
@@ -3403,7 +3423,7 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 
 		// Find best function fit
 		unsigned minRating = ~0u;
-		unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), callArgCount, minRating);
+		unsigned minRatingIndex = SelectBestFunction(bestFuncList.size(), callArgCount, minRating);
 		if(minRating == ~0u)
 			ThrowError(pos, "ERROR: none of the member ::%s functions can handle the supplied parameter list without conversions", funcName);
 		FunctionInfo *fInfo = bestFuncList[minRatingIndex];
@@ -3472,7 +3492,7 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 			ThrowError(pos, "ERROR: function '%s' is undefined", memberOrigName);
 
 		unsigned minRating = ~0u;
-		unsigned minRatingIndex = SelectBestFunction(pos, bestFuncList.size(), callArgCount, minRating, currentType->subType);
+		unsigned minRatingIndex = SelectBestFunction(bestFuncList.size(), callArgCount, minRating, currentType->subType);
 		if(minRating == ~0u)
 		{
 			if(silent)
@@ -3797,7 +3817,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	{
 		if((*info)->genericInfo)
 			ThrowError(pos, "ERROR: generic type arguments in <> are not found after constructor name");
-		if(HasConstructor(pos, *info, callArgCount))
+		if(HasConstructor(*info, callArgCount))
 		{
 			// Create temporary variable name
 			char *arrName = AllocateString(16);
@@ -3839,7 +3859,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	// If there is a name and it's not a variable that holds 
 	if(!vInfo && funcName)
 	{
-		unsigned minRatingIndex = SelectBestFunction(pos, count, callArgCount, minRating, forcedParentType);
+		unsigned minRatingIndex = SelectBestFunction(count, callArgCount, minRating, forcedParentType);
 		// Maybe the function we found can't be used at all
 		if(minRatingIndex == ~0u)
 		{

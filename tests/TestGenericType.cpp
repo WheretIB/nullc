@@ -2005,3 +2005,29 @@ res[9] |= Tuple<int, int>(5, 10); assert(res[9] == Tuple<int, int>(13, 47));\r\n
 res[10] ^= Tuple<int, int>(5, 10); assert(res[10] == Tuple<int, int>(9, 47));\r\n\
 return 1;";
 TEST_RESULT("generic type and modify-assignment operator overload", testGenericType134, "1");
+
+const char *testGenericType135 =
+"class Foo<T>{ T x; }\r\n\
+auto foo(Foo<@T> x, int ref(int, int) y){ return x.x * y(1, 2); }\r\n\
+Foo<int> a; a.x = 2;\r\n\
+return foo(a, <i, j>{ i+j; });";
+TEST_RESULT("short inline function definition in a funciton with specializations", testGenericType135, "6");
+
+const char *testGenericType136 =
+"class Foo<T>{ T x; }\r\n\
+auto foo(Foo<@T> x, @T y){ return x.x * y; }\r\n\
+auto foo(Foo<@T> x, double y){ return x.x * y; }\r\n\
+\r\n\
+Foo<int> a; a.x = 2;\r\n\
+assert(9 == int(foo(a, 4.5)));\r\n\
+assert(double == typeof(foo(a, 4.5)));\r\n\
+\r\n\
+return foo(a, 4);";
+TEST_RESULT("function with equal alias names is instanced only if alias types are equal", testGenericType136, "8");
+
+const char *testGenericType137 =
+"class Foo<T, U>{ T x; U y; }\r\n\
+auto foo(Foo<@T, @T> x){ return 2; }\r\n\
+Foo<int, int> a;\r\n\
+return foo(a);";
+TEST_RESULT("function with equal alias names is instanced only if alias types are equal", testGenericType137, "2");

@@ -122,7 +122,7 @@ void AddTypeAllocation(const char* pos, bool arrayType = false);
 void AddArrayConstructorCall(const char* pos);
 void PrepareConstructorCall(const char* pos);
 void FinishConstructorCall(const char* pos);
-bool HasConstructor(const char* pos, TypeInfo* type, unsigned arguments);
+bool HasConstructor(TypeInfo* type, unsigned arguments);
 
 void BeginCoroutine();
 void FunctionAdd(const char* pos, const char* funcName);
@@ -136,7 +136,7 @@ void FunctionToOperator(const char* pos);
 bool FunctionGeneric(bool setGeneric, unsigned pos = 0);
 
 void SelectFunctionsForHash(unsigned funcNameHash, unsigned scope);
-unsigned SelectBestFunction(const char *pos, unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType = false);
+unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType = false);
 
 unsigned GetFunctionRating(FunctionType *currFunc, unsigned callArgCount);
 bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false);
