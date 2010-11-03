@@ -2083,3 +2083,45 @@ assert(!(d && j()));\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("overloaded || and && operators do not break short-circuiting 2", testLogOrAndLogAndOperatorOverload2, "1");
+
+const char *testFunctionPrototypeProblemTest =
+"import std.vector;\r\n\
+\r\n\
+class Edge{ int x; }\r\n\
+vector<Edge> edges;\r\n\
+edges.push_back(Edge());\r\n\
+\r\n\
+{\r\n\
+	edges[0];\r\n\
+	edges[0];\r\n\
+	edges[0];\r\n\
+	edges[0];\r\n\
+	edges[0];\r\n\
+	edges[0];\r\n\
+\r\n\
+	int ClusterVertices(int c)\r\n\
+	{\r\n\
+		return 0;\r\n\
+	}\r\n\
+}\r\n\
+int foo()\r\n\
+{\r\n\
+	void rek(int nSoFar){ }\r\n\
+	rek(1);\r\n\
+	return 0;\r\n\
+}\r\n\
+foo();\r\n\
+return 1;";
+TEST_RESULT("Function prototype problem test", testFunctionPrototypeProblemTest, "1");
+
+const char *testOperatorInstanceCorrectness =
+"class Foo<T>{ }\r\n\
+auto operator+(Foo<generic> ref v){ }\r\n\
+\r\n\
+void ref(Foo<int> ref) x = @+;\r\n\
+void ref(Foo<int> ref) y = @+;\r\n\
+\r\n\
+assert(x == y); //  Assertion Failed\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Operator instancing test", testOperatorInstanceCorrectness, "1");

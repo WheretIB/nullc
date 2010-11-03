@@ -3649,6 +3649,7 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 	// New function type is equal to generic function type no matter where we create an instance of it
 	CodeInfo::funcInfo.back()->type = fInfo->type;
 	CodeInfo::funcInfo.back()->parentClass = forcedParentType ? forcedParentType : fInfo->parentClass;
+	CodeInfo::funcInfo.back()->visible = true;
 
 	// Get aliases defined in a base function argument list
 	AliasInfo *aliasFromParent = fInfo->generic->parent->childAlias;

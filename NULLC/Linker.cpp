@@ -365,7 +365,7 @@ bool Linker::LinkCode(const char *code)
 			if(exFunctions.back().codeSize & 0x80000000)
 			{
 				// fix remapping table so that this function index will point to target function index
-				funcRemap.data[(exFunctions).count-1] = funcRemap[exFunctions.back().codeSize & ~0x80000000];
+				funcRemap.data[moduleFuncCount + i] = funcRemap[exFunctions.back().codeSize & ~0x80000000];
 				exFunctions.back().codeSize = 0;
 			}
 			// Move based pointer to the new section of symbol information
@@ -399,6 +399,7 @@ bool Linker::LinkCode(const char *code)
 			exLocals[i].closeListID += oldListCount;
 	}
 
+	assert((fInfo = FindFirstFunc(bCode)) != NULL); // this is fine, we need this assignment only in debug configuration
 	// Fix cmdJmp*, cmdCall, cmdCallStd and commands with absolute addressing in new code
 	unsigned int pos = oldCodeSize;
 	while(pos < exCode.size())
@@ -451,6 +452,8 @@ bool Linker::LinkCode(const char *code)
 			cmd.argument = funcRemap[cmd.argument];
 			break;
 		case cmdCall:
+			assert(!(cmd.argument != funcRemap[cmd.argument] && int(cmd.argument - bCode->moduleFunctionCount) >= 0) ||
+				(fInfo[cmd.argument - bCode->moduleFunctionCount].nameHash == exFunctions[funcRemap[cmd.argument]].nameHash));
 		case cmdCreateClosure:
 			cmd.argument = funcRemap[cmd.argument];
 			break;

@@ -161,7 +161,7 @@ void NodeFuncDef::LogToStream(FILE *fGraph)
 void NodeFuncCall::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s FuncCall '%s' %d\r\n", typeInfo->GetFullTypeName(), (funcInfo ? funcInfo->name : "$ptr"), funcType->paramCount);
+	fprintf(fGraph, "%s FuncCall '%s' id: %d parameters: %d\r\n", typeInfo->GetFullTypeName(), (funcInfo ? funcInfo->name : "$ptr"), (funcInfo ? funcInfo->indexInArr : -1), funcType->paramCount);
 	GoDown();
 	LogToStreamExtra(fGraph);
 	if(first)
