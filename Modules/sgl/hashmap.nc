@@ -33,7 +33,7 @@ void hashmap:clear()
 	for(i in entries)
 		i = nullptr;
 }
-auto operator[](hashmap<@K, @V> ref m, generic key)
+auto operator[](hashmap<@K, @V> ref m, typeof(m).target.Key key)
 {
 	@if(typeof(key) != K){ *"operand type is not equal to hashmap key type"; }
 	
@@ -46,7 +46,7 @@ auto operator[](hashmap<@K, @V> ref m, generic key)
 		int hash = m.compute_hash(key);
 		int bucket = hash & typeof(m).target.bucketMask.arraySize;
 		typeof(m).target.Node ref n = new typeof(m).target.Node;
-		@if(typeof(key).arraySize)
+		@if(typeof(key).isArray)
 		{
 			auto[] tmp = key;
 			n.key = duplicate(tmp);
