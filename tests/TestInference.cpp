@@ -463,3 +463,94 @@ const char	*testTypePostExpression5 =
 "class Foo{ int x; typedef double myDouble; typedef int myInt; }\r\n\
 return double == Foo.myDouble;";
 TEST_RESULT("extended typeof expressions after type 5 (child aliases)", testTypePostExpression5, "1");
+
+const char	*testGenericTypePointerResolve1 = 
+"auto foo(generic x){ return -x; }\r\n\
+\r\n\
+int ref(int) a = foo;\r\n\
+double ref(double) b = foo;\r\n\
+\r\n\
+assert(a(4) == -4);\r\n\
+assert(typeof(a(4)) == int);\r\n\
+\r\n\
+assert(b(5) == -5.0);\r\n\
+assert(typeof(b(5)) == double);\r\n\
+\r\n\
+int ref(int) c = foo;\r\n\
+double ref(double) d = foo;\r\n\
+\r\n\
+return a == c && b == d;";
+TEST_RESULT("generic function pointer resolve 1", testGenericTypePointerResolve1, "1");
+
+const char	*testGenericTypePointerResolve2 = 
+"class Foo{ int y; int boo(generic x){ return x * y; } int boo(int x){ return x * y; } }\r\n\
+Foo x; x.y = 6;\r\n\
+int ref(double) m = x.boo;\r\n\
+return m(2.5);";
+TEST_RESULT("generic function pointer resolve 2", testGenericTypePointerResolve2, "15");
+
+const char	*testGenericTypePointerResolve3 = 
+"class Foo\r\n\
+{\r\n\
+	int y;\r\n\
+	int boo(generic x){ return x * y; }\r\n\
+	int boo(int x){ return x * y; }\r\n\
+}\r\n\
+Foo x; x.y = 6;\r\n\
+auto Foo:foo()\r\n\
+{\r\n\
+	int ref(double) m = x.boo;\r\n\
+	return m(2.5);\r\n\
+}\r\n\
+return x.foo();";
+TEST_RESULT("generic function pointer resolve 3", testGenericTypePointerResolve3, "15");
+
+const char	*testGenericTypePointerResolve4 = 
+"class Foo\r\n\
+{\r\n\
+	int y;\r\n\
+	int boo(generic x){ return x * y; }\r\n\
+}\r\n\
+Foo x; x.y = 6;\r\n\
+auto Foo:foo()\r\n\
+{\r\n\
+	int ref(double) m = x.boo;\r\n\
+	return m(2.5);\r\n\
+}\r\n\
+return x.foo();";
+TEST_RESULT("generic function pointer resolve 4", testGenericTypePointerResolve4, "15");
+
+const char	*testGenericTypePointerResolve5 = 
+"{\r\n\
+	class Foo\r\n\
+	{\r\n\
+		auto foo(generic x){ return -x; }\r\n\
+	}\r\n\
+	Foo z;\r\n\
+	int ref(int) y = z.foo;\r\n\
+	return y(5);\r\n\
+}";
+TEST_RESULT("generic function pointer resolve 5", testGenericTypePointerResolve5, "-5");
+
+const char	*testGenericTypePointerResolve6 = 
+"{\r\n\
+	class Foo\r\n\
+	{\r\n\
+		auto foo(int x){ return -x; }\r\n\
+		auto foo(generic x){ return -x; }\r\n\
+		int ref(int) bar(){ return foo; }\r\n\
+	}\r\n\
+	Foo z;\r\n\
+	auto y = z.bar();\r\n\
+	return y(5);\r\n\
+}";
+TEST_RESULT("generic function pointer resolve 6", testGenericTypePointerResolve6, "-5");
+
+const char	*testGenericTypePointerResolve7 = 
+"class vector<T>{}\r\n\
+class foo<T>{ T i; }\r\n\
+auto hash_value(vector<foo<@T>> v){ return sizeof(T); }\r\n\
+int ref(vector<foo<int>>) a = hash_value;\r\n\
+vector<foo<int>> n;\r\n\
+return a(n);";
+TEST_RESULT("generic function pointer resolve 7", testGenericTypePointerResolve7, "4");
