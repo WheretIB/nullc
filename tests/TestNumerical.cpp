@@ -413,5 +413,52 @@ assert(!(f || f));\r\n\
 	a *= 0;\r\n\
 	assert(a == false);\r\n\
 }\r\n\
+{\r\n\
+	int x = 5;\r\n\
+	assert(typeof(!x) == bool);\r\n\
+	\r\n\
+	assert(typeof(!5) == bool);\r\n\
+	assert(!0 == true);\r\n\
+	\r\n\
+	assert(typeof(5 == 3) == bool);\r\n\
+	\r\n\
+	assert(typeof(4l > 5l) == bool);\r\n\
+	assert(typeof(4.0 == 5.0) == bool);\r\n\
+}\r\n\
+{\r\n\
+	int a = 5;\r\n\
+	double b = 5.0;\r\n\
+	long c = 6l;\r\n\
+	bool d = a;\r\n\
+	assert(d == true);\r\n\
+	bool e = b;\r\n\
+	assert(e == true);\r\n\
+	bool f = c;\r\n\
+	assert(f == true);\r\n\
+}\r\n\
+{\r\n\
+	bool t = true;\r\n\
+	bool f = false;\r\n\
+	assert(typeof(t || f) == bool);\r\n\
+	assert(typeof(t | f) == bool);\r\n\
+\r\n\
+	assert(typeof(true | false) == bool);\r\n\
+}\r\n\
 return 1;";
 TEST_RESULT("bool type tests", testBoolType, "1");
+
+const char	*testConstantFoldExtra =
+"class Foo\r\n\
+{\r\n\
+	const char a = 5;\r\n\
+	const short b = 7;\r\n\
+}\r\n\
+char a = 5;\r\n\
+short b = 7;\r\n\
+assert(typeof(a + b) == short);\r\n\
+assert(typeof(b + a) == short);\r\n\
+assert(typeof((Foo.a + Foo.b)) == short);\r\n\
+assert(typeof((Foo.b + Foo.a)) == short);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Constant fold test with non-stack types", testConstantFoldExtra, "1");
