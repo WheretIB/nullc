@@ -118,6 +118,7 @@ namespace ColorerGrammar
 			for(unsigned int i = 0; i < typeInfo.size(); i++)
 				if(typeInfo[i] == hash)
 					return true;
+			*str = curr;
 			return false;
 		}
 	protected:
@@ -305,6 +306,20 @@ namespace ColorerGrammar
 		logStream << logStr << "\r\n";
 	}
 
+	class DebugBreakP: public BaseP
+	{
+	public:
+		DebugBreakP(){ }
+		virtual ~DebugBreakP(){ }
+		virtual bool	Parse(char** str, SpaceRule space)
+		{
+			(void)str; (void)space;
+			return true;
+		}
+	protected:
+	};
+	Rule	breakP(){ return Rule(new DebugBreakP()); }
+
 	class Grammar
 	{
 	public:
@@ -325,7 +340,7 @@ namespace ColorerGrammar
 				!(
 					chP('<')[ColorText] >>
 					(typeExpr | (chP('@')[ColorText] >> idP[ColorRWord])) >>
-					*(chP(',') >> (typeExpr | (chP('@')[ColorText] >> idP[ColorRWord]))) >>
+					*(chP(',')[ColorText] >> (typeExpr | (chP('@')[ColorText] >> idP[ColorRWord]))) >>
 					chP('>')[ColorText]
 				) >>
 				*(
@@ -365,9 +380,10 @@ namespace ColorerGrammar
 				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
 				strP("class")[ColorRWord] >>
 				(idP[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
-				!(chP('<')[ColorText] >> idP[ColorRWord][StartType] >> *(chP(',') >> idP[ColorRWord][StartType]) >> chP('>')[ColorText]) >>
+				!(chP('<')[ColorText] >> idP[ColorRWord][StartType] >> *(chP(',')[ColorText] >> idP[ColorRWord][StartType]) >> chP('>')[ColorText]) >>
 				(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText] >>
 				*(
+					(strWP("const")[ColorRWord] >> typeExpr >> idP[ColorVarDef] >> chP('=')[ColorText] >> term4_9 >> *(chP(',')[ColorText] >> idP[ColorVarDef] >> !(chP('=')[ColorText] >> term4_9)) >> chP(';')[ColorText]) |
 					typeDef |
 					funcdef |
 					(
@@ -452,7 +468,7 @@ namespace ColorerGrammar
 								(
 									chP(':')[ColorBold] |
 									chP('.')[ColorBold] |
-									(chP('<')[ColorText] >> typeExpr >> *(chP(',') >> typeExpr) >> chP('>')[ColorText] >> chP(':')[ColorBold])
+									(chP('<')[ColorText] >> typeExpr >> *(chP(',')[ColorText] >> typeExpr) >> chP('>')[ColorText] >> chP(':')[ColorBold])
 								) >>
 								(idP[ColorFunc] | epsP[LogError("ERROR: function name expected after ':'")]) >>
 								chP('(')[ColorBold]
@@ -566,7 +582,7 @@ namespace ColorerGrammar
 					idP[StartType][ColorRWord] |
 					epsP[LogError("ERROR: alias name expected after typename in typedef expression")]
 				) >>
-				(chP(';') | epsP[LogError("ERROR: ';' expected after typedef")]);
+				(chP(';')[ColorText] | epsP[LogError("ERROR: ';' expected after typedef")]);
 
 			returnExpr		=	(strWP("return") | strWP("yield"))[ColorRWord] >> (term5 | epsP) >> (+(';' >> epsP)[ColorBold] | epsP[LogError("ERROR: return statement must be followed by ';'")]);
 			breakExpr		=	strWP("break")[ColorRWord] >> (term4_9 | epsP) >> (+chP(';')[ColorBold] | epsP[LogError("ERROR: break statement must be followed by ';'")]);
