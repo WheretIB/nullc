@@ -258,7 +258,7 @@ import std.gc;\r\n\
 import std.list;\r\n\
 int memStart = GC.UsedMemory();\r\n\
 \r\n\
-list arr = list(int);\r\n\
+list<int> arr;\r\n\
 int count = 1 << 20;\r\n\
 \r\n\
 void Create()\r\n\
