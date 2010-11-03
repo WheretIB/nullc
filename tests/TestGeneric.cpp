@@ -947,7 +947,7 @@ const char *testGeneric61 =
 \r\n\
 int k = 3;\r\n\
 return foo(&k, <i, j>{ *i + *j; });";
-TEST_RESULT("Short inline function a a place where 'generic ref' is used", testGeneric61, "9");
+TEST_RESULT("Short inline function in a place where 'generic ref' is used", testGeneric61, "9");
 
 const char *testGeneric62 =
 "auto foo(generic a, typeof(a) ref x){ return *x = a; }\r\n\
@@ -1336,8 +1336,8 @@ const char *testGeneric101 =
 {\r\n\
 	return f(m);\r\n\
 }\r\n\
-auto f1(int x){ return x * 5; }\r\n\
-auto f2(float x){ return x * 2.5; }\r\n\
+int f1(int x){ return x * 5; }\r\n\
+int f2(float x){ return x * 2.5; }\r\n\
 return average(f1, 40) + average(f2, 4);";
 TEST_RESULT("specialization for function pointer 4 (non generic return type)", testGeneric101, "210");
 
@@ -1351,7 +1351,7 @@ return average(f1);";
 TEST_RESULT("specialization for function pointer 4 (non generic return type, nested specialized type)", testGeneric102, "15");
 
 const char *testGeneric103 =
-"auto average(int ref(generic ref(generic, int)) f)\r\n\
+"auto average(double ref(generic ref(generic, int)) f)\r\n\
 {\r\n\
 	return f(<i, j>{ i + j; });\r\n\
 }\r\n\
@@ -1370,7 +1370,7 @@ return average(5, f1);";
 TEST_RESULT("specialization for function pointer 6 (non generic return type, nested specialized type)", testGeneric104, "20");
 
 const char *testGeneric105 =
-"auto average(int a, int ref(generic ref(generic, int)) f)\r\n\
+"auto average(int a, double ref(generic ref(generic, int)) f)\r\n\
 {\r\n\
 	return a + f(<i, j>{ i + j; });\r\n\
 }\r\n\
@@ -1389,7 +1389,7 @@ return average(f1);";
 TEST_RESULT("specialization for function pointer 8 (non generic return type, nested specialized type)", testGeneric106, "20");
 
 const char *testGeneric107 =
-"auto average(int ref(int, generic ref(generic, int)) f)\r\n\
+"auto average(double ref(int, generic ref(generic, int)) f)\r\n\
 {\r\n\
 	return f(5, <i, j>{ i + j; });\r\n\
 }\r\n\
@@ -1407,3 +1407,18 @@ foo(map, \"aaa\");\r\n\
 \r\n\
 return map.c == nullptr;";
 TEST_RESULT("test for function pointer corruption", testGeneric108, "1");
+
+const char *testGeneric109 =
+"auto foo(@T x)\r\n\
+{\r\n\
+	T m;\r\n\
+	return -x;\r\n\
+}\r\n\
+auto a = foo(4);\r\n\
+auto b = foo(5.0);\r\n\
+assert(a == -4);\r\n\
+assert(b == -5.0);\r\n\
+assert(typeof(a) == int);\r\n\
+assert(typeof(b) == double);\r\n\
+return 1;";
+TEST_RESULT("generic type alias for a regular argument", testGeneric109, "1");

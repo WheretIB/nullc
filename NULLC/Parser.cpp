@@ -257,8 +257,11 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 	return true;
 }
 
-void ParseTypePostExpressions(Lexeme** str, bool arrayType, bool notType, bool allowAutoReturnType, bool allowGenericType)
+void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool allowAutoReturnType, bool allowGenericType, TypeInfo* instanceType, bool* instanceFailure)
 {
+	if(instanceType)
+		assert(instanceFailure);
+
 	bool run = true;
 	while(run)
 	{
@@ -275,15 +278,27 @@ void ParseTypePostExpressions(Lexeme** str, bool arrayType, bool notType, bool a
 				TypeInfo *retType = (TypeInfo*)GetSelectedType();
 				if(!retType && !allowAutoReturnType)
 					ThrowError((*str)->pos, "ERROR: return type of a function type cannot be auto");
+				if(instanceType && (!instanceType->funcType || instanceType->funcType->retType != retType))
+				{
+					*instanceFailure = true;
+					return;
+				}
+				TypeInfo *preferredType = instanceType ? (instanceType->funcType->paramCount ? instanceType->funcType->paramType[0] : NULL) : NULL;
 				TypeHandler *first = NULL, *handle = NULL;
 				unsigned int count = 0;
-				if(ParseSelectType(str, true, allowGenericType, allowGenericType) || (allowGenericType && ParseGenericType(str, NULL, false)))
+				if(ParseSelectType(str, true, allowGenericType, allowGenericType, true, preferredType, instanceFailure))
 				{
 					do
 					{
+						if(instanceType && count >= instanceType->funcType->paramCount)
+						{
+							*instanceFailure = true;
+							return;
+						}
 						if(count)
 						{
-							ParseSelectType(str, true, allowGenericType, allowGenericType) || (allowGenericType && ParseGenericType(str, NULL, false));
+							preferredType = instanceType ? instanceType->funcType->paramType[count] : NULL;
+							ParseSelectType(str, true, allowGenericType, allowGenericType, true, preferredType, instanceFailure);
 							handle->next = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
 							handle = handle->next;
 						}else{
@@ -293,8 +308,23 @@ void ParseTypePostExpressions(Lexeme** str, bool arrayType, bool notType, bool a
 						handle->next = NULL;
 						if(!handle->varType)
 							ThrowError((*str)->pos, "ERROR: parameter type of a function type cannot be auto");
+						bool resolvedToGeneric = handle->varType->dependsOnGeneric;
+						if(instanceType)
+						{
+							assert(!resolvedToGeneric);
+							if(instanceType->funcType->paramType[count] != handle->varType)
+							{
+								*instanceFailure = true;
+								return;
+							}
+						}
 						count++;
 					}while(ParseLexem(str, lex_comma));
+				}
+				if(instanceType && count != instanceType->funcType->paramCount)
+				{
+					*instanceFailure = true;
+					return;
 				}
 				if(ParseLexem(str, lex_cparen))
 					SelectTypeByPointer(CodeInfo::GetFunctionType(retType, first, count));
@@ -310,7 +340,7 @@ void ParseTypePostExpressions(Lexeme** str, bool arrayType, bool notType, bool a
 		case lex_obracket:
 			if(notType)
 				ThrowError((*str)->pos, "ERROR: typeof expression result is not a type");
-			if(arrayType)
+			if(allowArray)
 				ParseArrayDefinition(str);
 			else
 				run = false;
@@ -339,8 +369,23 @@ void ParseGenericEnd(Lexeme** str)
 	}
 }
 
-bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allowGeneric, bool allowExtendedType)
+// allowArray allows parsing of array types. It is disabled when parsing a type for "new" expression
+// allowGenericType is used in parsing of generic function declaration, it allows parts of types to be "generic"
+// allowGenericBase is used for parsing of external generic type member function definitions so that a function can be applied to all generic type instances
+// allowExtendedTypeof is used to allow extended typeof expressions immediately after class name
+// instanceType is used when semi-instancing a generic function to resolve "generic" types to real types
+// instanceFailure is a variable that signals if failure was during instancing, so we have to silent the error
+bool ParseSelectType(Lexeme** str, bool allowArray, bool allowGenericType, bool allowGenericBase, bool allowExtendedTypeof, TypeInfo* instanceType, bool* instanceFailure)
 {
+	// If instance type is passed, we must remove array and pointer qualifiers and strip function type of its arguments
+	TypeInfo *strippedType = instanceType;
+	if(instanceType)
+	{
+		assert(instanceFailure);
+		// remove array and pointer qualifiers
+		while(strippedType->refLevel || strippedType->arrLevel)
+			strippedType = strippedType->subType;
+	}
 	bool notType = false;
 	if((*str)->type == lex_typeof)
 	{
@@ -353,7 +398,7 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allo
 			jmp_buf oldHandler;
 			memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
 			unsigned nodeCount = CodeInfo::nodeList.size(); // Node count shouldn't change while we do this
-			if(!genericOnFail || !setjmp(CodeInfo::errorHandler)) // if genericOnFail is enabled, we will set error handler
+			if(!allowGenericType || !setjmp(CodeInfo::errorHandler)) // if allowGenericType is enabled, we will set error handler
 			{
 				if(!ParseVaribleSet(str))
 					ThrowError((*str)->pos, "ERROR: expression not found after typeof(");
@@ -366,7 +411,7 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allo
 				}
 				SelectTypeByPointer(typeGeneric);
 			}
-			if(genericOnFail)
+			if(allowGenericType)
 				memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 		}else if(!GetSelectedType()){
 			ThrowError((*str)->pos, "ERROR: cannot take typeid from auto type");
@@ -378,62 +423,128 @@ bool ParseSelectType(Lexeme** str, bool arrayType, bool genericOnFail, bool allo
 		SelectTypeByPointer(NULL);
 		(*str)++;
 	}else if((*str)->type == lex_string){
-		if(arrayType && (*str+1)->type == lex_oparen)
+		if(allowArray && (*str+1)->type == lex_oparen)
 			return false;
 
 		unsigned int index;
 		if((index = ParseTypename(str)) == 0)
 			return false;
 		SelectTypeByIndex(index - 1);
-		if((*str)->type != lex_less && GetSelectedType()->dependsOnGeneric && GetSelectedType() != typeGeneric)
+		if((*str)->type != lex_less && GetSelectedType()->genericInfo)
 		{
-			if(allowGeneric)
+			if(allowGenericBase)
 				return true;
 			ThrowError((*str)->pos, "ERROR: generic class instance requires list of types inside '<' '>'");
 		}
-		Lexeme *curr = *str;
 		if(ParseLexem(str, lex_less))
 		{
-			if(!GetSelectedType()->dependsOnGeneric)
+			if(!GetSelectedType()->genericInfo)
 				ThrowError((*str)->pos, "ERROR: cannot specify argument list for a class that is not generic");
+			// For type instancing, this is a instance type argument list in correct order
+			AliasInfo *forwList = NULL;
+			TypeInfo *lastStrippedType = strippedType;
+			if(instanceType)
+			{
+				while(strippedType->funcType)
+					strippedType = strippedType->funcType->retType;
+				if(strippedType->genericBase != GetSelectedType())
+				{
+					*instanceFailure = true;
+					return false;
+				}
+				// Reverse a list of type aliases
+				AliasInfo *revList = strippedType->childAlias;
+				while(revList)
+				{
+					AliasInfo *info = TypeInfo::CreateAlias(revList->name, revList->type);
+					info->next = forwList;
+					forwList = info;
+					revList = revList->next;
+				}
+			}
 			TypeInfo *genericType = GetSelectedType();
-			unsigned count = 0;
+			unsigned count = 0, aliasCount = genericType->genericInfo->aliasCount;
+			bool resolvedToGeneric = false;
 			do
 			{
-				bool resolvedToGeneric = false;
-				if(!ParseSelectType(str) || (GetSelectedType() == typeGeneric && true == (resolvedToGeneric = true)))
+				if(instanceType && count >= aliasCount)
+					ThrowError((*str)->pos, "ERROR: generic type accepts only %d argument(s)", aliasCount);
+				if(!ParseSelectType(str, allowArray, allowGenericType, allowGenericBase, allowExtendedTypeof, instanceType ? forwList->type : NULL, instanceFailure))
 				{
-					// If we are allowed to failed to generic type and we have "generic"
-					if(genericOnFail && (resolvedToGeneric || (ParseLexem(str, lex_generic) || ParseLexem(str, lex_at))))
+					if(instanceFailure)
 					{
-						if((*str)[-1].type == lex_at && !ParseLexem(str, lex_string))
-							ThrowError((*str)->pos, "ERROR: type alias required after '@'");
-						// Remove nodes that are already created
+						// Remove pushed type IDs
 						for(unsigned i = 0; i < count; i++)
 							CodeInfo::nodeList.pop_back();
-						// Select generic base type again
-						SelectTypeByPointer(genericType);
-						// Restore parsing position
-						*str = curr;
-						// Signal failure
 						return false;
-					}else{
-						ThrowError((*str)->pos, count ? "ERROR: typename required after ','" : "ERROR: typename required after '<'");
 					}
+					ThrowError((*str)->pos, count ? "ERROR: typename required after ','" : "ERROR: typename required after '<'");
 				}
+				resolvedToGeneric |= GetSelectedType() == typeGeneric || GetSelectedType()->dependsOnGeneric;
 				CodeInfo::nodeList.push_back(new NodeZeroOP(GetSelectedType()));
 				count++;
+				if(instanceType)
+					forwList = forwList->next;
 			}while(ParseLexem(str, lex_comma));
-			TypeInstanceGeneric((*str)->pos, genericType, count);
+			if(instanceType && count != aliasCount)
+				ThrowError((*str)->pos, "ERROR: generic type expects %d more argument(s)", aliasCount - count);
+			// If type depends on generic
+			if(resolvedToGeneric)
+			{
+				if(!allowGenericType) // Fail if not allowed
+					ThrowError((*str)->pos, "ERROR: type depends on 'generic' in a context where it is not allowed");
+				// Remove pushed type IDs
+				for(unsigned i = 0; i < count; i++)
+					CodeInfo::nodeList.pop_back();
+				// Select this type as generic
+				SelectTypeByPointer(genericType);
+			}else{
+				TypeInstanceGeneric((*str)->pos, genericType, count);
+			}
 			ParseGenericEnd(str);
+			strippedType = lastStrippedType;
 		}
-		if(allowExtendedType)
+		if(allowExtendedTypeof)
 			while(ParseTypeofExtended(str, notType));
+	}else if(allowGenericType && ParseLexem(str, lex_generic)){
+		if(instanceType)
+		{
+			// check for generic return type of a function
+			if((*str)->type == lex_ref && (*str + 1)->type == lex_oparen)
+			{
+				if(!instanceType->funcType)
+				{
+					*instanceFailure = true;
+					return false;
+				}
+				SelectTypeByPointer(instanceType->funcType->retType);
+			}else{
+				SelectTypeByPointer(instanceType);
+				if(ParseLexem(str, lex_ref))
+					SelectTypeByPointer(instanceType->refLevel ? instanceType : CodeInfo::GetReferenceType(instanceType));
+			}
+		}else{
+			if((*str)->type == lex_ref && (*str + 1)->type == lex_oparen)
+			{
+				SelectTypeByPointer(typeGeneric);
+			}else{
+				SelectTypeByPointer(ParseLexem(str, lex_ref) ? CodeInfo::GetReferenceType(typeGeneric) : typeGeneric);
+				return true;
+			}
+		}
+	}else if(allowGenericType && ParseLexem(str, lex_at)){
+		SelectTypeByPointer(instanceType ? instanceType : typeGeneric);
+		if((*str)->type != lex_string)
+			ThrowError((*str)->pos, "ERROR: type alias required after '@'");
+		if(instanceType)
+			AddAliasType(InplaceStr((*str)->pos, (*str)->length));
+		(*str)++;
+		return true; // Don't allow composite types with alias definition
 	}else{
 		return false;
 	}
 
-	ParseTypePostExpressions(str, arrayType, notType, false, allowGeneric);
+	ParseTypePostExpressions(str, allowArray, notType, false, allowGenericType, strippedType, instanceFailure);
 	return true;
 }
 
@@ -571,6 +682,7 @@ bool ParseClassDefinition(Lexeme** str)
 				count++;
 			}while(ParseLexem(str, lex_comma));
 			newType->childAlias = aliasList;
+			newType->genericInfo->aliasCount = count;
 			if(!ParseLexem(str, lex_greater))
 				ThrowError((*str)->pos, "ERROR: '>' expected after generic type alias list");
 			if(!ParseLexem(str, lex_ofigure))
@@ -664,161 +776,10 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 	return true;
 }
 
-bool ParseGenericFuntionType(Lexeme** str, TypeInfo* preferredType)
-{
-	Lexeme *curr = *str;
-	if(!ParseLexem(str, lex_ref))
-		return false;
-	if(!ParseLexem(str, lex_oparen))
-	{
-		*str = curr;
-		return false;
-	}
-	
-	assert(preferredType);
-
-	if(!preferredType->funcType)
-	{
-		*str = curr;
-		return false;
-	}
-
-	TypeInfo *retType = preferredType->funcType->retType;
-	TypeHandler *handle = NULL, *first = NULL;
-	unsigned count = 0;
-	if(ParseSelectType(str) || ParseGenericType(str, NULL, false))
-	{
-		do
-		{
-			if(count >= preferredType->funcType->paramCount)
-				return false;
-			if(count)
-			{
-				ParseSelectType(str) || ParseGenericType(str, NULL, false);
-				handle->next = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
-				handle = handle->next;
-			}else{
-				first = handle = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
-			}
-			if((*str)->type == lex_oparen)
-			{
-				(*str)--;
-				TypeInfo *referenceType = preferredType->funcType->paramType[count]; // Get type to which we are trying to specialize
-				if(!ParseGenericFuntionType(str, referenceType))
-					return false;
-			}
-			handle->varType = (TypeInfo*)GetSelectedType();
-			if(handle->varType == typeGeneric)
-				handle->varType = preferredType->funcType->paramType[count];
-			handle->next = NULL;
-			if(!handle->varType)
-				ThrowError((*str)->pos, "ERROR: parameter type of a function type cannot be auto");
-			count++;
-		}while(ParseLexem(str, lex_comma));
-	}
-	if(!ParseLexem(str, lex_cparen))
-		return false;
-
-	SelectTypeByPointer(CodeInfo::GetFunctionType(retType, first, count));
-	return true;
-}
-
-bool ParseGenericType(Lexeme** str, TypeInfo* preferredType, bool markFunction)
-{
-	// Parse possible generic type specialization
-	if(ParseLexem(str, lex_less))
-	{
-		// Set preferred type signals that we must instantiate a type here
-		AliasInfo *revList = preferredType ? preferredType->childAlias : NULL, *forwList = NULL;
-		// To do that, we reverse a list of type aliases
-		while(revList)
-		{
-			AliasInfo *info = TypeInfo::CreateAlias(revList->name, revList->type);
-			info->next = forwList;
-			forwList = info;
-			revList = revList->next;
-		}
-		// Get generic base type that must be selected
-		TypeInfo *genericType = GetSelectedType();
-		assert(genericType->genericInfo);
-		unsigned count = 0;
-		do
-		{
-			// If it is instantiation and we have more arguments than generic type expects, fail
-			if(preferredType && count == genericType->genericInfo->aliasCount)
-			{
-				for(unsigned i = 0; i < count; i++) // Remove pushed type nodes
-					CodeInfo::nodeList.pop_back();
-				return false;
-			}
-			if(!ParseSelectType(str))
-			{
-				if(ParseLexem(str, lex_generic) || ParseLexem(str, lex_at))
-				{
-					if(!preferredType && (*str)[-1].type == lex_at && !ParseLexem(str, lex_string))
-						ThrowError((*str)->pos, "ERROR: type alias required after '@'");
-					if(preferredType) // If we are instancing a type
-					{
-						SelectTypeByPointer(forwList->type); // Select it
-						if((*str)[-1].type == lex_at)
-						{
-							assert((*str)->type == lex_string);
-							AddAliasType(InplaceStr((*str)->pos, (*str)->length));
-							(*str)++;
-						}
-					}
-				}else{
-					ThrowError((*str)->pos, count ? "ERROR: typename required after ','" : "ERROR: typename required after '<'");
-				}
-			}
-			if(preferredType) // If we are instancing a type push a node with selected type
-			{
-				CodeInfo::nodeList.push_back(new NodeZeroOP(GetSelectedType()));
-				forwList = forwList->next;
-			}
-			count++;
-		}while(ParseLexem(str, lex_comma));
-		if(preferredType)
-		{
-			// If we have argument count that is not equal to generic type argument type, fail
-			if(count != genericType->genericInfo->aliasCount)
-			{
-				for(unsigned i = 0; i < count; i++) // Remove pushed type nodes
-					CodeInfo::nodeList.pop_back();
-				return false;
-			}
-			// Instance type
-			TypeInstanceGeneric((*str)->pos, genericType, count);
-		}
-		ParseGenericEnd(str);
-		// Parse expressions after type
-		ParseTypePostExpressions(str, true, false);
-		if(!preferredType)
-			SelectTypeByPointer(GetSelectedType()->refLevel ? CodeInfo::GetReferenceType(typeGeneric) : typeGeneric);
-		return true;
-	}
-	if(!ParseLexem(str, lex_generic))
-		return false;
-	SelectTypeByPointer(typeGeneric);
-	if(!preferredType && markFunction)
-		FunctionGeneric(true);
-	if(ParseLexem(str, lex_ref))
-	{
-		SelectTypeByPointer(CodeInfo::GetReferenceType(typeGeneric));
-		if(ParseLexem(str, lex_oparen))
-		{
-			(*str) -= 2;
-			SelectTypeByPointer(typeGeneric);
-			ParseTypePostExpressions(str, false, false, false, true);
-		}
-	}
-	return true;
-}
-
 bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 {
 	bool genericArg = false;
-	if(!ParseSelectType(str, true, true, true) && !ParseGenericType(str))
+	if(!ParseSelectType(str, true, true, true))
 		return true;
 
 	genericArg = GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
@@ -858,12 +819,7 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		bool lastGeneric = genericArg;
 		genericArg = false;
 		if(!ParseSelectType(str, true, true, true))
-		{
-			if(!ParseGenericType(str))
-				genericArg = lastGeneric; // if there is no type and no generic, then this parameter is as generic as the last one
-			else
-				genericArg = true;
-		}
+			genericArg = lastGeneric; // if there is no type and no generic, then this parameter is as generic as the last one
 		genericArg |= GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
 		if(genericArg)
 			FunctionGeneric(true);

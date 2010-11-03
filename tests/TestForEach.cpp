@@ -45,8 +45,8 @@ return sum;";
 TEST_RESULT("For each on user type", testForEachUserType, "1496");
 
 const char	*testForEach2 =
-"import std.vector;\r\n\
-vector a = vector(int);\r\n\
+"import sgl.vector;\r\n\
+auto a = vector<int>();\r\n\
 a.push_back(4);\r\n\
 a.push_back(8);\r\n\
 a.push_back(14);\r\n\

@@ -1875,3 +1875,88 @@ Node<int> a;\r\n\
 a.first(1);\r\n\
 return 1;";
 TEST_RESULT("local function is local", testGenericType125, "1");
+
+const char *testGenericType126 =
+"class vector<T>{}\r\n\
+class foo<T>{ T i; }\r\n\
+\r\n\
+auto hash_value(vector<@T> v){ return sizeof(T); }\r\n\
+\r\n\
+vector<int> a;\r\n\
+vector<foo<int>> b;\r\n\
+vector<foo<double>> c;\r\n\
+\r\n\
+assert(hash_value(a) == 4);\r\n\
+assert(hash_value(b) == 4);\r\n\
+assert(hash_value(c) == 8);\r\n\
+return 1;";
+TEST_RESULT("Additional specialization test", testGenericType126, "1");
+
+const char *testGenericType127 =
+"class Foo<T>{ T x; }\r\n\
+auto foo(Foo<@T> x){ return -x.x; }\r\n\
+\r\n\
+Foo<int> a; a.x = 4;\r\n\
+Foo<double> b; b.x = 5.0;\r\n\
+\r\n\
+auto ax = foo(a);\r\n\
+auto bx = foo(b);\r\n\
+assert(ax == -4);\r\n\
+assert(bx == -5.0);\r\n\
+assert(typeof(ax) == int);\r\n\
+assert(typeof(bx) == double);\r\n\
+\r\n\
+auto bar(Foo<Foo<@T>> x){ return -x.x.x; }\r\n\
+\r\n\
+Foo<Foo<int>> c; c.x.x = 3;\r\n\
+\r\n\
+auto cx = bar(c);\r\n\
+assert(cx == -3);\r\n\
+assert(typeof(cx) == int);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Additional specialization test 2 (nested generic types)", testGenericType127, "1");
+
+const char *testGenericType128 =
+"class Bar<T, U>{ T x; U y; }\r\n\
+auto foo(Bar<generic, Bar<int, generic>> m){ return 1; }\r\n\
+auto foo(Bar<int, int> n){ return 2; }\r\n\
+\r\n\
+Bar<int, int> a;\r\n\
+return foo(a);";
+TEST_RESULT("Additional specialization test 3 (nested generic types)", testGenericType128, "2");
+
+const char *testGenericType129 =
+"class Bar<T, U>{ T x; U y; }\r\n\
+auto foo(Bar<int, generic> ref(int, int) m){ auto n = m(2, 3); return n.x + n.y; }\r\n\
+\r\n\
+Bar<int, int> bar(int a, b){ Bar<int, int> r; r.x = a; r.y = b; return r; }\r\n\
+return foo(bar);";
+TEST_RESULT("Additional specialization test 4 (specialization for a function with specialized generic type as a return type)", testGenericType129, "5");
+
+const char *testGenericType130 =
+"class Bar<T, U>{ T x; U y; }\r\n\
+auto foo(Bar<int, generic> ref(int, int) m){ auto n = m(2, 3); return n.x + n.y; }\r\n\
+auto foo(Bar<int, generic> ref(int, int)[] m){ return 10; }\r\n\
+\r\n\
+Bar<int, int> bar(int a, b){ Bar<int, int> r; r.x = a; r.y = b; return r; }\r\n\
+typeof(bar)[4] ken;\r\n\
+return foo(ken) + foo(bar);";
+TEST_RESULT("Additional specialization test 5 (specialization for a function with specialized generic type as a return type)", testGenericType130, "15");
+
+const char *testGenericType131 =
+"class Bar<T, U>{ T x; U y; }\r\n\
+auto foo(Bar<int, generic> ref(int, generic) m){ auto n = m(2, 3); return n.x + n.y; }\r\n\
+auto foo(Bar<int, int> ref(int, int) m){ return 10; }\r\n\
+\r\n\
+Bar<int, int> bar(int a, b){ Bar<int, int> r; r.x = a; r.y = b; return r; }\r\n\
+Bar<int, int> ken(int a, float b){ Bar<int, int> r; r.x = a; r.y = b; return r; }\r\n\
+return foo(ken) * 10 + foo(bar);";
+TEST_RESULT("Additional specialization test 6 (specialization for a function with specialized generic type as a return type) and overloads", testGenericType131, "60");
+
+const char *testGenericType132 =
+"class Bar<T, U>{ T x; U y; }\r\n\
+auto foo(Bar<int, @T> ref(int, @U) m){ assert(T == int); assert(U == float); auto n = m(2, 3); return n.x + n.y; }\r\n\
+Bar<int, int> ken(int a, float b){ Bar<int, int> r; r.x = a; r.y = b; return r; }\r\n\
+return foo(ken);";
+TEST_RESULT("Additional specialization test 7 (generic type alias in function type) and overloads", testGenericType132, "5");

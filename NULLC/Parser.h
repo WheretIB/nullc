@@ -11,8 +11,9 @@ unsigned int ParseTypename(Lexeme** str);
 
 bool ParseNumber(Lexeme** str);
 bool ParseArrayDefinition(Lexeme** str);
-bool ParseSelectType(Lexeme** str, bool arrayType = true, bool genericOnFail = false, bool allowGeneric = false, bool allowExtendedType = true);
-void ParseTypePostExpressions(Lexeme** str, bool arrayType, bool notType, bool allowAutoReturnType = false, bool allowGenericType = false);
+
+bool ParseSelectType(Lexeme** str, bool allowArray = true, bool allowGenericType = false, bool allowGenericBase = false, bool allowExtendedTypeof = true, TypeInfo* instanceType = NULL, bool* instanceFailure = NULL);
+void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool allowAutoReturnType = false, bool allowGenericType = false, TypeInfo* instanceType = NULL, bool* instanceFailure = NULL);
 
 void ParseClassBody(Lexeme** str);
 bool ParseClassDefinition(Lexeme** str);
@@ -20,8 +21,6 @@ bool ParseClassDefinition(Lexeme** str);
 unsigned int ParseFunctionArguments(Lexeme** str);
 bool ParseFunctionCall(Lexeme** str);
 
-bool ParseGenericFuntionType(Lexeme** str, TypeInfo* preferredType = NULL);
-bool ParseGenericType(Lexeme** str, TypeInfo* preferredType = NULL, bool markFunction = true);
 bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset = 0);
 bool ParseFunctionDefinition(Lexeme** str, bool coroutine = false);
 
