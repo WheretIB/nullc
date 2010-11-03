@@ -1807,6 +1807,12 @@ bool ParseTerminal(Lexeme** str)
 {
 	switch((*str)->type)
 	{
+	case lex_true:
+	case lex_false:
+		CodeInfo::nodeList.push_back(new NodeNumber((*str)->type == lex_true ? 1 : 0, typeBool));
+		(*str)++;
+		return true;
+		break;
 	case lex_number:
 		return ParseNumber(str);
 		break;

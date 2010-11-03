@@ -293,6 +293,8 @@ void Lexer::Lexify(const char* code)
 							lType = lex_else;
 						else if(memcmp(code, "auto", 4) == 0)
 							lType = lex_auto;
+						else if(memcmp(code, "true", 4) == 0)
+							lType = lex_true;
 						break;
 					case 5:
 						if(memcmp(code, "while", 5) == 0)
@@ -307,6 +309,8 @@ void Lexer::Lexify(const char* code)
 							lType = lex_yield;
 						else if(memcmp(code, "const", 5) == 0)
 							lType = lex_const;
+						else if(memcmp(code, "false", 5) == 0)
+							lType = lex_false;
 						break;
 					case 6:
 						if(memcmp(code, "switch", 6) == 0)

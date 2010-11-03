@@ -327,3 +327,91 @@ res[4] **= 2; assert(res[4] == 144);\r\n\
 res[5] %= 5; assert(res[5] == 2);\r\n\
 return 1;";
 TEST_RESULT("Double modify assignment operator test.", testVariableModifyAssignment2, "1");
+
+const char	*testBoolType =
+"assert(true);\r\n\
+assert(!false);\r\n\
+\r\n\
+bool a, b;\r\n\
+auto x = a == b;\r\n\
+\r\n\
+assert(typeof(x) == bool);\r\n\
+assert(x == true);\r\n\
+\r\n\
+bool t = true;\r\n\
+bool f = false;\r\n\
+\r\n\
+assert(t && t);\r\n\
+assert(!(t && f));\r\n\
+assert(t || f);\r\n\
+assert(f || t);\r\n\
+assert(t || t);\r\n\
+assert(!(f || f));\r\n\
+\r\n\
+{\r\n\
+	bool d = 5;\r\n\
+	assert(d == true);\r\n\
+	bool e = 5.0;\r\n\
+	assert(e == true);\r\n\
+	bool f = 6l;\r\n\
+	assert(f == true);\r\n\
+}\r\n\
+{\r\n\
+	bool d = 0;\r\n\
+	assert(d == false);\r\n\
+	bool e = 0.0;\r\n\
+	assert(e == false);\r\n\
+	bool f = 0l;\r\n\
+	assert(f == false);\r\n\
+}\r\n\
+{\r\n\
+	bool d = true, e = d;\r\n\
+	assert(d + e == 2);\r\n\
+	assert(typeof(d + e) == int);\r\n\
+	bool f = d + e;\r\n\
+	assert(f);\r\n\
+	assert(f == true);\r\n\
+	bool g = d - e;\r\n\
+	assert(g == false);\r\n\
+	assert(!g);\r\n\
+}\r\n\
+{\r\n\
+	bool a = true, b = false;\r\n\
+	assert(a | b);\r\n\
+	assert(a || b);\r\n\
+	assert(typeof(a | b) == bool);\r\n\
+	assert(typeof(a || b) == bool);\r\n\
+\r\n\
+	if(true)\r\n\
+		a = false;\r\n\
+	assert(!a);\r\n\
+	if(false)\r\n\
+		a = true;\r\n\
+	assert(!a);\r\n\
+	a = b ? false : true;\r\n\
+	assert(a);\r\n\
+}\r\n\
+{\r\n\
+	bool a = true, b = true;\r\n\
+	a += b;\r\n\
+	assert(a == true);\r\n\
+\r\n\
+	a = true;\r\n\
+	b = true;\r\n\
+	a -= b;\r\n\
+	assert(a == false);\r\n\
+\r\n\
+	a = false;\r\n\
+	b = true;\r\n\
+	a |= b;\r\n\
+	assert(a == true);\r\n\
+\r\n\
+	a = true;\r\n\
+	a *= 10;\r\n\
+	assert(a == true);\r\n\
+\r\n\
+	a *= 0;\r\n\
+	assert(a == false);\r\n\
+}\r\n\
+return 1;";
+TEST_RESULT("bool type tests", testBoolType, "1");

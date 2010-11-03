@@ -18,6 +18,7 @@ extern TypeInfo*	typeTypeid;
 extern TypeInfo*	typeAutoArray;
 
 extern TypeInfo*	typeGeneric;
+extern TypeInfo*	typeBool;
 
 // Information about code, function, variables, types, node, etc
 namespace CodeInfo

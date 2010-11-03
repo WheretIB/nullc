@@ -966,10 +966,15 @@ const char* GetBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 	switch(type.type)
 	{
 	case ExternTypeInfo::TYPE_CHAR:
-		if(*(unsigned char*)ptr)
-			safeprintf(val, 256, "'%c' (%d)", *(unsigned char*)ptr, (int)*(unsigned char*)ptr);
-		else
-			safeprintf(val, 256, "0");
+		if(codeSymbols[type.offsetToName] == 'b')
+		{
+			safeprintf(val, 256, *(unsigned char*)ptr ? "true" : "false");
+		}else{
+			if(*(unsigned char*)ptr)
+				safeprintf(val, 256, "'%c' (%d)", *(unsigned char*)ptr, (int)*(unsigned char*)ptr);
+			else
+				safeprintf(val, 256, "0");
+		}
 		break;
 	case ExternTypeInfo::TYPE_SHORT:
 		safeprintf(val, 256, "%d", *(short*)ptr);

@@ -716,6 +716,7 @@ bool Colorer::ColorText(HWND wnd, char *text, void (*ColFunc)(HWND, unsigned int
 	ColorerGrammar::typeInfo.push_back(GetStringHash("typeid"));
 	ColorerGrammar::typeInfo.push_back(GetStringHash("const_string"));
 	ColorerGrammar::typeInfo.push_back(GetStringHash("generic"));
+	ColorerGrammar::typeInfo.push_back(GetStringHash("bool"));
 
 	ColorerGrammar::logStream.str("");
 
