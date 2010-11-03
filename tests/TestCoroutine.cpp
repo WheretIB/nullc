@@ -444,3 +444,11 @@ auto foo()\r\n\
 }\r\n\
 return foo()(2);";
 TEST_RESULT("Function overload inference for local function test", testLocalFunctionOverloadInference, "-5");
+
+const char	*testIterationOverCoroutineWhenOnlyAPrototypeIsAvailable =
+"coroutine int nums();\r\n\
+int sum = 0;\r\n\
+for(i in nums) sum += i;\r\n\
+coroutine int nums(){ yield 1; yield 2; return 0; }\r\n\
+return sum;";
+TEST_RESULT("Iteration over coroutine results when only coroutine prototype are available", testIterationOverCoroutineWhenOnlyAPrototypeIsAvailable, "3");
