@@ -43,7 +43,6 @@
 #include "NULLC/includes/vector.h"
 #include "NULLC/includes/list.h"
 #include "NULLC/includes/map.h"
-#include "NULLC/includes/hashmap.h"
 #include "NULLC/includes/random.h"
 #include "NULLC/includes/time.h"
 #include "NULLC/includes/gc.h"
@@ -521,8 +520,6 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		strcat(initError, "ERROR: Failed to init std.list module\r\n");
 	if(!nullcInitMapModule())
 		strcat(initError, "ERROR: Failed to init std.map module\r\n");
-	if(!nullcInitHashmapModule())
-		strcat(initError, "ERROR: Failed to init std.hashmap module\r\n");
 	if(!nullcInitRandomModule())
 		strcat(initError, "ERROR: Failed to init std.random module\r\n");
 	if(!nullcInitTimeModule())
