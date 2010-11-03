@@ -458,10 +458,12 @@ for(i in fArr, j in range(2, 1000, 2))\r\n\
 TEST_RESULT("Prevention of double memory removal 2", testDoubleMemoryRemovalGC2, "25");
 
 const char	*testStackVariablesGC =
-"int foo(int ref x, y, z, int[] arr)\r\n\
+"import std.gc;\r\n\
+int foo(int ref x, y, z, int[] arr)\r\n\
 {\r\n\
 	int ref s = new int(0), t = new int(0), r = new int(0);\r\n\
 	return *x + *y + *z;\r\n\
 }\r\n\
-return foo(new int(4), new int(6), new int(40), new int[32*1024*1024]);";
+auto bar(){ GC.CollectMemory(); return new int[32]; }\r\n\
+return foo(new int(4), new int(6), new int(40), bar());";
 TEST_RESULT("Checking of temporary varaible stack in GC test", testStackVariablesGC, "50");
