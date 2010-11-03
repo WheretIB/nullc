@@ -3,112 +3,59 @@ import std.file;
 
 class PugiNamespace
 {
-	int parse_minimal;
-	int parse_pi;
-	int parse_comments;
-	int parse_cdata;
-	int parse_ws_pcdata;
-	int parse_escapes;
-	int parse_eol;
-	int parse_wconv_attribute;
-	int parse_declaration;
-	int parse_default;
+	const int	parse_minimal			= 0x0000,
+				parse_pi				= 0x0001,
+				parse_comments			= 0x0002,
+				parse_cdata				= 0x0004,
+				parse_ws_pcdata			= 0x0008,
+				parse_escapes			= 0x0010,
+				parse_eol				= 0x0020,
+				parse_wconv_attribute	= 0x0040,
+				parse_declaration		= 0x0100,
+				parse_default			= parse_cdata | parse_escapes | parse_wconv_attribute | parse_eol;
 	
-	int encoding_auto,      //!< Auto-detect input encoding using BOM or </<? detection; use UTF8 if BOM is not found
-	encoding_utf8,      //!< UTF8 encoding
-	encoding_utf16_le,  //!< Little-endian UTF16
-	encoding_utf16_be,  //!< Big-endian UTF16
-	encoding_utf16,     //!< UTF16 with native endianness
-	encoding_utf32_le,  //!< Little-endian UTF32
-	encoding_utf32_be,  //!< Big-endian UTF32
-	encoding_utf32,     //!< UTF32 with native endianness
-	encoding_wchar;      //!< The same encoding wchar_t has (either UTF16 or UTF32)
-	
-	int status_ok, ///< No error
+	const int	encoding_auto = 0,
+				encoding_utf8,
+				encoding_utf16_le,
+				encoding_utf16_be,
+				encoding_utf16,
+				encoding_utf32_le,
+				encoding_utf32_be,
+				encoding_utf32,
+				encoding_wchar;
 
-	status_file_not_found, ///< File was not found during load_file()
-	status_io_error, ///< Error reading from file/stream
-	status_out_of_memory, ///< Could not allocate memory
-	status_internal_error, ///< Internal error occured
-	status_unrecognized_tag, ///< Parser could not determine tag type
-	status_bad_pi, ///< Parsing error occured while parsing document declaration/processing instruction (<?...?>)
-	status_bad_comment, ///< Parsing error occured while parsing comment (<!--...-->)
-	status_bad_cdata, ///< Parsing error occured while parsing CDATA section (<![CDATA[...]]>)
-	status_bad_doctype, ///< Parsing error occured while parsing document type declaration
-	status_bad_pcdata, ///< Parsing error occured while parsing PCDATA section (>...<)
-	status_bad_start_element, ///< Parsing error occured while parsing start element tag (<name ...>)
-	status_bad_attribute, ///< Parsing error occured while parsing element attribute
-	status_bad_end_element, ///< Parsing error occured while parsing end element tag (</name>)
-	status_end_element_mismatch; ///< There was a mismatch of start-end tags (closing tag had incorrect name, some tag was not closed or there was an excessive closing tag)
+	const int	status_ok = 0,
+				status_file_not_found,
+				status_io_error,
+				status_out_of_memory,
+				status_internal_error,
+				status_unrecognized_tag,
+				status_bad_pi,
+				status_bad_comment,
+				status_bad_cdata,
+				status_bad_doctype,
+				status_bad_pcdata,
+				status_bad_start_element,
+				status_bad_attribute,
+				status_bad_end_element,
+				status_end_element_mismatch;
+
+	const int	format_indent			= 0x01,
+				format_write_bom		= 0x02,
+				format_raw				= 0x04,
+				format_no_declaration	= 0x08,
+				format_default			= format_indent;
 	
-	int format_indent;
-	int format_write_bom;
-	int format_raw;
-	int format_no_declaration;
-	int format_default;
-	
-	int node_null,			///< Undifferentiated entity
-	node_document,		///< A document tree's absolute root.
-	node_element,		///< E.g. '<...>'
-	node_pcdata,		///< E.g. '>...<'
-	node_cdata,			///< E.g. '<![CDATA[...]]>'
-	node_comment,		///< E.g. '<!--...-->'
-	node_pi,			///< E.g. '<?...?>'
-	node_declaration;	///< E.g. '<?xml ...?>'
+	const int	node_null = 0,		///< Undifferentiated entity
+				node_document,		///< A document tree's absolute root.
+				node_element,		///< E.g. '<...>'
+				node_pcdata,		///< E.g. '>...<'
+				node_cdata,			///< E.g. '<![CDATA[...]]>'
+				node_comment,		///< E.g. '<!--...-->'
+				node_pi,			///< E.g. '<?...?>'
+				node_declaration;	///< E.g. '<?xml ...?>'
 }
 PugiNamespace pugi;
-
-pugi.parse_minimal			= 0x0000;
-pugi.parse_pi				= 0x0001;
-pugi.parse_comments			= 0x0002;
-pugi.parse_cdata			= 0x0004;
-pugi.parse_ws_pcdata		= 0x0008;
-pugi.parse_escapes			= 0x0010;
-pugi.parse_eol				= 0x0020;
-pugi.parse_wconv_attribute	= 0x0040;
-pugi.parse_declaration		= 0x0100;
-pugi.parse_default			= pugi.parse_cdata | pugi.parse_escapes | pugi.parse_wconv_attribute | pugi.parse_eol;
-
-pugi.status_ok					= 0;
-pugi.status_file_not_found		= 1;
-pugi.status_io_error			= 2;
-pugi.status_out_of_memory		= 3;
-pugi.status_internal_error		= 4;
-pugi.status_unrecognized_tag	= 5;
-pugi.status_bad_pi				= 6;
-pugi.status_bad_comment			= 7;
-pugi.status_bad_cdata			= 8;
-pugi.status_bad_doctype			= 9;
-pugi.status_bad_pcdata			= 10;
-pugi.status_bad_start_element	= 11;
-pugi.status_bad_attribute		= 12;
-pugi.status_bad_end_element		= 13;
-pugi.status_end_element_mismatch= 14;
-
-pugi.encoding_auto			= 0;
-pugi.encoding_utf8			= 1;
-pugi.encoding_utf16_le		= 2;
-pugi.encoding_utf16_be		= 3;
-pugi.encoding_utf16			= 4;
-pugi.encoding_utf32_le		= 5;
-pugi.encoding_utf32_be		= 6;
-pugi.encoding_utf32			= 7;
-pugi.encoding_wchar			= 8;
-
-pugi.format_indent			= 0x01;
-pugi.format_write_bom		= 0x02;
-pugi.format_raw				= 0x04;
-pugi.format_no_declaration	= 0x08;
-pugi.format_default			= pugi.format_indent;
-
-pugi.node_null			= 0;
-pugi.node_document		= 1;
-pugi.node_element		= 2;
-pugi.node_pcdata		= 3;
-pugi.node_cdata			= 4;
-pugi.node_comment		= 5;
-pugi.node_pi			= 6;
-pugi.node_declaration	= 7;
 
 typedef int xml_parse_status;
 typedef int encoding_t;
@@ -275,14 +222,20 @@ class xml_parse_result
 	const_string description();
 }
 
-class xml_document
+class xml_document_impl
 {
 	void ref	document;
+	void		finalize();
+}
+
+class xml_document
+{
+	xml_document_impl ref impl;
 
 	/**
 	 * Default ctor, makes empty document
 	 */
-	void xml_document(){ }
+	void xml_document(){ impl = new xml_document_impl; }
 
 	xml_parse_result ref load(char[] contents, int options = pugi.parse_default);
 
@@ -300,18 +253,17 @@ class xml_document
 }
 auto xml_document()
 {
-	xml_document r; return r;
+	return xml_document();
 }
 
 auto xml_node()
 {
-	xml_node l;
-	return l;
+	return xml_node();
 }
+
 auto xml_attribute()
 {
-	xml_attribute a;
-	return a;
+	return xml_attribute();
 }
 // xml_node constror from xml_document
 auto xml_node(xml_document ref r)

@@ -1,8 +1,8 @@
 /**
- * pugixml parser - version 0.7
+ * pugixml parser - version 1.0
  * --------------------------------------------------------
  * Copyright (C) 2006-2010, by Arseny Kapoulkine (arseny.kapoulkine@gmail.com)
- * Report bugs and download new versions at http://code.google.com/p/pugixml/
+ * Report bugs and download new versions at http://pugixml.org/
  *
  * This library is distributed under the MIT License. See notice at the end
  * of this file.
@@ -17,15 +17,16 @@
 // Uncomment this to enable wchar_t mode
 // #define PUGIXML_WCHAR_MODE
 
-// Uncomment this to disable STL
- #define PUGIXML_NO_STL
-
 // Uncomment this to disable XPath
- #define PUGIXML_NO_XPATH
+#define PUGIXML_NO_XPATH
+
+// Uncomment this to disable STL
+// Note: you can't use XPath with PUGIXML_NO_STL
+#define PUGIXML_NO_STL
 
 // Uncomment this to disable exceptions
 // Note: you can't use XPath with PUGIXML_NO_EXCEPTIONS
- #define PUGIXML_NO_EXCEPTIONS
+#define PUGIXML_NO_EXCEPTIONS
 
 // Set this to control attributes for public classes/functions, i.e.:
 // #define PUGIXML_API __declspec(dllexport) // to export all public symbols from DLL
