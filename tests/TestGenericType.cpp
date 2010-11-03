@@ -1974,3 +1974,34 @@ assert(foo(b, 2) == 1);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("Additional specialization test 7 (multiple specializations for the same type)", testGenericType133, "1");
+
+const char *testGenericType134 =
+"class Tuple<T, U>{ T x; U y; void Tuple(T a, U b){ x = a; y = b; } }\r\n\
+auto operator==(Tuple<@T, @U> ref a, b){ return a.x == b.x && a.y == b.y; }\r\n\
+auto operator+=(Tuple<@T, @U> ref a, b){ a.x += b.x; a.y += b.y; return a; }\r\n\
+auto operator-=(Tuple<@T, @U> ref a, b){ a.x -= b.x; a.y -= b.y; return a; }\r\n\
+auto operator*=(Tuple<@T, @U> ref a, b){ a.x *= b.x; a.y *= b.y; return a; }\r\n\
+auto operator/=(Tuple<@T, @U> ref a, b){ a.x /= b.x; a.y /= b.y; return a; }\r\n\
+auto operator**=(Tuple<@T, @U> ref a, b){ a.x **= b.x; a.y **= b.y; return a; }\r\n\
+auto operator%=(Tuple<@T, @U> ref a, b){ a.x %= b.x; a.y %= b.y; return a; }\r\n\
+auto operator<<=(Tuple<@T, @U> ref a, b){ a.x <<= b.x; a.y <<= b.y; return a; }\r\n\
+auto operator>>=(Tuple<@T, @U> ref a, b){ a.x >>= b.x; a.y >>= b.y; return a; }\r\n\
+auto operator&=(Tuple<@T, @U> ref a, b){ a.x &= b.x; a.y &= b.y; return a; }\r\n\
+auto operator|=(Tuple<@T, @U> ref a, b){ a.x |= b.x; a.y |= b.y; return a; }\r\n\
+auto operator^=(Tuple<@T, @U> ref a, b){ a.x ^= b.x; a.y ^= b.y; return a; }\r\n\
+\r\n\
+Tuple<int, int>[11] res;\r\n\
+for(i in res){ i = Tuple<int, int>(12, 37); } // 1100, 100101\r\n\
+res[0] += Tuple<int, int>(5, 17); assert(res[0] == Tuple<int, int>(17, 54));\r\n\
+res[1] -= Tuple<int, int>(5, 17); assert(res[1] == Tuple<int, int>(7, 20));\r\n\
+res[2] *= Tuple<int, int>(5, 17); assert(res[2] == Tuple<int, int>(60, 17*37));\r\n\
+res[3] /= Tuple<int, int>(4, 5); assert(res[3] == Tuple<int, int>(3, 7));\r\n\
+res[4] **= Tuple<int, int>(3, 2); assert(res[4] == Tuple<int, int>(12**3, 37*37));\r\n\
+res[5] %= Tuple<int, int>(5, 10); assert(res[5] == Tuple<int, int>(2, 7));\r\n\
+res[6] <<= Tuple<int, int>(2, 3); assert(res[6] == Tuple<int, int>(48, 296));\r\n\
+res[7] >>= Tuple<int, int>(1, 2); assert(res[7] == Tuple<int, int>(6, 9));\r\n\
+res[8] &= Tuple<int, int>(5, 10); assert(res[8] == Tuple<int, int>(4, 0));\r\n\
+res[9] |= Tuple<int, int>(5, 10); assert(res[9] == Tuple<int, int>(13, 47));\r\n\
+res[10] ^= Tuple<int, int>(5, 10); assert(res[10] == Tuple<int, int>(9, 47));\r\n\
+return 1;";
+TEST_RESULT("generic type and modify-assignment operator overload", testGenericType134, "1");

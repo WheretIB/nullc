@@ -663,6 +663,18 @@ public:
 				return "__operatorDivSet";
 			if(strcmp(name + offset, "**=") == 0)
 				return "__operatorPowSet";
+			if(strcmp(name + offset, "%=") == 0)
+				return "__operatorModSet";
+			if(strcmp(name + offset, "<<=") == 0)
+				return "__operatorShlSet";
+			if(strcmp(name + offset, ">>=") == 0)
+				return "__operatorShrSet";
+			if(strcmp(name + offset, "&=") == 0)
+				return "__operatorAndSet";
+			if(strcmp(name + offset, "|=") == 0)
+				return "__operatorOrSet";
+			if(strcmp(name + offset, "^=") == 0)
+				return "__operatorXorSet";
 			if(strcmp(name + offset, "[]") == 0)
 				return "__operatorIndex";
 			if(strcmp(name + offset, "!") == 0)

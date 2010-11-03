@@ -796,7 +796,7 @@ void NodeVariableSet::Compile()
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Node to change variable value with following operations: += -= *= /= **=
+// Node to change variable value with following operations: += -= *= /= **= %= <<= >>= &= |= ^=
 
 NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 {
@@ -825,6 +825,9 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 		if(typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->subType != second->typeInfo->subType)
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
 	}
+
+	if((first->typeInfo->subType == typeDouble || first->typeInfo->subType == typeFloat || second->typeInfo == typeDouble || second->typeInfo == typeFloat) && (cmd >= cmdShl && cmd <= cmdLogXor))
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: binary operations are not available on floating-point numbers");
 
 	absAddress = true;
 	knownAddress = false;

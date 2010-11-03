@@ -538,4 +538,15 @@ return int(y() + z());",
 	TEST_FOR_FAIL("wrong function return type", "int foo(int ref(generic) f){ return f(4); } auto f2(float x){ return x * 2.5; } return foo(f2);", "ERROR: can't find function 'foo' with following parameters:");
 
 	TEST_FOR_FAIL("unable to select function overload", "auto foo(generic x){ return -x; } int ref(int, double) a = foo;", "ERROR: unable to select function 'foo' overload for a type 'int ref(int,double)'");
+
+	TEST_FOR_FAIL("binary modify operation on floating point", "double a = 1; a <<= 2;", "ERROR: binary operations are not available on floating-point numbers");
+	TEST_FOR_FAIL("binary modify operation on floating point", "float a = 1; a >>= 1;", "ERROR: binary operations are not available on floating-point numbers");
+	TEST_FOR_FAIL("binary modify operation on floating point", "double a = 1; a &= 5;", "ERROR: binary operations are not available on floating-point numbers");
+	TEST_FOR_FAIL("binary modify operation on floating point", "float a = 1; a |= 5;", "ERROR: binary operations are not available on floating-point numbers");
+	TEST_FOR_FAIL("binary modify operation on floating point", "double a = 1; a ^= 5;", "ERROR: binary operations are not available on floating-point numbers");
+
+	TEST_FOR_FAIL("argument mistaken for generic", "auto foo(generic x, typeof(x) a, b){ } class Foo{} Foo a; foo(4, 4, a);", "ERROR: can't find function 'foo' with following parameters:");
+	TEST_FOR_FAIL("argument mistaken for generic", "class Tuple<T, U>{ T x; U y; } auto operator==(Tuple<@T, @U> ref a, b){ } Tuple<int, int> a; return a == 5;", "ERROR: operation == is not supported on 'Tuple<int, int>' and 'int'");
+
+	TEST_FOR_FAIL("multiple aliases with different type in argument list", "class Foo<T>{ void Foo(){} } auto foo(Foo<@T> a, b){} foo(Foo<int>(), Foo<double>());", "ERROR: function 'foo' argument list has multiple 'T' aliases");
 }

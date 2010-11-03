@@ -1840,16 +1840,12 @@ void AddUnaryModifyOpNode(const char* pos, bool isInc, bool prefixOp)
 	}
 }
 
-void AddModifyVariableNode(const char* pos, CmdID cmd)
+void AddModifyVariableNode(const char* pos, CmdID cmd, const char* name)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
-	// Only five operators
-	assert(cmd - cmdAdd < 5);
-	// Operator names
-	const char *opNames[] = { "+=", "-=", "*=", "/=", "**=" };
 	// Call overloaded operator with error suppression
-	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, opNames[cmd - cmdAdd], 2, true))
+	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, name, 2, true))
 		return;
 
 	NodeZeroOP *pointer = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
@@ -3057,6 +3053,7 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 	unsigned nodeOffset = CodeInfo::nodeList.size() - argumentCount;
 	// Move through all the arguments
 	VariableInfo *tempListS = NULL, *tempListE = NULL;
+	Lexeme *prevArg = NULL; // previous argument type position
 	for(unsigned argID = 0; argID < argumentCount; argID++)
 	{
 		if(argID)
@@ -3072,17 +3069,23 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 		bool instanceFailure = false;
 		// Set generic function as being in definition so that type aliases will get into functions alias list and will not spill to outer scope
 		currDefinedFunc.push_back(fInfo);
+		Lexeme *oldStart = start;
 		// Try to reparse the type
 		if(!ParseSelectType(&start, true, true, false, true, referenceType, &instanceFailure))
 		{
 			if(!instanceFailure)
 			{
 				assert(argID);
-				TypeInfo *argType = fInfo->funcType->funcType->paramType[argID - 1];
-				if(argType == typeGeneric || argType->dependsOnGeneric)
-					currType = referenceType;
+				// Try to reparse the type with previous argument type
+				oldStart = prevArg;
+				if(!ParseSelectType(&prevArg, true, true, false, true, referenceType, &instanceFailure))
+				{
+					newRating = ~0u; // function is not instanced
+					return NULL;
+				}
 			}
 		}
+		prevArg = oldStart;
 		currDefinedFunc.pop_back();
 		if(instanceFailure)
 		{
@@ -3118,7 +3121,7 @@ TypeInfo* GetGenericFunctionRating(const char *pos, FunctionInfo *fInfo, unsigne
 		AliasInfo *aliasNext = aliasCurr->next;
 		while(aliasNext)
 		{
-			if(aliasCurr->nameHash == aliasNext->nameHash)
+			if(aliasCurr->nameHash == aliasNext->nameHash && aliasCurr->type != aliasNext->type)
 				ThrowError(pos, "ERROR: function '%s' argument list has multiple '%.*s' aliases", fInfo->name, aliasCurr->name.end - aliasCurr->name.begin, aliasCurr->name.begin);
 			aliasNext = aliasNext->next;
 		}

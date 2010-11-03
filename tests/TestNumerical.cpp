@@ -300,3 +300,30 @@ TEST_RESULT("Integer power test", testIntegerPow, "100");
 
 const char *testIntegerPowCF = "return 100**1;";
 TEST_RESULT("Integer power test. Constant folding", testIntegerPowCF, "100");
+
+const char	*testVariableModifyAssignment1 =
+"int[11] res = 12; // 1100\r\n\
+res[0] += 5; assert(res[0] == 17);\r\n\
+res[1] -= 5; assert(res[1] == 7);\r\n\
+res[2] *= 5; assert(res[2] == 60);\r\n\
+res[3] /= 4; assert(res[3] == 3);\r\n\
+res[4] **= 2; assert(res[4] == 144);\r\n\
+res[5] %= 5; assert(res[5] == 2);\r\n\
+res[6] <<= 2; assert(res[6] == 48);\r\n\
+res[7] >>= 1; assert(res[7] == 6);\r\n\
+res[8] &= 5; assert(res[8] == 4);\r\n\
+res[9] |= 5; assert(res[9] == 13);\r\n\
+res[10] ^= 5; assert(res[10] == 9);\r\n\
+return 1;";
+TEST_RESULT("Integer modify assignment operator test.", testVariableModifyAssignment1, "1");
+
+const char	*testVariableModifyAssignment2 =
+"double[6] res = 12;\r\n\
+res[0] += 5; assert(res[0] == 17);\r\n\
+res[1] -= 5; assert(res[1] == 7);\r\n\
+res[2] *= 5; assert(res[2] == 60);\r\n\
+res[3] /= 4; assert(res[3] == 3);\r\n\
+res[4] **= 2; assert(res[4] == 144);\r\n\
+res[5] %= 5; assert(res[5] == 2);\r\n\
+return 1;";
+TEST_RESULT("Double modify assignment operator test.", testVariableModifyAssignment2, "1");
