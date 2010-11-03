@@ -434,3 +434,15 @@ auto Foo:Foo(Bar<T> ref start){ curr = 5; }\r\n\
 auto a = Foo<int>(new Bar<int>);\r\n\
 return a.curr;";
 TEST_RESULT("correct type alias in a generic type constructor", testCorrectTypeAliasesInAGenericTypeConstructor, "5");
+
+const char	*testDefaultStaticConstructor1 = "class Foo{ int x; } Foo a = Foo(); return 1;";
+TEST_RESULT("default static constructor 1", testDefaultStaticConstructor1, "1");
+
+const char	*testDefaultStaticConstructor2 = "class Foo{ int x; } auto bar(Foo m){ return sizeof(m); } return bar(Foo());";
+TEST_RESULT("default static constructor 2", testDefaultStaticConstructor2, "4");
+
+const char	*testDefaultStaticConstructor3 =
+"class Foo<T>{ T x; int a; }\r\n\
+auto foo(Foo<@T> m){ return sizeof(m); }\r\n\
+return foo(Foo<Foo<double>>());";
+TEST_RESULT("default static constructor 3", testDefaultStaticConstructor3, "16");

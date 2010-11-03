@@ -3817,7 +3817,10 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	{
 		if((*info)->genericInfo)
 			ThrowError(pos, "ERROR: generic type arguments in <> are not found after constructor name");
-		if(HasConstructor(*info, callArgCount))
+
+		bool hasConstructor = HasConstructor(*info, callArgCount);
+
+		if(hasConstructor || callArgCount == 0)
 		{
 			// Create temporary variable name
 			char *arrName = AllocateString(16);
@@ -3826,20 +3829,29 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			currType = *info;
 			VariableInfo *varInfo = AddVariable(pos, InplaceStr(arrName, length)); // Create temporary variable
 			AddGetAddressNode(pos, InplaceStr(arrName, length)); // Get address
-			for(unsigned k = 0; k < callArgCount; k++) // Move address before arguments
+			// Call constructor if it's available
+			if(hasConstructor)
 			{
-				NodeZeroOP *temp = CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - k];
-				CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - k] = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k];
-				CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k] = temp;
+				for(unsigned k = 0; k < callArgCount; k++) // Move address before arguments
+				{
+					NodeZeroOP *temp = CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - k];
+					CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - k] = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k];
+					CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k] = temp;
+				}
+				assert(0 == strcmp(funcName, (*info)->name));
+				AddMemberFunctionCall(pos, (*info)->genericBase ? (*info)->genericBase->name : (*info)->name, callArgCount); // Call member constructor
+				AddPopNode(pos); // Remove result
+				CodeInfo::nodeList.push_back(new NodeGetAddress(varInfo, varInfo->pos, varInfo->varType)); // Get address
+				AddGetVariableNode(pos); // Dereference
+				AddTwoExpressionNode(*info); // Pack two nodes together
+				currType = saveCurrType; // Restore type in definition
+				return true;
+			}else{
+				// Imitate default constructor call
+				AddGetVariableNode(pos, true);
+				currType = saveCurrType; // Restore type in definition
+				return true;
 			}
-			assert(0 == strcmp(funcName, (*info)->name));
-			AddMemberFunctionCall(pos, (*info)->genericBase ? (*info)->genericBase->name : (*info)->name, callArgCount); // Call member constructor
-			AddPopNode(pos); // Remove result
-			CodeInfo::nodeList.push_back(new NodeGetAddress(varInfo, varInfo->pos, varInfo->varType)); // Get address
-			AddGetVariableNode(pos); // Dereference
-			AddTwoExpressionNode(*info); // Pack two nodes together
-			currType = saveCurrType; // Restore type in definition
-			return true;
 		}
 	}
 
