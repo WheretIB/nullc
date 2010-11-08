@@ -208,7 +208,7 @@ arr.push_back(2);\r\n\
 arr.push_back(3);\r\n\
 arr.push_back(4);\r\n\
 \r\n\
-bool operator in(@T val, vector<@T> ref arr)\r\n\
+bool operator in(@T val, vector<@T> arr)\r\n\
 {\r\n\
 	for(i in arr)\r\n\
 		if(val == i)\r\n\

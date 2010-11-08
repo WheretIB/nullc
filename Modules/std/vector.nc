@@ -220,3 +220,11 @@ auto vector:sort(generic ref(T, T) pred)
 {
 	vector_sort_impl(this, pred);
 }
+
+bool operator in(generic x, vector<generic> ref arr)
+{
+	for(i in arr)
+		if(x == i)
+			return true;
+	return false;
+}

@@ -243,5 +243,13 @@ auto list:any(generic ref(T) f)
 	return c;
 }
 
+bool operator in(generic x, list<generic> ref arr)
+{
+	for(i in arr)
+		if(x == i)
+			return true;
+	return false;
+}
+
 // operator = for list node element?
 // list with one element?
