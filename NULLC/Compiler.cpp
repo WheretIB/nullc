@@ -672,7 +672,6 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 
 				newInfo->hasFinalizer = tInfo->typeFlags & ExternTypeInfo::TYPE_HAS_FINALIZER;
 				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
-				newInfo->hasFinished = true;
 
 				CodeInfo::typeInfo.push_back(newInfo);
 				CodeInfo::classMap.insert(newInfo->GetFullNameHash(), newInfo);

@@ -2865,6 +2865,9 @@ void FunctionEnd(const char* pos)
 	}
 	currDefinedFunc.pop_back();
 
+	if(!lastFunc.retType->hasFinished && newType != lastFunc.retType)
+		ThrowError(pos, "ERROR: type '%s' is not fully defined", lastFunc.retType->GetFullTypeName());
+
 	// Remove aliases defined in a function
 	AliasInfo *info = lastFunc.childAlias;
 	while(info)
