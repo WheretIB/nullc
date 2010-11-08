@@ -2077,6 +2077,8 @@ bool ParseTerminal(Lexeme** str)
 					ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
 				SelectTypeByPointer(currType);
 				SetCurrentFunction(last);
+				if(callArgCount && !(callArgCount == 1 && CodeInfo::nodeList.back()->typeInfo == typeObject) && !HasConstructor(currType, callArgCount))
+					ThrowError((*str)->pos, "ERROR: type '%s' doesn't have a constructor accepting %d argument(s)", currType->GetFullTypeName(), callArgCount);
 				AddFunctionCallNode((*str)->pos, GetSelectedTypeName(), callArgCount);
 				ParsePostExpressions(str);
 				return true;

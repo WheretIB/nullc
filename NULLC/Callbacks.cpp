@@ -537,6 +537,7 @@ void AddStringNode(const char* s, const char* e, bool unescaped)
 			if(*curr == '\\' && !unescaped)
 			{
 				curr++;
+				CodeInfo::lastKnownStartPos = curr;
 				clean[i] = UnescapeSybmol(*curr);
 			}
 		}
@@ -3849,7 +3850,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		funcNameHash = GetStringHash(funcName);
 	}
 	// Handle type(auto ref) -> type, if no user function is defined.
-	if(!silent && callArgCount == 1 && CodeInfo::nodeList[CodeInfo::nodeList.size() - 1]->typeInfo == typeObject)
+	if(!silent && callArgCount == 1 && CodeInfo::nodeList.back()->typeInfo == typeObject)
 	{
 		TypeInfo *autoRefToType = NULL;
 		// Find class by name
