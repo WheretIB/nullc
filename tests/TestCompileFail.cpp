@@ -121,7 +121,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Modulus division by zero during constant folding 1", "return 5 % 0;", "ERROR: modulus division by zero during constant folding");
 	TEST_FOR_FAIL("Modulus division by zero during constant folding 2", "return 5l % 0l;", "ERROR: modulus division by zero during constant folding");
 
-	TEST_FOR_FAIL("Variable as a function", "int a = 5; return a(4);", "ERROR: function '()' is undefined");
+	TEST_FOR_FAIL("Variable as a function", "int a = 5; return a(4);", "ERROR: operator '()' accepting 1 argument(s) is undefined for a class 'int'");
 
 	TEST_FOR_FAIL("Function pointer call with wrong argument count", "int f(int a){ return -a; } auto foo = f; auto b = foo(); return foo(1, 2);", "ERROR: function expects 1 argument(s), while 0 are supplied");
 	TEST_FOR_FAIL("Function pointer call with wrong argument types", "import std.math; int f(int a){ return -a; } auto foo = f; float4 v; return foo(v);", "ERROR: there is no conversion from specified arguments and the ones that function accepts");
@@ -129,8 +129,8 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Indirect function pointer call with wrong argument count", "int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; auto b = foo[0](); return foo(1, 2);", "ERROR: function expects 1 argument(s), while 0 are supplied");
 	TEST_FOR_FAIL("Indirect function pointer call with wrong argument types", "import std.math; int f(int a){ return -a; } typeof(f)[2] foo = { f, f }; float4 v; return foo[0](v);", "ERROR: there is no conversion from specified arguments and the ones that function accepts");
 
-	TEST_FOR_FAIL("Array element type mistmatch", "import std.math;\r\nauto err = { 1, float2(2, 3), 4 };\r\nreturn 1;", "ERROR: element 1 doesn't match the type of element 0 (int)");
-	TEST_FOR_FAIL("Ternary operator complex type mistmatch", "import std.math;\r\nint x = 1; auto err = x ? 1 : float2(2, 3);\r\nreturn 1;", "ERROR: ternary operator ?: result types are not equal (int : float2)");
+	TEST_FOR_FAIL("Array element type mismatch", "import std.math;\r\nauto err = { 1, float2(2, 3), 4 };\r\nreturn 1;", "ERROR: element 1 doesn't match the type of element 0 (int)");
+	TEST_FOR_FAIL("Ternary operator complex type mismatch", "import std.math;\r\nint x = 1; auto err = x ? 1 : float2(2, 3);\r\nreturn 1;", "ERROR: ternary operator ?: result types are not equal (int : float2)");
 
 	TEST_FOR_FAIL("Indexing value that is not an array 2", "return (1)[1];", "ERROR: indexing variable that is not an array (int)");
 	TEST_FOR_FAIL("Illegal conversion from type[] ref to type[]", "int[] b = { 1, 2, 3 };int[] ref c = &b;int[] d = c;return 1;", "ERROR: cannot convert 'int[] ref' to 'int[]'");
@@ -574,6 +574,19 @@ return int(y() + z());",
 
 	TEST_FOR_FAIL("class prototype", "class foo; foo bar() { foo ref x; return *x; }", "ERROR: type 'foo' is not fully defined");
 	TEST_FOR_FAIL("class prototype", "class foo; auto bar() { foo ref x; return *x; }", "ERROR: type 'foo' is not fully defined");
+
+	TEST_FOR_FAIL("No () overload", "return (typeof(1))(1.0f);", "ERROR: operator '()' accepting 1 argument(s) is undefined for a class 'typeid'");
+
+	TEST_FOR_FAIL_FULL("No single () that fits", "class Foo{} void operator()(int a){} void operator()(float a){} Foo a; a('a');",
+"line 1 - ERROR: can't find function '()' with following parameters:\r\n\
+  ()(Foo, char)\r\n\
+ the only available are:\r\n\
+  void ()(float)\r\n\
+  void ()(int)\r\n\
+\r\n\
+  at \"class Foo{} void operator()(int a){} void operator()(float a){} Foo a; a('a');\"\r\n\
+                                                                                   ^\r\n\
+");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

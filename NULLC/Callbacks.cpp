@@ -4008,7 +4008,14 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - i] = tmp;
 			}
 			// Call operator()
-			return AddFunctionCallNode(pos, "()", callArgCount + 1);
+			if(!AddFunctionCallNode(pos, "()", callArgCount + 1, true))
+			{
+				if(bestFuncList.size() == 0)
+					ThrowError(pos, "ERROR: operator '()' accepting %d argument(s) is undefined for a class '%s'", callArgCount, CodeInfo::nodeList[CodeInfo::nodeList.size() - callArgCount - 1]->typeInfo->GetFullTypeName());
+				else
+					AddFunctionCallNode(pos, "()", callArgCount + 1);
+			}
+			return true;
 		}
 		unsigned int bestRating = ~0u;
 		if(callArgCount >= (fType->paramCount-1) && fType->paramCount && fType->paramType[fType->paramCount-1] == typeObjectArray &&
