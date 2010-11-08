@@ -2189,3 +2189,15 @@ assert(sizeof(Foo<double>) == 4);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("Constants in a generic type test (import)", testConstantsInAGenericType2, "1");
+
+const char	*testAccessorAccessInsideAMemberFunctionGeneric =
+"class Foo<T>{ T _x; }\r\n\
+\r\n\
+auto Foo.x(){ return _x; }\r\n\
+void Foo.x(T r){ _x = r / 2; }\r\n\
+\r\n\
+void Foo:Foo(){ x = 4; }\r\n\
+\r\n\
+Foo<int> a;\r\n\
+return a.x;";
+TEST_RESULT("Accessor access inside a generic type member function", testAccessorAccessInsideAMemberFunctionGeneric, "2");
