@@ -754,8 +754,13 @@ bool ParseClassDefinition(Lexeme** str)
 			TypeFinish();
 			return true;
 		}
-		ParseClassBody(str);
-		TypeFinish();
+		if(ParseLexem(str, lex_semicolon))
+		{
+			TypePrototypeFinish();
+		}else{
+			ParseClassBody(str);
+			TypeFinish();
+		}
 		return true;
 	}
 	return false;
