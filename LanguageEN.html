@@ -146,6 +146,7 @@ function toggleView(a, b, c)
 		<li><a href="#classes">User classes</a></li>
 		<ol>
 			<li><a href="#classaccessor">Accessors</a></li>
+			<li><a href="#classgeneric">Generic classes</a></li>
 		</ol>
 		<li><a href="#vardef">Variables</a></li>
 		<li><a href="#functions">Functions</a></li>
@@ -160,6 +161,7 @@ function toggleView(a, b, c)
 			<li><a href="#funcoperators">Operator overloading</a></li>
 			<li><a href="#coroutine">Coroutines</a></li>
 			<li><a href="#generic">Generic functions</a></li>
+			<li><a href="#genericspec">Generic function specialization</a></li>
 		</ol>
 		<li><a href="#arrunsized">Arrays with implicit size</a></li>
 	</ol>
@@ -718,6 +720,53 @@ function toggleView(a, b, c)
 }<br />
 		</p>
 	</div>
+	
+	<div class="subtopic">
+		<h4><a name="classgeneric">4.1.2 Generic classes</a></h4>
+		
+		Generic class is a class that depends on type arguments, a single definition of which can be instanced with different arguments to produce different types.<br />
+		Type argument list is a list of aliases to a to-be-defined-later types inside an angle-brackets '<' '>':<br />
+		<pre class="code">
+<span class="rword">class Pair</span>&lt;<span class="rword">T</span>, <span class="rword">U</span>&gt;
+{
+    <span class="rword">T </span><span class="vardef">first</span>;
+    <span class="rword">U </span><span class="vardef">second</span>;
+}		</pre>
+		This is a generic type definition, and it doesn't create any real types yet.<br />
+		Required type is instanced later, when generic type name is followed with a type list in angle-brackets:<br />
+		<pre class="code">
+<span class="rword">Pair</span>&lt;<span class="rword">int</span>, <span class="rword">float</span>&gt; <span class="vardef">a</span>;
+<span class="rword">Pair</span>&lt;<span class="rword">double</span>, <span class="rword">long</span>&gt; <span class="vardef">b</span>;</pre>
+		In this example, varaibles "a" and "b" have different types.<br />
+		Nesting generic types are also allowed:
+		<pre class="code">
+<span class="rword">Pair</span>&lt;<span class="rword">Pair</span>&lt;<span class="rword">int</span>, <span class="rword">int</span>&gt;, <span class="rword">Pair</span>&lt;<span class="rword">double</span>, <span class="rword">double</span>&gt;&gt; <span class="vardef">c</span>;</pre>
+		<div class="subtopic">
+			<h4><a name="classgeneric">4.1.2.1 Generic class member type specialization</a></h4>
+			
+			It is possible to define a special member function implementation for a single instanced type by specifying full type name in an external member funciton definition:<br />
+			<pre class="code">
+<span class="rword">import </span><span class="var">std</span>.<span class="var">math</span>;<span class="comment">
+// define a tuple of two values
+</span><span class="rword">class Pair</span>&lt;<span class="rword">T</span>, <span class="rword">U</span>&gt;
+{
+<span class="rword">    T </span><span class="vardef">first</span>;
+<span class="rword">    U </span><span class="vardef">second</span>;
+}<span class="comment">
+// Helper function that returns a Pair object with type acording to arguments
+</span><span class="rword">auto </span><span class="func">Pair</span><span class="bold">(</span>@<span class="rword">T </span><span class="var">a</span>, @<span class="rword">U </span><span class="var">b</span><span class="bold">){ </span><span class="rword">Pair</span>&lt;<span class="rword">T</span>, <span class="rword">U</span>&gt; <span class="vardef">p</span>; <span class="var">p</span>.<span class="var">first </span>= <span class="var">a</span>; <span class="var">p</span>.<span class="var">second </span>= <span class="var">b</span>; <span class="rword">return </span><span class="var">p</span><span class="bold">; }</span><span class="comment">
+
+// Function compares first with second
+</span><span class="rword">bool Pair</span><span class="bold">:</span><span class="func">Compare</span><span class="bold">(){ </span><span class="rword">return </span><span class="var">first </span>&gt; <span class="var">second</span><span class="bold">; }</span><span class="comment">
+// Specialization for pair of float2 compares vector lengths
+</span><span class="rword">bool Pair</span>&lt;<span class="rword">float2</span>, <span class="rword">float2</span>&gt;<span class="bold">:</span><span class="func">Compare</span><span class="bold">(){ </span><span class="rword">return </span><span class="var">first</span>.<span class="func">length</span><span class="bold">() </span>&gt; <span class="var">second</span>.<span class="func">length</span><span class="bold">(); }</span><span class="comment">
+
+// Create a pair
+</span><span class="rword">auto </span><span class="vardef">p </span>= <span class="func">Pair</span><span class="bold">(</span><span class="func">float2</span><span class="bold">(</span><span class="real">4</span>, <span class="real">4</span><span class="bold">)</span>, <span class="func">float2</span><span class="bold">(</span><span class="real">1</span>, <span class="real">5</span><span class="bold">))</span>;<span class="comment">
+// Compare values
+</span><span class="rword">return </span><span class="var">p</span>.<span class="func">Compare</span><span class="bold">();</span><span class="comment"> // true</span></pre>
+		</div>
+	</div>
 </div>
 <hr />
 
@@ -1232,7 +1281,54 @@ return </span><span class="real">1</span><span class="bold">;</span></pre>
 </span><span class="func">swap</span><span class="bold">(</span><span class="var">a</span>, <span class="var">b</span><span class="bold">)</span>;<span class="comment"> // a == 4; b == 8;
 </span><span class="rword">return </span><span class="var">a </span>- <span class="var">b</span><span class="bold">;</span><span class="comment"> // -4
 </span></pre>
-		Generic functions do not support default function arguments.<br />
+		If you wish to reference a generic argument type later, you can use a generic type alias in a form of @ followed by alias name:<br />
+		<pre class="code">
+<span class="comment">// function that creates an array and fills it with a specified value
+</span><span class="rword">auto </span><span class="func">create</span><span class="bold">(</span>@<span class="rword">T </span><span class="var">x</span>, <span class="rword">int </span><span class="var">y</span><span class="bold">)
+{
+</span><span class="comment">    </span><span class="rword">auto </span><span class="vardef">array </span>= <span class="rword">new T</span>[<span class="var">x</span>];
+<span class="comment">    </span><span class="rword">for</span>(<span class="vardef">i </span><span class="rword">in </span><span class="var">array</span>)
+<span class="comment">        </span><span class="var">i </span>= <span class="var">x</span>;
+<span class="comment">    </span><span class="rword">return </span><span class="var">array</span><span class="bold">;
+}
+</span><span class="rword">auto </span><span class="vardef">a </span>= <span class="func">create</span><span class="bold">(</span><span class="real">4</span>, <span class="real">16</span><span class="bold">)</span>;</pre>
+	</div>
+	<div class="subtopic">
+		<h4><a name="genericspec">4.3.11 Generic function specialization</a></h4>
+		
+		It is possible to specialize generic functions for a specific groups of types they are used on, for example, to create a generic function that accepts
+		any instance of a generic class of a function that accepts a specified amount of arguments or return a specified type.<br />
+		To perform generic function specialization, just replace generic type argument, function type argument or function return type with either
+		<span class="rword">generic</span> type, <span class="rword">genereic ref</span> type or a generic type alias in a form of @ followed by alias name.<br />
+		<br />
+		Let's take for example a generic complex class:<br />
+		<pre class="code">
+<span class="rword">class complex</span>&lt;<span class="rword">T</span>&gt;
+{
+    <span class="rword">T </span><span class="vardef">re</span>, <span class="vardef">im<span class="comment">
+    // constructor
+</span><span class="rword">    void </span><span class="func">complex</span><span class="bold">(</span><span class="rword">T </span><span class="var">a</span>, <span class="var">b</span><span class="bold">){ </span><span class="var">re </span>= <span class="var">a</span>; <span class="var">im </span>= <span class="var">b</span>; <span class="bold">}
+</span>}</pre>
+		Now, we add an overload for unary '-' operator that is called only for our complex number class:<br />
+		<pre class="code">
+<span class="comment">// overloaded negation operator, specialized for complex number class
+</span><span class="rword">auto operator</span>-<span class="bold">(</span><span class="rword">complex</span>&lt;<span class="rword">generic</span>&gt; <span class="rword">ref </span><span class="var">c</span><span class="bold">)
+{
+</span><span class="comment">    </span><span class="rword">return </span><span class="func">complex&lt;typeof(c.re)&gt;</span><span class="bold">(</span>-<span class="var">c</span>.<span class="var">re</span>, -<span class="var">c</span>.<span class="var">im</span><span class="bold">);
+}</span><span class="comment">
+// create a test number
+</span><span class="rword">auto </span><span class="vardef">a </span>= <span class="func">complex&lt;float&gt;</span><span class="bold">(</span><span class="real">2</span>, <span class="real">3</span><span class="bold">)</span>;<span class="comment">
+// negate it
+</span><span class="rword">auto </span><span class="vardef">b </span>= -<span class="var">a</span>;<span class="comment">
+// result is -5.0
+</span><span class="rword">return </span><span class="var">b</span>.<span class="var">re </span>+ <span class="var">b</span>.<span class="var">im</span><span class="bold">;</span></pre>
+		The code can be improved by using a generic type alias:<br />
+		<pre class="code">
+<span class="rword">auto operator</span>-<span class="bold">(</span><span class="rword">complex</span>&lt;@<span class="rword">T</span>&gt; <span class="rword">ref </span><span class="var">c</span><span class="bold">)
+{
+    </span><span class="rword">return </span><span class="func">complex&lt;T&gt;</span><span class="bold">(</span>-<span class="var">c</span>.<span class="var">re</span>, -<span class="var">c</span>.<span class="var">im</span><span class="bold">);
+}</span></pre>
+		Generic type aliases follow an important rule: equal type aliases in a generic function argument list must resolve to equal type at the call site.<br />
 	</div>
 </div>
 <hr />
