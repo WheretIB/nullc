@@ -587,6 +587,14 @@ return int(y() + z());",
   at \"class Foo{} void operator()(int a){} void operator()(float a){} Foo a; a('a');\"\r\n\
                                                                                    ^\r\n\
 ");
+
+	TEST_FOR_FAIL_FULL("Unknown escape sequence", "auto x = \":xxx \\x\";",
+"line 1 - ERROR: unknown escape sequence\r\n\
+  at \"auto x = \":xxx \\x\";\"\r\n\
+                      ^\r\n\
+");
+
+	TEST_FOR_FAIL("No constructor", "auto std() { return 1; } auto main() { return typeof(std)(1.0f); }", "ERROR: type 'int ref()' doesn't have a constructor accepting 1 argument(s)");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
