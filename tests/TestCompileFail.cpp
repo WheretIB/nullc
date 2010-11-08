@@ -190,7 +190,7 @@ void RunCompileFailTests()
 
 	TEST_FOR_FAIL("Invalid conversion", "int a; int[] arr = new int[10]; arr = &a; return 0;", "ERROR: cannot convert 'int ref' to 'int[]'");
 
-	TEST_FOR_FAIL("Usage of an undefined class", "class Foo{ Foo a; int i; }; Foo a; return 1;", "ERROR: Type 'Foo' is currently being defined. You can use 'Foo ref' or 'Foo[]' at this point");
+	TEST_FOR_FAIL("Usage of an undefined class", "class Foo{ Foo a; int i; }; Foo a; return 1;", "ERROR: type 'Foo' is not fully defined. You can use 'Foo ref' or 'Foo[]' at this point");
 
 	TEST_FOR_FAIL("Can't yield if not a coroutine", "int test(){ yield 4; } return test();", "ERROR: yield can only be used inside a coroutine");
 
@@ -558,6 +558,16 @@ return int(y() + z());",
 
 	TEST_FOR_FAIL("constnt couldn't be evaluated at compilation time", "int a = 4; class Foo{ const int b = a; }", "ERROR: expression didn't evaluate to a constant number");
 	TEST_FOR_FAIL("name occupied", "class Foo{ const int a = 1, a = 3; }", "ERROR: name 'a' is already taken for a variable in current scope");
+
+	TEST_FOR_FAIL("bool is non-negatable", "bool a = true; return -a;", "ERROR: unary operation '-' is not supported on 'bool'");
+	TEST_FOR_FAIL("no bit not on bool", "bool a = true; return ~a;", "ERROR: unary operation '~' is not supported on 'bool'");
+	TEST_FOR_FAIL("bool is non-negatable", "return -true;", "ERROR: unary operation '-' is not supported on 'bool'");
+	TEST_FOR_FAIL("no bit not on bool", "return ~true;", "ERROR: unary operation '~' is not supported on 'bool'");
+
+	TEST_FOR_FAIL("class prototype", "class Foo; Foo x;", "ERROR: type 'Foo' is not fully defined. You can use 'Foo ref' or 'Foo[]' at this point");
+	TEST_FOR_FAIL("class prototype", "class Foo; Foo ref a = new Foo;", "ERROR: cannot take size of a type in definition");
+	TEST_FOR_FAIL("class prototype", "class Foo; Foo ref a; auto x = *a;", "ERROR: type 'Foo' is not fully defined");
+	TEST_FOR_FAIL("class prototype", "class Foo; return 1;", "ERROR: type 'Foo' implementation is not found");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

@@ -631,3 +631,59 @@ assert(Foo.d == 4);\r\n\
 assert(Foo.e == 5);\r\n\
 return 1;";
 TEST_RESULT("Class constants 5", testClassConstants5, "1");
+
+const char	*testClassForwardDeclaration1 =
+"class Foo;\r\n\
+Foo ref a;\r\n\
+class Foo\r\n\
+{\r\n\
+	int a, b;\r\n\
+}\r\n\
+a = new Foo;\r\n\
+a.a = 5;\r\n\
+return -a.a;";
+TEST_RESULT("Class forward declaration 1", testClassForwardDeclaration1, "-5");
+
+const char	*testClassForwardDeclaration2 =
+"class Node;\r\n\
+\r\n\
+class List\r\n\
+{\r\n\
+	Node ref start;\r\n\
+}\r\n\
+class Node\r\n\
+{\r\n\
+	Node ref next;\r\n\
+	List ref parent;\r\n\
+}\r\n\
+Node a;\r\n\
+List b;\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Class forward declaration 2", testClassForwardDeclaration2, "1");
+
+const char	*testClassForwardDeclaration3 =
+"class Node;\r\n\
+class Node;\r\n\
+class Node;\r\n\
+class Node;\r\n\
+class Node{ int a; }\r\n\
+\r\n\
+Node b;\r\n\
+b.a = 10;\r\n\
+return b.a;";
+TEST_RESULT("Class forward declaration 3", testClassForwardDeclaration3, "10");
+
+const char	*testClassForwardDeclaration4 =
+"class Node;\r\n\
+\r\n\
+int Node:foo(){ return 12; }\r\n\
+\r\n\
+class Node\r\n\
+{\r\n\
+	int a;\r\n\
+}\r\n\
+\r\n\
+Node f;\r\n\
+return f.foo();";
+TEST_RESULT("Class forward declaration 4", testClassForwardDeclaration4, "12");

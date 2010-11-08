@@ -990,6 +990,8 @@ VariableInfo* AddVariable(const char* pos, InplaceStr varName)
 	}
 	if(currType && currType->hasFinalizer)
 		ThrowError(pos, "ERROR: cannot create '%s' that implements 'finalize' on stack", currType->GetFullTypeName());
+	if(currType && !currType->hasFinished && currType != newType)
+		ThrowError(pos, "ERROR: type '%s' is not fully defined. You can use '%s ref' or '%s[]' at this point", currType->GetFullTypeName(), currType->GetFullTypeName(), currType->GetFullTypeName());
 	CodeInfo::varInfo.push_back(new VariableInfo(currDefinedFunc.size() > 0 ? currDefinedFunc.back() : NULL, varName, hash, varTop, currType, currDefinedFunc.size() == 0));
 	varDefined = true;
 	CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
@@ -1557,6 +1559,8 @@ void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverlo
 
 		if(variableInfo->varType->hasFinalizer)
 			ThrowError(pos, "ERROR: cannot create '%s' that implements 'finalize' on stack", variableInfo->varType->GetFullTypeName());
+		if(!variableInfo->varType->hasFinished && variableInfo->varType != newType)
+			ThrowError(pos, "ERROR: type '%s' is not fully defined", variableInfo->varType->GetFullTypeName());
 	}
 
 	if(currDefinedFunc.size() && currDefinedFunc.back()->type == FunctionInfo::COROUTINE && variableInfo->blockDepth > currDefinedFunc[0]->vTopSize && variableInfo->pos > currDefinedFunc.back()->allParamSize)
@@ -2922,6 +2926,7 @@ void FunctionEnd(const char* pos)
 		for(unsigned int i = newType->originalIndex + 1; i < CodeInfo::typeInfo.size(); i++)
 			CodeInfo::typeInfo[i]->originalIndex--;
 		newType->originalIndex = CodeInfo::typeInfo.size() - 1;
+		newType->hasFinished = true;
 		// Restore data about previously defined type
 		newType = currentDefinedType;
 		methodCount = currentDefinedTypeMethodCount;
@@ -4343,9 +4348,12 @@ void TypeBegin(const char* pos, const char* end)
 
 	unsigned int hash = GetStringHash(typeNameCopy);
 	TypeInfo **type = CodeInfo::classMap.find(hash);
-	if(type)
+	if(type && (*type)->hasFinished)
 		ThrowError(pos, "ERROR: '%s' is being redefined", typeNameCopy);
-	newType = new TypeInfo(CodeInfo::typeInfo.size(), typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
+	else if(type && !(*type)->hasFinished)
+		newType = (*type);
+	else
+		newType = new TypeInfo(CodeInfo::typeInfo.size(), typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 	newType->alignBytes = currAlign;
 	newType->originalIndex = CodeInfo::typeInfo.size();
 	newType->definitionDepth = varInfoTop.size();
@@ -4353,8 +4361,11 @@ void TypeBegin(const char* pos, const char* end)
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 	methodCount = 0;
 
-	CodeInfo::typeInfo.push_back(newType);
-	CodeInfo::classMap.insert(newType->GetFullNameHash(), newType);
+	if(!type)
+	{
+		CodeInfo::typeInfo.push_back(newType);
+		CodeInfo::classMap.insert(newType->GetFullNameHash(), newType);
+	}
 
 	BeginBlock();
 }
@@ -4365,7 +4376,7 @@ void TypeAddMember(const char* pos, const char* varName)
 	if(!currType)
 		ThrowError(pos, "ERROR: auto cannot be used for class members");
 	if(!currType->hasFinished)
-		ThrowError(pos, "ERROR: Type '%s' is currently being defined. You can use '%s ref' or '%s[]' at this point", currType->GetFullTypeName(), currType->GetFullTypeName(), currType->GetFullTypeName());
+		ThrowError(pos, "ERROR: type '%s' is not fully defined. You can use '%s ref' or '%s[]' at this point", currType->GetFullTypeName(), currType->GetFullTypeName(), currType->GetFullTypeName());
 	// Align members to their default alignment, but not larger that 4 bytes
 	unsigned int alignment = currType->alignBytes > 4 ? 4 : currType->alignBytes;
 	if(alignment && newType->size % alignment != 0)
@@ -4408,6 +4419,15 @@ void TypeAddConstant(const char* pos, const char* constName)
 	VariableInfo *varInfo = (VariableInfo*)AddVariable(pos, InplaceStr(constName, (int)strlen(constName)));
 	varInfo->isGlobal = true;
 	varInfo->parentType = newType;
+}
+
+void TypePrototypeFinish()
+{
+	CodeInfo::nodeList.push_back(new NodeZeroOP());
+	newType = NULL;
+
+	// Remove class members from global scope
+	EndBlock(false, false);
 }
 
 // End of type definition
@@ -4828,6 +4848,11 @@ void AddListGenerator(const char* pos, TypeInfo *rType)
 
 void RestoreScopedGlobals()
 {
+	for(unsigned i = 0; i < CodeInfo::typeInfo.size(); i++)
+	{
+		if(!CodeInfo::typeInfo[i]->hasFinished)
+			ThrowError(NULL, "ERROR: type '%s' implementation is not found", CodeInfo::typeInfo[i]->name);
+	}
 	while(lostGlobalList)
 	{
 		CodeInfo::varInfo.push_back(lostGlobalList);
