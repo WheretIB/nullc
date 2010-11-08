@@ -1122,9 +1122,12 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		int fID = -1;
 		if(newType)
 		{
-			unsigned int hash = GetStringHash(GetClassFunctionName(newType, varName));
-			fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
+			// Construct function name in a for of Class::Function
+			unsigned int hash = newType->nameHash;
+			hash = StringHashContinue(hash, "::");
+			hash = StringHashContinue(hash, varName.begin, varName.end);
 
+			fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
 			if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
 			{
 				FunctionInfo *fInfo = CodeInfo::funcInfo[fID];
@@ -1132,6 +1135,29 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 				fInfo->pure = false;
 				CodeInfo::nodeList.push_back(new NodeFunctionProxy(fInfo, pos, false, true));
 				return;
+			}
+			// If a member function is not found, try an accessor
+			if(fID == -1)
+			{
+				hash = StringHashContinue(hash, "$");
+
+				fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
+
+				if(fID == -1 && newType->genericBase)
+				{
+					unsigned int hash = newType->genericBase->nameHash;
+					hash = StringHashContinue(hash, "::");
+					hash = StringHashContinue(hash, varName.begin, varName.end);
+					hash = StringHashContinue(hash, "$");
+					fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
+				}
+				if(fID != -1)
+				{
+					AddGetAddressNode(pos, InplaceStr("this", 4));
+					CodeInfo::nodeList.push_back(new NodeDereference());
+					AddMemberAccessNode(pos, varName);
+					return;
+				}
 			}
 		}
 		if(fID == -1)

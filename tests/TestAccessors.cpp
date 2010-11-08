@@ -29,3 +29,13 @@ if(sizeof(u) == 16) u.x = 5; else u.x = 6;\r\n\
 return typeid(u.xyz).size;";
 TEST_RESULT("Property access after function call", testPropertyAfterFunctionCall, "12");
 
+const char	*testAccessorAccessInsideAMemberFunction =
+"class Foo\r\n\
+{\r\n\
+	int _x;\r\n\
+	int x{ get { return _x; } set{ _x = r / 2; } };\r\n\
+}\r\n\
+void Foo:Foo(){ x = 4; }\r\n\
+Foo a;\r\n\
+return a.x;";
+TEST_RESULT("Accessor access inside a member function", testAccessorAccessInsideAMemberFunction, "2");
