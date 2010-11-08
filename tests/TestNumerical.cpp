@@ -498,3 +498,13 @@ assert(*a == true);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("bool type constructors", testBoolType3, "1");
+
+const char	*testBoolType4 =
+"bool bar(){ return 5; }\r\n\
+bool foo(int x){ return x; }\r\n\
+\r\n\
+assert(bar() == true);\r\n\
+assert(foo(45) == true);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("bool as a function return type", testBoolType4, "1");
