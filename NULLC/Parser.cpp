@@ -247,7 +247,10 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 				}else{
 					if(currMember->defaultValue)
 					{
-						CodeInfo::nodeList.push_back(currMember->defaultValue);
+						assert(currMember->defaultValue->nodeType == typeNodeNumber);
+						NodeNumber *nodeCopy = new NodeNumber(0, currMember->defaultValue->typeInfo);
+						nodeCopy->num.integer64 = ((NodeNumber*)currMember->defaultValue)->num.integer64;
+						CodeInfo::nodeList.push_back(nodeCopy);
 						notType = true;
 					}else{
 						SelectTypeByPointer(currMember->type);

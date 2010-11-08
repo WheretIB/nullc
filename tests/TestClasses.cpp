@@ -687,3 +687,9 @@ class Node\r\n\
 Node f;\r\n\
 return f.foo();";
 TEST_RESULT("Class forward declaration 4", testClassForwardDeclaration4, "12");
+
+const char	*testClassConstant6 =
+"class DIR{ const auto LEFT = 0, RIGHT, UP, DOWN; }\r\n\
+switch(1){ case DIR.UP: case DIR.DOWN: }\r\n\
+int foo(int a){ return -a; } auto x = foo; return foo(DIR.UP);";
+TEST_RESULT("Class constant 6 (test for a bug with constant wrap into a list)", testClassConstant6, "-2");
