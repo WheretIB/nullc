@@ -307,9 +307,10 @@ bool Linker::LinkCode(const char *code)
 			}
 		}
 
-		// If the function exists and is internal, check if redefinition is allowed
+		// If the function exists, check if redefinition is allowed
 		if(index != index_none)
 		{
+			// It is allowed for generic base function, generic function instances and default argument values
 			if(*(symbolInfo + fInfo->offsetToName) == '$' || fInfo->isGenericInstance || fInfo->funcType == 0)
 			{
 				exFunctions.push_back(exFunctions[index]);
