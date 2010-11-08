@@ -5,6 +5,8 @@ class Canvas
 	
 	int color;
 	int[] data;
+	
+	bool lineAA;
 }
 
 Canvas Canvas(int width, height)
@@ -23,10 +25,12 @@ void Canvas:Clear(char red, green, blue);
 void Canvas:Clear(char red, green, blue, alpha);
 
 void Canvas:SetColor(char red, green, blue);
+void Canvas:SetLineAA(bool enable);
 
-void Canvas:DrawLine(int x1, y1, x2, y2);
+void Canvas:DrawLine(double x1, y1, x2, y2);
 void Canvas:DrawRect(int x1, y1, x2, y2);
 void Canvas:DrawPoint(int x, y);
+void Canvas:DrawPoint(int x, y, double alpha);
 
 int[] Canvas:GetData()
 {
