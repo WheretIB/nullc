@@ -491,6 +491,7 @@ void Compiler::ClearState()
 
 	TypeInfo::SetPoolTop(typeTop);
 
+	funcMap.clear();
 	CodeInfo::funcInfo.resize(0);
 	FunctionInfo::SetPoolTop(0);
 
