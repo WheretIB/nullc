@@ -674,6 +674,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	bool firstRun = false;
 	if(!codeRunning || functionID == ~0u)
 	{
+		codeRunning = false;
 		firstRun = true;
 		InitExecution();
 	}else if(functionID != ~0u && exFunctions[functionID].startInByteCode != ~0u){
