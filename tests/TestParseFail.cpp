@@ -7,8 +7,8 @@ void RunParseFailTests()
 {
 	//TEST_FOR_FAIL("parsing", "");
 
-	TEST_FOR_FAIL("lexer", "return \"", "ERROR: return statement must be followed by ';'");
-	TEST_FOR_FAIL("lexer", "return '", "ERROR: return statement must be followed by ';'");
+	TEST_FOR_FAIL("lexer", "return \"", "ERROR: unclosed string constant");
+	TEST_FOR_FAIL("lexer", "return '", "ERROR: unclosed character constant");
 
 	TEST_FOR_FAIL("parsing", "return 0x;", "ERROR: '0x' must be followed by number");
 	TEST_FOR_FAIL("parsing", "int[12 a;", "ERROR: matching ']' not found");
@@ -239,4 +239,5 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "class Foo{ const int a = 4, b }", "ERROR: ';' not found after constants");
 	TEST_FOR_FAIL("parsing", "class Foo{ const float a = 4, b; }", "ERROR: only integer constant list gets automatically incremented by 1");
 
+	TEST_FOR_FAIL("parsing", "char a = '';", "ERROR: empty character constant");
 }

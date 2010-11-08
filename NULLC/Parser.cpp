@@ -1641,6 +1641,9 @@ bool ParseString(Lexeme** str)
 	if((*str)->type != lex_quotedstring)
 		return false;
 
+	if((*str)->length == 1 || (*str)->pos[(*str)->length - 1] != '\"')
+		ThrowError((*str)->pos, "ERROR: unclosed string constant");
+
 	AddStringNode((*str)->pos, (*str)->pos+(*str)->length, unescaped);
 	(*str)++;
 	return true;
@@ -1901,8 +1904,12 @@ bool ParseTerminal(Lexeme** str)
 	}
 		break;
 	case lex_semiquotedchar:
-		if(((*str)->length > 3 && (*str)->pos[1] != '\\') || (*str)->length > 4)
+		if((*str)->length == 1 || (*str)->pos[(*str)->length - 1] != '\'')
+			ThrowError((*str)->pos, "ERROR: unclosed character constant");
+		else if(((*str)->length > 3 && (*str)->pos[1] != '\\') || (*str)->length > 4)
 			ThrowError((*str)->pos, "ERROR: only one character can be inside single quotes");
+		else if((*str)->length < 3)
+			ThrowError((*str)->pos, "ERROR: empty character constant");
 		AddNumberNodeChar((*str)->pos);
 		(*str)++;
 		return true;
