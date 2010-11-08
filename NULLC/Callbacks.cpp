@@ -756,13 +756,18 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 			return;
 		}
 	}
-	unsigned int aNodeType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->nodeType;
-	unsigned int bNodeType = CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->nodeType;
 
-	if(aNodeType == typeNodeNumber && bNodeType == typeNodeNumber)
+	NodeNumber *Ad = static_cast<NodeNumber*>(CodeInfo::nodeList[CodeInfo::nodeList.size() - 2]);
+	NodeNumber *Bd = static_cast<NodeNumber*>(CodeInfo::nodeList[CodeInfo::nodeList.size() - 1]);
+
+	unsigned int aNodeType = Ad->nodeType;
+	unsigned int bNodeType = Bd->nodeType;
+
+	bool enumProtect = (Ad->typeInfo->firstVariable || Bd->typeInfo->firstVariable) && Ad->typeInfo != Bd->typeInfo;
+
+	if(aNodeType == typeNodeNumber && bNodeType == typeNodeNumber && !enumProtect)
 	{
-		NodeNumber *Ad = static_cast<NodeNumber*>(CodeInfo::nodeList[CodeInfo::nodeList.size() - 2]);
-		NodeNumber *Bd = static_cast<NodeNumber*>(CodeInfo::nodeList[CodeInfo::nodeList.size() - 1]);
+		
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.pop_back();
 
@@ -867,7 +872,7 @@ void AddReturnNode(const char* pos, bool yield)
 			}
 		}
 		// Check for errors
-		if(((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX) && expectedType != realRetType) || expectedType->subType != realRetType->subType)
+		if(((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX || expectedType->firstVariable || realRetType->firstVariable) && expectedType != realRetType) || expectedType->subType != realRetType->subType)
 			ThrowError(pos, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());
 		if(expectedType == typeVoid && realRetType != typeVoid)
 			ThrowError(pos, "ERROR: 'void' function returning a value");
@@ -2168,13 +2173,20 @@ void HandlePointerToObject(const char* pos, TypeInfo *dstType)
 	if(!((dstType == typeObject) ^ (srcType == typeObject)))
 		return;
 
+	// Unboxing
 	if(srcType == typeObject && dstType->refLevel == 0)
 	{
 		CodeInfo::nodeList.push_back(new NodeConvertPtr(CodeInfo::GetReferenceType(dstType)));
 		CodeInfo::nodeList.push_back(new NodeDereference());
 		return;
 	}
-	CheckForImmutable(dstType == typeObject ? srcType : dstType, pos);
+	// Boxing
+	if(dstType == typeObject && srcType->refLevel == 0)
+	{
+		if(!AddFunctionCallNode(pos, "duplicate", 1, true))
+			ThrowError(pos, "ERROR: failed to convert from '%s' to 'auto ref'", srcType->GetFullTypeName());
+		return;
+	}
 	CodeInfo::nodeList.push_back(new NodeConvertPtr(dstType == typeObject ? typeObject : dstType));
 }
 

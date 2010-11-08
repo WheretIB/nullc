@@ -596,6 +596,11 @@ return int(y() + z());",
 
 	TEST_FOR_FAIL("No constructor", "auto std() { return 1; } auto main() { return typeof(std)(1.0f); }", "ERROR: type 'int ref()' doesn't have a constructor accepting 1 argument(s)");
 	TEST_FOR_FAIL("Prototype is redeclared as generic", "class Foo; Foo ref a; class Foo<T, U>{ T x; U y; }", "ERROR: type was forward declared as a non-generic type");
+
+	TEST_FOR_FAIL("restricted enum", "enum x { y = 54, z } int a = x.y;", "ERROR: cannot convert 'x' to 'int'");
+	TEST_FOR_FAIL("restricted enum", "enum x { y = 54, z } x b = 67;", "ERROR: cannot convert 'int' to 'x'");
+	TEST_FOR_FAIL("restricted enum", "enum x { y = 54, z } x c = x.y * 25;", "ERROR: operation * is not supported on 'x' and 'int'");
+	TEST_FOR_FAIL("restricted enum", "enum x { y = 54, z } x foo(){ return 15; }", "ERROR: function returns int but supposed to return x");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

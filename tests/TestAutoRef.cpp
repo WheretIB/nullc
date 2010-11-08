@@ -29,3 +29,14 @@ func(&k);\r\n\
 return k;";
 TEST_RESULT("Auto reference type 2", testAutoReference2, "9");
 
+const char	*testBoxUnbox1 =
+"auto ref foo(){ return 12; }\r\n\
+int a = foo();\r\n\
+return int(foo()) * a;";
+TEST_RESULT("Auto reference type boxing and unboxing", testBoxUnbox1, "144");
+
+const char	*testBoxUnbox2 =
+"auto ref x = 4;\r\n\
+int a = x;\r\n\
+return int(x) * a;";
+TEST_RESULT("Auto reference type boxing and unboxing 2", testBoxUnbox2, "16");

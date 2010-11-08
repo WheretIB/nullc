@@ -711,7 +711,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	if(!swapNodes)
 		second = TakeLastNode();
 
-	if(typeInfo->arrLevel < 2 && typeInfo->refLevel == 0 && second->nodeType == typeNodeNumber)
+	if(typeInfo->arrLevel < 2 && typeInfo->refLevel == 0 && second->nodeType == typeNodeNumber && !second->typeInfo->firstVariable)
 		static_cast<NodeNumber*>(second)->ConvertTo(typeInfo);
 
 	// If this is the first array definition and value is array sub-type, we set it to all array elements
@@ -726,7 +726,8 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	if(second->typeInfo != typeInfo)
 	{
 		// If it is not build-in basic types or if pointers point to different types
-		if(typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->subType != second->typeInfo->subType)
+		if(typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->subType != second->typeInfo->subType
+			|| typeInfo->firstVariable || second->typeInfo->firstVariable)
 		{
 			if(!(typeInfo->arrLevel != 0 && second->typeInfo->arrLevel == 0 && arrSetAll))
 				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
@@ -1273,7 +1274,9 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 	if((first->typeInfo->refLevel != 0 || second->typeInfo->refLevel != 0) && !(first->typeInfo->refLevel == second->typeInfo->refLevel && logicalOp))
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
-	
+	if((first->typeInfo->firstVariable || second->typeInfo->firstVariable) && first->typeInfo != second->typeInfo)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+
 	if(first->typeInfo == typeVoid)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: first operator returns void");
 	if(second->typeInfo == typeVoid)
