@@ -10,7 +10,7 @@ namespace NULLCCanvas
 		int color;
 		NULLCArray data;
 
-		bool lineAA;
+		bool aaEnabled;
 	};
 }
 
