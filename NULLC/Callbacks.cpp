@@ -3129,6 +3129,12 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		// Get type to which we resolve our generic argument
 		SelectTypeForGeneric(nodeOffset + argID);
 		TypeInfo *referenceType = currType;
+		// If it's not possible to select a function overload
+		if(currType == typeVoid && CodeInfo::nodeList[nodeOffset + argID]->nodeType == typeNodeFunctionProxy)
+		{
+			newRating = ~0u; // function is not instanced
+			return NULL;
+		}
 		// Flag of instantiation failure
 		bool instanceFailure = false;
 		// Set generic function as being in definition so that type aliases will get into functions alias list and will not spill to outer scope
