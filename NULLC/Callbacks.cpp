@@ -4353,7 +4353,7 @@ void EndSwitch()
 }
 
 // Begin type definition
-void TypeBegin(const char* pos, const char* end)
+TypeInfo* TypeBegin(const char* pos, const char* end)
 {
 	if(newType)
 		ThrowError(pos, "ERROR: different type is being defined");
@@ -4385,6 +4385,8 @@ void TypeBegin(const char* pos, const char* end)
 	}
 
 	BeginBlock();
+
+	return type ? *type : NULL;
 }
 
 // Add class member

@@ -705,11 +705,13 @@ bool ParseClassDefinition(Lexeme** str)
 	{
 		if((*str)->type != lex_string)
 			ThrowError((*str)->pos, "ERROR: class name expected");
-		TypeBegin((*str)->pos, (*str)->pos+(*str)->length);
+		TypeInfo *proto = TypeBegin((*str)->pos, (*str)->pos+(*str)->length);
 		(*str)++;
 
 		if(ParseLexem(str, lex_less))
 		{
+			if(proto)
+				ThrowError((*str)->pos, "ERROR: type was forward declared as a non-generic type");
 			CodeInfo::typeInfo.back()->dependsOnGeneric = true;
 			TypeGeneric(unsigned(*str - CodeInfo::lexStart));
 			TypeInfo *newType = GetSelectedType();
