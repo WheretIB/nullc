@@ -7,8 +7,8 @@ using namespace CodeInfo;
 ChunkedStackPool<4092>	stringPool;
 
 // indexed by [lexeme - lex_add]
-char opPrecedence[] = { 2, 2, 1, 1, 1, 0, 4, 4, 3, 4, 4, 3, 5, 5, 6, 8, 7, 9, 11, 10 /* + - * / % ** < <= << > >= >> == != & | ^ and or xor */ };
-CmdID opHandler[] = { cmdAdd, cmdSub, cmdMul, cmdDiv, cmdMod, cmdPow, cmdLess, cmdLEqual, cmdShl, cmdGreater, cmdGEqual, cmdShr, cmdEqual, cmdNEqual, cmdBitAnd, cmdBitOr, cmdBitXor, cmdLogAnd, cmdLogOr, cmdLogXor };
+char opPrecedence[] = { 2, 2, 1, 1, 1, 0, 4, 4, 3, 4, 4, 3, 5, 5, 6, 8, 7, 9, 11, 10, 12 /* + - * / % ** < <= << > >= >> == != & | ^ and or xor in */ };
+CmdID opHandler[] = { cmdAdd, cmdSub, cmdMul, cmdDiv, cmdMod, cmdPow, cmdLess, cmdLEqual, cmdShl, cmdGreater, cmdGEqual, cmdShr, cmdEqual, cmdNEqual, cmdBitAnd, cmdBitOr, cmdBitXor, cmdLogAnd, cmdLogOr, cmdLogXor, cmdNop };
 
 char*	AllocateString(unsigned int size)
 {
@@ -943,7 +943,7 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 		typeMethod = true;
 	}
 	char	*functionName = NULL;
-	if((*str)->type == lex_string || ((*str)->type >= lex_add && (*str)->type <= lex_logxor) || ((*str)->type >= lex_set && (*str)->type <= lex_xorset) || (*str)->type == lex_bitnot || (*str)->type == lex_lognot)
+	if((*str)->type == lex_string || ((*str)->type >= lex_add && (*str)->type <= lex_in) || ((*str)->type >= lex_set && (*str)->type <= lex_xorset) || (*str)->type == lex_bitnot || (*str)->type == lex_lognot)
 	{
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 			ThrowError((*str)->pos, "ERROR: function name length is limited to 2048 symbols");
@@ -2007,7 +2007,7 @@ bool ParseTerminal(Lexeme** str)
 		if((*str)[1].type != lex_quotedstring)
 		{
 			(*str)++;
-			bool isOperator = ((*str)->type >= lex_add && (*str)->type <= lex_logxor) || ((*str)->type >= lex_set && (*str)->type <= lex_xorset) || (*str)->type == lex_bitnot || (*str)->type == lex_lognot;
+			bool isOperator = ((*str)->type >= lex_add && (*str)->type <= lex_in) || ((*str)->type >= lex_set && (*str)->type <= lex_xorset) || (*str)->type == lex_bitnot || (*str)->type == lex_lognot;
 			if(!isOperator)
 				ThrowError((*str)->pos, "ERROR: string expected after '@'");
 			AddGetAddressNode((*str)->pos, InplaceStr((*str)->pos, (*str)->pos + (*str)->length));
@@ -2102,7 +2102,7 @@ bool ParseArithmetic(Lexeme** str)
 	if(!ParseTerminal(str))
 		return false;
 	unsigned int opCount = 0;
-	while((*str)->type >= lex_add && (*str)->type <= lex_logxor)
+	while((*str)->type >= lex_add && (*str)->type <= lex_in)
 	{
 		LexemeType lType = (*str)->type;
 		while(opCount > 0 && opPrecedence[opStack.back() - lex_add] <= opPrecedence[lType - lex_add])

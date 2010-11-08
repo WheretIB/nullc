@@ -307,13 +307,10 @@ bool Linker::LinkCode(const char *code)
 			}
 		}
 
-		// If the function exists and is build-in or external, skip
-		if(index != index_none && exFunctions[index].address == -1)
-			continue;
 		// If the function exists and is internal, check if redefinition is allowed
 		if(index != index_none)
 		{
-			if(*(symbolInfo + fInfo->offsetToName) == '$' || fInfo->isGenericInstance)
+			if(*(symbolInfo + fInfo->offsetToName) == '$' || fInfo->isGenericInstance || fInfo->funcType == 0)
 			{
 				exFunctions.push_back(exFunctions[index]);
 				funcMap.insert(exFunctions.back().nameHash, exFunctions.size()-1);

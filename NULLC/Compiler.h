@@ -94,4 +94,5 @@ private:
 
 	unsigned int typeTop;
 	unsigned int realGlobalCount;
+	unsigned int baseModuleSize;
 };

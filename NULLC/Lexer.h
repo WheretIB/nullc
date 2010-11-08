@@ -65,7 +65,7 @@ struct Lexeme
 class Lexer
 {
 public:
-	void			Clear();
+	void			Clear(unsigned count);
 	void			Lexify(const char* code);
 
 	Lexeme*			GetStreamStart();

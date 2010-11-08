@@ -262,6 +262,13 @@ void	__finalizeObjects()\r\n\
 	auto l = __getFinalizeList();\r\n\
 	for(i in l)\r\n\
 		i.finalize();\r\n\
+}\r\n\
+bool operator in(generic x, typeof(x)[] arr)\r\n\
+{\r\n\
+	for(i in arr)\r\n\
+		if(i == x)\r\n\
+			return true;\r\n\
+	return false;\r\n\
 }";
 
 Compiler::Compiler()
@@ -358,9 +365,11 @@ Compiler::Compiler()
 	realGlobalCount = 0;
 
 	// Add base module with build-in functions
+	baseModuleSize = 0;
 	bool res = Compile(nullcBaseCode);
 	(void)res;
 	assert(res && "Failed to compile base NULLC module");
+	baseModuleSize = lexer.GetStreamSize();
 
 	char *bytecode = NULL;
 	GetBytecode(&bytecode);
@@ -1004,7 +1013,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 
 	if(!noClear)
 	{
-		lexer.Clear();
+		lexer.Clear(baseModuleSize);
 		moduleSource.clear();
 		dupStringsModule.Clear();
 		funcMap.clear();
@@ -1025,7 +1034,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		moduleName[moduleCount] = "$base$.nc";
 		moduleStream[moduleCount] = 0;
 		moduleData[moduleCount] = BinaryCache::GetBytecode("$base$.nc");
-		moduleRange[moduleCount] = NULLC::CodeRange();
+		moduleRange[moduleCount] = NULLC::CodeRange(lexer.GetStreamStart()[0].pos, lexer.GetStreamStart()[baseModuleSize - 1].pos);
 		moduleCount++;
 	}
 

@@ -198,3 +198,25 @@ assert(!(b && k()));\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("overloaded || and && operators do not break short-circuiting", testLogOrAndLogAndOperatorOverload1, "1");
+
+const char	*testInOverload1 =
+"import std.vector;\r\n\
+\r\n\
+vector<int> arr;\r\n\
+arr.push_back(1);\r\n\
+arr.push_back(2);\r\n\
+arr.push_back(3);\r\n\
+arr.push_back(4);\r\n\
+\r\n\
+bool operator in(@T val, vector<@T> ref arr)\r\n\
+{\r\n\
+	for(i in arr)\r\n\
+		if(val == i)\r\n\
+			return true;\r\n\
+	return false;\r\n\
+}\r\n\
+auto x = 3 in arr;\r\n\
+auto y = 6 in arr;\r\n\
+\r\n\
+return x == true && y == false;";
+TEST_RESULT("overloaded in operator", testInOverload1, "1");
