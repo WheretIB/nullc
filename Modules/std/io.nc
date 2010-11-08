@@ -66,14 +66,32 @@ StdOut operator <<(StdOut out, StdEndline str)
 	Print("\r\n");
 	return out;
 }
+StdOut operator <<(StdOut out, bool num)
+{
+	if(num)
+		Print("true");
+	else
+		Print("false");
+	return out;
+}
 StdOut operator <<(StdOut out, char ch)
 {
 	Print(ch);
 	return out;
 }
+StdOut operator <<(StdOut out, short num)
+{
+	Print(int(num));
+	return out;
+}
 StdOut operator <<(StdOut out, int num)
 {
 	Print(num, io.currBase.base);
+	return out;
+}
+StdOut operator <<(StdOut out, float num)
+{
+	Print(double(num));
 	return out;
 }
 StdOut operator <<(StdOut out, double num)
