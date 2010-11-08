@@ -47,6 +47,7 @@ namespace NULLCWindow
 
 	void WindowDrawCanvas(NULLCCanvas::Canvas* c, int x, int y, Window* wnd)
 	{
+		NULLCCanvas::CanvasCommit(c);
 		PAINTSTRUCT ps;
 		BeginPaint(wnd->handle, &ps);
 		HDC dc = GetDC(wnd->handle);
@@ -65,7 +66,7 @@ namespace NULLCWindow
 		bi.bmiHeader.biClrUsed;
 		bi.bmiHeader.biClrImportant;
 
-		SetDIBitsToDevice(dc, x, y, c->width, c->height, 0, 0, 0, c->height, c->data.ptr, &bi, DIB_RGB_COLORS);
+		SetDIBitsToDevice(dc, x, y, c->width, c->height, 0, 0, 0, c->height, c->dataI.ptr, &bi, DIB_RGB_COLORS);
 
 		ReleaseDC(wnd->handle, dc);
 		EndPaint(wnd->handle, &ps);

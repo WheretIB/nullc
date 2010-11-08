@@ -7,11 +7,13 @@ namespace NULLCCanvas
 	{
 		int width, height;
 		
-		int color;
+		float color[4];
 		NULLCArray data;
+		NULLCArray dataI;
 
 		bool aaEnabled;
 	};
+	void CanvasCommit(Canvas* ptr);
 }
 
 bool	nullcInitCanvasModule();

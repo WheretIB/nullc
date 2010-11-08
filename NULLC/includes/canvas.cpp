@@ -3,22 +3,40 @@
 
 namespace NULLCCanvas
 {
-	void CanvasClearRGB(unsigned char red, unsigned char green, unsigned char blue, Canvas* ptr)
+	void CanvasClearRGB(float red, float green, float blue, Canvas* ptr)
 	{
-		int color = (red << 16) | (green << 8) | (blue) | (255 << 24);
+		float fRed = red / 255.0f;
+		float fGreen = green / 255.0f;
+		float fBlue = blue / 255.0f;
 		for(int i = 0; i < ptr->width * ptr->height; i++)
-			((int*)ptr->data.ptr)[i] = color;
+		{
+			((float*)ptr->data.ptr)[i * 4 + 0] = fRed;
+			((float*)ptr->data.ptr)[i * 4 + 1] = fGreen;
+			((float*)ptr->data.ptr)[i * 4 + 2] = fBlue;
+			((float*)ptr->data.ptr)[i * 4 + 3] = 1.0f;
+		}
 	}
-	void CanvasClearRGBA(unsigned char red, unsigned char green, unsigned char blue, unsigned char alpha, Canvas* ptr)
+	void CanvasClearRGBA(float red, float green, float blue, float alpha, Canvas* ptr)
 	{
-		int color = (red << 16) | (green << 8) | (blue) | (alpha << 24);
+		float fRed = red / 255.0f;
+		float fGreen = green / 255.0f;
+		float fBlue = blue / 255.0f;
+		float fAlpha = alpha / 255.0f;
 		for(int i = 0; i < ptr->width * ptr->height; i++)
-			((int*)ptr->data.ptr)[i] = color;
+		{
+			((float*)ptr->data.ptr)[i * 4 + 0] = fRed;
+			((float*)ptr->data.ptr)[i * 4 + 1] = fGreen;
+			((float*)ptr->data.ptr)[i * 4 + 2] = fBlue;
+			((float*)ptr->data.ptr)[i * 4 + 3] = fAlpha;
+		}
 	}
 
 	void CanvasSetColor(unsigned char red, unsigned char green, unsigned char blue, Canvas* ptr)
 	{
-		ptr->color = (red << 16) | (green << 8) | (blue) | (255 << 24);
+		ptr->color[0] = red / 255.0f;
+		ptr->color[1] = green / 255.0f;
+		ptr->color[2] = blue / 255.0f;
+		ptr->color[3] = 1.0f;
 	}
 	void CanvasSetAA(bool set, Canvas* ptr)
 	{
@@ -38,13 +56,12 @@ namespace NULLCCanvas
 	{
 		if(x < (unsigned)ptr->width && y < (unsigned)ptr->height)
 		{
-			int *pixel = &((int*)ptr->data.ptr)[y * ptr->width + x];
+			float *pixel = &((float*)ptr->data.ptr)[y * ptr->width * 4 + x * 4];
 
-			int red = int(((ptr->color >> 16) & 0xff) * alpha + ((*pixel >> 16) & 0xff) * (1.0 - alpha));
-			int green = int(((ptr->color >> 8) & 0xff) * alpha + ((*pixel >> 8) & 0xff) * (1.0 - alpha));
-			int blue = int(((ptr->color) & 0xff) * alpha + ((*pixel) & 0xff) * (1.0 - alpha));
-
-			*pixel = (red << 16) | (green << 8) | (blue) | (255 << 24);
+			pixel[0] = float(ptr->color[0] * alpha + pixel[0] * (1.0 - alpha));
+			pixel[1] = float(ptr->color[1] * alpha + pixel[1] * (1.0 - alpha));
+			pixel[2] = float(ptr->color[2] * alpha + pixel[2] * (1.0 - alpha));
+			pixel[3] = 1.0f;
 		}
 	}
 
@@ -52,8 +69,6 @@ namespace NULLCCanvas
 	{
 		unsigned xx = unsigned(x);
 		unsigned yy = unsigned(y);
-		if(xx >= (unsigned)ptr->width || yy >= (unsigned)ptr->height)
-			return;
 		if(ptr->aaEnabled)
 		{
 			CanvasDrawPointInternal(xx, yy, alpha * rfpart(x) * rfpart(y), ptr);
@@ -69,8 +84,6 @@ namespace NULLCCanvas
 	{
 		unsigned xx = unsigned(x);
 		unsigned yy = unsigned(y);
-		if(xx >= (unsigned)ptr->width || yy >= (unsigned)ptr->height)
-			return;
 		if(ptr->aaEnabled)
 		{
 			CanvasDrawPointInternal(xx, yy, rfpart(x) * rfpart(y), ptr);
@@ -78,7 +91,7 @@ namespace NULLCCanvas
 			CanvasDrawPointInternal(xx, yy + 1, rfpart(x) * fpart(y), ptr);
 			CanvasDrawPointInternal(xx + 1, yy + 1, fpart(x) * fpart(y), ptr);
 		}else{
-			((int*)ptr->data.ptr)[yy * ptr->width + xx] = ptr->color;
+			CanvasDrawPointInternal(xx, yy, 1.0, ptr);
 		}
 	}
 
@@ -115,7 +128,7 @@ namespace NULLCCanvas
 			for(int x = x0; x <= x1; x++)
 			{
 				if((unsigned)y < (unsigned)ptr->width && (unsigned)x < (unsigned)ptr->height)
-					((int*)ptr->data.ptr)[x * ptr->width + y] = ptr->color;
+					CanvasDrawPointInternal(y, x, 1.0, ptr);
 				error -= deltay;
 				if(error < 0)
 				{
@@ -127,7 +140,7 @@ namespace NULLCCanvas
 			for(int x = x0; x <= x1; x++)
 			{
 				if((unsigned)x < (unsigned)ptr->width && (unsigned)y < (unsigned)ptr->height)
-					((int*)ptr->data.ptr)[y * ptr->width + x] = ptr->color;
+					CanvasDrawPointInternal(x, y, 1.0, ptr);
 				error -= deltay;
 				if(error < 0)
 				{
@@ -156,6 +169,8 @@ namespace NULLCCanvas
 		}
 		if(x1 < 0.0)
 		{
+			if(x2 < 0.0)
+				return;
 			double l = -x1 / (x2 - x1);
 			x1 = 0.0;
 			y1 = y1 * (1.0 - l) + y2 * l;
@@ -224,8 +239,47 @@ namespace NULLCCanvas
 	void CanvasDrawRect(int x1, int y1, int x2, int y2, Canvas* ptr)
 	{
 		for(int x = x1 < 0 ? 0 : x1, xe = x2 > ptr->width ? ptr->width : x2; x < xe; x++)
+		{
 			for(int y = y1 < 0 ? 0 : y1, ye = y2 > ptr->height ? ptr->height : y2; y < ye; y++)
-				((int*)ptr->data.ptr)[y*ptr->width + x] = ptr->color;
+			{
+				((float*)ptr->data.ptr)[(y*ptr->width + x) * 4 + 0] = ptr->color[0];
+				((float*)ptr->data.ptr)[(y*ptr->width + x) * 4 + 1] = ptr->color[1];
+				((float*)ptr->data.ptr)[(y*ptr->width + x) * 4 + 2] = ptr->color[2];
+				((float*)ptr->data.ptr)[(y*ptr->width + x) * 4 + 3] = ptr->color[3];
+			}
+		}
+	}
+	void CanvasDrawRectA(int x1, int y1, int x2, int y2, double alpha, Canvas* ptr)
+	{
+		for(int x = x1 < 0 ? 0 : x1, xe = x2 > ptr->width ? ptr->width : x2; x < xe; x++)
+		{
+			for(int y = y1 < 0 ? 0 : y1, ye = y2 > ptr->height ? ptr->height : y2; y < ye; y++)
+			{
+				float *pixel = &((float*)ptr->data.ptr)[y * ptr->width * 4 + x * 4];
+
+				pixel[0] = float(ptr->color[0] * alpha + pixel[0] * (1.0 - alpha));
+				pixel[1] = float(ptr->color[1] * alpha + pixel[1] * (1.0 - alpha));
+				pixel[2] = float(ptr->color[2] * alpha + pixel[2] * (1.0 - alpha));
+				pixel[3] = 1.0f;
+			}
+		}
+	}
+
+	float saturate(float x){ if(x < 0.0) return 0.0; if(x > 255.0) return 255.0; return x; }
+	
+	void CanvasCommit(Canvas* ptr)
+	{
+		int *pStart = (int*)ptr->dataI.ptr, *pEnd = (int*)ptr->dataI.ptr + ptr->width * ptr->height;
+		float *fStart = (float*)ptr->data.ptr;
+		for(int *pix = pStart; pix != pEnd; pix++)
+		{
+			int red = int(saturate(*fStart++ * 255.0f));
+			int green = int(saturate(*fStart++ * 255.0f));
+			int blue = int(saturate(*fStart++ * 255.0f));
+			fStart++;
+
+			*pix = (red << 16) | (green << 8) | (blue) | (255 << 24);
+		}
 	}
 }
 
@@ -240,6 +294,7 @@ bool	nullcInitCanvasModule()
 	REGISTER_FUNC(CanvasDrawPointA, "Canvas::DrawPoint", 1);
 	REGISTER_FUNC(CanvasDrawLine, "Canvas::DrawLine", 0);
 	REGISTER_FUNC(CanvasDrawRect, "Canvas::DrawRect", 0);
+	REGISTER_FUNC(CanvasDrawRectA, "Canvas::DrawRect", 1);
 
 	return true;
 }
