@@ -462,3 +462,39 @@ assert(typeof((Foo.b + Foo.a)) == short);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("Constant fold test with non-stack types", testConstantFoldExtra, "1");
+
+const char	*testBoolType2 =
+"int foo(bool a){ return a; }\r\n\
+\r\n\
+int x = 12;\r\n\
+assert(1 == foo(5));\r\n\
+assert(1 == foo(x));\r\n\
+float y = 5.0f;\r\n\
+assert(1 == foo(y));\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("bool as a function argument", testBoolType2, "1");
+
+const char	*testBoolType3 =
+"assert(true == bool(5));\r\n\
+assert(true == bool(6.0));\r\n\
+assert(true == bool(5.0f));\r\n\
+assert(false == bool('\\0'));\r\n\
+\r\n\
+auto x1 = 5;\r\n\
+auto x2 = 6.0;\r\n\
+auto x3 = 5.0f;\r\n\
+auto x4 = '\\0';\r\n\
+assert(true == bool(x1));\r\n\
+assert(true == bool(x2));\r\n\
+assert(true == bool(x3));\r\n\
+assert(false == bool(x4));\r\n\
+\r\n\
+auto a = new bool(5);\r\n\
+assert(*a == true);\r\n\
+\r\n\
+a = new bool(x1);\r\n\
+assert(*a == true);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("bool type constructors", testBoolType3, "1");

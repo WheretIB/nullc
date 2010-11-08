@@ -133,12 +133,14 @@ int operator !=(char[] a, b);\r\n\
 char[] operator +(char[] a, b);\r\n\
 char[] operator +=(char[] ref a, char[] b);\r\n\
 \r\n\
+bool bool(bool a);\r\n\
 char char(char a);\r\n\
 short short(short a);\r\n\
 int int(int a);\r\n\
 long long(long a);\r\n\
 float float(float a);\r\n\
 double double(double a);\r\n\
+void bool:bool(bool a){ *this = a; }\r\n\
 void char:char(char a){ *this = a; }\r\n\
 void short:short(short a){ *this = a; }\r\n\
 void int:int(int a){ *this = a; }\r\n\
@@ -384,6 +386,7 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::StrConcatenate, "+", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::StrConcatenateAndSet, "+=", 0);
 
+	AddModuleFunction("$base$", (void (*)())NULLC::Int, "bool", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::Int, "char", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::Int, "short", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::Int, "int", 0);
