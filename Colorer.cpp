@@ -621,7 +621,7 @@ namespace ColorerGrammar
 			term4_1	=	term4 >> *(((strP("<<") - strP("<<=")) | (strP(">>") - strP(">>=")))[ColorText] >> (term4 | epsP[LogError("ERROR: expression not found after operator << or >>")]));
 			term4_2	=	term4_1 >> *((strP("<=") | strP(">=") | (chP('<') - strP("<<=")) | (chP('>') - strP(">>=")))[ColorText] >> (term4_1 | epsP[LogError("ERROR: expression not found after operator <= or >= or < or >")]));
 			term4_4	=	term4_2 >> *((strP("==") | strP("!="))[ColorText] >> (term4_2 | epsP[LogError("ERROR: expression not found after operator")]));
-			term4_6	=	term4_4 >> *((strP("&&") | strP("||") | strP("^^") | (chP('&') - strP("&=")) | (chP('|') - strP("|=")) | (chP('^') - strP("^=")))[ColorText] >> (term4_4 | epsP[LogError("ERROR: expression not found after operator")]));
+			term4_6	=	term4_4 >> *(((strP("&&") | strP("||") | strP("^^") | (chP('&') - strP("&=")) | (chP('|') - strP("|=")) | (chP('^') - strP("^=")))[ColorText] | strWP("in")[ColorRWord]) >> (term4_4 | epsP[LogError("ERROR: expression not found after operator")]));
 			term4_9	=	term4_6 >> 
 				!(
 					chP('?')[ColorText] >>
