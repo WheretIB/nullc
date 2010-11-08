@@ -1,8 +1,11 @@
 #include "Lexer.h"
 
-void Lexer::Clear()
+void Lexer::Clear(unsigned count)
 {
-	lexems.clear();
+	if(count)
+		lexems.shrink(count);
+	else
+		lexems.clear();
 }
 
 void Lexer::Lexify(const char* code)

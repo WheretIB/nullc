@@ -183,3 +183,8 @@ for(vector<int> i in a, int x in i)\r\n\
 	z = 0;\r\n\
 return z;";
 TEST_RESULT("Ill-formed for_each test", testIllFormedForEach, "1");
+
+const char	*testInOperatorOnArray =
+"int[] arr = { 1, 2, 3, 4 };\r\n\
+return (3 in arr) && !(6 in arr);";
+TEST_RESULT("in operator on array", testInOperatorOnArray, "1");

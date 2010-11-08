@@ -325,7 +325,7 @@ namespace ColorerGrammar
 	public:
 		void	InitGrammar()
 		{
-			symb		=	graphP - alnumP - chP(')');
+			symb		=	graphP - alnumP - chP(')') - chP('@');
 			symb2		=	graphP - alphaP;
 			typeName	=	idP - strP("return");
 
@@ -445,7 +445,7 @@ namespace ColorerGrammar
 				)[OnError];
 			oneLexOperator = strP("<<=") | strP(">>=") | strP("**=") |
 				strP("**") | strP("<=") | strP(">=") | strP("!=") | strP("==") | strP("<<") | strP(">>") | strP("&&") | strP("||") | strP("^^") |
-				strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("%=") | strP("&=") | strP("|=") | strP("^=") |
+				strP("+=") | strP("-=") | strP("*=") | strP("/=") | strP("%=") | strP("&=") | strP("|=") | strP("^=") | strP("in") |
 				chP('+') | chP('-') | chP('*') | chP('/') | chP('%') | chP('!') | chP('~') | chP('<') | chP('>') | chP('&') | chP('|') | chP('^') | chP('=');
 
 			funcdef		=

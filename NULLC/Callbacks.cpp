@@ -694,8 +694,13 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 {
 	CodeInfo::lastKnownStartPos = pos;
 
-	const char *opNames[] = { "+", "-", "*", "/", "**", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "&", "|", "^", "&&", "||", "^^" };
+	const char *opNames[] = { "+", "-", "*", "/", "**", "%", "<", ">", "<=", ">=", "==", "!=", "<<", ">>", "&", "|", "^", "&&", "||", "^^", "in" };
 
+	if(id == cmdNop)
+	{
+		AddFunctionCallNode(CodeInfo::lastKnownStartPos, "in", 2);
+		return;
+	}
 	if(id == cmdEqual || id == cmdNEqual)
 	{
 		NodeZeroOP *left = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];

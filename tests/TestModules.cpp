@@ -48,3 +48,11 @@ const char	*testImportTypedef =
 Foo x = Foo(23);\r\n\
 return x.bar;";
 TEST_RESULT("Typedef import", testImportTypedef, "23");
+
+LOAD_MODULE(test_genericX1, "test.genericX1", "auto foo(generic x){ return -x; }");
+LOAD_MODULE(test_genericX2, "test.genericX2", "import test.genericX1; double foo(double a){ return 0.0; } auto bar(generic x){ foo(1.0); return 2*x; }");
+const char	*testGenericImportX =
+"import test.genericX1;\r\n\
+import test.genericX2;\r\n\
+return bar(3) * foo(4) + foo(4) * bar(3);";
+TEST_RESULT("Typedef import", testGenericImportX, "-48");
