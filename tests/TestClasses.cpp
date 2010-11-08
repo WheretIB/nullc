@@ -728,3 +728,33 @@ assert(*n.y.a == 14);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("A default custom assignment operator is generated for classes that have members with a custom assignment operators", testClassAssignmentOperator, "1");
+
+const char	*testEnumeration1 =
+"enum Foo\r\n\
+{\r\n\
+	LEFT = 0, RIGHT, UP, DOWN\r\n\
+}\r\n\
+\r\n\
+assert(typeof(Foo.LEFT) == Foo);\r\n\
+int b = int(Foo.UP);\r\n\
+assert(b == 2);\r\n\
+auto c = Foo.UP;\r\n\
+assert(typeof(c) == Foo);\r\n\
+assert(c == Foo.UP);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Enumeration test 1", testEnumeration1, "1");
+
+const char	*testEnumeration2 =
+"enum Foo { y = 1 << 1, z = 1 << 2 } \r\n\
+\r\n\
+Foo d = Foo.y | Foo.z;\r\n\
+int i = int(Foo.y);\r\n\
+Foo e = Foo(34);\r\n\
+\r\n\
+assert(int(d) == 6);\r\n\
+assert(i == 2);\r\n\
+assert(int(e) == 34);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Enumeration test 2", testEnumeration2, "1");

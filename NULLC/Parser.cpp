@@ -826,6 +826,24 @@ bool ParseEnum(Lexeme** str)
 	TypeFinish();
 	enumType->size = 4;
 
+	// Add conversion operator int int(enum_type) and enum_type enum_type(int)
+	TypeInfo *target[] = { typeInt, enumType };
+	TypeInfo *source[] = { enumType, typeInt };
+	for(int i = 0; i < 2; i++)
+	{
+		SelectTypeByPointer(target[i]);
+		FunctionAdd((*str)->pos, target[i]->name);
+		SelectTypeByPointer(source[i]);
+		FunctionParameter((*str)->pos, InplaceStr("x"));
+		FunctionStart((*str)->pos);
+		AddGetAddressNode((*str)->pos, InplaceStr("x"));
+		AddGetVariableNode((*str)->pos);
+		CodeInfo::nodeList.back()->typeInfo = target[i];
+		AddReturnNode((*str)->pos);
+		FunctionEnd((*str)->pos);
+		AddTwoExpressionNode();
+	}
+
 	return true;
 }
 
