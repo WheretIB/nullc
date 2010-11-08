@@ -645,10 +645,10 @@ namespace ColorerGrammar
 				(term5 >> (+chP(';')[ColorText] | epsP[LogError("ERROR: ; not found after expression")])));
 			code	=	*(
 							strP("import")[ColorRWord] >>
-							((+alphaP)[ColorVar][ImportStart] | epsP[LogError("module name or folder expected")]) >>
+							((+alnumP)[ColorVar][ImportStart] | epsP[LogError("module name or folder expected")]) >>
 							*(
 								chP('.')[ColorText][ImportSeparator] >>
-								((+alphaP)[ColorVar][ImportName] | epsP[LogError("module name or folder expected")])
+								((+alnumP)[ColorVar][ImportName] | epsP[LogError("module name or folder expected")])
 							) >>
 							(chP(';')[ColorText][ImportEnd] | epsP[LogError("ERROR: ';' expected after import")])
 						) >>
