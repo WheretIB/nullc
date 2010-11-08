@@ -514,6 +514,8 @@ public:
 	}
 	void	LoadHistory(FILE *fIn)
 	{
+		AreaLine emptyLine;
+
 		assert(!firstShotU); // We must load snapshots into an empty history
 		Snapshot *currShot = NULL;
 		fread(&currShot, sizeof(Snapshot*), 1, fIn); // Load pointer that marks that we have a snapshot
@@ -529,7 +531,10 @@ public:
 			AreaLine *curr = NULL; // List of loaded lines
 			while(line)
 			{
-				curr = InsertLineAfter(curr); // Add new line
+				if(data)
+					curr = InsertLineAfter(curr); // Add new line
+				else
+					curr = &emptyLine;
 				if(!lastShotU->first)
 					lastShotU->first = curr; // Set line list
 				fread(curr, sizeof(AreaLine), 1, fIn); // Load line
@@ -537,8 +542,13 @@ public:
 				curr->next = NULL; // Clear it, we haven't loaded next line yet
 				if(curr->maxLength != DEFAULT_STRING_LENGTH)
 				{
-					curr->data = new AreaChar[curr->maxLength];
-					fread(curr->data, sizeof(AreaChar), curr->maxLength, fIn);
+					if(data)
+					{
+						curr->data = new AreaChar[curr->maxLength];
+						fread(curr->data, sizeof(AreaChar), curr->maxLength, fIn);
+					}else{
+						fseek(fIn, sizeof(AreaChar) * curr->maxLength, SEEK_CUR);
+					}
 				}else{
 					curr->data = curr->startBuf; // Fixup pointer to data
 				}
