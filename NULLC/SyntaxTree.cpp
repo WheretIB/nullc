@@ -562,6 +562,11 @@ void NodeFuncCall::Compile()
 				ConvertFirstToSecond(curr->typeInfo->stackType, (*paramType)->stackType);
 				if(*paramType == typeFloat)
 					cmdList.push_back(VMCmd(cmdDtoF));
+				if(*paramType == typeBool && curr->typeInfo != typeBool)
+				{
+					cmdList.push_back(VMCmd(cmdPushImmt, 0));
+					cmdList.push_back(VMCmd(cmdNEqual));
+				}
 			}
 			curr = curr->next;
 			paramType--;
