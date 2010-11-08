@@ -20,9 +20,9 @@ namespace NULLCCanvas
 	{
 		ptr->color = (red << 16) | (green << 8) | (blue) | (255 << 24);
 	}
-	void CanvasSetLineAA(bool set, Canvas* ptr)
+	void CanvasSetAA(bool set, Canvas* ptr)
 	{
-		ptr->lineAA = set;
+		ptr->aaEnabled = set;
 	}
 
 	int abs(int x){ return x < 0 ? -x : x; }
@@ -34,12 +34,7 @@ namespace NULLCCanvas
 	double fpart(double x){ return x - floor(x); }
 	double rfpart(double x){ return 1.0 - fpart(x); }
 
-	void CanvasDrawPoint(unsigned x, unsigned y, Canvas* ptr)
-	{
-		if(x < (unsigned)ptr->width && y < (unsigned)ptr->height)
-			((int*)ptr->data.ptr)[y * ptr->width + x] = ptr->color;
-	}
-	void CanvasDrawPointA(unsigned x, unsigned y, double alpha, Canvas* ptr)
+	void CanvasDrawPointInternal(unsigned x, unsigned y, double alpha, Canvas* ptr)
 	{
 		if(x < (unsigned)ptr->width && y < (unsigned)ptr->height)
 		{
@@ -49,7 +44,41 @@ namespace NULLCCanvas
 			int green = int(((ptr->color >> 8) & 0xff) * alpha + ((*pixel >> 8) & 0xff) * (1.0 - alpha));
 			int blue = int(((ptr->color) & 0xff) * alpha + ((*pixel) & 0xff) * (1.0 - alpha));
 
-			*pixel = (red << 16) | (green << 8) | (blue);
+			*pixel = (red << 16) | (green << 8) | (blue) | (255 << 24);
+		}
+	}
+
+	void CanvasDrawPointA(double x, double y, double alpha, Canvas* ptr)
+	{
+		unsigned xx = unsigned(x);
+		unsigned yy = unsigned(y);
+		if(xx >= (unsigned)ptr->width || yy >= (unsigned)ptr->height)
+			return;
+		if(ptr->aaEnabled)
+		{
+			CanvasDrawPointInternal(xx, yy, alpha * rfpart(x) * rfpart(y), ptr);
+			CanvasDrawPointInternal(xx + 1, yy, alpha * fpart(x) * rfpart(y), ptr);
+			CanvasDrawPointInternal(xx, yy + 1, alpha * rfpart(x) * fpart(y), ptr);
+			CanvasDrawPointInternal(xx + 1, yy + 1, alpha * fpart(x) * fpart(y), ptr);
+		}else{
+			CanvasDrawPointInternal(xx, yy, alpha, ptr);
+		}
+	}
+
+	void CanvasDrawPoint(double x, double y, Canvas* ptr)
+	{
+		unsigned xx = unsigned(x);
+		unsigned yy = unsigned(y);
+		if(xx >= (unsigned)ptr->width || yy >= (unsigned)ptr->height)
+			return;
+		if(ptr->aaEnabled)
+		{
+			CanvasDrawPointInternal(xx, yy, rfpart(x) * rfpart(y), ptr);
+			CanvasDrawPointInternal(xx + 1, yy, fpart(x) * rfpart(y), ptr);
+			CanvasDrawPointInternal(xx, yy + 1, rfpart(x) * fpart(y), ptr);
+			CanvasDrawPointInternal(xx + 1, yy + 1, fpart(x) * fpart(y), ptr);
+		}else{
+			((int*)ptr->data.ptr)[yy * ptr->width + xx] = ptr->color;
 		}
 	}
 
@@ -145,11 +174,11 @@ namespace NULLCCanvas
 		int ypxl1 = int(yend);
 		if(steep)
 		{
-			CanvasDrawPointA(ypxl1, xpxl1, rfpart(yend) * xgap, ptr);
-			CanvasDrawPointA(ypxl1 + 1, xpxl1, fpart(yend) * xgap, ptr);
+			CanvasDrawPointInternal(ypxl1, xpxl1, rfpart(yend) * xgap, ptr);
+			CanvasDrawPointInternal(ypxl1 + 1, xpxl1, fpart(yend) * xgap, ptr);
 		}else{
-			CanvasDrawPointA(xpxl1, ypxl1, rfpart(yend) * xgap, ptr);
-			CanvasDrawPointA(xpxl1, ypxl1 + 1, fpart(yend) * xgap, ptr);
+			CanvasDrawPointInternal(xpxl1, ypxl1, rfpart(yend) * xgap, ptr);
+			CanvasDrawPointInternal(xpxl1, ypxl1 + 1, fpart(yend) * xgap, ptr);
 		}
 		double intery = yend + gradient; // first y-intersection for the main loop
 
@@ -161,33 +190,33 @@ namespace NULLCCanvas
 		int ypxl2 = int(yend);
 		if(steep)
 		{
-			CanvasDrawPointA(ypxl2, xpxl2, rfpart(yend) * xgap, ptr);
-			CanvasDrawPointA(ypxl2 + 1, xpxl2, fpart(yend) * xgap, ptr);
+			CanvasDrawPointInternal(ypxl2, xpxl2, rfpart(yend) * xgap, ptr);
+			CanvasDrawPointInternal(ypxl2 + 1, xpxl2, fpart(yend) * xgap, ptr);
 		}else{
-			CanvasDrawPointA(xpxl2, ypxl2, rfpart(yend) * xgap, ptr);
-			CanvasDrawPointA(xpxl2, ypxl2 + 1, fpart(yend) * xgap, ptr);
+			CanvasDrawPointInternal(xpxl2, ypxl2, rfpart(yend) * xgap, ptr);
+			CanvasDrawPointInternal(xpxl2, ypxl2 + 1, fpart(yend) * xgap, ptr);
 		}
 
 		if(steep)
 		{
 			for(int x = xpxl1 + 1; x < xpxl2; x++)
 			{
-				CanvasDrawPointA(int(intery), x, rfpart(intery), ptr);
-				CanvasDrawPointA(int(intery) + 1, x, fpart(intery), ptr);
+				CanvasDrawPointInternal(int(intery), x, rfpart(intery), ptr);
+				CanvasDrawPointInternal(int(intery) + 1, x, fpart(intery), ptr);
 				intery = intery + gradient;
 			}
 		}else{
 			for(int x = xpxl1 + 1; x < xpxl2; x++)
 			{
-				CanvasDrawPointA(x, int(intery), rfpart(intery), ptr);
-				CanvasDrawPointA(x, int(intery) + 1, fpart(intery), ptr);
+				CanvasDrawPointInternal(x, int(intery), rfpart(intery), ptr);
+				CanvasDrawPointInternal(x, int(intery) + 1, fpart(intery), ptr);
 				intery = intery + gradient;
 			}
 		}
 	}
 	void CanvasDrawLine(double x0, double y0, double x1, double y1, Canvas* ptr)
 	{
-		if(ptr->lineAA)
+		if(ptr->aaEnabled)
 			CanvasDrawLineAA(x0, y0, x1, y1, ptr);
 		else
 			CanvasDrawLineNoAA(int(x0), int(y0), int(x1), int(y1), ptr);
@@ -206,7 +235,7 @@ bool	nullcInitCanvasModule()
 	REGISTER_FUNC(CanvasClearRGB, "Canvas::Clear", 0);
 	REGISTER_FUNC(CanvasClearRGBA, "Canvas::Clear", 1);
 	REGISTER_FUNC(CanvasSetColor, "Canvas::SetColor", 0);
-	REGISTER_FUNC(CanvasSetLineAA, "Canvas::SetLineAA", 0);
+	REGISTER_FUNC(CanvasSetAA, "Canvas::SetAA", 0);
 	REGISTER_FUNC(CanvasDrawPoint, "Canvas::DrawPoint", 0);
 	REGISTER_FUNC(CanvasDrawPointA, "Canvas::DrawPoint", 1);
 	REGISTER_FUNC(CanvasDrawLine, "Canvas::DrawLine", 0);
