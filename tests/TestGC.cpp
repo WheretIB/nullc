@@ -467,3 +467,68 @@ int foo(int ref x, y, z, int[] arr)\r\n\
 auto bar(){ GC.CollectMemory(); return new int[32]; }\r\n\
 return foo(new int(4), new int(6), new int(40), bar());";
 TEST_RESULT("Checking of temporary varaible stack in GC test", testStackVariablesGC, "50");
+
+
+#ifndef NULLC_ENABLE_C_TRANSLATION
+
+int RecallerGC1()
+{
+	nullcRunFunction("first");
+	return nullcGetResultInt();
+}
+int RecallerGC2()
+{
+	nullcRunFunction("second");
+	return nullcGetResultInt();
+}
+int RecallerGC3()
+{
+	nullcRunFunction("runGC");
+	return nullcGetResultInt();
+}
+
+LOAD_MODULE_BIND(test_gctransition1, "func.gctransition1", "int Recaller1(); int Recaller2(); int Recaller3();")
+{
+	nullcBindModuleFunction("func.gctransition1", (void(*)())RecallerGC1, "Recaller1", 0);
+	nullcBindModuleFunction("func.gctransition1", (void(*)())RecallerGC2, "Recaller2", 0);
+	nullcBindModuleFunction("func.gctransition1", (void(*)())RecallerGC3, "Recaller3", 0);
+}
+
+const char	*testGCWhenTransitions =
+"import func.gctransition1;\r\n\
+import std.gc;\r\n\
+int ref a = new int(5);\r\n\
+int first()\r\n\
+{\r\n\
+	int ref b = new int(6);\r\n\
+	int k = Recaller2();\r\n\
+	assert(*b == 6);\r\n\
+	assert(k == 7);\r\n\
+	return *b;\r\n\
+}\r\n\
+int second()\r\n\
+{\r\n\
+	int ref c = new int(7);\r\n\
+	int l = Recaller3();\r\n\
+	assert(*c == 7);\r\n\
+	assert(l == 8);\r\n\
+	return *c;\r\n\
+}\r\n\
+int runGC()\r\n\
+{\r\n\
+	int ref d = new int(8);\r\n\
+	GC.CollectMemory();\r\n\
+	new int(1);\r\n\
+	new int(2);\r\n\
+	new int(3);\r\n\
+	new int(4);\r\n\
+	assert(*d == 8);\r\n\
+	return *d;\r\n\
+}\r\n\
+int m = Recaller1();\r\n\
+assert(*a == 5);\r\n\
+assert(m == 6);\r\n\
+return 1;";
+TEST_RESULT("GC execution when callstack is full of NULLC->C transitions", testGCWhenTransitions, "1");
+
+#endif
