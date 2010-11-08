@@ -24,6 +24,7 @@
 #pragma comment(lib, "Ws2_32.lib")
 
 #include <iostream>
+#include <algorithm>
 
 #include "NULLC/nullc.h"
 #include "NULLC/nullc_debug.h"
@@ -107,6 +108,8 @@ char	initError[INIT_BUFFER_SIZE];
 // for text update
 bool needTextUpdate;
 DWORD lastUpdate;
+
+std::vector<unsigned>	baseModules;
 
 //////////////////////////////////////////////////////////////////////////
 // Remote debugging
@@ -515,9 +518,9 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		strcat(initError, "ERROR: Failed to init win.window module\r\n");
 
 	if(!nullcInitVectorModule())
-		strcat(initError, "ERROR: Failed to init std.vector module\r\n");
+		strcat(initError, "ERROR: Failed to init old.vector module\r\n");
 	if(!nullcInitListModule())
-		strcat(initError, "ERROR: Failed to init std.list module\r\n");
+		strcat(initError, "ERROR: Failed to init old.list module\r\n");
 	if(!nullcInitMapModule())
 		strcat(initError, "ERROR: Failed to init std.map module\r\n");
 	if(!nullcInitRandomModule())
@@ -532,6 +535,10 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 
 	nullcLoadModuleBySource("ide.debug", "void _debugBreak();");
 	nullcBindModuleFunction("ide.debug", (void(*)())IDEDebugBreak, "_debugBreak", 0);
+
+	// Save a list of base modules
+	while(const char* moduleName = nullcEnumerateModules(baseModules.size()))
+		baseModules.push_back(GetStringHash(moduleName));
 
 	colorer = NULL;
 
@@ -1793,6 +1800,19 @@ void SuperCalcRun(bool debug)
 #ifndef _DEBUG
 	FreeConsole();
 #endif
+
+	// Remove all non-base modules
+	id = 0;
+	while(const char* moduleName = nullcEnumerateModules(id))
+	{
+		if(std::find(baseModules.begin(), baseModules.end(), GetStringHash(moduleName)) == baseModules.end())
+		{
+			nullcRemoveModule(moduleName);
+		}else{
+			id++;
+		}
+	}
+
 	SetWindowText(hCode, "");
 	SetWindowText(hResult, "");
 

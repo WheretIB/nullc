@@ -8,6 +8,8 @@ namespace BinaryCache
 
 	void		PutBytecode(const char* path, const char* bytecode);
 	const char*	GetBytecode(const char* path);
+	void		RemoveBytecode(const char* path);
+	const char*	EnumerateModules(unsigned id);
 
 	void		LastBytecode(const char* bytecode);
 

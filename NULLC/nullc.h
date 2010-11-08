@@ -42,6 +42,13 @@ nullres		nullcLoadModuleBySource(const char* module, const char* code);
 /*	Loads module into binary cache	*/
 nullres		nullcLoadModuleByBinary(const char* module, const char* binary);
 
+/* Removes module from binary cache	*/
+void		nullcRemoveModule(const char* module);
+
+/*	Returns name of a module at index 'id'. Null pointer is returned if a module at index 'id' doesn't exist.
+	To get all module names, start with 'id' = 0 and go up until null pointer is returned	*/
+const char*	nullcEnumerateModules(unsigned id);
+
 /************************************************************************/
 /*							Basic functions								*/
 

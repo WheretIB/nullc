@@ -234,6 +234,22 @@ nullres nullcLoadModuleByBinary(const char* module, const char* binary)
 	return 1;
 }
 
+void nullcRemoveModule(const char* module)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED((void)false);
+
+	BinaryCache::RemoveBytecode(module);
+}
+
+const char* nullcEnumerateModules(unsigned id)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(NULL);
+
+	return BinaryCache::EnumerateModules(id);
+}
+
 nullres	nullcCompile(const char* code)
 {
 	using namespace NULLC;

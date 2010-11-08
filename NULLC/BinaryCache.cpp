@@ -77,6 +77,32 @@ const char* BinaryCache::GetBytecode(const char* path)
 	return NULL;
 }
 
+void BinaryCache::RemoveBytecode(const char* path)
+{
+	unsigned int hash = GetStringHash(path);
+	unsigned int i = 0;
+	for(; i < cache.size(); i++)
+	{
+		if(hash == cache[i].nameHash)
+			break;
+	}
+	if(i == cache.size())
+		return;
+
+	NULLC::dealloc((void*)cache[i].name);
+	delete[] cache[i].binary;
+
+	cache[i] = cache.back();
+	cache.pop_back();
+}
+
+const char* BinaryCache::EnumerateModules(unsigned id)
+{
+	if(id >= cache.size())
+		return NULL;
+	return cache[id].name;
+}
+
 void BinaryCache::LastBytecode(const char* bytecode)
 {
 	unsigned int size = *(unsigned int*)bytecode;
