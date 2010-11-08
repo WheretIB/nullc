@@ -154,7 +154,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Ternary operator void return type", "void f(){} int a = 1; return a ? f() : 0.0;", "ERROR: one of ternary operator ?: result type is void (void : double)");
 	TEST_FOR_FAIL("Ternary operator return type difference", "import std.math; int a = 1; return a ? 12 : float2(3, 4);", "ERROR: ternary operator ?: result types are not equal (int : float2)");
 
-	TEST_FOR_FAIL("Variable type is unknow", "int test(int a, typeof(test) ptr){ return ptr(a, ptr); }", "ERROR: variable type is unknown");
+	TEST_FOR_FAIL("Variable type is unknown", "int test(int a, typeof(test) ptr){ return ptr(a, ptr); }", "ERROR: variable type is unknown");
 
 	TEST_FOR_FAIL("Illegal pointer operation 1", "int ref a; a += a;", "ERROR: there is no build-in operator for types 'int ref' and 'int ref'");
 	TEST_FOR_FAIL("Illegal pointer operation 2", "int ref a; a++;", "ERROR: increment is not supported on 'int ref'");
@@ -556,7 +556,7 @@ return int(y() + z());",
 
 	TEST_FOR_FAIL("operator with short-circuit requirement", "int operator||(int a, b){ return 0; }", "ERROR: && or || operator definition or overload must accept a function returning desired type as the second argument (try int ref())");
 
-	TEST_FOR_FAIL("constnt couldn't be evaluated at compilation time", "int a = 4; class Foo{ const int b = a; }", "ERROR: expression didn't evaluate to a constant number");
+	TEST_FOR_FAIL("constant couldn't be evaluated at compilation time", "int a = 4; class Foo{ const int b = a; }", "ERROR: expression didn't evaluate to a constant number");
 	TEST_FOR_FAIL("name occupied", "class Foo{ const int a = 1, a = 3; }", "ERROR: name 'a' is already taken for a variable in current scope");
 
 	TEST_FOR_FAIL("bool is non-negatable", "bool a = true; return -a;", "ERROR: unary operation '-' is not supported on 'bool'");
@@ -568,6 +568,12 @@ return int(y() + z());",
 	TEST_FOR_FAIL("class prototype", "class Foo; Foo ref a = new Foo;", "ERROR: cannot take size of a type in definition");
 	TEST_FOR_FAIL("class prototype", "class Foo; Foo ref a; auto x = *a;", "ERROR: type 'Foo' is not fully defined");
 	TEST_FOR_FAIL("class prototype", "class Foo; return 1;", "ERROR: type 'Foo' implementation is not found");
+
+	TEST_FOR_FAIL("class undefined", "class bar{ bar[12] arr; }", "ERROR: type 'bar' is not fully defined. You can use 'bar ref' or 'bar[]' at this point");
+	TEST_FOR_FAIL("class prototype", "class foo; foo[1] f;", "ERROR: type 'foo' is not fully defined. You can use 'foo ref' or 'foo[]' at this point");
+
+	TEST_FOR_FAIL("class prototype", "class foo; foo bar() { foo ref x; return *x; }", "ERROR: type 'foo' is not fully defined");
+	TEST_FOR_FAIL("class prototype", "class foo; auto bar() { foo ref x; return *x; }", "ERROR: type 'foo' is not fully defined");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

@@ -196,50 +196,5 @@ struct Test_##code : TestQueue {	\
 };	\
 Test_##code test_##code;
 
-#define TEST_FOR_FAIL(name, str, error)\
-{\
-	testsCount[TEST_FAILURE_INDEX]++;\
-	nullres good = nullcCompile(str);\
-	if(!good)\
-	{\
-		char buf[1024];\
-		strncpy(buf, strstr(nullcGetLastError(), "ERROR:"), 1023); buf[1023] = 0;\
-		if(char *lineEnd = strchr(buf, '\r'))\
-			*lineEnd = 0;\
-		if(strcmp(error, buf) != 0)\
-		{\
-			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error);\
-		}else{\
-			testsPassed[TEST_FAILURE_INDEX]++;\
-		}\
-	}else{\
-		printf("Test \"%s\" failed to fail.\r\n", name);\
-	}\
-}
-
-#define TEST_FOR_FAIL_GENERIC(name, str, error1, error2)\
-{\
-	testsCount[TEST_FAILURE_INDEX]++;\
-	nullres good = nullcCompile(str);\
-	if(!good)\
-	{\
-		char buf[1024];\
-		strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));\
-		if(memcmp(buf, error1, strlen(error1)) != 0)\
-		{\
-			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error1);\
-		}else{\
-			char *bufNext = strstr(buf + 1, "ERROR:");\
-			if(char *lineEnd = strchr(bufNext, '\r'))\
-				*lineEnd = 0;\
-			if(strcmp(error2, bufNext) != 0)\
-			{\
-				printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, bufNext, error2);\
-			}else{\
-				testsPassed[TEST_FAILURE_INDEX]++;\
-			}\
-		}\
-	}else{\
-	printf("Test \"%s\" failed to fail.\r\n", name);\
-	}\
-}
+void TEST_FOR_FAIL(const char* name, const char* str, const char* error);
+void TEST_FOR_FAIL_GENERIC(const char* name, const char* str, const char* error1, const char* error2);
