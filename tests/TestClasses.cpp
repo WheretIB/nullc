@@ -693,3 +693,38 @@ const char	*testClassConstant6 =
 switch(1){ case DIR.UP: case DIR.DOWN: }\r\n\
 int foo(int a){ return -a; } auto x = foo; return foo(DIR.UP);";
 TEST_RESULT("Class constant 6 (test for a bug with constant wrap into a list)", testClassConstant6, "-2");
+
+const char	*testClassAssignmentOperator =
+"class Foo\r\n\
+{\r\n\
+	int ref a;\r\n\
+}\r\n\
+auto operator=(Foo ref a, Foo b){ a.a = new int(*b.a); return a; }\r\n\
+\r\n\
+Foo a;\r\n\
+a.a = new int(4);\r\n\
+Foo b = a;\r\n\
+*b.a = 10;\r\n\
+\r\n\
+assert(a.a != b.a);\r\n\
+assert(*a.a == 4);\r\n\
+assert(*b.a == 10);\r\n\
+\r\n\
+class Bar\r\n\
+{\r\n\
+	int x;\r\n\
+	Foo y;\r\n\
+}\r\n\
+Bar m, n;\r\n\
+m.x = 7;\r\n\
+m.y.a = &m.x;\r\n\
+\r\n\
+n = m;\r\n\
+*n.y.a = 14;\r\n\
+\r\n\
+assert(m.y.a != n.y.a);\r\n\
+assert(*m.y.a == 7);\r\n\
+assert(*n.y.a == 14);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("A default custom assignment operator is generated for classes that have members with a custom assignment operators", testClassAssignmentOperator, "1");

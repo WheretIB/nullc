@@ -1614,6 +1614,8 @@ void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverlo
 		
 		if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
 			return;
+		if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "$defaultAssign", 2, true))
+			return;
 
 		temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
 		CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
@@ -1677,6 +1679,10 @@ void AddSetVariableNode(const char* pos)
 	// Call overloaded operator with error suppression
 	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
 		return;
+	// Call default operator with error suppression
+	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "$defaultAssign", 2, true))
+		return;
+
 	// Handle "auto ref" = "non-reference type" conversion
 	if(left->typeInfo == typeObject && CodeInfo::nodeList.back()->typeInfo->refLevel == 0)
 	{
@@ -4508,10 +4514,69 @@ void TypeFinish()
 	}
 	newType->hasFinished = true;
 
-	newType = NULL;
-
 	// Remove class members from global scope
 	EndBlock(false, false);
+
+	TypeInfo *lastType = newType;
+	newType = NULL;
+
+	// Check if custom default assignment operator is required
+	bool customAssign = false;
+	TypeInfo::MemberVariable *curr = lastType->firstVariable;
+	for(; curr; curr = curr->next)
+	{
+		if(curr->type->refLevel || curr->type->arrLevel || curr->type->funcType)
+			continue;
+		// Check assignment operator by virtually calling a = function with (Type ref, Type) arguments
+		CodeInfo::nodeList.push_back(new NodeZeroOP(CodeInfo::GetReferenceType(curr->type)));
+		CodeInfo::nodeList.push_back(new NodeZeroOP(curr->type));
+
+		if(!AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
+		{
+			CodeInfo::nodeList.pop_back();
+			CodeInfo::nodeList.pop_back();
+		}else{
+			CodeInfo::nodeList.pop_back();
+			customAssign = true;
+		}
+	}
+	curr = lastType->firstVariable;
+
+	// Generate a function, if required
+	if(customAssign)
+	{
+		currType = CodeInfo::GetReferenceType(lastType);
+		FunctionAdd(CodeInfo::lastKnownStartPos, "$defaultAssign");
+		currType = CodeInfo::GetReferenceType(lastType);
+		FunctionParameter(CodeInfo::lastKnownStartPos, InplaceStr("left"));
+		currType = lastType;
+		FunctionParameter(CodeInfo::lastKnownStartPos, InplaceStr("right"));
+		FunctionStart(CodeInfo::lastKnownStartPos);
+		
+		unsigned exprCount = 0;
+		for(; curr; curr = curr->next)
+		{
+			AddGetAddressNode(CodeInfo::lastKnownStartPos, InplaceStr("left"));
+			AddGetVariableNode(CodeInfo::lastKnownStartPos);
+			AddMemberAccessNode(CodeInfo::lastKnownStartPos, InplaceStr(curr->name));
+			AddGetAddressNode(CodeInfo::lastKnownStartPos, InplaceStr("right"));
+			AddMemberAccessNode(CodeInfo::lastKnownStartPos, InplaceStr(curr->name));
+			AddGetVariableNode(CodeInfo::lastKnownStartPos);
+			AddSetVariableNode(CodeInfo::lastKnownStartPos);
+			AddPopNode(CodeInfo::lastKnownStartPos);
+			exprCount++;
+		}
+
+		AddGetAddressNode(CodeInfo::lastKnownStartPos, InplaceStr("left"));
+		AddGetVariableNode(CodeInfo::lastKnownStartPos);
+		AddReturnNode(CodeInfo::lastKnownStartPos);
+
+		while(exprCount--)
+			AddTwoExpressionNode();
+
+		FunctionEnd(CodeInfo::lastKnownStartPos);
+		AddTwoExpressionNode();
+	}
 }
 
 // Before we add member function outside of the class definition, we should imitate that we're inside class definition
