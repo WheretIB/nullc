@@ -771,6 +771,64 @@ bool ParseClassDefinition(Lexeme** str)
 	return false;
 }
 
+bool ParseEnum(Lexeme** str)
+{
+	if(!ParseLexem(str, lex_enum))
+		return false;
+
+	SetCurrentAlignment(0);
+	if((*str)->type != lex_string)
+		ThrowError((*str)->pos, "ERROR: class name expected");
+	TypeBegin((*str)->pos, (*str)->pos+(*str)->length);
+	(*str)++;
+
+	TypeInfo *enumType = GetDefinedType();
+	enumType->type = TypeInfo::TYPE_INT;
+	enumType->stackType = podTypeToStackType[TypeInfo::TYPE_INT];
+	enumType->dataType = podTypeToDataType[TypeInfo::TYPE_INT];
+
+	if(!ParseLexem(str, lex_ofigure))
+		ThrowError((*str)->pos, "ERROR: '{' not found after class name");
+	TypeInfo::MemberVariable *prevConst = NULL;
+	do
+	{
+		if((*str)->type != lex_string)
+			ThrowError((*str)->pos, "ERROR: enumeration name expected after %s", prevConst ? "','" : "{");
+		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+			ThrowError((*str)->pos, "ERROR: enumeration name length is limited to 2048 symbols");
+		unsigned int memberNameLength = (*str)->length;
+		char	*memberName = (char*)stringPool.Allocate(memberNameLength + 2);
+		memcpy(memberName, (*str)->pos, memberNameLength);
+		memberName[memberNameLength] = 0;
+		(*str)++;
+		if(!ParseLexem(str, lex_set))
+		{
+			if(!prevConst)
+			{
+				CodeInfo::nodeList.push_back(new NodeNumber(0, enumType));
+			}else{
+				CodeInfo::nodeList.push_back(prevConst->defaultValue);
+				CodeInfo::nodeList.push_back(new NodeNumber(1, enumType));
+				AddBinaryCommandNode((*str)->pos, cmdAdd);
+			}
+		}else{
+			if(!ParseTernaryExpr(str))
+				ThrowError((*str)->pos, "ERROR: expression not found after '='");
+		}
+		SelectTypeByPointer(typeInt);
+		TypeAddConstant((*str)->pos, memberName);
+		enumType->lastVariable->defaultValue->typeInfo = enumType;
+		prevConst = enumType->lastVariable;
+	}while(ParseLexem(str, lex_comma));
+	if(!ParseLexem(str, lex_cfigure))
+		ThrowError((*str)->pos, "ERROR: '}' not found after enum definition");
+
+	TypeFinish();
+	enumType->size = 4;
+
+	return true;
+}
+
 unsigned int ParseFunctionArguments(Lexeme** str)
 {
 	unsigned callArgCount = 0;
@@ -2238,6 +2296,9 @@ bool ParseExpression(Lexeme** str)
 	case lex_class:
 		if(!ParseClassDefinition(str))
 			ThrowError((*str)->pos, "ERROR: variable or class definition is expected after alignment specifier");
+		break;
+	case lex_enum:
+		ParseEnum(str);
 		break;
 	case lex_ofigure:
 		ParseBlock(str);

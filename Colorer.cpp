@@ -416,6 +416,11 @@ namespace ColorerGrammar
 					)
 				) >>
 				(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText];
+	
+			enumeration	=
+				strWP("enum")[ColorRWord] >> idP[ColorRWord][StartType] >> chP('{')[ColorText] >>
+					idP[ColorVarDef] >> !(chP('=')[ColorText] >> term4_9) >>
+					*(chP(',')[ColorText] >> idP[ColorVarDef] >> !(chP('=')[ColorText] >> term4_9)) >> chP('}')[ColorText];
 
 			funccall	=	(typeExpr | idP)[ColorFunc] >> fcallpart;
 
@@ -640,7 +645,7 @@ namespace ColorerGrammar
 				);
 
 			block	=	chP('{')[ColorBold] >> (code | epsP) >> (chP('}')[ColorBold] | epsP[LogError("ERROR: } not found after block")]);
-			expr	=	*chP(';')[ColorText] >> (classdef | block | (vardef >> (';' | epsP[LogError("ERROR: ; not found after variable definition")])[ColorText]) |
+			expr	=	*chP(';')[ColorText] >> (classdef | enumeration | block | (vardef >> (';' | epsP[LogError("ERROR: ; not found after variable definition")])[ColorText]) |
 				breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | typeDef | returnExpr |
 				(term5 >> (+chP(';')[ColorText] | epsP[LogError("ERROR: ; not found after expression")])));
 			code	=	*(
@@ -662,7 +667,7 @@ namespace ColorerGrammar
 		// Parsing rules
 		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr, typeDef;
 		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, fcallpart, funcvars;
-		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr, oneLexOperator, typePostExpr, typeofPostExpr;
+		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr, oneLexOperator, typePostExpr, typeofPostExpr, enumeration;
 		// Main rule
 		Rule code;
 	};
