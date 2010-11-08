@@ -184,3 +184,15 @@ assert(flat[2] == 4);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("sgl.list test (reference elements)", testSglList7, "1");
+
+const char *testSglList8 =
+"import std.list;\r\n\
+\r\n\
+auto x = new list<int>;\r\n\
+x.push_back(4);\r\n\
+x.push_back(3);\r\n\
+x.push_back(2);\r\n\
+x.push_back(1);\r\n\
+\r\n\
+return (2 in x) && !(10 in x);";
+TEST_RESULT("sgl.list test (in)", testSglList8, "1");
