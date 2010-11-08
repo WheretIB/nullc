@@ -23,9 +23,10 @@ namespace NULLCCanvas
 	int abs(int x){ return x < 0 ? -x : x; }
 	void swap(int &a, int &b){ int tmp = a; a = b; b = tmp; }
 
-	void CanvasDrawPoint(int x, int y, Canvas* ptr)
+	void CanvasDrawPoint(unsigned x, unsigned y, Canvas* ptr)
 	{
-		((int*)ptr->data.ptr)[y*ptr->width + x] = ptr->color;
+		if(x < (unsigned)ptr->width && y < (unsigned)ptr->height)
+			((int*)ptr->data.ptr)[y * ptr->width + x] = ptr->color;
 	}
 
 	void CanvasDrawLine(int x0, int y0, int x1, int y1, Canvas* ptr)
@@ -47,16 +48,22 @@ namespace NULLCCanvas
 		int ystep = y0 < y1 ? 1 : -1;
 		int y = y0;
 		if(x0 < 0)
+		{
+			double l = double(-x0) / (x1 - x0);
+			x0 = 0;
+			y = int(y0 * (1.0 - l) + y1 * l);
+		}
+		if(x0 > (steep ? ptr->height : ptr->width))
 			return;
 		for(int x = x0; x <= x1; x++)
 		{
 			if(steep)
 			{
-				if(x >= 0 && y < ptr->width && y >= 0 && x < ptr->height)
-					((int*)ptr->data.ptr)[x*ptr->width + y] = ptr->color;
+				if((unsigned)y < (unsigned)ptr->width && (unsigned)x < (unsigned)ptr->height)
+					((int*)ptr->data.ptr)[x * ptr->width + y] = ptr->color;
 			}else{
-				if(x >= 0 && x < ptr->width && y >= 0 && y < ptr->height)
-					((int*)ptr->data.ptr)[y*ptr->width + x] = ptr->color;
+				if((unsigned)x < (unsigned)ptr->width && (unsigned)y < (unsigned)ptr->height)
+					((int*)ptr->data.ptr)[y * ptr->width + x] = ptr->color;
 			}
 			error -= deltay;
 			if(error < 0)
