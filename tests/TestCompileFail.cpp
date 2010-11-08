@@ -595,6 +595,7 @@ return int(y() + z());",
 ");
 
 	TEST_FOR_FAIL("No constructor", "auto std() { return 1; } auto main() { return typeof(std)(1.0f); }", "ERROR: type 'int ref()' doesn't have a constructor accepting 1 argument(s)");
+	TEST_FOR_FAIL("Prototype is redeclared as generic", "class Foo; Foo ref a; class Foo<T, U>{ T x; U y; }", "ERROR: type was forward declared as a non-generic type");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
