@@ -7,6 +7,8 @@ class TypeInfo;
 char*	AllocateString(unsigned int size);
 void	ClearStringList();
 
+char*	GetDefaultConstructorName(const char* name);
+
 unsigned int ParseTypename(Lexeme** str);
 
 bool ParseNumber(Lexeme** str);

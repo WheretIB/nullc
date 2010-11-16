@@ -1295,13 +1295,7 @@ bool ParseAddVariable(Lexeme** str)
 			if(callDefault)
 				name = GetDefaultConstructorName(name);
 			AddGetAddressNode((*str)->pos, varInfo->name);
-			if(info->arrLevel)
-			{
-				AddArrayConstructorCall((*str)->pos, name);
-			}else{
-				AddMemberFunctionCall((*str)->pos, name, 0);
-				AddPopNode((*str)->pos);
-			}
+			AddDefaultConstructorCall((*str)->pos, name);
 		}else{
 			AddVariableReserveNode((*str)->pos);
 		}
@@ -2095,15 +2089,10 @@ bool ParseTerminal(Lexeme** str)
 
 			if(callDefault)
 				name = GetDefaultConstructorName(name);
-			if(arrayAlloc)
-			{
-				AddArrayConstructorCall((*str)->pos, name);
-				FinishConstructorCall((*str)->pos);
-			}else{
-				AddMemberFunctionCall((*str)->pos, name, 0);
-				FinishConstructorCall((*str)->pos);
+			AddDefaultConstructorCall((*str)->pos, name);
+			FinishConstructorCall((*str)->pos);
+			if(!arrayAlloc)
 				ParseCustomConstructor(str, getPointer->typeInfo->subType, getPointer);
-			}
 		}else if((*str)->type == lex_ofigure && !arrayAlloc){
 			// Custom construction
 			NodeZeroOP *getPointer = PrepareConstructorCall((*str)->pos);
