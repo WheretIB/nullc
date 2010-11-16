@@ -974,16 +974,16 @@ bool bool(Foo a){ return a.x + a.y; }\r\n\
 	}while(c);\r\n\
 	assert(x == 7);\r\n\
 }\r\n\
-int Foo:hash_value(){ return x * 10 + y; }\r\n\
+bool operator==(Foo a, b){ return a.x == b.x && a.y == b.y; }\r\n\
 {\r\n\
 	int x = 0;\r\n\
 	Foo c = Foo(4, 3);\r\n\
 	switch(c)\r\n\
 	{\r\n\
-	case 4:\r\n\
+	case Foo(0, 4):\r\n\
 		x = 1;\r\n\
 		break;\r\n\
-	case 43:\r\n\
+	case Foo(4, 3):\r\n\
 		x = 3;\r\n\
 		break;\r\n\
 	default:\r\n\

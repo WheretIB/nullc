@@ -1714,12 +1714,13 @@ void NodeContinueOp::SatisfyJumps(unsigned int pos)
 
 FastVector<unsigned int>	NodeSwitchExpr::fixQueue;
 
-NodeSwitchExpr::NodeSwitchExpr()
+NodeSwitchExpr::NodeSwitchExpr(bool onComplex)
 {
 	// Take node with value
 	first = TakeLastNode();
+	second = onComplex ? TakeLastNode() : NULL;
 
-	if((first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeTypeid) || first->typeInfo->type == TypeInfo::TYPE_VOID)
+	if((first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeTypeid && !onComplex) || first->typeInfo->type == TypeInfo::TYPE_VOID)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s'", first->typeInfo->GetFullTypeName());
 
 	conditionHead = conditionTail = NULL;
@@ -1761,6 +1762,11 @@ void NodeSwitchExpr::AddDefault()
 	defaultCase = TakeLastNode();
 }
 
+NodeZeroOP* NodeSwitchExpr::IsComplex()
+{
+	return second ? first : NULL;
+}
+
 void NodeSwitchExpr::Compile()
 {
 	CompileExtra();
@@ -1772,8 +1778,12 @@ void NodeSwitchExpr::Compile()
 
 	unsigned int queueStart = fixQueue.size(), queueCurr = queueStart;
 
+	if(second)
+		second->Compile();
+
 	// Compute value
-	first->Compile();
+	if(!second)
+		first->Compile();
 	if(first->typeInfo == typeTypeid)
 	{
 		aST = STYPE_INT;
@@ -1785,25 +1795,31 @@ void NodeSwitchExpr::Compile()
 	// Generate code for all cases
 	for(curr = conditionHead, currBlock = blockHead; curr; curr = curr->next, currBlock = currBlock->next)
 	{
-		if(aOT == OTYPE_INT)
-			cmdList.push_back(VMCmd(cmdCopyI));
-		else
-			cmdList.push_back(VMCmd(cmdCopyDorL));
+		if(!second)
+		{
+			if(aOT == OTYPE_INT)
+				cmdList.push_back(VMCmd(cmdCopyI));
+			else if(!second)
+				cmdList.push_back(VMCmd(cmdCopyDorL));
 
-		curr->Compile();
-		// Compare for equality
-		if(aOT == OTYPE_INT)
-			cmdList.push_back(VMCmd(cmdEqual));
-		else if(aOT == OTYPE_DOUBLE)
-			cmdList.push_back(VMCmd(cmdEqualD));
-		else
-			cmdList.push_back(VMCmd(cmdEqualL));
+			curr->Compile();
+			// Compare for equality
+			if(aOT == OTYPE_INT)
+				cmdList.push_back(VMCmd(cmdEqual));
+			else if(aOT == OTYPE_DOUBLE)
+				cmdList.push_back(VMCmd(cmdEqualD));
+			else
+				cmdList.push_back(VMCmd(cmdEqualL));
+		}else{
+			curr->Compile();
+		}
 		// If equal, jump to corresponding case block
 		fixQueue.push_back(cmdList.size());
 		cmdList.push_back(VMCmd(cmdJmpNZ, 0));
 	}
 	// Remove value by which we switched from stack
-	cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
+	if(!second)
+		cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 
 	fixQueue.push_back(cmdList.size());
 	cmdList.push_back(VMCmd(cmdJmp, 0));
@@ -1811,7 +1827,8 @@ void NodeSwitchExpr::Compile()
 	{
 		cmdList[fixQueue[queueCurr++]].argument = cmdList.size();
 		// Remove value by which we switched from stack
-		cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
+		if(!second)
+			cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
 		curr->Compile();
 		if(curr != blockTail)
 			cmdList.push_back(VMCmd(cmdJmp, cmdList.size() + 2));
