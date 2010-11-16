@@ -84,6 +84,9 @@ NamespaceInfo*				currNamespace = NULL;
 
 void PushNamespace(InplaceStr space)
 {
+	if(currDefinedFunc.size())
+		ThrowError(space.begin, "ERROR: a namespace definition must appear either at file scope or immediately within another namespace definition");
+
 	// Construct a name hash in a form of "previousname.currentname"
 	unsigned hash;
 	if(namespaceStack.size() == 1)
