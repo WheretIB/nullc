@@ -158,6 +158,15 @@ namespace NULLCFile
 		if(length != fwrite(arr.ptr, 1, length, file->handle))
 			nullcThrowError("Failed to write to a file.");
 	}
+	void FileSeek(int dir, int shift, File* file)
+	{
+		if(!file->handle)
+		{
+			nullcThrowError("Cannot seek in a closed file.");
+			return;
+		}
+		fseek(file->handle, shift, dir);
+	}
 }
 
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.file", (void(*)())NULLCFile::funcPtr, name, index)) return false;
@@ -171,6 +180,8 @@ bool nullcInitFileModule()
 	REGISTER_FUNC(FileClose, "File::Close", 0);
 
 	REGISTER_FUNC(FileOpened, "File::Opened", 0);
+
+	REGISTER_FUNC(FileSeek, "File::Seek", 0);
 
 	REGISTER_FUNC(FileWriteC, "File::Write", 0);
 	REGISTER_FUNC(FileWriteS, "File::Write", 1);
