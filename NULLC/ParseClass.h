@@ -12,6 +12,7 @@ class NodeExpressionList;
 
 class TypeInfo;
 class FunctionInfo;
+class NamespaceInfo;
 
 class FunctionType
 {
@@ -485,6 +486,7 @@ public:
 		allParamSize = 0;
 		parentClass = NULL;
 		parentFunc = NULL;
+		parentNamespace = NULL;
 
 		extraParam = firstParam = lastParam = NULL;
 		funcContext = NULL;
@@ -570,6 +572,7 @@ public:
 	TypeInfo	*retType;				// Function return type
 	TypeInfo	*parentClass;
 	FunctionInfo	*parentFunc;
+	NamespaceInfo	*parentNamespace;
 
 	bool		visible;				// true until function goes out of scope
 	bool		implemented;			// false if only function prototype has been found.

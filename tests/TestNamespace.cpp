@@ -515,3 +515,82 @@ const char	*testNamespace43 =
 }\r\n\
 return Test.foo(Test.foo(5));";
 TEST_RESULT("namespace test 43", testNamespace43, "45");
+
+const char	*testNamespace44 =
+"class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+	Foo<T> ref next;\r\n\
+}\r\n\
+namespace Test\r\n\
+{\r\n\
+	Foo<bool> h;\r\n\
+	return h.x;\r\n\
+}";
+TEST_RESULT("namespace test 44", testNamespace44, "0");
+
+const char	*testNamespace45 =
+"class Foo<T>{ T x; }\r\n\
+auto operator[](Foo<@T> ref x, int a){ return &x.x; }\r\n\
+namespace Test\r\n\
+{\r\n\
+	Foo<Foo<bool>> h;\r\n\
+	h[5][4] = true;\r\n\
+}\r\n\
+return Test.h[5][4];";
+TEST_RESULT("namespace test 45 (global generic operator instance inside a namespace)", testNamespace45, "1");
+
+const char	*testNamespace46 =
+"auto foo(generic x){ return -x; }\r\n\
+namespace Test\r\n\
+{\r\n\
+	int ref(int) a = foo;\r\n\
+}\r\n\
+int ref(int) a = foo;\r\n\
+return Test.a == a;";
+TEST_RESULT("namespace test 46 (generic function should be instanced in a correct namespace)", testNamespace46, "1");
+
+const char	*testNamespace47 =
+"namespace Foo\r\n\
+{\r\n\
+	auto foo(generic x){ return -x; }\r\n\
+}\r\n\
+namespace Test\r\n\
+{\r\n\
+	int ref(int) a = Foo.foo;\r\n\
+}\r\n\
+int ref(int) a = Foo.foo;\r\n\
+return Test.a == a;";
+TEST_RESULT("namespace test 47 (generic function should be instanced in a correct namespace)", testNamespace47, "1");
+
+const char	*testNamespace48 =
+"namespace Foo\r\n\
+{\r\n\
+	int bar(int x){ return -x; }\r\n\
+	auto foo(generic x){ return bar(x); }\r\n\
+}\r\n\
+namespace Test\r\n\
+{\r\n\
+	int bar(int x){ return 1; }\r\n\
+	int ref(int) a = Foo.foo;\r\n\
+}\r\n\
+return Test.a(2);";
+TEST_RESULT("namespace test 48", testNamespace48, "-2");
+
+const char	*testNamespace49 =
+"namespace Foo\r\n\
+{\r\n\
+	int bar(int x){ return -x; }\r\n\
+	auto foo(generic x){ return bar(x); }\r\n\
+}\r\n\
+namespace Test\r\n\
+{\r\n\
+	int bar(int x){ return 1; }\r\n\
+	int ref(int) a;\r\n\
+	{\r\n\
+		int ref(int) b = Foo.foo;\r\n\
+		a = b;\r\n\
+	}\r\n\
+}\r\n\
+return Test.a(2);";
+TEST_RESULT("namespace test 49", testNamespace49, "-2");

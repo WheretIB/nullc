@@ -232,6 +232,8 @@ FastVector<unsigned int>	bestFuncRating;
 FastVector<FunctionInfo*>	bestFuncListBackup;
 FastVector<unsigned int>	bestFuncRatingBackup;
 
+FastVector<NamespaceInfo*>	namespaceBackup;
+
 FastVector<NodeZeroOP*>	paramNodes;
 
 struct ClassSelect
@@ -290,6 +292,7 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred = NULL);
 void HandlePointerToObject(const char* pos, TypeInfo *dstType);
 void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorReport, char* errPos, const char* funcName, unsigned callArgCount, unsigned count);
+void RestoreNamespaces(bool undo, NamespaceInfo *parent, unsigned& prevBackupSize, unsigned& prevStackSize, NamespaceInfo*& lastNS);
 
 void AddExtraNode()
 {
@@ -470,6 +473,12 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 			// Get ID of the function that will be created
 			unsigned funcID = CodeInfo::funcInfo.size();
 			FunctionInfo *fInfo = fProto->genericBase->parent;
+
+			// Backup namespace state and restore it to function definition state
+			unsigned prevBackupSize = 0, prevStackSize = 0;
+			NamespaceInfo *lastNS = NULL;
+			RestoreNamespaces(false, fInfo->parentNamespace, prevBackupSize, prevStackSize, lastNS);
+
 			// There may be a type in definition, and we must save it
 			TypeInfo *currDefinedType = newType;
 			unsigned int currentDefinedTypeMethodCount = methodCount;
@@ -483,9 +492,15 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 
 			// Function return type
 			currType = fType->retType;
+			const char *name = fInfo->name;
 			if(fInfo->parentClass)
+			{
 				assert(strchr(fInfo->name, ':'));
-			FunctionAdd(pos, fInfo->parentClass ? strchr(fInfo->name, ':') + 2 : fInfo->name);
+				name = strchr(fInfo->name, ':') + 2;
+			}
+			if(const char* pos = strrchr(name, '.'))
+				name = pos + 1;
+			FunctionAdd(pos, name);
 
 			// Get aliases from prototype argument list
 			AliasInfo *aliasFromParent = fProto->childAlias;
@@ -542,6 +557,8 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 
 			// Remove function definition node, it was placed to funcDefList in FunctionEnd
 			CodeInfo::nodeList.pop_back();
+
+			RestoreNamespaces(true, fInfo->parentNamespace, prevBackupSize, prevStackSize, lastNS);
 		}
 	}
 }
@@ -2860,6 +2877,9 @@ void FunctionAdd(const char* pos, const char* funcName, bool isOperator)
 	FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 	lastFunc->parentFunc = currDefinedFunc.size() > 0 ? currDefinedFunc.back() : NULL;
 
+	if(!(isOperator || (newType && !functionLocal)))
+		lastFunc->parentNamespace = namespaceStack.size() > 1 ? namespaceStack.back() : NULL;
+
 	AddFunctionToSortedList(lastFunc);
 
 	lastFunc->indexInArr = CodeInfo::funcInfo.size() - 1;
@@ -3950,6 +3970,35 @@ void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorRe
 	longjmp(CodeInfo::errorHandler, 1);
 }
 
+void RestoreNamespaceStack(NamespaceInfo* info)
+{
+	if(!info)
+		return;
+	if(info->parent)
+		RestoreNamespaceStack(info->parent);
+	namespaceStack.push_back(info);
+}
+void RestoreNamespaces(bool undo, NamespaceInfo *parent, unsigned& prevBackupSize, unsigned& prevStackSize, NamespaceInfo*& lastNS)
+{
+	if(!undo)
+	{
+		prevBackupSize = namespaceBackup.size();
+		prevStackSize = namespaceStack.size();
+		if(namespaceStack.size() > 1)
+			namespaceBackup.push_back(&namespaceStack[1], namespaceStack.size() - 1);
+		namespaceStack.shrink(1);
+		RestoreNamespaceStack(parent);
+		lastNS = currNamespace;
+		currNamespace = NULL;
+	}else{
+		namespaceStack.shrink(1);
+		if(prevStackSize > 1)
+			namespaceStack.push_back(&namespaceBackup[prevBackupSize], prevStackSize - 1);
+		namespaceBackup.shrink(prevBackupSize);
+		currNamespace = lastNS;
+	}
+}
+
 // Function expects that nodes with argument types are on top of nodeList
 // Return node with function definition if there was one
 NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, FunctionInfo*& fResult, unsigned callArgCount, TypeInfo* forcedParentType)
@@ -3958,6 +4007,11 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 		ThrowError(pos, "ERROR: reached maximum generic function instance depth (%d)", NULLC_MAX_GENERIC_INSTANCE_DEPTH);
 	// Get ID of the function that will be created
 	unsigned funcID = CodeInfo::funcInfo.size();
+
+	// Backup namespace state and restore it to function definition state
+	unsigned prevBackupSize = 0, prevStackSize = 0;
+	NamespaceInfo *lastNS = NULL;
+	RestoreNamespaces(false, fInfo->parentNamespace, prevBackupSize, prevStackSize, lastNS);
 
 	// There may be a type in definition, and we must save it
 	TypeInfo *currDefinedType = newType;
@@ -4126,6 +4180,9 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 	CodeInfo::funcInfo[funcID]->vTopSize = fInfo->vTopSize;
 
 	fResult = CodeInfo::funcInfo[funcID];
+
+	// Restore old namespace stack
+	RestoreNamespaces(true, fInfo->parentNamespace, prevBackupSize, prevStackSize, lastNS);
 
 	instanceDepth--;
 	return funcDefAtEnd;
@@ -4754,14 +4811,21 @@ void EndSwitch()
 }
 
 // Begin type definition
-TypeInfo* TypeBegin(const char* pos, const char* end)
+TypeInfo* TypeBegin(const char* pos, const char* end, bool addNamespace)
 {
 	if(newType)
 		ThrowError(pos, "ERROR: different type is being defined");
 	if(currAlign > 16)
 		ThrowError(pos, "ERROR: alignment must be less than 16 bytes");
 
-	const char *typeNameCopy = GetNameInNamespace(InplaceStr(pos, end), true).begin;
+	char *typeNameCopy = NULL;
+	if(addNamespace)
+	{
+		typeNameCopy = (char*)GetNameInNamespace(InplaceStr(pos, end), true).begin;
+	}else{
+		typeNameCopy = AllocateString(strlen(pos) + 1);
+		memcpy(typeNameCopy, pos, strlen(pos) + 1);
+	}
 
 	if(IsNamespace(InplaceStr(typeNameCopy)))
 		ThrowError(pos, "ERROR: name is already taken for a namespace");
@@ -5096,7 +5160,7 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool
 	unsigned int currentDefinedTypeMethodCount = methodCount;
 	// Begin new type
 	newType = NULL;
-	TypeBegin(tempName, namePos);
+	TypeBegin(tempName, namePos, false);
 	TypeInfo *instancedType = newType;
 	newType->genericBase = base;
 	newType->childAlias = aliasList;
@@ -5456,6 +5520,7 @@ void CallbackReset()
 	bestFuncRating.reset();
 	bestFuncListBackup.reset();
 	bestFuncRatingBackup.reset();
+	namespaceBackup.reset();
 	paramNodes.reset();
 	funcMap.reset();
 	varMap.reset();
