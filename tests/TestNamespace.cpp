@@ -320,3 +320,33 @@ const char	*testNamespace23 =
 }\r\n\
 return Test.a.bar(3) + Test.b.bar(30) + Test.c.bar(400);";
 TEST_RESULT("namespace test 23", testNamespace23, "539");
+
+const char	*testNamespace24 =
+"namespace Test\r\n\
+{\r\n\
+	auto foo(generic x){ return -x; }\r\n\
+\r\n\
+	int y = foo(5);\r\n\
+	auto z = foo(4.5);\r\n\
+}\r\n\
+return int(Test.y * Test.z);";
+TEST_RESULT("namespace test 24", testNamespace24, "22");
+
+const char	*testNamespace25 =
+"namespace Test\r\n\
+{\r\n\
+	auto foo(generic x){ return -x; }\r\n\
+}\r\n\
+return Test.foo(5);";
+TEST_RESULT("namespace test 25", testNamespace25, "-5");
+
+const char	*testNamespace26 =
+"namespace Test\r\n\
+{\r\n\
+	auto foo(generic v, x, y){ return v + x + y; }\r\n\
+	int a, b;\r\n\
+	a = foo(a, 0, 1023);\r\n\
+	b = foo(b, 0, 1023);\r\n\
+}\r\n\
+return Test.a + Test.b;";
+TEST_RESULT("namespace test 26", testNamespace26, "2046");
