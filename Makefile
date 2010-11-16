@@ -57,7 +57,6 @@ STDLIB_SOURCES = \
   NULLC/includes/dynamic.cpp \
   NULLC/includes/file.cpp \
   NULLC/includes/gc.cpp \
-  NULLC/includes/hashmap.cpp \
   NULLC/includes/io.cpp \
   NULLC/includes/list.cpp \
   NULLC/includes/map.cpp \
@@ -78,7 +77,6 @@ STDLIB_TARGETS = \
   temp/lib/dynamic.o \
   temp/lib/file.o \
   temp/lib/gc.o \
-  temp/lib/hashmap.o \
   temp/lib/io.o \
   temp/lib/list.o \
   temp/lib/map.o \
@@ -212,11 +210,15 @@ TEST_SOURCES = \
 	tests/TestGC.cpp                 tests/TestStackRealloc.cpp \
 	tests/TestImplicitArray.cpp      tests/TestVarargs.cpp \
 	tests/TestIndirectCall.cpp       tests/TestVariables.cpp \
-	tests/TestLocalReturn.cpp        tests/TestJIT.cpp
+	tests/TestLocalReturn.cpp        tests/TestJIT.cpp \
+	tests/TestGeneric.cpp            tests/TestFinalizer.cpp \
+	tests/TestGenericType.cpp        tests/TestSglVector.cpp \
+	tests/TestSglList.cpp            tests/TestSglHashmap.cpp \
+	tests/TestNamespace.cpp
 
 TEST_OBJECTS = \
-  TestRun.o \
-  UnitTests.o \
+	TestRun.o \
+	UnitTests.o \
 	temp/tests/TestAccessors.o          temp/tests/TestInference.o \
 	temp/tests/TestArray.o              temp/tests/TestInterface.o \
 	temp/tests/TestArraySpecial.o       temp/tests/TestListComprehension.o \
@@ -241,7 +243,11 @@ TEST_OBJECTS = \
 	temp/tests/TestGC.o                 temp/tests/TestStackRealloc.o \
 	temp/tests/TestImplicitArray.o      temp/tests/TestVarargs.o \
 	temp/tests/TestIndirectCall.o       temp/tests/TestVariables.o \
-	temp/tests/TestLocalReturn.o        temp/tests/TestJIT.o
+	temp/tests/TestLocalReturn.o        temp/tests/TestJIT.o \
+	temp/tests/TestGeneric.o            temp/tests/TestFinalizer.o \
+	temp/tests/TestGenericType.o        temp/tests/TestSglVector.o \
+	temp/tests/TestSglList.o            temp/tests/TestSglHashmap.o \
+	temp/tests/TestNamespace.o
 
 %.o: %.cpp
 	$(CXX) $(REG_CFLAGS) -o $@ -c $<
