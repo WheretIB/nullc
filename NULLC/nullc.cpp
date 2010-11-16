@@ -1217,5 +1217,17 @@ nullres nullcDebugRemoveBreakpoint(unsigned int instruction)
 	return true;
 }
 
+ExternFuncInfo* nullcDebugConvertAddressToFunction(int instruction)
+{
+	unsigned functionCount = 0;
+	ExternFuncInfo *codeFunctions = nullcDebugFunctionInfo(&functionCount);
+	for(unsigned i = 0; i < functionCount; i++)
+	{
+		if(instruction > codeFunctions[i].address && instruction <= (codeFunctions[i].address + codeFunctions[i].codeSize))
+			return&codeFunctions[i];
+	}
+	return NULL;
+}
+
 #endif
 

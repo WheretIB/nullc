@@ -1394,14 +1394,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 	while(int address = stateRemote ? RemoteData::callStack[csPos++] : nullcDebugGetStackFrame())
 	{
 		// Find corresponding function
-		int funcID = -1;
-		for(unsigned int i = 0; i < functionCount; i++)
-		{
-			if(address > codeFunctions[i].address && address <= (codeFunctions[i].address + codeFunctions[i].codeSize))
-			{
-				funcID = i;
-			}
-		}
+		ExternFuncInfo *func = nullcDebugConvertAddressToFunction(address);
 
 		if(address != -1)
 		{
@@ -1479,9 +1472,9 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 		}
 
 		// If we are not in global scope
-		if(funcID != -1)
+		if(func)
 		{
-			ExternFuncInfo	&function = codeFunctions[funcID];
+			ExternFuncInfo	&function = *func;
 
 			// Align offset to the first variable (by 16 byte boundary)
 			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
