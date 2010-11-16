@@ -26,7 +26,7 @@ namespace NULLC
 	NULLCArray	DoubleToStr(int precision, double* r);
 	
 	void*		AllocObject(int size, unsigned type = 0);
-	NULLCArray	AllocArray(int size, int count, unsigned type = 0);
+	NULLCArray	AllocArray(unsigned size, unsigned count, unsigned type = 0);
 	NULLCRef	CopyObject(NULLCRef ptr);
 	void		CopyArray(NULLCAutoArray* dst, NULLCAutoArray src);
 	NULLCRef	ReplaceObject(NULLCRef l, NULLCRef r);
@@ -76,7 +76,7 @@ namespace NULLC
 	NULLCAutoArray* AutoArrayAssignSelf(NULLCAutoArray* left, NULLCAutoArray* right);
 	NULLCRef AutoArrayIndex(NULLCAutoArray* left, unsigned int index);
 
-	void	AutoArray(NULLCAutoArray* arr, int type, int count);
+	void	AutoArray(NULLCAutoArray* arr, int type, unsigned count);
 	void	AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr);
 	void	ShrinkAutoArray(NULLCAutoArray* arr, unsigned size);
 
