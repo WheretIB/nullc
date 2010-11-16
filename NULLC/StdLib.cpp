@@ -249,7 +249,7 @@ void* NULLC::AllocObject(int size, unsigned type)
 {
 	if(size < 0)
 	{
-		nullcThrowError("Requested memory size is less than zero.");
+		nullcThrowError("ERROR: requested memory size is less than zero");
 		return NULL;
 	}
 	void *data = NULL;
@@ -260,7 +260,7 @@ void* NULLC::AllocObject(int size, unsigned type)
 		CollectMemory();
 		if((unsigned int)(usedMemory + size) > globalMemoryLimit)
 		{
-			nullcThrowError("Reached global memory maximum");
+			nullcThrowError("ERROR: reached global memory maximum");
 			return NULL;
 		}
 	}else if((unsigned int)(usedMemory + size) > collectableMinimum){
@@ -321,7 +321,7 @@ void* NULLC::AllocObject(int size, unsigned type)
 
 	if(data == NULL)
 	{
-		nullcThrowError("Allocation failed.");
+		nullcThrowError("ERROR: allocation failed");
 		return NULL;
 	}
 	int finalize = 0;
@@ -338,9 +338,16 @@ unsigned int NULLC::UsedMemory()
 	return usedMemory;
 }
 
-NULLCArray NULLC::AllocArray(int size, int count, unsigned type)
+NULLCArray NULLC::AllocArray(unsigned size, unsigned count, unsigned type)
 {
 	NULLCArray ret;
+	ret.len = 0;
+	ret.ptr = NULL;
+	if((unsigned long long)size * count > globalMemoryLimit)
+	{
+		nullcThrowError("ERROR: can't allocate array with %u elements of size %u", count, size);
+		return ret;
+	}
 	ret.len = 0;
 	ret.ptr = 4 + (char*)AllocObject(count * size + 4, type);
 	if(!(ret.ptr - 4))
@@ -869,8 +876,13 @@ NULLCRef NULLC::AutoArrayIndex(NULLCAutoArray* left, unsigned int index)
 	return ret;
 }
 
-void NULLC::AutoArray(NULLCAutoArray* arr, int type, int count)
+void NULLC::AutoArray(NULLCAutoArray* arr, int type, unsigned count)
 {
+	if((unsigned long long)count * linker->exTypes[type].size > globalMemoryLimit)
+	{
+		nullcThrowError("ERROR: can't allocate array with %u elements of size %u", count, linker->exTypes[type].size);
+		return;
+	}
 	arr->typeID = type;
 	arr->len = count;
 	arr->ptr = (char*)AllocObject(count * linker->exTypes[type].size);

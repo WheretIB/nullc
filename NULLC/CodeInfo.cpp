@@ -94,6 +94,8 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 		type->unsizedType = newInfo;
 	}else{
 		newInfo->size = type->size * arrSize;
+		if((unsigned long long)type->size * arrSize > NULLC_MAX_TYPE_SIZE)
+			ThrowError(lastKnownStartPos, "ERROR: type size (%lld) exceeds maximum of %d", (unsigned long long)type->size * arrSize, NULLC_MAX_TYPE_SIZE);
 		if(newInfo->size % 4 != 0)
 		{
 			newInfo->paddingBytes = 4 - (newInfo->size % 4);

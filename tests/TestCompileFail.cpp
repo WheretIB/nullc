@@ -610,6 +610,8 @@ return int(y() + z());",
 	TEST_FOR_FAIL("namespace error", "namespace Test{} class Test;", "ERROR: name is already taken for a namespace");
 	TEST_FOR_FAIL("namespace error", "namespace Test{ int foo(){ return 12; } } return foo();", "ERROR: function 'foo' is undefined");
 	TEST_FOR_FAIL("namespace error", "namespace Test{ namespace Nested{ int x; } } return Nested.x;", "ERROR: unknown identifier 'Nested'");
+
+	TEST_FOR_FAIL("no biggy", "int[1024][1024][1024][4] f; f[3][3][3][0] = 0;", "ERROR: type size (17179869184) exceeds maximum of 268435456");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

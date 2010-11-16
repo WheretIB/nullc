@@ -119,6 +119,12 @@ Test ref x;\r\n\
 return x.b;";
 TEST_RUNTIME_FAIL("Invalid pointer check", testInvalidPointer, "ERROR: null pointer access");
 
+const char	*testArrayAllocationFail = 
+"int[] f = new int[1024*1024*1024];\r\n\
+f[5] = 0;\r\n\
+return 0;";
+TEST_RUNTIME_FAIL("Array allocation failure", testArrayAllocationFail, "ERROR: can't allocate array with 1073741824 elements of size 4");
+
 void RecallerTransition(int x)
 {
 	nullcRunFunction("inside", x);
