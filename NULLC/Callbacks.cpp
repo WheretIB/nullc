@@ -767,7 +767,6 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 
 	if(aNodeType == typeNodeNumber && bNodeType == typeNodeNumber && !enumProtect)
 	{
-		
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.pop_back();
 
@@ -793,7 +792,7 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 		assert(Rd);
 		CodeInfo::nodeList.push_back(Rd);
 		return;
-	}else if(aNodeType == typeNodeNumber || bNodeType == typeNodeNumber){
+	}else if((aNodeType == typeNodeNumber && Bd->typeInfo->type != TypeInfo::TYPE_COMPLEX) || (bNodeType == typeNodeNumber && Ad->typeInfo->type != TypeInfo::TYPE_COMPLEX)){
 		NodeZeroOP *opA = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2];
 		NodeZeroOP *opB = CodeInfo::nodeList[CodeInfo::nodeList.size() - 1];
 

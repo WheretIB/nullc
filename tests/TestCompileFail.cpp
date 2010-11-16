@@ -601,6 +601,8 @@ return int(y() + z());",
 	TEST_FOR_FAIL("restricted enum", "enum x { y = 54, z } x b = 67;", "ERROR: cannot convert 'int' to 'x'");
 	TEST_FOR_FAIL("restricted enum", "enum x { y = 54, z } x c = x.y * 25;", "ERROR: operation * is not supported on 'x' and 'int'");
 	TEST_FOR_FAIL("restricted enum", "enum x { y = 54, z } x foo(){ return 15; }", "ERROR: function returns int but supposed to return x");
+
+	TEST_FOR_FAIL("no incorrect optimization for classes", "class Foo{ } Foo a = 0 + Foo(); return 1;", "ERROR: operation + is not supported on 'int' and 'Foo'");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
