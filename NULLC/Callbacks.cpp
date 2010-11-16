@@ -4216,7 +4216,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	TypeInfo	*forcedParentType = NULL;
 
 	// If we are inside member function, transform function name to a member function name (they have priority over global functions)
-	if(newType && funcName && !currNamespace)
+	// But it's important not to do it if we have function namespace name or it is a constructor name
+	if(newType && funcName && !currNamespace && !SelectTypeByName(InplaceStr(funcName)))
 	{
 		unsigned int hash = newType->nameHash, hashBase = ~0u;
 		hash = StringHashContinue(hash, "::");
