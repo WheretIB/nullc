@@ -572,6 +572,51 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 	return true;
 }
 
+void ResolveType(TypeInfo* info)
+{
+	if(info->hasFinished)
+		return;
+	if(info->arrLevel)
+	{
+		ResolveType(info->subType);
+		info->size = info->arrSize * info->subType->size;
+		if(info->size % 4 != 0)
+		{
+			info->paddingBytes = 4 - (info->size % 4);
+			info->size += 4 - (info->size % 4);
+		}
+		info->hasFinished = true;
+		return;
+	}
+	if(info->funcType)
+	{
+		info->hasFinished = true;
+		for(unsigned int n = 0; n < info->funcType->paramCount; n++)
+			info->funcType->paramSize += info->funcType->paramType[n]->size > 4 ? info->funcType->paramType[n]->size : 4;
+		return;
+	}
+	info->size = 0;
+	for(TypeInfo::MemberVariable *curr = info->firstVariable; curr; curr = curr->next)
+	{
+		if(curr->defaultValue)
+			continue;
+		ResolveType(curr->type);
+
+		unsigned int alignment = curr->type->alignBytes > 4 ? 4 : curr->type->alignBytes;
+		if(alignment && info->size % alignment != 0)
+			info->size += alignment - (info->size % alignment);
+		curr->offset = info->size;
+		info->size += curr->type->size;
+	}
+	if(info->size % 4 != 0)
+	{
+		info->paddingBytes = 4 - (info->size % 4);
+		info->size += 4 - (info->size % 4);
+	}
+	info->hasFinished = true;
+	return;
+}
+
 bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int number)
 {
 	char errBuf[256];
@@ -623,10 +668,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
 
 				for(unsigned int n = 1; n < tInfo->memberCount + 1; n++)
-				{
 					newInfo->funcType->paramType[n-1] = CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset + n]]];
-					newInfo->funcType->paramSize += newInfo->funcType->paramType[n-1]->size > 4 ? newInfo->funcType->paramType[n-1]->size : 4;
-				}
 
 #ifdef _DEBUG
 				newInfo->AddMemberVariable("context", typeInt);
@@ -644,13 +686,6 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				{
 					newInfo->size = NULLC_PTR_SIZE;
 					newInfo->AddMemberVariable("size", typeInt);
-				}else{
-					newInfo->size = tempInfo->size * tInfo->arrSize;
-					if(newInfo->size % 4 != 0)
-					{
-						newInfo->paddingBytes = 4 - (newInfo->size % 4);
-						newInfo->size += 4 - (newInfo->size % 4);
-					}
 				}
 				newInfo->nextArrayType = tempInfo->arrayType;
 				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
@@ -736,9 +771,6 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), memberName);
 				memberName += strLength;
 				TypeInfo *memberType = CodeInfo::typeInfo[typeRemap[memberList[typeInfo->memberOffset + n]]];
-				unsigned int alignment = memberType->alignBytes > 4 ? 4 : memberType->alignBytes;
-				if(alignment && type->size % alignment != 0)
-					type->size += alignment - (type->size % alignment);
 				type->AddMemberVariable(nameCopy, memberType);
 			}
 			for(unsigned int n = 0; n < typeInfo->constantCount; n++)
@@ -752,16 +784,28 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), memberName);
 				memberName += strLength;
 
+				unsigned size = type->size;
+				unsigned memberCount = type->memberCount;
+				bool hasPointers = type->hasPointers;
+
 				type->AddMemberVariable(nameCopy, typeVoid);
 				type->lastVariable->defaultValue = value;
-			}
-			if(type->size % 4 != 0)
-			{
-				type->paddingBytes = 4 - (type->size % 4);
-				type->size += 4 - (type->size % 4);
+
+				type->size = size;
+				type->memberCount = memberCount;
+				type->hasPointers = hasPointers;
 			}
 		}
 	}
+	// Resolve type sizes
+	for(unsigned int i = oldTypeCount; i < CodeInfo::typeInfo.size(); i++)
+	{
+		if(CodeInfo::typeInfo[i]->refLevel || (CodeInfo::typeInfo[i]->arrLevel && CodeInfo::typeInfo[i]->arrSize == TypeInfo::UNSIZED_ARRAY))
+			continue;
+		CodeInfo::typeInfo[i]->hasFinished = false;
+	}
+	for(unsigned int i = oldTypeCount; i < CodeInfo::typeInfo.size(); i++)
+		ResolveType(CodeInfo::typeInfo[i]);
 
 #ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
 	tInfo = FindFirstType(bCode);
@@ -863,7 +907,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			AddFunctionToSortedList(lastFunc);
 
 			lastFunc->indexInArr = CodeInfo::funcInfo.size() - 1;
-			lastFunc->address = fInfo->funcPtr ? -1 : 0;
+			lastFunc->address = fInfo->funcPtr ? -1 : (fInfo->codeSize & 0x80000000 ? 0x80000000 : 0);
 			lastFunc->funcPtr = fInfo->funcPtr;
 			lastFunc->type = (FunctionInfo::FunctionCategory)fInfo->funcCat;
 
@@ -875,7 +919,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				lastFunc->allParamSize += currType->size < 4 ? 4 : currType->size;
 				lastFunc->lastParam->defaultValueFuncID = lInfo.defaultFuncId;
 			}
-			lastFunc->implemented = true;
+			lastFunc->implemented = fInfo->codeSize & 0x80000000 ? false : true;
 			lastFunc->funcType = CodeInfo::typeInfo[typeRemap[fInfo->funcType]];
 
 			if(lastFunc->funcType == typeVoid)

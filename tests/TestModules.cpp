@@ -56,3 +56,30 @@ const char	*testGenericImportX =
 import test.genericX2;\r\n\
 return bar(3) * foo(4) + foo(4) * bar(3);";
 TEST_RESULT("Typedef import", testGenericImportX, "-48");
+
+LOAD_MODULE(test_importprototype, "test.importprototype", "int foo(); int a = foo(); int foo(){ return 10; }");
+const char	*testImportPrototype =
+"import test.importprototype;\r\n\
+return a + foo();";
+TEST_RESULT("Prototype import", testImportPrototype, "20");
+
+LOAD_MODULE(test_importconst, "test.importconst", "class Foo{ const int a = 1, b, c, d, e; } int x = sizeof(Foo);");
+LOAD_MODULE(test_importconst2, "test.importconst2", "import test.importconst; int y = x + sizeof(Foo);");
+const char	*testImportConst =
+"import test.importconst2;\r\n\
+return sizeof(Foo) + y;";
+TEST_RESULT("Constant import", testImportConst, "0");
+
+LOAD_MODULE(test_importgeneric, "test.importgeneric", "class Rect<T>{ T x; } class Font{ Rect<float>[256] symbolRects; }");
+const char	*testImportGeneric =
+"import test.importgeneric;\r\n\
+return sizeof(Font);";
+TEST_RESULT("Constant generic", testImportGeneric, "1024");
+
+LOAD_MODULE(test_importconst3, "test.importconst3", "class Rect<T>{ T x; } int foo(Rect<float>[2] symbolRects){ return 5; }");
+const char	*testImportConst2 =
+"import test.importconst3;\r\n\
+auto x = foo;\r\n\
+Rect<float>[2] m;\r\n\
+return x(m);";
+TEST_RESULT("Constant import 2", testImportConst2, "5");
