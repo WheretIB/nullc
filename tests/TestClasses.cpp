@@ -758,3 +758,88 @@ assert(int(e) == 34);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("Enumeration test 2", testEnumeration2, "1");
+
+const char	*testClassDefaultConstructor1 =
+"class Foo{ int z; void Foo(){ z = 5; } }\r\n\
+class aabb\r\n\
+{\r\n\
+	int x;\r\n\
+	Foo y;\r\n\
+	void aabb(int a){ x = a; }\r\n\
+}\r\n\
+aabb m;\r\n\
+return m.y.z;";
+TEST_RESULT("A default custom constructor is generated for classes that have members with a custom default constructor", testClassDefaultConstructor1, "5");
+
+const char	*testClassDefaultConstructor2 =
+"class Foo{ int z; void Foo(){ z = 5; } }\r\n\
+class aabb\r\n\
+{\r\n\
+	int x;\r\n\
+	Foo y;\r\n\
+	void aabb(int a){ x = a; }\r\n\
+}\r\n\
+auto m = new aabb();\r\n\
+return m.y.z;";
+TEST_RESULT("A default custom constructor test 2", testClassDefaultConstructor2, "5");
+
+const char	*testClassDefaultConstructor3 =
+"class Foo{ int z; void Foo(){ z = 5; } }\r\n\
+class aabb\r\n\
+{\r\n\
+	int x;\r\n\
+	Foo y;\r\n\
+	void aabb(int a){ x = a; }\r\n\
+}\r\n\
+auto m = new aabb;\r\n\
+return m.y.z;";
+TEST_RESULT("A default custom constructor test 3", testClassDefaultConstructor3, "5");
+
+const char	*testClassDefaultConstructor4 =
+"class Foo{ int z; void Foo(){ z = 5; } }\r\n\
+class aabb\r\n\
+{\r\n\
+	int x;\r\n\
+	Foo y;\r\n\
+	void aabb(int a){ x = a; }\r\n\
+}\r\n\
+aabb[4] m;\r\n\
+\r\n\
+return m[3].y.z;";
+TEST_RESULT("A default custom constructor test 4", testClassDefaultConstructor4, "5");
+
+const char	*testClassDefaultConstructor5 =
+"class Foo{ int z; void Foo(){ z = 5; } }\r\n\
+class aabb\r\n\
+{\r\n\
+	int x;\r\n\
+	Foo y;\r\n\
+	void aabb(int a){ x = a; }\r\n\
+}\r\n\
+auto m = new aabb[8];\r\n\
+return m[4].y.z;";
+TEST_RESULT("A default custom constructor test 5", testClassDefaultConstructor5, "5");
+
+const char	*testClassDefaultConstructor6 =
+"class Foo{ int z; void Foo(){ z = 5; } }\r\n\
+class aabb\r\n\
+{\r\n\
+	int x;\r\n\
+	Foo y;\r\n\
+	void aabb(int ref ref y){ x = 3; }\r\n\
+}\r\n\
+aabb[4] m;\r\n\
+return m[3].y.z;";
+TEST_RESULT("A default custom constructor test 6", testClassDefaultConstructor6, "5");
+
+const char	*testClassDefaultConstructor7 =
+"class Foo{ int z; void Foo(){ z = 5; } }\r\n\
+class aabb\r\n\
+{\r\n\
+	int x;\r\n\
+	Foo y;\r\n\
+	void aabb(){ x = 3; }\r\n\
+}\r\n\
+aabb[4] m;\r\n\
+return m[3].y.z * m[2].x;";
+TEST_RESULT("A default custom constructor test 7", testClassDefaultConstructor7, "15");

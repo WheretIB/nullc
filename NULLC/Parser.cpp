@@ -20,6 +20,16 @@ void ClearStringList()
 	stringPool.Clear();
 }
 
+char*	GetDefaultConstructorName(const char* name)
+{
+	unsigned length = (unsigned)strlen(name);
+	char *tmp = AllocateString(length + 2);
+	strcpy(tmp, name);
+	tmp[length] = '$';
+	tmp[length + 1] = 0;
+	return tmp;
+}
+
 inline bool ParseLexem(Lexeme** str, LexemeType type)
 {
 	if((*str)->type != type)
@@ -1277,14 +1287,17 @@ bool ParseAddVariable(Lexeme** str)
 		TypeInfo *base = info;
 		while(base && base->arrLevel && base->arrSize != TypeInfo::UNSIZED_ARRAY) // Unsized arrays are not initialized
 			base = base->subType;
-		bool hasConstructor = base ? HasConstructor(base, 0) : NULL;
+		bool callDefault = false;
+		bool hasConstructor = base ? HasConstructor(base, 0, &callDefault) : NULL;
 		if(hasConstructor)
 		{
 			const char *name = base->genericBase ? base->genericBase->name : base->name;
+			if(callDefault)
+				name = GetDefaultConstructorName(name);
 			AddGetAddressNode((*str)->pos, varInfo->name);
 			if(info->arrLevel)
 			{
-				AddArrayConstructorCall((*str)->pos);
+				AddArrayConstructorCall((*str)->pos, name);
 			}else{
 				AddMemberFunctionCall((*str)->pos, name, 0);
 				AddPopNode((*str)->pos);
@@ -2023,7 +2036,8 @@ bool ParseTerminal(Lexeme** str)
 		TypeInfo *info = GetSelectedType();
 		GetTypeSize((*str)->pos, false);
 		const char *name = info->genericBase ? info->genericBase->name : info->name;
-		bool hasEmptyConstructor = HasConstructor(info, 0);
+		bool callDefault = false;
+		bool hasEmptyConstructor = HasConstructor(info, 0, &callDefault);
 
 		if((*str)->type == lex_oparen)
 		{
@@ -2042,6 +2056,8 @@ bool ParseTerminal(Lexeme** str)
 			if(!ParseLexem(str, lex_cparen))
 				ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
 			SetCurrentFunction(last);
+			if(callArgCount == 0 && callDefault)
+				name = GetDefaultConstructorName(name);
 			if(!AddMemberFunctionCall((*str)->pos, name, callArgCount, callArgCount == 0)) // silence the error if default constructor is called
 				AddPopNode(pos);
 
@@ -2077,9 +2093,11 @@ bool ParseTerminal(Lexeme** str)
 
 			PrepareMemberCall(pos);
 
+			if(callDefault)
+				name = GetDefaultConstructorName(name);
 			if(arrayAlloc)
 			{
-				AddArrayConstructorCall((*str)->pos);
+				AddArrayConstructorCall((*str)->pos, name);
 				FinishConstructorCall((*str)->pos);
 			}else{
 				AddMemberFunctionCall((*str)->pos, name, 0);

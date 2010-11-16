@@ -537,7 +537,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	nullcBindModuleFunction("ide.debug", (void(*)())IDEDebugBreak, "_debugBreak", 0);
 
 	// Save a list of base modules
-	while(const char* moduleName = nullcEnumerateModules(baseModules.size()))
+	while(const char* moduleName = nullcEnumerateModules((unsigned)baseModules.size()))
 		baseModules.push_back(GetStringHash(moduleName));
 
 	colorer = NULL;
