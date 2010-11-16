@@ -52,14 +52,7 @@ TypeInfo*	typeBool = NULL;
 
 namespace NULLC
 {
-	struct CodeRange
-	{
-		CodeRange(): start(NULL), end(NULL){}
-		CodeRange(const char* start, const char* end): start(start), end(end){}
-		const char *start, *end;
-	};
-	CodeRange	codeSourceRange[32];
-	unsigned	codeCount;
+	FastVector<Compiler::CodeRange>	*codeSourceRange = NULL;
 }
 
 CompilerError::CompilerError(const char* errStr, const char* apprPos)
@@ -76,12 +69,12 @@ void CompilerError::Init(const char* errStr, const char* apprPos)
 	const char *intStart = codeStart, *intEnd = codeEnd;
 	if(apprPos < intStart || apprPos > intEnd)
 	{
-		for(unsigned i = 1; i < NULLC::codeCount; i++)
+		for(unsigned i = 1; i < NULLC::codeSourceRange->size(); i++)
 		{
-			if(apprPos >= NULLC::codeSourceRange[i].start && apprPos <= NULLC::codeSourceRange[i].end)
+			if(apprPos >= (*NULLC::codeSourceRange)[i].start && apprPos <= (*NULLC::codeSourceRange)[i].end)
 			{
-				intStart = NULLC::codeSourceRange[i].start;
-				intEnd = NULLC::codeSourceRange[i].end;
+				intStart = (*NULLC::codeSourceRange)[i].start;
+				intEnd = (*NULLC::codeSourceRange)[i].end;
 				break;
 			}
 		}
@@ -280,6 +273,8 @@ Compiler::Compiler()
 
 	buildInTypes.clear();
 	buildInTypes.reserve(32);
+
+	NULLC::codeSourceRange = &codeSourceRange;
 
 	// Add basic types
 	TypeInfo* info;
@@ -1113,25 +1108,17 @@ bool Compiler::Compile(const char* str, bool noClear)
 		dupStringsModule.Clear();
 		funcMap.clear();
 		importStack.clear();
+		moduleStack.clear();
+		codeSourceRange.clear();
 	}
 	unsigned int lexStreamStart = lexer.GetStreamSize();
 	lexer.Lexify(str);
 	unsigned int lexStreamEnd = lexer.GetStreamSize();
 
-	const char	*moduleName[32];
-	const char	*moduleData[32];
-	unsigned	moduleStream[32];
-	NULLC::CodeRange	moduleRange[32];
-	unsigned int moduleCount = 0;
+	unsigned moduleBase = moduleStack.size();
 
 	if(BinaryCache::GetBytecode("$base$.nc"))
-	{
-		moduleName[moduleCount] = "$base$.nc";
-		moduleStream[moduleCount] = 0;
-		moduleData[moduleCount] = BinaryCache::GetBytecode("$base$.nc");
-		moduleRange[moduleCount] = NULLC::CodeRange(lexer.GetStreamStart()[0].pos, lexer.GetStreamStart()[baseModuleSize - 1].pos);
-		moduleCount++;
-	}
+		moduleStack.push_back(ModuleInfo("$base$.nc", BinaryCache::GetBytecode("$base$.nc"), 0, CodeRange(lexer.GetStreamStart()[0].pos, lexer.GetStreamStart()[baseModuleSize - 1].pos)));
 
 	const char *importPath = BinaryCache::GetImportPath();
 
@@ -1173,13 +1160,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		if(!bytecode && importPath)
 			bytecode = BinaryCache::GetBytecode(pathNoImport);
 
-		if(moduleCount == 32)
-		{
-			CodeInfo::lastError.Init("ERROR: temporary limit for 32 modules", name->pos);
-			return false;
-		}
-
-		moduleName[moduleCount] = strcpy((char*)dupStringsModule.Allocate((unsigned int)strlen(pathNoImport) + 1), pathNoImport);
+		moduleStack.push_back(ModuleInfo(strcpy((char*)dupStringsModule.Allocate((unsigned int)strlen(pathNoImport) + 1), pathNoImport), NULL, 0, CodeRange()));
 		if(!bytecode)
 		{
 			unsigned pathHash = GetStringHash(pathNoImport);
@@ -1194,23 +1175,23 @@ bool Compiler::Compile(const char* str, bool noClear)
 				}
 			}
 			unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);
-			moduleStream[moduleCount] = lexer.GetStreamSize();
+			moduleStack.back().stream = lexer.GetStreamSize();
 			importStack.push_back(pathHash);
 			bytecode = BuildModule(path, pathNoImport);
 			importStack.pop_back();
 			start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
 			if(bytecode)
-				moduleRange[moduleCount] = NULLC::CodeRange(lexer.GetStreamStart()[moduleStream[moduleCount]].pos, lexer.GetStreamStart()[moduleStream[moduleCount]].pos + ((ByteCode*)bytecode)->sourceSize);
+				moduleStack.back().range = CodeRange(lexer.GetStreamStart()[moduleStack.back().stream].pos, lexer.GetStreamStart()[moduleStack.back().stream].pos + ((ByteCode*)bytecode)->sourceSize);
 		}else{
 			unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);
-			moduleStream[moduleCount] = lexer.GetStreamSize();
+			moduleStack.back().stream = lexer.GetStreamSize();
 			lexer.Lexify(bytecode + ((ByteCode*)bytecode)->offsetToSource);
 			start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
-			moduleRange[moduleCount] = NULLC::CodeRange(lexer.GetStreamStart()[moduleStream[moduleCount]].pos, lexer.GetStreamStart()[lexer.GetStreamSize() - 1].pos);
+			moduleStack.back().range = CodeRange(lexer.GetStreamStart()[moduleStack.back().stream].pos, lexer.GetStreamStart()[lexer.GetStreamSize() - 1].pos);
 		}
 		if(!bytecode)
 			return false;
-		moduleData[moduleCount++] = bytecode;
+		moduleStack.back().data = bytecode;
 	}
 
 	ClearState();
@@ -1218,19 +1199,20 @@ bool Compiler::Compile(const char* str, bool noClear)
 	activeModules.clear();
 	CodeInfo::lexStart = lexer.GetStreamStart();
 
-	NULLC::codeCount = moduleCount;
-	for(unsigned int i = 0; i < moduleCount; i++)
+	codeSourceRange.resize(moduleStack.size() - moduleBase);
+	for(unsigned int i = moduleBase; i < moduleStack.size(); i++)
 	{
 		activeModules.push_back();
-		activeModules.back().name = moduleName[i];
+		activeModules.back().name = moduleStack[i].name;
 		activeModules.back().funcStart = CodeInfo::funcInfo.size();
-		CodeInfo::lexFullStart = lexer.GetStreamStart() + moduleStream[i];
-		if(!ImportModule(moduleData[i], moduleName[i], i + 1))
+		CodeInfo::lexFullStart = lexer.GetStreamStart() + moduleStack[i].stream;
+		if(!ImportModule(moduleStack[i].data, moduleStack[i].name, i + 1 - moduleBase))
 			return false;
 		SetGlobalSize(0);
 		activeModules.back().funcCount = CodeInfo::funcInfo.size() - activeModules.back().funcStart;
-		NULLC::codeSourceRange[i] = moduleRange[i];
+		codeSourceRange[i-moduleBase] = moduleStack[i].range;
 	}
+	moduleStack.shrink(moduleBase);
 
 	CompilerError::codeStart = str;
 	CompilerError::codeEnd = (lexer.GetStreamStart() + lexStreamEnd - 1)->pos;

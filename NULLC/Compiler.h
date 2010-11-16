@@ -72,6 +72,8 @@ private:
 	bool	ImportModule(const char* bytecode, const char* pos, unsigned int number);
 	char*	BuildModule(const char* file, const char* altFile);
 
+	friend class CompilerError;
+
 	Lexer	lexer;
 
 	ChunkedStackPool<1020>			dupStrings;
@@ -95,4 +97,24 @@ private:
 	unsigned int typeTop;
 	unsigned int realGlobalCount;
 	unsigned int baseModuleSize;
+
+public:
+	struct CodeRange
+	{
+		CodeRange(): start(NULL), end(NULL){}
+		CodeRange(const char* start, const char* end): start(start), end(end){}
+		const char *start, *end;
+	};
+	FastVector<CodeRange>	codeSourceRange;
+
+	struct ModuleInfo
+	{
+		ModuleInfo(){}
+		ModuleInfo(const char* name, const char* data, unsigned stream, CodeRange range): name(name), data(data), stream(stream), range(range){}
+		const char	*name;
+		const char	*data;
+		unsigned	stream;
+		CodeRange	range;
+	};
+	FastVector<ModuleInfo>	moduleStack;
 };
