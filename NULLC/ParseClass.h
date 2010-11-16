@@ -476,6 +476,7 @@ public:
 		pure = false;
 		explicitlyReturned = false;
 		genericInstance = false;
+		typeConstructor = false;
 		generic = NULL;
 		genericBase = NULL;
 		functionNode = NULL;
@@ -575,6 +576,7 @@ public:
 	bool		pure;					// function is pure and can possibly be evaluated at compile time
 	bool		explicitlyReturned;		// an explicit return from function was compiled
 	bool		genericInstance;		// function is a generic function instance
+	bool		typeConstructor;
 	GenericContext	*generic;				// function is a template that will be resolved at the time of calling
 	GenericContext	*genericBase;			// pointer to a generic function base context
 	void		*functionNode;

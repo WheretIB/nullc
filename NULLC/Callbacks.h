@@ -119,10 +119,10 @@ void AddArrayIterator(const char* pos, InplaceStr varName, TypeInfo* type, bool 
 void MergeArrayIterators();
 
 void AddTypeAllocation(const char* pos, bool arrayType = false);
-void AddArrayConstructorCall(const char* pos);
+void AddArrayConstructorCall(const char* pos, const char* name);
 NodeZeroOP* PrepareConstructorCall(const char* pos);
 void FinishConstructorCall(const char* pos);
-bool HasConstructor(TypeInfo* type, unsigned arguments);
+bool HasConstructor(TypeInfo* type, unsigned arguments, bool* callDefault = NULL);
 
 void BeginCoroutine();
 void FunctionAdd(const char* pos, const char* funcName);

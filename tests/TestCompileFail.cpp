@@ -612,7 +612,7 @@ struct Test_testModuleImportsSelf1 : TestQueue
 	{
 		(void)name;
 		*nullcShouldFreePtr = 0;
-		*size = strlen(testModuleImportsSelf1) + 1;
+		*size = (unsigned)strlen(testModuleImportsSelf1) + 1;
 		return (const void*)testModuleImportsSelf1;
 	}
 	virtual void Run()
@@ -650,10 +650,10 @@ struct Test_testModuleImportsSelf2 : TestQueue
 		*nullcShouldFreePtr = 0;
 		if(name[0] == 'a')
 		{
-			*size = strlen(testModuleImportsSelf2a) + 1;
+			*size = (unsigned)strlen(testModuleImportsSelf2a) + 1;
 			return (const void*)testModuleImportsSelf2a;
 		}else{
-			*size = strlen(testModuleImportsSelf2b) + 1;
+			*size = (unsigned)strlen(testModuleImportsSelf2b) + 1;
 			return (const void*)testModuleImportsSelf2b;
 		}
 	}

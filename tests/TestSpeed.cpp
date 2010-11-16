@@ -304,7 +304,7 @@ float[] b = new float[width*height];\r\n\
 \r\n\
 Canvas img = Canvas(width, height);\r\n\
 \r\n\
-int[] data = img.GetData();\r\n\
+float[] data = img.GetData();\r\n\
 \r\n\
 float get(float[] arr, int x, y){ return arr[x+y*width]; }\r\n\
 void set(float[] arr, int x, y, float val){ arr[x+y*width] = val; }\r\n\
@@ -340,27 +340,29 @@ void process(float[] from, float[] to)\r\n\
 	}\r\n\
 }\r\n\
 \r\n\
-void render(float[] from, int[] to)\r\n\
+void render(float[] from, float[] to)\r\n\
 {\r\n\
+	float	rMin = 31 / 255.0, rMax = 168 / 255.0, \r\n\
+			gMin = 57 / 255.0, gMax = 224 / 255.0, \r\n\
+			bMin = 116 / 255.0, bMax = 237 / 255.0;\r\n\
 	for(auto x = 2; x < width - 2; x++)\r\n\
 	{\r\n\
 		for(auto y = 2; y < height - 2; y++)\r\n\
 		{\r\n\
 			float color = get(from, x, y);\r\n\
-			\r\n\
-			float progress = color / 256;\r\n\
-			float rMin = 31, rMax = 168, \r\n\
-			gMin = 57, gMax = 224, \r\n\
-			bMin = 116, bMax = 237;\r\n\
-			\r\n\
+\r\n\
+			float progress = color / 255.0;\r\n\
+\r\n\
 			auto rDelta = (rMax - rMin) / 2.0;\r\n\
-			auto rValue = int(rMin + rDelta + rDelta * progress);\r\n\
+			auto rValue = (rMin + rDelta + rDelta * progress);\r\n\
 			auto gDelta = (gMax - gMin) / 2.0;\r\n\
-			auto gValue = int(gMin + gDelta + gDelta * progress);\r\n\
+			auto gValue = (gMin + gDelta + gDelta * progress);\r\n\
 			auto bDelta = (bMax - bMin) / 2.0;\r\n\
-			auto bValue = int(bMin + bDelta + bDelta * progress);\r\n\
-			\r\n\
-			to[x + y*width] = (rValue << 16) + (gValue << 8) + bValue;\r\n\
+			auto bValue = (bMin + bDelta + bDelta * progress);\r\n\
+\r\n\
+			to[(x + y*width) * 4 + 0] = rValue;\r\n\
+			to[(x + y*width) * 4 + 1] = gValue;\r\n\
+			to[(x + y*width) * 4 + 2] = bValue;\r\n\
 		}\r\n\
 	}\r\n\
 }\r\n\
@@ -597,7 +599,7 @@ int[1024] fcol;\r\n\
 auto refs = {0, 1, 2, 3, 3};\r\n\
 auto reff = {0xffffff, 0x7f7f7f, 0x3f3f3f, 0x1f1f1f, 0x1f1f1f};\r\n\
 double mx, my, camX, camY, camZ, tcamX, tcamY, tcamZ;\r\n\
-int[] pixels = screen.GetData();\r\n\
+float[] pixels = screen.GetData();\r\n\
 \r\n\
 void setup()\r\n\
 {\r\n\
@@ -741,7 +743,9 @@ void draw()\r\n\
                 }\r\n\
             }\r\n\
             \r\n\
-            pixels[pos] = pixel;\r\n\
+			pixels[pos * 4 + 0] = ((pixel >> 16) & 0xff) / 255.0;\r\n\
+			pixels[pos * 4 + 1] = ((pixel >> 8) & 0xff) / 255.0;\r\n\
+			pixels[pos * 4 + 2] = ((pixel) & 0xff) / 255.0;\r\n\
             ++pos;\r\n\
         }\r\n\
     }\r\n\

@@ -2496,7 +2496,7 @@ void AddTypeAllocation(const char* pos, bool arrayType)
 	}
 }
 
-void AddArrayConstructorCall(const char* pos)
+void AddArrayConstructorCall(const char* pos, const char* name)
 {
 	IncreaseCycleDepth();
 	BeginBlock();
@@ -2516,9 +2516,9 @@ void AddArrayConstructorCall(const char* pos)
 	AddGetAddressNode(pos, vName);
 	if(type->arrLevel)
 	{
-		AddArrayConstructorCall(pos);
+		AddArrayConstructorCall(pos, name);
 	}else{
-		AddMemberFunctionCall(pos, type->genericBase ? type->genericBase->name : type->name, 0);
+		AddMemberFunctionCall(pos, name, 0);
 		AddPopNode(pos);
 	}
 
@@ -2561,7 +2561,7 @@ void FinishConstructorCall(const char* pos)
 	AddTwoExpressionNode(resultType);
 }
 
-bool HasConstructor(TypeInfo* type, unsigned arguments)
+bool HasConstructor(TypeInfo* type, unsigned arguments, bool* callDefault)
 {
 	bestFuncList.clear();
 
@@ -2574,12 +2574,43 @@ bool HasConstructor(TypeInfo* type, unsigned arguments)
 	SelectFunctionsForHash(funcHash, 0);
 
 	// For a generic type instance, check if base class has a constructor function
+	unsigned funcBaseHash = 0;
 	if(type->genericBase)
 	{
-		unsigned funcBaseHash = type->genericBase->nameHash;
+		funcBaseHash = type->genericBase->nameHash;
 		funcBaseHash = StringHashContinue(funcBaseHash, "::");
 		funcBaseHash = StringHashContinue(funcBaseHash, type->genericBase->name);
 		SelectFunctionsForHash(funcBaseHash, 0);
+	}
+
+	// remove functions with wrong argument count
+	for(unsigned i = 0; i < bestFuncList.size(); i++)
+	{
+		FunctionInfo *curr = bestFuncList[i];
+
+		VariableInfo *param = curr->firstParam;
+		for(unsigned int n = 0; n < arguments && param; n++)
+			param = param->next;
+
+		if(curr->paramCount != arguments && !(param && param->defaultValue))
+		{
+			bestFuncList[i] = bestFuncList.back();
+			bestFuncList.pop_back();
+			i--;
+		}
+	}
+
+	if(!bestFuncList.size())
+	{
+		if(callDefault)
+			*callDefault = true;
+		funcHash = StringHashContinue(funcHash, "$");
+		SelectFunctionsForHash(funcHash, 0);
+		if(type->genericBase)
+		{
+			funcBaseHash = StringHashContinue(funcBaseHash, "$");
+			SelectFunctionsForHash(funcBaseHash, 0);
+		}
 	}
 
 	unsigned minRating = ~0u;
@@ -2627,6 +2658,8 @@ void FunctionAdd(const char* pos, const char* funcName)
 	{
 		if(origHash == hashFinalizer)
 			newType->hasFinalizer = true;
+		if(newType->nameHash == origHash)
+			lastFunc->typeConstructor = true;
 		lastFunc->type = FunctionInfo::THISCALL;
 		lastFunc->parentClass = newType;
 		if(newType->genericInfo)
@@ -2840,6 +2873,30 @@ void FunctionStart(const char* pos)
 		AddFunctionExternal(&lastFunc, jumpOffset);
 	}
 	varDefined = false;
+
+	// If this is a constructor
+	if(lastFunc.typeConstructor)
+	{
+		TypeInfo::MemberVariable *curr = newType->firstVariable;
+		int exprCount = 0;
+		for(; curr; curr = curr->next)
+		{
+			TypeInfo *memberType = curr->type->genericBase ? curr->type->genericBase : curr->type;
+			if(HasConstructor(memberType, 0))
+			{
+				AddGetAddressNode(pos, InplaceStr("this", 4));
+				CodeInfo::nodeList.push_back(new NodeDereference());
+				AddMemberAccessNode(pos,  InplaceStr(curr->name));
+				AddMemberFunctionCall(pos, memberType->name, 0);
+				AddPopNode(pos);
+				exprCount++;
+			}
+		}
+		if(!exprCount)
+			CodeInfo::nodeList.push_back(new NodeZeroOP());
+		while(exprCount-- > 1)
+			AddTwoExpressionNode();
+	}
 }
 
 void FunctionEnd(const char* pos)
@@ -2919,6 +2976,9 @@ void FunctionEnd(const char* pos)
 		CodeInfo::classMap.remove(info->nameHash, info->type);
 		info = info->next;
 	}
+
+	if(lastFunc.typeConstructor)
+		AddTwoExpressionNode();
 
 	unsigned int varFormerTop = varTop;
 	varTop = varInfoTop[lastFunc.vTopSize].varStackSize;
@@ -4525,15 +4585,10 @@ void TypeFinish()
 	}
 	newType->hasFinished = true;
 
-	// Remove class members from global scope
-	EndBlock(false, false);
-
-	TypeInfo *lastType = newType;
-	newType = NULL;
-
 	// Check if custom default assignment operator is required
 	bool customAssign = false;
-	TypeInfo::MemberVariable *curr = lastType->firstVariable;
+	bool customConstructor = false;
+	TypeInfo::MemberVariable *curr = newType->firstVariable;
 	for(; curr; curr = curr->next)
 	{
 		if(curr->type->refLevel || curr->type->arrLevel || curr->type->funcType)
@@ -4550,8 +4605,29 @@ void TypeFinish()
 			CodeInfo::nodeList.pop_back();
 			customAssign = true;
 		}
+		if(HasConstructor(curr->type, 0))
+			customConstructor = true;
 	}
-	curr = lastType->firstVariable;
+
+	if(customConstructor)
+	{
+		currType = typeVoid;
+		unsigned length = newType->GetFullNameLength();
+		char *name = AllocateString(length + 2);
+		SafeSprintf(name, length + 2, "%s$", newType->name);
+		FunctionAdd(CodeInfo::lastKnownStartPos, name);
+		currDefinedFunc.back()->typeConstructor = true;
+		FunctionStart(CodeInfo::lastKnownStartPos);
+		AddVoidNode();
+		FunctionEnd(CodeInfo::lastKnownStartPos);
+		AddTwoExpressionNode();
+	}
+
+	// Remove class members from global scope
+	EndBlock(false, false);
+
+	TypeInfo *lastType = newType;
+	newType = NULL;
 
 	// Generate a function, if required
 	if(customAssign)
@@ -4565,7 +4641,7 @@ void TypeFinish()
 		FunctionStart(CodeInfo::lastKnownStartPos);
 		
 		unsigned exprCount = 0;
-		for(; curr; curr = curr->next)
+		for(curr = lastType->firstVariable; curr; curr = curr->next)
 		{
 			AddGetAddressNode(CodeInfo::lastKnownStartPos, InplaceStr("left"));
 			AddGetVariableNode(CodeInfo::lastKnownStartPos);
