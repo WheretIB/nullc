@@ -646,3 +646,32 @@ namespace Bar\r\n\
 }\r\n\
 return Bar.a.foo();";
 TEST_RESULT("namespace test 53", testNamespace53, "10");
+
+const char	*testNamespace54 =
+"namespace Test\r\n\
+{\r\n\
+	int g1 = 3;\r\n\
+	int r;\r\n\
+	void glob()\r\n\
+	{\r\n\
+		int g2 = 5;\r\n\
+		int test(int x, int rek)\r\n\
+		{\r\n\
+			int g3 = 7;\r\n\
+			int help(int x)\r\n\
+			{\r\n\
+				int hell = 0;\r\n\
+				if(x > 10)\r\n\
+					hell = test(2, 0);\r\n\
+				return g3*x + g2*g1 + hell;\r\n\
+			}\r\n\
+			if(rek)\r\n\
+				return help(x) * g2 + g1;\r\n\
+			return help(x) * test(g1, 1);\r\n\
+		}\r\n\
+		r = test(13, 0);\r\n\
+	}\r\n\
+	glob();\r\n\
+}\r\n\
+return Test.r;";
+TEST_RESULT("namespace test 54", testNamespace54, "990579");
