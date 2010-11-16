@@ -615,6 +615,10 @@ return int(y() + z());",
 	TEST_FOR_FAIL("no biggy", "int[1024][1024][1024][4] f; f[3][3][3][0] = 0;", "ERROR: type size (17179869184) exceeds maximum of 268435456");
 
 	TEST_FOR_FAIL("namespace error", "int foo(){ namespace Test{ int x; } return Test.x; }", "ERROR: a namespace definition must appear either at file scope or immediately within another namespace definition");
+
+	TEST_FOR_FAIL("reserved function", "int __newS(){ return 4; }", "ERROR: function '__newS' is reserved");
+	TEST_FOR_FAIL("reserved function", "int __newA(){ return 4; }", "ERROR: function '__newA' is reserved");
+	TEST_FOR_FAIL("reserved function", "auto x = __newS(1023, 23);", "ERROR: function '__newS' is undefined");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

@@ -937,6 +937,11 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 
 			FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 
+			static unsigned int hashNewS = GetStringHash("__newA");
+			static unsigned int hashNewA = GetStringHash("__newS");
+			if(lastFunc->nameHash == hashNewS || lastFunc->nameHash == hashNewA)
+				lastFunc->visible = false;
+
 			AddFunctionToSortedList(lastFunc);
 
 			lastFunc->indexInArr = CodeInfo::funcInfo.size() - 1;

@@ -2685,6 +2685,14 @@ void AddForEachNode(const char* pos)
 	cycleDepth.back()--;
 }
 
+void CallAllocationFunction(const char* pos, const char* name)
+{
+	HashMap<FunctionInfo*>::Node *curr = funcMap.first(GetStringHash(name));
+	if(!curr)
+		ThrowError(pos, "ERROR: failed to find memory allocation function");
+	FunctionInfo *func = curr->value;
+	CodeInfo::nodeList.push_back(new NodeFuncCall(func, func->funcType->funcType));
+}
 void AddTypeAllocation(const char* pos, bool arrayType)
 {
 	if(currType == typeVoid)
@@ -2693,11 +2701,11 @@ void AddTypeAllocation(const char* pos, bool arrayType)
 	CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, (currType->arrLevel ? currType->subType : currType)->typeIndex));
 	if(!arrayType)
 	{
-		AddFunctionCallNode(pos, "__newS", 2);
+		CallAllocationFunction(pos, "__newS");
 		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(currType);
 	}else{
 		assert(currType->arrSize == TypeInfo::UNSIZED_ARRAY);
-		AddFunctionCallNode(pos, "__newA", 3);
+		CallAllocationFunction(pos, "__newA");
 		CodeInfo::nodeList.back()->typeInfo = currType;
 	}
 }
@@ -2876,6 +2884,15 @@ void FunctionAdd(const char* pos, const char* funcName, bool isOperator)
 	CodeInfo::funcInfo.push_back(new FunctionInfo(funcNameCopy, funcNameHash, origHash));
 	FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 	lastFunc->parentFunc = currDefinedFunc.size() > 0 ? currDefinedFunc.back() : NULL;
+
+	static unsigned int hashNewS = GetStringHash("__newA");
+	static unsigned int hashNewA = GetStringHash("__newS");
+	if(funcNameHash == hashNewS || funcNameHash == hashNewA)
+	{
+		if(funcMap.first(funcNameHash))
+			ThrowError(pos, "ERROR: function '%s' is reserved", funcName);
+		lastFunc->visible = false;
+	}
 
 	if(!isOperator)
 		lastFunc->parentNamespace = namespaceStack.size() > 1 ? namespaceStack.back() : NULL;
@@ -3301,7 +3318,7 @@ void FunctionEnd(const char* pos)
 		// Allocate array in dynamic memory
 		CodeInfo::nodeList.push_back(new NodeNumber((int)(lastFunc.externalSize), typeInt));
 		CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
-		AddFunctionCallNode(pos, "__newS", 2);
+		CallAllocationFunction(pos, "__newS");
 		assert(closureType->size >= lastFunc.externalSize);
 		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(closureType);
 
@@ -5278,7 +5295,7 @@ void CreateRedirectionTables()
 			CodeInfo::nodeList.push_back(new NodeNumber(4, typeInt));
 			AddFunctionCallNode(CodeInfo::lastKnownStartPos, "__typeCount", 0);
 			CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
-			AddFunctionCallNode(CodeInfo::lastKnownStartPos, "__newA", 3);
+			CallAllocationFunction(CodeInfo::lastKnownStartPos, "__newA");
 			CodeInfo::nodeList.back()->typeInfo = currType;
 			CodeInfo::varInfo.push_back(curr);
 			curr->pos = varTop;

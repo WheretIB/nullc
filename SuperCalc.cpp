@@ -1546,7 +1546,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
 
 				char *it = name;
-				it += safeprintf(it, 256, "0x%x: %s %s", ptr, function.externCount ? "$context" : "$this", codeSymbols + codeTypes[function.parentType].offsetToName);
+				it += safeprintf(it, 256, "0x%x: %s %s = %p", ptr, function.externCount ? "$context" : "$this", codeSymbols + codeTypes[function.parentType].offsetToName, *(char**)ptr);
 
 				TVINSERTSTRUCT localInfo;
 				localInfo.hParent = lastItem;
