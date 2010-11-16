@@ -107,11 +107,11 @@ bool Linker::LinkCode(const char *code)
 #endif
 					if(!LinkCode(bytecode))
 					{
-						SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failed to load module %s (ports %d-%d)", path, mInfo->funcStart, mInfo->funcStart + mInfo->funcCount - 1);
+						SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failure to load module %s", path);
 						return false;
 					}
 				}else{
-					SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nFailed to load module %s", path);
+					SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nFailure to load module %s", path);
 					return false;
 				}
 			}
@@ -318,6 +318,12 @@ bool Linker::LinkCode(const char *code)
 				continue;
 			}else{
 				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: function '%s' is redefined", symbolInfo + fInfo->offsetToName);
+				// Try to find module where previous definition was found
+				for(unsigned k = 0; k < exModules.size(); k++)
+				{
+					if(exModules[k].funcStart >= index && index < exModules[k].funcStart + exModules[k].funcCount)
+						SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: redefinition of module %s function '%s'", exModules[k].name, symbolInfo + fInfo->offsetToName);
+				}
 				return false;
 			}
 		}
