@@ -115,6 +115,8 @@ public:
 		genericInfo = NULL;
 		genericBase = NULL;
 
+		parentNamespace = NULL;
+
 		hasFinished = true;
 
 #ifdef NULLC_LLVM_SUPPORT
@@ -161,6 +163,8 @@ public:
 	NodeZeroOP		*definitionList;
 	GenericContext	*genericInfo;
 	TypeInfo		*genericBase;
+
+	NamespaceInfo	*parentNamespace;
 
 #ifdef NULLC_LLVM_SUPPORT
 	const void		*llvmType;

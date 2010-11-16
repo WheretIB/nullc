@@ -594,3 +594,34 @@ namespace Test\r\n\
 }\r\n\
 return Test.a(2);";
 TEST_RESULT("namespace test 49", testNamespace49, "-2");
+
+const char	*testNamespace50 =
+"namespace Test\r\n\
+{\r\n\
+	class Foo<T>{ T x; }\r\n\
+	int bar(int x){ return x * 2; }\r\n\
+	int Foo:foo(){ return bar(5); }\r\n\
+}\r\n\
+namespace Bar\r\n\
+{\r\n\
+	Test.Foo<int> a;\r\n\
+}\r\n\
+return Bar.a.foo();";
+TEST_RESULT("namespace test 50", testNamespace50, "10");
+
+const char	*testNamespace51 =
+"namespace Test\r\n\
+{\r\n\
+	int bar(int x){ return x * 2; }\r\n\
+	class Foo<T>\r\n\
+	{\r\n\
+		T x;\r\n\
+		int foo(){ return bar(5); }\r\n\
+	}\r\n\
+}\r\n\
+namespace Bar\r\n\
+{\r\n\
+	Test.Foo<int> a;\r\n\
+}\r\n\
+return Bar.a.foo();";
+TEST_RESULT("namespace test 51", testNamespace51, "10");
