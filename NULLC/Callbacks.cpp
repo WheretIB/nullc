@@ -194,19 +194,19 @@ unsigned AddNamespaceToHash(unsigned hash, NamespaceInfo* info)
 	return hash;
 }
 
-TypeInfo* SelectTypeByName(InplaceStr name)
+template<typename T>
+void NamespaceSelect(InplaceStr name, T& state)
 {
-	TypeInfo **type = NULL;
-	for(unsigned i = namespaceStack.size() - 1; i > 0 && !type; i--)
+	for(unsigned i = namespaceStack.size() - 1; i > 0 && state.proceed(); i--)
 	{
 		unsigned hash = namespaceStack[i]->hash;
 		hash = StringHashContinue(hash, ".");
 		if(currNamespace)
 			hash = AddNamespaceToHash(hash, currNamespace);
 		hash = StringHashContinue(hash, name.begin, name.end);
-		type = CodeInfo::classMap.find(hash);
+		state.action(hash);
 	}
-	if(!type)
+	if(state.proceed())
 	{
 		unsigned int hash = 0;
 		if(NamespaceInfo *ns = currNamespace)
@@ -217,41 +217,8 @@ TypeInfo* SelectTypeByName(InplaceStr name)
 		}else{
 			hash = GetStringHash(name.begin, name.end);
 		}
-		type = CodeInfo::classMap.find(hash);
+		state.action(hash);
 	}
-	if(type)
-		return *type;
-	return NULL;
-}
-HashMap<VariableInfo*>::Node* SelectVariableByName(InplaceStr name)
-{
-	HashMap<VariableInfo*>::Node *curr = NULL;
-	for(unsigned i = namespaceStack.size() - 1; i > 0 && !curr; i--)
-	{
-		unsigned hash = namespaceStack[i]->hash;
-		hash = StringHashContinue(hash, ".");
-		if(currNamespace)
-			hash = AddNamespaceToHash(hash, currNamespace);
-		hash = StringHashContinue(hash, name.begin, name.end);
-		curr = varMap.first(hash);
-	}
-	if(!curr)
-	{
-		unsigned int hash = 0;
-		if(NamespaceInfo *ns = currNamespace)
-		{
-			hash = ns->hash;
-			hash = StringHashContinue(hash, ".");
-			hash = StringHashContinue(hash, name.begin, name.end);
-		}else{
-			hash = GetStringHash(name.begin, name.end);
-		}
-		curr = varMap.first(hash);
-	}
-	// In generic function instance, skip all variables that are defined after the base generic function
-	while(curr && currDefinedFunc.size() && currDefinedFunc.back()->genericBase && !(curr->value->pos >> 24) && !(curr->value->parentType) && (curr->value->isGlobal ? currDefinedFunc.back()->genericBase->globalVarTop <= curr->value->pos : (currDefinedFunc.back()->genericBase->blockDepth < curr->value->blockDepth && currDefinedFunc.back() != curr->value->parentFunction)))
-		curr = varMap.next(curr);
-	return curr;
 }
 
 ChunkedStackPool<65532> TypeInfo::typeInfoPool;
@@ -266,6 +233,56 @@ FastVector<FunctionInfo*>	bestFuncListBackup;
 FastVector<unsigned int>	bestFuncRatingBackup;
 
 FastVector<NodeZeroOP*>	paramNodes;
+
+struct ClassSelect
+{
+	ClassSelect(): type(NULL){}
+	bool	proceed(){ return !type; }
+	void	action(unsigned hash){ type = CodeInfo::classMap.find(hash); }
+	TypeInfo **type;
+};
+
+struct VariableSelect
+{
+	VariableSelect(): curr(NULL){}
+	bool	proceed(){ return !curr; }
+	void	action(unsigned hash){ curr = varMap.first(hash); }
+	HashMap<VariableInfo*>::Node *curr;
+};
+
+struct FunctionSelect
+{
+	FunctionSelect(): curr(NULL){}
+	bool	proceed(){ return !curr; }
+	void	action(unsigned hash){ curr = funcMap.first(hash); }
+	HashMap<FunctionInfo*>::Node	*curr;
+};
+
+struct FunctionSelectCall
+{
+	FunctionSelectCall(int scope): scope(scope){}
+	bool	proceed(){ return !bestFuncList.size(); }
+	void	action(unsigned hash){ SelectFunctionsForHash(hash, scope); }
+	unsigned scope;
+};
+
+TypeInfo* SelectTypeByName(InplaceStr name)
+{
+	ClassSelect f;
+	NamespaceSelect(name, f);
+	return f.type ? *f.type : NULL;
+}
+
+HashMap<VariableInfo*>::Node* SelectVariableByName(InplaceStr name)
+{
+	VariableSelect f;
+	NamespaceSelect(name, f);
+	HashMap<VariableInfo*>::Node *curr = f.curr;
+	// In generic function instance, skip all variables that are defined after the base generic function
+	while(curr && currDefinedFunc.size() && currDefinedFunc.back()->genericBase && !(curr->value->pos >> 24) && !(curr->value->parentType) && (curr->value->isGlobal ? currDefinedFunc.back()->genericBase->globalVarTop <= curr->value->pos : (currDefinedFunc.back()->genericBase->blockDepth < curr->value->blockDepth && currDefinedFunc.back() != curr->value->parentFunction)))
+		curr = varMap.next(curr);
+	return curr;
+}
 
 void AddInplaceVariable(const char* pos, TypeInfo* targetType = NULL);
 void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType);
@@ -731,13 +748,9 @@ void AddStringNode(const char* s, const char* e, bool unescaped)
 // Function that creates node that removes value on top of the stack
 void AddPopNode(const char* pos)
 {
-	// If the last node is a number, remove it completely
-	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber)
+	// If the last node is increment or decrement, then we do not need to keep the value on stack, and some optimizations can be done
+	if(CodeInfo::nodeList.back()->nodeType == typeNodePreOrPostOp)
 	{
-		CodeInfo::nodeList.pop_back();
-		CodeInfo::nodeList.push_back(new NodeZeroOP());
-	}else if(CodeInfo::nodeList.back()->nodeType == typeNodePreOrPostOp){
-		// If the last node is increment or decrement, then we do not need to keep the value on stack, and some optimizations can be done
 		static_cast<NodePreOrPostOp*>(CodeInfo::nodeList.back())->SetOptimised(true);
 	}else{
 		// Otherwise, just create node
@@ -1339,27 +1352,10 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		}
 		if(fID == -1)
 		{
-			for(int i = namespaceStack.size() - 1; i > 0 && fID == -1; i--)
-			{
-				unsigned tmpHash = namespaceStack[i]->hash;
-				tmpHash = StringHashContinue(tmpHash, ".");
-				if(currNamespace)
-					tmpHash = AddNamespaceToHash(tmpHash, currNamespace);
-				tmpHash = StringHashContinue(tmpHash, varName.begin, varName.end);
-				fID = CodeInfo::FindFunctionByName(tmpHash, CodeInfo::funcInfo.size() - 1);
-				if(fID != -1)
-					hash = tmpHash;
-			}
-			if(fID == -1)
-			{
-				if(NamespaceInfo *ns = currNamespace)
-				{
-					hash = ns->hash;
-					hash = StringHashContinue(hash, ".");
-					hash = StringHashContinue(hash, varName.begin, varName.end);
-				}
-				fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size() - 1);
-			}
+			FunctionSelect f;
+			NamespaceSelect(varName, f);
+			hash = f.curr ? f.curr->value->nameHash : ~0u;
+			fID = f.curr ? f.curr->value->indexInArr : -1;
 		}
 		if(fID == -1)
 			ThrowError(pos, "ERROR: unknown identifier '%.*s'", varName.end-varName.begin, varName.begin);
@@ -1464,28 +1460,9 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 	}
 	if(!currF)
 	{
-		for(int i = namespaceStack.size() - 1; i > 0 && !currF; i--)
-		{
-			unsigned tmpHash = namespaceStack[i]->hash;
-			tmpHash = StringHashContinue(tmpHash, ".");
-			if(currNamespace)
-				tmpHash = AddNamespaceToHash(tmpHash, currNamespace);
-			tmpHash = StringHashContinue(tmpHash, currFunction);
-			currF = funcMap.first(tmpHash);
-		}
-		if(!currF)
-		{
-			unsigned hash = ~0u;
-			if(NamespaceInfo *ns = currNamespace)
-			{
-				hash = ns->hash;
-				hash = StringHashContinue(hash, ".");
-				hash = StringHashContinue(hash, currFunction);
-			}else{
-				hash = GetStringHash(currFunction);
-			}
-			currF = funcMap.first(hash);
-		}
+		FunctionSelect f;
+		NamespaceSelect(InplaceStr(currFunction), f);
+		currF = f.curr;
 	}
 	TypeInfo **typeInstance = NULL;
 	const char *tmpPos = NULL;
@@ -4196,30 +4173,15 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			CodeInfo::nodeList.pop_back();
 		}
 	}
-	if(funcName && !funcAddr)
-	{
-		if(currNamespace)
-		{
-			funcNameHash = currNamespace->hash;
-			funcNameHash = StringHashContinue(funcNameHash, ".");
-			funcNameHash = StringHashContinue(funcNameHash, funcName);
-		}else{
-			funcNameHash = GetStringHash(funcName);
-		}
-	}
 	// Handle type(auto ref) -> type, if no user function is defined.
-	if(!silent && callArgCount == 1 && CodeInfo::nodeList.back()->typeInfo == typeObject)
+	if(!silent && callArgCount == 1 && CodeInfo::nodeList.back()->typeInfo == typeObject && funcName)
 	{
-		TypeInfo *autoRefToType = NULL;
 		// Find class by name
-		TypeInfo **type = CodeInfo::classMap.find(funcNameHash);
-		// If found, select it
-		if(type)
-			autoRefToType = *type;
+		TypeInfo *autoRefToType = SelectTypeByName(InplaceStr(funcName));
 		// If class wasn't found, try all other types
 		for(unsigned int i = 0; i < CodeInfo::typeInfo.size() && !autoRefToType; i++)
 		{
-			if(CodeInfo::typeInfo[i]->GetFullNameHash() == funcNameHash)
+			if(CodeInfo::typeInfo[i]->GetFullNameHash() == GetStringHash(funcName))
 				autoRefToType = CodeInfo::typeInfo[i];
 		}
 		// If a type was found
@@ -4255,49 +4217,31 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 	// Find all functions with given name
 	bestFuncList.clear();
-	if(funcAddr)
+	if(funcName)
 	{
-		SelectFunctionsForHash(funcNameHash, scope);
-	}else{
-		for(int i = namespaceStack.size() - 1; i > 0 && !bestFuncList.size(); i--)
+		if(funcAddr)
 		{
-			unsigned hash = namespaceStack[i]->hash;
-			hash = StringHashContinue(hash, ".");
-			if(currNamespace)
-				hash = AddNamespaceToHash(hash, currNamespace);
-			hash = StringHashContinue(hash, funcName);
-			SelectFunctionsForHash(hash, scope);
-		}
-		if(!bestFuncList.size())
 			SelectFunctionsForHash(funcNameHash, scope);
+		}else{
+			FunctionSelectCall f(scope);
+			NamespaceSelect(InplaceStr(funcName), f);
+		}
 	}
 	unsigned int count = bestFuncList.size();
 	
-	TypeInfo **info = NULL;
-	if(count == 0)
-	{
-		for(int i = namespaceStack.size() - 1; i > 0 && !info; i--)
-		{
-			unsigned hash = namespaceStack[i]->hash;
-			hash = StringHashContinue(hash, ".");
-			if(currNamespace)
-				hash = AddNamespaceToHash(hash, currNamespace);
-			hash = StringHashContinue(hash, funcName);
-			info = CodeInfo::classMap.find(hash);
-		}
-		if(!info)
-			info = CodeInfo::classMap.find(funcNameHash);
-	}
+	TypeInfo *info = NULL;
+	if(count == 0 && funcName)
+		info = SelectTypeByName(InplaceStr(funcName));
 	// Reset current namespace after this point, it's already been used up
 	NamespaceInfo *lastNS = currNamespace;
 	currNamespace = NULL;
 	// If no functions are found, function name is a type name and a type has member constructors
 	if(count == 0 && info)
 	{
-		if((*info)->genericInfo)
+		if(info->genericInfo)
 			ThrowError(pos, "ERROR: generic type arguments in <> are not found after constructor name");
 
-		bool hasConstructor = HasConstructor(*info, callArgCount);
+		bool hasConstructor = HasConstructor(info, callArgCount);
 
 		if(hasConstructor || callArgCount == 0)
 		{
@@ -4305,7 +4249,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			char *arrName = AllocateString(16);
 			int length = sprintf(arrName, "$temp%d", inplaceVariableNum++);
 			TypeInfo *saveCurrType = currType; // Save type in definition
-			currType = *info;
+			currType = info;
 			VariableInfo *varInfo = AddVariable(pos, InplaceStr(arrName, length)); // Create temporary variable
 			AddGetAddressNode(pos, InplaceStr(arrName, length)); // Get address
 			// Call constructor if it's available
@@ -4317,11 +4261,11 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 					CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - k] = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k];
 					CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k] = temp;
 				}
-				AddMemberFunctionCall(pos, FindConstructorName(*info), callArgCount); // Call member constructor
+				AddMemberFunctionCall(pos, FindConstructorName(info), callArgCount); // Call member constructor
 				AddPopNode(pos); // Remove result
 				CodeInfo::nodeList.push_back(new NodeGetAddress(varInfo, varInfo->pos, varInfo->varType)); // Get address
 				AddGetVariableNode(pos); // Dereference
-				AddTwoExpressionNode(*info); // Pack two nodes together
+				AddTwoExpressionNode(info); // Pack two nodes together
 			}else{
 				// Imitate default constructor call
 				AddGetVariableNode(pos, true);

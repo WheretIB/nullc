@@ -470,3 +470,48 @@ const char	*testNamespace38 =
 }\r\n\
 return Test.x(<i, j>{ i + j; });";
 TEST_RESULT("namespace test 38", testNamespace38, "5");
+
+const char	*testNamespace39 =
+"namespace Test\r\n\
+{\r\n\
+	auto ref x = 5;\r\n\
+	int y = int(x);\r\n\
+}\r\n\
+return Test.y;";
+TEST_RESULT("namespace test 39", testNamespace39, "5");
+
+const char	*testNamespace40 =
+"namespace Test\r\n\
+{\r\n\
+	class Foo{ int x; void Foo(int y){ x = y; } }\r\n\
+	auto ref x = Foo(5);\r\n\
+	int y = Foo(x).x;\r\n\
+}\r\n\
+return Test.y;";
+TEST_RESULT("namespace test 40", testNamespace40, "5");
+
+const char	*testNamespace41 =
+"namespace Test\r\n\
+{\r\n\
+	class Foo{ int x; void Foo(int y){ x = y; } }\r\n\
+	auto ref x = Foo(5);\r\n\
+}\r\n\
+return Test.Foo(Test.x).x;";
+TEST_RESULT("namespace test 41", testNamespace41, "5");
+
+const char	*testNamespace42 =
+"namespace Test\r\n\
+{\r\n\
+	class Foo{ int x; }\r\n\
+	int foo(typeid x){ return x == Foo; }\r\n\
+}\r\n\
+return Test.foo(Test.Foo);";
+TEST_RESULT("namespace test 42", testNamespace42, "1");
+
+const char	*testNamespace43 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(int x){ return 3 * x; }\r\n\
+}\r\n\
+return Test.foo(Test.foo(5));";
+TEST_RESULT("namespace test 43", testNamespace43, "45");
