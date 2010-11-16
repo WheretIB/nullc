@@ -2055,7 +2055,7 @@ bool ParseTerminal(Lexeme** str)
 		
 		TypeInfo *info = GetSelectedType();
 		GetTypeSize((*str)->pos, false);
-		const char *name = info->genericBase ? info->genericBase->name : info->name;
+		const char *name = FindConstructorName(info);
 		bool callDefault = false;
 		bool hasEmptyConstructor = HasConstructor(info, 0, &callDefault);
 
@@ -2163,7 +2163,6 @@ bool ParseTerminal(Lexeme** str)
 		{
 			Lexeme *curr = *str;
 			NamespaceInfo* lastNS = GetCurrentNamespace();
-			// $$ some creepy stuff can be parsed here, like, a nested name can be from parent namespace
 			NamespaceInfo* ns = NULL;
 			while((*str)->type == lex_string && (*str + 1)->type == lex_point && (ns = IsNamespace(InplaceStr((*str)->pos, (*str)->length))) != NULL)
 			{

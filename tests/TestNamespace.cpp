@@ -246,3 +246,77 @@ const char	*testNamespace18 =
 Test.Foo a = Test.Foo(4);\r\n\
 return a.z;";
 TEST_RESULT("namespace test 18", testNamespace18, "4");
+
+const char	*testNamespace19 =
+"namespace Test\r\n\
+{\r\n\
+	class Foo\r\n\
+	{\r\n\
+		int x;\r\n\
+		void Foo(){ x = 3; }\r\n\
+		int bar(int y){ return x + y; }\r\n\
+	}\r\n\
+}\r\n\
+Test.Foo a;\r\n\
+return a.bar(3);";
+TEST_RESULT("namespace test 19", testNamespace19, "6");
+
+const char	*testNamespace20 =
+"namespace Test\r\n\
+{\r\n\
+	class Foo\r\n\
+	{\r\n\
+		int x;\r\n\
+		void Foo(){ x = 3; }\r\n\
+		void Foo(int y){ x = y; }\r\n\
+		int bar(int y){ return x + y; }\r\n\
+	}\r\n\
+}\r\n\
+Test.Foo a, b = Test.Foo(6);\r\n\
+return a.bar(3) + b.bar(30);";
+TEST_RESULT("namespace test 20", testNamespace20, "42");
+
+const char	*testNamespace21 =
+"namespace Test\r\n\
+{\r\n\
+	class Foo\r\n\
+	{\r\n\
+		int x;\r\n\
+		void Foo(){ x = 3; }\r\n\
+		void Foo(int y){ x = y; }\r\n\
+		int bar(int y){ return x + y; }\r\n\
+	}\r\n\
+}\r\n\
+Test.Foo ref a = new Test.Foo, b = new Test.Foo(), c = new Test.Foo(100);\r\n\
+return a.bar(3) + b.bar(30) + c.bar(400);";
+TEST_RESULT("namespace test 21", testNamespace21, "539");
+
+const char	*testNamespace22 =
+"namespace Test\r\n\
+{\r\n\
+	class Foo\r\n\
+	{\r\n\
+		int x;\r\n\
+		void Foo(){ x = 3; }\r\n\
+		void Foo(int y){ x = y; }\r\n\
+		int bar(int y){ return x + y; }\r\n\
+	}\r\n\
+	Foo ref a = new Foo, b = new Foo(), c = new Foo(100);\r\n\
+}\r\n\
+return Test.a.bar(3) + Test.b.bar(30) + Test.c.bar(400);";
+TEST_RESULT("namespace test 22", testNamespace22, "539");
+
+const char	*testNamespace23 =
+"namespace Test\r\n\
+{\r\n\
+	class Foo\r\n\
+	{\r\n\
+		int x;\r\n\
+		void Foo(){ x = 3; }\r\n\
+		void Foo(int y){ x = y; }\r\n\
+		int bar(int y){ return x + y; }\r\n\
+	}\r\n\
+	Foo a, b = Foo(), c = Foo(100);\r\n\
+}\r\n\
+return Test.a.bar(3) + Test.b.bar(30) + Test.c.bar(400);";
+TEST_RESULT("namespace test 23", testNamespace23, "539");
