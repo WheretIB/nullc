@@ -350,6 +350,8 @@ void Lexer::Lexify(const char* code)
 					case 9:
 						if(memcmp(code, "coroutine", 9) == 0)
 							lType = lex_coroutine;
+						else if(memcmp(code, "namespace", 9) == 0)
+							lType = lex_namespace;
 						break;
 					}
 				}

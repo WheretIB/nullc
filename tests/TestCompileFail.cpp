@@ -64,7 +64,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Array of auto", "auto[4] a; return 1;", "ERROR: cannot specify array size for auto variable");
 	TEST_FOR_FAIL("sizeof auto", "return sizeof(auto);", "ERROR: sizeof(auto) is illegal");
 
-	TEST_FOR_FAIL("Unknown function", "return b;", "ERROR: variable or function 'b' is not defined");
+	TEST_FOR_FAIL("Unknown function", "return b;", "ERROR: unknown identifier 'b'");
 	TEST_FOR_FAIL("Unclear decision", "void a(int b){} void a(float b){} return a;", "ERROR: ambiguity, there is more than one overloaded function available:");
 	TEST_FOR_FAIL("Variable of unknown type used", "auto a = a + 1; return a;", "ERROR: variable 'a' is being used while its type is unknown");
 
@@ -141,7 +141,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Illegal conversion 1", "import std.math; float3 a; a = 12.0; return 1;", "ERROR: cannot convert 'double' to 'float3'");
 	TEST_FOR_FAIL("Illegal conversion 2", "import std.math; float3 a; float4 b; b = a; return 1;", "ERROR: cannot convert 'float3' to 'float4'");
 
-	TEST_FOR_FAIL("For scope", "for(int i = 0; i < 1000; i++) i += 5; return i;", "ERROR: variable or function 'i' is not defined");
+	TEST_FOR_FAIL("For scope", "for(int i = 0; i < 1000; i++) i += 5; return i;", "ERROR: unknown identifier 'i'");
 
 	TEST_FOR_FAIL("Class function return unclear 1", "class Test{int i;int foo(){ return i; }int foo(int k){ return i; }auto bar(){ return foo; }}return 1;", "ERROR: ambiguity, there is more than one overloaded function available:");
 	TEST_FOR_FAIL("Class function return unclear 2", "int foo(){ return 2; }class Test{int i;int foo(){ return i; }auto bar(){ return foo; }}return 1;", "ERROR: ambiguity, there is more than one overloaded function available:");
@@ -272,7 +272,7 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar
 	TEST_FOR_FAIL("One expression in short function if not a pop node", "int caller(int ref(int) f){ return f(5); } return caller(<x>{ if(x){} });", "ERROR: function must return a value of type 'int'");
 	TEST_FOR_FAIL("Multiple expressions in short function without a pop node", "int caller(int ref(int) f){ return f(5); } return caller(<x>{ if(x){} if(x){} });", "ERROR: function must return a value of type 'int'");
 
-	TEST_FOR_FAIL("Using an argument of a function in definition in expression", "auto foo(int a, int b = a){ return a + b; } return foo(5, 7);", "ERROR: variable or function 'a' is not defined");
+	TEST_FOR_FAIL("Using an argument of a function in definition in expression", "auto foo(int a, int b = a){ return a + b; } return foo(5, 7);", "ERROR: unknown identifier 'a'");
 
 	TEST_FOR_FAIL("Short inline function at generic argument position", "auto foo(generic a, b, generic f){ return f(a, b); } return foo(5, 4, <x,y>{ x * y; });", "ERROR: cannot find function or variable 'foo' which accepts a function with 2 argument(s) as an argument #2");
 
@@ -281,7 +281,7 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar
 	TEST_FOR_FAIL("coroutine cannot be a member function", "class Foo{} coroutine int Foo:bar(){ yield 1; return 0; } return 1;", "ERROR: coroutine cannot be a member function");
 
 	TEST_FOR_FAIL_GENERIC("error in generic function body", "auto sum(generic a, b, c){ return a + b + ; } return sum(3, 4.5, 5l);", "ERROR: while instantiating generic function sum(generic, generic, generic)", "ERROR: terminal expression not found after binary operation");
-	TEST_FOR_FAIL_GENERIC("genric function accessing variable that is defined later", "int y = 4; auto foo(generic a){ return i + y; } int i = 2; return foo(4);", "ERROR: while instantiating generic function foo(generic)", "ERROR: variable or function 'i' is not defined");
+	TEST_FOR_FAIL_GENERIC("genric function accessing variable that is defined later", "int y = 4; auto foo(generic a){ return i + y; } int i = 2; return foo(4);", "ERROR: while instantiating generic function foo(generic)", "ERROR: unknown identifier 'i'");
 
 	TEST_FOR_FAIL("multiple function prototypes", "int foo(); int foo(); int foo(){ return 1; } return 1;", "ERROR: function is already defined");
 	TEST_FOR_FAIL("function prototype after definition", "int foo(){ return 1; } int foo(); return 1;", "ERROR: function is already defined");
@@ -370,7 +370,7 @@ return bar(foo);",
 
 	TEST_FOR_FAIL("generic type too many arguments", "class Foo<T>{ T a; } Foo<int, float, int>", "ERROR: type has only '1' generic argument(s) while '3' specified");
 	TEST_FOR_FAIL("generic type wrong argument count", "class Foo<T, U>{ T a; } Foo<int>", "ERROR: there where only '1' argument(s) to a generic type that expects '2'");
-	TEST_FOR_FAIL("generic instance type invisible after instance", "class Foo<T>{ T x, y, z; } Foo<int> x; T a; return a;", "ERROR: variable or function 'T' is not defined");
+	TEST_FOR_FAIL("generic instance type invisible after instance", "class Foo<T>{ T x, y, z; } Foo<int> x; T a; return a;", "ERROR: unknown identifier 'T'");
 
 	TEST_FOR_FAIL("generic type used type in definition 1", "class Foo<T>{ T x; Bar<float> y; } class Bar<T>{ Foo<T ref> x; } Foo<Bar<int> > a; return 0;", "ERROR: while instantiating generic type Bar<int>:");
 	TEST_FOR_FAIL("generic type used type in definition 2", "class Foo<T>{ T x; Bar<T ref> y; } class Bar<T>{ Foo<T ref> x; } Foo<Bar<int> > a; return 0;", "ERROR: while instantiating generic type Bar<int>:");
@@ -386,7 +386,7 @@ return bar(foo);",
 }\r\n\
 int c = 10;\r\n\
 Foo<int> x;\r\n\
-return x.foo();", "ERROR: while instantiating generic type Foo<int>:", "ERROR: variable or function 'c' is not defined");
+return x.foo();", "ERROR: while instantiating generic type Foo<int>:", "ERROR: unknown identifier 'c'");
 
 	TEST_FOR_FAIL_GENERIC("generic type function scope 2",
 "class Foo<T>\r\n\
@@ -407,7 +407,7 @@ int bar()\r\n\
 	}\r\n\
 	return ken();\r\n\
 }\r\n\
-return bar();", "ERROR: while instantiating generic type Foo<int>:", "ERROR: variable or function 'c' is not defined");
+return bar();", "ERROR: while instantiating generic type Foo<int>:", "ERROR: unknown identifier 'c'");
 
 	TEST_FOR_FAIL_GENERIC("generic type function scope 3",
 "class Foo<T>\r\n\
@@ -420,7 +420,7 @@ int Foo:foo()\r\n\
 }\r\n\
 int c = 10;\r\n\
 Foo<int> x;\r\n\
-return x.foo();", "ERROR: while instantiating generic function Foo::foo()", "ERROR: variable or function 'c' is not defined");
+return x.foo();", "ERROR: while instantiating generic function Foo::foo()", "ERROR: unknown identifier 'c'");
 
 	TEST_FOR_FAIL("generic type name is too long", 
 "class Pair<T, U>{ T i; U j; }\r\n\
@@ -462,7 +462,7 @@ return int(foo(b) + foo(c));",
 
 	TEST_FOR_FAIL(">> after a non-nester generic type name", "class Foo<T>{ T t; } int c = 1; int a = Foo<int>> c;", "ERROR: operation > is not supported on 'typeid' and 'int'");
 
-	TEST_FOR_FAIL("generic instance type invisible after instance 2", "class Foo<T>{ T x; } Foo<int> x; Foo<int> y; T a;", "ERROR: variable or function 'T' is not defined");
+	TEST_FOR_FAIL("generic instance type invisible after instance 2", "class Foo<T>{ T x; } Foo<int> x; Foo<int> y; T a;", "ERROR: unknown identifier 'T'");
 
 	TEST_FOR_FAIL("generic function specialization fail 6", "class Foo<T>{ T x; } Foo<int> a; a.x = 5; auto foo(Foo<generic> m){ return -m.x; } return foo(&a);", "ERROR: can't find function 'foo' with following parameters:");
 
@@ -502,11 +502,11 @@ return int(y() + z());",
 
 	TEST_FOR_FAIL("generic type member function doesn't exist", "class Foo<T>{ T x; } Foo<int> y; auto z = y.bar; return 1;", "ERROR: member variable or function 'bar' is not defined in class 'Foo<int>'");
 
-	TEST_FOR_FAIL("typedef dies after a generic function instance in an incorrect scope", "auto foo(generic x){ typedef typeof(x) T; T a = x * 2; return a; } int bar(){ int x = foo(5); T y; return x; } return bar();", "ERROR: variable or function 'T' is not defined");
+	TEST_FOR_FAIL("typedef dies after a generic function instance in an incorrect scope", "auto foo(generic x){ typedef typeof(x) T; T a = x * 2; return a; } int bar(){ int x = foo(5); T y; return x; } return bar();", "ERROR: unknown identifier 'T'");
 
 	TEST_FOR_FAIL("alias redefinition in generic type definition", "class Foo<T, T>{ T x; } Foo<int, double> m;", "ERROR: there is already a type or an alias with the same name");
 
-	TEST_FOR_FAIL("generic instance type invisible after instance 3", "class Foo<T>{} void foo(Foo<@T> x){ T y; } Foo<int> a; foo(a); T x; return sizeof(x);", "ERROR: variable or function 'T' is not defined");
+	TEST_FOR_FAIL("generic instance type invisible after instance 3", "class Foo<T>{} void foo(Foo<@T> x){ T y; } Foo<int> a; foo(a); T x; return sizeof(x);", "ERROR: unknown identifier 'T'");
 
 	TEST_FOR_FAIL("generic instance type invisible after instance 3", "class Foo<T>{ T x; } void foo(Foo<@T>[] x){ x.x = 5; } Foo<int> a; foo(a); return a.x;", "ERROR: can't find function 'foo' with following parameters:");
 
@@ -550,7 +550,7 @@ return int(y() + z());",
 
 	TEST_FOR_FAIL("multiple aliases with different type in argument list", "class Foo<T>{ void Foo(){} } auto foo(Foo<@T> a, b){} foo(Foo<int>(), Foo<double>());", "ERROR: can't find function 'foo' with following parameters:");
 
-	TEST_FOR_FAIL("typedef dies after a generic function instance 2", "class Foo<T>{ T x; } auto foo(Foo<@T> x, int ref(int, int) y){ return x.x * y(1, 2); } Foo<int> a; a.x = 2; assert(6 == foo(a, <i, j>{ i+j; })); T x; return x;", "ERROR: variable or function 'T' is not defined");
+	TEST_FOR_FAIL("typedef dies after a generic function instance 2", "class Foo<T>{ T x; } auto foo(Foo<@T> x, int ref(int, int) y){ return x.x * y(1, 2); } Foo<int> a; a.x = 2; assert(6 == foo(a, <i, j>{ i+j; })); T x; return x;", "ERROR: unknown identifier 'T'");
 
 	TEST_FOR_FAIL("generic in an illegal context", "auto foo(generic x){} class Bar<T>{ T x; } auto Bar:bar(generic y = foo(Bar<T>())){} return 1;", "ERROR: type depends on 'generic' in a context where it is not allowed");
 	TEST_FOR_FAIL("generic in an illegal context", "auto foo(generic x){} class Bar<T>{ T x; } auto Bar:bar(generic y = foo(T())){} return 1;", "ERROR: couldn't fully resolve type 'generic' for an argument 0 of a function 'foo'");
@@ -606,6 +606,10 @@ return int(y() + z());",
 	TEST_FOR_FAIL("no incorrect optimization for classes", "class Foo{ } Foo a = 0 + Foo(); return 1;", "ERROR: operation + is not supported on 'int' and 'Foo'");
 
 	TEST_FOR_FAIL("test for bug in function call", "int foo(void ref() f, char[] x = \"x\", int a = 2){ return 5; } return foo(\"f\");", "ERROR: can't find function 'foo' with following parameters:");
+
+	TEST_FOR_FAIL("namespace error", "namespace Test{} class Test;", "ERROR: name is already taken for a namespace");
+	TEST_FOR_FAIL("namespace error", "namespace Test{ int foo(){ return 12; } } return foo();", "ERROR: function 'foo' is undefined");
+	TEST_FOR_FAIL("namespace error", "namespace Test{ namespace Nested{ int x; } } return Nested.x;", "ERROR: unknown identifier 'Nested'");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

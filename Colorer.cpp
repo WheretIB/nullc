@@ -648,6 +648,7 @@ namespace ColorerGrammar
 			expr	=	*chP(';')[ColorText] >> (classdef | enumeration | block | (vardef >> (';' | epsP[LogError("ERROR: ; not found after variable definition")])[ColorText]) |
 				breakExpr | continueExpr | ifExpr | forExpr | whileExpr | dowhileExpr | switchExpr | typeDef | returnExpr |
 				(term5 >> (+chP(';')[ColorText] | epsP[LogError("ERROR: ; not found after expression")])));
+			nameSpace	=	strWP("namespace")[ColorRWord] >> idP[ColorRWord][StartType] >> chP('{')[ColorText] >> code >> chP('}')[ColorText];
 			code	=	*(
 							strP("import")[ColorRWord] >>
 							((+alnumP)[ColorVar][ImportStart] | epsP[LogError("module name or folder expected")]) >>
@@ -657,7 +658,7 @@ namespace ColorerGrammar
 							) >>
 							(chP(';')[ColorText][ImportEnd] | epsP[LogError("ERROR: ';' expected after import")])
 						) >>
-						*(funcdef | expr | (+alnumP)[LogError("ERROR: unexpected symbol")]);
+						*(nameSpace | funcdef | expr | (+alnumP)[LogError("ERROR: unexpected symbol")]);
 		}
 		void DeInitGrammar()
 		{
@@ -667,7 +668,7 @@ namespace ColorerGrammar
 		// Parsing rules
 		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr, typeDef;
 		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, fcallpart, funcvars;
-		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr, oneLexOperator, typePostExpr, typeofPostExpr, enumeration;
+		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr, oneLexOperator, typePostExpr, typeofPostExpr, enumeration, nameSpace;
 		// Main rule
 		Rule code;
 	};

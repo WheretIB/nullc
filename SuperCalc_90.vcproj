@@ -1520,6 +1520,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\tests\TestNamespace.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\tests\TestNew.cpp"
 				>
 				<FileConfiguration
