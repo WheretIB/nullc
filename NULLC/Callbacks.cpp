@@ -1654,12 +1654,12 @@ void AddArrayIndexNode(const char* pos, unsigned argumentCount)
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList[CodeInfo::nodeList.size() - argumentCount - 1] = array;
 	}
+	NodeZeroOP *index = CodeInfo::nodeList.back();
 	// Call overloaded operator with error suppression
-	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", argumentCount + 1, argumentCount == 1)) // silent error only if there's one argument
+	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", argumentCount + 1, argumentCount == 1))
 		return;
 
 	bool unifyTwo = false;
-
 	// Get array type
 	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
 	// If it's an inplace array, set it to hidden variable, and put it's address on stack
@@ -1673,7 +1673,11 @@ void AddArrayIndexNode(const char* pos, unsigned argumentCount)
 		unifyTwo = true;
 	}
 	if(currentType->refLevel == 0)
-		ThrowError(pos, "ERROR: indexing variable that is not an array (%s)", currentType->GetFullTypeName());
+	{	
+		CodeInfo::nodeList.back() = index; // restore original index node and call user function that will fail like it did the first time
+		AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", argumentCount + 1);
+	}
+
 	// Get result type
 	currentType = CodeInfo::GetDereferenceType(currentType);
 
@@ -1689,7 +1693,10 @@ void AddArrayIndexNode(const char* pos, unsigned argumentCount)
 	
 	// Current type must be an array
 	if(currentType->arrLevel == 0)
-		ThrowError(pos, "ERROR: indexing variable that is not an array (%s)", currentType->GetFullTypeName());
+	{	
+		CodeInfo::nodeList.back() = index; // restore original index node and call user function that will fail like it did the first time
+		AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", argumentCount + 1);
+	}
 
 #ifndef NULLC_ENABLE_C_TRANSLATION
 	// If index is a number and previous node is an address, then indexing can be done in compile-time
