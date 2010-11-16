@@ -1447,7 +1447,8 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				unsigned int targetTab = ~0u;
 				for(unsigned int t = 0; t < (stateRemote ? attachedEdits : richEdits).size() && targetTab == ~0u; t++)
 				{
-					if(strcmp(TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, t).name, moduleName) == 0)
+					const char *tabName = TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, t).last;
+					if(strcmp(tabName, strrchr(moduleName, '/') ? strrchr(moduleName, '/') + 1 : moduleName + 1) == 0)
 						targetTab = t;
 				}
 				// If tab not found, open it
