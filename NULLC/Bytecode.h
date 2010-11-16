@@ -224,6 +224,9 @@ struct ByteCode
 
 	unsigned int	offsetToConstants;
 
+	unsigned int	namespaceCount;
+	unsigned int	offsetToNamespaces;
+
 //	ExternTypeInfo	types[typeCount];
 
 //	ExternModuleInfo	modules[dependsCount];

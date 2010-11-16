@@ -868,6 +868,30 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		typedefInfo++;
 	}
 
+	// Import namespaces
+#pragma pack(push, 1)
+	struct NamespaceData
+	{
+		unsigned offsetToName;
+		unsigned parentHash;
+	};
+#pragma pack(pop)
+	NamespaceData *namespaceList = (NamespaceData*)((char*)bCode + bCode->offsetToNamespaces);
+	for(unsigned i = 0; i < bCode->namespaceCount; i++)
+	{
+		NamespaceInfo *parent = NULL;
+		if(namespaceList->parentHash != ~0u)
+		{
+			for(unsigned k = 0; k < CodeInfo::namespaceInfo.size() && !parent; k++)
+			{
+				if(CodeInfo::namespaceInfo[k]->hash == namespaceList->parentHash)
+					parent = CodeInfo::namespaceInfo[k];
+			}
+		}
+		CodeInfo::namespaceInfo.push_back(new NamespaceInfo(InplaceStr(symbols + namespaceList->offsetToName), GetStringHash(symbols + namespaceList->offsetToName), parent));
+		namespaceList++;
+	}
+
 	// Import functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
 	ExternLocalInfo *fLocals = (ExternLocalInfo*)((char*)(bCode) + bCode->offsetToLocals);
@@ -1918,6 +1942,11 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	unsigned offsetToTypedef = size;
 	size += typedefCount * sizeof(ExternTypedefInfo);
 
+	for(unsigned i = 0; i < CodeInfo::namespaceInfo.size(); i++)
+		symbolStorageSize += int(CodeInfo::namespaceInfo[i]->name.end - CodeInfo::namespaceInfo[i]->name.begin) + 1;
+	unsigned offsetToNamespace = size;
+	size += CodeInfo::namespaceInfo.size() * sizeof(unsigned) * 2;
+
 	unsigned int offsetToCode = size;
 	size += CodeInfo::cmdList.size() * sizeof(VMCmd);
 
@@ -1983,6 +2012,9 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->debugSymbols = (*bytecode) + offsetToSymbols;
 
 	code->offsetToConstants = offsetToConstants;
+
+	code->namespaceCount = CodeInfo::namespaceInfo.size();
+	code->offsetToNamespaces = offsetToNamespace;
 
 	char*	symbolPos = code->debugSymbols;
 
@@ -2305,6 +2337,29 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			currAlias++;
 			aliasInfo = aliasInfo->next;
 		}
+	}
+
+	code->namespaceCount = CodeInfo::namespaceInfo.size();
+	code->offsetToNamespaces = offsetToNamespace;
+
+#pragma pack(push, 1)
+	struct NamespaceData
+	{
+		unsigned offsetToName;
+		unsigned parentHash;
+	};
+#pragma pack(pop)
+	NamespaceData *namespaceList = (NamespaceData*)((char*)code + code->offsetToNamespaces);
+	for(unsigned i = 0; i < CodeInfo::namespaceInfo.size(); i++)
+	{
+		namespaceList->offsetToName = int(symbolPos - code->debugSymbols);
+		memcpy(symbolPos, CodeInfo::namespaceInfo[i]->name.begin, CodeInfo::namespaceInfo[i]->name.end - CodeInfo::namespaceInfo[i]->name.begin + 1);
+		symbolPos += CodeInfo::namespaceInfo[i]->name.end - CodeInfo::namespaceInfo[i]->name.begin;
+		*symbolPos++ = 0;
+
+		namespaceList->parentHash = CodeInfo::namespaceInfo[i]->parent ? CodeInfo::namespaceInfo[i]->parent->hash : ~0u;
+
+		namespaceList++;
 	}
 
 	return size;

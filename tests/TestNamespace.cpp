@@ -350,3 +350,23 @@ const char	*testNamespace26 =
 }\r\n\
 return Test.a + Test.b;";
 TEST_RESULT("namespace test 26", testNamespace26, "2046");
+
+const char	*testNamespace27 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(){ return 5; }\r\n\
+	class Bar\r\n\
+	{\r\n\
+		int foo(){ return 10; }\r\n\
+		int bar(){ return Test.foo(); }\r\n\
+	}\r\n\
+}\r\n\
+Test.Bar x;\r\n\
+return x.bar();";
+TEST_RESULT("namespace test 27", testNamespace27, "5");
+
+LOAD_MODULE(test_namespace, "test.namespace1", "namespace Test{ int foo(int a){ return 3 * a; } }");
+const char	*testNamespace28 =
+"import test.namespace1;\r\n\
+return Test.foo(5);";
+TEST_RESULT("namespace test 28", testNamespace28, "15");
