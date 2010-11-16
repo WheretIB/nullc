@@ -5069,7 +5069,7 @@ void TypeContinue(const char* pos)
 	{
 		currType = curr->type;
 		currAlign = 4;
-		VariableInfo *varInfo = (VariableInfo*)AddVariable(pos, InplaceStr(curr->name));
+		VariableInfo *varInfo = (VariableInfo*)AddVariable(pos, InplaceStr(curr->name), false);
 		varInfo->isGlobal = true;
 		varInfo->parentType = newType;
 		varDefined = false;
