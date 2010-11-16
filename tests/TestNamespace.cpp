@@ -444,3 +444,29 @@ const char	*testNamespace35 =
 }\r\n\
 return Test.y;";
 TEST_RESULT("namespace test 35", testNamespace35, "7");
+
+const char	*testNamespace36 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(int ref(int, int) f){ return f(2, 3); }\r\n\
+}\r\n\
+return Test.foo(<i, j>{ i + j; });";
+TEST_RESULT("namespace test 36", testNamespace36, "5");
+
+const char	*testNamespace37 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(int ref(int, int) f){ return f(2, 3); }\r\n\
+	auto x = foo(<i, j>{ i + j; });\r\n\
+}\r\n\
+return Test.x;";
+TEST_RESULT("namespace test 37", testNamespace37, "5");
+
+const char	*testNamespace38 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(int ref(int, int) f){ return f(2, 3); }\r\n\
+	auto x = foo;\r\n\
+}\r\n\
+return Test.x(<i, j>{ i + j; });";
+TEST_RESULT("namespace test 38", testNamespace38, "5");

@@ -1463,7 +1463,30 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 		currF = funcMap.first(betterHash);
 	}
 	if(!currF)
-		currF = funcMap.first(GetStringHash(currFunction));
+	{
+		for(int i = namespaceStack.size() - 1; i > 0 && !currF; i--)
+		{
+			unsigned tmpHash = namespaceStack[i]->hash;
+			tmpHash = StringHashContinue(tmpHash, ".");
+			if(currNamespace)
+				tmpHash = AddNamespaceToHash(tmpHash, currNamespace);
+			tmpHash = StringHashContinue(tmpHash, currFunction);
+			currF = funcMap.first(tmpHash);
+		}
+		if(!currF)
+		{
+			unsigned hash = ~0u;
+			if(NamespaceInfo *ns = currNamespace)
+			{
+				hash = ns->hash;
+				hash = StringHashContinue(hash, ".");
+				hash = StringHashContinue(hash, currFunction);
+			}else{
+				hash = GetStringHash(currFunction);
+			}
+			currF = funcMap.first(hash);
+		}
+	}
 	TypeInfo **typeInstance = NULL;
 	const char *tmpPos = NULL;
 	
@@ -1597,7 +1620,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 	}
 	if(!preferredType)
 	{
-		HashMap<VariableInfo*>::Node *currV = varMap.first(GetStringHash(currFunction));
+		HashMap<VariableInfo*>::Node *currV = SelectVariableByName(InplaceStr(currFunction));
 		while(currV)
 		{
 			VariableInfo *var = currV->value;
