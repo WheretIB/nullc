@@ -366,7 +366,7 @@ Compiler::Compiler()
 
 	realGlobalCount = 0;
 
-	// Add base module with build-in functions
+	// Add base module with built-in functions
 	baseModuleSize = 0;
 	bool res = Compile(nullcBaseCode);
 	(void)res;

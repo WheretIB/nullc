@@ -432,7 +432,7 @@ const char	*testExternalCallC =
 int[] arr = new int[2];\r\n\
 arr[0] = 1; arr[1] = 2;\r\n\
 return Call(arr, {3, 4}, int);";
-TEST_RESULT("External function call. Complex build-ins, arguments in registers.", testExternalCallC, "1");
+TEST_RESULT("External function call. Complex built-ins, arguments in registers.", testExternalCallC, "1");
 
 LOAD_MODULE_BIND(test_extC2, "test.extC2", "int Call(auto ref x);")
 {
@@ -457,7 +457,7 @@ const char	*testExternalCallD =
 int[] arr = new int[2];\r\n\
 arr[0] = 1; arr[1] = 2;\r\n\
 return Call(arr, {3, 4}, int)[1];";
-TEST_RESULT("External function call. Complex build-in return, arguments in registers.", testExternalCallD, "1");
+TEST_RESULT("External function call. Complex built-in return, arguments in registers.", testExternalCallD, "1");
 
 LOAD_MODULE_BIND(test_extF, "test.extF",
 "class Char{ char a; } int Call(Char a);\r\n\
