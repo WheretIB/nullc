@@ -1385,7 +1385,7 @@ NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 	first = TakeLastNode();
 
 	if((first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject) || first->typeInfo->type == TypeInfo::TYPE_VOID)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s'", first->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s' and function for conversion to bool is undefined", first->typeInfo->GetFullTypeName());
 	// If it is a conditional operator, the there is a resulting type different than void
 	if(isTerm)
 		typeInfo = second->typeInfo != third->typeInfo ? ChooseBinaryOpResultType(second->typeInfo, third->typeInfo) : second->typeInfo;
@@ -1459,7 +1459,7 @@ NodeForExpr::NodeForExpr()
 	first = TakeLastNode();
 
 	if((second->typeInfo->type == TypeInfo::TYPE_COMPLEX && second->typeInfo != typeObject) || second->typeInfo->type == TypeInfo::TYPE_VOID)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s'", second->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s' and function for conversion to bool is undefined", second->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeForExpr;
 }
@@ -1523,7 +1523,7 @@ NodeWhileExpr::NodeWhileExpr()
 	first = TakeLastNode();
 
 	if((first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject) || first->typeInfo->type == TypeInfo::TYPE_VOID)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s'", first->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s' and function for conversion to bool is undefined", first->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeWhileExpr;
 }
@@ -1582,7 +1582,7 @@ NodeDoWhileExpr::NodeDoWhileExpr()
 	first = TakeLastNode();
 
 	if((second->typeInfo->type == TypeInfo::TYPE_COMPLEX && second->typeInfo != typeObject) || second->typeInfo->type == TypeInfo::TYPE_VOID)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s'", second->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s' and function for conversion to bool is undefined", second->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeDoWhileExpr;
 }

@@ -843,3 +843,153 @@ class aabb\r\n\
 aabb[4] m;\r\n\
 return m[3].y.z * m[2].x;";
 TEST_RESULT("A default custom constructor test 7", testClassDefaultConstructor7, "15");
+
+const char	*testClassDefaultConstructor8 =
+"class Foo<T>{ T z; void Foo(){ z = 5; } }\r\n\
+class aabb\r\n\
+{\r\n\
+	int x;\r\n\
+	Foo<int> y;\r\n\
+}\r\n\
+aabb[4] m;\r\n\
+return m[3].y.z;";
+TEST_RESULT("A default custom constructor test 8", testClassDefaultConstructor8, "5");
+
+const char	*testClassDefaultConstructor9 =
+"class Foo<T>{ T z; void Foo(){ z = 5; } }\r\n\
+class aabb\r\n\
+{\r\n\
+	int x;\r\n\
+	Foo<int> y;\r\n\
+	void aabb(){ x = 4; }\r\n\
+}\r\n\
+aabb[4] m;\r\n\
+return m[3].y.z;";
+TEST_RESULT("A default custom constructor test 9", testClassDefaultConstructor9, "5");
+
+const char	*testClassDefaultConstructor10 =
+"class Foo{ int z; void Foo(){ z = 5; } }\r\n\
+class aabb\r\n\
+{\r\n\
+	int x;\r\n\
+	Foo[4] y;\r\n\
+}\r\n\
+aabb m;\r\n\
+return m.y[2].z;";
+TEST_RESULT("A default custom constructor test 10", testClassDefaultConstructor10, "5");
+
+const char	*testClassDefaultConstructor11 =
+"class Foo<T>{ T z; void Foo(){ z = 5; } }\r\n\
+class aabb\r\n\
+{\r\n\
+	int x;\r\n\
+	Foo<int>[5] y;\r\n\
+}\r\n\
+aabb[4] m;\r\n\
+return m[3].y[2].z;";
+TEST_RESULT("A default custom constructor test 11", testClassDefaultConstructor11, "5");
+
+const char	*testClassDefaultConstructor12 =
+"class Foo<T>{ T z; void Foo(){ z = 5; } }\r\n\
+class aabb\r\n\
+{\r\n\
+	int x;\r\n\
+	Foo<int>[5] y;\r\n\
+	void aabb(){ x = 4; }\r\n\
+}\r\n\
+aabb[4] m;\r\n\
+return m[3].y[2].z * m[2].x;";
+TEST_RESULT("A default custom constructor test 12", testClassDefaultConstructor12, "20");
+
+const char	*testClassAsBoolAndInSwitch =
+"class Foo\r\n\
+{\r\n\
+	int x, y;\r\n\
+	void Foo(int x, y){ this.x = x; this.y = y; }\r\n\
+}\r\n\
+Foo a = Foo(2, 4), b = Foo(3, -3);\r\n\
+bool bool(Foo a){ return a.x + a.y; }\r\n\
+\r\n\
+{\r\n\
+	int x = 0;\r\n\
+	if(a)\r\n\
+		x = 1;\r\n\
+	assert(x == 1);\r\n\
+}\r\n\
+{\r\n\
+	int x = 0;\r\n\
+	if(b)\r\n\
+		x = 1;\r\n\
+	assert(x == 0);\r\n\
+}\r\n\
+\r\n\
+{\r\n\
+	int x = 0;\r\n\
+	if(a)\r\n\
+		x = 1;\r\n\
+	else\r\n\
+		x = 2;\r\n\
+	assert(x == 1);\r\n\
+}\r\n\
+{\r\n\
+	int x = 0;\r\n\
+	if(b)\r\n\
+		x = 1;\r\n\
+	else\r\n\
+		x = 2;\r\n\
+	assert(x == 2);\r\n\
+}\r\n\
+{\r\n\
+	int x = a ? 1 : 2;\r\n\
+	assert(x == 1);\r\n\
+}\r\n\
+{\r\n\
+	int x = b ? 1 : 2;\r\n\
+	assert(x == 2);\r\n\
+}\r\n\
+{\r\n\
+	int x = 0;\r\n\
+	Foo c = Foo(4, 3);\r\n\
+	for(; c; c.y--)\r\n\
+		x++;\r\n\
+	assert(x == 7);\r\n\
+}\r\n\
+{\r\n\
+	int x = 0;\r\n\
+	Foo c = Foo(4, 3);\r\n\
+	while(c)\r\n\
+	{\r\n\
+		c.y--;\r\n\
+		x++;\r\n\
+	}\r\n\
+	assert(x == 7);\r\n\
+}\r\n\
+{\r\n\
+	int x = 0;\r\n\
+	Foo c = Foo(4, 3);\r\n\
+	do\r\n\
+	{\r\n\
+		c.y--;\r\n\
+		x++;\r\n\
+	}while(c);\r\n\
+	assert(x == 7);\r\n\
+}\r\n\
+int Foo:hash_value(){ return x * 10 + y; }\r\n\
+{\r\n\
+	int x = 0;\r\n\
+	Foo c = Foo(4, 3);\r\n\
+	switch(c)\r\n\
+	{\r\n\
+	case 4:\r\n\
+		x = 1;\r\n\
+		break;\r\n\
+	case 43:\r\n\
+		x = 3;\r\n\
+		break;\r\n\
+	default:\r\n\
+		x = 4;\r\n\
+	}\r\n\
+	assert(x == 3);\r\n\
+}\r\n\
+return 2;";
+TEST_RESULT("Usage of class value inside if, for, while, do while and switch statements", testClassAsBoolAndInSwitch, "2");

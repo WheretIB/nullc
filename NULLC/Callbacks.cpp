@@ -2496,12 +2496,21 @@ void AddTypeAllocation(const char* pos, bool arrayType)
 	}
 }
 
-void AddArrayConstructorCall(const char* pos, const char* name)
+void AddDefaultConstructorCall(const char* pos, const char* name)
 {
+	TypeInfo *type = CodeInfo::nodeList.back()->typeInfo;
+
+	assert(type->subType);
+	if(!type->subType->arrLevel)
+	{
+		AddMemberFunctionCall(pos, name, 0);
+		AddPopNode(pos);
+		return;
+	}
+
 	IncreaseCycleDepth();
 	BeginBlock();
 
-	TypeInfo *type = CodeInfo::nodeList.back()->typeInfo;
 	assert(type->refLevel && type->subType->arrLevel);
 	type = type->subType->subType;
 	assert(!type->refLevel && !type->funcType);
@@ -2514,13 +2523,7 @@ void AddArrayConstructorCall(const char* pos, const char* name)
 	AddArrayIterator(pos, vName, NULL);
 
 	AddGetAddressNode(pos, vName);
-	if(type->arrLevel)
-	{
-		AddArrayConstructorCall(pos, name);
-	}else{
-		AddMemberFunctionCall(pos, name, 0);
-		AddPopNode(pos);
-	}
+	AddDefaultConstructorCall(pos, name);
 
 	EndBlock();
 	AddForEachNode(pos);
@@ -2881,13 +2884,21 @@ void FunctionStart(const char* pos)
 		int exprCount = 0;
 		for(; curr; curr = curr->next)
 		{
-			TypeInfo *memberType = curr->type->genericBase ? curr->type->genericBase : curr->type;
-			if(HasConstructor(memberType, 0))
+			// Handle array types
+			TypeInfo *base = curr->type;
+			while(base && base->arrLevel && base->arrSize != TypeInfo::UNSIZED_ARRAY) // Unsized arrays are not initialized
+				base = base->subType;
+			bool callDefault = false;
+			bool hasConstructor = base ? HasConstructor(base, 0, &callDefault) : NULL;
+			if(hasConstructor)
 			{
+				const char *name = base->genericBase ? base->genericBase->name : base->name;
+				if(callDefault)
+					name = GetDefaultConstructorName(name);
 				AddGetAddressNode(pos, InplaceStr("this", 4));
 				CodeInfo::nodeList.push_back(new NodeDereference());
 				AddMemberAccessNode(pos,  InplaceStr(curr->name));
-				AddMemberFunctionCall(pos, memberType->name, 0);
+				AddDefaultConstructorCall(pos, name);
 				AddPopNode(pos);
 				exprCount++;
 			}
@@ -4351,6 +4362,14 @@ void AddIfNode(const char* pos)
 	if(OptimizeIfElse(false))
 		return;
 
+	NodeZeroOP *body = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+
+	if(CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX && CodeInfo::nodeList.back()->typeInfo != typeObject)
+		AddFunctionCallNode(pos, "bool", 1, true);
+
+	CodeInfo::nodeList.push_back(body);
+
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(false));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
@@ -4362,6 +4381,15 @@ void AddIfElseNode(const char* pos)
 	if(OptimizeIfElse(true))
 		return;
 
+	NodeZeroOP *bodyE = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
+	NodeZeroOP *bodyT = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
+
+	if(CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX && CodeInfo::nodeList.back()->typeInfo != typeObject)
+		AddFunctionCallNode(pos, "bool", 1, true);
+
+	CodeInfo::nodeList.push_back(bodyT);
+	CodeInfo::nodeList.push_back(bodyE);
+
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(true));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
@@ -4372,6 +4400,15 @@ void AddIfElseTermNode(const char* pos)
 
 	if(OptimizeIfElse(true))
 		return;
+
+	NodeZeroOP *bodyE = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
+	NodeZeroOP *bodyT = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
+
+	if(CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX && CodeInfo::nodeList.back()->typeInfo != typeObject)
+		AddFunctionCallNode(pos, "bool", 1, true);
+
+	CodeInfo::nodeList.push_back(bodyT);
+	CodeInfo::nodeList.push_back(bodyE);
 
 	TypeInfo* typeA = CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo;
 	TypeInfo* typeB = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
@@ -4392,6 +4429,15 @@ void AddForNode(const char* pos)
 	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 4);
 
+	NodeZeroOP *body = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
+	NodeZeroOP *increment = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
+
+	if(CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX && CodeInfo::nodeList.back()->typeInfo != typeObject)
+		AddFunctionCallNode(pos, "bool", 1, true);
+
+	CodeInfo::nodeList.push_back(increment);
+	CodeInfo::nodeList.push_back(body);
+
 	CodeInfo::nodeList.push_back(new NodeForExpr());
 
 	assert(cycleDepth.size() != 0);
@@ -4401,6 +4447,13 @@ void AddWhileNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 2);
+
+	NodeZeroOP *body = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
+
+	if(CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX && CodeInfo::nodeList.back()->typeInfo != typeObject)
+		AddFunctionCallNode(pos, "bool", 1, true);
+
+	CodeInfo::nodeList.push_back(body);
 
 	CodeInfo::nodeList.push_back(new NodeWhileExpr());
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
@@ -4412,6 +4465,9 @@ void AddDoWhileNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 2);
+
+	if(CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX && CodeInfo::nodeList.back()->typeInfo != typeObject)
+		AddFunctionCallNode(pos, "bool", 1, true);
 
 	CodeInfo::nodeList.push_back(new NodeDoWhileExpr());
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
@@ -4426,6 +4482,13 @@ void BeginSwitch(const char* pos)
 	assert(CodeInfo::nodeList.size() >= 1);
 	assert(cycleDepth.size() != 0);
 	cycleDepth.back()++;
+
+	TypeInfo *type = CodeInfo::nodeList.back()->typeInfo;
+	if(type->type == TypeInfo::TYPE_COMPLEX && type != typeObject && type != typeTypeid)
+	{
+		PrepareMemberCall(pos);
+		AddMemberFunctionCall(pos, "hash_value", 0);
+	}
 
 	BeginBlock();
 	CodeInfo::nodeList.push_back(new NodeSwitchExpr());
@@ -4591,6 +4654,11 @@ void TypeFinish()
 	TypeInfo::MemberVariable *curr = newType->firstVariable;
 	for(; curr; curr = curr->next)
 	{
+		TypeInfo *base = curr->type;
+		while(base && base->arrLevel && base->arrSize != TypeInfo::UNSIZED_ARRAY) // Unsized arrays are not initialized
+			base = base->subType;
+		if(HasConstructor(base, 0))
+			customConstructor = true;
 		if(curr->type->refLevel || curr->type->arrLevel || curr->type->funcType)
 			continue;
 		// Check assignment operator by virtually calling a = function with (Type ref, Type) arguments
@@ -4605,8 +4673,6 @@ void TypeFinish()
 			CodeInfo::nodeList.pop_back();
 			customAssign = true;
 		}
-		if(HasConstructor(curr->type, 0))
-			customConstructor = true;
 	}
 
 	if(customConstructor)
