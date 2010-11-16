@@ -37,28 +37,25 @@ void hashmap:clear()
 }
 auto operator[](hashmap<@K, @V> ref m, typeof(m).target.Key key)
 {
-	@if(typeof(key) != K){ *"operand type is not equal to hashmap key type"; }
-	
 	auto x = m.find(key);
-	if(x) // if a key-value exists
-	{
+	if(x) // if a key-value exists, return it
 		return x;
-	}else{ // otherwise, add 
-		int hash = m.compute_hash(key);
-		int bucket = hash & typeof(m).target.bucketMask;
-		auto n = new typeof(m).target.Node;
-		@if(typeof(key).isArray)
-		{
-			auto[] tmp = key;
-			n.key = duplicate(tmp);
-		}else{
-			n.key = duplicate(key);
-		}
-		n.hash = hash;
-		n.next = m.entries[bucket];
-		m.entries[bucket] = n;
-		return &n.value;
+
+	// otherwise, add 
+	int hash = m.compute_hash(key);
+	int bucket = hash & typeof(m).target.bucketMask;
+	auto n = new typeof(m).target.Node;
+	@if(typeof(key).isArray)
+	{
+		auto[] tmp = key;
+		n.key = duplicate(tmp);
+	}else{
+		n.key = duplicate(key);
 	}
+	n.hash = hash;
+	n.next = m.entries[bucket];
+	m.entries[bucket] = n;
+	return &n.value;
 }
 void hashmap:remove(Key key)
 {
