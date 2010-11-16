@@ -131,6 +131,7 @@ void AddTypeAllocation(const char* pos, bool arrayType = false);
 void AddDefaultConstructorCall(const char* pos, const char* name);
 NodeZeroOP* PrepareConstructorCall(const char* pos);
 void FinishConstructorCall(const char* pos);
+const char*	FindConstructorName(TypeInfo* type);
 bool HasConstructor(TypeInfo* type, unsigned arguments, bool* callDefault = NULL);
 
 void BeginCoroutine();

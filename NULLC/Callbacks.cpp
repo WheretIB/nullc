@@ -2665,6 +2665,9 @@ void AddDefaultConstructorCall(const char* pos, const char* name)
 {
 	TypeInfo *type = CodeInfo::nodeList.back()->typeInfo;
 
+	if(const char* tmp = strrchr(name, '.'))
+		name = tmp + 1;
+
 	assert(type->subType);
 	if(!type->subType->arrLevel)
 	{
@@ -2729,6 +2732,19 @@ void FinishConstructorCall(const char* pos)
 	AddTwoExpressionNode(resultType);
 }
 
+const char*	FindConstructorName(TypeInfo* type)
+{
+	// Remove class arguments
+	if(type->genericBase)
+		type = type->genericBase;
+	if(!type->name)
+		return NULL;
+	// Remove namespaces
+	if(const char* pos = strrchr(type->name, '.'))
+		return pos + 1;
+	return type->name;
+}
+
 bool HasConstructor(TypeInfo* type, unsigned arguments, bool* callDefault)
 {
 	bestFuncList.clear();
@@ -2738,7 +2754,7 @@ bool HasConstructor(TypeInfo* type, unsigned arguments, bool* callDefault)
 
 	unsigned funcHash = type->nameHash;
 	funcHash = StringHashContinue(funcHash, "::");
-	funcHash = StringHashContinue(funcHash, type->genericBase ? type->genericBase->name : type->name);
+	funcHash = StringHashContinue(funcHash, FindConstructorName(type));
 	SelectFunctionsForHash(funcHash, 0);
 
 	// For a generic type instance, check if base class has a constructor function
@@ -2747,7 +2763,7 @@ bool HasConstructor(TypeInfo* type, unsigned arguments, bool* callDefault)
 	{
 		funcBaseHash = type->genericBase->nameHash;
 		funcBaseHash = StringHashContinue(funcBaseHash, "::");
-		funcBaseHash = StringHashContinue(funcBaseHash, type->genericBase->name);
+		funcBaseHash = StringHashContinue(funcBaseHash, FindConstructorName(type));
 		SelectFunctionsForHash(funcBaseHash, 0);
 	}
 
@@ -2796,7 +2812,11 @@ void FunctionAdd(const char* pos, const char* funcName, bool isOperator)
 {
 	static unsigned int hashFinalizer = GetStringHash("finalize");
 
-	funcName = isOperator ? funcName : GetNameInNamespace(InplaceStr(funcName)).begin;
+	bool functionLocal = false;
+	if(newType ? varInfoTop.size() > (newType->definitionDepth + 1) : varInfoTop.size() > 1)
+		functionLocal = true;
+
+	funcName = (isOperator || (newType && !functionLocal)) ? funcName : GetNameInNamespace(InplaceStr(funcName)).begin;
 
 	unsigned int funcNameHash = GetStringHash(funcName), origHash = funcNameHash;
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < CodeInfo::varInfo.size(); i++)
@@ -2804,9 +2824,7 @@ void FunctionAdd(const char* pos, const char* funcName, bool isOperator)
 		if(CodeInfo::varInfo[i]->nameHash == funcNameHash)
 			ThrowError(pos, "ERROR: name '%s' is already taken for a variable in current scope", funcName);
 	}
-	bool functionLocal = false;
-	if(newType ? varInfoTop.size() > (newType->definitionDepth + 1) : varInfoTop.size() > 1)
-		functionLocal = true;
+	
 
 	char *funcNameCopy = (char*)funcName;
 	if(newType && !functionLocal)
@@ -4185,32 +4203,43 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		}
 	}
 
-	//Find all functions with given name
+	// Find all functions with given name
 	bestFuncList.clear();
 	if(funcAddr)
 	{
 		SelectFunctionsForHash(funcNameHash, scope);
 	}else{
-		for(int i = namespaceStack.size() - 1; i >= 0 && !bestFuncList.size(); i--)
+		for(int i = namespaceStack.size() - 1; i > 0 && !bestFuncList.size(); i--)
 		{
-			if(i == 0)
-			{
-				SelectFunctionsForHash(funcNameHash, scope);
-			}else{
-				unsigned hash = namespaceStack[i]->hash;
-				hash = StringHashContinue(hash, ".");
-				if(currNamespace)
-					hash = AddNamespaceToHash(hash, currNamespace);
-				hash = StringHashContinue(hash, funcName);
-				SelectFunctionsForHash(hash, scope);
-			}
+			unsigned hash = namespaceStack[i]->hash;
+			hash = StringHashContinue(hash, ".");
+			if(currNamespace)
+				hash = AddNamespaceToHash(hash, currNamespace);
+			hash = StringHashContinue(hash, funcName);
+			SelectFunctionsForHash(hash, scope);
 		}
+		if(!bestFuncList.size())
+			SelectFunctionsForHash(funcNameHash, scope);
 	}
 	unsigned int count = bestFuncList.size();
 	
 	TypeInfo **info = NULL;
+	if(count == 0)
+	{
+		for(int i = namespaceStack.size() - 1; i > 0 && !info; i--)
+		{
+			unsigned hash = namespaceStack[i]->hash;
+			hash = StringHashContinue(hash, ".");
+			if(currNamespace)
+				hash = AddNamespaceToHash(hash, currNamespace);
+			hash = StringHashContinue(hash, funcName);
+			info = CodeInfo::classMap.find(hash);
+		}
+		if(!info)
+			info = CodeInfo::classMap.find(funcNameHash);
+	}
 	// If no functions are found, function name is a type name and a type has member constructors
-	if(count == 0 && NULL != (info = CodeInfo::classMap.find(funcNameHash)))
+	if(count == 0 && info)
 	{
 		if((*info)->genericInfo)
 			ThrowError(pos, "ERROR: generic type arguments in <> are not found after constructor name");
@@ -4237,7 +4266,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 					CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - k] = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k];
 					CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k] = temp;
 				}
-				AddMemberFunctionCall(pos, (*info)->genericBase ? (*info)->genericBase->name : (*info)->name, callArgCount); // Call member constructor
+				AddMemberFunctionCall(pos, FindConstructorName(*info), callArgCount); // Call member constructor
 				AddPopNode(pos); // Remove result
 				CodeInfo::nodeList.push_back(new NodeGetAddress(varInfo, varInfo->pos, varInfo->varType)); // Get address
 				AddGetVariableNode(pos); // Dereference
