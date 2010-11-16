@@ -684,3 +684,18 @@ const char	*testNamespace55 =
 int y = 5;\r\n\
 return A.B.C.x + y;";
 TEST_RESULT("namespace test 55 (short-hand nested namespace definition)", testNamespace55, "15");
+
+const char	*testNamespace56 =
+"class Canvas{ int x; }\r\n\
+namespace Test\r\n\
+{\r\n\
+	class Device{ Canvas ref canvas; }\r\n\
+	void Device:Device( Canvas ref canvas )\r\n\
+	{\r\n\
+		this.canvas = canvas;\r\n\
+	}\r\n\
+}\r\n\
+Canvas c;\r\n\
+Test.Device d = Test.Device(c);\r\n\
+return d.canvas != nullptr;";
+TEST_RESULT("namespace test 56", testNamespace56, "1");
