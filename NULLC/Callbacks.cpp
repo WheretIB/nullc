@@ -4901,9 +4901,10 @@ void TypeFinish()
 	if(customConstructor)
 	{
 		currType = typeVoid;
-		unsigned length = newType->GetFullNameLength();
+		const char *constructorName = FindConstructorName(newType);
+		unsigned length = (unsigned)strlen(constructorName);
 		char *name = AllocateString(length + 2);
-		SafeSprintf(name, length + 2, "%s$", newType->name);
+		SafeSprintf(name, length + 2, "%s$", constructorName);
 		FunctionAdd(CodeInfo::lastKnownStartPos, name);
 		currDefinedFunc.back()->typeConstructor = true;
 		FunctionStart(CodeInfo::lastKnownStartPos);

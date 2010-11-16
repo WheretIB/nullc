@@ -2225,3 +2225,25 @@ int foo()\r\n\
 }\r\n\
 return foo();";
 TEST_RESULT("If a class is defined locally, its aliases still go to class alias list, not parent function alias list", testLocalClassAliasParent, "1");
+
+const char	*testGenericTypeDefaultConstructor =
+"class hashmap_node<Key, Value>{ Value value; }\r\n\
+class hashmap<Key, Value>\r\n\
+{\r\n\
+	typedef hashmap_node<Key, Value> Node;\r\n\
+\r\n\
+	Node ref	entry;\r\n\
+	int x;\r\n\
+}\r\n\
+void hashmap:hashmap()\r\n\
+{\r\n\
+	x = 5;\r\n\
+}\r\n\
+void hashmap:foo()\r\n\
+{\r\n\
+	entry = new Node;\r\n\
+}\r\n\
+hashmap<bool, hashmap<int, float>> h;\r\n\
+h.foo();\r\n\
+return h.entry.value.x;";
+TEST_RESULT("Default constructor generation for a generic type", testGenericTypeDefaultConstructor, "5");
