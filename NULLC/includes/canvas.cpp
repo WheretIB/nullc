@@ -5,6 +5,11 @@ namespace NULLCCanvas
 {
 	void CanvasClearRGB(float red, float green, float blue, Canvas* ptr)
 	{
+		if(!ptr)
+		{
+			nullcThrowError("ERROR: Canvas object is nullptr");
+			return;
+		}
 		float fRed = red / 255.0f;
 		float fGreen = green / 255.0f;
 		float fBlue = blue / 255.0f;
@@ -18,6 +23,11 @@ namespace NULLCCanvas
 	}
 	void CanvasClearRGBA(float red, float green, float blue, float alpha, Canvas* ptr)
 	{
+		if(!ptr)
+		{
+			nullcThrowError("ERROR: Canvas object is nullptr");
+			return;
+		}
 		float fRed = red / 255.0f;
 		float fGreen = green / 255.0f;
 		float fBlue = blue / 255.0f;
@@ -33,6 +43,11 @@ namespace NULLCCanvas
 
 	void CanvasSetColor(unsigned char red, unsigned char green, unsigned char blue, Canvas* ptr)
 	{
+		if(!ptr)
+		{
+			nullcThrowError("ERROR: Canvas object is nullptr");
+			return;
+		}
 		ptr->color[0] = red / 255.0f;
 		ptr->color[1] = green / 255.0f;
 		ptr->color[2] = blue / 255.0f;
@@ -40,6 +55,11 @@ namespace NULLCCanvas
 	}
 	void CanvasSetAA(bool set, Canvas* ptr)
 	{
+		if(!ptr)
+		{
+			nullcThrowError("ERROR: Canvas object is nullptr");
+			return;
+		}
 		ptr->aaEnabled = set;
 	}
 
@@ -54,6 +74,11 @@ namespace NULLCCanvas
 
 	void CanvasDrawPointInternal(unsigned x, unsigned y, double alpha, Canvas* ptr)
 	{
+		if(!ptr)
+		{
+			nullcThrowError("ERROR: Canvas object is nullptr");
+			return;
+		}
 		if(x < (unsigned)ptr->width && y < (unsigned)ptr->height)
 		{
 			float *pixel = &((float*)ptr->data.ptr)[y * ptr->width * 4 + x * 4];
@@ -67,6 +92,11 @@ namespace NULLCCanvas
 
 	void CanvasDrawPointA(double x, double y, double alpha, Canvas* ptr)
 	{
+		if(!ptr)
+		{
+			nullcThrowError("ERROR: Canvas object is nullptr");
+			return;
+		}
 		unsigned xx = unsigned(x);
 		unsigned yy = unsigned(y);
 		if(ptr->aaEnabled)
@@ -82,6 +112,11 @@ namespace NULLCCanvas
 
 	void CanvasDrawPoint(double x, double y, Canvas* ptr)
 	{
+		if(!ptr)
+		{
+			nullcThrowError("ERROR: Canvas object is nullptr");
+			return;
+		}
 		unsigned xx = unsigned(x);
 		unsigned yy = unsigned(y);
 		if(ptr->aaEnabled)
@@ -97,6 +132,11 @@ namespace NULLCCanvas
 
 	void CanvasDrawLineNoAA(int x0, int y0, int x1, int y1, Canvas* ptr)
 	{
+		if(!ptr)
+		{
+			nullcThrowError("ERROR: Canvas object is nullptr");
+			return;
+		}
 		bool steep = abs(y1 - y0) > abs(x1 - x0);
 		if(steep)
 		{
@@ -152,6 +192,11 @@ namespace NULLCCanvas
 	}
 	void CanvasDrawLineAA(double x1, double y1, double x2, double y2, Canvas* ptr)
 	{
+		if(!ptr)
+		{
+			nullcThrowError("ERROR: Canvas object is nullptr");
+			return;
+		}
 		double dx = x2 - x1;
 		double dy = y2 - y1;
 		bool steep = false;
@@ -231,6 +276,11 @@ namespace NULLCCanvas
 	}
 	void CanvasDrawLine(double x0, double y0, double x1, double y1, Canvas* ptr)
 	{
+		if(!ptr)
+		{
+			nullcThrowError("ERROR: Canvas object is nullptr");
+			return;
+		}
 		if(ptr->aaEnabled)
 			CanvasDrawLineAA(x0, y0, x1, y1, ptr);
 		else
@@ -238,6 +288,11 @@ namespace NULLCCanvas
 	}
 	void CanvasDrawRect(int x1, int y1, int x2, int y2, Canvas* ptr)
 	{
+		if(!ptr)
+		{
+			nullcThrowError("ERROR: Canvas object is nullptr");
+			return;
+		}
 		for(int x = x1 < 0 ? 0 : x1, xe = x2 > ptr->width ? ptr->width : x2; x < xe; x++)
 		{
 			for(int y = y1 < 0 ? 0 : y1, ye = y2 > ptr->height ? ptr->height : y2; y < ye; y++)
@@ -251,6 +306,11 @@ namespace NULLCCanvas
 	}
 	void CanvasDrawRectA(int x1, int y1, int x2, int y2, double alpha, Canvas* ptr)
 	{
+		if(!ptr)
+		{
+			nullcThrowError("ERROR: Canvas object is nullptr");
+			return;
+		}
 		for(int x = x1 < 0 ? 0 : x1, xe = x2 > ptr->width ? ptr->width : x2; x < xe; x++)
 		{
 			for(int y = y1 < 0 ? 0 : y1, ye = y2 > ptr->height ? ptr->height : y2; y < ye; y++)
@@ -269,6 +329,11 @@ namespace NULLCCanvas
 	
 	void CanvasCommit(Canvas* ptr)
 	{
+		if(!ptr)
+		{
+			nullcThrowError("ERROR: Canvas object is nullptr");
+			return;
+		}
 		int *pStart = (int*)ptr->dataI.ptr, *pEnd = (int*)ptr->dataI.ptr + ptr->width * ptr->height;
 		float *fStart = (float*)ptr->data.ptr;
 		for(int *pix = pStart; pix != pEnd; pix++)
