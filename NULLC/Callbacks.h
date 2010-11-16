@@ -9,6 +9,8 @@ class FunctionType;
 class NodeZeroOP;
 class NamespaceInfo;
 
+void CheckCollisionWithFunction(const char* pos, InplaceStr varName, unsigned hash, unsigned scope);
+
 void			PushNamespace(InplaceStr space);
 void			PopNamespace();
 NamespaceInfo*	IsNamespace(InplaceStr space);

@@ -172,7 +172,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Illegal array element", "auto a = { {15, 12 }, 14, {18, 48} };", "ERROR: element 1 doesn't match the type of element 0 (int[2])");
 	TEST_FOR_FAIL("Wrong return type", "int ref a(){ float b=5; return &b; } return 9;", "ERROR: function returns float ref but supposed to return int ref");
 	
-	TEST_FOR_FAIL("Global variable size limit", "char[32*1024*1024] arr;", "ERROR: global variable size limit exceeded");
+	TEST_FOR_FAIL("Global variable size limit", "char[32*1024*1024] arr;", "ERROR: variable size limit exceeded");
 	TEST_FOR_FAIL("Unsized array initialization", "char[] arr = 1;", "ERROR: cannot convert 'int' to 'char[]'");
 	
 	TEST_FOR_FAIL("Invalid array index type A", "int[100] arr; void func(){} arr[func()] = 5;", "ERROR: cannot index array with type 'void'");
@@ -608,6 +608,7 @@ return int(y() + z());",
 	TEST_FOR_FAIL("test for bug in function call", "int foo(void ref() f, char[] x = \"x\", int a = 2){ return 5; } return foo(\"f\");", "ERROR: can't find function 'foo' with following parameters:");
 
 	TEST_FOR_FAIL("namespace error", "namespace Test{} class Test;", "ERROR: name is already taken for a namespace");
+	TEST_FOR_FAIL("namespace error", "class Test; namespace Test{}", "ERROR: name 'Test' is already taken for a class");
 	TEST_FOR_FAIL("namespace error", "namespace Test{ int foo(){ return 12; } } return foo();", "ERROR: function 'foo' is undefined");
 	TEST_FOR_FAIL("namespace error", "namespace Test{ namespace Nested{ int x; } } return Nested.x;", "ERROR: unknown identifier 'Nested'");
 

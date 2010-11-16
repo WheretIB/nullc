@@ -370,3 +370,77 @@ const char	*testNamespace28 =
 "import test.namespace1;\r\n\
 return Test.foo(5);";
 TEST_RESULT("namespace test 28", testNamespace28, "15");
+
+const char	*testNamespace29 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(){ return 12; }\r\n\
+	class Foo\r\n\
+	{\r\n\
+		int bar(){ return foo(); }\r\n\
+	}\r\n\
+	Foo x;\r\n\
+	int a = x.bar();\r\n\
+}\r\n\
+Test.Foo y;\r\n\
+return Test.a + y.bar();";
+TEST_RESULT("namespace test 29", testNamespace29, "24");
+
+const char	*testNamespace30 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(){ return 5; }\r\n\
+}\r\n\
+auto x = Test.foo;\r\n\
+return x();";
+TEST_RESULT("namespace test 30", testNamespace30, "5");
+
+const char	*testNamespace31 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(){ return 5; }\r\n\
+	auto x = foo;\r\n\
+}\r\n\
+return Test.x();";
+TEST_RESULT("namespace test 31", testNamespace31, "5");
+
+const char	*testNamespace32 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(){ return 5; }\r\n\
+	auto x = foo;\r\n\
+	auto y = x();\r\n\
+}\r\n\
+return Test.y;";
+TEST_RESULT("namespace test 32", testNamespace32, "5");
+
+const char	*testNamespace33 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(){ return 5; }\r\n\
+	int foo(int x){ return 5 + x; }\r\n\
+}\r\n\
+int ref(int) x = Test.foo;\r\n\
+return x(2);";
+TEST_RESULT("namespace test 33", testNamespace33, "7");
+
+const char	*testNamespace34 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(){ return 5; }\r\n\
+	int foo(int x){ return 5 + x; }\r\n\
+	int ref(int) x = foo;\r\n\
+}\r\n\
+return Test.x(2);";
+TEST_RESULT("namespace test 34", testNamespace34, "7");
+
+const char	*testNamespace35 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(){ return 5; }\r\n\
+	int foo(int x){ return 5 + x; }\r\n\
+	int ref(int) x = foo;\r\n\
+	auto y = x(2);\r\n\
+}\r\n\
+return Test.y;";
+TEST_RESULT("namespace test 35", testNamespace35, "7");
