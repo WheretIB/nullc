@@ -3,6 +3,12 @@ class File
 	int flag;
 	void ref id;
 }
+enum Seek
+{
+	SET,
+	CUR,
+	END
+}
 
 File File();
 File File(char[] name, char[] access);
@@ -10,6 +16,8 @@ void File:Open(char[] name, char[] access);
 void File:Close();
 
 int File:Opened();
+
+void File:Seek(Seek origin, int shift = 0);
 
 void File:Write(char data);
 void File:Write(short data);
