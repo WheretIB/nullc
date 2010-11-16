@@ -650,6 +650,28 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			typeRemap.push_back(lastTypeNum++);
 	}
 
+	// Import namespaces
+	struct NamespaceData
+	{
+		unsigned offsetToName;
+		unsigned parentHash;
+	};
+	NamespaceData *namespaceList = (NamespaceData*)((char*)bCode + bCode->offsetToNamespaces);
+	for(unsigned i = 0; i < bCode->namespaceCount; i++)
+	{
+		NamespaceInfo *parent = NULL;
+		if(namespaceList->parentHash != ~0u)
+		{
+			for(unsigned k = 0; k < CodeInfo::namespaceInfo.size() && !parent; k++)
+			{
+				if(CodeInfo::namespaceInfo[k]->hash == namespaceList->parentHash)
+					parent = CodeInfo::namespaceInfo[k];
+			}
+		}
+		CodeInfo::namespaceInfo.push_back(new NamespaceInfo(InplaceStr(symbols + namespaceList->offsetToName), GetStringHash(symbols + namespaceList->offsetToName), parent));
+		namespaceList++;
+	}
+
 	tInfo = FindFirstType(bCode);
 	for(unsigned int i = 0; i < bCode->typeCount; i++, tInfo++)
 	{
@@ -716,6 +738,15 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 
 				CodeInfo::typeInfo.push_back(newInfo);
 				CodeInfo::classMap.insert(newInfo->GetFullNameHash(), newInfo);
+
+				if(tInfo->namespaceHash != ~0u)
+				{
+					for(unsigned k = 0; k < CodeInfo::namespaceInfo.size() && !newInfo->parentNamespace; k++)
+					{
+						if(CodeInfo::namespaceInfo[k]->hash == tInfo->namespaceHash)
+							newInfo->parentNamespace = CodeInfo::namespaceInfo[k];
+					}
+				}
 
 				// This two pointers are used later to fill type member information
 				newInfo->firstVariable = (TypeInfo::MemberVariable*)(symbols + tInfo->offsetToName + strLength);
@@ -868,30 +899,6 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		typedefInfo++;
 	}
 
-	// Import namespaces
-#pragma pack(push, 1)
-	struct NamespaceData
-	{
-		unsigned offsetToName;
-		unsigned parentHash;
-	};
-#pragma pack(pop)
-	NamespaceData *namespaceList = (NamespaceData*)((char*)bCode + bCode->offsetToNamespaces);
-	for(unsigned i = 0; i < bCode->namespaceCount; i++)
-	{
-		NamespaceInfo *parent = NULL;
-		if(namespaceList->parentHash != ~0u)
-		{
-			for(unsigned k = 0; k < CodeInfo::namespaceInfo.size() && !parent; k++)
-			{
-				if(CodeInfo::namespaceInfo[k]->hash == namespaceList->parentHash)
-					parent = CodeInfo::namespaceInfo[k];
-			}
-		}
-		CodeInfo::namespaceInfo.push_back(new NamespaceInfo(InplaceStr(symbols + namespaceList->offsetToName), GetStringHash(symbols + namespaceList->offsetToName), parent));
-		namespaceList++;
-	}
-
 	// Import functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
 	ExternLocalInfo *fLocals = (ExternLocalInfo*)((char*)(bCode) + bCode->offsetToLocals);
@@ -936,6 +943,15 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			lastFunc->address = fInfo->funcPtr ? -1 : (fInfo->codeSize & 0x80000000 ? 0x80000000 : 0);
 			lastFunc->funcPtr = fInfo->funcPtr;
 			lastFunc->type = (FunctionInfo::FunctionCategory)fInfo->funcCat;
+
+			if(fInfo->namespaceHash != ~0u)
+			{
+				for(unsigned k = 0; k < CodeInfo::namespaceInfo.size() && !lastFunc->parentNamespace; k++)
+				{
+					if(CodeInfo::namespaceInfo[k]->hash == fInfo->namespaceHash)
+						lastFunc->parentNamespace = CodeInfo::namespaceInfo[k];
+				}
+			}
 
 			for(unsigned int n = 0; n < fInfo->paramCount; n++)
 			{
@@ -2042,6 +2058,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		typeInfo.size = refType.size;
 		typeInfo.type = (ExternTypeInfo::TypeCategory)refType.type;
 		typeInfo.nameHash = refType.GetFullNameHash();
+		typeInfo.namespaceHash = refType.parentNamespace ? refType.parentNamespace->hash : ~0u;
 
 		typeInfo.defaultAlign = (unsigned char)refType.alignBytes;
 		typeInfo.typeFlags = refType.hasFinalizer ? ExternTypeInfo::TYPE_HAS_FINALIZER : 0;
@@ -2182,6 +2199,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		offsetToGlobal += refFunc->codeSize;
 
 		funcInfo.nameHash = refFunc->nameHash;
+		funcInfo.namespaceHash = refFunc->parentNamespace ? refFunc->parentNamespace->hash : ~0u;
 
 		funcInfo.funcCat = (unsigned char)refFunc->type;
 

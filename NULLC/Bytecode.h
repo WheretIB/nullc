@@ -38,6 +38,7 @@ struct ExternTypeInfo
 
 	unsigned int	nameHash;
 	unsigned int	definitionOffset; // For generic types, an offset in a lexeme stream to the point of type argument list
+	unsigned int	namespaceHash;
 };
 
 struct ExternVarInfo
@@ -115,6 +116,8 @@ struct ExternFuncInfo
 		unsigned int	size;
 	};
 	unsigned int	closeListStart;
+
+	unsigned int	namespaceHash;
 
 // For x86 function call
 	unsigned int	bytesToPop;

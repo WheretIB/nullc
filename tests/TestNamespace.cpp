@@ -625,3 +625,24 @@ namespace Bar\r\n\
 }\r\n\
 return Bar.a.foo();";
 TEST_RESULT("namespace test 51", testNamespace51, "10");
+
+LOAD_MODULE(test_namespace2, "test.namespace2", "namespace Foo{ auto foo(generic x){ return -x; } }");
+const char	*testNamespace52 =
+"import test.namespace2;\r\n\
+namespace Test\r\n\
+{\r\n\
+	int ref(int) a = Foo.foo;\r\n\
+}\r\n\
+int ref(int) a = Foo.foo;\r\n\
+return Test.a == a;";
+TEST_RESULT("namespace test 52", testNamespace52, "1");
+
+LOAD_MODULE(test_namespace3, "test.namespace3", "namespace Test{ int bar(int x){ return x * 2; } class Foo<T>{ T x; int foo(){ return bar(5); } } }");
+const char	*testNamespace53 =
+"import test.namespace3;\r\n\
+namespace Bar\r\n\
+{\r\n\
+	Test.Foo<int> a;\r\n\
+}\r\n\
+return Bar.a.foo();";
+TEST_RESULT("namespace test 53", testNamespace53, "10");
