@@ -2279,7 +2279,7 @@ void AddArrayIterator(const char* pos, InplaceStr varName, TypeInfo* type, bool 
 		extraExpression = true;
 	}
 
-	// Special implementation of for each for build-in arrays
+	// Special implementation of for each for built-in arrays
 	if(startType->arrLevel)
 	{
 		assert(startType->subType->size != ~0u);
@@ -2757,7 +2757,7 @@ void FunctionParameterDefault(const char* pos)
 	if(left == typeVoid)
 		ThrowError(pos, "ERROR: function parameter cannot be a void type", right->GetFullTypeName(), left->GetFullTypeName());
 	
-	// If types don't match and it it is not build-in basic types or if pointers point to different types
+	// If types don't match and it it is not built-in basic types or if pointers point to different types
 	if(right == typeVoid || (left != right && (left->type == TypeInfo::TYPE_COMPLEX || right->type == TypeInfo::TYPE_COMPLEX || left->subType != right->subType)) &&
 		!(left->arrLevel == right->arrLevel && left->arrSize == TypeInfo::UNSIZED_ARRAY && right->arrSize != TypeInfo::UNSIZED_ARRAY))
 		ThrowError(pos, "ERROR: cannot convert from '%s' to '%s'", right->GetFullTypeName(), left->GetFullTypeName());
@@ -3985,7 +3985,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			// Call user function
 			if(AddFunctionCallNode(pos, funcName, 1, true))
 				return true;
-			// If unsuccessful, perform build-in conversion
+			// If unsuccessful, perform built-in conversion
 			if(autoRefToType->refLevel)
 			{
 				CodeInfo::nodeList.push_back(new NodeConvertPtr(autoRefToType));
@@ -5187,7 +5187,7 @@ void CallbackInitialize()
 	CodeInfo::classMap.clear();
 	CodeInfo::typeArrays.clear();
 	CodeInfo::typeFunctions.clear();
-	// Add build-in type info to hash map and special lists
+	// Add built-in type info to hash map and special lists
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
 		CodeInfo::classMap.insert(CodeInfo::typeInfo[i]->GetFullNameHash(), CodeInfo::typeInfo[i]);

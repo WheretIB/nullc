@@ -725,7 +725,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	// If types don't match
 	if(second->typeInfo != typeInfo)
 	{
-		// If it is not build-in basic types or if pointers point to different types
+		// If it is not built-in basic types or if pointers point to different types
 		if(typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->subType != second->typeInfo->subType
 			|| typeInfo->firstVariable || second->typeInfo->firstVariable)
 		{
@@ -830,12 +830,12 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 	if(typeInfo == typeVoid)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 	if(first->typeInfo->subType->refLevel != 0 || second->typeInfo->refLevel != 0 || typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: there is no build-in operator for types '%s' and '%s'", typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: there is no built-in operator for types '%s' and '%s'", typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 
 	// If types don't match
 	if(second->typeInfo != typeInfo)
 	{
-		// If it is not build-in basic types or if pointers point to different types
+		// If it is not built-in basic types or if pointers point to different types
 		if(typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->subType != second->typeInfo->subType)
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert '%s' to '%s'", second->typeInfo->GetFullTypeName(), typeInfo->GetFullTypeName());
 	}
