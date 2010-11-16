@@ -1654,14 +1654,13 @@ void AddArrayIndexNode(const char* pos, unsigned argumentCount)
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList[CodeInfo::nodeList.size() - argumentCount - 1] = array;
 	}
-	NodeZeroOP *index = CodeInfo::nodeList.back();
-	// Call overloaded operator with error suppression
-	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", argumentCount + 1, argumentCount == 1))
+	// Get array type
+	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
+	// Ignore errors only if we have one index and we are indexing array or a pointer to array
+	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", argumentCount + 1, argumentCount == 1 && (currentType->arrLevel || (currentType->subType && currentType->subType->arrLevel))))
 		return;
 
 	bool unifyTwo = false;
-	// Get array type
-	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
 	// If it's an inplace array, set it to hidden variable, and put it's address on stack
 	if(currentType->arrLevel != 0)
 	{
@@ -1672,11 +1671,8 @@ void AddArrayIndexNode(const char* pos, unsigned argumentCount)
 		CodeInfo::nodeList.push_back(index);
 		unifyTwo = true;
 	}
-	if(currentType->refLevel == 0)
-	{	
-		CodeInfo::nodeList.back() = index; // restore original index node and call user function that will fail like it did the first time
-		AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", argumentCount + 1);
-	}
+	// Current type must be a reference to an array
+	assert(currentType->refLevel && currentType->subType->arrLevel);
 
 	// Get result type
 	currentType = CodeInfo::GetDereferenceType(currentType);
@@ -1690,14 +1686,6 @@ void AddArrayIndexNode(const char* pos, unsigned argumentCount)
 		CodeInfo::nodeList.push_back(new NodeDereference());
 		CodeInfo::nodeList.push_back(temp);
 	}
-	
-	// Current type must be an array
-	if(currentType->arrLevel == 0)
-	{	
-		CodeInfo::nodeList.back() = index; // restore original index node and call user function that will fail like it did the first time
-		AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", argumentCount + 1);
-	}
-
 #ifndef NULLC_ENABLE_C_TRANSLATION
 	// If index is a number and previous node is an address, then indexing can be done in compile-time
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->nodeType == typeNodeGetAddress)
