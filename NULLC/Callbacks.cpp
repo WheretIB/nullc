@@ -3951,11 +3951,15 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 
 	// Function return type
 	currType = fType->retType;
-	if(forcedParentType)
+	const char *name = fInfo->name;
+	if(forcedParentType || fInfo->parentClass)
+	{
 		assert(strchr(fInfo->name, ':'));
-	else if(fInfo->parentClass)
-		assert(strchr(fInfo->name, ':'));
-	FunctionAdd(pos, forcedParentType ? strchr(fInfo->name, ':') + 2 : (fInfo->parentClass ? strchr(fInfo->name, ':') + 2 : fInfo->name));
+		name = strchr(fInfo->name, ':') + 2;
+	}
+	if(const char* pos = strrchr(name, '.'))
+		name = pos + 1;
+	FunctionAdd(pos, name);
 
 	if(callArgCount != ~0u && callArgCount < fType->paramCount)
 	{
@@ -4238,6 +4242,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		if(!info)
 			info = CodeInfo::classMap.find(funcNameHash);
 	}
+	// Reset current namespace after this point, it's already been used up
+	currNamespace = NULL;
 	// If no functions are found, function name is a type name and a type has member constructors
 	if(count == 0 && info)
 	{
@@ -4248,8 +4254,6 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		if(hasConstructor || callArgCount == 0)
 		{
-			NamespaceInfo *currNS = currNamespace;
-			currNamespace = NULL;
 			// Create temporary variable name
 			char *arrName = AllocateString(16);
 			int length = sprintf(arrName, "$temp%d", inplaceVariableNum++);
@@ -4275,7 +4279,6 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				// Imitate default constructor call
 				AddGetVariableNode(pos, true);
 			}
-			currNamespace = currNS;
 			currType = saveCurrType; // Restore type in definition
 			return true;
 		}
