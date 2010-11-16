@@ -83,3 +83,10 @@ auto x = foo;\r\n\
 Rect<float>[2] m;\r\n\
 return x(m);";
 TEST_RESULT("Constant import 2", testImportConst2, "5");
+
+LOAD_MODULE(test_importenum, "test.importenum", "enum Test{ A, B, C, D }");
+const char	*testImportEnum =
+"import test.importenum;\r\n\
+Test a = Test.C;\r\n\
+return int(a);";
+TEST_RESULT("Enum import", testImportEnum, "2");

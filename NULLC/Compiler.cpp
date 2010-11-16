@@ -159,7 +159,7 @@ auto[]		duplicate(auto[] arr){ auto[] r; __duplicate_array(&r, arr); return r; }
 auto ref	replace(auto ref l, r);\r\n\
 void		swap(auto ref l, r);\r\n\
 int			equal(auto ref l, r);\r\n\
-int			array_copy(auto[] l, r);\r\n\
+void		array_copy(auto[] l, r);\r\n\
 \r\n\
 void ref() __redirect(auto ref r, int[] ref f);\r\n\
 // char inline array definition support\r\n\
@@ -608,6 +608,8 @@ void ResolveType(TypeInfo* info)
 		curr->offset = info->size;
 		info->size += curr->type->size;
 	}
+	if(info->type != TypeInfo::TYPE_COMPLEX)
+		info->size = stackTypeSize[info->stackType];
 	if(info->size % 4 != 0)
 	{
 		info->paddingBytes = 4 - (info->size % 4);
@@ -707,7 +709,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			{
 				unsigned int strLength = (unsigned int)strlen(symbols + tInfo->offsetToName) + 1;
 				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), symbols + tInfo->offsetToName);
-				newInfo = new TypeInfo(CodeInfo::typeInfo.size(), nameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
+				newInfo = new TypeInfo(CodeInfo::typeInfo.size(), nameCopy, 0, 0, 1, NULL, (TypeInfo::TypeCategory)tInfo->type);
 
 				newInfo->hasFinalizer = tInfo->typeFlags & ExternTypeInfo::TYPE_HAS_FINALIZER;
 				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
@@ -736,7 +738,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			}
 				break;
 			default:
-				SafeSprintf(errBuf, 256, "ERROR: new type in module %s named %s unsupported", pos, (symbols + tInfo->offsetToName));
+				SafeSprintf(errBuf, 256, "ERROR: new type in module %s named %s unsupported", pos, symbols + tInfo->offsetToName);
 				CodeInfo::lastError.Init(errBuf, NULL);
 				return false;
 			}
@@ -755,7 +757,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 	for(unsigned int i = oldTypeCount; i < CodeInfo::typeInfo.size(); i++)
 	{
 		TypeInfo *type = CodeInfo::typeInfo[i];
-		if(type->type == TypeInfo::TYPE_COMPLEX && !type->funcType && !type->subType)
+		if((type->type == TypeInfo::TYPE_COMPLEX || type->firstVariable) && !type->funcType && !type->subType)
 		{
 #ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
 			printf(" Type %s fixup\r\n", type->name);
@@ -1827,7 +1829,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		}
 
 		symbolStorageSize += type->GetFullNameLength() + 1;
-		if(type->type == TypeInfo::TYPE_COMPLEX && type->subType == NULL && type->funcType == NULL)
+		if((type->type == TypeInfo::TYPE_COMPLEX || type->firstVariable) && type->subType == NULL && type->funcType == NULL)
 		{
 			for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
 			{
@@ -2032,7 +2034,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			typeInfo.subCat = ExternTypeInfo::CAT_POINTER;
 			typeInfo.subType = refType.subType->typeIndex;
 			typeInfo.memberCount = 0;
-		}else if(refType.type == TypeInfo::TYPE_COMPLEX){	// Complex type
+		}else if(refType.type == TypeInfo::TYPE_COMPLEX || refType.firstVariable){	// Complex type
 			typeInfo.subCat = ExternTypeInfo::CAT_CLASS;
 			typeInfo.memberCount = refType.memberCount;
 			typeInfo.memberOffset = memberOffset;
