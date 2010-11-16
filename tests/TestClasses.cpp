@@ -993,3 +993,14 @@ bool operator==(Foo a, b){ return a.x == b.x && a.y == b.y; }\r\n\
 }\r\n\
 return 2;";
 TEST_RESULT("Usage of class value inside if, for, while, do while and switch statements", testClassAsBoolAndInSwitch, "2");
+
+const char	*testClassConstructorInMemberFunction =
+"class Foo{ int x; void Foo(int y){ x = y; } }\r\n\
+int Foo:xx()\r\n\
+{\r\n\
+	Foo a = Foo(5);\r\n\
+	return 12;\r\n\
+}\r\n\
+Foo a;\r\n\
+return a.xx();";
+TEST_RESULT("Class constructor call inside a member function", testClassConstructorInMemberFunction, "12");
