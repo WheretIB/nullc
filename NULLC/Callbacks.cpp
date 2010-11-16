@@ -1292,7 +1292,7 @@ void GetFunctionContext(const char* pos, FunctionInfo *fInfo, bool handleThisCal
 		if(fInfo->funcContext)
 		{
 			info = &fInfo->funcContext;
-			context = fInfo->funcContext->name;
+			context = (*info)->name;
 		}else{
 			char	*contextName = AllocateString(fInfo->nameLength + 24);
 			int length = sprintf(contextName, "$%s_%d_ext", fInfo->name, fInfo->indexInArr);
@@ -3096,7 +3096,7 @@ void FunctionStart(const char* pos)
 	}
 	currType = CodeInfo::GetReferenceType(lastFunc.type == FunctionInfo::THISCALL ? lastFunc.parentClass : typeInt);
 	currAlign = 4;
-	lastFunc.extraParam = (VariableInfo*)AddVariable(pos, InplaceStr(hiddenHame, length));
+	lastFunc.extraParam = (VariableInfo*)AddVariable(pos, InplaceStr(hiddenHame, length), false);
 
 	if(lastFunc.type == FunctionInfo::COROUTINE)
 	{
@@ -3250,7 +3250,7 @@ void FunctionEnd(const char* pos)
 		SetCurrentAlignment(4);
 		char tempName[NULLC_MAX_VARIABLE_NAME_LENGTH + 32];
 		SafeSprintf(tempName, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, "__%s_%d_cls", lastFunc.name, CodeInfo::FindFunctionByPtr(&lastFunc));
-		TypeBegin(tempName, tempName + strlen(tempName));
+		TypeBegin(tempName, tempName + strlen(tempName), false);
 		for(FunctionInfo::ExternalInfo *curr = lastFunc.firstExternal; curr; curr = curr->next)
 		{
 			unsigned int bufSize = int(curr->variable->name.end - curr->variable->name.begin) + 5;
@@ -4823,7 +4823,7 @@ TypeInfo* TypeBegin(const char* pos, const char* end, bool addNamespace)
 	{
 		typeNameCopy = (char*)GetNameInNamespace(InplaceStr(pos, end), true).begin;
 	}else{
-		typeNameCopy = AllocateString(strlen(pos) + 1);
+		typeNameCopy = AllocateString((unsigned)strlen(pos) + 1);
 		memcpy(typeNameCopy, pos, strlen(pos) + 1);
 	}
 
