@@ -30,3 +30,9 @@ const char *testJiTError3 =
 char b = a;\r\n\
 return 1;";
 TEST_RESULT("Test for JiT error 3", testJiTError3, "1");
+
+const char *testJiTError4 = 
+"int ref x = new int(2);\r\n\
+*x *= *x ** *x;\r\n\
+return *x;";
+TEST_RESULT("Test for JiT error 4", testJiTError4, "8");

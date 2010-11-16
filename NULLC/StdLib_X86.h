@@ -63,8 +63,9 @@ __declspec(naked) void intPow()
 	//ebx is the number
 	__asm
 	{
-		mov eax, [esp+4] ;
-		mov ebx, [esp+8] ;
+		push ebx ;
+		mov eax, [esp+8] ;
+		mov ebx, [esp+12] ;
 		mov edx, 1 ; //edx is the result
 		whileStart: ; 
 		cmp eax, 0 ; //while(power)
@@ -78,6 +79,7 @@ __declspec(naked) void intPow()
 			shr eax, 1 ; //power /= 2
 		  jmp whileStart ;
 		whileEnd: ;
+		pop ebx ;
 		ret ;
 	}
 }

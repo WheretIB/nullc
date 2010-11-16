@@ -2377,9 +2377,8 @@ void GenCodeCmdPow(VMCmd cmd)
 #ifdef NULLC_OPTIMIZE_X86
 	NULLC::stackRead[(16 + NULLC::stackTop) % NULLC::STACK_STATE_SIZE] = true;
 	NULLC::stackRead[(16 + NULLC::stackTop - 1) % NULLC::STACK_STATE_SIZE] = true;
-	KILL_REG(rEAX);KILL_REG(rEBX);KILL_REG(rEDX);
+	KILL_REG(rEAX);KILL_REG(rEDX);
 	NULLC::InvalidateDependand(rEAX);
-	NULLC::InvalidateDependand(rEBX);
 	NULLC::InvalidateDependand(rEDX);
 #endif
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
