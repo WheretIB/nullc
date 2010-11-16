@@ -171,7 +171,7 @@ void AddCaseNode(const char* pos);
 void AddDefaultNode();
 void EndSwitch();
 
-TypeInfo* TypeBegin(const char* pos, const char* end);
+TypeInfo* TypeBegin(const char* pos, const char* end, bool addNamespace = true);
 void TypeAddMember(const char* pos, const char* varName);
 void TypeAddConstant(const char* pos, const char* constName);
 void TypePrototypeFinish();
