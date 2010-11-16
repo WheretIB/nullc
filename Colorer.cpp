@@ -654,10 +654,10 @@ namespace ColorerGrammar
 			nameSpace	=	strWP("namespace")[ColorRWord] >> idP[ColorRWord][StartType] >> chP('{')[ColorText] >> code >> chP('}')[ColorText];
 			code	=	*(
 							strP("import")[ColorRWord] >>
-							((+alnumP)[ColorVar][ImportStart] | epsP[LogError("module name or folder expected")]) >>
+							((+(alnumP | '_'))[ColorVar][ImportStart] | epsP[LogError("module name or folder expected")]) >>
 							*(
 								chP('.')[ColorText][ImportSeparator] >>
-								((+alnumP)[ColorVar][ImportName] | epsP[LogError("module name or folder expected")])
+								((+(alnumP | '_'))[ColorVar][ImportName] | epsP[LogError("module name or folder expected")])
 							) >>
 							(chP(';')[ColorText][ImportEnd] | epsP[LogError("ERROR: ';' expected after import")])
 						) >>
