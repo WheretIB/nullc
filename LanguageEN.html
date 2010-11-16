@@ -147,6 +147,11 @@ function toggleView(a, b, c)
 		<ol>
 			<li><a href="#classaccessor">Accessors</a></li>
 			<li><a href="#classgeneric">Generic classes</a></li>
+			<ol>
+				<li><a href="#classgenericspec">Generic class member type specialization</a></li>
+			</ol>
+			<li><a href="#classconstructor">Class constructor</a></li>
+			<li><a href="#classforward">Class forward declaration</a></li>
 		</ol>
 		<li><a href="#vardef">Variables</a></li>
 		<li><a href="#functions">Functions</a></li>
@@ -164,6 +169,7 @@ function toggleView(a, b, c)
 			<li><a href="#genericspec">Generic function specialization</a></li>
 		</ol>
 		<li><a href="#arrunsized">Arrays with implicit size</a></li>
+		<li><a href="#enum">Enumeration</a></li>
 	</ol>
 	<li>Special types</li>
 	<ol>
@@ -219,6 +225,7 @@ function toggleView(a, b, c)
 	<table border="1px">
 		<tr><th>Name</th><th>Size</th><th>Default alignment</th><th>Extra information</th></tr>
 		<tr><td>void</td><td>0 bytes</td><td>no alignment</td><td>only allowed as a function return value (returns nothing)</td></tr>
+		<tr><td>bool</td><td>1 byte</td><td>no alignment</td><td>values: false (0) or true (1)</td></tr>
 		<tr><td>char</td><td>1 byte</td><td>no alignment</td><td>values: 0..255</td></tr>
 		<tr><td>short</td><td>2 bytes</td><td>no alignment</td><td>values: -32768..32767</td></tr>
 		<tr><td>int</td><td>4 bytes</td><td>4 bytes</td><td>values: -2147483648..2147483647</td></tr>
@@ -318,6 +325,9 @@ function toggleView(a, b, c)
 		<span class="rword">typeof</span>(expression).<span class="rword">isArray</span> - returns 1 if type is an array and 0 otherwise<br />
 		<span class="rword">typeof</span>(expression).<span class="rword">isFunction</span> - returns 1 if type is a function and 0 otherwise<br />
 		</p>
+		It is possible to get class typedef target type, class member type or a class constant value by writing a name after the point.<br />
+		<br />
+		Extended typeof expressions are also available for use immediately after the type name.<br />
 	</div>
 </div>
 <hr />
@@ -350,7 +360,16 @@ function toggleView(a, b, c)
 		<p class="code">
 		<span class="rword">int ref</span> x = <span class="rword">new</span></span> <span class="rword">int</span>(<span class="real">12</span>);<br />
 		</p>
-		To define a constructor for a type, add a member function with the name equal to the class name.		
+		Default class constructor will be called if parenthesis are not written.<br />
+		To define a constructor for a type, add a member function with the name equal to the class name. Read more in a topic about <a href="#classconstructor">class constructor</a>.<br />
+		<br />
+		It is possible to define custom construction for an object by writing code inside figure braces {}:<br />
+		<pre class="code">
+<span class="rword">class Foo</span>{ <span class="rword">int </span><span class="vardef">x</span>; }
+<span class="rword">auto </span><span class="vardef">a </span>= <span class="rword">new Foo</span><span class="bold">{ </span><span class="var">x </span>= <span class="real">4</span>; <span class="bold">}</span>;
+<span class="rword">auto </span><span class="vardef">b </span>= <span class="rword">new Foo</span><span class="bold">(){ </span><span class="var">x </span>= <span class="real">8</span>; <span class="bold">}</span>;
+<span class="rword">return </span><span class="var">a</span>.<span class="var">x </span>+ <span class="var">b</span>.<span class="var">x</span><span class="bold">;</span><span class="comment"> // 12
+</span></pre>
 	</div>
 	<div class="subtopic">
 		<h3><a name="finalize">2.4.3 Object finalization</a></h3>
@@ -439,7 +458,8 @@ function toggleView(a, b, c)
 	<span class="rword">if</span> statement evaluates result of expression "expr", and if result isn't equal to 0, evaluates expressions put in "trueBody". Otherwise, it evaluates expressions put in "falseBody".<br />
 	"trueBody" and "falseBody" may consist of a single expression or a block of expressions.<br />
 	<span class="rword">else</span> and "falseBody", may be omitted. In such case, if result of "expr" is zero, nothing is evaluated.<br />
-
+	<br />
+	If "expr" type is a user-defined type, a conversion to bool is performed by calling bool(expr) function.<br />
 	<div class="subtopic">
 		<h4><a name="static_if">3.1.1 Static if</a></h4>
 
@@ -464,6 +484,8 @@ function toggleView(a, b, c)
 		<br />
 		"body", "initexpr" and "iterexpr" may consist of a single expression or a block of expressions.<br />
 		"condexpr" must be a single expression with result type of int\long\double.<br />
+		<br />
+		If "condexpr" type is a user-defined type, a conversion to bool is performed by calling bool(condexpr) function.<br />
 	</div>
 	<div class="subtopic">
 		<h4><a name="foreach">3.2.2 for each</a></h4>
@@ -575,6 +597,8 @@ function toggleView(a, b, c)
 	<br />
 	"body" may consist of a single expression or a block of expressions.<br />
 	"condexpr" must be a single expression with result type of int\long\double.<br />
+	<br />
+	If "condexpr" type is a user-defined type, a conversion to bool is performed by calling bool(condexpr) function.<br />
 </div>
 <hr />
 <div class="topic">
@@ -590,6 +614,8 @@ function toggleView(a, b, c)
 	<br />
 	"body" may consist of a single expression or a block of expressions.<br />
 	"condexpr" must be a single expression with result type of int\long\double.<br />
+	<br />
+	If "condexpr" type is a user-defined type, a conversion to bool is performed by calling bool(condexpr) function.<br />
 </div>
 <hr />
 <div class="topic">
@@ -624,8 +650,20 @@ function toggleView(a, b, c)
 		&nbsp;&nbsp;&nbsp;&nbsp;...<br />
 		}<br />
 	</p>
-	Class consists of variables, functions and typedefs' in any order, but keep in mind, functions can only access members that are defined before them.<br />
+	Class consists of variables, functions, typedefs' and constants in any order, but keep in mind, functions can only access members that are defined before them.<br />
 	<br />
+	Class constants are numeric type members that are defined after a <span class="rword">const</span> keyword. Such members do not take any space inside a class, and can be accessed
+	as other members in an extended typeof expression with a difference that their value will be resolved immediately at compilation time.<br />
+	Constant members must have a default value assigned to them. Assignment can be skipped for integer constants after the first one in a comma-separated list, in which case they will
+	be autoincremented:<br /> 
+	<pre class="code">
+<span class="rword">class Foo
+</span>{<span class="comment">
+    // A equals 5, B equals 6 and C equals 7
+</span><span class="rword">    const int </span><span class="vardef">A </span>= <span class="real">5</span>, <span class="vardef">B</span>, <span class="vardef">C</span>;
+}
+<span class="rword">Foo </span><span class="vardef">a</span>;
+<span class="rword">return Foo</span>.<span class="var">B </span>+ <span class="var">a</span>.<span class="var">C</span><span class="bold">;</span><span class="comment"> // Answer is 13. Constants can be accesed directly or by using a class instance.</span></pre>
 	There is no default alignment by default. To specify alignment, put "noalign" of "align(bytes)" before "class" keyword.<br />
 	Specifying "noalign" is superfluous. Alignment must not exceed 16 bytes.<br />
 	<div class="subtopic">
@@ -742,9 +780,9 @@ function toggleView(a, b, c)
 		<pre class="code">
 <span class="rword">Pair</span>&lt;<span class="rword">Pair</span>&lt;<span class="rword">int</span>, <span class="rword">int</span>&gt;, <span class="rword">Pair</span>&lt;<span class="rword">double</span>, <span class="rword">double</span>&gt;&gt; <span class="vardef">c</span>;</pre>
 		<div class="subtopic">
-			<h4><a name="classgeneric">4.1.2.1 Generic class member type specialization</a></h4>
+			<h4><a name="classgenericspec">4.1.2.1 Generic class member type specialization</a></h4>
 			
-			It is possible to define a special member function implementation for a single instanced type by specifying full type name in an external member funciton definition:<br />
+			It is possible to define a special member function implementation for a single instanced type by specifying full type name in an external member function definition:<br />
 			<pre class="code">
 <span class="rword">import </span><span class="var">std</span>.<span class="var">math</span>;<span class="comment">
 // define a tuple of two values
@@ -753,7 +791,7 @@ function toggleView(a, b, c)
 <span class="rword">    T </span><span class="vardef">first</span>;
 <span class="rword">    U </span><span class="vardef">second</span>;
 }<span class="comment">
-// Helper function that returns a Pair object with type acording to arguments
+// Helper function that returns a Pair object with type according to arguments
 </span><span class="rword">auto </span><span class="func">Pair</span><span class="bold">(</span>@<span class="rword">T </span><span class="var">a</span>, @<span class="rword">U </span><span class="var">b</span><span class="bold">){ </span><span class="rword">Pair</span>&lt;<span class="rword">T</span>, <span class="rword">U</span>&gt; <span class="vardef">p</span>; <span class="var">p</span>.<span class="var">first </span>= <span class="var">a</span>; <span class="var">p</span>.<span class="var">second </span>= <span class="var">b</span>; <span class="rword">return </span><span class="var">p</span><span class="bold">; }</span><span class="comment">
 
 // Function compares first with second
@@ -766,6 +804,68 @@ function toggleView(a, b, c)
 // Compare values
 </span><span class="rword">return </span><span class="var">p</span>.<span class="func">Compare</span><span class="bold">();</span><span class="comment"> // true</span></pre>
 		</div>
+	</div>
+	<div class="subtopic">
+		<h4><a name="classconstructor">4.1.3 Class constructor</a></h4>
+	
+		A class member function that has the same name as the type is considered to be a <b>class constructor</b>.<br />
+		As described in a section about <a href="#constructor">new expression</a>, class constructors are functions that can be called after object allocation.<br />
+		But because an object can be placed on stack instead of heap memory, compiler will call a default constructor for variables that are placed on stack.<br />
+		Default constructor is simply a constructor that can be called without any arguments (constructor can have <a href="#funcdefarg">default function arguments</a>).<br />
+		<pre class="code">
+<span class="rword">class Foo
+</span>{
+<span class="rword">    int </span><span class="vardef">x</span>;
+<span class="rword">    void </span><span class="func">Foo</span><span class="bold">(){ </span><span class="var">x </span>= <span class="real">12</span>; <span class="bold">}
+</span>}
+<span class="rword">Foo </span><span class="vardef">a</span>;
+<span class="rword">return </span><span class="var">a</span>.<span class="var">x</span><span class="bold">;</span><span class="comment"> // 12</span></pre>
+		If a type has members with default constructor, but the type itself doesn't have a user-defined default constructor, the compiler will create a default constructor that
+		will be used until a user-defined default constructor is created.<br />
+		Moreover, class member default constructors will be called at the beginning of a user-defined constructor.<br />
+		<pre class="code">
+<span class="rword">class Foo
+</span>{
+<span class="rword">    int </span><span class="vardef">x</span>;
+<span class="rword">    void </span><span class="func">Foo</span><span class="bold">(){ </span><span class="var">x </span>= <span class="real">12</span>; <span class="bold">}
+</span>}
+<span class="rword">class Bar
+</span>{
+    <span class="rword">int </span><span class="vardef">y</span>;
+    <span class="rword">Foo </span><span class="vardef">z</span>;
+<span class="rword">    void </span><span class="func">Bar</span><span class="bold">(){ </span><span class="var">y </span>= <span class="real">20</span>; <span class="bold">}</span><span class="comment"> // default Foo constructor is called automatically
+</span>}
+<span class="rword">Bar </span><span class="vardef">a</span>;
+<span class="rword">return </span><span class="var">a</span>.<span class="var">z</span>.<span class="var">x </span>* <span class="var">a</span>.<span class="var">y</span><span class="bold">;</span><span class="comment"> // 240</span></pre>
+		Class constructor can be called as a global function. In this case, class constructor return type is ignored and constructo call results in a new temporary object on stack:<br />
+		<pre class="code">
+<span class="rword">class Foo
+</span>{
+<span class="rword">    int </span><span class="vardef">x</span>;
+<span class="rword">    void </span><span class="func">Foo</span><span class="bold">(</span><span class="rword">int </span><span class="var">x</span><span class="bold">){ </span><span class="var">this</span>.<span class="var">x </span>= <span class="var">x</span>; <span class="bold">}
+</span>}
+<span class="rword">Foo </span><span class="vardef">a </span>= <span class="func">Foo</span><span class="bold">(</span><span class="real">5</span><span class="bold">)</span>;
+<span class="rword">return </span><span class="var">a</span>.<span class="var">x</span><span class="bold">;</span><span class="comment"> // 5</span></pre>
+	</div>
+	
+	<div class="subtopic">
+		<h4><a name="classforward">4.1.4 Class forward declaration</a></h4>
+
+		It is possible to define a type name without defining internal class structure. Such definitions are called forward declarations.<br />
+		A forward-declared type is limited in how it is used: only references to it or arrays with implicit size can be defined until the full class definition.<br />
+		<pre class="code">
+<span class="rword">class List</span>;
+<span class="rword">class Node
+</span>{
+    <span class="rword">int </span><span class="vardef">value</span>;
+    <span class="rword">Node ref </span><span class="vardef">next</span>;
+    <span class="rword">List ref </span><span class="vardef">parent</span>;
+}
+<span class="rword">class List
+</span>{
+    <span class="rword">Node ref </span><span class="vardef">first</span>;
+}</pre>
+		It is not possible to create a forward declaration for a generic class.
 	</div>
 </div>
 <hr />
@@ -820,7 +920,7 @@ function toggleView(a, b, c)
 	</p>
 	Function return type can be any type expression including <span class="rword">auto</span>.<br />
 	Function argument type can be auto only if it has default argument value.<br />
-	Function default argument value is specified by writing "= value" directly after argument name:<br />
+	<a name="funcdefarg"></a>Function default argument value is specified by writing "= value" directly after argument name:<br />
 	<p class="code">
 		<span class="rword">auto</span> <span class="func">function</span>(<span class="rword">int</span> a = <span class="real">5</span>, <span class="auto">int</span> b = <span class="real">5.0</span>){ }
 	</p>
@@ -999,7 +1099,7 @@ function toggleView(a, b, c)
 		If operator overloads are placed inside a class or a <a href="#funclocal" title="Local functions">function</a>, they will be visible until the end of a class or the end of a function.<br />
 		<br />
 		Following binary operators can be overloaded:<br />
-		+ - * / % ** < <= << > >= >> == != & | ^ && || ^^ = += -= *= /= **= %= <<= >>= &= |= ^= []<br />
+		+ - * / % ** < <= << > >= >> == != & | ^ && || ^^ = += -= *= /= **= %= <<= >>= &= |= ^= in<br />
 		For operators = += -= *= /= **= %= <<= >>= &= |= ^= and [], first argument should be a reference to a type, but this is not necessary.<br />
 		<div class="example">
 			<p class="example_head" id="operator_ex_1a" onmousedown="toggleView(&quot;operator_ex_1a&quot;, &quot;operator_ex_1b&quot;, &quot;example of a binary operator overloading.&quot;);">Show example of a binary operator overloading.</p>
@@ -1040,7 +1140,30 @@ function toggleView(a, b, c)
 <span class="rword">auto</span> arr = { <span class="var">a</span> + <span class="var">b</span>, <span class="var">a</span> - <span class="var">b</span>, <span class="var">a * <span class="var">b</span>, <span class="var">a</span> / <span class="var">b</span> };<br />
 			</p>
 		</div>
-
+		For operator && and || overloads, the second argument must be a type that returns a value of a desired type. Here is an example:<br />
+		<div class="example">
+			<p class="example_head" id="operator_ex_Na" onmousedown="toggleView(&quot;operator_ex_Na&quot;, &quot;operator_ex_Nb&quot;, &quot;example of a && operator overloading.&quot;);">Show example of a && operator overloading.</p>
+			<pre class="code example_body" id="operator_ex_Nb">
+<span class="rword">import </span><span class="var">std</span>.<span class="var">io</span>;
+<span class="rword">class Foo
+</span>{
+<span class="bold">    </span><span class="rword">int </span><span class="vardef">x</span>;
+    <span class="rword">void </span><span class="func">Foo</span><span class="bold">(</span><span class="rword">int </span><span class="var">x</span><span class="bold">){ </span><span class="var">this</span>.<span class="var">x </span>= <span class="var">x</span>; <span class="bold">}
+</span>}
+<span class="rword">Foo </span><span class="func">get</span><span class="bold">(</span><span class="rword">int </span><span class="var">x</span><span class="bold">)
+{
+</span><span class="var">    io</span>.<span class="var">out </span>&lt;&lt; "<span class="string">get() called</span>" &lt;&lt; <span class="var">io</span>.<span class="var">endl</span>;
+<span class="rword">    return </span><span class="func">Foo</span><span class="bold">(</span><span class="var">x</span><span class="bold">);
+}
+</span><span class="rword">bool operator </span>&&<span class="bold">(</span><span class="rword">Foo </span><span class="var">a</span>, <span class="rword">Foo ref</span>() <span class="var">b</span><span class="bold">)
+{
+</span><span class="rword">    return </span><span class="var">a</span>.<span class="var">x </span>&& <span class="func">b</span><span class="bold">()</span>.<span class="var">x</span><span class="bold">;
+}
+</span><span class="rword">return </span><span class="func">get</span><span class="bold">(</span><span class="real">0</span><span class="bold">) </span>&& <span class="func">get</span><span class="bold">(</span><span class="real">1</span><span class="bold">);</span></pre>
+			</p>
+		</div>
+		This is implemented so that a short-circuit behaviour of these operators is preserved, if you execute this example, you will see that "get" function is called only once;<br />
+		<br />
 		Following unary operators can be overloaded:<br />
 		+ - ~ !<br />
 		<div class="example">
@@ -1071,7 +1194,7 @@ function toggleView(a, b, c)
 			</p>
 		</div>
 
-		Function call operator () can be overloaded with arbitrary number of parameters.<br />
+		Function call operator () and array indexing operator [] can be overloaded with arbitrary number of parameters.<br />
 		<br />
 		To get a pointer to an overloaded operator, write an <span class="rword">@</span> before the operators name.<br />
 		<div class="example">
@@ -1296,10 +1419,10 @@ return </span><span class="real">1</span><span class="bold">;</span></pre>
 	<div class="subtopic">
 		<h4><a name="genericspec">4.3.11 Generic function specialization</a></h4>
 		
-		It is possible to specialize generic functions for a specific groups of types they are used on, for example, to create a generic function that accepts
+		It is possible to specialize generic functions for a specific group of types they are used on, for example, to create a generic function that accepts
 		any instance of a generic class of a function that accepts a specified amount of arguments or return a specified type.<br />
 		To perform generic function specialization, just replace generic type argument, function type argument or function return type with either
-		<span class="rword">generic</span> type, <span class="rword">genereic ref</span> type or a generic type alias in a form of @ followed by alias name.<br />
+		<span class="rword">generic</span> type, <span class="rword">generic ref</span> type or a generic type alias in a form of @ followed by alias name.<br />
 		<br />
 		Let's take for example a generic complex class:<br />
 		<pre class="code">
@@ -1359,6 +1482,34 @@ return </span><span class="real">1</span><span class="bold">;</span></pre>
 	</p>
 </div>
 <hr />
+
+<div class="topic">
+	<h3><a name="enum">4.5 Enumeration</a></h3>
+	
+	Enumeration type or enum is a class that groups a list of named constant numbers.<br />
+	Enumeration is defined by writing <span class="rword">enum</span>, followed by enumeration name and a list of comma-separated constants in a {}:<br />
+	<pre class="code">
+<span class="rword">enum Foo</span>{ <span class="vardef">A </span>= <span class="real">5</span>, <span class="vardef">B </span>= <span class="real">8</span>, <span class="vardef">C </span>= <span class="real">15 </span>}
+<span class="rword">Foo </span><span class="vardef">x </span>= <span class="rword">Foo</span>.<span class="var">B</span>;</pre>
+	Constant value is of type int.<br />
+	Constant value can be skipped, in which case its value will be determened by incrementing previous constant value:<br />
+	<pre class="code">
+<span class="comment">// define Foo.A to be 4, Foo.B to be 5 and so on:
+</span><span class="rword">enum Foo</span>{ <span class="vardef">A </span>= <span class="real">4</span>, <span class="vardef">B</span>, <span class="vardef">C</span>, <span class="vardef">D </span>}</pre>
+	Moreover, if the value of first constant is skipped, its value will be 0:<br />
+	<pre class="code">
+<span class="comment">
+// define Foo.A to be 0, Foo.B to be 1 and so on:
+</span><span class="rword">enum Foo</span>{ <span class="vardef">A</span>, <span class="vardef">B</span>, <span class="vardef">C</span>, <span class="vardef">D </span>}</pre>
+	<br />
+	Compiler will generate the following functions to enable conversion to and from int:<br />
+	<pre class="code">
+<span class="rword">int </span><span class="func">int</span><span class="bold">(</span><span class="rword">enum_type </span><span class="var">x</span><span class="bold">);
+</span><span class="rword">enum_type </span><span class="func">enum_type</span><span class="bold">(</span><span class="rword">int </span><span class="var">x</span><span class="bold">);
+</span></pre>
+</div>
+<hr />
+
 <h2 align="center">5. Special types</h2>
 <div class="topic">
 	<h3><a name="autoref">5.1 auto ref</a></h3>
@@ -1632,7 +1783,8 @@ B int 5<br />
 	<h3><a name="nullptr">6.8 Null pointer</a></h3>
 
 	<span class="rword">nullptr</span> acts as a constant of null pointer.<br />
-	<span class="rword">nullptr</span> can be assigned to any pointer of array with implicit size.<br />
+	<span class="rword">nullptr</span> can be assigned to pointers, arrays with implicit size or functions pointers.<br />
+	<span class="rword">nullptr</span> can be strictly compared (== or !=) with pointers, arrays with implicit size and functions pointers.<br />
 </div>
 <hr />
 
