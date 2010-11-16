@@ -376,11 +376,7 @@ namespace ColorerGrammar
 				typePostExpr >>
 				*typeofPostExpr;
 
-			classdef	=
-				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
-				strP("class")[ColorRWord] >>
-				(idP[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
-				!(chP('<')[ColorText] >> idP[ColorRWord][StartType] >> *(chP(',')[ColorText] >> idP[ColorRWord][StartType]) >> chP('>')[ColorText]) >>
+			classbody	=
 				(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText] >>
 				*(
 					(strWP("const")[ColorRWord] >> typeExpr >> idP[ColorVarDef] >> chP('=')[ColorText] >> term4_9 >> *(chP(',')[ColorText] >> idP[ColorVarDef] >> !(chP('=')[ColorText] >> term4_9)) >> chP(';')[ColorText]) |
@@ -416,6 +412,13 @@ namespace ColorerGrammar
 					)
 				) >>
 				(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText];
+
+			classdef	=
+				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
+				strP("class")[ColorRWord] >>
+				(idP[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
+				!(chP('<')[ColorText] >> idP[ColorRWord][StartType] >> *(chP(',')[ColorText] >> idP[ColorRWord][StartType]) >> chP('>')[ColorText]) >>
+				(chP(';') | classbody);
 	
 			enumeration	=
 				strWP("enum")[ColorRWord] >> idP[ColorRWord][StartType] >> chP('{')[ColorText] >>
@@ -668,7 +671,7 @@ namespace ColorerGrammar
 		// Parsing rules
 		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr, typeDef;
 		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, fcallpart, funcvars;
-		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr, oneLexOperator, typePostExpr, typeofPostExpr, enumeration, nameSpace;
+		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr, oneLexOperator, typePostExpr, typeofPostExpr, enumeration, nameSpace, classbody;
 		// Main rule
 		Rule code;
 	};
