@@ -1030,6 +1030,14 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 		TreeView_SetItem(hVars, &item);
 		return;
 	}
+	if(type.defaultAlign == 0xff)
+	{
+		safeprintf(name, 256, "base: %p", ptr);
+		helpInsert.item.mask = TVIF_TEXT;
+		helpInsert.item.pszText = name;
+		HTREEITEM lastItem;
+		lastItem = TreeView_InsertItem(hVars, &helpInsert);
+	}
 	for(unsigned int i = 0; i < arrSize; i++, ptr += subType.size)
 	{
 		if(i > 100)
@@ -2226,6 +2234,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					{
 						ExternTypeInfo decoy = type;
 						decoy.arrSize = ((NULLCArray*)extra->address)->len;
+						decoy.defaultAlign = 0xff;
 						if(IsBadReadPtr(stateRemote ? ptr : ((NULLCArray*)extra->address)->ptr, codeTypes[type.subType].size * decoy.arrSize))
 							break;
 						FillArrayVariableInfo(decoy, stateRemote ? ptr : ((NULLCArray*)extra->address)->ptr, extra->item);

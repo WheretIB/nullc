@@ -7,6 +7,15 @@ class VariableInfo;
 class FunctionInfo;
 class FunctionType;
 class NodeZeroOP;
+class NamespaceInfo;
+
+void			PushNamespace(InplaceStr space);
+void			PopNamespace();
+NamespaceInfo*	IsNamespace(InplaceStr space);
+NamespaceInfo*	GetCurrentNamespace();
+void			SetCurrentNamespace(NamespaceInfo* space);
+
+TypeInfo*		SelectTypeByName(InplaceStr name);
 
 void CallbackInitialize();
 
@@ -74,7 +83,7 @@ void SelectTypeByIndex(unsigned int index);
 TypeInfo* GetSelectedType();
 const char* GetSelectedTypeName();
 
-VariableInfo* AddVariable(const char* pos, InplaceStr varName);
+VariableInfo* AddVariable(const char* pos, InplaceStr varName, bool preserveNamespace = true);
 
 void AddVariableReserveNode(const char* pos);
 
@@ -125,7 +134,7 @@ void FinishConstructorCall(const char* pos);
 bool HasConstructor(TypeInfo* type, unsigned arguments, bool* callDefault = NULL);
 
 void BeginCoroutine();
-void FunctionAdd(const char* pos, const char* funcName);
+void FunctionAdd(const char* pos, const char* funcName, bool isOperator = false);
 void FunctionParameter(const char* pos, InplaceStr paramName);
 void FunctionPrepareDefault();
 void FunctionParameterDefault(const char* pos);

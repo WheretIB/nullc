@@ -43,12 +43,11 @@ unsigned int ParseTypename(Lexeme** str)
 	if((*str)->type != lex_string)
 		return false;
 
-	unsigned int hash = GetStringHash((*str)->pos, (*str)->pos + (*str)->length);
-	TypeInfo **type = CodeInfo::classMap.find(hash);
+	TypeInfo *type = SelectTypeByName(InplaceStr((*str)->pos, (*str)->length));
 	if(type)
 	{
 		(*str)++;
-		return (*type)->typeIndex + 1;
+		return type->typeIndex + 1;
 	}
 	return 0;
 }
@@ -456,9 +455,25 @@ bool ParseSelectType(Lexeme** str, bool allowArray, bool allowGenericType, bool 
 		if(allowArray && (*str+1)->type == lex_oparen)
 			return false;
 
+		Lexeme *curr = *str;
+		NamespaceInfo* lastNS = GetCurrentNamespace();
+		NamespaceInfo* ns = NULL;
+		while((*str)->type == lex_string && (*str + 1)->type == lex_point && (ns = IsNamespace(InplaceStr((*str)->pos, (*str)->length))) != NULL)
+		{
+			(*str)++;
+			if(!ParseLexem(str, lex_point))
+				ThrowError((*str)->pos, "ERROR: '.' not found after namespace name");
+			SetCurrentNamespace(ns);
+		}
 		unsigned int index;
 		if((index = ParseTypename(str)) == 0)
+		{
+			SetCurrentNamespace(lastNS);
+			*str = curr;
 			return false;
+		}
+		SetCurrentNamespace(lastNS);
+
 		SelectTypeByIndex(index - 1);
 		if((*str)->type != lex_less && GetSelectedType()->genericInfo)
 		{
@@ -1075,15 +1090,15 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 	}
 	(*str)++;
 
-	FunctionAdd((*str)->pos, functionName);
+	bool isOperator = name[0].type == lex_operator && ((name[1].type >= lex_add && name[1].type <= lex_xorset) || name[1].type == lex_obracket || name[1].type == lex_oparen || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot);
+
+	FunctionAdd((*str)->pos, functionName, isOperator);
 
 	Lexeme *vars = *str;
 	ParseFunctionVariables(str);
 
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError((*str)->pos, "ERROR: ')' not found after function variable list");
-
-	bool isOperator = name[0].type == lex_operator && ((name[1].type >= lex_add && name[1].type <= lex_xorset) || name[1].type == lex_obracket || name[1].type == lex_oparen || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot);
 
 	if(ParseLexem(str, lex_semicolon))
 	{
@@ -1804,10 +1819,21 @@ bool ParseVariable(Lexeme** str, bool *lastIsFunctionCall = NULL)
 	if((*str)->type != lex_string || (*str)[1].type == lex_oparen)
 		return false;
 
+	NamespaceInfo* lastNS = GetCurrentNamespace();
+	NamespaceInfo* ns = NULL;
+	while((*str)->type == lex_string && (*str + 1)->type == lex_point && (ns = IsNamespace(InplaceStr((*str)->pos, (*str)->length))) != NULL)
+	{
+		(*str)++;
+		if(!ParseLexem(str, lex_point))
+			ThrowError((*str)->pos, "ERROR: '.' not found after namespace name");
+		SetCurrentNamespace(ns);
+	}
+	
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 		ThrowError((*str)->pos, "ERROR: variable name length is limited to 2048 symbols");
 	AddGetAddressNode((*str)->pos, InplaceStr((*str)->pos, (*str)->length));
 	(*str)++;
+	SetCurrentNamespace(lastNS);
 
 	bool isFuncCall = false;
 	while(ParsePostExpression(str, &isFuncCall));
@@ -2134,11 +2160,27 @@ bool ParseTerminal(Lexeme** str)
 		return true;
 		break;
 	case lex_string:
-		if((*str + 1)->type == lex_oparen)
 		{
-			ParseFunctionCall(str, false);
-			ParsePostExpressions(str);
-			return true;
+			Lexeme *curr = *str;
+			NamespaceInfo* lastNS = GetCurrentNamespace();
+			// $$ some creepy stuff can be parsed here, like, a nested name can be from parent namespace
+			NamespaceInfo* ns = NULL;
+			while((*str)->type == lex_string && (*str + 1)->type == lex_point && (ns = IsNamespace(InplaceStr((*str)->pos, (*str)->length))) != NULL)
+			{
+				(*str)++;
+				if(!ParseLexem(str, lex_point))
+					ThrowError((*str)->pos, "ERROR: '.' not found after namespace name");
+				SetCurrentNamespace(ns);
+			}
+			if((*str + 1)->type == lex_oparen)
+			{
+				ParseFunctionCall(str, false);
+				ParsePostExpressions(str);
+				SetCurrentNamespace(lastNS);
+				return true;
+			}
+			SetCurrentNamespace(lastNS);
+			*str = curr;
 		}
 	case lex_typeof:
 	case lex_coroutine:
@@ -2150,9 +2192,8 @@ bool ParseTerminal(Lexeme** str)
 			BeginCoroutine();
 			(*str)++;
 		}
-		bool isFunctionCall = !isCoroutine && (*str)->type != lex_typeof && (*str)->type != lex_auto && (*str + 1)->type == lex_oparen;
 		unsigned nodeCount = CodeInfo::nodeList.size();
-		if(!isFunctionCall && ParseSelectType(str))
+		if(ParseSelectType(str))
 		{
 			if(ParseFunctionDefinition(str, isCoroutine))
 				return true;
@@ -2324,6 +2365,22 @@ bool ParseExpression(Lexeme** str)
 		break;
 	case lex_enum:
 		ParseEnum(str);
+		break;
+	case lex_namespace:
+		{
+			(*str)++;
+			if((*str)->type != lex_string)
+				ThrowError((*str)->pos, "ERROR: namespace name required");
+			PushNamespace(InplaceStr((*str)->pos, (*str)->length));
+			(*str)++;
+			if(!ParseLexem(str, lex_ofigure))
+				ThrowError((*str)->pos, "ERROR: '{' not found after namespace name");
+			if(!ParseCode(str))
+				AddVoidNode();
+			if(!ParseLexem(str, lex_cfigure))
+				ThrowError((*str)->pos, "ERROR: '}' not found after namespace body");
+			PopNamespace();
+		}
 		break;
 	case lex_ofigure:
 		ParseBlock(str);

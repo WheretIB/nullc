@@ -52,7 +52,7 @@ enum LexemeType
 	lex_typeof, lex_sizeof, lex_new, lex_operator, lex_typedef, lex_import, lex_nullptr, // typeof sizeof new operator typedef import in nullptr
 	lex_coroutine, lex_yield,	// coroutine yield
 	lex_at,	// @
-	lex_generic, lex_const, lex_true, lex_false, lex_enum, // generic const true false
+	lex_generic, lex_const, lex_true, lex_false, lex_enum, lex_namespace // generic const true false enum namespace
 };
 
 struct Lexeme

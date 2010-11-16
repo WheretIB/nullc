@@ -79,9 +79,177 @@ TypeInfo*		typeObjectArray = NULL;
 TypeInfo*		newType = NULL;
 unsigned int	methodCount = 0;
 
+FastVector<NamespaceInfo*>	namespaceStack;
+NamespaceInfo*				currNamespace = NULL;
+
+void PushNamespace(InplaceStr space)
+{
+	// Construct a name hash in a form of "previousname.currentname"
+	unsigned hash;
+	if(namespaceStack.size() == 1)
+	{
+		hash = GetStringHash(space.begin, space.end);
+	}else{
+		hash = namespaceStack.back()->hash;
+		hash = StringHashContinue(hash, ".");
+		hash = StringHashContinue(hash, space.begin, space.end);
+	}
+
+	// Find if namespace is already created
+	unsigned i = 0;
+	for(; i < CodeInfo::namespaceInfo.size(); i++)
+	{
+		if(CodeInfo::namespaceInfo[i]->hash == hash)
+			break;
+	}
+	if(i != CodeInfo::namespaceInfo.size())
+	{
+		namespaceStack.push_back(CodeInfo::namespaceInfo[i]);
+		return;
+	}
+	CodeInfo::namespaceInfo.push_back(new NamespaceInfo(space, hash, namespaceStack.size() == 1 ? NULL : namespaceStack.back()));
+	namespaceStack.push_back(CodeInfo::namespaceInfo.back());
+}
+
+void PopNamespace()
+{
+	namespaceStack.pop_back();
+}
+NamespaceInfo* IsNamespace(InplaceStr space)
+{
+	for(int i = namespaceStack.size() - 1; i >= 0; i--)
+	{
+		unsigned hash = currNamespace ? currNamespace->hash : 0;
+		if(i == 0)
+		{
+			if(currNamespace)
+			{
+				hash = StringHashContinue(hash, ".");
+				hash = StringHashContinue(hash, space.begin, space.end);
+			}else{
+				hash = GetStringHash(space.begin, space.end);
+			}
+		}else{
+			hash = namespaceStack[i]->hash;
+			hash = StringHashContinue(hash, ".");
+			hash = StringHashContinue(hash, space.begin, space.end);
+		}
+		for(unsigned k = 0; k < CodeInfo::namespaceInfo.size(); k++)
+		{
+			if(CodeInfo::namespaceInfo[k]->hash == hash)
+				return CodeInfo::namespaceInfo[k];
+		}
+	}
+	return NULL;
+}
+NamespaceInfo* GetCurrentNamespace()
+{
+	return currNamespace;
+}
+void SetCurrentNamespace(NamespaceInfo* space)
+{
+	currNamespace = space;
+}
+
+InplaceStr GetNameInNamespace(InplaceStr name, bool alwaysRelocate = false)
+{
+	if(namespaceStack.size() > 1)
+	{
+		// A full name must be created if we are in a namespace
+		unsigned nameLength = int(name.end - name.begin) + 1, lastLength = nameLength;
+		for(unsigned int i = 1; i < namespaceStack.size(); i++)
+			nameLength += namespaceStack[i]->nameLength + 1; // add space for namespace name and a point
+		char *newName = AllocateString(nameLength), *currPos = newName;
+		for(unsigned int i = 1; i < namespaceStack.size(); i++)
+		{
+			memcpy(currPos, namespaceStack[i]->name.begin, namespaceStack[i]->nameLength);
+			currPos += namespaceStack[i]->nameLength;
+			*currPos++ = '.';
+		}
+		memcpy(currPos, name.begin, lastLength);
+		currPos[lastLength - 1] = 0;
+		name = InplaceStr(newName);
+	}else if(alwaysRelocate){
+		char *newName = AllocateString(int(name.end - name.begin) + 1);
+		memcpy(newName, name.begin, int(name.end - name.begin));
+		newName[int(name.end - name.begin)] = 0;
+		name = InplaceStr(newName);
+	}
+	return name;
+}
+unsigned AddNamespaceToHash(unsigned hash, NamespaceInfo* info)
+{
+	if(info->parent)
+		hash = AddNamespaceToHash(hash, info->parent);
+	hash = StringHashContinue(hash, info->name.begin, info->name.end);
+	hash = StringHashContinue(hash, ".");
+	return hash;
+}
+
+TypeInfo* SelectTypeByName(InplaceStr name)
+{
+	TypeInfo **type = NULL;
+	for(unsigned i = namespaceStack.size() - 1; i > 0 && !type; i--)
+	{
+		unsigned hash = namespaceStack[i]->hash;
+		hash = StringHashContinue(hash, ".");
+		if(currNamespace)
+			hash = AddNamespaceToHash(hash, currNamespace);
+		hash = StringHashContinue(hash, name.begin, name.end);
+		type = CodeInfo::classMap.find(hash);
+	}
+	if(!type)
+	{
+		unsigned int hash = 0;
+		if(NamespaceInfo *ns = currNamespace)
+		{
+			hash = ns->hash;
+			hash = StringHashContinue(hash, ".");
+			hash = StringHashContinue(hash, name.begin, name.end);
+		}else{
+			hash = GetStringHash(name.begin, name.end);
+		}
+		type = CodeInfo::classMap.find(hash);
+	}
+	if(type)
+		return *type;
+	return NULL;
+}
+HashMap<VariableInfo*>::Node* SelectVariableByName(InplaceStr name)
+{
+	HashMap<VariableInfo*>::Node *curr = NULL;
+	for(unsigned i = namespaceStack.size() - 1; i > 0 && !curr; i--)
+	{
+		unsigned hash = namespaceStack[i]->hash;
+		hash = StringHashContinue(hash, ".");
+		if(currNamespace)
+			hash = AddNamespaceToHash(hash, currNamespace);
+		hash = StringHashContinue(hash, name.begin, name.end);
+		curr = varMap.first(hash);
+	}
+	if(!curr)
+	{
+		unsigned int hash = 0;
+		if(NamespaceInfo *ns = currNamespace)
+		{
+			hash = ns->hash;
+			hash = StringHashContinue(hash, ".");
+			hash = StringHashContinue(hash, name.begin, name.end);
+		}else{
+			hash = GetStringHash(name.begin, name.end);
+		}
+		curr = varMap.first(hash);
+	}
+	// In generic function instance, skip all variables that are defined after the base generic function
+	while(curr && currDefinedFunc.size() && currDefinedFunc.back()->genericBase && !(curr->value->pos >> 24) && !(curr->value->parentType) && (curr->value->isGlobal ? currDefinedFunc.back()->genericBase->globalVarTop <= curr->value->pos : (currDefinedFunc.back()->genericBase->blockDepth < curr->value->blockDepth && currDefinedFunc.back() != curr->value->parentFunction)))
+		curr = varMap.next(curr);
+	return curr;
+}
+
 ChunkedStackPool<65532> TypeInfo::typeInfoPool;
 ChunkedStackPool<65532> VariableInfo::variablePool;
 ChunkedStackPool<65532> FunctionInfo::functionPool;
+ChunkedStackPool<65532> NamespaceInfo::namespacePool;
 
 FastVector<FunctionInfo*>	bestFuncList;
 FastVector<unsigned int>	bestFuncRating;
@@ -972,9 +1140,11 @@ const char* GetSelectedTypeName()
 	return currType->GetFullTypeName();
 }
 
-VariableInfo* AddVariable(const char* pos, InplaceStr varName)
+VariableInfo* AddVariable(const char* pos, InplaceStr variableName, bool preserveNamespace)
 {
 	CodeInfo::lastKnownStartPos = pos;
+
+	InplaceStr varName = preserveNamespace ? GetNameInNamespace(variableName) : variableName;
 
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
 
@@ -1114,12 +1284,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 	CodeInfo::lastKnownStartPos = pos;
 
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
-
-	HashMap<VariableInfo*>::Node *curr = varMap.first(hash);
-	
-	// In generic function instance, skip all variables that are defined after the base generic function
-	while(curr && currDefinedFunc.size() && currDefinedFunc.back()->genericBase && !(curr->value->pos >> 24) && !(curr->value->parentType) && (curr->value->isGlobal ? currDefinedFunc.back()->genericBase->globalVarTop <= curr->value->pos : (currDefinedFunc.back()->genericBase->blockDepth < curr->value->blockDepth && currDefinedFunc.back() != curr->value->parentFunction)))
-		curr = varMap.next(curr);
+	HashMap<VariableInfo*>::Node *curr = SelectVariableByName(varName);
 
 	if(!curr)
 	{
@@ -1167,7 +1332,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 		if(fID == -1)
 			fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
 		if(fID == -1)
-			ThrowError(pos, "ERROR: variable or function '%.*s' is not defined", varName.end-varName.begin, varName.begin);
+			ThrowError(pos, "ERROR: unknown identifier '%.*s'", varName.end-varName.begin, varName.begin);
 
 		if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
 		{
@@ -2627,9 +2792,12 @@ void BeginCoroutine()
 	defineCoroutine = true;
 }
 
-void FunctionAdd(const char* pos, const char* funcName)
+void FunctionAdd(const char* pos, const char* funcName, bool isOperator)
 {
 	static unsigned int hashFinalizer = GetStringHash("finalize");
+
+	funcName = isOperator ? funcName : GetNameInNamespace(InplaceStr(funcName)).begin;
+
 	unsigned int funcNameHash = GetStringHash(funcName), origHash = funcNameHash;
 	for(unsigned int i = varInfoTop.back().activeVarCnt; i < CodeInfo::varInfo.size(); i++)
 	{
@@ -2683,7 +2851,7 @@ void FunctionAdd(const char* pos, const char* funcName)
 		lastFunc->parentClass = NULL;
 		defineCoroutine = false;
 	}
-	if(funcName[0] != '$' && !(chartype_table[(unsigned char)funcName[0]] & ct_start_symbol))
+	if(isOperator)
 		lastFunc->visible = false;
 }
 
@@ -3958,11 +4126,18 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			// "this" pointer will be passed as extra parameter
 			funcAddr = CodeInfo::nodeList.back();
 			CodeInfo::nodeList.pop_back();
-		}else if(funcName){
+		}
+	}
+	if(funcName && !funcAddr)
+	{
+		if(currNamespace)
+		{
+			funcNameHash = currNamespace->hash;
+			funcNameHash = StringHashContinue(funcNameHash, ".");
+			funcNameHash = StringHashContinue(funcNameHash, funcName);
+		}else{
 			funcNameHash = GetStringHash(funcName);
 		}
-	}else if(funcName){
-		funcNameHash = GetStringHash(funcName);
 	}
 	// Handle type(auto ref) -> type, if no user function is defined.
 	if(!silent && callArgCount == 1 && CodeInfo::nodeList.back()->typeInfo == typeObject)
@@ -4012,7 +4187,25 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 	//Find all functions with given name
 	bestFuncList.clear();
-	SelectFunctionsForHash(funcNameHash, scope);
+	if(funcAddr)
+	{
+		SelectFunctionsForHash(funcNameHash, scope);
+	}else{
+		for(int i = namespaceStack.size() - 1; i >= 0 && !bestFuncList.size(); i--)
+		{
+			if(i == 0)
+			{
+				SelectFunctionsForHash(funcNameHash, scope);
+			}else{
+				unsigned hash = namespaceStack[i]->hash;
+				hash = StringHashContinue(hash, ".");
+				if(currNamespace)
+					hash = AddNamespaceToHash(hash, currNamespace);
+				hash = StringHashContinue(hash, funcName);
+				SelectFunctionsForHash(hash, scope);
+			}
+		}
+	}
 	unsigned int count = bestFuncList.size();
 	
 	TypeInfo **info = NULL;
@@ -4026,6 +4219,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		if(hasConstructor || callArgCount == 0)
 		{
+			NamespaceInfo *currNS = currNamespace;
+			currNamespace = NULL;
 			// Create temporary variable name
 			char *arrName = AllocateString(16);
 			int length = sprintf(arrName, "$temp%d", inplaceVariableNum++);
@@ -4042,20 +4237,18 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 					CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - k] = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k];
 					CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - k] = temp;
 				}
-				assert(0 == strcmp(funcName, (*info)->name));
 				AddMemberFunctionCall(pos, (*info)->genericBase ? (*info)->genericBase->name : (*info)->name, callArgCount); // Call member constructor
 				AddPopNode(pos); // Remove result
 				CodeInfo::nodeList.push_back(new NodeGetAddress(varInfo, varInfo->pos, varInfo->varType)); // Get address
 				AddGetVariableNode(pos); // Dereference
 				AddTwoExpressionNode(*info); // Pack two nodes together
-				currType = saveCurrType; // Restore type in definition
-				return true;
 			}else{
 				// Imitate default constructor call
 				AddGetVariableNode(pos, true);
-				currType = saveCurrType; // Restore type in definition
-				return true;
 			}
+			currNamespace = currNS;
+			currType = saveCurrType; // Restore type in definition
+			return true;
 		}
 	}
 
@@ -4543,8 +4736,10 @@ TypeInfo* TypeBegin(const char* pos, const char* end)
 	if(currAlign > 16)
 		ThrowError(pos, "ERROR: alignment must be less than 16 bytes");
 
-	char *typeNameCopy = AllocateString((int)(end - pos) + 1);
-	sprintf(typeNameCopy, "%.*s", (int)(end - pos), pos);
+	const char *typeNameCopy = GetNameInNamespace(InplaceStr(pos, end), true).begin;
+
+	if(IsNamespace(InplaceStr(typeNameCopy)))
+		ThrowError(pos, "ERROR: name is already taken for a namespace");
 
 	unsigned int hash = GetStringHash(typeNameCopy);
 	TypeInfo **type = CodeInfo::classMap.find(hash);
@@ -4589,7 +4784,7 @@ void TypeAddMember(const char* pos, const char* varName)
 	if(currType->hasFinalizer)
 		ThrowError(pos, "ERROR: class '%s' implements 'finalize' so only a reference or an unsized array of '%s' can be put in a class", currType->GetFullTypeName(), currType->GetFullTypeName());
 
-	VariableInfo *varInfo = (VariableInfo*)AddVariable(pos, InplaceStr(varName, (int)strlen(varName)));
+	VariableInfo *varInfo = (VariableInfo*)AddVariable(pos, InplaceStr(varName, (int)strlen(varName)), false);
 	varInfo->isGlobal = true;
 	varInfo->parentType = newType;
 }
@@ -5184,6 +5379,12 @@ void CallbackInitialize()
 
 	vtblList = NULL;
 
+	// Clear namespace list and place an unnamed namespace on top of namespace stack
+	CodeInfo::namespaceInfo.clear();
+	namespaceStack.clear();
+	namespaceStack.push_back(new NamespaceInfo(InplaceStr(""), GetStringHash(""), NULL));
+	currNamespace = NULL;
+
 	CodeInfo::classMap.clear();
 	CodeInfo::typeArrays.clear();
 	CodeInfo::typeFunctions.clear();
@@ -5233,12 +5434,16 @@ void CallbackReset()
 	funcMap.reset();
 	varMap.reset();
 
+	namespaceStack.reset();
+
 	TypeInfo::typeInfoPool.~ChunkedStackPool();
 	TypeInfo::SetPoolTop(0);
 	VariableInfo::variablePool.~ChunkedStackPool();
 	VariableInfo::SetPoolTop(0);
 	FunctionInfo::functionPool.~ChunkedStackPool();
 	FunctionInfo::SetPoolTop(0);
+	NamespaceInfo::namespacePool.~ChunkedStackPool();
+	NamespaceInfo::ResetPool();
 
 	NULLC::dealloc(errorReport);
 	errorReport = NULL;

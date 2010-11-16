@@ -30,6 +30,8 @@ FastVector<TypeInfo*>		CodeInfo::typeArrays;
 FastVector<TypeInfo*>		CodeInfo::typeFunctions;
 AliasInfo					*CodeInfo::globalAliases = NULL;
 
+FastVector<NamespaceInfo*>	CodeInfo::namespaceInfo;
+
 SourceInfo					CodeInfo::cmdInfoList;
 FastVector<VMCmd>			CodeInfo::cmdList;
 FastVector<NodeZeroOP*>		CodeInfo::nodeList;
@@ -89,6 +91,7 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 	CodeInfo::cmdList.reserve(2048);
 	CodeInfo::nodeList.reserve(1024);
 	CodeInfo::funcDefList.reserve(64);
+	CodeInfo::namespaceInfo.reserve(64);
 	CodeInfo::classMap.init();
 
 	compiler = NULLC::construct<Compiler>();
@@ -926,6 +929,8 @@ void nullcTerminate()
 	CodeInfo::typeArrays.reset();
 	CodeInfo::typeFunctions.reset();
 	CodeInfo::classMap.reset();
+
+	CodeInfo::namespaceInfo.reset();
 
 	initialized = false;
 }

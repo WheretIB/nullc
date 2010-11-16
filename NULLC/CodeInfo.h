@@ -46,6 +46,9 @@ namespace CodeInfo
 	extern FastVector<TypeInfo*>	typeFunctions;
 	extern AliasInfo				*globalAliases;
 
+	// Information about namespaces
+	extern FastVector<NamespaceInfo*>	namespaceInfo;
+
 	// Поток комманд
 	// Command stream
 	extern SourceInfo				cmdInfoList;
