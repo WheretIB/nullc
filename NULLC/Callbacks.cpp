@@ -2819,7 +2819,6 @@ void FunctionAdd(const char* pos, const char* funcName, bool isOperator)
 		if(CodeInfo::varInfo[i]->nameHash == funcNameHash)
 			ThrowError(pos, "ERROR: name '%s' is already taken for a variable in current scope", funcName);
 	}
-	
 
 	char *funcNameCopy = (char*)funcName;
 	if(newType && !functionLocal)
@@ -5147,7 +5146,7 @@ TypeInfo* GetDefinedType()
 void AddAliasType(InplaceStr aliasName)
 {
 	AliasInfo *info = TypeInfo::CreateAlias(aliasName, currType);
-	if(newType && !currDefinedFunc.size())	// If we're inside a class definition, but _not_ inside a function
+	if(newType && (!currDefinedFunc.size() || newType->definitionDepth > currDefinedFunc.back()->vTopSize))	// If we're inside a class definition, but _not_ inside a function
 	{
 		// Create alias and add it to type alias list, so that after type definition is finished, local aliases will be deleted
 		info->next = newType->childAlias;

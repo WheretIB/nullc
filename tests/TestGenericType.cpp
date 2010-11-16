@@ -2212,3 +2212,16 @@ const char	*testLocalClassOperatorsScope =
 Rect<float> a;\r\n\
 return 1;";
 TEST_RESULT("Local class operators go out of scope before default assignment operator is created", testLocalClassOperatorsScope, "1");
+
+const char	*testLocalClassAliasParent =
+"class Foo<T>\r\n\
+{\r\n\
+	typedef T ref X;\r\n\
+}\r\n\
+int foo()\r\n\
+{\r\n\
+	Foo<int> a;\r\n\
+	return typeof(a).X == int ref;\r\n\
+}\r\n\
+return foo();";
+TEST_RESULT("If a class is defined locally, its aliases still go to class alias list, not parent function alias list", testLocalClassAliasParent, "1");
