@@ -604,6 +604,8 @@ return int(y() + z());",
 	TEST_FOR_FAIL("restricted enum", "enum x { y = 54, z } x foo(){ return 15; }", "ERROR: function returns int but supposed to return x");
 
 	TEST_FOR_FAIL("no incorrect optimization for classes", "class Foo{ } Foo a = 0 + Foo(); return 1;", "ERROR: operation + is not supported on 'int' and 'Foo'");
+
+	TEST_FOR_FAIL("test for bug in function call", "int foo(void ref() f, char[] x = \"x\", int a = 2){ return 5; } return foo(\"f\");", "ERROR: can't find function 'foo' with following parameters:");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

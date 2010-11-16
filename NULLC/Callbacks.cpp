@@ -3396,7 +3396,7 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 					continue;		// Inline function definition doesn't cost anything
 				else if(nodeType == typeNodeFunctionProxy && ((NodeFunctionProxy*)activeNode)->HasType(expectedType))
 					continue;		// If a set of function overloads has an expected overload, this doesn't cont anything
-				else if(nodeType == typeNodeExpressionList && ((NodeExpressionList*)CodeInfo::nodeList.back())->GetFirstNode()->nodeType == typeNodeFunctionProxy)
+				else if(nodeType == typeNodeExpressionList && ((NodeExpressionList*)activeNode)->GetFirstNode()->nodeType == typeNodeFunctionProxy)
 					continue;		// Generic function is expected to have an appropriate instance, but there will be a check after instancing
 				else
 					return ~0u;		// Otherwise this function is not a match
