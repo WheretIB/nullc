@@ -675,3 +675,12 @@ const char	*testNamespace54 =
 }\r\n\
 return Test.r;";
 TEST_RESULT("namespace test 54", testNamespace54, "990579");
+
+const char	*testNamespace55 =
+"namespace A.B.C\r\n\
+{\r\n\
+	int x = 10;\r\n\
+}\r\n\
+int y = 5;\r\n\
+return A.B.C.x + y;";
+TEST_RESULT("namespace test 55 (short-hand nested namespace definition)", testNamespace55, "15");
