@@ -93,14 +93,15 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("void condition", "void f(){} for(int i = 0; f(); i++){} return 1;", "ERROR: condition type cannot be 'void' and function for conversion to bool is undefined");
 	TEST_FOR_FAIL("void condition", "void f(){} while(f()){} return 1;", "ERROR: condition type cannot be 'void' and function for conversion to bool is undefined");
 	TEST_FOR_FAIL("void condition", "void f(){} do{}while(f()); return 1;", "ERROR: condition type cannot be 'void' and function for conversion to bool is undefined");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } if(f()){} return 1;", "ERROR: condition type cannot be 'float4' and function for conversion to bool is undefined");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } if(f()){}else{} return 1;", "ERROR: condition type cannot be 'float4' and function for conversion to bool is undefined");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } return f() ? 1 : 0;", "ERROR: condition type cannot be 'float4' and function for conversion to bool is undefined");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } for(int i = 0; f(); i++){} return 1;", "ERROR: condition type cannot be 'float4' and function for conversion to bool is undefined");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } while(f()){} return 1;", "ERROR: condition type cannot be 'float4' and function for conversion to bool is undefined");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } do{}while(f()); return 1;", "ERROR: condition type cannot be 'float4' and function for conversion to bool is undefined");
-	TEST_FOR_FAIL("void condition", "void f(){} switch(f()){ case 1: break; } return 1;", "ERROR: condition type cannot be 'void'");
-	TEST_FOR_FAIL("void condition", "import std.math; float4 f(){ return float4(1,1,1,1); } switch(f()){ case 1: break; } return 1;", "ERROR: function 'float4::hash_value' is undefined");
+	TEST_FOR_FAIL("complex condition", "import std.math; float4 f(){ return float4(1,1,1,1); } if(f()){} return 1;", "ERROR: condition type cannot be 'float4' and function for conversion to bool is undefined");
+	TEST_FOR_FAIL("complex condition", "import std.math; float4 f(){ return float4(1,1,1,1); } if(f()){}else{} return 1;", "ERROR: condition type cannot be 'float4' and function for conversion to bool is undefined");
+	TEST_FOR_FAIL("complex condition", "import std.math; float4 f(){ return float4(1,1,1,1); } return f() ? 1 : 0;", "ERROR: condition type cannot be 'float4' and function for conversion to bool is undefined");
+	TEST_FOR_FAIL("complex condition", "import std.math; float4 f(){ return float4(1,1,1,1); } for(int i = 0; f(); i++){} return 1;", "ERROR: condition type cannot be 'float4' and function for conversion to bool is undefined");
+	TEST_FOR_FAIL("complex condition", "import std.math; float4 f(){ return float4(1,1,1,1); } while(f()){} return 1;", "ERROR: condition type cannot be 'float4' and function for conversion to bool is undefined");
+	TEST_FOR_FAIL("complex condition", "import std.math; float4 f(){ return float4(1,1,1,1); } do{}while(f()); return 1;", "ERROR: condition type cannot be 'float4' and function for conversion to bool is undefined");
+	TEST_FOR_FAIL("void switch", "void f(){} switch(f()){ case 1: break; } return 1;", "ERROR: condition type cannot be 'void'");
+	TEST_FOR_FAIL("complex switch", "import std.math; float4 f(){ return float4(1,1,1,1); } switch(f()){ case 1: break; } return 1;", "ERROR: can't find function '==' with following parameters:");
+	TEST_FOR_FAIL("complex switch", "class Foo{ int x, y; } float operator==(Foo a, b){ return 1.0f; } Foo c; switch(c){ case Foo(): break; } return 2;", "ERROR: '==' operator result type must be bool, char, short or int");
 	TEST_FOR_FAIL("void case", "void f(){} switch(1){ case f(): break; } return 1;", "ERROR: case value type cannot be void");
 
 	TEST_FOR_FAIL("class in class", "class test{ void f(){ class heh{ int h; } } } return 1;", "ERROR: different type is being defined");

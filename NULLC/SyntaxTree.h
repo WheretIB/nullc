@@ -630,14 +630,15 @@ protected:
 	unsigned int continueDepth;
 };
 
-class NodeSwitchExpr: public NodeOneOP
+class NodeSwitchExpr: public NodeTwoOP
 {
 public:
-	NodeSwitchExpr();
+	NodeSwitchExpr(bool onComplex = false);
 	virtual ~NodeSwitchExpr();
 
 			void AddCase();
 			void AddDefault();
+			NodeZeroOP* IsComplex();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);

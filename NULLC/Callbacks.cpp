@@ -4483,15 +4483,17 @@ void BeginSwitch(const char* pos)
 	assert(cycleDepth.size() != 0);
 	cycleDepth.back()++;
 
+	BeginBlock();
+
 	TypeInfo *type = CodeInfo::nodeList.back()->typeInfo;
 	if(type->type == TypeInfo::TYPE_COMPLEX && type != typeObject && type != typeTypeid)
 	{
-		PrepareMemberCall(pos);
-		AddMemberFunctionCall(pos, "hash_value", 0);
+		AddInplaceVariable(pos);
+		CodeInfo::nodeList.push_back(new NodeDereference());
+		CodeInfo::nodeList.push_back(new NodeSwitchExpr(true));
+	}else{
+		CodeInfo::nodeList.push_back(new NodeSwitchExpr());
 	}
-
-	BeginBlock();
-	CodeInfo::nodeList.push_back(new NodeSwitchExpr());
 }
 
 void AddCaseNode(const char* pos)
@@ -4500,7 +4502,21 @@ void AddCaseNode(const char* pos)
 	if(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo == typeVoid)
 		ThrowError(pos, "ERROR: case value type cannot be void");
 	NodeZeroOP* temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-3];
-	static_cast<NodeSwitchExpr*>(temp)->AddCase();
+	assert(temp->nodeType == typeNodeSwitchExpr);
+	NodeSwitchExpr *node = (NodeSwitchExpr*)temp;
+	if(NodeZeroOP *cond = node->IsComplex())
+	{
+		NodeZeroOP *body = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
+
+		NodeOneOP *wrap = new NodeOneOP();
+		wrap->SetFirstNode(cond);
+		CodeInfo::nodeList.push_back(wrap);
+		AddFunctionCallNode(pos, "==", 2);
+		if(CodeInfo::nodeList.back()->typeInfo->stackType != STYPE_INT)
+			ThrowError(pos, "ERROR: '==' operator result type must be bool, char, short or int");
+		CodeInfo::nodeList.push_back(body);
+	}
+	node->AddCase();
 }
 
 void AddDefaultNode()
