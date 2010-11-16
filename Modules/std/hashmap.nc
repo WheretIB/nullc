@@ -17,10 +17,12 @@ class hashmap<Key, Value>
 	int ref(Key)	compute_hash;
 }
 
+int hash_value_default(@Key key){ return hash_value(key); }
+
 void hashmap:hashmap()
 {
 	entries = new hashmap_node<Key, Value> ref[bucketCount];
-	this.compute_hash = hash_value;
+	this.compute_hash = hash_value_default;
 }
 void hashmap:hashmap(int ref(Key) compute_hash)
 {
@@ -37,7 +39,6 @@ auto operator[](hashmap<@K, @V> ref m, typeof(m).target.Key key)
 {
 	@if(typeof(key) != K){ *"operand type is not equal to hashmap key type"; }
 	
-	//auto hash = m.compute_hash(a);
 	auto x = m.find(key);
 	if(x) // if a key-value exists
 	{
