@@ -2201,3 +2201,14 @@ void Foo:Foo(){ x = 4; }\r\n\
 Foo<int> a;\r\n\
 return a.x;";
 TEST_RESULT("Accessor access inside a generic type member function", testAccessorAccessInsideAMemberFunctionGeneric, "2");
+
+const char	*testLocalClassOperatorsScope =
+"class Rect<T>\r\n\
+{\r\n\
+	T x;\r\n\
+	auto operator=( Rect<int> a, Rect<float> b ){ }\r\n\
+}\r\n\
+\r\n\
+Rect<float> a;\r\n\
+return 1;";
+TEST_RESULT("Local class operators go out of scope before default assignment operator is created", testLocalClassOperatorsScope, "1");

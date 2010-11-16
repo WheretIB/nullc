@@ -3952,6 +3952,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			// Take "this" pointer
 			FunctionInfo *currFunc = currDefinedFunc.back();
 			TypeInfo *temp = CodeInfo::GetReferenceType(newType);
+			assert(currFunc->extraParam);
 			CodeInfo::nodeList.push_back(new NodeGetAddress(currFunc->extraParam, currFunc->allParamSize, temp));
 			CodeInfo::nodeList.push_back(new NodeDereference());
 			// "this" pointer will be passed as extra parameter
@@ -4665,7 +4666,6 @@ void TypeFinish()
 	newType->hasFinished = true;
 
 	// Check if custom default assignment operator is required
-	bool customAssign = false;
 	bool customConstructor = false;
 	TypeInfo::MemberVariable *curr = newType->firstVariable;
 	for(; curr; curr = curr->next)
@@ -4675,20 +4675,6 @@ void TypeFinish()
 			base = base->subType;
 		if(HasConstructor(base, 0))
 			customConstructor = true;
-		if(curr->type->refLevel || curr->type->arrLevel || curr->type->funcType)
-			continue;
-		// Check assignment operator by virtually calling a = function with (Type ref, Type) arguments
-		CodeInfo::nodeList.push_back(new NodeZeroOP(CodeInfo::GetReferenceType(curr->type)));
-		CodeInfo::nodeList.push_back(new NodeZeroOP(curr->type));
-
-		if(!AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
-		{
-			CodeInfo::nodeList.pop_back();
-			CodeInfo::nodeList.pop_back();
-		}else{
-			CodeInfo::nodeList.pop_back();
-			customAssign = true;
-		}
 	}
 
 	if(customConstructor)
@@ -4710,6 +4696,25 @@ void TypeFinish()
 
 	TypeInfo *lastType = newType;
 	newType = NULL;
+
+	bool customAssign = false;
+	for(curr = lastType->firstVariable; curr; curr = curr->next)
+	{
+		if(curr->type->refLevel || curr->type->arrLevel || curr->type->funcType)
+			continue;
+		// Check assignment operator by virtually calling a = function with (Type ref, Type) arguments
+		CodeInfo::nodeList.push_back(new NodeZeroOP(CodeInfo::GetReferenceType(curr->type)));
+		CodeInfo::nodeList.push_back(new NodeZeroOP(curr->type));
+
+		if(!AddFunctionCallNode(CodeInfo::lastKnownStartPos, "=", 2, true))
+		{
+			CodeInfo::nodeList.pop_back();
+			CodeInfo::nodeList.pop_back();
+		}else{
+			CodeInfo::nodeList.pop_back();
+			customAssign = true;
+		}
+	}
 
 	// Generate a function, if required
 	if(customAssign)
