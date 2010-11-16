@@ -921,7 +921,9 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 	}
 	const char *last = SetCurrentFunction(memberFunctionCall ? GetClassFunctionName(lValue, InplaceStr(functionName)) : functionName);
 	// Parse function arguments
+	NamespaceInfo *lastNS = GetCurrentNamespace();
 	unsigned int callArgCount = ParseFunctionArguments(str);
+	SetCurrentNamespace(lastNS);
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError((*str)->pos, "ERROR: ')' not found after function parameter list");
 	SetCurrentFunction(last);

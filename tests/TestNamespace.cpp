@@ -699,3 +699,19 @@ Canvas c;\r\n\
 Test.Device d = Test.Device(c);\r\n\
 return d.canvas != nullptr;";
 TEST_RESULT("namespace test 56", testNamespace56, "1");
+
+const char	*testNamespace57 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(int x){ return x * 5; }\r\n\
+}\r\n\
+return Test.foo(-1);";
+TEST_RESULT("namespace test 57", testNamespace57, "-5");
+
+const char	*testNamespace58 =
+"namespace Test\r\n\
+{\r\n\
+	int foo(int ref(int, int) x, y){ return x(2, 3) + y(20, 30); }\r\n\
+}\r\n\
+return Test.foo(<i, j>{ i + j; }, <i, j>{ i + j; });";
+TEST_RESULT("namespace test 58", testNamespace58, "55");
