@@ -257,6 +257,10 @@ void NodePopOp::Compile()
 		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
 	CompileExtra();
 
+	// Don't waste time pushing and removing numbers
+	if(first->nodeType == typeNodeNumber)
+		return;
+
 	// Child node computes value
 	first->Compile();
 	if(first->typeInfo != typeVoid && first->typeInfo->size)

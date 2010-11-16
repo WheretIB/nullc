@@ -576,3 +576,8 @@ assert(typeof(Foo.a + Foo.b) == short);\r\n\
 assert(typeof(Foo.b + Foo.a) == short);\r\n\
 return 1;";
 TEST_RESULT("typeof on extended typeof expressions", testTypeofExtenendedExpr2, "1");
+
+const char	*testShortInlineFunctionNoArguments = 
+"int foo(int ref() f){ return f(); }\r\n\
+return foo(<>{ 5; });";
+TEST_RESULT("short inline function with no arguments", testShortInlineFunctionNoArguments, "5");

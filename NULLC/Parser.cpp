@@ -457,6 +457,7 @@ bool ParseSelectType(Lexeme** str, bool allowArray, bool allowGenericType, bool 
 
 		Lexeme *curr = *str;
 		NamespaceInfo* lastNS = GetCurrentNamespace();
+		SetCurrentNamespace(NULL);
 		NamespaceInfo* ns = NULL;
 		while((*str)->type == lex_string && (*str + 1)->type == lex_point && (ns = IsNamespace(InplaceStr((*str)->pos, (*str)->length))) != NULL)
 		{
@@ -1825,6 +1826,7 @@ bool ParseVariable(Lexeme** str, bool *lastIsFunctionCall = NULL)
 		return false;
 
 	NamespaceInfo* lastNS = GetCurrentNamespace();
+	SetCurrentNamespace(NULL);
 	NamespaceInfo* ns = NULL;
 	while((*str)->type == lex_string && (*str + 1)->type == lex_point && (ns = IsNamespace(InplaceStr((*str)->pos, (*str)->length))) != NULL)
 	{
@@ -2168,6 +2170,7 @@ bool ParseTerminal(Lexeme** str)
 		{
 			Lexeme *curr = *str;
 			NamespaceInfo* lastNS = GetCurrentNamespace();
+			SetCurrentNamespace(NULL);
 			NamespaceInfo* ns = NULL;
 			while((*str)->type == lex_string && (*str + 1)->type == lex_point && (ns = IsNamespace(InplaceStr((*str)->pos, (*str)->length))) != NULL)
 			{
