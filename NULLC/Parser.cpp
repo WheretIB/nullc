@@ -1188,6 +1188,9 @@ bool ParseShortFunctionDefinition(Lexeme** str)
 	sprintf(functionName, "$funcs%d", unnamedFuncCount);
 	unnamedFuncCount++;
 
+	NamespaceInfo *lastNS = GetCurrentNamespace();
+	SetCurrentNamespace(NULL);
+
 	SelectTypeByPointer(type->funcType->retType);
 	FunctionAdd((*str)->pos, functionName);
 
@@ -1268,6 +1271,8 @@ bool ParseShortFunctionDefinition(Lexeme** str)
 
 	InlineFunctionImplicitReturn((*str)->pos);
 	FunctionEnd(start->pos);
+
+	SetCurrentNamespace(lastNS);
 
 	return true;
 }
