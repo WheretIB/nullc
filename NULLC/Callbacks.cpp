@@ -95,6 +95,11 @@ void PushNamespace(InplaceStr space)
 		hash = StringHashContinue(hash, space.begin, space.end);
 	}
 
+	// Find collisions with known names
+	if(TypeInfo **info = CodeInfo::classMap.find(hash))
+		ThrowError(space.begin, "ERROR: name '%.*s' is already taken for a class", space.end - space.begin, space.begin);
+	CheckCollisionWithFunction(space.begin, space, hash, varInfoTop.size());
+
 	// Find if namespace is already created
 	unsigned i = 0;
 	for(; i < CodeInfo::namespaceInfo.size(); i++)
@@ -1173,7 +1178,7 @@ VariableInfo* AddVariable(const char* pos, InplaceStr variableName, bool preserv
 	if(currType)
 		varTop += currType->size;
 	if(varTop > (1 << 24))
-		ThrowError(pos, "ERROR: global variable size limit exceeded");
+		ThrowError(pos, "ERROR: variable size limit exceeded");
 	varMap.insert(hash, CodeInfo::varInfo.back());
 	return CodeInfo::varInfo.back();
 }
@@ -1330,14 +1335,35 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			}
 		}
 		if(fID == -1)
-			fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
+		{
+			for(int i = namespaceStack.size() - 1; i > 0 && fID == -1; i--)
+			{
+				unsigned tmpHash = namespaceStack[i]->hash;
+				tmpHash = StringHashContinue(tmpHash, ".");
+				if(currNamespace)
+					tmpHash = AddNamespaceToHash(tmpHash, currNamespace);
+				tmpHash = StringHashContinue(tmpHash, varName.begin, varName.end);
+				fID = CodeInfo::FindFunctionByName(tmpHash, CodeInfo::funcInfo.size() - 1);
+				if(fID != -1)
+					hash = tmpHash;
+			}
+			if(fID == -1)
+			{
+				if(NamespaceInfo *ns = currNamespace)
+				{
+					hash = ns->hash;
+					hash = StringHashContinue(hash, ".");
+					hash = StringHashContinue(hash, varName.begin, varName.end);
+				}
+				fID = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size() - 1);
+			}
+		}
 		if(fID == -1)
 			ThrowError(pos, "ERROR: unknown identifier '%.*s'", varName.end-varName.begin, varName.begin);
 
 		if(CodeInfo::FindFunctionByName(hash, fID - 1) != -1)
 		{
-			int fIdFirst = CodeInfo::FindFunctionByName(hash, CodeInfo::funcInfo.size()-1);
-			CodeInfo::nodeList.push_back(new NodeFunctionProxy(CodeInfo::funcInfo[fIdFirst], pos));
+			CodeInfo::nodeList.push_back(new NodeFunctionProxy(CodeInfo::funcInfo[fID], pos));
 			return;
 		}
 		FunctionInfo *fInfo = CodeInfo::funcInfo[fID];
@@ -4193,10 +4219,10 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	// If there was a function name, try to find a variable which may be a function pointer and which will hide functions
 	if(funcName)
 	{
-		VariableInfo **info = varMap.find(funcNameHash);
+		HashMap<VariableInfo*>::Node *info = SelectVariableByName(InplaceStr(funcName));
 		if(info)
 		{
-			vInfo = *info;
+			vInfo = info->value;
 			scope = vInfo->blockDepth;
 		}
 	}
@@ -4237,6 +4263,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			info = CodeInfo::classMap.find(funcNameHash);
 	}
 	// Reset current namespace after this point, it's already been used up
+	NamespaceInfo *lastNS = currNamespace;
 	currNamespace = NULL;
 	// If no functions are found, function name is a type name and a type has member constructors
 	if(count == 0 && info)
@@ -4319,9 +4346,11 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			}
 		}
 	}else{
+		currNamespace = lastNS;
 		// If we have variable name, get it
 		if(funcName)
 			AddGetAddressNode(pos, InplaceStr(funcName, (int)strlen(funcName)));
+		currNamespace = NULL;
 		// Retrieve value
 		AddGetVariableNode(pos);
 		// Get function pointer in case we have an in-lined function call
