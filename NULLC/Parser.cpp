@@ -2376,17 +2376,23 @@ bool ParseExpression(Lexeme** str)
 	case lex_namespace:
 		{
 			(*str)++;
-			if((*str)->type != lex_string)
-				ThrowError((*str)->pos, "ERROR: namespace name required");
-			PushNamespace(InplaceStr((*str)->pos, (*str)->length));
-			(*str)++;
+			unsigned count = 0;
+			do
+			{
+				count++;
+				if((*str)->type != lex_string)
+					ThrowError((*str)->pos, "ERROR: namespace name required");
+				PushNamespace(InplaceStr((*str)->pos, (*str)->length));
+				(*str)++;
+			}while(ParseLexem(str, lex_point));
 			if(!ParseLexem(str, lex_ofigure))
 				ThrowError((*str)->pos, "ERROR: '{' not found after namespace name");
 			if(!ParseCode(str))
 				AddVoidNode();
 			if(!ParseLexem(str, lex_cfigure))
 				ThrowError((*str)->pos, "ERROR: '}' not found after namespace body");
-			PopNamespace();
+			while(count--)
+				PopNamespace();
 		}
 		break;
 	case lex_ofigure:
