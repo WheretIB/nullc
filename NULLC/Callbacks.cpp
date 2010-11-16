@@ -2877,7 +2877,7 @@ void FunctionAdd(const char* pos, const char* funcName, bool isOperator)
 	FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
 	lastFunc->parentFunc = currDefinedFunc.size() > 0 ? currDefinedFunc.back() : NULL;
 
-	if(!(isOperator || (newType && !functionLocal)))
+	if(!isOperator)
 		lastFunc->parentNamespace = namespaceStack.size() > 1 ? namespaceStack.back() : NULL;
 
 	AddFunctionToSortedList(lastFunc);
@@ -4842,6 +4842,7 @@ TypeInfo* TypeBegin(const char* pos, const char* end, bool addNamespace)
 	newType->originalIndex = CodeInfo::typeInfo.size();
 	newType->definitionDepth = varInfoTop.size();
 	newType->hasFinished = false;
+	newType->parentNamespace = namespaceStack.size() > 1 ? namespaceStack.back() : NULL;
 	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
 	methodCount = 0;
 
@@ -5164,6 +5165,12 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool
 	TypeInfo *instancedType = newType;
 	newType->genericBase = base;
 	newType->childAlias = aliasList;
+	newType->parentNamespace = base->parentNamespace;
+
+	// Backup namespace state and restore it to class definition state
+	unsigned prevBackupSize = 0, prevStackSize = 0;
+	NamespaceInfo *lastNS = NULL;
+	RestoreNamespaces(false, newType->parentNamespace, prevBackupSize, prevStackSize, lastNS);
 
 	jmp_buf oldHandler;
 	memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
@@ -5188,6 +5195,8 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool
 	}else{
 		newType->dependsOnGeneric = true;
 	}
+	// Restore namespace stack
+	RestoreNamespaces(true, NULL, prevBackupSize, prevStackSize, lastNS);
 	// Stop type definition
 	TypeFinish();
 	((NodeExpressionList*)base->definitionList)->AddNode();
