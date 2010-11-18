@@ -5,6 +5,7 @@
 
 #include "Colorer.h"
 
+#include "NULLC/nullc.h"
 #include "NULLC/nullc_debug.h"
 #include "NULLC/StrAlgo.h" // for GetStringHash
 #include "NULLC/Lexer.h" // for chartype_table
@@ -241,25 +242,52 @@ namespace ColorerGrammar
 	}
 
 	std::string importPath;
+	std::string importName;
 	void ImportStart(char const* s, char const* e)
 	{
 		importPath.assign(s, e);
+		importName.assign(s, e);
 	}
 	void ImportSeparator(char const* s, char const* e)
 	{
 		(void)s; (void)e;	// C4100
 		importPath.append(1, '/');
+		importName.append(1, '.');
 	}
 	void ImportName(char const* s, char const* e)
 	{
 		importPath.append(s, e);
+		importName.append(s, e);
+	}
+	char		*moduleSource = NULL;
+	unsigned	moduleSourceSize = 0;
+	ByteCode* BuildModule(const char* name)
+	{
+		FILE *data = fopen(name, "rb");
+		if(!data)
+			return NULL;
+		fseek(data, 0, SEEK_END);
+		unsigned int textSize = ftell(data);
+		if(!moduleSource || moduleSourceSize < textSize)
+		{
+			delete[] moduleSource;
+			moduleSource = new char[textSize + (textSize << 1) + 1];
+			moduleSourceSize = textSize + (textSize << 1) + 1;
+		}
+		fseek(data, 0, SEEK_SET);
+		fread(moduleSource, 1, textSize, data);
+		moduleSource[textSize] = 0;
+		fclose(data);
+
+		nullcLoadModuleBySource(importName.c_str(), moduleSource);
+		return (ByteCode*)nullcGetModule(name);
 	}
 	void ImportEnd(char const* s, char const* e)
 	{
 		(void)s; (void)e;	// C4100
 		importPath.append(".nc");
 		ByteCode *code = (ByteCode*)nullcGetModule(importPath.c_str());
-		if(!code)
+		if(!code && (code = BuildModule(importPath.c_str())) == NULL)
 		{
 			logStream << "ERROR: can't find module '" << importPath << "'\r\n";
 		}else{
@@ -277,7 +305,24 @@ namespace ColorerGrammar
 				}
 				if(found)
 					continue;
-				typeInfo.push_back(GetStringHash(symbols + tInfo->offsetToName));
+				const char *typeName = symbols + tInfo->offsetToName;
+				typeInfo.push_back(GetStringHash(typeName));
+				while((typeName = strchr(typeName, '.')) != NULL)
+				{
+					typeName++;
+					typeInfo.push_back(GetStringHash(typeName));
+				}
+			}
+			struct NamespaceData
+			{
+				unsigned offsetToName;
+				unsigned parentHash;
+			};
+			NamespaceData *namespaceList = (NamespaceData*)((char*)code + code->offsetToNamespaces);
+			for(unsigned i = 0; i < code->namespaceCount; i++)
+			{
+				typeInfo.push_back(GetStringHash(symbols + namespaceList->offsetToName));
+				namespaceList++;
 			}
 		}
 	}
@@ -364,7 +409,7 @@ namespace ColorerGrammar
 				);
 			typeExpr	=
 				(
-					(strWP("auto")[ColorRWord] | typenameP(typeName)[ColorRWord] | ((chP('@')[ColorText] >> idP[ColorRWord]))) |
+					(strWP("auto")[ColorRWord] | (typenameP(typeName)[ColorRWord] >> *typeofPostExpr) | ((chP('@')[ColorText] >> idP[ColorRWord]))) |
 					(
 						strP("typeof")[ColorRWord] >>
 						(chP('(')[ColorText] | epsP[LogError("ERROR: '(' not found after 'typeof'")]) >>
@@ -373,8 +418,7 @@ namespace ColorerGrammar
 						*typeofPostExpr
 					)
 				) >>
-				typePostExpr >>
-				*typeofPostExpr;
+				typePostExpr;
 
 			classbody	=
 				(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText] >>
@@ -666,6 +710,8 @@ namespace ColorerGrammar
 		void DeInitGrammar()
 		{
 			DeleteParsers();
+			delete[] moduleSource;
+			moduleSource = NULL;
 		}
 
 		// Parsing rules
