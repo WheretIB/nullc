@@ -212,7 +212,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 			// Mark this argument as being sent through stack
 			argsToIReg = k + 1;
 			if(k < 32)
-					onStack[k] = true;
+				onStack[k] = true;
 			break;
 		default:
 			assert(!"parameter type unsupported");
@@ -222,10 +222,82 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	//printf("Arguments to Ireg limit: %d Freg limit: %d\n", argsToIReg, argsToFReg);
 #endif
 	
+	// compute how much we are going to pop
+	unsigned int needPopPrev = 0;
+	int i = exFunctions[funcID].paramCount - (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 1 : 0);
+	for(; i >= 0; i--)
+	{
+		// By default, suppose we have last hidden argument, that is a pointer, represented as long number of size 8
+		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
+		unsigned int typeSize = 8;
+		ExternTypeInfo *lType = NULL;
+		// If this is not the last argument, update data above
+		if((unsigned int)i != exFunctions[funcID].paramCount)
+		{
+			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
+			lType = &exLinker->exTypes[lInfo.type];
+			typeCat = lType->type;
+			typeSize = lType->size;
+		}
+		// Aggregate types are passed in registers
+#ifdef _WIN64
+		if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize != 0 && typeSize <= 4)
+#else
+		if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize <= 4)
+#endif
+			typeCat = ExternTypeInfo::TYPE_INT;
+#ifdef _WIN64
+		if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 8)
+			typeCat = ExternTypeInfo::TYPE_LONG;
+#endif
+
+		switch(typeCat)
+		{
+		case ExternTypeInfo::TYPE_FLOAT:
+		case ExternTypeInfo::TYPE_DOUBLE:
+#ifdef _WIN64
+			if(rvs + i > NULLC_X64_FREGARGS - 1)
+#else
+			if((unsigned)i >= argsToFReg)
+#endif
+				needPopPrev += 8;
+			break;
+		case ExternTypeInfo::TYPE_CHAR:
+		case ExternTypeInfo::TYPE_SHORT:
+		case ExternTypeInfo::TYPE_INT:
+		case ExternTypeInfo::TYPE_LONG:
+#ifdef _WIN64
+			if(rvs + i > NULLC_X64_IREGARGS - 1)
+#else
+			if((unsigned)i >= argsToIReg || !typeSize)
+#endif
+				needPopPrev += 8;
+			break;
+		case ExternTypeInfo::TYPE_COMPLEX:
+#ifdef _WIN64
+			if(rvs + i > NULLC_X64_IREGARGS - 1)
+				needPopPrev += 8;
+#else
+			if(!(typeSize <= 16 && exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i].type != 7 &&
+				!(lType->subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(lType, exLinker)) && i < 32 && onStack[i]))
+				needPopPrev += (typeSize + 7) & ~7;
+#endif
+			break;
+		}
+	}
+
 	// normal function doesn't accept context, so start of the stack skips those 2 dwords
 	unsigned int currentShift = (dwordsToPop - (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 2 : 0)) * 4;
 	unsigned int needpop = 0;
-	int i = exFunctions[funcID].paramCount - (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 1 : 0);
+
+	if(needPopPrev % 16 != 0)
+	{
+		code.push_back(0x56); // push RSI for alignment
+		needpop += 8;
+		needPopPrev += 8;
+	}
+
+	i = exFunctions[funcID].paramCount - (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 1 : 0);
 	for(; i >= 0; i--)
 	{
 		// By default, suppose we have last hidden argument, that is a pointer, represented as long number of size 8

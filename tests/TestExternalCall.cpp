@@ -266,6 +266,38 @@ void TestExtL(int* x)
 	*x = 1;
 }
 
+int TestExtM1(double x1, double x2, double x3, double x4)
+{
+#define fpart(x) (x - floor(x))
+	double xgap = fpart(x1 + 0.5);
+	return int(xgap * 10.0) == 1 && x2 == 2.0 && x3 == 3.0 && x4 == 4.0;
+#undef fpart
+}
+
+int TestExtM2(double x1, double x2, double x3, double x4, int y)
+{
+#define fpart(x) (x - floor(x))
+	double xgap = fpart(x1 + 0.5);
+	return int(xgap * 10.0) == 1 && y && x2 == 2.0 && x3 == 3.0 && x4 == 4.0;
+#undef fpart
+}
+
+int TestExtM3(double x1, double x2, double x3, double x4, int* y)
+{
+#define fpart(x) (x - floor(x))
+	double xgap = fpart(x1 + 0.5);
+	return int(xgap * 10.0) == 1 && y && x2 == 2.0 && x3 == 3.0 && x4 == 4.0;
+#undef fpart
+}
+
+int TestExtM4(double x1, double x2, double x3, double x4, int y, int z)
+{
+#define fpart(x) (x - floor(x))
+	double xgap = fpart(x1 + 0.5);
+	return int(xgap * 10.0) == 1 && y && x2 == 2.0 && x3 == 3.0 && x4 == 4.0 && z;
+#undef fpart
+}
+
 LOAD_MODULE_BIND(test_ext1, "test.ext1", "char char_(char a); short short_(short a); int int_(int a); long long_(long a); float float_(float a); double double_(double a);")
 {
 	nullcBindModuleFunction("test.ext1", (void (*)())TestInt, "char_", 0);
@@ -654,6 +686,34 @@ LOAD_MODULE_BIND(test_extL, "test.extL", "void Call(int ref a);")
 }
 const char	*testExternalCallL = "import test.extL;\r\n int a = 2;\r\nCall(&a); return a;";
 TEST_RESULT("External function call. void return type.", testExternalCallL, "1");
+
+LOAD_MODULE_BIND(test_extM1, "test.extM1", "int Call(double a, b, c, d);")
+{
+	nullcBindModuleFunction("test.extM1", (void (*)())TestExtM1, "Call", 0);
+}
+const char	*testExternalCallM1 = "import test.extM1;\r\n double a = 1.6; return Call(a, 2.0, 3.0, 4.0);";
+TEST_RESULT("External function call. alignment test 1.", testExternalCallM1, "1");
+
+LOAD_MODULE_BIND(test_extM2, "test.extM2", "int Call(double a, b, c, d, int e);")
+{
+	nullcBindModuleFunction("test.extM2", (void (*)())TestExtM2, "Call", 0);
+}
+const char	*testExternalCallM2 = "import test.extM2;\r\n double a = 1.6; return Call(a, 2.0, 3.0, 4.0, 5);";
+TEST_RESULT("External function call. alignment test 2.", testExternalCallM2, "1");
+
+LOAD_MODULE_BIND(test_extM3, "test.extM3", "class Foo{ int x; } int Foo:Call(double a, b, c, d);")
+{
+	nullcBindModuleFunction("test.extM3", (void (*)())TestExtM3, "Foo::Call", 0);
+}
+const char	*testExternalCallM3 = "import test.extM3;\r\n Foo m; m.x = 5; double a = 1.6; return m.Call(a, 2.0, 3.0, 4.0);";
+TEST_RESULT("External function call. alignment test 3.", testExternalCallM3, "1");
+
+LOAD_MODULE_BIND(test_extM4, "test.extM4", "int Call(double a, b, c, d, int e, f);")
+{
+	nullcBindModuleFunction("test.extM4", (void (*)())TestExtM4, "Call", 0);
+}
+const char	*testExternalCallM4 = "import test.extM4;\r\n double a = 1.6; return Call(a, 2.0, 3.0, 4.0, 5, 6);";
+TEST_RESULT("External function call. alignment test 4.", testExternalCallM4, "1");
 
 // big argument tests
 // big arguments with int and float/double
