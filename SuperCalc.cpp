@@ -1450,6 +1450,8 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 					const char *tabName = TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, t).last;
 					if(strcmp(tabName, strrchr(moduleName, '/') ? strrchr(moduleName, '/') + 1 : moduleName + 1) == 0)
 						targetTab = t;
+					if(strcmp(tabName, moduleName) == 0)
+						targetTab = t;
 				}
 				// If tab not found, open it
 				if(targetTab == ~0u)
@@ -1672,24 +1674,33 @@ void RefreshBreakpoints()
 	RichTextarea::ResetUpdate(wnd);
 }
 
+FastVector<unsigned>	breakPos;
+FastVector<unsigned>	byteCodePos;
+
 unsigned int ConvertPositionToInstruction(unsigned int relPos, unsigned int infoSize, NULLCCodeInfo* codeInfo, unsigned int &sourceOffset)
 {
+	breakPos.clear();
+	byteCodePos.clear();
 	// Find instruction...
-	unsigned int bestID = ~0u, lastDistance = ~0u;
+	unsigned int lastDistance = ~0u;
 	for(unsigned int infoID = 0; infoID < infoSize; infoID++)
 	{
-		if(codeInfo[infoID].sourceOffset >= relPos && (unsigned int)(codeInfo[infoID].sourceOffset - relPos) < lastDistance)
+		if(codeInfo[infoID].sourceOffset >= relPos && (unsigned int)(codeInfo[infoID].sourceOffset - relPos) <= lastDistance)
 		{
-			bestID = infoID;
+			breakPos.push_back(infoID);
 			lastDistance = (unsigned int)(codeInfo[infoID].sourceOffset - relPos);
 		}
 	}
-	if(bestID != ~0u)
+	// Filter results so that only the best matches remain
+	for(unsigned int i = 0; i < breakPos.size(); i++)
 	{
-		sourceOffset = codeInfo[bestID].sourceOffset;
-		return codeInfo[bestID].byteCodePos;
+		if((unsigned int)(codeInfo[breakPos[i]].sourceOffset - relPos) <= lastDistance)
+		{
+			byteCodePos.push_back(codeInfo[breakPos[i]].byteCodePos);
+			sourceOffset = codeInfo[breakPos[i]].sourceOffset;
+		}
 	}
-	return ~0u;
+	return byteCodePos.size();
 }
 
 unsigned int ConvertLineToInstruction(const char *source, unsigned int line, const char* fullSource, unsigned int infoSize, NULLCCodeInfo *codeInfo, unsigned int moduleSize, ExternModuleInfo *modules)
@@ -1718,7 +1729,7 @@ unsigned int ConvertLineToInstruction(const char *source, unsigned int line, con
 		if(shiftToLastModule && strcmp(source, fullSource + modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize) == 0)
 			relPos += shiftToLastModule;
 		unsigned int offset = ~0u;
-		unsigned int instID = ConvertPositionToInstruction(relPos, infoSize, codeInfo, offset);
+		unsigned int matches = ConvertPositionToInstruction(relPos, infoSize, codeInfo, offset);
 		if(offset != ~0u)
 		{
 			const char *pos = fullSource + offset;
@@ -1731,11 +1742,11 @@ unsigned int ConvertLineToInstruction(const char *source, unsigned int line, con
 				start++;
 			realLine--;
 			if(realLine != origLine)
-				return ~0u;
+				return 0;
 		}
-		return instID;
+		return matches;
 	}
-	return ~0u;
+	return 0;
 }
 
 void SuperCalcSetBreakpoints()
@@ -1756,12 +1767,14 @@ void SuperCalcSetBreakpoints()
 		{
 			if(it.GetExtra())
 			{
-				unsigned int inst = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(richEdits[i]), it.number, fullSource, infoSize, codeInfo, moduleSize, modules);
-				if(inst != ~0u)
+				unsigned int matches = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(richEdits[i]), it.number, fullSource, infoSize, codeInfo, moduleSize, modules);
+				for(unsigned k = 0; k < matches; k++)
 				{
 					it.SetExtra(EXTRA_BREAKPOINT);
-					nullcDebugAddBreakpoint(inst);
-				}else{
+					nullcDebugAddBreakpoint(byteCodePos[k]);
+				}
+				if(!matches)
+				{
 					it.SetExtra(EXTRA_BREAKPOINT_INVALID);
 					printf("Failed to add breakpoint at line %d\r\n", it.number);
 				}
@@ -2581,14 +2594,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 						const char *fullSource = nullcDebugSource();
 						unsigned int moduleSize = 0;
 						ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
-						unsigned int inst = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(wnd), line, fullSource, infoSize, codeInfo, moduleSize, modules);
-						if(inst != ~0u)
+						unsigned int matches = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(wnd), line, fullSource, infoSize, codeInfo, moduleSize, modules);
+						for(unsigned k = 0; k < matches; k++)
 						{
 							if(breakSet)
-								nullcDebugAddBreakpoint(inst);
+								nullcDebugAddBreakpoint(byteCodePos[k]);
 							else
-								nullcDebugRemoveBreakpoint(inst);
-						}else{
+								nullcDebugRemoveBreakpoint(byteCodePos[k]);
+						}
+						if(!matches)
+						{
 							if(breakSet)
 							{
 								RichTextarea::SetStyleToLine(wnd, line, OVERLAY_BREAKPOINT_INVALID);
@@ -2601,17 +2616,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 					if(stateRemote)
 					{
-						unsigned int inst = ConvertLineToInstruction(RichTextarea::GetAreaText(wnd), line, RemoteData::sourceCode, RemoteData::infoSize, RemoteData::codeInfo, RemoteData::moduleCount, RemoteData::modules);
-						if(inst != ~0u)
+						unsigned int matches = ConvertLineToInstruction(RichTextarea::GetAreaText(wnd), line, RemoteData::sourceCode, RemoteData::infoSize, RemoteData::codeInfo, RemoteData::moduleCount, RemoteData::modules);
+						for(unsigned k = 0; k < matches; k++)
 						{
 							PipeData data;
 							data.cmd = DEBUG_BREAK_SET;
 							data.question = true;
-							data.debug.breakInst = inst;
+							data.debug.breakInst = byteCodePos[k];
 							data.debug.breakSet = breakSet;
 							if(!PipeSendRequest(data))
 								MessageBox(hWnd, "Failed to send request through pipe", "Error", MB_OK);
-						}else{
+						}
+						if(!matches)
+						{
 							if(breakSet)
 							{
 								RichTextarea::SetStyleToLine(wnd, line, OVERLAY_BREAKPOINT_INVALID);
