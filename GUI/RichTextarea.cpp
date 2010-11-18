@@ -499,6 +499,9 @@ public:
 		fwrite(&curr, sizeof(Snapshot*), 1, fOut); // Pointer will mark that we have a snapshot
 		while(curr && !curr->dirty)
 		{
+			Snapshot *tmp = curr->nextShot;
+			if(curr->nextShot && curr->nextShot->dirty)
+				curr->nextShot = NULL;
 			fwrite(curr, sizeof(Snapshot), 1, fOut); // Save snapshot
 			AreaLine *line = curr->first;
 			while(line)
@@ -508,7 +511,7 @@ public:
 					fwrite(line->data, sizeof(AreaChar), line->maxLength, fOut); // Save extra character buffer
 				line = line->next;
 			}
-
+			curr->nextShot = tmp;
 			curr = curr->nextShot;
 		}
 	}
