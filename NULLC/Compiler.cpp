@@ -153,6 +153,11 @@ auto ref	replace(auto ref l, r);\r\n\
 void		swap(auto ref l, r);\r\n\
 int			equal(auto ref l, r);\r\n\
 void		array_copy(auto[] l, r);\r\n\
+void		array_copy(generic dst, int offsetDst, generic src, int offsetSrc, count)\r\n\
+{\r\n\
+	for({ int i = offsetDst, k = offsetSrc; }; i < offsetDst + count; {i++; k++; })\r\n\
+		dst[i] = src[k];\r\n\
+}\r\n\
 \r\n\
 void ref() __redirect(auto ref r, int[] ref f);\r\n\
 // char inline array definition support\r\n\
