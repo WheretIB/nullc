@@ -205,6 +205,7 @@ function toggleView(a, b, c)
 		<li><a href="#std_gc">std.gc</a></li>
 		<li><a href="#std_vector">std.vector</a></li>
 		<li><a href="#std_list">std.list</a></li>
+		<li><a href="#std_hashmap">std.hashmap</a></li>
 		<li><a href="#std_range">std.range</a></li>
 		<li><a href="#std_file">std.file</a></li>
 		<li><a href="#std_io">std.io</a></li>
@@ -2133,203 +2134,320 @@ B int 5<br />
 <div class="topic">
 	<h3><a name="std_vector">std.vector</a></h3>
 
+	std.vector is a generic class that implements a dynamic array holding elements of the specified type T.<br />
 	<div class="function">
-		<p class="code">
-<span class="rword">vector</span> <span class="func">vector</span>(<span class="rword">typeid</span> type, <span class="rword">int</span> reserved = <span class="real">0</span>);<br />
-<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">vector</span>(<span class="rword">typeid</span> type, <span class="rword">int</span> reserved = <span class="real">0</span>);<br />
-		</p>
-		One global and one member function are vector constructors; the second one is provided so that constructor can be called if vector is created dynamically with new expression, however it may be used on its own.<br />
-		Functions construct a vector containing elements of the specified type (any except <span class="rword">auto ref</span>) and reserves space for the specified amount of elements.<br />
+		<pre class="code"><span class="rword">void vector</span><span class="bold">:</span><span class="func">vector</span><span class="bold">();
+</span><span class="rword">void vector</span><span class="bold">:</span><span class="func">vector</span><span class="bold">(</span><span class="rword">int </span><span class="var">reserved</span><span class="bold">);
+</span></pre>
+		Vector provides a default constructor and a constructor for a vector with a number of reserved elements.
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">push_back</span>(<span class="rword">auto ref</span> val);
-		</p>
+		<pre class="code"><span class="rword">void vector</span><span class="bold">:</span><span class="func">push_back</span><span class="bold">(</span><span class="rword">T </span><span class="var">val</span><span class="bold">);
+</span></pre>
 		Function appends an element to the end of the vector.<br />
-		An error is raised if element type doesn't match vector element type.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">pop_back</span>();
-		</p>
+		<pre class="code"><span class="rword">void vector</span><span class="bold">:</span><span class="func">pop_back</span><span class="bold">();
+</span></pre>
 		Function removes last element from vector.<br />
 		An error is raised if vector is empty.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">auto ref</span> <span class="rword">vector</span>:<span class="func">front</span>();
-		</p>
-		Function returns the first element of the vector.<br />
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">back</span><span class="bold">();
+</span></pre>
+		Function returns the pointer to last element of the vector.<br />
 		An error is raised if vector is empty.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">auto ref</span> <span class="rword">vector</span>:<span class="func">back</span>();
-		</p>
-		Function returns the last element of the vector.<br />
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">front</span><span class="bold">();
+</span></pre>
+		Function returns the pointer to first element of the vector.<br />
 		An error is raised if vector is empty.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">auto ref</span> <span class="rword">operator</span>[](<span class="rword">vector ref</span> v, <span class="rword">int</span> index);
-		</p>
-		Function returns element at selected index (counting from 0).<br />
+		<pre class="code"><span class="rword">auto operator</span>[]<span class="bold">(</span><span class="rword">vector</span>&lt;<span class="rword">generic</span>&gt; <span class="rword">ref </span><span class="var">v</span>, <span class="rword">int </span><span class="var">index</span><span class="bold">);
+</span></pre>
+		Operator returns element at selected index (counting from 0).<br />
 		An error is raised if vector doesn't contain an element at selected index.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">reserve</span>(<span class="rword">int</span> size);
-		</p>
-		Function reserves space for a specified amount of elements in an internal buffer.<br />
-	</div>
-	<div class="function">
-		<p class="code">
-<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">resize</span>(<span class="rword">int</span> size);
-		</p>
-		Function changes the size of the vector to a specified amount of elements.<br />
-	</div>
-	<div class="function">
-		<p class="code">
-<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">clear</span>();
-		</p>
-		Function sets the size of the vector to zero, but doesn't free memory used by internal buffer.<br />
-	</div>
-	<div class="function">
-		<p class="code">
-<span class="rword">void</span> <span class="rword">vector</span>:<span class="func">destroy</span>();
-		</p>
-		Function sets the size of the vector to zero and frees memory used up by the internal buffer.<br />
-	</div>
-	<div class="function">
-		<p class="code">
-<span class="rword">int</span> <span class="rword">vector</span>:<span class="func">size</span>();
-		</p>
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">size</span><span class="bold">();
+</span></pre>
 		Function returns element count inside the vector.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">int</span> <span class="rword">vector</span>:<span class="func">capacity</span>();
-		</p>
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">capacity</span><span class="bold">();
+</span></pre>
 		Function returns how many elements can be placed inside a vector before internal buffer will be reallocated.<br />
 	</div>
-
 	<div class="function">
-		<p class="code">
-<span class="rword">vector_iterator</span> <span class="rword">vector</span>:<span class="func">start</span>();<br />
-<span class="rword">auto ref</span> <span class="rword">vector_iterator</span>:<span class="func">next</span>();<br />
-<span class="rword">int</span> <span class="rword">vector_iterator</span>:<span class="func">hasnext</span>();<br />
-		</p>
-		These helper functions enable iteration over vector elements in for each expression.<br />
+		<pre class="code"><span class="rword">void vector</span><span class="bold">:</span><span class="func">reserve</span><span class="bold">(</span><span class="rword">int </span><span class="var">size</span><span class="bold">);
+</span></pre>
+		Function reserves space for a specified amount of elements in an internal buffer.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void vector</span><span class="bold">:</span><span class="func">resize</span><span class="bold">(</span><span class="rword">int </span><span class="var">size</span><span class="bold">);
+</span></pre>
+		Function changes the size of the vector to a specified amount of elements.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void vector</span><span class="bold">:</span><span class="func">clear</span><span class="bold">();
+</span></pre>
+		Function sets the size of the vector to zero, but doesn't free memory used by internal buffer.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void vector</span><span class="bold">:</span><span class="func">destroy</span><span class="bold">();</span></pre>
+		Function sets the size of the vector to zero and frees memory used up by the internal buffer.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">start</span><span class="bold">();
+</span><span class="rword">auto vector_iterator</span><span class="bold">:</span><span class="func">next</span><span class="bold">();
+</span><span class="rword">int vector_iterator</span><span class="bold">:</span><span class="func">hasnext</span><span class="bold">();</span></pre>
+		Vector proved functions for iteration ever elements in a for each expression.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto operator</span>[]<span class="bold">(</span><span class="rword">vector</span>&lt;@<span class="rword">T</span>&gt; <span class="rword">ref </span><span class="var">a</span>, <span class="rword">int </span><span class="var">start</span>, <span class="var">end</span><span class="bold">);
+</span><span class="rword">auto operator</span>[]<span class="bold">(</span><span class="rword">vector_splice</span>&lt;@<span class="rword">T</span>&gt; <span class="rword">ref </span><span class="var">a</span>, <span class="rword">int </span><span class="var">index</span><span class="bold">);</span></pre>
+		You can index a vector with two indexes to create a vector splice: a range of elements that point to vector data.<br />
+		Second operator allow indexing of the created splice.<br />
+	</div>
+	<br />
+	std.vector provides following aggregation functions:
+	<div class="function">
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">sum</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function computes vector element sum by adding numbers returned by a user-specified function. User-specified function is called for every element.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">average</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function computes the average vector elements value by adding numbers returned by a user-specified function and dividing the sum by element count. User-specified function is called for every element.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">min_element</span><span class="bold">();
+</span></pre>
+		This function computes the minimal element of a vector. operator < is required that will take two vector elements for comparison.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">max_element</span><span class="bold">();
+</span></pre>
+		This function computes the maximum element of a vector. operator > is required that will take two vector elements for comparison.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">min_element</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function computes the minimum of the values returned by a user-specified function. User-specified function is called for every element.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">max_element</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function computes the maximum of the values returned by a user-specified function. User-specified function is called for every element.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">count_if</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function returns the element count that satisfies a user-specified function.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">all</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function returns 1 if all of the elements satisfy a user-specified function.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">any</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function returns 1 if any of the elements satisfy a user-specified function.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto vector</span><span class="bold">:</span><span class="func">sort</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>, <span class="rword">T</span>) <span class="var">pred</span><span class="bold">);
+</span></pre>
+		This function sorts the vector with a user-specified function that compares two elements.<br />
+		In order to use this function, you must import std.algorithm module along with std.vector<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">bool operator </span>in<span class="bold">(</span><span class="rword">generic </span><span class="var">x</span>, <span class="rword">vector</span>&lt;<span class="rword">generic</span>&gt; <span class="rword">ref </span><span class="var">arr</span><span class="bold">);</span>
+</pre>
+		This operator returns true if a specified element is a part of vector.<br />
+		operator == that can compare the two elements is required.<br />
 	</div>
 </div>
 <hr />
 <div class="topic">
 	<h3><a name="std_list">std.list</a></h3>
 
-	<div class="function">
-		<p class="code">
-<span class="rword">list</span> <span class="func">list</span>(<span class="rword">typeid</span> type = <span class="rword">auto ref</span>);<br />
-<span class="rword">void</span> <span class="rword">list</span>:<span class="func">list</span>(<span class="rword">typeid</span> type = <span class="rword">auto ref</span>);<br />
-		</p>
-		One global and one member function are list constructors; the second one is provided so that constructor can be called if list is created dynamically with new expression, however it may be used on its own.<br />
-		Functions construct a list containing elements of the specified type (or an <span class="rword">auto ref</span> type if unspecified).<br />
-	</div>
+	std.list is a generic class that implements a list of double-linked elements of the specified type T.<br />
+	Some of the std.list functions described below return list_node structure instead of the value. Description of list_node can be found after the std.list function list.<br />
 
 	<div class="function">
-		<p class="code">
-<span class="rword">void</span> <span class="rword">list</span>:<span class="func">push_back</span>(<span class="rword">auto ref</span> elem);<br />
-		</p>
+		<pre class="code"><span class="rword">void list</span><span class="bold">:</span><span class="func">list</span><span class="bold">();
+</span></pre>
+		This is std.list default constructor.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void list</span><span class="bold">:</span><span class="func">push_back</span><span class="bold">(</span><span class="rword">T </span><span class="var">elem</span><span class="bold">);
+</span></pre>
 		Function appends an element to the end of the list.<br />
-		An error is raised if element type doesn't match list element type.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">void</span> <span class="rword">list</span>:<span class="func">push_front</span>(<span class="rword">auto ref</span> elem);<br />
-		</p>
+		<pre class="code"><span class="rword">void list</span><span class="bold">:</span><span class="func">push_front</span><span class="bold">(</span><span class="rword">T </span><span class="var">elem</span><span class="bold">);
+</span></pre>
 		Function prepends an element before the beginning of the list.<br />
-		An error is raised if element type doesn't match list element type.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">void</span> <span class="rword">list</span>:<span class="func">insert</span>(<span class="rword">list_node ref</span> it, <span class="rword">auto ref</span> elem);<br />
-		</p>
-		Function insert an element <b>after</b> the specified list node.<br />
-		An error is raised if element type doesn't match list element type.<br />
+		<pre class="code"><span class="rword">void list</span><span class="bold">:</span><span class="func">pop_back</span><span class="bold">();
+</span></pre>
+		Function removes the last element from list.<br />
+		An error is raised if list is empty.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void list</span><span class="bold">:</span><span class="func">pop_front</span><span class="bold">();
+</span></pre>
+		Function removes the first element from list.<br />
+		An error is raised if list is empty.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void list</span><span class="bold">:</span><span class="func">insert</span><span class="bold">(</span><span class="rword">list_node</span>&lt;<span class="rword">T</span>&gt; <span class="rword">ref </span><span class="var">it</span>, <span class="rword">T </span><span class="var">elem</span><span class="bold">);
+</span></pre>
+		Function inserts an element <b>after</b> the specified list node.<br />
 		An error is raised if the specified list node is not contained within the list.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">void</span> <span class="rword">list</span>:<span class="func">erase</span>(<span class="rword">list_node ref</span> it);<br />
-		</p>
+		<pre class="code"><span class="rword">void list</span><span class="bold">:</span><span class="func">erase</span><span class="bold">(</span><span class="rword">list_node</span>&lt;<span class="rword">T</span>&gt; <span class="rword">ref </span><span class="var">it</span><span class="bold">);
+</span></pre>
 		Function erases the specified list node.<br />
 		An error is raised if the specified list node is not contained within the list.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">void</span> <span class="rword">list</span>:<span class="func">clear</span>();<br />
-		</p>
+		<pre class="code"><span class="rword">void list</span><span class="bold">:</span><span class="func">clear</span><span class="bold">();
+</span></pre>
 		Function removes all elements from the list.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">auto ref</span> <span class="rword">list</span>:<span class="func">back</span>();<br />
-		</p>
+		<pre class="code"><span class="rword">auto list</span><span class="bold">:</span><span class="func">back</span><span class="bold">();
+</span></pre>
 		Function returns the <b>value</b> of the last list element.<br />
 		An error is raised if list is empty.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">auto ref</span> <span class="rword">list</span>:<span class="func">front</span>();<br />
-		</p>
+		<pre class="code"><span class="rword">auto list</span><span class="bold">:</span><span class="func">front</span><span class="bold">();
+</span></pre>
 		Function returns the <b>value</b> of the first list element.<br />
 		An error is raised if list is empty.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">list_node ref</span> <span class="rword">list</span>:<span class="func">begin</span>();<br />
-		</p>
-		Function returns first list node (see description below).<br />
+		<pre class="code"><span class="rword">auto list</span><span class="bold">:</span><span class="func">begin</span><span class="bold">();
+</span></pre>
+		Function returns first list node.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">list_node ref</span> <span class="rword">list</span>:<span class="func">end</span>();<br />
-		</p>
-		Function returns last list node (see description below).<br />
+		<pre class="code"><span class="rword">auto list</span><span class="bold">:</span><span class="func">end</span><span class="bold">();
+</span></pre>
+		Function returns last list node.<br />
 	</div>
 	<div class="function">
-		<p class="code">
-<span class="rword">int</span> <span class="rword">list</span>:<span class="func">empty</span>();<br />
-		</p>
+		<pre class="code"><span class="rword">int list</span><span class="bold">:</span><span class="func">empty</span><span class="bold">();</span></pre>
 		Function returns <span class="real">1</span> is list doesn't contain any elements, otherwise the return value is <span class="real">0</span>.<br />
 	</div>
-
 	<div class="function">
-		<p class="code">
-<span class="rword">list_iterator</span> <span class="func">list_iterator</span>(<span class="rword">list_node ref</span> start);<br />
-<span class="rword">list_iterator</span> <span class="rword">list</span>:<span class="func">start</span>();<br />
-<span class="rword">auto ref</span> <span class="rword">list_iterator</span>:<span class="func">next</span>();<br />
-<span class="rword">int</span> <span class="rword">list_iterator</span>:<span class="func">hasnext</span>();<br />
-		</p>
+		<pre class="code"><span class="rword">auto list_iterator</span><span class="bold">:</span><span class="func">list_iterator</span><span class="bold">(</span><span class="rword">list_node</span>&lt;<span class="rword">T</span>&gt; <span class="rword">ref </span><span class="var">start</span><span class="bold">);
+</span><span class="rword">auto list_iterator</span><span class="bold">:</span><span class="func">start</span><span class="bold">();
+</span><span class="rword">auto list_iterator</span><span class="bold">:</span><span class="func">next</span><span class="bold">();
+</span><span class="rword">auto list_iterator</span><span class="bold">:</span><span class="func">hasnext</span><span class="bold">();
+</span><span class="rword">auto list</span><span class="bold">:</span><span class="func">start</span><span class="bold">();
+</span></pre>
 		These helper functions enable iteration over list elements in for each expression.<br />
+		Iteration can also be started from a specified list node.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto list</span><span class="bold">:</span><span class="func">sum</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function computes list element sum by adding numbers returned by a user-specified function. User-specified function is called for every element.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto list</span><span class="bold">:</span><span class="func">average</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function computes the average list elements value by adding numbers returned by a user-specified function and dividing the sum by element count. User-specified function is called for every element.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto list</span><span class="bold">:</span><span class="func">min_element</span><span class="bold">();
+</span></pre>
+		This function computes the minimal element of a list. operator < is required that will take two vector elements for comparison.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto list</span><span class="bold">:</span><span class="func">max_element</span><span class="bold">();
+</span></pre>
+		This function computes the maximum element of a list. operator > is required that will take two vector elements for comparison.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto list</span><span class="bold">:</span><span class="func">min_element</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function computes the minimum of the values returned by a user-specified function. User-specified function is called for every element.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto list</span><span class="bold">:</span><span class="func">max_element</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function computes the maximum of the values returned by a user-specified function. User-specified function is called for every element.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto list</span><span class="bold">:</span><span class="func">count_if</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function returns the element count that satisfies a user-specified function.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto list</span><span class="bold">:</span><span class="func">all</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function returns 1 if all of the elements satisfy a user-specified function.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto list</span><span class="bold">:</span><span class="func">any</span><span class="bold">(</span><span class="rword">generic ref</span>(<span class="rword">T</span>) <span class="var">f</span><span class="bold">);
+</span></pre>
+		This function returns 1 if any of the elements satisfy a user-specified function.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">bool operator </span>in<span class="bold">(</span><span class="rword">generic </span><span class="var">x</span>, <span class="rword">list</span>&lt;<span class="rword">generic</span>&gt; <span class="rword">ref </span><span class="var">arr</span><span class="bold">);
+</span></pre>
+		This operator returns true if a specified element is a part of list.<br />
+		operator == that can compare the two elements is required.<br />
 	</div>
 
-	Some functions return list node. This is a class that has references to previous and next node, element value and parent list.<br />
-	<p class="code">
-<span class="rword">class</span> <span class="rword">list_node</span><br />
-{<br />
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">list_node ref</span> prev, next;<br />
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">auto ref</span> elem;<br />
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="rword">auto ref</span> parent;<br />
-}<br />
-	</p>
-	You can use <span class="var">prev</span> and <span class="var">next</span> members to iterate through list nodes.<br />
-	Manual change of <span class="var">prev</span>, <span class="var">next</span> and <span class="var">parent</span> members results in an undefined behavior and is strongly discouraged.<br />
+	Some functions return a list_node class. This is a class that has references to previous and next node, element value and parent list.<br />
+	An accessors named <b>prev</b>, <b>next</b> and <b>elem</b> are provided to let user get pointer to previous or next node and to retrieve the node value.<br />
+	You can use <b>prev</b> and <b>next</b> to iterate through list nodes.<br />
+</div>
+<hr />
+<div class="topic">
+	<h3><a name="std_hashmap">std.hashmap</a></h3>
+	
+	std.hashmap is a dictionary of key-value elements.<br />
+	An <span class="rword">int </span><span class="func">hash_value</span><span class="bold">(</span><span class="rword">Key_Type </span><span class="var">key</span><span class="bold">)</span>; function is required to use a type as a key if the default constructor is used.<br />
+	A hash_value function for char[] type is provided by default.<br />
 	<div class="function">
-		<p class="code">
-<span class="rword">auto ref</span> <span class="rword">list_node</span>.<span class="func">value</span>();<br />
-<span class="rword">auto ref</span> <span class="rword">list_node</span>.<span class="func">value</span>(<span class="rword">auto ref</span> val)<br />
-		</p>
-		Even though you can use <span class="var">elem</span> member to access list node element, this accessor is provided for better element value update semantics and should be used instead.<br />
+		<pre class="code"><span class="rword">void hashmap</span><span class="bold">:</span><span class="func">hashmap</span><span class="bold">();
+</span><span class="rword">void hashmap</span><span class="bold">:</span><span class="func">hashmap</span><span class="bold">(</span><span class="rword">int ref</span>(<span class="rword">Key</span>) <span class="var">compute_hash</span><span class="bold">);
+</span></pre>
+		A defualt constructor and a constructor that takes a function that computes the hash value are provided.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void hashmap</span><span class="bold">:</span><span class="func">clear</span><span class="bold">();
+</span></pre>
+		Function removes all hashmap elements.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto operator</span>[]<span class="bold">(</span><span class="rword">hashmap</span>&lt;@<span class="rword">K</span>, @<span class="rword">V</span>&gt; <span class="rword">ref </span><span class="var">m</span>, <span class="rword">typeof</span>(<span class="var">m</span>).<span class="rword">target</span>.<span class="rword">Key </span><span class="var">key</span><span class="bold">);
+</span></pre>
+		Operator allows to retrieve or assing a value to an element with the specified key.<br />
+		If an element doesn't exist, it is created.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void hashmap</span><span class="bold">:</span><span class="func">remove</span><span class="bold">(</span><span class="rword">Key </span><span class="var">key</span><span class="bold">);
+</span></pre>
+		Function removes an element with the specified key from hashmap.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">auto hashmap</span><span class="bold">:</span><span class="func">find</span><span class="bold">(</span><span class="rword">Key </span><span class="var">key</span><span class="bold">);
+</span></pre>
+		Function allows to find an element using the key in the hashmap.<br />
+		nullptr is returned if the element doesn't exist.<br />
 	</div>
 </div>
 <hr />
@@ -2349,13 +2467,176 @@ B int 5<br />
 <div class="topic">
 	<h3><a name="std_file">std.file</a></h3>
 
-	<div style="background-color: #f00; width: 100%; height: 50px;"></div>
+	<div class="function">
+		<pre class="code"><span class="rword">File </span><span class="func">File</span><span class="bold">();
+</span><span class="rword">File </span><span class="func">File</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">name</span>, <span class="rword">char</span>[] <span class="var">access</span><span class="bold">);
+</span></pre>
+		Two static constructors are available to create a file instance or to create a file instance with specified file opened with a specified mode.<br />
+		Modes are equal to the modes of fopen function in C.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void File</span><span class="bold">:</span><span class="func">Open</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">name</span>, <span class="rword">char</span>[] <span class="var">access</span><span class="bold">);
+</span></pre>
+		Function openes the file with a specified mode.<br />
+		Modes are equal to the modes of fopen function in C.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void File</span><span class="bold">:</span><span class="func">Close</span><span class="bold">();
+</span></pre>
+		Function closes the file.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">int File</span><span class="bold">:</span><span class="func">Opened</span><span class="bold">();
+</span></pre>
+		Function returns 1 if file is opened and 0 otherwise.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">enum Seek
+</span>{
+<span class="func">    </span><span class="vardef">SET</span>,
+<span class="func">    </span><span class="vardef">CUR</span>,
+    <span class="vardef">END
+</span>}
+<span class="rword">void File</span><span class="bold">:</span><span class="func">Seek</span><span class="bold">(</span><span class="rword">Seek </span><span class="var">origin</span>, <span class="rword">int </span><span class="var">shift </span>= <span class="real">0</span><span class="bold">);
+</span></pre>
+		Function allows to seek in the file with one of the seek options specified by enumeration value.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">long File</span><span class="bold">:</span><span class="func">Tell</span><span class="bold">();
+</span></pre>
+		Function returns cursor position in the file.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">long File</span><span class="bold">:</span><span class="func">Size</span><span class="bold">();
+</span></pre>
+		Function returns the size of the file.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void File</span><span class="bold">:</span><span class="func">Write</span><span class="bold">(</span><span class="rword">char </span><span class="var">data</span><span class="bold">);
+</span><span class="rword">void File</span><span class="bold">:</span><span class="func">Write</span><span class="bold">(</span><span class="rword">short </span><span class="var">data</span><span class="bold">);
+</span><span class="rword">void File</span><span class="bold">:</span><span class="func">Write</span><span class="bold">(</span><span class="rword">int </span><span class="var">data</span><span class="bold">);
+</span><span class="rword">void File</span><span class="bold">:</span><span class="func">Write</span><span class="bold">(</span><span class="rword">long </span><span class="var">data</span><span class="bold">);
+</span><span class="rword">void File</span><span class="bold">:</span><span class="func">Write</span><span class="bold">(</span><span class="rword">float </span><span class="var">data</span><span class="bold">);
+</span><span class="rword">void File</span><span class="bold">:</span><span class="func">Write</span><span class="bold">(</span><span class="rword">double </span><span class="var">data</span><span class="bold">);
+</span></pre>
+		These functions write the argument values into the file.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void File</span><span class="bold">:</span><span class="func">Read</span><span class="bold">(</span><span class="rword">char ref </span><span class="var">data</span><span class="bold">);
+</span><span class="rword">void File</span><span class="bold">:</span><span class="func">Read</span><span class="bold">(</span><span class="rword">short ref </span><span class="var">data</span><span class="bold">);
+</span><span class="rword">void File</span><span class="bold">:</span><span class="func">Read</span><span class="bold">(</span><span class="rword">int ref </span><span class="var">data</span><span class="bold">);
+</span><span class="rword">void File</span><span class="bold">:</span><span class="func">Read</span><span class="bold">(</span><span class="rword">long ref </span><span class="var">data</span><span class="bold">);
+</span><span class="rword">void File</span><span class="bold">:</span><span class="func">Read</span><span class="bold">(</span><span class="rword">float ref </span><span class="var">data</span><span class="bold">);
+</span><span class="rword">void File</span><span class="bold">:</span><span class="func">Read</span><span class="bold">(</span><span class="rword">double ref </span><span class="var">data</span><span class="bold">);
+</span></pre>
+		These function read values from file into the arguments.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void File</span><span class="bold">:</span><span class="func">Read</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">arr</span><span class="bold">);
+</span></pre>
+		Function reads arr.size bytes from file into the specified array.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void File</span><span class="bold">:</span><span class="func">Write</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">arr</span><span class="bold">);
+</span></pre>
+		Function writes arr.size bytes from specified array into the file.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void File</span><span class="bold">:</span><span class="func">Print</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">arr</span><span class="bold">);
+</span></pre>
+		Funcion writes data from array until 0 value.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void File</span><span class="bold">:</span><span class="func">Read</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">arr</span>, <span class="rword">int </span><span class="var">offset</span>, <span class="rword">int </span><span class="var">bytes</span><span class="bold">);
+</span></pre>
+		Function reads specified amount of bytes from file into the array with the specified offset from the start.<br />
+		Array must be able to hold the specified amount of bytes from the specified offset.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void File</span><span class="bold">:</span><span class="func">Write</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">arr</span>, <span class="rword">int </span><span class="var">offset</span>, <span class="rword">int </span><span class="var">bytes</span><span class="bold">);
+</span></pre>
+		Function writes specified amount of bytes from array with the specified offset from the start into the file.<br />
+		Array must have the specified amount of bytes from the specified offset.<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
 	<h3><a name="std_io">std.io</a></h3>
 
-	<div style="background-color: #f00; width: 100%; height: 50px;"></div>
+	<div class="function">
+		<pre class="code"><span class="rword">void </span><span class="func">Print</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">text</span><span class="bold">);
+</span><span class="rword">void </span><span class="func">Print</span><span class="bold">(</span><span class="rword">int </span><span class="var">num</span>, <span class="rword">int </span><span class="var">base </span>= <span class="real">10</span><span class="bold">);
+</span><span class="rword">void </span><span class="func">Print</span><span class="bold">(</span><span class="rword">double </span><span class="var">num</span><span class="bold">);
+</span><span class="rword">void </span><span class="func">Print</span><span class="bold">(</span><span class="rword">long </span><span class="var">num</span>, <span class="rword">int </span><span class="var">base </span>= <span class="real">10</span><span class="bold">);
+</span><span class="rword">void </span><span class="func">Print</span><span class="bold">(</span><span class="rword">char </span><span class="var">ch</span><span class="bold">);
+</span></pre>
+		These functions print a string, an integer in a specified base, a double, a long in a specified base and a single charater to the console window.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">int </span><span class="func">Input</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">buf</span><span class="bold">);
+</span></pre>
+		Function reads a user string into an array.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void </span><span class="func">Input</span><span class="bold">(</span><span class="rword">int ref </span><span class="var">num</span><span class="bold">);
+</span></pre>
+		Function reads a number from user string into the int.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void </span><span class="func">Write</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">buf</span><span class="bold">);
+</span></pre>
+		Function outputs the whole buffer without stopping at 0-bytes.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void </span><span class="func">SetConsoleCursorPos</span><span class="bold">(</span><span class="rword">int </span><span class="var">x</span>, <span class="var">y</span><span class="bold">);
+</span></pre>
+		This function sets the console cursor position to the specified location. (Windows-only)<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void </span><span class="func">GetKeyboardState</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">state</span><span class="bold">);
+</span></pre>
+		This function writes the keyboard and mouse key state into an array. (Windows-only)<br />
+		It works just like GetKeyboardState function in WinAPI.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">void </span><span class="func">GetMouseState</span><span class="bold">(</span><span class="rword">int ref </span><span class="var">x</span>, <span class="rword">int ref </span><span class="var">y</span><span class="bold">);
+</span></pre>
+		Function writes mouse position int the passed arguments. (Windows-only)<br />
+		It works just like GetCursorPos function in WinAPI.<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">bool </span><span class="func">IsPressed</span><span class="bold">(</span><span class="rword">VK</span> <span class="var">key</span><span class="bold">);
+</span><span class="rword">bool </span><span class="func">IsPressed</span><span class="bold">(</span><span class="rword">char</span> <span class="var">key</span><span class="bold">);
+</span></pre>
+		Function returns true if a key specified by it's virtual key code (VK enumeration values: for example, VK.F12) or by a charecter code (only numbers from 0-9 and upper case characters) is pressed. (Windows-only)<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">bool </span><span class="func">IsToggled</span><span class="bold">(</span><span class="rword">VK</span> <span class="var">key</span><span class="bold">);
+</span><span class="rword">bool </span><span class="func">IsToggled</span><span class="bold">(</span><span class="rword">char</span> <span class="var">key</span><span class="bold">);
+</span></pre>
+		Function returns true if a key specified by it's virtual key code (VK enumeration values: for example, VK.F12) or by a charecter code (only numbers from 0-9 and upper case characters) is toggled. (Windows-only)<br />
+	</div>
+	<div class="function">
+		<pre class="code"><span class="rword">StdOut operator </span>&lt;&lt;<span class="bold">(</span><span class="rword">StdOut </span><span class="var">out</span>, <span class="rword">char</span>[] <span class="rword">ref</span>(<span class="rword">StdNonTerminatedTag</span>) <span class="var">wrapper</span><span class="bold">);
+</span><span class="rword">StdOut operator </span>&lt;&lt;<span class="bold">(</span><span class="rword">StdOut </span><span class="var">out</span>, <span class="rword">char</span>[] <span class="var">str</span><span class="bold">);
+</span><span class="rword">StdOut operator </span>&lt;&lt;<span class="bold">(</span><span class="rword">StdOut </span><span class="var">out</span>, <span class="rword">const_string </span><span class="var">str</span><span class="bold">);
+</span><span class="rword">StdOut operator </span>&lt;&lt;<span class="bold">(</span><span class="rword">StdOut </span><span class="var">out</span>, <span class="rword">StdEndline </span><span class="var">str</span><span class="bold">);
+</span><span class="rword">StdOut operator </span>&lt;&lt;<span class="bold">(</span><span class="rword">StdOut </span><span class="var">out</span>, <span class="rword">bool </span><span class="var">num</span><span class="bold">);
+</span><span class="rword">StdOut operator </span>&lt;&lt;<span class="bold">(</span><span class="rword">StdOut </span><span class="var">out</span>, <span class="rword">char </span><span class="var">ch</span><span class="bold">);
+</span><span class="rword">StdOut operator </span>&lt;&lt;<span class="bold">(</span><span class="rword">StdOut </span><span class="var">out</span>, <span class="rword">short </span><span class="var">num</span><span class="bold">);
+</span><span class="rword">StdOut operator </span>&lt;&lt;<span class="bold">(</span><span class="rword">StdOut </span><span class="var">out</span>, <span class="rword">int </span><span class="var">num</span><span class="bold">);
+</span><span class="rword">StdOut operator </span>&lt;&lt;<span class="bold">(</span><span class="rword">StdOut </span><span class="var">out</span>, <span class="rword">float </span><span class="var">num</span><span class="bold">);
+</span><span class="rword">StdOut operator </span>&lt;&lt;<span class="bold">(</span><span class="rword">StdOut </span><span class="var">out</span>, <span class="rword">double </span><span class="var">num</span><span class="bold">);
+</span><span class="rword">StdOut operator </span>&lt;&lt;<span class="bold">(</span><span class="rword">StdOut </span><span class="var">out</span>, <span class="rword">long </span><span class="var">num</span><span class="bold">);
+</span></pre>
+		This set of operators exists to make stream output similar to std::cout in C++.<br />
+		You have a global StdOut instance to use in output operations: io.out.<br />
+		To output a number or string, write:
+		<pre class="code"><span class="var">io</span>.<span class="var">out </span>&lt;&lt; "<span class="string">The number is </span>" &lt;&lt; <span class="real">4 </span>&lt;&lt; <span class="var">io</span>.<span class="var">endl</span>;</pre>
+		To print a newline, use io.endl as in an example above.<br />
+		To change number base, output one of the following modificators: io.bin, io.oct, io.dec, io.hex of io.base(base).<br />
+		To print a character array that doesn't end with a 0-terminator, output io.non_terminated(array).<br />
+	</div>
 </div>
 <hr />
 <div class="topic">
