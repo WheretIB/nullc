@@ -159,6 +159,31 @@ namespace NULLCIO
 		*y = pos.y;
 #endif
 	}
+
+	bool IsPressed(int key)
+	{
+#if !defined(_MSC_VER)
+		nullcThrowError("GetMouseState: supported only under Windows");
+		return false;
+#else
+		unsigned char arr[256];
+		::GetKeyboardState(arr);
+		if(arr[key & 0xff] > 1)
+			key = key;
+		return !!(arr[key & 0xff] & 0x80);
+#endif
+	}
+	bool IsToggled(int key)
+	{
+#if !defined(_MSC_VER)
+		nullcThrowError("GetMouseState: supported only under Windows");
+		return false;
+#else
+		unsigned char arr[256];
+		::GetKeyboardState(arr);
+		return !!(arr[key & 0xff] & 0x1);
+#endif
+	}
 }
 
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.io", (void(*)())NULLCIO::funcPtr, name, index)) return false;
@@ -176,6 +201,10 @@ bool	nullcInitIOModule()
 
 	REGISTER_FUNC(GetKeyboardState, "GetKeyboardState", 0);
 	REGISTER_FUNC(GetMouseState, "GetMouseState", 0);
+	REGISTER_FUNC(IsPressed, "IsPressed", 0);
+	REGISTER_FUNC(IsToggled, "IsToggled", 0);
+	REGISTER_FUNC(IsPressed, "IsPressed", 1);
+	REGISTER_FUNC(IsToggled, "IsToggled", 1);
 
 	return true;
 }
