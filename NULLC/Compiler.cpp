@@ -672,6 +672,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		namespaceList++;
 	}
 
+	unsigned skipConstants = 0;
 	tInfo = FindFirstType(bCode);
 	for(unsigned int i = 0; i < bCode->typeCount; i++, tInfo++)
 	{
@@ -751,6 +752,8 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				// This two pointers are used later to fill type member information
 				newInfo->firstVariable = (TypeInfo::MemberVariable*)(symbols + tInfo->offsetToName + strLength);
 				newInfo->lastVariable = (TypeInfo::MemberVariable*)tInfo;
+				newInfo->definitionDepth = skipConstants;
+				skipConstants += tInfo->constantCount;
 				// If definitionOffset offset is set
 				if(tInfo->definitionOffset != ~0u)
 				{
@@ -774,6 +777,8 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				return false;
 			}
 			newInfo->alignBytes = tInfo->defaultAlign;
+		}else{
+			skipConstants += tInfo->constantCount;
 		}
 	}
 #pragma pack(push, 1)
@@ -808,10 +813,9 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			}
 			for(unsigned int n = 0; n < typeInfo->constantCount; n++)
 			{
-				TypeInfo *constantType = CodeInfo::typeInfo[typeRemap[constantList->typeID]];
+				TypeInfo *constantType = CodeInfo::typeInfo[typeRemap[constantList[type->definitionDepth + n].typeID]];
 				NodeNumber *value = new NodeNumber(0, constantType);
-				value->num.integer64 = constantList->value;
-				constantList++;
+				value->num.integer64 = constantList[type->definitionDepth + n].value;
 
 				unsigned int strLength = (unsigned int)strlen(memberName) + 1;
 				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), memberName);
@@ -828,6 +832,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 				type->memberCount = memberCount;
 				type->hasPointers = hasPointers;
 			}
+			type->definitionDepth = 1;
 		}
 	}
 	// Resolve type sizes
