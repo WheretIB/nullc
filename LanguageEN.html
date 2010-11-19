@@ -170,6 +170,7 @@ function toggleView(a, b, c)
 		</ol>
 		<li><a href="#arrunsized">Arrays with implicit size</a></li>
 		<li><a href="#enum">Enumeration</a></li>
+		<li><a href="#namespace">Namespaces</a></li>
 	</ol>
 	<li>Special types</li>
 	<ol>
@@ -1507,6 +1508,64 @@ return </span><span class="real">1</span><span class="bold">;</span></pre>
 <span class="rword">int </span><span class="func">int</span><span class="bold">(</span><span class="rword">enum_type </span><span class="var">x</span><span class="bold">);
 </span><span class="rword">enum_type </span><span class="func">enum_type</span><span class="bold">(</span><span class="rword">int </span><span class="var">x</span><span class="bold">);
 </span></pre>
+</div>
+<hr />
+
+<div class="topic">
+	<h3><a name="namespace">4.6 Namespaces</a></h3>
+	
+	A list of declarations and expressions can be enclosed in a namespace.<br />
+	To access something from outside a namespace, a namespace name followed by '.' must be written before an identifier name:
+	<pre class="code">
+<span class="rword">namespace Space
+</span>{
+    <span class="rword">class Pair
+</span>    {
+        <span class="rword">int </span><span class="vardef">x</span>, <span class="vardef">y</span>;
+    }
+    <span class="rword">Pair </span><span class="vardef">x</span>;
+    <span class="var">x</span>.<span class="var">x </span>= <span class="real">5</span>;
+}
+<span class="rword">Space</span>.<span class="rword">Pair </span><span class="vardef">y</span>;
+<span class="var">y</span>.<span class="var">x </span>= <span class="real">10</span>;
+<span class="rword">return </span><span class="var">y</span>.<span class="var">x </span>+ <span class="rword">Space</span>.<span class="var">x</span>.<span class="var">x</span><span class="bold">;</span><span class="comment"> // 15
+</span></pre>
+	<br />
+	Namespace can be defined at the global scope or immediately inside another namespace. A short-hand syntax for declaring nested namespaces exists.<br />
+	Following example defines two variables inside the same namespace:
+	<pre class="code">
+<span class="rword">namespace A
+</span>{
+    <span class="rword">namespace B
+</span>    {
+        <span class="rword">int </span><span class="vardef">x </span>= <span class="real">5</span>;
+    }
+}
+<span class="rword">namespace A</span>.<span class="rword">B
+</span>{
+    <span class="rword">int </span><span class="vardef">y </span>= <span class="real">10</span>;
+}
+<span class="rword">return A</span>.<span class="rword">B</span>.<span class="var">x </span>+ <span class="rword">A</span>.<span class="rword">B</span>.<span class="var">y</span><span class="bold">;</span><span class="comment"> // 15</span></pre>
+	Identifier search goes as follows: first, the name is searched starting at current namespace; then, the name is searched starting at parent namespace and so on, until global namespace is reached:
+	<pre class="code">
+<span class="rword">namespace A
+</span>{
+    <span class="rword">namespace B
+</span>    {
+        <span class="rword">int </span><span class="vardef">x </span>= <span class="real">5</span>;
+    }
+    <span class="rword">namespace C
+    </span>{
+    <span class="comment">    </span><span class="rword">namespace D
+    </span><span class="comment">    </span>{<span class="comment">
+            // Name search order:
+            // A.C.D.B.x - not found
+            // A.C.B.x - not found
+            // A.B.x - found
+        </span><span class="rword">    int </span><span class="vardef">y </span>= <span class="rword">B</span>.<span class="var">x</span>;
+        }
+    }
+}</pre>
 </div>
 <hr />
 
