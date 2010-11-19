@@ -405,6 +405,7 @@ namespace ColorerGrammar
 					strP("isFunction")[ColorRWord] |
 					strP("isReference")[ColorRWord] |
 					strP("arraySize")[ColorRWord] |
+					typenameP(typeName)[ColorRWord] |
 					idP[ColorVar]
 				);
 			typeExpr	=
