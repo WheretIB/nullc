@@ -167,6 +167,59 @@ namespace NULLCFile
 		}
 		fseek(file->handle, shift, dir);
 	}
+
+	long long FileTell(File* file)
+	{
+		if(!file->handle)
+		{
+			nullcThrowError("Cannot tell cursor position in a closed file.");
+			return 0;
+		}
+		return ftell(file->handle);
+	}
+	long long FileSize(File* file)
+	{
+		if(!file->handle)
+		{
+			nullcThrowError("Cannot get size of a closed file.");
+			return 0;
+		}
+		long pos = ftell(file->handle);
+		fseek(file->handle, SEEK_END, 0);
+		long res = ftell(file->handle);
+		fseek(file->handle, SEEK_SET, pos);
+		return res;
+	}
+	void FileReadArr(NULLCArray arr, unsigned offset, unsigned count, File* file)
+	{
+		if(!file->handle)
+		{
+			nullcThrowError("Cannot read from a closed file.");
+			return;
+		}
+		if((long long)count + offset > arr.len)
+		{
+			nullcThrowError("Array can't hold %d bytes from the specified offset.", count);
+			return;
+		}
+		if(count != fread(arr.ptr + offset, 1, count, file->handle))
+			nullcThrowError("Failed to read from a file.");
+	}
+	void FileWriteArr(NULLCArray arr, unsigned offset, unsigned count, File* file)
+	{
+		if(!file->handle)
+		{
+			nullcThrowError("Cannot write to a closed file.");
+			return;
+		}
+		if((long long)count + offset > arr.len)
+		{
+			nullcThrowError("Array doesn't contain %d bytes from the specified offset.", count);
+			return;
+		}
+		if(count != fwrite(arr.ptr + offset, 1, count, file->handle))
+			nullcThrowError("Failed to write to a file.");
+	}
 }
 
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.file", (void(*)())NULLCFile::funcPtr, name, index)) return false;
@@ -200,5 +253,10 @@ bool nullcInitFileModule()
 	REGISTER_FUNC(FileRead, "File::Read", 6);
 	REGISTER_FUNC(FileWrite, "File::Write", 6);
 	REGISTER_FUNC(FilePrint, "File::Print", 0);
+
+	REGISTER_FUNC(FileTell, "File::Tell", 0);
+	REGISTER_FUNC(FileSize, "File::Size", 0);
+	REGISTER_FUNC(FileReadArr, "File::Read", 7);
+	REGISTER_FUNC(FileWriteArr, "File::Write", 7);
 	return true;
 }

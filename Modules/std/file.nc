@@ -18,6 +18,9 @@ void File:Close();
 int File:Opened();
 
 void File:Seek(Seek origin, int shift = 0);
+long File:Tell();
+
+long File:Size();
 
 void File:Write(char data);
 void File:Write(short data);
@@ -36,3 +39,6 @@ void File:Read(double ref data);
 void File:Read(char[] arr);
 void File:Write(char[] arr);
 void File:Print(char[] arr);
+
+void File:Read(char[] arr, int offset, int bytes);
+void File:Write(char[] arr, int offset, int bytes);
