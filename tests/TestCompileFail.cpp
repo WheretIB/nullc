@@ -619,6 +619,12 @@ return int(y() + z());",
 	TEST_FOR_FAIL("reserved function", "int __newS(){ return 4; }", "ERROR: function '__newS' is reserved");
 	TEST_FOR_FAIL("reserved function", "int __newA(){ return 4; }", "ERROR: function '__newA' is reserved");
 	TEST_FOR_FAIL("reserved function", "auto x = __newS(1023, 23);", "ERROR: function '__newS' is undefined");
+
+	TEST_FOR_FAIL("restricted enum", "enum X{ Y, Z } int a(int x){ return x; } return a(X.Y);", "ERROR: can't find function 'a' with following parameters:");
+
+	TEST_FOR_FAIL("void operation", "void foo(){} do{}while(!foo());", "ERROR: unary operation '!' is not supported on 'void'");
+	TEST_FOR_FAIL("void operation", "void foo(){} void x = foo() + foo(); return 1;", "ERROR: first operand returns void");
+	TEST_FOR_FAIL("void operation", "void foo(){} void x = 5 + foo(); return 1;", "ERROR: second operand returns void");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

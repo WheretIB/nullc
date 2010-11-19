@@ -284,7 +284,7 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd, unsigned int argument)
 	bool logicalOp = cmd == cmdLogNot;
 	typeInfo = logicalOp ? typeBool : first->typeInfo;
 
-	if(cmd != cmdCheckedRet && ((first->typeInfo->refLevel != 0 && !logicalOp) || (first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject) || (!logicalOp && first->typeInfo == typeBool)))
+	if(cmd != cmdCheckedRet && ((first->typeInfo->refLevel != 0 && !logicalOp) || (first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject) || (!logicalOp && first->typeInfo == typeBool) || first->typeInfo->type == TypeInfo::TYPE_VOID))
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmd - cmdNeg], first->typeInfo->GetFullTypeName());
 
 	nodeType = typeNodeUnaryOp;
@@ -1282,9 +1282,9 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 
 	if(first->typeInfo == typeVoid)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: first operator returns void");
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: first operand returns void");
 	if(second->typeInfo == typeVoid)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: second operator returns void");
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: second operand returns void");
 
 	if((first->typeInfo == typeDouble || first->typeInfo == typeFloat || second->typeInfo == typeDouble || second->typeInfo == typeFloat) && (cmd >= cmdShl && cmd <= cmdLogXor))
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: binary operations are not available on floating-point numbers");
