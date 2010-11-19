@@ -2544,7 +2544,7 @@ B int 5<br />
 	<div class="function">
 		<pre class="code"><span class="rword">void File</span><span class="bold">:</span><span class="func">Print</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">arr</span><span class="bold">);
 </span></pre>
-		Funcion writes data from array until 0 value.<br />
+		Function writes data from array until 0-terminator.<br />
 	</div>
 	<div class="function">
 		<pre class="code"><span class="rword">void File</span><span class="bold">:</span><span class="func">Read</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">arr</span>, <span class="rword">int </span><span class="var">offset</span>, <span class="rword">int </span><span class="var">bytes</span><span class="bold">);
@@ -2570,7 +2570,7 @@ B int 5<br />
 </span><span class="rword">void </span><span class="func">Print</span><span class="bold">(</span><span class="rword">long </span><span class="var">num</span>, <span class="rword">int </span><span class="var">base </span>= <span class="real">10</span><span class="bold">);
 </span><span class="rword">void </span><span class="func">Print</span><span class="bold">(</span><span class="rword">char </span><span class="var">ch</span><span class="bold">);
 </span></pre>
-		These functions print a string, an integer in a specified base, a double, a long in a specified base and a single charater to the console window.<br />
+		These functions print a string, an integer in a specified base, a double, a long in a specified base and a single character to the console window.<br />
 	</div>
 	<div class="function">
 		<pre class="code"><span class="rword">int </span><span class="func">Input</span><span class="bold">(</span><span class="rword">char</span>[] <span class="var">buf</span><span class="bold">);
@@ -2601,20 +2601,20 @@ B int 5<br />
 	<div class="function">
 		<pre class="code"><span class="rword">void </span><span class="func">GetMouseState</span><span class="bold">(</span><span class="rword">int ref </span><span class="var">x</span>, <span class="rword">int ref </span><span class="var">y</span><span class="bold">);
 </span></pre>
-		Function writes mouse position int the passed arguments. (Windows-only)<br />
+		Function writes mouse position into the passed arguments. (Windows-only)<br />
 		It works just like GetCursorPos function in WinAPI.<br />
 	</div>
 	<div class="function">
 		<pre class="code"><span class="rword">bool </span><span class="func">IsPressed</span><span class="bold">(</span><span class="rword">VK</span> <span class="var">key</span><span class="bold">);
 </span><span class="rword">bool </span><span class="func">IsPressed</span><span class="bold">(</span><span class="rword">char</span> <span class="var">key</span><span class="bold">);
 </span></pre>
-		Function returns true if a key specified by it's virtual key code (VK enumeration values: for example, VK.F12) or by a charecter code (only numbers from 0-9 and upper case characters) is pressed. (Windows-only)<br />
+		Function returns true if a key specified by its virtual key code (VK enumeration values: for example, VK.F12) or by a character  code (only numbers from 0-9 and upper case characters) is pressed. (Windows-only)<br />
 	</div>
 	<div class="function">
 		<pre class="code"><span class="rword">bool </span><span class="func">IsToggled</span><span class="bold">(</span><span class="rword">VK</span> <span class="var">key</span><span class="bold">);
 </span><span class="rword">bool </span><span class="func">IsToggled</span><span class="bold">(</span><span class="rword">char</span> <span class="var">key</span><span class="bold">);
 </span></pre>
-		Function returns true if a key specified by it's virtual key code (VK enumeration values: for example, VK.F12) or by a charecter code (only numbers from 0-9 and upper case characters) is toggled. (Windows-only)<br />
+		Function returns true if a key specified by its virtual key code (VK enumeration values: for example, VK.F12) or by a character  code (only numbers from 0-9 and upper case characters) is toggled. (Windows-only)<br />
 	</div>
 	<div class="function">
 		<pre class="code"><span class="rword">StdOut operator </span>&lt;&lt;<span class="bold">(</span><span class="rword">StdOut </span><span class="var">out</span>, <span class="rword">char</span>[] <span class="rword">ref</span>(<span class="rword">StdNonTerminatedTag</span>) <span class="var">wrapper</span><span class="bold">);
