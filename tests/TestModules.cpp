@@ -90,3 +90,23 @@ const char	*testImportEnum =
 Test a = Test.C;\r\n\
 return int(a);";
 TEST_RESULT("Enum import", testImportEnum, "2");
+
+LOAD_MODULE(test_importenum2, "test.importenum2", "import std.file; enum Test{ WORLD, VIEW, PROJ } void foo( Test type ){ }");
+const char	*testImportEnum2 =
+"import std.file;\r\n\
+import test.importenum2;\r\n\
+foo(Test.PROJ);\r\n\
+return 1;";
+TEST_RESULT("Enum import 2", testImportEnum2, "1");
+
+LOAD_MODULE(test_importenum3a, "test.importenum3a", "enum Seek1{ A, B, C }"); // old
+LOAD_MODULE(test_importenum3b, "test.importenum3b", "enum Seek2{ A, B, C }"); // new
+LOAD_MODULE(test_importenum3c, "test.importenum3c", "enum Seek3{ A, B, C }"); // old
+LOAD_MODULE(test_importenum3d, "test.importenum3d", "import test.importenum3a; import test.importenum3b; import test.importenum3c; void foo( Seek2 type ){ }");
+const char	*testImportEnum3 =
+"import test.importenum3a;\r\n\
+import test.importenum3c;\r\n\
+import test.importenum3d;\r\n\
+foo(Seek2.B);\r\n\
+return 1;";
+TEST_RESULT("Enum import 3", testImportEnum3, "1");
