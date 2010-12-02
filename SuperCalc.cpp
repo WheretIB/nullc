@@ -2838,6 +2838,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			if(info.name[0] != '?')
 				SetWindowText(hCode, "");
 
+			RichTextarea::ResetUpdate(wnd);
+			needTextUpdate = false;
+			lastUpdate = GetTickCount();
+
 			const char *compileErr = NULL;
 			if(!nullcCompile((char*)RichTextarea::GetAreaText(wnd)))
 				compileErr = nullcGetLastError();
@@ -2853,9 +2857,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			}
 			RichTextarea::EndStyleUpdate(wnd);
 			RichTextarea::UpdateArea(wnd);
-			RichTextarea::ResetUpdate(wnd);
-			needTextUpdate = false;
-			lastUpdate = GetTickCount();
 		}
 			break;
 		case WM_GETMINMAXINFO:
