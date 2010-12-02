@@ -155,7 +155,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Ternary operator void return type", "void f(){} int a = 1; return a ? f() : 0.0;", "ERROR: one of ternary operator ?: result type is void (void : double)");
 	TEST_FOR_FAIL("Ternary operator return type difference", "import std.math; int a = 1; return a ? 12 : float2(3, 4);", "ERROR: ternary operator ?: result types are not equal (int : float2)");
 
-	TEST_FOR_FAIL("Variable type is unknown", "int test(int a, typeof(test) ptr){ return ptr(a, ptr); }", "ERROR: variable type is unknown");
+	TEST_FOR_FAIL("Variable type is unknown", "int test(int a, typeof(test) ptr){ return ptr(a, ptr); }", "ERROR: function 'test' type is unresolved at this point");
 
 	TEST_FOR_FAIL("Illegal pointer operation 1", "int ref a; a += a;", "ERROR: there is no built-in operator for types 'int ref' and 'int ref'");
 	TEST_FOR_FAIL("Illegal pointer operation 2", "int ref a; a++;", "ERROR: increment is not supported on 'int ref'");
@@ -625,6 +625,10 @@ return int(y() + z());",
 	TEST_FOR_FAIL("void operation", "void foo(){} do{}while(!foo());", "ERROR: unary operation '!' is not supported on 'void'");
 	TEST_FOR_FAIL("void operation", "void foo(){} void x = foo() + foo(); return 1;", "ERROR: first operand returns void");
 	TEST_FOR_FAIL("void operation", "void foo(){} void x = 5 + foo(); return 1;", "ERROR: second operand returns void");
+
+	TEST_FOR_FAIL("unresolved type", "auto foo(){ foo.a(); }", "ERROR: function 'foo' type is unresolved at this point");
+	TEST_FOR_FAIL("unresolved type", "auto foo(){ foo.a; }", "ERROR: function 'foo' type is unresolved at this point");
+	TEST_FOR_FAIL("unresolved type", "auto foo(){ &foo; }", "ERROR: function 'foo' type is unresolved at this point");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
