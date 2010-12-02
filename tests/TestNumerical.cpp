@@ -511,3 +511,6 @@ TEST_RESULT("bool as a function return type", testBoolType4, "1");
 
 const char	*testNestedComment = "return /* /* */ */1;";
 TEST_RESULT("nested comments", testNestedComment, "1");
+
+const char	*testNestedComment2 = "return /* \"/*\" */1;";
+TEST_RESULT("nested comments 2", testNestedComment2, "1");

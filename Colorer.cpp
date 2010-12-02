@@ -232,6 +232,9 @@ namespace ColorerGrammar
 							(*str)++, depth--;
 						else if((*str)[0] == '/' && (*str)[1] == '*')
 							(*str)++, depth++;
+						else if((*str)[0] == '\"' && (*str)++)
+							while((*str)[0] && (*str)[0] != '\"')
+								(*str) += ((*str)[0] == '\\' && (*str)[1]) ? 2 : 1;
 						(*str)++;
 					}
 					ColorComment(COLOR_COMMENT, old, *str);
