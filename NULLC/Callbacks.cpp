@@ -1388,6 +1388,8 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			CodeInfo::nodeList.push_back(new NodeFunctionProxy(fInfo, pos, true));
 			return;
 		}
+		if(!fInfo->funcType)
+			ThrowError(pos, "ERROR: function '%.*s' type is unresolved at this point", varName.end-varName.begin, varName.begin);
 
 		GetFunctionContext(pos, fInfo, true);
 		// Create node that retrieves function address
@@ -1916,8 +1918,6 @@ void AddGetVariableNode(const char* pos, bool forceError)
 	CodeInfo::lastKnownStartPos = pos;
 
 	TypeInfo *lastType = CodeInfo::nodeList.back()->typeInfo;
-	if(!lastType)
-		ThrowError(pos, "ERROR: variable type is unknown");
 
 	// If array size is known at compile time, then it's placed on stack when "array.size" is compiled, but member access usually shifts pointer, that is dereferenced now
 	// So in this special case, dereferencing is not done. Yeah...
@@ -3667,7 +3667,6 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 bool PrepareMemberCall(const char* pos, const char* funcName)
 {
 	TypeInfo *currentType = CodeInfo::nodeList.back()->typeInfo;
-
 	// Implicit conversion of type ref ref to type ref
 	if(currentType->refLevel == 2)
 	{
