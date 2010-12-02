@@ -5233,6 +5233,19 @@ TypeInfo* GetDefinedType()
 	return newType;
 }
 
+unsigned ResetDefinedTypeState()
+{
+	unsigned prevCount = methodCount;
+	newType = NULL;
+	methodCount = 0;
+	return prevCount;
+}
+void RestoreDefinedTypeState(TypeInfo* type, unsigned mCount)
+{
+	methodCount = mCount;
+	newType = type;
+}
+
 void AddAliasType(InplaceStr aliasName)
 {
 	AliasInfo *info = TypeInfo::CreateAlias(aliasName, currType);

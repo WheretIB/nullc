@@ -1921,6 +1921,9 @@ void ParseCustomConstructor(Lexeme** str, TypeInfo* resultType, NodeZeroOP* getP
 	sprintf(functionName, "$funcc%d", constrNum++);
 
 	SelectTypeByPointer(resultType->subType);
+
+	TypeInfo *currDefinedType = GetDefinedType();
+	unsigned int currentDefinedTypeMethodCount = ResetDefinedTypeState();
 	TypeContinue((*str)->pos);
 
 	SelectTypeByPointer(typeVoid);
@@ -1936,6 +1939,7 @@ void ParseCustomConstructor(Lexeme** str, TypeInfo* resultType, NodeZeroOP* getP
 	CodeInfo::nodeList.pop_back();
 
 	TypeStop();
+	RestoreDefinedTypeState(currDefinedType, currentDefinedTypeMethodCount);
 
 	NodeOneOP* wrap = new NodeOneOP();
 	wrap->SetFirstNode(getPointer);
