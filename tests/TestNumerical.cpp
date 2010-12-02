@@ -508,3 +508,6 @@ assert(foo(45) == true);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("bool as a function return type", testBoolType4, "1");
+
+const char	*testNestedComment = "return /* /* */ */1;";
+TEST_RESULT("nested comments", testNestedComment, "1");
