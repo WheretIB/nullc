@@ -166,8 +166,6 @@ namespace ColorerGrammar
 			if(chartype_table[*(*str + length)] & ct_symbol)
 				return false;
 			(*str) += length;
-			if(space)
-				space(str);
 			return true;
 		}
 	protected:
@@ -227,10 +225,15 @@ namespace ColorerGrammar
 					ColorComment(COLOR_COMMENT, old, *str);
 				}else if((*str)[1] == '*'){
 					(*str) += 2;
-					while(!((*str)[0] == '*' && (*str)[1] == '/') && (*str)[0] != '\0')
+					unsigned depth = 1;
+					while((*str)[0] && depth)
+					{
+						if((*str)[0] == '*' && (*str)[1] == '/')
+							(*str)++, depth--;
+						else if((*str)[0] == '/' && (*str)[1] == '*')
+							(*str)++, depth++;
 						(*str)++;
-					if((*str)[0])
-						(*str) += 2;
+					}
 					ColorComment(COLOR_COMMENT, old, *str);
 				}else{
 					break;

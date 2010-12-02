@@ -104,10 +104,15 @@ void Lexer::Lexify(const char* code)
 				continue;
 			}else if(code[1] == '*'){
 				code += 2;
-				while(!(code[0] == '*' && code[1] == '/') && code[0] != '\0')
+				unsigned depth = 1;
+				while(*code && depth)
+				{
+					if(code[0] == '*' && code[1] == '/')
+						code++, depth--;
+					else if(code[0] == '/' && code[1] == '*')
+						code++, depth++;
 					code++;
-				if(*code)
-					code += 2;
+				}
 				continue;
 			}else{
 				lType = lex_div;
