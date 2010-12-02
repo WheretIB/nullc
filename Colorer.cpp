@@ -410,7 +410,7 @@ namespace ColorerGrammar
 				);
 			typeExpr	=
 				(
-					(strWP("auto")[ColorRWord] | (typenameP(typeName)[ColorRWord] >> *typeofPostExpr) | ((chP('@')[ColorText] >> idP[ColorRWord]))) |
+					(strWP("auto")[ColorRWord] | (typenameP(typeName)[ColorRWord] >> *typeofPostExpr) | ((chP('@')[ColorText] >> idP[ColorRWord][StartType]))) |
 					(
 						strP("typeof")[ColorRWord] >>
 						(chP('(')[ColorText] | epsP[LogError("ERROR: '(' not found after 'typeof'")]) >>
