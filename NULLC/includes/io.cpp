@@ -75,10 +75,10 @@ namespace NULLCIO
 		WriteLongConsole(number, base);
 	}
 
-	void WriteDoubleConsole(double num)
+	void WriteDoubleConsole(double num, int precision)
 	{
 		InitConsole();
-		printf("%.12f", num);
+		printf("%.*f", precision, num);
 	}
 
 	void WriteCharConsole(char ch)

@@ -61,6 +61,10 @@ namespace NULLCMath
 	{
 		return atan(deg);
 	}
+	double Atan2(double y, double x)
+	{
+		return atan2(y, x);
+	}
 
 	double Ceil(double num)
 	{
@@ -196,6 +200,7 @@ bool	nullcInitMathModule()
 	REGISTER_FUNC(Acos, "acos", 0);
 	REGISTER_FUNC(Asin, "asin", 0);
 	REGISTER_FUNC(Atan, "atan", 0);
+	REGISTER_FUNC(Atan2, "atan2", 0);
 
 	REGISTER_FUNC(Ceil, "ceil", 0);
 	REGISTER_FUNC(Floor, "floor", 0);
