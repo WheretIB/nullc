@@ -185,9 +185,9 @@ namespace NULLCFile
 			return 0;
 		}
 		long pos = ftell(file->handle);
-		fseek(file->handle, SEEK_END, 0);
+		fseek(file->handle, 0, SEEK_END);
 		long res = ftell(file->handle);
-		fseek(file->handle, SEEK_SET, pos);
+		fseek(file->handle, pos, SEEK_SET);
 		return res;
 	}
 	void FileReadArr(NULLCArray arr, unsigned offset, unsigned count, File* file)
