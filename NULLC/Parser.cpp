@@ -1933,7 +1933,7 @@ void ParseCustomConstructor(Lexeme** str, TypeInfo* resultType, NodeZeroOP* getP
 	if(!ParseCode(str))
 		AddVoidNode();
 	if(!ParseLexem(str, lex_cfigure))
-		ThrowError((*str)->pos, "ERROR: '}' sleepy");
+		ThrowError((*str)->pos, "ERROR: '}' not found after custom constructor body");
 	SetCurrentFunction(lastFunc);
 	FunctionEnd((*str)->pos);
 	CodeInfo::nodeList.pop_back();
