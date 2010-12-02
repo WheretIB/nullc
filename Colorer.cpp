@@ -669,7 +669,7 @@ namespace ColorerGrammar
 				longestD[(intP >> (chP('l') | chP('b') | epsP)) | (realP >> (chP('f') | epsP))][ColorReal] |
 				lexemeD[chP('\'')[ColorText] >> ((chP('\\') >> anycharP)[ColorReal] | anycharP[ColorChar]) >> chP('\'')[ColorText]] |
 				(chP('{')[ColorText] >> ((forExpr >> code) | (term5 >> *(chP(',')[ColorText] >> term5))) >> chP('}')[ColorText] >> *postExpr) |
-				(strWP("new")[ColorRWord] >> typeExpr >> !((chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText]) | fcallpart)) |
+				(strWP("new")[ColorRWord] >> typeExpr >> !((chP('[')[ColorText] >> term4_9 >> chP(']')[ColorText]) | fcallpart) >> !block) |
 				(group >> *postExpr) |
 				(funccall >> *postExpr) |
 				(typeExpr) |

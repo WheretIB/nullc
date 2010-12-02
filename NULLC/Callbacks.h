@@ -181,6 +181,8 @@ void TypeStop();
 void TypeGeneric(unsigned pos);
 void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool genericTemp = false);
 TypeInfo*	GetDefinedType();
+unsigned ResetDefinedTypeState();
+void RestoreDefinedTypeState(TypeInfo* type, unsigned methodCount);
 
 void AddAliasType(InplaceStr aliasName);
 

@@ -1004,3 +1004,29 @@ int Foo:xx()\r\n\
 Foo a;\r\n\
 return a.xx();";
 TEST_RESULT("Class constructor call inside a member function", testClassConstructorInMemberFunction, "12");
+
+const char	*testClassCustomConstructorInsideAMemberFunction1 =
+"class Foo\r\n\
+{\r\n\
+	int x;\r\n\
+}\r\n\
+class Bar\r\n\
+{\r\n\
+	Foo ref x;\r\n\
+	void Bar(){ x = new Foo{ x = 5; }; }\r\n\
+}\r\n\
+return (new Bar()).x.x;";
+TEST_RESULT("Class custom construction inside a member function", testClassCustomConstructorInsideAMemberFunction1, "5");
+
+const char	*testClassCustomConstructorInsideAMemberFunction2 =
+"class Foo\r\n\
+{\r\n\
+	int x;\r\n\
+}\r\n\
+class Bar\r\n\
+{\r\n\
+	Foo ref x;\r\n\
+}\r\n\
+void Bar:Bar(){ x = new Foo{ x = 5; }; }\r\n\
+return (new Bar()).x.x;";
+TEST_RESULT("Class custom construction inside a member function", testClassCustomConstructorInsideAMemberFunction2, "5");
