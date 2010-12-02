@@ -22,6 +22,7 @@ double	coth(double deg);
 double	acos(double deg);
 double	asin(double deg);
 double	atan(double deg);
+double	atan2(double y, x);
 
 double	ceil(double num);
 double	floor(double num);

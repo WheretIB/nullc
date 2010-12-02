@@ -1,7 +1,7 @@
 
 void Print(char[] text);
 void Print(int num, int base = 10);
-void Print(double num);
+void Print(double num, int precision = 12);
 void Print(long num, int base = 10);
 void Print(char ch);
 
@@ -38,6 +38,7 @@ class StdOut{}
 class StdEndline{}
 class StdNonTerminatedTag{}
 class StdBase{ int base; }
+class StdPrecision{ int precision; }
 class StdIO
 {
 	StdOut out;
@@ -45,6 +46,7 @@ class StdIO
 	StdNonTerminatedTag non_terminated_tag;
 	StdBase bin, oct, dec, hex;
 	StdBase currBase;
+	StdPrecision currPrec;
 	auto non_terminated(char[] x)
 	{
 		return auto(StdNonTerminatedTag y){ return x; };
@@ -56,6 +58,13 @@ class StdIO
 		n.base = base;
 		return n;
 	}
+	auto precision(int p)
+	{
+		assert(p >= 0);
+		StdPrecision n;
+		n.precision = p;
+		return n;
+	}
 }
 StdIO io;
 io.bin.base = 2;
@@ -63,8 +72,10 @@ io.oct.base = 8;
 io.dec.base = 10;
 io.hex.base = 16;
 io.currBase = io.dec;
+io.currPrec.precision = 12;
 
 StdOut operator <<(StdOut out, StdBase base){ io.currBase = base; return out; }
+StdOut operator <<(StdOut out, StdPrecision precision){ io.currPrec = precision; return out; }
 StdOut operator <<(StdOut out, char[] ref(StdNonTerminatedTag) wrapper)
 {
 	Write(wrapper(io.non_terminated_tag));
@@ -115,7 +126,7 @@ StdOut operator <<(StdOut out, float num)
 }
 StdOut operator <<(StdOut out, double num)
 {
-	Print(num);
+	Print(num, io.currPrec.precision);
 	return out;
 }
 StdOut operator <<(StdOut out, long num)
