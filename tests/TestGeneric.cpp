@@ -1643,3 +1643,10 @@ int bar(int a, generic b){ return a + b; }\r\n\
 return foo(2, bar);";
 TEST_RESULT("generic function inference for a generic argument 11", testGeneric139, "11");
 
+const char *testGeneric141 =
+"auto foo(generic x, auto ref[] y)\r\n\
+{\r\n\
+	return x + typeof(x)(y[0]) + typeof(x)(y[1]);\r\n\
+}\r\n\
+return foo(1, 2, 3);";
+TEST_RESULT("generic function with variable argument count", testGeneric141, "6");
