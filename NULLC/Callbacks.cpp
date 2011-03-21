@@ -5256,19 +5256,20 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 	assert(newType);
 	newType->parentType = type;
 
+	if(!type)
+		ThrowError(pos, "ERROR: auto type cannot be used as a base class");
+
 	// Inherit aliases
-	// $$ test this
 	AliasInfo *aliasList = type->childAlias;
 	while(aliasList)
 	{
-		AliasInfo *info = TypeInfo::CreateAlias(aliasList->name, currType);
+		AliasInfo *info = TypeInfo::CreateAlias(aliasList->name, aliasList->type);
 		info->next = newType->childAlias;
 		newType->childAlias = info;
-		CodeInfo::classMap.insert(aliasList->nameHash, currType);
+		CodeInfo::classMap.insert(aliasList->nameHash, aliasList->type);
 		aliasList = aliasList->next;
 	}
 	// Inherit member variables
-	// $$ test for this
 	for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
 	{
 		currType = curr->type;
