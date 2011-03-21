@@ -545,42 +545,33 @@ bool ParseSelectType(Lexeme** str, bool allowArray, bool allowGenericType, bool 
 		}
 		if(allowExtendedTypeof)
 			while(ParseTypeofExtended(str, notType));
-	}else if(allowGenericType && ParseLexem(str, lex_generic)){
-		if(instanceType)
+	}else if(allowGenericType && (ParseLexem(str, lex_generic) || ParseLexem(str, lex_at))){
+		bool isAlias = (*str - 1)->type == lex_at;
+		Lexeme *aliasName = *str;
+		if(isAlias)
 		{
-			// check for generic return type of a function
-			if((*str)->type == lex_ref && (*str + 1)->type == lex_oparen)
-			{
-				if(!instanceType->funcType)
-				{
-					*instanceFailure = true;
-					return false;
-				}
-				SelectTypeByPointer(instanceType->funcType->retType);
-			}else{
-				SelectTypeByPointer(instanceType);
-				if(ParseLexem(str, lex_ref))
-					SelectTypeByPointer(instanceType->refLevel ? instanceType : CodeInfo::GetReferenceType(instanceType));
-			}
-		}else{
-			if((*str)->type == lex_ref && (*str + 1)->type == lex_oparen)
-			{
-				SelectTypeByPointer(typeGeneric);
-			}else{
-				SelectTypeByPointer(ParseLexem(str, lex_ref) ? CodeInfo::GetReferenceType(typeGeneric) : typeGeneric);
-				return true;
-			}
+			(*str)++;
+			if(aliasName->type != lex_string)
+				ThrowError(aliasName->pos, "ERROR: type alias required after '@'");
 		}
-	}else if(allowGenericType && ParseLexem(str, lex_at)){
-		if((*str)->type != lex_string)
-			ThrowError((*str)->pos, "ERROR: type alias required after '@'");
-		bool takeFullType = (*str + 1)->type != lex_ref && (*str + 1)->type != lex_obracket;
-		SelectTypeByPointer(instanceType ? (takeFullType ? instanceType : strippedType) : typeGeneric);
-		if(instanceType)
-			AddAliasType(InplaceStr((*str)->pos, (*str)->length));
-		(*str)++;
-		if(takeFullType)
-			return true;
+		if(instanceType && (*str)->type == lex_ref && (*str + 1)->type == lex_oparen)
+		{
+			if(!strippedType->funcType)
+			{
+				*instanceFailure = true;
+				return false;
+			}
+			SelectTypeByPointer(strippedType->funcType->retType);
+			if(isAlias)
+				AddAliasType(InplaceStr(aliasName->pos, aliasName->length));
+		}else{
+			bool takeFullType = (*str)->type != lex_ref && (*str)->type != lex_obracket;
+			SelectTypeByPointer(instanceType ? (takeFullType ? instanceType : strippedType) : typeGeneric);
+			if(instanceType && isAlias)
+				AddAliasType(InplaceStr(aliasName->pos, aliasName->length));
+			if(takeFullType)
+				return true;
+		}
 	}else{
 		return false;
 	}
