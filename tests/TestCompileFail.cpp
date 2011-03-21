@@ -665,6 +665,22 @@ auto foo(Foo<@T> x, double y){ return x.x * y; }\r\n\
 foo(Foo<int>(), 5.0);\r\n\
 return y;", "ERROR: unknown identifier 'y'");
 
+	TEST_FOR_FAIL_FULL("ambiguity",
+"class A{ void run(char x){} }\r\n\
+class B{ void run(float x){} }\r\b\
+A a; B b; auto ref[2] arr; arr[0] = &a; arr[1] = &b;\r\n\
+for(i in arr) i.run(5.0);\r\n\
+return 0;",
+"line 3 - ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n\
+  run(double)\r\n\
+ candidates are:\r\n\
+  void run(char)\r\n\
+  void run(float)\r\n\
+\r\n\
+  at \"for(i in arr) i.run(5.0);\"\r\n\
+                              ^\r\n\
+");
+
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

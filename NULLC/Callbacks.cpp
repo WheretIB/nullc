@@ -3866,13 +3866,22 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 
 		// Find best function fit
 		unsigned minRating = ~0u;
-		unsigned minRatingIndex = SelectBestFunction(bestFuncList.size(), callArgCount, minRating);
+		unsigned minRatingIndex = SelectBestFunction(count, callArgCount, minRating);
 		if(minRating == ~0u)
 			ThrowError(pos, "ERROR: none of the member ::%s functions can handle the supplied parameter list without conversions", funcName);
 		FunctionInfo *fInfo = bestFuncList[minRatingIndex];
 		if(fInfo && fInfo->generic)
 			CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u, fInfo->parentClass);
-
+		// Check, is there are more than one function, that share the same rating
+		for(unsigned k = 0; k < count; k++)
+		{
+			if(k != minRatingIndex && bestFuncRating[k] == minRating && bestFuncList[k]->funcType != fInfo->funcType)
+			{
+				char	*errPos = errorReport;
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n");
+				ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count);
+			}
+		}
 		// Get function type
 		TypeInfo *fType = fInfo->funcType;
 
@@ -5241,6 +5250,30 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool
 	newType = currentDefinedType;
 
 	instanceDepth--;
+}
+void TypeDeriveFrom(const char* pos, TypeInfo* type)
+{
+	assert(newType);
+	newType->parentType = type;
+
+	// Inherit aliases
+	// $$ test this
+	AliasInfo *aliasList = type->childAlias;
+	while(aliasList)
+	{
+		AliasInfo *info = TypeInfo::CreateAlias(aliasList->name, currType);
+		info->next = newType->childAlias;
+		newType->childAlias = info;
+		CodeInfo::classMap.insert(aliasList->nameHash, currType);
+		aliasList = aliasList->next;
+	}
+	// Inherit member variables
+	// $$ test for this
+	for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
+	{
+		currType = curr->type;
+		TypeAddMember(pos, curr->name);
+	}
 }
 
 TypeInfo* GetDefinedType()

@@ -586,6 +586,12 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 
 void ParseClassBody(Lexeme** str)
 {
+	if(ParseLexem(str, lex_colon))
+	{
+		if(!ParseSelectType(str, ALLOW_ARRAY | ALLOW_EXTENDED_TYPEOF))
+			ThrowError((*str)->pos, "ERROR: base type name is expected at this point");
+		TypeDeriveFrom((*str)->pos, GetSelectedType());
+	}
 	if(!ParseLexem(str, lex_ofigure))
 		ThrowError((*str)->pos, "ERROR: '{' not found after class name");
 	while((*str)->type != lex_cfigure)

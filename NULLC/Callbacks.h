@@ -180,6 +180,7 @@ void TypeContinue(const char* pos);
 void TypeStop();
 void TypeGeneric(unsigned pos);
 void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool genericTemp = false);
+void TypeDeriveFrom(const char* pos, TypeInfo* type);
 TypeInfo*	GetDefinedType();
 unsigned ResetDefinedTypeState();
 void RestoreDefinedTypeState(TypeInfo* type, unsigned methodCount);
