@@ -1004,7 +1004,7 @@ void RichTextarea::SetAreaText(HWND wnd, const char *text)
 			data->InputChar(*text);
 		else if(*text == '\r')
 			data->InputEnter();
-		*text++;
+		text++;
 	}
 	// Colorer should update text
 	data->needUpdate = true;
@@ -1593,8 +1593,6 @@ void TextareaData::DeleteSelection()
 		memmove(&last->data[0], &last->data[endX], (last->length - endX) * sizeof(AreaChar));
 		// Shrink last line length
 		last->length -= endX;
-		if(last->length < 0)
-			last->length = 0;
 
 		// Append last line contents to the first line
 		unsigned int sum = first->length + last->length;
