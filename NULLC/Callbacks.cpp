@@ -970,9 +970,10 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 	unsigned int aNodeType = Ad->nodeType;
 	unsigned int bNodeType = Bd->nodeType;
 
-	bool enumProtect = (Ad->typeInfo->firstVariable || Bd->typeInfo->firstVariable) && Ad->typeInfo != Bd->typeInfo;
+	bool protect = (Ad->typeInfo->firstVariable || Bd->typeInfo->firstVariable) && Ad->typeInfo != Bd->typeInfo;
+	protect |= Ad->typeInfo->refLevel || Bd->typeInfo->refLevel;
 
-	if(aNodeType == typeNodeNumber && bNodeType == typeNodeNumber && !enumProtect)
+	if(aNodeType == typeNodeNumber && bNodeType == typeNodeNumber && !protect)
 	{
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.pop_back();
@@ -999,7 +1000,7 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 		assert(Rd);
 		CodeInfo::nodeList.push_back(Rd);
 		return;
-	}else if((aNodeType == typeNodeNumber && Bd->typeInfo->type != TypeInfo::TYPE_COMPLEX) || (bNodeType == typeNodeNumber && Ad->typeInfo->type != TypeInfo::TYPE_COMPLEX)){
+	}else if(((aNodeType == typeNodeNumber && Bd->typeInfo->type != TypeInfo::TYPE_COMPLEX) || (bNodeType == typeNodeNumber && Ad->typeInfo->type != TypeInfo::TYPE_COMPLEX)) && !protect){
 		NodeZeroOP *opA = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2];
 		NodeZeroOP *opB = CodeInfo::nodeList[CodeInfo::nodeList.size() - 1];
 
