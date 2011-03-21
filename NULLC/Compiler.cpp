@@ -668,7 +668,8 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 					parent = CodeInfo::namespaceInfo[k];
 			}
 		}
-		CodeInfo::namespaceInfo.push_back(new NamespaceInfo(InplaceStr(symbols + namespaceList->offsetToName), GetStringHash(symbols + namespaceList->offsetToName), parent));
+		unsigned hash = parent ? StringHashContinue(StringHashContinue(namespaceList->parentHash, "."), symbols + namespaceList->offsetToName) : GetStringHash(symbols + namespaceList->offsetToName);
+		CodeInfo::namespaceInfo.push_back(new NamespaceInfo(InplaceStr(symbols + namespaceList->offsetToName), hash, parent));
 		namespaceList++;
 	}
 
@@ -962,6 +963,8 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 						lastFunc->parentNamespace = CodeInfo::namespaceInfo[k];
 				}
 			}
+			if(fInfo->namespaceHash != ~0u)
+				assert(lastFunc->parentNamespace);
 
 			for(unsigned int n = 0; n < fInfo->paramCount; n++)
 			{
