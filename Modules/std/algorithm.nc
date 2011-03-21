@@ -163,10 +163,12 @@ void sort(generic arr, int ref(typeof(arr).target ref, typeof(arr).target ref) p
 	sort(arr, 0, arr.size, pred);
 }
 
-void map(generic arr, void ref(typeof(arr).target ref) f)
+auto map(generic arr, generic ref(typeof(arr).target ref) f)
 {
+	auto res = new typeof(f).return[arr.size];
 	for(int i = 0; i < arr.size; i++)
-		f(arr[i]);
+		res[i] = f(arr[i]);
+	return res;
 }
 
 auto[] filter(auto[] arr, int ref(auto ref) f)
