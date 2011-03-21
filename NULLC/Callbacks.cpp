@@ -5297,10 +5297,19 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 	AliasInfo *aliasList = type->childAlias;
 	while(aliasList)
 	{
-		AliasInfo *info = TypeInfo::CreateAlias(aliasList->name, aliasList->type);
-		info->next = newType->childAlias;
-		newType->childAlias = info;
-		CodeInfo::classMap.insert(aliasList->nameHash, aliasList->type);
+		AliasInfo *currAlias = newType->childAlias;
+		while(currAlias)
+		{
+			if(currAlias->nameHash == aliasList->nameHash)
+				break;
+		}
+		if(!currAlias)
+		{
+			AliasInfo *info = TypeInfo::CreateAlias(aliasList->name, aliasList->type);
+			info->next = newType->childAlias;
+			newType->childAlias = info;
+			CodeInfo::classMap.insert(aliasList->nameHash, aliasList->type);
+		}
 		aliasList = aliasList->next;
 	}
 	// Handle build-in types
