@@ -1339,7 +1339,10 @@ void GetFunctionContext(const char* pos, FunctionInfo *fInfo, bool handleThisCal
 		{
 			CodeInfo::nodeList.push_back(new NodeNumber(0, CodeInfo::GetReferenceType(typeInt)));
 		}else{
+			NamespaceInfo *lastNS = GetCurrentNamespace();
+			SetCurrentNamespace(NULL);
 			AddGetAddressNode(pos, context);
+			SetCurrentNamespace(lastNS);
 			// This could be a forward-declared context, so make sure address will be correct if it changes
 			if(CodeInfo::nodeList.back()->nodeType == typeNodeGetAddress)
 				((NodeGetAddress*)CodeInfo::nodeList.back())->SetAddressTracking();
