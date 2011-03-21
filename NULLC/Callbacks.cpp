@@ -5302,6 +5302,7 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 		{
 			if(currAlias->nameHash == aliasList->nameHash)
 				break;
+			currAlias = currAlias->next;
 		}
 		if(!currAlias)
 		{
