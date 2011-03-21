@@ -172,3 +172,19 @@ const char	*testAutorefSelectionImprovement =
 auto ref x = new Foo;\r\n\
 return x.boo(1, 2, 3) + x.boo(1, 2);";
 TEST_RESULT("Function call through 'auto ref', selection of a variable argument function", testAutorefSelectionImprovement, "5");
+
+const char	*testAutorefCallIssue1 =
+"class Test\r\n\
+{\r\n\
+	int a(int x){ return -x; }\r\n\
+	int b(int x, int y){ return x + y; }\r\n\
+	void c(){}\r\n\
+	int d(int x, int y, int z){ return x + y * z; }\r\n\
+}\r\n\
+Test x;\r\n\
+auto ref u = x;\r\n\
+u.a(2);\r\n\
+u.b(2, 3);\r\n\
+u.c();\r\n\
+return u.d(2, 3, 4);";
+TEST_RESULT("Function call through 'auto ref', issue with incorrect vtbl search", testAutorefCallIssue1, "14");

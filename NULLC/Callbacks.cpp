@@ -4005,7 +4005,7 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		SafeSprintf(vtblName, lenStr, "$vtbl%010u%s", fType->GetFullNameHash(), funcName);
 		unsigned int hash = GetStringHash(vtblName);
 		VariableInfo *target = vtblList;
-		if(target && target->nameHash != hash)
+		while(target && target->nameHash != hash)
 			target = target->next;
 
 		// If vtbl cannot be found, create it
