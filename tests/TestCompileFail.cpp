@@ -681,6 +681,7 @@ return 0;",
                               ^\r\n\
 ");
 
+	TEST_FOR_FAIL("incorrect template type", "class Foo<T>{} Foo<auto> x;", "ERROR: auto type cannot be used as template parameter");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
