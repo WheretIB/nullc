@@ -715,3 +715,15 @@ const char	*testNamespace58 =
 }\r\n\
 return Test.foo(<i, j>{ i + j; }, <i, j>{ i + j; });";
 TEST_RESULT("namespace test 58", testNamespace58, "55");
+
+const char	*testNamespace59 =
+"namespace Foo\r\n\
+{\r\n\
+	coroutine int foo()\r\n\
+	{\r\n\
+		return 10;\r\n\
+	}\r\n\
+}\r\n\
+auto x = Foo.foo;\r\n\
+return x();";
+TEST_RESULT("namespace test 59 (coroutine)", testNamespace59, "10");
