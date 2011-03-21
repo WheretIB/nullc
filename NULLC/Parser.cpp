@@ -329,8 +329,7 @@ void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool 
 						bool resolvedToGeneric = handle->varType->dependsOnGeneric;
 						if(instanceType)
 						{
-							assert(!resolvedToGeneric);
-							if(instanceType->funcType->paramType[count] != handle->varType)
+							if(resolvedToGeneric || (instanceType->funcType->paramType[count] != handle->varType && instanceType->funcType->paramType[count] != typeGeneric))
 							{
 								*instanceFailure = true;
 								return;
@@ -582,7 +581,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 		return false;
 	}
 
-	ParseTypePostExpressions(str, !!(flag & ALLOW_ARRAY), notType, false, !!(flag & ALLOW_GENERIC_TYPE), strippedType, instanceFailure);
+	ParseTypePostExpressions(str, !!(flag & ALLOW_ARRAY), notType, !!(flag & ALLOW_AUTO_RETURN_TYPE), !!(flag & ALLOW_GENERIC_TYPE), strippedType, instanceFailure);
 	return true;
 }
 
@@ -969,6 +968,7 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 {
 	bool genericArg = false;
+	Lexeme *currPos = *str;
 	if(!ParseSelectType(str, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF))
 		return true;
 
@@ -980,7 +980,7 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 	if(genericArg && nodeOffset)
 	{
 		TypeInfo *curr = GetSelectedType();
-		SelectTypeForGeneric((*str)->pos, nodeOffset - 1 + argID);
+		SelectTypeForGeneric(currPos, nodeOffset - 1 + argID);
 		if(curr->refLevel && !GetSelectedType()->refLevel)
 			SelectTypeByPointer(CodeInfo::GetReferenceType(GetSelectedType()));
 	}
@@ -1006,15 +1006,20 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		argID++;
 		bool lastGeneric = genericArg;
 		genericArg = false;
+		Lexeme *currPosPrev = currPos;
+		currPos = *str;
 		if(!ParseSelectType(str, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF))
+		{
 			genericArg = lastGeneric; // if there is no type and no generic, then this parameter is as generic as the last one
+			currPos = currPosPrev;
+		}
 		genericArg |= GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
 		if(genericArg)
 			FunctionGeneric(true);
 		if(genericArg && nodeOffset)
 		{
 			TypeInfo *curr = GetSelectedType();
-			SelectTypeForGeneric((*str)->pos, nodeOffset - 1 + argID);
+			SelectTypeForGeneric(currPos, nodeOffset - 1 + argID);
 			if(curr->refLevel && !GetSelectedType()->refLevel)
 				SelectTypeByPointer(CodeInfo::GetReferenceType(GetSelectedType()));
 		}

@@ -8,6 +8,7 @@ class FunctionInfo;
 class FunctionType;
 class NodeZeroOP;
 class NamespaceInfo;
+struct Lexeme;
 
 void CheckCollisionWithFunction(const char* pos, InplaceStr varName, unsigned hash, unsigned scope);
 
@@ -80,7 +81,7 @@ void AddBreakNode(const char* pos);
 void AddContinueNode(const char* pos);
 
 void SelectTypeByPointer(TypeInfo* type);
-void SelectTypeForGeneric(const char* pos, unsigned nodeIndex);
+void SelectTypeForGeneric(Lexeme* pos, unsigned nodeIndex);
 void SelectTypeByIndex(unsigned int index);
 TypeInfo* GetSelectedType();
 const char* GetSelectedTypeName();
@@ -200,3 +201,5 @@ unsigned int GetGlobalSize();
 void SetGlobalSize(unsigned int offset);
 
 void CallbackReset();
+
+FunctionInfo* InstanceGenericFunctionForType(const char* pos, FunctionInfo *info, TypeInfo *dstPreferred, unsigned count, bool create, NodeZeroOP **funcDefNode = NULL);
