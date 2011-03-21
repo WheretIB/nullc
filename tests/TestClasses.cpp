@@ -1049,3 +1049,19 @@ auto Foo:foo(){ return 1; }\r\n\
 auto Foo:bar(){ return coroutine auto(){ return foo(); }; }\r\n\
 Foo x; return x.bar()();";
 TEST_RESULT("Member function call from local function inside a member function", testMemberFunctionCallFromLocalFunctionInsideMemberFunction, "1");
+
+const char	*testMemberAccessFromLocalFunctionInsideMemberFunction =
+"class X\r\n\
+{\r\n\
+	int a, b, c;\r\n\
+	auto Members(){ return coroutine auto(){ yield a; yield b; yield c; return 0; }; }\r\n\
+}\r\n\
+X x;\r\n\
+x.a = 4;\r\n\
+x.b = 30;\r\n\
+x.c = 200;\r\n\
+int s;\r\n\
+for(i in x.Members())\r\n\
+	s += i;\r\n\
+return s;";
+TEST_RESULT("Member access from local function inside a member function", testMemberAccessFromLocalFunctionInsideMemberFunction, "234");
