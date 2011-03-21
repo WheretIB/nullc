@@ -772,20 +772,28 @@ bool ParseClassDefinition(Lexeme** str)
 			newType->genericInfo->aliasCount = count;
 			if(!ParseLexem(str, lex_greater))
 				ThrowError((*str)->pos, "ERROR: '>' expected after generic type alias list");
-			if(!ParseLexem(str, lex_ofigure))
-				ThrowError((*str)->pos, "ERROR: '{' not found after class name");
-			// Skip class body
 			unsigned braces = 1;
-			while(braces)
+			if(!ParseLexem(str, lex_ofigure))
+			{
+				if(!ParseLexem(str, lex_colon))
+					ThrowError((*str)->pos, "ERROR: '{' or ':' not found after class name");
+				braces = 0;
+			}
+			// Skip class body
+			for(;;)
 			{
 				if((*str)->type == lex_none)
 					ThrowError((*str)->pos, "ERROR: unknown lexeme in class body");
 				if(ParseLexem(str, lex_ofigure))
+				{
 					braces++;
-				else if(ParseLexem(str, lex_cfigure))
+				}else if(ParseLexem(str, lex_cfigure)){
 					braces--;
-				else
+					if(!braces)
+						break;
+				}else{
 					(*str)++;
+				}
 			}
 			TypeFinish();
 			return true;
