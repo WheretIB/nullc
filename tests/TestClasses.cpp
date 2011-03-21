@@ -1030,3 +1030,15 @@ class Bar\r\n\
 void Bar:Bar(){ x = new Foo{ x = 5; }; }\r\n\
 return (new Bar()).x.x;";
 TEST_RESULT("Class custom construction inside a member function", testClassCustomConstructorInsideAMemberFunction2, "5");
+
+const char	*testEnumeration3 =
+"namespace Foo{ enum Bar{ C, D } }\r\n\
+Foo.Bar y = Foo.Bar(1);\r\n\
+return y;";
+TEST_RESULT("Enumeration test 3", testEnumeration3, "1");
+
+const char	*testEnumeration4 =
+"namespace Foo{ enum Bar{ C, D } }\r\n\
+Foo.Bar y = Foo.Bar(1);\r\n\
+return int(y);";
+TEST_RESULT("Enumeration test 4", testEnumeration4, "1");
