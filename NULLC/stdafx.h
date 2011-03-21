@@ -83,3 +83,5 @@ namespace NULLC
 #include "Array.h"
 #include "Pool.h"
 #include "StrAlgo.h"
+
+using namespace NULLC;

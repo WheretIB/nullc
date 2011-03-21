@@ -1,6 +1,6 @@
 #include "StrAlgo.h"
 
-unsigned int GetStringHash(const char *str)
+unsigned int NULLC::GetStringHash(const char *str)
 {
 	unsigned int hash = 5381;
 	int c;
@@ -9,7 +9,7 @@ unsigned int GetStringHash(const char *str)
 	return hash;
 }
 
-unsigned int GetStringHash(const char *str, const char *end)
+unsigned int NULLC::GetStringHash(const char *str, const char *end)
 {
 	unsigned int hash = 5381;
 	while(str != end)
@@ -17,7 +17,7 @@ unsigned int GetStringHash(const char *str, const char *end)
 	return hash;
 }
 
-unsigned int StringHashContinue(unsigned int hash, const char *str)
+unsigned int NULLC::StringHashContinue(unsigned int hash, const char *str)
 {
 	int c;
 	while((c = *str++) != 0)
@@ -25,14 +25,14 @@ unsigned int StringHashContinue(unsigned int hash, const char *str)
 	return hash;
 }
 
-unsigned int StringHashContinue(unsigned int hash, const char *str, const char *end)
+unsigned int NULLC::StringHashContinue(unsigned int hash, const char *str, const char *end)
 {
 	while(str != end)
 		hash = ((hash << 5) + hash) + (*str++);
 	return hash;
 }
 
-char* PrintInteger(char* str, int number)
+char* NULLC::PrintInteger(char* str, int number)
 {
 	char buf[16];
 	char *curr = buf;
@@ -47,7 +47,7 @@ char* PrintInteger(char* str, int number)
 	return str;
 }
 
-int	SafeSprintf(char* dst, size_t size, const char* src, ...)
+int	NULLC::SafeSprintf(char* dst, size_t size, const char* src, ...)
 {
 	va_list args;
 	va_start(args, src);
