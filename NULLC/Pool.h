@@ -43,8 +43,8 @@ public:
 	}
 	void*	Allocate(unsigned int bytes)
 	{
-		assert(bytes < chunkSize);
-		if(size + bytes < chunkSize)
+		assert(bytes <= chunkSize);
+		if(size + bytes <= chunkSize)
 		{
 			size += bytes;
 			return curr->data + size - bytes;
