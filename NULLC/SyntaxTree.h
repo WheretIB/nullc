@@ -106,7 +106,6 @@ public:
 	void		operator delete(void *ptr, size_t size)
 	{
 		(void)ptr; (void)size;
-		assert(!"Cannot delete NodeZeroOp");
 	}
 
 	static	ChunkedStackPool<65532>	nodePool;
