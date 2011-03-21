@@ -119,6 +119,8 @@ public:
 
 		hasFinished = true;
 
+		parentType = NULL;
+
 #ifdef NULLC_LLVM_SUPPORT
 		llvmType = NULL;
 #endif
@@ -151,6 +153,8 @@ public:
 	unsigned int	paddingBytes;
 
 	unsigned int	definitionDepth;
+
+	TypeInfo		*parentType;
 
 	TypeInfo		*subType;
 
