@@ -5304,7 +5304,10 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 		aliasList = aliasList->next;
 	}
 	// Handle build-in types
-	if(!type->firstVariable && type->size)
+	TypeInfo::MemberVariable *var = type->firstVariable;
+	while(var && var->defaultValue)
+		var = var->next;
+	if(!var && type->size)
 	{
 		currType = type;
 		TypeAddMember(pos, "$base");
@@ -5313,7 +5316,21 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 	for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
 	{
 		currType = curr->type;
+
+		unsigned size = newType->size;
+		unsigned memberCount = newType->memberCount;
+		bool hasPointers = newType->hasPointers;
+
 		TypeAddMember(pos, curr->name);
+		newType->lastVariable->defaultValue = curr->defaultValue;
+		if(curr->defaultValue)
+		{
+			newType->size = size;
+			newType->memberCount = memberCount;
+			newType->hasPointers = hasPointers;
+			newType->lastVariable->offset = 0;
+		}
+
 		assert(newType->lastVariable->offset == curr->offset);
 	}
 	assert(newType->size == type->size);
