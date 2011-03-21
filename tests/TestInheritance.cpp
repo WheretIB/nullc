@@ -64,3 +64,16 @@ assert(typeof(x.x) == float);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("Inheritance test 5", testInheritance5, "1");
+
+const char	*testInheritance6 =
+"class Foo<T>{ T x; }\r\n\
+class Bar<T> : Foo<int>{ T y; }\r\n\
+\r\n\
+Bar<float> x;\r\n\
+\r\n\
+assert(typeof(x.x) != typeof(x.y));\r\n\
+assert(typeof(x.x) == int);\r\n\
+assert(typeof(x.y) == float);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Inheritance test 6", testInheritance6, "1");
