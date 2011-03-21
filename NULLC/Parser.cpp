@@ -1848,7 +1848,7 @@ bool ParseVariable(Lexeme** str, bool *lastIsFunctionCall = NULL)
 {
 	if(ParseLexem(str, lex_mul))
 	{
-		if(!ParseTerminal(str))
+		if(!ParseVariable(str) && !ParseTerminal(str))
 			ThrowError((*str)->pos, "ERROR: variable name not found after '*'");
 		AddGetVariableNode((*str)->pos, true);
 		return true;
@@ -2295,7 +2295,10 @@ bool ParseArithmetic(Lexeme** str)
 		LexemeType lType = (*str)->type;
 		while(opCount > 0 && opPrecedence[opStack.back() - lex_add] <= opPrecedence[lType - lex_add])
 		{
+			NamespaceInfo *lastNS = GetCurrentNamespace();
+			SetCurrentNamespace(NULL);
 			AddBinaryCommandNode((*str)->pos, opHandler[opStack.back() - lex_add]);
+			SetCurrentNamespace(lastNS);
 			opStack.pop_back();
 			opCount--;
 		}
@@ -2307,7 +2310,10 @@ bool ParseArithmetic(Lexeme** str)
 	}
 	while(opCount > 0)
 	{
+		NamespaceInfo *lastNS = GetCurrentNamespace();
+		SetCurrentNamespace(NULL);
 		AddBinaryCommandNode((*str)->pos, opHandler[opStack.back() - lex_add]);
+		SetCurrentNamespace(lastNS);
 		opStack.pop_back();
 		opCount--;
 	}

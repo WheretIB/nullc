@@ -195,9 +195,9 @@ void RunCompileFailTests()
 
 	TEST_FOR_FAIL("Can't yield if not a coroutine", "int test(){ yield 4; } return test();", "ERROR: yield can only be used inside a coroutine");
 
-	TEST_FOR_FAIL("Operation unsupported on reference 1", "int x; int ref y = &x; return *y++;", "ERROR: increment is not supported on 'int ref'");
+	TEST_FOR_FAIL("Operation unsupported on reference 1", "int x; int ref y = &x; return *(y++);", "ERROR: increment is not supported on 'int ref'");
 	TEST_FOR_FAIL("Operation unsupported on reference 2", "int x; int ref y = &x; return *++y;", "ERROR: increment is not supported on 'int ref'");
-	TEST_FOR_FAIL("Operation unsupported on reference 3", "int x; int ref y = &x; return *y--;", "ERROR: decrement is not supported on 'int ref'");
+	TEST_FOR_FAIL("Operation unsupported on reference 3", "int x; int ref y = &x; return *(y--);", "ERROR: decrement is not supported on 'int ref'");
 	TEST_FOR_FAIL("Operation unsupported on reference 4", "int x; int ref y = &x; return *--y;", "ERROR: decrement is not supported on 'int ref'");
 
 	TEST_FOR_FAIL("Constructor returns a value", "auto int:int(int x, y){ *this = x; return this; } return *new int(4, 8);", "ERROR: constructor cannot be used after 'new' expression if return type is not void");
@@ -245,7 +245,7 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("Non-coroutine as an iterator 1", "int foo(){ return 1; } for(int i in foo) return 1;", "ERROR: function is not a coroutine");
 	TEST_FOR_FAIL("Non-coroutine as an iterator 2", "auto omg(int z){ int foo(){ return z; } for(i in foo) return 1; } omg(1);", "ERROR: function is not a coroutine");
 
-	TEST_FOR_FAIL("Dereferencing non-pointer", "int a = 5; return *a;", "ERROR: cannot dereference type 'int' that is not a pointer");
+	//TEST_FOR_FAIL("Dereferencing non-pointer", "int a = 5; return *a;", "ERROR: cannot dereference type 'int' that is not a pointer");
 
 	TEST_FOR_FAIL("Short function outside argument list", "return <x>{ return 5; };", "ERROR: cannot infer type for inline function outside of the function call");
 	
