@@ -51,6 +51,12 @@ FastVector<FunctionInfo*>	delayedInstance;
 HashMap<FunctionInfo*>		funcMap;
 HashMap<VariableInfo*>		varMap;
 
+unsigned GetFunctionHiddenName(char* buf, FunctionInfo &info)
+{
+	assert(info.funcType);
+	return sprintf(buf, "$%s_%u_ext", info.name, info.type == FunctionInfo::LOCAL ? info.indexInArr : info.funcType->GetFullNameHash());
+}
+
 void	AddFunctionToSortedList(FunctionInfo *info)
 {
 	funcMap.insert(info->nameHash, info);
@@ -1225,7 +1231,7 @@ VariableInfo* AddVariable(const char* pos, InplaceStr variableName, bool preserv
 		ThrowError(pos, "ERROR: name '%.*s' is already taken for a class", varName.end-varName.begin, varName.begin);
 
 	// Check for variables with the same name in current scope
-	if(VariableInfo ** info = varMap.find(hash))
+	if(VariableInfo **info = varMap.find(hash))
 		if((*info)->blockDepth >= varInfoTop.size())
 			ThrowError(pos, "ERROR: name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
 	// Check for functions with the same name
@@ -1330,7 +1336,7 @@ void GetFunctionContext(const char* pos, FunctionInfo *fInfo, bool handleThisCal
 			context = (*info)->name;
 		}else{
 			char *contextName = AllocateString(fInfo->nameLength + 24);
-			sprintf(contextName, "$%s_%d_ext", fInfo->name, fInfo->indexInArr);
+			GetFunctionHiddenName(contextName, *fInfo);
 
 			unsigned prevBackupSize = 0, prevStackSize = 0;
 			NamespaceInfo *lastNS = NULL;
@@ -3129,7 +3135,7 @@ void FunctionPrototype(const char* pos)
 		// For a local or a coroutine function prototype, we must create a forward declaration of a context variable
 		// When a function will be implemented, it will fill up the closure type with members, update this context variable and create closure initialization
 		char *hiddenHame = AllocateString(lastFunc.nameLength + 24);
-		int length = sprintf(hiddenHame, "$%s_%d_ext", lastFunc.name, lastFunc.indexInArr);
+		int length = GetFunctionHiddenName(hiddenHame, lastFunc);
 		unsigned beginPos = lastFunc.parentFunc ? lastFunc.parentFunc->allParamSize + NULLC_PTR_SIZE : 0; // so that a coroutine will not mistake this for argument, choose starting position carefully
 		lastFunc.funcContext = new VariableInfo(lastFunc.parentFunc, InplaceStr(hiddenHame, length), GetStringHash(hiddenHame), beginPos, CodeInfo::GetReferenceType(typeInt), !lastFunc.parentFunc);
 		lastFunc.funcContext->blockDepth = varInfoTop.size();
@@ -3200,8 +3206,11 @@ void FunctionStart(const char* pos)
 	{
 		memcpy(hiddenHame, "this", 5);
 		length = 4;
+	}else if(lastFunc.funcType){
+		length = GetFunctionHiddenName(hiddenHame, lastFunc);
 	}else{
-		length = sprintf(hiddenHame, "$%s_%d_ext", lastFunc.name, CodeInfo::FindFunctionByPtr(&lastFunc));
+		memcpy(hiddenHame, "$context", 9);
+		length = 8;
 	}
 	currType = CodeInfo::GetReferenceType(lastFunc.type == FunctionInfo::THISCALL ? lastFunc.parentClass : typeInt);
 	currAlign = 4;
@@ -3346,7 +3355,7 @@ void FunctionEnd(const char* pos)
 	if((lastFunc.type == FunctionInfo::LOCAL || lastFunc.type == FunctionInfo::COROUTINE) && lastFunc.externalCount != 0)
 	{
 		char *hiddenHame = AllocateString(lastFunc.nameLength + 24);
-		int length = sprintf(hiddenHame, "$%s_%d_ext", lastFunc.name, CodeInfo::FindFunctionByPtr(&lastFunc));
+		int length = GetFunctionHiddenName(hiddenHame, lastFunc);
 
 		TypeInfo *saveCurrType = currType;
 		bool saveVarDefined = varDefined;
@@ -4305,7 +4314,7 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 		if(lastFunc.type == FunctionInfo::LOCAL || lastFunc.type == FunctionInfo::COROUTINE)
 		{
 			char *hiddenHame = AllocateString(lastFunc.nameLength + 24);
-			int length = sprintf(hiddenHame, "$%s_%d_ext", lastFunc.name, lastFunc.indexInArr);
+			int length = GetFunctionHiddenName(hiddenHame, lastFunc);
 			unsigned beginPos = fInfo->parentFunc ? fInfo->parentFunc->allParamSize + NULLC_PTR_SIZE : 0; // so that a coroutine will not mistake this for argument, choose starting position carefully
 			lastFunc.funcContext = new VariableInfo(lastFunc.parentFunc, InplaceStr(hiddenHame, length), GetStringHash(hiddenHame), beginPos, CodeInfo::GetReferenceType(typeInt), !lastFunc.parentFunc);
 			lastFunc.funcContext->blockDepth = fInfo->vTopSize;
