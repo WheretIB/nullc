@@ -207,7 +207,7 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "class Foo<>{}", "ERROR: generic type alias required after '<'");
 	TEST_FOR_FAIL("parsing", "class Foo<T, >{}", "ERROR: generic type alias required after ','");
 	TEST_FOR_FAIL("parsing", "class Foo<T, U{}", "ERROR: '>' expected after generic type alias list");
-	TEST_FOR_FAIL("parsing", "class Foo<T, U>}", "ERROR: '{' not found after class name");
+	TEST_FOR_FAIL("parsing", "class Foo<T, U>}", "ERROR: '{' or ':' not found after class name");
 	TEST_FOR_FAIL("parsing", "class Foo<T>{", "ERROR: unknown lexeme in class body");
 
 	TEST_FOR_FAIL("parsing", "class Foo<T>{ T x; } Foo a;", "ERROR: generic class instance requires list of types inside '<' '>'");
