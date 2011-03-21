@@ -688,6 +688,9 @@ return 0;",
 
 	TEST_FOR_FAIL("constant fold unsafe", "int ref b = nullptr + 0x0808f00d; return *b;", "ERROR: operation + is not supported on 'void ref' and 'int'");
 	TEST_FOR_FAIL("constant fold unsafe", "enum Foo{ A, B, C, D } enum Bar{ A, B, C, D } auto x = 1 + Bar.C;", "ERROR: operation + is not supported on 'int' and 'Bar'");
+
+	TEST_FOR_FAIL("unknown instance type", "auto foo(generic x){} auto bar(generic x){} foo(bar);", "ERROR: cannot instance generic function, because target type is not known");
+	TEST_FOR_FAIL("unknown instance type", "auto foo(generic x){} foo(auto(generic x){});", "ERROR: cannot instance generic function, because target type is not known");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

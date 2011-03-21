@@ -1156,10 +1156,14 @@ void SelectTypeByPointer(TypeInfo* type)
 	currType = type;
 }
 
-void SelectTypeForGeneric(unsigned nodeIndex)
+void SelectTypeForGeneric(const char* pos, unsigned nodeIndex)
 {
 	if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeFuncDef)
 		currType = ((NodeFuncDef*)CodeInfo::nodeList[nodeIndex])->GetFuncInfo()->funcType;
+	else if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeExpressionList && ((NodeExpressionList*)CodeInfo::nodeList[nodeIndex])->GetFirstNode()->nodeType == typeNodeFunctionProxy)
+		ThrowError(pos, "ERROR: cannot instance generic function, because target type is not known");
+	else if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeFunctionProxy)
+		ThrowError(pos, "ERROR: cannot instance generic function, because target type is not known");
 	else if(CodeInfo::nodeList[nodeIndex]->typeInfo->arrLevel && CodeInfo::nodeList[nodeIndex]->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && CodeInfo::nodeList[nodeIndex]->nodeType != typeNodeZeroOp)
 		currType = CodeInfo::GetArrayType(CodeInfo::nodeList[nodeIndex]->typeInfo->subType, TypeInfo::UNSIZED_ARRAY);
 	else
@@ -1543,7 +1547,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 					TypeInfo *referenceType = NULL;
 					if(argID != currArgument)
 					{
-						SelectTypeForGeneric(nodeOffset + argID);
+						SelectTypeForGeneric(start->pos, nodeOffset + argID);
 						referenceType = currType;
 					}
 					// Set generic function as being in definition so that type aliases will get into functions alias list and will not spill to outer scope
@@ -1566,7 +1570,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 					if(argID != currArgument)
 					{
 						if(genericArg)
-							SelectTypeForGeneric(nodeOffset + argID);
+							SelectTypeForGeneric(start->pos, nodeOffset + argID);
 						if(genericRef && !currType->refLevel)
 							currType = CodeInfo::GetReferenceType(currType);
 
@@ -3509,7 +3513,7 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		}
 
 		// Get type to which we resolve our generic argument
-		SelectTypeForGeneric(nodeOffset + argID);
+		SelectTypeForGeneric(start->pos, nodeOffset + argID);
 		TypeInfo *referenceType = currType;
 		// If it's not possible to select a function overload
 		if(currType == typeVoid && CodeInfo::nodeList[nodeOffset + argID]->nodeType == typeNodeFunctionProxy)

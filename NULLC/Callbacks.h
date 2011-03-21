@@ -80,7 +80,7 @@ void AddBreakNode(const char* pos);
 void AddContinueNode(const char* pos);
 
 void SelectTypeByPointer(TypeInfo* type);
-void SelectTypeForGeneric(unsigned nodeIndex);
+void SelectTypeForGeneric(const char* pos, unsigned nodeIndex);
 void SelectTypeByIndex(unsigned int index);
 TypeInfo* GetSelectedType();
 const char* GetSelectedTypeName();
