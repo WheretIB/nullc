@@ -228,3 +228,71 @@ bool operator in(generic x, vector<generic> ref arr)
 			return true;
 	return false;
 }
+
+auto vector:push_back(generic ref() f)
+{
+	for(i in f)
+		push_back(i);
+}
+
+auto vector:push_back(generic[] arr)
+{
+	for(i in arr)
+		push_back(i);
+}
+
+auto vector:fill(generic ref() f)
+{
+	clear();
+	for(i in f)
+		push_back(i);
+}
+
+auto vector:fill(generic[] arr)
+{
+	clear();
+	for(i in arr)
+		push_back(i);
+}
+
+auto vector:foldl(generic ref(T, T) f)
+{
+	auto tmp = data[0];
+	for(int i = 1; i < count; i++)
+		tmp = f(tmp, data[i]);
+	return tmp;
+}
+
+auto vector:foldr(generic ref(T, T) f)
+{
+	auto tmp = data[count - 1];
+	for(int i = count - 2; i >= 0; i--)
+		tmp = f(tmp, data[i]);
+	return tmp;
+}
+
+auto operator=(vector<generic> ref v, generic[] arr)
+{
+	v.fill(arr);
+}
+
+auto vector:map(generic ref(T) f)
+{
+	vector<typeof(f).return> res;
+	res.reserve(count);
+	for(int i = 0; i < count; i++)
+		res.push_back(f(data[i]));
+	return res;
+}
+
+auto vector:filter(generic ref(T) f)
+{
+	vector<T> res;
+	res.reserve(count);
+	for(int i = 0; i < count; i++)
+	{
+		if(f(data[i]))
+			res.push_back(data[i]);
+	}
+	return res;
+}

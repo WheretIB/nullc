@@ -232,3 +232,36 @@ x.push_back(1);\r\n\
 \r\n\
 return (2 in x) && !(10 in x);";
 TEST_RESULT("sgl.vector test (in)", testSglVector11, "1");
+
+const char *testSglVector12 =
+"import std.vector;\r\n\
+import std.range;\r\n\
+\r\n\
+vector<int> x = { for(i in range(1, 5)) yield i; };\r\n\
+assert(x.size() == 5);\r\n\
+assert(x[0] == 1); assert(x[4] == 5);\r\n\
+x.push_back(coroutine auto(){ yield 10; yield 20; return 0; });\r\n\
+assert(x.size() == 7);\r\n\
+assert(x[0] == 1); assert(x[4] == 5); assert(x[5] == 10); assert(x[6] == 20);\r\n\
+x.fill(coroutine auto(){ for(i in range(1, 5)) yield i; return 0; });\r\n\
+assert(x.size() == 5);\r\n\
+assert(x[0] == 1); assert(x[4] == 5);\r\n\
+x.push_back({ 10, 20 });\r\n\
+assert(x.size() == 7);\r\n\
+assert(x[0] == 1); assert(x[4] == 5); assert(x[5] == 10); assert(x[6] == 20);\r\n\
+x.fill({ 1, 2, 3, 4, 5 });\r\n\
+assert(x.size() == 5);\r\n\
+assert(x[0] == 1); assert(x[4] == 5);\r\n\
+assert(x.foldl(<x, y>{ x + y; }) == 15);\r\n\
+x.fill({ 5, 4, 100 });\r\n\
+assert(x.foldr(<x, y>{ x / y; }) == 5);\r\n\
+x.fill({ 1, 2, 3, 4, 5 });\r\n\
+auto y = x.map(<x>{ -x; });\r\n\
+assert(y.size() == 5);\r\n\
+assert(y[0] == -1); assert(y[4] == -5);\r\n\
+y = x.filter(<x>{ x > 3; });\r\n\
+assert(y.size() == 2);\r\n\
+assert(y[0] == 4); assert(y[1] == 5);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("sgl.vector test (new functions)", testSglVector12, "1");
