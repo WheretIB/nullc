@@ -523,6 +523,8 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 					}
 					ThrowError((*str)->pos, count ? "ERROR: typename required after ','" : "ERROR: typename required after '<'");
 				}
+				if(!GetSelectedType())
+					ThrowError((*str)->pos, "ERROR: auto type cannot be used as template parameter");
 				resolvedToGeneric |= GetSelectedType() == typeGeneric || GetSelectedType()->dependsOnGeneric;
 				CodeInfo::nodeList.push_back(new NodeZeroOP(GetSelectedType()));
 				count++;
