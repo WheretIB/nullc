@@ -5269,12 +5269,20 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 		CodeInfo::classMap.insert(aliasList->nameHash, aliasList->type);
 		aliasList = aliasList->next;
 	}
+	// Handle build-in types
+	if(!type->firstVariable && type->size)
+	{
+		currType = type;
+		TypeAddMember(pos, "$base");
+	}
 	// Inherit member variables
 	for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
 	{
 		currType = curr->type;
 		TypeAddMember(pos, curr->name);
+		assert(newType->lastVariable->offset == curr->offset);
 	}
+	assert(newType->size == type->size);
 }
 
 TypeInfo* GetDefinedType()
