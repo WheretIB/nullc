@@ -1329,11 +1329,18 @@ void GetFunctionContext(const char* pos, FunctionInfo *fInfo, bool handleThisCal
 			info = &fInfo->funcContext;
 			context = (*info)->name;
 		}else{
-			char	*contextName = AllocateString(fInfo->nameLength + 24);
-			int length = sprintf(contextName, "$%s_%d_ext", fInfo->name, fInfo->indexInArr);
-			unsigned int contextHash = GetStringHash(contextName);
+			char *contextName = AllocateString(fInfo->nameLength + 24);
+			sprintf(contextName, "$%s_%d_ext", fInfo->name, fInfo->indexInArr);
+
+			unsigned prevBackupSize = 0, prevStackSize = 0;
+			NamespaceInfo *lastNS = NULL;
+			RestoreNamespaces(false, fInfo->parentNamespace, prevBackupSize, prevStackSize, lastNS);
+			InplaceStr fullName = GetNameInNamespace(InplaceStr(contextName));
+			RestoreNamespaces(true, fInfo->parentNamespace, prevBackupSize, prevStackSize, lastNS);
+
+			unsigned int contextHash = GetStringHash(fullName.begin);
 			info = varMap.find(contextHash);
-			context = InplaceStr(contextName, length);
+			context = fullName;
 		}
 		if(!info)
 		{
@@ -3198,7 +3205,7 @@ void FunctionStart(const char* pos)
 	}
 	currType = CodeInfo::GetReferenceType(lastFunc.type == FunctionInfo::THISCALL ? lastFunc.parentClass : typeInt);
 	currAlign = 4;
-	lastFunc.extraParam = (VariableInfo*)AddVariable(pos, InplaceStr(hiddenHame, length), false);
+	lastFunc.extraParam = (VariableInfo*)AddVariable(pos, InplaceStr(hiddenHame, length), true);
 
 	if(lastFunc.type == FunctionInfo::COROUTINE)
 	{

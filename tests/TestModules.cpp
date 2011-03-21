@@ -110,3 +110,10 @@ import test.importenum3d;\r\n\
 foo(Seek2.B);\r\n\
 return 1;";
 TEST_RESULT("Enum import 3", testImportEnum3, "1");
+
+LOAD_MODULE(test_importnamespacecoroutine, "test.importnamespacecoroutine", "namespace Foo{coroutine int foo(){return 0;}}");
+const char	*testImportNamespaceCoroutine =
+"import test.importnamespacecoroutine;\r\n\
+for(i in Foo.foo){}\r\n\
+return 1;";
+TEST_RESULT("Import coroutine from a namespace", testImportNamespaceCoroutine, "1");
