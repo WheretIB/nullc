@@ -691,6 +691,10 @@ return 0;",
 
 	TEST_FOR_FAIL("unknown instance type", "auto foo(generic x){} auto bar(generic x){} foo(bar);", "ERROR: couldn't fully resolve type 'generic' for an argument 0 of a function 'bar'");
 	TEST_FOR_FAIL("unknown instance type", "auto foo(generic x){} foo(auto(generic x){});", "ERROR: couldn't fully resolve type 'generic' for an argument 0 of a function '$func9'");
+
+	TEST_FOR_FAIL("?: error message", "void foo(int x){} void bar(float x){} int a = 5; auto x = a ? foo : bar;", "ERROR: ternary operator ?: result types are not equal (void ref(int) : void ref(float))");
+
+	TEST_FOR_FAIL("?: exploit", "int foo = 0xdeadbeef; void ref bar = !foo ? nullptr : foo; int ref error = bar; *error;", "ERROR: ternary operator ?: result types are not equal (void ref : int)");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

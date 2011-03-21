@@ -201,3 +201,15 @@ TEST_RESULT("if(){}else{} compile time resolve 5", testIfElseCompileTime5, "2");
 
 const char *testIfElseCompileTime6 = "if(0) return 2; return 5;";
 TEST_RESULT("if(){}else{} compile time resolve 6", testIfElseCompileTime6, "5");
+
+const char *testTernaryTypeResolve1 = "int x = 2; auto a = !x ? nullptr : &x; return *a;";
+TEST_RESULT("ternary operator result type resolve 1", testTernaryTypeResolve1, "2");
+
+const char *testTernaryTypeResolve2 = "int x = 2; auto a = x ? &x : nullptr; return *a;";
+TEST_RESULT("ternary operator result type resolve 2", testTernaryTypeResolve2, "2");
+
+const char *testTernaryTypeResolve3 = "int foo(){ return 2; } int x = 1; auto a = !x ? nullptr : foo; return a();";
+TEST_RESULT("ternary operator result type resolve 3", testTernaryTypeResolve3, "2");
+
+const char *testTernaryTypeResolve4 = "int foo(){ return 2; } int x = 1; auto a = x ? foo : nullptr; return a();";
+TEST_RESULT("ternary operator result type resolve 4", testTernaryTypeResolve4, "2");
