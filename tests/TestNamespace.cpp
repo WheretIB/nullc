@@ -746,3 +746,15 @@ namespace B\r\n\
 X c;\r\n\
 return B.bar(c.pos);";
 TEST_RESULT("namespace test 61", testNamespace61, "-10");
+
+const char	*testNamespace62 =
+"class X{}\r\n\
+int X:pos(){ return 10; }\r\n\
+\r\n\
+namespace B\r\n\
+{\r\n\
+	int bar(int ref x){ return -*x; }\r\n\
+}\r\n\
+X c;\r\n\
+return B.bar(c.pos());";
+TEST_RESULT("namespace test 62", testNamespace62, "-10");
