@@ -240,6 +240,8 @@ FastVector<unsigned int>	bestFuncRatingBackup;
 
 FastVector<NamespaceInfo*>	namespaceBackup;
 
+FastVector<NodeZeroOP*>		nodeBackup;
+
 FastVector<NodeZeroOP*>	paramNodes;
 
 struct ClassSelect
@@ -3848,6 +3850,32 @@ void SelectFunctionsForHash(unsigned funcNameHash, unsigned scope)
 	}
 }
 
+unsigned GetRatingHelper(FunctionInfo* fInfo, TypeInfo* forcedParentType, unsigned argumentCount, unsigned functionCount)
+{
+	unsigned rating = GetFunctionRating(fInfo->funcType->funcType, argumentCount);
+
+	// If we have a positive rating, check that generic function constraints are satisfied
+	if(fInfo->generic)
+	{
+		if(rating != ~0u)
+		{
+			TypeInfo *parentClass = fInfo->parentClass;
+			if(forcedParentType && fInfo->parentClass != forcedParentType)
+			{
+				assert(forcedParentType->genericBase == fInfo->parentClass);
+				fInfo->parentClass = forcedParentType;
+			}
+			TypeInfo *tmpType = GetGenericFunctionRating(fInfo, rating, functionCount);
+			fInfo->parentClass = parentClass;
+
+			fInfo->generic->instancedType = tmpType;
+		}else{
+			fInfo->generic->instancedType = NULL;
+		}
+	}
+	return rating;
+}
+
 unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType)
 {
 	// Find the best suited function
@@ -3877,57 +3905,38 @@ unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int 
 			!(argumentCount == bestFuncList[k]->paramCount && CodeInfo::nodeList.back()->typeInfo == typeObjectArray))
 		{
 			// If function accepts variable argument list
-			TypeInfo *&lastType = bestFuncList[k]->funcType->funcType->paramType[bestFuncList[k]->paramCount - 1];
-			assert(lastType == CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY));
+			unsigned prevBackupSize = nodeBackup.size();
 			unsigned int redundant = argumentCount - bestFuncList[k]->paramCount;
 			if(redundant == ~0u)
+			{
 				CodeInfo::nodeList.push_back(new NodeZeroOP(typeObjectArray));
-			else
+			}else if(redundant){
+				nodeBackup.push_back(&CodeInfo::nodeList[CodeInfo::nodeList.size() - redundant], redundant);
 				CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - redundant);
+			}
+
 			// Change things in a way that this function will be selected (lie about real argument count and match last argument type)
-			lastType = CodeInfo::nodeList.back()->typeInfo;
-			bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, bestFuncList[k]->paramCount);
+			TypeInfo *nodeType = CodeInfo::nodeList.back()->typeInfo;
+			CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
+			bestFuncRating[k] = GetRatingHelper(bestFuncList[k], forcedParentType, bestFuncList[k]->paramCount, count);
+			CodeInfo::nodeList.back()->typeInfo = nodeType;
+
 			if(redundant == ~0u)
+			{
 				CodeInfo::nodeList.pop_back();
-			else
-				CodeInfo::nodeList.resize(CodeInfo::nodeList.size() + redundant);
+			}else if(redundant){
+				CodeInfo::nodeList.push_back(&nodeBackup[prevBackupSize], redundant);
+				nodeBackup.shrink(prevBackupSize);
+			}
 			if(bestFuncRating[k] != ~0u)
 				bestFuncRating[k] += 10 + (redundant == ~0u ? 5 : redundant * 5);	// Cost of variable arguments function
-			lastType = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
 		}else{
-			bestFuncRating[k] = GetFunctionRating(bestFuncList[k]->funcType->funcType, argumentCount);
+			bestFuncRating[k] = GetRatingHelper(bestFuncList[k], forcedParentType, argumentCount, count);
 		}
-		if(bestFuncList[k]->generic)
+		if(bestFuncRating[k] < (bestFuncList[k]->generic ? minGenericRating : minRating))
 		{
-			// If we have a positive rating, check that generic function constraints are satisfied
-			if(bestFuncRating[k] != ~0u)
-			{
-				unsigned newRating = bestFuncRating[k];
-				TypeInfo *parentClass = bestFuncList[k]->parentClass;
-				if(forcedParentType && bestFuncList[k]->parentClass != forcedParentType)
-				{
-					assert(forcedParentType->genericBase == bestFuncList[k]->parentClass);
-					bestFuncList[k]->parentClass = forcedParentType;
-				}
-				TypeInfo *tmpType = GetGenericFunctionRating(bestFuncList[k], newRating, count);
-				bestFuncList[k]->parentClass = parentClass;
-
-				bestFuncList[k]->generic->instancedType = tmpType;
-				bestFuncRating[k] = newRating;
-			}else{
-				bestFuncList[k]->generic->instancedType = NULL;
-			}
-			if(bestFuncRating[k] < minGenericRating)
-			{
-				minGenericRating = bestFuncRating[k];
-				minGenericIndex = k;
-			}
-		}else{
-			if(bestFuncRating[k] < minRating)
-			{
-				minRating = bestFuncRating[k];
-				minRatingIndex = k;
-			}
+			(bestFuncList[k]->generic ? minGenericRating : minRating) = bestFuncRating[k];
+			(bestFuncList[k]->generic ? minGenericIndex : minRatingIndex) = k;
 		}
 		while(argumentCount > callArgCount)
 		{
@@ -5754,6 +5763,7 @@ void CallbackReset()
 	bestFuncRating.reset();
 	bestFuncListBackup.reset();
 	bestFuncRatingBackup.reset();
+	nodeBackup.reset();
 	namespaceBackup.reset();
 	paramNodes.reset();
 	funcMap.reset();
