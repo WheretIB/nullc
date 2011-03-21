@@ -101,3 +101,9 @@ TEST("Pointers test 3", testPointers3, "1")
 	CHECK_FLOAT("arrF", 9, 12.0);
 }
 
+const char *testCorrectDereference =
+"int ref a = new int(6);\r\n\
+int ref ref x = &a;\r\n\
+int ref y = *x;\r\n\
+return *y;";
+TEST_RESULT("Correct dereference test", testCorrectDereference, "6");

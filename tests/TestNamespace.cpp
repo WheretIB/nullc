@@ -758,3 +758,14 @@ namespace B\r\n\
 X c;\r\n\
 return B.bar(c.pos());";
 TEST_RESULT("namespace test 62", testNamespace62, "-10");
+
+const char	*testNamespace63 =
+"class Bar{}\r\n\
+int operator+(Bar a, b){ return 12; }\r\n\
+namespace X\r\n\
+{\r\n\
+	int foo(int x){ return -x; }\r\n\
+}\r\n\
+Bar a, b;\r\n\
+return X.foo(a + b);";
+TEST_RESULT("namespace test 63", testNamespace63, "-12");
