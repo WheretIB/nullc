@@ -5290,6 +5290,8 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 
 	if(!type)
 		ThrowError(pos, "ERROR: auto type cannot be used as a base class");
+	if(!type->hasFinished)
+		ThrowError(pos, "ERROR: type '%s' is not fully defined. You can use '%s ref' or '%s[]' at this point", type->GetFullTypeName(), type->GetFullTypeName(), type->GetFullTypeName());
 
 	// Inherit aliases
 	AliasInfo *aliasList = type->childAlias;
