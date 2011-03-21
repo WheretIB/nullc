@@ -572,13 +572,15 @@ bool ParseSelectType(Lexeme** str, bool allowArray, bool allowGenericType, bool 
 			}
 		}
 	}else if(allowGenericType && ParseLexem(str, lex_at)){
-		SelectTypeByPointer(instanceType ? instanceType : typeGeneric);
 		if((*str)->type != lex_string)
 			ThrowError((*str)->pos, "ERROR: type alias required after '@'");
+		bool takeFullType = (*str + 1)->type != lex_ref && (*str + 1)->type != lex_obracket;
+		SelectTypeByPointer(instanceType ? (takeFullType ? instanceType : strippedType) : typeGeneric);
 		if(instanceType)
 			AddAliasType(InplaceStr((*str)->pos, (*str)->length));
 		(*str)++;
-		return true; // Don't allow composite types with alias definition
+		if(takeFullType)
+			return true;
 	}else{
 		return false;
 	}
