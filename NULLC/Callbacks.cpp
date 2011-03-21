@@ -1156,15 +1156,43 @@ void SelectTypeByPointer(TypeInfo* type)
 	currType = type;
 }
 
-void SelectTypeForGeneric(const char* pos, unsigned nodeIndex)
+void SelectTypeForGeneric(Lexeme* pos, unsigned nodeIndex)
 {
 	if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeFuncDef)
 		currType = ((NodeFuncDef*)CodeInfo::nodeList[nodeIndex])->GetFuncInfo()->funcType;
-	else if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeExpressionList && ((NodeExpressionList*)CodeInfo::nodeList[nodeIndex])->GetFirstNode()->nodeType == typeNodeFunctionProxy)
-		ThrowError(pos, "ERROR: cannot instance generic function, because target type is not known");
-	else if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeFunctionProxy)
-		ThrowError(pos, "ERROR: cannot instance generic function, because target type is not known");
-	else if(CodeInfo::nodeList[nodeIndex]->typeInfo->arrLevel && CodeInfo::nodeList[nodeIndex]->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && CodeInfo::nodeList[nodeIndex]->nodeType != typeNodeZeroOp)
+	else if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeExpressionList && ((NodeExpressionList*)CodeInfo::nodeList[nodeIndex])->GetFirstNode()->nodeType == typeNodeFunctionProxy){
+		NodeFunctionProxy *fProxy = (NodeFunctionProxy*)((NodeExpressionList*)CodeInfo::nodeList.back())->GetFirstNode();
+		Lexeme *tmp = pos;
+		bool instanceFailure = false;
+		if(!ParseSelectType(&tmp, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | ALLOW_AUTO_RETURN_TYPE, fProxy->funcInfo->funcType, &instanceFailure) && !instanceFailure)
+			ThrowError(pos->pos, "ERROR: there is no function available that will satisfy the argument");
+		if(currType->dependsOnGeneric)
+		{
+			FunctionInfo *info = InstanceGenericFunctionForType(pos->pos, fProxy->funcInfo, currType, bestFuncList.size(), true);
+			if(!info)
+				ThrowError(pos->pos, "ERROR: special error");
+			currType = info->funcType;
+		}
+	}else if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeFunctionProxy){
+		HashMap<FunctionInfo*>::Node *func = funcMap.first(((NodeFunctionProxy*)CodeInfo::nodeList[nodeIndex])->funcInfo->nameHash);
+		do
+		{
+			Lexeme *tmp = pos;
+			bool instanceFailure = false;
+			if(ParseSelectType(&tmp, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | ALLOW_AUTO_RETURN_TYPE, func->value->funcType, &instanceFailure) && !instanceFailure)
+				break;
+			func = funcMap.next(func);
+		}while(func);
+		if(!func)
+			ThrowError(pos->pos, "ERROR: there is no function available that will satisfy the argument");
+		if(currType->dependsOnGeneric)
+		{
+			FunctionInfo *info = InstanceGenericFunctionForType(pos->pos, func->value, currType, bestFuncList.size(), true);
+			if(!info)
+				ThrowError(pos->pos, "ERROR: special error");
+			currType = info->funcType;
+		}
+	}else if(CodeInfo::nodeList[nodeIndex]->typeInfo->arrLevel && CodeInfo::nodeList[nodeIndex]->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && CodeInfo::nodeList[nodeIndex]->nodeType != typeNodeZeroOp)
 		currType = CodeInfo::GetArrayType(CodeInfo::nodeList[nodeIndex]->typeInfo->subType, TypeInfo::UNSIZED_ARRAY);
 	else
 		currType = CodeInfo::nodeList[nodeIndex]->typeInfo;
@@ -1547,7 +1575,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 					TypeInfo *referenceType = NULL;
 					if(argID != currArgument)
 					{
-						SelectTypeForGeneric(start->pos, nodeOffset + argID);
+						SelectTypeForGeneric(start, nodeOffset + argID);
 						referenceType = currType;
 					}
 					// Set generic function as being in definition so that type aliases will get into functions alias list and will not spill to outer scope
@@ -1570,7 +1598,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 					if(argID != currArgument)
 					{
 						if(genericArg)
-							SelectTypeForGeneric(start->pos, nodeOffset + argID);
+							SelectTypeForGeneric(start, nodeOffset + argID);
 						if(genericRef && !currType->refLevel)
 							currType = CodeInfo::GetReferenceType(currType);
 
@@ -2257,6 +2285,78 @@ void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 	}
 }
 
+FunctionInfo* InstanceGenericFunctionForType(const char* pos, FunctionInfo *info, TypeInfo *dstPreferred, unsigned count, bool create, NodeZeroOP **funcDefNode)
+{
+	// There could be function calls in constrain expression, so we backup current function and rating list
+	unsigned prevBackupSize = bestFuncListBackup.size();
+	if(count)
+	{
+		bestFuncListBackup.push_back(&bestFuncList[0], count);
+		bestFuncRatingBackup.push_back(&bestFuncRating[0], count);
+	}
+
+	if(!dstPreferred)
+	{
+		HashMap<FunctionInfo*>::Node *func = funcMap.first(info->nameHash), *funcS = func;
+		bestFuncList.clear();
+		bestFuncRating.clear();
+		do
+		{
+			bestFuncList.push_back(func->value);
+			bestFuncRating.push_back(0);
+			func = funcMap.next(func);
+		}while(func);
+
+		char	*errPos = errorReport;
+		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available:\r\n");
+		ThrowFunctionSelectError(pos, 0, errorReport, errPos, funcS->value->name, funcS->value->paramCount, bestFuncList.size());
+	}
+	if(!dstPreferred->funcType)
+		ThrowError(pos, "ERROR: cannot select function overload for a type '%s'", dstPreferred->GetFullTypeName());
+
+	bestFuncList.clear();
+	// select all functions
+	SelectFunctionsForHash(info->nameHash, 0);
+
+	for(unsigned i = 0; i < dstPreferred->funcType->paramCount; i++) // push function argument placeholders
+		CodeInfo::nodeList.push_back(new NodeZeroOP(dstPreferred->funcType->paramType[i]));
+
+	unsigned minRating = ~0u;
+	unsigned minRatingIndex = SelectBestFunction(bestFuncList.size(), dstPreferred->funcType->paramCount, minRating);
+
+	if(minRating == ~0u)
+	{
+		char *errPos = errorReport;
+		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: unable to select function '%s' overload for a type '%s'\r\n", info->name, dstPreferred->GetFullTypeName());
+		ThrowFunctionSelectError(pos, minRating, errorReport, errPos, info->name, dstPreferred->funcType->paramCount, bestFuncList.size());
+	}
+	FunctionInfo *fInfo = bestFuncList[minRatingIndex];
+	if(fInfo && fInfo->generic && create)
+	{
+		NodeZeroOP *extraNode = CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u);
+		if(funcDefNode)
+			*funcDefNode = extraNode;
+	}
+
+	for(unsigned i = 0; i < dstPreferred->funcType->paramCount; i++) // remove function argument placeholders
+		CodeInfo::nodeList.pop_back();
+
+	// Restore old function list, because the one we've started with could've been replaced
+	bestFuncList.clear();
+	bestFuncRating.clear();
+
+	if(count)
+	{
+		bestFuncList.push_back(&bestFuncListBackup[prevBackupSize], count);
+		bestFuncRating.push_back(&bestFuncRatingBackup[prevBackupSize], count);
+	}
+
+	bestFuncListBackup.shrink(prevBackupSize);
+	bestFuncRatingBackup.shrink(prevBackupSize);
+
+	return fInfo;
+}
+
 void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred)
 {
 	// If node is a function definition or a pair of { function definition, function closure setup }
@@ -2280,22 +2380,18 @@ void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred)
 		if(!dstPreferred->funcType)
 			ThrowError(pos, "ERROR: cannot instance generic function to a type '%s'", dstPreferred->GetFullTypeName());
 
-		FunctionInfo *fInfo = fProxy->funcInfo, *fTarget = NULL;
-
-		for(unsigned i = 0; i < dstPreferred->funcType->paramCount; i++) // push function argument placeholders
-			CodeInfo::nodeList.push_back(new NodeZeroOP(dstPreferred->funcType->paramType[i]));
-		NodeZeroOP *funcDefAtEnd = CreateGenericFunctionInstance(pos, fInfo, fTarget, ~0u);
-		for(unsigned i = 0; i < dstPreferred->funcType->paramCount; i++) // remove function argument placeholders
-			CodeInfo::nodeList.pop_back();
+		NodeZeroOP *funcDefAtEnd = NULL;
+		FunctionInfo *fTarget = InstanceGenericFunctionForType(pos, fProxy->funcInfo, dstPreferred, bestFuncList.size(), true, &funcDefAtEnd);
 
 		// generated generic function instance can be different from the type we wanted to get
 		if(dstPreferred != fTarget->funcType)
 			ThrowError(pos, "ERROR: cannot convert from '%s' to '%s'", fTarget->funcType->GetFullTypeName(), dstPreferred->GetFullTypeName());
 
-		assert(funcDefAtEnd); // This node will be missing if we had a generic function prototype which doesn't happen
-
-		CodeInfo::nodeList.push_back(funcDefAtEnd);
-		AddExtraNode();
+		if(funcDefAtEnd)
+		{
+			CodeInfo::nodeList.push_back(funcDefAtEnd);
+			AddExtraNode();
+		}
 
 		// Take an address of a generic function instance
 		GetFunctionContext(pos, fTarget, true);
@@ -2305,47 +2401,8 @@ void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred)
 		FunctionInfo *info = ((NodeFunctionProxy*)CodeInfo::nodeList.back())->funcInfo;
 		NodeZeroOP *thisNode = ((NodeFunctionProxy*)CodeInfo::nodeList.back())->GetFirstNode();
 		CodeInfo::nodeList.pop_back();
-		if(!dstPreferred)
-		{
-			HashMap<FunctionInfo*>::Node *func = funcMap.first(info->nameHash), *funcS = func;
-			bestFuncList.clear();
-			bestFuncRating.clear();
-			do
-			{
-				bestFuncList.push_back(func->value);
-				bestFuncRating.push_back(0);
-				func = funcMap.next(func);
-			}while(func);
-
-			char	*errPos = errorReport;
-			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available:\r\n");
-			ThrowFunctionSelectError(pos, 0, errorReport, errPos, funcS->value->name, funcS->value->paramCount, bestFuncList.size());
-		}
-		if(!dstPreferred->funcType)
-			ThrowError(pos, "ERROR: cannot select function overload for a type '%s'", dstPreferred->GetFullTypeName());
-
-		bestFuncList.clear();
-		// select all functions
-		SelectFunctionsForHash(info->nameHash, 0);
-
-		for(unsigned i = 0; i < dstPreferred->funcType->paramCount; i++) // push function argument placeholders
-			CodeInfo::nodeList.push_back(new NodeZeroOP(dstPreferred->funcType->paramType[i]));
-
-		unsigned minRating = ~0u;
-		unsigned minRatingIndex = SelectBestFunction(bestFuncList.size(), dstPreferred->funcType->paramCount, minRating);
-
-		if(minRating == ~0u)
-		{
-			char *errPos = errorReport;
-			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: unable to select function '%s' overload for a type '%s'\r\n", info->name, dstPreferred->GetFullTypeName());
-			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, info->name, dstPreferred->funcType->paramCount, bestFuncList.size());
-		}
-		FunctionInfo *fInfo = bestFuncList[minRatingIndex];
-		if(fInfo && fInfo->generic)
-			CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u);
-
-		for(unsigned i = 0; i < dstPreferred->funcType->paramCount; i++) // remove function argument placeholders
-			CodeInfo::nodeList.pop_back();
+		
+		FunctionInfo *fInfo = InstanceGenericFunctionForType(pos, info, dstPreferred, bestFuncList.size(), true);
 
 		GetFunctionContext(pos, fInfo, !thisNode);
 		if(thisNode)
@@ -3513,14 +3570,8 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		}
 
 		// Get type to which we resolve our generic argument
-		SelectTypeForGeneric(start->pos, nodeOffset + argID);
+		SelectTypeForGeneric(start, nodeOffset + argID);
 		TypeInfo *referenceType = currType;
-		// If it's not possible to select a function overload
-		if(currType == typeVoid && CodeInfo::nodeList[nodeOffset + argID]->nodeType == typeNodeFunctionProxy)
-		{
-			newRating = ~0u; // function is not instanced
-			break;
-		}
 		// Flag of instantiation failure
 		bool instanceFailure = false;
 		// Set generic function as being in definition so that type aliases will get into functions alias list and will not spill to outer scope
@@ -3694,6 +3745,8 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 					continue;		// Inline function definition doesn't cost anything
 				else if(nodeType == typeNodeFunctionProxy && ((NodeFunctionProxy*)activeNode)->HasType(expectedType))
 					continue;		// If a set of function overloads has an expected overload, this doesn't cont anything
+				else if(nodeType == typeNodeFunctionProxy && InstanceGenericFunctionForType(NULL, ((NodeFunctionProxy*)activeNode)->funcInfo, expectedType, bestFuncList.size(), true)->funcType == expectedType)
+					continue;		// The same
 				else if(nodeType == typeNodeExpressionList && ((NodeExpressionList*)activeNode)->GetFirstNode()->nodeType == typeNodeFunctionProxy)
 					continue;		// Generic function is expected to have an appropriate instance, but there will be a check after instancing
 				else

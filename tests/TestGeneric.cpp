@@ -1579,3 +1579,67 @@ assert(foo(x) == int ref);\r\n\
 assert(foo(&x) == int ref);\r\n\
 return 1;";
 TEST_RESULT("generic function specialization 9", testGeneric128, "1");
+
+const char *testGeneric129 =
+"int foo(generic ref(generic, int) x){ return x(4, 5); }\r\n\
+int bar(int x, y){ return x + y; }\r\n\
+int bar(int x){ return -x; }\r\n\
+return foo(bar);";
+TEST_RESULT("function inference for a generic argument", testGeneric129, "9");
+
+const char *testGeneric130 =
+"int foo(generic ref(generic, int) x){ return x(4, 5); }\r\n\
+int bar(int x){ return -x; }\r\n\
+int bar(int x, y){ return x + y; }\r\n\
+return foo(bar);";
+TEST_RESULT("function inference for a generic argument 2", testGeneric130, "9");
+
+const char *testGeneric131 =
+"int foo(int ref(generic, int) x){ return x(4, 5); }\r\n\
+int bar(int a, generic b){ return a + b; }\r\n\
+return foo(bar);";
+TEST_RESULT("generic function inference for a generic argument 1", testGeneric131, "9");
+
+const char *testGeneric132 =
+"int foo(int ref(generic, int) x){ return x(4, 5); }\r\n\
+return foo(int bar(int a, generic b){ return a + b; });";
+TEST_RESULT("generic function inference for a generic argument 2", testGeneric132, "9");
+
+const char *testGeneric133 =
+"int foo(int ref(int) x){ return x(4); }\r\n\
+int bar(generic b){ return b; }\r\n\
+return foo(bar);";
+TEST_RESULT("generic function inference for a generic argument 5", testGeneric133, "4");
+
+const char *testGeneric134 =
+"int foo(int ref(int) x){ return x(4); }\r\n\
+return foo(int bar(generic b){ return b; });";
+TEST_RESULT("generic function inference for a generic argument 6", testGeneric134, "4");
+
+const char *testGeneric135 =
+"int foo(int ref(int) x){ return x(4); }\r\n\
+return foo(auto bar(generic b){ return b; });";
+TEST_RESULT("generic function inference for a generic argument 7", testGeneric135, "4");
+
+const char *testGeneric136 =
+"int foo(generic ref(generic, int) x){ return x(4, 5); }\r\n\
+return foo(int bar(int a, generic b){ return a + b; });";
+TEST_RESULT("generic function inference for a generic argument 8", testGeneric136, "9");
+
+const char *testGeneric137 =
+"int foo(generic ref(generic, int) x){ return x(4, 5); }\r\n\
+auto bar(int a, generic b){ return a + b; }\r\n\
+return foo(bar);";
+TEST_RESULT("generic function inference for a generic argument 9", testGeneric137, "9");
+
+const char *testGeneric138 =
+"auto foo(generic ref(generic, int) x){ return x(4, 5); }\r\n\
+return foo(auto(int a, generic b){ return a + b; });";
+TEST_RESULT("generic function inference for a generic argument 10", testGeneric138, "9");
+
+const char *testGeneric139 =
+"int foo(int _, int ref(generic, int) x){ return _ + x(4, 5); }\r\n\
+int bar(int a, generic b){ return a + b; }\r\n\
+return foo(2, bar);";
+TEST_RESULT("generic function inference for a generic argument 11", testGeneric139, "11");
+
