@@ -682,6 +682,8 @@ return 0;",
 ");
 
 	TEST_FOR_FAIL("incorrect template type", "class Foo<T>{} Foo<auto> x;", "ERROR: auto type cannot be used as template parameter");
+
+	TEST_FOR_FAIL("auto as base class", "class Foo : auto{}", "ERROR: auto type cannot be used as a base class");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
