@@ -1471,18 +1471,7 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			if(curr && currDefinedFunc.size())
 			{
 				// Class members are accessed through 'this' pointer
-				FunctionInfo *currFunc = currDefinedFunc.back();
-
-				TypeInfo *temp = CodeInfo::GetReferenceType(newType);
-				if(currDefinedFunc.back()->type == FunctionInfo::LOCAL)
-				{
-					// For local function, add "this" to context and get it from upvalue
-					assert(currDefinedFunc[0]->type == FunctionInfo::THISCALL);
-					FunctionInfo::ExternalInfo *external = AddFunctionExternal(currFunc, currDefinedFunc[0]->extraParam);
-					CodeInfo::nodeList.push_back(new NodeGetUpvalue(currFunc, currFunc->allParamSize, external->closurePos, CodeInfo::GetReferenceType(temp)));
-				}else{
-					CodeInfo::nodeList.push_back(new NodeGetAddress(currFunc->extraParam, currFunc->allParamSize, temp));
-				}
+				AddGetAddressNode(pos, InplaceStr("this", 4));
 				CodeInfo::nodeList.push_back(new NodeDereference());
 				CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
 				return;
