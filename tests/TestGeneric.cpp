@@ -1542,10 +1542,40 @@ TEST_RESULT("generic functions with default argument values 8 (import)", testGen
 const char *testGeneric120 =
 "int foo(@T[] arr){ return arr.size; }\r\n\
 return foo(\"hello\");";
-TEST_RESULT("generic functions with alias specialization", testGeneric120, "6");
+TEST_RESULT("generic function with alias specialization", testGeneric120, "6");
 
 const char *testGeneric121 =
 "int foo(@T[] arr){ return arr.size; }\r\n\
 int foo(@T ref arr){ return 500; }\r\n\
 return foo(\"hello\") + foo(new int);";
-TEST_RESULT("generic functions with alias specialization 2", testGeneric121, "506");
+TEST_RESULT("generic function with alias specialization 2", testGeneric121, "506");
+
+const char *testGeneric122 = "int foo(@T ref() arr){ return 1; } return foo(auto(){});";
+TEST_RESULT("generic function with alias specialization 3", testGeneric122, "1");
+
+const char *testGeneric123 =
+"int bar(){ return 5; }\r\n\
+int foo(@T ref()[] arr){ return arr[1](); } return foo({ bar, bar });";
+TEST_RESULT("generic function with alias specialization 4", testGeneric123, "5");
+
+const char *testGeneric124 =
+"int bar(){ return 5; }\r\n\
+int foo(generic ref()[] arr){ return arr[1](); } return foo({ bar, bar });";
+TEST_RESULT("generic function specialization 5", testGeneric124, "5");
+
+const char *testGeneric125 = "int bar(generic[] arr){ return arr[1]; } return bar({3, 4});";
+TEST_RESULT("generic function specialization 6", testGeneric125, "4");
+
+const char *testGeneric126 =
+"int bar(int ref(generic ref) x){ return typeof(x).argument.first.isReference; }\r\n\
+return bar(auto(int ref x){ return -*x; });";
+TEST_RESULT("generic function specialization 7", testGeneric126, "1");
+
+const char *testGeneric128 =
+"auto foo(generic ref x){ typeid y = typeof(x); return y; }\r\n\
+int x;\r\n\
+assert(foo(4) == int ref);\r\n\
+assert(foo(x) == int ref);\r\n\
+assert(foo(&x) == int ref);\r\n\
+return 1;";
+TEST_RESULT("generic function specialization 9", testGeneric128, "1");
