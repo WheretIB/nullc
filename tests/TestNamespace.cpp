@@ -727,3 +727,10 @@ const char	*testNamespace59 =
 auto x = Foo.foo;\r\n\
 return x();";
 TEST_RESULT("namespace test 59 (coroutine)", testNamespace59, "10");
+
+LOAD_MODULE(test_namespace60, "test.namespace60", "namespace A.B{ void foo(){} }");
+const char	*testNamespace60 =
+"import test.namespace60;\r\n\
+A.B.foo();\r\n\
+return 1;";
+TEST_RESULT("namespace test 60", testNamespace60, "1");
