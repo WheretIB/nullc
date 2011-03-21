@@ -77,3 +77,16 @@ assert(typeof(x.y) == float);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("Inheritance test 6", testInheritance6, "1");
+
+const char	*testInheritance7 =
+"class Foo<U>{ U x; }\r\n\
+class Bar<U, T> : Foo<int>{ T y; }\r\n\
+\r\n\
+Bar<char, float> x;\r\n\
+\r\n\
+assert(typeof(x.x) != typeof(x.y));\r\n\
+assert(typeof(x.x) == int);\r\n\
+assert(typeof(x.y) == float);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Inheritance test 7", testInheritance7, "1");
