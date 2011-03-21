@@ -55,7 +55,7 @@ nullres				nullcDebugAddBreakpoint(unsigned int instruction);
 nullres				nullcDebugAddOneHitBreakpoint(unsigned int instruction);
 nullres				nullcDebugRemoveBreakpoint(unsigned int instruction);
 
-ExternFuncInfo*		nullcDebugConvertAddressToFunction(int instruction);
+ExternFuncInfo*		nullcDebugConvertAddressToFunction(int instruction, ExternFuncInfo* codeFunctions, unsigned functionCount);
 
 #ifdef __cplusplus
 }

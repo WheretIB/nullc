@@ -1392,9 +1392,12 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 	codeInstCount = stateRemote ? 0 : 0;
 	codeInst = stateRemote ? NULL : nullcDebugCode(&codeInstCount);
 
+	if(!mainCodeWnd && stateRemote)
+		mainCodeWnd = TabbedFiles::GetTabInfo(hAttachTabs, TabbedFiles::GetCurrentTab(hAttachTabs)).window;
+
 	unsigned int id = ~0u;
 	const char *source = RichTextarea::GetAreaText(mainCodeWnd);
-	const char *fullSource = nullcDebugSource();
+	const char *fullSource = stateRemote ? RemoteData::sourceCode : nullcDebugSource();
 
 	unsigned int csPos = 0;
 	if(!stateRemote)
@@ -1402,7 +1405,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 	while(int address = stateRemote ? RemoteData::callStack[csPos++] : nullcDebugGetStackFrame())
 	{
 		// Find corresponding function
-		ExternFuncInfo *func = nullcDebugConvertAddressToFunction(address);
+		ExternFuncInfo *func = nullcDebugConvertAddressToFunction(address, codeFunctions, functionCount);
 
 		if(address != -1)
 		{
@@ -1562,12 +1565,10 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				
 				tiExtra.push_back(TreeItemExtra());
 				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
-				tiExtra.back() = TreeItemExtra((void*)ptr, &codeTypes[function.parentType], thisItem, codeTypes[function.parentType].subCat == ExternTypeInfo::CAT_POINTER, function.externCount ? "$context" : "$this");
+				tiExtra.back() = TreeItemExtra((void*)ptr, &codeTypes[function.parentType], thisItem, true, function.externCount ? "$context" : "$this");
 
 				if(offset + function.bytesToPop > dataCount)
 					InsertUnavailableInfo(thisItem);
-				else if(*(char**)ptr)
-					FillVariableInfo(codeTypes[function.parentType], *(char**)ptr, thisItem);
 			}
 			offset += offsetToNextFrame;
 		}
@@ -1976,7 +1977,7 @@ void PipeInit()
 
 void ContinueAfterBreak()
 {
-	HWND wnd = TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window;
+	HWND wnd = TabbedFiles::GetTabInfo(stateRemote ? hAttachTabs : hTabs, TabbedFiles::GetCurrentTab(stateRemote ? hAttachTabs : hTabs)).window;
 	RichTextarea::ResetLineStyle(wnd);
 	RefreshBreakpoints();
 	RichTextarea::UpdateArea(wnd);
@@ -2222,7 +2223,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 						PipeData data;
 						data.cmd = DEBUG_BREAK_DATA;
 						data.question = true;
-						data.data.wholeSize = extra->type->subCat == ExternTypeInfo::CAT_POINTER ? type.size : ((NULLCArray*)extra->address)->len * codeTypes[type.subType].size;
+						data.data.wholeSize = (extra->type->subCat == ExternTypeInfo::CAT_POINTER || extra->type->subCat == ExternTypeInfo::CAT_CLASS) ? type.size : ((NULLCArray*)extra->address)->len * codeTypes[type.subType].size;
 						data.data.elemCount = 0;
 						data.data.dataSize = (unsigned int)(intptr_t)(extra->type->subCat == ExternTypeInfo::CAT_POINTER ? ptr : ((NULLCArray*)extra->address)->ptr);
 						if(!PipeSendRequest(data))
@@ -2434,6 +2435,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					codeLocals = NULL;
 					codeTypeExtra = NULL;
 					codeSymbols = NULL;
+
+					mainCodeWnd = NULL;
 
 					stateRemote = false;
 				}

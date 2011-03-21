@@ -2341,7 +2341,7 @@ void Executor::ClearBreakpoints()
 
 bool Executor::AddBreakpoint(unsigned int instruction, bool oneHit)
 {
-	if(instruction > exLinker->exCode.size())
+	if(instruction >= exLinker->exCode.size())
 	{
 		SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
 		return false;
