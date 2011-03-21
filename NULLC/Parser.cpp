@@ -1872,12 +1872,14 @@ bool ParseVariable(Lexeme** str, bool *lastIsFunctionCall = NULL)
 		ThrowError((*str)->pos, "ERROR: variable name length is limited to 2048 symbols");
 	AddGetAddressNode((*str)->pos, InplaceStr((*str)->pos, (*str)->length));
 	(*str)++;
-	SetCurrentNamespace(lastNS);
 
+	SetCurrentNamespace(NULL);
 	bool isFuncCall = false;
 	while(ParsePostExpression(str, &isFuncCall));
 	if(lastIsFunctionCall)
 		*lastIsFunctionCall = isFuncCall;
+	SetCurrentNamespace(lastNS);
+
 	return true;
 }
 
@@ -1896,10 +1898,7 @@ bool ParsePostExpression(Lexeme** str, bool *isFunctionCall = NULL)
 		}else{
 			if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 				ThrowError((*str)->pos, "ERROR: variable name length is limited to 2048 symbols");
-			NamespaceInfo* lastNS = GetCurrentNamespace();
-			SetCurrentNamespace(NULL);
 			AddMemberAccessNode((*str)->pos, InplaceStr((*str)->pos, (*str)->length));
-			SetCurrentNamespace(lastNS);
 			(*str)++;
 		}
 	}else if(ParseLexem(str, lex_obracket)){
