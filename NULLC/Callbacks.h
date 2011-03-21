@@ -193,6 +193,7 @@ void CreateRedirectionTables();
 void AddListGenerator(const char* pos, TypeInfo* rType);
 
 void RestoreScopedGlobals();
+void RestoreNamespaces(bool undo, NamespaceInfo *parent, unsigned& prevBackupSize, unsigned& prevStackSize, NamespaceInfo*& lastNS);
 
 unsigned int GetGlobalSize();
 void SetGlobalSize(unsigned int offset);

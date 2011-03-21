@@ -848,10 +848,22 @@ bool ParseEnum(Lexeme** str)
 	// Add conversion operator int int(enum_type) and enum_type enum_type(int)
 	TypeInfo *target[] = { typeInt, enumType };
 	TypeInfo *source[] = { enumType, typeInt };
+
+	// First conversion operator should be defined at global scope
+	unsigned prevBackupSize = 0, prevStackSize = 0;
+	NamespaceInfo *lastNS = NULL;
+	RestoreNamespaces(false, NULL, prevBackupSize, prevStackSize, lastNS);
+
 	for(int i = 0; i < 2; i++)
 	{
+		// Second conversion operator should be defined at namespace scope
+		if(i == 1)
+			RestoreNamespaces(true, NULL, prevBackupSize, prevStackSize, lastNS);
 		SelectTypeByPointer(target[i]);
-		FunctionAdd((*str)->pos, target[i]->name);
+		const char *name = target[i]->name;
+		if(const char* pos = strrchr(name, '.'))
+			name = pos + 1;
+		FunctionAdd((*str)->pos, name);
 		SelectTypeByPointer(source[i]);
 		FunctionParameter((*str)->pos, InplaceStr("x"));
 		FunctionStart((*str)->pos);
