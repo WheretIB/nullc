@@ -685,6 +685,9 @@ return 0;",
 
 	TEST_FOR_FAIL("auto as base class", "class Foo : auto{}", "ERROR: auto type cannot be used as a base class");
 	TEST_FOR_FAIL("unfinished type as base class", "class Foo : Foo { }", "ERROR: type 'Foo' is not fully defined. You can use 'Foo ref' or 'Foo[]' at this point");
+
+	TEST_FOR_FAIL("constant fold unsafe", "int ref b = nullptr + 0x0808f00d; return *b;", "ERROR: operation + is not supported on 'void ref' and 'int'");
+	TEST_FOR_FAIL("constant fold unsafe", "enum Foo{ A, B, C, D } enum Bar{ A, B, C, D } auto x = 1 + Bar.C;", "ERROR: operation + is not supported on 'int' and 'Bar'");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
