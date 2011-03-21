@@ -291,6 +291,7 @@ void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType);
 NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, FunctionInfo*& fResult, unsigned callArgCount, TypeInfo* forcedParentType = NULL);
 void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred = NULL);
 void HandlePointerToObject(const char* pos, TypeInfo *dstType);
+void ConvertDerivedToBase(const char* pos, TypeInfo *dstType);
 void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorReport, char* errPos, const char* funcName, unsigned callArgCount, unsigned count);
 void RestoreNamespaces(bool undo, NamespaceInfo *parent, unsigned& prevBackupSize, unsigned& prevStackSize, NamespaceInfo*& lastNS);
 
@@ -1062,6 +1063,7 @@ void AddReturnNode(const char* pos, bool yield)
 			currDefinedFunc.back()->retType = realRetType;
 			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
 		}else{
+			ConvertDerivedToBase(pos, currDefinedFunc.back()->retType);
 			ConvertArrayToUnsized(pos, currDefinedFunc.back()->retType);
 			HandlePointerToObject(pos, currDefinedFunc.back()->retType);
 			realRetType = CodeInfo::nodeList.back()->typeInfo;
@@ -1775,6 +1777,7 @@ void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverlo
 	TypeInfo *realCurrType = variableInfo->varType ? variableInfo->varType : CodeInfo::nodeList.back()->typeInfo;
 
 	// If variable type is array without explicit size, and it is being defined with value of different type
+	ConvertDerivedToBase(pos, realCurrType);
 	ConvertArrayToUnsized(pos, realCurrType);
 	HandlePointerToObject(pos, realCurrType);
 
@@ -1906,6 +1909,7 @@ void AddSetVariableNode(const char* pos)
 	CheckForImmutable(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, pos);
 
 	// Make necessary implicit conversions
+	ConvertDerivedToBase(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
 	ConvertArrayToUnsized(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
 	ConvertFunctionToPointer(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
 	HandlePointerToObject(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
@@ -2393,6 +2397,22 @@ void HandlePointerToObject(const char* pos, TypeInfo *dstType)
 		return;
 	}
 	CodeInfo::nodeList.push_back(new NodeConvertPtr(dstType == typeObject ? typeObject : dstType));
+}
+
+void ConvertDerivedToBase(const char* pos, TypeInfo *dstType)
+{
+	(void)pos;
+	// Handle base class pointer = derived class pointer
+	if(dstType->refLevel == 1 && CodeInfo::nodeList.back()->typeInfo->refLevel == 1 && CodeInfo::nodeList.back()->typeInfo->subType->parentType)
+	{
+		TypeInfo *parentType = CodeInfo::nodeList.back()->typeInfo->subType->parentType;
+		while(parentType)
+		{
+			if(dstType->subType == parentType)
+				CodeInfo::nodeList.back()->typeInfo = dstType;
+			parentType = parentType->parentType;
+		}
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -3650,9 +3670,21 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 				fRating += 2;	// array -> class (unsized array)
 			else if(expectedType == typeAutoArray && paramType->arrLevel)
 				fRating += 10;	// array -> auto[]
-			else if(expectedType->refLevel == 1 && expectedType->refLevel == paramType->refLevel && expectedType->subType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->subType->subType == expectedType->subType->subType)
+			else if(expectedType->refLevel == 1 && paramType->refLevel == 1 && expectedType->subType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->subType->subType == expectedType->subType->subType)
 				fRating += 5;	// array[N] ref -> array[] -> array[] ref
-			else if(expectedType->funcType != NULL){
+			else if(expectedType->refLevel == 1 && paramType->refLevel == 1 && paramType->subType->parentType){
+				TypeInfo *parent = paramType->subType->parentType;
+				while(parent)
+				{
+					if(expectedType->subType == parent)
+						break;
+					parent = parent->parentType;
+				}
+				if(parent)
+					fRating += 5;
+				else
+					return ~0u;	
+			}else if(expectedType->funcType != NULL){
 				if(nodeType == typeNodeFuncDef && ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType == expectedType)
 					continue;		// Inline function definition doesn't cost anything
 				else if(nodeType == typeNodeFunctionProxy && ((NodeFunctionProxy*)activeNode)->HasType(expectedType))
@@ -3661,7 +3693,6 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 					continue;		// Generic function is expected to have an appropriate instance, but there will be a check after instancing
 				else
 					return ~0u;		// Otherwise this function is not a match
-				
 			}else if(expectedType->refLevel == paramType->refLevel + 1 && expectedType->subType == paramType)
 				fRating += 5;	// type -> type ref
 			else if(expectedType == typeObject && paramType->refLevel)
@@ -4577,6 +4608,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 		CodeInfo::nodeList.push_back(paramNodes[index]);
 
+		ConvertDerivedToBase(pos, fType->paramType[i]);
 		ConvertFunctionToPointer(pos, fType->paramType[i]);
 		ConvertArrayToUnsized(pos, fType->paramType[i]);
 		if(fType->paramType[i] == typeAutoArray && CodeInfo::nodeList.back()->typeInfo->arrLevel)
