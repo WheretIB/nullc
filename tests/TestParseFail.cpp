@@ -199,8 +199,8 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "@if((auto(){ return 1; })()){ int a; }", "ERROR: couldn't evaluate condition at compilation time");
 
 	TEST_FOR_FAIL("parsing", "typeof(1).isReference.target x;", "ERROR: typeof expression result is not a type");
-	TEST_FOR_FAIL("parsing", "typeof(1).isReference ref x;", "ERROR: typeof expression result is not a type");
-	TEST_FOR_FAIL("parsing", "typeof(1).isReference[4] x;", "ERROR: typeof expression result is not a type");
+	TEST_FOR_FAIL("parsing", "typeof(1).isReference ref x;", "ERROR: expression result is not a type");
+	TEST_FOR_FAIL("parsing", "typeof(1).isReference[4] x;", "ERROR: expression result is not a type");
 
 	TEST_FOR_FAIL("parsing", "typeof(1).arraySize x;", "ERROR: 'arraySize' can only be applied to an array type, but we have 'int'");
 
@@ -240,4 +240,6 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "class Foo{ const float a = 4, b; }", "ERROR: only integer constant list gets automatically incremented by 1");
 
 	TEST_FOR_FAIL("parsing", "char a = '';", "ERROR: empty character constant");
+
+	TEST_FOR_FAIL("parsing", "int i; typeof(5).isArray x;", "ERROR: expression result is not a type");
 }

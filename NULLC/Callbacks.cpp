@@ -1547,7 +1547,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 					currDefinedFunc.push_back(func);
 					// Flag of instantiation failure
 					bool instanceFailure = false;
-					if(!ParseSelectType(&start, true, !!referenceType, false, true, referenceType, &instanceFailure))
+					if(!ParseSelectType(&start, ALLOW_ARRAY | (referenceType ? ALLOW_GENERIC_TYPE : 0) | ALLOW_EXTENDED_TYPEOF, referenceType, &instanceFailure))
 						genericArg = start->type == lex_generic ? !!(start++) : false;
 					genericRef = start->type == lex_ref ? !!(start++) : false;
 					currDefinedFunc.pop_back();
@@ -3502,14 +3502,14 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		currDefinedFunc.push_back(fInfo);
 		Lexeme *oldStart = start;
 		// Try to reparse the type
-		if(!ParseSelectType(&start, true, true, false, true, referenceType, &instanceFailure))
+		if(!ParseSelectType(&start, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF, referenceType, &instanceFailure))
 		{
 			if(!instanceFailure)
 			{
 				assert(argID);
 				// Try to reparse the type with previous argument type
 				oldStart = prevArg;
-				if(!ParseSelectType(&prevArg, true, true, false, true, referenceType, &instanceFailure))
+				if(!ParseSelectType(&prevArg, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF, referenceType, &instanceFailure))
 				{
 					newRating = ~0u; // function is not instanced
 					break;
