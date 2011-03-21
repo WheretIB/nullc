@@ -1226,13 +1226,18 @@ const char* GetSelectedTypeName()
 	return currType->GetFullTypeName();
 }
 
-VariableInfo* AddVariable(const char* pos, InplaceStr variableName, bool preserveNamespace)
+VariableInfo* AddVariable(const char* pos, InplaceStr variableName, bool preserveNamespace, bool allowThis)
 {
+	static unsigned thisHash = GetStringHash("this");
+
 	CodeInfo::lastKnownStartPos = pos;
 
 	InplaceStr varName = preserveNamespace ? GetNameInNamespace(variableName) : variableName;
 
 	unsigned int hash = GetStringHash(varName.begin, varName.end);
+
+	if(thisHash == hash && !allowThis)
+		ThrowError(pos, "ERROR: 'this' is a reserved keyword");
 
 	if(TypeInfo **info = CodeInfo::classMap.find(hash))
 		ThrowError(pos, "ERROR: name '%.*s' is already taken for a class", varName.end-varName.begin, varName.begin);
@@ -3210,7 +3215,7 @@ void FunctionStart(const char* pos)
 	}
 	currType = CodeInfo::GetReferenceType(lastFunc.type == FunctionInfo::THISCALL ? lastFunc.parentClass : typeInt);
 	currAlign = 4;
-	lastFunc.extraParam = (VariableInfo*)AddVariable(pos, InplaceStr(hiddenHame, length), true);
+	lastFunc.extraParam = (VariableInfo*)AddVariable(pos, InplaceStr(hiddenHame, length), true, true);
 
 	if(lastFunc.type == FunctionInfo::COROUTINE)
 	{
