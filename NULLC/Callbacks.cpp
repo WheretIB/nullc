@@ -4376,10 +4376,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			funcNameHash = info ? hash : hashBase;
 
 			// Take "this" pointer
-			FunctionInfo *currFunc = currDefinedFunc.back();
-			TypeInfo *temp = CodeInfo::GetReferenceType(newType);
-			assert(currFunc->extraParam);
-			CodeInfo::nodeList.push_back(new NodeGetAddress(currFunc->extraParam, currFunc->allParamSize, temp));
+			AddGetAddressNode(pos, InplaceStr("this", 4));
 			CodeInfo::nodeList.push_back(new NodeDereference());
 			// "this" pointer will be passed as extra parameter
 			funcAddr = CodeInfo::nodeList.back();

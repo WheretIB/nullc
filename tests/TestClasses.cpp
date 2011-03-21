@@ -1042,3 +1042,10 @@ const char	*testEnumeration4 =
 Foo.Bar y = Foo.Bar(1);\r\n\
 return int(y);";
 TEST_RESULT("Enumeration test 4", testEnumeration4, "1");
+
+const char	*testMemberFunctionCallFromLocalFunctionInsideMemberFunction =
+"class Foo{}\r\n\
+auto Foo:foo(){ return 1; }\r\n\
+auto Foo:bar(){ return coroutine auto(){ return foo(); }; }\r\n\
+Foo x; return x.bar()();";
+TEST_RESULT("Member function call from local function inside a member function", testMemberFunctionCallFromLocalFunctionInsideMemberFunction, "1");
