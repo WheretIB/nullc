@@ -1538,3 +1538,14 @@ assert(bar(4, <i>{ 2*i; }) == 8);\r\n\
 assert(bar() == -10);\r\n\
 return 1;";
 TEST_RESULT("generic functions with default argument values 8 (import)", testGeneric119, "1");
+
+const char *testGeneric120 =
+"int foo(@T[] arr){ return arr.size; }\r\n\
+return foo(\"hello\");";
+TEST_RESULT("generic functions with alias specialization", testGeneric120, "6");
+
+const char *testGeneric121 =
+"int foo(@T[] arr){ return arr.size; }\r\n\
+int foo(@T ref arr){ return 500; }\r\n\
+return foo(\"hello\") + foo(new int);";
+TEST_RESULT("generic functions with alias specialization 2", testGeneric121, "506");

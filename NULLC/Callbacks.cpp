@@ -3494,7 +3494,7 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		if(currType == typeVoid && CodeInfo::nodeList[nodeOffset + argID]->nodeType == typeNodeFunctionProxy)
 		{
 			newRating = ~0u; // function is not instanced
-			return NULL;
+			break;
 		}
 		// Flag of instantiation failure
 		bool instanceFailure = false;
@@ -3512,16 +3512,32 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 				if(!ParseSelectType(&prevArg, true, true, false, true, referenceType, &instanceFailure))
 				{
 					newRating = ~0u; // function is not instanced
-					return NULL;
+					break;
 				}
 			}
 		}
 		prevArg = oldStart;
 		currDefinedFunc.pop_back();
+		// Check that reference type and instanced type follow the same suffixes
+		if(!instanceFailure)
+		{
+			TypeInfo *instancedType = currType, *referenceTypeTmp = referenceType;
+			while(referenceType->subType && instancedType->subType)
+			{
+				if(instancedType->refLevel != referenceType->refLevel || instancedType->arrLevel != referenceType->arrLevel)
+				{
+					newRating = ~0u; // function is not instanced
+					break;
+				}
+				instancedType = instancedType->subType;
+				referenceType = referenceType->subType;
+			}
+			referenceType = referenceTypeTmp;
+		}
 		if(instanceFailure)
 		{
 			newRating = ~0u; // function is not instanced
-			return NULL;
+			break;
 		}
 		// type must be followed by argument name
 		assert(start->type == lex_string);
@@ -3556,8 +3572,6 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 			CodeInfo::nodeList.pop_back();
 		}
 	}
-	assert(start->type == lex_cparen);
-	start++;
 
 	// Remove aliases that were created
 	AliasInfo *aliasCurr = fInfo->childAlias;
@@ -3568,10 +3582,7 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		while(aliasNext)
 		{
 			if(aliasCurr->nameHash == aliasNext->nameHash && aliasCurr->type != aliasNext->type)
-			{
 				newRating = ~0u; // function is not instanced
-				return NULL;
-			}
 			aliasNext = aliasNext->next;
 		}
 		CodeInfo::classMap.remove(aliasCurr->nameHash, aliasCurr->type);
@@ -3589,8 +3600,12 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 	}
 
 	// We have to create a function type for generated parameters
-	TypeInfo *tmpType = CodeInfo::GetFunctionType(NULL, tempListS, argumentCount);
-	newRating = GetFunctionRating(tmpType->funcType, argumentCount);
+	TypeInfo *tmpType = NULL;
+	if(newRating != ~0u)
+	{
+		tmpType = CodeInfo::GetFunctionType(NULL, tempListS, argumentCount);
+		newRating = GetFunctionRating(tmpType->funcType, argumentCount);
+	}
 
 	// Remove function arguments
 	while(tempListS)

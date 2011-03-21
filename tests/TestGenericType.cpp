@@ -2030,7 +2030,7 @@ const char *testGenericType137 =
 auto foo(Foo<@T, @T> x){ return 2; }\r\n\
 Foo<int, int> a;\r\n\
 return foo(a);";
-TEST_RESULT("function with equal alias names is instanced only if alias types are equal", testGenericType137, "2");
+TEST_RESULT("function with equal alias names is instanced only if alias types are equal 2", testGenericType137, "2");
 
 const char *testGenericType138 =
 "auto bar(auto ref x){ return x; }\r\n\

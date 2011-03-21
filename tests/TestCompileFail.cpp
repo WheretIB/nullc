@@ -629,6 +629,42 @@ return int(y() + z());",
 	TEST_FOR_FAIL("unresolved type", "auto foo(){ foo.a(); }", "ERROR: function 'foo' type is unresolved at this point");
 	TEST_FOR_FAIL("unresolved type", "auto foo(){ foo.a; }", "ERROR: function 'foo' type is unresolved at this point");
 	TEST_FOR_FAIL("unresolved type", "auto foo(){ &foo; }", "ERROR: function 'foo' type is unresolved at this point");
+
+	TEST_FOR_FAIL("no function", "int foo(@T[] arr){ return 1; } return foo(new int);", "ERROR: can't find function 'foo' with following parameters:");
+	TEST_FOR_FAIL("no function", "class Bar<T>{} int foo(Bar<@T>[] arr){ return 1; } Bar<int> ref x; return foo(x);", "ERROR: can't find function 'foo' with following parameters:");
+
+	TEST_FOR_FAIL("clean-up after generic function instance failure",
+"class Bar<T>{} class Foo<T>{}\r\n\
+int foo(generic b, Bar<@T> a){ return 1; }\r\n\
+int foo(generic b, Foo<@T> a){ return 2; }\r\n\
+foo(5, Foo<int>());\r\n\
+return b;", "ERROR: unknown identifier 'b'");
+
+	TEST_FOR_FAIL("clean-up after generic function instance failure",
+"class Bar<T>{} class Foo<T>{}\r\n\
+int foo(@U b, Bar<@T> a){ return 1; }\r\n\
+int foo(generic b, Foo<@T> a){ return 2; }\r\n\
+foo(5, Foo<int>());\r\n\
+U b; return b;", "ERROR: unknown identifier 'U'");
+
+	TEST_FOR_FAIL("clean-up after generic function instance failure",
+"class Bar<T>{} class Foo<T>{}\r\n\
+class Test\r\n\
+{\r\n\
+	typedef int U;\r\n\
+	int foo(generic b, Bar<@T> a){ return 1; }\r\n\
+	int foo(generic b, Foo<@T> a){ return 2; }\r\n\
+}\r\n\
+Test x; x.foo(5, Foo<int>());\r\n\
+U b; return b;", "ERROR: unknown identifier 'U'");
+
+TEST_FOR_FAIL("clean-up after generic function instance failure",
+"class Foo<T>{ int x; }\r\n\
+auto foo(Foo<@T> x, @T y){ return x.x * y; }\r\n\
+auto foo(Foo<@T> x, double y){ return x.x * y; }\r\n\
+foo(Foo<int>(), 5.0);\r\n\
+return y;", "ERROR: unknown identifier 'y'");
+
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
