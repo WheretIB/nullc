@@ -734,3 +734,15 @@ const char	*testNamespace60 =
 A.B.foo();\r\n\
 return 1;";
 TEST_RESULT("namespace test 60", testNamespace60, "1");
+
+const char	*testNamespace61 =
+"class X{}\r\n\
+int X.pos(){ return 10; }\r\n\
+\r\n\
+namespace B\r\n\
+{\r\n\
+	int bar(int ref x){ return -*x; }\r\n\
+}\r\n\
+X c;\r\n\
+return B.bar(c.pos);";
+TEST_RESULT("namespace test 61", testNamespace61, "-10");
