@@ -904,6 +904,31 @@ void WrapNodeToFunction(const char* pos)
 	ConvertFunctionToPointer(pos);
 }
 
+void HandleNullPointerConversion(const char* pos)
+{
+	bool swapped = false;
+	if(CodeInfo::nodeList[CodeInfo::nodeList.size() - 2]->typeInfo == typeVoid->refType)
+	{
+		// Swap nodes so that 'void ref' type node will be on top
+		NodeZeroOP *tmp = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2];
+		CodeInfo::nodeList[CodeInfo::nodeList.size() - 2] = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.back() = tmp;
+		swapped = true;
+	}
+	if(CodeInfo::nodeList.back()->typeInfo == typeVoid->refType)
+	{
+		// Convert 'void ref' to the other operand type
+		HandlePointerToObject(pos, CodeInfo::nodeList[CodeInfo::nodeList.size() - 2]->typeInfo);
+		// If nodes were swapped before, swap them back
+		if(swapped)
+		{
+			NodeZeroOP *tmp = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2];
+			CodeInfo::nodeList[CodeInfo::nodeList.size() - 2] = CodeInfo::nodeList.back();
+			CodeInfo::nodeList.back() = tmp;
+		}
+	}
+}
+
 void AddBinaryCommandNode(const char* pos, CmdID id)
 {
 	CodeInfo::lastKnownStartPos = pos;
@@ -917,6 +942,8 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 	}
 	if(id == cmdEqual || id == cmdNEqual)
 	{
+		HandleNullPointerConversion(pos);
+
 		NodeZeroOP *left = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
 		NodeZeroOP *right = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
 
@@ -924,26 +951,6 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 		{
 			AddFunctionCallNode(pos, id == cmdEqual ? "__rcomp" : "__rncomp", 2);
 			return;
-		}
-		bool swapped = false;
-		if(left->typeInfo == typeVoid->refType)
-		{
-			CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = right;
-			CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = left;
-			NodeZeroOP *tmp = left; left = right; right = tmp;
-			swapped = true;
-		}
-		if(right->typeInfo == typeVoid->refType)
-		{
-			HandlePointerToObject(pos, left->typeInfo);
-			left = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
-			right = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
-			if(right->typeInfo == typeVoid->refType && swapped)
-			{
-				CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = left;
-				CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = right;
-				NodeZeroOP *tmp = left; left = right; right = tmp;
-			}
 		}
 		if(right->typeInfo->funcType && right->typeInfo->funcType == left->typeInfo->funcType)
 		{
@@ -4827,6 +4834,8 @@ void AddIfElseTermNode(const char* pos)
 	if(OptimizeIfElse(true))
 		return;
 
+	HandleNullPointerConversion(pos);
+
 	NodeZeroOP *bodyE = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
 	NodeZeroOP *bodyT = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
 
@@ -4839,9 +4848,9 @@ void AddIfElseTermNode(const char* pos)
 	TypeInfo* typeA = CodeInfo::nodeList[CodeInfo::nodeList.size()-1]->typeInfo;
 	TypeInfo* typeB = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
 	if(typeA == typeVoid || typeB == typeVoid)
-		ThrowError(pos, "ERROR: one of ternary operator ?: result type is void (%s : %s)", typeB->name, typeA->name);
-	if(typeA != typeB && (typeA->type == TypeInfo::TYPE_COMPLEX || typeB->type == TypeInfo::TYPE_COMPLEX))
-		ThrowError(pos, "ERROR: ternary operator ?: result types are not equal (%s : %s)", typeB->name, typeA->name);
+		ThrowError(pos, "ERROR: one of ternary operator ?: result type is void (%s : %s)", typeB->GetFullTypeName(), typeA->GetFullTypeName());
+	if(typeA != typeB)
+		ThrowError(pos, "ERROR: ternary operator ?: result types are not equal (%s : %s)", typeB->GetFullTypeName(), typeA->GetFullTypeName());
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(true, true));
 }
 
