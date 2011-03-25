@@ -2331,7 +2331,7 @@ FunctionInfo* InstanceGenericFunctionForType(const char* pos, FunctionInfo *info
 
 		char	*errPos = errorReport;
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available:\r\n");
-		ThrowFunctionSelectError(pos, 0, errorReport, errPos, funcS->value->name, funcS->value->paramCount, bestFuncList.size());
+		ThrowFunctionSelectError(pos, 0, errorReport, errPos, funcS->value->name, 0, bestFuncList.size());
 	}
 	if(!dstPreferred->funcType)
 		ThrowError(pos, "ERROR: cannot select function overload for a type '%s'", dstPreferred->GetFullTypeName());
