@@ -1,4 +1,4 @@
-// NULLC (c) NULL_PTR 2007-2010
+// NULLC (c) NULL_PTR 2007-2011
 
 #include "Callbacks.h"
 #include "CodeInfo.h"
@@ -3751,9 +3751,9 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 			else if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
 				fRating += 2;	// array -> class (unsized array)
 			else if(expectedType == typeAutoArray && paramType->arrLevel)
-				fRating += 10;	// array -> auto[]
+				fRating += 5;	// array -> auto[]
 			else if(expectedType->refLevel == 1 && paramType->refLevel == 1 && expectedType->subType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->subType->subType == expectedType->subType->subType)
-				fRating += 5;	// array[N] ref -> array[] -> array[] ref
+				fRating += 10;	// array[N] ref -> array[] -> array[] ref
 			else if(expectedType->refLevel == 1 && paramType->refLevel == 1 && paramType->subType->parentType){
 				TypeInfo *parent = paramType->subType->parentType;
 				while(parent)

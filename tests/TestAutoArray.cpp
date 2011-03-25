@@ -19,3 +19,8 @@ int b = arrSize({ 1, 2, 3, 4});\r\n\
 int c = arrSize(new int[43]);\r\n\
 return a * 100 + b * 10 + c;";
 TEST_RESULT("Implicit conversion to auto[] in function arguments", testAutoArrayImplicit, "683");
+
+const char *testDuplicateHasCorrectSelectionForArray =
+"auto a = duplicate({1, 2, 3, 4});\r\n\
+return int(a[2]);";
+TEST_RESULT("duplicate(auto[]) is selected for typed array arguments", testDuplicateHasCorrectSelectionForArray, "3");
