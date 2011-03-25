@@ -471,7 +471,7 @@ return int(foo(b) + foo(c));",
 
 	TEST_FOR_FAIL_FULL("function pointer selection fail", "void foo(int a){} void foo(double a){}\r\nauto a = foo;\r\nreturn 1;",
 "line 2 - ERROR: ambiguity, there is more than one overloaded function available:\r\n\
-  foo(void ref(double))\r\n\
+  foo()\r\n\
  candidates are:\r\n\
   void foo(double)\r\n\
   void foo(int)\r\n\
@@ -699,6 +699,7 @@ return 0;",
 	TEST_FOR_FAIL("this exploit", "class X{ int a; } auto X:foo(){ auto bar(){ int this; return a; } return bar(); } X x; x.a = 4; return x.foo();", "ERROR: 'this' is a reserved keyword");
 
 	TEST_FOR_FAIL("error with a generic function returning auto printout", "int foo(generic ref(generic, int) x){ return x(4, 5); } auto bar(int a, generic b){ return a + b; } return foo(bar, bar);", "ERROR: can't find function 'foo' with following parameters:");
+	TEST_FOR_FAIL("function selection error printout failure", "auto x = duplicate;", "ERROR: ambiguity, there is more than one overloaded function available:");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
