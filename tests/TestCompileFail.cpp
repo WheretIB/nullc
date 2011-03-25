@@ -697,6 +697,8 @@ return 0;",
 	TEST_FOR_FAIL("?: exploit", "int foo = 0xdeadbeef; void ref bar = !foo ? nullptr : foo; int ref error = bar; *error;", "ERROR: ternary operator ?: result types are not equal (void ref : int)");
 
 	TEST_FOR_FAIL("this exploit", "class X{ int a; } auto X:foo(){ auto bar(){ int this; return a; } return bar(); } X x; x.a = 4; return x.foo();", "ERROR: 'this' is a reserved keyword");
+
+	TEST_FOR_FAIL("error with a generic function returning auto printout", "int foo(generic ref(generic, int) x){ return x(4, 5); } auto bar(int a, generic b){ return a + b; } return foo(bar, bar);", "ERROR: can't find function 'foo' with following parameters:");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

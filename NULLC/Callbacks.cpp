@@ -3595,7 +3595,8 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		}
 
 		// Get type to which we resolve our generic argument
-		SelectTypeForGeneric(start, nodeOffset + argID);
+		Lexeme *temp = start;
+		SelectTypeForGeneric(ParseSelectType(&temp, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF) ? start : prevArg, nodeOffset + argID);
 		TypeInfo *referenceType = currType;
 		// Flag of instantiation failure
 		bool instanceFailure = false;

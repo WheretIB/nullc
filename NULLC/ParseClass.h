@@ -210,7 +210,7 @@ public:
 		}else{
 			if(funcType)
 			{
-				unsigned int retNameLength = funcType->retType->GetFullNameLength();
+				unsigned int retNameLength = funcType->retType ? funcType->retType->GetFullNameLength() : 4;
 				// 7 is the length of " ref(", ")" and \0
 				unsigned int bufferSize = 7 + retNameLength;
 				for(unsigned int i = 0; i < funcType->paramCount; i++)
@@ -218,7 +218,7 @@ public:
 				LENGTH_CHECK(bufferSize + 1);
 				char *curr = (char*)typeInfoPool.Allocate(bufferSize + 1);
 				fullName = curr;
-				memcpy(curr, funcType->retType->GetFullTypeName(), retNameLength);
+				memcpy(curr, funcType->retType ? funcType->retType->GetFullTypeName() : "auto", retNameLength);
 				memcpy(curr + retNameLength, " ref(", 5);
 				curr += retNameLength + 5;
 				for(unsigned int i = 0; i < funcType->paramCount; i++)

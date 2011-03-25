@@ -1643,6 +1643,12 @@ int bar(int a, generic b){ return a + b; }\r\n\
 return foo(2, bar);";
 TEST_RESULT("generic function inference for a generic argument 11", testGeneric139, "11");
 
+const char *testGeneric140 =
+"int foo(generic ref(generic, int) x, y){ return x(4, 5) + y(40, 50); }\r\n\
+auto bar(int a, generic b){ return a + b; }\r\n\
+return foo(bar, bar);";
+TEST_RESULT("generic function inference for a generic argument 12", testGeneric140, "99");
+
 const char *testGeneric141 =
 "auto foo(generic x, auto ref[] y)\r\n\
 {\r\n\
