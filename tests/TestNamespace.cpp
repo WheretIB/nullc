@@ -769,3 +769,9 @@ namespace X\r\n\
 Bar a, b;\r\n\
 return X.foo(a + b);";
 TEST_RESULT("namespace test 63", testNamespace63, "-12");
+
+const char	*testNamespace64 =
+"namespace X{ void foo(char[] x){} }\r\n\
+X.foo({\"brgrg\", \"brgrg_\"}[0]);\r\n\
+return 1;";
+TEST_RESULT("namespace test 64", testNamespace64, "1");
