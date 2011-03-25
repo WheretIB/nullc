@@ -220,3 +220,10 @@ auto y = 6 in arr;\r\n\
 \r\n\
 return x == true && y == false;";
 TEST_RESULT("overloaded in operator", testInOverload1, "1");
+
+const char	*testOverloadedOperatorInDefinition =
+"auto x = { 1, 2, 3, 4 };\r\n\
+auto ref y = &x;\r\n\
+auto[] z = y;\r\n\
+return int(z[2]);";
+TEST_RESULT("overloaded operator in variable definition is called before implicit conversions", testOverloadedOperatorInDefinition, "3");
