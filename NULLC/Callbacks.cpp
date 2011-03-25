@@ -2246,7 +2246,10 @@ void AddInplaceVariable(const char* pos, TypeInfo* targetType)
 	// Remove it from stack
 	AddPopNode(pos);
 	// Put pointer to hidden variable on stack
+	NamespaceInfo	*lastNS = GetCurrentNamespace();
+	SetCurrentNamespace(NULL);
 	AddGetAddressNode(pos, InplaceStr(arrName, length));
+	SetCurrentNamespace(lastNS);
 
 	// Restore variable creation state
 	varDefined = saveVarDefined;
