@@ -1827,11 +1827,7 @@ void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverlo
 	// If current type is set to NULL, it means that current type is auto
 	// Is such case, type is retrieved from last AST node
 	TypeInfo *realCurrType = variableInfo->varType ? variableInfo->varType : CodeInfo::nodeList.back()->typeInfo;
-
-	// If variable type is array without explicit size, and it is being defined with value of different type
-	ConvertDerivedToBase(pos, realCurrType);
-	ConvertArrayToUnsized(pos, realCurrType);
-	HandlePointerToObject(pos, realCurrType);
+	bool wasAuto = variableInfo->varType == NULL;
 
 	// If type wasn't known until assignment, it means that variable alignment wasn't performed in AddVariable function
 	if(!variableInfo->varType)
@@ -1887,6 +1883,17 @@ void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverlo
 		temp = CodeInfo::nodeList[CodeInfo::nodeList.size()-1];
 		CodeInfo::nodeList[CodeInfo::nodeList.size()-1] = CodeInfo::nodeList[CodeInfo::nodeList.size()-2];
 		CodeInfo::nodeList[CodeInfo::nodeList.size()-2] = temp;
+	}
+
+	if(!wasAuto)
+	{
+		NodeZeroOP *temp = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+		// Perform implicit conversions
+		ConvertDerivedToBase(pos, realCurrType);
+		ConvertArrayToUnsized(pos, realCurrType);
+		HandlePointerToObject(pos, realCurrType);
+		CodeInfo::nodeList.push_back(temp);
 	}
 
 	CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::GetReferenceType(realCurrType), true, false));
