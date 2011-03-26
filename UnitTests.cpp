@@ -82,8 +82,8 @@ void	RunTests(bool verbose)
 		testsCount[3]++;
 
 		char buf[8];
-		char *pos = buf + SafeSprintf(buf, 8, "this ");
-		pos += SafeSprintf(pos, 8 - int(pos - buf), "string is too long");
+		char *pos = buf + NULLC::SafeSprintf(buf, 8, "this ");
+		pos += NULLC::SafeSprintf(pos, 8 - int(pos - buf), "string is too long");
 		if(memcmp(buf, "this st", 8) != 0)
 			printf("Safe sprintf test failed: string is incorrect\n");
 		else if(pos != buf + 8)
