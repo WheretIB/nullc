@@ -229,13 +229,13 @@ bool operator in(generic x, vector<generic> ref arr)
 	return false;
 }
 
-auto vector:push_back(generic ref() f)
+auto vector:push_back_mult(generic ref() f)
 {
 	for(i in f)
 		push_back(i);
 }
 
-auto vector:push_back(generic[] arr)
+auto vector:push_back_mult(generic[] arr)
 {
 	for(i in arr)
 		push_back(i);

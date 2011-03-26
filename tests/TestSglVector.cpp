@@ -240,13 +240,13 @@ import std.range;\r\n\
 vector<int> x = { for(i in range(1, 5)) yield i; };\r\n\
 assert(x.size() == 5);\r\n\
 assert(x[0] == 1); assert(x[4] == 5);\r\n\
-x.push_back(coroutine auto(){ yield 10; yield 20; return 0; });\r\n\
+x.push_back_mult(coroutine auto(){ yield 10; yield 20; return 0; });\r\n\
 assert(x.size() == 7);\r\n\
 assert(x[0] == 1); assert(x[4] == 5); assert(x[5] == 10); assert(x[6] == 20);\r\n\
 x.fill(coroutine auto(){ for(i in range(1, 5)) yield i; return 0; });\r\n\
 assert(x.size() == 5);\r\n\
 assert(x[0] == 1); assert(x[4] == 5);\r\n\
-x.push_back({ 10, 20 });\r\n\
+x.push_back_mult({ 10, 20 });\r\n\
 assert(x.size() == 7);\r\n\
 assert(x[0] == 1); assert(x[4] == 5); assert(x[5] == 10); assert(x[6] == 20);\r\n\
 x.fill({ 1, 2, 3, 4, 5 });\r\n\
