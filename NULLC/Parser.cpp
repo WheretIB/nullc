@@ -1341,7 +1341,7 @@ bool ParseAddVariable(Lexeme** str)
 		while(base && base->arrLevel && base->arrSize != TypeInfo::UNSIZED_ARRAY) // Unsized arrays are not initialized
 			base = base->subType;
 		bool callDefault = false;
-		bool hasConstructor = base ? HasConstructor(base, 0, &callDefault) : NULL;
+		bool hasConstructor = base ? HasConstructor(base, 0, &callDefault) : false;
 		if(hasConstructor)
 		{
 			const char *name = base->genericBase ? base->genericBase->name : base->name;
