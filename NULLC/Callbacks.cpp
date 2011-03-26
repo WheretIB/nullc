@@ -4093,6 +4093,23 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 	return AddFunctionCallNode(pos, memberFuncName, callArgCount, silent);
 }
 
+unsigned PrintArgumentName(NodeZeroOP* activeNode, char* pos, unsigned limit)
+{
+	const char* start = pos;
+	if(activeNode->nodeType == typeNodeFunctionProxy)
+	{
+		int fID = CodeInfo::funcInfo.size(), fCount = 0;
+		while((fID = CodeInfo::FindFunctionByName(((NodeFunctionProxy*)activeNode)->funcInfo->nameHash, fID - 1)) != -1)
+			pos += SafeSprintf(pos, limit - int(pos - start), "%s%s", fCount++ != 0 ? " or " : "", CodeInfo::funcInfo[fID]->funcType->GetFullTypeName());
+	}else if(activeNode->nodeType == typeNodeExpressionList && ((NodeExpressionList*)activeNode)->GetFirstNode()->nodeType == typeNodeFunctionProxy){
+		pos += SafeSprintf(pos, limit - int(pos - start), "`function`");
+	}else{
+		TypeInfo *nodeType = activeNode->nodeType == typeNodeFuncDef ? ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType : activeNode->typeInfo;
+		pos += SafeSprintf(pos, limit - int(pos - start), "%s", nodeType->GetFullTypeName());
+	}
+	return pos - start;
+}
+
 void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorReport, char* errPos, const char* funcName, unsigned callArgCount, unsigned count)
 {
 	errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "  %s(", funcName);
@@ -4100,18 +4117,7 @@ void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorRe
 	{
 		if(n != 0)
 			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ", ");
-		NodeZeroOP *activeNode = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n];
-		if(activeNode->nodeType == typeNodeFunctionProxy)
-		{
-			int fID = CodeInfo::funcInfo.size(), fCount = 0;
-			while((fID = CodeInfo::FindFunctionByName(((NodeFunctionProxy*)activeNode)->funcInfo->nameHash, fID - 1)) != -1)
-				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", fCount++ != 0 ? " or " : "", CodeInfo::funcInfo[fID]->funcType->GetFullTypeName());
-		}else if(activeNode->nodeType == typeNodeExpressionList && ((NodeExpressionList*)activeNode)->GetFirstNode()->nodeType == typeNodeFunctionProxy){
-			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "`function`");
-		}else{
-			TypeInfo *nodeType = activeNode->nodeType == typeNodeFuncDef ? ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType : activeNode->typeInfo;
-			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s", nodeType->GetFullTypeName());
-		}
+		errPos += PrintArgumentName(CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n], errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport));
 	}
 	errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), minRating == ~0u ? ")\r\n the only available are:\r\n" : ")\r\n candidates are:\r\n");
 	for(unsigned int n = 0; n < count; n++)
@@ -4305,7 +4311,11 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", i == 0 ? "" : ", ", fType->paramType[i]->GetFullTypeName());
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n\tusing argument vector (");
 		for(unsigned i = 0; i < fType->paramCount; i++)
-			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", i == 0 ? "" : ", ", CodeInfo::nodeList[argOffset + i]->typeInfo->GetFullTypeName());
+		{
+			if(i != 0)
+				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ", ");
+			errPos += PrintArgumentName(CodeInfo::nodeList[argOffset + i], errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport));
+		}
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n");
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s", CodeInfo::lastError.GetErrorString());
 		if(errPos[-2] == '\r' && errPos[-1] == '\n')
