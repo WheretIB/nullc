@@ -951,7 +951,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			AddFunctionToSortedList(lastFunc);
 
 			lastFunc->indexInArr = CodeInfo::funcInfo.size() - 1;
-			lastFunc->address = fInfo->funcPtr ? -1 : (fInfo->codeSize & 0x80000000 ? 0x80000000 : 0);
+			lastFunc->address = fInfo->funcPtr ? ~0u : (fInfo->codeSize & 0x80000000 ? 0x80000000 : 0);
 			lastFunc->funcPtr = fInfo->funcPtr;
 			lastFunc->type = (FunctionInfo::FunctionCategory)fInfo->funcCat;
 

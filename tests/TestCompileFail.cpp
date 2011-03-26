@@ -700,6 +700,20 @@ return 0;",
 
 	TEST_FOR_FAIL("error with a generic function returning auto printout", "int foo(generic ref(generic, int) x){ return x(4, 5); } auto bar(int a, generic b){ return a + b; } return foo(bar, bar);", "ERROR: can't find function 'foo' with following parameters:");
 	TEST_FOR_FAIL("function selection error printout failure", "auto x = duplicate;", "ERROR: ambiguity, there is more than one overloaded function available:");
+
+	TEST_FOR_FAIL_FULL("better error description",
+"void foo(generic x){ a.x; }\r\n\
+foo(void bar(){});\r\n\
+return 1;",
+"line 2 - ERROR: while instantiating generic function foo(generic)\r\n\
+	using argument vector (void ref())\r\n\
+line 1 - ERROR: unknown identifier 'a'\r\n\
+  at \"void foo(generic x){ a.x; }\"\r\n\
+                           ^\r\n\
+  at \"foo(void bar(){});\"\r\n\
+                       ^\r\n\
+");
+	
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
