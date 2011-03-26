@@ -214,7 +214,7 @@ TEST_SOURCES = \
 	tests/TestGeneric.cpp            tests/TestFinalizer.cpp \
 	tests/TestGenericType.cpp        tests/TestSglVector.cpp \
 	tests/TestSglList.cpp            tests/TestSglHashmap.cpp \
-	tests/TestNamespace.cpp
+	tests/TestNamespace.cpp          tests/TestInheritance.cpp
 
 TEST_OBJECTS = \
 	TestRun.o \
@@ -247,7 +247,7 @@ TEST_OBJECTS = \
 	temp/tests/TestGeneric.o            temp/tests/TestFinalizer.o \
 	temp/tests/TestGenericType.o        temp/tests/TestSglVector.o \
 	temp/tests/TestSglList.o            temp/tests/TestSglHashmap.o \
-	temp/tests/TestNamespace.o
+	temp/tests/TestNamespace.o          temp/tests/TestInheritance.o
 
 %.o: %.cpp
 	$(CXX) $(REG_CFLAGS) -o $@ -c $<
