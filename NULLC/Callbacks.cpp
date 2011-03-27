@@ -1048,11 +1048,30 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 		}
 	}
 
-	if((id == cmdLogAnd || id == cmdLogOr) && CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX)
+	TypeInfo *condType = CodeInfo::nodeList.back()->typeInfo;
+	if((id == cmdLogAnd || id == cmdLogOr) && condType->type == TypeInfo::TYPE_COMPLEX && !(condType->funcType || condType->arrLevel))
 	{
 		WrapNodeToFunction(pos);
 		AddFunctionCallNode(CodeInfo::lastKnownStartPos, opNames[id - cmdAdd], 2);
 		return;
+	}
+	// Handle build-in types such as function pointers and unsized arrays
+	if(id == cmdLogAnd || id == cmdLogOr)
+	{
+		if(condType->funcType || condType->arrLevel)
+		{
+			AddNullPointer();
+			AddBinaryCommandNode(pos, cmdNEqual);
+		}
+		condType = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2]->typeInfo;
+		if(condType->funcType || condType->arrLevel)
+		{
+			NodeZeroOP *tmp = CodeInfo::nodeList.back();
+			CodeInfo::nodeList.pop_back();
+			AddNullPointer();
+			AddBinaryCommandNode(pos, cmdNEqual);
+			CodeInfo::nodeList.push_back(tmp);
+		}
 	}
 	// Optimizations failed, perform operation in run-time
 	if(!AddFunctionCallNode(CodeInfo::lastKnownStartPos, opNames[id - cmdAdd], 2, true))

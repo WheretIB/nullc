@@ -249,3 +249,21 @@ TEST_RESULT("Build-in types as conditions 11", testTypesAsConditions11, "1");
 
 const char *testTypesAsConditions12 = "int[] x; return x ? 0 : 1;";
 TEST_RESULT("Build-in types as conditions 12", testTypesAsConditions12, "1");
+
+const char *testTypesAsConditions13 = "void ref() x; return x && 1 ? 0 : 1;";
+TEST_RESULT("Build-in types as conditions 13", testTypesAsConditions13, "1");
+
+const char *testTypesAsConditions14 = "int[] x; return x && 1 ? 0 : 1;";
+TEST_RESULT("Build-in types as conditions 14", testTypesAsConditions14, "1");
+
+const char *testTypesAsConditions15 = "void ref() x; return x || 1 ? 1 : 0;";
+TEST_RESULT("Build-in types as conditions 15", testTypesAsConditions15, "1");
+
+const char *testTypesAsConditions16 = "int[] x; return x || 1 ? 1 : 0;";
+TEST_RESULT("Build-in types as conditions 16", testTypesAsConditions16, "1");
+
+const char *testTypesAsConditions17 = "void ref() x; return 1 && x ? 0 : 1;";
+TEST_RESULT("Build-in types as conditions 17", testTypesAsConditions17, "1");
+
+const char *testTypesAsConditions18 = "int[] x; return 1 && x ? 0 : 1;";
+TEST_RESULT("Build-in types as conditions 18", testTypesAsConditions18, "1");
