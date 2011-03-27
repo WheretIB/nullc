@@ -4841,6 +4841,20 @@ bool OptimizeIfElse(bool hasElse)
 	}
 	return false;
 }
+
+void PromoteToBool(const char* pos)
+{
+	TypeInfo *condType = CodeInfo::nodeList.back()->typeInfo;
+	if(condType->type == TypeInfo::TYPE_COMPLEX && condType != typeObject)
+	{
+		if(!AddFunctionCallNode(pos, "bool", 1, true) && (condType->funcType || condType->arrLevel))
+		{
+			AddNullPointer();
+			AddBinaryCommandNode(pos, cmdNEqual);
+		}
+	}
+}
+
 void AddIfNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
@@ -4852,8 +4866,7 @@ void AddIfNode(const char* pos)
 	NodeZeroOP *body = CodeInfo::nodeList.back();
 	CodeInfo::nodeList.pop_back();
 
-	if(CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX && CodeInfo::nodeList.back()->typeInfo != typeObject)
-		AddFunctionCallNode(pos, "bool", 1, true);
+	PromoteToBool(pos);
 
 	CodeInfo::nodeList.push_back(body);
 
@@ -4871,8 +4884,7 @@ void AddIfElseNode(const char* pos)
 	NodeZeroOP *bodyE = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
 	NodeZeroOP *bodyT = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
 
-	if(CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX && CodeInfo::nodeList.back()->typeInfo != typeObject)
-		AddFunctionCallNode(pos, "bool", 1, true);
+	PromoteToBool(pos);
 
 	CodeInfo::nodeList.push_back(bodyT);
 	CodeInfo::nodeList.push_back(bodyE);
@@ -4893,8 +4905,7 @@ void AddIfElseTermNode(const char* pos)
 	NodeZeroOP *bodyE = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
 	NodeZeroOP *bodyT = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
 
-	if(CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX && CodeInfo::nodeList.back()->typeInfo != typeObject)
-		AddFunctionCallNode(pos, "bool", 1, true);
+	PromoteToBool(pos);
 
 	CodeInfo::nodeList.push_back(bodyT);
 	CodeInfo::nodeList.push_back(bodyE);
@@ -4921,8 +4932,7 @@ void AddForNode(const char* pos)
 	NodeZeroOP *body = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
 	NodeZeroOP *increment = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
 
-	if(CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX && CodeInfo::nodeList.back()->typeInfo != typeObject)
-		AddFunctionCallNode(pos, "bool", 1, true);
+	PromoteToBool(pos);
 
 	CodeInfo::nodeList.push_back(increment);
 	CodeInfo::nodeList.push_back(body);
@@ -4939,8 +4949,7 @@ void AddWhileNode(const char* pos)
 
 	NodeZeroOP *body = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
 
-	if(CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX && CodeInfo::nodeList.back()->typeInfo != typeObject)
-		AddFunctionCallNode(pos, "bool", 1, true);
+	PromoteToBool(pos);
 
 	CodeInfo::nodeList.push_back(body);
 
@@ -4955,8 +4964,7 @@ void AddDoWhileNode(const char* pos)
 	CodeInfo::lastKnownStartPos = pos;
 	assert(CodeInfo::nodeList.size() >= 2);
 
-	if(CodeInfo::nodeList.back()->typeInfo->type == TypeInfo::TYPE_COMPLEX && CodeInfo::nodeList.back()->typeInfo != typeObject)
-		AddFunctionCallNode(pos, "bool", 1, true);
+	PromoteToBool(pos);
 
 	CodeInfo::nodeList.push_back(new NodeDoWhileExpr());
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);

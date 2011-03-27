@@ -213,3 +213,39 @@ TEST_RESULT("ternary operator result type resolve 3", testTernaryTypeResolve3, "
 
 const char *testTernaryTypeResolve4 = "int foo(){ return 2; } int x = 1; auto a = x ? foo : nullptr; return a();";
 TEST_RESULT("ternary operator result type resolve 4", testTernaryTypeResolve4, "2");
+
+const char *testTypesAsConditions1 = "void ref() x; if(x) return 0; else return 1;";
+TEST_RESULT("Build-in types as conditions", testTypesAsConditions1, "1");
+
+const char *testTypesAsConditions2 = "int[] x; if(x) return 0; else return 1;";
+TEST_RESULT("Build-in types as conditions 2", testTypesAsConditions2, "1");
+
+const char *testTypesAsConditions3 = "void ref() x; for(;x;) return 0; return 1;";
+TEST_RESULT("Build-in types as conditions 3", testTypesAsConditions3, "1");
+
+const char *testTypesAsConditions4 = "int[] x; for(;x;) return 0; return 1;";
+TEST_RESULT("Build-in types as conditions 4", testTypesAsConditions4, "1");
+
+const char *testTypesAsConditions5 = "void ref() x; while(x) return 0; return 1;";
+TEST_RESULT("Build-in types as conditions 5", testTypesAsConditions5, "1");
+
+const char *testTypesAsConditions6 = "int[] x; while(x) return 0; return 1;";
+TEST_RESULT("Build-in types as conditions 6", testTypesAsConditions6, "1");
+
+const char *testTypesAsConditions7 = "void ref() x; do{ return 1; }while(x);";
+TEST_RESULT("Build-in types as conditions 7", testTypesAsConditions7, "1");
+
+const char *testTypesAsConditions8 = "int[] x; do{ return 1; }while(x);";
+TEST_RESULT("Build-in types as conditions 8", testTypesAsConditions8, "1");
+
+const char *testTypesAsConditions9 = "void ref() x; if(x) return 0; return 1;";
+TEST_RESULT("Build-in types as conditions 9", testTypesAsConditions9, "1");
+
+const char *testTypesAsConditions10 = "int[] x; if(x) return 0; return 1;";
+TEST_RESULT("Build-in types as conditions 10", testTypesAsConditions10, "1");
+
+const char *testTypesAsConditions11 = "void ref() x; return x ? 0 : 1;";
+TEST_RESULT("Build-in types as conditions 11", testTypesAsConditions11, "1");
+
+const char *testTypesAsConditions12 = "int[] x; return x ? 0 : 1;";
+TEST_RESULT("Build-in types as conditions 12", testTypesAsConditions12, "1");
