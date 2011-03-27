@@ -188,3 +188,21 @@ u.b(2, 3);\r\n\
 u.c();\r\n\
 return u.d(2, 3, 4);";
 TEST_RESULT("Function call through 'auto ref', issue with incorrect vtbl search", testAutorefCallIssue1, "14");
+
+const char	*testAutorefPtr1 =
+"class Foo{ int foo(int a){ return -a; } }\r\n\
+class Bar{}\r\n\
+auto x = new Foo;\r\n\
+auto ref y = x;\r\n\
+auto z = y.foo;\r\n\
+return z != nullptr ? z(5) : 3;";
+TEST_RESULT("Getting function pointer from 'auto ref'", testAutorefPtr1, "-5");
+
+const char	*testAutorefPtr2 =
+"class Foo{ int foo(int a){ return -a; } }\r\n\
+class Bar{}\r\n\
+auto x = new Bar;\r\n\
+auto ref y = x;\r\n\
+auto z = y.foo;\r\n\
+return z != nullptr ? z(5) : 3;";
+TEST_RESULT("Getting function pointer from 'auto ref' 2", testAutorefPtr2, "3");

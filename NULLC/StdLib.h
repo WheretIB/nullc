@@ -50,6 +50,7 @@ namespace NULLC
 	void		SetGlobalLimit(unsigned int limit);
 
 	NULLCFuncPtr	FunctionRedirect(NULLCRef r, NULLCArray* arr);
+	NULLCFuncPtr	FunctionRedirectPtr(NULLCRef r, NULLCArray* arr);
 
 	struct TypeIDHelper
 	{

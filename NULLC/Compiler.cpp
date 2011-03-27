@@ -160,6 +160,7 @@ void		array_copy(generic dst, int offsetDst, generic src, int offsetSrc, count)\
 }\r\n\
 \r\n\
 void ref() __redirect(auto ref r, int[] ref f);\r\n\
+void ref() __redirect_ptr(auto ref r, int[] ref f);\r\n\
 // char inline array definition support\r\n\
 auto operator=(char[] ref dst, int[] src)\r\n\
 {\r\n\
@@ -408,6 +409,7 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::ArrayCopy, "array_copy", 0);
 	
 	AddModuleFunction("$base$", (void (*)())NULLC::FunctionRedirect, "__redirect", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::FunctionRedirectPtr, "__redirect_ptr", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::Typeid, "typeid", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::TypeSize, "typeid::size$", 0);
