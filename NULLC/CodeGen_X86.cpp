@@ -1986,7 +1986,8 @@ void GenCodeCmdCall(VMCmd cmd)
 	}else{
 		unsigned int bytesToPop = x86Functions[cmd.argument].bytesToPop;
 
-		if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_UNKNOWN && x86Functions[cmd.argument].returnShift)
+		bool bigReturn = x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_UNKNOWN && x86Functions[cmd.argument].returnShift;
+		if(bigReturn)
 			EMIT_OP_NUM(o_push, (int)(intptr_t)ret);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
@@ -2007,7 +2008,11 @@ void GenCodeCmdCall(VMCmd cmd)
 		EMIT_LABEL(aluLabels);
 		aluLabels++;
 
+#ifdef _MSC_VER
+		EMIT_OP_REG_NUM(o_add, rESP, bytesToPop + (bigReturn ? 4 : 0));
+#else
 		EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
+#endif
 		if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_INT)
 		{
 			EMIT_OP_REG(o_push, rEAX);
@@ -2017,13 +2022,12 @@ void GenCodeCmdCall(VMCmd cmd)
 		}else if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_LONG){
 			EMIT_OP_REG(o_push, rEDX);
 			EMIT_OP_REG(o_push, rEAX);
-		}else if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_UNKNOWN && x86Functions[cmd.argument].returnShift){
+		}else if(bigReturn){
 			// adjust new stack top
 			EMIT_OP_REG_NUM(o_sub, rESP, x86Functions[cmd.argument].returnShift * 4);
 			// copy return value on top of the stack
 			EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
 
-			//EMIT_OP_REG_RPTR(o_lea, rESI, sNONE, rEAX, paramBase);
 			EMIT_OP_REG_NUM(o_mov, rESI, (int)(intptr_t)ret);	
 			EMIT_OP_REG_REG(o_mov, rEDI, rESP);
 			EMIT_OP_REG_NUM(o_mov, rECX, x86Functions[cmd.argument].returnShift);

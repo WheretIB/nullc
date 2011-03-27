@@ -80,9 +80,7 @@ struct NULLCAutoArray
 	#error "Cannot enable translation to C and x86 optimizer simultaneously"
 #endif
 
-#if (defined(__linux) && !defined(__x86_64__)) || defined(__CELLOS_LV2__)
-	#define NULLC_COMPLEX_RETURN
-#endif
+#define NULLC_COMPLEX_RETURN
 
 //#define NULLC_LLVM_SUPPORT
 
