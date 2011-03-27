@@ -1994,6 +1994,8 @@ void AddGetVariableNode(const char* pos, bool forceError)
 		ThrowError(pos, "ERROR: cannot dereference type '%s' that is not a pointer", lastType->GetFullTypeName());
 }
 
+void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int callArgCount, bool forFunctionCall);
+
 void AddMemberAccessNode(const char* pos, InplaceStr varName)
 {
 	CodeInfo::lastKnownStartPos = pos;
@@ -2043,6 +2045,17 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 	FunctionInfo *memberFunc = NULL;
 	if(!curr)
 	{
+		if(currentType == typeObject)
+		{
+			char *funcName = AllocateString(int(varName.end - varName.begin) + 1);
+			SafeSprintf(funcName, int(varName.end - varName.begin) + 1, "%s", varName.begin);
+			GetAutoRefFunction(pos, funcName, 0, false);
+			NodeZeroOP *autoRef = CodeInfo::nodeList.back();
+			CodeInfo::nodeList.pop_back();
+			CodeInfo::nodeList.pop_back();
+			CodeInfo::nodeList.push_back(autoRef);
+			return;
+		}
 		// Construct function name in a for of Class::Function
 		unsigned int hash = currentType->nameHash;
 		hash = StringHashContinue(hash, "::");
@@ -3969,6 +3982,97 @@ unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int 
 	return minRatingIndex;
 }
 
+void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int callArgCount, bool forFunctionCall)
+{
+	// We need to know what function overload is called, and this is a long process:
+	// Get function name hash
+	unsigned int fHash = GetStringHash(funcName);
+
+	// Clear function list
+	bestFuncList.clear();
+	// Find all functions with called name that are member functions
+	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+	{
+		FunctionInfo *func = CodeInfo::funcInfo[i];
+		if(func->nameHashOrig == fHash && func->parentClass && func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType)
+			bestFuncList.push_back(func);
+	}
+	unsigned int count = bestFuncList.size();
+	if(count == 0)
+		ThrowError(pos, "ERROR: function '%s' is undefined in any of existing classes", funcName);
+
+	// Find best function fit
+	unsigned minRating = ~0u;
+	unsigned minRatingIndex = SelectBestFunction(count, callArgCount, minRating);
+	// If this is not for a function call, but for a function pointer retrieval, mark all functions as perfect except for generic ones
+	if(!forFunctionCall)
+	{
+		minRating = ~0u;
+		minRatingIndex = ~0u;
+		for(unsigned k = 0; k < count; k++)
+		{
+			bestFuncRating[k] = bestFuncList[k]->generic ? ~0u : 0;
+			if(!bestFuncList[k]->generic)
+			{
+				minRating = 0;
+				minRatingIndex = k;
+			}
+		}
+	}
+	if(minRating == ~0u)
+		ThrowError(pos, "ERROR: none of the member ::%s functions can handle the supplied parameter list without conversions", funcName);
+	FunctionInfo *fInfo = bestFuncList[minRatingIndex];
+	if(fInfo && fInfo->generic)
+		CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u, fInfo->parentClass);
+	// Check, is there are more than one function, that share the same rating
+	for(unsigned k = 0; k < count; k++)
+	{
+		if(k != minRatingIndex && bestFuncRating[k] == minRating && bestFuncList[k]->funcType != fInfo->funcType)
+		{
+			char	*errPos = errorReport;
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n");
+			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count);
+		}
+	}
+	// Get function type
+	TypeInfo *fType = fInfo->funcType;
+
+	unsigned int lenStr = 5 + (int)strlen(funcName) + 1 + 32;
+	char *vtblName = AllocateString(lenStr);
+	SafeSprintf(vtblName, lenStr, "$vtbl%010u%s", fType->GetFullNameHash(), funcName);
+	unsigned int hash = GetStringHash(vtblName);
+	VariableInfo *target = vtblList;
+	while(target && target->nameHash != hash)
+		target = target->next;
+
+	// If vtbl cannot be found, create it
+	if(!target)
+	{
+		// Create array of function pointer (function pointer is an integer index)
+		VariableInfo *vInfo = new VariableInfo(0, InplaceStr(vtblName), hash, 500000, CodeInfo::GetArrayType(typeInt, TypeInfo::UNSIZED_ARRAY), true);
+		vInfo->next = vtblList;
+		vInfo->prev = (VariableInfo*)fType;	// $$ not type safe at all
+		target = vtblList = vInfo;
+	}
+	// Take node with auto ref computation
+	NodeZeroOP *autoRef = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1];
+	// Push it on the top
+	CodeInfo::nodeList.push_back(autoRef);
+	// We have auto ref ref, so dereference it
+	AddGetVariableNode(pos);
+	// Push address to array
+	CodeInfo::nodeList.push_back(new NodeGetAddress(target, target->pos, target->varType));
+	((NodeGetAddress*)CodeInfo::nodeList.back())->SetAddressTracking();
+	// Find redirection function
+	HashMap<FunctionInfo*>::Node *curr = funcMap.first(GetStringHash(forFunctionCall ? "__redirect" : "__redirect_ptr"));
+	if(!curr)
+		ThrowError(pos, "ERROR: cannot find redirection function");
+	// Call redirection function
+	AddFunctionCallNode(pos, forFunctionCall ? "__redirect" : "__redirect_ptr", 2);
+	// Rename return function type
+	CodeInfo::nodeList.back()->typeInfo = fType;
+}
+
 bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount, bool silent)
 {
 	// Check if type has any member functions
@@ -3976,81 +4080,10 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 	// For auto ref types, we redirect call to a target type
 	if(currentType == CodeInfo::GetReferenceType(typeObject))
 	{
-		// We need to know what function overload is called, and this is a long process:
-		// Get function name hash
-		unsigned int fHash = GetStringHash(funcName);
-
-		// Clear function list
-		bestFuncList.clear();
-		// Find all functions with called name that are member functions
-		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
-		{
-			FunctionInfo *func = CodeInfo::funcInfo[i];
-			if(func->nameHashOrig == fHash && func->parentClass && func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType)
-				bestFuncList.push_back(func);
-		}
-		unsigned int count = bestFuncList.size();
-		if(count == 0)
-			ThrowError(pos, "ERROR: function '%s' is undefined in any of existing classes", funcName);
-
-		// Find best function fit
-		unsigned minRating = ~0u;
-		unsigned minRatingIndex = SelectBestFunction(count, callArgCount, minRating);
-		if(minRating == ~0u)
-			ThrowError(pos, "ERROR: none of the member ::%s functions can handle the supplied parameter list without conversions", funcName);
-		FunctionInfo *fInfo = bestFuncList[minRatingIndex];
-		if(fInfo && fInfo->generic)
-			CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u, fInfo->parentClass);
-		// Check, is there are more than one function, that share the same rating
-		for(unsigned k = 0; k < count; k++)
-		{
-			if(k != minRatingIndex && bestFuncRating[k] == minRating && bestFuncList[k]->funcType != fInfo->funcType)
-			{
-				char	*errPos = errorReport;
-				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n");
-				ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count);
-			}
-		}
-		// Get function type
-		TypeInfo *fType = fInfo->funcType;
-
-		unsigned int lenStr = 5 + (int)strlen(funcName) + 1 + 32;
-		char *vtblName = AllocateString(lenStr);
-		SafeSprintf(vtblName, lenStr, "$vtbl%010u%s", fType->GetFullNameHash(), funcName);
-		unsigned int hash = GetStringHash(vtblName);
-		VariableInfo *target = vtblList;
-		while(target && target->nameHash != hash)
-			target = target->next;
-
-		// If vtbl cannot be found, create it
-		if(!target)
-		{
-			// Create array of function pointer (function pointer is an integer index)
-			VariableInfo *vInfo = new VariableInfo(0, InplaceStr(vtblName), hash, 500000, CodeInfo::GetArrayType(typeInt, TypeInfo::UNSIZED_ARRAY), true);
-			vInfo->next = vtblList;
-			vInfo->prev = (VariableInfo*)fType;	// $$ not type safe at all
-			target = vtblList = vInfo;
-		}
-		// Take node with auto ref computation
-		NodeZeroOP *autoRef = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1];
-		// Push it on the top
-		CodeInfo::nodeList.push_back(autoRef);
-		// We have auto ref ref, so dereference it
-		AddGetVariableNode(pos);
-		// Push address to array
-		CodeInfo::nodeList.push_back(new NodeGetAddress(target, target->pos, target->varType));
-		((NodeGetAddress*)CodeInfo::nodeList.back())->SetAddressTracking();
-		// Find redirection function
-		HashMap<FunctionInfo*>::Node *curr = funcMap.first(GetStringHash("__redirect"));
-		if(!curr)
-			ThrowError(pos, "ERROR: cannot find redirection function");
-		// Call redirection function
-		AddFunctionCallNode(pos, "__redirect", 2);
-		// Rename return function type
-		CodeInfo::nodeList.back()->typeInfo = fType;
+		GetAutoRefFunction(pos, funcName, callArgCount, true);
 		// Call target function
 		AddFunctionCallNode(pos, NULL, callArgCount);
-		autoRef = CodeInfo::nodeList.back();
+		NodeZeroOP *autoRef = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.push_back(autoRef);
@@ -4107,7 +4140,7 @@ unsigned PrintArgumentName(NodeZeroOP* activeNode, char* pos, unsigned limit)
 		TypeInfo *nodeType = activeNode->nodeType == typeNodeFuncDef ? ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType : activeNode->typeInfo;
 		pos += SafeSprintf(pos, limit - int(pos - start), "%s", nodeType->GetFullTypeName());
 	}
-	return pos - start;
+	return unsigned(pos - start);
 }
 
 void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorReport, char* errPos, const char* funcName, unsigned callArgCount, unsigned count)

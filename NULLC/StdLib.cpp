@@ -751,6 +751,20 @@ NULLCFuncPtr NULLC::FunctionRedirect(NULLCRef r, NULLCArray* arr)
 	return ret;
 }
 
+NULLCFuncPtr NULLC::FunctionRedirectPtr(NULLCRef r, NULLCArray* arr)
+{
+	unsigned int *funcs = (unsigned int*)arr->ptr;
+	NULLCFuncPtr ret = { 0, 0 };
+	if(r.typeID > arr->len)
+	{
+		nullcThrowError("ERROR: type index is out of bounds of redirection table");
+		return ret;
+	}
+	ret.context = funcs[r.typeID] ? r.ptr : 0;
+	ret.id = funcs[r.typeID];
+	return ret;
+}
+
 NULLC::TypeIDHelper NULLC::Typeid(NULLCRef r)
 {
 	TypeIDHelper help;
