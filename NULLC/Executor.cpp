@@ -1783,7 +1783,7 @@ bool Executor::RunCallStackHelper(unsigned funcID, unsigned extraPopDW, unsigned
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
 	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
-	//unsigned int bytesToPop = exFunctions[funcID].bytesToPop;
+
 	void* fPtr = exFunctions[funcID].funcPtr;
 	unsigned int retType = exFunctions[funcID].retType;
 
@@ -1822,12 +1822,21 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	case ExternFuncInfo::RETURN_UNKNOWN:
 	{
 		unsigned int ret[128];
-		unsigned int *ptr = &ret[0];
-		asm("movl %0, %%eax"::"r"(ptr):"%eax");
-		asm("pushl %eax");
+		unsigned int *ptr_ = &ret[0];
 
+#ifdef __GNUC__
+		asm("movl %0, %%eax"::"r"(ptr_):"%eax");
+		asm("pushl %eax");
+#else
+		__asm mov eax, ptr_
+		__asm push eax
+#endif
 		((void (*)())fPtr)();
 		
+#ifdef _MSC_VER
+		__asm add esp, 4
+#endif
+
 		// adjust new stack top
 		newStackPtr -= exFunctions[funcID].returnShift;
 		// copy return value on top of the stack

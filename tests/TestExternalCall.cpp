@@ -717,7 +717,23 @@ TEST_RESULT("External function call. alignment test 4.", testExternalCallM4, "1"
 
 // big argument tests
 // big arguments with int and float/double
-// big return tests
+
+#ifdef NULLC_COMPLEX_RETURN
+
+struct ReturnBig1{ int a, b, c, d; };
+ReturnBig1 TestReturnBig1()
+{
+	ReturnBig1 x = { 1, 2, 3, 4 };
+	return x;
+}
+LOAD_MODULE_BIND(test_big1, "test.big1", "class X{ int a, b, c, d; } X Call();")
+{
+	nullcBindModuleFunction("test.big1", (void (*)())TestReturnBig1, "Call", 0);
+}
+const char	*testBigReturnType1 = "import test.big1;\r\n X x; x = Call(); return x.a == 1 && x.b == 2 && x.c == 3 && x.d == 4;";
+TEST_RESULT("External function call. Big return type 1.", testBigReturnType1, "1");
+
+#endif
 
 #endif
 
