@@ -241,31 +241,44 @@ namespace NULLCPugiXML
 		ret.attribute = ptr->node.append_attribute(name.ptr);
 		return ret;
 	}
-	xml_attribute xml_node__insert_attribute_after(NULLCArray name, xml_attribute * attr, xml_node* ptr)
+	xml_attribute xml_node__prepend_attribute(NULLCArray name, xml_node* ptr)
+	{
+		xml_attribute ret;
+		ret.attribute = ptr->node.prepend_attribute(name.ptr);
+		return ret;
+	}
+	xml_attribute xml_node__insert_attribute_after(NULLCArray name, xml_attribute* attr, xml_node* ptr)
 	{
 		xml_attribute ret;
 		ret.attribute = ptr->node.insert_attribute_after(name.ptr, attr->attribute);
 		return ret;
 	}
-	xml_attribute xml_node__insert_attribute_before(NULLCArray name, xml_attribute * attr, xml_node* ptr)
+	xml_attribute xml_node__insert_attribute_before(NULLCArray name, xml_attribute* attr, xml_node* ptr)
 	{
 		xml_attribute ret;
 		ret.attribute = ptr->node.insert_attribute_before(name.ptr, attr->attribute);
 		return ret;
 	}
-	xml_attribute xml_node__append_copy0(xml_attribute * proto, xml_node* ptr)
+
+	xml_attribute xml_node__append_copy0(xml_attribute* proto, xml_node* ptr)
 	{
 		xml_attribute ret;
 		ret.attribute = ptr->node.append_copy(proto->attribute);
 		return ret;
 	}
-	xml_attribute xml_node__insert_copy_after0(xml_attribute * proto, xml_attribute * attr, xml_node* ptr)
+	xml_attribute xml_node__prepend_copy0(xml_attribute* proto, xml_node* ptr)
+	{
+		xml_attribute ret;
+		ret.attribute = ptr->node.prepend_copy(proto->attribute);
+		return ret;
+	}
+	xml_attribute xml_node__insert_copy_after0(xml_attribute* proto, xml_attribute* attr, xml_node* ptr)
 	{
 		xml_attribute ret;
 		ret.attribute = ptr->node.insert_copy_after(proto->attribute, attr->attribute);
 		return ret;
 	}
-	xml_attribute xml_node__insert_copy_before0(xml_attribute * proto, xml_attribute * attr, xml_node* ptr)
+	xml_attribute xml_node__insert_copy_before0(xml_attribute* proto, xml_attribute* attr, xml_node* ptr)
 	{
 		xml_attribute ret;
 		ret.attribute = ptr->node.insert_copy_before(proto->attribute, attr->attribute);
@@ -278,38 +291,76 @@ namespace NULLCPugiXML
 		ret.node = ptr->node.append_child(type);
 		return ret;
 	}
-	xml_node xml_node__insert_child_after(pugi::xml_node_type type, xml_node * node, xml_node* ptr)
+	xml_node xml_node__prepend_child(pugi::xml_node_type type, xml_node* ptr)
+	{
+		xml_node ret;
+		ret.node = ptr->node.prepend_child(type);
+		return ret;
+	}
+	xml_node xml_node__insert_child_after(pugi::xml_node_type type, xml_node* node, xml_node* ptr)
 	{
 		xml_node ret;
 		ret.node = ptr->node.insert_child_after(type, node->node);
 		return ret;
 	}
-	xml_node xml_node__insert_child_before(pugi::xml_node_type type, xml_node * node, xml_node* ptr)
+	xml_node xml_node__insert_child_before(pugi::xml_node_type type, xml_node* node, xml_node* ptr)
 	{
 		xml_node ret;
 		ret.node = ptr->node.insert_child_before(type, node->node);
 		return ret;
 	}
-	xml_node xml_node__append_copy1(xml_node * proto, xml_node* ptr)
+
+	xml_node xml_node__append_child1(NULLCArray name, xml_node* ptr)
+	{
+		xml_node ret;
+		ret.node = ptr->node.append_child(name.ptr);
+		return ret;
+	}
+	xml_node xml_node__prepend_child1(NULLCArray name, xml_node* ptr)
+	{
+		xml_node ret;
+		ret.node = ptr->node.prepend_child(name.ptr);
+		return ret;
+	}
+	xml_node xml_node__insert_child_after1(NULLCArray name, xml_node* node, xml_node* ptr)
+	{
+		xml_node ret;
+		ret.node = ptr->node.insert_child_after(name.ptr, node->node);
+		return ret;
+	}
+	xml_node xml_node__insert_child_before1(NULLCArray name, xml_node* node, xml_node* ptr)
+	{
+		xml_node ret;
+		ret.node = ptr->node.insert_child_before(name.ptr, node->node);
+		return ret;
+	}
+
+	xml_node xml_node__append_copy1(xml_node* proto, xml_node* ptr)
 	{
 		xml_node ret;
 		ret.node = ptr->node.append_copy(proto->node);
 		return ret;
 	}
-	xml_node xml_node__insert_copy_after1(xml_node * proto, xml_node * node, xml_node* ptr)
+	xml_node xml_node__prepend_copy1(xml_node* proto, xml_node* ptr)
+	{
+		xml_node ret;
+		ret.node = ptr->node.prepend_copy(proto->node);
+		return ret;
+	}
+	xml_node xml_node__insert_copy_after1(xml_node* proto, xml_node* node, xml_node* ptr)
 	{
 		xml_node ret;
 		ret.node = ptr->node.insert_copy_after(proto->node, node->node);
 		return ret;
 	}
-	xml_node xml_node__insert_copy_before1(xml_node * proto, xml_node * node, xml_node* ptr)
+	xml_node xml_node__insert_copy_before1(xml_node* proto, xml_node* node, xml_node* ptr)
 	{
 		xml_node ret;
 		ret.node = ptr->node.insert_copy_before(proto->node, node->node);
 		return ret;
 	}
 
-	void xml_node__remove_attribute0(xml_attribute * a, xml_node* ptr)
+	void xml_node__remove_attribute0(xml_attribute* a, xml_node* ptr)
 	{
 		ptr->node.remove_attribute(a->attribute);
 	}
@@ -318,7 +369,7 @@ namespace NULLCPugiXML
 		ptr->node.remove_attribute(name.ptr);
 	}
 
-	void xml_node__remove_child0(xml_node * n, xml_node* ptr)
+	void xml_node__remove_child0(xml_node* n, xml_node* ptr)
 	{
 		ptr->node.remove_child(n->node);
 	}
@@ -751,18 +802,32 @@ bool	nullcInitPugiXMLModule()
 	REGISTER_FUNC(xml_node__child_value1, "xml_node::child_value", 1);
 	REGISTER_FUNC(xml_node__set_name, "xml_node::set_name", 0);
 	REGISTER_FUNC(xml_node__set_value, "xml_node::set_value", 0);
+
 	REGISTER_FUNC(xml_node__append_attribute, "xml_node::append_attribute", 0);
+	REGISTER_FUNC(xml_node__prepend_attribute, "xml_node::prepend_attribute", 0);
 	REGISTER_FUNC(xml_node__insert_attribute_after, "xml_node::insert_attribute_after", 0);
 	REGISTER_FUNC(xml_node__insert_attribute_before, "xml_node::insert_attribute_before", 0);
+
 	REGISTER_FUNC(xml_node__append_copy0, "xml_node::append_copy", 0);
+	REGISTER_FUNC(xml_node__prepend_copy0, "xml_node::prepend_copy", 0);
 	REGISTER_FUNC(xml_node__insert_copy_after0, "xml_node::insert_copy_after", 0);
 	REGISTER_FUNC(xml_node__insert_copy_before0, "xml_node::insert_copy_before", 0);
+
 	REGISTER_FUNC(xml_node__append_child, "xml_node::append_child", 0);
+	REGISTER_FUNC(xml_node__prepend_child, "xml_node::prepend_child", 0);
 	REGISTER_FUNC(xml_node__insert_child_after, "xml_node::insert_child_after", 0);
 	REGISTER_FUNC(xml_node__insert_child_before, "xml_node::insert_child_before", 0);
+
+	REGISTER_FUNC(xml_node__append_child1, "xml_node::append_child", 1);
+	REGISTER_FUNC(xml_node__prepend_child1, "xml_node::prepend_child", 1);
+	REGISTER_FUNC(xml_node__insert_child_after1, "xml_node::insert_child_after", 1);
+	REGISTER_FUNC(xml_node__insert_child_before1, "xml_node::insert_child_before", 1);
+
 	REGISTER_FUNC(xml_node__append_copy1, "xml_node::append_copy", 1);
+	REGISTER_FUNC(xml_node__prepend_copy1, "xml_node::prepend_copy", 1);
 	REGISTER_FUNC(xml_node__insert_copy_after1, "xml_node::insert_copy_after", 1);
 	REGISTER_FUNC(xml_node__insert_copy_before1, "xml_node::insert_copy_before", 1);
+
 	REGISTER_FUNC(xml_node__remove_attribute0, "xml_node::remove_attribute", 0);
 	REGISTER_FUNC(xml_node__remove_attribute1, "xml_node::remove_attribute", 1);
 	REGISTER_FUNC(xml_node__remove_child0, "xml_node::remove_child", 0);
