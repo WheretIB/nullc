@@ -374,7 +374,10 @@ nullres nullcBuild(const char* code)
 	nullcGetBytecode(&bytecode);
 	nullcClean();
 	if(!nullcLinkCode(bytecode))
+	{
+		delete[] bytecode;
 		return false;
+	}
 	delete[] bytecode;
 	return true;
 }
