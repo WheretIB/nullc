@@ -159,16 +159,27 @@ class xml_node
 	int set_value(char[] rhs);
 
 	xml_attribute append_attribute(char[] name);
+	xml_attribute prepend_attribute(char[] name);
 	xml_attribute insert_attribute_after(char[] name, xml_attribute ref attr);
 	xml_attribute insert_attribute_before(char[] name, xml_attribute ref attr);
+
 	xml_attribute append_copy(xml_attribute ref proto);
+	xml_attribute prepend_copy(xml_attribute ref proto);
 	xml_attribute insert_copy_after(xml_attribute ref proto, xml_attribute ref attr);
 	xml_attribute insert_copy_before(xml_attribute ref proto, xml_attribute ref attr);
 
 	xml_node append_child(xml_node_type type = pugi.node_element);
+	xml_node prepend_child(xml_node_type type = pugi.node_element);
 	xml_node insert_child_after(xml_node_type type, xml_node ref node);
 	xml_node insert_child_before(xml_node_type type, xml_node ref node);
+	
+	xml_node append_child(char[] name);
+	xml_node prepend_child(char[] name);
+	xml_node insert_child_after(char[] name, xml_node ref node);
+	xml_node insert_child_before(char[] name, xml_node ref node);
+
 	xml_node append_copy(xml_node ref proto);
+	xml_node prepend_copy(xml_node ref proto);
 	xml_node insert_copy_after(xml_node ref proto, xml_node ref node);
 	xml_node insert_copy_before(xml_node ref proto, xml_node ref node);
 
@@ -278,3 +289,6 @@ auto operator=(xml_node ref l, xml_document ref r)
 	*l = r.root();
 	return l;
 }
+
+bool bool(xml_node x){ return !!x; }
+bool bool(xml_attribute x){ return !!x; }
