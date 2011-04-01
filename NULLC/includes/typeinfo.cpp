@@ -1,5 +1,6 @@
 #include "typeinfo.h"
 #include "../nullc.h"
+#include "../Linker.h"
 
 namespace NULLCTypeInfo
 {

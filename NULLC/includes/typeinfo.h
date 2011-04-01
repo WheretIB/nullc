@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Linker.h"
+class Linker;
 
 bool	nullcInitTypeinfoModule(Linker* linker);
 void	nullcInitTypeinfoModuleLinkerOnly(Linker* linker);

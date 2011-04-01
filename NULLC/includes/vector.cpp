@@ -2,6 +2,8 @@
 #include "../nullc.h"
 #include "typeinfo.h"
 
+#include <memory>
+
 namespace NULLCVector
 {
 #pragma pack(push, 4)
