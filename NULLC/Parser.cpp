@@ -1848,9 +1848,16 @@ bool ParseVariable(Lexeme** str, bool *lastIsFunctionCall = NULL)
 {
 	if(ParseLexem(str, lex_mul))
 	{
-		if(!ParseVariable(str) && !ParseTerminal(str))
-			ThrowError((*str)->pos, "ERROR: variable name not found after '*'");
-		AddGetVariableNode((*str)->pos, true);
+		bool isFuncCall = false;
+		if(!ParseVariable(str, &isFuncCall))
+		{
+			if(!ParseTerminal(str))
+				ThrowError((*str)->pos, "ERROR: variable name not found after '*'");
+			else if(lastIsFunctionCall)
+				*lastIsFunctionCall = true;
+		}
+		if(!isFuncCall)
+			AddGetVariableNode((*str)->pos, true);
 		return true;
 	}
 	

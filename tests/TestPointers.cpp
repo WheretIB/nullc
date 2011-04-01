@@ -107,3 +107,23 @@ int ref ref x = &a;\r\n\
 int ref y = *x;\r\n\
 return *y;";
 TEST_RESULT("Correct dereference test", testCorrectDereference, "6");
+
+const char *testCorrectDereference2 =
+"import std.vector;\r\n\
+vector<int ref> goals;\r\n\
+goals.push_back(new int(5));\r\n\
+auto x = goals.back();\r\n\
+auto y = *x;\r\n\
+auto z = *goals.back();\r\n\
+return y == z;";
+TEST_RESULT("Correct dereference test 2", testCorrectDereference2, "1");
+
+const char *testCorrectDereference3 =
+"import std.vector;\r\n\
+vector<int ref> goals;\r\n\
+goals.push_back(new int(5));\r\n\
+auto x = goals.back();\r\n\
+auto y = *x;\r\n\
+auto z = *(goals.back());\r\n\
+return y == z;";
+TEST_RESULT("Correct dereference test 3", testCorrectDereference3, "1");
