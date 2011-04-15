@@ -1604,9 +1604,16 @@ void GenCodeCmdMovDorLStk(VMCmd cmd)
 		EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
 		EMIT_OP_RPTR(o_fstp, sQWORD, rEDX, cmd.argument);
 	}else{
+#ifdef NULLC_OPTIMIZE_X86
+		EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 0);
+		EMIT_OP_RPTR_REG(o_mov, sDWORD, rEDX, cmd.argument, rEBX);
+		EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, 4);
+		EMIT_OP_RPTR_REG(o_mov, sDWORD, rEDX, cmd.argument + 4, rEBX);
+#else
 		EMIT_OP_RPTR(o_pop, sDWORD, rEDX, cmd.argument);
 		EMIT_OP_RPTR(o_pop, sDWORD, rEDX, cmd.argument + 4);
 		EMIT_OP_REG_NUM(o_sub, rESP, 8);
+#endif
 	}
 	KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
 }
