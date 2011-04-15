@@ -2042,10 +2042,10 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 {
 	EMIT_COMMENT("CALLPTR");
 
-	EMIT_OP_REG_RPTR(o_mov, rECX, sDWORD, rESP, cmd.argument);
-	EMIT_OP_REG_RPTR(o_mov, rEAX, sNONE, rECX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr + 4);
+	EMIT_OP_REG_RPTR(o_mov, rEDX, sDWORD, rESP, cmd.argument);
+	EMIT_OP_REG_RPTR(o_mov, rEAX, sNONE, rEDX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr + 4);
 
-	EMIT_OP_REG_REG(o_test, rECX, rECX);
+	EMIT_OP_REG_REG(o_test, rEDX, rEDX);
 	EMIT_OP_LABEL(o_jnz, aluLabels + 1);
 #ifdef __linux
 	// call siglongjmp(target_env, EXCEPTION_INVALID_FUNCTION);
@@ -2066,7 +2066,7 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 	{
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
-		EMIT_OP_RPTR(o_call, sNONE, rECX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
+		EMIT_OP_RPTR(o_call, sNONE, rEDX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 	 
 		static int continueLabel = 0;
 		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
@@ -2109,7 +2109,7 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
 
-		EMIT_OP_RPTR(o_call, sNONE, rECX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
+		EMIT_OP_RPTR(o_call, sNONE, rEDX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
 
 		GenCodeCmdCallProlog(cmd);

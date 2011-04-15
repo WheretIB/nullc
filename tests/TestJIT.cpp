@@ -36,3 +36,9 @@ const char *testJiTError4 =
 *x *= *x ** *x;\r\n\
 return *x;";
 TEST_RESULT("Test for JiT error 4", testJiTError4, "8");
+
+const char *testJiTError5 = 
+"class Big{ int x, y, z, w; }\r\n\
+int foo(int ref(Big, Big) x){ Big a, b; return x(a, b); }\r\n\
+return foo(<x, y>{ 5; });";
+TEST_RESULT("Test for JiT error 5", testJiTError5, "5");
