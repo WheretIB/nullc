@@ -973,10 +973,12 @@ bool ExecutorX86::TranslateToNative()
 
 	globalStartInBytecode = 0xffffffff;
 
-	if(codeRunning && functionAddress.max <= exFunctions.size() * 2)
+	if(functionAddress.max <= exFunctions.size() * 2)
 	{
 		unsigned *newStorage = (unsigned*)NULLC::alloc(exFunctions.size() * 3 * sizeof(unsigned));
-		oldFunctionLists.push_back(FunctionListInfo(functionAddress.data, functionAddress.count));
+		if(functionAddress.data != &functionAddress.one)
+			oldFunctionLists.push_back(FunctionListInfo(functionAddress.data, functionAddress.count));
+		memcpy(newStorage, functionAddress.data, functionAddress.count * sizeof(unsigned));
 		functionAddress.data = newStorage;
 		functionAddress.count = exFunctions.size() * 2;
 		functionAddress.max = exFunctions.size() * 3;
