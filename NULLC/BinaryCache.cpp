@@ -1,4 +1,5 @@
 #include "BinaryCache.h"
+#include "Lexer.h"
 
 namespace BinaryCache
 {
@@ -33,6 +34,7 @@ void BinaryCache::Terminate()
 	{
 		NULLC::dealloc((void*)cache[i].name);
 		delete[] cache[i].binary;
+		delete[] cache[i].lexemes;
 	}
 	cache.clear();
 	cache.reset();
@@ -41,7 +43,7 @@ void BinaryCache::Terminate()
 	lastBytecode = NULL;
 }
 
-void BinaryCache::PutBytecode(const char* path, const char* bytecode)
+void BinaryCache::PutBytecode(const char* path, const char* bytecode, Lexeme* lexStart, unsigned lexCount)
 {
 	unsigned int hash = GetStringHash(path);
 	unsigned int i = 0;
@@ -57,6 +59,15 @@ void BinaryCache::PutBytecode(const char* path, const char* bytecode)
 	desc->name = strcpy((char*)NULLC::alloc(pathLen + 1), path);
 	desc->nameHash = hash;
 	desc->binary = bytecode;
+	if(lexStart)
+	{
+		desc->lexemes = new Lexeme[lexCount];
+		memcpy(desc->lexemes, lexStart, lexCount * sizeof(Lexeme));
+		desc->lexemeCount = lexCount;
+	}else{
+		desc->lexemes = NULL;
+		desc->lexemeCount = 0;
+	}
 }
 
 const char* BinaryCache::GetBytecode(const char* path)
@@ -77,6 +88,20 @@ const char* BinaryCache::GetBytecode(const char* path)
 	return NULL;
 }
 
+Lexeme* BinaryCache::GetLexems(const char* path, unsigned& count)
+{
+	unsigned int hash = GetStringHash(path);
+	for(unsigned int i = 0; i < cache.size(); i++)
+	{
+		if(hash == cache[i].nameHash)
+		{
+			count = cache[i].lexemeCount;
+			return cache[i].lexemes;
+		}
+	}
+	return NULL;
+}
+
 void BinaryCache::RemoveBytecode(const char* path)
 {
 	unsigned int hash = GetStringHash(path);
@@ -91,6 +116,7 @@ void BinaryCache::RemoveBytecode(const char* path)
 
 	NULLC::dealloc((void*)cache[i].name);
 	delete[] cache[i].binary;
+	delete[] cache[i].lexemes;
 
 	cache[i] = cache.back();
 	cache.pop_back();

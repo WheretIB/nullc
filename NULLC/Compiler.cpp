@@ -376,7 +376,7 @@ Compiler::Compiler()
 
 	char *bytecode = NULL;
 	GetBytecode(&bytecode);
-	BinaryCache::PutBytecode("$base$.nc", bytecode);
+	BinaryCache::PutBytecode("$base$.nc", bytecode, NULL, 0);
 
 #ifndef NULLC_NO_EXECUTOR
 	AddModuleFunction("$base$", (void (*)())NULLC::Assert, "assert", 0);
@@ -1096,7 +1096,7 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 			NULLC::dealloc(fileContent);
 		}
 
-		BinaryCache::PutBytecode(failedImportPath ? altFile : file, bytecode);
+		BinaryCache::PutBytecode(failedImportPath ? altFile : file, bytecode, lexer.GetStreamStart() + lexPos, lexer.GetStreamSize() - lexPos);
 
 		return bytecode;
 	}else{
@@ -1127,10 +1127,18 @@ void Compiler::RecursiveLexify(const char* bytecode)
 		SafeSprintf(fullPath, 256, "%s%s", importPath ? importPath : "", path);
 
 		const char *bytecode = BinaryCache::GetBytecode(fullPath);
+		unsigned lexCount = 0;
+		Lexeme *lexStream = BinaryCache::GetLexems(fullPath, lexCount);
 		if(!bytecode)
+		{
 			bytecode = BinaryCache::GetBytecode(path);
+			lexStream = BinaryCache::GetLexems(path, lexCount);
+		}
 		assert(bytecode);
-		Compiler::RecursiveLexify(bytecode);
+		if(lexStream)
+			lexer.Append(lexStream, lexCount);
+		else
+			Compiler::RecursiveLexify(bytecode);
 	}
 }
 
@@ -1195,8 +1203,13 @@ bool Compiler::Compile(const char* str, bool noClear)
 		start++;
 		SafeSprintf(cPath, 256 - int(cPath - path), ".nc");
 		const char *bytecode = BinaryCache::GetBytecode(path);
+		unsigned lexCount = 0;
+		Lexeme *lexStream = BinaryCache::GetLexems(path, lexCount);
 		if(!bytecode && importPath)
+		{
 			bytecode = BinaryCache::GetBytecode(pathNoImport);
+			lexStream = BinaryCache::GetLexems(pathNoImport, lexCount);
+		}
 
 		moduleStack.push_back(ModuleInfo(strcpy((char*)dupStringsModule.Allocate((unsigned int)strlen(pathNoImport) + 1), pathNoImport), NULL, 0, CodeRange()));
 		if(!bytecode)
@@ -1223,7 +1236,12 @@ bool Compiler::Compile(const char* str, bool noClear)
 		}else{
 			unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);
 			moduleStack.back().stream = lexer.GetStreamSize();
-			RecursiveLexify(bytecode);
+
+			if(lexStream)
+				lexer.Append(lexStream, lexCount);
+			else
+				RecursiveLexify(bytecode);
+
 			start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
 			moduleStack.back().range = CodeRange(lexer.GetStreamStart()[moduleStack.back().stream].pos, lexer.GetStreamStart()[lexer.GetStreamSize() - 1].pos);
 		}
