@@ -35,6 +35,7 @@ FastVector<VarTopInfo>		varInfoTop;
 VariableInfo	*lostGlobalList = NULL;
 
 VariableInfo	*vtblList = NULL;
+unsigned		newVtblCount = 0;
 
 // Stack of function counts.
 // Used to find how many functions are to be removed when their visibility ends.
@@ -4072,6 +4073,7 @@ void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int call
 		vInfo->next = vtblList;
 		vInfo->prev = (VariableInfo*)fType;	// $$ not type safe at all
 		target = vtblList = vInfo;
+		newVtblCount++;
 	}
 	// Take node with auto ref computation
 	NodeZeroOP *autoRef = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1];
@@ -5557,10 +5559,10 @@ void AddUnfixedArraySize()
 	CodeInfo::nodeList.push_back(new NodeNumber(1, typeVoid));
 }
 
-void CreateRedirectionTables()
+void RestoreRedirectionTables()
 {
+	assert(newVtblCount == 0);
 	// Search for virtual function tables in imported modules so that we can add functions from new classes
-	unsigned continuations = 0;
 	for(unsigned i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
 		// Name must start from $vtbl and must be at least 15 characters
@@ -5568,17 +5570,19 @@ void CreateRedirectionTables()
 			continue;
 		CodeInfo::varInfo[i]->next = vtblList;
 		vtblList = CodeInfo::varInfo[i];
-		continuations++;
 	}
+}
+
+void CreateRedirectionTables()
+{
 	VariableInfo *curr = vtblList;
-	unsigned int num = 0;
 	while(curr)
 	{
 		TypeInfo *funcType = NULL;
 		unsigned int hash = GetStringHash(curr->name.begin + 15); // 15 to skip $vtbl0123456789 from name
 
-		// If this is continuation of an imported virtual table, find function type from has code in name
-		if(continuations)
+		// If this is continuation of an imported virtual table, find function type from hash code in name
+		if(!newVtblCount)
 		{
 			unsigned typeHash = parseInteger(curr->name.begin + 5); // 5 to skip $vtbl
 			for(unsigned c = 0; !funcType && c < CodeInfo::typeFunctions.size(); c++)
@@ -5587,7 +5591,6 @@ void CreateRedirectionTables()
 					funcType = CodeInfo::typeFunctions[c];
 			}
 			AddVoidNode();
-			continuations--;
 		}else{
 			currType = curr->varType;
 			CodeInfo::nodeList.push_back(new NodeNumber(4, typeInt));
@@ -5603,6 +5606,7 @@ void CreateRedirectionTables()
 			AddPopNode(CodeInfo::lastKnownStartPos);
 
 			funcType = (TypeInfo*)curr->prev;
+			newVtblCount--;
 		}
 
 		bestFuncList.clear();
@@ -5650,7 +5654,6 @@ void CreateRedirectionTables()
 		static_cast<NodeExpressionList*>(CodeInfo::nodeList[0])->AddNode(true);
 
 		curr = curr->next;
-		num++;
 	}
 }
 
@@ -5792,6 +5795,7 @@ void CallbackInitialize()
 	ResetTreeGlobals();
 
 	vtblList = NULL;
+	newVtblCount = 0;
 
 	// Clear namespace list and place an unnamed namespace on top of namespace stack
 	CodeInfo::namespaceInfo.clear();

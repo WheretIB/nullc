@@ -132,3 +132,24 @@ const char	*testImportInidrect1 =
 vector<int> x;\r\n\
 return 1;";
 TEST_RESULT("Indirect generic type import", testImportInidrect1, "1");
+
+LOAD_MODULE(test_variablecollision1, "test.variablecollision1", "int a = 1;");
+LOAD_MODULE(test_variablecollision2, "test.variablecollision2", "import test.variablecollision1; a = 2;");
+LOAD_MODULE(test_variablecollision3, "test.variablecollision3", "import test.variablecollision1; a = 3;");
+const char	*testVariableCollsion1 =
+"import test.variablecollision1;\r\n\
+import test.variablecollision2;\r\n\
+import test.variablecollision3;\r\n\
+return a;";
+TEST_RESULT("Variable collision 1", testVariableCollsion1, "3");
+
+LOAD_MODULE(test_variablecollision1b, "test.variablecollision1b", "class Foo{ int foo(){ return 12; } } if(0){ auto ref x; x.foo(); }");
+LOAD_MODULE(test_variablecollision2b, "test.variablecollision2b", "import test.variablecollision1b; if(0){ auto ref x; x.foo(); }");
+LOAD_MODULE(test_variablecollision3b, "test.variablecollision3b", "import test.variablecollision1b; if(0){ auto ref x; x.foo(); }");
+const char	*testVariableCollsion2 =
+"import test.variablecollision1b;\r\n\
+import test.variablecollision2b;\r\n\
+import test.variablecollision3b;\r\n\
+auto ref x = new Foo();\r\n\
+return x.foo();";
+TEST_RESULT("Variable collision 2", testVariableCollsion2, "12");

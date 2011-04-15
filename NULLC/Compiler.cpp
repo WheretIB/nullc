@@ -1275,6 +1275,8 @@ bool Compiler::Compile(const char* str, bool noClear)
 	CodeInfo::cmdInfoList.SetSourceStart(CompilerError::codeStart, CompilerError::codeEnd);
 	CodeInfo::lexFullStart = lexer.GetStreamStart() + lexStreamStart;
 
+	RestoreRedirectionTables();
+
 	bool res;
 	if(!setjmp(CodeInfo::errorHandler))
 	{
