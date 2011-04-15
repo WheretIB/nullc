@@ -71,6 +71,7 @@ private:
 	void	ClearState();
 	bool	ImportModule(const char* bytecode, const char* pos, unsigned int number);
 	char*	BuildModule(const char* file, const char* altFile);
+	void	RecursiveLexify(const char* bytecode);
 
 	friend class CompilerError;
 
