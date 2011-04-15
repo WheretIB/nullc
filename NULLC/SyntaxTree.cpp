@@ -1074,8 +1074,8 @@ void NodeDereference::Compile()
 		if(originalNode->nodeType != typeNodeGetAddress)
 		{
 			originalNode->Compile();
-			if(first->typeInfo != typeVoid && first->typeInfo->size)
-				cmdList.push_back(VMCmd(cmdPop, first->typeInfo->type == TypeInfo::TYPE_COMPLEX ? first->typeInfo->size : stackTypeSize[first->typeInfo->stackType]));
+			if(originalNode->typeInfo != typeVoid && originalNode->typeInfo->size)
+				cmdList.push_back(VMCmd(cmdPop, originalNode->typeInfo->type == TypeInfo::TYPE_COMPLEX ? originalNode->typeInfo->size : stackTypeSize[originalNode->typeInfo->stackType]));
 		}
 		return;
 	}
