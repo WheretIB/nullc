@@ -1248,7 +1248,7 @@ const char* GetSelectedTypeName()
 	return currType->GetFullTypeName();
 }
 
-VariableInfo* AddVariable(const char* pos, InplaceStr variableName, bool preserveNamespace, bool allowThis)
+VariableInfo* AddVariable(const char* pos, InplaceStr variableName, bool preserveNamespace, bool allowThis, bool allowCollision)
 {
 	static unsigned thisHash = GetStringHash("this");
 
@@ -1266,7 +1266,7 @@ VariableInfo* AddVariable(const char* pos, InplaceStr variableName, bool preserv
 
 	// Check for variables with the same name in current scope
 	if(VariableInfo **info = varMap.find(hash))
-		if((*info)->blockDepth >= varInfoTop.size())
+		if((*info)->blockDepth >= varInfoTop.size() && !allowCollision)
 			ThrowError(pos, "ERROR: name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
 	// Check for functions with the same name
 	CheckCollisionWithFunction(pos, varName, hash, varInfoTop.size());

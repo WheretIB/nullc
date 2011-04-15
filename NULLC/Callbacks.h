@@ -86,7 +86,7 @@ void SelectTypeByIndex(unsigned int index);
 TypeInfo* GetSelectedType();
 const char* GetSelectedTypeName();
 
-VariableInfo* AddVariable(const char* pos, InplaceStr varName, bool preserveNamespace = true, bool allowThis = false);
+VariableInfo* AddVariable(const char* pos, InplaceStr varName, bool preserveNamespace = true, bool allowThis = false, bool allowCollision = false);
 
 void AddVariableReserveNode(const char* pos);
 
