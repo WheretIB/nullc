@@ -67,6 +67,7 @@ class Lexer
 public:
 	void			Clear(unsigned count);
 	void			Lexify(const char* code);
+	void			Append(Lexeme* stream, unsigned count);
 
 	Lexeme*			GetStreamStart();
 	unsigned int	GetStreamSize();

@@ -200,7 +200,7 @@ nullres nullcLoadModuleBySource(const char* module, const char* code)
 
 	char *bytecode = NULL;
 	nullcGetBytecode(&bytecode);
-	BinaryCache::PutBytecode(path, bytecode);
+	BinaryCache::PutBytecode(path, bytecode, NULL, 0);
 	return 1;
 }
 
@@ -233,7 +233,7 @@ nullres nullcLoadModuleByBinary(const char* module, const char* binary)
 	memcpy(copy, binary, ((ByteCode*)binary)->size);
 	binary = copy;
 	// Load it into cache
-	BinaryCache::PutBytecode(path, binary);
+	BinaryCache::PutBytecode(path, binary, NULL, 0);
 	return 1;
 }
 

@@ -385,6 +385,13 @@ void Lexer::Lexify(const char* code)
 	lexems.push_back(lex);
 }
 
+void Lexer::Append(Lexeme* stream, unsigned count)
+{
+	unsigned oldSize = lexems.size();
+	lexems.resize(lexems.size() + count);
+	memcpy(&lexems.data[oldSize], stream, count * sizeof(Lexeme));
+}
+
 Lexeme* Lexer::GetStreamStart()
 {
 	return &lexems[0];
