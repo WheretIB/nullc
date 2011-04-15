@@ -1067,9 +1067,18 @@ void NodeDereference::Compile()
 
 	CompileExtra();
 
-	if(typeInfo->size == 0)
-		return;
 	asmDataType asmDT = typeInfo->dataType;
+
+	if(typeInfo->size == 0)
+	{
+		if(originalNode->nodeType != typeNodeGetAddress)
+		{
+			originalNode->Compile();
+			if(first->typeInfo != typeVoid && first->typeInfo->size)
+				cmdList.push_back(VMCmd(cmdPop, first->typeInfo->type == TypeInfo::TYPE_COMPLEX ? first->typeInfo->size : stackTypeSize[first->typeInfo->stackType]));
+		}
+		return;
+	}
 
 	if(neutralized)
 	{

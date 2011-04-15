@@ -81,7 +81,7 @@ return *ll;";
 TEST_RUNTIME_FAIL("Auto reference type mismatch", testAutoReferenceMismatch, "ERROR: cannot convert from int ref to double ref");
 
 const char	*testFunctionIsNotACoroutine = "for(i in auto(){return 1;}){}";
-TEST_RUNTIME_FAIL("Iteration overa a function that is not a coroutine", testFunctionIsNotACoroutine, "ERROR: function is not a coroutine");
+TEST_RUNTIME_FAIL("Iteration over a a function that is not a coroutine", testFunctionIsNotACoroutine, "ERROR: function is not a coroutine");
 
 const char	*testTypeDoesntImplementMethod =
 "class Foo{ int i; }\r\n\
@@ -112,6 +112,9 @@ TEST_RUNTIME_FAIL("auto[] type conversion mismatch 2", testAutoArrayConversionFa
 
 const char	*testAutoArrayConversionFail4 = "auto str = \"Hello\"; auto[] arr = str; int[] str2 = arr; return 0;";
 TEST_RUNTIME_FAIL("auto[] type conversion mismatch 3", testAutoArrayConversionFail4, "ERROR: cannot convert from 'auto[]' (actual type 'char[6]') to 'int[]'");
+
+const char	*testAutoRefFail = "class X{} auto ref x = 5; X a = X(x); return 1;";
+TEST_RUNTIME_FAIL("Auto reference type mismatch 2", testAutoRefFail, "ERROR: cannot convert from int ref to X ref");
 
 const char	*testInvalidPointer = 
 "class Test{ int a, b; }\r\n\
