@@ -127,3 +127,11 @@ auto y = *x;\r\n\
 auto z = *(goals.back());\r\n\
 return y == z;";
 TEST_RESULT("Correct dereference test 3", testCorrectDereference3, "1");
+
+const char *testSideEffectPreservation =
+"class X{} X x;\r\n\
+int i;\r\n\
+X ref foo(){ i = 5; return &x; }\r\n\
+X a = *foo();\r\n\
+return i;";
+TEST_RESULT("Preservation of side effects when dereferencing a 0-byte class pointer", testSideEffectPreservation, "5");
