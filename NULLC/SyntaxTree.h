@@ -461,6 +461,7 @@ public:
 	friend class NodeVariableSet;
 	friend class NodeVariableModify;
 	friend class NodePreOrPostOp;
+	friend class NodeShiftAddress;
 
 	TypeInfo	*typeParent;
 	bool		knownShift;

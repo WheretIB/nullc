@@ -135,3 +135,35 @@ X ref foo(){ i = 5; return &x; }\r\n\
 X a = *foo();\r\n\
 return i;";
 TEST_RESULT("Preservation of side effects when dereferencing a 0-byte class pointer", testSideEffectPreservation, "5");
+
+const char *testASTOptimizationFail1 =
+"class int3{ int x, y, z; }\r\n\
+int3[1] p;\r\n\
+auto x = &p;\r\n\
+p[0].y = 2;\r\n\
+return x[0].y;";
+TEST_RESULT("Syntax tree optimization failure check 1", testASTOptimizationFail1, "2");
+
+const char *testASTOptimizationFail2 =
+"class int3{ int x, y, z; }\r\n\
+int3[1] p;\r\n\
+auto x = &p;\r\n\
+x[0].y = 2;\r\n\
+return p[0].y;";
+TEST_RESULT("Syntax tree optimization failure check 2", testASTOptimizationFail2, "2");
+
+const char *testASTOptimizationFail3 =
+"class int3{ int x, y, z; }\r\n\
+int3[1] p;\r\n\
+auto x = &p;\r\n\
+x[0].y += 2;\r\n\
+return p[0].y;";
+TEST_RESULT("Syntax tree optimization failure check 3", testASTOptimizationFail3, "2");
+
+const char *testASTOptimizationFail4 =
+"class int3{ int x, y, z; }\r\n\
+int3[1] p;\r\n\
+auto x = &p;\r\n\
+x[0].y++;\r\n\
+return p[0].y;";
+TEST_RESULT("Syntax tree optimization failure check 4", testASTOptimizationFail4, "1");
