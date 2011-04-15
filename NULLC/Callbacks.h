@@ -190,6 +190,7 @@ void AddAliasType(InplaceStr aliasName);
 
 void AddUnfixedArraySize();
 
+void RestoreRedirectionTables();
 void CreateRedirectionTables();
 
 void AddListGenerator(const char* pos, TypeInfo* rType);
