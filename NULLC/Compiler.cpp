@@ -864,7 +864,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			if(memcmp(&symbols[vInfo->offsetToName], "$temp", 5) == 0)
 				continue;
 			SelectTypeByIndex(typeRemap[vInfo->type]);
-			AddVariable(pos, InplaceStr(symbols + vInfo->offsetToName));
+			AddVariable(pos, InplaceStr(symbols + vInfo->offsetToName), true, false, memcmp(&symbols[vInfo->offsetToName], "$vtbl", 5) == 0);
 			CodeInfo::varInfo.back()->parentModule = number;
 			CodeInfo::varInfo.back()->pos = (number << 24) + (vInfo->offset & 0x00ffffff);
 		}

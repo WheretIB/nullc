@@ -153,3 +153,14 @@ import test.variablecollision3b;\r\n\
 auto ref x = new Foo();\r\n\
 return x.foo();";
 TEST_RESULT("Variable collision 2", testVariableCollsion2, "12");
+
+LOAD_MODULE(test_variablecollision1c, "test.variablecollision1c", "class Foo{ int foo(){ return 12; } }");
+LOAD_MODULE(test_variablecollision2c, "test.variablecollision2c", "import test.variablecollision1c; if(0){ auto ref x; x.foo(); }");
+LOAD_MODULE(test_variablecollision3c, "test.variablecollision3c", "import test.variablecollision1c; if(0){ auto ref x; x.foo(); }");
+const char	*testVariableCollsion3 =
+"import test.variablecollision1c;\r\n\
+import test.variablecollision2c;\r\n\
+import test.variablecollision3c;\r\n\
+auto ref x = new Foo();\r\n\
+return x.foo();";
+TEST_RESULT("Variable collision 3", testVariableCollsion3, "12");
