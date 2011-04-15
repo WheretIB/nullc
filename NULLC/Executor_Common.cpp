@@ -149,19 +149,24 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize)
 		const char *codeEnd = codeStart;
 		// Find corresponding module
 		unsigned moduleID = ~0u;
+		const char *prevEnd = NULL;
 		for(unsigned l = 0; l < exModules.size(); l++)
 		{
+			// special check for main module
+			if(source + exModules[l].sourceOffset > prevEnd && codeStart >= prevEnd && codeStart < source + exModules[l].sourceOffset)
+				break;
 			if(codeStart >= source + exModules[l].sourceOffset && codeStart < source + exModules[l].sourceOffset + exModules[l].sourceSize)
 				moduleID = l;
+			prevEnd = source + exModules[l].sourceOffset + exModules[l].sourceSize;
 		}
 		const char *moduleStart = NULL;
 		if(moduleID != ~0u)
 			moduleStart = source + exModules[moduleID].sourceOffset;
 		else
-			moduleStart = source + exModules[exModules.size()-1].sourceOffset + exModules[exModules.size()-1].sourceSize;
+			moduleStart = prevEnd;
 		// Find line number
 		unsigned line = 0;
-		while(moduleStart != codeStart)
+		while(moduleStart < codeStart)
 		{
 			if(*moduleStart++ == '\n')
 				line++;
