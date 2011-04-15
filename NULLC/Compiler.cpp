@@ -1111,6 +1111,29 @@ const char *llvmBinary = NULL;
 unsigned	llvmSize = 0;
 #endif
 
+void Compiler::RecursiveLexify(const char* bytecode)
+{
+	const char *importPath = BinaryCache::GetImportPath();
+
+	lexer.Lexify(bytecode + ((ByteCode*)bytecode)->offsetToSource);
+
+	ExternModuleInfo *mInfo = (ExternModuleInfo*)(bytecode + ((ByteCode*)bytecode)->offsetToFirstModule);
+	mInfo++;
+	for(unsigned int i = 1; i < ((ByteCode*)bytecode)->dependsCount; i++, mInfo++)
+	{
+		const char *path = bytecode + ((ByteCode*)bytecode)->offsetToSymbols + mInfo->nameOffset;
+
+		char fullPath[256];
+		SafeSprintf(fullPath, 256, "%s%s", importPath ? importPath : "", path);
+
+		const char *bytecode = BinaryCache::GetBytecode(fullPath);
+		if(!bytecode)
+			bytecode = BinaryCache::GetBytecode(path);
+		assert(bytecode);
+		Compiler::RecursiveLexify(bytecode);
+	}
+}
+
 bool Compiler::Compile(const char* str, bool noClear)
 {
 	CodeInfo::nodeList.clear();
@@ -1200,7 +1223,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 		}else{
 			unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);
 			moduleStack.back().stream = lexer.GetStreamSize();
-			lexer.Lexify(bytecode + ((ByteCode*)bytecode)->offsetToSource);
+			RecursiveLexify(bytecode);
 			start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
 			moduleStack.back().range = CodeRange(lexer.GetStreamStart()[moduleStack.back().stream].pos, lexer.GetStreamStart()[lexer.GetStreamSize() - 1].pos);
 		}
