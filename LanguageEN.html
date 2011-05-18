@@ -362,7 +362,7 @@ function toggleView(a, b, c)
 		<p class="code">
 		<span class="rword">int ref</span> x = <span class="rword">new</span></span> <span class="rword">int</span>(<span class="real">12</span>);<br />
 		</p>
-		Default class constructor will be called if parenthesis are not written.<br />
+		Default class constructor will be called if parentheses  are not written.<br />
 		To define a constructor for a type, add a member function with the name equal to the class name. Read more in a topic about <a href="#classconstructor">class constructor</a>.<br />
 		<br />
 		It is possible to define custom construction for an object by writing code inside figure braces {}:<br />
@@ -467,7 +467,7 @@ function toggleView(a, b, c)
 
 		If an <span class="rword">@</span> is placed before an <span class="rword">if</span> expression, then, condition will be evaluated at compilation time (which is not always possible) and
 		the body will be compiled only if condition is true.<br />
-		This is most useful in generic functions where different codepaths can be made for different type groups and not all codepaths can be successfuly compiled with wrong type groups.<br />
+		This is most useful in generic functions where different code paths can be made for different type groups and not all code paths can be successfully compiled with wrong type groups.<br />
 	</div>
 </div>
 <hr />
@@ -665,7 +665,7 @@ function toggleView(a, b, c)
 </span><span class="rword">    const int </span><span class="vardef">A </span>= <span class="real">5</span>, <span class="vardef">B</span>, <span class="vardef">C</span>;
 }
 <span class="rword">Foo </span><span class="vardef">a</span>;
-<span class="rword">return Foo</span>.<span class="var">B </span>+ <span class="var">a</span>.<span class="var">C</span><span class="bold">;</span><span class="comment"> // Answer is 13. Constants can be accesed directly or by using a class instance.</span></pre>
+<span class="rword">return Foo</span>.<span class="var">B </span>+ <span class="var">a</span>.<span class="var">C</span><span class="bold">;</span><span class="comment"> // Answer is 13. Constants can be accessed directly or by using a class instance.</span></pre>
 	There is no default alignment by default. To specify alignment, put "noalign" of "align(bytes)" before "class" keyword.<br />
 	Specifying "noalign" is superfluous. Alignment must not exceed 16 bytes.<br />
 	<div class="subtopic">
@@ -777,7 +777,7 @@ function toggleView(a, b, c)
 		<pre class="code">
 <span class="rword">Pair</span>&lt;<span class="rword">int</span>, <span class="rword">float</span>&gt; <span class="vardef">a</span>;
 <span class="rword">Pair</span>&lt;<span class="rword">double</span>, <span class="rword">long</span>&gt; <span class="vardef">b</span>;</pre>
-		In this example, varaibles "a" and "b" have different types.<br />
+		In this example, variables "a" and "b" have different types.<br />
 		Nesting generic types are also allowed:
 		<pre class="code">
 <span class="rword">Pair</span>&lt;<span class="rword">Pair</span>&lt;<span class="rword">int</span>, <span class="rword">int</span>&gt;, <span class="rword">Pair</span>&lt;<span class="rword">double</span>, <span class="rword">double</span>&gt;&gt; <span class="vardef">c</span>;</pre>
@@ -839,7 +839,7 @@ function toggleView(a, b, c)
 </span>}
 <span class="rword">Bar </span><span class="vardef">a</span>;
 <span class="rword">return </span><span class="var">a</span>.<span class="var">z</span>.<span class="var">x </span>* <span class="var">a</span>.<span class="var">y</span><span class="bold">;</span><span class="comment"> // 240</span></pre>
-		Class constructor can be called as a global function. In this case, class constructor return type is ignored and constructo call results in a new temporary object on stack:<br />
+		Class constructor can be called as a global function. In this case, class constructor return type is ignored and constructor call results in a new temporary object on stack:<br />
 		<pre class="code">
 <span class="rword">class Foo
 </span>{
@@ -1164,7 +1164,7 @@ function toggleView(a, b, c)
 </span><span class="rword">return </span><span class="func">get</span><span class="bold">(</span><span class="real">0</span><span class="bold">) </span>&& <span class="func">get</span><span class="bold">(</span><span class="real">1</span><span class="bold">);</span></pre>
 			</p>
 		</div>
-		This is implemented so that a short-circuit behaviour of these operators is preserved, if you execute this example, you will see that "get" function is called only once;<br />
+		This is implemented so that a short-circuit behavior of these operators is preserved, if you execute this example, you will see that "get" function is called only once;<br />
 		<br />
 		Following unary operators can be overloaded:<br />
 		+ - ~ !<br />
@@ -1494,7 +1494,7 @@ return </span><span class="real">1</span><span class="bold">;</span></pre>
 <span class="rword">enum Foo</span>{ <span class="vardef">A </span>= <span class="real">5</span>, <span class="vardef">B </span>= <span class="real">8</span>, <span class="vardef">C </span>= <span class="real">15 </span>}
 <span class="rword">Foo </span><span class="vardef">x </span>= <span class="rword">Foo</span>.<span class="var">B</span>;</pre>
 	Constant value is of type int.<br />
-	Constant value can be skipped, in which case its value will be determened by incrementing previous constant value:<br />
+	Constant value can be skipped, in which case its value will be determined by incrementing previous constant value:<br />
 	<pre class="code">
 <span class="comment">// define Foo.A to be 4, Foo.B to be 5 and so on:
 </span><span class="rword">enum Foo</span>{ <span class="vardef">A </span>= <span class="real">4</span>, <span class="vardef">B</span>, <span class="vardef">C</span>, <span class="vardef">D </span>}</pre>
@@ -1722,7 +1722,7 @@ B int 5<br />
 
 	<span class="rword">auto</span>[] type is an array with implicit type.<br />
 	<br />
-	Folowing <b>explicit</b> conversions are supported (all checks are done in run-time):<br />
+	Following <b>explicit</b> conversions are supported (all checks are done in run-time):<br />
 	<p class="code">
 		<span class="rword">type</span>[] = <span class="rword">auto</span>[]; <span class="comment">// auto[] element type must be equal to type</span><br />
 		<span class="rword">type</span>[<span class="real">N</span>] = <span class="rword">auto</span>[]; <span class="comment">// auto[] element type and array size must be equal</span><br />
@@ -1820,7 +1820,7 @@ B int 5<br />
 	Numbers can be written in binary, and must be followed by letter 'b':<br />
 	101b == 5<br />
 	If <span class="rword">int</span> type is insufficient to represent the binary constant as a positive number, then the type is <span class="rword">long</span>, otherwise it's <span class="rword">int</span>.<br />
-	If <span class="rword">long</span> type is insufficient to represent the binary constant as a positive number, then if <span class="rword">int</span> type can represent the binary constant as a negative number, the type is <span class="rword">int</span>, otherwise it's <span class="rword">long</span>.<br />
+	If <span class="rword">long</span> type is insufficient to represent the binary constant as a positive number, and then if <span class="rword">int</span> type can represent the binary constant as a negative number, the type is <span class="rword">int</span>, otherwise it's <span class="rword">long</span>.<br />
 </div>
 <hr />
 <div class="topic">
@@ -1828,7 +1828,7 @@ B int 5<br />
 	Numbers can be written in base 8, and must start with number 0:<br />
 	077 == 63<br />
 	If <span class="rword">int</span> type is insufficient to represent the octal constant as a positive number, then the type is <span class="rword">long</span>, otherwise it's <span class="rword">int</span>.<br />
-	If <span class="rword">long</span> type is insufficient to represent the octal constant as a positive number, then if <span class="rword">int</span> type can represent the octal constant as a negative number, the type is <span class="rword">int</span>, otherwise it's <span class="rword">long</span>.<br />
+	If <span class="rword">long</span> type is insufficient to represent the octal constant as a positive number, and then if <span class="rword">int</span> type can represent the octal constant as a negative number, the type is <span class="rword">int</span>, otherwise it's <span class="rword">long</span>.<br />
 </div>
 <hr />
 <div class="topic">
@@ -1836,7 +1836,7 @@ B int 5<br />
 	Numbers can be written in base 16, and must start with '0x':<br />
 	0x80 == 128<br />
 	If <span class="rword">int</span> type is insufficient to represent the hexadecimal constant as a positive number, then the type is <span class="rword">long</span>, otherwise it's <span class="rword">int</span>.<br />
-	If <span class="rword">long</span> type is insufficient to represent the hexadecimal constant as a positive number, then if <span class="rword">int</span> type can represent the hexadecimal constant as a negative number, the type is <span class="rword">int</span>, otherwise it's <span class="rword">long</span>.<br />
+	If <span class="rword">long</span> type is insufficient to represent the hexadecimal constant as a positive number, and then if <span class="rword">int</span> type can represent the hexadecimal constant as a negative number, the type is <span class="rword">int</span>, otherwise it's <span class="rword">long</span>.<br />
 </div>
 <hr />
 <div class="topic">
