@@ -4403,8 +4403,22 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		return true;
 	}
 	CheckForImmutable(currentType, pos);
-	// Construct name in a form of Class::Function
-	char *memberFuncName = GetClassFunctionName(currentType->subType, funcName);
+	
+	// Go through the inheritance tree
+	TypeInfo *type = currentType->subType;
+	
+	char *memberFuncName = NULL;
+	do
+	{
+		// Construct name in a form of Class::Function
+		memberFuncName = GetClassFunctionName(type, funcName);
+		bestFuncList.clear();
+		SelectFunctionsForHash(GetStringHash(memberFuncName), 0);
+		type = type->parentType;
+	}while(type && !bestFuncList.size());
+	if(!bestFuncList.size())
+		memberFuncName = GetClassFunctionName(currentType->subType, funcName);
+
 	// If this is generic type instance, maybe the function is not instanced at the moment
 	if(currentType->subType->genericBase)
 	{
@@ -5954,31 +5968,38 @@ void CreateRedirectionTables()
 		{
 			for(unsigned int k = 0; k < bestFuncList.size(); k++)
 			{
-				if(bestFuncList[k]->parentClass == CodeInfo::typeInfo[i])
+				TypeInfo *type = CodeInfo::typeInfo[i];
+				// Stepping through the class inheritance tree will ensure that the base class function will be used if the derived class function is not available
+				while(type)
 				{
-					// Get array variable
-					CodeInfo::nodeList.push_back(new NodeGetAddress(curr, curr->pos, curr->varType));
-					CodeInfo::nodeList.push_back(new NodeDereference());
+					// Walk up to the class base class
+					if(bestFuncList[k]->parentClass == type)
+					{
+						// Get array variable
+						CodeInfo::nodeList.push_back(new NodeGetAddress(curr, curr->pos, curr->varType));
+						CodeInfo::nodeList.push_back(new NodeDereference());
 
-					// Push index (typeID number is index)
-					CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
-					CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, bestFuncList[k]->parentClass->typeIndex));
+						// Push index (typeID number is index)
+						CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
+						CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, CodeInfo::typeInfo[i]->typeIndex));
 
-					// Index array
-					CodeInfo::nodeList.push_back(new NodeArrayIndex(curr->varType));
+						// Index array
+						CodeInfo::nodeList.push_back(new NodeArrayIndex(curr->varType));
 
-					// Push functionID
-					CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
-					CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdFuncAddr, bestFuncList[k]->indexInArr));
+						// Push functionID
+						CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
+						CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdFuncAddr, bestFuncList[k]->indexInArr));
 
-					// Set array element value
-					CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, 0, true));
+						// Set array element value
+						CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::nodeList[CodeInfo::nodeList.size() - 2]->typeInfo, 0, true));
 
-					// Remove value from stack
-					AddPopNode(CodeInfo::lastKnownStartPos);
-					// Fold node
-					AddTwoExpressionNode(NULL);
-					break;
+						// Remove value from stack
+						AddPopNode(CodeInfo::lastKnownStartPos);
+						// Fold node
+						AddTwoExpressionNode(NULL);
+						break;
+					}
+					type = type->parentType;
 				}
 			}
 		}
