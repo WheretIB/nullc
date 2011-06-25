@@ -223,3 +223,87 @@ vec3 ref b = bar();\r\n\
 \r\n\
 return int(a.x + b.z);";
 TEST_RESULT("Inheritance test 18", testInheritance18, "5");
+
+const char	*testInheritance19 =
+"class vec2 extendable{ float x, y; int foo(){ return x; } }\r\n\
+class vec3 : vec2{ float z; int foo(){ return y; } }\r\n\
+\r\n\
+vec3 a;\r\n\
+a.x = 2; a.y = 3;\r\n\
+\r\n\
+vec2 ref b = &a;\r\n\
+\r\n\
+return b.foo();";
+TEST_RESULT("Inheritance test 19", testInheritance19, "3");
+
+const char	*testInheritance20 =
+"class vec2 extendable{ float x, y; int foo(){ return x; } }\r\n\
+class vec3 : vec2{ float z; int foo(){ return y; } }\r\n\
+\r\n\
+vec3 a;\r\n\
+a.x = 2; a.y = 3;\r\n\
+\r\n\
+vec2 ref foo(){ return &a; }\r\n\
+\r\n\
+return foo().foo();";
+TEST_RESULT("Inheritance test 20", testInheritance20, "3");
+
+const char	*testInheritance21 =
+"class vec2 extendable{ float x, y; int foo(){ return x; } }\r\n\
+class vec3 : vec2{ float z; int foo(){ return y; } }\r\n\
+\r\n\
+vec3 a;\r\n\
+a.x = 2; a.y = 3;\r\n\
+\r\n\
+class Test{ vec2 ref a; }\r\n\
+Test t; t.a = &a;\r\n\
+\r\n\
+return t.a.foo() == 3;";
+TEST_RESULT("Inheritance test 21", testInheritance21, "1");
+
+const char	*testInheritance22 =
+"class vec2 extendable{ float x, y; int foo(){ return x; } }\r\n\
+class vec3 : vec2{ float z; }\r\n\
+\r\n\
+vec3 a;\r\n\
+a.x = 2;\r\n\
+\r\n\
+return a.foo();";
+TEST_RESULT("Inheritance test 22", testInheritance22, "2");
+
+const char	*testInheritance23 =
+"class vec2 extendable{ float x, y; int foo(){ return x; } }\r\n\
+class vec3 : vec2{ float z; }\r\n\
+\r\n\
+vec3 a;\r\n\
+a.x = 2;\r\n\
+\r\n\
+vec2 ref b = &a;\r\n\
+\r\n\
+return b.foo();";
+TEST_RESULT("Inheritance test 23", testInheritance23, "2");
+
+const char	*testInheritance24 =
+"class vec2 extendable{ float x, y; int foo(){ return x; } }\r\n\
+class vec3 : vec2{ float z; }\r\n\
+\r\n\
+vec3 a;\r\n\
+a.x = 2;\r\n\
+\r\n\
+vec2 ref foo(){ return &a; }\r\n\
+\r\n\
+return foo().foo();";
+TEST_RESULT("Inheritance test 24", testInheritance24, "2");
+
+const char	*testInheritance25 =
+"class vec2 extendable{ float x, y; int foo(){ return x; } }\r\n\
+class vec3 : vec2{ float z; }\r\n\
+\r\n\
+vec3 a;\r\n\
+a.x = 2;\r\n\
+\r\n\
+class Test{ vec2 ref a; }\r\n\
+Test t; t.a = &a;\r\n\
+\r\n\
+return t.a.foo();";
+TEST_RESULT("Inheritance test 25", testInheritance25, "2");
