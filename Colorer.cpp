@@ -428,6 +428,8 @@ namespace ColorerGrammar
 				typePostExpr;
 
 			classbody	=
+				!strP("extendable")[ColorRWord] >>
+				!(chP(':')[ColorText] >> (typeName[ColorRWord] | epsP[LogError("ERROR: base class name expected after ':'")])) >>
 				(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText] >>
 				*(
 					(strWP("const")[ColorRWord] >> typeExpr >> idP[ColorVarDef] >> chP('=')[ColorText] >> term4_9 >> *(chP(',')[ColorText] >> idP[ColorVarDef] >> !(chP('=')[ColorText] >> term4_9)) >> chP(';')[ColorText]) |

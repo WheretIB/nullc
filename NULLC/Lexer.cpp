@@ -361,6 +361,10 @@ void Lexer::Lexify(const char* code)
 						else if(memcmp(code, "namespace", 9) == 0)
 							lType = lex_namespace;
 						break;
+					case 10:
+						if(memcmp(code, "extendable", 10) == 0)
+							lType = lex_extendable;
+						break;
 					}
 				}
 

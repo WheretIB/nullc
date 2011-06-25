@@ -227,6 +227,13 @@ bool Linker::LinkCode(const char *code)
 		tInfo++;
 	}
 
+	// Remap new derived types
+	for(unsigned int i = oldTypeCount; i < exTypes.size(); i++)
+	{
+		if(exTypes[i].baseType)
+			exTypes[i].baseType = typeRemap[exTypes[i].baseType];
+	}
+
 	// Remap new member types (while skipping member offsets)
 	for(unsigned int i = oldMemberSize; i < exTypeExtra.size(); i++)
 		exTypeExtra[i] = (exTypeExtra[i] & 0x80000000) ? (exTypeExtra[i] & ~0x80000000) : typeRemap[exTypeExtra[i]];

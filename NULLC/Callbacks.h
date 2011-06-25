@@ -185,6 +185,7 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type);
 TypeInfo*	GetDefinedType();
 unsigned ResetDefinedTypeState();
 void RestoreDefinedTypeState(TypeInfo* type, unsigned methodCount);
+void TypeExtendable(const char* pos);
 
 void AddAliasType(InplaceStr aliasName);
 
