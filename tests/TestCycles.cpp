@@ -100,3 +100,11 @@ TEST("More break and continue tests", testBreakContinueTests, "0")
 	CHECK_INT("k2", 0, 0);
 }
 
+const char	*testDoWhileScope =
+"int i = 0;\r\n\
+do\r\n\
+{\r\n\
+	bool wrong = ++i < 10;\r\n\
+}while(wrong);\r\n\
+return i;";
+TEST_RESULT("do...while cycle variable scope test", testDoWhileScope, "10")

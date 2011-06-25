@@ -1670,8 +1670,16 @@ bool ParseDoWhileExpr(Lexeme** str)
 
 	IncreaseCycleDepth();
 
-	if(!ParseExpression(str))
-		ThrowError((*str)->pos, "ERROR: expression expected after 'do'");
+	if(!ParseLexem(str, lex_ofigure))
+	{
+		if(!ParseExpression(str))
+			ThrowError((*str)->pos, "ERROR: expression expected after 'do'");
+	}else{
+		if(!ParseCode(str))
+			AddVoidNode();
+		if(!ParseLexem(str, lex_cfigure))
+			ThrowError((*str)->pos, "ERROR: closing '}' not found");
+	}
 
 	if(!ParseLexem(str, lex_while))
 		ThrowError((*str)->pos, "ERROR: 'while' expected after 'do' statement");
