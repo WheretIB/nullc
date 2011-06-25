@@ -13,6 +13,14 @@ Core:
 	23. f. move gen_list to base module as a generic function (?)
 	28. u. how is generic variable argument function is instanced?
 	30. f. tuples and/or multiple return values 
+	34. f. one-number-node constant folding should support |, &, || and &&
+	35. f. fix local class operators to be normal functions
+	49. f. add allocation on unsized arrays and arrays of unsized arrays.
+	50. f. add class inheritance
+	51. f. add interfaces
+	52. f. add compile-time checks for class members
+	53. f. add exception handling
+	54. f. functions with explicit template parameters
 
 Library:
 	1. f. string
@@ -24,7 +32,6 @@ Debug:
 
 SuperCalc:
 	4. f. Tooltips with variable values
-	7. b. Compiled modules must recompile after changes.
 	12 f. Editing code should be disabled\warning shown\edit & continue
 	13 f. persistent undo file in a temp folder
 	14 f. persistent undo on a per-file basis
@@ -231,3 +238,8 @@ DONE: containers for pointers
 DONE: new StructName() { field1 = 1, field2 = 2 }
 DONE: prevent module from importing itself (and in any tree complexity)
 DONE: nullcSetJiTStack to a user buffer marks pages as noaccess but removes flag only on nullcSetJiTStack/destruction, need to clarify this in documentation.
+DONE: "in" operator
+DONE: how does the GC work in cases of various transitions between NULLC and C (especially in JiT); - nicely
+DONE: Compiled modules must recompile after changes.
+DONE: enum
+DONE: add namespaces
