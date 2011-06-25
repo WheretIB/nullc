@@ -1540,6 +1540,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\tests\TestNamedArguments.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\tests\TestNamespace.cpp"
 				>
 				<FileConfiguration

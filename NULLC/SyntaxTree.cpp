@@ -109,6 +109,7 @@ NodeZeroOP::NodeZeroOP()
 	sourcePos = NULL;
 	prev = next = head = NULL;
 	nodeType = typeNodeZeroOp;
+	argName = NULL;
 }
 NodeZeroOP::NodeZeroOP(TypeInfo* tinfo)
 {
@@ -116,6 +117,7 @@ NodeZeroOP::NodeZeroOP(TypeInfo* tinfo)
 	sourcePos = NULL;
 	prev = next = head = NULL;
 	nodeType = typeNodeZeroOp;
+	argName = NULL;
 }
 NodeZeroOP::~NodeZeroOP()
 {

@@ -89,6 +89,8 @@ unsigned int	methodCount = 0;
 FastVector<NamespaceInfo*>	namespaceStack;
 NamespaceInfo*				currNamespace = NULL;
 
+FastVector<NodeZeroOP*>		namedArgumentBackup;
+
 void PushNamespace(InplaceStr space)
 {
 	if(currDefinedFunc.size())
@@ -243,7 +245,7 @@ FastVector<NamespaceInfo*>	namespaceBackup;
 
 FastVector<NodeZeroOP*>		nodeBackup;
 
-FastVector<NodeZeroOP*>	paramNodes;
+FastVector<NodeZeroOP*>		paramNodes;
 
 struct ClassSelect
 {
@@ -1808,6 +1810,8 @@ void AddArrayIndexNode(const char* pos, unsigned argumentCount)
 		CodeInfo::nodeList.push_back(new NodeDereference());
 		CodeInfo::nodeList.push_back(temp);
 	}
+	if(CodeInfo::nodeList.back()->argName)
+		ThrowError(pos, "ERROR: overloaded [] operator must be supplied to use named function arguments");
 #ifndef NULLC_ENABLE_C_TRANSLATION
 	// If index is a number and previous node is an address, then indexing can be done in compile-time
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->nodeType == typeNodeGetAddress)
@@ -3920,6 +3924,109 @@ unsigned GetRatingHelper(FunctionInfo* fInfo, TypeInfo* forcedParentType, unsign
 	return rating;
 }
 
+
+bool	IsNamedFunctionCall(unsigned argumentCount)
+{
+	for(unsigned i = CodeInfo::nodeList.size() - argumentCount; i < CodeInfo::nodeList.size(); i++)
+	{
+		if(CodeInfo::nodeList[i]->argName)
+			return true;
+	}
+	return false;
+}
+
+bool	GoodForNamedFunctionCall(unsigned argumentCount, FunctionInfo* func, bool& namedArgCall)
+{
+	bool	okByNamedArgs = true;
+	namedArgCall = false;
+	for(unsigned i = 0; i < argumentCount && okByNamedArgs; i++)
+	{
+		NodeZeroOP *arg = CodeInfo::nodeList[CodeInfo::nodeList.size() - argumentCount + i];
+		if(arg->argName)
+		{
+			namedArgCall = true;
+
+			unsigned argHash = GetStringHash(arg->argName->pos, arg->argName->pos + arg->argName->length);
+			bool found = false;
+			for(VariableInfo *currArg = func->firstParam; currArg && !found; currArg = currArg->next)
+			{
+				if(currArg->nameHash == argHash)
+					found = true;
+			}
+			if(!found)
+				okByNamedArgs = false;
+		}
+	}
+	return okByNamedArgs;
+}
+
+bool	ShuffleArgumentsForNamedFunctionCall(unsigned argumentCount, FunctionInfo* func)
+{
+	bool okByNamedArgs = true;
+	unsigned oldArgCount = argumentCount;
+
+	// Add additional arguments
+	for(unsigned i = argumentCount; i < func->paramCount; i++)
+		CodeInfo::nodeList.push_back(NULL);
+	
+	// Remove extra arguments
+	if(argumentCount > func->paramCount)
+		CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - (argumentCount - func->paramCount));
+
+	argumentCount = func->paramCount;
+
+	// Find out, how many arguments on stack are function first non-named arguments
+	unsigned	fixedCount = 0;
+	for(unsigned i = CodeInfo::nodeList.size() - argumentCount; i < CodeInfo::nodeList.size(); i++)
+	{
+		if(!CodeInfo::nodeList[i] || CodeInfo::nodeList[i]->argName)
+			break;
+		fixedCount++;
+	}
+
+	// Clear all function arguments in the stack
+	for(unsigned i = CodeInfo::nodeList.size() - argumentCount + fixedCount; i < CodeInfo::nodeList.size(); i++)
+		CodeInfo::nodeList[i] = NULL;
+
+	// Shuffle named arguments in accordance to the real arguments
+	unsigned param = CodeInfo::nodeList.size() - argumentCount;
+	for(VariableInfo *currArg = func->firstParam; currArg; currArg = currArg->next)
+	{
+		for(unsigned int i = 0; i < oldArgCount; i++)
+		{
+			NodeZeroOP *arg = namedArgumentBackup[namedArgumentBackup.size() - oldArgCount + i];
+			if(arg && arg->argName)
+			{
+				unsigned argHash = GetStringHash(arg->argName->pos, arg->argName->pos + arg->argName->length);
+				if(argHash == currArg->nameHash)
+				{
+					// If parameter is already set, situation's looking pretty ugly
+					if(CodeInfo::nodeList[param])
+						ThrowError(arg->argName->pos, "ERROR: argument '%.*s' value is being defined the second time", currArg->name.end - currArg->name.begin, currArg->name.begin);
+					CodeInfo::nodeList[param] = arg;
+				}
+			}
+		}
+		param++;
+	}
+	// All parameters should be set
+	param = CodeInfo::nodeList.size() - argumentCount;
+	for(VariableInfo *currArg = func->firstParam; currArg; currArg = currArg->next)
+	{
+		if(!CodeInfo::nodeList[param])
+		{
+			if(!currArg->defaultValue)
+			{
+				okByNamedArgs = false;
+				break;
+			}
+			CodeInfo::nodeList[param] = currArg->defaultValue;
+		}
+		param++;
+	}
+	return okByNamedArgs;
+}
+
 unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType)
 {
 	// Find the best suited function
@@ -3930,6 +4037,43 @@ unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int 
 	for(unsigned int k = 0; k < count; k++)
 	{
 		unsigned int argumentCount = callArgCount;
+
+		// Filter functions by named function arguments
+		bool namedArgCall = false;
+		if(!GoodForNamedFunctionCall(argumentCount, bestFuncList[k], namedArgCall))
+		{
+			bestFuncRating[k] = ~0u;
+			continue;
+		}
+		// Prepare argument list for named function argument call, if that's the case
+		if(namedArgCall)
+		{
+			// Backup parameters
+			namedArgumentBackup.push_back(&CodeInfo::nodeList[CodeInfo::nodeList.size() - argumentCount], argumentCount);
+
+			argumentCount = bestFuncList[k]->paramCount;
+
+			if(!ShuffleArgumentsForNamedFunctionCall(callArgCount, bestFuncList[k]))
+			{
+				bestFuncRating[k] = ~0u;
+			}else{
+				bestFuncRating[k] = GetRatingHelper(bestFuncList[k], forcedParentType, argumentCount, count);
+
+				if(bestFuncRating[k] < (bestFuncList[k]->generic ? minGenericRating : minRating))
+				{
+					(bestFuncList[k]->generic ? minGenericRating : minRating) = bestFuncRating[k];
+					(bestFuncList[k]->generic ? minGenericIndex : minRatingIndex) = k;
+				}
+			}
+
+			// Restore parameters
+			CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - argumentCount);
+			argumentCount = callArgCount;
+			CodeInfo::nodeList.push_back(&namedArgumentBackup[namedArgumentBackup.size() - argumentCount], argumentCount);
+			namedArgumentBackup.shrink(namedArgumentBackup.size() - argumentCount);
+			continue;
+		}
+
 		// Act as if default parameter values were passed
 		if(argumentCount < bestFuncList[k]->paramCount)
 		{
@@ -4682,6 +4826,25 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			longjmp(CodeInfo::errorHandler, 1);
 		}
 	}
+
+	// Check for named function argument call
+	bool namedArgCall = false;
+	if(fInfo)
+		GoodForNamedFunctionCall(callArgCount, fInfo, namedArgCall);
+	else if(IsNamedFunctionCall(callArgCount))
+		ThrowError(pos, "ERROR: function argument names are unknown at this point");
+	// Prepare argument list for named function argument call, if that's the case
+	if(namedArgCall)
+	{ 
+		namedArgumentBackup.push_back(&CodeInfo::nodeList[CodeInfo::nodeList.size() - callArgCount], callArgCount);
+
+		if(!ShuffleArgumentsForNamedFunctionCall(callArgCount, fInfo))
+			ThrowError(pos, "ERROR: internal compiler error (named argument call)");
+
+		namedArgumentBackup.shrink(namedArgumentBackup.size() - callArgCount);
+		callArgCount = fInfo->paramCount;
+	}
+
 	NodeZeroOP *funcDefAtEnd = NULL;
 	if(fInfo && fInfo->generic)
 	{
@@ -5803,6 +5966,8 @@ void CallbackInitialize()
 	namespaceStack.push_back(new NamespaceInfo(InplaceStr(""), GetStringHash(""), NULL));
 	currNamespace = NULL;
 
+	namedArgumentBackup.clear();
+
 	CodeInfo::classMap.clear();
 	CodeInfo::typeArrays.clear();
 	CodeInfo::typeFunctions.clear();
@@ -5855,6 +6020,7 @@ void CallbackReset()
 	varMap.reset();
 
 	namespaceStack.reset();
+	namedArgumentBackup.reset();
 
 	TypeInfo::typeInfoPool.~ChunkedStackPool();
 	TypeInfo::SetPoolTop(0);

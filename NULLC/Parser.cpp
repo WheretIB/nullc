@@ -901,16 +901,45 @@ unsigned int ParseFunctionArguments(Lexeme** str)
 {
 	unsigned callArgCount = 0;
 	unsigned lastArgument = SetCurrentArgument(callArgCount);
+
+	bool namedArgFunction = false;
+	Lexeme *argName = NULL;
+	if((*str)->type == lex_string && (*str)[1].type == lex_colon)
+	{
+		argName = (*str);
+		(*str) += 2;
+		namedArgFunction = true;
+	}
 	if(ParseVaribleSet(str))
 	{
+		CodeInfo::nodeList.back()->argName = argName;
+		argName = NULL;
 		callArgCount++;
 		while(ParseLexem(str, lex_comma))
 		{
 			SetCurrentArgument(callArgCount);
+
+			if((*str)->type == lex_string && (*str)[1].type == lex_colon)
+			{
+				argName = (*str);
+				(*str) += 2;
+				namedArgFunction = true;
+			}else if(namedArgFunction){
+				ThrowError((*str)->pos, "ERROR: function parameter name expected after ','");
+			}
 			if(!ParseVaribleSet(str))
-				ThrowError((*str)->pos, "ERROR: expression not found after ',' in function parameter list");
+			{
+				if(argName)
+					ThrowError((*str)->pos, "ERROR: expression not found after ':' in function parameter list");
+				else
+					ThrowError((*str)->pos, "ERROR: expression not found after ',' in function parameter list");
+			}
+			CodeInfo::nodeList.back()->argName = argName;
+			argName = NULL;
 			callArgCount++;
 		}
+	}else if(argName){
+		ThrowError((*str)->pos, "ERROR: expression not found after ':' in function parameter list");
 	}
 	SetCurrentArgument(lastArgument);
 	return callArgCount;
