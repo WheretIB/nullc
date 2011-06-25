@@ -3951,11 +3951,14 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 bool PrepareMemberCall(const char* pos, const char* funcName)
 {
 	TypeInfo *currentType = CodeInfo::nodeList.back()->typeInfo;
-	// Implicit conversion of type ref ref to type ref
+	// Implicit conversion of type ref ref to type ref (only for non-extendable types)
 	if(currentType->refLevel == 2)
 	{
-		CodeInfo::nodeList.push_back(new NodeDereference());
-		currentType = currentType->subType;
+		if(!(currentType->subType->subType->firstVariable && currentType->subType->subType->firstVariable->nameHash == extendableVariableName && funcName))
+		{
+			CodeInfo::nodeList.push_back(new NodeDereference());
+			currentType = currentType->subType;
+		}
 	}
 	// Implicit conversion from type[N] ref to type[]
 	if(currentType->refLevel == 1 && currentType->subType->arrLevel && currentType->subType->arrSize != TypeInfo::UNSIZED_ARRAY)
@@ -4351,7 +4354,42 @@ void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int call
 bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount, bool silent)
 {
 	// Check if type has any member functions
-	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount-1]->typeInfo;
+	NodeZeroOP *currentNode = CodeInfo::nodeList[CodeInfo::nodeList.size() - callArgCount - 1];
+	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size() - callArgCount - 1]->typeInfo;
+
+	// For extendable type pointers, call member function according to type
+	bool virtualCall = currentType->refLevel == 2 && currentType->subType->subType->firstVariable && currentType->subType->subType->firstVariable->nameHash == extendableVariableName;
+	virtualCall |= currentNode->nodeType == typeNodeFuncCall && currentType->refLevel == 1 && currentType->subType->firstVariable && currentType->subType->firstVariable->nameHash == extendableVariableName;
+	if(virtualCall)
+	{
+		NodeZeroOP *getPointer = currentNode;
+		
+		NodeOneOP *wrap = new NodeOneOP();
+		wrap->SetFirstNode(getPointer);
+		CodeInfo::nodeList.push_back(wrap);
+		if(currentType->refLevel == 2)
+			CodeInfo::nodeList.push_back(new NodeDereference());
+
+		NodeOneOP *wrap2 = new NodeOneOP();
+		wrap2->SetFirstNode(getPointer);
+		CodeInfo::nodeList.push_back(wrap2);
+		if(currentType->refLevel == 2)
+			CodeInfo::nodeList.push_back(new NodeDereference());
+
+		AddMemberAccessNode(pos, InplaceStr("$typeid"));
+		AddGetVariableNode(pos);
+
+		AddTwoExpressionNode(typeObject);
+		AddInplaceVariable(pos);
+		AddTwoExpressionNode(CodeInfo::GetReferenceType(typeObject));
+
+		getPointer = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
+
+		CodeInfo::nodeList[CodeInfo::nodeList.size() - callArgCount - 1] = getPointer;
+		currentType = getPointer->typeInfo;
+	}
+
 	// For auto ref types, we redirect call to a target type
 	if(currentType == CodeInfo::GetReferenceType(typeObject))
 	{
