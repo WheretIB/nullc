@@ -232,18 +232,10 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 			printf("%s\n", error.c_str());
 			assert(0);
 		}
-		/*if(!i)
-		{
-			
-		}else{
-			LLVM::TheExecutionEngine->addModule(module);
-		}*/
 		offset += exLinker->llvmModuleSizes[i];
 		LLVM::modules.push_back(module);
-
-		
 	}
-	llvm::Module *module = LLVM::linker->releaseModule();//LLVM::linker->getModule();
+	llvm::Module *module = LLVM::linker->releaseModule();
 	LLVM::TheExecutionEngine = llvm::EngineBuilder(module).setErrorStr(&error).create();
 	if(!LLVM::TheExecutionEngine)
 	{
@@ -268,6 +260,7 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 		printf("matched with %s\n", exLinker->exFunctions[funcID].offsetToName + symbols);
 	}*/
 
+	// external functions binding
 	const char* symbols = exLinker->exSymbols.data;
 	llvm::Module::FunctionListType &funcs = module->getFunctionList();
 	llvm::Module::FunctionListType::iterator c = funcs.begin(), e = funcs.end();
@@ -292,6 +285,25 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 		c++;
 	}
 
+	/*// Function address array creation
+	exLinker->functionAddress.resize(exLinker->exFunctions.size());
+	for(unsigned i = 0; i < exLinker->exFunctions.size(); i++)
+	{
+		if(exLinker->exFunctions[i].address == ~0u)
+		{
+			exLinker->functionAddress[i] = (unsigned int)(intptr_t)exLinker->exFunctions[i].funcPtr;
+		}else{
+			llvm::Function *func = module->getFunction(&exLinker->exSymbols[exLinker->exFunctions[i].offsetToName]);
+			if(!func)
+			{
+				printf("Function %s not found\n", &exLinker->exSymbols[exLinker->exFunctions[i].offsetToName]);
+				exLinker->functionAddress[i] = NULL;
+			}else{
+				exLinker->functionAddress[i] = (unsigned int)(intptr_t)LLVM::TheExecutionEngine->getPointerToFunction(func);
+			}
+		}
+	}*/
+	
 	
 	/*for(unsigned i = 0; i < exLinker->exFunctions.size(); i++)
 		printf("%s\n", exLinker->exFunctions[i].offsetToName + symbols);
