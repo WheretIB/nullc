@@ -117,6 +117,7 @@ public:
 	TypeInfo		*typeInfo;
 	NodeType		nodeType;
 	NodeZeroOP		*prev, *next, *head;	// For organizing intrusive node lists
+	Lexeme			*argName;
 };
 
 //////////////////////////////////////////////////////////////////////////

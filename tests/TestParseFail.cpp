@@ -242,4 +242,8 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "char a = '';", "ERROR: empty character constant");
 
 	TEST_FOR_FAIL("parsing", "int i; typeof(5).isArray x;", "ERROR: expression result is not a type");
+
+	TEST_FOR_FAIL("parsing", "int foo(int i = 4, j){ return i + j; } return foo(j: 5, 2);", "ERROR: function parameter name expected after ','");
+	TEST_FOR_FAIL("parsing", "int foo(int i = 4, j){ return i + j; } return foo(j: 5, i: );", "ERROR: expression not found after ':' in function parameter list");
+	TEST_FOR_FAIL("parsing", "int foo(int i = 4, j){ return i + j; } return foo(j: );", "ERROR: expression not found after ':' in function parameter list");
 }

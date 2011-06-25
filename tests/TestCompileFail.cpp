@@ -713,7 +713,13 @@ line 1 - ERROR: unknown identifier 'a'\r\n\
   at \"foo(void bar(){});\"\r\n\
                        ^\r\n\
 ");
-	
+
+	TEST_FOR_FAIL("named function arguments", "int foo(int i, j){ return i / j; } int foo(int i, j, k = 3){ return i + j + k; } return foo(j: 5, i: 10);", "ERROR: ambiguity, there is more than one overloaded function available for the call:");
+	TEST_FOR_FAIL("named function arguments", "int foo(int i, j){ return i / j; } return foo(i: 1, i: 2, i: 3, i: 4, j: 5, j: 6, j: 7, j: 8);", "ERROR: argument 'i' value is being defined the second time");
+	TEST_FOR_FAIL("named function arguments", "int foo(int i, j){ return i / j; } auto x = foo; return x(j: 5, i: 10);", "ERROR: function argument names are unknown at this point");
+	TEST_FOR_FAIL("named function arguments", "int foo(int i, j){ return i / j; } return foo(10, i: 5);", "ERROR: argument 'i' value is being defined the second time");
+
+	TEST_FOR_FAIL("named function arguments", "int[10] arr; return arr[x: 1];", "ERROR: overloaded [] operator must be supplied to use named function arguments");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

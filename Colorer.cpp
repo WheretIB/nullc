@@ -481,10 +481,10 @@ namespace ColorerGrammar
 			fcallpart	=
 				chP('(')[ColorBold] >>
 				!(
-					term5 >>
+					(!(idP[ColorVarDef] >> chP(':')[ColorText]) >> term5) >>
 					*(
 						chP(',')[ColorText] >> 
-						(term5 | epsP[LogError("ERROR: unexpected symbol after ','")])
+						((!(idP[ColorVarDef] >> chP(':')[ColorText]) >> term5) | epsP[LogError("ERROR: unexpected symbol after ','")])
 					)[OnError]
 				) >>
 				(chP(')')[ColorBold] | epsP[LogError("ERROR: ')' not found after function call")]);
@@ -552,7 +552,21 @@ namespace ColorerGrammar
 					epsP[LogError("ERROR: unexpected symbol after function header")]
 				);
 
-			postExpr	=	(chP('[')[ColorText] >> !(term5 >> *(chP(',')[ColorText] >> term5)) >> chP(']')[ColorText]) |	(chP('.')[ColorText] >>	((idP[ColorFunc] >> fcallpart) | idP[ColorVar])) | fcallpart;
+			postExpr	=
+				(
+					chP('[')[ColorText] >>
+					!(
+						(!(idP[ColorVarDef] >> chP(':')[ColorText]) >> term5) >>
+						*(
+							chP(',')[ColorText] >>
+							(!(idP[ColorVarDef] >> chP(':')[ColorText]) >> term5)
+						)
+					) >>
+					chP(']')[ColorText]
+				) |
+				(chP('.')[ColorText] >>	((idP[ColorFunc] >> fcallpart) | idP[ColorVar])) |
+				fcallpart;
+
 			appval		=	(idP - (strP("case") | strP("default")))[ColorVar] >> ~chP('(') >> *postExpr;
 			addvarp		=
 				(
