@@ -381,7 +381,7 @@ protected:
 class NodeConvertPtr: public NodeOneOP
 {
 public:
-			NodeConvertPtr(TypeInfo *dstType);
+			NodeConvertPtr(TypeInfo *dstType, bool handleBaseClass = false);
 	virtual ~NodeConvertPtr();
 
 	virtual void Compile();
@@ -389,6 +389,7 @@ public:
 	COMPILE_TRANSLATION(virtual void TranslateToC(FILE *fOut));
 	COMPILE_LLVM(virtual void CompileLLVM());
 protected:
+	bool	handleBaseClass;
 };
 
 class NodeVariableSet: public NodeTwoOP

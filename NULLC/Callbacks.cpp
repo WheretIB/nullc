@@ -2530,7 +2530,7 @@ void HandlePointerToObject(const char* pos, TypeInfo *dstType)
 			ThrowError(pos, "ERROR: failed to convert from '%s' to 'auto ref'", srcType->GetFullTypeName());
 		return;
 	}
-	CodeInfo::nodeList.push_back(new NodeConvertPtr(dstType == typeObject ? typeObject : dstType));
+	CodeInfo::nodeList.push_back(new NodeConvertPtr(dstType == typeObject ? typeObject : dstType, dstType == typeObject));
 }
 
 void ConvertDerivedToBase(const char* pos, TypeInfo *dstType)

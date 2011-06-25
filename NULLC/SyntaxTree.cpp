@@ -672,7 +672,7 @@ void NodeGetUpvalue::Compile()
 }
 
 //////////////////////////////////////////////////////////////////////////
-NodeConvertPtr::NodeConvertPtr(TypeInfo *dstType)
+NodeConvertPtr::NodeConvertPtr(TypeInfo *dstType, bool handleBaseClass)
 {
 	assert(dstType);
 
@@ -681,6 +681,8 @@ NodeConvertPtr::NodeConvertPtr(TypeInfo *dstType)
 	first = TakeLastNode();
 	
 	nodeType = typeNodeConvertPtr;
+
+	this->handleBaseClass = handleBaseClass;
 }
 NodeConvertPtr::~NodeConvertPtr()
 {
@@ -693,7 +695,14 @@ void NodeConvertPtr::Compile()
 	first->Compile();
 	if(typeInfo == typeObject || typeInfo == typeTypeid)
 	{
-		cmdList.push_back(VMCmd(cmdPushTypeID, first->typeInfo->subType->typeIndex));
+		TypeInfo *type = first->typeInfo->subType;
+		if(handleBaseClass && type->firstVariable && type->firstVariable->nameHash == GetStringHash("$typeid"))
+		{
+			cmdList.push_back(VMCmd(cmdCopyI));
+			cmdList.push_back(VMCmd(cmdPushIntStk));
+		}else{
+			cmdList.push_back(VMCmd(cmdPushTypeID, first->typeInfo->subType->typeIndex));
+		}
 	}else{
 		cmdList.push_back(VMCmd(cmdConvertPtr, typeInfo->subType->typeIndex));
 	}

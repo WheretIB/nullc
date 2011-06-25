@@ -16,8 +16,6 @@ Core:
 	34. f. one-number-node constant folding should support |, &, || and &&
 	35. f. fix local class operators to be normal functions
 	49. f. add allocation on unsized arrays and arrays of unsized arrays.
-	50. f. add class inheritance
-	51. f. add interfaces
 	52. f. add compile-time checks for class members
 	53. f. add exception handling
 	54. f. functions with explicit template parameters
