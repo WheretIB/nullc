@@ -720,6 +720,8 @@ line 1 - ERROR: unknown identifier 'a'\r\n\
 	TEST_FOR_FAIL("named function arguments", "int foo(int i, j){ return i / j; } return foo(10, i: 5);", "ERROR: argument 'i' value is being defined the second time");
 
 	TEST_FOR_FAIL("named function arguments", "int[10] arr; return arr[x: 1];", "ERROR: overloaded [] operator must be supplied to use named function arguments");
+
+	TEST_FOR_FAIL("incorrect typeid", "return typeid(auto) == typeid(1);", "ERROR: cannot take typeid from auto type");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

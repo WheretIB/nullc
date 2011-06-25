@@ -1065,3 +1065,28 @@ for(i in x.Members())\r\n\
 	s += i;\r\n\
 return s;";
 TEST_RESULT("Member access from local function inside a member function", testMemberAccessFromLocalFunctionInsideMemberFunction, "234");
+
+const char	*testDefaultConstructCallFromExplicitConstructor =
+"class Foo\r\n\
+{\r\n\
+	int a;\r\n\
+	void Foo()\r\n\
+	{\r\n\
+		a = 4;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+class Bar\r\n\
+{\r\n\
+	Foo x;\r\n\
+}\r\n\
+class X\r\n\
+{\r\n\
+	Bar y;\r\n\
+	void X()\r\n\
+	{\r\n\
+	}\r\n\
+}\r\n\
+X m = X();\r\n\
+return m.y.x.a;";
+TEST_RESULT("Default constructor call from explicit constructor", testDefaultConstructCallFromExplicitConstructor, "4");
