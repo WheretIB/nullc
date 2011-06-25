@@ -2024,7 +2024,7 @@ void AddGetVariableNode(const char* pos, bool forceError)
 		ThrowError(pos, "ERROR: cannot dereference type '%s' that is not a pointer", lastType->GetFullTypeName());
 }
 
-void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int callArgCount, bool forFunctionCall);
+void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int callArgCount, bool forFunctionCall, TypeInfo* preferedParent);
 
 void AddMemberAccessNode(const char* pos, InplaceStr varName)
 {
@@ -2088,7 +2088,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 			}
 			char *funcName = AllocateString(int(varName.end - varName.begin) + 1);
 			SafeSprintf(funcName, int(varName.end - varName.begin) + 1, "%s", varName.begin);
-			GetAutoRefFunction(pos, funcName, 0, false);
+			GetAutoRefFunction(pos, funcName, 0, false, virtualCall ? currentType : NULL);
 			NodeZeroOP *autoRef = CodeInfo::nodeList.back();
 			CodeInfo::nodeList.pop_back();
 			CodeInfo::nodeList.pop_back();
@@ -4270,7 +4270,7 @@ unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int 
 	return minRatingIndex;
 }
 
-void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int callArgCount, bool forFunctionCall)
+void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int callArgCount, bool forFunctionCall, TypeInfo* preferedParent)
 {
 	// We need to know what function overload is called, and this is a long process:
 	// Get function name hash
@@ -4282,8 +4282,20 @@ void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int call
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
 		FunctionInfo *func = CodeInfo::funcInfo[i];
-		if(func->nameHashOrig == fHash && func->parentClass && func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType)
-			bestFuncList.push_back(func);
+		if(!(func->nameHashOrig == fHash && func->parentClass && func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType))
+			continue;
+		if(preferedParent)
+		{
+			do
+			{
+				if(preferedParent == func->parentClass)
+					break;
+				preferedParent = preferedParent->parentType;
+			}while(preferedParent);
+			if(!preferedParent)
+				continue;
+		}
+		bestFuncList.push_back(func);
 	}
 	unsigned int count = bestFuncList.size();
 	if(count == 0)
@@ -4376,6 +4388,7 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		CodeInfo::nodeList.push_back(currentNode);
 		if(currentType->refLevel == 2)
 			CodeInfo::nodeList.push_back(new NodeDereference());
+		currentType = CodeInfo::nodeList.back()->typeInfo->subType;
 
 		CodeInfo::nodeList.push_back(new NodeConvertPtr(typeObject, true));
 		AddInplaceVariable(pos);
@@ -4383,14 +4396,12 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 
 		CodeInfo::nodeList[CodeInfo::nodeList.size() - callArgCount - 2] = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
-
-		currentType = CodeInfo::GetReferenceType(typeObject);
 	}
 
 	// For auto ref types, we redirect call to a target type
-	if(currentType == CodeInfo::GetReferenceType(typeObject))
+	if(currentType == CodeInfo::GetReferenceType(typeObject) || virtualCall)
 	{
-		GetAutoRefFunction(pos, funcName, callArgCount, true);
+		GetAutoRefFunction(pos, funcName, callArgCount, true, virtualCall ? currentType : NULL);
 		// Call target function
 		AddFunctionCallNode(pos, NULL, callArgCount);
 		NodeZeroOP *autoRef = CodeInfo::nodeList.back();

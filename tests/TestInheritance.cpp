@@ -398,3 +398,24 @@ auto x = bar().foo;\r\n\
 \r\n\
 return x();";
 TEST_RESULT("Inheritance test 31", testInheritance31, "3");
+
+const char	*testInheritance32 =
+"class vec2 extendable{ float x, y; int foo(double a){ return x; } }\r\n\
+class distraction{ int foo(float x){ return x; } }\r\n\
+\r\n\
+vec2 ref a = new vec2;\r\n\
+a.x = 2;\r\n\
+\r\n\
+return a.foo(0);";
+TEST_RESULT("Inheritance test 32", testInheritance32, "2");
+
+const char	*testInheritance33 =
+"class vec2 extendable{ float x, y; int foo(double a){ return x; } }\r\n\
+class distraction{ int foo(float x){ return x; } }\r\n\
+\r\n\
+vec2 ref a = new vec2;\r\n\
+a.x = 2;\r\n\
+\r\n\
+auto x = a.foo;\r\n\
+return x(0);";
+TEST_RESULT("Inheritance test 33", testInheritance33, "2");
