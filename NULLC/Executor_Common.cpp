@@ -405,7 +405,10 @@ namespace GC
 	// Function that decides, how variable of type 'type' should be checked for pointers
 	void CheckVariable(char* ptr, const ExternTypeInfo& type)
 	{
-		if(!type.pointerCount)
+		const ExternTypeInfo *realType = &type;
+		if(type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE)
+			realType = &NULLC::commonLinker->exTypes[*(int*)ptr];
+		if(!realType->pointerCount)
 			return;
 		switch(type.subCat)
 		{
@@ -416,7 +419,7 @@ namespace GC
 			MarkPointer(ptr, type, true);
 			break;
 		case ExternTypeInfo::CAT_CLASS:
-			CheckClass(ptr, type);
+			CheckClass(ptr, *realType);
 			break;
 		case ExternTypeInfo::CAT_FUNCTION:
 			CheckFunction(ptr);

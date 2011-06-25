@@ -118,3 +118,26 @@ vec3 ref w = z;\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("Inheritance test 10", testInheritance10, "1");
+
+const char	*testInheritance11 =
+"import std.gc;\r\n\
+\r\n\
+class vec2 extendable{ float x, y; }\r\n\
+class vec3 : vec2{ int ref z; }\r\n\
+\r\n\
+vec2 ref a;\r\n\
+\r\n\
+vec3 ref foo(){ return new vec3(); }\r\n\
+vec3 ref x = foo();\r\n\
+\r\n\
+x.z = new int;\r\n\
+*x.z = 2;\r\n\
+a = x;\r\n\
+x = nullptr;\r\n\
+\r\n\
+GC.CollectMemory();\r\n\
+\r\n\
+int ref b = new int(3);\r\n\
+x = a;\r\n\
+return *x.z;";
+TEST_RESULT("Inheritance test 11", testInheritance11, "2");

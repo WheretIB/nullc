@@ -18,7 +18,7 @@ struct ExternTypeInfo
 	enum SubCategory{ CAT_NONE, CAT_ARRAY, CAT_POINTER, CAT_FUNCTION, CAT_CLASS, };
 	SubCategory		subCat;
 
-	enum TypeFlags{ TYPE_HAS_FINALIZER = 1 << 0, TYPE_DEPENDS_ON_GENERIC = 1 << 1 };
+	enum TypeFlags{ TYPE_HAS_FINALIZER = 1 << 0, TYPE_DEPENDS_ON_GENERIC = 1 << 1, TYPE_IS_EXTENDABLE = 1 << 2 };
 
 	unsigned char	defaultAlign;
 	unsigned char	typeFlags; // TypeFlags

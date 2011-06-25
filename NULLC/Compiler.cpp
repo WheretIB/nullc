@@ -2111,6 +2111,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		typeInfo.defaultAlign = (unsigned char)refType.alignBytes;
 		typeInfo.typeFlags = refType.hasFinalizer ? ExternTypeInfo::TYPE_HAS_FINALIZER : 0;
 		typeInfo.typeFlags |= refType.dependsOnGeneric ? ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC : 0;
+		typeInfo.typeFlags |= (refType.firstVariable && refType.firstVariable->nameHash == GetStringHash("$typeid")) ? ExternTypeInfo::TYPE_IS_EXTENDABLE : 0;
 
 		typeInfo.constantCount = 0;
 
