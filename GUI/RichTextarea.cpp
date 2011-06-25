@@ -2312,7 +2312,12 @@ AreaLine* TextareaData::ExtendSelectionFromPoint(unsigned int xPos, unsigned int
 	AreaLine *curr = ClientToCursor(xPos, yPos, dragStartX, dragStartY, true);
 
 	if(curr->length == 0)
+	{
+		dragEndX = dragStartX;
+		dragEndY = dragStartY;
+		selectionOn = false;
 		return curr;
+	}
 	// Clamp horizontal position to line length
 	if(dragStartX >= (int)curr->length && curr->length != 0)
 		dragStartX = curr->length - 1;
