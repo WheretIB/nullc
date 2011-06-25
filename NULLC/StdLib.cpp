@@ -768,7 +768,12 @@ NULLCFuncPtr NULLC::FunctionRedirectPtr(NULLCRef r, NULLCArray* arr)
 NULLC::TypeIDHelper NULLC::Typeid(NULLCRef r)
 {
 	TypeIDHelper help;
-	help.id = r.typeID;
+
+	if(linker->exTypes[r.typeID].typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE)
+		help.id = *(int*)r.ptr;
+	else
+		help.id = r.typeID;
+
 	return help;
 }
 
