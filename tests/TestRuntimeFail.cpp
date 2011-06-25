@@ -128,6 +128,23 @@ f[5] = 0;\r\n\
 return 0;";
 TEST_RUNTIME_FAIL("Array allocation failure", testArrayAllocationFail, "ERROR: can't allocate array with 1073741824 elements of size 4");
 
+const char	*testBaseToDerivedFail1 =
+"class vec2 extendable{ float x, y; }\r\n\
+class vec3 : vec2{ float z; }\r\n\
+\r\n\
+vec2 ref x = new vec2;\r\n\
+vec3 ref y = x;\r\n\
+return 0;";
+TEST_RUNTIME_FAIL("Base to derived type pointer conversion failure", testBaseToDerivedFail1, "ERROR: cannot convert from 'vec2' to 'vec3'");
+
+const char	*testBaseToDerivedFail2 =
+"class vec2 extendable{ float x, y; }\r\n\
+class vec3 : vec2{ float z; }\r\n\
+vec2 x;\r\n\
+int bar(vec3 ref x){ return x.z; }\r\n\
+return bar(&x);";
+TEST_RUNTIME_FAIL("Base to derived type pointer conversion failure 2", testBaseToDerivedFail2, "ERROR: cannot convert from 'vec2' to 'vec3'");
+
 void RecallerTransition(int x)
 {
 	nullcRunFunction("inside", x);

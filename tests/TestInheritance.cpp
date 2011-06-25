@@ -151,7 +151,7 @@ vec3 y;\r\n\
 y.x = 2; y.y = 3;\r\n\
 x = y;\r\n\
 \r\n\
-return x.x + x.y;";
+return int(x.x + x.y);";
 TEST_RESULT("Inheritance test 12", testInheritance12, "5");
 
 const char	*testInheritance13 =
@@ -170,12 +170,12 @@ const char	*testInheritance14 =
 "class vec2 extendable{ float x, y; }\r\n\
 class vec3 : vec2{ float z; }\r\n\
 \r\n\
-vec2 x;\r\n\
 vec3 y; y.z = 5;\r\n\
+vec2 ref x = &y;\r\n\
 \r\n\
 int bar(vec3 ref x){ return x.z; }\r\n\
-return bar(&x);";
-TEST_RESULT("Inheritance test 14", testInheritance14, "1");
+return bar(x);";
+TEST_RESULT("Inheritance test 14", testInheritance14, "5");
 
 const char	*testInheritance15 =
 "class vec2 extendable{ float x, y; }\r\n\
@@ -186,4 +186,40 @@ vec3 y; y.x = 5;\r\n\
 \r\n\
 int bar(vec2 x){ return x.x; }\r\n\
 return bar(y);";
-TEST_RESULT("Inheritance test 15", testInheritance15, "1");
+TEST_RESULT("Inheritance test 15", testInheritance15, "5");
+
+const char	*testInheritance16 =
+"class vec2 extendable{ float x, y; }\r\n\
+class vec3 : vec2{ float z; }\r\n\
+\r\n\
+vec2 x;\r\n\
+vec3 y;\r\n\
+x = y;\r\n\
+\r\n\
+return typeid(&y) == vec3;";
+TEST_RESULT("Inheritance test 16", testInheritance16, "1");
+
+const char	*testInheritance17 =
+"class vec2 extendable{ float x, y; }\r\n\
+class vec3 : vec2{ float z; }\r\n\
+\r\n\
+vec2 ref foo(){ auto r = new vec3; r.x = 2; r.z = 3; return r; }\r\n\
+\r\n\
+vec2 ref a = foo();\r\n\
+vec3 ref b = a;\r\n\
+\r\n\
+return int(a.x + b.z);";
+TEST_RESULT("Inheritance test 17", testInheritance17, "5");
+
+const char	*testInheritance18 =
+"class vec2 extendable{ float x, y; }\r\n\
+class vec3 : vec2{ float z; }\r\n\
+\r\n\
+vec2 ref foo(){ auto r = new vec3; r.x = 2; r.z = 3; return r; }\r\n\
+vec3 ref bar(){ return foo(); }\r\n\
+\r\n\
+vec2 ref a = foo();\r\n\
+vec3 ref b = bar();\r\n\
+\r\n\
+return int(a.x + b.z);";
+TEST_RESULT("Inheritance test 18", testInheritance18, "5");
