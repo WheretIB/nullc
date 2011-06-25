@@ -698,7 +698,10 @@ void NodeConvertPtr::Compile()
 		TypeInfo *type = first->typeInfo->subType;
 		if(handleBaseClass && type->firstVariable && type->firstVariable->nameHash == GetStringHash("$typeid"))
 		{
-			cmdList.push_back(VMCmd(cmdCopyI));
+			if(sizeof(void*) == 4)
+				cmdList.push_back(VMCmd(cmdCopyI));
+			else
+				cmdList.push_back(VMCmd(cmdCopyDorL));
 			cmdList.push_back(VMCmd(cmdPushIntStk));
 		}else{
 			cmdList.push_back(VMCmd(cmdPushTypeID, first->typeInfo->subType->typeIndex));
