@@ -1104,6 +1104,7 @@ void AddReturnNode(const char* pos, bool yield)
 			currDefinedFunc.back()->retType = realRetType;
 			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
 		}else{
+			ConvertBaseToDerived(pos, currDefinedFunc.back()->retType);
 			ConvertDerivedToBase(pos, currDefinedFunc.back()->retType);
 			ConvertArrayToUnsized(pos, currDefinedFunc.back()->retType);
 			HandlePointerToObject(pos, currDefinedFunc.back()->retType);
@@ -2549,6 +2550,24 @@ void ConvertDerivedToBase(const char* pos, TypeInfo *dstType)
 			parentType = parentType->parentType;
 		}
 	}
+	// Handle base class = derived class
+	if(CodeInfo::nodeList.back()->typeInfo->parentType)
+	{
+		TypeInfo *parentType = CodeInfo::nodeList.back()->typeInfo->parentType;
+		while(parentType)
+		{
+			if(dstType == parentType)
+			{
+				AddInplaceVariable(pos);
+				CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(dstType);
+				CodeInfo::nodeList.push_back(new NodeDereference());
+
+				AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
+				break;
+			}
+			parentType = parentType->parentType;
+		}
+	}
 }
 
 void ConvertBaseToDerived(const char* pos, TypeInfo *dstType)
@@ -3837,17 +3856,24 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 		TypeInfo *expectedType = currFunc->paramType[i];
 		if(expectedType != paramType)
 		{
-			if(expectedType == typeGeneric)	// generic function argument
+			if(expectedType == typeGeneric)
+			{
+				// generic function argument
 				continue;
-			else if(expectedType->dependsOnGeneric)	// generic function argument that is derivative from generic
+			}else if(expectedType->dependsOnGeneric){
+				// generic function argument that is derivative from generic
 				continue;
-			else if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType)
-				fRating += 2;	// array -> class (unsized array)
-			else if(expectedType == typeAutoArray && paramType->arrLevel)
-				fRating += 5;	// array -> auto[]
-			else if(expectedType->refLevel == 1 && paramType->refLevel == 1 && expectedType->subType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->subType->subType == expectedType->subType->subType)
-				fRating += 10;	// array[N] ref -> array[] -> array[] ref
-			else if(expectedType->refLevel == 1 && paramType->refLevel == 1 && paramType->subType->parentType){
+			}else if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType){
+				// array -> class (unsized array)
+				fRating += 2;
+			}else if(expectedType == typeAutoArray && paramType->arrLevel){
+				// array -> auto[]
+				fRating += 5;
+			}else if(expectedType->refLevel == 1 && paramType->refLevel == 1 && expectedType->subType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->subType->subType == expectedType->subType->subType){
+				// array[N] ref -> array[] -> array[] ref
+				fRating += 10;
+			}else if(expectedType->refLevel == 1 && paramType->refLevel == 1 && paramType->subType->parentType){
+				// derived ref -> base ref
 				TypeInfo *parent = paramType->subType->parentType;
 				while(parent)
 				{
@@ -3858,8 +3884,35 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 				if(parent)
 					fRating += 5;
 				else
-					return ~0u;	
+					return ~0u;
+			}else if(expectedType->refLevel == 1 && paramType->refLevel == 1 && expectedType->subType->parentType){
+				// base ref -> derived ref
+				TypeInfo *parent = expectedType->subType->parentType;
+				while(parent)
+				{
+					if(paramType->subType == parent)
+						break;
+					parent = parent->parentType;
+				}
+				if(parent)
+					fRating += 10;
+				else
+					return ~0u;
+			}else if(paramType->parentType){
+				// derived -> base
+				TypeInfo *parent = paramType->parentType;
+				while(parent)
+				{
+					if(expectedType == parent)
+						break;
+					parent = parent->parentType;
+				}
+				if(parent)
+					fRating += 5;
+				else
+					return ~0u;
 			}else if(expectedType->funcType != NULL){
+				// Function type conversions
 				if(nodeType == typeNodeFuncDef && ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType == expectedType)
 					continue;		// Inline function definition doesn't cost anything
 				else if(nodeType == typeNodeFunctionProxy && ((NodeFunctionProxy*)activeNode)->HasType(expectedType))
@@ -3870,18 +3923,26 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 					continue;		// Generic function is expected to have an appropriate instance, but there will be a check after instancing
 				else
 					return ~0u;		// Otherwise this function is not a match
-			}else if(expectedType->refLevel == paramType->refLevel + 1 && expectedType->subType == paramType)
-				fRating += 5;	// type -> type ref
-			else if(expectedType == typeObject && paramType->refLevel)
-				fRating += 5;	// type ref -> auto ref
-			else if(expectedType == typeObject)
-				fRating += 10;	// type -> type ref -> auto ref
-			else if(expectedType->type == TypeInfo::TYPE_COMPLEX || paramType->type == TypeInfo::TYPE_COMPLEX || paramType->type == TypeInfo::TYPE_VOID || expectedType->firstVariable || paramType->firstVariable)
-				return ~0u;		// If one of types is complex, and they aren't equal, function cannot match
-			else if(paramType->subType != expectedType->subType)
-				return ~0u;		// Pointer or array with a different type inside. Doesn't matter if simple or complex.
-			else				// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
-				fRating += 1;	// type -> type
+			}else if(expectedType->refLevel == paramType->refLevel + 1 && expectedType->subType == paramType){
+				// type -> type ref
+				fRating += 5;
+			}else if(expectedType == typeObject && paramType->refLevel){
+				// type ref -> auto ref
+				fRating += 5;
+			}else if(expectedType == typeObject){
+				// type -> type ref -> auto ref
+				fRating += 10;
+			}else if(expectedType->type == TypeInfo::TYPE_COMPLEX || paramType->type == TypeInfo::TYPE_COMPLEX || paramType->type == TypeInfo::TYPE_VOID || expectedType->firstVariable || paramType->firstVariable){
+				// If one of types is complex, and they aren't equal, function cannot match
+				return ~0u;
+			}else if(paramType->subType != expectedType->subType){
+				// Pointer or array with a different type inside. Doesn't matter if simple or complex.
+				return ~0u;
+			}else{
+				// Build-in types can convert to each other, but the fact of conversion tells us, that there could be a better suited function
+				// type -> type
+				fRating += 1;
+			}
 		}
 	}
 	return fRating;
@@ -4961,24 +5022,23 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		}
 	}
 
-	paramNodes.clear();
-	for(unsigned int i = 0; i < callArgCount; i++)
-	{
-		paramNodes.push_back(CodeInfo::nodeList.back());
-		CodeInfo::nodeList.pop_back();
-	}
-
 	if(funcName && funcAddr && newType && !vInfo)
 	{
 		CodeInfo::nodeList.push_back(funcAddr);
 		funcAddr = NULL;
+		for(unsigned int i = 0; i < fType->paramCount; i++)
+		{
+			NodeZeroOP *tmp = CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - i];
+			CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - i] = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - i];
+			CodeInfo::nodeList[CodeInfo::nodeList.size() - 2 - i] = tmp;
+		}
 	}
+
 	for(unsigned int i = 0; i < fType->paramCount; i++)
 	{
-		unsigned int index = fType->paramCount - i - 1;
+		CodeInfo::nodeList.push_back(CodeInfo::nodeList[CodeInfo::nodeList.size() - fType->paramCount + i]);
 
-		CodeInfo::nodeList.push_back(paramNodes[index]);
-
+		ConvertBaseToDerived(pos, fType->paramType[i]);
 		ConvertDerivedToBase(pos, fType->paramType[i]);
 		ConvertFunctionToPointer(pos, fType->paramType[i]);
 		ConvertArrayToUnsized(pos, fType->paramType[i]);
@@ -5008,6 +5068,9 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			}
 		}
 		HandlePointerToObject(pos, fType->paramType[i]);
+
+		CodeInfo::nodeList[CodeInfo::nodeList.size() - fType->paramCount + i - 1] = CodeInfo::nodeList.back();
+		CodeInfo::nodeList.pop_back();
 	}
 
 	if(fInfo)
