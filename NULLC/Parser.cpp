@@ -459,9 +459,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 		NamespaceInfo* ns = NULL;
 		while((*str)->type == lex_string && (*str + 1)->type == lex_point && (ns = IsNamespace(InplaceStr((*str)->pos, (*str)->length))) != NULL)
 		{
-			(*str)++;
-			if(!ParseLexem(str, lex_point))
-				ThrowError((*str)->pos, "ERROR: '.' not found after namespace name");
+			(*str) += 2;
 			SetCurrentNamespace(ns);
 		}
 		unsigned int index;
@@ -816,7 +814,7 @@ bool ParseEnum(Lexeme** str)
 
 	SetCurrentAlignment(0);
 	if((*str)->type != lex_string)
-		ThrowError((*str)->pos, "ERROR: class name expected");
+		ThrowError((*str)->pos, "ERROR: enum name expected");
 	TypeBegin((*str)->pos, (*str)->pos+(*str)->length);
 	(*str)++;
 
@@ -826,7 +824,7 @@ bool ParseEnum(Lexeme** str)
 	enumType->dataType = podTypeToDataType[TypeInfo::TYPE_INT];
 
 	if(!ParseLexem(str, lex_ofigure))
-		ThrowError((*str)->pos, "ERROR: '{' not found after class name");
+		ThrowError((*str)->pos, "ERROR: '{' not found after enum name");
 	TypeInfo::MemberVariable *prevConst = NULL;
 	do
 	{
@@ -1898,9 +1896,7 @@ bool ParseVariable(Lexeme** str, bool *lastIsFunctionCall = NULL)
 	NamespaceInfo* ns = NULL;
 	while((*str)->type == lex_string && (*str + 1)->type == lex_point && (ns = IsNamespace(InplaceStr((*str)->pos, (*str)->length))) != NULL)
 	{
-		(*str)++;
-		if(!ParseLexem(str, lex_point))
-			ThrowError((*str)->pos, "ERROR: '.' not found after namespace name");
+		(*str) += 2;
 		SetCurrentNamespace(ns);
 	}
 	
@@ -2248,9 +2244,7 @@ bool ParseTerminal(Lexeme** str)
 			NamespaceInfo* ns = NULL;
 			while((*str)->type == lex_string && (*str + 1)->type == lex_point && (ns = IsNamespace(InplaceStr((*str)->pos, (*str)->length))) != NULL)
 			{
-				(*str)++;
-				if(!ParseLexem(str, lex_point))
-					ThrowError((*str)->pos, "ERROR: '.' not found after namespace name");
+				(*str) += 2;
 				SetCurrentNamespace(ns);
 			}
 			if((*str + 1)->type == lex_oparen)
