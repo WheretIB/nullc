@@ -984,3 +984,24 @@ void NULLC::ArrayCopy(NULLCAutoArray dst, NULLCAutoArray src)
 	}
 	memcpy(dst.ptr, src.ptr, nullcGetTypeSize(dst.typeID) * src.len);
 }
+
+void* NULLC::AssertDerivedFromBase(unsigned* derived, unsigned base)
+{
+	if(!derived)
+		return derived;
+
+	unsigned typeId = *derived;
+	for(;;)
+	{
+		if(base == typeId)
+			return derived;
+		if(linker->exTypes[typeId].baseType)
+		{
+			typeId = linker->exTypes[typeId].baseType;
+		}else{
+			break;
+		}
+	}
+	nullcThrowError("ERROR: cannot convert from '%s' to '%s'", nullcGetTypeName(*derived), nullcGetTypeName(base));
+	return derived;
+}

@@ -52,6 +52,8 @@ FastVector<FunctionInfo*>	delayedInstance;
 HashMap<FunctionInfo*>		funcMap;
 HashMap<VariableInfo*>		varMap;
 
+unsigned	extendableVariableName = GetStringHash("$typeid");
+
 unsigned GetFunctionHiddenName(char* buf, FunctionInfo &info)
 {
 	assert(info.funcType);
@@ -303,6 +305,7 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred = NULL);
 void HandlePointerToObject(const char* pos, TypeInfo *dstType);
 void ConvertDerivedToBase(const char* pos, TypeInfo *dstType);
+void ConvertBaseToDerived(const char* pos, TypeInfo *dstType);
 void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorReport, char* errPos, const char* funcName, unsigned callArgCount, unsigned count);
 void RestoreNamespaces(bool undo, NamespaceInfo *parent, unsigned& prevBackupSize, unsigned& prevStackSize, NamespaceInfo*& lastNS);
 
@@ -1914,6 +1917,7 @@ void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverlo
 		NodeZeroOP *temp = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
 		// Perform implicit conversions
+		ConvertBaseToDerived(pos, realCurrType);
 		ConvertDerivedToBase(pos, realCurrType);
 		ConvertArrayToUnsized(pos, realCurrType);
 		HandlePointerToObject(pos, realCurrType);
@@ -1992,6 +1996,7 @@ void AddSetVariableNode(const char* pos)
 	CheckForImmutable(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, pos);
 
 	// Make necessary implicit conversions
+	ConvertBaseToDerived(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
 	ConvertDerivedToBase(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
 	ConvertArrayToUnsized(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
 	ConvertFunctionToPointer(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
@@ -2537,7 +2542,38 @@ void ConvertDerivedToBase(const char* pos, TypeInfo *dstType)
 		while(parentType)
 		{
 			if(dstType->subType == parentType)
+			{
 				CodeInfo::nodeList.back()->typeInfo = dstType;
+				break;
+			}
+			parentType = parentType->parentType;
+		}
+	}
+}
+
+void ConvertBaseToDerived(const char* pos, TypeInfo *dstType)
+{
+	(void)pos;
+	// Handle derived class pointer = base class pointer
+	if(dstType->refLevel == 1 && CodeInfo::nodeList.back()->typeInfo->refLevel == 1 && dstType->subType->parentType)
+	{
+		TypeInfo *parentType = dstType->subType->parentType;
+		while(parentType)
+		{
+			if(CodeInfo::nodeList.back()->typeInfo->subType == parentType)
+			{
+				CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(typeVoid);
+
+				// Push base type
+				CodeInfo::nodeList.push_back(new NodeZeroOP(CodeInfo::GetReferenceType(dstType->subType)));
+				CodeInfo::nodeList.push_back(new NodeConvertPtr(typeObject));
+				CodeInfo::nodeList.back()->typeInfo = typeTypeid;
+				
+				AddFunctionCallNode(pos, "assert_derived_from_base", 2);
+				CodeInfo::nodeList.back()->typeInfo = dstType;
+
+				break;
+			}
 			parentType = parentType->parentType;
 		}
 	}
@@ -3281,6 +3317,19 @@ void FunctionStart(const char* pos)
 		int exprCount = 0;
 		for(; curr; curr = curr->next)
 		{
+			if(curr->nameHash == extendableVariableName)
+			{
+				AddGetAddressNode(pos, InplaceStr("this", 4));
+				CodeInfo::nodeList.push_back(new NodeDereference());
+				AddMemberAccessNode(pos,  InplaceStr(curr->name));
+				CodeInfo::nodeList.push_back(new NodeZeroOP(CodeInfo::GetReferenceType(newType)));
+				CodeInfo::nodeList.push_back(new NodeConvertPtr(typeObject));
+				CodeInfo::nodeList.back()->typeInfo = typeTypeid;
+				AddSetVariableNode(CodeInfo::lastKnownStartPos);
+				AddPopNode(CodeInfo::lastKnownStartPos);
+				exprCount++;
+				continue;
+			}
 			// Handle array types
 			TypeInfo *base = curr->type;
 			while(base && base->arrLevel && base->arrSize != TypeInfo::UNSIZED_ARRAY) // Unsized arrays are not initialized
@@ -5365,6 +5414,8 @@ void TypeFinish()
 			base = base->subType;
 		if(HasConstructor(base, 0))
 			customConstructor = true;
+		if(curr->nameHash == extendableVariableName)
+			customConstructor = true;
 	}
 
 	if(customConstructor)
@@ -5391,7 +5442,12 @@ void TypeFinish()
 	bool customAssign = false;
 	for(curr = lastType->firstVariable; curr; curr = curr->next)
 	{
-		if(curr->type->refLevel || curr->type->arrLevel || curr->type->funcType)
+		if(curr->nameHash == extendableVariableName)
+		{
+			customAssign = true;
+			continue;
+		}
+		if(curr->defaultValue || curr->type->refLevel || curr->type->arrLevel || curr->type->funcType)
 			continue;
 		// Check assignment operator by virtually calling a = function with (Type ref, Type) arguments
 		CodeInfo::nodeList.push_back(new NodeZeroOP(CodeInfo::GetReferenceType(curr->type)));
@@ -5421,6 +5477,12 @@ void TypeFinish()
 		unsigned exprCount = 0;
 		for(curr = lastType->firstVariable; curr; curr = curr->next)
 		{
+			// Skip constants
+			if(curr->defaultValue)
+				continue;
+			// Custom assignment operator will never change extendable class typeid
+			if(curr->nameHash == extendableVariableName)
+				continue;
 			AddGetAddressNode(CodeInfo::lastKnownStartPos, InplaceStr("left"));
 			AddGetVariableNode(CodeInfo::lastKnownStartPos);
 			AddMemberAccessNode(CodeInfo::lastKnownStartPos, InplaceStr(curr->name));
@@ -5624,6 +5686,8 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 		ThrowError(pos, "ERROR: auto type cannot be used as a base class");
 	if(!type->hasFinished)
 		ThrowError(pos, "ERROR: type '%s' is not fully defined. You can use '%s ref' or '%s[]' at this point", type->GetFullTypeName(), type->GetFullTypeName(), type->GetFullTypeName());
+	if(!type->firstVariable || type->firstVariable->nameHash != extendableVariableName)
+		ThrowError(pos, "ERROR: type '%s' is not extendable", type->GetFullTypeName());
 
 	// Inherit aliases
 	AliasInfo *aliasList = type->childAlias;
@@ -5645,15 +5709,6 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 		}
 		aliasList = aliasList->next;
 	}
-	// Handle build-in types
-	TypeInfo::MemberVariable *var = type->firstVariable;
-	while(var && var->defaultValue)
-		var = var->next;
-	if(!var && type->size)
-	{
-		currType = type;
-		TypeAddMember(pos, "$base");
-	}
 	// Inherit member variables
 	for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
 	{
@@ -5663,6 +5718,10 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 		unsigned memberCount = newType->memberCount;
 		bool hasPointers = newType->hasPointers;
 
+		// No need to add extendable class typeid again
+		if(newType->firstVariable && newType->firstVariable->nameHash == extendableVariableName && curr->nameHash == extendableVariableName)
+			continue;
+
 		TypeAddMember(pos, curr->name);
 		newType->lastVariable->defaultValue = curr->defaultValue;
 		if(curr->defaultValue)
@@ -5671,6 +5730,7 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 			newType->memberCount = memberCount;
 			newType->hasPointers = hasPointers;
 			newType->lastVariable->offset = 0;
+			continue;
 		}
 
 		assert(newType->lastVariable->offset == curr->offset);
@@ -5694,6 +5754,14 @@ void RestoreDefinedTypeState(TypeInfo* type, unsigned mCount)
 {
 	methodCount = mCount;
 	newType = type;
+}
+
+void TypeExtendable(const char* pos)
+{
+	assert(newType);
+	assert(!newType->firstVariable);
+	currType = typeTypeid;
+	TypeAddMember(pos, "$typeid");
 }
 
 void AddAliasType(InplaceStr aliasName)

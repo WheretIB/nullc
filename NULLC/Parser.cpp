@@ -585,6 +585,9 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 
 void ParseClassBody(Lexeme** str)
 {
+	if(ParseLexem(str, lex_extendable))
+		TypeExtendable((*str)->pos);
+
 	if(ParseLexem(str, lex_colon))
 	{
 		if(!ParseSelectType(str, ALLOW_ARRAY | ALLOW_EXTENDED_TYPEOF))
@@ -772,8 +775,8 @@ bool ParseClassDefinition(Lexeme** str)
 			unsigned braces = 1;
 			if(!ParseLexem(str, lex_ofigure))
 			{
-				if(!ParseLexem(str, lex_colon))
-					ThrowError((*str)->pos, "ERROR: '{' or ':' not found after class name");
+				if(!ParseLexem(str, lex_extendable) && !ParseLexem(str, lex_colon))
+					ThrowError((*str)->pos, "ERROR: '{', ':' or 'extendable' not found after class name");
 				braces = 0;
 			}
 			// Skip class body

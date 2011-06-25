@@ -87,4 +87,6 @@ namespace NULLC
 	NULLCArray GetFinalizationList();
 
 	void	ArrayCopy(NULLCAutoArray dst, NULLCAutoArray src);
+
+	void*	AssertDerivedFromBase(unsigned* derived, unsigned base);
 }

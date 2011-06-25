@@ -270,7 +270,8 @@ bool operator in(generic x, typeof(x)[] arr)\r\n\
 		if(i == x)\r\n\
 			return true;\r\n\
 	return false;\r\n\
-}";
+}\r\n\
+void ref assert_derived_from_base(void ref derived, typeid base);";
 
 Compiler::Compiler()
 {
@@ -442,6 +443,8 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::AssertCoroutine, "__assertCoroutine", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::GetFinalizationList, "__getFinalizeList", 0);
+
+	AddModuleFunction("$base$", (void (*)())NULLC::AssertDerivedFromBase, "assert_derived_from_base", 0);
 #endif
 }
 
@@ -2173,6 +2176,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		typeInfo.definitionOffset = refType.genericInfo ? refType.genericInfo->start - int(CodeInfo::lexFullStart - CodeInfo::lexStart) : ~0u;
 		if(refType.genericBase)
 			typeInfo.definitionOffset = 0x80000000 | refType.genericBase->typeIndex;
+
+		typeInfo.baseType = refType.parentType ? refType.parentType->typeIndex : 0;
 
 		// Fill up next
 		tInfo++;
