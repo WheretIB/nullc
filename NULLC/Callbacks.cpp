@@ -2035,6 +2035,9 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 	bool unifyTwo = false;
 	// Get variable type
 	TypeInfo *currentType = CodeInfo::nodeList.back()->typeInfo;
+	bool virtualCall = CodeInfo::nodeList.back()->nodeType == typeNodeFuncCall && currentType->refLevel == 1 && currentType->subType->firstVariable && currentType->subType->firstVariable->nameHash == extendableVariableName;
+	virtualCall |= currentType->refLevel == 2 && currentType->subType->subType->firstVariable && currentType->subType->subType->firstVariable->nameHash == extendableVariableName;
+
 	// For member access, we expect to see a pointer to variable on top of the stack, so the shift to a member could be made
 	// But if structure was, for example, returned from a function, then we have it on stack "by value", so we save it to a hidden variable and take a pointer to it
 	if(currentType->refLevel == 0)
@@ -2075,8 +2078,14 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 	FunctionInfo *memberFunc = NULL;
 	if(!curr)
 	{
-		if(currentType == typeObject)
+		if(currentType == typeObject || virtualCall)
 		{
+			if(virtualCall)
+			{
+				CodeInfo::nodeList.push_back(new NodeConvertPtr(typeObject, true));
+				AddInplaceVariable(pos);
+				AddTwoExpressionNode(CodeInfo::GetReferenceType(typeObject));
+			}
 			char *funcName = AllocateString(int(varName.end - varName.begin) + 1);
 			SafeSprintf(funcName, int(varName.end - varName.begin) + 1, "%s", varName.begin);
 			GetAutoRefFunction(pos, funcName, 0, false);
@@ -2084,6 +2093,8 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 			CodeInfo::nodeList.pop_back();
 			CodeInfo::nodeList.pop_back();
 			CodeInfo::nodeList.push_back(autoRef);
+			if(unifyTwo)
+				AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
 			return;
 		}
 		// Construct function name in a for of Class::Function
@@ -4362,32 +4373,18 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 	virtualCall |= currentNode->nodeType == typeNodeFuncCall && currentType->refLevel == 1 && currentType->subType->firstVariable && currentType->subType->firstVariable->nameHash == extendableVariableName;
 	if(virtualCall)
 	{
-		NodeZeroOP *getPointer = currentNode;
-		
-		NodeOneOP *wrap = new NodeOneOP();
-		wrap->SetFirstNode(getPointer);
-		CodeInfo::nodeList.push_back(wrap);
+		CodeInfo::nodeList.push_back(currentNode);
 		if(currentType->refLevel == 2)
 			CodeInfo::nodeList.push_back(new NodeDereference());
 
-		NodeOneOP *wrap2 = new NodeOneOP();
-		wrap2->SetFirstNode(getPointer);
-		CodeInfo::nodeList.push_back(wrap2);
-		if(currentType->refLevel == 2)
-			CodeInfo::nodeList.push_back(new NodeDereference());
-
-		AddMemberAccessNode(pos, InplaceStr("$typeid"));
-		AddGetVariableNode(pos);
-
-		AddTwoExpressionNode(typeObject);
+		CodeInfo::nodeList.push_back(new NodeConvertPtr(typeObject, true));
 		AddInplaceVariable(pos);
 		AddTwoExpressionNode(CodeInfo::GetReferenceType(typeObject));
 
-		getPointer = CodeInfo::nodeList.back();
+		CodeInfo::nodeList[CodeInfo::nodeList.size() - callArgCount - 2] = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
 
-		CodeInfo::nodeList[CodeInfo::nodeList.size() - callArgCount - 1] = getPointer;
-		currentType = getPointer->typeInfo;
+		currentType = CodeInfo::GetReferenceType(typeObject);
 	}
 
 	// For auto ref types, we redirect call to a target type
