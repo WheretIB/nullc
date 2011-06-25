@@ -246,4 +246,20 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "int foo(int i = 4, j){ return i + j; } return foo(j: 5, 2);", "ERROR: function parameter name expected after ','");
 	TEST_FOR_FAIL("parsing", "int foo(int i = 4, j){ return i + j; } return foo(j: 5, i: );", "ERROR: expression not found after ':' in function parameter list");
 	TEST_FOR_FAIL("parsing", "int foo(int i = 4, j){ return i + j; } return foo(j: );", "ERROR: expression not found after ':' in function parameter list");
+
+	TEST_FOR_FAIL("parsing", "int[4] arr; (typeof(arr).arraySize ref)(1);", "ERROR: typeof expression result is not a type");
+	TEST_FOR_FAIL("parsing", "int[4] arr; (typeof(arr).arraySize[])(1);", "ERROR: typeof expression result is not a type");
+	TEST_FOR_FAIL("parsing", "namespace", "ERROR: namespace name required");
+	TEST_FOR_FAIL("parsing", "namespace Bar", "ERROR: '{' not found after namespace name");
+	TEST_FOR_FAIL("parsing", "namespace Bar{", "ERROR: '}' not found after namespace body");
+	TEST_FOR_FAIL("parsing", "class Foo{ const int b = 4; int a; } Foo.b x;", "ERROR: type is expected at this point");
+	TEST_FOR_FAIL("parsing", "enum", "ERROR: enum name expected");
+	TEST_FOR_FAIL("parsing", "enum X", "ERROR: '{' not found after enum name");
+	TEST_FOR_FAIL("parsing", "enum X{", "ERROR: enumeration name expected after {");
+	TEST_FOR_FAIL("parsing", "enum X{ A", "ERROR: '}' not found after enum definition");
+	TEST_FOR_FAIL("parsing", "enum X{ A, ", "ERROR: enumeration name expected after ','");
+	TEST_FOR_FAIL("parsing", "enum X{ A =", "ERROR: expression not found after '='");
+	TEST_FOR_FAIL("parsing", "class X{ int x; } new X(){", "ERROR: '}' not found after custom constructor body");
+	TEST_FOR_FAIL("parsing", "new int(", "ERROR: ')' not found after function parameter list");
+	TEST_FOR_FAIL("parsing", "int a = typeof(1)(", "ERROR: ')' not found after function parameter list");
 }
