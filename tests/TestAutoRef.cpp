@@ -40,3 +40,10 @@ const char	*testBoxUnbox2 =
 int a = x;\r\n\
 return int(x) * a;";
 TEST_RESULT("Auto reference type boxing and unboxing 2", testBoxUnbox2, "16");
+
+const char	*testAutoRefAssign =
+"auto ref x = 4;\r\n\
+*x = 3;\r\n\
+int y = x;\r\n\
+return y;";
+TEST_RESULT("Auto reference immediate assignment", testAutoRefAssign, "3");

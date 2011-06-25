@@ -2247,3 +2247,30 @@ hashmap<bool, hashmap<int, float>> h;\r\n\
 h.foo();\r\n\
 return h.entry.value.x;";
 TEST_RESULT("Default constructor generation for a generic type", testGenericTypeDefaultConstructor, "5");
+
+const char *testGenericType139 =
+"class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+	T y{ get{ return -x; } set(t){ x = -t; } };\r\n\
+\r\n\
+	void Foo(){ x = 4; }\r\n\
+}\r\n\
+Foo<int> g(){ return Foo<int>(); }\r\n\
+\r\n\
+return g().y;";
+TEST_RESULT("generic type accessor is instanced (after function call)", testGenericType139, "-4");
+
+const char *testGenericType140 =
+"class Foo<T>\r\n\
+{\r\n\
+	T x;\r\n\
+	auto getX(generic y){ return x + y; }\r\n\
+\r\n\
+	void Foo(){ x = 4; }\r\n\
+}\r\n\
+Foo<int> g(){ return Foo<int>(); }\r\n\
+\r\n\
+int ref(int) a = g().getX;\r\n\
+return a(3);";
+TEST_RESULT("generic type generic function retrieval (after function call)", testGenericType140, "7");
