@@ -262,4 +262,6 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "class X{ int x; } new X(){", "ERROR: '}' not found after custom constructor body");
 	TEST_FOR_FAIL("parsing", "new int(", "ERROR: ')' not found after function parameter list");
 	TEST_FOR_FAIL("parsing", "int a = typeof(1)(", "ERROR: ')' not found after function parameter list");
+
+	TEST_FOR_FAIL("parsing", "int i = 0; do{ return i;", "ERROR: closing '}' not found");
 }
