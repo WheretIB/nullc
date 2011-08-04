@@ -442,3 +442,22 @@ auto ref b = a;\r\n\
 \r\n\
 return foo(vec2 ref(b));";
 TEST_RESULT("Inheritance test 35", testInheritance35, "2");
+
+const char	*testInheritance36 =
+"class vec2 extendable{ float x, y; int foo(int a = 2){ return a; } }\r\n\
+class vec3 : vec2{ float z; int foo(int a = 3){ return a; } }\r\n\
+\r\n\
+vec3 ref a = new vec3;\r\n\
+vec2 ref b = a;\r\n\
+\r\n\
+return (a.foo() == 3) + (b.foo() == 2);";
+TEST_RESULT("Inheritance test 36", testInheritance36, "2");
+
+const char	*testInheritance37 =
+"class vec2 extendable{ float x, y; int foo(int i, j){ return i / j; } }\r\n\
+class vec3 : vec2{ float z; int foo(int j, i){ return i / j; } }\r\n\
+\r\n\
+vec3 ref a = new vec3;\r\n\
+vec3 ref b = a;\r\n\
+return a.foo(i: 6, j: 3) + b.foo(i: 6, j: 3);";
+TEST_RESULT("Inheritance test 37", testInheritance37, "4");
