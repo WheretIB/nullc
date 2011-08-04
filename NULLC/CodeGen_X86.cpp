@@ -3203,13 +3203,18 @@ void GenCodeCmdCloseUpvalues(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 12);
 }
 
+void (*convertPtrFunc)() = (void(*)())ConvertFromAutoRef;
+
 void GenCodeCmdConvertPtr(VMCmd cmd)
 {
 	EMIT_COMMENT("CONVERTPTR");
 
-	EMIT_OP_REG(o_pop, rEAX);
-	EMIT_OP_REG_NUM(o_cmp, rEAX, cmd.argument);
-	EMIT_OP_LABEL(o_je, aluLabels);
+	EMIT_OP_NUM(o_push, cmd.argument);
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)convertPtrFunc);
+	EMIT_OP_REG(o_call, rECX);
+	EMIT_OP_REG_NUM(o_add, rESP, 8);
+	EMIT_OP_REG_REG(o_test, rEAX, rEAX);
+	EMIT_OP_LABEL(o_jnz, aluLabels);
 #ifdef __linux
 	EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-16, rEAX);
 	// call siglongjmp(target_env, EXCEPTION_CONVERSION_ERROR);

@@ -1655,7 +1655,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 
 		case cmdConvertPtr:
-			if(*genStackPtr != cmd.argument)
+			if(!ConvertFromAutoRef(cmd.argument, *genStackPtr))
 			{
 				SafeSprintf(execError, 1024, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[*genStackPtr].offsetToName], &exLinker->exSymbols[exLinker->exTypes[cmd.argument].offsetToName]);
 				fcallStack.push_back(cmdStream); 
