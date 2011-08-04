@@ -722,6 +722,8 @@ line 1 - ERROR: unknown identifier 'a'\r\n\
 	TEST_FOR_FAIL("named function arguments", "int[10] arr; return arr[x: 1];", "ERROR: overloaded [] operator must be supplied to use named function arguments");
 
 	TEST_FOR_FAIL("incorrect typeid", "return typeid(auto) == typeid(1);", "ERROR: cannot take typeid from auto type");
+
+	TEST_FOR_FAIL("ambiguity", "class Test{ auto foo(generic i){ return -i; } auto foo(generic i, int j = 2){ return i + j; } } auto ref x = new Test; return x.foo(1);", "ERROR: ambiguity, there is more than one overloaded function available for the call:");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
