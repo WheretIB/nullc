@@ -102,6 +102,19 @@ void CloseUpvalues(char* paramBase, unsigned int depth, unsigned int argument)
 	}
 }
 
+unsigned ConvertFromAutoRef(unsigned int target, unsigned int source)
+{
+	if(source == target)
+		return 1;
+	while(NULLC::commonLinker->exTypes[source].baseType)
+	{
+		source = NULLC::commonLinker->exTypes[source].baseType;
+		if(source == target)
+			return 1;
+	}
+	return 0;
+}
+
 ExternTypeInfo*	GetTypeList()
 {
 	return NULLC::commonLinker->exTypes.data;

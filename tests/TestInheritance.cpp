@@ -419,3 +419,26 @@ a.x = 2;\r\n\
 auto x = a.foo;\r\n\
 return x(0);";
 TEST_RESULT("Inheritance test 33", testInheritance33, "2");
+
+const char	*testInheritance34 =
+"class vec2 extendable{ float x, y; int foo(int a = 5){ return x + a; } }\r\n\
+\r\n\
+vec2 ref a = new vec2;\r\n\
+a.x = 2;\r\n\
+\r\n\
+return int(a.foo());";
+TEST_RESULT("Inheritance test 34", testInheritance34, "7");
+
+const char	*testInheritance35 =
+"class vec2 extendable{ float x, y; int foo(){ return x; } }\r\n\
+class vec3 : vec2{ float z; int foo(){ return y; } }\r\n\
+\r\n\
+vec3 ref a = new vec3;\r\n\
+a.x = 2;\r\n\
+\r\n\
+int foo(vec2 ref x){ return x.x; }\r\n\
+\r\n\
+auto ref b = a;\r\n\
+\r\n\
+return foo(vec2 ref(b));";
+TEST_RESULT("Inheritance test 35", testInheritance35, "2");
