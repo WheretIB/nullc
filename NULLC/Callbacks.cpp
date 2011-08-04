@@ -4323,20 +4323,6 @@ FunctionInfo* GetAutoRefFunction(const char* pos, const char* funcName, unsigned
 	if(minRating == ~0u)
 		ThrowError(pos, "ERROR: none of the member ::%s functions can handle the supplied parameter list without conversions", funcName);
 	FunctionInfo *fInfo = bestFuncList[minRatingIndex];
-	if(fInfo && fInfo->generic)
-		CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u, fInfo->parentClass);
-	// Check, is there are more than one function, that share the same rating
-	for(unsigned k = 0; k < count; k++)
-	{
-		if(k != minRatingIndex && bestFuncRating[k] == minRating && bestFuncList[k]->funcType != fInfo->funcType)
-		{
-			char	*errPos = errorReport;
-			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n");
-			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count);
-		}
-	}
-	// Get function type
-	TypeInfo *fType = fInfo->funcType;
 
 	// Find the most specialized function for extendable member function call
 	bool found = false;
@@ -4354,6 +4340,24 @@ FunctionInfo* GetAutoRefFunction(const char* pos, const char* funcName, unsigned
 		}
 		preferedParent = preferedParent->parentType;
 	}
+
+	// Check, is there are more than one function, that share the same rating
+	for(unsigned k = 0; k < count; k++)
+	{
+		if(k != minRatingIndex && bestFuncRating[k] == minRating && bestFuncList[k]->funcType != fInfo->funcType)
+		{
+			char	*errPos = errorReport;
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n");
+			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count);
+		}
+	}
+
+	// Generate generic function instance
+	if(fInfo && fInfo->generic)
+		CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u, fInfo->parentClass);
+	
+	// Get function type
+	TypeInfo *fType = fInfo->funcType;
 
 	unsigned int lenStr = 5 + (int)strlen(funcName) + 1 + 32;
 	char *vtblName = AllocateString(lenStr);

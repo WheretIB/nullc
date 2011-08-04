@@ -461,3 +461,21 @@ vec3 ref a = new vec3;\r\n\
 vec3 ref b = a;\r\n\
 return a.foo(i: 6, j: 3) + b.foo(i: 6, j: 3);";
 TEST_RESULT("Inheritance test 37", testInheritance37, "4");
+
+const char	*testInheritance38 =
+"class vec2 extendable\r\n\
+{\r\n\
+	float x, y;\r\n\
+	auto foo(generic i){ return -i; }\r\n\
+}\r\n\
+class vec3 : vec2\r\n\
+{\r\n\
+	float z;\r\n\
+	int foo(int i){ return i; }\r\n\
+	int foo(int j, i){ return i / j; }\r\n\
+}\r\n\
+\r\n\
+vec3 ref a = new vec3;\r\n\
+vec2 ref b = a;\r\n\
+return b.foo(i: 6) + a.foo(i: 6, j: 3);";
+TEST_RESULT("Inheritance test 38", testInheritance38, "-4");
