@@ -2024,7 +2024,7 @@ void AddGetVariableNode(const char* pos, bool forceError)
 		ThrowError(pos, "ERROR: cannot dereference type '%s' that is not a pointer", lastType->GetFullTypeName());
 }
 
-void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int callArgCount, bool forFunctionCall, TypeInfo* preferedParent);
+FunctionInfo* GetAutoRefFunction(const char* pos, const char* funcName, unsigned int callArgCount, bool forFunctionCall, TypeInfo* preferedParent);
 
 void AddMemberAccessNode(const char* pos, InplaceStr varName)
 {
@@ -4270,7 +4270,7 @@ unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int 
 	return minRatingIndex;
 }
 
-void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int callArgCount, bool forFunctionCall, TypeInfo* preferedParent)
+FunctionInfo* GetAutoRefFunction(const char* pos, const char* funcName, unsigned int callArgCount, bool forFunctionCall, TypeInfo* preferedParent)
 {
 	// We need to know what function overload is called, and this is a long process:
 	// Get function name hash
@@ -4284,15 +4284,16 @@ void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int call
 		FunctionInfo *func = CodeInfo::funcInfo[i];
 		if(!(func->nameHashOrig == fHash && func->parentClass && func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType))
 			continue;
-		if(preferedParent)
+		TypeInfo *copy = preferedParent;
+		if(copy)
 		{
 			do
 			{
-				if(preferedParent == func->parentClass)
+				if(copy == func->parentClass)
 					break;
-				preferedParent = preferedParent->parentType;
-			}while(preferedParent);
-			if(!preferedParent)
+				copy = copy->parentType;
+			}while(copy);
+			if(!copy)
 				continue;
 		}
 		bestFuncList.push_back(func);
@@ -4337,6 +4338,23 @@ void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int call
 	// Get function type
 	TypeInfo *fType = fInfo->funcType;
 
+	// Find the most specialized function for extendable member function call
+	bool found = false;
+	while(preferedParent && !found)
+	{
+		for(unsigned i = 0; i < count && !found; i++)
+		{
+			if(bestFuncRating[i] != minRating)
+				continue;
+			if(preferedParent == bestFuncList[i]->parentClass)
+			{
+				fInfo = bestFuncList[i];
+				found = true;
+			}
+		}
+		preferedParent = preferedParent->parentType;
+	}
+
 	unsigned int lenStr = 5 + (int)strlen(funcName) + 1 + 32;
 	char *vtblName = AllocateString(lenStr);
 	SafeSprintf(vtblName, lenStr, "$vtbl%010u%s", fType->GetFullNameHash(), funcName);
@@ -4372,6 +4390,8 @@ void GetAutoRefFunction(const char* pos, const char* funcName, unsigned int call
 	AddFunctionCallNode(pos, forFunctionCall ? "__redirect" : "__redirect_ptr", 2);
 	// Rename return function type
 	CodeInfo::nodeList.back()->typeInfo = fType;
+
+	return fInfo;
 }
 
 bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount, bool silent)
@@ -4401,9 +4421,9 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 	// For auto ref types, we redirect call to a target type
 	if(currentType == CodeInfo::GetReferenceType(typeObject) || virtualCall)
 	{
-		GetAutoRefFunction(pos, funcName, callArgCount, true, virtualCall ? currentType : NULL);
+		FunctionInfo *fInfo = GetAutoRefFunction(pos, funcName, callArgCount, true, virtualCall ? currentType : NULL);
 		// Call target function
-		AddFunctionCallNode(pos, NULL, callArgCount);
+		AddFunctionCallNode(pos, NULL, callArgCount, false, virtualCall ? fInfo : NULL);
 		NodeZeroOP *autoRef = CodeInfo::nodeList.back();
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.pop_back();
@@ -4735,7 +4755,7 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 	return funcDefAtEnd;
 }
 
-bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent)
+bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent, FunctionInfo* templateFunc)
 {
 	unsigned int funcNameHash = ~0u;
 
@@ -4954,9 +4974,15 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			return true;
 		}
 		unsigned int bestRating = ~0u;
-		if(callArgCount >= (fType->paramCount-1) && fType->paramCount && fType->paramType[fType->paramCount-1] == typeObjectArray &&
-			!(callArgCount == fType->paramCount && CodeInfo::nodeList.back()->typeInfo == typeObjectArray))
+		if(templateFunc)
 		{
+			bestFuncList.clear();
+			bestFuncList.push_back(templateFunc);
+			SelectBestFunction(1, callArgCount, bestRating);
+			if(bestRating != ~0u)
+				fInfo = templateFunc;
+		}else if(callArgCount >= (fType->paramCount-1) && fType->paramCount && fType->paramType[fType->paramCount-1] == typeObjectArray &&
+			!(callArgCount == fType->paramCount && CodeInfo::nodeList.back()->typeInfo == typeObjectArray)){
 			// If function accepts variable argument list
 			TypeInfo *&lastType = fType->paramType[fType->paramCount - 1];
 			assert(lastType == CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY));
@@ -5081,6 +5107,10 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			callArgCount++;
 		}
 	}
+
+	// Template function is only needed to support default function arguments and named argument function call
+	if(templateFunc)
+		fInfo = NULL;
 
 	if(funcName && funcAddr && newType && !vInfo)
 	{

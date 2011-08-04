@@ -152,7 +152,7 @@ void SelectFunctionsForHash(unsigned funcNameHash, unsigned scope);
 unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType = false);
 
 unsigned GetFunctionRating(FunctionType *currFunc, unsigned callArgCount);
-bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false);
+bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false, FunctionInfo* templateFunc = NULL);
 bool PrepareMemberCall(const char* pos, const char* funcName = NULL);
 bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false);
 
