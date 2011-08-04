@@ -132,3 +132,8 @@ auto argument_iterator:next()
 {
 	return funcID.argumentType(pos++);
 }
+
+typeid getType(char[] name);
+
+auto ref createInstanceByName(char[] name);
+auto ref createInstanceByType(typeid type);

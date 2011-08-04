@@ -80,6 +80,7 @@ nullres		nullcFinalize();
 
 /*	Allocates memory block that is managed by GC	*/
 void*		nullcAllocate(unsigned int size);
+void*		nullcAllocateTyped(unsigned int typeID);
 
 /*	Abort NULLC program execution with specified error code	*/
 void		nullcThrowError(const char* error, ...);
