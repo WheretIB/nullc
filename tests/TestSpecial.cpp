@@ -669,3 +669,20 @@ for (int i = 0; i < 100; ++i)\r\n\
 	r += transform_aabb_ultra_fast(aabb_, matrix).min.y;\r\n\
 return int(r);";
 TEST_RESULT("AABB transformations", testAABBTransform, "13800");
+
+const char	*testReflection1 =
+"import std.typeinfo;\r\n\
+\r\n\
+auto ref x = createInstanceByName(\"int\");\r\n\
+\r\n\
+typeid t = getType(\"int\");\r\n\
+\r\n\
+auto ref y = createInstanceByType(t);\r\n\
+\r\n\
+int ref a = x;\r\n\
+*a = 5;\r\n\
+int ref b = y;\r\n\
+*b = 6;\r\n\
+\r\n\
+return *a + *b;";
+TEST_RESULT("Reflection test 1", testReflection1, "11");

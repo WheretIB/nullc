@@ -878,6 +878,13 @@ void* nullcAllocate(unsigned int size)
 	return NULLC::AllocObject(size);
 }
 
+void* nullcAllocateTyped(unsigned int typeID)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+	return NULLC::AllocObject(nullcGetTypeSize(typeID), typeID);
+}
+
 int nullcInitTypeinfoModule()
 {
 	return nullcInitTypeinfoModule(NULLC::linker);

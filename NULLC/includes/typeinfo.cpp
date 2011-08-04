@@ -248,6 +248,46 @@ namespace NULLCTypeInfo
 		unsigned int *memberList = &linker->exTypeExtra[0];
 		return getTypeID(memberList[type.memberOffset + argument + 1]);
 	}
+
+	TypeID GetType(NULLCArray name)
+	{
+		if(!name.ptr)
+			return getTypeID(0);
+
+		unsigned hash = GetStringHash(name.ptr);
+
+		for(unsigned i = 0; i < linker->exTypes.size(); i++)
+		{
+			if(linker->exTypes[i].nameHash == hash)
+				return getTypeID(i);
+		}
+		return getTypeID(0);
+	}
+
+	NULLCRef GetInstanceByName(NULLCArray name)
+	{
+		NULLCRef r = { 0, 0 };
+
+		TypeID typeID = GetType(name);
+		if(!typeID.typeID)
+			return r;
+
+		r.ptr = (char*)nullcAllocateTyped(typeID.typeID);
+		r.typeID = typeID.typeID;
+		return r;
+	}
+
+	NULLCRef GetInstanceByType(TypeID id)
+	{
+		NULLCRef r = { 0, 0 };
+
+		if(!id.typeID)
+			return r;
+
+		r.ptr = (char*)nullcAllocateTyped(id.typeID);
+		r.typeID = id.typeID;
+		return r;
+	}
 }
 
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.typeinfo", (void(*)())NULLCTypeInfo::funcPtr, name, index)) return false;
@@ -280,6 +320,10 @@ bool	nullcInitTypeinfoModule(Linker* linker)
 
 	REGISTER_FUNC(MemberByIndex, "typeGetMember", 0);
 	REGISTER_FUNC(MemberByName, "typeGetMember", 1);
+
+	REGISTER_FUNC(GetType, "getType", 0);
+	REGISTER_FUNC(GetInstanceByName, "createInstanceByName", 0);
+	REGISTER_FUNC(GetInstanceByType, "createInstanceByType", 0);
 
 	return true;
 }
