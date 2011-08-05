@@ -3,6 +3,7 @@
 #include "typeinfo.h"
 
 #include <memory>
+#include <memory.h>
 
 namespace NULLCVector
 {
