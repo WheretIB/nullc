@@ -589,6 +589,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\tests\TestFinalizer.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\tests\TestForEach.cpp"
 				>
 			</File>
@@ -605,6 +609,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\tests\TestGeneric.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\tests\TestGenericType.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\tests\TestImplicitArray.cpp"
 				>
 			</File>
@@ -617,6 +629,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\tests\TestInheritance.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\tests\TestInterface.cpp"
 				>
 			</File>
@@ -625,11 +641,19 @@
 				>
 			</File>
 			<File
+				RelativePath=".\tests\TestJIT.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\tests\TestListComprehension.cpp"
 				>
 			</File>
 			<File
 				RelativePath=".\tests\TestLocalClass.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\tests\TestLocalReturn.cpp"
 				>
 			</File>
 			<File
@@ -650,6 +674,14 @@
 			</File>
 			<File
 				RelativePath=".\tests\TestModules.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\tests\TestNamedArguments.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\tests\TestNamespace.cpp"
 				>
 			</File>
 			<File
@@ -690,6 +722,18 @@
 			</File>
 			<File
 				RelativePath=".\tests\TestScope.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\tests\TestSglHashmap.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\tests\TestSglList.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\tests\TestSglVector.cpp"
 				>
 			</File>
 			<File

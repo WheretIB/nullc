@@ -288,6 +288,33 @@ namespace NULLCTypeInfo
 		r.typeID = id.typeID;
 		return r;
 	}
+	NULLCAutoArray GetArrayByName(NULLCArray name, unsigned size)
+	{
+		NULLCAutoArray r = { 0, 0, 0 };
+
+		TypeID id = GetType(name);
+		if(!id.typeID)
+			return r;
+
+		NULLCArray arr = nullcAllocateArrayTyped(id.typeID, size);
+		r.len = size;
+		r.typeID = id.typeID;
+		r.ptr = arr.ptr;
+		return r;
+	}
+	NULLCAutoArray GetArrayByType(TypeID id, unsigned size)
+	{
+		NULLCAutoArray r = { 0, 0, 0 };
+
+		if(!id.typeID)
+			return r;
+
+		NULLCArray arr = nullcAllocateArrayTyped(id.typeID, size);
+		r.len = size;
+		r.typeID = id.typeID;
+		r.ptr = arr.ptr;
+		return r;
+	}
 }
 
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.typeinfo", (void(*)())NULLCTypeInfo::funcPtr, name, index)) return false;
@@ -324,6 +351,8 @@ bool	nullcInitTypeinfoModule(Linker* linker)
 	REGISTER_FUNC(GetType, "getType", 0);
 	REGISTER_FUNC(GetInstanceByName, "createInstanceByName", 0);
 	REGISTER_FUNC(GetInstanceByType, "createInstanceByType", 0);
+	REGISTER_FUNC(GetArrayByName, "createArrayByName", 0);
+	REGISTER_FUNC(GetArrayByType, "createArrayByType", 0);
 
 	return true;
 }

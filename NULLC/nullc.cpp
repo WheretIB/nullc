@@ -885,6 +885,15 @@ void* nullcAllocateTyped(unsigned int typeID)
 	return NULLC::AllocObject(nullcGetTypeSize(typeID), typeID);
 }
 
+NULLCArray nullcAllocateArrayTyped(unsigned int typeID, unsigned int count)
+{
+	using namespace NULLC;
+	NULLCArray arr = { 0, 0 };
+	NULLC_CHECK_INITIALIZED(arr);
+	
+	return NULLC::AllocArray(nullcGetTypeSize(typeID), count, typeID);
+}
+
 int nullcInitTypeinfoModule()
 {
 	return nullcInitTypeinfoModule(NULLC::linker);
