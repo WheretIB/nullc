@@ -530,6 +530,10 @@
 				Name="std"
 				>
 				<File
+					RelativePath="..\Modules\std\algorithm.nc"
+					>
+				</File>
+				<File
 					RelativePath=".\includes\dynamic.cpp"
 					>
 				</File>
@@ -566,14 +570,6 @@
 					>
 				</File>
 				<File
-					RelativePath=".\includes\hashmap.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\includes\hashmap.h"
-					>
-				</File>
-				<File
 					RelativePath="..\Modules\std\hashmap.nc"
 					>
 				</File>
@@ -587,14 +583,6 @@
 				</File>
 				<File
 					RelativePath="..\Modules\std\io.nc"
-					>
-				</File>
-				<File
-					RelativePath=".\includes\list.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\includes\list.h"
 					>
 				</File>
 				<File
@@ -678,14 +666,6 @@
 					>
 				</File>
 				<File
-					RelativePath=".\includes\vector.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\includes\vector.h"
-					>
-				</File>
-				<File
 					RelativePath="..\Modules\std\vector.nc"
 					>
 				</File>
@@ -757,6 +737,34 @@
 						>
 					</File>
 				</Filter>
+			</Filter>
+			<Filter
+				Name="old"
+				>
+				<File
+					RelativePath=".\includes\list.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\list.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\old\list.nc"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\vector.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\includes\vector.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Modules\old\vector.nc"
+					>
+				</File>
 			</Filter>
 		</Filter>
 		<Filter

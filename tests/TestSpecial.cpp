@@ -686,3 +686,12 @@ int ref b = y;\r\n\
 \r\n\
 return *a + *b;";
 TEST_RESULT("Reflection test 1", testReflection1, "11");
+
+const char	*testReflection2 =
+"import std.typeinfo;\r\n\
+auto[] arr = createArrayByName(\"int\", 16);\r\n\
+int[] arrI = arr;\r\n\
+arrI[0] = 4;\r\n\
+\r\n\
+return arrI[0] + arrI.size;";
+TEST_RESULT("Reflection test 2", testReflection2, "20");

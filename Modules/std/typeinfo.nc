@@ -137,3 +137,6 @@ typeid getType(char[] name);
 
 auto ref createInstanceByName(char[] name);
 auto ref createInstanceByType(typeid type);
+
+auto[] createArrayByName(char[] name, int size);
+auto[] createArrayByType(typeid type, int size);
