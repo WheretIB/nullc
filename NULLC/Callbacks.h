@@ -149,7 +149,7 @@ void FunctionToOperator(const char* pos);
 bool FunctionGeneric(bool setGeneric, unsigned pos = 0);
 
 void SelectFunctionsForHash(unsigned funcNameHash, unsigned scope);
-unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType = false);
+unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType = NULL, bool hideGenerics = true);
 
 unsigned GetFunctionRating(FunctionType *currFunc, unsigned callArgCount);
 bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false, FunctionInfo* templateFunc = NULL);

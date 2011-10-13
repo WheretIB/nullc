@@ -4151,7 +4151,7 @@ bool	ShuffleArgumentsForNamedFunctionCall(unsigned argumentCount, FunctionInfo* 
 	return okByNamedArgs;
 }
 
-unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType)
+unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType, bool hideGenerics)
 {
 	// Find the best suited function
 	bestFuncRating.resize(count);
@@ -4262,10 +4262,13 @@ unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int 
 		minRating = bestFuncRating[minGenericIndex];
 		minRatingIndex = minGenericIndex;
 	}else{
-		// Otherwise, go as far as disabling all generic functions from selection
-		for(unsigned int k = 0; k < count; k++)
-			if(bestFuncList[k]->generic)
-				bestFuncRating[k] = ~0u;
+		if(hideGenerics)
+		{
+			// Otherwise, go as far as disabling all generic functions from selection
+			for(unsigned int k = 0; k < count; k++)
+				if(bestFuncList[k]->generic)
+					bestFuncRating[k] = ~0u;
+		}
 	}
 	return minRatingIndex;
 }
@@ -4304,7 +4307,7 @@ FunctionInfo* GetAutoRefFunction(const char* pos, const char* funcName, unsigned
 
 	// Find best function fit
 	unsigned minRating = ~0u;
-	unsigned minRatingIndex = SelectBestFunction(count, callArgCount, minRating);
+	unsigned minRatingIndex = SelectBestFunction(count, callArgCount, minRating, NULL, false);
 	// If this is not for a function call, but for a function pointer retrieval, mark all functions as perfect except for generic ones
 	if(!forFunctionCall)
 	{
@@ -4324,6 +4327,67 @@ FunctionInfo* GetAutoRefFunction(const char* pos, const char* funcName, unsigned
 		ThrowError(pos, "ERROR: none of the member ::%s functions can handle the supplied parameter list without conversions", funcName);
 	FunctionInfo *fInfo = bestFuncList[minRatingIndex];
 
+	// Check, is there are more than one function, that share the same rating
+	for(unsigned k = 0; k < count; k++)
+	{
+		FunctionInfo *fAlternative = bestFuncList[k];
+		// If the other function has a different type and the same rating and it is not a generic function (or it actually is, in which case it cannot come from the same parent class)
+		if(k != minRatingIndex && bestFuncRating[k] == minRating && fAlternative->funcType != fInfo->funcType && (!fAlternative->generic || (fInfo->generic && fAlternative->parentClass == fInfo->parentClass)))
+		{
+			char	*errPos = errorReport;
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n");
+			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count);
+		}
+	}
+
+	// Backup selected functions
+	unsigned prevBackupSize = bestFuncListBackup.size();
+	if(count)
+	{
+		bestFuncListBackup.push_back(&bestFuncList[0], count);
+		bestFuncRatingBackup.push_back(&bestFuncRating[0], count);
+	}
+
+	// Exclude generic functions that are already instantiated
+	for(unsigned i = 0; i < count; i++)
+	{
+		if(bestFuncRatingBackup[prevBackupSize + i] != minRating || !bestFuncListBackup[prevBackupSize + i]->genericBase)
+			continue;
+
+		for(unsigned k = 0; k < count; k++)
+		{
+			if(i == k)
+				continue;
+			if(bestFuncListBackup[prevBackupSize + i]->genericBase->parent == bestFuncListBackup[prevBackupSize + k])
+				bestFuncRatingBackup[prevBackupSize + k] = ~0u;
+		}
+	}
+
+	// Generate generic function instances
+	for(unsigned i = 0; i < count; i++)
+	{
+		if(bestFuncRatingBackup[prevBackupSize + i] != minRating || !bestFuncListBackup[prevBackupSize + i]->generic)
+			continue;
+
+		fInfo = bestFuncListBackup[prevBackupSize + i];
+		CreateGenericFunctionInstance(pos, fInfo, fInfo, callArgCount, fInfo->parentClass);
+		bestFuncListBackup[prevBackupSize + i] = fInfo;
+	}
+
+	// Restore old function list, because the one we've started with could've been replaced
+	bestFuncList.clear();
+	bestFuncRating.clear();
+
+	if(count)
+	{
+		bestFuncList.push_back(&bestFuncListBackup[prevBackupSize], count);
+		bestFuncRating.push_back(&bestFuncRatingBackup[prevBackupSize], count);
+	}
+
+	// Restore backup
+	bestFuncListBackup.shrink(prevBackupSize);
+	bestFuncRatingBackup.shrink(prevBackupSize);
+
 	// Find the most specialized function for extendable member function call
 	bool found = false;
 	while(preferedParent && !found)
@@ -4341,21 +4405,6 @@ FunctionInfo* GetAutoRefFunction(const char* pos, const char* funcName, unsigned
 		preferedParent = preferedParent->parentType;
 	}
 
-	// Check, is there are more than one function, that share the same rating
-	for(unsigned k = 0; k < count; k++)
-	{
-		if(k != minRatingIndex && bestFuncRating[k] == minRating && bestFuncList[k]->funcType != fInfo->funcType)
-		{
-			char	*errPos = errorReport;
-			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n");
-			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count);
-		}
-	}
-
-	// Generate generic function instance
-	if(fInfo && fInfo->generic)
-		CreateGenericFunctionInstance(pos, fInfo, fInfo, ~0u, fInfo->parentClass);
-	
 	// Get function type
 	TypeInfo *fType = fInfo->funcType;
 

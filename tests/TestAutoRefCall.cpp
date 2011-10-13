@@ -206,3 +206,14 @@ auto ref y = x;\r\n\
 auto z = y.foo;\r\n\
 return z != nullptr ? z(5) : 3;";
 TEST_RESULT("Getting function pointer from 'auto ref' 2", testAutorefPtr2, "3");
+
+const char	*testAutorefCallIssue2 =
+"class Test{ auto foo(generic i){ return -i; } }\r\n\
+class Bar{ auto foo(generic i){ return i * 2; } }\r\n\
+\r\n\
+Test a;\r\n\
+a.foo(4);\r\n\
+\r\n\
+auto ref x = new Bar;\r\n\
+return x.foo(4);";
+TEST_RESULT("Getting function call through 'auto ref' issue", testAutorefCallIssue2, "8");

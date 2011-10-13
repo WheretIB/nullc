@@ -138,9 +138,8 @@ namespace CodeInfo
 			bestFit->hasPointers = true;
 
 			// if return type is auto, then it's a generic function type and it shouldn't be saved
-			if(retType)
-				typeFunctions.push_back(bestFit);
-			else
+			typeFunctions.push_back(bestFit);
+			if(!retType)
 				typeInfo.pop_back();
 		}
 		
