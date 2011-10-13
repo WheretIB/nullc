@@ -724,6 +724,8 @@ line 1 - ERROR: unknown identifier 'a'\r\n\
 	TEST_FOR_FAIL("incorrect typeid", "return typeid(auto) == typeid(1);", "ERROR: cannot take typeid from auto type");
 
 	TEST_FOR_FAIL("ambiguity (generic, named)", "class Test{ auto foo(generic i){ return -i; } auto foo(generic i, int j = 2){ return i + j; } } auto ref x = new Test; return x.foo(1);", "ERROR: ambiguity, there is more than one overloaded function available for the call:");
+
+	TEST_FOR_FAIL("not extendable", "class A{ int x; } class B : A{ int y; }", "ERROR: type 'A' is not extendable");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

@@ -775,3 +775,14 @@ const char	*testNamespace64 =
 X.foo({\"brgrg\", \"brgrg_\"}[0]);\r\n\
 return 1;";
 TEST_RESULT("namespace test 64", testNamespace64, "1");
+
+const char	*testNamespace65 =
+"namespace Bar.Test\r\n\
+{\r\n\
+	auto foo(generic x){ return -x; }\r\n\
+\r\n\
+	int y = foo(5);\r\n\
+	auto z = foo(4.5);\r\n\
+}\r\n\
+return int(Bar.Test.y * Bar.Test.z);";
+TEST_RESULT("namespace test 65", testNamespace65, "22");
