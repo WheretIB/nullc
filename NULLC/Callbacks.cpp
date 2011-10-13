@@ -815,7 +815,7 @@ void AddNegateNode(const char* pos)
 		else if(aType == typeInt || aType == typeShort || aType == typeChar)
 			Rd = new NodeNumber(-static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger(), aType);
 		else
-			ThrowError(pos, "addNegNode() ERROR: unknown type %s", aType->name);
+			ThrowError(pos, "ERROR: unary operation '-' is not supported on '%s'", aType->GetFullTypeName());
 
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.push_back(Rd);
@@ -844,7 +844,7 @@ void AddLogNotNode(const char* pos)
 		else if(aType == typeInt || aType == typeShort || aType == typeChar || aType == typeBool)
 			Rd = new NodeNumber(!static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger(), typeBool);
 		else
-			ThrowError(pos, "addLogNotNode() ERROR: unknown type %s", aType->name);
+			ThrowError(pos, "ERROR: unary operation '!' is not supported on '%s'", aType->GetFullTypeName());
 
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.push_back(Rd);
@@ -873,7 +873,7 @@ void AddBitNotNode(const char* pos)
 		else if(aType == typeInt || aType == typeShort || aType == typeChar)
 			Rd = new NodeNumber(~static_cast<NodeNumber*>(CodeInfo::nodeList.back())->GetInteger(), aType);
 		else
-			ThrowError(pos, "addBitNotNode() ERROR: unknown type %s", aType->name);
+			ThrowError(pos, "ERROR: unary operation '~' is not supported on '%s'", aType->GetFullTypeName());
 
 		CodeInfo::nodeList.pop_back();
 		CodeInfo::nodeList.push_back(Rd);
@@ -2901,6 +2901,8 @@ void AddForEachNode(const char* pos)
 
 void CallAllocationFunction(const char* pos, const char* name)
 {
+	(void)pos;
+
 	HashMap<FunctionInfo*>::Node *curr = funcMap.first(GetStringHash(name));
 	assert(curr);
 	FunctionInfo *func = curr->value;
