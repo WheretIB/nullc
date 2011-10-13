@@ -499,3 +499,37 @@ b.foo(6);\r\n\
 \r\n\
 return a.foo(6);";
 TEST_RESULT("Inheritance test 39 (generic member function)", testInheritance39, "12");
+
+const char	*testInheritance40 =
+"class vec2 extendable{ int x, y; }\r\n\
+class vec3 : vec2{ int z; }\r\n\
+class vec4 : vec3{ int w; }\r\n\
+\r\n\
+vec2 x;\r\n\
+vec3 y;\r\n\
+vec4 z;\r\n\
+\r\n\
+vec2 ref xr = &z;\r\n\
+vec3 ref yr = xr;\r\n\
+vec4 ref zr = yr;\r\n\
+xr.x = 1;\r\n\
+xr.y = 20;\r\n\
+yr.z = 300;\r\n\
+zr.w = 4000;\r\n\
+\r\n\
+return z.x + z.y + z.z + z.w;";
+TEST_RESULT("Inheritance test 40", testInheritance40, "4321");
+
+const char	*testInheritance41 =
+"class vec2 extendable{ int x, y; }\r\n\
+class vec3 : vec2{ int z; }\r\n\
+class vec4 : vec3{ int w; }\r\n\
+return sizeof(vec4);";
+TEST_RESULT("Inheritance test 41", testInheritance41, "20");
+
+const char	*testInheritance42 =
+"class vec2 extendable{ int x, y; }\r\n\
+class vec3 extendable : vec2{ int z; }\r\n\
+class vec4 : vec3{ int w; }\r\n\
+return sizeof(vec4);";
+TEST_RESULT("Inheritance test 42", testInheritance42, "20");

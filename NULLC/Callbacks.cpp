@@ -2902,8 +2902,7 @@ void AddForEachNode(const char* pos)
 void CallAllocationFunction(const char* pos, const char* name)
 {
 	HashMap<FunctionInfo*>::Node *curr = funcMap.first(GetStringHash(name));
-	if(!curr)
-		ThrowError(pos, "ERROR: failed to find memory allocation function");
+	assert(curr);
 	FunctionInfo *func = curr->value;
 	CodeInfo::nodeList.push_back(new NodeFuncCall(func, func->funcType->funcType));
 }
@@ -4437,8 +4436,7 @@ FunctionInfo* GetAutoRefFunction(const char* pos, const char* funcName, unsigned
 	((NodeGetAddress*)CodeInfo::nodeList.back())->SetAddressTracking();
 	// Find redirection function
 	HashMap<FunctionInfo*>::Node *curr = funcMap.first(GetStringHash(forFunctionCall ? "__redirect" : "__redirect_ptr"));
-	if(!curr)
-		ThrowError(pos, "ERROR: cannot find redirection function");
+	assert(curr);
 	// Call redirection function
 	AddFunctionCallNode(pos, forFunctionCall ? "__redirect" : "__redirect_ptr", 2);
 	// Rename return function type
