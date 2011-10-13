@@ -216,7 +216,7 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 	for(unsigned i = 0; i < exLinker->llvmModuleSizes.size(); i++)
 	{
 		char buf[32];
-		llvm::MemoryBuffer *buffer = llvm::MemoryBuffer::getMemBuffer(&exLinker->llvmModuleCodes[offset], &exLinker->llvmModuleCodes[offset + exLinker->llvmModuleSizes[i] - 1]);
+		llvm::MemoryBuffer *buffer = llvm::MemoryBuffer::getMemBuffer(llvm::StringRef(&exLinker->llvmModuleCodes[offset], exLinker->llvmModuleSizes[i]), "module", false);
 		llvm::Module *module = llvm::ParseBitcodeFile(buffer, LLVM::context, &error);
 		if(!error.empty())
 		{

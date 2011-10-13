@@ -762,7 +762,7 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 		addrShift = static_cast<NodeGetAddress*>(first)->varAddress;
 		knownAddress = true;
 	}
-#ifndef NULLC_ENABLE_C_TRANSLATION
+#if !defined(NULLC_ENABLE_C_TRANSLATION) && !defined(NULLC_LLVM_SUPPORT)
 	if(first->nodeType == typeNodeShiftAddress)
 	{
 		addrShift += static_cast<NodeShiftAddress*>(first)->memberShift;
@@ -865,7 +865,7 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 	knownAddress = false;
 	addrShift = 0;
 
-#ifndef NULLC_ENABLE_C_TRANSLATION
+#if !defined(NULLC_ENABLE_C_TRANSLATION) && !defined(NULLC_LLVM_SUPPORT)
 	if(first->nodeType == typeNodeGetAddress)
 	{
 		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
@@ -1040,7 +1040,7 @@ NodeDereference::NodeDereference(FunctionInfo* setClosure, unsigned int offsetTo
 	neutralized = false;
 	readonly = isReadonly;
 
-#ifndef NULLC_ENABLE_C_TRANSLATION
+#if !defined(NULLC_ENABLE_C_TRANSLATION) && !defined(NULLC_LLVM_SUPPORT)
 	if(first->nodeType == typeNodeGetAddress && !static_cast<NodeGetAddress*>(first)->trackAddress)
 	{
 		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
@@ -1130,7 +1130,7 @@ NodeShiftAddress::NodeShiftAddress(TypeInfo::MemberVariable *classMember)
 
 	first = TakeLastNode();
 
-#ifndef NULLC_ENABLE_C_TRANSLATION
+#if !defined(NULLC_ENABLE_C_TRANSLATION) && !defined(NULLC_LLVM_SUPPORT)
 	if(first->nodeType == typeNodeShiftAddress)
 	{
 		memberShift += static_cast<NodeShiftAddress*>(first)->memberShift;
@@ -1191,7 +1191,7 @@ NodePreOrPostOp::NodePreOrPostOp(bool isInc, bool preOp)
 	knownAddress = false;
 	addrShift = 0;
 
-#ifndef NULLC_ENABLE_C_TRANSLATION
+#if !defined(NULLC_ENABLE_C_TRANSLATION) && !defined(NULLC_LLVM_SUPPORT)
 	if(first->nodeType == typeNodeGetAddress)
 	{
 		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
