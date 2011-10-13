@@ -23,7 +23,7 @@
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetSelect.h"
+#include "llvm/Support/TargetSelect.h"
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/IPO.h"
@@ -62,6 +62,10 @@ using namespace llvm;
 
 #pragma comment(lib, "LLVMBitReader.lib")
 #pragma comment(lib, "LLVMBitWriter.lib")
+
+#pragma comment(lib, "LLVMX86Utils.lib")
+#pragma comment(lib, "LLVMX86Desc.lib")
+#pragma comment(lib, "LLVMX86AsmPrinter.lib")
 
 #pragma warning(pop)
 
@@ -125,93 +129,75 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 
 	// Generate types
 	typeVoid->llvmType = Type::getVoidTy(getGlobalContext());
+	typeBool->llvmType = Type::getInt1Ty(getGlobalContext());
 	typeChar->llvmType = Type::getInt8Ty(getGlobalContext());
 	typeShort->llvmType = Type::getInt16Ty(getGlobalContext());
 	typeInt->llvmType = Type::getInt32Ty(getGlobalContext());
 	typeLong->llvmType = Type::getInt64Ty(getGlobalContext());
 	typeFloat->llvmType = Type::getFloatTy(getGlobalContext());
 	typeDouble->llvmType = Type::getDoubleTy(getGlobalContext());
-	typeObject->llvmType = StructType::get(getGlobalContext(), (Type*)typeInt->llvmType, Type::getInt8PtrTy(getGlobalContext()), (Type*)NULL);
-	typeTypeid->llvmType = typeInt->llvmType;//StructType::get(getGlobalContext(), (Type*)typeInt->llvmType, (Type*)NULL);
-	typeAutoArray->llvmType = StructType::get(getGlobalContext(), (Type*)typeInt->llvmType, Type::getInt8PtrTy(getGlobalContext()), (Type*)typeInt->llvmType, (Type*)NULL);
-	std::vector<const Type*> typeList;
+	typeObject->llvmType = StructType::get((Type*)typeInt->llvmType, Type::getInt8PtrTy(getGlobalContext()), (Type*)NULL);
+	typeTypeid->llvmType = typeInt->llvmType;
+	typeAutoArray->llvmType = StructType::get((Type*)typeInt->llvmType, Type::getInt8PtrTy(getGlobalContext()), (Type*)typeInt->llvmType, (Type*)NULL);
+	std::vector<Type*> typeList;
 	// Construct abstract types for all classes
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
 		TypeInfo *type = CodeInfo::typeInfo[i];
 		if(type->llvmType || type->arrLevel || type->refLevel || type->funcType)
 			continue;
-		type->llvmType = llvm::OpaqueType::get(getGlobalContext());
+		printf("Adding opaque %s\n", type->GetFullTypeName());
+		type->llvmType = StructType::create(getGlobalContext(), type->GetFullTypeName());
 	}
-	PATypeHolder *holders = (PATypeHolder*)new char[sizeof(PATypeHolder) * CodeInfo::typeInfo.size()];//PATypeHolder[CodeInfo::typeInfo.size()];
-	memset(holders, 0, sizeof(PATypeHolder) * CodeInfo::typeInfo.size());
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
-		if(CodeInfo::typeInfo[i]->llvmType)
-			continue;
 		TypeInfo *type = CodeInfo::typeInfo[i];
-		llvm::Type *subType = type->subType ? (type->subType->llvmType ? (Type*)type->subType->llvmType : holders[type->subType->typeIndex].get()) : NULL;
+		if(type->llvmType)
+			continue;
+
+		llvm::Type *subType = type->subType ? (llvm::Type*)type->subType->llvmType : NULL;
 		//printf("Adding %s\n", type->GetFullTypeName());
 		if(type->arrLevel && type->arrSize != TypeInfo::UNSIZED_ARRAY)
 		{
 			assert(subType);
 			unsigned size = type->subType->size * type->arrSize;
 			size = (size + 3) & ~3;
-			new(&holders[i]) PATypeHolder(ArrayType::get(subType, type->subType->size ? size / type->subType->size : type->arrSize));
+			type->llvmType = ArrayType::get(subType, type->subType->size ? size / type->subType->size : type->arrSize);
 		}else if(type->arrLevel && type->arrSize == TypeInfo::UNSIZED_ARRAY){
 			assert(subType);
-			new(&holders[i]) PATypeHolder(StructType::get(getGlobalContext(), PointerType::getUnqual(subType), Type::getInt32Ty(getGlobalContext()), (Type*)NULL));
+			type->llvmType = StructType::get(PointerType::getUnqual(subType), Type::getInt32Ty(getGlobalContext()), (Type*)NULL);
 		}else if(type->refLevel){
 			assert(subType);
-			new(&holders[i]) PATypeHolder(type->subType == typeVoid ? Type::getInt8PtrTy(getGlobalContext()) : PointerType::getUnqual(subType));
+			type->llvmType = type->subType == typeVoid ? Type::getInt8PtrTy(getGlobalContext()) : PointerType::getUnqual(subType);
 		}else if(type->funcType){
 			typeList.clear();
 			for(unsigned int k = 0; k < type->funcType->paramCount; k++)
 			{
 				TypeInfo *argTypeInfo = type->funcType->paramType[k];
-				llvm::Type *argType = argTypeInfo->llvmType ? (Type*)argTypeInfo->llvmType : holders[argTypeInfo->typeIndex].get();
+				llvm::Type *argType = (Type*)argTypeInfo->llvmType;
 				assert(argType);
 				typeList.push_back(argType);
 			}
 			typeList.push_back(Type::getInt8PtrTy(getGlobalContext()));
-			llvm::Type *retType = type->funcType->retType->llvmType ? (Type*)type->funcType->retType->llvmType : holders[type->funcType->retType->typeIndex].get();
+			llvm::Type *retType = (Type*)type->funcType->retType->llvmType;
 			assert(retType);
-			Type *functionType = llvm::FunctionType::get(retType, typeList, false);
-			new(&holders[i]) PATypeHolder(StructType::get(getGlobalContext(), Type::getInt8PtrTy(getGlobalContext()), PointerType::getUnqual(functionType), (Type*)NULL));
+			Type *functionType = llvm::FunctionType::get(retType, llvm::ArrayRef<Type*>(typeList), false);
+			type->llvmType = StructType::get(Type::getInt8PtrTy(getGlobalContext()), PointerType::getUnqual(functionType), (Type*)NULL);
 		}
 	}
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
 		TypeInfo *type = CodeInfo::typeInfo[i];
-		if(type->arrLevel || type->refLevel || type->funcType || type->type != TypeInfo::TYPE_COMPLEX || type == typeObject || type == typeTypeid || type == typeAutoArray)
+
+		if(type->arrLevel || type->refLevel || type->funcType || (type->type != TypeInfo::TYPE_COMPLEX && type->firstVariable == NULL) || type == typeObject || type == typeTypeid || type == typeAutoArray)
 			continue;
-
-		//printf("Refining type %s\n", type->GetFullTypeName());
-
-		PATypeHolder StructTy = (llvm::Type*)type->llvmType;
 
 		typeList.clear();
 		for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
-		{
-			if(!curr->type->llvmType)
-				typeList.push_back((Type*)holders[curr->type->typeIndex].get());
-			else
-				typeList.push_back((Type*)curr->type->llvmType);
-		}
-		StructType *newType = StructType::get(getGlobalContext(), typeList);
-		cast<OpaqueType>(StructTy.get())->refineAbstractTypeTo(newType);
-		type->llvmType = cast<StructType>(StructTy.get());
+			typeList.push_back((Type*)curr->type->llvmType);
+
+		((StructType*)type->llvmType)->setBody(llvm::ArrayRef<Type*>(typeList));
 	}
-	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
-	{
-		TypeInfo *type = CodeInfo::typeInfo[i];
-		if(!type->llvmType)
-			type->llvmType = holders[i].get();
-		/*printf("Assigning name %s to ", type->GetFullTypeName());
-		((Type*)type->llvmType)->dump();
-		TheModule->addTypeName(type->GetFullTypeName(), (Type*)type->llvmType);*/
-	}
-	delete[] (char*)holders;
 
 	// Generate global variables
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
@@ -230,7 +216,7 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 	Function::Create(TypeBuilder<types::i<64>(types::i<64>, types::i<64>), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmLongPow", TheModule);
 	Function::Create(TypeBuilder<types::ieee_double(types::ieee_double, types::ieee_double), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmDoublePow", TheModule);
 
-	std::vector<const llvm::Type*> arrSetParams;
+	std::vector<llvm::Type*> arrSetParams;
 	arrSetParams.push_back(Type::getInt8PtrTy(getGlobalContext()));
 	arrSetParams.push_back(Type::getInt8Ty(getGlobalContext()));
 	arrSetParams.push_back(Type::getInt32Ty(getGlobalContext()));
@@ -260,7 +246,7 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 	Function::Create(TypeBuilder<void(types::i<64>), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmReturnLong", TheModule);
 	Function::Create(TypeBuilder<void(types::ieee_double), true>::get(getGlobalContext()), Function::ExternalLinkage, "llvmReturnDouble", TheModule);	
 
-	std::vector<const llvm::Type*> Arguments;
+	std::vector<llvm::Type*> Arguments;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
 		FunctionInfo *funcInfo = CodeInfo::funcInfo[i];
@@ -269,7 +255,7 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 		for(curr = funcInfo->firstParam; curr; curr = curr->next)
 			Arguments.push_back((Type*)curr->varType->llvmType);
 		Arguments.push_back(funcInfo->extraParam ? (Type*)funcInfo->extraParam->varType->llvmType : Type::getInt32PtrTy(getGlobalContext()));
-		llvm::FunctionType *FT = llvm::FunctionType::get((Type*)funcInfo->retType->llvmType, Arguments, false);
+		llvm::FunctionType *FT = llvm::FunctionType::get((Type*)funcInfo->retType->llvmType, llvm::ArrayRef<Type*>(Arguments), false);
 		funcInfo->llvmFunction = llvm::Function::Create(FT, i < functionsInModules ? llvm::Function::ExternalWeakLinkage : llvm::Function::ExternalLinkage, funcInfo->name, TheModule);
 	}
 
@@ -289,7 +275,7 @@ struct my_stream : public llvm::raw_ostream
 	}
 };
 
-//#define DUMP(x) x->dump()
+//#define DUMP(x){ x->dump(); printf("\n"); }
 #define DUMP(x) x
 
 //BasicBlock *globalExit = NULL;
@@ -336,7 +322,6 @@ const char*	GetLLVMIR(unsigned& length)
 	out.clear();
 	BitstreamWriter bw = BitstreamWriter(out);
 	WriteBitcodeToStream(TheModule, bw);
-	out.push_back(0);
 	length = (unsigned)out.size();
 	
 	//printf("%d\n", out.size());
@@ -543,6 +528,12 @@ void NodeReturnOp::CompileLLVM()
 	if(parentFunction && parentFunction->type == FunctionInfo::COROUTINE)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp yield unsupported");
 	
+	if(typeInfo == typeBool)
+	{
+		V = Builder.CreateIntCast(V, (Type*)typeInfo->llvmType, true, "tmp_to_bool");
+		DUMP(V->getType());
+	}
+
 	Builder.CreateRet(V);
 
 	//BasicBlock *afterReturn = BasicBlock::Create(getGlobalContext(), "afterReturn", F);
@@ -552,7 +543,7 @@ void NodeReturnOp::CompileLLVM()
 }
 
 // CreateEntryBlockAlloca - Create an alloca instruction in the entry block of the function.  This is used for mutable variables etc.
-AllocaInst* CreateEntryBlockAlloca(Function *TheFunction, const std::string &VarName, const llvm::Type* type)
+AllocaInst* CreateEntryBlockAlloca(Function *TheFunction, const std::string &VarName, llvm::Type* type)
 {
 	IRBuilder<> TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
 	return TmpB.CreateAlloca(type, 0, VarName.c_str());
@@ -598,7 +589,7 @@ void NodeExpressionList::CompileLLVM()
 			DUMP(aggr->getType());
 			arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
 			arrayIndexHelper[1] = ConstantInt::get(getGlobalContext(), APInt(32, index--, true));
-			Value *target = Builder.CreateGEP(aggr, &arrayIndexHelper[0], &arrayIndexHelper[2], "arr_part");
+			Value *target = Builder.CreateGEP(aggr, llvm::ArrayRef<Value*>(&arrayIndexHelper[0], 2), "arr_part");
 			DUMP(target->getType());
 			Builder.CreateStore(V, target);
 		}else if(V && typeInfo->arrLevel && curr->nodeType != typeNodeZeroOp){
@@ -611,7 +602,7 @@ void NodeExpressionList::CompileLLVM()
 			//printf("Indexing %d\n", typeInfo->subType == typeChar ? index * 4 : index);
 			arrayIndexHelper[1] = ConstantInt::get(getGlobalContext(), APInt(32, typeInfo->subType == typeChar ? index * 4 : index, true));
 			index--;
-			Value *target = Builder.CreateGEP(aggr, &arrayIndexHelper[0], &arrayIndexHelper[2], "arr_part");
+			Value *target = Builder.CreateGEP(aggr, llvm::ArrayRef<Value*>(&arrayIndexHelper[0], 2), "arr_part");
 			DUMP(target->getType());
 			if(typeInfo->subType == typeChar)
 			{
@@ -764,9 +755,9 @@ void NodeFuncCall::CompileLLVM()
 	if(funcType->retType != typeVoid)
 	{
 		DUMP(CalleeF->getType());
-		V = Builder.CreateCall(CalleeF, args.begin(), args.end());//, funcInfo->name);
+		V = Builder.CreateCall(CalleeF, llvm::ArrayRef<Value*>(args));//, funcInfo->name);
 	}else{
-		Builder.CreateCall(CalleeF, args.begin(), args.end());
+		Builder.CreateCall(CalleeF, llvm::ArrayRef<Value*>(args));
 		V = NULL;
 	}
 	if(funcInfo && funcInfo->nameHash == GetStringHash("__newA"))
@@ -869,6 +860,9 @@ void NodeUnaryOp::CompileLLVM()
 	case cmdPushTypeID:
 	case cmdFuncAddr:
 		V = ConstantInt::get((Type*)typeInt->llvmType, APInt(32, vmCmd.argument));
+		break;
+	case cmdCheckedRet:
+		printf("LLVM: unsupported command cmdCheckedRet\n");
 		break;
 	default:
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unknown unary command %s", vmInstructionText[vmCmd.cmd]);
@@ -1058,7 +1052,7 @@ void NodeBinaryOp::CompileLLVM()
 		slowZeroExit = Builder.GetInsertBlock();
 
 		Builder.SetInsertPoint(slowMergeExit);
-		PHINode *PN = Builder.CreatePHI((Type*)typeInt->llvmType, "slow_merge_tmp");
+		PHINode *PN = Builder.CreatePHI((Type*)typeInt->llvmType, 2, "slow_merge_tmp");
 		PN->addIncoming(rightOne, slowOneExit);
 		PN->addIncoming(rightZero, slowZeroExit);
 		Builder.CreateBr(mergeExit);
@@ -1072,7 +1066,7 @@ void NodeBinaryOp::CompileLLVM()
 		fastExit = Builder.GetInsertBlock();
 
 		Builder.SetInsertPoint(mergeExit);
-		PHINode *PN2 = Builder.CreatePHI((Type*)typeInt->llvmType, "merge_tmp");
+		PHINode *PN2 = Builder.CreatePHI((Type*)typeInt->llvmType, 2, "merge_tmp");
 		PN2->addIncoming(leftUnknown, slowMergeExit);
 		PN2->addIncoming(leftZero, fastExit);
 
@@ -1121,7 +1115,7 @@ void NodeVariableSet::CompileLLVM()
 		Value *arrayIndexHelper[2];
 		arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
 		arrayIndexHelper[1] = ConstantInt::get(getGlobalContext(), APInt(32, 0));
-		target = Builder.CreateGEP(target, &arrayIndexHelper[0], &arrayIndexHelper[2], "arr_begin");
+		target = Builder.CreateGEP(target, llvm::ArrayRef<Value*>(&arrayIndexHelper[0], 2), "arr_begin");
 		value = PromoteToStackType(value, second->typeInfo);
 		value = ConvertFirstToSecond(value, GetStackType(second->typeInfo), first->typeInfo->subType->subType);
 		char suffix = '\0';
@@ -1150,6 +1144,13 @@ void NodeVariableSet::CompileLLVM()
 	if(!value)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeVariableSet value = NULL after");
 	DUMP(value->getType());
+
+	if(typeInfo == typeBool)
+	{
+		value = Builder.CreateIntCast(value, (Type*)typeInfo->llvmType, true, "tmp_to_bool");
+		DUMP(value->getType());
+	}
+
 	Builder.CreateStore(value, target);
 	V = value;
 }
@@ -1232,7 +1233,7 @@ void NodeIfElseExpr::CompileLLVM()
 	V = NULL;
 	if(typeInfo != typeVoid)
 	{
-		PHINode *PN2 = Builder.CreatePHI((Type*)typeInfo->llvmType, "merge_tmp");
+		PHINode *PN2 = Builder.CreatePHI((Type*)typeInfo->llvmType, 2, "merge_tmp");
 		DUMP(left->getType());
 		DUMP(right->getType());
 		PN2->addIncoming(left, trueBlock);
@@ -1432,12 +1433,12 @@ void NodeArrayIndex::CompileLLVM()
 		V = Builder.CreateStructGEP(aggr, 0, "tmp_arr");
 		Value *arrPtr = Builder.CreateLoad(V, "tmp_arrptr");
 		arrayIndexHelper[0] = index;
-		V = Builder.CreateGEP(arrPtr, &arrayIndexHelper[0], &arrayIndexHelper[1], "tmp_elem");
+		V = Builder.CreateGEP(arrPtr, llvm::ArrayRef<Value*>(&arrayIndexHelper[0], 1), "tmp_elem");
 	}else{
 		arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
 		index = ConvertFirstToSecond(index, GetStackType(second->typeInfo), typeInt);
 		arrayIndexHelper[1] = index;
-		V = Builder.CreateGEP(address, &arrayIndexHelper[0], &arrayIndexHelper[2], "tmp_arr");
+		V = Builder.CreateGEP(address, llvm::ArrayRef<Value*>(&arrayIndexHelper[0], 2), "tmp_arr");
 		DUMP(V->getType());
 	}
 }
@@ -1460,7 +1461,7 @@ void NodeShiftAddress::CompileLLVM()
 	Value *arrayIndexHelper[2];
 	arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
 	arrayIndexHelper[1] = ConstantInt::get(getGlobalContext(), APInt(32, index, true));
-	V = Builder.CreateGEP(address, &arrayIndexHelper[0], &arrayIndexHelper[2], "tmp_member");
+	V = Builder.CreateGEP(address, llvm::ArrayRef<Value*>(&arrayIndexHelper[0], 2), "tmp_member");
 }
 
 void NodeBreakOp::CompileLLVM()
@@ -1549,7 +1550,7 @@ void NodeFunctionAddress::CompileLLVM()
 	Value *context = Builder.CreateStructGEP(aggr, 0, "ctx_part");
 	DUMP(context->getType());
 
-	const Type *functionType = ((llvm::StructType*)typeInfo->llvmType)->getTypeAtIndex(1u);//typeInfo->lastVariable->type;
+	Type *functionType = ((llvm::StructType*)typeInfo->llvmType)->getTypeAtIndex(1u);//typeInfo->lastVariable->type;
 	DUMP(functionType);
 
 	Value *tmp = TheModule->getFunction(funcInfo->name);
@@ -1597,7 +1598,7 @@ void NodeGetUpvalue::CompileLLVM()
 	Value *arrayIndexHelper[2];
 	//arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(64, 0, true));
 	arrayIndexHelper[0] = ConstantInt::get(getGlobalContext(), APInt(32, closureElem, true));
-	V = Builder.CreateGEP(V, &arrayIndexHelper[0], &arrayIndexHelper[1]);
+	V = Builder.CreateGEP(V, llvm::ArrayRef<Value*>(&arrayIndexHelper[0], 1));
 	DUMP(V->getType());
 	// cast to result type
 	V = Builder.CreatePointerCast(V, (Type*)typeInfo->llvmType);

@@ -1816,7 +1816,7 @@ void AddArrayIndexNode(const char* pos, unsigned argumentCount)
 	}
 	if(CodeInfo::nodeList.back()->argName)
 		ThrowError(pos, "ERROR: overloaded [] operator must be supplied to use named function arguments");
-#ifndef NULLC_ENABLE_C_TRANSLATION
+#if !defined(NULLC_ENABLE_C_TRANSLATION) && !defined(NULLC_LLVM_SUPPORT)
 	// If index is a number and previous node is an address, then indexing can be done in compile-time
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->nodeType == typeNodeGetAddress)
 	{
@@ -2207,7 +2207,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 			CodeInfo::nodeList.push_back(curr->defaultValue);
 		}else{
 			// Shift pointer to member
-#ifndef NULLC_ENABLE_C_TRANSLATION
+#if !defined(NULLC_ENABLE_C_TRANSLATION) && !defined(NULLC_LLVM_SUPPORT)
 			if(CodeInfo::nodeList.back()->nodeType == typeNodeGetAddress)
 				static_cast<NodeGetAddress*>(CodeInfo::nodeList.back())->ShiftToMember(curr);
 			else
