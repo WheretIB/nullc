@@ -1746,23 +1746,23 @@ void InlineFunctionImplicitReturn(const char* pos)
 
 		NodeZeroOP *node = ((NodePopOp*)curr)->GetFirstNode();
 		CodeInfo::nodeList.push_back(node);
-		curr->prev->next = new NodeReturnOp(true, currDefinedFunc.back()->retType, currDefinedFunc.back(), false);
 		if(!currDefinedFunc.back()->retType)
 		{
 			currDefinedFunc.back()->retType = node->typeInfo;
 			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
 		}
+		curr->prev->next = new NodeReturnOp(true, currDefinedFunc.back()->retType, currDefinedFunc.back(), false);
 	}else{
 		if(curr->nodeType != typeNodePopOp)
 			return;
 		NodeZeroOP *node = ((NodePopOp*)curr)->GetFirstNode();
 		CodeInfo::nodeList.back() = node;
-		CodeInfo::nodeList.push_back(new NodeReturnOp(true, currDefinedFunc.back()->retType, currDefinedFunc.back(), false));
 		if(!currDefinedFunc.back()->retType)
 		{
 			currDefinedFunc.back()->retType = node->typeInfo;
 			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
 		}
+		CodeInfo::nodeList.push_back(new NodeReturnOp(true, currDefinedFunc.back()->retType, currDefinedFunc.back(), false));
 		AddOneExpressionNode(currDefinedFunc.back()->retType);
 	}
 	currDefinedFunc.back()->explicitlyReturned = true;
@@ -2555,7 +2555,7 @@ void ConvertDerivedToBase(const char* pos, TypeInfo *dstType)
 		{
 			if(dstType->subType == parentType)
 			{
-				CodeInfo::nodeList.back()->typeInfo = dstType;
+				CodeInfo::nodeList.push_back(new NodePointerCast(dstType));
 				break;
 			}
 			parentType = parentType->parentType;
@@ -2570,7 +2570,7 @@ void ConvertDerivedToBase(const char* pos, TypeInfo *dstType)
 			if(dstType == parentType)
 			{
 				AddInplaceVariable(pos);
-				CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(dstType);
+				CodeInfo::nodeList.push_back(new NodePointerCast(CodeInfo::GetReferenceType(dstType)));
 				CodeInfo::nodeList.push_back(new NodeDereference());
 
 				AddTwoExpressionNode(CodeInfo::nodeList.back()->typeInfo);
@@ -2592,7 +2592,7 @@ void ConvertBaseToDerived(const char* pos, TypeInfo *dstType)
 		{
 			if(CodeInfo::nodeList.back()->typeInfo->subType == parentType)
 			{
-				CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(typeVoid);
+				CodeInfo::nodeList.push_back(new NodePointerCast(CodeInfo::GetReferenceType(typeVoid)));
 
 				// Push base type
 				CodeInfo::nodeList.push_back(new NodeZeroOP(CodeInfo::GetReferenceType(dstType->subType)));
@@ -2600,7 +2600,7 @@ void ConvertBaseToDerived(const char* pos, TypeInfo *dstType)
 				CodeInfo::nodeList.back()->typeInfo = typeTypeid;
 				
 				AddFunctionCallNode(pos, "assert_derived_from_base", 2);
-				CodeInfo::nodeList.back()->typeInfo = dstType;
+				CodeInfo::nodeList.push_back(new NodePointerCast(dstType));
 
 				break;
 			}
@@ -4420,8 +4420,8 @@ FunctionInfo* GetAutoRefFunction(const char* pos, const char* funcName, unsigned
 	// If vtbl cannot be found, create it
 	if(!target)
 	{
-		// Create array of function pointer (function pointer is an integer index)
-		VariableInfo *vInfo = new VariableInfo(0, InplaceStr(vtblName), hash, 500000, CodeInfo::GetArrayType(typeInt, TypeInfo::UNSIZED_ARRAY), true);
+		// Create array of function pointers (function pointer is an integer index)
+		VariableInfo *vInfo = new VariableInfo(0, InplaceStr(vtblName), hash, 500000, CodeInfo::GetArrayType(typeFunction, TypeInfo::UNSIZED_ARRAY), true);
 		vInfo->next = vtblList;
 		vInfo->prev = (VariableInfo*)fType;	// $$ not type safe at all
 		target = vtblList = vInfo;

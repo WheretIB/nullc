@@ -28,6 +28,9 @@ public:
 private:
 	void	InitExecution();
 
+	bool *mapped;
+	unsigned	GetFunctionID(const char* name, unsigned length);
+
 	bool	codeRunning;
 
 	static const int ERROR_BUFFER_SIZE = 1024;

@@ -1207,6 +1207,13 @@ void NodeFunctionProxy::TranslateToC(FILE *fOut)
 	(void)fOut;
 }
 
+void NodePointerCast::TranslateToC(FILE *fOut)
+{
+	TranslateToCExtra(fOut);
+
+	first->TranslateToCExtra(fOut);
+}
+
 void ResetTranslationState()
 {
 	translateLoopDepth = 0;

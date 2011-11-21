@@ -16,6 +16,7 @@ extern TypeInfo*	typeDouble;
 extern TypeInfo*	typeObject;
 extern TypeInfo*	typeTypeid;
 extern TypeInfo*	typeAutoArray;
+extern TypeInfo*	typeFunction;
 
 extern TypeInfo*	typeGeneric;
 extern TypeInfo*	typeBool;

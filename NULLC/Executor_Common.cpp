@@ -5,6 +5,7 @@
 #include "nullc_debug.h"
 #include "Executor.h"
 #include "Executor_X86.h"
+#include "Executor_LLVM.h"
 
 namespace NULLC
 {
@@ -469,16 +470,19 @@ void MarkUsedBlocks()
 	GC::curr->clear();
 	GC::next->clear();
 
-	// Mark global variables
-	for(unsigned int i = 0; i < NULLC::commonLinker->exVariables.size(); i++)
-	{
-		GC_DEBUG_PRINT("Global %s %s (with offset of %d)\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, vars[i].offset);
-		GC::CheckVariable(GC::unmanageableBase + vars[i].offset, types[vars[i].type]);
-	}
-
 	// To check every stack frame, we have to get it first. But we have two different executors, so flow alternates depending on which executor we are running
 	void *unknownExec = NULL;
 	unsigned int execID = nullcGetCurrentExecutor(&unknownExec);
+
+	if(execID != NULLC_LLVM)
+	{
+		// Mark global variables
+		for(unsigned int i = 0; i < NULLC::commonLinker->exVariables.size(); i++)
+		{
+			GC_DEBUG_PRINT("Global %s %s (with offset of %d)\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, vars[i].offset);
+			GC::CheckVariable(GC::unmanageableBase + vars[i].offset, types[vars[i].type]);
+		}
+	}
 
 	// Starting stack offset is equal to global variable size
 	int offset = NULLC::commonLinker->globalVarSize;
@@ -488,12 +492,24 @@ void MarkUsedBlocks()
 	{
 		Executor *exec = (Executor*)unknownExec;
 		exec->BeginCallStack();
-	}else{
+	}
+	
 #ifdef NULLC_BUILD_X86_JIT
+	if(execID == NULLC_X86)
+	{
 		ExecutorX86 *exec = (ExecutorX86*)unknownExec;
 		exec->BeginCallStack();
-#endif
 	}
+#endif
+
+#ifdef NULLC_LLVM_SUPPORT
+	if(execID == NULLC_LLVM)
+	{
+		ExecutorLLVM *exec = (ExecutorLLVM*)unknownExec;
+		exec->BeginCallStack();
+	}
+#endif
+
 	// Mark local variables
 	while(true)
 	{
@@ -503,12 +519,23 @@ void MarkUsedBlocks()
 		{
 			Executor *exec = (Executor*)unknownExec;
 			address = exec->GetNextAddress();
-		}else{
+		}
+
 #ifdef NULLC_BUILD_X86_JIT
+		if(execID == NULLC_X86)
+		{
 			ExecutorX86 *exec = (ExecutorX86*)unknownExec;
 			address = exec->GetNextAddress();
-#endif
 		}
+#endif
+
+#ifdef NULLC_LLVM_SUPPORT
+		if(execID == NULLC_LLVM)
+		{
+			ExecutorLLVM *exec = (ExecutorLLVM*)unknownExec;
+			address = exec->GetNextAddress();
+		}
+#endif
 		// If failed, exit
 		if(address == 0)
 			break;
@@ -557,7 +584,7 @@ void MarkUsedBlocks()
 	}
 
 	// Check pointers inside all unclosed upvalue lists
-	for(unsigned int i = 0; i < NULLC::commonLinker->exCloseLists.size(); i++)
+	for(unsigned int i = 0; i < NULLC::commonLinker->exCloseLists.size() && execID != NULLC_LLVM; i++)
 	{
 		// List head
 		ExternFuncInfo::Upvalue *curr = NULLC::commonLinker->exCloseLists[i];
@@ -592,13 +619,26 @@ void MarkUsedBlocks()
 		Executor *exec = (Executor*)unknownExec;
 		tempStackBase = (char*)exec->GetStackStart();
 		tempStackTop = (char*)exec->GetStackEnd();
-	}else{
+	}
+
 #ifdef NULLC_BUILD_X86_JIT
+	if(execID == NULLC_X86)
+	{
 		ExecutorX86 *exec = (ExecutorX86*)unknownExec;
 		tempStackBase = (char*)exec->GetStackStart();
 		tempStackTop = (char*)exec->GetStackEnd();
-#endif
 	}
+#endif
+
+#ifdef NULLC_LLVM_SUPPORT
+	if(execID == NULLC_LLVM)
+	{
+		ExecutorLLVM *exec = (ExecutorLLVM*)unknownExec;
+		tempStackBase = (char*)exec->GetStackStart();
+		tempStackTop = (char*)exec->GetStackEnd();
+	}
+#endif
+
 	// Check that temporary stack range is correct
 	assert(tempStackTop >= tempStackBase);
 	// Check temporary stack for pointers

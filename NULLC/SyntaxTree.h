@@ -720,3 +720,17 @@ public:
 	const char		*codePos;
 	bool			noError;
 };
+
+class NodePointerCast: public NodeOneOP
+{
+public:
+	NodePointerCast(TypeInfo* targetType);
+	virtual ~NodePointerCast();
+
+	virtual void Compile();
+	virtual void LogToStream(FILE *fGraph);
+	COMPILE_TRANSLATION(virtual void TranslateToC(FILE *fOut));
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM(virtual void CompileLLVM());
+public:
+};
