@@ -431,3 +431,13 @@ void NodeFunctionProxy::LogToStream(FILE *fGraph)
 {
 	(void)fGraph;
 }
+
+void NodePointerCast::LogToStream(FILE *fGraph)
+{
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s NodePointerCast :\r\n", typeInfo->GetFullTypeName());
+	GoDownB();
+	LogToStreamExtra(fGraph);
+	first->LogToStream(fGraph);
+	GoUp();
+}

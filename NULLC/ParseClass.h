@@ -14,6 +14,14 @@ class TypeInfo;
 class FunctionInfo;
 class NamespaceInfo;
 
+#ifdef NULLC_LLVM_SUPPORT
+namespace llvm
+{
+	class Type;
+	class Value;
+}
+#endif
+
 class FunctionType
 {
 public:
@@ -171,7 +179,7 @@ public:
 	NamespaceInfo	*parentNamespace;
 
 #ifdef NULLC_LLVM_SUPPORT
-	const void		*llvmType;
+	llvm::Type		*llvmType;
 #endif
 
 #define LENGTH_CHECK(x) if(x >= 65532) ThrowError(NULL, "ERROR: internal compiler error; type name length is over the limit (65532)");
@@ -418,6 +426,7 @@ public:
 
 #ifdef NULLC_LLVM_SUPPORT
 		llvmValue = NULL;
+		llvmUpvalue = NULL;
 #endif
 	}
 
@@ -440,7 +449,8 @@ public:
 	VariableInfo	*next, *prev;		// For self-organizing lists
 
 #ifdef NULLC_LLVM_SUPPORT
-	void	*llvmValue;
+	llvm::Value		*llvmValue;
+	llvm::Value		*llvmUpvalue;
 #endif
 
 // Specialized allocation

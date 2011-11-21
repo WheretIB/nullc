@@ -13,6 +13,8 @@
 #include "llvm/Module.h"
 #include "llvm/Linker.h"
 
+#include "llvm/Support/TypeBuilder.h"
+
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JIT.h"
 
@@ -102,6 +104,37 @@ void	llvmSetArrayL(long long arr[], long long val, unsigned int count)
 		arr[i] = val;
 }
 
+namespace GC
+{
+	extern char	*unmanageableBase;
+	extern char	*unmanageableTop;
+}
+
+struct LLVMUpvalue
+{
+	void		*ptr;
+	LLVMUpvalue	*next;
+	unsigned	size;
+};
+
+void	llvmCloseUpvalue(void* upvalue, char* ptr)
+{
+	LLVMUpvalue **head = (LLVMUpvalue**)upvalue;
+	LLVMUpvalue *curr = *head;
+
+	GC::unmanageableBase = (char*)&curr;
+	// close upvalue if it's target is equal to local variable, or it's address is out of stack
+	while(curr && ((char*)curr->ptr == ptr || (char*)curr->ptr < GC::unmanageableBase || (char*)curr->ptr > GC::unmanageableTop))
+	{
+		LLVMUpvalue *next = curr->next;
+		unsigned size = curr->size;
+		*head = curr->next;
+		memcpy(&curr->next, curr->ptr, size);
+		curr->ptr = (unsigned*)&curr->next;
+		curr = next;
+	}
+}
+
 enum LLVMReturnType
 {
 	LLVM_NONE,
@@ -113,6 +146,8 @@ LLVMReturnType llvmReturnedType = LLVM_NONE;
 int llvmReturnedInt = 0;
 long long llvmReturnedLong = 0ll;
 double llvmReturnedDouble = 0.0;
+
+void *llvmStackTop = NULL;
 
 void	llvmReturnInt(int x)
 {
@@ -131,45 +166,21 @@ void	llvmReturnDouble(double x)
 	llvmReturnedType = LLVM_DOUBLE;
 	llvmReturnedDouble = x;
 }
-
-void* funcCreator(const std::string& name)
+namespace
 {
-	if(name == "llvmIntPow")
-		return llvmIntPow;
-	if(name == "llvmLongPow")
-		return llvmLongPow;
-	if(name == "llvmDoublePow")
-		return llvmDoublePow;
-	if(name == "__moddi3")
-		return llvmLongMod;
-	if(name == "__divdi3")
-		return llvmLongDiv;
-	if(name == "__llvmSetArrayC")
-		return llvmSetArrayC;
-	if(name == "__llvmSetArrayS")
-		return llvmSetArrayS;
-	if(name == "__llvmSetArrayI")
-		return llvmSetArrayI;
-	if(name == "__llvmSetArrayL")
-		return llvmSetArrayL;
-	if(name == "__llvmSetArrayF")
-		return llvmSetArrayF;
-	if(name == "__llvmSetArrayD")
-		return llvmSetArrayD;
-	if(name == "llvmReturnInt")
-		return llvmReturnInt;
-	if(name == "llvmReturnLong")
-		return llvmReturnLong;
-	if(name == "llvmReturnDouble")
-		return llvmReturnDouble;
+	struct ContextHolder
+	{
+		llvm::LLVMContext	context;
+	};
 
-	return NULL;
-}
+	ContextHolder	*ctx = 0;
 
-namespace LLVM
-{
+	llvm::LLVMContext&	getContext()
+	{
+		return ctx->context;
+	}
+
 	llvm::ExecutionEngine	*TheExecutionEngine = NULL;
-	llvm::LLVMContext		context;
 	llvm::Linker			*linker;
 
 	FastVector<llvm::Module*>	modules;
@@ -186,6 +197,35 @@ ExecutorLLVM::~ExecutorLLVM()
 {
 }
 
+unsigned ExecutorLLVM::GetFunctionID(const char* name, unsigned length)
+{
+	const char* symbols = exLinker->exSymbols.data;
+	for(unsigned funcID = 0; funcID < exLinker->exFunctions.size(); funcID++)
+	{
+		if(length == strlen(exLinker->exFunctions[funcID].offsetToName + symbols) && memcmp(name, exLinker->exFunctions[funcID].offsetToName + symbols, length) == 0)
+		{
+			if(mapped[funcID])
+				continue;
+			mapped[funcID] = 1;
+
+			// Skip generic base functions
+			if(exLinker->exFunctions[funcID].funcType == 0)
+				continue;
+
+			//if(exLinker->exFunctions[funcID].address != ~0u)
+			//	break;
+
+			/*printf("mapping %s (", name.c_str());
+			c->getType()->dump();
+			printf(") to %s (%s)\n", exLinker->exFunctions[funcID].offsetToName + symbols, exLinker->exTypes[exLinker->exFunctions[funcID].funcType].offsetToName + symbols);
+			*/
+			
+			return funcID;
+		}
+	}
+	return ~0u;
+}
+
 void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 {
 	(void)functionID;
@@ -196,19 +236,25 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 		sprintf(execError, "ERROR: function call unsupported");
 		return;
 	}
+
+	delete ctx;
+	ctx = new ContextHolder();
+
+	CommonSetLinker(exLinker);
+
 	llvmReturnedType = LLVM_NONE;
 
 	execError[0] = 0;
 
-	printf("LLVM executor\n");
+	//printf("LLVM executor\n");
 
 	if(!exLinker->llvmModuleSizes.size())
 	{
 		printf("Code not found\n");
 		assert(0);
 	}
-	LLVM::modules.clear();
-	LLVM::linker = new llvm::Linker("main", "main", LLVM::context);
+	modules.clear();
+	linker = new llvm::Linker("main", "main", getContext());
 
 	std::string error;
 
@@ -217,7 +263,7 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 	{
 		char buf[32];
 		llvm::MemoryBuffer *buffer = llvm::MemoryBuffer::getMemBuffer(llvm::StringRef(&exLinker->llvmModuleCodes[offset], exLinker->llvmModuleSizes[i]), "module", false);
-		llvm::Module *module = llvm::ParseBitcodeFile(buffer, LLVM::context, &error);
+		llvm::Module *module = llvm::ParseBitcodeFile(buffer, getContext(), &error);
 		if(!error.empty())
 		{
 			printf("%s\n", error.c_str());
@@ -227,23 +273,41 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 		llvm::Function *glob = module->getFunction("Global");
 		sprintf(buf, "Global%d", i);
 		glob->setName(buf);
-		if(LLVM::linker->LinkInModule(module, &error))
+		if(linker->LinkInModule(module, &error))
 		{
 			printf("%s\n", error.c_str());
 			assert(0);
 		}
 		offset += exLinker->llvmModuleSizes[i];
-		LLVM::modules.push_back(module);
+		modules.push_back(module);
 	}
-	llvm::Module *module = LLVM::linker->releaseModule();
-	LLVM::TheExecutionEngine = llvm::EngineBuilder(module).setErrorStr(&error).create();
-	if(!LLVM::TheExecutionEngine)
+	llvm::Module *module = linker->releaseModule();
+	TheExecutionEngine = llvm::EngineBuilder(module).setErrorStr(&error).create();
+	if(!TheExecutionEngine)
 	{
 		printf("Could not create ExecutionEngine: %s\n", error.c_str());
 		assert(0);
 	}
-	LLVM::TheExecutionEngine->InstallLazyFunctionCreator(funcCreator);
+	//LLVM::TheExecutionEngine->InstallLazyFunctionCreator(funcCreator);
 
+	// Set basic functions
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("llvmIntPow"), (void*)llvmIntPow);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("llvmLongPow"), (void*)llvmLongPow);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("llvmDoublePow"), (void*)llvmDoublePow);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("__moddi3"), (void*)llvmLongMod);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("__divdi3"), (void*)llvmLongDiv);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("__llvmSetArrayC"), (void*)llvmSetArrayC);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("__llvmSetArrayS"), (void*)llvmSetArrayS);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("__llvmSetArrayI"), (void*)llvmSetArrayI);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("__llvmSetArrayL"), (void*)llvmSetArrayL);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("__llvmSetArrayF"), (void*)llvmSetArrayF);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("__llvmSetArrayD"), (void*)llvmSetArrayD);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("llvmReturnInt"), (void*)llvmReturnInt);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("llvmReturnLong"), (void*)llvmReturnLong);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("llvmReturnDouble"), (void*)llvmReturnDouble);
+	TheExecutionEngine->updateGlobalMapping(module->getFunction("llvmCloseUpvalue"), (void*)llvmCloseUpvalue);
+
+	
 	/*const char* symbols = exLinker->exSymbols.data;
 	llvm::Module::FunctionListType &funcs = module->getFunctionList();
 	unsigned funcID = 0;
@@ -261,7 +325,50 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 	}*/
 
 	// external functions binding
-	const char* symbols = exLinker->exSymbols.data;
+	//const char* symbols = exLinker->exSymbols.data;
+	llvm::Module::FunctionListType &funcs = module->getFunctionList();
+	
+	mapped = new bool[exLinker->exFunctions.size()];
+	for(unsigned funcID = 0; funcID < exLinker->exFunctions.size(); funcID++)
+		mapped[funcID] = 0;
+
+	for(llvm::Module::FunctionListType::iterator c = funcs.begin(), e = funcs.end(); c != e; c++)
+	{
+		std::string name = c->getNameStr();
+
+		const char *str = name.c_str();
+		str += name.length() - 1;
+
+		bool found = false;
+		do 
+		{
+			unsigned length = unsigned(str - name.c_str() + 1);
+
+			//bool found = false;
+
+			unsigned funcID = GetFunctionID(name.c_str(), length);
+			if(funcID != ~0u)
+			{
+				if(exLinker->exFunctions[funcID].address == ~0u)
+					TheExecutionEngine->updateGlobalMapping(c, exLinker->exFunctions[funcID].funcPtr);
+				found = true;
+			}
+			if((unsigned)(*str - '0') >= 10 || str == name)
+			{
+				//if(!found)
+				//	printf("skipping %s\n", name.c_str());
+				break;
+			}else{
+				str--;
+			}
+		}while(!found);
+
+		//if(!found)
+		//	printf("skipping %s\n", name.c_str());
+	}
+	delete[] mapped;
+
+/*	const char* symbols = exLinker->exSymbols.data;
 	llvm::Module::FunctionListType &funcs = module->getFunctionList();
 	llvm::Module::FunctionListType::iterator c = funcs.begin(), e = funcs.end();
 	for(unsigned funcID = 0; funcID < exLinker->exFunctions.size(); funcID++)
@@ -271,7 +378,7 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 		while(memcmp(name.c_str(), exLinker->exFunctions[funcID].offsetToName + symbols,
 			strlen(exLinker->exFunctions[funcID].offsetToName + symbols)) != 0)
 		{
-			//printf("skipping %s\n", name.c_str());
+			printf("skipping %s\n", name.c_str());
 			c++;
 			name = c->getNameStr();
 		}
@@ -279,31 +386,34 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 
 		if(exLinker->exFunctions[funcID].address == ~0u)
 		{
+			printf("mapping %s (", name.c_str());
+			c->getType()->dump();
+			printf(") to %s (%s)\n", exLinker->exFunctions[funcID].offsetToName + symbols, exLinker->exTypes[exLinker->exFunctions[funcID].funcType].offsetToName + symbols);
+
 			//printf("binding %s to %s\n", exLinker->exFunctions[funcID].offsetToName + symbols, name.c_str());
 			LLVM::TheExecutionEngine->updateGlobalMapping(c, exLinker->exFunctions[funcID].funcPtr);
 		}
 		c++;
-	}
+	}*/
 
-	/*// Function address array creation
-	exLinker->functionAddress.resize(exLinker->exFunctions.size());
+	// Function address array creation
+	/*exLinker->llvmFunctionPointers.resize(exLinker->exFunctions.size());
 	for(unsigned i = 0; i < exLinker->exFunctions.size(); i++)
 	{
 		if(exLinker->exFunctions[i].address == ~0u)
 		{
-			exLinker->functionAddress[i] = (unsigned int)(intptr_t)exLinker->exFunctions[i].funcPtr;
+			exLinker->llvmFunctionPointers[i] = (void*)exLinker->exFunctions[i].funcPtr;
 		}else{
 			llvm::Function *func = module->getFunction(&exLinker->exSymbols[exLinker->exFunctions[i].offsetToName]);
 			if(!func)
 			{
 				printf("Function %s not found\n", &exLinker->exSymbols[exLinker->exFunctions[i].offsetToName]);
-				exLinker->functionAddress[i] = NULL;
+				exLinker->llvmFunctionPointers[i] = NULL;
 			}else{
-				exLinker->functionAddress[i] = (unsigned int)(intptr_t)LLVM::TheExecutionEngine->getPointerToFunction(func);
+				exLinker->llvmFunctionPointers[i] = (void*)LLVM::TheExecutionEngine->getPointerToFunction(func);
 			}
 		}
 	}*/
-	
 	
 	/*for(unsigned i = 0; i < exLinker->exFunctions.size(); i++)
 		printf("%s\n", exLinker->exFunctions[i].offsetToName + symbols);
@@ -311,13 +421,19 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 	if(module->getFunction("typeid"))
 		LLVM::TheExecutionEngine->updateGlobalMapping(module->getFunction("typeid"), (void*)llvmLongDiv);
 	*/
+
+	//module->dump();
+
+	int stackHelper = 0;
+	llvmStackTop = &stackHelper;
+
 	//LLVM::TheExecutionEngine->getPointerToGlobal
 	for(unsigned i = 0; i < exLinker->llvmModuleSizes.size(); i++)
 	{
 		char buf[32];
 		sprintf(buf, "Global%d", i);
 		assert(module->getFunction(buf));
-		void *FPtr = LLVM::TheExecutionEngine->getPointerToFunction(module->getFunction(buf));
+		void *FPtr = TheExecutionEngine->getPointerToFunction(module->getFunction(buf));
 		void (*FP)() = (void (*)())(intptr_t)FPtr;
 		assert(FP);
 		FP();
@@ -326,7 +442,7 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 	//printf("Evaluated to %s\n", GetResult());
 
 	
-	LLVM::globalVars.resize(exLinker->globalVarSize);
+	globalVars.resize(exLinker->globalVarSize);
 	unsigned int globalID = 0;
 	//for(unsigned i = 0; i < LLVM::modules.size(); i++)
 	//{
@@ -334,12 +450,14 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 		llvm::Module::GlobalListType &globals = module->getGlobalList();
 		for(llvm::Module::GlobalListType::iterator c = globals.begin(), e = globals.end(); c != e; c++)
 		{
+			if(globalID >= exLinker->exVariables.size())
+				break;
 			//llvm::GlobalVariable &var = *c;
 			//const char *name = c->getNameStr().c_str();
 			//printf("%s %s\n", exLinker->exVariables[globalID].offsetToName + symbols, name);
-			void *data = LLVM::TheExecutionEngine->getPointerToGlobal(c);
+			void *data = TheExecutionEngine->getPointerToGlobal(c);
 			if(exLinker->exTypes[exLinker->exVariables[globalID].type].size)
-				memcpy(&LLVM::globalVars[exLinker->exVariables[globalID].offset], data, exLinker->exTypes[exLinker->exVariables[globalID].type].size);
+				memcpy(&globalVars[exLinker->exVariables[globalID].offset], data, exLinker->exTypes[exLinker->exVariables[globalID].type].size);
 			globalID++;
 			/*
 			for(unsigned l = 0; l < exLinker->exVariables.size(); l++)
@@ -350,8 +468,8 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 		}
 	//}
 
-	delete LLVM::TheExecutionEngine;
-	delete LLVM::linker;
+	delete TheExecutionEngine;
+	delete linker;
 }
 
 void	ExecutorLLVM::Stop(const char* error)
@@ -401,13 +519,11 @@ const char*	ExecutorLLVM::GetExecError()
 	return execError;
 }
 
-
-
 char*		ExecutorLLVM::GetVariableData(unsigned int *count)
 {
 	if(count)
 		*count = exLinker->exVariables.size();
-	return LLVM::globalVars.data;
+	return globalVars.data;
 }
 
 void			ExecutorLLVM::BeginCallStack()
@@ -421,12 +537,16 @@ unsigned int	ExecutorLLVM::GetNextAddress()
 
 void*			ExecutorLLVM::GetStackStart()
 {
-	return NULL;
+#pragma warning(push)
+#pragma warning(disable: 4172) // returning address of local variable or temporary
+	int stackHelper = 0;
+	return &stackHelper;
+#pragma warning(pop)
 }
 
 void*			ExecutorLLVM::GetStackEnd()
 {
-	return NULL;
+	return llvmStackTop;
 }
 
 #endif

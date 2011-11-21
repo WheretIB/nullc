@@ -46,6 +46,7 @@ TypeInfo*	typeDouble = NULL;
 TypeInfo*	typeObject = NULL;
 TypeInfo*	typeTypeid = NULL;
 TypeInfo*	typeAutoArray = NULL;
+TypeInfo*	typeFunction = NULL;
 
 TypeInfo*	typeGeneric = NULL;
 TypeInfo*	typeBool = NULL;
@@ -159,8 +160,8 @@ void		array_copy(generic dst, int offsetDst, generic src, int offsetSrc, count)\
 		dst[i] = src[k];\r\n\
 }\r\n\
 \r\n\
-void ref() __redirect(auto ref r, int[] ref f);\r\n\
-void ref() __redirect_ptr(auto ref r, int[] ref f);\r\n\
+void ref() __redirect(auto ref r, __function[] ref f);\r\n\
+void ref() __redirect_ptr(auto ref r, __function[] ref f);\r\n\
 // char inline array definition support\r\n\
 auto operator=(char[] ref dst, int[] src)\r\n\
 {\r\n\
@@ -346,6 +347,11 @@ Compiler::Compiler()
 	typeAutoArray->AddMemberVariable("ptr", CodeInfo::GetReferenceType(typeVoid));
 	typeAutoArray->AddMemberVariable("size", typeInt);
 	typeAutoArray->size = 8 + NULLC_PTR_SIZE;
+
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "__function", 0, 0, 1, NULL, TypeInfo::TYPE_INT);
+	info->size = 4;
+	typeFunction = info;
+	CodeInfo::typeInfo.push_back(info);
 
 	info = new TypeInfo(CodeInfo::typeInfo.size(), "generic", 0, 0, 1, NULL, TypeInfo::TYPE_VOID);
 	info->size = 0;

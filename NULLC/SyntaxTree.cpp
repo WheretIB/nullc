@@ -1958,6 +1958,26 @@ void NodeFunctionProxy::Compile()
 		ThrowError(codePos, "ERROR: there are more than one '%s' function, and the decision isn't clear(I)", funcInfo->name);
 }
 
+NodePointerCast::NodePointerCast(TypeInfo* targetType)
+{
+	first = TakeLastNode();
+
+	typeInfo = targetType;
+
+	assert(first->typeInfo->refLevel == typeInfo->refLevel);
+}
+
+NodePointerCast::~NodePointerCast()
+{
+}
+
+void NodePointerCast::Compile()
+{
+	CompileExtra();
+
+	first->Compile();
+}
+
 void ResetTreeGlobals()
 {
 	currLoopDepth = 0;

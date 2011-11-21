@@ -626,3 +626,11 @@ NodeNumber*	NodeFunctionProxy::Evaluate(char *memory, unsigned int size)
 	return NULL;
 }
 #pragma warning(default: 4702)
+
+NodeNumber* NodePointerCast::Evaluate(char *memory, unsigned int size)
+{
+	if(head)
+		return NULL;
+
+	return first->Evaluate(memory, size);
+}
