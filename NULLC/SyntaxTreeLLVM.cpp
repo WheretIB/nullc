@@ -421,6 +421,8 @@ llvm::Value*	PromoteToStackType(llvm::Value *V, TypeInfo *type)
 	switch(fDT)
 	{
 	case DTYPE_CHAR:
+		V = builder->CreateIntCast(V, llvm::Type::getInt32Ty(getContext()), type == typeBool ? false : true, "tmp_toint");
+		break;
 	case DTYPE_SHORT:
 		V = builder->CreateIntCast(V, llvm::Type::getInt32Ty(getContext()), true, "tmp_toint");
 		break;
@@ -449,14 +451,14 @@ llvm::Value*	ConvertFirstToSecond(llvm::Value *V, TypeInfo *firstType, TypeInfo 
 		else if(first == STYPE_DOUBLE)
 			return builder->CreateFPToSI(V, secondType->llvmType, "tmp_dtol");
 		else if(firstType != secondType)
-			return builder->CreateIntCast(V, secondType->llvmType, true, "tmp_lcast");
+			return builder->CreateIntCast(V, secondType->llvmType, firstType == typeBool ? false : true, "tmp_lcast");
 	}else if(second == STYPE_INT){
 		if(first == STYPE_DOUBLE)
 			return builder->CreateFPToSI(V, secondType->llvmType, "tmp_dtoi");
 		else if(first == STYPE_LONG)
 			return builder->CreateIntCast(V, secondType->llvmType, true, "tmp_ltoi");
 		else if(firstType != secondType)
-			return builder->CreateIntCast(V, secondType->llvmType, true, "tmp_icast");
+			return builder->CreateIntCast(V, secondType->llvmType, firstType == typeBool ? false : true, "tmp_icast");
 	}
 	return V;
 }
@@ -1662,7 +1664,16 @@ void NodeConvertPtr::CompileLLVM()
 		// Allocate space for auto ref
 		llvm::Value *aggr = CreateEntryBlockAlloca(F, "tmp_autoref", typeObject->llvmType);
 		V = builder->CreateStructGEP(aggr, 0, "tmp_arr");
-		builder->CreateStore(llvm::ConstantInt::get(typeInt->llvmType, llvm::APInt(32, first->typeInfo->subType->typeIndex)), V);
+
+		TypeInfo *type = first->typeInfo->subType;
+		if(handleBaseClass && type->firstVariable && type->firstVariable->nameHash == GetStringHash("$typeid"))
+		{
+			llvm::Value *typeID = builder->CreatePointerCast(ptr, llvm::Type::getInt32PtrTy(getContext()), "typeid_cast");
+			builder->CreateStore(builder->CreateLoad(typeID), V);
+		}else{
+			builder->CreateStore(llvm::ConstantInt::get(typeInt->llvmType, llvm::APInt(32, type->typeIndex)), V);
+		}
+
 		V = builder->CreateStructGEP(aggr, 1, "tmp_arr");
 		builder->CreateStore(ptr, V);
 		V = builder->CreateLoad(aggr, "autoref");
