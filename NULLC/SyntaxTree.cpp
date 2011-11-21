@@ -1960,11 +1960,11 @@ void NodeFunctionProxy::Compile()
 
 NodePointerCast::NodePointerCast(TypeInfo* targetType)
 {
+	nodeType = typeNodePointerCast;
+
 	first = TakeLastNode();
 
 	typeInfo = targetType;
-
-	assert(first->typeInfo->refLevel == typeInfo->refLevel);
 }
 
 NodePointerCast::~NodePointerCast()
@@ -1976,6 +1976,49 @@ void NodePointerCast::Compile()
 	CompileExtra();
 
 	first->Compile();
+}
+
+NodeGetFunctionContext::NodeGetFunctionContext()
+{
+	nodeType = typeNodeGetFunctionContext;
+
+	first = TakeLastNode();
+
+	typeInfo = first->typeInfo->subType;
+}
+
+NodeGetFunctionContext::~NodeGetFunctionContext()
+{
+}
+
+void NodeGetFunctionContext::Compile()
+{
+	CompileExtra();
+
+	first->Compile();
+	cmdList.push_back(VMCmd(cmdPushPtrStk, 0, (unsigned short)typeInfo->size, 0));
+}
+
+NodeGetCoroutineState::NodeGetCoroutineState()
+{
+	nodeType = typeNodeGetCoroutineState;
+
+	first = TakeLastNode();
+
+	typeInfo = typeInt;
+}
+
+NodeGetCoroutineState::~NodeGetCoroutineState()
+{
+}
+
+void NodeGetCoroutineState::Compile()
+{
+	CompileExtra();
+
+	first->Compile();
+	cmdList.push_back(VMCmd(cmdPushPtrStk, 0, (unsigned short)typeInfo->size, 0));
+	cmdList.push_back(VMCmd(cmdPushPtrStk, 0, (unsigned short)typeInfo->size, 0));
 }
 
 void ResetTreeGlobals()

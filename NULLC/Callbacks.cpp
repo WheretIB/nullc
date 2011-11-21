@@ -1129,7 +1129,7 @@ void AddReturnNode(const char* pos, bool yield)
 			ThrowError(pos, "ERROR: function should return %s", expectedType->GetFullTypeName());
 		if(yield && currDefinedFunc.back()->type != FunctionInfo::COROUTINE)
 			ThrowError(pos, "ERROR: yield can only be used inside a coroutine");
-#ifdef NULLC_ENABLE_C_TRANSLATION
+#if defined(NULLC_ENABLE_C_TRANSLATION) || defined(NULLC_LLVM_SUPPORT)
 		if(yield)
 			currDefinedFunc.back()->yieldCount++;
 #endif
@@ -2795,14 +2795,12 @@ void AddArrayIterator(const char* pos, InplaceStr varName, TypeInfo* type, bool 
 			if(((NodeFunctionAddress*)getIterator)->funcInfo->type != FunctionInfo::COROUTINE)
 				ThrowError(pos, "ERROR: function is not a coroutine");
 			// Here we have a node that holds pointer to context imagine that we have a int** that we will dereference two times to get "$jmpOffset_ext"
-			wrap2->typeInfo = CodeInfo::GetReferenceType(CodeInfo::GetReferenceType(typeInt));
+			CodeInfo::nodeList.push_back(new NodePointerCast(CodeInfo::GetReferenceType(CodeInfo::GetReferenceType(typeInt))));
 		}else{
-			// If we got the function pointer from a variable, we can't access member variable "$jmpOffset_ext" directly, so we cheat
-			wrap2->typeInfo = CodeInfo::GetReferenceType(CodeInfo::GetReferenceType(CodeInfo::GetReferenceType(typeInt)));
-			CodeInfo::nodeList.push_back(new NodeDereference());
+			// If we got the function pointer from a variable, we can't access member variable "$jmpOffset_ext" directly, so we get function context
+			CodeInfo::nodeList.push_back(new NodeGetFunctionContext());
 		}
-		CodeInfo::nodeList.push_back(new NodeDereference());
-		CodeInfo::nodeList.push_back(new NodeDereference());
+		CodeInfo::nodeList.push_back(new NodeGetCoroutineState());
 
 		AddTwoExpressionNode(typeInt);
 
