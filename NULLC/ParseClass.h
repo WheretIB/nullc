@@ -19,6 +19,8 @@ namespace llvm
 {
 	class Type;
 	class Value;
+	class Function;
+	class BasicBlock;
 }
 #endif
 
@@ -527,6 +529,8 @@ public:
 #ifdef NULLC_LLVM_SUPPORT
 		llvmFunction = NULL;
 		llvmImplemented = false;
+		yieldCount = 0;
+		llvmYields = NULL;
 #endif
 	}
 
@@ -634,8 +638,11 @@ public:
 	AliasInfo	*childAlias;
 
 #ifdef NULLC_LLVM_SUPPORT
-	void		*llvmFunction;
-	bool		llvmImplemented;
+	llvm::Function	*llvmFunction;
+	bool			llvmImplemented;
+
+	unsigned			yieldCount;
+	llvm::BasicBlock	**llvmYields;
 #endif
 
 	const char*	GetOperatorName()

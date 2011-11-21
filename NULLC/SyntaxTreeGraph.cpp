@@ -441,3 +441,23 @@ void NodePointerCast::LogToStream(FILE *fGraph)
 	first->LogToStream(fGraph);
 	GoUp();
 }
+
+void NodeGetFunctionContext::LogToStream(FILE *fGraph)
+{
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s NodeGetFunctionContext :\r\n", typeInfo->GetFullTypeName());
+	GoDownB();
+	LogToStreamExtra(fGraph);
+	first->LogToStream(fGraph);
+	GoUp();
+}
+
+void NodeGetCoroutineState::LogToStream(FILE *fGraph)
+{
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s NodeGetCoroutineState :\r\n", typeInfo->GetFullTypeName());
+	GoDownB();
+	LogToStreamExtra(fGraph);
+	first->LogToStream(fGraph);
+	GoUp();
+}

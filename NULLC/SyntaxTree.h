@@ -64,6 +64,9 @@ enum NodeType
 	typeNodeBlockOp,
 	typeNodeConvertPtr,
 	typeNodeFunctionProxy,
+	typeNodePointerCast,
+	typeNodeGetFunctionContext,
+	typeNodeGetCoroutineState
 };
 //////////////////////////////////////////////////////////////////////////
 class NodeNumber;
@@ -732,5 +735,30 @@ public:
 	COMPILE_TRANSLATION(virtual void TranslateToC(FILE *fOut));
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 	COMPILE_LLVM(virtual void CompileLLVM());
+};
+
+class NodeGetFunctionContext: public NodeOneOP
+{
 public:
+	NodeGetFunctionContext();
+	virtual ~NodeGetFunctionContext();
+
+	virtual void Compile();
+	virtual void LogToStream(FILE *fGraph);
+	COMPILE_TRANSLATION(virtual void TranslateToC(FILE *fOut));
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM(virtual void CompileLLVM());
+};
+
+class NodeGetCoroutineState: public NodeOneOP
+{
+public:
+	NodeGetCoroutineState();
+	virtual ~NodeGetCoroutineState();
+
+	virtual void Compile();
+	virtual void LogToStream(FILE *fGraph);
+	COMPILE_TRANSLATION(virtual void TranslateToC(FILE *fOut));
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM(virtual void CompileLLVM());
 };

@@ -1,6 +1,7 @@
 #include "StdLib.h"
 
 #include "nullc.h"
+#include "nullc_debug.h"
 #include <string.h>
 #include <time.h>
 
@@ -960,9 +961,12 @@ void NULLC::AssertCoroutine(NULLCRef f)
 {
 	if(linker->exTypes[f.typeID].subCat != ExternTypeInfo::CAT_FUNCTION)
 		nullcThrowError("Argument is not a function");
-	NULLCFuncPtr *fPtr = (NULLCFuncPtr*)f.ptr;
-	if(linker->exFunctions[fPtr->id].funcCat != ExternFuncInfo::COROUTINE)
-		nullcThrowError("ERROR: function is not a coroutine");
+	if(nullcGetCurrentExecutor(NULL) != NULLC_LLVM)
+	{
+		NULLCFuncPtr *fPtr = (NULLCFuncPtr*)f.ptr;
+		if(linker->exFunctions[fPtr->id].funcCat != ExternFuncInfo::COROUTINE)
+			nullcThrowError("ERROR: function is not a coroutine");
+	}
 }
 
 NULLCArray NULLC::GetFinalizationList()

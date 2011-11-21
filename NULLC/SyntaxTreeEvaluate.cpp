@@ -634,3 +634,19 @@ NodeNumber* NodePointerCast::Evaluate(char *memory, unsigned int size)
 
 	return first->Evaluate(memory, size);
 }
+
+NodeNumber* NodeGetFunctionContext::Evaluate(char *memory, unsigned int size)
+{
+	(void)memory;
+	(void)size;
+
+	return NULL;
+}
+
+NodeNumber* NodeGetCoroutineState::Evaluate(char *memory, unsigned int size)
+{
+	(void)memory;
+	(void)size;
+
+	return NULL;
+}
