@@ -186,7 +186,6 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 		TypeInfo *type = CodeInfo::typeInfo[i];
 		if(type->llvmType || type->arrLevel || type->refLevel || type->funcType)
 			continue;
-		//printf("Adding opaque %s\n", type->GetFullTypeName());
 		type->llvmType = StructType::create(getContext(), type->GetFullTypeName());
 	}
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
@@ -196,7 +195,6 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 			continue;
 
 		llvm::Type *subType = type->subType ? (llvm::Type*)type->subType->llvmType : NULL;
-		//printf("Adding %s\n", type->GetFullTypeName());
 		if(type->arrLevel && type->arrSize != TypeInfo::UNSIZED_ARRAY)
 		{
 			assert(subType);
@@ -206,12 +204,6 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 		}else if(type->arrLevel && type->arrSize == TypeInfo::UNSIZED_ARRAY){
 			assert(subType);
 			type->llvmType = StructType::get(PointerType::getUnqual(subType), Type::getInt32Ty(getContext()), (Type*)NULL);
-
-			/*type->llvmType = StructType::create(getContext(), type->GetFullTypeName());
-			typeList.clear();
-			typeList.push_back(PointerType::getUnqual(subType));
-			typeList.push_back(Type::getInt32Ty(getContext()));
-			((StructType*)type->llvmType)->setBody(llvm::ArrayRef<Type*>(typeList));*/
 		}else if(type->refLevel){
 			assert(subType);
 			type->llvmType = type->subType == typeVoid ? Type::getInt8PtrTy(getContext()) : PointerType::getUnqual(subType);
@@ -233,7 +225,6 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 			typeList.push_back(Type::getInt8PtrTy(getContext()));
 			typeList.push_back(PointerType::getUnqual(functionType));
 			((StructType*)type->llvmType)->setBody(llvm::ArrayRef<Type*>(typeList));
-			//type->llvmType = StructType::get(Type::getInt8PtrTy(getContext()), PointerType::getUnqual(functionType), (Type*)NULL);
 		}
 	}
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
@@ -265,7 +256,6 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 			0, std::string(name.begin, name.end)));
 		CodeInfo::varInfo[i]->llvmValue = globals.back();
 		globals.back()->setInitializer(Constant::getNullValue((Type*)CodeInfo::varInfo[i]->varType->llvmType));
-		//printf("global %s %.*s\n", CodeInfo::varInfo[i]->pos >> 24 ? "extern" : "", int(name.end - name.begin), name.begin);
 	}
 
 	typeClosure = llvm::StructType::create(getContext(), "#upvalue");
@@ -381,42 +371,18 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 	continueStack.clear();
 }
 
-struct my_stream : public llvm::raw_ostream
-{
-	virtual void write_impl(const char * a,size_t b)
-	{
-		printf("%.*s", b, a);
-	}
-	uint64_t current_pos(void) const
-	{
-		return 0;
-	}
-};
-
-//#define DUMP(x){ x->dump(); printf("\n"); }
-#define DUMP(x) x
-
-//BasicBlock *globalExit = NULL;
-
-void		StartGlobalCode()
+void	StartGlobalCode()
 {
 	F = llvm::Function::Create(TypeBuilder<void(), true>::get(getContext()), llvm::Function::ExternalLinkage, "Global", module);
 
 	llvm::BasicBlock *BB = llvm::BasicBlock::Create(getContext(), "global_entry", F);
 	builder->SetInsertPoint(BB);
-
-	//globalExit = BasicBlock::Create(getContext(), "globalReturn");
 }
 
 std::vector<unsigned char> out;
 const char*	GetLLVMIR(unsigned& length)
 {
-	//if(F->back().empty() || !F->back().back().isTerminator())
-		builder->CreateRetVoid();
-
-	/*F->getBasicBlockList().push_back(globalExit);
-	builder->SetInsertPoint(globalExit);
-	builder->CreateRet(ConstantInt::get(getContext(), APInt(32, ~0ull, true)));*/
+	builder->CreateRetVoid();
 
 	if(enableOptimization)
 	{
@@ -427,66 +393,32 @@ const char*	GetLLVMIR(unsigned& length)
 			OurFPM->run(*F);
 	}
 
-	DUMP(module);
-
-//	unsigned start = clock();
 	//module->dump();
 	verifyFunction(*F);
 	verifyModule(*module);
-
-//	unsigned verified = clock() - start;
-//	start = clock();
 
 	out.clear();
 	BitstreamWriter bw = BitstreamWriter(out);
 	WriteBitcodeToStream(module, bw);
 	length = (unsigned)out.size();
-	
-	//printf("%d\n", out.size());
-
-	/*if(!F->getEntryBlock().empty())
-	{
-		void *FPtr = TheExecutionEngine->getPointerToFunction(F);
-		unsigned compiled = clock() - start;
-		start = clock();
-		int (*FP)() = (int (*)())(intptr_t)FPtr;
-		printf("Evaluated to %d (verification %d; compilation %d; execution %d)\n", FP(), verified, compiled, clock() - start);
-		for(std::vector<void*>::iterator c = memBlocks.begin(), e = memBlocks.end(); c != e; c++)
-			free(*c);
-		memBlocks.clear();
-	}*/
 
 	return (char*)&out[0];
 }
 llvm::Value *V;
 
-
 void	EndLLVMGeneration()
 {
-	//delete llvm::getPassRegistrar();
-	//for(unsigned int i = 0; i < globals.size(); i++)
-	//	delete globals[i];
-	//globals.clear();
-	/*for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
-		if(((llvm::Type*)CodeInfo::typeInfo[i]->llvmType)->isAbstract())
-			((llvm::Type*)CodeInfo::typeInfo[i]->llvmType)->dropRef();*/
-
-	//TheExecutionEngine->~ExecutionEngine();
 	delete OurPM;
 	OurPM = NULL;
+
 	delete OurFPM;
 	OurFPM = NULL;
+
 	V = NULL;
 	F = NULL;
+
 	delete module;
 	module = NULL;
-
-	//getContext().~LLVMContext();
-	//builder->~IRBuilder();
-	//for(unsigned int i = 0; i < globals.size(); i++)
-	//	delete globals[i];
-	//globals.clear();
-//	llvm_shutdown();
 }
 
 Value*	PromoteToStackType(Value *V, TypeInfo *type)
@@ -610,31 +542,23 @@ void NodeReturnOp::CompileLLVM()
 {
 	CompileLLVMExtra();
 
-	//if(typeInfo && first->typeInfo != typeInfo)
-	//	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp typeInfo && first->typeInfo != typeInfo");
 	first->CompileLLVM();
 	if(typeInfo != typeVoid && !V)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp typeInfo != typeVoid && !V");
 	if(typeInfo != typeVoid)
 	{
-		//value = PromoteToStackType(value, second->typeInfo);
-		//value = ConvertFirstToSecond(value, GetStackType(second->typeInfo), first->typeInfo->subType);
 		V = PromoteToStackType(V, first->typeInfo);
 		V = ConvertFirstToSecond(V, GetStackType(first->typeInfo), typeInfo);
 	}
-
 
 	llvm::BasicBlock *returnBlock = llvm::BasicBlock::Create(getContext(), "return_block", F);
 	llvm::BasicBlock *afterReturn = llvm::BasicBlock::Create(getContext(), "after_break", F);
 
 	builder->CreateBr(returnBlock);
-	//builder->CreateCondBr(llvm::ConstantInt::get(llvm::Type::getInt1Ty(getContext()), 1), returnBlock, afterReturn);
 	builder->SetInsertPoint(returnBlock);
 	
-
 	if(!parentFunction)
-	{//&& first->typeInfo != typeInt)
-	//	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp !typeInfo && first->typeInfo != typeInt");
+	{
 		V = PromoteToStackType(V, first->typeInfo);
 		TypeInfo *retType = GetStackType(first->typeInfo);
 		if(retType == typeInt || retType == typeBool || (retType->type != TypeInfo::TYPE_COMPLEX && retType->firstVariable != NULL))
@@ -660,28 +584,7 @@ void NodeReturnOp::CompileLLVM()
 			for(; curr; curr = curr->next)
 			{
 				if(curr->usedAsExternal)
-				{
-					//curr->llvmUpvalue->dump();
-					//curr->llvmUpvalue->getType()->dump(); printf("\n");
-
-					llvm::Value *ptr = curr->llvmValue;
-
-					//ptr->dump();
-					//ptr->getType()->dump(); printf("\n");
-
-					ptr = builder->CreatePointerCast(ptr, llvm::Type::getInt8PtrTy(getContext()));
-
-					builder->CreateCall2(functionCloseUpvalues, curr->llvmUpvalue, ptr);
-					/*const char *namePrefix = *curr->name.begin == '$' ? "__" : "";
-					unsigned int nameShift = *curr->name.begin == '$' ? 1 : 0;
-					sprintf(name, "%s%.*s_%d", namePrefix, int(curr->name.end - curr->name.begin) -nameShift, curr->name.begin+nameShift, curr->pos);
-					GetEscapedName(name);
-					OutputIdent(fOut);
-					if(curr->nameHash == hashThis)
-						fprintf(fOut, "__nullcCloseUpvalue(__upvalue_%d___context, &__context);\r\n", CodeInfo::FindFunctionByPtr(curr->parentFunction));
-					else
-						fprintf(fOut, "__nullcCloseUpvalue(__upvalue_%d_%s, &%s);\r\n", CodeInfo::FindFunctionByPtr(curr->parentFunction), name, name);*/
-				}
+					builder->CreateCall2(functionCloseUpvalues, curr->llvmUpvalue, builder->CreatePointerCast(curr->llvmValue, llvm::Type::getInt8PtrTy(getContext())));
 			}
 			if(parentFunction->firstParam)
 				parentFunction->lastParam->next = NULL;
@@ -695,18 +598,12 @@ void NodeReturnOp::CompileLLVM()
 		if(typeInfo == typeBool)
 		{
 			V = builder->CreateIntCast(V, (Type*)typeInfo->llvmType, true, "tmp_to_bool");
-			DUMP(V->getType());
 		}
 
 		builder->CreateRet(V);
 	}
 
 	builder->SetInsertPoint(afterReturn);
-
-	//BasicBlock *afterReturn = BasicBlock::Create(getContext(), "afterReturn", F);
-	//builder->SetInsertPoint(afterReturn);
-
-	//builder->CreateRetVoid();*/
 }
 
 // CreateEntryBlockAlloca - Create an alloca instruction in the entry block of the function.  This is used for mutable variables etc.
@@ -719,7 +616,7 @@ AllocaInst* CreateEntryBlockAlloca(Function *TheFunction, const std::string &Var
 void NodeExpressionList::CompileLLVM()
 {
 	Value *aggr = NULL;
-	if(typeInfo->arrLevel)// && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
+	if(typeInfo->arrLevel)
 	{
 		aggr = CreateEntryBlockAlloca(F, "arr_tmp", (Type*)typeInfo->llvmType);
 	}
@@ -727,9 +624,7 @@ void NodeExpressionList::CompileLLVM()
 	{
 		aggr = CreateEntryBlockAlloca(F, "tmp", (Type*)typeInfo->llvmType);
 	}
-	
-	//else if(typeInfo != typeVoid)
-	//	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeExpressionList typeInfo != typeVoid");
+
 	int index = 0;
 	if(typeInfo->arrLevel)
 		index = typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY ? 1 : (typeInfo->subType == typeChar ? ((typeInfo->arrSize + 3) / 4) - 1 : typeInfo->arrSize - 1);
@@ -751,36 +646,25 @@ void NodeExpressionList::CompileLLVM()
 		}
 		if(V && typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 		{
-			DUMP(V->getType());
 			if(index == 0)
 			{
-				//assert(typeInfo->subType->refType);
 				V = builder->CreatePointerCast(V, PointerType::getUnqual((Type*)typeInfo->subType->llvmType), "ptr_any");
-				DUMP(V->getType());
 			}
 			Value *arrayIndexHelper[2];
-			DUMP(aggr->getType());
 			arrayIndexHelper[0] = ConstantInt::get(getContext(), APInt(64, 0, true));
 			arrayIndexHelper[1] = ConstantInt::get(getContext(), APInt(32, index--, true));
 			Value *target = builder->CreateGEP(aggr, llvm::ArrayRef<Value*>(&arrayIndexHelper[0], 2), "arr_part");
-			DUMP(target->getType());
 			builder->CreateStore(V, target);
 		}else if(V && typeInfo->arrLevel && curr->nodeType != typeNodeZeroOp){
-			DUMP(V->getType());
 			V = PromoteToStackType(V, curr->typeInfo);
-			DUMP(V->getType());
-			DUMP(aggr->getType());
 			Value *arrayIndexHelper[2];
 			arrayIndexHelper[0] = ConstantInt::get(getContext(), APInt(64, 0, true));
-			//printf("Indexing %d\n", typeInfo->subType == typeChar ? index * 4 : index);
 			arrayIndexHelper[1] = ConstantInt::get(getContext(), APInt(32, typeInfo->subType == typeChar ? index * 4 : index, true));
 			index--;
 			Value *target = builder->CreateGEP(aggr, llvm::ArrayRef<Value*>(&arrayIndexHelper[0], 2), "arr_part");
-			DUMP(target->getType());
 			if(typeInfo->subType == typeChar)
 			{
 				target = builder->CreatePointerCast(target, Type::getInt32PtrTy(getContext()), "ptr_any");
-				DUMP(target->getType());
 			}
 			builder->CreateStore(V, target);
 		}else if(V && typeInfo == typeAutoArray){
@@ -800,13 +684,6 @@ void NodeExpressionList::CompileLLVM()
 			Value *autoPtr = builder->CreateStructGEP(aggr, 1, "auto_arr_ptr");
 			Value *autoLength = builder->CreateStructGEP(aggr, 2, "auto_arr_length");
 
-			/*arrayType->getType()->dump(); printf("\n");
-			autoType->getType()->dump(); printf("\n");
-			arrayPtr->getType()->dump(); printf("\n");
-			autoPtr->getType()->dump(); printf("\n");
-			arrayLength->getType()->dump(); printf("\n");
-			autoLength->getType()->dump(); printf("\n");*/
-
 			builder->CreateStore(arrayType, autoType);
 			builder->CreateStore(arrayPtr, autoPtr);
 			builder->CreateStore(arrayLength, autoLength);
@@ -814,7 +691,7 @@ void NodeExpressionList::CompileLLVM()
 		}
 		curr = curr->next;
 	}while(curr);
-	if(typeInfo->arrLevel || typeInfo == typeAutoArray)// && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
+	if(typeInfo->arrLevel || typeInfo == typeAutoArray)
 		V = builder->CreateLoad(aggr, "arr_aggr");
 	if(typeInfo != typeVoid && !V)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeExpressionList typeInfo && !V");
@@ -828,17 +705,6 @@ void NodeFuncDef::CompileLLVM()
 		return;
 	}
 
-	//Function *CalleeF = module->getFunction(funcInfo->name);
-	//if(CalleeF)
-	//	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFuncDef CalleeF");
-
-	/*std::vector<const llvm::Type*> Arguments;
-	VariableInfo *curr = NULL;
-	for(curr = funcInfo->firstParam; curr; curr = curr->next)
-		Arguments.push_back((Type*)curr->varType->llvmType);
-	Arguments.push_back((Type*)funcInfo->extraParam->varType->llvmType);
-	llvm::FunctionType *FT = llvm::FunctionType::get((Type*)funcInfo->retType->llvmType, Arguments, false);
-	F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, funcInfo->name, module);*/
 	F = (Function*)funcInfo->llvmFunction;
 	funcInfo->llvmImplemented = true;
 
@@ -867,22 +733,13 @@ void NodeFuncDef::CompileLLVM()
 	{
 		if(funcInfo->retType != typeVoid)
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFuncDef function must return a value");
-		//builder->CreateRetVoid();
 	}
 
 	if(funcInfo->retType == typeVoid)
 		builder->CreateRetVoid();
 	else
 		builder->CreateUnreachable();
-	/*if(F->back().empty() || !F->back().back().isTerminator())
-	{
-		if(funcInfo->retType == typeVoid)
-			builder->CreateRetVoid();
-		else
-			builder->CreateRet(ConstantInt::get(getContext(), APInt(32, 0, true)));
-	}*/
 
-	DUMP(F);
 	verifyFunction(*F, llvm::PrintMessageAction);
 	if(enableOptimization && !F->getEntryBlock().empty())
 		OurFPM->run(*F);
@@ -894,22 +751,21 @@ void NodeFuncCall::CompileLLVM()
 	CompileLLVMExtra();
 
 	std::vector<llvm::Value*> args;
-	//printf("Function call\n");
+
 	if(funcType->paramCount)
 	{
 		NodeZeroOP	*curr = paramTail;
-		TypeInfo	**paramType = funcType->paramType;// + funcType->paramCount - 1;
+		TypeInfo	**paramType = funcType->paramType;
 		do
 		{
 			curr->CompileLLVM();
 			if(!V)
 				ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFuncCall V = NULL");
-			//printf("%s\t", curr->typeInfo->GetFullTypeName());
-			DUMP(V->getType());
+
 			V = ConvertFirstToSecond(V, curr->typeInfo, *paramType);
 			if(*paramType == typeFloat)
 				V = builder->CreateFPCast(V, (Type*)typeFloat->llvmType, "dtof");
-			DUMP(V->getType());
+
 			args.push_back(V);
 			curr = curr->prev;
 			paramType++;
@@ -920,35 +776,31 @@ void NodeFuncCall::CompileLLVM()
 	{
 		first->CompileLLVM();
 		Value *func = V;
-		DUMP(func->getType());
+
 		Value *funcPtr = CreateEntryBlockAlloca(F, "func_tmp", (Type*)first->typeInfo->llvmType);
-		DUMP(funcPtr->getType());
+
 		builder->CreateStore(func, funcPtr);
 
 		Value *ptr = builder->CreateStructGEP(funcPtr, 1, "ptr_part");
-		DUMP(ptr->getType());
+
 		Value *context = builder->CreateStructGEP(funcPtr, 0, "ctx_part");
-		DUMP(context->getType());
 
 		args.push_back(builder->CreateLoad(context, "ctx_deref"));
 
 		CalleeF = (Function*)builder->CreateLoad(ptr, "func_deref");
-
-		//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFuncCall funcInfo = NULL");
 	}else{
-		CalleeF = (Function*)funcInfo->llvmFunction;// module->getFunction(funcInfo->name);
+		CalleeF = (Function*)funcInfo->llvmFunction;
 		if(!CalleeF)
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: !CalleeF");
 		if(first)
 		{
 			first->CompileLLVM();
-			DUMP(V->getType());
+
 			Argument *last = (--CalleeF->arg_end());
-			DUMP(last->getType());
+
 			if(V->getType() != last->getType())
 			{
 				V = builder->CreatePointerCast(V, last->getType());
-				DUMP(V->getType());
 			}
 			args.push_back(V);
 		}else{
@@ -957,51 +809,30 @@ void NodeFuncCall::CompileLLVM()
 	}
 	if(funcType->retType != typeVoid)
 	{
-		DUMP(CalleeF->getType());
-		V = builder->CreateCall(CalleeF, llvm::ArrayRef<Value*>(args));//, funcInfo->name);
+		V = builder->CreateCall(CalleeF, llvm::ArrayRef<Value*>(args));
 	}else{
 		builder->CreateCall(CalleeF, llvm::ArrayRef<Value*>(args));
 		V = NULL;
 	}
 	if(funcInfo && funcInfo->nameHash == GetStringHash("__newA"))
 	{
-		DUMP(V->getType());
-		DUMP(((Type*)typeInfo->llvmType));
-
 		Value *arrTemp = CreateEntryBlockAlloca(F, "newa_tmp", V->getType());
-		DUMP(arrTemp->getType());
 		builder->CreateStore(V, arrTemp);
 
-		DUMP(arrTemp->getType());
-		DUMP(((Type*)typeInfo->llvmType));
-
 		V = builder->CreatePointerCast(arrTemp, PointerType::getUnqual((Type*)typeInfo->llvmType), "newa_rescast");
-		DUMP(V->getType());
 		V = builder->CreateLoad(V, "newa_load");
-		DUMP(V->getType());
 	}
 	if(funcInfo && funcInfo->nameHash == GetStringHash("__newS"))
 	{
-		DUMP(V->getType());
-		DUMP(((Type*)typeInfo->llvmType));
 		V = builder->CreatePointerCast(V, (Type*)typeInfo->llvmType, "news_rescast");
 	}
 	if(funcInfo && (funcInfo->nameHash == GetStringHash("__redirect") || funcInfo->nameHash == GetStringHash("__redirect_ptr")))
 	{
-		DUMP(V->getType());
-		DUMP(((Type*)typeInfo->llvmType));
-
 		Value *funcTemp = CreateEntryBlockAlloca(F, "redirect_tmp", V->getType());
-		DUMP(funcTemp->getType());
 		builder->CreateStore(V, funcTemp);
 
-		DUMP(funcTemp->getType());
-		DUMP(((Type*)typeInfo->llvmType));
-
 		V = builder->CreatePointerCast(funcTemp, PointerType::getUnqual((Type*)typeInfo->llvmType), "redirect_cast");
-		DUMP(V->getType());
 		V = builder->CreateLoad(V, "redirect_res");
-		DUMP(V->getType());
 	}
 }
 
@@ -1027,20 +858,13 @@ void NodeUnaryOp::CompileLLVM()
 	Value *zeroV = ConstantInt::get(getContext(), APInt(id == cmdLogNotL ? 64 : 32, 0, true));
 	if(first->typeInfo == typeObject)
 	{
-		DUMP(V->getType());
 		Value *aggr = CreateEntryBlockAlloca(F, "ref_tmp", (Type*)typeObject->llvmType);
 		builder->CreateStore(V, aggr);
-		DUMP(aggr->getType());
 		V = builder->CreateStructGEP(aggr, 1, "tmp_ptr");
-		DUMP(V->getType());
 		V = builder->CreateLoad(V, "tmp_ptr");
-		DUMP(V->getType());
 		V = builder->CreatePtrToInt(V, (Type*)typeInt->llvmType, "as_int");
-		DUMP(V->getType());
 		id = cmdLogNot;
-		//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: !CalleeF");
 	}else if(first->typeInfo->refLevel){
-		DUMP(V->getType());
 		zeroV = ConstantPointerNull::get((PointerType*)V->getType());
 	}
 
@@ -1076,8 +900,6 @@ void NodeUnaryOp::CompileLLVM()
 		V = (llvm::Function*)CodeInfo::funcInfo[vmCmd.argument]->llvmFunction;
 
 		V = builder->CreatePointerCast(V, (llvm::Type*)typeFunction->llvmType, "function_to_vtbl_element");
-
-		//V = ConstantInt::get((Type*)typeInt->llvmType, APInt(32, vmCmd.argument));
 		break;
 	case cmdCheckedRet:
 		//printf("LLVM: unsupported command cmdCheckedRet\n");
@@ -1093,8 +915,8 @@ void NodeGetAddress::CompileLLVM()
 
 	if(!varInfo)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeGetAddress varInfo = NULL");
-	//builder->CreateIntToPtr
-	V = (Value*)varInfo->llvmValue;//NamedValues[varInfo->nameHash];//builder->CreateGEP(NamedValues[varInfo->nameHash], ConstantInt::get(Type::getInt32Ty(getContext()), APInt(32, 0)), "tmp_ptr");
+
+	V = (Value*)varInfo->llvmValue;
 }
 
 void NodeDereference::CompileLLVM()
@@ -1114,14 +936,6 @@ void NodeDereference::CompileLLVM()
 		if(closure)
 			assert(closure->varType == first->typeInfo);
 
-		/*__lambda_80_cls * __lambda_80_ext_12;
-		*(&n_4) = 5;
-		*(&res1_8) = test_79(3, (	(__lambda_80_ext_12 = (__lambda_80_cls * )__newS(12, __nullcTR[122])),
-		(*(int**)((char*)__lambda_80_ext_12 + 0) = (int*)&n_4),
-		(*(int**)((char*)__lambda_80_ext_12 + 4) = (int*)__upvalue_78_n_4),
-		(*(int*)((char*)__lambda_80_ext_12 + 8) = 4),
-		(__upvalue_78_n_4 = (__nullcUpvalue*)((int*)__lambda_80_ext_12 + 0)),*/
-
 		llvm::Value	*targetClosure = 0;
 
 		if(closure)
@@ -1132,9 +946,6 @@ void NodeDereference::CompileLLVM()
 			targetClosure = V;
 		}
 
-		//closure->llvmValue->dump();
-		//closure->llvmValue->getType()->dump(); printf("\n");
-
 		// Allocate closure
 		llvm::Value *value = builder->CreateCall3(module->getFunction("__newS"), ConstantInt::get(getContext(), APInt(32, first->typeInfo->subType->size, true)), ConstantInt::get(getContext(), APInt(32, first->typeInfo->subType->typeIndex, true)), llvm::ConstantPointerNull::get(llvm::Type::getInt32PtrTy(getContext())));
 		
@@ -1142,36 +953,18 @@ void NodeDereference::CompileLLVM()
 
 		value = builder->CreatePointerCast(value, llvm::PointerType::getUnqual(typeInfo->llvmType), "news_rescast");
 
-		//value->dump();
-		//value->getType()->dump(); printf("\n");
-
 		builder->CreateStore(value, targetClosure);
 
 		unsigned int pos = 0;
 		for(FunctionInfo::ExternalInfo *curr = closureFunc->firstExternal; curr; curr = curr->next)
 		{
-			//closureStart->dump();
-			//closureStart->getType()->dump(); printf("\n");
-
 			llvm::Value *gep[2];
 			gep[0] = ConstantInt::get(getContext(), APInt(32, pos, true));
 			llvm::Value *closureCurr = builder->CreateGEP(closureStart, llvm::ArrayRef<llvm::Value*>(gep[0]));
 
-			//closureCurr->dump();
-			//closureCurr->getType()->dump(); printf("\n");
-
 			closureCurr = builder->CreatePointerCast(closureCurr, llvm::PointerType::getUnqual(typeClosure));
 
-			//closureCurr->dump();
-			//closureCurr->getType()->dump(); printf("\n");
-
 			llvm::Value* closurePtr = builder->CreateStructGEP(closureCurr, 0, "cls_ptr");
-
-			//closurePtr->dump();
-			//closurePtr->getType()->dump(); printf("\n");
-
-			//curr->variable->llvmValue->dump();
-			//curr->variable->llvmValue->getType()->dump(); printf("\n");
 
 			if(curr->targetPos == ~0u)
 				assert(0);
@@ -1201,18 +994,9 @@ void NodeDereference::CompileLLVM()
 
 			llvm::Value* closureUpvalue = builder->CreateStructGEP(closureCurr, 1, "cls_upvalue");
 
-			//closureUpvalue->dump();
-			//closureUpvalue->getType()->dump(); printf("\n");
-
-			//curr->variable->llvmUpvalue->dump();
-			//curr->variable->llvmUpvalue->getType()->dump(); printf("\n");
-
 			builder->CreateStore(builder->CreateLoad(curr->variable->llvmUpvalue), closureUpvalue);
 
 			llvm::Value* closureSize = builder->CreateStructGEP(closureCurr, 2, "cls_size");
-
-			//closureSize->dump();
-			//closureSize->getType()->dump(); printf("\n");
 
 			builder->CreateStore(ConstantInt::get(getContext(), APInt(32, curr->variable->varType->size, true)), closureSize);
 
@@ -1224,9 +1008,7 @@ void NodeDereference::CompileLLVM()
 		first->CompileLLVM();
 		if(typeInfo != first->typeInfo->subType)
 		{
-			DUMP(V->getType());
 			V = builder->CreatePointerCast(V, PointerType::getUnqual((Type*)typeInfo->llvmType), "deref_cast");
-			DUMP(V->getType());
 		}
 		if(!V)
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeDereference V = NULL");
@@ -1419,19 +1201,13 @@ void NodeBinaryOp::CompileLLVM()
 	Value *left = V;
 	second->CompileLLVM();
 	Value *right = V;
-	//printf("before promote: ");
-	DUMP(left->getType());
-	DUMP(right->getType());
+
 	left = PromoteToStackType(left, first->typeInfo);
 	right = PromoteToStackType(right, second->typeInfo);
-	//printf("after promote: ");
-	DUMP(left->getType());
-	DUMP(right->getType());
+
 	left = ConvertFirstForSecond(left, first->typeInfo, second->typeInfo);
 	right = ConvertFirstForSecond(right, second->typeInfo, first->typeInfo);
-	//printf("after convertion: ");
-	DUMP(left->getType());
-	DUMP(right->getType());
+
 	MakeBinaryOp(left, right, cmdID, fST);
 }
 
@@ -1443,12 +1219,10 @@ void NodeVariableSet::CompileLLVM()
 	Value *target = V;
 	if(!target)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeVariableSet target = NULL");
-	DUMP(target->getType());
 	second->CompileLLVM();
 	Value *value = V;
 	if(!value)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeVariableSet value = NULL");
-	DUMP(value->getType());
 
 	if(arrSetAll)
 	{
@@ -1473,8 +1247,7 @@ void NodeVariableSet::CompileLLVM()
 		SafeSprintf(fName, 20, "__llvmSetArray%c", suffix);
 		Function *setFunc = module->getFunction(fName);
 		assert(setFunc);
-		DUMP(target->getType());
-		DUMP(value->getType());
+
 		builder->CreateCall3(setFunc, target, value, ConstantInt::get((Type*)typeInt->llvmType, APInt(32u, elemCount, true)));
 		V = NULL;
 		return;
@@ -1484,12 +1257,10 @@ void NodeVariableSet::CompileLLVM()
 	value = ConvertFirstToSecond(value, GetStackType(second->typeInfo), first->typeInfo->subType);
 	if(!value)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeVariableSet value = NULL after");
-	DUMP(value->getType());
 
 	if(typeInfo == typeBool)
 	{
 		value = builder->CreateIntCast(value, (Type*)typeInfo->llvmType, true, "tmp_to_bool");
-		DUMP(value->getType());
 	}
 
 	builder->CreateStore(value, target);
@@ -1509,26 +1280,17 @@ Value* GenerateCompareToZero(Value *V, TypeInfo *typeInfo)
 	Value *zeroV = ConstantInt::get(getContext(), APInt(32, 0, true));
 	if(typeInfo == typeObject)
 	{
-		DUMP(V->getType());
 		Value *arrTemp = CreateEntryBlockAlloca(F, "autoref_tmp", V->getType());
-		DUMP(arrTemp->getType());
 		builder->CreateStore(V, arrTemp);
 
 		V = builder->CreateStructGEP(arrTemp, 1, "autoref_ptr");
-		DUMP(V->getType());
 		V = builder->CreateLoad(V);
-		DUMP(V->getType());
 		V = builder->CreatePtrToInt(V, Type::getInt32Ty(getContext()), "as_int");
-		DUMP(V->getType());
 	}else if(typeInfo->refLevel){
-		DUMP(V->getType());
 		zeroV = ConstantPointerNull::get((PointerType*)V->getType());
 	}else if(typeInfo != typeInt){
-		DUMP(V->getType());
 		V = PromoteToStackType(V, typeInfo);
-		DUMP(V->getType());
 		V = builder->CreateIntCast(V, Type::getInt32Ty(getContext()), true, "as_int");
-		DUMP(V->getType());
 	}
 	return builder->CreateICmpNE(V, zeroV, "cond_value");
 }
@@ -1557,7 +1319,7 @@ void NodeIfElseExpr::CompileLLVM()
 		left = ConvertFirstToSecond(left, second->typeInfo, typeInfo);
 	
 	trueBlock = builder->GetInsertBlock();
-	if(trueBlock->empty() || !trueBlock->back().isTerminator())//if(F->back().empty() || !F->back().back().isTerminator())
+	if(trueBlock->empty() || !trueBlock->back().isTerminator())
 		builder->CreateBr(exitBlock);
 	
 	if(third)
@@ -1570,7 +1332,7 @@ void NodeIfElseExpr::CompileLLVM()
 			right = ConvertFirstToSecond(right, third->typeInfo, typeInfo);
 
 		falseBlock = builder->GetInsertBlock();
-		if(falseBlock->empty() || !falseBlock->back().isTerminator())//F->back().empty() || !F->back().back().isTerminator())
+		if(falseBlock->empty() || !falseBlock->back().isTerminator())
 			builder->CreateBr(exitBlock);
 		
 	}
@@ -1581,8 +1343,7 @@ void NodeIfElseExpr::CompileLLVM()
 	if(typeInfo != typeVoid)
 	{
 		PHINode *PN2 = builder->CreatePHI((Type*)typeInfo->llvmType, 2, "merge_tmp");
-		DUMP(left->getType());
-		DUMP(right->getType());
+
 		PN2->addIncoming(left, trueBlock);
 		PN2->addIncoming(right, falseBlock);
 
@@ -1695,14 +1456,11 @@ void NodePreOrPostOp::CompileLLVM()
 	first->CompileLLVM();
 	Value *address = V;
 
-	DUMP(address->getType());
-
 	if(prefixOp)
 	{
 		// ++x
 		V = builder->CreateLoad(address, "incdecpre_tmp");
-		DUMP(V->getType());
-		//DUMP(V->getType());
+
 		Value *mod = 0;
 		if(typeInfo->stackType == STYPE_DOUBLE)
 			mod = builder->CreateFAdd(V, ConvertFirstToSecond(ConstantInt::get(getContext(), APInt(32, incOp ? 1 : -1, true)), typeInt, typeInfo), "pre_res");
@@ -1713,7 +1471,7 @@ void NodePreOrPostOp::CompileLLVM()
 	}else{
 		// x++
 		V = builder->CreateLoad(address, "incdecpre_tmp");
-		DUMP(V->getType());
+
 		Value *mod = 0;
 		if(typeInfo->stackType == STYPE_DOUBLE)
 			mod = builder->CreateFAdd(V, ConvertFirstToSecond(ConstantInt::get(getContext(), APInt(32, incOp ? 1 : -1, true)), typeInt, typeInfo), "post_res");
@@ -1737,24 +1495,16 @@ void NodeVariableModify::CompileLLVM()
 	
 	TypeInfo *resType = ChooseBinaryOpResultType(first->typeInfo->subType, second->typeInfo);
 	
-	DUMP(left->getType());
-	DUMP(right->getType());
 	left = PromoteToStackType(left, first->typeInfo->subType);
 	right = PromoteToStackType(right, second->typeInfo);
-	DUMP(left->getType());
-	DUMP(right->getType());
+
 	left = ConvertFirstForSecond(left, first->typeInfo->subType, second->typeInfo);
 	right = ConvertFirstForSecond(right, second->typeInfo, first->typeInfo->subType);
-	DUMP(left->getType());
-	DUMP(right->getType());
+
 	MakeBinaryOp(left, right, cmdID, resType->stackType);
 
-	/*if(resType == typeFloat)
-		resType = typeDouble;
-	if(resType == typeChar || resType == typeShort)
-		resType = typeInt;*/
 	V = ConvertFirstToSecond(V, GetStackType(resType), typeInfo);
-	DUMP(V->getType());
+
 	builder->CreateStore(V, address);
 }
 
@@ -1764,26 +1514,16 @@ void NodeArrayIndex::CompileLLVM()
 
 	first->CompileLLVM();
 	Value *address = V;
-	DUMP(address->getType());
+
 	second->CompileLLVM();
 	Value *index = V;
-	DUMP(index->getType());
+
 	Value *arrayIndexHelper[2];
 	if(typeParent->arrSize == TypeInfo::UNSIZED_ARRAY)
 	{
 		Value *aggr = CreateEntryBlockAlloca(F, "arr_tmp", (Type*)typeParent->llvmType);
 		builder->CreateStore(address, aggr);
-		DUMP(aggr->getType());
-		/*V = builder->CreateStructGEP(aggr, 1, "tmp_arr");
-		Value *arrSize = builder->CreateLoad(V, "arr_size");
-		// Check array size
-		BasicBlock *failBlock = BasicBlock::Create(getContext(), "failBlock", F);
-		BasicBlock *passBlock = BasicBlock::Create(getContext(), "passBlock", F);
-		Value *check = builder->CreateICmpULT(index, arrSize, "check_res");
-		builder->CreateCondBr(check, passBlock, failBlock);
-		builder->SetInsertPoint(failBlock);
-		builder->CreateBr(globalExit);
-		builder->SetInsertPoint(passBlock);*/
+
 		// Access array
 		V = builder->CreateStructGEP(aggr, 0, "tmp_arr");
 		Value *arrPtr = builder->CreateLoad(V, "tmp_arrptr");
@@ -1794,7 +1534,6 @@ void NodeArrayIndex::CompileLLVM()
 		index = ConvertFirstToSecond(index, GetStackType(second->typeInfo), typeInt);
 		arrayIndexHelper[1] = index;
 		V = builder->CreateGEP(address, llvm::ArrayRef<Value*>(&arrayIndexHelper[0], 2), "tmp_arr");
-		DUMP(V->getType());
 	}
 }
 
@@ -1812,7 +1551,6 @@ void NodeShiftAddress::CompileLLVM()
 	}
 	first->CompileLLVM();
 	Value *address = V;
-	DUMP(address->getType());
 	Value *arrayIndexHelper[2];
 	arrayIndexHelper[0] = ConstantInt::get(getContext(), APInt(64, 0, true));
 	arrayIndexHelper[1] = ConstantInt::get(getContext(), APInt(32, index, true));
@@ -1855,33 +1593,22 @@ void NodeConvertPtr::CompileLLVM()
 		V = ConstantInt::get((Type*)typeInt->llvmType, APInt(32, first->typeInfo->subType->typeIndex));
 	}else if(typeInfo == typeObject){
 		first->CompileLLVM();
-		DUMP(V->getType());
 		Value *ptr = builder->CreatePointerCast(V, Type::getInt8PtrTy(getContext()), "ptr_cast");
-		DUMP(ptr->getType());
 		// Allocate space for auto ref
 		Value *aggr = CreateEntryBlockAlloca(F, "tmp_autoref", (Type*)typeObject->llvmType);
-		DUMP(aggr->getType());
 		V = builder->CreateStructGEP(aggr, 0, "tmp_arr");
-		DUMP(V->getType());
 		builder->CreateStore(ConstantInt::get((Type*)typeInt->llvmType, APInt(32, first->typeInfo->subType->typeIndex)), V);
 		V = builder->CreateStructGEP(aggr, 1, "tmp_arr");
-		DUMP(V->getType());
 		builder->CreateStore(ptr, V);
 		V = builder->CreateLoad(aggr, "autoref");
 	}else{
 		first->CompileLLVM();
-		DUMP(V->getType());
 		// Allocate space for auto ref
 		Value *aggr = CreateEntryBlockAlloca(F, "tmp_autoref", (Type*)typeObject->llvmType);
-		DUMP(aggr->getType());
 		builder->CreateStore(V, aggr);
 		V = builder->CreateStructGEP(aggr, 1, "tmp_ptr");
-		DUMP(V->getType());
 		V = builder->CreateLoad(V, "ptr");
-		DUMP(V->getType());
-		DUMP(((Type*)typeInfo->llvmType));
 		V = builder->CreatePointerCast(V, (Type*)typeInfo->llvmType, "ptr_cast");
-		DUMP(V->getType());
 	}
 }
 
@@ -1899,41 +1626,30 @@ void NodeFunctionAddress::CompileLLVM()
 	CompileLLVMExtra();
 
 	Value *aggr = CreateEntryBlockAlloca(F, "func_tmp", (Type*)typeInfo->llvmType);
-	DUMP(aggr->getType());
 	Value *ptr = builder->CreateStructGEP(aggr, 1, "ptr_part");
-	DUMP(ptr->getType());
 	Value *context = builder->CreateStructGEP(aggr, 0, "ctx_part");
-	DUMP(context->getType());
 
-	Type *functionType = ((llvm::StructType*)typeInfo->llvmType)->getTypeAtIndex(1u);//typeInfo->lastVariable->type;
-	DUMP(functionType);
+	Type *functionType = ((llvm::StructType*)typeInfo->llvmType)->getTypeAtIndex(1u);
 
 	Value *tmp = (llvm::Function*)funcInfo->llvmFunction;
 	if(funcInfo == CodeInfo::funcInfo[0])
 		tmp = ConstantPointerNull::get(llvm::PointerType::getUnqual((llvm::Type*)funcInfo->funcType->llvmType));
 
-	DUMP(tmp->getType());
 	tmp = builder->CreatePointerCast(tmp, functionType, "func_cast");
 	builder->CreateStore(tmp, ptr);
 
-	const Type *contextType = ((llvm::StructType*)typeInfo->llvmType)->getTypeAtIndex(0u);//TypeInfo *contextType = typeInfo->firstVariable->type;
-	DUMP(contextType);
+	const Type *contextType = ((llvm::StructType*)typeInfo->llvmType)->getTypeAtIndex(0u);
 
 	if(funcInfo->type == FunctionInfo::NORMAL)
 	{
 		builder->CreateStore(ConstantPointerNull::get((PointerType*)contextType), context);
 	}else{
 		first->CompileLLVM();
-		DUMP(V->getType());
 		V = builder->CreatePointerCast(V, Type::getInt8PtrTy(getContext()), "context_cast");
-		//V = builder->CreatePtrToInt(V, Type::getInt32Ty(getContext()), "int_cast");
-		DUMP(V->getType());
 		builder->CreateStore(V, context);
 	}
 
 	V = builder->CreateLoad(aggr, "func_res");
-	DUMP(V->getType());
-	//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeFunctionAddress");*/
 }
 
 void NodeGetUpvalue::CompileLLVM()
@@ -1944,30 +1660,19 @@ void NodeGetUpvalue::CompileLLVM()
 	assert(parentFunc->extraParam->llvmValue);
 
 	Value *closure = (Value*)parentFunc->extraParam->llvmValue;
-	DUMP(closure->getType());
 
 	// Load pointer to closure into a variable
 	V = builder->CreateLoad(closure, "closure");
-	DUMP(V->getType());
 	// Cast it to char*
 	V = builder->CreatePointerCast(V, Type::getInt8PtrTy(getContext()));
-	DUMP(V->getType());
 	// Shift to offset
 	Value *arrayIndexHelper[2];
-	//arrayIndexHelper[0] = ConstantInt::get(getContext(), APInt(64, 0, true));
 	arrayIndexHelper[0] = ConstantInt::get(getContext(), APInt(32, closureElem, true));
 	V = builder->CreateGEP(V, llvm::ArrayRef<Value*>(&arrayIndexHelper[0], 1));
-	DUMP(V->getType());
 	// cast to result type
 	V = builder->CreatePointerCast(V, llvm::PointerType::getUnqual(typeInfo->llvmType));
-	DUMP(V->getType());
 
 	V = builder->CreateLoad(V, "closure_deref");
-
-	//cmdList.push_back(VMCmd(cmdPushPtr, ADDRESS_RELATIVE, (unsigned short)typeInfo->size, closurePos));
-	//cmdList.push_back(VMCmd(cmdPushPtrStk, 0, (unsigned short)typeInfo->size, closureElem));
-
-	//ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeGetUpvalue");
 }
 
 void NodeBlock::CompileLLVM()
