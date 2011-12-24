@@ -1039,7 +1039,7 @@ void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg index, int multiplier,
 	x86Argument arg(size, index, multiplier, base, shift);
 	if(x86LookBehind &&
 		(x86Op[-1].name == o_add || x86Op[-1].name == o_sub) && x86Op[-1].argA.type == x86Argument::argReg && x86Op[-1].argA.reg == reg2 && x86Op[-1].argB.type == x86Argument::argNumber &&
-		x86Op[-2].name == o_mov && x86Op[-1].argA.type == x86Argument::argReg && x86Op[-1].argA.reg == reg2 && x86Op[-2].argB == arg)
+		x86Op[-2].name == o_mov && x86Op[-2].argA.type == x86Argument::argReg && x86Op[-2].argA.reg == reg2 && x86Op[-2].argB == arg)
 	{
 		x86Command origCmd = x86Op[-1].name;
 		int num = x86Op[-1].argB.num;
