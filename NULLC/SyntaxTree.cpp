@@ -2021,6 +2021,29 @@ void NodeGetCoroutineState::Compile()
 	cmdList.push_back(VMCmd(cmdPushPtrStk, 0, (unsigned short)typeInfo->size, 0));
 }
 
+NodeCreateUnsizedArray::NodeCreateUnsizedArray(TypeInfo* arrayType, NodeZeroOP* size)
+{
+	nodeType = typeNodeCreateUnsizedArray;
+
+	first = TakeLastNode();
+	second = size;
+
+	typeInfo = arrayType;
+}
+
+NodeCreateUnsizedArray::~NodeCreateUnsizedArray()
+{
+}
+
+void NodeCreateUnsizedArray::Compile()
+{
+	CompileExtra();
+
+	second->Compile();
+
+	first->Compile();
+}
+
 void ResetTreeGlobals()
 {
 	currLoopDepth = 0;

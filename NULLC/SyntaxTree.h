@@ -66,7 +66,8 @@ enum NodeType
 	typeNodeFunctionProxy,
 	typeNodePointerCast,
 	typeNodeGetFunctionContext,
-	typeNodeGetCoroutineState
+	typeNodeGetCoroutineState,
+	typeNodeCreateUnsizedArray
 };
 //////////////////////////////////////////////////////////////////////////
 class NodeNumber;
@@ -755,6 +756,19 @@ class NodeGetCoroutineState: public NodeOneOP
 public:
 	NodeGetCoroutineState();
 	virtual ~NodeGetCoroutineState();
+
+	virtual void Compile();
+	virtual void LogToStream(FILE *fGraph);
+	COMPILE_TRANSLATION(virtual void TranslateToC(FILE *fOut));
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM(virtual void CompileLLVM());
+};
+
+class NodeCreateUnsizedArray: public NodeTwoOP
+{
+public:
+	NodeCreateUnsizedArray(TypeInfo* arrayType, NodeZeroOP* size);
+	virtual ~NodeCreateUnsizedArray();
 
 	virtual void Compile();
 	virtual void LogToStream(FILE *fGraph);

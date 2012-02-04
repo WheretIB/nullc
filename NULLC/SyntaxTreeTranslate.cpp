@@ -1232,6 +1232,19 @@ void NodeGetCoroutineState::TranslateToC(FILE *fOut)
 	fprintf(fOut, ")");
 }
 
+void NodeCreateUnsizedArray::TranslateToC(FILE *fOut)
+{
+	TranslateToCExtra(fOut);
+
+	fprintf(fOut, "__makeNullcArray<");
+	typeInfo->subType->OutputCType(fOut, "");
+	fprintf(fOut, ">(");
+	first->TranslateToCExtra(fOut);
+	fprintf(fOut, ", ");
+	second->TranslateToCExtra(fOut);
+	fprintf(fOut, ")");
+}
+
 void ResetTranslationState()
 {
 	translateLoopDepth = 0;

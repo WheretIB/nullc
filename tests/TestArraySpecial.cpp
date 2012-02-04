@@ -60,6 +60,9 @@ TEST("Array of type char definition", testCharArrayDefinition, "0")
 	CHECK_INT("sumC", 0, 552);
 }
 
+const char	*testBoolArrayDefinition = "auto x = { true, true }; return x.size;";
+TEST_RESULT("Array of type bool definition", testBoolArrayDefinition, "2");
+
 const char	*testInplaceArrayDouble =
 "double[] arr = { 12.0, 14, 18.0f };\r\n\
 return int(arr[0]+arr[1]+arr[2]);";

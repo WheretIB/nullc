@@ -114,7 +114,6 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 	builder = 0;
 
 	delete ctx;
-	ctx = 0;
 
 	ctx = new ContextHolder();
 
@@ -541,7 +540,10 @@ void NodeReturnOp::CompileLLVM()
 {
 	CompileLLVMExtra();
 
-	first->CompileLLVM();
+	if(first->nodeType == typeNodeZeroOp && first->typeInfo != typeVoid)
+		V = llvm::Constant::getNullValue(first->typeInfo->llvmType);
+	else
+		first->CompileLLVM();
 	if(typeInfo != typeVoid && !V)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeReturnOp typeInfo != typeVoid && !V");
 	if(typeInfo != typeVoid)
@@ -634,7 +636,7 @@ llvm::AllocaInst* CreateEntryBlockAlloca(llvm::Function *TheFunction, const std:
 void NodeExpressionList::CompileLLVM()
 {
 	llvm::Value *aggr = NULL;
-	if(typeInfo->arrLevel)
+	if(typeInfo->arrLevel && typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY)
 	{
 		aggr = CreateEntryBlockAlloca(F, "arr_tmp", typeInfo->llvmType);
 	}
@@ -644,8 +646,8 @@ void NodeExpressionList::CompileLLVM()
 	}
 
 	int index = 0;
-	if(typeInfo->arrLevel)
-		index = typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY ? 1 : (typeInfo->subType == typeChar ? ((typeInfo->arrSize + 3) / 4) - 1 : typeInfo->arrSize - 1);
+	if(typeInfo->arrLevel && typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY)
+		index = typeInfo->subType == typeChar ? ((typeInfo->arrSize + 3) / 4) - 1 : typeInfo->arrSize - 1;
 	NodeZeroOP	*curr = first;
 	do 
 	{
@@ -662,18 +664,8 @@ void NodeExpressionList::CompileLLVM()
 			V = retVal;
 			return;
 		}
-		if(V && typeInfo->arrLevel && typeInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
+		if(V && (typeInfo->arrLevel && typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY) && curr->nodeType != typeNodeZeroOp)
 		{
-			if(index == 0)
-			{
-				V = builder->CreatePointerCast(V, llvm::PointerType::getUnqual(typeInfo->subType->llvmType), "ptr_any");
-			}
-			llvm::Value *arrayIndexHelper[2];
-			arrayIndexHelper[0] = llvm::ConstantInt::get(getContext(), llvm::APInt(64, 0, true));
-			arrayIndexHelper[1] = llvm::ConstantInt::get(getContext(), llvm::APInt(32, index--, true));
-			llvm::Value *target = builder->CreateGEP(aggr, llvm::ArrayRef<llvm::Value*>(&arrayIndexHelper[0], 2), "arr_part");
-			builder->CreateStore(V, target);
-		}else if(V && typeInfo->arrLevel && curr->nodeType != typeNodeZeroOp){
 			V = PromoteToStackType(V, curr->typeInfo);
 			llvm::Value *arrayIndexHelper[2];
 			arrayIndexHelper[0] = llvm::ConstantInt::get(getContext(), llvm::APInt(64, 0, true));
@@ -709,7 +701,7 @@ void NodeExpressionList::CompileLLVM()
 		}
 		curr = curr->next;
 	}while(curr);
-	if(typeInfo->arrLevel || typeInfo == typeAutoArray)
+	if(aggr)
 		V = builder->CreateLoad(aggr, "arr_aggr");
 	if(typeInfo != typeVoid && !V)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeExpressionList typeInfo && !V");
@@ -1802,6 +1794,26 @@ void NodeGetCoroutineState::CompileLLVM()
 	V = builder->CreatePointerCast(V, llvm::PointerType::getUnqual(llvm::Type::getInt32PtrTy(getContext())), "ptr_to_ptr_to_state");
 	V = builder->CreateLoad(V, "ptr_to_state");
 	V = builder->CreateLoad(V, "state");
+}
+
+
+void NodeCreateUnsizedArray::CompileLLVM()
+{
+	CompileLLVMExtra();
+
+	llvm::Value *arrayTmp = CreateEntryBlockAlloca(F, "array_tmp", typeInfo->llvmType);
+	
+	first->CompileLLVM();
+	V = builder->CreatePointerCast(V, llvm::PointerType::getUnqual(typeInfo->subType->llvmType), "ptr_any");
+
+	llvm::Value *arrayPtr = builder->CreateStructGEP(arrayTmp, 0, "array_ptr");
+	builder->CreateStore(V, arrayPtr);
+
+	second->CompileLLVM();
+	llvm::Value *arraySize = builder->CreateStructGEP(arrayTmp, 1, "array_size");
+	builder->CreateStore(V, arraySize);
+
+	V = builder->CreateLoad(arrayTmp, "unsized_array");
 }
 
 #else
