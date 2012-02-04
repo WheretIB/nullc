@@ -1016,9 +1016,9 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 			Rd = new NodeNumber(optDoOperation<long long>(id, Ad->GetLong(), Bd->GetLong()), resType);
 		else if(resType->stackType == STYPE_INT)
 			Rd = new NodeNumber(optDoOperation<int>(id, Ad->GetInteger(), Bd->GetInteger()), resType);
+		assert(Rd);
 		if(logicalOp || (Ad->typeInfo == typeBool && Bd->typeInfo == typeBool && id >= cmdBitAnd && id <= cmdBitXor))
 			Rd->ConvertTo(typeBool);
-		assert(Rd);
 		CodeInfo::nodeList.push_back(Rd);
 		return;
 	}else if(((aNodeType == typeNodeNumber && Bd->typeInfo->type != TypeInfo::TYPE_COMPLEX) || (bNodeType == typeNodeNumber && Ad->typeInfo->type != TypeInfo::TYPE_COMPLEX)) && !protect){
@@ -2351,15 +2351,12 @@ void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 		assert(inplaceType->refLevel == 1);
 		assert(inplaceType->subType->arrLevel != 0);
 
-		NodeExpressionList *listExpr = new NodeExpressionList(dstType);
-		// Create node that places array size on top of the stack
-		CodeInfo::nodeList.push_back(new NodeNumber((int)inplaceType->subType->arrSize, typeInt));
-		// Add it to expression list
-		listExpr->AddNode();
+		NodeCreateUnsizedArray *arrayExpr = new NodeCreateUnsizedArray(dstType, new NodeNumber((int)inplaceType->subType->arrSize, typeInt));
 		if(hasImplicitNode)
-			listExpr->AddNode();
-		// Add expression list to node list
-		CodeInfo::nodeList.push_back(listExpr);
+			arrayExpr->AddExtraNode();
+
+		CodeInfo::nodeList.push_back(arrayExpr);
+
 	}else if(nodeType->refLevel == 1 && nodeType->subType->arrSize != TypeInfo::UNSIZED_ARRAY && dstType->subType->subType == nodeType->subType->subType){
 		// type[N] ref to type[] ref conversion
 		AddGetVariableNode(pos);
@@ -2509,10 +2506,7 @@ void HandlePointerToObject(const char* pos, TypeInfo *dstType)
 		// nullptr to type[] conversion
 		if(dstType->arrLevel && dstType->arrSize == TypeInfo::UNSIZED_ARRAY)
 		{
-			NodeZeroOP *tmp = CodeInfo::nodeList.back();
-			CodeInfo::nodeList.back() = new NodeNumber(0, typeInt);
-			CodeInfo::nodeList.push_back(tmp);
-			AddTwoExpressionNode(dstType);
+			CodeInfo::nodeList.push_back(new NodeCreateUnsizedArray(dstType, new NodeNumber(0, typeInt)));
 			return;
 		}
 		// nullptr to function type conversion
@@ -2650,7 +2644,7 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 			currentType = CodeInfo::GetArrayType(currentType->subType, TypeInfo::UNSIZED_ARRAY);
 	}
 
-	if(currentType == typeShort || currentType == typeChar)
+	if(currentType == typeShort || currentType == typeChar || currentType == typeBool)
 		currentType = typeInt;
 	if(currentType == typeFloat)
 		currentType = typeDouble;
@@ -2668,10 +2662,10 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 			ConvertArrayToUnsized(pos, currentType);
 		TypeInfo *realType = CodeInfo::nodeList.back()->typeInfo;
 		if(realType != currentType &&
-			!((realType == typeShort || realType == typeChar) && currentType == typeInt) &&
-			!((realType == typeShort || realType == typeChar || realType == typeInt || realType == typeFloat) && currentType == typeDouble))
-				ThrowError(pos, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount-i-1, currentType->GetFullTypeName());
-		if((realType == typeShort || realType == typeChar || realType == typeInt) && currentType == typeDouble)
+			!((realType == typeShort || realType == typeChar || realType == typeBool) && currentType == typeInt) &&
+			!((realType == typeShort || realType == typeChar || realType == typeBool || realType == typeInt || realType == typeFloat) && currentType == typeDouble))
+				ThrowError(pos, "ERROR: element %d doesn't match the type of element 0 (%s)", arrElementCount - i - 1, currentType->GetFullTypeName());
+		if((realType == typeShort || realType == typeChar || realType == typeBool || realType == typeInt) && currentType == typeDouble)
 			AddFunctionCallNode(pos, "double", 1);
 
 		arrayList->AddNode(false);
@@ -3766,6 +3760,7 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		// type must be followed by argument name
 		assert(start->type == lex_string);
 
+		assert(currType);
 		if(currType->dependsOnGeneric)
 		{
 			for(unsigned int n = 0; n < argumentCount; n++)
@@ -3775,7 +3770,7 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 
 		// Insert variable to a list so that a typeof can be taken from it
 		InplaceStr paramName = InplaceStr(start->pos, start->length);
-		assert(currType);
+
 		VariableInfo *n = new VariableInfo(NULL, paramName, GetStringHash(paramName.begin, paramName.end), 0, currType, false);
 		varMap.insert(n->nameHash, n);
 		if(!tempListS)

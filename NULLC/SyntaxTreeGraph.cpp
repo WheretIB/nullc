@@ -461,3 +461,16 @@ void NodeGetCoroutineState::LogToStream(FILE *fGraph)
 	first->LogToStream(fGraph);
 	GoUp();
 }
+
+void NodeCreateUnsizedArray::LogToStream(FILE *fGraph)
+{
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s NodeCreateUnsizedArray :\r\n", typeInfo->GetFullTypeName());
+	GoDown();
+	LogToStreamExtra(fGraph);
+	first->LogToStream(fGraph);
+	GoUp();
+	GoDownB();
+	second->LogToStream(fGraph);
+	GoUp();
+}

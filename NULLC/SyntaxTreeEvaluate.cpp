@@ -650,3 +650,11 @@ NodeNumber* NodeGetCoroutineState::Evaluate(char *memory, unsigned int size)
 
 	return NULL;
 }
+
+NodeNumber* NodeCreateUnsizedArray::Evaluate(char *memory, unsigned int size)
+{
+	(void)memory;
+	(void)size;
+
+	return NULL;
+}

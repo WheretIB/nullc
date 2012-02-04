@@ -973,9 +973,9 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 					if(CodeInfo::namespaceInfo[k]->hash == fInfo->namespaceHash)
 						lastFunc->parentNamespace = CodeInfo::namespaceInfo[k];
 				}
-			}
-			if(fInfo->namespaceHash != ~0u)
+
 				assert(lastFunc->parentNamespace);
+			}
 
 			for(unsigned int n = 0; n < fInfo->paramCount; n++)
 			{
