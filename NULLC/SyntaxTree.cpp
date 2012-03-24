@@ -849,6 +849,8 @@ NodeVariableModify::NodeVariableModify(TypeInfo* targetType, CmdID cmd)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert from %s to void", second->typeInfo->GetFullTypeName());
 	if(first->typeInfo->subType->refLevel != 0 || second->typeInfo->refLevel != 0 || typeInfo->type == TypeInfo::TYPE_COMPLEX || second->typeInfo->type == TypeInfo::TYPE_COMPLEX)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: there is no built-in operator for types '%s' and '%s'", typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
+	if((first->typeInfo->subType->firstVariable || second->typeInfo->firstVariable) && typeInfo->subType != second->typeInfo)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: there is no built-in operator for types '%s' and '%s'", typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 
 	// If types don't match
 	if(second->typeInfo != typeInfo)
@@ -1180,7 +1182,7 @@ NodePreOrPostOp::NodePreOrPostOp(bool isInc, bool preOp)
 
 	incOp = isInc;
 
-	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->refLevel != 0)
+	if(typeInfo->type == TypeInfo::TYPE_COMPLEX || typeInfo->refLevel != 0 || typeInfo->firstVariable)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: %s is not supported on '%s'", (isInc ? "increment" : "decrement"), typeInfo->GetFullTypeName());
 
 	prefixOp = preOp;
