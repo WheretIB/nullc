@@ -404,54 +404,57 @@ NodeNumber* NodePreOrPostOp::Evaluate(char *memory, unsigned int size)
 	if(prefixOp)
 	{
 		if(typeInfo == typeChar)
-			*(char*)(memory + addrShift) = *(char*)(memory + addrShift) + 1;
+			*(char*)(memory + addrShift) = *(char*)(memory + addrShift) + 1 * (incOp ? 1 : -1);
 		else if(typeInfo == typeShort)
-			*(short*)(memory + addrShift) = *(short*)(memory + addrShift) + 1;
+			*(short*)(memory + addrShift) = *(short*)(memory + addrShift) + 1 * (incOp ? 1 : -1);
 		else if(typeInfo == typeInt)
-			*(int*)(memory + addrShift) = *(int*)(memory + addrShift) + 1;
+			*(int*)(memory + addrShift) = *(int*)(memory + addrShift) + 1 * (incOp ? 1 : -1);
 		else if(typeInfo == typeLong)
-			*(long long*)(memory + addrShift) = *(long long*)(memory + addrShift) + 1ll;
+			*(long long*)(memory + addrShift) = *(long long*)(memory + addrShift) + 1ll * (incOp ? 1 : -1);
 		else if(typeInfo == typeFloat)
-			*(float*)(memory + addrShift) = *(float*)(memory + addrShift) + 1.0f;
+			*(float*)(memory + addrShift) = *(float*)(memory + addrShift) + 1.0f * (incOp ? 1 : -1);
 		else if(typeInfo == typeDouble)
-			*(double*)(memory + addrShift) = *(double*)(memory + addrShift) + 1.0;
+			*(double*)(memory + addrShift) = *(double*)(memory + addrShift) + 1.0 * (incOp ? 1 : -1);
 		else
 			return NULL;
 	}
 	// Take number
 	NodeNumber *value = NULL;
-	if(typeInfo == typeChar)
-		value = new NodeNumber(*(char*)(memory + addrShift), typeInt);
-	else if(typeInfo == typeShort)
-		value = new NodeNumber(*(short*)(memory + addrShift), typeInt);
-	else if(typeInfo == typeInt)
-		value = new NodeNumber(*(int*)(memory + addrShift), typeInt);
-	else if(typeInfo == typeLong)
-		value = new NodeNumber(*(long long*)(memory + addrShift), typeLong);
-	else if(typeInfo == typeFloat)
-		value = new NodeNumber(*(float*)(memory + addrShift), typeDouble);
-	else if(typeInfo == typeDouble)
-		value = new NodeNumber(*(double*)(memory + addrShift), typeDouble);
-	if(!value)
-		return NULL;
+	if(!optimised)
+	{
+		if(typeInfo == typeChar)
+			value = new NodeNumber(*(char*)(memory + addrShift), typeInt);
+		else if(typeInfo == typeShort)
+			value = new NodeNumber(*(short*)(memory + addrShift), typeInt);
+		else if(typeInfo == typeInt)
+			value = new NodeNumber(*(int*)(memory + addrShift), typeInt);
+		else if(typeInfo == typeLong)
+			value = new NodeNumber(*(long long*)(memory + addrShift), typeLong);
+		else if(typeInfo == typeFloat)
+			value = new NodeNumber(*(float*)(memory + addrShift), typeDouble);
+		else if(typeInfo == typeDouble)
+			value = new NodeNumber(*(double*)(memory + addrShift), typeDouble);
+		if(!value)
+			return NULL;
+	}
 	if(!prefixOp)
 	{
 		if(typeInfo == typeChar)
-			*(char*)(memory + addrShift) = *(char*)(memory + addrShift) + 1;
+			*(char*)(memory + addrShift) = *(char*)(memory + addrShift) + 1 * (incOp ? 1 : -1);
 		else if(typeInfo == typeShort)
-			*(short*)(memory + addrShift) = *(short*)(memory + addrShift) + 1;
+			*(short*)(memory + addrShift) = *(short*)(memory + addrShift) + 1 * (incOp ? 1 : -1);
 		else if(typeInfo == typeInt)
-			*(int*)(memory + addrShift) = *(int*)(memory + addrShift) + 1;
+			*(int*)(memory + addrShift) = *(int*)(memory + addrShift) + 1 * (incOp ? 1 : -1);
 		else if(typeInfo == typeLong)
-			*(long long*)(memory + addrShift) = *(long long*)(memory + addrShift) + 1ll;
+			*(long long*)(memory + addrShift) = *(long long*)(memory + addrShift) + 1ll * (incOp ? 1 : -1);
 		else if(typeInfo == typeFloat)
-			*(float*)(memory + addrShift) = *(float*)(memory + addrShift) + 1.0f;
+			*(float*)(memory + addrShift) = *(float*)(memory + addrShift) + 1.0f * (incOp ? 1 : -1);
 		else if(typeInfo == typeDouble)
-			*(double*)(memory + addrShift) = *(double*)(memory + addrShift) + 1.0;
+			*(double*)(memory + addrShift) = *(double*)(memory + addrShift) + 1.0 * (incOp ? 1 : -1);
 		else
 			return NULL;
 	}
-	return value;
+	return optimised ? new NodeNumber(0, typeVoid) : value;
 }
 
 NodeNumber* NodeBinaryOp::Evaluate(char *memory, unsigned int size)
