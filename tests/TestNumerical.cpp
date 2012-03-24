@@ -526,3 +526,9 @@ TEST_RESULT("Integer type constant folding 3", testIntegerConstantFolding3, "-3"
 
 const char	*testIntegerConstantFolding4 = "return ~' ';";
 TEST_RESULT("Integer type constant folding 4", testIntegerConstantFolding4, "-33");
+
+const char	*testCompileTimeFunctionEvaluationBug1 = "int foo(){ int x = 1; x++; return x; } return foo();";
+TEST_RESULT("Compile-time function evaluation bug 1", testCompileTimeFunctionEvaluationBug1, "2");
+
+const char	*testCompileTimeFunctionEvaluationBug2 = "int foo(){ int x = 1; return --x; } return foo();";
+TEST_RESULT("Compile-time function evaluation bug 2", testCompileTimeFunctionEvaluationBug2, "0");
