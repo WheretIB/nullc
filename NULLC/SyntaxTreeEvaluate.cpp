@@ -92,9 +92,14 @@ NodeNumber* NodeFuncDef::Evaluate(char *memory, unsigned int memSize)
 		return NULL;
 	// Clear stack frame
 	memset(memory + funcInfo->allParamSize, 0, size - funcInfo->allParamSize);
+
+	unsigned oldBaseShift = NodeFuncCall::baseShift;
 	NodeFuncCall::baseShift = size;
 	// Evaluate function code
-	return first->Evaluate(memory, memSize);
+	NodeNumber *result = first->Evaluate(memory, memSize);
+	NodeFuncCall::baseShift = oldBaseShift;
+
+	return result;
 }
 
 unsigned int NodeFuncCall::baseShift = 0;
@@ -156,7 +161,11 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 			*(double*)(memory + offset - 8) = paramValue[i]->GetDouble();
 		else
 			return NULL;
-		offset -= paramValue[i]->typeInfo->size;
+
+		unsigned size = paramValue[i]->typeInfo->size;
+		if(size && size < 4)
+			size = 4;
+		offset -= size;
 	}
 	// Find old result
 	for(unsigned int i = 0; i < memoList.size(); i++)

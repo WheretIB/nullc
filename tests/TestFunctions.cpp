@@ -186,3 +186,31 @@ void bar()\r\n\
 bar();\r\n\
 return 1;";
 TEST_RESULT("Function implicitly returns void", testFunctionReturnVoid, "1");
+
+const char	*testCompileTimeFunctionEvaluationBug3 = "char foo(char a, b){ return a + b; } return foo(1, 3);";
+TEST_RESULT("Compile-time function evaluation bug 3", testCompileTimeFunctionEvaluationBug3, "4");
+
+const char	*testCompileTimeFunctionEvaluationBug4 =
+"int bar1(int k){ return k; }\r\n\
+int bar2(int k){ return k; }\r\n\
+\r\n\
+int foo(int a)\r\n\
+{\r\n\
+	int[16] arr;\r\n\
+	int sum = 0;\r\n\
+	for(int i = 0; i < 16; i++)\r\n\
+	{\r\n\
+		arr[i] = i * 5 + 3;\r\n\
+		sum += arr[i];\r\n\
+	}\r\n\
+\r\n\
+	bar1(a); bar2(a);\r\n\
+\r\n\
+	int sum2 = 0;\r\n\
+	for(int i = 0; i < 16; i++)\r\n\
+		sum2 += arr[i];\r\n\
+\r\n\
+	return sum - sum2 + a;\r\n\
+}\r\n\
+return foo(10);";
+TEST_RESULT("Compile-time function evaluation bug 4", testCompileTimeFunctionEvaluationBug4, "10");
