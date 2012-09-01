@@ -84,7 +84,7 @@ void	SpeedTestText(const char* name, const char* text)
 	}
 	printf("Speed test (%s) managed to run %d times in %f ms\n", name, runs, linkTime);
 	printf("Cold start: %f ms\n", coldStart);
-	printf("Compile time: %f Link time: %f\n", compileTime, linkTime - compileTime, compileTime / double(runs));
+	printf("Compile time: %f Link time: %f\n", compileTime, linkTime - compileTime);
 	printf("Average compile time: %f Average link time: %f\n", compileTime / double(runs), (linkTime - compileTime) / double(runs));
 	printf("Average time: %f Speed: %.3f Mb/sec\n\n", linkTime / double(runs), strlen(text) * (1000.0 / (linkTime / double(runs))) / 1024.0 / 1024.0);
 }
