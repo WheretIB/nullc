@@ -466,7 +466,7 @@ int foo(int ref x, y, z, int[] arr)\r\n\
 }\r\n\
 auto bar(){ GC.CollectMemory(); return new int[32]; }\r\n\
 return foo(new int(4), new int(6), new int(40), bar());";
-TEST_RESULT("Checking of temporary varaible stack in GC test", testStackVariablesGC, "50");
+TEST_RESULT("Checking of temporary variable stack in GC test", testStackVariablesGC, "50");
 
 
 #ifndef NULLC_ENABLE_C_TRANSLATION

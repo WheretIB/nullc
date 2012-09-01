@@ -543,3 +543,24 @@ return m;\
 }\
 return foo()();";
 TEST_RESULT("Local function return through nested blocks 2", testLocalFunctionMultilevelReturn2, "4");
+
+const char	*testClosureListCloseIssue =
+"int ref() foo(int c)\r\n\
+{\r\n\
+	int x = 8;\r\n\
+	{\r\n\
+		int y = 4;\r\n\
+\r\n\
+		auto bar(){ return x + y; }\r\n\
+\r\n\
+		y = 20;\r\n\
+\r\n\
+		if(c)\r\n\
+			y = foo(0)();\r\n\
+\r\n\
+		return bar;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+return foo(1)();";
+TEST_RESULT("Closure list close issue", testClosureListCloseIssue, "36");

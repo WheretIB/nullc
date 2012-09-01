@@ -73,9 +73,9 @@ void CloseUpvalues(char* paramBase, unsigned int depth, unsigned int argument)
 	ExternFuncInfo::Upvalue **externalList = &NULLC::commonLinker->exCloseLists[0];
 	for(unsigned i = 0; i < depth; i++)
 	{
-		// Current upvalue and previous
+		// Current upvalue
 		ExternFuncInfo::Upvalue *curr = externalList[argument + i];
-		// While we have an upvalue that points to address larger than base (so that in recursive function call only last functions upvalues will be closed)
+		// While we have an upvalue that points to an address larger than the base (so that in recursive function call only last function upvalues will be closed)
 		while(curr && ((char*)curr->ptr >= paramBase || (char*)curr->ptr < GC::unmanageableBase))
 		{
 			// Save pointer to next upvalue
@@ -84,7 +84,7 @@ void CloseUpvalues(char* paramBase, unsigned int depth, unsigned int argument)
 			unsigned int size = curr->size;
 			
 			// Delete upvalue from list (move global list head to the next element)
-			externalList[argument] = curr->next;
+			externalList[argument + i] = curr->next;
 
 			// If target value is placed on the heap, we skip copy because it won't die
 			if((char*)curr->ptr < GC::unmanageableBase || (char*)curr->ptr >= GC::unmanageableTop)
@@ -93,7 +93,7 @@ void CloseUpvalues(char* paramBase, unsigned int depth, unsigned int argument)
 				continue;
 			}
 
-			// Copy target variable data to upvalue
+			// Copy target variable data into the upvalue
 			memcpy(&curr->next, curr->ptr, size);
 			curr->ptr = (unsigned int*)&curr->next;
 
