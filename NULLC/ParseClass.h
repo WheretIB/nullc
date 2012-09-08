@@ -777,7 +777,7 @@ public:
 	NamespaceInfo(): name(""), hash(~0u), nameLength(0), parent(NULL){}
 	NamespaceInfo(InplaceStr name, unsigned hash, NamespaceInfo* parent): name(name), hash(hash), parent(parent)
 	{
-		nameLength = int(name.end - name.begin);
+		nameLength = name.length();
 	}
 
 	InplaceStr	name;
