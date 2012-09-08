@@ -46,7 +46,7 @@ namespace NULLC
 
 		unsigned length() const
 		{
-			return end - begin;
+			return unsigned(end - begin);
 		}
 
 		bool operator==(const InplaceStr& rhs)

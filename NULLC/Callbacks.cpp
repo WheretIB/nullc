@@ -115,7 +115,7 @@ void PushNamespace(InplaceStr space)
 
 	// Find collisions with known names
 	if(TypeInfo **info = CodeInfo::classMap.find(hash))
-		ThrowError(space.begin, "ERROR: name '%.*s' is already taken for a class", space.end - space.begin, space.begin);
+		ThrowError(space.begin, "ERROR: name '%.*s' is already taken for a class", space.length(), space.begin);
 	CheckCollisionWithFunction(space.begin, space, hash, varInfoTop.size());
 
 	// Find if namespace is already created
@@ -196,7 +196,7 @@ InplaceStr GetNameInNamespace(InplaceStr name, bool alwaysRelocate = false)
 	if(namespaceStack.size() > 1)
 	{
 		// A full name must be created if we are in a namespace
-		unsigned nameLength = int(name.end - name.begin) + 1, lastLength = nameLength;
+		unsigned nameLength = name.length() + 1, lastLength = nameLength;
 		for(unsigned int i = 1; i < namespaceStack.size(); i++)
 			nameLength += namespaceStack[i]->nameLength + 1; // add space for namespace name and a point
 		char *newName = AllocateString(nameLength), *currPos = newName;
@@ -210,9 +210,9 @@ InplaceStr GetNameInNamespace(InplaceStr name, bool alwaysRelocate = false)
 		currPos[lastLength - 1] = 0;
 		name = InplaceStr(newName);
 	}else if(alwaysRelocate){
-		char *newName = AllocateString(int(name.end - name.begin) + 1);
-		memcpy(newName, name.begin, int(name.end - name.begin));
-		newName[int(name.end - name.begin)] = 0;
+		char *newName = AllocateString(name.length() + 1);
+		memcpy(newName, name.begin, name.length());
+		newName[name.length()] = 0;
 		name = InplaceStr(newName);
 	}
 	return name;
@@ -372,8 +372,8 @@ char* GetClassFunctionName(TypeInfo* type, const char* funcName)
 }
 char* GetClassFunctionName(TypeInfo* type, InplaceStr funcName)
 {
-	char	*memberFuncName = AllocateString(type->GetFullNameLength() + 2 + (int)(funcName.end - funcName.begin) + 1);
-	sprintf(memberFuncName, "%s::%.*s", type->GetFullTypeName(), (int)(funcName.end - funcName.begin), funcName.begin);
+	char	*memberFuncName = AllocateString(type->GetFullNameLength() + 2 + funcName.length() + 1);
+	sprintf(memberFuncName, "%s::%.*s", type->GetFullTypeName(), funcName.length(), funcName.begin);
 	return memberFuncName;
 }
 
@@ -644,7 +644,7 @@ void CheckCollisionWithFunction(const char* pos, InplaceStr varName, unsigned ha
 	while(curr)
 	{
 		if(curr->value->visible && curr->value->vTopSize == scope)
-			ThrowError(pos, "ERROR: name '%.*s' is already taken for a function", varName.end - varName.begin, varName.begin);
+			ThrowError(pos, "ERROR: name '%.*s' is already taken for a function", varName.length(), varName.begin);
 		curr = funcMap.next(curr);
 	}
 }
@@ -2114,8 +2114,8 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 				AddInplaceVariable(pos);
 				AddTwoExpressionNode(CodeInfo::GetReferenceType(typeObject));
 			}
-			char *funcName = AllocateString(int(varName.end - varName.begin) + 1);
-			SafeSprintf(funcName, int(varName.end - varName.begin) + 1, "%s", varName.begin);
+			char *funcName = AllocateString(varName.length() + 1);
+			SafeSprintf(funcName, varName.length() + 1, "%s", varName.begin);
 			GetAutoRefFunction(pos, funcName, 0, false, virtualCall ? currentType : NULL);
 			NodeZeroOP *autoRef = CodeInfo::nodeList.back();
 			CodeInfo::nodeList.pop_back();
@@ -2135,7 +2135,7 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 		if(!func)
 		{
 			// Try calling a "get" function
-			int memberNameLength = int(varName.end - varName.begin);
+			int memberNameLength = varName.length();
 			char *memberGet = AllocateString(memberNameLength + 2);
 			memcpy(memberGet, varName.begin, memberNameLength);
 			memberGet[memberNameLength] = '$';
@@ -3194,7 +3194,7 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	for(VariableInfo *info = lastFunc.firstParam; info; info = info->next)
 	{
 		if(info->nameHash == hash)
-			ThrowError(pos, "ERROR: parameter with name '%.*s' is already defined", int(info->name.end - info->name.begin), info->name.begin);
+			ThrowError(pos, "ERROR: parameter with name '%.*s' is already defined", info->name.length(), info->name.begin);
 	}
 
 #if defined(__CELLOS_LV2__)
@@ -3535,15 +3535,15 @@ void FunctionEnd(const char* pos)
 		TypeBegin(tempName, tempName + strlen(tempName), false);
 		for(FunctionInfo::ExternalInfo *curr = lastFunc.firstExternal; curr; curr = curr->next)
 		{
-			unsigned int bufSize = int(curr->variable->name.end - curr->variable->name.begin) + 5;
+			unsigned int bufSize = curr->variable->name.length() + 5;
 			// Pointer to target variable
 			char	*memberName = AllocateString(bufSize);
-			SafeSprintf(memberName, bufSize, "%.*s_ext", int(curr->variable->name.end - curr->variable->name.begin), curr->variable->name.begin);
+			SafeSprintf(memberName, bufSize, "%.*s_ext", curr->variable->name.length(), curr->variable->name.begin);
 			newType->AddMemberVariable(memberName, CodeInfo::GetReferenceType(curr->variable->varType));
 
 			// Place for a copy of target variable
 			memberName = AllocateString(bufSize);
-			SafeSprintf(memberName, bufSize, "%.*s_dat", int(curr->variable->name.end - curr->variable->name.begin), curr->variable->name.begin);
+			SafeSprintf(memberName, bufSize, "%.*s_dat", curr->variable->name.length(), curr->variable->name.begin);
 			unsigned int reqBytes = (curr->variable->varType->size < (NULLC_PTR_SIZE + 4) ? (NULLC_PTR_SIZE + 4) : curr->variable->varType->size);
 			newType->AddMemberVariable(memberName, CodeInfo::GetArrayType(typeInt, reqBytes / 4));
 		}
@@ -3602,7 +3602,7 @@ void FunctionEnd(const char* pos)
 				assert(currVar->parentFunction == &lastFunc);
 				// If not found, and this function is not a coroutine, than it's an internal compiler error
 				if(lastFunc.type != FunctionInfo::COROUTINE)
-					ThrowError(pos, "Can't capture variable %.*s", currVar->name.end - currVar->name.begin, currVar->name.begin);
+					ThrowError(pos, "Can't capture variable %.*s", currVar->name.length(), currVar->name.begin);
 				// Mark position as invalid so that when closure is created, this variable will be closed immediately
 				curr->targetLocal = true;
 				curr->targetPos = ~0u;
@@ -4197,7 +4197,7 @@ bool	ShuffleArgumentsForNamedFunctionCall(unsigned argumentCount, FunctionInfo* 
 				{
 					// If parameter is already set, situation's looking pretty ugly
 					if(CodeInfo::nodeList[param])
-						ThrowError(arg->argName->pos, "ERROR: argument '%.*s' value is being defined the second time", currArg->name.end - currArg->name.begin, currArg->name.begin);
+						ThrowError(arg->argName->pos, "ERROR: argument '%.*s' value is being defined the second time", currArg->name.length(), currArg->name.begin);
 					CodeInfo::nodeList[param] = arg;
 				}
 			}
@@ -6122,7 +6122,7 @@ void RestoreRedirectionTables()
 	for(unsigned i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
 		// Name must start from $vtbl and must be at least 15 characters
-		if(int(CodeInfo::varInfo[i]->name.end - CodeInfo::varInfo[i]->name.begin) < 15 || memcmp(CodeInfo::varInfo[i]->name.begin, "$vtbl", 5) != 0)
+		if(CodeInfo::varInfo[i]->name.length() < 15 || memcmp(CodeInfo::varInfo[i]->name.begin, "$vtbl", 5) != 0)
 			continue;
 		CodeInfo::varInfo[i]->next = vtblList;
 		vtblList = CodeInfo::varInfo[i];

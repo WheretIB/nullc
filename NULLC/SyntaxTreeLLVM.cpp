@@ -325,7 +325,7 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 			{
 				if(local->usedAsExternal)
 				{
-					SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH, "#upvalue#%.*s", local->name.end - local->name.begin, local->name.begin);
+					SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH, "#upvalue#%.*s", local->name.length(), local->name.begin);
 					globals.push_back(new llvm::GlobalVariable(*module, llvm::PointerType::getUnqual(typeClosure), false, llvm::GlobalVariable::ExternalLinkage, 0, name));
 					local->llvmUpvalue = globals.back();
 					globals.back()->setInitializer(llvm::Constant::getNullValue(llvm::PointerType::getUnqual(typeClosure)));
@@ -343,7 +343,7 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 			{
 				if(local->usedAsExternal)
 				{
-					SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH, "#upvalue#%.*s", local->name.end - local->name.begin, local->name.begin);
+					SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH, "#upvalue#%.*s", local->name.length(), local->name.begin);
 					globals.push_back(new llvm::GlobalVariable(*module, llvm::PointerType::getUnqual(typeClosure), false, llvm::GlobalVariable::ExternalLinkage, 0, name));
 					local->llvmUpvalue = globals.back();
 					globals.back()->setInitializer(llvm::Constant::getNullValue(llvm::PointerType::getUnqual(typeClosure)));

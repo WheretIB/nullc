@@ -1340,9 +1340,9 @@ bool Compiler::Compile(const char* str, bool noClear)
 				if(param->defaultValue && param->defaultValueFuncID == ~0u)
 				{
 					// Wrap in function
-					char	*functionName = (char*)AllocateString(func->nameLength + int(param->name.end - param->name.begin) + 3 + 12);
+					char	*functionName = (char*)AllocateString(func->nameLength + param->name.length() + 3 + 12);
 					const char	*parentName = func->type == FunctionInfo::THISCALL ? strchr(func->name, ':') + 2 : func->name;
-					SafeSprintf(functionName, func->nameLength + int(param->name.end - param->name.begin) + 3 + 12, "$%s_%.*s_%d", parentName, param->name.end - param->name.begin, param->name.begin, CodeInfo::FindFunctionByPtr(func));
+					SafeSprintf(functionName, func->nameLength + param->name.length() + 3 + 12, "$%s_%.*s_%d", parentName, param->name.length(), param->name.begin, CodeInfo::FindFunctionByPtr(func));
 
 					SelectTypeByPointer(param->defaultValue->typeInfo);
 					FunctionAdd(CodeInfo::lastKnownStartPos, functionName);
@@ -1609,7 +1609,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			{
 				const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 				unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-				sprintf(name, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin)-nameShift, local->name.begin+nameShift, local->pos);
+				sprintf(name, "%s%.*s_%d", namePrefix, local->name.length() - nameShift, local->name.begin + nameShift, local->pos);
 				GetEscapedName(name);
 				fprintf(fC, "__nullcUpvalue *__upvalue_%d_%s = 0;\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name);
 			}
@@ -1634,7 +1634,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 			{
 				const char *namePrefix = *local->name.begin == '$' ? "__" : "";
 				unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-				sprintf(name, "%s%.*s_%d", namePrefix, int(local->name.end - local->name.begin)-nameShift, local->name.begin+nameShift, local->pos);
+				sprintf(name, "%s%.*s_%d", namePrefix, local->name.length() - nameShift, local->name.begin + nameShift, local->pos);
 				GetEscapedName(name);
 				if(info->name[0] == '$')
 					fprintf(fC, "static ");
@@ -1662,7 +1662,7 @@ void Compiler::TranslateToC(const char* fileName, const char *mainName)
 		VariableInfo *param = info->firstParam;
 		for(; param; param = param->next)
 		{
-			sprintf(name, "%.*s", int(param->name.end - param->name.begin), param->name.begin);
+			sprintf(name, "%.*s", param->name.length(), param->name.begin);
 			param->varType->OutputCType(fC, name);
 			fprintf(fC, ", ");
 		}
@@ -1934,7 +1934,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		while(typeAlias)
 		{
 			typedefCount++;
-			symbolStorageSize += (unsigned)(typeAlias->name.end - typeAlias->name.begin) + 1;
+			symbolStorageSize += typeAlias->name.length() + 1;
 			typeAlias = typeAlias->next;
 		}
 
@@ -2023,15 +2023,15 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 		localCount += (unsigned int)func->paramCount;
 		for(VariableInfo *curr = func->firstParam; curr; curr = curr->next)
-			symbolStorageSize += (unsigned int)(curr->name.end - curr->name.begin) + 1;
+			symbolStorageSize += curr->name.length() + 1;
 
 		localCount += (unsigned int)func->localCount;
 		for(VariableInfo *curr = func->firstLocal; curr; curr = curr->next)
-			symbolStorageSize += (unsigned int)(curr->name.end - curr->name.begin) + 1;
+			symbolStorageSize += curr->name.length() + 1;
 
 		localCount += (unsigned int)func->externalCount;
 		for(FunctionInfo::ExternalInfo *curr = func->firstExternal; curr; curr = curr->next)
-			symbolStorageSize += (unsigned int)(curr->variable->name.end - curr->variable->name.begin) + 1;
+			symbolStorageSize += curr->variable->name.length() + 1;
 	}
 	size += (CodeInfo::funcInfo.size() - functionsInModules) * sizeof(ExternFuncInfo);
 
@@ -2045,14 +2045,14 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	while(aliasInfo)
 	{
 		typedefCount++;
-		symbolStorageSize += (unsigned)(aliasInfo->name.end - aliasInfo->name.begin) + 1;
+		symbolStorageSize += aliasInfo->name.length() + 1;
 		aliasInfo = aliasInfo->next;
 	}
 	unsigned offsetToTypedef = size;
 	size += typedefCount * sizeof(ExternTypedefInfo);
 
 	for(unsigned i = 0; i < CodeInfo::namespaceInfo.size(); i++)
-		symbolStorageSize += int(CodeInfo::namespaceInfo[i]->name.end - CodeInfo::namespaceInfo[i]->name.begin) + 1;
+		symbolStorageSize += CodeInfo::namespaceInfo[i]->name.length() + 1;
 	unsigned offsetToNamespace = size;
 	size += CodeInfo::namespaceInfo.size() * sizeof(unsigned) * 2;
 
@@ -2261,8 +2261,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		actualExternVariableInfoCount++;
 
 		varInfo.offsetToName = int(symbolPos - code->debugSymbols);
-		memcpy(symbolPos, refVar->name.begin, refVar->name.end - refVar->name.begin + 1);
-		symbolPos += refVar->name.end - refVar->name.begin;
+		memcpy(symbolPos, refVar->name.begin, refVar->name.length() + 1);
+		symbolPos += refVar->name.length();
 		*symbolPos++ = 0;
 
 		varInfo.nameHash = GetStringHash(refVar->name.begin, refVar->name.end);
@@ -2356,8 +2356,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			code->firstLocal[localOffset].offset = curr->pos;
 			code->firstLocal[localOffset].closeListID = 0;
 			code->firstLocal[localOffset].offsetToName = int(symbolPos - code->debugSymbols);
-			memcpy(symbolPos, curr->name.begin, curr->name.end - curr->name.begin + 1);
-			symbolPos += curr->name.end - curr->name.begin;
+			memcpy(symbolPos, curr->name.begin, curr->name.length() + 1);
+			symbolPos += curr->name.length();
 			*symbolPos++ = 0;
 			if(curr->next == refFunc->firstLocal)
 				paramType = ExternLocalInfo::LOCAL;
@@ -2377,8 +2377,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			lInfo->target = curr->targetVar ? curr->targetVar->pos : curr->targetPos;
 			lInfo->closeListID = (curr->targetDepth + CodeInfo::funcInfo[curr->targetFunc]->closeListStart) | (curr->targetLocal ? 0x80000000 : 0);
 			lInfo->offsetToName = int(symbolPos - code->debugSymbols);
-			memcpy(symbolPos, vName.begin, vName.end - vName.begin + 1);
-			symbolPos += vName.end - vName.begin;
+			memcpy(symbolPos, vName.begin, vName.length() + 1);
+			symbolPos += vName.length();
 			*symbolPos++ = 0;
 		}
 		funcInfo.externCount = refFunc->externalCount;
@@ -2457,8 +2457,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	while(aliasInfo)
 	{
 		currAlias->offsetToName = int(symbolPos - code->debugSymbols);
-		memcpy(symbolPos, aliasInfo->name.begin, aliasInfo->name.end - aliasInfo->name.begin + 1);
-		symbolPos += aliasInfo->name.end - aliasInfo->name.begin;
+		memcpy(symbolPos, aliasInfo->name.begin, aliasInfo->name.length() + 1);
+		symbolPos += aliasInfo->name.length();
 		*symbolPos++ = 0;
 		currAlias->targetType = aliasInfo->type->typeIndex;
 		currAlias->parentType = ~0u;
@@ -2472,8 +2472,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		while(aliasInfo)
 		{
 			currAlias->offsetToName = int(symbolPos - code->debugSymbols);
-			memcpy(symbolPos, aliasInfo->name.begin, aliasInfo->name.end - aliasInfo->name.begin + 1);
-			symbolPos += aliasInfo->name.end - aliasInfo->name.begin;
+			memcpy(symbolPos, aliasInfo->name.begin, aliasInfo->name.length() + 1);
+			symbolPos += aliasInfo->name.length();
 			*symbolPos++ = 0;
 			currAlias->targetType = aliasInfo->type->typeIndex;
 			currAlias->parentType = type->typeIndex;
@@ -2496,8 +2496,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	for(unsigned i = 0; i < CodeInfo::namespaceInfo.size(); i++)
 	{
 		namespaceList->offsetToName = int(symbolPos - code->debugSymbols);
-		memcpy(symbolPos, CodeInfo::namespaceInfo[i]->name.begin, CodeInfo::namespaceInfo[i]->name.end - CodeInfo::namespaceInfo[i]->name.begin + 1);
-		symbolPos += CodeInfo::namespaceInfo[i]->name.end - CodeInfo::namespaceInfo[i]->name.begin;
+		memcpy(symbolPos, CodeInfo::namespaceInfo[i]->name.begin, CodeInfo::namespaceInfo[i]->name.length() + 1);
+		symbolPos += CodeInfo::namespaceInfo[i]->name.length();
 		*symbolPos++ = 0;
 
 		namespaceList->parentHash = CodeInfo::namespaceInfo[i]->parent ? CodeInfo::namespaceInfo[i]->parent->hash : ~0u;
