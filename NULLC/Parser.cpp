@@ -569,7 +569,28 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 				AddAliasType(InplaceStr(aliasName->pos, aliasName->length));
 		}else{
 			bool takeFullType = (*str)->type != lex_ref && (*str)->type != lex_obracket;
-			SelectTypeByPointer(instanceType ? (takeFullType ? instanceType : strippedType) : typeGeneric);
+
+			// Check if this alias type is specified through explicit type list on function instantiation
+			bool typeExplicit = false;
+			FunctionInfo *fInfo = GetCurrentFunction();
+			if(fInfo)
+			{
+				AliasInfo *alias = fInfo->generic ? GetExplicitTypes() :  fInfo->explicitTypes;
+				while(alias)
+				{
+					if(alias->name == InplaceStr(aliasName->pos, aliasName->length))
+					{
+						typeExplicit = true;
+						SelectTypeByPointer(alias->type);
+						break;
+					}
+					alias = alias->next;
+				}
+			}
+
+			if(!typeExplicit)
+				SelectTypeByPointer(instanceType ? (takeFullType ? instanceType : strippedType) : typeGeneric);
+
 			if(instanceType && isAlias)
 				AddAliasType(InplaceStr(aliasName->pos, aliasName->length));
 			if(takeFullType)
@@ -948,7 +969,7 @@ unsigned int ParseFunctionArguments(Lexeme** str)
 
 bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 {
-	if((*str)->type != lex_string || (*str)[1].type != lex_oparen)
+	if((*str)->type != lex_string || ((*str)[1].type != lex_oparen && (*str)[1].type != lex_with))
 		return false;
 
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
@@ -956,7 +977,46 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 	char	*functionName = (char*)stringPool.Allocate((*str)->length+1);
 	memcpy(functionName, (*str)->pos, (*str)->length);
 	functionName[(*str)->length] = 0;
-	(*str) += 2;
+
+	(*str)++;
+
+	// Parse explicit generic function type list
+	if(ParseLexem(str, lex_with))
+	{
+		AliasInfo *aliasBegin = NULL, *aliasEnd = NULL;
+
+		if(!ParseLexem(str, lex_less))
+			ThrowError((*str)->pos, "ERROR: '<' not found before explicit generic type alias list");
+
+		unsigned count = 0;
+		do
+		{
+			if(!ParseSelectType(str))
+				ThrowError((*str)->pos, count ? "ERROR: type name is expected after ','" : "ERROR: type name is expected after 'with'");
+
+			AliasInfo *info = TypeInfo::CreateAlias(InplaceStr(""), GetSelectedType());
+
+			if(!aliasBegin)
+				aliasBegin = aliasEnd = info;
+			else
+				aliasEnd->next = info;
+			aliasEnd = info;
+
+			count++;
+		}while(ParseLexem(str, lex_comma));
+
+		PushExplicitTypes(aliasBegin);
+
+		if(!ParseLexem(str, lex_greater))
+			ThrowError((*str)->pos, "ERROR: '>' not found after explicit generic type alias list");
+
+		if(!ParseLexem(str, lex_oparen))
+			ThrowError((*str)->pos, "ERROR: '(' is expected at this point");
+	}else{
+		PushExplicitTypes(NULL);
+
+		(*str)++;
+	}
 
 	// PrepareMemberCall may signal that this is not actually a member function call
 	bool wasMemberCall = memberFunctionCall;
@@ -991,6 +1051,8 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 			CodeInfo::nodeList.push_back(fAddress);
 		AddFunctionCallNode((*str)->pos, wasMemberCall ? NULL : functionName, callArgCount);
 	}
+
+	PopExplicitTypes();
 
 	return true;
 }
@@ -1103,7 +1165,7 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 			else
 				(*str)++;
 		}
-	}else if((*str)->type == lex_string && ((*str + 1)->type == lex_colon || (*str + 1)->type == lex_point || (*str + 1)->type == lex_less)){
+	}else if((*str)->type == lex_string && ((*str + 1)->type == lex_colon || (*str + 1)->type == lex_point || ((*str + 1)->type == lex_less && (*str + 2)->type != lex_at))){
 		TypeInfo *retType = (TypeInfo*)GetSelectedType();
 		if(!ParseSelectType(str, ALLOW_ARRAY | ALLOW_GENERIC_BASE))
 			ThrowError((*str)->pos, "ERROR: class name expected before ':' or '.'");
@@ -1146,16 +1208,56 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 		unnamedFuncCount++;
 	}
 
-	if((*str)->type != lex_oparen)
+	if((*str)->type != lex_oparen && (*str)->type != lex_less)
 	{
 		*str = name;
 		return false;
 	}
-	(*str)++;
 
 	bool isOperator = name[0].type == lex_operator && ((name[1].type >= lex_add && name[1].type <= lex_xorset) || name[1].type == lex_obracket || name[1].type == lex_oparen || (name[1].type >= lex_set && name[1].type <= lex_powset) || name[1].type == lex_bitnot || name[1].type == lex_lognot);
 
 	FunctionAdd((*str)->pos, functionName, isOperator);
+
+	AliasInfo *aliasBegin = NULL, *aliasEnd = NULL;
+	unsigned aliasCount = 0;
+
+	if((*str)->type == lex_oparen)
+	{
+		(*str)++;
+	}else if((*str)->type == lex_less){
+		// Explicit generic type list
+		FunctionGeneric(true);
+		(*str)++;
+
+		do
+		{
+			if(!ParseLexem(str, lex_at))
+				ThrowError((*str)->pos, aliasCount ? "ERROR: '@' is expected after ',' in explicit generic type alias list" : "ERROR: '@' is expected before explicit generic type alias");
+			if((*str)->type != lex_string)
+				ThrowError((*str)->pos, "ERROR: explicit generic type alias is expected after '@'");
+			if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+				ThrowError((*str)->pos, "ERROR: alias name length is limited to 2048 symbols");
+			if(ParseSelectType(str))
+				ThrowError((*str)->pos, "ERROR: there is already a type or an alias with the same name");
+
+			AliasInfo *info = TypeInfo::CreateAlias(InplaceStr((*str)->pos, (*str)->length), typeGeneric);
+
+			if(!aliasBegin)
+				aliasBegin = aliasEnd = info;
+			else
+				aliasEnd->next = info;
+			aliasEnd = info;
+
+			(*str)++;
+			aliasCount++;
+		}while(ParseLexem(str, lex_comma));
+
+		if(!ParseLexem(str, lex_greater))
+			ThrowError((*str)->pos, "ERROR: '>' not found after explicit generic type alias list");
+
+		if(!ParseLexem(str, lex_oparen))
+			ThrowError((*str)->pos, "ERROR: '(' is expected at this point");
+	}
 
 	Lexeme *vars = *str;
 	ParseFunctionVariables(str);
@@ -1180,6 +1282,11 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 		if(!ParseLexem(str, lex_ofigure))
 			ThrowError((*str)->pos, "ERROR: '{' not found after function header");
 		FunctionGeneric(true, unsigned(vars - CodeInfo::lexStart));
+
+		// Setup function explicit type list
+		FunctionInfo *currFunction = GetCurrentFunction();
+		currFunction->explicitTypes = aliasBegin;
+
 		if(isOperator)
 			FunctionToOperator(start->pos);
 		FunctionPrototype(start->pos);
@@ -1934,7 +2041,7 @@ bool ParsePostExpression(Lexeme** str, bool *isFunctionCall = NULL)
 			ThrowError((*str)->pos, "ERROR: member variable expected after '.'");
 		if(isFunctionCall)
 			*isFunctionCall = (*str)[1].type == lex_oparen;
-		if((*str)[1].type == lex_oparen)
+		if((*str)[1].type == lex_oparen || (*str)[1].type == lex_with)
 		{
 			if(!ParseFunctionCall(str, true))
 				ThrowError((*str)->pos, "ERROR: function call is excepted after '.'");
@@ -2020,7 +2127,9 @@ void ParseCustomConstructor(Lexeme** str, TypeInfo* resultType, NodeZeroOP* getP
 	wrap->SetFirstNode(getPointer);
 	CodeInfo::nodeList.push_back(wrap);
 	PrepareMemberCall((*str)->pos);
+	PushExplicitTypes(NULL);
 	AddMemberFunctionCall((*str)->pos, functionName, 0);
+	PopExplicitTypes();
 	AddTwoExpressionNode(resultType);
 }
 
@@ -2166,8 +2275,10 @@ bool ParseTerminal(Lexeme** str)
 			SetCurrentFunction(last);
 			if(callArgCount == 0 && callDefault)
 				name = GetDefaultConstructorName(name);
+			PushExplicitTypes(NULL);
 			if(!AddMemberFunctionCall((*str)->pos, name, callArgCount, callArgCount == 0)) // silence the error if default constructor is called
 				AddPopNode(pos);
+			PopExplicitTypes();
 
 			FinishConstructorCall((*str)->pos);
 			ParseCustomConstructor(str, getPointer->typeInfo->subType, getPointer);
@@ -2258,7 +2369,7 @@ bool ParseTerminal(Lexeme** str)
 				(*str) += 2;
 				SetCurrentNamespace(ns);
 			}
-			if((*str + 1)->type == lex_oparen)
+			if((*str + 1)->type == lex_oparen || (*str + 1)->type == lex_with)
 			{
 				ParseFunctionCall(str, false);
 				ParsePostExpressions(str);

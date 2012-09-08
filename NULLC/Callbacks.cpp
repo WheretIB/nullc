@@ -65,13 +65,14 @@ void	AddFunctionToSortedList(FunctionInfo *info)
 	funcMap.insert(info->nameHash, info);
 }
 
-const char*	currFunction;
+const char*	currFunction = NULL;
 const char*	SetCurrentFunction(const char* func)
 {
 	const char* lastFunction = currFunction;
 	currFunction = func;
 	return lastFunction;
 }
+
 unsigned	currArgument = 0;
 unsigned	SetCurrentArgument(unsigned argument)
 {
@@ -90,6 +91,9 @@ unsigned int	methodCount = 0;
 
 FastVector<NamespaceInfo*>	namespaceStack;
 NamespaceInfo*				currNamespace = NULL;
+
+FastVector<AliasInfo*>		explicitTypesStack;
+AliasInfo*					currExplicitTypes = NULL;
 
 FastVector<NodeZeroOP*>		namedArgumentBackup;
 
@@ -168,6 +172,23 @@ NamespaceInfo* GetCurrentNamespace()
 void SetCurrentNamespace(NamespaceInfo* space)
 {
 	currNamespace = space;
+}
+
+void PushExplicitTypes(AliasInfo* list)
+{
+	explicitTypesStack.push_back(currExplicitTypes);
+	currExplicitTypes = list;
+}
+
+AliasInfo* GetExplicitTypes()
+{
+	return currExplicitTypes;
+}
+
+void PopExplicitTypes()
+{
+	currExplicitTypes = explicitTypesStack.back();
+	explicitTypesStack.pop_back();
 }
 
 InplaceStr GetNameInNamespace(InplaceStr name, bool alwaysRelocate = false)
@@ -1200,8 +1221,9 @@ void SelectTypeByPointer(TypeInfo* type)
 void SelectTypeForGeneric(Lexeme* pos, unsigned nodeIndex)
 {
 	if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeFuncDef)
+	{
 		currType = ((NodeFuncDef*)CodeInfo::nodeList[nodeIndex])->GetFuncInfo()->funcType;
-	else if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeExpressionList && ((NodeExpressionList*)CodeInfo::nodeList[nodeIndex])->GetFirstNode()->nodeType == typeNodeFunctionProxy){
+	}else if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeExpressionList && ((NodeExpressionList*)CodeInfo::nodeList[nodeIndex])->GetFirstNode()->nodeType == typeNodeFunctionProxy){
 		NodeFunctionProxy *fProxy = (NodeFunctionProxy*)((NodeExpressionList*)CodeInfo::nodeList.back())->GetFirstNode();
 		Lexeme *tmp = pos;
 		bool instanceFailure = false;
@@ -1233,10 +1255,11 @@ void SelectTypeForGeneric(Lexeme* pos, unsigned nodeIndex)
 				ThrowError(pos->pos, "ERROR: special error");
 			currType = info->funcType;
 		}
-	}else if(CodeInfo::nodeList[nodeIndex]->typeInfo->arrLevel && CodeInfo::nodeList[nodeIndex]->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && CodeInfo::nodeList[nodeIndex]->nodeType != typeNodeZeroOp)
+	}else if(CodeInfo::nodeList[nodeIndex]->typeInfo->arrLevel && CodeInfo::nodeList[nodeIndex]->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && CodeInfo::nodeList[nodeIndex]->nodeType != typeNodeZeroOp){
 		currType = CodeInfo::GetArrayType(CodeInfo::nodeList[nodeIndex]->typeInfo->subType, TypeInfo::UNSIZED_ARRAY);
-	else
-		currType = CodeInfo::nodeList[nodeIndex]->typeInfo;
+	}else{
+			currType = CodeInfo::nodeList[nodeIndex]->typeInfo;
+	}
 }
 
 void SelectTypeByIndex(unsigned int index)
@@ -1252,6 +1275,11 @@ TypeInfo* GetSelectedType()
 const char* GetSelectedTypeName()
 {
 	return currType->GetFullTypeName();
+}
+
+FunctionInfo* GetCurrentFunction()
+{
+	return currDefinedFunc.empty() ? NULL : currDefinedFunc.back();
 }
 
 VariableInfo* AddVariable(const char* pos, InplaceStr variableName, bool preserveNamespace, bool allowThis, bool allowCollision)
@@ -3406,7 +3434,21 @@ void FunctionEnd(const char* pos)
 				if(currN->varType != currI->varType)
 					paramsEqual = false;
 			}
-			if(paramsEqual)
+
+			// Check explicit generic function list
+			bool explicitTypesEqual = true;
+			AliasInfo *aliasNew = info->explicitTypes;
+			AliasInfo *aliasOld = lastFunc.explicitTypes;
+			for(; aliasNew && aliasOld; aliasNew = aliasNew->next, aliasOld = aliasOld->next)
+			{
+				if(aliasNew->type != aliasOld->type)
+					explicitTypesEqual = false;
+			}
+			// Check that both lists ended at the same time
+			if(!!aliasNew != !!aliasOld)
+				explicitTypesEqual = false;
+
+			if(paramsEqual && explicitTypesEqual)
 			{
 				if(info->implemented)
 					ThrowError(pos, "ERROR: function '%s' is being defined with the same set of parameters", lastFunc.name);
@@ -3694,8 +3736,27 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 			baseClassAlias = baseClassAlias->next;
 		}
 	}
+
 	// Reset function alias list
 	fInfo->childAlias = NULL;
+
+	// Add aliases from explicit generic type list
+	AliasInfo *aliasExplicit = currExplicitTypes;
+	AliasInfo *aliasExpected = fInfo->explicitTypes;
+	while(aliasExplicit && aliasExpected)
+	{
+		AliasInfo *info = TypeInfo::CreateAlias(aliasExpected->name, aliasExplicit->type);
+		info->next = fInfo->childAlias;
+		fInfo->childAlias = info;
+
+		CodeInfo::classMap.insert(info->nameHash, info->type);
+
+		aliasExplicit->name = aliasExpected->name;
+		aliasExplicit->nameHash = aliasExpected->nameHash;
+
+		aliasExplicit = aliasExplicit->next;
+		aliasExpected = aliasExpected->next;
+	}
 
 	// apply resolved argument types and test if it is ok
 	unsigned nodeOffset = CodeInfo::nodeList.size() - argumentCount;
@@ -4018,6 +4079,22 @@ void SelectFunctionsForHash(unsigned funcNameHash, unsigned scope)
 
 unsigned GetRatingHelper(FunctionInfo* fInfo, TypeInfo* forcedParentType, unsigned argumentCount, unsigned functionCount)
 {
+	// Check if there is an explicit type list for generic function instancing
+	AliasInfo *provided = currExplicitTypes;
+	AliasInfo *expected = fInfo->explicitTypes;
+
+	while(provided && expected)
+	{
+		if(provided->type != expected->type && expected->type != typeGeneric)
+			return ~0u;
+
+		provided = provided->next;
+		expected = expected->next;
+	}
+	// Fail if provided explicit type list is larger than expected explicit type list
+	if(provided && !expected)
+		return ~0u;
+
 	unsigned rating = GetFunctionRating(fInfo->funcType->funcType, argumentCount);
 
 	// If we have a positive rating, check that generic function constraints are satisfied
@@ -4647,6 +4724,8 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 		name = pos + 1;
 	FunctionAdd(pos, name);
 
+	FunctionInfo *functionInstance = CodeInfo::funcInfo.back();
+
 	if(callArgCount != ~0u && callArgCount < fType->paramCount)
 	{
 		// Move to the last parameter
@@ -4662,19 +4741,44 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 	}
 
 	// New function type is equal to generic function type no matter where we create an instance of it
-	CodeInfo::funcInfo.back()->type = fInfo->type;
-	CodeInfo::funcInfo.back()->parentClass = forcedParentType ? forcedParentType : fInfo->parentClass;
-	CodeInfo::funcInfo.back()->visible = true;
+	functionInstance->type = fInfo->type;
+	functionInstance->parentClass = forcedParentType ? forcedParentType : fInfo->parentClass;
+	functionInstance->visible = true;
 
 	// Get aliases defined in a base function argument list
-	AliasInfo *aliasFromParent = fInfo->generic->parent->childAlias;
+	AliasInfo *aliasFromParent = fInfo->childAlias;
 	while(aliasFromParent)
 	{
 		CodeInfo::classMap.insert(aliasFromParent->nameHash, aliasFromParent->type);
 		aliasFromParent = aliasFromParent->next;
 	}
-	CodeInfo::funcInfo.back()->childAlias = fInfo->generic->parent->childAlias;
-	AliasInfo *aliasParent = CodeInfo::funcInfo.back()->childAlias;
+	functionInstance->childAlias = fInfo->childAlias;
+
+	// Add explicit generic type list
+	AliasInfo *aliasExplicit = currExplicitTypes;
+	AliasInfo *aliasExpected = fInfo->explicitTypes;
+	AliasInfo *aliasCurr = NULL;
+	while(aliasExplicit && aliasExpected)
+	{
+		AliasInfo *info = TypeInfo::CreateAlias(aliasExpected->name, aliasExplicit->type);
+		info->next = functionInstance->childAlias;
+		functionInstance->childAlias = info;
+
+		CodeInfo::classMap.insert(info->nameHash, info->type);
+
+		info = TypeInfo::CreateAlias(aliasExpected->name, aliasExplicit->type);
+
+		if(!functionInstance->explicitTypes)
+			functionInstance->explicitTypes = aliasCurr = info;
+		else
+			aliasCurr->next = info;
+		aliasCurr = info;
+
+		aliasExplicit = aliasExplicit->next;
+		aliasExpected = aliasExpected->next;
+	}
+
+	AliasInfo *aliasParent = functionInstance->childAlias;
 
 	Lexeme *start = CodeInfo::lexStart + fInfo->generic->start;
 	CodeInfo::lastKnownStartPos = NULL;
@@ -6240,6 +6344,9 @@ void CallbackInitialize()
 	namespaceStack.push_back(new NamespaceInfo(InplaceStr(""), GetStringHash(""), NULL));
 	currNamespace = NULL;
 
+	explicitTypesStack.clear();
+	currExplicitTypes = NULL;
+
 	namedArgumentBackup.clear();
 
 	CodeInfo::classMap.clear();
@@ -6278,6 +6385,8 @@ void CallbackReset()
 	currFunction = NULL;
 	currArgument = 0;
 
+	currExplicitTypes = NULL;
+
 	varInfoTop.reset();
 	funcInfoTop.reset();
 	cycleDepth.reset();
@@ -6294,6 +6403,7 @@ void CallbackReset()
 	varMap.reset();
 
 	namespaceStack.reset();
+	explicitTypesStack.reset();
 	namedArgumentBackup.reset();
 
 	TypeInfo::typeInfoPool.~ChunkedStackPool();

@@ -87,6 +87,10 @@ public:
 	{
 		return count;
 	}
+	__forceinline bool		empty()
+	{
+		return count == 0;
+	}
 	__forceinline void		pop_back()
 	{
 		assert(count > 0);

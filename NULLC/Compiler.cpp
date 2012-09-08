@@ -863,10 +863,11 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		printf("Type\r\n\t%s\r\nis remapped from index %d to index %d with\r\n\t%s\r\ntype\r\n", symbols + tInfo[i].offsetToName, i, typeRemap[i], CodeInfo::typeInfo[typeRemap[i]]->GetFullTypeName());
 #endif
 
+	ExternVarInfo *vInfo = FindFirstVar(bCode);
+
 	if(!setjmp(CodeInfo::errorHandler))
 	{
 		// Import variables
-		ExternVarInfo *vInfo = FindFirstVar(bCode);
 		for(unsigned int i = 0; i < bCode->variableExportCount; i++, vInfo++)
 		{
 			// Exclude temporary variables from import
@@ -990,11 +991,11 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 
 			if(lastFunc->funcType == typeVoid)
 			{
-				lastFunc->generic = lastFunc->CreateGenericContext(fInfo->rOffsets[0] + int(CodeInfo::lexFullStart - CodeInfo::lexStart));
+				lastFunc->generic = lastFunc->CreateGenericContext(fInfo->genericOffset + int(CodeInfo::lexFullStart - CodeInfo::lexStart));
 				lastFunc->generic->parent = lastFunc;
 				lastFunc->vTopSize = 1;
 
-				lastFunc->retType = fInfo->rOffsets[1] != ~0u ? CodeInfo::typeInfo[typeRemap[fInfo->rOffsets[1]]] : NULL;
+				lastFunc->retType = fInfo->genericReturnType != ~0u ? CodeInfo::typeInfo[typeRemap[fInfo->genericReturnType]] : NULL;
 				lastFunc->funcType = CodeInfo::GetFunctionType(lastFunc->retType, lastFunc->firstParam, lastFunc->paramCount);
 				if(lastFunc->type == FunctionInfo::COROUTINE)
 				{
@@ -1015,8 +1016,22 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 
 			assert(lastFunc->funcType->funcType->paramCount == lastFunc->paramCount);
 
+			// Import function explicit type list
+			AliasInfo *aliasEnd = NULL;
+
+			for(unsigned k = 0; k < fInfo->explicitTypeCount; k++)
+			{
+				AliasInfo *info = TypeInfo::CreateAlias(InplaceStr(symbols + vInfo[k].offsetToName), CodeInfo::typeInfo[typeRemap[vInfo[k].type]]);
+
+				if(!lastFunc->explicitTypes)
+					lastFunc->explicitTypes = aliasEnd = info;
+				else
+					aliasEnd->next = info;
+				aliasEnd = info;
+			}
+
 #ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
-			printf(" Importing function %s %s(", lastFunc->retType->GetFullTypeName(), lastFunc->name);
+			printf(" Importing function %s %s(", lastFunc->retType ? lastFunc->retType->GetFullTypeName() : "generic", lastFunc->name);
 			VariableInfo *curr = lastFunc->firstParam;
 			for(unsigned int n = 0; n < fInfo->paramCount; n++)
 			{
@@ -1033,6 +1048,7 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			return false;
 		}
 
+		vInfo += fInfo->explicitTypeCount;
 		fInfo++;
 	}
 
@@ -1952,17 +1968,40 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	unsigned int offsetToVar = size;
 	unsigned int globalVarCount = 0, exportVarCount = 0;
-	size += CodeInfo::varInfo.size() * sizeof(ExternVarInfo);
+	unsigned int externVariableInfoCount = 0;
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
 		VariableInfo *curr = CodeInfo::varInfo[i];
+
 		if(curr->pos >> 24)
 			continue;
+
+		externVariableInfoCount++;
+
 		globalVarCount++;
 		if(i < realGlobalCount)
 			exportVarCount++;
-		symbolStorageSize += (unsigned int)(curr->name.end - curr->name.begin) + 1;
+
+		symbolStorageSize += curr->name.length() + 1;
 	}
+	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+	{
+		if(i < functionsInModules)
+			continue;
+
+		FunctionInfo *func = CodeInfo::funcInfo[i];
+
+		AliasInfo *explicitType = func->explicitTypes;
+		while(explicitType)
+		{
+			externVariableInfoCount++;
+
+			symbolStorageSize += explicitType->name.length() + 1;
+
+			explicitType = explicitType->next;
+		}
+	}
+	size += externVariableInfoCount * sizeof(ExternVarInfo);
 
 	unsigned int offsetToFunc = size;
 
@@ -2049,6 +2088,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	printf("%d closure lists\r\n", clsListCount);
 #endif
 	*bytecode = new char[size];
+	memset(*bytecode, 0, size);
 
 	ByteCode	*code = (ByteCode*)(*bytecode);
 	code->size = size;
@@ -2206,6 +2246,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		mInfo++;
 	}
 
+	unsigned int actualExternVariableInfoCount = 0;
+
 	ExternVarInfo *vInfo = FindFirstVar(code);
 	code->firstVar = vInfo;
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
@@ -2215,6 +2257,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 		if(refVar->pos >> 24)
 			continue;
+
+		actualExternVariableInfoCount++;
 
 		varInfo.offsetToName = int(symbolPos - code->debugSymbols);
 		memcpy(symbolPos, refVar->name.begin, refVar->name.end - refVar->name.begin + 1);
@@ -2296,8 +2340,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			memset(funcInfo.rOffsets, 0, 8 * sizeof(unsigned));
 			memset(funcInfo.fOffsets, 0, 8 * sizeof(unsigned));
 			funcInfo.ps3Callable = false;
-			funcInfo.rOffsets[0] = refFunc->generic->start - int(CodeInfo::lexFullStart - CodeInfo::lexStart);
-			funcInfo.rOffsets[1] = refFunc->retType ? refFunc->retType->typeIndex : ~0u;
+			funcInfo.genericOffset = refFunc->generic->start - int(CodeInfo::lexFullStart - CodeInfo::lexStart);
+			funcInfo.genericReturnType = refFunc->retType ? refFunc->retType->typeIndex : ~0u;
 		}
 
 		ExternLocalInfo::LocalType paramType = refFunc->firstParam ? ExternLocalInfo::PARAMETER : ExternLocalInfo::LOCAL;
@@ -2352,6 +2396,30 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		funcInfo.closeListStart = refFunc->closeListStart = clsListCount;
 		if(refFunc->closeUpvals)
 			clsListCount += refFunc->maxBlockDepth;
+
+		AliasInfo *explicitType = refFunc->explicitTypes;
+		while(explicitType)
+		{
+			funcInfo.explicitTypeCount++;
+
+			ExternVarInfo &varInfo = *vInfo;
+
+			actualExternVariableInfoCount++;
+
+			varInfo.offsetToName = int(symbolPos - code->debugSymbols);
+			memcpy(symbolPos, explicitType->name.begin, explicitType->name.length());
+			symbolPos += explicitType->name.length();
+			*symbolPos++ = 0;
+
+			varInfo.nameHash = explicitType->nameHash;
+
+			varInfo.type = explicitType->type->typeIndex;
+			varInfo.offset = 0;
+
+			explicitType = explicitType->next;
+
+			vInfo++;
+		}
 
 		// Fill up next
 		fInfo++;
@@ -2436,6 +2504,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 		namespaceList++;
 	}
+
+	assert(externVariableInfoCount == actualExternVariableInfoCount);
 
 	return size;
 }
