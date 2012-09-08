@@ -14,9 +14,8 @@ Core:
 	30. f. tuples and/or multiple return values 
 	34. f. one-number-node constant folding should support |, &, || and &&
 	35. f. fix local class operators to be normal functions
-	49. f. add allocation on unsized arrays and arrays of unsized arrays.
-	52. f. add compile-time checks for class members
 	53. f. add exception handling
+	54. b. new int(); expression creates a temporary variable that is not used
 
 Library:
 	1. f. string
@@ -244,3 +243,5 @@ DONE: enum
 DONE: add namespaces
 DONE: functions with explicit template parameters
 DONE: move gen_list to base module as a generic function
+DONE: add compile-time checks for class members
+DONE: add allocation of unsized arrays and arrays of unsized arrays.
