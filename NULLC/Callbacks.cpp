@@ -5415,6 +5415,7 @@ void AddIfNode(const char* pos)
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(false));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
+
 void AddIfElseNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
@@ -5423,8 +5424,10 @@ void AddIfElseNode(const char* pos)
 	if(OptimizeIfElse(true))
 		return;
 
-	NodeZeroOP *bodyE = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
-	NodeZeroOP *bodyT = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
+	NodeZeroOP *bodyE = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+	NodeZeroOP *bodyT = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
 
 	PromoteToBool(pos);
 
@@ -5434,6 +5437,7 @@ void AddIfElseNode(const char* pos)
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(true));
 	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
+
 void AddIfElseTermNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
@@ -5444,8 +5448,10 @@ void AddIfElseTermNode(const char* pos)
 
 	HandleNullPointerConversion(pos);
 
-	NodeZeroOP *bodyE = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
-	NodeZeroOP *bodyT = CodeInfo::nodeList.back(); CodeInfo::nodeList.pop_back();
+	NodeZeroOP *bodyE = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+	NodeZeroOP *bodyT = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
 
 	PromoteToBool(pos);
 
@@ -5456,8 +5462,15 @@ void AddIfElseTermNode(const char* pos)
 	TypeInfo* typeB = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
 	if(typeA == typeVoid || typeB == typeVoid)
 		ThrowError(pos, "ERROR: one of ternary operator ?: result type is void (%s : %s)", typeB->GetFullTypeName(), typeA->GetFullTypeName());
-	if(typeA != typeB)
+
+	// Different numeric types are supported
+	TypeInfo* typeCommon = NULL;
+	if(typeA->type != TypeInfo::TYPE_COMPLEX && typeA->refLevel == 0 && typeA->arrLevel == 0 && typeB->type != TypeInfo::TYPE_COMPLEX && typeB->refLevel == 0 && typeB->arrLevel == 0)
+		typeCommon = ChooseBinaryOpResultType(typeA, typeB);
+
+	if(typeA != typeB && typeCommon == NULL)
 		ThrowError(pos, "ERROR: ternary operator ?: result types are not equal (%s : %s)", typeB->GetFullTypeName(), typeA->GetFullTypeName());
+
 	CodeInfo::nodeList.push_back(new NodeIfElseExpr(true, true));
 }
 
@@ -5466,6 +5479,7 @@ void IncreaseCycleDepth()
 	assert(cycleDepth.size() != 0);
 	cycleDepth.back()++;
 }
+
 void AddForNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
@@ -5484,6 +5498,7 @@ void AddForNode(const char* pos)
 	assert(cycleDepth.size() != 0);
 	cycleDepth.back()--;
 }
+
 void AddWhileNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
@@ -5501,6 +5516,7 @@ void AddWhileNode(const char* pos)
 	assert(cycleDepth.size() != 0);
 	cycleDepth.back()--;
 }
+
 void AddDoWhileNode(const char* pos)
 {
 	CodeInfo::lastKnownStartPos = pos;
