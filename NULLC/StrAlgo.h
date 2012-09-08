@@ -19,12 +19,40 @@ namespace NULLC
 	class InplaceStr
 	{
 	public:
-		InplaceStr(){ begin = NULL; end = NULL; }
+		InplaceStr()
+		{
+			begin = NULL;
+			end = NULL;
+		}
+
 		// It is possible to construct it from \0-terminated string
-		explicit InplaceStr(const char *strBegin){ begin = strBegin; end = begin + strlen(begin); }
+		explicit InplaceStr(const char *strBegin)
+		{
+			begin = strBegin;
+			end = begin + strlen(begin);
+		}
+
 		// And from non-terminating strings
-		InplaceStr(const char *strBegin, unsigned int length){ begin = strBegin; end = begin + length; }
-		InplaceStr(const char *strBegin, const char *strEnd){ begin = strBegin; end = strEnd; }
+		InplaceStr(const char *strBegin, unsigned int length)
+		{
+			begin = strBegin;
+			end = begin + length;
+		}
+		InplaceStr(const char *strBegin, const char *strEnd)
+		{
+			begin = strBegin;
+			end = strEnd;
+		}
+
+		unsigned length() const
+		{
+			return end - begin;
+		}
+
+		bool operator==(const InplaceStr& rhs)
+		{
+			return length() == rhs.length() && memcmp(begin, rhs.begin, length()) == 0;
+		}
 
 		const char *begin, *end;
 	};

@@ -127,6 +127,12 @@ struct ExternFuncInfo
 	unsigned int	fOffsets[8];
 	unsigned int	ps3Callable;
 
+	unsigned int	genericOffset;
+	unsigned int	genericReturnType;
+
+	// Size of the explicit type list for generic functions and generic function instances
+	unsigned int	explicitTypeCount;
+
 	unsigned int	nameHash;
 };
 
@@ -175,7 +181,7 @@ struct ByteCode
 	
 	unsigned int	globalVarSize;	// size of all global variables, in bytes
 	unsigned int	variableCount;	// variable info count
-	unsigned int	variableExportCount;	// eaxported variable count
+	unsigned int	variableExportCount;	// exported variable count
 	ExternVarInfo	*firstVar;
 #ifndef _M_X64
 	unsigned int	ptrPad2;

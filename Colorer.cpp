@@ -478,9 +478,17 @@ namespace ColorerGrammar
 					idP[ColorVarDef] >> !(chP('=')[ColorText] >> term4_9) >>
 					*(chP(',')[ColorText] >> idP[ColorVarDef] >> !(chP('=')[ColorText] >> term4_9)) >> chP('}')[ColorText];
 
-			funccall	=	(typeExpr | idP)[ColorFunc] >> fcallpart;
+			funccall	=
+				(typeExpr | idP)[ColorFunc] >>
+				fcallpart;
 
 			fcallpart	=
+				!(
+					strP("with")[ColorRWord] >>
+					chP('<')[ColorText] >>
+					typeExpr >> *(chP(',')[ColorText] >> typeExpr) >>
+					chP('>')[ColorText]
+				) >>
 				chP('(')[ColorBold] >>
 				!(
 					(!(idP[ColorVarDef] >> chP(':')[ColorText]) >> term5) >>
@@ -534,7 +542,16 @@ namespace ColorerGrammar
 								(idP[ColorFunc] | epsP[LogError("ERROR: function name expected after ':'")]) >>
 								chP('(')[ColorBold]
 							) |
-							(idP[ColorFunc] >> chP('(')[ColorBold])
+							(
+								idP[ColorFunc] >>
+								!(
+									chP('<')[ColorText] >>
+									(chP('@') >> idP[ColorRWord][StartType]) >>
+									*(chP(',')[ColorText] >> chP('@')[ColorText] >> idP[ColorRWord][StartType]) >>
+									chP('>')[ColorText]
+								) >>
+								chP('(')[ColorBold]
+							)
 						)
 					)
 				) >>
@@ -566,7 +583,13 @@ namespace ColorerGrammar
 					) >>
 					chP(']')[ColorText]
 				) |
-				(chP('.')[ColorText] >>	((idP[ColorFunc] >> fcallpart) | idP[ColorVar])) |
+				(
+					chP('.')[ColorText] >>
+					(
+						(idP[ColorFunc] >> fcallpart) |
+						idP[ColorVar]
+					)
+				) |
 				fcallpart;
 
 			appval		=	(idP - (strP("case") | strP("default")))[ColorVar] >> ~chP('(') >> *postExpr;

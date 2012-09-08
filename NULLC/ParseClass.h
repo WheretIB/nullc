@@ -13,6 +13,7 @@ class NodeExpressionList;
 class TypeInfo;
 class FunctionInfo;
 class NamespaceInfo;
+struct AliasInfo;
 
 #ifdef NULLC_LLVM_SUPPORT
 namespace llvm
@@ -523,6 +524,9 @@ public:
 		closeListStart = 0;
 
 		childAlias = NULL;
+
+		explicitTypes = NULL;
+
 #ifdef NULLC_ENABLE_C_TRANSLATION
 		yieldCount = 0;
 #endif
@@ -636,6 +640,8 @@ public:
 	TypeInfo	*funcType;				// Function type
 
 	AliasInfo	*childAlias;
+
+	AliasInfo	*explicitTypes;
 
 #ifdef NULLC_LLVM_SUPPORT
 	llvm::Function	*llvmFunction;

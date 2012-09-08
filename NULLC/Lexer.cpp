@@ -308,6 +308,8 @@ void Lexer::Lexify(const char* code)
 							lType = lex_true;
 						else if(memcmp(code, "enum", 4) == 0)
 							lType = lex_enum;
+						else if(memcmp(code, "with", 4) == 0)
+							lType = lex_with;
 						break;
 					case 5:
 						if(memcmp(code, "while", 5) == 0)

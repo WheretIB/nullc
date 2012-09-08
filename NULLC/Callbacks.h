@@ -5,6 +5,7 @@
 class TypeInfo;
 class VariableInfo;
 class FunctionInfo;
+struct AliasInfo;
 class FunctionType;
 class NodeZeroOP;
 class NamespaceInfo;
@@ -17,6 +18,10 @@ void			PopNamespace();
 NamespaceInfo*	IsNamespace(InplaceStr space);
 NamespaceInfo*	GetCurrentNamespace();
 void			SetCurrentNamespace(NamespaceInfo* space);
+
+void			PushExplicitTypes(AliasInfo* list);
+AliasInfo*		GetExplicitTypes();
+void			PopExplicitTypes();
 
 TypeInfo*		SelectTypeByName(InplaceStr name);
 
@@ -85,6 +90,8 @@ void SelectTypeForGeneric(Lexeme* pos, unsigned nodeIndex);
 void SelectTypeByIndex(unsigned int index);
 TypeInfo* GetSelectedType();
 const char* GetSelectedTypeName();
+
+FunctionInfo* GetCurrentFunction();
 
 VariableInfo* AddVariable(const char* pos, InplaceStr varName, bool preserveNamespace = true, bool allowThis = false, bool allowCollision = false);
 
