@@ -4752,7 +4752,12 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 		CodeInfo::classMap.insert(aliasFromParent->nameHash, aliasFromParent->type);
 		aliasFromParent = aliasFromParent->next;
 	}
+
+	// Take alias list from generic function base into generic function instance
 	functionInstance->childAlias = fInfo->childAlias;
+	
+	// Reset generic function base alias list
+	fInfo->childAlias = NULL;
 
 	// Add explicit generic type list
 	AliasInfo *aliasExplicit = currExplicitTypes;
