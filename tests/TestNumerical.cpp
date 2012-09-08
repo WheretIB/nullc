@@ -532,3 +532,6 @@ TEST_RESULT("Compile-time function evaluation bug 1", testCompileTimeFunctionEva
 
 const char	*testCompileTimeFunctionEvaluationBug2 = "int foo(){ int x = 1; return --x; } return foo();";
 TEST_RESULT("Compile-time function evaluation bug 2", testCompileTimeFunctionEvaluationBug2, "0");
+
+const char	*testTernaryExpressionCommonTypeResolve = "int x; return typeof(x < 1 ? 2 : 3.0) == double && int(x < 1 ? 2 : 3.0) == 2;";
+TEST_RESULT("Ternary expression common type resolve when different types are placed in true and false parts", testTernaryExpressionCommonTypeResolve, "1");
