@@ -10,7 +10,6 @@ Core:
 	18. f. stack trace with locals should print values
 	20. f. context address tracking in not neccessary in most cases (?)
 	21. u. need to clarify when external variables in a local function inside a coroutine are closed.
-	23. f. move gen_list to base module as a generic function (?)
 	28. u. how is generic variable argument function is instanced?
 	30. f. tuples and/or multiple return values 
 	34. f. one-number-node constant folding should support |, &, || and &&
@@ -18,7 +17,6 @@ Core:
 	49. f. add allocation on unsized arrays and arrays of unsized arrays.
 	52. f. add compile-time checks for class members
 	53. f. add exception handling
-	54. f. functions with explicit template parameters
 
 Library:
 	1. f. string
@@ -35,6 +33,9 @@ SuperCalc:
 	14 f. persistent undo on a per-file basis
 	15 b. breakpoint in generic function should break in all instances
 	
+ConsoleCalc:
+	1. b. return value should come from the nullc program and nothing should be printed out
+
 DONE: ref variables - pointers
 DONE: multidimensional arrays
 DONE: e1	сделать поддержку всех заявленых бинарных и унарных операций
@@ -241,3 +242,5 @@ DONE: how does the GC work in cases of various transitions between NULLC and C (
 DONE: Compiled modules must recompile after changes.
 DONE: enum
 DONE: add namespaces
+DONE: functions with explicit template parameters
+DONE: move gen_list to base module as a generic function

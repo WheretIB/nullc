@@ -1237,8 +1237,14 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 				ThrowError((*str)->pos, "ERROR: explicit generic type alias is expected after '@'");
 			if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 				ThrowError((*str)->pos, "ERROR: alias name length is limited to 2048 symbols");
-			if(ParseSelectType(str))
-				ThrowError((*str)->pos, "ERROR: there is already a type or an alias with the same name");
+
+			AliasInfo *curr = aliasBegin;
+			while(curr)
+			{
+				if(curr->name == InplaceStr((*str)->pos, (*str)->length))
+					ThrowError((*str)->pos, "ERROR: there is already a type or an alias with the same name");
+				curr = curr->next;
+			}
 
 			AliasInfo *info = TypeInfo::CreateAlias(InplaceStr((*str)->pos, (*str)->length), typeGeneric);
 
@@ -1959,7 +1965,6 @@ bool ParseArray(Lexeme** str)
 		FunctionStart((*str)->pos);
 		ParseCode(str);
 		AddGeneratorReturnData((*str)->pos);
-		TypeInfo *retType = GetSelectedType();
 		AddReturnNode((*str)->pos);
 		AddTwoExpressionNode();
 
