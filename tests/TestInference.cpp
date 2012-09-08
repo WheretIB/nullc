@@ -167,6 +167,20 @@ for(i in arr) sum += i;\r\n\
 return sum;";
 TEST_RESULT("Short inline funcitons passed to std.algorithm", testShortInlineFunction7, "16");
 
+const char	*testShortInlineFunction8 = 
+"auto curry(generic ref(@A, @B) f, int ref(int, int) x = nullptr, y = nullptr)\r\n\
+{\r\n\
+	return auto(A a)\r\n\
+	{\r\n\
+		return auto(B b){ return f(a, b); };\r\n\
+	};\r\n\
+}\r\n\
+int sum(int a, b){ return a + b; }\r\n\
+curry(sum);\r\n\
+auto curried = curry(sum, <x, y>{ x + y; });\r\n\
+return curried(4)(5);";
+TEST_RESULT("Short inline funcitons passed to std.algorithm", testShortInlineFunction8, "9");
+
 const char	*testTypeofOnFunctionArgument = "auto foo(int a, typeof(a) b){ return a + b; } return foo(5, 7);";
 TEST_RESULT("typeof on argument of a function in definition", testTypeofOnFunctionArgument, "12");
 
