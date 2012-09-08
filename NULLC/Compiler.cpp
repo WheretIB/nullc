@@ -272,7 +272,18 @@ bool operator in(generic x, typeof(x)[] arr)\r\n\
 			return true;\r\n\
 	return false;\r\n\
 }\r\n\
-void ref assert_derived_from_base(void ref derived, typeid base);";
+void ref assert_derived_from_base(void ref derived, typeid base);\r\n\
+auto __gen_list(@T ref() y)\r\n\
+{\r\n\
+	auto[] res = auto_array(T, 1);\r\n\
+	int pos = 0;\r\n\
+	for(T x in y)\r\n\
+		res.set(&x, pos++);\r\n\
+	__force_size(&res, pos);\r\n\
+	\r\n\
+	T[] r = res;\r\n\
+	return r;\r\n\
+}";
 
 Compiler::Compiler()
 {
