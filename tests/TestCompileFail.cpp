@@ -732,7 +732,17 @@ line 1 - ERROR: unknown identifier 'a'\r\n\
 	TEST_FOR_FAIL("unknown type for operation", "return -nullptr;", "ERROR: unary operation '-' is not supported on 'void ref'");
 	TEST_FOR_FAIL("unknown type for operation", "return ~nullptr;", "ERROR: unary operation '~' is not supported on 'void ref'");
 	TEST_FOR_FAIL("unknown type for operation", "return !nullptr;", "ERROR: unary operation '!' is not supported on 'void ref'");
-	
+
+	TEST_FOR_FAIL("explicit generic function types", "return foo with int();", "ERROR: '<' not found before explicit generic type alias list");
+	TEST_FOR_FAIL("explicit generic function types", "return foo with<int,>();", "ERROR: type name is expected after ','");
+	TEST_FOR_FAIL("explicit generic function types", "return foo with<>();", "ERROR: type name is expected after 'with'");
+	TEST_FOR_FAIL("explicit generic function types", "return foo with<int;", "ERROR: '>' not found after explicit generic type alias list");
+	TEST_FOR_FAIL("explicit generic function types", "return foo with<int>;", "ERROR: '(' is expected at this point");
+	TEST_FOR_FAIL("explicit generic function types", "void foo<@T, U>(){}", "ERROR: '@' is expected after ',' in explicit generic type alias list");
+	TEST_FOR_FAIL("explicit generic function types", "void foo<@>(){}", "ERROR: explicit generic type alias is expected after '@'");
+	TEST_FOR_FAIL("explicit generic function types", "void foo<@T, @T>(){}", "ERROR: there is already a type or an alias with the same name");
+	TEST_FOR_FAIL("explicit generic function types", "void foo<@T, @U(){}", "ERROR: '>' not found after explicit generic type alias list");
+	TEST_FOR_FAIL("explicit generic function types", "void foo<@T, @U>{}", "ERROR: '(' is expected at this point");	
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
