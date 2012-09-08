@@ -747,6 +747,8 @@ line 1 - ERROR: unknown identifier 'a'\r\n\
 	TEST_FOR_FAIL("hasMember extended typeof", "int.hasMember x;", "ERROR: expected '(' at this point");
 	TEST_FOR_FAIL("hasMember extended typeof", "int.hasMember();", "ERROR: expected member name after '('");
 	TEST_FOR_FAIL("hasMember extended typeof", "int.hasMember(x;", "ERROR: expected ')' after member name");
+
+	TEST_FOR_FAIL("any type allocation", "new (int[]();", "ERROR: matching ')' not found after '('");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
