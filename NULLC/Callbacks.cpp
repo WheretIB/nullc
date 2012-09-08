@@ -4018,7 +4018,7 @@ bool PrepareMemberCall(const char* pos, const char* funcName)
 {
 	TypeInfo *currentType = CodeInfo::nodeList.back()->typeInfo;
 	// Implicit conversion of type ref ref to type ref (only for non-extendable types)
-	if(currentType->refLevel == 2)
+	if(currentType->refLevel >= 2)
 	{
 		if(!(currentType->subType->subType->firstVariable && currentType->subType->subType->firstVariable->nameHash == extendableVariableName && funcName))
 		{

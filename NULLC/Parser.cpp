@@ -2275,9 +2275,13 @@ bool ParseTerminal(Lexeme** str)
 		(*str)++;
 
 		const char *pos = (*str)->pos;
-		if(!ParseSelectType(str, false))
+
+		bool allowAnyType = ParseLexem(str, lex_oparen);
+		if(!ParseSelectType(str, allowAnyType ? ALLOW_ARRAY | ALLOW_EXTENDED_TYPEOF : 0))
 			ThrowError((*str)->pos, "ERROR: type name expected after 'new'");
-		
+		if(allowAnyType && !ParseLexem(str, lex_cparen))
+			ThrowError((*str)->pos, "ERROR: matching ')' not found after '('");
+
 		TypeInfo *info = GetSelectedType();
 		GetTypeSize((*str)->pos, false);
 		const char *name = FindConstructorName(info);
@@ -2304,7 +2308,8 @@ bool ParseTerminal(Lexeme** str)
 			if(callArgCount == 0 && callDefault)
 				name = GetDefaultConstructorName(name);
 			PushExplicitTypes(NULL);
-			if(!AddMemberFunctionCall((*str)->pos, name, callArgCount, callArgCount == 0)) // silence the error if default constructor is called
+			// Remove address node if a derived type is created or default constructor will be called
+			if(!name || !AddMemberFunctionCall((*str)->pos, name, callArgCount, callArgCount == 0)) // silence the error if default constructor is called
 				AddPopNode(pos);
 			PopExplicitTypes();
 
