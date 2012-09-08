@@ -1965,17 +1965,8 @@ bool ParseArray(Lexeme** str)
 
 		FunctionEnd((*str)->pos);
 
-		if(!AddFunctionCallNode((*str)->pos, "$gen_list", 1, true))
-		{
-			// cannot find generator, create new
-			NodeZeroOP *last = CodeInfo::nodeList.back();
-			CodeInfo::nodeList.pop_back();
-			AddListGenerator((*str)->pos, retType);
-			CodeInfo::nodeList.push_back(last);
-			AddFunctionCallNode((*str)->pos, "$gen_list", 1);
-			AddTwoExpressionNode(CodeInfo::GetArrayType((TypeInfo*)retType, TypeInfo::UNSIZED_ARRAY));
-		}
-		
+		if(!AddFunctionCallNode((*str)->pos, "__gen_list", 1, true))
+			ThrowError((*str)->pos, "ERROR: internal compiler error while calling list generator");
 	}else{
 		unsigned int arrElementCount = 0;
 		if(!ParseTernaryExpr(str))
