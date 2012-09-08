@@ -1780,6 +1780,9 @@ bool ParseDoWhileExpr(Lexeme** str)
 
 	IncreaseCycleDepth();
 
+	// Begin block outside the expression so that the variables inside can be used inside 'while' expression
+	BeginBlock();
+
 	if(!ParseLexem(str, lex_ofigure))
 	{
 		if(!ParseExpression(str))
@@ -1801,6 +1804,8 @@ bool ParseDoWhileExpr(Lexeme** str)
 		ThrowError((*str)->pos, "ERROR: expression expected after 'while('");
 	if(!ParseLexem(str, lex_cparen))
 		ThrowError((*str)->pos, "ERROR: closing ')' not found after expression in 'while' statement");
+
+	EndBlock();
 
 	AddDoWhileNode(condPos);
 

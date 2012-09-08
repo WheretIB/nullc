@@ -108,3 +108,12 @@ do\r\n\
 }while(wrong);\r\n\
 return i;";
 TEST_RESULT("do...while cycle variable scope test", testDoWhileScope, "10")
+
+const char	*testDoWhileScope2 =
+"int i;\r\n\
+do\r\n\
+{\r\n\
+	int i;\r\n\
+}while(0);\r\n\
+return 1;";
+TEST_RESULT("do...while cycle variable scope test 2", testDoWhileScope2, "1")

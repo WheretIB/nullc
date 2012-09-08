@@ -4509,6 +4509,7 @@ FunctionInfo* GetAutoRefFunction(const char* pos, const char* funcName, unsigned
 	// Find redirection function
 	HashMap<FunctionInfo*>::Node *curr = funcMap.first(GetStringHash(forFunctionCall ? "__redirect" : "__redirect_ptr"));
 	assert(curr);
+	(void)curr;
 	// Call redirection function
 	AddFunctionCallNode(pos, forFunctionCall ? "__redirect" : "__redirect_ptr", 2);
 	// Rename return function type
