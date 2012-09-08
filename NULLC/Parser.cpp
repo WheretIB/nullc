@@ -212,15 +212,15 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 		}
 	}else if(curr->type == lex_string && curr->length == 11 && memcmp(curr->pos, "isReference", 11) == 0){
 		curr++;
-		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->refLevel ? 1 : 0), typeInt));
+		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->refLevel ? 1 : 0), typeBool));
 		notType = true;
 	}else if(curr->type == lex_string && curr->length == 7 && memcmp(curr->pos, "isArray", 7) == 0){
 		curr++;
-		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->arrLevel ? 1 : 0), typeInt));
+		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->arrLevel ? 1 : 0), typeBool));
 		notType = true;
 	}else if(curr->type == lex_string && curr->length == 10 && memcmp(curr->pos, "isFunction", 10) == 0){
 		curr++;
-		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->funcType ? 1 : 0), typeInt));
+		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : (GetSelectedType()->funcType ? 1 : 0), typeBool));
 		notType = true;
 	}else if(curr->type == lex_string && curr->length == 9 && memcmp(curr->pos, "arraySize", 9) == 0){
 		curr++;
@@ -228,6 +228,31 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 			ThrowError(curr->pos, "ERROR: 'arraySize' can only be applied to an array type, but we have '%s'", GetSelectedType()->GetFullTypeName());
 		CodeInfo::nodeList.push_back(new NodeNumber(genericType ? 0 : ((int)GetSelectedType()->arrSize), typeInt));
 		notType = true;
+	}else if(curr->type == lex_string && curr->length == 9 && memcmp(curr->pos, "hasMember", 9) == 0){
+		curr++;
+		if(!ParseLexem(&curr, lex_oparen))
+			ThrowError(curr->pos, "ERROR: expected '(' at this point");
+		if(curr->type != lex_string)
+			ThrowError(curr->pos, "ERROR: expected member name after '('");
+
+		if(!genericType)
+		{
+			TypeInfo *classType = GetSelectedType();
+			unsigned hash = GetStringHash(curr->pos, curr->pos + curr->length);
+
+			TypeInfo::MemberVariable *currMember = classType->firstVariable;
+			for(; currMember; currMember = currMember->next)
+			{
+				if(currMember->nameHash == hash && InplaceStr(currMember->name) == InplaceStr(curr->pos, curr->length))
+					break;
+			}
+			CodeInfo::nodeList.push_back(new NodeNumber(currMember != NULL && currMember->defaultValue == NULL ? 1 : 0, typeBool));
+			notType = true;
+		}
+		curr++;
+
+		if(!ParseLexem(&curr, lex_cparen))
+			ThrowError(curr->pos, "ERROR: expected ')' after member name");
 	}else{
 		if(curr->type == lex_string && !GetSelectedType()->refLevel && !GetSelectedType()->arrLevel && !GetSelectedType()->funcType) // if this is a class
 		{
@@ -238,15 +263,17 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 
 				TypeInfo::MemberVariable *currMember = classType->firstVariable;
 				for(; currMember; currMember = currMember->next)
-					if(currMember->nameHash == hash)
+				{
+					if(currMember->nameHash == hash && InplaceStr(currMember->name) == InplaceStr(curr->pos, curr->length))
 						break;
+				}
 				if(!currMember)
 				{
 					// Check local type aliases
 					AliasInfo *alias = classType->childAlias;
 					while(alias)
 					{
-						if(alias->nameHash == hash)
+						if(alias->nameHash == hash && InplaceStr(alias->name) == InplaceStr(curr->pos, curr->length))
 							break;
 						alias = alias->next;
 					}
@@ -2645,9 +2672,8 @@ bool ParseExpression(Lexeme** str)
 		if(ParseSelectType(str))
 		{
 			bool isVarDef = ((*str)->type == lex_string) && ((*str + 1)->type == lex_comma || (*str + 1)->type == lex_semicolon || (*str + 1)->type == lex_set);
-			if(!isVarDef)
-				if(ParseFunctionDefinition(str))
-					return true;
+			if(!isVarDef && ParseFunctionDefinition(str))
+				return true;
 
 			SetCurrentAlignment(0xFFFFFFFF);
 			ParseVariableDefineSub(str);

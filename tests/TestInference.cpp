@@ -575,7 +575,7 @@ const char	*testTypeofExtenendedExpr1 =
 	int a;\r\n\
 	const int c = 7;\r\n\
 }\r\n\
-assert(typeof(Foo.a.isReference) == int);\r\n\
+assert(typeof(Foo.a.isReference) == bool);\r\n\
 assert(typeof(Foo.c) == int);\r\n\
 return 1;";
 TEST_RESULT("typeof on extended typeof expressions", testTypeofExtenendedExpr1, "1");
@@ -590,6 +590,18 @@ assert(typeof(Foo.a + Foo.b) == short);\r\n\
 assert(typeof(Foo.b + Foo.a) == short);\r\n\
 return 1;";
 TEST_RESULT("typeof on extended typeof expressions", testTypeofExtenendedExpr2, "1");
+
+const char	*testTypeofExtenendedExpr3 = 
+"class Foo\r\n\
+{\r\n\
+	int a;\r\n\
+	const int b = 7;\r\n\
+}\r\n\
+assert(Foo.hasMember(a) == true);\r\n\
+assert(Foo.hasMember(b) == false);\r\n\
+assert(Foo.hasMember(c) == false);\r\n\
+return 1;";
+TEST_RESULT("typeof on extended typeof expressions (hasMember)", testTypeofExtenendedExpr3, "1");
 
 const char	*testShortInlineFunctionNoArguments = 
 "int foo(int ref() f){ return f(); }\r\n\
