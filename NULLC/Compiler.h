@@ -69,6 +69,11 @@ public:
 	unsigned int	GetBytecode(char** bytecode);
 private:
 	void	ClearState();
+	bool	ImportModuleNamespaces(const char* bytecode);
+	bool	ImportModuleTypes(const char* bytecode, const char* pos);
+	bool	ImportModuleVariables(const char* bytecode, const char* pos, unsigned int number);
+	bool	ImportModuleTypedefs(const char* bytecode);
+	bool	ImportModuleFunctions(const char* bytecode, const char* pos);
 	bool	ImportModule(const char* bytecode, const char* pos, unsigned int number);
 	char*	BuildModule(const char* file, const char* altFile);
 	void	RecursiveLexify(const char* bytecode);

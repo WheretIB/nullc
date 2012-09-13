@@ -641,36 +641,10 @@ void ResolveType(TypeInfo* info)
 	return;
 }
 
-bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int number)
+bool Compiler::ImportModuleNamespaces(const char* bytecode)
 {
-	char errBuf[256];
 	ByteCode *bCode = (ByteCode*)bytecode;
 	char *symbols = (char*)(bCode) + bCode->offsetToSymbols;
-
-	typeRemap.clear();
-
-#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
-	printf("Importing module %s\r\n", pos);
-#endif
-	// Import types
-	ExternTypeInfo *tInfo = FindFirstType(bCode);
-	unsigned int *memberList = (unsigned int*)(tInfo + bCode->typeCount);
-
-	unsigned int oldTypeCount = CodeInfo::typeInfo.size();
-
-	typeMap.clear();
-	for(unsigned int n = 0; n < oldTypeCount; n++)
-		typeMap.insert(CodeInfo::typeInfo[n]->GetFullNameHash(), CodeInfo::typeInfo[n]);
-
-	unsigned int lastTypeNum = CodeInfo::typeInfo.size();
-	for(unsigned int i = 0; i < bCode->typeCount; i++, tInfo++)
-	{
-		TypeInfo **info = typeMap.find(tInfo->nameHash);
-		if(info)
-			typeRemap.push_back((*info)->typeIndex);
-		else
-			typeRemap.push_back(lastTypeNum++);
-	}
 
 	// Import namespaces
 	struct NamespaceData
@@ -693,6 +667,35 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		unsigned hash = parent ? StringHashContinue(StringHashContinue(namespaceList->parentHash, "."), symbols + namespaceList->offsetToName) : GetStringHash(symbols + namespaceList->offsetToName);
 		CodeInfo::namespaceInfo.push_back(new NamespaceInfo(InplaceStr(symbols + namespaceList->offsetToName), hash, parent));
 		namespaceList++;
+	}
+
+	return true;
+}
+
+bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
+{
+	char errBuf[256];
+	ByteCode *bCode = (ByteCode*)bytecode;
+	char *symbols = (char*)(bCode) + bCode->offsetToSymbols;
+
+	// Import types
+	ExternTypeInfo *tInfo = FindFirstType(bCode);
+	unsigned int *memberList = (unsigned int*)(tInfo + bCode->typeCount);
+
+	unsigned int oldTypeCount = CodeInfo::typeInfo.size();
+
+	typeMap.clear();
+	for(unsigned int n = 0; n < oldTypeCount; n++)
+		typeMap.insert(CodeInfo::typeInfo[n]->GetFullNameHash(), CodeInfo::typeInfo[n]);
+
+	unsigned int lastTypeNum = CodeInfo::typeInfo.size();
+	for(unsigned int i = 0; i < bCode->typeCount; i++, tInfo++)
+	{
+		TypeInfo **info = typeMap.find(tInfo->nameHash);
+		if(info)
+			typeRemap.push_back((*info)->typeIndex);
+		else
+			typeRemap.push_back(lastTypeNum++);
 	}
 
 	unsigned skipConstants = 0;
@@ -787,6 +790,8 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 					}else{ // Or because it is a generic type base
 						newInfo->genericInfo = newInfo->CreateGenericContext(tInfo->definitionOffset + int(CodeInfo::lexFullStart - CodeInfo::lexStart));
 
+						newInfo->genericInfo->aliasCount = tInfo->genericTypeCount;
+
 						CodeInfo::nodeList.push_back(new NodeZeroOP());
 						newInfo->definitionList = new NodeExpressionList();
 						CodeInfo::funcDefList.push_back(newInfo->definitionList);
@@ -874,6 +879,14 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		printf("Type\r\n\t%s\r\nis remapped from index %d to index %d with\r\n\t%s\r\ntype\r\n", symbols + tInfo[i].offsetToName, i, typeRemap[i], CodeInfo::typeInfo[typeRemap[i]]->GetFullTypeName());
 #endif
 
+	return true;
+}
+
+bool Compiler::ImportModuleVariables(const char* bytecode, const char* pos, unsigned int number)
+{
+	ByteCode *bCode = (ByteCode*)bytecode;
+	char *symbols = (char*)(bCode) + bCode->offsetToSymbols;
+
 	ExternVarInfo *vInfo = FindFirstVar(bCode);
 
 	if(!setjmp(CodeInfo::errorHandler))
@@ -892,6 +905,15 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 	}else{
 		return false;
 	}
+
+	return true;
+}
+
+bool Compiler::ImportModuleTypedefs(const char* bytecode)
+{
+	char errBuf[256];
+	ByteCode *bCode = (ByteCode*)bytecode;
+	char *symbols = (char*)(bCode) + bCode->offsetToSymbols;
 
 	// Import type aliases
 	ExternTypedefInfo *typedefInfo = (ExternTypedefInfo*)((char*)(bCode) + bCode->offsetToTypedef);
@@ -927,6 +949,17 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 		}
 		typedefInfo++;
 	}
+
+	return true;
+}
+
+bool Compiler::ImportModuleFunctions(const char* bytecode, const char* pos)
+{
+	char errBuf[256];
+	ByteCode *bCode = (ByteCode*)bytecode;
+	char *symbols = (char*)(bCode) + bCode->offsetToSymbols;
+
+	ExternVarInfo *vInfo = FindFirstVar(bCode);
 
 	// Import functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
@@ -1084,6 +1117,33 @@ bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int 
 			param = param->next;
 		}
 	}
+
+	return true;
+}
+
+bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int number)
+{
+	typeRemap.clear();
+
+#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
+	printf("Importing module %s\r\n", pos);
+#endif
+
+	if(!ImportModuleNamespaces(bytecode))
+		return false;
+
+	if(!ImportModuleTypes(bytecode, pos))
+		return false;
+
+	if(!ImportModuleVariables(bytecode, pos, number))
+		return false;
+
+	if(!ImportModuleTypedefs(bytecode))
+		return false;
+
+	if(!ImportModuleFunctions(bytecode, pos))
+		return false;
+	
 	return true;
 }
 
@@ -2234,6 +2294,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		typeInfo.definitionOffset = refType.genericInfo ? refType.genericInfo->start - int(CodeInfo::lexFullStart - CodeInfo::lexStart) : ~0u;
 		if(refType.genericBase)
 			typeInfo.definitionOffset = 0x80000000 | refType.genericBase->typeIndex;
+
+		typeInfo.genericTypeCount = refType.genericInfo ? refType.genericInfo->aliasCount : 0;
 
 		typeInfo.baseType = refType.parentType ? refType.parentType->typeIndex : 0;
 

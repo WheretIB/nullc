@@ -499,15 +499,33 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 		SetCurrentNamespace(lastNS);
 
 		SelectTypeByIndex(index - 1);
-		if((*str)->type != lex_less && GetSelectedType()->genericInfo)
+
+		TypeInfo *currentType = GetSelectedType();
+
+		bool hasGenericOverloads = false;
+		if(currentType->genericInfo)
+		{
+			HashMap<TypeInfo*>::Node *type = CodeInfo::classMap.first(currentType->nameHash);
+
+			if(CodeInfo::classMap.next(type))
+				hasGenericOverloads = true;
+		}
+
+		if((*str)->type != lex_less && currentType->genericInfo)
 		{
 			if(flag & ALLOW_GENERIC_BASE)
+			{
+				if(hasGenericOverloads)
+					ThrowError((*str)->pos, "ERROR: type '%s' has multiple overloads with different number of generic arguments", currentType->name);
+
 				return true;
+			}
 			ThrowError((*str)->pos, "ERROR: generic class instance requires list of types inside '<' '>'");
 		}
+
 		if(ParseLexem(str, lex_less))
 		{
-			if(!GetSelectedType()->genericInfo)
+			if(!currentType->genericInfo)
 				ThrowError((*str)->pos, "ERROR: cannot specify argument list for a class that is not generic");
 			// For type instancing, this is a instance type argument list in correct order
 			AliasInfo *forwList = NULL;
@@ -516,7 +534,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 			{
 				while(strippedType->funcType)
 					strippedType = strippedType->funcType->retType;
-				if(strippedType->genericBase != GetSelectedType())
+				if(strippedType->genericBase != currentType)
 				{
 					*instanceFailure = true;
 					return false;
@@ -531,7 +549,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 					revList = revList->next;
 				}
 			}
-			TypeInfo *genericType = GetSelectedType();
+			
 			unsigned count = 0;
 			bool resolvedToGeneric = false;
 			do
@@ -555,19 +573,41 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 				if(instanceType)
 					forwList = forwList->next;
 			}while(ParseLexem(str, lex_comma));
-			// If type depends on generic
-			if(resolvedToGeneric)
+
+			if(resolvedToGeneric && hasGenericOverloads)
 			{
-				if(!(flag & ALLOW_GENERIC_TYPE)) // Fail if not allowed
-					ThrowError((*str)->pos, "ERROR: type depends on 'generic' in a context where it is not allowed");
-				// Instance type that has generic arguments
-				TypeInstanceGeneric((*str)->pos, genericType, count, true);
+				HashMap<TypeInfo*>::Node *type = CodeInfo::classMap.first(currentType->nameHash);
+
+				while(type && count != type->value->genericInfo->aliasCount)
+					type = CodeInfo::classMap.next(type);
+
+				if(!type)
+					ThrowError((*str)->pos, "ERROR: none of the '%s' type overloads accept '%d' type argument(s)", currentType->name, count);
+
+				SelectTypeByPointer(type->value);
+
+				for(unsigned i = 0; i < count; i++)
+					CodeInfo::nodeList.pop_back();
+
+				ParseGenericEnd(str);
 			}else{
-				TypeInstanceGeneric((*str)->pos, genericType, count);
+				// If type depends on generic
+				if(resolvedToGeneric)
+				{
+					if(!(flag & ALLOW_GENERIC_TYPE)) // Fail if not allowed
+						ThrowError((*str)->pos, "ERROR: type depends on 'generic' in a context where it is not allowed");
+					// Instance type that has generic arguments
+					TypeInstanceGeneric((*str)->pos, currentType, count, true);
+				}else{
+					TypeInstanceGeneric((*str)->pos, currentType, count);
+				}
+
+				ParseGenericEnd(str);
+
+				strippedType = lastStrippedType;
 			}
-			ParseGenericEnd(str);
-			strippedType = lastStrippedType;
 		}
+
 		if(flag & ALLOW_EXTENDED_TYPEOF)
 		{
 			unsigned nodeCount = CodeInfo::nodeList.size();
@@ -825,16 +865,15 @@ bool ParseClassDefinition(Lexeme** str)
 	{
 		if((*str)->type != lex_string)
 			ThrowError((*str)->pos, "ERROR: class name expected");
-		TypeInfo *proto = TypeBegin((*str)->pos, (*str)->pos+(*str)->length);
+
+		Lexeme *name = *str;
+
 		(*str)++;
 
 		if(ParseLexem(str, lex_less))
 		{
-			if(proto)
-				ThrowError((*str)->pos, "ERROR: type was forward declared as a non-generic type");
-			CodeInfo::typeInfo.back()->dependsOnGeneric = true;
-			TypeGeneric(unsigned(*str - CodeInfo::lexStart));
-			TypeInfo *newType = GetSelectedType();
+			Lexeme *start = *str;
+
 			AliasInfo *aliasList = NULL;
 			unsigned count = 0;
 			do
@@ -854,8 +893,19 @@ bool ParseClassDefinition(Lexeme** str)
 				(*str)++;
 				count++;
 			}while(ParseLexem(str, lex_comma));
+
+			TypeInfo *proto = TypeBegin(name->pos, name->pos + name->length, true, count);
+			if(proto)
+				ThrowError((*str)->pos, "ERROR: type was forward declared as a non-generic type");
+
+			TypeGeneric(unsigned(start - CodeInfo::lexStart));
+
+			TypeInfo *newType = GetSelectedType();
+
+			newType->dependsOnGeneric = true;
 			newType->childAlias = aliasList;
 			newType->genericInfo->aliasCount = count;
+
 			if(!ParseLexem(str, lex_greater))
 				ThrowError((*str)->pos, "ERROR: '>' expected after generic type alias list");
 			unsigned braces = 1;
@@ -884,6 +934,9 @@ bool ParseClassDefinition(Lexeme** str)
 			TypeFinish();
 			return true;
 		}
+
+		TypeBegin(name->pos, name->pos + name->length);
+
 		if(ParseLexem(str, lex_semicolon))
 		{
 			TypePrototypeFinish();
@@ -1232,7 +1285,7 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 		}
 	}else if((*str)->type == lex_string && ((*str + 1)->type == lex_colon || (*str + 1)->type == lex_point || ((*str + 1)->type == lex_less && (*str + 2)->type != lex_at))){
 		TypeInfo *retType = (TypeInfo*)GetSelectedType();
-		if(!ParseSelectType(str, ALLOW_ARRAY | ALLOW_GENERIC_BASE))
+		if(!ParseSelectType(str, ALLOW_ARRAY | ALLOW_GENERIC_BASE | ALLOW_GENERIC_TYPE))
 			ThrowError((*str)->pos, "ERROR: class name expected before ':' or '.'");
 		if((*str)->type == lex_point)
 			funcProperty = true;

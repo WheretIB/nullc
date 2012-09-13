@@ -38,6 +38,7 @@ struct ExternTypeInfo
 
 	unsigned int	nameHash;
 	unsigned int	definitionOffset; // For generic types, an offset in a lexeme stream to the point of type argument list
+	unsigned int	genericTypeCount;
 	unsigned int	namespaceHash;
 	unsigned int	baseType;
 };

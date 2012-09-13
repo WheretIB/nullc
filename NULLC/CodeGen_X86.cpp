@@ -3215,7 +3215,7 @@ void GenCodeCmdConvertPtr(VMCmd cmd)
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP_REG_REG(o_test, rEAX, rEAX);
 	EMIT_OP_LABEL(o_jnz, aluLabels);
-	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, -4);
+	EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rESP, unsigned(-4));
 #ifdef __linux
 	EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase - 16, rEAX);
 	// call siglongjmp(target_env, EXCEPTION_CONVERSION_ERROR);

@@ -420,7 +420,7 @@ int Foo:foo()\r\n\
 }\r\n\
 int c = 10;\r\n\
 Foo<int> x;\r\n\
-return x.foo();", "ERROR: while instantiating generic function Foo::foo()", "ERROR: unknown identifier 'c'");
+return x.foo();", "ERROR: while instantiating generic function Foo<int>::foo()", "ERROR: unknown identifier 'c'");
 
 	TEST_FOR_FAIL("generic type name is too long", 
 "class Pair<T, U>{ T i; U j; }\r\n\
@@ -529,11 +529,11 @@ return int(y() + z());",
 	TEST_FOR_FAIL("wrong function type passed for generic function specialization", "auto average(int ref(generic, int) f){ return f(2, 4); } auto f2(float x, y){ return x * 2.5; } return average(f2);", "ERROR: can't find function 'average' with following parameters:");
 
 	TEST_FOR_FAIL("generic type constructor call without generic arguments", "class Foo<T>{ T curr; } auto Foo:Foo(int start){ curr = start; } Foo<int> a = Foo(5);", "ERROR: generic type arguments in <> are not found after constructor name");
-	TEST_FOR_FAIL_GENERIC("generic type constructor call without generic arguments 2", "class list<T>{} class list_iterator<T>{} auto list_iterator:list_iterator(){} auto list:sum(){for(i in list_iterator()){}} list<int> arr; arr.sum();", "ERROR: while instantiating generic function list::sum()", "ERROR: generic type arguments in <> are not found after constructor name");
+	TEST_FOR_FAIL_GENERIC("generic type constructor call without generic arguments 2", "class list<T>{} class list_iterator<T>{} auto list_iterator:list_iterator(){} auto list:sum(){for(i in list_iterator()){}} list<int> arr; arr.sum();", "ERROR: while instantiating generic function list<int>::sum()", "ERROR: generic type arguments in <> are not found after constructor name");
 	
-	TEST_FOR_FAIL_GENERIC("generic type member function local function is local", "class Foo<T>{ T x; } auto Foo:foo(){ auto bar(){ return x; } return this.bar(); } Foo<int> m; return m.foo();", "ERROR: while instantiating generic function Foo::foo()", "ERROR: function 'Foo::bar' is undefined");
+	TEST_FOR_FAIL_GENERIC("generic type member function local function is local", "class Foo<T>{ T x; } auto Foo:foo(){ auto bar(){ return x; } return this.bar(); } Foo<int> m; return m.foo();", "ERROR: while instantiating generic function Foo<int>::foo()", "ERROR: function 'Foo::bar' is undefined");
 
-	TEST_FOR_FAIL_GENERIC("type aliases are taken from instance", "class Foo<T>{} auto Foo:foo(T key){ bar(10); } auto Foo:bar(T key){} Foo<char[]> map; map.foo(\"foo\"); return 1;", "ERROR: while instantiating generic function Foo::foo(generic)", "ERROR: can't find function 'bar' with following parameters:");
+	TEST_FOR_FAIL_GENERIC("type aliases are taken from instance", "class Foo<T>{} auto Foo:foo(T key){ bar(10); } auto Foo:bar(T key){} Foo<char[]> map; map.foo(\"foo\"); return 1;", "ERROR: while instantiating generic function Foo<char[]>::foo(generic)", "ERROR: can't find function 'bar' with following parameters:");
 
 	TEST_FOR_FAIL("wrong function return type", "int foo(int ref(generic) f){ return f(4); } auto f2(float x){ return x * 2.5; } return foo(f2);", "ERROR: can't find function 'foo' with following parameters:");
 
@@ -749,6 +749,22 @@ line 1 - ERROR: unknown identifier 'a'\r\n\
 	TEST_FOR_FAIL("hasMember extended typeof", "int.hasMember(x;", "ERROR: expected ')' after member name");
 
 	TEST_FOR_FAIL("any type allocation", "new (int[]();", "ERROR: matching ')' not found after '('");
+
+	TEST_FOR_FAIL_FULL("correct instancing info",
+"auto bar(@T x){}\r\n\
+bar(1);\r\n\
+bar(5.0);\r\n\
+auto m = bar;",
+"line 4 - ERROR: ambiguity, there is more than one overloaded function available:\r\n\
+  bar()\r\n\
+ candidates are:\r\n\
+  void bar(double)\r\n\
+  void bar(int)\r\n\
+  auto bar(generic) (wasn't instanced here)\r\n\
+\r\n\
+  at \"auto m = bar;\"\r\n\
+               ^\r\n\
+");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

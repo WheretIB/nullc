@@ -2412,6 +2412,10 @@ FunctionInfo* InstanceGenericFunctionForType(const char* pos, FunctionInfo *info
 		{
 			bestFuncList.push_back(func->value);
 			bestFuncRating.push_back(0);
+
+			if(func->value->genericBase)
+				func->value->genericBase->instancedType = NULL;
+
 			func = funcMap.next(func);
 		}while(func);
 
@@ -3290,7 +3294,7 @@ void FunctionPrototype(const char* pos)
 	while(curr)
 	{
 		FunctionInfo *func = curr->value;
-		if(func->visible && func->funcType == lastFunc.funcType && func != &lastFunc)
+		if(func->visible && func->funcType == lastFunc.funcType && func != &lastFunc && !(func->parentClass && func->parentClass->genericInfo && lastFunc.parentClass && lastFunc.parentClass->genericInfo && func->parentClass->genericInfo->aliasCount != lastFunc.parentClass->genericInfo->aliasCount))
 			ThrowError(pos, "ERROR: function is already defined");
 		curr = funcMap.next(curr);
 	}
@@ -4105,7 +4109,14 @@ unsigned GetRatingHelper(FunctionInfo* fInfo, TypeInfo* forcedParentType, unsign
 			TypeInfo *parentClass = fInfo->parentClass;
 			if(forcedParentType && fInfo->parentClass != forcedParentType)
 			{
-				assert(forcedParentType->genericBase == fInfo->parentClass);
+				// Function may be a child of a generic class with a different number of generic arguments 
+				if(forcedParentType->genericBase != fInfo->parentClass)
+				{
+					rating = ~0u;
+					fInfo->generic->instancedType = NULL;
+					return rating;
+				}
+
 				fInfo->parentClass = forcedParentType;
 			}
 			TypeInfo *tmpType = GetGenericFunctionRating(fInfo, rating, functionCount);
@@ -4602,7 +4613,7 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 		}
 	}
 	// Call it
-	return AddFunctionCallNode(pos, memberFuncName, callArgCount, silent);
+	return AddFunctionCallNode(pos, memberFuncName, callArgCount, silent, NULL, currentType->subType);
 }
 
 unsigned PrintArgumentName(NodeZeroOP* activeNode, char* pos, unsigned limit)
@@ -4793,11 +4804,14 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 
 	NodeZeroOP *funcDefAtEnd = NULL;
 
+	// Extra argument offset for correct node selection for type inference in variable argument functions
+	int argumentOffset = callArgCount != ~0u && callArgCount > fType->paramCount ? callArgCount - fType->paramCount : 0;
+
 	jmp_buf oldHandler;
 	memcpy(oldHandler, CodeInfo::errorHandler, sizeof(jmp_buf));
 	if(!setjmp(CodeInfo::errorHandler))
 	{
-		ParseFunctionVariables(&start, CodeInfo::nodeList.size() - fType->paramCount + 1);
+		ParseFunctionVariables(&start, CodeInfo::nodeList.size() - fType->paramCount - argumentOffset + 1);
 		assert(start->type == lex_cparen);
 		start++;
 		assert(start->type == lex_ofigure);
@@ -4849,8 +4863,8 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 	}else{
 		memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 
-		char	*errPos = errorReport;
-		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "ERROR: while instantiating generic function %s(", fInfo->name);
+		char *errPos = errorReport;
+		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "ERROR: while instantiating generic function %s(", functionInstance->name);
 		for(unsigned i = 0; i < fType->paramCount; i++)
 			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", i == 0 ? "" : ", ", fType->paramType[i]->GetFullTypeName());
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n\tusing argument vector (");
@@ -4911,7 +4925,7 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 	return funcDefAtEnd;
 }
 
-bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent, FunctionInfo* templateFunc)
+bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent, FunctionInfo* templateFunc, TypeInfo *forcedParentType)
 {
 	unsigned int funcNameHash = ~0u;
 
@@ -4919,7 +4933,6 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	FunctionType	*fType = NULL;
 
 	NodeZeroOP	*funcAddr = NULL;
-	TypeInfo	*forcedParentType = NULL;
 
 	// If we are inside member function, transform function name to a member function name (they have priority over global functions)
 	// But it's important not to do it if we have function namespace name or it is a constructor name
@@ -5590,7 +5603,7 @@ void EndSwitch()
 }
 
 // Begin type definition
-TypeInfo* TypeBegin(const char* pos, const char* end, bool addNamespace)
+TypeInfo* TypeBegin(const char* pos, const char* end, bool addNamespace, unsigned aliasCount)
 {
 	if(newType)
 		ThrowError(pos, "ERROR: different type is being defined");
@@ -5610,11 +5623,20 @@ TypeInfo* TypeBegin(const char* pos, const char* end, bool addNamespace)
 		ThrowError(pos, "ERROR: name is already taken for a namespace");
 
 	unsigned int hash = GetStringHash(typeNameCopy);
-	TypeInfo **type = CodeInfo::classMap.find(hash);
-	if(type && (*type)->hasFinished)
+
+	HashMap<TypeInfo*>::Node *type = CodeInfo::classMap.first(hash);
+
+	// Check if the new type if generic and is defined with a different number of type parameters
+	if(aliasCount && type && type->value->genericInfo)
+	{
+		while(type && aliasCount != type->value->genericInfo->aliasCount)
+			type = CodeInfo::classMap.next(type);
+	}
+
+	if(type && type->value->hasFinished)
 		ThrowError(pos, "ERROR: '%s' is being redefined", typeNameCopy);
-	else if(type && !(*type)->hasFinished)
-		newType = (*type);
+	else if(type && !type->value->hasFinished)
+		newType = type->value;
 	else
 		newType = new TypeInfo(CodeInfo::typeInfo.size(), typeNameCopy, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 	newType->alignBytes = currAlign;
@@ -5633,7 +5655,7 @@ TypeInfo* TypeBegin(const char* pos, const char* end, bool addNamespace)
 
 	BeginBlock();
 
-	return type ? *type : NULL;
+	return type ? type->value : NULL;
 }
 
 // Add class member
@@ -5885,7 +5907,6 @@ void TypeGeneric(unsigned pos)
 
 void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool genericTemp)
 {
-	Lexeme *start = CodeInfo::lexStart + base->genericInfo->start;
 	NodeZeroOP **aliasType = &CodeInfo::nodeList[CodeInfo::nodeList.size() - aliases];
 
 	// Generate instance name
@@ -5899,6 +5920,34 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool
 	// Check name length
 	if(NULLC_MAX_VARIABLE_NAME_LENGTH - int(namePos - tempName) == 0)
 		ThrowError(pos, "ERROR: generated generic type name exceeds maximum type length '%d'", NULLC_MAX_VARIABLE_NAME_LENGTH);
+
+	HashMap<TypeInfo*>::Node *type = CodeInfo::classMap.first(base->nameHash);
+
+	unsigned overloadCount = 0;
+
+	// Check if the new type if generic and is defined with a different number of type parameters
+	while(type && aliases != type->value->genericInfo->aliasCount)
+	{
+		overloadCount++;
+		type = CodeInfo::classMap.next(type);
+	}
+
+	if(!type)
+	{
+		if(overloadCount == 1)
+		{
+			if(aliases < base->genericInfo->aliasCount)
+				ThrowError(pos, "ERROR: there where only '%d' argument(s) to a generic type that expects '%d'", aliases, base->genericInfo->aliasCount);
+			if(aliases > base->genericInfo->aliasCount)
+				ThrowError(pos, "ERROR: type has only '%d' generic argument(s) while '%d' specified", base->genericInfo->aliasCount, aliases);
+		}else{
+			ThrowError(pos, "ERROR: none of the '%s' type overloads accept '%d' type argument(s)", base->name, aliases);
+		}
+	}
+
+	base = type->value;
+
+	Lexeme *start = CodeInfo::lexStart + base->genericInfo->start;
 
 	AliasInfo *aliasList = NULL;
 
@@ -5918,10 +5967,7 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool
 		start++;
 		aliasID++;
 	}while(start->type == lex_comma ? !!start++ : false);
-	if(aliasID > aliases)
-		ThrowError(pos, "ERROR: there where only '%d' argument(s) to a generic type that expects '%d'", aliases, aliasID);
-	else if(aliasID < aliases)
-		ThrowError(pos, "ERROR: type has only '%d' generic argument(s) while '%d' specified", aliasID, aliases);
+
 	assert(start->type == lex_greater);
 	start++;
 
