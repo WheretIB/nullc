@@ -1656,3 +1656,20 @@ const char *testGeneric141 =
 }\r\n\
 return foo(1, 2, 3);";
 TEST_RESULT("generic function with variable argument count", testGeneric141, "6");
+
+const char *testGeneric142 =
+"auto wrap(@T ref(@U) func, auto ref[] args)\r\n\
+{\r\n\
+	return func(U(args[0]));\r\n\
+}\r\n\
+\r\n\
+auto wrap(@T ref(@U, @V) func, auto ref[] args)\r\n\
+{\r\n\
+	return func(U(args[0]), V(args[1]));\r\n\
+}\r\n\
+\r\n\
+int foo(int x){ return -x; }\r\n\
+int bar(int x, y){ return x + y; }\r\n\
+\r\n\
+return wrap(foo, 1) + wrap(bar, 2, 3);";
+TEST_RESULT("generic function with variable argument count 2", testGeneric142, "4");

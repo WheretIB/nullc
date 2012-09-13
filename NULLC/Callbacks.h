@@ -159,7 +159,7 @@ void SelectFunctionsForHash(unsigned funcNameHash, unsigned scope);
 unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType = NULL, bool hideGenerics = true);
 
 unsigned GetFunctionRating(FunctionType *currFunc, unsigned callArgCount);
-bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false, FunctionInfo* templateFunc = NULL);
+bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false, FunctionInfo* templateFunc = NULL, TypeInfo* forcedParentType = NULL);
 bool PrepareMemberCall(const char* pos, const char* funcName = NULL);
 bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false);
 
@@ -179,7 +179,7 @@ void AddCaseNode(const char* pos);
 void AddDefaultNode();
 void EndSwitch();
 
-TypeInfo* TypeBegin(const char* pos, const char* end, bool addNamespace = true);
+TypeInfo* TypeBegin(const char* pos, const char* end, bool addNamespace = true, unsigned aliasCount = 0);
 void TypeAddMember(const char* pos, const char* varName);
 void TypeAddConstant(const char* pos, const char* constName);
 void TypePrototypeFinish();
