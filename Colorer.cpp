@@ -427,51 +427,91 @@ namespace ColorerGrammar
 				) >>
 				typePostExpr;
 
-			classbody	=
+			classElement =
+				(
+					strWP("const")[ColorRWord] >>
+					typeExpr >>
+					idP[ColorVarDef] >>
+					chP('=')[ColorText] >>
+					term4_9 >>
+					*(chP(',')[ColorText] >> idP[ColorVarDef] >> !(chP('=')[ColorText] >> term4_9)) >>
+					chP(';')[ColorText]
+				) |
+				typeDef |
+				(
+					chP('@')[ColorText] >>
+					strP("if")[ColorRWord] >>
+					chP('(') >>
+					term4_9 >>
+					chP(')') >>
+					(
+						(chP('{') >> *classElement >> chP('}')) |
+						classElement
+					) >>
+					*(
+						strP("else")[ColorRWord] >>
+						(
+							!(
+								strP("if")[ColorRWord] >>
+								chP('(') >>
+								term4_9 >>
+								chP(')')
+							) >>
+							(
+								(chP('{') >> *classElement >> chP('}')) |
+								classElement
+							)
+						)
+					)
+				) |
+				funcdef |
+				(
+					(typeExpr | (idP[ColorErr][LogError("ERROR: unknown type name")] >> typePostExpr)) >>
+					(
+						(
+							(idP - typenameP(idP))[ColorVarDef] >>
+							chP('{')[ColorText] >>
+							(strP("get")[ColorRWord] | epsP[LogError("ERROR: 'get' is expected after '{'")]) >>
+							(block | epsP[LogError("ERROR: function body expected after 'get'")]) >>
+							!(
+								strP("set")[ColorRWord] >>
+								!(
+									chP('(')[ColorText] >>
+									((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: r-value name not found")]) >>
+									(chP(')')[ColorText] | epsP[LogError("ERROR: ')' is expected after r-value name")])
+								) >> 
+								(block | epsP[LogError("ERROR: function body expected after 'set'")])
+							) >>
+							(chP('}')[ColorText] | epsP[LogError("ERROR: '}' is expected after property")])
+						) | (
+							((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after type")]) >>
+							*(
+								chP(',')[ColorText] >>
+								((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after ','")])
+							) 
+						)
+					) >>
+					(chP(';') | epsP[LogError("ERROR: ';' expected after variable list")])[ColorText]
+				);
+
+			classBody	=
 				!strP("extendable")[ColorRWord] >>
 				!(chP(':')[ColorText] >> (typeName[ColorRWord] | epsP[LogError("ERROR: base class name expected after ':'")])) >>
 				(chP('{') | epsP[LogError("ERROR: '{' not found after class name")])[ColorText] >>
-				*(
-					(strWP("const")[ColorRWord] >> typeExpr >> idP[ColorVarDef] >> chP('=')[ColorText] >> term4_9 >> *(chP(',')[ColorText] >> idP[ColorVarDef] >> !(chP('=')[ColorText] >> term4_9)) >> chP(';')[ColorText]) |
-					typeDef |
-					funcdef |
-					(
-						(typeExpr | (idP[ColorErr][LogError("ERROR: unknown type name")] >> typePostExpr)) >>
-						(
-							(
-								(idP - typenameP(idP))[ColorVarDef] >>
-								chP('{')[ColorText] >>
-								(strP("get")[ColorRWord] | epsP[LogError("ERROR: 'get' is expected after '{'")]) >>
-								(block | epsP[LogError("ERROR: function body expected after 'get'")]) >>
-								!(
-									strP("set")[ColorRWord] >>
-									!(
-										chP('(')[ColorText] >>
-										((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: r-value name not found")]) >>
-										(chP(')')[ColorText] | epsP[LogError("ERROR: ')' is expected after r-value name")])
-									) >> 
-									(block | epsP[LogError("ERROR: function body expected after 'set'")])
-								) >>
-								(chP('}')[ColorText] | epsP[LogError("ERROR: '}' is expected after property")])
-							) | (
-								((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after type")]) >>
-								*(
-									chP(',')[ColorText] >>
-									((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after ','")])
-								) 
-							)
-						)>>
-						(chP(';') | epsP[LogError("ERROR: ';' expected after variable list")])[ColorText]
-					)
-				) >>
+				*classElement >>
 				(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText];
 
 			classdef	=
 				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
 				strP("class")[ColorRWord] >>
 				(idP[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
-				!(chP('<')[ColorText] >> idP[ColorRWord][StartType] >> *(chP(',')[ColorText] >> idP[ColorRWord][StartType]) >> chP('>')[ColorText]) >>
-				(chP(';') | classbody);
+				!(
+					chP('<')[ColorText] >>
+					idP[ColorRWord][StartType] >>
+					*(chP(',')[ColorText] >> idP[ColorRWord][StartType]) >>
+					chP('>')[ColorText]
+				) >>
+				(chP(';') | classBody);
 	
 			enumeration	=
 				strWP("enum")[ColorRWord] >> idP[ColorRWord][StartType] >> chP('{')[ColorText] >>
@@ -763,7 +803,7 @@ namespace ColorerGrammar
 		// Parsing rules
 		Rule expr, block, funcdef, breakExpr, continueExpr, ifExpr, forExpr, returnExpr, vardef, vardefsub, whileExpr, dowhileExpr, switchExpr, typeDef;
 		Rule term5, term4_9, term4_6, term4_4, term4_2, term4_1, term4, term3, term2, term1, group, funccall, fcallpart, funcvars;
-		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr, oneLexOperator, typePostExpr, typeofPostExpr, enumeration, nameSpace, classbody;
+		Rule appval, symb, symb2, addvarp, typeExpr, classdef, arrayDef, typeName, postExpr, oneLexOperator, typePostExpr, typeofPostExpr, enumeration, nameSpace, classElement, classBody;
 		// Main rule
 		Rule code;
 	};

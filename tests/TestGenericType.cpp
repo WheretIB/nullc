@@ -2274,3 +2274,88 @@ Foo<int> g(){ return Foo<int>(); }\r\n\
 int ref(int) a = g().getX;\r\n\
 return a(3);";
 TEST_RESULT("generic type generic function retrieval (after function call)", testGenericType140, "7");
+
+const char *testGenericType141 =
+"class Foo<X>\r\n\
+{\r\n\
+	@if(X == int)\r\n\
+	{\r\n\
+		int a;\r\n\
+	}else if(X == char){\r\n\
+		float a;\r\n\
+	}\r\n\
+}\r\n\
+Foo<int> a;\r\n\
+Foo<double> b;\r\n\
+Foo<char> c;\r\n\
+return typeof(a).hasMember(a) && typeof(a.a) == int && !typeof(b).hasMember(a) && typeof(c).hasMember(a) && typeof(c.a) == float;";
+TEST_RESULT("static if in type body 1", testGenericType141, "1");
+
+const char *testGenericType142 =
+"class Foo<X>\r\n\
+{\r\n\
+	@if(X == int)\r\n\
+	{\r\n\
+		int a;\r\n\
+	}else{\r\n\
+		float a;\r\n\
+	}\r\n\
+}\r\n\
+Foo<int> a;\r\n\
+Foo<double> b;\r\n\
+Foo<char> c;\r\n\
+return typeof(a).hasMember(a) && typeof(a.a) == int && typeof(b).hasMember(a) && typeof(b.a) == float && typeof(c).hasMember(a) && typeof(c.a) == float;";
+TEST_RESULT("static if in type body 2", testGenericType142, "1");
+
+const char *testGenericType143 =
+"class Foo<X>\r\n\
+{\r\n\
+	@if(X == int)\r\n\
+		int a;\r\n\
+	else if(X == char)\r\n\
+		float a;\r\n\
+}\r\n\
+Foo<int> a;\r\n\
+Foo<double> b;\r\n\
+Foo<char> c;\r\n\
+return typeof(a).hasMember(a) && typeof(a.a) == int && !typeof(b).hasMember(a) && typeof(c).hasMember(a) && typeof(c.a) == float;";
+TEST_RESULT("static if in type body 3", testGenericType143, "1");
+
+const char *testGenericType144 =
+"class Foo<X>\r\n\
+{\r\n\
+	@if(X == int)\r\n\
+		int a;\r\n\
+	else\r\n\
+		float a;\r\n\
+}\r\n\
+Foo<int> a;\r\n\
+Foo<double> b;\r\n\
+Foo<char> c;\r\n\
+return typeof(a).hasMember(a) && typeof(a.a) == int && typeof(b).hasMember(a) && typeof(b.a) == float && typeof(c).hasMember(a) && typeof(c.a) == float;";
+TEST_RESULT("static if in type body 4", testGenericType144, "1");
+
+const char *testGenericType145 =
+"class Foo<X>\r\n\
+{\r\n\
+	@if(X == int){\r\n\
+		int a;\r\n\
+	}\r\n\
+}\r\n\
+Foo<int> a;\r\n\
+Foo<double> b;\r\n\
+Foo<char> c;\r\n\
+return typeof(a).hasMember(a) && typeof(a.a) == int && !typeof(b).hasMember(a) && !typeof(c).hasMember(a);";
+TEST_RESULT("static if in type body 5", testGenericType145, "1");
+
+const char *testGenericType146 =
+"class Foo<X>\r\n\
+{\r\n\
+	@if(X == int)\r\n\
+		int a;\r\n\
+}\r\n\
+Foo<int> a;\r\n\
+Foo<double> b;\r\n\
+Foo<char> c;\r\n\
+return typeof(a).hasMember(a) && typeof(a.a) == int && !typeof(b).hasMember(a) && !typeof(c).hasMember(a);";
+TEST_RESULT("static if in type body 6", testGenericType146, "1");

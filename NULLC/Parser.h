@@ -26,6 +26,8 @@ enum TypeParseFlag
 bool ParseSelectType(Lexeme** str, unsigned flag = ALLOW_ARRAY | ALLOW_EXTENDED_TYPEOF, TypeInfo* instanceType = NULL, bool* instanceFailure = NULL);
 void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool allowAutoReturnType = false, bool allowGenericType = false, TypeInfo* instanceType = NULL, bool* instanceFailure = NULL);
 
+bool ParseClassBodyElement(Lexeme** str);
+bool ParseClassStaticIf(Lexeme** str);
 void ParseClassBody(Lexeme** str);
 bool ParseClassDefinition(Lexeme** str);
 
@@ -40,7 +42,7 @@ bool ParseAddVariable(Lexeme** str);
 bool ParseVariableDefineSub(Lexeme** str);
 bool ParseVariableDefine(Lexeme** str);
 
-bool ParseIfExpr(Lexeme** str, bool isStatic = false);
+bool ParseIfExpr(Lexeme** str, bool isStatic = false, bool (*ExpressionParser)(Lexeme**) = NULL);
 bool ParseForExpr(Lexeme** str);
 bool ParseWhileExpr(Lexeme** str);
 bool ParseDoWhileExpr(Lexeme** str);
@@ -75,6 +77,7 @@ bool ParseTernaryExpr(Lexeme** str);
 bool ParseVaribleSet(Lexeme** str);
 
 bool ParseBlock(Lexeme** str);
+bool ParseExpressionStaticIf(Lexeme** str);
 bool ParseExpression(Lexeme** str);
 bool ParseCode(Lexeme** str);
 
