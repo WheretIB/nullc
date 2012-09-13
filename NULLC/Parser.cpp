@@ -631,6 +631,167 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 	return true;
 }
 
+bool ParseClassBodyElement(Lexeme** str)
+{
+	if(ParseTypedefExpr(str))
+		return true;
+	if(ParseLexem(str, lex_const))
+	{
+		if(!ParseSelectType(str))
+			ThrowError((*str)->pos, "ERROR: type name expected after const");
+		if(GetSelectedType() && (GetSelectedType()->type == TypeInfo::TYPE_COMPLEX || GetSelectedType()->refLevel || GetSelectedType()->type == TypeInfo::TYPE_VOID))
+			ThrowError((*str)->pos, "ERROR: only basic numeric types can be used as constants");
+		TypeInfo *constType = GetSelectedType();
+		TypeInfo::MemberVariable *prevConst = NULL;
+		do
+		{
+			if((*str)->type != lex_string)
+				ThrowError((*str)->pos, "ERROR: constant name expected after %s", prevConst ? "','" : "type");
+			if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+				ThrowError((*str)->pos, "ERROR: member name length is limited to 2048 symbols");
+			unsigned int memberNameLength = (*str)->length;
+			char	*memberName = (char*)stringPool.Allocate(memberNameLength + 2);
+			memcpy(memberName, (*str)->pos, memberNameLength);
+			memberName[memberNameLength] = 0;
+			(*str)++;
+			if(!ParseLexem(str, lex_set))
+			{
+				if(!prevConst)
+					ThrowError((*str)->pos, "ERROR: '=' not found after constant name");
+				if(prevConst->type != typeChar && prevConst->type != typeShort && prevConst->type != typeInt && prevConst->type != typeLong)
+					ThrowError((*str)->pos, "ERROR: only integer constant list gets automatically incremented by 1");
+					
+				CodeInfo::nodeList.push_back(prevConst->defaultValue);
+				CodeInfo::nodeList.push_back(new NodeNumber(1, typeInt));
+				AddBinaryCommandNode((*str)->pos, cmdAdd);
+			}else{
+				if(!ParseTernaryExpr(str))
+					ThrowError((*str)->pos, "ERROR: expression not found after '='");
+			}
+			SelectTypeByPointer(constType);
+			TypeAddConstant((*str)->pos, memberName);
+			prevConst = GetDefinedType()->lastVariable;
+		}while(ParseLexem(str, lex_comma));
+		if(!ParseLexem(str, lex_semicolon))
+			ThrowError((*str)->pos, "ERROR: ';' not found after constants");
+
+		return true;
+	}
+	if((*str)->type == lex_at)
+	{
+		(*str)++;
+		if(!ParseIfExpr(str, true, ParseClassStaticIf))
+			ThrowError((*str)->pos, "ERROR: static 'if' expected after '@'");
+		CodeInfo::nodeList.pop_back();
+
+		return true;
+	}
+	if(!ParseSelectType(str))
+	{
+		if((*str)->type == lex_string)
+			ThrowError((*str)->pos, "ERROR: '%.*s' is not a known type name", (*str)->length, (*str)->pos);
+
+		return false;
+	}
+	bool isVariableDefinition = ((*str)->type == lex_string) && ((*str + 1)->type == lex_comma || (*str + 1)->type == lex_semicolon || (*str + 1)->type == lex_set);
+	bool isFunctionDefinition = false;
+	if(isVariableDefinition || (isFunctionDefinition = ParseFunctionDefinition(str)) == false)
+	{
+		if((*str)->type != lex_string)
+			ThrowError((*str)->pos, "ERROR: class member name expected after type");
+		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+			ThrowError((*str)->pos, "ERROR: member name length is limited to 2048 symbols");
+		unsigned int memberNameLength = (*str)->length;
+		char	*memberName = (char*)stringPool.Allocate(memberNameLength + 2);
+		memcpy(memberName, (*str)->pos, memberNameLength);
+		memberName[memberNameLength] = 0;
+		(*str)++;
+
+		if(ParseLexem(str, lex_ofigure))
+		{
+			// Parse property
+			if((*str)->type != lex_string || (*str)->length != 3 || memcmp((*str)->pos, "get", 3) != 0)
+				ThrowError((*str)->pos, "ERROR: 'get' is expected after '{'");
+
+			memberName[memberNameLength] = '$';
+			memberName[memberNameLength + 1] = 0;
+
+			FunctionAdd((*str)->pos, memberName);
+			(*str)++;
+			FunctionStart((*str-1)->pos);
+			if(!ParseBlock(str))
+				ThrowError((*str)->pos, "ERROR: function body expected after 'get'");
+			FunctionEnd((*str-1)->pos);
+			// Get function return type
+			TypeInfo *propType = GetSelectedType();
+			if((*str)->type == lex_string || (*str)->length == 3 || memcmp((*str)->pos, "set", 3) == 0)
+			{
+				// Set setter return type to auto
+				SelectTypeByPointer(NULL);
+				FunctionAdd((*str)->pos, memberName);
+				(*str)++;
+				// Set setter parameter type to getter return type
+				SelectTypeByPointer(propType);
+				// Parse optional parameter name
+				if(ParseLexem(str, lex_oparen))
+				{
+					if((*str)->type != lex_string)
+						ThrowError((*str)->pos, "ERROR: r-value name not found after '('");
+					if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+						ThrowError((*str)->pos, "ERROR: r-value name length is limited to 2048 symbols");
+					FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length));
+					(*str)++;
+					if(!ParseLexem(str, lex_cparen))
+						ThrowError((*str)->pos, "ERROR: ')' not found after r-value");
+				}else{
+					FunctionParameter((*str)->pos, InplaceStr("r"));
+				}
+				FunctionStart((*str-1)->pos);
+				if(!ParseBlock(str))
+					ThrowError((*str)->pos, "ERROR: function body expected after 'set'");
+				FunctionEnd((*str-1)->pos);
+			}
+			if(!ParseLexem(str, lex_cfigure))
+				ThrowError((*str)->pos, "ERROR: '}' is expected after property");
+		}else{
+			TypeAddMember((*str-1)->pos, memberName);
+
+			while(ParseLexem(str, lex_comma))
+			{
+				if((*str)->type != lex_string)
+					ThrowError((*str)->pos, "ERROR: member name expected after ','");
+				if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+					ThrowError((*str)->pos, "ERROR: member name length is limited to 2048 symbols");
+				char	*memberName = (char*)stringPool.Allocate((*str)->length+1);
+				memcpy(memberName, (*str)->pos, (*str)->length);
+				memberName[(*str)->length] = 0;
+				TypeAddMember((*str)->pos, memberName);
+				(*str)++;
+			}
+		}
+		if(!ParseLexem(str, lex_semicolon))
+			ThrowError((*str)->pos, "ERROR: ';' not found after class member list");
+
+		return true;
+	}
+
+	return isFunctionDefinition;
+}
+
+bool ParseClassStaticIf(Lexeme** str)
+{
+	bool hasBlock = ParseLexem(str, lex_ofigure);
+
+	while(ParseClassBodyElement(str));
+
+	if(hasBlock && !ParseLexem(str, lex_cfigure))
+		ThrowError((*str)->pos, "ERROR: closing '}' not found");
+
+	AddVoidNode();
+
+	return true;
+}
+
 void ParseClassBody(Lexeme** str)
 {
 	if(ParseLexem(str, lex_extendable))
@@ -644,136 +805,13 @@ void ParseClassBody(Lexeme** str)
 	}
 	if(!ParseLexem(str, lex_ofigure))
 		ThrowError((*str)->pos, "ERROR: '{' not found after class name");
+
 	while((*str)->type != lex_cfigure)
 	{
-		if(ParseTypedefExpr(str))
-			continue;
-		if(ParseLexem(str, lex_const))
-		{
-			if(!ParseSelectType(str))
-				ThrowError((*str)->pos, "ERROR: type name expected after const");
-			if(GetSelectedType() && (GetSelectedType()->type == TypeInfo::TYPE_COMPLEX || GetSelectedType()->refLevel || GetSelectedType()->type == TypeInfo::TYPE_VOID))
-				ThrowError((*str)->pos, "ERROR: only basic numeric types can be used as constants");
-			TypeInfo *constType = GetSelectedType();
-			TypeInfo::MemberVariable *prevConst = NULL;
-			do
-			{
-				if((*str)->type != lex_string)
-					ThrowError((*str)->pos, "ERROR: constant name expected after %s", prevConst ? "','" : "type");
-				if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-					ThrowError((*str)->pos, "ERROR: member name length is limited to 2048 symbols");
-				unsigned int memberNameLength = (*str)->length;
-				char	*memberName = (char*)stringPool.Allocate(memberNameLength + 2);
-				memcpy(memberName, (*str)->pos, memberNameLength);
-				memberName[memberNameLength] = 0;
-				(*str)++;
-				if(!ParseLexem(str, lex_set))
-				{
-					if(!prevConst)
-						ThrowError((*str)->pos, "ERROR: '=' not found after constant name");
-					if(prevConst->type != typeChar && prevConst->type != typeShort && prevConst->type != typeInt && prevConst->type != typeLong)
-						ThrowError((*str)->pos, "ERROR: only integer constant list gets automatically incremented by 1");
-					
-					CodeInfo::nodeList.push_back(prevConst->defaultValue);
-					CodeInfo::nodeList.push_back(new NodeNumber(1, typeInt));
-					AddBinaryCommandNode((*str)->pos, cmdAdd);
-				}else{
-					if(!ParseTernaryExpr(str))
-						ThrowError((*str)->pos, "ERROR: expression not found after '='");
-				}
-				SelectTypeByPointer(constType);
-				TypeAddConstant((*str)->pos, memberName);
-				prevConst = GetDefinedType()->lastVariable;
-			}while(ParseLexem(str, lex_comma));
-			if(!ParseLexem(str, lex_semicolon))
-				ThrowError((*str)->pos, "ERROR: ';' not found after constants");
-			continue;
-		}
-		if(!ParseSelectType(str))
-		{
-			if((*str)->type == lex_string)
-				ThrowError((*str)->pos, "ERROR: '%.*s' is not a known type name", (*str)->length, (*str)->pos);
+		if(!ParseClassBodyElement(str))
 			break;
-		}
-		bool isVarDef = ((*str)->type == lex_string) && ((*str + 1)->type == lex_comma || (*str + 1)->type == lex_semicolon || (*str + 1)->type == lex_set);
-		if(isVarDef || !ParseFunctionDefinition(str))
-		{
-			if((*str)->type != lex_string)
-				ThrowError((*str)->pos, "ERROR: class member name expected after type");
-			if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-				ThrowError((*str)->pos, "ERROR: member name length is limited to 2048 symbols");
-			unsigned int memberNameLength = (*str)->length;
-			char	*memberName = (char*)stringPool.Allocate(memberNameLength + 2);
-			memcpy(memberName, (*str)->pos, memberNameLength);
-			memberName[memberNameLength] = 0;
-			(*str)++;
-
-			if(ParseLexem(str, lex_ofigure))
-			{
-				// Parse property
-				if((*str)->type != lex_string || (*str)->length != 3 || memcmp((*str)->pos, "get", 3) != 0)
-					ThrowError((*str)->pos, "ERROR: 'get' is expected after '{'");
-
-				memberName[memberNameLength] = '$';
-				memberName[memberNameLength + 1] = 0;
-
-				FunctionAdd((*str)->pos, memberName);
-				(*str)++;
-				FunctionStart((*str-1)->pos);
-				if(!ParseBlock(str))
-					ThrowError((*str)->pos, "ERROR: function body expected after 'get'");
-				FunctionEnd((*str-1)->pos);
-				// Get function return type
-				TypeInfo *propType = GetSelectedType();
-				if((*str)->type == lex_string || (*str)->length == 3 || memcmp((*str)->pos, "set", 3) == 0)
-				{
-					// Set setter return type to auto
-					SelectTypeByPointer(NULL);
-					FunctionAdd((*str)->pos, memberName);
-					(*str)++;
-					// Set setter parameter type to getter return type
-					SelectTypeByPointer(propType);
-					// Parse optional parameter name
-					if(ParseLexem(str, lex_oparen))
-					{
-						if((*str)->type != lex_string)
-							ThrowError((*str)->pos, "ERROR: r-value name not found after '('");
-						if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-							ThrowError((*str)->pos, "ERROR: r-value name length is limited to 2048 symbols");
-						FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length));
-						(*str)++;
-						if(!ParseLexem(str, lex_cparen))
-							ThrowError((*str)->pos, "ERROR: ')' not found after r-value");
-					}else{
-						FunctionParameter((*str)->pos, InplaceStr("r"));
-					}
-					FunctionStart((*str-1)->pos);
-					if(!ParseBlock(str))
-						ThrowError((*str)->pos, "ERROR: function body expected after 'set'");
-					FunctionEnd((*str-1)->pos);
-				}
-				if(!ParseLexem(str, lex_cfigure))
-					ThrowError((*str)->pos, "ERROR: '}' is expected after property");
-			}else{
-				TypeAddMember((*str-1)->pos, memberName);
-
-				while(ParseLexem(str, lex_comma))
-				{
-					if((*str)->type != lex_string)
-						ThrowError((*str)->pos, "ERROR: member name expected after ','");
-					if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-						ThrowError((*str)->pos, "ERROR: member name length is limited to 2048 symbols");
-					char	*memberName = (char*)stringPool.Allocate((*str)->length+1);
-					memcpy(memberName, (*str)->pos, (*str)->length);
-					memberName[(*str)->length] = 0;
-					TypeAddMember((*str)->pos, memberName);
-					(*str)++;
-				}
-			}
-			if(!ParseLexem(str, lex_semicolon))
-				ThrowError((*str)->pos, "ERROR: ';' not found after class member list");
-		}
 	}
+
 	if(!ParseLexem(str, lex_cfigure))
 		ThrowError((*str)->pos, "ERROR: '}' not found after class definition");
 }
@@ -1577,7 +1615,7 @@ bool ParseVariableDefine(Lexeme** str)
 	return true;
 }
 
-bool ParseIfExpr(Lexeme** str, bool isStatic)
+bool ParseIfExpr(Lexeme** str, bool isStatic, bool (*ExpressionParser)(Lexeme**))
 {
 	if(!ParseLexem(str, lex_if))
 		return false;
@@ -1591,6 +1629,8 @@ bool ParseIfExpr(Lexeme** str, bool isStatic)
 		ThrowError((*str)->pos, "ERROR: closing ')' not found after 'if' condition");
 	if(CodeInfo::nodeList.back()->nodeType == typeNodeNumber && isStatic)
 	{
+		assert(ExpressionParser);
+
 		int result = ((NodeNumber*)CodeInfo::nodeList.back())->GetInteger();
 		CodeInfo::nodeList.pop_back();
 		if(!result)
@@ -1615,17 +1655,41 @@ bool ParseIfExpr(Lexeme** str, bool isStatic)
 			}
 			if(ParseLexem(str, lex_else))
 			{
-				if(!((*str)->type == lex_if ? ParseIfExpr(str, true) : ParseExpression(str)))
+				if(!((*str)->type == lex_if ? ParseIfExpr(str, true, ExpressionParser) : ExpressionParser(str)))
 					ThrowError((*str)->pos, "ERROR: expression not found after 'else'");
 			}else{
 				AddVoidNode();
 			}
 		}else{
-			if(!ParseExpression(str))
+			if(!ExpressionParser(str))
 				ThrowError((*str)->pos, "ERROR: expression not found after 'if'");
 			if(ParseLexem(str, lex_else))
 			{
 				unsigned startBraces = ParseLexem(str, lex_ofigure), braces = startBraces;
+
+				// Carefully skip the following 'if' expression
+				if(!startBraces && ParseLexem(str, lex_if))
+				{
+					unsigned parenthesis = 0;
+					for(;;)
+					{
+						if((*str)->type == lex_none)
+							break;
+						if(ParseLexem(str, lex_oparen))
+						{
+							parenthesis++;
+						}else if(ParseLexem(str, lex_cparen)){
+							if(!--parenthesis)
+								break;
+						}else{
+							(*str)++;
+						}
+					}
+					startBraces = ParseLexem(str, lex_ofigure);
+					braces = startBraces;
+				}
+
+				// Skip body
 				for(;;)
 				{
 					if((*str)->type == lex_none)
@@ -2553,12 +2617,35 @@ bool ParseBlock(Lexeme** str)
 {
 	if(!ParseLexem(str, lex_ofigure))
 		return false;
+
 	BeginBlock();
+
 	if(!ParseCode(str))
 		AddVoidNode();
+
 	if(!ParseLexem(str, lex_cfigure))
 		ThrowError((*str)->pos, "ERROR: closing '}' not found");
+
 	EndBlock();
+
+	return true;
+}
+
+bool ParseExpressionStaticIf(Lexeme** str)
+{
+	bool hasBlock = ParseLexem(str, lex_ofigure);
+
+	if(!ParseCode(str))
+	{
+		if(!hasBlock)
+			return false;
+
+		AddVoidNode();
+	}
+
+	if(hasBlock && !ParseLexem(str, lex_cfigure))
+		ThrowError((*str)->pos, "ERROR: closing '}' not found");
+
 	return true;
 }
 
@@ -2670,7 +2757,7 @@ bool ParseExpression(Lexeme** str)
 		if((*str)[1].type == lex_if)
 		{
 			(*str)++;
-			ParseIfExpr(str, true);
+			ParseIfExpr(str, true, ParseExpressionStaticIf);
 			return true;
 		}
 	default:

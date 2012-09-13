@@ -322,3 +322,47 @@ auto foo3(generic a)\r\n\
 }\r\n\
 return foo1(4l) + foo2(5.0) + foo3(4);";
 TEST_RESULT("Static if test 5", testStaticIf5, "3");
+
+const char	*testStaticIf6 =
+"@if(1)\r\n\
+{\r\n\
+	int a;\r\n\
+}else if(0){\r\n\
+	float a;\r\n\
+}\r\n\
+return typeof(a) == int;";
+TEST_RESULT("Static if test 6", testStaticIf6, "1");
+
+const char	*testStaticIf7 =
+"@if(0)\r\n\
+{\r\n\
+	int a;\r\n\
+}else if(1){\r\n\
+	float a;\r\n\
+}\r\n\
+return typeof(a) == float;";
+TEST_RESULT("Static if test 7", testStaticIf7, "1");
+
+const char	*testStaticIf8 =
+"@if(1)\r\n\
+{\r\n\
+}else\r\n\
+ auto(){};\r\n\
+return 1;";
+TEST_RESULT("Static if test 8", testStaticIf8, "1");
+
+const char	*testStaticIf9 =
+"@if(1)\r\n\
+{\r\n\
+}else if(1)\r\n\
+ auto(){};\r\n\
+return 1;";
+TEST_RESULT("Static if test 9", testStaticIf9, "1");
+
+const char	*testStaticIf10 =
+"@if(1)\r\n\
+	int a;\r\n\
+else\r\n\
+	float a;\r\n\
+return typeof(a) == int;";
+TEST_RESULT("Static if test 10", testStaticIf10, "1");
