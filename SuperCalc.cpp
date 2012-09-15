@@ -186,7 +186,7 @@ namespace RemoteData
 	unsigned int		localCount = 0;
 	ExternLocalInfo		*locals = NULL;
 
-	unsigned int		*typeExtra = NULL;
+	ExternMemberInfo	*typeExtra = NULL;
 	char				*symbols = NULL;
 
 	char				*stackData = NULL;
@@ -946,7 +946,7 @@ unsigned int	codeTypeCount = 0;
 ExternTypeInfo	*codeTypes = NULL;
 ExternFuncInfo	*codeFunctions = NULL;
 ExternLocalInfo	*codeLocals = NULL;
-unsigned int	*codeTypeExtra = NULL;
+ExternMemberInfo*codeTypeExtra = NULL;
 char			*codeSymbols = NULL;
 unsigned int	codeInstCount = 0;
 VMCmd			*codeInst = NULL;
@@ -1094,7 +1094,6 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	HTREEITEM child = update ? TreeView_GetChild(hWatch, parent) : NULL;
 
 	char name[256];
-	unsigned localOffset = 0;
 
 	const char *memberName = codeSymbols + type.offsetToName + (unsigned int)strlen(codeSymbols + type.offsetToName) + 1;
 	for(unsigned int i = 0; i < type.memberCount; i++)
@@ -1102,20 +1101,16 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 		char *it = name;
 		memset(name, 0, 256);
 
-		ExternTypeInfo	&memberType = codeTypes[codeTypeExtra[type.memberOffset + i]];
-		unsigned int alignment = memberType.defaultAlign > 4 ? 4 : memberType.defaultAlign;
-		if(alignment && localOffset % alignment != 0)
-		{
-			ptr += alignment - (localOffset % alignment);
-			localOffset += alignment - (localOffset % alignment);	
-		}
+		ExternTypeInfo &memberType = codeTypes[codeTypeExtra[type.memberOffset + i].type];
+
+		unsigned localOffset = codeTypeExtra[type.memberOffset + i].offset;
 
 		it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + memberType.offsetToName, memberName);
 
 		if(memberType.subCat == ExternTypeInfo::CAT_NONE || memberType.subCat == ExternTypeInfo::CAT_POINTER)
-			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(memberType, ptr));
+			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(memberType, ptr + localOffset));
 		else if(&memberType == &codeTypes[8])	// for typeid
-			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr)].offsetToName : "invalid: out of range");
+			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr + localOffset) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr + localOffset)].offsetToName : "invalid: out of range");
 
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
@@ -1133,14 +1128,13 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 		}else{
 			lastItem = TreeView_InsertItem(hVars, &helpInsert);
 			if(memberType.subCat == ExternTypeInfo::CAT_POINTER)
-				tiExtra.back() = TreeItemExtra((void*)ptr, &memberType, lastItem, true);
+				tiExtra.back() = TreeItemExtra((void*)(ptr + localOffset), &memberType, lastItem, true);
 		}
 
-		FillVariableInfo(memberType, ptr, lastItem);
+		FillVariableInfo(memberType, ptr + localOffset, lastItem);
 
 		memberName += (unsigned int)strlen(memberName) + 1;
-		ptr += memberType.size;
-		localOffset += memberType.size;
+
 		if(update)
 			child = TreeView_GetNextSibling(hWatch, child);
 	}
@@ -1230,7 +1224,7 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 		return;
 
 	ExternFuncInfo	&func = codeFunctions[*(int*)(ptr + 4)];
-	ExternTypeInfo	&returnType = codeTypes[codeTypeExtra[type.memberOffset]];
+	ExternTypeInfo	&returnType = codeTypes[codeTypeExtra[type.memberOffset].type];
 
 	char *it = name;
 	it += safeprintf(it, 256 - int(it - name), "function %d %s %s(", *(int*)(ptr + 4), codeSymbols + returnType.offsetToName, codeSymbols + func.offsetToName);

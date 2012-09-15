@@ -21,7 +21,7 @@ const void*			nullcGetModule(const char* path);
 /*	Used to retrieve code information of linked code	*/
 
 ExternTypeInfo*		nullcDebugTypeInfo(unsigned int *count);
-unsigned int*		nullcDebugTypeExtraInfo(unsigned int *count);
+ExternMemberInfo*	nullcDebugTypeExtraInfo(unsigned int *count);
 ExternVarInfo*		nullcDebugVariableInfo(unsigned int *count);
 ExternFuncInfo*		nullcDebugFunctionInfo(unsigned int *count);
 ExternLocalInfo*	nullcDebugLocalInfo(unsigned int *count);

@@ -191,6 +191,11 @@ int TestExtG6(TestExtG6Foo x)
 {
 	return x.a == -1 && *x.b == -2;
 }
+struct TestExtG7Foo{ float a; double b; };
+int TestExtG7(TestExtG7Foo x)
+{
+	return x.a == -1.0f && x.b == -2.0;
+}
 
 struct TestExtG2bFoo{ char a; int b; };
 TestExtG2bFoo TestExtG2b(TestExtG2bFoo x)
@@ -580,6 +585,16 @@ Zomg z; z.x = -1; z.y = &u;\r\n\
 return Call(z);";
 TEST_RESULT("External function call. { int; int ref; } in argument.", testExternalCallG6, "1");
 
+LOAD_MODULE_BIND(test_extG7, "test.extG7", "class Zomg{ float x; double y; } int Call(Zomg a);")
+{
+	nullcBindModuleFunction("test.extG7", (void (*)())TestExtG7, "Call", 0);
+}
+const char	*testExternalCallG7 =
+"import test.extG7;\r\n\
+Zomg z; z.x = -1; z.y = -2;\r\n\
+return Call(z);";
+TEST_RESULT("External function call. { float; double; } in argument.", testExternalCallG7, "1");
+
 LOAD_MODULE_BIND(test_extG2b, "test.extG2b", "class Zomg{ char x; int y; } Zomg Call(Zomg a);")
 {
 	nullcBindModuleFunction("test.extG2b", (void (*)())TestExtG2b, "Call", 0);
@@ -745,6 +760,58 @@ LOAD_MODULE_BIND(test_big2, "test.big2", "class X{ float a, b, c; } X Call();")
 }
 const char	*testBigReturnType2 = "import test.big2;\r\n X x; x = Call(); return x.a == 1.0f && x.b == 2.0f && x.c == 3.0f;";
 TEST_RESULT("External function call. Big return type 2.", testBigReturnType2, "1");
+
+struct ReturnBig3{ float a; double b; };
+ReturnBig3 TestReturnBig3()
+{
+	ReturnBig3 x = { 1, 2 };
+	return x;
+}
+LOAD_MODULE_BIND(test_big3, "test.big3", "class X{ float a; double b; } X Call();")
+{
+	nullcBindModuleFunction("test.big3", (void (*)())TestReturnBig3, "Call", 0);
+}
+const char	*testBigReturnType3 = "import test.big3;\r\n X x; x = Call(); return x.a == 1.0f && x.b == 2.0;";
+TEST_RESULT("External function call. Big return type 3.", testBigReturnType3, "1");
+
+struct ReturnBig4{ int a; float b; };
+ReturnBig4 TestReturnBig4()
+{
+	ReturnBig4 x = { 1, 2 };
+	return x;
+}
+LOAD_MODULE_BIND(test_big4, "test.big4", "class X{ int a; float b; } X Call();")
+{
+	nullcBindModuleFunction("test.big4", (void (*)())TestReturnBig4, "Call", 0);
+}
+const char	*testBigReturnType4 = "import test.big4;\r\n X x; x = Call(); return x.a == 1 && x.b == 2.0;";
+TEST_RESULT("External function call. Big return type 4.", testBigReturnType4, "1");
+
+struct ReturnBig5{ int a; double b; };
+ReturnBig5 TestReturnBig5()
+{
+	ReturnBig5 x = { 1, 2 };
+	return x;
+}
+LOAD_MODULE_BIND(test_big5, "test.big5", "class X{ int a; double b; } X Call();")
+{
+	nullcBindModuleFunction("test.big5", (void (*)())TestReturnBig5, "Call", 0);
+}
+const char	*testBigReturnType5 = "import test.big5;\r\n X x; x = Call(); return x.a == 1 && x.b == 2.0;";
+TEST_RESULT("External function call. Big return type 5.", testBigReturnType5, "1");
+
+struct ReturnBig6{ double a; int b; };
+ReturnBig6 TestReturnBig6()
+{
+	ReturnBig6 x = { 1, 2 };
+	return x;
+}
+LOAD_MODULE_BIND(test_big6, "test.big6", "class X{ double a; int b; } X Call();")
+{
+	nullcBindModuleFunction("test.big6", (void (*)())TestReturnBig6, "Call", 0);
+}
+const char	*testBigReturnType6 = "import test.big6;\r\n X x; x = Call(); return x.a == 1 && x.b == 2.0;";
+TEST_RESULT("External function call. Big return type 6.", testBigReturnType6, "1");
 
 #endif
 

@@ -78,8 +78,10 @@ struct AliasInfo
 class TypeInfo
 {
 public:
-	static const unsigned int UNSIZED_ARRAY = (unsigned int)-1;
-	static const unsigned int UNSPECIFIED_ALIGNMENT = (unsigned int)-1;
+	static const unsigned UNSIZED_ARRAY = (unsigned int)-1;
+
+	static const unsigned ALIGNMENT_UNSPECIFIED = 0; // alignment will depend on context
+	static const unsigned ALIGNMENT_NONE = 1; // alignment will not be applied
 	
 	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
 
@@ -319,7 +321,7 @@ public:
 		return fullNameHash;
 	}
 
-	void	AddMemberVariable(const char *name, TypeInfo* type)
+	void	AddMemberVariable(const char *name, TypeInfo* type, bool updateLayout = true, NodeZeroOP* defaultValue = NULL)
 	{
 		if(!lastVariable)
 		{
@@ -329,21 +331,34 @@ public:
 			lastVariable = lastVariable->next;
 		}
 		lastVariable->next = NULL;
+
 		lastVariable->name = name;
 		lastVariable->nameHash = GetStringHash(name);
+
 		lastVariable->type = type;
-		lastVariable->offset = size;
-		lastVariable->defaultValue = NULL;
-		size += type->size;
-		memberCount++;
-		if(type->hasPointers)
-			hasPointers = true;
+		lastVariable->alignBytes = 0;
+
+		if(updateLayout)
+		{
+			lastVariable->offset = size;
+			size += type->size;
+		}
+
+		lastVariable->defaultValue = defaultValue;
+
+		if(defaultValue == NULL)
+		{
+			memberCount++;
+			if(type->hasPointers)
+				hasPointers = true;
+		}
 	}
 	struct MemberVariable
 	{
 		const char		*name;
 		unsigned int	nameHash;
 		TypeInfo		*type;
+		unsigned int	alignBytes;
 		unsigned int	offset;
 		NodeZeroOP		*defaultValue;
 

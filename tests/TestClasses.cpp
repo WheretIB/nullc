@@ -442,7 +442,7 @@ const char	*testDefaultStaticConstructor2 = "class Foo{ int x; } auto bar(Foo m)
 TEST_RESULT("default static constructor 2", testDefaultStaticConstructor2, "4");
 
 const char	*testDefaultStaticConstructor3 =
-"class Foo<T>{ T x; int a; }\r\n\
+"align(4) class Foo<T>{ T x; int a; }\r\n\
 auto foo(Foo<@T> m){ return sizeof(m); }\r\n\
 return foo(Foo<Foo<double>>());";
 TEST_RESULT("default static constructor 3", testDefaultStaticConstructor3, "16");

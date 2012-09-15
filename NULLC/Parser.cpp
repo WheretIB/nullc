@@ -675,6 +675,7 @@ bool ParseClassBodyElement(Lexeme** str)
 {
 	if(ParseTypedefExpr(str))
 		return true;
+
 	if(ParseLexem(str, lex_const))
 	{
 		if(!ParseSelectType(str))
@@ -717,6 +718,7 @@ bool ParseClassBodyElement(Lexeme** str)
 
 		return true;
 	}
+
 	if((*str)->type == lex_at)
 	{
 		(*str)++;
@@ -726,6 +728,10 @@ bool ParseClassBodyElement(Lexeme** str)
 
 		return true;
 	}
+
+	SetCurrentAlignment(TypeInfo::ALIGNMENT_UNSPECIFIED);
+
+	bool hasAlignment = ParseAlignment(str);
 	if(!ParseSelectType(str))
 	{
 		if((*str)->type == lex_string)
@@ -733,7 +739,7 @@ bool ParseClassBodyElement(Lexeme** str)
 
 		return false;
 	}
-	bool isVariableDefinition = ((*str)->type == lex_string) && ((*str + 1)->type == lex_comma || (*str + 1)->type == lex_semicolon || (*str + 1)->type == lex_set);
+	bool isVariableDefinition = hasAlignment || (((*str)->type == lex_string) && ((*str + 1)->type == lex_comma || (*str + 1)->type == lex_semicolon || (*str + 1)->type == lex_set));
 	bool isFunctionDefinition = false;
 	if(isVariableDefinition || (isFunctionDefinition = ParseFunctionDefinition(str)) == false)
 	{
@@ -858,8 +864,9 @@ void ParseClassBody(Lexeme** str)
 
 bool ParseClassDefinition(Lexeme** str)
 {
-	if(!ParseAlignment(str))
-		SetCurrentAlignment(0);
+	SetCurrentAlignment(TypeInfo::ALIGNMENT_UNSPECIFIED);
+
+	ParseAlignment(str);
 
 	if(ParseLexem(str, lex_class))
 	{
@@ -954,7 +961,8 @@ bool ParseEnum(Lexeme** str)
 	if(!ParseLexem(str, lex_enum))
 		return false;
 
-	SetCurrentAlignment(0);
+	SetCurrentAlignment(TypeInfo::ALIGNMENT_UNSPECIFIED);
+
 	if((*str)->type != lex_string)
 		ThrowError((*str)->pos, "ERROR: enum name expected");
 	TypeBegin((*str)->pos, (*str)->pos+(*str)->length);
@@ -1637,7 +1645,7 @@ bool ParseAlignment(Lexeme** str)
 {
 	if(ParseLexem(str, lex_noalign))
 	{
-		SetCurrentAlignment(0);
+		SetCurrentAlignment(TypeInfo::ALIGNMENT_NONE);
 		return true;
 	}else if(ParseLexem(str, lex_align))
 	{
@@ -1658,12 +1666,16 @@ bool ParseAlignment(Lexeme** str)
 bool ParseVariableDefine(Lexeme** str)
 {
 	Lexeme *curr = *str;
-	SetCurrentAlignment(0xFFFFFFFF);
+
+	SetCurrentAlignment(TypeInfo::ALIGNMENT_UNSPECIFIED);
 	ParseAlignment(&curr);
+
 	if(!ParseSelectType(&curr))
 		return false;
+
 	if(!ParseVariableDefineSub(&curr))
 		return false;
+
 	*str = curr;
 	return true;
 }
@@ -2820,7 +2832,8 @@ bool ParseExpression(Lexeme** str)
 			if(!isVarDef && ParseFunctionDefinition(str))
 				return true;
 
-			SetCurrentAlignment(0xFFFFFFFF);
+			SetCurrentAlignment(TypeInfo::ALIGNMENT_UNSPECIFIED);
+
 			ParseVariableDefineSub(str);
 			if(!ParseLexem(str, lex_semicolon))
 				ThrowError((*str)->pos, "ERROR: ';' not found after variable definition");

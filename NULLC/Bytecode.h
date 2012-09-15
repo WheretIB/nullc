@@ -13,6 +13,7 @@ struct ExternTypeInfo
 	unsigned int	offsetToName;
 
 	unsigned int	size;	// sizeof(type)
+	unsigned int	padding;
 	TypeCategory	type;
 
 	enum SubCategory{ CAT_NONE, CAT_ARRAY, CAT_POINTER, CAT_FUNCTION, CAT_CLASS, };
@@ -163,6 +164,12 @@ struct ExternModuleInfo
 	unsigned int	sourceSize;
 };
 
+struct ExternMemberInfo
+{
+	unsigned int	type;
+	unsigned int	offset;
+};
+
 struct ByteCode
 {
 	unsigned int	size;	// Overall size
@@ -259,9 +266,9 @@ struct ByteCode
 
 #pragma pack(pop)
 
-ExternTypeInfo*	FindFirstType(ByteCode *code);
-ExternVarInfo*	FindFirstVar(ByteCode *code);
-ExternFuncInfo*	FindFirstFunc(ByteCode *code);
-char*			FindCode(ByteCode *code);
+ExternTypeInfo*		FindFirstType(ByteCode *code);
+ExternVarInfo*		FindFirstVar(ByteCode *code);
+ExternFuncInfo*		FindFirstFunc(ByteCode *code);
+char*				FindCode(ByteCode *code);
 
 #endif

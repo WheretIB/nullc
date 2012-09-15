@@ -366,3 +366,136 @@ else\r\n\
 	float a;\r\n\
 return typeof(a) == int;";
 TEST_RESULT("Static if test 10", testStaticIf10, "1");
+
+const char	*testAlignment =
+"import test.alignment;\r\n\
+align(16) int a;\r\n\
+return CheckAlignment(&a, 16);";
+TEST_RESULT("Global variable alignment", testAlignment, "1");
+
+const char	*testAlignment2 =
+"import test.alignment;\r\n\
+align(16) class X{ char a; }\r\n\
+char n; X[2] a;\r\n\
+return CheckAlignment(&a[0], 16);";
+TEST_RESULT("Array alignment 2", testAlignment2, "1");
+
+const char	*testAlignment3 =
+"import test.alignment;\r\n\
+class X{ double x; int y; }\r\n\
+class Y{ X x; int y; }\r\n\
+Y y;\r\n\
+return CheckAlignment(&y.x.x, 8) + CheckAlignment(&y.x.y, 4) + CheckAlignment(&y.y, 4);";
+TEST_RESULT("Array alignment 3", testAlignment3, "3");
+
+const char	*testAlignmentPadding =
+"align(16) class X{ char a; }\r\n\
+return sizeof(X);";
+TEST_RESULT("Type padding for correct array element alignment", testAlignmentPadding, "16");
+
+const char	*testAlignmentPadding2 =
+"align(16) class X{ char a; }\r\n\
+class Y{ char x; X v; }\r\n\
+return sizeof(Y);";
+TEST_RESULT("Type padding for correct array element alignment 2", testAlignmentPadding2, "32");
+
+const char	*testAlignmentPadding3 =
+"align(16) class X{ char a; }\r\n\
+class Y{ char x; X v; char z; }\r\n\
+return sizeof(Y);";
+TEST_RESULT("Type padding for correct array element alignment 3", testAlignmentPadding3, "48");
+
+struct AlignedStruct
+{
+	char x;
+	double y;
+	char z;
+};
+
+int CheckAlignmentStruct(NULLCRef ptr)
+{
+	AlignedStruct *obj = (AlignedStruct*)ptr.ptr;
+	return obj->x == 0x34 && obj->y == 32.0 && obj->z == 0x45;
+}
+
+LOAD_MODULE_BIND(test_alignment_struct, "test.alignment.struct", "int CheckAlignmentStruct(auto ref ptr);")
+{
+	nullcBindModuleFunction("test.alignment.struct", (void(*)())CheckAlignmentStruct, "CheckAlignmentStruct", 0);
+}
+
+const char	*testAlignmentPadding4 =
+"import test.alignment.struct;\r\n\
+class X{ char x; double v; char z; }\r\n\
+X x;\r\n\
+x.x = 0x34;\r\n\
+x.v = 32.0;\r\n\
+x.z = 0x45;\r\n\
+return CheckAlignmentStruct(&x);";
+TEST_RESULT("Type padding for correct array element alignment 3", testAlignmentPadding4, "1");
+
+const char	*testAlignmentPadding5 =
+"import test.alignment;\r\n\
+class X{ double x; int y; }\r\n\
+class Y{ X x; int y; }\r\n\
+return sizeof(Y);";
+TEST_RESULT("Type padding for correct array element alignment 5", testAlignmentPadding5, "24");
+
+const char	*testAlignmentPadding6 =
+"align(2) class X{ char a; int b; char c; }\r\n\
+return sizeof(X);";
+TEST_RESULT("Smaller explicit alignment overrides members with larger alignment", testAlignmentPadding6, "8");
+
+const char	*testAlignmentPadding7 =
+"class X{ char a; align(4) char b; }\r\n\
+return sizeof(X);";
+TEST_RESULT("Class member alignment specification", testAlignmentPadding7, "8");
+
+const char	*testAlignmentPadding8 =
+"class X extendable\r\n\
+{\r\n\
+	char a;\r\n\
+	align(4) char b;\r\n\
+}\r\n\
+class Y: X\r\n\
+{\r\n\
+	char c;\r\n\
+}\r\n\
+X x;\r\n\
+Y y;\r\n\
+\r\n\
+return sizeof(X) == 12 && sizeof(Y) == 16;";
+TEST_RESULT("Alignment and inhertance", testAlignmentPadding8, "1");
+
+LOAD_MODULE(test_alignment_pading, "test.alignment.padding",
+"class X{ char a; align(16) int b; char c; }\r\n\
+X x;\r\n\
+x.a = 75;\r\n\
+x.b = 5603;\r\n\
+x.c = 120;\r\n\
+int a = sizeof(X);");
+const char *testAlignmentPadding9 =
+"import test.alignment.padding;\r\n\
+return sizeof(X) == 32 && x.a == 75 && x.b == 5603 && x.c == 120;";
+TEST_RESULT("Correct alignment of an imported class", testAlignmentPadding9, "1");
+
+const char	*testAlignmentPadding10 =
+"class X{ char x; int y; char z; }\r\n\
+noalign class Y{ char x; int y; char z; }\r\n\
+align(1) class Z{ char x; int y; char z; }\r\n\
+return sizeof(X) == 12 && sizeof(Y) == 8 && sizeof(Z) == 8;";
+TEST_RESULT("noalign test 1", testAlignmentPadding10, "1");
+
+const char	*testAlignmentPadding11 =
+"class X{ char x; short y; char z; }\r\n\
+noalign class Y{ char x; short y; char z; }\r\n\
+align(1) class Z{ char x; short y; char z; }\r\n\
+return sizeof(X) == 8 && sizeof(Y) == 4 && sizeof(Z) == 4;";
+TEST_RESULT("noalign test 2", testAlignmentPadding11, "1");
+
+const char	*testAlignmentPadding12 =
+"import test.alignment;\r\n\
+class X{ char a; align(4) char b; }\r\n\
+class Y{ char a; X x; }\r\n\
+Y y;\r\n\
+return CheckAlignment(&y.x.b, 4);";
+TEST_RESULT("Class alignment inside a class", testAlignmentPadding12, "1");
