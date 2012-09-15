@@ -499,3 +499,43 @@ class Y{ char a; X x; }\r\n\
 Y y;\r\n\
 return CheckAlignment(&y.x.b, 4);";
 TEST_RESULT("Class alignment inside a class", testAlignmentPadding12, "1");
+
+const char	*testAlignmentHeap1 =
+"import test.alignment;\r\n\
+align(2) class X{ char x; }\r\n\
+auto x = new X;\r\n\
+auto y = new X;\r\n\
+return CheckAlignment(x, 2) + CheckAlignment(y, 2);";
+TEST_RESULT("Alignment of objects in heap 1", testAlignmentHeap1, "2");
+
+const char	*testAlignmentHeap2 =
+"import test.alignment;\r\n\
+align(4) class X{ char x; }\r\n\
+auto x = new X;\r\n\
+auto y = new X;\r\n\
+return CheckAlignment(x, 4) + CheckAlignment(y, 4);";
+TEST_RESULT("Alignment of objects in heap 2", testAlignmentHeap2, "2");
+
+const char	*testAlignmentHeap3 =
+"import test.alignment;\r\n\
+align(8) class X{ char x; }\r\n\
+auto x = new X;\r\n\
+auto y = new X;\r\n\
+return CheckAlignment(x, 8) + CheckAlignment(y, 8);";
+TEST_RESULT("Alignment of objects in heap 3", testAlignmentHeap3, "2");
+
+const char	*testAlignmentHeap4 =
+"import test.alignment;\r\n\
+align(16) class X{ char x; }\r\n\
+auto x = new X;\r\n\
+auto y = new X;\r\n\
+return CheckAlignment(x, 16) + CheckAlignment(y, 16);";
+TEST_RESULT("Alignment of objects in heap 4", testAlignmentHeap4, "2");
+
+const char	*testAlignmentHeap5 =
+"import test.alignment;\r\n\
+align(16) class X{ char[73] x; }\r\n\
+auto x = new X;\r\n\
+auto y = new X;\r\n\
+return CheckAlignment(x, 16) + CheckAlignment(y, 16);";
+TEST_RESULT("Alignment of objects in heap 5", testAlignmentHeap5, "2");
