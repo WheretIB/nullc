@@ -35,6 +35,35 @@ typedef nullres (*externalInit)(nullres (*)(const char*, const char*), nullres (
 
 int main(int argc, char** argv)
 {
+	if(argc == 1)
+	{
+		printf("usage: ConsoleCalc [-x86] [-p] [-v] file\n");
+		printf("\t -x86\texecute using x86 JiT compilation\n");
+		printf("\t -p\tprofile code compilation speed\n");
+		printf("\t -v\tverbose output (module import warnings, program result)\n");
+		return 0;
+	}
+	bool useX86 = false;
+	bool profile = false;
+	bool verbose = false;
+	const char *fileName = NULL;
+	for(int i = 1; i < argc; i++)
+	{
+		if(strcmp(argv[i], "-x86") == 0)
+			useX86 = true;
+		if(strcmp(argv[i], "-p") == 0)
+			profile = true;
+		if(strcmp(argv[i], "-v") == 0)
+			verbose = true;
+		if(strstr(argv[i], ".nc"))
+			fileName = argv[i];
+	}
+	if(!fileName)
+	{
+		printf("File must be specified\n");
+		return 0;
+	}
+
 	nullcInit("Modules/");
 
 #ifdef __linux
@@ -46,8 +75,11 @@ int main(int argc, char** argv)
 	FILE *modulePack = fopen(sizeof(void*) == sizeof(int) ? "nullclib.ncm" : X64_LIB, "rb");
 	if(!modulePack)
 	{
-		printf("WARNING: Failed to open precompiled module file ");
-		printf(sizeof(void*) == sizeof(int) ? "nullclib.ncm\r\n" : X64_LIB"\r\n");
+		if(verbose)
+		{
+			printf("WARNING: Failed to open precompiled module file ");
+			printf(sizeof(void*) == sizeof(int) ? "nullclib.ncm\r\n" : X64_LIB"\r\n");
+		}
 	}else{
 		fseek(modulePack, 0, SEEK_END);
 		unsigned int fileSize = ftell(modulePack);
@@ -69,40 +101,40 @@ int main(int argc, char** argv)
 		delete[] fileContent;
 	}
 
-	if(!nullcInitTypeinfoModule())
+	if(!nullcInitTypeinfoModule() && verbose)
 		printf("ERROR: Failed to init std.typeinfo module\r\n");
-	if(!nullcInitDynamicModule())
+	if(!nullcInitDynamicModule() && verbose)
 		printf("ERROR: Failed to init std.dynamic module\r\n");
 
-	if(!nullcInitFileModule())
+	if(!nullcInitFileModule() && verbose)
 		printf("ERROR: Failed to init std.file module\r\n");
-	if(!nullcInitIOModule())
+	if(!nullcInitIOModule() && verbose)
 		printf("ERROR: Failed to init std.io module\r\n");
-	if(!nullcInitMathModule())
+	if(!nullcInitMathModule() && verbose)
 		printf("ERROR: Failed to init std.math module\r\n");
-	if(!nullcInitStringModule())
+	if(!nullcInitStringModule() && verbose)
 		printf("ERROR: Failed to init std.string module\r\n");
 
-	if(!nullcInitCanvasModule())
+	if(!nullcInitCanvasModule() && verbose)
 		printf("ERROR: Failed to init img.canvas module\r\n");
 #ifdef BUILD_FOR_WINDOWS
-	if(!nullcInitWindowModule())
+	if(!nullcInitWindowModule() && verbose)
 		printf("ERROR: Failed to init win.window module\r\n");
 #endif
-	if(!nullcInitVectorModule())
+	if(!nullcInitVectorModule() && verbose)
 		printf("ERROR: Failed to init std.vector module\r\n");
-	if(!nullcInitListModule())
+	if(!nullcInitListModule() && verbose)
 		printf("ERROR: Failed to init std.list module\r\n");
-	if(!nullcInitMapModule())
+	if(!nullcInitMapModule() && verbose)
 		printf("ERROR: Failed to init std.map module\r\n");
-	if(!nullcInitRandomModule())
+	if(!nullcInitRandomModule() && verbose)
 		printf("ERROR: Failed to init std.random module\r\n");
-	if(!nullcInitTimeModule())
+	if(!nullcInitTimeModule() && verbose)
 		printf("ERROR: Failed to init std.time module\r\n");
-	if(!nullcInitGCModule())
+	if(!nullcInitGCModule() && verbose)
 		printf("ERROR: Failed to init std.gc module\r\n");
 
-	if(!nullcInitPugiXMLModule())
+	if(!nullcInitPugiXMLModule() && verbose)
 		printf("ERROR: Failed to init ext.pugixml module\r\n");
 
 #ifdef BUILD_FOR_WINDOWS
@@ -117,14 +149,16 @@ int main(int argc, char** argv)
 		{
 			if(!(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
 			{
-				printf("Loading bindings from %s\n", findData.cFileName);
+				if(verbose)
+					printf("Loading bindings from %s\n", findData.cFileName);
 				HMODULE module = LoadLibrary(findData.cFileName);
 				externalInit init = (externalInit)GetProcAddress(module, "InitModule");
 				if(!init)
 				{
-					printf("Failed to find initialization function InitModule\n");
+					if(verbose)
+						printf("Failed to find initialization function InitModule\n");
 				}else{
-					if(!init(nullcLoadModuleBySource, nullcBindModuleFunction))
+					if(!init(nullcLoadModuleBySource, nullcBindModuleFunction) && verbose)
 						printf("Failed to load bindings from %s\n", findData.cFileName);
 				}
 			}
@@ -132,40 +166,6 @@ int main(int argc, char** argv)
 		FindClose(hFind);
 	}
 #endif
-	/*
-	nullcInitFileModule();
-	nullcInitMathModule();
-	nullcInitStringModule();
-
-	nullcInitCanvasModule();
-	nullcInitIOModule();
-
-#ifdef BUILD_FOR_WINDOWS
-	nullcInitWindowModule();
-#endif
-*/
-	if(argc == 1)
-	{
-		printf("usage: ConsoleCalc [-x86] file\n");
-		return 0;
-	}
-	bool useX86 = false;
-	bool profile = false;
-	const char *fileName = NULL;
-	for(int i = 1; i < argc; i++)
-	{
-		if(strcmp(argv[i], "-x86") == 0)
-			useX86 = true;
-		if(strcmp(argv[i], "-p") == 0)
-			profile = true;
-		if(strstr(argv[i], ".nc"))
-			fileName = argv[i];
-	}
-	if(!fileName)
-	{
-		printf("File must be specified\n");
-		return 0;
-	}
 
 	nullcSetExecutor(useX86 ? NULLC_X86 : NULLC_VM);
 	
@@ -198,6 +198,8 @@ int main(int argc, char** argv)
 		printf("5000 comp. + link: %dms Single: %.2fms\n", end - start, (end - start) / 5000.0);
 	}
 
+	int result = 1;
+
 	nullres good = nullcBuild(fileContent);
 	if(!good)
 	{
@@ -206,8 +208,15 @@ int main(int argc, char** argv)
 		nullres goodRun = nullcRun();
 		if(goodRun)
 		{
-			const char* val = nullcGetResult();
-			printf("\n%s\n", val);
+			if(verbose)
+			{
+				const char* val = nullcGetResult();
+				printf("\n%s\n", val);
+
+				result = 0;
+			}else{
+				result = nullcGetResultInt();
+			}
 		}else{
 			printf("Execution failed: %s\n", nullcGetLastError());
 		}
@@ -216,4 +225,6 @@ int main(int argc, char** argv)
 	delete[] fileContent;
 
 	nullcTerminate();
+
+	return result;
 }
