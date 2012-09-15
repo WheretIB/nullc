@@ -2020,7 +2020,7 @@ void NodeGetCoroutineState::Compile()
 
 	first->Compile();
 	cmdList.push_back(VMCmd(cmdPushPtrStk, 0, (unsigned short)typeInfo->size, 0));
-	cmdList.push_back(VMCmd(cmdPushPtrStk, 0, (unsigned short)typeInfo->size, 0));
+	cmdList.push_back(VMCmd(cmdPushIntStk, 0, (unsigned short)typeInfo->size, 0));
 }
 
 NodeCreateUnsizedArray::NodeCreateUnsizedArray(TypeInfo* arrayType, NodeZeroOP* size)
