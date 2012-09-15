@@ -34,8 +34,8 @@ namespace NULLCTypeInfo
 			nullcThrowError("typeid::memberType: member number illegal, type (%s) has only %d members", &linker->exSymbols[exType.offsetToName], exType.memberCount);
 			return getTypeID(0);
 		}
-		unsigned int *memberList = &linker->exTypeExtra[0];
-		return getTypeID(memberList[exType.memberOffset + member]);
+		ExternMemberInfo *memberList = &linker->exTypeExtra[0];
+		return getTypeID(memberList[exType.memberOffset + member].type);
 	}
 	NULLCArray MemberName(int member, int* type)
 	{
@@ -77,20 +77,9 @@ namespace NULLCTypeInfo
 		if((exType.subCat != ExternTypeInfo::CAT_CLASS) || ((unsigned)member >= exType.memberCount))
 			return ret;
 
-		unsigned int *memberList = &linker->exTypeExtra[exType.memberOffset];
-		ret.typeID = memberList[member];
-		ret.ptr = obj.ptr;
-		unsigned int pos = 0;
-		for(unsigned m = 0; m <= (unsigned)member; m++)
-		{
-			ExternTypeInfo &memberType = linker->exTypes[memberList[m]];
-			unsigned int alignment = memberType.defaultAlign > 4 ? 4 : memberType.defaultAlign;
-			if(alignment && pos % alignment != 0)
-				pos += alignment - (pos % alignment);
-			if(m != (unsigned)member)
-				pos += memberType.size;
-		}
-		ret.ptr += pos;
+		ExternMemberInfo *memberList = &linker->exTypeExtra[exType.memberOffset];
+		ret.typeID = memberList[member].type;
+		ret.ptr = obj.ptr + memberList[member].offset;
 		return ret;
 	}
 	NULLCRef MemberByName(NULLCRef obj, NULLCArray member)
@@ -215,8 +204,8 @@ namespace NULLCTypeInfo
 			nullcThrowError("typeid::returnType received type (%s) that is not a function", &linker->exSymbols[type.offsetToName]);
 			return getTypeID(0);
 		}
-		unsigned int *memberList = &linker->exTypeExtra[0];
-		return getTypeID(memberList[type.memberOffset]);
+		ExternMemberInfo *memberList = &linker->exTypeExtra[0];
+		return getTypeID(memberList[type.memberOffset].type);
 	}
 
 	int TypeArgumentCount(int &typeID)
@@ -245,8 +234,8 @@ namespace NULLCTypeInfo
 			nullcThrowError("typeid::argumentType: argument number illegal, function (%s) has only %d argument(s)", &linker->exSymbols[type.offsetToName], type.memberCount);
 			return getTypeID(0);
 		}
-		unsigned int *memberList = &linker->exTypeExtra[0];
-		return getTypeID(memberList[type.memberOffset + argument + 1]);
+		ExternMemberInfo *memberList = &linker->exTypeExtra[0];
+		return getTypeID(memberList[type.memberOffset + argument + 1].type);
 	}
 
 	TypeID GetType(NULLCArray name)

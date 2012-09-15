@@ -1015,7 +1015,7 @@ ExternTypeInfo* nullcDebugTypeInfo(unsigned int *count)
 	return linker ? linker->exTypes.data : NULL;
 }
 
-unsigned int* nullcDebugTypeExtraInfo(unsigned int *count)
+ExternMemberInfo* nullcDebugTypeExtraInfo(unsigned int *count)
 {
 	using namespace NULLC;
 

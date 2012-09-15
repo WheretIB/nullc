@@ -91,14 +91,13 @@ static const unsigned char gatePrologue[] =
 bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
 {
 	bool aligned = 1;
-	unsigned int pos = 0;
 	//printf("checking class %s: ", exLinker->exSymbols.data + lType->offsetToName);
 	for(unsigned m = 0; m < lType->memberCount; m++)
 	{
-		ExternTypeInfo &memberType = exLinker->exTypes[exLinker->exTypeExtra[lType->memberOffset + m]];
-		unsigned int alignment = memberType.defaultAlign > 4 ? 4 : memberType.defaultAlign;
-		if(alignment && pos % alignment != 0)
-			pos += alignment - (pos % alignment);
+		ExternMemberInfo &member = exLinker->exTypeExtra[lType->memberOffset + m];
+		ExternTypeInfo &memberType = exLinker->exTypes[member.type];
+		unsigned pos = member.offset;
+
 		//printf("member %s; ", exLinker->exSymbols.data + memberType.offsetToName);
 		switch(memberType.type)
 		{
@@ -547,7 +546,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 
 	// handle return value
 	ExternFuncInfo::ReturnType retType = (ExternFuncInfo::ReturnType)exFunctions[funcID].retType;
-	unsigned int retTypeID = exLinker->exTypeExtra[exTypes[exFunctions[funcID].funcType].memberOffset];
+	unsigned int retTypeID = exLinker->exTypeExtra[exTypes[exFunctions[funcID].funcType].memberOffset].type;
 	unsigned int retTypeSize = exTypes[retTypeID].size;
 	if(retType == ExternFuncInfo::RETURN_UNKNOWN)
 	{
@@ -2124,15 +2123,15 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 		return;
 	}
 	// Get class member type list
-	unsigned int *memberList = &exLinker->exTypeExtra[realType->memberOffset + realType->memberCount];
+	ExternMemberInfo *memberList = &exLinker->exTypeExtra[realType->memberOffset + realType->memberCount];
 	//char *str = symbols + type.offsetToName;
 	//const char *memberName = symbols + type.offsetToName + strlen(str) + 1;
 	// Check pointer members
 	for(unsigned int n = 0; n < realType->pointerCount; n++)
 	{
 		// Get member type
-		ExternTypeInfo &subType = exTypes[memberList[n * 2]];
-		unsigned int pos = memberList[n * 2 + 1];
+		ExternTypeInfo &subType = exTypes[memberList[n].type];
+		unsigned int pos = memberList[n].offset;
 		// Check member
 		FixupVariable(ptr + pos, subType);
 		//unsigned int strLength = (unsigned int)strlen(memberName) + 1;

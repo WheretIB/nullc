@@ -80,7 +80,7 @@ const char	*testCharArr2 =
 arr[0] = \"hehe\";\r\n\
 arr[1] = \"haha\";\r\n\
 auto un = \"buggy\";\r\n\
-align(13) class sss{ int a; char[5] uhu; int bb; }\r\n\
+align(8) class sss{ int a; char[5] uhu; int bb; }\r\n\
 sss kl;\r\n\
 char p;\r\n\
 noalign double c, d;\r\n\

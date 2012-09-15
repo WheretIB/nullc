@@ -69,7 +69,7 @@ bool Linker::LinkCode(const char *code)
 	ByteCode *bCode = (ByteCode*)code;
 
 	ExternTypeInfo *tInfo = FindFirstType(bCode), *tStart = tInfo;
-	unsigned int *memberList = (unsigned int*)(tInfo + bCode->typeCount);
+	ExternMemberInfo *memberList = (ExternMemberInfo*)(tInfo + bCode->typeCount);
 
 	unsigned int moduleFuncCount = 0;
 
@@ -209,16 +209,10 @@ bool Linker::LinkCode(const char *code)
 			{
 				exTypes.back().memberOffset = exTypeExtra.size();
 				exTypeExtra.push_back(memberList + tInfo->memberOffset, tInfo->memberCount + (tInfo->subCat == ExternTypeInfo::CAT_FUNCTION ? 1 : 0));
-				// If class has some members with pointers
+
+				// Additional list of members with pointer
 				if(tInfo->subCat == ExternTypeInfo::CAT_CLASS && tInfo->pointerCount)
-				{
-					// Then, after member types there's a list of members with pointers in a form of struct{ member type, member offset }, which we have to save
-					unsigned int count = exTypeExtra.size();
-					exTypeExtra.push_back(memberList + tInfo->memberOffset + tInfo->memberCount, tInfo->pointerCount * 2);
-					// Mark member offsets by setting a bit, so that offsets won't be remapped using typeRemap array (during type ID fixup)
-					for(unsigned int k = count + 1; k < exTypeExtra.size(); k += 2)
-						exTypeExtra[k] |= 0x80000000;
-				}
+					exTypeExtra.push_back(memberList + tInfo->memberOffset + tInfo->memberCount, tInfo->pointerCount);
 			}
 		}else{
 			typeRemap.push_back(*lastType);
@@ -236,7 +230,7 @@ bool Linker::LinkCode(const char *code)
 
 	// Remap new member types (while skipping member offsets)
 	for(unsigned int i = oldMemberSize; i < exTypeExtra.size(); i++)
-		exTypeExtra[i] = (exTypeExtra[i] & 0x80000000) ? (exTypeExtra[i] & ~0x80000000) : typeRemap[exTypeExtra[i]];
+		exTypeExtra[i].type = typeRemap[exTypeExtra[i].type];
 
 #ifdef VERBOSE_DEBUG_OUTPUT
 	printf("Global variable size is %d, starting from %d.\r\n", bCode->globalVarSize, globalVarSize);

@@ -367,13 +367,13 @@ namespace GC
 			return;
 		}
 		// Get class member type list
-		unsigned int *memberList = &NULLC::commonLinker->exTypeExtra[realType->memberOffset + realType->memberCount];
+		ExternMemberInfo *memberList = &NULLC::commonLinker->exTypeExtra[realType->memberOffset + realType->memberCount];
 		// Check pointer members
 		for(unsigned int n = 0; n < realType->pointerCount; n++)
 		{
 			// Get member type
-			ExternTypeInfo &subType = NULLC::commonLinker->exTypes[memberList[n * 2]];
-			unsigned int pos = memberList[n * 2 + 1];
+			ExternTypeInfo &subType = NULLC::commonLinker->exTypes[memberList[n].type];
+			unsigned int pos = memberList[n].offset;
 			// Check member
 			CheckVariable(ptr + pos, subType);
 		}

@@ -466,7 +466,18 @@ namespace ColorerGrammar
 				) |
 				funcdef |
 				(
-					(typeExpr | (idP[ColorErr][LogError("ERROR: unknown type name")] >> typePostExpr)) >>
+					!(
+						(
+							strP("align")[ColorRWord] >>
+							chP('(')[ColorText] >>
+							intP[ColorReal] >>
+							chP(')')[ColorText]
+						) |
+						strP("noalign")[ColorRWord]
+					) >>
+					(
+						typeExpr | (idP[ColorErr][LogError("ERROR: unknown type name")] >> typePostExpr)
+					) >>
 					(
 						(
 							(idP - typenameP(idP))[ColorVarDef] >>
@@ -502,7 +513,7 @@ namespace ColorerGrammar
 				(chP('}') | epsP[LogError("ERROR: '}' not found after class definition")])[ColorText];
 
 			classdef	=
-				((strP("align")[ColorRWord] >> '(' >> intP[ColorReal] >> ')') | (strP("noalign")[ColorRWord] | epsP)) >>
+				((strP("align")[ColorRWord] >> chP('(')[ColorText] >> intP[ColorReal] >> chP(')')[ColorText]) | (strP("noalign")[ColorRWord] | epsP)) >>
 				strP("class")[ColorRWord] >>
 				(idP[StartType][ColorRWord] | epsP[LogError("ERROR: class name expected")]) >>
 				!(

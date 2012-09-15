@@ -513,9 +513,9 @@ NULLC_PROC_RETURN GeneralCommandThread(void* param)
 		{
 			printf("DEBUG_TYPE_EXTRA_INFO\n");
 			unsigned int count;
-			unsigned int *extraInfo = nullcDebugTypeExtraInfo(&count);
+			ExternMemberInfo *extraInfo = nullcDebugTypeExtraInfo(&count);
 			data.question = false;
-			PipeSendData(client, data, (char*)extraInfo, count, count * sizeof(unsigned int));
+			PipeSendData(client, data, (char*)extraInfo, count, count * sizeof(ExternMemberInfo));
 		}
 			break;
 			case DEBUG_SYMBOL_INFO:

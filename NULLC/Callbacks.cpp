@@ -624,11 +624,16 @@ char UnescapeSybmol(char symbol)
 
 unsigned int GetAlignmentOffset(const char *pos, unsigned int alignment)
 {
+	if(alignment & (alignment - 1))
+		ThrowError(pos, "ERROR: alignment must be power of two");
+
 	if(alignment > 16)
 		ThrowError(pos, "ERROR: alignment must be less than 16 bytes");
+
 	// If alignment is set and address is not aligned
 	if(alignment != 0 && varTop % alignment != 0)
 		return alignment - (varTop % alignment);
+
 	return 0;
 }
 
@@ -1305,15 +1310,15 @@ VariableInfo* AddVariable(const char* pos, InplaceStr variableName, bool preserv
 	// Check for functions with the same name
 	CheckCollisionWithFunction(pos, varName, hash, varInfoTop.size());
 
-	if((currType && currType->alignBytes != 0) || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
-	{
-		unsigned int offset = GetAlignmentOffset(pos, currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : currType->alignBytes);
-		varTop += offset;
-	}
+	// If alignment if explicitly specified or the variable type has a default alignment, align variable address
+	if(currAlign != TypeInfo::ALIGNMENT_UNSPECIFIED || (currType && currType->alignBytes != TypeInfo::ALIGNMENT_UNSPECIFIED))
+		varTop += GetAlignmentOffset(pos, currAlign != TypeInfo::ALIGNMENT_UNSPECIFIED ? currAlign : currType->alignBytes);
+
 	if(currType && currType->hasFinalizer)
 		ThrowError(pos, "ERROR: cannot create '%s' that implements 'finalize' on stack", currType->GetFullTypeName());
 	if(currType && !currType->hasFinished && currType != newType)
 		ThrowError(pos, "ERROR: type '%s' is not fully defined. You can use '%s ref' or '%s[]' at this point", currType->GetFullTypeName(), currType->GetFullTypeName(), currType->GetFullTypeName());
+
 	CodeInfo::varInfo.push_back(new VariableInfo(currDefinedFunc.size() > 0 ? currDefinedFunc.back() : NULL, varName, hash, varTop, currType, currDefinedFunc.size() == 0));
 	varDefined = true;
 	CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
@@ -1891,15 +1896,12 @@ void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverlo
 		if(realCurrType == typeVoid)
 			ThrowError(pos, "ERROR: r-value type is 'void'");
 
+		// If alignment if explicitly specified or the variable type has a default alignment, align variable address
+		if(currAlign != TypeInfo::ALIGNMENT_UNSPECIFIED || (realCurrType->alignBytes != TypeInfo::ALIGNMENT_UNSPECIFIED))
+			varTop += GetAlignmentOffset(pos, currAlign != TypeInfo::ALIGNMENT_UNSPECIFIED ? currAlign : realCurrType->alignBytes);
+
 		variableInfo->pos = varTop;
-		// If type has default alignment or if user specified it
-		if(realCurrType->alignBytes != 0 || currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT)
-		{
-			// Find address offset. Alignment selected by user has higher priority than default alignment
-			unsigned int offset = GetAlignmentOffset(pos, currAlign != TypeInfo::UNSPECIFIED_ALIGNMENT ? currAlign : realCurrType->alignBytes);
-			variableInfo->pos += offset;
-			varTop += offset;
-		}
+
 		variableInfo->varType = realCurrType;
 		varTop += realCurrType->size;
 
@@ -5607,6 +5609,10 @@ TypeInfo* TypeBegin(const char* pos, const char* end, bool addNamespace, unsigne
 {
 	if(newType)
 		ThrowError(pos, "ERROR: different type is being defined");
+
+	if(currAlign & (currAlign - 1))
+		ThrowError(pos, "ERROR: alignment must be power of two");
+
 	if(currAlign > 16)
 		ThrowError(pos, "ERROR: alignment must be less than 16 bytes");
 
@@ -5644,7 +5650,7 @@ TypeInfo* TypeBegin(const char* pos, const char* end, bool addNamespace, unsigne
 	newType->definitionDepth = varInfoTop.size();
 	newType->hasFinished = false;
 	newType->parentNamespace = namespaceStack.size() > 1 ? namespaceStack.back() : NULL;
-	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
+	currAlign = TypeInfo::ALIGNMENT_UNSPECIFIED;
 	methodCount = 0;
 
 	if(!type)
@@ -5665,11 +5671,18 @@ void TypeAddMember(const char* pos, const char* varName)
 		ThrowError(pos, "ERROR: auto cannot be used for class members");
 	if(!currType->hasFinished)
 		ThrowError(pos, "ERROR: type '%s' is not fully defined. You can use '%s ref' or '%s[]' at this point", currType->GetFullTypeName(), currType->GetFullTypeName(), currType->GetFullTypeName());
-	// Align members to their default alignment, but not larger that 4 bytes
-	unsigned int alignment = currType->alignBytes > 4 ? 4 : currType->alignBytes;
-	if(alignment && newType->size % alignment != 0)
+
+	// Align members to their default alignment unless the class alignment is specified to be a smaller value or there is an explicit alignment specification for the member
+	unsigned classAlign = newType->alignBytes;
+	unsigned memberAlign = currAlign != TypeInfo::ALIGNMENT_UNSPECIFIED ? currAlign : currType->alignBytes;
+
+	unsigned int alignment = classAlign != TypeInfo::ALIGNMENT_UNSPECIFIED && classAlign < memberAlign ? classAlign : memberAlign;
+	if(alignment != TypeInfo::ALIGNMENT_UNSPECIFIED && newType->size % alignment != 0)
 		newType->size += alignment - (newType->size % alignment);
+
 	newType->AddMemberVariable(varName, currType);
+	newType->lastVariable->alignBytes = alignment;
+
 	if(newType->size > 64 * 1024)
 		ThrowError(pos, "ERROR: class size cannot exceed 65535 bytes");
 	if(currType->hasFinalizer)
@@ -5685,19 +5698,11 @@ void TypeAddConstant(const char* pos, const char* constName)
 	if(CodeInfo::nodeList.back()->nodeType != typeNodeNumber)
 		ThrowError(pos, "ERROR: expression didn't evaluate to a constant number");
 
-	unsigned size = newType->size;
-	unsigned memberCount = newType->memberCount;
-	bool hasPointers = newType->hasPointers;
-
 	if(currType)
 		((NodeNumber*)CodeInfo::nodeList.back())->ConvertTo(currType);
-	newType->AddMemberVariable(constName, currType ? currType : CodeInfo::nodeList.back()->typeInfo);
-	newType->lastVariable->defaultValue = CodeInfo::nodeList.back();
-	CodeInfo::nodeList.pop_back();
 
-	newType->size = size;
-	newType->memberCount = memberCount;
-	newType->hasPointers = hasPointers;
+	newType->AddMemberVariable(constName, currType ? currType : CodeInfo::nodeList.back()->typeInfo, false, CodeInfo::nodeList.back());
+	CodeInfo::nodeList.pop_back();
 
 	for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr && curr != newType->lastVariable; curr = curr->next)
 	{
@@ -5723,11 +5728,24 @@ void TypeFinish()
 {
 	// Class members changed variable top, here we restore it to original position
 	varTop -= newType->size;
-	// In NULLC, all classes have sizes multiple of 4, so add padding if necessary
-	if(newType->size % 4 != 0)
+
+	unsigned maximumAlignment = 0;
+
+	// Additional padding may apply to preserve the alignment of members
+	for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr; curr = curr->next)
+		maximumAlignment = maximumAlignment > curr->alignBytes ? maximumAlignment : curr->alignBytes;
+
+	// If explicit alignment is not specified, then class must be aligned to the maximum alignment of the members
+	if(newType->alignBytes == 0)
+		newType->alignBytes = maximumAlignment;
+
+	// In NULLC, all classes have sizes multiple of 4, so add additional padding if necessary
+	maximumAlignment = newType->alignBytes < 4 ? 4 : newType->alignBytes;
+
+	if(newType->size % maximumAlignment != 0)
 	{
-		newType->paddingBytes = 4 - (newType->size % 4);
-		newType->size += 4 - (newType->size % 4);
+		newType->paddingBytes = maximumAlignment - (newType->size % maximumAlignment);
+		newType->size += maximumAlignment - (newType->size % maximumAlignment);
 	}
 
 	// Wrap all member function definitions into one expression list
@@ -6060,6 +6078,9 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 	if(!type->firstVariable || type->firstVariable->nameHash != extendableVariableName)
 		ThrowError(pos, "ERROR: type '%s' is not extendable", type->GetFullTypeName());
 
+	// Alignment is inherited unless a new one is specified
+	newType->alignBytes = currAlign != TypeInfo::ALIGNMENT_UNSPECIFIED ? currAlign : type->alignBytes;
+
 	// Inherit aliases
 	AliasInfo *aliasList = type->childAlias;
 	while(aliasList)
@@ -6093,7 +6114,13 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 		if(newType->firstVariable && newType->firstVariable->nameHash == extendableVariableName && curr->nameHash == extendableVariableName)
 			continue;
 
+		SetCurrentAlignment(TypeInfo::ALIGNMENT_UNSPECIFIED);
+
 		TypeAddMember(pos, curr->name);
+
+		// There is no way to tell what alignment was specified when the base class was defined, so the base class member offset is taken
+		newType->lastVariable->offset = curr->offset;
+
 		newType->lastVariable->defaultValue = curr->defaultValue;
 		if(curr->defaultValue)
 		{
@@ -6103,10 +6130,10 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 			newType->lastVariable->offset = 0;
 			continue;
 		}
-
-		assert(newType->lastVariable->offset == curr->offset);
 	}
-	assert(newType->size == type->size);
+	// Type size is taken directly from base class because it is now unknown what alignment was used during base class definition
+	newType->size = type->size;
+	varTop = type->size;
 }
 
 TypeInfo* GetDefinedType()
@@ -6132,6 +6159,9 @@ void TypeExtendable(const char* pos)
 	assert(newType);
 	assert(!newType->firstVariable);
 	currType = typeTypeid;
+
+	SetCurrentAlignment(TypeInfo::ALIGNMENT_UNSPECIFIED);
+
 	TypeAddMember(pos, "$typeid");
 }
 
@@ -6294,7 +6324,7 @@ void CallbackInitialize()
 	newType = NULL;
 	instanceDepth = 0;
 
-	currAlign = TypeInfo::UNSPECIFIED_ALIGNMENT;
+	currAlign = TypeInfo::ALIGNMENT_UNSPECIFIED;
 	inplaceVariableNum = 1;
 
 	varInfoTop.clear();

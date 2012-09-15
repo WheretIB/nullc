@@ -598,18 +598,17 @@ void ResolveType(TypeInfo* info)
 {
 	if(info->hasFinished)
 		return;
+
+	// Resolve array types
 	if(info->arrLevel)
 	{
 		ResolveType(info->subType);
-		info->size = info->arrSize * info->subType->size;
-		if(info->size % 4 != 0)
-		{
-			info->paddingBytes = 4 - (info->size % 4);
-			info->size += 4 - (info->size % 4);
-		}
+
 		info->hasFinished = true;
 		return;
 	}
+
+	// Resolve function types
 	if(info->funcType)
 	{
 		info->hasFinished = true;
@@ -617,27 +616,16 @@ void ResolveType(TypeInfo* info)
 			info->funcType->paramSize += info->funcType->paramType[n]->size > 4 ? info->funcType->paramType[n]->size : 4;
 		return;
 	}
-	info->size = 0;
+
+	// Resolve class types
 	for(TypeInfo::MemberVariable *curr = info->firstVariable; curr; curr = curr->next)
 	{
 		if(curr->defaultValue)
 			continue;
 		ResolveType(curr->type);
-
-		unsigned int alignment = curr->type->alignBytes > 4 ? 4 : curr->type->alignBytes;
-		if(alignment && info->size % alignment != 0)
-			info->size += alignment - (info->size % alignment);
-		curr->offset = info->size;
-		info->size += curr->type->size;
-	}
-	if(info->type != TypeInfo::TYPE_COMPLEX)
-		info->size = stackTypeSize[info->stackType];
-	if(info->size % 4 != 0)
-	{
-		info->paddingBytes = 4 - (info->size % 4);
-		info->size += 4 - (info->size % 4);
 	}
 	info->hasFinished = true;
+
 	return;
 }
 
@@ -680,7 +668,7 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 
 	// Import types
 	ExternTypeInfo *tInfo = FindFirstType(bCode);
-	unsigned int *memberList = (unsigned int*)(tInfo + bCode->typeCount);
+	ExternMemberInfo *memberList = (ExternMemberInfo*)(tInfo + bCode->typeCount);
 
 	unsigned int oldTypeCount = CodeInfo::typeInfo.size();
 
@@ -714,18 +702,22 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX));
 				newInfo = CodeInfo::typeInfo.back();
 				CodeInfo::typeFunctions.push_back(newInfo);
-				newInfo->CreateFunctionType(CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset]]], tInfo->memberCount);
+				newInfo->CreateFunctionType(CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset].type]], tInfo->memberCount);
+
+				newInfo->size = tInfo->size;
+				newInfo->paddingBytes = tInfo->padding;
 
 				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
 
 				for(unsigned int n = 1; n < tInfo->memberCount + 1; n++)
-					newInfo->funcType->paramType[n-1] = CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset + n]]];
+					newInfo->funcType->paramType[n-1] = CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset + n].type]];
 
 #ifdef _DEBUG
-				newInfo->AddMemberVariable("context", typeInt);
-				newInfo->AddMemberVariable("ptr", typeInt);
+				newInfo->AddMemberVariable("context", typeInt, false);
+				newInfo->lastVariable->offset = 0;
+				newInfo->AddMemberVariable("ptr", typeInt, false);
+				newInfo->lastVariable->offset = 4;
 #endif
-				newInfo->size = 4 + NULLC_PTR_SIZE;
 				newInfo->hasPointers = true;
 				break;
 			case ExternTypeInfo::CAT_ARRAY:
@@ -733,11 +725,15 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, 0, tempInfo->arrLevel + 1, tInfo->arrSize, tempInfo, TypeInfo::TYPE_COMPLEX));
 				newInfo = CodeInfo::typeInfo.back();
 
+				newInfo->size = tInfo->size;
+				newInfo->paddingBytes = tInfo->padding;
+
 				if(tInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
 				{
-					newInfo->size = NULLC_PTR_SIZE;
-					newInfo->AddMemberVariable("size", typeInt);
+					newInfo->AddMemberVariable("size", typeInt, false);
+					newInfo->lastVariable->offset = NULLC_PTR_SIZE;
 				}
+
 				newInfo->nextArrayType = tempInfo->arrayType;
 				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
 				tempInfo->arrayType = newInfo;
@@ -748,7 +744,10 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 				tempInfo = CodeInfo::typeInfo[typeRemap[tInfo->subType]];
 				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, tempInfo->refLevel + 1, 0, 1, tempInfo, TypeInfo::NULLC_PTR_TYPE));
 				newInfo = CodeInfo::typeInfo.back();
-				newInfo->size = NULLC_PTR_SIZE;
+
+				newInfo->size = tInfo->size;
+				newInfo->paddingBytes = tInfo->padding;
+
 				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
 
 				// Save it for future use
@@ -759,6 +758,9 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 				unsigned int strLength = (unsigned int)strlen(symbols + tInfo->offsetToName) + 1;
 				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), symbols + tInfo->offsetToName);
 				newInfo = new TypeInfo(CodeInfo::typeInfo.size(), nameCopy, 0, 0, 1, NULL, (TypeInfo::TypeCategory)tInfo->type);
+
+				newInfo->size = tInfo->size;
+				newInfo->paddingBytes = tInfo->padding;
 
 				newInfo->hasFinalizer = tInfo->typeFlags & ExternTypeInfo::TYPE_HAS_FINALIZER;
 				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
@@ -836,8 +838,11 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 				unsigned int strLength = (unsigned int)strlen(memberName) + 1;
 				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), memberName);
 				memberName += strLength;
-				TypeInfo *memberType = CodeInfo::typeInfo[typeRemap[memberList[typeInfo->memberOffset + n]]];
-				type->AddMemberVariable(nameCopy, memberType);
+
+				TypeInfo *memberType = CodeInfo::typeInfo[typeRemap[memberList[typeInfo->memberOffset + n].type]];
+
+				type->AddMemberVariable(nameCopy, memberType, false);
+				type->lastVariable->offset = memberList[typeInfo->memberOffset + n].offset;
 			}
 			for(unsigned int n = 0; n < typeInfo->constantCount; n++)
 			{
@@ -849,16 +854,7 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), memberName);
 				memberName += strLength;
 
-				unsigned size = type->size;
-				unsigned memberCount = type->memberCount;
-				bool hasPointers = type->hasPointers;
-
-				type->AddMemberVariable(nameCopy, typeVoid);
-				type->lastVariable->defaultValue = value;
-
-				type->size = size;
-				type->memberCount = memberCount;
-				type->hasPointers = hasPointers;
+				type->AddMemberVariable(nameCopy, typeVoid, false, value);
 			}
 			type->definitionDepth = 1;
 		}
@@ -2023,7 +2019,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		}
 		allMemberCount += type->funcType ? type->funcType->paramCount + 1 : type->memberCount;
 	}
-	size += allMemberCount * sizeof(unsigned int);
+	size += allMemberCount * sizeof(ExternMemberInfo);
 
 	unsigned int offsetToConstants = size;
 	size += allConstantCount * (sizeof(unsigned) + sizeof(long long)); // typeID + value
@@ -2171,6 +2167,9 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->firstModule = (ExternModuleInfo*)((char*)(code) + code->offsetToFirstModule);
 
 	code->globalVarSize = GetGlobalSize();
+	// Make sure modules that are linked together will not break global variable alignment
+	code->globalVarSize = (code->globalVarSize + 0xf) & ~0xf;
+
 	code->variableCount = globalVarCount;
 	code->variableExportCount = exportVarCount;
 	code->offsetToFirstVar = offsetToVar;
@@ -2201,7 +2200,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	ExternTypeInfo *tInfo = FindFirstType(code);
 	code->firstType = tInfo;
-	unsigned int *memberList = (unsigned int*)(tInfo + CodeInfo::typeInfo.size());
+	ExternMemberInfo *memberList = (ExternMemberInfo*)(tInfo + CodeInfo::typeInfo.size());
 #pragma pack(push, 1)
 	struct ConstantData
 	{
@@ -2221,6 +2220,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		symbolPos += refType.GetFullNameLength() + 1;
 
 		typeInfo.size = refType.size;
+		typeInfo.padding = refType.paddingBytes;
 		typeInfo.type = (ExternTypeInfo::TypeCategory)refType.type;
 		typeInfo.nameHash = refType.GetFullNameHash();
 		typeInfo.namespaceHash = refType.parentNamespace ? refType.parentNamespace->hash : ~0u;
@@ -2238,9 +2238,17 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			typeInfo.subCat = ExternTypeInfo::CAT_FUNCTION;
 			typeInfo.memberCount = refType.funcType->paramCount;
 			typeInfo.memberOffset = memberOffset;
-			memberList[memberOffset++] = refType.funcType->retType->typeIndex;
+
+			memberList[memberOffset].type = refType.funcType->retType->typeIndex;
+			memberList[memberOffset].offset = 0;
+			memberOffset++;
+
 			for(unsigned int k = 0; k < refType.funcType->paramCount; k++)
-				memberList[memberOffset++] = refType.funcType->paramType[k]->typeIndex;
+			{
+				memberList[memberOffset].type = refType.funcType->paramType[k]->typeIndex;
+				memberList[memberOffset].offset = 0;
+				memberOffset++;
+			}
 		}else if(refType.arrLevel != 0){				// Array type
 			typeInfo.subCat = ExternTypeInfo::CAT_ARRAY;
 			typeInfo.arrSize = refType.arrSize;
@@ -2258,7 +2266,11 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			{
 				if(curr->defaultValue)
 					continue;
-				memberList[memberOffset++] = curr->type->typeIndex;
+
+				memberList[memberOffset].type = curr->type->typeIndex;
+				memberList[memberOffset].offset = curr->offset;
+				memberOffset++;
+
 				memcpy(symbolPos, curr->name, strlen(curr->name) + 1);
 				symbolPos += strlen(curr->name) + 1;
 			}
@@ -2282,8 +2294,9 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 				if(curr->type->hasPointers)
 				{
 					typeInfo.pointerCount++;
-					memberList[memberOffset++] = curr->type->typeIndex;
-					memberList[memberOffset++] = curr->offset;
+					memberList[memberOffset].type = curr->type->typeIndex;
+					memberList[memberOffset].offset = curr->offset;
+					memberOffset++;
 				}
 			}
 		}else{

@@ -63,12 +63,12 @@ namespace NULLCDynamic
 
 		char tmp[2048];
 		char *it = tmp;
-		unsigned int	*memberList = &linker->exTypeExtra[linker->exTypes[dest.typeID].memberOffset];
-		ExternTypeInfo	&returnType = linker->exTypes[memberList[0]];
+		ExternMemberInfo *memberList = &linker->exTypeExtra[linker->exTypes[dest.typeID].memberOffset];
+		ExternTypeInfo &returnType = linker->exTypes[memberList[0].type];
 		it += SafeSprintf(it, 2048 - int(it - tmp), "import __last;\r\n%s __override%d(", &linker->exSymbols[0] + returnType.offsetToName, overrideID);
 
 		for(unsigned int i = 0, memberCount = linker->exTypes[dest.typeID].memberCount; i != memberCount; i++)
-			it += SafeSprintf(it, 2048 - int(it - tmp), "%s arg%d%s", &linker->exSymbols[0] + linker->exTypes[memberList[i + 1]].offsetToName, i, i == memberCount - 1 ? "" : ", ");
+			it += SafeSprintf(it, 2048 - int(it - tmp), "%s arg%d%s", &linker->exSymbols[0] + linker->exTypes[memberList[i + 1].type].offsetToName, i, i == memberCount - 1 ? "" : ", ");
 		it += SafeSprintf(it, 2048 - int(it - tmp), "){ %s }", code.ptr);
 		overrideID++;
 
