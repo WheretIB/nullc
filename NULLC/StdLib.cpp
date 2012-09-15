@@ -57,13 +57,19 @@ union SmallBlock
 	SmallBlock		*next;
 };
 
+#pragma pack(push, 1)
 template<int elemSize, int countInBlock>
 struct LargeBlock
 {
 	typedef SmallBlock<elemSize> Block;
+
+	// Padding is used to break the 16 byte alignment of pages in a way that after a marker offset is added to the block, the object pointer will be correctly aligned
+	char padding[16 - sizeof(markerType)];
 	Block		page[countInBlock];
+
 	LargeBlock	*next;
 };
+#pragma pack(pop)
 
 template<int elemSize, int countInBlock>
 class ObjectBlockPool
@@ -84,7 +90,7 @@ public:
 		do
 		{
 			MyLargeBlock* following = activePages->next;
-			NULLC::dealloc(activePages);
+			NULLC::alignedDealloc(activePages);
 			activePages = following;
 		}while(activePages != NULL);
 		freeBlocks = &lastBlock;
@@ -103,8 +109,7 @@ public:
 		}else{
 			if(lastNum == countInBlock)
 			{
-				MyLargeBlock* newPage = new(NULLC::alloc(sizeof(MyLargeBlock))) MyLargeBlock;
-				//memset(newPage, 0, sizeof(MyLargeBlock));
+				MyLargeBlock* newPage = new(NULLC::alignedAlloc(sizeof(MyLargeBlock))) MyLargeBlock;
 				newPage->next = activePages;
 				activePages = newPage;
 				lastNum = 0;
