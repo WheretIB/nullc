@@ -594,41 +594,6 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 	return true;
 }
 
-void ResolveType(TypeInfo* info)
-{
-	if(info->hasFinished)
-		return;
-
-	// Resolve array types
-	if(info->arrLevel)
-	{
-		ResolveType(info->subType);
-
-		info->hasFinished = true;
-		return;
-	}
-
-	// Resolve function types
-	if(info->funcType)
-	{
-		info->hasFinished = true;
-		for(unsigned int n = 0; n < info->funcType->paramCount; n++)
-			info->funcType->paramSize += info->funcType->paramType[n]->size > 4 ? info->funcType->paramType[n]->size : 4;
-		return;
-	}
-
-	// Resolve class types
-	for(TypeInfo::MemberVariable *curr = info->firstVariable; curr; curr = curr->next)
-	{
-		if(curr->defaultValue)
-			continue;
-		ResolveType(curr->type);
-	}
-	info->hasFinished = true;
-
-	return;
-}
-
 bool Compiler::ImportModuleNamespaces(const char* bytecode)
 {
 	ByteCode *bCode = (ByteCode*)bytecode;
@@ -668,6 +633,7 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 
 	// Import types
 	ExternTypeInfo *tInfo = FindFirstType(bCode);
+	ExternTypeInfo *tInfoStart = tInfo;
 	ExternMemberInfo *memberList = (ExternMemberInfo*)(tInfo + bCode->typeCount);
 
 	unsigned int oldTypeCount = CodeInfo::typeInfo.size();
@@ -687,7 +653,7 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 	}
 
 	unsigned skipConstants = 0;
-	tInfo = FindFirstType(bCode);
+	tInfo = tInfoStart;
 	for(unsigned int i = 0; i < bCode->typeCount; i++, tInfo++)
 	{
 		if(typeRemap[i] >= oldTypeCount)
@@ -709,8 +675,14 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 
 				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
 
-				for(unsigned int n = 1; n < tInfo->memberCount + 1; n++)
-					newInfo->funcType->paramType[n-1] = CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset + n].type]];
+				for(unsigned int n = 0; n < tInfo->memberCount; n++)
+					newInfo->funcType->paramType[n] = CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset + n + 1].type]];
+
+				for(unsigned int n = 0; n < newInfo->funcType->paramCount; n++)
+				{
+					unsigned size = tInfoStart[memberList[tInfo->memberOffset + n + 1].type].size;
+					newInfo->funcType->paramSize += size > 4 ? size : 4;
+				}
 
 #ifdef _DEBUG
 				newInfo->AddMemberVariable("context", typeInt, false);
@@ -859,15 +831,6 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 			type->definitionDepth = 1;
 		}
 	}
-	// Resolve type sizes
-	for(unsigned int i = oldTypeCount; i < CodeInfo::typeInfo.size(); i++)
-	{
-		if(CodeInfo::typeInfo[i]->refLevel || (CodeInfo::typeInfo[i]->arrLevel && CodeInfo::typeInfo[i]->arrSize == TypeInfo::UNSIZED_ARRAY))
-			continue;
-		CodeInfo::typeInfo[i]->hasFinished = false;
-	}
-	for(unsigned int i = oldTypeCount; i < CodeInfo::typeInfo.size(); i++)
-		ResolveType(CodeInfo::typeInfo[i]);
 
 #ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
 	tInfo = FindFirstType(bCode);
