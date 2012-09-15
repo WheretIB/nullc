@@ -1223,11 +1223,11 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
 		return;
 
-	ExternFuncInfo	&func = codeFunctions[*(int*)(ptr + 4)];
+	ExternFuncInfo	&func = codeFunctions[*(int*)(ptr + NULLC_PTR_SIZE)];
 	ExternTypeInfo	&returnType = codeTypes[codeTypeExtra[type.memberOffset].type];
 
 	char *it = name;
-	it += safeprintf(it, 256 - int(it - name), "function %d %s %s(", *(int*)(ptr + 4), codeSymbols + returnType.offsetToName, codeSymbols + func.offsetToName);
+	it += safeprintf(it, 256 - int(it - name), "function %d %s %s(", *(int*)(ptr + NULLC_PTR_SIZE), codeSymbols + returnType.offsetToName, codeSymbols + func.offsetToName);
 	for(unsigned int arg = 0; arg < func.paramCount; arg++)
 	{
 		ExternLocalInfo &lInfo = codeLocals[func.offsetToFirstLocal + arg];
