@@ -482,6 +482,19 @@ void MarkUsedBlocks()
 			GC_DEBUG_PRINT("Global %s %s (with offset of %d)\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, vars[i].offset);
 			GC::CheckVariable(GC::unmanageableBase + vars[i].offset, types[vars[i].type]);
 		}
+	}else{
+#ifdef NULLC_LLVM_SUPPORT
+		ExecutorLLVM *exec = (ExecutorLLVM*)unknownExec;
+
+		unsigned count = 0;
+		char *data = exec->GetVariableData(&count);
+
+		for(unsigned int i = 0; i < NULLC::commonLinker->exVariables.size(); i++)
+		{
+			GC_DEBUG_PRINT("Global %s %s (with offset of %d)\r\n", symbols + types[vars[i].type].offsetToName, symbols + vars[i].offsetToName, vars[i].offset);
+			GC::CheckVariable(data + vars[i].offset, types[vars[i].type]);
+		}
+#endif
 	}
 
 	// Starting stack offset is equal to global variable size
@@ -654,9 +667,19 @@ void MarkUsedBlocks()
 			if(basePtr)
 			{
 				markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
+
 				// If block is unmarked, mark it as used
 				if(!(*marker & 1))
+				{
+					unsigned typeID = *marker >> 8;
+					ExternTypeInfo &type = types[typeID];
+
 					*marker |= 1;
+
+					// And if type is not simple, check memory to which pointer points to
+					if(type.subCat != ExternTypeInfo::CAT_NONE)
+						GC::CheckVariable((char*)basePtr, type);
+				}
 			}
 		}
 		tempStackBase += 4;

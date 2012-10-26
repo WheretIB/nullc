@@ -47,6 +47,14 @@ public:
 #ifdef NULLC_LLVM_SUPPORT
 	FastVector<unsigned int>	llvmModuleSizes;
 	FastVector<char>			llvmModuleCodes;
+
+	FastVector<unsigned int>	llvmTypeRemapSizes;
+	FastVector<unsigned int>	llvmTypeRemapOffsets;
+	FastVector<unsigned int>	llvmTypeRemapValues;
+
+	FastVector<unsigned int>	llvmFuncRemapSizes;
+	FastVector<unsigned int>	llvmFuncRemapOffsets;
+	FastVector<unsigned int>	llvmFuncRemapValues;
 #endif
 
 	FastVector<unsigned int>	typeRemap;
