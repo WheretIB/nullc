@@ -1673,3 +1673,12 @@ int bar(int x, y){ return x + y; }\r\n\
 \r\n\
 return wrap(foo, 1) + wrap(bar, 2, 3);";
 TEST_RESULT("generic function with variable argument count 2", testGeneric142, "4");
+
+const char *testGeneric143 =
+"auto foo(generic x, int a = 0, int b = 0){ return x + a + b; }\r\n\
+\r\n\
+auto x = auto(){ return foo(1, 1); };\r\n\
+auto y = foo(1);\r\n\
+\r\n\
+return x() - y;";
+TEST_RESULT("local generic function instantiation with default function argument values", testGeneric143, "1");
