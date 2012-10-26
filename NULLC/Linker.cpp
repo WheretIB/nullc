@@ -46,6 +46,14 @@ void Linker::CleanCode()
 #ifdef NULLC_LLVM_SUPPORT
 	llvmModuleSizes.clear();
 	llvmModuleCodes.clear();
+
+	llvmTypeRemapSizes.clear();
+	llvmTypeRemapOffsets.clear();
+	llvmTypeRemapValues.clear();
+
+	llvmFuncRemapSizes.clear();
+	llvmFuncRemapOffsets.clear();
+	llvmFuncRemapValues.clear();
 #endif
 
 	jumpTargets.clear();
@@ -500,6 +508,16 @@ bool Linker::LinkCode(const char *code)
 	llvmModuleSizes.push_back(bCode->llvmSize);
 	llvmModuleCodes.resize(llvmModuleCodes.size() + llvmModuleSizes.back());
 	memcpy(&llvmModuleCodes[llvmOldSize], ((char*)bCode) + bCode->llvmOffset, bCode->llvmSize);
+
+	llvmTypeRemapSizes.push_back(typeRemap.size());
+	llvmTypeRemapOffsets.push_back(llvmTypeRemapValues.size());
+	llvmTypeRemapValues.resize(llvmTypeRemapValues.size() + typeRemap.size());
+	memcpy(&llvmTypeRemapValues[llvmTypeRemapOffsets.back()], &typeRemap[0], typeRemap.size() * sizeof(typeRemap[0]));
+
+	llvmFuncRemapSizes.push_back(funcRemap.size());
+	llvmFuncRemapOffsets.push_back(llvmFuncRemapValues.size());
+	llvmFuncRemapValues.resize(llvmFuncRemapValues.size() + funcRemap.size());
+	memcpy(&llvmFuncRemapValues[llvmFuncRemapOffsets.back()], &funcRemap[0], funcRemap.size() * sizeof(funcRemap[0]));
 #endif
 
 #ifdef VERBOSE_DEBUG_OUTPUT

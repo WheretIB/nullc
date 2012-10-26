@@ -8,6 +8,8 @@ public:
 	ExecutorLLVM(Linker* linker);
 	~ExecutorLLVM();
 
+	bool	TranslateToNative();
+
 	void	Run(unsigned int functionID, const char *arguments);
 	void	Stop(const char* error);
 

@@ -357,6 +357,19 @@ nullres nullcLinkCode(const char *bytecode)
 		return false;
 #endif
 	}
+	if(currExec == NULLC_LLVM)
+	{
+#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
+		bool res = executorLLVM->TranslateToNative();
+		if(!res)
+		{
+			nullcLastError = executorLLVM->GetExecError();
+		}
+#else
+		nullcLastError = "LLVM JIT isn't available";
+		return false;
+#endif
+	}
 #ifndef NULLC_NO_EXECUTOR
 	return true;
 #else
@@ -625,6 +638,11 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Run(ptr.id, argBuf);
 		error = executorX86->GetExecError();
+#endif
+	}else if(currExec == NULLC_LLVM){
+#ifdef NULLC_LLVM_SUPPORT
+		executorLLVM->Run(ptr.id, argBuf);
+		error = executorLLVM->GetExecError();
 #endif
 	}
 	if(error && error[0] != '\0')
@@ -985,7 +1003,7 @@ unsigned int nullcGetCurrentExecutor(void **exec)
 
 #ifdef NULLC_BUILD_X86_JIT
 	if(exec)
-		*exec = (currExec == NULLC_VM ? (void*)executor : (void*)executorX86);
+		*exec = (currExec == NULLC_VM ? (void*)executor : (currExec == NULLC_X86 ? (void*)executorX86 : (void*)executorLLVM));
 #elif !defined(NULLC_NO_EXECUTOR)
 	if(exec)
 		*exec = executor;
@@ -1104,7 +1122,7 @@ void nullcDebugBeginCallStack()
 #ifndef NULLC_NO_EXECUTOR
 		executor->BeginCallStack();
 #endif
-	}else{
+	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->BeginCallStack();
 #endif
@@ -1122,7 +1140,7 @@ unsigned int nullcDebugGetStackFrame()
 #ifndef NULLC_NO_EXECUTOR
 		address = executor->GetNextAddress();
 #endif
-	}else{
+	}else if(currExec == NULLC_X86){
 #ifdef NULLC_BUILD_X86_JIT
 		address = executorX86->GetNextAddress();
 #endif

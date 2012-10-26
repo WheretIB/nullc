@@ -39,7 +39,6 @@
 
 #pragma comment(lib, "LLVMCore.lib")
 #pragma comment(lib, "LLVMSupport.lib")
-#pragma comment(lib, "LLVMSystem.lib")
 
 #pragma comment(lib, "LLVMTarget.lib")
 #pragma comment(lib, "LLVMAnalysis.lib")
@@ -101,6 +100,7 @@ namespace
 
 	llvm::Type		*typeClosure = NULL;
 	llvm::Function	*functionCloseUpvalues = NULL;
+	llvm::Function	*functionIndexToFunction = NULL;
 }
 
 void		StartLLVMGeneration(unsigned functionsInModules)
@@ -170,7 +170,7 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 	typeTypeid->llvmType = typeInt->llvmType;
 	typeAutoArray->llvmType = llvm::StructType::get(typeInt->llvmType, llvm::Type::getInt8PtrTy(getContext()), typeInt->llvmType, (llvm::Type*)NULL);
 
-	typeFunction->llvmType = llvm::PointerType::getUnqual(llvm::FunctionType::get(llvm::Type::getVoidTy(getContext()), false));
+	typeFunction->llvmType = llvm::Type::getInt32Ty(getContext());
 
 	std::vector<llvm::Type*> typeList;
 	// Construct abstract types for all classes
@@ -212,11 +212,12 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 			typeList.push_back(llvm::Type::getInt8PtrTy(getContext()));
 			llvm::Type *retType = type->funcType->retType->llvmType;
 			assert(retType);
-			llvm::Type *functionType = llvm::FunctionType::get(retType, llvm::ArrayRef<llvm::Type*>(typeList), false);
+			type->funcType->llvmType = llvm::FunctionType::get(retType, llvm::ArrayRef<llvm::Type*>(typeList), false);
+
 			type->llvmType = llvm::StructType::create(getContext(), type->GetFullTypeName());
 			typeList.clear();
 			typeList.push_back(llvm::Type::getInt8PtrTy(getContext()));
-			typeList.push_back(llvm::PointerType::getUnqual(functionType));
+			typeList.push_back(llvm::Type::getInt32Ty(getContext()));
 			((llvm::StructType*)type->llvmType)->setBody(llvm::ArrayRef<llvm::Type*>(typeList));
 		}
 	}
@@ -244,9 +245,14 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
 		InplaceStr name = CodeInfo::varInfo[i]->name;
-		globals.push_back(new llvm::GlobalVariable(*module, CodeInfo::varInfo[i]->varType->llvmType, false,
-			CodeInfo::varInfo[i]->pos >> 24 ? llvm::GlobalVariable::ExternalWeakLinkage : llvm::GlobalVariable::ExternalLinkage,
-			0, std::string(name.begin, name.end)));
+
+		llvm::GlobalVariable::LinkageTypes linkage = llvm::GlobalVariable::ExternalLinkage;
+		if(CodeInfo::varInfo[i]->pos >> 24)
+			linkage = llvm::GlobalVariable::ExternalWeakLinkage;
+		else if(strstr(name.begin, "$temp") == name.begin || CodeInfo::varInfo[i]->blockDepth > 1)
+			linkage = llvm::GlobalVariable::InternalLinkage;
+
+		globals.push_back(new llvm::GlobalVariable(*module, CodeInfo::varInfo[i]->varType->llvmType, false, linkage, 0, std::string(name.begin, name.end)));
 		CodeInfo::varInfo[i]->llvmValue = globals.back();
 		globals.back()->setInitializer(llvm::Constant::getNullValue(CodeInfo::varInfo[i]->varType->llvmType));
 	}
@@ -295,14 +301,20 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 
 	llvm::Function::Create(llvm::TypeBuilder<void(llvm::types::i<32>), true>::get(getContext()), llvm::Function::ExternalLinkage, "llvmReturnInt", module);
 	llvm::Function::Create(llvm::TypeBuilder<void(llvm::types::i<64>), true>::get(getContext()), llvm::Function::ExternalLinkage, "llvmReturnLong", module);
-	llvm::Function::Create(llvm::TypeBuilder<void(llvm::types::ieee_double), true>::get(getContext()), llvm::Function::ExternalLinkage, "llvmReturnDouble", module);	
+	llvm::Function::Create(llvm::TypeBuilder<void(llvm::types::ieee_double), true>::get(getContext()), llvm::Function::ExternalLinkage, "llvmReturnDouble", module);
+
+	llvm::Type *pointerToFunction = llvm::PointerType::getUnqual(llvm::FunctionType::get(llvm::Type::getVoidTy(getContext()), false));
+
+	typeList.clear();
+	typeList.push_back(llvm::Type::getInt32Ty(getContext()));
+	functionIndexToFunction = llvm::Function::Create(llvm::FunctionType::get(pointerToFunction, llvm::ArrayRef<llvm::Type*>(typeList), false), llvm::Function::ExternalLinkage, "__llvmIndexToFunction", module);
 
 	std::vector<llvm::Type*> Arguments;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
 		FunctionInfo *funcInfo = CodeInfo::funcInfo[i];
 
-		if(!funcInfo->retType)
+		if(!funcInfo->retType || funcInfo->funcType->dependsOnGeneric)
 			continue;
 
 		if((funcInfo->address & 0x80000000) && funcInfo->address != -1)
@@ -314,7 +326,14 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 			Arguments.push_back(curr->varType->llvmType);
 		Arguments.push_back(funcInfo->extraParam ? funcInfo->extraParam->varType->llvmType : llvm::Type::getInt32PtrTy(getContext()));
 		llvm::FunctionType *FT = llvm::FunctionType::get(funcInfo->retType->llvmType, llvm::ArrayRef<llvm::Type*>(Arguments), false);
-		funcInfo->llvmFunction = llvm::Function::Create(FT, i < functionsInModules ? llvm::Function::ExternalWeakLinkage : llvm::Function::ExternalLinkage, funcInfo->name, module);
+
+		llvm::GlobalVariable::LinkageTypes linkage = llvm::GlobalVariable::ExternalLinkage;
+
+		// Function from a different module
+		if(i < functionsInModules)
+			linkage = llvm::GlobalVariable::ExternalWeakLinkage;
+
+		funcInfo->llvmFunction = llvm::Function::Create(FT, linkage, funcInfo->name, module);
 
 		// Generate closures
 		if(i >= functionsInModules)
@@ -372,7 +391,7 @@ void	StartGlobalCode()
 	builder->SetInsertPoint(BB);
 }
 
-std::vector<unsigned char> out;
+std::string out;
 const char*	GetLLVMIR(unsigned& length)
 {
 	builder->CreateRetVoid();
@@ -387,12 +406,13 @@ const char*	GetLLVMIR(unsigned& length)
 	}
 
 	//module->dump();
-	verifyFunction(*F);
-	verifyModule(*module);
+	verifyFunction(*F, llvm::PrintMessageAction);
+	verifyModule(*module, llvm::PrintMessageAction);
 
 	out.clear();
-	llvm::BitstreamWriter bw = llvm::BitstreamWriter(out);
-	WriteBitcodeToStream(module, bw);
+	llvm::raw_string_ostream os(out);
+	WriteBitcodeToFile(module, os);
+	os.flush();
 	length = (unsigned)out.size();
 
 	return (char*)&out[0];
@@ -410,8 +430,10 @@ void	EndLLVMGeneration()
 	V = NULL;
 	F = NULL;
 
-	delete module;
 	module = NULL;
+
+	delete TheExecutionEngine;
+	TheExecutionEngine = NULL;
 }
 
 llvm::Value*	PromoteToStackType(llvm::Value *V, TypeInfo *type)
@@ -483,6 +505,36 @@ TypeInfo*	GetStackType(TypeInfo* type)
 	if(type == typeChar || type == typeShort || type == typeBool)
 		return typeInt;
 	return type;
+}
+
+llvm::Value* GetTypeIndex(unsigned localIndex)
+{
+	char buf[32];
+	sprintf(buf, "^type_index_%d", localIndex);
+
+	llvm::GlobalVariable *typeIndexValue = module->getGlobalVariable(buf, true);
+	if(!typeIndexValue)
+	{
+		typeIndexValue = new llvm::GlobalVariable(*module, llvm::Type::getInt32Ty(getContext()), true, llvm::GlobalValue::PrivateLinkage, 0, buf);
+		typeIndexValue->setInitializer(llvm::Constant::getNullValue(llvm::Type::getInt32Ty(getContext())));
+	}
+
+	return builder->CreateLoad(typeIndexValue, "type_index");
+}
+
+llvm::Value* GetFunctionIndex(unsigned localIndex)
+{
+	char buf[32];
+	sprintf(buf, "^func_index_%d", localIndex);
+
+	llvm::GlobalVariable *funcIndexValue = module->getGlobalVariable(buf, true);
+	if(!funcIndexValue)
+	{
+		funcIndexValue = new llvm::GlobalVariable(*module, llvm::Type::getInt32Ty(getContext()), true, llvm::Function::PrivateLinkage, 0, buf);
+		funcIndexValue->setInitializer(llvm::Constant::getNullValue(llvm::Type::getInt32Ty(getContext())));
+	}
+
+	return builder->CreateLoad(funcIndexValue, "func_index");
 }
 
 void NodeZeroOP::CompileLLVM()
@@ -840,12 +892,15 @@ void NodeFuncCall::CompileLLVM()
 		builder->CreateStore(func, funcPtr);
 
 		llvm::Value *ptr = builder->CreateStructGEP(funcPtr, 1, "ptr_part");
+		llvm::Value *functionIndex = builder->CreateLoad(ptr, "func_index");
 
 		llvm::Value *context = builder->CreateStructGEP(funcPtr, 0, "ctx_part");
 
 		args.push_back(builder->CreateLoad(context, "ctx_deref"));
 
-		CalleeF = (llvm::Function*)builder->CreateLoad(ptr, "func_deref");
+		llvm::Value	*function = builder->CreateCall(functionIndexToFunction, functionIndex);
+
+		CalleeF = (llvm::Function*)builder->CreatePointerCast(function, llvm::PointerType::getUnqual(funcType->llvmType));
 	}else{
 		CalleeF = funcInfo->llvmFunction;
 		if(!CalleeF)
@@ -952,12 +1007,10 @@ void NodeUnaryOp::CompileLLVM()
 		V = builder->CreateIntCast(V, llvm::Type::getInt32Ty(getContext()), true, "booltmp");
 		break;
 	case cmdPushTypeID:
-		V = llvm::ConstantInt::get(typeInt->llvmType, llvm::APInt(32, vmCmd.argument));
+		V = GetTypeIndex(vmCmd.argument);
 		break;
 	case cmdFuncAddr:
-		V = CodeInfo::funcInfo[vmCmd.argument]->llvmFunction;
-
-		V = builder->CreatePointerCast(V, typeFunction->llvmType, "function_to_vtbl_element");
+		V = GetFunctionIndex(vmCmd.argument);
 		break;
 	case cmdCheckedRet:
 		//printf("LLVM: unsupported command cmdCheckedRet\n");
@@ -1005,7 +1058,8 @@ void NodeDereference::CompileLLVM()
 		}
 
 		// Allocate closure
-		llvm::Value *value = builder->CreateCall3(module->getFunction("__newS"), llvm::ConstantInt::get(getContext(), llvm::APInt(32, first->typeInfo->subType->size, true)), llvm::ConstantInt::get(getContext(), llvm::APInt(32, first->typeInfo->subType->typeIndex, true)), llvm::ConstantPointerNull::get(llvm::Type::getInt32PtrTy(getContext())));
+		llvm::Value *typeSize = llvm::ConstantInt::get(getContext(), llvm::APInt(32, first->typeInfo->subType->size, true));
+		llvm::Value *value = builder->CreateCall3(module->getFunction("__newS"), typeSize, GetTypeIndex(first->typeInfo->subType->typeIndex), llvm::ConstantPointerNull::get(llvm::Type::getInt32PtrTy(getContext())));
 		
 		llvm::Value *closureStart = value;
 
@@ -1027,7 +1081,7 @@ void NodeDereference::CompileLLVM()
 			if(curr->targetPos == ~0u)
 			{
 				// Immediately close upvalue
-				llvm::Value *closure = builder->CreateLoad(closureFunc->funcContext->llvmValue, "closure"); // Get function closure
+				llvm::Value *closure = builder->CreateLoad(targetClosure, "closure"); // Get function closure
 				closure = builder->CreatePointerCast(closure, llvm::Type::getInt8PtrTy(getContext())); // Cast to char*
 				closure = builder->CreateGEP(closure, llvm::ArrayRef<llvm::Value*>(llvm::ConstantInt::get(getContext(), llvm::APInt(32, pos + NULLC_PTR_SIZE, true)))); // Offset to target upvalue
 				builder->CreateStore(closure, closurePtr); // Store in upvalue
@@ -1640,7 +1694,129 @@ void NodeSwitchExpr::CompileLLVM()
 {
 	CompileLLVMExtra();
 
-	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeSwitchExpr");
+	if(second)
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeSwitchExpr on complex");
+
+	bool intOptimization = true;
+
+	if(first->typeInfo != typeInt)
+		intOptimization = false;
+	for(NodeZeroOP *currCondition = conditionHead; currCondition; currCondition = currCondition->next)
+	{
+		if(currCondition->typeInfo != typeInt)
+			intOptimization = false;
+	}
+
+	if(intOptimization)
+	{
+		llvm::BasicBlock *defaultBlock = llvm::BasicBlock::Create(getContext(), "defaultBlock", F);
+		llvm::BasicBlock *exitBlock = llvm::BasicBlock::Create(getContext(), "exitBlock", F);
+
+		breakStack.push_back(exitBlock);
+
+		first->CompileLLVM();
+		llvm::Value *condition = V;
+
+		llvm::SwitchInst *swichInst = builder->CreateSwitch(condition, defaultBlock);
+
+		// Generate code for all cases
+		llvm::BasicBlock *nextBlock = NULL;
+		for(NodeZeroOP *currCondition = conditionHead, *currBlock = blockHead; currCondition; currCondition = currCondition->next, currBlock = currBlock->next)
+		{
+			currCondition->CompileLLVM();
+			llvm::Value *conditionValue = V;
+
+			llvm::ConstantInt *conditionConstant = llvm::dyn_cast<llvm::ConstantInt>(conditionValue);
+
+			llvm::BasicBlock *caseBlock = nextBlock ? nextBlock : llvm::BasicBlock::Create(getContext(), "caseBlock", F);
+			builder->SetInsertPoint(caseBlock);
+			currBlock->CompileLLVM();
+
+			nextBlock = currBlock->next ? llvm::BasicBlock::Create(getContext(), "caseBlock", F) : defaultBlock;
+			builder->CreateBr(nextBlock);
+
+			swichInst->addCase(conditionConstant, caseBlock);
+		}
+
+		// Create default block
+		builder->SetInsertPoint(defaultBlock);
+		if(defaultCase)
+			defaultCase->CompileLLVM();
+		builder->CreateBr(exitBlock);
+
+		builder->SetInsertPoint(exitBlock);
+		V = NULL;
+	}else{
+		first->CompileLLVM();
+		llvm::Value *condition = V;
+
+		FastVector<llvm::BasicBlock*, true, true>	conditionBlocks;
+		FastVector<llvm::BasicBlock*, true, true>	caseBlocks;
+
+		// Generate blocks for all condiions
+		for(NodeZeroOP *currCondition = conditionHead; currCondition; currCondition = currCondition->next)
+			conditionBlocks.push_back(llvm::BasicBlock::Create(getContext(), "condBlock", F));
+
+		// Generate blocks for all cases
+		for(NodeZeroOP *currBlock = blockHead; currBlock; currBlock = currBlock->next)
+			caseBlocks.push_back(llvm::BasicBlock::Create(getContext(), "caseBlock", F));
+
+		llvm::BasicBlock *defaultBlock = llvm::BasicBlock::Create(getContext(), "defaultBlock", F);
+		llvm::BasicBlock *exitBlock = llvm::BasicBlock::Create(getContext(), "exitBlock", F);
+
+		builder->CreateBr(conditionBlocks[0]);
+
+		unsigned i;
+
+		// Generate code for all conditions
+		i = 0;
+		for(NodeZeroOP *currCondition = conditionHead; currCondition; currCondition = currCondition->next, i++)
+		{
+			builder->SetInsertPoint(conditionBlocks[i]);
+			currCondition->CompileLLVM();
+			llvm::Value *conditionValue = V;
+
+			asmStackType fST = ChooseBinaryOpResultType(first->typeInfo, currCondition->typeInfo)->stackType;
+
+			// Make a copy of the condition
+			llvm::Value *conditionOption = CreateEntryBlockAlloca(F, "case_cond_tmp", first->typeInfo->llvmType);
+			builder->CreateStore(condition, conditionOption, false);
+			conditionOption = builder->CreateLoad(conditionOption, "cond_tmp");
+
+			conditionOption = PromoteToStackType(conditionOption, first->typeInfo);
+			conditionValue = PromoteToStackType(conditionValue, currCondition->typeInfo);
+
+			conditionOption = ConvertFirstForSecond(conditionOption, first->typeInfo, currCondition->typeInfo);
+			conditionValue = ConvertFirstForSecond(conditionValue, currCondition->typeInfo, first->typeInfo);
+
+			MakeBinaryOp(conditionOption, conditionValue, cmdEqual, fST);
+
+			V = builder->CreateICmpNE(V, llvm::ConstantInt::get(getContext(), llvm::APInt(32, 0, true)), "cond_value");
+
+			builder->CreateCondBr(V, caseBlocks[i], currCondition->next ? conditionBlocks[i + 1] : defaultBlock);
+		}
+
+		breakStack.push_back(exitBlock);
+
+		// Generate code for all cases
+		i = 0;
+		for(NodeZeroOP *currBlock = blockHead; currBlock; currBlock = currBlock->next, i++)
+		{
+			builder->SetInsertPoint(caseBlocks[i]);
+			currBlock->CompileLLVM();
+
+			builder->CreateBr(currBlock->next ? caseBlocks[i + 1] : defaultBlock);
+		}
+
+		// Create default block
+		builder->SetInsertPoint(defaultBlock);
+		if(defaultCase)
+			defaultCase->CompileLLVM();
+		builder->CreateBr(exitBlock);
+
+		builder->SetInsertPoint(exitBlock);
+		V = NULL;
+	}
 }
 
 void NodeConvertPtr::CompileLLVM()
@@ -1649,7 +1825,7 @@ void NodeConvertPtr::CompileLLVM()
 
 	if(typeInfo == typeTypeid)
 	{
-		V = llvm::ConstantInt::get(typeInt->llvmType, llvm::APInt(32, first->typeInfo->subType->typeIndex));
+		V = GetTypeIndex(first->typeInfo->subType->typeIndex);
 	}else if(typeInfo == typeObject){
 		first->CompileLLVM();
 		llvm::Value *ptr = builder->CreatePointerCast(V, llvm::Type::getInt8PtrTy(getContext()), "ptr_cast");
@@ -1663,7 +1839,7 @@ void NodeConvertPtr::CompileLLVM()
 			llvm::Value *typeID = builder->CreatePointerCast(ptr, llvm::Type::getInt32PtrTy(getContext()), "typeid_cast");
 			builder->CreateStore(builder->CreateLoad(typeID), V);
 		}else{
-			builder->CreateStore(llvm::ConstantInt::get(typeInt->llvmType, llvm::APInt(32, type->typeIndex)), V);
+			builder->CreateStore(GetTypeIndex(type->typeIndex), V);
 		}
 
 		V = builder->CreateStructGEP(aggr, 1, "tmp_arr");
@@ -1697,14 +1873,7 @@ void NodeFunctionAddress::CompileLLVM()
 	llvm::Value *ptr = builder->CreateStructGEP(aggr, 1, "ptr_part");
 	llvm::Value *context = builder->CreateStructGEP(aggr, 0, "ctx_part");
 
-	llvm::Type *functionType = ((llvm::StructType*)typeInfo->llvmType)->getTypeAtIndex(1u);
-
-	llvm::Value *tmp = funcInfo->llvmFunction;
-	if(funcInfo == CodeInfo::funcInfo[0])
-		tmp = llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(funcInfo->funcType->llvmType));
-
-	tmp = builder->CreatePointerCast(tmp, functionType, "func_cast");
-	builder->CreateStore(tmp, ptr);
+	builder->CreateStore(GetFunctionIndex(funcInfo->indexInArr), ptr);
 
 	llvm::Type *contextType = ((llvm::StructType*)typeInfo->llvmType)->getTypeAtIndex(0u);
 

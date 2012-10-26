@@ -34,12 +34,20 @@ public:
 		paramType = NULL;
 		paramCount = 0;
 		paramSize = NULLC_PTR_SIZE;
+
+#ifdef NULLC_LLVM_SUPPORT
+		llvmType = NULL;
+#endif
 	}
 
 	TypeInfo		*retType;
 	TypeInfo		**paramType;	// Array of pointers to type information
 	unsigned int	paramCount;
 	unsigned int	paramSize;
+
+#ifdef NULLC_LLVM_SUPPORT
+	llvm::Type		*llvmType;
+#endif
 };
 
 class GenericContext
