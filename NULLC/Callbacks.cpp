@@ -560,6 +560,10 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 			{
 				currType = curr->varType;
 				FunctionParameter(pos, curr->name);
+
+				// Steal the argument default value
+				CodeInfo::funcInfo.back()->lastParam->defaultValue = curr->defaultValue;
+				curr->defaultValue = NULL;
 			}
 			// Skip function parameters in source
 			unsigned parenthesis = 1;
@@ -1637,6 +1641,8 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 				// Save current type
 				TypeInfo *lastType = currType;
 
+				AliasInfo *lastAlias = func->childAlias;
+
 				unsigned nodeOffset = CodeInfo::nodeList.size() - currArgument;
 				// Move through all the arguments
 				VariableInfo *tempList = NULL;
@@ -1703,7 +1709,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 					}
 				}
 				// Remove all added aliases
-				while(func->childAlias)
+				while(func->childAlias != lastAlias)
 				{
 					CodeInfo::classMap.remove(func->childAlias->nameHash, func->childAlias->type);
 					func->childAlias = func->childAlias->next;
