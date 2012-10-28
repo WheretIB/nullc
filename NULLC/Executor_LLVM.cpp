@@ -209,23 +209,31 @@ ExecutorLLVM::~ExecutorLLVM()
 {
 }
 
-unsigned ExecutorLLVM::GetFunctionID(const char* name, unsigned length)
+unsigned ExecutorLLVM::GetFunctionID(const char* name, unsigned nameLength, const char* type, unsigned typeLength, unsigned variant)
 {
+	(void)variant;
+
 	const char* symbols = exLinker->exSymbols.data;
 	for(unsigned funcID = 0; funcID < exLinker->exFunctions.size(); funcID++)
 	{
-		if(length == strlen(exLinker->exFunctions[funcID].offsetToName + symbols) && memcmp(name, exLinker->exFunctions[funcID].offsetToName + symbols, length) == 0)
+		ExternFuncInfo &function = exLinker->exFunctions[funcID];
+
+		if(nameLength == strlen(function.offsetToName + symbols) && memcmp(name, function.offsetToName + symbols, nameLength) == 0)
 		{
+			// Check the function type
+			if(typeLength != strlen(exLinker->exTypes[function.funcType].offsetToName + symbols) || memcmp(type, exLinker->exTypes[function.funcType].offsetToName + symbols, typeLength) != 0)
+				continue;
+
 			if(mapped[funcID])
 				continue;
 
-			if(exLinker->exFunctions[funcID].address != -1 && exLinker->exFunctions[funcID].codeSize == 0)
+			if(function.address != -1 && function.codeSize == 0)
 				continue;
 
 			mapped[funcID] = 1;
 
 			// Skip generic base functions
-			if(exLinker->exFunctions[funcID].funcType == 0)
+			if(function.funcType == 0)
 				continue;
 
 			return funcID;
@@ -351,34 +359,34 @@ bool	ExecutorLLVM::TranslateToNative()
 
 	for(llvm::Module::FunctionListType::iterator c = funcs.begin(), e = funcs.end(); c != e; c++)
 	{
-		std::string name = c->getName();
+		const char *nameStart = c->getName().begin();
+		const char *typeStart = strchr(nameStart, '#');
 
-		const char *str = name.c_str();
-		str += name.length() - 1;
+		if(!typeStart)
+			continue;
 
-		bool found = false;
-		do 
+		unsigned nameLength = typeStart - nameStart;
+		typeStart++;
+
+		const char *typeEnd = strchr(typeStart, '#');
+
+		if(!typeEnd)
+			continue;
+
+		unsigned typeLength = typeEnd - typeStart;
+		typeEnd++;
+
+		unsigned variant = atoi(typeEnd);
+
+		unsigned funcID = GetFunctionID(nameStart, nameLength, typeStart, typeLength, variant);
+
+		if(funcID != ~0u)
 		{
-			unsigned length = unsigned(str - name.c_str() + 1);
-
-			unsigned funcID = GetFunctionID(name.c_str(), length);
-
-			if(funcID != ~0u)
-			{
-				if(exLinker->exFunctions[funcID].address == ~0u)
-					TheExecutionEngine->updateGlobalMapping(c, exLinker->exFunctions[funcID].funcPtr);
-				else
-					exLinker->exFunctions[funcID].funcPtr = TheExecutionEngine->getPointerToFunction(c);
-
-				found = true;
-			}
-			if((unsigned)(*str - '0') >= 10 || str == name)
-			{
-				break;
-			}else{
-				str--;
-			}
-		}while(!found);
+			if(exLinker->exFunctions[funcID].address == ~0u)
+				TheExecutionEngine->updateGlobalMapping(c, exLinker->exFunctions[funcID].funcPtr);
+			else
+				exLinker->exFunctions[funcID].funcPtr = TheExecutionEngine->getPointerToFunction(c);
+		}
 	}
 	delete[] mapped;
 

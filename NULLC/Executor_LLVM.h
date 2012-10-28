@@ -31,7 +31,7 @@ private:
 	void	InitExecution();
 
 	bool *mapped;
-	unsigned	GetFunctionID(const char* name, unsigned length);
+	unsigned	GetFunctionID(const char* name, unsigned nameLength, const char* type, unsigned typeLength, unsigned variant);
 
 	bool	codeRunning;
 
