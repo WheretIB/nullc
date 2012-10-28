@@ -4,29 +4,37 @@
 // function calls internal function, that perform a division
 long long Recaller(int test, int testB)
 {
-	nullcRunFunction("inside", test, testB);
-	return nullcGetResultInt();
+	if(nullcRunFunction("inside", test, testB))
+		return nullcGetResultInt();
+
+	return ~0u;
 }
 
 // function calls an external function "Recaller"
 int Recaller2(int testA, int testB)
 {
-	nullcRunFunction("Recaller", testA, testB);
-	return (int)nullcGetResultLong();
+	if(nullcRunFunction("Recaller", testA, testB))
+		return (int)nullcGetResultLong();
+
+	return ~0u;
 }
 
 // function calls internal function, that calls external function "Recaller"
 int Recaller3(int testA, int testB)
 {
-	nullcRunFunction("inside2", testA, testB);
-	return nullcGetResultInt();
+	if(nullcRunFunction("inside2", testA, testB))
+		return nullcGetResultInt();
+
+	return ~0u;
 }
 
 // function calls function by NULLC pointer
 int RecallerPtr(NULLCFuncPtr func)
 {
-	nullcCallFunction(func, 14);
-	return nullcGetResultInt();
+	if(nullcCallFunction(func, 14))
+		return nullcGetResultInt();
+
+	return ~0u;
 }
 
 // sort array with comparator function inside NULLC

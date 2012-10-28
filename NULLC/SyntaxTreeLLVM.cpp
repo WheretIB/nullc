@@ -277,7 +277,7 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 	arrSetParams.push_back(llvm::Type::getInt8PtrTy(getContext()));
 	arrSetParams.push_back(llvm::Type::getInt8Ty(getContext()));
 	arrSetParams.push_back(llvm::Type::getInt32Ty(getContext()));
-	llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(getContext()), arrSetParams, false), llvm::Function::ExternalLinkage, "__nullcSetArrayC", module);
+	llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(getContext()), arrSetParams, false), llvm::Function::ExternalLinkage, "__llvmSetArrayC", module);
 
 	arrSetParams[0] = llvm::Type::getInt16PtrTy(getContext());
 	arrSetParams[1] = llvm::Type::getInt16Ty(getContext());
@@ -314,10 +314,14 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 	{
 		FunctionInfo *funcInfo = CodeInfo::funcInfo[i];
 
-		if(!funcInfo->retType || funcInfo->funcType->dependsOnGeneric)
+		if(!funcInfo->retType || funcInfo->funcType->dependsOnGeneric || (funcInfo->parentClass && funcInfo->parentClass->genericInfo))
 			continue;
 
 		if((funcInfo->address & 0x80000000) && funcInfo->address != -1)
+			continue;
+
+		// There could be duplicate instances of generic functions coming from multiple modules, so skip the function if it's not in it's alloted spot
+		if(i != unsigned(funcInfo->indexInArr))
 			continue;
 
 		Arguments.clear();
@@ -333,7 +337,12 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 		if(i < functionsInModules)
 			linkage = llvm::GlobalVariable::ExternalWeakLinkage;
 
-		funcInfo->llvmFunction = llvm::Function::Create(FT, linkage, funcInfo->name, module);
+		else if(funcInfo->genericBase || funcInfo->genericInstance || (funcInfo->parentClass && funcInfo->parentClass->genericBase))
+			linkage = llvm::GlobalVariable::WeakODRLinkage;
+
+		std::string decoratedName = std::string(funcInfo->name) + "#" + funcInfo->funcType->GetFullTypeName() + "#";
+
+		funcInfo->llvmFunction = llvm::Function::Create(FT, linkage, decoratedName.c_str(), module);
 
 		// Generate closures
 		if(i >= functionsInModules)
@@ -1059,7 +1068,7 @@ void NodeDereference::CompileLLVM()
 
 		// Allocate closure
 		llvm::Value *typeSize = llvm::ConstantInt::get(getContext(), llvm::APInt(32, first->typeInfo->subType->size, true));
-		llvm::Value *value = builder->CreateCall3(module->getFunction("__newS"), typeSize, GetTypeIndex(first->typeInfo->subType->typeIndex), llvm::ConstantPointerNull::get(llvm::Type::getInt32PtrTy(getContext())));
+		llvm::Value *value = builder->CreateCall3(module->getFunction("__newS#void ref ref(int,int)#"), typeSize, GetTypeIndex(first->typeInfo->subType->typeIndex), llvm::ConstantPointerNull::get(llvm::Type::getInt32PtrTy(getContext())));
 		
 		llvm::Value *closureStart = value;
 
@@ -1120,7 +1129,7 @@ void NodeDereference::CompileLLVM()
 				builder->CreateStore(closureCurr, curr->variable->llvmUpvalue);
 			}
 
-			pos += curr->variable->varType->size > (NULLC_PTR_SIZE + NULLC_PTR_SIZE + 4) ? curr->variable->varType->size : (NULLC_PTR_SIZE + NULLC_PTR_SIZE + 4);
+			pos += NULLC_PTR_SIZE + (curr->variable->varType->size > (NULLC_PTR_SIZE + 4) ? curr->variable->varType->size : (NULLC_PTR_SIZE + 4));
 		}
 	}else{
 		first->CompileLLVM();
