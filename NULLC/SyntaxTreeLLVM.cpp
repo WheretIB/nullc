@@ -354,7 +354,7 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 				if(local->usedAsExternal)
 				{
 					SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH, "#upvalue#%.*s", local->name.length(), local->name.begin);
-					globals.push_back(new llvm::GlobalVariable(*module, llvm::PointerType::getUnqual(typeClosure), false, llvm::GlobalVariable::ExternalLinkage, 0, name));
+					globals.push_back(new llvm::GlobalVariable(*module, llvm::PointerType::getUnqual(typeClosure), false, llvm::GlobalVariable::InternalLinkage, 0, name));
 					local->llvmUpvalue = globals.back();
 					globals.back()->setInitializer(llvm::Constant::getNullValue(llvm::PointerType::getUnqual(typeClosure)));
 				}
@@ -362,7 +362,7 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 			if(funcInfo->closeUpvals)
 			{
 				SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH, "#upvalue#%s", funcInfo->name);
-				globals.push_back(new llvm::GlobalVariable(*module, llvm::PointerType::getUnqual(typeClosure), false, llvm::GlobalVariable::ExternalLinkage, 0, name));
+				globals.push_back(new llvm::GlobalVariable(*module, llvm::PointerType::getUnqual(typeClosure), false, llvm::GlobalVariable::InternalLinkage, 0, name));
 				funcInfo->extraParam->llvmUpvalue = globals.back();
 				globals.back()->setInitializer(llvm::Constant::getNullValue(llvm::PointerType::getUnqual(typeClosure)));
 			}
@@ -372,7 +372,7 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 				if(local->usedAsExternal)
 				{
 					SafeSprintf(name, NULLC_MAX_VARIABLE_NAME_LENGTH, "#upvalue#%.*s", local->name.length(), local->name.begin);
-					globals.push_back(new llvm::GlobalVariable(*module, llvm::PointerType::getUnqual(typeClosure), false, llvm::GlobalVariable::ExternalLinkage, 0, name));
+					globals.push_back(new llvm::GlobalVariable(*module, llvm::PointerType::getUnqual(typeClosure), false, llvm::GlobalVariable::InternalLinkage, 0, name));
 					local->llvmUpvalue = globals.back();
 					globals.back()->setInitializer(llvm::Constant::getNullValue(llvm::PointerType::getUnqual(typeClosure)));
 				}
@@ -1703,12 +1703,9 @@ void NodeSwitchExpr::CompileLLVM()
 {
 	CompileLLVMExtra();
 
-	if(second)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: NodeSwitchExpr on complex");
-
 	bool intOptimization = true;
 
-	if(first->typeInfo != typeInt)
+	if(!first || first->typeInfo != typeInt)
 		intOptimization = false;
 	for(NodeZeroOP *currCondition = conditionHead; currCondition; currCondition = currCondition->next)
 	{
@@ -1756,7 +1753,10 @@ void NodeSwitchExpr::CompileLLVM()
 		builder->SetInsertPoint(exitBlock);
 		V = NULL;
 	}else{
-		first->CompileLLVM();
+		if(first)
+			first->CompileLLVM();
+		else if(second)
+			second->CompileLLVM();
 		llvm::Value *condition = V;
 
 		FastVector<llvm::BasicBlock*, true, true>	conditionBlocks;
@@ -1785,22 +1785,29 @@ void NodeSwitchExpr::CompileLLVM()
 			currCondition->CompileLLVM();
 			llvm::Value *conditionValue = V;
 
-			asmStackType fST = ChooseBinaryOpResultType(first->typeInfo, currCondition->typeInfo)->stackType;
+			if(!second)
+			{
+				TypeInfo *leftType = first->typeInfo == typeTypeid ? typeInt : first->typeInfo;
+				TypeInfo *rightType = currCondition->typeInfo == typeTypeid ? typeInt : currCondition->typeInfo;
 
-			// Make a copy of the condition
-			llvm::Value *conditionOption = CreateEntryBlockAlloca(F, "case_cond_tmp", first->typeInfo->llvmType);
-			builder->CreateStore(condition, conditionOption, false);
-			conditionOption = builder->CreateLoad(conditionOption, "cond_tmp");
+				asmStackType fST = ChooseBinaryOpResultType(leftType, rightType)->stackType;
 
-			conditionOption = PromoteToStackType(conditionOption, first->typeInfo);
-			conditionValue = PromoteToStackType(conditionValue, currCondition->typeInfo);
+				// Make a copy of the condition
+				llvm::Value *conditionOption = CreateEntryBlockAlloca(F, "case_cond_tmp", first->typeInfo->llvmType);
+				builder->CreateStore(condition, conditionOption, false);
+				conditionOption = builder->CreateLoad(conditionOption, "cond_tmp");
 
-			conditionOption = ConvertFirstForSecond(conditionOption, first->typeInfo, currCondition->typeInfo);
-			conditionValue = ConvertFirstForSecond(conditionValue, currCondition->typeInfo, first->typeInfo);
+				conditionOption = PromoteToStackType(conditionOption, leftType);
+				conditionValue = PromoteToStackType(conditionValue, rightType);
 
-			MakeBinaryOp(conditionOption, conditionValue, cmdEqual, fST);
+				conditionOption = ConvertFirstForSecond(conditionOption, leftType, rightType);
+				conditionValue = ConvertFirstForSecond(conditionValue, rightType, leftType);
 
-			V = builder->CreateICmpNE(V, llvm::ConstantInt::get(getContext(), llvm::APInt(32, 0, true)), "cond_value");
+				MakeBinaryOp(conditionOption, conditionValue, cmdEqual, fST);
+			}
+
+			if(V->getType() != typeBool->llvmType)
+				V = builder->CreateICmpNE(V, llvm::ConstantInt::get(getContext(), llvm::APInt(32, 0, true)), "cond_value");
 
 			builder->CreateCondBr(V, caseBlocks[i], currCondition->next ? conditionBlocks[i + 1] : defaultBlock);
 		}
