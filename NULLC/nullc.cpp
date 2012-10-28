@@ -40,19 +40,21 @@ const char*					CodeInfo::lastKnownStartPos = NULL;
 
 Lexeme						*CodeInfo::lexStart = NULL, *CodeInfo::lexFullStart = NULL;
 
+class Executor;
+class ExecutorX86;
+class ExecutorLLVM;
+
 namespace NULLC
 {
 	Compiler*	compiler;
+
 #ifndef NULLC_NO_EXECUTOR
-		Linker*		linker;
-		Executor*	executor;
+	Linker*		linker;
 #endif
-#ifdef NULLC_BUILD_X86_JIT
-		ExecutorX86*	executorX86;
-#endif
-#if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
-		ExecutorLLVM*	executorLLVM;
-#endif
+
+	Executor*		executor;
+	ExecutorX86*	executorX86;
+	ExecutorLLVM*	executorLLVM;
 
 	const char*	nullcLastError = NULL;
 
