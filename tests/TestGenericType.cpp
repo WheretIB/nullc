@@ -509,16 +509,16 @@ TEST_RESULT("Generic type aliases are available in external unspecialized member
 
 const char *testGenericType41 =
 "class Factorial<T>{}\r\n\
-auto Factorial<int[1]>:get(){ T arr; return arr; }\r\n\
+auto Factorial<int[1] ref>:get(){ T arr; return arr; }\r\n\
 auto Factorial:get()\r\n\
 {\r\n\
-	Factorial<int[typeof(T).arraySize - 1]> x;\r\n\
-	int[typeof(x.get()).arraySize] m; // arraysize > 1 ? arraysize - 1 : 1;\r\n\
-	typeof(T).target[typeof(T).arraySize * typeof(m).arraySize] arr;\r\n\
+	Factorial<int[typeof(T).target.arraySize - 1] ref> x;\r\n\
+	int[typeof(x.get()).target.arraySize] ref m; // arraysize > 1 ? arraysize - 1 : 1;\r\n\
+	typeof(T).target.target[typeof(T).target.arraySize * typeof(m).target.arraySize] ref arr;\r\n\
 	return arr;\r\n\
 }\r\n\
-Factorial<int[8]> fact;\r\n\
-return typeof(fact.get()).arraySize;";
+Factorial<int[8] ref> fact;\r\n\
+return typeof(fact.get()).target.arraySize;";
 TEST_RESULT("Generic type compile-time factorial", testGenericType41, "40320");
 
 const char *testGenericType42 =
@@ -1399,16 +1399,16 @@ LOAD_MODULE(test_generic_type97, "test.generic_type97",
 const char *testGenericType97 =
 "import test.generic_type97;\r\n\
 \r\n\
-auto Factorial<int[1]>:get(){ T arr; return arr; }\r\n\
+auto Factorial<int[1] ref>:get(){ T arr; return arr; }\r\n\
 auto Factorial:get()\r\n\
 {\r\n\
-	Factorial<int[typeof(T).arraySize - 1]> x;\r\n\
-	int[typeof(x.get()).arraySize] m; // arraysize > 1 ? arraysize - 1 : 1;\r\n\
-	typeof(T).target[typeof(T).arraySize * typeof(m).arraySize] arr;\r\n\
+	Factorial<int[typeof(T).target.arraySize - 1] ref> x;\r\n\
+	int[typeof(x.get()).target.arraySize] ref m; // arraysize > 1 ? arraysize - 1 : 1;\r\n\
+	typeof(T).target.target[typeof(T).target.arraySize * typeof(m).target.arraySize] ref arr;\r\n\
 	return arr;\r\n\
 }\r\n\
-Factorial<int[8]> fact;\r\n\
-return typeof(fact.get()).arraySize;";
+Factorial<int[8] ref> fact;\r\n\
+return typeof(fact.get()).target.arraySize;";
 TEST_RESULT("Generic type compile-time factorial", testGenericType97, "40320");
 
 LOAD_MODULE(test_generic_type98, "test.generic_type98",
