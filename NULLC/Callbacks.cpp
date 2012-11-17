@@ -3542,9 +3542,13 @@ void FunctionEnd(const char* pos)
 		// Create closure type
 		newType = NULL;
 		SetCurrentAlignment(4);
-		char tempName[NULLC_MAX_VARIABLE_NAME_LENGTH + 32];
-		SafeSprintf(tempName, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, "__%s_%d_cls", lastFunc.name, CodeInfo::FindFunctionByPtr(&lastFunc));
+
+		unsigned bufSize = lastFunc.nameLength + 32;
+		char *tempName = AllocateString(bufSize);
+		SafeSprintf(tempName, bufSize, "__%s_%d_cls", lastFunc.name, CodeInfo::FindFunctionByPtr(&lastFunc));
 		TypeBegin(tempName, tempName + strlen(tempName), false);
+
+		// Add closure elements
 		for(FunctionInfo::ExternalInfo *curr = lastFunc.firstExternal; curr; curr = curr->next)
 		{
 			unsigned int bufSize = curr->variable->name.length() + 5;
@@ -5934,16 +5938,18 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool
 	NodeZeroOP **aliasType = &CodeInfo::nodeList[CodeInfo::nodeList.size() - aliases];
 
 	// Generate instance name
-	char tempName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-	char *namePos = tempName;
-	namePos += SafeSprintf(namePos, NULLC_MAX_VARIABLE_NAME_LENGTH - int(namePos - tempName), "%s<", base->name);
+	unsigned nameLength = base->GetFullNameLength() + 3;
 	for(unsigned i = 0; i < aliases; i++)
-		namePos += SafeSprintf(namePos, NULLC_MAX_VARIABLE_NAME_LENGTH - int(namePos - tempName), "%s%s", aliasType[i]->typeInfo->GetFullTypeName(), i == aliases - 1 ? "" : ", ");
-	namePos += SafeSprintf(namePos, NULLC_MAX_VARIABLE_NAME_LENGTH - int(namePos - tempName), ">");
-
-	// Check name length
-	if(NULLC_MAX_VARIABLE_NAME_LENGTH - int(namePos - tempName) == 0)
+		nameLength += aliasType[i]->typeInfo->GetFullNameLength() + (i == aliases - 1 ? 0 : 2);
+	if(nameLength >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 		ThrowError(pos, "ERROR: generated generic type name exceeds maximum type length '%d'", NULLC_MAX_VARIABLE_NAME_LENGTH);
+
+	char *tempName = AllocateString(nameLength);
+	char *namePos = tempName;
+	namePos += SafeSprintf(namePos, nameLength - int(namePos - tempName), "%s<", base->name);
+	for(unsigned i = 0; i < aliases; i++)
+		namePos += SafeSprintf(namePos, nameLength - int(namePos - tempName), "%s%s", aliasType[i]->typeInfo->GetFullTypeName(), i == aliases - 1 ? "" : ", ");
+	namePos += SafeSprintf(namePos, nameLength - int(namePos - tempName), ">");
 
 	HashMap<TypeInfo*>::Node *type = CodeInfo::classMap.first(base->nameHash);
 
