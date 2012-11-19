@@ -572,18 +572,16 @@ class SphereNode\r\n\
 {\r\n\
 	Sphere ref sphere;\r\n\
 	SphereNode ref next;\r\n\
-	\r\n\
-	auto SphereNode(Sphere ref sphere)\r\n\
-	{\r\n\
-		this.sphere = sphere;\r\n\
-		return this;\r\n\
-	}\r\n\
-	\r\n\
+}\r\n\
+auto SphereNode:init(Sphere ref sphere)\r\n\
+{\r\n\
+	this.sphere = sphere;\r\n\
+	return this;\r\n\
 }\r\n\
 auto SphereNode:add(Sphere ref sphere)\r\n\
 {\r\n\
 	next = new SphereNode;\r\n\
-	next.SphereNode(sphere);\r\n\
+	next.init(sphere);\r\n\
 	return next;\r\n\
 }\r\n\
 \r\n\
@@ -626,7 +624,7 @@ void setup()\r\n\
         fcol[i+512] = 0x10101 * ((s>>2) - (s>>5) + 31);\r\n\
     }\r\n\
 	firstSphere = new SphereNode;\r\n\
-	firstSphere.SphereNode(new Sphere(100, 40, 600, 200, 0.3, 1.0, 60, new Material(0x8080ff,ambient,diffusion)))\r\n\
+	firstSphere.init(new Sphere(100, 40, 600, 200, 0.3, 1.0, 60, new Material(0x8080ff,ambient,diffusion)))\r\n\
 	.add(new Sphere(  0, 50, 300, 100, 0.8, 0.8, 50, new Material(0x80ff80,ambient,diffusion)))\r\n\
 	.add(new Sphere( 50, 60, 200, 200, 0.6, 2.0, 40, new Material(0xff8080,ambient,diffusion)))\r\n\
 	.add(new Sphere(-50, 70, 500, 300, 0.4, 1.4, 30, new Material(0xc0c080,ambient,diffusion)))\r\n\
