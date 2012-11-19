@@ -7,6 +7,7 @@
 
 #include "stdafx.h"
 #include "Pool.h"
+#include "Tree.h"
 
 #include "Executor_Common.h"
 #include "includes/typeinfo.h"
@@ -240,7 +241,46 @@ namespace NULLC
 	ObjectBlockPool<256, poolBlockSize / 256>	pool256;
 	ObjectBlockPool<512, poolBlockSize / 512>	pool512;
 
-	FastVector<void*>				globalObjects;
+	struct Range
+	{
+		Range(): start(NULL), end(NULL)
+		{
+		}
+		Range(void* start, void* end): start(start), end(end)
+		{
+		}
+
+		// Ranges are equal if they intersect
+		bool operator==(const Range& rhs) const
+		{
+			return !(start > rhs.end || end < rhs.start);
+		}
+
+		bool operator<(const Range& rhs) const
+		{
+			return end < rhs.start;
+		}
+
+		bool operator>(const Range& rhs) const
+		{
+			return start > rhs.end;
+		}
+
+		void *start, *end;
+	};
+
+	typedef Tree<Range>::iterator BigBlockIterator;
+	Tree<Range>	bigBlocks;
+
+	unsigned currentMark = 0;
+	unsigned unusedBlocks = 0;
+
+	FastVector<Range> toErase;
+
+	void MarkBlock(Range& curr);
+	void CollectBlock(Range& curr);
+	void FinalizeBlock(Range& curr);
+	void ClearBlock(Range& curr);
 
 	double	markTime = 0.0;
 	double	collectTime = 0.0;
@@ -312,14 +352,18 @@ void* NULLC::AllocObject(int size, unsigned type)
 				data = pool512.Alloc();
 				realSize = 512;
 			}else{
-				globalObjects.push_back(NULLC::alloc(size + 4));
-				if(globalObjects.back() == NULL)
+				void *ptr = NULLC::alloc(size + 4);
+				if(ptr == NULL)
 				{
 					nullcThrowError("Allocation failed.");
 					return NULL;
 				}
-				realSize = *(int*)globalObjects.back() = size;
-				data = (char*)globalObjects.back() + 4;
+
+				Range range(ptr, (char*)ptr + size + 4);
+				bigBlocks.insert(range);
+
+				realSize = *(int*)ptr = size;
+				data = (char*)ptr + 4;
 			}
 		}
 	}
@@ -365,14 +409,20 @@ NULLCArray NULLC::AllocArray(unsigned size, unsigned count, unsigned type)
 	return ret;
 }
 
+void NULLC::MarkBlock(Range& curr)
+{
+	markerType *marker = (markerType*)((char*)curr.start + 4);
+	*marker = (*marker & ~NULLC::OBJECT_VISIBLE) | currentMark;
+}
+
 void NULLC::MarkMemory(unsigned int number)
 {
 	assert(number <= 1);
-	for(unsigned int i = 0; i < globalObjects.size(); i++)
-	{
-		markerType *marker = (markerType*)((char*)globalObjects[i] + 4);
-		*marker = (*marker & ~NULLC::OBJECT_VISIBLE) | number;
-	}
+
+	currentMark = number;
+
+	bigBlocks.for_each(MarkBlock);
+
 	pool8.Mark(number);
 	pool16.Mark(number);
 	pool32.Mark(number);
@@ -399,12 +449,16 @@ bool NULLC::IsBasePointer(void* ptr)
 		return true;
 	if(pool512.IsBasePointer(ptr))
 		return true;
+
 	// Search in global pool
-	for(unsigned int i = 0; i < globalObjects.size(); i++)
+	if(BigBlockIterator it = bigBlocks.find(Range(ptr, ptr)))
 	{
-		if((char*)ptr - 4 - sizeof(markerType) == globalObjects[i])
+		void *block = it->key.start;
+
+		if((char*)ptr - 4 - sizeof(markerType) == block)
 			return true;
 	}
+
 	return false;
 }
 
@@ -425,13 +479,38 @@ void* NULLC::GetBasePointer(void* ptr)
 		return base;
 	if(void *base = pool512.GetBasePointer(ptr))
 		return base;
+
 	// Search in global pool
-	for(unsigned int i = 0; i < globalObjects.size(); i++)
+	if(BigBlockIterator it = bigBlocks.find(Range(ptr, ptr)))
 	{
-		if(ptr >= globalObjects[i] && ptr <= (char*)globalObjects[i] + *(unsigned int*)globalObjects[i])
-			return (char*)globalObjects[i] + 4 + sizeof(markerType);
+		void *block = it->key.start;
+
+		if(ptr >= block && ptr <= (char*)block + *(unsigned int*)block)
+			return (char*)block + 4 + sizeof(markerType);
 	}
+
 	return NULL;
+}
+
+void NULLC::CollectBlock(Range& curr)
+{
+	void *block = curr.start;
+
+	markerType &marker = *(markerType*)((char*)block + 4);
+	if(!(marker & NULLC::OBJECT_VISIBLE))
+	{
+		if((marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
+		{
+			NULLC::FinalizeObject(marker, (char*)block + 4);
+		}else{
+			usedMemory -= *(unsigned int*)block;
+			NULLC::dealloc(block);
+
+			toErase.push_back(curr);
+
+			unusedBlocks++;
+		}
+	}
 }
 
 void NULLC::CollectMemory()
@@ -449,28 +528,20 @@ void NULLC::CollectMemory()
 	time = (double(clock()) / CLOCKS_PER_SEC);
 
 	// Globally allocated objects marked with 0 are deleted
-	unsigned int unusedBlocks = 0;
-	for(unsigned int i = 0; i < globalObjects.size(); i++)
-	{
-		markerType &marker = *(markerType*)((char*)globalObjects[i] + 4);
-		if(!(marker & NULLC::OBJECT_VISIBLE))
-		{
-			if((marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
-			{
-				NULLC::FinalizeObject(marker, (char*)globalObjects[i] + 4);
-			}else{
-				usedMemory -= *(unsigned int*)globalObjects[i];
-				NULLC::dealloc(globalObjects[i]);
-				globalObjects[i] = globalObjects.back();
-				globalObjects.pop_back();
-				unusedBlocks++;
-				i--;
-			}
-		}
-	}
-//	printf("%d unused globally allocated blocks destroyed (%d remains)\r\n", unusedBlocks, globalObjects.size());
+	unusedBlocks = 0;
 
-//	printf("%d used memory\r\n", usedMemory);
+	toErase.clear();
+
+	bigBlocks.for_each(CollectBlock);
+
+	for(unsigned i = 0; i < toErase.size(); i++)
+		bigBlocks.erase(toErase[i]);
+
+	toErase.clear();
+
+	//printf("%d unused globally allocated blocks destroyed\r\n", unusedBlocks);
+
+	//printf("%d used memory\r\n", usedMemory);
 
 	// Objects allocated from pools are freed
 	unusedBlocks = pool8.FreeMarked();
@@ -516,6 +587,15 @@ double NULLC::CollectTime()
 	return collectTime;
 }
 
+void NULLC::FinalizeBlock(Range& curr)
+{
+	void *block = curr.start;
+
+	markerType &marker = *(markerType*)((char*)block + 4);
+	if(!(marker & NULLC::OBJECT_VISIBLE) && (marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
+		NULLC::FinalizeObject(marker, (char*)block + 4);
+}
+
 void NULLC::FinalizeMemory()
 {
 	MarkMemory(0);
@@ -526,14 +606,16 @@ void NULLC::FinalizeMemory()
 	pool128.FreeMarked();
 	pool256.FreeMarked();
 	pool512.FreeMarked();
-	for(unsigned int i = 0; i < globalObjects.size(); i++)
-	{
-		markerType &marker = *(markerType*)((char*)globalObjects[i] + 4);
-		if(!(marker & NULLC::OBJECT_VISIBLE) && (marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
-			NULLC::FinalizeObject(marker, (char*)globalObjects[i] + 4);
-	}
+
+	bigBlocks.for_each(FinalizeBlock);
+
 	nullcRunFunction("__finalizeObjects");
 	finalizeList.clear();
+}
+
+void NULLC::ClearBlock(Range& curr)
+{
+	NULLC::dealloc(curr.start);
 }
 
 void NULLC::ClearMemory()
@@ -548,9 +630,10 @@ void NULLC::ClearMemory()
 	pool256.~ObjectBlockPool();
 	pool512.~ObjectBlockPool();
 
-	for(unsigned int i = 0; i < globalObjects.size(); i++)
-		NULLC::dealloc(globalObjects[i]);
-	globalObjects.clear();
+	bigBlocks.for_each(ClearBlock);
+	bigBlocks.clear();
+
+	toErase.clear();
 
 	finalizeList.clear();
 }
@@ -558,7 +641,10 @@ void NULLC::ClearMemory()
 void NULLC::ResetMemory()
 {
 	ClearMemory();
-	globalObjects.reset();
+
+	bigBlocks.reset();
+	toErase.reset();
+
 	finalizeList.reset();
 	ResetGC();
 }
