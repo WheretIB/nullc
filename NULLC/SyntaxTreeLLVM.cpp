@@ -19,15 +19,10 @@
 #include "llvm/Bitcode/BitstreamWriter.h"
 #include "llvm/Support/IRReader.h"
 
-#include "llvm/PassManager.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JIT.h"
-#include "llvm/Target/TargetData.h"
+
 #include "llvm/Support/TargetSelect.h"
-
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/IPO.h"
-
 #include "llvm/Support/TypeBuilder.h"
 #include "llvm/Support/ManagedStatic.h"
 
@@ -86,12 +81,8 @@ namespace
 	llvm::IRBuilder<>	*builder = 0;
 
 	llvm::ExecutionEngine *TheExecutionEngine = NULL;
-	llvm::FunctionPassManager *OurFPM = NULL;
-	llvm::PassManager *OurPM = NULL;
 
 	std::vector<llvm::GlobalVariable*>	globals;
-
-	bool	enableOptimization = false;
 
 	FastVector<llvm::BasicBlock*>	breakStack;
 	FastVector<llvm::BasicBlock*>	continueStack;
@@ -128,31 +119,6 @@ void		StartLLVMGeneration(unsigned functionsInModules)
 		printf("Could not create ExecutionEngine: %s\n", ErrStr.c_str());
 		exit(1);
 	}
-
-	OurPM = new llvm::PassManager();
-
-	OurFPM = new llvm::FunctionPassManager(module);
-
-	// Set up the optimizer pipeline.  Start with registering info about how the
-	// target lays out data structures.
-	OurFPM->add(new llvm::TargetData(*TheExecutionEngine->getTargetData()));
-	// Promote allocas to registers.
-	OurFPM->add(llvm::createPromoteMemoryToRegisterPass());
-
-	// Do simple "peephole" optimizations and bit-twiddling optzns.
-	OurFPM->add(llvm::createInstructionCombiningPass());
-	// Reassociate expressions.
-	OurFPM->add(llvm::createReassociatePass());
-	// Eliminate Common SubExpressions.
-	OurFPM->add(llvm::createGVNPass());
-	// Simplify the control flow graph (deleting unreachable blocks, etc).
-	OurFPM->add(llvm::createCFGSimplificationPass());
-
-	OurFPM->add(llvm::createConstantPropagationPass());
-
-	OurPM->add(llvm::createFunctionInliningPass());
-
-	OurFPM->doInitialization();
 
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 		CodeInfo::typeInfo[i]->llvmType = NULL;
@@ -405,15 +371,6 @@ const char*	GetLLVMIR(unsigned& length)
 {
 	builder->CreateRetVoid();
 
-	if(enableOptimization)
-	{
-		if(!F->getEntryBlock().empty())
-			OurFPM->run(*F);
-		OurPM->run(*module);
-		if(!F->getEntryBlock().empty())
-			OurFPM->run(*F);
-	}
-
 	//module->dump();
 	verifyFunction(*F, llvm::PrintMessageAction);
 	verifyModule(*module, llvm::PrintMessageAction);
@@ -430,12 +387,6 @@ llvm::Value *V;
 
 void	EndLLVMGeneration()
 {
-	delete OurPM;
-	OurPM = NULL;
-
-	delete OurFPM;
-	OurFPM = NULL;
-
 	V = NULL;
 	F = NULL;
 
@@ -860,8 +811,7 @@ void NodeFuncDef::CompileLLVM()
 		builder->CreateUnreachable();
 
 	verifyFunction(*F, llvm::PrintMessageAction);
-	if(enableOptimization && !F->getEntryBlock().empty())
-		OurFPM->run(*F);
+
 	F = NULL;
 }
 
@@ -1438,7 +1388,11 @@ void NodeIfElseExpr::CompileLLVM()
 	second->CompileLLVM();
 	left = V;
 	if(typeInfo != typeVoid)
+	{
 		left = ConvertFirstToSecond(left, second->typeInfo, typeInfo);
+		if(typeInfo == typeBool)
+			left = builder->CreateIntCast(left, typeBool->llvmType, false, "left_to_bool");
+	}
 	
 	trueBlock = builder->GetInsertBlock();
 	if(trueBlock->empty() || !trueBlock->back().isTerminator())
@@ -1451,7 +1405,11 @@ void NodeIfElseExpr::CompileLLVM()
 		third->CompileLLVM();
 		right = V;
 		if(typeInfo != typeVoid)
+		{
 			right = ConvertFirstToSecond(right, third->typeInfo, typeInfo);
+			if(typeInfo == typeBool)
+				right = builder->CreateIntCast(right, typeBool->llvmType, false, "right_to_bool");
+		}
 
 		falseBlock = builder->GetInsertBlock();
 		if(falseBlock->empty() || !falseBlock->back().isTerminator())
