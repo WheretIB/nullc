@@ -40,12 +40,10 @@ align(4) class float2
 {
 	float x, y;
 	
-	float2 float2(float x, y)
+	void float2(float x, y)
 	{
-		float2 res;
-		res.x = x;
-		res.y = y;
-		return res;
+		this.x = x;
+		this.y = y;
 	}
 
 	float2 xx{ get{ return float2(x, x); } };
@@ -117,13 +115,11 @@ align(4) class float3
 {
 	float x, y, z;
 	
-	float3 float3(float x, y, z)
+	void float3(float x, y, z)
 	{
-		float3 res;
-		res.x = x;
-		res.y = y;
-		res.z = z;
-		return res;
+		this.x = x;
+		this.y = y;
+		this.z = z;
 	}
 
 	float2 xx{ get{ return float2(x, x); } };
@@ -233,14 +229,12 @@ align(4) class float4
 {
 	float x, y, z, w;
 	
-	float4 float4(float x, y, z, w)
+	void float4(float x, y, z, w)
 	{
-		float4 res;
-		res.x = x;
-		res.y = y;
-		res.z = z;
-		res.w = w;
-		return res;
+		this.x = x;
+		this.y = y;
+		this.z = z;
+		this.w = w;
 	}
 
 	float2 xx{ get{ return float2(x, x); } };
