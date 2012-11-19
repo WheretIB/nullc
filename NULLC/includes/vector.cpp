@@ -36,7 +36,7 @@ namespace NULLCVector
 			vec->data.ptr = (char*)nullcAllocate(vec->elemSize * reserved);
 			vec->data.len = reserved;
 		}else{
-			vec->data.ptr = NULL;
+			vec->data.ptr = 0;
 			vec->data.len = 0;
 		}
 	}
@@ -140,7 +140,7 @@ namespace NULLCVector
 	{
 		vec->size = 0;
 		vec->data.len = 0;
-		vec->data.ptr = NULL;
+		vec->data.ptr = 0;
 	}
 
 	int VectorSize(vector* vec)
