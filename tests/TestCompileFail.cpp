@@ -202,7 +202,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Operation unsupported on reference 3", "int x; int ref y = &x; return *(y--);", "ERROR: decrement is not supported on 'int ref'");
 	TEST_FOR_FAIL("Operation unsupported on reference 4", "int x; int ref y = &x; return *--y;", "ERROR: decrement is not supported on 'int ref'");
 
-	TEST_FOR_FAIL("Constructor returns a value", "auto int:int(int x, y){ *this = x; return this; } return *new int(4, 8);", "ERROR: constructor cannot be used after 'new' expression if return type is not void");
+	TEST_FOR_FAIL("Constructor returns a value", "auto int:int(int x, y){ *this = x; return this; } return *new int(4, 8);", "ERROR: type constructor return type must be void");
 
 #ifdef NULLC_PURE_FUNCTIONS
 const char	*testCompileTimeNoReturn =

@@ -3503,6 +3503,15 @@ void FunctionEnd(const char* pos)
 	if(!lastFunc.retType->hasFinished && newType != lastFunc.retType)
 		ThrowError(pos, "ERROR: type '%s' is not fully defined", lastFunc.retType->GetFullTypeName());
 
+	if(newType && lastFunc.retType != typeVoid)
+	{
+		unsigned hash = newType->GetFullNameHash();
+		hash = StringHashContinue(hash, "::");
+		hash = StringHashContinue(hash, newType->GetFullTypeName());
+		if(hash == lastFunc.nameHash)
+			ThrowError(pos, "ERROR: type constructor return type must be void");
+	}
+
 	// Remove aliases defined in a function
 	AliasInfo *info = lastFunc.childAlias;
 	while(info)
@@ -4946,9 +4955,12 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 	NodeZeroOP	*funcAddr = NULL;
 
+	// Check if there is a type with the same name
+	TypeInfo *info = funcName ? SelectTypeByName(InplaceStr(funcName)) : NULL;
+
 	// If we are inside member function, transform function name to a member function name (they have priority over global functions)
 	// But it's important not to do it if we have function namespace name or it is a constructor name
-	if(newType && funcName && !currNamespace && !SelectTypeByName(InplaceStr(funcName)))
+	if(newType && funcName && !currNamespace && !info)
 	{
 		unsigned int hash = newType->nameHash, hashBase = ~0u;
 		hash = StringHashContinue(hash, "::");
@@ -5032,9 +5044,6 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	}
 	unsigned int count = bestFuncList.size();
 	
-	TypeInfo *info = NULL;
-	if(count == 0 && funcName)
-		info = SelectTypeByName(InplaceStr(funcName));
 	// Reset current namespace after this point, it's already been used up
 	NamespaceInfo *lastNS = currNamespace;
 	currNamespace = NULL;
