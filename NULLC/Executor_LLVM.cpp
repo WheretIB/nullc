@@ -19,11 +19,20 @@
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JIT.h"
 
+#include "llvm/PassManager.h"
+
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/IPO.h"
+
+#include "llvm/Target/TargetData.h"
+
 #pragma comment(lib, "LLVMLinker.lib")
 
 #include <string>
 
 #pragma warning(pop)
+
+const bool llvmOptimization = false;
 
 int llvmIntPow(int number, int power)
 {
@@ -350,9 +359,46 @@ bool	ExecutorLLVM::TranslateToNative()
 	TheExecutionEngine->updateGlobalMapping(module->getFunction("llvmCloseUpvalue"), (void*)llvmCloseUpvalue);
 	TheExecutionEngine->updateGlobalMapping(module->getFunction("__llvmIndexToFunction"), (void*)__llvmIndexToFunction);
 
-	// external functions binding
+	// Get function list
 	llvm::Module::FunctionListType &funcs = module->getFunctionList();
-	
+
+	if(llvmOptimization)
+	{
+		llvm::PassManager *pass_manager = new llvm::PassManager();
+		llvm::FunctionPassManager *function_pass_manager = new llvm::FunctionPassManager(module);
+
+		function_pass_manager->add(new llvm::TargetData(*TheExecutionEngine->getTargetData()));
+
+		function_pass_manager->add(llvm::createScalarReplAggregatesPass());
+		function_pass_manager->add(llvm::createPromoteMemoryToRegisterPass());
+		function_pass_manager->add(llvm::createInstructionCombiningPass());
+		function_pass_manager->add(llvm::createReassociatePass());
+		function_pass_manager->add(llvm::createGVNPass());
+		function_pass_manager->add(llvm::createCFGSimplificationPass());
+		function_pass_manager->add(llvm::createConstantPropagationPass());
+		function_pass_manager->add(llvm::createDeadCodeEliminationPass());
+
+		pass_manager->add(llvm::createFunctionAttrsPass());
+		pass_manager->add(llvm::createFunctionInliningPass());
+
+		function_pass_manager->doInitialization();
+
+		// Optimize functions and module
+		for(llvm::Module::FunctionListType::iterator c = funcs.begin(), e = funcs.end(); c != e; c++)
+			function_pass_manager->run(*c);
+
+		// Optimize module
+		pass_manager->run(*module);
+
+		// Optimize functions after inlining
+		for(llvm::Module::FunctionListType::iterator c = funcs.begin(), e = funcs.end(); c != e; c++)
+			function_pass_manager->run(*c);
+
+		delete function_pass_manager;
+		delete pass_manager;
+	}
+
+	// External functions binding
 	mapped = new bool[exLinker->exFunctions.size()];
 	for(unsigned funcID = 0; funcID < exLinker->exFunctions.size(); funcID++)
 		mapped[funcID] = 0;
