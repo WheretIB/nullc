@@ -1789,6 +1789,9 @@ void NodeSwitchExpr::AddCase()
 	}else{
 		conditionHead = conditionTail = TakeLastNode();
 	}
+
+	if(first && (first->typeInfo == typeTypeid) != (conditionTail->typeInfo == typeTypeid))
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot compare '%s' with '%s'", first->typeInfo->GetFullTypeName(), conditionTail->typeInfo->GetFullTypeName());
 }
 
 void NodeSwitchExpr::AddDefault()

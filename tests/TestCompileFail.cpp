@@ -767,6 +767,8 @@ auto m = bar;",
   at \"auto m = bar;\"\r\n\
                ^\r\n\
 ");
+
+	TEST_FOR_FAIL("incorrect switch type combination", "switch(4){ case int: return 3; break; case float: return 1; } return 2;", "ERROR: cannot compare 'int' with 'typeid'");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
