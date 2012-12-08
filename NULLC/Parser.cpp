@@ -2283,7 +2283,8 @@ void ParseCustomConstructor(Lexeme** str, TypeInfo* resultType, NodeZeroOP* getP
 	NodeOneOP* wrap = new NodeOneOP();
 	wrap->SetFirstNode(getPointer);
 	CodeInfo::nodeList.push_back(wrap);
-	PrepareMemberCall((*str)->pos);
+	CodeInfo::nodeList.push_back(new NodeDereference());
+
 	PushExplicitTypes(NULL);
 	AddMemberFunctionCall((*str)->pos, functionName, 0);
 	PopExplicitTypes();
@@ -2426,8 +2427,7 @@ bool ParseTerminal(Lexeme** str)
 			NodeOneOP *wrap = new NodeOneOP();
 			wrap->SetFirstNode(getPointer);
 			CodeInfo::nodeList.push_back(wrap);
-
-			PrepareMemberCall(pos);
+			CodeInfo::nodeList.push_back(new NodeDereference());
 
 			const char *last = SetCurrentFunction(name);
 			unsigned int callArgCount = ParseFunctionArguments(str);
@@ -2439,7 +2439,15 @@ bool ParseTerminal(Lexeme** str)
 			PushExplicitTypes(NULL);
 			// Remove address node if a derived type is created or default constructor will be called
 			if(!name || !AddMemberFunctionCall((*str)->pos, name, callArgCount, callArgCount == 0)) // silence the error if default constructor is called
+			{
+				if(callArgCount > 1)
+					ThrowError((*str)->pos, "ERROR: function '%s::%s' that accepts %d arguments is undefined", info->GetFullTypeName(), info->GetFullTypeName(), callArgCount);
+
+				if(callArgCount == 1)
+					AddSetVariableNode(pos);
+
 				AddPopNode(pos);
+			}
 			PopExplicitTypes();
 
 			FinishConstructorCall((*str)->pos);

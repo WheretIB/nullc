@@ -751,6 +751,9 @@ line 1 - ERROR: unknown identifier 'a'\r\n\
 	TEST_FOR_FAIL("hasMember extended typeof", "int.hasMember(x;", "ERROR: expected ')' after member name");
 
 	TEST_FOR_FAIL("any type allocation", "new (int[]();", "ERROR: matching ')' not found after '('");
+	TEST_FOR_FAIL("any type allocation", "new int ref(1, 2);", "ERROR: function 'int ref::int ref' that accepts 2 arguments is undefined");
+	TEST_FOR_FAIL("any type allocation", "auto by_e = new (int[2])({1, 2, 3});", "ERROR: cannot convert 'int[3]' to 'int[2]'");
+	TEST_FOR_FAIL("any type allocation", "new int ref(0);", "ERROR: cannot convert 'int' to 'int ref'");
 
 	TEST_FOR_FAIL_FULL("correct instancing info",
 "auto bar(@T x){}\r\n\
