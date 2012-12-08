@@ -97,7 +97,7 @@ void RunInterfaceTests()
 			{
 				if(!Tests::messageVerbose)
 					printf("Two bytecode merge test 1\r\n");
-				printf("nullcGetGlobal failed");
+				printf("nullcGetGlobal failed\r\n");
 				continue;
 			}
 			int n = 45;
@@ -112,7 +112,7 @@ void RunInterfaceTests()
 				{
 					if(!Tests::messageVerbose)
 						printf("Two bytecode merge test 1\r\n");
-					printf("nullcSetGlobal failed");
+					printf("nullcSetGlobal failed\r\n");
 					continue;
 				}
 				if(!nullcRunFunction("runA"))

@@ -38,7 +38,7 @@ void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, 
 		// coroutine locals are closed immediately
 		if(externals[i].target == ~0u)
 		{
-			upvalue->ptr = (unsigned int*)&upvalue->next;
+			upvalue->ptr = (unsigned*)(upvalue + 1);
 		}else{
 			if(externals[i].closeListID & 0x80000000)	// If external variable can be found in current scope
 			{
@@ -57,12 +57,8 @@ void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, 
 			// Change list head to a new upvalue
 			externalList[externals[i].closeListID & ~0x80000000] = upvalue;
 		}
-		// Move to the next upvalue (upvalue size is max(sizeof(ExternFuncInfo::Upvalue), externals[i].size)
-#ifdef _M_X64
-		upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 4 ? 5 : 2 + (externals[i].size >> 2)));
-#else
-		upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 3 ? 3 : 1 + (externals[i].size >> 2)));
-#endif
+		// Move to the next upvalue (upvalue size is sizeof(ExternFuncInfo::Upvalue) + externals[i].size)
+		upvalue = (ExternFuncInfo::Upvalue*)((char*)upvalue + sizeof(ExternFuncInfo::Upvalue) + externals[i].size);
 	}
 }
 
@@ -94,8 +90,10 @@ void CloseUpvalues(char* paramBase, unsigned int depth, unsigned int argument)
 			}
 
 			// Copy target variable data into the upvalue
-			memcpy(&curr->next, curr->ptr, size);
-			curr->ptr = (unsigned int*)&curr->next;
+			unsigned *copy = (unsigned*)(curr + 1);
+			memcpy(copy, curr->ptr, size);
+			curr->ptr = copy;
+			curr->next = NULL;
 
 			// Proceed to the next upvalue
 			curr = next;
@@ -256,7 +254,7 @@ namespace GC
 
 			// Marker is before the block
 			markerType	*marker = (markerType*)((char*)basePtr - sizeof(markerType));
-			GC_DEBUG_PRINT("\tMarker is %d\r\n", *marker);
+			GC_DEBUG_PRINT("\tMarker is %d (type %d, flag %d)\r\n", *marker, *marker >> 8, *marker & 0xff);
 
 			// If block is unmarked
 			if(!(*marker & 1))
@@ -391,27 +389,10 @@ namespace GC
 		if(func.address == -1)
 			return;
 		// If context is "this" pointer
-		if(func.parentType != ~0u)
+		if(func.contextType != ~0u)
 		{
-			const ExternTypeInfo &classType = NULLC::commonLinker->exTypes[func.parentType];
-			MarkPointer((char*)&fPtr->context, classType, false);
-		}
-		if(func.contextType != ~0u && func.externCount)
-		{
-			MarkPointer((char*)&fPtr->context, NULLC::commonLinker->exTypes[0], false);
-			// Context is a closure
-			ExternFuncInfo::Upvalue *upvalue = (ExternFuncInfo::Upvalue*)fPtr->context;
-			ExternLocalInfo *externals = &NULLC::commonLinker->exLocals[func.offsetToFirstLocal + func.localCount];
-			for(unsigned int i = 0; i < func.externCount; i++)
-			{
-				ExternTypeInfo &externType = NULLC::commonLinker->exTypes[externals[i].type];
-				CheckVariable((char*)upvalue->ptr, externType);
-#ifdef _M_X64
-				upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 4 ? 5 : 2 + (externals[i].size >> 2)));
-#else
-				upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 3 ? 3 : 1 + (externals[i].size >> 2)));
-#endif
-			}
+			const ExternTypeInfo &classType = NULLC::commonLinker->exTypes[func.contextType];
+			MarkPointer((char*)&fPtr->context, classType, true);
 		}
 	}
 
@@ -651,6 +632,8 @@ void MarkUsedBlocks()
 	}
 #endif
 
+	GC_DEBUG_PRINT("Check stack from %p to %p\r\n", tempStackBase, tempStackTop);
+
 	// Check that temporary stack range is correct
 	assert(tempStackTop >= tempStackBase);
 	// Check temporary stack for pointers
@@ -683,6 +666,8 @@ void MarkUsedBlocks()
 		}
 		tempStackBase += 4;
 	}
+
+	GC_DEBUG_PRINT("Checking new roots\r\n");
 
 	while(GC::next->size())
 	{

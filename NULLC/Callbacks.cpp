@@ -346,13 +346,15 @@ void SetCurrentAlignment(unsigned int alignment)
 // Finds variable inside function external variable list, and if not found, adds it to a list
 FunctionInfo::ExternalInfo* AddFunctionExternal(FunctionInfo* func, VariableInfo* var)
 {
-	unsigned int i = 0;
-	for(FunctionInfo::ExternalInfo *curr = func->firstExternal; curr; curr = curr->next, i++)
+	for(FunctionInfo::ExternalInfo *curr = func->firstExternal; curr; curr = curr->next)
+	{
 		if(curr->variable == var)
 			return curr;
+	}
 
 	func->AddExternal(var);
 	var->usedAsExternal = true;
+
 	return func->lastExternal;
 }
 
@@ -370,6 +372,7 @@ char* GetClassFunctionName(TypeInfo* type, const char* funcName)
 	*curr = 0;
 	return memberFuncName;
 }
+
 char* GetClassFunctionName(TypeInfo* type, InplaceStr funcName)
 {
 	char	*memberFuncName = AllocateString(type->GetFullNameLength() + 2 + funcName.length() + 1);
@@ -3371,7 +3374,7 @@ void FunctionStart(const char* pos)
 	if(lastFunc.type == FunctionInfo::COROUTINE)
 	{
 		currType = typeInt;
-		VariableInfo *jumpOffset = (VariableInfo*)AddVariable(pos, InplaceStr("$jmpOffset", 10));
+		VariableInfo *jumpOffset = (VariableInfo*)AddVariable(pos, InplaceStr("$jmpOffset"));
 		AddFunctionExternal(&lastFunc, jumpOffset);
 	}
 	varDefined = false;
@@ -3563,17 +3566,27 @@ void FunctionEnd(const char* pos)
 		// Add closure elements
 		for(FunctionInfo::ExternalInfo *curr = lastFunc.firstExternal; curr; curr = curr->next)
 		{
-			unsigned int bufSize = curr->variable->name.length() + 5;
+			// Hide coroutine jump offset so that the user will not be able to change it
+			if(curr->variable->name == InplaceStr("$jmpOffset"))
+			{
+				newType->size += NULLC_PTR_SIZE + NULLC_PTR_SIZE + 4 + 4;
+				continue;
+			}
+
+			unsigned int bufSize = curr->variable->name.length() + 8;
+
 			// Pointer to target variable
 			char	*memberName = AllocateString(bufSize);
-			SafeSprintf(memberName, bufSize, "%.*s_ext", curr->variable->name.length(), curr->variable->name.begin);
+			SafeSprintf(memberName, bufSize, "%.*s_target", curr->variable->name.length(), curr->variable->name.begin);
 			newType->AddMemberVariable(memberName, CodeInfo::GetReferenceType(curr->variable->varType));
+
+			// Reserve space for pointer to the next upvalue and the size of the data
+			newType->size += NULLC_PTR_SIZE + 4;
 
 			// Place for a copy of target variable
 			memberName = AllocateString(bufSize);
-			SafeSprintf(memberName, bufSize, "%.*s_dat", curr->variable->name.length(), curr->variable->name.begin);
-			unsigned int reqBytes = (curr->variable->varType->size < (NULLC_PTR_SIZE + 4) ? (NULLC_PTR_SIZE + 4) : curr->variable->varType->size);
-			newType->AddMemberVariable(memberName, CodeInfo::GetArrayType(typeInt, reqBytes / 4));
+			SafeSprintf(memberName, bufSize, "%.*s_copy", curr->variable->name.length(), curr->variable->name.begin);
+			newType->AddMemberVariable(memberName, curr->variable->varType);
 		}
 		TypeInfo *closureType = newType;
 
@@ -3609,7 +3622,7 @@ void FunctionEnd(const char* pos)
 		lastFunc.funcContext = varInfo; // Save function context variable
 
 		// Allocate closure in dynamic memory
-		CodeInfo::nodeList.push_back(new NodeNumber((int)(lastFunc.externalSize), typeInt));
+		CodeInfo::nodeList.push_back(new NodeNumber(int(closureType->size), typeInt));
 		CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
 		CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, closureType->typeIndex));
 		CallAllocationFunction(pos, "__newS");

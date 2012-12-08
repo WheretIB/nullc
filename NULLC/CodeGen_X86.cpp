@@ -2162,8 +2162,8 @@ void GenCodeCmdYield(VMCmd cmd)
 	{
 		// Take pointer to closure in hidden argument
 		EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rEBP, cmd.argument + paramBase);
-		// Read jump offset at 4 byte shift (ExternFuncInfo::Upvalue::next)
-		EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rEAX, 4);
+		// Read jump offset right after ExternFuncInfo::Upvalue
+		EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rEAX, sizeof(ExternFuncInfo::Upvalue));
 		// Test for 0
 		EMIT_OP_REG_REG(o_test, rEBX, rEBX);
 		// If zero, don't change anything
@@ -2188,7 +2188,7 @@ void yieldSaveEIP()
 	asm("mov 8(%esp), %eax");
 	asm("sub %0, %%eax"::"m"(x86BinaryBase):"%eax");
 	asm("add $1, %eax");	// jump over ret
-	asm("mov %eax, 4(%esi)");
+	asm("mov %eax, 12(%esi)");
 	asm("pop %eax");
 }
 #else
@@ -2200,7 +2200,7 @@ __declspec(naked) void yieldSaveEIP()
 		mov eax, [esp+4]; // mov return address to eax
 		sub eax, x86BinaryBase;
 		add eax, 1;	// jump over ret
-		mov [esi+4], eax; // save code address to target variable
+		mov [esi+12], eax; // save code address to target variable
 		pop eax; // restore eax
 		ret;
 	}
@@ -2302,8 +2302,8 @@ void GenCodeCmdReturn(VMCmd cmd)
 			EMIT_REG_READ(rESI);
 			EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&yieldPtr);
 		}else{	// otherwise, it's return
-			// When function is called again, start from beginning by reseting  jump offset at 4 byte shift (ExternFuncInfo::Upvalue::next)
-			EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESI, 4, 0);
+			// When function is called again, start from beginning by reseting jump offset right after ExternFuncInfo::Upvalue
+			EMIT_OP_RPTR_NUM(o_mov, sDWORD, rESI, sizeof(ExternFuncInfo::Upvalue), 0);
 		}
 	}
 	EMIT_OP(o_ret);

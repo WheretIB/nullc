@@ -695,3 +695,15 @@ arrI[0] = 4;\r\n\
 \r\n\
 return arrI[0] + arrI.size;";
 TEST_RESULT("Reflection test 2", testReflection2, "20");
+
+const char	*testReflection3 =
+"import std.typeinfo;\r\n\
+coroutine int foo(){ int x = 1; yield x; return x; }\r\n\
+foo();\r\n\
+for(i in functionGetContextType(foo).subType().members(functionGetContext(foo)))\r\n\
+{\r\n\
+	if(i.type == int)\r\n\
+		*i.value = 55;\r\n\
+}\r\n\
+return foo();";
+TEST_RESULT("Reflection test 3", testReflection3, "55");

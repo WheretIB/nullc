@@ -134,13 +134,30 @@ void	llvmCloseUpvalue(void* upvalue, char* ptr)
 
 	GC::unmanageableBase = (char*)&curr;
 	// close upvalue if it's target is equal to local variable, or it's address is out of stack
-	while(curr && ((char*)curr->ptr == ptr || (char*)curr->ptr < GC::unmanageableBase || (char*)curr->ptr > GC::unmanageableTop))
+	while(curr && ((char*)curr->ptr == ptr || (char*)curr->ptr < GC::unmanageableBase || (char*)curr->ptr >= GC::unmanageableTop))
 	{
+		// Save pointer to next upvalue
 		LLVMUpvalue *next = curr->next;
+		// And save the size of target variable
 		unsigned size = curr->size;
+
+		// Delete upvalue from list (move global list head to the next element)
 		*head = curr->next;
-		memcpy(&curr->next, curr->ptr, size);
-		curr->ptr = (unsigned*)&curr->next;
+
+		// If target value is placed on the heap, we skip copy because it won't die
+		if((char*)curr->ptr < GC::unmanageableBase || (char*)curr->ptr >= GC::unmanageableTop)
+		{
+			curr = next;
+			continue;
+		}
+
+		// Copy target variable data into the upvalue
+		unsigned *copy = (unsigned*)(curr + 1);
+		memcpy(copy, curr->ptr, size);
+		curr->ptr = copy;
+		curr->next = NULL;
+
+		// Proceed to the next upvalue
 		curr = next;
 	}
 }
@@ -506,6 +523,7 @@ void	ExecutorLLVM::Run(unsigned int functionID, const char *arguments)
 
 	int stackHelper = 0;
 	llvmStackTop = &stackHelper;
+	GC::unmanageableTop = (char*)llvmStackTop;
 	currentLinker = exLinker;
 
 	for(unsigned i = 0; i < exLinker->llvmModuleSizes.size(); i++)
