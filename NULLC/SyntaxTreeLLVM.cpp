@@ -806,9 +806,26 @@ void NodeFuncDef::CompileLLVM()
 	funcInfo->llvmYields = 0;
 
 	if(funcInfo->retType == typeVoid)
+	{
+		// If return is from coroutine, we either need to reset jumpOffset to the beginning of a function, or set it to instruction after return
+		if(funcInfo && funcInfo->type == FunctionInfo::COROUTINE)
+		{
+			assert(funcInfo->extraParam);
+
+			// Get function closure
+			llvm::Value *closure = builder->CreateLoad(funcInfo->extraParam->llvmValue, "closure");
+			// Cast to int**
+			closure = builder->CreatePointerCast(closure, llvm::PointerType::getUnqual(llvm::Type::getInt32PtrTy(getContext())));
+			// Get pointer to value
+			closure = builder->CreateLoad(closure, "ptr_to_label_id");
+			// Store label ID to closure
+			builder->CreateStore(llvm::ConstantInt::get(getContext(), llvm::APInt(32, 0, true)), closure);
+		}
+
 		builder->CreateRetVoid();
-	else
+	}else{
 		builder->CreateUnreachable();
+	}
 
 	verifyFunction(*F, llvm::PrintMessageAction);
 
@@ -1042,7 +1059,7 @@ void NodeDereference::CompileLLVM()
 				// Immediately close upvalue
 				llvm::Value *closure = builder->CreateLoad(targetClosure, "closure"); // Get function closure
 				closure = builder->CreatePointerCast(closure, llvm::Type::getInt8PtrTy(getContext())); // Cast to char*
-				closure = builder->CreateGEP(closure, llvm::ArrayRef<llvm::Value*>(llvm::ConstantInt::get(getContext(), llvm::APInt(32, pos + NULLC_PTR_SIZE, true)))); // Offset to target upvalue
+				closure = builder->CreateGEP(closure, llvm::ArrayRef<llvm::Value*>(llvm::ConstantInt::get(getContext(), llvm::APInt(32, pos + sizeof(ExternFuncInfo::Upvalue), true)))); // Offset to target upvalue
 				builder->CreateStore(closure, closurePtr); // Store in upvalue
 			}else{
 				if(curr->targetLocal)
@@ -1079,7 +1096,7 @@ void NodeDereference::CompileLLVM()
 				builder->CreateStore(closureCurr, curr->variable->llvmUpvalue);
 			}
 
-			pos += NULLC_PTR_SIZE + (curr->variable->varType->size > (NULLC_PTR_SIZE + 4) ? curr->variable->varType->size : (NULLC_PTR_SIZE + 4));
+			pos += sizeof(ExternFuncInfo::Upvalue) + curr->variable->varType->size;
 		}
 	}else{
 		first->CompileLLVM();

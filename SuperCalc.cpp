@@ -1222,9 +1222,6 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	helpInsert.item.cchTextMax = 0;
 	char name[256];
 
-	if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
-		return;
-
 	ExternFuncInfo	&func = codeFunctions[*(int*)(ptr + NULLC_PTR_SIZE)];
 	ExternTypeInfo	&returnType = codeTypes[codeTypeExtra[type.memberOffset].type];
 
@@ -1256,32 +1253,8 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 		InsertUnavailableInfo(contextList);
 		return;
 	}
-	if(func.contextType != ~0u && func.parentType != ~0u)
-	{
+	if(func.contextType != ~0u)
 		FillVariableInfo(codeTypes[codeTypes[func.contextType].subType], (char*)upvalue, contextList, false);
-		return;
-	}
-
-	ExternLocalInfo *externals = &codeLocals[func.offsetToFirstLocal + func.localCount];
-	for(unsigned int i = 0; i < func.externCount; i++)
-	{
-		char *it = name;
-		ExternTypeInfo &externType = codeTypes[externals[i].type];
-
-		it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + externType.offsetToName, codeSymbols + externals[i].offsetToName);
-
-		if(externType.subCat == ExternTypeInfo::CAT_NONE || externType.subCat == ExternTypeInfo::CAT_POINTER)
-			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(externType, (char*)upvalue->ptr));
-		else if(&externType == &codeTypes[8])	// for typeid
-			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(upvalue->ptr) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(upvalue->ptr)].offsetToName : "invalid: out of range");
-
-		nextInsert.item.pszText = name;
-		HTREEITEM lastItem = TreeView_InsertItem(hVars, &nextInsert);
-
-		FillVariableInfo(externType, (char*)upvalue->ptr, lastItem);
-
-		upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 3 ? 3 : 1 + (externals[i].size >> 2)));
-	}
 }
 
 void FillVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent, bool update)
