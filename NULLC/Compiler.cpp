@@ -1011,10 +1011,14 @@ bool Compiler::ImportModuleFunctions(const char* bytecode, const char* pos)
 			}
 			lastFunc->genericInstance = !!fInfo->isGenericInstance;
 
-			if(fInfo->parentType != ~0u && !fInfo->externCount)
+			if(fInfo->parentType != ~0u)
 			{
 				lastFunc->parentClass = CodeInfo::typeInfo[typeRemap[fInfo->parentType]];
 				lastFunc->extraParam = new VariableInfo(lastFunc, InplaceStr("this"), GetStringHash("this"), 0, CodeInfo::GetReferenceType(lastFunc->parentClass), false);
+			}
+			if(fInfo->contextType != ~0u)
+			{
+				lastFunc->contextType = CodeInfo::typeInfo[typeRemap[fInfo->contextType]];
 			}
 
 			assert(lastFunc->funcType->funcType->paramCount == lastFunc->paramCount);
@@ -2356,7 +2360,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		funcInfo.isGenericInstance = !!refFunc->genericBase || refFunc->genericInstance || (refFunc->parentClass ? refFunc->parentClass->genericBase : false);
 
 		funcInfo.funcType = refFunc->funcType->typeIndex;
-		funcInfo.parentType = (refFunc->parentClass ? refFunc->parentClass->typeIndex : ~0u);
+		funcInfo.parentType = refFunc->parentClass ? refFunc->parentClass->typeIndex : ~0u;
+		funcInfo.contextType = refFunc->contextType ? refFunc->contextType->typeIndex : ~0u;
 		funcInfo.offsetToFirstLocal = localOffset;
 		funcInfo.paramCount = refFunc->paramCount;
 
@@ -2431,11 +2436,6 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			*symbolPos++ = 0;
 		}
 		funcInfo.externCount = refFunc->externalCount;
-		if(funcInfo.externCount)
-		{
-			assert(refFunc->type == FunctionInfo::LOCAL || refFunc->type == FunctionInfo::COROUTINE);
-			funcInfo.parentType = refFunc->extraParam->varType->typeIndex;
-		}
 		localOffset += refFunc->externalCount;
 
 		funcInfo.offsetToName = int(symbolPos - code->debugSymbols);

@@ -389,6 +389,8 @@ bool Linker::LinkCode(const char *code)
 
 			if(exFunctions.back().parentType != ~0u)
 				exFunctions.back().parentType = typeRemap[exFunctions.back().parentType];
+			if(exFunctions.back().contextType != ~0u)
+				exFunctions.back().contextType = typeRemap[exFunctions.back().contextType];
 
 			// Update internal function address
 			if(exFunctions.back().address != -1)

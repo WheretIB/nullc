@@ -1309,8 +1309,11 @@ VariableInfo* AddVariable(const char* pos, InplaceStr variableName, bool preserv
 
 	// Check for variables with the same name in current scope
 	if(VariableInfo **info = varMap.find(hash))
+	{
 		if((*info)->blockDepth >= varInfoTop.size() && !allowCollision)
 			ThrowError(pos, "ERROR: name '%.*s' is already taken for a variable in current scope", varName.end-varName.begin, varName.begin);
+	}
+
 	// Check for functions with the same name
 	CheckCollisionWithFunction(pos, varName, hash, varInfoTop.size());
 
@@ -3615,7 +3618,7 @@ void FunctionEnd(const char* pos)
 		// Set it to pointer variable
 		AddDefineVariableNode(pos, varInfo);
 
-		// Previous closure may not exists if it's the end of a global coroutine definition
+		// Previous closure may not exist if it's the end of a global coroutine definition
 		CodeInfo::nodeList.push_back(new NodeDereference(&lastFunc, currDefinedFunc.size() ? currDefinedFunc.back()->allParamSize : 0));
 
 		for(FunctionInfo::ExternalInfo *curr = lastFunc.firstExternal; curr; curr = curr->next)
@@ -3692,6 +3695,9 @@ void FunctionEnd(const char* pos)
 		CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
 		varTop += currType->size;
 	}
+
+	if(lastFunc.type == FunctionInfo::THISCALL || ((lastFunc.type == FunctionInfo::LOCAL || lastFunc.type == FunctionInfo::COROUTINE) && lastFunc.externalCount != 0))
+		lastFunc.contextType = lastFunc.extraParam->varType;
 
 	if(newType && lastFunc.type == FunctionInfo::THISCALL)
 		methodCount++;

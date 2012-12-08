@@ -529,6 +529,7 @@ public:
 		funcType = NULL;
 		allParamSize = 0;
 		parentClass = NULL;
+		contextType = NULL;
 		parentFunc = NULL;
 		parentNamespace = NULL;
 
@@ -619,7 +620,9 @@ public:
 	unsigned int	vTopSize;			// For "return" operator, we need to know,
 										// how many variables we need to remove from variable stack
 	TypeInfo	*retType;				// Function return type
-	TypeInfo	*parentClass;
+	TypeInfo	*parentClass;			// Type inside which the function is defined
+	TypeInfo	*contextType;			// Function context type
+
 	FunctionInfo	*parentFunc;
 	NamespaceInfo	*parentNamespace;
 

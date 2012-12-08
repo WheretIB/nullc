@@ -367,7 +367,7 @@ namespace GC
 			return;
 		}
 		// Get class member type list
-		ExternMemberInfo *memberList = &NULLC::commonLinker->exTypeExtra[realType->memberOffset + realType->memberCount];
+		ExternMemberInfo *memberList = realType->pointerCount ? &NULLC::commonLinker->exTypeExtra[realType->memberOffset + realType->memberCount] : NULL;
 		// Check pointer members
 		for(unsigned int n = 0; n < realType->pointerCount; n++)
 		{
@@ -393,25 +393,24 @@ namespace GC
 		// If context is "this" pointer
 		if(func.parentType != ~0u)
 		{
-			if(!func.externCount)
+			const ExternTypeInfo &classType = NULLC::commonLinker->exTypes[func.parentType];
+			MarkPointer((char*)&fPtr->context, classType, false);
+		}
+		if(func.contextType != ~0u && func.externCount)
+		{
+			MarkPointer((char*)&fPtr->context, NULLC::commonLinker->exTypes[0], false);
+			// Context is a closure
+			ExternFuncInfo::Upvalue *upvalue = (ExternFuncInfo::Upvalue*)fPtr->context;
+			ExternLocalInfo *externals = &NULLC::commonLinker->exLocals[func.offsetToFirstLocal + func.localCount];
+			for(unsigned int i = 0; i < func.externCount; i++)
 			{
-				const ExternTypeInfo &classType = NULLC::commonLinker->exTypes[func.parentType];
-				MarkPointer((char*)&fPtr->context, classType, false);
-			}else{
-				MarkPointer((char*)&fPtr->context, NULLC::commonLinker->exTypes[0], false);
-				// Context is a closure
-				ExternFuncInfo::Upvalue *upvalue = (ExternFuncInfo::Upvalue*)fPtr->context;
-				ExternLocalInfo *externals = &NULLC::commonLinker->exLocals[func.offsetToFirstLocal + func.localCount];
-				for(unsigned int i = 0; i < func.externCount; i++)
-				{
-					ExternTypeInfo &externType = NULLC::commonLinker->exTypes[externals[i].type];
-					CheckVariable((char*)upvalue->ptr, externType);
+				ExternTypeInfo &externType = NULLC::commonLinker->exTypes[externals[i].type];
+				CheckVariable((char*)upvalue->ptr, externType);
 #ifdef _M_X64
-					upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 4 ? 5 : 2 + (externals[i].size >> 2)));
+				upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 4 ? 5 : 2 + (externals[i].size >> 2)));
 #else
-					upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 3 ? 3 : 1 + (externals[i].size >> 2)));
+				upvalue = (ExternFuncInfo::Upvalue*)((int*)upvalue + ((externals[i].size >> 2) < 3 ? 3 : 1 + (externals[i].size >> 2)));
 #endif
-				}
 			}
 		}
 	}
@@ -585,11 +584,11 @@ void MarkUsedBlocks()
 				if(lInfo.offset + lInfo.size > offsetToNextFrame)
 					offsetToNextFrame = lInfo.offset + lInfo.size;
 			}
-			if(functions[funcID].parentType != ~0u)
+			if(functions[funcID].contextType != ~0u)
 			{
-				GC_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[functions[funcID].parentType].offsetToName, offset, functions[funcID].bytesToPop - NULLC_PTR_SIZE);
+				GC_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[functions[funcID].contextType].offsetToName, offset, functions[funcID].bytesToPop - NULLC_PTR_SIZE);
 				char *ptr = GC::unmanageableBase + offset + functions[funcID].bytesToPop - NULLC_PTR_SIZE;
-				GC::MarkPointer(ptr, types[functions[funcID].parentType], false);
+				GC::MarkPointer(ptr, types[functions[funcID].contextType], false);
 			}
 			offset += offsetToNextFrame;
 			GC_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
