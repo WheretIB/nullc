@@ -3608,12 +3608,14 @@ void FunctionEnd(const char* pos)
 
 		lastFunc.funcContext = varInfo; // Save function context variable
 
-		// Allocate array in dynamic memory
+		// Allocate closure in dynamic memory
 		CodeInfo::nodeList.push_back(new NodeNumber((int)(lastFunc.externalSize), typeInt));
-		CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
+		CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
+		CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, closureType->typeIndex));
 		CallAllocationFunction(pos, "__newS");
-		assert(closureType->size >= lastFunc.externalSize);
 		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(closureType);
+
+		assert(closureType->size >= lastFunc.externalSize);
 
 		// Set it to pointer variable
 		AddDefineVariableNode(pos, varInfo);
