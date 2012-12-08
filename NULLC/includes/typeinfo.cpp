@@ -99,6 +99,26 @@ namespace NULLCTypeInfo
 		return NULLCRef();
 	}
 
+	NULLCRef GetPointerTarget(NULLCRef obj)
+	{
+		assert(linker);
+
+		ExternTypeInfo &type = linker->exTypes[obj.typeID];
+
+		if(type.subCat != ExternTypeInfo::CAT_POINTER)
+		{
+			nullcThrowError("pointerGetTarget: '%s' is not a pointer", &linker->exSymbols[type.offsetToName]);
+
+			NULLCRef r = { 0, 0 };
+			return r;
+		}
+
+		NULLCRef r;
+		r.ptr = *(char**)obj.ptr;
+		r.typeID = type.subType;
+		return r;
+	}
+
 	int IsFunction(int id)
 	{
 		assert(linker);
@@ -304,6 +324,85 @@ namespace NULLCTypeInfo
 		r.ptr = arr.ptr;
 		return r;
 	}
+
+	TypeID GetFunctionContextType(NULLCRef obj)
+	{
+		assert(linker);
+
+		ExternTypeInfo &type = linker->exTypes[obj.typeID];
+
+		if(type.subCat != ExternTypeInfo::CAT_FUNCTION)
+		{
+			nullcThrowError("functionGetContextType: received type '%s' that is not a function", &linker->exSymbols[type.offsetToName]);
+			return getTypeID(0);
+		}
+
+		ExternFuncInfo &function = linker->exFunctions[*(int*)(obj.ptr + NULLC_PTR_SIZE)];
+		return getTypeID(function.contextType != ~0u ? function.contextType : 0);
+	}
+
+	NULLCRef GetFunctionContext(NULLCRef obj)
+	{
+		assert(linker);
+		NULLCRef ret;
+
+		ExternTypeInfo &type = linker->exTypes[obj.typeID];
+
+		if(type.subCat != ExternTypeInfo::CAT_FUNCTION)
+		{
+			nullcThrowError("functionGetContext: received type '%s' that is not a function", &linker->exSymbols[type.offsetToName]);
+			ret.ptr = NULL;
+			ret.typeID = 0;
+			return ret;
+		}
+
+		NULLCFuncPtr *ptr = (NULLCFuncPtr*)obj.ptr;
+
+		ExternFuncInfo &function = linker->exFunctions[ptr->id];
+		ret.ptr = (char*)ptr->context;
+		ret.typeID = 0;
+
+		if(function.contextType != ~0u)
+		{
+			ExternTypeInfo &contextType = linker->exTypes[function.contextType];
+			ret.typeID = contextType.subType;
+		}
+
+		return ret;
+	}
+
+	void SetFunctionContext(NULLCRef obj, NULLCRef context)
+	{
+		assert(linker);
+
+		ExternTypeInfo &objectType = linker->exTypes[obj.typeID];
+
+		if(objectType.subCat != ExternTypeInfo::CAT_FUNCTION)
+		{
+			nullcThrowError("functionSetContext: received type '%s' that is not a function", &linker->exSymbols[objectType.offsetToName]);
+			return;
+		}
+
+		NULLCFuncPtr *ptr = (NULLCFuncPtr*)obj.ptr;
+
+		ExternFuncInfo &function = linker->exFunctions[ptr->id];
+
+		if(function.contextType == ~0u)
+		{
+			nullcThrowError("functionSetContext: function '%s' doesn't have a context", &linker->exSymbols[function.offsetToName]);
+			return;
+		}
+
+		ExternTypeInfo &contextRefType = linker->exTypes[function.contextType];
+
+		if(contextRefType.subType != context.typeID)
+		{
+			nullcThrowError("functionSetContext: cannot set context of type '%s' to the function '%s' expecting context of type '%s'", &linker->exSymbols[linker->exTypes[context.typeID].offsetToName], &linker->exSymbols[function.offsetToName], &linker->exSymbols[linker->exTypes[function.contextType].offsetToName]);
+			return;
+		}
+
+		ptr->context = context.ptr;
+	}
 }
 
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.typeinfo", (void(*)())NULLCTypeInfo::funcPtr, name, index)) return false;
@@ -337,11 +436,17 @@ bool	nullcInitTypeinfoModule(Linker* linker)
 	REGISTER_FUNC(MemberByIndex, "typeGetMember", 0);
 	REGISTER_FUNC(MemberByName, "typeGetMember", 1);
 
+	REGISTER_FUNC(GetPointerTarget, "pointerGetTarget", 0);
+
 	REGISTER_FUNC(GetType, "getType", 0);
 	REGISTER_FUNC(GetInstanceByName, "createInstanceByName", 0);
 	REGISTER_FUNC(GetInstanceByType, "createInstanceByType", 0);
 	REGISTER_FUNC(GetArrayByName, "createArrayByName", 0);
 	REGISTER_FUNC(GetArrayByType, "createArrayByType", 0);
+
+	REGISTER_FUNC(GetFunctionContextType, "functionGetContextType", 0);
+	REGISTER_FUNC(GetFunctionContext, "functionGetContext", 0);
+	REGISTER_FUNC(SetFunctionContext, "functionSetContext", 0);
 
 	return true;
 }

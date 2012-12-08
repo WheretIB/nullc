@@ -2122,6 +2122,7 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 		// Exit
 		return;
 	}
+
 	// Get class member type list
 	ExternMemberInfo *memberList = &exLinker->exTypeExtra[realType->memberOffset + realType->memberCount];
 	//char *str = symbols + type.offsetToName;
@@ -2142,22 +2143,23 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 void Executor::FixupFunction(char* ptr)
 {
 	NULLCFuncPtr *fPtr = (NULLCFuncPtr*)ptr;
+
 	// If there's no context, there's nothing to check
 	if(!fPtr->context)
 		return;
+
 	const ExternFuncInfo &func = exFunctions[fPtr->id];
-	// If context is "this" pointer
-	if(func.parentType != ~0u)
-	{
-		const ExternTypeInfo &classType = exTypes[func.parentType];
-		FixupPointer((char*)&fPtr->context, classType);
-	}
+
+	// If function context type is valid
+	if(func.contextType != ~0u)
+		FixupPointer((char*)&fPtr->context, exTypes[func.contextType]);
 }
 
 void Executor::FixupVariable(char* ptr, const ExternTypeInfo& type)
 {
 	if(!type.pointerCount)
 		return;
+
 	switch(type.subCat)
 	{
 	case ExternTypeInfo::CAT_ARRAY:
@@ -2218,27 +2220,29 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 
 		if(funcID != -1)
 		{
+			ExternFuncInfo &funcInfo = exFunctions[funcID];
+
 			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
-//			printf("In function %s (with offset of %d)\r\n", symbols + exFunctions[funcID].offsetToName, alignOffset);
+//			printf("In function %s (with offset of %d)\r\n", symbols + funcInfo.offsetToName, alignOffset);
 			offset += alignOffset;
 
-			unsigned int offsetToNextFrame = exFunctions[funcID].bytesToPop;
+			unsigned int offsetToNextFrame = funcInfo.bytesToPop;
 			// Check every function local
-			for(unsigned int i = 0; i < exFunctions[funcID].localCount; i++)
+			for(unsigned int i = 0; i < funcInfo.localCount; i++)
 			{
 				// Get information about local
-				ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
-				if(exFunctions[funcID].funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= exFunctions[funcID].bytesToPop)
+				ExternLocalInfo &lInfo = exLinker->exLocals[funcInfo.offsetToFirstLocal + i];
+				if(funcInfo.funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= funcInfo.bytesToPop)
 					break;
 //				printf("Local %s %s (with offset of %d+%d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
 				FixupVariable(genParams.data + offset + lInfo.offset, types[lInfo.type]);
 				if(lInfo.offset + lInfo.size > offsetToNextFrame)
 					offsetToNextFrame = lInfo.offset + lInfo.size;
 			}
-			if(exFunctions[funcID].parentType != ~0u)
+			if(funcInfo.contextType != ~0u)
 			{
-//				printf("Local %s $context (with offset of %d+%d)\r\n", symbols + types[exFunctions[funcID].parentType].offsetToName, offset, exFunctions[funcID].bytesToPop - NULLC_PTR_SIZE);
-				char *ptr = genParams.data + offset + exFunctions[funcID].bytesToPop - NULLC_PTR_SIZE;
+//				printf("Local %s $context (with offset of %d+%d)\r\n", symbols + types[funcInfo.contextType].offsetToName, offset, funcInfo.bytesToPop - NULLC_PTR_SIZE);
+				char *ptr = genParams.data + offset + funcInfo.bytesToPop - NULLC_PTR_SIZE;
 				// Fixup pointer itself
 				char **rPtr = (char**)ptr;
 				if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
@@ -2247,7 +2251,8 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 					*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
 				}
 				// Fixup what it was pointing to
-				FixupVariable(*rPtr, types[exFunctions[funcID].parentType]);
+				if(*rPtr)
+					FixupVariable(*rPtr, types[funcInfo.contextType]);
 			}
 			offset += offsetToNextFrame;
 //			printf("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);

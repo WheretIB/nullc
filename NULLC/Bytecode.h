@@ -105,7 +105,8 @@ struct ExternFuncInfo
 	unsigned int	funcType;	// index to the type array
 
 	unsigned int	startInByteCode;
-	unsigned int	parentType;
+	unsigned int	parentType; // Type inside which the function is defined
+	unsigned int	contextType; // Type of the function context
 
 	unsigned int	offsetToFirstLocal;
 	unsigned int	paramCount;

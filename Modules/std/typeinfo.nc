@@ -65,8 +65,12 @@ auto member_iterator:next()
 	return ret;
 }
 
+// Get pointer to the class member either by index or name
 auto ref	typeGetMember(auto ref obj, int member);
 auto ref	typeGetMember(auto ref obj, char[] name);
+
+// Get pointer to the target of a pointer
+auto ref	pointerGetTarget(auto ref obj);
 
 // iteration over members of an object
 class member_iterator_obj
@@ -140,3 +144,7 @@ auto ref createInstanceByType(typeid type);
 
 auto[] createArrayByName(char[] name, int size);
 auto[] createArrayByType(typeid type, int size);
+
+typeid		functionGetContextType(auto ref function);
+auto ref	functionGetContext(auto ref function);
+void		functionSetContext(auto ref function, auto ref context);

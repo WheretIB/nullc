@@ -1158,8 +1158,10 @@ void FillAutoInfo(char* ptr, HTREEITEM parent)
 	// Find parent type
 	ExternTypeInfo *parentType = NULL;
 	for(unsigned int i = 0; i < codeTypeCount && !parentType; i++)
+	{
 		if(codeTypes[i].subCat == ExternTypeInfo::CAT_POINTER && codeTypes[i].subType == *(unsigned int*)(ptr))
 			parentType = &codeTypes[i];
+	}
 
 	helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 	helpInsert.item.pszText = name;
@@ -1238,7 +1240,7 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	helpInsert.item.pszText = name;
 	TreeView_InsertItem(hVars, &helpInsert);
 
-	safeprintf(name, 256, "%s context = 0x%x", func.parentType == ~0u ? "void ref" : codeSymbols + codeTypes[func.parentType].offsetToName, *(int*)(ptr));
+	safeprintf(name, 256, "%s context = 0x%x", func.contextType == ~0u ? "void ref" : codeSymbols + codeTypes[func.contextType].offsetToName, *(int*)(ptr));
 	helpInsert.item.pszText = name;
 	HTREEITEM contextList = TreeView_InsertItem(hVars, &helpInsert);
 
@@ -1249,20 +1251,15 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 	nextInsert.item.cchTextMax = 0;
 
 	ExternFuncInfo::Upvalue *upvalue = *(ExternFuncInfo::Upvalue**)(ptr);
-	if(!upvalue || !upvalue->ptr)
+	if(func.externCount && (!upvalue || !upvalue->ptr))
 	{
 		InsertUnavailableInfo(contextList);
 		return;
 	}
-	if(func.parentType != ~0u)
+	if(func.contextType != ~0u && func.parentType != ~0u)
 	{
-		if(func.externCount)
-		{
-			FillVariableInfo(codeTypes[codeTypes[func.parentType].subType], (char*)upvalue, contextList, false);
-		}else{
-			FillVariableInfo(codeTypes[func.parentType], (char*)upvalue, contextList, false);
-			return;
-		}
+		FillVariableInfo(codeTypes[codeTypes[func.contextType].subType], (char*)upvalue, contextList, false);
+		return;
 	}
 
 	ExternLocalInfo *externals = &codeLocals[func.offsetToFirstLocal + func.localCount];
