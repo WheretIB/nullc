@@ -452,3 +452,17 @@ for(i in nums) sum += i;\r\n\
 coroutine int nums(){ yield 1; yield 2; return 0; }\r\n\
 return sum;";
 TEST_RESULT("Iteration over coroutine results when only coroutine prototype are available", testIterationOverCoroutineWhenOnlyAPrototypeIsAvailable, "3");
+
+const char	*textCoroutineImplicitReset =
+"int x = 0;\r\n\
+coroutine void bar1(){ x = 1; yield; x = 2; }\r\n\
+coroutine void bar2(){ x = 1; yield; x = 2; return; }\r\n\
+\r\n\
+int[2][4] arr;\r\n\
+for(i in arr[0]){ bar1(); i = x; }\r\n\
+for(i in arr[1]){ bar2(); i = x; }\r\n\
+\r\n\
+for(i in arr[0], j in arr[1]){ if(i != j) return 0; }\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("Implicit reset of a coroutine returning void", textCoroutineImplicitReset, "1");

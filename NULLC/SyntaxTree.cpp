@@ -475,9 +475,12 @@ void NodeFuncDef::Compile()
 	// Generate function code
 	first->Compile();
 
+	// If function returns void, this is implicit return
 	if(funcInfo->retType == typeVoid)
 	{
-		// If function returns void, this is implicit return
+		// Reset jumpOffset to the beginning of a function if this is a coroutine
+		if(funcInfo && funcInfo->type == FunctionInfo::COROUTINE)
+			cmdList.push_back(VMCmd(cmdYield, 0, false, funcInfo->allParamSize));
 		cmdList.push_back(VMCmd(cmdReturn, 0, 1, 0));
 	}else{
 		// Stop program execution if user forgot the return statement
