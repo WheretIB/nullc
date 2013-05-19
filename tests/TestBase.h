@@ -182,6 +182,7 @@ Test_##code test_##code;
 #define CHECK_SHORT(var, index, expected) if(((short*)Tests::FindVar(var))[index] != (expected)){ TEST_NAME(); printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((short*)Tests::FindVar(var))[index]); lastFailed = true; }
 #define CHECK_CHAR(var, index, expected) if(((char*)Tests::FindVar(var))[index] != (expected)){ TEST_NAME(); printf(" Failed %s[%d] == %d (got %d)\r\n", #var, index, expected, ((char*)Tests::FindVar(var))[index]); lastFailed = true; }
 #define CHECK_STR(var, index, expected) if(strcmp(((char*)Tests::FindVar(var)+index), (expected)) != 0){ TEST_NAME(); printf(" Failed %s[%d] == %s (got %s)\r\n", #var, index, expected, ((char*)Tests::FindVar(var))+index); lastFailed = true; }
+#define CHECK_HEAP_STR(var, index, expected) if(strcmp((*(char**)Tests::FindVar(var)+index), (expected)) != 0){ TEST_NAME(); printf(" Failed %s[%d] == %s (got %s)\r\n", #var, index, expected, (*(char**)Tests::FindVar(var))+index); lastFailed = true; }
 
 #define TEST_RUNTIME_FAIL(name, code, result)	\
 struct Test_##code : TestQueue {	\

@@ -105,6 +105,23 @@ public:
 		}
 		return NULL;
 	}
+	Value* find(unsigned int hash, Value value)
+	{
+		Node *n = first(hash, value);
+		return n ? &n->value : NULL;
+	}
+	Node* first(unsigned int hash, Value value)
+	{
+		unsigned int bucket = hash & bucketMask;
+		Node *curr = entries[bucket];
+		while(curr)
+		{
+			if(curr->hash == hash && curr->value == value)
+				return curr;
+			curr = curr->next;
+		}
+		return NULL;
+	}
 private:
 	Node	**entries;
 };

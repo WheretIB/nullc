@@ -2359,6 +2359,53 @@ void AddInplaceVariable(const char* pos, TypeInfo* targetType)
 	currType = saveCurrType;
 }
 
+void AddInplaceHeapVariable(const char* pos)
+{
+	NodeZeroOP *value = CodeInfo::nodeList.back();
+	CodeInfo::nodeList.pop_back();
+
+	char *arrName = AllocateString(16);
+	int length = sprintf(arrName, "$temp%d", inplaceVariableNum++);
+
+	// Save variable creation state
+	TypeInfo *saveCurrType = currType;
+	bool saveVarDefined = varDefined;
+
+	// Set type to char[N] ref
+	currType = CodeInfo::GetReferenceType(value->typeInfo);
+	// Add hidden variable
+	VariableInfo *varInfo = AddVariable(pos, InplaceStr(arrName, length));
+
+	// Allocate storage for it
+	currType = value->typeInfo;
+	GetTypeSize(pos, false);
+	AddTypeAllocation(pos, false); // $$ Check that the non-array allocation type ID is valid
+	AddDefineVariableNode(pos, varInfo, true);
+	AddPopNode(pos);
+
+	NamespaceInfo *lastNS = GetCurrentNamespace();
+	SetCurrentNamespace(NULL);
+
+	// Place data in heap storage
+	AddGetAddressNode(pos, InplaceStr(arrName, length));
+	AddGetVariableNode(pos);
+	CodeInfo::nodeList.push_back(value);
+	AddSetVariableNode(pos);
+	AddPopNode(pos);
+
+	// Get pointer to the variable in the heap
+	AddGetAddressNode(pos, InplaceStr(arrName, length));
+	AddGetVariableNode(pos);
+
+	SetCurrentNamespace(lastNS);
+
+	// Restore variable creation state
+	varDefined = saveVarDefined;
+	currType = saveCurrType;
+
+	AddTwoExpressionNode(CodeInfo::GetReferenceType(value->typeInfo));
+}
+
 void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 {
 	// Get r-value type
@@ -2381,7 +2428,7 @@ void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 		bool hasImplicitNode = false;
 		if(CodeInfo::nodeList.back()->nodeType != typeNodeDereference)
 		{
-			AddInplaceVariable(pos);
+			AddInplaceHeapVariable(pos);
 			hasImplicitNode = true;
 		}else{
 			NodeZeroOP	*oldNode = CodeInfo::nodeList.back();

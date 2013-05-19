@@ -733,7 +733,7 @@ TEST_RESULT("External function call. alignment test 4.", testExternalCallM4, "1"
 // big argument tests
 // big arguments with int and float/double
 
-#ifdef NULLC_COMPLEX_RETURN
+#if defined(NULLC_COMPLEX_RETURN) && !defined(NULLC_LLVM_SUPPORT)
 
 struct ReturnBig1{ int a, b, c, d; };
 ReturnBig1 TestReturnBig1()
@@ -834,8 +834,8 @@ return test(uh, 3);";
 TEST("File and something else test", testFile, "309")
 {
 	CHECK_STR("uh", 0, "ehhhe");
-	CHECK_STR("$temp1", 0, FILE_PATH "haha.txt");
-	CHECK_STR("$temp2", 0, "wb");
+	CHECK_HEAP_STR("$temp1", 0, FILE_PATH "haha.txt");
+	CHECK_HEAP_STR("$temp2", 0, "wb");
 	CHECK_STR("text", 0, "Hello file!!!");
 
 	CHECK_INT("k", 0, 5464321);

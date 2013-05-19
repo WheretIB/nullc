@@ -121,8 +121,8 @@ return 1;";
 TEST("Print test", testPrint, "1")
 {
 	CHECK_STR("ts", 0, "Hello World!\r\noh\toh\r\n");
-	CHECK_STR("$temp1", 0, "hello");
-	CHECK_STR("$temp2", 0, "world");
+	CHECK_HEAP_STR("$temp1", 0, "hello");
+	CHECK_HEAP_STR("$temp2", 0, "world");
 	CHECK_STR("mo", 0, "!!!");
 }
 
@@ -194,3 +194,46 @@ TEST("Multidimensional array constructor test", testMultiCtor, "1")
 	CHECK_DOUBLE("f", 1, 2.0);
 }
 
+const char	*testTemporaryHeapArray1 = 
+"char[] a;\r\n\
+\r\n\
+auto foo()\r\n\
+{\r\n\
+	a = \"hello there\";\r\n\
+}\r\n\
+auto bar(){ }\r\n\
+foo();\r\n\
+bar();\r\n\
+\r\n\
+return (a[0] == 'h');";
+TEST_RESULT("Creation of temporary array on heap 1", testTemporaryHeapArray1, "1");
+
+const char	*testTemporaryHeapArray2 = 
+"char[] a;\r\n\
+\r\n\
+auto foo()\r\n\
+{\r\n\
+	char[] b = \"hello there\";\r\n\
+	a = b;\r\n\
+}\r\n\
+auto bar(){ }\r\n\
+foo();\r\n\
+bar();\r\n\
+\r\n\
+return (a[0] == 'h');";
+TEST_RESULT("Creation of temporary array on heap 2", testTemporaryHeapArray2, "1");
+
+const char	*testTemporaryHeapArray3 = 
+"char[] a;\r\n\
+\r\n\
+auto foo(char[] b)\r\n\
+{\r\n\
+	a = b;\r\n\
+}\r\n\
+auto bar(){ }\r\n\
+auto t = \"hello there\";\r\n\
+foo(t);\r\n\
+bar();\r\n\
+\r\n\
+return (a[0] == 'h');";
+TEST_RESULT("Creation of temporary array on heap 3", testTemporaryHeapArray3, "1");
