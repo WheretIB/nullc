@@ -597,15 +597,10 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 bool Compiler::ImportModuleNamespaces(const char* bytecode)
 {
 	ByteCode *bCode = (ByteCode*)bytecode;
-	char *symbols = (char*)(bCode) + bCode->offsetToSymbols;
+	char *symbols = FindSymbols(bCode);
 
 	// Import namespaces
-	struct NamespaceData
-	{
-		unsigned offsetToName;
-		unsigned parentHash;
-	};
-	NamespaceData *namespaceList = (NamespaceData*)((char*)bCode + bCode->offsetToNamespaces);
+	ExternNamespaceInfo *namespaceList = FindFirstNamespace(bCode);
 	for(unsigned i = 0; i < bCode->namespaceCount; i++)
 	{
 		NamespaceInfo *parent = NULL;
@@ -629,7 +624,7 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 {
 	char errBuf[256];
 	ByteCode *bCode = (ByteCode*)bytecode;
-	char *symbols = (char*)(bCode) + bCode->offsetToSymbols;
+	char *symbols = FindSymbols(bCode);
 
 	// Import types
 	ExternTypeInfo *tInfo = FindFirstType(bCode);
@@ -783,14 +778,8 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 			skipConstants += tInfo->constantCount;
 		}
 	}
-#pragma pack(push, 1)
-	struct ConstantData
-	{
-		unsigned typeID;
-		long long value;
-	};
-#pragma pack(pop)
-	ConstantData *constantList = (ConstantData*)((char*)bCode + bCode->offsetToConstants);
+
+	ExternConstantInfo *constantList = FindFirstConstant(bCode);
 
 	for(unsigned int i = oldTypeCount; i < CodeInfo::typeInfo.size(); i++)
 	{
@@ -818,7 +807,7 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 			}
 			for(unsigned int n = 0; n < typeInfo->constantCount; n++)
 			{
-				TypeInfo *constantType = CodeInfo::typeInfo[typeRemap[constantList[type->definitionDepth + n].typeID]];
+				TypeInfo *constantType = CodeInfo::typeInfo[typeRemap[constantList[type->definitionDepth + n].type]];
 				NodeNumber *value = new NodeNumber(0, constantType);
 				value->num.integer64 = constantList[type->definitionDepth + n].value;
 
@@ -844,7 +833,7 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 bool Compiler::ImportModuleVariables(const char* bytecode, const char* pos, unsigned int number)
 {
 	ByteCode *bCode = (ByteCode*)bytecode;
-	char *symbols = (char*)(bCode) + bCode->offsetToSymbols;
+	char *symbols = FindSymbols(bCode);
 
 	ExternVarInfo *vInfo = FindFirstVar(bCode);
 
@@ -872,10 +861,10 @@ bool Compiler::ImportModuleTypedefs(const char* bytecode)
 {
 	char errBuf[256];
 	ByteCode *bCode = (ByteCode*)bytecode;
-	char *symbols = (char*)(bCode) + bCode->offsetToSymbols;
+	char *symbols = FindSymbols(bCode);
 
 	// Import type aliases
-	ExternTypedefInfo *typedefInfo = (ExternTypedefInfo*)((char*)(bCode) + bCode->offsetToTypedef);
+	ExternTypedefInfo *typedefInfo = FindFirstTypedef(bCode);
 	for(unsigned i = 0; i < bCode->typedefCount; i++)
 	{
 		// Find is this alias is already defined
@@ -916,13 +905,13 @@ bool Compiler::ImportModuleFunctions(const char* bytecode, const char* pos)
 {
 	char errBuf[256];
 	ByteCode *bCode = (ByteCode*)bytecode;
-	char *symbols = (char*)(bCode) + bCode->offsetToSymbols;
+	char *symbols = FindSymbols(bCode);
 
 	ExternVarInfo *vInfo = FindFirstVar(bCode);
 
 	// Import functions
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
-	ExternLocalInfo *fLocals = (ExternLocalInfo*)((char*)(bCode) + bCode->offsetToLocals);
+	ExternLocalInfo *fLocals = FindFirstLocal(bCode);
 
 	unsigned int oldFuncCount = CodeInfo::funcInfo.size();
 	unsigned int end = bCode->functionCount - bCode->moduleFunctionCount;
@@ -1143,7 +1132,7 @@ char* Compiler::BuildModule(const char* file, const char* altFile)
 
 		if(needDelete)
 		{
-			const char *newStart = (const char*)bytecode + ((ByteCode*)bytecode)->offsetToSource;
+			const char *newStart = FindSource((ByteCode*)bytecode);
 			// We have to fix lexeme positions to the code that is saved in bytecode
 			for(Lexeme *c = lexer.GetStreamStart() + lexPos, *e = lexer.GetStreamStart() + lexer.GetStreamSize(); c != e; c++)
 			{
@@ -1174,13 +1163,15 @@ void Compiler::RecursiveLexify(const char* bytecode)
 {
 	const char *importPath = BinaryCache::GetImportPath();
 
-	lexer.Lexify(bytecode + ((ByteCode*)bytecode)->offsetToSource);
+	ByteCode *bCode = (ByteCode*)bytecode;
 
-	ExternModuleInfo *mInfo = (ExternModuleInfo*)(bytecode + ((ByteCode*)bytecode)->offsetToFirstModule);
+	lexer.Lexify(bytecode + bCode->offsetToSource);
+
+	ExternModuleInfo *mInfo = FindFirstModule(bCode);
 	mInfo++;
-	for(unsigned int i = 1; i < ((ByteCode*)bytecode)->dependsCount; i++, mInfo++)
+	for(unsigned int i = 1; i < bCode->dependsCount; i++, mInfo++)
 	{
-		const char *path = bytecode + ((ByteCode*)bytecode)->offsetToSymbols + mInfo->nameOffset;
+		const char *path = FindSymbols(bCode) + mInfo->nameOffset;
 
 		char fullPath[256];
 		SafeSprintf(fullPath, 256, "%s%s", importPath ? importPath : "", path);
@@ -1989,7 +1980,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	size += allMemberCount * sizeof(ExternMemberInfo);
 
 	unsigned int offsetToConstants = size;
-	size += allConstantCount * (sizeof(unsigned) + sizeof(long long)); // typeID + value
+	size += allConstantCount * sizeof(ExternConstantInfo);
 
 	unsigned int functionsInModules = 0;
 	unsigned int offsetToModule = size;
@@ -2088,7 +2079,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	for(unsigned i = 0; i < CodeInfo::namespaceInfo.size(); i++)
 		symbolStorageSize += CodeInfo::namespaceInfo[i]->name.length() + 1;
 	unsigned offsetToNamespace = size;
-	size += CodeInfo::namespaceInfo.size() * sizeof(unsigned) * 2;
+	size += CodeInfo::namespaceInfo.size() * sizeof(ExternNamespaceInfo);
 
 	unsigned int offsetToCode = size;
 	size += CodeInfo::cmdList.size() * sizeof(VMCmd);
@@ -2131,7 +2122,6 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	code->dependsCount = activeModules.size();
 	code->offsetToFirstModule = offsetToModule;
-	code->firstModule = (ExternModuleInfo*)((char*)(code) + code->offsetToFirstModule);
 
 	code->globalVarSize = GetGlobalSize();
 	// Make sure modules that are linked together will not break global variable alignment
@@ -2147,7 +2137,6 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	code->localCount = localCount;
 	code->offsetToLocals = offsetToFirstLocal;
-	code->firstLocal = (ExternLocalInfo*)((char*)(code) + code->offsetToLocals);
 
 	code->closureListCount = clsListCount;
 
@@ -2156,33 +2145,26 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	code->symbolLength = symbolStorageSize;
 	code->offsetToSymbols = offsetToSymbols;
-	code->debugSymbols = (*bytecode) + offsetToSymbols;
 
 	code->offsetToConstants = offsetToConstants;
 
 	code->namespaceCount = CodeInfo::namespaceInfo.size();
 	code->offsetToNamespaces = offsetToNamespace;
 
-	char*	symbolPos = code->debugSymbols;
+	char *debugSymbols = FindSymbols(code);
+	char *symbolPos = debugSymbols;
 
 	ExternTypeInfo *tInfo = FindFirstType(code);
-	code->firstType = tInfo;
-	ExternMemberInfo *memberList = (ExternMemberInfo*)(tInfo + CodeInfo::typeInfo.size());
-#pragma pack(push, 1)
-	struct ConstantData
-	{
-		unsigned typeID;
-		long long value;
-	};
-#pragma pack(pop)
-	ConstantData *constantList = (ConstantData*)((char*)code + code->offsetToConstants);
+	ExternMemberInfo *memberList = FindFirstMember(code);
+	ExternConstantInfo *constantList = FindFirstConstant(code);
+
 	unsigned int memberOffset = 0;
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
 	{
 		ExternTypeInfo &typeInfo = *tInfo;
 		TypeInfo &refType = *CodeInfo::typeInfo[i];
 
-		typeInfo.offsetToName = int(symbolPos - code->debugSymbols);
+		typeInfo.offsetToName = int(symbolPos - debugSymbols);
 		memcpy(symbolPos, refType.GetFullTypeName(), refType.GetFullNameLength() + 1);
 		symbolPos += refType.GetFullNameLength() + 1;
 
@@ -2248,7 +2230,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 					continue;
 				typeInfo.constantCount++;
 				assert(curr->defaultValue->nodeType == typeNodeNumber);
-				constantList->typeID = curr->defaultValue->typeInfo->typeIndex;
+				constantList->type = curr->defaultValue->typeInfo->typeIndex;
 				constantList->value = ((NodeNumber*)curr->defaultValue)->num.integer64;
 				constantList++;
 				memcpy(symbolPos, curr->name, strlen(curr->name) + 1);
@@ -2283,10 +2265,10 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		tInfo++;
 	}
 
-	ExternModuleInfo *mInfo = code->firstModule;
+	ExternModuleInfo *mInfo = FindFirstModule(code);
 	for(unsigned int i = 0; i < activeModules.size(); i++)
 	{
-		mInfo->nameOffset = int(symbolPos - code->debugSymbols);
+		mInfo->nameOffset = int(symbolPos - debugSymbols);
 		memcpy(symbolPos, activeModules[i].name, strlen(activeModules[i].name) + 1);
 		symbolPos += strlen(activeModules[i].name) + 1;
 
@@ -2302,7 +2284,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	unsigned int actualExternVariableInfoCount = 0;
 
 	ExternVarInfo *vInfo = FindFirstVar(code);
-	code->firstVar = vInfo;
+
 	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
 	{
 		ExternVarInfo &varInfo = *vInfo;
@@ -2313,7 +2295,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 		actualExternVariableInfoCount++;
 
-		varInfo.offsetToName = int(symbolPos - code->debugSymbols);
+		varInfo.offsetToName = int(symbolPos - debugSymbols);
 		memcpy(symbolPos, refVar->name.begin, refVar->name.length() + 1);
 		symbolPos += refVar->name.length();
 		*symbolPos++ = 0;
@@ -2330,7 +2312,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	unsigned int localOffset = 0;
 	unsigned int offsetToGlobal = 0;
 	ExternFuncInfo *fInfo = FindFirstFunc(code);
-	code->firstFunc = fInfo;
+	ExternLocalInfo *localInfo = FindFirstLocal(code);
+
 	clsListCount = 0;
 	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
 	{
@@ -2403,13 +2386,13 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			refFunc->lastParam->next = refFunc->firstLocal;
 		for(VariableInfo *curr = refFunc->firstParam ? refFunc->firstParam : refFunc->firstLocal; curr; curr = curr->next, localOffset++)
 		{
-			code->firstLocal[localOffset].paramType = (unsigned short)paramType;
-			code->firstLocal[localOffset].defaultFuncId = curr->defaultValue ? (unsigned short)curr->defaultValueFuncID : 0xffff;
-			code->firstLocal[localOffset].type = curr->varType ? curr->varType->typeIndex : 0;
-			code->firstLocal[localOffset].size = curr->varType ? curr->varType->size : 0;
-			code->firstLocal[localOffset].offset = curr->pos;
-			code->firstLocal[localOffset].closeListID = 0;
-			code->firstLocal[localOffset].offsetToName = int(symbolPos - code->debugSymbols);
+			localInfo[localOffset].paramType = (unsigned short)paramType;
+			localInfo[localOffset].defaultFuncId = curr->defaultValue ? (unsigned short)curr->defaultValueFuncID : 0xffff;
+			localInfo[localOffset].type = curr->varType ? curr->varType->typeIndex : 0;
+			localInfo[localOffset].size = curr->varType ? curr->varType->size : 0;
+			localInfo[localOffset].offset = curr->pos;
+			localInfo[localOffset].closeListID = 0;
+			localInfo[localOffset].offsetToName = int(symbolPos - debugSymbols);
 			memcpy(symbolPos, curr->name.begin, curr->name.length() + 1);
 			symbolPos += curr->name.length();
 			*symbolPos++ = 0;
@@ -2420,7 +2403,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			refFunc->lastParam->next = NULL;
 		funcInfo.localCount = localOffset - funcInfo.offsetToFirstLocal;
 
-		ExternLocalInfo *lInfo = &code->firstLocal[localOffset];
+		ExternLocalInfo *lInfo = &localInfo[localOffset];
 		for(FunctionInfo::ExternalInfo *curr = refFunc->firstExternal; curr; curr = curr->next, lInfo++)
 		{
 			TypeInfo *vType = curr->variable->varType;
@@ -2430,7 +2413,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			lInfo->size = vType->size;
 			lInfo->target = curr->targetVar ? curr->targetVar->pos : curr->targetPos;
 			lInfo->closeListID = (curr->targetDepth + CodeInfo::funcInfo[curr->targetFunc]->closeListStart) | (curr->targetLocal ? 0x80000000 : 0);
-			lInfo->offsetToName = int(symbolPos - code->debugSymbols);
+			lInfo->offsetToName = int(symbolPos - debugSymbols);
 			memcpy(symbolPos, vName.begin, vName.length() + 1);
 			symbolPos += vName.length();
 			*symbolPos++ = 0;
@@ -2438,7 +2421,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		funcInfo.externCount = refFunc->externalCount;
 		localOffset += refFunc->externalCount;
 
-		funcInfo.offsetToName = int(symbolPos - code->debugSymbols);
+		funcInfo.offsetToName = int(symbolPos - debugSymbols);
 		memcpy(symbolPos, refFunc->name, refFunc->nameLength + 1);
 		symbolPos += refFunc->nameLength + 1;
 
@@ -2455,7 +2438,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 			actualExternVariableInfoCount++;
 
-			varInfo.offsetToName = int(symbolPos - code->debugSymbols);
+			varInfo.offsetToName = int(symbolPos - debugSymbols);
 			memcpy(symbolPos, explicitType->name.begin, explicitType->name.length());
 			symbolPos += explicitType->name.length();
 			*symbolPos++ = 0;
@@ -2479,7 +2462,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	unsigned int infoCount = CodeInfo::cmdInfoList.sourceInfo.size();
 	code->infoSize = infoCount;
-	unsigned int *infoArray = (unsigned int*)((char*)code + offsetToInfo);
+	unsigned int *infoArray = FindSourceInfo(code);
 	for(unsigned int i = 0; i < infoCount; i++)
 	{
 		infoArray[i * 2 + 0] = CodeInfo::cmdInfoList.sourceInfo[i].byteCodePos;
@@ -2489,9 +2472,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	memcpy(sourceCode, CodeInfo::cmdInfoList.sourceStart, sourceLength);
 	code->sourceSize = sourceLength;
 
-	code->code = FindCode(code);
 	code->globalCodeStart = offsetToGlobal;
-	memcpy(code->code, &CodeInfo::cmdList[0], CodeInfo::cmdList.size() * sizeof(VMCmd));
+	memcpy(FindCode(code), &CodeInfo::cmdList[0], CodeInfo::cmdList.size() * sizeof(VMCmd));
 
 #ifdef NULLC_LLVM_SUPPORT
 	code->llvmSize = llvmSize;
@@ -2502,10 +2484,10 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->typedefCount = typedefCount;
 	code->offsetToTypedef = offsetToTypedef;
 	aliasInfo = CodeInfo::globalAliases;
-	ExternTypedefInfo *currAlias = (ExternTypedefInfo*)((char*)(code) + code->offsetToTypedef);
+	ExternTypedefInfo *currAlias = FindFirstTypedef(code);
 	while(aliasInfo)
 	{
-		currAlias->offsetToName = int(symbolPos - code->debugSymbols);
+		currAlias->offsetToName = int(symbolPos - debugSymbols);
 		memcpy(symbolPos, aliasInfo->name.begin, aliasInfo->name.length() + 1);
 		symbolPos += aliasInfo->name.length();
 		*symbolPos++ = 0;
@@ -2520,7 +2502,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		aliasInfo = type->childAlias;
 		while(aliasInfo)
 		{
-			currAlias->offsetToName = int(symbolPos - code->debugSymbols);
+			currAlias->offsetToName = int(symbolPos - debugSymbols);
 			memcpy(symbolPos, aliasInfo->name.begin, aliasInfo->name.length() + 1);
 			symbolPos += aliasInfo->name.length();
 			*symbolPos++ = 0;
@@ -2531,20 +2513,10 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		}
 	}
 
-	code->namespaceCount = CodeInfo::namespaceInfo.size();
-	code->offsetToNamespaces = offsetToNamespace;
-
-#pragma pack(push, 1)
-	struct NamespaceData
-	{
-		unsigned offsetToName;
-		unsigned parentHash;
-	};
-#pragma pack(pop)
-	NamespaceData *namespaceList = (NamespaceData*)((char*)code + code->offsetToNamespaces);
+	ExternNamespaceInfo *namespaceList = FindFirstNamespace(code);
 	for(unsigned i = 0; i < CodeInfo::namespaceInfo.size(); i++)
 	{
-		namespaceList->offsetToName = int(symbolPos - code->debugSymbols);
+		namespaceList->offsetToName = int(symbolPos - debugSymbols);
 		memcpy(symbolPos, CodeInfo::namespaceInfo[i]->name.begin, CodeInfo::namespaceInfo[i]->name.length() + 1);
 		symbolPos += CodeInfo::namespaceInfo[i]->name.length();
 		*symbolPos++ = 0;

@@ -171,19 +171,31 @@ struct ExternMemberInfo
 	unsigned int	offset;
 };
 
+struct ExternConstantInfo
+{
+	unsigned int	type;
+	long long		value;
+};
+
+struct ExternNamespaceInfo
+{
+	unsigned offsetToName;
+	unsigned parentHash;
+};
+
 struct ByteCode
 {
 	unsigned int	size;	// Overall size
 
 	unsigned int	typeCount;
-	ExternTypeInfo	*firstType;
+	ExternTypeInfo	*firstType_; // deprecated, use FindFirstType
 #ifndef _M_X64
 	unsigned int	ptrPad0;
 #endif
 
 	unsigned int		dependsCount;
 	unsigned int		offsetToFirstModule;
-	ExternModuleInfo	*firstModule;
+	ExternModuleInfo	*firstModule_; // deprecated, use FindFirstModule
 #ifndef _M_X64
 	unsigned int	ptrPad1;
 #endif
@@ -191,23 +203,23 @@ struct ByteCode
 	unsigned int	globalVarSize;	// size of all global variables, in bytes
 	unsigned int	variableCount;	// variable info count
 	unsigned int	variableExportCount;	// exported variable count
-	ExternVarInfo	*firstVar;
+	ExternVarInfo	*firstVar_; // deprecated, use FindFirstVar
 #ifndef _M_X64
 	unsigned int	ptrPad2;
 #endif
 	unsigned int	offsetToFirstVar;
 
-	unsigned int	functionCount;	//
+	unsigned int	functionCount;
 	unsigned int	moduleFunctionCount;
 	unsigned int	offsetToFirstFunc;	// Offset from the beginning of a structure to the first ExternFuncInfo data
-	ExternFuncInfo	*firstFunc;
+	ExternFuncInfo	*firstFunc_; // deprecated, use FindFirstFunc
 #ifndef _M_X64
 	unsigned int	ptrPad3;
 #endif
 
 	unsigned int	localCount;
 	unsigned int	offsetToLocals;
-	ExternLocalInfo	*firstLocal;
+	ExternLocalInfo	*firstLocal_; // deprecated, use FindFirstLocal
 #ifndef _M_X64
 	unsigned int	ptrPad4;
 #endif
@@ -220,14 +232,14 @@ struct ByteCode
 	unsigned int	codeSize;
 	unsigned int	offsetToCode;
 	unsigned int	globalCodeStart;
-	char			*code;	// needs fix up after load
+	char			*code_;	// deprecated, use FindCode
 #ifndef _M_X64
 	unsigned int	ptrPad5;
 #endif
 
 	unsigned int	symbolLength;
 	unsigned int	offsetToSymbols;
-	char			*debugSymbols;
+	char			*debugSymbols_; // deprecated, used FindSymbols
 #ifndef _M_X64
 	unsigned int	ptrPad6;
 #endif
@@ -248,9 +260,11 @@ struct ByteCode
 
 //	ExternTypeInfo	types[typeCount];
 
-//	ExternModuleInfo	modules[dependsCount];
+//	ExternMemberInfo	typeMembers[];
 
-//	unsigned int	complexTypeMemberTypes[];
+//	ExternConstantInfo	typeConstants[];
+
+//	ExternModuleInfo	modules[dependsCount];
 
 //	ExternVarInfo	variables[variableCount];	// data about variables
 
@@ -258,18 +272,35 @@ struct ByteCode
 
 //	ExternLocalInfo	locals[localCount];	// Function locals (including parameters)
 
+//	ExternFuncInfo::Upvalue	closureLists[closureListCount];
+
+//	ExternTypedefInfo	typedefs[typedefCount]
+
+//	ExternNamespaceInfo	namespaces[namespaceCount]
+
 //	char			code[codeSize];
 
 //	unsigned int	sourceInfo[infoLength * 2]
 
 //	char			debugSymbols[symbolLength];
+
+//	char			source[sourceSize]
 };
 
 #pragma pack(pop)
 
 ExternTypeInfo*		FindFirstType(ByteCode *code);
+ExternMemberInfo*	FindFirstMember(ByteCode *code);
+ExternConstantInfo*	FindFirstConstant(ByteCode *code);
+ExternModuleInfo*	FindFirstModule(ByteCode *code);
 ExternVarInfo*		FindFirstVar(ByteCode *code);
 ExternFuncInfo*		FindFirstFunc(ByteCode *code);
+ExternLocalInfo*	FindFirstLocal(ByteCode *code);
+ExternTypedefInfo*	FindFirstTypedef(ByteCode *code);
+ExternNamespaceInfo*FindFirstNamespace(ByteCode *code);
 char*				FindCode(ByteCode *code);
+unsigned int*		FindSourceInfo(ByteCode *code);
+char*				FindSymbols(ByteCode *code);
+char*				FindSource(ByteCode *code);
 
 #endif

@@ -77,14 +77,14 @@ bool Linker::LinkCode(const char *code)
 	ByteCode *bCode = (ByteCode*)code;
 
 	ExternTypeInfo *tInfo = FindFirstType(bCode), *tStart = tInfo;
-	ExternMemberInfo *memberList = (ExternMemberInfo*)(tInfo + bCode->typeCount);
+	ExternMemberInfo *memberList = FindFirstMember(bCode);
 
 	unsigned int moduleFuncCount = 0;
 
-	ExternModuleInfo *mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
+	ExternModuleInfo *mInfo = FindFirstModule(bCode);
 	for(unsigned int i = 0; i < bCode->dependsCount; i++)
 	{
-		const char *path = (char*)(bCode) + bCode->offsetToSymbols + mInfo->nameOffset;
+		const char *path = FindSymbols(bCode) + mInfo->nameOffset;
 
 		//Search for it in loaded modules
 		int loadedId = -1;
@@ -154,11 +154,11 @@ bool Linker::LinkCode(const char *code)
 	unsigned int oldTypeCount = exTypes.size();
 	unsigned int oldMemberSize = exTypeExtra.size();
 
-	mInfo = (ExternModuleInfo*)((char*)(bCode) + bCode->offsetToFirstModule);
+	mInfo = FindFirstModule(bCode);
 	// Fixup function table
 	for(unsigned int i = 0; i < bCode->dependsCount; i++)
 	{
-		const char *path = (char*)(bCode) + bCode->offsetToSymbols + mInfo->nameOffset;
+		const char *path = FindSymbols(bCode) + mInfo->nameOffset;
 		//Search for it in loaded modules
 		int loadedId = -1;
 		for(unsigned int n = 0; n < exModules.size(); n++)
@@ -186,8 +186,8 @@ bool Linker::LinkCode(const char *code)
 
 	// Add new symbols
 	exSymbols.resize(oldSymbolSize + bCode->symbolLength);
-	memcpy(&exSymbols[oldSymbolSize], (char*)(bCode) + bCode->offsetToSymbols, bCode->symbolLength);
-	const char *symbolInfo = (char*)(bCode) + bCode->offsetToSymbols;
+	memcpy(&exSymbols[oldSymbolSize], FindSymbols(bCode), bCode->symbolLength);
+	const char *symbolInfo = FindSymbols(bCode);
 
 	// Create type map for fast searches
 	typeMap.clear();
@@ -265,17 +265,17 @@ bool Linker::LinkCode(const char *code)
 	// Add new locals
 	unsigned int oldLocalsSize = exLocals.size();
 	exLocals.resize(oldLocalsSize + bCode->localCount);
-	memcpy(exLocals.data + oldLocalsSize, (char*)(bCode) + bCode->offsetToLocals, bCode->localCount * sizeof(ExternLocalInfo));
+	memcpy(exLocals.data + oldLocalsSize, FindFirstLocal(bCode), bCode->localCount * sizeof(ExternLocalInfo));
 
 	// Add new code information
 	unsigned int oldCodeInfoSize = exCodeInfo.size();
 	exCodeInfo.resize(oldCodeInfoSize + bCode->infoSize * 2);
-	memcpy(exCodeInfo.data + oldCodeInfoSize, (char*)(bCode) + bCode->offsetToInfo, bCode->infoSize * sizeof(unsigned int) * 2);
+	memcpy(exCodeInfo.data + oldCodeInfoSize, FindSourceInfo(bCode), bCode->infoSize * sizeof(unsigned int) * 2);
 
 	// Add new source code
 	unsigned int oldSourceSize = exSource.size();
 	exSource.resize(oldSourceSize + bCode->sourceSize);
-	memcpy(exSource.data + oldSourceSize, (char*)(bCode) + bCode->offsetToSource, bCode->sourceSize);
+	memcpy(exSource.data + oldSourceSize, FindSource(bCode), bCode->sourceSize);
 
 	// Add new code
 	unsigned int oldCodeSize = exCode.size();
@@ -346,17 +346,17 @@ bool Linker::LinkCode(const char *code)
 #ifdef NULLC_AUTOBINDING
 	#if defined(__linux)
 				void* handle = dlopen(0, RTLD_LAZY | RTLD_LOCAL);
-				exFunctions.back().funcPtr = dlsym(handle, (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
+				exFunctions.back().funcPtr = dlsym(handle, FindSymbols(bCode) + exFunctions.back().offsetToName);
 				dlclose(handle);
 	#else
-				exFunctions.back().funcPtr = (void*)GetProcAddress(GetModuleHandle(NULL), (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
+				exFunctions.back().funcPtr = (void*)GetProcAddress(GetModuleHandle(NULL), FindSymbols(bCode) + exFunctions.back().offsetToName);
 	#endif
 #endif
 				if(exFunctions.back().funcPtr)
 				{
 					exFunctions.back().address = ~0u;
 				}else{
-					SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' '%s' doesn't have implementation", (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName, &exSymbols[0] + exTypes[exFunctions.back().funcType].offsetToName);
+					SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' '%s' doesn't have implementation", FindSymbols(bCode) + exFunctions.back().offsetToName, &exSymbols[0] + exTypes[exFunctions.back().funcType].offsetToName);
 					return false;
 				}
 			}
@@ -370,7 +370,7 @@ bool Linker::LinkCode(const char *code)
 #if defined(__CELLOS_LV2__)
 			if(exFunctions.back().funcPtr != NULL && !exFunctions.back().ps3Callable)
 			{
-				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' is not callable on PS3", (char*)(bCode) + bCode->offsetToSymbols + exFunctions.back().offsetToName);
+				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' is not callable on PS3", FindSymbols(bCode) + exFunctions.back().offsetToName);
 				return false;
 			}
 #endif

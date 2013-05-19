@@ -1976,6 +1976,11 @@ void NodeCreateUnsizedArray::CompileLLVM()
 	V = builder->CreateLoad(arrayTmp, "unsized_array");
 }
 
+void NodeCreateAutoArray::CompileLLVM()
+{
+	ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unimplemented");
+}
+
 #else
 void	NULLC_PreventLLVMWarning(){}
 #endif
