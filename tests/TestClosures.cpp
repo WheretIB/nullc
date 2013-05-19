@@ -564,3 +564,50 @@ const char	*testClosureListCloseIssue =
 \r\n\
 return foo(1)();";
 TEST_RESULT("Closure list close issue", testClosureListCloseIssue, "36");
+
+const char	*testClosureOnImplicitReturn1 =
+"int ref() f;\r\n\
+void foo()\r\n\
+{\r\n\
+	int x = 4;\r\n\
+	f = int test(){ return x; };\r\n\
+}\r\n\
+foo();\r\n\
+return f();";
+TEST_RESULT("Closure on implicit return 1", testClosureOnImplicitReturn1, "4");
+
+const char	*testClosureOnImplicitReturn2 =
+"class Foo\r\n\
+{\r\n\
+	int y;\r\n\
+	int z;\r\n\
+	\r\n\
+	void ref() f;\r\n\
+	\r\n\
+	void add(int x)\r\n\
+	{\r\n\
+		y += x;\r\n\
+		f();\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+class Bar\r\n\
+{\r\n\
+	Foo ref x;\r\n\
+	\r\n\
+	int lastY;\r\n\
+	\r\n\
+	void Bar(Foo ref obj)\r\n\
+	{\r\n\
+		obj.f = void test(){ lastY = 5; };\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+auto foo = new Foo();\r\n\
+auto bar = new Bar(foo);\r\n\
+\r\n\
+foo.add(4);\r\n\
+foo.add(5);\r\n\
+\r\n\
+return foo.y == 9 && foo.z == 0 && bar.lastY == 5;";
+TEST_RESULT("Closure on implicit return 2", testClosureOnImplicitReturn2, "1");

@@ -478,6 +478,12 @@ void NodeFuncDef::Compile()
 	// If function returns void, this is implicit return
 	if(funcInfo->retType == typeVoid)
 	{
+		// Close function upvalues
+		if(funcInfo && funcInfo->closeUpvals)
+		{
+			assert(funcInfo->maxBlockDepth);
+			cmdList.push_back(VMCmd(cmdCloseUpvals, (unsigned char)(funcInfo->maxBlockDepth), (unsigned short)funcInfo->indexInArr, 0));
+		}
 		// Reset jumpOffset to the beginning of a function if this is a coroutine
 		if(funcInfo && funcInfo->type == FunctionInfo::COROUTINE)
 			cmdList.push_back(VMCmd(cmdYield, 0, false, funcInfo->allParamSize));
