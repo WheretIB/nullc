@@ -18,6 +18,7 @@
 #include "NULLC/includes/dynamic.h"
 #include "NULLC/includes/gc.h"
 #include "NULLC/includes/time.h"
+#include "NULLC/includes/string.h"
 
 #include "NULLC/includes/canvas.h"
 #include "NULLC/includes/window.h"
@@ -127,6 +128,7 @@ void	RunTests(bool verbose)
 	nullcInitRandomModule();
 	nullcInitDynamicModule();
 	nullcInitGCModule();
+	nullcInitStringModule();
 
 	nullcInitIOModule();
 	nullcInitCanvasModule();
