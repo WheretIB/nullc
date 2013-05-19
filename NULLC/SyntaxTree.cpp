@@ -2052,6 +2052,31 @@ void NodeCreateUnsizedArray::Compile()
 	first->Compile();
 }
 
+NodeCreateAutoArray::NodeCreateAutoArray(TypeInfo* arrayType, NodeZeroOP* size)
+{
+	nodeType = typeNodeCreateUnsizedArray;
+
+	first = TakeLastNode();
+	second = size;
+
+	typeInfo = arrayType;
+}
+
+NodeCreateAutoArray::~NodeCreateAutoArray()
+{
+}
+
+void NodeCreateAutoArray::Compile()
+{
+	CompileExtra();
+
+	second->Compile();
+
+	first->Compile();
+
+	cmdList.push_back(VMCmd(cmdPushTypeID, first->typeInfo->subType->typeIndex));
+}
+
 void ResetTreeGlobals()
 {
 	currLoopDepth = 0;

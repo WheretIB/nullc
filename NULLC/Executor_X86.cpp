@@ -295,8 +295,7 @@ static const unsigned char codeHead[] = {
 	0xC3,							// ret
 };
 
-ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions),
-			exCode(linker->exCode), exTypes(linker->exTypes)
+ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions), exCode(linker->exCode), exTypes(linker->exTypes)
 {
 	binCode = NULL;
 	binCodeStart = NULL;
@@ -998,12 +997,16 @@ bool ExecutorX86::TranslateToNative()
 
 	EMIT_OP(o_use32);
 
+	codeJumpTargets.resize(exCode.size());
+	if(codeJumpTargets.size())
+		memset(&codeJumpTargets[lastInstructionCount], 0, codeJumpTargets.size() - lastInstructionCount);
+
 	// Mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
-	exCode.push_back(VMCmd(cmdNop));
+	codeJumpTargets.push_back(false);
 	for(unsigned int i = oldJumpTargetCount, e = exLinker->jumpTargets.size(); i != e; i++)
-		exCode[exLinker->jumpTargets[i]].cmd |= 0x80;
+		codeJumpTargets[exLinker->jumpTargets[i]] = true;
 	// Remove cmdNop, because we don't want to generate code for it
-	exCode.pop_back();
+	codeJumpTargets.pop_back();
 
 	OptimizationLookBehind(false);
 	unsigned int pos = lastInstructionCount;
@@ -1019,11 +1022,8 @@ bool ExecutorX86::TranslateToNative()
 
 		GetLastInstruction()->instID = pos + 1;
 
-		if(cmd.cmd & 0x80)
-		{
+		if(codeJumpTargets[pos])
 			OptimizationLookBehind(false);
-			cmd.cmd &= ~0x80;
-		}
 
 		pos++;
 		NULLC::cgFuncs[cmd.cmd](cmd);
@@ -1038,12 +1038,9 @@ bool ExecutorX86::TranslateToNative()
 	instList.resize((int)(GetLastInstruction() - &instList[0]));
 
 	// Once again, mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
-	exCode.push_back(VMCmd(cmdNop));
+	codeJumpTargets.push_back(false);
 #ifdef NULLC_OPTIMIZE_X86
 	// Second optimization pass, just feed generated instructions again
-	// But at first, mark invalidation instructions
-	for(unsigned int i = oldJumpTargetCount, e = exLinker->jumpTargets.size(); i != e; i++)
-		exCode[exLinker->jumpTargets[i]].cmd |= 0x80;
 
 	// Set iterator at beginning
 	SetLastInstruction(instList.data, instList.data);
@@ -1054,8 +1051,7 @@ bool ExecutorX86::TranslateToNative()
 		// Skip trash
 		if(instList[i].name == o_other || instList[i].name == o_none)
 		{
-			//EMIT_OP(o_none);
-			if(instList[i].instID && (exCode[instList[i].instID-1].cmd & 0x80))
+			if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
 			{
 				GetLastInstruction()->instID = instList[i].instID;
 				EMIT_OP(o_none);
@@ -1064,7 +1060,7 @@ bool ExecutorX86::TranslateToNative()
 			continue;
 		}
 		// If invalidation flag is set
-		if(instList[i].instID && (exCode[instList[i].instID-1].cmd & 0x80))
+		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
 			OptimizationLookBehind(false);
 		GetLastInstruction()->instID = instList[i].instID;
 
@@ -1137,19 +1133,19 @@ bool ExecutorX86::TranslateToNative()
 #ifdef NULLC_LOG_FILES
 	static unsigned int instCount = 0;
 	for(unsigned int i = 0; i < instList.size(); i++)
+	{
 		if(instList[i].name != o_none && instList[i].name != o_other)
 			instCount++;
+	}
 	printf("So far, %d optimizations (%d instructions)\r\n", GetOptimizationCount(), instCount);
 
 	FILE *fAsm = fopen("asmX86.txt", "wb");
 	char instBuf[128];
-	for(unsigned int i = 0, e = exLinker->jumpTargets.size(); i != e; i++)
-		exCode[exLinker->jumpTargets[i]].cmd |= 0x80;
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
 		if(instList[i].name == o_other)
 			continue;
-		if(instList[i].instID && (exCode[instList[i].instID-1].cmd & 0x80))
+		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
 		{
 			fprintf(fAsm, "; ------------------- Invalidation ----------------\r\n");
 			fprintf(fAsm, "0x%x\r\n", 0xc0000000 | (instList[i].instID - 1));
@@ -1157,11 +1153,9 @@ bool ExecutorX86::TranslateToNative()
 		instList[i].Decode(instBuf);
 		fprintf(fAsm, "%s\r\n", instBuf);
 	}
-	for(unsigned int i = 0, e = exLinker->jumpTargets.size(); i != e; i++)
-		exCode[exLinker->jumpTargets[i]].cmd &= ~0x80;
 	fclose(fAsm);
 #endif
-	exCode.pop_back();
+	codeJumpTargets.pop_back();
 
 	bool codeRelocated = false;
 	if((binCodeSize + instList.size() * 6) > binCodeReserved)

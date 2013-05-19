@@ -776,3 +776,16 @@ public:
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 	COMPILE_LLVM(virtual void CompileLLVM());
 };
+
+class NodeCreateAutoArray: public NodeTwoOP
+{
+public:
+	NodeCreateAutoArray(TypeInfo* arrayType, NodeZeroOP* size);
+	virtual ~NodeCreateAutoArray();
+
+	virtual void Compile();
+	virtual void LogToStream(FILE *fGraph);
+	COMPILE_TRANSLATION(virtual void TranslateToC(FILE *fOut));
+	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
+	COMPILE_LLVM(virtual void CompileLLVM());
+};

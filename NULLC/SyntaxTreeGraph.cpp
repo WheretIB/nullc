@@ -98,7 +98,14 @@ void NodeThreeOP::LogToStream(FILE *fGraph)
 void NodeNumber::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
-	fprintf(fGraph, "%s Number\r\n", typeInfo->GetFullTypeName());
+	fprintf(fGraph, "%s Number :\r\n", typeInfo->GetFullTypeName());
+	GoDown();
+	DrawLine(fGraph);
+	if(typeInfo == typeInt)
+		fprintf(fGraph, "%d\r\n", num.integer);
+	if(typeInfo == typeFloat || typeInfo == typeDouble)
+		fprintf(fGraph, "%f\r\n", num.real);
+	GoUp();
 }
 
 void NodePopOp::LogToStream(FILE *fGraph)
@@ -466,6 +473,19 @@ void NodeCreateUnsizedArray::LogToStream(FILE *fGraph)
 {
 	DrawLine(fGraph);
 	fprintf(fGraph, "%s NodeCreateUnsizedArray :\r\n", typeInfo->GetFullTypeName());
+	GoDown();
+	LogToStreamExtra(fGraph);
+	first->LogToStream(fGraph);
+	GoUp();
+	GoDownB();
+	second->LogToStream(fGraph);
+	GoUp();
+}
+
+void NodeCreateAutoArray::LogToStream(FILE *fGraph)
+{
+	DrawLine(fGraph);
+	fprintf(fGraph, "%s NodeCreateAutoArray :\r\n", typeInfo->GetFullTypeName());
 	GoDown();
 	LogToStreamExtra(fGraph);
 	first->LogToStream(fGraph);

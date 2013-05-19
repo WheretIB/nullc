@@ -55,6 +55,7 @@ private:
 	FastVector<ExternTypeInfo>	&exTypes;
 	FastVector<ExternFuncInfo>	&exFunctions;
 	FastVector<VMCmd>			&exCode;
+	FastVector<bool>			codeJumpTargets;
 
 	FastVector<x86Instruction, true, true>	instList;
 
