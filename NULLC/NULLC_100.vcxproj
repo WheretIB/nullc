@@ -171,7 +171,6 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\external\tlsf\tlsf.c" />
     <ClCompile Include="BinaryCache.cpp" />
     <ClCompile Include="Bytecode.cpp" />
     <ClCompile Include="CodeInfo.cpp" />
@@ -213,8 +212,6 @@
     <ClCompile Include="Executor_LLVM.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\external\tlsf\tlsf.h" />
-    <ClInclude Include="..\external\tlsf\tlsfbits.h" />
     <ClInclude Include="Array.h" />
     <ClInclude Include="BinaryCache.h" />
     <ClInclude Include="Bytecode.h" />
