@@ -297,8 +297,9 @@ namespace ColorerGrammar
 		{
 			logStream << "ERROR: can't find module '" << importPath << "'\r\n";
 		}else{
+			// Import types
 			ExternTypeInfo *tInfo = FindFirstType(code);
-			const char *symbols = (char*)(code) + code->offsetToSymbols;
+			const char *symbols = FindSymbols(code);
 			for(unsigned int i = 0; i < code->typeCount; i++, tInfo++)
 			{
 				if(tInfo->subCat != ExternTypeInfo::CAT_CLASS)
@@ -319,16 +320,21 @@ namespace ColorerGrammar
 					typeInfo.push_back(GetStringHash(typeName));
 				}
 			}
-			struct NamespaceData
-			{
-				unsigned offsetToName;
-				unsigned parentHash;
-			};
-			NamespaceData *namespaceList = (NamespaceData*)((char*)code + code->offsetToNamespaces);
+
+			// Import namespaces
+			ExternNamespaceInfo *namespaceList = FindFirstNamespace(code);
 			for(unsigned i = 0; i < code->namespaceCount; i++)
 			{
 				typeInfo.push_back(GetStringHash(symbols + namespaceList->offsetToName));
 				namespaceList++;
+			}
+
+			// Import typedefs
+			ExternTypedefInfo *typedefList = FindFirstTypedef(code);
+			for(unsigned i = 0; i < code->typedefCount; i++)
+			{
+				typeInfo.push_back(GetStringHash(symbols + typedefList->offsetToName));
+				typedefList++;
 			}
 		}
 	}
