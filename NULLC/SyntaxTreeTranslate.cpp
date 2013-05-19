@@ -1245,6 +1245,19 @@ void NodeCreateUnsizedArray::TranslateToC(FILE *fOut)
 	fprintf(fOut, ")");
 }
 
+void NodeCreateAutoArray::TranslateToC(FILE *fOut)
+{
+	TranslateToCExtra(fOut);
+
+	fprintf(fOut, "__makeNullcAutoArray<");
+	typeInfo->subType->OutputCType(fOut, "");
+	fprintf(fOut, ">(");
+	first->TranslateToCExtra(fOut);
+	fprintf(fOut, ", ");
+	second->TranslateToCExtra(fOut);
+	fprintf(fOut, ")");
+}
+
 void ResetTranslationState()
 {
 	translateLoopDepth = 0;
