@@ -408,7 +408,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="tests\TestGenericExplicit.cpp" />
+    <ClCompile Include="tests\TestGenericExplicit.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="tests\TestGenericType.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|x64'">true</ExcludedFromBuild>
@@ -469,7 +472,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="tests\TestNamedArguments.cpp" />
+    <ClCompile Include="tests\TestNamedArguments.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="tests\TestNamespace.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|x64'">true</ExcludedFromBuild>
@@ -510,6 +516,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="tests\TestSglEvent.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="tests\TestSglHashmap.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|x64'">true</ExcludedFromBuild>
@@ -518,7 +528,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="tests\TestSglString.cpp" />
+    <ClCompile Include="tests\TestSglString.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="tests\TestSglVector.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_Notest|x64'">true</ExcludedFromBuild>
