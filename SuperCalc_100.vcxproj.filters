@@ -231,6 +231,9 @@
     <ClCompile Include="tests\TestSglString.cpp">
       <Filter>Tests</Filter>
     </ClCompile>
+    <ClCompile Include="tests\TestSglEvent.cpp">
+      <Filter>Tests</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ObjectPool.h">

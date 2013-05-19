@@ -121,6 +121,19 @@ int list:empty()
 {
 	return first == nullptr;
 }
+auto list:find(T elem)
+{
+	auto curr = first;
+
+	while(curr)
+	{
+		if(curr.elem == elem)
+			return curr;
+		curr = curr.next;
+	}
+
+	return nullptr;
+}
 
 // iteration
 class list_iterator<T>
