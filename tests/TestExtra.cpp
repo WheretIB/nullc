@@ -44,11 +44,13 @@ TEST("Group of tests", testMissingTests, "1")
 
 	CHECK_INT("d1size", 0, 5);
 
-	CHECK_CHAR("$temp1", 0, '\\');
-	CHECK_CHAR("$temp1", 1, '\'');
-	CHECK_CHAR("$temp1", 2, 0);
-	CHECK_CHAR("$temp1", 3, '\"');
-	CHECK_CHAR("$temp1", 4, 0);
+	char* str = *(char**)Tests::FindVar("$temp1");
+	if(str[0] != '\\' || str[1] != '\'' || str[2] != '\0' || str[3] != '\"' || str[4] != '\0')
+	{
+		TEST_NAME();
+		printf(" Failed\r\n");
+		lastFailed = true;
+	}
 
 	CHECK_INT("d2", 0, !4);
 	CHECK_INT("d3", 0, ~5);
@@ -173,18 +175,29 @@ int k1 = k[0], k2 = k[1], k3 = k[2], k4 = k[3];\r\n\
 return m[1][3] + 2;";
 TEST("Group of tests 4", testMissingTests4, "6")
 {
-	CHECK_INT("$temp1", 0, 1);
-	CHECK_INT("$temp1", 1, 2);
-	CHECK_INT("$temp1", 2, 3);
-	CHECK_INT("$temp1", 3, 4);
+	int* str1 = *(int**)Tests::FindVar("$temp1");
+	if(str1[0] != 1 || str1[1] != 2 || str1[2] != 3 || str1[3] != 4)
+	{
+		TEST_NAME();
+		printf(" Failed\r\n");
+		lastFailed = true;
+	}
 
-	CHECK_INT("$temp2", 0, 4);
-	CHECK_INT("$temp2", 1, 2);
-	CHECK_INT("$temp2", 2, 5);
-	CHECK_INT("$temp2", 3, 3);
+	int* str2 = *(int**)Tests::FindVar("$temp2");
+	if(str2[0] != 4 || str2[1] != 2 || str2[2] != 5 || str2[3] != 3)
+	{
+		TEST_NAME();
+		printf(" Failed\r\n");
+		lastFailed = true;
+	}
 
-	CHECK_INT("$temp3", 0, 4);
-	CHECK_INT("$temp3", 1, 7);
+	int* str3 = *(int**)Tests::FindVar("$temp3");
+	if(str3[0] != 4 || str3[1] != 7)
+	{
+		TEST_NAME();
+		printf(" Failed\r\n");
+		lastFailed = true;
+	}
 
 	CHECK_INT("ksize", 0, 4);
 	CHECK_INT("isize", 0, 2);

@@ -34,7 +34,7 @@ TEST("Implicit pointers to arrays", testArrPtr, "112")
 	CHECK_INT("uu", 7, 100);
 
 	CHECK_STR("name", 0, "omfg");
-	CHECK_STR("$temp1", 0, "does work");
+	CHECK_HEAP_STR("$temp1", 0, "does work");
 }
 
 const char	*testArrays = 
@@ -96,10 +96,13 @@ TEST("Array test 2", testArrays2, "1")
 	CHECK_INT("ns", 0, 189);
 	CHECK_INT("ts", 0, 52);
 
-	CHECK_INT("$temp1", 0, 10);
-	CHECK_INT("$temp1", 1, 12);
-	CHECK_INT("$temp1", 2, 14);
-	CHECK_INT("$temp1", 3, 16);
+	int* arr = *(int**)Tests::FindVar("$temp1");
+	if(arr[0] != 10 || arr[1] != 12 || arr[2] != 14 || arr[3] != 16)
+	{
+		TEST_NAME();
+		printf(" Failed\r\n");
+		lastFailed = true;
+	}
 }
 
 const char	*testStrings = 
@@ -113,7 +116,7 @@ return 1;";
 TEST("Strings test", testStrings, "1")
 {
 	CHECK_STR("hm", 0, "World\r\n");
-	CHECK_STR("$temp1", 0, "hello\r\n");
+	CHECK_HEAP_STR("$temp1", 0, "hello\r\n");
 }
 
 const char	*testInplaceArraysWithArrayElements =
