@@ -45,12 +45,6 @@
     <Filter Include="Executor_LLVM">
       <UniqueIdentifier>{84d3adf5-d1bc-439a-8297-91f3957125f2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="external">
-      <UniqueIdentifier>{42a70f55-8b98-4d99-8b0c-6063f7aae682}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="external\tlsf">
-      <UniqueIdentifier>{9dcc6077-f4b2-4fb4-bdfb-cc6c9886e00c}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BinaryCache.cpp">
@@ -169,9 +163,6 @@
     </ClCompile>
     <ClCompile Include="Executor_LLVM.cpp">
       <Filter>Executor_LLVM</Filter>
-    </ClCompile>
-    <ClCompile Include="..\external\tlsf\tlsf.c">
-      <Filter>external\tlsf</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -318,12 +309,6 @@
     </ClInclude>
     <ClInclude Include="Executor_LLVM.h">
       <Filter>Executor_LLVM</Filter>
-    </ClInclude>
-    <ClInclude Include="..\external\tlsf\tlsf.h">
-      <Filter>external\tlsf</Filter>
-    </ClInclude>
-    <ClInclude Include="..\external\tlsf\tlsfbits.h">
-      <Filter>external\tlsf</Filter>
     </ClInclude>
     <ClInclude Include="Tree.h">
       <Filter>Header Files</Filter>
