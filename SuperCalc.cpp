@@ -69,6 +69,7 @@ LRESULT CALLBACK	About(HWND, unsigned int, WPARAM, LPARAM);
 HWND hWnd;			// Main window
 HWND hButtonCalc;	// Run/Abort button
 HWND hContinue;		// Button that continues an interrupted execution
+HWND hShowTemporaries;	// Show temporary variables
 HWND hJITEnabled;	// JiT enable check box
 HWND hTabs;	
 HWND hNewTab, hNewFilename, hNewFile;
@@ -709,6 +710,11 @@ bool InitInstance(HINSTANCE hInstance, int nCmdShow)
 		return 0;
 	SendMessage(hJITEnabled, WM_SETFONT, (WPARAM)fontDefault, 0);
 
+	hShowTemporaries = CreateWindow("BUTTON", "Show temps", WS_VISIBLE | BS_AUTOCHECKBOX | WS_CHILD, 800-280, 185, 130, 30, hWnd, NULL, hInstance, NULL);
+	if(!hShowTemporaries)
+		return 0;
+	SendMessage(hShowTemporaries, WM_SETFONT, (WPARAM)fontDefault, 0);
+
 	INITCOMMONCONTROLSEX commControlTypes;
 	commControlTypes.dwSize = sizeof(INITCOMMONCONTROLSEX);
 	commControlTypes.dwICC = ICC_TREEVIEW_CLASSES | ICC_LISTVIEW_CLASSES;
@@ -977,20 +983,25 @@ const char* GetBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 		{
 			safeprintf(val, 256, *(unsigned char*)ptr ? "true" : "false");
 		}else{
-			if(*(unsigned char*)ptr)
+			if(strcmp(codeSymbols + type.offsetToName, "uchar") == 0)
+				safeprintf(val, 256, "'%c' (%u)", *(unsigned char*)ptr, (int)*(unsigned char*)ptr);
+			else if(*(unsigned char*)ptr)
 				safeprintf(val, 256, "'%c' (%d)", *(unsigned char*)ptr, (int)*(unsigned char*)ptr);
 			else
 				safeprintf(val, 256, "0");
 		}
 		break;
 	case ExternTypeInfo::TYPE_SHORT:
-		safeprintf(val, 256, "%d", *(short*)ptr);
+		if(strcmp(codeSymbols + type.offsetToName, "ushort") == 0)
+			safeprintf(val, 256, "%u", *(unsigned short*)ptr);
+		else
+			safeprintf(val, 256, "%d", *(short*)ptr);
 		break;
 	case ExternTypeInfo::TYPE_INT:
-		safeprintf(val, 256, type.subType == 0 ? "%d" : "0x%x", *(int*)ptr);
+		safeprintf(val, 256, type.subType == 0 ? (strcmp(codeSymbols + type.offsetToName, "uint") == 0 ? "%u" : "%d") : "0x%x", *(int*)ptr);
 		break;
 	case ExternTypeInfo::TYPE_LONG:
-		safeprintf(val, 256, type.subType == 0 ? "%lld" : "0x%llx", *(long long*)ptr);
+		safeprintf(val, 256, type.subType == 0 ? (strcmp(codeSymbols + type.offsetToName, "ulong") == 0 ? "%llu" : "%lld") : "0x%llx", *(long long*)ptr);
 		break;
 	case ExternTypeInfo::TYPE_FLOAT:
 		safeprintf(val, 256, "%f", *(float*)ptr);
@@ -1290,6 +1301,8 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 {
 	TreeView_DeleteAllItems(hVars);
 
+	bool showTemps = !!Button_GetCheck(hShowTemporaries);
+
 	tiExtra.clear();
 	tiExtra.push_back(TreeItemExtra(NULL, NULL, 0, false));
 
@@ -1328,16 +1341,19 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 		else if(&type == &codeTypes[8])	// for typeid
 			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + codeVars[i].offset)].offsetToName);
 
-		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
-		helpInsert.item.pszText = name;
-		helpInsert.item.cChildren = type.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (type.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
-		helpInsert.item.lParam = tiExtra.size();
+		if(showTemps || strstr(name, "$temp") == 0)
+		{
+			helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
+			helpInsert.item.pszText = name;
+			helpInsert.item.cChildren = type.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (type.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
+			helpInsert.item.lParam = tiExtra.size();
 
-		tiExtra.push_back(TreeItemExtra());
-		HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
-		tiExtra.back() = TreeItemExtra(data + codeVars[i].offset, &type, lastItem, type.subCat == ExternTypeInfo::CAT_POINTER, codeSymbols + codeVars[i].offsetToName);
+			tiExtra.push_back(TreeItemExtra());
+			HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
+			tiExtra.back() = TreeItemExtra(data + codeVars[i].offset, &type, lastItem, type.subCat == ExternTypeInfo::CAT_POINTER, codeSymbols + codeVars[i].offsetToName);
 
-		FillVariableInfo(type, data + codeVars[i].offset, lastItem);
+			FillVariableInfo(type, data + codeVars[i].offset, lastItem);
+		}
 
 		if(codeVars[i].offset + type.size > offset)
 			offset = codeVars[i].offset + type.size;
@@ -2337,6 +2353,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				ShowWindow(hButtonCalc, SW_SHOW);
 				ShowWindow(hResult, SW_SHOW);
 				ShowWindow(hJITEnabled, SW_SHOW);
+				ShowWindow(hShowTemporaries, SW_SHOW);
 				ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_SHOW);
 
 				ShowWindow(hAttachPanel, SW_HIDE);
@@ -2644,6 +2661,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				ShowWindow(hButtonCalc, SW_HIDE);
 				ShowWindow(hResult, SW_HIDE);
 				ShowWindow(hJITEnabled, SW_HIDE);
+				ShowWindow(hShowTemporaries, SW_HIDE);
 				ShowWindow(TabbedFiles::GetTabInfo(hTabs, TabbedFiles::GetCurrentTab(hTabs)).window, SW_HIDE);
 
 				ShowWindow(hAttachPanel, SW_SHOW);
@@ -2862,16 +2880,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			SetWindowPos(hAttachList,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 4, topHeight - mainPadding * 2, NULL);
 
 			unsigned int buttonWidth = 120;
-			unsigned int resultWidth = width - 3 * buttonWidth - 3 * mainPadding - subPadding * 3;
+			unsigned int resultWidth = width - 4 * buttonWidth - 3 * mainPadding - subPadding * 3;
 
 			unsigned int calcOffsetX = mainPadding;
 			unsigned int resultOffsetX = calcOffsetX * 2 + buttonWidth * 2 + subPadding;
-			unsigned int x86OffsetX = resultOffsetX + resultWidth + subPadding;
+			unsigned int x86OffsetX = resultOffsetX + buttonWidth + resultWidth + subPadding;
 
 			SetWindowPos(hButtonCalc,	HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 			SetWindowPos(hResult,		HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
 			SetWindowPos(hContinue,		HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
 			SetWindowPos(hJITEnabled,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+			SetWindowPos(hShowTemporaries, HWND_TOP, x86OffsetX - buttonWidth - subPadding, middleOffsetY, buttonWidth, middleHeight, NULL);
 
 			SetWindowPos(hAttachDo,		HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 			SetWindowPos(hAttachAdd,	HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
@@ -2892,6 +2911,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			InvalidateRect(hButtonCalc, NULL, true);
 			InvalidateRect(hResult, NULL, true);
 			InvalidateRect(hJITEnabled, NULL, true);
+			InvalidateRect(hShowTemporaries, NULL, true);
 			InvalidateRect(hStatus, NULL, true);
 			InvalidateRect(hVars, NULL, true);
 			InvalidateRect(hWatch, NULL, true);
