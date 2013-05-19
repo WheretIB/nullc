@@ -112,6 +112,7 @@ public:
 		hasPointers = (!!referenceLevel) || (arraySize == UNSIZED_ARRAY) || (subType && subType->hasPointers);
 		dependsOnGeneric = false;
 		hasFinalizer = false;
+		hasFinished = true;
 
 		alignBytes = 0;
 		paddingBytes = 0;
@@ -137,8 +138,6 @@ public:
 		genericBase = NULL;
 
 		parentNamespace = NULL;
-
-		hasFinished = true;
 
 		parentType = NULL;
 

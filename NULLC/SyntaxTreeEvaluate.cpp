@@ -670,3 +670,11 @@ NodeNumber* NodeCreateUnsizedArray::Evaluate(char *memory, unsigned int size)
 
 	return NULL;
 }
+
+NodeNumber* NodeCreateAutoArray::Evaluate(char *memory, unsigned int size)
+{
+	(void)memory;
+	(void)size;
+
+	return NULL;
+}
