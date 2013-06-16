@@ -19,7 +19,12 @@ struct ExternTypeInfo
 	enum SubCategory{ CAT_NONE, CAT_ARRAY, CAT_POINTER, CAT_FUNCTION, CAT_CLASS, };
 	SubCategory		subCat;
 
-	enum TypeFlags{ TYPE_HAS_FINALIZER = 1 << 0, TYPE_DEPENDS_ON_GENERIC = 1 << 1, TYPE_IS_EXTENDABLE = 1 << 2 };
+	enum TypeFlags
+	{
+		TYPE_HAS_FINALIZER = 1 << 0,
+		TYPE_DEPENDS_ON_GENERIC = 1 << 1,
+		TYPE_IS_EXTENDABLE = 1 << 2
+	};
 
 	unsigned char	defaultAlign;
 	unsigned char	typeFlags; // TypeFlags
@@ -55,8 +60,19 @@ struct ExternVarInfo
 
 struct ExternLocalInfo
 {
-	enum LocalType{ PARAMETER, LOCAL, EXTERNAL };
-	unsigned short	paramType;
+	enum LocalType
+	{
+		PARAMETER,
+		LOCAL,
+		EXTERNAL
+	};
+	enum LocalFlags
+	{
+		IS_EXPLICIT = 1 << 0
+	};
+
+	unsigned char	paramType;
+	unsigned char	paramFlags;
 	unsigned short	defaultFuncId;
 
 	unsigned int	type, size;

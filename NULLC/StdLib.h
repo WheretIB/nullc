@@ -63,6 +63,11 @@ namespace NULLC
 
 	int RefCompare(NULLCRef a, NULLCRef b);
 	int RefNCompare(NULLCRef a, NULLCRef b);
+	int RefLCompare(NULLCRef a, NULLCRef b);
+	int RefLECompare(NULLCRef a, NULLCRef b);
+	int RefGCompare(NULLCRef a, NULLCRef b);
+	int RefGECompare(NULLCRef a, NULLCRef b);
+	int RefHash(NULLCRef a);
 
 	int FuncCompare(NULLCFuncPtr a, NULLCFuncPtr b);
 	int FuncNCompare(NULLCFuncPtr a, NULLCFuncPtr b);

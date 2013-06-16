@@ -1631,7 +1631,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 		{
 			unsigned tmpCount = func->funcType->funcType->paramCount;
 			func->funcType->funcType->paramCount = currArgument;
-			unsigned rating = GetFunctionRating(func->funcType->funcType, currArgument);
+			unsigned rating = GetFunctionRating(func->funcType->funcType, currArgument, func->firstParam);
 			func->funcType->funcType->paramCount = tmpCount;
 			if(rating == ~0u)
 			{
@@ -1750,7 +1750,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 			// Temporarily change function pointer argument count to match current argument count
 			unsigned tmpCount = var->varType->funcType->paramCount;
 			var->varType->funcType->paramCount = currArgument;
-			unsigned rating = GetFunctionRating(var->varType->funcType, currArgument);
+			unsigned rating = GetFunctionRating(var->varType->funcType, currArgument, NULL);
 			var->varType->funcType->paramCount = tmpCount;
 			if(rating == ~0u)
 				break;	// If the first found variable doesn't match, we can't move to the next, because it's hidden by this one
@@ -3275,6 +3275,13 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 	varMap.insert(lastFunc.lastParam->nameHash, lastFunc.lastParam);
 }
 
+void FunctionParameterExplicit()
+{
+	FunctionInfo &lastFunc = *currDefinedFunc.back();
+
+	lastFunc.lastParam->isExplicit = true;
+}
+
 void FunctionPrepareDefault()
 {
 	// Remove function variables before parsing the default parameter so that arguments wouldn't be referenced
@@ -3977,7 +3984,7 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 	if(newRating != ~0u)
 	{
 		tmpType = CodeInfo::GetFunctionType(NULL, tempListS, argumentCount);
-		newRating = GetFunctionRating(tmpType->funcType, argumentCount);
+		newRating = GetFunctionRating(tmpType->funcType, argumentCount, fInfo->firstParam);
 	}
 
 	// Remove function arguments
@@ -4001,7 +4008,7 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 	return tmpType;
 }
 
-unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount)
+unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount, VariableInfo *currArgument)
 {
 	if(currFunc->paramCount != callArgCount)
 		return ~0u;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
@@ -4022,6 +4029,8 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 			}else if(expectedType->dependsOnGeneric){
 				// generic function argument that is derivative from generic
 				continue;
+			}else if(currArgument && currArgument->isExplicit){
+				return ~0u; // Argument type must perfectly match
 			}else if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType){
 				// array -> class (unsized array)
 				fRating += 2;
@@ -4103,6 +4112,9 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 				fRating += 1;
 			}
 		}
+
+		if(currArgument)
+			currArgument = currArgument->next;
 	}
 	return fRating;
 }
@@ -4188,7 +4200,7 @@ unsigned GetRatingHelper(FunctionInfo* fInfo, TypeInfo* forcedParentType, unsign
 	if(provided && !expected)
 		return ~0u;
 
-	unsigned rating = GetFunctionRating(fInfo->funcType->funcType, argumentCount);
+	unsigned rating = GetFunctionRating(fInfo->funcType->funcType, argumentCount, fInfo->firstParam);
 
 	// If we have a positive rating, check that generic function constraints are satisfied
 	if(fInfo->generic)
@@ -4495,7 +4507,11 @@ FunctionInfo* GetAutoRefFunction(const char* pos, const char* funcName, unsigned
 		}
 	}
 	if(minRating == ~0u)
-		ThrowError(pos, "ERROR: none of the member ::%s functions can handle the supplied parameter list without conversions", funcName);
+	{
+		char	*errPos = errorReport;
+		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: none of the member ::%s functions can handle the supplied parameter list without conversions\r\n", funcName);
+		ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count);
+	}
 	FunctionInfo *fInfo = bestFuncList[minRatingIndex];
 
 	// Check, is there are more than one function, that share the same rating
@@ -4738,7 +4754,7 @@ void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorRe
 			continue;
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "  %s %s(", bestFuncList[n]->retType ? bestFuncList[n]->retType->GetFullTypeName() : "auto", funcName);
 		for(VariableInfo *curr = bestFuncList[n]->firstParam; curr; curr = curr->next)
-			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s%s", curr->isExplicit ? "explicit " : "", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
 		if(bestFuncList[n]->generic)
 		{
 			if(!bestFuncList[n]->generic->instancedType)
@@ -4747,8 +4763,9 @@ void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorRe
 			}else{
 				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ") instanced to\r\n    %s(", funcName);
 				FunctionType *tmpType = bestFuncList[n]->generic->instancedType->funcType;
-				for(unsigned c = 0; c < tmpType->paramCount; c++)
-					errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", tmpType->paramType[c]->GetFullTypeName(), (c + 1) != tmpType->paramCount ? ", " : "");
+				VariableInfo *curr = bestFuncList[n]->firstParam;
+				for(unsigned c = 0; c < tmpType->paramCount; c++, curr = curr->next)
+					errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s%s", curr && curr->isExplicit ? "explicit " : "", tmpType->paramType[c]->GetFullTypeName(), (c + 1) != tmpType->paramCount ? ", " : "");
 			}
 		}
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n");
@@ -5251,14 +5268,14 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				CodeInfo::nodeList.shrink(CodeInfo::nodeList.size() - redundant);
 			// Change things in a way that this function will be selected (lie about real argument count and match last argument type)
 			lastType = CodeInfo::nodeList.back()->typeInfo;
-			bestRating = GetFunctionRating(fType, fType->paramCount);
+			bestRating = GetFunctionRating(fType, fType->paramCount, fInfo ? fInfo->firstParam : NULL);
 			if(redundant == ~0u)
 				CodeInfo::nodeList.pop_back();
 			else
 				CodeInfo::nodeList.resize(CodeInfo::nodeList.size() + redundant);
 			lastType = CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY);
 		}else{
-			bestRating = GetFunctionRating(fType, callArgCount);
+			bestRating = GetFunctionRating(fType, callArgCount, fInfo ? fInfo->firstParam : NULL);
 		}
 		if(bestRating == ~0u)
 		{
@@ -5775,9 +5792,14 @@ void TypeAddMember(const char* pos, const char* varName)
 	if(currType->hasFinalizer)
 		ThrowError(pos, "ERROR: class '%s' implements 'finalize' so only a reference or an unsized array of '%s' can be put in a class", currType->GetFullTypeName(), currType->GetFullTypeName());
 
+	unsigned oldVarTop = varTop;
+
 	VariableInfo *varInfo = (VariableInfo*)AddVariable(pos, InplaceStr(varName, (int)strlen(varName)), false);
+	varInfo->pos = 0;
 	varInfo->isGlobal = true;
 	varInfo->parentType = newType;
+
+	varTop = oldVarTop;
 }
 
 void TypeAddConstant(const char* pos, const char* constName)
@@ -5796,9 +5818,15 @@ void TypeAddConstant(const char* pos, const char* constName)
 		if(curr->nameHash == newType->lastVariable->nameHash)
 			ThrowError(pos, "ERROR: name '%s' is already taken for a variable in current scope", constName);
 	}
+
+	unsigned oldVarTop = varTop;
+
 	VariableInfo *varInfo = (VariableInfo*)AddVariable(pos, InplaceStr(constName, (int)strlen(constName)));
+	varInfo->pos = 0;
 	varInfo->isGlobal = true;
 	varInfo->parentType = newType;
+
+	varTop = oldVarTop;
 }
 
 void TypePrototypeFinish()
@@ -5813,9 +5841,6 @@ void TypePrototypeFinish()
 // End of type definition
 void TypeFinish()
 {
-	// Class members changed variable top, here we restore it to original position
-	varTop -= newType->size;
-
 	unsigned maximumAlignment = 0;
 
 	// Additional padding may apply to preserve the alignment of members
@@ -6222,7 +6247,6 @@ void TypeDeriveFrom(const char* pos, TypeInfo* type)
 	}
 	// Type size is taken directly from base class because it is now unknown what alignment was used during base class definition
 	newType->size = type->size;
-	varTop = type->size;
 }
 
 TypeInfo* GetDefinedType()

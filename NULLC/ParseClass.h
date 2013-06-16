@@ -449,6 +449,8 @@ public:
 		defaultValueFuncID = ~0u;
 		next = prev = NULL;
 
+		isExplicit = false;
+
 #ifdef NULLC_LLVM_SUPPORT
 		llvmValue = NULL;
 		llvmUpvalue = NULL;
@@ -459,8 +461,11 @@ public:
 	unsigned int	nameHash;	// Variable name hash
 
 	unsigned int	pos;		// Variable position in value stack
+
 	bool			isGlobal, usedAsExternal;
 	bool			autoDeref;
+	bool			isExplicit;	// For function arguments
+
 	FunctionInfo	*parentFunction;
 	TypeInfo		*parentType;
 

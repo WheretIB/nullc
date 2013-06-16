@@ -199,6 +199,13 @@ int operator!=(typeid a, b);\r\n\
 int __rcomp(auto ref a, b);\r\n\
 int __rncomp(auto ref a, b);\r\n\
 \r\n\
+bool operator<(explicit auto ref a, b);\n\r\
+bool operator<=(explicit auto ref a, b);\n\r\
+bool operator>(explicit auto ref a, b);\n\r\
+bool operator>=(explicit auto ref a, b);\n\r\
+\r\n\
+int hash_value(explicit auto ref x);\r\n\
+\r\n\
 int __pcomp(void ref(int) a, void ref(int) b);\r\n\
 int __pncomp(void ref(int) a, void ref(int) b);\r\n\
 \r\n\
@@ -436,6 +443,12 @@ Compiler::Compiler()
 
 	AddModuleFunction("$base$", (void (*)())NULLC::RefCompare, "__rcomp", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::RefNCompare, "__rncomp", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::RefLCompare, "<", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::RefLECompare, "<=", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::RefGCompare, ">", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::RefGECompare, ">=", 0);
+
+	AddModuleFunction("$base$", (void (*)())NULLC::RefHash, "hash_value", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::FuncCompare, "__pcomp", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::FuncNCompare, "__pncomp", 0);
@@ -977,6 +990,7 @@ bool Compiler::ImportModuleFunctions(const char* bytecode, const char* pos)
 				lastFunc->AddParameter(new VariableInfo(lastFunc, InplaceStr(symbols + lInfo.offsetToName), GetStringHash(symbols + lInfo.offsetToName), 0, currType, false));
 				lastFunc->allParamSize += currType->size < 4 ? 4 : currType->size;
 				lastFunc->lastParam->defaultValueFuncID = lInfo.defaultFuncId;
+				lastFunc->lastParam->isExplicit = !!(lInfo.paramFlags & ExternLocalInfo::IS_EXPLICIT);
 			}
 			lastFunc->implemented = fInfo->codeSize & 0x80000000 ? false : true;
 			lastFunc->funcType = CodeInfo::typeInfo[typeRemap[fInfo->funcType]];
@@ -2386,7 +2400,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			refFunc->lastParam->next = refFunc->firstLocal;
 		for(VariableInfo *curr = refFunc->firstParam ? refFunc->firstParam : refFunc->firstLocal; curr; curr = curr->next, localOffset++)
 		{
-			localInfo[localOffset].paramType = (unsigned short)paramType;
+			localInfo[localOffset].paramType = (unsigned char)paramType;
+			localInfo[localOffset].paramFlags = (unsigned char)(curr->isExplicit ? ExternLocalInfo::IS_EXPLICIT : 0);
 			localInfo[localOffset].defaultFuncId = curr->defaultValue ? (unsigned short)curr->defaultValueFuncID : 0xffff;
 			localInfo[localOffset].type = curr->varType ? curr->varType->typeIndex : 0;
 			localInfo[localOffset].size = curr->varType ? curr->varType->size : 0;

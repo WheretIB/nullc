@@ -533,3 +533,12 @@ class vec3 extendable : vec2{ int z; }\r\n\
 class vec4 : vec3{ int w; }\r\n\
 return sizeof(vec4);";
 TEST_RESULT("Inheritance test 42", testInheritance42, "20");
+
+const char	*testInheritance43 =
+"class Test extendable{ int x; }\r\n\
+int x = 1;\r\n\
+class Bug:Test{}\r\n\
+int y = 2;\r\n\
+\r\n\
+return x;";
+TEST_RESULT("Inheritance test 43 - incorrect variable stack size after extended class definition", testInheritance43, "1");
