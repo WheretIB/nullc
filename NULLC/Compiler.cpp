@@ -142,6 +142,10 @@ void long:long(long a){ *this = a; }\r\n\
 void float:float(float a){ *this = a; }\r\n\
 void double:double(double a){ *this = a; }\r\n\
 \r\n\
+int as_unsigned(char a);\r\n\
+int as_unsigned(short a);\r\n\
+long as_unsigned(int a);\r\n\
+\r\n\
 char[] int:str();\r\n\
 char[] double:str(int precision = 6);\r\n\
 \r\n\
@@ -413,12 +417,15 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::StrConcatenateAndSet, "+=", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::Int, "bool", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::Int, "char", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::Int, "short", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::Char, "char", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::Short, "short", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::Int, "int", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::Long, "long", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::Float, "float", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::Double, "double", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::UnsignedValueChar, "as_unsigned", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::UnsignedValueShort, "as_unsigned", 1);
+	AddModuleFunction("$base$", (void (*)())NULLC::UnsignedValueInt, "as_unsigned", 2);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::IntToStr, "int::str", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::DoubleToStr, "double::str", 0);

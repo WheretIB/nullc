@@ -760,6 +760,16 @@ NULLCArray NULLC::StrConcatenateAndSet(NULLCArray *a, NULLCArray b)
 	return *a = StrConcatenate(*a, b);
 }
 
+int NULLC::Char(char a)
+{
+	return a;
+}
+
+int NULLC::Short(short a)
+{
+	return a;
+}
+
 int NULLC::Int(int a)
 {
 	return a;
@@ -776,6 +786,21 @@ float NULLC::Float(float a)
 }
 
 double NULLC::Double(double a)
+{
+	return a;
+}
+
+int NULLC::UnsignedValueChar(unsigned char a)
+{
+	return a;
+}
+
+int NULLC::UnsignedValueShort(unsigned short a)
+{
+	return a;
+}
+
+long long NULLC::UnsignedValueInt(unsigned int a)
 {
 	return a;
 }

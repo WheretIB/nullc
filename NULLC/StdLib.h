@@ -17,10 +17,16 @@ namespace NULLC
 	NULLCArray	StrConcatenateAndSet(NULLCArray *a, NULLCArray b);
 
 	// Basic type constructors
+	int			Char(char a);
+	int			Short(short a);
 	int			Int(int a);
 	long long	Long(long long a);
 	float		Float(float a);
 	double		Double(double a);
+
+	int			UnsignedValueChar(unsigned char a);
+	int			UnsignedValueShort(unsigned short a);
+	long long	UnsignedValueInt(unsigned int a);
 
 	NULLCArray	IntToStr(int* r);
 	NULLCArray	DoubleToStr(int precision, double* r);
