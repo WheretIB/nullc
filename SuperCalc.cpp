@@ -1341,7 +1341,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 		else if(&type == &codeTypes[8])	// for typeid
 			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + codeVars[i].offset)].offsetToName);
 
-		if(showTemps || strstr(name, "$temp") == 0)
+		if(showTemps || (strstr(name, "$temp") == 0 && strstr(name, "$vtbl") == 0))
 		{
 			helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 			helpInsert.item.pszText = name;
@@ -1506,23 +1506,26 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				else if(lInfo.type == 8)	// for typeid
 					it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + offset + lInfo.offset)].offsetToName);
 
-				TVINSERTSTRUCT localInfo;
-				localInfo.hParent = lastItem;
-				localInfo.hInsertAfter = TVI_LAST;
-				localInfo.item.cchTextMax = 0;
-				localInfo.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
-				localInfo.item.pszText = name;
-				localInfo.item.cChildren = codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
-				localInfo.item.lParam = tiExtra.size();
+				if(showTemps || (strstr(codeSymbols + lInfo.offsetToName, "$temp") == 0 && strstr(codeSymbols + lInfo.offsetToName, "$vtbl") == 0))
+				{
+					TVINSERTSTRUCT localInfo;
+					localInfo.hParent = lastItem;
+					localInfo.hInsertAfter = TVI_LAST;
+					localInfo.item.cchTextMax = 0;
+					localInfo.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
+					localInfo.item.pszText = name;
+					localInfo.item.cChildren = codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
+					localInfo.item.lParam = tiExtra.size();
 				
-				tiExtra.push_back(TreeItemExtra());
-				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
-				tiExtra.back() = TreeItemExtra((void*)(data + offset + lInfo.offset), &codeTypes[lInfo.type], thisItem, codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER, codeSymbols + lInfo.offsetToName);
+					tiExtra.push_back(TreeItemExtra());
+					HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
+					tiExtra.back() = TreeItemExtra((void*)(data + offset + lInfo.offset), &codeTypes[lInfo.type], thisItem, codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER, codeSymbols + lInfo.offsetToName);
 
-				if(offset + lInfo.offset + lInfo.size > dataCount)
-					InsertUnavailableInfo(thisItem);
-				else
-					FillVariableInfo(codeTypes[lInfo.type], data + offset + lInfo.offset, thisItem);
+					if(offset + lInfo.offset + lInfo.size > dataCount)
+						InsertUnavailableInfo(thisItem);
+					else
+						FillVariableInfo(codeTypes[lInfo.type], data + offset + lInfo.offset, thisItem);
+				}
 
 				if(lInfo.offset + lInfo.size > offsetToNextFrame)
 					offsetToNextFrame = lInfo.offset + lInfo.size;
@@ -1545,7 +1548,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				
 				tiExtra.push_back(TreeItemExtra());
 				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
-				tiExtra.back() = TreeItemExtra((void*)ptr, &codeTypes[function.parentType], thisItem, true, function.externCount ? "$context" : "$this");
+				tiExtra.back() = TreeItemExtra(function.externCount ? (void*)ptr : *(char**)ptr, &codeTypes[function.parentType], thisItem, true, function.externCount ? "$context" : "$this");
 
 				if(offset + function.bytesToPop > dataCount)
 					InsertUnavailableInfo(thisItem);

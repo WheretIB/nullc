@@ -505,7 +505,7 @@ namespace ColorerGrammar
 							*(
 								chP(',')[ColorText] >>
 								((idP - typenameP(idP))[ColorVarDef] | epsP[LogError("ERROR: variable name not found after ','")])
-							) 
+							)
 						)
 					) >>
 					(chP(';') | epsP[LogError("ERROR: ';' expected after variable list")])[ColorText]
@@ -557,6 +557,7 @@ namespace ColorerGrammar
 				(chP(')')[ColorBold] | epsP[LogError("ERROR: ')' not found after function call")]);
 			funcvars	=
 				!(
+					!strP("explicit")[ColorRWord] >>
 					(typeExpr | (idP[ColorErr] >> epsP[LogError("ERROR: function argument type expected after '('")])) >>
 					((idP - typenameP(idP))[ColorVar] | epsP[LogError("ERROR: variable name expected after type")]) >>
 					!(chP('=')[ColorText] >> term4_9)
@@ -564,6 +565,7 @@ namespace ColorerGrammar
 				*(
 					chP(',')[ColorText] >>
 					(
+						!strP("explicit")[ColorRWord] >>
 						!typeExpr >>
 						((idP - typenameP(idP))[ColorVar] | epsP[LogError("ERROR: parameter name expected after ','")]) >>
 						!(chP('=')[ColorText] >> term4_9)
