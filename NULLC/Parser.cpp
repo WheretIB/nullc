@@ -417,6 +417,14 @@ void ParseGenericEnd(Lexeme** str)
 // instanceFailure is a variable that signals if failure was during instancing, so we have to silent the error
 bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* instanceFailure)
 {
+	if((*str)->type == lex_string && (*str)->length == 8 && memcmp((*str)->pos, "explicit", 8) == 0)
+	{
+		if(flag & DISALLOW_EXPLICIT)
+			ThrowError((*str)->pos, "ERROR: 'explicit' is not allowed at this location");
+
+		(*str)++;
+	}
+
 	// If instance type is passed, we must remove array and pointer qualifiers and strip function type of its arguments
 	TypeInfo *strippedType = instanceType;
 	if(instanceType)
@@ -1185,9 +1193,16 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 
 bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 {
+	bool explicitType = false;
+	if((*str)->type == lex_string && (*str)->length == 8 && memcmp((*str)->pos, "explicit", 8) == 0)
+	{
+		explicitType = true;
+		(*str)++;
+	}
+
 	bool genericArg = false;
 	Lexeme *currPos = *str;
-	if(!ParseSelectType(str, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF))
+	if(!ParseSelectType(str, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | DISALLOW_EXPLICIT))
 		return true;
 
 	genericArg = GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
@@ -1210,6 +1225,9 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		ThrowError((*str)->pos, "ERROR: parameter name length is limited to 2048 symbols");
 	FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length));
 	(*str)++;
+	
+	if(explicitType)
+		FunctionParameterExplicit();
 
 	if(ParseLexem(str, lex_set))
 	{
@@ -1222,12 +1240,25 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 	while(ParseLexem(str, lex_comma))
 	{
 		argID++;
+		bool lastExplicit = explicitType;
 		bool lastGeneric = genericArg;
 		genericArg = false;
+
+		explicitType = false;
+		if((*str)->type == lex_string && (*str)->length == 8 && memcmp((*str)->pos, "explicit", 8) == 0)
+		{
+			explicitType = true;
+			(*str)++;
+		}
+
 		Lexeme *currPosPrev = currPos;
 		currPos = *str;
-		if(!ParseSelectType(str, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF))
+		if(!ParseSelectType(str, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | DISALLOW_EXPLICIT))
 		{
+			if(explicitType)
+				ThrowError((*str)->pos, "ERROR: type name not found after 'explicit' specifier"); // TODO: check all of them
+
+			explicitType = lastExplicit;
 			genericArg = lastGeneric; // if there is no type and no generic, then this parameter is as generic as the last one
 			currPos = currPosPrev;
 		}
@@ -1248,6 +1279,9 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 			ThrowError((*str)->pos, "ERROR: parameter name length is limited to 2048 symbols");
 		FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length));
 		(*str)++;
+
+		if(explicitType)
+			FunctionParameterExplicit();
 		
 		if(ParseLexem(str, lex_set))
 		{

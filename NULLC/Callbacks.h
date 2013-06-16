@@ -147,6 +147,7 @@ bool HasConstructor(TypeInfo* type, unsigned arguments, bool* callDefault = NULL
 void BeginCoroutine();
 void FunctionAdd(const char* pos, const char* funcName, bool isOperator = false);
 void FunctionParameter(const char* pos, InplaceStr paramName);
+void FunctionParameterExplicit();
 void FunctionPrepareDefault();
 void FunctionParameterDefault(const char* pos);
 void FunctionPrototype(const char* pos);
@@ -158,7 +159,7 @@ bool FunctionGeneric(bool setGeneric, unsigned pos = 0);
 void SelectFunctionsForHash(unsigned funcNameHash, unsigned scope);
 unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType = NULL, bool hideGenerics = true);
 
-unsigned GetFunctionRating(FunctionType *currFunc, unsigned callArgCount);
+unsigned GetFunctionRating(FunctionType *currFunc, unsigned callArgCount, VariableInfo *currArgument);
 bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false, FunctionInfo* templateFunc = NULL, TypeInfo* forcedParentType = NULL);
 bool PrepareMemberCall(const char* pos, const char* funcName = NULL);
 bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int callArgCount, bool silent = false);

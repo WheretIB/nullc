@@ -893,6 +893,32 @@ int NULLC::RefNCompare(NULLCRef a, NULLCRef b)
 	return a.ptr != b.ptr;
 }
 
+int NULLC::RefLCompare(NULLCRef a, NULLCRef b)
+{
+	return a.ptr < b.ptr;
+}
+
+int NULLC::RefLECompare(NULLCRef a, NULLCRef b)
+{
+	return a.ptr <= b.ptr;
+}
+
+int NULLC::RefGCompare(NULLCRef a, NULLCRef b)
+{
+	return a.ptr > b.ptr;
+}
+
+int NULLC::RefGECompare(NULLCRef a, NULLCRef b)
+{
+	return a.ptr >= b.ptr;
+}
+
+int NULLC::RefHash(NULLCRef a)
+{
+	long long value = (long long)(intptr_t)(a.ptr);
+	return (int)((value >> 32) ^ value);
+}
+
 int NULLC::FuncCompare(NULLCFuncPtr a, NULLCFuncPtr b)
 {
 	return a.context == b.context && a.id == b.id;
