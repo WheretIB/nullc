@@ -1,17 +1,40 @@
+// Module std.io
 
+// Function prints the contents of an array, stopping at the first zero-termination character or at the end of the array
+// nullptr arrays are ignored
 void Print(char[] text);
+
+// Function prints integer number in the optionally specified base (10 is the default)
 void Print(int num, int base = 10);
+
+// Function prints floating-point number with the optionally specified precision (12 is the default)
 void Print(double num, int precision = 12);
+
+// Function prints long integer number in the optionally specified base (10 is the default)
 void Print(long num, int base = 10);
+
+// Function prints a single character
 void Print(char ch);
 
+// Function receives user input and places it in the array with a zero-termination character at the end
+// buf must not be a nullptr array
+// return value is the number of actual characters placed in the array excluding the zero-termination character
 int Input(char[] buf);
+
+// Function receives an integer from the user input
+// num must not be a mullptr reference
 void Input(int ref num);
 
+// Function writes all the characters in the array to the output
+// buf must not be a nullptr array
 void Write(char[] buf);
 
+// Function will set the curson position in the console (Windows-only)
+// x should not be negative
+// y should not be negative
 void SetConsoleCursorPos(int x, y);
 
+// Virtual key codes
 enum VK
 {
 	ZERO,
@@ -27,12 +50,33 @@ enum VK
 	OEM_PLUS,OEM_COMMA,OEM_MINUS,OEM_PERIOD,OEM_2,OEM_3,OEM_4 = 0xdb,OEM_5,OEM_6,OEM_7,OEM_8,OEM_102 = 0xe2,
 	PROCESSKEY = 0xe5,PACKET = 0xe7,ATTN = 0xf6,CRSEL,EXSEL,EREOF,PLAY,ZOOM,NONAME,PA1,OEM_CLEAR
 }
+// Get the current keyboard state (Windows-only)
+// state size should be at least 256
 void GetKeyboardState(char[] state);
+
+// Get the current mouse location (Windows-only)
+// x must not be a mullptr reference
+// y must not be a mullptr reference
 void GetMouseState(int ref x, int ref y);
+
+// Check if the key is pressed (Windows-only)
 bool IsPressed(VK key);
+
+// Check if the character corresponding to the key is pressed (Windows-only)
 bool IsPressed(char key);
+
+// Check if the key is toggled (Windows-only)
 bool IsToggled(VK key);
+
+// Check if the character corresponding to the key is toggled (Windows-only)
 bool IsToggled(char key);
+
+// io object class for formatted stream output
+// usage examples:
+//  io.out << 15 << io.endl; // print an integer number with a newline after it
+//  io.out << io.hex << 15 << io.endl; // print an integer number in a hexidecimal format with a newline after it
+//  io.out << io.precision(3) << 3.1415 << io.endl; // print a floating-point number with a pricision of 3 number after a decimal point
+//  io.out << io.endl; // prints a newline
 
 class StdOut{}
 class StdEndline{}
@@ -74,28 +118,40 @@ io.hex.base = 16;
 io.currBase = io.dec;
 io.currPrec.precision = 12;
 
-StdOut operator <<(StdOut out, StdBase base){ io.currBase = base; return out; }
-StdOut operator <<(StdOut out, StdPrecision precision){ io.currPrec = precision; return out; }
+StdOut operator <<(StdOut out, StdBase base)
+{
+	io.currBase = base;
+	return out;
+}
+StdOut operator <<(StdOut out, StdPrecision precision)
+{
+	io.currPrec = precision;
+	return out;
+}
 StdOut operator <<(StdOut out, char[] ref(StdNonTerminatedTag) wrapper)
 {
 	Write(wrapper(io.non_terminated_tag));
 	return out;
 }
+
 StdOut operator <<(StdOut out, char[] str)
 {
 	Print(str);
 	return out;
 }
+
 StdOut operator <<(StdOut out, const_string str)
 {
 	Print(str.arr);
 	return out;
 }
+
 StdOut operator <<(StdOut out, StdEndline str)
 {
 	Print("\r\n");
 	return out;
 }
+
 StdOut operator <<(StdOut out, bool num)
 {
 	if(num)
@@ -104,31 +160,37 @@ StdOut operator <<(StdOut out, bool num)
 		Print("false");
 	return out;
 }
+
 StdOut operator <<(StdOut out, char ch)
 {
 	Print(ch);
 	return out;
 }
+
 StdOut operator <<(StdOut out, short num)
 {
 	Print(int(num));
 	return out;
 }
+
 StdOut operator <<(StdOut out, int num)
 {
 	Print(num, io.currBase.base);
 	return out;
 }
+
 StdOut operator <<(StdOut out, float num)
 {
 	Print(double(num));
 	return out;
 }
+
 StdOut operator <<(StdOut out, double num)
 {
 	Print(num, io.currPrec.precision);
 	return out;
 }
+
 StdOut operator <<(StdOut out, long num)
 {
 	Print(num, io.currBase.base);
