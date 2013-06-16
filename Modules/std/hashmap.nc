@@ -50,7 +50,12 @@ auto operator[](hashmap<@K, @V> ref m, typeof(m).target.Key key)
 		auto[] tmp = key;
 		n.key = duplicate(tmp);
 	}else{
-		n.key = duplicate(key);
+		@if(typeof(key) == auto ref)
+		{
+			n.key = key;
+		}else{
+			n.key = duplicate(key);
+		}
 	}
 	n.hash = hash;
 	n.next = m.entries[bucket];
