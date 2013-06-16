@@ -35,7 +35,12 @@ namespace NULLCIO
 	void WriteToConsole(NULLCArray data)
 	{
 		InitConsole();
-		printf("%s", data.ptr);
+
+		// Empty arrays are silently ignored
+		if(!data.ptr)
+			return;
+		
+		printf("%.*s", data.len, data.ptr);
 	}
 
 	void WriteLongConsole(long long number, int base)
@@ -43,7 +48,7 @@ namespace NULLCIO
 		InitConsole();
 		if(!(base > 1 && base <= 16))
 		{
-			nullcThrowError("incorrect base %d", base);
+			nullcThrowError("ERROR: incorrect base %d", base);
 			return;
 		}
 
@@ -89,6 +94,12 @@ namespace NULLCIO
 
 	void ReadIntFromConsole(int* val)
 	{
+		if(!val)
+		{
+			nullcThrowError("ERROR: argument should not be a nullptr");
+			return;
+		}
+
 		InitConsole();
 		scanf("%d", val);
 	}
@@ -97,6 +108,12 @@ namespace NULLCIO
 	{
 		char buffer[2048];
 
+		if(!data.ptr)
+		{
+			nullcThrowError("ERROR: argument should not be a nullptr");
+			return 0;
+		}
+
 		InitConsole();
 		if(fgets(buffer, 2048, stdin))
 		{
@@ -104,17 +121,27 @@ namespace NULLCIO
 			if(pos)
 				*pos = '\0'; 
 		}
+
+		if(!data.len)
+			return 0;
+
 		unsigned int len = (unsigned int)strlen(buffer) + 1;
 		char *target = data.ptr;
 		for(unsigned int i = 0; i < (data.len < len ? data.len : len); i++)
 			target[i] = buffer[i];
-		buffer[data.len-1] = 0;
+		target[data.len - 1] = 0;
 		
-		return ((unsigned int)len < data.len ? len : data.len);
+		return ((unsigned int)len < data.len - 1 ? len : data.len - 1);
 	}
 
 	void WriteToConsoleExact(NULLCArray data)
 	{
+		if(!data.ptr)
+		{
+			nullcThrowError("ERROR: argument should not be a nullptr");
+			return;
+		}
+
 		InitConsole();
 		fwrite(data.ptr, 1, data.len, stdout);
 	}
@@ -153,6 +180,17 @@ namespace NULLCIO
 #if !defined(_MSC_VER)
 		nullcThrowError("GetMouseState: supported only under Windows");
 #else
+		if(!x)
+		{
+			nullcThrowError("ERROR: 'x' argument should not be a nullptr");
+			return;
+		}
+		if(!y)
+		{
+			nullcThrowError("ERROR: 'y' argument should not be a nullptr");
+			return;
+		}
+
 		POINT pos;
 		GetCursorPos(&pos);
 		*x = pos.x;
