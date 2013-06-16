@@ -21,7 +21,9 @@ enum TypeParseFlag
 	ALLOW_GENERIC_BASE = 1 << 2, // used for parsing of external generic type member function definitions so that a function can be applied to all generic type instances
 	ALLOW_EXTENDED_TYPEOF = 1 << 3, // used to allow extended typeof expressions immediately after class name
 	ALLOW_NUMERIC_RESULT = 1 << 4, // used to allow extended typeof expressions that result in a numeric result instead of type
-	ALLOW_AUTO_RETURN_TYPE = 1 << 5 // used to allow extended typeof expressions that result in a numeric result instead of type
+	ALLOW_AUTO_RETURN_TYPE = 1 << 5, // used to allow extended typeof expressions that result in a numeric result instead of type
+
+	DISALLOW_EXPLICIT = 1 << 6, // explicit keyword should not be skipped
 };
 bool ParseSelectType(Lexeme** str, unsigned flag = ALLOW_ARRAY | ALLOW_EXTENDED_TYPEOF, TypeInfo* instanceType = NULL, bool* instanceFailure = NULL);
 void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool allowAutoReturnType = false, bool allowGenericType = false, TypeInfo* instanceType = NULL, bool* instanceFailure = NULL);
