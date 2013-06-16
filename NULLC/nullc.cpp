@@ -96,6 +96,9 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 	CodeInfo::namespaceInfo.reserve(64);
 	CodeInfo::classMap.init();
 
+	BinaryCache::Initialize();
+	BinaryCache::SetImportPath(importPath);
+
 	compiler = NULLC::construct<Compiler>();
 #ifndef NULLC_NO_EXECUTOR
 	linker = NULLC::construct<Linker>();
@@ -111,8 +114,6 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 #if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	executorLLVM = new(NULLC::alloc(sizeof(ExecutorLLVM))) ExecutorLLVM(linker);
 #endif
-	BinaryCache::Initialize();
-	BinaryCache::SetImportPath(importPath);
 
 	argBuf = (char*)NULLC::alloc(64 * 1024);
 

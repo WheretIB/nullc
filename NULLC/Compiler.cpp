@@ -562,10 +562,10 @@ bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const
 	if(importPath)
 		pathNoImport = path + strlen(importPath);
 
-	for(unsigned int i = 0, e = (unsigned int)strlen(path); i != e; i++)
+	for(unsigned int i = 0, e = (unsigned int)strlen(pathNoImport); i != e; i++)
 	{
-		if(path[i] == '.')
-			path[i] = '/';
+		if(pathNoImport[i] == '.')
+			pathNoImport[i] = '/';
 	}
 	SafeSprintf(cPath, 256 - int(cPath - path), ".nc");
 	const char *bytecode = BinaryCache::GetBytecode(path);
