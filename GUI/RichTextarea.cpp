@@ -434,9 +434,15 @@ public:
 			return;
 
 		// Set currLine to the old one
-		data->currLine = data->firstLine;
-		for(unsigned int i = 0; i < lastShot->startLine; i++)
-			data->currLine = data->currLine->next;
+		AreaLine *oldLine = data->firstLine;
+		for(unsigned int i = 0; i < lastShot->startLine && oldLine; i++)
+			oldLine = oldLine->next;
+
+		// There are not enough lines in the snapshot
+		if(!oldLine)
+			return;
+
+		data->currLine = oldLine;
 
 		// Take a redo snapshot
 		TakeSnapshot(data->currLine, lastShot->type == LINES_ADDED ? LINES_DELETED : (lastShot->type == LINES_DELETED ? LINES_ADDED : LINES_CHANGED), lastShot->type == LINES_ADDED ? lastShot->lines + 1 : (lastShot->type == LINES_DELETED ? lastShot->lines - 1 : lastShot->lines), !redo, false);
