@@ -678,8 +678,8 @@ return 0;",
 "line 3 - ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n\
   run(double)\r\n\
  candidates are:\r\n\
-  void run(char)\r\n\
-  void run(float)\r\n\
+  void A::run(char)\r\n\
+  void B::run(float)\r\n\
 \r\n\
   at \"for(i in arr) i.run(5.0);\"\r\n\
                               ^\r\n\

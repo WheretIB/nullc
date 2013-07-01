@@ -522,6 +522,7 @@ public:
 		retType = NULL;
 		visible = true;
 		implemented = false;
+		implementedPrototype = NULL;
 		pure = false;
 		explicitlyReturned = false;
 		genericInstance = false;
@@ -625,6 +626,8 @@ public:
 
 	FunctionInfo	*parentFunc;
 	NamespaceInfo	*parentNamespace;
+
+	FunctionInfo	*implementedPrototype;	// Pointer to the function prototype
 
 	bool		visible;				// true until function goes out of scope
 	bool		implemented;			// false if only function prototype has been found.

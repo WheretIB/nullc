@@ -210,4 +210,5 @@ void SetGlobalSize(unsigned int offset);
 
 void CallbackReset();
 
-FunctionInfo* InstanceGenericFunctionForType(const char* pos, FunctionInfo *info, TypeInfo *dstPreferred, unsigned count, bool create, NodeZeroOP **funcDefNode = NULL);
+FunctionInfo* InstanceGenericFunctionForType(const char* pos, FunctionInfo *info, TypeInfo *dstPreferred, unsigned count, bool create, bool silentError, NodeZeroOP **funcDefNode = NULL);
+TypeInfo* InstanceGenericFunctionTypeForType(const char* pos, FunctionInfo *info, TypeInfo *dstPreferred, unsigned count, bool create, bool silentError, NodeZeroOP **funcDefNode = NULL);
