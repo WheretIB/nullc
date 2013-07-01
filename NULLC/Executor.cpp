@@ -2033,6 +2033,7 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 	{
 		// Get real array size
 		size = *(int*)(ptr + NULLC_PTR_SIZE);
+
 		// Switch pointer to array data
 		char **rPtr = (char**)ptr;
 
@@ -2043,28 +2044,41 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 			return;
 		}
 		ptr = *rPtr;
+
 		// If uninitialized, return
 		if(!ptr || ptr <= (char*)0x00010000)
 			return;
+
 		// Get base pointer
 		unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
 		markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
+
 		// If there is no base pointer or memory already marked, exit
 		if(!basePtr || !(*marker & 1))
 			return;
+
 		// Mark memory as used
 		*marker &= ~1;
 	}else if(type.nameHash == ExPriv::autoArrayName){
 		NULLCAutoArray *data = (NULLCAutoArray*)ptr;
+
 		// Get real variable type
 		subType = &exTypes[data->typeID];
-		// skip uninitialized array
+
+		// Skip uninitialized array
 		if(!data->ptr)
 			return;
+
+		// If it points to stack, fix it
+		if(data->ptr >= ExPriv::oldBase && data->ptr < (ExPriv::oldBase + ExPriv::oldSize))
+			data->ptr = data->ptr - ExPriv::oldBase + ExPriv::newBase;
+
 		// Mark target data
 		FixupPointer(data->ptr, *subType);
+
 		// Switch pointer to target
 		ptr = data->ptr;
+
 		// Get array size
 		size = data->len;
 	}

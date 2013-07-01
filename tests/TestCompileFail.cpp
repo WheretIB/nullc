@@ -623,6 +623,7 @@ return int(y() + z());",
 	TEST_FOR_FAIL("reserved function", "int __newS(){ return 4; }", "ERROR: function '__newS' is reserved");
 	TEST_FOR_FAIL("reserved function", "int __newA(){ return 4; }", "ERROR: function '__newA' is reserved");
 	TEST_FOR_FAIL("reserved function", "auto x = __newS(1023, 23);", "ERROR: function '__newS' is undefined");
+	TEST_FOR_FAIL("reserved function", "auto x = __newA(5, 5, 5);", "ERROR: function '__newA' is undefined");
 
 	TEST_FOR_FAIL("restricted enum", "enum X{ Y, Z } int a(int x){ return x; } return a(X.Y);", "ERROR: can't find function 'a' with following parameters:");
 
