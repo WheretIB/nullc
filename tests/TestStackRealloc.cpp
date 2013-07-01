@@ -372,6 +372,14 @@ x = 2; y = 30; z = 400; w = 5000;\r\n\
 return *arr[0][0].y + *arr[0][1].y + *arr[0][2].y + *arr[0][3].y;";
 TEST_RELOCATE("VM stack relocation (array of arrays)", testArrayOfArraysStackRelocate, "5432");
 
+const char	*testCorrectStackRelocate =
+"void garbage(){ int[768] arr; for(i in arr) i = 0xdeadbeef; }\r\n\
+void victim(){ auto ref[768] arr; }\r\n\
+garbage();\r\n\
+victim();\r\n\
+return 1;";
+TEST_RELOCATE("VM stack relocation (correct stack clear)", testCorrectStackRelocate, "1");
+
 struct TestEval : TestQueue
 {
 	virtual void Run()
