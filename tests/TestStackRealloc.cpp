@@ -318,6 +318,16 @@ corrupt();\r\n\
 return 1;";
 TEST_RELOCATE("VM stack relocation (uninitialized auto[] type)", testAutoArrayRelocation2, "1");
 
+const char	*testAutoArrayRelocation3 =
+"auto[] arr = { 1, 20, 300 };\r\n\
+void corrupt()\r\n\
+{\r\n\
+	int[32*1024] e = 0;\r\n\
+}\r\n\
+corrupt();\r\n\
+return int(arr[0]) + int(arr[1]) + int(arr[2]);";
+TEST_RELOCATE("VM stack relocation (auto[] data on stack)", testAutoArrayRelocation3, "321");
+
 const char	*testAutoRefRecursionRelocate =
 "auto ref y = &y;\r\n\
 void corrupt()\r\n\
