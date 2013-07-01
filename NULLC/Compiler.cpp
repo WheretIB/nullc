@@ -1509,7 +1509,6 @@ const char* Compiler::GetError()
 
 void Compiler::SaveListing(const char *fileName)
 {
-#ifdef NULLC_LOG_FILES
 	FILE *compiledAsm = fopen(fileName, "wb");
 	char instBuf[128];
 	int line = 0, lastLine = ~0u;
@@ -1546,9 +1545,6 @@ void Compiler::SaveListing(const char *fileName)
 			fprintf(compiledAsm, "// %d %s\r\n", i, instBuf);
 	}
 	fclose(compiledAsm);
-#else
-	(void)fileName;
-#endif
 }
 
 void Compiler::TranslateToC(const char* fileName, const char *mainName)

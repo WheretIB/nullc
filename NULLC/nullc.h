@@ -141,8 +141,7 @@ nullres			nullcCompile(const char* code);
 unsigned int	nullcGetBytecode(char **bytecode);
 unsigned int	nullcGetBytecodeNoCache(char **bytecode);
 
-/*	Function works only if NULLC_LOG_FILES is defined.
-	This function saves disassembly of last compiled code into file	*/
+/*	This function saves disassembly of last compiled code into file	*/
 void			nullcSaveListing(const char *fileName);
 
 /*	Function works only if NULLC_ENABLE_C_TRANSLATION is defined.

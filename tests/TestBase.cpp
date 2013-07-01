@@ -90,7 +90,7 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 //		printf("%s took %fms\n", message, timePassed);
 
 	time = myGetPreciseTime();
-	nullcSaveListing("asm.txt");
+	//nullcSaveListing("asm.txt");
 	timeGetListing += myGetPreciseTime() - time;
 
 	if(!good)

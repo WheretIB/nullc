@@ -292,11 +292,7 @@ void	nullcSaveListing(const char *fileName)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED((void)0);
 
-#ifdef NULLC_LOG_FILES
 	compiler->SaveListing(fileName);
-#else
-	(void)fileName;
-#endif
 }
 
 void	nullcTranslateToC(const char *fileName, const char *mainName)
