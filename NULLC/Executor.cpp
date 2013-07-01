@@ -1356,14 +1356,19 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			{
 				char* oldBase = genParams.data;
 				unsigned int oldSize = genParams.max;
-				genParams.reserve(paramBase + cmd.argument);
-				ExtendParameterStack(oldBase, oldSize, cmdStream);
-			}
-			genParams.resize(paramBase + cmd.argument);
-			assert(cmd.helper <= cmd.argument);
-			if(cmd.argument - cmd.helper)
-				memset(genParams.data + paramBase + cmd.helper, 0, cmd.argument - cmd.helper);
 
+				genParams.resize(paramBase + cmd.argument);
+				assert(cmd.helper <= cmd.argument);
+				if(cmd.argument - cmd.helper)
+					memset(genParams.data + paramBase + cmd.helper, 0, cmd.argument - cmd.helper);
+
+				ExtendParameterStack(oldBase, oldSize, cmdStream);
+			}else{
+				genParams.resize(paramBase + cmd.argument);
+				assert(cmd.helper <= cmd.argument);
+				if(cmd.argument - cmd.helper)
+					memset(genParams.data + paramBase + cmd.helper, 0, cmd.argument - cmd.helper);
+			}
 			break;
 
 		case cmdAdd:
