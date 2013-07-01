@@ -522,6 +522,42 @@ const char	*testDoubleRetrieval = "return 25.0;";
 			}
 		}
 	}
+
+	for(int t = 0; t < TEST_COUNT; t++)
+	{
+		if(!Tests::testExecutor[t])
+			continue;
+		testsCount[t]++;
+		nullcSetExecutor(testTarget[t]);
+
+		nullres good = nullcCompile("return 1;");
+		if(!good)
+		{
+			printf("Compilation failed: %s\r\n", nullcGetLastError());
+			continue;
+		}else{
+			char *bytecode = NULL;
+			nullcGetBytecode(&bytecode);
+
+			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_VOID].offsetToName + FindSymbols((ByteCode*)bytecode), "void");
+			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_DOUBLE].offsetToName + FindSymbols((ByteCode*)bytecode), "double");
+			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_FLOAT].offsetToName + FindSymbols((ByteCode*)bytecode), "float");
+			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_LONG].offsetToName + FindSymbols((ByteCode*)bytecode), "long");
+			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_INT].offsetToName + FindSymbols((ByteCode*)bytecode), "int");
+			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_SHORT].offsetToName + FindSymbols((ByteCode*)bytecode), "short");
+			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_CHAR].offsetToName + FindSymbols((ByteCode*)bytecode), "char");
+			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_AUTO_REF].offsetToName + FindSymbols((ByteCode*)bytecode), "auto ref");
+			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_TYPEID].offsetToName + FindSymbols((ByteCode*)bytecode), "typeid");
+			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_AUTO_ARRAY].offsetToName + FindSymbols((ByteCode*)bytecode), "auto[]");
+			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_FUNCTION].offsetToName + FindSymbols((ByteCode*)bytecode), "__function");
+			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_GENERIC].offsetToName + FindSymbols((ByteCode*)bytecode), "generic");
+			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_BOOL].offsetToName + FindSymbols((ByteCode*)bytecode), "bool");
+
+			delete[] bytecode;
+
+			testsPassed[t]++;
+		}
+	}
 	
 	nullcTerminate();
 	TEST_COMPARES(nullcGetLastError(), "");

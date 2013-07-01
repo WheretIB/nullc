@@ -607,7 +607,10 @@ void nullcThrowError(const char* error, ...)
 
 	char buf[1024];
 
-	vsnprintf(buf, 1024, error, args);
+	if(error)
+		vsnprintf(buf, 1024, error, args);
+	else
+		buf[0] = 0;
 	buf[1024 - 1] = '\0';
 
 	if(currExec == NULLC_VM)
