@@ -28,8 +28,16 @@ namespace NULLC
 	int			UnsignedValueShort(unsigned short a);
 	long long	UnsignedValueInt(unsigned int a);
 
+	int			StrToShort(NULLCArray str);
+	NULLCArray	ShortToStr(short* r);
+	int			StrToInt(NULLCArray str);
 	NULLCArray	IntToStr(int* r);
-	NULLCArray	DoubleToStr(int precision, double* r);
+	long long	StrToLong(NULLCArray str);
+	NULLCArray	LongToStr(long long* r);
+	float		StrToFloat(NULLCArray str);
+	NULLCArray	FloatToStr(int precision, bool exponent, float* r);
+	double		StrToDouble(NULLCArray str);
+	NULLCArray	DoubleToStr(int precision, bool exponent, double* r);
 	
 	void*		AllocObject(int size, unsigned type = 0);
 	NULLCArray	AllocArray(unsigned size, unsigned count, unsigned type = 0);
@@ -38,6 +46,7 @@ namespace NULLC
 	NULLCRef	ReplaceObject(NULLCRef l, NULLCRef r);
 	void		SwapObjects(NULLCRef l, NULLCRef r);
 	int			CompareObjects(NULLCRef l, NULLCRef r);
+	void		AssignObject(NULLCRef l, NULLCRef r);
 
 	void		MarkMemory(unsigned int number);
 
