@@ -146,8 +146,21 @@ int as_unsigned(char a);\r\n\
 int as_unsigned(short a);\r\n\
 long as_unsigned(int a);\r\n\
 \r\n\
+short short(char[] str);\r\n\
+void short:short(char[] str){ *this = short(str); }\r\n\
+char[] short:str();\r\n\
+int int(char[] str);\r\n\
+void int:int(char[] str){ *this = int(str); }\r\n\
 char[] int:str();\r\n\
-char[] double:str(int precision = 6);\r\n\
+long long(char[] str);\r\n\
+void long:long(char[] str){ *this = long(str); }\r\n\
+char[] long:str();\r\n\
+float float(char[] str);\r\n\
+void float:float(char[] str){ *this = float(str); }\r\n\
+char[] float:str(int precision = 6, bool showExponent = false);\r\n\
+double double(char[] str);\r\n\
+void double:double(char[] str){ *this = double(str); }\r\n\
+char[] double:str(int precision = 6, bool showExponent = false);\r\n\
 \r\n\
 void ref __newS(int size, int type);\r\n\
 int[] __newA(int size, int count, int type);\r\n\
@@ -157,6 +170,7 @@ auto[]		duplicate(auto[] arr){ auto[] r; __duplicate_array(&r, arr); return r; }
 auto ref	replace(auto ref l, r);\r\n\
 void		swap(auto ref l, r);\r\n\
 int			equal(auto ref l, r);\r\n\
+void		assign(explicit auto ref l, auto ref r);\r\n\
 void		array_copy(auto[] l, r);\r\n\
 void		array_copy(generic dst, int offsetDst, generic src, int offsetSrc, count)\r\n\
 {\r\n\
@@ -253,6 +267,7 @@ const_string operator+(const_string a, char[] b){ return const_string(a.arr + b)
 const_string operator+(char[] a, const_string b){ return const_string(a + b.arr); }\r\n\
 \r\n\
 int isStackPointer(auto ref x);\r\n\
+\r\n\
 // list comprehension helper functions\r\n\
 void auto_array_impl(auto[] ref arr, typeid type, int count);\r\n\
 auto[] auto_array(typeid type, int count)\r\n\
@@ -262,7 +277,7 @@ auto[] auto_array(typeid type, int count)\r\n\
 	return res;\r\n\
 }\r\n\
 typedef auto[] auto_array;\r\n\
-// function will set auto[] element to the specified one, will data reallocation is neccessary\r\n\
+// function will set auto[] element to the specified one, with data reallocation if neccessary\r\n\
 void auto_array:set(auto ref x, int pos);\r\n\
 void __force_size(auto[] ref s, int size);\r\n\
 \r\n\
@@ -423,11 +438,20 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::Long, "long", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::Float, "float", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::Double, "double", 0);
+
 	AddModuleFunction("$base$", (void (*)())NULLC::UnsignedValueChar, "as_unsigned", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::UnsignedValueShort, "as_unsigned", 1);
 	AddModuleFunction("$base$", (void (*)())NULLC::UnsignedValueInt, "as_unsigned", 2);
 
+	AddModuleFunction("$base$", (void (*)())NULLC::StrToShort, "short", 1);
+	AddModuleFunction("$base$", (void (*)())NULLC::ShortToStr, "short::str", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::StrToInt, "int", 1);
 	AddModuleFunction("$base$", (void (*)())NULLC::IntToStr, "int::str", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::StrToLong, "long", 1);
+	AddModuleFunction("$base$", (void (*)())NULLC::LongToStr, "long::str", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::StrToFloat, "float", 1);
+	AddModuleFunction("$base$", (void (*)())NULLC::FloatToStr, "float::str", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::StrToDouble, "double", 1);
 	AddModuleFunction("$base$", (void (*)())NULLC::DoubleToStr, "double::str", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::AllocObject, "__newS", 0);
@@ -437,6 +461,7 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::ReplaceObject, "replace", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::SwapObjects, "swap", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::CompareObjects, "equal", 0);
+	AddModuleFunction("$base$", (void (*)())NULLC::AssignObject, "assign", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::ArrayCopy, "array_copy", 0);
 	

@@ -679,6 +679,11 @@ NULLCRef NULLC::CopyObject(NULLCRef ptr)
 
 void NULLC::CopyArray(NULLCAutoArray* dst, NULLCAutoArray src)
 {
+	if(!dst)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return;
+	}
 	dst->typeID = src.typeID;
 	dst->len = src.len;
 	dst->ptr = (char*)NULLC::AllocObject(src.len * linker->exTypes[src.typeID].size);
@@ -721,6 +726,16 @@ int NULLC::CompareObjects(NULLCRef l, NULLCRef r)
 		return 0;
 	}
 	return 0 == memcmp(l.ptr, r.ptr, linker->exTypes[l.typeID].size);
+}
+
+void NULLC::AssignObject(NULLCRef l, NULLCRef r)
+{
+	if(linker->exTypes[l.typeID].subType != r.typeID)
+	{
+		nullcThrowError("ERROR: can't assign value of type %s to a pointer of type %s", &linker->exSymbols[linker->exTypes[r.typeID].offsetToName], &linker->exSymbols[linker->exTypes[l.typeID].offsetToName]);
+		return;
+	}
+	memcpy(l.ptr, &r.ptr, linker->exTypes[l.typeID].size);
 }
 
 int NULLC::StrEqual(NULLCArray a, NULLCArray b)
@@ -805,8 +820,56 @@ long long NULLC::UnsignedValueInt(unsigned int a)
 	return a;
 }
 
+int NULLC::StrToShort(NULLCArray str)
+{
+	return str.ptr ? short(atoi(str.ptr)) : 0;
+}
+
+NULLCArray NULLC::ShortToStr(short* r)
+{
+	NULLCArray arr = { 0 };
+	if(!r)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return arr;
+	}
+
+	short number = *r;
+	bool sign = 0;
+	char buf[16];
+	char *curr = buf;
+	if(number < 0)
+		sign = 1;
+
+	*curr++ = (char)(abs(number % 10) + '0');
+	while(number /= 10)
+		*curr++ = (char)(abs(number % 10) + '0');
+	if(sign)
+		*curr++ = '-';
+	arr = AllocArray(1, (int)(curr - buf) + 1);
+	char *str = arr.ptr;
+	do 
+	{
+		--curr;
+		*str++ = *curr;
+	}while(curr != buf);
+	return arr;
+}
+
+int NULLC::StrToInt(NULLCArray str)
+{
+	return str.ptr ? atoi(str.ptr) : 0;
+}
+
 NULLCArray NULLC::IntToStr(int* r)
 {
+	NULLCArray arr = { 0 };
+	if(!r)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return arr;
+	}
+
 	int number = *r;
 	bool sign = 0;
 	char buf[16];
@@ -819,7 +882,7 @@ NULLCArray NULLC::IntToStr(int* r)
 		*curr++ = (char)(abs(number % 10) + '0');
 	if(sign)
 		*curr++ = '-';
-	NULLCArray arr = AllocArray(1, (int)(curr - buf) + 1);
+	arr = AllocArray(1, (int)(curr - buf) + 1);
 	char *str = arr.ptr;
 	do 
 	{
@@ -829,24 +892,114 @@ NULLCArray NULLC::IntToStr(int* r)
 	return arr;
 }
 
-NULLCArray NULLC::DoubleToStr(int precision, double* r)
+long long NULLC::StrToLong(NULLCArray str)
 {
+	if(!str.ptr)
+		return 0;
+
+	const char *p = str.ptr;
+
+	bool negative = *p == '-';
+	if(negative)
+		p++;
+
+	unsigned long long res = 0;
+	while(unsigned(*p - '0') < 10)
+		res = res * 10 + unsigned(*p++ - '0');
+
+	return res * (negative ? -1 : 1);
+}
+
+NULLCArray NULLC::LongToStr(long long* r)
+{
+	NULLCArray arr = { 0 };
+	if(!r)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return arr;
+	}
+
+	long long number = *r;
+	bool sign = 0;
+	char buf[32];
+	char *curr = buf;
+	if(number < 0)
+		sign = 1;
+
+	*curr++ = (char)(abs(number % 10) + '0');
+	while(number /= 10)
+		*curr++ = (char)(abs(number % 10) + '0');
+	if(sign)
+		*curr++ = '-';
+	arr = AllocArray(1, (int)(curr - buf) + 1);
+	char *str = arr.ptr;
+	do 
+	{
+		--curr;
+		*str++ = *curr;
+	}while(curr != buf);
+	return arr;
+}
+
+float NULLC::StrToFloat(NULLCArray str)
+{
+	return str.ptr ? float(atof(str.ptr)) : 0;
+}
+
+NULLCArray NULLC::FloatToStr(int precision, bool exponent, float* r)
+{
+	NULLCArray arr = { 0 };
+	if(!r)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return arr;
+	}
+
 	char buf[256];
-	SafeSprintf(buf, 256, "%.*f", precision, *r);
-	NULLCArray arr = AllocArray(1, (int)strlen(buf) + 1);
+	SafeSprintf(buf, 256, exponent ? "%.*e" : "%.*f", precision, *r);
+	arr = AllocArray(1, (int)strlen(buf) + 1);
+	memcpy(arr.ptr, buf, arr.len);
+	return arr;
+}
+
+double NULLC::StrToDouble(NULLCArray str)
+{
+	return str.ptr ? atof(str.ptr) : 0;
+}
+
+NULLCArray NULLC::DoubleToStr(int precision, bool exponent, double* r)
+{
+	NULLCArray arr = { 0 };
+	if(!r)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return arr;
+	}
+
+	char buf[256];
+	SafeSprintf(buf, 256, exponent ? "%.*e" : "%.*f", precision, *r);
+	arr = AllocArray(1, (int)strlen(buf) + 1);
 	memcpy(arr.ptr, buf, arr.len);
 	return arr;
 }
 
 NULLCFuncPtr NULLC::FunctionRedirect(NULLCRef r, NULLCArray* arr)
 {
-	unsigned int *funcs = (unsigned int*)arr->ptr;
 	NULLCFuncPtr ret = { 0, 0 };
-	if(r.typeID > arr->len)
+
+	if(!arr)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return ret;
+	}
+
+	unsigned int *funcs = (unsigned int*)arr->ptr;
+	if(r.typeID >= arr->len)
 	{
 		nullcThrowError("ERROR: type index is out of bounds of redirection table");
 		return ret;
 	}
+
 	// If there is no implementation for a method
 	if(!funcs[r.typeID])
 	{
@@ -857,28 +1010,41 @@ NULLCFuncPtr NULLC::FunctionRedirect(NULLCRef r, NULLCArray* arr)
 			if(funcs[found])
 				break;
 		}
+
 		if(found == arr->len)
 			nullcThrowError("ERROR: type '%s' doesn't implement method", nullcGetTypeName(r.typeID));
 		else
 			nullcThrowError("ERROR: type '%s' doesn't implement method '%s%s' of type '%s'", nullcGetTypeName(r.typeID), nullcGetTypeName(r.typeID), strchr(nullcGetFunctionName(funcs[found]), ':'), nullcGetTypeName(nullcGetFunctionType(funcs[found])));
 		return ret;
 	}
+
 	ret.context = r.ptr;
 	ret.id = funcs[r.typeID];
+
 	return ret;
 }
 
 NULLCFuncPtr NULLC::FunctionRedirectPtr(NULLCRef r, NULLCArray* arr)
 {
-	unsigned int *funcs = (unsigned int*)arr->ptr;
 	NULLCFuncPtr ret = { 0, 0 };
-	if(r.typeID > arr->len)
+
+	if(!arr)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return ret;
+	}
+
+	unsigned int *funcs = (unsigned int*)arr->ptr;
+
+	if(r.typeID >= arr->len)
 	{
 		nullcThrowError("ERROR: type index is out of bounds of redirection table");
 		return ret;
 	}
+
 	ret.context = funcs[r.typeID] ? r.ptr : 0;
 	ret.id = funcs[r.typeID];
+
 	return ret;
 }
 
@@ -896,6 +1062,12 @@ NULLC::TypeIDHelper NULLC::Typeid(NULLCRef r)
 
 int NULLC::TypeSize(int* a)
 {
+	if(!a)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return 0;
+	}
+
 	return linker->exTypes[*a].size;
 }
 
@@ -969,11 +1141,22 @@ int NULLC::TypeCount()
 
 NULLCAutoArray* NULLC::AutoArrayAssign(NULLCAutoArray* left, NULLCRef right)
 {
+	if(!left)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return 0;
+	}
+	if(right.typeID == NULLC_TYPE_AUTO_ARRAY)
+	{
+		*left = *(NULLCAutoArray*)right.ptr;
+		return left;
+	}
 	if(!nullcIsArray(right.typeID))
 	{
 		nullcThrowError("ERROR: cannot convert from '%s' to 'auto[]'", nullcGetTypeName(right.typeID));
-		return NULL;
+		return 0;
 	}
+
 	left->len = nullcGetArraySize(right.typeID);
 	if(left->len == ~0u)
 	{
@@ -984,12 +1167,24 @@ NULLCAutoArray* NULLC::AutoArrayAssign(NULLCAutoArray* left, NULLCRef right)
 		left->ptr = right.ptr;
 	}
 	left->typeID = nullcGetSubType(right.typeID);
+
 	return left;
 }
 
 NULLCRef NULLC::AutoArrayAssignRev(NULLCRef left, NULLCAutoArray *right)
 {
 	NULLCRef ret = { 0, 0 };
+
+	if(!right)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return ret;
+	}
+	if(left.typeID == NULLC_TYPE_AUTO_ARRAY)
+	{
+		*(NULLCAutoArray*)left.ptr = *right;
+		return ret;
+	}
 	if(!nullcIsArray(left.typeID))
 	{
 		nullcThrowError("ERROR: cannot convert from 'auto[]' to '%s'", nullcGetTypeName(left.typeID));
@@ -1000,7 +1195,9 @@ NULLCRef NULLC::AutoArrayAssignRev(NULLCRef left, NULLCAutoArray *right)
 		nullcThrowError("ERROR: cannot convert from 'auto[]' (actual type '%s[%d]') to '%s'", nullcGetTypeName(right->typeID), right->len, nullcGetTypeName(left.typeID));
 		return ret;
 	}
+
 	unsigned int leftLength = nullcGetArraySize(left.typeID);
+
 	if(leftLength == ~0u)
 	{
 		NULLCArray *arr = (NULLCArray*)left.ptr;
@@ -1014,11 +1211,18 @@ NULLCRef NULLC::AutoArrayAssignRev(NULLCRef left, NULLCAutoArray *right)
 		}
 		memcpy(left.ptr, right->ptr, leftLength * nullcGetTypeSize(right->typeID));
 	}
+
 	return left;
 }
 
 NULLCAutoArray* NULLC::AutoArrayAssignSelf(NULLCAutoArray* left, NULLCAutoArray* right)
 {
+	if(!left || !right)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return 0;
+	}
+
 	left->len = right->len;
 	left->ptr = right->ptr;
 	left->typeID = right->typeID;
@@ -1028,6 +1232,12 @@ NULLCAutoArray* NULLC::AutoArrayAssignSelf(NULLCAutoArray* left, NULLCAutoArray*
 NULLCRef NULLC::AutoArrayIndex(NULLCAutoArray* left, unsigned int index)
 {
 	NULLCRef ret = { 0, 0 };
+
+	if(!left)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return ret;
+	}
 	if(index >= left->len)
 	{
 		nullcThrowError("ERROR: array index out of bounds");
@@ -1040,11 +1250,17 @@ NULLCRef NULLC::AutoArrayIndex(NULLCAutoArray* left, unsigned int index)
 
 void NULLC::AutoArray(NULLCAutoArray* arr, int type, unsigned count)
 {
+	if(!arr)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return;
+	}
 	if((unsigned long long)count * linker->exTypes[type].size > globalMemoryLimit)
 	{
 		nullcThrowError("ERROR: can't allocate array with %u elements of size %u", count, linker->exTypes[type].size);
 		return;
 	}
+
 	arr->typeID = type;
 	arr->len = count;
 	arr->ptr = (char*)AllocObject(count * linker->exTypes[type].size);
@@ -1052,11 +1268,17 @@ void NULLC::AutoArray(NULLCAutoArray* arr, int type, unsigned count)
 
 void NULLC::AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr)
 {
+	if(!arr)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return;
+	}
 	if(x.typeID != arr->typeID)
 	{
 		nullcThrowError("ERROR: cannot convert from '%s' to an 'auto[]' element type '%s'", nullcGetTypeName(x.typeID), nullcGetTypeName(arr->typeID));
 		return;
 	}
+
 	unsigned elemSize = linker->exTypes[arr->typeID].size;
 	if(pos >= arr->len)
 	{
@@ -1075,6 +1297,11 @@ void NULLC::AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr)
 
 void NULLC::ShrinkAutoArray(NULLCAutoArray* arr, unsigned size)
 {
+	if(!arr)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return;
+	}
 	if(size > (unsigned)arr->len)
 	{
 		nullcThrowError("ERROR: cannot extend array");
@@ -1121,6 +1348,7 @@ void NULLC::ArrayCopy(NULLCAutoArray dst, NULLCAutoArray src)
 {
 	if(dst.ptr == src.ptr)
 		return;
+
 	if(dst.typeID != src.typeID)
 	{
 		nullcThrowError("ERROR: destination element type '%s' doesn't match source element type '%s'", nullcGetTypeName(dst.typeID), nullcGetTypeName(src.typeID));
@@ -1131,6 +1359,7 @@ void NULLC::ArrayCopy(NULLCAutoArray dst, NULLCAutoArray src)
 		nullcThrowError("ERROR: destination array size '%d' is smaller than source array size '%s'", dst.len, src.len);
 		return;
 	}
+
 	memcpy(dst.ptr, src.ptr, nullcGetTypeSize(dst.typeID) * src.len);
 }
 
