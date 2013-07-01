@@ -145,6 +145,24 @@ int func1(){ return 12; }\r\n\
 return func2();";
 TEST_RESULT("Function prototypes", testFunctionPrototypes, "12");
 
+const char	*testFunctionPrototypes2 =
+"void foo();\r\n\
+auto foo(){}\r\n\
+foo();\r\n\
+return 1;";
+TEST_RESULT("Function prototype is implemented by a function with auto return type", testFunctionPrototypes2, "1");
+
+const char	*testFunctionPrototypes3 =
+"int foo(int x);\r\n\
+\r\n\
+int foo(int x)\r\n\
+{\r\n\
+	return x ? x + foo(x - 1) : 1;\r\n\
+}\r\n\
+\r\n\
+return foo(5);";
+TEST_RESULT("Function prototype is implemented at a correct time", testFunctionPrototypes3, "16");
+
 const char	*testSingleArrayIndexCalculation =
 "int a = 0, b = 0;\r\n\
 int func(int ref v, int index){ *v += 5; return index; }\r\n\

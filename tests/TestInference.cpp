@@ -118,6 +118,25 @@ int foo(double a, b){ return a - b; }\r\n\
 return caller(4, 5, foo);";
 TEST_RESULT("Function pointer select 3", testFunctionPointerSelect3, "20");
 
+const char	*testFunctionPointerSelect4 = 
+"int foo(int a){ return -a; }\r\n\
+int foo(double a){ return a*2; }\r\n\
+\r\n\
+int bar(int ref(char, float) f, double y){ return f(y, 2); }\r\n\
+int bar(int ref(double) f, double y){ return f(y); }\r\n\
+\r\n\
+return bar(foo, 5);";
+TEST_RESULT("Function pointer select 4", testFunctionPointerSelect4, "10");
+
+const char	*testFunctionPointerSelect5 = 
+"int foo(int x){ return x * 4; }\r\n\
+float foo(int x){ return x - 5.5f; }\r\n\
+\r\n\
+int ref(int) x = foo;\r\n\
+\r\n\
+return x(2);";
+TEST_RESULT("Function pointer select 5 (return type overloads)", testFunctionPointerSelect5, "8");
+
 const char	*testShortInlineFunction1 = 
 "int bar(int ref(double) f, double y){ return f(y); }\r\n\
 return bar(<x>{ return -x; }, 5);";
