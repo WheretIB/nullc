@@ -25,200 +25,329 @@ namespace NULLCFile
 		ret.handle = NULL;
 		return ret;
 	}
+
 	File FileCreate(NULLCArray name, NULLCArray access)
 	{
-		File ret;
+		File ret = { 0, 0 };
+
 		ret.flag = FILE_OPENED;
-		ret.handle = fopen(name.ptr, access.ptr);
+		ret.handle = fopen(name.ptr ? name.ptr : "", access.ptr ? access.ptr : "");
+
 		if(!ret.handle)
-			nullcThrowError("Cannot open file.");
+			ret.flag = 0;
+
 		return ret;
 	}
+
 	void FileOpen(NULLCArray name, NULLCArray access, File* file)
 	{
+		if(!file)
+		{
+			nullcThrowError("ERROR: null pointer access");
+			return;
+		}
+
 		if(file->flag & FILE_OPENED)
 			fclose(file->handle);
+
 		file->flag = FILE_OPENED;
-		file->handle = fopen(name.ptr, access.ptr);
+		file->handle = fopen(name.ptr ? name.ptr : "", access.ptr ? access.ptr : "");
+
 		if(!file->handle)
-			nullcThrowError("Cannot open file.");
+			file->flag = 0;
 	}
+
 	void FileClose(File* file)
 	{
-		fclose(file->handle);
+		if(!file)
+		{
+			nullcThrowError("ERROR: null pointer access");
+			return;
+		}
+
+		if(file->flag & FILE_OPENED)
+			fclose(file->handle);
+
 		file->flag = 0;
 		file->handle = NULL;
 	}
 
 	int FileOpened(File* file)
 	{
+		if(!file)
+		{
+			nullcThrowError("ERROR: null pointer access");
+			return 0;
+		}
+
 		return !!(file->flag & FILE_OPENED);
 	}
 
-	template<typename T>
-	void FileWriteType(T data, File* file)
+	int FileEof(File* file)
 	{
-		if(!file->handle)
+		if(!file)
 		{
-			nullcThrowError("Cannot write to a closed file.");
-			return;
+			nullcThrowError("ERROR: null pointer access");
+			return 0;
 		}
-		if(1 != fwrite(&data, sizeof(T), 1, file->handle))
-			nullcThrowError("Failed to write to a file.");
-	}
-	void FileWriteC(char data, File* file)
-	{
-		FileWriteType<char>(data, file);
-	}
-	void FileWriteS(short data, File* file)
-	{
-		FileWriteType<short>(data, file);
-	}
-	void FileWriteI(int data, File* file)
-	{
-		FileWriteType<int>(data, file);
-	}
-	void FileWriteL(long long data, File* file)
-	{
-		FileWriteType<long long>(data, file);
-	}
-	void FileWriteF(float data, File* file)
-	{
-		FileWriteType<float>(data, file);
-	}
-	void FileWriteD(double data, File* file)
-	{
-		FileWriteType<double>(data, file);
+
+		return !file->handle || feof(file->handle);
 	}
 
 	template<typename T>
-	void FileReadType(T* data, File* file)
+	int FileWriteType(T data, File* file)
 	{
+		if(!file)
+		{
+			nullcThrowError("ERROR: null pointer access");
+			return 0;
+		}
+
 		if(!file->handle)
 		{
-			nullcThrowError("Cannot read from a closed file.");
-			return;
+			nullcThrowError("Cannot write to a closed file.");
+			return 0;
 		}
-		if(1 != fread(data, sizeof(T), 1, file->handle))
-			nullcThrowError("Failed to read from a file.");
-	}
-	void FileReadC(char* data, File* file)
-	{
-		FileReadType<char>(data, file);
-	}
-	void FileReadS(short* data, File* file)
-	{
-		FileReadType<short>(data, file);
-	}
-	void FileReadI(int* data, File* file)
-	{
-		FileReadType<int>(data, file);
-	}
-	void FileReadL(long long* data, File* file)
-	{
-		FileReadType<long long>(data, file);
-	}
-	void FileReadF(float* data, File* file)
-	{
-		FileReadType<float>(data, file);
-	}
-	void FileReadD(double* data, File* file)
-	{
-		FileReadType<double>(data, file);
+
+		return 1 == fwrite(&data, sizeof(T), 1, file->handle);
 	}
 
-	void FileRead(NULLCArray arr, File* file)
+	int FileWriteC(char data, File* file)
 	{
+		return FileWriteType<char>(data, file);
+	}
+
+	int FileWriteS(short data, File* file)
+	{
+		return FileWriteType<short>(data, file);
+	}
+
+	int FileWriteI(int data, File* file)
+	{
+		return FileWriteType<int>(data, file);
+	}
+
+	int FileWriteL(long long data, File* file)
+	{
+		return FileWriteType<long long>(data, file);
+	}
+
+	int FileWriteF(float data, File* file)
+	{
+		return FileWriteType<float>(data, file);
+	}
+
+	int FileWriteD(double data, File* file)
+	{
+		return FileWriteType<double>(data, file);
+	}
+
+	template<typename T>
+	int FileReadType(T* data, File* file)
+	{
+		if(!file)
+		{
+			nullcThrowError("ERROR: null pointer access");
+			return 0;
+		}
+
 		if(!file->handle)
 		{
 			nullcThrowError("Cannot read from a closed file.");
-			return;
+			return 0;
 		}
-		if(arr.len != fread(arr.ptr, 1, arr.len, file->handle))
-			nullcThrowError("Failed to read from a file.");
+
+		return 1 == fread(data, sizeof(T), 1, file->handle);
 	}
-	void FileWrite(NULLCArray arr, File* file)
+
+	int FileReadC(char* data, File* file)
 	{
+		return FileReadType<char>(data, file);
+	}
+
+	int FileReadS(short* data, File* file)
+	{
+		return FileReadType<short>(data, file);
+	}
+
+	int FileReadI(int* data, File* file)
+	{
+		return FileReadType<int>(data, file);
+	}
+
+	int FileReadL(long long* data, File* file)
+	{
+		return FileReadType<long long>(data, file);
+	}
+
+	int FileReadF(float* data, File* file)
+	{
+		return FileReadType<float>(data, file);
+	}
+
+	int FileReadD(double* data, File* file)
+	{
+		return FileReadType<double>(data, file);
+	}
+
+	int FileRead(NULLCArray arr, File* file)
+	{
+		if(!file)
+		{
+			nullcThrowError("ERROR: null pointer access");
+			return 0;
+		}
+
+		if(!file->handle)
+		{
+			nullcThrowError("Cannot read from a closed file.");
+			return 0;
+		}
+
+		return arr.ptr ? fread(arr.ptr, 1, arr.len, file->handle) : 0;
+	}
+
+	int FileWrite(NULLCArray arr, File* file)
+	{
+		if(!file)
+		{
+			nullcThrowError("ERROR: null pointer access");
+			return 0;
+		}
+
 		if(!file->handle)
 		{
 			nullcThrowError("Cannot write to a closed file.");
-			return;
+			return 0;
 		}
-		if(arr.len != fwrite(arr.ptr, 1, arr.len, file->handle))
-			nullcThrowError("Failed to write to a file.");
+
+		return arr.ptr ? fwrite(arr.ptr, 1, arr.len, file->handle) : 0;
 	}
-	void FilePrint(NULLCArray arr, File* file)
+
+	int FilePrint(NULLCArray arr, File* file)
 	{
+		if(!file)
+		{
+			nullcThrowError("ERROR: null pointer access");
+			return 0;
+		}
+
 		if(!file->handle)
 		{
 			nullcThrowError("Cannot write to a closed file.");
-			return;
+			return 0;
 		}
-		unsigned int length = (unsigned int)strlen(arr.ptr);
-		if(length != fwrite(arr.ptr, 1, length, file->handle))
-			nullcThrowError("Failed to write to a file.");
+
+		unsigned length = 0;
+		for(; length < arr.len; length++)
+		{
+			if(!arr.ptr[length])
+				break;
+		}
+
+		return arr.ptr ? length == fwrite(arr.ptr, 1, length, file->handle) : 0;
 	}
+
 	void FileSeek(int dir, int shift, File* file)
 	{
+		if(!file)
+		{
+			nullcThrowError("ERROR: null pointer access");
+			return;
+		}
+
 		if(!file->handle)
 		{
 			nullcThrowError("Cannot seek in a closed file.");
 			return;
 		}
+
 		fseek(file->handle, shift, dir);
 	}
 
 	long long FileTell(File* file)
 	{
+		if(!file)
+		{
+			nullcThrowError("ERROR: null pointer access");
+			return 0;
+		}
+
 		if(!file->handle)
 		{
 			nullcThrowError("Cannot tell cursor position in a closed file.");
 			return 0;
 		}
+
 		return ftell(file->handle);
 	}
+
 	long long FileSize(File* file)
 	{
+		if(!file)
+		{
+			nullcThrowError("ERROR: null pointer access");
+			return 0;
+		}
+
 		if(!file->handle)
 		{
 			nullcThrowError("Cannot get size of a closed file.");
 			return 0;
 		}
+
 		long pos = ftell(file->handle);
 		fseek(file->handle, 0, SEEK_END);
 		long res = ftell(file->handle);
 		fseek(file->handle, pos, SEEK_SET);
+
 		return res;
 	}
-	void FileReadArr(NULLCArray arr, unsigned offset, unsigned count, File* file)
+
+	int FileReadArr(NULLCArray arr, unsigned offset, unsigned count, File* file)
 	{
+		if(!file)
+		{
+			nullcThrowError("ERROR: null pointer access");
+			return 0;
+		}
+
 		if(!file->handle)
 		{
 			nullcThrowError("Cannot read from a closed file.");
-			return;
+			return 0;
 		}
+
 		if((long long)count + offset > arr.len)
 		{
 			nullcThrowError("Array can't hold %d bytes from the specified offset.", count);
-			return;
+			return 0;
 		}
-		if(count != fread(arr.ptr + offset, 1, count, file->handle))
-			nullcThrowError("Failed to read from a file.");
+
+		return arr.ptr ? fread(arr.ptr + offset, 1, count, file->handle) : 0;
 	}
-	void FileWriteArr(NULLCArray arr, unsigned offset, unsigned count, File* file)
+
+	int FileWriteArr(NULLCArray arr, unsigned offset, unsigned count, File* file)
 	{
+		if(!file)
+		{
+			nullcThrowError("ERROR: null pointer access");
+			return 0;
+		}
+
 		if(!file->handle)
 		{
 			nullcThrowError("Cannot write to a closed file.");
-			return;
+			return 0;
 		}
+
 		if((long long)count + offset > arr.len)
 		{
 			nullcThrowError("Array doesn't contain %d bytes from the specified offset.", count);
-			return;
+			return 0;
 		}
-		if(count != fwrite(arr.ptr + offset, 1, count, file->handle))
-			nullcThrowError("Failed to write to a file.");
+
+		return arr.ptr ? fwrite(arr.ptr + offset, 1, count, file->handle) : 0;
 	}
 }
 
@@ -233,6 +362,7 @@ bool nullcInitFileModule()
 	REGISTER_FUNC(FileClose, "File::Close", 0);
 
 	REGISTER_FUNC(FileOpened, "File::Opened", 0);
+	REGISTER_FUNC(FileEof, "File::Eof", 0);
 
 	REGISTER_FUNC(FileSeek, "File::Seek", 0);
 
