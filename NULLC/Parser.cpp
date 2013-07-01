@@ -71,17 +71,23 @@ bool ParseNumber(Lexeme** str)
 
 	bool isFP = false;
 	for(unsigned int i = 0; i < number->length; i++)
+	{
 		if(number->pos[i] == '.' || number->pos[i] == 'e')
 			isFP = true;
+	}
 
 	if(!isFP)
 	{
 		if((*str)->pos[0] == 'b')
 		{
+			if((*str)->length > 1)
+				ThrowError((*str)->pos, "ERROR: unknown number suffix '%.*s'", (*str)->length, (*str)->pos);
 			(*str)++;
 			AddBinInteger(number->pos, number->pos+number->length);
 			return true;
 		}else if((*str)->pos[0] == 'l'){
+			if((*str)->length > 1)
+				ThrowError((*str)->pos, "ERROR: unknown number suffix '%.*s'", (*str)->length, (*str)->pos);
 			(*str)++;
 			AddNumberNodeLong(number->pos, number->pos+number->length);
 			return true;
@@ -95,6 +101,8 @@ bool ParseNumber(Lexeme** str)
 	}else{
 		if((*str)->pos[0] == 'f')
 		{
+			if((*str)->length > 1)
+				ThrowError((*str)->pos, "ERROR: unknown number suffix '%.*s'", (*str)->length, (*str)->pos);
 			(*str)++;
 			AddNumberNodeFloat(number->pos);
 			return true;
