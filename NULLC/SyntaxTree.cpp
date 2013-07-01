@@ -286,9 +286,18 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd, unsigned int argument)
 	bool logicalOp = cmd == cmdLogNot;
 	typeInfo = logicalOp ? typeBool : first->typeInfo;
 
-	if(cmd != cmdCheckedRet && ((first->typeInfo->refLevel != 0 && !logicalOp) || (first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject) || (!logicalOp && first->typeInfo == typeBool) || first->typeInfo->type == TypeInfo::TYPE_VOID))
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmd - cmdNeg], first->typeInfo->GetFullTypeName());
-
+	if(cmd != cmdCheckedRet && cmd != cmdFuncAddr)
+	{
+		if(first->typeInfo->refLevel != 0 && !logicalOp)
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmd - cmdNeg], first->typeInfo->GetFullTypeName());
+		if(first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject)
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmd - cmdNeg], first->typeInfo->GetFullTypeName());
+		if(!logicalOp && first->typeInfo == typeBool)
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmd - cmdNeg], first->typeInfo->GetFullTypeName());
+		if(first->typeInfo->type == TypeInfo::TYPE_VOID)
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmd - cmdNeg], first->typeInfo->GetFullTypeName());
+	}
+	
 	nodeType = typeNodeUnaryOp;
 
 	parentFunc = NULL;
@@ -319,7 +328,7 @@ void NodeUnaryOp::Compile()
 	}
 
 	// Execute command
-	if(aOT == OTYPE_INT || first->typeInfo == typeObject || vmCmd.cmd == cmdCheckedRet)
+	if(aOT == OTYPE_INT || first->typeInfo == typeObject || vmCmd.cmd == cmdCheckedRet || vmCmd.cmd == cmdFuncAddr)
 		cmdList.push_back(VMCmd((InstructionCode)(vmCmd.cmd + 0), vmCmd.argument));
 	else if(aOT == OTYPE_LONG)
 		cmdList.push_back(VMCmd((InstructionCode)(vmCmd.cmd + 1), vmCmd.argument));
