@@ -78,6 +78,21 @@ nullres		nullcFinalize();
 
 #ifndef NULLC_NO_EXECUTOR
 
+// A list of indexes for NULLC build-in types
+#define	NULLC_TYPE_VOID			0
+#define	NULLC_TYPE_DOUBLE		1
+#define	NULLC_TYPE_FLOAT		2
+#define	NULLC_TYPE_LONG			3
+#define	NULLC_TYPE_INT			4
+#define	NULLC_TYPE_SHORT		5
+#define	NULLC_TYPE_CHAR			6
+#define	NULLC_TYPE_AUTO_REF		7
+#define	NULLC_TYPE_TYPEID		8
+#define	NULLC_TYPE_AUTO_ARRAY	10
+#define	NULLC_TYPE_FUNCTION		11
+#define	NULLC_TYPE_GENERIC		12
+#define	NULLC_TYPE_BOOL			13
+
 /*	Allocates memory block that is managed by GC	*/
 void*		nullcAllocate(unsigned int size);
 void*		nullcAllocateTyped(unsigned int typeID);
