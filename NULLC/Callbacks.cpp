@@ -6218,6 +6218,7 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool
 
 	instanceDepth--;
 }
+
 void TypeDeriveFrom(const char* pos, TypeInfo* type)
 {
 	assert(newType);
@@ -6424,7 +6425,7 @@ void CreateRedirectionTables()
 						CodeInfo::nodeList.push_back(new NodeArrayIndex(curr->varType));
 
 						// Push functionID
-						CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
+						CodeInfo::nodeList.push_back(new NodeZeroOP(typeFunction));
 						CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdFuncAddr, bestFuncList[k]->indexInArr));
 
 						// Set array element value

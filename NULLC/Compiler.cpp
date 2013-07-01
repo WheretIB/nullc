@@ -385,7 +385,7 @@ Compiler::Compiler()
 	typeAutoArray->AddMemberVariable("size", typeInt);
 	typeAutoArray->size = 8 + NULLC_PTR_SIZE;
 
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "__function", 0, 0, 1, NULL, TypeInfo::TYPE_INT);
+	info = new TypeInfo(CodeInfo::typeInfo.size(), "__function", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
 	info->size = 4;
 	typeFunction = info;
 	CodeInfo::typeInfo.push_back(info);
