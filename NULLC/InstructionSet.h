@@ -266,7 +266,6 @@ struct VMCmd
 		argument = Arg;
 	}
 
-	#ifdef NULLC_LOG_FILES
 	int Decode(char *buf)
 	{
 		char *curr = buf;
@@ -364,7 +363,6 @@ struct VMCmd
 		}
 		return (int)(curr-buf);
 	}
-#endif
 
 	CmdID	cmd;
 	unsigned char	flag;		// rarely used (cmdIncAt, cmdDecAt)
