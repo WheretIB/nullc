@@ -4,7 +4,7 @@
 namespace BinaryCache
 {
 	FastVector<CodeDescriptor>	cache;
-	const char*	importPath = NULL;
+	char*	importPath = NULL;
 
 	unsigned int	lastReserved = 0;
 	char*			lastBytecode = NULL;
@@ -13,7 +13,9 @@ namespace BinaryCache
 
 void BinaryCache::SetImportPath(const char* path)
 {
-	importPath = path;
+	NULLC::dealloc(importPath);
+	importPath = (char*)NULLC::alloc(int(strlen(path)) + 1);
+	strcpy(importPath, path);
 }
 
 const char* BinaryCache::GetImportPath()
@@ -30,6 +32,9 @@ void BinaryCache::Initialize()
 
 void BinaryCache::Terminate()
 {
+	NULLC::dealloc(importPath);
+	importPath = NULL;
+
 	for(unsigned int i = 0; i < cache.size(); i++)
 	{
 		NULLC::dealloc((void*)cache[i].name);
