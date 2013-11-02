@@ -230,6 +230,14 @@ TestExtG6bFoo TestExtG6b(TestExtG6bFoo x)
 	return x;
 }
 
+struct TestExtG7bFoo{ int a; };
+TestExtG7bFoo TestExtG7b(NULLCRef x)
+{
+	TestExtG7bFoo ret;
+	ret.a = x.typeID == 4 && *(int*)x.ptr == 3;
+	return ret;
+}
+
 int TestExtK(int* a, int* b)
 {
 	return *a == 1 && *b == 2;
@@ -650,6 +658,17 @@ Zomg z; z.x = -1; z.y = &u;\r\n\
 z = Call(z);\r\n\
 return z.x == 1;";
 TEST_RESULT("External function call. { int; int ref; } returned.", testExternalCallG6b, "1");
+
+LOAD_MODULE_BIND(test_extG7b, "test.extG7b", "class Zomg{ int x; } Zomg Call(auto ref a);")
+{
+	nullcBindModuleFunction("test.extG7b", (void (*)())TestExtG7b, "Call", 0);
+}
+const char	*testExternalCallG7b =
+"import test.extG7b;\r\n\
+Zomg z;\r\n\
+z = Call(new int(3));\r\n\
+return z.x == 1;";
+TEST_RESULT("External function call. auto ref. { int; } returned.", testExternalCallG7b, "1");
 
 LOAD_MODULE_BIND(test_extK, "test.extK", "int Call(int ref a, b);")
 {
