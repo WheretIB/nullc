@@ -21,39 +21,6 @@ int intPow(int power, int number)
 	return result;
 }
 
-void doublePow() 
-{
-	// x**y
-	// st0 == x
-	// st1 == y
-	asm("push %eax ; \
-	movw $0x1f7f, 2(%esp); \
-\
-	fstcw (%esp); \
-	fldcw 2(%esp);\
-\
-	fldz ;\
-	fcomip %st(1),%st(0) ; \
-	je Zero ; \
-\
-	fyl2x ;\
-	fld %st(0) ;\
-	frndint ; \
-	fsubr %st(1), %st(0) ; \
-	f2xm1 ; \
-	fld1 ; \
-	faddp %st(0), %st(1); \
-	fscale ; \
-\
-	Zero:\
-	fxch %st(1) ;\
-	fstp %st(0) ;\
-	\
-	fldcw (%esp) ; \
-	pop %eax ;");
-}
-
-
 #else
 
 __declspec(naked) void intPow()
@@ -84,42 +51,12 @@ __declspec(naked) void intPow()
 	}
 }
 
-__declspec(naked) void doublePow()
-{
-	// x**y
-	// st0 == x
-	// st1 == y
-	__asm
-	{
-		push eax ; // сюда положим флаг контроля fpu
-		mov word ptr [esp+2], 1F7Fh ; //сохраним свой с окурглением к 0
-
-		fstcw word ptr [esp] ; //сохраним флаг контроля
-		fldcw word ptr [esp+2] ; //установим его
-
-		fldz ;
-		fcomip st,st(1) ; // сравним x с 0.0
-		je Zero ; // если так, вернём 0.0
-
-		fyl2x ; //st0 = y*log2(x)
-		fld st(0) ; //скопируем
-		frndint ; //округлим вниз
-		fsubr st, st(1) ; //st1=y*log2(x), st0=fract(y*log2(x))
-		f2xm1 ; //st0=2**(fract(y*log2(x)))-1
-		fld1 ; //положили один
-		faddp st(1), st; //прибавили, st0=2**(fract(y*log2(x)))
-		fscale ; //находим st0=2**(y*log2(x))
-
-		Zero:
-		fxch st(1) ; //поменяем st0 и st1
-		fstp st(0) ; //уберём st0
-		
-		fldcw word ptr [esp] ; //востановим флаг контроля
-		pop eax ;
-		ret
-	}
-}
 #endif
+
+double doublePow(double a, double b)
+{
+	return pow(b, a);
+}
 
 double doubleMod(double a, double b)
 {

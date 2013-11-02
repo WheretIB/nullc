@@ -289,6 +289,7 @@ void EMIT_CALL_REG(x86Reg reg1)
 {
 #ifdef NULLC_OPTIMIZE_X86
 	NULLC::regRead[reg1] = true;
+	NULLC::reg[rECX].type = x86Argument::argNone;
 #endif
 	x86Op->name = o_call;
 	x86Op->argA.type = x86Argument::argReg;
@@ -1954,13 +1955,8 @@ void GenCodeCmdCallProlog(VMCmd cmd)
 		}else if(cmd.helper == 12){
 			EMIT_OP_REG(o_push, rEAX);
 			EMIT_OP_REG(o_push, rEDX);
-			EMIT_OP_REG(o_push, rECX);
-		}else if(cmd.helper == 16){
-			EMIT_OP_REG(o_push, rEAX);
-			EMIT_OP_REG(o_push, rEDX);
-			EMIT_OP_REG(o_push, rECX);
 			EMIT_OP_REG(o_push, rEBX);
-		}else if(cmd.helper > 16){
+		}else if(cmd.helper > 12){
 			EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
 
 			EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
@@ -2132,12 +2128,11 @@ VMCmd	yieldCmd = VMCmd(cmdNop);
 #ifdef __linux
 void yieldRestoreEIP()
 {
-	asm("pop %eax"); // remove pushed ebx
 	asm("pop %eax"); // remove pushed ebp
 	asm("mov %eax, %ebp");
 	asm("pop %eax"); // remove pushed eip
-	asm("add %0, %%ebx"::"m"(x86BinaryBase):"%ebx");
-	asm("mov %ebx, -4(%esp)");
+	asm("add %0, %%edx"::"m"(x86BinaryBase):"%edx");
+	asm("mov %edx, -4(%esp)");
 	asm("jmp *-4(%esp)");
 }
 #else
@@ -2146,8 +2141,8 @@ __declspec(naked) void yieldRestoreEIP()
 	__asm
 	{
 		pop eax; // pop return address (we won't return from this function)
-		add ebx, x86BinaryBase;
-		mov [esp-4], ebx;
+		add edx, x86BinaryBase;
+		mov [esp-4], edx;
 		jmp dword ptr [esp-4];
 	}
 }
@@ -2163,14 +2158,14 @@ void GenCodeCmdYield(VMCmd cmd)
 		// Take pointer to closure in hidden argument
 		EMIT_OP_REG_RPTR(o_mov, rEAX, sDWORD, rEBP, cmd.argument + paramBase);
 		// Read jump offset right after ExternFuncInfo::Upvalue
-		EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rEAX, sizeof(ExternFuncInfo::Upvalue));
+		EMIT_OP_REG_RPTR(o_mov, rEDX, sDWORD, rEAX, sizeof(ExternFuncInfo::Upvalue));
 		// Test for 0
-		EMIT_OP_REG_REG(o_test, rEBX, rEBX);
+		EMIT_OP_REG_REG(o_test, rEDX, rEDX);
 		// If zero, don't change anything
 		EMIT_OP_LABEL(o_jz, aluLabels);
 
 		// Jump to saved position
-		EMIT_REG_READ(rEBX);
+		EMIT_REG_READ(rEDX);
 		EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&yieldRestorePtr);
 
 		EMIT_LABEL(aluLabels);
@@ -2256,22 +2251,13 @@ void GenCodeCmdReturn(VMCmd cmd)
 			EMIT_REG_READ(rEAX);
 			EMIT_REG_READ(rEDX);
 		}else if(cmd.argument == 12){
-			EMIT_OP_REG(o_pop, rECX);
-			EMIT_OP_REG(o_pop, rEDX);
-			EMIT_OP_REG(o_pop, rEAX);
-			EMIT_REG_READ(rEAX);
-			EMIT_REG_READ(rEDX);
-			EMIT_REG_READ(rECX);
-		}else if(cmd.argument == 16){
 			EMIT_OP_REG(o_pop, rEBX);
-			EMIT_OP_REG(o_pop, rECX);
 			EMIT_OP_REG(o_pop, rEDX);
 			EMIT_OP_REG(o_pop, rEAX);
 			EMIT_REG_READ(rEAX);
 			EMIT_REG_READ(rEDX);
-			EMIT_REG_READ(rECX);
 			EMIT_REG_READ(rEBX);
-		}else{
+		}else if(cmd.argument > 12){
 			EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
 			EMIT_OP_REG_REG(o_mov, rESI, rESP);
 
@@ -2283,7 +2269,7 @@ void GenCodeCmdReturn(VMCmd cmd)
 
 			EMIT_OP_REG_NUM(o_add, rESP, cmd.argument);
 		}
-		if(cmd.argument > 16)
+		if(cmd.argument > 12)
 			EMIT_OP_REG_REG(o_mov, rEAX, rEDI);
 		EMIT_OP_REG_REG(o_mov, rEDI, rEBP);
 		EMIT_OP_REG(o_pop, rEBP);
@@ -2388,7 +2374,8 @@ void GenCodeCmdPow(VMCmd cmd)
 #ifdef NULLC_OPTIMIZE_X86
 	NULLC::stackRead[(16 + NULLC::stackTop) % NULLC::STACK_STATE_SIZE] = true;
 	NULLC::stackRead[(16 + NULLC::stackTop - 1) % NULLC::STACK_STATE_SIZE] = true;
-	KILL_REG(rEAX);KILL_REG(rEDX);
+	KILL_REG(rEAX);
+	KILL_REG(rEDX);
 	NULLC::InvalidateDependand(rEAX);
 	NULLC::InvalidateDependand(rEDX);
 #endif
@@ -2897,12 +2884,9 @@ void GenCodeCmdPowD(VMCmd cmd)
 {
 	(void)cmd;
 	EMIT_COMMENT("POW double");
-	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
-	EMIT_OP_RPTR(o_fld, sQWORD, rESP, 8);
-	EMIT_OP_REG_NUM(o_add, rESP, 16);
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(long long)doublePow);
+	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)doublePow);
 	EMIT_OP_REG(o_call, rECX);
-	EMIT_OP_REG_NUM(o_sub, rESP, 8);
+	EMIT_OP_REG_NUM(o_add, rESP, 8);
 	EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
 }
 
