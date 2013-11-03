@@ -54,6 +54,18 @@ TypeInfo*	typeBool = NULL;
 namespace NULLC
 {
 	FastVector<Compiler::CodeRange>	*codeSourceRange = NULL;
+
+	template<typename T>
+	unsigned GetTypeAlignment()
+	{
+		struct Helper
+		{
+			char x;
+			T y;
+		};
+
+		return sizeof(Helper) / 2;
+	}
 }
 
 CompilerError::CompilerError(const char* errStr, const char* apprPos)
@@ -329,30 +341,31 @@ Compiler::Compiler()
 	CodeInfo::typeInfo.push_back(info);
 
 	info = new TypeInfo(CodeInfo::typeInfo.size(), "double", 0, 0, 1, NULL, TypeInfo::TYPE_DOUBLE);
-	info->alignBytes = 8;
+	info->alignBytes = GetTypeAlignment<double>();
 	info->size = 8;
 	typeDouble = info;
 	CodeInfo::typeInfo.push_back(info);
 
 	info = new TypeInfo(CodeInfo::typeInfo.size(), "float", 0, 0, 1, NULL, TypeInfo::TYPE_FLOAT);
-	info->alignBytes = 4;
+	info->alignBytes = GetTypeAlignment<float>();
 	info->size = 4;
 	typeFloat = info;
 	CodeInfo::typeInfo.push_back(info);
 
 	info = new TypeInfo(CodeInfo::typeInfo.size(), "long", 0, 0, 1, NULL, TypeInfo::TYPE_LONG);
+	info->alignBytes = GetTypeAlignment<long long>();
 	info->size = 8;
 	typeLong = info;
 	CodeInfo::typeInfo.push_back(info);
 
 	info = new TypeInfo(CodeInfo::typeInfo.size(), "int", 0, 0, 1, NULL, TypeInfo::TYPE_INT);
-	info->alignBytes = 4;
+	info->alignBytes = GetTypeAlignment<int>();
 	info->size = 4;
 	typeInt = info;
 	CodeInfo::typeInfo.push_back(info);
 
 	info = new TypeInfo(CodeInfo::typeInfo.size(), "short", 0, 0, 1, NULL, TypeInfo::TYPE_SHORT);
-	info->alignBytes = 2;
+	info->alignBytes = GetTypeAlignment<short>();
 	info->size = 2;
 	typeShort = info;
 	CodeInfo::typeInfo.push_back(info);
