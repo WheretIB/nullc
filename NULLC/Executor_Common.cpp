@@ -234,6 +234,8 @@ namespace GC
 	FastVector<RootInfo> rootsA, rootsB;
 	FastVector<RootInfo> *curr = NULL, *next = NULL;
 
+	HashMap<int> functionIDs;
+
 	// Function that marks memory blocks belonging to GC
 	void MarkPointer(char* ptr, const ExternTypeInfo& type, bool takeSubtype)
 	{
@@ -445,6 +447,9 @@ void MarkUsedBlocks()
 	char			*symbols = NULLC::commonLinker->exSymbols.data;
 	(void)symbols;
 
+	GC::functionIDs.init();
+	GC::functionIDs.clear();
+
 	GC::curr = &GC::rootsA;
 	GC::next = &GC::rootsB;
 	GC::curr->clear();
@@ -534,13 +539,22 @@ void MarkUsedBlocks()
 			break;
 
 		// Find corresponding function
+		int *cachedFuncID = GC::functionIDs.find(address);
+
 		int funcID = -1;
-		for(unsigned int i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
+		if(cachedFuncID)
 		{
-			if(address >= functions[i].address && address < (functions[i].address + functions[i].codeSize))
+			funcID = *cachedFuncID;
+		}else{
+			for(unsigned int i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
 			{
-				funcID = i;
+				if(address >= functions[i].address && address < (functions[i].address + functions[i].codeSize))
+				{
+					funcID = i;
+				}
 			}
+
+			GC::functionIDs.insert(address, funcID);
 		}
 
 		// If we are not in global scope
@@ -653,7 +667,7 @@ void MarkUsedBlocks()
 				// If block is unmarked, mark it as used
 				if(!(*marker & 1))
 				{
-					unsigned typeID = *marker >> 8;
+					unsigned typeID = unsigned(*marker >> 8);
 					ExternTypeInfo &type = types[typeID];
 
 					*marker |= 1;
@@ -686,4 +700,6 @@ void ResetGC()
 {
 	GC::rootsA.reset();
 	GC::rootsB.reset();
+
+	GC::functionIDs.reset();
 }

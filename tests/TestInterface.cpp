@@ -467,7 +467,7 @@ void RunInterfaceTests()
 		}
 	}
 
-const char	*testDoubleRetrieval = "return 25.0;";
+	const char	*testDoubleRetrieval = "return 25.0;";
 	if(Tests::messageVerbose)
 		printf("nullcGetResultDouble test\r\n");
 	for(int t = 0; t < TEST_COUNT; t++)
@@ -501,6 +501,9 @@ const char	*testDoubleRetrieval = "return 25.0;";
 		}
 	}
 
+	if(Tests::messageVerbose)
+		printf("nullcRunFunction test\r\n");
+
 	for(int t = 0; t < TEST_COUNT; t++)
 	{
 		if(!Tests::testExecutor[t])
@@ -513,7 +516,7 @@ const char	*testDoubleRetrieval = "return 25.0;";
 		}else{
 			if(!nullcRunFunction("main"))
 			{
-				printf("Run failed:%s\n", nullcGetLastError());
+				printf("Run failed: %s\n", nullcGetLastError());
 			}else{
 				if(memcmp(nullcGetResult(), "2", 1))
 					printf("Return value != 2\n");
@@ -522,6 +525,9 @@ const char	*testDoubleRetrieval = "return 25.0;";
 			}
 		}
 	}
+
+	if(Tests::messageVerbose)
+		printf("Type constant check\r\n");
 
 	for(int t = 0; t < TEST_COUNT; t++)
 	{
@@ -558,7 +564,15 @@ const char	*testDoubleRetrieval = "return 25.0;";
 			testsPassed[t]++;
 		}
 	}
+
+	nullcBuild("coroutine int main(){ yield 1; yield 2; }");
+	TEST_COMPARE(nullcRunFunction("main"), 0);
+	TEST_COMPARES(nullcGetLastError(), "ERROR: function uses context, which is unavailable");
 	
+	nullcBuild("int main(){ int foo(){ return 5; } return foo(); } int foo(){ return 6; }");
+	TEST_COMPARE(nullcRunFunction("foo"), 1);
+	TEST_COMPARE(nullcGetResultInt(), 6);
+
 	nullcTerminate();
 	TEST_COMPARES(nullcGetLastError(), "");
 

@@ -63,7 +63,7 @@ public:
 	bool	Compile(const char* str, bool noClear = false);
 	const char*		GetError();
 	
-	void	SaveListing(const char* fileName);
+	bool	SaveListing(const char* fileName);
 	void	TranslateToC(const char* fileName, const char *mainName);
 
 	unsigned int	GetBytecode(char** bytecode);

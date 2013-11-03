@@ -59,6 +59,7 @@ nullres		nullcBuild(const char* code);
 nullres		nullcRun();
 /*	Run function code	*/
 nullres		nullcRunFunction(const char* funcName, ...);
+nullres		nullcRunFunctionInternal(unsigned functionID, const char* argBuf);
 
 /*	Retrieve result	*/
 const char*	nullcGetResult();
@@ -107,6 +108,9 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...);
 /*	Get global variable value	*/
 void*		nullcGetGlobal(const char* name);
 
+/* Get global variable type */
+unsigned int	nullcGetGlobalType(const char* name);
+
 /*	Set global variable value	*/
 nullres		nullcSetGlobal(const char* name, void* data);
 
@@ -142,7 +146,7 @@ unsigned int	nullcGetBytecode(char **bytecode);
 unsigned int	nullcGetBytecodeNoCache(char **bytecode);
 
 /*	This function saves disassembly of last compiled code into file	*/
-void			nullcSaveListing(const char *fileName);
+bool			nullcSaveListing(const char *fileName);
 
 /*	Function works only if NULLC_ENABLE_C_TRANSLATION is defined.
 	This function saved analog of C++ code of last compiled code into file	*/

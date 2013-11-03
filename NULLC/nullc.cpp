@@ -64,6 +64,8 @@ namespace NULLC
 	bool initialized = false;
 }
 
+unsigned int nullcFindFunctionIndex(const char* name);
+
 #define NULLC_CHECK_INITIALIZED(retval) if(!initialized){ nullcLastError = "ERROR: NULLC is not initialized"; return retval; }
 
 void	nullcInit(const char* importPath)
@@ -287,12 +289,12 @@ unsigned int nullcGetBytecodeNoCache(char **bytecode)
 	return compiler->GetBytecode(bytecode);
 }
 
-void	nullcSaveListing(const char *fileName)
+bool	nullcSaveListing(const char *fileName)
 {
 	using namespace NULLC;
-	NULLC_CHECK_INITIALIZED((void)0);
+	NULLC_CHECK_INITIALIZED(false);
 
-	compiler->SaveListing(fileName);
+	return compiler->SaveListing(fileName);
 }
 
 void	nullcTranslateToC(const char *fileName, const char *mainName)
@@ -514,31 +516,19 @@ nullres	nullcRunFunction(const char* funcName, ...)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
-	nullres good = true;
+	unsigned int functionID = ~0u;
 
 #ifndef NULLC_NO_EXECUTOR
 	static char	errorBuf[512];
 	const char* argBuf = NULL;
 
-	unsigned int functionID = ~0u;
 	// If function is called, find it's index
 	if(funcName)
 	{
-		unsigned int fnameHash = GetStringHash(funcName);
-		for(int i = (int)linker->exFunctions.size()-1; i >= 0; i--)
-		{
-			if(linker->exFunctions[i].nameHash == fnameHash)
-			{
-				functionID = i;
-				break;
-			}
-		}
+		functionID = nullcFindFunctionIndex(funcName);
 		if(functionID == ~0u)
-		{
-			SafeSprintf(errorBuf, 512, "ERROR: function %s not found", funcName);
-			nullcLastError = errorBuf;
-			return 0;
-		}
+			return false;
+
 		// Copy arguments in argument buffer
 		va_list args;
 		va_start(args, funcName);
@@ -550,6 +540,17 @@ nullres	nullcRunFunction(const char* funcName, ...)
 #else
 	(void)funcName;
 #endif
+
+	return nullcRunFunctionInternal(functionID, argBuf);
+}
+
+nullres nullcRunFunctionInternal(unsigned functionID, const char* argBuf)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
+	nullres good = true;
+
 	if(currExec == NULLC_VM)
 	{
 #ifndef NULLC_NO_EXECUTOR
@@ -585,6 +586,9 @@ nullres	nullcRunFunction(const char* funcName, ...)
 		}
 #endif
 	}else{
+		(void)functionID;
+		(void)argBuf;
+
 		good = false;
 		nullcLastError = "Unknown executor code";
 	}
@@ -678,7 +682,7 @@ nullres nullcSetGlobal(const char* name, void* data)
 void* nullcGetGlobal(const char* name)
 {
 	using namespace NULLC;
-	NULLC_CHECK_INITIALIZED(false);
+	NULLC_CHECK_INITIALIZED(0);
 
 	char* mem = (char*)nullcGetVariableData(NULL);
 	if(!linker || !name || !mem)
@@ -690,6 +694,23 @@ void* nullcGetGlobal(const char* name)
 			return mem + linker->exVariables[i].offset;
 	}
 	return NULL;
+}
+
+unsigned int nullcGetGlobalType(const char* name)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(0);
+
+	char* mem = (char*)nullcGetVariableData(NULL);
+	if(!linker || !name || !mem)
+		return 0;
+	unsigned int hash = GetStringHash(name);
+	for(unsigned int i = 0; i < linker->exVariables.size(); i++)
+	{
+		if(linker->exVariables[i].nameHash == hash)
+			return linker->exVariables[i].type;
+	}
+	return 0;
 }
 
 unsigned int nullcFindFunctionIndex(const char* name)
@@ -710,7 +731,7 @@ unsigned int nullcFindFunctionIndex(const char* name)
 	unsigned int index = ~0u;
 	for(unsigned int i = 0; i < linker->exFunctions.size(); i++)
 	{
-		if(linker->exFunctions[i].nameHash == hash)
+		if(linker->exFunctions[i].isVisible && linker->exFunctions[i].nameHash == hash)
 		{
 			if(index != ~0u)
 			{
@@ -894,14 +915,14 @@ nullres nullcFinalize()
 void* nullcAllocate(unsigned int size)
 {
 	using namespace NULLC;
-	NULLC_CHECK_INITIALIZED(false);
+	NULLC_CHECK_INITIALIZED(0);
 	return NULLC::AllocObject(size);
 }
 
 void* nullcAllocateTyped(unsigned int typeID)
 {
 	using namespace NULLC;
-	NULLC_CHECK_INITIALIZED(false);
+	NULLC_CHECK_INITIALIZED(0);
 	return NULLC::AllocObject(nullcGetTypeSize(typeID), typeID);
 }
 
