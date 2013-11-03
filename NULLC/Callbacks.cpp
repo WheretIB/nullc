@@ -1376,13 +1376,16 @@ void GetTypeSize(const char* pos, bool sizeOfExpr)
 {
 	if(!sizeOfExpr && !currType)
 		ThrowError(pos, "ERROR: sizeof(auto) is illegal");
-	if(!currType->hasFinished)
-		ThrowError(pos, "ERROR: cannot take size of a type in definition");
+	
 	if(sizeOfExpr)
 	{
 		currType = CodeInfo::nodeList.back()->typeInfo;
 		CodeInfo::nodeList.pop_back();
 	}
+
+	if(!currType->hasFinished)
+		ThrowError(pos, "ERROR: cannot take size of a type in definition");
+
 	CodeInfo::nodeList.push_back(new NodeNumber((int)currType->size, typeInt));
 }
 
