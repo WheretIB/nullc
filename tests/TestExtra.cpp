@@ -444,14 +444,27 @@ x.x = 0x34;\r\n\
 x.v = 32.0;\r\n\
 x.z = 0x45;\r\n\
 return CheckAlignmentStruct(&x);";
-TEST_RESULT("Type padding for correct array element alignment 3", testAlignmentPadding4, "1");
+TEST_RESULT("Type padding for correct array element alignment 4", testAlignmentPadding4, "1");
+
+class TestAlignment5StructX{ double x; int y; };
+class TestAlignment5StructY{ TestAlignment5StructX x; int y; };
+
+int TestAlignment5StructYSizeof()
+{
+	return sizeof(TestAlignment5StructY);
+}
+
+LOAD_MODULE_BIND(test_alignment_sizeof, "test.alignment.size", "int TestAlignment5StructYSizeof();")
+{
+	nullcBindModuleFunction("test.alignment.size", (void(*)())TestAlignment5StructYSizeof, "TestAlignment5StructYSizeof", 0);
+}
 
 const char	*testAlignmentPadding5 =
-"import test.alignment;\r\n\
+"import test.alignment.size;\r\n\
 class X{ double x; int y; }\r\n\
 class Y{ X x; int y; }\r\n\
-return sizeof(Y);";
-TEST_RESULT("Type padding for correct array element alignment 5", testAlignmentPadding5, "24");
+return sizeof(Y) == TestAlignment5StructYSizeof();";
+TEST_RESULT("Type padding for correct array element alignment 5", testAlignmentPadding5, "1");
 
 const char	*testAlignmentPadding6 =
 "align(2) class X{ char a; int b; char c; }\r\n\
