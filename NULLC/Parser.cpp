@@ -2768,7 +2768,7 @@ bool ParseTypedefExpr(Lexeme** str)
 {
 	if(!ParseLexem(str, lex_typedef))
 		return false;
-	if(!ParseSelectType(str))
+	if(!ParseSelectType(str) || !GetSelectedType())
 		ThrowError((*str)->pos, "ERROR: typename expected after typedef");
 
 	if(ParseSelectType(str))

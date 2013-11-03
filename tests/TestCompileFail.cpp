@@ -775,6 +775,8 @@ auto m = bar;",
 	TEST_FOR_FAIL("incorrect switch type combination", "switch(4){ case int: return 3; break; case float: return 1; } return 2;", "ERROR: cannot compare 'int' with 'typeid'");
 
 	TEST_FOR_FAIL("__function type", "__function x; x = 1024; return 1;", "ERROR: cannot convert 'int' to '__function'");
+
+	TEST_FOR_FAIL("fuzzy test 1", "typedef auto Foo;", "ERROR: typename expected after typedef");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
