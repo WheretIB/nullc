@@ -1823,7 +1823,7 @@ void AddArrayIndexNode(const char* pos, unsigned argumentCount)
 		CodeInfo::nodeList[CodeInfo::nodeList.size() - argumentCount - 1] = array;
 	}
 	// Get array type
-	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo;
+	TypeInfo *currentType = CodeInfo::nodeList[CodeInfo::nodeList.size() - 1 - argumentCount]->typeInfo;
 	// Ignore errors only if we have one index and we are indexing array or a pointer to array
 	if(AddFunctionCallNode(CodeInfo::lastKnownStartPos, "[]", argumentCount + 1, argumentCount == 1 && (currentType->arrLevel || (currentType->subType && currentType->subType->arrLevel))))
 		return;
