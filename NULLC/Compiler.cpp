@@ -455,7 +455,7 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::DoubleToStr, "double::str", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::AllocObject, "__newS", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::AllocArray, "__newA", 0);
+	AddModuleFunction("$base$", (void (*)())(NULLCArray	(*)(unsigned, unsigned, unsigned))NULLC::AllocArray, "__newA", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::CopyObject, "duplicate", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::CopyArray, "__duplicate_array", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::ReplaceObject, "replace", 0);
@@ -1507,9 +1507,12 @@ const char* Compiler::GetError()
 	return CodeInfo::lastError.GetErrorString();
 }
 
-void Compiler::SaveListing(const char *fileName)
+bool Compiler::SaveListing(const char *fileName)
 {
 	FILE *compiledAsm = fopen(fileName, "wb");
+	if(!compiledAsm)
+		return false;
+
 	char instBuf[128];
 	int line = 0, lastLine = ~0u;
 	const char *lastSourcePos = CompilerError::codeStart;
@@ -1545,6 +1548,8 @@ void Compiler::SaveListing(const char *fileName)
 			fprintf(compiledAsm, "// %d %s\r\n", i, instBuf);
 	}
 	fclose(compiledAsm);
+
+	return true;
 }
 
 void Compiler::TranslateToC(const char* fileName, const char *mainName)
@@ -2382,7 +2387,7 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 		funcInfo.funcCat = (unsigned char)refFunc->type;
 
-		funcInfo.isGenericInstance = !!refFunc->genericBase || refFunc->genericInstance || (refFunc->parentClass ? refFunc->parentClass->genericBase : false);
+		funcInfo.isGenericInstance = !!refFunc->genericBase || refFunc->genericInstance || (refFunc->parentClass ? !!refFunc->parentClass->genericBase : false);
 
 		funcInfo.funcType = refFunc->funcType->typeIndex;
 		funcInfo.parentType = refFunc->parentClass ? refFunc->parentClass->typeIndex : ~0u;

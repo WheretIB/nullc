@@ -204,7 +204,7 @@ namespace NULLCFile
 			return 0;
 		}
 
-		return arr.ptr ? fread(arr.ptr, 1, arr.len, file->handle) : 0;
+		return arr.ptr ? int(fread(arr.ptr, 1, arr.len, file->handle)) : 0;
 	}
 
 	int FileWrite(NULLCArray arr, File* file)
@@ -221,7 +221,7 @@ namespace NULLCFile
 			return 0;
 		}
 
-		return arr.ptr ? fwrite(arr.ptr, 1, arr.len, file->handle) : 0;
+		return arr.ptr ? int(fwrite(arr.ptr, 1, arr.len, file->handle)) : 0;
 	}
 
 	int FilePrint(NULLCArray arr, File* file)
@@ -324,7 +324,7 @@ namespace NULLCFile
 			return 0;
 		}
 
-		return arr.ptr ? fread(arr.ptr + offset, 1, count, file->handle) : 0;
+		return arr.ptr ? int(fread(arr.ptr + offset, 1, count, file->handle)) : 0;
 	}
 
 	int FileWriteArr(NULLCArray arr, unsigned offset, unsigned count, File* file)
@@ -347,7 +347,7 @@ namespace NULLCFile
 			return 0;
 		}
 
-		return arr.ptr ? fwrite(arr.ptr + offset, 1, count, file->handle) : 0;
+		return arr.ptr ? int(fwrite(arr.ptr + offset, 1, count, file->handle)) : 0;
 	}
 }
 

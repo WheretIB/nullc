@@ -2,7 +2,7 @@
 #include "../nullc.h"
 #include "typeinfo.h"
 
-#include <memory>
+#include <string.h>
 #include <memory.h>
 
 namespace NULLCVector

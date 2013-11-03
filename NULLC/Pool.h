@@ -43,6 +43,8 @@ public:
 	}
 	void*	Allocate(unsigned int bytes)
 	{
+		bytes = (bytes + 7) & ~7; // 8-byte align
+
 		assert(bytes <= chunkSize);
 		if(size + bytes <= chunkSize)
 		{
@@ -100,7 +102,7 @@ namespace detail
 	template<typename T, int countInBlock>
 	struct LargeBlock
 	{
-		typedef typename SmallBlock<T> Block;
+		typedef SmallBlock<T> Block;
 		Block		page[countInBlock];
 		LargeBlock	*next;
 	};
@@ -109,7 +111,7 @@ namespace detail
 template<typename T, int countInBlock>
 class TypedObjectPool
 {
-	typedef typename detail::SmallBlock<T> MySmallBlock;
+	typedef detail::SmallBlock<T> MySmallBlock;
 	typedef typename detail::LargeBlock<T, countInBlock> MyLargeBlock;
 public:
 	TypedObjectPool()
