@@ -1121,6 +1121,9 @@ void AddReturnNode(const char* pos, bool yield)
 {
 	bool localReturn = currDefinedFunc.size() != 0;
 
+	if(yield && !localReturn)
+		ThrowError(pos, "ERROR: global yield is not allowed");
+
 	// If new function is returned, convert it to pointer
 	ConvertFunctionToPointer(pos, currDefinedFunc.size() ? currDefinedFunc.back()->retType : NULL);
 	
