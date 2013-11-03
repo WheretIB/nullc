@@ -179,11 +179,6 @@ namespace NULLC
 		if(expCode == EXCEPTION_INT_DIVIDE_BY_ZERO || expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW ||
 			expCode == EXCEPTION_INT_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && expInfo->ExceptionRecord->ExceptionInformation[1] < 0x00010000))
 		{
-#ifndef __DMC__
-			// Restore stack guard
-			if(expCode == EXCEPTION_STACK_OVERFLOW)
-				_resetstkoflw();
-#endif
 			// Save address of access violation
 			if(expCode == EXCEPTION_ACCESS_VIOLATION)
 				expECXstate = (unsigned int)expInfo->ExceptionRecord->ExceptionInformation[1];
@@ -298,7 +293,7 @@ static const unsigned char codeHead[] = {
 ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions), exCode(linker->exCode), exTypes(linker->exTypes)
 {
 	binCode = NULL;
-	binCodeStart = NULL;
+	binCodeStart = 0;
 	binCodeSize = 0;
 	binCodeReserved = 0;
 
@@ -654,8 +649,8 @@ void ExecutorX86::InitExecution()
 
 	NULLC::stackReallocs = 0;
 	NULLC::dataHead->lastEDI = 0;
-	NULLC::dataHead->instructionPtr = NULL;
-	NULLC::dataHead->nextElement = NULL;
+	NULLC::dataHead->instructionPtr = 0;
+	NULLC::dataHead->nextElement = 0;
 
 #ifndef __linux
 	if(NULLC::pSetThreadStackGuarantee)
@@ -840,9 +835,9 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				paramData = (unsigned int*)(long long)(*paramData);
 			}
 			NULLC::stackTrace[count] = 0;
-			NULLC::dataHead->nextElement = NULL;
+			NULLC::dataHead->nextElement = 0;
 		}
-		NULLC::dataHead->instructionPtr = NULL;
+		NULLC::dataHead->instructionPtr = 0;
 		NULLC::abnormalTermination = true;
 	}
 	// Disable signal handlers only from top-level Run
@@ -869,23 +864,28 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		NULLC::dataHead->lastEDI = savedSize;
 	}__except(NULLC::CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation())){
 		if(NULLC::expCodePublic == EXCEPTION_INT_DIVIDE_BY_ZERO)
+		{
 			strcpy(execError, "ERROR: integer division by zero");
-		else if(NULLC::expCodePublic == EXCEPTION_INT_OVERFLOW)
+		}else if(NULLC::expCodePublic == EXCEPTION_INT_OVERFLOW){
 			strcpy(execError, "ERROR: integer overflow");
-		else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0)
+		}else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0){
 			strcpy(execError, "ERROR: array index out of bounds");
-		else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0xFFFFFFFF)
+		}else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0xFFFFFFFF){
 			strcpy(execError, "ERROR: function didn't return a value");
-		else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0xDEADBEEF)
+		}else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0xDEADBEEF){
 			strcpy(execError, "ERROR: invalid function pointer");
-		else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate != NULLC::expESPstate)
+		}else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate != NULLC::expESPstate){
 			SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
 			NULLC::expEAXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[NULLC::expEAXstate].offsetToName],
 			NULLC::expECXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[NULLC::expECXstate].offsetToName]);
-		else if(NULLC::expCodePublic == EXCEPTION_STACK_OVERFLOW)
+		}else if(NULLC::expCodePublic == EXCEPTION_STACK_OVERFLOW){
+#ifndef __DMC__
+			// Restore stack guard
+			_resetstkoflw();
+#endif
+
 			strcpy(execError, "ERROR: stack overflow");
-		else if(NULLC::expCodePublic == EXCEPTION_ACCESS_VIOLATION)
-		{
+		}else if(NULLC::expCodePublic == EXCEPTION_ACCESS_VIOLATION){
 			if(NULLC::expAllocCode == 1)
 				strcpy(execError, "ERROR: failed to commit old stack memory");
 			else if(NULLC::expAllocCode == 2)
@@ -932,7 +932,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				currPos += PrintStackFrame(address, currPos, 512 - int(currPos - execError));
 		}
 		codeRunning = false;
-		NULLC::dataHead->instructionPtr = NULL;
+		NULLC::dataHead->instructionPtr = 0;
 	}
 
 	// Call stack management
