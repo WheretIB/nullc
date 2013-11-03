@@ -1230,8 +1230,7 @@ void SetContinuePtr(int* continueVar)
 int nullcJmpTarget;
 void LongJumpWrap(sigjmp_buf errorHandler, int code)
 {
-	int x = 0;
-	asm("mov 4(%%ebp), %0":"=r"(x));
+	int x = (int)(intptr_t)__builtin_return_address(0);
 	*(int*)((char*)paramBase - 8) = x;
 	siglongjmp(errorHandler, code);
 }
@@ -2180,10 +2179,14 @@ void GenCodeCmdYield(VMCmd cmd)
 void yieldSaveEIP()
 {
 	asm("push %eax");
-	asm("mov 8(%esp), %eax");
+	asm("push %ecx");
+	asm("push %edx");
+	asm("mov 16(%esp), %eax");
 	asm("sub %0, %%eax"::"m"(x86BinaryBase):"%eax");
 	asm("add $1, %eax");	// jump over ret
 	asm("mov %eax, 12(%esi)");
+	asm("pop %edx");
+	asm("pop %ecx");
 	asm("pop %eax");
 }
 #else
