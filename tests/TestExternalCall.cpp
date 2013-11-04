@@ -836,6 +836,8 @@ TEST_RESULT("External function call. Big return type 6.", testBigReturnType6, "1
 
 #endif
 
+#if !defined(ANDROID)
+
 const char	*testFile = 
 "// File and something else test\r\n\
 import std.file;\r\n\
@@ -928,3 +930,5 @@ TEST("File test 2", testFile2, "1")
 	CHECK_INT("numR2", 0, 12568);
 	CHECK_LONG("lnumR2", 0, 4586564);
 }
+#endif
+

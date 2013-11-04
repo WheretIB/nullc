@@ -43,7 +43,9 @@ void	SpeedTestText(const char* name, const char* text)
 	nullcInitIOModule();
 	nullcInitCanvasModule();
 	nullcInitTimeModule();
+#if !defined(ANDROID)
 	nullcInitPugiXMLModule();
+#endif
 
 	// exclusive for progressbar test
 	nullcLoadModuleBySource("test.rect", "int draw_rect(int a, b, c, d, e);");
