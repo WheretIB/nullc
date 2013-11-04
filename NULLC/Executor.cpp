@@ -3,6 +3,19 @@
 
 #include "StdLib.h"
 
+#if defined(__arm__)
+	#define NULLC_USE_DYNCALL
+#endif
+
+#if defined(NULLC_USE_DYNCALL)
+
+	#define dcAllocMem NULLC::alloc
+	#define dcFreeMem  NULLC::dealloc
+
+	#include "../external/dyncall/dyncall.h"
+
+#endif
+
 #ifdef NULLC_VM_CALL_STACK_UNWRAP
 #define NULLC_UNWRAP(x) x
 #else
@@ -50,6 +63,23 @@ long long vmLongPow(long long num, long long pow)
 	return res;
 }
 
+#if defined(__arm__)
+long long vmLoadInt64(char* target)
+{
+	long long value;
+	memcpy(&value, target, 8);
+	return value;
+}
+
+void vmStoreInt64(char* target, long long value)
+{
+	memcpy(target, &value, 8);
+}
+#else
+#define vmLoadInt64(x) (*(long long*)(x))
+#define vmStoreInt64(x, y) (*(long long*)(x) = y)
+#endif
+
 #if defined(_M_X64)
 #ifdef _WIN64
 	#include <Windows.h>
@@ -76,7 +106,7 @@ static const unsigned char gatePrologue[] =
 	0x50,	// push RAX
 	0x53,	// push RBX
 	0x56,	// push RSI
-	0x56,	// push RSI again for stack alignment
+	0x49, 0x54,	// push R12
 #ifdef _WIN64
 	0x48, 0x8b, 0301,// mov RAX, RCX
 	0x48, 0x8b, 0332,// mov RBX, RDX
@@ -621,8 +651,9 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		break;
 	}
 
+	code.push_back(0x49);
+	code.push_back(0x5c);	// pop R12
 	code.push_back(0x5e);	// pop RSI
-	code.push_back(0x5e);	// pop RSI (pushed twice for alignment)
 	code.push_back(0x5b);	// pop RBX
 	code.push_back(0x58);	// pop RAX
 	code.push_back(0x5f);	// pop RDI
@@ -650,12 +681,20 @@ Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunc
 	codeRunning = false;
 
 	breakFunction = NULL;
+
+	dcCallVM = NULL;
 }
 
 Executor::~Executor()
 {
 	NULLC::dealloc(genStackBase);
 	genStackBase = NULL;
+
+#if defined(NULLC_USE_DYNCALL)
+	if(dcCallVM)
+		dcFree(dcCallVM);
+	dcCallVM = NULL;
+#endif
 }
 
 #define genStackSize (genStackTop-genStackPtr)
@@ -695,6 +734,14 @@ void Executor::InitExecution()
 
 	paramBase = 0;
 
+#if defined(NULLC_USE_DYNCALL)
+	if(!dcCallVM)
+	{
+		dcCallVM = dcNewCallVM(4096);
+		dcMode(dcCallVM, DC_CALL_C_DEFAULT);
+	}
+#endif
+
 #if defined(_M_X64)
 	// Generate gateway code for all functions
 	gateCode.clear();
@@ -713,9 +760,10 @@ void Executor::InitExecution()
 	DWORD old;
 	VirtualProtect(gateCode.data, gateCode.size(), PAGE_EXECUTE_READWRITE, &old);
 #else
-	char *p = (char*)((intptr_t)((char*)gateCode.data + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-	if(mprotect(p, ((gateCode.size() + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE | PROT_EXEC))
-		asm("int $0x3");
+	char *alignedAddr = (char*)((intptr_t)((char*)gateCode.data + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+	char *alignedEnd = (char*)((intptr_t)((char*)gateCode.data + gateCode.size() + PAGESIZE - 1) & ~(PAGESIZE - 1));
+
+	mprotect(alignedAddr, alignedEnd - alignedAddr, type);
 #endif
 
 #endif
@@ -889,7 +937,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 		case cmdPushDorL:
 			genStackPtr -= 2;
-			*(long long*)(genStackPtr) = *((long long*)(&genParams[cmd.argument + (paramBase * cmd.flag)]));
+			*(long long*)(genStackPtr) = vmLoadInt64(&genParams[cmd.argument + (paramBase * cmd.flag)]);
 			break;
 		case cmdPushCmplx:
 		{
@@ -951,7 +999,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr--;
-			*(long long*)(genStackPtr) = *(long long*)((char*)NULL + cmd.argument + *(genStackPtr+1));
+			*(long long*)(genStackPtr) = vmLoadInt64((char*)NULL + cmd.argument + *(genStackPtr+1));
 #endif
 			break;
 		case cmdPushCmplxStk:
@@ -993,7 +1041,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			*((float*)(&genParams[cmd.argument + (paramBase * cmd.flag)])) = (float)*(double*)(genStackPtr);
 			break;
 		case cmdMovDorL:
-			*((long long*)(&genParams[cmd.argument + (paramBase * cmd.flag)])) = *(long long*)(genStackPtr);
+			vmStoreInt64(&genParams[cmd.argument + (paramBase * cmd.flag)], *(long long*)(genStackPtr));
 			break;
 		case cmdMovCmplx:
 		{
@@ -1061,7 +1109,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
-			*(long long*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = *(long long*)(genStackPtr);
+			vmStoreInt64((char*)NULL + cmd.argument + *(genStackPtr-1), *(long long*)(genStackPtr));
 #endif
 			break;
 		case cmdMovCmplxStk:
@@ -1180,7 +1228,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 					start += 4;
 					break;
 				case DTYPE_LONG:
-					*((long long*)(&genParams[start])) = *(long long*)(genStackPtr);
+					vmStoreInt64(&genParams[start], *(long long*)(genStackPtr));
 					start += 8;
 					break;
 				case DTYPE_INT:
@@ -1782,7 +1830,8 @@ bool Executor::RunCallStackHelper(unsigned funcID, unsigned extraPopDW, unsigned
 }
 #endif
 
-#if !defined(__CELLOS_LV2__) && !defined(_M_X64)
+#if !defined(__CELLOS_LV2__) && !defined(_M_X64) && !defined(NULLC_USE_DYNCALL)
+
 // X86 implementation
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
@@ -1983,12 +2032,125 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	return callContinue;
 }
 
+#elif defined(NULLC_USE_DYNCALL)
+
+bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
+{
+	ExternFuncInfo &func = exFunctions[funcID];
+
+	unsigned int dwordsToPop = (func.bytesToPop >> 2);
+
+	void* fPtr = func.funcPtr;
+	unsigned int retType = func.retType;
+
+	unsigned int *stackStart = genStackPtr;
+	unsigned int *newStackPtr = genStackPtr + dwordsToPop + extraPopDW;
+
+	dcReset(dcCallVM);
+
+	unsigned int ret[128];
+	if(retType == ExternFuncInfo::RETURN_UNKNOWN && func.returnShift > 1)
+		dcArgPointer(dcCallVM, ret);
+
+	for(unsigned int i = 0; i < func.paramCount; i++)
+	{
+		// Get information about local
+		ExternLocalInfo &lInfo = exLinker->exLocals[func.offsetToFirstLocal + i];
+
+		ExternTypeInfo &tInfo = exTypes[lInfo.type];
+
+		switch(tInfo.type)
+		{
+		case ExternTypeInfo::TYPE_COMPLEX:
+			if(tInfo.size <= 4)
+			{
+				// This branch also handles 0 byte structs
+				dcArgInt(dcCallVM, *(int*)stackStart);
+				stackStart += 1;
+			}else{
+				for(unsigned int k = 0; k < tInfo.size / 4; k++)
+				{
+					dcArgInt(dcCallVM, *(int*)stackStart);
+					stackStart += 1;
+				}
+			}
+			break;
+		case ExternTypeInfo::TYPE_VOID:
+			return false;
+		case ExternTypeInfo::TYPE_INT:
+			dcArgInt(dcCallVM, *(int*)stackStart);
+			stackStart += 1;
+			break;
+		case ExternTypeInfo::TYPE_FLOAT:
+			dcArgFloat(dcCallVM, *(float*)stackStart);
+			stackStart += 1;
+			break;
+		case ExternTypeInfo::TYPE_LONG:
+			dcArgLongLong(dcCallVM, *(long long*)stackStart);
+			stackStart += 2;
+			break;
+		case ExternTypeInfo::TYPE_DOUBLE:
+			dcArgDouble(dcCallVM, *(double*)stackStart);
+			stackStart += 2;
+			break;
+		case ExternTypeInfo::TYPE_SHORT:
+			dcArgShort(dcCallVM, *(short*)stackStart);
+			stackStart += 1;
+			break;
+		case ExternTypeInfo::TYPE_CHAR:
+			dcArgChar(dcCallVM, *(char*)stackStart);
+			stackStart += 1;
+			break;
+		}
+	}
+	dcArgPointer(dcCallVM, (DCpointer)*stackStart);
+
+	switch(retType)
+	{
+	case ExternFuncInfo::RETURN_VOID:
+		dcCallVoid(dcCallVM, fPtr);
+		break;
+	case ExternFuncInfo::RETURN_INT:
+		newStackPtr -= 1;
+		*newStackPtr = dcCallInt(dcCallVM, fPtr);
+		break;
+	case ExternFuncInfo::RETURN_DOUBLE:
+		newStackPtr -= 2;
+		if(func.returnShift == 1)
+			*(double*)newStackPtr = dcCallFloat(dcCallVM, fPtr);
+		else
+			*(double*)newStackPtr = dcCallDouble(dcCallVM, fPtr);
+		break;
+	case ExternFuncInfo::RETURN_LONG:
+		newStackPtr -= 2;
+		*(long long*)newStackPtr = dcCallLongLong(dcCallVM, fPtr);
+		break;
+	case ExternFuncInfo::RETURN_UNKNOWN:
+		if(func.returnShift == 1)
+		{
+			newStackPtr -= 1;
+			*newStackPtr = dcCallInt(dcCallVM, fPtr);
+		}else{
+			dcCallVoid(dcCallVM, fPtr);
+
+			newStackPtr -= exFunctions[funcID].returnShift;
+			// copy return value on top of the stack
+			memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
+		}
+		break;
+	}
+	genStackPtr = newStackPtr;
+
+	return callContinue;
+}
 #else
+
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
 	strcpy(execError, "ERROR: external function call failed");
 	return false;
 }
+
 #endif
 
 namespace ExPriv
@@ -2286,7 +2448,7 @@ const char* Executor::GetResult()
 {
 	if(!codeRunning && genStackSize > (lastResultType == -1 ? 1 : 0))
 	{
-		strcpy(execResult, "There is more than one value on the stack");
+		SafeSprintf(execResult, 64, "There is more than one value on the stack (%d)", genStackSize);
 		return execResult;
 	}
 

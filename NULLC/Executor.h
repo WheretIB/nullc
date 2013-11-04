@@ -4,6 +4,8 @@
 
 #include "Executor_Common.h"
 
+typedef struct DCCallVM_ DCCallVM;
+
 const int ERROR_BUFFER_SIZE = 1024;
 
 class Executor
@@ -71,6 +73,8 @@ private:
 	unsigned int	*genStackTop;
 
 	bool			callContinue;
+
+	DCCallVM		*dcCallVM;
 
 	unsigned (*breakFunction)(unsigned int);
 	FastVector<VMCmd>	breakCode;
