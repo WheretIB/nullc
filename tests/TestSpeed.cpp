@@ -31,6 +31,7 @@ void	SpeedTestText(const char* name, const char* text)
 {
 	nullcTerminate();
 	nullcInit(MODULE_PATH);
+	nullcSetFileReadHandler(Tests::fileLoadFunc);
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();

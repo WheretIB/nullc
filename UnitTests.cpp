@@ -72,9 +72,10 @@ nullres CompileFile(const char* fileName)
 	return nullcCompile(content);
 }
 
-void	RunTests(bool verbose)
+void	RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsigned int*, int*))
 {
 	Tests::messageVerbose = verbose;
+	Tests::fileLoadFunc = fileLoadFunc;
 
 	// Extra tests
 
@@ -109,7 +110,7 @@ void	RunTests(bool verbose)
 #else
 	nullcInitCustomAlloc(testAlloc, testDealloc, MODULE_PATH);
 #endif
-	//nullcSetFileReadHandler(TestFileLoad);
+	nullcSetFileReadHandler(Tests::fileLoadFunc);
 
 	nullcInitTypeinfoModule();
 	nullcInitDynamicModule();
@@ -120,6 +121,7 @@ void	RunTests(bool verbose)
 #else
 	nullcInitCustomAlloc(testAlloc, testDealloc, MODULE_PATH);
 #endif
+	nullcSetFileReadHandler(Tests::fileLoadFunc);
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();
