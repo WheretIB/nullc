@@ -59,7 +59,7 @@ struct NULLCAutoArray
 //#define NULLC_ENABLE_C_TRANSLATION
 #define NULLC_PURE_FUNCTIONS
 
-#if !defined(__CELLOS_LV2__) && !defined(__DMC__)
+#if !defined(__CELLOS_LV2__) && !defined(__DMC__) && !defined(ANDROID)
 	#define NULLC_AUTOBINDING
 #endif
 

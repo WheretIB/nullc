@@ -1,6 +1,6 @@
 #pragma once
 
-#ifndef _DEBUG
+#if !defined(_DEBUG) && !defined(ANDROID)
 	#define SPEED_TEST
 	#define SPEED_TEST_EXTRA
 #endif
