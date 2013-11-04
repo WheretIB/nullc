@@ -396,6 +396,7 @@ struct TestEval : TestQueue
 	{
 		nullcTerminate();
 		nullcInit(MODULE_PATH);
+		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcInitDynamicModule();
 
 		const char	*testEval =
@@ -419,6 +420,7 @@ return a;";
 		}
 		nullcTerminate();
 		nullcInit(MODULE_PATH);
+		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcInitDynamicModule();
 	}
 };
@@ -452,6 +454,7 @@ struct TestVariableImportCorrectness : TestQueue
 	{
 		nullcTerminate();
 		nullcInit(MODULE_PATH);
+		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcInitDynamicModule();
 
 		const char	*testVariableImportCorrectness =
@@ -480,6 +483,7 @@ struct TestGCGlobalLimit : TestQueue
 	{
 		nullcTerminate();
 		nullcInit(MODULE_PATH);
+		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcInitGCModule();
 		nullcSetGlobalMemoryLimit(1024 * 1024);
 
@@ -505,6 +509,7 @@ struct TestRestore : TestQueue
 	{
 		nullcTerminate();
 		nullcInit(MODULE_PATH);
+		nullcSetFileReadHandler(Tests::fileLoadFunc);
 
 		nullcInitTypeinfoModule();
 		nullcInitFileModule();

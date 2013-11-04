@@ -813,7 +813,7 @@ struct Test_testModuleImportsSelf1 : TestQueue
 		}else{
 			printf("Test \"%s\" failed to fail.\r\n", "Module imports itself 1");
 		}
-		nullcSetFileReadHandler(NULL);
+		nullcSetFileReadHandler(Tests::fileLoadFunc);
 	}
 };
 Test_testModuleImportsSelf1 testModuleImportSelf1;
@@ -855,7 +855,7 @@ struct Test_testModuleImportsSelf2 : TestQueue
 		}else{
 			printf("Test \"%s\" failed to fail.\r\n", "Module imports itself 1");
 		}
-		nullcSetFileReadHandler(NULL);
+		nullcSetFileReadHandler(Tests::fileLoadFunc);
 	}
 };
 Test_testModuleImportsSelf2 testModuleImportSelf2;

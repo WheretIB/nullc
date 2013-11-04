@@ -55,6 +55,8 @@ namespace Tests
 		false
 #endif
 	};
+
+	const void* (NCDECL *fileLoadFunc)(const char*, unsigned int*, int*) = 0;
 }
 
 void*	Tests::FindVar(const char* name)

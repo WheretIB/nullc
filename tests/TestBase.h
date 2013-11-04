@@ -37,6 +37,7 @@ struct TestQueue
 			tail = this;
 		}
 	}
+	virtual ~TestQueue(){}
 
 	void RunTests()
 	{
@@ -79,6 +80,8 @@ namespace Tests
 	extern bool doTranslation;
 
 	extern bool	testExecutor[TEST_COUNT];
+
+	extern const void* (NCDECL *fileLoadFunc)(const char*, unsigned int*, int*);
 
 	void*	FindVar(const char* name);
 	bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = 0, bool execShouldFail = false);
@@ -166,6 +169,7 @@ struct Test_##code : TestQueue {	\
 		testsCount[0]++;	\
 		nullcTerminate();	\
 		nullcInit(MODULE_PATH);	\
+		nullcSetFileReadHandler(Tests::fileLoadFunc);	\
 		nullcInitTypeinfoModule();	\
 		nullcInitVectorModule();	\
 		if(Tests::RunCode(code, 0, result, name))	\
@@ -189,6 +193,8 @@ struct Test_##code : TestQueue {	\
 	virtual void Run(){	\
 		for(int t = 0; t < 2; t++)	\
 		{	\
+			if(!Tests::testExecutor[t])	\
+				continue;	\
 			testsCount[t]++;	\
 			if(Tests::RunCode(code, t, result, name, true))	\
 				testsPassed[t]++;	\

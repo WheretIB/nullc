@@ -2,7 +2,7 @@
 
 #include <assert.h>
 
-#if !defined(_DEBUG) && !defined(NULLC_ENABLE_C_TRANSLATION)
+#if !defined(_DEBUG) && !defined(NULLC_ENABLE_C_TRANSLATION) && !defined(NULLC_LLVM_SUPPORT)
 	#define FAILURE_TEST
 #endif
 
@@ -242,6 +242,7 @@ struct Test_testDepthOverflow : TestQueue
 		nullcSetJiTStack(stackMem, stackMem + 32*1024, true);
 		if(Tests::messageVerbose)
 			printf("Call depth test\r\n");
+		if(Tests::testExecutor[1])
 		{
 			testsCount[1]++;
 			nullcSetExecutor(NULLC_X86);
@@ -300,6 +301,7 @@ struct Test_testGlobalOverflow : TestQueue
 		if(Tests::messageVerbose)
 			printf("Global overflow test\r\n");
 		nullcSetJiTStack(stackMem, stackMem + 32*1024, true);
+		if(Tests::testExecutor[1])
 		{
 			testsCount[1]++;
 			nullcSetExecutor(NULLC_X86);
@@ -349,6 +351,7 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 		nullcSetJiTStack((void*)0x20000000, (void*)(0x20000000 + 1024*1024), false);
 		if(Tests::messageVerbose)
 			printf("Depth overflow in unmanaged memory\r\n");
+		if(Tests::testExecutor[1])
 		{
 			testsCount[1]++;
 			nullcSetExecutor(NULLC_X86);
