@@ -240,6 +240,16 @@ namespace NULLC
 		signal(signum, SIG_DFL);
 		raise(signum);
 	}
+
+	int MemProtect(void *addr, unsigned size, int type)
+	{
+		char *alignedAddr = (char*)((intptr_t)((char*)addr + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
+		char *alignedEnd = (char*)((intptr_t)((char*)addr + size + PAGESIZE - 1) & ~(PAGESIZE - 1));
+
+		int result = mprotect(alignedAddr, alignedEnd - alignedAddr, type);
+
+		return result;
+	}
 #endif
 
 	typedef void (*codegenCallback)(VMCmd);
@@ -325,9 +335,7 @@ ExecutorX86::~ExecutorX86()
 		NULLC::alignedDealloc(NULLC::stackBaseAddress);
 	}else if(NULLC::stackEndAddress){
 		// Otherwise, remove page guard, restoring old protection value
-		char *p = (char*)((intptr_t)((char*)NULLC::stackEndAddress + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-		if(mprotect(p - 8192, PAGESIZE, PROT_READ | PROT_WRITE))
-			asm("int $0x3");
+		NULLC::MemProtect((char*)NULLC::stackEndAddress - 8192, PAGESIZE, PROT_READ | PROT_WRITE);
 	}
 #else
 	if(NULLC::stackManaged)
@@ -347,15 +355,9 @@ ExecutorX86::~ExecutorX86()
 	if(binCode)
 		VirtualProtect((void*)binCode, binCodeSize, oldCodeBodyProtect, &unusedProtect);
 #else
-	char *p = (char*)((intptr_t)((char*)codeHead + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-	if(mprotect(p, ((sizeof(codeHead) / sizeof(codeHead[0]) + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE))
-		asm("int $0x3");
+	NULLC::MemProtect((void*)codeHead, sizeof(codeHead), PROT_READ | PROT_WRITE);
 	if(binCode)
-	{
-		p = (char*)((intptr_t)((char*)binCode + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-		if(mprotect(p, ((binCodeReserved + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE))
-			asm("int $0x3");
-	}
+		NULLC::MemProtect((void*)binCode, binCodeSize, PROT_READ | PROT_WRITE);
 #endif
 
 	NULLC::dealloc(binCode);
@@ -532,9 +534,7 @@ bool ExecutorX86::Initialize()
 #ifndef __linux
 	VirtualProtect((void*)codeHead, sizeof(codeHead), PAGE_EXECUTE_READWRITE, (DWORD*)&oldCodeHeadProtect);
 #else
-	char *p = (char*)((intptr_t)((char*)codeHead + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-	if(mprotect(p, ((sizeof(codeHead) / sizeof(codeHead[0]) + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_EXEC))
-		asm("int $0x3");
+	NULLC::MemProtect((void*)codeHead, sizeof(codeHead), PROT_READ | PROT_EXEC);
 #endif
 
 	// Default mode - stack is managed by Executor and starts from 0x20000000
@@ -546,16 +546,12 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 #ifdef __linux
 	if(NULLC::stackManaged && NULLC::stackBaseAddress)
 	{
-		char *p = (char*)((intptr_t)((char*)NULLC::stackEndAddress + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-		if(mprotect(p - 8192, PAGESIZE, PROT_READ | PROT_WRITE))
-			asm("int $0x3");
+		NULLC::MemProtect((char*)NULLC::stackEndAddress - 8192, PAGESIZE, PROT_READ | PROT_WRITE);
 		// If stack is managed by Executor, free memory
 		NULLC::alignedDealloc(NULLC::stackBaseAddress);
 	}else if(NULLC::stackEndAddress){
 		// Otherwise, remove page guard, restoring old protection value
-		char *p = (char*)((intptr_t)((char*)NULLC::stackEndAddress + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-		if(mprotect(p - 8192, PAGESIZE, PROT_READ | PROT_WRITE))
-			asm("int $0x3");
+		NULLC::MemProtect((char*)NULLC::stackEndAddress - 8192, PAGESIZE, PROT_READ | PROT_WRITE);
 	}
 #else
 	// If old memory was allocated here using VirtualAlloc
@@ -588,9 +584,7 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 		}
 		NULLC::stackBaseAddress = paramData;
 		NULLC::stackEndAddress = (char*)paramData + NULLC::stackGrowSize;
-		char *p = (char*)((intptr_t)((char*)NULLC::stackEndAddress + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-		if(mprotect(p - 8192, PAGESIZE, 0))
-			asm("int $0x3");
+		NULLC::MemProtect((char*)NULLC::stackEndAddress - 8192, PAGESIZE, 0);
 #else
 		if(NULL == (paramData = (char*)VirtualAlloc(NULLC::stackBaseAddress, NULLC::stackGrowSize, MEM_RESERVE, PAGE_NOACCESS)))
 		{
@@ -619,9 +613,7 @@ bool ExecutorX86::SetStackPlacement(void* start, void* end, unsigned int flagMem
 			return false;
 		}
 #ifdef __linux
-		char *p = (char*)((intptr_t)((char*)NULLC::stackEndAddress + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-		if(mprotect(p - 8192, PAGESIZE, 0))
-			asm("int $0x3");
+		NULLC::MemProtect((char*)NULLC::stackEndAddress - 8192, PAGESIZE, 0);
 #else
 		VirtualProtect((char*)NULLC::stackEndAddress - 8192, 4096, PAGE_NOACCESS, &NULLC::stackProtect);
 #endif
@@ -1172,14 +1164,8 @@ bool ExecutorX86::TranslateToNative()
 		VirtualProtect((void*)binCodeNew, binCodeReserved, PAGE_EXECUTE_READWRITE, (DWORD*)&oldCodeBodyProtect);
 #else
 		if(binCode)
-		{
-			char *p = (char*)((intptr_t)((char*)binCode + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-			if(mprotect(p, ((oldBinCodeReserved + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE))
-				asm("int $0x3");
-		}
-		char *p = (char*)((intptr_t)((char*)binCodeNew + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-		if(mprotect(p, ((binCodeReserved + PAGESIZE - 1) & ~(PAGESIZE - 1)) + PAGESIZE, PROT_READ | PROT_WRITE | PROT_EXEC))
-			asm("int $0x3");
+			NULLC::MemProtect((void*)binCode, oldBinCodeReserved, PROT_READ | PROT_WRITE);
+		NULLC::MemProtect((void*)binCodeNew, binCodeReserved, PROT_READ | PROT_WRITE | PROT_EXEC);
 #endif
 
 		if(binCodeSize)
