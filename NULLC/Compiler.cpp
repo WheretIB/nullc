@@ -1404,10 +1404,6 @@ bool Compiler::Compile(const char* str, bool noClear)
 		return false;
 	}
 
-#ifdef NULLC_LOG_FILES
-	FILE *fGraph = fopen("graph.txt", "wb");
-#endif
-
 	if(!setjmp(CodeInfo::errorHandler))
 	{
 		// wrap all default function arguments in functions
@@ -1442,9 +1438,6 @@ bool Compiler::Compile(const char* str, bool noClear)
 			}
 		}
 	}else{
-#ifdef NULLC_LOG_FILES
-		fclose(fGraph);
-#endif
 		return false;
 	}
 
@@ -1459,6 +1452,11 @@ bool Compiler::Compile(const char* str, bool noClear)
 	for(unsigned i = 0; i < activeModules.size(); i++)
 		functionsInModules += activeModules[i].funcCount;
 	StartLLVMGeneration(functionsInModules);
+#endif
+
+#ifdef NULLC_LOG_FILES
+	FILE *fGraph = fopen("graph.txt", "wb");
+	StartGraphGeneration();
 #endif
 
 	CodeInfo::cmdList.push_back(VMCmd(cmdJmp));
@@ -1499,6 +1497,7 @@ bool Compiler::Compile(const char* str, bool noClear)
 #endif
 	}
 #ifdef NULLC_LOG_FILES
+	EndGraphGeneration();
 	fclose(fGraph);
 #endif
 #ifdef NULLC_LLVM_SUPPORT
