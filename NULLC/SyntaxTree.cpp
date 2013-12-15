@@ -774,19 +774,19 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	knownAddress = false;
 	addrShift = 0;
 
-	if(first->nodeType == typeNodeGetAddress)
+	if(!arrSetAll && first->nodeType == typeNodeGetAddress)
 	{
 		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
 		addrShift = static_cast<NodeGetAddress*>(first)->varAddress;
 		knownAddress = true;
 	}
 #if !defined(NULLC_ENABLE_C_TRANSLATION) && !defined(NULLC_LLVM_SUPPORT)
-	if(first->nodeType == typeNodeShiftAddress)
+	if(!arrSetAll && first->nodeType == typeNodeShiftAddress)
 	{
 		addrShift += static_cast<NodeShiftAddress*>(first)->memberShift;
 		first = static_cast<NodeShiftAddress*>(first)->first;
 	}
-	if(first->nodeType == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
+	if(!arrSetAll && first->nodeType == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
 		addrShift += static_cast<NodeArrayIndex*>(first)->shiftValue;
 		first = static_cast<NodeArrayIndex*>(first)->first;
@@ -825,14 +825,13 @@ void NodeVariableSet::Compile()
 		cmdList.push_back(VMCmd(cmdPushImmt, 0));
 		cmdList.push_back(VMCmd(cmdNEqual));
 	}
-
-	if(!knownAddress)
-		first->Compile();
+	
 	if(arrSetAll)
 	{
-		assert(knownAddress);
-		cmdList.push_back(VMCmd(cmdPushImmt, elemCount));
-		cmdList.push_back(VMCmd(cmdSetRange, absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)(asmDT), addrShift));
+		assert(addrShift == 0);
+
+		first->Compile();
+		cmdList.push_back(VMCmd(cmdSetRangeStk, 0, (unsigned short)(asmDT), elemCount));
 	}else{
 		if(asmDT == DTYPE_COMPLEX_TYPE && typeInfo->size == 8)
 			asmDT = DTYPE_LONG;
@@ -840,6 +839,7 @@ void NodeVariableSet::Compile()
 		{
 			cmdList.push_back(VMCmd(cmdMovType[asmDT>>2], absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)typeInfo->size, addrShift));
 		}else{
+			first->Compile();
 			cmdList.push_back(VMCmd(cmdMovTypeStk[asmDT>>2], asmST == STYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 		}
 	}

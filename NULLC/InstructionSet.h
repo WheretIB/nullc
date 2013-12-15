@@ -85,8 +85,8 @@ enum InstructionCode
 	// Get function address
 	cmdFuncAddr,
 
-	// Set value to a range of memory. Starting address is given, count pushed before
-	cmdSetRange,
+	// Set value to a range of memory at address. Element count is in the command argument. Starting address is on stack. Value is on stack
+	cmdSetRangeStk,
 
 	// Unconditional jump
 	cmdJmp,
@@ -321,8 +321,8 @@ struct VMCmd
 			curr += sprintf(curr, " %d", argument);
 			break;
 
-		case cmdSetRange:
-			curr += sprintf(curr, " start: %d dtype: %d", argument, helper);
+		case cmdSetRangeStk:
+			curr += sprintf(curr, " element count: %d dtype: %d", argument, helper);
 			break;
 
 		case cmdJmp:
