@@ -565,3 +565,17 @@ auto x = new X;\r\n\
 auto y = new X;\r\n\
 return CheckAlignment(x, 16) + CheckAlignment(y, 16);";
 TEST_RESULT("Alignment of objects in heap 5", testAlignmentHeap5, "2");
+
+const char	*testAlignmentHeap6 =
+"import test.alignment;\r\n\
+align(16) class X{ int x; }\r\n\
+auto x = new X[4];\r\n\
+return CheckAlignment(&x[0], 16) + CheckAlignment(&x[1], 16) + CheckAlignment(&x[2], 16) + CheckAlignment(&x[3], 16);";
+TEST_RESULT("Alignment of objects in heap 6", testAlignmentHeap6, "4");
+
+const char	*testAlignmentHeap7 =
+"import test.alignment;\r\n\
+align(8) class X{ int x; }\r\n\
+auto x = new X[4];\r\n\
+return CheckAlignment(&x[0], 8) + CheckAlignment(&x[1], 8) + CheckAlignment(&x[2], 8) + CheckAlignment(&x[3], 8);";
+TEST_RESULT("Alignment of objects in heap 7", testAlignmentHeap7, "4");
