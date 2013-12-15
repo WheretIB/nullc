@@ -479,6 +479,38 @@ Foo[] y = new Foo[4];\r\n\
 return x == y;";
 TEST_RESULT("Check for bug in GC on an array of empty objects", testEmptyObjectArrayGC, "0");
 
+const char *testGCOnAllocatedArrayPointer =
+"import std.gc;\r\n\
+\r\n\
+int next = 1;\r\n\
+\r\n\
+class Foo\r\n\
+{\r\n\
+	int ref x;\r\n\
+	void Foo(){ x = new int(next++); }\r\n\
+}\r\n\
+\r\n\
+Foo[4] ref a, b;\r\n\
+\r\n\
+auto foo(generic x, generic y, generic z){ a = x; b = z; return y; }\r\n\
+\r\n\
+auto omm()\r\n\
+{\r\n\
+	auto x = new (Foo[4]);\r\n\
+	*x = { Foo(), Foo(), Foo(), Foo() };\r\n\
+	return x;\r\n\
+}\r\n\
+\r\n\
+auto omg(){ GC.CollectMemory(); return 1; }\r\n\
+\r\n\
+foo(omm(), omg(), omm());\r\n\
+\r\n\
+int sum = 0;\r\n\
+for(i in *a, j in *b) sum += *i.x + *j.x;\r\n\
+\r\n\
+return sum;";
+TEST_RESULT("Check for bug in GC with allocating pointers to arrays", testGCOnAllocatedArrayPointer, "36");
+
 #ifndef NULLC_ENABLE_C_TRANSLATION
 
 int RecallerGC1()
