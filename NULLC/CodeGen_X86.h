@@ -120,7 +120,7 @@ void GenCodeCmdCopyI(VMCmd cmd);
 void GenCodeCmdGetAddr(VMCmd cmd);
 void GenCodeCmdFuncAddr(VMCmd cmd);
 
-void GenCodeCmdSetRange(VMCmd cmd);
+void GenCodeCmdSetRangeStk(VMCmd cmd);
 
 void GenCodeCmdJmp(VMCmd cmd);
 void GenCodeCmdJmpZ(VMCmd cmd);
