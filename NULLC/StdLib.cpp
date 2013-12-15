@@ -34,13 +34,17 @@ namespace NULLC
 	{
 		if(marker & NULLC::OBJECT_ARRAY)
 		{
-			unsigned count = *(unsigned*)(base + sizeof(markerType));
-			unsigned size = NULLC::linker->exTypes[(unsigned)marker >> 8].size;
-			NULLCRef r = { (unsigned)marker >> 8, base + sizeof(markerType) + 4 }; // skip over marker and array size
+			ExternTypeInfo &typeInfo = NULLC::linker->exTypes[(unsigned)marker >> 8];
+
+			unsigned arrayPadding = typeInfo.defaultAlign > 4 ? typeInfo.defaultAlign : 4;
+
+			unsigned count = *(unsigned*)(base + sizeof(markerType) + arrayPadding - 4);
+			NULLCRef r = { (unsigned)marker >> 8, base + sizeof(markerType) + arrayPadding }; // skip over marker and array size
+
 			for(unsigned i = 0; i < count; i++)
 			{
 				NULLC::finalizeList.push_back(r);
-				r.ptr += size;
+				r.ptr += typeInfo.size;
 			}
 		}else{
 			NULLCRef r = { (unsigned)marker >> 8, base + sizeof(markerType) }; // skip over marker
@@ -391,21 +395,33 @@ unsigned int NULLC::UsedMemory()
 NULLCArray NULLC::AllocArray(unsigned size, unsigned count, unsigned type)
 {
 	NULLCArray ret;
+
 	ret.len = 0;
 	ret.ptr = NULL;
+
 	if((unsigned long long)size * count > globalMemoryLimit)
 	{
 		nullcThrowError("ERROR: can't allocate array with %u elements of size %u", count, size);
 		return ret;
 	}
-	ret.len = 0;
-	ret.ptr = 4 + (char*)AllocObject(count * size + 4, type);
-	if(!(ret.ptr - 4))
+
+	ExternTypeInfo &typeInfo = NULLC::linker->exTypes[type];
+
+	unsigned arrayPadding = typeInfo.defaultAlign > 4 ? typeInfo.defaultAlign : 4;
+
+	char *ptr = (char*)AllocObject(count * size + arrayPadding, type);
+
+	if(!ptr)
 		return ret;
-	((unsigned*)ret.ptr)[-1] = count;
-	markerType *marker = (markerType*)((char*)ret.ptr - 4 - sizeof(markerType));
-	*marker |= OBJECT_ARRAY;
+
 	ret.len = count;
+	ret.ptr = arrayPadding + ptr;
+
+	((unsigned*)ret.ptr)[-1] = count;
+
+	markerType *marker = (markerType*)(ptr - sizeof(markerType));
+	*marker |= OBJECT_ARRAY;
+
 	return ret;
 }
 
