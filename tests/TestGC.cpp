@@ -468,6 +468,16 @@ auto bar(){ GC.CollectMemory(); return new int[32]; }\r\n\
 return foo(new int(4), new int(6), new int(40), bar());";
 TEST_RESULT("Checking of temporary variable stack in GC test", testStackVariablesGC, "50");
 
+const char *testEmptyObjectArrayGC =
+"import std.gc;\r\n\
+class Foo{}\r\n\
+\r\n\
+Foo[] x = new Foo[4];\r\n\
+GC.CollectMemory();\r\n\
+Foo[] y = new Foo[4];\r\n\
+\r\n\
+return x == y;";
+TEST_RESULT("Check for bug in GC on an array of empty objects", testEmptyObjectArrayGC, "0");
 
 #ifndef NULLC_ENABLE_C_TRANSLATION
 

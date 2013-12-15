@@ -409,7 +409,12 @@ NULLCArray NULLC::AllocArray(unsigned size, unsigned count, unsigned type)
 
 	unsigned arrayPadding = typeInfo.defaultAlign > 4 ? typeInfo.defaultAlign : 4;
 
-	char *ptr = (char*)AllocObject(count * size + arrayPadding, type);
+	unsigned bytes = count * size;
+	
+	if(bytes == 0)
+		bytes += 4;
+
+	char *ptr = (char*)AllocObject(bytes + arrayPadding, type);
 
 	if(!ptr)
 		return ret;
