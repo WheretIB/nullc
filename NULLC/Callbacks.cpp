@@ -3045,18 +3045,24 @@ void CallAllocationFunction(const char* pos, const char* name)
 	FunctionInfo *func = curr->value;
 	CodeInfo::nodeList.push_back(new NodeFuncCall(func, func->funcType->funcType));
 }
+
 void AddTypeAllocation(const char* pos, bool arrayType)
 {
-	if(currType == typeVoid)
-		ThrowError(pos, "ERROR: cannot allocate space for void type");
+	TypeInfo *elementType = arrayType ? currType->subType : currType;
+
+	if(elementType == typeVoid)
+		ThrowError(pos, "ERROR: cannot allocate void objects");
+
 	CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
-	CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, (currType->arrLevel ? currType->subType : currType)->typeIndex));
+	CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, elementType->typeIndex));
+
 	if(!arrayType)
 	{
 		CallAllocationFunction(pos, "__newS");
 		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(currType);
 	}else{
 		assert(currType->arrSize == TypeInfo::UNSIZED_ARRAY);
+
 		CallAllocationFunction(pos, "__newA");
 		CodeInfo::nodeList.back()->typeInfo = currType;
 	}
