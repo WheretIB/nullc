@@ -1438,7 +1438,7 @@ NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 
 	if((first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject) || first->typeInfo->type == TypeInfo::TYPE_VOID)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s' and function for conversion to bool is undefined", first->typeInfo->GetFullTypeName());
-	// If it is a conditional operator, the there is a resulting type different than void
+	// If it is a conditional operator, then there is a resulting type different than void
 	if(isTerm)
 		typeInfo = second->typeInfo != third->typeInfo ? ChooseBinaryOpResultType(second->typeInfo, third->typeInfo) : second->typeInfo;
 
