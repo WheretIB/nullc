@@ -777,6 +777,8 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("__function type", "__function x; x = 1024; return 1;", "ERROR: cannot convert 'int' to '__function'");
 
+	TEST_FOR_FAIL("invalid index type", "int[nullptr] x;", "ERROR: invalid value type for array size: 'void ref'");
+
 	TEST_FOR_FAIL("fuzzy test 1", "typedef auto Foo;", "ERROR: typename expected after typedef");
 	TEST_FOR_FAIL("fuzzy test 2", "\"test\"[];", "ERROR: can't find function '[]' with following parameters:");
 	TEST_FOR_FAIL("fuzzy test 3", "auto[sizeof(4)];", "ERROR: cannot specify array size for auto variable");
