@@ -779,6 +779,8 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("invalid index type", "int[nullptr] x;", "ERROR: invalid value type for array size: 'void ref'");
 
+	TEST_FOR_FAIL("invalid allocation count type", "void foo(){} auto x = new int[foo];", "ERROR: cannot convert 'void ref()' to 'int'");
+
 	TEST_FOR_FAIL("fuzzy test 1", "typedef auto Foo;", "ERROR: typename expected after typedef");
 	TEST_FOR_FAIL("fuzzy test 2", "\"test\"[];", "ERROR: can't find function '[]' with following parameters:");
 	TEST_FOR_FAIL("fuzzy test 3", "auto[sizeof(4)];", "ERROR: cannot specify array size for auto variable");
