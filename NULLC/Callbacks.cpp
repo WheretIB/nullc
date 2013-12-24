@@ -3053,6 +3053,15 @@ void AddTypeAllocation(const char* pos, bool arrayType)
 	if(elementType == typeVoid)
 		ThrowError(pos, "ERROR: cannot allocate void objects");
 
+	// Count must be a number
+	if(arrayType)
+	{
+		TypeInfo *countType = CodeInfo::nodeList.back()->typeInfo;
+
+		if(countType->type == TypeInfo::TYPE_COMPLEX || countType->type == TypeInfo::TYPE_VOID)
+			ThrowError(pos, "ERROR: cannot convert '%s' to 'int'", countType->GetFullTypeName());
+	}
+
 	CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
 	CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, elementType->typeIndex));
 
