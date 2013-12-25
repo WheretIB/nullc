@@ -1205,39 +1205,44 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		case cmdFuncAddr:
 			break;
 
-		case cmdSetRange:
+		case cmdSetRangeStk:
 		{
-			unsigned int count = *genStackPtr;
-			genStackPtr++;
+			unsigned int count = cmd.argument;
 
-			unsigned int start = cmd.argument + paramBase;
+#ifdef _M_X64
+			char *start =  *(char**)(genStackPtr);
+			genStackPtr += 2;
+#else
+			char *start = *(char**)(genStackPtr);
+			genStackPtr++;
+#endif
 
 			for(unsigned int varNum = 0; varNum < count; varNum++)
 			{
 				switch(cmd.helper)
 				{
 				case DTYPE_DOUBLE:
-					*((double*)(&genParams[start])) = *(double*)(genStackPtr);
+					*((double*)start) = *(double*)(genStackPtr);
 					start += 8;
 					break;
 				case DTYPE_FLOAT:
-					*((float*)(&genParams[start])) = float(*(double*)(genStackPtr));
+					*((float*)start) = float(*(double*)(genStackPtr));
 					start += 4;
 					break;
 				case DTYPE_LONG:
-					vmStoreInt64(&genParams[start], *(long long*)(genStackPtr));
+					vmStoreInt64(start, *(long long*)(genStackPtr));
 					start += 8;
 					break;
 				case DTYPE_INT:
-					*((int*)(&genParams[start])) = int(*genStackPtr);
+					*((int*)start) = int(*genStackPtr);
 					start += 4;
 					break;
 				case DTYPE_SHORT:
-					*((short*)(&genParams[start])) = short(*genStackPtr);
+					*((short*)start) = short(*genStackPtr);
 					start += 2;
 					break;
 				case DTYPE_CHAR:
-					*((char*)(&genParams[start])) = char(*genStackPtr);
+					*start = char(*genStackPtr);
 					start += 1;
 					break;
 				}

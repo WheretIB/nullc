@@ -464,7 +464,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 			{
 				if(!ParseVaribleSet(str))
 					ThrowError((*str)->pos, "ERROR: expression not found after typeof(");
-				SetTypeOfLastNode();
+				SetTypeOfLastNode((*str)->pos);
 			}else{
 				// Node count shouldn't change while we did this
 				if(!FunctionGeneric(false) || nodeCount != CodeInfo::nodeList.size())
@@ -481,7 +481,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 		}else{
 			// If there was a node pushed during type selection because of extended typeof expressions, get its type
 			if(CodeInfo::nodeList.size() == nodeCount + 1)
-				SetTypeOfLastNode();
+				SetTypeOfLastNode((*str)->pos);
 		}
 		if(!ParseLexem(str, lex_cparen))
 			ThrowError((*str)->pos, "ERROR: ')' not found after expression in typeof");
@@ -1211,7 +1211,12 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 	bool genericArg = false;
 	Lexeme *currPos = *str;
 	if(!ParseSelectType(str, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | DISALLOW_EXPLICIT))
+	{
+		if(explicitType)
+			ThrowError((*str)->pos, "ERROR: type name not found after 'explicit' specifier");
+
 		return true;
+	}
 
 	genericArg = GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
 	if(genericArg)
@@ -1231,6 +1236,7 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 		ThrowError((*str)->pos, "ERROR: parameter name length is limited to 2048 symbols");
+
 	FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length));
 	(*str)++;
 	
@@ -1264,27 +1270,32 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		if(!ParseSelectType(str, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | DISALLOW_EXPLICIT))
 		{
 			if(explicitType)
-				ThrowError((*str)->pos, "ERROR: type name not found after 'explicit' specifier"); // TODO: check all of them
+				ThrowError((*str)->pos, "ERROR: type name not found after 'explicit' specifier");
 
 			explicitType = lastExplicit;
 			genericArg = lastGeneric; // if there is no type and no generic, then this parameter is as generic as the last one
 			currPos = currPosPrev;
 		}
+
 		genericArg |= GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
 		if(genericArg)
 			FunctionGeneric(true);
+
 		if(genericArg && nodeOffset)
 		{
 			TypeInfo *curr = GetSelectedType();
 			SelectTypeForGeneric(currPos, nodeOffset - 1 + argID);
+
 			if(curr->refLevel && !GetSelectedType()->refLevel)
 				SelectTypeByPointer(CodeInfo::GetReferenceType(GetSelectedType()));
 		}
 
 		if((*str)->type != lex_string)
 			ThrowError((*str)->pos, "ERROR: variable name not found after type in function variable list");
+
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 			ThrowError((*str)->pos, "ERROR: parameter name length is limited to 2048 symbols");
+
 		FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length));
 		(*str)++;
 
@@ -1294,8 +1305,10 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		if(ParseLexem(str, lex_set))
 		{
 			FunctionPrepareDefault();
+
 			if(!ParseTernaryExpr(str))
 				ThrowError((*str)->pos, "ERROR: default parameter value not found after '='");
+
 			FunctionParameterDefault((*str)->pos);
 		}
 	}
@@ -2396,23 +2409,18 @@ bool ParseTerminal(Lexeme** str)
 		return true;
 		break;
 	case lex_add:
-		while(ParseLexem(str, lex_add));
+		(*str)++;
 		if(!ParseTerminal(str))
 			ThrowError((*str)->pos, "ERROR: expression not found after '+'");
 		AddPositiveNode((*str)->pos);
 		return true;
 		break;
 	case lex_sub:
-	{
-		int negCount = 0;
-		while(ParseLexem(str, lex_sub))
-			negCount++;
+		(*str)++;
 		if(!ParseTerminal(str))
 			ThrowError((*str)->pos, "ERROR: expression not found after '-'");
-		if(negCount % 2 == 1)
-			AddNegateNode((*str)->pos);
+		AddNegateNode((*str)->pos);
 		return true;
-	}
 		break;
 	case lex_semiquotedchar:
 		if((*str)->length == 1 || (*str)->pos[(*str)->length - 1] != '\'')
@@ -2606,6 +2614,9 @@ bool ParseTerminal(Lexeme** str)
 		{
 			if(ParseFunctionDefinition(str, isCoroutine))
 				return true;
+			else if(isCoroutine)
+				ThrowError((*str)->pos, "ERROR: '(' expected after function name");
+
 			if(ParseLexem(str, lex_oparen))
 			{
 				TypeInfo *currType = GetSelectedType();
@@ -2624,6 +2635,9 @@ bool ParseTerminal(Lexeme** str)
 			if(nodeCount == CodeInfo::nodeList.size())
 				GetTypeId((*str)->pos);
 			return true;
+		}else{
+			if(isCoroutine)
+				ThrowError((*str)->pos, "ERROR: function return type not found after 'coroutine'");
 		}
 	}
 		break;

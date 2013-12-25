@@ -466,3 +466,9 @@ for(i in arr[0], j in arr[1]){ if(i != j) return 0; }\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("Implicit reset of a coroutine returning void", textCoroutineImplicitReset, "1");
+
+const char	*textCoroutineArrayInit =
+"auto f = coroutine auto() { int[4] x = 1; yield x[0]; yield x[1]; yield x[2]; yield x[3]; };\r\n\
+\r\n\
+return f() + f() + f() + f();";
+TEST_RESULT("Array initialization inside a coroutine", textCoroutineArrayInit, "4");

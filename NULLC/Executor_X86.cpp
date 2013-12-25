@@ -428,7 +428,7 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdGetAddr] = GenCodeCmdGetAddr;
 	cgFuncs[cmdFuncAddr] = GenCodeCmdFuncAddr;
 
-	cgFuncs[cmdSetRange] = GenCodeCmdSetRange;
+	cgFuncs[cmdSetRangeStk] = GenCodeCmdSetRangeStk;
 
 	cgFuncs[cmdJmp] = GenCodeCmdJmp;
 

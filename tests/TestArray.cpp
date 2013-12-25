@@ -237,3 +237,20 @@ bar();\r\n\
 \r\n\
 return (a[0] == 'h');";
 TEST_RESULT("Creation of temporary array on heap 3", testTemporaryHeapArray3, "1");
+
+const char	*testArrayInit = 
+"char[4] x1 = 1;\r\n\
+int y1;\r\n\
+short[4] x2 = 2;\r\n\
+int y2;\r\n\
+int[4] x3 = 3;\r\n\
+int y3;\r\n\
+long[4] x4 = 4;\r\n\
+int y4;\r\n\
+float[4] x5 = 5;\r\n\
+int y5;\r\n\
+double[4] x6 = 6;\r\n\
+int y6;\r\n\
+\r\n\
+return 91 == (x1[0] * x1[3] + y1 + x2[0] * x2[3] + y2 + x3[0] * x3[3] + y3 + x4[0] * x4[3] + y4 + x5[0] * x5[3] + y5 + x6[0] * x6[3] + y6);";
+TEST_RESULT("Array initialization test", testArrayInit, "1");

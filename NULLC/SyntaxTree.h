@@ -30,6 +30,11 @@ void		StartGlobalCode();
 #define COMPILE_LLVM(x)
 #endif
 
+#ifdef NULLC_LOG_FILES
+void	StartGraphGeneration();
+void	EndGraphGeneration();
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 enum NodeType
 {

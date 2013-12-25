@@ -1824,22 +1824,20 @@ void GenCodeCmdGetAddr(VMCmd cmd)
 void GenCodeCmdFuncAddr(VMCmd cmd)
 {
 	(void)cmd;
-	assert(!"Unknown command cmdLogOr");
+	assert(!"Unknown command cmdFuncAddr");
 }
 
-void GenCodeCmdSetRange(VMCmd cmd)
+void GenCodeCmdSetRangeStk(VMCmd cmd)
 {
-	unsigned int elCount = x86Op[-1].argA.num;
-
 	EMIT_COMMENT("SETRANGE");
-
-	EMIT_OP_REG(o_pop, rEBX);
+	
 	unsigned int typeSizeD[] = { 1, 2, 4, 8, 4, 8 };
+	unsigned int typeSize = typeSizeD[(cmd.helper >> 2) & 0x00000007];
 
 	// start address
-	EMIT_OP_REG_RPTR(o_lea, rEBX, sNONE, rEBP, paramBase + cmd.argument);
+	EMIT_OP_REG(o_pop, rEBX);
 	// end address
-	EMIT_OP_REG_RPTR(o_lea, rECX, sNONE, rEBP, paramBase + cmd.argument + (elCount - 1) * typeSizeD[(cmd.helper>>2)&0x00000007]);
+	EMIT_OP_REG_RPTR(o_lea, rECX, sNONE, rEBX, cmd.argument * typeSize);
 	if(cmd.helper == DTYPE_FLOAT)
 	{
 		EMIT_OP_RPTR(o_fld, sQWORD, rESP, 0);
@@ -1849,7 +1847,7 @@ void GenCodeCmdSetRange(VMCmd cmd)
 	}
 	EMIT_LABEL(aluLabels);
 	EMIT_OP_REG_REG(o_cmp, rEBX, rECX);
-	EMIT_OP_LABEL(o_jg, aluLabels + 1);
+	EMIT_OP_LABEL(o_je, aluLabels + 1);
 
 	switch(cmd.helper)
 	{
@@ -1871,7 +1869,7 @@ void GenCodeCmdSetRange(VMCmd cmd)
 		EMIT_OP_RPTR_REG(o_mov, sBYTE, rEBX, 0, rEAX);
 		break;
 	}
-	EMIT_OP_REG_NUM(o_add, rEBX, typeSizeD[(cmd.helper>>2)&0x00000007]);
+	EMIT_OP_REG_NUM(o_add, rEBX, typeSize);
 	EMIT_OP_LABEL(o_jmp, aluLabels);
 	EMIT_LABEL(aluLabels + 1);
 	if(cmd.helper == DTYPE_FLOAT)
@@ -1879,13 +1877,11 @@ void GenCodeCmdSetRange(VMCmd cmd)
 	aluLabels += 2;
 }
 
-
 void GenCodeCmdJmp(VMCmd cmd)
 {
 	EMIT_COMMENT("JMP");
 	EMIT_OP_LABEL(o_jmp, LABEL_GLOBAL | JUMP_NEAR | cmd.argument, true, true);
 }
-
 
 void GenCodeCmdJmpZ(VMCmd cmd)
 {

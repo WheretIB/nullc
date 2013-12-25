@@ -47,14 +47,14 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 		{
 			TypeInfo *aType = nodeList.back()->typeInfo;
 			NodeZeroOP* zOP = nodeList.back();
-			if(aType->type != TypeInfo::TYPE_COMPLEX && aType->type != TypeInfo::TYPE_VOID)
+			if(aType->type != TypeInfo::TYPE_COMPLEX && aType->type != TypeInfo::TYPE_VOID && aType->refLevel == 0)
 			{
 				arrSize = static_cast<NodeNumber*>(zOP)->GetInteger();
 			}else if(aType == typeVoid){	// If number type is void, then array with explicit type must be created
 				arrSize = -1;
 				unFixed = true;
 			}else{
-				ThrowError(lastKnownStartPos, "ERROR: unknown type of constant number node '%s'", aType->name);
+				ThrowError(lastKnownStartPos, "ERROR: invalid value type for array size: '%s'", aType->GetFullTypeName());
 			}
 			nodeList.pop_back();
 		}else{

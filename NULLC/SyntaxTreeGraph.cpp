@@ -1,35 +1,71 @@
 #include "SyntaxTree.h"
 
-int	level = 0;
-char	linePrefix[256];
-unsigned int prefixSize = 2;
+namespace
+{
+	const unsigned prefixLimit = 512;
+	char	linePrefix[prefixLimit];
 
-bool preNeedChange = false;
+	int	level = 0;
+	unsigned int prefixSize = 2;
+
+	bool preNeedChange = false;
+}
+
+void StartGraphGeneration()
+{
+	memset(linePrefix, 0, prefixLimit);
+	level = 0;
+	prefixSize = 2;
+	preNeedChange = false;
+}
+
+void RemovePrefix(unsigned length)
+{
+	prefixSize -= length;
+
+	if(prefixSize < prefixLimit + 1)
+		linePrefix[prefixSize] = 0;
+}
+
+void AddPrefix(const char *str)
+{
+	unsigned length = unsigned(strlen(str));
+	for(unsigned i = 0; i < length; i++)
+	{
+		if(prefixSize < prefixLimit + 1)
+			linePrefix[prefixSize++] = str[i];
+	}
+}
+
 void GoDown()
 {
-	if(prefixSize >= 256 || prefixSize < 2)
-		return;
 	level++;
-	prefixSize -= 2;
-	linePrefix[prefixSize] = 0;
-	sprintf(linePrefix + prefixSize, "  |__");
-	prefixSize += 5;
+
+	RemovePrefix(2);
+	AddPrefix("  |__");
 }
+
 void GoDownB()
 {
 	GoDown();
 	preNeedChange = true;
 }
+
 void GoUp()
 {
-	if(prefixSize >= 256 || prefixSize < 5)
+	if(level == 0)
 		return;
+
 	level--;
-	prefixSize -= 5;
-	linePrefix[prefixSize] = 0;
-	sprintf(linePrefix + prefixSize, "__");
-	prefixSize += 2;
+
+	RemovePrefix(5);
+	AddPrefix("__");
 }
+
+void EndGraphGeneration()
+{
+}
+
 void DrawLine(FILE *fGraph)
 {
 	fprintf(fGraph, "%s", linePrefix);
@@ -37,12 +73,11 @@ void DrawLine(FILE *fGraph)
 	{
 		preNeedChange = false;
 		GoUp();
+
 		level++;
 
-		prefixSize -= 2;
-		linePrefix[prefixSize] = 0;
-		sprintf(linePrefix + prefixSize, "   __");
-		prefixSize += 5;
+		RemovePrefix(2);
+		AddPrefix("   __");
 	}
 }
 
@@ -103,8 +138,14 @@ void NodeNumber::LogToStream(FILE *fGraph)
 	DrawLine(fGraph);
 	if(typeInfo == typeInt)
 		fprintf(fGraph, "%d\r\n", num.integer);
-	if(typeInfo == typeFloat || typeInfo == typeDouble)
+	else if(typeInfo == typeFloat || typeInfo == typeDouble)
 		fprintf(fGraph, "%f\r\n", num.real);
+	else if(typeInfo == typeLong)
+		fprintf(fGraph, "%lld\r\n", num.integer64);
+	else if(typeInfo->refLevel)
+		fprintf(fGraph, "0x%08x\r\n", num.integer);
+	else
+		fprintf(fGraph, "int(%d) or double(%f) or long(%lld)\r\n", num.integer, num.real, num.integer64);
 	GoUp();
 }
 
