@@ -51,6 +51,9 @@ inline int optDoSpecial<>(CmdID cmd, int a, int b)
 	}
 	if(cmd == cmdPow)
 	{
+		if(b < 0)
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: negative power on integer number in exponentiation during constant folding");
+
 		int result = 1;
 		int power = (int)b;
 		while(power)

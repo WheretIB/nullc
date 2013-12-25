@@ -535,3 +535,45 @@ TEST_RESULT("Compile-time function evaluation bug 2", testCompileTimeFunctionEva
 
 const char	*testTernaryExpressionCommonTypeResolve = "int x; return typeof(x < 1 ? 2 : 3.0) == double && int(x < 1 ? 2 : 3.0) == 2;";
 TEST_RESULT("Ternary expression common type resolve when different types are placed in true and false parts", testTernaryExpressionCommonTypeResolve, "1");
+
+const char	*testExponentiationCornerCasesInt1 =
+"auto x1 = 1, y1 = -1;\r\n\
+auto x2 = 1, y2 = -127;\r\n\
+auto x3 = 4, y3 = -1;\r\n\
+auto x4 = 4, y4 = -5;\r\n\
+auto x5 = 4, y5 = -127;\r\n\
+auto x6 = 0, y6 = -3;\r\n\
+\r\n\
+return ((x1 ** y1) == 1) + ((x2 ** y2) == 1) * 10 + ((x3 ** y3) == 0) * 100 + ((x4 ** y4) == 0) * 1000 + ((x5 ** y5) == 0) * 10000 + ((x6 ** y6) == 0) * 100000;";
+TEST_RESULT("Exponentiation corner cases 1 (int)", testExponentiationCornerCasesInt1, "111111");
+
+const char	*testExponentiationCornerCasesInt2 =
+"auto x1 = -1, y1 = -1;\r\n\
+auto x2 = -1, y2 = -126;\r\n\
+auto x3 = -4, y3 = -1;\r\n\
+auto x4 = -4, y4 = -5;\r\n\
+auto x5 = -4, y5 = -126;\r\n\
+\r\n\
+return ((x1 ** y1) == -1) + ((x2 ** y2) == 1) * 10 + ((x3 ** y3) == 0) * 100 + ((x4 ** y4) == 0) * 1000 + ((x5 ** y5) == 0) * 10000;";
+TEST_RESULT("Exponentiation corner cases 2 (int)", testExponentiationCornerCasesInt2, "11111");
+
+const char	*testExponentiationCornerCasesLong1 =
+"auto x1 = 1l, y1 = -1l;\r\n\
+auto x2 = 1l, y2 = -127l;\r\n\
+auto x3 = 4l, y3 = -1l;\r\n\
+auto x4 = 4l, y4 = -5l;\r\n\
+auto x5 = 4l, y5 = -127l;\r\n\
+auto x6 = 0, y6 = -3;\r\n\
+\r\n\
+return ((x1 ** y1) == 1) + ((x2 ** y2) == 1) * 10 + ((x3 ** y3) == 0) * 100 + ((x4 ** y4) == 0) * 1000 + ((x5 ** y5) == 0) * 10000 + ((x6 ** y6) == 0) * 100000;";
+TEST_RESULT("Exponentiation corner cases 1 (long)", testExponentiationCornerCasesLong1, "111111");
+
+const char	*testExponentiationCornerCasesLong2 =
+"auto x1 = -1l, y1 = -1l;\r\n\
+auto x2 = -1l, y2 = -126l;\r\n\
+auto x3 = -4l, y3 = -1l;\r\n\
+auto x4 = -4l, y4 = -5l;\r\n\
+auto x5 = -4l, y5 = -126l;\r\n\
+\r\n\
+return ((x1 ** y1) == -1) + ((x2 ** y2) == 1) * 10 + ((x3 ** y3) == 0) * 100 + ((x4 ** y4) == 0) * 1000 + ((x5 ** y5) == 0) * 10000;";
+TEST_RESULT("Exponentiation corner cases 2 (long)", testExponentiationCornerCasesLong2, "11111");

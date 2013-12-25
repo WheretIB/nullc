@@ -804,6 +804,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzy test 2", "\"test\"[];", "ERROR: can't find function '[]' with following parameters:");
 	TEST_FOR_FAIL("fuzzy test 3", "auto[sizeof(4)];", "ERROR: cannot specify array size for auto variable");
 	TEST_FOR_FAIL("fuzzy test 4", "yield 1;", "ERROR: global yield is not allowed");
+	TEST_FOR_FAIL("fuzzy test 5", "5 ** -5;", "ERROR: negative power on integer number in exponentiation during constant folding");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
