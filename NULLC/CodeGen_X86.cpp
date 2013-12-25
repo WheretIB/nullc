@@ -2383,11 +2383,7 @@ void GenCodeCmdPow(VMCmd cmd)
 	NULLC::InvalidateDependand(rEDX);
 #endif
 	EMIT_OP_REG_NUM(o_add, rESP, 8);
-#ifdef __linux
 	EMIT_OP_REG(o_push, rEAX);
-#else
-	EMIT_OP_REG(o_push, rEDX);
-#endif
 }
 
 void GenCodeCmdMod(VMCmd cmd)

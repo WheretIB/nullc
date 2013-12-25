@@ -3,10 +3,12 @@
 #ifdef NULLC_BUILD_X86_JIT
 // Implementations of some functions, called from user binary code
 
-#ifdef __linux
 int intPow(int power, int number)
 {
 	// http://en.wikipedia.org/wiki/Exponentiation_by_squaring
+	if(power < 0)
+		return number == 1 ? 1 : 0;
+
 	int result = 1;
 	while(power)
 	{
@@ -20,38 +22,6 @@ int intPow(int power, int number)
 	}
 	return result;
 }
-
-#else
-
-__declspec(naked) void intPow()
-{
-	// http://en.wikipedia.org/wiki/Exponentiation_by_squaring
-	//eax is the power
-	//ebx is the number
-	__asm
-	{
-		push ebx ;
-		mov eax, [esp+8] ;
-		mov ebx, [esp+12] ;
-		mov edx, 1 ; //edx is the result
-		whileStart: ; 
-		cmp eax, 0 ; //while(power)
-		jz whileEnd ;
-		  test eax, 1 ; // if(power & 1)
-		  je skipIf ;
-			imul edx, ebx ; // result *= number
-			sub eax, 1 ; //power--;
-		  skipIf: ;
-			imul ebx, ebx ; // number *= number
-			shr eax, 1 ; //power /= 2
-		  jmp whileStart ;
-		whileEnd: ;
-		pop ebx ;
-		ret ;
-	}
-}
-
-#endif
 
 double doublePow(double a, double b)
 {
