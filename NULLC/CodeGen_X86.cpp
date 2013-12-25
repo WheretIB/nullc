@@ -17,18 +17,9 @@ namespace NULLC
 
 	unsigned int	lastInvalidate = 0;
 
-	x86Argument		reg[9];
-	unsigned int	regUpdate[9];
-	bool			regRead[9];
-
-	x86Reg			regPool[] = { rEAX, rEBX, rECX, rEDX, rESI };
-	unsigned int	regPoolPos = 0;
-	x86Reg	AllocateRegister()
-	{
-		if(regPoolPos == 5)
-			regPoolPos = 0;
-		return regPool[regPoolPos++];
-	}
+	x86Argument		reg[9];			// Holds current register value
+	unsigned int	regUpdate[9];	// Marks the last instruction that wrote to the register
+	bool			regRead[9];		// Marks if there was a read from the register after last write
 
 	struct MemCache
 	{
@@ -146,8 +137,11 @@ unsigned int GetOptimizationCount()
 }
 
 #ifdef NULLC_OPTIMIZE_X86
+
+// Function is called to signal that the register value will no longer be used
 void KILL_REG_IMPL(x86Reg reg)
 {
+	// Eliminate dead stores to the register
 	if(!NULLC::regRead[reg] && NULLC::reg[reg].type != x86Argument::argNone)
 	{
 		x86Instruction *curr = NULLC::regUpdate[reg] + x86Base;
@@ -156,12 +150,18 @@ void KILL_REG_IMPL(x86Reg reg)
 			curr->name = o_none;
 			optiCount++;
 		}
-		NULLC::reg[reg].type = x86Argument::argNone;
 	}
+
+	// Invalidate the register value
+	NULLC::reg[reg].type = x86Argument::argNone;
 }
+
 #define KILL_REG(reg)	KILL_REG_IMPL(reg)
+
 #else
+
 #define KILL_REG(reg)
+
 #endif
 
 #ifdef NULLC_LOG_FILES
