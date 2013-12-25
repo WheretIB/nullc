@@ -24,6 +24,9 @@
 
 int vmIntPow(int power, int number)
 {
+	if(power < 0)
+		return number == 1 ? 1 : (number == -1 ? (power & 1 ? -1 : 1) : 0);
+
 	int result = 1;
 	while(power)
 	{
@@ -38,29 +41,23 @@ int vmIntPow(int power, int number)
 	return result;
 }
 
-long long vmLongPow(long long num, long long pow)
+long long vmLongPow(long long power, long long number)
 {
-	if(pow < 0)
-		return (num == 1 ? 1 : 0);
-	if(pow == 0)
-		return 1;
-	if(pow == 1)
-		return num;
-	if(pow > 64)
-		return num;
-	long long res = 1;
-	int power = (int)pow;
+	if(power < 0)
+		return number == 1 ? 1 : (number == -1 ? (power & 1 ? -1 : 1) : 0);
+
+	long long result = 1;
 	while(power)
 	{
-		if(power & 0x01)
+		if(power & 1)
 		{
-			res *= num;
+			result *= number;
 			power--;
 		}
-		num *= num;
+		number *= number;
 		power >>= 1;
 	}
-	return res;
+	return result;
 }
 
 #if defined(__arm__)
@@ -1533,7 +1530,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			genStackPtr += 2;
 			break;
 		case cmdPowL:
-			*(long long*)(genStackPtr+2) = vmLongPow(*(long long*)(genStackPtr+2), *(long long*)(genStackPtr));
+			*(long long*)(genStackPtr+2) = vmLongPow(*(long long*)(genStackPtr), *(long long*)(genStackPtr+2));
 			genStackPtr += 2;
 			break;
 		case cmdModL:
