@@ -272,4 +272,7 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "int foo(explicit){ return 4; }", "ERROR: type name not found after 'explicit' specifier");
 	TEST_FOR_FAIL("parsing", "int foo(explicit a){ return 4; }", "ERROR: type name not found after 'explicit' specifier");
 	TEST_FOR_FAIL("parsing", "int foo(explicit int a, explicit b){ return 4; }", "ERROR: type name not found after 'explicit' specifier");
+
+	TEST_FOR_FAIL("parsing", "int y; auto x = coroutine y;", "ERROR: function return type not found after 'coroutine'");
+	TEST_FOR_FAIL("parsing", "int y; auto x = coroutine int y;", "ERROR: '(' expected after function name");
 }

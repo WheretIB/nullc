@@ -2614,6 +2614,9 @@ bool ParseTerminal(Lexeme** str)
 		{
 			if(ParseFunctionDefinition(str, isCoroutine))
 				return true;
+			else if(isCoroutine)
+				ThrowError((*str)->pos, "ERROR: '(' expected after function name");
+
 			if(ParseLexem(str, lex_oparen))
 			{
 				TypeInfo *currType = GetSelectedType();
@@ -2632,6 +2635,9 @@ bool ParseTerminal(Lexeme** str)
 			if(nodeCount == CodeInfo::nodeList.size())
 				GetTypeId((*str)->pos);
 			return true;
+		}else{
+			if(isCoroutine)
+				ThrowError((*str)->pos, "ERROR: function return type not found after 'coroutine'");
 		}
 	}
 		break;
