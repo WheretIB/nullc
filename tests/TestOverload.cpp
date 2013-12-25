@@ -52,7 +52,14 @@ arr[1] = !arr[1];\r\n\
 arr[2] = +arr[2];\r\n\
 arr[3] = -arr[3];\r\n\
 return arr[0]*arr[1]*arr[2]*arr[3];";
-TEST_RESULT("Unary operator overloading", testUnaryOverloads, "-2784600");
+TEST_RESULT("Unary operator overloading 1", testUnaryOverloads, "-2784600");
+
+const char	*testUnaryOverloads2 =
+"class Foo{ int x; void Foo(int x){ this.x = x; } }\r\n\
+int operator-(Foo x){ return -x.x; }\r\n\
+Foo operator+(Foo x){ return Foo(x.x + 1); }\r\n\
+return - - + +Foo(5);";
+TEST_RESULT("Unary operator overloading 2", testUnaryOverloads2, "7");
 
 const char	*testArrayIndexOverloadPointers =
 "auto arr = { 100, 200, 300, 400 };\r\n\
