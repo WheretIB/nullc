@@ -327,6 +327,7 @@ void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred = NULL);
 void HandlePointerToObject(const char* pos, TypeInfo *dstType);
 void ConvertDerivedToBase(const char* pos, TypeInfo *dstType);
 void ConvertBaseToDerived(const char* pos, TypeInfo *dstType);
+unsigned PrintArgumentName(NodeZeroOP* activeNode, char* pos, unsigned limit);
 void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorReport, char* errPos, const char* funcName, unsigned callArgCount, unsigned count);
 void RestoreNamespaces(bool undo, NamespaceInfo *parent, unsigned& prevBackupSize, unsigned& prevStackSize, NamespaceInfo*& lastNS);
 
@@ -658,6 +659,19 @@ void CheckCollisionWithFunction(const char* pos, InplaceStr varName, unsigned ha
 		if(curr->value->visible && curr->value->vTopSize == scope)
 			ThrowError(pos, "ERROR: name '%.*s' is already taken for a function", varName.length(), varName.begin);
 		curr = funcMap.next(curr);
+	}
+}
+
+void CheckForFunctionProxy(const char* pos, NodeZeroOP *node)
+{
+	if(node->nodeType == typeNodeFunctionProxy)
+	{
+		char	*errPos = errorReport;
+		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, the expression is an overloaded function. Could be ");
+		errPos += PrintArgumentName(CodeInfo::nodeList.back(), errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport));
+		ThrowError(pos, errorReport);
+	}else if(node->nodeType == typeNodeExpressionList && ((NodeExpressionList*)node)->GetFirstNode()->nodeType == typeNodeFunctionProxy){
+		ThrowError(pos, "ERROR: ambiguity, the expression is a generic function");
 	}
 }
 
@@ -1114,7 +1128,12 @@ void AddBinaryCommandNode(const char* pos, CmdID id)
 	}
 	// Optimizations failed, perform operation in run-time
 	if(!AddFunctionCallNode(CodeInfo::lastKnownStartPos, opNames[id - cmdAdd], 2, true))
+	{
+		CheckForFunctionProxy(pos, CodeInfo::nodeList[CodeInfo::nodeList.size() - 1]);
+		CheckForFunctionProxy(pos, CodeInfo::nodeList[CodeInfo::nodeList.size() - 2]);
+
 		CodeInfo::nodeList.push_back(new NodeBinaryOp(id));
+	}
 }
 
 void AddReturnNode(const char* pos, bool yield)
@@ -1382,6 +1401,8 @@ void GetTypeSize(const char* pos, bool sizeOfExpr)
 	
 	if(sizeOfExpr)
 	{
+		CheckForFunctionProxy(pos, CodeInfo::nodeList.back());
+
 		currType = CodeInfo::nodeList.back()->typeInfo;
 		CodeInfo::nodeList.pop_back();
 	}
@@ -1401,8 +1422,10 @@ void GetTypeId(const char* pos)
 	CodeInfo::nodeList.back()->typeInfo = typeTypeid;
 }
 
-void SetTypeOfLastNode()
+void SetTypeOfLastNode(const char* pos)
 {
+	CheckForFunctionProxy(pos, CodeInfo::nodeList.back());
+
 	currType = CodeInfo::nodeList.back()->typeInfo;
 	CodeInfo::nodeList.pop_back();
 }
@@ -2794,7 +2817,11 @@ void AddArrayConstructor(const char* pos, unsigned int arrElementCount)
 	if(currentType == typeFloat)
 		currentType = typeDouble;
 	if(currentType == typeVoid)
+	{
+		CheckForFunctionProxy(pos, CodeInfo::nodeList[CodeInfo::nodeList.size() - arrElementCount]);
+
 		ThrowError(pos, "ERROR: array cannot be constructed from void type elements");
+	}
 
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
 	TypeInfo *targetType = CodeInfo::GetArrayType(currentType, arrElementCount);
@@ -5564,6 +5591,8 @@ bool OptimizeIfElse(bool hasElse)
 
 void PromoteToBool(const char* pos)
 {
+	CheckForFunctionProxy(pos, CodeInfo::nodeList.back());
+
 	TypeInfo *condType = CodeInfo::nodeList.back()->typeInfo;
 	if(condType->type == TypeInfo::TYPE_COMPLEX && condType != typeObject)
 	{

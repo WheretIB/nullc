@@ -464,7 +464,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 			{
 				if(!ParseVaribleSet(str))
 					ThrowError((*str)->pos, "ERROR: expression not found after typeof(");
-				SetTypeOfLastNode();
+				SetTypeOfLastNode((*str)->pos);
 			}else{
 				// Node count shouldn't change while we did this
 				if(!FunctionGeneric(false) || nodeCount != CodeInfo::nodeList.size())
@@ -481,7 +481,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 		}else{
 			// If there was a node pushed during type selection because of extended typeof expressions, get its type
 			if(CodeInfo::nodeList.size() == nodeCount + 1)
-				SetTypeOfLastNode();
+				SetTypeOfLastNode((*str)->pos);
 		}
 		if(!ParseLexem(str, lex_cparen))
 			ThrowError((*str)->pos, "ERROR: ')' not found after expression in typeof");

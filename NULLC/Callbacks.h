@@ -104,7 +104,7 @@ void ConvertTypeToArray(const char* pos);
 void GetTypeSize(const char* pos, bool sizeOfExpr);
 void GetTypeId(const char* pos);
 
-void SetTypeOfLastNode();
+void SetTypeOfLastNode(const char* pos);
 
 // Function that retrieves variable address
 void AddGetAddressNode(const char* pos, InplaceStr varName);
