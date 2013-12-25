@@ -267,4 +267,9 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "int a = typeof(1)(", "ERROR: ')' not found after function parameter list");
 
 	TEST_FOR_FAIL("parsing", "int i = 0; do{ return i;", "ERROR: closing '}' not found");
+
+	TEST_FOR_FAIL("parsing", "int foo(explicit explicit int){ return 4; }", "ERROR: 'explicit' is not allowed at this location");
+	TEST_FOR_FAIL("parsing", "int foo(explicit){ return 4; }", "ERROR: type name not found after 'explicit' specifier");
+	TEST_FOR_FAIL("parsing", "int foo(explicit a){ return 4; }", "ERROR: type name not found after 'explicit' specifier");
+	TEST_FOR_FAIL("parsing", "int foo(explicit int a, explicit b){ return 4; }", "ERROR: type name not found after 'explicit' specifier");
 }
