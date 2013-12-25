@@ -2396,23 +2396,18 @@ bool ParseTerminal(Lexeme** str)
 		return true;
 		break;
 	case lex_add:
-		while(ParseLexem(str, lex_add));
+		(*str)++;
 		if(!ParseTerminal(str))
 			ThrowError((*str)->pos, "ERROR: expression not found after '+'");
 		AddPositiveNode((*str)->pos);
 		return true;
 		break;
 	case lex_sub:
-	{
-		int negCount = 0;
-		while(ParseLexem(str, lex_sub))
-			negCount++;
+		(*str)++;
 		if(!ParseTerminal(str))
 			ThrowError((*str)->pos, "ERROR: expression not found after '-'");
-		if(negCount % 2 == 1)
-			AddNegateNode((*str)->pos);
+		AddNegateNode((*str)->pos);
 		return true;
-	}
 		break;
 	case lex_semiquotedchar:
 		if((*str)->length == 1 || (*str)->pos[(*str)->length - 1] != '\'')
