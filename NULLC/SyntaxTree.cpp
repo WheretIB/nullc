@@ -774,19 +774,19 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	knownAddress = false;
 	addrShift = 0;
 
-	if(first->nodeType == typeNodeGetAddress)
+	if(!arrSetAll && first->nodeType == typeNodeGetAddress)
 	{
 		absAddress = static_cast<NodeGetAddress*>(first)->IsAbsoluteAddress();
 		addrShift = static_cast<NodeGetAddress*>(first)->varAddress;
 		knownAddress = true;
 	}
 #if !defined(NULLC_ENABLE_C_TRANSLATION) && !defined(NULLC_LLVM_SUPPORT)
-	if(first->nodeType == typeNodeShiftAddress)
+	if(!arrSetAll && first->nodeType == typeNodeShiftAddress)
 	{
 		addrShift += static_cast<NodeShiftAddress*>(first)->memberShift;
 		first = static_cast<NodeShiftAddress*>(first)->first;
 	}
-	if(first->nodeType == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
+	if(!arrSetAll && first->nodeType == typeNodeArrayIndex && static_cast<NodeArrayIndex*>(first)->knownShift)
 	{
 		addrShift += static_cast<NodeArrayIndex*>(first)->shiftValue;
 		first = static_cast<NodeArrayIndex*>(first)->first;
@@ -825,14 +825,13 @@ void NodeVariableSet::Compile()
 		cmdList.push_back(VMCmd(cmdPushImmt, 0));
 		cmdList.push_back(VMCmd(cmdNEqual));
 	}
-
-	if(!knownAddress)
-		first->Compile();
+	
 	if(arrSetAll)
 	{
-		assert(knownAddress);
-		cmdList.push_back(VMCmd(cmdPushImmt, elemCount));
-		cmdList.push_back(VMCmd(cmdSetRange, absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)(asmDT), addrShift));
+		assert(addrShift == 0);
+
+		first->Compile();
+		cmdList.push_back(VMCmd(cmdSetRangeStk, 0, (unsigned short)(asmDT), elemCount));
 	}else{
 		if(asmDT == DTYPE_COMPLEX_TYPE && typeInfo->size == 8)
 			asmDT = DTYPE_LONG;
@@ -840,6 +839,7 @@ void NodeVariableSet::Compile()
 		{
 			cmdList.push_back(VMCmd(cmdMovType[asmDT>>2], absAddress ? ADDRESS_ABOLUTE : ADDRESS_RELATIVE, (unsigned short)typeInfo->size, addrShift));
 		}else{
+			first->Compile();
 			cmdList.push_back(VMCmd(cmdMovTypeStk[asmDT>>2], asmST == STYPE_DOUBLE ? 1 : 0, (unsigned short)typeInfo->size, addrShift));
 		}
 	}
@@ -1330,9 +1330,9 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 
 	if(first->typeInfo == typeVoid)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: first operand returns void");
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: first operand type is 'void'");
 	if(second->typeInfo == typeVoid)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: second operand returns void");
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: second operand type is 'void'");
 
 	if((first->typeInfo == typeDouble || first->typeInfo == typeFloat || second->typeInfo == typeDouble || second->typeInfo == typeFloat) && (cmd >= cmdShl && cmd <= cmdLogXor))
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: binary operations are not available on floating-point numbers");
@@ -1438,7 +1438,7 @@ NodeIfElseExpr::NodeIfElseExpr(bool haveElse, bool isTerm)
 
 	if((first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject) || first->typeInfo->type == TypeInfo::TYPE_VOID)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: condition type cannot be '%s' and function for conversion to bool is undefined", first->typeInfo->GetFullTypeName());
-	// If it is a conditional operator, the there is a resulting type different than void
+	// If it is a conditional operator, then there is a resulting type different than void
 	if(isTerm)
 		typeInfo = second->typeInfo != third->typeInfo ? ChooseBinaryOpResultType(second->typeInfo, third->typeInfo) : second->typeInfo;
 

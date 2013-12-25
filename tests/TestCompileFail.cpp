@@ -162,6 +162,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Illegal pointer operation 1", "int ref a; a += a;", "ERROR: there is no built-in operator for types 'int ref' and 'int ref'");
 	TEST_FOR_FAIL("Illegal pointer operation 2", "int ref a; a++;", "ERROR: increment is not supported on 'int ref'");
 	TEST_FOR_FAIL("Illegal pointer operation 3", "int ref a; a = a * 5;", "ERROR: operation * is not supported on 'int ref' and 'int'");
+	TEST_FOR_FAIL("Illegal pointer operation 4", "-new char;", "ERROR: unary operation '-' is not supported on 'char ref'");
 	TEST_FOR_FAIL("Illegal class operation", "import std.math; float2 v; v = ~v;", "ERROR: unary operation '~' is not supported on 'float2'");
 
 	TEST_FOR_FAIL("Default function parameter type mismatch", "import std.math;int f(int v = float3(3, 4, 5)){ return v; }return f();", "ERROR: cannot convert from 'float3' to 'int'");
@@ -186,7 +187,8 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Operator overload with no arguments", "int operator+(){ return 5; }", "ERROR: binary operator definition or overload must accept exactly two arguments");
 
 	TEST_FOR_FAIL("new auto;", "auto a = new auto;", "ERROR: sizeof(auto) is illegal");
-	TEST_FOR_FAIL("new void;", "auto a = new void;", "ERROR: cannot allocate space for void type");
+	TEST_FOR_FAIL("new void;", "auto a = new void;", "ERROR: cannot allocate void objects");
+	TEST_FOR_FAIL("new void[];", "auto a = new void[8];", "ERROR: cannot allocate void objects");
 
 	TEST_FOR_FAIL("Array underflow 2", "int[7][3] uu; uu[2][1] = 100; int[][3] kk = uu; return kk[2][-1000000];", "ERROR: array index cannot be negative");
 	TEST_FOR_FAIL("Array overflow 2", "int[7][3] uu; uu[2][1] = 100; int[][3] kk = uu; return kk[2][1000000];", "ERROR: array index out of bounds");
@@ -628,8 +630,8 @@ return int(y() + z());",
 	TEST_FOR_FAIL("restricted enum", "enum X{ Y, Z } int a(int x){ return x; } return a(X.Y);", "ERROR: can't find function 'a' with following parameters:");
 
 	TEST_FOR_FAIL("void operation", "void foo(){} do{}while(!foo());", "ERROR: unary operation '!' is not supported on 'void'");
-	TEST_FOR_FAIL("void operation", "void foo(){} void x = foo() + foo(); return 1;", "ERROR: first operand returns void");
-	TEST_FOR_FAIL("void operation", "void foo(){} void x = 5 + foo(); return 1;", "ERROR: second operand returns void");
+	TEST_FOR_FAIL("void operation", "void foo(){} void x = foo() + foo(); return 1;", "ERROR: first operand type is 'void'");
+	TEST_FOR_FAIL("void operation", "void foo(){} void x = 5 + foo(); return 1;", "ERROR: second operand type is 'void'");
 
 	TEST_FOR_FAIL("unresolved type", "auto foo(){ foo.a(); }", "ERROR: function 'foo' type is unresolved at this point");
 	TEST_FOR_FAIL("unresolved type", "auto foo(){ foo.a; }", "ERROR: function 'foo' type is unresolved at this point");
@@ -775,6 +777,28 @@ auto m = bar;",
 	TEST_FOR_FAIL("incorrect switch type combination", "switch(4){ case int: return 3; break; case float: return 1; } return 2;", "ERROR: cannot compare 'int' with 'typeid'");
 
 	TEST_FOR_FAIL("__function type", "__function x; x = 1024; return 1;", "ERROR: cannot convert 'int' to '__function'");
+
+	TEST_FOR_FAIL("invalid index type", "int[nullptr] x;", "ERROR: invalid value type for array size: 'void ref'");
+
+	TEST_FOR_FAIL("invalid allocation count type", "void foo(){} auto x = new int[foo];", "ERROR: cannot convert 'void ref()' to 'int'");
+
+	TEST_FOR_FAIL("overloaded function misuse 1", "void f(int x){} void f(long x){} return 2 + f;", "ERROR: ambiguity, the expression is an overloaded function. Could be void ref(long) or void ref(int)");
+	TEST_FOR_FAIL("overloaded function misuse 2", "void f(int x){} void f(long x){} auto x = { f };", "ERROR: ambiguity, the expression is an overloaded function. Could be void ref(long) or void ref(int)");
+	TEST_FOR_FAIL("overloaded function misuse 3", "void f(int x){} void f(long x){} return sizeof(f);", "ERROR: ambiguity, the expression is an overloaded function. Could be void ref(long) or void ref(int)");
+	TEST_FOR_FAIL("overloaded function misuse 4", "void f(int x){} void f(long x){} return typeof(f);", "ERROR: ambiguity, the expression is an overloaded function. Could be void ref(long) or void ref(int)");
+	TEST_FOR_FAIL("overloaded function misuse 5", "void f(int x){} void f(long x){} if(f){}", "ERROR: ambiguity, the expression is an overloaded function. Could be void ref(long) or void ref(int)");
+	TEST_FOR_FAIL("overloaded function misuse 6", "void f(int x){} void f(long x){} for(; f; ){}", "ERROR: ambiguity, the expression is an overloaded function. Could be void ref(long) or void ref(int)");
+	TEST_FOR_FAIL("overloaded function misuse 7", "void f(int x){} void f(long x){} while(f){}", "ERROR: ambiguity, the expression is an overloaded function. Could be void ref(long) or void ref(int)");
+	TEST_FOR_FAIL("overloaded function misuse 8", "void f(int x){} void f(long x){} do{}while(f);", "ERROR: ambiguity, the expression is an overloaded function. Could be void ref(long) or void ref(int)");
+
+	TEST_FOR_FAIL("generic function misuse 1", "return 2 + auto(@T x){};", "ERROR: ambiguity, the expression is a generic function");
+	TEST_FOR_FAIL("generic function misuse 2", "auto x = { auto(@T x){} };", "ERROR: ambiguity, the expression is a generic function");
+	TEST_FOR_FAIL("generic function misuse 3", "return sizeof((auto(@T x){}));", "ERROR: ambiguity, the expression is a generic function");
+	TEST_FOR_FAIL("generic function misuse 4", "return typeof(auto(@T x){});", "ERROR: ambiguity, the expression is a generic function");
+	TEST_FOR_FAIL("generic function misuse 5", "if(auto(@T x){}){}", "ERROR: ambiguity, the expression is a generic function");
+	TEST_FOR_FAIL("generic function misuse 6", "for(; auto(@T x){}; ){}", "ERROR: ambiguity, the expression is a generic function");
+	TEST_FOR_FAIL("generic function misuse 7", "while(auto(@T x){}){}", "ERROR: ambiguity, the expression is a generic function");
+	TEST_FOR_FAIL("generic function misuse 8", "do{}while(auto(@T x){});", "ERROR: ambiguity, the expression is a generic function");
 
 	TEST_FOR_FAIL("fuzzy test 1", "typedef auto Foo;", "ERROR: typename expected after typedef");
 	TEST_FOR_FAIL("fuzzy test 2", "\"test\"[];", "ERROR: can't find function '[]' with following parameters:");
