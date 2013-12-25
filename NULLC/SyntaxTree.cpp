@@ -1330,9 +1330,9 @@ NodeBinaryOp::NodeBinaryOp(CmdID cmd)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: operation %s is not supported on '%s' and '%s'", binCommandToText[cmdID - cmdAdd], first->typeInfo->GetFullTypeName(), second->typeInfo->GetFullTypeName());
 
 	if(first->typeInfo == typeVoid)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: first operand returns void");
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: first operand type is 'void'");
 	if(second->typeInfo == typeVoid)
-		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: second operand returns void");
+		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: second operand type is 'void'");
 
 	if((first->typeInfo == typeDouble || first->typeInfo == typeFloat || second->typeInfo == typeDouble || second->typeInfo == typeFloat) && (cmd >= cmdShl && cmd <= cmdLogXor))
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: binary operations are not available on floating-point numbers");
