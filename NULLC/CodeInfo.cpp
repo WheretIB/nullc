@@ -12,6 +12,7 @@ TypeInfo* CodeInfo::GetReferenceType(TypeInfo* type)
 
 	// Create new type
 	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), NULL, type->refLevel + 1, 0, 1, type, TypeInfo::NULLC_PTR_TYPE);
+	newInfo->alignBytes = 4;
 	newInfo->size = NULLC_PTR_SIZE;
 
 	// Save it for future use
@@ -86,6 +87,7 @@ TypeInfo* CodeInfo::GetArrayType(TypeInfo* type, unsigned int sizeInArgument)
 
 	// If not found, create new type
 	TypeInfo* newInfo = new TypeInfo(typeInfo.size(), NULL, 0, type->arrLevel + 1, arrSize, type, TypeInfo::TYPE_COMPLEX);
+	newInfo->alignBytes = 4;
 
 	if(unFixed)
 	{

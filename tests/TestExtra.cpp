@@ -579,3 +579,31 @@ align(8) class X{ int x; }\r\n\
 auto x = new X[4];\r\n\
 return CheckAlignment(&x[0], 8) + CheckAlignment(&x[1], 8) + CheckAlignment(&x[2], 8) + CheckAlignment(&x[3], 8);";
 TEST_RESULT("Alignment of objects in heap 7", testAlignmentHeap7, "4");
+
+const char	*testAlignmentDerived1 =
+"import test.alignment;\r\n\
+class X{ char x; int ref y; }\r\n\
+X x;\r\n\
+return CheckAlignment(&x.y, 4);";
+TEST_RESULT("Alignment of derived types 1", testAlignmentDerived1, "1");
+
+const char	*testAlignmentDerived2 =
+"import test.alignment;\r\n\
+class X{ char x; auto ref y; }\r\n\
+X x;\r\n\
+return CheckAlignment(&x.y, 4);";
+TEST_RESULT("Alignment of derived types 2", testAlignmentDerived2, "1");
+
+const char	*testAlignmentDerived3 =
+"import test.alignment;\r\n\
+class X{ char x; int[] y; }\r\n\
+X x;\r\n\
+return CheckAlignment(&x.y, 4);";
+TEST_RESULT("Alignment of derived types 3", testAlignmentDerived3, "1");
+
+const char	*testAlignmentDerived4 =
+"import test.alignment;\r\n\
+class X{ char x; auto[] y; }\r\n\
+X x;\r\n\
+return CheckAlignment(&x.y, 4);";
+TEST_RESULT("Alignment of derived types 4", testAlignmentDerived4, "1");

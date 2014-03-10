@@ -135,6 +135,7 @@ namespace CodeInfo
 			bestFit->AddMemberVariable("context", typeInt);
 			bestFit->AddMemberVariable("ptr", typeInt);
 	#endif
+			bestFit->alignBytes = 4;
 			bestFit->size = 4 + NULLC_PTR_SIZE;
 			bestFit->hasPointers = true;
 
