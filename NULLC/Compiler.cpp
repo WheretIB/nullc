@@ -376,10 +376,12 @@ Compiler::Compiler()
 	CodeInfo::typeInfo.push_back(info);
 
 	info = new TypeInfo(CodeInfo::typeInfo.size(), "auto ref", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
+	info->alignBytes = 4;
 	typeObject = info;
 	CodeInfo::typeInfo.push_back(info);
 
 	info = new TypeInfo(CodeInfo::typeInfo.size(), "typeid", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
+	info->alignBytes = GetTypeAlignment<int>();
 	typeTypeid = info;
 	CodeInfo::typeInfo.push_back(info);
 
@@ -390,6 +392,7 @@ Compiler::Compiler()
 	typeObject->size = 4 + NULLC_PTR_SIZE;
 
 	info = new TypeInfo(CodeInfo::typeInfo.size(), "auto[]", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
+	info->alignBytes = 4;
 	typeAutoArray = info;
 	CodeInfo::typeInfo.push_back(info);
 
