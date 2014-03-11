@@ -322,6 +322,8 @@ HashMap<VariableInfo*>::Node* SelectVariableByName(InplaceStr name)
 
 void AddInplaceVariable(const char* pos, TypeInfo* targetType = NULL);
 void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType);
+void ConvertArrayToAutoArray(const char* pos, TypeInfo *dstType);
+bool AssignAutoArrayToArray(const char* pos, bool swapNodes);
 NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, FunctionInfo*& fResult, unsigned callArgCount, TypeInfo* forcedParentType = NULL);
 void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred = NULL);
 void HandlePointerToObject(const char* pos, TypeInfo *dstType);
@@ -1162,6 +1164,7 @@ void AddReturnNode(const char* pos, bool yield)
 			ConvertBaseToDerived(pos, currDefinedFunc.back()->retType);
 			ConvertDerivedToBase(pos, currDefinedFunc.back()->retType);
 			ConvertArrayToUnsized(pos, currDefinedFunc.back()->retType);
+			ConvertArrayToAutoArray(pos, currDefinedFunc.back()->retType);
 			HandlePointerToObject(pos, currDefinedFunc.back()->retType);
 			realRetType = CodeInfo::nodeList.back()->typeInfo;
 		}
@@ -1987,8 +1990,12 @@ void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverlo
 		ConvertBaseToDerived(pos, realCurrType);
 		ConvertDerivedToBase(pos, realCurrType);
 		ConvertArrayToUnsized(pos, realCurrType);
+		ConvertArrayToAutoArray(pos, realCurrType);
 		HandlePointerToObject(pos, realCurrType);
 		CodeInfo::nodeList.push_back(temp);
+
+		if(AssignAutoArrayToArray(pos, false))
+			return;
 	}
 
 	CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::GetReferenceType(realCurrType), true, false));
@@ -2066,8 +2073,12 @@ void AddSetVariableNode(const char* pos)
 	ConvertBaseToDerived(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
 	ConvertDerivedToBase(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
 	ConvertArrayToUnsized(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
+	ConvertArrayToAutoArray(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
 	ConvertFunctionToPointer(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
 	HandlePointerToObject(pos, CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo->subType);
+
+	if(AssignAutoArrayToArray(pos, true))
+		return;
 
 	CodeInfo::nodeList.push_back(new NodeVariableSet(CodeInfo::nodeList[CodeInfo::nodeList.size()-2]->typeInfo, 0, true));
 }
@@ -2434,17 +2445,21 @@ void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 {
 	// Get r-value type
 	TypeInfo *nodeType = CodeInfo::nodeList.back()->typeInfo;
-	// If l-value type or r-value type doesn't have subType, make no conversions
-	if(!dstType->subType || !nodeType->subType)
-		return;
-	// If l-value type is not an unsized array type and l-value subType is not an unsized array type, make no conversions
-	if(dstType->arrSize != TypeInfo::UNSIZED_ARRAY && dstType->subType->arrSize != TypeInfo::UNSIZED_ARRAY)
-		return;
+
 	// If l-value type is equal to r-value type, make no conversions
 	if(dstType == nodeType)
 		return;
+
+	// If l-value type or r-value type doesn't have subType, make no conversions
+	if(!dstType->subType || !nodeType->subType)
+		return;
+
 	// If r-value type is not an array and r-value subType is not an array, make no conversions
 	if(!nodeType->arrLevel && !nodeType->subType->arrLevel)
+		return;
+
+	// If l-value type is not an unsized array type and l-value subType is not an unsized array type, make no conversions
+	if(dstType->arrSize != TypeInfo::UNSIZED_ARRAY && dstType->subType->arrSize != TypeInfo::UNSIZED_ARRAY)
 		return;
 
 	if(dstType->subType == nodeType->subType)
@@ -2476,6 +2491,60 @@ void ConvertArrayToUnsized(const char* pos, TypeInfo *dstType)
 		AddInplaceVariable(pos, CodeInfo::GetArrayType(nodeType->subType->subType, TypeInfo::UNSIZED_ARRAY));
 		AddExtraNode();
 	}
+}
+
+void ConvertArrayToAutoArray(const char* pos, TypeInfo *dstType)
+{
+	// Get r-value type
+	TypeInfo *nodeType = CodeInfo::nodeList.back()->typeInfo;
+
+	if(dstType == typeAutoArray && (nodeType->arrLevel || (nodeType->refLevel && nodeType->subType->arrLevel)))
+	{
+		if(nodeType->refLevel)
+		{
+			AddGetVariableNode(pos);
+			nodeType = nodeType->subType;
+		}
+
+		if(nodeType->arrSize != TypeInfo::UNSIZED_ARRAY)
+			ConvertArrayToUnsized(pos, CodeInfo::GetArrayType(nodeType->subType, TypeInfo::UNSIZED_ARRAY));
+
+		// type[] on stack: size; ptr (top)
+		CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
+		CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, nodeType->subType->typeIndex));
+		AddTwoExpressionNode(typeAutoArray);
+	}
+}
+
+bool AssignAutoArrayToArray(const char* pos, bool swapNodes)
+{
+	NodeZeroOP *address = CodeInfo::nodeList[CodeInfo::nodeList.size() - (swapNodes ? 2 : 1)];
+	NodeZeroOP *value = CodeInfo::nodeList[CodeInfo::nodeList.size() - (swapNodes ? 1 : 2)];
+
+	if(value->typeInfo != typeAutoArray)
+		return false;
+
+	if(!address->typeInfo->refLevel || !address->typeInfo->subType->arrLevel)
+		return false;
+
+	if(!swapNodes)
+	{
+		NodeZeroOP *node = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2];
+		CodeInfo::nodeList[CodeInfo::nodeList.size() - 2] = CodeInfo::nodeList[CodeInfo::nodeList.size() - 1];
+		CodeInfo::nodeList[CodeInfo::nodeList.size() - 1] = node;
+	}
+
+	if(AddFunctionCallNode(pos, "__aaassignrev", 2, true))
+		return true;
+
+	if(!swapNodes)
+	{
+		NodeZeroOP *node = CodeInfo::nodeList[CodeInfo::nodeList.size() - 2];
+		CodeInfo::nodeList[CodeInfo::nodeList.size() - 2] = CodeInfo::nodeList[CodeInfo::nodeList.size() - 1];
+		CodeInfo::nodeList[CodeInfo::nodeList.size() - 1] = node;
+	}
+
+	return false;
 }
 
 unsigned BackupFunctionSelection(unsigned count)
@@ -2663,7 +2732,7 @@ void ConvertFunctionToPointer(const char* pos, TypeInfo *dstPreferred)
 void HandlePointerToObject(const char* pos, TypeInfo *dstType)
 {
 	TypeInfo *srcType = CodeInfo::nodeList.back()->typeInfo;
-	if(typeVoid->refType && srcType == typeVoid->refType)
+	if(typeVoid->refType && srcType == typeVoid->refType && CodeInfo::nodeList.back()->nodeType == typeNodeNumber)
 	{
 		// nullptr to type ref conversion
 		if(dstType->refLevel)
@@ -2675,6 +2744,15 @@ void HandlePointerToObject(const char* pos, TypeInfo *dstType)
 		if(dstType->arrLevel && dstType->arrSize == TypeInfo::UNSIZED_ARRAY)
 		{
 			CodeInfo::nodeList.push_back(new NodeCreateUnsizedArray(dstType, new NodeNumber(0, typeInt)));
+			return;
+		}
+		// nullptr to auto[] conversion
+		if(dstType == typeAutoArray)
+		{
+			CodeInfo::nodeList.push_back(new NodeCreateUnsizedArray(dstType, new NodeNumber(0, typeInt)));
+			// type[] on stack: size; ptr (top)
+			CodeInfo::nodeList.push_back(new NodeNumber(0, typeInt));
+			AddTwoExpressionNode(typeAutoArray);
 			return;
 		}
 		// nullptr to function type conversion
@@ -4115,11 +4193,32 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 	for(unsigned int i = 0; i < callArgCount; i++)
 	{
 		NodeZeroOP* activeNode = CodeInfo::nodeList[CodeInfo::nodeList.size() - callArgCount + i];
+
 		TypeInfo *paramType = activeNode->typeInfo;
-		unsigned int	nodeType = activeNode->nodeType;
+		NodeType nodeType = activeNode->nodeType;
+		bool isNullptr = typeVoid->refType && paramType == typeVoid->refType && nodeType == typeNodeNumber;
+
 		TypeInfo *expectedType = currFunc->paramType[i];
+
 		if(expectedType != paramType)
 		{
+			if(isNullptr)
+			{
+				// nullptr is convertable to T ref, T[] and function pointers
+				if(expectedType->refLevel || expectedType->arrSize == TypeInfo::UNSIZED_ARRAY || expectedType->funcType)
+					continue;
+
+				// nullptr is also convertable to auto ref and auto[], but it has the same rating as type ref -> auto ref and array -> auto[] defined below
+				if(expectedType == typeObject || expectedType == typeAutoArray)
+					fRating += 5;
+				else
+					return ~0u;
+
+				if(currArgument)
+					currArgument = currArgument->next;
+				continue;
+			}
+
 			if(expectedType == typeGeneric)
 			{
 				// generic function argument
@@ -5218,6 +5317,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	// Reset current namespace after this point, it's already been used up
 	NamespaceInfo *lastNS = currNamespace;
 	currNamespace = NULL;
+
 	// If no functions are found, function name is a type name and a type has member constructors
 	if(count == 0 && info)
 	{
@@ -5270,11 +5370,14 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 	}else{
 		vInfo = NULL;
 	}
+
 	unsigned int minRating = ~0u;
+
 	// If there is a name and it's not a variable that holds 
 	if(!vInfo && funcName)
 	{
 		unsigned minRatingIndex = SelectBestFunction(count, callArgCount, minRating, forcedParentType);
+
 		// Maybe the function we found can't be used at all
 		if(minRatingIndex == ~0u)
 		{
@@ -5287,7 +5390,10 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		}else{
 			fType = bestFuncList[minRatingIndex]->funcType->funcType;
 			fInfo = bestFuncList[minRatingIndex];
+
+
 		}
+
 		// Check, is there are more than one function, that share the same rating
 		for(unsigned int k = 0; k < count; k++)
 		{
@@ -5493,16 +5599,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		ConvertDerivedToBase(pos, fType->paramType[i]);
 		ConvertFunctionToPointer(pos, fType->paramType[i]);
 		ConvertArrayToUnsized(pos, fType->paramType[i]);
-		if(fType->paramType[i] == typeAutoArray && CodeInfo::nodeList.back()->typeInfo->arrLevel)
-		{
-			TypeInfo *actualType = CodeInfo::nodeList.back()->typeInfo;
-			if(actualType->arrSize != TypeInfo::UNSIZED_ARRAY)
-				ConvertArrayToUnsized(pos, CodeInfo::GetArrayType(actualType->subType, TypeInfo::UNSIZED_ARRAY));
-			// type[] on stack: size; ptr (top)
-			CodeInfo::nodeList.push_back(new NodeZeroOP(typeInt));
-			CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, actualType->subType->typeIndex));
-			AddTwoExpressionNode(typeAutoArray);
-		}
+		ConvertArrayToAutoArray(pos, fType->paramType[i]);
+
 		// implicit conversion from type to type ref (or auto ref)
 		if((fType->paramType[i]->refLevel == CodeInfo::nodeList.back()->typeInfo->refLevel + 1 && fType->paramType[i]->subType == CodeInfo::nodeList.back()->typeInfo) ||
 			(CodeInfo::nodeList.back()->typeInfo->refLevel == 0 && fType->paramType[i] == typeObject))
