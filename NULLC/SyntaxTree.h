@@ -120,9 +120,9 @@ public:
 	static	ChunkedStackPool<65532>	nodePool;
 	static void	DeleteNodes(){ nodePool.Clear(); }
 	static void	ResetNodes(){ nodePool.~ChunkedStackPool(); }
-protected:
-	const char		*sourcePos;
 public:
+	const char		*sourcePos;
+
 	TypeInfo		*typeInfo;
 	NodeType		nodeType;
 	NodeZeroOP		*prev, *next, *head;	// For organizing intrusive node lists

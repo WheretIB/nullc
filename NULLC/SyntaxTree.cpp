@@ -1824,12 +1824,14 @@ NodeZeroOP* NodeSwitchExpr::IsComplex()
 
 void NodeSwitchExpr::Compile()
 {
+	if(sourcePos)
+		cmdInfoList.AddDescription(cmdList.size(), sourcePos);
+
 	CompileExtra();
 
 	currLoopDepth++;
 
 	asmStackType aST = first->typeInfo->stackType;
-	asmOperType aOT = operTypeForStackType[aST];
 
 	unsigned int queueStart = fixQueue.size(), queueCurr = queueStart;
 
@@ -1839,25 +1841,34 @@ void NodeSwitchExpr::Compile()
 	// Compute value
 	if(!second)
 		first->Compile();
+
 	if(first->typeInfo == typeTypeid)
-	{
 		aST = STYPE_INT;
-		aOT = OTYPE_INT;
-	}
 
 	NodeZeroOP *curr, *currBlock;
 
 	// Generate code for all cases
 	for(curr = conditionHead, currBlock = blockHead; curr; curr = curr->next, currBlock = currBlock->next)
 	{
+		if(curr->sourcePos)
+			cmdInfoList.AddDescription(cmdList.size(), curr->sourcePos);
+
 		if(!second)
 		{
-			if(aOT == OTYPE_INT)
+			if(aST == STYPE_INT)
 				cmdList.push_back(VMCmd(cmdCopyI));
-			else if(!second)
+			else
 				cmdList.push_back(VMCmd(cmdCopyDorL));
 
+			ConvertFirstToSecond(first->typeInfo->stackType, curr->typeInfo->stackType);
+
 			curr->Compile();
+
+			asmOperType aOT = operTypeForStackType[curr->typeInfo->stackType];
+
+			if(first->typeInfo == typeTypeid)
+				aOT = OTYPE_INT;
+
 			// Compare for equality
 			if(aOT == OTYPE_INT)
 				cmdList.push_back(VMCmd(cmdEqual));
@@ -1868,10 +1879,12 @@ void NodeSwitchExpr::Compile()
 		}else{
 			curr->Compile();
 		}
+
 		// If equal, jump to corresponding case block
 		fixQueue.push_back(cmdList.size());
 		cmdList.push_back(VMCmd(cmdJmpNZ, 0));
 	}
+
 	// Remove value by which we switched from stack
 	if(!second)
 		cmdList.push_back(VMCmd(cmdPop, stackTypeSize[aST]));
