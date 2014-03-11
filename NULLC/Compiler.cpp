@@ -244,10 +244,9 @@ int __ancomp(auto[] a, b);\r\n\
 \r\n\
 int __typeCount();\r\n\
 \r\n\
-auto[] ref operator=(auto[] ref l, auto ref r);\r\n\
-auto ref operator=(auto ref l, auto[] ref r);\r\n\
-auto[] ref operator=(auto[] ref l, auto[] ref r);\r\n\
-auto ref operator[](auto[] ref l, int index);\r\n\
+auto[] ref operator=(explicit auto[] ref l, explicit auto ref r);\r\n\
+auto ref __aaassignrev(auto ref l, auto[] ref r);\r\n\
+auto ref operator[](explicit auto[] ref l, int index);\r\n\
 // const string implementation\r\n\
 class const_string\r\n\
 {\r\n\
@@ -507,8 +506,7 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::TypeCount, "__typeCount", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssign, "=", 3);
-	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssignRev, "=", 4);
-	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssignSelf, "=", 5);
+	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssignRev, "__aaassignrev", 0);
 	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayIndex, "[]", 0);
 
 	AddModuleFunction("$base$", (void (*)())IsPointerUnmanaged, "isStackPointer", 0);

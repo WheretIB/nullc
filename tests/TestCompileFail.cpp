@@ -738,6 +738,8 @@ line 1 - ERROR: unknown identifier 'a'\r\n\
 	TEST_FOR_FAIL("unknown type for operation", "return ~nullptr;", "ERROR: unary operation '~' is not supported on 'void ref'");
 	TEST_FOR_FAIL("unknown type for operation", "return !nullptr;", "ERROR: unary operation '!' is not supported on 'void ref'");
 
+	TEST_FOR_FAIL("fake nullptr", "void ref b; int ref a = b;", "ERROR: cannot convert 'void ref' to 'int ref'");
+
 	TEST_FOR_FAIL("explicit generic function types", "return foo with int();", "ERROR: '<' not found before explicit generic type alias list");
 	TEST_FOR_FAIL("explicit generic function types", "return foo with<int,>();", "ERROR: type name is expected after ','");
 	TEST_FOR_FAIL("explicit generic function types", "return foo with<>();", "ERROR: type name is expected after 'with'");

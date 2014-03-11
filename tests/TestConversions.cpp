@@ -104,5 +104,20 @@ long h = (auto(){ return -1.0; })();\r\n\
 return (a == 0) && (b == 0) && (c == 0) && (d == 1) && (e == 0) && (f == 0) && (g == 0) && (h == -1);";
 TEST_RESULT("Double to long rounding check", testDoubleToLong, "1");
 
-const char *textCompileTimeConversion = "return double(2) < 2.2;";
-TEST_RESULT("Compile-time conversion check", textCompileTimeConversion, "1");
+const char *testCompileTimeConversion = "return double(2) < 2.2;";
+TEST_RESULT("Compile-time conversion check", testCompileTimeConversion, "1");
+
+const char *testNullptrArgument1 = "int foo(int ref x){ return !x; } return foo(nullptr);";
+TEST_RESULT("nullptr in function arguments 1", testNullptrArgument1, "1");
+
+const char *testNullptrArgument2 = "int foo(int[] x){ return x == nullptr; } return foo(nullptr);";
+TEST_RESULT("nullptr in function arguments 2", testNullptrArgument2, "1");
+
+const char *testNullptrArgument3 = "int foo(auto ref x){ return !x; } return foo(nullptr);";
+TEST_RESULT("nullptr in function arguments 3", testNullptrArgument3, "1");
+
+const char *testNullptrArgument4 = "int foo(void ref() x){ return x == nullptr; } return foo(nullptr);";
+TEST_RESULT("nullptr in function arguments 4", testNullptrArgument4, "1");
+
+const char *testNullptrArgument5 = "int foo(auto[] x){ return x.size + 1; } return foo(nullptr) + foo(nullptr);";
+TEST_RESULT("nullptr in function arguments 5", testNullptrArgument5, "2");

@@ -1236,20 +1236,6 @@ NULLCRef NULLC::AutoArrayAssignRev(NULLCRef left, NULLCAutoArray *right)
 	return left;
 }
 
-NULLCAutoArray* NULLC::AutoArrayAssignSelf(NULLCAutoArray* left, NULLCAutoArray* right)
-{
-	if(!left || !right)
-	{
-		nullcThrowError("ERROR: null pointer access");
-		return 0;
-	}
-
-	left->len = right->len;
-	left->ptr = right->ptr;
-	left->typeID = right->typeID;
-	return left;
-}
-
 NULLCRef NULLC::AutoArrayIndex(NULLCAutoArray* left, unsigned int index)
 {
 	NULLCRef ret = { 0, 0 };
