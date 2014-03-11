@@ -45,6 +45,57 @@ default:\r\n\
 return i;";
 TEST_RESULT("Switch test (double)", testSwitch2, "2")
 
+const char	*testSwitch3 = 
+"int a = 1;\r\n\
+int b = 0;\r\n\
+\r\n\
+switch(a)\r\n\
+{\r\n\
+case 1.0f:\r\n\
+	b = 2;\r\n\
+	break;\r\n\
+case 4l:\r\n\
+	b = 5;\r\n\
+	break;\r\n\
+}\r\n\
+\r\n\
+return b;";
+TEST_RESULT("Switch test (int switch, double case)", testSwitch3, "2")
+
+const char	*testSwitch4 = 
+"int a = 4;\r\n\
+int b = 0;\r\n\
+\r\n\
+switch(a)\r\n\
+{\r\n\
+case 1.0f:\r\n\
+	b = 2;\r\n\
+	break;\r\n\
+case 4l:\r\n\
+	b = 5;\r\n\
+	break;\r\n\
+}\r\n\
+\r\n\
+return b;";
+TEST_RESULT("Switch test (int switch, long case)", testSwitch4, "5")
+
+const char	*testSwitch5 = 
+"float a = 4.0f;\r\n\
+int b = 0;\r\n\
+\r\n\
+switch(a)\r\n\
+{\r\n\
+case 1.0f:\r\n\
+	b = 2;\r\n\
+	break;\r\n\
+case 4l:\r\n\
+	b = 5;\r\n\
+	break;\r\n\
+}\r\n\
+\r\n\
+return b;";
+TEST_RESULT("Switch test (float switch, long case)", testSwitch5, "5")
+
 const char	*testDepthBreakContinue = 
 "int i, k = 0;\r\n\
 for(i = 0; i < 4; i++)\r\n\

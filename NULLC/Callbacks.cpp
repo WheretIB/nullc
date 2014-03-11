@@ -5854,6 +5854,7 @@ void BeginSwitch(const char* pos)
 	}else{
 		CodeInfo::nodeList.push_back(new NodeSwitchExpr());
 	}
+	CodeInfo::nodeList.back()->SetCodeInfo(pos);
 }
 
 void AddCaseNode(const char* pos)
@@ -5876,6 +5877,7 @@ void AddCaseNode(const char* pos)
 			ThrowError(pos, "ERROR: '==' operator result type must be bool, char, short or int");
 		CodeInfo::nodeList.push_back(body);
 	}
+	CodeInfo::nodeList[CodeInfo::nodeList.size() - 2]->SetCodeInfo(pos);
 	node->AddCase();
 }
 
