@@ -425,13 +425,17 @@ void ParseGenericEnd(Lexeme** str)
 // instanceFailure is a variable that signals if failure was during instancing, so we have to silent the error
 bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* instanceFailure)
 {
-	if((*str)->type == lex_string && (*str)->length == 8 && memcmp((*str)->pos, "explicit", 8) == 0)
+	Lexeme *curr = *str;
+
+	if(curr->type == lex_string && curr->length == 8 && memcmp(curr->pos, "explicit", 8) == 0)
 	{
 		if(flag & DISALLOW_EXPLICIT)
-			ThrowError((*str)->pos, "ERROR: 'explicit' is not allowed at this location");
+			ThrowError(curr->pos, "ERROR: 'explicit' is not allowed at this location");
 
-		(*str)++;
+		curr++;
 	}
+
+	*str = curr;
 
 	// If instance type is passed, we must remove array and pointer qualifiers and strip function type of its arguments
 	TypeInfo *strippedType = instanceType;
@@ -1202,11 +1206,16 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 {
 	bool explicitType = false;
-	if((*str)->type == lex_string && (*str)->length == 8 && memcmp((*str)->pos, "explicit", 8) == 0)
+
+	Lexeme *curr = *str;
+
+	if(curr->type == lex_string && curr->length == 8 && memcmp(curr->pos, "explicit", 8) == 0)
 	{
 		explicitType = true;
-		(*str)++;
+		curr++;
 	}
+
+	*str = curr;
 
 	bool genericArg = false;
 	Lexeme *currPos = *str;
@@ -1259,11 +1268,16 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 		genericArg = false;
 
 		explicitType = false;
-		if((*str)->type == lex_string && (*str)->length == 8 && memcmp((*str)->pos, "explicit", 8) == 0)
+
+		Lexeme *curr = *str;
+
+		if(curr->type == lex_string && curr->length == 8 && memcmp(curr->pos, "explicit", 8) == 0)
 		{
 			explicitType = true;
-			(*str)++;
+			curr++;
 		}
+
+		*str = curr;
 
 		Lexeme *currPosPrev = currPos;
 		currPos = *str;
