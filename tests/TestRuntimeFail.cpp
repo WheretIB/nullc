@@ -95,17 +95,11 @@ for(i in objs)\r\n\
 return 0;";
 TEST_RUNTIME_FAIL("Type doesn't implement method on auto ref function call", testTypeDoesntImplementMethod, "ERROR: type 'int' doesn't implement method 'int::test' of type 'void ref()'");
 
-const char	*testAutoArrayConversionFail = "int x = 12; auto[] arr = x; return 0;";
-TEST_RUNTIME_FAIL("Array to auto[] type conversion fail", testAutoArrayConversionFail, "ERROR: cannot convert from 'int' to 'auto[]'");
-
 const char	*testAutoArrayOutOfBounds = "auto str = \"Hello\"; auto[] arr = str; return char(arr[-1]) - 'l';";
 TEST_RUNTIME_FAIL("auto[] type underflow", testAutoArrayOutOfBounds, "ERROR: array index out of bounds");
 
 const char	*testAutoArrayOutOfBounds2 = "auto str = \"Hello\"; auto[] arr = str; return char(arr[7]) - 'l';";
 TEST_RUNTIME_FAIL("auto[] type overflow 2", testAutoArrayOutOfBounds2, "ERROR: array index out of bounds");
-
-const char	*testAutoArrayConversionFail2 = "auto str = \"Hello\"; auto[] arr = str; int str2 = arr; return 0;";
-TEST_RUNTIME_FAIL("auto[] type conversion mismatch 1", testAutoArrayConversionFail2, "ERROR: cannot convert from 'auto[]' to 'int'");
 
 const char	*testAutoArrayConversionFail3 = "auto str = \"Hello\"; auto[] arr = str; char[7] str2 = arr; return 0;";
 TEST_RUNTIME_FAIL("auto[] type conversion mismatch 2", testAutoArrayConversionFail3, "ERROR: cannot convert from 'auto[]' (actual type 'char[6]') to 'char[7]'");
