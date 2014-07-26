@@ -807,6 +807,9 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzy test 3", "auto[sizeof(4)];", "ERROR: cannot specify array size for auto variable");
 	TEST_FOR_FAIL("fuzzy test 4", "yield 1;", "ERROR: global yield is not allowed");
 	TEST_FOR_FAIL("fuzzy test 5", "5 ** -5;", "ERROR: negative power on integer number in exponentiation during constant folding");
+
+	TEST_FOR_FAIL("Array to auto[] type conversion fail", "int x = 12; auto[] arr = x; return 0;", "ERROR: cannot convert 'int' to 'auto[]'");
+	TEST_FOR_FAIL("auto[] type conversion mismatch 1", "auto str = \"Hello\"; auto[] arr = str; int str2 = arr; return 0;", "ERROR: cannot convert 'auto[]' to 'int'");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
