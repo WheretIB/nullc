@@ -9,6 +9,9 @@ static void	Swap(T& a, T& b)
 	b = temp;
 }
 
+template<typename T>
+inline T optDoSpecial(CmdID cmd, T a, T b);
+
 // Functions to apply binary operations in compile-time
 template<typename T>
 inline T optDoOperation(CmdID cmd, T a, T b)
