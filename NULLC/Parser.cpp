@@ -467,7 +467,13 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 			if(!(flag & ALLOW_GENERIC_TYPE) || !setjmp(CodeInfo::errorHandler)) // if allowGenericType is enabled, we will set error handler
 			{
 				if(!ParseVaribleSet(str))
+				{
+					if(flag & ALLOW_GENERIC_TYPE)
+						memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
+
 					ThrowError((*str)->pos, "ERROR: expression not found after typeof(");
+				}
+
 				SetTypeOfLastNode((*str)->pos);
 			}else{
 				// Node count shouldn't change while we did this

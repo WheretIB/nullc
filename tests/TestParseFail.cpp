@@ -18,6 +18,7 @@ void RunParseFailTests()
 	TEST_FOR_FAIL("parsing", "typeof 12 a;", "ERROR: typeof must be followed by '('");
 	TEST_FOR_FAIL("parsing", "typeof(12 a;", "ERROR: ')' not found after expression in typeof");
 	TEST_FOR_FAIL("parsing", "typeof() a;", "ERROR: expression not found after typeof(");
+	TEST_FOR_FAIL("parsing", "auto two(generic a, typeof() ab){ return a + b; } return two(1, 2);", "ERROR: expression not found after typeof(");
 	TEST_FOR_FAIL("parsing", "class{}", "ERROR: class name expected");
 	TEST_FOR_FAIL("parsing", "class Test int a;", "ERROR: '{' not found after class name");
 	TEST_FOR_FAIL("parsing", "class Test{ int; }", "ERROR: class member name expected after type");
