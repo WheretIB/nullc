@@ -81,7 +81,9 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("void array", "void f(){} return { f(), f() };", "ERROR: array cannot be constructed from void type elements");
 	TEST_FOR_FAIL("Name taken", "int a; void a(){} return 1;", "ERROR: name 'a' is already taken for a variable in current scope");
 	TEST_FOR_FAIL("Auto parameter", "auto(auto a){} return 1;", "ERROR: function parameter cannot be an auto type");
-	TEST_FOR_FAIL("Auto parameter 2 ", "int func(auto a, int i){ return 0; } return 0;", "ERROR: function parameter cannot be an auto type");
+	TEST_FOR_FAIL("Auto parameter 2", "int func(auto a, int i){ return 0; } return 0;", "ERROR: function parameter cannot be an auto type");
+	TEST_FOR_FAIL("Auto parameter 3", "auto foo(@T t, auto a){ } foo(1);", "ERROR: function parameter cannot be an auto type");
+	TEST_FOR_FAIL("Auto parameter 4", "auto foo(auto a, @T t){ } foo(1);", "ERROR: function parameter cannot be an auto type");
 	TEST_FOR_FAIL("Function redefine", "int a(int b){ return 0; } int a(int c){ return 0; } return 1;", "ERROR: function 'a' is being defined with the same set of parameters");
 	TEST_FOR_FAIL("Wrong overload", "int operator*(int a){} return 1;", "ERROR: binary operator definition or overload must accept exactly two arguments");
 	TEST_FOR_FAIL("No member function", "int a; return a.ok();", "ERROR: function 'int::ok' is undefined");
