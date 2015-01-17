@@ -1688,3 +1688,10 @@ const char *testGeneric144 =
 auto func(generic x, y, int ref(int, float) z){ return z(x, y); }\r\n\
 return func(1, 3.0f, auto(int a, float b){ return 4; });";
 TEST_RESULT("SFINAE", testGeneric144, "4");
+
+const char *testGeneric145 =
+"auto foo(generic x, auto ref[] y){ return x + y.size; }\r\n\
+auto bar(int a, generic x, auto ref[] y){ return x + y.size; }\r\n\
+\r\n\
+return foo(1) + foo(1, 1, 1, 1, 1) + bar(1, 1);";
+TEST_RESULT("generic function with variable argument count 3", testGeneric145, "7");
