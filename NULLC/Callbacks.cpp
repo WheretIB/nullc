@@ -2304,6 +2304,10 @@ void AddMemberAccessNode(const char* pos, InplaceStr varName)
 			CodeInfo::nodeList.push_back(new NodeFunctionProxy(memberFunc, pos, false, true));
 			return;
 		}
+
+		if(!memberFunc->funcType)
+			ThrowError(pos, "ERROR: function '%.*s' type is unresolved at this point", varName.length(), varName.begin);
+
 		// In case of a function, get it's address
 		CodeInfo::nodeList.push_back(new NodeFunctionAddress(memberFunc));
 	}
