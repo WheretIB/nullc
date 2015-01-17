@@ -807,6 +807,8 @@ auto m = bar;",
 	TEST_FOR_FAIL("overloaded function misuse 7", "void f(int x){} void f(long x){} while(f){}", "ERROR: ambiguity, the expression is an overloaded function. Could be void ref(long) or void ref(int)");
 	TEST_FOR_FAIL("overloaded function misuse 8", "void f(int x){} void f(long x){} do{}while(f);", "ERROR: ambiguity, the expression is an overloaded function. Could be void ref(long) or void ref(int)");
 
+	TEST_FOR_FAIL("incorrect function prototype implementation", "void foo(); { auto a = foo; void foo(){} auto b = foo; return a == b; }", "ERROR: ambiguity, there is more than one overloaded function available:");
+
 	TEST_FOR_FAIL("generic function misuse 1", "return 2 + auto(@T x){};", "ERROR: ambiguity, the expression is a generic function");
 	TEST_FOR_FAIL("generic function misuse 2", "auto x = { auto(@T x){} };", "ERROR: ambiguity, the expression is a generic function");
 	TEST_FOR_FAIL("generic function misuse 3", "return sizeof((auto(@T x){}));", "ERROR: ambiguity, the expression is a generic function");
