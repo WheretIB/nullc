@@ -231,21 +231,39 @@ public:
 			if(funcType)
 			{
 				unsigned int retNameLength = funcType->retType ? funcType->retType->GetFullNameLength() : 4;
+
 				// 7 is the length of " ref(", ")" and \0
 				unsigned int bufferSize = 7 + retNameLength;
+
 				for(unsigned int i = 0; i < funcType->paramCount; i++)
-					bufferSize += funcType->paramType[i]->GetFullNameLength() + (i != funcType->paramCount-1 ? 1 : 0);
+				{
+					TypeInfo *argType = funcType->paramType[i];
+
+					bufferSize += (argType ? argType->GetFullNameLength() : 4) + (i != funcType->paramCount-1 ? 1 : 0);
+				}
+
 				LENGTH_CHECK(bufferSize + 1);
 				char *curr = (char*)typeInfoPool.Allocate(bufferSize + 1);
 				fullName = curr;
 				memcpy(curr, funcType->retType ? funcType->retType->GetFullTypeName() : "auto", retNameLength);
+
 				memcpy(curr + retNameLength, " ref(", 5);
 				curr += retNameLength + 5;
+
 				for(unsigned int i = 0; i < funcType->paramCount; i++)
 				{
-					memcpy(curr, funcType->paramType[i]->GetFullTypeName(), funcType->paramType[i]->GetFullNameLength());
-					curr += funcType->paramType[i]->GetFullNameLength();
-					if(i != funcType->paramCount-1)
+					TypeInfo *argType = funcType->paramType[i];
+
+					if(argType)
+					{
+						memcpy(curr, argType->GetFullTypeName(), argType->GetFullNameLength());
+						curr += argType->GetFullNameLength();
+					}else{
+						memcpy(curr, "auto", 4);
+						curr += 4;
+					}
+
+					if(i != funcType->paramCount - 1)
 						*curr++ = ',';
 				}
 				*curr++ = ')';

@@ -126,9 +126,12 @@ namespace CodeInfo
 			for(T *curr = paramTypes; curr; curr = curr->next, i++)
 			{
 				bestFit->funcType->paramType[i] = curr->varType;
-				if(curr->varType->dependsOnGeneric)
+
+				if(!curr->varType || curr->varType->dependsOnGeneric)
 					bestFit->dependsOnGeneric = true;
-				bestFit->funcType->paramSize += curr->varType->size > 4 ? curr->varType->size : 4;
+
+				if(curr->varType)
+					bestFit->funcType->paramSize += curr->varType->size > 4 ? curr->varType->size : 4;
 			}
 
 	#ifdef _DEBUG

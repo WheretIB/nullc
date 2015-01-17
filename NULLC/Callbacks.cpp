@@ -1543,14 +1543,17 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 			CodeInfo::nodeList.push_back(new NodeFunctionProxy(CodeInfo::funcInfo[fID], pos));
 			return;
 		}
+
 		FunctionInfo *fInfo = CodeInfo::funcInfo[fID];
+
+		if(!fInfo->funcType)
+			ThrowError(pos, "ERROR: function '%.*s' type is unresolved at this point", varName.end-varName.begin, varName.begin);
+
 		if(fInfo->generic)
 		{
 			CodeInfo::nodeList.push_back(new NodeFunctionProxy(fInfo, pos, true));
 			return;
 		}
-		if(!fInfo->funcType)
-			ThrowError(pos, "ERROR: function '%.*s' type is unresolved at this point", varName.end-varName.begin, varName.begin);
 
 		GetFunctionContext(pos, fInfo, true);
 		// Create node that retrieves function address
