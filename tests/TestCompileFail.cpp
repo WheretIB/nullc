@@ -104,6 +104,7 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("complex switch", "import std.math; float4 f(){ return float4(1,1,1,1); } switch(f()){ case 1: break; } return 1;", "ERROR: can't find function '==' with following parameters:");
 	TEST_FOR_FAIL("complex switch", "class Foo{ int x, y; } float operator==(Foo a, b){ return 1.0f; } Foo c; switch(c){ case Foo(): break; } return 2;", "ERROR: '==' operator result type must be bool, char, short or int");
 	TEST_FOR_FAIL("void case", "void f(){} switch(1){ case f(): break; } return 1;", "ERROR: case value type cannot be void");
+	TEST_FOR_FAIL("void array init", "void[4] x = 1;", "ERROR: cannot convert 'int' to 'void[4]'");
 
 	TEST_FOR_FAIL("class in class", "class test{ void f(){ class heh{ int h; } } } return 1;", "ERROR: different type is being defined");
 	TEST_FOR_FAIL("class wrong alignment", "align(13) class test{int a;} return 1;", "ERROR: alignment must be power of two");
