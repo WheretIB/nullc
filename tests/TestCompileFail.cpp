@@ -311,6 +311,15 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar
 	TEST_FOR_FAIL("auto resolved to void", "void foo(){} auto x = foo();", "ERROR: r-value type is 'void'");
 	TEST_FOR_FAIL("unclear decision at return", "int foo(int x){ return -x; } int foo(float x){ return x * 2.0f; } auto bar(){ return foo; }", "ERROR: ambiguity, there is more than one overloaded function available:");
 
+	TEST_FOR_FAIL_FULL("unclear function overload resolution", "auto foo(generic x){ return x + foo; } foo(1);",
+"line 1 - ERROR: while instantiating generic function foo(generic)\r\n\
+	using argument vector (int)\r\n\
+line 1 - ERROR: ambiguity, the expression is an overloaded function. Could be auto ref(int) or auto ref(generic)\r\n\
+  at \"auto foo(generic x){ return x + foo; } foo(1);\"\r\n\
+                                         ^\r\n\
+  at \"auto foo(generic x){ return x + foo; } foo(1);\"\r\n\
+                                                   ^\r\n");
+
 	TEST_FOR_FAIL_FULL("unclear target function",
 "int foo(int x){ return -x; }\r\n\
 int foo(float x){ return x * 2; }\r\n\
