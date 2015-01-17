@@ -160,7 +160,9 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Ternary operator void return type", "void f(){} int a = 1; return a ? f() : 0.0;", "ERROR: one of ternary operator ?: result type is void (void : double)");
 	TEST_FOR_FAIL("Ternary operator return type difference", "import std.math; int a = 1; return a ? 12 : float2(3, 4);", "ERROR: ternary operator ?: result types are not equal (int : float2)");
 
-	TEST_FOR_FAIL("Variable type is unknown", "int test(int a, typeof(test) ptr){ return ptr(a, ptr); }", "ERROR: function 'test' type is unresolved at this point");
+	TEST_FOR_FAIL("Variable type is unknown 1", "int test(int a, typeof(test) ptr){ return ptr(a, ptr); }", "ERROR: function 'test' type is unresolved at this point");
+	TEST_FOR_FAIL("Variable type is unknown 2", "auto foo(@int x, auto y = typeof(foo)){ int y = x; return y; }", "ERROR: function 'foo' type is unresolved at this point");
+	TEST_FOR_FAIL("Variable type is unknown 3", "void foo(){} auto foo(@int x, auto y = typeof(foo)){ int y = x; return y; }", "ERROR: ambiguity, the expression is an overloaded function. Could be auto ref(generic,auto) or void ref()");
 
 	TEST_FOR_FAIL("Illegal pointer operation 1", "int ref a; a += a;", "ERROR: there is no built-in operator for types 'int ref' and 'int ref'");
 	TEST_FOR_FAIL("Illegal pointer operation 2", "int ref a; a++;", "ERROR: increment is not supported on 'int ref'");
