@@ -64,7 +64,7 @@ namespace NULLC
 			T y;
 		};
 
-		return sizeof(Helper) / 2;
+		return sizeof(Helper) - sizeof(T);
 	}
 }
 
