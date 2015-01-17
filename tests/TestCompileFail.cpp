@@ -649,6 +649,7 @@ return int(y() + z());",
 	TEST_FOR_FAIL("unresolved type", "auto foo(){ foo.a(); }", "ERROR: function 'foo' type is unresolved at this point");
 	TEST_FOR_FAIL("unresolved type", "auto foo(){ foo.a; }", "ERROR: function 'foo' type is unresolved at this point");
 	TEST_FOR_FAIL("unresolved type", "auto foo(){ &foo; }", "ERROR: function 'foo' type is unresolved at this point");
+	TEST_FOR_FAIL("unresolved type", "class Foo{ } auto Foo:foo(){ auto m = this.foo; return m(); }", "ERROR: function 'foo' type is unresolved at this point");
 
 	TEST_FOR_FAIL("no function", "int foo(@T[] arr){ return 1; } return foo(new int);", "ERROR: can't find function 'foo' with following parameters:");
 	TEST_FOR_FAIL("no function", "class Bar<T>{} int foo(Bar<@T>[] arr){ return 1; } Bar<int> ref x; return foo(x);", "ERROR: can't find function 'foo' with following parameters:");
