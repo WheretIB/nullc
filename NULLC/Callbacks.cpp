@@ -4909,7 +4909,16 @@ unsigned PrintArgumentName(NodeZeroOP* activeNode, char* pos, unsigned limit)
 	{
 		int fID = CodeInfo::funcInfo.size(), fCount = 0;
 		while((fID = CodeInfo::FindFunctionByName(((NodeFunctionProxy*)activeNode)->funcInfo->nameHash, fID - 1)) != -1)
-			pos += SafeSprintf(pos, limit - int(pos - start), "%s%s", fCount++ != 0 ? " or " : "", CodeInfo::funcInfo[fID]->funcType->GetFullTypeName());
+		{
+			FunctionInfo *funcInfo = CodeInfo::funcInfo[fID];
+
+			TypeInfo *funcType = funcInfo->funcType;
+
+			if(!funcType)
+				funcType = CodeInfo::GetFunctionType(NULL, funcInfo->firstParam, funcInfo->paramCount);
+
+			pos += SafeSprintf(pos, limit - int(pos - start), "%s%s", fCount++ != 0 ? " or " : "", funcType->GetFullTypeName());
+		}
 	}else if(activeNode->nodeType == typeNodeExpressionList && ((NodeExpressionList*)activeNode)->GetFirstNode()->nodeType == typeNodeFunctionProxy){
 		pos += SafeSprintf(pos, limit - int(pos - start), "`function`");
 	}else{
