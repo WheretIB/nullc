@@ -4066,15 +4066,19 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 			start++;
 		}
 
+		// Set generic function as being in definition so that type aliases will not spill to outer scope and typeof expressions won't fail
+		currDefinedFunc.push_back(fInfo);
+
 		// Get type to which we resolve our generic argument
 		Lexeme *temp = start;
 		SelectTypeForGeneric(ParseSelectType(&temp, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF) ? start : prevArg, nodeOffset + argID);
 		TypeInfo *referenceType = currType;
+
 		// Flag of instantiation failure
 		bool instanceFailure = false;
-		// Set generic function as being in definition so that type aliases will get into functions alias list and will not spill to outer scope
-		currDefinedFunc.push_back(fInfo);
+
 		Lexeme *oldStart = start;
+
 		// Try to reparse the type
 		if(!ParseSelectType(&start, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF, referenceType, &instanceFailure))
 		{
