@@ -5624,22 +5624,23 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 	if(fInfo)
 		GetFunctionContext(pos, fInfo, false);
+
 	if(funcAddr)
 		CodeInfo::nodeList.push_back(funcAddr);
+
 	CodeInfo::nodeList.push_back(new NodeFuncCall(fInfo, fType));
+
 	if(currDefinedFunc.size() && fInfo && !fInfo->pure)
 		currDefinedFunc.back()->pure = false;	// non-pure function call invalidates function purity
+
 #ifdef NULLC_PURE_FUNCTIONS
 	// Pure function evaluation
 	if(fInfo && fInfo->pure && !(currDefinedFunc.size() && currDefinedFunc.back() == fInfo))
 	{
-#ifdef _DEBUG
-		static int inside = false;
-		assert(!inside);
-		inside = true;
-#endif
 		static char memory[1024];
+
 		NodeFuncCall::baseShift = 0;
+
 		if(NodeNumber *value = CodeInfo::nodeList.back()->Evaluate(memory, 1024))
 		{
 			CodeInfo::nodeList.back() = value;
@@ -5650,10 +5651,8 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 				uncalledPos = pos;
 			}
 		}
-#ifdef _DEBUG
-		inside = false;
-#endif
 	}
+
 	if(fInfo && !fInfo->pure && !uncalledFunc)
 	{
 		uncalledFunc = fInfo;
@@ -6681,6 +6680,11 @@ void CallbackInitialize()
 
 	defineCoroutine = false;
 
+	currFunction = NULL;
+	currArgument = 0;
+
+	currExplicitTypes = NULL;
+
 	if(!errorReport)
 		errorReport = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
 }
@@ -6697,11 +6701,6 @@ void SetGlobalSize(unsigned int offset)
 
 void CallbackReset()
 {
-	currFunction = NULL;
-	currArgument = 0;
-
-	currExplicitTypes = NULL;
-
 	varInfoTop.reset();
 	funcInfoTop.reset();
 	cycleDepth.reset();
