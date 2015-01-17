@@ -3422,10 +3422,11 @@ void FunctionParameter(const char* pos, InplaceStr paramName)
 {
 	if(currType == typeVoid)
 		ThrowError(pos, "ERROR: function parameter cannot be a void type");
+
 	unsigned int hash = GetStringHash(paramName.begin, paramName.end);
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 
-	if(lastFunc.lastParam && !lastFunc.lastParam->varType && !lastFunc.generic)
+	if(lastFunc.lastParam && !lastFunc.lastParam->varType)
 		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
 
 	for(VariableInfo *info = lastFunc.firstParam; info; info = info->next)
@@ -3498,11 +3499,17 @@ void FunctionParameterDefault(const char* pos)
 void FunctionPrototype(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
+
 	// Remove function arguments used to enable typeof
 	for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
 		varMap.remove(curr->nameHash, curr);
+
+	if(lastFunc.lastParam && !lastFunc.lastParam->varType)
+		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
+
 	if(!lastFunc.retType && !lastFunc.generic)
 		ThrowError(pos, "ERROR: function prototype with unresolved return type");
+
 	lastFunc.funcType = CodeInfo::GetFunctionType(lastFunc.retType, lastFunc.firstParam, lastFunc.paramCount);
 	currDefinedFunc.pop_back();
 	if(newType && lastFunc.type == FunctionInfo::THISCALL)
@@ -3603,9 +3610,11 @@ FunctionInfo* FunctionImplementPrototype(const char* pos, FunctionInfo &lastFunc
 void FunctionStart(const char* pos)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
+
 	// Remove function arguments used to enable typeof
 	for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
 		varMap.remove(curr->nameHash, curr);
+
 	if(lastFunc.lastParam && !lastFunc.lastParam->varType)
 		ThrowError(pos, "ERROR: function parameter cannot be an auto type");
 
