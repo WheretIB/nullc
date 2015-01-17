@@ -3599,7 +3599,9 @@ FunctionInfo* FunctionImplementPrototype(const char* pos, FunctionInfo &lastFunc
 			if(!!aliasNew != !!aliasOld)
 				explicitTypesEqual = false;
 
-			if(paramsEqual && explicitTypesEqual)
+			bool typesEqual = info->type == lastFunc.type;
+
+			if(paramsEqual && explicitTypesEqual && typesEqual)
 			{
 				if(info->implemented)
 					ThrowError(pos, "ERROR: function '%s' is being defined with the same set of parameters", lastFunc.name);
