@@ -750,8 +750,17 @@ NodeVariableSet::NodeVariableSet(TypeInfo* targetType, bool firstDefinition, boo
 	if(typeInfo->arrLevel < 2 && typeInfo->refLevel == 0 && second->nodeType == typeNodeNumber && !second->typeInfo->firstVariable)
 		static_cast<NodeNumber*>(second)->ConvertTo(typeInfo);
 
-	// If this is the first array definition and value is array sub-type, we set it to all array elements
-	arrSetAll = (firstDefinition && typeInfo->arrLevel == 1 && typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && second->typeInfo->arrLevel == 0 && second->typeInfo->refLevel == 0 && typeInfo->subType->type != TypeInfo::TYPE_COMPLEX && second->typeInfo->type != TypeInfo::TYPE_COMPLEX);
+	// If this is the first array definition and value is array sub-type and a type is a basic type, we set it to all array elements
+	arrSetAll = false;
+
+	if(firstDefinition && typeInfo->arrLevel == 1 && typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && second->typeInfo->arrLevel == 0 && second->typeInfo->refLevel == 0)
+	{
+		TypeInfo::TypeCategory elementCategory = typeInfo->subType->type;
+		TypeInfo::TypeCategory valueCategory = second->typeInfo->type;
+
+		if(elementCategory != TypeInfo::TYPE_VOID && elementCategory != TypeInfo::TYPE_COMPLEX && valueCategory != TypeInfo::TYPE_VOID && valueCategory != TypeInfo::TYPE_COMPLEX)
+			arrSetAll = true;
+	}
 
 	if(second->typeInfo == typeVoid)
 		ThrowError(CodeInfo::lastKnownStartPos, "ERROR: cannot convert from void to %s", typeInfo->GetFullTypeName());
