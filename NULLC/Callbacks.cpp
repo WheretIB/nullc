@@ -1257,11 +1257,13 @@ void SelectTypeByPointer(TypeInfo* type)
 
 void SelectTypeForGeneric(Lexeme* pos, unsigned nodeIndex)
 {
-	if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeFuncDef)
+	NodeZeroOP *node = CodeInfo::nodeList[nodeIndex];
+
+	if(node->nodeType == typeNodeFuncDef)
 	{
-		currType = ((NodeFuncDef*)CodeInfo::nodeList[nodeIndex])->GetFuncInfo()->funcType;
-	}else if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeExpressionList && ((NodeExpressionList*)CodeInfo::nodeList[nodeIndex])->GetFirstNode()->nodeType == typeNodeFunctionProxy){
-		NodeFunctionProxy *fProxy = (NodeFunctionProxy*)((NodeExpressionList*)CodeInfo::nodeList.back())->GetFirstNode();
+		currType = ((NodeFuncDef*)node)->GetFuncInfo()->funcType;
+	}else if(node->nodeType == typeNodeExpressionList && ((NodeExpressionList*)node)->GetFirstNode()->nodeType == typeNodeFunctionProxy){
+		NodeFunctionProxy *fProxy = (NodeFunctionProxy*)((NodeExpressionList*)node)->GetFirstNode();
 		Lexeme *tmp = pos;
 		bool instanceFailure = false;
 
@@ -1270,8 +1272,8 @@ void SelectTypeForGeneric(Lexeme* pos, unsigned nodeIndex)
 
 		if(currType->dependsOnGeneric)
 			currType = InstanceGenericFunctionTypeForType(pos->pos, fProxy->funcInfo, currType, bestFuncList.size(), true, false);
-	}else if(CodeInfo::nodeList[nodeIndex]->nodeType == typeNodeFunctionProxy){
-		HashMap<FunctionInfo*>::Node *func = funcMap.first(((NodeFunctionProxy*)CodeInfo::nodeList[nodeIndex])->funcInfo->nameHash);
+	}else if(node->nodeType == typeNodeFunctionProxy){
+		HashMap<FunctionInfo*>::Node *func = funcMap.first(((NodeFunctionProxy*)node)->funcInfo->nameHash);
 
 		do
 		{
@@ -1287,10 +1289,10 @@ void SelectTypeForGeneric(Lexeme* pos, unsigned nodeIndex)
 
 		if(currType->dependsOnGeneric)
 			currType = InstanceGenericFunctionTypeForType(pos->pos, func->value, currType, bestFuncList.size(), true, false);
-	}else if(CodeInfo::nodeList[nodeIndex]->typeInfo->arrLevel && CodeInfo::nodeList[nodeIndex]->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && CodeInfo::nodeList[nodeIndex]->nodeType != typeNodeZeroOp){
-		currType = CodeInfo::GetArrayType(CodeInfo::nodeList[nodeIndex]->typeInfo->subType, TypeInfo::UNSIZED_ARRAY);
+	}else if(node->typeInfo->arrLevel && node->typeInfo->arrSize != TypeInfo::UNSIZED_ARRAY && node->nodeType != typeNodeZeroOp){
+		currType = CodeInfo::GetArrayType(node->typeInfo->subType, TypeInfo::UNSIZED_ARRAY);
 	}else{
-			currType = CodeInfo::nodeList[nodeIndex]->typeInfo;
+		currType = node->typeInfo;
 	}
 }
 
@@ -5185,23 +5187,30 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 
 		char *errPos = errorReport;
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "ERROR: while instantiating generic function %s(", functionInstance->name);
+
 		for(unsigned i = 0; i < fType->paramCount; i++)
 			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s", i == 0 ? "" : ", ", fType->paramType[i]->GetFullTypeName());
+
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n\tusing argument vector (");
+
 		for(unsigned i = 0; i < fType->paramCount; i++)
 		{
 			if(i != 0)
 				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ", ");
 			errPos += PrintArgumentName(CodeInfo::nodeList[argOffset + i], errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport));
 		}
+
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n");
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s", CodeInfo::lastError.GetErrorString());
+
 		if(errPos[-2] == '\r' && errPos[-1] == '\n')
 			errPos -= 2;
 		*errPos++ = 0;
+
 		CodeInfo::lastError = CompilerError(errorReport, pos);
 		longjmp(CodeInfo::errorHandler, 1);
 	}
+
 	memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 
 	if(callArgCount != ~0u && callArgCount < fType->paramCount)
@@ -5419,8 +5428,6 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		}else{
 			fType = bestFuncList[minRatingIndex]->funcType->funcType;
 			fInfo = bestFuncList[minRatingIndex];
-
-
 		}
 
 		// Check, is there are more than one function, that share the same rating
@@ -5537,19 +5544,13 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		callArgCount = fInfo->paramCount;
 	}
 
-	NodeZeroOP *funcDefAtEnd = NULL;
-	if(fInfo && fInfo->generic)
-	{
-		funcDefAtEnd = CreateGenericFunctionInstance(pos, fInfo, fInfo, callArgCount, forcedParentType);
-		fType = fInfo->funcType->funcType;
-	}
-
-	if(fInfo && callArgCount < fType->paramCount)
+	if(fInfo && callArgCount < fInfo->paramCount)
 	{
 		// Move to the last parameter
 		VariableInfo *param = fInfo->firstParam;
 		for(unsigned int i = 0; i < callArgCount; i++)
 			param = param->next;
+
 		// While there are default values, put them
 		while(param && param->defaultValue)
 		{
@@ -5560,8 +5561,9 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			param = param->next;
 		}
 	}
+
 	// If it's variable argument function
-	if(callArgCount >= (fType->paramCount-1) && fType->paramCount && fType->paramType[fType->paramCount - 1] == typeObjectArray &&
+	if(callArgCount >= (fType->paramCount - 1) && fType->paramCount && fType->paramType[fType->paramCount - 1] == typeObjectArray &&
 		!(callArgCount == fType->paramCount && CodeInfo::nodeList.back()->typeInfo == typeObjectArray))
 	{
 		if(callArgCount >= fType->paramCount)
@@ -5602,6 +5604,13 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			HandlePointerToObject(pos, CodeInfo::GetArrayType(typeObject, TypeInfo::UNSIZED_ARRAY));
 			callArgCount++;
 		}
+	}
+
+	NodeZeroOP *funcDefAtEnd = NULL;
+	if(fInfo && fInfo->generic)
+	{
+		funcDefAtEnd = CreateGenericFunctionInstance(pos, fInfo, fInfo, callArgCount, forcedParentType);
+		fType = fInfo->funcType->funcType;
 	}
 
 	// Template function is only needed to support default function arguments and named argument function call
