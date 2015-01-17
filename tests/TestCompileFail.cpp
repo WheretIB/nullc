@@ -367,7 +367,6 @@ return bar(foo);",
 	TEST_FOR_FAIL("cannot instance function because target type is not a function", "int x = auto(generic y){ return -y; }; return x;", "ERROR: cannot instance generic function to a type 'int'");
 	TEST_FOR_FAIL("cannot select function overload", "int foo(int x){ return -x; } int foo(float x){ return x * 2; } int x = foo;", "ERROR: cannot select function overload for a type 'int'");
 	TEST_FOR_FAIL("Instanced inline function is wrong", "class X{} X x; int foo(int ref(int, X) f){ return f(5, x); } return foo(auto(generic y, double z){ return -y; });", "ERROR: unable to select function '$func8' overload for a type 'int ref(int,X)'");
-	TEST_FOR_FAIL("Typeof in generic function shouldn't skip all errors", "auto foo(generic x, typeof(foo(5)) y){ return x + y; }", "ERROR: function 'foo' is undefined");
 
 	TEST_FOR_FAIL("no finalizable objects on stack", "class Foo{int a;} void Foo:finalize(){} Foo x;", "ERROR: cannot create 'Foo' that implements 'finalize' on stack");
 	TEST_FOR_FAIL("no finalizable objects on stack 2", "class Foo{int a;} void Foo:finalize(){} auto x = *(new Foo);", "ERROR: cannot create 'Foo' that implements 'finalize' on stack");

@@ -477,7 +477,10 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 				SetTypeOfLastNode((*str)->pos);
 			}else{
 				// Node count shouldn't change while we did this
-				if(!FunctionGeneric(false) || nodeCount != CodeInfo::nodeList.size())
+				while(CodeInfo::nodeList.size() > nodeCount)
+					CodeInfo::nodeList.pop_back();
+
+				if(!FunctionGeneric(false))
 				{
 					memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 					longjmp(CodeInfo::errorHandler, 1);

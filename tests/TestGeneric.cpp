@@ -1682,3 +1682,9 @@ auto y = foo(1);\r\n\
 \r\n\
 return x() - y;";
 TEST_RESULT("local generic function instantiation with default function argument values", testGeneric143, "1");
+
+const char *testGeneric144 =
+"auto func(generic x, y, typeof(!y) ref(int, float) z){ return z(x, y); }\r\n\
+auto func(generic x, y, int ref(int, float) z){ return z(x, y); }\r\n\
+return func(1, 3.0f, auto(int a, float b){ return 4; });";
+TEST_RESULT("SFINAE", testGeneric144, "4");
