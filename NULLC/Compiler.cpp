@@ -2474,6 +2474,14 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			lInfo->size = vType->size;
 			lInfo->target = curr->targetVar ? curr->targetVar->pos : curr->targetPos;
 			lInfo->closeListID = (curr->targetDepth + CodeInfo::funcInfo[curr->targetFunc]->closeListStart) | (curr->targetLocal ? 0x80000000 : 0);
+
+			lInfo->alignmentLog2 = 0;
+			unsigned alignment = curr->variable && curr->variable->alignBytes > 4 ? curr->variable->alignBytes : 4;
+			while(alignment >>= 1)
+				lInfo->alignmentLog2++;
+
+			assert((1u << lInfo->alignmentLog2) == (curr->variable && curr->variable->alignBytes > 4 ? curr->variable->alignBytes : 4));
+
 			lInfo->offsetToName = int(symbolPos - debugSymbols);
 			memcpy(symbolPos, vName.begin, vName.length() + 1);
 			symbolPos += vName.length();

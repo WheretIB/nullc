@@ -611,3 +611,64 @@ foo.add(5);\r\n\
 \r\n\
 return foo.y == 9 && foo.z == 0 && bar.lastY == 5;";
 TEST_RESULT("Closure on implicit return 2", testClosureOnImplicitReturn2, "1");
+
+const char	*testClosureAlignment1 =
+"import std.gc;\r\n\
+\r\n\
+auto foo(char z, int x)\r\n\
+{\r\n\
+	auto bar(int ref y)\r\n\
+	{\r\n\
+		return auto(){ return z + *y; };\r\n\
+	}\r\n\
+	\r\n\
+	int ref p = new int;\r\n\
+	*p = 5;\r\n\
+	\r\n\
+	auto t = bar(p);\r\n\
+	p = nullptr;\r\n\
+	\r\n\
+	GC.CollectMemory();\r\n\
+	\r\n\
+	new int(20);\r\n\
+	\r\n\
+	return t;\r\n\
+}\r\n\
+\r\n\
+auto t = foo(100, 2);\r\n\
+\r\n\
+return t();";
+TEST_RESULT("Closure alignment test 1", testClosureAlignment1, "105");
+
+int CheckAlignmentClosure(NULLCRef ptr, int alignment)
+{
+	intptr_t asInt = (intptr_t)ptr.ptr;
+	return asInt % alignment == 0;
+}
+
+LOAD_MODULE_BIND(test_alignment_closure, "test.alignment.closure", "int CheckAlignment(auto ref ptr, int alignment);")
+{
+	nullcBindModuleFunction("test.alignment.closure", (void(*)())CheckAlignmentClosure, "CheckAlignment", 0);
+}
+
+const char	*testClosureAlignment2 =
+"import test.alignment.closure;\r\n\
+auto x = coroutine auto(){ char x = 1; int y = 2; return CheckAlignment(y, 4); };\r\n\
+return x();";
+TEST_RESULT("Closure alignment test 2", testClosureAlignment2, "1");
+
+const char	*testClosureAlignment3 =
+"import test.alignment.closure;\r\n\
+auto x = coroutine auto(){ int x = 1; align(8) int y = 2; return CheckAlignment(y, 8); };\r\n\
+auto y = coroutine auto(){ int x = 1; align(16) int y = 2; return CheckAlignment(y, 16); };\r\n\
+return x() + y();";
+TEST_RESULT("Closure alignment test 3", testClosureAlignment3, "2");
+
+const char	*testClosureAlignment4 =
+"import test.alignment.closure;\r\n\
+auto x = coroutine auto(){ int[1024] x; align(8) int y = 2; return CheckAlignment(y, 8); };\r\n\
+int m = 0;\r\n\
+for(int i = 0; i < 128; i++)\r\n\
+	m += (coroutine auto(){ int[1024] x; align(16) int y = 2; return CheckAlignment(y, 16); })();\r\n\
+return x() + m;";
+TEST_RESULT("Closure alignment test 4", testClosureAlignment4, "129");

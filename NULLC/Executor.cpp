@@ -2177,13 +2177,18 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 		}else{
 			ExternTypeInfo &subType = exTypes[type.subType];
 //			printf("\tGlobal pointer %s %p (at %p)\r\n", symbols + subType.offsetToName, *rPtr, ptr);
-			markerType *marker = (markerType*)((char*)*rPtr - sizeof(markerType));
-//			printf("\tMarker is %d\r\n", *marker);
-			if(NULLC::IsBasePointer(*rPtr) && (*marker & 1))
+
+			if(NULLC::IsBasePointer(*rPtr))
 			{
-				*marker &= ~1;
-				if(type.subCat != ExternTypeInfo::CAT_NONE)
-					FixupVariable(*rPtr, subType);
+				markerType *marker = (markerType*)((char*)*rPtr - sizeof(markerType));
+//				printf("\tMarker is %d\r\n", *marker);
+
+				if(*marker & 1)
+				{
+					*marker &= ~1;
+					if(type.subCat != ExternTypeInfo::CAT_NONE)
+						FixupVariable(*rPtr, subType);
+				}
 			}
 		}
 	}
@@ -2390,16 +2395,11 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 		int address = int(fcallStack[n]-cmdBase);
 		int funcID = -1;
 
-		int debugMatch = 0;
 		for(unsigned int i = 0; i < exFunctions.size(); i++)
 		{
 			if(address >= exFunctions[i].address && address < (exFunctions[i].address + exFunctions[i].codeSize))
-			{
 				funcID = i;
-				debugMatch++;
-			}
 		}
-		assert(debugMatch < 2);
 
 		if(funcID != -1)
 		{

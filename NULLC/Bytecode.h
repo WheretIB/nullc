@@ -82,6 +82,7 @@ struct ExternLocalInfo
 		unsigned int	target;
 	};
 	unsigned int	closeListID;
+	unsigned char	alignmentLog2; // 1 << value
 
 	unsigned int	offsetToName;
 };
@@ -129,11 +130,12 @@ struct ExternFuncInfo
 	unsigned int	localCount;
 	unsigned int	externCount;
 
+	// Object copy storage is splaced after the upvalue
 	struct Upvalue
 	{
 		unsigned int	*ptr;
 		Upvalue			*next;
-		unsigned int	size;
+		unsigned int	aligmentAndSize; // Top 2 bits contain packed alignment: 1 << (packedAligment + 2)
 	};
 	unsigned int	closeListStart;
 
