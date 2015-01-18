@@ -837,6 +837,8 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("function selection", "class Foo<T>{} auto foo(Foo<@T> x){} return foo(foo);", "ERROR: there is no function available that will satisfy the argument");
 	TEST_FOR_FAIL("function selection", "class Foo<T>{} +auto operator+(Foo<generic> ref v){ }", "ERROR: cannot select function overload for a type 'Foo'");
+
+	TEST_FOR_FAIL("incorrect auto", "int foo(int ref(int, int) f){ return f(2, 3); } auto x = foo(<auto i, j>{ i + j; }); return x;", "ERROR: type of a function argument cannot be auto");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

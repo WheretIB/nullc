@@ -1583,6 +1583,10 @@ bool ParseShortFunctionDefinition(Lexeme** str)
 
 		bool imaginary = ParseSelectType(str);
 		TypeInfo *selType = (TypeInfo*)GetSelectedType();
+
+		if(imaginary && !selType)
+			ThrowError((*str)->pos, "ERROR: type of a function argument cannot be auto");
+
 		SelectTypeByPointer(type->funcType->paramType[currArg]);
 
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
