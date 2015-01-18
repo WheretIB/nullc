@@ -831,6 +831,9 @@ auto m = bar;",
 	TEST_FOR_FAIL("short inline function fail 1", "class Foo<T>{} auto foo(generic a, generic ref(Foo<typeof(()>) m){} return foo(1, <x>{ -4; });", "ERROR: function allows any type for this argument so it must be specified explicitly");
 	TEST_FOR_FAIL("short inline function fail 2", "class Foo<T>{} auto foo(generic a, generic ref(Foo<generic>) m){} return foo(1, <x>{ -4; });", "ERROR: function allows any type for this argument so it must be specified explicitly");
 	TEST_FOR_FAIL("unresolved function argument", "int bar(){ return 1; } int bar(auto z = bar){ return z(); }", "ERROR: ambiguity, there is more than one overloaded function available:");
+
+	TEST_FOR_FAIL("explicit function arguments", "int foo(explicit int a, b){ return a + b; } return foo(3, 4.0);", "ERROR: can't find function 'foo' with following parameters:");
+	TEST_FOR_FAIL("explicit function arguments", "int foo(int a, explicit float b){ return a + b; } return foo(3, 4.0);", "ERROR: can't find function 'foo' with following parameters:");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

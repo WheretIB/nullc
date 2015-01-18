@@ -1700,3 +1700,14 @@ const char	*testDefaultGenericFuncVars =
 "auto test(generic c, auto a = auto(int i){ return i++; }, int b = 5){ return a(3) + c * b; }\r\n\
 return test(1) + test(2, auto(int l){ return l * 2; });";
 TEST_RESULT("Generic function with default parameter values", testDefaultGenericFuncVars, "24");
+
+const char	*testExplicitFunctionArgumentGeneric1 =
+"int foo(explicit int ref(int) b){ return b(4); }\r\n\
+return foo(auto(generic x){ return x * 3; });";
+TEST_RESULT("Generic function passed into a function with an explicit argument 1", testExplicitFunctionArgumentGeneric1, "12");
+
+const char	*testExplicitFunctionArgumentGeneric2 =
+"int foo(explicit int ref(int) b){ return b(4); }\r\n\
+auto bar(generic x){ return x * 3; }\r\n\
+return foo(bar);";
+TEST_RESULT("Generic function passed into a function with an explicit argument 2", testExplicitFunctionArgumentGeneric2, "12");
