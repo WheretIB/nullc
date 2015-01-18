@@ -5675,20 +5675,28 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 #ifdef NULLC_PURE_FUNCTIONS
 	// Pure function evaluation
-	if(fInfo && fInfo->pure && !(currDefinedFunc.size() && currDefinedFunc.back() == fInfo))
+	if(fInfo && fInfo->pure)
 	{
-		static char memory[1024];
+		bool isBeingDefined = false;
 
-		NodeFuncCall::baseShift = 0;
+		for(unsigned i = 0; i < currDefinedFunc.size() && !isBeingDefined; i++)
+			isBeingDefined |= currDefinedFunc[i] == fInfo;
 
-		if(NodeNumber *value = CodeInfo::nodeList.back()->Evaluate(memory, 1024))
+		if(!isBeingDefined)
 		{
-			CodeInfo::nodeList.back() = value;
-		}else{
-			if(!uncalledFunc)
+			static char memory[1024];
+
+			NodeFuncCall::baseShift = 0;
+
+			if(NodeNumber *value = CodeInfo::nodeList.back()->Evaluate(memory, 1024))
 			{
-				uncalledFunc = fInfo;
-				uncalledPos = pos;
+				CodeInfo::nodeList.back() = value;
+			}else{
+				if(!uncalledFunc)
+				{
+					uncalledFunc = fInfo;
+					uncalledPos = pos;
+				}
 			}
 		}
 	}
