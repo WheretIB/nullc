@@ -4318,6 +4318,19 @@ unsigned int GetFunctionRating(FunctionType *currFunc, unsigned int callArgCount
 				// generic function argument that is derivative from generic
 				continue;
 			}else if(currArgument && currArgument->isExplicit){
+				// Function type conversions
+				if(expectedType->funcType)
+				{
+					if(nodeType == typeNodeFuncDef && ((NodeFuncDef*)activeNode)->GetFuncInfo()->funcType == expectedType)
+						continue;		// Inline function definition doesn't cost anything
+					else if(nodeType == typeNodeFunctionProxy && ((NodeFunctionProxy*)activeNode)->HasType(expectedType))
+						continue;		// If a set of function overloads has an expected overload, this doesn't cont anything
+					else if(nodeType == typeNodeFunctionProxy && InstanceGenericFunctionTypeForType(NULL, ((NodeFunctionProxy*)activeNode)->funcInfo, expectedType, bestFuncList.size(), true, true) == expectedType)
+						continue;		// The same
+					else if(nodeType == typeNodeExpressionList && ((NodeExpressionList*)activeNode)->GetFirstNode()->nodeType == typeNodeFunctionProxy)
+						continue;		// Generic function is expected to have an appropriate instance, but there will be a check after instancing
+				}
+
 				return ~0u; // Argument type must perfectly match
 			}else if(expectedType->arrSize == TypeInfo::UNSIZED_ARRAY && paramType->arrSize != 0 && paramType->subType == expectedType->subType){
 				// array -> class (unsized array)

@@ -219,3 +219,22 @@ const char	*testCompileTimeFunctionEvaluationBug5 =
 "int bar(int x){ return 6 * x + (auto(typeof(bar(1)) y){ return y * 2; })(4); }\r\n\
 return bar(5);";
 TEST_RESULT("Compile-time function evaluation bug 5", testCompileTimeFunctionEvaluationBug5, "38");
+
+const char	*testExplicitArguments1 =
+"int foo(explicit int a, b){ return a + b; }\r\n\
+return foo(3, 4);";
+TEST_RESULT("Explicit function arguments 1", testExplicitArguments1, "7");
+
+const char	*testExplicitArguments2 =
+"int foo(explicit int ref(int) f){ return f(2); }\r\n\
+return foo(<x>{ x; });";
+TEST_RESULT("Explicit function arguments 2", testExplicitArguments2, "2");
+
+const char	*testExplicitArguments3 =
+"int foo(explicit int ref(int) f){ return f(2); }\r\n\
+\r\n\
+int bar(int x){ return x * 4; }\r\n\
+float bar(){ return 2.0; }\r\n\
+\r\n\
+return foo(bar);";
+TEST_RESULT("Explicit function arguments 3", testExplicitArguments3, "8");
