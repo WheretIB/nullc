@@ -356,7 +356,7 @@ void* NULLC::AllocObject(int size, unsigned type)
 				data = pool512.Alloc();
 				realSize = 512;
 			}else{
-				void *ptr = NULLC::alloc(size + 4);
+				void *ptr = NULLC::alignedAlloc(size - sizeof(markerType), 4 + sizeof(markerType));
 				if(ptr == NULL)
 				{
 					nullcThrowError("Allocation failed.");
@@ -525,7 +525,7 @@ void NULLC::CollectBlock(Range& curr)
 			NULLC::FinalizeObject(marker, (char*)block + 4);
 		}else{
 			usedMemory -= *(unsigned int*)block;
-			NULLC::dealloc(block);
+			NULLC::alignedDealloc(block);
 
 			toErase.push_back(curr);
 
@@ -636,7 +636,7 @@ void NULLC::FinalizeMemory()
 
 void NULLC::ClearBlock(Range& curr)
 {
-	NULLC::dealloc(curr.start);
+	NULLC::alignedDealloc(curr.start);
 }
 
 void NULLC::ClearMemory()

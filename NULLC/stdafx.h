@@ -42,6 +42,7 @@ namespace NULLC
 	extern void		(*dealloc)(void*);
 
 	void*	alignedAlloc(int size);
+	void*	alignedAlloc(int size, int extraSize);
 	void	alignedDealloc(void* ptr);
 
 	template<typename T>
