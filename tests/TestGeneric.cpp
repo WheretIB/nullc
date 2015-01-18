@@ -1695,3 +1695,8 @@ auto bar(int a, generic x, auto ref[] y){ return x + y.size; }\r\n\
 \r\n\
 return foo(1) + foo(1, 1, 1, 1, 1) + bar(1, 1);";
 TEST_RESULT("generic function with variable argument count 3", testGeneric145, "7");
+
+const char	*testDefaultGenericFuncVars =
+"auto test(generic c, auto a = auto(int i){ return i++; }, int b = 5){ return a(3) + c * b; }\r\n\
+return test(1) + test(2, auto(int l){ return l * 2; });";
+TEST_RESULT("Generic function with default parameter values", testDefaultGenericFuncVars, "24");

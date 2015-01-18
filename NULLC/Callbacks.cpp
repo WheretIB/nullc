@@ -4178,16 +4178,43 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		// type must be followed by argument name
 		assert(start->type == lex_string);
 
+		// Insert variable to a list so that a typeof can be taken from it
+		InplaceStr paramName = InplaceStr(start->pos, start->length);
+
+		start++;
+
+		// If there is a default value
+		if(start->type == lex_set)
+		{
+			TypeInfo *prevType = currType;
+
+			start++;
+			if(!ParseTernaryExpr(&start))
+				assert(0);
+
+			currType = prevType;
+
+			if(!currType)
+			{
+				NodeZeroOP *node = CodeInfo::nodeList.back();
+
+				if(node->nodeType == typeNodeFuncDef)
+					currType = ((NodeFuncDef*)node)->GetFuncInfo()->funcType;
+				else
+					currType = node->typeInfo;
+			}
+
+			CodeInfo::nodeList.pop_back();
+		}
+
 		assert(currType);
+
 		if(currType->dependsOnGeneric)
 		{
 			for(unsigned int n = 0; n < argumentCount; n++)
 				CodeInfo::nodeList.pop_back();
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: couldn't fully resolve type '%s' for an argument %d of a function '%s'", referenceType->GetFullTypeName(), argID, fInfo->name);
 		}
-
-		// Insert variable to a list so that a typeof can be taken from it
-		InplaceStr paramName = InplaceStr(start->pos, start->length);
 
 		VariableInfo *n = new VariableInfo(NULL, paramName, GetStringHash(paramName.begin, paramName.end), 0, currType, false);
 		varMap.insert(n->nameHash, n);
@@ -4197,16 +4224,6 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		}else{
 			tempListE->next = n;
 			tempListE = n;
-		}
-		start++;
-
-		// If there is a default value
-		if(start->type == lex_set)
-		{
-			start++;
-			if(!ParseTernaryExpr(&start))
-				assert(0);
-			CodeInfo::nodeList.pop_back();
 		}
 	}
 
