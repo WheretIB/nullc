@@ -561,13 +561,15 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 			TypeInfo *lastStrippedType = strippedType;
 			if(instanceType)
 			{
-				while(strippedType->funcType)
+				while(strippedType && strippedType->funcType)
 					strippedType = strippedType->funcType->retType;
-				if(strippedType->genericBase != currentType)
+
+				if(!strippedType || strippedType->genericBase != currentType)
 				{
 					*instanceFailure = true;
 					return false;
 				}
+
 				// Reverse a list of type aliases
 				AliasInfo *revList = strippedType->childAlias;
 				while(revList)

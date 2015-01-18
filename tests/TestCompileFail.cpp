@@ -834,6 +834,9 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("explicit function arguments", "int foo(explicit int a, b){ return a + b; } return foo(3, 4.0);", "ERROR: can't find function 'foo' with following parameters:");
 	TEST_FOR_FAIL("explicit function arguments", "int foo(int a, explicit float b){ return a + b; } return foo(3, 4.0);", "ERROR: can't find function 'foo' with following parameters:");
+
+	TEST_FOR_FAIL("function selection", "class Foo<T>{} auto foo(Foo<@T> x){} return foo(foo);", "ERROR: there is no function available that will satisfy the argument");
+	TEST_FOR_FAIL("function selection", "class Foo<T>{} +auto operator+(Foo<generic> ref v){ }", "ERROR: cannot select function overload for a type 'Foo'");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
