@@ -1535,7 +1535,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
 
 				char *it = name;
-				it += safeprintf(it, 256, "0x%x: %s %s = %p", ptr, function.externCount ? "$context" : "$this", codeSymbols + codeTypes[function.parentType].offsetToName, *(char**)ptr);
+				it += safeprintf(it, 256, "0x%x: %s %s = %p", ptr, "$this", codeSymbols + codeTypes[function.parentType].offsetToName, *(char**)ptr);
 
 				TVINSERTSTRUCT localInfo;
 				localInfo.hParent = lastItem;
@@ -1548,7 +1548,30 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				
 				tiExtra.push_back(TreeItemExtra());
 				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
-				tiExtra.back() = TreeItemExtra(function.externCount ? (void*)ptr : *(char**)ptr, &codeTypes[function.parentType], thisItem, true, function.externCount ? "$context" : "$this");
+				tiExtra.back() = TreeItemExtra(*(char**)ptr, &codeTypes[function.parentType], thisItem, true, "$this");
+
+				if(offset + function.bytesToPop > dataCount)
+					InsertUnavailableInfo(thisItem);
+			}
+			if(function.contextType != ~0u)
+			{
+				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
+
+				char *it = name;
+				it += safeprintf(it, 256, "0x%x: %s %s = %p", ptr, "$context", codeSymbols + codeTypes[function.contextType].offsetToName, *(char**)ptr);
+
+				TVINSERTSTRUCT localInfo;
+				localInfo.hParent = lastItem;
+				localInfo.hInsertAfter = TVI_LAST;
+				localInfo.item.cchTextMax = 0;
+				localInfo.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
+				localInfo.item.pszText = name;
+				localInfo.item.cChildren = codeTypes[function.contextType].subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (codeTypes[function.contextType].subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
+				localInfo.item.lParam = tiExtra.size();
+				
+				tiExtra.push_back(TreeItemExtra());
+				HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
+				tiExtra.back() = TreeItemExtra((void*)ptr, &codeTypes[function.contextType], thisItem, true, "$context");
 
 				if(offset + function.bytesToPop > dataCount)
 					InsertUnavailableInfo(thisItem);
