@@ -5011,7 +5011,7 @@ void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorRe
 		{
 			if(n != 0)
 				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ", ");
-			errPos += PrintArgumentName(CodeInfo::nodeList[CodeInfo::nodeList.size()-callArgCount+n], errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport));
+			errPos += PrintArgumentName(CodeInfo::nodeList[CodeInfo::nodeList.size() - callArgCount + n], errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport));
 		}
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n");
 	}
@@ -5022,7 +5022,7 @@ void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorRe
 			continue;
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "  %s %s(", bestFuncList[n]->retType ? bestFuncList[n]->retType->GetFullTypeName() : "auto", bestFuncList[n]->name);
 		for(VariableInfo *curr = bestFuncList[n]->firstParam; curr; curr = curr->next)
-			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s%s", curr->isExplicit ? "explicit " : "", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
+			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s%s", curr->isExplicit ? "explicit " : "", curr->varType ? curr->varType->GetFullTypeName() : "auto", curr != bestFuncList[n]->lastParam ? ", " : "");
 		if(bestFuncList[n]->generic && showInstanceInfo)
 		{
 			if(!bestFuncList[n]->generic->instancedType)
@@ -5033,7 +5033,7 @@ void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorRe
 				FunctionType *tmpType = bestFuncList[n]->generic->instancedType->funcType;
 				VariableInfo *curr = bestFuncList[n]->firstParam;
 				for(unsigned c = 0; c < tmpType->paramCount; c++, curr = curr->next)
-					errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s%s", curr && curr->isExplicit ? "explicit " : "", tmpType->paramType[c]->GetFullTypeName(), (c + 1) != tmpType->paramCount ? ", " : "");
+					errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s%s", curr && curr->isExplicit ? "explicit " : "", tmpType->paramType[c] ? tmpType->paramType[c]->GetFullTypeName() : "auto", (c + 1) != tmpType->paramCount ? ", " : "");
 			}
 		}
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), ")\r\n");
