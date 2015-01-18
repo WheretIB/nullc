@@ -178,7 +178,7 @@ return GC.UsedMemory() - memStart;";
 	{
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection, t, "0"))
+		if(Tests::RunCode(testGarbageCollection, t, sizeof(void*) == 8 ? "400" : "296"))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", t == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
@@ -249,7 +249,7 @@ return GC.UsedMemory() - memStart;";
 	{
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection2, t, "0"))
+		if(Tests::RunCode(testGarbageCollection2, t, sizeof(void*) == 8 ? "400" : "296"))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", t == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
@@ -288,7 +288,7 @@ return GC.UsedMemory() - memStart;";
 	{
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
-		if(Tests::RunCode(testGarbageCollection3, t, "0"))
+		if(Tests::RunCode(testGarbageCollection3, t, sizeof(void*) == 8 ? "400" : "296"))
 			testsPassed[t]++;
 		printf("%s finished in %f\r\n", t == NULLC_VM ? "VM" : "X86", myGetPreciseTime() - tStart);
 	}
