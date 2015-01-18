@@ -214,3 +214,8 @@ int foo(int a)\r\n\
 }\r\n\
 return foo(10);";
 TEST_RESULT("Compile-time function evaluation bug 4", testCompileTimeFunctionEvaluationBug4, "10");
+
+const char	*testCompileTimeFunctionEvaluationBug5 =
+"int bar(int x){ return 6 * x + (auto(typeof(bar(1)) y){ return y * 2; })(4); }\r\n\
+return bar(5);";
+TEST_RESULT("Compile-time function evaluation bug 5", testCompileTimeFunctionEvaluationBug5, "38");
