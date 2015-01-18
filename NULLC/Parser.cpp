@@ -1150,6 +1150,8 @@ bool ParseFunctionCall(Lexeme** str, bool memberFunctionCall)
 		{
 			if(!ParseSelectType(str))
 				ThrowError((*str)->pos, count ? "ERROR: type name is expected after ','" : "ERROR: type name is expected after 'with'");
+			else if(!GetSelectedType())
+				ThrowError((*str)->pos, "ERROR: explicit generic argument type can't be auto");
 
 			AliasInfo *info = TypeInfo::CreateAlias(InplaceStr(""), GetSelectedType());
 

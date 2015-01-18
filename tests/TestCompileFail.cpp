@@ -839,6 +839,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("function selection", "class Foo<T>{} +auto operator+(Foo<generic> ref v){ }", "ERROR: cannot select function overload for a type 'Foo'");
 
 	TEST_FOR_FAIL("incorrect auto", "int foo(int ref(int, int) f){ return f(2, 3); } auto x = foo(<auto i, j>{ i + j; }); return x;", "ERROR: type of a function argument cannot be auto");
+	TEST_FOR_FAIL("incorrect auto", "auto bar<@T>(){ return 1; } bar with<auto>();", "ERROR: explicit generic argument type can't be auto");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
