@@ -580,6 +580,18 @@ auto x = new X[4];\r\n\
 return CheckAlignment(&x[0], 8) + CheckAlignment(&x[1], 8) + CheckAlignment(&x[2], 8) + CheckAlignment(&x[3], 8);";
 TEST_RESULT("Alignment of objects in heap 7", testAlignmentHeap7, "4");
 
+const char	*testAlignmentHeap8 =
+"import test.alignment;\r\n\
+align(16) class X{ char[1024] x; }\r\n\
+int aligned = 0;\r\n\
+for(int i = 0; i < 1024; i++)\r\n\
+{\r\n\
+	auto x = new X;\r\n\
+	aligned += CheckAlignment(x, 16);\r\n\
+}\r\n\
+return aligned;";
+TEST_RESULT("Alignment of objects in heap 6 (large objects)", testAlignmentHeap8, "1024");
+
 const char	*testAlignmentDerived1 =
 "import test.alignment;\r\n\
 class X{ char x; int ref y; }\r\n\
