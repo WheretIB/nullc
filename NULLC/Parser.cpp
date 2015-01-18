@@ -1578,20 +1578,25 @@ bool ParseShortFunctionDefinition(Lexeme** str)
 	{
 		if(currArg != 0)
 			ParseLexem(str, lex_comma);
+
 		bool imaginary = ParseSelectType(str);
 		TypeInfo *selType = (TypeInfo*)GetSelectedType();
 		SelectTypeByPointer(type->funcType->paramType[currArg]);
+
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 			ThrowError((*str)->pos, "ERROR: parameter name length is limited to 2048 symbols");
+
 		if(imaginary && type->funcType->paramType[currArg] == typeGeneric)
 		{
 			SelectTypeByPointer(selType);
 			imaginary = false;
 		}
+
 		if(!imaginary || type->funcType->paramType[currArg] == selType)
 		{
-			if(GetSelectedType() == typeGeneric)
+			if(GetSelectedType() == typeGeneric || GetSelectedType()->dependsOnGeneric)
 				ThrowError((*str)->pos, "ERROR: function allows any type for this argument so it must be specified explicitly");
+
 			FunctionParameter((*str)->pos, InplaceStr((*str)->pos, (*str)->length));
 		}else{
 			char *paramName = (char*)stringPool.Allocate((*str)->length + 2);
@@ -1600,6 +1605,7 @@ bool ParseShortFunctionDefinition(Lexeme** str)
 			paramName[(*str)->length + 1] = 0;
 			FunctionParameter((*str)->pos, InplaceStr(paramName, (*str)->length + 1));
 		}
+
 		(*str)++;
 	}
 	

@@ -826,6 +826,10 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("Array to auto[] type conversion fail", "int x = 12; auto[] arr = x; return 0;", "ERROR: cannot convert 'int' to 'auto[]'");
 	TEST_FOR_FAIL("auto[] type conversion mismatch 1", "auto str = \"Hello\"; auto[] arr = str; int str2 = arr; return 0;", "ERROR: cannot convert 'auto[]' to 'int'");
+
+	TEST_FOR_FAIL("instantiation failure during short inline function argument resolve", "auto foo(generic ref(int) f, int ref(int) x){ return f(x(1)); } return foo(int, <x>{ -x; });", "ERROR: cannot find function or variable 'foo' which accepts a function with 1 argument(s) as an argument #1");
+	TEST_FOR_FAIL("short inline function fail 1", "class Foo<T>{} auto foo(generic a, generic ref(Foo<typeof(()>) m){} return foo(1, <x>{ -4; });", "ERROR: function allows any type for this argument so it must be specified explicitly");
+	TEST_FOR_FAIL("short inline function fail 2", "class Foo<T>{} auto foo(generic a, generic ref(Foo<generic>) m){} return foo(1, <x>{ -4; });", "ERROR: function allows any type for this argument so it must be specified explicitly");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

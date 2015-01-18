@@ -330,7 +330,7 @@ void HandlePointerToObject(const char* pos, TypeInfo *dstType);
 void ConvertDerivedToBase(const char* pos, TypeInfo *dstType);
 void ConvertBaseToDerived(const char* pos, TypeInfo *dstType);
 unsigned PrintArgumentName(NodeZeroOP* activeNode, char* pos, unsigned limit);
-void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorReport, char* errPos, const char* funcName, unsigned callArgCount, unsigned count);
+void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorReport, char* errPos, const char* funcName, unsigned callArgCount, unsigned count, bool showInstanceInfo);
 void RestoreNamespaces(bool undo, NamespaceInfo *parent, unsigned& prevBackupSize, unsigned& prevStackSize, NamespaceInfo*& lastNS);
 
 void AddExtraNode()
@@ -1649,12 +1649,19 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 		betterHash = StringHashContinue(betterHash, strchr(currFunction, ':'));
 		currF = funcMap.first(betterHash);
 	}
+
 	AliasInfo *info = typeInstance ? (*typeInstance)->childAlias : NULL;
 	while(info)
 	{
 		CodeInfo::classMap.insert(info->nameHash, info->type);
 		info = info->next;
 	}
+
+	unsigned int minRating = ~0u;
+
+	bestFuncList.clear();
+	bestFuncRating.clear();
+
 	TypeInfo *preferredType = NULL;
 	while(currF)
 	{
@@ -1662,15 +1669,25 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 		if(func->visible && !((func->address & 0x80000000) && (func->address != -1)) && func->funcType && func->paramCount > currArgument)
 		{
 			unsigned tmpCount = func->funcType->funcType->paramCount;
+
 			func->funcType->funcType->paramCount = currArgument;
 			unsigned rating = GetFunctionRating(func->funcType->funcType, currArgument, func->firstParam);
 			func->funcType->funcType->paramCount = tmpCount;
+
+			bestFuncList.push_back(func);
+			bestFuncRating.push_back(rating);
+
 			if(rating == ~0u)
 			{
 				currF = funcMap.next(currF);
 				continue;
 			}
+
+			if(rating < minRating)
+				minRating = rating;
+
 			TypeInfo *argType = NULL;
+
 			if(func->generic)
 			{
 				// Having only a partial set of arguments, begin parsing arguments to the point that the current argument will be known
@@ -1682,8 +1699,13 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 				AliasInfo *lastAlias = func->childAlias;
 
 				unsigned nodeOffset = CodeInfo::nodeList.size() - currArgument;
+
 				// Move through all the arguments
 				VariableInfo *tempList = NULL;
+
+				// Flag of instantiation failure
+				bool instanceFailure = false;
+
 				for(unsigned argID = 0; argID <= currArgument; argID++)
 				{
 					if(argID)
@@ -1700,14 +1722,20 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 						SelectTypeForGeneric(start, nodeOffset + argID);
 						referenceType = currType;
 					}
+
 					// Set generic function as being in definition so that type aliases will get into functions alias list and will not spill to outer scope
 					currDefinedFunc.push_back(func);
-					// Flag of instantiation failure
-					bool instanceFailure = false;
+
+					instanceFailure = false;
 					if(!ParseSelectType(&start, ALLOW_ARRAY | (referenceType ? ALLOW_GENERIC_TYPE : 0) | ALLOW_EXTENDED_TYPEOF, referenceType, &instanceFailure))
 						genericArg = start->type == lex_generic ? !!(start++) : false;
 					genericRef = start->type == lex_ref ? !!(start++) : false;
-					currDefinedFunc.pop_back();
+					
+					if(instanceFailure)
+					{
+						currDefinedFunc.pop_back();
+						break;
+					}
 
 					if(genericArg && genericRef && start->type == lex_oparen)
 					{
@@ -1716,6 +1744,8 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 						ParseTypePostExpressions(&start, false, false, true, true);
 						genericArg = genericRef = false;
 					}
+
+					currDefinedFunc.pop_back();
 
 					if(argID != currArgument)
 					{
@@ -1746,31 +1776,46 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 							currType = typeGeneric;
 					}
 				}
+
 				// Remove all added aliases
 				while(func->childAlias != lastAlias)
 				{
 					CodeInfo::classMap.remove(func->childAlias->nameHash, func->childAlias->type);
 					func->childAlias = func->childAlias->next;
 				}
+
 				while(tempList)
 				{
 					varMap.remove(tempList->nameHash, tempList);
 					tempList = tempList->next;
 				}
-				argType = currType;
+
+				if(!instanceFailure)
+					argType = currType;
+
 				currType = lastType;
+
+				if(instanceFailure)
+				{
+					currF = funcMap.next(currF);
+					continue;
+				}
 			}else{
 				argType = func->funcType->funcType->paramType[currArgument];
 			}
+
 			if(argType->funcType && argType->funcType->paramCount == arguments)
 			{
 				if(preferredType && argType != preferredType)
 					ThrowError(pos, "ERROR: there are multiple function '%s' overloads expecting different function types as an argument #%d", currFunction, currArgument);
+
 				preferredType = argType;
 			}
 		}
+
 		currF = funcMap.next(currF);
 	}
+
 	if(!preferredType)
 	{
 		HashMap<VariableInfo*>::Node *currV = SelectVariableByName(InplaceStr(currFunction));
@@ -1792,8 +1837,13 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 			break; // If the first found variable matches, we can't move to the next, because it's hidden by this one
 		}
 	}
+
 	if(!preferredType)
-		ThrowError(pos, "ERROR: cannot find function or variable '%s' which accepts a function with %d argument(s) as an argument #%d", currFunction, arguments, currArgument);
+	{
+		char	*errPos = errorReport;
+		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: cannot find function or variable '%s' which accepts a function with %d argument(s) as an argument #%d\r\n", currFunction, arguments, currArgument);
+		ThrowFunctionSelectError(pos, minRating, errorReport, errPos, NULL, 0, bestFuncList.size(), false);
+	}
 
 	info = typeInstance ? (*typeInstance)->childAlias : NULL;
 	while(info)
@@ -2605,7 +2655,7 @@ FunctionInfo* InstanceGenericFunctionForType(const char* pos, FunctionInfo *info
 
 		char	*errPos = errorReport;
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available:\r\n");
-		ThrowFunctionSelectError(pos, 0, errorReport, errPos, funcS->value->name, 0, bestFuncList.size());
+		ThrowFunctionSelectError(pos, 0, errorReport, errPos, funcS->value->name, 0, bestFuncList.size(), true);
 	}
 	if(!dstPreferred->funcType)
 		ThrowError(pos, "ERROR: cannot select function overload for a type '%s'", dstPreferred->GetFullTypeName());
@@ -2626,7 +2676,7 @@ FunctionInfo* InstanceGenericFunctionForType(const char* pos, FunctionInfo *info
 		{
 			char *errPos = errorReport;
 			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: unable to select function '%s' overload for a type '%s'\r\n", info->name, dstPreferred->GetFullTypeName());
-			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, NULL, dstPreferred->funcType->paramCount, bestFuncList.size());
+			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, NULL, dstPreferred->funcType->paramCount, bestFuncList.size(), true);
 		}
 	}
 
@@ -2654,7 +2704,7 @@ FunctionInfo* InstanceGenericFunctionForType(const char* pos, FunctionInfo *info
 		{
 			char *errPos = errorReport;
 			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: unable to select function '%s' overload for a type '%s'\r\n", info->name, dstPreferred->GetFullTypeName());
-			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, NULL, dstPreferred->funcType->paramCount, bestFuncList.size());
+			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, NULL, dstPreferred->funcType->paramCount, bestFuncList.size(), true);
 		}
 	}
 
@@ -4731,7 +4781,7 @@ FunctionInfo* GetAutoRefFunction(const char* pos, const char* funcName, unsigned
 	{
 		char	*errPos = errorReport;
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: none of the member ::%s functions can handle the supplied parameter list without conversions\r\n", funcName);
-		ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count);
+		ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count, true);
 	}
 	FunctionInfo *fInfo = bestFuncList[minRatingIndex];
 
@@ -4744,7 +4794,7 @@ FunctionInfo* GetAutoRefFunction(const char* pos, const char* funcName, unsigned
 		{
 			char	*errPos = errorReport;
 			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n");
-			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count);
+			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count, true);
 		}
 	}
 
@@ -4913,7 +4963,7 @@ bool AddMemberFunctionCall(const char* pos, const char* funcName, unsigned int c
 				return false;
 			char	*errPos = errorReport;
 			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: can't find function '%s' with following parameters:\r\n", funcName);
-			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, memberOrigName, callArgCount, bestFuncList.size());
+			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, memberOrigName, callArgCount, bestFuncList.size(), true);
 		}
 		FunctionInfo *fInfo = bestFuncList[minRatingIndex];
 		if(fInfo && fInfo->generic)
@@ -4952,7 +5002,7 @@ unsigned PrintArgumentName(NodeZeroOP* activeNode, char* pos, unsigned limit)
 	return unsigned(pos - start);
 }
 
-void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorReport, char* errPos, const char* funcName, unsigned callArgCount, unsigned count)
+void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorReport, char* errPos, const char* funcName, unsigned callArgCount, unsigned count, bool showInstanceInfo)
 {
 	if(funcName)
 	{
@@ -4973,7 +5023,7 @@ void ThrowFunctionSelectError(const char* pos, unsigned minRating, char* errorRe
 		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "  %s %s(", bestFuncList[n]->retType ? bestFuncList[n]->retType->GetFullTypeName() : "auto", bestFuncList[n]->name);
 		for(VariableInfo *curr = bestFuncList[n]->firstParam; curr; curr = curr->next)
 			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE - int(errPos - errorReport), "%s%s%s", curr->isExplicit ? "explicit " : "", curr->varType->GetFullTypeName(), curr != bestFuncList[n]->lastParam ? ", " : "");
-		if(bestFuncList[n]->generic)
+		if(bestFuncList[n]->generic && showInstanceInfo)
 		{
 			if(!bestFuncList[n]->generic->instancedType)
 			{
@@ -5426,7 +5476,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			assert(minRating == ~0u);
 			char	*errPos = errorReport;
 			errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: can't find function '%s' with following parameters:\r\n", funcName);
-			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count);
+			ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count, true);
 		}else{
 			fType = bestFuncList[minRatingIndex]->funcType->funcType;
 			fInfo = bestFuncList[minRatingIndex];
@@ -5439,7 +5489,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 			{
 				char	*errPos = errorReport;
 				errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: ambiguity, there is more than one overloaded function available for the call:\r\n");
-				ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count);
+				ThrowFunctionSelectError(pos, minRating, errorReport, errPos, funcName, callArgCount, count, true);
 			}
 		}
 	}else{
