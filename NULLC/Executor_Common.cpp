@@ -28,17 +28,26 @@ void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, 
 {
 	// Function with a list of external variables to capture
 	ExternFuncInfo &func = NULLC::commonLinker->exFunctions[argument];
+
 	// Array of upvalue lists
 	ExternFuncInfo::Upvalue **externalList = NULLC::commonLinker->exCloseLists.data;
+
 	// Function external list
 	ExternLocalInfo *externals = &NULLC::commonLinker->exLocals[func.offsetToFirstLocal + func.localCount];
+
 	// For every function external
 	for(unsigned int i = 0; i < func.externCount; i++)
 	{
-		// coroutine locals are closed immediately
+		// Calculate aligned pointer to data
+		char *dataLocation = (char*)upvalue + sizeof(ExternFuncInfo::Upvalue);
+
+		unsigned alignment = 1 << externals[i].alignmentLog2;
+		dataLocation = (char*)((uintptr_t(dataLocation) + (alignment - 1)) & ~uintptr_t(alignment - 1));
+
+		// Coroutine locals are closed immediately
 		if(externals[i].target == ~0u)
 		{
-			upvalue->ptr = (unsigned*)(upvalue + 1);
+			upvalue->ptr = (unsigned*)dataLocation;
 		}else{
 			if(externals[i].closeListID & 0x80000000)	// If external variable can be found in current scope
 			{
@@ -50,15 +59,31 @@ void ClosureCreate(char* paramBase, unsigned int helper, unsigned int argument, 
 				// Take pointer from inside the closure (externals[i].target is in bytes, but array is of unsigned int elements)
 				upvalue->ptr = *(unsigned int**)((char*)prevClosure + externals[i].target);
 			}
+
 			// Next upvalue will be current list head
 			upvalue->next = externalList[externals[i].closeListID & ~0x80000000];
-			// Save variable size
-			upvalue->size = externals[i].size;
+
+			// Minimum alignement is 4
+			assert(externals[i].alignmentLog2 >= 2);
+
+			unsigned alignmentLog2Bias2 = externals[i].alignmentLog2 - 2;
+			assert((1 << (alignmentLog2Bias2 + 2)) == (1 << externals[i].alignmentLog2));
+
+			// Save variable packed alignement and size
+			upvalue->aligmentAndSize = (externals[i].size & 0x3fffffff) + (unsigned(alignmentLog2Bias2) << 30u);
+
 			// Change list head to a new upvalue
 			externalList[externals[i].closeListID & ~0x80000000] = upvalue;
 		}
-		// Move to the next upvalue (upvalue size is sizeof(ExternFuncInfo::Upvalue) + externals[i].size)
-		upvalue = (ExternFuncInfo::Upvalue*)((char*)upvalue + sizeof(ExternFuncInfo::Upvalue) + externals[i].size);
+
+		// Preserve pointer alignment of the next upvalue
+		char *nextUpvalue = dataLocation + externals[i].size;
+
+		alignment = NULLC_PTR_SIZE;
+		nextUpvalue = (char*)((uintptr_t(nextUpvalue) + (alignment - 1)) & ~uintptr_t(alignment - 1));
+
+		// Move to the next upvalue
+		upvalue = (ExternFuncInfo::Upvalue*)nextUpvalue;
 	}
 }
 
@@ -76,8 +101,11 @@ void CloseUpvalues(char* paramBase, unsigned int depth, unsigned int argument)
 		{
 			// Save pointer to next upvalue
 			ExternFuncInfo::Upvalue *next = curr->next;
+
 			// And save the size of target variable
-			unsigned int size = curr->size;
+			unsigned int alignmentAndSize = curr->aligmentAndSize;
+			unsigned int alignment = 1 << ((alignmentAndSize >> 30u) + 2);
+			unsigned int size = alignmentAndSize & 0x3fffffff;
 			
 			// Delete upvalue from list (move global list head to the next element)
 			externalList[argument + i] = curr->next;
@@ -89,10 +117,13 @@ void CloseUpvalues(char* paramBase, unsigned int depth, unsigned int argument)
 				continue;
 			}
 
+			// Calculate aligned pointer to copy storage
+			char *copyStorage = (char*)curr + sizeof(ExternFuncInfo::Upvalue);
+			copyStorage = (char*)((uintptr_t(copyStorage) + (alignment - 1)) & ~uintptr_t(alignment - 1));
+
 			// Copy target variable data into the upvalue
-			unsigned *copy = (unsigned*)(curr + 1);
-			memcpy(copy, curr->ptr, size);
-			curr->ptr = copy;
+			memcpy(copyStorage, curr->ptr, size);
+			curr->ptr = (unsigned*)copyStorage;
 			curr->next = NULL;
 
 			// Proceed to the next upvalue

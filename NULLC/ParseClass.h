@@ -391,6 +391,29 @@ public:
 	};
 	MemberVariable	*firstVariable, *lastVariable;
 
+	// This will compute the type alignment and padding
+	void	FinalizeMembers()
+	{
+		unsigned maximumAlignment = 0;
+
+		// Additional padding may apply to preserve the alignment of members
+		for(MemberVariable *curr = firstVariable; curr; curr = curr->next)
+			maximumAlignment = maximumAlignment > curr->alignBytes ? maximumAlignment : curr->alignBytes;
+
+		// If explicit alignment is not specified, then class must be aligned to the maximum alignment of the members
+		if(alignBytes == 0)
+			alignBytes = maximumAlignment;
+
+		// In NULLC, all classes have sizes multiple of 4, so add additional padding if necessary
+		maximumAlignment = alignBytes < 4 ? 4 : alignBytes;
+
+		if(size % maximumAlignment != 0)
+		{
+			paddingBytes = maximumAlignment - (size % maximumAlignment);
+			size += maximumAlignment - (size % maximumAlignment);
+		}
+	}
+
 	FunctionType*	CreateFunctionType(TypeInfo *retType, unsigned int paramCount)
 	{
 		funcType = new (typeInfoPool.Allocate(sizeof(FunctionType))) FunctionType();
@@ -460,6 +483,7 @@ public:
 		
 		parentModule = 0;
 		blockDepth = 0;
+		alignBytes = 0;
 
 		autoDeref = false;
 
@@ -489,6 +513,7 @@ public:
 
 	unsigned int	parentModule;
 	unsigned int	blockDepth;
+	unsigned int	alignBytes;
 
 	TypeInfo		*varType;	// Pointer to the variable type info
 	NodeZeroOP		*defaultValue;	// Default value code for function parameters
@@ -609,10 +634,23 @@ public:
 			lastExternal = lastExternal->next;
 		}
 		memset(lastExternal, 0, sizeof(FunctionInfo::ExternalInfo));
+
 		lastExternal->next = NULL;
 		lastExternal->variable = var;
 		lastExternal->closurePos = externalSize;
-		externalSize += sizeof(ExternFuncInfo::Upvalue) + var->varType->size;
+		externalSize += sizeof(ExternFuncInfo::Upvalue);
+
+		// Align the copy data
+		unsigned alignment = var->alignBytes;
+		if(alignment != 0)
+			externalSize = (externalSize + (alignment - 1)) & ~(alignment - 1);
+
+		externalSize += var->varType->size;
+
+		// Preserve pointer alignment of the next upvalue
+		alignment = NULLC_PTR_SIZE;
+		externalSize = (externalSize + (alignment - 1)) & ~(alignment - 1);
+
 		externalCount++;
 	}
 	int			address;				// Address of the beginning of function inside bytecode

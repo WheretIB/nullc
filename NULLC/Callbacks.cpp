@@ -632,7 +632,7 @@ char UnescapeSybmol(char symbol)
 	return res;
 }
 
-unsigned int GetAlignmentOffset(const char *pos, unsigned int alignment)
+unsigned int GetAlignmentOffset(const char *pos, unsigned int currentOffset, unsigned int alignment)
 {
 	if(alignment & (alignment - 1))
 		ThrowError(pos, "ERROR: alignment must be power of two");
@@ -641,8 +641,8 @@ unsigned int GetAlignmentOffset(const char *pos, unsigned int alignment)
 		ThrowError(pos, "ERROR: alignment must be less than 16 bytes");
 
 	// If alignment is set and address is not aligned
-	if(alignment != 0 && varTop % alignment != 0)
-		return alignment - (varTop % alignment);
+	if(alignment != 0 && currentOffset % alignment != 0)
+		return alignment - (currentOffset % alignment);
 
 	return 0;
 }
@@ -1343,22 +1343,34 @@ VariableInfo* AddVariable(const char* pos, InplaceStr variableName, bool preserv
 	CheckCollisionWithFunction(pos, varName, hash, varInfoTop.size());
 
 	// If alignment if explicitly specified or the variable type has a default alignment, align variable address
+	unsigned alignBytes = 0;
 	if(currAlign != TypeInfo::ALIGNMENT_UNSPECIFIED || (currType && currType->alignBytes != TypeInfo::ALIGNMENT_UNSPECIFIED))
-		varTop += GetAlignmentOffset(pos, currAlign != TypeInfo::ALIGNMENT_UNSPECIFIED ? currAlign : currType->alignBytes);
+	{
+		alignBytes = currAlign != TypeInfo::ALIGNMENT_UNSPECIFIED ? currAlign : currType->alignBytes;
+		varTop += GetAlignmentOffset(pos, varTop, alignBytes);
+	}
 
 	if(currType && currType->hasFinalizer)
 		ThrowError(pos, "ERROR: cannot create '%s' that implements 'finalize' on stack", currType->GetFullTypeName());
+
 	if(currType && !currType->hasFinished && currType != newType)
 		ThrowError(pos, "ERROR: type '%s' is not fully defined. You can use '%s ref' or '%s[]' at this point", currType->GetFullTypeName(), currType->GetFullTypeName(), currType->GetFullTypeName());
 
 	CodeInfo::varInfo.push_back(new VariableInfo(currDefinedFunc.size() > 0 ? currDefinedFunc.back() : NULL, varName, hash, varTop, currType, currDefinedFunc.size() == 0));
-	varDefined = true;
+	
 	CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
+	CodeInfo::varInfo.back()->alignBytes = alignBytes;
+
+	varDefined = true;
+
 	if(currType)
 		varTop += currType->size;
+
 	if(varTop > (1 << 24))
 		ThrowError(pos, "ERROR: variable size limit exceeded");
+
 	varMap.insert(hash, CodeInfo::varInfo.back());
+
 	return CodeInfo::varInfo.back();
 }
 
@@ -1991,10 +2003,16 @@ void AddDefineVariableNode(const char* pos, VariableInfo* varInfo, bool noOverlo
 			ThrowError(pos, "ERROR: r-value type is 'void'");
 
 		// If alignment if explicitly specified or the variable type has a default alignment, align variable address
+		unsigned alignBytes = 0;
+
 		if(currAlign != TypeInfo::ALIGNMENT_UNSPECIFIED || (realCurrType->alignBytes != TypeInfo::ALIGNMENT_UNSPECIFIED))
-			varTop += GetAlignmentOffset(pos, currAlign != TypeInfo::ALIGNMENT_UNSPECIFIED ? currAlign : realCurrType->alignBytes);
+		{
+			alignBytes = currAlign != TypeInfo::ALIGNMENT_UNSPECIFIED ? currAlign : realCurrType->alignBytes;
+			varTop += GetAlignmentOffset(pos, varTop, alignBytes);
+		}
 
 		variableInfo->pos = varTop;
+		variableInfo->alignBytes = alignBytes;
 
 		variableInfo->varType = realCurrType;
 		varTop += realCurrType->size;
@@ -3699,7 +3717,7 @@ void FunctionStart(const char* pos)
 	for(VariableInfo *curr = lastFunc.firstParam; curr; curr = curr->next)
 	{
 		CheckCollisionWithFunction(pos, curr->name, curr->nameHash, varInfoTop.size());
-		varTop += GetAlignmentOffset(pos, 4);
+		varTop += GetAlignmentOffset(pos, varTop, 4);
 		CodeInfo::varInfo.push_back(curr);
 		CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
 		varMap.insert(curr->nameHash, curr);
@@ -3865,7 +3883,7 @@ void FunctionEnd(const char* pos)
 		unsigned int currentDefinedTypeMethodCount = methodCount;
 		// Create closure type
 		newType = NULL;
-		SetCurrentAlignment(4);
+		SetCurrentAlignment(0);
 
 		unsigned bufSize = lastFunc.nameLength + 32;
 		char *tempName = AllocateString(bufSize);
@@ -3889,17 +3907,26 @@ void FunctionEnd(const char* pos)
 			SafeSprintf(memberName, bufSize, "%.*s_target", curr->variable->name.length(), curr->variable->name.begin);
 			newType->AddMemberVariable(memberName, CodeInfo::GetReferenceType(curr->variable->varType));
 
-			// Reserve space for pointer to the next upvalue and the size of the data
 			newType->size += NULLC_PTR_SIZE + 4;
+
+			// Align upvalue, so that the variable copy will be properly aligned
+			newType->lastVariable->alignBytes = curr->variable->alignBytes;
+			newType->size += GetAlignmentOffset(pos, newType->size, curr->variable->alignBytes);
 
 			// Place for a copy of target variable
 			memberName = AllocateString(bufSize);
 			SafeSprintf(memberName, bufSize, "%.*s_copy", curr->variable->name.length(), curr->variable->name.begin);
 			newType->AddMemberVariable(memberName, curr->variable->varType);
+
+			// Preserve pointer alignment of the next upvalue
+			newType->size += GetAlignmentOffset(pos, newType->size, NULLC_PTR_SIZE);
 		}
+
+		newType->FinalizeMembers();
+
 		TypeInfo *closureType = newType;
 
-		assert(newType->size % 4 == 0); // resulting type should never require padding
+		assert(newType->size >= lastFunc.externalSize);
 
 		// Shift new types generated inside up, so that declaration will be in the correct order in C translation
 		for(unsigned int i = newType->originalIndex + 1; i < CodeInfo::typeInfo.size(); i++)
@@ -3936,8 +3963,6 @@ void FunctionEnd(const char* pos)
 		CodeInfo::nodeList.push_back(new NodeUnaryOp(cmdPushTypeID, closureType->typeIndex));
 		CallAllocationFunction(pos, "__newS");
 		CodeInfo::nodeList.back()->typeInfo = CodeInfo::GetReferenceType(closureType);
-
-		assert(closureType->size >= lastFunc.externalSize);
 
 		// Set it to pointer variable
 		AddDefineVariableNode(pos, varInfo);
@@ -6156,24 +6181,7 @@ void TypePrototypeFinish()
 // End of type definition
 void TypeFinish()
 {
-	unsigned maximumAlignment = 0;
-
-	// Additional padding may apply to preserve the alignment of members
-	for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr; curr = curr->next)
-		maximumAlignment = maximumAlignment > curr->alignBytes ? maximumAlignment : curr->alignBytes;
-
-	// If explicit alignment is not specified, then class must be aligned to the maximum alignment of the members
-	if(newType->alignBytes == 0)
-		newType->alignBytes = maximumAlignment;
-
-	// In NULLC, all classes have sizes multiple of 4, so add additional padding if necessary
-	maximumAlignment = newType->alignBytes < 4 ? 4 : newType->alignBytes;
-
-	if(newType->size % maximumAlignment != 0)
-	{
-		newType->paddingBytes = maximumAlignment - (newType->size % maximumAlignment);
-		newType->size += maximumAlignment - (newType->size % maximumAlignment);
-	}
+	newType->FinalizeMembers();
 
 	// Wrap all member function definitions into one expression list
 	CodeInfo::nodeList.push_back(new NodeZeroOP());
