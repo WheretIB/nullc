@@ -558,13 +558,20 @@ void Compiler::ClearState()
 	memcpy(&CodeInfo::typeInfo[0], &buildInTypes[0], buildInTypes.size() * sizeof(TypeInfo*));
 	for(unsigned int i = 0; i < buildInTypes.size(); i++)
 	{
-		assert(CodeInfo::typeInfo[i]->typeIndex == i);
-		CodeInfo::typeInfo[i]->typeIndex = i;
-		if(CodeInfo::typeInfo[i]->refType && CodeInfo::typeInfo[i]->refType->typeIndex >= buildInTypes.size())
-			CodeInfo::typeInfo[i]->refType = NULL;
-		if(CodeInfo::typeInfo[i]->unsizedType && CodeInfo::typeInfo[i]->unsizedType->typeIndex >= buildInTypes.size())
-			CodeInfo::typeInfo[i]->unsizedType = NULL;
-		CodeInfo::typeInfo[i]->arrayType = NULL;
+		TypeInfo *type = CodeInfo::typeInfo[i];
+
+		assert(type->typeIndex == i);
+		type->typeIndex = i;
+
+		if(type->refType && type->refType->typeIndex >= buildInTypes.size())
+			type->refType = NULL;
+
+		if(type->unsizedType && type->unsizedType->typeIndex >= buildInTypes.size())
+			type->unsizedType = NULL;
+
+		type->arrayType = NULL;
+
+		type->hasFinalizer = false;
 	}
 
 	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
