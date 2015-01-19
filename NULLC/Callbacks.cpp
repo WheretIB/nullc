@@ -4042,7 +4042,7 @@ void FunctionEnd(const char* pos)
 		implementedPrototype->funcContext->pos = varTop;
 		CodeInfo::varInfo.push_back(implementedPrototype->funcContext);
 		CodeInfo::varInfo.back()->blockDepth = varInfoTop.size();
-		varTop += currType->size;
+		varTop += lastFunc.extraParam->varType->size;
 	}
 
 	if(lastFunc.type == FunctionInfo::THISCALL || ((lastFunc.type == FunctionInfo::LOCAL || lastFunc.type == FunctionInfo::COROUTINE) && lastFunc.externalCount != 0))
