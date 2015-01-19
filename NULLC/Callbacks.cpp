@@ -1819,7 +1819,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 			if(argType->funcType && argType->funcType->paramCount == arguments)
 			{
 				if(preferredType && argType != preferredType)
-					ThrowError(pos, "ERROR: there are multiple function '%s' overloads expecting different function types as an argument #%d", currFunction, currArgument);
+					ThrowError(pos, "ERROR: there are multiple function '%s' overloads expecting different function types as an argument #%d", currFunction, currArgument + 1);
 
 				preferredType = argType;
 			}
@@ -1853,7 +1853,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 	if(!preferredType)
 	{
 		char	*errPos = errorReport;
-		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: cannot find function or variable '%s' which accepts a function with %d argument(s) as an argument #%d\r\n", currFunction, arguments, currArgument);
+		errPos += SafeSprintf(errPos, NULLC_ERROR_BUFFER_SIZE, "ERROR: cannot find function or variable '%s' which accepts a function with %d argument(s) as an argument #%d\r\n", currFunction, arguments, currArgument + 1);
 		ThrowFunctionSelectError(pos, minRating, errorReport, errPos, NULL, 0, bestFuncList.size(), false);
 	}
 
@@ -4238,7 +4238,7 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		{
 			for(unsigned int n = 0; n < argumentCount; n++)
 				CodeInfo::nodeList.pop_back();
-			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: couldn't fully resolve type '%s' for an argument %d of a function '%s'", referenceType->GetFullTypeName(), argID, fInfo->name);
+			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: couldn't fully resolve type '%s' for an argument %d of a function '%s'", referenceType->GetFullTypeName(), argID + 1, fInfo->name);
 		}
 
 		VariableInfo *n = new VariableInfo(NULL, paramName, GetStringHash(paramName.begin, paramName.end), 0, currType, false);
