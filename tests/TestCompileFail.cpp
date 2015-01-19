@@ -262,20 +262,20 @@ int[foo(3)] arr;";
 "void bar(void ref() x){ x(); }\r\n\
 return bar(auto(){ int a = <x>{ return 5; }; });", "ERROR: cannot infer type for inline function outside of the function call");
 	
-	TEST_FOR_FAIL("Parent function not found", "return bar(<x>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar' which accepts a function with 1 argument(s) as an argument #0");
+	TEST_FOR_FAIL("Parent function not found", "return bar(<x>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar' which accepts a function with 1 argument(s) as an argument #1");
 	
 	TEST_FOR_FAIL("Multiple choices exist",
 "int bar(int ref(double) f, double y){ return f(y); }\r\n\
 int bar(int ref(int) f, int y){ return f(y); }\r\n\
-return bar(<x>{ return -x; }, 5);", "ERROR: there are multiple function 'bar' overloads expecting different function types as an argument #0");
+return bar(<x>{ return -x; }, 5);", "ERROR: there are multiple function 'bar' overloads expecting different function types as an argument #1");
 	
 	TEST_FOR_FAIL("Argument is not a function",
 "int bar(int x, int y){ return x + y; }\r\n\
-return bar(<x>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar' which accepts a function with 1 argument(s) as an argument #0");
+return bar(<x>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar' which accepts a function with 1 argument(s) as an argument #1");
 	
 	TEST_FOR_FAIL("Wrong argument count",
 "int bar(int ref(double) f, double y){ return f(y); }\r\n\
-return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar' which accepts a function with 0 argument(s) as an argument #0");
+return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar' which accepts a function with 0 argument(s) as an argument #1");
 
 	TEST_FOR_FAIL("No expression list in short inline function", "int caller(int ref(int) f){ return f(5); } return caller(<x>{});", "ERROR: function must return a value of type 'int'");
 	TEST_FOR_FAIL("One expression in short function if not a pop node", "int caller(int ref(int) f){ return f(5); } return caller(<x>{ if(x){} });", "ERROR: function must return a value of type 'int'");
@@ -283,7 +283,7 @@ return bar(<>{ return -x; }, 5);", "ERROR: cannot find function or variable 'bar
 
 	TEST_FOR_FAIL("Using an argument of a function in definition in expression", "auto foo(int a, int b = a){ return a + b; } return foo(5, 7);", "ERROR: unknown identifier 'a'");
 
-	TEST_FOR_FAIL("Short inline function at generic argument position", "auto foo(generic a, b, generic f){ return f(a, b); } return foo(5, 4, <x,y>{ x * y; });", "ERROR: cannot find function or variable 'foo' which accepts a function with 2 argument(s) as an argument #2");
+	TEST_FOR_FAIL("Short inline function at generic argument position", "auto foo(generic a, b, generic f){ return f(a, b); } return foo(5, 4, <x,y>{ x * y; });", "ERROR: cannot find function or variable 'foo' which accepts a function with 2 argument(s) as an argument #3");
 
 	TEST_FOR_FAIL("typeof from a combination of generic arguments", "auto sum(generic a, b, typeof(a*b) c){ return a + b; } return sum(3, 4.5, double);", "ERROR: can't find function 'sum' with following parameters:");
 
@@ -513,9 +513,9 @@ return int(y() + z());",
                                ^\r\n\
 ");
 
-	TEST_FOR_FAIL("short inline function fail in variable 1", "int foo(int x){ return 2 * x; } int bar(int a, int ref(double) y){ return y(5.0); } auto x = bar; return x(foo, <x>{ -x; });", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #1");
-	TEST_FOR_FAIL("short inline function fail in variable 2", "int bar(int ref(double) y){ return y(5.0); } auto x = bar; int foo(int x){ return x(<x>{ -x; }); }", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #0");
-	TEST_FOR_FAIL("short inline function fail in variable 3", "int bar(int ref(double) y){ return y(5.0); } auto x = bar; int foo(){ return x(1, <x>{ -x; }); }", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #1");
+	TEST_FOR_FAIL("short inline function fail in variable 1", "int foo(int x){ return 2 * x; } int bar(int a, int ref(double) y){ return y(5.0); } auto x = bar; return x(foo, <x>{ -x; });", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #2");
+	TEST_FOR_FAIL("short inline function fail in variable 2", "int bar(int ref(double) y){ return y(5.0); } auto x = bar; int foo(int x){ return x(<x>{ -x; }); }", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #1");
+	TEST_FOR_FAIL("short inline function fail in variable 3", "int bar(int ref(double) y){ return y(5.0); } auto x = bar; int foo(){ return x(1, <x>{ -x; }); }", "ERROR: cannot find function or variable 'x' which accepts a function with 1 argument(s) as an argument #2");
 
 	TEST_FOR_FAIL("generic type member function doesn't exist", "class Foo<T>{ T x; } Foo<int> y; auto z = y.bar; return 1;", "ERROR: member variable or function 'bar' is not defined in class 'Foo<int>'");
 
@@ -570,7 +570,7 @@ return int(y() + z());",
 	TEST_FOR_FAIL("typedef dies after a generic function instance 2", "class Foo<T>{ T x; } auto foo(Foo<@T> x, int ref(int, int) y){ return x.x * y(1, 2); } Foo<int> a; a.x = 2; assert(6 == foo(a, <i, j>{ i+j; })); T x; return x;", "ERROR: unknown identifier 'T'");
 
 	TEST_FOR_FAIL("generic in an illegal context", "auto foo(generic x){} class Bar<T>{ T x; } auto Bar:bar(generic y = foo(Bar<T>())){} return 1;", "ERROR: type depends on 'generic' in a context where it is not allowed");
-	TEST_FOR_FAIL("generic in an illegal context", "auto foo(generic x){} class Bar<T>{ T x; } auto Bar:bar(generic y = foo(T())){} return 1;", "ERROR: couldn't fully resolve type 'generic' for an argument 0 of a function 'foo'");
+	TEST_FOR_FAIL("generic in an illegal context", "auto foo(generic x){} class Bar<T>{ T x; } auto Bar:bar(generic y = foo(T())){} return 1;", "ERROR: couldn't fully resolve type 'generic' for an argument 1 of a function 'foo'");
 
 	TEST_FOR_FAIL("operator with short-circuit requirement", "int operator||(int a, b){ return 0; }", "ERROR: && or || operator definition or overload must accept a function returning desired type as the second argument (try int ref())");
 
@@ -710,8 +710,8 @@ return 0;",
 	TEST_FOR_FAIL("constant fold unsafe", "int ref b = nullptr + 0x0808f00d; return *b;", "ERROR: operation + is not supported on 'void ref' and 'int'");
 	TEST_FOR_FAIL("constant fold unsafe", "enum Foo{ A, B, C, D } enum Bar{ A, B, C, D } auto x = 1 + Bar.C;", "ERROR: operation + is not supported on 'int' and 'Bar'");
 
-	TEST_FOR_FAIL("unknown instance type", "auto foo(generic x){} auto bar(generic x){} foo(bar);", "ERROR: couldn't fully resolve type 'generic' for an argument 0 of a function 'bar'");
-	TEST_FOR_FAIL("unknown instance type", "auto foo(generic x){} foo(auto(generic x){});", "ERROR: couldn't fully resolve type 'generic' for an argument 0 of a function '$func9'");
+	TEST_FOR_FAIL("unknown instance type", "auto foo(generic x){} auto bar(generic x){} foo(bar);", "ERROR: couldn't fully resolve type 'generic' for an argument 1 of a function 'bar'");
+	TEST_FOR_FAIL("unknown instance type", "auto foo(generic x){} foo(auto(generic x){});", "ERROR: couldn't fully resolve type 'generic' for an argument 1 of a function '$func9'");
 
 	TEST_FOR_FAIL("?: error message", "void foo(int x){} void bar(float x){} int a = 5; auto x = a ? foo : bar;", "ERROR: ternary operator ?: result types are not equal (void ref(int) : void ref(float))");
 
@@ -827,7 +827,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("Array to auto[] type conversion fail", "int x = 12; auto[] arr = x; return 0;", "ERROR: cannot convert 'int' to 'auto[]'");
 	TEST_FOR_FAIL("auto[] type conversion mismatch 1", "auto str = \"Hello\"; auto[] arr = str; int str2 = arr; return 0;", "ERROR: cannot convert 'auto[]' to 'int'");
 
-	TEST_FOR_FAIL("instantiation failure during short inline function argument resolve", "auto foo(generic ref(int) f, int ref(int) x){ return f(x(1)); } return foo(int, <x>{ -x; });", "ERROR: cannot find function or variable 'foo' which accepts a function with 1 argument(s) as an argument #1");
+	TEST_FOR_FAIL("instantiation failure during short inline function argument resolve", "auto foo(generic ref(int) f, int ref(int) x){ return f(x(1)); } return foo(int, <x>{ -x; });", "ERROR: cannot find function or variable 'foo' which accepts a function with 1 argument(s) as an argument #2");
 	TEST_FOR_FAIL("short inline function fail 1", "class Foo<T>{} auto foo(generic a, generic ref(Foo<typeof(()>) m){} return foo(1, <x>{ -4; });", "ERROR: function allows any type for this argument so it must be specified explicitly");
 	TEST_FOR_FAIL("short inline function fail 2", "class Foo<T>{} auto foo(generic a, generic ref(Foo<generic>) m){} return foo(1, <x>{ -4; });", "ERROR: function allows any type for this argument so it must be specified explicitly");
 	TEST_FOR_FAIL("unresolved function argument", "int bar(){ return 1; } int bar(auto z = bar){ return z(); }", "ERROR: ambiguity, there is more than one overloaded function available:");
