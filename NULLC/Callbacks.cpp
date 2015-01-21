@@ -5794,7 +5794,10 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 
 			if(NodeNumber *value = CodeInfo::nodeList.back()->Evaluate(memory, 1024))
 			{
-				CodeInfo::nodeList.back() = value;
+				if(value->typeInfo == typeVoid)
+					CodeInfo::nodeList.back() = new NodeZeroOP();
+				else
+					CodeInfo::nodeList.back() = value;
 			}else{
 				if(!uncalledFunc)
 				{

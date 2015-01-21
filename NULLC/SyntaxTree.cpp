@@ -212,6 +212,7 @@ void NodeThreeOP::Compile()
 
 void NodeNumber::Compile()
 {
+	assert(typeInfo != typeVoid);
 	assert(typeInfo->size <= 8);
 	if(typeInfo->refLevel)
 	{

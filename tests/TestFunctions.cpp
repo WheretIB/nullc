@@ -220,6 +220,12 @@ const char	*testCompileTimeFunctionEvaluationBug5 =
 return bar(5);";
 TEST_RESULT("Compile-time function evaluation bug 5", testCompileTimeFunctionEvaluationBug5, "38");
 
+const char	*testCompileTimeFunctionEvaluationBug6 =
+"void foo(@T a){ int x; x; }\r\n\
+foo(1);\r\n\
+return 1;";
+TEST_RESULT("Compile-time function evaluation bug 6", testCompileTimeFunctionEvaluationBug6, "1");
+
 const char	*testExplicitArguments1 =
 "int foo(explicit int a, b){ return a + b; }\r\n\
 return foo(3, 4);";
