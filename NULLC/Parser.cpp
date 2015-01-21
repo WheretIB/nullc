@@ -664,7 +664,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 			}
 			SelectTypeByPointer(strippedType->funcType->retType);
 			if(isAlias)
-				AddAliasType(InplaceStr(aliasName->pos, aliasName->length));
+				AddAliasType(InplaceStr(aliasName->pos, aliasName->length), (flag & INVISIBLE_ALIASES) == 0);
 		}else{
 			bool takeFullType = (*str)->type != lex_ref && (*str)->type != lex_obracket;
 
@@ -690,7 +690,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 				SelectTypeByPointer(instanceType ? (takeFullType ? instanceType : strippedType) : typeGeneric);
 
 			if(instanceType && isAlias)
-				AddAliasType(InplaceStr(aliasName->pos, aliasName->length));
+				AddAliasType(InplaceStr(aliasName->pos, aliasName->length), (flag & INVISIBLE_ALIASES) == 0);
 			if(takeFullType)
 				return true;
 		}
@@ -2829,7 +2829,7 @@ bool ParseTypedefExpr(Lexeme** str)
 
 	if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 		ThrowError((*str)->pos, "ERROR: alias name length is limited to 2048 symbols");
-	AddAliasType(InplaceStr((*str)->pos, (*str)->length));
+	AddAliasType(InplaceStr((*str)->pos, (*str)->length), true);
 	(*str)++;
 	if(!ParseLexem(str, lex_semicolon))
 		ThrowError((*str)->pos, "ERROR: ';' not found after typedef");

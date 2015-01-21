@@ -114,3 +114,7 @@ const char *testGenericExplicit16 =
 "import test.explicit.type.f2;\r\n\
 return typeof(foo with<int>()) == int && foo with<int>() == 4;";
 TEST_RESULT("Generic function test with explicit template arguments (import with import) 3", testGenericExplicit16, "1");
+
+const char *testGenericExplicit17 =
+"auto foo<@a>(int x, a){ return x + a; } return foo(1, 2);";
+TEST_RESULT("Generic function test with explicit template arguments (parsing context difference)", testGenericExplicit17, "3");

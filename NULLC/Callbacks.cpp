@@ -4127,8 +4127,6 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		info->next = fInfo->childAlias;
 		fInfo->childAlias = info;
 
-		CodeInfo::classMap.insert(info->nameHash, info->type);
-
 		aliasExplicit->name = aliasExpected->name;
 		aliasExplicit->nameHash = aliasExpected->nameHash;
 
@@ -4154,7 +4152,7 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 
 		// Get type to which we resolve our generic argument
 		Lexeme *temp = start;
-		SelectTypeForGeneric(ParseSelectType(&temp, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF) ? start : prevArg, nodeOffset + argID);
+		SelectTypeForGeneric(ParseSelectType(&temp, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | INVISIBLE_ALIASES) ? start : prevArg, nodeOffset + argID);
 		TypeInfo *referenceType = currType;
 
 		// Flag of instantiation failure
@@ -4163,14 +4161,14 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		Lexeme *oldStart = start;
 
 		// Try to reparse the type
-		if(!ParseSelectType(&start, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF, referenceType, &instanceFailure))
+		if(!ParseSelectType(&start, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | INVISIBLE_ALIASES, referenceType, &instanceFailure))
 		{
 			if(!instanceFailure)
 			{
 				assert(argID);
 				// Try to reparse the type with previous argument type
 				oldStart = prevArg;
-				if(!ParseSelectType(&prevArg, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF, referenceType, &instanceFailure))
+				if(!ParseSelectType(&prevArg, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | INVISIBLE_ALIASES, referenceType, &instanceFailure))
 				{
 					newRating = ~0u; // function is not instanced
 					break;
@@ -4258,13 +4256,14 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 	{
 		// Find if there are aliases with the same name
 		AliasInfo *aliasNext = aliasCurr->next;
+
 		while(aliasNext)
 		{
 			if(aliasCurr->nameHash == aliasNext->nameHash && aliasCurr->type != aliasNext->type)
 				newRating = ~0u; // function is not instanced
 			aliasNext = aliasNext->next;
 		}
-		CodeInfo::classMap.remove(aliasCurr->nameHash, aliasCurr->type);
+
 		aliasCurr = aliasCurr->next;
 	}
 	// Remove aliases from member function parent type if it has one
@@ -6092,6 +6091,7 @@ TypeInfo* TypeBegin(const char* pos, const char* end, bool addNamespace, unsigne
 	newType->alignBytes = currAlign;
 	newType->originalIndex = CodeInfo::typeInfo.size();
 	newType->definitionDepth = varInfoTop.size();
+	newType->functionDepth = currDefinedFunc.size();
 	newType->hasFinished = false;
 	newType->parentNamespace = namespaceStack.size() > 1 ? namespaceStack.back() : NULL;
 	currAlign = TypeInfo::ALIGNMENT_UNSPECIFIED;
@@ -6313,6 +6313,7 @@ void TypeContinue(const char* pos)
 		ThrowError(pos, "ERROR: cannot continue type '%s' definition inside '%s' type. Possible cause: external member function definition syntax inside a class", currType->GetFullTypeName(), newType->GetFullTypeName());
 	newType = currType;
 	newType->definitionDepth = varInfoTop.size();
+	newType->functionDepth = currDefinedFunc.size();
 	// Add all member variables to global scope
 	BeginBlock();
 	for(TypeInfo::MemberVariable *curr = newType->firstVariable; curr; curr = curr->next)
@@ -6602,10 +6603,11 @@ void TypeExtendable(const char* pos)
 	TypeAddMember(pos, "$typeid");
 }
 
-void AddAliasType(InplaceStr aliasName)
+void AddAliasType(InplaceStr aliasName, bool addToTypeTable)
 {
 	AliasInfo *info = TypeInfo::CreateAlias(aliasName, currType);
-	if(newType && (!currDefinedFunc.size() || newType->definitionDepth > currDefinedFunc.back()->vTopSize))	// If we're inside a class definition, but _not_ inside a function
+
+	if(newType && newType->functionDepth >= currDefinedFunc.size() && (currDefinedFunc.empty() || newType->definitionDepth > currDefinedFunc.back()->vTopSize))	// If we're inside a class definition, but _not_ inside a function
 	{
 		// Create alias and add it to type alias list, so that after type definition is finished, local aliases will be deleted
 		info->next = newType->childAlias;
@@ -6619,8 +6621,10 @@ void AddAliasType(InplaceStr aliasName)
 		info->next = CodeInfo::globalAliases;
 		CodeInfo::globalAliases = info;
 	}
+
 	// Insert hash->type pair to class map, so that target type can be found by alias name
-	CodeInfo::classMap.insert(GetStringHash(aliasName.begin, aliasName.end), currType);
+	if(addToTypeTable)
+		CodeInfo::classMap.insert(GetStringHash(aliasName.begin, aliasName.end), currType);
 }
 
 void AddUnfixedArraySize()

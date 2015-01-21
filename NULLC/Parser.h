@@ -24,8 +24,12 @@ enum TypeParseFlag
 	ALLOW_AUTO_RETURN_TYPE = 1 << 5, // used to allow extended typeof expressions that result in a numeric result instead of type
 
 	DISALLOW_EXPLICIT = 1 << 6, // explicit keyword should not be skipped
+
+	INVISIBLE_ALIASES = 1 << 7, // aliases will be added to the type/function, but will not be visible
 };
+
 bool ParseSelectType(Lexeme** str, unsigned flag = ALLOW_ARRAY | ALLOW_EXTENDED_TYPEOF, TypeInfo* instanceType = NULL, bool* instanceFailure = NULL);
+
 void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool allowAutoReturnType = false, bool allowGenericType = false, TypeInfo* instanceType = NULL, bool* instanceFailure = NULL);
 
 bool ParseClassBodyElement(Lexeme** str);
