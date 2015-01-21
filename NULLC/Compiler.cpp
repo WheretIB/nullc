@@ -883,6 +883,7 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 
 				type->AddMemberVariable(nameCopy, typeVoid, false, value);
 			}
+
 			type->definitionDepth = 1;
 		}
 	}
@@ -947,7 +948,7 @@ bool Compiler::ImportModuleTypedefs(const char* bytecode)
 				info->next = parent->childAlias;
 				parent->childAlias = info;
 			}else{
-				AddAliasType(InplaceStr(symbols + typedefInfo->offsetToName));
+				AddAliasType(InplaceStr(symbols + typedefInfo->offsetToName), true);
 			}
 		}else{
 			if((*type)->GetFullNameHash() == hash)

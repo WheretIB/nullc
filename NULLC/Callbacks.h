@@ -195,7 +195,7 @@ unsigned ResetDefinedTypeState();
 void RestoreDefinedTypeState(TypeInfo* type, unsigned methodCount);
 void TypeExtendable(const char* pos);
 
-void AddAliasType(InplaceStr aliasName);
+void AddAliasType(InplaceStr aliasName, bool addToTypeTable);
 
 void AddUnfixedArraySize();
 

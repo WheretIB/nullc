@@ -132,6 +132,7 @@ public:
 		childAlias = NULL;
 
 		definitionDepth = 1;
+		functionDepth = 0;
 
 		definitionList = NULL;
 		genericInfo = NULL;
@@ -173,6 +174,7 @@ public:
 	unsigned int	paddingBytes;
 
 	unsigned int	definitionDepth;
+	unsigned int	functionDepth;
 
 	TypeInfo		*parentType;
 
