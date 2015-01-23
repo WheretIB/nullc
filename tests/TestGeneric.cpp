@@ -1711,3 +1711,8 @@ const char	*testExplicitFunctionArgumentGeneric2 =
 auto bar(generic x){ return x * 3; }\r\n\
 return foo(bar);";
 TEST_RESULT("Generic function passed into a function with an explicit argument 2", testExplicitFunctionArgumentGeneric2, "12");
+
+const char	*testGenericFunctionWithAutoArg =
+"auto foo(generic x, auto y = nullptr){ return x; }\r\n\
+return foo(1);";
+TEST_RESULT("Generic function with 'auto' argument type", testGenericFunctionWithAutoArg, "1");

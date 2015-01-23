@@ -4181,7 +4181,7 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		if(!instanceFailure)
 		{
 			TypeInfo *instancedType = currType, *referenceTypeTmp = referenceType;
-			while(referenceType->subType && instancedType->subType)
+			while(instancedType && instancedType->subType && referenceType->subType)
 			{
 				if(instancedType->refLevel != referenceType->refLevel || instancedType->arrLevel != referenceType->arrLevel)
 				{
