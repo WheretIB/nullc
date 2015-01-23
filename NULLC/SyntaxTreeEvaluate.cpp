@@ -13,7 +13,7 @@ NodeNumber* NodeNumber::Evaluate(char *memory, unsigned int size)
 {
 	(void)memory;
 	(void)size;
-	return this;
+	return new NodeNumber(*this);
 }
 
 NodeNumber* NodePopOp::Evaluate(char *memory, unsigned int size)
@@ -111,9 +111,11 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 	// Extra nodes disable evaluation, as also does indirect function call
 	if(head || first || !funcInfo || !funcInfo->pure)
 		return NULL;
+
 	// Check that we have enough place for parameters
 	if(funcInfo->allParamSize > size || funcType->paramCount > 16)
 		return NULL;
+
 	unsigned int nextFrameOffset = baseShift;
 	NodeNumber *paramValue[16];
 	if(funcType->paramCount > 0)
@@ -130,10 +132,12 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 				// If this is first function call (from AddFunctionCallNode), and parameter is not a known number, exit immediately.
 				if(!nextFrameOffset && curr->nodeType != typeNodeNumber)
 					return NULL;
+
 				// Evaluate parameter value
 				paramValue[argument] = curr->Evaluate(nextFrameOffset ? memory : NULL, nextFrameOffset ? size : 0);
 				if(!paramValue[argument])
 					return NULL;
+
 				// Convert it to type that function expects
 				paramValue[argument]->ConvertTo(*paramType);
 			}
@@ -142,11 +146,13 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 			argument++;
 		}while(curr);
 	}
+
 	// Shift stack frame
 	memory += nextFrameOffset;
 	size -= nextFrameOffset;
 	if(funcInfo->allParamSize + NULLC_PTR_SIZE > size)
 		return NULL;
+
 	// Copy arguments into stack frame
 	unsigned int offset = funcInfo->allParamSize;
 	for(unsigned int i = 0; i < funcType->paramCount; i++)
@@ -167,16 +173,19 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 			size = 4;
 		offset -= size;
 	}
+
 	// Find old result
 	for(unsigned int i = 0; i < memoList.size(); i++)
 	{
 		if(memoList[i].func == funcInfo && memcmp(memory, memoList[i].arguments, funcInfo->allParamSize) == 0)
 			return memoList[i].value;
 	}
+
 	// Call function
 	NodeNumber *result = ((NodeFuncDef*)funcInfo->functionNode)->Evaluate(memory, size);
 	if(result && result->typeInfo != funcInfo->retType)
 		result = NULL;
+
 	// Memoization
 	if(result)
 	{
@@ -185,8 +194,11 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 		memcpy(memoList.back().arguments, memory, funcInfo->allParamSize);
 		memoList.back().func = funcInfo;
 		memoList.back().value = result;
+
+		return result;
 	}
-	return result;
+
+	return NULL;
 }
 
 NodeNumber* NodeGetAddress::Evaluate(char *memory, unsigned int size)
@@ -480,9 +492,9 @@ NodeNumber* NodeBinaryOp::Evaluate(char *memory, unsigned int size)
 		if(valueLeft->typeInfo == typeLong)
 			valueLeft = new NodeNumber(valueLeft->GetLong() ? 1 : 0, typeInt);
 		
-		if(valueLeft->GetInteger() && cmdLogOr)
+		if(valueLeft->GetInteger() && cmdID == cmdLogOr)
 			return new NodeNumber(1, typeInt);
-		if(!valueLeft->GetInteger() && cmdLogAnd)
+		if(!valueLeft->GetInteger() && cmdID == cmdLogAnd)
 			return new NodeNumber(0, typeInt);
 
 		NodeNumber *valueRight = second->Evaluate(memory, size);

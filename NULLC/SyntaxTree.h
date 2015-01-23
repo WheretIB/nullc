@@ -205,6 +205,10 @@ public:
 		typeInfo = ptrType;
 		nodeType = typeNodeNumber;
 	}
+	NodeNumber(const NodeNumber& rhs)
+	{
+		*this = rhs;
+	}
 	virtual ~NodeNumber(){}
 
 	virtual void Compile();
