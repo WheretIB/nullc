@@ -102,6 +102,7 @@ NodeNumber* NodeFuncDef::Evaluate(char *memory, unsigned int memSize)
 	return result;
 }
 
+unsigned int NodeFuncCall::callCount = 0;
 unsigned int NodeFuncCall::baseShift = 0;
 ChunkedStackPool<4092> NodeFuncCall::memoPool;
 FastVector<NodeFuncCall::CallMemo> NodeFuncCall::memoList;
@@ -114,6 +115,10 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 
 	// Check that we have enough place for parameters
 	if(funcInfo->allParamSize > size || funcType->paramCount > 16)
+		return NULL;
+
+	// Limit call count
+	if(callCount++ > 256)
 		return NULL;
 
 	unsigned int nextFrameOffset = baseShift;
