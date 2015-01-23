@@ -699,6 +699,7 @@ public:
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 	COMPILE_LLVM(virtual void CompileLLVM());
 
+	static unsigned int callCount;
 	static unsigned int baseShift;
 	static ChunkedStackPool<4092>	memoPool;
 	struct CallMemo

@@ -5790,6 +5790,7 @@ bool AddFunctionCallNode(const char* pos, const char* funcName, unsigned int cal
 		{
 			static char memory[1024];
 
+			NodeFuncCall::callCount = 0;
 			NodeFuncCall::baseShift = 0;
 
 			if(NodeNumber *value = CodeInfo::nodeList.back()->Evaluate(memory, 1024))

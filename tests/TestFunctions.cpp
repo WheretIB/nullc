@@ -246,6 +246,18 @@ const char	*testCompileTimeFunctionEvaluationBug8 =
 return a(3, 3);";
 TEST_RESULT("Compile-time function evaluation bug 8 (incorrect short-circuit implementation)", testCompileTimeFunctionEvaluationBug8, "61");
 
+const char	*testCompileTimeFunctionEvaluationBug9 =
+"int foo(int x, u)\r\n\
+{\r\n\
+	if(u == 0)\r\n\
+		return 1;\r\n\
+\r\n\
+	return foo(x + 1 + u, u / 2) + foo(x + 1, u / 2);\r\n\
+}\r\n\
+\r\n\
+return foo(0, 1 << 16);";
+TEST_RESULT("Compile-time function evaluation bug 9 (compilation hang)", testCompileTimeFunctionEvaluationBug9, "131072");
+
 const char	*testExplicitArguments1 =
 "int foo(explicit int a, b){ return a + b; }\r\n\
 return foo(3, 4);";
