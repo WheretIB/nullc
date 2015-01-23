@@ -218,13 +218,33 @@ TEST_RESULT("Compile-time function evaluation bug 4", testCompileTimeFunctionEva
 const char	*testCompileTimeFunctionEvaluationBug5 =
 "int bar(int x){ return 6 * x + (auto(typeof(bar(1)) y){ return y * 2; })(4); }\r\n\
 return bar(5);";
-TEST_RESULT("Compile-time function evaluation bug 5", testCompileTimeFunctionEvaluationBug5, "38");
+TEST_RESULT("Compile-time function evaluation bug 5 (recursion)", testCompileTimeFunctionEvaluationBug5, "38");
 
 const char	*testCompileTimeFunctionEvaluationBug6 =
 "void foo(@T a){ int x; x; }\r\n\
 foo(1);\r\n\
 return 1;";
-TEST_RESULT("Compile-time function evaluation bug 6", testCompileTimeFunctionEvaluationBug6, "1");
+TEST_RESULT("Compile-time function evaluation bug 6 (void result)", testCompileTimeFunctionEvaluationBug6, "1");
+
+const char	*testCompileTimeFunctionEvaluationBug7 =
+"short sh(int a){ return 14; }\r\n\
+auto n = { sh(1), sh(2) } ;\r\n\
+return n[0] + n[1];";
+TEST_RESULT("Compile-time function evaluation bug 7 (memoization should return unique nodes)", testCompileTimeFunctionEvaluationBug7, "28");
+
+const char	*testCompileTimeFunctionEvaluationBug8 =
+"int a(int m, n)\r\n\
+{\r\n\
+	if(m == 0)\r\n\
+		return n + 1;\r\n\
+		\r\n\
+	if(m > 0 && n == 0)\r\n\
+		return a(m - 1, 1);\r\n\
+		\r\n\
+	return a(m - 1, a(m, n - 1));\r\n\
+}\r\n\
+return a(3, 3);";
+TEST_RESULT("Compile-time function evaluation bug 8 (incorrect short-circuit implementation)", testCompileTimeFunctionEvaluationBug8, "61");
 
 const char	*testExplicitArguments1 =
 "int foo(explicit int a, b){ return a + b; }\r\n\
