@@ -1002,10 +1002,16 @@ const char *testGeneric66 =
 return x(5);";
 TEST_RESULT("Generic function instance inference 1", testGeneric66, "-5");
 
-const char *testGeneric67 =
+const char *testGeneric67a =
 "int foo(int ref(int) f){ return f(5); }\r\n\
 return foo(auto(generic y){ return -y; });";
-TEST_RESULT("Generic function instance inference 2", testGeneric67, "-5");
+TEST_RESULT("Generic function instance inference 2a", testGeneric67a, "-5");
+
+const char *testGeneric67b =
+"int foo(@T ref(int) f){ return f(5); }\r\n\
+\r\n\
+return foo(auto(generic y){ return -y; });";
+TEST_RESULT("Generic function instance inference 2b", testGeneric67b, "-5");
 
 const char *testGeneric68 =
 "int bar()\r\n\

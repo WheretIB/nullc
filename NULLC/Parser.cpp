@@ -454,6 +454,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 			ThrowError((*str)->pos, "ERROR: typeof must be followed by '('");
 
 		unsigned nodeCount = CodeInfo::nodeList.size();
+
 		Lexeme *curr = *str;
 		bool isType = ParseSelectType(str, ALLOW_ARRAY | ALLOW_EXTENDED_TYPEOF | ALLOW_NUMERIC_RESULT);
 		if(!isType || (*str)->type != lex_cparen)
@@ -663,7 +664,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 				return false;
 			}
 			SelectTypeByPointer(strippedType->funcType->retType);
-			if(isAlias)
+			if(isAlias && (flag & IGNORE_ALIASES) == 0)
 				AddAliasType(InplaceStr(aliasName->pos, aliasName->length), (flag & INVISIBLE_ALIASES) == 0);
 		}else{
 			bool takeFullType = (*str)->type != lex_ref && (*str)->type != lex_obracket;
@@ -689,7 +690,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 			if(!typeExplicit)
 				SelectTypeByPointer(instanceType ? (takeFullType ? instanceType : strippedType) : typeGeneric);
 
-			if(instanceType && isAlias)
+			if(instanceType && isAlias && (flag & IGNORE_ALIASES) == 0)
 				AddAliasType(InplaceStr(aliasName->pos, aliasName->length), (flag & INVISIBLE_ALIASES) == 0);
 			if(takeFullType)
 				return true;
