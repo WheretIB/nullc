@@ -1267,10 +1267,10 @@ void SelectTypeForGeneric(Lexeme* pos, unsigned nodeIndex)
 		Lexeme *tmp = pos;
 		bool instanceFailure = false;
 
-		if(!ParseSelectType(&tmp, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | ALLOW_AUTO_RETURN_TYPE, fProxy->funcInfo->funcType, &instanceFailure) && !instanceFailure)
+		if(!ParseSelectType(&tmp, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | ALLOW_AUTO_RETURN_TYPE | IGNORE_ALIASES, fProxy->funcInfo->funcType, &instanceFailure) && !instanceFailure)
 			ThrowError(pos->pos, "ERROR: there is no function available that will satisfy the argument");
 
-		if(currType->dependsOnGeneric)
+		if(!currType || currType->dependsOnGeneric)
 			currType = InstanceGenericFunctionTypeForType(pos->pos, fProxy->funcInfo, currType, bestFuncList.size(), true, false);
 	}else if(node->nodeType == typeNodeFunctionProxy){
 		HashMap<FunctionInfo*>::Node *func = funcMap.first(((NodeFunctionProxy*)node)->funcInfo->nameHash);
@@ -1279,7 +1279,7 @@ void SelectTypeForGeneric(Lexeme* pos, unsigned nodeIndex)
 		{
 			Lexeme *tmp = pos;
 			bool instanceFailure = false;
-			if(ParseSelectType(&tmp, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | ALLOW_AUTO_RETURN_TYPE, func->value->funcType, &instanceFailure) && !instanceFailure)
+			if(ParseSelectType(&tmp, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | ALLOW_AUTO_RETURN_TYPE | IGNORE_ALIASES, func->value->funcType, &instanceFailure) && !instanceFailure)
 				break;
 			func = funcMap.next(func);
 		}while(func);

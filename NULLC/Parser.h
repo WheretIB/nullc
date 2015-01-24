@@ -26,6 +26,7 @@ enum TypeParseFlag
 	DISALLOW_EXPLICIT = 1 << 6, // explicit keyword should not be skipped
 
 	INVISIBLE_ALIASES = 1 << 7, // aliases will be added to the type/function, but will not be visible
+	IGNORE_ALIASES = 1 << 8, // aliases will be parsed and ignored
 };
 
 bool ParseSelectType(Lexeme** str, unsigned flag = ALLOW_ARRAY | ALLOW_EXTENDED_TYPEOF, TypeInfo* instanceType = NULL, bool* instanceFailure = NULL);
