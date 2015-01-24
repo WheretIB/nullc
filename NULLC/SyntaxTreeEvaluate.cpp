@@ -183,7 +183,7 @@ NodeNumber* NodeFuncCall::Evaluate(char *memory, unsigned int size)
 	for(unsigned int i = 0; i < memoList.size(); i++)
 	{
 		if(memoList[i].func == funcInfo && memcmp(memory, memoList[i].arguments, funcInfo->allParamSize) == 0)
-			return memoList[i].value;
+			return new NodeNumber(*memoList[i].value);
 	}
 
 	// Call function

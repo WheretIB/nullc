@@ -228,7 +228,7 @@ TEST_RESULT("Compile-time function evaluation bug 6 (void result)", testCompileT
 
 const char	*testCompileTimeFunctionEvaluationBug7 =
 "short sh(int a){ return 14; }\r\n\
-auto n = { sh(1), sh(2) } ;\r\n\
+auto n = { sh(1), sh(1) } ;\r\n\
 return n[0] + n[1];";
 TEST_RESULT("Compile-time function evaluation bug 7 (memoization should return unique nodes)", testCompileTimeFunctionEvaluationBug7, "28");
 
