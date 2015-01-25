@@ -1576,7 +1576,13 @@ bool ParseShortFunctionDefinition(Lexeme** str)
 	NamespaceInfo *lastNS = GetCurrentNamespace();
 	SetCurrentNamespace(NULL);
 
-	SelectTypeByPointer(type->funcType->retType);
+	TypeInfo *inferredReturnType = type->funcType->retType;
+
+	if(inferredReturnType)
+		SelectTypeByPointer((inferredReturnType == typeGeneric || inferredReturnType->dependsOnGeneric) ? NULL : type->funcType->retType);
+	else
+		SelectTypeByPointer(NULL);
+
 	FunctionAdd((*str)->pos, functionName);
 
 	for(unsigned currArg = 0; currArg < arguments; currArg++)
