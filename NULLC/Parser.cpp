@@ -2642,14 +2642,23 @@ bool ParseTerminal(Lexeme** str)
 	case lex_string:
 		{
 			Lexeme *curr = *str;
+
 			NamespaceInfo* lastNS = GetCurrentNamespace();
 			SetCurrentNamespace(NULL);
 			NamespaceInfo* ns = NULL;
+
+			bool namespaceMemberExpected = false;
+
 			while((*str)->type == lex_string && (*str + 1)->type == lex_point && (ns = IsNamespace(InplaceStr((*str)->pos, (*str)->length))) != NULL)
 			{
 				(*str) += 2;
 				SetCurrentNamespace(ns);
+				namespaceMemberExpected = true;
 			}
+
+			if(namespaceMemberExpected && (*str)->type != lex_string)
+				ThrowError((*str)->pos, "ERROR: namespace member is expected after '.'");
+
 			if((*str + 1)->type == lex_oparen || (*str + 1)->type == lex_with)
 			{
 				ParseFunctionCall(str, false);
@@ -2657,6 +2666,7 @@ bool ParseTerminal(Lexeme** str)
 				SetCurrentNamespace(lastNS);
 				return true;
 			}
+
 			SetCurrentNamespace(lastNS);
 			*str = curr;
 		}

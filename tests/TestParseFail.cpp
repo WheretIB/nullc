@@ -276,4 +276,6 @@ void RunParseFailTests()
 
 	TEST_FOR_FAIL("parsing", "int y; auto x = coroutine y;", "ERROR: function return type not found after 'coroutine'");
 	TEST_FOR_FAIL("parsing", "int y; auto x = coroutine int y;", "ERROR: '(' expected after function name");
+
+	TEST_FOR_FAIL("parsing", "namespace Test{} return Test.+(5);", "ERROR: namespace member is expected after '.'");
 }
