@@ -1737,7 +1737,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 					currDefinedFunc.push_back(func);
 
 					instanceFailure = false;
-					ParseSelectType(&start, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF, referenceType, &instanceFailure);
+					ParseSelectType(&start, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF | (argID == currArgument ? RESOLVE_ALIASES : 0), referenceType, &instanceFailure);
 					
 					currDefinedFunc.pop_back();
 					
