@@ -1184,7 +1184,7 @@ void AddReturnNode(const char* pos, bool yield)
 		if(expectedType == typeVoid && realRetType != typeVoid)
 			ThrowError(pos, "ERROR: 'void' function returning a value");
 		if(expectedType != typeVoid && realRetType == typeVoid)
-			ThrowError(pos, "ERROR: function should return %s", expectedType->GetFullTypeName());
+			ThrowError(pos, "ERROR: function must return a value of type '%s'", expectedType->GetFullTypeName());
 		if(yield && currDefinedFunc.back()->type != FunctionInfo::COROUTINE)
 			ThrowError(pos, "ERROR: yield can only be used inside a coroutine");
 #if defined(NULLC_ENABLE_C_TRANSLATION) || defined(NULLC_LLVM_SUPPORT)
@@ -1907,7 +1907,7 @@ void InlineFunctionImplicitReturn(const char* pos)
 	if(expectedType && expectedType != realRetType)
 	{
 		if(expectedType != typeVoid && realRetType == typeVoid)
-			ThrowError(pos, "ERROR: function should return %s", expectedType->GetFullTypeName());
+			ThrowError(pos, "ERROR: function must return a value of type '%s'", expectedType->GetFullTypeName());
 
 		if(((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX || expectedType->firstVariable || realRetType->firstVariable) && expectedType != realRetType) || expectedType->subType != realRetType->subType)
 			ThrowError(pos, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());
