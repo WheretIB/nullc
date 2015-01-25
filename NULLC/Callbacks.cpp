@@ -1812,18 +1812,27 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 		while(currV)
 		{
 			VariableInfo *var = currV->value;
+
+			if(!var->varType)
+				ThrowError(pos, "ERROR: variable '%.*s' is being used while its type is unknown", var->name.length(), var->name.begin);
+
 			if(!var->varType->funcType || var->varType->funcType->paramCount <= currArgument)
 				break;	// If the first found variable doesn't match, we can't move to the next, because it's hidden by this one
+
 			// Temporarily change function pointer argument count to match current argument count
 			unsigned tmpCount = var->varType->funcType->paramCount;
 			var->varType->funcType->paramCount = currArgument;
 			unsigned rating = GetFunctionRating(var->varType->funcType, currArgument, NULL);
 			var->varType->funcType->paramCount = tmpCount;
+
 			if(rating == ~0u)
 				break;	// If the first found variable doesn't match, we can't move to the next, because it's hidden by this one
+
 			TypeInfo *argType = var->varType->funcType->paramType[currArgument];
+
 			if(argType->funcType && argType->funcType->paramCount == arguments)
 				preferredType = argType;
+
 			break; // If the first found variable matches, we can't move to the next, because it's hidden by this one
 		}
 	}

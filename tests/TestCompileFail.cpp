@@ -68,7 +68,8 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Unknown function", "return b;", "ERROR: unknown identifier 'b'");
 	TEST_FOR_FAIL("Unclear decision", "void a(int b){} void a(float b){} return a;", "ERROR: ambiguity, there is more than one overloaded function available:");
 	TEST_FOR_FAIL("Variable of unknown type used", "auto a = a + 1; return a;", "ERROR: variable 'a' is being used while its type is unknown");
-
+	TEST_FOR_FAIL("Variable of unknown type used", "auto x = x(<y>{ 3; });", "ERROR: variable 'x' is being used while its type is unknown");
+	
 	TEST_FOR_FAIL("Indexing not an array", "int a; return a[5];", "ERROR: can't find function '[]' with following parameters:");
 	TEST_FOR_FAIL("Array underflow", "int[4] a; a[-1] = 2; return 1;", "ERROR: array index cannot be negative");
 	TEST_FOR_FAIL("Array overflow", "int[4] a; a[5] = 1; return 1;", "ERROR: array index out of bounds");
