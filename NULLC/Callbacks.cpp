@@ -3459,8 +3459,7 @@ void FunctionAdd(const char* pos, const char* funcName, bool isOperator)
 		lastFunc->visible = false;
 	}
 
-	if(!isOperator)
-		lastFunc->parentNamespace = namespaceStack.size() > 1 ? namespaceStack.back() : NULL;
+	lastFunc->parentNamespace = namespaceStack.size() > 1 ? namespaceStack.back() : NULL;
 
 	AddFunctionToSortedList(lastFunc);
 
@@ -4112,6 +4111,11 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 	// There could be function calls in constrain expression, so we backup current function and rating list
 	unsigned prevBackupSize = BackupFunctionSelection(count);
 
+	// Backup namespace state and restore it to function definition state
+	unsigned prevNsBackupSize = 0, prevNsStackSize = 0;
+	NamespaceInfo *lastNS = NULL;
+	RestoreNamespaces(false, fInfo->parentNamespace, prevNsBackupSize, prevNsStackSize, lastNS);
+
 	// Out function
 	unsigned argumentCount = fInfo->paramCount;
 
@@ -4308,6 +4312,9 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 		tempListS = tempListS->next;
 	}
 	currType = lastType;
+
+	// Restore old namespace stack
+	RestoreNamespaces(true, fInfo->parentNamespace, prevNsBackupSize, prevNsStackSize, lastNS);
 
 	// Restore old function list, because the one we've started with could've been replaced
 	RestoreFunctionSelection(prevBackupSize, count);
