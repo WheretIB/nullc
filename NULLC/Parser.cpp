@@ -310,7 +310,7 @@ bool ParseTypeofExtended(Lexeme** str, bool& notType)
 	return true;
 }
 
-void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool allowAutoReturnType, bool allowGenericType, TypeInfo* instanceType, bool* instanceFailure)
+void ParseTypePostExpressions(Lexeme** str, unsigned flag, bool notType, TypeInfo* instanceType, bool* instanceFailure)
 {
 	if(instanceType)
 		assert(instanceFailure);
@@ -324,12 +324,12 @@ void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool 
 			(*str)++;
 			if(notType)
 				ThrowError((*str)->pos, "ERROR: typeof expression result is not a type");
-			if(ParseLexem(str, lex_oparen) || (allowGenericType && ParseLexem(str, lex_generic)))
+			if(ParseLexem(str, lex_oparen) || ((flag & ALLOW_GENERIC_TYPE) && ParseLexem(str, lex_generic)))
 			{
 				Lexeme *old = (*str) - 1;
 				// Prepare function type
 				TypeInfo *retType = (TypeInfo*)GetSelectedType();
-				if(!retType && !allowAutoReturnType)
+				if(!retType && !(flag & ALLOW_AUTO_RETURN_TYPE))
 					ThrowError((*str)->pos, "ERROR: return type of a function type cannot be auto");
 				if(instanceType && (!instanceType->funcType || instanceType->funcType->retType != retType))
 				{
@@ -339,7 +339,7 @@ void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool 
 				TypeInfo *preferredType = instanceType ? (instanceType->funcType->paramCount ? instanceType->funcType->paramType[0] : NULL) : NULL;
 				TypeHandler *first = NULL, *handle = NULL;
 				unsigned int count = 0;
-				if(ParseSelectType(str, ALLOW_ARRAY | (allowGenericType ? ALLOW_GENERIC_TYPE : 0) | ALLOW_EXTENDED_TYPEOF, preferredType, instanceFailure))
+				if(ParseSelectType(str, flag & ~(ALLOW_AUTO_RETURN_TYPE | ALLOW_GENERIC_BASE), preferredType, instanceFailure))
 				{
 					do
 					{
@@ -351,7 +351,7 @@ void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool 
 						if(count)
 						{
 							preferredType = instanceType ? instanceType->funcType->paramType[count] : NULL;
-							ParseSelectType(str, ALLOW_ARRAY | (allowGenericType ? ALLOW_GENERIC_TYPE : 0) | ALLOW_EXTENDED_TYPEOF, preferredType, instanceFailure);
+							ParseSelectType(str, flag & ~(ALLOW_AUTO_RETURN_TYPE | ALLOW_GENERIC_BASE), preferredType, instanceFailure);
 							handle->next = (TypeHandler*)stringPool.Allocate(sizeof(TypeHandler));
 							handle = handle->next;
 						}else{
@@ -392,7 +392,7 @@ void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool 
 		case lex_obracket:
 			if(notType)
 				ThrowError((*str)->pos, "ERROR: typeof expression result is not a type");
-			if(allowArray)
+			if((flag & ALLOW_ARRAY))
 				ParseArrayDefinition(str);
 			else
 				run = false;
@@ -674,7 +674,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 			FunctionInfo *fInfo = GetCurrentFunction();
 			if(fInfo)
 			{
-				AliasInfo *alias = fInfo->generic ? GetExplicitTypes() :  fInfo->explicitTypes;
+				AliasInfo *alias = fInfo->generic ? GetExplicitTypes() : fInfo->explicitTypes;
 				while(alias)
 				{
 					if(alias->name == InplaceStr(aliasName->pos, aliasName->length))
@@ -684,6 +684,22 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 						break;
 					}
 					alias = alias->next;
+				}
+
+				if(flag & RESOLVE_ALIASES)
+				{
+					AliasInfo *alias = fInfo->childAlias;
+					while(alias)
+					{
+						if(alias->name == InplaceStr(aliasName->pos, aliasName->length))
+						{
+							typeExplicit = true;
+							SelectTypeByPointer(alias->type);
+							break;
+						}
+
+						alias = alias->next;
+					}
 				}
 			}
 
@@ -699,7 +715,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 		return false;
 	}
 
-	ParseTypePostExpressions(str, !!(flag & ALLOW_ARRAY), notType, !!(flag & ALLOW_AUTO_RETURN_TYPE), !!(flag & ALLOW_GENERIC_TYPE), strippedType, instanceFailure);
+	ParseTypePostExpressions(str, flag, notType, strippedType, instanceFailure);
 	return true;
 }
 

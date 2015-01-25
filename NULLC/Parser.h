@@ -27,11 +27,12 @@ enum TypeParseFlag
 
 	INVISIBLE_ALIASES = 1 << 7, // aliases will be added to the type/function, but will not be visible
 	IGNORE_ALIASES = 1 << 8, // aliases will be parsed and ignored
+	RESOLVE_ALIASES = 1 << 9, // aliases will be resolved to a type if possible
 };
 
 bool ParseSelectType(Lexeme** str, unsigned flag = ALLOW_ARRAY | ALLOW_EXTENDED_TYPEOF, TypeInfo* instanceType = NULL, bool* instanceFailure = NULL);
 
-void ParseTypePostExpressions(Lexeme** str, bool allowArray, bool notType, bool allowAutoReturnType = false, bool allowGenericType = false, TypeInfo* instanceType = NULL, bool* instanceFailure = NULL);
+void ParseTypePostExpressions(Lexeme** str, unsigned flag, bool notType, TypeInfo* instanceType = NULL, bool* instanceFailure = NULL);
 
 bool ParseClassBodyElement(Lexeme** str);
 bool ParseClassStaticIf(Lexeme** str);

@@ -1720,6 +1720,19 @@ auto x = foo(<int i, j>{ i + j; }, <i, j>{ i + j; });\r\n\
 return x;";
 TEST_RESULT("short inline function type inference improvement 3", testGeneric148, "8");
 
+const char *testGeneric149 =
+"auto foo(@T x, int ref(@T, @T) f){ return x * f(2, 3); }\r\n\
+return foo(5, <x, y>{ x + y; });";
+TEST_RESULT("short inline function type inference improvement 4", testGeneric149, "25");
+
+const char *testGeneric150 =
+"class Foo<T, U>{ T x; U y; void Foo(T x, U y){ this.x = x; this.y = y; } }\r\n\
+auto make_Foo(@T x, @U y){ return Foo<T, U>(x, y); }\r\n\
+auto foo(Foo<@T, @U> a, b, typeof(a) ref(Foo<@T, @U>, Foo<@T, @U>) f){ return f(a, b); }\r\n\
+auto x = foo(make_Foo(2, 4.0f), make_Foo(5, 8.0f), <x, y>{ return make_Foo(x.x + y.x, x.y + y.y); });\r\n\
+return int(x.x + x.y);";
+TEST_RESULT("short inline function type inference improvement 5", testGeneric150, "19");
+
 const char	*testDefaultGenericFuncVars =
 "auto test(generic c, auto a = auto(int i){ return i++; }, int b = 5){ return a(3) + c * b; }\r\n\
 return test(1) + test(2, auto(int l){ return l * 2; });";
