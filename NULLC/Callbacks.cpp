@@ -1846,13 +1846,21 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 
 void InlineFunctionImplicitReturn(const char* pos)
 {
-	(void)pos;
-	if(currDefinedFunc.back()->explicitlyReturned)
+	FunctionInfo &lastFunc = *currDefinedFunc.back();
+
+	if(lastFunc.explicitlyReturned)
 		return;
-	if(currDefinedFunc.back()->retType == typeVoid)
+
+	TypeInfo *expectedType = lastFunc.retType;
+
+	if(expectedType == typeVoid)
 		return;
+
 	if(CodeInfo::nodeList.back()->nodeType != typeNodeExpressionList)
 		return;
+	
+	TypeInfo *realRetType = lastFunc.retType;
+
 	NodeZeroOP *curr = ((NodeExpressionList*)CodeInfo::nodeList.back())->GetFirstNode();
 	if(curr->next)
 	{
@@ -1863,26 +1871,47 @@ void InlineFunctionImplicitReturn(const char* pos)
 
 		NodeZeroOP *node = ((NodePopOp*)curr)->GetFirstNode();
 		CodeInfo::nodeList.push_back(node);
-		if(!currDefinedFunc.back()->retType)
+		if(!lastFunc.retType)
 		{
-			currDefinedFunc.back()->retType = node->typeInfo;
-			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
+			lastFunc.retType = node->typeInfo;
+			lastFunc.funcType = CodeInfo::GetFunctionType(lastFunc.retType, lastFunc.firstParam, lastFunc.paramCount);
+
+			expectedType = node->typeInfo;
 		}
-		curr->prev->next = new NodeReturnOp(true, currDefinedFunc.back()->retType, currDefinedFunc.back(), false);
+
+		realRetType = node->typeInfo;
+
+		curr->prev->next = new NodeReturnOp(true, lastFunc.retType, &lastFunc, false);
 	}else{
 		if(curr->nodeType != typeNodePopOp)
 			return;
 		NodeZeroOP *node = ((NodePopOp*)curr)->GetFirstNode();
 		CodeInfo::nodeList.back() = node;
-		if(!currDefinedFunc.back()->retType)
+		if(!lastFunc.retType)
 		{
-			currDefinedFunc.back()->retType = node->typeInfo;
-			currDefinedFunc.back()->funcType = CodeInfo::GetFunctionType(currDefinedFunc.back()->retType, currDefinedFunc.back()->firstParam, currDefinedFunc.back()->paramCount);
+			lastFunc.retType = node->typeInfo;
+			lastFunc.funcType = CodeInfo::GetFunctionType(lastFunc.retType, lastFunc.firstParam, lastFunc.paramCount);
+
+			expectedType = node->typeInfo;
 		}
-		CodeInfo::nodeList.push_back(new NodeReturnOp(true, currDefinedFunc.back()->retType, currDefinedFunc.back(), false));
-		AddOneExpressionNode(currDefinedFunc.back()->retType);
+
+		realRetType = node->typeInfo;
+
+		CodeInfo::nodeList.push_back(new NodeReturnOp(true, lastFunc.retType, &lastFunc, false));
+		AddOneExpressionNode(lastFunc.retType);
 	}
-	currDefinedFunc.back()->explicitlyReturned = true;
+
+	lastFunc.explicitlyReturned = true;
+
+	// Check for errors
+	if(expectedType && expectedType != realRetType)
+	{
+		if(expectedType != typeVoid && realRetType == typeVoid)
+			ThrowError(pos, "ERROR: function should return %s", expectedType->GetFullTypeName());
+
+		if(((expectedType->type == TypeInfo::TYPE_COMPLEX || realRetType->type == TypeInfo::TYPE_COMPLEX || expectedType->firstVariable || realRetType->firstVariable) && expectedType != realRetType) || expectedType->subType != realRetType->subType)
+			ThrowError(pos, "ERROR: function returns %s but supposed to return %s", realRetType->GetFullTypeName(), expectedType->GetFullTypeName());
+	}
 }
 
 // Function for array indexing
