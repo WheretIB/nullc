@@ -179,7 +179,10 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Illegal comparison", "return \"hello\" > 12;", "ERROR: operation > is not supported on 'char[6]' and 'int'");
 	TEST_FOR_FAIL("Illegal array element", "auto a = { {15, 12 }, 14, {18, 48} };", "ERROR: element 1 doesn't match the type of element 0 (int[2])");
 	TEST_FOR_FAIL("Wrong return type", "int ref a(){ float b=5; return &b; } return 9;", "ERROR: function returns float ref but supposed to return int ref");
-	
+
+	TEST_FOR_FAIL("Wrong return type", "auto foo(int ref() f){ return f(); } foo(<>{ auto x = {1, 2, 3}; });", "ERROR: function returns int[3] but supposed to return int");
+	TEST_FOR_FAIL("Wrong return type", "auto foo(int ref() f){ return f(); } auto x = foo(<>{ void u; u; });", "ERROR: function must return a value of type 'int'");
+
 	TEST_FOR_FAIL("Global variable size limit", "char[32*1024*1024] arr;", "ERROR: variable size limit exceeded");
 	TEST_FOR_FAIL("Unsized array initialization", "char[] arr = 1;", "ERROR: cannot convert 'int' to 'char[]'");
 	
