@@ -1702,6 +1702,24 @@ auto bar(int a, generic x, auto ref[] y){ return x + y.size; }\r\n\
 return foo(1) + foo(1, 1, 1, 1, 1) + bar(1, 1);";
 TEST_RESULT("generic function with variable argument count 3", testGeneric145, "7");
 
+const char *testGeneric146 =
+"int foo(@T ref(int, int) f){ return f(2, 3); }\r\n\
+auto x = foo(<i, j>{ i + j; });\r\n\
+return x;";
+TEST_RESULT("short inline function type inference improvement 1", testGeneric146, "5");
+
+const char *testGeneric147 =
+"int foo(int ref(generic, int) f){ return f(2, 3); }\r\n\
+auto x = foo(<int i, j>{ i + j; });\r\n\
+return x;";
+TEST_RESULT("short inline function type inference improvement 2", testGeneric147, "5");
+
+const char *testGeneric148 =
+"auto foo(int ref(@T, int) f, f2){ return f(2, 3) + f2(1, 2); }\r\n\
+auto x = foo(<int i, j>{ i + j; }, <i, j>{ i + j; });\r\n\
+return x;";
+TEST_RESULT("short inline function type inference improvement 3", testGeneric148, "8");
+
 const char	*testDefaultGenericFuncVars =
 "auto test(generic c, auto a = auto(int i){ return i++; }, int b = 5){ return a(3) + c * b; }\r\n\
 return test(1) + test(2, auto(int l){ return l * 2; });";

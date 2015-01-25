@@ -1726,8 +1726,6 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 						start++;
 					}
 
-					bool genericArg = false, genericRef = false;
-
 					TypeInfo *referenceType = NULL;
 					if(argID != currArgument)
 					{
@@ -1739,34 +1737,17 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 					currDefinedFunc.push_back(func);
 
 					instanceFailure = false;
-					if(!ParseSelectType(&start, ALLOW_ARRAY | (referenceType ? ALLOW_GENERIC_TYPE : 0) | ALLOW_EXTENDED_TYPEOF, referenceType, &instanceFailure))
-						genericArg = start->type == lex_generic ? !!(start++) : false;
-					genericRef = start->type == lex_ref ? !!(start++) : false;
+					ParseSelectType(&start, ALLOW_ARRAY | ALLOW_GENERIC_TYPE | ALLOW_EXTENDED_TYPEOF, referenceType, &instanceFailure);
+					
+					currDefinedFunc.pop_back();
 					
 					if(instanceFailure)
-					{
-						currDefinedFunc.pop_back();
 						break;
-					}
-
-					if(genericArg && genericRef && start->type == lex_oparen)
-					{
-						start--;
-						currType = NULL;
-						ParseTypePostExpressions(&start, false, false, true, true);
-						genericArg = genericRef = false;
-					}
-
-					currDefinedFunc.pop_back();
 
 					if(argID != currArgument)
 					{
-						if(genericArg)
-							SelectTypeForGeneric(start, nodeOffset + argID);
-						if(genericRef && !currType->refLevel)
-							currType = CodeInfo::GetReferenceType(currType);
-
 						assert(start->type == lex_string);
+
 						// Insert variable to a list so that a typeof can be taken from it
 						InplaceStr paramName = InplaceStr(start->pos, start->length);
 						VariableInfo *n = new VariableInfo(NULL, paramName, GetStringHash(paramName.begin, paramName.end), 0, currType, false);
@@ -1783,9 +1764,6 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 								assert(0);
 							CodeInfo::nodeList.pop_back();
 						}
-					}else{
-						if(genericArg)
-							currType = typeGeneric;
 					}
 				}
 
