@@ -663,6 +663,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 				*instanceFailure = true;
 				return false;
 			}
+
 			SelectTypeByPointer(strippedType->funcType->retType);
 			if(isAlias && (flag & IGNORE_ALIASES) == 0)
 				AddAliasType(InplaceStr(aliasName->pos, aliasName->length), (flag & INVISIBLE_ALIASES) == 0);
@@ -1617,7 +1618,7 @@ bool ParseShortFunctionDefinition(Lexeme** str)
 		if((*str)->length >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 			ThrowError((*str)->pos, "ERROR: parameter name length is limited to 2048 symbols");
 
-		if(imaginary && type->funcType->paramType[currArg] == typeGeneric)
+		if(imaginary && (type->funcType->paramType[currArg] == typeGeneric || type->funcType->paramType[currArg]->dependsOnGeneric))
 		{
 			SelectTypeByPointer(selType);
 			imaginary = false;
@@ -1652,7 +1653,7 @@ bool ParseShortFunctionDefinition(Lexeme** str)
 	{
 		if(currArg != 0)
 			ParseLexem(str, lex_comma);
-		if(ParseSelectType(str) && type->funcType->paramType[currArg] != GetSelectedType() && type->funcType->paramType[currArg] != typeGeneric)
+		if(ParseSelectType(str) && type->funcType->paramType[currArg] != GetSelectedType() && type->funcType->paramType[currArg] != typeGeneric && !type->funcType->paramType[currArg]->dependsOnGeneric)
 		{
 			Lexeme *varName = *str;
 			VariableInfo *varInfo = AddVariable((*str)->pos, InplaceStr(varName->pos, varName->length));
