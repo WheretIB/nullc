@@ -210,7 +210,7 @@ int main(int argc, char** argv)
 		}else{
 			strcpy(moduleName, fileName);
 			if(char *extensionPos = strchr(moduleName, '.'))
-				*extensionPos = NULL;
+				*extensionPos = '\0';
 			char	*pos = moduleName;
 			while(*pos)
 			{

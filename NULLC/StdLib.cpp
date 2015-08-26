@@ -848,7 +848,7 @@ int NULLC::StrToShort(NULLCArray str)
 
 NULLCArray NULLC::ShortToStr(short* r)
 {
-	NULLCArray arr = { 0 };
+	NULLCArray arr = { 0, 0 };
 	if(!r)
 	{
 		nullcThrowError("ERROR: null pointer access");
@@ -884,7 +884,7 @@ int NULLC::StrToInt(NULLCArray str)
 
 NULLCArray NULLC::IntToStr(int* r)
 {
-	NULLCArray arr = { 0 };
+	NULLCArray arr = { 0, 0 };
 	if(!r)
 	{
 		nullcThrowError("ERROR: null pointer access");
@@ -933,7 +933,7 @@ long long NULLC::StrToLong(NULLCArray str)
 
 NULLCArray NULLC::LongToStr(long long* r)
 {
-	NULLCArray arr = { 0 };
+	NULLCArray arr = { 0, 0 };
 	if(!r)
 	{
 		nullcThrowError("ERROR: null pointer access");
@@ -969,7 +969,7 @@ float NULLC::StrToFloat(NULLCArray str)
 
 NULLCArray NULLC::FloatToStr(int precision, bool exponent, float* r)
 {
-	NULLCArray arr = { 0 };
+	NULLCArray arr = { 0, 0 };
 	if(!r)
 	{
 		nullcThrowError("ERROR: null pointer access");
@@ -990,7 +990,7 @@ double NULLC::StrToDouble(NULLCArray str)
 
 NULLCArray NULLC::DoubleToStr(int precision, bool exponent, double* r)
 {
-	NULLCArray arr = { 0 };
+	NULLCArray arr = { 0, 0 };
 	if(!r)
 	{
 		nullcThrowError("ERROR: null pointer access");
