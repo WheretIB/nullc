@@ -816,6 +816,7 @@ LOAD_MODULE_BIND(test_big4, "test.big4", "class X{ int a; float b; } X Call();")
 const char	*testBigReturnType4 = "import test.big4;\r\n X x; x = Call(); return x.a == 1 && x.b == 2.0;";
 TEST_RESULT("External function call. Big return type 4.", testBigReturnType4, "1");
 
+#if !defined(AMD64_UNIMPLEMENTED_CALLS_20150827)
 struct ReturnBig5{ int a; double b; };
 ReturnBig5 TestReturnBig5()
 {
@@ -829,7 +830,6 @@ LOAD_MODULE_BIND(test_big5, "test.big5", "class X{ int a; double b; } X Call();"
 const char	*testBigReturnType5 = "import test.big5;\r\n X x; x = Call(); return x.a == 1 && x.b == 2.0;";
 TEST_RESULT("External function call. Big return type 5.", testBigReturnType5, "1");
 
-#if !defined(AMD64_UNIMPLEMENTED_CALLS_20150827)
 struct ReturnBig6{ double a; int b; };
 ReturnBig6 TestReturnBig6()
 {
