@@ -1556,10 +1556,10 @@ bool Compiler::SaveListing(const char *fileName)
 				codeEnd++;
 			if(codeEnd > lastSourcePos)
 			{
-				fprintf(compiledAsm, "%.*s\r\n", codeEnd - lastSourcePos, lastSourcePos);
+				fprintf(compiledAsm, "%.*s\r\n", int(codeEnd - lastSourcePos), lastSourcePos);
 				lastSourcePos = codeEnd;
 			}else{
-				fprintf(compiledAsm, "%.*s\r\n", codeEnd - codeStart, codeStart);
+				fprintf(compiledAsm, "%.*s\r\n", int(codeEnd - codeStart), codeStart);
 			}
 		}
 		CodeInfo::cmdList[i].Decode(instBuf);

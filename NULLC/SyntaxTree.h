@@ -205,7 +205,7 @@ public:
 		typeInfo = ptrType;
 		nodeType = typeNodeNumber;
 	}
-	NodeNumber(const NodeNumber& rhs)
+	NodeNumber(const NodeNumber& rhs): NodeZeroOP(rhs)
 	{
 		*this = rhs;
 	}
