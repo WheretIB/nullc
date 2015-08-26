@@ -3,4 +3,5 @@ language: cpp
 compiler:
   - clang
   - gcc
-script: make all
+script: make test config=coverage
+after_success: bash <(curl -s https://codecov.io/bash)
