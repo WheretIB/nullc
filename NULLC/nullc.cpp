@@ -464,10 +464,10 @@ const char*	nullcGetArgumentVector(unsigned int functionID, uintptr_t extra, va_
 				*(NULLCAutoArray*)argPos = va_arg(args, NULLCAutoArray);
 				argPos += sizeof(NULLCAutoArray);
 			}else if(tInfo.subCat == ExternTypeInfo::CAT_CLASS){
-				unsigned int *memberList = &linker->exTypeExtra[tInfo.memberOffset];
+				ExternMemberInfo *memberList = &linker->exTypeExtra[tInfo.memberOffset];
 				for(unsigned int k = 0; k < tInfo.memberCount; k++)
 				{
-					const ExternTypeInfo &subType = linker->exTypes[memberList[k]];
+					const ExternTypeInfo &subType = linker->exTypes[memberList[k].type];
 					switch(subType.type)
 					{
 					case ExternTypeInfo::TYPE_CHAR:
