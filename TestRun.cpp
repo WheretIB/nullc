@@ -3,5 +3,5 @@
 
 int main(int argc, char** argv)
 {
-	RunTests(argc == 2);
+	return RunTests(argc == 2);
 }

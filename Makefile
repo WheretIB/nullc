@@ -104,7 +104,18 @@ PUGIXML_TARGETS = \
   temp/pugixml.o
 
 all: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy \
-     bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
+    bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
+
+ifeq ($(config),coverage)
+test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy \
+    bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
+	./TestRun
+	gcov NULLC/
+else
+test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy \
+    bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
+	./TestRun
+endif
 
 temp/lib/%.o: NULLC/includes/%.cpp
 	$(CXX) $(REG_CFLAGS) -c $< -o $@

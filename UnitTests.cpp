@@ -72,7 +72,7 @@ nullres CompileFile(const char* fileName)
 	return nullcCompile(content);
 }
 
-void	RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsigned int*, int*))
+int RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsigned int*, int*))
 {
 	Tests::messageVerbose = verbose;
 	Tests::fileLoadFunc = fileLoadFunc;
@@ -144,7 +144,7 @@ void	RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsi
 	//SpeedTestFile("shapes.nc");
 	//SpeedTestFile("raytrace.nc");
 	//SpeedTestFile("blob.nc");
-	return;*/
+	return 0;*/
 
 #ifdef NULLC_ENABLE_C_TRANSLATION
 	if(!CompileFile("Modules/std/math.nc"))
@@ -321,4 +321,6 @@ void	RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsi
 
 	// Terminate NULLC
 	nullcTerminate();
+
+	return allPassed == allTests ? 0 : 1;
 }
