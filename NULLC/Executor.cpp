@@ -172,7 +172,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 
 #ifndef _WIN64
 	ExternTypeInfo &funcType = exTypes[exFunctions[funcID].funcType];
-	ExternTypeInfo &returnType = exTypes[exLinker->exTypeExtra[funcType.memberOffset]];
+	ExternTypeInfo &returnType = exTypes[exLinker->exTypeExtra[funcType.memberOffset].type];
 	if(rvs && returnType.size <= 16 && &returnType != &exTypes[7])
 		rvs = 0;
 	if(returnType.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&returnType, exLinker))
@@ -760,7 +760,7 @@ void Executor::InitExecution()
 	char *alignedAddr = (char*)((intptr_t)((char*)gateCode.data + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
 	char *alignedEnd = (char*)((intptr_t)((char*)gateCode.data + gateCode.size() + PAGESIZE - 1) & ~(PAGESIZE - 1));
 
-	mprotect(alignedAddr, alignedEnd - alignedAddr, type);
+	mprotect(alignedAddr, alignedEnd - alignedAddr, PROT_READ | PROT_WRITE | PROT_EXEC);
 #endif
 
 #endif
