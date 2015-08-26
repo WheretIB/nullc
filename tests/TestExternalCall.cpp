@@ -1,9 +1,8 @@
 #include "TestBase.h"
 
 #ifndef NULLC_ENABLE_C_TRANSLATION
-#ifndef _MSC_VER
-	#include <stdint.h>
-#endif
+
+#include <stdint.h>
 
 int TestInt(int a)
 {

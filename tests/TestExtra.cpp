@@ -1,8 +1,6 @@
 #include "TestBase.h"
 
-#ifndef _MSC_VER
-	#include <stdint.h>
-#endif
+#include <stdint.h>
 
 const char	*testMissingTests = 
 "long a1 = 01, a2 = 0377, a3 = 01777777, a4 = 017777777777777777;\r\n\

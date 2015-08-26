@@ -1,5 +1,7 @@
 #include "TestBase.h"
 
+#include <stdint.h>
+
 const char	*testLocalFunc1 = 
 "// Local function context test\r\n\
 int g1 = 3; // global variable (24)\r\n\
