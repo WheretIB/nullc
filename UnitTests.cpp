@@ -72,7 +72,7 @@ nullres CompileFile(const char* fileName)
 	return nullcCompile(content);
 }
 
-int RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsigned int*, int*))
+int RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsigned int*, int*), bool runSpeedTests)
 {
 	Tests::messageVerbose = verbose;
 	Tests::fileLoadFunc = fileLoadFunc;
@@ -307,7 +307,8 @@ int RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsig
 	printf("Link time: %f\r\n", Tests::timeLinkCode);
 	printf("Run time: %f\r\n", Tests::timeRun);
 
-	RunSpeedTests();
+	if(runSpeedTests)
+		RunSpeedTests();
 
 #if defined(NULLC_ENABLE_C_TRANSLATION)
 	#ifdef __linux
