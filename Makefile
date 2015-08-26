@@ -2,8 +2,20 @@
 # Conrad Steenberg <conrad.steenberg@gmail.com>
 # Aug 3, 2010
 
+config=debug
+
 REG_CFLAGS=-g -W
 COMP_CFLAGS=-g -W -D NULLC_NO_EXECUTOR
+
+ifeq ($(config),release)
+	REG_CFLAGS+=-O3 -DNDEBUG
+	COMP_CFLAGS+=-O3 -DNDEBUG
+endif
+
+ifeq ($(config),coverage)
+	REG_CFLAGS+=-coverage
+	COMP_CFLAGS+=-coverage
+endif
 
 LIB_SOURCES = \
   NULLC/BinaryCache.cpp \
@@ -247,7 +259,9 @@ TEST_OBJECTS = \
 	temp/tests/TestGeneric.o            temp/tests/TestFinalizer.o \
 	temp/tests/TestGenericType.o        temp/tests/TestSglVector.o \
 	temp/tests/TestSglList.o            temp/tests/TestSglHashmap.o \
-	temp/tests/TestNamespace.o          temp/tests/TestInheritance.o
+	temp/tests/TestNamespace.o          temp/tests/TestInheritance.o \
+	temp/tests/TestGenericExplicit.o    temp/tests/TestNamedArguments.o \
+	temp/tests/TestSglEvent.o           temp/tests/TestSglString.o
 
 %.o: %.cpp
 	$(CXX) $(REG_CFLAGS) -o $@ -c $<
