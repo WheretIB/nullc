@@ -1,4 +1,4 @@
-# nullc [![Build Status](https://travis-ci.org/WheretIB/nullc.svg)](https://travis-ci.org/WheretIB/nullc) [![Build status](https://ci.appveyor.com/api/projects/status/3xt4fr4s8pja2chn?svg=true)](https://ci.appveyor.com/project/WheretIB/nullc)
+# nullc [![Build Status](https://travis-ci.org/WheretIB/nullc.svg)](https://travis-ci.org/WheretIB/nullc) [![Build status](https://ci.appveyor.com/api/projects/status/3xt4fr4s8pja2chn?svg=true)](https://ci.appveyor.com/project/WheretIB/nullc) [![codecov.io](http://codecov.io/github/WheretIB/nullc/coverage.svg?branch=master)](http://codecov.io/github/WheretIB/nullc?branch=master)
 nullc is a C-like scripting language with advanced features such as function overloading, operator overloading, class member functions and properties, automatic garbage collection, closures, coroutines, local functions, type inference, runtime type information, modules, list comprehension, generic functions and classes, enum and namespaces.
 
 Language is type-safe and there is no pointer arithmetic.
