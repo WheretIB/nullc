@@ -6,19 +6,46 @@ Language is type-safe and there is no pointer arithmetic.
 Library can execute code on VM or translate it to x86 code for fast execution.
 SuperCalc is language IDE with code colorizing and simple debug compatibilities.
 
-## September 8, 2012 ##
-Changes from 0.9 to current revision
+## Changes in 2015 ##
+
+Core:
+  * Improved type inference in short inline functions
+
+Misc:
+  * Fixed bugs, crashes and hangs in the compiler found by extensive fuzz-testing
+  * Fixed compilation with gcc and clang on x86/x64
+
+## Changes in 2013 ##
+
+Core:
+  * 'explicit' function argument types to opt-out from implicit conversions in overload resolution
+  * function overload resolution based on function return type
+
+Misc:
+  * std.string module for string operations
+  * std.event module for C#-style event handlers
+  * Android support (armeabi, armeabi-v7a and x86 targets)
+
+Interface:
+  * nullcGetGlobalType to get nullc type id by name
+
+## Changes in 2012 ##
+Changes from 0.9 tag
 
 Core:
   * Type inheritance
   * Generic function specialization
   * Generic functions with explicit type specification
+  * Generic type specializations for a different number of template parameters
+  * Static 'if' in class body
   * Named function arguments
   * Extended typeof expression improvements
   * Allocation of any type using 'new' expression
   * Nested comments
   * Numerous bug fixes
+
 Misc:
+  * Run-time type introspection improvements
   * Wrapper for binding class member functions and class members from C++.
 
 ## November 19, 2010 ##
@@ -45,25 +72,29 @@ Core:
   * [enum](http://svn.assembla.com/svn/SuperCalc/LanguageEN.html#enum)
   * User class usage as conditions in if/for/while/do while/switch expressions
   * [namespaces](http://svn.assembla.com/svn/SuperCalc/LanguageEN.html#namespace)
-SuperCalc:
-  * Redo support
-  * Persistent undo
+
 Misc:
   * [Updated std.vector](http://svn.assembla.com/svn/SuperCalc/LanguageEN.html#std_vector)
   * [Updated std.list](http://svn.assembla.com/svn/SuperCalc/LanguageEN.html#std_list)
   * [Added std.hashmap](http://svn.assembla.com/svn/SuperCalc/LanguageEN.html#std_hashmap)
+
+SuperCalc:
+  * Redo support
+  * Persistent undo
 
 **Translation to C doesn't work in this version, use 0.8**
 
 ## September 18, 2010 ##
 Changes from 0.7 to 0.8b
 
-Misc:
-  * Automatic function binding under gcc and msvs.
 Core:
   * List comprehension
   * Coroutine can be used as a generator in for each expression.
   * JiT executor supports dynamic code linking and evaluation
+
+Misc:
+  * Automatic function binding under gcc and msvs.
+
 Interface:
   * Added nullcIsStackPointer and nullcIsManagedPointer.
   * Added nullcGetFunction and nullcSetFunction.
@@ -71,10 +102,6 @@ Interface:
 ## June 18, 2010 ##
 Changes from 0.6b to 0.7:
 
-Misc:
-  * Linux x86/x64 support
-  * PS3 support
-  * Documentation update
 Core:
   * Coroutines
   * Compile-time function evaluation
@@ -84,10 +111,17 @@ Core:
   * nullptr can be assigned to type`[``]`
   * Various GC fixes and performance improvements
   * VM speedup
+
+Misc:
+  * Linux x86/x64 support
+  * PS3 support
+  * Documentation update
+
 Interface:
   * Debug break actions: step over, step into, step out.
   * Global memory limit can be set
   * Further translation to C improvements
+
 SuperCalc:
   * Added watch
   * Debug improvements: step over, step into, step out, module source code load
@@ -96,7 +130,7 @@ SuperCalc:
 Changes from 0.5 to 0.6b:
 
 Core:
-  * Stack oveflow exception handling in JiT
+  * Stack overflow exception handling in JiT
   * x86 asm optimization
   * Function override
   * eval() (VM-only)
@@ -110,15 +144,18 @@ Core:
   * Ability to define arrays of non-stack types char, short and float
   * Default function argument values are exported and imported
   * Operators can be defined and overloaded in functions and classes
+
+Misc:
+  * x64 support
+  * Digitalmars C++ compiler support
+  * NULLC can compile code containing characters with codes over 0x7f
+
 Interface:
   * Debugging features (call stack, stack frame contents, breakpoints (VM-only))
   * Functions for fast execution result retrieval as numeric values
   * nullcSetGlobal and nullcGetGlobal functions.
   * JiT executor parameter stack placement can be specified
   * NULLC\_NO\_EXECUTOR define that compiles NULLC without executors
-Misc:
-  * x64 support
-  * Digitalmars C++ compiler support
-  * NULLC can compile code containing characters with codes over 0x7f
+
 SuperCalc:
   * Remote debugging
