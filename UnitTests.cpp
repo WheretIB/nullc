@@ -1,9 +1,12 @@
 #if defined(_MSC_VER)
 	#include "stdafx.h"
 #endif
+
 #include "UnitTests.h"
+
 #include "NULLC/nullc.h"
 #include "NULLC/nullc_debug.h"
+
 // Check that remote debug module compiles correctly
 #if defined(_MSC_VER)
 	#include "NULLC/nullc_remote.h"
@@ -32,7 +35,7 @@
 #include "tests/TestParseFail.h"
 #include "tests/TestInterface.h"
 
-#pragma warning(disable: 4127)
+#pragma warning(disable: 4127 4996)
 
 //#define ALLOC_TOP_DOWN
 //#define NO_CUSTOM_ALLOCATOR
@@ -273,23 +276,23 @@ int RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsig
 	queue.RunTests();
 
 	// Conclusion
-	printf("VM passed %d of %d tests\r\n", testsPassed[0], testsCount[0]);
+	printf("VM passed %d of %d tests\n", testsPassed[0], testsCount[0]);
 #ifdef NULLC_BUILD_X86_JIT
-	printf("X86 passed %d of %d tests\r\n", testsPassed[1], testsCount[1]);
+	printf("X86 passed %d of %d tests\n", testsPassed[1], testsCount[1]);
 #else
 	testsPassed[1] = 0;
 	testsCount[1] = 0;
 #endif
 #ifdef NULLC_LLVM_SUPPORT
-	printf("LLVM passed %d of %d tests\r\n", testsPassed[2], testsCount[2]);
+	printf("LLVM passed %d of %d tests\n", testsPassed[2], testsCount[2]);
 #else
 	testsPassed[2] = 0;
 	testsCount[2] = 0;
 #endif
-	printf("Failure tests: passed %d of %d tests\r\n", testsPassed[TEST_FAILURE_INDEX], testsCount[TEST_FAILURE_INDEX]);
-	printf("Extra tests: passed %d of %d tests\r\n", testsPassed[TEST_EXTRA_INDEX], testsCount[TEST_EXTRA_INDEX]);
+	printf("Failure tests: passed %d of %d tests\n", testsPassed[TEST_FAILURE_INDEX], testsCount[TEST_FAILURE_INDEX]);
+	printf("Extra tests: passed %d of %d tests\n", testsPassed[TEST_EXTRA_INDEX], testsCount[TEST_EXTRA_INDEX]);
 #ifdef NULLC_ENABLE_C_TRANSLATION
-	printf("Translation tests: passed %d of %d tests\r\n", testsPassed[TEST_TRANSLATION_INDEX], testsCount[TEST_TRANSLATION_INDEX]);
+	printf("Translation tests: passed %d of %d tests\n", testsPassed[TEST_TRANSLATION_INDEX], testsCount[TEST_TRANSLATION_INDEX]);
 #endif
 	unsigned allTests = 0;
 	unsigned allPassed = 0;
@@ -298,14 +301,15 @@ int RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsig
 		allTests += testsCount[i];
 		allPassed += testsPassed[i];
 	}
-	printf("Passed %d of %d tests\r\n", allPassed, allTests);
 
-	printf("Compilation time: %f\r\n", Tests::timeCompile);
-	printf("Get listing time: %f\r\n", Tests::timeGetListing);
-	printf("Get bytecode time: %f\r\n", Tests::timeGetBytecode);
-	printf("Clean time: %f\r\n", Tests::timeClean);
-	printf("Link time: %f\r\n", Tests::timeLinkCode);
-	printf("Run time: %f\r\n", Tests::timeRun);
+	printf("Compilation time: %f\n", Tests::timeCompile);
+	printf("Get listing time: %f\n", Tests::timeGetListing);
+	printf("Get bytecode time: %f\n", Tests::timeGetBytecode);
+	printf("Clean time: %f\n", Tests::timeClean);
+	printf("Link time: %f\n", Tests::timeLinkCode);
+	printf("Run time: %f\n", Tests::timeRun);
+
+	printf("Passed %d of %d tests\n", allPassed, allTests);
 
 	if(runSpeedTests)
 		RunSpeedTests();

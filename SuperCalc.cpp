@@ -31,8 +31,6 @@
 
 #include "Colorer.h"
 
-#include "UnitTests.h"
-
 #include "GUI/RichTextarea.h"
 #include "GUI/TabbedFiles.h"
 
@@ -453,16 +451,6 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	_dup2(_dup(_fileno(stdin)), 0);
 	_dup2(_dup(_fileno(stdout)), 1);
 	_dup2(_dup(_fileno(stderr)), 2);
-#endif
-
-//#define NULLC_NO_UNITTESTS
-#ifndef NULLC_NO_UNITTESTS
-	AllocConsole();
-
-	freopen("CONOUT$", "w", stdout);
-	freopen("CONIN$", "r", stdin);
-
-	RunTests(false, 0, true);
 #endif
 
 	nullcInit("Modules/");
