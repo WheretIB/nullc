@@ -45,7 +45,7 @@ void RunInterfaceTests()
 		nullcSetExecutor(testTarget[t]);
 
 		nullres good = nullcCompile(partA1);
-		nullcSaveListing("asm.txt");
+		nullcSaveListing(FILE_PATH "asm.txt");
 		if(!good)
 		{
 			if(!Tests::messageVerbose)
@@ -57,7 +57,7 @@ void RunInterfaceTests()
 		}
 
 		good = nullcCompile(partB1);
-		nullcSaveListing("asm.txt");
+		nullcSaveListing(FILE_PATH "asm.txt");
 		if(!good)
 		{
 			if(!Tests::messageVerbose)
