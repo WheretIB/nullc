@@ -872,6 +872,8 @@ TEST("File and something else test", testFile, "309")
 	CHECK_STR("text", 0, "Hello file!!!");
 
 	CHECK_INT("k", 0, 5464321);
+
+	remove(FILE_PATH "haha.txt");
 }
 
 const char	*testFile2 = 
@@ -941,6 +943,8 @@ TEST("File test 2", testFile2, "1")
 	CHECK_SHORT("shR2", 0, 1069);
 	CHECK_INT("numR2", 0, 12568);
 	CHECK_LONG("lnumR2", 0, 4586564);
+
+	remove(FILE_PATH "extern.bin");
 }
 #endif
 

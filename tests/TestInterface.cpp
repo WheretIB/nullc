@@ -68,6 +68,8 @@ void RunInterfaceTests()
 			nullcGetBytecode(&bytecodeB);
 		}
 
+		remove(FILE_PATH "asm.txt");
+
 		nullcClean();
 		if(!nullcLinkCode(bytecodeA))
 		{
