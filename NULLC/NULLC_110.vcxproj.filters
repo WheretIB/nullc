@@ -45,6 +45,12 @@
     <Filter Include="Executor_LLVM">
       <UniqueIdentifier>{84d3adf5-d1bc-439a-8297-91f3957125f2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="external">
+      <UniqueIdentifier>{779b8c18-0cdc-4214-b690-8c2cad7de394}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external\dyncall">
+      <UniqueIdentifier>{fa4e4a8c-0ba8-49fe-8eec-c8b20ee0e48d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BinaryCache.cpp">
@@ -163,6 +169,21 @@
     </ClCompile>
     <ClCompile Include="Executor_LLVM.cpp">
       <Filter>Executor_LLVM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_api.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_callvm.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_callvm_base.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_struct.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_vector.c">
+      <Filter>external\dyncall</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -384,5 +405,13 @@
     <None Include="..\Modules\std\stringio.nc">
       <Filter>Modules\std</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="..\external\dyncall\dyncall_call_x64_generic_masm.asm">
+      <Filter>external\dyncall</Filter>
+    </MASM>
+    <MASM Include="..\external\dyncall\dyncall_call_x86_generic_masm.asm">
+      <Filter>external\dyncall</Filter>
+    </MASM>
   </ItemGroup>
 </Project>
