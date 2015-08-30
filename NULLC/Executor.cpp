@@ -3,10 +3,6 @@
 
 #include "StdLib.h"
 
-#if defined(__arm__)
-	#define NULLC_USE_DYNCALL
-#endif
-
 #if defined(NULLC_USE_DYNCALL)
 
 	#define dcAllocMem NULLC::alloc

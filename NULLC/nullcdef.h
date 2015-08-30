@@ -82,6 +82,10 @@ struct NULLCAutoArray
 
 #define NULLC_COMPLEX_RETURN
 
+#if defined(__arm__)
+	#define NULLC_USE_DYNCALL
+#endif
+
 //#define NULLC_LLVM_SUPPORT
 
 typedef unsigned char nullres;
