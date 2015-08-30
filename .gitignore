@@ -1,0 +1,9 @@
+temp/
+bin/*.ilk
+bin/*.pdb
+bin/*.lib
+bin/*.exp
+bin/*.exe
+*.suo
+*.sdf
+*.opensdf
