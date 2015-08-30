@@ -73,7 +73,7 @@ void vmStoreInt64(char* target, long long value)
 #define vmStoreInt64(x, y) (*(long long*)(x) = y)
 #endif
 
-#if defined(_M_X64)
+#if defined(_M_X64) && !defined(NULLC_USE_DYNCALL)
 #ifdef _WIN64
 	#include <Windows.h>
 	#define NULLC_X64_IREGARGS 4
@@ -735,7 +735,7 @@ void Executor::InitExecution()
 	}
 #endif
 
-#if defined(_M_X64)
+#if defined(_M_X64) && !defined(NULLC_USE_DYNCALL)
 	// Generate gateway code for all functions
 	gateCode.clear();
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
@@ -1997,7 +1997,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	return callContinue;
 }
 
-#elif defined(_M_X64)
+#elif defined(_M_X64) && !defined(NULLC_USE_DYNCALL)
 
 // X64 implementation
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
@@ -2060,6 +2060,20 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		switch(tInfo.type)
 		{
 		case ExternTypeInfo::TYPE_COMPLEX:
+#if defined(_WIN64)
+			if(tInfo.size <= 4)
+			{
+				// This branch also handles 0 byte structs
+				dcArgInt(dcCallVM, *(int*)stackStart);
+				stackStart += 1;
+			}else if(tInfo.size <= 8){
+				dcArgLongLong(dcCallVM, *(long long*)stackStart);
+				stackStart += 2;
+			}else{
+				dcArgPointer(dcCallVM, stackStart);
+				stackStart += tInfo.size / 4;
+			}
+#else
 			if(tInfo.size <= 4)
 			{
 				// This branch also handles 0 byte structs
@@ -2072,6 +2086,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 					stackStart += 1;
 				}
 			}
+#endif
 			break;
 		case ExternTypeInfo::TYPE_VOID:
 			return false;
@@ -2101,6 +2116,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 			break;
 		}
 	}
+
 	dcArgPointer(dcCallVM, (DCpointer)*stackStart);
 
 	switch(retType)
