@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 
-#if defined(_M_X64) && !defined(_WIN64)
+#if defined(_M_X64) && !defined(_WIN64) && !defined(NULLC_USE_DYNCALL)
 	#define AMD64_UNIMPLEMENTED_CALLS_20150827
 #endif
 
