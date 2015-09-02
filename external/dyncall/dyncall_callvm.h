@@ -80,6 +80,12 @@ typedef DCfloat      (DCfloatvmfunc)     (DCCallVM* vm,DCpointer funcptr);
 typedef DCdouble     (DCdoublevmfunc)    (DCCallVM* vm,DCpointer funcptr);
 typedef DCpointer    (DCpointervmfunc)   (DCCallVM* vm,DCpointer funcptr);
 
+// x64 on linux has a special way of returning aggregates <= 16 bytes
+typedef DCcomplexdd    (DCcomplexddvmfunc)   (DCCallVM* vm,DCpointer funcptr);
+typedef DCcomplexdl    (DCcomplexdlvmfunc)   (DCCallVM* vm,DCpointer funcptr);
+typedef DCcomplexld    (DCcomplexldvmfunc)   (DCCallVM* vm,DCpointer funcptr);
+typedef DCcomplexll    (DCcomplexllvmfunc)   (DCCallVM* vm,DCpointer funcptr);
+
 /* Common base functions for CallVM implementations. */
 
 void dc_callvm_base_init(DCCallVM *pInstance, DCCallVM_vt* pVTable);

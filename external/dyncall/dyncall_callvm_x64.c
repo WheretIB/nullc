@@ -132,7 +132,7 @@ static void dc_callvm_argFloat_x64(DCCallVM* in_self, DCfloat x)
   if(self->mRegCount.f < numFloatRegs)
     *(DCfloat*)&self->mRegData.f[self->mRegCount.f++] = x;
   else
-    dcVecAppend(&self->mVecHead, &f.f, sizeof(DCdouble));
+    dcVecAppend(&self->mVecHead, &f.f, sizeof(DCdouble)); // This is a very strange way to align stack on 8-byte boundary
 }
 
 
@@ -215,6 +215,43 @@ DCCallVM_vt gVT_x64 =
 , NULL /* callStruct */
 };
 
+DCcomplexdd dcCallComplexDD(DCCallVM* vm, DCpointer funcptr)
+{
+	return ((DCcomplexddvmfunc*)&dc_callvm_call_x64)(vm, funcptr);
+}
+DCcomplexdl dcCallComplexDL(DCCallVM* vm, DCpointer funcptr)
+{
+	return ((DCcomplexdlvmfunc*)&dc_callvm_call_x64)(vm, funcptr);
+}
+DCcomplexld dcCallComplexLD(DCCallVM* vm, DCpointer funcptr)
+{
+	return ((DCcomplexldvmfunc*)&dc_callvm_call_x64)(vm, funcptr);
+}
+DCcomplexll dcCallComplexLL(DCCallVM* vm, DCpointer funcptr)
+{
+	return ((DCcomplexllvmfunc*)&dc_callvm_call_x64)(vm, funcptr);
+}
+
+void dcArgStack(DCCallVM* in_self, void *ptr, unsigned size)
+{
+	DCCallVM_x64* self = (DCCallVM_x64*)in_self;
+
+	dcVecAppend(&self->mVecHead, ptr, size);
+}
+
+int dcFreeIRegs(DCCallVM* in_self)
+{
+	DCCallVM_x64* self = (DCCallVM_x64*)in_self;
+
+	return numIntRegs - self->mRegCount.i;
+}
+
+int dcFreeFRegs(DCCallVM* in_self)
+{
+	DCCallVM_x64* self = (DCCallVM_x64*)in_self;
+
+	return numFloatRegs - self->mRegCount.f;
+}
 
 DCCallVM* dcNewCallVM_x64(DCsize size) 
 {
