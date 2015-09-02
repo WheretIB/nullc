@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Executor.h"
 
+#include "nullc.h"
 #include "StdLib.h"
 
 #if defined(NULLC_USE_DYNCALL)
@@ -73,7 +74,7 @@ void vmStoreInt64(char* target, long long value)
 #define vmStoreInt64(x, y) (*(long long*)(x) = y)
 #endif
 
-#if defined(_M_X64) && !defined(NULLC_USE_DYNCALL)
+#if defined(_M_X64)
 #ifdef _WIN64
 	#include <Windows.h>
 	#define NULLC_X64_IREGARGS 4
@@ -143,6 +144,29 @@ bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
 	}
 	//printf("%s\n", aligned ? "aligned" : "unaligned");
 	return aligned;
+}
+
+bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, Linker *linker)
+{
+	for(unsigned m = 0; m < type.memberCount; m++)
+	{
+		ExternMemberInfo &member = linker->exTypeExtra[type.memberOffset + m];
+
+		if(member.offset >= fromOffset && member.offset < toOffset)
+		{
+			ExternTypeInfo &memberType = linker->exTypes[member.type];
+
+			if(memberType.type == ExternTypeInfo::TYPE_COMPLEX)
+			{
+				if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, linker))
+					return true;
+			}else if(memberType.type != ExternTypeInfo::TYPE_FLOAT && memberType.type != ExternTypeInfo::TYPE_DOUBLE){
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, unsigned int funcID)
@@ -2032,6 +2056,16 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 
 #elif defined(NULLC_USE_DYNCALL)
 
+DCcomplexdd dcCallComplexDD(DCCallVM* vm, DCpointer funcptr);
+DCcomplexdl dcCallComplexDL(DCCallVM* vm, DCpointer funcptr);
+DCcomplexld dcCallComplexLD(DCCallVM* vm, DCpointer funcptr);
+DCcomplexll dcCallComplexLL(DCCallVM* vm, DCpointer funcptr);
+
+void dcArgStack(DCCallVM* in_self, void *ptr, unsigned size);
+
+int dcFreeIRegs(DCCallVM* in_self);
+int dcFreeFRegs(DCCallVM* in_self);
+
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
 	ExternFuncInfo &func = exFunctions[funcID];
@@ -2046,8 +2080,25 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 
 	dcReset(dcCallVM);
 
+#if !defined(_M_X64) || defined(_WIN64)
+	bool returnByPointer = func.returnShift > 1;
+#else
+	ExternTypeInfo &funcType = exTypes[func.funcType];
+
+	ExternMemberInfo &member = exLinker->exTypeExtra[funcType.memberOffset];
+	ExternTypeInfo &returnType = exLinker->exTypes[member.type];
+
+	bool returnByPointer = func.returnShift > 4 || member.type == NULLC_TYPE_AUTO_REF || (returnType.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&returnType, exLinker));
+
+	bool opaqueType = returnType.subCat != ExternTypeInfo::CAT_CLASS || returnType.memberCount == 0;
+
+	bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 0, 8, exLinker);
+	bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 8, 16, exLinker);
+#endif
+
 	unsigned int ret[128];
-	if(retType == ExternFuncInfo::RETURN_UNKNOWN && func.returnShift > 1)
+
+	if(retType == ExternFuncInfo::RETURN_UNKNOWN && returnByPointer)
 		dcArgPointer(dcCallVM, ret);
 
 	for(unsigned int i = 0; i < func.paramCount; i++)
@@ -2071,6 +2122,54 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 				stackStart += 2;
 			}else{
 				dcArgPointer(dcCallVM, stackStart);
+				stackStart += tInfo.size / 4;
+			}
+#elif defined(_M_X64)
+			if(tInfo.size > 16 || lInfo.type == NULLC_TYPE_AUTO_REF || (tInfo.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&tInfo, exLinker)))
+			{
+				dcArgStack(dcCallVM, stackStart, (tInfo.size + 7) & ~7);
+				stackStart += tInfo.size / 4;
+			}else{
+				bool opaqueType = tInfo.subCat != ExternTypeInfo::CAT_CLASS || tInfo.memberCount == 0;
+
+				bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(tInfo, 0, 8, exLinker);
+				bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(tInfo, 8, 16, exLinker);
+
+				if(tInfo.size <= 4)
+				{
+					if(tInfo.size != 0)
+					{
+						if(firstQwordInteger)
+							dcArgInt(dcCallVM, *(int*)stackStart);
+						else
+							dcArgFloat(dcCallVM, *(float*)stackStart);
+					}else{
+						stackStart += 1;
+					}
+				}else if(tInfo.size <= 8){
+					if(firstQwordInteger)
+						dcArgLongLong(dcCallVM, *(long long*)stackStart);
+					else
+						dcArgDouble(dcCallVM, *(double*)stackStart);
+				}else{
+					int requredIRegs = (firstQwordInteger ? 1 : 0) + (secondQwordInteger ? 1 : 0);
+
+					if(dcFreeIRegs(dcCallVM) < requredIRegs || dcFreeFRegs(dcCallVM) < (2 - requredIRegs))
+					{
+						dcArgStack(dcCallVM, stackStart, (tInfo.size + 7) & ~7);
+					}else{
+						if(firstQwordInteger)
+							dcArgLongLong(dcCallVM, *(long long*)stackStart);
+						else
+							dcArgDouble(dcCallVM, *(double*)stackStart);
+
+						if(secondQwordInteger)
+							dcArgLongLong(dcCallVM, *(long long*)(stackStart + 2));
+						else
+							dcArgDouble(dcCallVM, *(double*)(stackStart + 2));
+					}
+				}
+				
 				stackStart += tInfo.size / 4;
 			}
 #else
@@ -2117,7 +2216,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		}
 	}
 
-	dcArgPointer(dcCallVM, (DCpointer)*stackStart);
+	dcArgPointer(dcCallVM, *(DCpointer*)stackStart);
 
 	switch(retType)
 	{
@@ -2140,6 +2239,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		*(long long*)newStackPtr = dcCallLongLong(dcCallVM, fPtr);
 		break;
 	case ExternFuncInfo::RETURN_UNKNOWN:
+#if !defined(_M_X64) || defined(_WIN64)
 		if(func.returnShift == 1)
 		{
 			newStackPtr -= 1;
@@ -2151,6 +2251,37 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 			// copy return value on top of the stack
 			memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
 		}
+#else
+		if(returnByPointer)
+		{
+			dcCallPointer(dcCallVM, fPtr);
+
+			newStackPtr -= exFunctions[funcID].returnShift;
+			// copy return value on top of the stack
+			memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
+		}else{
+			newStackPtr -= exFunctions[funcID].returnShift;
+
+			if(!firstQwordInteger && !secondQwordInteger)
+			{
+				DCcomplexdd res = dcCallComplexDD(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, exFunctions[funcID].returnShift * 4); // copy return value on top of the stack
+			}else if(firstQwordInteger && !secondQwordInteger){
+				DCcomplexld res = dcCallComplexLD(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, exFunctions[funcID].returnShift * 4); // copy return value on top of the stack
+			}else if(!firstQwordInteger && secondQwordInteger){
+				DCcomplexdl res = dcCallComplexDL(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, exFunctions[funcID].returnShift * 4); // copy return value on top of the stack
+			}else{
+				DCcomplexll res = dcCallComplexLL(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, exFunctions[funcID].returnShift * 4); // copy return value on top of the stack
+			}
+		}
+#endif
 		break;
 	}
 	genStackPtr = newStackPtr;
