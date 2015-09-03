@@ -152,17 +152,19 @@ bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigne
 	{
 		ExternMemberInfo &member = linker->exTypeExtra[type.memberOffset + m];
 
-		if(member.offset >= fromOffset && member.offset < toOffset)
-		{
-			ExternTypeInfo &memberType = linker->exTypes[member.type];
+		ExternTypeInfo &memberType = linker->exTypes[member.type];
 
-			if(memberType.type == ExternTypeInfo::TYPE_COMPLEX)
-			{
-				if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, linker))
-					return true;
-			}else if(memberType.type != ExternTypeInfo::TYPE_FLOAT && memberType.type != ExternTypeInfo::TYPE_DOUBLE){
+		if(memberType.type == ExternTypeInfo::TYPE_COMPLEX)
+		{
+			// Handle opaque types
+			if(memberType.size > 0 && memberType.memberCount == 0 && member.offset >= fromOffset && member.offset < toOffset)
 				return true;
-			}
+
+			if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, linker))
+				return true;
+		}else if(memberType.type != ExternTypeInfo::TYPE_FLOAT && memberType.type != ExternTypeInfo::TYPE_DOUBLE){
+			if(member.offset >= fromOffset && member.offset < toOffset)
+				return true;
 		}
 	}
 

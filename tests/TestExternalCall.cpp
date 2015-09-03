@@ -641,6 +641,39 @@ const char	*testExternalCallG9 =
 Zomg z; z.x = -1; z.y = -2; z.z = -3;\r\n\
 return Call(z);";
 TEST_RESULT("External function call. { long; float; float; } in argument.", testExternalCallG9, "1");
+
+struct TestExtG10FooSub{ int a; int b; int c; };
+struct TestExtG10Foo{ TestExtG10FooSub a; float b; };
+int TestExtG10(TestExtG10Foo x)
+{
+	return x.a.a == -1 && x.a.b == -2 && x.a.c == -3 && x.b == -4.0f;
+}
+
+LOAD_MODULE_BIND(test_extG10, "test.extG10", "class ZomgSub{ int x, y, z; } class Zomg{ ZomgSub x; float y; } int Call(Zomg a);")
+{
+	nullcBindModuleFunction("test.extG10", (void (*)())TestExtG10, "Call", 0);
+}
+const char	*testExternalCallG10 =
+"import test.extG10;\r\n\
+Zomg z; z.x.x = -1; z.x.y = -2; z.x.z = -3; z.y = -4;\r\n\
+return Call(z);";
+TEST_RESULT("External function call. { { int; int; int; }; float; } in argument.", testExternalCallG10, "1");
+
+struct TestExtG11Foo{ NULLCArray a; };
+int TestExtG11(TestExtG11Foo x)
+{
+	return x.a.len == 2 && ((int*)x.a.ptr)[0] == 1 && ((int*)x.a.ptr)[1] == 2;
+}
+
+LOAD_MODULE_BIND(test_extG11, "test.extG11", "class Zomg{ int[] x; } int Call(Zomg a);")
+{
+	nullcBindModuleFunction("test.extG11", (void (*)())TestExtG11, "Call", 0);
+}
+const char	*testExternalCallG11 =
+"import test.extG11;\r\n\
+Zomg z; z.x = { 1, 2 };\r\n\
+return Call(z);";
+TEST_RESULT("External function call. { int[]; } in argument.", testExternalCallG11, "1");
 #endif
 
 LOAD_MODULE_BIND(test_extG2b, "test.extG2b", "class Zomg{ char x; int y; } Zomg Call(Zomg a);")
