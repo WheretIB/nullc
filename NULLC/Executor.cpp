@@ -157,13 +157,18 @@ bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigne
 		if(memberType.type == ExternTypeInfo::TYPE_COMPLEX)
 		{
 			// Handle opaque types
-			if(memberType.size > 0 && memberType.memberCount == 0 && member.offset >= fromOffset && member.offset < toOffset)
-				return true;
+			bool opaqueType = memberType.subCat != ExternTypeInfo::CAT_CLASS || memberType.memberCount == 0;
 
-			if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, linker))
-				return true;
+			if(opaqueType)
+			{
+				if(member.offset + memberType.size > fromOffset && member.offset < toOffset)
+					return true;
+			}else{
+				if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, linker))
+					return true;
+			}
 		}else if(memberType.type != ExternTypeInfo::TYPE_FLOAT && memberType.type != ExternTypeInfo::TYPE_DOUBLE){
-			if(member.offset >= fromOffset && member.offset < toOffset)
+			if(member.offset + memberType.size > fromOffset && member.offset < toOffset)
 				return true;
 		}
 	}
