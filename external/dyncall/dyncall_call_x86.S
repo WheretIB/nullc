@@ -24,7 +24,7 @@
 */
 
 
-#include "../portasm/portasm-x86.S"
+#include "portasm-x86.S"
 BEGIN_ASM
 /* ============================================================================
    DynCall Call Kernels for X86 Architecture
