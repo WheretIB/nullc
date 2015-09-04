@@ -179,12 +179,6 @@
     <ClCompile Include="..\external\dyncall\dyncall_callvm_base.c">
       <Filter>external\dyncall</Filter>
     </ClCompile>
-    <ClCompile Include="..\external\dyncall\dyncall_struct.c">
-      <Filter>external\dyncall</Filter>
-    </ClCompile>
-    <ClCompile Include="..\external\dyncall\dyncall_vector.c">
-      <Filter>external\dyncall</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -333,6 +327,15 @@
     </ClInclude>
     <ClInclude Include="Tree.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\dyncall\dyncall.h">
+      <Filter>external\dyncall</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\dyncall\dyncall_callvm.h">
+      <Filter>external\dyncall</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\dyncall\dyncall_types.h">
+      <Filter>external\dyncall</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
