@@ -2197,8 +2197,10 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 
 	dcReset(dcCallVM);
 
-#if !defined(_M_X64) || defined(_WIN64)
+#if defined(_WIN64)
 	bool returnByPointer = func.returnShift > 1;
+#elif !defined(_M_X64)
+	bool returnByPointer = true;
 #else
 	ExternTypeInfo &funcType = exTypes[func.funcType];
 
@@ -2356,7 +2358,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		*(long long*)newStackPtr = dcCallLongLong(dcCallVM, fPtr);
 		break;
 	case ExternFuncInfo::RETURN_UNKNOWN:
-#if !defined(_M_X64) || defined(_WIN64)
+#if defined(_WIN64)
 		if(func.returnShift == 1)
 		{
 			newStackPtr -= 1;
@@ -2368,6 +2370,12 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 			// copy return value on top of the stack
 			memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
 		}
+#elif !defined(_M_X64)
+		dcCallPointer(dcCallVM, fPtr);
+
+		newStackPtr -= exFunctions[funcID].returnShift;
+		// copy return value on top of the stack
+		memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
 #else
 		if(returnByPointer)
 		{
