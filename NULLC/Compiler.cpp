@@ -2419,10 +2419,15 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 		if(!refFunc->generic)
 		{
 			funcInfo.retType = ExternFuncInfo::RETURN_UNKNOWN;
-			if(refFunc->retType->type == TypeInfo::TYPE_VOID || refFunc->retType->size == 0)
-				funcInfo.retType = ExternFuncInfo::RETURN_VOID;
-			else if(refFunc->retType->type == TypeInfo::TYPE_FLOAT || refFunc->retType->type == TypeInfo::TYPE_DOUBLE)
+			if(refFunc->retType->type == TypeInfo::TYPE_FLOAT || refFunc->retType->type == TypeInfo::TYPE_DOUBLE)
 				funcInfo.retType = ExternFuncInfo::RETURN_DOUBLE;
+#if defined(__linux) && !defined(_M_X64)
+			else if(refFunc->retType->type == TypeInfo::TYPE_VOID)
+				funcInfo.retType = ExternFuncInfo::RETURN_VOID;
+#else
+			else if(refFunc->retType->type == TypeInfo::TYPE_VOID || refFunc->retType->size == 0)
+				funcInfo.retType = ExternFuncInfo::RETURN_VOID;
+#endif
 #if defined(NULLC_COMPLEX_RETURN) && defined(__linux)
 			else if(refFunc->retType->type == TypeInfo::TYPE_CHAR ||
 				refFunc->retType->type == TypeInfo::TYPE_SHORT ||
