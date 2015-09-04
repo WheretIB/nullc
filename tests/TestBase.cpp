@@ -28,6 +28,8 @@ namespace Tests
 	bool messageVerbose = false;
 	const char *lastMessage = NULL;
 
+	const char *testMatch = NULL;
+
 	double timeCompile = 0.0;
 	double timeGetListing = 0.0;
 	double timeGetBytecode = 0.0;
@@ -71,6 +73,9 @@ void*	Tests::FindVar(const char* name)
 
 bool	Tests::RunCode(const char *code, unsigned int executor, const char* expected, const char* message, bool execShouldFail)
 {
+	if(testMatch && !strstr(message, testMatch))
+		return false;
+
 	lastMessage = message;
 #ifndef NULLC_BUILD_X86_JIT
 	if(executor != NULLC_VM)
