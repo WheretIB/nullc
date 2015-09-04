@@ -4,10 +4,6 @@
 
 #include <stdint.h>
 
-#if defined(_M_X64) && !defined(_WIN64) && !defined(NULLC_USE_DYNCALL)
-	#define AMD64_UNIMPLEMENTED_CALLS_20150827
-#endif
-
 int TestInt(int a)
 {
 	return a;
@@ -532,11 +528,8 @@ const char *testExternalCallClass4 = "import test.extF; Long x; x.a = -4; return
 TEST_RESULT("External function call. long inside a class, argument in registers.", testExternalCallClass4, "1");
 const char *testExternalCallClass5 = "import test.extF; Float x; x.a = -5; return Call(x);";
 TEST_RESULT("External function call. float inside a class, argument in registers.", testExternalCallClass5, "1");
-
-#if !defined(AMD64_UNIMPLEMENTED_CALLS_20150827)
 const char *testExternalCallClass6 = "import test.extF; Double x; x.a = -6; return Call(x);";
 TEST_RESULT("External function call. double inside a class, argument in registers.", testExternalCallClass6, "1");
-#endif
 
 LOAD_MODULE_BIND(test_extG, "test.extG", "class Zomg{ long x,y,z; } int Call(Zomg a);")
 {
@@ -599,7 +592,6 @@ Zomg z; z.x = -1; z.y = &u;\r\n\
 return Call(z);";
 TEST_RESULT("External function call. { int; int ref; } in argument.", testExternalCallG6, "1");
 
-#if !defined(AMD64_UNIMPLEMENTED_CALLS_20150827)
 LOAD_MODULE_BIND(test_extG7, "test.extG7", "class Zomg{ float x; double y; } int Call(Zomg a);")
 {
 	nullcBindModuleFunction("test.extG7", (void (*)())TestExtG7, "Call", 0);
@@ -674,7 +666,6 @@ const char	*testExternalCallG11 =
 Zomg z; z.x = { 1, 2 };\r\n\
 return Call(z);";
 TEST_RESULT("External function call. { int[]; } in argument.", testExternalCallG11, "1");
-#endif
 
 LOAD_MODULE_BIND(test_extG2b, "test.extG2b", "class Zomg{ char x; int y; } Zomg Call(Zomg a);")
 {
@@ -840,7 +831,6 @@ LOAD_MODULE_BIND(test_big1, "test.big1", "class X{ int a, b, c, d; } X Call();")
 const char	*testBigReturnType1 = "import test.big1;\r\n X x; x = Call(); return x.a == 1 && x.b == 2 && x.c == 3 && x.d == 4;";
 TEST_RESULT("External function call. Big return type 1.", testBigReturnType1, "1");
 
-#if !defined(AMD64_UNIMPLEMENTED_CALLS_20150827)
 struct ReturnBig2{ float a, b, c; };
 ReturnBig2 TestReturnBig2()
 {
@@ -866,7 +856,6 @@ LOAD_MODULE_BIND(test_big3, "test.big3", "class X{ float a; double b; } X Call()
 }
 const char	*testBigReturnType3 = "import test.big3;\r\n X x; x = Call(); return x.a == 1.0f && x.b == 2.0;";
 TEST_RESULT("External function call. Big return type 3.", testBigReturnType3, "1");
-#endif
 
 struct ReturnBig4{ int a; float b; };
 ReturnBig4 TestReturnBig4()
@@ -881,7 +870,6 @@ LOAD_MODULE_BIND(test_big4, "test.big4", "class X{ int a; float b; } X Call();")
 const char	*testBigReturnType4 = "import test.big4;\r\n X x; x = Call(); return x.a == 1 && x.b == 2.0;";
 TEST_RESULT("External function call. Big return type 4.", testBigReturnType4, "1");
 
-#if !defined(AMD64_UNIMPLEMENTED_CALLS_20150827)
 struct ReturnBig5{ int a; double b; };
 ReturnBig5 TestReturnBig5()
 {
@@ -974,7 +962,6 @@ LOAD_MODULE_BIND(test_small3, "test.small3", "class X{} X Call();")
 }
 const char	*testSmallReturnType3 = "import test.small3;\r\n X x; x = Call(); return 1;";
 TEST_RESULT("External function call. Small return type 3.", testSmallReturnType3, "1");
-#endif
 
 #endif
 
