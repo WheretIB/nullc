@@ -199,32 +199,51 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 
 #ifndef _WIN64
 	ExternTypeInfo &funcType = exTypes[exFunctions[funcID].funcType];
-	ExternTypeInfo &returnType = exTypes[exLinker->exTypeExtra[funcType.memberOffset].type];
-	if(rvs && returnType.size <= 16 && &returnType != &exTypes[7])
+	unsigned returnTypeID = exLinker->exTypeExtra[funcType.memberOffset].type;
+	ExternTypeInfo &returnType = exTypes[returnTypeID];
+
+	if(rvs && returnType.size <= 16 && returnTypeID != NULLC_TYPE_AUTO_REF)
 		rvs = 0;
 	if(returnType.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&returnType, exLinker))
 		rvs = 1;
 
 	// in AMD64, int and FP registers are independant, so we have to count, how much arguments to save in registers
 	unsigned int usedIRegs = rvs, usedFRegs = 0;
+
 	// This two variables will help later to know we've reached the boundary of arguments that are placed in registers
 	unsigned int argsToIReg = 0, argsToFReg = 0;
+
 	bool onStack[32] = { false };
+
 	for(unsigned int k = 0; k < exFunctions[funcID].paramCount + (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 0 : 1); k++)
 	{
+		unsigned int typeID = NULLC_TYPE_LONG;
+		ExternTypeInfo *lType = NULL;
+
 		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
 		unsigned int typeSize = 8;
-		ExternTypeInfo *lType = NULL;
+
+		bool firstQwordInteger = true;
+		bool secondQwordInteger = false;
+
 		if((unsigned int)k != exFunctions[funcID].paramCount)
 		{
 			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + k];
-			lType = &exLinker->exTypes[lInfo.type];
+
+			typeID = lInfo.type;
+			lType = &exLinker->exTypes[typeID];
 			typeCat = lType->type;
 			typeSize = lType->size;
-			// Aggregate types are passed in registers ($$ what about FP?)
-			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize <= 4)
-				typeCat = ExternTypeInfo::TYPE_INT;
+
+			bool opaqueType = lType->subCat != ExternTypeInfo::CAT_CLASS || lType->memberCount == 0;
+
+			firstQwordInteger = opaqueType || HasIntegerMembersInRange(*lType, 0, 8, exLinker);
+			secondQwordInteger = opaqueType || HasIntegerMembersInRange(*lType, 8, 16, exLinker);
 		}
+
+		int requredIRegs = (typeSize > 0 ? (firstQwordInteger ? 1 : 0) : 0) + (typeSize > 8 ? (secondQwordInteger ? 1 : 0) : 0);
+		int requredFRegs = (typeSize > 0 ? (firstQwordInteger ? 0 : 1) : 0) + (typeSize > 8 ? (secondQwordInteger ? 0 : 1) : 0);
+
 		switch(typeCat)
 		{
 		case ExternTypeInfo::TYPE_FLOAT:
@@ -250,20 +269,28 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		case ExternTypeInfo::TYPE_COMPLEX:
 			// Parameters larger than 16 bytes are sent through stack
 			// Unaligned types such as auto ref type are sent through stack
-			if(typeSize > 16 || lType == &exTypes[7])
+			if(typeSize > 16 || typeID == NULLC_TYPE_AUTO_REF)
 				break;
+
 			// Check class structure to see if it has some unaligned fields
 			if(lType->subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(lType, exLinker))
 				break;
+
 			// If the class if being divided in the middle, between registers and stack, sent through stack
-			if(usedIRegs + ((typeSize + 7) / 8) > NULLC_X64_IREGARGS)
+			if(usedIRegs + requredIRegs > NULLC_X64_IREGARGS)// || usedFRegs + requredFRegs > NULLC_X64_FREGARGS)
 				break;
 
-			//printf("Argument %d (complex) requests %d registers\n", k, ((typeSize + 7) / 8));
-			// Request registers ($$ what about FP?)
-			usedIRegs += ((typeSize + 7) / 8);
+			// Request registers
+			usedIRegs += requredIRegs;
+			usedFRegs += requredFRegs;
+
 			// Mark this argument as being sent through stack
-			argsToIReg = k + 1;
+			if(requredIRegs)
+				argsToIReg = k + 1;
+
+			if(requredFRegs)
+				argsToFReg = k + 1;
+
 			if(k < 32)
 				onStack[k] = true;
 			break;
@@ -282,16 +309,19 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	{
 		// By default, suppose we have last hidden argument, that is a pointer, represented as long number of size 8
 		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
-		unsigned int typeSize = 8;
 		ExternTypeInfo *lType = NULL;
+		unsigned int typeSize = 8;
+		
 		// If this is not the last argument, update data above
 		if((unsigned int)i != exFunctions[funcID].paramCount)
 		{
 			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
+
 			lType = &exLinker->exTypes[lInfo.type];
 			typeCat = lType->type;
 			typeSize = lType->size;
 		}
+
 		// Aggregate types are passed in registers
 #ifdef _WIN64
 		if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize != 0 && typeSize <= 4)
@@ -299,6 +329,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize <= 4)
 #endif
 			typeCat = ExternTypeInfo::TYPE_INT;
+
 #ifdef _WIN64
 		if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 8)
 			typeCat = ExternTypeInfo::TYPE_LONG;
@@ -351,31 +382,47 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	}
 
 	i = exFunctions[funcID].paramCount - (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 1 : 0);
+
 	for(; i >= 0; i--)
 	{
 		// By default, suppose we have last hidden argument, that is a pointer, represented as long number of size 8
+		unsigned int typeID = NULLC_TYPE_LONG;
+		ExternTypeInfo *lType = NULL;
+
 		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
 		unsigned int typeSize = 8;
-		ExternTypeInfo *lType = NULL;
+
+		bool firstQwordInteger = true;
+		bool secondQwordInteger = false;
+
 		// If this is not the last argument, update data above
 		if((unsigned int)i != exFunctions[funcID].paramCount)
 		{
 			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
-			lType = &exLinker->exTypes[lInfo.type];
+
+			typeID = lInfo.type;
+			lType = &exLinker->exTypes[typeID];
 			typeCat = lType->type;
 			typeSize = lType->size;
-			// Aggregate types are passed in registers
+
+			bool opaqueType = lType->subCat != ExternTypeInfo::CAT_CLASS || lType->memberCount == 0;
+
+			firstQwordInteger = opaqueType || HasIntegerMembersInRange(*lType, 0, 8, exLinker);
+			secondQwordInteger = opaqueType || HasIntegerMembersInRange(*lType, 8, 16, exLinker);
+
+			// Check for aggregate types that are passed in registers
 #ifdef _WIN64
 			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize != 0 && typeSize <= 4)
-#else
-			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize <= 4)
-#endif
 				typeCat = ExternTypeInfo::TYPE_INT;
-#ifdef _WIN64
+
 			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 8)
 				typeCat = ExternTypeInfo::TYPE_LONG;
+#else
+			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 0)
+				typeCat = ExternTypeInfo::TYPE_INT;
 #endif
 		}
+
 		switch(typeCat)
 		{
 		case ExternTypeInfo::TYPE_FLOAT:
@@ -497,7 +544,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 			}
 #else
 			// under linux, structure is passed through registers or stack
-			if(typeSize <= 16 && exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i].type != 7 &&
+			if(typeSize <= 16 && typeID != NULLC_TYPE_AUTO_REF &&
 				!(lType->subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(lType, exLinker)) && i < 32 && onStack[i])
 			{
 				unsigned regCodes[] = { 0274, 0264, 0224, 0214, 0204, 0214 }; // rdi, rsi, rdx, rcx, r8, r9
@@ -506,32 +553,59 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 				if(typeSize > 8)
 				{
 					// pass high dword/qword
+					if(secondQwordInteger)
+					{
+						assert(usedIRegs - 1 < NULLC_X64_IREGARGS);
+						regID = (usedIRegs - 1);
+						usedIRegs--;
+						if(regID == (NULLC_X64_IREGARGS - 2) || regID == (NULLC_X64_IREGARGS - 1))
+							code.push_back(typeSize == 16 ? 0x4c : 0x44);	// 64bit mode
+						else if(typeSize == 16)
+							code.push_back(0x48);	// 64bit mode
+						code.push_back(0x8b);
+						code.push_back((unsigned char)regCodes[regID]);
+						code.push_back(0040);
+						tmp = currentShift - (typeSize == 16 ? 8 : 4);
+						code.push_back((unsigned char*)&tmp, 4);
+					}else{
+						// movsd/movss xmm, [rax+shift]
+						code.push_back(typeSize == 16 ? 0xf2 : 0xf3);
+						code.push_back(0x0f);
+						code.push_back(0x10);
+						assert(usedFRegs - 1 < NULLC_X64_FREGARGS);
+						code.push_back((unsigned char)(0200 | ((usedFRegs - 1) << 3)));
+						usedFRegs--;
+						tmp = currentShift - (typeSize == 16 ? 8 : 4);
+						code.push_back((unsigned char*)&tmp, 4);
+					}
+				}
+
+				// pass low qword
+				if(firstQwordInteger)
+				{
 					assert(usedIRegs - 1 < NULLC_X64_IREGARGS);
 					regID = (usedIRegs - 1);
 					usedIRegs--;
 					if(regID == (NULLC_X64_IREGARGS - 2) || regID == (NULLC_X64_IREGARGS - 1))
-						code.push_back(typeSize == 16 ? 0x4c : 0x44);	// 64bit mode
-					else if(typeSize == 16)
+						code.push_back(0x4c);	// 64bit mode
+					else
 						code.push_back(0x48);	// 64bit mode
 					code.push_back(0x8b);
 					code.push_back((unsigned char)regCodes[regID]);
 					code.push_back(0040);
-					tmp = currentShift - (typeSize == 16 ? 8 : 4);
+					tmp = currentShift - typeSize;
+					code.push_back((unsigned char*)&tmp, 4);
+				}else{
+					// movsd/movss xmm, [rax+shift]
+					code.push_back(typeSize >= 8 ? 0xf2 : 0xf3);
+					code.push_back(0x0f);
+					code.push_back(0x10);
+					assert(usedFRegs - 1 < NULLC_X64_FREGARGS);
+					code.push_back((unsigned char)(0200 | ((usedFRegs - 1) << 3)));
+					usedFRegs--;
+					tmp = currentShift - typeSize;
 					code.push_back((unsigned char*)&tmp, 4);
 				}
-				// pass low qword
-				assert(usedIRegs - 1 < NULLC_X64_IREGARGS);
-				regID = (usedIRegs - 1);
-				usedIRegs--;
-				if(regID == (NULLC_X64_IREGARGS - 2) || regID == (NULLC_X64_IREGARGS - 1))
-					code.push_back(0x4c);	// 64bit mode
-				else
-					code.push_back(0x48);	// 64bit mode
-				code.push_back(0x8b);
-				code.push_back((unsigned char)regCodes[regID]);
-				code.push_back(0040);
-				tmp = currentShift - typeSize;
-				code.push_back((unsigned char*)&tmp, 4);
 			}else{
 				for(unsigned p = 0; p < (typeSize + 7) / 8; p++)
 				{
@@ -602,17 +676,19 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	ExternFuncInfo::ReturnType retType = (ExternFuncInfo::ReturnType)exFunctions[funcID].retType;
 	unsigned int retTypeID = exLinker->exTypeExtra[exTypes[exFunctions[funcID].funcType].memberOffset].type;
 	unsigned int retTypeSize = exTypes[retTypeID].size;
+
 	if(retType == ExternFuncInfo::RETURN_UNKNOWN)
 	{
 		if(retTypeSize == 0)
 			retType = ExternFuncInfo::RETURN_VOID;
+#ifdef _WIN64
 		else if(retTypeSize <= 4)
 			retType = ExternFuncInfo::RETURN_INT;
-#ifdef _WIN64
 		else if(retTypeSize == 8)
 			retType = ExternFuncInfo::RETURN_LONG;
 #endif
 	}
+
 	if(rvs)
 		retType = ExternFuncInfo::RETURN_UNKNOWN;
 
@@ -620,10 +696,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 	switch(retType)
 	{
 	case ExternFuncInfo::RETURN_DOUBLE:
-		
-		// float type is #2
-		if(retTypeID == 2)
-
+		if(retTypeID == NULLC_TYPE_FLOAT)
 		{
 			// cvtss2sd xmm0, xmm0
 			code.push_back(0xf3);
@@ -631,7 +704,9 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 			code.push_back(0x5a);
 			code.push_back(0xc0);
 		}
+
 		returnShift = 2;
+
 		// movsd qword [rbx], xmm0
 		code.push_back(0xf2);
 		code.push_back(0x0f);
@@ -640,10 +715,12 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 		break;
 	case ExternFuncInfo::RETURN_LONG:
 		returnShift = 1;
+
 		// mov qword [rbx], rax
 		code.push_back(0x48);	// 64bit mode
 	case ExternFuncInfo::RETURN_INT:
 		returnShift += 1;
+
 		// mov dword [rbx], eax
 		code.push_back(0x89);
 		code.push_back(0003);	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 3 (RBX is base)
@@ -654,17 +731,50 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 #ifndef _WIN64
 		if(!rvs)
 		{
-			// mov qword [rbx], rax
-			code.push_back(0x48);	// 64bit mode
-			code.push_back(0x89);
-			code.push_back(0003);	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 3 (RBX is base)
-			if(retTypeSize > 8)
+			ExternTypeInfo &retType = exLinker->exTypes[retTypeID];
+
+			bool opaqueType = retType.subCat != ExternTypeInfo::CAT_CLASS || retType.memberCount == 0;
+
+			bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(retType, 0, 8, exLinker);
+			bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(retType, 8, 16, exLinker);
+
+			if(firstQwordInteger)
 			{
-				// mov qword [rbx+8], rdx
+				// mov qword [rbx], rax
 				code.push_back(0x48);	// 64bit mode
 				code.push_back(0x89);
-				code.push_back(0123);	// modR/M mod = 01 (8bit shift), spare = 2 (RDX is source), r/m = 3 (RBX is base)
-				code.push_back(8);
+				code.push_back(0003);	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 3 (RBX is base)
+			}else{
+				// movsd qword [rbx], xmm0
+				code.push_back(0xf2);
+				code.push_back(0x0f);
+				code.push_back(0x11);
+				code.push_back(0003);	// modR/M mod = 00 (no shift), spare = XMM0, r/m = 3 (RBX is base)
+			}
+
+			if(retTypeSize > 8)
+			{
+				if(secondQwordInteger)
+				{
+					// mov qword [rbx+8], rax/rdx
+					code.push_back(0x48);	// 64bit mode
+					code.push_back(0x89);
+					if(firstQwordInteger)
+						code.push_back(0123);	// modR/M mod = 01 (8bit shift), spare = 2 (RDX is source), r/m = 3 (RBX is base)
+					else
+						code.push_back(0103);	// modR/M mod = 01 (8bit shift), spare = 0 (RAX is source), r/m = 3 (RBX is base)
+					code.push_back(8);
+				}else{
+					// movsd qword [rbx + 8], xmm0/xmm1
+					code.push_back(0xf2);
+					code.push_back(0x0f);
+					code.push_back(0x11);
+					if(firstQwordInteger)
+						code.push_back(0103);	// modR/M mod = 01 (8bit shift), spare = XMM0, r/m = 3 (RBX is base)
+					else
+						code.push_back(0113);	// modR/M mod = 01 (8bit shift), spare = XMM1, r/m = 3 (RBX is base)
+					code.push_back(8);
+				}
 			}
 		}
 #else
