@@ -14,6 +14,11 @@ double myGetPreciseTime()
 }
 #endif
 
+namespace Tests
+{
+	extern const char *testMatch;
+}
+
 int main(int argc, char** argv)
 {
 	(void)argv;

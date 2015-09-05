@@ -190,8 +190,6 @@
     <ClCompile Include="..\external\dyncall\dyncall_api.c" />
     <ClCompile Include="..\external\dyncall\dyncall_callvm.c" />
     <ClCompile Include="..\external\dyncall\dyncall_callvm_base.c" />
-    <ClCompile Include="..\external\dyncall\dyncall_struct.c" />
-    <ClCompile Include="..\external\dyncall\dyncall_vector.c" />
     <ClCompile Include="BinaryCache.cpp" />
     <ClCompile Include="Bytecode.cpp" />
     <ClCompile Include="CodeInfo.cpp" />
@@ -233,6 +231,9 @@
     <ClCompile Include="Executor_LLVM.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\external\dyncall\dyncall.h" />
+    <ClInclude Include="..\external\dyncall\dyncall_callvm.h" />
+    <ClInclude Include="..\external\dyncall\dyncall_types.h" />
     <ClInclude Include="Array.h" />
     <ClInclude Include="BinaryCache.h" />
     <ClInclude Include="Bytecode.h" />
