@@ -1984,7 +1984,12 @@ void GenCodeCmdCall(VMCmd cmd)
 	}else{
 		unsigned int bytesToPop = x86Functions[cmd.argument].bytesToPop;
 
+#if defined(__linux)
+		bool bigReturn = x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_UNKNOWN;
+#else
 		bool bigReturn = x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_UNKNOWN && x86Functions[cmd.argument].returnShift;
+#endif
+
 		if(bigReturn)
 			EMIT_OP_NUM(o_push, (int)(intptr_t)ret);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);

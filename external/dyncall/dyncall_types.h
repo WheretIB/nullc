@@ -61,6 +61,12 @@ typedef double          DCdouble;
 typedef DC_POINTER      DCpointer;
 typedef const char*     DCstring;
 
+// x64 on linux has a special way of returning aggregates <= 16 bytes
+typedef struct{ double a; double b; } DCcomplexdd;
+typedef struct{ double a; DC_LONG_LONG b; } DCcomplexdl;
+typedef struct{ DC_LONG_LONG a; double b; } DCcomplexld;
+typedef struct{ DC_LONG_LONG a; DC_LONG_LONG b; } DCcomplexll;
+
 typedef size_t          DCsize;
 
 #define DC_TRUE   1

@@ -24,7 +24,7 @@
 */
 
 
-#include "../portasm/portasm-x64-att.S"
+#include "portasm-x64-att.S"
 
 BEGIN_ASM
 

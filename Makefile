@@ -3,18 +3,24 @@
 # Aug 3, 2010
 
 config=debug
+extcall=manual
 
 REG_CFLAGS=-g -W
 COMP_CFLAGS=-g -W -D NULLC_NO_EXECUTOR
 
 ifeq ($(config),release)
-	REG_CFLAGS+=-O3 -DNDEBUG
-	COMP_CFLAGS+=-O3 -DNDEBUG
+	REG_CFLAGS+=-O3 -fno-omit-frame-pointer -DNDEBUG
+	COMP_CFLAGS+=-O3 -fno-omit-frame-pointer -DNDEBUG
 endif
 
 ifeq ($(config),coverage)
 	REG_CFLAGS+=-coverage
 	COMP_CFLAGS+=-coverage
+endif
+
+ifeq ($(extcall),dyncall)
+	REG_CFLAGS+=-DNULLC_USE_DYNCALL
+	COMP_CFLAGS+=-DNULLC_USE_DYNCALL
 endif
 
 LIB_SOURCES = \
@@ -83,7 +89,6 @@ STDLIB_SOURCES = \
 PUGIXML_SOURCES = \
   external/pugixml/pugixml.cpp
 
-
 STDLIB_TARGETS = \
   temp/lib/canvas.o \
   temp/lib/dynamic.o \
@@ -102,6 +107,14 @@ STDLIB_TARGETS = \
 
 PUGIXML_TARGETS = \
   temp/pugixml.o
+
+DYNCALL_TARGETS = \
+  temp/dyncall/dyncall_api.o \
+  temp/dyncall/dyncall_callvm.o \
+  temp/dyncall/dyncall_callvm_base.o \
+  temp/dyncall/dyncall_struct.o \
+  temp/dyncall/dyncall_vector.o \
+  temp/dyncall_s/dyncall_call.o
 
 all: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy \
     bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
@@ -126,6 +139,12 @@ temp/%.o: NULLC/%.cpp
 ${PUGIXML_TARGETS}: $(PUGIXML_SOURCES)
 	$(CXX) $(REG_CFLAGS) -c $< -o $@
 
+temp/dyncall/%.o: external/dyncall/%.c
+	$(CXX) $(REG_CFLAGS) -c $< -o $@
+
+temp/dyncall_s/%.o: external/dyncall/%.S
+	$(CXX) $(REG_CFLAGS) -c $< -o $@
+
 #~ ${LIB_TARGETS}: ${LIB_SOURCES}
 #~ $(CXX) $(REG_CFLAGS) -c $^ -o $@
 #~
@@ -139,6 +158,10 @@ temp/.dummy:
 temp/compiler/.dummy:
 	mkdir -p temp/compiler
 	touch temp/compiler/.dummy
+	mkdir -p temp/dyncall
+	touch temp/dyncall/.dummy
+	mkdir -p temp/dyncall_s
+	touch temp/dyncall_s/.dummy
 
 temp/lib/.dummy:
 	mkdir -p temp/lib
@@ -148,8 +171,13 @@ temp/tests/.dummy:
 	mkdir -p temp/tests
 	touch temp/tests/.dummy
 
+ifeq ($(extcall),dyncall)
+bin/libnullc.a: ${LIB_TARGETS} ${STDLIB_TARGETS} ${PUGIXML_TARGETS} ${DYNCALL_TARGETS}
+	$(AR) rcs $@ $^
+else
 bin/libnullc.a: ${LIB_TARGETS} ${STDLIB_TARGETS} ${PUGIXML_TARGETS}
 	$(AR) rcs $@ $^
+endif
 
 clean:
 	rm -rf temp/

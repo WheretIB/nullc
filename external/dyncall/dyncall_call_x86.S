@@ -24,7 +24,7 @@
 */
 
 
-#include "../portasm/portasm-x86.S"
+#include "portasm-x86.S"
 BEGIN_ASM
 /* ============================================================================
    DynCall Call Kernels for X86 Architecture
@@ -64,7 +64,7 @@ BEGIN_PROC(dcCall_x86_cdecl)
 	MOVL(DWORD(EBP,16),ECX)		/* ECX = arg buffer size */
 	ADDL(LIT(15),ECX)		/* ECX = align(ECX,16) */
 	ANDL(LIT(-16),ECX)
-	MOVL(ECX,DWORD(EBP,16))		/* save ECX. */
+	MOVL(ESP,DWORD(EBP,16))		/* save ECX. */
 	SUBL(ECX,ESP)			/* allocate stack size */
 	MOVL(ESP,EDI)			/* EDI = stack ptr */			
 	
@@ -78,7 +78,7 @@ BEGIN_PROC(dcCall_x86_cdecl)
 
 	REP(MOVSB)
 	CALL_DWORD(EBP,8)
-	ADDL(DWORD(EBP,16),ESP)
+	MOVL(DWORD(EBP,16),ESP)
 	POP(EDI)
 	POP(ESI)
 	MOVL(EBP,ESP)
