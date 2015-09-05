@@ -110,7 +110,7 @@ ifeq ($(config),coverage)
 test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy \
     bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
 	./TestRun
-	gcov -o temp NULLC/BinaryCache.cpp NULLC/nullc.cpp NULLC/Bytecode.cpp NULLC/Parser.cpp NULLC/Callbacks.cpp NULLC/stdafx.cpp NULLC/StdLib.cpp NULLC/CodeInfo.cpp NULLC/StrAlgo.cpp NULLC/Compiler.cpp NULLC/SyntaxTree.cpp NULLC/Executor_Common.cpp NULLC/SyntaxTreeEvaluate.cpp NULLC/Executor.cpp NULLC/SyntaxTreeGraph.cpp NULLC/Lexer.cpp NULLC/Linker.cpp
+	gcov -o temp NULLC/BinaryCache.cpp NULLC/nullc.cpp NULLC/Bytecode.cpp NULLC/Parser.cpp NULLC/Callbacks.cpp NULLC/stdafx.cpp NULLC/StdLib.cpp NULLC/CodeInfo.cpp NULLC/StrAlgo.cpp NULLC/Compiler.cpp NULLC/SyntaxTree.cpp NULLC/Executor_Common.cpp NULLC/SyntaxTreeEvaluate.cpp NULLC/Executor.cpp NULLC/Lexer.cpp NULLC/Linker.cpp
 else
 test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy \
     bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
