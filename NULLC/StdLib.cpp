@@ -147,7 +147,7 @@ public:
 		MyLargeBlock *curr = activePages;
 		while(curr)
 		{
-			if((char*)ptr >= (char*)curr->page && (char*)ptr <= (char*)curr->page + sizeof(MyLargeBlock))
+			if((char*)ptr >= (char*)curr->page && (char*)ptr <= (char*)curr->page + sizeof(curr->page))
 			{
 				if(((unsigned int)(intptr_t)((char*)ptr - (char*)curr->page) & (elemSize - 1)) == sizeof(markerType))
 					return true;
@@ -178,7 +178,7 @@ public:
 			pointer++;
 		MyLargeBlock *best = sortedPages[pointer];
 
-		if(ptr < best || ptr > (char*)best + sizeof(MyLargeBlock))
+		if(ptr < best->page || ptr > (char*)best + sizeof(best->page))
 			return NULL;
 		unsigned int fromBase = (unsigned int)(intptr_t)((char*)ptr - (char*)best->page);
 		return (char*)best->page + (fromBase & ~(elemSize - 1)) + sizeof(markerType);
