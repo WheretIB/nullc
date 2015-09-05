@@ -115,6 +115,7 @@ public:
 			if(lastNum == countInBlock)
 			{
 				MyLargeBlock* newPage = new(NULLC::alignedAlloc(sizeof(MyLargeBlock))) MyLargeBlock;
+				memset(newPage, 0, sizeof(MyLargeBlock));
 				newPage->next = activePages;
 				activePages = newPage;
 				lastNum = 0;
