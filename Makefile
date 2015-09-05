@@ -9,8 +9,8 @@ REG_CFLAGS=-g -W
 COMP_CFLAGS=-g -W -D NULLC_NO_EXECUTOR
 
 ifeq ($(config),release)
-	REG_CFLAGS+=-O3 -DNDEBUG
-	COMP_CFLAGS+=-O3 -DNDEBUG
+	REG_CFLAGS+=-O3 -fno-omit-frame-pointer -DNDEBUG
+	COMP_CFLAGS+=-O3 -fno-omit-frame-pointer -DNDEBUG
 endif
 
 ifeq ($(config),coverage)
