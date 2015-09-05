@@ -3,5 +3,11 @@ language: cpp
 compiler:
   - clang
   - gcc
-script: make test config=coverage
-after_success: bash <(curl -s https://codecov.io/bash)
+env:
+  - CONFIG=debug EXTCALL=manual
+  - CONFIG=release EXTCALL=manual
+  - CONFIG=debug EXTCALL=dyncall
+  - CONFIG=release EXTCALL=dyncall
+  - CONFIG=coverage EXTCALL=manual
+script: make test config=$CONFIG extcall=$EXTCALL
+after_success: bash codecov.sh
