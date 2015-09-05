@@ -277,7 +277,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 				break;
 
 			// If the class if being divided in the middle, between registers and stack, sent through stack
-			if(usedIRegs + requredIRegs > NULLC_X64_IREGARGS)// || usedFRegs + requredFRegs > NULLC_X64_FREGARGS)
+			if(usedIRegs + requredIRegs > NULLC_X64_IREGARGS || usedFRegs + requredFRegs > NULLC_X64_FREGARGS)
 				break;
 
 			// Request registers

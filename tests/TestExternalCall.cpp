@@ -667,6 +667,24 @@ Zomg z; z.x = { 1, 2 };\r\n\
 return Call(z);";
 TEST_RESULT("External function call. { int[]; } in argument.", testExternalCallG11, "1");
 
+struct TestExtG12Foo{ double a; double b; };
+int TestExtG12(float x, float y, float z, TestExtG12Foo a, TestExtG12Foo b, TestExtG12Foo c)
+{
+	return x == 1.0 && y == 2.0 && z == 3.0 && a.a == 4.0 && a.b == 5.0 && b.a == 6.0 && b.b == 7.0 && c.a == 8.0 && c.b == 9.0;
+}
+
+LOAD_MODULE_BIND(test_extG12, "test.extG12", "class Zomg{ double a; double b; } int Call(float x, y, z, Zomg a, b, c);")
+{
+	nullcBindModuleFunction("test.extG12", (void (*)())TestExtG12, "Call", 0);
+}
+const char	*testExternalCallG12 =
+"import test.extG12;\r\n\
+Zomg a; a.a = 4; a.b = 5;\r\n\
+Zomg b; b.a = 6; b.b = 7;\r\n\
+Zomg c; c.a = 8; c.b = 9;\r\n\
+return Call(1, 2, 3, a, b, c);";
+TEST_RESULT("External function call. Floating point register overflow mid argument.", testExternalCallG12, "1");
+
 LOAD_MODULE_BIND(test_extG2b, "test.extG2b", "class Zomg{ char x; int y; } Zomg Call(Zomg a);")
 {
 	nullcBindModuleFunction("test.extG2b", (void (*)())TestExtG2b, "Call", 0);
