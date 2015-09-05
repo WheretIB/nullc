@@ -10,4 +10,9 @@ env:
   - CONFIG=release EXTCALL=dyncall
   - CONFIG=coverage EXTCALL=manual
 script: make test config=$CONFIG extcall=$EXTCALL
-after_success: if ["$CONFIG" == "coverage"]; then bash <(curl -s https://codecov.io/bash); fi
+after_success:
+  if [ "$CONFIG" == "coverage" ]; then
+    bash <(curl -s https://codecov.io/bash)
+  else
+    echo "No coverage data in this configuration"
+  fi
