@@ -4,12 +4,14 @@ compiler:
   - clang
   - gcc
 env:
-  - CONFIG=debug EXTCALL=manual
-  - CONFIG=release EXTCALL=manual
-  - CONFIG=debug EXTCALL=dyncall
-  - CONFIG=release EXTCALL=dyncall
-  - CONFIG=coverage EXTCALL=manual
-  - secure: "I1bxcJWCo0PVjvKqSh+XaYg9x0o2pptgRg6hS1rfLT6W+8rivxrCyUcaWmDNWFyFoQxH8iU5U2ToXYj1q3R7Y0qZG+TCdr5P4P7NCgEc96Q5711WPyTLzzO/Y4+wsi1JaCFr1MwHLZ1+2XFLK/A62zlSNf2yB9zRQgNDE3+hez/uY7IRZWHTPzQI69iE0dMfI6uWLGnDV8HM3yyCWcK56N4saoTvlW5fNipC3qcx0sfmZfVtT4xKIvWKtRfnU8pCWvI2EfewXzOQwKOU9+urXoFeOCVAe6ti/9wDuFBQvglekJ9xTNdTHXNnLkUHeQtkYLsGU+a4beXIcYp2U0xSu2FZ64IVOcH0oIeW5+e5ny5otiomBNrvaJM45QU59TP2ucrs7DImj4zaRgc4y4gFEuO7ZswdynqbXqtT7EjCF66czndeg5DdLWBZvaSi0u3KqRiljbyYWx9Qz2RxpLSJfmGxQLsbXSegGLPGOK8gRBqaTOVONeJWbk8RigECxLuKiVHVx9eAWFUhMiMbTq1wpdfA23LoTHUyRG2D0txXCO1qmxxyw9z+xYsxGLxmltjnbKty0hYMo8uAVQZy+/PvKfANj3AnbjD02MKUXOqYf/FFGme/hYVwEtniVEFzA3/IdMOHgaGlCpFf6TwhB5q1uaTpBO5GGQJb4AXQ5voEB5w="
+  matrix:
+    - CONFIG=debug EXTCALL=manual
+    - CONFIG=release EXTCALL=manual
+    - CONFIG=debug EXTCALL=dyncall
+    - CONFIG=release EXTCALL=dyncall
+    - CONFIG=coverage EXTCALL=manual
+  global:
+   - secure: "I1bxcJWCo0PVjvKqSh+XaYg9x0o2pptgRg6hS1rfLT6W+8rivxrCyUcaWmDNWFyFoQxH8iU5U2ToXYj1q3R7Y0qZG+TCdr5P4P7NCgEc96Q5711WPyTLzzO/Y4+wsi1JaCFr1MwHLZ1+2XFLK/A62zlSNf2yB9zRQgNDE3+hez/uY7IRZWHTPzQI69iE0dMfI6uWLGnDV8HM3yyCWcK56N4saoTvlW5fNipC3qcx0sfmZfVtT4xKIvWKtRfnU8pCWvI2EfewXzOQwKOU9+urXoFeOCVAe6ti/9wDuFBQvglekJ9xTNdTHXNnLkUHeQtkYLsGU+a4beXIcYp2U0xSu2FZ64IVOcH0oIeW5+e5ny5otiomBNrvaJM45QU59TP2ucrs7DImj4zaRgc4y4gFEuO7ZswdynqbXqtT7EjCF66czndeg5DdLWBZvaSi0u3KqRiljbyYWx9Qz2RxpLSJfmGxQLsbXSegGLPGOK8gRBqaTOVONeJWbk8RigECxLuKiVHVx9eAWFUhMiMbTq1wpdfA23LoTHUyRG2D0txXCO1qmxxyw9z+xYsxGLxmltjnbKty0hYMo8uAVQZy+/PvKfANj3AnbjD02MKUXOqYf/FFGme/hYVwEtniVEFzA3/IdMOHgaGlCpFf6TwhB5q1uaTpBO5GGQJb4AXQ5voEB5w="
 
 script: make test config=$CONFIG extcall=$EXTCALL
 after_success: bash codecov.sh
