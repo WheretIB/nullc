@@ -55,9 +55,116 @@ namespace
 	}
 }
 
+SynBinaryOpType GetBinaryOpType(LexemeType type)
+{
+	switch(type)
+	{
+	case lex_add:
+		return SYN_BINARY_OP_ADD;
+	case lex_sub:
+		return SYN_BINARY_OP_SUB;
+	case lex_mul:
+		return SYN_BINARY_OP_MUL;
+	case lex_div:
+		return SYN_BINARY_OP_DIV;
+	case lex_mod:
+		return SYN_BINARY_OP_MOD;
+	case lex_pow:
+		return SYN_BINARY_OP_POW;
+	case lex_less:
+		return SYN_BINARY_OP_LESS;
+	case lex_lequal:
+		return SYN_BINARY_OP_LESS_EQUAL;
+	case lex_shl:
+		return SYN_BINARY_OP_SHL;
+	case lex_greater:
+		return SYN_BINARY_OP_GREATER;
+	case lex_gequal:
+		return SYN_BINARY_OP_GREATER_EQUAL;
+	case lex_shr:
+		return SYN_BINARY_OP_SHR;
+	case lex_equal:
+		return SYN_BINARY_OP_EQUAL;
+	case lex_nequal:
+		return SYN_BINARY_OP_NOT_EQUAL;
+	case lex_bitand:
+		return SYN_BINARY_OP_BIT_AND;
+	case lex_bitor:
+		return SYN_BINARY_OP_BIT_OR;
+	case lex_bitxor:
+		return SYN_BINARY_OP_BIT_XOR;
+	case lex_logand:
+		return SYN_BINARY_OP_LOGICAL_AND;
+	case lex_logor:
+		return SYN_BINARY_OP_LOGICAL_OR;
+	case lex_logxor:
+		return SYN_BINARY_OP_LOGICAL_XOR;
+	case lex_in:
+		return SYN_BINARY_OP_IN;
+	}
+
+	return SYN_BINARY_OP_UNKNOWN;
+}
+
+unsigned GetBinaryOpPrecedence(SynBinaryOpType op)
+{
+	switch(op)
+	{
+	case SYN_BINARY_OP_ADD:
+		return 2;
+	case SYN_BINARY_OP_SUB:
+		return 2;
+	case SYN_BINARY_OP_MUL:
+		return 1;
+	case SYN_BINARY_OP_DIV:
+		return 1;
+	case SYN_BINARY_OP_MOD:
+		return 1;
+	case SYN_BINARY_OP_POW:
+		return 0;
+	case SYN_BINARY_OP_LESS:
+		return 4;
+	case SYN_BINARY_OP_LESS_EQUAL:
+		return 4;
+	case SYN_BINARY_OP_SHL:
+		return 3;
+	case SYN_BINARY_OP_GREATER:
+		return 4;
+	case SYN_BINARY_OP_GREATER_EQUAL:
+		return 4;
+	case SYN_BINARY_OP_SHR:
+		return 3;
+	case SYN_BINARY_OP_EQUAL:
+		return 5;
+	case SYN_BINARY_OP_NOT_EQUAL:
+		return 5;
+	case SYN_BINARY_OP_BIT_AND:
+		return 6;
+	case SYN_BINARY_OP_BIT_OR:
+		return 8;
+	case SYN_BINARY_OP_BIT_XOR:
+		return 7;
+	case SYN_BINARY_OP_LOGICAL_AND:
+		return 9;
+	case SYN_BINARY_OP_LOGICAL_OR:
+		return 11;
+	case SYN_BINARY_OP_LOGICAL_XOR:
+		return 10;
+	case SYN_BINARY_OP_IN:
+		return 12;
+	}
+
+	return 0;
+}
+
 ParseContext::ParseContext()
 {
 	errorPos = 0;
+}
+
+LexemeType ParseContext::Peek()
+{
+	return currentLexeme->type;
 }
 
 bool ParseContext::At(LexemeType type)
@@ -119,6 +226,39 @@ SynBase* ParseArithmetic(ParseContext &ctx)
 {
 	SynBase *lhs = ParseTerminal(ctx);
 
+	if(!lhs)
+		return NULL;
+
+	unsigned startSize = ctx.binaryOpStack.size();
+
+	while(SynBinaryOpType binaryOp = GetBinaryOpType(ctx.Peek()))
+	{
+		const char *start = ctx.Position();
+
+		ctx.Skip();
+
+		while(ctx.binaryOpStack.size() > startSize && GetBinaryOpPrecedence(ctx.binaryOpStack.back().type) <= GetBinaryOpPrecedence(binaryOp))
+		{
+			lhs = new SynBinaryOp(ctx.binaryOpStack.back().pos, ctx.binaryOpStack.back().type, lhs, ctx.binaryOpStack.back().value);
+
+			ctx.binaryOpStack.pop_back();
+		}
+
+		SynBase *value = ParseTerminal(ctx);
+
+		if(!value)
+			Stop(ctx, ctx.Position(), "ERROR: terminal expression not found after binary operation");
+
+		ctx.binaryOpStack.push_back(SynBinaryOpElement(start, binaryOp, value));
+	}
+
+	while(ctx.binaryOpStack.size() > startSize)
+	{
+		lhs = new SynBinaryOp(ctx.binaryOpStack.back().pos, ctx.binaryOpStack.back().type, lhs, ctx.binaryOpStack.back().value);
+
+		ctx.binaryOpStack.pop_back();
+	}
+
 	return lhs;
 }
 
@@ -126,12 +266,18 @@ SynBase* ParseTernaryExpr(ParseContext &ctx)
 {
 	SynBase *condition = ParseArithmetic(ctx);
 
+	if(!condition)
+		return NULL;
+
 	return condition;
 }
 
 SynBase* ParseAssignment(ParseContext &ctx)
 {
 	SynBase *lhs = ParseTernaryExpr(ctx);
+
+	if(!lhs)
+		return NULL;
 
 	return lhs;
 }
@@ -155,7 +301,7 @@ SynReturn* ParseReturn(ParseContext &ctx)
 
 SynBase* ParseExpression(ParseContext &ctx)
 {
-	const char *start = ctx.Position();
+	//const char *start = ctx.Position();
 
 	if(ctx.At(lex_return))
 		return ParseReturn(ctx);
@@ -171,7 +317,7 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 	{
 		AssertAt(ctx, lex_string, "ERROR: string expected after import");
 
-		Stop(ctx, ctx.Position(), "ERROR: not implemented");
+		Stop(ctx, start, "ERROR: not implemented");
 
 		return NULL;
 	}

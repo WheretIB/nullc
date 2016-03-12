@@ -2,11 +2,15 @@
 
 #include "Lexer.h"
 #include "IntrusiveList.h"
+#include "Array.h"
+
+struct SynBinaryOpElement;
 
 struct ParseContext
 {
 	ParseContext();
 
+	LexemeType Peek();
 	bool At(LexemeType type);
 	bool Consume(LexemeType type);
 	InplaceStr Consume();
@@ -15,6 +19,8 @@ struct ParseContext
 	const char* Position();
 
 	Lexeme *currentLexeme;
+
+	FastVector<SynBinaryOpElement> binaryOpStack;
 
 	const char *errorPos;
 	InplaceStr errorMsg;
@@ -62,6 +68,59 @@ struct SynReturn: SynBase
 	}
 
 	SynBase *value;
+};
+
+enum SynBinaryOpType
+{
+	SYN_BINARY_OP_UNKNOWN,
+
+	SYN_BINARY_OP_ADD,
+	SYN_BINARY_OP_SUB,
+	SYN_BINARY_OP_MUL,
+	SYN_BINARY_OP_DIV,
+	SYN_BINARY_OP_MOD,
+	SYN_BINARY_OP_POW,
+	SYN_BINARY_OP_SHL,
+	SYN_BINARY_OP_SHR,
+	SYN_BINARY_OP_LESS,
+	SYN_BINARY_OP_LESS_EQUAL,
+	SYN_BINARY_OP_GREATER,
+	SYN_BINARY_OP_GREATER_EQUAL,
+	SYN_BINARY_OP_EQUAL,
+	SYN_BINARY_OP_NOT_EQUAL,
+	SYN_BINARY_OP_BIT_AND,
+	SYN_BINARY_OP_BIT_OR,
+	SYN_BINARY_OP_BIT_XOR,
+	SYN_BINARY_OP_LOGICAL_AND,
+	SYN_BINARY_OP_LOGICAL_OR,
+	SYN_BINARY_OP_LOGICAL_XOR,
+	SYN_BINARY_OP_IN,
+};
+
+struct SynBinaryOpElement
+{
+	SynBinaryOpElement(): pos(0), type(SYN_BINARY_OP_UNKNOWN), value(0)
+	{
+	}
+
+	SynBinaryOpElement(const char* pos, SynBinaryOpType type, SynBase* value): pos(pos), type(type), value(value)
+	{
+	}
+
+	const char* pos;
+	SynBinaryOpType type;
+	SynBase* value;
+};
+
+struct SynBinaryOp: SynBase
+{
+	SynBinaryOp(const char* pos, SynBinaryOpType type, SynBase* lhs, SynBase* rhs): SynBase(pos), type(type), lhs(lhs), rhs(rhs)
+	{
+	}
+
+	SynBinaryOpType type;
+	SynBase* lhs;
+	SynBase* rhs;
 };
 
 struct SynModuleImport: SynBase
