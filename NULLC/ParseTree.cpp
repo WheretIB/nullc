@@ -203,6 +203,18 @@ const char* ParseContext::Position()
 	return currentLexeme->pos;
 }
 
+SynType* ParseType(ParseContext &ctx)
+{
+	if(ctx.At(lex_string))
+	{
+		InplaceStr name = ctx.Consume();
+
+		return new SynTypeSimple(name);
+	}
+
+	return NULL;
+}
+
 SynBase* ParseTerminal(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -299,6 +311,62 @@ SynReturn* ParseReturn(ParseContext &ctx)
 	return NULL;
 }
 
+SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.At(lex_string))
+	{
+		InplaceStr name = ctx.Consume();
+		SynBase *initializer = NULL;
+
+		if(ctx.Consume(lex_set))
+		{
+			initializer = ParseAssignment(ctx);
+
+			if(!initializer)
+				Stop(ctx, ctx.Position(), "ERROR: expression not found after '='");
+		}
+
+		return new SynVariableDefinition(start, name, initializer);
+	}
+
+	return NULL;
+}
+
+SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(SynType *type = ParseType(ctx))
+	{
+		IntrusiveList<SynVariableDefinition> definitions;
+
+		SynVariableDefinition *definition = ParseVariableDefinition(ctx);
+
+		if(!definition)
+			return NULL;
+
+		definitions.push_back(definition);
+
+		while(ctx.Consume(lex_comma))
+		{
+			definition = ParseVariableDefinition(ctx);
+
+			if(!definition)
+				Stop(ctx, ctx.Position(), "ERROR: next variable definition excepted after ','");
+
+			definitions.push_back(definition);
+		}
+
+		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after variable definition");
+
+		return new SynVariableDefinitions(start, type, definitions);
+	}
+
+	return NULL;
+}
+
 SynBase* ParseExpression(ParseContext &ctx)
 {
 	//const char *start = ctx.Position();
@@ -306,6 +374,9 @@ SynBase* ParseExpression(ParseContext &ctx)
 	if(ctx.At(lex_return))
 		return ParseReturn(ctx);
 
+	if(SynBase *node = ParseVariableDefinitions(ctx))
+		return node;
+	
 	return NULL;
 }
 

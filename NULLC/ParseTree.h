@@ -26,6 +26,19 @@ struct ParseContext
 	InplaceStr errorMsg;
 };
 
+struct SynType
+{
+};
+
+struct SynTypeSimple: SynType
+{
+	SynTypeSimple(InplaceStr name): SynType(), name(name)
+	{
+	}
+
+	InplaceStr name;
+};
+
 struct SynBase
 {
 	SynBase(const char *pos): pos(pos), next(0)
@@ -121,6 +134,26 @@ struct SynBinaryOp: SynBase
 	SynBinaryOpType type;
 	SynBase* lhs;
 	SynBase* rhs;
+};
+
+struct SynVariableDefinition: SynBase
+{
+	SynVariableDefinition(const char* pos, InplaceStr name, SynBase *initializer): SynBase(pos), name(name), initializer(initializer)
+	{
+	}
+
+	InplaceStr name;
+	SynBase *initializer;
+};
+
+struct SynVariableDefinitions: SynBase
+{
+	SynVariableDefinitions(const char* pos, SynType *type, IntrusiveList<SynVariableDefinition> definitions): SynBase(pos), type(type), definitions(definitions)
+	{
+	}
+
+	SynType *type;
+	IntrusiveList<SynVariableDefinition> definitions;
 };
 
 struct SynModuleImport: SynBase
