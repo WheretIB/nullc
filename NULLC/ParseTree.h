@@ -39,6 +39,22 @@ struct SynBool: SynBase
 	bool value;
 };
 
+struct SynNumber: SynBase
+{
+	SynNumber(const char* pos, InplaceStr value): SynBase(pos), value(value)
+	{
+	}
+
+	InplaceStr value;
+};
+
+struct SynNullptr: SynBase
+{
+	SynNullptr(const char* pos): SynBase(pos)
+	{
+	}
+};
+
 struct SynReturn: SynBase
 {
 	SynReturn(const char* pos, SynBase* value): SynBase(pos), value(value)

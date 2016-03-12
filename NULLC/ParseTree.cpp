@@ -106,6 +106,12 @@ SynBase* ParseTerminal(ParseContext &ctx)
 	if(ctx.Consume(lex_false))
 		return new SynBool(start, false);
 
+	if(ctx.At(lex_number))
+		return new SynNumber(start, ctx.Consume());
+
+	if(ctx.Consume(lex_nullptr))
+		return new SynNullptr(start);
+
 	return NULL;
 }
 
