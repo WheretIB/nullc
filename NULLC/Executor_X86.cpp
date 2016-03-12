@@ -967,7 +967,7 @@ bool ExecutorX86::TranslateToNative()
 	if(functionAddress.max <= exFunctions.size() * 2)
 	{
 		unsigned *newStorage = (unsigned*)NULLC::alloc(exFunctions.size() * 3 * sizeof(unsigned));
-		if(functionAddress.data != &functionAddress.one)
+		if(functionAddress.count != 0)
 			oldFunctionLists.push_back(FunctionListInfo(functionAddress.data, functionAddress.count));
 		memcpy(newStorage, functionAddress.data, functionAddress.count * sizeof(unsigned));
 		functionAddress.data = newStorage;
@@ -979,6 +979,7 @@ bool ExecutorX86::TranslateToNative()
 
 	memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
+	instList.reserve(64);
 
 	SetParamBase((unsigned int)(long long)paramBase);
 	SetFunctionList(exFunctions.data, functionAddress.data);
