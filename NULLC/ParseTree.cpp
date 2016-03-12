@@ -311,6 +311,29 @@ SynReturn* ParseReturn(ParseContext &ctx)
 	return NULL;
 }
 
+SynTypedef* ParseTypedef(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_typedef))
+	{
+		SynType *type = ParseType(ctx);
+
+		if(!type)
+			Stop(ctx, ctx.Position(), "ERROR: typename expected after typedef");
+
+		AssertAt(ctx, lex_string, "ERROR: alias name expected after typename in typedef expression");
+
+		InplaceStr alias = ctx.Consume();
+
+		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after typedef");
+
+		return new SynTypedef(start, type, alias);
+	}
+
+	return NULL;
+}
+
 SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -373,6 +396,9 @@ SynBase* ParseExpression(ParseContext &ctx)
 
 	if(ctx.At(lex_return))
 		return ParseReturn(ctx);
+
+	if(ctx.At(lex_typedef))
+		return ParseTypedef(ctx);
 
 	if(SynBase *node = ParseVariableDefinitions(ctx))
 		return node;

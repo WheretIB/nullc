@@ -83,6 +83,16 @@ struct SynReturn: SynBase
 	SynBase *value;
 };
 
+struct SynTypedef: SynBase
+{
+	SynTypedef(const char* pos, SynType *type, InplaceStr alias): SynBase(pos), type(type), alias(alias)
+	{
+	}
+
+	SynType *type;
+	InplaceStr alias;
+};
+
 enum SynBinaryOpType
 {
 	SYN_BINARY_OP_UNKNOWN,
