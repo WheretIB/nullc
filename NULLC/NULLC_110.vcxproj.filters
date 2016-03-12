@@ -179,6 +179,9 @@
     <ClCompile Include="..\external\dyncall\dyncall_callvm_base.c">
       <Filter>external\dyncall</Filter>
     </ClCompile>
+    <ClCompile Include="ParseTree.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -336,6 +339,12 @@
     </ClInclude>
     <ClInclude Include="..\external\dyncall\dyncall_types.h">
       <Filter>external\dyncall</Filter>
+    </ClInclude>
+    <ClInclude Include="ParseTree.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="IntrusiveList.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

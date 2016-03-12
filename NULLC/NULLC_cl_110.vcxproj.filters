@@ -59,6 +59,9 @@
     <ClCompile Include="SyntaxTreeTranslate.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
+    <ClCompile Include="ParseTree.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -113,6 +116,9 @@
       <Filter>Compiler</Filter>
     </ClInclude>
     <ClInclude Include="SyntaxTree.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="ParseTree.h">
       <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>

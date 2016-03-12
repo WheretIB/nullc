@@ -190,6 +190,7 @@
     <ClCompile Include="Bytecode.cpp" />
     <ClCompile Include="CodeInfo.cpp" />
     <ClCompile Include="nullc.cpp" />
+    <ClCompile Include="ParseTree.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="StrAlgo.cpp" />
     <ClCompile Include="Callbacks.cpp" />
@@ -213,6 +214,7 @@
     <ClInclude Include="nullc_debug.h" />
     <ClInclude Include="nullcdef.h" />
     <ClInclude Include="ParseClass.h" />
+    <ClInclude Include="ParseTree.h" />
     <ClInclude Include="Pool.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="StrAlgo.h" />
