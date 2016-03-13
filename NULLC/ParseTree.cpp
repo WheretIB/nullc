@@ -394,48 +394,58 @@ IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx)
 	return arguments;
 }
 
-SynBase* ParseSubIdentifier(ParseContext &ctx)
+SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 {
-	if(SynBase *node = ParseIdentifier(ctx))
+	while(ctx.At(lex_point) || ctx.At(lex_obracket) || ctx.At(lex_oparen))
 	{
-		while(ctx.At(lex_point) || ctx.At(lex_obracket) || ctx.At(lex_oparen))
+		const char *pos = ctx.Position();
+
+		if(ctx.Consume(lex_point))
 		{
-			const char *pos = ctx.Position();
+			AssertAt(ctx, lex_string, "ERROR: member name expected after '.'");
 
-			if(ctx.Consume(lex_point))
-			{
-				AssertAt(ctx, lex_string, "ERROR: member name expected after '.'");
+			InplaceStr member = ctx.Consume();
 
-				InplaceStr member = ctx.Consume();
-
-				node = new SynMemberAccess(pos, node, member);
-			}
-			else if(ctx.Consume(lex_obracket))
-			{
-				IntrusiveList<SynCallArgument> arguments = ParseCallArguments(ctx);
-
-				AssertConsume(ctx, lex_cbracket, "ERROR: ']' not found after expression");
-
-				node = new SynArrayIndex(pos, node, arguments);
-			}
-			else if(ctx.Consume(lex_oparen))
-			{
-				IntrusiveList<SynCallArgument> arguments = ParseCallArguments(ctx);
-
-				AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function parameter list");
-
-				node = new SynArrayIndex(pos, node, arguments);
-			}
-			else
-			{
-				Stop(ctx, ctx.Position(), "ERROR: not implemented");
-			}
+			node = new SynMemberAccess(pos, node, member);
 		}
+		else if(ctx.Consume(lex_obracket))
+		{
+			IntrusiveList<SynCallArgument> arguments = ParseCallArguments(ctx);
 
-		return node;
+			AssertConsume(ctx, lex_cbracket, "ERROR: ']' not found after expression");
+
+			node = new SynArrayIndex(pos, node, arguments);
+		}
+		else if(ctx.Consume(lex_oparen))
+		{
+			IntrusiveList<SynCallArgument> arguments = ParseCallArguments(ctx);
+
+			AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function parameter list");
+
+			node = new SynArrayIndex(pos, node, arguments);
+		}
+		else
+		{
+			Stop(ctx, ctx.Position(), "ERROR: not implemented");
+		}
 	}
 
-	return NULL;
+	return node;
+}
+
+SynBase* ParseComplexTerminal(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	SynBase *node = ParseIdentifier(ctx);
+
+	if(!node && ctx.At(lex_quotedstring))
+		node = new SynString(start, ctx.Consume());
+
+	if(!node)
+		return NULL;
+		
+	return ParsePostExpressions(ctx, node);
 }
 
 SynBase* ParseTerminal(ParseContext &ctx)
@@ -448,11 +458,14 @@ SynBase* ParseTerminal(ParseContext &ctx)
 	if(ctx.Consume(lex_false))
 		return new SynBool(start, false);
 
+	if(ctx.Consume(lex_nullptr))
+		return new SynNullptr(start);
+
 	if(ctx.At(lex_number))
 		return new SynNumber(start, ctx.Consume());
 
-	if(ctx.Consume(lex_nullptr))
-		return new SynNullptr(start);
+	if(ctx.At(lex_semiquotedchar))
+		return new SynCharacter(start, ctx.Consume());
 
 	if(SynUnaryOpType type = GetUnaryOpType(ctx.Peek()))
 	{
@@ -478,7 +491,7 @@ SynBase* ParseTerminal(ParseContext &ctx)
 		return value;
 	}
 
-	if(SynBase *node = ParseSubIdentifier(ctx))
+	if(SynBase *node = ParseComplexTerminal(ctx))
 		return node;
 
 	return NULL;

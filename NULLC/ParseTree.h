@@ -131,6 +131,24 @@ struct SynNullptr: SynBase
 	}
 };
 
+struct SynCharacter: SynBase
+{
+	SynCharacter(const char* pos, InplaceStr value): SynBase(pos), value(value)
+	{
+	}
+
+	InplaceStr value;
+};
+
+struct SynString: SynBase
+{
+	SynString(const char* pos, InplaceStr value): SynBase(pos), value(value)
+	{
+	}
+
+	InplaceStr value;
+};
+
 struct SynIdentifier: SynBase
 {
 	SynIdentifier(const char* pos, InplaceStr name): SynBase(pos), name(name)
