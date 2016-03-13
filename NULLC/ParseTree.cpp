@@ -525,6 +525,16 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
 
+	if(ctx.Consume(lex_mul))
+	{
+		SynBase *node = ParseComplexTerminal(ctx);
+
+		if(!node)
+			Stop(ctx, ctx.Position(), "ERROR: expression not found after '*'");
+
+		return new SynDereference(start, node);
+	}
+
 	SynBase *node = NULL;
 
 	if(ctx.Consume(lex_oparen))
@@ -564,6 +574,16 @@ SynBase* ParseTerminal(ParseContext &ctx)
 
 	if(ctx.Consume(lex_nullptr))
 		return new SynNullptr(start);
+
+	if(ctx.Consume(lex_bitand))
+	{
+		SynBase *node = ParseComplexTerminal(ctx);
+
+		if(!node)
+			Stop(ctx, ctx.Position(), "ERROR: variable not found after '&'");
+
+		return new SynGetAddress(start, node);
+	}
 
 	if(ctx.At(lex_number))
 		return new SynNumber(start, ctx.Consume());
