@@ -157,6 +157,37 @@ unsigned GetBinaryOpPrecedence(SynBinaryOpType op)
 	return 0;
 }
 
+SynModifyAssignType GetModifyAssignType(LexemeType type)
+{
+	switch(type)
+	{
+	case lex_addset:
+		return SYN_MODIFY_ASSIGN_ADD;
+	case lex_subset:
+		return SYN_MODIFY_ASSIGN_SUB;
+	case lex_mulset:
+		return SYN_MODIFY_ASSIGN_MUL;
+	case lex_divset:
+		return SYN_MODIFY_ASSIGN_DIV;
+	case lex_powset:
+		return SYN_MODIFY_ASSIGN_POW;
+	case lex_modset:
+		return SYN_MODIFY_ASSIGN_MOD;
+	case lex_shlset:
+		return SYN_MODIFY_ASSIGN_SHL;
+	case lex_shrset:
+		return SYN_MODIFY_ASSIGN_SHR;
+	case lex_andset:
+		return SYN_MODIFY_ASSIGN_BIT_AND;
+	case lex_orset:
+		return SYN_MODIFY_ASSIGN_BIT_OR;
+	case lex_xorset:
+		return SYN_MODIFY_ASSIGN_BIT_XOR;
+	}
+
+	return SYN_MODIFY_ASSIGN_UNKNOWN;
+}
+
 ParseContext::ParseContext()
 {
 	errorPos = 0;
@@ -476,12 +507,35 @@ SynBase* ParseTernaryExpr(ParseContext &ctx)
 
 SynBase* ParseAssignment(ParseContext &ctx)
 {
-	SynBase *lhs = ParseTernaryExpr(ctx);
+	if(SynBase *lhs = ParseTernaryExpr(ctx))
+	{
+		const char *pos = ctx.Position();
 
-	if(!lhs)
-		return NULL;
+		if(ctx.Consume(lex_set))
+		{
+			SynBase *rhs = ParseAssignment(ctx);
 
-	return lhs;
+			if(!rhs)
+				Stop(ctx, ctx.Position(), "ERROR: expression not found after '='");
+
+			return new SynAssignment(pos, lhs, rhs);
+		}
+		else if(SynModifyAssignType modifyType = GetModifyAssignType(ctx.Peek()))
+		{
+			InplaceStr name = ctx.Consume();
+
+			SynBase *rhs = ParseAssignment(ctx);
+
+			if(!rhs)
+				Stop(ctx, ctx.Position(), "ERROR: expression not found after '%.*s' operator", name.length(), name.begin);
+
+			return new SynModifyAssignment(pos, modifyType, lhs, rhs);
+		}
+
+		return lhs;
+	}
+
+	return NULL;
 }
 
 SynReturn* ParseReturn(ParseContext &ctx)

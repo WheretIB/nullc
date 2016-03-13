@@ -252,6 +252,44 @@ struct SynBinaryOp: SynBase
 	SynBase* rhs;
 };
 
+struct SynAssignment: SynBase
+{
+	SynAssignment(const char* pos, SynBase* lhs, SynBase* rhs): SynBase(pos), lhs(lhs), rhs(rhs)
+	{
+	}
+
+	SynBase* lhs;
+	SynBase* rhs;
+};
+
+enum SynModifyAssignType
+{
+	SYN_MODIFY_ASSIGN_UNKNOWN,
+
+	SYN_MODIFY_ASSIGN_ADD,
+	SYN_MODIFY_ASSIGN_SUB,
+	SYN_MODIFY_ASSIGN_MUL,
+	SYN_MODIFY_ASSIGN_DIV,
+	SYN_MODIFY_ASSIGN_POW,
+	SYN_MODIFY_ASSIGN_MOD,
+	SYN_MODIFY_ASSIGN_SHL,
+	SYN_MODIFY_ASSIGN_SHR,
+	SYN_MODIFY_ASSIGN_BIT_AND,
+	SYN_MODIFY_ASSIGN_BIT_OR,
+	SYN_MODIFY_ASSIGN_BIT_XOR,
+};
+
+struct SynModifyAssignment: SynBase
+{
+	SynModifyAssignment(const char* pos, SynModifyAssignType type, SynBase* lhs, SynBase* rhs): SynBase(pos), type(type), lhs(lhs), rhs(rhs)
+	{
+	}
+
+	SynModifyAssignType type;
+	SynBase* lhs;
+	SynBase* rhs;
+};
+
 struct SynVariableDefinition: SynBase
 {
 	SynVariableDefinition(const char* pos, InplaceStr name, SynBase *initializer): SynBase(pos), name(name), initializer(initializer)
