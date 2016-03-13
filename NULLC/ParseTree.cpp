@@ -326,6 +326,8 @@ SynType* ParseType(ParseContext &ctx)
 					}
 				}
 
+				AssertConsume(ctx, lex_cparen, "ERROR: matching ')' not found");
+
 				base = new SynTypeFunction(base, arguments);
 			}
 			else
