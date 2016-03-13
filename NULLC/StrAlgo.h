@@ -49,7 +49,7 @@ namespace NULLC
 			return unsigned(end - begin);
 		}
 
-		bool operator==(const InplaceStr& rhs)
+		bool operator==(const InplaceStr& rhs) const
 		{
 			return length() == rhs.length() && memcmp(begin, rhs.begin, length()) == 0;
 		}
