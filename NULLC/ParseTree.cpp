@@ -395,6 +395,25 @@ SynBase* ParseSizeof(ParseContext &ctx)
 	return NULL;
 }
 
+SynNumber* ParseNumber(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.At(lex_number))
+	{
+		InplaceStr value = ctx.Consume();
+
+		InplaceStr suffix;
+
+		if(ctx.At(lex_string))
+			suffix = ctx.Consume();
+
+		return new SynNumber(start, value, suffix);
+	}
+
+	return NULL;
+}
+
 SynNew* ParseNew(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -613,18 +632,6 @@ SynBase* ParseTerminal(ParseContext &ctx)
 		return new SynGetAddress(start, node);
 	}
 
-	if(ctx.At(lex_number))
-	{
-		InplaceStr value = ctx.Consume();
-
-		InplaceStr suffix;
-
-		if(ctx.At(lex_string))
-			suffix = ctx.Consume();
-
-		return new SynNumber(start, value, suffix);
-	}
-
 	if(ctx.At(lex_semiquotedchar))
 		return new SynCharacter(start, ctx.Consume());
 
@@ -639,6 +646,9 @@ SynBase* ParseTerminal(ParseContext &ctx)
 
 		return new SynUnaryOp(start, type, value);
 	}
+
+	if(SynNumber *node = ParseNumber(ctx))
+		return node;
 
 	if(SynNew *node = ParseNew(ctx))
 		return node;
@@ -806,6 +816,57 @@ SynReturn* ParseReturn(ParseContext &ctx)
 		AssertConsume(ctx, lex_semicolon, "ERROR: return statement must be followed by ';'");
 
 		return new SynReturn(start, value);
+	}
+
+	return NULL;
+}
+
+SynYield* ParseYield(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_yield))
+	{
+		// Optional
+		SynBase *value = ParseAssignment(ctx);
+
+		AssertConsume(ctx, lex_semicolon, "ERROR: yield statement must be followed by ';'");
+
+		return new SynYield(start, value);
+	}
+
+	return NULL;
+}
+
+SynBreak* ParseBreak(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_break))
+	{
+		// Optional
+		SynNumber *node = ParseNumber(ctx);
+
+		AssertConsume(ctx, lex_semicolon, "ERROR: break statement must be followed by ';'");
+
+		return new SynBreak(start, node);
+	}
+
+	return NULL;
+}
+
+SynContinue* ParseContinue(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_break))
+	{
+		// Optional
+		SynNumber *node = ParseNumber(ctx);
+
+		AssertConsume(ctx, lex_semicolon, "ERROR: break statement must be followed by ';'");
+
+		return new SynContinue(start, node);
 	}
 
 	return NULL;
@@ -999,6 +1060,15 @@ SynBase* ParseExpression(ParseContext &ctx)
 
 	if(ctx.At(lex_return))
 		return ParseReturn(ctx);
+
+	if(ctx.At(lex_yield))
+		return ParseYield(ctx);
+
+	if(ctx.At(lex_break))
+		return ParseBreak(ctx);
+
+	if(ctx.At(lex_continue))
+		return ParseContinue(ctx);
 
 	if(ctx.At(lex_typedef))
 		return ParseTypedef(ctx);

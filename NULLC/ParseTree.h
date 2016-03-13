@@ -280,6 +280,33 @@ struct SynReturn: SynBase
 	SynBase *value;
 };
 
+struct SynYield: SynBase
+{
+	SynYield(const char* pos, SynBase* value): SynBase(pos), value(value)
+	{
+	}
+
+	SynBase *value;
+};
+
+struct SynBreak: SynBase
+{
+	SynBreak(const char* pos, SynNumber* number): SynBase(pos), number(number)
+	{
+	}
+
+	SynNumber* number;
+};
+
+struct SynContinue: SynBase
+{
+	SynContinue(const char* pos, SynNumber* number): SynBase(pos), number(number)
+	{
+	}
+
+	SynNumber* number;
+};
+
 enum SynUnaryOpType
 {
 	SYN_UNARY_OP_UNKNOWN,
