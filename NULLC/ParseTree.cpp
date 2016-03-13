@@ -895,6 +895,22 @@ SynTypedef* ParseTypedef(ParseContext &ctx)
 	return NULL;
 }
 
+SynBlock* ParseBlock(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_ofigure))
+	{
+		IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
+
+		AssertConsume(ctx, lex_cfigure, "ERROR: closing '}' not found");
+
+		return new SynBlock(start, expressions);
+	}
+
+	return NULL;
+}
+
 SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -1072,6 +1088,9 @@ SynBase* ParseExpression(ParseContext &ctx)
 
 	if(ctx.At(lex_typedef))
 		return ParseTypedef(ctx);
+
+	if(ctx.At(lex_ofigure))
+		return ParseBlock(ctx);
 
 	if(SynBase *node = ParseFunctionDefinition(ctx))
 		return node;

@@ -307,6 +307,15 @@ struct SynContinue: SynBase
 	SynNumber* number;
 };
 
+struct SynBlock: SynBase
+{
+	SynBlock(const char* pos, IntrusiveList<SynBase> expressions): SynBase(pos), expressions(expressions)
+	{
+	}
+
+	IntrusiveList<SynBase> expressions;
+};
+
 enum SynUnaryOpType
 {
 	SYN_UNARY_OP_UNKNOWN,
