@@ -843,13 +843,18 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function variable list");
 
+		IntrusiveList<SynBase> expressions;
+
+		if(ctx.Consume(lex_semicolon))
+			return new SynFunctionDefinition(start, true, returnType, name, arguments, expressions);
+
 		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after function header");
 
-		IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
+		expressions = ParseExpressions(ctx);
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after function body");
 
-		return new SynFunctionDefinition(start, returnType, name, arguments, expressions);
+		return new SynFunctionDefinition(start, false, returnType, name, arguments, expressions);
 	}
 
 	return NULL;
