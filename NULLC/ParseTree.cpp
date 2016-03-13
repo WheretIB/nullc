@@ -55,6 +55,23 @@ namespace
 	}
 }
 
+SynUnaryOpType GetUnaryOpType(LexemeType type)
+{
+	switch(type)
+	{
+	case lex_add:
+		return SYN_UNARY_OP_PLUS;
+	case lex_sub:
+		return SYN_UNARY_OP_NEGATE;
+	case lex_bitnot:
+		return SYN_UNARY_OP_BIT_NOT;
+	case lex_lognot:
+		return SYN_UNARY_OP_LOGICAL_NOT;
+	}
+
+	return SYN_UNARY_OP_UNKNOWN;
+}
+
 SynBinaryOpType GetBinaryOpType(LexemeType type)
 {
 	switch(type)
@@ -436,6 +453,18 @@ SynBase* ParseTerminal(ParseContext &ctx)
 
 	if(ctx.Consume(lex_nullptr))
 		return new SynNullptr(start);
+
+	if(SynUnaryOpType type = GetUnaryOpType(ctx.Peek()))
+	{
+		InplaceStr name = ctx.Consume();
+
+		SynBase *value = ParseTerminal(ctx);
+
+		if(!value)
+			Stop(ctx, ctx.Position(), "ERROR: expression not found after '%.*s'", name.length(), name.begin);
+
+		return new SynUnaryOp(start, type, value);
+	}
 
 	if(ctx.Consume(lex_oparen))
 	{

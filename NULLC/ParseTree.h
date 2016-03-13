@@ -199,6 +199,26 @@ struct SynTypedef: SynBase
 	InplaceStr alias;
 };
 
+enum SynUnaryOpType
+{
+	SYN_UNARY_OP_UNKNOWN,
+
+	SYN_UNARY_OP_PLUS,
+	SYN_UNARY_OP_NEGATE,
+	SYN_UNARY_OP_BIT_NOT,
+	SYN_UNARY_OP_LOGICAL_NOT,
+};
+
+struct SynUnaryOp: SynBase
+{
+	SynUnaryOp(const char* pos, SynUnaryOpType type, SynBase* value): SynBase(pos), type(type), value(value)
+	{
+	}
+
+	SynUnaryOpType type;
+	SynBase* value;
+};
+
 enum SynBinaryOpType
 {
 	SYN_BINARY_OP_UNKNOWN,
