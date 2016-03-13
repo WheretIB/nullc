@@ -326,6 +326,39 @@ SynType* ParseType(ParseContext &ctx)
 	return base;
 }
 
+SynArray* ParseArray(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_ofigure))
+	{
+		IntrusiveList<SynBase> values;
+
+		SynBase *value = ParseTernaryExpr(ctx);
+
+		if(!value)
+			Stop(ctx, ctx.Position(), "ERROR: value not found after '{'");
+
+		values.push_back(value);
+
+		while(ctx.Consume(lex_comma))
+		{
+			value = ParseTernaryExpr(ctx);
+
+			if(!value)
+				Stop(ctx, ctx.Position(), "ERROR: value not found after ','");
+
+			values.push_back(value);
+		}
+
+		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after inline array");
+
+		return new SynArray(start, values);
+	}
+
+	return NULL;
+}
+
 SynCallArgument* ParseCallArgument(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -442,6 +475,9 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 
 	if(!node && ctx.At(lex_quotedstring))
 		node = new SynString(start, ctx.Consume());
+
+	if(!node && ctx.At(lex_ofigure))
+		node = ParseArray(ctx);
 
 	if(!node)
 		return NULL;
