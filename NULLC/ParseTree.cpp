@@ -204,6 +204,7 @@ const char* ParseContext::Position()
 }
 
 SynBase* ParseTernaryExpr(ParseContext &ctx);
+SynBase* ParseAssignment(ParseContext &ctx);
 
 SynType* ParseTerminalType(ParseContext &ctx)
 {
@@ -288,6 +289,25 @@ SynBase* ParseTerminal(ParseContext &ctx)
 
 	if(ctx.Consume(lex_nullptr))
 		return new SynNullptr(start);
+
+	if(ctx.Consume(lex_oparen))
+	{
+		SynBase *value = ParseAssignment(ctx);
+
+		if(!value)
+			Stop(ctx, ctx.Position(), "ERROR: expression not found after '('");
+
+		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after '('");
+
+		return value;
+	}
+
+	if(ctx.At(lex_string))
+	{
+		InplaceStr name = ctx.Consume();
+
+		return new SynVariable(start, name);
+	}
 
 	return NULL;
 }
@@ -467,6 +487,13 @@ SynBase* ParseExpression(ParseContext &ctx)
 	if(SynBase *node = ParseVariableDefinitions(ctx))
 		return node;
 	
+	if(SynBase *node = ParseAssignment(ctx))
+	{
+		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after expression");
+
+		return node;
+	}
+
 	return NULL;
 }
 

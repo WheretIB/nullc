@@ -131,6 +131,15 @@ struct SynNullptr: SynBase
 	}
 };
 
+struct SynVariable: SynBase
+{
+	SynVariable(const char* pos, InplaceStr name): SynBase(pos), name(name)
+	{
+	}
+
+	InplaceStr name;
+};
+
 struct SynReturn: SynBase
 {
 	SynReturn(const char* pos, SynBase* value): SynBase(pos), value(value)
