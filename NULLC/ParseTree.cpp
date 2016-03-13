@@ -614,7 +614,16 @@ SynBase* ParseTerminal(ParseContext &ctx)
 	}
 
 	if(ctx.At(lex_number))
-		return new SynNumber(start, ctx.Consume());
+	{
+		InplaceStr value = ctx.Consume();
+
+		InplaceStr suffix;
+
+		if(ctx.At(lex_string))
+			suffix = ctx.Consume();
+
+		return new SynNumber(start, value, suffix);
+	}
 
 	if(ctx.At(lex_semiquotedchar))
 		return new SynCharacter(start, ctx.Consume());

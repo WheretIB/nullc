@@ -122,11 +122,12 @@ struct SynBool: SynBase
 
 struct SynNumber: SynBase
 {
-	SynNumber(const char* pos, InplaceStr value): SynBase(pos), value(value)
+	SynNumber(const char* pos, InplaceStr value, InplaceStr suffix): SynBase(pos), value(value), suffix(suffix)
 	{
 	}
 
 	InplaceStr value;
+	InplaceStr suffix;
 };
 
 struct SynNullptr: SynBase
