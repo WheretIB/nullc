@@ -251,6 +251,18 @@ const char* ParseContext::Position()
 	return currentLexeme->pos;
 }
 
+char* ParseContext::AllocString(const char *pos, const char *category, unsigned length)
+{
+	if(length + 1 >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+		Stop(*this, pos, "ERROR: %s name length is limited to %d symbols", category, NULLC_MAX_VARIABLE_NAME_LENGTH);
+
+	char *result = (char*)stringPool.Allocate(length + 1);
+
+	result[length] = 0;
+
+	return result;
+}
+
 SynBase* ParseTernaryExpr(ParseContext &ctx);
 SynBase* ParseAssignment(ParseContext &ctx);
 SynTypedef* ParseTypedef(ParseContext &ctx);
@@ -907,9 +919,30 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 	{
 		AssertAt(ctx, lex_string, "ERROR: string expected after import");
 
-		Stop(ctx, start, "ERROR: not implemented");
+		InplaceStr part = ctx.Consume();
 
-		return NULL;
+		char *fullName = ctx.AllocString(start, "module", part.length());
+		memcpy(fullName, part.begin, part.length());
+
+		while(ctx.Consume(lex_point))
+		{
+			AssertAt(ctx, lex_string, "ERROR: string expected after '.'");
+
+			part = ctx.Consume();
+
+			unsigned lastLength = strlen(fullName);
+
+			char *nextName = ctx.AllocString(start, "module", lastLength + 1 + part.length());
+			strcpy(nextName, fullName);
+			nextName[lastLength] = '.';
+			memcpy(nextName + lastLength + 1, part.begin, part.length());
+
+			fullName = nextName;
+		}
+
+		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after import expression");
+
+		return new SynModuleImport(start, InplaceStr(fullName));
 	}
 
 	return NULL;
