@@ -250,6 +250,15 @@ struct SynDereference: SynBase
 	SynBase* value;
 };
 
+struct SynSizeof: SynBase
+{
+	SynSizeof(const char* pos, SynBase* value): SynBase(pos), value(value)
+	{
+	}
+
+	SynBase* value;
+};
+
 struct SynNew: SynBase
 {
 	SynNew(const char* pos, SynType *type, IntrusiveList<SynCallArgument> arguments, SynBase *count): SynBase(pos), type(type), arguments(arguments), count(count)

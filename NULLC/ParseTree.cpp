@@ -374,6 +374,27 @@ SynArray* ParseArray(ParseContext &ctx)
 	return NULL;
 }
 
+SynBase* ParseSizeof(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_sizeof))
+	{
+		AssertConsume(ctx, lex_oparen, "ERROR: sizeof must be followed by '('");
+
+		SynBase *value = ParseAssignment(ctx);
+
+		if(!value)
+			Stop(ctx, ctx.Position(), "ERROR: expression or type not found after sizeof(");
+
+		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after expression in sizeof");
+
+		return new SynSizeof(start, value);
+	}
+
+	return NULL;
+}
+
 SynNew* ParseNew(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -611,6 +632,9 @@ SynBase* ParseTerminal(ParseContext &ctx)
 	}
 
 	if(SynNew *node = ParseNew(ctx))
+		return node;
+
+	if(SynBase *node = ParseSizeof(ctx))
 		return node;
 
 	if(SynBase *node = ParseComplexTerminal(ctx))
