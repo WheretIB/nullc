@@ -150,9 +150,9 @@ struct SynMemberAccess: SynBase
 	InplaceStr member;
 };
 
-struct SynArgument: SynBase
+struct SynCallArgument: SynBase
 {
-	SynArgument(const char* pos, InplaceStr name, SynBase* value): SynBase(pos), name(name), value(value)
+	SynCallArgument(const char* pos, InplaceStr name, SynBase* value): SynBase(pos), name(name), value(value)
 	{
 	}
 
@@ -162,22 +162,22 @@ struct SynArgument: SynBase
 
 struct SynArrayIndex: SynBase
 {
-	SynArrayIndex(const char* pos, SynBase* value, IntrusiveList<SynArgument> arguments): SynBase(pos), value(value), arguments(arguments)
+	SynArrayIndex(const char* pos, SynBase* value, IntrusiveList<SynCallArgument> arguments): SynBase(pos), value(value), arguments(arguments)
 	{
 	}
 
 	SynBase* value;
-	IntrusiveList<SynArgument> arguments;
+	IntrusiveList<SynCallArgument> arguments;
 };
 
 struct SynFunctionCall: SynBase
 {
-	SynFunctionCall(const char* pos, SynBase* value, IntrusiveList<SynArgument> arguments): SynBase(pos), value(value), arguments(arguments)
+	SynFunctionCall(const char* pos, SynBase* value, IntrusiveList<SynCallArgument> arguments): SynBase(pos), value(value), arguments(arguments)
 	{
 	}
 
 	SynBase* value;
-	IntrusiveList<SynArgument> arguments;
+	IntrusiveList<SynCallArgument> arguments;
 };
 
 struct SynReturn: SynBase
@@ -270,6 +270,29 @@ struct SynVariableDefinitions: SynBase
 
 	SynType *type;
 	IntrusiveList<SynVariableDefinition> definitions;
+};
+
+struct SynFunctionArgument: SynBase
+{
+	SynFunctionArgument(const char* pos, SynType* type, InplaceStr name, SynBase* defaultValue): SynBase(pos), type(type), name(name), defaultValue(defaultValue)
+	{
+	}
+
+	SynType* type;
+	InplaceStr name;
+	SynBase* defaultValue;
+};
+
+struct SynFunctionDefinition: SynBase
+{
+	SynFunctionDefinition(const char* pos, SynType *returnType, InplaceStr name, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(pos), returnType(returnType), name(name), arguments(arguments), expressions(expressions)
+	{
+	}
+
+	SynType *returnType;
+	InplaceStr name;
+	IntrusiveList<SynFunctionArgument> arguments;
+	IntrusiveList<SynBase> expressions;
 };
 
 struct SynModuleImport: SynBase

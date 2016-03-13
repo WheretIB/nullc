@@ -206,6 +206,8 @@ const char* ParseContext::Position()
 SynBase* ParseTernaryExpr(ParseContext &ctx);
 SynBase* ParseAssignment(ParseContext &ctx);
 
+IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx);
+
 SynType* ParseTerminalType(ParseContext &ctx)
 {
 	if(ctx.At(lex_string))
@@ -288,7 +290,7 @@ SynBase* ParseIdentifier(ParseContext &ctx)
 	return NULL;
 }
 
-SynArgument* ParseArgument(ParseContext &ctx)
+SynCallArgument* ParseCallArgument(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
 
@@ -305,7 +307,7 @@ SynArgument* ParseArgument(ParseContext &ctx)
 			if(!value)
 				Stop(ctx, ctx.Position(), "ERROR: expression not found after ':' in function parameter list");
 
-			return new SynArgument(start, name, value);
+			return new SynCallArgument(start, name, value);
 		}
 		else
 		{
@@ -316,23 +318,23 @@ SynArgument* ParseArgument(ParseContext &ctx)
 
 	if(SynBase *value = ParseAssignment(ctx))
 	{
-		return new SynArgument(start, InplaceStr(), value);
+		return new SynCallArgument(start, InplaceStr(), value);
 	}
 
 	return NULL;
 }
 
-IntrusiveList<SynArgument> ParseArguments(ParseContext &ctx)
+IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx)
 {
-	IntrusiveList<SynArgument> arguments;
+	IntrusiveList<SynCallArgument> arguments;
 
-	if(SynArgument *argument = ParseArgument(ctx))
+	if(SynCallArgument *argument = ParseCallArgument(ctx))
 	{
 		arguments.push_back(argument);
 
 		while(ctx.Consume(lex_comma))
 		{
-			argument = ParseArgument(ctx);
+			argument = ParseCallArgument(ctx);
 
 			if(!argument)
 				Stop(ctx, ctx.Position(), "ERROR: expression not found after ',' in function parameter list");
@@ -362,7 +364,7 @@ SynBase* ParseSubIdentifier(ParseContext &ctx)
 			}
 			else if(ctx.Consume(lex_obracket))
 			{
-				IntrusiveList<SynArgument> arguments = ParseArguments(ctx);
+				IntrusiveList<SynCallArgument> arguments = ParseCallArguments(ctx);
 
 				AssertConsume(ctx, lex_cbracket, "ERROR: ']' not found after expression");
 
@@ -370,7 +372,7 @@ SynBase* ParseSubIdentifier(ParseContext &ctx)
 			}
 			else if(ctx.Consume(lex_oparen))
 			{
-				IntrusiveList<SynArgument> arguments = ParseArguments(ctx);
+				IntrusiveList<SynCallArgument> arguments = ParseCallArguments(ctx);
 
 				AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function parameter list");
 
@@ -584,6 +586,95 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx)
 	return NULL;
 }
 
+SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, SynType *lastType)
+{
+	SynType *type = ParseType(ctx);
+
+	if(!type)
+		type = lastType;
+
+	if(type)
+	{
+		AssertAt(ctx, lex_string, "ERROR: variable name not found after type in function variable list");
+
+		const char *start = ctx.Position();
+		InplaceStr name = ctx.Consume();
+
+		SynBase *defaultValue = NULL;
+
+		if(ctx.Consume(lex_set))
+		{
+			defaultValue = ParseTernaryExpr(ctx);
+
+			if(!defaultValue)
+				Stop(ctx, ctx.Position(), "ERROR: default parameter value not found after '='");
+		}
+
+		return new SynFunctionArgument(start, type, name, defaultValue);
+	}
+
+	return NULL;
+}
+
+IntrusiveList<SynFunctionArgument> ParseFunctionArguments(ParseContext &ctx)
+{
+	IntrusiveList<SynFunctionArgument> arguments;
+
+	if(SynFunctionArgument *argument = ParseFunctionArgument(ctx, NULL))
+	{
+		arguments.push_back(argument);
+
+		while(ctx.Consume(lex_comma))
+		{
+			argument = ParseFunctionArgument(ctx, arguments.tail->type);
+
+			if(!argument)
+				Stop(ctx, ctx.Position(), "ERROR: expression not found after ',' in function parameter list");
+
+			arguments.push_back(argument);
+		}
+	}
+
+	return arguments;
+}
+
+SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	Lexeme *lexeme = ctx.currentLexeme;
+
+	if(SynType *returnType = ParseType(ctx))
+	{
+		InplaceStr name;
+
+		if(ctx.At(lex_string))
+			name = ctx.Consume();
+
+		if(name.begin == NULL || !ctx.Consume(lex_oparen))
+		{
+			// Backtrack
+			ctx.currentLexeme = lexeme;
+
+			return NULL;
+		}
+
+		IntrusiveList<SynFunctionArgument> arguments = ParseFunctionArguments(ctx);
+
+		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function variable list");
+
+		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after function header");
+
+		IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
+
+		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after function body");
+
+		return new SynFunctionDefinition(start, returnType, name, arguments, expressions);
+	}
+
+	return NULL;
+}
+
 SynBase* ParseExpression(ParseContext &ctx)
 {
 	//const char *start = ctx.Position();
@@ -594,9 +685,12 @@ SynBase* ParseExpression(ParseContext &ctx)
 	if(ctx.At(lex_typedef))
 		return ParseTypedef(ctx);
 
+	if(SynBase *node = ParseFunctionDefinition(ctx))
+		return node;
+
 	if(SynBase *node = ParseVariableDefinitions(ctx))
 		return node;
-	
+
 	if(SynBase *node = ParseAssignment(ctx))
 	{
 		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after expression");
@@ -605,6 +699,16 @@ SynBase* ParseExpression(ParseContext &ctx)
 	}
 
 	return NULL;
+}
+
+IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx)
+{
+	IntrusiveList<SynBase> expressions;
+
+	while(SynBase* expression = ParseExpression(ctx))
+		expressions.push_back(expression);
+
+	return expressions;
 }
 
 SynModuleImport* ParseImport(ParseContext &ctx)
@@ -623,19 +727,23 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 	return NULL;
 }
 
-SynBase* ParseModule(ParseContext &ctx)
+IntrusiveList<SynModuleImport> ParseImports(ParseContext &ctx)
 {
-	const char *start = ctx.Position();
-
 	IntrusiveList<SynModuleImport> imports;
 
 	while(SynModuleImport *import = ParseImport(ctx))
 		imports.push_back(import);
 
-	IntrusiveList<SynBase> expressions;
+	return imports;
+}
 
-	while(SynBase* expression = ParseExpression(ctx))
-		expressions.push_back(expression);
+SynBase* ParseModule(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	IntrusiveList<SynModuleImport> imports = ParseImports(ctx);
+
+	IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
 
 	return new SynModule(start, imports, expressions);
 }
