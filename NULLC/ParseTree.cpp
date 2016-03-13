@@ -203,7 +203,9 @@ const char* ParseContext::Position()
 	return currentLexeme->pos;
 }
 
-SynType* ParseType(ParseContext &ctx)
+SynBase* ParseTernaryExpr(ParseContext &ctx);
+
+SynType* ParseTerminalType(ParseContext &ctx)
 {
 	if(ctx.At(lex_string))
 	{
@@ -212,7 +214,63 @@ SynType* ParseType(ParseContext &ctx)
 		return new SynTypeSimple(name);
 	}
 
+	if(ctx.Consume(lex_auto))
+		return new SynTypeAuto();
+
+	if(ctx.Consume(lex_generic))
+		return new SynTypeGeneric();
+
 	return NULL;
+}
+
+SynType* ParseType(ParseContext &ctx)
+{
+	SynType *base = ParseTerminalType(ctx);
+	
+	if(!base)
+		return NULL;
+
+	while(ctx.At(lex_obracket) || ctx.At(lex_ref))
+	{
+		if(ctx.Consume(lex_obracket))
+		{
+			SynBase *size = ParseTernaryExpr(ctx);
+
+			AssertConsume(ctx, lex_cbracket, "ERROR: matching ']' not found");
+
+			base = new SynTypeArray(base, size);
+		}
+		else if(ctx.Consume(lex_ref))
+		{
+			if(ctx.Consume(lex_oparen))
+			{
+				IntrusiveList<SynType> arguments;
+
+				if(SynType *argument = ParseType(ctx))
+				{
+					arguments.push_back(argument);
+
+					while(ctx.Consume(lex_comma))
+					{
+						argument = ParseType(ctx);
+
+						if(!argument)
+							Stop(ctx, ctx.Position(), "ERROR: type is expected after ','");
+
+						arguments.push_back(argument);
+					}
+				}
+
+				base = new SynTypeFunction(base, arguments);
+			}
+			else
+			{
+				base = new SynTypeReference(base);
+			}
+		}
+	}
+
+	return base;
 }
 
 SynBase* ParseTerminal(ParseContext &ctx)

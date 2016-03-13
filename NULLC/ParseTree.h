@@ -4,6 +4,7 @@
 #include "IntrusiveList.h"
 #include "Array.h"
 
+struct SynBase;
 struct SynBinaryOpElement;
 
 struct ParseContext
@@ -28,6 +29,29 @@ struct ParseContext
 
 struct SynType
 {
+	SynType(): next(0)
+	{
+	}
+
+	virtual ~SynType()
+	{
+	}
+
+	SynType *next;
+};
+
+struct SynTypeAuto: SynType
+{
+	SynTypeAuto(): SynType()
+	{
+	}
+};
+
+struct SynTypeGeneric: SynType
+{
+	SynTypeGeneric(): SynType()
+	{
+	}
 };
 
 struct SynTypeSimple: SynType
@@ -39,9 +63,42 @@ struct SynTypeSimple: SynType
 	InplaceStr name;
 };
 
+struct SynTypeArray: SynType
+{
+	SynTypeArray(SynType *type, SynBase *size): SynType(), type(type), size(size)
+	{
+	}
+
+	SynType *type;
+	SynBase *size;
+};
+
+struct SynTypeReference: SynType
+{
+	SynTypeReference(SynType *type): SynType(), type(type)
+	{
+	}
+
+	SynType *type;
+};
+
+struct SynTypeFunction: SynType
+{
+	SynTypeFunction(SynType *returnType, IntrusiveList<SynType> arguments): SynType(), returnType(returnType), arguments(arguments)
+	{
+	}
+
+	SynType *returnType;
+	IntrusiveList<SynType> arguments;
+};
+
 struct SynBase
 {
 	SynBase(const char *pos): pos(pos), next(0)
+	{
+	}
+
+	virtual ~SynBase()
 	{
 	}
 
