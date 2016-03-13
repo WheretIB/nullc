@@ -269,6 +269,7 @@ SynTypedef* ParseTypedef(ParseContext &ctx);
 IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx);
 SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx);
 SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx);
+IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx);
 
 SynType* ParseTerminalType(ParseContext &ctx)
 {
@@ -368,6 +369,58 @@ SynArray* ParseArray(ParseContext &ctx)
 		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after inline array");
 
 		return new SynArray(start, values);
+	}
+
+	return NULL;
+}
+
+SynNew* ParseNew(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_new))
+	{
+		SynType *type = NULL;
+
+		if(ctx.Consume(lex_oparen))
+		{
+			type = ParseType(ctx);
+
+			if(!type)
+				Stop(ctx, ctx.Position(), "ERROR: type name expected after 'new'");
+
+			AssertConsume(ctx, lex_cparen, "ERROR: matching ')' not found after '('");
+		}
+		else
+		{
+			type = ParseType(ctx);
+
+			if(!type)
+				Stop(ctx, ctx.Position(), "ERROR: type name expected after 'new'");
+		}
+
+		IntrusiveList<SynCallArgument> arguments;
+
+		if(ctx.Consume(lex_obracket))
+		{
+			SynBase *count = ParseTernaryExpr(ctx);
+
+			if(!count)
+				Stop(ctx, ctx.Position(), "ERROR: expression not found after '['");
+
+			AssertConsume(ctx, lex_cbracket, "ERROR: ']' not found after expression");
+
+			return new SynNew(start, type, arguments, count);
+		}
+
+		if(ctx.Consume(lex_oparen))
+		{
+			arguments = ParseCallArguments(ctx);
+
+			AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function parameter list");
+		}
+		
+		return new SynNew(start, type, arguments, NULL);
 	}
 
 	return NULL;
@@ -529,6 +582,9 @@ SynBase* ParseTerminal(ParseContext &ctx)
 
 		return new SynUnaryOp(start, type, value);
 	}
+
+	if(SynNew *node = ParseNew(ctx))
+		return node;
 
 	if(SynBase *node = ParseComplexTerminal(ctx))
 		return node;

@@ -222,6 +222,17 @@ struct SynFunctionCall: SynBase
 	IntrusiveList<SynCallArgument> arguments;
 };
 
+struct SynNew: SynBase
+{
+	SynNew(const char* pos, SynType *type, IntrusiveList<SynCallArgument> arguments, SynBase *count): SynBase(pos), type(type), arguments(arguments), count(count)
+	{
+	}
+
+	SynType *type;
+	IntrusiveList<SynCallArgument> arguments;
+	SynBase *count;
+};
+
 struct SynReturn: SynBase
 {
 	SynReturn(const char* pos, SynBase* value): SynBase(pos), value(value)
