@@ -222,6 +222,16 @@ struct SynFunctionCall: SynBase
 	IntrusiveList<SynCallArgument> arguments;
 };
 
+struct SynPostModify: SynBase
+{
+	SynPostModify(const char* pos, SynBase* value, bool isIncrement): SynBase(pos), value(value), isIncrement(isIncrement)
+	{
+	}
+
+	SynBase* value;
+	bool isIncrement;
+};
+
 struct SynGetAddress: SynBase
 {
 	SynGetAddress(const char* pos, SynBase* value): SynBase(pos), value(value)

@@ -518,6 +518,13 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 		}
 	}
 
+	const char *pos = ctx.Position();
+
+	if(ctx.Consume(lex_inc))
+		node = new SynPostModify(pos, node, true);
+	else if(ctx.Consume(lex_dec))
+		node = new SynPostModify(pos, node, false);
+
 	return node;
 }
 
