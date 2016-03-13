@@ -418,6 +418,7 @@ SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
+	Lexeme *lexeme = ctx.currentLexeme;
 
 	if(SynType *type = ParseType(ctx))
 	{
@@ -426,7 +427,12 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx)
 		SynVariableDefinition *definition = ParseVariableDefinition(ctx);
 
 		if(!definition)
+		{
+			// Backtrack
+			ctx.currentLexeme = lexeme;
+
 			return NULL;
+		}
 
 		definitions.push_back(definition);
 
