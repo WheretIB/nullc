@@ -131,13 +131,53 @@ struct SynNullptr: SynBase
 	}
 };
 
-struct SynVariable: SynBase
+struct SynIdentifier: SynBase
 {
-	SynVariable(const char* pos, InplaceStr name): SynBase(pos), name(name)
+	SynIdentifier(const char* pos, InplaceStr name): SynBase(pos), name(name)
 	{
 	}
 
 	InplaceStr name;
+};
+
+struct SynMemberAccess: SynBase
+{
+	SynMemberAccess(const char* pos, SynBase* value, InplaceStr member): SynBase(pos), value(value), member(member)
+	{
+	}
+
+	SynBase* value;
+	InplaceStr member;
+};
+
+struct SynArgument: SynBase
+{
+	SynArgument(const char* pos, InplaceStr name, SynBase* value): SynBase(pos), name(name), value(value)
+	{
+	}
+
+	InplaceStr name;
+	SynBase* value;
+};
+
+struct SynArrayIndex: SynBase
+{
+	SynArrayIndex(const char* pos, SynBase* value, IntrusiveList<SynArgument> arguments): SynBase(pos), value(value), arguments(arguments)
+	{
+	}
+
+	SynBase* value;
+	IntrusiveList<SynArgument> arguments;
+};
+
+struct SynFunctionCall: SynBase
+{
+	SynFunctionCall(const char* pos, SynBase* value, IntrusiveList<SynArgument> arguments): SynBase(pos), value(value), arguments(arguments)
+	{
+	}
+
+	SynBase* value;
+	IntrusiveList<SynArgument> arguments;
 };
 
 struct SynReturn: SynBase

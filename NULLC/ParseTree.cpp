@@ -274,6 +274,120 @@ SynType* ParseType(ParseContext &ctx)
 	return base;
 }
 
+SynBase* ParseIdentifier(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.At(lex_string))
+	{
+		InplaceStr name = ctx.Consume();
+
+		return new SynIdentifier(start, name);
+	}
+
+	return NULL;
+}
+
+SynArgument* ParseArgument(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	Lexeme *lexeme = ctx.currentLexeme;
+
+	if(ctx.At(lex_string))
+	{
+		InplaceStr name = ctx.Consume();
+
+		if(ctx.Consume(lex_colon))
+		{
+			SynBase *value = ParseAssignment(ctx);
+
+			if(!value)
+				Stop(ctx, ctx.Position(), "ERROR: expression not found after ':' in function parameter list");
+
+			return new SynArgument(start, name, value);
+		}
+		else
+		{
+			// Backtrack
+			ctx.currentLexeme = lexeme;
+		}
+	}
+
+	if(SynBase *value = ParseAssignment(ctx))
+	{
+		return new SynArgument(start, InplaceStr(), value);
+	}
+
+	return NULL;
+}
+
+IntrusiveList<SynArgument> ParseArguments(ParseContext &ctx)
+{
+	IntrusiveList<SynArgument> arguments;
+
+	if(SynArgument *argument = ParseArgument(ctx))
+	{
+		arguments.push_back(argument);
+
+		while(ctx.Consume(lex_comma))
+		{
+			argument = ParseArgument(ctx);
+
+			if(!argument)
+				Stop(ctx, ctx.Position(), "ERROR: expression not found after ',' in function parameter list");
+
+			arguments.push_back(argument);
+		}
+	}
+
+	return arguments;
+}
+
+SynBase* ParseSubIdentifier(ParseContext &ctx)
+{
+	if(SynBase *node = ParseIdentifier(ctx))
+	{
+		while(ctx.At(lex_point) || ctx.At(lex_obracket) || ctx.At(lex_oparen))
+		{
+			const char *pos = ctx.Position();
+
+			if(ctx.Consume(lex_point))
+			{
+				AssertAt(ctx, lex_string, "ERROR: member name expected after '.'");
+
+				InplaceStr member = ctx.Consume();
+
+				node = new SynMemberAccess(pos, node, member);
+			}
+			else if(ctx.Consume(lex_obracket))
+			{
+				IntrusiveList<SynArgument> arguments = ParseArguments(ctx);
+
+				AssertConsume(ctx, lex_cbracket, "ERROR: ']' not found after expression");
+
+				node = new SynArrayIndex(pos, node, arguments);
+			}
+			else if(ctx.Consume(lex_oparen))
+			{
+				IntrusiveList<SynArgument> arguments = ParseArguments(ctx);
+
+				AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function parameter list");
+
+				node = new SynArrayIndex(pos, node, arguments);
+			}
+			else
+			{
+				Stop(ctx, ctx.Position(), "ERROR: not implemented");
+			}
+		}
+
+		return node;
+	}
+
+	return NULL;
+}
+
 SynBase* ParseTerminal(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -302,12 +416,8 @@ SynBase* ParseTerminal(ParseContext &ctx)
 		return value;
 	}
 
-	if(ctx.At(lex_string))
-	{
-		InplaceStr name = ctx.Consume();
-
-		return new SynVariable(start, name);
-	}
+	if(SynBase *node = ParseSubIdentifier(ctx))
+		return node;
 
 	return NULL;
 }
