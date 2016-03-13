@@ -327,6 +327,18 @@ struct SynIfElse: SynBase
 	SynBase* falseBlock;
 };
 
+struct SynFor: SynBase
+{
+	SynFor(const char* pos, SynBase* initializer, SynBase* condition, SynBase* increment, SynBase* body): SynBase(pos), initializer(initializer), condition(condition), increment(increment), body(body)
+	{
+	}
+
+	SynBase* initializer;
+	SynBase* condition;
+	SynBase* increment;
+	SynBase* body;
+};
+
 enum SynUnaryOpType
 {
 	SYN_UNARY_OP_UNKNOWN,

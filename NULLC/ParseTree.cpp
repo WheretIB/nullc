@@ -269,6 +269,7 @@ SynTypedef* ParseTypedef(ParseContext &ctx);
 SynBase* ParseExpression(ParseContext &ctx);
 IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx);
 SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx);
+SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx);
 SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx);
 IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx);
 
@@ -944,6 +945,57 @@ SynIfElse* ParseIfElse(ParseContext &ctx)
 	return NULL;
 }
 
+SynFor* ParseFor(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_for))
+	{
+		AssertConsume(ctx, lex_oparen, "ERROR: '(' not found after 'for'");
+
+		SynBase *initializer = NULL;
+
+		if(ctx.At(lex_ofigure))
+		{
+			initializer = ParseBlock(ctx);
+
+			AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after initializer in 'for'");
+		}
+		else if(SynBase *node = ParseVariableDefinitions(ctx))
+		{
+			initializer = node;
+		}
+		else if(SynBase *node = ParseAssignment(ctx))
+		{
+			initializer = node;
+
+			AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after initializer in 'for'");
+		}
+
+		SynBase *condition = ParseAssignment(ctx);
+
+		if(!condition)
+			Stop(ctx, ctx.Position(), "ERROR: condition not found in 'for' statement");
+
+		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after condition in 'for'");
+
+		SynBase *increment = NULL;
+
+		if(ctx.At(lex_ofigure))
+			increment = ParseBlock(ctx);
+		else if(SynBase *node = ParseAssignment(ctx))
+			increment = node;
+
+		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after 'for' statement");
+
+		SynBase *body = ParseExpression(ctx);
+
+		return new SynFor(start, initializer, condition, increment, body);
+	}
+
+	return NULL;
+}
+
 SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -1127,6 +1179,9 @@ SynBase* ParseExpression(ParseContext &ctx)
 
 	if(ctx.At(lex_if))
 		return ParseIfElse(ctx);
+
+	if(ctx.At(lex_for))
+		return ParseFor(ctx);
 
 	if(SynBase *node = ParseFunctionDefinition(ctx))
 		return node;
