@@ -253,8 +253,10 @@ const char* ParseContext::Position()
 
 SynBase* ParseTernaryExpr(ParseContext &ctx);
 SynBase* ParseAssignment(ParseContext &ctx);
-
+SynTypedef* ParseTypedef(ParseContext &ctx);
 IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx);
+SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx);
+SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx);
 
 SynType* ParseTerminalType(ParseContext &ctx)
 {
@@ -322,20 +324,6 @@ SynType* ParseType(ParseContext &ctx)
 	}
 
 	return base;
-}
-
-SynBase* ParseIdentifier(ParseContext &ctx)
-{
-	const char *start = ctx.Position();
-
-	if(ctx.At(lex_string))
-	{
-		InplaceStr name = ctx.Consume();
-
-		return new SynIdentifier(start, name);
-	}
-
-	return NULL;
 }
 
 SynCallArgument* ParseCallArgument(ParseContext &ctx)
@@ -437,7 +425,20 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
 
-	SynBase *node = ParseIdentifier(ctx);
+	SynBase *node = NULL;
+
+	if(ctx.Consume(lex_oparen))
+	{
+		node = ParseAssignment(ctx);
+
+		if(!node)
+			Stop(ctx, ctx.Position(), "ERROR: expression not found after '('");
+
+		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after '('");
+	}
+
+	if(!node && ctx.At(lex_string))
+		node = new SynIdentifier(start, ctx.Consume());
 
 	if(!node && ctx.At(lex_quotedstring))
 		node = new SynString(start, ctx.Consume());
@@ -477,18 +478,6 @@ SynBase* ParseTerminal(ParseContext &ctx)
 			Stop(ctx, ctx.Position(), "ERROR: expression not found after '%.*s'", name.length(), name.begin);
 
 		return new SynUnaryOp(start, type, value);
-	}
-
-	if(ctx.Consume(lex_oparen))
-	{
-		SynBase *value = ParseAssignment(ctx);
-
-		if(!value)
-			Stop(ctx, ctx.Position(), "ERROR: expression not found after '('");
-
-		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after '('");
-
-		return value;
 	}
 
 	if(SynBase *node = ParseComplexTerminal(ctx))
@@ -575,6 +564,65 @@ SynBase* ParseAssignment(ParseContext &ctx)
 		}
 
 		return lhs;
+	}
+
+	return NULL;
+}
+
+SynBase* ParseClassDefinition(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_class))
+	{
+		AssertAt(ctx, lex_string, "ERROR: class name expected");
+
+		InplaceStr name = ctx.Consume();
+
+		if(ctx.Consume(lex_semicolon))
+			return new SynClassPototype(start, name);
+
+		bool extendable = ctx.Consume(lex_extendable);
+
+		SynType *baseClass = NULL;
+
+		if(ctx.Consume(lex_colon))
+		{
+			baseClass = ParseType(ctx);
+
+			if(!baseClass)
+				Stop(ctx, ctx.Position(), "ERROR: base type name is expected at this point");
+		}
+
+		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after class name");
+
+		IntrusiveList<SynTypedef> typedefs;
+		IntrusiveList<SynFunctionDefinition> functions;
+		IntrusiveList<SynVariableDefinitions> members;
+
+		for(;;)
+		{
+			if(SynTypedef *node = ParseTypedef(ctx))
+			{
+				typedefs.push_back(node);
+			}
+			else if(SynFunctionDefinition *node = ParseFunctionDefinition(ctx))
+			{
+				functions.push_back(node);
+			}
+			else if(SynVariableDefinitions *node = ParseVariableDefinitions(ctx))
+			{
+				members.push_back(node);
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		AssertConsume(ctx, lex_cfigure, "ERROR: '{' not found after class name");
+
+		return new SynClassDefinition(start, name, extendable, baseClass, typedefs, functions, members);
 	}
 
 	return NULL;
@@ -774,6 +822,9 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 SynBase* ParseExpression(ParseContext &ctx)
 {
 	//const char *start = ctx.Position();
+
+	if(ctx.At(lex_class))
+		return ParseClassDefinition(ctx);
 
 	if(ctx.At(lex_return))
 		return ParseReturn(ctx);

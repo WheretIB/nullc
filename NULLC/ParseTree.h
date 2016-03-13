@@ -149,6 +149,15 @@ struct SynString: SynBase
 	InplaceStr value;
 };
 
+struct SynArray: SynBase
+{
+	SynArray(const char* pos, IntrusiveList<SynBase> values): SynBase(pos), values(values)
+	{
+	}
+
+	IntrusiveList<SynBase> values;
+};
+
 struct SynIdentifier: SynBase
 {
 	SynIdentifier(const char* pos, InplaceStr name): SynBase(pos), name(name)
@@ -156,6 +165,16 @@ struct SynIdentifier: SynBase
 	}
 
 	InplaceStr name;
+};
+
+struct SynTypedef: SynBase
+{
+	SynTypedef(const char* pos, SynType *type, InplaceStr alias): SynBase(pos), type(type), alias(alias)
+	{
+	}
+
+	SynType *type;
+	InplaceStr alias;
 };
 
 struct SynMemberAccess: SynBase
@@ -205,16 +224,6 @@ struct SynReturn: SynBase
 	}
 
 	SynBase *value;
-};
-
-struct SynTypedef: SynBase
-{
-	SynTypedef(const char* pos, SynType *type, InplaceStr alias): SynBase(pos), type(type), alias(alias)
-	{
-	}
-
-	SynType *type;
-	InplaceStr alias;
 };
 
 enum SynUnaryOpType
@@ -369,6 +378,29 @@ struct SynFunctionDefinition: SynBase
 	InplaceStr name;
 	IntrusiveList<SynFunctionArgument> arguments;
 	IntrusiveList<SynBase> expressions;
+};
+
+struct SynClassPototype: SynBase
+{
+	SynClassPototype(const char* pos, InplaceStr name): SynBase(pos), name(name)
+	{
+	}
+
+	InplaceStr name;
+};
+
+struct SynClassDefinition: SynBase
+{
+	SynClassDefinition(const char* pos, InplaceStr name, bool extendable, SynType *baseClass, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynVariableDefinitions> members): SynBase(pos), name(name), extendable(extendable), baseClass(baseClass), typedefs(typedefs), functions(functions), members(members)
+	{
+	}
+
+	InplaceStr name;
+	bool extendable;
+	SynType *baseClass;
+	IntrusiveList<SynTypedef> typedefs;
+	IntrusiveList<SynFunctionDefinition> functions;
+	IntrusiveList<SynVariableDefinitions> members;
 };
 
 struct SynModuleImport: SynBase
