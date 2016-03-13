@@ -266,6 +266,7 @@ char* ParseContext::AllocString(const char *pos, const char *category, unsigned 
 SynBase* ParseTernaryExpr(ParseContext &ctx);
 SynBase* ParseAssignment(ParseContext &ctx);
 SynTypedef* ParseTypedef(ParseContext &ctx);
+SynBase* ParseExpression(ParseContext &ctx);
 IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx);
 SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx);
 SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx);
@@ -911,6 +912,38 @@ SynBlock* ParseBlock(ParseContext &ctx)
 	return NULL;
 }
 
+SynIfElse* ParseIfElse(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_if))
+	{
+		AssertConsume(ctx, lex_oparen, "ERROR: '(' not found after 'if'");
+
+		SynBase *condition = ParseAssignment(ctx);
+
+		if(!condition)
+			Stop(ctx, ctx.Position(), "ERROR: condition not found in 'if' statement");
+
+		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after 'if' condition");
+
+		SynBase *trueBlock = ParseExpression(ctx);
+		SynBase *falseBlock = NULL;
+
+		if(ctx.Consume(lex_else))
+		{
+			falseBlock = ParseExpression(ctx);
+
+			if(!falseBlock)
+				Stop(ctx, ctx.Position(), "ERROR: expression not found after 'else'");
+		}
+
+		return new SynIfElse(start, condition, trueBlock, falseBlock);
+	}
+
+	return NULL;
+}
+
 SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -1091,6 +1124,9 @@ SynBase* ParseExpression(ParseContext &ctx)
 
 	if(ctx.At(lex_ofigure))
 		return ParseBlock(ctx);
+
+	if(ctx.At(lex_if))
+		return ParseIfElse(ctx);
 
 	if(SynBase *node = ParseFunctionDefinition(ctx))
 		return node;

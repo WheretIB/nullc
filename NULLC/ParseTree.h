@@ -316,6 +316,17 @@ struct SynBlock: SynBase
 	IntrusiveList<SynBase> expressions;
 };
 
+struct SynIfElse: SynBase
+{
+	SynIfElse(const char* pos, SynBase* condition, SynBase* trueBlock, SynBase* falseBlock): SynBase(pos), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
+	{
+	}
+
+	SynBase* condition;
+	SynBase* trueBlock;
+	SynBase* falseBlock;
+};
+
 enum SynUnaryOpType
 {
 	SYN_UNARY_OP_UNKNOWN,
