@@ -1116,12 +1116,19 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 	Lexeme *lexeme = ctx.currentLexeme;
 
+	bool coroutine = ctx.Consume(lex_coroutine);
+
 	if(SynType *returnType = ParseType(ctx))
 	{
 		InplaceStr name;
 
 		if(ctx.At(lex_string))
 			name = ctx.Consume();
+		else if(coroutine)
+			Stop(ctx, ctx.Position(), "ERROR: function name not found after return type");
+
+		if(coroutine)
+			AssertAt(ctx, lex_oparen, "ERROR: '(' expected after function name");
 
 		if(name.begin == NULL || !ctx.Consume(lex_oparen))
 		{
@@ -1138,7 +1145,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		IntrusiveList<SynBase> expressions;
 
 		if(ctx.Consume(lex_semicolon))
-			return new SynFunctionDefinition(start, true, returnType, name, arguments, expressions);
+			return new SynFunctionDefinition(start, true, coroutine, returnType, name, arguments, expressions);
 
 		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after function header");
 
@@ -1146,7 +1153,11 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after function body");
 
-		return new SynFunctionDefinition(start, false, returnType, name, arguments, expressions);
+		return new SynFunctionDefinition(start, false, coroutine, returnType, name, arguments, expressions);
+	}
+	else if(coroutine)
+	{
+		Stop(ctx, ctx.Position(), "ERROR: function return type not found after 'coroutine'");
 	}
 
 	return NULL;

@@ -483,11 +483,12 @@ struct SynFunctionArgument: SynBase
 
 struct SynFunctionDefinition: SynBase
 {
-	SynFunctionDefinition(const char* pos, bool prototype, SynType *returnType, InplaceStr name, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(pos), prototype(prototype), returnType(returnType), name(name), arguments(arguments), expressions(expressions)
+	SynFunctionDefinition(const char* pos, bool prototype, bool coroutine, SynType *returnType, InplaceStr name, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(pos), prototype(prototype), coroutine(coroutine), returnType(returnType), name(name), arguments(arguments), expressions(expressions)
 	{
 	}
 
 	bool prototype;
+	bool coroutine;
 	SynType *returnType;
 	InplaceStr name;
 	IntrusiveList<SynFunctionArgument> arguments;
