@@ -646,6 +646,9 @@ SynBase* ParseTerminal(ParseContext &ctx)
 	if(SynBase *node = ParseSizeof(ctx))
 		return node;
 
+	if(SynBase *node = ParseFunctionDefinition(ctx))
+		return node;
+
 	if(SynBase *node = ParseComplexTerminal(ctx))
 		return node;
 
