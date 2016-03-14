@@ -3,7 +3,6 @@
 #include "Lexer.h"
 #include "IntrusiveList.h"
 #include "Array.h"
-#include "Pool.h"
 
 struct SynBase;
 struct SynBinaryOpElement;
@@ -20,13 +19,9 @@ struct ParseContext
 
 	const char* Position();
 
-	char* AllocString(const char *pos, const char *category, unsigned length);
-
 	Lexeme *currentLexeme;
 
 	FastVector<SynBinaryOpElement> binaryOpStack;
-
-	ChunkedStackPool<8 * 1024> stringPool;
 
 	const char *errorPos;
 	InplaceStr errorMsg;
@@ -530,11 +525,11 @@ struct SynNamespaceDefinition: SynBase
 
 struct SynModuleImport: SynBase
 {
-	SynModuleImport(const char* pos, InplaceStr name): SynBase(pos), name(name)
+	SynModuleImport(const char* pos, IntrusiveList<SynIdentifier> path): SynBase(pos), path(path)
 	{
 	}
 
-	InplaceStr name;
+	IntrusiveList<SynIdentifier> path;
 };
 
 struct SynModule: SynBase
