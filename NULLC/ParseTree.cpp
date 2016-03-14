@@ -825,6 +825,41 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 	return NULL;
 }
 
+SynNamespaceDefinition* ParseNamespaceDefinition(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_namespace))
+	{
+		IntrusiveList<SynIdentifier> path;
+
+		AssertAt(ctx, lex_string, "ERROR: namespace name required");
+
+		const char *pos = ctx.Position();
+
+		path.push_back(new SynIdentifier(pos, ctx.Consume()));
+
+		while(ctx.Consume(lex_point))
+		{
+			AssertAt(ctx, lex_string, "ERROR: namespace name required after '.'");
+
+			pos = ctx.Position();
+
+			path.push_back(new SynIdentifier(pos, ctx.Consume()));
+		}
+
+		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after namespace name");
+
+		IntrusiveList<SynBase> code = ParseExpressions(ctx);
+
+		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after namespace body");
+
+		return new SynNamespaceDefinition(start, path, code);
+	}
+
+	return NULL;
+}
+
 SynReturn* ParseReturn(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -1188,6 +1223,9 @@ SynBase* ParseExpression(ParseContext &ctx)
 
 	if(ctx.At(lex_class))
 		return ParseClassDefinition(ctx);
+
+	if(ctx.At(lex_namespace))
+		return ParseNamespaceDefinition(ctx);
 
 	if(ctx.At(lex_return))
 		return ParseReturn(ctx);

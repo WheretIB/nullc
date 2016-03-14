@@ -518,6 +518,16 @@ struct SynClassDefinition: SynBase
 	IntrusiveList<SynVariableDefinitions> members;
 };
 
+struct SynNamespaceDefinition: SynBase
+{
+	SynNamespaceDefinition(const char* pos, IntrusiveList<SynIdentifier> path, IntrusiveList<SynBase> expressions): SynBase(pos), path(path), expressions(expressions)
+	{
+	}
+
+	IntrusiveList<SynIdentifier> path;
+	IntrusiveList<SynBase> expressions;
+};
+
 struct SynModuleImport: SynBase
 {
 	SynModuleImport(const char* pos, InplaceStr name): SynBase(pos), name(name)
