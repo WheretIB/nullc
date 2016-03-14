@@ -706,12 +706,31 @@ SynBase* ParseArithmetic(ParseContext &ctx)
 
 SynBase* ParseTernaryExpr(ParseContext &ctx)
 {
-	SynBase *condition = ParseArithmetic(ctx);
+	if(SynBase *value = ParseArithmetic(ctx))
+	{
+		const char *pos = ctx.Position();
 
-	if(!condition)
-		return NULL;
+		while(ctx.Consume(lex_questionmark))
+		{
+			SynBase *trueBlock = ParseAssignment(ctx);
 
-	return condition;
+			if(!trueBlock)
+				Stop(ctx, ctx.Position(), "ERROR: expression not found after '?'");
+
+			AssertConsume(ctx, lex_colon, "ERROR: ':' not found after expression in ternary operator");
+
+			SynBase *falseBlock = ParseAssignment(ctx);
+
+			if(!falseBlock)
+				Stop(ctx, ctx.Position(), "ERROR: expression not found after ':'");
+
+			value = new SynIfElse(pos, value, trueBlock, falseBlock);
+		}
+
+		return value;
+	}
+
+	return NULL;
 }
 
 SynBase* ParseAssignment(ParseContext &ctx)
