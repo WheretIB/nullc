@@ -42,6 +42,15 @@ struct SynBase
 	SynBase *next;
 };
 
+struct SynIdentifier: SynBase
+{
+	SynIdentifier(const char* pos, InplaceStr name): SynBase(pos), name(name)
+	{
+	}
+
+	InplaceStr name;
+};
+
 struct SynType: SynBase
 {
 	SynType(const char *pos): SynBase(pos)
@@ -99,6 +108,16 @@ struct SynTypeFunction: SynType
 
 	SynType *returnType;
 	IntrusiveList<SynType> arguments;
+};
+
+struct SynTypeGenericInstance: SynType
+{
+	SynTypeGenericInstance(const char *pos, InplaceStr name, IntrusiveList<SynType> types): SynType(pos), name(name), types(types)
+	{
+	}
+
+	InplaceStr name;
+	IntrusiveList<SynType> types;
 };
 
 struct SynTypeof: SynType
@@ -161,15 +180,6 @@ struct SynArray: SynBase
 	}
 
 	IntrusiveList<SynBase> values;
-};
-
-struct SynIdentifier: SynBase
-{
-	SynIdentifier(const char* pos, InplaceStr name): SynBase(pos), name(name)
-	{
-	}
-
-	InplaceStr name;
 };
 
 struct SynTypedef: SynBase
@@ -520,11 +530,12 @@ struct SynClassPototype: SynBase
 
 struct SynClassDefinition: SynBase
 {
-	SynClassDefinition(const char* pos, InplaceStr name, bool extendable, SynType *baseClass, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynAccessor> accessors, IntrusiveList<SynVariableDefinitions> members): SynBase(pos), name(name), extendable(extendable), baseClass(baseClass), typedefs(typedefs), functions(functions), accessors(accessors), members(members)
+	SynClassDefinition(const char* pos, InplaceStr name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynType *baseClass, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynAccessor> accessors, IntrusiveList<SynVariableDefinitions> members): SynBase(pos), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), typedefs(typedefs), functions(functions), accessors(accessors), members(members)
 	{
 	}
 
 	InplaceStr name;
+	IntrusiveList<SynIdentifier> aliases;
 	bool extendable;
 	SynType *baseClass;
 	IntrusiveList<SynTypedef> typedefs;

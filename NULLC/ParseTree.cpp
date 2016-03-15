@@ -273,6 +273,7 @@ const char* ParseContext::Position()
 	return currentLexeme->pos;
 }
 
+SynType* ParseType(ParseContext &ctx);
 SynBase* ParseTernaryExpr(ParseContext &ctx);
 SynBase* ParseAssignment(ParseContext &ctx);
 SynTypedef* ParseTypedef(ParseContext &ctx);
@@ -288,9 +289,55 @@ SynType* ParseTerminalType(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
 
+	Lexeme *lexeme = ctx.currentLexeme;
+
 	if(ctx.At(lex_string))
 	{
 		InplaceStr name = ctx.Consume();
+
+		if(ctx.Consume(lex_less))
+		{
+			IntrusiveList<SynType> types;
+
+			SynType *type = ParseType(ctx);
+
+			if(!type)
+			{
+				// Backtrack
+				ctx.currentLexeme = lexeme;
+
+				return NULL;
+			}
+
+			types.push_back(type);
+
+			while(ctx.Consume(lex_comma))
+			{
+				type = ParseType(ctx);
+
+				if(!type)
+					Stop(ctx, ctx.Position(), "ERROR: typename required after ','");
+
+				types.push_back(type);
+			}
+
+			if(!ctx.Consume(lex_greater))
+			{
+				if(types.size() > 1)
+				{
+					Stop(ctx, ctx.Position(), "ERROR: '>' expected after generic type alias list");
+				}
+				else
+				{
+					// Backtrack
+					ctx.currentLexeme = lexeme;
+
+					return NULL;
+				}
+			}
+
+			return new SynTypeGenericInstance(start, name, types);
+		}
 
 		return new SynTypeSimple(start, name);
 	}
@@ -808,6 +855,30 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 		if(ctx.Consume(lex_semicolon))
 			return new SynClassPototype(start, name);
 
+		IntrusiveList<SynIdentifier> aliases;
+
+		if(ctx.Consume(lex_less))
+		{
+			AssertAt(ctx, lex_string, "ERROR: generic type alias required after '<'");
+
+			const char *pos = ctx.Position();
+			InplaceStr alias = ctx.Consume();
+
+			aliases.push_back(new SynIdentifier(pos, alias));
+
+			while(ctx.Consume(lex_comma))
+			{
+				AssertAt(ctx, lex_string, "ERROR: generic type alias required after ','");
+
+				pos = ctx.Position();
+				alias = ctx.Consume();
+
+				aliases.push_back(new SynIdentifier(pos, alias));
+			}
+
+			AssertConsume(ctx, lex_greater, "ERROR: '>' expected after generic type alias list");
+		}
+
 		bool extendable = ctx.Consume(lex_extendable);
 
 		SynType *baseClass = NULL;
@@ -853,7 +924,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '{' not found after class name");
 
-		return new SynClassDefinition(start, name, extendable, baseClass, typedefs, functions, accessors, members);
+		return new SynClassDefinition(start, name, aliases, extendable, baseClass, typedefs, functions, accessors, members);
 	}
 
 	return NULL;

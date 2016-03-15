@@ -25,6 +25,22 @@ public:
 		}
 	}
 
+	unsigned size()
+	{
+		unsigned count = 0;
+
+		T *curr = head;
+
+		while(curr)
+		{
+			count++;
+
+			curr = static_cast<T*>(curr->next);
+		}
+
+		return count;
+	}
+
 	T *head;
 	T *tail;
 };
