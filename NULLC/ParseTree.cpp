@@ -1281,14 +1281,21 @@ SynAccessor* ParseAccessorDefinition(ParseContext &ctx)
 
 SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, SynType *lastType)
 {
-	SynType *type = ParseType(ctx);
+	Lexeme *lexeme = ctx.currentLexeme;
 
-	if(!type)
-		type = lastType;
-
-	if(type)
+	if(SynType *type = ParseType(ctx))
 	{
-		AssertAt(ctx, lex_string, "ERROR: variable name not found after type in function variable list");
+		if(!ctx.At(lex_string) && lastType)
+		{
+			// Backtrack
+			ctx.currentLexeme = lexeme;
+
+			type = lastType;
+		}
+		else
+		{
+			AssertAt(ctx, lex_string, "ERROR: variable name not found after type in function variable list");
+		}
 
 		const char *start = ctx.Position();
 		InplaceStr name = ctx.Consume();
