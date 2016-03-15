@@ -1379,19 +1379,19 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 			}
 		}
 
+		bool allowEmptyName = isType<SynTypeAuto>(returnType);
+
 		InplaceStr name;
 
 		if(ctx.At(lex_string))
 			name = ctx.Consume();
 		else if(parentType)
 			Stop(ctx, ctx.Position(), "ERROR: function name expected after ':' or '.'");
-		else if(coroutine)
+		else if(coroutine && !allowEmptyName)
 			Stop(ctx, ctx.Position(), "ERROR: function name not found after return type");
 
 		if(parentType || coroutine)
 			AssertAt(ctx, lex_oparen, "ERROR: '(' expected after function name");
-
-		bool allowEmptyName = isType<SynTypeAuto>(returnType);
 
 		if((name.begin == NULL && !allowEmptyName) || !ctx.Consume(lex_oparen))
 		{
