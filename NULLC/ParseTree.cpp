@@ -688,6 +688,9 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 		node = ParseArray(ctx);
 
 	if(!node)
+		node = ParseType(ctx);
+
+	if(!node)
 		return NULL;
 		
 	return ParsePostExpressions(ctx, node);
