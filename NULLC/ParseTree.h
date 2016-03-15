@@ -55,36 +55,27 @@ struct SynIdentifier: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
-struct SynType: SynBase
+struct SynTypeAuto: SynBase
 {
-	SynType(unsigned typeID, const char *pos): SynBase(typeID, pos)
+	SynTypeAuto(const char *pos): SynBase(myTypeID, pos)
 	{
 	}
 
 	static const unsigned myTypeID = __LINE__;
 };
 
-struct SynTypeAuto: SynType
+struct SynTypeGeneric: SynBase
 {
-	SynTypeAuto(const char *pos): SynType(myTypeID, pos)
+	SynTypeGeneric(const char *pos): SynBase(myTypeID, pos)
 	{
 	}
 
 	static const unsigned myTypeID = __LINE__;
 };
 
-struct SynTypeGeneric: SynType
+struct SynTypeSimple: SynBase
 {
-	SynTypeGeneric(const char *pos): SynType(myTypeID, pos)
-	{
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct SynTypeSimple: SynType
-{
-	SynTypeSimple(const char *pos, InplaceStr name): SynType(myTypeID, pos), name(name)
+	SynTypeSimple(const char *pos, InplaceStr name): SynBase(myTypeID, pos), name(name)
 	{
 	}
 
@@ -93,56 +84,56 @@ struct SynTypeSimple: SynType
 	static const unsigned myTypeID = __LINE__;
 };
 
-struct SynTypeArray: SynType
+struct SynTypeArray: SynBase
 {
-	SynTypeArray(const char *pos, SynType *type, SynBase *size): SynType(myTypeID, pos), type(type), size(size)
+	SynTypeArray(const char *pos, SynBase *type, SynBase *size): SynBase(myTypeID, pos), type(type), size(size)
 	{
 	}
 
-	SynType *type;
+	SynBase *type;
 	SynBase *size;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
-struct SynTypeReference: SynType
+struct SynTypeReference: SynBase
 {
-	SynTypeReference(const char *pos, SynType *type): SynType(myTypeID, pos), type(type)
+	SynTypeReference(const char *pos, SynBase *type): SynBase(myTypeID, pos), type(type)
 	{
 	}
 
-	SynType *type;
+	SynBase *type;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
-struct SynTypeFunction: SynType
+struct SynTypeFunction: SynBase
 {
-	SynTypeFunction(const char *pos, SynType *returnType, IntrusiveList<SynType> arguments): SynType(myTypeID, pos), returnType(returnType), arguments(arguments)
+	SynTypeFunction(const char *pos, SynBase *returnType, IntrusiveList<SynBase> arguments): SynBase(myTypeID, pos), returnType(returnType), arguments(arguments)
 	{
 	}
 
-	SynType *returnType;
-	IntrusiveList<SynType> arguments;
+	SynBase *returnType;
+	IntrusiveList<SynBase> arguments;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
-struct SynTypeGenericInstance: SynType
+struct SynTypeGenericInstance: SynBase
 {
-	SynTypeGenericInstance(const char *pos, InplaceStr name, IntrusiveList<SynType> types): SynType(myTypeID, pos), name(name), types(types)
+	SynTypeGenericInstance(const char *pos, InplaceStr name, IntrusiveList<SynBase> types): SynBase(myTypeID, pos), name(name), types(types)
 	{
 	}
 
 	InplaceStr name;
-	IntrusiveList<SynType> types;
+	IntrusiveList<SynBase> types;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
-struct SynTypeof: SynType
+struct SynTypeof: SynBase
 {
-	SynTypeof(const char *pos, SynBase* value): SynType(myTypeID, pos), value(value)
+	SynTypeof(const char *pos, SynBase* value): SynBase(myTypeID, pos), value(value)
 	{
 	}
 
@@ -218,11 +209,11 @@ struct SynArray: SynBase
 
 struct SynTypedef: SynBase
 {
-	SynTypedef(const char* pos, SynType *type, InplaceStr alias): SynBase(myTypeID, pos), type(type), alias(alias)
+	SynTypedef(const char* pos, SynBase *type, InplaceStr alias): SynBase(myTypeID, pos), type(type), alias(alias)
 	{
 	}
 
-	SynType *type;
+	SynBase *type;
 	InplaceStr alias;
 
 	static const unsigned myTypeID = __LINE__;
@@ -323,11 +314,11 @@ struct SynSizeof: SynBase
 
 struct SynNew: SynBase
 {
-	SynNew(const char* pos, SynType *type, IntrusiveList<SynCallArgument> arguments, SynBase *count): SynBase(myTypeID, pos), type(type), arguments(arguments), count(count)
+	SynNew(const char* pos, SynBase *type, IntrusiveList<SynCallArgument> arguments, SynBase *count): SynBase(myTypeID, pos), type(type), arguments(arguments), count(count)
 	{
 	}
 
-	SynType *type;
+	SynBase *type;
 	IntrusiveList<SynCallArgument> arguments;
 	SynBase *count;
 
@@ -549,11 +540,11 @@ struct SynVariableDefinition: SynBase
 
 struct SynVariableDefinitions: SynBase
 {
-	SynVariableDefinitions(const char* pos, SynType *type, IntrusiveList<SynVariableDefinition> definitions): SynBase(myTypeID, pos), type(type), definitions(definitions)
+	SynVariableDefinitions(const char* pos, SynBase *type, IntrusiveList<SynVariableDefinition> definitions): SynBase(myTypeID, pos), type(type), definitions(definitions)
 	{
 	}
 
-	SynType *type;
+	SynBase *type;
 	IntrusiveList<SynVariableDefinition> definitions;
 
 	static const unsigned myTypeID = __LINE__;
@@ -561,11 +552,11 @@ struct SynVariableDefinitions: SynBase
 
 struct SynAccessor: SynBase
 {
-	SynAccessor(const char* pos, SynType *type, InplaceStr name, SynBase *getBlock, SynBase *setBlock, InplaceStr setName): SynBase(myTypeID, pos), type(type), name(name), getBlock(getBlock), setBlock(setBlock), setName(setName)
+	SynAccessor(const char* pos, SynBase *type, InplaceStr name, SynBase *getBlock, SynBase *setBlock, InplaceStr setName): SynBase(myTypeID, pos), type(type), name(name), getBlock(getBlock), setBlock(setBlock), setName(setName)
 	{
 	}
 
-	SynType *type;
+	SynBase *type;
 	InplaceStr name;
 	SynBase *getBlock;
 	SynBase *setBlock;
@@ -576,11 +567,11 @@ struct SynAccessor: SynBase
 
 struct SynFunctionArgument: SynBase
 {
-	SynFunctionArgument(const char* pos, SynType* type, InplaceStr name, SynBase* defaultValue): SynBase(myTypeID, pos), type(type), name(name), defaultValue(defaultValue)
+	SynFunctionArgument(const char* pos, SynBase* type, InplaceStr name, SynBase* defaultValue): SynBase(myTypeID, pos), type(type), name(name), defaultValue(defaultValue)
 	{
 	}
 
-	SynType* type;
+	SynBase* type;
 	InplaceStr name;
 	SynBase* defaultValue;
 
@@ -589,15 +580,15 @@ struct SynFunctionArgument: SynBase
 
 struct SynFunctionDefinition: SynBase
 {
-	SynFunctionDefinition(const char* pos, bool prototype, bool coroutine, SynType *parentType, bool accessor, SynType *returnType, InplaceStr name, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), prototype(prototype), coroutine(coroutine), parentType(parentType), accessor(accessor), returnType(returnType), name(name), arguments(arguments), expressions(expressions)
+	SynFunctionDefinition(const char* pos, bool prototype, bool coroutine, SynBase *parentType, bool accessor, SynBase *returnType, InplaceStr name, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), prototype(prototype), coroutine(coroutine), parentType(parentType), accessor(accessor), returnType(returnType), name(name), arguments(arguments), expressions(expressions)
 	{
 	}
 
 	bool prototype;
 	bool coroutine;
-	SynType *parentType;
+	SynBase *parentType;
 	bool accessor;
-	SynType *returnType;
+	SynBase *returnType;
 	InplaceStr name;
 	IntrusiveList<SynFunctionArgument> arguments;
 	IntrusiveList<SynBase> expressions;
@@ -618,14 +609,14 @@ struct SynClassPototype: SynBase
 
 struct SynClassDefinition: SynBase
 {
-	SynClassDefinition(const char* pos, InplaceStr name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynType *baseClass, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynAccessor> accessors, IntrusiveList<SynVariableDefinitions> members): SynBase(myTypeID, pos), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), typedefs(typedefs), functions(functions), accessors(accessors), members(members)
+	SynClassDefinition(const char* pos, InplaceStr name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynAccessor> accessors, IntrusiveList<SynVariableDefinitions> members): SynBase(myTypeID, pos), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), typedefs(typedefs), functions(functions), accessors(accessors), members(members)
 	{
 	}
 
 	InplaceStr name;
 	IntrusiveList<SynIdentifier> aliases;
 	bool extendable;
-	SynType *baseClass;
+	SynBase *baseClass;
 	IntrusiveList<SynTypedef> typedefs;
 	IntrusiveList<SynFunctionDefinition> functions;
 	IntrusiveList<SynAccessor> accessors;

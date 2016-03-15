@@ -279,7 +279,8 @@ const char* ParseContext::Position()
 	return currentLexeme->pos;
 }
 
-SynType* ParseType(ParseContext &ctx);
+SynBase* ParseType(ParseContext &ctx);
+SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node);
 SynBase* ParseTernaryExpr(ParseContext &ctx);
 SynBase* ParseAssignment(ParseContext &ctx);
 SynTypedef* ParseTypedef(ParseContext &ctx);
@@ -291,7 +292,7 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx);
 SynAccessor* ParseAccessorDefinition(ParseContext &ctx);
 IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx);
 
-SynType* ParseTerminalType(ParseContext &ctx)
+SynBase* ParseTerminalType(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
 
@@ -303,9 +304,9 @@ SynType* ParseTerminalType(ParseContext &ctx)
 
 		if(ctx.Consume(lex_less))
 		{
-			IntrusiveList<SynType> types;
+			IntrusiveList<SynBase> types;
 
-			SynType *type = ParseType(ctx);
+			SynBase *type = ParseType(ctx);
 
 			if(!type)
 			{
@@ -362,17 +363,19 @@ SynType* ParseTerminalType(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after expression in typeof");
 
-		return new SynTypeof(start, value);
+		SynBase *node = new SynTypeof(start, value);
+
+		return ParsePostExpressions(ctx, node);
 	}
 
 	return NULL;
 }
 
-SynType* ParseType(ParseContext &ctx)
+SynBase* ParseType(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
 
-	SynType *base = ParseTerminalType(ctx);
+	SynBase *base = ParseTerminalType(ctx);
 	
 	if(!base)
 		return NULL;
@@ -391,9 +394,9 @@ SynType* ParseType(ParseContext &ctx)
 		{
 			if(ctx.Consume(lex_oparen))
 			{
-				IntrusiveList<SynType> arguments;
+				IntrusiveList<SynBase> arguments;
 
-				if(SynType *argument = ParseType(ctx))
+				if(SynBase *argument = ParseType(ctx))
 				{
 					arguments.push_back(argument);
 
@@ -501,7 +504,7 @@ SynNew* ParseNew(ParseContext &ctx)
 
 	if(ctx.Consume(lex_new))
 	{
-		SynType *type = NULL;
+		SynBase *type = NULL;
 
 		if(ctx.Consume(lex_oparen))
 		{
@@ -887,7 +890,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 		bool extendable = ctx.Consume(lex_extendable);
 
-		SynType *baseClass = NULL;
+		SynBase *baseClass = NULL;
 
 		if(ctx.Consume(lex_colon))
 		{
@@ -1045,7 +1048,7 @@ SynTypedef* ParseTypedef(ParseContext &ctx)
 
 	if(ctx.Consume(lex_typedef))
 	{
-		SynType *type = ParseType(ctx);
+		SynBase *type = ParseType(ctx);
 
 		if(!type)
 			Stop(ctx, ctx.Position(), "ERROR: typename expected after typedef");
@@ -1189,7 +1192,7 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx)
 	const char *start = ctx.Position();
 	Lexeme *lexeme = ctx.currentLexeme;
 
-	if(SynType *type = ParseType(ctx))
+	if(SynBase *type = ParseType(ctx))
 	{
 		IntrusiveList<SynVariableDefinition> definitions;
 
@@ -1228,7 +1231,7 @@ SynAccessor* ParseAccessorDefinition(ParseContext &ctx)
 	const char *start = ctx.Position();
 	Lexeme *lexeme = ctx.currentLexeme;
 
-	if(SynType *type = ParseType(ctx))
+	if(SynBase *type = ParseType(ctx))
 	{
 		AssertAt(ctx, lex_string, "ERROR: class member name expected after type");
 
@@ -1279,11 +1282,11 @@ SynAccessor* ParseAccessorDefinition(ParseContext &ctx)
 	return NULL;
 }
 
-SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, SynType *lastType)
+SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, SynBase *lastType)
 {
 	Lexeme *lexeme = ctx.currentLexeme;
 
-	if(SynType *type = ParseType(ctx))
+	if(SynBase *type = ParseType(ctx))
 	{
 		if(!ctx.At(lex_string) && lastType)
 		{
@@ -1346,12 +1349,12 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 	bool coroutine = ctx.Consume(lex_coroutine);
 
-	if(SynType *returnType = ParseType(ctx))
+	if(SynBase *returnType = ParseType(ctx))
 	{
 		// Check if this is a member function
 		Lexeme *subLexeme = ctx.currentLexeme;
 
-		SynType *parentType = ParseType(ctx);
+		SynBase *parentType = ParseType(ctx);
 		bool accessor = false;
 
 		if(parentType)
