@@ -1165,14 +1165,41 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 	if(SynType *returnType = ParseType(ctx))
 	{
+		// Check if this is a member function
+		Lexeme *subLexeme = ctx.currentLexeme;
+
+		SynType *parentType = ParseType(ctx);
+		bool accessor = false;
+
+		if(parentType)
+		{
+			if(ctx.Consume(lex_colon))
+			{
+				accessor = false;
+			}
+			else if(ctx.Consume(lex_point))
+			{
+				accessor = true;
+			}
+			else
+			{
+				// Backtrack
+				ctx.currentLexeme = subLexeme;
+
+				parentType = NULL;
+			}
+		}
+
 		InplaceStr name;
 
 		if(ctx.At(lex_string))
 			name = ctx.Consume();
+		else if(parentType)
+			Stop(ctx, ctx.Position(), "ERROR: function name expected after ':' or '.'");
 		else if(coroutine)
 			Stop(ctx, ctx.Position(), "ERROR: function name not found after return type");
 
-		if(coroutine)
+		if(parentType || coroutine)
 			AssertAt(ctx, lex_oparen, "ERROR: '(' expected after function name");
 
 		if(name.begin == NULL || !ctx.Consume(lex_oparen))
@@ -1190,7 +1217,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		IntrusiveList<SynBase> expressions;
 
 		if(ctx.Consume(lex_semicolon))
-			return new SynFunctionDefinition(start, true, coroutine, returnType, name, arguments, expressions);
+			return new SynFunctionDefinition(start, true, coroutine, parentType, accessor, returnType, name, arguments, expressions);
 
 		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after function header");
 
@@ -1198,7 +1225,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after function body");
 
-		return new SynFunctionDefinition(start, false, coroutine, returnType, name, arguments, expressions);
+		return new SynFunctionDefinition(start, false, coroutine, parentType, accessor, returnType, name, arguments, expressions);
 	}
 	else if(coroutine)
 	{
