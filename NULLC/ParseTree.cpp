@@ -1378,7 +1378,9 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		if(parentType || coroutine)
 			AssertAt(ctx, lex_oparen, "ERROR: '(' expected after function name");
 
-		if(name.begin == NULL || !ctx.Consume(lex_oparen))
+		bool allowEmptyName = isType<SynTypeAuto>(returnType);
+
+		if((name.begin == NULL && !allowEmptyName) || !ctx.Consume(lex_oparen))
 		{
 			// Backtrack
 			ctx.currentLexeme = lexeme;
