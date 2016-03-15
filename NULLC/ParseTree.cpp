@@ -53,6 +53,17 @@ namespace
 			Stop(ctx, ctx.Position(), msg, args);
 		}
 	}
+
+	void AssertConsume(ParseContext &ctx, const char *str, const char *msg, ...)
+	{
+		if(!ctx.Consume(str))
+		{
+			va_list args;
+			va_start(args, msg);
+
+			Stop(ctx, ctx.Position(), msg, args);
+		}
+	}
 }
 
 SynUnaryOpType GetUnaryOpType(LexemeType type)
@@ -231,6 +242,17 @@ bool ParseContext::Consume(LexemeType type)
 	return false;
 }
 
+bool ParseContext::Consume(const char *str)
+{
+	if(InplaceStr(currentLexeme->pos, currentLexeme->length) == InplaceStr(str))
+	{
+		Skip();
+		return true;
+	}
+
+	return false;
+}
+
 InplaceStr ParseContext::Consume()
 {
 	InplaceStr str(currentLexeme->pos, currentLexeme->length);
@@ -259,6 +281,7 @@ IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx);
 SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx);
 SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx);
 SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx);
+SynAccessor* ParseAccessorDefinition(ParseContext &ctx);
 IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx);
 
 SynType* ParseTerminalType(ParseContext &ctx)
@@ -801,6 +824,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 		IntrusiveList<SynTypedef> typedefs;
 		IntrusiveList<SynFunctionDefinition> functions;
+		IntrusiveList<SynAccessor> accessors;
 		IntrusiveList<SynVariableDefinitions> members;
 
 		for(;;)
@@ -812,6 +836,10 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 			else if(SynFunctionDefinition *node = ParseFunctionDefinition(ctx))
 			{
 				functions.push_back(node);
+			}
+			else if(SynAccessor *node = ParseAccessorDefinition(ctx))
+			{
+				accessors.push_back(node);
 			}
 			else if(SynVariableDefinitions *node = ParseVariableDefinitions(ctx))
 			{
@@ -825,7 +853,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '{' not found after class name");
 
-		return new SynClassDefinition(start, name, extendable, baseClass, typedefs, functions, members);
+		return new SynClassDefinition(start, name, extendable, baseClass, typedefs, functions, accessors, members);
 	}
 
 	return NULL;
@@ -1113,6 +1141,62 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx)
 		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after variable definition");
 
 		return new SynVariableDefinitions(start, type, definitions);
+	}
+
+	return NULL;
+}
+
+SynAccessor* ParseAccessorDefinition(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+	Lexeme *lexeme = ctx.currentLexeme;
+
+	if(SynType *type = ParseType(ctx))
+	{
+		AssertAt(ctx, lex_string, "ERROR: class member name expected after type");
+
+		InplaceStr name = ctx.Consume();
+
+		if(!ctx.Consume(lex_ofigure))
+		{
+			// Backtrack
+			ctx.currentLexeme = lexeme;
+
+			return NULL;
+		}
+
+		AssertConsume(ctx, "get", "ERROR: 'get' is expected after '{'");
+
+		SynBase *getBlock = ParseBlock(ctx);
+
+		if(!getBlock)
+			Stop(ctx, ctx.Position(), "ERROR: function body expected after 'get'");
+
+		SynBase *setBlock = NULL;
+		InplaceStr setName;
+
+		if(ctx.Consume("set"))
+		{
+			if(ctx.Consume(lex_oparen))
+			{
+				AssertAt(ctx, lex_string, "ERROR: r-value name not found after '('");
+
+				setName = ctx.Consume();
+
+				AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after r-value");
+			}
+
+			setBlock = ParseBlock(ctx);
+
+			if(!setBlock)
+				Stop(ctx, ctx.Position(), "ERROR: function body expected after 'set'");
+		}
+
+		AssertConsume(ctx, lex_cfigure, "ERROR: '}' is expected after property");
+
+		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after class member list");
+
+		return new SynAccessor(start, type, name, getBlock, setBlock, setName);
 	}
 
 	return NULL;

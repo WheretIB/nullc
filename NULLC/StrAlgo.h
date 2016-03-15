@@ -53,6 +53,11 @@ namespace NULLC
 		{
 			return length() == rhs.length() && memcmp(begin, rhs.begin, length()) == 0;
 		}
+		
+		bool operator!=(const InplaceStr& rhs) const
+		{
+			return !(*this == rhs);
+		}
 
 		const char *begin, *end;
 	};

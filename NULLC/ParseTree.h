@@ -14,6 +14,7 @@ struct ParseContext
 	LexemeType Peek();
 	bool At(LexemeType type);
 	bool Consume(LexemeType type);
+	bool Consume(const char *str);
 	InplaceStr Consume();
 	void Skip();
 
@@ -468,6 +469,19 @@ struct SynVariableDefinitions: SynBase
 	IntrusiveList<SynVariableDefinition> definitions;
 };
 
+struct SynAccessor: SynBase
+{
+	SynAccessor(const char* pos, SynType *type, InplaceStr name, SynBase *getBlock, SynBase *setBlock, InplaceStr setName): SynBase(pos), type(type), name(name), getBlock(getBlock), setBlock(setBlock), setName(setName)
+	{
+	}
+
+	SynType *type;
+	InplaceStr name;
+	SynBase *getBlock;
+	SynBase *setBlock;
+	InplaceStr setName;
+};
+
 struct SynFunctionArgument: SynBase
 {
 	SynFunctionArgument(const char* pos, SynType* type, InplaceStr name, SynBase* defaultValue): SynBase(pos), type(type), name(name), defaultValue(defaultValue)
@@ -506,7 +520,7 @@ struct SynClassPototype: SynBase
 
 struct SynClassDefinition: SynBase
 {
-	SynClassDefinition(const char* pos, InplaceStr name, bool extendable, SynType *baseClass, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynVariableDefinitions> members): SynBase(pos), name(name), extendable(extendable), baseClass(baseClass), typedefs(typedefs), functions(functions), members(members)
+	SynClassDefinition(const char* pos, InplaceStr name, bool extendable, SynType *baseClass, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynAccessor> accessors, IntrusiveList<SynVariableDefinitions> members): SynBase(pos), name(name), extendable(extendable), baseClass(baseClass), typedefs(typedefs), functions(functions), accessors(accessors), members(members)
 	{
 	}
 
@@ -515,6 +529,7 @@ struct SynClassDefinition: SynBase
 	SynType *baseClass;
 	IntrusiveList<SynTypedef> typedefs;
 	IntrusiveList<SynFunctionDefinition> functions;
+	IntrusiveList<SynAccessor> accessors;
 	IntrusiveList<SynVariableDefinitions> members;
 };
 
