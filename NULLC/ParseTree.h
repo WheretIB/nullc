@@ -27,71 +27,6 @@ struct ParseContext
 	InplaceStr errorMsg;
 };
 
-struct SynType
-{
-	SynType(): next(0)
-	{
-	}
-
-	virtual ~SynType()
-	{
-	}
-
-	SynType *next;
-};
-
-struct SynTypeAuto: SynType
-{
-	SynTypeAuto(): SynType()
-	{
-	}
-};
-
-struct SynTypeGeneric: SynType
-{
-	SynTypeGeneric(): SynType()
-	{
-	}
-};
-
-struct SynTypeSimple: SynType
-{
-	SynTypeSimple(InplaceStr name): SynType(), name(name)
-	{
-	}
-
-	InplaceStr name;
-};
-
-struct SynTypeArray: SynType
-{
-	SynTypeArray(SynType *type, SynBase *size): SynType(), type(type), size(size)
-	{
-	}
-
-	SynType *type;
-	SynBase *size;
-};
-
-struct SynTypeReference: SynType
-{
-	SynTypeReference(SynType *type): SynType(), type(type)
-	{
-	}
-
-	SynType *type;
-};
-
-struct SynTypeFunction: SynType
-{
-	SynTypeFunction(SynType *returnType, IntrusiveList<SynType> arguments): SynType(), returnType(returnType), arguments(arguments)
-	{
-	}
-
-	SynType *returnType;
-	IntrusiveList<SynType> arguments;
-};
-
 struct SynBase
 {
 	SynBase(const char *pos): pos(pos), next(0)
@@ -104,6 +39,74 @@ struct SynBase
 
 	const char *pos;
 	SynBase *next;
+};
+
+struct SynType: SynBase
+{
+	SynType(const char *pos): SynBase(pos)
+	{
+	}
+};
+
+struct SynTypeAuto: SynType
+{
+	SynTypeAuto(const char *pos): SynType(pos)
+	{
+	}
+};
+
+struct SynTypeGeneric: SynType
+{
+	SynTypeGeneric(const char *pos): SynType(pos)
+	{
+	}
+};
+
+struct SynTypeSimple: SynType
+{
+	SynTypeSimple(const char *pos, InplaceStr name): SynType(pos), name(name)
+	{
+	}
+
+	InplaceStr name;
+};
+
+struct SynTypeArray: SynType
+{
+	SynTypeArray(const char *pos, SynType *type, SynBase *size): SynType(pos), type(type), size(size)
+	{
+	}
+
+	SynType *type;
+	SynBase *size;
+};
+
+struct SynTypeReference: SynType
+{
+	SynTypeReference(const char *pos, SynType *type): SynType(pos), type(type)
+	{
+	}
+
+	SynType *type;
+};
+
+struct SynTypeFunction: SynType
+{
+	SynTypeFunction(const char *pos, SynType *returnType, IntrusiveList<SynType> arguments): SynType(pos), returnType(returnType), arguments(arguments)
+	{
+	}
+
+	SynType *returnType;
+	IntrusiveList<SynType> arguments;
+};
+
+struct SynTypeof: SynType
+{
+	SynTypeof(const char *pos, SynBase* value): SynType(pos), value(value)
+	{
+	}
+
+	SynBase *value;
 };
 
 struct SynBool: SynBase

@@ -263,24 +263,39 @@ IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx);
 
 SynType* ParseTerminalType(ParseContext &ctx)
 {
+	const char *start = ctx.Position();
+
 	if(ctx.At(lex_string))
 	{
 		InplaceStr name = ctx.Consume();
 
-		return new SynTypeSimple(name);
+		return new SynTypeSimple(start, name);
 	}
 
 	if(ctx.Consume(lex_auto))
-		return new SynTypeAuto();
+		return new SynTypeAuto(start);
 
 	if(ctx.Consume(lex_generic))
-		return new SynTypeGeneric();
+		return new SynTypeGeneric(start);
+
+	if(ctx.Consume(lex_typeof))
+	{
+		AssertConsume(ctx, lex_oparen, "ERROR: typeof must be followed by '('");
+
+		SynBase *value = ParseAssignment(ctx);
+
+		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after expression in typeof");
+
+		return new SynTypeof(start, value);
+	}
 
 	return NULL;
 }
 
 SynType* ParseType(ParseContext &ctx)
 {
+	const char *start = ctx.Position();
+
 	SynType *base = ParseTerminalType(ctx);
 	
 	if(!base)
@@ -294,7 +309,7 @@ SynType* ParseType(ParseContext &ctx)
 
 			AssertConsume(ctx, lex_cbracket, "ERROR: matching ']' not found");
 
-			base = new SynTypeArray(base, size);
+			base = new SynTypeArray(start, base, size);
 		}
 		else if(ctx.Consume(lex_ref))
 		{
@@ -319,11 +334,11 @@ SynType* ParseType(ParseContext &ctx)
 
 				AssertConsume(ctx, lex_cparen, "ERROR: matching ')' not found");
 
-				base = new SynTypeFunction(base, arguments);
+				base = new SynTypeFunction(start, base, arguments);
 			}
 			else
 			{
-				base = new SynTypeReference(base);
+				base = new SynTypeReference(start, base);
 			}
 		}
 	}
