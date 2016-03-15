@@ -64,6 +64,12 @@ namespace
 			Stop(ctx, ctx.Position(), msg, args);
 		}
 	}
+
+	template<typename T>
+	bool isType(SynBase *node)
+	{
+		return node->typeID == typename T::myTypeID;
+	}
 }
 
 SynUnaryOpType GetUnaryOpType(LexemeType type)
