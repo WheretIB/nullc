@@ -1695,12 +1695,41 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 		InplaceStr name;
 
-		if(ctx.At(lex_string))
+		if(ctx.Consume(lex_operator))
+		{
+			if(ctx.Consume(lex_obracket))
+			{
+				AssertConsume(ctx, lex_cbracket, "ERROR: ']' not found after '[' in operator definition");
+
+				name = InplaceStr("[]");
+			}
+			else if(ctx.Consume(lex_oparen))
+			{
+				AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after '(' in operator definition");
+
+				name = InplaceStr("()");
+			}
+			else if((ctx.Peek() >= lex_add && ctx.Peek() <= lex_in) || (ctx.Peek() >= lex_set && ctx.Peek() <= lex_xorset) || ctx.Peek() == lex_bitnot || ctx.Peek() == lex_lognot)
+			{
+				name = ctx.Consume();
+			}
+			else
+			{
+				Stop(ctx, ctx.Position(), "ERROR: invalid operator name");
+			}
+		}
+		else if(ctx.At(lex_string))
+		{
 			name = ctx.Consume();
+		}
 		else if(parentType)
+		{
 			Stop(ctx, ctx.Position(), "ERROR: function name expected after ':' or '.'");
+		}
 		else if(coroutine && !allowEmptyName)
+		{
 			Stop(ctx, ctx.Position(), "ERROR: function name not found after return type");
+		}
 
 		if(parentType || coroutine)
 			AssertAt(ctx, lex_oparen, "ERROR: '(' expected after function name");
