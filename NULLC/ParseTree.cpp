@@ -507,6 +507,30 @@ SynNumber* ParseNumber(ParseContext &ctx)
 	return NULL;
 }
 
+SynAlign* ParseAlign(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_align))
+	{
+		AssertConsume(ctx, lex_oparen, "ERROR: '(' expected after align");
+
+		AssertAt(ctx, lex_number, "ERROR: alignment value not found after align(");
+
+		SynNumber *value = ParseNumber(ctx);
+
+		AssertConsume(ctx, lex_cparen, "ERROR: ')' expected after alignment value");
+
+		return new SynAlign(start, value);
+	}
+	else if(ctx.Consume(lex_noalign))
+	{
+		return new SynAlign(start, NULL);
+	}
+
+	return NULL;
+}
+
 SynNew* ParseNew(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -867,6 +891,8 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
 
+	SynAlign *align = ParseAlign(ctx);
+
 	if(ctx.Consume(lex_class))
 	{
 		AssertAt(ctx, lex_string, "ERROR: class name expected");
@@ -945,8 +971,11 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '{' not found after class name");
 
-		return new SynClassDefinition(start, name, aliases, extendable, baseClass, typedefs, functions, accessors, members);
+		return new SynClassDefinition(start, align, name, aliases, extendable, baseClass, typedefs, functions, accessors, members);
 	}
+
+	if(align)
+		Stop(ctx, ctx.Position(), "ERROR: variable or class definition is expected after alignment specifier");
 
 	return NULL;
 }
@@ -1241,6 +1270,10 @@ SynFor* ParseFor(ParseContext &ctx)
 
 			AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after initializer in 'for'");
 		}
+		else if(!ctx.Consume(lex_semicolon))
+		{
+			Stop(ctx, ctx.Position(), "ERROR: ';' not found after initializer in 'for'");
+		}
 
 		SynBase *condition = ParseAssignment(ctx);
 
@@ -1297,6 +1330,8 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx)
 	const char *start = ctx.Position();
 	Lexeme *lexeme = ctx.currentLexeme;
 
+	SynAlign *align = ParseAlign(ctx);
+
 	if(SynBase *type = ParseType(ctx))
 	{
 		IntrusiveList<SynVariableDefinition> definitions;
@@ -1325,8 +1360,11 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after variable definition");
 
-		return new SynVariableDefinitions(start, type, definitions);
+		return new SynVariableDefinitions(start, align, type, definitions);
 	}
+	
+	// Backtrack
+	ctx.currentLexeme = lexeme;
 
 	return NULL;
 }
@@ -1530,31 +1568,29 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 SynBase* ParseExpression(ParseContext &ctx)
 {
-	//const char *start = ctx.Position();
+	if(SynBase *node = ParseClassDefinition(ctx))
+		return node;
 
-	if(ctx.At(lex_class))
-		return ParseClassDefinition(ctx);
+	if(SynBase *node = ParseNamespaceDefinition(ctx))
+		return node;
 
-	if(ctx.At(lex_namespace))
-		return ParseNamespaceDefinition(ctx);
+	if(SynBase *node = ParseReturn(ctx))
+		return node;
 
-	if(ctx.At(lex_return))
-		return ParseReturn(ctx);
+	if(SynBase *node = ParseYield(ctx))
+		return node;
 
-	if(ctx.At(lex_yield))
-		return ParseYield(ctx);
+	if(SynBase *node = ParseBreak(ctx))
+		return node;
 
-	if(ctx.At(lex_break))
-		return ParseBreak(ctx);
+	if(SynBase *node = ParseContinue(ctx))
+		return node;
 
-	if(ctx.At(lex_continue))
-		return ParseContinue(ctx);
+	if(SynBase *node = ParseTypedef(ctx))
+		return node;
 
-	if(ctx.At(lex_typedef))
-		return ParseTypedef(ctx);
-
-	if(ctx.At(lex_ofigure))
-		return ParseBlock(ctx);
+	if(SynBase *node = ParseBlock(ctx))
+		return node;
 
 	if(SynBase *node = ParseIfElse(ctx))
 		return node;

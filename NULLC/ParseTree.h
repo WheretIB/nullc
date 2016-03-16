@@ -218,6 +218,17 @@ struct SynArray: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct SynAlign: SynBase
+{
+	SynAlign(const char* pos, SynNumber* value): SynBase(myTypeID, pos), value(value)
+	{
+	}
+
+	SynNumber* value;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct SynTypedef: SynBase
 {
 	SynTypedef(const char* pos, SynBase *type, InplaceStr alias): SynBase(myTypeID, pos), type(type), alias(alias)
@@ -576,10 +587,11 @@ struct SynVariableDefinition: SynBase
 
 struct SynVariableDefinitions: SynBase
 {
-	SynVariableDefinitions(const char* pos, SynBase *type, IntrusiveList<SynVariableDefinition> definitions): SynBase(myTypeID, pos), type(type), definitions(definitions)
+	SynVariableDefinitions(const char* pos, SynAlign* align, SynBase *type, IntrusiveList<SynVariableDefinition> definitions): SynBase(myTypeID, pos), align(align), type(type), definitions(definitions)
 	{
 	}
 
+	SynAlign* align;
 	SynBase *type;
 	IntrusiveList<SynVariableDefinition> definitions;
 
@@ -645,10 +657,11 @@ struct SynClassPototype: SynBase
 
 struct SynClassDefinition: SynBase
 {
-	SynClassDefinition(const char* pos, InplaceStr name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynAccessor> accessors, IntrusiveList<SynVariableDefinitions> members): SynBase(myTypeID, pos), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), typedefs(typedefs), functions(functions), accessors(accessors), members(members)
+	SynClassDefinition(const char* pos, SynAlign* align, InplaceStr name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynAccessor> accessors, IntrusiveList<SynVariableDefinitions> members): SynBase(myTypeID, pos), align(align), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), typedefs(typedefs), functions(functions), accessors(accessors), members(members)
 	{
 	}
 
+	SynAlign* align;
 	InplaceStr name;
 	IntrusiveList<SynIdentifier> aliases;
 	bool extendable;
