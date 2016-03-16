@@ -724,6 +724,18 @@ struct SynClassDefinition: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct SynEnumDefinition: SynBase
+{
+	SynEnumDefinition(const char* pos, InplaceStr name, IntrusiveList<SynConstant> values): SynBase(myTypeID, pos), name(name), values(values)
+	{
+	}
+
+	InplaceStr name;
+	IntrusiveList<SynConstant> values;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct SynNamespaceDefinition: SynBase
 {
 	SynNamespaceDefinition(const char* pos, IntrusiveList<SynIdentifier> path, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), path(path), expressions(expressions)

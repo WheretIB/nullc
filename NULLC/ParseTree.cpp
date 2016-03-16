@@ -992,6 +992,52 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 	return NULL;
 }
 
+SynEnumDefinition* ParseEnumDefinition(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_enum))
+	{
+		AssertAt(ctx, lex_string, "ERROR: enum name expected");
+
+		InplaceStr name = ctx.Consume();
+
+		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after enum name");
+
+		IntrusiveList<SynConstant> values;
+
+		do
+		{
+			if(values.head == NULL)
+				AssertAt(ctx, lex_string, "ERROR: enumeration name expected after '{'");
+			else
+				AssertAt(ctx, lex_string, "ERROR: enumeration name expected after ','");
+
+			const char *pos = ctx.Position();
+			InplaceStr name = ctx.Consume();
+
+			SynBase *value = NULL;
+
+			if(ctx.Consume(lex_set))
+			{
+				value = ParseTernaryExpr(ctx);
+
+				if(!value)
+					Stop(ctx, ctx.Position(), "ERROR: expression not found after '='");
+			}
+
+			values.push_back(new SynConstant(pos, name, value));
+		}
+		while(ctx.Consume(lex_comma));
+
+		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after enum definition");
+
+		return new SynEnumDefinition(start, name, values);
+	}
+
+	return NULL;
+}
+
 SynNamespaceDefinition* ParseNamespaceDefinition(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -1691,6 +1737,9 @@ SynShortFunctionDefinition* ParseShortFunctionDefinition(ParseContext &ctx)
 SynBase* ParseExpression(ParseContext &ctx)
 {
 	if(SynBase *node = ParseClassDefinition(ctx))
+		return node;
+
+	if(SynBase *node = ParseEnumDefinition(ctx))
 		return node;
 
 	if(SynBase *node = ParseNamespaceDefinition(ctx))
