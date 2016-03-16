@@ -455,6 +455,30 @@ struct SynForEach: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct SynWhile: SynBase
+{
+	SynWhile(const char* pos, SynBase* condition, SynBase* body): SynBase(myTypeID, pos), condition(condition), body(body)
+	{
+	}
+
+	SynBase* condition;
+	SynBase* body;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct SynDoWhile: SynBase
+{
+	SynDoWhile(const char* pos, SynBase* body, SynBase* condition): SynBase(myTypeID, pos), body(body), condition(condition)
+	{
+	}
+
+	SynBase* body;
+	SynBase* condition;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 enum SynUnaryOpType
 {
 	SYN_UNARY_OP_UNKNOWN,

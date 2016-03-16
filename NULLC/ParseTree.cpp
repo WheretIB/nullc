@@ -1362,6 +1362,62 @@ SynFor* ParseFor(ParseContext &ctx)
 	return NULL;
 }
 
+SynWhile* ParseWhile(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_while))
+	{
+		AssertConsume(ctx, lex_oparen, "ERROR: '(' not found after 'while'");
+
+		SynBase *condition = ParseAssignment(ctx);
+
+		if(!condition)
+			Stop(ctx, ctx.Position(), "ERROR: expression expected after 'while('");
+
+		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after expression in 'while' statement");
+
+		SynBase *body = ParseExpression(ctx);
+
+		if(!body && !ctx.Consume(lex_semicolon))
+			Stop(ctx, ctx.Position(), "ERROR: body not found after 'while' header");
+
+		return new SynWhile(start, condition, body);
+	}
+
+	return NULL;
+}
+
+SynDoWhile* ParseDoWhile(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_do))
+	{
+		SynBase *body = ParseExpression(ctx);
+
+		if(!body)
+			Stop(ctx, ctx.Position(), "ERROR: expression expected after 'do'");
+
+		AssertConsume(ctx, lex_while, "ERROR: 'while' expected after 'do' statement");
+
+		AssertConsume(ctx, lex_oparen, "ERROR: '(' not found after 'while'");
+
+		SynBase *condition = ParseAssignment(ctx);
+
+		if(!condition)
+			Stop(ctx, ctx.Position(), "ERROR: expression expected after 'while('");
+
+		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after expression in 'while' statement");
+
+		AssertConsume(ctx, lex_semicolon, "ERROR: while(...) should be followed by ';'");
+
+		return new SynDoWhile(start, body, condition);
+	}
+
+	return NULL;
+}
+
 SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -1770,6 +1826,12 @@ SynBase* ParseExpression(ParseContext &ctx)
 		return node;
 
 	if(SynBase *node = ParseFor(ctx))
+		return node;
+
+	if(SynBase *node = ParseWhile(ctx))
+		return node;
+
+	if(SynBase *node = ParseDoWhile(ctx))
 		return node;
 
 	if(SynBase *node = ParseFunctionDefinition(ctx))
