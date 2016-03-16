@@ -287,6 +287,7 @@ SynTypedef* ParseTypedef(ParseContext &ctx);
 SynBase* ParseExpression(ParseContext &ctx);
 IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx);
 SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx);
+SynShortFunctionDefinition* ParseShortFunctionDefinition(ParseContext &ctx);
 SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx);
 SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx);
 SynAccessor* ParseAccessorDefinition(ParseContext &ctx);
@@ -777,6 +778,9 @@ SynBase* ParseTerminal(ParseContext &ctx)
 		return node;
 
 	if(SynBase *node = ParseFunctionDefinition(ctx))
+		return node;
+
+	if(SynBase *node = ParseShortFunctionDefinition(ctx))
 		return node;
 
 	if(SynBase *node = ParseComplexTerminal(ctx))
@@ -1564,6 +1568,55 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 	else if(coroutine)
 	{
 		Stop(ctx, ctx.Position(), "ERROR: function return type not found after 'coroutine'");
+	}
+
+	return NULL;
+}
+
+SynShortFunctionDefinition* ParseShortFunctionDefinition(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_less))
+	{
+		IntrusiveList<SynShortFunctionArgument> arguments;
+
+		do
+		{
+			const char *pos = ctx.Position();
+
+			Lexeme *lexeme = ctx.currentLexeme;
+
+			SynBase *type = ParseType(ctx);
+
+			if(!ctx.At(lex_string))
+			{
+				// Backtrack
+				ctx.currentLexeme = lexeme;
+
+				type = NULL;
+			}
+
+			if(arguments.head == NULL)
+				AssertAt(ctx, lex_string, "ERROR: function argument name not found after '<'");
+			else
+				AssertAt(ctx, lex_string, "ERROR: function argument name not found after ','");
+
+			InplaceStr name = ctx.Consume();
+
+			arguments.push_back(new SynShortFunctionArgument(pos, type, name));
+		}
+		while(ctx.Consume(lex_comma));
+
+		AssertConsume(ctx, lex_greater, "ERROR: '>' expected after short inline function argument list");
+
+		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after function header");
+
+		IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
+
+		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after function body");
+
+		return new SynShortFunctionDefinition(start, arguments, expressions);
 	}
 
 	return NULL;

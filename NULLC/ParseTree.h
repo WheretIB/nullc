@@ -644,6 +644,30 @@ struct SynFunctionDefinition: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct SynShortFunctionArgument: SynBase
+{
+	SynShortFunctionArgument(const char* pos, SynBase* type, InplaceStr name): SynBase(myTypeID, pos), type(type), name(name)
+	{
+	}
+
+	SynBase* type;
+	InplaceStr name;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct SynShortFunctionDefinition: SynBase
+{
+	SynShortFunctionDefinition(const char* pos, IntrusiveList<SynShortFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), arguments(arguments), expressions(expressions)
+	{
+	}
+
+	IntrusiveList<SynShortFunctionArgument> arguments;
+	IntrusiveList<SynBase> expressions;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct SynClassPototype: SynBase
 {
 	SynClassPototype(const char* pos, InplaceStr name): SynBase(myTypeID, pos), name(name)
