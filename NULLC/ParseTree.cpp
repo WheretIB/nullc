@@ -368,6 +368,15 @@ SynBase* ParseTerminalType(ParseContext &ctx)
 		return ParsePostExpressions(ctx, node);
 	}
 
+	if(ctx.Consume(lex_at))
+	{
+		AssertAt(ctx, lex_string, "ERROR: type alias required after '@'");
+
+		InplaceStr name = ctx.Consume();
+
+		return new SynTypeAlias(start, name);
+	}
+
 	return NULL;
 }
 

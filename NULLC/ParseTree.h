@@ -84,6 +84,17 @@ struct SynTypeSimple: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct SynTypeAlias: SynBase
+{
+	SynTypeAlias(const char *pos, InplaceStr name): SynBase(myTypeID, pos), name(name)
+	{
+	}
+
+	InplaceStr name;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct SynTypeArray: SynBase
 {
 	SynTypeArray(const char *pos, SynBase *type, SynBase *size): SynBase(myTypeID, pos), type(type), size(size)
