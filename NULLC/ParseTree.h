@@ -289,6 +289,18 @@ struct SynFunctionCall: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct SynPreModify: SynBase
+{
+	SynPreModify(const char* pos, SynBase* value, bool isIncrement): SynBase(myTypeID, pos), value(value), isIncrement(isIncrement)
+	{
+	}
+
+	SynBase* value;
+	bool isIncrement;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct SynPostModify: SynBase
 {
 	SynPostModify(const char* pos, SynBase* value, bool isIncrement): SynBase(myTypeID, pos), value(value), isIncrement(isIncrement)

@@ -769,6 +769,26 @@ SynBase* ParseTerminal(ParseContext &ctx)
 		return new SynUnaryOp(start, type, value);
 	}
 
+	if(ctx.Consume(lex_dec))
+	{
+		SynBase *value = ParseTerminal(ctx);
+
+		if(!value)
+			Stop(ctx, ctx.Position(), "ERROR: variable not found after '--'");
+
+		return new SynPreModify(start, value, false);
+	}
+
+	if(ctx.Consume(lex_inc))
+	{
+		SynBase *value = ParseTerminal(ctx);
+
+		if(!value)
+			Stop(ctx, ctx.Position(), "ERROR: variable not found after '++'");
+
+		return new SynPreModify(start, value, true);
+	}
+
 	if(SynNumber *node = ParseNumber(ctx))
 		return node;
 
