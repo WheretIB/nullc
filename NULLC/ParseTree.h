@@ -683,10 +683,11 @@ struct SynConstant: SynBase
 
 struct SynConstantSet: SynBase
 {
-	SynConstantSet(const char* pos, IntrusiveList<SynConstant> constants): SynBase(myTypeID, pos), constants(constants)
+	SynConstantSet(const char* pos, SynBase *type, IntrusiveList<SynConstant> constants): SynBase(myTypeID, pos), type(type), constants(constants)
 	{
 	}
 
+	SynBase *type;
 	IntrusiveList<SynConstant> constants;
 
 	static const unsigned myTypeID = __LINE__;

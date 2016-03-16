@@ -1489,7 +1489,7 @@ SynConstantSet* ParseConstantSet(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after constants");
 
-		return new SynConstantSet(start, constantSet);
+		return new SynConstantSet(start, type, constantSet);
 	}
 
 	return NULL;
