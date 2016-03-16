@@ -891,6 +891,8 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
 
+	Lexeme *lexeme = ctx.currentLexeme;
+
 	SynAlign *align = ParseAlign(ctx);
 
 	if(ctx.Consume(lex_class))
@@ -974,8 +976,8 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 		return new SynClassDefinition(start, align, name, aliases, extendable, baseClass, typedefs, functions, accessors, members);
 	}
 
-	if(align)
-		Stop(ctx, ctx.Position(), "ERROR: variable or class definition is expected after alignment specifier");
+	// Backtrack
+	ctx.currentLexeme = lexeme;
 
 	return NULL;
 }
@@ -1328,6 +1330,7 @@ SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
+
 	Lexeme *lexeme = ctx.currentLexeme;
 
 	SynAlign *align = ParseAlign(ctx);
