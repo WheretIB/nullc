@@ -1585,6 +1585,9 @@ SynShortFunctionDefinition* ParseShortFunctionDefinition(ParseContext &ctx)
 
 		do
 		{
+			if(ctx.At(lex_greater))
+				break;
+
 			const char *pos = ctx.Position();
 
 			Lexeme *lexeme = ctx.currentLexeme;
