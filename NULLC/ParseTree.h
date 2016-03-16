@@ -418,6 +418,31 @@ struct SynFor: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct SynForEachIterator: SynBase
+{
+	SynForEachIterator(const char* pos, SynBase* type, InplaceStr name, SynBase* value): SynBase(myTypeID, pos), type(type), name(name), value(value)
+	{
+	}
+
+	SynBase* type;
+	InplaceStr name;
+	SynBase* value;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct SynForEach: SynBase
+{
+	SynForEach(const char* pos, IntrusiveList<SynForEachIterator> iterators, SynBase* body): SynBase(myTypeID, pos), iterators(iterators), body(body)
+	{
+	}
+
+	IntrusiveList<SynForEachIterator> iterators;
+	SynBase* body;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 enum SynUnaryOpType
 {
 	SYN_UNARY_OP_UNKNOWN,

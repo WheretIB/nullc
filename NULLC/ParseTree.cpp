@@ -1125,6 +1125,96 @@ SynIfElse* ParseIfElse(ParseContext &ctx)
 	return NULL;
 }
 
+SynForEachIterator* ParseForEachIterator(ParseContext &ctx, bool isFirst)
+{
+	const char *start = ctx.Position();
+
+	Lexeme *lexeme = ctx.currentLexeme;
+
+	// Optional type
+	SynBase *type = ParseType(ctx);
+
+	// Must be followed by a type
+	if(!ctx.At(lex_string))
+	{
+		// Backtrack
+		ctx.currentLexeme = lexeme;
+
+		type = NULL;
+	}
+
+	if(ctx.At(lex_string))
+	{
+		InplaceStr name = ctx.Consume();
+
+		if(isFirst && !ctx.At(lex_in))
+		{
+			// Backtrack
+			ctx.currentLexeme = lexeme;
+
+			return NULL;
+		}
+
+		AssertConsume(ctx, lex_in, "ERROR: 'in' expected after variable name");
+
+		SynBase *value = ParseTernaryExpr(ctx);
+
+		if(!value)
+			Stop(ctx, ctx.Position(), "ERROR: expression expected after 'in'");
+
+		return new SynForEachIterator(start, type, name, value);
+	}
+
+	return NULL;
+}
+
+SynForEach* ParseForEach(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	Lexeme *lexeme = ctx.currentLexeme;
+
+	if(ctx.Consume(lex_for))
+	{
+		AssertConsume(ctx, lex_oparen, "ERROR: '(' not found after 'for'");
+
+		IntrusiveList<SynForEachIterator> iterators;
+
+		SynForEachIterator *iterator = ParseForEachIterator(ctx, true);
+
+		if(!iterator)
+		{
+			// Backtrack
+			ctx.currentLexeme = lexeme;
+
+			return NULL;
+		}
+
+		iterators.push_back(iterator);
+
+		while(ctx.Consume(lex_comma))
+		{
+			iterator = ParseForEachIterator(ctx, true);
+
+			if(!iterator)
+				Stop(ctx, ctx.Position(), "ERROR: variable name or type expected before 'in'");
+
+			iterators.push_back(iterator);
+		}
+
+		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after 'for' statement");
+
+		SynBase *body = ParseExpression(ctx);
+
+		if(!body)
+			Stop(ctx, ctx.Position(), "ERROR: body not found after 'for' header");
+
+		return new SynForEach(start, iterators, body);
+	}
+
+	return NULL;
+}
+
 SynFor* ParseFor(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -1169,6 +1259,9 @@ SynFor* ParseFor(ParseContext &ctx)
 		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after 'for' statement");
 
 		SynBase *body = ParseExpression(ctx);
+
+		if(!body)
+			Stop(ctx, ctx.Position(), "ERROR: body not found after 'for' header");
 
 		return new SynFor(start, initializer, condition, increment, body);
 	}
@@ -1463,11 +1556,14 @@ SynBase* ParseExpression(ParseContext &ctx)
 	if(ctx.At(lex_ofigure))
 		return ParseBlock(ctx);
 
-	if(ctx.At(lex_if))
-		return ParseIfElse(ctx);
+	if(SynBase *node = ParseIfElse(ctx))
+		return node;
 
-	if(ctx.At(lex_for))
-		return ParseFor(ctx);
+	if(SynBase *node = ParseForEach(ctx))
+		return node;
+
+	if(SynBase *node = ParseFor(ctx))
+		return node;
 
 	if(SynBase *node = ParseFunctionDefinition(ctx))
 		return node;
