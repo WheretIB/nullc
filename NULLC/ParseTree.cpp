@@ -687,17 +687,17 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after '('");
 	}
 
-	if(!node && ctx.At(lex_string))
-		node = new SynIdentifier(start, ctx.Consume());
-
 	if(!node && ctx.At(lex_quotedstring))
 		node = new SynString(start, ctx.Consume());
 
-	if(!node && ctx.At(lex_ofigure))
+	if(!node)
 		node = ParseArray(ctx);
 
 	if(!node)
 		node = ParseType(ctx);
+
+	if(!node && ctx.At(lex_string))
+		node = new SynIdentifier(start, ctx.Consume());
 
 	if(!node)
 		return NULL;
