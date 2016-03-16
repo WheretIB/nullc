@@ -849,7 +849,7 @@ SynBase* ParseTernaryExpr(ParseContext &ctx)
 			if(!falseBlock)
 				Stop(ctx, ctx.Position(), "ERROR: expression not found after ':'");
 
-			value = new SynIfElse(pos, value, trueBlock, falseBlock);
+			value = new SynIfElse(pos, false, value, trueBlock, falseBlock);
 		}
 
 		return value;
@@ -1132,6 +1132,8 @@ SynIfElse* ParseIfElse(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
 
+	bool staticIf = ctx.Consume(lex_at);
+
 	if(ctx.Consume(lex_if))
 	{
 		AssertConsume(ctx, lex_oparen, "ERROR: '(' not found after 'if'");
@@ -1154,7 +1156,7 @@ SynIfElse* ParseIfElse(ParseContext &ctx)
 				Stop(ctx, ctx.Position(), "ERROR: expression not found after 'else'");
 		}
 
-		return new SynIfElse(start, condition, trueBlock, falseBlock);
+		return new SynIfElse(start, staticIf, condition, trueBlock, falseBlock);
 	}
 
 	return NULL;

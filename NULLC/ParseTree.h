@@ -404,10 +404,11 @@ struct SynBlock: SynBase
 
 struct SynIfElse: SynBase
 {
-	SynIfElse(const char* pos, SynBase* condition, SynBase* trueBlock, SynBase* falseBlock): SynBase(myTypeID, pos), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
+	SynIfElse(const char* pos, bool staticIf, SynBase* condition, SynBase* trueBlock, SynBase* falseBlock): SynBase(myTypeID, pos), staticIf(staticIf), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
 	{
 	}
 
+	bool staticIf;
 	SynBase* condition;
 	SynBase* trueBlock;
 	SynBase* falseBlock;
