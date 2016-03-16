@@ -291,6 +291,7 @@ SynShortFunctionDefinition* ParseShortFunctionDefinition(ParseContext &ctx);
 SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx);
 SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx);
 SynAccessor* ParseAccessorDefinition(ParseContext &ctx);
+SynConstantSet* ParseConstantSet(ParseContext &ctx);
 IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx);
 
 SynBase* ParseTerminalType(ParseContext &ctx)
@@ -950,6 +951,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 		IntrusiveList<SynFunctionDefinition> functions;
 		IntrusiveList<SynAccessor> accessors;
 		IntrusiveList<SynVariableDefinitions> members;
+		IntrusiveList<SynConstantSet> constantSets;
 
 		for(;;)
 		{
@@ -969,6 +971,10 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 			{
 				members.push_back(node);
 			}
+			else if(SynConstantSet *node = ParseConstantSet(ctx))
+			{
+				constantSets.push_back(node);
+			}
 			else
 			{
 				break;
@@ -977,7 +983,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '{' not found after class name");
 
-		return new SynClassDefinition(start, align, name, aliases, extendable, baseClass, typedefs, functions, accessors, members);
+		return new SynClassDefinition(start, align, name, aliases, extendable, baseClass, typedefs, functions, accessors, members, constantSets);
 	}
 
 	// Backtrack
@@ -1429,6 +1435,61 @@ SynAccessor* ParseAccessorDefinition(ParseContext &ctx)
 		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after class member list");
 
 		return new SynAccessor(start, type, name, getBlock, setBlock, setName);
+	}
+
+	return NULL;
+}
+
+SynConstantSet* ParseConstantSet(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_const))
+	{
+		SynBase *type = ParseType(ctx);
+
+		if(!type)
+			Stop(ctx, ctx.Position(), "ERROR: type name expected after const");
+
+		IntrusiveList<SynConstant> constantSet;
+
+		AssertAt(ctx, lex_string, "ERROR: constant name expected after type");
+
+		const char *pos = ctx.Position();
+		InplaceStr name = ctx.Consume();
+
+		AssertConsume(ctx, lex_set, "ERROR: '=' not found after constant name");
+
+		SynBase *value = ParseTernaryExpr(ctx);
+
+		if(!value)
+			Stop(ctx, ctx.Position(), "ERROR: expression not found after '='");
+
+		constantSet.push_back(new SynConstant(pos, name, value));
+
+		while(ctx.Consume(lex_comma))
+		{
+			AssertAt(ctx, lex_string, "ERROR: constant name expected after ','");
+
+			pos = ctx.Position();
+			name = ctx.Consume();
+
+			value = NULL;
+
+			if(ctx.Consume(lex_set))
+			{
+				value = ParseTernaryExpr(ctx);
+
+				if(!value)
+					Stop(ctx, ctx.Position(), "ERROR: expression not found after '='");
+			}
+
+			constantSet.push_back(new SynConstant(pos, name, value));
+		}
+
+		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after constants");
+
+		return new SynConstantSet(start, constantSet);
 	}
 
 	return NULL;

@@ -669,6 +669,29 @@ struct SynShortFunctionDefinition: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct SynConstant: SynBase
+{
+	SynConstant(const char* pos, InplaceStr name, SynBase *value): SynBase(myTypeID, pos), name(name), value(value)
+	{
+	}
+
+	InplaceStr name;
+	SynBase *value;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct SynConstantSet: SynBase
+{
+	SynConstantSet(const char* pos, IntrusiveList<SynConstant> constants): SynBase(myTypeID, pos), constants(constants)
+	{
+	}
+
+	IntrusiveList<SynConstant> constants;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct SynClassPototype: SynBase
 {
 	SynClassPototype(const char* pos, InplaceStr name): SynBase(myTypeID, pos), name(name)
@@ -682,7 +705,7 @@ struct SynClassPototype: SynBase
 
 struct SynClassDefinition: SynBase
 {
-	SynClassDefinition(const char* pos, SynAlign* align, InplaceStr name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynAccessor> accessors, IntrusiveList<SynVariableDefinitions> members): SynBase(myTypeID, pos), align(align), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), typedefs(typedefs), functions(functions), accessors(accessors), members(members)
+	SynClassDefinition(const char* pos, SynAlign* align, InplaceStr name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynAccessor> accessors, IntrusiveList<SynVariableDefinitions> members, IntrusiveList<SynConstantSet> constantSets): SynBase(myTypeID, pos), align(align), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), typedefs(typedefs), functions(functions), accessors(accessors), members(members), constantSets(constantSets)
 	{
 	}
 
@@ -695,6 +718,7 @@ struct SynClassDefinition: SynBase
 	IntrusiveList<SynFunctionDefinition> functions;
 	IntrusiveList<SynAccessor> accessors;
 	IntrusiveList<SynVariableDefinitions> members;
+	IntrusiveList<SynConstantSet> constantSets;
 
 	static const unsigned myTypeID = __LINE__;
 };
