@@ -1157,12 +1157,12 @@ SynContinue* ParseContinue(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
 
-	if(ctx.Consume(lex_break))
+	if(ctx.Consume(lex_continue))
 	{
 		// Optional
 		SynNumber *node = ParseNumber(ctx);
 
-		AssertConsume(ctx, lex_semicolon, "ERROR: break statement must be followed by ';'");
+		AssertConsume(ctx, lex_semicolon, "ERROR: continue statement must be followed by ';'");
 
 		return new SynContinue(start, node);
 	}
