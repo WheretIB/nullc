@@ -1626,9 +1626,11 @@ SynConstantSet* ParseConstantSet(ParseContext &ctx)
 	return NULL;
 }
 
-SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, SynBase *lastType)
+SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, bool lastExplicit, SynBase *lastType)
 {
 	Lexeme *lexeme = ctx.currentLexeme;
+
+	bool isExplicit = ctx.Consume("explicit");
 
 	if(SynBase *type = ParseType(ctx))
 	{
@@ -1637,6 +1639,7 @@ SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, SynBase *lastType)
 			// Backtrack
 			ctx.currentLexeme = lexeme;
 
+			isExplicit = lastExplicit;
 			type = lastType;
 		}
 		else
@@ -1657,8 +1660,11 @@ SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, SynBase *lastType)
 				Stop(ctx, ctx.Position(), "ERROR: default parameter value not found after '='");
 		}
 
-		return new SynFunctionArgument(start, type, name, defaultValue);
+		return new SynFunctionArgument(start, isExplicit, type, name, defaultValue);
 	}
+
+	if(isExplicit)
+		Stop(ctx, ctx.Position(), "ERROR: type name not found after 'explicit' specifier");
 
 	return NULL;
 }
@@ -1667,13 +1673,13 @@ IntrusiveList<SynFunctionArgument> ParseFunctionArguments(ParseContext &ctx)
 {
 	IntrusiveList<SynFunctionArgument> arguments;
 
-	if(SynFunctionArgument *argument = ParseFunctionArgument(ctx, NULL))
+	if(SynFunctionArgument *argument = ParseFunctionArgument(ctx, false, NULL))
 	{
 		arguments.push_back(argument);
 
 		while(ctx.Consume(lex_comma))
 		{
-			argument = ParseFunctionArgument(ctx, arguments.tail->type);
+			argument = ParseFunctionArgument(ctx, arguments.tail->isExplicit, arguments.tail->type);
 
 			if(!argument)
 				Stop(ctx, ctx.Position(), "ERROR: expression not found after ',' in function parameter list");

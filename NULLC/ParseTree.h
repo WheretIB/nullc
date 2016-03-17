@@ -653,10 +653,11 @@ struct SynAccessor: SynBase
 
 struct SynFunctionArgument: SynBase
 {
-	SynFunctionArgument(const char* pos, SynBase* type, InplaceStr name, SynBase* defaultValue): SynBase(myTypeID, pos), type(type), name(name), defaultValue(defaultValue)
+	SynFunctionArgument(const char* pos, bool isExplicit, SynBase* type, InplaceStr name, SynBase* defaultValue): SynBase(myTypeID, pos), isExplicit(isExplicit), type(type), name(name), defaultValue(defaultValue)
 	{
 	}
 
+	bool isExplicit;
 	SynBase* type;
 	InplaceStr name;
 	SynBase* defaultValue;
