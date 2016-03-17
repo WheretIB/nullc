@@ -569,7 +569,7 @@ SynNew* ParseNew(ParseContext &ctx)
 
 			AssertConsume(ctx, lex_cbracket, "ERROR: ']' not found after expression");
 
-			return new SynNew(start, type, arguments, count);
+			return new SynNew(start, type, arguments, count, NULL);
 		}
 
 		if(ctx.Consume(lex_oparen))
@@ -578,8 +578,17 @@ SynNew* ParseNew(ParseContext &ctx)
 
 			AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function parameter list");
 		}
+
+		SynBase *constructor = NULL;
 		
-		return new SynNew(start, type, arguments, NULL);
+		if(ctx.Consume(lex_ofigure))
+		{
+			constructor = ParseExpression(ctx);
+
+			AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after custom constructor body");
+		}
+
+		return new SynNew(start, type, arguments, NULL, constructor);
 	}
 
 	return NULL;
