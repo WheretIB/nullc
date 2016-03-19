@@ -218,6 +218,17 @@ struct SynArray: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct SynGenerator: SynBase
+{
+	SynGenerator(const char* pos, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), expressions(expressions)
+	{
+	}
+
+	IntrusiveList<SynBase> expressions;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct SynAlign: SynBase
 {
 	SynAlign(const char* pos, SynNumber* value): SynBase(myTypeID, pos), value(value)

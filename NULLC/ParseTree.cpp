@@ -476,12 +476,21 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow)
 	return base;
 }
 
-SynArray* ParseArray(ParseContext &ctx)
+SynBase* ParseArray(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
 
 	if(ctx.Consume(lex_ofigure))
 	{
+		if(ctx.At(lex_for))
+		{
+			IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
+
+			AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after inline array");
+
+			return new SynGenerator(start, expressions);
+		}
+
 		IntrusiveList<SynBase> values;
 
 		SynBase *value = ParseTernaryExpr(ctx);
