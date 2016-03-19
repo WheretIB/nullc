@@ -652,7 +652,7 @@ IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx)
 
 SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 {
-	while(ctx.At(lex_point) || ctx.At(lex_obracket) || ctx.At(lex_oparen))
+	while(ctx.At(lex_point) || ctx.At(lex_obracket) || ctx.At(lex_oparen) || ctx.At(lex_with))
 	{
 		const char *pos = ctx.Position();
 
@@ -672,13 +672,46 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 
 			node = new SynArrayIndex(pos, node, arguments);
 		}
-		else if(ctx.Consume(lex_oparen))
+		else if(ctx.Consume(lex_with))
 		{
+			IntrusiveList<SynBase> aliases;
+
+			AssertConsume(ctx, lex_less, "ERROR: '<' not found before explicit generic type alias list");
+
+			do
+			{
+				SynBase *type = ParseType(ctx);
+
+				if(!type)
+				{
+					if(aliases.empty())
+						Stop(ctx, ctx.Position(), "ERROR: type name is expected after 'with'");
+					else
+						Stop(ctx, ctx.Position(), "ERROR: type name is expected after ','");
+				}
+
+				aliases.push_back(type);
+			}
+			while(ctx.Consume(lex_comma));
+
+			AssertConsume(ctx, lex_greater, "ERROR: '>' not found after explicit generic type alias list");
+
+			AssertConsume(ctx, lex_oparen, "ERROR: '(' is expected at this point");
+
 			IntrusiveList<SynCallArgument> arguments = ParseCallArguments(ctx);
 
 			AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function parameter list");
 
-			node = new SynArrayIndex(pos, node, arguments);
+			node = new SynFunctionCall(pos, node, aliases, arguments);
+		}
+		else if(ctx.Consume(lex_oparen))
+		{
+			IntrusiveList<SynBase> aliases;
+			IntrusiveList<SynCallArgument> arguments = ParseCallArguments(ctx);
+
+			AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function parameter list");
+
+			node = new SynFunctionCall(pos, node, aliases, arguments);
 		}
 		else
 		{
@@ -1037,7 +1070,7 @@ SynEnumDefinition* ParseEnumDefinition(ParseContext &ctx)
 
 		do
 		{
-			if(values.head == NULL)
+			if(values.empty())
 				AssertAt(ctx, lex_string, "ERROR: enumeration name expected after '{'");
 			else
 				AssertAt(ctx, lex_string, "ERROR: enumeration name expected after ','");
@@ -1766,7 +1799,30 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 			Stop(ctx, ctx.Position(), "ERROR: function name not found after return type");
 		}
 
-		if(parentType || coroutine)
+		IntrusiveList<SynIdentifier> aliases;
+
+		if(ctx.Consume(lex_less))
+		{
+			do
+			{
+				if(aliases.empty())
+					AssertConsume(ctx, lex_at, "ERROR: '@' is expected before explicit generic type alias");
+				else
+					AssertConsume(ctx, lex_at, "ERROR: '@' is expected after ',' in explicit generic type alias list");
+
+				AssertAt(ctx, lex_string, "ERROR: explicit generic type alias is expected after '@'");
+
+				const char *pos = ctx.Position();
+				InplaceStr name = ctx.Consume();
+
+				aliases.push_back(new SynIdentifier(pos, name));
+			}
+			while(ctx.Consume(lex_comma));
+
+			AssertConsume(ctx, lex_greater, "ERROR: '>' not found after explicit generic type alias list");
+		}
+
+		if(parentType || coroutine || !aliases.empty())
 			AssertAt(ctx, lex_oparen, "ERROR: '(' expected after function name");
 
 		if((name.begin == NULL && !allowEmptyName) || !ctx.Consume(lex_oparen))
@@ -1784,7 +1840,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		IntrusiveList<SynBase> expressions;
 
 		if(ctx.Consume(lex_semicolon))
-			return new SynFunctionDefinition(start, true, coroutine, parentType, accessor, returnType, name, arguments, expressions);
+			return new SynFunctionDefinition(start, true, coroutine, parentType, accessor, returnType, name, aliases, arguments, expressions);
 
 		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after function header");
 
@@ -1792,7 +1848,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after function body");
 
-		return new SynFunctionDefinition(start, false, coroutine, parentType, accessor, returnType, name, arguments, expressions);
+		return new SynFunctionDefinition(start, false, coroutine, parentType, accessor, returnType, name, aliases, arguments, expressions);
 	}
 	else if(coroutine)
 	{
@@ -1829,7 +1885,7 @@ SynShortFunctionDefinition* ParseShortFunctionDefinition(ParseContext &ctx)
 				type = NULL;
 			}
 
-			if(arguments.head == NULL)
+			if(arguments.empty())
 				AssertAt(ctx, lex_string, "ERROR: function argument name not found after '<'");
 			else
 				AssertAt(ctx, lex_string, "ERROR: function argument name not found after ','");

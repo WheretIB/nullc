@@ -25,7 +25,12 @@ public:
 		}
 	}
 
-	unsigned size()
+	bool empty() const
+	{
+		return head == 0;
+	}
+
+	unsigned size() const
 	{
 		unsigned count = 0;
 

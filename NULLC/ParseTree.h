@@ -279,11 +279,12 @@ struct SynArrayIndex: SynBase
 
 struct SynFunctionCall: SynBase
 {
-	SynFunctionCall(const char* pos, SynBase* value, IntrusiveList<SynCallArgument> arguments): SynBase(myTypeID, pos), value(value), arguments(arguments)
+	SynFunctionCall(const char* pos, SynBase* value, IntrusiveList<SynBase> aliases, IntrusiveList<SynCallArgument> arguments): SynBase(myTypeID, pos), value(value), aliases(aliases), arguments(arguments)
 	{
 	}
 
 	SynBase* value;
+	IntrusiveList<SynBase> aliases;
 	IntrusiveList<SynCallArgument> arguments;
 
 	static const unsigned myTypeID = __LINE__;
@@ -667,7 +668,7 @@ struct SynFunctionArgument: SynBase
 
 struct SynFunctionDefinition: SynBase
 {
-	SynFunctionDefinition(const char* pos, bool prototype, bool coroutine, SynBase *parentType, bool accessor, SynBase *returnType, InplaceStr name, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), prototype(prototype), coroutine(coroutine), parentType(parentType), accessor(accessor), returnType(returnType), name(name), arguments(arguments), expressions(expressions)
+	SynFunctionDefinition(const char* pos, bool prototype, bool coroutine, SynBase *parentType, bool accessor, SynBase *returnType, InplaceStr name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), prototype(prototype), coroutine(coroutine), parentType(parentType), accessor(accessor), returnType(returnType), name(name), aliases(aliases), arguments(arguments), expressions(expressions)
 	{
 	}
 
@@ -677,6 +678,7 @@ struct SynFunctionDefinition: SynBase
 	bool accessor;
 	SynBase *returnType;
 	InplaceStr name;
+	IntrusiveList<SynIdentifier> aliases;
 	IntrusiveList<SynFunctionArgument> arguments;
 	IntrusiveList<SynBase> expressions;
 
