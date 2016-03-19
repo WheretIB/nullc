@@ -386,6 +386,8 @@ SynBase* ParseType(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
 
+	Lexeme *lexeme = ctx.currentLexeme;
+
 	SynBase *base = ParseTerminalType(ctx);
 	
 	if(!base)
@@ -396,6 +398,14 @@ SynBase* ParseType(ParseContext &ctx)
 		if(ctx.Consume(lex_obracket))
 		{
 			SynBase *size = ParseTernaryExpr(ctx);
+
+			if(size && !ctx.At(lex_cbracket))
+			{
+				// Backtrack
+				ctx.currentLexeme = lexeme;
+
+				return NULL;
+			}
 
 			AssertConsume(ctx, lex_cbracket, "ERROR: matching ']' not found");
 
