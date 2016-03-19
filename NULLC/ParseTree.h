@@ -493,6 +493,30 @@ struct SynDoWhile: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct SynSwitchCase: SynBase
+{
+	SynSwitchCase(const char* pos, SynBase* value, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), value(value), expressions(expressions)
+	{
+	}
+
+	SynBase* value;
+	IntrusiveList<SynBase> expressions;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct SynSwitch: SynBase
+{
+	SynSwitch(const char* pos, SynBase* condition, IntrusiveList<SynSwitchCase> cases): SynBase(myTypeID, pos), condition(condition), cases(cases)
+	{
+	}
+
+	SynBase* condition;
+	IntrusiveList<SynSwitchCase> cases;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 enum SynUnaryOpType
 {
 	SYN_UNARY_OP_UNKNOWN,

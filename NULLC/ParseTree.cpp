@@ -1505,6 +1505,58 @@ SynDoWhile* ParseDoWhile(ParseContext &ctx)
 	return NULL;
 }
 
+SynSwitch* ParseSwitch(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	if(ctx.Consume(lex_switch))
+	{
+		AssertConsume(ctx, lex_oparen, "ERROR: '(' not found after 'switch'");
+
+		SynBase *condition = ParseAssignment(ctx);
+
+		if(!condition)
+			Stop(ctx, ctx.Position(), "ERROR: expression not found after 'switch('");
+
+		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after expression in 'switch' statement");
+
+		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after 'switch(...)'");
+
+		IntrusiveList<SynSwitchCase> cases;
+
+		while(ctx.At(lex_case) || ctx.At(lex_default))
+		{
+			const char *pos = ctx.Position();
+
+			SynBase *value = NULL;
+
+			if(ctx.Consume(lex_case))
+			{
+				value = ParseAssignment(ctx);
+
+				if(!value)
+					Stop(ctx, ctx.Position(), "ERROR: expression expected after 'case'");
+			}
+			else
+			{
+				ctx.Consume(lex_default);
+			}
+
+			AssertConsume(ctx, lex_colon, "ERROR: ':' expected");
+
+			IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
+
+			cases.push_back(new SynSwitchCase(pos, value, expressions));
+		}
+
+		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after 'switch' statement");
+
+		return new SynSwitch(start, condition, cases);
+	}
+
+	return NULL;
+}
+
 SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -2040,6 +2092,9 @@ SynBase* ParseExpression(ParseContext &ctx)
 		return node;
 
 	if(SynBase *node = ParseDoWhile(ctx))
+		return node;
+
+	if(SynBase *node = ParseSwitch(ctx))
 		return node;
 
 	if(SynBase *node = ParseFunctionDefinition(ctx))
