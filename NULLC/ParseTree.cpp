@@ -279,7 +279,7 @@ const char* ParseContext::Position()
 	return currentLexeme->pos;
 }
 
-SynBase* ParseType(ParseContext &ctx);
+SynBase* ParseType(ParseContext &ctx, bool *shrBorrow = 0);
 SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node);
 SynBase* ParseTernaryExpr(ParseContext &ctx);
 SynBase* ParseAssignment(ParseContext &ctx);
@@ -295,7 +295,7 @@ SynConstantSet* ParseConstantSet(ParseContext &ctx);
 SynClassStaticIf* ParseClassStaticIf(ParseContext &ctx, bool nested);
 IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx);
 
-SynBase* ParseTerminalType(ParseContext &ctx)
+SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 {
 	const char *start = ctx.Position();
 
@@ -309,7 +309,7 @@ SynBase* ParseTerminalType(ParseContext &ctx)
 		{
 			IntrusiveList<SynBase> types;
 
-			SynBase *type = ParseType(ctx);
+			SynBase *type = ParseType(ctx, &shrBorrow);
 
 			if(!type)
 			{
@@ -323,7 +323,7 @@ SynBase* ParseTerminalType(ParseContext &ctx)
 
 			while(ctx.Consume(lex_comma))
 			{
-				type = ParseType(ctx);
+				type = ParseType(ctx, &shrBorrow);
 
 				if(!type)
 					Stop(ctx, ctx.Position(), "ERROR: typename required after ','");
@@ -331,7 +331,19 @@ SynBase* ParseTerminalType(ParseContext &ctx)
 				types.push_back(type);
 			}
 
-			if(!ctx.Consume(lex_greater))
+			bool closed = ctx.Consume(lex_greater);
+
+			if(!closed && ctx.At(lex_shr))
+			{
+				if(shrBorrow)
+					ctx.Skip();
+
+				shrBorrow = !shrBorrow;
+
+				closed = true;
+			}
+
+			if(!closed)
 			{
 				if(types.size() > 1)
 				{
@@ -383,16 +395,33 @@ SynBase* ParseTerminalType(ParseContext &ctx)
 	return NULL;
 }
 
-SynBase* ParseType(ParseContext &ctx)
+SynBase* ParseType(ParseContext &ctx, bool *shrBorrow)
 {
 	const char *start = ctx.Position();
 
 	Lexeme *lexeme = ctx.currentLexeme;
 
-	SynBase *base = ParseTerminalType(ctx);
+	bool shrBorrowTerminal = shrBorrow ? *shrBorrow : false;
+
+	SynBase *base = ParseTerminalType(ctx, shrBorrowTerminal);
 	
 	if(!base)
 		return NULL;
+
+	if(shrBorrowTerminal)
+	{
+		if(!shrBorrow)
+		{
+			// Backtrack
+			ctx.currentLexeme = lexeme;
+
+			return NULL;
+		}
+		else
+		{
+			*shrBorrow = true;
+		}
+	}
 
 	while(ctx.At(lex_obracket) || ctx.At(lex_ref))
 	{
@@ -689,9 +718,11 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 
 			AssertConsume(ctx, lex_less, "ERROR: '<' not found before explicit generic type alias list");
 
+			bool shrBorrow = false;
+
 			do
 			{
-				SynBase *type = ParseType(ctx);
+				SynBase *type = ParseType(ctx, &shrBorrow);
 
 				if(!type)
 				{
@@ -705,7 +736,7 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 			}
 			while(ctx.Consume(lex_comma));
 
-			AssertConsume(ctx, lex_greater, "ERROR: '>' not found after explicit generic type alias list");
+			AssertConsume(ctx, shrBorrow ? lex_shr : lex_greater, "ERROR: '>' not found after explicit generic type alias list");
 
 			AssertConsume(ctx, lex_oparen, "ERROR: '(' is expected at this point");
 
