@@ -744,9 +744,40 @@ struct SynClassPototype: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct SynClassElements;
+
+struct SynClassStaticIf: SynBase
+{
+	SynClassStaticIf(const char* pos, SynBase *condition, SynClassElements *trueBlock, SynClassElements *falseBlock): SynBase(myTypeID, pos), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
+	{
+	}
+
+	SynBase *condition;
+	SynClassElements *trueBlock;
+	SynClassElements *falseBlock;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct SynClassElements: SynBase
+{
+	SynClassElements(const char* pos, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynAccessor> accessors, IntrusiveList<SynVariableDefinitions> members, IntrusiveList<SynConstantSet> constantSets, IntrusiveList<SynClassStaticIf> staticIfs): SynBase(myTypeID, pos), typedefs(typedefs), functions(functions), accessors(accessors), members(members), constantSets(constantSets), staticIfs(staticIfs)
+	{
+	}
+
+	IntrusiveList<SynTypedef> typedefs;
+	IntrusiveList<SynFunctionDefinition> functions;
+	IntrusiveList<SynAccessor> accessors;
+	IntrusiveList<SynVariableDefinitions> members;
+	IntrusiveList<SynConstantSet> constantSets;
+	IntrusiveList<SynClassStaticIf> staticIfs;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct SynClassDefinition: SynBase
 {
-	SynClassDefinition(const char* pos, SynAlign* align, InplaceStr name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynAccessor> accessors, IntrusiveList<SynVariableDefinitions> members, IntrusiveList<SynConstantSet> constantSets): SynBase(myTypeID, pos), align(align), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), typedefs(typedefs), functions(functions), accessors(accessors), members(members), constantSets(constantSets)
+	SynClassDefinition(const char* pos, SynAlign* align, InplaceStr name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, SynClassElements *elements): SynBase(myTypeID, pos), align(align), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), elements(elements)
 	{
 	}
 
@@ -755,11 +786,7 @@ struct SynClassDefinition: SynBase
 	IntrusiveList<SynIdentifier> aliases;
 	bool extendable;
 	SynBase *baseClass;
-	IntrusiveList<SynTypedef> typedefs;
-	IntrusiveList<SynFunctionDefinition> functions;
-	IntrusiveList<SynAccessor> accessors;
-	IntrusiveList<SynVariableDefinitions> members;
-	IntrusiveList<SynConstantSet> constantSets;
+	SynClassElements *elements;
 
 	static const unsigned myTypeID = __LINE__;
 };

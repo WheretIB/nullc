@@ -292,6 +292,7 @@ SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx);
 SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx);
 SynAccessor* ParseAccessorDefinition(ParseContext &ctx);
 SynConstantSet* ParseConstantSet(ParseContext &ctx);
+SynClassStaticIf* ParseClassStaticIf(ParseContext &ctx, bool nested);
 IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx);
 
 SynBase* ParseTerminalType(ParseContext &ctx)
@@ -964,6 +965,52 @@ SynBase* ParseAssignment(ParseContext &ctx)
 	return NULL;
 }
 
+SynClassElements* ParseClassElements(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	IntrusiveList<SynTypedef> typedefs;
+	IntrusiveList<SynFunctionDefinition> functions;
+	IntrusiveList<SynAccessor> accessors;
+	IntrusiveList<SynVariableDefinitions> members;
+	IntrusiveList<SynConstantSet> constantSets;
+	IntrusiveList<SynClassStaticIf> staticIfs;
+
+	for(;;)
+	{
+		if(SynTypedef *node = ParseTypedef(ctx))
+		{
+			typedefs.push_back(node);
+		}
+		else if(SynClassStaticIf *node = ParseClassStaticIf(ctx, false))
+		{
+			staticIfs.push_back(node);
+		}
+		else if(SynFunctionDefinition *node = ParseFunctionDefinition(ctx))
+		{
+			functions.push_back(node);
+		}
+		else if(SynAccessor *node = ParseAccessorDefinition(ctx))
+		{
+			accessors.push_back(node);
+		}
+		else if(SynVariableDefinitions *node = ParseVariableDefinitions(ctx))
+		{
+			members.push_back(node);
+		}
+		else if(SynConstantSet *node = ParseConstantSet(ctx))
+		{
+			constantSets.push_back(node);
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	return new SynClassElements(start, typedefs, functions, accessors, members, constantSets, staticIfs);
+}
+
 SynBase* ParseClassDefinition(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -1019,43 +1066,11 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after class name");
 
-		IntrusiveList<SynTypedef> typedefs;
-		IntrusiveList<SynFunctionDefinition> functions;
-		IntrusiveList<SynAccessor> accessors;
-		IntrusiveList<SynVariableDefinitions> members;
-		IntrusiveList<SynConstantSet> constantSets;
-
-		for(;;)
-		{
-			if(SynTypedef *node = ParseTypedef(ctx))
-			{
-				typedefs.push_back(node);
-			}
-			else if(SynFunctionDefinition *node = ParseFunctionDefinition(ctx))
-			{
-				functions.push_back(node);
-			}
-			else if(SynAccessor *node = ParseAccessorDefinition(ctx))
-			{
-				accessors.push_back(node);
-			}
-			else if(SynVariableDefinitions *node = ParseVariableDefinitions(ctx))
-			{
-				members.push_back(node);
-			}
-			else if(SynConstantSet *node = ParseConstantSet(ctx))
-			{
-				constantSets.push_back(node);
-			}
-			else
-			{
-				break;
-			}
-		}
+		SynClassElements *elements = ParseClassElements(ctx);
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '{' not found after class name");
 
-		return new SynClassDefinition(start, align, name, aliases, extendable, baseClass, typedefs, functions, accessors, members, constantSets);
+		return new SynClassDefinition(start, align, name, aliases, extendable, baseClass, elements);
 	}
 
 	// Backtrack
@@ -1664,6 +1679,69 @@ SynConstantSet* ParseConstantSet(ParseContext &ctx)
 		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after constants");
 
 		return new SynConstantSet(start, type, constantSet);
+	}
+
+	return NULL;
+}
+
+SynClassStaticIf* ParseClassStaticIf(ParseContext &ctx, bool nested)
+{
+	const char *start = ctx.Position();
+
+	Lexeme *lexeme = ctx.currentLexeme;
+
+	if(nested || ctx.Consume(lex_at))
+	{
+		if(!ctx.Consume(lex_if))
+		{
+			// Backtrack
+			ctx.currentLexeme = lexeme;
+
+			return NULL;
+		}
+
+		AssertConsume(ctx, lex_oparen, "ERROR: '(' not found after 'if'");
+
+		SynBase *condition = ParseAssignment(ctx);
+
+		if(!condition)
+			Stop(ctx, ctx.Position(), "ERROR: condition not found in 'if' statement");
+
+		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after 'if' condition");
+
+		bool hasBlock = ctx.Consume(lex_ofigure);
+
+		SynClassElements *trueBlock = ParseClassElements(ctx);
+
+		if(hasBlock)
+			AssertConsume(ctx, lex_cfigure, "ERROR: closing '}' not found");
+
+		SynClassElements *falseBlock = NULL;
+
+		if(ctx.Consume(lex_else))
+		{
+			if(ctx.At(lex_if))
+			{
+				const char *pos = ctx.Position();
+
+				IntrusiveList<SynClassStaticIf> staticIfs;
+
+				staticIfs.push_back(ParseClassStaticIf(ctx, true));
+
+				falseBlock = new SynClassElements(pos, IntrusiveList<SynTypedef>(), IntrusiveList<SynFunctionDefinition>(), IntrusiveList<SynAccessor>(), IntrusiveList<SynVariableDefinitions>(), IntrusiveList<SynConstantSet>(), staticIfs);
+			}
+			else
+			{
+				hasBlock = ctx.Consume(lex_ofigure);
+
+				falseBlock = ParseClassElements(ctx);
+
+				if(hasBlock)
+					AssertConsume(ctx, lex_cfigure, "ERROR: closing '}' not found");
+			}
+		}
+
+		return new SynClassStaticIf(start, condition, trueBlock, falseBlock);
 	}
 
 	return NULL;
