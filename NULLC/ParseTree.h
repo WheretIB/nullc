@@ -198,10 +198,11 @@ struct SynCharacter: SynBase
 
 struct SynString: SynBase
 {
-	SynString(const char* pos, InplaceStr value): SynBase(myTypeID, pos), value(value)
+	SynString(const char* pos, bool rawLiteral, InplaceStr value): SynBase(myTypeID, pos), rawLiteral(rawLiteral), value(value)
 	{
 	}
 
+	bool rawLiteral;
 	InplaceStr value;
 
 	static const unsigned myTypeID = __LINE__;

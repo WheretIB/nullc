@@ -385,7 +385,13 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 
 	if(ctx.Consume(lex_at))
 	{
-		AssertAt(ctx, lex_string, "ERROR: type alias required after '@'");
+		if(!ctx.At(lex_string))
+		{
+			// Backtrack
+			ctx.currentLexeme = lexeme;
+
+			return NULL;
+		}
 
 		InplaceStr name = ctx.Consume();
 
@@ -513,6 +519,28 @@ SynBase* ParseArray(ParseContext &ctx)
 		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after inline array");
 
 		return new SynArray(start, values);
+	}
+
+	return NULL;
+}
+
+SynBase* ParseString(ParseContext &ctx)
+{
+	const char *start = ctx.Position();
+
+	Lexeme *lexeme = ctx.currentLexeme;
+
+	bool rawLiteral = ctx.Consume(lex_at);
+
+	if(ctx.At(lex_quotedstring))
+	{
+		return new SynString(start, rawLiteral, ctx.Consume());
+	}
+
+	if(rawLiteral)
+	{
+		// Backtrack
+		ctx.currentLexeme = lexeme;
 	}
 
 	return NULL;
@@ -806,8 +834,8 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after '('");
 	}
 
-	if(!node && ctx.At(lex_quotedstring))
-		node = new SynString(start, ctx.Consume());
+	if(!node)
+		node = ParseString(ctx);
 
 	if(!node)
 		node = ParseArray(ctx);
