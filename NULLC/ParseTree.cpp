@@ -281,6 +281,7 @@ const char* ParseContext::Position()
 
 SynBase* ParseType(ParseContext &ctx, bool *shrBorrow = 0);
 SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node);
+SynBase* ParseTerminal(ParseContext &ctx);
 SynBase* ParseTernaryExpr(ParseContext &ctx);
 SynBase* ParseAssignment(ParseContext &ctx);
 SynTypedef* ParseTypedef(ParseContext &ctx);
