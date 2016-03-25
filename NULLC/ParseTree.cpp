@@ -846,6 +846,16 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 	if(!node && ctx.At(lex_string))
 		node = new SynIdentifier(start, ctx.Consume());
 
+	if(!node && ctx.Consume(lex_at))
+	{
+		bool isOperator = (ctx.Peek() >= lex_add && ctx.Peek() <= lex_in) || (ctx.Peek() >= lex_set && ctx.Peek() <= lex_xorset) || ctx.Peek() == lex_bitnot || ctx.Peek() == lex_lognot;
+
+		if(!isOperator)
+			Stop(ctx, ctx.Position(), "ERROR: string expected after '@'");
+
+		node = new SynIdentifier(start, ctx.Consume());
+	}
+
 	if(!node)
 		return NULL;
 		
@@ -2009,7 +2019,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 		IntrusiveList<SynIdentifier> aliases;
 
-		if(ctx.Consume(lex_less))
+		if(name.begin != NULL && ctx.Consume(lex_less))
 		{
 			do
 			{
