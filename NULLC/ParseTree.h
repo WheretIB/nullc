@@ -361,14 +361,14 @@ struct SynSizeof: SynBase
 
 struct SynNew: SynBase
 {
-	SynNew(const char* pos, SynBase *type, IntrusiveList<SynCallArgument> arguments, SynBase *count, SynBase *constructor): SynBase(myTypeID, pos), type(type), arguments(arguments), count(count), constructor(constructor)
+	SynNew(const char* pos, SynBase *type, IntrusiveList<SynCallArgument> arguments, SynBase *count, IntrusiveList<SynBase> constructor): SynBase(myTypeID, pos), type(type), arguments(arguments), count(count), constructor(constructor)
 	{
 	}
 
 	SynBase *type;
 	IntrusiveList<SynCallArgument> arguments;
 	SynBase *count;
-	SynBase *constructor;
+	IntrusiveList<SynBase> constructor;
 
 	static const unsigned myTypeID = __LINE__;
 };

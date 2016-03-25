@@ -638,6 +638,8 @@ SynNew* ParseNew(ParseContext &ctx)
 
 		IntrusiveList<SynCallArgument> arguments;
 
+		IntrusiveList<SynBase> constructor;
+
 		if(ctx.Consume(lex_obracket))
 		{
 			SynBase *count = ParseTernaryExpr(ctx);
@@ -647,7 +649,7 @@ SynNew* ParseNew(ParseContext &ctx)
 
 			AssertConsume(ctx, lex_cbracket, "ERROR: ']' not found after expression");
 
-			return new SynNew(start, type, arguments, count, NULL);
+			return new SynNew(start, type, arguments, count, constructor);
 		}
 
 		if(ctx.Consume(lex_oparen))
@@ -657,11 +659,9 @@ SynNew* ParseNew(ParseContext &ctx)
 			AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function parameter list");
 		}
 
-		SynBase *constructor = NULL;
-		
 		if(ctx.Consume(lex_ofigure))
 		{
-			constructor = ParseExpression(ctx);
+			constructor = ParseExpressions(ctx);
 
 			AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after custom constructor body");
 		}
