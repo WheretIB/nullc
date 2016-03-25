@@ -450,6 +450,8 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow)
 		}
 		else if(ctx.Consume(lex_ref))
 		{
+			Lexeme *refLexeme = ctx.currentLexeme;
+
 			if(ctx.Consume(lex_oparen))
 			{
 				IntrusiveList<SynBase> arguments;
@@ -469,7 +471,13 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow)
 					}
 				}
 
-				AssertConsume(ctx, lex_cparen, "ERROR: matching ')' not found");
+				if(!ctx.Consume(lex_cparen))
+				{
+					// Backtrack
+					ctx.currentLexeme = refLexeme;
+
+					return base;
+				}
 
 				base = new SynTypeFunction(start, base, arguments);
 			}
