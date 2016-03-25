@@ -815,7 +815,7 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 
 	if(ctx.Consume(lex_mul))
 	{
-		SynBase *node = ParseComplexTerminal(ctx);
+		SynBase *node = ParseTerminal(ctx);
 
 		if(!node)
 			Stop(ctx, ctx.Position(), "ERROR: expression not found after '*'");
@@ -1366,12 +1366,18 @@ SynIfElse* ParseIfElse(ParseContext &ctx)
 		SynBase *trueBlock = ParseExpression(ctx);
 		SynBase *falseBlock = NULL;
 
+		if(staticIf)
+			ctx.Consume(lex_semicolon);
+
 		if(ctx.Consume(lex_else))
 		{
 			falseBlock = ParseExpression(ctx);
 
 			if(!falseBlock)
 				Stop(ctx, ctx.Position(), "ERROR: expression not found after 'else'");
+
+			if(staticIf)
+				ctx.Consume(lex_semicolon);
 		}
 
 		return new SynIfElse(start, staticIf, condition, trueBlock, falseBlock);
