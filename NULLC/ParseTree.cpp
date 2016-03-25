@@ -736,7 +736,8 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 
 		if(ctx.Consume(lex_point))
 		{
-			AssertAt(ctx, lex_string, "ERROR: member name expected after '.'");
+			if(!ctx.At(lex_return))
+				AssertAt(ctx, lex_string, "ERROR: member name expected after '.'");
 
 			InplaceStr member = ctx.Consume();
 
