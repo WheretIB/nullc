@@ -5,13 +5,16 @@
 #include "Array.h"
 
 struct SynBase;
+
 struct SynBinaryOpElement;
+struct SynNamespaceElement;
 
 struct ParseContext
 {
 	ParseContext();
 
 	LexemeType Peek();
+	InplaceStr Value();
 	bool At(LexemeType type);
 	bool Consume(LexemeType type);
 	bool Consume(const char *str);
@@ -20,9 +23,16 @@ struct ParseContext
 
 	const char* Position();
 
+	SynNamespaceElement* IsNamespace(SynNamespaceElement *parent, InplaceStr name);
+	SynNamespaceElement* PushNamespace(InplaceStr name);
+	void PopNamespace();
+
 	Lexeme *currentLexeme;
 
 	FastVector<SynBinaryOpElement> binaryOpStack;
+
+	FastVector<SynNamespaceElement*> namespaceList;
+	SynNamespaceElement *currentNamespace;
 
 	const char *errorPos;
 	InplaceStr errorMsg;
@@ -75,10 +85,11 @@ struct SynTypeGeneric: SynBase
 
 struct SynTypeSimple: SynBase
 {
-	SynTypeSimple(const char *pos, InplaceStr name): SynBase(myTypeID, pos), name(name)
+	SynTypeSimple(const char *pos, IntrusiveList<SynIdentifier> path, InplaceStr name): SynBase(myTypeID, pos), path(path), name(name)
 	{
 	}
 
+	IntrusiveList<SynIdentifier> path;
 	InplaceStr name;
 
 	static const unsigned myTypeID = __LINE__;
@@ -132,10 +143,11 @@ struct SynTypeFunction: SynBase
 
 struct SynTypeGenericInstance: SynBase
 {
-	SynTypeGenericInstance(const char *pos, InplaceStr name, IntrusiveList<SynBase> types): SynBase(myTypeID, pos), name(name), types(types)
+	SynTypeGenericInstance(const char *pos, IntrusiveList<SynIdentifier> path, InplaceStr name, IntrusiveList<SynBase> types): SynBase(myTypeID, pos), path(path), name(name), types(types)
 	{
 	}
 
+	IntrusiveList<SynIdentifier> path;
 	InplaceStr name;
 	IntrusiveList<SynBase> types;
 
@@ -837,6 +849,16 @@ struct SynEnumDefinition: SynBase
 	IntrusiveList<SynConstant> values;
 
 	static const unsigned myTypeID = __LINE__;
+};
+
+struct SynNamespaceElement
+{
+	SynNamespaceElement(): parent(0)
+	{
+	}
+
+	SynNamespaceElement *parent;
+	InplaceStr name;
 };
 
 struct SynNamespaceDefinition: SynBase

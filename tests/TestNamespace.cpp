@@ -786,3 +786,37 @@ const char	*testNamespace65 =
 }\r\n\
 return int(Bar.Test.y * Bar.Test.z);";
 TEST_RESULT("namespace test 65", testNamespace65, "22");
+
+const char	*testNamespace66 =
+"namespace A\r\n\
+{\r\n\
+	namespace A{ int x = 1; }\r\n\
+	int x = 2;\r\n\
+	int a = A.A.x;\r\n\
+}\r\n\
+return A.a;";
+TEST_RESULT("namespace test 66", testNamespace66, "1");
+
+const char	*testNamespace67 =
+"namespace A\r\n\
+{\r\n\
+	namespace A\r\n\
+	{\r\n\
+		int x = 2;\r\n\
+		\r\n\
+		int u1 = x;\r\n\
+		int u2 = A.x;\r\n\
+		int u3 = A.A.x;\r\n\
+		\r\n\
+		x += 4;\r\n\
+		A.x += 20;\r\n\
+		A.A.x += 500;\r\n\
+	}\r\n\
+	\r\n\
+	A.x += 3000;\r\n\
+	A.A.x += 60000;\r\n\
+}\r\n\
+\r\n\
+A.A.x += 10000;\r\n\
+return A.A.x;";
+TEST_RESULT("namespace test 67", testNamespace67, "73526");

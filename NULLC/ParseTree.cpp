@@ -224,12 +224,21 @@ SynModifyAssignType GetModifyAssignType(LexemeType type)
 
 ParseContext::ParseContext()
 {
-	errorPos = 0;
+	currentLexeme = NULL;
+
+	errorPos = NULL;
+
+	currentNamespace = NULL;
 }
 
 LexemeType ParseContext::Peek()
 {
 	return currentLexeme->type;
+}
+
+InplaceStr ParseContext::Value()
+{
+	return InplaceStr(currentLexeme->pos, currentLexeme->length);
 }
 
 bool ParseContext::At(LexemeType type)
@@ -279,6 +288,79 @@ const char* ParseContext::Position()
 	return currentLexeme->pos;
 }
 
+SynNamespaceElement* ParseContext::IsNamespace(SynNamespaceElement *parent, InplaceStr name)
+{
+	// In the context of a parent namespace, we only look for immediate children
+	if(parent)
+	{
+		// Search for existing namespace in the same context
+		for(unsigned i = 0; i < namespaceList.size(); i++)
+		{
+			SynNamespaceElement *ns = namespaceList[i];
+
+			if(ns->parent == parent && ns->name == name)
+				return ns;
+		}
+
+		return NULL;
+	}
+
+	// Go from the bottom of the namespace stack, trying to find the namespace there
+	SynNamespaceElement *current = currentNamespace;
+
+	for(;;)
+	{
+		for(unsigned i = 0; i < namespaceList.size(); i++)
+		{
+			SynNamespaceElement *ns = namespaceList[i];
+
+			if(ns->parent == current && ns->name == name)
+				return ns;
+		}
+
+		if(current)
+			current = current->parent;
+		else
+			break;
+	}
+
+	return NULL;
+}
+
+SynNamespaceElement* ParseContext::PushNamespace(InplaceStr name)
+{
+	SynNamespaceElement *current = currentNamespace;
+
+	// Search for existing namespace in the same context
+	for(unsigned i = 0; i < namespaceList.size(); i++)
+	{
+		SynNamespaceElement *ns = namespaceList[i];
+
+		if(ns->parent == current && ns->name == name)
+		{
+			currentNamespace = ns;
+			return ns;
+		}
+	}
+
+	// Create new namespace
+	SynNamespaceElement *ns = new SynNamespaceElement();
+	namespaceList.push_back(ns);
+
+	ns->parent = current;
+	ns->name = name;
+
+	currentNamespace = ns;
+	return ns;
+}
+
+void ParseContext::PopNamespace()
+{
+	assert(currentNamespace);
+
+	currentNamespace = currentNamespace->parent;
+}
+
 SynBase* ParseType(ParseContext &ctx, bool *shrBorrow = 0);
 SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node);
 SynBase* ParseTerminal(ParseContext &ctx);
@@ -305,6 +387,21 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 	if(ctx.At(lex_string))
 	{
 		InplaceStr name = ctx.Consume();
+
+		IntrusiveList<SynIdentifier> namespacePath;
+
+		SynNamespaceElement *ns = NULL;
+
+		while(ctx.At(lex_point) && (ns = ctx.IsNamespace(ns, name)) != NULL)
+		{
+			ctx.Skip();
+
+			AssertAt(ctx, lex_string, "ERROR: namespace member is expected after '.'");
+
+			namespacePath.push_back(new SynIdentifier(start, name));
+
+			name = ctx.Consume();
+		}
 
 		if(ctx.Consume(lex_less))
 		{
@@ -359,10 +456,10 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 				}
 			}
 
-			return new SynTypeGenericInstance(start, name, types);
+			return new SynTypeGenericInstance(start, namespacePath, name, types);
 		}
 
-		return new SynTypeSimple(start, name);
+		return new SynTypeSimple(start, namespacePath, name);
 	}
 
 	if(ctx.Consume(lex_auto))
@@ -1238,7 +1335,14 @@ SynNamespaceDefinition* ParseNamespaceDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after namespace name");
 
+		SynNamespaceElement *currentNamespace = ctx.currentNamespace;
+
+		for(SynIdentifier *el = path.head; el; el = (SynIdentifier*)el->next)
+			ctx.PushNamespace(el->name);
+
 		IntrusiveList<SynBase> code = ParseExpressions(ctx);
+
+		ctx.currentNamespace = currentNamespace;
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after namespace body");
 
