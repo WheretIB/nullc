@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include "InstructionSet.h"
 #include "ParseClass.h"
+#include "CodeInfo.h"
 
 void	ResetTreeGlobals();
 
@@ -217,30 +218,9 @@ public:
 	virtual NodeNumber*	Evaluate(char *memory, unsigned int size);
 	COMPILE_LLVM(virtual void CompileLLVM());
 
-	int			GetInteger()
-	{
-		if(typeInfo == typeLong)
-			return (int)num.integer64;
-		else if(typeInfo == typeDouble || typeInfo == typeFloat)
-			return (int)num.real;
-		return num.integer;
-	}
-	long long	GetLong()
-	{
-		if(typeInfo == typeLong)
-			return num.integer64;
-		else if(typeInfo == typeDouble || typeInfo == typeFloat)
-			return (long long)num.real;
-		return num.integer;
-	}
-	double		GetDouble()
-	{
-		if(typeInfo == typeDouble || typeInfo == typeFloat)
-			return num.real;
-		else if(typeInfo == typeLong)
-			return (double)num.integer64;
-		return num.integer;
-	}
+	int			GetInteger();
+	long long	GetLong();
+	double		GetDouble();
 
 	bool		ConvertTo(TypeInfo *target);
 public:
@@ -672,7 +652,7 @@ protected:
 class NodeExpressionList: public NodeOneOP
 {
 public:
-	NodeExpressionList(TypeInfo *returnType = typeVoid);
+	NodeExpressionList(TypeInfo *returnType);
 	virtual ~NodeExpressionList();
 
 			void AddNode(bool reverse = true);

@@ -463,12 +463,6 @@ public:
 	static	ChunkedStackPool<65532>	typeInfoPool;
 };
 
-extern TypeInfo*	typeVoid;
-extern TypeInfo*	typeInt;
-extern TypeInfo*	typeFloat;
-extern TypeInfo*	typeLong;
-extern TypeInfo*	typeDouble;
-
 class VariableInfo
 {
 public:

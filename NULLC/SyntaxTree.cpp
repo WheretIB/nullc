@@ -224,6 +224,33 @@ void NodeNumber::Compile()
 	}
 }
 
+int NodeNumber::GetInteger()
+{
+	if(typeInfo == typeLong)
+		return (int)num.integer64;
+	else if(typeInfo == typeDouble || typeInfo == typeFloat)
+		return (int)num.real;
+	return num.integer;
+}
+
+long long NodeNumber::GetLong()
+{
+	if(typeInfo == typeLong)
+		return num.integer64;
+	else if(typeInfo == typeDouble || typeInfo == typeFloat)
+		return (long long)num.real;
+	return num.integer;
+}
+
+double NodeNumber::GetDouble()
+{
+	if(typeInfo == typeDouble || typeInfo == typeFloat)
+		return num.real;
+	else if(typeInfo == typeLong)
+		return (double)num.integer64;
+	return num.integer;
+}
+
 bool NodeNumber::ConvertTo(TypeInfo *target)
 {
 	if(target == typeInt || target == typeShort || target == typeChar)

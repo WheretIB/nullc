@@ -828,7 +828,7 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 						newInfo->genericInfo->aliasCount = tInfo->genericTypeCount;
 
 						CodeInfo::nodeList.push_back(new NodeZeroOP());
-						newInfo->definitionList = new NodeExpressionList();
+						newInfo->definitionList = new NodeExpressionList(typeVoid);
 						CodeInfo::funcDefList.push_back(newInfo->definitionList);
 					}
 				}
@@ -1060,7 +1060,7 @@ bool Compiler::ImportModuleFunctions(const char* bytecode, const char* pos)
 				if(lastFunc->type == FunctionInfo::COROUTINE)
 				{
 					CodeInfo::nodeList.push_back(new NodeZeroOP());
-					lastFunc->afterNode = new NodeExpressionList();
+					lastFunc->afterNode = new NodeExpressionList(typeVoid);
 					CodeInfo::funcDefList.push_back(lastFunc->afterNode);
 				}
 			}else{
