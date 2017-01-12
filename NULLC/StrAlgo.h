@@ -44,6 +44,11 @@ namespace NULLC
 			end = strEnd;
 		}
 
+		bool empty() const
+		{
+			return begin == end;
+		}
+
 		unsigned length() const
 		{
 			return unsigned(end - begin);

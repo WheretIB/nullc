@@ -182,6 +182,9 @@
     <ClCompile Include="ParseTree.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
+    <ClCompile Include="ExpressionTree.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -345,6 +348,9 @@
     </ClInclude>
     <ClInclude Include="IntrusiveList.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpressionTree.h">
+      <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

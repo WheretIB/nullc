@@ -62,6 +62,9 @@
     <ClCompile Include="ParseTree.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
+    <ClCompile Include="ExpressionTree.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -119,6 +122,9 @@
       <Filter>Compiler</Filter>
     </ClInclude>
     <ClInclude Include="ParseTree.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpressionTree.h">
       <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>

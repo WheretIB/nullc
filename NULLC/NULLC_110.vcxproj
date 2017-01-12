@@ -193,6 +193,7 @@
     <ClCompile Include="BinaryCache.cpp" />
     <ClCompile Include="Bytecode.cpp" />
     <ClCompile Include="CodeInfo.cpp" />
+    <ClCompile Include="ExpressionTree.cpp" />
     <ClCompile Include="nullc.cpp" />
     <ClCompile Include="ParseTree.cpp" />
     <ClCompile Include="stdafx.cpp" />
@@ -239,6 +240,7 @@
     <ClInclude Include="BinaryCache.h" />
     <ClInclude Include="Bytecode.h" />
     <ClInclude Include="CodeInfo.h" />
+    <ClInclude Include="ExpressionTree.h" />
     <ClInclude Include="HashMap.h" />
     <ClInclude Include="InstructionSet.h" />
     <ClInclude Include="IntrusiveList.h" />

@@ -54,6 +54,21 @@ struct SynBase
 	SynBase *next;
 };
 
+template<typename T>
+bool isType(SynBase *node)
+{
+	return node->typeID == typename T::myTypeID;
+}
+
+template<typename T>
+T* getType(SynBase *node)
+{
+	if(isType<T>(node))
+		return static_cast<T*>(node);
+
+	return 0;
+}
+
 struct SynIdentifier: SynBase
 {
 	SynIdentifier(const char* pos, InplaceStr name): SynBase(myTypeID, pos), name(name)
