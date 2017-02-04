@@ -2015,17 +2015,17 @@ SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, bool lastExplicit,
 		const char *start = ctx.Position();
 		InplaceStr name = ctx.Consume();
 
-		SynBase *defaultValue = NULL;
+		SynBase *initializer = NULL;
 
 		if(ctx.Consume(lex_set))
 		{
-			defaultValue = ParseTernaryExpr(ctx);
+			initializer = ParseTernaryExpr(ctx);
 
-			if(!defaultValue)
+			if(!initializer)
 				Stop(ctx, ctx.Position(), "ERROR: default parameter value not found after '='");
 		}
 
-		return new SynFunctionArgument(start, isExplicit, type, name, defaultValue);
+		return new SynFunctionArgument(start, isExplicit, type, name, initializer);
 	}
 
 	if(isExplicit)

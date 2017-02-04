@@ -717,14 +717,14 @@ struct SynAccessor: SynBase
 
 struct SynFunctionArgument: SynBase
 {
-	SynFunctionArgument(const char* pos, bool isExplicit, SynBase* type, InplaceStr name, SynBase* defaultValue): SynBase(myTypeID, pos), isExplicit(isExplicit), type(type), name(name), defaultValue(defaultValue)
+	SynFunctionArgument(const char* pos, bool isExplicit, SynBase* type, InplaceStr name, SynBase* initializer): SynBase(myTypeID, pos), isExplicit(isExplicit), type(type), name(name), initializer(initializer)
 	{
 	}
 
 	bool isExplicit;
 	SynBase* type;
 	InplaceStr name;
-	SynBase* defaultValue;
+	SynBase* initializer;
 
 	static const unsigned myTypeID = __LINE__;
 };
