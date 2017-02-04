@@ -3,45 +3,450 @@
 #include "ParseTree.h"
 #include "IntrusiveList.h"
 #include "Array.h"
+#include "HashMap.h"
 
-class TypeInfo;
-class FunctionInfo;
+struct TypeBase;
+struct TypeStruct;
+struct TypeRef;
+struct TypeArray;
+struct TypeUnsizedArray;
+struct TypeFunction;
+
+struct VariableData;
+struct FunctionData;
 
 struct ExprBase;
+
+struct NamespaceData
+{
+};
+
+struct VariableData
+{
+	VariableData(unsigned alignment, TypeBase *type, InplaceStr name): alignment(alignment), type(type), name(name), next(0)
+	{
+		nameHash = GetStringHash(name.begin, name.end);
+	}
+
+	unsigned alignment;
+
+	TypeBase *type;
+
+	InplaceStr name;
+	unsigned nameHash;
+
+	VariableData *next;
+};
+
+struct FunctionData
+{
+	FunctionData(TypeFunction *type, InplaceStr name): type(type), name(name)
+	{
+		nameHash = GetStringHash(name.begin, name.end);
+	}
+
+	TypeFunction *type;
+
+	InplaceStr name;
+	unsigned nameHash;
+};
+
+struct ScopeData
+{
+	FastVector<TypeBase*> types;
+	FastVector<FunctionData*> functions;
+	FastVector<VariableData*> variables;
+};
+
+template<typename T>
+unsigned GetTypeAlignment()
+{
+	struct Helper
+	{
+		char x;
+		T y;
+	};
+
+	return sizeof(Helper) - sizeof(T);
+}
 
 struct ExpressionContext
 {
 	ExpressionContext();
 
-	// State info
-	FastVector<TypeInfo*> typeInfo;
+	void PushScope();
+	void PopScope();
+
+	void AddType(TypeBase *type);
+	void AddFunction(FunctionData *function);
+	void AddVariable(VariableData *variable);
+
+	TypeRef* GetReferenceType(TypeBase* type);
+
+	// Full state info
+	FastVector<NamespaceData*> namespaces;
+	FastVector<TypeBase*> types;
+	FastVector<FunctionData*> functions;
+	FastVector<VariableData*> variables;
 
 	// Context info
-	FastVector<FunctionInfo*> functionStack;
+	HashMap<TypeBase*> typeMap;
+	HashMap<FunctionData*> functionMap;
+	HashMap<VariableData*> variableMap;
+
+	FastVector<ScopeData*> scopes;
 
 	// Error info
 	const char *errorPos;
 	InplaceStr errorMsg;
 
-	// Basic types
-	TypeInfo* typeVoid;
-	TypeInfo* typeChar;
-	TypeInfo* typeShort;
-	TypeInfo* typeInt;
-	TypeInfo* typeFloat;
-	TypeInfo* typeLong;
-	TypeInfo* typeDouble;
-	TypeInfo* typeObject;
-	TypeInfo* typeTypeid;
-	TypeInfo* typeAutoArray;
-	TypeInfo* typeFunction;
-	TypeInfo* typeGeneric;
-	TypeInfo* typeBool;
+	// Base types
+	TypeBase* typeVoid;
+
+	TypeBase* typeBool;
+
+	TypeBase* typeChar;
+	TypeBase* typeShort;
+	TypeBase* typeInt;
+	TypeBase* typeLong;
+
+	TypeBase* typeFloat;
+	TypeBase* typeDouble;
+
+	TypeBase* typeTypeID;
+	TypeBase* typeFunctionID;
+
+	TypeBase* typeGeneric;
+
+	TypeBase* typeAuto;
+	TypeStruct* typeAutoRef;
+	TypeStruct* typeAutoArray;
+};
+
+struct TypeBase
+{
+	TypeBase(unsigned typeID): typeID(typeID)
+	{
+		name = 0;
+		nameHash = 0;
+
+		size = 0;
+		padding = 0;
+		alignment = 0;
+
+		refType = 0;
+		unsizedArrayType = 0;
+	}
+
+	virtual ~TypeBase()
+	{
+	}
+
+	unsigned typeID;
+
+	const char *name;
+	unsigned nameHash;
+	
+	unsigned size;
+	unsigned padding;
+	unsigned alignment;
+
+	TypeRef *refType; // Reference type to this type
+	FastVector<TypeArray*> arrayTypes; // Array types derived from this type
+	TypeUnsizedArray *unsizedArrayType; // An unsized array type derived from this type
+};
+
+struct TypeVoid: TypeBase
+{
+	TypeVoid(): TypeBase(myTypeID)
+	{
+		name = "void";
+		nameHash = GetStringHash(name);
+
+		size = 0;
+		padding = 0;
+		alignment = 0;
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeBool: TypeBase
+{
+	TypeBool(): TypeBase(myTypeID)
+	{
+		name = "bool";
+		nameHash = GetStringHash(name);
+
+		size = 1;
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeChar: TypeBase
+{
+	TypeChar(): TypeBase(myTypeID)
+	{
+		name = "char";
+		nameHash = GetStringHash(name);
+
+		size = 1;
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeShort: TypeBase
+{
+	TypeShort(): TypeBase(myTypeID)
+	{
+		name = "short";
+		nameHash = GetStringHash(name);
+
+		size = 2;
+		alignment = GetTypeAlignment<short>();
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeInt: TypeBase
+{
+	TypeInt(): TypeBase(myTypeID)
+	{
+		name = "int";
+		nameHash = GetStringHash(name);
+
+		size = 4;
+		alignment = GetTypeAlignment<int>();
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeLong: TypeBase
+{
+	TypeLong(): TypeBase(myTypeID)
+	{
+		name = "long";
+		nameHash = GetStringHash(name);
+
+		size = 8;
+		alignment = GetTypeAlignment<long>();
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeFloat: TypeBase
+{
+	TypeFloat(): TypeBase(myTypeID)
+	{
+		name = "float";
+		nameHash = GetStringHash(name);
+
+		size = 4;
+		alignment = GetTypeAlignment<float>();
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeDouble: TypeBase
+{
+	TypeDouble(): TypeBase(myTypeID)
+	{
+		name = "double";
+		nameHash = GetStringHash(name);
+
+		size = 8;
+		alignment = GetTypeAlignment<double>();
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeTypeID: TypeBase
+{
+	TypeTypeID(): TypeBase(myTypeID)
+	{
+		name = "typeid";
+		nameHash = GetStringHash(name);
+
+		size = 4;
+		alignment = GetTypeAlignment<int>();
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeFunctionID: TypeBase
+{
+	TypeFunctionID(): TypeBase(myTypeID)
+	{
+		name = "__function";
+		nameHash = GetStringHash(name);
+
+		size = 4;
+		alignment = GetTypeAlignment<int>();
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeGeneric: TypeBase
+{
+	TypeGeneric(): TypeBase(myTypeID)
+	{
+		name = "generic";
+		nameHash = GetStringHash(name);
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeAuto: TypeBase
+{
+	TypeAuto(): TypeBase(myTypeID)
+	{
+		name = "auto";
+		nameHash = GetStringHash(name);
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeStruct: TypeBase
+{
+	TypeStruct(unsigned myTypeID): TypeBase(myTypeID)
+	{
+	}
+
+	struct Member
+	{
+		Member(const char *name, TypeBase *type, unsigned alignment): name(name), type(type), alignment(alignment)
+		{
+			nameHash = GetStringHash(name);
+
+			offset = 0;
+
+			next = 0;
+		}
+
+		const char *name;
+		unsigned nameHash;
+
+		TypeBase *type;
+		unsigned alignment;
+
+		unsigned offset;
+
+		Member *next;
+	};
+
+	IntrusiveList<Member> members;
+};
+
+struct TypeAutoRef: TypeStruct
+{
+	TypeAutoRef(): TypeStruct(myTypeID)
+	{
+		name = "auto ref";
+		nameHash = GetStringHash(name);
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeAutoArray: TypeStruct
+{
+	TypeAutoArray(): TypeStruct(myTypeID)
+	{
+		name = "auto[]";
+		nameHash = GetStringHash(name);
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeRef: TypeBase
+{
+	TypeRef(TypeBase *subType): TypeBase(myTypeID), subType(subType)
+	{
+		// TODO: create name
+
+		size = NULLC_PTR_SIZE;
+		alignment = 4;
+	}
+
+	TypeBase *subType;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeArray: TypeStruct
+{
+	TypeArray(TypeBase *subType, unsigned length): TypeStruct(myTypeID), subType(subType), length(length)
+	{
+		// TODO: create name
+	}
+
+	TypeBase *subType;
+	unsigned length;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeUnsizedArray: TypeStruct
+{
+	TypeUnsizedArray(TypeBase *subType): TypeStruct(myTypeID), subType(subType)
+	{
+		// TODO: create name
+	}
+
+	TypeBase *subType;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeFunction: TypeBase
+{
+	struct Argument
+	{
+		Argument(TypeBase *type): type(type)
+		{
+		}
+
+		TypeBase *type;
+
+		Argument *next;
+	};
+
+	TypeFunction(TypeBase *returnType, IntrusiveList<Argument> arguments): TypeBase(myTypeID), returnType(returnType), arguments(arguments)
+	{
+		// TODO: create name
+	}
+
+	TypeBase *returnType;
+	IntrusiveList<Argument> arguments;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeClass: TypeStruct
+{
+	TypeClass(): TypeStruct(myTypeID)
+	{
+		// TODO: create name
+	}
+
+	static const unsigned myTypeID = __LINE__;
 };
 
 struct ExprBase
 {
-	ExprBase(unsigned typeID, TypeInfo *type): typeID(typeID), type(type), next(0)
+	ExprBase(unsigned typeID, TypeBase *type): typeID(typeID), type(type), next(0)
 	{
 	}
 
@@ -51,44 +456,57 @@ struct ExprBase
 
 	unsigned typeID;
 
-	TypeInfo *type;
+	TypeBase *type;
 	ExprBase *next;
 };
 
-struct ExprNumber: ExprBase
+struct ExprBoolLiteral: ExprBase
 {
-	ExprNumber(TypeInfo *type, int integer): ExprBase(myTypeID, type)
+	ExprBoolLiteral(TypeBase *type, bool value): ExprBase(myTypeID, type), value(value)
 	{
-		value.integer = integer;
 	}
 
-	ExprNumber(TypeInfo *type, long long integer64): ExprBase(myTypeID, type)
+	bool value;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprCharacterLiteral: ExprBase
+{
+	ExprCharacterLiteral(TypeBase *type, unsigned char value): ExprBase(myTypeID, type), value(value)
 	{
-		value.integer64 = integer64;
 	}
 
-	ExprNumber(TypeInfo *type, double real): ExprBase(myTypeID, type)
+	unsigned char value;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprIntegerLiteral: ExprBase
+{
+	ExprIntegerLiteral(TypeBase *type, long long value): ExprBase(myTypeID, type), value(value)
 	{
-		value.real = real;
 	}
 
-	union Numbers
+	long long value;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprRationalLiteral: ExprBase
+{
+	ExprRationalLiteral(TypeBase *type, double value): ExprBase(myTypeID, type), value(value)
 	{
-		int integer;
-		long long integer64;
-		double real;
-		struct QuadWord
-		{
-			int low, high;
-		} quad;
-	} value;
+	}
+
+	double value;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
 struct ExprReturn: ExprBase
 {
-	ExprReturn(TypeInfo *type, ExprBase* value): ExprBase(myTypeID, type), value(value)
+	ExprReturn(TypeBase *type, ExprBase* value): ExprBase(myTypeID, type), value(value)
 	{
 	}
 
@@ -97,9 +515,50 @@ struct ExprReturn: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprVariableDefinition: ExprBase
+{
+	ExprVariableDefinition(TypeBase *type, VariableData* variable, ExprBase* initializer): ExprBase(myTypeID, type), variable(variable), initializer(initializer)
+	{
+	}
+
+	VariableData* variable;
+
+	ExprBase* initializer;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprVariableDefinitions: ExprBase
+{
+	ExprVariableDefinitions(TypeBase *type, IntrusiveList<ExprVariableDefinition> definitions): ExprBase(myTypeID, type), definitions(definitions)
+	{
+	}
+
+	IntrusiveList<ExprVariableDefinition> definitions;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprFunctionDefinition: ExprBase
+{
+	ExprFunctionDefinition(TypeBase *type, bool prototype, FunctionData* function, IntrusiveList<ExprVariableDefinition> arguments, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, type), prototype(prototype), function(function), arguments(arguments), expressions(expressions)
+	{
+	}
+
+	bool prototype;
+
+	FunctionData* function;
+
+	IntrusiveList<ExprVariableDefinition> arguments;
+
+	IntrusiveList<ExprBase> expressions;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprModule: ExprBase
 {
-	ExprModule(TypeInfo *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, type), expressions(expressions)
+	ExprModule(TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, type), expressions(expressions)
 	{
 	}
 
@@ -109,9 +568,33 @@ struct ExprModule: ExprBase
 };
 
 template<typename T>
+bool isType(TypeBase *node)
+{
+	return node->typeID == typename T::myTypeID;
+}
+
+template<typename T>
+T* getType(TypeBase *node)
+{
+	if(node && isType<T>(node))
+		return static_cast<T*>(node);
+
+	return 0;
+}
+
+template<typename T>
 bool isType(ExprBase *node)
 {
 	return node->typeID == typename T::myTypeID;
+}
+
+template<typename T>
+T* getType(ExprBase *node)
+{
+	if(node && isType<T>(node))
+		return static_cast<T*>(node);
+
+	return 0;
 }
 
 ExprBase* Analyze(ExpressionContext &context, SynBase *syntax);

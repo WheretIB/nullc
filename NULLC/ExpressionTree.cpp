@@ -28,37 +28,31 @@ namespace
 		Stop(ctx, pos, msg, args);
 	}
 
-	template<typename T>
-	unsigned GetTypeAlignment()
+	unsigned char ParseEscapeSequence(ExpressionContext &ctx, const char* str)
 	{
-		struct Helper
+		assert(str[0] == '\\');
+
+		switch(str[1])
 		{
-			char x;
-			T y;
-		};
+		case 'n':
+			return '\n';
+		case 'r':
+			return '\r';
+		case 't':
+			return '\t';
+		case '0':
+			return '\0';
+		case '\'':
+			return '\'';
+		case '\"':
+			return '\"';
+		case '\\':
+			return '\\';
+		}
 
-		return sizeof(Helper) - sizeof(T);
-	}
+		Stop(ctx, str, "ERROR: unknown escape sequence");
 
-	// Function returns reference type for the type
-	TypeInfo* GetReferenceType(ExpressionContext &ctx, TypeInfo* type)
-	{
-		// If type already has reference type, return it
-		if(type->refType)
-			return type->refType;
-
-		// Create new type
-		TypeInfo* newInfo = new TypeInfo(ctx.typeInfo.size(), NULL, type->refLevel + 1, 0, 1, type, TypeInfo::NULLC_PTR_TYPE);
-		newInfo->alignBytes = 4;
-		newInfo->size = NULLC_PTR_SIZE;
-
-		// Save it for future use
-		type->refType = newInfo;
-
-		newInfo->dependsOnGeneric = type->dependsOnGeneric;
-
-		ctx.typeInfo.push_back(newInfo);
-		return newInfo;
+		return 0;
 	}
 
 	int ParseInteger(ExpressionContext &ctx, const char* str)
@@ -139,160 +133,420 @@ ExpressionContext::ExpressionContext()
 	errorPos = NULL;
 
 	typeVoid = NULL;
+
+	typeBool = NULL;
+
 	typeChar = NULL;
 	typeShort = NULL;
 	typeInt = NULL;
-	typeFloat = NULL;
 	typeLong = NULL;
+
+	typeFloat = NULL;
 	typeDouble = NULL;
-	typeObject = NULL;
-	typeTypeid = NULL;
-	typeAutoArray = NULL;
-	typeFunction = NULL;
+
+	typeTypeID = NULL;
+	typeFunctionID = NULL;
+
 	typeGeneric = NULL;
-	typeBool = NULL;
+
+	typeAuto = NULL;
+	typeAutoRef = NULL;
+	typeAutoArray = NULL;
+
+	typeMap.init();
+	functionMap.init();
+	variableMap.init();
 }
 
-TypeInfo* AddBasicType(ExpressionContext &ctx, const char *name, TypeInfo::TypeCategory category, unsigned size, unsigned align)
+void ExpressionContext::PushScope()
 {
-	TypeInfo *type = new TypeInfo(ctx.typeInfo.size(), name, 0, 0, 1, NULL, category);
+	scopes.push_back(new ScopeData());
+}
 
-	type->alignBytes = align;
-	type->size = size;
+void ExpressionContext::PopScope()
+{
+	// Remove scope members from lookup maps
+	ScopeData *scope = scopes.back();
 
-	ctx.typeInfo.push_back(type);
+	for(int i = int(scope->variables.size()) - 1; i >= 0; i--)
+	{
+		VariableData *variable = scope->variables[i];
 
-	return type;
+		variableMap.remove(variable->nameHash, variable);
+	}
+
+	for(int i = int(scope->functions.size()) - 1; i >= 0; i--)
+	{
+		FunctionData *function = scope->functions[i];
+
+		functionMap.remove(function->nameHash, function);
+	}
+
+	for(int i = int(scope->types.size()) - 1; i >= 0; i--)
+	{
+		TypeBase *type = scope->types[i];
+
+		typeMap.remove(type->nameHash, type);
+	}
+
+	delete scopes.back();
+	scopes.pop_back();
+}
+
+void ExpressionContext::AddType(TypeBase *type)
+{
+	scopes.back()->types.push_back(type);
+
+	types.push_back(type);
+	typeMap.insert(type->nameHash, type);
+}
+
+void ExpressionContext::AddFunction(FunctionData *function)
+{
+	scopes.back()->functions.push_back(function);
+
+	functions.push_back(function);
+	functionMap.insert(function->nameHash, function);
+}
+
+void ExpressionContext::AddVariable(VariableData *variable)
+{
+	scopes.back()->variables.push_back(variable);
+
+	variables.push_back(variable);
+	variableMap.insert(variable->nameHash, variable);
+}
+
+TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
+{
+	if(type->refType)
+		return type->refType;
+
+	// Create new type
+	TypeRef* typeRef = new TypeRef(type);
+
+	// Save it for future use
+	type->refType = typeRef;
+
+	types.push_back(typeRef);
+
+	return typeRef;
+}
+
+ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax);
+ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax);
+
+TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax)
+{
+	if(SynTypeAuto *node = getType<SynTypeAuto>(syntax))
+	{
+		return ctx.typeAuto;
+	}
+
+	if(SynTypeGeneric *node = getType<SynTypeGeneric>(syntax))
+	{
+		return ctx.typeGeneric;
+	}
+
+	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
+	{
+		if(node->path.empty())
+		{
+			// TODO: current namespace
+
+			if(TypeBase **type = ctx.typeMap.find(GetStringHash(node->name.begin, node->name.end)))
+				return *type;
+		}
+
+		// TODO: namespace path
+
+		// Might be a variable
+		//return NULL;
+	}
+
+	if(SynTypeReference *node = getType<SynTypeReference>(syntax))
+	{
+		TypeBase *type = AnalyzeType(ctx, node->type);
+
+		if(isType<TypeAuto>(type))
+			return ctx.typeAutoRef;
+
+		return ctx.GetReferenceType(type);
+	}
+
+	Stop(ctx, syntax->pos, "ERROR: unknown type");
+
+	return NULL;
+}
+
+ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
+{
+	InplaceStr &value = syntax->value;
+
+	// Hexadecimal
+	if(value.length() > 1 && value.begin[1] == 'x')
+	{
+		if(value.length() == 2)
+			Stop(ctx, value.begin + 2, "ERROR: '0x' must be followed by number");
+
+		// Skip 0x
+		unsigned pos = 2;
+
+		// Skip leading zeros
+		while(value.begin[pos] == '0')
+			pos++;
+
+		if(int(value.length() - pos) > 16)
+			Stop(ctx, value.begin, "ERROR: overflow in hexadecimal constant");
+
+		long long num = ParseLong(ctx, value.begin + pos, value.end, 16);
+
+		// If number overflows integer number, create long number
+		if(int(num) == num)
+			return new ExprIntegerLiteral(ctx.typeInt, num);
+
+		return new ExprIntegerLiteral(ctx.typeLong, num);
+	}
+
+	bool isFP = false;
+
+	for(unsigned int i = 0; i < value.length(); i++)
+	{
+		if(value.begin[i] == '.' || value.begin[i] == 'e')
+			isFP = true;
+	}
+
+	if(!isFP)
+	{
+		if(syntax->suffix == InplaceStr("b"))
+		{
+			unsigned pos = 0;
+
+			// Skip leading zeros
+			while(value.begin[pos] == '0')
+				pos++;
+
+			if(int(value.length() - pos) > 64)
+				Stop(ctx, value.begin, "ERROR: overflow in binary constant");
+
+			long long num = ParseLong(ctx, value.begin + pos, value.end, 2);
+
+			// If number overflows integer number, create long number
+			if(int(num) == num)
+				return new ExprIntegerLiteral(ctx.typeInt, num);
+
+			return new ExprIntegerLiteral(ctx.typeLong, num);
+		}
+		else if(syntax->suffix == InplaceStr("l"))
+		{
+			long long num = ParseLong(ctx, value.begin, value.end, 10);
+
+			return new ExprIntegerLiteral(ctx.typeLong, num);
+		}
+		else if(!syntax->suffix.empty())
+		{
+			Stop(ctx, syntax->suffix.begin, "ERROR: unknown number suffix '%.*s'", syntax->suffix.length(), syntax->suffix.begin);
+		}
+
+		if(value.length() > 1 && value.begin[0] == '0' && isDigit(value.begin[1]))
+		{
+			unsigned pos = 0;
+
+			// Skip leading zeros
+			while(value.begin[pos] == '0')
+				pos++;
+
+			if(int(value.length() - pos) > 22 || (int(value.length() - pos) > 21 && value.begin[pos] != '1'))
+				Stop(ctx, value.begin, "ERROR: overflow in octal constant");
+
+			long long num = ParseLong(ctx, value.begin, value.end, 8);
+
+			// If number overflows integer number, create long number
+			if(int(num) == num)
+				return new ExprIntegerLiteral(ctx.typeInt, num);
+
+			return new ExprIntegerLiteral(ctx.typeLong, num);
+		}
+
+		long long num = ParseLong(ctx, value.begin, value.end, 10);
+
+		if(int(num) == num)
+			return new ExprIntegerLiteral(ctx.typeInt, num);
+
+		Stop(ctx, value.begin, "ERROR: overflow in decimal constant");
+	}
+		
+	if(syntax->suffix == InplaceStr("f"))
+	{
+		double num = ParseDouble(ctx, value.begin);
+
+		return new ExprRationalLiteral(ctx.typeFloat, float(num));
+	}
+		
+	double num = ParseDouble(ctx, value.begin);
+
+	return new ExprRationalLiteral(ctx.typeDouble, num);
+}
+
+ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
+{
+	// TODO: lots of things
+
+	if(syntax->value)
+	{
+		ExprBase *result = AnalyzeExpression(ctx, syntax->value);
+
+		return new ExprReturn(result->type, result);
+	}
+
+	return new ExprReturn(ctx.typeVoid, NULL);
+}
+
+ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinition *syntax, unsigned alignment, TypeBase *type)
+{
+	VariableData *variable = new VariableData(alignment, type, syntax->name);
+
+	ctx.AddVariable(variable);
+
+	ExprBase *initializer = syntax->initializer ? AnalyzeExpression(ctx, syntax->initializer) : NULL;
+
+	return new ExprVariableDefinition(ctx.typeVoid, variable, initializer);
+}
+
+ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynVariableDefinitions *syntax)
+{
+	unsigned alignment = 0;
+
+	if(ExprBase *align = syntax->align ? AnalyzeNumber(ctx, syntax->align->value) : NULL)
+	{
+		if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(align))
+			alignment = unsigned(alignValue->value);
+		else
+			Stop(ctx, syntax->align->value->pos, "ERROR: alignment must be an integer constant");
+	}
+
+	TypeBase *type = AnalyzeType(ctx, syntax->type);
+
+	IntrusiveList<ExprVariableDefinition> definitions;
+
+	for(SynVariableDefinition *el = syntax->definitions.head; el; el = getType<SynVariableDefinition>(el->next))
+		definitions.push_back(AnalyzeVariableDefinition(ctx, el, alignment, type));
+
+	return new ExprVariableDefinitions(ctx.typeVoid, definitions);
+}
+
+ExprFunctionDefinition* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax)
+{
+	if(syntax->coroutine)
+		Stop(ctx, syntax->pos, "ERROR: coroutines are not implemented");
+
+	if(syntax->parentType)
+		Stop(ctx, syntax->pos, "ERROR: external class member functions are not implemented");
+
+	if(!syntax->aliases.empty())
+		Stop(ctx, syntax->pos, "ERROR: functions with explicit generic arguments are not implemented");
+
+	TypeBase *returnType = AnalyzeType(ctx, syntax->returnType);
+
+	if(!returnType)
+		Stop(ctx, syntax->pos, "ERROR: unknown type");
+
+	IntrusiveList<TypeFunction::Argument> argTypes;
+
+	for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next))
+	{
+		TypeBase *type = AnalyzeType(ctx, argument->type);
+
+		if(!type)
+			Stop(ctx, syntax->pos, "ERROR: unknown type");
+
+		argTypes.push_back(new TypeFunction::Argument(type));
+	}
+
+	TypeFunction *functionType = new TypeFunction(returnType, argTypes);
+
+	FunctionData *function = new FunctionData(functionType, syntax->name);
+
+	IntrusiveList<ExprVariableDefinition> arguments;
+
+	ctx.PushScope();
+
+	for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next))
+	{
+		if(argument->isExplicit)
+			Stop(ctx, syntax->pos, "ERROR: explicit type arguments are not supported");
+
+		TypeBase *type = AnalyzeType(ctx, argument->type);
+
+		VariableData *variable = new VariableData(0, type, argument->name);
+
+		ctx.AddVariable(variable);
+
+		ExprBase *initializer = argument->initializer ? AnalyzeExpression(ctx, argument->initializer) : NULL;
+
+		arguments.push_back(new ExprVariableDefinition(ctx.typeVoid, variable, initializer));
+	}
+
+	IntrusiveList<ExprBase> expressions;
+
+	for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
+		expressions.push_back(AnalyzeStatement(ctx, expression));
+
+	ctx.PopScope();
+
+	return new ExprFunctionDefinition(ctx.typeVoid, syntax->prototype, function, arguments, expressions);
 }
 
 ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 {
 	if(SynBool *node = getType<SynBool>(syntax))
 	{
-		return new ExprNumber(ctx.typeBool, int(node->value));
+		return new ExprBoolLiteral(ctx.typeBool, node->value);
+	}
+
+	if(SynCharacter *node = getType<SynCharacter>(syntax))
+	{
+		unsigned char result = (unsigned char)node->value.begin[1];
+
+		if(result == '\\')
+			result = ParseEscapeSequence(ctx, node->value.begin + 1);
+
+		return new ExprCharacterLiteral(ctx.typeChar, result);
 	}
 
 	if(SynNumber *node = getType<SynNumber>(syntax))
 	{
-		InplaceStr &value = node->value;
-
-		// Hexadecimal
-		if(value.length() > 1 && value.begin[1] == 'x')
-		{
-			if(value.length() == 2)
-				Stop(ctx, value.begin + 2, "ERROR: '0x' must be followed by number");
-
-			// Skip 0x
-			unsigned pos = 2;
-
-			// Skip leading zeros
-			while(value.begin[pos] == '0')
-				pos++;
-
-			if(int(value.length() - pos) > 16)
-				Stop(ctx, value.begin, "ERROR: overflow in hexadecimal constant");
-
-			long long num = ParseLong(ctx, value.begin + pos, value.end, 16);
-
-			// If number overflows integer number, create long number
-			if(int(num) == num)
-				return new ExprNumber(ctx.typeInt, int(num));
-
-			return new ExprNumber(ctx.typeLong, num);
-		}
-
-		bool isFP = false;
-
-		for(unsigned int i = 0; i < value.length(); i++)
-		{
-			if(value.begin[i] == '.' || value.begin[i] == 'e')
-				isFP = true;
-		}
-
-		if(!isFP)
-		{
-			if(node->suffix == InplaceStr("b"))
-			{
-				unsigned pos = 0;
-
-				// Skip leading zeros
-				while(value.begin[pos] == '0')
-					pos++;
-
-				if(int(value.length() - pos) > 64)
-					Stop(ctx, value.begin, "ERROR: overflow in binary constant");
-
-				long long num = ParseLong(ctx, value.begin + pos, value.end, 2);
-
-				// If number overflows integer number, create long number
-				if(int(num) == num)
-					return new ExprNumber(ctx.typeInt, int(num));
-
-				return new ExprNumber(ctx.typeLong, num);
-			}
-			else if(node->suffix == InplaceStr("l"))
-			{
-				long long num = ParseLong(ctx, value.begin, value.end, 10);
-
-				return new ExprNumber(ctx.typeLong, num);
-			}
-			else if(!node->suffix.empty())
-			{
-				Stop(ctx, node->suffix.begin, "ERROR: unknown number suffix '%.*s'", node->suffix.length(), node->suffix.begin);
-			}
-
-			if(value.length() > 1 && value.begin[0] == '0' && isDigit(value.begin[1]))
-			{
-				unsigned pos = 0;
-
-				// Skip leading zeros
-				while(value.begin[pos] == '0')
-					pos++;
-
-				if(int(value.length() - pos) > 22 || (int(value.length() - pos) > 21 && value.begin[pos] != '1'))
-					Stop(ctx, value.begin, "ERROR: overflow in octal constant");
-
-				long long num = ParseLong(ctx, value.begin, value.end, 8);
-
-				// If number overflows integer number, create long number
-				if(int(num) == num)
-					return new ExprNumber(ctx.typeInt, int(num));
-
-				return new ExprNumber(ctx.typeLong, num);
-			}
-
-			long long num = ParseLong(ctx, value.begin, value.end, 10);
-
-			if(int(num) == num)
-				return new ExprNumber(ctx.typeInt, int(num));
-
-			Stop(ctx, value.begin, "ERROR: overflow in decimal constant");
-		}
-		
-		if(node->suffix == InplaceStr("f"))
-		{
-			double num = ParseDouble(ctx, value.begin);
-
-			return new ExprNumber(ctx.typeFloat, float(num));
-		}
-		
-		double num = ParseDouble(ctx, value.begin);
-
-		return new ExprNumber(ctx.typeDouble, num);
+		return AnalyzeNumber(ctx, node);
 	}
 
-	if(SynReturn *node = getType<SynReturn>(syntax))
+	if(SynUnaryOp *node = getType<SynUnaryOp>(syntax))
 	{
-		ExprBase *result = AnalyzeExpression(ctx, node->value);
-
-		// TODO: lot of things
-
-		return new ExprReturn(result->type, result);
+		return NULL;
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");
 
 	return NULL;
+}
+
+ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
+{
+	if(SynReturn *node = getType<SynReturn>(syntax))
+	{
+		return AnalyzeReturn(ctx, node);
+	}
+
+	if(SynVariableDefinitions *node = getType<SynVariableDefinitions>(syntax))
+	{
+		return AnalyzeVariableDefinitions(ctx, node);
+	}
+
+	if(SynFunctionDefinition *node = getType<SynFunctionDefinition>(syntax))
+	{
+		return AnalyzeFunctionDefinition(ctx, node);
+	}
+
+	return AnalyzeExpression(ctx, syntax);
 }
 
 void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
@@ -310,7 +564,7 @@ ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
 		IntrusiveList<ExprBase> expressions;
 
 		for(SynBase *expr = node->expressions.head; expr; expr = expr->next)
-			expressions.push_back(AnalyzeExpression(ctx, expr));
+			expressions.push_back(AnalyzeStatement(ctx, expr));
 
 		return new ExprModule(ctx.typeVoid, expressions);
 	}
@@ -320,42 +574,45 @@ ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
 
 ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 {
-	// Add basic typess
-	ctx.typeVoid = AddBasicType(ctx, "void", TypeInfo::TYPE_VOID, 0, TypeInfo::ALIGNMENT_UNSPECIFIED);
+	ctx.PushScope();
 
-	ctx.typeDouble = AddBasicType(ctx, "double", TypeInfo::TYPE_DOUBLE, 8, GetTypeAlignment<double>());
-	ctx.typeFloat = AddBasicType(ctx, "float", TypeInfo::TYPE_FLOAT, 4, GetTypeAlignment<float>());
+	ctx.AddType(ctx.typeVoid = new TypeVoid());
 
-	ctx.typeLong = AddBasicType(ctx, "long", TypeInfo::TYPE_LONG, 8, GetTypeAlignment<long long>());
-	ctx.typeInt = AddBasicType(ctx, "int", TypeInfo::TYPE_INT, 4, GetTypeAlignment<int>());
-	ctx.typeShort = AddBasicType(ctx, "short", TypeInfo::TYPE_SHORT, 2, GetTypeAlignment<short>());
-	ctx.typeChar = AddBasicType(ctx, "char", TypeInfo::TYPE_CHAR, 1, TypeInfo::ALIGNMENT_UNSPECIFIED);
+	ctx.AddType(ctx.typeBool = new TypeBool());
 
-	ctx.typeObject = AddBasicType(ctx, "auto ref", TypeInfo::TYPE_COMPLEX, 0, 4);
-	ctx.typeTypeid = AddBasicType(ctx, "typeid", TypeInfo::TYPE_COMPLEX, 4, GetTypeAlignment<int>());
+	ctx.AddType(ctx.typeChar = new TypeChar());
+	ctx.AddType(ctx.typeShort = new TypeShort());
+	ctx.AddType(ctx.typeInt = new TypeInt());
+	ctx.AddType(ctx.typeLong = new TypeLong());
 
-	// Object type depends on typeid which is defined later
-	ctx.typeObject->AddMemberVariable("type", ctx.typeTypeid);
-	ctx.typeObject->AddMemberVariable("ptr", GetReferenceType(ctx, ctx.typeVoid));
-	ctx.typeObject->size = 4 + NULLC_PTR_SIZE;
+	ctx.AddType(ctx.typeFloat = new TypeFloat());
+	ctx.AddType(ctx.typeDouble = new TypeDouble());
 
-	ctx.typeAutoArray = AddBasicType(ctx, "auto[]", TypeInfo::TYPE_COMPLEX, 0, 4);
+	ctx.AddType(ctx.typeTypeID = new TypeFloat());
+	ctx.AddType(ctx.typeFunctionID = new TypeDouble());
 
-	ctx.typeAutoArray->AddMemberVariable("type", ctx.typeTypeid);
-	ctx.typeAutoArray->AddMemberVariable("ptr", GetReferenceType(ctx, ctx.typeVoid));
-	ctx.typeAutoArray->AddMemberVariable("size", ctx.typeInt);
-	ctx.typeAutoArray->size = 8 + NULLC_PTR_SIZE;
+	ctx.AddType(ctx.typeGeneric = new TypeGeneric());
 
-	ctx.typeFunction = AddBasicType(ctx, "__function", TypeInfo::TYPE_COMPLEX, 4, TypeInfo::ALIGNMENT_UNSPECIFIED);
+	ctx.AddType(ctx.typeAuto = new TypeAuto());
 
-	ctx.typeGeneric = AddBasicType(ctx, "generic", TypeInfo::TYPE_VOID, 0, TypeInfo::ALIGNMENT_UNSPECIFIED);
-	ctx.typeGeneric->dependsOnGeneric = true;
+	ctx.AddType(ctx.typeAutoRef = new TypeAutoRef());
+	ctx.typeAutoRef->members.push_back(new TypeStruct::Member("type", ctx.typeTypeID, 0));
+	ctx.typeAutoRef->members.push_back(new TypeStruct::Member("ptr", ctx.GetReferenceType(ctx.typeVoid), 0));
 
-	ctx.typeBool = AddBasicType(ctx, "bool", TypeInfo::TYPE_CHAR, 1, TypeInfo::ALIGNMENT_UNSPECIFIED);
+	ctx.AddType(ctx.typeAutoArray = new TypeAutoArray());
+	ctx.typeAutoArray->members.push_back(new TypeStruct::Member("type", ctx.typeTypeID, 0));
+	ctx.typeAutoArray->members.push_back(new TypeStruct::Member("ptr", ctx.GetReferenceType(ctx.typeVoid), 0));
+	ctx.typeAutoArray->members.push_back(new TypeStruct::Member("size", ctx.typeInt, 0));
 
 	// Analyze module
 	if(!setjmp(errorHandler))
-		return AnalyzeModule(ctx, syntax);
+	{
+		ExprBase *module = AnalyzeModule(ctx, syntax);
+
+		ctx.PopScope();
+
+		return module;
+	}
 
 	return NULL;
 }
