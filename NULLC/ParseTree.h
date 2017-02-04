@@ -63,7 +63,7 @@ bool isType(SynBase *node)
 template<typename T>
 T* getType(SynBase *node)
 {
-	if(isType<T>(node))
+	if(node && isType<T>(node))
 		return static_cast<T*>(node);
 
 	return 0;
