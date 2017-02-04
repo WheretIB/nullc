@@ -796,9 +796,9 @@ struct SynConstantSet: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
-struct SynClassPototype: SynBase
+struct SynClassPrototype: SynBase
 {
-	SynClassPototype(const char* pos, InplaceStr name): SynBase(myTypeID, pos), name(name)
+	SynClassPrototype(const char* pos, InplaceStr name): SynBase(myTypeID, pos), name(name)
 	{
 	}
 

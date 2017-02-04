@@ -1205,7 +1205,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 		InplaceStr name = ctx.Consume();
 
 		if(ctx.Consume(lex_semicolon))
-			return new SynClassPototype(start, name);
+			return new SynClassPrototype(start, name);
 
 		IntrusiveList<SynIdentifier> aliases;
 
