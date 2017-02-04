@@ -504,6 +504,19 @@ struct ExprRationalLiteral: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprUnaryOp: ExprBase
+{
+	ExprUnaryOp(TypeBase *type, SynUnaryOpType op, ExprBase* value): ExprBase(myTypeID, type), op(op), value(value)
+	{
+	}
+
+	SynUnaryOpType op;
+
+	ExprBase* value;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprReturn: ExprBase
 {
 	ExprReturn(TypeBase *type, ExprBase* value): ExprBase(myTypeID, type), value(value)

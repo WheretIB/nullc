@@ -388,6 +388,20 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 	return new ExprRationalLiteral(ctx.typeDouble, num);
 }
 
+ExprUnaryOp* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
+{
+	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
+
+	TypeBase *resultType = NULL;
+
+	if(syntax->type == SYN_UNARY_OP_LOGICAL_NOT)
+		resultType = ctx.typeBool;
+	else
+		resultType = value->type;
+
+	return new ExprUnaryOp(resultType, syntax->type, value);
+}
+
 ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 {
 	// TODO: lots of things
@@ -521,7 +535,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 	if(SynUnaryOp *node = getType<SynUnaryOp>(syntax))
 	{
-		return NULL;
+		return AnalyzeUnaryOp(ctx, node);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");
