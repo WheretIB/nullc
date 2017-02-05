@@ -494,6 +494,18 @@ struct ExprCharacterLiteral: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprStringLiteral: ExprBase
+{
+	ExprStringLiteral(TypeBase *type, char *value, unsigned length): ExprBase(myTypeID, type), value(value), length(length)
+	{
+	}
+
+	char *value;
+	unsigned length;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprIntegerLiteral: ExprBase
 {
 	ExprIntegerLiteral(TypeBase *type, long long value): ExprBase(myTypeID, type), value(value)

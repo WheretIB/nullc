@@ -797,6 +797,58 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 		return new ExprCharacterLiteral(ctx.typeChar, result);
 	}
+
+	if(SynString *node = getType<SynString>(syntax))
+	{
+		unsigned length = 0;
+
+		if(node->rawLiteral)
+		{
+			length = node->value.length() - 2;
+		}
+		else
+		{
+			// Find the length of the string with collapsed escape-sequences
+			for(const char *curr = node->value.begin + 1, *end = node->value.end - 1 ; curr < end; curr++, length++)
+			{
+				if(*curr == '\\')
+					curr++;
+			}
+		}
+
+		char *value = new char[length + 1];
+
+		if(node->rawLiteral)
+		{
+			for(unsigned i = 0; i < length; i++)
+				value[i] = node->value.begin[i + 1];
+
+			value[length] = 0;
+		}
+		else
+		{
+			unsigned i = 0;
+
+			// Find the length of the string with collapsed escape-sequences
+			for(const char *curr = node->value.begin + 1, *end = node->value.end - 1 ; curr < end;)
+			{
+				if(*curr == '\\')
+				{
+					value[i++] = ParseEscapeSequence(ctx, curr);
+					curr += 2;
+				}
+				else
+				{
+					value[i++] = *curr;
+					curr += 1;
+				}
+			}
+
+			value[length] = 0;
+		}
+
+		return new ExprStringLiteral(ctx.GetArrayType(ctx.typeChar, length + 1), value, length);
+	}
 	
 	if(SynNullptr *node = getType<SynNullptr>(syntax))
 	{
