@@ -818,8 +818,8 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 	ctx.AddType(ctx.typeFloat = new TypeFloat());
 	ctx.AddType(ctx.typeDouble = new TypeDouble());
 
-	ctx.AddType(ctx.typeTypeID = new TypeFloat());
-	ctx.AddType(ctx.typeFunctionID = new TypeDouble());
+	ctx.AddType(ctx.typeTypeID = new TypeTypeID());
+	ctx.AddType(ctx.typeFunctionID = new TypeFunctionID());
 
 	ctx.AddType(ctx.typeGeneric = new TypeGeneric());
 
