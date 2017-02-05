@@ -275,20 +275,88 @@ TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
 		return type->refType;
 
 	// Create new type
-	TypeRef* typeRef = new TypeRef(type);
+	TypeRef* result = new TypeRef(type);
 
 	// Save it for future use
-	type->refType = typeRef;
+	type->refType = result;
 
-	types.push_back(typeRef);
+	types.push_back(result);
 
-	return typeRef;
+	return result;
+}
+
+TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long size)
+{
+	for(unsigned i = 0; i < type->arrayTypes.size(); i++)
+	{
+		if(type->arrayTypes[i]->size == size)
+			return type->arrayTypes[i];
+	}
+
+	// Create new type
+	TypeArray* result = new TypeArray(type, size);
+
+	// Save it for future use
+	type->arrayTypes.push_back(result);
+
+	types.push_back(result);
+
+	return result;
+}
+
+TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
+{
+	if(type->unsizedArrayType)
+		return type->unsizedArrayType;
+
+	// Create new type
+	TypeUnsizedArray* result = new TypeUnsizedArray(type);
+
+	// Save it for future use
+	type->unsizedArrayType = result;
+
+	types.push_back(result);
+
+	return result;
+}
+
+TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
+{
+	for(unsigned i = 0; i < types.size(); i++)
+	{
+		if(TypeFunction *type = getType<TypeFunction>(types[i]))
+		{
+			if(type->returnType != returnType)
+				continue;
+
+			TypeHandle *leftArg = type->arguments.head;
+			TypeHandle *rightArg = arguments.head;
+
+			while(leftArg && rightArg && leftArg->type == rightArg->type)
+			{
+				leftArg = leftArg->next;
+				rightArg = rightArg->next;
+			}
+
+			if(leftArg != rightArg)
+				continue;
+
+			return type;
+		}
+	}
+
+	// Create new type
+	TypeFunction* result = new TypeFunction(returnType, arguments);
+
+	types.push_back(result);
+
+	return result;
 }
 
 ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax);
 ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax);
 
-TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax)
+TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = true)
 {
 	if(SynTypeAuto *node = getType<SynTypeAuto>(syntax))
 	{
@@ -298,6 +366,52 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax)
 	if(SynTypeGeneric *node = getType<SynTypeGeneric>(syntax))
 	{
 		return ctx.typeGeneric;
+	}
+
+	if(SynTypeReference *node = getType<SynTypeReference>(syntax))
+	{
+		TypeBase *type = AnalyzeType(ctx, node->type);
+
+		if(isType<TypeAuto>(type))
+			return ctx.typeAutoRef;
+
+		return ctx.GetReferenceType(type);
+	}
+
+	if(SynTypeArray *node = getType<SynTypeArray>(syntax))
+	{
+		TypeBase *type = AnalyzeType(ctx, node->type);
+
+		if(isType<TypeAuto>(type))
+		{
+			if(node->size)
+				Stop(ctx, syntax->pos, "ERROR: no size allowed");
+
+			return ctx.typeAutoArray;
+		}
+
+		if(!node->size)
+			return ctx.GetUnsizedArrayType(type);
+
+		ExprBase *size = AnalyzeExpression(ctx, node->size);
+		
+		// TODO: replace with compile-time evaluation
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(size))
+			return ctx.GetArrayType(type, number->value);
+
+		Stop(ctx, syntax->pos, "ERROR: can't get array size");
+	}
+
+	if(SynTypeFunction *node = getType<SynTypeFunction>(syntax))
+	{
+		TypeBase *returnType = AnalyzeType(ctx, node->returnType);
+
+		IntrusiveList<TypeHandle> arguments;
+
+		for(SynBase *el = node->arguments.head; el; el = el->next)
+			arguments.push_back(new TypeHandle(AnalyzeType(ctx, el)));
+
+		return ctx.GetFunctionType(returnType, arguments);
 	}
 
 	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
@@ -313,17 +427,8 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax)
 		// TODO: namespace path
 
 		// Might be a variable
-		return NULL;
-	}
-
-	if(SynTypeReference *node = getType<SynTypeReference>(syntax))
-	{
-		TypeBase *type = AnalyzeType(ctx, node->type);
-
-		if(isType<TypeAuto>(type))
-			return ctx.typeAutoRef;
-
-		return ctx.GetReferenceType(type);
+		if(!onlyType)
+			return NULL;
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown type");
@@ -564,22 +669,16 @@ ExprFunctionDefinition* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFun
 
 	TypeBase *returnType = AnalyzeType(ctx, syntax->returnType);
 
-	if(!returnType)
-		Stop(ctx, syntax->pos, "ERROR: unknown type");
-
-	IntrusiveList<TypeFunction::Argument> argTypes;
+	IntrusiveList<TypeHandle> argTypes;
 
 	for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next))
 	{
 		TypeBase *type = AnalyzeType(ctx, argument->type);
 
-		if(!type)
-			Stop(ctx, syntax->pos, "ERROR: unknown type");
-
-		argTypes.push_back(new TypeFunction::Argument(type));
+		argTypes.push_back(new TypeHandle(type));
 	}
 
-	TypeFunction *functionType = new TypeFunction(returnType, argTypes);
+	TypeFunction *functionType = ctx.GetFunctionType(returnType, argTypes);
 
 	FunctionData *function = new FunctionData(functionType, syntax->name);
 
@@ -649,7 +748,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
 	{
-		if(TypeBase *type = AnalyzeType(ctx, node))
+		if(TypeBase *type = AnalyzeType(ctx, node, false))
 			return new ExprTypeLiteral(ctx.typeTypeID, type);
 
 		return AnalyzeVariableAccess(ctx, node);

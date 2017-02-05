@@ -17,6 +17,17 @@ struct FunctionData;
 
 struct ExprBase;
 
+struct TypeHandle
+{
+	TypeHandle(TypeBase *type): type(type), next(0)
+	{
+	}
+
+	TypeBase *type;
+
+	TypeHandle *next;
+};
+
 struct NamespaceData
 {
 };
@@ -82,6 +93,9 @@ struct ExpressionContext
 	void AddVariable(VariableData *variable);
 
 	TypeRef* GetReferenceType(TypeBase* type);
+	TypeArray* GetArrayType(TypeBase* type, long long size);
+	TypeUnsizedArray* GetUnsizedArrayType(TypeBase* type);
+	TypeFunction* GetFunctionType(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
 
 	// Full state info
 	FastVector<NamespaceData*> namespaces;
@@ -387,13 +401,13 @@ struct TypeRef: TypeBase
 
 struct TypeArray: TypeStruct
 {
-	TypeArray(TypeBase *subType, unsigned length): TypeStruct(myTypeID), subType(subType), length(length)
+	TypeArray(TypeBase *subType, long long length): TypeStruct(myTypeID), subType(subType), length(length)
 	{
 		// TODO: create name
 	}
 
 	TypeBase *subType;
-	unsigned length;
+	long long length;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -412,24 +426,13 @@ struct TypeUnsizedArray: TypeStruct
 
 struct TypeFunction: TypeBase
 {
-	struct Argument
-	{
-		Argument(TypeBase *type): type(type)
-		{
-		}
-
-		TypeBase *type;
-
-		Argument *next;
-	};
-
-	TypeFunction(TypeBase *returnType, IntrusiveList<Argument> arguments): TypeBase(myTypeID), returnType(returnType), arguments(arguments)
+	TypeFunction(TypeBase *returnType, IntrusiveList<TypeHandle> arguments): TypeBase(myTypeID), returnType(returnType), arguments(arguments)
 	{
 		// TODO: create name
 	}
 
 	TypeBase *returnType;
-	IntrusiveList<Argument> arguments;
+	IntrusiveList<TypeHandle> arguments;
 
 	static const unsigned myTypeID = __LINE__;
 };
