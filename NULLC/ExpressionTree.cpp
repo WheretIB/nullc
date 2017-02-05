@@ -414,6 +414,13 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		return ctx.GetFunctionType(returnType, arguments);
 	}
 
+	if(SynTypeof *node = getType<SynTypeof>(syntax))
+	{
+		ExprBase *value = AnalyzeExpression(ctx, node->value);
+
+		return value->type;
+	}
+
 	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
 	{
 		if(node->path.empty())
