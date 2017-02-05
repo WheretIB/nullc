@@ -767,6 +767,20 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 	return new ExprIfElse(ctx.typeVoid, condition, trueBlock, falseBlock);
 }
 
+ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax)
+{
+	ctx.PushScope();
+	
+	IntrusiveList<ExprBase> expressions;
+
+	for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
+		expressions.push_back(AnalyzeStatement(ctx, expression));
+
+	ctx.PopScope();
+
+	return new ExprBlock(ctx.typeVoid, expressions);
+}
+
 ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 {
 	if(SynBool *node = getType<SynBool>(syntax))
@@ -837,6 +851,11 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 	if(SynIfElse *node = getType<SynIfElse>(syntax))
 	{
 		return AnalyzeIfElse(ctx, node);
+	}
+
+	if(SynBlock *node = getType<SynBlock>(syntax))
+	{
+		return AnalyzeBlock(ctx, node);
 	}
 
 	return AnalyzeExpression(ctx, syntax);

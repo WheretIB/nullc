@@ -654,6 +654,17 @@ struct ExprIfElse: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprBlock: ExprBase
+{
+	ExprBlock(TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, type), expressions(expressions)
+	{
+	}
+
+	IntrusiveList<ExprBase> expressions;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprModule: ExprBase
 {
 	ExprModule(TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, type), expressions(expressions)
