@@ -313,7 +313,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax)
 		// TODO: namespace path
 
 		// Might be a variable
-		//return NULL;
+		return NULL;
 	}
 
 	if(SynTypeReference *node = getType<SynTypeReference>(syntax))
@@ -440,6 +440,32 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 	return new ExprRationalLiteral(ctx.typeDouble, num);
 }
 
+ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynTypeSimple *syntax)
+{
+	if(syntax->path.empty())
+	{
+		// TODO: current namespace
+
+		if(VariableData **variable = ctx.variableMap.find(GetStringHash(syntax->name.begin, syntax->name.end)))
+		{
+			// TODO: check external variable access
+
+			return new ExprVariableAccess((*variable)->type, *variable);
+		}
+
+		if(FunctionData **function = ctx.functionMap.find(GetStringHash(syntax->name.begin, syntax->name.end)))
+		{
+			return new ExprFunctionAccess((*function)->type, *function);
+		}
+	}
+
+	// TODO: namespace path
+
+	Stop(ctx, syntax->pos, "ERROR: unknown variable");
+
+	return NULL;
+}
+
 ExprUnaryOp* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
@@ -553,6 +579,8 @@ ExprFunctionDefinition* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFun
 
 	FunctionData *function = new FunctionData(functionType, syntax->name);
 
+	ctx.AddFunction(function);
+
 	IntrusiveList<ExprVariableDefinition> arguments;
 
 	ctx.PushScope();
@@ -613,6 +641,14 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	if(SynBinaryOp *node = getType<SynBinaryOp>(syntax))
 	{
 		return AnalyzeBinaryOp(ctx, node);
+	}
+
+	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
+	{
+		if(TypeBase *type = AnalyzeType(ctx, node))
+			return new ExprTypeLiteral(ctx.typeTypeID, type);
+
+		return AnalyzeVariableAccess(ctx, node);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");

@@ -504,6 +504,17 @@ struct ExprRationalLiteral: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprTypeLiteral: ExprBase
+{
+	ExprTypeLiteral(TypeBase *type, TypeBase *value): ExprBase(myTypeID, type), value(value)
+	{
+	}
+
+	TypeBase *value;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprUnaryOp: ExprBase
 {
 	ExprUnaryOp(TypeBase *type, SynUnaryOpType op, ExprBase* value): ExprBase(myTypeID, type), op(op), value(value)
@@ -566,6 +577,17 @@ struct ExprVariableDefinitions: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprVariableAccess: ExprBase
+{
+	ExprVariableAccess(TypeBase *type, VariableData *variable): ExprBase(myTypeID, type), variable(variable)
+	{
+	}
+
+	VariableData *variable;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprFunctionDefinition: ExprBase
 {
 	ExprFunctionDefinition(TypeBase *type, bool prototype, FunctionData* function, IntrusiveList<ExprVariableDefinition> arguments, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, type), prototype(prototype), function(function), arguments(arguments), expressions(expressions)
@@ -579,6 +601,17 @@ struct ExprFunctionDefinition: ExprBase
 	IntrusiveList<ExprVariableDefinition> arguments;
 
 	IntrusiveList<ExprBase> expressions;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprFunctionAccess: ExprBase
+{
+	ExprFunctionAccess(TypeBase *type, FunctionData *function): ExprBase(myTypeID, type), function(function)
+	{
+	}
+
+	FunctionData *function;
 
 	static const unsigned myTypeID = __LINE__;
 };
