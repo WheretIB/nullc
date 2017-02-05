@@ -434,7 +434,11 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 
 		return new ExprRationalLiteral(ctx.typeFloat, float(num));
 	}
-		
+	else if(!syntax->suffix.empty())
+	{
+		Stop(ctx, syntax->suffix.begin, "ERROR: unknown number suffix '%.*s'", syntax->suffix.length(), syntax->suffix.begin);
+	}
+
 	double num = ParseDouble(ctx, value.begin);
 
 	return new ExprRationalLiteral(ctx.typeDouble, num);
