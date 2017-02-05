@@ -517,6 +517,20 @@ struct ExprUnaryOp: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprBinaryOp: ExprBase
+{
+	ExprBinaryOp(TypeBase *type, SynBinaryOpType op, ExprBase* lhs, ExprBase* rhs): ExprBase(myTypeID, type), op(op), lhs(lhs), rhs(rhs)
+	{
+	}
+
+	SynBinaryOpType op;
+
+	ExprBase* lhs;
+	ExprBase* rhs;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprReturn: ExprBase
 {
 	ExprReturn(TypeBase *type, ExprBase* value): ExprBase(myTypeID, type), value(value)

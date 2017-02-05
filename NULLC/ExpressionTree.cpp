@@ -126,6 +126,58 @@ namespace
 
 		return integer + fractional;
 	}
+
+	bool IsNumericType(ExpressionContext &ctx, TypeBase* a)
+	{
+		if(a == ctx.typeBool)
+			return true;
+
+		if(a == ctx.typeChar)
+			return true;
+
+		if(a == ctx.typeShort)
+			return true;
+
+		if(a == ctx.typeInt)
+			return true;
+
+		if(a == ctx.typeLong)
+			return true;
+
+		if(a == ctx.typeFloat)
+			return true;
+
+		if(a == ctx.typeDouble)
+			return true;
+
+		return false;
+	}
+
+	TypeBase* GetBinaryOpResultType(ExpressionContext &ctx, TypeBase* a, TypeBase* b)
+	{
+		if(a == ctx.typeDouble || b == ctx.typeDouble)
+			return ctx.typeDouble;
+
+		if(a == ctx.typeFloat || b == ctx.typeFloat)
+			return ctx.typeFloat;
+
+		if(a == ctx.typeLong || b == ctx.typeLong)
+			return ctx.typeLong;
+
+		if(a == ctx.typeInt || b == ctx.typeInt)
+			return ctx.typeInt;
+
+		if(a == ctx.typeShort || b == ctx.typeShort)
+			return ctx.typeShort;
+
+		if(a == ctx.typeChar || b == ctx.typeChar)
+			return ctx.typeChar;
+
+		if(a == ctx.typeBool || b == ctx.typeBool)
+			return ctx.typeBool;
+
+		return NULL;
+	}
 }
 
 ExpressionContext::ExpressionContext()
@@ -402,6 +454,26 @@ ExprUnaryOp* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 	return new ExprUnaryOp(resultType, syntax->type, value);
 }
 
+ExprBinaryOp* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
+{
+	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
+	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
+
+	TypeBase *resultType = NULL;
+
+	if(IsNumericType(ctx, lhs->type) && IsNumericType(ctx, rhs->type))
+		resultType = GetBinaryOpResultType(ctx, lhs->type, rhs->type);
+	else
+		Stop(ctx, syntax->pos, "ERROR: Unknown binary operation");
+
+	if(syntax->type == SYN_BINARY_OP_LOGICAL_AND || syntax->type == SYN_BINARY_OP_LOGICAL_OR || syntax->type == SYN_BINARY_OP_LOGICAL_XOR)
+		resultType = ctx.typeBool;
+
+	// TODO: implicit casts
+
+	return new ExprBinaryOp(resultType, syntax->type, lhs, rhs);
+}
+
 ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 {
 	// TODO: lots of things
@@ -536,6 +608,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	if(SynUnaryOp *node = getType<SynUnaryOp>(syntax))
 	{
 		return AnalyzeUnaryOp(ctx, node);
+	}
+
+	if(SynBinaryOp *node = getType<SynBinaryOp>(syntax))
+	{
+		return AnalyzeBinaryOp(ctx, node);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");
