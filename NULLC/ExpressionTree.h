@@ -527,6 +527,15 @@ struct ExprTypeLiteral: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprNullptrLiteral: ExprBase
+{
+	ExprNullptrLiteral(TypeBase *type): ExprBase(myTypeID, type)
+	{
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprUnaryOp: ExprBase
 {
 	ExprUnaryOp(TypeBase *type, SynUnaryOpType op, ExprBase* value): ExprBase(myTypeID, type), op(op), value(value)

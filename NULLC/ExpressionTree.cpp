@@ -797,6 +797,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 		return new ExprCharacterLiteral(ctx.typeChar, result);
 	}
+	
+	if(SynNullptr *node = getType<SynNullptr>(syntax))
+	{
+		return new ExprNullptrLiteral(ctx.GetReferenceType(ctx.typeVoid));
+	}
 
 	if(SynNumber *node = getType<SynNumber>(syntax))
 	{
