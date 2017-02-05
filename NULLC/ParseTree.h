@@ -400,6 +400,19 @@ struct SynNew: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct SynConditional: SynBase
+{
+	SynConditional(const char* pos, SynBase* condition, SynBase* trueBlock, SynBase* falseBlock): SynBase(myTypeID, pos), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
+	{
+	}
+
+	SynBase* condition;
+	SynBase* trueBlock;
+	SynBase* falseBlock;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct SynReturn: SynBase
 {
 	SynReturn(const char* pos, SynBase* value): SynBase(myTypeID, pos), value(value)

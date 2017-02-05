@@ -609,6 +609,25 @@ ExprBinaryOp* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 	return new ExprBinaryOp(resultType, syntax->type, lhs, rhs);
 }
 
+ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *syntax)
+{
+	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
+
+	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
+	ExprBase *falseBlock = AnalyzeStatement(ctx, syntax->falseBlock);
+
+	TypeBase *resultType = NULL;
+
+	if(trueBlock->type == falseBlock->type)
+		resultType = trueBlock->type;
+	else if(IsNumericType(ctx, trueBlock->type) && IsNumericType(ctx, falseBlock->type))
+		resultType = GetBinaryOpResultType(ctx, trueBlock->type, falseBlock->type);
+	else
+		Stop(ctx, syntax->pos, "ERROR: Unknown common type");
+
+	return new ExprConditional(resultType, condition, trueBlock, falseBlock);
+}
+
 ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 {
 	// TODO: lots of things
@@ -714,6 +733,33 @@ ExprFunctionDefinition* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFun
 	return new ExprFunctionDefinition(ctx.typeVoid, syntax->prototype, function, arguments, expressions);
 }
 
+ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
+{
+	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
+
+	if(syntax->staticIf)
+	{
+		// TODO: replace with compile-time evaluation
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(condition))
+		{
+			if(number->value != 0)
+				return AnalyzeStatement(ctx, syntax->trueBlock);
+			
+			if(syntax->falseBlock)
+				return AnalyzeStatement(ctx, syntax->falseBlock);
+
+			return new ExprVoid(ctx.typeVoid);
+		}
+
+		Stop(ctx, syntax->pos, "ERROR: can't get condition value");
+	}
+
+	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
+	ExprBase *falseBlock = syntax->falseBlock ? AnalyzeStatement(ctx, syntax->falseBlock) : NULL;
+
+	return new ExprIfElse(ctx.typeVoid, condition, trueBlock, falseBlock);
+}
+
 ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 {
 	if(SynBool *node = getType<SynBool>(syntax))
@@ -754,6 +800,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeVariableAccess(ctx, node);
 	}
 
+	if(SynConditional *node = getType<SynConditional>(syntax))
+	{
+		return AnalyzeConditional(ctx, node);
+	}
+
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");
 
 	return NULL;
@@ -774,6 +825,11 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 	if(SynFunctionDefinition *node = getType<SynFunctionDefinition>(syntax))
 	{
 		return AnalyzeFunctionDefinition(ctx, node);
+	}
+
+	if(SynIfElse *node = getType<SynIfElse>(syntax))
+	{
+		return AnalyzeIfElse(ctx, node);
 	}
 
 	return AnalyzeExpression(ctx, syntax);

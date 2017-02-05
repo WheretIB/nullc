@@ -1121,7 +1121,7 @@ SynBase* ParseTernaryExpr(ParseContext &ctx)
 			if(!falseBlock)
 				Stop(ctx, ctx.Position(), "ERROR: expression not found after ':'");
 
-			value = new SynIfElse(pos, false, value, trueBlock, falseBlock);
+			value = new SynConditional(pos, value, trueBlock, falseBlock);
 		}
 
 		return value;
@@ -1490,6 +1490,10 @@ SynIfElse* ParseIfElse(ParseContext &ctx)
 		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after 'if' condition");
 
 		SynBase *trueBlock = ParseExpression(ctx);
+
+		if(!trueBlock)
+			Stop(ctx, ctx.Position(), "ERROR: expression not found after 'if'");
+
 		SynBase *falseBlock = NULL;
 
 		if(staticIf)

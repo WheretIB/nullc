@@ -463,6 +463,15 @@ struct ExprBase
 	ExprBase *next;
 };
 
+struct ExprVoid: ExprBase
+{
+	ExprVoid(TypeBase *type): ExprBase(myTypeID, type)
+	{
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprBoolLiteral: ExprBase
 {
 	ExprBoolLiteral(TypeBase *type, bool value): ExprBase(myTypeID, type), value(value)
@@ -545,6 +554,19 @@ struct ExprBinaryOp: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprConditional: ExprBase
+{
+	ExprConditional(TypeBase *type, ExprBase *condition, ExprBase *trueBlock, ExprBase *falseBlock): ExprBase(myTypeID, type), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
+	{
+	}
+
+	ExprBase *condition;
+	ExprBase *trueBlock;
+	ExprBase *falseBlock;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprReturn: ExprBase
 {
 	ExprReturn(TypeBase *type, ExprBase* value): ExprBase(myTypeID, type), value(value)
@@ -615,6 +637,19 @@ struct ExprFunctionAccess: ExprBase
 	}
 
 	FunctionData *function;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprIfElse: ExprBase
+{
+	ExprIfElse(TypeBase *type, ExprBase *condition, ExprBase *trueBlock, ExprBase *falseBlock): ExprBase(myTypeID, type), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
+	{
+	}
+
+	ExprBase *condition;
+	ExprBase *trueBlock;
+	ExprBase *falseBlock;
 
 	static const unsigned myTypeID = __LINE__;
 };
