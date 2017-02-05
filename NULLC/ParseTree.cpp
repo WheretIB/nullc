@@ -468,6 +468,9 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 
 		SynBase *value = ParseAssignment(ctx);
 
+		if(!value)
+			Stop(ctx, ctx.Position(), "ERROR: expression not found after typeof(");
+
 		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after expression in typeof");
 
 		SynBase *node = new SynTypeof(start, value);
@@ -634,7 +637,12 @@ SynBase* ParseString(ParseContext &ctx)
 
 	if(ctx.At(lex_quotedstring))
 	{
-		return new SynString(start, rawLiteral, ctx.Consume());
+		InplaceStr str = ctx.Consume();
+
+		if(str.length() == 1 || str.begin[str.length() - 1] != '\"')
+			Stop(ctx, start, "ERROR: unclosed string constant");
+
+		return new SynString(start, rawLiteral, str);
 	}
 
 	if(rawLiteral)
@@ -987,7 +995,18 @@ SynBase* ParseTerminal(ParseContext &ctx)
 	}
 
 	if(ctx.At(lex_semiquotedchar))
-		return new SynCharacter(start, ctx.Consume());
+	{
+		InplaceStr str = ctx.Consume();
+
+		if(str.length() == 1 || str.begin[str.length() - 1] != '\'')
+			Stop(ctx, start, "ERROR: unclosed character constant");
+		else if((str.length() > 3 && str.begin[1] != '\\') || str.length() > 4)
+			Stop(ctx, start, "ERROR: only one character can be inside single quotes");
+		else if(str.length() < 3)
+			Stop(ctx, start, "ERROR: empty character constant");
+
+		return new SynCharacter(start, str);
+	}
 
 	if(SynUnaryOpType type = GetUnaryOpType(ctx.Peek()))
 	{
