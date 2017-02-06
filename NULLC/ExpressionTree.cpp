@@ -952,8 +952,7 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 		{
 			if(number->value != 0)
 				return AnalyzeStatement(ctx, syntax->trueBlock);
-			
-			if(syntax->falseBlock)
+			else if(syntax->falseBlock)
 				return AnalyzeStatement(ctx, syntax->falseBlock);
 
 			return new ExprVoid(ctx.typeVoid);
