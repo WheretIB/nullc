@@ -12,10 +12,23 @@ struct TypeArray;
 struct TypeUnsizedArray;
 struct TypeFunction;
 
+struct ScopeData;
+struct NamespaceData;
 struct VariableData;
 struct FunctionData;
 
 struct ExprBase;
+
+struct VariableHandle
+{
+	VariableHandle(VariableData *variable): variable(variable), next(0)
+	{
+	}
+
+	VariableData *variable;
+
+	VariableHandle *next;
+};
 
 struct TypeHandle
 {
@@ -30,14 +43,25 @@ struct TypeHandle
 
 struct NamespaceData
 {
+	NamespaceData(ScopeData *scope, InplaceStr name): scope(scope), name(name)
+	{
+		nameHash = GetStringHash(name.begin, name.end);
+	}
+
+	ScopeData *scope;
+
+	InplaceStr name;
+	unsigned nameHash;
 };
 
 struct VariableData
 {
-	VariableData(unsigned alignment, TypeBase *type, InplaceStr name): alignment(alignment), type(type), name(name), next(0)
+	VariableData(ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name): scope(scope), alignment(alignment), type(type), name(name)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 	}
+
+	ScopeData *scope;
 
 	unsigned alignment;
 
@@ -45,16 +69,16 @@ struct VariableData
 
 	InplaceStr name;
 	unsigned nameHash;
-
-	VariableData *next;
 };
 
 struct FunctionData
 {
-	FunctionData(TypeFunction *type, InplaceStr name): type(type), name(name)
+	FunctionData(ScopeData *scope, TypeFunction *type, InplaceStr name): scope(scope), type(type), name(name)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 	}
+
+	ScopeData *scope;
 
 	TypeFunction *type;
 
@@ -64,6 +88,30 @@ struct FunctionData
 
 struct ScopeData
 {
+	ScopeData(unsigned depth, ScopeData *scope): depth(depth), scope(scope), ownerNamespace(0), ownerFunction(0), ownerType(0)
+	{
+	}
+
+	ScopeData(unsigned depth, ScopeData *scope, NamespaceData *ownerNamespace): depth(depth), scope(scope), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0)
+	{
+	}
+
+	ScopeData(unsigned depth, ScopeData *scope, FunctionData *ownerFunction): depth(depth), scope(scope), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0)
+	{
+	}
+
+	ScopeData(unsigned depth, ScopeData *scope, TypeBase *ownerType): depth(depth), scope(scope), ownerNamespace(0), ownerFunction(0), ownerType(ownerType)
+	{
+	}
+
+	unsigned depth;
+
+	ScopeData *scope;
+
+	NamespaceData *ownerNamespace;
+	FunctionData *ownerFunction;
+	TypeBase *ownerType;
+
 	FastVector<TypeBase*> types;
 	FastVector<FunctionData*> functions;
 	FastVector<VariableData*> variables;
@@ -86,6 +134,9 @@ struct ExpressionContext
 	ExpressionContext();
 
 	void PushScope();
+	void PushScope(NamespaceData *nameSpace);
+	void PushScope(FunctionData *function);
+	void PushScope(TypeBase *type);
 	void PopScope();
 
 	void AddType(TypeBase *type);
@@ -139,13 +190,11 @@ struct ExpressionContext
 
 struct TypeBase
 {
-	TypeBase(unsigned typeID): typeID(typeID)
+	TypeBase(unsigned typeID, InplaceStr name): typeID(typeID), name(name)
 	{
-		name = 0;
-		nameHash = 0;
+		nameHash = GetStringHash(name.begin, name.end);
 
 		size = 0;
-		padding = 0;
 		alignment = 0;
 
 		refType = 0;
@@ -158,11 +207,10 @@ struct TypeBase
 
 	unsigned typeID;
 
-	const char *name;
+	InplaceStr name;
 	unsigned nameHash;
 	
-	unsigned size;
-	unsigned padding;
+	long long size;
 	unsigned alignment;
 
 	TypeRef *refType; // Reference type to this type
@@ -172,13 +220,9 @@ struct TypeBase
 
 struct TypeVoid: TypeBase
 {
-	TypeVoid(): TypeBase(myTypeID)
+	TypeVoid(InplaceStr name): TypeBase(myTypeID, name)
 	{
-		name = "void";
-		nameHash = GetStringHash(name);
-
 		size = 0;
-		padding = 0;
 		alignment = 0;
 	}
 
@@ -187,11 +231,8 @@ struct TypeVoid: TypeBase
 
 struct TypeBool: TypeBase
 {
-	TypeBool(): TypeBase(myTypeID)
+	TypeBool(InplaceStr name): TypeBase(myTypeID, name)
 	{
-		name = "bool";
-		nameHash = GetStringHash(name);
-
 		size = 1;
 	}
 
@@ -200,11 +241,8 @@ struct TypeBool: TypeBase
 
 struct TypeChar: TypeBase
 {
-	TypeChar(): TypeBase(myTypeID)
+	TypeChar(InplaceStr name): TypeBase(myTypeID, name)
 	{
-		name = "char";
-		nameHash = GetStringHash(name);
-
 		size = 1;
 	}
 
@@ -213,11 +251,8 @@ struct TypeChar: TypeBase
 
 struct TypeShort: TypeBase
 {
-	TypeShort(): TypeBase(myTypeID)
+	TypeShort(InplaceStr name): TypeBase(myTypeID, name)
 	{
-		name = "short";
-		nameHash = GetStringHash(name);
-
 		size = 2;
 		alignment = GetTypeAlignment<short>();
 	}
@@ -227,11 +262,8 @@ struct TypeShort: TypeBase
 
 struct TypeInt: TypeBase
 {
-	TypeInt(): TypeBase(myTypeID)
+	TypeInt(InplaceStr name): TypeBase(myTypeID, name)
 	{
-		name = "int";
-		nameHash = GetStringHash(name);
-
 		size = 4;
 		alignment = GetTypeAlignment<int>();
 	}
@@ -241,11 +273,8 @@ struct TypeInt: TypeBase
 
 struct TypeLong: TypeBase
 {
-	TypeLong(): TypeBase(myTypeID)
+	TypeLong(InplaceStr name): TypeBase(myTypeID, name)
 	{
-		name = "long";
-		nameHash = GetStringHash(name);
-
 		size = 8;
 		alignment = GetTypeAlignment<long>();
 	}
@@ -255,11 +284,8 @@ struct TypeLong: TypeBase
 
 struct TypeFloat: TypeBase
 {
-	TypeFloat(): TypeBase(myTypeID)
+	TypeFloat(InplaceStr name): TypeBase(myTypeID, name)
 	{
-		name = "float";
-		nameHash = GetStringHash(name);
-
 		size = 4;
 		alignment = GetTypeAlignment<float>();
 	}
@@ -269,11 +295,8 @@ struct TypeFloat: TypeBase
 
 struct TypeDouble: TypeBase
 {
-	TypeDouble(): TypeBase(myTypeID)
+	TypeDouble(InplaceStr name): TypeBase(myTypeID, name)
 	{
-		name = "double";
-		nameHash = GetStringHash(name);
-
 		size = 8;
 		alignment = GetTypeAlignment<double>();
 	}
@@ -283,11 +306,8 @@ struct TypeDouble: TypeBase
 
 struct TypeTypeID: TypeBase
 {
-	TypeTypeID(): TypeBase(myTypeID)
+	TypeTypeID(InplaceStr name): TypeBase(myTypeID, name)
 	{
-		name = "typeid";
-		nameHash = GetStringHash(name);
-
 		size = 4;
 		alignment = GetTypeAlignment<int>();
 	}
@@ -297,11 +317,8 @@ struct TypeTypeID: TypeBase
 
 struct TypeFunctionID: TypeBase
 {
-	TypeFunctionID(): TypeBase(myTypeID)
+	TypeFunctionID(InplaceStr name): TypeBase(myTypeID, name)
 	{
-		name = "__function";
-		nameHash = GetStringHash(name);
-
 		size = 4;
 		alignment = GetTypeAlignment<int>();
 	}
@@ -311,10 +328,8 @@ struct TypeFunctionID: TypeBase
 
 struct TypeGeneric: TypeBase
 {
-	TypeGeneric(): TypeBase(myTypeID)
+	TypeGeneric(InplaceStr name): TypeBase(myTypeID, name)
 	{
-		name = "generic";
-		nameHash = GetStringHash(name);
 	}
 
 	static const unsigned myTypeID = __LINE__;
@@ -322,10 +337,8 @@ struct TypeGeneric: TypeBase
 
 struct TypeAuto: TypeBase
 {
-	TypeAuto(): TypeBase(myTypeID)
+	TypeAuto(InplaceStr name): TypeBase(myTypeID, name)
 	{
-		name = "auto";
-		nameHash = GetStringHash(name);
 	}
 
 	static const unsigned myTypeID = __LINE__;
@@ -333,41 +346,17 @@ struct TypeAuto: TypeBase
 
 struct TypeStruct: TypeBase
 {
-	TypeStruct(unsigned myTypeID): TypeBase(myTypeID)
+	TypeStruct(unsigned myTypeID, InplaceStr name): TypeBase(myTypeID, name)
 	{
 	}
 
-	struct Member
-	{
-		Member(const char *name, TypeBase *type, unsigned alignment): name(name), type(type), alignment(alignment)
-		{
-			nameHash = GetStringHash(name);
-
-			offset = 0;
-
-			next = 0;
-		}
-
-		const char *name;
-		unsigned nameHash;
-
-		TypeBase *type;
-		unsigned alignment;
-
-		unsigned offset;
-
-		Member *next;
-	};
-
-	IntrusiveList<Member> members;
+	IntrusiveList<VariableHandle> members;
 };
 
 struct TypeAutoRef: TypeStruct
 {
-	TypeAutoRef(): TypeStruct(myTypeID)
+	TypeAutoRef(InplaceStr name): TypeStruct(myTypeID, name)
 	{
-		name = "auto ref";
-		nameHash = GetStringHash(name);
 	}
 
 	static const unsigned myTypeID = __LINE__;
@@ -375,10 +364,8 @@ struct TypeAutoRef: TypeStruct
 
 struct TypeAutoArray: TypeStruct
 {
-	TypeAutoArray(): TypeStruct(myTypeID)
+	TypeAutoArray(InplaceStr name): TypeStruct(myTypeID, name)
 	{
-		name = "auto[]";
-		nameHash = GetStringHash(name);
 	}
 
 	static const unsigned myTypeID = __LINE__;
@@ -386,10 +373,8 @@ struct TypeAutoArray: TypeStruct
 
 struct TypeRef: TypeBase
 {
-	TypeRef(TypeBase *subType): TypeBase(myTypeID), subType(subType)
+	TypeRef(InplaceStr name, TypeBase *subType): TypeBase(myTypeID, name), subType(subType)
 	{
-		// TODO: create name
-
 		size = NULLC_PTR_SIZE;
 		alignment = 4;
 	}
@@ -401,9 +386,9 @@ struct TypeRef: TypeBase
 
 struct TypeArray: TypeStruct
 {
-	TypeArray(TypeBase *subType, long long length): TypeStruct(myTypeID), subType(subType), length(length)
+	TypeArray(InplaceStr name, TypeBase *subType, long long length): TypeStruct(myTypeID, name), subType(subType), length(length)
 	{
-		// TODO: create name
+		size = subType->size * length;
 	}
 
 	TypeBase *subType;
@@ -414,9 +399,8 @@ struct TypeArray: TypeStruct
 
 struct TypeUnsizedArray: TypeStruct
 {
-	TypeUnsizedArray(TypeBase *subType): TypeStruct(myTypeID), subType(subType)
+	TypeUnsizedArray(InplaceStr name, TypeBase *subType): TypeStruct(myTypeID, name), subType(subType)
 	{
-		// TODO: create name
 	}
 
 	TypeBase *subType;
@@ -426,9 +410,8 @@ struct TypeUnsizedArray: TypeStruct
 
 struct TypeFunction: TypeBase
 {
-	TypeFunction(TypeBase *returnType, IntrusiveList<TypeHandle> arguments): TypeBase(myTypeID), returnType(returnType), arguments(arguments)
+	TypeFunction(InplaceStr name, TypeBase *returnType, IntrusiveList<TypeHandle> arguments): TypeBase(myTypeID, name), returnType(returnType), arguments(arguments)
 	{
-		// TODO: create name
 	}
 
 	TypeBase *returnType;
@@ -439,10 +422,28 @@ struct TypeFunction: TypeBase
 
 struct TypeClass: TypeStruct
 {
-	TypeClass(): TypeStruct(myTypeID)
+	TypeClass(ScopeData *scope, InplaceStr name, bool extenable, TypeBase *baseClass): TypeStruct(myTypeID, name), scope(scope), extenable(extenable), baseClass(baseClass)
 	{
-		// TODO: create name
 	}
+
+	ScopeData *scope;
+
+	bool extenable;
+
+	TypeBase *baseClass;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeGenericClassProto: TypeBase
+{
+	TypeGenericClassProto(InplaceStr name, bool extenable, SynClassDefinition *definition): TypeBase(myTypeID, name), extenable(extenable), definition(definition)
+	{
+	}
+
+	bool extenable;
+
+	SynClassDefinition *definition;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -658,6 +659,30 @@ struct ExprFunctionAccess: ExprBase
 	}
 
 	FunctionData *function;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprClassDefinition: ExprBase
+{
+	ExprClassDefinition(TypeBase *type, TypeClass *classType): ExprBase(myTypeID, type), classType(classType)
+	{
+	}
+
+	TypeClass *classType;
+
+	IntrusiveList<ExprFunctionDefinition> functions;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprGenericClassPrototype: ExprBase
+{
+	ExprGenericClassPrototype(TypeBase *type, TypeGenericClassProto *genericProtoType): ExprBase(myTypeID, type), genericProtoType(genericProtoType)
+	{
+	}
+
+	TypeGenericClassProto *genericProtoType;
 
 	static const unsigned myTypeID = __LINE__;
 };

@@ -212,7 +212,34 @@ ExpressionContext::ExpressionContext()
 
 void ExpressionContext::PushScope()
 {
-	scopes.push_back(new ScopeData());
+	unsigned depth = scopes.size();
+	ScopeData *scope = scopes.empty() ? NULL : scopes.back();
+
+	scopes.push_back(new ScopeData(depth, scope));
+}
+
+void ExpressionContext::PushScope(NamespaceData *nameSpace)
+{
+	unsigned depth = scopes.size();
+	ScopeData *scope = scopes.empty() ? NULL : scopes.back();
+
+	scopes.push_back(new ScopeData(depth, scope, nameSpace));
+}
+
+void ExpressionContext::PushScope(FunctionData *function)
+{
+	unsigned depth = scopes.size();
+	ScopeData *scope = scopes.empty() ? NULL : scopes.back();
+
+	scopes.push_back(new ScopeData(depth, scope, function));
+}
+
+void ExpressionContext::PushScope(TypeBase *type)
+{
+	unsigned depth = scopes.size();
+	ScopeData *scope = scopes.empty() ? NULL : scopes.back();
+
+	scopes.push_back(new ScopeData(depth, scope, type));
 }
 
 void ExpressionContext::PopScope()
@@ -230,6 +257,10 @@ void ExpressionContext::PopScope()
 	for(int i = int(scope->functions.size()) - 1; i >= 0; i--)
 	{
 		FunctionData *function = scope->functions[i];
+
+		// Keep class functions visible
+		if(function->scope->ownerType)
+			continue;
 
 		functionMap.remove(function->nameHash, function);
 	}
@@ -275,7 +306,11 @@ TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
 		return type->refType;
 
 	// Create new type
-	TypeRef* result = new TypeRef(type);
+	unsigned nameLength = type->name.length() + strlen(" ref");
+	char *name = new char[nameLength + 1];
+	sprintf(name, "%.*s ref", unsigned(type->name.end - type->name.begin), type->name.begin);
+
+	TypeRef* result = new TypeRef(InplaceStr(name), type);
 
 	// Save it for future use
 	type->refType = result;
@@ -285,16 +320,20 @@ TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
 	return result;
 }
 
-TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long size)
+TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 {
 	for(unsigned i = 0; i < type->arrayTypes.size(); i++)
 	{
-		if(type->arrayTypes[i]->size == size)
+		if(type->arrayTypes[i]->length == length)
 			return type->arrayTypes[i];
 	}
 
 	// Create new type
-	TypeArray* result = new TypeArray(type, size);
+	unsigned nameLength = type->name.length() + strlen("[]") + 21;
+	char *name = new char[nameLength + 1];
+	sprintf(name, "%.*s[%lld]", unsigned(type->name.end - type->name.begin), type->name.begin, length);
+
+	TypeArray* result = new TypeArray(InplaceStr(name), type, length);
 
 	// Save it for future use
 	type->arrayTypes.push_back(result);
@@ -310,7 +349,13 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 		return type->unsizedArrayType;
 
 	// Create new type
-	TypeUnsizedArray* result = new TypeUnsizedArray(type);
+	unsigned nameLength = type->name.length() + strlen("[]");
+	char *name = new char[nameLength + 1];
+	sprintf(name, "%.*s[]", unsigned(type->name.end - type->name.begin), type->name.begin);
+
+	TypeUnsizedArray* result = new TypeUnsizedArray(InplaceStr(name), type);
+
+	result->members.push_back(new VariableHandle(new VariableData(scopes.back(), 4, typeInt, InplaceStr("size"))));
 
 	// Save it for future use
 	type->unsizedArrayType = result;
@@ -346,15 +391,44 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 	}
 
 	// Create new type
-	TypeFunction* result = new TypeFunction(returnType, arguments);
+	unsigned nameLength = returnType->name.length() + strlen(" ref()");
+
+	for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
+		nameLength += arg->type->name.length() + 1;
+
+	char *name = new char[nameLength + 1];
+
+	char *pos = name;
+
+	sprintf(pos, "%.*s", unsigned(returnType->name.end - returnType->name.begin), returnType->name.begin);
+	pos += returnType->name.length();
+
+	strcpy(pos, " ref(");
+	pos += 5;
+
+	for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
+	{
+		sprintf(pos, "%.*s", unsigned(arg->type->name.end - arg->type->name.begin), arg->type->name.begin);
+		pos += arg->type->name.length();
+
+		if(arg->next)
+			*pos++ = ',';
+	}
+
+	*pos++ = ')';
+	*pos++ = 0;
+
+	TypeFunction* result = new TypeFunction(InplaceStr(name), returnType, arguments);
 
 	types.push_back(result);
 
 	return result;
 }
 
+ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax);
 ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax);
 ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax);
+void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 
 TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = true)
 {
@@ -439,6 +513,30 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown type");
+
+	return NULL;
+}
+
+unsigned AnalyzeAlignment(ExpressionContext &ctx, SynAlign *syntax)
+{
+	// noalign
+	if(!syntax->value)
+		return 1;
+
+	ExprBase *align = AnalyzeNumber(ctx, syntax->value);
+
+	if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(align))
+	{
+		if(alignValue->value > 16)
+			Stop(ctx, syntax->pos, "ERROR: alignment must be less than 16 bytes");
+
+		if(alignValue->value & (alignValue->value - 1))
+			Stop(ctx, syntax->pos, "ERROR: alignment must be power of two");
+
+		return unsigned(alignValue->value);
+	}
+
+	Stop(ctx, syntax->pos, "ERROR: alignment must be a constant expression");
 
 	return NULL;
 }
@@ -651,7 +749,7 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 
 ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinition *syntax, unsigned alignment, TypeBase *type)
 {
-	VariableData *variable = new VariableData(alignment, type, syntax->name);
+	VariableData *variable = new VariableData(ctx.scopes.back(), alignment, type, syntax->name);
 
 	ctx.AddVariable(variable);
 
@@ -662,15 +760,7 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 
 ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynVariableDefinitions *syntax)
 {
-	unsigned alignment = 0;
-
-	if(ExprBase *align = syntax->align ? AnalyzeNumber(ctx, syntax->align->value) : NULL)
-	{
-		if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(align))
-			alignment = unsigned(alignValue->value);
-		else
-			Stop(ctx, syntax->align->value->pos, "ERROR: alignment must be an integer constant");
-	}
+	unsigned alignment = syntax->align ? AnalyzeAlignment(ctx, syntax->align) : 0;
 
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
 
@@ -706,13 +796,13 @@ ExprFunctionDefinition* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFun
 
 	TypeFunction *functionType = ctx.GetFunctionType(returnType, argTypes);
 
-	FunctionData *function = new FunctionData(functionType, syntax->name);
+	FunctionData *function = new FunctionData(ctx.scopes.back(), functionType, syntax->name);
 
 	ctx.AddFunction(function);
 
 	IntrusiveList<ExprVariableDefinition> arguments;
 
-	ctx.PushScope();
+	ctx.PushScope(function);
 
 	for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next))
 	{
@@ -721,7 +811,7 @@ ExprFunctionDefinition* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFun
 
 		TypeBase *type = AnalyzeType(ctx, argument->type);
 
-		VariableData *variable = new VariableData(0, type, argument->name);
+		VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, argument->name);
 
 		ctx.AddVariable(variable);
 
@@ -738,6 +828,117 @@ ExprFunctionDefinition* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFun
 	ctx.PopScope();
 
 	return new ExprFunctionDefinition(ctx.typeVoid, syntax->prototype, function, arguments, expressions);
+}
+
+void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassStaticIf *syntax)
+{
+	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
+
+	// TODO: replace with compile-time evaluation
+	if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(condition))
+	{
+		if(number->value != 0)
+			AnalyzeClassElements(ctx, classDefinition, syntax->trueBlock);
+		else if(syntax->falseBlock)
+			AnalyzeClassElements(ctx, classDefinition, syntax->falseBlock);
+	}
+
+	Stop(ctx, syntax->pos, "ERROR: can't get condition value");
+}
+
+void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax)
+{
+	if(syntax->typedefs.head)
+		Stop(ctx, syntax->pos, "ERROR: class typedefs not implemented");
+	//for(SynTypedef *typeDef = syntax->typedefs.head; typeDef; typeDef = getType<SynTypedef>(typeDef->next))
+	//	classType->typedefs.push_back(AnalyzeTypedef(ctx, typeDef));
+
+	for(SynFunctionDefinition *function = syntax->functions.head; function; function = getType<SynFunctionDefinition>(function->next))
+		classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function));
+
+	if(syntax->accessors.head)
+		Stop(ctx, syntax->pos, "ERROR: class accessors not implemented");
+	//for(SynAccessor *accessor = syntax->accessors.head; accessor; accessor = getType<SynAccessor>(accessor->next))
+	//	classType->accessors.push_back(AnalyzeAccessorDefinition(ctx, accessor));
+
+	for(SynVariableDefinitions *member = syntax->members.head; member; member = getType<SynVariableDefinitions>(member->next))
+	{
+		ExprVariableDefinitions *node = AnalyzeVariableDefinitions(ctx, member);
+
+		for(ExprVariableDefinition *definition = node->definitions.head; definition; definition = getType<ExprVariableDefinition>(definition->next))
+		{
+			if(definition->initializer)
+				Stop(ctx, syntax->pos, "ERROR: member can't have an initializer");
+
+			classDefinition->classType->members.push_back(new VariableHandle(definition->variable));
+		}
+	}
+
+	if(syntax->constantSets.head)
+		Stop(ctx, syntax->pos, "ERROR: class constants not implemented");
+	//for(SynConstantSet *constantSet = syntax->constantSets.head; constantSet; constantSet = getType<SynConstantSet>(constantSet->next))
+	//	classType->constants.push_back(AnalyzeConstantSet(ctx, constantSet));
+
+	for(SynClassStaticIf *staticIf = syntax->staticIfs.head; staticIf; staticIf = getType<SynClassStaticIf>(staticIf->next))
+		AnalyzeClassStaticIf(ctx, classDefinition, staticIf);
+}
+
+ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax)
+{
+	unsigned alignment = syntax->align ? AnalyzeAlignment(ctx, syntax->align) : 0;
+
+	if(!syntax->aliases.empty())
+	{
+		unsigned nameLength = syntax->name.length() + strlen("<>");
+
+		for(SynIdentifier *alias = syntax->aliases.head; alias; alias = getType<SynIdentifier>(alias->next))
+			nameLength += strlen("generic") + 1;
+
+		char *name = new char[nameLength + 1];
+
+		char *pos = name;
+
+		sprintf(pos, "%.*s", unsigned(syntax->name.end - syntax->name.begin), syntax->name.begin);
+		pos += syntax->name.length();
+
+		*pos++ = '<';
+
+		for(SynIdentifier *alias = syntax->aliases.head; alias; alias = getType<SynIdentifier>(alias->next))
+		{
+			strcpy(pos, "generic");
+			pos += strlen("generic");
+
+			if(alias->next)
+				*pos++ = ',';
+		}
+
+		*pos++ = '>';
+		*pos++ = 0;
+
+		TypeGenericClassProto *genericProtoType = new TypeGenericClassProto(InplaceStr(name), syntax->extendable, syntax);
+
+		ctx.AddType(genericProtoType);
+
+		genericProtoType->alignment = alignment;
+
+		return new ExprGenericClassPrototype(ctx.typeVoid, genericProtoType);
+	}
+
+	TypeBase *baseClass = syntax->baseClass ? AnalyzeType(ctx, syntax->baseClass) : NULL;
+
+	TypeClass *classType = new TypeClass(ctx.scopes.back(), syntax->name, syntax->extendable, baseClass);
+
+	ctx.AddType(classType);
+
+	ExprClassDefinition *classDefinition = new ExprClassDefinition(ctx.typeVoid, classType);
+
+	ctx.PushScope(classType);
+
+	AnalyzeClassElements(ctx, classDefinition, syntax->elements);
+
+	ctx.PopScope();
+
+	return classDefinition;
 }
 
 ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
@@ -905,6 +1106,11 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeFunctionDefinition(ctx, node);
 	}
 
+	if(SynClassDefinition *node = getType<SynClassDefinition>(syntax))
+	{
+		return AnalyzeClassDefinition(ctx, node);
+	}
+
 	if(SynIfElse *node = getType<SynIfElse>(syntax))
 	{
 		return AnalyzeIfElse(ctx, node);
@@ -945,33 +1151,33 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 {
 	ctx.PushScope();
 
-	ctx.AddType(ctx.typeVoid = new TypeVoid());
+	ctx.AddType(ctx.typeVoid = new TypeVoid(InplaceStr("void")));
 
-	ctx.AddType(ctx.typeBool = new TypeBool());
+	ctx.AddType(ctx.typeBool = new TypeBool(InplaceStr("bool")));
 
-	ctx.AddType(ctx.typeChar = new TypeChar());
-	ctx.AddType(ctx.typeShort = new TypeShort());
-	ctx.AddType(ctx.typeInt = new TypeInt());
-	ctx.AddType(ctx.typeLong = new TypeLong());
+	ctx.AddType(ctx.typeChar = new TypeChar(InplaceStr("char")));
+	ctx.AddType(ctx.typeShort = new TypeShort(InplaceStr("short")));
+	ctx.AddType(ctx.typeInt = new TypeInt(InplaceStr("int")));
+	ctx.AddType(ctx.typeLong = new TypeLong(InplaceStr("long")));
 
-	ctx.AddType(ctx.typeFloat = new TypeFloat());
-	ctx.AddType(ctx.typeDouble = new TypeDouble());
+	ctx.AddType(ctx.typeFloat = new TypeFloat(InplaceStr("float")));
+	ctx.AddType(ctx.typeDouble = new TypeDouble(InplaceStr("double")));
 
-	ctx.AddType(ctx.typeTypeID = new TypeTypeID());
-	ctx.AddType(ctx.typeFunctionID = new TypeFunctionID());
+	ctx.AddType(ctx.typeTypeID = new TypeTypeID(InplaceStr("typeid")));
+	ctx.AddType(ctx.typeFunctionID = new TypeFunctionID(InplaceStr("__function")));
 
-	ctx.AddType(ctx.typeGeneric = new TypeGeneric());
+	ctx.AddType(ctx.typeGeneric = new TypeGeneric(InplaceStr("generic")));
 
-	ctx.AddType(ctx.typeAuto = new TypeAuto());
+	ctx.AddType(ctx.typeAuto = new TypeAuto(InplaceStr("auto")));
 
-	ctx.AddType(ctx.typeAutoRef = new TypeAutoRef());
-	ctx.typeAutoRef->members.push_back(new TypeStruct::Member("type", ctx.typeTypeID, 0));
-	ctx.typeAutoRef->members.push_back(new TypeStruct::Member("ptr", ctx.GetReferenceType(ctx.typeVoid), 0));
+	ctx.AddType(ctx.typeAutoRef = new TypeAutoRef(InplaceStr("auto ref")));
+	ctx.typeAutoRef->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.typeTypeID, InplaceStr("type"))));
+	ctx.typeAutoRef->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"))));
 
-	ctx.AddType(ctx.typeAutoArray = new TypeAutoArray());
-	ctx.typeAutoArray->members.push_back(new TypeStruct::Member("type", ctx.typeTypeID, 0));
-	ctx.typeAutoArray->members.push_back(new TypeStruct::Member("ptr", ctx.GetReferenceType(ctx.typeVoid), 0));
-	ctx.typeAutoArray->members.push_back(new TypeStruct::Member("size", ctx.typeInt, 0));
+	ctx.AddType(ctx.typeAutoArray = new TypeAutoArray(InplaceStr("auto[]")));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.typeTypeID, InplaceStr("type"))));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"))));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.typeInt, InplaceStr("size"))));
 
 	// Analyze module
 	if(!setjmp(errorHandler))
