@@ -1070,6 +1070,13 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeBinaryOp(ctx, node);
 	}
 
+	if(SynTypeof *node = getType<SynTypeof>(syntax))
+	{
+		ExprBase *value = AnalyzeExpression(ctx, node->value);
+
+		return new ExprTypeLiteral(ctx.typeTypeID, value->type);
+	}
+
 	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
 	{
 		if(TypeBase *type = AnalyzeType(ctx, node, false))
