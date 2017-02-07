@@ -576,6 +576,17 @@ struct ExprBinaryOp: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprGetAddress: ExprBase
+{
+	ExprGetAddress(TypeBase *type, ExprBase* value): ExprBase(myTypeID, type), value(value)
+	{
+	}
+
+	ExprBase* value;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprConditional: ExprBase
 {
 	ExprConditional(TypeBase *type, ExprBase *condition, ExprBase *trueBlock, ExprBase *falseBlock): ExprBase(myTypeID, type), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)

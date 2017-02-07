@@ -714,6 +714,13 @@ ExprBinaryOp* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 	return new ExprBinaryOp(resultType, syntax->type, lhs, rhs);
 }
 
+ExprGetAddress* AnalyzeGetAddress(ExpressionContext &ctx, SynGetAddress *syntax)
+{
+	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
+
+	return new ExprGetAddress(ctx.GetReferenceType(value->type), value);
+}
+
 ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *syntax)
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
@@ -1068,6 +1075,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	if(SynBinaryOp *node = getType<SynBinaryOp>(syntax))
 	{
 		return AnalyzeBinaryOp(ctx, node);
+	}
+	
+	if(SynGetAddress *node = getType<SynGetAddress>(syntax))
+	{
+		return AnalyzeGetAddress(ctx, node);
 	}
 
 	if(SynTypeof *node = getType<SynTypeof>(syntax))
