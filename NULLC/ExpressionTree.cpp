@@ -1085,6 +1085,13 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeVariableAccess(ctx, node);
 	}
 
+	if(SynSizeof *node = getType<SynSizeof>(syntax))
+	{
+		ExprBase *value = AnalyzeExpression(ctx, node->value);
+
+		return new ExprIntegerLiteral(ctx.typeInt, value->type->size);
+	}
+
 	if(SynConditional *node = getType<SynConditional>(syntax))
 	{
 		return AnalyzeConditional(ctx, node);
