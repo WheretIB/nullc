@@ -1472,11 +1472,11 @@ SynBlock* ParseBlock(ParseContext &ctx)
 	return NULL;
 }
 
-SynIfElse* ParseIfElse(ParseContext &ctx)
+SynIfElse* ParseIfElse(ParseContext &ctx, bool forceStaticIf)
 {
 	const char *start = ctx.Position();
 
-	bool staticIf = ctx.Consume(lex_at);
+	bool staticIf = forceStaticIf || ctx.Consume(lex_at);
 
 	if(ctx.Consume(lex_if))
 	{
@@ -1501,7 +1501,10 @@ SynIfElse* ParseIfElse(ParseContext &ctx)
 
 		if(ctx.Consume(lex_else))
 		{
-			falseBlock = ParseExpression(ctx);
+			if(ctx.At(lex_if))
+				falseBlock = ParseIfElse(ctx, staticIf);
+			else
+				falseBlock = ParseExpression(ctx);
 
 			if(!falseBlock)
 				Stop(ctx, ctx.Position(), "ERROR: expression not found after 'else'");
@@ -2294,7 +2297,7 @@ SynBase* ParseExpression(ParseContext &ctx)
 	if(SynBase *node = ParseBlock(ctx))
 		return node;
 
-	if(SynBase *node = ParseIfElse(ctx))
+	if(SynBase *node = ParseIfElse(ctx, false))
 		return node;
 
 	if(SynBase *node = ParseForEach(ctx))

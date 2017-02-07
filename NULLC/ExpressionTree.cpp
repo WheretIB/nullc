@@ -428,6 +428,7 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax);
 ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax);
 ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax);
+ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope);
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 
 TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = true)
@@ -958,9 +959,19 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(condition))
 		{
 			if(number->value != 0)
-				return AnalyzeStatement(ctx, syntax->trueBlock);
+			{
+				if(SynBlock *node = getType<SynBlock>(syntax->trueBlock))
+					return AnalyzeBlock(ctx, node, false);
+				else
+					return AnalyzeStatement(ctx, syntax->trueBlock);
+			}
 			else if(syntax->falseBlock)
-				return AnalyzeStatement(ctx, syntax->falseBlock);
+			{
+				if(SynBlock *node = getType<SynBlock>(syntax->falseBlock))
+					return AnalyzeBlock(ctx, node, false);
+				else
+					return AnalyzeStatement(ctx, syntax->falseBlock);
+			}
 
 			return new ExprVoid(ctx.typeVoid);
 		}
@@ -974,16 +985,18 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 	return new ExprIfElse(ctx.typeVoid, condition, trueBlock, falseBlock);
 }
 
-ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax)
+ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope)
 {
-	ctx.PushScope();
-	
+	if(createScope)
+		ctx.PushScope();
+
 	IntrusiveList<ExprBase> expressions;
 
 	for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
 		expressions.push_back(AnalyzeStatement(ctx, expression));
 
-	ctx.PopScope();
+	if(createScope)
+		ctx.PopScope();
 
 	return new ExprBlock(ctx.typeVoid, expressions);
 }
@@ -1143,7 +1156,7 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 
 	if(SynBlock *node = getType<SynBlock>(syntax))
 	{
-		return AnalyzeBlock(ctx, node);
+		return AnalyzeBlock(ctx, node, true);
 	}
 
 	return AnalyzeExpression(ctx, syntax);
