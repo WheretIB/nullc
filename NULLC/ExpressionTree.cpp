@@ -477,6 +477,33 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		Stop(ctx, syntax->pos, "ERROR: can't get array size");
 	}
 
+	if(SynArrayIndex *node = getType<SynArrayIndex>(syntax))
+	{
+		TypeBase *type = AnalyzeType(ctx, node->value);
+
+		if(isType<TypeAuto>(type))
+		{
+			if(!node->arguments.empty())
+				Stop(ctx, syntax->pos, "ERROR: no size allowed");
+
+			return ctx.typeAutoArray;
+		}
+
+		if(node->arguments.empty())
+			return ctx.GetUnsizedArrayType(type);
+
+		if(node->arguments.size() > 1)
+			Stop(ctx, syntax->pos, "ERROR: ',' is not expected in array type size");
+
+		ExprBase *size = AnalyzeExpression(ctx, node->arguments.head);
+		
+		// TODO: replace with compile-time evaluation
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(size))
+			return ctx.GetArrayType(type, number->value);
+
+		Stop(ctx, syntax->pos, "ERROR: can't get array size");
+	}
+
 	if(SynTypeFunction *node = getType<SynTypeFunction>(syntax))
 	{
 		TypeBase *returnType = AnalyzeType(ctx, node->returnType);
@@ -511,6 +538,44 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		// Might be a variable
 		if(!onlyType)
 			return NULL;
+	}
+
+	if(SynMemberAccess *node = getType<SynMemberAccess>(syntax))
+	{
+		TypeBase *value = AnalyzeType(ctx, node->value);
+
+		if(node->member == InplaceStr("argument"))
+		{
+			if(TypeFunction *type = getType<TypeFunction>(value))
+			{
+				// first/last/[n]/size
+				Stop(ctx, syntax->pos, "ERROR: not implemented");
+			}
+
+			Stop(ctx, syntax->pos, "ERROR: 'argument' can only be applied to a function type, but we have '%s'", value->name);
+		}
+		else if(node->member == InplaceStr("return"))
+		{
+			if(TypeFunction *type = getType<TypeFunction>(value))
+				return type->returnType;
+
+			Stop(ctx, syntax->pos, "ERROR: 'return' can only be applied to a function type, but we have '%s'", value->name);
+		}
+		else if(node->member == InplaceStr("target"))
+		{
+			if(TypeRef *type = getType<TypeRef>(value))
+				return type->subType;
+			else if(TypeArray *type = getType<TypeArray>(value))
+				return type->subType;
+
+			Stop(ctx, syntax->pos, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%s'", value->name);
+		}
+
+		// isReference/isArray/isFunction/arraySize/hasMember(x)/class member/class typedef
+
+		Stop(ctx, syntax->pos, "ERROR: unknown type");
+
+		return NULL;
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown type");
