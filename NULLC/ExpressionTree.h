@@ -600,6 +600,18 @@ struct ExprConditional: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprAssignment: ExprBase
+{
+	ExprAssignment(TypeBase *type, ExprBase *lhs, ExprBase *rhs): ExprBase(myTypeID, type), lhs(lhs), rhs(rhs)
+	{
+	}
+
+	ExprBase *lhs;
+	ExprBase *rhs;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprReturn: ExprBase
 {
 	ExprReturn(TypeBase *type, ExprBase* value): ExprBase(myTypeID, type), value(value)

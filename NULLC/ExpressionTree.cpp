@@ -741,6 +741,14 @@ ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *synt
 	return new ExprConditional(resultType, condition, trueBlock, falseBlock);
 }
 
+ExprAssignment* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
+{
+	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
+	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
+
+	return new ExprAssignment(lhs->type, lhs, rhs);
+}
+
 ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 {
 	// TODO: lots of things
@@ -1120,6 +1128,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	if(SynConditional *node = getType<SynConditional>(syntax))
 	{
 		return AnalyzeConditional(ctx, node);
+	}
+
+	if(SynAssignment *node = getType<SynAssignment>(syntax))
+	{
+		return AnalyzeAssignment(ctx, node);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");
