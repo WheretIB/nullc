@@ -384,9 +384,9 @@ struct TypeRef: TypeBase
 	static const unsigned myTypeID = __LINE__;
 };
 
-struct TypeArray: TypeStruct
+struct TypeArray: TypeBase
 {
-	TypeArray(InplaceStr name, TypeBase *subType, long long length): TypeStruct(myTypeID, name), subType(subType), length(length)
+	TypeArray(InplaceStr name, TypeBase *subType, long long length): TypeBase(myTypeID, name), subType(subType), length(length)
 	{
 		size = subType->size * length;
 	}
@@ -612,6 +612,18 @@ struct ExprAssignment: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprMemberAccess: ExprBase
+{
+	ExprMemberAccess(TypeBase *type, ExprBase *value, VariableData *member): ExprBase(myTypeID, type), value(value), member(member)
+	{
+	}
+
+	ExprBase *value;
+	VariableData *member;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprReturn: ExprBase
 {
 	ExprReturn(TypeBase *type, ExprBase* value): ExprBase(myTypeID, type), value(value)
@@ -756,6 +768,15 @@ T* getType(TypeBase *node)
 {
 	if(node && isType<T>(node))
 		return static_cast<T*>(node);
+
+	return 0;
+}
+
+template<>
+inline TypeStruct* getType(TypeBase *node)
+{
+	if(node && (isType<TypeAutoRef>(node) || isType<TypeAutoArray>(node) || isType<TypeUnsizedArray>(node) || isType<TypeClass>(node)))
+		return static_cast<TypeStruct*>(node);
 
 	return 0;
 }

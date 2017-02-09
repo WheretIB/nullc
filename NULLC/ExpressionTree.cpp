@@ -542,7 +542,10 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynMemberAccess *node = getType<SynMemberAccess>(syntax))
 	{
-		TypeBase *value = AnalyzeType(ctx, node->value);
+		TypeBase *value = AnalyzeType(ctx, node->value, onlyType);
+
+		if(!onlyType && !value)
+			return NULL;
 
 		if(node->member == InplaceStr("argument"))
 		{
@@ -567,9 +570,14 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 				return type->subType;
 			else if(TypeArray *type = getType<TypeArray>(value))
 				return type->subType;
+			else if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value))
+				return type->subType;
 
 			Stop(ctx, syntax->pos, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%s'", value->name);
 		}
+
+		if(!onlyType)
+			return NULL;
 
 		// isReference/isArray/isFunction/arraySize/hasMember(x)/class member/class typedef
 
@@ -812,6 +820,65 @@ ExprAssignment* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
 	return new ExprAssignment(lhs->type, lhs, rhs);
+}
+
+ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
+{
+	// It could be a type property
+	if(TypeBase *type = AnalyzeType(ctx, syntax->value, false))
+	{
+		if(syntax->member == InplaceStr("isReference"))
+		{
+			return new ExprBoolLiteral(ctx.typeBool, isType<TypeRef>(type));
+		}
+
+		if(syntax->member == InplaceStr("isArray"))
+		{
+			return new ExprBoolLiteral(ctx.typeBool, isType<TypeArray>(type) || isType<TypeUnsizedArray>(type));
+		}
+
+		if(syntax->member == InplaceStr("isFunction"))
+		{
+			return new ExprBoolLiteral(ctx.typeBool, isType<TypeFunction>(type));
+		}
+
+		if(syntax->member == InplaceStr("arraySize"))
+		{
+			if(TypeArray *arrType = getType<TypeArray>(type))
+				return new ExprIntegerLiteral(ctx.typeInt, arrType->length);
+				
+			if(TypeUnsizedArray *arrType = getType<TypeUnsizedArray>(type))
+				return new ExprIntegerLiteral(ctx.typeInt, -1);
+
+			Stop(ctx, syntax->pos, "ERROR: 'arraySize' can only be applied to an array type, but we have '%s'", type->name);
+		}
+
+		Stop(ctx, syntax->pos, "ERROR: unknown expression type");
+		// isReference/isArray/isFunction/arraySize/hasMember(x)/class constant/class typedef
+	}
+
+	ExprBase* value = AnalyzeExpression(ctx, syntax->value);
+
+	if(TypeArray *node = getType<TypeArray>(value->type))
+	{
+		if(syntax->member == InplaceStr("size"))
+			return new ExprIntegerLiteral(ctx.typeInt, node->length);
+
+		Stop(ctx, syntax->pos, "ERROR: array doesn't have member with this name");
+	}
+
+	if(TypeStruct *node = getType<TypeStruct>(value->type))
+	{
+		for(VariableHandle *el = node->members.head; el; el = el->next)
+		{
+			if(el->variable->name == syntax->member)
+				return new ExprMemberAccess(el->variable->type, value, el->variable); 
+		}
+	}
+
+	Stop(ctx, syntax->pos, "ERROR: member variable or function '%.*s' is not defined in class '%*.s'", unsigned(syntax->member.end - syntax->member.begin), syntax->member.begin, unsigned(value->type->name.end - value->type->name.begin), value->type->name.begin);
+
+	return NULL;
 }
 
 ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
@@ -1198,6 +1265,15 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	if(SynAssignment *node = getType<SynAssignment>(syntax))
 	{
 		return AnalyzeAssignment(ctx, node);
+	}
+
+	if(SynMemberAccess *node = getType<SynMemberAccess>(syntax))
+	{
+		// It could be a typeid
+		if(TypeBase *type = AnalyzeType(ctx, syntax, false))
+			return new ExprTypeLiteral(ctx.typeTypeID, type);
+
+		return AnalyzeMemberAccess(ctx, node);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");
