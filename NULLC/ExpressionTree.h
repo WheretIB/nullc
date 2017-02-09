@@ -721,6 +721,18 @@ struct ExprFunctionAccess: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprFunctionCall: ExprBase
+{
+	ExprFunctionCall(TypeBase *type, ExprBase *function, IntrusiveList<ExprBase> arguments): ExprBase(myTypeID, type), function(function), arguments(arguments)
+	{
+	}
+
+	ExprBase *function;
+	IntrusiveList<ExprBase> arguments;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprClassDefinition: ExprBase
 {
 	ExprClassDefinition(TypeBase *type, TypeClass *classType): ExprBase(myTypeID, type), classType(classType)

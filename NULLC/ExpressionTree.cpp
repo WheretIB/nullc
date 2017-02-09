@@ -914,6 +914,33 @@ ExprArrayIndex* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
 	return NULL;
 }
 
+ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
+{
+	ExprBase *function = AnalyzeExpression(ctx, syntax->value);
+
+	if(!syntax->aliases.empty())
+		Stop(ctx, syntax->pos, "ERROR: function call with explicit generic arguments is not supported");
+
+	IntrusiveList<ExprBase> arguments;
+
+	for(SynCallArgument *el = syntax->arguments.head; el; el = getType<SynCallArgument>(el->next))
+	{
+		if(!el->name.empty())
+			Stop(ctx, syntax->pos, "ERROR: named function arguments are not supported");
+
+		arguments.push_back(AnalyzeExpression(ctx, el->value));
+	}
+
+	if(TypeFunction *type = getType<TypeFunction>(function->type))
+	{
+		return new ExprFunctionCall(type->returnType, function, arguments);
+	}
+
+	Stop(ctx, syntax->pos, "ERROR: unknown call");
+
+	return NULL;
+}
+
 ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 {
 	// TODO: lots of things
@@ -1322,6 +1349,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 			return new ExprTypeLiteral(ctx.typeTypeID, type);
 
 		return AnalyzeArrayIndex(ctx, node);
+	}
+
+	if(SynFunctionCall *node = getType<SynFunctionCall>(syntax))
+	{
+		return AnalyzeFunctionCall(ctx, node);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");
