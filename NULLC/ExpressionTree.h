@@ -587,6 +587,17 @@ struct ExprGetAddress: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprDereference: ExprBase
+{
+	ExprDereference(TypeBase *type, ExprBase* value): ExprBase(myTypeID, type), value(value)
+	{
+	}
+
+	ExprBase* value;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprConditional: ExprBase
 {
 	ExprConditional(TypeBase *type, ExprBase *condition, ExprBase *trueBlock, ExprBase *falseBlock): ExprBase(myTypeID, type), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
@@ -620,6 +631,18 @@ struct ExprMemberAccess: ExprBase
 
 	ExprBase *value;
 	VariableData *member;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprArrayIndex: ExprBase
+{
+	ExprArrayIndex(TypeBase *type, ExprBase *value, ExprBase *index): ExprBase(myTypeID, type), value(value), index(index)
+	{
+	}
+
+	ExprBase *value;
+	ExprBase *index;
 
 	static const unsigned myTypeID = __LINE__;
 };

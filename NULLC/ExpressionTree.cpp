@@ -455,7 +455,10 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynTypeArray *node = getType<SynTypeArray>(syntax))
 	{
-		TypeBase *type = AnalyzeType(ctx, node->type);
+		TypeBase *type = AnalyzeType(ctx, node->type, onlyType);
+
+		if(!onlyType && !type)
+			return NULL;
 
 		if(isType<TypeAuto>(type))
 		{
@@ -795,6 +798,20 @@ ExprGetAddress* AnalyzeGetAddress(ExpressionContext &ctx, SynGetAddress *syntax)
 	return new ExprGetAddress(ctx.GetReferenceType(value->type), value);
 }
 
+ExprDereference* AnalyzeDereference(ExpressionContext &ctx, SynDereference *syntax)
+{
+	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
+
+	if(TypeRef *type = getType<TypeRef>(value->type))
+	{
+		return new ExprDereference(type->subType, value);
+	}
+
+	Stop(ctx, syntax->pos, "ERROR: cannot dereference type '%.*s' that is not a pointer", unsigned(value->type->name.end - value->type->name.begin), value->type->name.begin);
+
+	return NULL;
+}
+
 ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *syntax)
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
@@ -877,6 +894,22 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: member variable or function '%.*s' is not defined in class '%*.s'", unsigned(syntax->member.end - syntax->member.begin), syntax->member.begin, unsigned(value->type->name.end - value->type->name.begin), value->type->name.begin);
+
+	return NULL;
+}
+
+ExprArrayIndex* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
+{
+	ExprBase *value = AnalyzeExpression(ctx, syntax->type);
+	ExprBase *index = AnalyzeExpression(ctx, syntax->size);
+
+	if(TypeArray *type = getType<TypeArray>(value->type))
+		return new ExprArrayIndex(type->subType, value, index);
+
+	if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value->type))
+		return new ExprArrayIndex(type->subType, value, index);
+
+	Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not an array", unsigned(value->type->name.end - value->type->name.begin), value->type->name.begin);
 
 	return NULL;
 }
@@ -1235,6 +1268,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeGetAddress(ctx, node);
 	}
 
+	if(SynDereference *node = getType<SynDereference>(syntax))
+	{
+		return AnalyzeDereference(ctx, node);
+	}
+
 	if(SynTypeof *node = getType<SynTypeof>(syntax))
 	{
 		ExprBase *value = AnalyzeExpression(ctx, node->value);
@@ -1244,6 +1282,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
 	{
+		// It could be a typeid
 		if(TypeBase *type = AnalyzeType(ctx, node, false))
 			return new ExprTypeLiteral(ctx.typeTypeID, type);
 
@@ -1274,6 +1313,15 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 			return new ExprTypeLiteral(ctx.typeTypeID, type);
 
 		return AnalyzeMemberAccess(ctx, node);
+	}
+
+	if(SynTypeArray *node = getType<SynTypeArray>(syntax))
+	{
+		// It could be a typeid
+		if(TypeBase *type = AnalyzeType(ctx, syntax, false))
+			return new ExprTypeLiteral(ctx.typeTypeID, type);
+
+		return AnalyzeArrayIndex(ctx, node);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");
