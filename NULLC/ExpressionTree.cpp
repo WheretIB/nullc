@@ -1149,6 +1149,26 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	return classDefinition;
 }
 
+ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefinition *syntax)
+{
+	for(SynIdentifier *name = syntax->path.head; name; name = getType<SynIdentifier>(name->next))
+	{
+		NamespaceData *ns = new NamespaceData(ctx.scopes.back(), name->name);
+
+		ctx.PushScope(ns);
+	}
+
+	IntrusiveList<ExprBase> expressions;
+
+	for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
+		expressions.push_back(AnalyzeStatement(ctx, expression));
+
+	for(SynIdentifier *name = syntax->path.head; name; name = getType<SynIdentifier>(name->next))
+		ctx.PopScope();
+
+	return new ExprBlock(ctx.typeVoid, expressions);
+}
+
 ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
@@ -1386,6 +1406,11 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 	if(SynClassDefinition *node = getType<SynClassDefinition>(syntax))
 	{
 		return AnalyzeClassDefinition(ctx, node);
+	}
+
+	if(SynNamespaceDefinition *node = getType<SynNamespaceDefinition>(syntax))
+	{
+		return AnalyzeNamespaceDefinition(ctx, node);
 	}
 
 	if(SynIfElse *node = getType<SynIfElse>(syntax))
