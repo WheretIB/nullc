@@ -748,11 +748,15 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynTypeSimple *syntax)
 		{
 			return new ExprFunctionAccess((*function)->type, *function);
 		}
+
+		// TODO: 'this' pointer
+
+		Stop(ctx, syntax->pos, "ERROR: unknown variable");
 	}
 
 	// TODO: namespace path
 
-	Stop(ctx, syntax->pos, "ERROR: unknown variable");
+	Stop(ctx, syntax->pos, "ERROR: unknown namespaced variable");
 
 	return NULL;
 }
@@ -893,7 +897,7 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 		}
 	}
 
-	Stop(ctx, syntax->pos, "ERROR: member variable or function '%.*s' is not defined in class '%*.s'", unsigned(syntax->member.end - syntax->member.begin), syntax->member.begin, unsigned(value->type->name.end - value->type->name.begin), value->type->name.begin);
+	Stop(ctx, syntax->pos, "ERROR: member variable or function '%.*s' is not defined in class '%.*s'", unsigned(syntax->member.end - syntax->member.begin), syntax->member.begin, unsigned(value->type->name.end - value->type->name.begin), value->type->name.begin);
 
 	return NULL;
 }
@@ -957,6 +961,7 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 
 ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinition *syntax, unsigned alignment, TypeBase *type)
 {
+	// TODO: apply current namespace
 	VariableData *variable = new VariableData(ctx.scopes.back(), alignment, type, syntax->name);
 
 	ctx.AddVariable(variable);
@@ -995,6 +1000,7 @@ ExprFunctionDefinition* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFun
 
 	IntrusiveList<TypeHandle> argTypes;
 
+	// TODO: each argument should be able to reference previous one in an unevaluated context
 	for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next))
 	{
 		TypeBase *type = AnalyzeType(ctx, argument->type);
@@ -1004,6 +1010,8 @@ ExprFunctionDefinition* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFun
 
 	TypeFunction *functionType = ctx.GetFunctionType(returnType, argTypes);
 
+	// TODO: apply current namespace
+	// TODO: generate lambda name
 	FunctionData *function = new FunctionData(ctx.scopes.back(), functionType, syntax->name);
 
 	ctx.AddFunction(function);
@@ -1061,14 +1069,6 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 	//for(SynTypedef *typeDef = syntax->typedefs.head; typeDef; typeDef = getType<SynTypedef>(typeDef->next))
 	//	classType->typedefs.push_back(AnalyzeTypedef(ctx, typeDef));
 
-	for(SynFunctionDefinition *function = syntax->functions.head; function; function = getType<SynFunctionDefinition>(function->next))
-		classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function));
-
-	if(syntax->accessors.head)
-		Stop(ctx, syntax->pos, "ERROR: class accessors not implemented");
-	//for(SynAccessor *accessor = syntax->accessors.head; accessor; accessor = getType<SynAccessor>(accessor->next))
-	//	classType->accessors.push_back(AnalyzeAccessorDefinition(ctx, accessor));
-
 	for(SynVariableDefinitions *member = syntax->members.head; member; member = getType<SynVariableDefinitions>(member->next))
 	{
 		ExprVariableDefinitions *node = AnalyzeVariableDefinitions(ctx, member);
@@ -1087,6 +1087,16 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 	//for(SynConstantSet *constantSet = syntax->constantSets.head; constantSet; constantSet = getType<SynConstantSet>(constantSet->next))
 	//	classType->constants.push_back(AnalyzeConstantSet(ctx, constantSet));
 
+	for(SynFunctionDefinition *function = syntax->functions.head; function; function = getType<SynFunctionDefinition>(function->next))
+		classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function));
+
+	if(syntax->accessors.head)
+		Stop(ctx, syntax->pos, "ERROR: class accessors not implemented");
+	//for(SynAccessor *accessor = syntax->accessors.head; accessor; accessor = getType<SynAccessor>(accessor->next))
+	//	classType->accessors.push_back(AnalyzeAccessorDefinition(ctx, accessor));
+
+	// TODO: The way SynClassElements is made, it could allow member re-ordering! class should contain in-order members and static if's
+	// TODO: We should be able to analyze all static if typedefs before members and constants and analyze them before functions
 	for(SynClassStaticIf *staticIf = syntax->staticIfs.head; staticIf; staticIf = getType<SynClassStaticIf>(staticIf->next))
 		AnalyzeClassStaticIf(ctx, classDefinition, staticIf);
 }
@@ -1134,6 +1144,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 	TypeBase *baseClass = syntax->baseClass ? AnalyzeType(ctx, syntax->baseClass) : NULL;
 
+	// TODO: apply current namespace
 	TypeClass *classType = new TypeClass(ctx.scopes.back(), syntax->name, syntax->extendable, baseClass);
 
 	ctx.AddType(classType);
@@ -1141,6 +1152,8 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	ExprClassDefinition *classDefinition = new ExprClassDefinition(ctx.typeVoid, classType);
 
 	ctx.PushScope(classType);
+
+	// TODO: Base class members should be introduced into the scope
 
 	AnalyzeClassElements(ctx, classDefinition, syntax->elements);
 
