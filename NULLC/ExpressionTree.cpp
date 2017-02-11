@@ -1035,7 +1035,7 @@ ExprFunctionDefinition* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFun
 
 	ctx.PopScope();
 
-	return new ExprFunctionDefinition(ctx.typeVoid, syntax->prototype, function, arguments, expressions);
+	return new ExprFunctionDefinition(functionType, syntax->prototype, function, arguments, expressions);
 }
 
 void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassStaticIf *syntax)
@@ -1354,6 +1354,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	if(SynFunctionCall *node = getType<SynFunctionCall>(syntax))
 	{
 		return AnalyzeFunctionCall(ctx, node);
+	}
+
+	if(SynFunctionDefinition *node = getType<SynFunctionDefinition>(syntax))
+	{
+		return AnalyzeFunctionDefinition(ctx, node);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");
