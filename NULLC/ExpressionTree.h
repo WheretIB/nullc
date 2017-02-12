@@ -590,6 +590,17 @@ struct ExprNullptrLiteral: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprArray: ExprBase
+{
+	ExprArray(TypeBase *type, IntrusiveList<ExprBase> values): ExprBase(myTypeID, type), values(values)
+	{
+	}
+
+	IntrusiveList<ExprBase> values;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprPreModify: ExprBase
 {
 	ExprPreModify(TypeBase *type, ExprBase* value, bool isIncrement): ExprBase(myTypeID, type), value(value), isIncrement(isIncrement)

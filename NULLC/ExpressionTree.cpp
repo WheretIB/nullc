@@ -763,6 +763,29 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 	return new ExprRationalLiteral(ctx.typeDouble, num);
 }
 
+ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
+{
+	assert(syntax->values.head);
+
+	IntrusiveList<ExprBase> values;
+
+	TypeBase *subType = NULL;
+
+	for(SynBase *el = syntax->values.head; el; el = el->next)
+	{
+		ExprBase *value = AnalyzeExpression(ctx, el);
+
+		if(subType == NULL)
+			subType = value->type;
+		else if(subType != value->type)
+			Stop(ctx, el->pos, "ERROR: array element type mismatch");
+
+		values.push_back(value);
+	}
+
+	return new ExprArray(ctx.GetArrayType(subType, values.size()), values);
+}
+
 ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, InplaceStr name)
 {
 	if(VariableData **variable = ctx.variableMap.find(GetStringHash(name.begin, name.end)))
@@ -984,6 +1007,29 @@ ExprArrayIndex* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
 	return NULL;
 }
 
+ExprArrayIndex* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
+{
+	if(syntax->arguments.size() > 1)
+		Stop(ctx, syntax->pos, "ERROR: multiple array indexes are not supported");
+
+	if(syntax->arguments.empty())
+		Stop(ctx, syntax->pos, "ERROR: array index is missing");
+
+	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
+
+	ExprBase *index = AnalyzeExpression(ctx, syntax->arguments.head);
+
+	if(TypeArray *type = getType<TypeArray>(value->type))
+		return new ExprArrayIndex(type->subType, value, index);
+
+	if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value->type))
+		return new ExprArrayIndex(type->subType, value, index);
+
+	Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not an array", unsigned(value->type->name.end - value->type->name.begin), value->type->name.begin);
+
+	return NULL;
+}
+
 ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 {
 	ExprBase *function = AnalyzeExpression(ctx, syntax->value);
@@ -1009,6 +1055,54 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 	Stop(ctx, syntax->pos, "ERROR: unknown call");
 
 	return NULL;
+}
+
+ExprFunctionCall* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
+{
+	if(!syntax->constructor.empty())
+		Stop(ctx, syntax->pos, "ERROR: custom constructors are not supported");
+
+	if(!syntax->arguments.empty())
+		Stop(ctx, syntax->pos, "ERROR: constructor call is not supported");
+
+	TypeBase *type = AnalyzeType(ctx, syntax->type);
+
+	ExprFunctionCall *call = NULL;
+
+	if(syntax->count)
+	{
+		// TODO: implicit cast for manual function call
+		ExprBase *count = AnalyzeExpression(ctx, syntax->count);
+
+		FunctionData **function = ctx.functionMap.find(GetStringHash("__newA"));
+
+		if(!function || (*function)->name != InplaceStr("__newA"))
+			Stop(ctx, syntax->pos, "ERROR: internal error, __newA not found");
+
+		IntrusiveList<ExprBase> arguments;
+
+		arguments.push_back(new ExprIntegerLiteral(ctx.typeInt, type->size));
+		arguments.push_back(count);
+		arguments.push_back(new ExprTypeLiteral(ctx.typeTypeID, type));
+
+		call = new ExprFunctionCall(ctx.GetReferenceType(type), new ExprFunctionAccess((*function)->type, *function), arguments);
+	}
+	else
+	{
+		FunctionData **function = ctx.functionMap.find(GetStringHash("__newS"));
+
+		if(!function || (*function)->name != InplaceStr("__newS"))
+			Stop(ctx, syntax->pos, "ERROR: internal error, __newS not found");
+
+		IntrusiveList<ExprBase> arguments;
+
+		arguments.push_back(new ExprIntegerLiteral(ctx.typeInt, type->size));
+		arguments.push_back(new ExprTypeLiteral(ctx.typeTypeID, type));
+
+		call = new ExprFunctionCall(ctx.GetReferenceType(type), new ExprFunctionAccess((*function)->type, *function), arguments);
+	}
+
+	return call;
 }
 
 ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
@@ -1416,6 +1510,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeNumber(ctx, node);
 	}
 
+	if(SynArray *node = getType<SynArray>(syntax))
+	{
+		return AnalyzeArray(ctx, node);
+	}
+
 	if(SynPreModify *node = getType<SynPreModify>(syntax))
 	{
 		return AnalyzePreModify(ctx, node);
@@ -1507,9 +1606,19 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeArrayIndex(ctx, node);
 	}
 
+	if(SynArrayIndex *node = getType<SynArrayIndex>(syntax))
+	{
+		return AnalyzeArrayIndex(ctx, node);
+	}
+
 	if(SynFunctionCall *node = getType<SynFunctionCall>(syntax))
 	{
 		return AnalyzeFunctionCall(ctx, node);
+	}
+
+	if(SynNew *node = getType<SynNew>(syntax))
+	{
+		return AnalyzeNew(ctx, node);
 	}
 
 	if(SynFunctionDefinition *node = getType<SynFunctionDefinition>(syntax))
