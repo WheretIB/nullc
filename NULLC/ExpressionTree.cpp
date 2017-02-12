@@ -272,6 +272,13 @@ void ExpressionContext::PopScope()
 		typeMap.remove(type->nameHash, type);
 	}
 
+	for(int i = int(scope->aliases.size()) - 1; i >= 0; i--)
+	{
+		AliasData *alias = scope->aliases[i];
+
+		typeMap.remove(alias->nameHash, alias->type);
+	}
+
 	delete scopes.back();
 	scopes.pop_back();
 }
@@ -298,6 +305,13 @@ void ExpressionContext::AddVariable(VariableData *variable)
 
 	variables.push_back(variable);
 	variableMap.insert(variable->nameHash, variable);
+}
+
+void ExpressionContext::AddAlias(AliasData *alias)
+{
+	scopes.back()->aliases.push_back(alias);
+
+	typeMap.insert(alias->nameHash, alias->type);
 }
 
 TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
@@ -1182,6 +1196,17 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 	return new ExprBlock(ctx.typeVoid, expressions);
 }
 
+ExprVoid* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax)
+{
+	TypeBase *type = AnalyzeType(ctx, syntax->type);
+
+	AliasData *alias = new AliasData(ctx.scopes.back(), type, syntax->alias);
+
+	ctx.AddAlias(alias);
+
+	return new ExprVoid(ctx.typeVoid);
+}
+
 ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
@@ -1424,6 +1449,11 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 	if(SynNamespaceDefinition *node = getType<SynNamespaceDefinition>(syntax))
 	{
 		return AnalyzeNamespaceDefinition(ctx, node);
+	}
+
+	if(SynTypedef *node = getType<SynTypedef>(syntax))
+	{
+		return AnalyzeTypedef(ctx, node);
 	}
 
 	if(SynIfElse *node = getType<SynIfElse>(syntax))

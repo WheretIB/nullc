@@ -16,6 +16,7 @@ struct ScopeData;
 struct NamespaceData;
 struct VariableData;
 struct FunctionData;
+struct AliasData;
 
 struct ExprBase;
 
@@ -39,6 +40,17 @@ struct TypeHandle
 	TypeBase *type;
 
 	TypeHandle *next;
+};
+
+struct AliasHandle
+{
+	AliasHandle(AliasData *alias): alias(alias), next(0)
+	{
+	}
+
+	AliasData *alias;
+
+	AliasHandle *next;
 };
 
 struct NamespaceData
@@ -86,6 +98,21 @@ struct FunctionData
 	unsigned nameHash;
 };
 
+struct AliasData
+{
+	AliasData(ScopeData *scope, TypeBase *type, InplaceStr name): scope(scope), type(type), name(name)
+	{
+		nameHash = GetStringHash(name.begin, name.end);
+	}
+
+	ScopeData *scope;
+
+	TypeBase *type;
+
+	InplaceStr name;
+	unsigned nameHash;
+};
+
 struct ScopeData
 {
 	ScopeData(unsigned depth, ScopeData *scope): depth(depth), scope(scope), ownerNamespace(0), ownerFunction(0), ownerType(0)
@@ -115,6 +142,7 @@ struct ScopeData
 	FastVector<TypeBase*> types;
 	FastVector<FunctionData*> functions;
 	FastVector<VariableData*> variables;
+	FastVector<AliasData*> aliases;
 };
 
 template<typename T>
@@ -142,6 +170,7 @@ struct ExpressionContext
 	void AddType(TypeBase *type);
 	void AddFunction(FunctionData *function);
 	void AddVariable(VariableData *variable);
+	void AddAlias(AliasData *alias);
 
 	TypeRef* GetReferenceType(TypeBase* type);
 	TypeArray* GetArrayType(TypeBase* type, long long size);
