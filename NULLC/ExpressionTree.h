@@ -811,6 +811,44 @@ struct ExprIfElse: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprFor: ExprBase
+{
+	ExprFor(TypeBase *type, ExprBase *initializer, ExprBase *condition, ExprBase *increment, ExprBase *body): ExprBase(myTypeID, type), initializer(initializer), condition(condition), increment(increment), body(body)
+	{
+	}
+
+	ExprBase *initializer;
+	ExprBase *condition;
+	ExprBase *increment;
+	ExprBase *body;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprWhile: ExprBase
+{
+	ExprWhile(TypeBase *type, ExprBase *condition, ExprBase *body): ExprBase(myTypeID, type), condition(condition), body(body)
+	{
+	}
+
+	ExprBase *condition;
+	ExprBase *body;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprDoWhile: ExprBase
+{
+	ExprDoWhile(TypeBase *type, ExprBase *body, ExprBase *condition): ExprBase(myTypeID, type), body(body), condition(condition)
+	{
+	}
+
+	ExprBase *body;
+	ExprBase *condition;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprBlock: ExprBase
 {
 	ExprBlock(TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, type), expressions(expressions)

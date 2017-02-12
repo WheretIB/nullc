@@ -1261,6 +1261,32 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 	return new ExprIfElse(ctx.typeVoid, condition, trueBlock, falseBlock);
 }
 
+ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
+{
+	ExprBase *initializer = syntax->initializer ? AnalyzeStatement(ctx, syntax->initializer) : new ExprVoid(ctx.typeVoid);
+	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
+	ExprBase *increment = syntax->increment ? AnalyzeStatement(ctx, syntax->increment) : new ExprVoid(ctx.typeVoid);
+	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(ctx.typeVoid);
+
+	return new ExprFor(ctx.typeVoid, initializer, condition, increment, body);
+}
+
+ExprWhile* AnalyzeWhile(ExpressionContext &ctx, SynWhile *syntax)
+{
+	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
+	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(ctx.typeVoid);
+
+	return new ExprWhile(ctx.typeVoid, condition, body);
+}
+
+ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
+{
+	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(ctx.typeVoid);
+	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
+
+	return new ExprDoWhile(ctx.typeVoid, body, condition);
+}
+
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope)
 {
 	if(createScope)
@@ -1477,6 +1503,21 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 	if(SynIfElse *node = getType<SynIfElse>(syntax))
 	{
 		return AnalyzeIfElse(ctx, node);
+	}
+
+	if(SynFor *node = getType<SynFor>(syntax))
+	{
+		return AnalyzeFor(ctx, node);
+	}
+
+	if(SynWhile *node = getType<SynWhile>(syntax))
+	{
+		return AnalyzeWhile(ctx, node);
+	}
+
+	if(SynDoWhile *node = getType<SynDoWhile>(syntax))
+	{
+		return AnalyzeDoWhile(ctx, node);
 	}
 
 	if(SynBlock *node = getType<SynBlock>(syntax))
