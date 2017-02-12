@@ -199,8 +199,6 @@ ExpressionContext::ExpressionContext()
 	typeTypeID = NULL;
 	typeFunctionID = NULL;
 
-	typeGeneric = NULL;
-
 	typeAuto = NULL;
 	typeAutoRef = NULL;
 	typeAutoArray = NULL;
@@ -287,6 +285,7 @@ void ExpressionContext::AddType(TypeBase *type)
 {
 	scopes.back()->types.push_back(type);
 
+	assert(!type->isGeneric);
 	types.push_back(type);
 	typeMap.insert(type->nameHash, type);
 }
@@ -326,10 +325,13 @@ TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
 
 	TypeRef* result = new TypeRef(InplaceStr(name), type);
 
-	// Save it for future use
-	type->refType = result;
+	if(!type->isGeneric)
+	{
+		// Save it for future use
+		type->refType = result;
 
-	types.push_back(result);
+		types.push_back(result);
+	}
 
 	return result;
 }
@@ -349,10 +351,13 @@ TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 
 	TypeArray* result = new TypeArray(InplaceStr(name), type, length);
 
-	// Save it for future use
-	type->arrayTypes.push_back(result);
+	if(!type->isGeneric)
+	{
+		// Save it for future use
+		type->arrayTypes.push_back(result);
 
-	types.push_back(result);
+		types.push_back(result);
+	}
 
 	return result;
 }
@@ -371,10 +376,13 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 
 	result->members.push_back(new VariableHandle(new VariableData(scopes.back(), 4, typeInt, InplaceStr("size"))));
 
-	// Save it for future use
-	type->unsizedArrayType = result;
+	if(!type->isGeneric)
+	{
+		// Save it for future use
+		type->unsizedArrayType = result;
 
-	types.push_back(result);
+		types.push_back(result);
+	}
 
 	return result;
 }
@@ -434,7 +442,10 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 
 	TypeFunction* result = new TypeFunction(InplaceStr(name), returnType, arguments);
 
-	types.push_back(result);
+	if(!result->isGeneric)
+	{
+		types.push_back(result);
+	}
 
 	return result;
 }
@@ -454,7 +465,14 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynTypeGeneric *node = getType<SynTypeGeneric>(syntax))
 	{
-		return ctx.typeGeneric;
+		return new TypeGeneric(InplaceStr("generic"));
+	}
+
+	if(SynTypeAlias *node = getType<SynTypeAlias>(syntax))
+	{
+		TypeGeneric *type = new TypeGeneric(node->name);
+
+		return type;
 	}
 
 	if(SynTypeReference *node = getType<SynTypeReference>(syntax))
@@ -1510,8 +1528,6 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 
 	ctx.AddType(ctx.typeTypeID = new TypeTypeID(InplaceStr("typeid")));
 	ctx.AddType(ctx.typeFunctionID = new TypeFunctionID(InplaceStr("__function")));
-
-	ctx.AddType(ctx.typeGeneric = new TypeGeneric(InplaceStr("generic")));
 
 	ctx.AddType(ctx.typeAuto = new TypeAuto(InplaceStr("auto")));
 

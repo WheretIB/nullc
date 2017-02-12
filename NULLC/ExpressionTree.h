@@ -210,8 +210,6 @@ struct ExpressionContext
 	TypeBase* typeTypeID;
 	TypeBase* typeFunctionID;
 
-	TypeBase* typeGeneric;
-
 	TypeBase* typeAuto;
 	TypeStruct* typeAutoRef;
 	TypeStruct* typeAutoArray;
@@ -225,6 +223,8 @@ struct TypeBase
 
 		size = 0;
 		alignment = 0;
+
+		isGeneric = false;
 
 		refType = 0;
 		unsizedArrayType = 0;
@@ -241,6 +241,8 @@ struct TypeBase
 	
 	long long size;
 	unsigned alignment;
+
+	bool isGeneric;
 
 	TypeRef *refType; // Reference type to this type
 	FastVector<TypeArray*> arrayTypes; // Array types derived from this type
@@ -359,6 +361,7 @@ struct TypeGeneric: TypeBase
 {
 	TypeGeneric(InplaceStr name): TypeBase(myTypeID, name)
 	{
+		isGeneric = true;
 	}
 
 	static const unsigned myTypeID = __LINE__;
@@ -406,6 +409,8 @@ struct TypeRef: TypeBase
 	{
 		size = NULLC_PTR_SIZE;
 		alignment = 4;
+
+		isGeneric = subType->isGeneric;
 	}
 
 	TypeBase *subType;
@@ -418,6 +423,8 @@ struct TypeArray: TypeBase
 	TypeArray(InplaceStr name, TypeBase *subType, long long length): TypeBase(myTypeID, name), subType(subType), length(length)
 	{
 		size = subType->size * length;
+
+		isGeneric = subType->isGeneric;
 	}
 
 	TypeBase *subType;
@@ -430,6 +437,7 @@ struct TypeUnsizedArray: TypeStruct
 {
 	TypeUnsizedArray(InplaceStr name, TypeBase *subType): TypeStruct(myTypeID, name), subType(subType)
 	{
+		isGeneric = subType->isGeneric;
 	}
 
 	TypeBase *subType;
@@ -441,6 +449,10 @@ struct TypeFunction: TypeBase
 {
 	TypeFunction(InplaceStr name, TypeBase *returnType, IntrusiveList<TypeHandle> arguments): TypeBase(myTypeID, name), returnType(returnType), arguments(arguments)
 	{
+		isGeneric = returnType->isGeneric;
+
+		for(TypeHandle *el = arguments.head; el; el = el->next)
+			isGeneric |= el->type->isGeneric;
 	}
 
 	TypeBase *returnType;
