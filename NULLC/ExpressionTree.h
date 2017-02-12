@@ -590,6 +590,30 @@ struct ExprNullptrLiteral: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprPreModify: ExprBase
+{
+	ExprPreModify(TypeBase *type, ExprBase* value, bool isIncrement): ExprBase(myTypeID, type), value(value), isIncrement(isIncrement)
+	{
+	}
+
+	ExprBase* value;
+	bool isIncrement;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprPostModify: ExprBase
+{
+	ExprPostModify(TypeBase *type, ExprBase* value, bool isIncrement): ExprBase(myTypeID, type), value(value), isIncrement(isIncrement)
+	{
+	}
+
+	ExprBase* value;
+	bool isIncrement;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprUnaryOp: ExprBase
 {
 	ExprUnaryOp(TypeBase *type, SynUnaryOpType op, ExprBase* value): ExprBase(myTypeID, type), op(op), value(value)
@@ -660,6 +684,20 @@ struct ExprAssignment: ExprBase
 
 	ExprBase *lhs;
 	ExprBase *rhs;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprModifyAssignment: ExprBase
+{
+	ExprModifyAssignment(TypeBase *type, SynModifyAssignType op, ExprBase* lhs, ExprBase* rhs): ExprBase(myTypeID, type), op(op), lhs(lhs), rhs(rhs)
+	{
+	}
+
+	SynModifyAssignType op;
+
+	ExprBase* lhs;
+	ExprBase* rhs;
 
 	static const unsigned myTypeID = __LINE__;
 };

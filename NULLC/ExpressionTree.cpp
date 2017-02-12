@@ -763,27 +763,39 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 	return new ExprRationalLiteral(ctx.typeDouble, num);
 }
 
+ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, InplaceStr name)
+{
+	if(VariableData **variable = ctx.variableMap.find(GetStringHash(name.begin, name.end)))
+	{
+		// TODO: check external variable access
+
+		return new ExprVariableAccess((*variable)->type, *variable);
+	}
+
+	if(FunctionData **function = ctx.functionMap.find(GetStringHash(name.begin, name.end)))
+	{
+		return new ExprFunctionAccess((*function)->type, *function);
+	}
+
+	// TODO: 'this' pointer
+
+	Stop(ctx, name.begin, "ERROR: unknown variable");
+
+	return NULL;
+}
+
+ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynIdentifier *syntax)
+{
+	return AnalyzeVariableAccess(ctx, syntax->name);
+}
+
 ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynTypeSimple *syntax)
 {
 	if(syntax->path.empty())
 	{
 		// TODO: current namespace
 
-		if(VariableData **variable = ctx.variableMap.find(GetStringHash(syntax->name.begin, syntax->name.end)))
-		{
-			// TODO: check external variable access
-
-			return new ExprVariableAccess((*variable)->type, *variable);
-		}
-
-		if(FunctionData **function = ctx.functionMap.find(GetStringHash(syntax->name.begin, syntax->name.end)))
-		{
-			return new ExprFunctionAccess((*function)->type, *function);
-		}
-
-		// TODO: 'this' pointer
-
-		Stop(ctx, syntax->pos, "ERROR: unknown variable");
+		return AnalyzeVariableAccess(ctx, syntax->name);
 	}
 
 	// TODO: namespace path
@@ -791,6 +803,20 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynTypeSimple *syntax)
 	Stop(ctx, syntax->pos, "ERROR: unknown namespaced variable");
 
 	return NULL;
+}
+
+ExprPreModify* AnalyzePreModify(ExpressionContext &ctx, SynPreModify *syntax)
+{
+	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
+
+	return new ExprPreModify(value->type, value, syntax->isIncrement);
+}
+
+ExprPostModify* AnalyzePostModify(ExpressionContext &ctx, SynPostModify *syntax)
+{
+	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
+
+	return new ExprPostModify(value->type, value, syntax->isIncrement);
 }
 
 ExprUnaryOp* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
@@ -873,6 +899,14 @@ ExprAssignment* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
 	return new ExprAssignment(lhs->type, lhs, rhs);
+}
+
+ExprModifyAssignment* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *syntax)
+{
+	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
+	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
+
+	return new ExprModifyAssignment(lhs->type, syntax->type, lhs, rhs);
 }
 
 ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
@@ -1382,6 +1416,16 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeNumber(ctx, node);
 	}
 
+	if(SynPreModify *node = getType<SynPreModify>(syntax))
+	{
+		return AnalyzePreModify(ctx, node);
+	}
+
+	if(SynPostModify *node = getType<SynPostModify>(syntax))
+	{
+		return AnalyzePostModify(ctx, node);
+	}
+
 	if(SynUnaryOp *node = getType<SynUnaryOp>(syntax))
 	{
 		return AnalyzeUnaryOp(ctx, node);
@@ -1409,6 +1453,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return new ExprTypeLiteral(ctx.typeTypeID, value->type);
 	}
 
+	if(SynIdentifier *node = getType<SynIdentifier>(syntax))
+	{
+		return AnalyzeVariableAccess(ctx, node);
+	}
+
 	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
 	{
 		// It could be a typeid
@@ -1433,6 +1482,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	if(SynAssignment *node = getType<SynAssignment>(syntax))
 	{
 		return AnalyzeAssignment(ctx, node);
+	}
+
+	if(SynModifyAssignment *node = getType<SynModifyAssignment>(syntax))
+	{
+		return AnalyzeModifyAssignment(ctx, node);
 	}
 
 	if(SynMemberAccess *node = getType<SynMemberAccess>(syntax))
