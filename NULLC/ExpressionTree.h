@@ -85,7 +85,7 @@ struct VariableData
 
 struct FunctionData
 {
-	FunctionData(ScopeData *scope, TypeFunction *type, InplaceStr name): scope(scope), type(type), name(name)
+	FunctionData(ScopeData *scope, TypeFunction *type, InplaceStr name, SynFunctionDefinition *definition): scope(scope), type(type), name(name), definition(definition)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 	}
@@ -96,6 +96,8 @@ struct FunctionData
 
 	InplaceStr name;
 	unsigned nameHash;
+
+	SynFunctionDefinition *definition;
 };
 
 struct AliasData
@@ -800,6 +802,17 @@ struct ExprFunctionDefinition: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprGenericFunctionPrototype: ExprBase
+{
+	ExprGenericFunctionPrototype(TypeBase *type, FunctionData* function): ExprBase(myTypeID, type), function(function)
+	{
+	}
+
+	FunctionData* function;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprFunctionAccess: ExprBase
 {
 	ExprFunctionAccess(TypeBase *type, FunctionData *function): ExprBase(myTypeID, type), function(function)
@@ -831,7 +844,7 @@ struct ExprClassDefinition: ExprBase
 
 	TypeClass *classType;
 
-	IntrusiveList<ExprFunctionDefinition> functions;
+	IntrusiveList<ExprBase> functions;
 
 	static const unsigned myTypeID = __LINE__;
 };

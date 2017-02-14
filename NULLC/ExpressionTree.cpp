@@ -1145,7 +1145,7 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 	return new ExprVariableDefinitions(ctx.typeVoid, definitions);
 }
 
-ExprFunctionDefinition* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax)
+ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax)
 {
 	if(syntax->coroutine)
 		Stop(ctx, syntax->pos, "ERROR: coroutines are not implemented");
@@ -1172,9 +1172,18 @@ ExprFunctionDefinition* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFun
 
 	// TODO: apply current namespace
 	// TODO: generate lambda name
-	FunctionData *function = new FunctionData(ctx.scopes.back(), functionType, syntax->name);
+	// TODO: function type should be stored in type list
+	FunctionData *function = new FunctionData(ctx.scopes.back(), functionType, syntax->name, syntax);
 
 	ctx.AddFunction(function);
+
+	if(functionType->isGeneric)
+	{
+		if(syntax->prototype)
+			Stop(ctx, syntax->pos, "ERROR: generic function cannot be forward-declared");
+
+		return new ExprGenericFunctionPrototype(ctx.typeVoid, function);
+	}
 
 	IntrusiveList<ExprVariableDefinition> arguments;
 
