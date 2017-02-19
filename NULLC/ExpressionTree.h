@@ -169,6 +169,7 @@ struct ExpressionContext
 	void PushScope(FunctionData *function);
 	void PushScope(TypeBase *type);
 	void PopScope();
+	unsigned GetGenericClassInstantiationDepth();
 
 	void AddType(TypeBase *type);
 	void AddFunction(FunctionData *function);
@@ -642,6 +643,17 @@ struct ExprPostModify: ExprBase
 
 	ExprBase* value;
 	bool isIncrement;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprTypeCast: ExprBase
+{
+	ExprTypeCast(TypeBase *type, ExprBase* value): ExprBase(myTypeID, type), value(value)
+	{
+	}
+
+	ExprBase* value;
 
 	static const unsigned myTypeID = __LINE__;
 };

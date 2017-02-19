@@ -2,6 +2,8 @@
 
 #include "ParseClass.h"
 
+#define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
+
 namespace
 {
 	jmp_buf errorHandler;
@@ -131,7 +133,7 @@ namespace
 	{
 		unsigned nameLength = type->name.length() + strlen(" ref");
 		char *name = new char[nameLength + 1];
-		sprintf(name, "%.*s ref", unsigned(type->name.end - type->name.begin), type->name.begin);
+		sprintf(name, "%.*s ref", FMT_ISTR(type->name));
 
 		return InplaceStr(name);
 	}
@@ -140,7 +142,7 @@ namespace
 	{
 		unsigned nameLength = type->name.length() + strlen("[]") + 21;
 		char *name = new char[nameLength + 1];
-		sprintf(name, "%.*s[%lld]", unsigned(type->name.end - type->name.begin), type->name.begin, length);
+		sprintf(name, "%.*s[%lld]", FMT_ISTR(type->name), length);
 
 		return InplaceStr(name);
 	}
@@ -149,7 +151,7 @@ namespace
 	{
 		unsigned nameLength = type->name.length() + strlen("[]");
 		char *name = new char[nameLength + 1];
-		sprintf(name, "%.*s[]", unsigned(type->name.end - type->name.begin), type->name.begin);
+		sprintf(name, "%.*s[]", FMT_ISTR(type->name));
 
 		return InplaceStr(name);
 	}
@@ -165,7 +167,7 @@ namespace
 
 		char *pos = name;
 
-		sprintf(pos, "%.*s", unsigned(returnType->name.end - returnType->name.begin), returnType->name.begin);
+		sprintf(pos, "%.*s", FMT_ISTR(returnType->name));
 		pos += returnType->name.length();
 
 		strcpy(pos, " ref(");
@@ -173,7 +175,7 @@ namespace
 
 		for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
 		{
-			sprintf(pos, "%.*s", unsigned(arg->type->name.end - arg->type->name.begin), arg->type->name.begin);
+			sprintf(pos, "%.*s", FMT_ISTR(arg->type->name));
 			pos += arg->type->name.length();
 
 			if(arg->next)
@@ -202,7 +204,7 @@ namespace
 
 		char *pos = name;
 
-		sprintf(pos, "%.*s", unsigned(proto->name.end - proto->name.begin), proto->name.begin);
+		sprintf(pos, "%.*s", FMT_ISTR(proto->name));
 		pos += proto->name.length();
 
 		strcpy(pos, "<");
@@ -217,7 +219,7 @@ namespace
 			}
 			else
 			{
-				sprintf(pos, "%.*s", unsigned(arg->type->name.end - arg->type->name.begin), arg->type->name.begin);
+				sprintf(pos, "%.*s", FMT_ISTR(arg->type->name));
 				pos += arg->type->name.length();
 			}
 
@@ -231,30 +233,40 @@ namespace
 		return InplaceStr(name);
 	}
 
-	bool IsNumericType(ExpressionContext &ctx, TypeBase* a)
+	bool IsIntegerType(ExpressionContext &ctx, TypeBase* type)
 	{
-		if(a == ctx.typeBool)
+		if(type == ctx.typeBool)
 			return true;
 
-		if(a == ctx.typeChar)
+		if(type == ctx.typeChar)
 			return true;
 
-		if(a == ctx.typeShort)
+		if(type == ctx.typeShort)
 			return true;
 
-		if(a == ctx.typeInt)
+		if(type == ctx.typeInt)
 			return true;
 
-		if(a == ctx.typeLong)
-			return true;
-
-		if(a == ctx.typeFloat)
-			return true;
-
-		if(a == ctx.typeDouble)
+		if(type == ctx.typeLong)
 			return true;
 
 		return false;
+	}
+
+	bool IsFloatingPointType(ExpressionContext &ctx, TypeBase* type)
+	{
+		if(type == ctx.typeFloat)
+			return true;
+
+		if(type == ctx.typeDouble)
+			return true;
+
+		return false;
+	}
+
+	bool IsNumericType(ExpressionContext &ctx, TypeBase* type)
+	{
+		return IsIntegerType(ctx, type) || IsFloatingPointType(ctx, type);
 	}
 
 	TypeBase* GetBinaryOpResultType(ExpressionContext &ctx, TypeBase* a, TypeBase* b)
@@ -281,6 +293,130 @@ namespace
 			return ctx.typeBool;
 
 		return NULL;
+	}
+
+	bool IsBinaryOp(SynUnaryOpType type)
+	{
+		return type == SYN_UNARY_OP_BIT_NOT;
+	}
+
+	bool IsLogicalOp(SynUnaryOpType type)
+	{
+		return type == SYN_UNARY_OP_LOGICAL_NOT;
+	}
+
+	const char* GetOpName(SynUnaryOpType type)
+	{
+		switch(type)
+		{
+		case SYN_UNARY_OP_PLUS:
+			return "+";
+		case SYN_UNARY_OP_NEGATE:
+			return "-";
+		case SYN_UNARY_OP_BIT_NOT:
+			return "~";
+		case SYN_UNARY_OP_LOGICAL_NOT:
+			return "!";
+		}
+
+		assert(!"unknown operation type");
+		return "";
+	}
+
+	bool IsBinaryOp(SynBinaryOpType type)
+	{
+		switch(type)
+		{
+		case SYN_BINARY_OP_SHL:
+		case SYN_BINARY_OP_SHR:
+		case SYN_BINARY_OP_BIT_AND:
+		case SYN_BINARY_OP_BIT_OR:
+		case SYN_BINARY_OP_BIT_XOR:
+			return true;
+		}
+
+		return false;
+	}
+
+	bool IsComparisonOp(SynBinaryOpType type)
+	{
+		switch(type)
+		{
+		case SYN_BINARY_OP_LESS:
+		case SYN_BINARY_OP_LESS_EQUAL:
+		case SYN_BINARY_OP_GREATER:
+		case SYN_BINARY_OP_GREATER_EQUAL:
+		case SYN_BINARY_OP_EQUAL:
+		case SYN_BINARY_OP_NOT_EQUAL:
+			return true;
+		}
+
+		return false;
+	}
+
+	bool IsLogicalOp(SynBinaryOpType type)
+	{
+		switch(type)
+		{
+		case SYN_BINARY_OP_LOGICAL_AND:
+		case SYN_BINARY_OP_LOGICAL_OR:
+		case SYN_BINARY_OP_LOGICAL_XOR:
+			return true;
+		}
+
+		return false;
+	}
+
+	const char* GetOpName(SynBinaryOpType type)
+	{
+		switch(type)
+		{
+		case SYN_BINARY_OP_ADD:
+			return "+";
+		case SYN_BINARY_OP_SUB:
+			return "-";
+		case SYN_BINARY_OP_MUL:
+			return "*";
+		case SYN_BINARY_OP_DIV:
+			return "/";
+		case SYN_BINARY_OP_MOD:
+			return "%";
+		case SYN_BINARY_OP_POW:
+			return "**";
+		case SYN_BINARY_OP_SHL:
+			return "<<";
+		case SYN_BINARY_OP_SHR:
+			return ">>";
+		case SYN_BINARY_OP_LESS:
+			return "<";
+		case SYN_BINARY_OP_LESS_EQUAL:
+			return "<=";
+		case SYN_BINARY_OP_GREATER:
+			return ">";
+		case SYN_BINARY_OP_GREATER_EQUAL:
+			return ">=";
+		case SYN_BINARY_OP_EQUAL:
+			return "==";
+		case SYN_BINARY_OP_NOT_EQUAL:
+			return "!=";
+		case SYN_BINARY_OP_BIT_AND:
+			return "&";
+		case SYN_BINARY_OP_BIT_OR:
+			return "|";
+		case SYN_BINARY_OP_BIT_XOR:
+			return "^";
+		case SYN_BINARY_OP_LOGICAL_AND:
+			return "&&";
+		case SYN_BINARY_OP_LOGICAL_OR:
+			return "||";
+		case SYN_BINARY_OP_LOGICAL_XOR:
+			return "^^";
+		case SYN_BINARY_OP_IN:
+			return "in";
+		}
+
+		assert(!"unknown operation type");
+		return "";
 	}
 }
 
@@ -385,6 +521,24 @@ void ExpressionContext::PopScope()
 
 	delete scopes.back();
 	scopes.pop_back();
+}
+
+unsigned ExpressionContext::GetGenericClassInstantiationDepth()
+{
+	unsigned depth = 0;
+
+	for(unsigned i = 0; i < scopes.size(); i++)
+	{
+		ScopeData *scope = scopes[i];
+
+		if(TypeClass *type = getType<TypeClass>(scope->ownerType))
+		{
+			if(!type->genericTypes.empty())
+				depth++;
+		}
+	}
+
+	return depth;
 }
 
 void ExpressionContext::AddType(TypeBase *type)
@@ -517,6 +671,31 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 	}
 
 	return result;
+}
+
+ExprBase* CreateCast(ExpressionContext &ctx, const char *pos, ExprBase *value, TypeBase *type)
+{
+	if(value->type == type)
+		return value;
+
+	if(IsNumericType(ctx, value->type) && IsNumericType(ctx, value->type))
+		return new ExprTypeCast(type, value);
+
+	if(type == ctx.typeBool)
+	{
+		if(isType<TypeRef>(value->type))
+			return new ExprTypeCast(type, value);
+
+		if(isType<TypeUnsizedArray>(value->type))
+			return new ExprTypeCast(type, value);
+
+		if(isType<TypeFunction>(value->type))
+			return new ExprTypeCast(type, value);
+	}
+
+	Stop(ctx, pos, "ERROR: can't convert '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));
+
+	return NULL;
 }
 
 ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax);
@@ -919,9 +1098,14 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, InplaceStr name)
 {
 	if(VariableData **variable = ctx.variableMap.find(GetStringHash(name.begin, name.end)))
 	{
+		VariableData *data = *variable;
+
 		// TODO: check external variable access
 
-		return new ExprVariableAccess((*variable)->type, *variable);
+		if(data->type == ctx.typeAuto)
+			Stop(ctx, name.begin, "ERROR: variable '%.*s' is being used while its type is unknown", FMT_ISTR(name));
+
+		return new ExprVariableAccess(data->type, data);
 	}
 
 	if(FunctionData **function = ctx.functionMap.find(GetStringHash(name.begin, name.end)))
@@ -975,9 +1159,35 @@ ExprUnaryOp* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
+	// TODO: check operator overload
+
+	bool binaryOp = IsBinaryOp(syntax->type);
+	bool logicalOp = IsLogicalOp(syntax->type);
+
+	// Type check
+	if(IsFloatingPointType(ctx, value->type))
+	{
+		if(binaryOp || logicalOp)
+			Stop(ctx, syntax->pos, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+	}
+	else if(value->type == ctx.typeBool || value->type == ctx.typeAutoRef)
+	{
+		if(!logicalOp)
+			Stop(ctx, syntax->pos, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+	}
+	else if(isType<TypeRef>(value->type))
+	{
+		if(!logicalOp)
+			Stop(ctx, syntax->pos, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+	}
+	else if(!IsNumericType(ctx, value->type))
+	{
+		Stop(ctx, syntax->pos, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+	}
+
 	TypeBase *resultType = NULL;
 
-	if(syntax->type == SYN_UNARY_OP_LOGICAL_NOT)
+	if(logicalOp)
 		resultType = ctx.typeBool;
 	else
 		resultType = value->type;
@@ -990,17 +1200,53 @@ ExprBinaryOp* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
+	// TODO: 'in' is a function call
+	// TODO: == and != for typeAutoRef is a function call
+	// TODO: == and != for function types is a function call
+	// TODO: == and != for unsized arrays is an overload call or a function call
+	// TODO: && and || could have an operator overload where second argument is wrapped in a function for short-circuit evaluation
+	// TODO: check operator overload
+
+	if(lhs->type == ctx.typeVoid)
+		Stop(ctx, syntax->pos, "ERROR: first operand type is 'void'");
+
+	if(rhs->type == ctx.typeVoid)
+		Stop(ctx, syntax->pos, "ERROR: second operand type is 'void'");
+
+	bool binaryOp = IsBinaryOp(syntax->type);
+	bool comparisonOp = IsComparisonOp(syntax->type);
+	bool logicalOp = IsLogicalOp(syntax->type);
+
+	if(IsFloatingPointType(ctx, lhs->type) || IsFloatingPointType(ctx, rhs->type))
+	{
+		if(logicalOp || binaryOp)
+			Stop(ctx, syntax->pos, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(syntax->type), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
+	}
+
+	if(logicalOp)
+	{
+		// Logical operations require both operands to be 'bool'
+		lhs = CreateCast(ctx, syntax->lhs->pos, lhs, ctx.typeBool);
+		rhs = CreateCast(ctx, syntax->rhs->pos, rhs, ctx.typeBool);
+	}
+	else if(IsNumericType(ctx, lhs->type) && IsNumericType(ctx, rhs->type))
+	{
+		// Numeric operations promote both operands to a common type
+		TypeBase *commonType = GetBinaryOpResultType(ctx, lhs->type, rhs->type);
+
+		lhs = CreateCast(ctx, syntax->lhs->pos, lhs, commonType);
+		rhs = CreateCast(ctx, syntax->rhs->pos, rhs, commonType);
+	}
+
+	if(lhs->type != rhs->type)
+		Stop(ctx, syntax->pos, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(syntax->type), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
+
 	TypeBase *resultType = NULL;
 
-	if(IsNumericType(ctx, lhs->type) && IsNumericType(ctx, rhs->type))
-		resultType = GetBinaryOpResultType(ctx, lhs->type, rhs->type);
-	else
-		Stop(ctx, syntax->pos, "ERROR: Unknown binary operation");
-
-	if(syntax->type == SYN_BINARY_OP_LOGICAL_AND || syntax->type == SYN_BINARY_OP_LOGICAL_OR || syntax->type == SYN_BINARY_OP_LOGICAL_XOR)
+	if(comparisonOp || logicalOp)
 		resultType = ctx.typeBool;
-
-	// TODO: implicit casts
+	else
+		resultType = lhs->type;
 
 	return new ExprBinaryOp(resultType, syntax->type, lhs, rhs);
 }
@@ -1021,7 +1267,7 @@ ExprDereference* AnalyzeDereference(ExpressionContext &ctx, SynDereference *synt
 		return new ExprDereference(type->subType, value);
 	}
 
-	Stop(ctx, syntax->pos, "ERROR: cannot dereference type '%.*s' that is not a pointer", unsigned(value->type->name.end - value->type->name.begin), value->type->name.begin);
+	Stop(ctx, syntax->pos, "ERROR: cannot dereference type '%.*s' that is not a pointer", FMT_ISTR(value->type->name));
 
 	return NULL;
 }
@@ -1115,7 +1361,7 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 		}
 	}
 
-	Stop(ctx, syntax->pos, "ERROR: member variable or function '%.*s' is not defined in class '%.*s'", unsigned(syntax->member.end - syntax->member.begin), syntax->member.begin, unsigned(value->type->name.end - value->type->name.begin), value->type->name.begin);
+	Stop(ctx, syntax->pos, "ERROR: member variable or function '%.*s' is not defined in class '%.*s'", FMT_ISTR(syntax->member), FMT_ISTR(value->type->name));
 
 	return NULL;
 }
@@ -1131,7 +1377,7 @@ ExprArrayIndex* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
 	if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value->type))
 		return new ExprArrayIndex(type->subType, value, index);
 
-	Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not an array", unsigned(value->type->name.end - value->type->name.begin), value->type->name.begin);
+	Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not an array", FMT_ISTR(value->type->name));
 
 	return NULL;
 }
@@ -1154,7 +1400,7 @@ ExprArrayIndex* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 	if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value->type))
 		return new ExprArrayIndex(type->subType, value, index);
 
-	Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not an array", unsigned(value->type->name.end - value->type->name.begin), value->type->name.begin);
+	Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not an array", FMT_ISTR(value->type->name));
 
 	return NULL;
 }
@@ -1236,7 +1482,8 @@ ExprFunctionCall* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 {
-	// TODO: lots of things
+	// TODO: implicit cast
+	// TODO: return type deduction
 
 	if(syntax->value)
 	{
@@ -1415,9 +1662,14 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	// TODO: apply current namespace
 	InplaceStr className = generics.empty() ? syntax->name : GetGenericClassName(proto, generics);
 
-	// Check if type already exists
 	if(!generics.empty())
+	{
+		// Check if type already exists
 		assert(ctx.genericTypeMap.find(className.hash()) == NULL);
+
+		if(ctx.GetGenericClassInstantiationDepth() > NULLC_MAX_GENERIC_INSTANCE_DEPTH)
+			Stop(ctx, syntax->pos, "ERROR: reached maximum generic type instance depth (%d)", NULLC_MAX_GENERIC_INSTANCE_DEPTH);
+	}
 
 	unsigned alignment = syntax->align ? AnalyzeAlignment(ctx, syntax->align) : 0;
 
