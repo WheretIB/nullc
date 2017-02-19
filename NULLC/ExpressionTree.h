@@ -11,6 +11,7 @@ struct TypeRef;
 struct TypeArray;
 struct TypeUnsizedArray;
 struct TypeFunction;
+struct TypeClass;
 
 struct ScopeData;
 struct NamespaceData;
@@ -184,6 +185,8 @@ struct ExpressionContext
 	FastVector<TypeBase*> types;
 	FastVector<FunctionData*> functions;
 	FastVector<VariableData*> variables;
+
+	HashMap<TypeClass*> genericTypeMap;
 
 	// Context info
 	HashMap<TypeBase*> typeMap;
@@ -465,11 +468,14 @@ struct TypeFunction: TypeBase
 
 struct TypeClass: TypeStruct
 {
-	TypeClass(ScopeData *scope, InplaceStr name, bool extenable, TypeBase *baseClass): TypeStruct(myTypeID, name), scope(scope), extenable(extenable), baseClass(baseClass)
+	TypeClass(ScopeData *scope, InplaceStr name, IntrusiveList<SynIdentifier> genericNames, IntrusiveList<TypeHandle> genericTypes, bool extenable, TypeBase *baseClass): TypeStruct(myTypeID, name), scope(scope), genericNames(genericNames), genericTypes(genericTypes), extenable(extenable), baseClass(baseClass)
 	{
 	}
 
 	ScopeData *scope;
+
+	IntrusiveList<SynIdentifier> genericNames;
+	IntrusiveList<TypeHandle> genericTypes;
 
 	bool extenable;
 
@@ -480,13 +486,26 @@ struct TypeClass: TypeStruct
 
 struct TypeGenericClassProto: TypeBase
 {
-	TypeGenericClassProto(InplaceStr name, bool extenable, SynClassDefinition *definition): TypeBase(myTypeID, name), extenable(extenable), definition(definition)
+	TypeGenericClassProto(InplaceStr name, SynClassDefinition *definition): TypeBase(myTypeID, name), definition(definition)
 	{
+		isGeneric = true;
 	}
 
-	bool extenable;
-
 	SynClassDefinition *definition;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeGenericClass: TypeBase
+{
+	TypeGenericClass(InplaceStr name, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics): TypeBase(myTypeID, name), proto(proto), generics(generics)
+	{
+		isGeneric = true;
+	}
+
+	TypeGenericClassProto *proto;
+
+	IntrusiveList<TypeHandle> generics;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -845,17 +864,6 @@ struct ExprClassDefinition: ExprBase
 	TypeClass *classType;
 
 	IntrusiveList<ExprBase> functions;
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct ExprGenericClassPrototype: ExprBase
-{
-	ExprGenericClassPrototype(TypeBase *type, TypeGenericClassProto *genericProtoType): ExprBase(myTypeID, type), genericProtoType(genericProtoType)
-	{
-	}
-
-	TypeGenericClassProto *genericProtoType;
 
 	static const unsigned myTypeID = __LINE__;
 };

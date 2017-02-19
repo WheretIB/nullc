@@ -158,12 +158,11 @@ struct SynTypeFunction: SynBase
 
 struct SynTypeGenericInstance: SynBase
 {
-	SynTypeGenericInstance(const char *pos, IntrusiveList<SynIdentifier> path, InplaceStr name, IntrusiveList<SynBase> types): SynBase(myTypeID, pos), path(path), name(name), types(types)
+	SynTypeGenericInstance(const char *pos, SynBase *baseType, IntrusiveList<SynBase> types): SynBase(myTypeID, pos), baseType(baseType), types(types)
 	{
 	}
 
-	IntrusiveList<SynIdentifier> path;
-	InplaceStr name;
+	SynBase *baseType;
 	IntrusiveList<SynBase> types;
 
 	static const unsigned myTypeID = __LINE__;

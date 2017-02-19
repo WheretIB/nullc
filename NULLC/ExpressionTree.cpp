@@ -127,6 +127,110 @@ namespace
 		return integer + fractional;
 	}
 
+	InplaceStr GetReferenceTypeName(TypeBase* type)
+	{
+		unsigned nameLength = type->name.length() + strlen(" ref");
+		char *name = new char[nameLength + 1];
+		sprintf(name, "%.*s ref", unsigned(type->name.end - type->name.begin), type->name.begin);
+
+		return InplaceStr(name);
+	}
+
+	InplaceStr GetArrayTypeName(TypeBase* type, long long length)
+	{
+		unsigned nameLength = type->name.length() + strlen("[]") + 21;
+		char *name = new char[nameLength + 1];
+		sprintf(name, "%.*s[%lld]", unsigned(type->name.end - type->name.begin), type->name.begin, length);
+
+		return InplaceStr(name);
+	}
+
+	InplaceStr GetUnsizedArrayTypeName(TypeBase* type)
+	{
+		unsigned nameLength = type->name.length() + strlen("[]");
+		char *name = new char[nameLength + 1];
+		sprintf(name, "%.*s[]", unsigned(type->name.end - type->name.begin), type->name.begin);
+
+		return InplaceStr(name);
+	}
+
+	InplaceStr GetFunctionTypeName(TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
+	{
+		unsigned nameLength = returnType->name.length() + strlen(" ref()");
+
+		for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
+			nameLength += arg->type->name.length() + 1;
+
+		char *name = new char[nameLength + 1];
+
+		char *pos = name;
+
+		sprintf(pos, "%.*s", unsigned(returnType->name.end - returnType->name.begin), returnType->name.begin);
+		pos += returnType->name.length();
+
+		strcpy(pos, " ref(");
+		pos += 5;
+
+		for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
+		{
+			sprintf(pos, "%.*s", unsigned(arg->type->name.end - arg->type->name.begin), arg->type->name.begin);
+			pos += arg->type->name.length();
+
+			if(arg->next)
+				*pos++ = ',';
+		}
+
+		*pos++ = ')';
+		*pos++ = 0;
+
+		return InplaceStr(name);
+	}
+
+	InplaceStr GetGenericClassName(TypeBase* proto, IntrusiveList<TypeHandle> generics)
+	{
+		unsigned nameLength = proto->name.length() + strlen("<>");
+
+		for(TypeHandle *arg = generics.head; arg; arg = arg->next)
+		{
+			if(arg->type->isGeneric)
+				nameLength += strlen("generic") + 1;
+			else
+				nameLength += arg->type->name.length() + 1;
+		}
+
+		char *name = new char[nameLength + 1];
+
+		char *pos = name;
+
+		sprintf(pos, "%.*s", unsigned(proto->name.end - proto->name.begin), proto->name.begin);
+		pos += proto->name.length();
+
+		strcpy(pos, "<");
+		pos += 1;
+
+		for(TypeHandle *arg = generics.head; arg; arg = arg->next)
+		{
+			if(arg->type->isGeneric)
+			{
+				strcpy(pos, "generic");
+				pos += strlen("generic");
+			}
+			else
+			{
+				sprintf(pos, "%.*s", unsigned(arg->type->name.end - arg->type->name.begin), arg->type->name.begin);
+				pos += arg->type->name.length();
+			}
+
+			if(arg->next)
+				*pos++ = ',';
+		}
+
+		*pos++ = '>';
+		*pos++ = 0;
+
+		return InplaceStr(name);
+	}
+
 	bool IsNumericType(ExpressionContext &ctx, TypeBase* a)
 	{
 		if(a == ctx.typeBool)
@@ -206,6 +310,8 @@ ExpressionContext::ExpressionContext()
 	typeMap.init();
 	functionMap.init();
 	variableMap.init();
+
+	genericTypeMap.init();
 }
 
 void ExpressionContext::PushScope()
@@ -285,7 +391,9 @@ void ExpressionContext::AddType(TypeBase *type)
 {
 	scopes.back()->types.push_back(type);
 
-	assert(!type->isGeneric);
+	if(!isType<TypeGenericClassProto>(type))
+		assert(!type->isGeneric);
+
 	types.push_back(type);
 	typeMap.insert(type->nameHash, type);
 }
@@ -319,11 +427,7 @@ TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
 		return type->refType;
 
 	// Create new type
-	unsigned nameLength = type->name.length() + strlen(" ref");
-	char *name = new char[nameLength + 1];
-	sprintf(name, "%.*s ref", unsigned(type->name.end - type->name.begin), type->name.begin);
-
-	TypeRef* result = new TypeRef(InplaceStr(name), type);
+	TypeRef* result = new TypeRef(GetReferenceTypeName(type), type);
 
 	if(!type->isGeneric)
 	{
@@ -345,11 +449,7 @@ TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 	}
 
 	// Create new type
-	unsigned nameLength = type->name.length() + strlen("[]") + 21;
-	char *name = new char[nameLength + 1];
-	sprintf(name, "%.*s[%lld]", unsigned(type->name.end - type->name.begin), type->name.begin, length);
-
-	TypeArray* result = new TypeArray(InplaceStr(name), type, length);
+	TypeArray* result = new TypeArray(GetArrayTypeName(type, length), type, length);
 
 	if(!type->isGeneric)
 	{
@@ -368,11 +468,7 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 		return type->unsizedArrayType;
 
 	// Create new type
-	unsigned nameLength = type->name.length() + strlen("[]");
-	char *name = new char[nameLength + 1];
-	sprintf(name, "%.*s[]", unsigned(type->name.end - type->name.begin), type->name.begin);
-
-	TypeUnsizedArray* result = new TypeUnsizedArray(InplaceStr(name), type);
+	TypeUnsizedArray* result = new TypeUnsizedArray(GetUnsizedArrayTypeName(type), type);
 
 	result->members.push_back(new VariableHandle(new VariableData(scopes.back(), 4, typeInt, InplaceStr("size"))));
 
@@ -413,34 +509,7 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 	}
 
 	// Create new type
-	unsigned nameLength = returnType->name.length() + strlen(" ref()");
-
-	for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
-		nameLength += arg->type->name.length() + 1;
-
-	char *name = new char[nameLength + 1];
-
-	char *pos = name;
-
-	sprintf(pos, "%.*s", unsigned(returnType->name.end - returnType->name.begin), returnType->name.begin);
-	pos += returnType->name.length();
-
-	strcpy(pos, " ref(");
-	pos += 5;
-
-	for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
-	{
-		sprintf(pos, "%.*s", unsigned(arg->type->name.end - arg->type->name.begin), arg->type->name.begin);
-		pos += arg->type->name.length();
-
-		if(arg->next)
-			*pos++ = ',';
-	}
-
-	*pos++ = ')';
-	*pos++ = 0;
-
-	TypeFunction* result = new TypeFunction(InplaceStr(name), returnType, arguments);
+	TypeFunction* result = new TypeFunction(GetFunctionTypeName(returnType, arguments), returnType, arguments);
 
 	if(!result->isGeneric)
 	{
@@ -454,6 +523,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax);
 ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax);
 ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax);
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope);
+ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 
 TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = true)
@@ -514,7 +584,10 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynArrayIndex *node = getType<SynArrayIndex>(syntax))
 	{
-		TypeBase *type = AnalyzeType(ctx, node->value);
+		TypeBase *type = AnalyzeType(ctx, node->value, onlyType);
+
+		if(!onlyType && !type)
+			return NULL;
 
 		if(isType<TypeAuto>(type))
 		{
@@ -573,6 +646,8 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		// Might be a variable
 		if(!onlyType)
 			return NULL;
+
+		Stop(ctx, syntax->pos, "ERROR: unknown type");
 	}
 
 	if(SynMemberAccess *node = getType<SynMemberAccess>(syntax))
@@ -620,6 +695,60 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		return NULL;
 	}
+
+	if(SynTypeGenericInstance *node = getType<SynTypeGenericInstance>(syntax))
+	{
+		TypeBase *baseType = AnalyzeType(ctx, node->baseType);
+
+		// TODO: overloads with a different number of generic arguments
+
+		if(TypeGenericClassProto *proto = getType<TypeGenericClassProto>(baseType))
+		{
+			IntrusiveList<SynIdentifier> aliases = proto->definition->aliases;
+
+			if(node->types.size() < aliases.size())
+				Stop(ctx, syntax->pos, "ERROR: there where only '%d' argument(s) to a generic type that expects '%d'", node->types.size(), aliases.size());
+
+			if(node->types.size() > aliases.size())
+				Stop(ctx, syntax->pos, "ERROR: type has only '%d' generic argument(s) while '%d' specified", aliases.size(), node->types.size());
+
+			bool isGeneric = false;
+			IntrusiveList<TypeHandle> types;
+
+			for(SynBase *el = node->types.head; el; el = el->next)
+			{
+				TypeBase *type = AnalyzeType(ctx, el);
+
+				isGeneric |= type->isGeneric;
+
+				types.push_back(new TypeHandle(type));
+			}
+
+			// TODO: apply current namespace
+			InplaceStr className = GetGenericClassName(proto, types);
+
+			if(isGeneric)
+				return new TypeGenericClass(className, proto, types);
+			
+			// Check if type already exists
+			if(TypeClass **prev = ctx.genericTypeMap.find(className.hash()))
+				return *prev;
+
+			ExprBase *result = AnalyzeClassDefinition(ctx, proto->definition, proto, types);
+
+			if(ExprClassDefinition *definition = getType<ExprClassDefinition>(result))
+			{
+				return definition->classType;
+			}
+
+			Stop(ctx, syntax->pos, "ERROR: type '%s' couldn't be instantiated", baseType->name);
+		}
+
+		Stop(ctx, syntax->pos, "ERROR: type '%s' can't have generic arguments", baseType->name);
+	}
+
+	if(!onlyType)
+		return NULL;
 
 	Stop(ctx, syntax->pos, "ERROR: unknown type");
 
@@ -1270,57 +1399,57 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 		AnalyzeClassStaticIf(ctx, classDefinition, staticIf);
 }
 
-ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax)
+ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics)
 {
-	unsigned alignment = syntax->align ? AnalyzeAlignment(ctx, syntax->align) : 0;
-
-	if(!syntax->aliases.empty())
+	if(!proto && !syntax->aliases.empty())
 	{
-		unsigned nameLength = syntax->name.length() + strlen("<>");
-
-		for(SynIdentifier *alias = syntax->aliases.head; alias; alias = getType<SynIdentifier>(alias->next))
-			nameLength += strlen("generic") + 1;
-
-		char *name = new char[nameLength + 1];
-
-		char *pos = name;
-
-		sprintf(pos, "%.*s", unsigned(syntax->name.end - syntax->name.begin), syntax->name.begin);
-		pos += syntax->name.length();
-
-		*pos++ = '<';
-
-		for(SynIdentifier *alias = syntax->aliases.head; alias; alias = getType<SynIdentifier>(alias->next))
-		{
-			strcpy(pos, "generic");
-			pos += strlen("generic");
-
-			if(alias->next)
-				*pos++ = ',';
-		}
-
-		*pos++ = '>';
-		*pos++ = 0;
-
-		TypeGenericClassProto *genericProtoType = new TypeGenericClassProto(InplaceStr(name), syntax->extendable, syntax);
+		TypeGenericClassProto *genericProtoType = new TypeGenericClassProto(syntax->name, syntax);
 
 		ctx.AddType(genericProtoType);
 
-		genericProtoType->alignment = alignment;
-
-		return new ExprGenericClassPrototype(ctx.typeVoid, genericProtoType);
+		return new ExprVoid(ctx.typeVoid);
 	}
+
+	assert(generics.size() == syntax->aliases.size());
+
+	// TODO: apply current namespace
+	InplaceStr className = generics.empty() ? syntax->name : GetGenericClassName(proto, generics);
+
+	// Check if type already exists
+	if(!generics.empty())
+		assert(ctx.genericTypeMap.find(className.hash()) == NULL);
+
+	unsigned alignment = syntax->align ? AnalyzeAlignment(ctx, syntax->align) : 0;
 
 	TypeBase *baseClass = syntax->baseClass ? AnalyzeType(ctx, syntax->baseClass) : NULL;
 
-	// TODO: apply current namespace
-	TypeClass *classType = new TypeClass(ctx.scopes.back(), syntax->name, syntax->extendable, baseClass);
+	TypeClass *classType = new TypeClass(ctx.scopes.back(), className, syntax->aliases, generics, syntax->extendable, baseClass);
+
+	classType->alignment = alignment;
 
 	ctx.AddType(classType);
+
+	if(!generics.empty())
+		ctx.genericTypeMap.insert(className.hash(), classType);
 
 	ExprClassDefinition *classDefinition = new ExprClassDefinition(ctx.typeVoid, classType);
 
 	ctx.PushScope(classType);
+
+	IntrusiveList<AliasHandle> aliases;
+
+	{
+		TypeHandle *currType = classType->genericTypes.head;
+		SynIdentifier *currName = classType->genericNames.head;
+
+		while(currType && currName)
+		{
+			ctx.AddAlias(new AliasData(ctx.scopes.back(), currType->type, currName->name));
+
+			currType = currType->next;
+			currName = getType<SynIdentifier>(currName->next);
+		}
+	}
 
 	// TODO: Base class members should be introduced into the scope
 
@@ -1659,7 +1788,9 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 
 	if(SynClassDefinition *node = getType<SynClassDefinition>(syntax))
 	{
-		return AnalyzeClassDefinition(ctx, node);
+		IntrusiveList<TypeHandle> generics;
+
+		return AnalyzeClassDefinition(ctx, node, NULL, generics);
 	}
 
 	if(SynNamespaceDefinition *node = getType<SynNamespaceDefinition>(syntax))

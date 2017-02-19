@@ -450,7 +450,7 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 				}
 			}
 
-			return new SynTypeGenericInstance(start, namespacePath, name, types);
+			return new SynTypeGenericInstance(start, new SynTypeSimple(start, namespacePath, name), types);
 		}
 
 		return new SynTypeSimple(start, namespacePath, name);

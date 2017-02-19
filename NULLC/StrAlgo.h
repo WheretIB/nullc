@@ -54,6 +54,11 @@ namespace NULLC
 			return unsigned(end - begin);
 		}
 
+		unsigned hash() const
+		{
+			return GetStringHash(begin, end);
+		}
+
 		bool operator==(const InplaceStr& rhs) const
 		{
 			return length() == rhs.length() && memcmp(begin, rhs.begin, length()) == 0;
