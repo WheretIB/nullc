@@ -1553,9 +1553,6 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 
 ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax)
 {
-	if(syntax->coroutine)
-		Stop(ctx, syntax->pos, "ERROR: coroutines are not implemented");
-
 	if(syntax->parentType)
 		Stop(ctx, syntax->pos, "ERROR: external class member functions are not implemented");
 
@@ -1579,7 +1576,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	// TODO: apply current namespace
 	// TODO: generate lambda name
 	// TODO: function type should be stored in type list
-	FunctionData *function = new FunctionData(ctx.scopes.back(), functionType, syntax->name, syntax);
+	FunctionData *function = new FunctionData(ctx.scopes.back(), syntax->coroutine, functionType, syntax->name, syntax);
 
 	ctx.AddFunction(function);
 

@@ -86,12 +86,14 @@ struct VariableData
 
 struct FunctionData
 {
-	FunctionData(ScopeData *scope, TypeFunction *type, InplaceStr name, SynFunctionDefinition *definition): scope(scope), type(type), name(name), definition(definition)
+	FunctionData(ScopeData *scope, bool coroutine, TypeFunction *type, InplaceStr name, SynFunctionDefinition *definition): scope(scope), coroutine(coroutine), type(type), name(name), definition(definition)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 	}
 
 	ScopeData *scope;
+
+	bool coroutine;
 
 	TypeFunction *type;
 
