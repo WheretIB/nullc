@@ -744,7 +744,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		if(isType<TypeAuto>(type))
 		{
 			if(node->size)
-				Stop(ctx, syntax->pos, "ERROR: no size allowed");
+				Stop(ctx, syntax->pos, "ERROR: cannot specify array size for auto");
 
 			return ctx.typeAutoArray;
 		}
@@ -771,7 +771,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		if(isType<TypeAuto>(type))
 		{
 			if(!node->arguments.empty())
-				Stop(ctx, syntax->pos, "ERROR: no size allowed");
+				Stop(ctx, syntax->pos, "ERROR: cannot specify array size for auto");
 
 			return ctx.typeAutoArray;
 		}
@@ -798,7 +798,14 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		IntrusiveList<TypeHandle> arguments;
 
 		for(SynBase *el = node->arguments.head; el; el = el->next)
-			arguments.push_back(new TypeHandle(AnalyzeType(ctx, el)));
+		{
+			TypeBase *argType = AnalyzeType(ctx, el);
+
+			if(argType == ctx.typeAuto)
+				Stop(ctx, syntax->pos, "ERROR: function parameter cannot be an auto type");
+
+			arguments.push_back(new TypeHandle(argType));
+		}
 
 		return ctx.GetFunctionType(returnType, arguments);
 	}
@@ -806,6 +813,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 	if(SynTypeof *node = getType<SynTypeof>(syntax))
 	{
 		ExprBase *value = AnalyzeExpression(ctx, node->value);
+
+		if(value->type == ctx.typeAuto)
+			Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
 
 		return value->type;
 	}
@@ -1497,12 +1507,32 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 
 ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinition *syntax, unsigned alignment, TypeBase *type)
 {
+	if(syntax->name == InplaceStr("this"))
+		Stop(ctx, syntax->pos, "ERROR: 'this' is a reserved keyword");
+
+	if(ctx.typeMap.find(syntax->name.hash()))
+		Stop(ctx, syntax->pos, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(syntax->name));
+
+	// TODO: check for variables with the same name in current scope
+	// TODO: check for functions with the same name
+
 	// TODO: apply current namespace
 	VariableData *variable = new VariableData(ctx.scopes.back(), alignment, type, syntax->name);
 
 	ctx.AddVariable(variable);
 
 	ExprBase *initializer = syntax->initializer ? AnalyzeExpression(ctx, syntax->initializer) : NULL;
+
+	if(type == ctx.typeAuto)
+	{
+		if(!initializer)
+			Stop(ctx, syntax->pos, "ERROR: auto variable must be initialized in place of definition");
+
+		if(initializer->type == ctx.typeVoid)
+			Stop(ctx, syntax->pos, "ERROR: r-value type is 'void'");
+
+		variable->type = initializer->type;
+	}
 
 	return new ExprVariableDefinition(ctx.typeVoid, variable, initializer);
 }
@@ -1939,6 +1969,9 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	{
 		ExprBase *value = AnalyzeExpression(ctx, node->value);
 
+		if(value->type == ctx.typeAuto)
+			Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
+
 		return new ExprTypeLiteral(ctx.typeTypeID, value->type);
 	}
 
@@ -1951,7 +1984,12 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	{
 		// It could be a typeid
 		if(TypeBase *type = AnalyzeType(ctx, node, false))
+		{
+			if(type == ctx.typeAuto)
+				Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
+
 			return new ExprTypeLiteral(ctx.typeTypeID, type);
+		}
 
 		return AnalyzeVariableAccess(ctx, node);
 	}
@@ -1959,6 +1997,9 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	if(SynSizeof *node = getType<SynSizeof>(syntax))
 	{
 		ExprBase *value = AnalyzeExpression(ctx, node->value);
+
+		if(value->type == ctx.typeAuto)
+			Stop(ctx, syntax->pos, "ERROR: sizeof(auto) is illegal");
 
 		return new ExprIntegerLiteral(ctx.typeInt, value->type->size);
 	}
@@ -1982,7 +2023,12 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	{
 		// It could be a typeid
 		if(TypeBase *type = AnalyzeType(ctx, syntax, false))
+		{
+			if(type == ctx.typeAuto)
+				Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
+
 			return new ExprTypeLiteral(ctx.typeTypeID, type);
+		}
 
 		return AnalyzeMemberAccess(ctx, node);
 	}
@@ -1991,7 +2037,12 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	{
 		// It could be a typeid
 		if(TypeBase *type = AnalyzeType(ctx, syntax, false))
+		{
+			if(type == ctx.typeAuto)
+				Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
+
 			return new ExprTypeLiteral(ctx.typeTypeID, type);
+		}
 
 		return AnalyzeArrayIndex(ctx, node);
 	}
