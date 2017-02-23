@@ -1534,8 +1534,19 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 
 ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax)
 {
-	if(syntax->parentType)
-		Stop(ctx, syntax->pos, "ERROR: external class member functions are not implemented");
+	TypeBase *parentType = syntax->parentType ? AnalyzeType(ctx, syntax->parentType) : NULL;
+
+	if(parentType)
+	{
+		ctx.PushScope(parentType);
+
+		// TODO: introduce class contents
+		if(TypeClass *classType = getType<TypeClass>(parentType))
+		{
+			for(VariableHandle *el = classType->members.head; el; el = el->next)
+				ctx.AddVariable(el->variable);
+		}
+	}
 
 	if(!syntax->aliases.empty())
 		Stop(ctx, syntax->pos, "ERROR: functions with explicit generic arguments are not implemented");
@@ -1561,7 +1572,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 	ctx.AddFunction(function);
 
-	if(functionType->isGeneric)
+	if(functionType->isGeneric || (parentType && isType<TypeGenericClassProto>(parentType)))
 	{
 		if(syntax->prototype)
 			Stop(ctx, syntax->pos, "ERROR: generic function cannot be forward-declared");
@@ -1570,6 +1581,15 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	}
 
 	ctx.PushScope(function);
+
+	if(TypeBase *parent = function->scope->ownerType)
+	{
+		TypeBase *type = ctx.GetReferenceType(parent);
+
+		VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, InplaceStr("this"));
+
+		ctx.AddVariable(variable);
+	}
 
 	IntrusiveList<ExprVariableDefinition> arguments;
 
@@ -1595,6 +1615,9 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 		expressions.push_back(AnalyzeStatement(ctx, expression));
 
 	ctx.PopScope();
+
+	if(parentType)
+		ctx.PopScope();
 
 	return new ExprFunctionDefinition(syntax, functionType, syntax->prototype, function, arguments, expressions);
 }
