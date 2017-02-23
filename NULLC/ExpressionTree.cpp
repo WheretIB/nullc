@@ -1398,14 +1398,28 @@ ExprFunctionCall* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 	if(!syntax->arguments.empty())
 		Stop(ctx, syntax->pos, "ERROR: constructor call is not supported");
 
-	TypeBase *type = AnalyzeType(ctx, syntax->type);
+	TypeBase *type = NULL;
+	SynBase *synCount = NULL;
+
+	if(syntax->count == NULL && isType<SynTypeArray>(syntax->type))
+	{
+		SynTypeArray *node = getType<SynTypeArray>(syntax->type);
+
+		type = AnalyzeType(ctx, node->type);
+		synCount = node->size;
+	}
+	else
+	{
+		type = AnalyzeType(ctx, syntax->type);
+		synCount = syntax->count;
+	}
 
 	ExprFunctionCall *call = NULL;
 
-	if(syntax->count)
+	if(synCount)
 	{
 		// TODO: implicit cast for manual function call
-		ExprBase *count = AnalyzeExpression(ctx, syntax->count);
+		ExprBase *count = AnalyzeExpression(ctx, synCount);
 
 		FunctionData **function = ctx.functionMap.find(GetStringHash("__newA"));
 
