@@ -1457,14 +1457,33 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 	// TODO: implicit cast
 	// TODO: return type deduction
 
-	if(syntax->value)
+	ExprBase *result = syntax->value ? AnalyzeExpression(ctx, syntax->value) : new ExprVoid(syntax, ctx.typeVoid);
+
+	if(FunctionData *function = ctx.GetCurrentFunction())
 	{
-		ExprBase *result = AnalyzeExpression(ctx, syntax->value);
+		TypeBase *returnType = function->type->returnType;
+
+		// If return type is auto, set it to type that is being returned
+		if(returnType == ctx.typeAuto)
+		{
+			returnType = result->type;
+
+			function->type = ctx.GetFunctionType(returnType, function->type->arguments);
+		}
+		else
+		{
+			result = CreateCast(ctx, syntax->pos, result, function->type->returnType);
+		}
+
+		// TODO: checked return value
 
 		return new ExprReturn(syntax, result->type, result);
 	}
 
-	return new ExprReturn(syntax, ctx.typeVoid, NULL);
+	if(!ctx.IsNumericType(result->type))
+		Stop(ctx, syntax->pos, "ERROR: global return cannot accept '%.*s'", FMT_ISTR(result->type->name));
+
+	return new ExprReturn(syntax, result->type, result);
 }
 
 ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinition *syntax, unsigned alignment, TypeBase *type)
