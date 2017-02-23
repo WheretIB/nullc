@@ -194,6 +194,7 @@
     <ClCompile Include="Bytecode.cpp" />
     <ClCompile Include="CodeInfo.cpp" />
     <ClCompile Include="ExpressionTree.cpp" />
+    <ClCompile Include="ExpressionEval.cpp" />
     <ClCompile Include="nullc.cpp" />
     <ClCompile Include="ParseTree.cpp" />
     <ClCompile Include="stdafx.cpp" />
@@ -231,6 +232,7 @@
     <ClCompile Include="includes\list.cpp" />
     <ClCompile Include="includes\vector.cpp" />
     <ClCompile Include="Executor_LLVM.cpp" />
+    <ClCompile Include="TypeTree.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\external\dyncall\dyncall.h" />
@@ -241,6 +243,7 @@
     <ClInclude Include="Bytecode.h" />
     <ClInclude Include="CodeInfo.h" />
     <ClInclude Include="ExpressionTree.h" />
+    <ClInclude Include="ExpressionEval.h" />
     <ClInclude Include="HashMap.h" />
     <ClInclude Include="InstructionSet.h" />
     <ClInclude Include="IntrusiveList.h" />
@@ -288,6 +291,7 @@
     <ClInclude Include="includes\vector.h" />
     <ClInclude Include="Executor_LLVM.h" />
     <ClInclude Include="Tree.h" />
+    <ClInclude Include="TypeTree.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Modules\std\algorithm.nc" />

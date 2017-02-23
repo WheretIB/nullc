@@ -189,6 +189,7 @@
     <ClCompile Include="BinaryCache.cpp" />
     <ClCompile Include="Bytecode.cpp" />
     <ClCompile Include="CodeInfo.cpp" />
+    <ClCompile Include="ExpressionEval.cpp" />
     <ClCompile Include="ExpressionTree.cpp" />
     <ClCompile Include="nullc.cpp" />
     <ClCompile Include="ParseTree.cpp" />
@@ -203,12 +204,14 @@
     <ClCompile Include="SyntaxTreeGraph.cpp" />
     <ClCompile Include="SyntaxTreeLLVM.cpp" />
     <ClCompile Include="SyntaxTreeTranslate.cpp" />
+    <ClCompile Include="TypeTree.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h" />
     <ClInclude Include="BinaryCache.h" />
     <ClInclude Include="Bytecode.h" />
     <ClInclude Include="CodeInfo.h" />
+    <ClInclude Include="ExpressionEval.h" />
     <ClInclude Include="ExpressionTree.h" />
     <ClInclude Include="HashMap.h" />
     <ClInclude Include="InstructionSet.h" />
@@ -225,6 +228,7 @@
     <ClInclude Include="Lexer.h" />
     <ClInclude Include="Parser.h" />
     <ClInclude Include="SyntaxTree.h" />
+    <ClInclude Include="TypeTree.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

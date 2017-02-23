@@ -65,6 +65,12 @@
     <ClCompile Include="ExpressionTree.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
+    <ClCompile Include="TypeTree.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="ExpressionEval.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -125,6 +131,12 @@
       <Filter>Compiler</Filter>
     </ClInclude>
     <ClInclude Include="ExpressionTree.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="TypeTree.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpressionEval.h">
       <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>

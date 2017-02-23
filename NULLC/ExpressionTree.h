@@ -1,182 +1,43 @@
 #pragma once
 
-#include "ParseTree.h"
+#include "stdafx.h"
 #include "IntrusiveList.h"
 #include "Array.h"
 #include "HashMap.h"
+#include "StrAlgo.h"
 
-struct TypeBase;
-struct TypeStruct;
-struct TypeRef;
-struct TypeArray;
-struct TypeUnsizedArray;
-struct TypeFunction;
-struct TypeClass;
-
-struct ScopeData;
-struct NamespaceData;
-struct VariableData;
-struct FunctionData;
-struct AliasData;
+#include "ParseTree.h"
+#include "TypeTree.h"
 
 struct ExprBase;
-
-struct VariableHandle
-{
-	VariableHandle(VariableData *variable): variable(variable), next(0)
-	{
-	}
-
-	VariableData *variable;
-
-	VariableHandle *next;
-};
-
-struct TypeHandle
-{
-	TypeHandle(TypeBase *type): type(type), next(0)
-	{
-	}
-
-	TypeBase *type;
-
-	TypeHandle *next;
-};
-
-struct AliasHandle
-{
-	AliasHandle(AliasData *alias): alias(alias), next(0)
-	{
-	}
-
-	AliasData *alias;
-
-	AliasHandle *next;
-};
-
-struct NamespaceData
-{
-	NamespaceData(ScopeData *scope, InplaceStr name): scope(scope), name(name)
-	{
-		nameHash = GetStringHash(name.begin, name.end);
-	}
-
-	ScopeData *scope;
-
-	InplaceStr name;
-	unsigned nameHash;
-};
-
-struct VariableData
-{
-	VariableData(ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name): scope(scope), alignment(alignment), type(type), name(name)
-	{
-		nameHash = GetStringHash(name.begin, name.end);
-	}
-
-	ScopeData *scope;
-
-	unsigned alignment;
-
-	TypeBase *type;
-
-	InplaceStr name;
-	unsigned nameHash;
-};
-
-struct FunctionData
-{
-	FunctionData(ScopeData *scope, bool coroutine, TypeFunction *type, InplaceStr name, SynFunctionDefinition *definition): scope(scope), coroutine(coroutine), type(type), name(name), definition(definition)
-	{
-		nameHash = GetStringHash(name.begin, name.end);
-	}
-
-	ScopeData *scope;
-
-	bool coroutine;
-
-	TypeFunction *type;
-
-	InplaceStr name;
-	unsigned nameHash;
-
-	SynFunctionDefinition *definition;
-};
-
-struct AliasData
-{
-	AliasData(ScopeData *scope, TypeBase *type, InplaceStr name): scope(scope), type(type), name(name)
-	{
-		nameHash = GetStringHash(name.begin, name.end);
-	}
-
-	ScopeData *scope;
-
-	TypeBase *type;
-
-	InplaceStr name;
-	unsigned nameHash;
-};
-
-struct ScopeData
-{
-	ScopeData(unsigned depth, ScopeData *scope): depth(depth), scope(scope), ownerNamespace(0), ownerFunction(0), ownerType(0)
-	{
-	}
-
-	ScopeData(unsigned depth, ScopeData *scope, NamespaceData *ownerNamespace): depth(depth), scope(scope), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0)
-	{
-	}
-
-	ScopeData(unsigned depth, ScopeData *scope, FunctionData *ownerFunction): depth(depth), scope(scope), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0)
-	{
-	}
-
-	ScopeData(unsigned depth, ScopeData *scope, TypeBase *ownerType): depth(depth), scope(scope), ownerNamespace(0), ownerFunction(0), ownerType(ownerType)
-	{
-	}
-
-	unsigned depth;
-
-	ScopeData *scope;
-
-	NamespaceData *ownerNamespace;
-	FunctionData *ownerFunction;
-	TypeBase *ownerType;
-
-	FastVector<TypeBase*> types;
-	FastVector<FunctionData*> functions;
-	FastVector<VariableData*> variables;
-	FastVector<AliasData*> aliases;
-};
-
-template<typename T>
-unsigned GetTypeAlignment()
-{
-	struct Helper
-	{
-		char x;
-		T y;
-	};
-
-	return sizeof(Helper) - sizeof(T);
-}
 
 struct ExpressionContext
 {
 	ExpressionContext();
+
+	void Stop(const char *pos, const char *msg, ...);
 
 	void PushScope();
 	void PushScope(NamespaceData *nameSpace);
 	void PushScope(FunctionData *function);
 	void PushScope(TypeBase *type);
 	void PopScope();
+
+	NamespaceData* GetCurrentNamespace();
+	FunctionData* GetCurrentFunction();
+	TypeBase* GetCurrentType();
+
 	unsigned GetGenericClassInstantiationDepth();
 
 	void AddType(TypeBase *type);
 	void AddFunction(FunctionData *function);
 	void AddVariable(VariableData *variable);
 	void AddAlias(AliasData *alias);
+
+	bool IsIntegerType(TypeBase* type);
+	bool IsFloatingPointType(TypeBase* type);
+	bool IsNumericType(TypeBase* type);
+	TypeBase* GetBinaryOpResultType(TypeBase* a, TypeBase* b);
 
 	TypeRef* GetReferenceType(TypeBase* type);
 	TypeArray* GetArrayType(TypeBase* type, long long size);
@@ -223,299 +84,9 @@ struct ExpressionContext
 	TypeStruct* typeAutoArray;
 };
 
-struct TypeBase
-{
-	TypeBase(unsigned typeID, InplaceStr name): typeID(typeID), name(name)
-	{
-		nameHash = GetStringHash(name.begin, name.end);
-
-		size = 0;
-		alignment = 0;
-
-		isGeneric = false;
-
-		refType = 0;
-		unsizedArrayType = 0;
-	}
-
-	virtual ~TypeBase()
-	{
-	}
-
-	unsigned typeID;
-
-	InplaceStr name;
-	unsigned nameHash;
-	
-	long long size;
-	unsigned alignment;
-
-	bool isGeneric;
-
-	TypeRef *refType; // Reference type to this type
-	FastVector<TypeArray*> arrayTypes; // Array types derived from this type
-	TypeUnsizedArray *unsizedArrayType; // An unsized array type derived from this type
-};
-
-struct TypeVoid: TypeBase
-{
-	TypeVoid(InplaceStr name): TypeBase(myTypeID, name)
-	{
-		size = 0;
-		alignment = 0;
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeBool: TypeBase
-{
-	TypeBool(InplaceStr name): TypeBase(myTypeID, name)
-	{
-		size = 1;
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeChar: TypeBase
-{
-	TypeChar(InplaceStr name): TypeBase(myTypeID, name)
-	{
-		size = 1;
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeShort: TypeBase
-{
-	TypeShort(InplaceStr name): TypeBase(myTypeID, name)
-	{
-		size = 2;
-		alignment = GetTypeAlignment<short>();
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeInt: TypeBase
-{
-	TypeInt(InplaceStr name): TypeBase(myTypeID, name)
-	{
-		size = 4;
-		alignment = GetTypeAlignment<int>();
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeLong: TypeBase
-{
-	TypeLong(InplaceStr name): TypeBase(myTypeID, name)
-	{
-		size = 8;
-		alignment = GetTypeAlignment<long>();
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeFloat: TypeBase
-{
-	TypeFloat(InplaceStr name): TypeBase(myTypeID, name)
-	{
-		size = 4;
-		alignment = GetTypeAlignment<float>();
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeDouble: TypeBase
-{
-	TypeDouble(InplaceStr name): TypeBase(myTypeID, name)
-	{
-		size = 8;
-		alignment = GetTypeAlignment<double>();
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeTypeID: TypeBase
-{
-	TypeTypeID(InplaceStr name): TypeBase(myTypeID, name)
-	{
-		size = 4;
-		alignment = GetTypeAlignment<int>();
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeFunctionID: TypeBase
-{
-	TypeFunctionID(InplaceStr name): TypeBase(myTypeID, name)
-	{
-		size = 4;
-		alignment = GetTypeAlignment<int>();
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeGeneric: TypeBase
-{
-	TypeGeneric(InplaceStr name): TypeBase(myTypeID, name)
-	{
-		isGeneric = true;
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeAuto: TypeBase
-{
-	TypeAuto(InplaceStr name): TypeBase(myTypeID, name)
-	{
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeStruct: TypeBase
-{
-	TypeStruct(unsigned myTypeID, InplaceStr name): TypeBase(myTypeID, name)
-	{
-	}
-
-	IntrusiveList<VariableHandle> members;
-};
-
-struct TypeAutoRef: TypeStruct
-{
-	TypeAutoRef(InplaceStr name): TypeStruct(myTypeID, name)
-	{
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeAutoArray: TypeStruct
-{
-	TypeAutoArray(InplaceStr name): TypeStruct(myTypeID, name)
-	{
-	}
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeRef: TypeBase
-{
-	TypeRef(InplaceStr name, TypeBase *subType): TypeBase(myTypeID, name), subType(subType)
-	{
-		size = NULLC_PTR_SIZE;
-		alignment = 4;
-
-		isGeneric = subType->isGeneric;
-	}
-
-	TypeBase *subType;
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeArray: TypeBase
-{
-	TypeArray(InplaceStr name, TypeBase *subType, long long length): TypeBase(myTypeID, name), subType(subType), length(length)
-	{
-		size = subType->size * length;
-
-		isGeneric = subType->isGeneric;
-	}
-
-	TypeBase *subType;
-	long long length;
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeUnsizedArray: TypeStruct
-{
-	TypeUnsizedArray(InplaceStr name, TypeBase *subType): TypeStruct(myTypeID, name), subType(subType)
-	{
-		isGeneric = subType->isGeneric;
-	}
-
-	TypeBase *subType;
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeFunction: TypeBase
-{
-	TypeFunction(InplaceStr name, TypeBase *returnType, IntrusiveList<TypeHandle> arguments): TypeBase(myTypeID, name), returnType(returnType), arguments(arguments)
-	{
-		isGeneric = returnType->isGeneric;
-
-		for(TypeHandle *el = arguments.head; el; el = el->next)
-			isGeneric |= el->type->isGeneric;
-	}
-
-	TypeBase *returnType;
-	IntrusiveList<TypeHandle> arguments;
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeClass: TypeStruct
-{
-	TypeClass(ScopeData *scope, InplaceStr name, IntrusiveList<SynIdentifier> genericNames, IntrusiveList<TypeHandle> genericTypes, bool extenable, TypeBase *baseClass): TypeStruct(myTypeID, name), scope(scope), genericNames(genericNames), genericTypes(genericTypes), extenable(extenable), baseClass(baseClass)
-	{
-	}
-
-	ScopeData *scope;
-
-	IntrusiveList<SynIdentifier> genericNames;
-	IntrusiveList<TypeHandle> genericTypes;
-
-	bool extenable;
-
-	TypeBase *baseClass;
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeGenericClassProto: TypeBase
-{
-	TypeGenericClassProto(InplaceStr name, SynClassDefinition *definition): TypeBase(myTypeID, name), definition(definition)
-	{
-		isGeneric = true;
-	}
-
-	SynClassDefinition *definition;
-
-	static const unsigned myTypeID = __LINE__;
-};
-
-struct TypeGenericClass: TypeBase
-{
-	TypeGenericClass(InplaceStr name, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics): TypeBase(myTypeID, name), proto(proto), generics(generics)
-	{
-		isGeneric = true;
-	}
-
-	TypeGenericClassProto *proto;
-
-	IntrusiveList<TypeHandle> generics;
-
-	static const unsigned myTypeID = __LINE__;
-};
-
 struct ExprBase
 {
-	ExprBase(unsigned typeID, TypeBase *type): typeID(typeID), type(type), next(0)
+	ExprBase(unsigned typeID, SynBase *source, TypeBase *type): typeID(typeID), source(source), type(type), next(0)
 	{
 	}
 
@@ -525,13 +96,14 @@ struct ExprBase
 
 	unsigned typeID;
 
+	SynBase *source;
 	TypeBase *type;
 	ExprBase *next;
 };
 
 struct ExprVoid: ExprBase
 {
-	ExprVoid(TypeBase *type): ExprBase(myTypeID, type)
+	ExprVoid(SynBase *source, TypeBase *type): ExprBase(myTypeID, source, type)
 	{
 	}
 
@@ -540,7 +112,7 @@ struct ExprVoid: ExprBase
 
 struct ExprBoolLiteral: ExprBase
 {
-	ExprBoolLiteral(TypeBase *type, bool value): ExprBase(myTypeID, type), value(value)
+	ExprBoolLiteral(SynBase *source, TypeBase *type, bool value): ExprBase(myTypeID, source, type), value(value)
 	{
 	}
 
@@ -551,7 +123,7 @@ struct ExprBoolLiteral: ExprBase
 
 struct ExprCharacterLiteral: ExprBase
 {
-	ExprCharacterLiteral(TypeBase *type, unsigned char value): ExprBase(myTypeID, type), value(value)
+	ExprCharacterLiteral(SynBase *source, TypeBase *type, unsigned char value): ExprBase(myTypeID, source, type), value(value)
 	{
 	}
 
@@ -562,7 +134,7 @@ struct ExprCharacterLiteral: ExprBase
 
 struct ExprStringLiteral: ExprBase
 {
-	ExprStringLiteral(TypeBase *type, char *value, unsigned length): ExprBase(myTypeID, type), value(value), length(length)
+	ExprStringLiteral(SynBase *source, TypeBase *type, char *value, unsigned length): ExprBase(myTypeID, source, type), value(value), length(length)
 	{
 	}
 
@@ -574,7 +146,7 @@ struct ExprStringLiteral: ExprBase
 
 struct ExprIntegerLiteral: ExprBase
 {
-	ExprIntegerLiteral(TypeBase *type, long long value): ExprBase(myTypeID, type), value(value)
+	ExprIntegerLiteral(SynBase *source, TypeBase *type, long long value): ExprBase(myTypeID, source, type), value(value)
 	{
 	}
 
@@ -585,7 +157,7 @@ struct ExprIntegerLiteral: ExprBase
 
 struct ExprRationalLiteral: ExprBase
 {
-	ExprRationalLiteral(TypeBase *type, double value): ExprBase(myTypeID, type), value(value)
+	ExprRationalLiteral(SynBase *source, TypeBase *type, double value): ExprBase(myTypeID, source, type), value(value)
 	{
 	}
 
@@ -596,7 +168,7 @@ struct ExprRationalLiteral: ExprBase
 
 struct ExprTypeLiteral: ExprBase
 {
-	ExprTypeLiteral(TypeBase *type, TypeBase *value): ExprBase(myTypeID, type), value(value)
+	ExprTypeLiteral(SynBase *source, TypeBase *type, TypeBase *value): ExprBase(myTypeID, source, type), value(value)
 	{
 	}
 
@@ -607,7 +179,7 @@ struct ExprTypeLiteral: ExprBase
 
 struct ExprNullptrLiteral: ExprBase
 {
-	ExprNullptrLiteral(TypeBase *type): ExprBase(myTypeID, type)
+	ExprNullptrLiteral(SynBase *source, TypeBase *type): ExprBase(myTypeID, source, type)
 	{
 	}
 
@@ -616,7 +188,7 @@ struct ExprNullptrLiteral: ExprBase
 
 struct ExprArray: ExprBase
 {
-	ExprArray(TypeBase *type, IntrusiveList<ExprBase> values): ExprBase(myTypeID, type), values(values)
+	ExprArray(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> values): ExprBase(myTypeID, source, type), values(values)
 	{
 	}
 
@@ -627,7 +199,7 @@ struct ExprArray: ExprBase
 
 struct ExprPreModify: ExprBase
 {
-	ExprPreModify(TypeBase *type, ExprBase* value, bool isIncrement): ExprBase(myTypeID, type), value(value), isIncrement(isIncrement)
+	ExprPreModify(SynBase *source, TypeBase *type, ExprBase* value, bool isIncrement): ExprBase(myTypeID, source, type), value(value), isIncrement(isIncrement)
 	{
 	}
 
@@ -639,7 +211,7 @@ struct ExprPreModify: ExprBase
 
 struct ExprPostModify: ExprBase
 {
-	ExprPostModify(TypeBase *type, ExprBase* value, bool isIncrement): ExprBase(myTypeID, type), value(value), isIncrement(isIncrement)
+	ExprPostModify(SynBase *source, TypeBase *type, ExprBase* value, bool isIncrement): ExprBase(myTypeID, source, type), value(value), isIncrement(isIncrement)
 	{
 	}
 
@@ -651,7 +223,7 @@ struct ExprPostModify: ExprBase
 
 struct ExprTypeCast: ExprBase
 {
-	ExprTypeCast(TypeBase *type, ExprBase* value): ExprBase(myTypeID, type), value(value)
+	ExprTypeCast(SynBase *source, TypeBase *type, ExprBase* value): ExprBase(myTypeID, source, type), value(value)
 	{
 	}
 
@@ -662,7 +234,7 @@ struct ExprTypeCast: ExprBase
 
 struct ExprUnaryOp: ExprBase
 {
-	ExprUnaryOp(TypeBase *type, SynUnaryOpType op, ExprBase* value): ExprBase(myTypeID, type), op(op), value(value)
+	ExprUnaryOp(SynBase *source, TypeBase *type, SynUnaryOpType op, ExprBase* value): ExprBase(myTypeID, source, type), op(op), value(value)
 	{
 	}
 
@@ -675,7 +247,7 @@ struct ExprUnaryOp: ExprBase
 
 struct ExprBinaryOp: ExprBase
 {
-	ExprBinaryOp(TypeBase *type, SynBinaryOpType op, ExprBase* lhs, ExprBase* rhs): ExprBase(myTypeID, type), op(op), lhs(lhs), rhs(rhs)
+	ExprBinaryOp(SynBase *source, TypeBase *type, SynBinaryOpType op, ExprBase* lhs, ExprBase* rhs): ExprBase(myTypeID, source, type), op(op), lhs(lhs), rhs(rhs)
 	{
 	}
 
@@ -689,7 +261,7 @@ struct ExprBinaryOp: ExprBase
 
 struct ExprGetAddress: ExprBase
 {
-	ExprGetAddress(TypeBase *type, ExprBase* value): ExprBase(myTypeID, type), value(value)
+	ExprGetAddress(SynBase *source, TypeBase *type, ExprBase* value): ExprBase(myTypeID, source, type), value(value)
 	{
 	}
 
@@ -700,7 +272,7 @@ struct ExprGetAddress: ExprBase
 
 struct ExprDereference: ExprBase
 {
-	ExprDereference(TypeBase *type, ExprBase* value): ExprBase(myTypeID, type), value(value)
+	ExprDereference(SynBase *source, TypeBase *type, ExprBase* value): ExprBase(myTypeID, source, type), value(value)
 	{
 	}
 
@@ -711,7 +283,7 @@ struct ExprDereference: ExprBase
 
 struct ExprConditional: ExprBase
 {
-	ExprConditional(TypeBase *type, ExprBase *condition, ExprBase *trueBlock, ExprBase *falseBlock): ExprBase(myTypeID, type), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
+	ExprConditional(SynBase *source, TypeBase *type, ExprBase *condition, ExprBase *trueBlock, ExprBase *falseBlock): ExprBase(myTypeID, source, type), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
 	{
 	}
 
@@ -724,7 +296,7 @@ struct ExprConditional: ExprBase
 
 struct ExprAssignment: ExprBase
 {
-	ExprAssignment(TypeBase *type, ExprBase *lhs, ExprBase *rhs): ExprBase(myTypeID, type), lhs(lhs), rhs(rhs)
+	ExprAssignment(SynBase *source, TypeBase *type, ExprBase *lhs, ExprBase *rhs): ExprBase(myTypeID, source, type), lhs(lhs), rhs(rhs)
 	{
 	}
 
@@ -736,7 +308,7 @@ struct ExprAssignment: ExprBase
 
 struct ExprModifyAssignment: ExprBase
 {
-	ExprModifyAssignment(TypeBase *type, SynModifyAssignType op, ExprBase* lhs, ExprBase* rhs): ExprBase(myTypeID, type), op(op), lhs(lhs), rhs(rhs)
+	ExprModifyAssignment(SynBase *source, TypeBase *type, SynModifyAssignType op, ExprBase* lhs, ExprBase* rhs): ExprBase(myTypeID, source, type), op(op), lhs(lhs), rhs(rhs)
 	{
 	}
 
@@ -750,7 +322,7 @@ struct ExprModifyAssignment: ExprBase
 
 struct ExprMemberAccess: ExprBase
 {
-	ExprMemberAccess(TypeBase *type, ExprBase *value, VariableData *member): ExprBase(myTypeID, type), value(value), member(member)
+	ExprMemberAccess(SynBase *source, TypeBase *type, ExprBase *value, VariableData *member): ExprBase(myTypeID, source, type), value(value), member(member)
 	{
 	}
 
@@ -762,7 +334,7 @@ struct ExprMemberAccess: ExprBase
 
 struct ExprArrayIndex: ExprBase
 {
-	ExprArrayIndex(TypeBase *type, ExprBase *value, ExprBase *index): ExprBase(myTypeID, type), value(value), index(index)
+	ExprArrayIndex(SynBase *source, TypeBase *type, ExprBase *value, ExprBase *index): ExprBase(myTypeID, source, type), value(value), index(index)
 	{
 	}
 
@@ -774,7 +346,7 @@ struct ExprArrayIndex: ExprBase
 
 struct ExprReturn: ExprBase
 {
-	ExprReturn(TypeBase *type, ExprBase* value): ExprBase(myTypeID, type), value(value)
+	ExprReturn(SynBase *source, TypeBase *type, ExprBase* value): ExprBase(myTypeID, source, type), value(value)
 	{
 	}
 
@@ -785,7 +357,7 @@ struct ExprReturn: ExprBase
 
 struct ExprVariableDefinition: ExprBase
 {
-	ExprVariableDefinition(TypeBase *type, VariableData* variable, ExprBase* initializer): ExprBase(myTypeID, type), variable(variable), initializer(initializer)
+	ExprVariableDefinition(SynBase *source, TypeBase *type, VariableData* variable, ExprBase* initializer): ExprBase(myTypeID, source, type), variable(variable), initializer(initializer)
 	{
 	}
 
@@ -798,7 +370,7 @@ struct ExprVariableDefinition: ExprBase
 
 struct ExprVariableDefinitions: ExprBase
 {
-	ExprVariableDefinitions(TypeBase *type, IntrusiveList<ExprVariableDefinition> definitions): ExprBase(myTypeID, type), definitions(definitions)
+	ExprVariableDefinitions(SynBase *source, TypeBase *type, IntrusiveList<ExprVariableDefinition> definitions): ExprBase(myTypeID, source, type), definitions(definitions)
 	{
 	}
 
@@ -809,7 +381,7 @@ struct ExprVariableDefinitions: ExprBase
 
 struct ExprVariableAccess: ExprBase
 {
-	ExprVariableAccess(TypeBase *type, VariableData *variable): ExprBase(myTypeID, type), variable(variable)
+	ExprVariableAccess(SynBase *source, TypeBase *type, VariableData *variable): ExprBase(myTypeID, source, type), variable(variable)
 	{
 	}
 
@@ -820,7 +392,7 @@ struct ExprVariableAccess: ExprBase
 
 struct ExprFunctionDefinition: ExprBase
 {
-	ExprFunctionDefinition(TypeBase *type, bool prototype, FunctionData* function, IntrusiveList<ExprVariableDefinition> arguments, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, type), prototype(prototype), function(function), arguments(arguments), expressions(expressions)
+	ExprFunctionDefinition(SynBase *source, TypeBase *type, bool prototype, FunctionData* function, IntrusiveList<ExprVariableDefinition> arguments, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), prototype(prototype), function(function), arguments(arguments), expressions(expressions)
 	{
 	}
 
@@ -837,7 +409,7 @@ struct ExprFunctionDefinition: ExprBase
 
 struct ExprGenericFunctionPrototype: ExprBase
 {
-	ExprGenericFunctionPrototype(TypeBase *type, FunctionData* function): ExprBase(myTypeID, type), function(function)
+	ExprGenericFunctionPrototype(SynBase *source, TypeBase *type, FunctionData* function): ExprBase(myTypeID, source, type), function(function)
 	{
 	}
 
@@ -848,7 +420,7 @@ struct ExprGenericFunctionPrototype: ExprBase
 
 struct ExprFunctionAccess: ExprBase
 {
-	ExprFunctionAccess(TypeBase *type, FunctionData *function): ExprBase(myTypeID, type), function(function)
+	ExprFunctionAccess(SynBase *source, TypeBase *type, FunctionData *function): ExprBase(myTypeID, source, type), function(function)
 	{
 	}
 
@@ -859,7 +431,7 @@ struct ExprFunctionAccess: ExprBase
 
 struct ExprFunctionCall: ExprBase
 {
-	ExprFunctionCall(TypeBase *type, ExprBase *function, IntrusiveList<ExprBase> arguments): ExprBase(myTypeID, type), function(function), arguments(arguments)
+	ExprFunctionCall(SynBase *source, TypeBase *type, ExprBase *function, IntrusiveList<ExprBase> arguments): ExprBase(myTypeID, source, type), function(function), arguments(arguments)
 	{
 	}
 
@@ -871,7 +443,7 @@ struct ExprFunctionCall: ExprBase
 
 struct ExprClassDefinition: ExprBase
 {
-	ExprClassDefinition(TypeBase *type, TypeClass *classType): ExprBase(myTypeID, type), classType(classType)
+	ExprClassDefinition(SynBase *source, TypeBase *type, TypeClass *classType): ExprBase(myTypeID, source, type), classType(classType)
 	{
 	}
 
@@ -884,7 +456,7 @@ struct ExprClassDefinition: ExprBase
 
 struct ExprIfElse: ExprBase
 {
-	ExprIfElse(TypeBase *type, ExprBase *condition, ExprBase *trueBlock, ExprBase *falseBlock): ExprBase(myTypeID, type), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
+	ExprIfElse(SynBase *source, TypeBase *type, ExprBase *condition, ExprBase *trueBlock, ExprBase *falseBlock): ExprBase(myTypeID, source, type), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
 	{
 	}
 
@@ -897,7 +469,7 @@ struct ExprIfElse: ExprBase
 
 struct ExprFor: ExprBase
 {
-	ExprFor(TypeBase *type, ExprBase *initializer, ExprBase *condition, ExprBase *increment, ExprBase *body): ExprBase(myTypeID, type), initializer(initializer), condition(condition), increment(increment), body(body)
+	ExprFor(SynBase *source, TypeBase *type, ExprBase *initializer, ExprBase *condition, ExprBase *increment, ExprBase *body): ExprBase(myTypeID, source, type), initializer(initializer), condition(condition), increment(increment), body(body)
 	{
 	}
 
@@ -911,7 +483,7 @@ struct ExprFor: ExprBase
 
 struct ExprWhile: ExprBase
 {
-	ExprWhile(TypeBase *type, ExprBase *condition, ExprBase *body): ExprBase(myTypeID, type), condition(condition), body(body)
+	ExprWhile(SynBase *source, TypeBase *type, ExprBase *condition, ExprBase *body): ExprBase(myTypeID, source, type), condition(condition), body(body)
 	{
 	}
 
@@ -923,7 +495,7 @@ struct ExprWhile: ExprBase
 
 struct ExprDoWhile: ExprBase
 {
-	ExprDoWhile(TypeBase *type, ExprBase *body, ExprBase *condition): ExprBase(myTypeID, type), body(body), condition(condition)
+	ExprDoWhile(SynBase *source, TypeBase *type, ExprBase *body, ExprBase *condition): ExprBase(myTypeID, source, type), body(body), condition(condition)
 	{
 	}
 
@@ -935,7 +507,7 @@ struct ExprDoWhile: ExprBase
 
 struct ExprBlock: ExprBase
 {
-	ExprBlock(TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, type), expressions(expressions)
+	ExprBlock(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), expressions(expressions)
 	{
 	}
 
@@ -946,7 +518,7 @@ struct ExprBlock: ExprBase
 
 struct ExprModule: ExprBase
 {
-	ExprModule(TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, type), expressions(expressions)
+	ExprModule(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), expressions(expressions)
 	{
 	}
 
@@ -954,30 +526,6 @@ struct ExprModule: ExprBase
 
 	static const unsigned myTypeID = __LINE__;
 };
-
-template<typename T>
-bool isType(TypeBase *node)
-{
-	return node->typeID == typename T::myTypeID;
-}
-
-template<typename T>
-T* getType(TypeBase *node)
-{
-	if(node && isType<T>(node))
-		return static_cast<T*>(node);
-
-	return 0;
-}
-
-template<>
-inline TypeStruct* getType(TypeBase *node)
-{
-	if(node && (isType<TypeAutoRef>(node) || isType<TypeAutoArray>(node) || isType<TypeUnsizedArray>(node) || isType<TypeClass>(node)))
-		return static_cast<TypeStruct*>(node);
-
-	return 0;
-}
 
 template<typename T>
 bool isType(ExprBase *node)

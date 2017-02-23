@@ -1,6 +1,6 @@
 #include "ExpressionTree.h"
 
-#include "ParseClass.h"
+#include "ExpressionEval.h"
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
@@ -127,172 +127,6 @@ namespace
 		}
 
 		return integer + fractional;
-	}
-
-	InplaceStr GetReferenceTypeName(TypeBase* type)
-	{
-		unsigned nameLength = type->name.length() + strlen(" ref");
-		char *name = new char[nameLength + 1];
-		sprintf(name, "%.*s ref", FMT_ISTR(type->name));
-
-		return InplaceStr(name);
-	}
-
-	InplaceStr GetArrayTypeName(TypeBase* type, long long length)
-	{
-		unsigned nameLength = type->name.length() + strlen("[]") + 21;
-		char *name = new char[nameLength + 1];
-		sprintf(name, "%.*s[%lld]", FMT_ISTR(type->name), length);
-
-		return InplaceStr(name);
-	}
-
-	InplaceStr GetUnsizedArrayTypeName(TypeBase* type)
-	{
-		unsigned nameLength = type->name.length() + strlen("[]");
-		char *name = new char[nameLength + 1];
-		sprintf(name, "%.*s[]", FMT_ISTR(type->name));
-
-		return InplaceStr(name);
-	}
-
-	InplaceStr GetFunctionTypeName(TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
-	{
-		unsigned nameLength = returnType->name.length() + strlen(" ref()");
-
-		for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
-			nameLength += arg->type->name.length() + 1;
-
-		char *name = new char[nameLength + 1];
-
-		char *pos = name;
-
-		sprintf(pos, "%.*s", FMT_ISTR(returnType->name));
-		pos += returnType->name.length();
-
-		strcpy(pos, " ref(");
-		pos += 5;
-
-		for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
-		{
-			sprintf(pos, "%.*s", FMT_ISTR(arg->type->name));
-			pos += arg->type->name.length();
-
-			if(arg->next)
-				*pos++ = ',';
-		}
-
-		*pos++ = ')';
-		*pos++ = 0;
-
-		return InplaceStr(name);
-	}
-
-	InplaceStr GetGenericClassName(TypeBase* proto, IntrusiveList<TypeHandle> generics)
-	{
-		unsigned nameLength = proto->name.length() + strlen("<>");
-
-		for(TypeHandle *arg = generics.head; arg; arg = arg->next)
-		{
-			if(arg->type->isGeneric)
-				nameLength += strlen("generic") + 1;
-			else
-				nameLength += arg->type->name.length() + 1;
-		}
-
-		char *name = new char[nameLength + 1];
-
-		char *pos = name;
-
-		sprintf(pos, "%.*s", FMT_ISTR(proto->name));
-		pos += proto->name.length();
-
-		strcpy(pos, "<");
-		pos += 1;
-
-		for(TypeHandle *arg = generics.head; arg; arg = arg->next)
-		{
-			if(arg->type->isGeneric)
-			{
-				strcpy(pos, "generic");
-				pos += strlen("generic");
-			}
-			else
-			{
-				sprintf(pos, "%.*s", FMT_ISTR(arg->type->name));
-				pos += arg->type->name.length();
-			}
-
-			if(arg->next)
-				*pos++ = ',';
-		}
-
-		*pos++ = '>';
-		*pos++ = 0;
-
-		return InplaceStr(name);
-	}
-
-	bool IsIntegerType(ExpressionContext &ctx, TypeBase* type)
-	{
-		if(type == ctx.typeBool)
-			return true;
-
-		if(type == ctx.typeChar)
-			return true;
-
-		if(type == ctx.typeShort)
-			return true;
-
-		if(type == ctx.typeInt)
-			return true;
-
-		if(type == ctx.typeLong)
-			return true;
-
-		return false;
-	}
-
-	bool IsFloatingPointType(ExpressionContext &ctx, TypeBase* type)
-	{
-		if(type == ctx.typeFloat)
-			return true;
-
-		if(type == ctx.typeDouble)
-			return true;
-
-		return false;
-	}
-
-	bool IsNumericType(ExpressionContext &ctx, TypeBase* type)
-	{
-		return IsIntegerType(ctx, type) || IsFloatingPointType(ctx, type);
-	}
-
-	TypeBase* GetBinaryOpResultType(ExpressionContext &ctx, TypeBase* a, TypeBase* b)
-	{
-		if(a == ctx.typeDouble || b == ctx.typeDouble)
-			return ctx.typeDouble;
-
-		if(a == ctx.typeFloat || b == ctx.typeFloat)
-			return ctx.typeFloat;
-
-		if(a == ctx.typeLong || b == ctx.typeLong)
-			return ctx.typeLong;
-
-		if(a == ctx.typeInt || b == ctx.typeInt)
-			return ctx.typeInt;
-
-		if(a == ctx.typeShort || b == ctx.typeShort)
-			return ctx.typeShort;
-
-		if(a == ctx.typeChar || b == ctx.typeChar)
-			return ctx.typeChar;
-
-		if(a == ctx.typeBool || b == ctx.typeBool)
-			return ctx.typeBool;
-
-		return NULL;
 	}
 
 	bool IsBinaryOp(SynUnaryOpType type)
@@ -450,6 +284,14 @@ ExpressionContext::ExpressionContext()
 	genericTypeMap.init();
 }
 
+void ExpressionContext::Stop(const char *pos, const char *msg, ...)
+{
+	va_list args;
+	va_start(args, msg);
+
+	::Stop(*this, pos, msg, args);
+}
+
 void ExpressionContext::PushScope()
 {
 	unsigned depth = scopes.size();
@@ -523,6 +365,54 @@ void ExpressionContext::PopScope()
 	scopes.pop_back();
 }
 
+NamespaceData* ExpressionContext::GetCurrentNamespace()
+{
+	// Simply walk up the scopes and find the current one
+	for(int i = int(scopes.size()) - 1; i >= 0; i--)
+	{
+		ScopeData *scope = scopes[i];
+
+		if(NamespaceData *ns = scope->ownerNamespace)
+			return ns;
+	}
+
+	return NULL;
+}
+
+FunctionData* ExpressionContext::GetCurrentFunction()
+{
+	// Walk up, but if we reach a type owner, stop - we're not in a context of a function
+	for(int i = int(scopes.size()) - 1; i >= 0; i--)
+	{
+		ScopeData *scope = scopes[i];
+
+		if(scope->ownerType)
+			return NULL;
+
+		if(FunctionData *function = scope->ownerFunction)
+			return function;
+	}
+
+	return NULL;
+}
+
+TypeBase* ExpressionContext::GetCurrentType()
+{
+	// Walk up, but if we reach a function, return it's owner
+	for(int i = int(scopes.size()) - 1; i >= 0; i--)
+	{
+		ScopeData *scope = scopes[i];
+
+		if(scope->ownerFunction)
+			return scope->ownerFunction->scope->ownerType;
+
+		if(TypeBase *type = scope->ownerType)
+			return type;
+	}
+
+	return NULL;
+}
+
 unsigned ExpressionContext::GetGenericClassInstantiationDepth()
 {
 	unsigned depth = 0;
@@ -573,6 +463,68 @@ void ExpressionContext::AddAlias(AliasData *alias)
 	scopes.back()->aliases.push_back(alias);
 
 	typeMap.insert(alias->nameHash, alias->type);
+}
+
+bool ExpressionContext::IsIntegerType(TypeBase* type)
+{
+	if(type == typeBool)
+		return true;
+
+	if(type == typeChar)
+		return true;
+
+	if(type == typeShort)
+		return true;
+
+	if(type == typeInt)
+		return true;
+
+	if(type == typeLong)
+		return true;
+
+	return false;
+}
+
+bool ExpressionContext::IsFloatingPointType(TypeBase* type)
+{
+	if(type == typeFloat)
+		return true;
+
+	if(type == typeDouble)
+		return true;
+
+	return false;
+}
+
+bool ExpressionContext::IsNumericType(TypeBase* type)
+{
+	return IsIntegerType(type) || IsFloatingPointType(type);
+}
+
+TypeBase* ExpressionContext::GetBinaryOpResultType(TypeBase* a, TypeBase* b)
+{
+	if(a == typeDouble || b == typeDouble)
+		return typeDouble;
+
+	if(a == typeFloat || b == typeFloat)
+		return typeFloat;
+
+	if(a == typeLong || b == typeLong)
+		return typeLong;
+
+	if(a == typeInt || b == typeInt)
+		return typeInt;
+
+	if(a == typeShort || b == typeShort)
+		return typeShort;
+
+	if(a == typeChar || b == typeChar)
+		return typeChar;
+
+	if(a == typeBool || b == typeBool)
+		return typeBool;
+
+	return NULL;
 }
 
 TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
@@ -678,19 +630,19 @@ ExprBase* CreateCast(ExpressionContext &ctx, const char *pos, ExprBase *value, T
 	if(value->type == type)
 		return value;
 
-	if(IsNumericType(ctx, value->type) && IsNumericType(ctx, value->type))
-		return new ExprTypeCast(type, value);
+	if(ctx.IsNumericType(value->type) && ctx.IsNumericType(value->type))
+		return new ExprTypeCast(value->source, type, value);
 
 	if(type == ctx.typeBool)
 	{
 		if(isType<TypeRef>(value->type))
-			return new ExprTypeCast(type, value);
+			return new ExprTypeCast(value->source, type, value);
 
 		if(isType<TypeUnsizedArray>(value->type))
-			return new ExprTypeCast(type, value);
+			return new ExprTypeCast(value->source, type, value);
 
 		if(isType<TypeFunction>(value->type))
-			return new ExprTypeCast(type, value);
+			return new ExprTypeCast(value->source, type, value);
 	}
 
 	Stop(ctx, pos, "ERROR: can't convert '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));
@@ -754,8 +706,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		ExprBase *size = AnalyzeExpression(ctx, node->size);
 		
-		// TODO: replace with compile-time evaluation
-		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(size))
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, node->pos, size, ctx.typeLong))))
 			return ctx.GetArrayType(type, number->value);
 
 		Stop(ctx, syntax->pos, "ERROR: can't get array size");
@@ -784,8 +735,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		ExprBase *size = AnalyzeExpression(ctx, node->arguments.head);
 		
-		// TODO: replace with compile-time evaluation
-		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(size))
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, node->pos, size, ctx.typeLong))))
 			return ctx.GetArrayType(type, number->value);
 
 		Stop(ctx, syntax->pos, "ERROR: can't get array size");
@@ -952,7 +902,7 @@ unsigned AnalyzeAlignment(ExpressionContext &ctx, SynAlign *syntax)
 
 	ExprBase *align = AnalyzeNumber(ctx, syntax->value);
 
-	if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(align))
+	if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, syntax->pos, align, ctx.typeLong))))
 	{
 		if(alignValue->value > 16)
 			Stop(ctx, syntax->pos, "ERROR: alignment must be less than 16 bytes");
@@ -992,9 +942,9 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 
 		// If number overflows integer number, create long number
 		if(int(num) == num)
-			return new ExprIntegerLiteral(ctx.typeInt, num);
+			return new ExprIntegerLiteral(syntax, ctx.typeInt, num);
 
-		return new ExprIntegerLiteral(ctx.typeLong, num);
+		return new ExprIntegerLiteral(syntax, ctx.typeLong, num);
 	}
 
 	bool isFP = false;
@@ -1022,15 +972,15 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 
 			// If number overflows integer number, create long number
 			if(int(num) == num)
-				return new ExprIntegerLiteral(ctx.typeInt, num);
+				return new ExprIntegerLiteral(syntax, ctx.typeInt, num);
 
-			return new ExprIntegerLiteral(ctx.typeLong, num);
+			return new ExprIntegerLiteral(syntax, ctx.typeLong, num);
 		}
 		else if(syntax->suffix == InplaceStr("l"))
 		{
 			long long num = ParseLong(ctx, value.begin, value.end, 10);
 
-			return new ExprIntegerLiteral(ctx.typeLong, num);
+			return new ExprIntegerLiteral(syntax, ctx.typeLong, num);
 		}
 		else if(!syntax->suffix.empty())
 		{
@@ -1052,15 +1002,15 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 
 			// If number overflows integer number, create long number
 			if(int(num) == num)
-				return new ExprIntegerLiteral(ctx.typeInt, num);
+				return new ExprIntegerLiteral(syntax, ctx.typeInt, num);
 
-			return new ExprIntegerLiteral(ctx.typeLong, num);
+			return new ExprIntegerLiteral(syntax, ctx.typeLong, num);
 		}
 
 		long long num = ParseLong(ctx, value.begin, value.end, 10);
 
 		if(int(num) == num)
-			return new ExprIntegerLiteral(ctx.typeInt, num);
+			return new ExprIntegerLiteral(syntax, ctx.typeInt, num);
 
 		Stop(ctx, value.begin, "ERROR: overflow in decimal constant");
 	}
@@ -1069,7 +1019,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 	{
 		double num = ParseDouble(ctx, value.begin);
 
-		return new ExprRationalLiteral(ctx.typeFloat, float(num));
+		return new ExprRationalLiteral(syntax, ctx.typeFloat, float(num));
 	}
 	else if(!syntax->suffix.empty())
 	{
@@ -1078,7 +1028,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 
 	double num = ParseDouble(ctx, value.begin);
 
-	return new ExprRationalLiteral(ctx.typeDouble, num);
+	return new ExprRationalLiteral(syntax, ctx.typeDouble, num);
 }
 
 ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
@@ -1101,10 +1051,10 @@ ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 		values.push_back(value);
 	}
 
-	return new ExprArray(ctx.GetArrayType(subType, values.size()), values);
+	return new ExprArray(syntax, ctx.GetArrayType(subType, values.size()), values);
 }
 
-ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, InplaceStr name)
+ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynBase *syntax, InplaceStr name)
 {
 	if(VariableData **variable = ctx.variableMap.find(GetStringHash(name.begin, name.end)))
 	{
@@ -1115,15 +1065,13 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, InplaceStr name)
 		if(data->type == ctx.typeAuto)
 			Stop(ctx, name.begin, "ERROR: variable '%.*s' is being used while its type is unknown", FMT_ISTR(name));
 
-		return new ExprVariableAccess(data->type, data);
+		return new ExprVariableAccess(syntax, data->type, data);
 	}
 
 	if(FunctionData **function = ctx.functionMap.find(GetStringHash(name.begin, name.end)))
 	{
-		return new ExprFunctionAccess((*function)->type, *function);
+		return new ExprFunctionAccess(syntax, (*function)->type, *function);
 	}
-
-	// TODO: 'this' pointer
 
 	Stop(ctx, name.begin, "ERROR: unknown variable");
 
@@ -1132,7 +1080,7 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, InplaceStr name)
 
 ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynIdentifier *syntax)
 {
-	return AnalyzeVariableAccess(ctx, syntax->name);
+	return AnalyzeVariableAccess(ctx, syntax, syntax->name);
 }
 
 ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynTypeSimple *syntax)
@@ -1141,7 +1089,7 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynTypeSimple *syntax)
 	{
 		// TODO: current namespace
 
-		return AnalyzeVariableAccess(ctx, syntax->name);
+		return AnalyzeVariableAccess(ctx, syntax, syntax->name);
 	}
 
 	// TODO: namespace path
@@ -1155,14 +1103,14 @@ ExprPreModify* AnalyzePreModify(ExpressionContext &ctx, SynPreModify *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-	return new ExprPreModify(value->type, value, syntax->isIncrement);
+	return new ExprPreModify(syntax, value->type, value, syntax->isIncrement);
 }
 
 ExprPostModify* AnalyzePostModify(ExpressionContext &ctx, SynPostModify *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-	return new ExprPostModify(value->type, value, syntax->isIncrement);
+	return new ExprPostModify(syntax, value->type, value, syntax->isIncrement);
 }
 
 ExprUnaryOp* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
@@ -1175,7 +1123,7 @@ ExprUnaryOp* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 	bool logicalOp = IsLogicalOp(syntax->type);
 
 	// Type check
-	if(IsFloatingPointType(ctx, value->type))
+	if(ctx.IsFloatingPointType(value->type))
 	{
 		if(binaryOp || logicalOp)
 			Stop(ctx, syntax->pos, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
@@ -1190,7 +1138,7 @@ ExprUnaryOp* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 		if(!logicalOp)
 			Stop(ctx, syntax->pos, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
 	}
-	else if(!IsNumericType(ctx, value->type))
+	else if(!ctx.IsNumericType(value->type))
 	{
 		Stop(ctx, syntax->pos, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
 	}
@@ -1202,7 +1150,7 @@ ExprUnaryOp* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 	else
 		resultType = value->type;
 
-	return new ExprUnaryOp(resultType, syntax->type, value);
+	return new ExprUnaryOp(syntax, resultType, syntax->type, value);
 }
 
 ExprBinaryOp* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
@@ -1227,7 +1175,7 @@ ExprBinaryOp* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 	bool comparisonOp = IsComparisonOp(syntax->type);
 	bool logicalOp = IsLogicalOp(syntax->type);
 
-	if(IsFloatingPointType(ctx, lhs->type) || IsFloatingPointType(ctx, rhs->type))
+	if(ctx.IsFloatingPointType(lhs->type) || ctx.IsFloatingPointType(rhs->type))
 	{
 		if(logicalOp || binaryOp)
 			Stop(ctx, syntax->pos, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(syntax->type), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
@@ -1239,10 +1187,10 @@ ExprBinaryOp* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 		lhs = CreateCast(ctx, syntax->lhs->pos, lhs, ctx.typeBool);
 		rhs = CreateCast(ctx, syntax->rhs->pos, rhs, ctx.typeBool);
 	}
-	else if(IsNumericType(ctx, lhs->type) && IsNumericType(ctx, rhs->type))
+	else if(ctx.IsNumericType(lhs->type) && ctx.IsNumericType(rhs->type))
 	{
 		// Numeric operations promote both operands to a common type
-		TypeBase *commonType = GetBinaryOpResultType(ctx, lhs->type, rhs->type);
+		TypeBase *commonType = ctx.GetBinaryOpResultType(lhs->type, rhs->type);
 
 		lhs = CreateCast(ctx, syntax->lhs->pos, lhs, commonType);
 		rhs = CreateCast(ctx, syntax->rhs->pos, rhs, commonType);
@@ -1258,14 +1206,14 @@ ExprBinaryOp* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 	else
 		resultType = lhs->type;
 
-	return new ExprBinaryOp(resultType, syntax->type, lhs, rhs);
+	return new ExprBinaryOp(syntax, resultType, syntax->type, lhs, rhs);
 }
 
 ExprGetAddress* AnalyzeGetAddress(ExpressionContext &ctx, SynGetAddress *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-	return new ExprGetAddress(ctx.GetReferenceType(value->type), value);
+	return new ExprGetAddress(syntax, ctx.GetReferenceType(value->type), value);
 }
 
 ExprDereference* AnalyzeDereference(ExpressionContext &ctx, SynDereference *syntax)
@@ -1274,7 +1222,7 @@ ExprDereference* AnalyzeDereference(ExpressionContext &ctx, SynDereference *synt
 
 	if(TypeRef *type = getType<TypeRef>(value->type))
 	{
-		return new ExprDereference(type->subType, value);
+		return new ExprDereference(syntax, type->subType, value);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: cannot dereference type '%.*s' that is not a pointer", FMT_ISTR(value->type->name));
@@ -1293,12 +1241,12 @@ ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *synt
 
 	if(trueBlock->type == falseBlock->type)
 		resultType = trueBlock->type;
-	else if(IsNumericType(ctx, trueBlock->type) && IsNumericType(ctx, falseBlock->type))
-		resultType = GetBinaryOpResultType(ctx, trueBlock->type, falseBlock->type);
+	else if(ctx.IsNumericType(trueBlock->type) && ctx.IsNumericType(falseBlock->type))
+		resultType = ctx.GetBinaryOpResultType(trueBlock->type, falseBlock->type);
 	else
 		Stop(ctx, syntax->pos, "ERROR: Unknown common type");
 
-	return new ExprConditional(resultType, condition, trueBlock, falseBlock);
+	return new ExprConditional(syntax, resultType, condition, trueBlock, falseBlock);
 }
 
 ExprAssignment* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
@@ -1306,7 +1254,7 @@ ExprAssignment* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
-	return new ExprAssignment(lhs->type, lhs, rhs);
+	return new ExprAssignment(syntax, lhs->type, lhs, rhs);
 }
 
 ExprModifyAssignment* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *syntax)
@@ -1314,7 +1262,7 @@ ExprModifyAssignment* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyA
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
-	return new ExprModifyAssignment(lhs->type, syntax->type, lhs, rhs);
+	return new ExprModifyAssignment(syntax, lhs->type, syntax->type, lhs, rhs);
 }
 
 ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
@@ -1324,26 +1272,26 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 	{
 		if(syntax->member == InplaceStr("isReference"))
 		{
-			return new ExprBoolLiteral(ctx.typeBool, isType<TypeRef>(type));
+			return new ExprBoolLiteral(syntax, ctx.typeBool, isType<TypeRef>(type));
 		}
 
 		if(syntax->member == InplaceStr("isArray"))
 		{
-			return new ExprBoolLiteral(ctx.typeBool, isType<TypeArray>(type) || isType<TypeUnsizedArray>(type));
+			return new ExprBoolLiteral(syntax, ctx.typeBool, isType<TypeArray>(type) || isType<TypeUnsizedArray>(type));
 		}
 
 		if(syntax->member == InplaceStr("isFunction"))
 		{
-			return new ExprBoolLiteral(ctx.typeBool, isType<TypeFunction>(type));
+			return new ExprBoolLiteral(syntax, ctx.typeBool, isType<TypeFunction>(type));
 		}
 
 		if(syntax->member == InplaceStr("arraySize"))
 		{
 			if(TypeArray *arrType = getType<TypeArray>(type))
-				return new ExprIntegerLiteral(ctx.typeInt, arrType->length);
+				return new ExprIntegerLiteral(syntax, ctx.typeInt, arrType->length);
 				
 			if(TypeUnsizedArray *arrType = getType<TypeUnsizedArray>(type))
-				return new ExprIntegerLiteral(ctx.typeInt, -1);
+				return new ExprIntegerLiteral(syntax, ctx.typeInt, -1);
 
 			Stop(ctx, syntax->pos, "ERROR: 'arraySize' can only be applied to an array type, but we have '%s'", type->name);
 		}
@@ -1357,7 +1305,7 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 	if(TypeArray *node = getType<TypeArray>(value->type))
 	{
 		if(syntax->member == InplaceStr("size"))
-			return new ExprIntegerLiteral(ctx.typeInt, node->length);
+			return new ExprIntegerLiteral(syntax, ctx.typeInt, node->length);
 
 		Stop(ctx, syntax->pos, "ERROR: array doesn't have member with this name");
 	}
@@ -1367,7 +1315,7 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 		for(VariableHandle *el = node->members.head; el; el = el->next)
 		{
 			if(el->variable->name == syntax->member)
-				return new ExprMemberAccess(el->variable->type, value, el->variable); 
+				return new ExprMemberAccess(syntax, el->variable->type, value, el->variable); 
 		}
 	}
 
@@ -1382,10 +1330,10 @@ ExprArrayIndex* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
 	ExprBase *index = AnalyzeExpression(ctx, syntax->size);
 
 	if(TypeArray *type = getType<TypeArray>(value->type))
-		return new ExprArrayIndex(type->subType, value, index);
+		return new ExprArrayIndex(syntax, type->subType, value, index);
 
 	if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value->type))
-		return new ExprArrayIndex(type->subType, value, index);
+		return new ExprArrayIndex(syntax, type->subType, value, index);
 
 	Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not an array", FMT_ISTR(value->type->name));
 
@@ -1405,10 +1353,10 @@ ExprArrayIndex* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 	ExprBase *index = AnalyzeExpression(ctx, syntax->arguments.head);
 
 	if(TypeArray *type = getType<TypeArray>(value->type))
-		return new ExprArrayIndex(type->subType, value, index);
+		return new ExprArrayIndex(syntax, type->subType, value, index);
 
 	if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value->type))
-		return new ExprArrayIndex(type->subType, value, index);
+		return new ExprArrayIndex(syntax, type->subType, value, index);
 
 	Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not an array", FMT_ISTR(value->type->name));
 
@@ -1434,7 +1382,7 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 
 	if(TypeFunction *type = getType<TypeFunction>(function->type))
 	{
-		return new ExprFunctionCall(type->returnType, function, arguments);
+		return new ExprFunctionCall(syntax, type->returnType, function, arguments);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown call");
@@ -1466,11 +1414,11 @@ ExprFunctionCall* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		IntrusiveList<ExprBase> arguments;
 
-		arguments.push_back(new ExprIntegerLiteral(ctx.typeInt, type->size));
+		arguments.push_back(new ExprIntegerLiteral(syntax, ctx.typeInt, type->size));
 		arguments.push_back(count);
-		arguments.push_back(new ExprTypeLiteral(ctx.typeTypeID, type));
+		arguments.push_back(new ExprTypeLiteral(syntax, ctx.typeTypeID, type));
 
-		call = new ExprFunctionCall(ctx.GetReferenceType(type), new ExprFunctionAccess((*function)->type, *function), arguments);
+		call = new ExprFunctionCall(syntax, ctx.GetReferenceType(type), new ExprFunctionAccess(syntax, (*function)->type, *function), arguments);
 	}
 	else
 	{
@@ -1481,10 +1429,10 @@ ExprFunctionCall* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		IntrusiveList<ExprBase> arguments;
 
-		arguments.push_back(new ExprIntegerLiteral(ctx.typeInt, type->size));
-		arguments.push_back(new ExprTypeLiteral(ctx.typeTypeID, type));
+		arguments.push_back(new ExprIntegerLiteral(syntax, ctx.typeInt, type->size));
+		arguments.push_back(new ExprTypeLiteral(syntax, ctx.typeTypeID, type));
 
-		call = new ExprFunctionCall(ctx.GetReferenceType(type), new ExprFunctionAccess((*function)->type, *function), arguments);
+		call = new ExprFunctionCall(syntax, ctx.GetReferenceType(type), new ExprFunctionAccess(syntax, (*function)->type, *function), arguments);
 	}
 
 	return call;
@@ -1499,10 +1447,10 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 	{
 		ExprBase *result = AnalyzeExpression(ctx, syntax->value);
 
-		return new ExprReturn(result->type, result);
+		return new ExprReturn(syntax, result->type, result);
 	}
 
-	return new ExprReturn(ctx.typeVoid, NULL);
+	return new ExprReturn(syntax, ctx.typeVoid, NULL);
 }
 
 ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinition *syntax, unsigned alignment, TypeBase *type)
@@ -1534,7 +1482,7 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 		variable->type = initializer->type;
 	}
 
-	return new ExprVariableDefinition(ctx.typeVoid, variable, initializer);
+	return new ExprVariableDefinition(syntax, ctx.typeVoid, variable, initializer);
 }
 
 ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynVariableDefinitions *syntax)
@@ -1548,7 +1496,7 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 	for(SynVariableDefinition *el = syntax->definitions.head; el; el = getType<SynVariableDefinition>(el->next))
 		definitions.push_back(AnalyzeVariableDefinition(ctx, el, alignment, type));
 
-	return new ExprVariableDefinitions(ctx.typeVoid, definitions);
+	return new ExprVariableDefinitions(syntax, ctx.typeVoid, definitions);
 }
 
 ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax)
@@ -1585,12 +1533,12 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 		if(syntax->prototype)
 			Stop(ctx, syntax->pos, "ERROR: generic function cannot be forward-declared");
 
-		return new ExprGenericFunctionPrototype(ctx.typeVoid, function);
+		return new ExprGenericFunctionPrototype(syntax, ctx.typeVoid, function);
 	}
 
-	IntrusiveList<ExprVariableDefinition> arguments;
-
 	ctx.PushScope(function);
+
+	IntrusiveList<ExprVariableDefinition> arguments;
 
 	for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next))
 	{
@@ -1605,7 +1553,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 		ExprBase *initializer = argument->initializer ? AnalyzeExpression(ctx, argument->initializer) : NULL;
 
-		arguments.push_back(new ExprVariableDefinition(ctx.typeVoid, variable, initializer));
+		arguments.push_back(new ExprVariableDefinition(argument, ctx.typeVoid, variable, initializer));
 	}
 
 	IntrusiveList<ExprBase> expressions;
@@ -1615,17 +1563,16 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 	ctx.PopScope();
 
-	return new ExprFunctionDefinition(functionType, syntax->prototype, function, arguments, expressions);
+	return new ExprFunctionDefinition(syntax, functionType, syntax->prototype, function, arguments, expressions);
 }
 
 void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassStaticIf *syntax)
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
-	// TODO: replace with compile-time evaluation
-	if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(condition))
+	if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(Evaluate(ctx, CreateCast(ctx, syntax->pos, condition, ctx.typeBool))))
 	{
-		if(number->value != 0)
+		if(number->value)
 			AnalyzeClassElements(ctx, classDefinition, syntax->trueBlock);
 		else if(syntax->falseBlock)
 			AnalyzeClassElements(ctx, classDefinition, syntax->falseBlock);
@@ -1681,7 +1628,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		ctx.AddType(genericProtoType);
 
-		return new ExprVoid(ctx.typeVoid);
+		return new ExprVoid(syntax, ctx.typeVoid);
 	}
 
 	assert(generics.size() == syntax->aliases.size());
@@ -1711,7 +1658,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	if(!generics.empty())
 		ctx.genericTypeMap.insert(className.hash(), classType);
 
-	ExprClassDefinition *classDefinition = new ExprClassDefinition(ctx.typeVoid, classType);
+	ExprClassDefinition *classDefinition = new ExprClassDefinition(syntax, ctx.typeVoid, classType);
 
 	ctx.PushScope(classType);
 
@@ -1756,7 +1703,7 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 	for(SynIdentifier *name = syntax->path.head; name; name = getType<SynIdentifier>(name->next))
 		ctx.PopScope();
 
-	return new ExprBlock(ctx.typeVoid, expressions);
+	return new ExprBlock(syntax, ctx.typeVoid, expressions);
 }
 
 ExprVoid* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax)
@@ -1767,7 +1714,7 @@ ExprVoid* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax)
 
 	ctx.AddAlias(alias);
 
-	return new ExprVoid(ctx.typeVoid);
+	return new ExprVoid(syntax, ctx.typeVoid);
 }
 
 ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
@@ -1794,7 +1741,7 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 					return AnalyzeStatement(ctx, syntax->falseBlock);
 			}
 
-			return new ExprVoid(ctx.typeVoid);
+			return new ExprVoid(syntax, ctx.typeVoid);
 		}
 
 		Stop(ctx, syntax->pos, "ERROR: can't get condition value");
@@ -1803,33 +1750,33 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
 	ExprBase *falseBlock = syntax->falseBlock ? AnalyzeStatement(ctx, syntax->falseBlock) : NULL;
 
-	return new ExprIfElse(ctx.typeVoid, condition, trueBlock, falseBlock);
+	return new ExprIfElse(syntax, ctx.typeVoid, condition, trueBlock, falseBlock);
 }
 
 ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 {
-	ExprBase *initializer = syntax->initializer ? AnalyzeStatement(ctx, syntax->initializer) : new ExprVoid(ctx.typeVoid);
+	ExprBase *initializer = syntax->initializer ? AnalyzeStatement(ctx, syntax->initializer) : new ExprVoid(syntax, ctx.typeVoid);
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
-	ExprBase *increment = syntax->increment ? AnalyzeStatement(ctx, syntax->increment) : new ExprVoid(ctx.typeVoid);
-	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(ctx.typeVoid);
+	ExprBase *increment = syntax->increment ? AnalyzeStatement(ctx, syntax->increment) : new ExprVoid(syntax, ctx.typeVoid);
+	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(syntax, ctx.typeVoid);
 
-	return new ExprFor(ctx.typeVoid, initializer, condition, increment, body);
+	return new ExprFor(syntax, ctx.typeVoid, initializer, condition, increment, body);
 }
 
 ExprWhile* AnalyzeWhile(ExpressionContext &ctx, SynWhile *syntax)
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
-	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(ctx.typeVoid);
+	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(syntax, ctx.typeVoid);
 
-	return new ExprWhile(ctx.typeVoid, condition, body);
+	return new ExprWhile(syntax, ctx.typeVoid, condition, body);
 }
 
 ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 {
-	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(ctx.typeVoid);
+	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(syntax, ctx.typeVoid);
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
-	return new ExprDoWhile(ctx.typeVoid, body, condition);
+	return new ExprDoWhile(syntax, ctx.typeVoid, body, condition);
 }
 
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope)
@@ -1845,14 +1792,14 @@ ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createSco
 	if(createScope)
 		ctx.PopScope();
 
-	return new ExprBlock(ctx.typeVoid, expressions);
+	return new ExprBlock(syntax, ctx.typeVoid, expressions);
 }
 
 ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 {
 	if(SynBool *node = getType<SynBool>(syntax))
 	{
-		return new ExprBoolLiteral(ctx.typeBool, node->value);
+		return new ExprBoolLiteral(node, ctx.typeBool, node->value);
 	}
 
 	if(SynCharacter *node = getType<SynCharacter>(syntax))
@@ -1862,7 +1809,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		if(result == '\\')
 			result = ParseEscapeSequence(ctx, node->value.begin + 1);
 
-		return new ExprCharacterLiteral(ctx.typeChar, result);
+		return new ExprCharacterLiteral(node, ctx.typeChar, result);
 	}
 
 	if(SynString *node = getType<SynString>(syntax))
@@ -1914,12 +1861,12 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 			value[length] = 0;
 		}
 
-		return new ExprStringLiteral(ctx.GetArrayType(ctx.typeChar, length + 1), value, length);
+		return new ExprStringLiteral(node, ctx.GetArrayType(ctx.typeChar, length + 1), value, length);
 	}
 	
 	if(SynNullptr *node = getType<SynNullptr>(syntax))
 	{
-		return new ExprNullptrLiteral(ctx.GetReferenceType(ctx.typeVoid));
+		return new ExprNullptrLiteral(node, ctx.GetReferenceType(ctx.typeVoid));
 	}
 
 	if(SynNumber *node = getType<SynNumber>(syntax))
@@ -1969,7 +1916,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		if(value->type == ctx.typeAuto)
 			Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
 
-		return new ExprTypeLiteral(ctx.typeTypeID, value->type);
+		return new ExprTypeLiteral(node, ctx.typeTypeID, value->type);
 	}
 
 	if(SynIdentifier *node = getType<SynIdentifier>(syntax))
@@ -1985,7 +1932,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 			if(type == ctx.typeAuto)
 				Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
 
-			return new ExprTypeLiteral(ctx.typeTypeID, type);
+			return new ExprTypeLiteral(node, ctx.typeTypeID, type);
 		}
 
 		return AnalyzeVariableAccess(ctx, node);
@@ -1998,7 +1945,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		if(value->type == ctx.typeAuto)
 			Stop(ctx, syntax->pos, "ERROR: sizeof(auto) is illegal");
 
-		return new ExprIntegerLiteral(ctx.typeInt, value->type->size);
+		return new ExprIntegerLiteral(node, ctx.typeInt, value->type->size);
 	}
 
 	if(SynConditional *node = getType<SynConditional>(syntax))
@@ -2024,7 +1971,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 			if(type == ctx.typeAuto)
 				Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
 
-			return new ExprTypeLiteral(ctx.typeTypeID, type);
+			return new ExprTypeLiteral(node, ctx.typeTypeID, type);
 		}
 
 		return AnalyzeMemberAccess(ctx, node);
@@ -2038,7 +1985,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 			if(type == ctx.typeAuto)
 				Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
 
-			return new ExprTypeLiteral(ctx.typeTypeID, type);
+			return new ExprTypeLiteral(node, ctx.typeTypeID, type);
 		}
 
 		return AnalyzeArrayIndex(ctx, node);
@@ -2148,7 +2095,7 @@ ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
 		for(SynBase *expr = node->expressions.head; expr; expr = expr->next)
 			expressions.push_back(AnalyzeStatement(ctx, expr));
 
-		return new ExprModule(ctx.typeVoid, expressions);
+		return new ExprModule(syntax, ctx.typeVoid, expressions);
 	}
 
 	return NULL;
