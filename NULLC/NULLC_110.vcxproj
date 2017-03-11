@@ -196,6 +196,7 @@
     <ClCompile Include="ExpressionTree.cpp" />
     <ClCompile Include="ExpressionEval.cpp" />
     <ClCompile Include="nullc.cpp" />
+    <ClCompile Include="ParseGraph.cpp" />
     <ClCompile Include="ParseTree.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="StrAlgo.cpp" />
@@ -253,6 +254,7 @@
     <ClInclude Include="nullc_remote.h" />
     <ClInclude Include="nullcdef.h" />
     <ClInclude Include="ParseClass.h" />
+    <ClInclude Include="ParseGraph.h" />
     <ClInclude Include="ParseTree.h" />
     <ClInclude Include="Pool.h" />
     <ClInclude Include="stdafx.h" />

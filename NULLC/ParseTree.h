@@ -925,3 +925,7 @@ struct SynModule: SynBase
 };
 
 SynBase* Parse(ParseContext &context, const char *code);
+
+const char* GetOpName(SynUnaryOpType type);
+const char* GetOpName(SynBinaryOpType type);
+const char* GetOpName(SynModifyAssignType type);

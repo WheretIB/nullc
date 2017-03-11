@@ -2418,3 +2418,105 @@ SynBase* Parse(ParseContext &ctx, const char *code)
 
 	return NULL;
 }
+
+const char* GetOpName(SynUnaryOpType type)
+{
+	switch(type)
+	{
+	case SYN_UNARY_OP_PLUS:
+		return "+";
+	case SYN_UNARY_OP_NEGATE:
+		return "-";
+	case SYN_UNARY_OP_BIT_NOT:
+		return "~";
+	case SYN_UNARY_OP_LOGICAL_NOT:
+		return "!";
+	}
+
+	assert(!"unknown operation type");
+	return "";
+}
+
+const char* GetOpName(SynBinaryOpType type)
+{
+	switch(type)
+	{
+	case SYN_BINARY_OP_ADD:
+		return "+";
+	case SYN_BINARY_OP_SUB:
+		return "-";
+	case SYN_BINARY_OP_MUL:
+		return "*";
+	case SYN_BINARY_OP_DIV:
+		return "/";
+	case SYN_BINARY_OP_MOD:
+		return "%";
+	case SYN_BINARY_OP_POW:
+		return "**";
+	case SYN_BINARY_OP_SHL:
+		return "<<";
+	case SYN_BINARY_OP_SHR:
+		return ">>";
+	case SYN_BINARY_OP_LESS:
+		return "<";
+	case SYN_BINARY_OP_LESS_EQUAL:
+		return "<=";
+	case SYN_BINARY_OP_GREATER:
+		return ">";
+	case SYN_BINARY_OP_GREATER_EQUAL:
+		return ">=";
+	case SYN_BINARY_OP_EQUAL:
+		return "==";
+	case SYN_BINARY_OP_NOT_EQUAL:
+		return "!=";
+	case SYN_BINARY_OP_BIT_AND:
+		return "&";
+	case SYN_BINARY_OP_BIT_OR:
+		return "|";
+	case SYN_BINARY_OP_BIT_XOR:
+		return "^";
+	case SYN_BINARY_OP_LOGICAL_AND:
+		return "&&";
+	case SYN_BINARY_OP_LOGICAL_OR:
+		return "||";
+	case SYN_BINARY_OP_LOGICAL_XOR:
+		return "^^";
+	case SYN_BINARY_OP_IN:
+		return "in";
+	}
+
+	assert(!"unknown operation type");
+	return "";
+}
+
+const char* GetOpName(SynModifyAssignType type)
+{
+	switch(type)
+	{
+	case SYN_MODIFY_ASSIGN_ADD:
+		return "+=";
+	case SYN_MODIFY_ASSIGN_SUB:
+		return "-=";
+	case SYN_MODIFY_ASSIGN_MUL:
+		return "*=";
+	case SYN_MODIFY_ASSIGN_DIV:
+		return "/=";
+	case SYN_MODIFY_ASSIGN_POW:
+		return "**=";
+	case SYN_MODIFY_ASSIGN_MOD:
+		return "%=";
+	case SYN_MODIFY_ASSIGN_SHL:
+		return "<<=";
+	case SYN_MODIFY_ASSIGN_SHR:
+		return ">>=";
+	case SYN_MODIFY_ASSIGN_BIT_AND:
+		return "&=";
+	case SYN_MODIFY_ASSIGN_BIT_OR:
+		return "|=";
+	case SYN_MODIFY_ASSIGN_BIT_XOR:
+		return "^=";
+	}
+
+	assert(!"unknown operation type");
+	return "";
+}
