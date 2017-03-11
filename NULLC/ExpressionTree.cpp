@@ -1743,6 +1743,8 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 	{
 		NamespaceData *ns = new NamespaceData(ctx.scopes.back(), name->name);
 
+		ctx.namespaces.push_back(ns);
+
 		ctx.PushScope(ns);
 	}
 
