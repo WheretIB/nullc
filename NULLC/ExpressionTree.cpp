@@ -1,5 +1,7 @@
 #include "ExpressionTree.h"
 
+#include "BinaryCache.h"
+#include "Bytecode.h"
 #include "ExpressionEval.h"
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
