@@ -30,6 +30,8 @@ namespace
 		va_start(args, msg);
 
 		Stop(ctx, pos, msg, args);
+
+		va_end(args);
 	}
 
 	unsigned char ParseEscapeSequence(ExpressionContext &ctx, const char* str)
@@ -292,6 +294,8 @@ void ExpressionContext::Stop(const char *pos, const char *msg, ...)
 	va_start(args, msg);
 
 	::Stop(*this, pos, msg, args);
+
+	va_end(args);
 }
 
 void ExpressionContext::PushScope()
