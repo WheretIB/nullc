@@ -1014,7 +1014,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 
 		Stop(ctx, value.begin, "ERROR: overflow in decimal constant");
 	}
-		
+
 	if(syntax->suffix == InplaceStr("f"))
 	{
 		double num = ParseDouble(ctx, value.begin);
@@ -2134,13 +2134,423 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 	return AnalyzeExpression(ctx, syntax);
 }
 
+struct ModuleContext
+{
+	ModuleContext(): bytecode(NULL), name(NULL)
+	{
+	}
+
+	const char* bytecode;
+	const char *name;
+
+	FastVector<TypeBase*, true, true> types;
+};
+
+void ImportModuleNamespaces(ExpressionContext &ctx, const char *pos, ModuleContext &module)
+{
+	ByteCode *bCode = (ByteCode*)module.bytecode;
+	char *symbols = FindSymbols(bCode);
+
+	// Import namespaces
+	ExternNamespaceInfo *namespaceList = FindFirstNamespace(bCode);
+
+	for(unsigned i = 0; i < bCode->namespaceCount; i++)
+	{
+		ExternNamespaceInfo &ns = namespaceList[i];
+
+		NamespaceData *parent = NULL;
+
+		if(ns.parentHash != ~0u)
+		{
+			for(unsigned k = 0; k < ctx.namespaces.size(); k++)
+			{
+				if(ctx.namespaces[k]->nameHash == ns.parentHash)
+				{
+					parent = ctx.namespaces[k];
+					break;
+				}
+			}
+
+			if(!parent)
+				Stop(ctx, pos, "ERROR: namespace %s parent not found", symbols + ns.offsetToName);
+		}
+
+		if(parent)
+		{
+			Stop(ctx, pos, "ERROR: can't import nested namespace");
+		}
+		else
+		{
+			ctx.namespaces.push_back(new NamespaceData(ctx.scopes.back(), InplaceStr(symbols + ns.offsetToName)));
+		}
+	}
+}
+
+void ImportModuleTypes(ExpressionContext &ctx, const char *pos, ModuleContext &module)
+{
+	ByteCode *bCode = (ByteCode*)module.bytecode;
+	char *symbols = FindSymbols(bCode);
+
+	// Import types
+	ExternTypeInfo *typeList = FindFirstType(bCode);
+	ExternMemberInfo *memberList = (ExternMemberInfo*)(typeList + bCode->typeCount);
+	ExternConstantInfo *constantList = FindFirstConstant(bCode);
+
+	module.types.resize(bCode->typeCount);
+
+	for(unsigned i = 0; i < bCode->typeCount; i++)
+	{
+		ExternTypeInfo &type = typeList[i];
+
+		// Skip existing types
+		if(TypeBase **prev = ctx.typeMap.find(type.nameHash))
+		{
+			module.types[i] = *prev;
+			continue;
+		}
+
+		switch(type.subCat)
+		{
+		case ExternTypeInfo::CAT_NONE:
+			if(strcmp(symbols + type.offsetToName, "generic") == 0)
+			{
+				// TODO: after generic type clean-up we should have this type as a real one
+				module.types[i] = new TypeGeneric(InplaceStr("generic"));
+			}
+			else
+			{
+				Stop(ctx, pos, "ERROR: new type in module %s named %s unsupported", module.name, symbols + type.offsetToName);
+			}
+			break;
+		case ExternTypeInfo::CAT_ARRAY:
+			if(TypeBase *subType = module.types[type.subType])
+			{
+				if(type.arrSize == ~0u)
+					module.types[i] = ctx.GetUnsizedArrayType(subType);
+				else
+					module.types[i] = ctx.GetArrayType(subType, type.arrSize);
+			}
+			else
+			{
+				Stop(ctx, pos, "ERROR: can't find sub type for '%s' in module %s", symbols + type.offsetToName, module.name);
+			}
+			break;
+		case ExternTypeInfo::CAT_POINTER:
+			if(TypeBase *subType = module.types[type.subType])
+			{
+				module.types[i] = ctx.GetReferenceType(subType);
+			}
+			else
+			{
+				Stop(ctx, pos, "ERROR: can't find sub type for '%s' in module %s", symbols + type.offsetToName, module.name);
+			}
+			break;
+		case ExternTypeInfo::CAT_FUNCTION:
+			if(TypeBase *returnType = module.types[memberList[type.memberOffset].type])
+			{
+				IntrusiveList<TypeHandle> arguments;
+
+				for(unsigned n = 0; n < type.memberCount; n++)
+				{
+					TypeBase *argType = module.types[memberList[type.memberOffset + n + 1].type];
+
+					if(!argType)
+						Stop(ctx, pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
+
+					arguments.push_back(new TypeHandle(argType));
+				}
+
+				module.types[i] = ctx.GetFunctionType(returnType, arguments);
+			}
+			else
+			{
+				Stop(ctx, pos, "ERROR: can't find return type for '%s' in module %s", symbols + type.offsetToName, module.name);
+			}
+			break;
+		case ExternTypeInfo::CAT_CLASS:
+			{
+				if(type.namespaceHash != ~0u)
+					Stop(ctx, pos, "ERROR: can't import namespace type");
+
+				if(type.constantCount != 0)
+					Stop(ctx, pos, "ERROR: can't import constants of type");
+
+				if(type.definitionOffset != ~0u)
+				{
+					if(type.definitionOffset & 0x80000000)
+						Stop(ctx, pos, "ERROR: can't import derived type");
+					else
+						Stop(ctx, pos, "ERROR: can't import generic base type");
+				}
+
+				InplaceStr className = InplaceStr(symbols + type.offsetToName);
+
+				IntrusiveList<SynIdentifier> aliases;
+				IntrusiveList<TypeHandle> generics;
+
+				TypeClass *classType = new TypeClass(ctx.scopes.back(), className, aliases, generics, false, NULL);
+
+				classType->alignment = type.defaultAlign;
+
+				ctx.AddType(classType);
+
+				module.types[i] = classType;
+
+				const char *memberNames = className.end + 1;
+
+				ctx.PushScope(classType);
+
+				for(unsigned n = 0; n < type.memberCount; n++)
+				{
+					InplaceStr memberName = InplaceStr(memberNames);
+					memberNames = memberName.end + 1;
+
+					TypeBase *memberType = module.types[memberList[type.memberOffset + n].type];
+
+					if(!memberType)
+						Stop(ctx, pos, "ERROR: can't find member %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
+
+					VariableData *member = new VariableData(ctx.scopes.back(), 0, memberType, memberName);
+
+					classType->members.push_back(new VariableHandle(member));
+				}
+
+				ctx.PopScope();
+			}
+			break;
+		default:
+			Stop(ctx, pos, "ERROR: new type in module %s named %s unsupported", module.name, symbols + type.offsetToName);
+		}
+	}
+}
+
+void ImportModuleVariables(ExpressionContext &ctx, const char *pos, ModuleContext &module)
+{
+	ByteCode *bCode = (ByteCode*)module.bytecode;
+	char *symbols = FindSymbols(bCode);
+
+	// Import variables
+	ExternVarInfo *variableList = FindFirstVar(bCode);
+
+	for(unsigned i = 0; i < bCode->variableExportCount; i++)
+	{
+		ExternVarInfo &variable = variableList[i];
+
+		InplaceStr name = InplaceStr(symbols + variable.offsetToName);
+
+		// Exclude temporary variables from import
+		if(name == InplaceStr("$temp"))
+			continue;
+
+		TypeBase *type = module.types[variable.type];
+
+		if(!type)
+			Stop(ctx, pos, "ERROR: can't find variable '%s' type in module %s", symbols + variable.offsetToName, module.name);
+
+		VariableData *data = new VariableData(ctx.scopes.back(), 0, type, name);
+
+		ctx.AddVariable(data);
+	}
+}
+
+void ImportModuleTypedefs(ExpressionContext &ctx, const char *pos, ModuleContext &module)
+{
+	ByteCode *bCode = (ByteCode*)module.bytecode;
+	char *symbols = FindSymbols(bCode);
+
+	// Import type aliases
+	ExternTypedefInfo *aliasList = FindFirstTypedef(bCode);
+
+	for(unsigned i = 0; i < bCode->typedefCount; i++)
+	{
+		ExternTypedefInfo &alias = aliasList[i];
+
+		InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
+
+		TypeBase *targetType = module.types[alias.targetType];
+
+		if(!targetType)
+			Stop(ctx, pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, module.name);
+
+		if(TypeBase **prev = ctx.typeMap.find(aliasName.hash()))
+		{
+			TypeBase *type = *prev;
+
+			if(type->name == aliasName)
+				Stop(ctx, pos, "ERROR: type '%.*s' alias '%s' is equal to previously imported class", FMT_ISTR(targetType->name), symbols + alias.offsetToName);
+
+			if(type != targetType)
+				Stop(ctx, pos, "ERROR: type '%.*s' alias '%s' is equal to previously imported alias", FMT_ISTR(targetType->name), symbols + alias.offsetToName);
+		}
+		else if(alias.parentType != ~0u)
+		{
+			Stop(ctx, pos, "ERROR: can't import class alias");
+		}
+		else
+		{
+			AliasData *alias = new AliasData(ctx.scopes.back(), targetType, aliasName);
+
+			ctx.AddAlias(alias);
+		}
+	}
+}
+
+void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContext &module)
+{
+	ByteCode *bCode = (ByteCode*)module.bytecode;
+	char *symbols = FindSymbols(bCode);
+
+	// Import functions
+	ExternFuncInfo *functionList = FindFirstFunc(bCode);
+	ExternLocalInfo *localList = FindFirstLocal(bCode);
+
+	for(unsigned i = 0; i < bCode->functionCount - bCode->moduleFunctionCount; i++)
+	{
+		ExternFuncInfo &function = functionList[i];
+
+		TypeBase *functionType = module.types[function.funcType];
+
+		if(!functionType)
+			Stop(ctx, pos, "ERROR: can't find function '%s' type in module %s", symbols + function.offsetToName, module.name);
+
+		if(function.namespaceHash != ~0u)
+			Stop(ctx, pos, "ERROR: can't import namespace function");
+
+		TypeBase *parentType = NULL;
+
+		if(function.parentType != ~0u)
+		{
+			parentType = module.types[function.parentType];
+
+			if(!parentType)
+				Stop(ctx, pos, "ERROR: can't find function '%s' parent type in module %s", symbols + function.offsetToName, module.name);
+		}
+
+		TypeBase *contextType = NULL;
+
+		if(function.contextType != ~0u)
+		{
+			contextType = module.types[function.contextType];
+
+			if(!contextType)
+				Stop(ctx, pos, "ERROR: can't find function '%s' context type in module %s", symbols + function.offsetToName, module.name);
+		}
+
+		if(function.explicitTypeCount != 0)
+			Stop(ctx, pos, "ERROR: can't import generic function with explicit arguments");
+
+		bool coroutine = function.funcCat == ExternFuncInfo::COROUTINE;
+
+		InplaceStr functionName = InplaceStr(symbols + function.offsetToName);
+
+		FunctionData *data = new FunctionData(ctx.scopes.back(), coroutine, getType<TypeFunction>(functionType), functionName, NULL);
+
+		ctx.AddFunction(data);
+
+		if(parentType)
+			ctx.PushScope(parentType);
+
+		ctx.PushScope(data);
+
+		if(parentType)
+		{
+			TypeBase *type = ctx.GetReferenceType(parentType);
+
+			VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, InplaceStr("this"));
+
+			ctx.AddVariable(variable);
+		}
+
+		for(unsigned n = 0; n < function.paramCount; n++)
+		{
+			ExternLocalInfo &argument = localList[function.offsetToFirstLocal + n];
+
+			TypeBase *argType = module.types[argument.type];
+
+			if(!argType)
+				Stop(ctx, pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + function.offsetToName, module.name);
+
+			InplaceStr argName = InplaceStr(symbols + argument.offsetToName);
+
+			VariableData *variable = new VariableData(ctx.scopes.back(), 0, argType, argName);
+
+			ctx.AddVariable(variable);
+		}
+
+		ctx.PopScope();
+
+		if(parentType)
+			ctx.PopScope();
+	}
+}
+
+void ImportModule(ExpressionContext &ctx, const char *pos, const char* bytecode, const char* name)
+{
+	ModuleContext module;
+
+	module.bytecode = bytecode;
+	module.name = name;
+
+	ImportModuleNamespaces(ctx, pos, module);
+
+	ImportModuleTypes(ctx, pos, module);
+
+	ImportModuleVariables(ctx, pos, module);
+
+	ImportModuleTypedefs(ctx, pos, module);
+
+	ImportModuleFunctions(ctx, pos, module);
+}
+
 void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 {
-	Stop(ctx, syntax->pos, "ERROR: module import is not implemented");
+	const char *importPath = BinaryCache::GetImportPath();
+
+	unsigned pathLength = (importPath ? strlen(importPath) : 0) + syntax->path.size() - 1 + strlen(".nc");
+
+	for(SynIdentifier *part = syntax->path.head; part; part = getType<SynIdentifier>(part->next))
+		pathLength += part->name.length();
+
+	char *path = new char[pathLength + 1];
+	char *pathNoImport = importPath ? path + strlen(importPath) : path;
+
+	char *pos = path;
+
+	if(importPath)
+	{
+		strcpy(pos, importPath);
+		pos += strlen(importPath);
+	}
+
+	for(SynIdentifier *part = syntax->path.head; part; part = getType<SynIdentifier>(part->next))
+	{
+		sprintf(pos, "%.*s", FMT_ISTR(part->name));
+		pos += part->name.length();
+
+		if(part->next)
+			*pos++ = '/';
+	}
+
+	strcpy(pos, ".nc");
+	pos += strlen(".nc");
+
+	*pos = 0;
+
+	if(const char *bytecode = BinaryCache::GetBytecode(path))
+		ImportModule(ctx, syntax->pos, bytecode, pathNoImport);
+	else if(const char *bytecode = BinaryCache::GetBytecode(pathNoImport))
+		ImportModule(ctx, syntax->pos, bytecode, pathNoImport);
+	else
+		Stop(ctx, syntax->pos, "ERROR: module import is not implemented");
 }
 
 ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
 {
+	if(const char *bytecode = BinaryCache::GetBytecode("$base$.nc"))
+		ImportModule(ctx, syntax->pos, bytecode, "$base$.nc");
+	else
+		Stop(ctx, syntax->pos, "ERROR: base module couldn't be imported");
+
 	if(SynModule *node = getType<SynModule>(syntax))
 	{
 		for(SynModuleImport *import = node->imports.head; import; import = getType<SynModuleImport>(import->next))
