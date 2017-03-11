@@ -261,11 +261,11 @@ struct ExprBinaryOp: ExprBase
 
 struct ExprGetAddress: ExprBase
 {
-	ExprGetAddress(SynBase *source, TypeBase *type, ExprBase* value): ExprBase(myTypeID, source, type), value(value)
+	ExprGetAddress(SynBase *source, TypeBase *type, VariableData *variable): ExprBase(myTypeID, source, type), variable(variable)
 	{
 	}
 
-	ExprBase* value;
+	VariableData *variable;
 
 	static const unsigned myTypeID = __LINE__;
 };

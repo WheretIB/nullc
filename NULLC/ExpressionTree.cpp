@@ -1145,11 +1145,22 @@ ExprBinaryOp* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 	return new ExprBinaryOp(syntax, resultType, syntax->type, lhs, rhs);
 }
 
-ExprGetAddress* AnalyzeGetAddress(ExpressionContext &ctx, SynGetAddress *syntax)
+ExprBase* AnalyzeGetAddress(ExpressionContext &ctx, SynGetAddress *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-	return new ExprGetAddress(syntax, ctx.GetReferenceType(value->type), value);
+	if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
+	{
+		return new ExprGetAddress(syntax, ctx.GetReferenceType(value->type), node->variable);
+	}
+	else if(ExprDereference *node = getType<ExprDereference>(value))
+	{
+		return node->value;
+	}
+
+	Stop(ctx, syntax->pos, "ERROR: cannot get address of the expression");
+
+	return NULL;
 }
 
 ExprDereference* AnalyzeDereference(ExpressionContext &ctx, SynDereference *syntax)
@@ -1246,37 +1257,75 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 		Stop(ctx, syntax->pos, "ERROR: array doesn't have member with this name");
 	}
 
-	if(TypeStruct *node = getType<TypeStruct>(value->type))
+	ExprBase* wrapped = value;
+
+	if(TypeRef *refType = getType<TypeRef>(value->type))
 	{
-		for(VariableHandle *el = node->members.head; el; el = el->next)
+		value = new ExprDereference(syntax, refType->subType, value);
+	}
+	else
+	{
+		if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
 		{
-			if(el->variable->name == syntax->member)
-				return new ExprMemberAccess(syntax, el->variable->type, value, el->variable); 
+			wrapped = new ExprGetAddress(syntax, ctx.GetReferenceType(value->type), node->variable);
+		}
+		else if(ExprDereference *node = getType<ExprDereference>(value))
+		{
+			wrapped = node->value;
 		}
 	}
 
-	Stop(ctx, syntax->pos, "ERROR: member variable or function '%.*s' is not defined in class '%.*s'", FMT_ISTR(syntax->member), FMT_ISTR(value->type->name));
+	if(isType<TypeRef>(wrapped->type))
+	{
+		if(TypeStruct *node = getType<TypeStruct>(value->type))
+		{
+			for(VariableHandle *el = node->members.head; el; el = el->next)
+			{
+				if(el->variable->name == syntax->member)
+				{
+					// Member access only shifts an address, so we are left with a reference to get value from
+					ExprMemberAccess *shift = new ExprMemberAccess(syntax, ctx.GetReferenceType(el->variable->type), wrapped, el->variable);
+
+					return new ExprDereference(syntax, el->variable->type, shift);
+				}
+			}
+
+			Stop(ctx, syntax->pos, "ERROR: member variable or function '%.*s' is not defined in class '%.*s'", FMT_ISTR(syntax->member), FMT_ISTR(value->type->name));
+		}
+	}
+
+	Stop(ctx, syntax->pos, "ERROR: can't access member '%.*s' of type '%.*s'", FMT_ISTR(syntax->member), FMT_ISTR(value->type->name));
 
 	return NULL;
 }
 
-ExprArrayIndex* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
+ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->type);
 	ExprBase *index = AnalyzeExpression(ctx, syntax->size);
 
 	if(TypeArray *type = getType<TypeArray>(value->type))
-		return new ExprArrayIndex(syntax, type->subType, value, index);
+	{
+		// Array index only shifts an address, so we are left with a reference to get value from
+		ExprArrayIndex *shift = new ExprArrayIndex(syntax, ctx.GetReferenceType(type->subType), value, index);
+
+		return new ExprDereference(syntax, type->subType, shift);
+	}
 
 	if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value->type))
-		return new ExprArrayIndex(syntax, type->subType, value, index);
+	{
+		// Array index only shifts an address, so we are left with a reference to get value from
+		ExprArrayIndex *shift = new ExprArrayIndex(syntax, ctx.GetReferenceType(type->subType), value, index);
+
+		return new ExprDereference(syntax, type->subType, shift);
+	}
 
 	Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not an array", FMT_ISTR(value->type->name));
 
 	return NULL;
 }
 
-ExprArrayIndex* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
+ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 {
 	if(syntax->arguments.size() > 1)
 		Stop(ctx, syntax->pos, "ERROR: multiple array indexes are not supported");
@@ -1289,10 +1338,20 @@ ExprArrayIndex* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 	ExprBase *index = AnalyzeExpression(ctx, syntax->arguments.head);
 
 	if(TypeArray *type = getType<TypeArray>(value->type))
-		return new ExprArrayIndex(syntax, type->subType, value, index);
+	{
+		// Array index only shifts an address, so we are left with a reference to get value from
+		ExprArrayIndex *shift = new ExprArrayIndex(syntax, ctx.GetReferenceType(type->subType), value, index);
+
+		return new ExprDereference(syntax, type->subType, shift);
+	}
 
 	if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value->type))
-		return new ExprArrayIndex(syntax, type->subType, value, index);
+	{
+		// Array index only shifts an address, so we are left with a reference to get value from
+		ExprArrayIndex *shift = new ExprArrayIndex(syntax, ctx.GetReferenceType(type->subType), value, index);
+
+		return new ExprDereference(syntax, type->subType, shift);
+	}
 
 	Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not an array", FMT_ISTR(value->type->name));
 
