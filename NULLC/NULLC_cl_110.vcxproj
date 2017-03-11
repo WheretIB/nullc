@@ -190,6 +190,7 @@
     <ClCompile Include="Bytecode.cpp" />
     <ClCompile Include="CodeInfo.cpp" />
     <ClCompile Include="ExpressionEval.cpp" />
+    <ClCompile Include="ExpressionGraph.cpp" />
     <ClCompile Include="ExpressionTree.cpp" />
     <ClCompile Include="nullc.cpp" />
     <ClCompile Include="ParseGraph.cpp" />
@@ -213,6 +214,7 @@
     <ClInclude Include="Bytecode.h" />
     <ClInclude Include="CodeInfo.h" />
     <ClInclude Include="ExpressionEval.h" />
+    <ClInclude Include="ExpressionGraph.h" />
     <ClInclude Include="ExpressionTree.h" />
     <ClInclude Include="HashMap.h" />
     <ClInclude Include="InstructionSet.h" />

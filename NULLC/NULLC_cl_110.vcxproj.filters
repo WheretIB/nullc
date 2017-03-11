@@ -74,6 +74,9 @@
     <ClCompile Include="ParseGraph.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
+    <ClCompile Include="ExpressionGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -143,6 +146,9 @@
       <Filter>Compiler</Filter>
     </ClInclude>
     <ClInclude Include="ParseGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpressionGraph.h">
       <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>
