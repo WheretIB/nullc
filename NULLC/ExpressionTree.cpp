@@ -593,6 +593,38 @@ ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createSco
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 
+// Apply in reverse order
+TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase *sizes)
+{
+	SynBase *size = sizes;
+
+	if(isType<SynNothing>(size))
+		size = NULL;
+
+	if(sizes->next)
+		type = ApplyArraySizesToType(ctx, type, sizes->next);
+
+	if(isType<TypeAuto>(type))
+	{
+		if(size)
+			Stop(ctx, size->pos, "ERROR: cannot specify array size for auto");
+
+		return ctx.typeAutoArray;
+	}
+
+	if(!size)
+		return ctx.GetUnsizedArrayType(type);
+
+	ExprBase *sizeValue = AnalyzeExpression(ctx, size);
+
+	if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, size->pos, sizeValue, ctx.typeLong))))
+		return ctx.GetArrayType(type, number->value);
+
+	Stop(ctx, size->pos, "ERROR: can't get array size");
+
+	return NULL;
+}
+
 TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = true)
 {
 	if(SynTypeAuto *node = getType<SynTypeAuto>(syntax))
@@ -629,23 +661,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		if(!onlyType && !type)
 			return NULL;
 
-		if(isType<TypeAuto>(type))
-		{
-			if(node->size)
-				Stop(ctx, syntax->pos, "ERROR: cannot specify array size for auto");
-
-			return ctx.typeAutoArray;
-		}
-
-		if(!node->size)
-			return ctx.GetUnsizedArrayType(type);
-
-		ExprBase *size = AnalyzeExpression(ctx, node->size);
-		
-		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, node->pos, size, ctx.typeLong))))
-			return ctx.GetArrayType(type, number->value);
-
-		Stop(ctx, syntax->pos, "ERROR: can't get array size");
+		return ApplyArraySizesToType(ctx, type, node->sizes.head);
 	}
 
 	if(SynArrayIndex *node = getType<SynArrayIndex>(syntax))
@@ -1299,13 +1315,33 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 	return NULL;
 }
 
-ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
+ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 {
-	ExprBase *value = AnalyzeExpression(ctx, syntax->type);
-	ExprBase *index = AnalyzeExpression(ctx, syntax->size);
+	if(syntax->arguments.size() > 1)
+		Stop(ctx, syntax->pos, "ERROR: multiple array indexes are not supported");
+
+	if(syntax->arguments.empty())
+		Stop(ctx, syntax->pos, "ERROR: array index is missing");
+
+	SynCallArgument *argument = syntax->arguments.head;
+
+	if(!argument->name.empty())
+		Stop(ctx, syntax->pos, "ERROR: named array indexes are not supported");
+
+	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
+
+	ExprBase *index = AnalyzeExpression(ctx, argument->value);
+
+	ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, syntax->pos, index, ctx.typeLong)));
+
+	if(indexValue && indexValue->value < 0)
+		Stop(ctx, syntax->pos, "ERROR: array index cannot be negative");
 
 	if(TypeArray *type = getType<TypeArray>(value->type))
 	{
+		if(indexValue && indexValue->value >= type->length)
+			Stop(ctx, syntax->pos, "ERROR: array index bounds");
+
 		// Array index only shifts an address, so we are left with a reference to get value from
 		ExprArrayIndex *shift = new ExprArrayIndex(syntax, ctx.GetReferenceType(type->subType), value, index);
 
@@ -1325,37 +1361,24 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
 	return NULL;
 }
 
-ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
+ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
 {
-	if(syntax->arguments.size() > 1)
-		Stop(ctx, syntax->pos, "ERROR: multiple array indexes are not supported");
+	assert(syntax->sizes.head);
 
-	if(syntax->arguments.empty())
-		Stop(ctx, syntax->pos, "ERROR: array index is missing");
+	SynArrayIndex *value = NULL;
 
-	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
-
-	ExprBase *index = AnalyzeExpression(ctx, syntax->arguments.head);
-
-	if(TypeArray *type = getType<TypeArray>(value->type))
+	// Convert to a chain of SynArrayIndex
+	for(SynBase *el = syntax->sizes.head; el; el = el->next)
 	{
-		// Array index only shifts an address, so we are left with a reference to get value from
-		ExprArrayIndex *shift = new ExprArrayIndex(syntax, ctx.GetReferenceType(type->subType), value, index);
+		IntrusiveList<SynCallArgument> arguments;
 
-		return new ExprDereference(syntax, type->subType, shift);
+		if(!isType<SynNothing>(el))
+			arguments.push_back(new SynCallArgument(el->pos, InplaceStr(), el));
+
+		value = new SynArrayIndex(el->pos, value ? value : syntax->type, arguments);
 	}
 
-	if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value->type))
-	{
-		// Array index only shifts an address, so we are left with a reference to get value from
-		ExprArrayIndex *shift = new ExprArrayIndex(syntax, ctx.GetReferenceType(type->subType), value, index);
-
-		return new ExprDereference(syntax, type->subType, shift);
-	}
-
-	Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not an array", FMT_ISTR(value->type->name));
-
-	return NULL;
+	return AnalyzeArrayIndex(ctx, value);
 }
 
 ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
@@ -1393,28 +1416,14 @@ ExprFunctionCall* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 	if(!syntax->arguments.empty())
 		Stop(ctx, syntax->pos, "ERROR: constructor call is not supported");
 
-	TypeBase *type = NULL;
-	SynBase *synCount = NULL;
-
-	if(syntax->count == NULL && isType<SynTypeArray>(syntax->type))
-	{
-		SynTypeArray *node = getType<SynTypeArray>(syntax->type);
-
-		type = AnalyzeType(ctx, node->type);
-		synCount = node->size;
-	}
-	else
-	{
-		type = AnalyzeType(ctx, syntax->type);
-		synCount = syntax->count;
-	}
+	TypeBase *type = AnalyzeType(ctx, syntax->type);
 
 	ExprFunctionCall *call = NULL;
 
-	if(synCount)
+	if(syntax->count)
 	{
 		// TODO: implicit cast for manual function call
-		ExprBase *count = AnalyzeExpression(ctx, synCount);
+		ExprBase *count = AnalyzeExpression(ctx, syntax->count);
 
 		FunctionData **function = ctx.functionMap.find(GetStringHash("__newA"));
 

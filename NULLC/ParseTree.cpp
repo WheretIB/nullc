@@ -532,21 +532,33 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow)
 
 	while(ctx.At(lex_obracket) || ctx.At(lex_ref))
 	{
-		if(ctx.Consume(lex_obracket))
+		if(ctx.At(lex_obracket))
 		{
-			SynBase *size = ParseTernaryExpr(ctx);
+			IntrusiveList<SynBase> sizes;
 
-			if(size && !ctx.At(lex_cbracket))
+			while(ctx.Consume(lex_obracket))
 			{
-				// Backtrack
-				ctx.currentLexeme = lexeme;
+				const char *sizeStart = ctx.Position();
 
-				return NULL;
+				SynBase *size = ParseTernaryExpr(ctx);
+
+				if(size && !ctx.At(lex_cbracket))
+				{
+					// Backtrack
+					ctx.currentLexeme = lexeme;
+
+					return NULL;
+				}
+
+				AssertConsume(ctx, lex_cbracket, "ERROR: matching ']' not found");
+
+				if(size)
+					sizes.push_back(size);
+				else
+					sizes.push_back(new SynNothing(sizeStart));
 			}
 
-			AssertConsume(ctx, lex_cbracket, "ERROR: matching ']' not found");
-
-			base = new SynTypeArray(start, base, size);
+			base = new SynTypeArray(start, base, sizes);
 		}
 		else if(ctx.Consume(lex_ref))
 		{
@@ -732,7 +744,9 @@ SynNew* ParseNew(ParseContext &ctx)
 	{
 		SynBase *type = NULL;
 
-		if(ctx.Consume(lex_oparen))
+		bool explicitType = ctx.Consume(lex_oparen);
+
+		if(explicitType)
 		{
 			type = ParseType(ctx);
 
@@ -763,6 +777,31 @@ SynNew* ParseNew(ParseContext &ctx)
 			AssertConsume(ctx, lex_cbracket, "ERROR: ']' not found after expression");
 
 			return new SynNew(start, type, arguments, count, constructor);
+		}
+		else if(!explicitType && isType<SynTypeArray>(type))
+		{
+			SynTypeArray *arrayType = getType<SynTypeArray>(type);
+
+			// Try to extract last array type extent as a size
+			SynBase *prevSize = NULL;
+			SynBase *count = arrayType->sizes.head;
+
+			while(count->next)
+			{
+				prevSize = count;
+				count = count->next;
+			}
+
+			// Check if the extent is real
+			if(!isType<SynNothing>(count))
+			{
+				if(prevSize)
+					prevSize->next = NULL;
+				else
+					type = arrayType->type;
+
+				return new SynNew(start, type, arguments, count, constructor);
+			}
 		}
 
 		if(ctx.Consume(lex_oparen))

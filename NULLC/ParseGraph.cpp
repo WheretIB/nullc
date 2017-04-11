@@ -69,7 +69,11 @@ void PrintLeaveBlock(ParseGraphContext &ctx)
 
 void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 {
-	if(SynIdentifier *node = getType<SynIdentifier>(syntax))
+	if(SynNothing *node = getType<SynNothing>(syntax))
+	{
+		PrintIndented(ctx, name, "SynNothing()");
+	}
+	else if(SynIdentifier *node = getType<SynIdentifier>(syntax))
 	{
 		PrintIndented(ctx, name, "SynIdentifier(%.*s)", FMT_ISTR(node->name));
 	}
@@ -99,7 +103,13 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 		PrintEnterBlock(ctx, name, "SynTypeArray()");
 
 		PrintGraph(ctx, node->type, "type");
-		PrintGraph(ctx, node->size, "size");
+
+		PrintEnterBlock(ctx, "sizes", "");
+
+		for(SynBase *size = node->sizes.head; size; size = size->next)
+			PrintGraph(ctx, size, "");
+
+		PrintLeaveBlock(ctx);
 
 		PrintLeaveBlock(ctx);
 	}

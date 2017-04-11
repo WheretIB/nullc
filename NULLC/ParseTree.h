@@ -69,6 +69,15 @@ T* getType(SynBase *node)
 	return 0;
 }
 
+struct SynNothing: SynBase
+{
+	SynNothing(const char* pos): SynBase(myTypeID, pos)
+	{
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct SynIdentifier: SynBase
 {
 	SynIdentifier(const char* pos, InplaceStr name): SynBase(myTypeID, pos), name(name)
@@ -123,12 +132,12 @@ struct SynTypeAlias: SynBase
 
 struct SynTypeArray: SynBase
 {
-	SynTypeArray(const char *pos, SynBase *type, SynBase *size): SynBase(myTypeID, pos), type(type), size(size)
+	SynTypeArray(const char *pos, SynBase *type, IntrusiveList<SynBase> sizes): SynBase(myTypeID, pos), type(type), sizes(sizes)
 	{
 	}
 
 	SynBase *type;
-	SynBase *size;
+	IntrusiveList<SynBase> sizes;
 
 	static const unsigned myTypeID = __LINE__;
 };
