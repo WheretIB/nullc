@@ -1217,7 +1217,21 @@ ExprAssignment* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
-	return new ExprAssignment(syntax, lhs->type, lhs, rhs);
+	ExprBase* wrapped = lhs;
+
+	if(ExprVariableAccess *node = getType<ExprVariableAccess>(lhs))
+	{
+		wrapped = new ExprGetAddress(syntax, ctx.GetReferenceType(lhs->type), node->variable);
+	}
+	else if(ExprDereference *node = getType<ExprDereference>(lhs))
+	{
+		wrapped = node->value;
+	}
+
+	if(!isType<TypeRef>(wrapped->type))
+		Stop(ctx, syntax->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
+
+	return new ExprAssignment(syntax, lhs->type, wrapped, rhs);
 }
 
 ExprModifyAssignment* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *syntax)
@@ -1225,7 +1239,21 @@ ExprModifyAssignment* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyA
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
-	return new ExprModifyAssignment(syntax, lhs->type, syntax->type, lhs, rhs);
+	ExprBase* wrapped = lhs;
+
+	if(ExprVariableAccess *node = getType<ExprVariableAccess>(lhs))
+	{
+		wrapped = new ExprGetAddress(syntax, ctx.GetReferenceType(lhs->type), node->variable);
+	}
+	else if(ExprDereference *node = getType<ExprDereference>(lhs))
+	{
+		wrapped = node->value;
+	}
+
+	if(!isType<TypeRef>(wrapped->type))
+		Stop(ctx, syntax->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
+
+	return new ExprModifyAssignment(syntax, lhs->type, syntax->type, wrapped, rhs);
 }
 
 ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
