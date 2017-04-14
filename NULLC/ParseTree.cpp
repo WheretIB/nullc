@@ -14,12 +14,11 @@ namespace
 	{
 		ctx.errorPos = pos;
 
-		char errorText[4096];
-
-		vsnprintf(errorText, 4096, msg, args);
-		errorText[4096 - 1] = '\0';
-
-		ctx.errorMsg = InplaceStr(errorText);
+		if(ctx.errorBuf && ctx.errorBufSize)
+		{
+			vsnprintf(ctx.errorBuf, ctx.errorBufSize, msg, args);
+			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
+		}
 
 		longjmp(errorHandler, 1);
 	}
@@ -227,6 +226,8 @@ ParseContext::ParseContext()
 	currentLexeme = NULL;
 
 	errorPos = NULL;
+	errorBuf = NULL;
+	errorBufSize = 0;
 
 	currentNamespace = NULL;
 }

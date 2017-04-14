@@ -35,7 +35,8 @@ struct ParseContext
 	SynNamespaceElement *currentNamespace;
 
 	const char *errorPos;
-	InplaceStr errorMsg;
+	char *errorBuf;
+	unsigned errorBufSize;
 };
 
 struct SynBase

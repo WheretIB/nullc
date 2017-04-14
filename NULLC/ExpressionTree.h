@@ -61,7 +61,8 @@ struct ExpressionContext
 
 	// Error info
 	const char *errorPos;
-	InplaceStr errorMsg;
+	char *errorBuf;
+	unsigned errorBufSize;
 
 	// Base types
 	TypeBase* typeVoid;
