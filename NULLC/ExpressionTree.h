@@ -355,6 +355,17 @@ struct ExprReturn: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprYield: ExprBase
+{
+	ExprYield(SynBase *source, TypeBase *type, ExprBase* value): ExprBase(myTypeID, source, type), value(value)
+	{
+	}
+
+	ExprBase* value;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprVariableDefinition: ExprBase
 {
 	ExprVariableDefinition(SynBase *source, TypeBase *type, VariableData* variable, ExprBase* initializer): ExprBase(myTypeID, source, type), variable(variable), initializer(initializer)

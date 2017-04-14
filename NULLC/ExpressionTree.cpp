@@ -1507,6 +1507,11 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 			result = CreateCast(ctx, syntax->pos, result, function->type->returnType);
 		}
 
+		if(returnType == ctx.typeVoid && result->type != ctx.typeVoid)
+			Stop(ctx, syntax->pos, "ERROR: 'void' function returning a value");
+		if(returnType != ctx.typeVoid && result->type == ctx.typeVoid)
+			Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%s'", FMT_ISTR(returnType->name));
+
 		// TODO: checked return value
 
 		return new ExprReturn(syntax, result->type, result);
@@ -1516,6 +1521,47 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 		Stop(ctx, syntax->pos, "ERROR: global return cannot accept '%.*s'", FMT_ISTR(result->type->name));
 
 	return new ExprReturn(syntax, result->type, result);
+}
+
+ExprYield* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
+{
+	// TODO: implicit cast
+	// TODO: return type deduction
+
+	ExprBase *result = syntax->value ? AnalyzeExpression(ctx, syntax->value) : new ExprVoid(syntax, ctx.typeVoid);
+
+	if(FunctionData *function = ctx.GetCurrentFunction())
+	{
+		if(!function->coroutine)
+			Stop(ctx, syntax->pos, "ERROR: yield can only be used inside a coroutine");
+
+		TypeBase *returnType = function->type->returnType;
+
+		// If return type is auto, set it to type that is being returned
+		if(returnType == ctx.typeAuto)
+		{
+			returnType = result->type;
+
+			function->type = ctx.GetFunctionType(returnType, function->type->arguments);
+		}
+		else
+		{
+			result = CreateCast(ctx, syntax->pos, result, function->type->returnType);
+		}
+
+		if(returnType == ctx.typeVoid && result->type != ctx.typeVoid)
+			Stop(ctx, syntax->pos, "ERROR: 'void' function returning a value");
+		if(returnType != ctx.typeVoid && result->type == ctx.typeVoid)
+			Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%s'", FMT_ISTR(returnType->name));
+
+		// TODO: checked return value
+
+		return new ExprYield(syntax, result->type, result);
+	}
+
+	Stop(ctx, syntax->pos, "ERROR: global yield is not allowed");
+
+	return NULL;
 }
 
 ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinition *syntax, unsigned alignment, TypeBase *type)
@@ -2111,6 +2157,11 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 	if(SynReturn *node = getType<SynReturn>(syntax))
 	{
 		return AnalyzeReturn(ctx, node);
+	}
+
+	if(SynYield *node = getType<SynYield>(syntax))
+	{
+		return AnalyzeYield(ctx, node);
 	}
 
 	if(SynVariableDefinitions *node = getType<SynVariableDefinitions>(syntax))

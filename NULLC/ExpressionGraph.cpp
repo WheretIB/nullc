@@ -222,6 +222,14 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 
 		PrintLeaveBlock(ctx);
 	}
+	else if(ExprYield *node = getType<ExprYield>(expression))
+	{
+		PrintEnterBlock(ctx, name, node->type, "ExprYield()");
+
+		PrintGraph(ctx, node->value, "value");
+
+		PrintLeaveBlock(ctx);
+	}
 	else if(ExprVariableDefinition *node = getType<ExprVariableDefinition>(expression))
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprVariableDefinition(%.*s %.*s)", FMT_ISTR(node->variable->type->name), FMT_ISTR(node->variable->name));
