@@ -1765,10 +1765,28 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 	IntrusiveList<TypeHandle> argTypes;
 
-	// TODO: each argument should be able to reference previous one in an unevaluated context
 	for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next))
 	{
+		// Create temporary scope with known arguments for reference in type expression
+		ctx.PushScope();
+
+		{
+			SynFunctionArgument *prevArg = syntax->arguments.head;
+			TypeHandle *prevType = argTypes.head;
+
+			while(prevArg && prevArg != argument)
+			{
+				ctx.AddVariable(new VariableData(ctx.scopes.back(), 0, prevType->type, prevArg->name, ctx.uniqueVariableId++));
+
+				prevArg = getType<SynFunctionArgument>(prevArg->next);
+				prevType = prevType->next;
+			}
+		}
+		
 		TypeBase *type = AnalyzeType(ctx, argument->type);
+
+		// Remove temporary scope
+		ctx.PopScope();
 
 		argTypes.push_back(new TypeHandle(type));
 	}
