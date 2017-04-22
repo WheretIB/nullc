@@ -544,11 +544,11 @@ struct SynWhile: SynBase
 
 struct SynDoWhile: SynBase
 {
-	SynDoWhile(const char* pos, SynBase* body, SynBase* condition): SynBase(myTypeID, pos), body(body), condition(condition)
+	SynDoWhile(const char* pos, IntrusiveList<SynBase> expressions, SynBase* condition): SynBase(myTypeID, pos), expressions(expressions), condition(condition)
 	{
 	}
 
-	SynBase* body;
+	IntrusiveList<SynBase> expressions;
 	SynBase* condition;
 
 	static const unsigned myTypeID = __LINE__;

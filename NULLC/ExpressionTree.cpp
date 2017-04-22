@@ -2040,10 +2040,16 @@ ExprWhile* AnalyzeWhile(ExpressionContext &ctx, SynWhile *syntax)
 
 ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 {
-	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(syntax, ctx.typeVoid);
+	ctx.PushScope();
+
+	IntrusiveList<ExprBase> expressions;
+
+	for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
+		expressions.push_back(AnalyzeStatement(ctx, expression));
+
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
-	return new ExprDoWhile(syntax, ctx.typeVoid, body, condition);
+	return new ExprDoWhile(syntax, ctx.typeVoid, new ExprBlock(syntax, ctx.typeVoid, expressions), condition);
 }
 
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope)

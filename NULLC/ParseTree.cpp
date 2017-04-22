@@ -1745,10 +1745,22 @@ SynDoWhile* ParseDoWhile(ParseContext &ctx)
 
 	if(ctx.Consume(lex_do))
 	{
-		SynBase *body = ParseExpression(ctx);
+		IntrusiveList<SynBase> expressions;
 
-		if(!body)
+		if(ctx.Consume(lex_ofigure))
+		{
+			expressions = ParseExpressions(ctx);
+
+			AssertConsume(ctx, lex_cfigure, "ERROR: closing '}' not found");
+		}
+		else if(SynBase *body = ParseExpression(ctx))
+		{
+			expressions.push_back(body);
+		}
+		else
+		{
 			Stop(ctx, ctx.Position(), "ERROR: expression expected after 'do'");
+		}
 
 		AssertConsume(ctx, lex_while, "ERROR: 'while' expected after 'do' statement");
 
@@ -1763,7 +1775,7 @@ SynDoWhile* ParseDoWhile(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_semicolon, "ERROR: while(...) should be followed by ';'");
 
-		return new SynDoWhile(start, body, condition);
+		return new SynDoWhile(start, expressions, condition);
 	}
 
 	return NULL;

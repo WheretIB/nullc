@@ -439,7 +439,13 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	{
 		PrintEnterBlock(ctx, name, "SynDoWhile()");
 
-		PrintGraph(ctx, node->body, "body");
+		PrintEnterBlock(ctx, "expressions", "");
+
+		for(SynBase *arg = node->expressions.head; arg; arg = arg->next)
+			PrintGraph(ctx, arg, "");
+
+		PrintLeaveBlock(ctx);
+
 		PrintGraph(ctx, node->condition, "condition");
 
 		PrintLeaveBlock(ctx);
