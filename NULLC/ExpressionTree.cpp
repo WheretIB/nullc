@@ -1475,23 +1475,44 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 	if(indexValue && indexValue->value < 0)
 		Stop(ctx, syntax->pos, "ERROR: array index cannot be negative");
 
-	if(TypeArray *type = getType<TypeArray>(value->type))
+	ExprBase* wrapped = value;
+
+	if(TypeRef *refType = getType<TypeRef>(value->type))
 	{
-		if(indexValue && indexValue->value >= type->length)
-			Stop(ctx, syntax->pos, "ERROR: array index bounds");
-
-		// Array index only shifts an address, so we are left with a reference to get value from
-		ExprArrayIndex *shift = new ExprArrayIndex(syntax, ctx.GetReferenceType(type->subType), value, index);
-
-		return new ExprDereference(syntax, type->subType, shift);
+		value = new ExprDereference(syntax, refType->subType, value);
+	}
+	else
+	{
+		if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
+		{
+			wrapped = new ExprGetAddress(syntax, ctx.GetReferenceType(value->type), node->variable);
+		}
+		else if(ExprDereference *node = getType<ExprDereference>(value))
+		{
+			wrapped = node->value;
+		}
 	}
 
-	if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value->type))
+	if(isType<TypeRef>(wrapped->type))
 	{
-		// Array index only shifts an address, so we are left with a reference to get value from
-		ExprArrayIndex *shift = new ExprArrayIndex(syntax, ctx.GetReferenceType(type->subType), value, index);
+		if(TypeArray *type = getType<TypeArray>(value->type))
+		{
+			if(indexValue && indexValue->value >= type->length)
+				Stop(ctx, syntax->pos, "ERROR: array index bounds");
 
-		return new ExprDereference(syntax, type->subType, shift);
+			// Array index only shifts an address, so we are left with a reference to get value from
+			ExprArrayIndex *shift = new ExprArrayIndex(syntax, ctx.GetReferenceType(type->subType), wrapped, index);
+
+			return new ExprDereference(syntax, type->subType, shift);
+		}
+
+		if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value->type))
+		{
+			// Array index only shifts an address, so we are left with a reference to get value from
+			ExprArrayIndex *shift = new ExprArrayIndex(syntax, ctx.GetReferenceType(type->subType), wrapped, index);
+
+			return new ExprDereference(syntax, type->subType, shift);
+		}
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not an array", FMT_ISTR(value->type->name));
