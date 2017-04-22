@@ -1595,7 +1595,7 @@ ExprFunctionCall* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		arguments.push_back(count);
 		arguments.push_back(new ExprTypeLiteral(syntax, ctx.typeTypeID, type));
 
-		call = new ExprFunctionCall(syntax, ctx.GetReferenceType(type), new ExprFunctionAccess(syntax, (*function)->type, *function), arguments);
+		call = new ExprFunctionCall(syntax, ctx.GetUnsizedArrayType(type), new ExprFunctionAccess(syntax, (*function)->type, *function), arguments);
 	}
 	else
 	{
