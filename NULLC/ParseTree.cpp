@@ -2166,8 +2166,9 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		bool allowEmptyName = isType<SynTypeAuto>(returnType);
 
 		InplaceStr name;
+		bool isOperator = ctx.Consume(lex_operator);
 
-		if(ctx.Consume(lex_operator))
+		if(isOperator)
 		{
 			if(ctx.Consume(lex_obracket))
 			{
@@ -2244,7 +2245,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		IntrusiveList<SynBase> expressions;
 
 		if(ctx.Consume(lex_semicolon))
-			return new SynFunctionDefinition(start, true, coroutine, parentType, accessor, returnType, name, aliases, arguments, expressions);
+			return new SynFunctionDefinition(start, true, coroutine, parentType, accessor, returnType, isOperator, name, aliases, arguments, expressions);
 
 		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after function header");
 
@@ -2252,7 +2253,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after function body");
 
-		return new SynFunctionDefinition(start, false, coroutine, parentType, accessor, returnType, name, aliases, arguments, expressions);
+		return new SynFunctionDefinition(start, false, coroutine, parentType, accessor, returnType, isOperator, name, aliases, arguments, expressions);
 	}
 	else if(coroutine)
 	{

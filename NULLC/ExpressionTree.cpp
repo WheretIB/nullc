@@ -185,6 +185,25 @@ namespace
 
 		return false;
 	}
+
+	ScopeData* NamedOrGlobalScopeFrom(ScopeData *scope)
+	{
+		if(!scope || scope->ownerNamespace || scope->scope == NULL)
+			return scope;
+
+		return NamedOrGlobalScopeFrom(scope->scope);
+	}
+
+	TypeBase* FindNextTypeFromScope(ScopeData *scope)
+	{
+		if(!scope)
+			return NULL;
+
+		if(scope->ownerType)
+			return scope->ownerType;
+
+		return FindNextTypeFromScope(scope->scope);
+	}
 }
 
 ExpressionContext::ExpressionContext()
@@ -217,6 +236,13 @@ ExpressionContext::ExpressionContext()
 	variableMap.init();
 
 	genericTypeMap.init();
+
+	uniqueNamespaceId = 0;
+	uniqueVariableId = 0;
+	uniqueFunctionId = 0;
+	uniqueAliasId = 0;
+
+	unnamedFuncCount = 0;
 }
 
 void ExpressionContext::Stop(const char *pos, const char *msg, ...)
@@ -266,6 +292,13 @@ void ExpressionContext::PopScope()
 	// Remove scope members from lookup maps
 	ScopeData *scope = scopes.back();
 
+	// When namespace scope ends, all the contents remain accessible
+	if(scope->ownerNamespace)
+	{
+		scopes.pop_back();
+		return;
+	}
+
 	for(int i = int(scope->variables.size()) - 1; i >= 0; i--)
 	{
 		VariableData *variable = scope->variables[i];
@@ -298,7 +331,6 @@ void ExpressionContext::PopScope()
 		typeMap.remove(alias->nameHash, alias->type);
 	}
 
-	delete scopes.back();
 	scopes.pop_back();
 }
 
@@ -513,7 +545,7 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 	// Create new type
 	TypeUnsizedArray* result = new TypeUnsizedArray(GetUnsizedArrayTypeName(type), type);
 
-	result->members.push_back(new VariableHandle(new VariableData(scopes.back(), 4, typeInt, InplaceStr("size"))));
+	result->members.push_back(new VariableHandle(new VariableData(scopes.back(), 4, typeInt, InplaceStr("size"), uniqueVariableId++)));
 
 	if(!type->isGeneric)
 	{
@@ -725,15 +757,25 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
 	{
-		if(node->path.empty())
-		{
-			// TODO: current namespace
+		TypeBase **type = NULL;
 
-			if(TypeBase **type = ctx.typeMap.find(GetStringHash(node->name.begin, node->name.end)))
+		for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scopes.back()); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
+		{
+			unsigned hash = nsScope->ownerNamespace ? StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : GetStringHash("");
+
+			for(SynIdentifier *part = node->path.head; part; part = getType<SynIdentifier>(part->next))
+			{
+				hash = StringHashContinue(hash, part->name.begin, part->name.end);
+				hash = StringHashContinue(hash, ".");
+			}
+
+			hash = StringHashContinue(hash, node->name.begin, node->name.end);
+
+			type = ctx.typeMap.find(hash);
+
+			if(type)
 				return *type;
 		}
-
-		// TODO: namespace path
 
 		// Might be a variable
 		if(!onlyType)
@@ -830,6 +872,8 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 			if(ExprClassDefinition *definition = getType<ExprClassDefinition>(result))
 			{
+				proto->instances.push_back(result);
+
 				return definition->classType;
 			}
 
@@ -1007,9 +1051,29 @@ ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 	return new ExprArray(syntax, ctx.GetArrayType(subType, values.size()), values);
 }
 
-ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynBase *syntax, InplaceStr name)
+ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynBase *syntax, IntrusiveList<SynIdentifier> path, InplaceStr name)
 {
-	if(VariableData **variable = ctx.variableMap.find(GetStringHash(name.begin, name.end)))
+	VariableData **variable = NULL;
+
+	for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scopes.back()); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
+	{
+		unsigned hash = nsScope->ownerNamespace ? StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : GetStringHash("");
+
+		for(SynIdentifier *part = path.head; part; part = getType<SynIdentifier>(part->next))
+		{
+			hash = StringHashContinue(hash, part->name.begin, part->name.end);
+			hash = StringHashContinue(hash, ".");
+		}
+
+		hash = StringHashContinue(hash, name.begin, name.end);
+
+		variable = ctx.variableMap.find(hash);
+
+		if(variable)
+			break;
+	}
+
+	if(variable)
 	{
 		VariableData *data = *variable;
 
@@ -1018,12 +1082,68 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynBase *syntax, Inplace
 		if(data->type == ctx.typeAuto)
 			Stop(ctx, name.begin, "ERROR: variable '%.*s' is being used while its type is unknown", FMT_ISTR(name));
 
+		// Is this is a class member access
+		if(data->scope->ownerType)
+		{
+			ExprBase *thisAccess = AnalyzeVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr("this"));
+
+			// Member access only shifts an address, so we are left with a reference to get value from
+			ExprMemberAccess *shift = new ExprMemberAccess(syntax, ctx.GetReferenceType(data->type), thisAccess, data);
+
+			return new ExprDereference(syntax, data->type, shift);
+		}
+
+		// TODO: external variable lookup
+
 		return new ExprVariableAccess(syntax, data->type, data);
 	}
 
-	if(FunctionData **function = ctx.functionMap.find(GetStringHash(name.begin, name.end)))
+	HashMap<FunctionData*>::Node *function = NULL;
+
+	if(TypeBase* type = FindNextTypeFromScope(ctx.scopes.back()))
 	{
-		return new ExprFunctionAccess(syntax, (*function)->type, *function);
+		unsigned hash = StringHashContinue(type->nameHash, "::");
+
+		hash = StringHashContinue(hash, name.begin, name.end);
+
+		function = ctx.functionMap.first(hash);
+
+		// Try accessor
+		if(!function)
+		{
+			hash = StringHashContinue(hash, "$");
+
+			function = ctx.functionMap.first(hash);
+		}
+	}
+
+	if(!function)
+	{
+		for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scopes.back()); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
+		{
+			unsigned hash = nsScope->ownerNamespace ? StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : GetStringHash("");
+
+			for(SynIdentifier *part = path.head; part; part = getType<SynIdentifier>(part->next))
+			{
+				hash = StringHashContinue(hash, part->name.begin, part->name.end);
+				hash = StringHashContinue(hash, ".");
+			}
+
+			hash = StringHashContinue(hash, name.begin, name.end);
+
+			function = ctx.functionMap.first(hash);
+
+			if(function)
+				break;
+		}
+	}
+
+	if(function)
+	{
+		if(ctx.functionMap.next(function))
+			Stop(ctx, name.begin, "ERROR: function overloads are not supported");
+
+		return new ExprFunctionAccess(syntax, function->value->type, function->value);
 	}
 
 	Stop(ctx, name.begin, "ERROR: unknown variable");
@@ -1033,23 +1153,12 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynBase *syntax, Inplace
 
 ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynIdentifier *syntax)
 {
-	return AnalyzeVariableAccess(ctx, syntax, syntax->name);
+	return AnalyzeVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), syntax->name);
 }
 
 ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynTypeSimple *syntax)
 {
-	if(syntax->path.empty())
-	{
-		// TODO: current namespace
-
-		return AnalyzeVariableAccess(ctx, syntax, syntax->name);
-	}
-
-	// TODO: namespace path
-
-	Stop(ctx, syntax->pos, "ERROR: unknown namespaced variable");
-
-	return NULL;
+	return AnalyzeVariableAccess(ctx, syntax, syntax->path, syntax->name);
 }
 
 ExprPreModify* AnalyzePreModify(ExpressionContext &ctx, SynPreModify *syntax)
@@ -1570,14 +1679,15 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 	if(syntax->name == InplaceStr("this"))
 		Stop(ctx, syntax->pos, "ERROR: 'this' is a reserved keyword");
 
-	if(ctx.typeMap.find(syntax->name.hash()))
+	InplaceStr fullName = GetVariableNameInScope(ctx.scopes.back(), syntax->name);
+
+	if(ctx.typeMap.find(fullName.hash()))
 		Stop(ctx, syntax->pos, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(syntax->name));
 
 	// TODO: check for variables with the same name in current scope
 	// TODO: check for functions with the same name
 
-	// TODO: apply current namespace
-	VariableData *variable = new VariableData(ctx.scopes.back(), alignment, type, syntax->name);
+	VariableData *variable = new VariableData(ctx.scopes.back(), alignment, type, fullName, ctx.uniqueVariableId++);
 
 	ctx.AddVariable(variable);
 
@@ -1644,10 +1754,26 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 	TypeFunction *functionType = ctx.GetFunctionType(returnType, argTypes);
 
-	// TODO: apply current namespace
-	// TODO: generate lambda name
+	InplaceStr functionName;
+
+	if(syntax->name.empty())
+	{
+		char *name = new char[16];
+		sprintf(name, "$func%d", ctx.unnamedFuncCount++);
+
+		functionName = InplaceStr(name);
+	}
+	else if(syntax->isOperator)
+	{
+		functionName = syntax->name;
+	}
+	else
+	{
+		functionName = GetFunctionNameInScope(ctx.scopes.back(), syntax->name);
+	}
+
 	// TODO: function type should be stored in type list
-	FunctionData *function = new FunctionData(ctx.scopes.back(), syntax->coroutine, functionType, syntax->name, syntax);
+	FunctionData *function = new FunctionData(ctx.scopes.back(), syntax->coroutine, functionType, functionName, ctx.uniqueFunctionId++, syntax);
 
 	ctx.AddFunction(function);
 
@@ -1655,6 +1781,9 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	{
 		if(syntax->prototype)
 			Stop(ctx, syntax->pos, "ERROR: generic function cannot be forward-declared");
+
+		if(parentType)
+			ctx.PopScope();
 
 		return new ExprGenericFunctionPrototype(syntax, ctx.typeVoid, function);
 	}
@@ -1665,7 +1794,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	{
 		TypeBase *type = ctx.GetReferenceType(parent);
 
-		VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, InplaceStr("this"));
+		VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, InplaceStr("this"), ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
 	}
@@ -1679,7 +1808,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 		TypeBase *type = AnalyzeType(ctx, argument->type);
 
-		VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, argument->name);
+		VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, argument->name, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
 
@@ -1757,19 +1886,20 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics)
 {
+	InplaceStr typeName = GetTypeNameInScope(ctx.scopes.back(), syntax->name);
+
 	if(!proto && !syntax->aliases.empty())
 	{
-		TypeGenericClassProto *genericProtoType = new TypeGenericClassProto(syntax->name, syntax);
+		TypeGenericClassProto *genericProtoType = new TypeGenericClassProto(typeName, syntax);
 
 		ctx.AddType(genericProtoType);
 
-		return new ExprVoid(syntax, ctx.typeVoid);
+		return new ExprGenericClassPrototype(syntax, ctx.typeVoid, genericProtoType);
 	}
 
 	assert(generics.size() == syntax->aliases.size());
 
-	// TODO: apply current namespace
-	InplaceStr className = generics.empty() ? syntax->name : GetGenericClassName(proto, generics);
+	InplaceStr className = generics.empty() ? typeName : GetGenericClassName(proto, generics);
 
 	if(!generics.empty())
 	{
@@ -1805,7 +1935,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		while(currType && currName)
 		{
-			ctx.AddAlias(new AliasData(ctx.scopes.back(), currType->type, currName->name));
+			ctx.AddAlias(new AliasData(ctx.scopes.back(), currType->type, currName->name, ctx.uniqueAliasId++));
 
 			currType = currType->next;
 			currName = getType<SynIdentifier>(currName->next);
@@ -1825,7 +1955,7 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 {
 	for(SynIdentifier *name = syntax->path.head; name; name = getType<SynIdentifier>(name->next))
 	{
-		NamespaceData *ns = new NamespaceData(ctx.scopes.back(), name->name);
+		NamespaceData *ns = new NamespaceData(ctx.scopes.back(), ctx.GetCurrentNamespace(), name->name, ctx.uniqueNamespaceId++);
 
 		ctx.namespaces.push_back(ns);
 
@@ -1843,15 +1973,15 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 	return new ExprBlock(syntax, ctx.typeVoid, expressions);
 }
 
-ExprVoid* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax)
+ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax)
 {
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
 
-	AliasData *alias = new AliasData(ctx.scopes.back(), type, syntax->alias);
+	AliasData *alias = new AliasData(ctx.scopes.back(), type, syntax->alias, ctx.uniqueAliasId++);
 
 	ctx.AddAlias(alias);
 
-	return new ExprVoid(syntax, ctx.typeVoid);
+	return new ExprAliasDefinition(syntax, ctx.typeVoid, alias);
 }
 
 ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
@@ -2267,7 +2397,7 @@ void ImportModuleNamespaces(ExpressionContext &ctx, const char *pos, ModuleConte
 		}
 		else
 		{
-			ctx.namespaces.push_back(new NamespaceData(ctx.scopes.back(), InplaceStr(symbols + ns.offsetToName)));
+			ctx.namespaces.push_back(new NamespaceData(ctx.scopes.back(), ctx.GetCurrentNamespace(), InplaceStr(symbols + ns.offsetToName), ctx.uniqueNamespaceId++));
 		}
 	}
 }
@@ -2396,7 +2526,7 @@ void ImportModuleTypes(ExpressionContext &ctx, const char *pos, ModuleContext &m
 					if(!memberType)
 						Stop(ctx, pos, "ERROR: can't find member %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
 
-					VariableData *member = new VariableData(ctx.scopes.back(), 0, memberType, memberName);
+					VariableData *member = new VariableData(ctx.scopes.back(), 0, memberType, memberName, ctx.uniqueVariableId++);
 
 					classType->members.push_back(new VariableHandle(member));
 				}
@@ -2433,7 +2563,7 @@ void ImportModuleVariables(ExpressionContext &ctx, const char *pos, ModuleContex
 		if(!type)
 			Stop(ctx, pos, "ERROR: can't find variable '%s' type in module %s", symbols + variable.offsetToName, module.name);
 
-		VariableData *data = new VariableData(ctx.scopes.back(), 0, type, name);
+		VariableData *data = new VariableData(ctx.scopes.back(), 0, type, name, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(data);
 	}
@@ -2474,7 +2604,7 @@ void ImportModuleTypedefs(ExpressionContext &ctx, const char *pos, ModuleContext
 		}
 		else
 		{
-			AliasData *alias = new AliasData(ctx.scopes.back(), targetType, aliasName);
+			AliasData *alias = new AliasData(ctx.scopes.back(), targetType, aliasName, ctx.uniqueAliasId++);
 
 			ctx.AddAlias(alias);
 		}
@@ -2529,7 +2659,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 
 		InplaceStr functionName = InplaceStr(symbols + function.offsetToName);
 
-		FunctionData *data = new FunctionData(ctx.scopes.back(), coroutine, getType<TypeFunction>(functionType), functionName, NULL);
+		FunctionData *data = new FunctionData(ctx.scopes.back(), coroutine, getType<TypeFunction>(functionType), functionName, ctx.uniqueFunctionId++, NULL);
 
 		ctx.AddFunction(data);
 
@@ -2542,7 +2672,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 		{
 			TypeBase *type = ctx.GetReferenceType(parentType);
 
-			VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, InplaceStr("this"));
+			VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, InplaceStr("this"), ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 		}
@@ -2558,7 +2688,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 
 			InplaceStr argName = InplaceStr(symbols + argument.offsetToName);
 
-			VariableData *variable = new VariableData(ctx.scopes.back(), 0, argType, argName);
+			VariableData *variable = new VariableData(ctx.scopes.back(), 0, argType, argName, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 		}
@@ -2675,13 +2805,13 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 	ctx.AddType(ctx.typeAuto = new TypeAuto(InplaceStr("auto")));
 
 	ctx.AddType(ctx.typeAutoRef = new TypeAutoRef(InplaceStr("auto ref")));
-	ctx.typeAutoRef->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.typeTypeID, InplaceStr("type"))));
-	ctx.typeAutoRef->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"))));
+	ctx.typeAutoRef->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
+	ctx.typeAutoRef->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
 
 	ctx.AddType(ctx.typeAutoArray = new TypeAutoArray(InplaceStr("auto[]")));
-	ctx.typeAutoArray->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.typeTypeID, InplaceStr("type"))));
-	ctx.typeAutoArray->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"))));
-	ctx.typeAutoArray->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.typeInt, InplaceStr("size"))));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.typeInt, InplaceStr("size"), ctx.uniqueVariableId++)));
 
 	// Analyze module
 	if(!setjmp(errorHandler))

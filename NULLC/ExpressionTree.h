@@ -83,6 +83,14 @@ struct ExpressionContext
 	TypeBase* typeAuto;
 	TypeStruct* typeAutoRef;
 	TypeStruct* typeAutoArray;
+
+	// Counters
+	unsigned uniqueNamespaceId;
+	unsigned uniqueVariableId;
+	unsigned uniqueFunctionId;
+	unsigned uniqueAliasId;
+
+	unsigned unnamedFuncCount;
 };
 
 struct ExprBase
@@ -449,6 +457,28 @@ struct ExprFunctionCall: ExprBase
 
 	ExprBase *function;
 	IntrusiveList<ExprBase> arguments;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprAliasDefinition: ExprBase
+{
+	ExprAliasDefinition(SynBase *source, TypeBase *type, AliasData *alias): ExprBase(myTypeID, source, type), alias(alias)
+	{
+	}
+
+	AliasData *alias;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprGenericClassPrototype: ExprBase
+{
+	ExprGenericClassPrototype(SynBase *source, TypeBase *type, TypeGenericClassProto *genericProtoType): ExprBase(myTypeID, source, type), genericProtoType(genericProtoType)
+	{
+	}
+
+	TypeGenericClassProto *genericProtoType;
 
 	static const unsigned myTypeID = __LINE__;
 };

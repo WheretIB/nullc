@@ -105,3 +105,131 @@ InplaceStr GetGenericClassName(TypeBase* proto, IntrusiveList<TypeHandle> generi
 
 	return InplaceStr(name);
 }
+
+InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str)
+{
+	bool foundNamespace = false;
+
+	unsigned nameLength = str.length();
+
+	for(ScopeData *curr = scope; curr; curr = curr->scope)
+	{
+		if((curr->ownerType || curr->ownerFunction) && !foundNamespace)
+			break;
+
+		if(curr->ownerNamespace)
+		{
+			nameLength += curr->ownerNamespace->name.length() + 1;
+
+			foundNamespace = true;
+		}
+	}
+
+	if(!foundNamespace)
+		return str;
+
+	char *name = new char[nameLength + 1];
+
+	// Format a string back-to-front
+	char *pos = name + nameLength + 1;
+
+	pos -= 1;
+	*pos = 0;
+
+	pos -= str.length();
+	memcpy(pos, str.begin, str.length());
+
+	for(ScopeData *curr = scope; curr; curr = curr->scope)
+	{
+		if(curr->ownerNamespace)
+		{
+			InplaceStr nsName = curr->ownerNamespace->name;
+
+			pos -= 1;
+			*pos = '.';
+
+			pos -= nsName.length();
+			memcpy(pos, nsName.begin, nsName.length());
+		}
+	}
+
+	assert(pos == name);
+
+	return InplaceStr(name);
+}
+
+InplaceStr GetVariableNameInScope(ScopeData *scope, InplaceStr str)
+{
+	return GetTypeNameInScope(scope, str);
+}
+
+InplaceStr GetFunctionNameInScope(ScopeData *scope, InplaceStr str)
+{
+	bool foundNamespace = false;
+	TypeBase *scopeType = NULL;
+
+	unsigned nameLength = str.length();
+
+	for(ScopeData *curr = scope; curr; curr = curr->scope)
+	{
+		// Function scope, just use the name
+		if(curr->ownerFunction && !foundNamespace)
+			return str;
+
+		if(curr->ownerType && !foundNamespace)
+		{
+			nameLength += curr->ownerType->name.length() + 2;
+
+			scopeType = curr->ownerType;
+			break;
+		}
+
+		if(curr->ownerNamespace)
+		{
+			nameLength += curr->ownerNamespace->name.length() + 1;
+
+			foundNamespace = true;
+		}
+	}
+
+	if(scopeType)
+	{
+		char *name = new char[nameLength + 1];
+
+		sprintf(name, "%.*s::%.*s", FMT_ISTR(scopeType->name), FMT_ISTR(str));
+
+		return InplaceStr(name);
+	}
+
+	if(!foundNamespace)
+		return str;
+
+	char *name = new char[nameLength + 1];
+
+	// Format a string back-to-front
+	char *pos = name + nameLength + 1;
+
+	pos -= 1;
+	*pos = 0;
+
+	pos -= str.length();
+	memcpy(pos, str.begin, str.length());
+
+	for(ScopeData *curr = scope; curr; curr = curr->scope)
+	{
+		if(curr->ownerNamespace)
+		{
+			InplaceStr nsName = curr->ownerNamespace->name;
+
+			pos -= 1;
+			*pos = '.';
+
+			pos -= nsName.length();
+			memcpy(pos, nsName.begin, nsName.length());
+		}
+	}
+
+	assert(pos == name);
+
+	return InplaceStr(name);
+}

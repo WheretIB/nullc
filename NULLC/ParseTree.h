@@ -753,7 +753,7 @@ struct SynFunctionArgument: SynBase
 
 struct SynFunctionDefinition: SynBase
 {
-	SynFunctionDefinition(const char* pos, bool prototype, bool coroutine, SynBase *parentType, bool accessor, SynBase *returnType, InplaceStr name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), prototype(prototype), coroutine(coroutine), parentType(parentType), accessor(accessor), returnType(returnType), name(name), aliases(aliases), arguments(arguments), expressions(expressions)
+	SynFunctionDefinition(const char* pos, bool prototype, bool coroutine, SynBase *parentType, bool accessor, SynBase *returnType, bool isOperator, InplaceStr name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), prototype(prototype), coroutine(coroutine), parentType(parentType), accessor(accessor), returnType(returnType), isOperator(isOperator), name(name), aliases(aliases), arguments(arguments), expressions(expressions)
 	{
 	}
 
@@ -762,6 +762,7 @@ struct SynFunctionDefinition: SynBase
 	SynBase *parentType;
 	bool accessor;
 	SynBase *returnType;
+	bool isOperator;
 	InplaceStr name;
 	IntrusiveList<SynIdentifier> aliases;
 	IntrusiveList<SynFunctionArgument> arguments;

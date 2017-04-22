@@ -6,6 +6,8 @@
 
 #include "ParseTree.h"
 
+struct ExprBase;
+
 struct TypeBase;
 struct TypeStruct;
 struct TypeRef;
@@ -55,20 +57,31 @@ struct AliasHandle
 
 struct NamespaceData
 {
-	NamespaceData(ScopeData *scope, InplaceStr name): scope(scope), name(name)
+	NamespaceData(ScopeData *scope, NamespaceData *parent, InplaceStr name, unsigned uniqueId): scope(scope), parent(parent), name(name), uniqueId(uniqueId)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
+
+		if(parent)
+			fullNameHash = StringHashContinue(StringHashContinue(parent->fullNameHash, "."), name.begin, name.end);
+		else
+			fullNameHash = nameHash;
 	}
 
 	ScopeData *scope;
 
+	NamespaceData *parent;
+
 	InplaceStr name;
 	unsigned nameHash;
+
+	unsigned fullNameHash;
+
+	unsigned uniqueId;
 };
 
 struct VariableData
 {
-	VariableData(ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name): scope(scope), alignment(alignment), type(type), name(name)
+	VariableData(ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name, unsigned uniqueId): scope(scope), alignment(alignment), type(type), name(name), uniqueId(uniqueId)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 	}
@@ -81,11 +94,13 @@ struct VariableData
 
 	InplaceStr name;
 	unsigned nameHash;
+
+	unsigned uniqueId;
 };
 
 struct FunctionData
 {
-	FunctionData(ScopeData *scope, bool coroutine, TypeFunction *type, InplaceStr name, SynFunctionDefinition *definition): scope(scope), coroutine(coroutine), type(type), name(name), definition(definition)
+	FunctionData(ScopeData *scope, bool coroutine, TypeFunction *type, InplaceStr name, unsigned uniqueId, SynFunctionDefinition *definition): scope(scope), coroutine(coroutine), type(type), name(name), uniqueId(uniqueId), definition(definition)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 	}
@@ -99,12 +114,14 @@ struct FunctionData
 	InplaceStr name;
 	unsigned nameHash;
 
+	unsigned uniqueId;
+
 	SynFunctionDefinition *definition;
 };
 
 struct AliasData
 {
-	AliasData(ScopeData *scope, TypeBase *type, InplaceStr name): scope(scope), type(type), name(name)
+	AliasData(ScopeData *scope, TypeBase *type, InplaceStr name, unsigned uniqueId): scope(scope), type(type), name(name), uniqueId(uniqueId)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 	}
@@ -115,6 +132,8 @@ struct AliasData
 
 	InplaceStr name;
 	unsigned nameHash;
+
+	unsigned uniqueId;
 };
 
 struct ScopeData
@@ -434,6 +453,8 @@ struct TypeGenericClassProto: TypeBase
 
 	SynClassDefinition *definition;
 
+	IntrusiveList<ExprBase> instances;
+
 	static const unsigned myTypeID = __LINE__;
 };
 
@@ -480,3 +501,7 @@ InplaceStr GetArrayTypeName(TypeBase* type, long long length);
 InplaceStr GetUnsizedArrayTypeName(TypeBase* type);
 InplaceStr GetFunctionTypeName(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
 InplaceStr GetGenericClassName(TypeBase* proto, IntrusiveList<TypeHandle> generics);
+
+InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str);
+InplaceStr GetVariableNameInScope(ScopeData *scope, InplaceStr str);
+InplaceStr GetFunctionNameInScope(ScopeData *scope, InplaceStr str);
