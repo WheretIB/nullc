@@ -1559,6 +1559,9 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 
 	if(TypeFunction *type = getType<TypeFunction>(function->type))
 	{
+		if(type->isGeneric)
+			Stop(ctx, syntax->pos, "ERROR: generic function call is not supported");
+
 		return new ExprFunctionCall(syntax, type->returnType, function, arguments);
 	}
 
@@ -1643,6 +1646,8 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 		if(returnType != ctx.typeVoid && result->type == ctx.typeVoid)
 			Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%s'", FMT_ISTR(returnType->name));
 
+		function->hasExplicitReturn = true;
+
 		// TODO: checked return value
 
 		return new ExprReturn(syntax, result->type, result);
@@ -1684,6 +1689,8 @@ ExprYield* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 			Stop(ctx, syntax->pos, "ERROR: 'void' function returning a value");
 		if(returnType != ctx.typeVoid && result->type == ctx.typeVoid)
 			Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%s'", FMT_ISTR(returnType->name));
+
+		function->hasExplicitReturn = true;
 
 		// TODO: checked return value
 
@@ -1816,7 +1823,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 	ctx.AddFunction(function);
 
-	if(functionType->isGeneric || (parentType && isType<TypeGenericClassProto>(parentType)))
+	if(function->type->isGeneric || (parentType && isType<TypeGenericClassProto>(parentType)))
 	{
 		if(syntax->prototype)
 			Stop(ctx, syntax->pos, "ERROR: generic function cannot be forward-declared");
@@ -1858,15 +1865,30 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 	IntrusiveList<ExprBase> expressions;
 
-	for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
-		expressions.push_back(AnalyzeStatement(ctx, expression));
+	if(syntax->prototype)
+	{
+		if(function->type->returnType == ctx.typeAuto)
+			Stop(ctx, syntax->pos, "ERROR: function prototype with unresolved return type");
+	}
+	else
+	{
+		for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
+			expressions.push_back(AnalyzeStatement(ctx, expression));
+
+		// If the function type is still auto it means that it hasn't returned anything
+		if(function->type->returnType == ctx.typeAuto)
+			function->type = ctx.GetFunctionType(ctx.typeVoid, function->type->arguments);
+
+		if(function->type->returnType != ctx.typeVoid && !function->hasExplicitReturn)
+			Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%s'", FMT_ISTR(returnType->name));
+	}
 
 	ctx.PopScope();
 
 	if(parentType)
 		ctx.PopScope();
 
-	return new ExprFunctionDefinition(syntax, functionType, syntax->prototype, function, arguments, expressions);
+	return new ExprFunctionDefinition(syntax, function->type, syntax->prototype, function, arguments, expressions);
 }
 
 void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassStaticIf *syntax)

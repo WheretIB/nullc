@@ -103,6 +103,8 @@ struct FunctionData
 	FunctionData(ScopeData *scope, bool coroutine, TypeFunction *type, InplaceStr name, unsigned uniqueId, SynFunctionDefinition *definition): scope(scope), coroutine(coroutine), type(type), name(name), uniqueId(uniqueId), definition(definition)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
+
+		hasExplicitReturn = false;
 	}
 
 	ScopeData *scope;
@@ -117,6 +119,8 @@ struct FunctionData
 	unsigned uniqueId;
 
 	SynFunctionDefinition *definition;
+
+	bool hasExplicitReturn;
 };
 
 struct AliasData
