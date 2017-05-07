@@ -1637,7 +1637,9 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 
 	ExprBase *index = AnalyzeExpression(ctx, argument->value);
 
-	ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, syntax->pos, index, ctx.typeLong)));
+	index = CreateCast(ctx, syntax->pos, index, ctx.typeInt);
+
+	ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(Evaluate(ctx, index));
 
 	if(indexValue && indexValue->value < 0)
 		Stop(ctx, syntax->pos, "ERROR: array index cannot be negative");
@@ -1647,6 +1649,10 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 	if(TypeRef *refType = getType<TypeRef>(value->type))
 	{
 		value = new ExprDereference(syntax, refType->subType, value);
+	}
+	else if(isType<TypeUnsizedArray>(value->type))
+	{
+		wrapped = value; // Do not modify
 	}
 	else
 	{
@@ -1660,7 +1666,7 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 		}
 	}
 
-	if(isType<TypeRef>(wrapped->type))
+	if(isType<TypeRef>(wrapped->type) || isType<TypeUnsizedArray>(value->type))
 	{
 		if(TypeArray *type = getType<TypeArray>(value->type))
 		{
