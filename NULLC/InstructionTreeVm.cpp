@@ -1242,12 +1242,15 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		TypeRef *refType = getType<TypeRef>(node->value->type);
 
 		assert(refType);
-		assert(isType<TypeArray>(refType->subType));
-		assert(unsigned(refType->subType->size) == refType->subType->size);
 
-		VmValue *size = CreateConstantInt(unsigned(refType->subType->size));
+		TypeArray *arrayType = getType<TypeArray>(refType->subType);
 
-		return CheckType(ctx, expression, CreateIndex(module, value, size, index));
+		assert(arrayType);
+		assert(unsigned(arrayType->subType->size) == arrayType->subType->size);
+
+		VmValue *elementSize = CreateConstantInt(unsigned(arrayType->subType->size));
+
+		return CheckType(ctx, expression, CreateIndex(module, value, elementSize, index));
 	}
 	else if(ExprReturn *node = getType<ExprReturn>(expression))
 	{
