@@ -114,6 +114,7 @@ enum VmOptimizationType
 {
 	VM_OPT_PEEPHOLE,
 	VM_OPT_CONSTANT_PROPAGATION,
+	VM_OPT_DEAD_CODE_ELIMINATION,
 };
 
 struct VmType
@@ -290,6 +291,7 @@ struct VmModule
 	{
 		peepholeOptimizations = 0;
 		constantPropagations = 0;
+		deadCodeEliminations = 0;
 	}
 
 	IntrusiveList<VmFunction> functions;
@@ -302,6 +304,7 @@ struct VmModule
 
 	unsigned peepholeOptimizations;
 	unsigned constantPropagations;
+	unsigned deadCodeEliminations;
 };
 
 template<typename T>

@@ -1927,6 +1927,50 @@ void RunConstantPropagation(VmModule *module, VmValue* value)
 	}
 }
 
+void RunDeadCodeElimiation(VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		VmBlock *curr = function->firstBlock;
+
+		while(curr)
+		{
+			VmBlock *next = curr->nextSibling;
+			RunDeadCodeElimiation(module, curr);
+			curr = next;
+		}
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		if(block->users.empty())
+		{
+			module->deadCodeEliminations++;
+
+			block->parent->RemoveBlock(block);
+		}
+		else
+		{
+			VmInstruction *curr = block->firstInstruction;
+
+			while(curr)
+			{
+				VmInstruction *next = curr->nextSibling;
+				RunDeadCodeElimiation(module, curr);
+				curr = next;
+			}
+		}
+	}
+	else if(VmInstruction *inst = getType<VmInstruction>(value))
+	{
+		if(inst->users.empty() && !inst->hasSideEffects)
+		{
+			module->deadCodeEliminations++;
+
+			inst->parent->RemoveInstruction(inst);
+		}
+	}
+}
+
 void RunOptimizationPass(VmModule *module, VmOptimizationType type)
 {
 	for(VmFunction *value = module->functions.head; value; value = value->next)
@@ -1938,6 +1982,9 @@ void RunOptimizationPass(VmModule *module, VmOptimizationType type)
 			break;
 		case VM_OPT_CONSTANT_PROPAGATION:
 			RunConstantPropagation(module, value);
+			break;
+		case VM_OPT_DEAD_CODE_ELIMINATION:
+			RunDeadCodeElimiation(module, value);
 			break;
 		}
 	}

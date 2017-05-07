@@ -404,4 +404,5 @@ void PrintGraph(InstructionVMGraphContext &ctx, VmModule *module)
 
 	PrintLine(ctx, "// Peephole optimizations: %d", module->peepholeOptimizations);
 	PrintLine(ctx, "// Constant propagations: %d", module->constantPropagations);
+	PrintLine(ctx, "// Dead code eliminations: %d", module->deadCodeEliminations);
 }
