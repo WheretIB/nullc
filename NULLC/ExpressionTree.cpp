@@ -2967,6 +2967,30 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 			ctx.AddVariable(variable);
 		}
 
+		if(function.funcType == 0)
+		{
+			TypeBase *returnType = ctx.typeAuto;
+
+			if(function.genericReturnType != ~0u)
+				returnType = module.types[function.genericReturnType];
+
+			if(!returnType)
+				Stop(ctx, pos, "ERROR: can't find generic function '%s' return type in module %s", symbols + function.offsetToName, module.name);
+
+			IntrusiveList<TypeHandle> argTypes;
+
+			for(unsigned n = 0; n < function.paramCount; n++)
+			{
+				ExternLocalInfo &argument = localList[function.offsetToFirstLocal + n];
+
+				argTypes.push_back(new TypeHandle(module.types[argument.type]));
+			}
+
+			data->type = ctx.GetFunctionType(returnType, argTypes);
+		}
+
+		assert(data->type);
+
 		ctx.PopScope();
 
 		if(parentType)
