@@ -204,6 +204,88 @@ namespace
 
 		return FindNextTypeFromScope(scope->scope);
 	}
+
+	unsigned GetAlignmentOffset(long long offset, unsigned alignment)
+	{
+		// If alignment is set and address is not aligned
+		if(alignment != 0 && offset % alignment != 0)
+			return alignment - (offset % alignment);
+
+		return 0;
+	}
+
+	unsigned AllocateVariableInScope(ScopeData *scope, unsigned alignment, TypeBase *type)
+	{
+		assert((alignment & (alignment - 1)) == 0 && alignment <= 16);
+
+		long long size = type->size;
+
+		assert(scope);
+
+		while(scope->scope)
+		{
+			if(scope->ownerFunction)
+			{
+				scope->ownerFunction->stackSize += GetAlignmentOffset(scope->ownerFunction->stackSize, alignment);
+
+				unsigned result = unsigned(scope->ownerFunction->stackSize);
+
+				scope->ownerFunction->stackSize += size;
+
+				return result;
+			}
+
+			if(scope->ownerType)
+			{
+				scope->ownerType->size += GetAlignmentOffset(scope->ownerType->size, alignment);
+
+				unsigned result = unsigned(scope->ownerType->size);
+
+				scope->ownerType->size += size;
+
+				return result;
+			}
+
+			scope = scope->scope;
+		}
+
+		scope->globalSize += GetAlignmentOffset(scope->globalSize, alignment);
+
+		unsigned result = unsigned(scope->globalSize);
+
+		scope->globalSize += size;
+
+		return result;
+	}
+
+	VariableData* AllocateClassMember(ScopeData *scope, TypeBase *type, InplaceStr name, unsigned uniqueId)
+	{
+		unsigned offset = AllocateVariableInScope(scope, type->alignment, type);
+
+		return new VariableData(scope, type->alignment, type, name, offset, uniqueId);
+	}
+
+	void FinalizeAlignment(TypeClass *type)
+	{
+		unsigned maximumAlignment = 0;
+
+		// Additional padding may apply to preserve the alignment of members
+		for(VariableHandle *curr = type->members.head; curr; curr = curr->next)
+			maximumAlignment = maximumAlignment > curr->variable->alignment ? maximumAlignment : curr->variable->alignment;
+
+		// If explicit alignment is not specified, then class must be aligned to the maximum alignment of the members
+		if(type->alignment == 0)
+			type->alignment = maximumAlignment;
+
+		// In NULLC, all classes have sizes multiple of 4, so add additional padding if necessary
+		maximumAlignment = type->alignment < 4 ? 4 : type->alignment;
+
+		if(type->size % maximumAlignment != 0)
+		{
+			type->padding = maximumAlignment - (type->size % maximumAlignment);
+			type->size += maximumAlignment - (type->size % maximumAlignment);
+		}
+	}
 }
 
 ExpressionContext::ExpressionContext()
@@ -234,6 +316,8 @@ ExpressionContext::ExpressionContext()
 	typeMap.init();
 	functionMap.init();
 	variableMap.init();
+
+	globalScope = NULL;
 
 	genericTypeMap.init();
 
@@ -526,6 +610,16 @@ TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 	// Create new type
 	TypeArray* result = new TypeArray(GetArrayTypeName(type, length), type, length);
 
+	result->alignment = type->alignment;
+
+	unsigned maximumAlignment = result->alignment < 4 ? 4 : result->alignment;
+
+	if(result->size % maximumAlignment != 0)
+	{
+		result->padding = maximumAlignment - (result->size % maximumAlignment);
+		result->size += result->padding;
+	}
+
 	if(!type->isGeneric)
 	{
 		// Save it for future use
@@ -545,7 +639,9 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 	// Create new type
 	TypeUnsizedArray* result = new TypeUnsizedArray(GetUnsizedArrayTypeName(type), type);
 
-	result->members.push_back(new VariableHandle(new VariableData(scopes.back(), 4, typeInt, InplaceStr("size"), uniqueVariableId++)));
+	result->members.push_back(new VariableHandle(new VariableData(scopes.back(), 4, typeInt, InplaceStr("size"), NULLC_PTR_SIZE, uniqueVariableId++)));
+
+	result->size = NULLC_PTR_SIZE + 4;
 
 	if(!type->isGeneric)
 	{
@@ -617,6 +713,34 @@ ExprBase* CreateCast(ExpressionContext &ctx, const char *pos, ExprBase *value, T
 	Stop(ctx, pos, "ERROR: can't convert '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));
 
 	return NULL;
+}
+
+ExprAssignment* CreateAssignment(ExpressionContext &ctx, const char *pos, ExprBase *lhs, ExprBase *rhs)
+{
+	ExprBase* wrapped = lhs;
+
+	if(ExprVariableAccess *node = getType<ExprVariableAccess>(lhs))
+	{
+		wrapped = new ExprGetAddress(lhs->source, ctx.GetReferenceType(lhs->type), node->variable);
+	}
+	else if(ExprDereference *node = getType<ExprDereference>(lhs))
+	{
+		wrapped = node->value;
+	}
+
+	if(!isType<TypeRef>(wrapped->type))
+		Stop(ctx, pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
+
+	if(rhs->type == ctx.typeVoid)
+		Stop(ctx, pos, "ERROR: cannot convert from void to %.*s", FMT_ISTR(rhs->type->name));
+
+	if(lhs->type == ctx.typeVoid)
+		Stop(ctx, pos, "ERROR: cannot convert from %.*s to void", FMT_ISTR(lhs->type->name));
+
+	if(lhs->type != rhs->type)
+		rhs = CreateCast(ctx, pos, rhs, lhs->type);
+
+	return new ExprAssignment(lhs->source, lhs->type, wrapped, rhs);
 }
 
 ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax);
@@ -1327,21 +1451,7 @@ ExprAssignment* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
-	ExprBase* wrapped = lhs;
-
-	if(ExprVariableAccess *node = getType<ExprVariableAccess>(lhs))
-	{
-		wrapped = new ExprGetAddress(syntax, ctx.GetReferenceType(lhs->type), node->variable);
-	}
-	else if(ExprDereference *node = getType<ExprDereference>(lhs))
-	{
-		wrapped = node->value;
-	}
-
-	if(!isType<TypeRef>(wrapped->type))
-		Stop(ctx, syntax->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
-
-	return new ExprAssignment(syntax, lhs->type, wrapped, rhs);
+	return CreateAssignment(ctx, syntax->pos, lhs, rhs);
 }
 
 ExprModifyAssignment* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *syntax)
@@ -1362,6 +1472,12 @@ ExprModifyAssignment* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyA
 
 	if(!isType<TypeRef>(wrapped->type))
 		Stop(ctx, syntax->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
+
+	if(rhs->type == ctx.typeVoid)
+		Stop(ctx, syntax->pos, "ERROR: cannot convert from void to %.*s", FMT_ISTR(rhs->type->name));
+
+	if(lhs->type == ctx.typeVoid)
+		Stop(ctx, syntax->pos, "ERROR: cannot convert from %.*s to void", FMT_ISTR(lhs->type->name));
 
 	return new ExprModifyAssignment(syntax, lhs->type, syntax->type, wrapped, rhs);
 }
@@ -1715,10 +1831,6 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 	// TODO: check for variables with the same name in current scope
 	// TODO: check for functions with the same name
 
-	VariableData *variable = new VariableData(ctx.scopes.back(), alignment, type, fullName, ctx.uniqueVariableId++);
-
-	ctx.AddVariable(variable);
-
 	ExprBase *initializer = syntax->initializer ? AnalyzeExpression(ctx, syntax->initializer) : NULL;
 
 	if(type == ctx.typeAuto)
@@ -1729,8 +1841,19 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 		if(initializer->type == ctx.typeVoid)
 			Stop(ctx, syntax->pos, "ERROR: r-value type is 'void'");
 
-		variable->type = initializer->type;
+		type = initializer->type;
 	}
+
+	if(alignment == 0 && type->alignment != 0)
+		alignment = type->alignment;
+
+	unsigned offset = AllocateVariableInScope(ctx.scopes.back(), alignment, type);
+	VariableData *variable = new VariableData(ctx.scopes.back(), alignment, type, fullName, offset, ctx.uniqueVariableId++);
+
+	ctx.AddVariable(variable);
+
+	if(initializer)
+		initializer = CreateAssignment(ctx, syntax->initializer->pos, new ExprVariableAccess(syntax->initializer, variable->type, variable), initializer);
 
 	return new ExprVariableDefinition(syntax, ctx.typeVoid, variable, initializer);
 }
@@ -1783,7 +1906,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 			while(prevArg && prevArg != argument)
 			{
-				ctx.AddVariable(new VariableData(ctx.scopes.back(), 0, prevType->type, prevArg->name, ctx.uniqueVariableId++));
+				ctx.AddVariable(new VariableData(ctx.scopes.back(), 0, prevType->type, prevArg->name, 0, ctx.uniqueVariableId++));
 
 				prevArg = getType<SynFunctionArgument>(prevArg->next);
 				prevType = prevType->next;
@@ -1840,7 +1963,8 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	{
 		TypeBase *type = ctx.GetReferenceType(parent);
 
-		VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, InplaceStr("this"), ctx.uniqueVariableId++);
+		unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, type);
+		VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
 	}
@@ -1854,7 +1978,8 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 		TypeBase *type = AnalyzeType(ctx, argument->type);
 
-		VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, argument->name, ctx.uniqueVariableId++);
+		unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, type);
+		VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, argument->name, offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
 
@@ -1908,6 +2033,8 @@ void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax)
 {
+	// TODO: can't access sizeof and type members until finalization
+
 	if(syntax->typedefs.head)
 		Stop(ctx, syntax->pos, "ERROR: class typedefs not implemented");
 	//for(SynTypedef *typeDef = syntax->typedefs.head; typeDef; typeDef = getType<SynTypedef>(typeDef->next))
@@ -1925,6 +2052,8 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 			classDefinition->classType->members.push_back(new VariableHandle(definition->variable));
 		}
 	}
+
+	FinalizeAlignment(classDefinition->classType);
 
 	if(syntax->constantSets.head)
 		Stop(ctx, syntax->pos, "ERROR: class constants not implemented");
@@ -2574,6 +2703,7 @@ void ImportModuleTypes(ExpressionContext &ctx, const char *pos, ModuleContext &m
 				TypeClass *classType = new TypeClass(ctx.scopes.back(), className, aliases, generics, false, NULL);
 
 				classType->alignment = type.defaultAlign;
+				classType->size = type.size;
 
 				ctx.AddType(classType);
 
@@ -2593,7 +2723,7 @@ void ImportModuleTypes(ExpressionContext &ctx, const char *pos, ModuleContext &m
 					if(!memberType)
 						Stop(ctx, pos, "ERROR: can't find member %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
 
-					VariableData *member = new VariableData(ctx.scopes.back(), 0, memberType, memberName, ctx.uniqueVariableId++);
+					VariableData *member = new VariableData(ctx.scopes.back(), 0, memberType, memberName, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
 
 					classType->members.push_back(new VariableHandle(member));
 				}
@@ -2630,7 +2760,7 @@ void ImportModuleVariables(ExpressionContext &ctx, const char *pos, ModuleContex
 		if(!type)
 			Stop(ctx, pos, "ERROR: can't find variable '%s' type in module %s", symbols + variable.offsetToName, module.name);
 
-		VariableData *data = new VariableData(ctx.scopes.back(), 0, type, name, ctx.uniqueVariableId++);
+		VariableData *data = new VariableData(ctx.scopes.back(), 0, type, name, variable.offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(data);
 	}
@@ -2739,7 +2869,8 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 		{
 			TypeBase *type = ctx.GetReferenceType(parentType);
 
-			VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, InplaceStr("this"), ctx.uniqueVariableId++);
+			unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, type);
+			VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 		}
@@ -2755,7 +2886,8 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 
 			InplaceStr argName = InplaceStr(symbols + argument.offsetToName);
 
-			VariableData *variable = new VariableData(ctx.scopes.back(), 0, argType, argName, ctx.uniqueVariableId++);
+			unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, argType);
+			VariableData *variable = new VariableData(ctx.scopes.back(), 0, argType, argName, offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 		}
@@ -2853,6 +2985,7 @@ ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
 ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 {
 	ctx.PushScope();
+	ctx.globalScope = ctx.scopes.back();
 
 	ctx.AddType(ctx.typeVoid = new TypeVoid(InplaceStr("void")));
 
@@ -2872,13 +3005,17 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 	ctx.AddType(ctx.typeAuto = new TypeAuto(InplaceStr("auto")));
 
 	ctx.AddType(ctx.typeAutoRef = new TypeAutoRef(InplaceStr("auto ref")));
-	ctx.typeAutoRef->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
-	ctx.typeAutoRef->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
+	ctx.PushScope(ctx.typeAutoRef);
+	ctx.typeAutoRef->members.push_back(new VariableHandle(AllocateClassMember(ctx.scopes.back(), ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
+	ctx.typeAutoRef->members.push_back(new VariableHandle(AllocateClassMember(ctx.scopes.back(), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
+	ctx.PopScope();
 
 	ctx.AddType(ctx.typeAutoArray = new TypeAutoArray(InplaceStr("auto[]")));
-	ctx.typeAutoArray->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
-	ctx.typeAutoArray->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
-	ctx.typeAutoArray->members.push_back(new VariableHandle(new VariableData(ctx.scopes.back(), 0, ctx.typeInt, InplaceStr("size"), ctx.uniqueVariableId++)));
+	ctx.PushScope(ctx.typeAutoArray);
+	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(ctx.scopes.back(), ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(ctx.scopes.back(), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(ctx.scopes.back(), ctx.typeInt, InplaceStr("size"), ctx.uniqueVariableId++)));
+	ctx.PopScope();
 
 	// Analyze module
 	if(!setjmp(errorHandler))

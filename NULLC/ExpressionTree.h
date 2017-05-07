@@ -59,6 +59,8 @@ struct ExpressionContext
 
 	FastVector<ScopeData*> scopes;
 
+	ScopeData *globalScope;
+
 	// Error info
 	const char *errorPos;
 	char *errorBuf;

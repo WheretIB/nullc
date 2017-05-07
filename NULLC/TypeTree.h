@@ -81,9 +81,12 @@ struct NamespaceData
 
 struct VariableData
 {
-	VariableData(ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name, unsigned uniqueId): scope(scope), alignment(alignment), type(type), name(name), uniqueId(uniqueId)
+	VariableData(ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name, unsigned offset, unsigned uniqueId): scope(scope), alignment(alignment), type(type), name(name), offset(offset), uniqueId(uniqueId)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
+
+		if(alignment != 0)
+			assert(offset % alignment == 0);
 	}
 
 	ScopeData *scope;
@@ -95,6 +98,8 @@ struct VariableData
 	InplaceStr name;
 	unsigned nameHash;
 
+	unsigned offset;
+
 	unsigned uniqueId;
 };
 
@@ -103,6 +108,8 @@ struct FunctionData
 	FunctionData(ScopeData *scope, bool coroutine, TypeFunction *type, InplaceStr name, unsigned uniqueId, SynFunctionDefinition *definition): scope(scope), coroutine(coroutine), type(type), name(name), uniqueId(uniqueId), definition(definition)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
+
+		stackSize = 0;
 
 		hasExplicitReturn = false;
 	}
@@ -119,6 +126,8 @@ struct FunctionData
 	unsigned uniqueId;
 
 	SynFunctionDefinition *definition;
+
+	long long stackSize;
 
 	bool hasExplicitReturn;
 };
@@ -142,25 +151,27 @@ struct AliasData
 
 struct ScopeData
 {
-	ScopeData(unsigned depth, ScopeData *scope): depth(depth), scope(scope), ownerNamespace(0), ownerFunction(0), ownerType(0)
+	ScopeData(unsigned depth, ScopeData *scope): depth(depth), scope(scope), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(0)
 	{
 	}
 
-	ScopeData(unsigned depth, ScopeData *scope, NamespaceData *ownerNamespace): depth(depth), scope(scope), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0)
+	ScopeData(unsigned depth, ScopeData *scope, NamespaceData *ownerNamespace): depth(depth), scope(scope), globalSize(0), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0)
 	{
 	}
 
-	ScopeData(unsigned depth, ScopeData *scope, FunctionData *ownerFunction): depth(depth), scope(scope), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0)
+	ScopeData(unsigned depth, ScopeData *scope, FunctionData *ownerFunction): depth(depth), scope(scope), globalSize(0), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0)
 	{
 	}
 
-	ScopeData(unsigned depth, ScopeData *scope, TypeBase *ownerType): depth(depth), scope(scope), ownerNamespace(0), ownerFunction(0), ownerType(ownerType)
+	ScopeData(unsigned depth, ScopeData *scope, TypeBase *ownerType): depth(depth), scope(scope), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(ownerType)
 	{
 	}
 
 	unsigned depth;
 
 	ScopeData *scope;
+
+	long long globalSize;
 
 	NamespaceData *ownerNamespace;
 	FunctionData *ownerFunction;
@@ -192,6 +203,7 @@ struct TypeBase
 
 		size = 0;
 		alignment = 0;
+		padding = 0;
 
 		isGeneric = false;
 
@@ -210,6 +222,7 @@ struct TypeBase
 	
 	long long size;
 	unsigned alignment;
+	unsigned padding;
 
 	bool isGeneric;
 
@@ -418,6 +431,8 @@ struct TypeFunction: TypeBase
 {
 	TypeFunction(InplaceStr name, TypeBase *returnType, IntrusiveList<TypeHandle> arguments): TypeBase(myTypeID, name), returnType(returnType), arguments(arguments)
 	{
+		size = 4 + NULLC_PTR_SIZE;
+
 		isGeneric = returnType->isGeneric;
 
 		for(TypeHandle *el = arguments.head; el; el = el->next)
