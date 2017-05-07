@@ -715,6 +715,27 @@ ExprBase* CreateCast(ExpressionContext &ctx, const char *pos, ExprBase *value, T
 	return NULL;
 }
 
+ExprBase* CreateConditionCast(ExpressionContext &ctx, ExprBase *value)
+{
+	if(!ctx.IsNumericType(value->type) && !isType<TypeRef>(value->type))
+	{
+		// TODO: function overload
+
+		if(isType<TypeFunction>(value->type) || isType<TypeUnsizedArray>(value->type) || value->type == ctx.typeAutoRef)
+		{
+			ExprBase *nullPtr = new ExprNullptrLiteral(value->source, ctx.GetReferenceType(ctx.typeVoid));
+
+			return new ExprBinaryOp(value->source, ctx.typeBool, SYN_BINARY_OP_NOT_EQUAL, value, nullPtr);
+		}
+		else
+		{
+			Stop(ctx, value->source->pos, "ERROR: condition type cannot be '%.*s' and function for conversion to bool is undefined", FMT_ISTR(value->type->name));
+		}
+	}
+
+	return value;
+}
+
 ExprAssignment* CreateAssignment(ExpressionContext &ctx, const char *pos, ExprBase *lhs, ExprBase *rhs)
 {
 	ExprBase* wrapped = lhs;
@@ -1431,6 +1452,8 @@ ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *synt
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
+	condition = CreateConditionCast(ctx, condition);
+
 	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
 	ExprBase *falseBlock = AnalyzeStatement(ctx, syntax->falseBlock);
 
@@ -2020,6 +2043,8 @@ void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefi
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
+	condition = CreateConditionCast(ctx, condition);
+
 	if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(Evaluate(ctx, CreateCast(ctx, syntax->pos, condition, ctx.typeBool))))
 	{
 		if(number->value)
@@ -2178,6 +2203,8 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
+	condition = CreateConditionCast(ctx, condition);
+
 	if(syntax->staticIf)
 	{
 		// TODO: replace with compile-time evaluation
@@ -2217,6 +2244,8 @@ ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 	ExprBase *increment = syntax->increment ? AnalyzeStatement(ctx, syntax->increment) : new ExprVoid(syntax, ctx.typeVoid);
 	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(syntax, ctx.typeVoid);
 
+	condition = CreateConditionCast(ctx, condition);
+
 	return new ExprFor(syntax, ctx.typeVoid, initializer, condition, increment, body);
 }
 
@@ -2224,6 +2253,8 @@ ExprWhile* AnalyzeWhile(ExpressionContext &ctx, SynWhile *syntax)
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(syntax, ctx.typeVoid);
+
+	condition = CreateConditionCast(ctx, condition);
 
 	return new ExprWhile(syntax, ctx.typeVoid, condition, body);
 }
@@ -2238,6 +2269,8 @@ ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 		expressions.push_back(AnalyzeStatement(ctx, expression));
 
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
+
+	condition = CreateConditionCast(ctx, condition);
 
 	return new ExprDoWhile(syntax, ctx.typeVoid, new ExprBlock(syntax, ctx.typeVoid, expressions), condition);
 }
