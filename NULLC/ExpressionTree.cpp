@@ -1721,13 +1721,27 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 		if(!el->name.empty())
 			Stop(ctx, syntax->pos, "ERROR: named function arguments are not supported");
 
-		arguments.push_back(AnalyzeExpression(ctx, el->value));
+		ExprBase *argument = AnalyzeExpression(ctx, el->value);
+
+		if(isType<ExprGenericFunctionPrototype>(argument))
+			Stop(ctx, syntax->pos, "ERROR: generic function arguments are not supported");
+
+		if(TypeFunction *type = getType<TypeFunction>(argument->type))
+		{
+			if(type->isGeneric)
+				Stop(ctx, syntax->pos, "ERROR: generic function pointer arguments are not supported");
+		}
+
+		arguments.push_back(argument);
 	}
 
 	if(TypeFunction *type = getType<TypeFunction>(function->type))
 	{
 		if(type->isGeneric)
 			Stop(ctx, syntax->pos, "ERROR: generic function call is not supported");
+
+		if(type->returnType == ctx.typeAuto)
+			Stop(ctx, syntax->pos, "ERROR: function can't return auto");
 
 		return new ExprFunctionCall(syntax, type->returnType, function, arguments);
 	}
