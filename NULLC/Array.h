@@ -186,4 +186,202 @@ private:
 	FastVector(FastVector &r);
 };
 
+template<typename T, unsigned N>
+class FixedArray
+{
+public:
+	__forceinline T& front()
+	{
+		return data[0];
+	}
+
+	__forceinline T& back()
+	{
+		return data[N - 1];
+	}
+
+	__forceinline T* begin()
+	{
+		return &data[0];
+	}
+	
+	__forceinline T* end()
+	{
+		return &data[N];
+	}
+	
+	__forceinline bool empty()
+	{
+		return false;
+	}
+
+	__forceinline unsigned size()
+	{
+		return N;
+	}
+
+	__forceinline T& operator[](unsigned index)
+	{
+		assert(index < N);
+
+		return data[index];
+	}
+
+	void fill(const T& value)
+	{
+		for(unsigned i = 0; i < N; i++)
+			data[i] = value;
+	}
+
+	T data[N];
+};
+
+template<typename T, unsigned N>
+class SmallArray
+{
+public:
+	SmallArray()
+	{
+		data = little;
+		max = N;
+
+		count = 0;
+	}
+
+	~SmallArray()
+	{
+		if(data != little)
+			NULLC::destruct(data, max);
+	}
+
+	void reset()
+	{
+		if(data != little)
+			NULLC::destruct(data, max);
+
+		data = little;
+		max = N;
+
+		count = 0;
+	}
+
+	T* push_back()
+	{
+		if(count == max)
+			grow(count);
+
+		assert(data);
+
+		count++;
+
+		return &data[count - 1];
+	}
+
+	__forceinline void push_back(const T& val)
+	{
+		if(count == max)
+			grow(count);
+
+		assert(data);
+
+		data[count++] = val;
+	}
+
+	__forceinline void push_back(const T* valPtr, unsigned elem)
+	{
+		if(count + elem >= max)
+			grow(count + elem);
+
+		for(unsigned i = 0; i < elem; i++)
+			data[count++] = valPtr[i];
+	}
+
+	__forceinline T& back()
+	{
+		assert(count > 0);
+
+		return data[count - 1];
+	}
+
+	__forceinline bool empty()
+	{
+		return count == 0;
+	}
+
+	__forceinline unsigned size()
+	{
+		return count;
+	}
+
+	__forceinline void pop_back()
+	{
+		assert(count > 0);
+
+		count--;
+	}
+
+	__forceinline void clear()
+	{
+		count = 0;
+	}
+
+	__forceinline T& operator[](unsigned index)
+	{
+		assert(index < count);
+
+		return data[index];
+	}
+
+	void resize(unsigned newSize)
+	{
+		if(newSize >= max)
+			grow(newSize);
+
+		count = newSize;
+	}
+
+	void shrink(unsigned newSize)
+	{
+		assert(newSize <= count);
+
+		count = newSize;
+	}
+
+	void reserve(unsigned resSize)
+	{
+		if(resSize >= max)
+			grow(resSize);
+	}
+
+	void grow(unsigned newSize)
+	{
+		if(max + (max >> 1) > newSize)
+			newSize = max + (max >> 1);
+		else
+			newSize += 4;
+
+		T* newData = NULLC::construct<T>(newSize);
+
+		for(unsigned i = 0; i < count; i++)
+			newData[i] = data[i];
+
+		if(data != little)
+			NULLC::destruct(data, max);
+
+		data = newData;
+
+		max = newSize;
+	}
+
+	T *data;
+	unsigned count, max;
+
+private:
+	// Disable assignment and copy constructor
+	void operator =(SmallArray &r);
+	SmallArray(SmallArray &r);
+
+	T little[N];
+};
+
 #endif
