@@ -32,6 +32,47 @@ namespace
 		return true;
 	}
 
+	bool DoesConstantIntegerMatch(VmValue* value, long long number)
+	{
+		if(VmConstant *constant = getType<VmConstant>(value))
+		{
+			if(constant->type == VmType::Int)
+				return constant->iValue == number;
+
+			if(constant->type == VmType::Long)
+				return constant->lValue == number;
+		}
+
+		return false;
+	}
+
+	bool DoesConstantMatchEither(VmValue* value, int iValue, double dValue, long long lValue)
+	{
+		if(VmConstant *constant = getType<VmConstant>(value))
+		{
+			if(constant->type == VmType::Int)
+				return constant->iValue == iValue;
+
+			if(constant->type == VmType::Double)
+				return constant->dValue == dValue;
+
+			if(constant->type == VmType::Long)
+				return constant->lValue == lValue;
+		}
+
+		return false;
+	}
+
+	bool IsConstantZero(VmValue* value)
+	{
+		return DoesConstantMatchEither(value, 0, 0.0, 0ll);
+	}
+
+	bool IsConstantOne(VmValue* value)
+	{
+		return DoesConstantMatchEither(value, 1, 1.0, 1ll);
+	}
+
 	VmValue* CheckType(ExpressionContext &ctx, ExprBase* expr, VmValue *value)
 	{
 		VmType exprType = GetVmType(ctx, expr->type);
@@ -88,21 +129,8 @@ namespace
 		return result;
 	}
 
-	VmInstruction* CreateInstruction(VmModule *module, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third)
+	bool HasSideEffects(VmInstructionType cmd)
 	{
-		assert(module->currentBlock);
-
-		VmInstruction *inst = new VmInstruction(type, cmd, module->nextInstructionId++);
-
-		if(first)
-			inst->AddArgument(first);
-
-		if(second)
-			inst->AddArgument(second);
-
-		if(third)
-			inst->AddArgument(third);
-
 		switch(cmd)
 		{
 		case VM_INST_STORE_BYTE:
@@ -123,9 +151,28 @@ namespace
 		case VM_INST_CLOSE_UPVALUES:
 		case VM_INST_CONVERT_POINTER:
 		case VM_INST_CHECKED_RETURN:
-			inst->hasSideEffects = true;
-			break;
+			return true;
 		}
+
+		return false;
+	}
+
+	VmInstruction* CreateInstruction(VmModule *module, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third)
+	{
+		assert(module->currentBlock);
+
+		VmInstruction *inst = new VmInstruction(type, cmd, module->nextInstructionId++);
+
+		if(first)
+			inst->AddArgument(first);
+
+		if(second)
+			inst->AddArgument(second);
+
+		if(third)
+			inst->AddArgument(third);
+
+		inst->hasSideEffects = HasSideEffects(cmd);
 
 		module->currentBlock->AddInstruction(inst);
 
@@ -582,6 +629,71 @@ namespace
 
 		return CreateVariableAddress(module, variable);
 	}
+
+	void ChangeInstructionTo(VmInstruction *inst, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third)
+	{
+		inst->cmd = cmd;
+
+		SmallArray<VmValue*, 128> arguments;
+		arguments.reserve(inst->arguments.size());
+		arguments.push_back(inst->arguments.data, inst->arguments.size());
+
+		inst->arguments.clear();
+
+		if(first)
+			inst->AddArgument(first);
+
+		if(second)
+			inst->AddArgument(second);
+
+		if(third)
+			inst->AddArgument(third);
+
+		for(unsigned i = 0; i < arguments.size(); i++)
+			arguments[i]->RemoveUse(inst);
+
+		inst->hasSideEffects = HasSideEffects(cmd);
+	}
+
+	void ReplaceValue(VmValue *value, VmValue *original, VmValue *replacement)
+	{
+		if(VmFunction *function = getType<VmFunction>(value))
+		{
+			for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+				ReplaceValue(curr, original, replacement);
+		}
+		else if(VmBlock *block = getType<VmBlock>(value))
+		{
+			for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
+				ReplaceValue(curr, original, replacement);
+		}
+		else if(VmInstruction *inst = getType<VmInstruction>(value))
+		{
+			assert(original);
+			assert(replacement);
+
+			for(unsigned i = 0; i < inst->arguments.size(); i++)
+			{
+				if(inst->arguments[i] == original)
+				{
+					replacement->AddUse(inst);
+					original->RemoveUse(inst);
+
+					inst->arguments[i] = replacement;
+				}
+			}
+		}
+	}
+
+	void ReplaceValueUsersWith(VmValue *inst, VmValue *value)
+	{
+		SmallArray<VmValue*, 256> users;
+		users.reserve(inst->users.size());
+		users.push_back(inst->users.data, inst->users.size());
+
+		for(unsigned i = 0; i < users.size(); i++)
+			ReplaceValue(users[i], inst, value);
+	}
 }
 
 const VmType VmType::Void = VmType(VM_TYPE_VOID, 0);
@@ -610,6 +722,14 @@ void VmValue::RemoveUse(VmValue* user)
 			users.pop_back();
 			break;
 		}
+	}
+
+	if(users.empty() && !hasSideEffects)
+	{
+		if(VmInstruction *instruction = getType<VmInstruction>(this))
+			instruction->parent->RemoveInstruction(instruction);
+		else if(VmBlock *block = getType<VmBlock>(this))
+			block->parent->RemoveBlock(block);
 	}
 }
 
@@ -656,8 +776,8 @@ void VmBlock::RemoveInstruction(VmInstruction* instruction)
 	if(instruction->nextSibling)
 		instruction->nextSibling->prevSibling = instruction->prevSibling;
 
-	//for(unsigned i = 0; i < instruction->argumentCount; i++)
-	//	instruction->arguments[i]->RemoveUse(instruction);
+	for(unsigned i = 0; i < instruction->arguments.size(); i++)
+		instruction->arguments[i]->RemoveUse(instruction);
 }
 
 void VmFunction::AddBlock(VmBlock* block)
@@ -1421,8 +1541,6 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 		// Generate global function
 		VmFunction *global = new VmFunction(VmType::Void, NULL, VmType::Void);
 
-		module->global = global;
-
 		// Generate type indexes
 		for(unsigned i = 0; i < ctx.types.size(); i++)
 		{
@@ -1458,8 +1576,109 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
 			CompileVm(ctx, module, value);
 
+		module->functions.push_back(global);
+
 		return module;
 	}
 
 	return NULL;
+}
+
+void RunPeepholeOptimizations(VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		VmBlock *curr = function->firstBlock;
+
+		while(curr)
+		{
+			VmBlock *next = curr->nextSibling;
+			RunPeepholeOptimizations(module, curr);
+			curr = next;
+		}
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		VmInstruction *curr = block->firstInstruction;
+
+		while(curr)
+		{
+			VmInstruction *next = curr->nextSibling;
+			RunPeepholeOptimizations(module, curr);
+			curr = next;
+		}
+	}
+	else if(VmInstruction *inst = getType<VmInstruction>(value))
+	{
+		switch(inst->cmd)
+		{
+		case VM_INST_ADD:
+			if(IsConstantZero(inst->arguments[0])) // 0 + x, all types
+			{
+				module->peepholeOptimizationCount++;
+				ReplaceValueUsersWith(inst, inst->arguments[1]);
+			}
+			else if(IsConstantZero(inst->arguments[1])) // x + 0, all types
+			{
+				module->peepholeOptimizationCount++;
+				ReplaceValueUsersWith(inst, inst->arguments[0]);
+			}
+			break;
+		case VM_INST_SUB:
+			if(DoesConstantIntegerMatch(inst->arguments[0], 0)) // 0 - x, integer types
+			{
+				module->peepholeOptimizationCount++;
+				ChangeInstructionTo(inst, VM_INST_NEG, inst->arguments[1], NULL, NULL);
+			}
+			else if(IsConstantZero(inst->arguments[1])) // x - 0, all types
+			{
+				module->peepholeOptimizationCount++;
+				ReplaceValueUsersWith(inst, inst->arguments[0]);
+			}
+			break;
+		case VM_INST_MUL:
+			if(IsConstantZero(inst->arguments[0]) || IsConstantZero(inst->arguments[1])) // 0 * x or x * 0, all types
+			{
+				if(inst->type == VmType::Int)
+				{
+					module->peepholeOptimizationCount++;
+					ReplaceValueUsersWith(inst, CreateConstantInt(0));
+				}
+				else if(inst->type == VmType::Double)
+				{
+					module->peepholeOptimizationCount++;
+					ReplaceValueUsersWith(inst, CreateConstantDouble(0));
+				}
+				else if(inst->type == VmType::Long)
+				{
+					module->peepholeOptimizationCount++;
+					ReplaceValueUsersWith(inst, CreateConstantLong(0));
+				}
+			}
+			else if(IsConstantOne(inst->arguments[0])) // 1 * x, all types
+			{
+				module->peepholeOptimizationCount++;
+				ReplaceValueUsersWith(inst, inst->arguments[1]);
+			}
+			else if(IsConstantOne(inst->arguments[1])) // x * 1, all types
+			{
+				module->peepholeOptimizationCount++;
+				ReplaceValueUsersWith(inst, inst->arguments[0]);
+			}
+			break;
+		}
+	}
+}
+
+void RunOptimizationPass(VmModule *module, VmOptimizationType type)
+{
+	for(VmFunction *value = module->functions.head; value; value = value->next)
+	{
+		switch(type)
+		{
+		case VM_OPT_PEEPHOLE:
+			RunPeepholeOptimizations(module, value);
+			break;
+		}
+	}
 }

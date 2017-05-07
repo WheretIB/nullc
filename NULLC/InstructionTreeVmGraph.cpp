@@ -402,5 +402,5 @@ void PrintGraph(InstructionVMGraphContext &ctx, VmModule *module)
 	for(VmFunction *value = module->functions.head; value; value = value->next)
 		PrintFunction(ctx, value);
 
-	PrintFunction(ctx, module->global);
+	PrintLine(ctx, "// Peephole optimizations: %d", module->peepholeOptimizationCount);
 }

@@ -110,6 +110,11 @@ enum VmInstructionType
 	VM_INST_CHECKED_RETURN,
 };
 
+enum VmOptimizationType
+{
+	VM_OPT_PEEPHOLE,
+};
+
 struct VmType
 {
 	VmType(VmValueType type, unsigned size): type(type), size(size)
@@ -280,19 +285,20 @@ struct VmFunction: VmValue
 
 struct VmModule
 {
-	VmModule(): global(NULL), currentFunction(NULL), currentBlock(NULL), nextBlockId(1), nextInstructionId(1)
+	VmModule(): currentFunction(NULL), currentBlock(NULL), nextBlockId(1), nextInstructionId(1)
 	{
+		peepholeOptimizationCount = 0;
 	}
 
 	IntrusiveList<VmFunction> functions;
-
-	VmFunction *global;
 
 	VmFunction *currentFunction;
 	VmBlock *currentBlock;
 
 	unsigned nextBlockId;
 	unsigned nextInstructionId;
+
+	unsigned peepholeOptimizationCount;
 };
 
 template<typename T>
@@ -314,3 +320,5 @@ VmType GetVmType(ExpressionContext &ctx, TypeBase *type);
 
 VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expression);
 VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression);
+
+void RunOptimizationPass(VmModule *module, VmOptimizationType type);
