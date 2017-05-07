@@ -22,6 +22,8 @@ struct VariableData;
 struct FunctionData;
 struct AliasData;
 
+struct VmFunction;
+
 struct VariableHandle
 {
 	VariableHandle(VariableData *variable): variable(variable), next(0)
@@ -109,9 +111,13 @@ struct FunctionData
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 
+		isExternal = false;
+
 		stackSize = 0;
 
 		hasExplicitReturn = false;
+
+		vmFunction = NULL;
 	}
 
 	ScopeData *scope;
@@ -127,9 +133,13 @@ struct FunctionData
 
 	SynFunctionDefinition *definition;
 
+	bool isExternal;
+
 	long long stackSize;
 
 	bool hasExplicitReturn;
+
+	VmFunction *vmFunction;
 };
 
 struct AliasData
@@ -219,6 +229,8 @@ struct TypeBase
 
 	InplaceStr name;
 	unsigned nameHash;
+
+	unsigned typeIndex;
 	
 	long long size;
 	unsigned alignment;

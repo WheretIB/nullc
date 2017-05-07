@@ -196,6 +196,8 @@
     <ClCompile Include="ExpressionGraph.cpp" />
     <ClCompile Include="ExpressionTree.cpp" />
     <ClCompile Include="ExpressionEval.cpp" />
+    <ClCompile Include="InstructionTreeVm.cpp" />
+    <ClCompile Include="InstructionTreeVmGraph.cpp" />
     <ClCompile Include="nullc.cpp" />
     <ClCompile Include="ParseGraph.cpp" />
     <ClCompile Include="ParseTree.cpp" />
@@ -249,6 +251,8 @@
     <ClInclude Include="ExpressionEval.h" />
     <ClInclude Include="HashMap.h" />
     <ClInclude Include="InstructionSet.h" />
+    <ClInclude Include="InstructionTreeVm.h" />
+    <ClInclude Include="InstructionTreeVmGraph.h" />
     <ClInclude Include="IntrusiveList.h" />
     <ClInclude Include="nullbind.h" />
     <ClInclude Include="nullc.h" />

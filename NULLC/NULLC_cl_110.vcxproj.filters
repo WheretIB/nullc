@@ -77,6 +77,12 @@
     <ClCompile Include="ExpressionGraph.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
+    <ClCompile Include="InstructionTreeVM.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeVmGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -149,6 +155,12 @@
       <Filter>Compiler</Filter>
     </ClInclude>
     <ClInclude Include="ExpressionGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVM.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVmGraph.h">
       <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>

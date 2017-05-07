@@ -327,6 +327,7 @@ ExpressionContext::ExpressionContext()
 	uniqueAliasId = 0;
 
 	unnamedFuncCount = 0;
+	unnamedVariableCount = 0;
 }
 
 void ExpressionContext::Stop(const char *pos, const char *msg, ...)
@@ -2938,6 +2939,8 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 		InplaceStr functionName = InplaceStr(symbols + function.offsetToName);
 
 		FunctionData *data = new FunctionData(ctx.scopes.back(), coroutine, getType<TypeFunction>(functionType), functionName, ctx.uniqueFunctionId++, NULL);
+
+		data->isExternal = true;
 
 		ctx.AddFunction(data);
 

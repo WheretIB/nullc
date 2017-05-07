@@ -93,6 +93,7 @@ struct ExpressionContext
 	unsigned uniqueAliasId;
 
 	unsigned unnamedFuncCount;
+	unsigned unnamedVariableCount;
 };
 
 struct ExprBase
