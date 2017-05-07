@@ -61,7 +61,7 @@ enum VmInstructionType
 	VM_INST_INT_TO_LONG,
 	VM_INST_LONG_TO_INT,
 
-	VM_INST_INDEX,
+	VM_INST_INDEX, // pointer, array_size, element_size, index
 	VM_INST_INDEX_UNSIZED,
 
 	VM_INST_FRAME_OFFSET,
@@ -113,6 +113,7 @@ enum VmInstructionType
 enum VmOptimizationType
 {
 	VM_OPT_PEEPHOLE,
+	VM_OPT_CONSTANT_PROPAGATION,
 };
 
 struct VmType
@@ -287,7 +288,8 @@ struct VmModule
 {
 	VmModule(): currentFunction(NULL), currentBlock(NULL), nextBlockId(1), nextInstructionId(1)
 	{
-		peepholeOptimizationCount = 0;
+		peepholeOptimizations = 0;
+		constantPropagations = 0;
 	}
 
 	IntrusiveList<VmFunction> functions;
@@ -298,7 +300,8 @@ struct VmModule
 	unsigned nextBlockId;
 	unsigned nextInstructionId;
 
-	unsigned peepholeOptimizationCount;
+	unsigned peepholeOptimizations;
+	unsigned constantPropagations;
 };
 
 template<typename T>
