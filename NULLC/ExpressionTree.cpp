@@ -695,7 +695,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, const char *pos, ExprBase *value, T
 	if(value->type == type)
 		return value;
 
-	if(ctx.IsNumericType(value->type) && ctx.IsNumericType(value->type))
+	if(ctx.IsNumericType(value->type) && ctx.IsNumericType(type))
 		return new ExprTypeCast(value->source, type, value);
 
 	if(type == ctx.typeBool)
