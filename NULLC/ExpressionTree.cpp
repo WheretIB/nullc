@@ -1837,13 +1837,13 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 
 		// TODO: checked return value
 
-		return new ExprReturn(syntax, result->type, result);
+		return new ExprReturn(syntax, ctx.typeVoid, result);
 	}
 
 	if(!ctx.IsNumericType(result->type))
 		Stop(ctx, syntax->pos, "ERROR: global return cannot accept '%.*s'", FMT_ISTR(result->type->name));
 
-	return new ExprReturn(syntax, result->type, result);
+	return new ExprReturn(syntax, ctx.typeVoid, result);
 }
 
 ExprYield* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
@@ -1881,7 +1881,7 @@ ExprYield* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 
 		// TODO: checked return value
 
-		return new ExprYield(syntax, result->type, result);
+		return new ExprYield(syntax, ctx.typeVoid, result);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: global yield is not allowed");
