@@ -671,21 +671,35 @@ namespace
 
 	void ReplaceValue(VmValue *value, VmValue *original, VmValue *replacement)
 	{
+		assert(original);
+		assert(replacement);
+
 		if(VmFunction *function = getType<VmFunction>(value))
 		{
+			if(original == function->firstBlock)
+			{
+				replacement->AddUse(function);
+				original->RemoveUse(function);
+			}
+
 			for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+			{
+				assert(curr != original || curr == function->firstBlock); // Function can only use first block
+
 				ReplaceValue(curr, original, replacement);
+			}
 		}
 		else if(VmBlock *block = getType<VmBlock>(value))
 		{
 			for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
+			{
+				assert(curr != original); // Block doesn't use instructions
+
 				ReplaceValue(curr, original, replacement);
+			}
 		}
 		else if(VmInstruction *inst = getType<VmInstruction>(value))
 		{
-			assert(original);
-			assert(replacement);
-
 			for(unsigned i = 0; i < inst->arguments.size(); i++)
 			{
 				if(inst->arguments[i] == original)
@@ -699,14 +713,14 @@ namespace
 		}
 	}
 
-	void ReplaceValueUsersWith(VmValue *inst, VmValue *value, unsigned *optCount)
+	void ReplaceValueUsersWith(VmValue *original, VmValue *replacement, unsigned *optCount)
 	{
 		SmallArray<VmValue*, 256> users;
-		users.reserve(inst->users.size());
-		users.push_back(inst->users.data, inst->users.size());
+		users.reserve(original->users.size());
+		users.push_back(original->users.data, original->users.size());
 
 		for(unsigned i = 0; i < users.size(); i++)
-			ReplaceValue(users[i], inst, value);
+			ReplaceValue(users[i], original, replacement);
 
 		if(optCount)
 			(*optCount)++;
@@ -781,6 +795,7 @@ void VmBlock::RemoveInstruction(VmInstruction* instruction)
 {
 	assert(instruction);
 	assert(instruction->parent == this);
+	assert(instruction->users.empty());
 
 	if(instruction == firstInstruction)
 		firstInstruction = instruction->nextSibling;
@@ -792,6 +807,10 @@ void VmBlock::RemoveInstruction(VmInstruction* instruction)
 		instruction->prevSibling->nextSibling = instruction->nextSibling;
 	if(instruction->nextSibling)
 		instruction->nextSibling->prevSibling = instruction->prevSibling;
+
+	instruction->parent = NULL;
+	instruction->prevSibling = NULL;
+	instruction->nextSibling = NULL;
 
 	for(unsigned i = 0; i < instruction->arguments.size(); i++)
 		instruction->arguments[i]->RemoveUse(instruction);
@@ -818,6 +837,7 @@ void VmFunction::RemoveBlock(VmBlock* block)
 {
 	assert(block);
 	assert(block->parent == this);
+	assert(block->users.empty());
 
 	if(block == firstBlock)
 		firstBlock = block->nextSibling;
@@ -829,6 +849,10 @@ void VmFunction::RemoveBlock(VmBlock* block)
 		block->prevSibling->nextSibling = block->nextSibling;
 	if(block->nextSibling)
 		block->nextSibling->prevSibling = block->prevSibling;
+
+	block->parent = NULL;
+	block->prevSibling = NULL;
+	block->nextSibling = NULL;
 
 	while(block->lastInstruction)
 		block->RemoveInstruction(block->lastInstruction);
