@@ -1995,6 +1995,100 @@ void RunDeadCodeElimiation(VmModule *module, VmValue* value)
 	}
 }
 
+void RunControlFlowOptimization(VmModule *module, VmValue *value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+		{
+			// Remove any instructions after a branch
+			for(VmInstruction *inst = curr->firstInstruction; inst; inst = inst->nextSibling)
+			{
+				if(inst->cmd == VM_INST_JUMP || inst->cmd == VM_INST_JUMP_Z || inst->cmd == VM_INST_JUMP_NZ || inst->cmd == VM_INST_RETURN)
+				{
+					while(curr->lastInstruction != inst)
+					{
+						module->controlFlowSimplifications++;
+
+						curr->RemoveInstruction(curr->lastInstruction);
+					}
+					break;
+				}
+			}
+
+			// Merge together blocks if a block A ends with a branch to block B and block B only incoming blocks is block A
+			VmInstruction *currLastInst = curr->lastInstruction;
+
+			if(currLastInst && currLastInst->cmd == VM_INST_JUMP)
+			{
+				VmBlock *next = curr->nextSibling;
+
+				if(next && currLastInst->arguments[0] == next && next->users.size() == 1 && next->users[0] == currLastInst)
+				{
+					// Steal target block instructions
+					for(VmInstruction *inst = next->firstInstruction; inst; inst = inst->nextSibling)
+						inst->parent = curr;
+
+					curr->lastInstruction->nextSibling = next->firstInstruction;
+					next->firstInstruction->prevSibling = curr->lastInstruction;
+
+					curr->lastInstruction = next->lastInstruction;
+
+					next->firstInstruction = next->lastInstruction = NULL;
+
+					// Remove branch
+					curr->RemoveInstruction(currLastInst);
+
+					module->controlFlowSimplifications++;
+				}
+			}
+
+			// Reverse conditional branch so that the false block jump will jump further than the true block jump
+			if(currLastInst && (currLastInst->cmd == VM_INST_JUMP_Z || currLastInst->cmd == VM_INST_JUMP_NZ))
+			{
+				VmBlock *next = curr->nextSibling;
+
+				if(currLastInst->arguments[2] == next)
+				{
+					VmValue *trueBlock = currLastInst->arguments[1];
+					VmValue *falseBlock = currLastInst->arguments[2];
+
+					currLastInst->cmd = currLastInst->cmd == VM_INST_JUMP_Z ? VM_INST_JUMP_NZ : VM_INST_JUMP_Z;
+
+					currLastInst->arguments[1] = falseBlock;
+					currLastInst->arguments[2] = trueBlock;
+
+					module->controlFlowSimplifications++;
+				}
+			}
+		}
+
+		for(VmBlock *curr = function->firstBlock; curr;)
+		{
+			VmBlock *next = curr->nextSibling;
+
+			if(curr->users.empty())
+			{
+				// Remove unused blocks
+				function->RemoveBlock(curr);
+
+				module->controlFlowSimplifications++;
+			}
+			else if(curr->firstInstruction && curr->firstInstruction == curr->lastInstruction && curr->firstInstruction->cmd == VM_INST_JUMP)
+			{
+				// Remove blocks that only contain an unconditional branch to some other block
+				VmBlock *target = getType<VmBlock>(curr->firstInstruction->arguments[0]);
+
+				assert(target);
+
+				ReplaceValueUsersWith(curr, target, &module->controlFlowSimplifications);
+			}
+
+			curr = next;
+		}
+	}
+}
+
 void RunOptimizationPass(VmModule *module, VmOptimizationType type)
 {
 	for(VmFunction *value = module->functions.head; value; value = value->next)
@@ -2009,6 +2103,9 @@ void RunOptimizationPass(VmModule *module, VmOptimizationType type)
 			break;
 		case VM_OPT_DEAD_CODE_ELIMINATION:
 			RunDeadCodeElimiation(module, value);
+			break;
+		case VM_OPT_CONTROL_FLOW_SIPLIFICATION:
+			RunControlFlowOptimization(module, value);
 			break;
 		}
 	}
