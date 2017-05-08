@@ -1207,7 +1207,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		CreateStore(ctx, module, node->rhs->type, address, initializer);
 
-		return CheckType(ctx, expression, CreateLoad(ctx, module, node->rhs->type, address));
+		return CheckType(ctx, expression, initializer);
 	}
 	else if(ExprModifyAssignment *node = getType<ExprModifyAssignment>(expression))
 	{
