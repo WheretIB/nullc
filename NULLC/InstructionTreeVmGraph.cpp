@@ -106,6 +106,9 @@ void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName)
 
 void PrintUsers(InstructionVMGraphContext &ctx, VmValue *value, bool fullNames)
 {
+	if(!ctx.showUsers)
+		return;
+
 	Print(ctx, "[");
 
 	if(value->hasSideEffects)
@@ -133,7 +136,7 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 	else if(constant->type == VmType::Long)
 		Print(ctx, "%lldl", constant->lValue);
 	else if(constant->type == VmType::Pointer)
-		Print(ctx, "0x%x", constant->iValue);
+		Print(ctx, "%s0x%x", constant->isFrameOffset ? "base+" : "", constant->iValue);
 	else if(constant->type.type == VM_TYPE_STRUCT)
 		Print(ctx, "{ %d bytes }", constant->type.size);
 	else
@@ -220,9 +223,6 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 		break;
 	case VM_INST_INDEX_UNSIZED:
 		Print(ctx, "indexu");
-		break;
-	case VM_INST_FRAME_OFFSET:
-		Print(ctx, "frameoff");
 		break;
 	case VM_INST_FUNCTION_ADDRESS:
 		Print(ctx, "faddr");

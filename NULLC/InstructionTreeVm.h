@@ -64,7 +64,6 @@ enum VmInstructionType
 	VM_INST_INDEX, // pointer, array_size, element_size, index
 	VM_INST_INDEX_UNSIZED,
 
-	VM_INST_FRAME_OFFSET,
 	VM_INST_FUNCTION_ADDRESS,
 	VM_INST_TYPE_ID,
 
@@ -194,12 +193,16 @@ struct VmConstant: VmValue
 		dValue = 0.0;
 		lValue = 0ll;
 		sValue = NULL;
+
+		isFrameOffset = false;
 	}
 
 	int iValue;
 	double dValue;
 	long long lValue;
 	char *sValue;
+
+	bool isFrameOffset;
 
 	static const unsigned myTypeID = __LINE__;
 };

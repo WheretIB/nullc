@@ -107,11 +107,12 @@ namespace
 		return result;
 	}
 
-	VmValue* CreateConstantPointer(int value)
+	VmValue* CreateConstantPointer(int value, bool isFrameOffset)
 	{
 		VmConstant *result = new VmConstant(VmType::Pointer);
 
 		result->iValue = value;
+		result->isFrameOffset = isFrameOffset;
 
 		return result;
 	}
@@ -589,14 +590,14 @@ namespace
 		return CreateInstruction(module, VmType::Void, VM_INST_YIELD, value);
 	}
 
-	VmValue* CreateVariableAddress(VmModule *module, VariableData *variable)
+	VmValue* CreateVariableAddress(VariableData *variable)
 	{
 		assert(!IsMemberScope(variable->scope));
 
 		if(IsGlobalScope(variable->scope))
-			return CreateConstantPointer(variable->offset);
+			return CreateConstantPointer(variable->offset, false);
 
-		return CreateInstruction(module, VmType::Pointer, VM_INST_FRAME_OFFSET, CreateConstantInt(variable->offset));
+		return CreateConstantPointer(variable->offset, true);
 	}
 
 	VmValue* CreateTypeIndex(VmModule *module, TypeBase *type)
@@ -635,7 +636,7 @@ namespace
 
 		ctx.variables.push_back(variable);
 
-		return CreateVariableAddress(module, variable);
+		return CreateVariableAddress(variable);
 	}
 
 	void ChangeInstructionTo(VmInstruction *inst, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth, unsigned *optCount)
@@ -956,7 +957,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprNullptrLiteral *node = getType<ExprNullptrLiteral>(expression))
 	{
-		return CheckType(ctx, expression, CreateConstantPointer(0));
+		return CheckType(ctx, expression, CreateConstantPointer(0, false));
 	}
 	else if(ExprArray *node = getType<ExprArray>(expression))
 	{
@@ -1032,10 +1033,10 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmValue *value = CompileVm(ctx, module, node->value);
 
 		if(isType<TypeFunction>(node->value->type) && node->type == ctx.typeBool)
-			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0)));
+			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0, false)));
 
 		if(isType<TypeUnsizedArray>(node->value->type) && node->type == ctx.typeBool)
-			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0)));
+			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0, false)));
 
 		VmType target = GetVmType(ctx, node->type);
 
@@ -1144,7 +1145,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprGetAddress *node = getType<ExprGetAddress>(expression))
 	{
-		return CheckType(ctx, expression, CreateVariableAddress(module, node->variable));
+		return CheckType(ctx, expression, CreateVariableAddress(node->variable));
 	}
 	else if(ExprDereference *node = getType<ExprDereference>(expression))
 	{
@@ -1329,7 +1330,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprVariableAccess *node = getType<ExprVariableAccess>(expression))
 	{
-		VmValue *address = CreateVariableAddress(module, node->variable);
+		VmValue *address = CreateVariableAddress(node->variable);
 
 		return CheckType(ctx, expression, CreateLoad(ctx, module, node->variable->type, address));
 	}
@@ -1722,22 +1723,6 @@ void RunConstantPropagation(VmModule *module, VmValue* value)
 	}
 	else if(VmInstruction *inst = getType<VmInstruction>(value))
 	{
-		// Handle constant offset from frame offset
-		if(inst->cmd == VM_INST_ADD)
-		{
-			VmInstruction *frameOffset = getType<VmInstruction>(inst->arguments[0]);
-			VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
-
-			if(frameOffset && offset && frameOffset->cmd == VM_INST_FRAME_OFFSET)
-			{
-				if(VmConstant *ptr = getType<VmConstant>(frameOffset->arguments[0]))
-				{
-					ChangeInstructionTo(inst, VM_INST_FRAME_OFFSET, CreateConstantInt(ptr->iValue + offset->iValue), NULL, NULL, NULL, &module->peepholeOptimizations);
-					return;
-				}
-			}
-		}
-
 		if(inst->type != VmType::Int && inst->type != VmType::Double && inst->type != VmType::Long && inst->type != VmType::Pointer)
 			return;
 
@@ -1774,14 +1759,22 @@ void RunConstantPropagation(VmModule *module, VmValue* value)
 			ReplaceValueUsersWith(inst, CreateConstantInt(int(consts[0]->lValue)), &module->constantPropagations);
 			break;
 		case VM_INST_ADD:
-			if(inst->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue + consts[1]->iValue), &module->constantPropagations);
-			else if(inst->type == VmType::Double)
-				ReplaceValueUsersWith(inst, CreateConstantDouble(consts[0]->dValue + consts[1]->dValue), &module->constantPropagations);
-			else if(inst->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantLong(consts[0]->lValue + consts[1]->lValue), &module->constantPropagations);
-			else if(inst->type == VmType::Pointer)
-				ReplaceValueUsersWith(inst, CreateConstantPointer(consts[0]->iValue + consts[1]->iValue), &module->constantPropagations);
+			if(inst->type == VmType::Pointer)
+			{
+				// Both arguments can't be a frame offset
+				assert(!(consts[0]->isFrameOffset && consts[1]->isFrameOffset));
+
+				ReplaceValueUsersWith(inst, CreateConstantPointer(consts[0]->iValue + consts[1]->iValue, consts[0]->isFrameOffset || consts[1]->isFrameOffset), &module->constantPropagations);
+			}
+			else
+			{
+				if(inst->type == VmType::Int)
+					ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue + consts[1]->iValue), &module->constantPropagations);
+				else if(inst->type == VmType::Double)
+					ReplaceValueUsersWith(inst, CreateConstantDouble(consts[0]->dValue + consts[1]->dValue), &module->constantPropagations);
+				else if(inst->type == VmType::Long)
+					ReplaceValueUsersWith(inst, CreateConstantLong(consts[0]->lValue + consts[1]->lValue), &module->constantPropagations);
+			}
 			break;
 		case VM_INST_SUB:
 			if(inst->type == VmType::Int)
@@ -1944,7 +1937,7 @@ void RunConstantPropagation(VmModule *module, VmValue* value)
 				unsigned index = consts[3]->iValue;
 
 				if(index < arrayLength)
-					ReplaceValueUsersWith(inst, CreateConstantPointer(ptr + elementSize * index), &module->constantPropagations);
+					ReplaceValueUsersWith(inst, CreateConstantPointer(ptr + elementSize * index, consts[2]->isFrameOffset), &module->constantPropagations);
 			}
 			break;
 		}
