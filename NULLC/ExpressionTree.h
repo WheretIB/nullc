@@ -391,6 +391,19 @@ struct ExprVariableDefinition: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprArraySetup: ExprBase
+{
+	ExprArraySetup(SynBase *source, TypeBase *type, VariableData* variable, ExprBase* initializer): ExprBase(myTypeID, source, type), variable(variable), initializer(initializer)
+	{
+	}
+
+	VariableData* variable;
+
+	ExprBase* initializer;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprVariableDefinitions: ExprBase
 {
 	ExprVariableDefinitions(SynBase *source, TypeBase *type, IntrusiveList<ExprVariableDefinition> definitions): ExprBase(myTypeID, source, type), definitions(definitions)

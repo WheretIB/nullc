@@ -1321,6 +1321,52 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		return CheckType(ctx, expression, new VmVoid());
 	}
+	else if(ExprArraySetup *node = getType<ExprArraySetup>(expression))
+	{
+		TypeArray *arrayType = getType<TypeArray>(node->variable->type);
+
+		assert(arrayType);
+
+		VmValue *initializer = CompileVm(ctx, module, node->initializer);
+
+		VmValue *address = CreateVariableAddress(node->variable);
+
+		// TODO: use cmdSetRange for supported types
+
+		VmValue *offsetPtr = AllocateScopeVariable(ctx, module, ctx.typeInt);
+
+		VmBlock *conditionBlock = new VmBlock(InplaceStr("arr_setup_cond"), module->nextBlockId++);
+		VmBlock *bodyBlock = new VmBlock(InplaceStr("arr_setup_body"), module->nextBlockId++);
+		VmBlock *exitBlock = new VmBlock(InplaceStr("arr_setup_exit"), module->nextBlockId++);
+
+		CreateJump(module, conditionBlock);
+
+		module->currentFunction->AddBlock(conditionBlock);
+		module->currentBlock = conditionBlock;
+
+		// Offset will move in element size steps, so it will reach the full size of the array
+		assert(int(arrayType->length * arrayType->subType->size) == arrayType->length * arrayType->subType->size);
+
+		// While offset is less than array size
+		VmValue* condition = CreateCompareLess(module, CreateLoad(ctx, module, ctx.typeInt, offsetPtr), CreateConstantInt(int(arrayType->length * arrayType->subType->size)));
+
+		CreateJumpNotZero(module, condition, bodyBlock, exitBlock);
+
+		module->currentFunction->AddBlock(bodyBlock);
+		module->currentBlock = bodyBlock;
+
+		VmValue *offset = CreateLoad(ctx, module, ctx.typeInt, offsetPtr);
+
+		CreateStore(ctx, module, arrayType->subType, CreateAdd(module, address, offset), initializer);
+		CreateStore(ctx, module, ctx.typeInt, offsetPtr, CreateAdd(module, offset, CreateConstantInt(int(arrayType->subType->size))));
+
+		CreateJump(module, conditionBlock);
+
+		module->currentFunction->AddBlock(exitBlock);
+		module->currentBlock = exitBlock;
+
+		return CheckType(ctx, expression, new VmVoid());
+	}
 	else if(ExprVariableDefinitions *node = getType<ExprVariableDefinitions>(expression))
 	{
 		for(ExprVariableDefinition *value = node->definitions.head; value; value = getType<ExprVariableDefinition>(value->next))

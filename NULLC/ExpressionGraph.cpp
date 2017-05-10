@@ -238,6 +238,14 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 
 		PrintLeaveBlock(ctx);
 	}
+	else if(ExprArraySetup *node = getType<ExprArraySetup>(expression))
+	{
+		PrintEnterBlock(ctx, name, node->type, "ExprArraySetup(%.*s %.*s: v%04x)", FMT_ISTR(node->variable->type->name), FMT_ISTR(node->variable->name), node->variable->uniqueId);
+
+		PrintGraph(ctx, node->initializer, "initializer");
+
+		PrintLeaveBlock(ctx);
+	}
 	else if(ExprVariableDefinitions *node = getType<ExprVariableDefinitions>(expression))
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprVariableDefinitions()");

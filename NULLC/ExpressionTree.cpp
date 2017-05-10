@@ -1925,7 +1925,21 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 	ctx.AddVariable(variable);
 
 	if(initializer)
-		initializer = CreateAssignment(ctx, syntax->initializer->pos, new ExprVariableAccess(syntax->initializer, variable->type, variable), initializer);
+	{
+		TypeArray *arrType = getType<TypeArray>(variable->type);
+
+		// Single-level array might be set with a single element at the point of definition
+		if(arrType && !isType<TypeArray>(initializer->type))
+		{
+			initializer = CreateCast(ctx, syntax->initializer->pos, initializer, arrType->subType);
+
+			initializer = new ExprArraySetup(syntax->initializer, ctx.typeVoid, variable, initializer);
+		}
+		else
+		{
+			initializer = CreateAssignment(ctx, syntax->initializer->pos, new ExprVariableAccess(syntax->initializer, variable->type, variable), initializer);
+		}
+	}
 
 	return new ExprVariableDefinition(syntax, ctx.typeVoid, variable, initializer);
 }
