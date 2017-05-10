@@ -910,9 +910,15 @@ void VmValue::RemoveUse(VmValue* user)
 	if(users.empty() && !hasSideEffects)
 	{
 		if(VmInstruction *instruction = getType<VmInstruction>(this))
+		{
 			instruction->parent->RemoveInstruction(instruction);
+		}
 		else if(VmBlock *block = getType<VmBlock>(this))
-			block->parent->RemoveBlock(block);
+		{
+			// Remove all block instructions
+			while(block->lastInstruction)
+				block->RemoveInstruction(block->lastInstruction);
+		}
 	}
 }
 
@@ -2181,6 +2187,16 @@ void RunDeadCodeElimiation(VmModule *module, VmValue* value)
 			module->deadCodeEliminations++;
 
 			inst->parent->RemoveInstruction(inst);
+		}
+		else if(inst->cmd == VM_INST_JUMP_Z || inst->cmd == VM_INST_JUMP_NZ)
+		{
+			if(VmConstant *condition = getType<VmConstant>(inst->arguments[0]))
+			{
+				if(inst->cmd == VM_INST_JUMP_Z)
+					ChangeInstructionTo(inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[1] : inst->arguments[2], NULL, NULL, NULL, &module->deadCodeEliminations);
+				else
+					ChangeInstructionTo(inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[2] : inst->arguments[1], NULL, NULL, NULL, &module->deadCodeEliminations);
+			}
 		}
 	}
 }
