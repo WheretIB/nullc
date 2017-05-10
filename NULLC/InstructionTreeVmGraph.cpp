@@ -346,7 +346,7 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 		PrintName(ctx, value, false);
 	}
 
-	if(instruction->type == VmType::Void)
+	if(instruction->type == VmType::Void && ctx.showUsers)
 		Print(ctx, " // %%%d", instruction->uniqueId);
 
 	PrintLine(ctx);
@@ -406,4 +406,5 @@ void PrintGraph(InstructionVMGraphContext &ctx, VmModule *module)
 	PrintLine(ctx, "// Constant propagations: %d", module->constantPropagations);
 	PrintLine(ctx, "// Dead code eliminations: %d", module->deadCodeEliminations);
 	PrintLine(ctx, "// Control flow simplifications: %d", module->controlFlowSimplifications);
+	PrintLine(ctx, "// Load store propagation: %d", module->loadStorePropagations);
 }

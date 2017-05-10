@@ -726,6 +726,157 @@ namespace
 		if(optCount)
 			(*optCount)++;
 	}
+
+	unsigned GetAccessSize(VmInstruction *inst)
+	{
+		switch(inst->cmd)
+		{
+		case VM_INST_LOAD_BYTE:
+			return 1;
+		case VM_INST_LOAD_SHORT:
+			return 2;
+		case VM_INST_LOAD_INT:
+			return 4;
+		case VM_INST_LOAD_FLOAT:
+			return 4;
+		case VM_INST_LOAD_DOUBLE:
+			return 8;
+		case VM_INST_LOAD_LONG:
+			return 8;
+		case VM_INST_LOAD_STRUCT:
+			return inst->type.size;
+		case VM_INST_STORE_BYTE:
+			return 1;
+		case VM_INST_STORE_SHORT:
+			return 2;
+		case VM_INST_STORE_INT:
+			return 4;
+		case VM_INST_STORE_FLOAT:
+			return 4;
+		case VM_INST_STORE_DOUBLE:
+			return 8;
+		case VM_INST_STORE_LONG:
+			return 8;
+		case VM_INST_STORE_STRUCT:
+			return inst->arguments[1]->type.size;
+		}
+
+		return 0;
+	}
+
+	void ClearLoadStoreInfo(VmModule *module)
+	{
+		module->loadStoreInfo.clear();
+	}
+
+	void ClearLoadStoreInfo(VmModule *module, bool isFrameOffset, unsigned storeOffset, unsigned storeSize)
+	{
+		assert(storeSize != 0);
+
+		for(unsigned i = 0; i < module->loadStoreInfo.size();)
+		{
+			VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
+
+			unsigned otherOffset = unsigned(el.address->iValue);
+			unsigned otherSize = GetAccessSize(el.loadInst ? el.loadInst : el.storeInst);
+
+			assert(otherSize != 0);
+
+			// (a+aw >= b) && (a <= b+bw)
+			if(isFrameOffset == el.address->isFrameOffset && storeOffset + storeSize - 1 >= otherOffset && storeOffset <= otherOffset + otherSize - 1)
+			{
+				module->loadStoreInfo[i] = module->loadStoreInfo.back();
+				module->loadStoreInfo.pop_back();
+			}
+			else
+			{
+				i++;
+			}
+		}
+	}
+
+	void AddLoadInfo(VmModule *module, VmInstruction* inst)
+	{
+		if(VmConstant *address = getType<VmConstant>(inst->arguments[0]))
+		{
+			VmModule::LoadStoreInfo info;
+
+			info.loadInst = inst;
+			info.storeInst = NULL;
+
+			info.address = address;
+
+			module->loadStoreInfo.push_back(info);
+		}
+	}
+
+	void AddStoreInfo(VmModule *module, VmInstruction* inst)
+	{
+		if(VmConstant *address = getType<VmConstant>(inst->arguments[0]))
+		{
+			VmModule::LoadStoreInfo info;
+
+			info.loadInst = NULL;
+			info.storeInst = inst;
+
+			info.address = address;
+
+			// Remove previous loads and stores to this address range
+			ClearLoadStoreInfo(module, address->isFrameOffset, unsigned(address->iValue), GetAccessSize(inst));
+
+			module->loadStoreInfo.push_back(info);
+		}
+		else
+		{
+			// Check for index const const, const, ptr instruction, it might be possible to reduce the invalidation range
+			if(VmInstruction *ptrArg = getType<VmInstruction>(inst->arguments[0]))
+			{
+				if(ptrArg->cmd == VM_INST_INDEX)
+				{
+					VmConstant *length = getType<VmConstant>(ptrArg->arguments[0]);
+					VmConstant *elemSize = getType<VmConstant>(ptrArg->arguments[1]);
+
+					assert(length && elemSize);
+
+					if(VmConstant *base = getType<VmConstant>(ptrArg->arguments[2]))
+					{
+						unsigned storeOffset = unsigned(base->iValue);
+						unsigned storeSize = length->iValue * elemSize->iValue;
+
+						if(VmConstant *index = getType<VmConstant>(ptrArg->arguments[3]))
+						{
+							storeOffset += index->iValue * elemSize->iValue;
+							storeSize = elemSize->iValue;
+						}
+
+						ClearLoadStoreInfo(module, base->isFrameOffset, storeOffset, storeSize);
+						return;
+					}
+				}
+			}
+
+			ClearLoadStoreInfo(module);
+		}
+	}
+
+	VmValue* GetLoadStoreInfo(VmModule *module, VmInstruction* inst)
+	{
+		if(VmConstant *address = getType<VmConstant>(inst->arguments[0]))
+		{
+			for(unsigned i = 0; i < module->loadStoreInfo.size(); i++)
+			{
+				VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
+
+				if(el.loadInst && *el.address == *address && GetAccessSize(inst) == GetAccessSize(el.loadInst))
+					return el.loadInst;
+
+				if(el.storeInst && *el.address == *address && GetAccessSize(inst) == GetAccessSize(el.storeInst))
+					return el.storeInst->arguments[1];
+			}
+		}
+
+		return NULL;
+	}
 }
 
 const VmType VmType::Void = VmType(VM_TYPE_VOID, 0);
@@ -2128,6 +2279,63 @@ void RunControlFlowOptimization(VmModule *module, VmValue *value)
 	}
 }
 
+void RunLoadStorePropagation(VmModule *module, VmValue *value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		VmBlock *curr = function->firstBlock;
+
+		while(curr)
+		{
+			VmBlock *next = curr->nextSibling;
+			RunLoadStorePropagation(module, curr);
+			curr = next;
+		}
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		ClearLoadStoreInfo(module);
+
+		for(VmInstruction *curr = block->firstInstruction; curr;)
+		{
+			VmInstruction *next = curr->nextSibling;
+
+			switch(curr->cmd)
+			{
+			case VM_INST_LOAD_BYTE:
+			case VM_INST_LOAD_SHORT:
+			case VM_INST_LOAD_INT:
+			case VM_INST_LOAD_FLOAT:
+			case VM_INST_LOAD_DOUBLE:
+			case VM_INST_LOAD_LONG:
+			case VM_INST_LOAD_STRUCT:
+				if(VmValue* value = GetLoadStoreInfo(module, curr))
+					ReplaceValueUsersWith(curr, value, &module->loadStorePropagations);
+				else
+					AddLoadInfo(module, curr);
+				break;
+			case VM_INST_STORE_BYTE:
+			case VM_INST_STORE_SHORT:
+			case VM_INST_STORE_INT:
+			case VM_INST_STORE_FLOAT:
+			case VM_INST_STORE_DOUBLE:
+			case VM_INST_STORE_LONG:
+			case VM_INST_STORE_STRUCT:
+				AddStoreInfo(module, curr);
+				break;
+			case VM_INST_SET_RANGE:
+			case VM_INST_CALL:
+			case VM_INST_YIELD:
+			case VM_INST_CLOSE_UPVALUES:
+				ClearLoadStoreInfo(module);
+				break;
+			}
+
+			curr = next;
+		}
+	}
+}
+
 void RunOptimizationPass(VmModule *module, VmOptimizationType type)
 {
 	for(VmFunction *value = module->functions.head; value; value = value->next)
@@ -2145,6 +2353,9 @@ void RunOptimizationPass(VmModule *module, VmOptimizationType type)
 			break;
 		case VM_OPT_CONTROL_FLOW_SIPLIFICATION:
 			RunControlFlowOptimization(module, value);
+			break;
+		case VM_OPT_LOAD_STORE_PROPAGATION:
+			RunLoadStorePropagation(module, value);
 			break;
 		}
 	}

@@ -115,6 +115,7 @@ enum VmOptimizationType
 	VM_OPT_CONSTANT_PROPAGATION,
 	VM_OPT_DEAD_CODE_ELIMINATION,
 	VM_OPT_CONTROL_FLOW_SIPLIFICATION,
+	VM_OPT_LOAD_STORE_PROPAGATION,
 };
 
 struct VmType
@@ -195,6 +196,11 @@ struct VmConstant: VmValue
 		sValue = NULL;
 
 		isFrameOffset = false;
+	}
+
+	bool operator==(const VmConstant& rhs) const
+	{
+		return type == rhs.type && iValue == rhs.iValue && dValue == rhs.dValue && lValue == rhs.lValue && sValue == rhs.sValue && isFrameOffset == rhs.isFrameOffset;
 	}
 
 	int iValue;
@@ -297,6 +303,7 @@ struct VmModule
 		constantPropagations = 0;
 		deadCodeEliminations = 0;
 		controlFlowSimplifications = 0;
+		loadStorePropagations = 0;
 	}
 
 	IntrusiveList<VmFunction> functions;
@@ -311,6 +318,25 @@ struct VmModule
 	unsigned constantPropagations;
 	unsigned deadCodeEliminations;
 	unsigned controlFlowSimplifications;
+	unsigned loadStorePropagations;
+
+	struct LoadStoreInfo
+	{
+		LoadStoreInfo()
+		{
+			loadInst = 0;
+			storeInst = 0;
+
+			address = 0;
+		}
+
+		VmInstruction *loadInst;
+		VmInstruction *storeInst;
+
+		VmConstant *address;
+	};
+
+	FastVector<LoadStoreInfo> loadStoreInfo;
 };
 
 template<typename T>
