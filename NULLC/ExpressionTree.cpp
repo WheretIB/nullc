@@ -1442,6 +1442,9 @@ ExprBinaryOp* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 	// TODO: && and || could have an operator overload where second argument is wrapped in a function for short-circuit evaluation
 	// TODO: check operator overload
 
+	if(!ctx.IsNumericType(lhs->type) || !ctx.IsNumericType(rhs->type))
+		Stop(ctx, syntax->pos, "ERROR: binary operations between complex types are not supported yet");
+
 	if(lhs->type == ctx.typeVoid)
 		Stop(ctx, syntax->pos, "ERROR: first operand type is 'void'");
 
