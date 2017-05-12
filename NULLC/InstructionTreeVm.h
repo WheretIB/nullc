@@ -177,6 +177,8 @@ struct VmValue
 
 	VmType type;
 
+	InplaceStr comment;
+
 	bool hasSideEffects;
 	bool hasMemoryAccess;
 

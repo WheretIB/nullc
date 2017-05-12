@@ -102,6 +102,9 @@ void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName)
 	{
 		assert(!"unknown type");
 	}
+
+	if(!value->comment.empty())
+		Print(ctx, " (%.*s)", FMT_ISTR(value->comment));
 }
 
 void PrintUsers(InstructionVMGraphContext &ctx, VmValue *value, bool fullNames)
@@ -150,7 +153,11 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 	if(instruction->type != VmType::Void)
 	{
 		PrintType(ctx, instruction->type);
-		Print(ctx, " %%%d = ", instruction->uniqueId);
+
+		if(!instruction->comment.empty())
+			Print(ctx, " %%%d (%.*s) = ", instruction->uniqueId, FMT_ISTR(instruction->comment));
+		else
+			Print(ctx, " %%%d = ", instruction->uniqueId);
 	}
 
 	switch(instruction->cmd)
@@ -332,6 +339,11 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 	case VM_INST_CHECKED_RETURN:
 		Print(ctx, "checked_return");
 		break;
+	case VM_INST_CONSTRUCT:
+		Print(ctx, "construct");
+		break;
+	default:
+		assert(!"unknown instruction");
 	}
 
 	for(unsigned i = 0; i < instruction->arguments.size(); i++)

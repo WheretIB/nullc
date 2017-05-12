@@ -643,10 +643,13 @@ namespace
 	{
 		assert(!IsMemberScope(variable->scope));
 
-		if(IsGlobalScope(variable->scope))
-			return CreateConstantPointer(variable->offset, false);
+		bool isFrameOffset = !IsGlobalScope(variable->scope);
 
-		return CreateConstantPointer(variable->offset, true);
+		VmValue *value = CreateConstantPointer(variable->offset, isFrameOffset);
+
+		value->comment = variable->name;
+
+		return value;
 	}
 
 	VmValue* CreateTypeIndex(VmModule *module, TypeBase *type)
@@ -1661,7 +1664,11 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		VmValue *address = CreateVariableAddress(node->variable);
 
-		return CheckType(ctx, expression, CreateLoad(ctx, module, node->variable->type, address));
+		VmValue *value = CreateLoad(ctx, module, node->variable->type, address);
+
+		value->comment = node->variable->name;
+
+		return CheckType(ctx, expression, value);
 	}
 	else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(expression))
 	{
