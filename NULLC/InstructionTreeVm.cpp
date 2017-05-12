@@ -605,6 +605,24 @@ namespace
 		return CreateInstruction(module, VmType::Int, VM_INST_TYPE_ID, CreateConstantInt(type->typeIndex));
 	}
 
+	VmValue* CreateConstruct(VmModule *module, VmType type, VmValue *el0, VmValue *el1, VmValue *el2, VmValue *el3)
+	{
+		unsigned size = el0->type.size;
+
+		if(el1)
+			size += el1->type.size;
+
+		if(el2)
+			size += el2->type.size;
+
+		if(el3)
+			size += el3->type.size;
+
+		assert(type.size == size);
+
+		return CreateInstruction(module, type, VM_INST_CONSTRUCT, el0, el1, el2, el3);
+	}
+
 	VmValue* AllocateScopeVariable(ExpressionContext &ctx, VmModule *module, TypeBase *type)
 	{
 		FunctionData *function = module->currentFunction->function;
@@ -1189,15 +1207,73 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		VmValue *value = CompileVm(ctx, module, node->value);
 
-		if(isType<TypeFunction>(node->value->type) && node->type == ctx.typeBool)
+		VmType vmTarget = GetVmType(ctx, node->type);
+
+		switch(node->category)
+		{
+		case EXPR_CAST_NUMERICAL:
+			return CheckType(ctx, expression, CreateCast(module, value, vmTarget));
+		case EXPR_CAST_PTR_TO_BOOL:
 			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0, false)));
-
-		if(isType<TypeUnsizedArray>(node->value->type) && node->type == ctx.typeBool)
+		case EXPR_CAST_UNSIZED_TO_BOOL:
 			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0, false)));
+		case EXPR_CAST_FUNCTION_TO_BOOL:
+			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0, false)));
+		case EXPR_CAST_ARRAY_TO_UNSIZED:
+			{
+				TypeArray *arrType = getType<TypeArray>(node->value->type);
 
-		VmType target = GetVmType(ctx, node->type);
+				assert(arrType);
+				assert(unsigned(arrType->length) == arrType->length);
 
-		return CheckType(ctx, expression, CreateCast(module, value, target));
+				VmValue *address = AllocateScopeVariable(ctx, module, arrType);
+
+				CreateStore(ctx, module, arrType, address, value);
+
+				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), address, CreateConstantInt(unsigned(arrType->length)), NULL, NULL));
+			}
+			break;
+		case EXPR_CAST_ARRAY_PTR_TO_UNSIZED:
+			{
+				TypeRef *refType = getType<TypeRef>(node->value->type);
+
+				assert(refType);
+
+				TypeArray *arrType = getType<TypeArray>(refType->subType);
+
+				assert(arrType);
+				assert(unsigned(arrType->length) == arrType->length);
+
+				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), value, CreateConstantInt(unsigned(arrType->length)), NULL, NULL));
+			}
+			break;
+		case EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR:
+			{
+				TypeRef *refType = getType<TypeRef>(node->value->type);
+
+				assert(refType);
+
+				TypeArray *arrType = getType<TypeArray>(refType->subType);
+
+				assert(arrType);
+				assert(unsigned(arrType->length) == arrType->length);
+
+				TypeRef *targetRefType = getType<TypeRef>(node->type);
+
+				assert(targetRefType);
+
+				VmValue *address = AllocateScopeVariable(ctx, module, targetRefType->subType);
+
+				CreateStore(ctx, module, targetRefType->subType, address, CreateConstruct(module, GetVmType(ctx, node->type), address, CreateConstantInt(unsigned(arrType->length)), NULL, NULL));
+
+				return CheckType(ctx, expression, address);
+			}
+			break;
+		default:
+			assert(!"unknown cast");
+		}
+
+		return CheckType(ctx, expression, value);
 	}
 	else if(ExprUnaryOp *node = getType<ExprUnaryOp>(expression))
 	{

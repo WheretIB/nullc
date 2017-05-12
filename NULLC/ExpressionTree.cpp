@@ -697,18 +697,59 @@ ExprBase* CreateCast(ExpressionContext &ctx, const char *pos, ExprBase *value, T
 		return value;
 
 	if(ctx.IsNumericType(value->type) && ctx.IsNumericType(type))
-		return new ExprTypeCast(value->source, type, value);
+		return new ExprTypeCast(value->source, type, value, EXPR_CAST_NUMERICAL);
 
 	if(type == ctx.typeBool)
 	{
 		if(isType<TypeRef>(value->type))
-			return new ExprTypeCast(value->source, type, value);
+			return new ExprTypeCast(value->source, type, value, EXPR_CAST_PTR_TO_BOOL);
 
 		if(isType<TypeUnsizedArray>(value->type))
-			return new ExprTypeCast(value->source, type, value);
+			return new ExprTypeCast(value->source, type, value, EXPR_CAST_UNSIZED_TO_BOOL);
 
 		if(isType<TypeFunction>(value->type))
-			return new ExprTypeCast(value->source, type, value);
+			return new ExprTypeCast(value->source, type, value, EXPR_CAST_FUNCTION_TO_BOOL);
+	}
+
+	if(TypeUnsizedArray *target = getType<TypeUnsizedArray>(type))
+	{
+		// type[N] to type[] conversion
+		if(TypeArray *source = getType<TypeArray>(value->type))
+		{
+			if(target->subType == source->subType)
+			{
+				if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
+				{
+					ExprBase *address = new ExprGetAddress(value->source, ctx.GetReferenceType(value->type), node->variable);
+
+					return new ExprTypeCast(value->source, type, address, EXPR_CAST_ARRAY_PTR_TO_UNSIZED);
+				}
+				else if(ExprDereference *node = getType<ExprDereference>(value))
+				{
+					return new ExprTypeCast(value->source, type, node->value, EXPR_CAST_ARRAY_PTR_TO_UNSIZED);
+				}
+
+				return new ExprTypeCast(value->source, type, value, EXPR_CAST_ARRAY_TO_UNSIZED);
+			}
+		}
+	}
+
+	if(TypeRef *target = getType<TypeRef>(type))
+	{
+		if(TypeRef *source = getType<TypeRef>(value->type))
+		{
+			// type[N] ref to type[] ref conversion
+			if(isType<TypeUnsizedArray>(target->subType) && isType<TypeArray>(source->subType))
+			{
+				TypeUnsizedArray *targetSub = getType<TypeUnsizedArray>(target->subType);
+				TypeArray *sourceSub = getType<TypeArray>(source->subType);
+
+				if(targetSub->subType == sourceSub->subType)
+				{
+					return new ExprTypeCast(value->source, type, value, EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR);
+				}
+			}
+		}
 	}
 
 	Stop(ctx, pos, "ERROR: can't convert '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));

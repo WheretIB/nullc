@@ -233,13 +233,26 @@ struct ExprPostModify: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+enum ExprTypeCastCategory
+{
+	EXPR_CAST_NUMERICAL,
+	EXPR_CAST_PTR_TO_BOOL,
+	EXPR_CAST_UNSIZED_TO_BOOL,
+	EXPR_CAST_FUNCTION_TO_BOOL,
+	EXPR_CAST_ARRAY_TO_UNSIZED,
+	EXPR_CAST_ARRAY_PTR_TO_UNSIZED,
+	EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR,
+};
+
 struct ExprTypeCast: ExprBase
 {
-	ExprTypeCast(SynBase *source, TypeBase *type, ExprBase* value): ExprBase(myTypeID, source, type), value(value)
+	ExprTypeCast(SynBase *source, TypeBase *type, ExprBase* value, ExprTypeCastCategory category): ExprBase(myTypeID, source, type), value(value), category(category)
 	{
 	}
 
 	ExprBase* value;
+
+	ExprTypeCastCategory category;
 
 	static const unsigned myTypeID = __LINE__;
 };
