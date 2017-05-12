@@ -2030,6 +2030,14 @@ void RunPeepholeOptimizations(VmModule *module, VmValue* value)
 				ReplaceValueUsersWith(inst, inst->arguments[0], &module->peepholeOptimizations);
 			}
 			break;
+		case VM_INST_INDEX_UNSIZED:
+			// Try to replace unsized array index with an array index if the type[] is a construct expression
+			if(VmInstruction *objectConstruct = getType<VmInstruction>(inst->arguments[1]))
+			{
+				if(objectConstruct->cmd == VM_INST_CONSTRUCT && isType<VmConstant>(objectConstruct->arguments[1]))
+					ChangeInstructionTo(inst, VM_INST_INDEX, objectConstruct->arguments[1], inst->arguments[0], objectConstruct->arguments[0], inst->arguments[2], &module->peepholeOptimizations);
+			}
+			break;
 		}
 	}
 }
