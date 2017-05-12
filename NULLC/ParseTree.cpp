@@ -1124,22 +1124,22 @@ SynBase* ParseArithmetic(ParseContext &ctx)
 
 		while(ctx.binaryOpStack.size() > startSize && GetBinaryOpPrecedence(ctx.binaryOpStack.back().type) <= GetBinaryOpPrecedence(binaryOp))
 		{
-			lhs = new SynBinaryOp(ctx.binaryOpStack.back().pos, ctx.binaryOpStack.back().type, lhs, ctx.binaryOpStack.back().value);
+			lhs = new SynBinaryOp(ctx.binaryOpStack.back().pos, ctx.binaryOpStack.back().type, ctx.binaryOpStack.back().value, lhs);
 
 			ctx.binaryOpStack.pop_back();
 		}
 
-		SynBase *value = ParseTerminal(ctx);
+		ctx.binaryOpStack.push_back(SynBinaryOpElement(start, binaryOp, lhs));
 
-		if(!value)
+		lhs = ParseTerminal(ctx);
+
+		if(!lhs)
 			Stop(ctx, ctx.Position(), "ERROR: terminal expression not found after binary operation");
-
-		ctx.binaryOpStack.push_back(SynBinaryOpElement(start, binaryOp, value));
 	}
 
 	while(ctx.binaryOpStack.size() > startSize)
 	{
-		lhs = new SynBinaryOp(ctx.binaryOpStack.back().pos, ctx.binaryOpStack.back().type, lhs, ctx.binaryOpStack.back().value);
+		lhs = new SynBinaryOp(ctx.binaryOpStack.back().pos, ctx.binaryOpStack.back().type, ctx.binaryOpStack.back().value, lhs);
 
 		ctx.binaryOpStack.pop_back();
 	}
