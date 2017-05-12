@@ -148,8 +148,56 @@ namespace
 		case VM_INST_YIELD:
 		case VM_INST_CREATE_CLOSURE:
 		case VM_INST_CLOSE_UPVALUES:
-		case VM_INST_CONVERT_POINTER:
 		case VM_INST_CHECKED_RETURN:
+			return true;
+		}
+
+		return false;
+	}
+
+	bool HasMemoryWrite(VmInstructionType cmd)
+	{
+		switch(cmd)
+		{
+		case VM_INST_STORE_BYTE:
+		case VM_INST_STORE_SHORT:
+		case VM_INST_STORE_INT:
+		case VM_INST_STORE_FLOAT:
+		case VM_INST_STORE_DOUBLE:
+		case VM_INST_STORE_LONG:
+		case VM_INST_STORE_STRUCT:
+		case VM_INST_SET_RANGE:
+		case VM_INST_CALL:
+		case VM_INST_CREATE_CLOSURE:
+		case VM_INST_CLOSE_UPVALUES:
+			return true;
+		}
+
+		return false;
+	}
+
+	bool HasMemoryAccess(VmInstructionType cmd)
+	{
+		switch(cmd)
+		{
+		case VM_INST_LOAD_BYTE:
+		case VM_INST_LOAD_SHORT:
+		case VM_INST_LOAD_INT:
+		case VM_INST_LOAD_FLOAT:
+		case VM_INST_LOAD_DOUBLE:
+		case VM_INST_LOAD_LONG:
+		case VM_INST_LOAD_STRUCT:
+		case VM_INST_STORE_BYTE:
+		case VM_INST_STORE_SHORT:
+		case VM_INST_STORE_INT:
+		case VM_INST_STORE_FLOAT:
+		case VM_INST_STORE_DOUBLE:
+		case VM_INST_STORE_LONG:
+		case VM_INST_STORE_STRUCT:
+		case VM_INST_SET_RANGE:
+		case VM_INST_CALL:
+		case VM_INST_CREATE_CLOSURE:
+		case VM_INST_CLOSE_UPVALUES:
 			return true;
 		}
 
@@ -174,7 +222,8 @@ namespace
 		if(fourth)
 			inst->AddArgument(fourth);
 
-		inst->hasSideEffects = HasSideEffects(cmd);
+		inst->hasSideEffects = HasSideEffects(inst->cmd);
+		inst->hasMemoryAccess = HasMemoryAccess(inst->cmd);
 
 		module->currentBlock->AddInstruction(inst);
 
@@ -683,6 +732,7 @@ namespace
 			arguments[i]->RemoveUse(inst);
 
 		inst->hasSideEffects = HasSideEffects(cmd);
+		inst->hasMemoryAccess = HasMemoryAccess(cmd);
 
 		if(optCount)
 			(*optCount)++;
@@ -1685,7 +1735,8 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			inst->AddArgument(argument);
 		}
 
-		inst->hasSideEffects = true;
+		inst->hasSideEffects = HasSideEffects(inst->cmd);
+		inst->hasMemoryAccess = HasMemoryAccess(inst->cmd);
 
 		module->currentBlock->AddInstruction(inst);
 
@@ -2386,6 +2437,7 @@ void RunLoadStorePropagation(VmModule *module, VmValue *value)
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
 	{
+		// Handle loads and stores to constant global or frame addresses
 		ClearLoadStoreInfo(module);
 
 		for(VmInstruction *curr = block->firstInstruction; curr;)
@@ -2428,6 +2480,75 @@ void RunLoadStorePropagation(VmModule *module, VmValue *value)
 	}
 }
 
+void RunCommonSubexpressionElimination(VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		VmBlock *curr = function->firstBlock;
+
+		while(curr)
+		{
+			VmBlock *next = curr->nextSibling;
+			RunCommonSubexpressionElimination(module, curr);
+			curr = next;
+		}
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		VmInstruction *start = block->firstInstruction;
+
+		for(VmInstruction *curr = block->firstInstruction; curr;)
+		{
+			VmInstruction *next = curr->nextSibling;
+
+			if(curr->hasSideEffects || curr->hasMemoryAccess)
+			{
+				curr = next;
+				continue;
+			}
+
+			VmInstruction *prev = start;
+
+			while(prev != curr)
+			{
+				if(prev->cmd == curr->cmd && prev->arguments.size() == curr->arguments.size())
+				{
+					bool same = true;
+
+					for(unsigned i = 0; i < curr->arguments.size(); i++)
+					{
+						VmValue *currArg = curr->arguments[i];
+						VmValue *prevArg = prev->arguments[i];
+
+						VmConstant *currArgAsConst = getType<VmConstant>(currArg);
+						VmConstant *prevArgAsConst = getType<VmConstant>(prevArg);
+
+						if(currArgAsConst && prevArgAsConst)
+						{
+							if(!(*currArgAsConst == *prevArgAsConst))
+								same = false;
+						}
+						else if(currArg != prevArg)
+						{
+							same = false;
+						}
+					}
+
+					if(same)
+					{
+						ReplaceValueUsersWith(curr, prev, &module->commonSubexprEliminations);
+						break;
+					}
+				}
+
+				prev = prev->nextSibling;
+			}
+
+			curr = next;
+		}
+	}
+}
+
 void RunOptimizationPass(VmModule *module, VmOptimizationType type)
 {
 	for(VmFunction *value = module->functions.head; value; value = value->next)
@@ -2448,6 +2569,9 @@ void RunOptimizationPass(VmModule *module, VmOptimizationType type)
 			break;
 		case VM_OPT_LOAD_STORE_PROPAGATION:
 			RunLoadStorePropagation(module, value);
+			break;
+		case VM_OPT_COMMON_SUBEXPRESSION_ELIMINATION:
+			RunCommonSubexpressionElimination(module, value);
 			break;
 		}
 	}

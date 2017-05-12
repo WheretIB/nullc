@@ -116,6 +116,7 @@ enum VmOptimizationType
 	VM_OPT_DEAD_CODE_ELIMINATION,
 	VM_OPT_CONTROL_FLOW_SIPLIFICATION,
 	VM_OPT_LOAD_STORE_PROPAGATION,
+	VM_OPT_COMMON_SUBEXPRESSION_ELIMINATION,
 };
 
 struct VmType
@@ -160,6 +161,7 @@ struct VmValue
 	VmValue(unsigned typeID, VmType type): typeID(typeID), type(type)
 	{
 		hasSideEffects = false;
+		hasMemoryAccess = false;
 	}
 
 	virtual ~VmValue()
@@ -174,6 +176,8 @@ struct VmValue
 	VmType type;
 
 	bool hasSideEffects;
+	bool hasMemoryAccess;
+
 	SmallArray<VmValue*, 8> users;
 };
 
@@ -304,6 +308,7 @@ struct VmModule
 		deadCodeEliminations = 0;
 		controlFlowSimplifications = 0;
 		loadStorePropagations = 0;
+		commonSubexprEliminations = 0;
 	}
 
 	IntrusiveList<VmFunction> functions;
@@ -319,6 +324,7 @@ struct VmModule
 	unsigned deadCodeEliminations;
 	unsigned controlFlowSimplifications;
 	unsigned loadStorePropagations;
+	unsigned commonSubexprEliminations;
 
 	struct LoadStoreInfo
 	{

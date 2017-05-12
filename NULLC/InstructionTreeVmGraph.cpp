@@ -407,4 +407,5 @@ void PrintGraph(InstructionVMGraphContext &ctx, VmModule *module)
 	PrintLine(ctx, "// Dead code eliminations: %d", module->deadCodeEliminations);
 	PrintLine(ctx, "// Control flow simplifications: %d", module->controlFlowSimplifications);
 	PrintLine(ctx, "// Load store propagation: %d", module->loadStorePropagations);
+	PrintLine(ctx, "// Common subexpression eliminations: %d", module->commonSubexprEliminations);
 }
