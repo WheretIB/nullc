@@ -2484,6 +2484,46 @@ void RunLoadStorePropagation(VmModule *module, VmValue *value)
 
 			curr = next;
 		}
+
+		// Handle consecutive stores to the same address
+		for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
+		{
+			if(curr->cmd >= VM_INST_STORE_BYTE && curr->cmd <= VM_INST_STORE_STRUCT)
+			{
+				// Walk up until a memory write is reached
+				VmInstruction *prev = curr->prevSibling;
+
+				while(prev && !HasMemoryAccess(prev->cmd))
+					prev = prev->prevSibling;
+
+				if(prev && prev->cmd == curr->cmd && prev->arguments[0] == curr->arguments[0])
+				{
+					block->RemoveInstruction(prev);
+
+					module->loadStorePropagations++;
+				}
+			}
+		}
+
+		// Handle immediate loads from the same address as a store
+		for(VmInstruction *curr = block->firstInstruction; curr;)
+		{
+			VmInstruction *next = curr->nextSibling;
+
+			if(curr->cmd >= VM_INST_LOAD_BYTE && curr->cmd <= VM_INST_LOAD_STRUCT)
+			{
+				// Walk up until a memory write is reached
+				VmInstruction *prev = curr->prevSibling;
+
+				while(prev && !HasMemoryAccess(prev->cmd))
+					prev = prev->prevSibling;
+
+				if(prev && (prev->cmd >= VM_INST_STORE_BYTE && prev->cmd <= VM_INST_STORE_STRUCT) && GetAccessSize(prev) == GetAccessSize(curr) && prev->arguments[0] == curr->arguments[0])
+					ReplaceValueUsersWith(curr, prev->arguments[1], &module->loadStorePropagations);
+			}
+
+			curr = next;
+		}
 	}
 }
 
