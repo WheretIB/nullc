@@ -1691,6 +1691,9 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 	if(TypeRef *refType = getType<TypeRef>(value->type))
 	{
 		value = new ExprDereference(syntax, refType->subType, value);
+
+		if(isType<TypeUnsizedArray>(value->type))
+			wrapped = value;
 	}
 	else if(isType<TypeUnsizedArray>(value->type))
 	{
