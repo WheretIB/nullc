@@ -1363,21 +1363,24 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynBase *syntax, Intrusi
 	}
 
 	HashMap<FunctionData*>::Node *function = NULL;
-
-	if(TypeBase* type = FindNextTypeFromScope(ctx.scopes.back()))
+	
+	if(path.empty())
 	{
-		unsigned hash = StringHashContinue(type->nameHash, "::");
-
-		hash = StringHashContinue(hash, name.begin, name.end);
-
-		function = ctx.functionMap.first(hash);
-
-		// Try accessor
-		if(!function)
+		if(TypeBase* type = FindNextTypeFromScope(ctx.scopes.back()))
 		{
-			hash = StringHashContinue(hash, "$");
+			unsigned hash = StringHashContinue(type->nameHash, "::");
+
+			hash = StringHashContinue(hash, name.begin, name.end);
 
 			function = ctx.functionMap.first(hash);
+
+			// Try accessor
+			if(!function)
+			{
+				hash = StringHashContinue(hash, "$");
+
+				function = ctx.functionMap.first(hash);
+			}
 		}
 	}
 
@@ -1859,6 +1862,11 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
 ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 {
 	ExprBase *function = AnalyzeExpression(ctx, syntax->value);
+
+	if(ExprTypeLiteral *type = getType<ExprTypeLiteral>(function))
+	{
+		function = AnalyzeVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name);
+	}
 
 	if(!syntax->aliases.empty())
 		Stop(ctx, syntax->pos, "ERROR: function call with explicit generic arguments is not supported");
