@@ -767,6 +767,10 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 
 ExprBase* CreateCast(ExpressionContext &ctx, const char *pos, ExprBase *value, TypeBase *type)
 {
+	// When function is used as value, hide its visibility immediately after use
+	if(ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(value))
+		ctx.HideFunction(definition->function);
+
 	if(value->type == type)
 		return value;
 
@@ -874,8 +878,7 @@ ExprAssignment* CreateAssignment(ExpressionContext &ctx, const char *pos, ExprBa
 	if(lhs->type == ctx.typeVoid)
 		Stop(ctx, pos, "ERROR: cannot convert from %.*s to void", FMT_ISTR(lhs->type->name));
 
-	if(lhs->type != rhs->type)
-		rhs = CreateCast(ctx, pos, rhs, lhs->type);
+	rhs = CreateCast(ctx, pos, rhs, lhs->type);
 
 	return new ExprAssignment(lhs->source, lhs->type, wrapped, rhs);
 }
