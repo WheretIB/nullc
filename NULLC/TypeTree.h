@@ -35,6 +35,17 @@ struct VariableHandle
 	VariableHandle *next;
 };
 
+struct FunctionHandle
+{
+	FunctionHandle(FunctionData *function): function(function), next(0)
+	{
+	}
+
+	FunctionData *function;
+
+	FunctionHandle *next;
+};
+
 struct TypeHandle
 {
 	TypeHandle(TypeBase *type): type(type), next(0)
@@ -59,7 +70,7 @@ struct AliasHandle
 
 struct NamespaceData
 {
-	NamespaceData(ScopeData *scope, NamespaceData *parent, InplaceStr name, unsigned uniqueId): scope(scope), parent(parent), name(name), uniqueId(uniqueId)
+	NamespaceData(SynBase *source, ScopeData *scope, NamespaceData *parent, InplaceStr name, unsigned uniqueId): source(source), scope(scope), parent(parent), name(name), uniqueId(uniqueId)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 
@@ -68,6 +79,8 @@ struct NamespaceData
 		else
 			fullNameHash = nameHash;
 	}
+
+	SynBase *source;
 
 	ScopeData *scope;
 
@@ -83,13 +96,15 @@ struct NamespaceData
 
 struct VariableData
 {
-	VariableData(ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name, unsigned offset, unsigned uniqueId): scope(scope), alignment(alignment), type(type), name(name), offset(offset), uniqueId(uniqueId)
+	VariableData(SynBase *source, ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name, unsigned offset, unsigned uniqueId): source(source), scope(scope), alignment(alignment), type(type), name(name), offset(offset), uniqueId(uniqueId)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 
 		if(alignment != 0)
 			assert(offset % alignment == 0);
 	}
+
+	SynBase *source;
 
 	ScopeData *scope;
 
@@ -107,11 +122,14 @@ struct VariableData
 
 struct FunctionData
 {
-	FunctionData(ScopeData *scope, bool coroutine, TypeFunction *type, InplaceStr name, unsigned uniqueId, SynFunctionDefinition *definition): scope(scope), coroutine(coroutine), type(type), name(name), uniqueId(uniqueId), definition(definition)
+	FunctionData(SynBase *source, ScopeData *scope, bool coroutine, TypeFunction *type, InplaceStr name, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), type(type), name(name), uniqueId(uniqueId)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 
 		isExternal = false;
+
+		isPrototype = false;
+		implementation = NULL;
 
 		stackSize = 0;
 
@@ -119,6 +137,8 @@ struct FunctionData
 
 		vmFunction = NULL;
 	}
+
+	SynBase *source;
 
 	ScopeData *scope;
 
@@ -131,9 +151,10 @@ struct FunctionData
 
 	unsigned uniqueId;
 
-	SynFunctionDefinition *definition;
-
 	bool isExternal;
+
+	bool isPrototype;
+	FunctionData *implementation;
 
 	long long stackSize;
 
@@ -144,10 +165,12 @@ struct FunctionData
 
 struct AliasData
 {
-	AliasData(ScopeData *scope, TypeBase *type, InplaceStr name, unsigned uniqueId): scope(scope), type(type), name(name), uniqueId(uniqueId)
+	AliasData(SynBase *source, ScopeData *scope, TypeBase *type, InplaceStr name, unsigned uniqueId): source(source), scope(scope), type(type), name(name), uniqueId(uniqueId)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 	}
+
+	SynBase *source;
 
 	ScopeData *scope;
 
@@ -503,6 +526,18 @@ struct TypeGenericClass: TypeBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct TypeFunctionSet: TypeBase
+{
+	TypeFunctionSet(InplaceStr name, IntrusiveList<TypeHandle> types): TypeBase(myTypeID, name), types(types)
+	{
+		isGeneric = true;
+	}
+
+	IntrusiveList<TypeHandle> types;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 template<typename T>
 bool isType(TypeBase *node)
 {
@@ -532,6 +567,7 @@ InplaceStr GetArrayTypeName(TypeBase* type, long long length);
 InplaceStr GetUnsizedArrayTypeName(TypeBase* type);
 InplaceStr GetFunctionTypeName(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
 InplaceStr GetGenericClassName(TypeBase* proto, IntrusiveList<TypeHandle> generics);
+InplaceStr GetFunctionSetTypeName(IntrusiveList<TypeHandle> types);
 
 InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str);
 InplaceStr GetVariableNameInScope(ScopeData *scope, InplaceStr str);

@@ -106,6 +106,34 @@ InplaceStr GetGenericClassName(TypeBase* proto, IntrusiveList<TypeHandle> generi
 	return InplaceStr(name);
 }
 
+InplaceStr GetFunctionSetTypeName(IntrusiveList<TypeHandle> types)
+{
+	unsigned nameLength = 0;
+
+	for(TypeHandle *arg = types.head; arg; arg = arg->next)
+		nameLength += arg->type->name.length() + strlen(" or ");
+
+	char *name = new char[nameLength + 1];
+
+	char *pos = name;
+
+	for(TypeHandle *arg = types.head; arg; arg = arg->next)
+	{
+		sprintf(pos, "%.*s", FMT_ISTR(arg->type->name));
+		pos += arg->type->name.length();
+
+		if(arg->next)
+		{
+			sprintf(pos, " or ");
+			pos += strlen(" or ");
+		}
+	}
+
+	*pos++ = 0;
+
+	return InplaceStr(name);
+}
+
 InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str)
 {
 	bool foundNamespace = false;

@@ -34,6 +34,8 @@ struct ExpressionContext
 	void AddVariable(VariableData *variable);
 	void AddAlias(AliasData *alias);
 
+	void HideFunction(FunctionData *function);
+
 	bool IsIntegerType(TypeBase* type);
 	bool IsFloatingPointType(TypeBase* type);
 	bool IsNumericType(TypeBase* type);
@@ -441,11 +443,9 @@ struct ExprVariableAccess: ExprBase
 
 struct ExprFunctionDefinition: ExprBase
 {
-	ExprFunctionDefinition(SynBase *source, TypeBase *type, bool prototype, FunctionData* function, IntrusiveList<ExprVariableDefinition> arguments, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), prototype(prototype), function(function), arguments(arguments), expressions(expressions)
+	ExprFunctionDefinition(SynBase *source, TypeBase *type, FunctionData* function, IntrusiveList<ExprVariableDefinition> arguments, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), function(function), arguments(arguments), expressions(expressions)
 	{
 	}
-
-	bool prototype;
 
 	FunctionData* function;
 
@@ -474,6 +474,17 @@ struct ExprFunctionAccess: ExprBase
 	}
 
 	FunctionData *function;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprFunctionOverloadSet: ExprBase
+{
+	ExprFunctionOverloadSet(SynBase *source, TypeBase *type, IntrusiveList<FunctionHandle> functions): ExprBase(myTypeID, source, type), functions(functions)
+	{
+	}
+
+	IntrusiveList<FunctionHandle> functions;
 
 	static const unsigned myTypeID = __LINE__;
 };

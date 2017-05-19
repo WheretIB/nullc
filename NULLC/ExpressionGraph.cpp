@@ -261,7 +261,19 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 	}
 	else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(expression))
 	{
-		PrintEnterBlock(ctx, name, node->type, "ExprFunctionDefinition(%s%.*s: f%04x)", node->prototype ? "prototype, " : "", FMT_ISTR(node->function->name), node->function->uniqueId);
+		if(node->function->isPrototype)
+		{
+			PrintEnterBlock(ctx, name, node->type, "ExprFunctionDefinition(%s%.*s: f%04x)", node->function->isPrototype ? "prototype, " : "", FMT_ISTR(node->function->name), node->function->uniqueId);
+			
+			if(FunctionData *implementation = node->function->implementation)
+				PrintIndented(ctx, "implementation", implementation->type, "%.*s: f%04x", FMT_ISTR(implementation->name), implementation->uniqueId);
+
+			PrintLeaveBlock(ctx);
+
+			return;
+		}
+
+		PrintEnterBlock(ctx, name, node->type, "ExprFunctionDefinition(%s%.*s: f%04x)", node->function->isPrototype ? "prototype, " : "", FMT_ISTR(node->function->name), node->function->uniqueId);
 
 		PrintEnterBlock(ctx, "arguments", 0, "");
 
@@ -286,6 +298,15 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 	else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expression))
 	{
 		PrintIndented(ctx, name, node->type, "ExprFunctionAccess(%.*s: f%04x)", FMT_ISTR(node->function->name), node->function->uniqueId);
+	}
+	else if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(expression))
+	{
+		PrintEnterBlock(ctx, name, node->type, "ExprFunctionOverloadSet()");
+
+		for(FunctionHandle *arg = node->functions.head; arg; arg = arg->next)
+			PrintIndented(ctx, name, arg->function->type, "%.*s: f%04x", FMT_ISTR(arg->function->name), arg->function->uniqueId);
+
+		PrintLeaveBlock(ctx);
 	}
 	else if(ExprFunctionCall *node = getType<ExprFunctionCall>(expression))
 	{

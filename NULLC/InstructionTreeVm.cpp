@@ -700,7 +700,7 @@ namespace
 		char *name = new char[16];
 		sprintf(name, "$temp%d", ctx.unnamedVariableCount++);
 
-		VariableData *variable = new VariableData(scope, type->alignment, type, InplaceStr(name), offset, 0);
+		VariableData *variable = new VariableData(NULL, scope, type->alignment, type, InplaceStr(name), offset, 0);
 
 		scope->variables.push_back(variable);
 
@@ -1673,10 +1673,10 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(expression))
 	{
 		VmFunction *function = node->function->vmFunction;
-		
-		if(node->prototype)
-			return CheckType(ctx, expression, function);
 
+		if(node->function->isPrototype)
+			return CheckType(ctx, expression, function);
+		
 		// Store state
 		unsigned nextBlockId = module->nextBlockId;
 		unsigned nextInstructionId = module->nextInstructionId;
@@ -1944,9 +1944,15 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 			if(function->type->isGeneric)
 				continue;
 
+			if(function->vmFunction)
+				continue;
+
 			VmFunction *vmFunction = new VmFunction(GetVmType(ctx, function->type), function, GetVmType(ctx, function->type->returnType));
 
-			ctx.functions[i]->vmFunction = vmFunction;
+			function->vmFunction = vmFunction;
+
+			if(FunctionData *implementation = function->implementation)
+				implementation->vmFunction = vmFunction;
 
 			module->functions.push_back(vmFunction);
 		}

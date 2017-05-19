@@ -258,11 +258,13 @@ namespace
 		return result;
 	}
 
-	VariableData* AllocateClassMember(ScopeData *scope, TypeBase *type, InplaceStr name, unsigned uniqueId)
+	VariableData* AllocateClassMember(SynBase *source, ScopeData *scope, TypeBase *type, InplaceStr name, unsigned uniqueId)
 	{
 		unsigned offset = AllocateVariableInScope(scope, type->alignment, type);
 
-		return new VariableData(scope, type->alignment, type, name, offset, uniqueId);
+		assert(!type->isGeneric);
+
+		return new VariableData(source, scope, type->alignment, type, name, offset, uniqueId);
 	}
 
 	void FinalizeAlignment(TypeClass *type)
@@ -286,6 +288,59 @@ namespace
 			type->size += maximumAlignment - (type->size % maximumAlignment);
 		}
 	}
+
+	void ImplementPrototype(ExpressionContext &ctx, FunctionData *function)
+	{
+		if(function->isPrototype)
+			return;
+
+		FastVector<FunctionData*> &functions = ctx.scopes.back()->functions;
+
+		for(unsigned i = 0; i < functions.size(); i++)
+		{
+			FunctionData *curr = functions[i];
+
+			// Skip current function
+			if(curr == function)
+				continue;
+
+			// TODO: generic function list
+
+			if(curr->isPrototype && curr->type == function->type && curr->name == function->name)
+			{
+				curr->implementation = function;
+
+				ctx.HideFunction(curr);
+				break;
+			}
+		}
+	}
+
+	FunctionData* CheckUniqueness(ExpressionContext &ctx, FunctionData* function)
+	{
+		HashMap<FunctionData*>::Node *curr = ctx.functionMap.first(function->nameHash);
+
+		while(curr)
+		{
+			// Skip current function
+			if(curr->value == function)
+			{
+				curr = ctx.functionMap.next(curr);
+				continue;
+			}
+
+			// TODO: generic function list
+
+			if(curr->value->type == function->type)
+				return curr->value;
+
+			curr = ctx.functionMap.next(curr);
+		}
+
+		return NULL;
+	}
+
+	
 }
 
 ExpressionContext::ExpressionContext()
@@ -398,6 +453,9 @@ void ExpressionContext::PopScope()
 		// Keep class functions visible
 		if(function->scope->ownerType)
 			continue;
+
+		if(scope->scope && function->isPrototype && !function->implementation)
+			Stop(function->source->pos, "ERROR: local function '%.*s' went out of scope unimplemented", FMT_ISTR(function->name));
 
 		functionMap.remove(function->nameHash, function);
 	}
@@ -517,6 +575,22 @@ void ExpressionContext::AddAlias(AliasData *alias)
 	scopes.back()->aliases.push_back(alias);
 
 	typeMap.insert(alias->nameHash, alias->type);
+}
+
+void ExpressionContext::HideFunction(FunctionData *function)
+{
+	functionMap.remove(function->nameHash, function);
+
+	FastVector<FunctionData*> &functions = function->scope->functions;
+
+	for(unsigned i = 0; i < functions.size(); i++)
+	{
+		if(functions[i] == function)
+		{
+			functions[i] = functions.back();
+			functions.pop_back();
+		}
+	}
 }
 
 bool ExpressionContext::IsIntegerType(TypeBase* type)
@@ -640,7 +714,7 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 	// Create new type
 	TypeUnsizedArray* result = new TypeUnsizedArray(GetUnsizedArrayTypeName(type), type);
 
-	result->members.push_back(new VariableHandle(new VariableData(scopes.back(), 4, typeInt, InplaceStr("size"), NULLC_PTR_SIZE, uniqueVariableId++)));
+	result->members.push_back(new VariableHandle(new VariableData(NULL, scopes.back(), 4, typeInt, InplaceStr("size"), NULLC_PTR_SIZE, uniqueVariableId++)));
 
 	result->size = NULLC_PTR_SIZE + 4;
 
@@ -1327,8 +1401,26 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynBase *syntax, Intrusi
 
 	if(function)
 	{
-		if(ctx.functionMap.next(function))
-			Stop(ctx, name.begin, "ERROR: function overloads are not supported");
+		if(HashMap<FunctionData*>::Node *curr = ctx.functionMap.next(function))
+		{
+			IntrusiveList<TypeHandle> types;
+			IntrusiveList<FunctionHandle> functions;
+
+			types.push_back(new TypeHandle(function->value->type));
+			functions.push_back(new FunctionHandle(function->value));
+			
+			while(curr)
+			{
+				types.push_back(new TypeHandle(curr->value->type));
+				functions.push_back(new FunctionHandle(curr->value));
+
+				curr = ctx.functionMap.next(curr);
+			}
+
+			TypeFunctionSet *type = new TypeFunctionSet(GetFunctionSetTypeName(types), types);
+
+			return new ExprFunctionOverloadSet(syntax, type, functions);
+		}
 
 		return new ExprFunctionAccess(syntax, function->value->type, function->value);
 	}
@@ -1780,6 +1872,9 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 		if(isType<ExprGenericFunctionPrototype>(argument))
 			Stop(ctx, syntax->pos, "ERROR: generic function arguments are not supported");
 
+		if(isType<ExprFunctionOverloadSet>(argument))
+			Stop(ctx, syntax->pos, "ERROR: function overload arguments are not supported");
+
 		if(TypeFunction *type = getType<TypeFunction>(argument->type))
 		{
 			if(type->isGeneric)
@@ -1799,6 +1894,9 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 
 		return new ExprFunctionCall(syntax, type->returnType, function, arguments);
 	}
+
+	if(isType<ExprFunctionOverloadSet>(function))
+		Stop(ctx, syntax->pos, "ERROR: function overloads are not supported");
 
 	Stop(ctx, syntax->pos, "ERROR: unknown call");
 
@@ -1966,8 +2064,11 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 	if(alignment == 0 && type->alignment != 0)
 		alignment = type->alignment;
 
+	assert(!type->isGeneric);
+	assert(type != ctx.typeAuto);
+
 	unsigned offset = AllocateVariableInScope(ctx.scopes.back(), alignment, type);
-	VariableData *variable = new VariableData(ctx.scopes.back(), alignment, type, fullName, offset, ctx.uniqueVariableId++);
+	VariableData *variable = new VariableData(syntax, ctx.scopes.back(), alignment, type, fullName, offset, ctx.uniqueVariableId++);
 
 	ctx.AddVariable(variable);
 
@@ -2039,7 +2140,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 			while(prevArg && prevArg != argument)
 			{
-				ctx.AddVariable(new VariableData(ctx.scopes.back(), 0, prevType->type, prevArg->name, 0, ctx.uniqueVariableId++));
+				ctx.AddVariable(new VariableData(prevArg, ctx.scopes.back(), 0, prevType->type, prevArg->name, 0, ctx.uniqueVariableId++));
 
 				prevArg = getType<SynFunctionArgument>(prevArg->next);
 				prevType = prevType->next;
@@ -2075,7 +2176,12 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	}
 
 	// TODO: function type should be stored in type list
-	FunctionData *function = new FunctionData(ctx.scopes.back(), syntax->coroutine, functionType, functionName, ctx.uniqueFunctionId++, syntax);
+
+	FunctionData *function = new FunctionData(syntax, ctx.scopes.back(), syntax->coroutine, functionType, functionName, ctx.uniqueFunctionId++);
+
+	// If the type is known, implement the prototype immediately
+	if(functionType->returnType != ctx.typeAuto)
+		ImplementPrototype(ctx, function);
 
 	ctx.AddFunction(function);
 
@@ -2096,8 +2202,10 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	{
 		TypeBase *type = ctx.GetReferenceType(parent);
 
+		assert(!type->isGeneric);
+
 		unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, type);
-		VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
+		VariableData *variable = new VariableData(syntax, ctx.scopes.back(), 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
 	}
@@ -2111,8 +2219,10 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 		TypeBase *type = AnalyzeType(ctx, argument->type);
 
+		assert(!type->isGeneric);
+
 		unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, type);
-		VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, argument->name, offset, ctx.uniqueVariableId++);
+		VariableData *variable = new VariableData(argument, ctx.scopes.back(), 0, type, argument->name, offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
 
@@ -2127,6 +2237,8 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	{
 		if(function->type->returnType == ctx.typeAuto)
 			Stop(ctx, syntax->pos, "ERROR: function prototype with unresolved return type");
+
+		function->isPrototype = true;
 	}
 	else
 	{
@@ -2146,7 +2258,15 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	if(parentType)
 		ctx.PopScope();
 
-	return new ExprFunctionDefinition(syntax, function->type, syntax->prototype, function, arguments, expressions);
+	// If the type was deduced, implement prototype now that it's known
+	ImplementPrototype(ctx, function);
+
+	FunctionData *conflict = CheckUniqueness(ctx, function);
+
+	if(conflict)
+		Stop(ctx, syntax->pos, "ERROR: function '%.*s' is being defined with the same set of parameters", FMT_ISTR(function->name));
+
+	return new ExprFunctionDefinition(syntax, function->type, function, arguments, expressions);
 }
 
 void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassStaticIf *syntax)
@@ -2260,7 +2380,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		while(currType && currName)
 		{
-			ctx.AddAlias(new AliasData(ctx.scopes.back(), currType->type, currName->name, ctx.uniqueAliasId++));
+			ctx.AddAlias(new AliasData(currName, ctx.scopes.back(), currType->type, currName->name, ctx.uniqueAliasId++));
 
 			currType = currType->next;
 			currName = getType<SynIdentifier>(currName->next);
@@ -2280,7 +2400,7 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 {
 	for(SynIdentifier *name = syntax->path.head; name; name = getType<SynIdentifier>(name->next))
 	{
-		NamespaceData *ns = new NamespaceData(ctx.scopes.back(), ctx.GetCurrentNamespace(), name->name, ctx.uniqueNamespaceId++);
+		NamespaceData *ns = new NamespaceData(syntax, ctx.scopes.back(), ctx.GetCurrentNamespace(), name->name, ctx.uniqueNamespaceId++);
 
 		ctx.namespaces.push_back(ns);
 
@@ -2302,7 +2422,7 @@ ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax)
 {
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
 
-	AliasData *alias = new AliasData(ctx.scopes.back(), type, syntax->alias, ctx.uniqueAliasId++);
+	AliasData *alias = new AliasData(syntax, ctx.scopes.back(), type, syntax->alias, ctx.uniqueAliasId++);
 
 	ctx.AddAlias(alias);
 
@@ -2701,7 +2821,7 @@ struct ModuleContext
 	FastVector<TypeBase*, true, true> types;
 };
 
-void ImportModuleNamespaces(ExpressionContext &ctx, const char *pos, ModuleContext &module)
+void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
 {
 	ByteCode *bCode = (ByteCode*)module.bytecode;
 	char *symbols = FindSymbols(bCode);
@@ -2727,21 +2847,21 @@ void ImportModuleNamespaces(ExpressionContext &ctx, const char *pos, ModuleConte
 			}
 
 			if(!parent)
-				Stop(ctx, pos, "ERROR: namespace %s parent not found", symbols + ns.offsetToName);
+				Stop(ctx, source->pos, "ERROR: namespace %s parent not found", symbols + ns.offsetToName);
 		}
 
 		if(parent)
 		{
-			Stop(ctx, pos, "ERROR: can't import nested namespace");
+			Stop(ctx, source->pos, "ERROR: can't import nested namespace");
 		}
 		else
 		{
-			ctx.namespaces.push_back(new NamespaceData(ctx.scopes.back(), ctx.GetCurrentNamespace(), InplaceStr(symbols + ns.offsetToName), ctx.uniqueNamespaceId++));
+			ctx.namespaces.push_back(new NamespaceData(source, ctx.scopes.back(), ctx.GetCurrentNamespace(), InplaceStr(symbols + ns.offsetToName), ctx.uniqueNamespaceId++));
 		}
 	}
 }
 
-void ImportModuleTypes(ExpressionContext &ctx, const char *pos, ModuleContext &module)
+void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
 {
 	ByteCode *bCode = (ByteCode*)module.bytecode;
 	char *symbols = FindSymbols(bCode);
@@ -2774,7 +2894,7 @@ void ImportModuleTypes(ExpressionContext &ctx, const char *pos, ModuleContext &m
 			}
 			else
 			{
-				Stop(ctx, pos, "ERROR: new type in module %s named %s unsupported", module.name, symbols + type.offsetToName);
+				Stop(ctx, source->pos, "ERROR: new type in module %s named %s unsupported", module.name, symbols + type.offsetToName);
 			}
 			break;
 		case ExternTypeInfo::CAT_ARRAY:
@@ -2787,7 +2907,7 @@ void ImportModuleTypes(ExpressionContext &ctx, const char *pos, ModuleContext &m
 			}
 			else
 			{
-				Stop(ctx, pos, "ERROR: can't find sub type for '%s' in module %s", symbols + type.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find sub type for '%s' in module %s", symbols + type.offsetToName, module.name);
 			}
 			break;
 		case ExternTypeInfo::CAT_POINTER:
@@ -2797,7 +2917,7 @@ void ImportModuleTypes(ExpressionContext &ctx, const char *pos, ModuleContext &m
 			}
 			else
 			{
-				Stop(ctx, pos, "ERROR: can't find sub type for '%s' in module %s", symbols + type.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find sub type for '%s' in module %s", symbols + type.offsetToName, module.name);
 			}
 			break;
 		case ExternTypeInfo::CAT_FUNCTION:
@@ -2810,7 +2930,7 @@ void ImportModuleTypes(ExpressionContext &ctx, const char *pos, ModuleContext &m
 					TypeBase *argType = module.types[memberList[type.memberOffset + n + 1].type];
 
 					if(!argType)
-						Stop(ctx, pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
+						Stop(ctx, source->pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
 
 					arguments.push_back(new TypeHandle(argType));
 				}
@@ -2819,23 +2939,23 @@ void ImportModuleTypes(ExpressionContext &ctx, const char *pos, ModuleContext &m
 			}
 			else
 			{
-				Stop(ctx, pos, "ERROR: can't find return type for '%s' in module %s", symbols + type.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find return type for '%s' in module %s", symbols + type.offsetToName, module.name);
 			}
 			break;
 		case ExternTypeInfo::CAT_CLASS:
 			{
 				if(type.namespaceHash != ~0u)
-					Stop(ctx, pos, "ERROR: can't import namespace type");
+					Stop(ctx, source->pos, "ERROR: can't import namespace type");
 
 				if(type.constantCount != 0)
-					Stop(ctx, pos, "ERROR: can't import constants of type");
+					Stop(ctx, source->pos, "ERROR: can't import constants of type");
 
 				if(type.definitionOffset != ~0u)
 				{
 					if(type.definitionOffset & 0x80000000)
-						Stop(ctx, pos, "ERROR: can't import derived type");
+						Stop(ctx, source->pos, "ERROR: can't import derived type");
 					else
-						Stop(ctx, pos, "ERROR: can't import generic base type");
+						Stop(ctx, source->pos, "ERROR: can't import generic base type");
 				}
 
 				InplaceStr className = InplaceStr(symbols + type.offsetToName);
@@ -2864,9 +2984,9 @@ void ImportModuleTypes(ExpressionContext &ctx, const char *pos, ModuleContext &m
 					TypeBase *memberType = module.types[memberList[type.memberOffset + n].type];
 
 					if(!memberType)
-						Stop(ctx, pos, "ERROR: can't find member %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
+						Stop(ctx, source->pos, "ERROR: can't find member %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
 
-					VariableData *member = new VariableData(ctx.scopes.back(), 0, memberType, memberName, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
+					VariableData *member = new VariableData(source, ctx.scopes.back(), 0, memberType, memberName, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
 
 					classType->members.push_back(new VariableHandle(member));
 				}
@@ -2875,12 +2995,12 @@ void ImportModuleTypes(ExpressionContext &ctx, const char *pos, ModuleContext &m
 			}
 			break;
 		default:
-			Stop(ctx, pos, "ERROR: new type in module %s named %s unsupported", module.name, symbols + type.offsetToName);
+			Stop(ctx, source->pos, "ERROR: new type in module %s named %s unsupported", module.name, symbols + type.offsetToName);
 		}
 	}
 }
 
-void ImportModuleVariables(ExpressionContext &ctx, const char *pos, ModuleContext &module)
+void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
 {
 	ByteCode *bCode = (ByteCode*)module.bytecode;
 	char *symbols = FindSymbols(bCode);
@@ -2901,15 +3021,15 @@ void ImportModuleVariables(ExpressionContext &ctx, const char *pos, ModuleContex
 		TypeBase *type = module.types[variable.type];
 
 		if(!type)
-			Stop(ctx, pos, "ERROR: can't find variable '%s' type in module %s", symbols + variable.offsetToName, module.name);
+			Stop(ctx, source->pos, "ERROR: can't find variable '%s' type in module %s", symbols + variable.offsetToName, module.name);
 
-		VariableData *data = new VariableData(ctx.scopes.back(), 0, type, name, variable.offset, ctx.uniqueVariableId++);
+		VariableData *data = new VariableData(source, ctx.scopes.back(), 0, type, name, variable.offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(data);
 	}
 }
 
-void ImportModuleTypedefs(ExpressionContext &ctx, const char *pos, ModuleContext &module)
+void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
 {
 	ByteCode *bCode = (ByteCode*)module.bytecode;
 	char *symbols = FindSymbols(bCode);
@@ -2926,32 +3046,32 @@ void ImportModuleTypedefs(ExpressionContext &ctx, const char *pos, ModuleContext
 		TypeBase *targetType = module.types[alias.targetType];
 
 		if(!targetType)
-			Stop(ctx, pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, module.name);
+			Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, module.name);
 
 		if(TypeBase **prev = ctx.typeMap.find(aliasName.hash()))
 		{
 			TypeBase *type = *prev;
 
 			if(type->name == aliasName)
-				Stop(ctx, pos, "ERROR: type '%.*s' alias '%s' is equal to previously imported class", FMT_ISTR(targetType->name), symbols + alias.offsetToName);
+				Stop(ctx, source->pos, "ERROR: type '%.*s' alias '%s' is equal to previously imported class", FMT_ISTR(targetType->name), symbols + alias.offsetToName);
 
 			if(type != targetType)
-				Stop(ctx, pos, "ERROR: type '%.*s' alias '%s' is equal to previously imported alias", FMT_ISTR(targetType->name), symbols + alias.offsetToName);
+				Stop(ctx, source->pos, "ERROR: type '%.*s' alias '%s' is equal to previously imported alias", FMT_ISTR(targetType->name), symbols + alias.offsetToName);
 		}
 		else if(alias.parentType != ~0u)
 		{
-			Stop(ctx, pos, "ERROR: can't import class alias");
+			Stop(ctx, source->pos, "ERROR: can't import class alias");
 		}
 		else
 		{
-			AliasData *alias = new AliasData(ctx.scopes.back(), targetType, aliasName, ctx.uniqueAliasId++);
+			AliasData *alias = new AliasData(source, ctx.scopes.back(), targetType, aliasName, ctx.uniqueAliasId++);
 
 			ctx.AddAlias(alias);
 		}
 	}
 }
 
-void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContext &module)
+void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
 {
 	ByteCode *bCode = (ByteCode*)module.bytecode;
 	char *symbols = FindSymbols(bCode);
@@ -2967,10 +3087,10 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 		TypeBase *functionType = module.types[function.funcType];
 
 		if(!functionType)
-			Stop(ctx, pos, "ERROR: can't find function '%s' type in module %s", symbols + function.offsetToName, module.name);
+			Stop(ctx, source->pos, "ERROR: can't find function '%s' type in module %s", symbols + function.offsetToName, module.name);
 
 		if(function.namespaceHash != ~0u)
-			Stop(ctx, pos, "ERROR: can't import namespace function");
+			Stop(ctx, source->pos, "ERROR: can't import namespace function");
 
 		TypeBase *parentType = NULL;
 
@@ -2979,7 +3099,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 			parentType = module.types[function.parentType];
 
 			if(!parentType)
-				Stop(ctx, pos, "ERROR: can't find function '%s' parent type in module %s", symbols + function.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find function '%s' parent type in module %s", symbols + function.offsetToName, module.name);
 		}
 
 		TypeBase *contextType = NULL;
@@ -2989,17 +3109,17 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 			contextType = module.types[function.contextType];
 
 			if(!contextType)
-				Stop(ctx, pos, "ERROR: can't find function '%s' context type in module %s", symbols + function.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find function '%s' context type in module %s", symbols + function.offsetToName, module.name);
 		}
 
 		if(function.explicitTypeCount != 0)
-			Stop(ctx, pos, "ERROR: can't import generic function with explicit arguments");
+			Stop(ctx, source->pos, "ERROR: can't import generic function with explicit arguments");
 
 		bool coroutine = function.funcCat == ExternFuncInfo::COROUTINE;
 
 		InplaceStr functionName = InplaceStr(symbols + function.offsetToName);
 
-		FunctionData *data = new FunctionData(ctx.scopes.back(), coroutine, getType<TypeFunction>(functionType), functionName, ctx.uniqueFunctionId++, NULL);
+		FunctionData *data = new FunctionData(source, ctx.scopes.back(), coroutine, getType<TypeFunction>(functionType), functionName, ctx.uniqueFunctionId++);
 
 		data->isExternal = true;
 
@@ -3015,7 +3135,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 			TypeBase *type = ctx.GetReferenceType(parentType);
 
 			unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, type);
-			VariableData *variable = new VariableData(ctx.scopes.back(), 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
+			VariableData *variable = new VariableData(source, ctx.scopes.back(), 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 		}
@@ -3027,12 +3147,12 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 			TypeBase *argType = module.types[argument.type];
 
 			if(!argType)
-				Stop(ctx, pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + function.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + function.offsetToName, module.name);
 
 			InplaceStr argName = InplaceStr(symbols + argument.offsetToName);
 
 			unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, argType);
-			VariableData *variable = new VariableData(ctx.scopes.back(), 0, argType, argName, offset, ctx.uniqueVariableId++);
+			VariableData *variable = new VariableData(source, ctx.scopes.back(), 0, argType, argName, offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 		}
@@ -3045,7 +3165,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 				returnType = module.types[function.genericReturnType];
 
 			if(!returnType)
-				Stop(ctx, pos, "ERROR: can't find generic function '%s' return type in module %s", symbols + function.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find generic function '%s' return type in module %s", symbols + function.offsetToName, module.name);
 
 			IntrusiveList<TypeHandle> argTypes;
 
@@ -3068,22 +3188,22 @@ void ImportModuleFunctions(ExpressionContext &ctx, const char *pos, ModuleContex
 	}
 }
 
-void ImportModule(ExpressionContext &ctx, const char *pos, const char* bytecode, const char* name)
+void ImportModule(ExpressionContext &ctx, SynBase *source, const char* bytecode, const char* name)
 {
 	ModuleContext module;
 
 	module.bytecode = bytecode;
 	module.name = name;
 
-	ImportModuleNamespaces(ctx, pos, module);
+	ImportModuleNamespaces(ctx, source, module);
 
-	ImportModuleTypes(ctx, pos, module);
+	ImportModuleTypes(ctx, source, module);
 
-	ImportModuleVariables(ctx, pos, module);
+	ImportModuleVariables(ctx, source, module);
 
-	ImportModuleTypedefs(ctx, pos, module);
+	ImportModuleTypedefs(ctx, source, module);
 
-	ImportModuleFunctions(ctx, pos, module);
+	ImportModuleFunctions(ctx, source, module);
 }
 
 void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
@@ -3121,9 +3241,9 @@ void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 	*pos = 0;
 
 	if(const char *bytecode = BinaryCache::GetBytecode(path))
-		ImportModule(ctx, syntax->pos, bytecode, pathNoImport);
+		ImportModule(ctx, syntax, bytecode, pathNoImport);
 	else if(const char *bytecode = BinaryCache::GetBytecode(pathNoImport))
-		ImportModule(ctx, syntax->pos, bytecode, pathNoImport);
+		ImportModule(ctx, syntax, bytecode, pathNoImport);
 	else
 		Stop(ctx, syntax->pos, "ERROR: module import is not implemented");
 }
@@ -3131,7 +3251,7 @@ void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
 {
 	if(const char *bytecode = BinaryCache::GetBytecode("$base$.nc"))
-		ImportModule(ctx, syntax->pos, bytecode, "$base$.nc");
+		ImportModule(ctx, syntax, bytecode, "$base$.nc");
 	else
 		Stop(ctx, syntax->pos, "ERROR: base module couldn't be imported");
 
@@ -3175,15 +3295,15 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 
 	ctx.AddType(ctx.typeAutoRef = new TypeAutoRef(InplaceStr("auto ref")));
 	ctx.PushScope(ctx.typeAutoRef);
-	ctx.typeAutoRef->members.push_back(new VariableHandle(AllocateClassMember(ctx.scopes.back(), ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
-	ctx.typeAutoRef->members.push_back(new VariableHandle(AllocateClassMember(ctx.scopes.back(), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
+	ctx.typeAutoRef->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scopes.back(), ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
+	ctx.typeAutoRef->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scopes.back(), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
 	ctx.PopScope();
 
 	ctx.AddType(ctx.typeAutoArray = new TypeAutoArray(InplaceStr("auto[]")));
 	ctx.PushScope(ctx.typeAutoArray);
-	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(ctx.scopes.back(), ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
-	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(ctx.scopes.back(), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
-	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(ctx.scopes.back(), ctx.typeInt, InplaceStr("size"), ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scopes.back(), ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scopes.back(), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scopes.back(), ctx.typeInt, InplaceStr("size"), ctx.uniqueVariableId++)));
 	ctx.PopScope();
 
 	// Analyze module
