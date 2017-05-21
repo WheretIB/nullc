@@ -188,15 +188,6 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 
 		PrintLeaveBlock(ctx);
 	}
-	else if(ExprModifyAssignment *node = getType<ExprModifyAssignment>(expression))
-	{
-		PrintEnterBlock(ctx, name, node->type, "ExprModifyAssignment(%s)", GetOpName(node->op));
-
-		PrintGraph(ctx, node->lhs, "lhs");
-		PrintGraph(ctx, node->rhs, "rhs");
-
-		PrintLeaveBlock(ctx);
-	}
 	else if(ExprMemberAccess *node = getType<ExprMemberAccess>(expression))
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprMemberAccess(%.*s: v%04x)", FMT_ISTR(node->member->name), node->member->uniqueId);
@@ -250,7 +241,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprVariableDefinitions()");
 
-		for(ExprVariableDefinition *value = node->definitions.head; value; value = getType<ExprVariableDefinition>(value->next))
+		for(ExprBase *value = node->definitions.head; value; value = value->next)
 			PrintGraph(ctx, value, "");
 
 		PrintLeaveBlock(ctx);
@@ -277,7 +268,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 
 		PrintEnterBlock(ctx, "arguments", 0, "");
 
-		for(ExprVariableDefinition *arg = node->arguments.head; arg; arg = getType<ExprVariableDefinition>(arg->next))
+		for(ExprBase *arg = node->arguments.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
 
 		PrintLeaveBlock(ctx);

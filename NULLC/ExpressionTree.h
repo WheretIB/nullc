@@ -335,20 +335,6 @@ struct ExprAssignment: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
-struct ExprModifyAssignment: ExprBase
-{
-	ExprModifyAssignment(SynBase *source, TypeBase *type, SynModifyAssignType op, ExprBase* lhs, ExprBase* rhs): ExprBase(myTypeID, source, type), op(op), lhs(lhs), rhs(rhs)
-	{
-	}
-
-	SynModifyAssignType op;
-
-	ExprBase* lhs;
-	ExprBase* rhs;
-
-	static const unsigned myTypeID = __LINE__;
-};
-
 struct ExprMemberAccess: ExprBase
 {
 	ExprMemberAccess(SynBase *source, TypeBase *type, ExprBase *value, VariableData *member): ExprBase(myTypeID, source, type), value(value), member(member)

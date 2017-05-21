@@ -1502,59 +1502,6 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		return CheckType(ctx, expression, initializer);
 	}
-	else if(ExprModifyAssignment *node = getType<ExprModifyAssignment>(expression))
-	{
-		TypeRef *refType = getType<TypeRef>(node->lhs->type);
-
-		assert(refType);
-
-		VmValue *address = CompileVm(ctx, module, node->lhs);
-
-		VmValue *value = CreateLoad(ctx, module, refType->subType, address);
-
-		VmValue *modification = CompileVm(ctx, module, node->rhs);
-
-		switch(node->op)
-		{
-		case SYN_MODIFY_ASSIGN_ADD:
-			value = CreateAdd(module, value, modification);
-			break;
-		case SYN_MODIFY_ASSIGN_SUB:
-			value = CreateSub(module, value, modification);
-			break;
-		case SYN_MODIFY_ASSIGN_MUL:
-			value = CreateMul(module, value, modification);
-			break;
-		case SYN_MODIFY_ASSIGN_DIV:
-			value = CreateDiv(module, value, modification);
-			break;
-		case SYN_MODIFY_ASSIGN_POW:
-			value = CreatePow(module, value, modification);
-			break;
-		case SYN_MODIFY_ASSIGN_MOD:
-			value = CreateMod(module, value, modification);
-			break;
-		case SYN_MODIFY_ASSIGN_SHL:
-			value = CreateShl(module, value, modification);
-			break;
-		case SYN_MODIFY_ASSIGN_SHR:
-			value = CreateShr(module, value, modification);
-			break;
-		case SYN_MODIFY_ASSIGN_BIT_AND:
-			value = CreateAnd(module, value, modification);
-			break;
-		case SYN_MODIFY_ASSIGN_BIT_OR:
-			value = CreateOr(module, value, modification);
-			break;
-		case SYN_MODIFY_ASSIGN_BIT_XOR:
-			value = CreateXor(module, value, modification);
-			break;
-		}
-
-		CreateStore(ctx, module, refType->subType, address, value);
-
-		return CheckType(ctx, expression, value);
-	}
 	else if(ExprMemberAccess *node = getType<ExprMemberAccess>(expression))
 	{
 		VmValue *value = CompileVm(ctx, module, node->value);

@@ -184,6 +184,37 @@ namespace
 		return false;
 	}
 
+	SynBinaryOpType GetBinaryOpType(SynModifyAssignType type)
+	{
+		switch(type)
+		{
+		case SYN_MODIFY_ASSIGN_ADD:
+			return SYN_BINARY_OP_ADD;
+		case SYN_MODIFY_ASSIGN_SUB:
+			return SYN_BINARY_OP_SUB;
+		case SYN_MODIFY_ASSIGN_MUL:
+			return SYN_BINARY_OP_MUL;
+		case SYN_MODIFY_ASSIGN_DIV:
+			return SYN_BINARY_OP_DIV;
+		case SYN_MODIFY_ASSIGN_POW:
+			return SYN_BINARY_OP_POW;
+		case SYN_MODIFY_ASSIGN_MOD:
+			return SYN_BINARY_OP_MOD;
+		case SYN_MODIFY_ASSIGN_SHL:
+			return SYN_BINARY_OP_SHL;
+		case SYN_MODIFY_ASSIGN_SHR:
+			return SYN_BINARY_OP_SHR;
+		case SYN_MODIFY_ASSIGN_BIT_AND:
+			return SYN_BINARY_OP_BIT_AND;
+		case SYN_MODIFY_ASSIGN_BIT_OR:
+			return SYN_BINARY_OP_BIT_OR;
+		case SYN_MODIFY_ASSIGN_BIT_XOR:
+			return SYN_BINARY_OP_BIT_XOR;
+		}
+
+		return SYN_BINARY_OP_UNKNOWN;
+	}
+
 	ScopeData* NamedOrGlobalScopeFrom(ScopeData *scope)
 	{
 		if(!scope || scope->ownerNamespace || scope->scope == NULL)
@@ -857,7 +888,7 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, ExprBase *value)
 	return value;
 }
 
-ExprAssignment* CreateAssignment(ExpressionContext &ctx, const char *pos, ExprBase *lhs, ExprBase *rhs)
+ExprAssignment* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs)
 {
 	ExprBase* wrapped = lhs;
 
@@ -871,17 +902,73 @@ ExprAssignment* CreateAssignment(ExpressionContext &ctx, const char *pos, ExprBa
 	}
 
 	if(!isType<TypeRef>(wrapped->type))
-		Stop(ctx, pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
+		Stop(ctx, source->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
 
 	if(rhs->type == ctx.typeVoid)
-		Stop(ctx, pos, "ERROR: cannot convert from void to %.*s", FMT_ISTR(rhs->type->name));
+		Stop(ctx, source->pos, "ERROR: cannot convert from void to %.*s", FMT_ISTR(rhs->type->name));
 
 	if(lhs->type == ctx.typeVoid)
-		Stop(ctx, pos, "ERROR: cannot convert from %.*s to void", FMT_ISTR(lhs->type->name));
+		Stop(ctx, source->pos, "ERROR: cannot convert from %.*s to void", FMT_ISTR(lhs->type->name));
 
-	rhs = CreateCast(ctx, pos, rhs, lhs->type);
+	rhs = CreateCast(ctx, source->pos, rhs, lhs->type);
 
-	return new ExprAssignment(lhs->source, lhs->type, wrapped, rhs);
+	return new ExprAssignment(source, lhs->type, wrapped, rhs);
+}
+
+ExprBinaryOp* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs)
+{
+	// TODO: 'in' is a function call
+	// TODO: == and != for typeAutoRef is a function call
+	// TODO: == and != for function types is a function call
+	// TODO: == and != for unsized arrays is an overload call or a function call
+	// TODO: && and || could have an operator overload where second argument is wrapped in a function for short-circuit evaluation
+	// TODO: check operator overload
+
+	if(!ctx.IsNumericType(lhs->type) || !ctx.IsNumericType(rhs->type))
+		Stop(ctx, source->pos, "ERROR: binary operations between complex types are not supported yet");
+
+	if(lhs->type == ctx.typeVoid)
+		Stop(ctx, source->pos, "ERROR: first operand type is 'void'");
+
+	if(rhs->type == ctx.typeVoid)
+		Stop(ctx, source->pos, "ERROR: second operand type is 'void'");
+
+	bool binaryOp = IsBinaryOp(op);
+	bool comparisonOp = IsComparisonOp(op);
+	bool logicalOp = IsLogicalOp(op);
+
+	if(ctx.IsFloatingPointType(lhs->type) || ctx.IsFloatingPointType(rhs->type))
+	{
+		if(logicalOp || binaryOp)
+			Stop(ctx, source->pos, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(op), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
+	}
+
+	if(logicalOp)
+	{
+		// Logical operations require both operands to be 'bool'
+		lhs = CreateCast(ctx, source->pos, lhs, ctx.typeBool);
+		rhs = CreateCast(ctx, source->pos, rhs, ctx.typeBool);
+	}
+	else if(ctx.IsNumericType(lhs->type) && ctx.IsNumericType(rhs->type))
+	{
+		// Numeric operations promote both operands to a common type
+		TypeBase *commonType = ctx.GetBinaryOpResultType(lhs->type, rhs->type);
+
+		lhs = CreateCast(ctx, source->pos, lhs, commonType);
+		rhs = CreateCast(ctx, source->pos, rhs, commonType);
+	}
+
+	if(lhs->type != rhs->type)
+		Stop(ctx, source->pos, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(op), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
+
+	TypeBase *resultType = NULL;
+
+	if(comparisonOp || logicalOp)
+		resultType = ctx.typeBool;
+	else
+		resultType = lhs->type;
+
+	return new ExprBinaryOp(source, resultType, op, lhs, rhs);
 }
 
 ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax);
@@ -1534,58 +1621,7 @@ ExprBinaryOp* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
-	// TODO: 'in' is a function call
-	// TODO: == and != for typeAutoRef is a function call
-	// TODO: == and != for function types is a function call
-	// TODO: == and != for unsized arrays is an overload call or a function call
-	// TODO: && and || could have an operator overload where second argument is wrapped in a function for short-circuit evaluation
-	// TODO: check operator overload
-
-	if(!ctx.IsNumericType(lhs->type) || !ctx.IsNumericType(rhs->type))
-		Stop(ctx, syntax->pos, "ERROR: binary operations between complex types are not supported yet");
-
-	if(lhs->type == ctx.typeVoid)
-		Stop(ctx, syntax->pos, "ERROR: first operand type is 'void'");
-
-	if(rhs->type == ctx.typeVoid)
-		Stop(ctx, syntax->pos, "ERROR: second operand type is 'void'");
-
-	bool binaryOp = IsBinaryOp(syntax->type);
-	bool comparisonOp = IsComparisonOp(syntax->type);
-	bool logicalOp = IsLogicalOp(syntax->type);
-
-	if(ctx.IsFloatingPointType(lhs->type) || ctx.IsFloatingPointType(rhs->type))
-	{
-		if(logicalOp || binaryOp)
-			Stop(ctx, syntax->pos, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(syntax->type), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
-	}
-
-	if(logicalOp)
-	{
-		// Logical operations require both operands to be 'bool'
-		lhs = CreateCast(ctx, syntax->lhs->pos, lhs, ctx.typeBool);
-		rhs = CreateCast(ctx, syntax->rhs->pos, rhs, ctx.typeBool);
-	}
-	else if(ctx.IsNumericType(lhs->type) && ctx.IsNumericType(rhs->type))
-	{
-		// Numeric operations promote both operands to a common type
-		TypeBase *commonType = ctx.GetBinaryOpResultType(lhs->type, rhs->type);
-
-		lhs = CreateCast(ctx, syntax->lhs->pos, lhs, commonType);
-		rhs = CreateCast(ctx, syntax->rhs->pos, rhs, commonType);
-	}
-
-	if(lhs->type != rhs->type)
-		Stop(ctx, syntax->pos, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(syntax->type), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
-
-	TypeBase *resultType = NULL;
-
-	if(comparisonOp || logicalOp)
-		resultType = ctx.typeBool;
-	else
-		resultType = lhs->type;
-
-	return new ExprBinaryOp(syntax, resultType, syntax->type, lhs, rhs);
+	return CreateBinaryOp(ctx, syntax, syntax->type, lhs, rhs);
 }
 
 ExprBase* AnalyzeGetAddress(ExpressionContext &ctx, SynGetAddress *syntax)
@@ -1646,35 +1682,15 @@ ExprAssignment* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
-	return CreateAssignment(ctx, syntax->pos, lhs, rhs);
+	return CreateAssignment(ctx, syntax, lhs, rhs);
 }
 
-ExprModifyAssignment* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *syntax)
+ExprAssignment* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *syntax)
 {
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
-	ExprBase* wrapped = lhs;
-
-	if(ExprVariableAccess *node = getType<ExprVariableAccess>(lhs))
-	{
-		wrapped = new ExprGetAddress(syntax, ctx.GetReferenceType(lhs->type), node->variable);
-	}
-	else if(ExprDereference *node = getType<ExprDereference>(lhs))
-	{
-		wrapped = node->value;
-	}
-
-	if(!isType<TypeRef>(wrapped->type))
-		Stop(ctx, syntax->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
-
-	if(rhs->type == ctx.typeVoid)
-		Stop(ctx, syntax->pos, "ERROR: cannot convert from void to %.*s", FMT_ISTR(rhs->type->name));
-
-	if(lhs->type == ctx.typeVoid)
-		Stop(ctx, syntax->pos, "ERROR: cannot convert from %.*s to void", FMT_ISTR(lhs->type->name));
-
-	return new ExprModifyAssignment(syntax, lhs->type, syntax->type, wrapped, rhs);
+	return CreateAssignment(ctx, syntax, lhs, CreateBinaryOp(ctx, syntax, GetBinaryOpType(syntax->type), lhs, rhs));
 }
 
 ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
@@ -2663,7 +2679,7 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 		}
 		else
 		{
-			initializer = CreateAssignment(ctx, syntax->initializer->pos, new ExprVariableAccess(syntax->initializer, variable->type, variable), initializer);
+			initializer = CreateAssignment(ctx, syntax->initializer, new ExprVariableAccess(syntax->initializer, variable->type, variable), initializer);
 		}
 	}
 
