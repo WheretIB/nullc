@@ -62,7 +62,7 @@ namespace
 	{
 		(void)ctx;
 
-		unsigned int digit;
+		unsigned digit;
 		int a = 0;
 
 		while((digit = *str - '0') < 10)
@@ -93,7 +93,7 @@ namespace
 
 	double ParseDouble(ExpressionContext &ctx, const char *str)
 	{
-		unsigned int digit;
+		unsigned digit;
 		double integer = 0.0;
 
 		while((digit = *str - '0') < 10)
@@ -1298,7 +1298,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 
 	bool isFP = false;
 
-	for(unsigned int i = 0; i < value.length(); i++)
+	for(unsigned i = 0; i < value.length(); i++)
 	{
 		if(value.begin[i] == '.' || value.begin[i] == 'e')
 			isFP = true;
