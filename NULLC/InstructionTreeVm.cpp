@@ -685,13 +685,19 @@ namespace
 		if(function)
 		{
 			scope = function->scope;
+
+			function->stackSize += GetAlignmentOffset(function->stackSize, type->alignment);
+
 			offset = unsigned(function->stackSize);
 
-			function->stackSize += type->size; // TODO: alignment
+			function->stackSize += type->size;
 		}
 		else
 		{
 			scope = ctx.globalScope;
+
+			scope->globalSize += GetAlignmentOffset(scope->globalSize, type->alignment);
+
 			offset = unsigned(scope->globalSize);
 
 			scope->globalSize += type->size; // TODO: alignment
@@ -1101,7 +1107,7 @@ VmType GetVmType(ExpressionContext &ctx, TypeBase *type)
 	if(type == ctx.typeFloat || type == ctx.typeDouble)
 		return VmType::Double;
 
-	if(isType<TypeRef>(type))
+	if(isType<TypeRef>(type) || type == ctx.typeNullPtr)
 		return VmType::Pointer;
 
 	if(isType<TypeFunction>(type))

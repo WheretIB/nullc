@@ -8,8 +8,6 @@
 
 namespace
 {
-	jmp_buf errorHandler;
-
 	void Stop(ExpressionContext &ctx, const char *pos, const char *msg, va_list args)
 	{
 		ctx.errorPos = pos;
@@ -20,7 +18,7 @@ namespace
 			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
 		}
 
-		longjmp(errorHandler, 1);
+		longjmp(ctx.errorHandler, 1);
 	}
 
 	void Stop(ExpressionContext &ctx, const char *pos, const char *msg, ...)
@@ -205,15 +203,6 @@ namespace
 		return FindNextTypeFromScope(scope->scope);
 	}
 
-	unsigned GetAlignmentOffset(long long offset, unsigned alignment)
-	{
-		// If alignment is set and address is not aligned
-		if(alignment != 0 && offset % alignment != 0)
-			return alignment - (offset % alignment);
-
-		return 0;
-	}
-
 	unsigned AllocateVariableInScope(ScopeData *scope, unsigned alignment, TypeBase *type)
 	{
 		assert((alignment & (alignment - 1)) == 0 && alignment <= 16);
@@ -340,7 +329,18 @@ namespace
 		return NULL;
 	}
 
-	
+	bool IsDerivedFrom(TypeClass *type, TypeClass *target)
+	{
+		while(type)
+		{
+			if(target == type)
+				return true;
+
+			type = type->baseClass;
+		}
+
+		return false;
+	}
 }
 
 ExpressionContext::ExpressionContext()
@@ -363,6 +363,7 @@ ExpressionContext::ExpressionContext()
 
 	typeTypeID = NULL;
 	typeFunctionID = NULL;
+	typeNullPtr = NULL;
 
 	typeAuto = NULL;
 	typeAutoRef = NULL;
@@ -843,7 +844,7 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, ExprBase *value)
 
 		if(isType<TypeFunction>(value->type) || isType<TypeUnsizedArray>(value->type) || value->type == ctx.typeAutoRef)
 		{
-			ExprBase *nullPtr = new ExprNullptrLiteral(value->source, ctx.GetReferenceType(ctx.typeVoid));
+			ExprBase *nullPtr = new ExprNullptrLiteral(value->source, ctx.typeNullPtr);
 
 			return new ExprBinaryOp(value->source, ctx.typeBool, SYN_BINARY_OP_NOT_EQUAL, value, nullPtr);
 		}
@@ -1859,24 +1860,530 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
 	return AnalyzeArrayIndex(ctx, value);
 }
 
+bool HasNamedCallArguments(SmallArray<ArgumentData, 32> &arguments)
+{
+	for(unsigned i = 0; i < arguments.size(); i++)
+	{
+		if(!arguments[i].name.empty())
+			return true;
+	}
+
+	return false;
+}
+
+bool HasMatchingArgumentNames(SmallArray<ArgumentData, 32> &functionArguments, SmallArray<ArgumentData, 32> &arguments)
+{
+	for(unsigned i = 0; i < arguments.size(); i++)
+	{
+		InplaceStr argumentName = arguments[i].name;
+
+		if(argumentName.empty())
+			continue;
+
+		bool found = false;
+
+		for(unsigned k = 0; k < functionArguments.size(); k++)
+		{
+			if(functionArguments[k].name == argumentName)
+			{
+				found = true;
+				break;
+			}
+		}
+
+		if(!found)
+			return false;
+	}
+
+	return true;
+}
+
+bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SmallArray<ArgumentData, 32> &functionArguments, SmallArray<ArgumentData, 32> &arguments, SmallArray<ArgumentData, 32> &result, bool prepareValues)
+{
+	result.clear();
+
+	if(HasNamedCallArguments(arguments))
+	{
+		if(!HasMatchingArgumentNames(functionArguments, arguments))
+			return false;
+
+		// Add first unnamed arguments
+		for(unsigned i = 0; i < arguments.size(); i++)
+		{
+			ArgumentData &argument = arguments[i];
+
+			if(argument.name.empty())
+				result.push_back(argument);
+			else
+				break;
+		}
+
+		unsigned unnamedCount = result.size();
+
+		// Reserve slots for all remaining arguments
+		for(unsigned i = unnamedCount; i < functionArguments.size(); i++)
+			result.push_back(ArgumentData());
+
+		// Put named arguments in appropriate slots
+		for(unsigned i = unnamedCount; i < arguments.size(); i++)
+		{
+			ArgumentData &argument = arguments[i];
+
+			unsigned targetPos = 0;
+
+			for(unsigned k = 0; k < functionArguments.size(); k++)
+			{
+				if(functionArguments[k].name == argument.name)
+				{
+					if(result[targetPos].type != NULL)
+						Stop(ctx, argument.value->source->pos, "ERROR: argument '%.*s' is already set", FMT_ISTR(argument.name));
+
+					result[targetPos] = argument;
+					break;
+				}
+
+				targetPos++;
+			}
+		}
+
+		// Fill in any unset arguments with default values
+		for(unsigned i = 0; i < functionArguments.size(); i++)
+		{
+			ArgumentData &argument = functionArguments[i];
+
+			if(result[i].type == NULL && argument.value)
+				result[i] = argument;
+		}
+
+		// All arguments must be set
+		for(unsigned i = unnamedCount; i < arguments.size(); i++)
+		{
+			if(result[i].type == NULL)
+				return false;
+		}
+	}
+	else
+	{
+		// Add arguments
+		result.push_back(arguments.data, arguments.size());
+
+		// Add any arguments with default values
+		for(unsigned i = result.size(); i < functionArguments.size(); i++)
+		{
+			ArgumentData &argument = functionArguments[i];
+
+			if(argument.value)
+				result.push_back(argument);
+		}
+
+		// Create variadic pack if neccessary
+		if(!functionArguments.empty() && functionArguments.back().type == ctx.typeAutoArray && !functionArguments.back().isExplicit)
+		{
+			if(result.size() >= functionArguments.size() - 1 && !(result.size() == functionArguments.size() && result.back().type == ctx.typeAutoArray))
+			{
+				ExprArray *value = NULL;
+
+				if(prepareValues)
+				{
+					IntrusiveList<ExprBase> values;
+
+					for(unsigned i = functionArguments.size() - 1; i < result.size(); i++)
+						values.push_back(CreateCast(ctx, result[i].value->source->pos, result[i].value, ctx.typeAutoRef));
+
+					value = new ExprArray(result[0].value->source, ctx.typeAutoArray, values);
+				}
+
+				result.shrink(functionArguments.size() - 1);
+				result.push_back(ArgumentData(NULL, false, functionArguments.back().name, ctx.typeAutoArray, value));
+			}
+		}
+	}
+
+	if(result.size() != functionArguments.size())
+		return false;
+
+	// Convert all arguments to target type if this is a real call
+	if(prepareValues)
+	{
+		for(unsigned i = 0; i < result.size(); i++)
+		{
+			ArgumentData &argument = result[i];
+
+			assert(argument.value);
+
+			TypeBase *target = functionArguments[i].type;
+
+			argument.value = CreateCast(ctx, argument.value->source->pos, argument.value, target);
+		}
+	}
+
+	return true;
+}
+
+unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, SmallArray<ArgumentData, 32> &arguments)
+{
+	if(function->arguments.size() != arguments.size())
+		return ~0u;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
+
+	unsigned rating = 0;
+
+	for(unsigned i = 0; i < function->arguments.size(); i++)
+	{
+		ArgumentData &expectedArgument = function->arguments[i];
+		TypeBase *expectedType = expectedArgument.type;
+
+		ArgumentData &actualArgument = arguments[i];
+		TypeBase *actualType = actualArgument.type;
+
+		if(expectedType != actualType)
+		{
+			if(actualType == ctx.typeNullPtr)
+			{
+				// nullptr is convertable to T ref, T[] and function pointers
+				if(isType<TypeRef>(expectedType) || isType<TypeUnsizedArray>(expectedType) || isType<TypeFunction>(expectedType))
+					continue;
+
+				// nullptr is also convertable to auto ref and auto[], but it has the same rating as type ref -> auto ref and array -> auto[] defined below
+				if(expectedType == ctx.typeAutoRef || expectedType == ctx.typeAutoArray)
+				{
+					rating += 5;
+					continue;
+				}
+			}
+
+			// Generic function argument
+			if(expectedType->isGeneric)
+				continue;
+
+			if(expectedArgument.isExplicit)
+			{
+				// TODO: Resolve function
+
+				if(isType<ExprGenericFunctionPrototype>(actualArgument.value))
+					Stop(ctx, actualArgument.value->source->pos, "ERROR: 2 generic function arguments are not supported");
+
+				if(isType<ExprFunctionOverloadSet>(actualArgument.value))
+					Stop(ctx, actualArgument.value->source->pos, "ERROR: 2 function overload arguments are not supported");
+
+				if(TypeFunction *type = getType<TypeFunction>(actualArgument.value->type))
+				{
+					if(type->isGeneric)
+						Stop(ctx, actualArgument.value->source->pos, "ERROR: 2 generic function pointer arguments are not supported");
+				}
+			}
+
+			// array -> class (unsized array)
+			if(isType<TypeUnsizedArray>(expectedType) && isType<TypeArray>(actualType))
+			{
+				TypeUnsizedArray *lArray = getType<TypeUnsizedArray>(expectedType);
+				TypeArray *rArray = getType<TypeArray>(actualType);
+
+				if(lArray->subType == rArray->subType)
+				{
+					rating += 2;
+					continue;
+				}
+			}
+
+			// array -> auto[]
+			if(expectedType == ctx.typeAutoArray && (isType<TypeArray>(actualType) || isType<TypeUnsizedArray>(actualType)))
+			{
+				rating += 5;
+				continue;
+			}
+
+			// array[N] ref -> array[] -> array[] ref
+			if(isType<TypeRef>(expectedType) && isType<TypeRef>(actualType))
+			{
+				TypeRef *lRef = getType<TypeRef>(expectedType);
+				TypeRef *rRef = getType<TypeRef>(actualType);
+
+				if(isType<TypeUnsizedArray>(lRef->subType) && isType<TypeArray>(rRef->subType))
+				{
+					TypeUnsizedArray *lArray = getType<TypeUnsizedArray>(lRef->subType);
+					TypeArray *rArray = getType<TypeArray>(rRef->subType);
+
+					if(lArray->subType == rArray->subType)
+					{
+						rating += 10;
+						continue;
+					}
+				}
+			}
+
+			// derived ref -> base ref
+			// base ref -> derived ref
+			if(isType<TypeRef>(expectedType) && isType<TypeRef>(actualType))
+			{
+				TypeRef *lRef = getType<TypeRef>(expectedType);
+				TypeRef *rRef = getType<TypeRef>(actualType);
+
+				if(isType<TypeClass>(lRef->subType) && isType<TypeClass>(rRef->subType))
+				{
+					TypeClass *lClass = getType<TypeClass>(lRef->subType);
+					TypeClass *rClass = getType<TypeClass>(rRef->subType);
+
+					if(IsDerivedFrom(rClass, lClass))
+					{
+						rating += 5;
+						continue;
+					}
+
+					if(IsDerivedFrom(lClass, rClass))
+					{
+						rating += 10;
+						continue;
+					}
+				}
+			}
+
+			if(isType<TypeClass>(expectedType) && isType<TypeClass>(actualType))
+			{
+				TypeClass *lClass = getType<TypeClass>(expectedType);
+				TypeClass *rClass = getType<TypeClass>(actualType);
+
+				if(IsDerivedFrom(rClass, lClass))
+				{
+					rating += 5;
+					continue;
+				}
+			}
+
+			if(isType<TypeFunction>(expectedType))
+			{
+				// TODO: Resolve function
+
+				if(isType<ExprGenericFunctionPrototype>(actualArgument.value))
+					Stop(ctx, actualArgument.value->source->pos, "ERROR: 3 generic function arguments are not supported");
+
+				if(isType<ExprFunctionOverloadSet>(actualArgument.value))
+					Stop(ctx, actualArgument.value->source->pos, "ERROR: 3 function overload arguments are not supported");
+
+				if(TypeFunction *type = getType<TypeFunction>(actualArgument.value->type))
+				{
+					if(type->isGeneric)
+						Stop(ctx, actualArgument.value->source->pos, "ERROR: 3 generic function pointer arguments are not supported");
+				}
+			}
+
+			// type -> type ref
+			if(isType<TypeRef>(expectedType))
+			{
+				TypeRef *lRef = getType<TypeRef>(expectedType);
+
+				if(lRef->subType == expectedType)
+				{
+					rating += 5;
+					continue;
+				}
+			}
+
+			// type ref -> auto ref
+			if(expectedType == ctx.typeAutoRef && isType<TypeRef>(actualType))
+			{
+				rating += 5;
+				continue;
+			}
+
+			// type -> type ref -> auto ref
+			if(expectedType == ctx.typeAutoRef)
+			{
+				rating += 10;
+				continue;
+			}
+
+			// numeric -> numeric
+			if(ctx.IsNumericType(expectedType) && ctx.IsNumericType(actualType))
+			{
+				rating += 1;
+				continue;
+			}
+
+			return ~0u;
+		}
+	}
+
+	return rating;
+}
+
+void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* errPos, SmallArray<FunctionData*, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo)
+{
+	assert(!functions.empty());
+
+	errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "  %.*s(", FMT_ISTR(functions[0]->name));
+
+	for(unsigned i = 0; i < arguments.size(); i++)
+		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
+
+	errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")\n");
+
+	errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), bestRating == ~0u ? " the only available are:\n" : " candidates are:\n");
+
+	for(unsigned i = 0; i < functions.size(); i++)
+	{
+		FunctionData *function = functions[i];
+
+		if(ratings[i] != bestRating)
+			continue;
+
+		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "  %.*s %.*s(", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name));
+
+		for(unsigned k = 0; k < function->arguments.size(); k++)
+		{
+			ArgumentData &argument = function->arguments[k];
+
+			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name));
+		}
+
+		if(function->type->isGeneric && showInstanceInfo)
+		{
+			// TODO: Display instance data
+		}
+
+		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")\n");
+	}
+
+	ctx.errorPos = pos;
+
+	longjmp(ctx.errorHandler, 1);
+}
+
+FunctionData* SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallArray<FunctionData*, 32> &functions, SmallArray<ArgumentData, 32> &arguments)
+{
+	SmallArray<unsigned, 32> ratings;
+
+	ratings.resize(functions.size());
+
+	unsigned bestRating = ~0u;
+	FunctionData *bestFunction = NULL;
+
+	unsigned bestGenericRating = ~0u;
+	FunctionData *bestGenericFunction = NULL;
+	
+	for(unsigned i = 0; i < functions.size(); i++)
+	{
+		FunctionData *function = functions[i];
+
+		SmallArray<ArgumentData, 32> result;
+
+		// Handle named argument order, default argument values and variadic functions
+		if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, false))
+		{
+			ratings[i] = ~0u;
+			continue;
+		}
+
+		ratings[i] = GetFunctionRating(ctx, function, result);
+
+		if(ratings[i] == ~0u)
+			continue;
+
+		if(function->type->isGeneric)
+		{
+			Stop(ctx, pos, "ERROR: generic function instantiation is not supported");
+
+			if(ratings[i] < bestGenericRating)
+			{
+				bestGenericRating = ratings[i];
+				bestGenericFunction = function;
+			}
+		}
+		else
+		{
+			if(ratings[i] < bestRating)
+			{
+				bestRating = ratings[i];
+				bestFunction = function;
+			}
+		}
+	}
+
+	// Use generic function only if it is better that selected
+	if(bestGenericRating < bestRating)
+	{
+		bestRating = bestGenericRating;
+		bestFunction = bestGenericFunction;
+	}
+	else
+	{
+		// Hide all generic functions from selection
+		for(unsigned i = 0; i < functions.size(); i++)
+		{
+			FunctionData *function = functions[i];
+
+			if(function->type->isGeneric)
+				ratings[i] = ~0u;
+		}
+	}
+
+	// Didn't find an appropriate function
+	if(bestFunction == NULL)
+	{
+		assert(bestRating == ~0u);
+
+		char *errPos = ctx.errorBuf;
+		errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function with following parameters:\n");
+		StopOnFunctionSelectError(ctx, pos, errPos, functions, arguments, ratings, bestRating, true);
+	}
+
+	// Check if multiple functions share the same rating
+	for(unsigned i = 0; i < functions.size(); i++)
+	{
+		if(functions[i] != bestFunction && ratings[i] == bestRating)
+		{
+			char *errPos = ctx.errorBuf;
+			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available for the call:\n");
+			StopOnFunctionSelectError(ctx, pos, errPos, functions, arguments, ratings, bestRating, true);
+		}
+	}
+
+	return bestFunction;
+}
+
 ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 {
 	ExprBase *function = AnalyzeExpression(ctx, syntax->value);
 
 	if(ExprTypeLiteral *type = getType<ExprTypeLiteral>(function))
-	{
 		function = AnalyzeVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name);
-	}
 
 	if(!syntax->aliases.empty())
 		Stop(ctx, syntax->pos, "ERROR: function call with explicit generic arguments is not supported");
 
-	IntrusiveList<ExprBase> arguments;
+	TypeFunction *type = getType<TypeFunction>(function->type);
 
+	// Collect a set of available functions
+	SmallArray<FunctionData*, 32> functions;
+
+	if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(function))
+	{
+		functions.push_back(node->function);
+	}
+	else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(function))
+	{
+		functions.push_back(node->function);
+	}
+	else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(function))
+	{
+		functions.push_back(node->function);
+	}
+	else if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(function))
+	{
+		for(FunctionHandle *arg = node->functions.head; arg; arg = arg->next)
+			functions.push_back(arg->function);
+	}
+	else if(!isType<TypeFunction>(function->type))
+	{
+		Stop(ctx, syntax->pos, "ERROR: unknown call");
+	}
+
+	// Analyze arguments
+	SmallArray<ArgumentData, 32> arguments;
+	
 	for(SynCallArgument *el = syntax->arguments.head; el; el = getType<SynCallArgument>(el->next))
 	{
-		if(!el->name.empty())
-			Stop(ctx, syntax->pos, "ERROR: named function arguments are not supported");
+		if(functions.empty() && !el->name.empty())
+			Stop(ctx, syntax->pos, "ERROR: function argument names are unknown at this point");
 
 		ExprBase *argument = AnalyzeExpression(ctx, el->value);
 
@@ -1892,26 +2399,86 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 				Stop(ctx, syntax->pos, "ERROR: generic function pointer arguments are not supported");
 		}
 
-		arguments.push_back(argument);
+		arguments.push_back(ArgumentData(el, false, el->name, argument->type, argument));
 	}
 
-	if(TypeFunction *type = getType<TypeFunction>(function->type))
+	IntrusiveList<ExprBase> actualArguments;
+
+	if(!functions.empty())
 	{
-		if(type->isGeneric)
-			Stop(ctx, syntax->pos, "ERROR: generic function call is not supported");
+		FunctionData *bestOverload = SelectBestFunction(ctx, syntax->pos, functions, arguments);
 
-		if(type->returnType == ctx.typeAuto)
-			Stop(ctx, syntax->pos, "ERROR: function can't return auto");
+		function = new ExprFunctionAccess(function->source, bestOverload->type, bestOverload);
 
-		return new ExprFunctionCall(syntax, type->returnType, function, arguments);
+		type = getType<TypeFunction>(function->type);
+
+		SmallArray<ArgumentData, 32> result;
+
+		PrepareArgumentsForFunctionCall(ctx, bestOverload->arguments, arguments, result, true);
+
+		for(unsigned i = 0; i < result.size(); i++)
+			actualArguments.push_back(result[i].value);
+	}
+	else
+	{
+		SmallArray<ArgumentData, 32> functionArguments;
+
+		for(TypeHandle *argType = type->arguments.head; argType; argType = argType->next)
+			functionArguments.push_back(ArgumentData(NULL, false, InplaceStr(), argType->type, NULL));
+
+		SmallArray<ArgumentData, 32> result;
+
+		if(!PrepareArgumentsForFunctionCall(ctx, functionArguments, arguments, result, true))
+		{
+			char *errPos = ctx.errorBuf;
+
+			if(arguments.size() != functionArguments.size())
+				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: function expects %d argument(s), while %d are supplied\r\n", functionArguments.size(), arguments.size());
+			else
+				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: there is no conversion from specified arguments and the ones that function accepts\r\n");
+
+			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "\tExpected: (");
+
+			for(unsigned i = 0; i < functionArguments.size(); i++)
+				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(functionArguments[i].type->name));
+
+			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")\r\n");
+			
+			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "\tProvided: (");
+
+			for(unsigned i = 0; i < arguments.size(); i++)
+				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
+
+			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")");
+
+			ctx.errorPos = syntax->pos;
+
+			longjmp(ctx.errorHandler, 1);
+		}
+
+		for(unsigned i = 0; i < result.size(); i++)
+			actualArguments.push_back(result[i].value);
 	}
 
-	if(isType<ExprFunctionOverloadSet>(function))
-		Stop(ctx, syntax->pos, "ERROR: function overloads are not supported");
+	assert(type);
 
-	Stop(ctx, syntax->pos, "ERROR: unknown call");
+	if(type->isGeneric)
+		Stop(ctx, syntax->pos, "ERROR: generic function call is not supported");
 
-	return NULL;
+	if(type->returnType == ctx.typeAuto)
+		Stop(ctx, syntax->pos, "ERROR: function can't return auto");
+
+	assert(actualArguments.size() == type->arguments.size());
+
+	{
+		ExprBase *actual = actualArguments.head;
+		TypeHandle *expected = type->arguments.head;
+
+		for(; actual && expected; actual = actual->next, expected = expected->next)
+			assert(actual->type == expected->type);
+	}
+
+	return new ExprFunctionCall(syntax, type->returnType, function, actualArguments);
 }
 
 ExprFunctionCall* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
@@ -2139,6 +2706,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	TypeBase *returnType = AnalyzeType(ctx, syntax->returnType);
 
 	IntrusiveList<TypeHandle> argTypes;
+	SmallArray<ArgumentData, 32> argData;
 
 	for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next))
 	{
@@ -2160,10 +2728,13 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 		
 		TypeBase *type = AnalyzeType(ctx, argument->type);
 
+		ExprBase *initializer = argument->initializer ? AnalyzeExpression(ctx, argument->initializer) : NULL;
+
 		// Remove temporary scope
 		ctx.PopScope();
 
 		argTypes.push_back(new TypeHandle(type));
+		argData.push_back(ArgumentData(argument, argument->isExplicit, argument->name, type, initializer));
 	}
 
 	TypeFunction *functionType = ctx.GetFunctionType(returnType, argTypes);
@@ -2189,6 +2760,10 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	// TODO: function type should be stored in type list
 
 	FunctionData *function = new FunctionData(syntax, ctx.scopes.back(), syntax->coroutine, functionType, functionName, ctx.uniqueFunctionId++);
+
+	// Fill in argument data
+	for(unsigned i = 0; i < argData.size(); i++)
+		function->arguments.push_back(argData[i]);
 
 	// If the type is known, implement the prototype immediately
 	if(functionType->returnType != ctx.typeAuto)
@@ -2223,23 +2798,18 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 	IntrusiveList<ExprVariableDefinition> arguments;
 
-	for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next))
+	for(unsigned i = 0; i < argData.size(); i++)
 	{
-		if(argument->isExplicit)
-			Stop(ctx, syntax->pos, "ERROR: explicit type arguments are not supported");
+		ArgumentData &argument = argData[i];
 
-		TypeBase *type = AnalyzeType(ctx, argument->type);
+		assert(!argument.type->isGeneric);
 
-		assert(!type->isGeneric);
-
-		unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, type);
-		VariableData *variable = new VariableData(argument, ctx.scopes.back(), 0, type, argument->name, offset, ctx.uniqueVariableId++);
+		unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, argument.type);
+		VariableData *variable = new VariableData(argument.source, ctx.scopes.back(), 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
 
-		ExprBase *initializer = argument->initializer ? AnalyzeExpression(ctx, argument->initializer) : NULL;
-
-		arguments.push_back(new ExprVariableDefinition(argument, ctx.typeVoid, variable, initializer));
+		arguments.push_back(new ExprVariableDefinition(argument.source, ctx.typeVoid, variable, NULL));
 	}
 
 	IntrusiveList<ExprBase> expressions;
@@ -2368,7 +2938,17 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 	unsigned alignment = syntax->align ? AnalyzeAlignment(ctx, syntax->align) : 0;
 
-	TypeBase *baseClass = syntax->baseClass ? AnalyzeType(ctx, syntax->baseClass) : NULL;
+	TypeClass *baseClass = NULL;
+
+	if(syntax->baseClass)
+	{
+		TypeBase *type = AnalyzeType(ctx, syntax->baseClass);
+
+		baseClass = getType<TypeClass>(type);
+
+		if(!baseClass || !baseClass->extendable)
+			Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not extendable", FMT_ISTR(type->name));
+	}
 
 	TypeClass *classType = new TypeClass(ctx.scopes.back(), className, syntax->aliases, generics, syntax->extendable, baseClass);
 
@@ -2603,7 +3183,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	
 	if(SynNullptr *node = getType<SynNullptr>(syntax))
 	{
-		return new ExprNullptrLiteral(node, ctx.GetReferenceType(ctx.typeVoid));
+		return new ExprNullptrLiteral(node, ctx.typeNullPtr);
 	}
 
 	if(SynNumber *node = getType<SynNumber>(syntax))
@@ -3155,12 +3735,17 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		{
 			ExternLocalInfo &argument = localList[function.offsetToFirstLocal + n];
 
+			bool isExplicit = (argument.paramFlags & ExternLocalInfo::IS_EXPLICIT) != 0;
+
 			TypeBase *argType = module.types[argument.type];
 
 			if(!argType)
 				Stop(ctx, source->pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + function.offsetToName, module.name);
 
 			InplaceStr argName = InplaceStr(symbols + argument.offsetToName);
+
+			// TODO: default argument values
+			data->arguments.push_back(ArgumentData(source, isExplicit, argName, argType, NULL));
 
 			unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, argType);
 			VariableData *variable = new VariableData(source, ctx.scopes.back(), 0, argType, argName, offset, ctx.uniqueVariableId++);
@@ -3284,6 +3869,8 @@ ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
 
 ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 {
+	assert(!ctx.globalScope);
+
 	ctx.PushScope();
 	ctx.globalScope = ctx.scopes.back();
 
@@ -3301,6 +3888,7 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 
 	ctx.AddType(ctx.typeTypeID = new TypeTypeID(InplaceStr("typeid")));
 	ctx.AddType(ctx.typeFunctionID = new TypeFunctionID(InplaceStr("__function")));
+	ctx.AddType(ctx.typeNullPtr = new TypeFunctionID(InplaceStr("__nullptr")));
 
 	ctx.AddType(ctx.typeAuto = new TypeAuto(InplaceStr("auto")));
 
@@ -3318,7 +3906,7 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 	ctx.PopScope();
 
 	// Analyze module
-	if(!setjmp(errorHandler))
+	if(!setjmp(ctx.errorHandler))
 	{
 		ExprBase *module = AnalyzeModule(ctx, syntax);
 

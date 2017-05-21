@@ -64,6 +64,7 @@ struct ExpressionContext
 	ScopeData *globalScope;
 
 	// Error info
+	jmp_buf errorHandler;
 	const char *errorPos;
 	char *errorBuf;
 	unsigned errorBufSize;
@@ -83,6 +84,7 @@ struct ExpressionContext
 
 	TypeBase* typeTypeID;
 	TypeBase* typeFunctionID;
+	TypeBase* typeNullPtr;
 
 	TypeBase* typeAuto;
 	TypeStruct* typeAutoRef;

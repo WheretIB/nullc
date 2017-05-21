@@ -261,3 +261,12 @@ InplaceStr GetFunctionNameInScope(ScopeData *scope, InplaceStr str)
 
 	return InplaceStr(name);
 }
+
+unsigned GetAlignmentOffset(long long offset, unsigned alignment)
+{
+	// If alignment is set and address is not aligned
+	if(alignment != 0 && offset % alignment != 0)
+		return alignment - (offset % alignment);
+
+	return 0;
+}

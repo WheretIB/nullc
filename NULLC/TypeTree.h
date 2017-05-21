@@ -1,6 +1,7 @@
 #pragma once
 
 #include "stdafx.h"
+#include "Array.h"
 #include "IntrusiveList.h"
 #include "StrAlgo.h"
 
@@ -120,6 +121,23 @@ struct VariableData
 	unsigned uniqueId;
 };
 
+struct ArgumentData
+{
+	ArgumentData(): source(0), isExplicit(false), type(0), value(0)
+	{
+	}
+
+	ArgumentData(SynBase *source, bool isExplicit, InplaceStr name, TypeBase *type, ExprBase *value): source(source), isExplicit(isExplicit), name(name), type(type), value(value)
+	{
+	}
+
+	SynBase *source;
+	bool isExplicit;
+	InplaceStr name;
+	TypeBase *type;
+	ExprBase *value;
+};
+
 struct FunctionData
 {
 	FunctionData(SynBase *source, ScopeData *scope, bool coroutine, TypeFunction *type, InplaceStr name, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), type(type), name(name), uniqueId(uniqueId)
@@ -150,6 +168,8 @@ struct FunctionData
 	unsigned nameHash;
 
 	unsigned uniqueId;
+
+	SmallArray<ArgumentData, 32> arguments;
 
 	bool isExternal;
 
@@ -482,7 +502,7 @@ struct TypeFunction: TypeBase
 
 struct TypeClass: TypeStruct
 {
-	TypeClass(ScopeData *scope, InplaceStr name, IntrusiveList<SynIdentifier> genericNames, IntrusiveList<TypeHandle> genericTypes, bool extenable, TypeBase *baseClass): TypeStruct(myTypeID, name), scope(scope), genericNames(genericNames), genericTypes(genericTypes), extenable(extenable), baseClass(baseClass)
+	TypeClass(ScopeData *scope, InplaceStr name, IntrusiveList<SynIdentifier> genericNames, IntrusiveList<TypeHandle> genericTypes, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), scope(scope), genericNames(genericNames), genericTypes(genericTypes), extendable(extendable), baseClass(baseClass)
 	{
 	}
 
@@ -491,9 +511,9 @@ struct TypeClass: TypeStruct
 	IntrusiveList<SynIdentifier> genericNames;
 	IntrusiveList<TypeHandle> genericTypes;
 
-	bool extenable;
+	bool extendable;
 
-	TypeBase *baseClass;
+	TypeClass *baseClass;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -572,3 +592,5 @@ InplaceStr GetFunctionSetTypeName(IntrusiveList<TypeHandle> types);
 InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str);
 InplaceStr GetVariableNameInScope(ScopeData *scope, InplaceStr str);
 InplaceStr GetFunctionNameInScope(ScopeData *scope, InplaceStr str);
+
+unsigned GetAlignmentOffset(long long offset, unsigned alignment);

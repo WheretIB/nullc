@@ -13,6 +13,7 @@ public:
 	void push_back(T *node)
 	{
 		assert(node);
+		assert(node->next == 0);
 
 		if(!head)
 		{
