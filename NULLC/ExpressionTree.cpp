@@ -1490,6 +1490,18 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynBase *syntax, Intrusi
 
 			if(function)
 				break;
+
+			if(TypeBase **type = ctx.typeMap.find(hash))
+			{
+				hash = StringHashContinue((*type)->nameHash, "::");
+
+				hash = StringHashContinue(hash, name.begin, name.end);
+
+				function = ctx.functionMap.first(hash);
+
+				if(function)
+					break;
+			}
 		}
 	}
 
