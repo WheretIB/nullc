@@ -978,6 +978,8 @@ ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createSco
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *function, SynCallArgument *argumentHead, bool allowFailure);
+
 // Apply in reverse order
 TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase *sizes)
 {
@@ -1403,7 +1405,7 @@ ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 	return new ExprArray(syntax, ctx.GetArrayType(subType, values.size()), values);
 }
 
-ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynBase *syntax, IntrusiveList<SynIdentifier> path, InplaceStr name)
+ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name)
 {
 	VariableData **variable = NULL;
 
@@ -1437,17 +1439,17 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynBase *syntax, Intrusi
 		// Is this is a class member access
 		if(data->scope->ownerType)
 		{
-			ExprBase *thisAccess = AnalyzeVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr("this"));
+			ExprBase *thisAccess = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("this"));
 
 			// Member access only shifts an address, so we are left with a reference to get value from
-			ExprMemberAccess *shift = new ExprMemberAccess(syntax, ctx.GetReferenceType(data->type), thisAccess, data);
+			ExprMemberAccess *shift = new ExprMemberAccess(source, ctx.GetReferenceType(data->type), thisAccess, data);
 
-			return new ExprDereference(syntax, data->type, shift);
+			return new ExprDereference(source, data->type, shift);
 		}
 
 		// TODO: external variable lookup
 
-		return new ExprVariableAccess(syntax, data->type, data);
+		return new ExprVariableAccess(source, data->type, data);
 	}
 
 	HashMap<FunctionData*>::Node *function = NULL;
@@ -1525,10 +1527,10 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynBase *syntax, Intrusi
 
 			TypeFunctionSet *type = new TypeFunctionSet(GetFunctionSetTypeName(types), types);
 
-			return new ExprFunctionOverloadSet(syntax, type, functions);
+			return new ExprFunctionOverloadSet(source, type, functions);
 		}
 
-		return new ExprFunctionAccess(syntax, function->value->type, function->value);
+		return new ExprFunctionAccess(source, function->value->type, function->value);
 	}
 
 	Stop(ctx, name.begin, "ERROR: unknown variable");
@@ -1538,12 +1540,12 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynBase *syntax, Intrusi
 
 ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynIdentifier *syntax)
 {
-	return AnalyzeVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), syntax->name);
+	return CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), syntax->name);
 }
 
 ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynTypeSimple *syntax)
 {
-	return AnalyzeVariableAccess(ctx, syntax, syntax->path, syntax->name);
+	return CreateVariableAccess(ctx, syntax, syntax->path, syntax->name);
 }
 
 ExprPreModify* AnalyzePreModify(ExpressionContext &ctx, SynPreModify *syntax)
@@ -2368,16 +2370,8 @@ FunctionData* SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallA
 	return bestFunction;
 }
 
-ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *function, SynCallArgument *argumentHead, bool allowFailure)
 {
-	ExprBase *function = AnalyzeExpression(ctx, syntax->value);
-
-	if(ExprTypeLiteral *type = getType<ExprTypeLiteral>(function))
-		function = AnalyzeVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name);
-
-	if(!syntax->aliases.empty())
-		Stop(ctx, syntax->pos, "ERROR: function call with explicit generic arguments is not supported");
-
 	TypeFunction *type = getType<TypeFunction>(function->type);
 
 	// Collect a set of available functions
@@ -2402,29 +2396,29 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 	}
 	else if(!isType<TypeFunction>(function->type))
 	{
-		Stop(ctx, syntax->pos, "ERROR: unknown call");
+		Stop(ctx, source->pos, "ERROR: unknown call");
 	}
 
 	// Analyze arguments
 	SmallArray<ArgumentData, 32> arguments;
 	
-	for(SynCallArgument *el = syntax->arguments.head; el; el = getType<SynCallArgument>(el->next))
+	for(SynCallArgument *el = argumentHead; el; el = getType<SynCallArgument>(el->next))
 	{
 		if(functions.empty() && !el->name.empty())
-			Stop(ctx, syntax->pos, "ERROR: function argument names are unknown at this point");
+			Stop(ctx, source->pos, "ERROR: function argument names are unknown at this point");
 
 		ExprBase *argument = AnalyzeExpression(ctx, el->value);
 
 		if(isType<ExprGenericFunctionPrototype>(argument))
-			Stop(ctx, syntax->pos, "ERROR: generic function arguments are not supported");
+			Stop(ctx, source->pos, "ERROR: generic function arguments are not supported");
 
 		if(isType<ExprFunctionOverloadSet>(argument))
-			Stop(ctx, syntax->pos, "ERROR: function overload arguments are not supported");
+			Stop(ctx, source->pos, "ERROR: function overload arguments are not supported");
 
 		if(TypeFunction *type = getType<TypeFunction>(argument->type))
 		{
 			if(type->isGeneric)
-				Stop(ctx, syntax->pos, "ERROR: generic function pointer arguments are not supported");
+				Stop(ctx, source->pos, "ERROR: generic function pointer arguments are not supported");
 		}
 
 		arguments.push_back(ArgumentData(el, false, el->name, argument->type, argument));
@@ -2434,7 +2428,7 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 
 	if(!functions.empty())
 	{
-		FunctionData *bestOverload = SelectBestFunction(ctx, syntax->pos, functions, arguments);
+		FunctionData *bestOverload = SelectBestFunction(ctx, source->pos, functions, arguments);
 
 		function = new ExprFunctionAccess(function->source, bestOverload->type, bestOverload);
 
@@ -2458,6 +2452,9 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 
 		if(!PrepareArgumentsForFunctionCall(ctx, functionArguments, arguments, result, true))
 		{
+			if(allowFailure)
+				return NULL;
+
 			char *errPos = ctx.errorBuf;
 
 			if(arguments.size() != functionArguments.size())
@@ -2479,7 +2476,7 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 
 			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")");
 
-			ctx.errorPos = syntax->pos;
+			ctx.errorPos = source->pos;
 
 			longjmp(ctx.errorHandler, 1);
 		}
@@ -2491,10 +2488,10 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 	assert(type);
 
 	if(type->isGeneric)
-		Stop(ctx, syntax->pos, "ERROR: generic function call is not supported");
+		Stop(ctx, source->pos, "ERROR: generic function call is not supported");
 
 	if(type->returnType == ctx.typeAuto)
-		Stop(ctx, syntax->pos, "ERROR: function can't return auto");
+		Stop(ctx, source->pos, "ERROR: function can't return auto");
 
 	assert(actualArguments.size() == type->arguments.size());
 
@@ -2506,7 +2503,20 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 			assert(actual->type == expected->type);
 	}
 
-	return new ExprFunctionCall(syntax, type->returnType, function, actualArguments);
+	return new ExprFunctionCall(source, type->returnType, function, actualArguments);
+}
+
+ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
+{
+	ExprBase *function = AnalyzeExpression(ctx, syntax->value);
+
+	if(ExprTypeLiteral *type = getType<ExprTypeLiteral>(function))
+		function = CreateVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name);
+
+	if(!syntax->aliases.empty())
+		Stop(ctx, syntax->pos, "ERROR: function call with explicit generic arguments is not supported");
+
+	return CreateFunctionCall(ctx, syntax, function, syntax->arguments.head, false);
 }
 
 ExprFunctionCall* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
