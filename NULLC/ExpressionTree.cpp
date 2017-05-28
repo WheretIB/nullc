@@ -2195,6 +2195,8 @@ unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, TypeF
 					if(type->isGeneric)
 						Stop(ctx, actualArgument.value->source->pos, "ERROR: 2 generic function pointer arguments are not supported");
 				}
+
+				return ~0u;
 			}
 
 			// array -> class (unsized array)
