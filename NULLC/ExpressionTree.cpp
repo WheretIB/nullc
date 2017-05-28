@@ -3392,6 +3392,9 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefinition *syntax)
 {
+	if(ctx.scope != ctx.globalScope && ctx.scope->ownerNamespace == NULL)
+		Stop(ctx, syntax->pos, "ERROR: a namespace definition must appear either at file scope or immediately within another namespace definition");
+
 	for(SynIdentifier *name = syntax->path.head; name; name = getType<SynIdentifier>(name->next))
 	{
 		NamespaceData *ns = new NamespaceData(syntax, ctx.scope, ctx.GetCurrentNamespace(), name->name, ctx.uniqueNamespaceId++);
