@@ -21,7 +21,9 @@ struct ExpressionContext
 	void PushScope(NamespaceData *nameSpace);
 	void PushScope(FunctionData *function);
 	void PushScope(TypeBase *type);
-	void PopScope();
+	void PopScope(SynBase *location = 0);
+	void RestoreScopesAtPoint(ScopeData *target, SynBase *location);
+	void SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *target, SynBase *targetLocation);
 
 	NamespaceData* GetCurrentNamespace();
 	FunctionData* GetCurrentFunction();
@@ -59,7 +61,7 @@ struct ExpressionContext
 	HashMap<FunctionData*> functionMap;
 	HashMap<VariableData*> variableMap;
 
-	FastVector<ScopeData*> scopes;
+	ScopeData *scope;
 
 	ScopeData *globalScope;
 

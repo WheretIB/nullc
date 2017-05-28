@@ -176,6 +176,8 @@ struct FunctionData
 	bool isPrototype;
 	FunctionData *implementation;
 
+	IntrusiveList<ExprBase> instances;
+
 	long long stackSize;
 
 	bool hasExplicitReturn;
@@ -500,24 +502,6 @@ struct TypeFunction: TypeBase
 	static const unsigned myTypeID = __LINE__;
 };
 
-struct TypeClass: TypeStruct
-{
-	TypeClass(ScopeData *scope, InplaceStr name, IntrusiveList<SynIdentifier> genericNames, IntrusiveList<TypeHandle> genericTypes, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), scope(scope), genericNames(genericNames), genericTypes(genericTypes), extendable(extendable), baseClass(baseClass)
-	{
-	}
-
-	ScopeData *scope;
-
-	IntrusiveList<SynIdentifier> genericNames;
-	IntrusiveList<TypeHandle> genericTypes;
-
-	bool extendable;
-
-	TypeClass *baseClass;
-
-	static const unsigned myTypeID = __LINE__;
-};
-
 struct TypeGenericClassProto: TypeBase
 {
 	TypeGenericClassProto(InplaceStr name, SynClassDefinition *definition): TypeBase(myTypeID, name), definition(definition)
@@ -542,6 +526,26 @@ struct TypeGenericClass: TypeBase
 	TypeGenericClassProto *proto;
 
 	IntrusiveList<TypeHandle> generics;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+
+struct TypeClass: TypeStruct
+{
+	TypeClass(SynBase *source, InplaceStr name, TypeGenericClassProto *proto, IntrusiveList<SynIdentifier> genericNames, IntrusiveList<TypeHandle> genericTypes, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), source(source), proto(proto), genericNames(genericNames), genericTypes(genericTypes), extendable(extendable), baseClass(baseClass)
+	{
+	}
+
+	SynBase *source;
+
+	TypeGenericClassProto *proto;
+	IntrusiveList<SynIdentifier> genericNames;
+	IntrusiveList<TypeHandle> genericTypes;
+
+	bool extendable;
+
+	TypeClass *baseClass;
 
 	static const unsigned myTypeID = __LINE__;
 };

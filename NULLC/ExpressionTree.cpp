@@ -314,7 +314,7 @@ namespace
 		if(function->isPrototype)
 			return;
 
-		FastVector<FunctionData*> &functions = ctx.scopes.back()->functions;
+		FastVector<FunctionData*> &functions = ctx.scope->functions;
 
 		for(unsigned i = 0; i < functions.size(); i++)
 		{
@@ -404,6 +404,8 @@ ExpressionContext::ExpressionContext()
 	functionMap.init();
 	variableMap.init();
 
+	scope = NULL;
+
 	globalScope = NULL;
 
 	genericTypeMap.init();
@@ -429,53 +431,63 @@ void ExpressionContext::Stop(const char *pos, const char *msg, ...)
 
 void ExpressionContext::PushScope()
 {
-	unsigned depth = scopes.size();
-	ScopeData *scope = scopes.empty() ? NULL : scopes.back();
+	unsigned depth = scope ? scope->depth + 1 : 0;
 
-	scopes.push_back(new ScopeData(depth, scope));
+	scope = new ScopeData(depth, scope);
 }
 
 void ExpressionContext::PushScope(NamespaceData *nameSpace)
 {
-	unsigned depth = scopes.size();
-	ScopeData *scope = scopes.empty() ? NULL : scopes.back();
+	unsigned depth = scope ? scope->depth + 1 : 0;
 
-	scopes.push_back(new ScopeData(depth, scope, nameSpace));
+	scope = new ScopeData(depth, scope, nameSpace);
 }
 
 void ExpressionContext::PushScope(FunctionData *function)
 {
-	unsigned depth = scopes.size();
-	ScopeData *scope = scopes.empty() ? NULL : scopes.back();
+	unsigned depth = scope ? scope->depth + 1 : 0;
 
-	scopes.push_back(new ScopeData(depth, scope, function));
+	scope = new ScopeData(depth, scope, function);
 }
 
 void ExpressionContext::PushScope(TypeBase *type)
 {
-	unsigned depth = scopes.size();
-	ScopeData *scope = scopes.empty() ? NULL : scopes.back();
+	unsigned depth = scope ? scope->depth + 1 : 0;
 
-	scopes.push_back(new ScopeData(depth, scope, type));
+	scope = new ScopeData(depth, scope, type);
 }
 
-void ExpressionContext::PopScope()
+void ExpressionContext::PopScope(SynBase *location)
 {
-	// Remove scope members from lookup maps
-	ScopeData *scope = scopes.back();
-
-	// When namespace scope ends, all the contents remain accessible
-	if(scope->ownerNamespace)
+	// When namespace scope ends, all the contents remain accessible through an outer namespace/global scope
+	if(!location && scope->ownerNamespace)
 	{
-		scopes.pop_back();
+		ScopeData *adopter = scope->scope;
+
+		while(!adopter->ownerNamespace && adopter->scope)
+			adopter = adopter->scope;
+
+		adopter->variables.push_back(scope->variables.data, scope->variables.size());
+		adopter->functions.push_back(scope->functions.data, scope->functions.size());
+		adopter->types.push_back(scope->types.data, scope->types.size());
+		adopter->aliases.push_back(scope->aliases.data, scope->aliases.size());
+
+		scope->variables.clear();
+		scope->functions.clear();
+		scope->types.clear();
+		scope->aliases.clear();
+
+		scope = scope->scope;
 		return;
 	}
 
+	// Remove scope members from lookup maps
 	for(int i = int(scope->variables.size()) - 1; i >= 0; i--)
 	{
 		VariableData *variable = scope->variables[i];
 
-		variableMap.remove(variable->nameHash, variable);
+		if(variableMap.find(variable->nameHash, variable))
+			variableMap.remove(variable->nameHash, variable);
 	}
 
 	for(int i = int(scope->functions.size()) - 1; i >= 0; i--)
@@ -489,34 +501,118 @@ void ExpressionContext::PopScope()
 		if(scope->scope && function->isPrototype && !function->implementation)
 			Stop(function->source->pos, "ERROR: local function '%.*s' went out of scope unimplemented", FMT_ISTR(function->name));
 
-		functionMap.remove(function->nameHash, function);
+		if(functionMap.find(function->nameHash, function))
+			functionMap.remove(function->nameHash, function);
 	}
 
 	for(int i = int(scope->types.size()) - 1; i >= 0; i--)
 	{
 		TypeBase *type = scope->types[i];
 
-		typeMap.remove(type->nameHash, type);
+		if(typeMap.find(type->nameHash, type))
+			typeMap.remove(type->nameHash, type);
 	}
 
 	for(int i = int(scope->aliases.size()) - 1; i >= 0; i--)
 	{
 		AliasData *alias = scope->aliases[i];
 
-		typeMap.remove(alias->nameHash, alias->type);
+		if(typeMap.find(alias->nameHash, alias->type))
+			typeMap.remove(alias->nameHash, alias->type);
 	}
 
-	scopes.pop_back();
+	scope = scope->scope;
+}
+
+void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *location)
+{
+	// Restore parent first, up to the current scope
+	if(target->scope != scope)
+		RestoreScopesAtPoint(target->scope, location);
+
+	for(unsigned i = 0; i < target->variables.size(); i++)
+	{
+		VariableData *variable = target->variables[i];
+
+		if(!location || variable->source->pos <= location->pos)
+			variableMap.insert(variable->nameHash, variable);
+	}
+
+	for(unsigned i = 0; i < target->functions.size(); i++)
+	{
+		FunctionData *function = target->functions[i];
+
+		// Class functions are kept visible, no need to add again
+		if(function->scope->ownerType)
+			continue;
+
+		if(!location || function->source->pos <= location->pos)
+			functionMap.insert(function->nameHash, function);
+	}
+
+	for(unsigned i = 0; i < target->types.size(); i++)
+	{
+		TypeBase *type = target->types[i];
+
+		if(TypeClass *exact = getType<TypeClass>(type))
+		{
+			if(!location || exact->source->pos <= location->pos)
+				typeMap.insert(type->nameHash, type);
+		}
+		else if(TypeGenericClassProto *exact = getType<TypeGenericClassProto>(type))
+		{
+			if(!location || exact->definition->pos <= location->pos)
+				typeMap.insert(type->nameHash, type);
+		}
+		else
+		{
+			typeMap.insert(type->nameHash, type);
+		}
+	}
+
+	for(unsigned i = 0; i < target->aliases.size(); i++)
+	{
+		AliasData *alias = target->aliases[i];
+
+		if(!location || alias->source->pos <= location->pos)
+			typeMap.insert(alias->nameHash, alias->type);
+	}
+
+	scope = target;
+}
+
+void ExpressionContext::SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *target, SynBase *targetLocation)
+{
+	// Reach the same depth
+	while(scope->depth > target->depth)
+		PopScope();
+
+	// Reach the same parent
+	ScopeData *curr = target;
+
+	while(curr->depth > scope->depth)
+		curr = curr->scope;
+
+	while(scope->scope != curr->scope)
+	{
+		PopScope();
+
+		curr = curr->scope;
+	}
+
+	// When the common parent is reached, remove it without ejecting namespace variables into the outer scope
+	PopScope(currLocation);
+
+	// Now restore each namespace data up to the source location
+	RestoreScopesAtPoint(target, targetLocation);
 }
 
 NamespaceData* ExpressionContext::GetCurrentNamespace()
 {
 	// Simply walk up the scopes and find the current one
-	for(int i = int(scopes.size()) - 1; i >= 0; i--)
+	for(ScopeData *curr = scope; curr; curr = curr->scope)
 	{
-		ScopeData *scope = scopes[i];
-
-		if(NamespaceData *ns = scope->ownerNamespace)
+		if(NamespaceData *ns = curr->ownerNamespace)
 			return ns;
 	}
 
@@ -526,14 +622,12 @@ NamespaceData* ExpressionContext::GetCurrentNamespace()
 FunctionData* ExpressionContext::GetCurrentFunction()
 {
 	// Walk up, but if we reach a type owner, stop - we're not in a context of a function
-	for(int i = int(scopes.size()) - 1; i >= 0; i--)
+	for(ScopeData *curr = scope; curr; curr = curr->scope)
 	{
-		ScopeData *scope = scopes[i];
-
-		if(scope->ownerType)
+		if(curr->ownerType)
 			return NULL;
 
-		if(FunctionData *function = scope->ownerFunction)
+		if(FunctionData *function = curr->ownerFunction)
 			return function;
 	}
 
@@ -543,14 +637,12 @@ FunctionData* ExpressionContext::GetCurrentFunction()
 TypeBase* ExpressionContext::GetCurrentType()
 {
 	// Walk up, but if we reach a function, return it's owner
-	for(int i = int(scopes.size()) - 1; i >= 0; i--)
+	for(ScopeData *curr = scope; curr; curr = curr->scope)
 	{
-		ScopeData *scope = scopes[i];
+		if(curr->ownerFunction)
+			return curr->ownerFunction->scope->ownerType;
 
-		if(scope->ownerFunction)
-			return scope->ownerFunction->scope->ownerType;
-
-		if(TypeBase *type = scope->ownerType)
+		if(TypeBase *type = curr->ownerType)
 			return type;
 	}
 
@@ -561,11 +653,9 @@ unsigned ExpressionContext::GetGenericClassInstantiationDepth()
 {
 	unsigned depth = 0;
 
-	for(unsigned i = 0; i < scopes.size(); i++)
+	for(ScopeData *curr = scope; curr; curr = curr->scope)
 	{
-		ScopeData *scope = scopes[i];
-
-		if(TypeClass *type = getType<TypeClass>(scope->ownerType))
+		if(TypeClass *type = getType<TypeClass>(curr->ownerType))
 		{
 			if(!type->genericTypes.empty())
 				depth++;
@@ -577,7 +667,7 @@ unsigned ExpressionContext::GetGenericClassInstantiationDepth()
 
 void ExpressionContext::AddType(TypeBase *type)
 {
-	scopes.back()->types.push_back(type);
+	scope->types.push_back(type);
 
 	if(!isType<TypeGenericClassProto>(type))
 		assert(!type->isGeneric);
@@ -588,7 +678,7 @@ void ExpressionContext::AddType(TypeBase *type)
 
 void ExpressionContext::AddFunction(FunctionData *function)
 {
-	scopes.back()->functions.push_back(function);
+	scope->functions.push_back(function);
 
 	functions.push_back(function);
 	functionMap.insert(function->nameHash, function);
@@ -596,7 +686,7 @@ void ExpressionContext::AddFunction(FunctionData *function)
 
 void ExpressionContext::AddVariable(VariableData *variable)
 {
-	scopes.back()->variables.push_back(variable);
+	scope->variables.push_back(variable);
 
 	variables.push_back(variable);
 	variableMap.insert(variable->nameHash, variable);
@@ -604,7 +694,7 @@ void ExpressionContext::AddVariable(VariableData *variable)
 
 void ExpressionContext::AddAlias(AliasData *alias)
 {
-	scopes.back()->aliases.push_back(alias);
+	scope->aliases.push_back(alias);
 
 	typeMap.insert(alias->nameHash, alias->type);
 }
@@ -746,7 +836,7 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 	// Create new type
 	TypeUnsizedArray* result = new TypeUnsizedArray(GetUnsizedArrayTypeName(type), type);
 
-	result->members.push_back(new VariableHandle(new VariableData(NULL, scopes.back(), 4, typeInt, InplaceStr("size"), NULLC_PTR_SIZE, uniqueVariableId++)));
+	result->members.push_back(new VariableHandle(new VariableData(NULL, scope, 4, typeInt, InplaceStr("size"), NULLC_PTR_SIZE, uniqueVariableId++)));
 
 	result->size = NULLC_PTR_SIZE + 4;
 
@@ -977,6 +1067,7 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax);
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope);
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
+ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, TypeFunction *instance);
 
 ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *function, SynCallArgument *argumentHead, bool allowFailure);
 
@@ -1113,7 +1204,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 	{
 		TypeBase **type = NULL;
 
-		for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scopes.back()); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
+		for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scope); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
 		{
 			unsigned hash = nsScope->ownerNamespace ? StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : GetStringHash("");
 
@@ -1409,7 +1500,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 {
 	VariableData **variable = NULL;
 
-	for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scopes.back()); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
+	for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scope); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
 	{
 		unsigned hash = nsScope->ownerNamespace ? StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : GetStringHash("");
 
@@ -1456,7 +1547,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 	
 	if(path.empty())
 	{
-		if(TypeBase* type = FindNextTypeFromScope(ctx.scopes.back()))
+		if(TypeBase* type = FindNextTypeFromScope(ctx.scope))
 		{
 			unsigned hash = StringHashContinue(type->nameHash, "::");
 
@@ -1476,7 +1567,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 	if(!function)
 	{
-		for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scopes.back()); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
+		for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scope); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
 		{
 			unsigned hash = nsScope->ownerNamespace ? StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : GetStringHash("");
 
@@ -2050,17 +2141,19 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SmallArray<Argument
 	return true;
 }
 
-unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, SmallArray<ArgumentData, 32> &arguments)
+unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, TypeFunction *instance, SmallArray<ArgumentData, 32> &arguments)
 {
 	if(function->arguments.size() != arguments.size())
 		return ~0u;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
 
 	unsigned rating = 0;
 
-	for(unsigned i = 0; i < function->arguments.size(); i++)
+	unsigned i = 0;
+
+	for(TypeHandle *argType = instance->arguments.head; argType; argType = argType->next, i++)
 	{
 		ArgumentData &expectedArgument = function->arguments[i];
-		TypeBase *expectedType = expectedArgument.type;
+		TypeBase *expectedType = argType->type;
 
 		ArgumentData &actualArgument = arguments[i];
 		TypeBase *actualType = actualArgument.type;
@@ -2236,6 +2329,175 @@ unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, Small
 	return rating;
 }
 
+struct MatchData
+{
+	MatchData(InplaceStr name, TypeBase *type): name(name), type(type), next(0)
+	{
+	}
+
+	InplaceStr name;
+	TypeBase *type;
+
+	MatchData *next;
+};
+
+TypeBase* MatchGenericType(ExpressionContext &ctx, TypeBase *matchType, TypeBase *argType, IntrusiveList<MatchData> &aliases, bool strict)
+{
+	if(!matchType->isGeneric)
+	{
+		if(matchType == argType)
+			return argType;
+
+		return NULL;
+	}
+
+	// 'generic' match with 'type' results with 'type'
+	if(TypeGeneric *lhs = getType<TypeGeneric>(matchType))
+	{
+		if(lhs->name == InplaceStr("generic"))
+			return argType;
+
+		for(MatchData *curr = aliases.head; curr; curr = curr->next)
+		{
+			if(curr->name == lhs->name)
+				return curr->type;
+		}
+
+		aliases.push_back(new MatchData(lhs->name, argType));
+
+		return argType;
+	}
+
+	if(TypeRef *lhs = getType<TypeRef>(matchType))
+	{
+		// 'generic ref' match with 'type ref' results with 'type ref'
+		if(TypeRef *rhs = getType<TypeRef>(argType))
+			return argType;
+
+		if(strict)
+			return NULL;
+
+		// 'generic ref' match with 'type' results with 'type ref'
+		return ctx.GetReferenceType(argType);
+	}
+
+	if(TypeArray *lhs = getType<TypeArray>(matchType))
+	{
+		// Only match with arrays of the same size
+		if(TypeArray *rhs = getType<TypeArray>(argType))
+		{
+			if(lhs->size == rhs->size)
+				return argType;
+		}
+
+		return NULL;
+	}
+
+	if(TypeUnsizedArray *lhs = getType<TypeUnsizedArray>(matchType))
+	{
+		// 'generic[]' match with 'type[]' results with 'type[]'
+		if(TypeUnsizedArray *rhs = getType<TypeUnsizedArray>(argType))
+			return argType;
+
+		if(strict)
+			return NULL;
+
+		// 'generic[]' match with 'type[N]' results with 'type[]'
+		if(TypeArray *rhs = getType<TypeArray>(argType))
+			return ctx.GetUnsizedArrayType(rhs->subType);
+
+		return NULL;
+	}
+
+	if(TypeFunction *lhs = getType<TypeFunction>(matchType))
+	{
+		// Only match with other function type
+		if(TypeFunction *rhs = getType<TypeFunction>(argType))
+		{
+			TypeBase *returnType = MatchGenericType(ctx, lhs->returnType, rhs->returnType, aliases, true);
+
+			if(!returnType)
+				return NULL;
+
+			IntrusiveList<TypeHandle> arguments;
+
+			TypeHandle *lhsArg = lhs->arguments.head;
+			TypeHandle *rhsArg = rhs->arguments.head;
+
+			while(lhsArg && rhsArg)
+			{
+				TypeBase *argMatched = MatchGenericType(ctx, lhsArg->type, rhsArg->type, aliases, true);
+
+				if(!argMatched)
+					return NULL;
+
+				arguments.push_back(new TypeHandle(argMatched));
+
+				lhsArg = lhsArg->next;
+				rhsArg = rhsArg->next;
+			}
+
+			// Different number of arguments
+			if(lhsArg || rhsArg)
+				return NULL;
+
+			return ctx.GetFunctionType(returnType, arguments);
+		}
+
+		return NULL;
+	}
+
+	if(TypeGenericClass *lhs = getType<TypeGenericClass>(matchType))
+	{
+		// Match with a generic class instance
+		if(TypeClass *rhs = getType<TypeClass>(argType))
+		{
+			if(lhs->proto != rhs->proto)
+				return NULL;
+
+			TypeHandle *lhsArg = lhs->generics.head;
+			TypeHandle *rhsArg = rhs->genericTypes.head;
+
+			while(lhsArg && rhsArg)
+			{
+				TypeBase *argMatched = MatchGenericType(ctx, lhsArg->type, rhsArg->type, aliases, true);
+
+				if(!argMatched)
+					return NULL;
+
+				lhsArg = lhsArg->next;
+				rhsArg = rhsArg->next;
+			}
+
+			return argType;
+		}
+	}
+
+	Stop(ctx, NULL, "ERROR: unknown generic type match");
+
+	return NULL;
+}
+
+TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, FunctionData *function, SmallArray<ArgumentData, 32> &arguments)
+{
+	assert(function->arguments.size() == arguments.size());
+
+	IntrusiveList<MatchData> aliases;
+	IntrusiveList<TypeHandle> types;
+
+	for(unsigned i = 0; i < function->arguments.size(); i++)
+	{
+		TypeBase *type = MatchGenericType(ctx, function->arguments[i].type, arguments[i].type, aliases, false);
+
+		if(!type)
+			return NULL;
+
+		types.push_back(new TypeHandle(type));
+	}
+
+	return ctx.GetFunctionType(function->type->returnType, types);
+}
+
 void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* errPos, SmallArray<FunctionData*, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo)
 {
 	assert(!functions.empty());
@@ -2267,7 +2529,34 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* er
 
 		if(function->type->isGeneric && showInstanceInfo)
 		{
-			// TODO: Display instance data
+			SmallArray<ArgumentData, 32> result;
+
+			// Handle named argument order, default argument values and variadic functions
+			if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, false))
+			{
+				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here");
+			}
+			else if(TypeFunction *instance = GetGenericFunctionInstanceType(ctx, function, arguments))
+			{
+				GetFunctionRating(ctx, function, instance, result);
+
+				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") instanced to\r\n    %.*s(", FMT_ISTR(function->name));
+
+				TypeHandle *curr = instance->arguments.head;
+
+				for(unsigned k = 0; k < function->arguments.size(); k++)
+				{
+					ArgumentData &argument = function->arguments[k];
+
+					errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(curr->type->name));
+
+					curr = curr->next;
+				}
+			}
+			else
+			{
+				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here");
+			}
 		}
 
 		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")\n");
@@ -2303,14 +2592,22 @@ FunctionData* SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallA
 			continue;
 		}
 
-		ratings[i] = GetFunctionRating(ctx, function, result);
+		ratings[i] = GetFunctionRating(ctx, function, function->type, result);
 
 		if(ratings[i] == ~0u)
 			continue;
 
 		if(function->type->isGeneric)
 		{
-			Stop(ctx, pos, "ERROR: generic function instantiation is not supported");
+			TypeFunction *instance = GetGenericFunctionInstanceType(ctx, function, result);
+
+			if(!instance)
+			{
+				ratings[i] = ~0u;
+				continue;
+			}
+			
+			ratings[i] = GetFunctionRating(ctx, function, instance, result);
 
 			if(ratings[i] < bestGenericRating)
 			{
@@ -2368,6 +2665,41 @@ FunctionData* SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallA
 	}
 
 	return bestFunction;
+}
+
+FunctionData* CreateGenericFunctionInstance(ExpressionContext &ctx, FunctionData *proto, SmallArray<ArgumentData, 32> &arguments)
+{
+	SmallArray<ArgumentData, 32> result;
+
+	if(!PrepareArgumentsForFunctionCall(ctx, proto->arguments, arguments, result, false))
+		assert(!"unexpected");
+
+	// Switch to original function scope
+	ScopeData *scope = ctx.scope;
+
+	ctx.SwitchToScopeAtPoint(NULL, proto->scope, proto->source);
+
+	TypeFunction *instance = GetGenericFunctionInstanceType(ctx, proto, result);
+
+	assert(instance);
+
+	SynFunctionDefinition *syntax = getType<SynFunctionDefinition>(proto->source);
+
+	if(!syntax)
+		Stop(ctx, NULL, "ERROR: imported generic function call is not supported");
+
+	ExprBase *expr = AnalyzeFunctionDefinition(ctx, syntax, instance);
+
+	ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(expr);
+
+	assert(definition);
+
+	proto->instances.push_back(definition);
+
+	// Restore old scope
+	ctx.SwitchToScopeAtPoint(proto->source, scope, NULL);
+
+	return definition->function;
 }
 
 ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *function, SynCallArgument *argumentHead, bool allowFailure)
@@ -2430,9 +2762,16 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 	{
 		FunctionData *bestOverload = SelectBestFunction(ctx, source->pos, functions, arguments);
 
-		function = new ExprFunctionAccess(function->source, bestOverload->type, bestOverload);
+		type = getType<TypeFunction>(bestOverload->type);
 
-		type = getType<TypeFunction>(function->type);
+		if(type->isGeneric)
+		{
+			bestOverload = CreateGenericFunctionInstance(ctx, bestOverload, arguments);
+
+			type = getType<TypeFunction>(bestOverload->type);
+		}
+
+		function = new ExprFunctionAccess(function->source, bestOverload->type, bestOverload);
 
 		SmallArray<ArgumentData, 32> result;
 
@@ -2656,7 +2995,7 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 	if(syntax->name == InplaceStr("this"))
 		Stop(ctx, syntax->pos, "ERROR: 'this' is a reserved keyword");
 
-	InplaceStr fullName = GetVariableNameInScope(ctx.scopes.back(), syntax->name);
+	InplaceStr fullName = GetVariableNameInScope(ctx.scope, syntax->name);
 
 	if(ctx.typeMap.find(fullName.hash()))
 		Stop(ctx, syntax->pos, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(syntax->name));
@@ -2683,8 +3022,8 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 	assert(!type->isGeneric);
 	assert(type != ctx.typeAuto);
 
-	unsigned offset = AllocateVariableInScope(ctx.scopes.back(), alignment, type);
-	VariableData *variable = new VariableData(syntax, ctx.scopes.back(), alignment, type, fullName, offset, ctx.uniqueVariableId++);
+	unsigned offset = AllocateVariableInScope(ctx.scope, alignment, type);
+	VariableData *variable = new VariableData(syntax, ctx.scope, alignment, type, fullName, offset, ctx.uniqueVariableId++);
 
 	ctx.AddVariable(variable);
 
@@ -2722,12 +3061,16 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 	return new ExprVariableDefinitions(syntax, ctx.typeVoid, definitions);
 }
 
-ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax)
+ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, TypeFunction *instance)
 {
 	TypeBase *parentType = syntax->parentType ? AnalyzeType(ctx, syntax->parentType) : NULL;
 
-	if(parentType)
+	bool addedParentScope = false;
+
+	if(parentType && ctx.scope->ownerType != parentType)
 	{
+		addedParentScope = true;
+
 		ctx.PushScope(parentType);
 
 		// TODO: introduce class contents
@@ -2746,36 +3089,52 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	IntrusiveList<TypeHandle> argTypes;
 	SmallArray<ArgumentData, 32> argData;
 
+	TypeHandle *instanceArg = instance ? instance->arguments.head : NULL;
+
 	for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next))
 	{
-		// Create temporary scope with known arguments for reference in type expression
-		ctx.PushScope();
+		TypeBase *type = NULL;
 
+		if(instance)
 		{
-			SynFunctionArgument *prevArg = syntax->arguments.head;
-			TypeHandle *prevType = argTypes.head;
+			type = instanceArg->type;
 
-			while(prevArg && prevArg != argument)
-			{
-				ctx.AddVariable(new VariableData(prevArg, ctx.scopes.back(), 0, prevType->type, prevArg->name, 0, ctx.uniqueVariableId++));
-
-				prevArg = getType<SynFunctionArgument>(prevArg->next);
-				prevType = prevType->next;
-			}
+			instanceArg = instanceArg->next;
 		}
+		else
+		{
+			// Create temporary scope with known arguments for reference in type expression
+			ctx.PushScope();
+
+			{
+				SynFunctionArgument *prevArg = syntax->arguments.head;
+				TypeHandle *prevType = argTypes.head;
+
+				while(prevArg && prevArg != argument)
+				{
+					ctx.AddVariable(new VariableData(prevArg, ctx.scope, 0, prevType->type, prevArg->name, 0, ctx.uniqueVariableId++));
+
+					prevArg = getType<SynFunctionArgument>(prevArg->next);
+					prevType = prevType->next;
+				}
+			}
 		
-		TypeBase *type = AnalyzeType(ctx, argument->type);
+			type = AnalyzeType(ctx, argument->type);
+
+			// Remove temporary scope
+			ctx.PopScope();
+		}
 
 		ExprBase *initializer = argument->initializer ? AnalyzeExpression(ctx, argument->initializer) : NULL;
-
-		// Remove temporary scope
-		ctx.PopScope();
 
 		argTypes.push_back(new TypeHandle(type));
 		argData.push_back(ArgumentData(argument, argument->isExplicit, argument->name, type, initializer));
 	}
 
 	TypeFunction *functionType = ctx.GetFunctionType(returnType, argTypes);
+
+	if(instance)
+		assert(functionType == instance);
 
 	InplaceStr functionName;
 
@@ -2792,12 +3151,12 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	}
 	else
 	{
-		functionName = GetFunctionNameInScope(ctx.scopes.back(), syntax->name);
+		functionName = GetFunctionNameInScope(ctx.scope, syntax->name);
 	}
 
 	// TODO: function type should be stored in type list
 
-	FunctionData *function = new FunctionData(syntax, ctx.scopes.back(), syntax->coroutine, functionType, functionName, ctx.uniqueFunctionId++);
+	FunctionData *function = new FunctionData(syntax, ctx.scope, syntax->coroutine, functionType, functionName, ctx.uniqueFunctionId++);
 
 	// Fill in argument data
 	for(unsigned i = 0; i < argData.size(); i++)
@@ -2811,10 +3170,12 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 	if(function->type->isGeneric || (parentType && isType<TypeGenericClassProto>(parentType)))
 	{
+		assert(!instance);
+
 		if(syntax->prototype)
 			Stop(ctx, syntax->pos, "ERROR: generic function cannot be forward-declared");
 
-		if(parentType)
+		if(addedParentScope)
 			ctx.PopScope();
 
 		return new ExprGenericFunctionPrototype(syntax, ctx.typeVoid, function);
@@ -2828,8 +3189,8 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 		assert(!type->isGeneric);
 
-		unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, type);
-		VariableData *variable = new VariableData(syntax, ctx.scopes.back(), 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
+		unsigned offset = AllocateVariableInScope(ctx.scope, 0, type);
+		VariableData *variable = new VariableData(syntax, ctx.scope, 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
 	}
@@ -2842,8 +3203,8 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 		assert(!argument.type->isGeneric);
 
-		unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, argument.type);
-		VariableData *variable = new VariableData(argument.source, ctx.scopes.back(), 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
+		unsigned offset = AllocateVariableInScope(ctx.scope, 0, argument.type);
+		VariableData *variable = new VariableData(argument.source, ctx.scope, 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
 
@@ -2874,7 +3235,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 	ctx.PopScope();
 
-	if(parentType)
+	if(addedParentScope)
 		ctx.PopScope();
 
 	// If the type was deduced, implement prototype now that it's known
@@ -2935,7 +3296,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 	//	classType->constants.push_back(AnalyzeConstantSet(ctx, constantSet));
 
 	for(SynFunctionDefinition *function = syntax->functions.head; function; function = getType<SynFunctionDefinition>(function->next))
-		classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function));
+		classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, NULL));
 
 	if(syntax->accessors.head)
 		Stop(ctx, syntax->pos, "ERROR: class accessors not implemented");
@@ -2950,7 +3311,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics)
 {
-	InplaceStr typeName = GetTypeNameInScope(ctx.scopes.back(), syntax->name);
+	InplaceStr typeName = GetTypeNameInScope(ctx.scope, syntax->name);
 
 	if(!proto && !syntax->aliases.empty())
 	{
@@ -2988,7 +3349,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 			Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not extendable", FMT_ISTR(type->name));
 	}
 
-	TypeClass *classType = new TypeClass(ctx.scopes.back(), className, syntax->aliases, generics, syntax->extendable, baseClass);
+	TypeClass *classType = new TypeClass(syntax, className, proto, syntax->aliases, generics, syntax->extendable, baseClass);
 
 	classType->alignment = alignment;
 
@@ -3009,7 +3370,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		while(currType && currName)
 		{
-			ctx.AddAlias(new AliasData(currName, ctx.scopes.back(), currType->type, currName->name, ctx.uniqueAliasId++));
+			ctx.AddAlias(new AliasData(currName, ctx.scope, currType->type, currName->name, ctx.uniqueAliasId++));
 
 			currType = currType->next;
 			currName = getType<SynIdentifier>(currName->next);
@@ -3029,7 +3390,7 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 {
 	for(SynIdentifier *name = syntax->path.head; name; name = getType<SynIdentifier>(name->next))
 	{
-		NamespaceData *ns = new NamespaceData(syntax, ctx.scopes.back(), ctx.GetCurrentNamespace(), name->name, ctx.uniqueNamespaceId++);
+		NamespaceData *ns = new NamespaceData(syntax, ctx.scope, ctx.GetCurrentNamespace(), name->name, ctx.uniqueNamespaceId++);
 
 		ctx.namespaces.push_back(ns);
 
@@ -3051,7 +3412,7 @@ ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax)
 {
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
 
-	AliasData *alias = new AliasData(syntax, ctx.scopes.back(), type, syntax->alias, ctx.uniqueAliasId++);
+	AliasData *alias = new AliasData(syntax, ctx.scope, type, syntax->alias, ctx.uniqueAliasId++);
 
 	ctx.AddAlias(alias);
 
@@ -3363,7 +3724,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 	if(SynFunctionDefinition *node = getType<SynFunctionDefinition>(syntax))
 	{
-		return AnalyzeFunctionDefinition(ctx, node);
+		return AnalyzeFunctionDefinition(ctx, node, NULL);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");
@@ -3390,7 +3751,7 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 
 	if(SynFunctionDefinition *node = getType<SynFunctionDefinition>(syntax))
 	{
-		return AnalyzeFunctionDefinition(ctx, node);
+		return AnalyzeFunctionDefinition(ctx, node, NULL);
 	}
 
 	if(SynClassDefinition *node = getType<SynClassDefinition>(syntax))
@@ -3485,7 +3846,7 @@ void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleConte
 		}
 		else
 		{
-			ctx.namespaces.push_back(new NamespaceData(source, ctx.scopes.back(), ctx.GetCurrentNamespace(), InplaceStr(symbols + ns.offsetToName), ctx.uniqueNamespaceId++));
+			ctx.namespaces.push_back(new NamespaceData(source, ctx.scope, ctx.GetCurrentNamespace(), InplaceStr(symbols + ns.offsetToName), ctx.uniqueNamespaceId++));
 		}
 	}
 }
@@ -3592,7 +3953,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				IntrusiveList<SynIdentifier> aliases;
 				IntrusiveList<TypeHandle> generics;
 
-				TypeClass *classType = new TypeClass(ctx.scopes.back(), className, aliases, generics, false, NULL);
+				TypeClass *classType = new TypeClass(source, className, NULL, aliases, generics, false, NULL);
 
 				classType->alignment = type.defaultAlign;
 				classType->size = type.size;
@@ -3615,7 +3976,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					if(!memberType)
 						Stop(ctx, source->pos, "ERROR: can't find member %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
 
-					VariableData *member = new VariableData(source, ctx.scopes.back(), 0, memberType, memberName, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
+					VariableData *member = new VariableData(source, ctx.scope, 0, memberType, memberName, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
 
 					classType->members.push_back(new VariableHandle(member));
 				}
@@ -3652,7 +4013,7 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 		if(!type)
 			Stop(ctx, source->pos, "ERROR: can't find variable '%s' type in module %s", symbols + variable.offsetToName, module.name);
 
-		VariableData *data = new VariableData(source, ctx.scopes.back(), 0, type, name, variable.offset, ctx.uniqueVariableId++);
+		VariableData *data = new VariableData(source, ctx.scope, 0, type, name, variable.offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(data);
 	}
@@ -3693,7 +4054,7 @@ void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext
 		}
 		else
 		{
-			AliasData *alias = new AliasData(source, ctx.scopes.back(), targetType, aliasName, ctx.uniqueAliasId++);
+			AliasData *alias = new AliasData(source, ctx.scope, targetType, aliasName, ctx.uniqueAliasId++);
 
 			ctx.AddAlias(alias);
 		}
@@ -3748,7 +4109,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		InplaceStr functionName = InplaceStr(symbols + function.offsetToName);
 
-		FunctionData *data = new FunctionData(source, ctx.scopes.back(), coroutine, getType<TypeFunction>(functionType), functionName, ctx.uniqueFunctionId++);
+		FunctionData *data = new FunctionData(source, ctx.scope, coroutine, getType<TypeFunction>(functionType), functionName, ctx.uniqueFunctionId++);
 
 		data->isExternal = true;
 
@@ -3763,8 +4124,8 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		{
 			TypeBase *type = ctx.GetReferenceType(parentType);
 
-			unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, type);
-			VariableData *variable = new VariableData(source, ctx.scopes.back(), 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
+			unsigned offset = AllocateVariableInScope(ctx.scope, 0, type);
+			VariableData *variable = new VariableData(source, ctx.scope, 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 		}
@@ -3785,8 +4146,8 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			// TODO: default argument values
 			data->arguments.push_back(ArgumentData(source, isExplicit, argName, argType, NULL));
 
-			unsigned offset = AllocateVariableInScope(ctx.scopes.back(), 0, argType);
-			VariableData *variable = new VariableData(source, ctx.scopes.back(), 0, argType, argName, offset, ctx.uniqueVariableId++);
+			unsigned offset = AllocateVariableInScope(ctx.scope, 0, argType);
+			VariableData *variable = new VariableData(source, ctx.scope, 0, argType, argName, offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 		}
@@ -3910,7 +4271,7 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 	assert(!ctx.globalScope);
 
 	ctx.PushScope();
-	ctx.globalScope = ctx.scopes.back();
+	ctx.globalScope = ctx.scope;
 
 	ctx.AddType(ctx.typeVoid = new TypeVoid(InplaceStr("void")));
 
@@ -3932,15 +4293,15 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 
 	ctx.AddType(ctx.typeAutoRef = new TypeAutoRef(InplaceStr("auto ref")));
 	ctx.PushScope(ctx.typeAutoRef);
-	ctx.typeAutoRef->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scopes.back(), ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
-	ctx.typeAutoRef->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scopes.back(), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
+	ctx.typeAutoRef->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scope, ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
+	ctx.typeAutoRef->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scope, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
 	ctx.PopScope();
 
 	ctx.AddType(ctx.typeAutoArray = new TypeAutoArray(InplaceStr("auto[]")));
 	ctx.PushScope(ctx.typeAutoArray);
-	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scopes.back(), ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
-	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scopes.back(), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
-	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scopes.back(), ctx.typeInt, InplaceStr("size"), ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scope, ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scope, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(new VariableHandle(AllocateClassMember(syntax, ctx.scope, ctx.typeInt, InplaceStr("size"), ctx.uniqueVariableId++)));
 	ctx.PopScope();
 
 	// Analyze module
