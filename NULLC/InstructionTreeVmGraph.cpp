@@ -94,7 +94,7 @@ void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName)
 	else if(VmFunction *function = getType<VmFunction>(value))
 	{
 		if(FunctionData *fData = function->function)
-			Print(ctx, "%.*s.f%d", FMT_ISTR(fData->name), fData->uniqueId);
+			Print(ctx, "%.*s.f%04x", FMT_ISTR(fData->name), fData->uniqueId);
 		else
 			Print(ctx, "global");
 	}
@@ -390,7 +390,7 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 
 		Print(ctx, "function ");
 		PrintType(ctx, function->returnType);
-		PrintLine(ctx, " %.*s.f%d()%s", FMT_ISTR(fData->name), fData->uniqueId, function->firstBlock == NULL ? ";" : "");
+		PrintLine(ctx, " %.*s.f%04x()%s", FMT_ISTR(fData->name), fData->uniqueId, function->firstBlock == NULL ? ";" : "");
 
 		if(function->firstBlock == NULL)
 			return;
