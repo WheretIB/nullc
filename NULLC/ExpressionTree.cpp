@@ -1532,6 +1532,9 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 		{
 			ExprBase *thisAccess = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("this"));
 
+			if(!thisAccess)
+				Stop(ctx, source->pos, "ERROR: 'this' variable is not available");
+
 			// Member access only shifts an address, so we are left with a reference to get value from
 			ExprMemberAccess *shift = new ExprMemberAccess(source, ctx.GetReferenceType(data->type), thisAccess, data);
 
@@ -1624,19 +1627,27 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 		return new ExprFunctionAccess(source, function->value->type, function->value);
 	}
 
-	Stop(ctx, name.begin, "ERROR: unknown variable");
-
 	return NULL;
 }
 
 ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynIdentifier *syntax)
 {
-	return CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), syntax->name);
+	ExprBase *value = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), syntax->name);
+
+	if(!value)
+		Stop(ctx, syntax->pos, "ERROR: unknown variable");
+
+	return value;
 }
 
 ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynTypeSimple *syntax)
 {
-	return CreateVariableAccess(ctx, syntax, syntax->path, syntax->name);
+	ExprBase *value = CreateVariableAccess(ctx, syntax, syntax->path, syntax->name);
+
+	if(!value)
+		Stop(ctx, syntax->pos, "ERROR: unknown variable");
+
+	return value;
 }
 
 ExprPreModify* AnalyzePreModify(ExpressionContext &ctx, SynPreModify *syntax)
@@ -1681,11 +1692,17 @@ ExprPostModify* AnalyzePostModify(ExpressionContext &ctx, SynPostModify *syntax)
 	return new ExprPostModify(syntax, value->type, wrapped, syntax->isIncrement);
 }
 
-ExprUnaryOp* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
+ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-	// TODO: check operator overload
+	if(ExprBase *overloads = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr(GetOpName(syntax->type))))
+	{
+		SynCallArgument *arg0 = new SynCallArgument(syntax->value->pos, InplaceStr(), syntax->value);
+
+		if(ExprBase *result = CreateFunctionCall(ctx, syntax, overloads, arg0, true))
+			return result;
+	}
 
 	bool binaryOp = IsBinaryOp(syntax->type);
 	bool logicalOp = IsLogicalOp(syntax->type);
@@ -2571,7 +2588,7 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* er
 	longjmp(ctx.errorHandler, 1);
 }
 
-FunctionData* SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallArray<FunctionData*, 32> &functions, SmallArray<ArgumentData, 32> &arguments)
+FunctionData* SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallArray<FunctionData*, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure)
 {
 	SmallArray<unsigned, 32> ratings;
 
@@ -2651,6 +2668,9 @@ FunctionData* SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallA
 	if(bestFunction == NULL)
 	{
 		assert(bestRating == ~0u);
+
+		if(allowFailure)
+			return NULL;
 
 		char *errPos = ctx.errorBuf;
 		errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function with following parameters:\n");
@@ -2764,7 +2784,10 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 
 	if(!functions.empty())
 	{
-		FunctionData *bestOverload = SelectBestFunction(ctx, source->pos, functions, arguments);
+		FunctionData *bestOverload = SelectBestFunction(ctx, source->pos, functions, arguments, allowFailure);
+
+		if(allowFailure && !bestOverload)
+			return NULL;
 
 		type = getType<TypeFunction>(bestOverload->type);
 
@@ -2854,7 +2877,12 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 	ExprBase *function = AnalyzeExpression(ctx, syntax->value);
 
 	if(ExprTypeLiteral *type = getType<ExprTypeLiteral>(function))
-		function = CreateVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name);
+	{
+		if(ExprBase *constructor = CreateVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name))
+			function = constructor;
+		else
+			Stop(ctx, syntax->pos, "ERROR: implicit type constructors are not supported");
+	}
 
 	if(!syntax->aliases.empty())
 		Stop(ctx, syntax->pos, "ERROR: function call with explicit generic arguments is not supported");
