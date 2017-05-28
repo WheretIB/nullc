@@ -2298,7 +2298,7 @@ unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, TypeF
 			{
 				TypeRef *lRef = getType<TypeRef>(expectedType);
 
-				if(lRef->subType == expectedType)
+				if(lRef->subType == actualType)
 				{
 					rating += 5;
 					continue;
