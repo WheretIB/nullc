@@ -2098,9 +2098,11 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SmallArray<Argument
 		}
 
 		// Create variadic pack if neccessary
-		if(!functionArguments.empty() && functionArguments.back().type == ctx.typeAutoArray && !functionArguments.back().isExplicit)
+		TypeBase *varArgType = ctx.GetUnsizedArrayType(ctx.typeAutoRef);
+
+		if(!functionArguments.empty() && functionArguments.back().type == varArgType && !functionArguments.back().isExplicit)
 		{
-			if(result.size() >= functionArguments.size() - 1 && !(result.size() == functionArguments.size() && result.back().type == ctx.typeAutoArray))
+			if(result.size() >= functionArguments.size() - 1 && !(result.size() == functionArguments.size() && result.back().type == varArgType))
 			{
 				ExprArray *value = NULL;
 
@@ -2111,11 +2113,11 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SmallArray<Argument
 					for(unsigned i = functionArguments.size() - 1; i < result.size(); i++)
 						values.push_back(CreateCast(ctx, result[i].value->source->pos, result[i].value, ctx.typeAutoRef));
 
-					value = new ExprArray(result[0].value->source, ctx.typeAutoArray, values);
+					value = new ExprArray(result[0].value->source, varArgType, values);
 				}
 
 				result.shrink(functionArguments.size() - 1);
-				result.push_back(ArgumentData(NULL, false, functionArguments.back().name, ctx.typeAutoArray, value));
+				result.push_back(ArgumentData(NULL, false, functionArguments.back().name, varArgType, value));
 			}
 		}
 	}
