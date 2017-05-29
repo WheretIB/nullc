@@ -1694,8 +1694,6 @@ ExprPostModify* AnalyzePostModify(ExpressionContext &ctx, SynPostModify *syntax)
 
 ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 {
-	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
-
 	if(ExprBase *overloads = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr(GetOpName(syntax->type))))
 	{
 		SynCallArgument *arg0 = new SynCallArgument(syntax->value->pos, InplaceStr(), syntax->value);
@@ -1706,6 +1704,8 @@ ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 
 	bool binaryOp = IsBinaryOp(syntax->type);
 	bool logicalOp = IsLogicalOp(syntax->type);
+
+	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
 	// Type check
 	if(ctx.IsFloatingPointType(value->type))
@@ -1738,8 +1738,17 @@ ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 	return new ExprUnaryOp(syntax, resultType, syntax->type, value);
 }
 
-ExprBinaryOp* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
+ExprBase* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 {
+	if(ExprBase *overloads = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr(GetOpName(syntax->type))))
+	{
+		SynCallArgument *arg0 = new SynCallArgument(syntax->lhs->pos, InplaceStr(), syntax->lhs);
+		arg0->next = new SynCallArgument(syntax->rhs->pos, InplaceStr(), syntax->rhs);
+
+		if(ExprBase *result = CreateFunctionCall(ctx, syntax, overloads, arg0, true))
+			return result;
+	}
+
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
@@ -1799,16 +1808,34 @@ ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *synt
 	return new ExprConditional(syntax, resultType, condition, trueBlock, falseBlock);
 }
 
-ExprAssignment* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
+ExprBase* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
 {
+	if(ExprBase *overloads = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr("=")))
+	{
+		SynCallArgument *arg0 = new SynCallArgument(syntax->lhs->pos, InplaceStr(), syntax->lhs);
+		arg0->next = new SynCallArgument(syntax->rhs->pos, InplaceStr(), syntax->rhs);
+
+		if(ExprBase *result = CreateFunctionCall(ctx, syntax, overloads, arg0, true))
+			return result;
+	}
+
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
 	return CreateAssignment(ctx, syntax, lhs, rhs);
 }
 
-ExprAssignment* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *syntax)
+ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *syntax)
 {
+	if(ExprBase *overloads = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr(GetOpName(syntax->type))))
+	{
+		SynCallArgument *arg0 = new SynCallArgument(syntax->lhs->pos, InplaceStr(), syntax->lhs);
+		arg0->next = new SynCallArgument(syntax->rhs->pos, InplaceStr(), syntax->rhs);
+
+		if(ExprBase *result = CreateFunctionCall(ctx, syntax, overloads, arg0, true))
+			return result;
+	}
+
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
@@ -1904,16 +1931,31 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 
 ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 {
-	if(syntax->arguments.size() > 1)
-		Stop(ctx, syntax->pos, "ERROR: multiple array indexes are not supported");
+	bool findOverload = syntax->arguments.empty() || syntax->arguments.size() > 1;
 
-	if(syntax->arguments.empty())
-		Stop(ctx, syntax->pos, "ERROR: array index is missing");
+	for(SynCallArgument *curr = syntax->arguments.head; curr; curr = getType<SynCallArgument>(curr->next))
+	{
+		if(!curr->name.empty())
+			findOverload = true;
+	}
+
+	if(ExprBase *overloads = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr("[]")))
+	{
+		SynCallArgument *arg0 = new SynCallArgument(syntax->value->pos, InplaceStr(), syntax->value);
+
+		// Link in value as the first argument
+		arg0->next = syntax->arguments.head;
+
+		if(ExprBase *result = CreateFunctionCall(ctx, syntax, overloads, arg0, !findOverload))
+			return result;
+
+		arg0->next = NULL;
+	}
+
+	if(findOverload)
+		Stop(ctx, syntax->pos, "ERROR: overloaded '[]' operator is not available");
 
 	SynCallArgument *argument = syntax->arguments.head;
-
-	if(!argument->name.empty())
-		Stop(ctx, syntax->pos, "ERROR: named array indexes are not supported");
 
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
