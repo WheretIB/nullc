@@ -1799,11 +1799,20 @@ ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *synt
 	TypeBase *resultType = NULL;
 
 	if(trueBlock->type == falseBlock->type)
+	{
 		resultType = trueBlock->type;
+	}
 	else if(ctx.IsNumericType(trueBlock->type) && ctx.IsNumericType(falseBlock->type))
+	{
 		resultType = ctx.GetBinaryOpResultType(trueBlock->type, falseBlock->type);
+
+		trueBlock = CreateCast(ctx, syntax->trueBlock->pos, trueBlock, resultType);
+		falseBlock = CreateCast(ctx, syntax->falseBlock->pos, falseBlock, resultType);
+	}
 	else
+	{
 		Stop(ctx, syntax->pos, "ERROR: Unknown common type");
+	}
 
 	return new ExprConditional(syntax, resultType, condition, trueBlock, falseBlock);
 }
