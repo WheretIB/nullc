@@ -3239,6 +3239,9 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 		// If return type is auto, set it to type that is being returned
 		if(returnType == ctx.typeAuto)
 		{
+			if(result->type->isGeneric)
+				Stop(ctx, syntax->pos, "ERROR: generic return type is not supported");
+
 			returnType = result->type;
 
 			function->type = ctx.GetFunctionType(returnType, function->type->arguments);
@@ -3549,7 +3552,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 			function->type = ctx.GetFunctionType(ctx.typeVoid, function->type->arguments);
 
 		if(function->type->returnType != ctx.typeVoid && !function->hasExplicitReturn)
-			Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%s'", FMT_ISTR(returnType->name));
+			Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
 	}
 
 	ctx.PopScope();
