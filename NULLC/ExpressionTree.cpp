@@ -887,72 +887,244 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 	return result;
 }
 
-ExprBase* CreateCast(ExpressionContext &ctx, const char *pos, ExprBase *value, TypeBase *type)
+ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name);
+FunctionData* SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallArray<FunctionData*, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
+FunctionData* CreateGenericFunctionInstance(ExpressionContext &ctx, FunctionData *proto, SmallArray<ArgumentData, 32> &arguments);
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *function, SynCallArgument *argumentHead, bool allowFailure);
+
+FunctionData* GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBase *value, TypeFunction *type)
+{
+	// Collect a set of available functions
+	SmallArray<FunctionData*, 32> functions;
+
+	if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(value))
+	{
+		functions.push_back(node->function);
+	}
+	else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(value))
+	{
+		functions.push_back(node->function);
+	}
+	else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(value))
+	{
+		functions.push_back(node->function);
+	}
+	else if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(value))
+	{
+		for(FunctionHandle *arg = node->functions.head; arg; arg = arg->next)
+			functions.push_back(arg->function);
+	}
+
+	if(!functions.empty())
+	{
+		// Analyze arguments
+		SmallArray<ArgumentData, 32> arguments;
+
+		for(TypeHandle *curr = type->arguments.head; curr; curr = curr->next)
+			arguments.push_back(ArgumentData(source, false, InplaceStr(), curr->type, NULL));
+
+		FunctionData *bestOverload = SelectBestFunction(ctx, source->pos, functions, arguments, true);
+
+		if(bestOverload)
+		{
+			TypeFunction *overloadType = getType<TypeFunction>(bestOverload->type);
+
+			if(overloadType->isGeneric)
+				bestOverload = CreateGenericFunctionInstance(ctx, bestOverload, arguments);
+
+			if(bestOverload)
+			{
+				if(bestOverload->type == type)
+					return bestOverload;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, TypeBase *type, bool isFunctionArgument)
 {
 	// When function is used as value, hide its visibility immediately after use
 	if(ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(value))
-		ctx.HideFunction(definition->function);
+	{
+		if(definition->wasHidden)
+		{
+			ctx.HideFunction(definition->function);
+
+			definition->wasHidden = true;
+		}
+	}
 
 	if(value->type == type)
 		return value;
 
 	if(ctx.IsNumericType(value->type) && ctx.IsNumericType(type))
-		return new ExprTypeCast(value->source, type, value, EXPR_CAST_NUMERICAL);
+		return new ExprTypeCast(source, type, value, EXPR_CAST_NUMERICAL);
 
 	if(type == ctx.typeBool)
 	{
 		if(isType<TypeRef>(value->type))
-			return new ExprTypeCast(value->source, type, value, EXPR_CAST_PTR_TO_BOOL);
+			return new ExprTypeCast(source, type, value, EXPR_CAST_PTR_TO_BOOL);
 
 		if(isType<TypeUnsizedArray>(value->type))
-			return new ExprTypeCast(value->source, type, value, EXPR_CAST_UNSIZED_TO_BOOL);
+			return new ExprTypeCast(source, type, value, EXPR_CAST_UNSIZED_TO_BOOL);
 
 		if(isType<TypeFunction>(value->type))
-			return new ExprTypeCast(value->source, type, value, EXPR_CAST_FUNCTION_TO_BOOL);
+			return new ExprTypeCast(source, type, value, EXPR_CAST_FUNCTION_TO_BOOL);
+	}
+
+	if(value->type == ctx.typeNullPtr)
+	{
+		// nullptr to type ref conversion
+		if(isType<TypeRef>(type))
+			return new ExprTypeCast(source, type, value, EXPR_CAST_NULL_TO_PTR);
+
+		// nullptr to auto ref conversion
+		if(type == ctx.typeAutoRef)
+			return new ExprTypeCast(source, type, value, EXPR_CAST_NULL_TO_AUTO_PTR);
+
+		// nullptr to type[] conversion
+		if(isType<TypeUnsizedArray>(type))
+			return new ExprTypeCast(source, type, value, EXPR_CAST_NULL_TO_UNSIZED);
+
+		// nullptr to auto[] conversion
+		if(type == ctx.typeAutoArray)
+			return new ExprTypeCast(source, type, value, EXPR_CAST_NULL_TO_AUTO_ARRAY);
+
+		// nullptr to function type conversion
+		if(isType<TypeFunction>(type))
+			return new ExprTypeCast(source, type, value, EXPR_CAST_NULL_TO_FUNCTION);
 	}
 
 	if(TypeUnsizedArray *target = getType<TypeUnsizedArray>(type))
 	{
 		// type[N] to type[] conversion
-		if(TypeArray *source = getType<TypeArray>(value->type))
+		if(TypeArray *valueType = getType<TypeArray>(value->type))
 		{
-			if(target->subType == source->subType)
+			if(target->subType == valueType->subType)
 			{
 				if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
 				{
-					ExprBase *address = new ExprGetAddress(value->source, ctx.GetReferenceType(value->type), node->variable);
+					ExprBase *address = new ExprGetAddress(source, ctx.GetReferenceType(value->type), node->variable);
 
-					return new ExprTypeCast(value->source, type, address, EXPR_CAST_ARRAY_PTR_TO_UNSIZED);
+					return new ExprTypeCast(source, type, address, EXPR_CAST_ARRAY_PTR_TO_UNSIZED);
 				}
 				else if(ExprDereference *node = getType<ExprDereference>(value))
 				{
-					return new ExprTypeCast(value->source, type, node->value, EXPR_CAST_ARRAY_PTR_TO_UNSIZED);
+					return new ExprTypeCast(source, type, node->value, EXPR_CAST_ARRAY_PTR_TO_UNSIZED);
 				}
 
-				return new ExprTypeCast(value->source, type, value, EXPR_CAST_ARRAY_TO_UNSIZED);
+				return new ExprTypeCast(source, type, value, EXPR_CAST_ARRAY_TO_UNSIZED);
 			}
 		}
 	}
 
 	if(TypeRef *target = getType<TypeRef>(type))
 	{
-		if(TypeRef *source = getType<TypeRef>(value->type))
+		if(TypeRef *valueType = getType<TypeRef>(value->type))
 		{
 			// type[N] ref to type[] ref conversion
-			if(isType<TypeUnsizedArray>(target->subType) && isType<TypeArray>(source->subType))
+			if(isType<TypeUnsizedArray>(target->subType) && isType<TypeArray>(valueType->subType))
 			{
 				TypeUnsizedArray *targetSub = getType<TypeUnsizedArray>(target->subType);
-				TypeArray *sourceSub = getType<TypeArray>(source->subType);
+				TypeArray *sourceSub = getType<TypeArray>(valueType->subType);
 
 				if(targetSub->subType == sourceSub->subType)
 				{
-					return new ExprTypeCast(value->source, type, value, EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR);
+					return new ExprTypeCast(source, type, value, EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR);
 				}
+			}
+		}
+		else if(value->type == ctx.typeAutoRef)
+		{
+			return new ExprTypeCast(source, type, value, EXPR_CAST_AUTO_PTR_TO_PTR);
+		}
+		else if(isFunctionArgument)
+		{
+			// type to type ref conversion
+			if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
+			{
+				ExprBase *address = new ExprGetAddress(source, ctx.GetReferenceType(value->type), node->variable);
+
+				return address;
+			}
+			else if(ExprDereference *node = getType<ExprDereference>(value))
+			{
+				return node->value;
+			}
+
+			return new ExprTypeCast(source, type, value, EXPR_CAST_ANY_TO_PTR);
+		}
+	}
+
+	if(type == ctx.typeAutoRef)
+	{
+		// type ref to auto ref conversion
+		if(TypeRef *valueType = getType<TypeRef>(value->type))
+			return new ExprTypeCast(source, type, value, EXPR_CAST_PTR_TO_AUTO_PTR);
+
+		if(isFunctionArgument)
+		{
+			// type to auto ref conversion
+			if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
+			{
+				ExprBase *address = new ExprGetAddress(source, ctx.GetReferenceType(value->type), node->variable);
+
+				return new ExprTypeCast(source, type, address, EXPR_CAST_PTR_TO_AUTO_PTR);
+			}
+			else if(ExprDereference *node = getType<ExprDereference>(value))
+			{
+				return new ExprTypeCast(source, type, node->value, EXPR_CAST_PTR_TO_AUTO_PTR);
+			}
+
+			return new ExprTypeCast(source, type, CreateCast(ctx, source, value, ctx.GetReferenceType(value->type), true), EXPR_CAST_PTR_TO_AUTO_PTR);
+		}
+		else
+		{
+			// type to auto ref conversion (boxing)
+			if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("duplicate")))
+			{
+				SynCallArgument *arg0 = new SynCallArgument(value->source->pos, InplaceStr(), value->source);
+
+				if(ExprBase *result = CreateFunctionCall(ctx, source, overloads, arg0, true))
+					return result;
 			}
 		}
 	}
 
-	Stop(ctx, pos, "ERROR: can't convert '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));
+	if(type == ctx.typeAutoArray)
+	{
+		// type[] to auto[] conversion
+		if(TypeUnsizedArray *valueType = getType<TypeUnsizedArray>(value->type))
+			return new ExprTypeCast(source, type, value, EXPR_CAST_UNSIZED_TO_AUTO_ARRAY);
+		
+		if(TypeArray *valueType = getType<TypeArray>(value->type))
+		{
+			ExprBase *unsized = CreateCast(ctx, source, value, ctx.GetUnsizedArrayType(valueType->subType), false);
+
+			return CreateCast(ctx, source, unsized, type, false);
+		}
+	}
+
+	if(TypeFunction *target = getType<TypeFunction>(type))
+	{
+		if(FunctionData *function = GetFunctionForType(ctx, source, value, target))
+			return new ExprFunctionAccess(source, type, function);
+	}
+
+	if(value->type == ctx.typeAutoRef)
+	{
+		// auto ref to type (unboxing)
+		if(!isType<TypeRef>(type))
+		{
+			ExprBase *ptr = CreateCast(ctx, source, value, ctx.GetReferenceType(type), false);
+
+			return new ExprDereference(source, type, ptr);
+		}
+	}
+
+	Stop(ctx, source->pos, "ERROR: can't convert '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));
 
 	return NULL;
 }
@@ -1000,7 +1172,7 @@ ExprAssignment* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBa
 	if(lhs->type == ctx.typeVoid)
 		Stop(ctx, source->pos, "ERROR: cannot convert from %.*s to void", FMT_ISTR(lhs->type->name));
 
-	rhs = CreateCast(ctx, source->pos, rhs, lhs->type);
+	rhs = CreateCast(ctx, source, rhs, lhs->type, false);
 
 	return new ExprAssignment(source, lhs->type, wrapped, rhs);
 }
@@ -1036,16 +1208,16 @@ ExprBinaryOp* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryO
 	if(logicalOp)
 	{
 		// Logical operations require both operands to be 'bool'
-		lhs = CreateCast(ctx, source->pos, lhs, ctx.typeBool);
-		rhs = CreateCast(ctx, source->pos, rhs, ctx.typeBool);
+		lhs = CreateCast(ctx, source, lhs, ctx.typeBool, false);
+		rhs = CreateCast(ctx, source, rhs, ctx.typeBool, false);
 	}
 	else if(ctx.IsNumericType(lhs->type) && ctx.IsNumericType(rhs->type))
 	{
 		// Numeric operations promote both operands to a common type
 		TypeBase *commonType = ctx.GetBinaryOpResultType(lhs->type, rhs->type);
 
-		lhs = CreateCast(ctx, source->pos, lhs, commonType);
-		rhs = CreateCast(ctx, source->pos, rhs, commonType);
+		lhs = CreateCast(ctx, source, lhs, commonType, false);
+		rhs = CreateCast(ctx, source, rhs, commonType, false);
 	}
 
 	if(lhs->type != rhs->type)
@@ -1068,8 +1240,6 @@ ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createSco
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, TypeFunction *instance);
-
-ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *function, SynCallArgument *argumentHead, bool allowFailure);
 
 // Apply in reverse order
 TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase *sizes)
@@ -1095,7 +1265,7 @@ TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase 
 
 	ExprBase *sizeValue = AnalyzeExpression(ctx, size);
 
-	if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, size->pos, sizeValue, ctx.typeLong))))
+	if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, size, sizeValue, ctx.typeLong, false))))
 		return ctx.GetArrayType(type, number->value);
 
 	Stop(ctx, size->pos, "ERROR: can't get array size");
@@ -1165,7 +1335,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		ExprBase *size = AnalyzeExpression(ctx, node->arguments.head);
 		
-		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, node->pos, size, ctx.typeLong))))
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, node, size, ctx.typeLong, false))))
 			return ctx.GetArrayType(type, number->value);
 
 		Stop(ctx, syntax->pos, "ERROR: can't get array size");
@@ -1344,7 +1514,7 @@ unsigned AnalyzeAlignment(ExpressionContext &ctx, SynAlign *syntax)
 
 	ExprBase *align = AnalyzeNumber(ctx, syntax->value);
 
-	if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, syntax->pos, align, ctx.typeLong))))
+	if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, syntax, align, ctx.typeLong, false))))
 	{
 		if(alignValue->value > 16)
 			Stop(ctx, syntax->pos, "ERROR: alignment must be less than 16 bytes");
@@ -1806,8 +1976,8 @@ ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *synt
 	{
 		resultType = ctx.GetBinaryOpResultType(trueBlock->type, falseBlock->type);
 
-		trueBlock = CreateCast(ctx, syntax->trueBlock->pos, trueBlock, resultType);
-		falseBlock = CreateCast(ctx, syntax->falseBlock->pos, falseBlock, resultType);
+		trueBlock = CreateCast(ctx, syntax->trueBlock, trueBlock, resultType, false);
+		falseBlock = CreateCast(ctx, syntax->falseBlock, falseBlock, resultType, false);
 	}
 	else
 	{
@@ -1970,7 +2140,7 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 
 	ExprBase *index = AnalyzeExpression(ctx, argument->value);
 
-	index = CreateCast(ctx, syntax->pos, index, ctx.typeInt);
+	index = CreateCast(ctx, syntax, index, ctx.typeInt, false);
 
 	ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(Evaluate(ctx, index));
 
@@ -2172,16 +2342,21 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SmallArray<Argument
 		{
 			if(result.size() >= functionArguments.size() - 1 && !(result.size() == functionArguments.size() && result.back().type == varArgType))
 			{
-				ExprArray *value = NULL;
+				ExprBase *value = NULL;
 
 				if(prepareValues)
 				{
 					IntrusiveList<ExprBase> values;
 
 					for(unsigned i = functionArguments.size() - 1; i < result.size(); i++)
-						values.push_back(CreateCast(ctx, result[i].value->source->pos, result[i].value, ctx.typeAutoRef));
+						values.push_back(CreateCast(ctx, result[i].value->source, result[i].value, ctx.typeAutoRef, true));
 
-					value = new ExprArray(result[0].value->source, varArgType, values);
+					if(values.empty())
+						value = new ExprNullptrLiteral(result[0].value->source, ctx.typeNullPtr);
+					else
+						value = new ExprArray(result[0].value->source, ctx.GetArrayType(ctx.typeAutoRef, values.size()), values);
+
+					value = CreateCast(ctx, result[0].value->source, value, varArgType, true);
 				}
 
 				result.shrink(functionArguments.size() - 1);
@@ -2204,7 +2379,7 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SmallArray<Argument
 
 			TypeBase *target = functionArguments[i].type;
 
-			argument.value = CreateCast(ctx, argument.value->source->pos, argument.value, target);
+			argument.value = CreateCast(ctx, argument.value->source, argument.value, target, true);
 		}
 	}
 
@@ -2250,18 +2425,13 @@ unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, TypeF
 
 			if(expectedArgument.isExplicit)
 			{
-				// TODO: Resolve function
-
-				if(isType<ExprGenericFunctionPrototype>(actualArgument.value))
-					Stop(ctx, actualArgument.value->source->pos, "ERROR: 2 generic function arguments are not supported");
-
-				if(isType<ExprFunctionOverloadSet>(actualArgument.value))
-					Stop(ctx, actualArgument.value->source->pos, "ERROR: 2 function overload arguments are not supported");
-
-				if(TypeFunction *type = getType<TypeFunction>(actualArgument.value->type))
+				if(TypeFunction *target = getType<TypeFunction>(expectedType))
 				{
-					if(type->isGeneric)
-						Stop(ctx, actualArgument.value->source->pos, "ERROR: 2 generic function pointer arguments are not supported");
+					if(actualArgument.value)
+					{
+						if(FunctionData *function = GetFunctionForType(ctx, actualArgument.value->source, actualArgument.value, target))
+							continue;
+					}
 				}
 
 				return ~0u;
@@ -2346,19 +2516,15 @@ unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, TypeF
 
 			if(isType<TypeFunction>(expectedType))
 			{
-				// TODO: Resolve function
+				TypeFunction *lFunction = getType<TypeFunction>(expectedType);
 
-				if(isType<ExprGenericFunctionPrototype>(actualArgument.value))
-					Stop(ctx, actualArgument.value->source->pos, "ERROR: 3 generic function arguments are not supported");
-
-				if(isType<ExprFunctionOverloadSet>(actualArgument.value))
-					Stop(ctx, actualArgument.value->source->pos, "ERROR: 3 function overload arguments are not supported");
-
-				if(TypeFunction *type = getType<TypeFunction>(actualArgument.value->type))
+				if(actualArgument.value)
 				{
-					if(type->isGeneric)
-						Stop(ctx, actualArgument.value->source->pos, "ERROR: 3 generic function pointer arguments are not supported");
+					if(FunctionData *function = GetFunctionForType(ctx, actualArgument.value->source, actualArgument.value, lFunction))
+						continue;
 				}
+				
+				return ~0u;
 			}
 
 			// type -> type ref
@@ -2543,6 +2709,8 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, TypeBase *matchType, TypeBase
 
 			return argType;
 		}
+
+		return NULL;
 	}
 
 	Stop(ctx, NULL, "ERROR: unknown generic type match");
@@ -2816,18 +2984,6 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 
 		ExprBase *argument = AnalyzeExpression(ctx, el->value);
 
-		if(isType<ExprGenericFunctionPrototype>(argument))
-			Stop(ctx, source->pos, "ERROR: generic function arguments are not supported");
-
-		if(isType<ExprFunctionOverloadSet>(argument))
-			Stop(ctx, source->pos, "ERROR: function overload arguments are not supported");
-
-		if(TypeFunction *type = getType<TypeFunction>(argument->type))
-		{
-			if(type->isGeneric)
-				Stop(ctx, source->pos, "ERROR: generic function pointer arguments are not supported");
-		}
-
 		arguments.push_back(ArgumentData(el, false, el->name, argument->type, argument));
 	}
 
@@ -3009,7 +3165,7 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 		}
 		else
 		{
-			result = CreateCast(ctx, syntax->pos, result, function->type->returnType);
+			result = CreateCast(ctx, syntax, result, function->type->returnType, false);
 		}
 
 		if(returnType == ctx.typeVoid && result->type != ctx.typeVoid)
@@ -3053,7 +3209,7 @@ ExprYield* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 		}
 		else
 		{
-			result = CreateCast(ctx, syntax->pos, result, function->type->returnType);
+			result = CreateCast(ctx, syntax, result, function->type->returnType, false);
 		}
 
 		if(returnType == ctx.typeVoid && result->type != ctx.typeVoid)
@@ -3117,7 +3273,7 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 		// Single-level array might be set with a single element at the point of definition
 		if(arrType && !isType<TypeArray>(initializer->type))
 		{
-			initializer = CreateCast(ctx, syntax->initializer->pos, initializer, arrType->subType);
+			initializer = CreateCast(ctx, syntax->initializer, initializer, arrType->subType, false);
 
 			initializer = new ExprArraySetup(syntax->initializer, ctx.typeVoid, variable, initializer);
 		}
@@ -3338,7 +3494,7 @@ void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 	condition = CreateConditionCast(ctx, condition);
 
-	if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(Evaluate(ctx, CreateCast(ctx, syntax->pos, condition, ctx.typeBool))))
+	if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(Evaluate(ctx, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
 	{
 		if(number->value)
 			AnalyzeClassElements(ctx, classDefinition, syntax->trueBlock);

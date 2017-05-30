@@ -657,6 +657,11 @@ namespace
 		return CreateInstruction(module, VmType::Int, VM_INST_TYPE_ID, CreateConstantInt(type->typeIndex));
 	}
 
+	VmValue* CreateConvertPtr(VmModule *module, VmValue *ptr, TypeBase *type)
+	{
+		return CreateInstruction(module, VmType::Pointer, VM_INST_CONVERT_POINTER, ptr, CreateTypeIndex(module, type));
+	}
+
 	VmValue* CreateConstruct(VmModule *module, VmType type, VmValue *el0, VmValue *el1, VmValue *el2, VmValue *el3)
 	{
 		unsigned size = el0->type.size;
@@ -1266,18 +1271,26 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		VmValue *value = CompileVm(ctx, module, node->value);
 
-		VmType vmTarget = GetVmType(ctx, node->type);
-
 		switch(node->category)
 		{
 		case EXPR_CAST_NUMERICAL:
-			return CheckType(ctx, expression, CreateCast(module, value, vmTarget));
+			return CheckType(ctx, expression, CreateCast(module, value, GetVmType(ctx, node->type)));
 		case EXPR_CAST_PTR_TO_BOOL:
 			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0, false)));
 		case EXPR_CAST_UNSIZED_TO_BOOL:
 			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0, false)));
 		case EXPR_CAST_FUNCTION_TO_BOOL:
 			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0, false)));
+		case EXPR_CAST_NULL_TO_PTR:
+			return CheckType(ctx, expression, CreateConstantPointer(0, false));
+		case EXPR_CAST_NULL_TO_AUTO_PTR:
+			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantInt(0), CreateConstantPointer(0, false), NULL, NULL));
+		case EXPR_CAST_NULL_TO_UNSIZED:
+			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantPointer(0, false), CreateConstantInt(0), NULL, NULL));
+		case EXPR_CAST_NULL_TO_AUTO_ARRAY:
+			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantInt(0), CreateConstantPointer(0, false), CreateConstantInt(0), NULL));
+		case EXPR_CAST_NULL_TO_FUNCTION:
+			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantPointer(0, false), CreateConstantInt(0), NULL, NULL));
 		case EXPR_CAST_ARRAY_TO_UNSIZED:
 			{
 				TypeArray *arrType = getType<TypeArray>(node->value->type);
@@ -1323,11 +1336,45 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 				VmValue *address = AllocateScopeVariable(ctx, module, targetRefType->subType);
 
-				CreateStore(ctx, module, targetRefType->subType, address, CreateConstruct(module, GetVmType(ctx, node->type), address, CreateConstantInt(unsigned(arrType->length)), NULL, NULL));
+				CreateStore(ctx, module, targetRefType->subType, address, CreateConstruct(module, GetVmType(ctx, targetRefType->subType), address, CreateConstantInt(unsigned(arrType->length)), NULL, NULL));
 
 				return CheckType(ctx, expression, address);
 			}
 			break;
+		case EXPR_CAST_PTR_TO_AUTO_PTR:
+			{
+				TypeRef *refType = getType<TypeRef>(node->value->type);
+
+				assert(refType);
+
+				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateTypeIndex(module, refType->subType), value, NULL, NULL));
+			}
+			break;
+		case EXPR_CAST_ANY_TO_PTR:
+			{
+				VmValue *address = AllocateScopeVariable(ctx, module, node->value->type);
+
+				CreateStore(ctx, module, node->value->type, address, value);
+
+				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), address, NULL, NULL, NULL));
+			}
+			break;
+		case EXPR_CAST_AUTO_PTR_TO_PTR:
+			{
+				TypeRef *refType = getType<TypeRef>(node->type);
+
+				assert(refType);
+
+				return CheckType(ctx, expression, CreateConvertPtr(module, value, refType->subType));
+			}
+		case EXPR_CAST_UNSIZED_TO_AUTO_ARRAY:
+			{
+				TypeUnsizedArray *unsizedType = getType<TypeUnsizedArray>(node->value->type);
+
+				assert(unsizedType);
+
+				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateTypeIndex(module, unsizedType->subType), value, NULL, NULL));
+			}
 		default:
 			assert(!"unknown cast");
 		}
@@ -1998,6 +2045,27 @@ void RunPeepholeOptimizations(VmModule *module, VmValue* value)
 			{
 				if(objectConstruct->cmd == VM_INST_CONSTRUCT && isType<VmConstant>(objectConstruct->arguments[1]))
 					ChangeInstructionTo(inst, VM_INST_INDEX, objectConstruct->arguments[1], inst->arguments[0], objectConstruct->arguments[0], inst->arguments[2], &module->peepholeOptimizations);
+			}
+			break;
+		case VM_INST_CONVERT_POINTER:
+			// Try to replace with a pointer value if auto ref is a construct expression
+			if(VmInstruction *objectConstruct = getType<VmInstruction>(inst->arguments[0]))
+			{
+				if(objectConstruct->cmd == VM_INST_CONSTRUCT)
+				{
+					VmInstruction *typeidConstruct = getType<VmInstruction>(objectConstruct->arguments[0]);
+
+					VmInstruction *typeidConvert = getType<VmInstruction>(inst->arguments[1]);
+
+					if(typeidConstruct && typeidConstruct->cmd == VM_INST_TYPE_ID && typeidConvert && typeidConvert->cmd == VM_INST_TYPE_ID)
+					{
+						VmConstant *typeIndexConstruct = getType<VmConstant>(typeidConstruct->arguments[0]);
+						VmConstant *typeIndexConvert = getType<VmConstant>(typeidConvert->arguments[0]);
+
+						if(typeIndexConstruct && typeIndexConvert && typeIndexConstruct->iValue == typeIndexConvert->iValue)
+							ReplaceValueUsersWith(inst, objectConstruct->arguments[1], &module->peepholeOptimizations);
+					}
+				}
 			}
 			break;
 		}

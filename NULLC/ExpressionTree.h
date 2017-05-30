@@ -245,9 +245,18 @@ enum ExprTypeCastCategory
 	EXPR_CAST_PTR_TO_BOOL,
 	EXPR_CAST_UNSIZED_TO_BOOL,
 	EXPR_CAST_FUNCTION_TO_BOOL,
+	EXPR_CAST_NULL_TO_PTR,
+	EXPR_CAST_NULL_TO_AUTO_PTR,
+	EXPR_CAST_NULL_TO_UNSIZED,
+	EXPR_CAST_NULL_TO_AUTO_ARRAY,
+	EXPR_CAST_NULL_TO_FUNCTION,
 	EXPR_CAST_ARRAY_TO_UNSIZED,
 	EXPR_CAST_ARRAY_PTR_TO_UNSIZED,
 	EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR,
+	EXPR_CAST_PTR_TO_AUTO_PTR,
+	EXPR_CAST_ANY_TO_PTR,
+	EXPR_CAST_AUTO_PTR_TO_PTR,
+	EXPR_CAST_UNSIZED_TO_AUTO_ARRAY,
 };
 
 struct ExprTypeCast: ExprBase
@@ -435,6 +444,7 @@ struct ExprFunctionDefinition: ExprBase
 {
 	ExprFunctionDefinition(SynBase *source, TypeBase *type, FunctionData* function, IntrusiveList<ExprVariableDefinition> arguments, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), function(function), arguments(arguments), expressions(expressions)
 	{
+		wasHidden = false;
 	}
 
 	FunctionData* function;
@@ -442,6 +452,8 @@ struct ExprFunctionDefinition: ExprBase
 	IntrusiveList<ExprVariableDefinition> arguments;
 
 	IntrusiveList<ExprBase> expressions;
+
+	bool wasHidden;
 
 	static const unsigned myTypeID = __LINE__;
 };
