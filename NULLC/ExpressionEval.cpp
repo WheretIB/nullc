@@ -60,6 +60,17 @@ bool TryTakeDouble(ExprBase *expression, double &result)
 	return false;
 }
 
+bool TryTakeTypeId(ExprBase *expression, TypeBase* &result)
+{
+	if(ExprTypeLiteral *expr = getType<ExprTypeLiteral>(expression))
+	{
+		result = expr->value;
+		return true;
+	}
+
+	return false;
+}
+
 ExprBase* EvaluateCast(ExpressionContext &ctx, ExprTypeCast *expression)
 {
 	ExprBase *value = Evaluate(ctx, expression->value);
@@ -239,33 +250,45 @@ ExprBase* EvaluateBinaryOp(ExpressionContext &ctx, ExprBinaryOp *expression)
 
 				return new ExprIntegerLiteral(expression->source, expression->type, lhsValue >> rhsValue);
 			case SYN_BINARY_OP_LESS:
-				return new ExprIntegerLiteral(expression->source, expression->type, lhsValue < rhsValue);
+				return new ExprBoolLiteral(expression->source, expression->type, lhsValue < rhsValue);
 			case SYN_BINARY_OP_LESS_EQUAL:
-				return new ExprIntegerLiteral(expression->source, expression->type, lhsValue <= rhsValue);
+				return new ExprBoolLiteral(expression->source, expression->type, lhsValue <= rhsValue);
 			case SYN_BINARY_OP_GREATER:
-				return new ExprIntegerLiteral(expression->source, expression->type, lhsValue > rhsValue);
+				return new ExprBoolLiteral(expression->source, expression->type, lhsValue > rhsValue);
 			case SYN_BINARY_OP_GREATER_EQUAL:
-				return new ExprIntegerLiteral(expression->source, expression->type, lhsValue >= rhsValue);
+				return new ExprBoolLiteral(expression->source, expression->type, lhsValue >= rhsValue);
 			case SYN_BINARY_OP_EQUAL:
-				return new ExprIntegerLiteral(expression->source, expression->type, lhsValue == rhsValue);
+				return new ExprBoolLiteral(expression->source, expression->type, lhsValue == rhsValue);
 			case SYN_BINARY_OP_NOT_EQUAL:
-				return new ExprIntegerLiteral(expression->source, expression->type, lhsValue != rhsValue);
+				return new ExprBoolLiteral(expression->source, expression->type, lhsValue != rhsValue);
 			case SYN_BINARY_OP_BIT_AND:
 				return new ExprIntegerLiteral(expression->source, expression->type, lhsValue & rhsValue);
 			case SYN_BINARY_OP_BIT_OR:
 				return new ExprIntegerLiteral(expression->source, expression->type, lhsValue | rhsValue);
 			case SYN_BINARY_OP_BIT_XOR:
 				return new ExprIntegerLiteral(expression->source, expression->type, lhsValue ^ rhsValue);
+			case SYN_BINARY_OP_LOGICAL_AND:
+				return new ExprBoolLiteral(expression->source, expression->type, lhsValue && rhsValue);
+			case SYN_BINARY_OP_LOGICAL_OR:
+				return new ExprBoolLiteral(expression->source, expression->type, lhsValue || rhsValue);
+			case SYN_BINARY_OP_LOGICAL_XOR:
+				return new ExprBoolLiteral(expression->source, expression->type, !!lhsValue != !!rhsValue);
 			}
 		}
 	}
 	else if(lhs->type == ctx.typeTypeID && rhs->type == ctx.typeTypeID)
 	{
-		if(expression->op == SYN_BINARY_OP_EQUAL)
-			return new ExprBoolLiteral(expression->source, ctx.typeBool, lhs->type == rhs->type);
+		TypeBase *lhsValue = NULL;
+		TypeBase *rhsValue = NULL;
 
-		if(expression->op == SYN_BINARY_OP_NOT_EQUAL)
-			return new ExprBoolLiteral(expression->source, ctx.typeBool, lhs->type != rhs->type);
+		if(TryTakeTypeId(lhs, lhsValue) && TryTakeTypeId(rhs, rhsValue))
+		{
+			if(expression->op == SYN_BINARY_OP_EQUAL)
+				return new ExprBoolLiteral(expression->source, ctx.typeBool, lhsValue == rhsValue);
+
+			if(expression->op == SYN_BINARY_OP_NOT_EQUAL)
+				return new ExprBoolLiteral(expression->source, ctx.typeBool, lhsValue != rhsValue);
+		}
 	}
 
 	return NULL;
