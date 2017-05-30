@@ -2534,11 +2534,24 @@ void RunLoadStorePropagation(VmModule *module, VmValue *value)
 				while(prev && !HasMemoryAccess(prev->cmd))
 					prev = prev->prevSibling;
 
-				if(prev && prev->cmd == curr->cmd && prev->arguments[0] == curr->arguments[0])
+				if(prev && prev->cmd == curr->cmd)
 				{
-					block->RemoveInstruction(prev);
+					bool same = false;
 
-					module->loadStorePropagations++;
+					VmConstant *prevArgAsConst = getType<VmConstant>(prev->arguments[0]);
+					VmConstant *currArgAsConst = getType<VmConstant>(curr->arguments[0]);
+
+					if(currArgAsConst && prevArgAsConst)
+						same = *currArgAsConst == *prevArgAsConst;
+					else
+						same = prev->arguments[0] == curr->arguments[0];
+
+					if(same)
+					{
+						block->RemoveInstruction(prev);
+
+						module->loadStorePropagations++;
+					}
 				}
 			}
 		}
