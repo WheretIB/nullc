@@ -796,8 +796,11 @@ TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
 	return result;
 }
 
-TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
+TypeArray* ExpressionContext::GetArrayType(const char *pos, TypeBase* type, long long length)
 {
+	if(length <= 0)
+		Stop(pos, "ERROR: array size can't be negative or zero");
+
 	for(unsigned i = 0; i < type->arrayTypes.size(); i++)
 	{
 		if(type->arrayTypes[i]->length == length)
@@ -1267,7 +1270,7 @@ TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase 
 	ExprBase *sizeValue = AnalyzeExpression(ctx, size);
 
 	if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, size, sizeValue, ctx.typeLong, false))))
-		return ctx.GetArrayType(type, number->value);
+		return ctx.GetArrayType(size->pos, type, number->value);
 
 	Stop(ctx, size->pos, "ERROR: can't get array size");
 
@@ -1337,7 +1340,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		ExprBase *size = AnalyzeExpression(ctx, node->arguments.head);
 		
 		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, node, size, ctx.typeLong, false))))
-			return ctx.GetArrayType(type, number->value);
+			return ctx.GetArrayType(syntax->pos, type, number->value);
 
 		Stop(ctx, syntax->pos, "ERROR: can't get array size");
 	}
@@ -1664,7 +1667,7 @@ ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 		values.push_back(value);
 	}
 
-	return new ExprArray(syntax, ctx.GetArrayType(subType, values.size()), values);
+	return new ExprArray(syntax, ctx.GetArrayType(syntax->pos, subType, values.size()), values);
 }
 
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name)
@@ -2365,17 +2368,19 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SmallArray<Argument
 
 				if(prepareValues)
 				{
+					SynBase *source = result[0].value->source;
+
 					IntrusiveList<ExprBase> values;
 
 					for(unsigned i = functionArguments.size() - 1; i < result.size(); i++)
 						values.push_back(CreateCast(ctx, result[i].value->source, result[i].value, ctx.typeAutoRef, true));
 
 					if(values.empty())
-						value = new ExprNullptrLiteral(result[0].value->source, ctx.typeNullPtr);
+						value = new ExprNullptrLiteral(source, ctx.typeNullPtr);
 					else
-						value = new ExprArray(result[0].value->source, ctx.GetArrayType(ctx.typeAutoRef, values.size()), values);
+						value = new ExprArray(source, ctx.GetArrayType(source->pos, ctx.typeAutoRef, values.size()), values);
 
-					value = CreateCast(ctx, result[0].value->source, value, varArgType, true);
+					value = CreateCast(ctx, source, value, varArgType, true);
 				}
 
 				result.shrink(functionArguments.size() - 1);
@@ -3891,7 +3896,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 			value[length] = 0;
 		}
 
-		return new ExprStringLiteral(node, ctx.GetArrayType(ctx.typeChar, length + 1), value, length);
+		return new ExprStringLiteral(node, ctx.GetArrayType(syntax->pos, ctx.typeChar, length + 1), value, length);
 	}
 	
 	if(SynNullptr *node = getType<SynNullptr>(syntax))
@@ -4207,7 +4212,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				if(type.arrSize == ~0u)
 					module.types[i] = ctx.GetUnsizedArrayType(subType);
 				else
-					module.types[i] = ctx.GetArrayType(subType, type.arrSize);
+					module.types[i] = ctx.GetArrayType(source->pos, subType, type.arrSize);
 			}
 			else
 			{

@@ -44,7 +44,7 @@ struct ExpressionContext
 	TypeBase* GetBinaryOpResultType(TypeBase* a, TypeBase* b);
 
 	TypeRef* GetReferenceType(TypeBase* type);
-	TypeArray* GetArrayType(TypeBase* type, long long size);
+	TypeArray* GetArrayType(const char *pos, TypeBase* type, long long size);
 	TypeUnsizedArray* GetUnsizedArrayType(TypeBase* type);
 	TypeFunction* GetFunctionType(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
 
