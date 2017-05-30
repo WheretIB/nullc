@@ -1863,6 +1863,9 @@ ExprPostModify* AnalyzePostModify(ExpressionContext &ctx, SynPostModify *syntax)
 	if(!isType<TypeRef>(wrapped->type))
 		Stop(ctx, syntax->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(value->type->name));
 
+	if(!ctx.IsNumericType(value->type))
+		Stop(ctx, syntax->pos, "ERROR: %s is not supported on '%.*s'", (syntax->isIncrement ? "increment" : "decrement"), FMT_ISTR(value->type->name));
+
 	return new ExprPostModify(syntax, value->type, wrapped, syntax->isIncrement);
 }
 
