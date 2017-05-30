@@ -888,9 +888,15 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 }
 
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name);
+
 FunctionData* SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallArray<FunctionData*, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
 FunctionData* CreateGenericFunctionInstance(ExpressionContext &ctx, FunctionData *proto, SmallArray<ArgumentData, 32> &arguments);
-ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *function, SynCallArgument *argumentHead, bool allowFailure);
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, bool allowFailure);
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, bool allowFailure);
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, SynCallArgument *argumentHead, bool allowFailure);
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, SmallArray<FunctionData*, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
 
 FunctionData* GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBase *value, TypeFunction *type)
 {
@@ -1083,13 +1089,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 		else
 		{
 			// type to auto ref conversion (boxing)
-			if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("duplicate")))
-			{
-				SynCallArgument *arg0 = new SynCallArgument(value->source->pos, InplaceStr(), value->source);
-
-				if(ExprBase *result = CreateFunctionCall(ctx, source, overloads, arg0, true))
-					return result;
-			}
+			return CreateFunctionCall(ctx, source, InplaceStr("duplicate"), value, false);
 		}
 	}
 
@@ -1180,13 +1180,14 @@ ExprAssignment* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBa
 ExprBinaryOp* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs)
 {
 	// TODO: 'in' is a function call
-	// TODO: == and != for typeAutoRef is a function call
-	// TODO: == and != for function types is a function call
-	// TODO: == and != for unsized arrays is an overload call or a function call
 	// TODO: && and || could have an operator overload where second argument is wrapped in a function for short-circuit evaluation
-	// TODO: check operator overload
 
-	if(!ctx.IsNumericType(lhs->type) || !ctx.IsNumericType(rhs->type))
+	bool ok = false;
+	
+	ok |= ctx.IsNumericType(lhs->type) && ctx.IsNumericType(rhs->type);
+	ok |= lhs->type == ctx.typeTypeID && rhs->type == ctx.typeTypeID && (op == SYN_BINARY_OP_EQUAL || op == SYN_BINARY_OP_NOT_EQUAL);
+
+	if(!ok)
 		Stop(ctx, source->pos, "ERROR: binary operations between complex types are not supported yet");
 
 	if(lhs->type == ctx.typeVoid)
@@ -1864,18 +1865,13 @@ ExprPostModify* AnalyzePostModify(ExpressionContext &ctx, SynPostModify *syntax)
 
 ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 {
-	if(ExprBase *overloads = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr(GetOpName(syntax->type))))
-	{
-		SynCallArgument *arg0 = new SynCallArgument(syntax->value->pos, InplaceStr(), syntax->value);
+	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-		if(ExprBase *result = CreateFunctionCall(ctx, syntax, overloads, arg0, true))
-			return result;
-	}
+	if(ExprBase *result = CreateFunctionCall(ctx, syntax, InplaceStr(GetOpName(syntax->type)), value, true))
+		return result;
 
 	bool binaryOp = IsBinaryOp(syntax->type);
 	bool logicalOp = IsLogicalOp(syntax->type);
-
-	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
 	// Type check
 	if(ctx.IsFloatingPointType(value->type))
@@ -1910,17 +1906,52 @@ ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 
 ExprBase* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 {
-	if(ExprBase *overloads = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr(GetOpName(syntax->type))))
-	{
-		SynCallArgument *arg0 = new SynCallArgument(syntax->lhs->pos, InplaceStr(), syntax->lhs);
-		arg0->next = new SynCallArgument(syntax->rhs->pos, InplaceStr(), syntax->rhs);
-
-		if(ExprBase *result = CreateFunctionCall(ctx, syntax, overloads, arg0, true))
-			return result;
-	}
-
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
+
+	// Built-in comparisons
+	if(syntax->type == SYN_BINARY_OP_EQUAL || syntax->type == SYN_BINARY_OP_NOT_EQUAL)
+	{
+		if(lhs->type != rhs->type)
+		{
+			if(lhs->type == ctx.typeNullPtr)
+				lhs = CreateCast(ctx, syntax, lhs, rhs->type, false);
+
+			if(rhs->type == ctx.typeNullPtr)
+				rhs = CreateCast(ctx, syntax, rhs, lhs->type, false);
+		}
+
+		if(lhs->type == ctx.typeAutoRef && lhs->type == rhs->type)
+		{
+			return CreateFunctionCall(ctx, syntax, InplaceStr(syntax->type == SYN_BINARY_OP_EQUAL ? "__rcomp" : "__rncomp"), lhs, rhs, false);
+		}
+
+		if(isType<TypeFunction>(lhs->type) && lhs->type == rhs->type)
+		{
+			IntrusiveList<TypeHandle> types;
+			types.push_back(new TypeHandle(ctx.typeInt));
+			TypeBase *type = ctx.GetFunctionType(ctx.typeVoid, types);;
+
+			lhs = new ExprTypeCast(syntax, type, lhs, EXPR_CAST_REINTERPRET);
+			rhs = new ExprTypeCast(syntax, type, lhs, EXPR_CAST_REINTERPRET);
+
+			return CreateFunctionCall(ctx, syntax, InplaceStr(syntax->type == SYN_BINARY_OP_EQUAL ? "__pcomp" : "__pncomp"), lhs, rhs, false);
+		}
+
+		if(isType<TypeUnsizedArray>(lhs->type) && lhs->type == rhs->type)
+		{
+			if(ExprBase *result = CreateFunctionCall(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true))
+				return result;
+
+			return CreateFunctionCall(ctx, syntax, InplaceStr(syntax->type == SYN_BINARY_OP_EQUAL ? "__acomp" : "__ancomp"), lhs, rhs, false);
+		}
+
+		if(lhs->type == ctx.typeTypeID && rhs->type == ctx.typeTypeID)
+			return CreateBinaryOp(ctx, syntax, syntax->type, lhs, rhs);
+	}
+
+	if(ExprBase *result = CreateFunctionCall(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true))
+		return result;
 
 	return CreateBinaryOp(ctx, syntax, syntax->type, lhs, rhs);
 }
@@ -1989,34 +2020,22 @@ ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *synt
 
 ExprBase* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
 {
-	if(ExprBase *overloads = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr("=")))
-	{
-		SynCallArgument *arg0 = new SynCallArgument(syntax->lhs->pos, InplaceStr(), syntax->lhs);
-		arg0->next = new SynCallArgument(syntax->rhs->pos, InplaceStr(), syntax->rhs);
-
-		if(ExprBase *result = CreateFunctionCall(ctx, syntax, overloads, arg0, true))
-			return result;
-	}
-
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
+
+	if(ExprBase *result = CreateFunctionCall(ctx, syntax, InplaceStr("="), lhs, rhs, true))
+		return result;
 
 	return CreateAssignment(ctx, syntax, lhs, rhs);
 }
 
 ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *syntax)
 {
-	if(ExprBase *overloads = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr(GetOpName(syntax->type))))
-	{
-		SynCallArgument *arg0 = new SynCallArgument(syntax->lhs->pos, InplaceStr(), syntax->lhs);
-		arg0->next = new SynCallArgument(syntax->rhs->pos, InplaceStr(), syntax->rhs);
-
-		if(ExprBase *result = CreateFunctionCall(ctx, syntax, overloads, arg0, true))
-			return result;
-	}
-
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
+
+	if(ExprBase *result = CreateFunctionCall(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true))
+		return result;
 
 	return CreateAssignment(ctx, syntax, lhs, CreateBinaryOp(ctx, syntax, GetBinaryOpType(syntax->type), lhs, rhs));
 }
@@ -2945,13 +2964,8 @@ FunctionData* CreateGenericFunctionInstance(ExpressionContext &ctx, FunctionData
 	return definition->function;
 }
 
-ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *function, SynCallArgument *argumentHead, bool allowFailure)
+void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *function, SmallArray<FunctionData*, 32> &functions)
 {
-	TypeFunction *type = getType<TypeFunction>(function->type);
-
-	// Collect a set of available functions
-	SmallArray<FunctionData*, 32> functions;
-
 	if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(function))
 	{
 		functions.push_back(node->function);
@@ -2973,6 +2987,57 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 	{
 		Stop(ctx, source->pos, "ERROR: unknown call");
 	}
+}
+
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, bool allowFailure)
+{
+	SmallArray<ArgumentData, 32> arguments;
+
+	arguments.push_back(ArgumentData(source, false, InplaceStr(), arg0->type, arg0));
+
+	return CreateFunctionCall(ctx, source, name, arguments, allowFailure);
+}
+
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, bool allowFailure)
+{
+	SmallArray<ArgumentData, 32> arguments;
+
+	arguments.push_back(ArgumentData(source, false, InplaceStr(), arg0->type, arg0));
+	arguments.push_back(ArgumentData(source, false, InplaceStr(), arg1->type, arg1));
+
+	return CreateFunctionCall(ctx, source, name, arguments, allowFailure);
+}
+
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, SmallArray<ArgumentData, 32> &arguments, bool allowFailure)
+{
+	if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), name))
+	{
+		if(ExprFunctionCall *result = CreateFunctionCall(ctx, source, overloads, arguments, allowFailure))
+			return result;
+	}
+
+	if(!allowFailure)
+		Stop(ctx, source->pos, "ERROR: unknown identifier '%.*s'", FMT_ISTR(name));
+
+	return NULL;
+}
+
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, SmallArray<ArgumentData, 32> &arguments, bool allowFailure)
+{
+	// Collect a set of available functions
+	SmallArray<FunctionData*, 32> functions;
+
+	GetNodeFunctions(ctx, source, value, functions);
+
+	return CreateFunctionCall(ctx, source, value, functions, arguments, allowFailure);
+}
+
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, SynCallArgument *argumentHead, bool allowFailure)
+{
+	// Collect a set of available functions
+	SmallArray<FunctionData*, 32> functions;
+
+	GetNodeFunctions(ctx, source, value, functions);
 
 	// Analyze arguments
 	SmallArray<ArgumentData, 32> arguments;
@@ -2986,6 +3051,13 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 
 		arguments.push_back(ArgumentData(el, false, el->name, argument->type, argument));
 	}
+
+	return CreateFunctionCall(ctx, source, value, functions, arguments, allowFailure);
+}
+
+ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, SmallArray<FunctionData*, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure)
+{
+	TypeFunction *type = getType<TypeFunction>(value->type);
 
 	IntrusiveList<ExprBase> actualArguments;
 
@@ -3005,7 +3077,7 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 			type = getType<TypeFunction>(bestOverload->type);
 		}
 
-		function = new ExprFunctionAccess(function->source, bestOverload->type, bestOverload);
+		value = new ExprFunctionAccess(source, bestOverload->type, bestOverload);
 
 		SmallArray<ArgumentData, 32> result;
 
@@ -3076,7 +3148,7 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 			assert(actual->type == expected->type);
 	}
 
-	return new ExprFunctionCall(source, type->returnType, function, actualArguments);
+	return new ExprFunctionCall(source, type->returnType, value, actualArguments);
 }
 
 ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)

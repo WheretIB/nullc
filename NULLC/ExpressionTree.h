@@ -257,6 +257,7 @@ enum ExprTypeCastCategory
 	EXPR_CAST_ANY_TO_PTR,
 	EXPR_CAST_AUTO_PTR_TO_PTR,
 	EXPR_CAST_UNSIZED_TO_AUTO_ARRAY,
+	EXPR_CAST_REINTERPRET,
 };
 
 struct ExprTypeCast: ExprBase

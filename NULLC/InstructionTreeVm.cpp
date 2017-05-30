@@ -1375,6 +1375,8 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateTypeIndex(module, unsizedType->subType), value, NULL, NULL));
 			}
+		case EXPR_CAST_REINTERPRET:
+			return CheckType(ctx, expression, value);
 		default:
 			assert(!"unknown cast");
 		}
