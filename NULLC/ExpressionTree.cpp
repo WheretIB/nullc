@@ -3581,8 +3581,10 @@ void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefi
 		else if(syntax->falseBlock)
 			AnalyzeClassElements(ctx, classDefinition, syntax->falseBlock);
 	}
-
-	Stop(ctx, syntax->pos, "ERROR: can't get condition value");
+	else
+	{
+		Stop(ctx, syntax->pos, "ERROR: can't get condition value");
+	}
 }
 
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax)
@@ -3749,10 +3751,9 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 
 	if(syntax->staticIf)
 	{
-		// TODO: replace with compile-time evaluation
-		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(condition))
+		if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(Evaluate(ctx, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
 		{
-			if(number->value != 0)
+			if(number->value)
 			{
 				if(SynBlock *node = getType<SynBlock>(syntax->trueBlock))
 					return AnalyzeBlock(ctx, node, false);
