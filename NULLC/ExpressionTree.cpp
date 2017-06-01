@@ -1417,6 +1417,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynTypeof *node = getType<SynTypeof>(syntax))
 	{
+		if(TypeBase *type = AnalyzeType(ctx, node->value, false))
+			return type;
+
 		ExprBase *value = AnalyzeExpression(ctx, node->value);
 
 		if(value->type == ctx.typeAuto)
