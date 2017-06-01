@@ -121,6 +121,18 @@ struct VariableData
 	unsigned uniqueId;
 };
 
+struct MatchData
+{
+	MatchData(InplaceStr name, TypeBase *type): name(name), type(type), next(0)
+	{
+	}
+
+	InplaceStr name;
+	TypeBase *type;
+
+	MatchData *next;
+};
+
 struct ArgumentData
 {
 	ArgumentData(): source(0), isExplicit(false), type(0), value(0)
@@ -168,6 +180,8 @@ struct FunctionData
 	unsigned nameHash;
 
 	unsigned uniqueId;
+
+	IntrusiveList<MatchData> aliases;
 
 	SmallArray<ArgumentData, 32> arguments;
 
@@ -236,6 +250,29 @@ struct ScopeData
 	FastVector<FunctionData*> functions;
 	FastVector<VariableData*> variables;
 	FastVector<AliasData*> aliases;
+};
+
+struct FunctionValue
+{
+	FunctionValue(): function(0), context(0)
+	{
+	}
+
+	FunctionValue(FunctionData *function, ExprBase *context): function(function), context(context)
+	{
+	}
+
+	FunctionData *function;
+	ExprBase *context;
+
+	// Safe bool cast
+	typedef void (FunctionValue::*bool_type)() const;
+	void safe_bool() const{}
+
+	operator bool_type() const
+	{
+		return function ? &FunctionValue::safe_bool : 0;
+	}
 };
 
 template<typename T>
@@ -533,15 +570,17 @@ struct TypeGenericClass: TypeBase
 
 struct TypeClass: TypeStruct
 {
-	TypeClass(SynBase *source, InplaceStr name, TypeGenericClassProto *proto, IntrusiveList<SynIdentifier> genericNames, IntrusiveList<TypeHandle> genericTypes, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), source(source), proto(proto), genericNames(genericNames), genericTypes(genericTypes), extendable(extendable), baseClass(baseClass)
+	TypeClass(SynBase *source, InplaceStr name, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), source(source), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass)
 	{
 	}
 
 	SynBase *source;
 
 	TypeGenericClassProto *proto;
-	IntrusiveList<SynIdentifier> genericNames;
-	IntrusiveList<TypeHandle> genericTypes;
+
+	IntrusiveList<MatchData> generics;
+
+	IntrusiveList<MatchData> aliases;
 
 	bool extendable;
 
@@ -595,6 +634,6 @@ InplaceStr GetFunctionSetTypeName(IntrusiveList<TypeHandle> types);
 
 InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str);
 InplaceStr GetVariableNameInScope(ScopeData *scope, InplaceStr str);
-InplaceStr GetFunctionNameInScope(ScopeData *scope, InplaceStr str);
+InplaceStr GetFunctionNameInScope(ScopeData *scope, InplaceStr str, bool isAccessor);
 
 unsigned GetAlignmentOffset(long long offset, unsigned alignment);

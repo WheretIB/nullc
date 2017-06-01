@@ -472,22 +472,26 @@ struct ExprGenericFunctionPrototype: ExprBase
 
 struct ExprFunctionAccess: ExprBase
 {
-	ExprFunctionAccess(SynBase *source, TypeBase *type, FunctionData *function): ExprBase(myTypeID, source, type), function(function)
+	ExprFunctionAccess(SynBase *source, TypeBase *type, FunctionData *function, ExprBase *context): ExprBase(myTypeID, source, type), function(function), context(context)
 	{
 	}
 
 	FunctionData *function;
+
+	ExprBase *context;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
 struct ExprFunctionOverloadSet: ExprBase
 {
-	ExprFunctionOverloadSet(SynBase *source, TypeBase *type, IntrusiveList<FunctionHandle> functions): ExprBase(myTypeID, source, type), functions(functions)
+	ExprFunctionOverloadSet(SynBase *source, TypeBase *type, IntrusiveList<FunctionHandle> functions, ExprBase *context): ExprBase(myTypeID, source, type), functions(functions), context(context)
 	{
 	}
 
 	IntrusiveList<FunctionHandle> functions;
+
+	ExprBase *context;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -534,6 +538,7 @@ struct ExprClassDefinition: ExprBase
 
 	TypeClass *classType;
 
+	IntrusiveList<ExprAliasDefinition> aliases;
 	IntrusiveList<ExprBase> functions;
 
 	static const unsigned myTypeID = __LINE__;

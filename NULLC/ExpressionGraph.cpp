@@ -297,14 +297,24 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 	}
 	else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expression))
 	{
-		PrintIndented(ctx, name, node->type, "ExprFunctionAccess(%.*s: f%04x)", FMT_ISTR(node->function->name), node->function->uniqueId);
+		PrintEnterBlock(ctx, name, node->type, "ExprFunctionAccess(%.*s: f%04x)", FMT_ISTR(node->function->name), node->function->uniqueId);
+
+		PrintGraph(ctx, node->context, "context");
+
+		PrintLeaveBlock(ctx);
 	}
 	else if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(expression))
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprFunctionOverloadSet()");
 
+		PrintEnterBlock(ctx, "functions", 0, "");
+
 		for(FunctionHandle *arg = node->functions.head; arg; arg = arg->next)
 			PrintIndented(ctx, name, arg->function->type, "%.*s: f%04x", FMT_ISTR(arg->function->name), arg->function->uniqueId);
+
+		PrintLeaveBlock(ctx);
+
+		PrintGraph(ctx, node->context, "context");
 
 		PrintLeaveBlock(ctx);
 	}

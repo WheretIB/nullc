@@ -191,7 +191,7 @@ InplaceStr GetVariableNameInScope(ScopeData *scope, InplaceStr str)
 	return GetTypeNameInScope(scope, str);
 }
 
-InplaceStr GetFunctionNameInScope(ScopeData *scope, InplaceStr str)
+InplaceStr GetFunctionNameInScope(ScopeData *scope, InplaceStr str, bool isAccessor)
 {
 	bool foundNamespace = false;
 	TypeBase *scopeType = NULL;
@@ -220,19 +220,22 @@ InplaceStr GetFunctionNameInScope(ScopeData *scope, InplaceStr str)
 		}
 	}
 
+	if(isAccessor)
+		nameLength += 1;
+
+	char *name = new char[nameLength + 1];
+
 	if(scopeType)
 	{
-		char *name = new char[nameLength + 1];
-
-		sprintf(name, "%.*s::%.*s", FMT_ISTR(scopeType->name), FMT_ISTR(str));
+		sprintf(name, "%.*s::%.*s%s", FMT_ISTR(scopeType->name), FMT_ISTR(str), isAccessor ? "$" : "");
 
 		return InplaceStr(name);
 	}
 
+	assert(!isAccessor);
+
 	if(!foundNamespace)
 		return str;
-
-	char *name = new char[nameLength + 1];
 
 	// Format a string back-to-front
 	char *pos = name + nameLength + 1;
