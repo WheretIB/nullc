@@ -496,7 +496,7 @@ namespace
 
 	VmValue* CreateCompareEqual(VmModule *module, VmValue *lhs, VmValue *rhs)
 	{
-		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long);
+		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long || lhs->type == VmType::Pointer);
 		assert(lhs->type == rhs->type);
 
 		return CreateInstruction(module, VmType::Int, VM_INST_EQUAL, lhs, rhs);
@@ -504,11 +504,7 @@ namespace
 
 	VmValue* CreateCompareNotEqual(VmModule *module, VmValue *lhs, VmValue *rhs)
 	{
-		// Some comparisons with null pointer are allowed
-		if((lhs->type == VmType::FunctionRef || lhs->type == VmType::ArrayRef || lhs->type == VmType::AutoRef) && rhs->type == VmType::Pointer && isType<VmConstant>(rhs) && ((VmConstant*)rhs)->iValue == 0)
-			return CreateInstruction(module, VmType::Int, VM_INST_NOT_EQUAL, lhs, rhs);
-
-		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long);
+		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long || lhs->type == VmType::Pointer);
 		assert(lhs->type == rhs->type);
 
 		return CreateInstruction(module, VmType::Int, VM_INST_NOT_EQUAL, lhs, rhs);

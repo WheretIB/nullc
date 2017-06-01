@@ -890,6 +890,8 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 	return result;
 }
 
+ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs);
+
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name);
 
 FunctionValue SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
@@ -1123,7 +1125,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 	return NULL;
 }
 
-ExprBase* CreateConditionCast(ExpressionContext &ctx, ExprBase *value)
+ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase *value)
 {
 	if(!ctx.IsNumericType(value->type) && !isType<TypeRef>(value->type))
 	{
@@ -1133,11 +1135,11 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, ExprBase *value)
 		{
 			ExprBase *nullPtr = new ExprNullptrLiteral(value->source, ctx.typeNullPtr);
 
-			return new ExprBinaryOp(value->source, ctx.typeBool, SYN_BINARY_OP_NOT_EQUAL, value, nullPtr);
+			return CreateBinaryOp(ctx, source, SYN_BINARY_OP_NOT_EQUAL, value, nullPtr);
 		}
 		else
 		{
-			Stop(ctx, value->source->pos, "ERROR: condition type cannot be '%.*s' and function for conversion to bool is undefined", FMT_ISTR(value->type->name));
+			Stop(ctx, source->pos, "ERROR: condition type cannot be '%.*s' and function for conversion to bool is undefined", FMT_ISTR(value->type->name));
 		}
 	}
 
@@ -1171,8 +1173,64 @@ ExprAssignment* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBa
 	return new ExprAssignment(source, lhs->type, wrapped, rhs);
 }
 
-ExprBinaryOp* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs)
+ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs)
 {
+	bool skipOverload = false;
+
+	// Built-in comparisons
+	if(op == SYN_BINARY_OP_EQUAL || op == SYN_BINARY_OP_NOT_EQUAL)
+	{
+		if(lhs->type != rhs->type)
+		{
+			if(lhs->type == ctx.typeNullPtr)
+				lhs = CreateCast(ctx, source, lhs, rhs->type, false);
+
+			if(rhs->type == ctx.typeNullPtr)
+				rhs = CreateCast(ctx, source, rhs, lhs->type, false);
+		}
+
+		if(lhs->type == ctx.typeAutoRef && lhs->type == rhs->type)
+		{
+			return CreateFunctionCall(ctx, source, InplaceStr(op == SYN_BINARY_OP_EQUAL ? "__rcomp" : "__rncomp"), lhs, rhs, false);
+		}
+
+		if(isType<TypeFunction>(lhs->type) && lhs->type == rhs->type)
+		{
+			IntrusiveList<TypeHandle> types;
+			types.push_back(new TypeHandle(ctx.typeInt));
+			TypeBase *type = ctx.GetFunctionType(ctx.typeVoid, types);;
+
+			lhs = new ExprTypeCast(lhs->source, type, lhs, EXPR_CAST_REINTERPRET);
+			rhs = new ExprTypeCast(rhs->source, type, rhs, EXPR_CAST_REINTERPRET);
+
+			return CreateFunctionCall(ctx, source, InplaceStr(op == SYN_BINARY_OP_EQUAL ? "__pcomp" : "__pncomp"), lhs, rhs, false);
+		}
+
+		if(isType<TypeUnsizedArray>(lhs->type) && lhs->type == rhs->type)
+		{
+			if(ExprBase *result = CreateFunctionCall(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, true))
+				return result;
+
+			return CreateFunctionCall(ctx, source, InplaceStr(op == SYN_BINARY_OP_EQUAL ? "__acomp" : "__ancomp"), lhs, rhs, false);
+		}
+
+		if(lhs->type == ctx.typeTypeID && rhs->type == ctx.typeTypeID)
+			skipOverload = true;
+	}
+
+	// Promotion to bool for some types
+	if(op == SYN_BINARY_OP_LOGICAL_AND || op == SYN_BINARY_OP_LOGICAL_OR || op == SYN_BINARY_OP_LOGICAL_XOR)
+	{
+		lhs = CreateConditionCast(ctx, lhs->source, lhs);
+		rhs = CreateConditionCast(ctx, rhs->source, rhs);
+	}
+
+	if(!skipOverload)
+	{
+		if(ExprBase *result = CreateFunctionCall(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, true))
+			return result;
+	}
+
 	// TODO: 'in' is a function call
 	// TODO: && and || could have an operator overload where second argument is wrapped in a function for short-circuit evaluation
 
@@ -1180,6 +1238,7 @@ ExprBinaryOp* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryO
 	
 	ok |= ctx.IsNumericType(lhs->type) && ctx.IsNumericType(rhs->type);
 	ok |= lhs->type == ctx.typeTypeID && rhs->type == ctx.typeTypeID && (op == SYN_BINARY_OP_EQUAL || op == SYN_BINARY_OP_NOT_EQUAL);
+	ok |= isType<TypeRef>(lhs->type) && lhs->type == rhs->type && (op == SYN_BINARY_OP_EQUAL || op == SYN_BINARY_OP_NOT_EQUAL);
 
 	if(!ok)
 		Stop(ctx, source->pos, "ERROR: binary operations between complex types are not supported yet");
@@ -1914,50 +1973,6 @@ ExprBase* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
-	// Built-in comparisons
-	if(syntax->type == SYN_BINARY_OP_EQUAL || syntax->type == SYN_BINARY_OP_NOT_EQUAL)
-	{
-		if(lhs->type != rhs->type)
-		{
-			if(lhs->type == ctx.typeNullPtr)
-				lhs = CreateCast(ctx, syntax, lhs, rhs->type, false);
-
-			if(rhs->type == ctx.typeNullPtr)
-				rhs = CreateCast(ctx, syntax, rhs, lhs->type, false);
-		}
-
-		if(lhs->type == ctx.typeAutoRef && lhs->type == rhs->type)
-		{
-			return CreateFunctionCall(ctx, syntax, InplaceStr(syntax->type == SYN_BINARY_OP_EQUAL ? "__rcomp" : "__rncomp"), lhs, rhs, false);
-		}
-
-		if(isType<TypeFunction>(lhs->type) && lhs->type == rhs->type)
-		{
-			IntrusiveList<TypeHandle> types;
-			types.push_back(new TypeHandle(ctx.typeInt));
-			TypeBase *type = ctx.GetFunctionType(ctx.typeVoid, types);;
-
-			lhs = new ExprTypeCast(syntax, type, lhs, EXPR_CAST_REINTERPRET);
-			rhs = new ExprTypeCast(syntax, type, lhs, EXPR_CAST_REINTERPRET);
-
-			return CreateFunctionCall(ctx, syntax, InplaceStr(syntax->type == SYN_BINARY_OP_EQUAL ? "__pcomp" : "__pncomp"), lhs, rhs, false);
-		}
-
-		if(isType<TypeUnsizedArray>(lhs->type) && lhs->type == rhs->type)
-		{
-			if(ExprBase *result = CreateFunctionCall(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true))
-				return result;
-
-			return CreateFunctionCall(ctx, syntax, InplaceStr(syntax->type == SYN_BINARY_OP_EQUAL ? "__acomp" : "__ancomp"), lhs, rhs, false);
-		}
-
-		if(lhs->type == ctx.typeTypeID && rhs->type == ctx.typeTypeID)
-			return CreateBinaryOp(ctx, syntax, syntax->type, lhs, rhs);
-	}
-
-	if(ExprBase *result = CreateFunctionCall(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true))
-		return result;
-
 	return CreateBinaryOp(ctx, syntax, syntax->type, lhs, rhs);
 }
 
@@ -1997,7 +2012,7 @@ ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *synt
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
-	condition = CreateConditionCast(ctx, condition);
+	condition = CreateConditionCast(ctx, condition->source, condition);
 
 	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
 	ExprBase *falseBlock = AnalyzeStatement(ctx, syntax->falseBlock);
@@ -3649,7 +3664,7 @@ void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefi
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
-	condition = CreateConditionCast(ctx, condition);
+	condition = CreateConditionCast(ctx, condition->source, condition);
 
 	if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(Evaluate(ctx, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
 	{
@@ -3829,7 +3844,7 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
-	condition = CreateConditionCast(ctx, condition);
+	condition = CreateConditionCast(ctx, condition->source, condition);
 
 	if(syntax->staticIf)
 	{
@@ -3869,7 +3884,7 @@ ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 	ExprBase *increment = syntax->increment ? AnalyzeStatement(ctx, syntax->increment) : new ExprVoid(syntax, ctx.typeVoid);
 	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(syntax, ctx.typeVoid);
 
-	condition = CreateConditionCast(ctx, condition);
+	condition = CreateConditionCast(ctx, condition->source, condition);
 
 	return new ExprFor(syntax, ctx.typeVoid, initializer, condition, increment, body);
 }
@@ -3879,7 +3894,7 @@ ExprWhile* AnalyzeWhile(ExpressionContext &ctx, SynWhile *syntax)
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(syntax, ctx.typeVoid);
 
-	condition = CreateConditionCast(ctx, condition);
+	condition = CreateConditionCast(ctx, condition->source, condition);
 
 	return new ExprWhile(syntax, ctx.typeVoid, condition, body);
 }
@@ -3895,7 +3910,7 @@ ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
-	condition = CreateConditionCast(ctx, condition);
+	condition = CreateConditionCast(ctx, condition->source, condition);
 
 	return new ExprDoWhile(syntax, ctx.typeVoid, new ExprBlock(syntax, ctx.typeVoid, expressions), condition);
 }
