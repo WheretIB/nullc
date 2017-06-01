@@ -3239,7 +3239,7 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 	return CreateFunctionCall(ctx, syntax, function, syntax->arguments.head, false);
 }
 
-ExprFunctionCall* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
+ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 {
 	if(!syntax->constructor.empty())
 		Stop(ctx, syntax->pos, "ERROR: custom constructors are not supported");
@@ -3249,42 +3249,17 @@ ExprFunctionCall* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
 
-	ExprFunctionCall *call = NULL;
+	ExprBase *size = new ExprIntegerLiteral(syntax, ctx.typeInt, type->size);
+	ExprBase *typeId = new ExprTypeCast(syntax, ctx.typeInt, new ExprTypeLiteral(syntax, ctx.typeTypeID, type), EXPR_CAST_REINTERPRET);
 
 	if(syntax->count)
 	{
-		// TODO: implicit cast for manual function call
 		ExprBase *count = AnalyzeExpression(ctx, syntax->count);
 
-		FunctionData **function = ctx.functionMap.find(GetStringHash("__newA"));
-
-		if(!function || (*function)->name != InplaceStr("__newA"))
-			Stop(ctx, syntax->pos, "ERROR: internal error, __newA not found");
-
-		IntrusiveList<ExprBase> arguments;
-
-		arguments.push_back(new ExprIntegerLiteral(syntax, ctx.typeInt, type->size));
-		arguments.push_back(count);
-		arguments.push_back(new ExprTypeLiteral(syntax, ctx.typeTypeID, type));
-
-		call = new ExprFunctionCall(syntax, ctx.GetUnsizedArrayType(type), new ExprFunctionAccess(syntax, (*function)->type, *function), arguments);
-	}
-	else
-	{
-		FunctionData **function = ctx.functionMap.find(GetStringHash("__newS"));
-
-		if(!function || (*function)->name != InplaceStr("__newS"))
-			Stop(ctx, syntax->pos, "ERROR: internal error, __newS not found");
-
-		IntrusiveList<ExprBase> arguments;
-
-		arguments.push_back(new ExprIntegerLiteral(syntax, ctx.typeInt, type->size));
-		arguments.push_back(new ExprTypeLiteral(syntax, ctx.typeTypeID, type));
-
-		call = new ExprFunctionCall(syntax, ctx.GetReferenceType(type), new ExprFunctionAccess(syntax, (*function)->type, *function), arguments);
+		return new ExprTypeCast(syntax, ctx.GetUnsizedArrayType(type), CreateFunctionCall(ctx, syntax, InplaceStr("__newA"), size, count, typeId, false), EXPR_CAST_REINTERPRET);
 	}
 
-	return call;
+	return new ExprTypeCast(syntax, ctx.GetReferenceType(type), CreateFunctionCall(ctx, syntax, InplaceStr("__newS"), size, typeId, false), EXPR_CAST_REINTERPRET);
 }
 
 ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
