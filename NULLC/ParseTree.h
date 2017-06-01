@@ -935,6 +935,7 @@ struct SynModule: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+SynBase* ParseClassDefinition(ParseContext &ctx);
 SynBase* Parse(ParseContext &context, const char *code);
 
 const char* GetOpName(SynUnaryOpType type);

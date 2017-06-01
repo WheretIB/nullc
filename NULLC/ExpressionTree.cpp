@@ -4225,15 +4225,16 @@ struct ModuleContext
 	{
 	}
 
-	const char* bytecode;
+	ByteCode* bytecode;
 	const char *name;
+	Lexer lexer;
 
 	FastVector<TypeBase*, true, true> types;
 };
 
 void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
 {
-	ByteCode *bCode = (ByteCode*)module.bytecode;
+	ByteCode *bCode = module.bytecode;
 	char *symbols = FindSymbols(bCode);
 
 	// Import namespaces
@@ -4273,7 +4274,7 @@ void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleConte
 
 void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
 {
-	ByteCode *bCode = (ByteCode*)module.bytecode;
+	ByteCode *bCode = module.bytecode;
 	char *symbols = FindSymbols(bCode);
 
 	// Import types
@@ -4365,9 +4366,30 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				if(type.definitionOffset != ~0u)
 				{
 					if(type.definitionOffset & 0x80000000)
+					{
 						Stop(ctx, source->pos, "ERROR: can't import derived type");
+					}
 					else
-						Stop(ctx, source->pos, "ERROR: can't import generic base type");
+					{
+						Lexeme *start = type.definitionOffset + module.lexer.GetStreamStart() - 3;
+
+						ParseContext pCtx;
+
+						pCtx.currentLexeme = start;
+
+						SynClassDefinition *definition = getType<SynClassDefinition>(ParseClassDefinition(pCtx));
+
+						if(!definition)
+							Stop(ctx, source->pos, "ERROR: failed to import generic class body");
+
+						TypeGenericClassProto *genericProtoType = new TypeGenericClassProto(className, definition);
+
+						ctx.AddType(genericProtoType);
+
+						module.types[i] = genericProtoType;
+					}
+
+					continue;
 				}
 
 				IntrusiveList<MatchData> actualGenerics;
@@ -4411,7 +4433,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
 {
-	ByteCode *bCode = (ByteCode*)module.bytecode;
+	ByteCode *bCode = module.bytecode;
 	char *symbols = FindSymbols(bCode);
 
 	// Import variables
@@ -4440,7 +4462,7 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
 {
-	ByteCode *bCode = (ByteCode*)module.bytecode;
+	ByteCode *bCode = module.bytecode;
 	char *symbols = FindSymbols(bCode);
 
 	// Import type aliases
@@ -4494,7 +4516,7 @@ void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext
 
 void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
 {
-	ByteCode *bCode = (ByteCode*)module.bytecode;
+	ByteCode *bCode = module.bytecode;
 	char *symbols = FindSymbols(bCode);
 
 	// Import functions
@@ -4618,8 +4640,9 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, const char* bytecode,
 {
 	ModuleContext module;
 
-	module.bytecode = bytecode;
+	module.bytecode = (ByteCode*)bytecode;
 	module.name = name;
+	module.lexer.Lexify(FindSource(module.bytecode));
 
 	ImportModuleNamespaces(ctx, source, module);
 
