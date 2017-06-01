@@ -1454,7 +1454,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		if(!onlyType)
 			return NULL;
 
-		Stop(ctx, syntax->pos, "ERROR: unknown type");
+		Stop(ctx, syntax->pos, "ERROR: unknown simple type");
 	}
 
 	if(SynMemberAccess *node = getType<SynMemberAccess>(syntax))
@@ -1471,6 +1471,10 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 				// first/last/[n]/size
 				Stop(ctx, syntax->pos, "ERROR: not implemented");
 			}
+			else if(isType<TypeGeneric>(value))
+			{
+				return new TypeGeneric(InplaceStr("generic"));
+			}
 
 			Stop(ctx, syntax->pos, "ERROR: 'argument' can only be applied to a function type, but we have '%s'", value->name);
 		}
@@ -1478,6 +1482,8 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		{
 			if(TypeFunction *type = getType<TypeFunction>(value))
 				return type->returnType;
+			else if(isType<TypeGeneric>(value))
+				return new TypeGeneric(InplaceStr("generic"));
 
 			Stop(ctx, syntax->pos, "ERROR: 'return' can only be applied to a function type, but we have '%s'", value->name);
 		}
@@ -1489,6 +1495,8 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 				return type->subType;
 			else if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value))
 				return type->subType;
+			else if(isType<TypeGeneric>(value))
+				return new TypeGeneric(InplaceStr("generic"));
 
 			Stop(ctx, syntax->pos, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%s'", value->name);
 		}
@@ -1498,7 +1506,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		// isReference/isArray/isFunction/arraySize/hasMember(x)/class member/class typedef
 
-		Stop(ctx, syntax->pos, "ERROR: unknown type");
+		Stop(ctx, syntax->pos, "ERROR: unknown member access type");
 
 		return NULL;
 	}
