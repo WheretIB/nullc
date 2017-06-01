@@ -636,12 +636,9 @@ FunctionData* ExpressionContext::GetCurrentFunction()
 
 TypeBase* ExpressionContext::GetCurrentType()
 {
-	// Walk up, but if we reach a function, return it's owner
+	// Simply walk up the scopes and find the current one
 	for(ScopeData *curr = scope; curr; curr = curr->scope)
 	{
-		if(curr->ownerFunction)
-			return curr->ownerFunction->scope->ownerType;
-
 		if(TypeBase *type = curr->ownerType)
 			return type;
 	}
@@ -897,6 +894,8 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 FunctionValue SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
 FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, FunctionValue proto, SmallArray<ArgumentData, 32> &arguments);
 void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *function, SmallArray<FunctionValue, 32> &functions);
+void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* errPos, SmallArray<FunctionValue, 32> &functions);
+void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* errPos, InplaceStr functionName, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo);
 ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, bool allowFailure);
 ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, bool allowFailure);
 ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, ExprBase *arg2, bool allowFailure);
@@ -1408,6 +1407,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 			if(argType == ctx.typeAuto)
 				Stop(ctx, syntax->pos, "ERROR: function parameter cannot be an auto type");
+
+			if(argType == ctx.typeVoid)
+				Stop(ctx, syntax->pos, "ERROR: function parameter cannot be a void type");
 
 			arguments.push_back(new TypeHandle(argType));
 		}
@@ -2800,16 +2802,25 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, FunctionDat
 	return ctx.GetFunctionType(function->type->returnType, types);
 }
 
-void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* errPos, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo)
+void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* errPos, SmallArray<FunctionValue, 32> &functions)
 {
-	assert(!functions.empty());
+	SmallArray<ArgumentData, 32> arguments;
+	SmallArray<unsigned, 32> ratings;
 
-	errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "  %.*s(", FMT_ISTR(functions[0].function->name));
+	StopOnFunctionSelectError(ctx, pos, errPos, InplaceStr(), functions, arguments, ratings, 0, false);
+}
 
-	for(unsigned i = 0; i < arguments.size(); i++)
-		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
+void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* errPos, InplaceStr functionName, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo)
+{
+	if(!functionName.empty())
+	{
+		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "  %.*s(", FMT_ISTR(functionName));
 
-	errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")\n");
+		for(unsigned i = 0; i < arguments.size(); i++)
+			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
+
+		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")\n");
+	}
 
 	errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), bestRating == ~0u ? " the only available are:\n" : " candidates are:\n");
 
@@ -2817,7 +2828,7 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* er
 	{
 		FunctionData *function = functions[i].function;
 
-		if(ratings[i] != bestRating)
+		if(!ratings.empty() && ratings[i] != bestRating)
 			continue;
 
 		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "  %.*s %.*s(", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name));
@@ -2950,7 +2961,7 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallA
 	}
 
 	// Didn't find an appropriate function
-	if(bestFunction == NULL)
+	if(bestFunction.function == NULL)
 	{
 		assert(bestRating == ~0u);
 
@@ -2959,17 +2970,17 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallA
 
 		char *errPos = ctx.errorBuf;
 		errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function with following parameters:\n");
-		StopOnFunctionSelectError(ctx, pos, errPos, functions, arguments, ratings, bestRating, true);
+		StopOnFunctionSelectError(ctx, pos, errPos, functions[0].function->name, functions, arguments, ratings, bestRating, true);
 	}
 
 	// Check if multiple functions share the same rating
 	for(unsigned i = 0; i < functions.size(); i++)
 	{
-		if(functions[i] != bestFunction && ratings[i] == bestRating)
+		if(functions[i].function != bestFunction.function && ratings[i] == bestRating)
 		{
 			char *errPos = ctx.errorBuf;
 			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available for the call:\n");
-			StopOnFunctionSelectError(ctx, pos, errPos, functions, arguments, ratings, bestRating, true);
+			StopOnFunctionSelectError(ctx, pos, errPos, functions[0].function->name, functions, arguments, ratings, bestRating, true);
 		}
 	}
 
@@ -3370,8 +3381,17 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 	if(ctx.typeMap.find(fullName.hash()))
 		Stop(ctx, syntax->pos, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(syntax->name));
 
-	// TODO: check for variables with the same name in current scope
-	// TODO: check for functions with the same name
+	if(VariableData **variable = ctx.variableMap.find(fullName.hash()))
+	{
+		if((*variable)->scope == ctx.scope)
+			Stop(ctx, syntax->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(syntax->name));
+	}
+
+	if(FunctionData **functions = ctx.functionMap.find(fullName.hash()))
+	{
+		if((*functions)->scope == ctx.scope)
+			Stop(ctx, syntax->pos, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(syntax->name));
+	}
 
 	ExprBase *initializer = syntax->initializer ? AnalyzeExpression(ctx, syntax->initializer) : NULL;
 
@@ -3387,6 +3407,17 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 		{
 			if(FunctionValue bestOverload = GetFunctionForType(ctx, initializer->source, initializer, target))
 				initializer = new ExprFunctionAccess(initializer->source, bestOverload.function->type, bestOverload.function, bestOverload.context);
+		}
+
+		if(isType<ExprFunctionOverloadSet>(initializer))
+		{
+			SmallArray<FunctionValue, 32> functions;
+
+			GetNodeFunctions(ctx, initializer->source, initializer, functions);
+
+			char *errPos = ctx.errorBuf;
+			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available:\n");
+			StopOnFunctionSelectError(ctx, syntax->pos, errPos, functions);
 		}
 
 		type = initializer->type;
@@ -3513,6 +3544,12 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 		
 			type = AnalyzeType(ctx, argument->type);
 
+			if(type == ctx.typeAuto)
+				Stop(ctx, argument->type->pos, "ERROR: function parameter cannot be an auto type");
+
+			if(type == ctx.typeVoid)
+				Stop(ctx, argument->type->pos, "ERROR: function parameter cannot be a void type");
+
 			// Remove temporary scope
 			ctx.PopScope();
 		}
@@ -3544,6 +3581,12 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	else
 	{
 		functionName = GetFunctionNameInScope(ctx.scope, syntax->name, syntax->accessor);
+	}
+
+	if(VariableData **variable = ctx.variableMap.find(functionName.hash()))
+	{
+		if((*variable)->scope == ctx.scope)
+			Stop(ctx, syntax->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(syntax->name));
 	}
 
 	// TODO: function type should be stored in type list
@@ -3712,6 +3755,9 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics)
 {
+	if(ctx.GetCurrentType())
+		Stop(ctx, syntax->pos, "ERRORERROR: different type is being defined");
+
 	InplaceStr typeName = GetTypeNameInScope(ctx.scope, syntax->name);
 
 	if(!proto && !syntax->aliases.empty())
@@ -3726,6 +3772,9 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	assert(generics.size() == syntax->aliases.size());
 
 	InplaceStr className = generics.empty() ? typeName : GetGenericClassName(proto, generics);
+
+	if(ctx.typeMap.find(className.hash()))
+		Stop(ctx, syntax->pos, "ERROR: '%.*s' is being redefined", FMT_ISTR(syntax->name));
 
 	if(!generics.empty())
 	{
@@ -3786,6 +3835,9 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	AnalyzeClassElements(ctx, classDefinition, syntax->elements);
 
 	ctx.PopScope();
+
+	if(classType->size >= 64 * 1024)
+		Stop(ctx, syntax->pos, "ERROR: class size cannot exceed 65535 bytes");
 
 	return classDefinition;
 }
@@ -3865,6 +3917,8 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 
 ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 {
+	ctx.PushScope();
+
 	ExprBase *initializer = syntax->initializer ? AnalyzeStatement(ctx, syntax->initializer) : new ExprVoid(syntax, ctx.typeVoid);
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 	ExprBase *increment = syntax->increment ? AnalyzeStatement(ctx, syntax->increment) : new ExprVoid(syntax, ctx.typeVoid);
@@ -3872,15 +3926,21 @@ ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
+	ctx.PopScope();
+
 	return new ExprFor(syntax, ctx.typeVoid, initializer, condition, increment, body);
 }
 
 ExprWhile* AnalyzeWhile(ExpressionContext &ctx, SynWhile *syntax)
 {
+	ctx.PushScope();
+
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(syntax, ctx.typeVoid);
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
+
+	ctx.PopScope();
 
 	return new ExprWhile(syntax, ctx.typeVoid, condition, body);
 }
@@ -3897,6 +3957,8 @@ ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
+
+	ctx.PopScope();
 
 	return new ExprDoWhile(syntax, ctx.typeVoid, new ExprBlock(syntax, ctx.typeVoid, expressions), condition);
 }
@@ -4750,6 +4812,8 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 		ExprBase *module = AnalyzeModule(ctx, syntax);
 
 		ctx.PopScope();
+
+		assert(ctx.scope == NULL);
 
 		return module;
 	}

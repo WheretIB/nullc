@@ -273,6 +273,12 @@ struct FunctionValue
 	{
 		return function ? &FunctionValue::safe_bool : 0;
 	}
+
+private:
+	template <typename T>
+	bool operator!=(const T& rhs) const;
+	template <typename T>
+	bool operator==(const T& rhs) const;
 };
 
 template<typename T>
