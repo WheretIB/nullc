@@ -1839,7 +1839,18 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 		// TODO: external variable lookup
 
-		return new ExprVariableAccess(source, data->type, data);
+		ExprBase *access = new ExprVariableAccess(source, data->type, data);
+
+		if(data->isReference)
+		{
+			assert(isType<TypeRef>(data->type));
+
+			TypeRef *type = getType<TypeRef>(data->type);
+
+			access = new ExprDereference(source, type->subType, access);
+		}
+
+		return access;
 	}
 
 	HashMap<FunctionData*>::Node *function = NULL;
@@ -2097,6 +2108,81 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 	return CreateAssignment(ctx, syntax, lhs, CreateBinaryOp(ctx, syntax, GetBinaryOpType(syntax->type), lhs, rhs));
 }
 
+ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name)
+{
+	if(TypeArray *node = getType<TypeArray>(value->type))
+	{
+		if(name == InplaceStr("size"))
+			return new ExprIntegerLiteral(source, ctx.typeInt, node->length);
+
+		Stop(ctx, source->pos, "ERROR: array doesn't have member with this name");
+	}
+
+	ExprBase* wrapped = value;
+
+	if(TypeRef *refType = getType<TypeRef>(value->type))
+	{
+		value = new ExprDereference(source, refType->subType, value);
+	}
+	else
+	{
+		if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
+		{
+			wrapped = new ExprGetAddress(source, ctx.GetReferenceType(value->type), node->variable);
+		}
+		else if(ExprDereference *node = getType<ExprDereference>(value))
+		{
+			wrapped = node->value;
+		}
+	}
+
+	if(isType<TypeRef>(wrapped->type))
+	{
+		if(TypeStruct *node = getType<TypeStruct>(value->type))
+		{
+			// Search for a member variable
+			for(VariableHandle *el = node->members.head; el; el = el->next)
+			{
+				if(el->variable->name == name)
+				{
+					// Member access only shifts an address, so we are left with a reference to get value from
+					ExprMemberAccess *shift = new ExprMemberAccess(source, ctx.GetReferenceType(el->variable->type), wrapped, el->variable);
+
+					return new ExprDereference(source, el->variable->type, shift);
+				}
+			}
+
+			// Look for a member function
+			unsigned hash = StringHashContinue(node->nameHash, "::");
+
+			hash = StringHashContinue(hash, name.begin, name.end);
+
+			if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+				return CreateFunctionAccess(ctx, source, function, wrapped);
+
+			// Look for a member function in a generic class base and instantiate them
+			if(TypeClass *classType = getType<TypeClass>(node))
+			{
+				if(TypeGenericClassProto *protoType = classType->proto)
+				{
+					unsigned hash = StringHashContinue(protoType->nameHash, "::");
+
+					hash = StringHashContinue(hash, name.begin, name.end);
+
+					if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+						return CreateFunctionAccess(ctx, source, function, wrapped);
+				}
+			}
+
+			Stop(ctx, source->pos, "ERROR: member variable or function '%.*s' is not defined in class '%.*s'", FMT_ISTR(name), FMT_ISTR(value->type->name));
+		}
+	}
+
+	Stop(ctx, source->pos, "ERROR: can't access member '%.*s' of type '%.*s'", FMT_ISTR(name), FMT_ISTR(value->type->name));
+
+	return NULL;
+}
+
 ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 {
 	// It could be a type property
@@ -2121,38 +2207,72 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 		{
 			if(TypeArray *arrType = getType<TypeArray>(type))
 				return new ExprIntegerLiteral(syntax, ctx.typeInt, arrType->length);
-				
+
 			if(TypeUnsizedArray *arrType = getType<TypeUnsizedArray>(type))
 				return new ExprIntegerLiteral(syntax, ctx.typeInt, -1);
 
-			Stop(ctx, syntax->pos, "ERROR: 'arraySize' can only be applied to an array type, but we have '%s'", type->name);
+			Stop(ctx, syntax->pos, "ERROR: 'arraySize' can only be applied to an array type, but we have '%.*s'", FMT_ISTR(type->name));
 		}
 
-		Stop(ctx, syntax->pos, "ERROR: unknown expression type");
+		if(syntax->member == InplaceStr("size"))
+		{
+			if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
+				return new ExprIntegerLiteral(syntax, ctx.typeInt, argumentsType->types.size());
+
+			Stop(ctx, syntax->pos, "ERROR: 'size' can only be applied to an function type, but we have '%.*s'", FMT_ISTR(type->name));
+		}
+
+		if(TypeClass *classType = getType<TypeClass>(type))
+		{
+			for(VariableHandle *curr = classType->members.head; curr; curr = curr->next)
+			{
+				if(curr->variable->name == syntax->member)
+					return new ExprTypeLiteral(syntax, ctx.typeTypeID, curr->variable->type);
+			}
+
+			for(MatchData *curr = classType->aliases.head; curr; curr = curr->next)
+			{
+				if(curr->name == syntax->member)
+					return new ExprTypeLiteral(syntax, ctx.typeTypeID, curr->type);
+			}
+		}
+
+		Stop(ctx, syntax->pos, "ERROR: unknown member expression type");
 		// isReference/isArray/isFunction/arraySize/hasMember(x)/class constant/class typedef
 	}
 
 	ExprBase* value = AnalyzeExpression(ctx, syntax->value);
 
-	if(TypeArray *node = getType<TypeArray>(value->type))
-	{
-		if(syntax->member == InplaceStr("size"))
-			return new ExprIntegerLiteral(syntax, ctx.typeInt, node->length);
+	return CreateMemberAccess(ctx, syntax, value, syntax->member);
+}
 
-		Stop(ctx, syntax->pos, "ERROR: array doesn't have member with this name");
-	}
+ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *value, ExprBase *index)
+{
+	index = CreateCast(ctx, source, index, ctx.typeInt, false);
+
+	ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(Evaluate(ctx, index));
+
+	if(indexValue && indexValue->value < 0)
+		Stop(ctx, source->pos, "ERROR: array index cannot be negative");
 
 	ExprBase* wrapped = value;
 
 	if(TypeRef *refType = getType<TypeRef>(value->type))
 	{
-		value = new ExprDereference(syntax, refType->subType, value);
+		value = new ExprDereference(source, refType->subType, value);
+
+		if(isType<TypeUnsizedArray>(value->type))
+			wrapped = value;
+	}
+	else if(isType<TypeUnsizedArray>(value->type))
+	{
+		wrapped = value; // Do not modify
 	}
 	else
 	{
 		if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
 		{
-			wrapped = new ExprGetAddress(syntax, ctx.GetReferenceType(value->type), node->variable);
+			wrapped = new ExprGetAddress(source, ctx.GetReferenceType(value->type), node->variable);
 		}
 		else if(ExprDereference *node = getType<ExprDereference>(value))
 		{
@@ -2160,49 +2280,29 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 		}
 	}
 
-	if(isType<TypeRef>(wrapped->type))
+	if(isType<TypeRef>(wrapped->type) || isType<TypeUnsizedArray>(value->type))
 	{
-		if(TypeStruct *node = getType<TypeStruct>(value->type))
+		if(TypeArray *type = getType<TypeArray>(value->type))
 		{
-			// Search for a member variable
-			for(VariableHandle *el = node->members.head; el; el = el->next)
-			{
-				if(el->variable->name == syntax->member)
-				{
-					// Member access only shifts an address, so we are left with a reference to get value from
-					ExprMemberAccess *shift = new ExprMemberAccess(syntax, ctx.GetReferenceType(el->variable->type), wrapped, el->variable);
+			if(indexValue && indexValue->value >= type->length)
+				Stop(ctx, source->pos, "ERROR: array index bounds");
 
-					return new ExprDereference(syntax, el->variable->type, shift);
-				}
-			}
+			// Array index only shifts an address, so we are left with a reference to get value from
+			ExprArrayIndex *shift = new ExprArrayIndex(source, ctx.GetReferenceType(type->subType), wrapped, index);
 
-			// Look for a member function
-			unsigned hash = StringHashContinue(node->nameHash, "::");
+			return new ExprDereference(source, type->subType, shift);
+		}
 
-			hash = StringHashContinue(hash, syntax->member.begin, syntax->member.end);
+		if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value->type))
+		{
+			// Array index only shifts an address, so we are left with a reference to get value from
+			ExprArrayIndex *shift = new ExprArrayIndex(source, ctx.GetReferenceType(type->subType), wrapped, index);
 
-			if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
-				return CreateFunctionAccess(ctx, syntax, function, wrapped);
-
-			// Look for a member function in a generic class base and instantiate them
-			if(TypeClass *classType = getType<TypeClass>(node))
-			{
-				if(TypeGenericClassProto *protoType = classType->proto)
-				{
-					unsigned hash = StringHashContinue(protoType->nameHash, "::");
-
-					hash = StringHashContinue(hash, syntax->member.begin, syntax->member.end);
-
-					if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
-						return CreateFunctionAccess(ctx, syntax, function, wrapped);
-				}
-			}
-
-			Stop(ctx, syntax->pos, "ERROR: member variable or function '%.*s' is not defined in class '%.*s'", FMT_ISTR(syntax->member), FMT_ISTR(value->type->name));
+			return new ExprDereference(source, type->subType, shift);
 		}
 	}
 
-	Stop(ctx, syntax->pos, "ERROR: can't access member '%.*s' of type '%.*s'", FMT_ISTR(syntax->member), FMT_ISTR(value->type->name));
+	Stop(ctx, source->pos, "ERROR: type '%.*s' is not an array", FMT_ISTR(value->type->name));
 
 	return NULL;
 }
@@ -2239,63 +2339,7 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 
 	ExprBase *index = AnalyzeExpression(ctx, argument->value);
 
-	index = CreateCast(ctx, syntax, index, ctx.typeInt, false);
-
-	ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(Evaluate(ctx, index));
-
-	if(indexValue && indexValue->value < 0)
-		Stop(ctx, syntax->pos, "ERROR: array index cannot be negative");
-
-	ExprBase* wrapped = value;
-
-	if(TypeRef *refType = getType<TypeRef>(value->type))
-	{
-		value = new ExprDereference(syntax, refType->subType, value);
-
-		if(isType<TypeUnsizedArray>(value->type))
-			wrapped = value;
-	}
-	else if(isType<TypeUnsizedArray>(value->type))
-	{
-		wrapped = value; // Do not modify
-	}
-	else
-	{
-		if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
-		{
-			wrapped = new ExprGetAddress(syntax, ctx.GetReferenceType(value->type), node->variable);
-		}
-		else if(ExprDereference *node = getType<ExprDereference>(value))
-		{
-			wrapped = node->value;
-		}
-	}
-
-	if(isType<TypeRef>(wrapped->type) || isType<TypeUnsizedArray>(value->type))
-	{
-		if(TypeArray *type = getType<TypeArray>(value->type))
-		{
-			if(indexValue && indexValue->value >= type->length)
-				Stop(ctx, syntax->pos, "ERROR: array index bounds");
-
-			// Array index only shifts an address, so we are left with a reference to get value from
-			ExprArrayIndex *shift = new ExprArrayIndex(syntax, ctx.GetReferenceType(type->subType), wrapped, index);
-
-			return new ExprDereference(syntax, type->subType, shift);
-		}
-
-		if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value->type))
-		{
-			// Array index only shifts an address, so we are left with a reference to get value from
-			ExprArrayIndex *shift = new ExprArrayIndex(syntax, ctx.GetReferenceType(type->subType), wrapped, index);
-
-			return new ExprDereference(syntax, type->subType, shift);
-		}
-	}
-
-	Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not an array", FMT_ISTR(value->type->name));
-
-	return NULL;
+	return CreateArrayIndex(ctx, syntax, value, index);
 }
 
 ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
@@ -3955,6 +3999,116 @@ ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 	return new ExprFor(syntax, ctx.typeVoid, initializer, condition, increment, body);
 }
 
+ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
+{
+	ctx.PushScope();
+
+	IntrusiveList<ExprBase> initializers;
+	IntrusiveList<ExprBase> conditions;
+	IntrusiveList<ExprBase> definitions;
+	IntrusiveList<ExprBase> increments;
+
+	for(SynForEachIterator *curr = syntax->iterators.head; curr; curr = getType<SynForEachIterator>(curr->next))
+	{
+		ExprBase *value = AnalyzeExpression(ctx, curr->value);
+
+		TypeBase *type = NULL;
+
+		if(curr->type)
+			type = AnalyzeType(ctx, curr);
+
+		// Special implementation of for each for built-in arrays
+		if(isType<TypeArray>(value->type) || isType<TypeUnsizedArray>(value->type))
+		{
+			if(!type)
+			{
+				if(TypeArray *valueType = getType<TypeArray>(value->type))
+					type = valueType->subType;
+				else if(TypeUnsizedArray *valueType = getType<TypeUnsizedArray>(value->type))
+					type = valueType->subType;
+			}
+
+			ExprBase* wrapped = value;
+
+			if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
+				wrapped = new ExprGetAddress(value->source, ctx.GetReferenceType(value->type), node->variable);
+			else if(ExprDereference *node = getType<ExprDereference>(value))
+				wrapped = node->value;
+
+			if(!isType<TypeRef>(wrapped->type))
+				Stop(ctx, value->source->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(value->type->name));
+
+			// Create initializer
+			char *name = new char[16];
+			sprintf(name, "$temp%d", ctx.unnamedVariableCount++);
+
+			unsigned iteratorOffset = AllocateVariableInScope(ctx.scope, 0, ctx.typeInt);
+			VariableData *iterator = new VariableData(curr, ctx.scope, 0, ctx.typeInt, InplaceStr(name), iteratorOffset, ctx.uniqueVariableId++);
+
+			ctx.AddVariable(iterator);
+
+			ExprBase *iteratorValue = new ExprVariableAccess(curr, ctx.typeInt, iterator);
+			ExprBase *iteratorAssignment = CreateAssignment(ctx, curr, iteratorValue, new ExprIntegerLiteral(curr, ctx.typeInt, 0));
+
+			initializers.push_back(new ExprVariableDefinition(curr, ctx.typeVoid, iterator, iteratorAssignment));
+
+			// Create condition
+			conditions.push_back(CreateBinaryOp(ctx, curr, SYN_BINARY_OP_LESS, iteratorValue, CreateMemberAccess(ctx, curr, value, InplaceStr("size"))));
+
+			// Create definition
+			type = ctx.GetReferenceType(type);
+			unsigned variableOffset = AllocateVariableInScope(ctx.scope, type->alignment, type);
+			VariableData *variable = new VariableData(curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
+
+			variable->isReference = true;
+
+			ctx.AddVariable(variable);
+
+			ExprBase *variableValue = new ExprVariableAccess(curr, type, variable);
+			ExprBase *arrayIndex = CreateArrayIndex(ctx, curr, value, iteratorValue);
+
+			assert(isType<ExprDereference>(arrayIndex));
+
+			if(ExprDereference *node = getType<ExprDereference>(arrayIndex))
+				arrayIndex = node->value;
+
+			ExprBase *variableAssignment = CreateAssignment(ctx, curr, variableValue, arrayIndex);
+
+			definitions.push_back(new ExprVariableDefinition(curr, ctx.typeVoid, variable, variableAssignment));
+
+			// Create increment
+			increments.push_back(new ExprPreModify(curr, ctx.typeInt, new ExprGetAddress(curr, ctx.GetReferenceType(ctx.typeInt), iterator), true));
+		}
+		else
+		{
+			Stop(ctx, value->source->pos, "ERROR: iterating over '%.*s' is not supported", FMT_ISTR(value->type->name));
+		}
+	}
+
+	ExprBase *initializer = new ExprBlock(syntax, ctx.typeVoid, initializers);
+
+	ExprBase *condition = NULL;
+
+	for(ExprBase *curr = conditions.head; curr; curr = curr->next)
+	{
+		if(!condition)
+			condition = curr;
+		else
+			condition = CreateBinaryOp(ctx, syntax, SYN_BINARY_OP_LOGICAL_AND, condition, curr);
+	}
+
+	ExprBase *increment = new ExprBlock(syntax, ctx.typeVoid, increments);
+
+	if(syntax->body)
+		definitions.push_back(AnalyzeStatement(ctx, syntax->body));
+
+	ExprBase *body = new ExprBlock(syntax, ctx.typeVoid, definitions);
+
+	ctx.PopScope();
+
+	return new ExprFor(syntax, ctx.typeVoid, initializer, condition, increment, body);
+}
+
 ExprWhile* AnalyzeWhile(ExpressionContext &ctx, SynWhile *syntax)
 {
 	ctx.PushScope();
@@ -4281,6 +4435,11 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 	if(SynFor *node = getType<SynFor>(syntax))
 	{
 		return AnalyzeFor(ctx, node);
+	}
+
+	if(SynForEach *node = getType<SynForEach>(syntax))
+	{
+		return AnalyzeForEach(ctx, node);
 	}
 
 	if(SynWhile *node = getType<SynWhile>(syntax))

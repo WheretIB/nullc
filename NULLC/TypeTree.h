@@ -101,6 +101,8 @@ struct VariableData
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 
+		isReference = false;
+
 		if(alignment != 0)
 			assert(offset % alignment == 0);
 	}
@@ -115,6 +117,8 @@ struct VariableData
 
 	InplaceStr name;
 	unsigned nameHash;
+
+	bool isReference;
 
 	unsigned offset;
 
