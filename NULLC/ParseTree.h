@@ -724,14 +724,14 @@ struct SynVariableDefinitions: SynBase
 
 struct SynAccessor: SynBase
 {
-	SynAccessor(const char* pos, SynBase *type, InplaceStr name, SynBase *getBlock, SynBase *setBlock, InplaceStr setName): SynBase(myTypeID, pos), type(type), name(name), getBlock(getBlock), setBlock(setBlock), setName(setName)
+	SynAccessor(const char* pos, SynBase *type, InplaceStr name, SynBlock *getBlock, SynBlock *setBlock, InplaceStr setName): SynBase(myTypeID, pos), type(type), name(name), getBlock(getBlock), setBlock(setBlock), setName(setName)
 	{
 	}
 
 	SynBase *type;
 	InplaceStr name;
-	SynBase *getBlock;
-	SynBase *setBlock;
+	SynBlock *getBlock;
+	SynBlock *setBlock;
 	InplaceStr setName;
 
 	static const unsigned myTypeID = __LINE__;

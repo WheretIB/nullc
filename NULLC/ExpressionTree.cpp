@@ -890,6 +890,7 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs);
 
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name);
+ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<FunctionData*>::Node *function, ExprBase *context);
 
 FunctionValue SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
 FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, FunctionValue proto, SmallArray<ArgumentData, 32> &arguments);
@@ -1145,23 +1146,48 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase 
 	return value;
 }
 
-ExprAssignment* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs)
+ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs)
 {
 	ExprBase* wrapped = lhs;
 
 	if(ExprVariableAccess *node = getType<ExprVariableAccess>(lhs))
+	{
 		wrapped = new ExprGetAddress(lhs->source, ctx.GetReferenceType(lhs->type), node->variable);
+	}
 	else if(ExprDereference *node = getType<ExprDereference>(lhs))
+	{
 		wrapped = node->value;
+	}
+	else if(ExprFunctionCall *node = getType<ExprFunctionCall>(lhs))
+	{
+		// Try to transform 'get' accessor to 'set'
+		if(ExprFunctionAccess *access = getType<ExprFunctionAccess>(node->function))
+		{
+			if(access->function->accessor)
+			{
+				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(access->function->name.hash()))
+				{
+					ExprBase *overloads = CreateFunctionAccess(ctx, source, function, access->context);
+
+					SmallArray<ArgumentData, 32> arguments;
+
+					arguments.push_back(ArgumentData(rhs->source, false, InplaceStr(), rhs->type, rhs));
+
+					if(ExprBase *call = CreateFunctionCall(ctx, source, overloads, arguments, true))
+						return call;
+				}
+			}
+		}
+	}
 
 	if(!isType<TypeRef>(wrapped->type))
 		Stop(ctx, source->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
 
 	if(rhs->type == ctx.typeVoid)
-		Stop(ctx, source->pos, "ERROR: cannot convert from void to %.*s", FMT_ISTR(rhs->type->name));
+		Stop(ctx, source->pos, "ERROR: cannot convert from void to %.*s", FMT_ISTR(lhs->type->name));
 
 	if(lhs->type == ctx.typeVoid)
-		Stop(ctx, source->pos, "ERROR: cannot convert from %.*s to void", FMT_ISTR(lhs->type->name));
+		Stop(ctx, source->pos, "ERROR: cannot convert from %.*s to void", FMT_ISTR(rhs->type->name));
 
 	rhs = CreateCast(ctx, source, rhs, lhs->type, false);
 
@@ -1871,6 +1897,18 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 				hash = StringHashContinue(hash, "$");
 
 				function = ctx.functionMap.first(hash);
+
+				if(function)
+				{
+					ExprBase *thisAccess = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("this"));
+
+					if(!thisAccess)
+						Stop(ctx, source->pos, "ERROR: 'this' variable is not available");
+
+					ExprBase *access = CreateFunctionAccess(ctx, source, function, thisAccess);
+
+					return CreateFunctionCall(ctx, source, access, NULL, false);
+				}
 			}
 		}
 	}
@@ -2151,31 +2189,41 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 					return new ExprDereference(source, el->variable->type, shift);
 				}
 			}
-
-			// Look for a member function
-			unsigned hash = StringHashContinue(node->nameHash, "::");
-
-			hash = StringHashContinue(hash, name.begin, name.end);
-
-			if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
-				return CreateFunctionAccess(ctx, source, function, wrapped);
-
-			// Look for a member function in a generic class base and instantiate them
-			if(TypeClass *classType = getType<TypeClass>(node))
-			{
-				if(TypeGenericClassProto *protoType = classType->proto)
-				{
-					unsigned hash = StringHashContinue(protoType->nameHash, "::");
-
-					hash = StringHashContinue(hash, name.begin, name.end);
-
-					if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
-						return CreateFunctionAccess(ctx, source, function, wrapped);
-				}
-			}
-
-			Stop(ctx, source->pos, "ERROR: member variable or function '%.*s' is not defined in class '%.*s'", FMT_ISTR(name), FMT_ISTR(value->type->name));
 		}
+
+		// Look for a member function
+		unsigned hash = StringHashContinue(value->type->nameHash, "::");
+
+		hash = StringHashContinue(hash, name.begin, name.end);
+
+		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+			return CreateFunctionAccess(ctx, source, function, wrapped);
+
+		// Look for an accessor
+		hash = StringHashContinue(hash, "$");
+
+		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+		{
+			ExprBase *access = CreateFunctionAccess(ctx, source, function, wrapped);
+
+			return CreateFunctionCall(ctx, source, access, NULL, false);
+		}
+
+		// Look for a member function in a generic class base and instantiate them
+		if(TypeClass *classType = getType<TypeClass>(value->type))
+		{
+			if(TypeGenericClassProto *protoType = classType->proto)
+			{
+				unsigned hash = StringHashContinue(protoType->nameHash, "::");
+
+				hash = StringHashContinue(hash, name.begin, name.end);
+
+				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+					return CreateFunctionAccess(ctx, source, function, wrapped);
+			}
+		}
+
+		Stop(ctx, source->pos, "ERROR: member variable or function '%.*s' is not defined in class '%.*s'", FMT_ISTR(name), FMT_ISTR(value->type->name));
 	}
 
 	Stop(ctx, source->pos, "ERROR: can't access member '%.*s' of type '%.*s'", FMT_ISTR(name), FMT_ISTR(value->type->name));
@@ -3659,7 +3707,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 	// TODO: function type should be stored in type list
 
-	FunctionData *function = new FunctionData(syntax, ctx.scope, syntax->coroutine, functionType, functionName, ctx.uniqueFunctionId++);
+	FunctionData *function = new FunctionData(syntax, ctx.scope, syntax->coroutine, syntax->accessor, functionType, functionName, ctx.uniqueFunctionId++);
 
 	function->aliases = aliases;
 
@@ -3687,6 +3735,8 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	}
 
 	ctx.PushScope(function);
+
+	function->functionScope = ctx.scope;
 
 	for(MatchData *curr = function->aliases.head; curr; curr = curr->next)
 		ctx.AddAlias(new AliasData(syntax, ctx.scope, curr->type, curr->name, ctx.uniqueAliasId++));
@@ -3810,10 +3860,38 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 	for(SynFunctionDefinition *function = syntax->functions.head; function; function = getType<SynFunctionDefinition>(function->next))
 		classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, NULL, NULL, IntrusiveList<MatchData>()));
 
-	if(syntax->accessors.head)
-		Stop(ctx, syntax->pos, "ERROR: class accessors not implemented");
-	//for(SynAccessor *accessor = syntax->accessors.head; accessor; accessor = getType<SynAccessor>(accessor->next))
-	//	classType->accessors.push_back(AnalyzeAccessorDefinition(ctx, accessor));
+	for(SynAccessor *accessor = syntax->accessors.head; accessor; accessor = getType<SynAccessor>(accessor->next))
+	{
+		SynBase *parentType = new SynTypeSimple(accessor->pos, IntrusiveList<SynIdentifier>(), classDefinition->classType->name);
+
+		if(accessor->getBlock)
+		{
+			IntrusiveList<SynIdentifier> aliases;
+			IntrusiveList<SynFunctionArgument> arguments;
+
+			IntrusiveList<SynBase> expressions = accessor->getBlock->expressions;
+
+			SynFunctionDefinition *function = new SynFunctionDefinition(accessor->pos, false, false, parentType, true, accessor->type, false, accessor->name, aliases, arguments, expressions);
+
+			classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, NULL, NULL, IntrusiveList<MatchData>()));
+		}
+
+		if(accessor->setBlock)
+		{
+			SynBase *returnType = new SynTypeAuto(accessor->pos);
+
+			IntrusiveList<SynIdentifier> aliases;
+
+			IntrusiveList<SynFunctionArgument> arguments;
+			arguments.push_back(new SynFunctionArgument(accessor->pos, false, accessor->type, accessor->setName.empty() ? InplaceStr("r") : accessor->setName, NULL));
+
+			IntrusiveList<SynBase> expressions = accessor->setBlock->expressions;
+
+			SynFunctionDefinition *function = new SynFunctionDefinition(accessor->pos, false, false, parentType, true, returnType, false, accessor->name, aliases, arguments, expressions);
+
+			classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, NULL, NULL, IntrusiveList<MatchData>()));
+		}
+	}
 
 	// TODO: The way SynClassElements is made, it could allow member re-ordering! class should contain in-order members and static if's
 	// TODO: We should be able to analyze all static if typedefs before members and constants and analyze them before functions
@@ -4799,11 +4877,12 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		if(function.explicitTypeCount != 0)
 			Stop(ctx, source->pos, "ERROR: can't import generic function with explicit arguments");
 
-		bool coroutine = function.funcCat == ExternFuncInfo::COROUTINE;
-
 		InplaceStr functionName = InplaceStr(symbols + function.offsetToName);
 
-		FunctionData *data = new FunctionData(source, ctx.scope, coroutine, getType<TypeFunction>(functionType), functionName, ctx.uniqueFunctionId++);
+		bool coroutine = function.funcCat == ExternFuncInfo::COROUTINE;
+		bool accessor = *(functionName.end - 1) == '$';
+
+		FunctionData *data = new FunctionData(source, ctx.scope, coroutine, accessor, getType<TypeFunction>(functionType), functionName, ctx.uniqueFunctionId++);
 
 		data->isExternal = true;
 

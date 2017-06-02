@@ -690,7 +690,7 @@ namespace
 
 		if(function)
 		{
-			scope = function->scope;
+			scope = function->functionScope;
 
 			function->stackSize += GetAlignmentOffset(function->stackSize, type->alignment);
 
@@ -708,6 +708,8 @@ namespace
 
 			scope->globalSize += type->size; // TODO: alignment
 		}
+
+		assert(scope);
 
 		char *name = new char[16];
 		sprintf(name, "$temp%d", ctx.unnamedVariableCount++);

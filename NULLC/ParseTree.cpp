@@ -1922,12 +1922,12 @@ SynAccessor* ParseAccessorDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, "get", "ERROR: 'get' is expected after '{'");
 
-		SynBase *getBlock = ParseBlock(ctx);
+		SynBlock *getBlock = ParseBlock(ctx);
 
 		if(!getBlock)
 			Stop(ctx, ctx.Position(), "ERROR: function body expected after 'get'");
 
-		SynBase *setBlock = NULL;
+		SynBlock *setBlock = NULL;
 		InplaceStr setName;
 
 		if(ctx.Consume("set"))

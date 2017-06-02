@@ -156,7 +156,7 @@ struct ArgumentData
 
 struct FunctionData
 {
-	FunctionData(SynBase *source, ScopeData *scope, bool coroutine, TypeFunction *type, InplaceStr name, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), type(type), name(name), uniqueId(uniqueId)
+	FunctionData(SynBase *source, ScopeData *scope, bool coroutine, bool accessor, TypeFunction *type, InplaceStr name, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), accessor(accessor), type(type), name(name), uniqueId(uniqueId)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 
@@ -165,6 +165,7 @@ struct FunctionData
 		isPrototype = false;
 		implementation = NULL;
 
+		functionScope = NULL;
 		stackSize = 0;
 
 		hasExplicitReturn = false;
@@ -177,6 +178,7 @@ struct FunctionData
 	ScopeData *scope;
 
 	bool coroutine;
+	bool accessor;
 
 	TypeFunction *type;
 
@@ -196,6 +198,7 @@ struct FunctionData
 
 	IntrusiveList<ExprBase> instances;
 
+	ScopeData *functionScope;
 	long long stackSize;
 
 	bool hasExplicitReturn;
