@@ -630,6 +630,11 @@ namespace
 		return CreateInstruction(module, VmType::Void, VM_INST_RETURN, value);
 	}
 
+	VmValue* CreateYield(VmModule *module)
+	{
+		return CreateInstruction(module, VmType::Void, VM_INST_YIELD);
+	}
+
 	VmValue* CreateYield(VmModule *module, VmValue *value)
 	{
 		return CreateInstruction(module, VmType::Void, VM_INST_YIELD, value);
@@ -1595,6 +1600,9 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	else if(ExprYield *node = getType<ExprYield>(expression))
 	{
 		VmValue *value = CompileVm(ctx, module, node->value);
+
+		if(node->value->type == ctx.typeVoid)
+			return CheckType(ctx, expression, CreateYield(module));
 
 		return CheckType(ctx, expression, CreateYield(module, value));
 	}
