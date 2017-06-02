@@ -1181,6 +1181,9 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprIntegerLiteral *node = getType<ExprIntegerLiteral>(expression))
 	{
+		if(node->type == ctx.typeShort)
+			return CheckType(ctx, expression, CreateConstantInt(short(node->value)));
+
 		if(node->type == ctx.typeInt)
 			return CheckType(ctx, expression, CreateConstantInt(int(node->value)));
 

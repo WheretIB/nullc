@@ -2283,6 +2283,12 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 				if(curr->name == syntax->member)
 					return new ExprTypeLiteral(syntax, ctx.typeTypeID, curr->type);
 			}
+
+			for(ConstantData *curr = classType->constants.head; curr; curr = curr->next)
+			{
+				if(curr->name == syntax->member)
+					return curr->value;
+			}
 		}
 
 		Stop(ctx, syntax->pos, "ERROR: unknown member expression type");
@@ -3852,10 +3858,44 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 	FinalizeAlignment(classDefinition->classType);
 
-	if(syntax->constantSets.head)
-		Stop(ctx, syntax->pos, "ERROR: class constants not implemented");
-	//for(SynConstantSet *constantSet = syntax->constantSets.head; constantSet; constantSet = getType<SynConstantSet>(constantSet->next))
-	//	classType->constants.push_back(AnalyzeConstantSet(ctx, constantSet));
+	for(SynConstantSet *constantSet = syntax->constantSets.head; constantSet; constantSet = getType<SynConstantSet>(constantSet->next))
+	{
+		TypeBase *type = AnalyzeType(ctx, constantSet->type);
+
+		for(SynConstant *constant = constantSet->constants.head; constant; constant = getType<SynConstant>(constant->next))
+		{
+			ExprBase *value = NULL;
+			
+			if(constant->value)
+			{
+				value = AnalyzeExpression(ctx, constant->value);
+
+				if(type == ctx.typeAuto)
+					type = value->type;
+
+				if(!ctx.IsNumericType(type))
+					Stop(ctx, syntax->pos, "ERROR: only basic numeric types can be used as constants");
+
+				value = Evaluate(ctx, CreateCast(ctx, constant, value, type, false));
+			}
+			else if(ctx.IsIntegerType(type) && constant != constantSet->constants.head)
+			{
+				value = Evaluate(ctx, CreateCast(ctx, constant, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, classDefinition->classType->constants.tail->value, new ExprIntegerLiteral(constant, type, 1)), type, false));
+			}
+			else
+			{
+				if(constant == constantSet->constants.head)
+					Stop(ctx, syntax->pos, "ERROR: '=' not found after constant name");
+				else
+					Stop(ctx, syntax->pos, "ERROR: only integer constant list gets automatically incremented by 1");
+			}
+
+			if(!value)
+				Stop(ctx, syntax->pos, "ERROR: expression didn't evaluate to a constant number");
+
+			classDefinition->classType->constants.push_back(new ConstantData(constant->name, value));
+		}
+	}
 
 	for(SynFunctionDefinition *function = syntax->functions.head; function; function = getType<SynFunctionDefinition>(function->next))
 		classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, NULL, NULL, IntrusiveList<MatchData>()));

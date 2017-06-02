@@ -288,6 +288,18 @@ private:
 	bool operator==(const T& rhs) const;
 };
 
+struct ConstantData
+{
+	ConstantData(InplaceStr name, ExprBase *value): name(name), value(value), next(0)
+	{
+	}
+
+	InplaceStr name;
+	ExprBase *value;
+
+	ConstantData *next;
+};
+
 template<typename T>
 unsigned GetTypeAlignment()
 {
@@ -594,6 +606,8 @@ struct TypeClass: TypeStruct
 	IntrusiveList<MatchData> generics;
 
 	IntrusiveList<MatchData> aliases;
+
+	IntrusiveList<ConstantData> constants;
 
 	bool extendable;
 
