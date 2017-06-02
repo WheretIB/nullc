@@ -865,8 +865,10 @@ struct SynClassDefinition: SynBase
 {
 	SynClassDefinition(const char* pos, SynAlign* align, InplaceStr name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, SynClassElements *elements): SynBase(myTypeID, pos), align(align), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), elements(elements)
 	{
+		imported = false;
 	}
 
+	bool imported;
 	SynAlign* align;
 	InplaceStr name;
 	IntrusiveList<SynIdentifier> aliases;

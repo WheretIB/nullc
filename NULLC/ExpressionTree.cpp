@@ -534,7 +534,7 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 	{
 		VariableData *variable = target->variables[i];
 
-		if(!location || variable->source->pos <= location->pos)
+		if(!location || variable->imported || variable->source->pos <= location->pos)
 			variableMap.insert(variable->nameHash, variable);
 	}
 
@@ -546,7 +546,7 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 		if(function->scope->ownerType)
 			continue;
 
-		if(!location || function->source->pos <= location->pos)
+		if(!location || function->imported || function->source->pos <= location->pos)
 			functionMap.insert(function->nameHash, function);
 	}
 
@@ -556,12 +556,12 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 
 		if(TypeClass *exact = getType<TypeClass>(type))
 		{
-			if(!location || exact->source->pos <= location->pos)
+			if(!location || exact->imported || exact->source->pos <= location->pos)
 				typeMap.insert(type->nameHash, type);
 		}
 		else if(TypeGenericClassProto *exact = getType<TypeGenericClassProto>(type))
 		{
-			if(!location || exact->definition->pos <= location->pos)
+			if(!location || exact->definition->imported || exact->definition->pos <= location->pos)
 				typeMap.insert(type->nameHash, type);
 		}
 		else
@@ -574,7 +574,7 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 	{
 		AliasData *alias = target->aliases[i];
 
-		if(!location || alias->source->pos <= location->pos)
+		if(!location || alias->imported || alias->source->pos <= location->pos)
 			typeMap.insert(alias->nameHash, alias->type);
 	}
 
@@ -3942,7 +3942,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics)
 {
 	if(ctx.GetCurrentType())
-		Stop(ctx, syntax->pos, "ERRORERROR: different type is being defined");
+		Stop(ctx, syntax->pos, "ERROR: different type is being defined");
 
 	InplaceStr typeName = GetTypeNameInScope(ctx.scope, syntax->name);
 
@@ -4741,6 +4741,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						if(!definition)
 							Stop(ctx, source->pos, "ERROR: failed to import generic class body");
 
+						definition->imported = true;
+
 						TypeGenericClassProto *genericProtoType = new TypeGenericClassProto(className, definition);
 
 						ctx.AddType(genericProtoType);
@@ -4754,6 +4756,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				IntrusiveList<MatchData> actualGenerics;
 
 				TypeClass *classType = new TypeClass(source, className, NULL, actualGenerics, false, NULL);
+
+				classType->imported = true;
 
 				classType->alignment = type.defaultAlign;
 				classType->size = type.size;
@@ -4815,6 +4819,8 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		VariableData *data = new VariableData(source, ctx.scope, 0, type, name, variable.offset, ctx.uniqueVariableId++);
 
+		data->imported = true;
+
 		ctx.AddVariable(data);
 	}
 }
@@ -4867,6 +4873,8 @@ void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext
 		else
 		{
 			AliasData *alias = new AliasData(source, ctx.scope, targetType, aliasName, ctx.uniqueAliasId++);
+
+			alias->imported = true;
 
 			ctx.AddAlias(alias);
 		}
@@ -4924,7 +4932,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		FunctionData *data = new FunctionData(source, ctx.scope, coroutine, accessor, getType<TypeFunction>(functionType), functionName, ctx.uniqueFunctionId++);
 
-		data->isExternal = true;
+		data->imported = true;
 
 		ctx.AddFunction(data);
 

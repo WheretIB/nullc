@@ -383,7 +383,7 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 {
 	if(FunctionData *fData = function->function)
 	{
-		if(fData->isExternal && function->users.empty())
+		if(fData->imported && function->users.empty())
 			return;
 
 		PrintUsers(ctx, function, true);

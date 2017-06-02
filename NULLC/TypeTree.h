@@ -99,6 +99,8 @@ struct VariableData
 {
 	VariableData(SynBase *source, ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name, unsigned offset, unsigned uniqueId): source(source), scope(scope), alignment(alignment), type(type), name(name), offset(offset), uniqueId(uniqueId)
 	{
+		imported = false;
+
 		nameHash = GetStringHash(name.begin, name.end);
 
 		isReference = false;
@@ -108,6 +110,8 @@ struct VariableData
 	}
 
 	SynBase *source;
+
+	bool imported;
 
 	ScopeData *scope;
 
@@ -158,9 +162,9 @@ struct FunctionData
 {
 	FunctionData(SynBase *source, ScopeData *scope, bool coroutine, bool accessor, TypeFunction *type, InplaceStr name, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), accessor(accessor), type(type), name(name), uniqueId(uniqueId)
 	{
-		nameHash = GetStringHash(name.begin, name.end);
+		imported = false;
 
-		isExternal = false;
+		nameHash = GetStringHash(name.begin, name.end);
 
 		isPrototype = false;
 		implementation = NULL;
@@ -174,6 +178,8 @@ struct FunctionData
 	}
 
 	SynBase *source;
+
+	bool imported;
 
 	ScopeData *scope;
 
@@ -190,8 +196,6 @@ struct FunctionData
 	IntrusiveList<MatchData> aliases;
 
 	SmallArray<ArgumentData, 32> arguments;
-
-	bool isExternal;
 
 	bool isPrototype;
 	FunctionData *implementation;
@@ -210,10 +214,14 @@ struct AliasData
 {
 	AliasData(SynBase *source, ScopeData *scope, TypeBase *type, InplaceStr name, unsigned uniqueId): source(source), scope(scope), type(type), name(name), uniqueId(uniqueId)
 	{
+		imported = false;
+
 		nameHash = GetStringHash(name.begin, name.end);
 	}
 
 	SynBase *source;
+
+	bool imported;
 
 	ScopeData *scope;
 
@@ -597,9 +605,12 @@ struct TypeClass: TypeStruct
 {
 	TypeClass(SynBase *source, InplaceStr name, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), source(source), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass)
 	{
+		imported = false;
 	}
 
 	SynBase *source;
+
+	bool imported;
 
 	TypeGenericClassProto *proto;
 
