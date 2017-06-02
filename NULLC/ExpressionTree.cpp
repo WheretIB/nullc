@@ -1150,13 +1150,9 @@ ExprAssignment* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBa
 	ExprBase* wrapped = lhs;
 
 	if(ExprVariableAccess *node = getType<ExprVariableAccess>(lhs))
-	{
 		wrapped = new ExprGetAddress(lhs->source, ctx.GetReferenceType(lhs->type), node->variable);
-	}
 	else if(ExprDereference *node = getType<ExprDereference>(lhs))
-	{
 		wrapped = node->value;
-	}
 
 	if(!isType<TypeRef>(wrapped->type))
 		Stop(ctx, source->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
@@ -1470,15 +1466,14 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		{
 			if(TypeFunction *type = getType<TypeFunction>(value))
 			{
-				// first/last/[n]/size
-				Stop(ctx, syntax->pos, "ERROR: not implemented");
+				return new TypeArgumentSet(GetArgumentSetTypeName(type->arguments), type->arguments);
 			}
 			else if(isType<TypeGeneric>(value))
 			{
 				return new TypeGeneric(InplaceStr("generic"));
 			}
 
-			Stop(ctx, syntax->pos, "ERROR: 'argument' can only be applied to a function type, but we have '%s'", value->name);
+			Stop(ctx, syntax->pos, "ERROR: 'argument' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(value->name));
 		}
 		else if(node->member == InplaceStr("return"))
 		{
@@ -1487,7 +1482,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			else if(isType<TypeGeneric>(value))
 				return new TypeGeneric(InplaceStr("generic"));
 
-			Stop(ctx, syntax->pos, "ERROR: 'return' can only be applied to a function type, but we have '%s'", value->name);
+			Stop(ctx, syntax->pos, "ERROR: 'return' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(value->name));
 		}
 		else if(node->member == InplaceStr("target"))
 		{
@@ -1500,8 +1495,45 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			else if(isType<TypeGeneric>(value))
 				return new TypeGeneric(InplaceStr("generic"));
 
-			Stop(ctx, syntax->pos, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%s'", value->name);
+			Stop(ctx, syntax->pos, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%.*s'", FMT_ISTR(value->name));
 		}
+		else if(node->member == InplaceStr("first"))
+		{
+			if(TypeArgumentSet *type = getType<TypeArgumentSet>(value))
+			{
+				if(type->types.empty())
+					Stop(ctx, syntax->pos, "ERROR: this function type '%.*s' doesn't have arguments", FMT_ISTR(value->name));
+
+				return type->types.head->type;
+			}
+			else if(isType<TypeGeneric>(value))
+			{
+				return new TypeGeneric(InplaceStr("generic"));
+			}
+
+			Stop(ctx, syntax->pos, "ERROR: 'first' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(value->name));
+		}
+		else if(node->member == InplaceStr("last"))
+		{
+			if(TypeArgumentSet *type = getType<TypeArgumentSet>(value))
+			{
+				if(type->types.empty())
+					Stop(ctx, syntax->pos, "ERROR: this function type '%.*s' doesn't have arguments", FMT_ISTR(value->name));
+
+				return type->types.tail->type;
+			}
+			else if(isType<TypeGeneric>(value))
+			{
+				return new TypeGeneric(InplaceStr("generic"));
+			}
+
+			Stop(ctx, syntax->pos, "ERROR: 'last' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(value->name));
+		}
+
+		if(isType<TypeGeneric>(value))
+			return new TypeGeneric(InplaceStr("generic"));
+
+		// [n]
 
 		if(!onlyType)
 			return NULL;
@@ -1902,13 +1934,9 @@ ExprPreModify* AnalyzePreModify(ExpressionContext &ctx, SynPreModify *syntax)
 	ExprBase* wrapped = value;
 
 	if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
-	{
 		wrapped = new ExprGetAddress(syntax, ctx.GetReferenceType(value->type), node->variable);
-	}
 	else if(ExprDereference *node = getType<ExprDereference>(value))
-	{
 		wrapped = node->value;
-	}
 
 	if(!isType<TypeRef>(wrapped->type))
 		Stop(ctx, syntax->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(value->type->name));
@@ -1923,13 +1951,9 @@ ExprPostModify* AnalyzePostModify(ExpressionContext &ctx, SynPostModify *syntax)
 	ExprBase* wrapped = value;
 
 	if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
-	{
 		wrapped = new ExprGetAddress(syntax, ctx.GetReferenceType(value->type), node->variable);
-	}
 	else if(ExprDereference *node = getType<ExprDereference>(value))
-	{
 		wrapped = node->value;
-	}
 
 	if(!isType<TypeRef>(wrapped->type))
 		Stop(ctx, syntax->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(value->type->name));
@@ -4193,6 +4217,16 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	if(SynFunctionDefinition *node = getType<SynFunctionDefinition>(syntax))
 	{
 		return AnalyzeFunctionDefinition(ctx, node, NULL, NULL, IntrusiveList<MatchData>());
+	}
+
+	if(SynTypeGenericInstance *node = getType<SynTypeGenericInstance>(syntax))
+	{
+		TypeBase *type = AnalyzeType(ctx, syntax);
+
+		if(type == ctx.typeAuto)
+			Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
+
+		return new ExprTypeLiteral(node, ctx.typeTypeID, type);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");

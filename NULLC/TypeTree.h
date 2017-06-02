@@ -607,6 +607,18 @@ struct TypeFunctionSet: TypeBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct TypeArgumentSet: TypeBase
+{
+	TypeArgumentSet(InplaceStr name, IntrusiveList<TypeHandle> types): TypeBase(myTypeID, name), types(types)
+	{
+		isGeneric = true;
+	}
+
+	IntrusiveList<TypeHandle> types;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 template<typename T>
 bool isType(TypeBase *node)
 {
@@ -637,6 +649,7 @@ InplaceStr GetUnsizedArrayTypeName(TypeBase* type);
 InplaceStr GetFunctionTypeName(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
 InplaceStr GetGenericClassName(TypeBase* proto, IntrusiveList<TypeHandle> generics);
 InplaceStr GetFunctionSetTypeName(IntrusiveList<TypeHandle> types);
+InplaceStr GetArgumentSetTypeName(IntrusiveList<TypeHandle> types);
 
 InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str);
 InplaceStr GetVariableNameInScope(ScopeData *scope, InplaceStr str);

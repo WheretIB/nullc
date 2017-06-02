@@ -134,6 +134,34 @@ InplaceStr GetFunctionSetTypeName(IntrusiveList<TypeHandle> types)
 	return InplaceStr(name);
 }
 
+InplaceStr GetArgumentSetTypeName(IntrusiveList<TypeHandle> types)
+{
+	unsigned nameLength = 2;
+
+	for(TypeHandle *arg = types.head; arg; arg = arg->next)
+		nameLength += arg->type->name.length() + 1;
+
+	char *name = new char[nameLength + 1];
+
+	char *pos = name;
+
+	*pos++ = '(';
+
+	for(TypeHandle *arg = types.head; arg; arg = arg->next)
+	{
+		sprintf(pos, "%.*s", FMT_ISTR(arg->type->name));
+		pos += arg->type->name.length();
+
+		if(arg->next)
+			*pos++ = ',';
+	}
+
+	*pos++ = ')';
+	*pos++ = 0;
+
+	return InplaceStr(name);
+}
+
 InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str)
 {
 	bool foundNamespace = false;
