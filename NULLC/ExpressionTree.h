@@ -44,7 +44,7 @@ struct ExpressionContext
 	TypeBase* GetBinaryOpResultType(TypeBase* a, TypeBase* b);
 
 	TypeRef* GetReferenceType(TypeBase* type);
-	TypeArray* GetArrayType(const char *pos, TypeBase* type, long long size);
+	TypeArray* GetArrayType(TypeBase* type, long long size);
 	TypeUnsizedArray* GetUnsizedArrayType(TypeBase* type);
 	TypeFunction* GetFunctionType(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
 
@@ -53,6 +53,8 @@ struct ExpressionContext
 	FastVector<TypeBase*> types;
 	FastVector<FunctionData*> functions;
 	FastVector<VariableData*> variables;
+
+	FastVector<ExprBase*> definitions;
 
 	HashMap<TypeClass*> genericTypeMap;
 
@@ -611,6 +613,8 @@ struct ExprModule: ExprBase
 	ExprModule(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), expressions(expressions)
 	{
 	}
+
+	FastVector<ExprBase*> definitions;
 
 	IntrusiveList<ExprBase> expressions;
 

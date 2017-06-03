@@ -305,8 +305,16 @@ struct VmFunction: VmValue
 
 struct VmModule
 {
-	VmModule(): currentFunction(NULL), currentBlock(NULL), nextBlockId(1), nextInstructionId(1)
+	VmModule()
 	{
+		skipFunctionDefinitions = false;
+
+		currentFunction = NULL;
+		currentBlock = NULL;
+
+		nextBlockId = 1;
+		nextInstructionId = 1;
+
 		peepholeOptimizations = 0;
 		constantPropagations = 0;
 		deadCodeEliminations = 0;
@@ -316,6 +324,8 @@ struct VmModule
 	}
 
 	IntrusiveList<VmFunction> functions;
+
+	bool skipFunctionDefinitions;
 
 	VmFunction *currentFunction;
 	VmBlock *currentBlock;

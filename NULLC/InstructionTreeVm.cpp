@@ -977,6 +977,9 @@ const VmType VmType::AutoArray = VmType(VM_TYPE_AUTO_ARRAY, 4 + NULLC_PTR_SIZE +
 
 void VmValue::AddUse(VmValue* user)
 {
+	// Can't use empty values
+	assert(type != VmType::Void);
+
 	users.push_back(user);
 }
 
@@ -1687,7 +1690,12 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		if(node->function->isPrototype)
 			return CheckType(ctx, expression, function);
-		
+
+		if(module->skipFunctionDefinitions)
+			return CheckType(ctx, expression, function);
+
+		module->skipFunctionDefinitions = true;
+
 		// Store state
 		unsigned nextBlockId = module->nextBlockId;
 		unsigned nextInstructionId = module->nextInstructionId;
@@ -1715,14 +1723,13 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		module->currentFunction = currentFunction;
 		module->currentBlock = currentBlock;
 
+		module->skipFunctionDefinitions = false;
+
 		return CheckType(ctx, expression, function);
 	}
 	else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(expression))
 	{
-		for(ExprBase *instance = node->function->instances.head; instance; instance = instance->next)
-			CompileVm(ctx, module, instance);
-
-		return CheckType(ctx, expression, new VmVoid());
+		return new VmVoid();
 	}
 	else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expression))
 	{
@@ -1970,6 +1977,11 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 
 			module->functions.push_back(vmFunction);
 		}
+
+		for(unsigned i = 0; i < node->definitions.size(); i++)
+			CompileVm(ctx, module, node->definitions[i]);
+
+		module->skipFunctionDefinitions = true;
 
 		// Setup global function
 		module->currentFunction = global;

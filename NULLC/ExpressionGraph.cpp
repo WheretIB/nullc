@@ -252,6 +252,9 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 	}
 	else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(expression))
 	{
+		if(ctx.skipFunctionDefinitions)
+			return;
+
 		if(node->function->isPrototype)
 		{
 			PrintEnterBlock(ctx, name, node->type, "ExprFunctionDefinition(%s%.*s: f%04x)", node->function->isPrototype ? "prototype, " : "", FMT_ISTR(node->function->name), node->function->uniqueId);
@@ -263,6 +266,8 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 
 			return;
 		}
+
+		ctx.skipFunctionDefinitions = true;
 
 		PrintEnterBlock(ctx, name, node->type, "ExprFunctionDefinition(%s%.*s: f%04x)", node->function->isPrototype ? "prototype, " : "", FMT_ISTR(node->function->name), node->function->uniqueId);
 
@@ -281,19 +286,12 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 		PrintLeaveBlock(ctx);
 
 		PrintLeaveBlock(ctx);
+
+		ctx.skipFunctionDefinitions = false;
 	}
 	else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(expression))
 	{
-		PrintEnterBlock(ctx, name, node->type, "ExprGenericFunctionPrototype(%.*s: f%04x)", FMT_ISTR(node->function->name), node->function->uniqueId);
-
-		PrintEnterBlock(ctx, "instances", 0, "");
-
-		for(ExprBase *instance = node->function->instances.head; instance; instance = instance->next)
-			PrintGraph(ctx, instance, "");
-
-		PrintLeaveBlock(ctx);
-
-		PrintLeaveBlock(ctx);
+		PrintIndented(ctx, name, node->type, "ExprGenericFunctionPrototype(%.*s: f%04x)", FMT_ISTR(node->function->name), node->function->uniqueId);
 	}
 	else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expression))
 	{
@@ -421,6 +419,11 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 	else if(ExprModule *node = getType<ExprModule>(expression))
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprModule()");
+
+		for(unsigned i = 0; i < node->definitions.size(); i++)
+			PrintGraph(ctx, node->definitions[i], "");
+
+		ctx.skipFunctionDefinitions = true;
 
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
 			PrintGraph(ctx, value, "");

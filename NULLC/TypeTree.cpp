@@ -219,10 +219,23 @@ InplaceStr GetVariableNameInScope(ScopeData *scope, InplaceStr str)
 	return GetTypeNameInScope(scope, str);
 }
 
-InplaceStr GetFunctionNameInScope(ScopeData *scope, InplaceStr str, bool isAccessor)
+InplaceStr GetFunctionNameInScope(ScopeData *scope, TypeBase *parentType, InplaceStr str, bool isOperator, bool isAccessor)
 {
+	if(isOperator)
+		return str;
+
+	if(parentType)
+	{
+		char *name = new char[parentType->name.length() + 2 + str.length() + (isAccessor ? 1 : 0) + 1];
+
+		sprintf(name, "%.*s::%.*s%s", FMT_ISTR(parentType->name), FMT_ISTR(str), isAccessor ? "$" : "");
+
+		return InplaceStr(name);
+	}
+
+	assert(!isAccessor);
+
 	bool foundNamespace = false;
-	TypeBase *scopeType = NULL;
 
 	unsigned nameLength = str.length();
 
@@ -232,13 +245,8 @@ InplaceStr GetFunctionNameInScope(ScopeData *scope, InplaceStr str, bool isAcces
 		if(curr->ownerFunction && !foundNamespace)
 			return str;
 
-		if(curr->ownerType && !foundNamespace)
-		{
-			nameLength += curr->ownerType->name.length() + 2;
-
-			scopeType = curr->ownerType;
-			break;
-		}
+		if(curr->ownerType)
+			assert(foundNamespace);
 
 		if(curr->ownerNamespace)
 		{
@@ -248,19 +256,7 @@ InplaceStr GetFunctionNameInScope(ScopeData *scope, InplaceStr str, bool isAcces
 		}
 	}
 
-	if(isAccessor)
-		nameLength += 1;
-
 	char *name = new char[nameLength + 1];
-
-	if(scopeType)
-	{
-		sprintf(name, "%.*s::%.*s%s", FMT_ISTR(scopeType->name), FMT_ISTR(str), isAccessor ? "$" : "");
-
-		return InplaceStr(name);
-	}
-
-	assert(!isAccessor);
 
 	if(!foundNamespace)
 		return str;

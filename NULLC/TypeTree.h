@@ -169,6 +169,8 @@ struct FunctionData
 		isPrototype = false;
 		implementation = NULL;
 
+		definition = NULL;
+
 		functionScope = NULL;
 		stackSize = 0;
 
@@ -200,7 +202,7 @@ struct FunctionData
 	bool isPrototype;
 	FunctionData *implementation;
 
-	IntrusiveList<ExprBase> instances;
+	ExprBase *definition;
 
 	ScopeData *functionScope;
 	long long stackSize;
@@ -685,6 +687,6 @@ InplaceStr GetArgumentSetTypeName(IntrusiveList<TypeHandle> types);
 
 InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str);
 InplaceStr GetVariableNameInScope(ScopeData *scope, InplaceStr str);
-InplaceStr GetFunctionNameInScope(ScopeData *scope, InplaceStr str, bool isAccessor);
+InplaceStr GetFunctionNameInScope(ScopeData *scope, TypeBase *parentType, InplaceStr str, bool isOperator, bool isAccessor);
 
 unsigned GetAlignmentOffset(long long offset, unsigned alignment);

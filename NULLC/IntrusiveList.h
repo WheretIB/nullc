@@ -47,6 +47,21 @@ public:
 		return count;
 	}
 
+	T* operator[](unsigned index) const
+	{
+		T *curr = head;
+
+		while(index && curr)
+		{
+			curr = curr->next;
+			index--;
+		}
+
+		assert(index == 0);
+
+		return curr;
+	}
+
 	T *head;
 	T *tail;
 };
