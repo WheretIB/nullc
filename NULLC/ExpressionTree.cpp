@@ -2954,13 +2954,21 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 	{
 		// 'generic ref' match with 'type ref' results with 'type ref'
 		if(TypeRef *rhs = getType<TypeRef>(argType))
-			return ctx.GetReferenceType(MatchGenericType(ctx, source, lhs->subType, rhs->subType, aliases, true));
+		{
+			if(TypeBase *match = MatchGenericType(ctx, source, lhs->subType, rhs->subType, aliases, true))
+				return ctx.GetReferenceType(match);
+
+			return NULL;
+		}
 
 		if(strict)
 			return NULL;
 
 		// 'generic ref' match with 'type' results with 'type ref'
-		return ctx.GetReferenceType(argType);
+		if(TypeBase *match = MatchGenericType(ctx, source, lhs->subType, argType, aliases, true))
+			return ctx.GetReferenceType(match);
+
+		return NULL;
 	}
 
 	if(TypeArray *lhs = getType<TypeArray>(matchType))
@@ -2970,10 +2978,10 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 		{
 			if(lhs->size == rhs->size)
 			{
-				if(matchType->isGeneric)
-					return ctx.GetArrayType(MatchGenericType(ctx, source, lhs->subType, rhs->subType, aliases, true), lhs->size);
+				if(TypeBase *match = MatchGenericType(ctx, source, lhs->subType, rhs->subType, aliases, true))
+					return ctx.GetArrayType(match, lhs->size);
 
-				return argType;
+				return NULL;
 			}
 		}
 
@@ -2984,14 +2992,22 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 	{
 		// 'generic[]' match with 'type[]' results with 'type[]'
 		if(TypeUnsizedArray *rhs = getType<TypeUnsizedArray>(argType))
-			return ctx.GetUnsizedArrayType(MatchGenericType(ctx, source, lhs->subType, rhs->subType, aliases, true));
+		{
+			if(TypeBase *match = MatchGenericType(ctx, source, lhs->subType, rhs->subType, aliases, true))
+				return ctx.GetUnsizedArrayType(match);
+
+			return NULL;
+		}
 
 		if(strict)
 			return NULL;
 
 		// 'generic[]' match with 'type[N]' results with 'type[]'
 		if(TypeArray *rhs = getType<TypeArray>(argType))
-			return ctx.GetUnsizedArrayType(rhs->subType);
+		{
+			if(TypeBase *match = MatchGenericType(ctx, source, lhs->subType, rhs->subType, aliases, true))
+				return ctx.GetUnsizedArrayType(match);
+		}
 
 		return NULL;
 	}
