@@ -253,7 +253,10 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 	else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(expression))
 	{
 		if(ctx.skipFunctionDefinitions)
+		{
+			PrintIndented(ctx, name, node->type, "ExprFunctionDefinition(%s%.*s: f%04x)", node->function->isPrototype ? "prototype, " : "", FMT_ISTR(node->function->name), node->function->uniqueId);
 			return;
+		}
 
 		if(node->function->isPrototype)
 		{
@@ -420,13 +423,21 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprModule()");
 
+		PrintEnterBlock(ctx, "definitions", 0, "");
+
 		for(unsigned i = 0; i < node->definitions.size(); i++)
 			PrintGraph(ctx, node->definitions[i], "");
 
+		PrintLeaveBlock(ctx);
+
 		ctx.skipFunctionDefinitions = true;
+
+		PrintEnterBlock(ctx, "expressions", 0, "");
 
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
 			PrintGraph(ctx, value, "");
+
+		PrintLeaveBlock(ctx);
 
 		PrintLeaveBlock(ctx);
 	}

@@ -1947,7 +1947,7 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 		VmModule *module = new VmModule();
 
 		// Generate global function
-		VmFunction *global = new VmFunction(VmType::Void, NULL, VmType::Void);
+		VmFunction *global = new VmFunction(VmType::Void, NULL, node->moduleScope, VmType::Void);
 
 		// Generate type indexes
 		for(unsigned i = 0; i < ctx.types.size(); i++)
@@ -1968,7 +1968,7 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 			if(function->vmFunction)
 				continue;
 
-			VmFunction *vmFunction = new VmFunction(GetVmType(ctx, function->type), function, GetVmType(ctx, function->type->returnType));
+			VmFunction *vmFunction = new VmFunction(GetVmType(ctx, function->type), function, function->functionScope, GetVmType(ctx, function->type->returnType));
 
 			function->vmFunction = vmFunction;
 

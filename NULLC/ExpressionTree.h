@@ -610,9 +610,11 @@ struct ExprBlock: ExprBase
 
 struct ExprModule: ExprBase
 {
-	ExprModule(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), expressions(expressions)
+	ExprModule(SynBase *source, TypeBase *type, ScopeData *moduleScope, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), moduleScope(moduleScope), expressions(expressions)
 	{
 	}
+
+	ScopeData *moduleScope;
 
 	FastVector<ExprBase*> definitions;
 

@@ -1386,6 +1386,7 @@ ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax);
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> aliases);
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &arguments);
 
 // Apply in reverse order
 TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase *sizes)
@@ -3112,6 +3113,9 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, FunctionDat
 				if(FunctionValue bestOverload = GetFunctionForType(ctx, function->source, actualArgument.value, target))
 					actualType = bestOverload.function->type;
 			}
+
+			if(actualType->isGeneric)
+				return NULL;
 		}
 
 		TypeBase *type = MatchGenericType(ctx, funtionArgument.source, funtionArgument.type, actualType, aliases, false);
@@ -3470,7 +3474,72 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 		if(functions.empty() && !el->name.empty())
 			Stop(ctx, source->pos, "ERROR: function argument names are unknown at this point");
 
-		ExprBase *argument = AnalyzeExpression(ctx, el->value);
+		ExprBase *argument = NULL;
+
+		if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(el->value))
+		{
+			SmallArray<ExprBase*, 32> options;
+
+			if(functions.empty())
+			{
+				if(ExprBase *option = AnalyzeShortFunctionDefinition(ctx, node, value->type, arguments))
+					options.push_back(option);
+			}
+			else
+			{
+				for(unsigned i = 0; i < functions.size(); i++)
+				{
+					if(ExprBase *option = AnalyzeShortFunctionDefinition(ctx, node, functions[i].function->type, arguments))
+					{
+						bool found = false;
+
+						for(unsigned k = 0; k < options.size(); k++)
+						{
+							if(options[k]->type == option->type)
+								found = true;
+						}
+
+						if(!found)
+							options.push_back(option);
+					}
+				}
+			}
+
+			if(options.empty())
+				Stop(ctx, source->pos, "ERROR: cannot find function which accepts a function with %d argument(s) as an argument #%d", node->arguments.size(), arguments.size() + 1);
+
+			if(options.size() == 1)
+			{
+				argument = options[0];
+			}
+			else
+			{
+				IntrusiveList<TypeHandle> types;
+				IntrusiveList<FunctionHandle> overloads;
+
+				for(unsigned i = 0; i < options.size(); i++)
+				{
+					ExprBase *option = options[i];
+
+					assert(isType<ExprFunctionDefinition>(option) || isType<ExprGenericFunctionPrototype>(option));
+
+					types.push_back(new TypeHandle(option->type));
+
+					if(ExprFunctionDefinition *function = getType<ExprFunctionDefinition>(option))
+						overloads.push_back(new FunctionHandle(function->function));
+					else if(ExprGenericFunctionPrototype *function = getType<ExprGenericFunctionPrototype>(option))
+						overloads.push_back(new FunctionHandle(function->function));
+				}
+
+				TypeFunctionSet *type = new TypeFunctionSet(GetFunctionSetTypeName(types), types);
+
+				argument = new ExprFunctionOverloadSet(source, type, overloads, NULL);
+			}
+		}
+		else
+		{
+			argument = AnalyzeExpression(ctx, el->value);
+		}
 
 		arguments.push_back(ArgumentData(el, false, el->name, argument->type, argument));
 	}
@@ -3573,6 +3642,9 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 
 		for(; actual && expected; actual = actual->next, expected = expected->next)
 			assert(actual->type == expected->type);
+
+		assert(actual == NULL);
+		assert(expected == NULL);
 	}
 
 	return new ExprFunctionCall(source, type->returnType, value, actualArguments);
@@ -3803,6 +3875,23 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 	return new ExprVariableDefinitions(syntax, ctx.typeVoid, definitions);
 }
 
+void CreateFunctionArgumentVariables(ExpressionContext &ctx, SmallArray<ArgumentData, 32> &arguments, IntrusiveList<ExprVariableDefinition> &variables)
+{
+	for(unsigned i = 0; i < arguments.size(); i++)
+	{
+		ArgumentData &argument = arguments[i];
+
+		assert(!argument.type->isGeneric);
+
+		unsigned offset = AllocateVariableInScope(ctx.scope, 0, argument.type);
+		VariableData *variable = new VariableData(argument.source, ctx.scope, 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
+
+		ctx.AddVariable(variable);
+
+		variables.push_back(new ExprVariableDefinition(argument.source, ctx.typeVoid, variable, NULL));
+	}
+}
+
 ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> aliases)
 {
 	TypeBase *parentType = syntax->parentType ? AnalyzeType(ctx, syntax->parentType) : NULL;
@@ -3908,8 +3997,6 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 			Stop(ctx, syntax->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(syntax->name));
 	}
 
-	// TODO: function type should be stored in type list
-
 	FunctionData *function = new FunctionData(syntax, ctx.scope, syntax->coroutine, syntax->accessor, functionType, functionName, ctx.uniqueFunctionId++);
 
 	function->aliases = aliases;
@@ -3958,19 +4045,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 	IntrusiveList<ExprVariableDefinition> arguments;
 
-	for(unsigned i = 0; i < argData.size(); i++)
-	{
-		ArgumentData &argument = argData[i];
-
-		assert(!argument.type->isGeneric);
-
-		unsigned offset = AllocateVariableInScope(ctx.scope, 0, argument.type);
-		VariableData *variable = new VariableData(argument.source, ctx.scope, 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
-
-		ctx.AddVariable(variable);
-
-		arguments.push_back(new ExprVariableDefinition(argument.source, ctx.typeVoid, variable, NULL));
-	}
+	CreateFunctionArgumentVariables(ctx, argData, arguments);
 
 	IntrusiveList<ExprBase> expressions;
 
@@ -4016,13 +4091,201 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 		Stop(ctx, syntax->pos, "ERROR: function '%.*s' is being defined with the same set of parameters", FMT_ISTR(function->name));
 	}
 
-	ExprFunctionDefinition *definition = new ExprFunctionDefinition(syntax, function->type, function, arguments, expressions);
+	function->definition = new ExprFunctionDefinition(syntax, function->type, function, arguments, expressions);
 
-	function->definition = definition;
+	ctx.definitions.push_back(function->definition);
 
-	ctx.definitions.push_back(definition);
+	return function->definition;
+}
 
-	return definition;
+void DeduceShortFunctionReturnValue(ExpressionContext &ctx, SynBase *source, FunctionData *function, IntrusiveList<ExprBase> &expressions)
+{
+	if(function->hasExplicitReturn)
+		return;
+
+	TypeBase *expected = function->type->returnType;
+
+	if(expected == ctx.typeVoid)
+		return;
+
+	TypeBase *actual = expressions.tail->type;
+
+	if(actual == ctx.typeVoid)
+		return;
+
+	ExprBase *result = CreateCast(ctx, source, expressions.tail, expected, false);
+	result = new ExprReturn(source, ctx.typeVoid, result);
+
+	if(expressions.head == expressions.tail)
+	{
+		expressions.head = expressions.tail = result;
+	}
+	else
+	{
+		ExprBase *curr = expressions.head;
+
+		while(curr)
+		{
+			if(curr->next == expressions.tail)
+				curr->next = result;
+
+			curr = curr->next;
+		}
+	}
+
+	function->hasExplicitReturn = true;
+}
+
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &currArguments)
+{
+	TypeFunction *functionType = getType<TypeFunction>(type);
+
+	// Only applies to function calls
+	if(!functionType)
+		return NULL;
+
+	IntrusiveList<TypeHandle> &fuctionArgs = functionType->arguments;
+
+	// Function doesn't accept any more arguments
+	if(currArguments.size() + 1 > fuctionArgs.size())
+		return NULL;
+
+	// Get current argument type
+	TypeBase *target = NULL;
+
+	if(functionType->isGeneric)
+	{
+		// Collect aliases up to the current argument
+		IntrusiveList<MatchData> aliases;
+
+		for(unsigned i = 0; i < currArguments.size(); i++)
+		{
+			// Exit if the arguments before the short inline function fail to match
+			if(!MatchGenericType(ctx, syntax, fuctionArgs[i]->type, currArguments[i].type, aliases, false))
+				return NULL;
+		}
+
+		target = ResolveGenericTypeAliases(ctx, syntax, fuctionArgs[currArguments.size()]->type, aliases);
+	}
+	else
+	{
+		target = fuctionArgs[currArguments.size()]->type;
+	}
+
+	TypeFunction *argumentType = getType<TypeFunction>(target);
+
+	if(!argumentType)
+		return NULL;
+
+	if(syntax->arguments.size() != argumentType->arguments.size())
+		return NULL;
+
+	TypeBase *returnType = argumentType->returnType;
+
+	if(returnType->isGeneric)
+		returnType = ctx.typeAuto;
+
+	IntrusiveList<MatchData> argCasts;
+	IntrusiveList<TypeHandle> argTypes;
+	SmallArray<ArgumentData, 32> argData;
+
+	TypeHandle *expected = argumentType->arguments.head;
+
+	for(SynShortFunctionArgument *param = syntax->arguments.head; param; param = getType<SynShortFunctionArgument>(param->next))
+	{
+		TypeBase *type = NULL;
+
+		if(param->type)
+			type = AnalyzeType(ctx, param->type);
+
+		if(type)
+		{
+			if(expected->type->isGeneric)
+			{
+				return NULL; // TODO: match type
+			}
+			else
+			{
+				char *name = new char[param->name.length() + 2];
+
+				sprintf(name, "%.*s$", FMT_ISTR(param->name));
+
+				argTypes.push_back(new TypeHandle(expected->type));
+				argData.push_back(ArgumentData(param, false, InplaceStr(name), expected->type, NULL));
+
+				argCasts.push_back(new MatchData(param->name, type));
+			}
+		}
+		else
+		{
+			argTypes.push_back(new TypeHandle(expected->type));
+			argData.push_back(ArgumentData(param, false, param->name, expected->type, NULL));
+		}
+
+		expected = expected->next;
+	}
+
+	InplaceStr functionName = GetFunctionName(ctx, ctx.scope, NULL, InplaceStr(), false, false);
+
+	FunctionData *function = new FunctionData(syntax, ctx.scope, false, false, ctx.GetFunctionType(returnType, argTypes), functionName, ctx.uniqueFunctionId++);
+
+	// Fill in argument data
+	for(unsigned i = 0; i < argData.size(); i++)
+		function->arguments.push_back(argData[i]);
+
+	ctx.AddFunction(function);
+
+	if(function->type->isGeneric)
+		return new ExprGenericFunctionPrototype(syntax, function->type, function);
+
+	ctx.PushScope(function);
+
+	function->functionScope = ctx.scope;
+
+	IntrusiveList<ExprVariableDefinition> arguments;
+
+	CreateFunctionArgumentVariables(ctx, argData, arguments);
+
+	IntrusiveList<ExprBase> expressions;
+
+	// Create casts of arguments with a wrong type
+	for(MatchData *el = argCasts.head; el; el = el->next)
+	{
+		unsigned offset = AllocateVariableInScope(ctx.scope, el->type->alignment, el->type);
+		VariableData *variable = new VariableData(syntax, ctx.scope, el->type->alignment, el->type, el->name, offset, ctx.uniqueVariableId++);
+
+		ctx.AddVariable(variable);
+
+		char *name = new char[el->name.length() + 2];
+
+		sprintf(name, "%.*s$", FMT_ISTR(el->name));
+
+		ExprBase *access = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr(name));
+
+		access = CreateCast(ctx, syntax, access, el->type, true);
+
+		expressions.push_back(new ExprVariableDefinition(syntax, ctx.typeVoid, variable, access));
+	}
+
+	for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
+		expressions.push_back(AnalyzeStatement(ctx, expression));
+
+	DeduceShortFunctionReturnValue(ctx, syntax, function, expressions);
+
+	// If the function type is still auto it means that it hasn't returned anything
+	if(function->type->returnType == ctx.typeAuto)
+		function->type = ctx.GetFunctionType(ctx.typeVoid, function->type->arguments);
+
+	if(function->type->returnType != ctx.typeVoid && !function->hasExplicitReturn)
+		Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+
+	ctx.PopScope();
+
+	function->definition = new ExprFunctionDefinition(syntax, function->type, function, arguments, expressions);
+
+	ctx.definitions.push_back(function->definition);
+
+	return function->definition;
 }
 
 void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassStaticIf *syntax)
@@ -4703,6 +4966,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeFunctionDefinition(ctx, node, NULL, NULL, IntrusiveList<MatchData>());
 	}
 
+	if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(syntax))
+	{
+		Stop(ctx, syntax->pos, "ERROR: cannot infer type for inline function outside of the function call");
+	}
+
 	if(SynTypeGenericInstance *node = getType<SynTypeGenericInstance>(syntax))
 	{
 		TypeBase *type = AnalyzeType(ctx, syntax);
@@ -5294,7 +5562,7 @@ ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
 		for(SynBase *expr = node->expressions.head; expr; expr = expr->next)
 			expressions.push_back(AnalyzeStatement(ctx, expr));
 
-		ExprModule *module = new ExprModule(syntax, ctx.typeVoid, expressions);
+		ExprModule *module = new ExprModule(syntax, ctx.typeVoid, ctx.globalScope, expressions);
 
 		for(unsigned i = 0; i < ctx.definitions.size(); i++)
 			module->definitions.push_back(ctx.definitions[i]);

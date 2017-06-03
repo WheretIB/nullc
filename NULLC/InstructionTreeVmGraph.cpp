@@ -390,7 +390,16 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 
 		Print(ctx, "function ");
 		PrintType(ctx, function->returnType);
-		PrintLine(ctx, " %.*s.f%04x()%s", FMT_ISTR(fData->name), fData->uniqueId, function->firstBlock == NULL ? ";" : "");
+		Print(ctx, " %.*s.f%04x(", FMT_ISTR(fData->name), fData->uniqueId);
+
+		for(unsigned i = 0; i < fData->arguments.size(); i++)
+		{
+			ArgumentData &argument = fData->arguments[i];
+
+			Print(ctx, "%s%s%.*s %.*s", i == 0 ? "" : ", ", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name), FMT_ISTR(argument.name));
+		}
+
+		PrintLine(ctx, ")%s", function->firstBlock == NULL ? ";" : "");
 
 		if(function->firstBlock == NULL)
 			return;
@@ -398,6 +407,16 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 	else
 	{
 		PrintLine(ctx, "function global()");
+	}
+
+	if(ScopeData *scope = function->scope)
+	{
+		for(unsigned i = 0; i < scope->variables.size(); i++)
+		{
+			VariableData *variable = scope->variables[i];
+
+			PrintLine(ctx, "// %s0x%x: %.*s %.*s", variable->imported ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name));
+		}
 	}
 
 	PrintLine(ctx, "{");

@@ -6,6 +6,7 @@
 struct TypeBase;
 struct ExprBase;
 struct FunctionData;
+struct ScopeData;
 
 struct ExpressionContext;
 
@@ -280,7 +281,7 @@ struct VmBlock: VmValue
 
 struct VmFunction: VmValue
 {
-	VmFunction(VmType type, FunctionData *function, VmType returnType): VmValue(myTypeID, type), function(function), returnType(returnType)
+	VmFunction(VmType type, FunctionData *function, ScopeData *scope, VmType returnType): VmValue(myTypeID, type), function(function), scope(scope), returnType(returnType)
 	{
 		firstBlock = NULL;
 		lastBlock = NULL;
@@ -292,6 +293,7 @@ struct VmFunction: VmValue
 	void RemoveBlock(VmBlock *block);
 
 	FunctionData *function;
+	ScopeData *scope;
 
 	VmType returnType;
 
