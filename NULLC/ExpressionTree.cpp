@@ -4113,7 +4113,11 @@ void DeduceShortFunctionReturnValue(ExpressionContext &ctx, SynBase *source, Fun
 	if(actual == ctx.typeVoid)
 		return;
 
-	ExprBase *result = CreateCast(ctx, source, expressions.tail, expected, false);
+	// If return type is auto, set it to type that is being returned
+	if(function->type->returnType == ctx.typeAuto)
+		function->type = ctx.GetFunctionType(actual, function->type->arguments);
+
+	ExprBase *result = expected == ctx.typeAuto ? expressions.tail : CreateCast(ctx, source, expressions.tail, expected, false);
 	result = new ExprReturn(source, ctx.typeVoid, result);
 
 	if(expressions.head == expressions.tail)
@@ -4202,7 +4206,17 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		{
 			if(expected->type->isGeneric)
 			{
-				return NULL; // TODO: match type
+				IntrusiveList<MatchData> aliases;
+
+				if(TypeBase *match = MatchGenericType(ctx, syntax, expected->type, type, aliases, false))
+				{
+					argTypes.push_back(new TypeHandle(match));
+					argData.push_back(ArgumentData(param, false, param->name, match, NULL));
+				}
+				else
+				{
+					return NULL;
+				}
 			}
 			else
 			{
