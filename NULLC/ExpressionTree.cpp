@@ -884,6 +884,8 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 	return result;
 }
 
+ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr member);
+
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs);
 
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name);
@@ -1591,76 +1593,13 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		if(!onlyType && !value)
 			return NULL;
 
-		if(node->member == InplaceStr("argument"))
-		{
-			if(TypeFunction *type = getType<TypeFunction>(value))
-			{
-				return new TypeArgumentSet(GetArgumentSetTypeName(type->arguments), type->arguments);
-			}
-			else if(isType<TypeGeneric>(value))
-			{
-				return new TypeGeneric(InplaceStr("generic"));
-			}
-
-			Stop(ctx, syntax->pos, "ERROR: 'argument' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(value->name));
-		}
-		else if(node->member == InplaceStr("return"))
-		{
-			if(TypeFunction *type = getType<TypeFunction>(value))
-				return type->returnType;
-			else if(isType<TypeGeneric>(value))
-				return new TypeGeneric(InplaceStr("generic"));
-
-			Stop(ctx, syntax->pos, "ERROR: 'return' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(value->name));
-		}
-		else if(node->member == InplaceStr("target"))
-		{
-			if(TypeRef *type = getType<TypeRef>(value))
-				return type->subType;
-			else if(TypeArray *type = getType<TypeArray>(value))
-				return type->subType;
-			else if(TypeUnsizedArray *type = getType<TypeUnsizedArray>(value))
-				return type->subType;
-			else if(isType<TypeGeneric>(value))
-				return new TypeGeneric(InplaceStr("generic"));
-
-			Stop(ctx, syntax->pos, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%.*s'", FMT_ISTR(value->name));
-		}
-		else if(node->member == InplaceStr("first"))
-		{
-			if(TypeArgumentSet *type = getType<TypeArgumentSet>(value))
-			{
-				if(type->types.empty())
-					Stop(ctx, syntax->pos, "ERROR: this function type '%.*s' doesn't have arguments", FMT_ISTR(value->name));
-
-				return type->types.head->type;
-			}
-			else if(isType<TypeGeneric>(value))
-			{
-				return new TypeGeneric(InplaceStr("generic"));
-			}
-
-			Stop(ctx, syntax->pos, "ERROR: 'first' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(value->name));
-		}
-		else if(node->member == InplaceStr("last"))
-		{
-			if(TypeArgumentSet *type = getType<TypeArgumentSet>(value))
-			{
-				if(type->types.empty())
-					Stop(ctx, syntax->pos, "ERROR: this function type '%.*s' doesn't have arguments", FMT_ISTR(value->name));
-
-				return type->types.tail->type;
-			}
-			else if(isType<TypeGeneric>(value))
-			{
-				return new TypeGeneric(InplaceStr("generic"));
-			}
-
-			Stop(ctx, syntax->pos, "ERROR: 'last' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(value->name));
-		}
-
 		if(isType<TypeGeneric>(value))
 			return new TypeGeneric(InplaceStr("generic"));
+
+		ExprBase *result = CreateTypeidMemberAccess(ctx, syntax, value, node->member);
+
+		if(ExprTypeLiteral *typeLiteral = getType<ExprTypeLiteral>(result))
+			return typeLiteral->value;
 
 		// [n]
 
@@ -2235,21 +2174,138 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 	return CreateAssignment(ctx, syntax, lhs, CreateBinaryOp(ctx, syntax, GetBinaryOpType(syntax->type), lhs, rhs));
 }
 
-ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name)
+ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr member)
 {
-	if(TypeArray *node = getType<TypeArray>(value->type))
+	if(member == InplaceStr("isReference"))
 	{
-		if(name == InplaceStr("size"))
-			return new ExprIntegerLiteral(source, ctx.typeInt, node->length);
-
-		Stop(ctx, source->pos, "ERROR: array doesn't have member with this name");
+		return new ExprBoolLiteral(source, ctx.typeBool, isType<TypeRef>(type));
 	}
 
+	if(member == InplaceStr("isArray"))
+	{
+		return new ExprBoolLiteral(source, ctx.typeBool, isType<TypeArray>(type) || isType<TypeUnsizedArray>(type));
+	}
+
+	if(member == InplaceStr("isFunction"))
+	{
+		return new ExprBoolLiteral(source, ctx.typeBool, isType<TypeFunction>(type));
+	}
+
+	if(member == InplaceStr("arraySize"))
+	{
+		if(TypeArray *arrType = getType<TypeArray>(type))
+			return new ExprIntegerLiteral(source, ctx.typeInt, arrType->length);
+
+		if(TypeUnsizedArray *arrType = getType<TypeUnsizedArray>(type))
+			return new ExprIntegerLiteral(source, ctx.typeInt, -1);
+
+		Stop(ctx, source->pos, "ERROR: 'arraySize' can only be applied to an array type, but we have '%.*s'", FMT_ISTR(type->name));
+	}
+
+	if(member == InplaceStr("size"))
+	{
+		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
+			return new ExprIntegerLiteral(source, ctx.typeInt, argumentsType->types.size());
+
+		Stop(ctx, source->pos, "ERROR: 'size' can only be applied to an function type, but we have '%.*s'", FMT_ISTR(type->name));
+	}
+
+	if(member == InplaceStr("argument"))
+	{
+		if(TypeFunction *functionType = getType<TypeFunction>(type))
+			return new ExprTypeLiteral(source, ctx.typeTypeID, new TypeArgumentSet(GetArgumentSetTypeName(functionType->arguments), functionType->arguments));
+
+		Stop(ctx, source->pos, "ERROR: 'argument' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
+	}
+
+	if(member == InplaceStr("return"))
+	{
+		if(TypeFunction *functionType = getType<TypeFunction>(type))
+			return new ExprTypeLiteral(source, ctx.typeTypeID, functionType->returnType);
+
+		Stop(ctx, source->pos, "ERROR: 'return' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
+	}
+
+	if(member == InplaceStr("target"))
+	{
+		if(TypeRef *refType = getType<TypeRef>(type))
+			return new ExprTypeLiteral(source, ctx.typeTypeID, refType->subType);
+
+		if(TypeArray *arrType = getType<TypeArray>(type))
+			return new ExprTypeLiteral(source, ctx.typeTypeID, arrType->subType);
+
+		if(TypeUnsizedArray *arrType = getType<TypeUnsizedArray>(type))
+			return new ExprTypeLiteral(source, ctx.typeTypeID, arrType->subType);
+
+		Stop(ctx, source->pos, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%.*s'", FMT_ISTR(type->name));
+	}
+
+	if(member == InplaceStr("first"))
+	{
+		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
+		{
+			if(argumentsType->types.empty())
+				Stop(ctx, source->pos, "ERROR: this function type '%.*s' doesn't have arguments", FMT_ISTR(type->name));
+
+			return new ExprTypeLiteral(source, ctx.typeTypeID, argumentsType->types.head->type);
+		}
+
+		Stop(ctx, source->pos, "ERROR: 'first' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
+	}
+
+	if(member == InplaceStr("last"))
+	{
+		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
+		{
+			if(argumentsType->types.empty())
+				Stop(ctx, source->pos, "ERROR: this function type '%.*s' doesn't have arguments", FMT_ISTR(type->name));
+
+			return new ExprTypeLiteral(source, ctx.typeTypeID, argumentsType->types.tail->type);
+		}
+
+		Stop(ctx, source->pos, "ERROR: 'last' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
+	}
+
+	if(TypeClass *classType = getType<TypeClass>(type))
+	{
+		for(VariableHandle *curr = classType->members.head; curr; curr = curr->next)
+		{
+			if(curr->variable->name == member)
+				return new ExprTypeLiteral(source, ctx.typeTypeID, curr->variable->type);
+		}
+
+		for(MatchData *curr = classType->aliases.head; curr; curr = curr->next)
+		{
+			if(curr->name == member)
+				return new ExprTypeLiteral(source, ctx.typeTypeID, curr->type);
+		}
+
+		for(ConstantData *curr = classType->constants.head; curr; curr = curr->next)
+		{
+			if(curr->name == member)
+				return curr->value;
+		}
+	}
+
+	// hasMember(x)/[n]
+
+	return NULL;
+}
+
+ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name)
+{
 	ExprBase* wrapped = value;
 
 	if(TypeRef *refType = getType<TypeRef>(value->type))
 	{
 		value = new ExprDereference(source, refType->subType, value);
+
+		if(TypeRef *refType = getType<TypeRef>(value->type))
+		{
+			wrapped = value;
+
+			value = new ExprDereference(source, refType->subType, value);
+		}
 	}
 	else
 	{
@@ -2261,10 +2317,38 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		{
 			wrapped = node->value;
 		}
+		else if(!isType<TypeRef>(wrapped->type))
+		{
+			char *name = new char[16];
+			sprintf(name, "$temp%d", ctx.unnamedVariableCount++);
+
+			unsigned offset = AllocateVariableInScope(ctx.scope, wrapped->type->alignment, wrapped->type);
+			VariableData *storage = new VariableData(source, ctx.scope, wrapped->type->alignment, wrapped->type, InplaceStr(name), offset, ctx.uniqueVariableId++);
+
+			ctx.AddVariable(storage);
+
+			CreateAssignment(ctx, source, new ExprVariableAccess(source, wrapped->type, storage), value);
+
+			wrapped = new ExprGetAddress(source, ctx.GetReferenceType(wrapped->type), storage);
+		}
+	}
+
+	if(TypeArray *node = getType<TypeArray>(value->type))
+	{
+		if(name == InplaceStr("size"))
+			return new ExprIntegerLiteral(source, ctx.typeInt, node->length);
+
+		Stop(ctx, source->pos, "ERROR: array doesn't have member with this name");
 	}
 
 	if(isType<TypeRef>(wrapped->type))
 	{
+		if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(value))
+		{
+			if(ExprBase *result = CreateTypeidMemberAccess(ctx, source, node->value, name))
+				return result;
+		}
+
 		if(TypeStruct *node = getType<TypeStruct>(value->type))
 		{
 			// Search for a member variable
@@ -2309,6 +2393,16 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
 					return CreateFunctionAccess(ctx, source, function, wrapped);
+
+				// Look for an accessor
+				hash = StringHashContinue(hash, "$");
+
+				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+				{
+					ExprBase *access = CreateFunctionAccess(ctx, source, function, wrapped);
+
+					return CreateFunctionCall(ctx, source, access, NULL, false);
+				}
 			}
 		}
 
@@ -2325,63 +2419,10 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 	// It could be a type property
 	if(TypeBase *type = AnalyzeType(ctx, syntax->value, false))
 	{
-		if(syntax->member == InplaceStr("isReference"))
-		{
-			return new ExprBoolLiteral(syntax, ctx.typeBool, isType<TypeRef>(type));
-		}
-
-		if(syntax->member == InplaceStr("isArray"))
-		{
-			return new ExprBoolLiteral(syntax, ctx.typeBool, isType<TypeArray>(type) || isType<TypeUnsizedArray>(type));
-		}
-
-		if(syntax->member == InplaceStr("isFunction"))
-		{
-			return new ExprBoolLiteral(syntax, ctx.typeBool, isType<TypeFunction>(type));
-		}
-
-		if(syntax->member == InplaceStr("arraySize"))
-		{
-			if(TypeArray *arrType = getType<TypeArray>(type))
-				return new ExprIntegerLiteral(syntax, ctx.typeInt, arrType->length);
-
-			if(TypeUnsizedArray *arrType = getType<TypeUnsizedArray>(type))
-				return new ExprIntegerLiteral(syntax, ctx.typeInt, -1);
-
-			Stop(ctx, syntax->pos, "ERROR: 'arraySize' can only be applied to an array type, but we have '%.*s'", FMT_ISTR(type->name));
-		}
-
-		if(syntax->member == InplaceStr("size"))
-		{
-			if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
-				return new ExprIntegerLiteral(syntax, ctx.typeInt, argumentsType->types.size());
-
-			Stop(ctx, syntax->pos, "ERROR: 'size' can only be applied to an function type, but we have '%.*s'", FMT_ISTR(type->name));
-		}
-
-		if(TypeClass *classType = getType<TypeClass>(type))
-		{
-			for(VariableHandle *curr = classType->members.head; curr; curr = curr->next)
-			{
-				if(curr->variable->name == syntax->member)
-					return new ExprTypeLiteral(syntax, ctx.typeTypeID, curr->variable->type);
-			}
-
-			for(MatchData *curr = classType->aliases.head; curr; curr = curr->next)
-			{
-				if(curr->name == syntax->member)
-					return new ExprTypeLiteral(syntax, ctx.typeTypeID, curr->type);
-			}
-
-			for(ConstantData *curr = classType->constants.head; curr; curr = curr->next)
-			{
-				if(curr->name == syntax->member)
-					return curr->value;
-			}
-		}
+		if(ExprBase *result = CreateTypeidMemberAccess(ctx, syntax, type, syntax->member))
+			return result;
 
 		Stop(ctx, syntax->pos, "ERROR: unknown member expression type");
-		// isReference/isArray/isFunction/arraySize/hasMember(x)/class constant/class typedef
 	}
 
 	ExprBase* value = AnalyzeExpression(ctx, syntax->value);
