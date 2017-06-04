@@ -494,6 +494,8 @@ struct TypeStruct: TypeBase
 	}
 
 	IntrusiveList<VariableHandle> members;
+
+	IntrusiveList<ConstantData> constants;
 };
 
 struct TypeAutoRef: TypeStruct
@@ -602,7 +604,6 @@ struct TypeGenericClass: TypeBase
 	static const unsigned myTypeID = __LINE__;
 };
 
-
 struct TypeClass: TypeStruct
 {
 	TypeClass(SynBase *source, InplaceStr name, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), source(source), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass)
@@ -620,11 +621,26 @@ struct TypeClass: TypeStruct
 
 	IntrusiveList<MatchData> aliases;
 
-	IntrusiveList<ConstantData> constants;
-
 	bool extendable;
 
 	TypeClass *baseClass;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct TypeEnum: TypeStruct
+{
+	TypeEnum(SynBase *source, InplaceStr name): TypeStruct(myTypeID, name), source(source)
+	{
+		size = 4;
+		alignment = GetTypeAlignment<int>();
+
+		imported = false;
+	}
+
+	SynBase *source;
+
+	bool imported;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -671,7 +687,7 @@ T* getType(TypeBase *node)
 template<>
 inline TypeStruct* getType(TypeBase *node)
 {
-	if(node && (isType<TypeAutoRef>(node) || isType<TypeAutoArray>(node) || isType<TypeUnsizedArray>(node) || isType<TypeClass>(node)))
+	if(node && (isType<TypeAutoRef>(node) || isType<TypeAutoArray>(node) || isType<TypeUnsizedArray>(node) || isType<TypeClass>(node) || isType<TypeEnum>(node)))
 		return static_cast<TypeStruct*>(node);
 
 	return 0;

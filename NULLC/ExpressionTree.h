@@ -47,6 +47,7 @@ struct ExpressionContext
 	TypeArray* GetArrayType(TypeBase* type, long long size);
 	TypeUnsizedArray* GetUnsizedArrayType(TypeBase* type);
 	TypeFunction* GetFunctionType(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
+	TypeFunction* GetFunctionType(TypeBase* returnType, SmallArray<ArgumentData, 32> &arguments);
 
 	// Full state info
 	FastVector<NamespaceData*> namespaces;
@@ -542,6 +543,20 @@ struct ExprClassDefinition: ExprBase
 
 	IntrusiveList<ExprAliasDefinition> aliases;
 	IntrusiveList<ExprBase> functions;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprEnumDefinition: ExprBase
+{
+	ExprEnumDefinition(SynBase *source, TypeBase *type, TypeEnum *enumType, ExprBase *toInt, ExprBase *toEnum): ExprBase(myTypeID, source, type), enumType(enumType), toInt(toInt), toEnum(toEnum)
+	{
+	}
+
+	TypeEnum *enumType;
+
+	ExprBase *toInt;
+	ExprBase *toEnum;
 
 	static const unsigned myTypeID = __LINE__;
 };

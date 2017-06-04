@@ -909,6 +909,16 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 	return result;
 }
 
+TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, SmallArray<ArgumentData, 32> &arguments)
+{
+	IntrusiveList<TypeHandle> types;
+
+	for(unsigned i = 0; i < arguments.size(); i++)
+		types.push_back(new TypeHandle(arguments[i].type));
+
+	return GetFunctionType(returnType, types);
+}
+
 ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr member);
 
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs);
@@ -1318,7 +1328,7 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 		{
 			IntrusiveList<TypeHandle> types;
 			types.push_back(new TypeHandle(ctx.typeInt));
-			TypeBase *type = ctx.GetFunctionType(ctx.typeVoid, types);;
+			TypeBase *type = ctx.GetFunctionType(ctx.typeVoid, types);
 
 			lhs = new ExprTypeCast(lhs->source, type, lhs, EXPR_CAST_REINTERPRET);
 			rhs = new ExprTypeCast(rhs->source, type, rhs, EXPR_CAST_REINTERPRET);
@@ -1359,6 +1369,7 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 	ok |= ctx.IsNumericType(lhs->type) && ctx.IsNumericType(rhs->type);
 	ok |= lhs->type == ctx.typeTypeID && rhs->type == ctx.typeTypeID && (op == SYN_BINARY_OP_EQUAL || op == SYN_BINARY_OP_NOT_EQUAL);
 	ok |= isType<TypeRef>(lhs->type) && lhs->type == rhs->type && (op == SYN_BINARY_OP_EQUAL || op == SYN_BINARY_OP_NOT_EQUAL);
+	ok |= isType<TypeEnum>(lhs->type) && lhs->type == rhs->type;
 
 	if(!ok)
 		Stop(ctx, source->pos, "ERROR: binary operations between complex types are not supported yet");
@@ -2321,19 +2332,22 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 
 	if(TypeClass *classType = getType<TypeClass>(type))
 	{
-		for(VariableHandle *curr = classType->members.head; curr; curr = curr->next)
-		{
-			if(curr->variable->name == member)
-				return new ExprTypeLiteral(source, ctx.typeTypeID, curr->variable->type);
-		}
-
 		for(MatchData *curr = classType->aliases.head; curr; curr = curr->next)
 		{
 			if(curr->name == member)
 				return new ExprTypeLiteral(source, ctx.typeTypeID, curr->type);
 		}
+	}
 
-		for(ConstantData *curr = classType->constants.head; curr; curr = curr->next)
+	if(TypeStruct *structType = getType<TypeStruct>(type))
+	{
+		for(VariableHandle *curr = structType->members.head; curr; curr = curr->next)
+		{
+			if(curr->variable->name == member)
+				return new ExprTypeLiteral(source, ctx.typeTypeID, curr->variable->type);
+		}
+
+		for(ConstantData *curr = structType->constants.head; curr; curr = curr->next)
 		{
 			if(curr->name == member)
 				return curr->value;
@@ -4144,7 +4158,6 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	if(!aliases.empty())
 		Stop(ctx, source->pos, "ERROR: functions with explicit generic arguments are not implemented");
 
-	IntrusiveList<TypeHandle> argTypes;
 	SmallArray<ArgumentData, 32> argData;
 
 	TypeHandle *instanceArg = instance ? instance->arguments.head : NULL;
@@ -4164,19 +4177,15 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			// Create temporary scope with known arguments for reference in type expression
 			ctx.PushScope();
 
+			unsigned pos = 0;
+
+			for(SynFunctionArgument *prevArg = arguments.head; prevArg && prevArg != argument; prevArg = getType<SynFunctionArgument>(prevArg->next))
 			{
-				SynFunctionArgument *prevArg = arguments.head;
-				TypeHandle *prevType = argTypes.head;
+				ArgumentData &data = argData[pos++];
 
-				while(prevArg && prevArg != argument)
-				{
-					ctx.AddVariable(new VariableData(prevArg, ctx.scope, 0, prevType->type, prevArg->name, 0, ctx.uniqueVariableId++));
-
-					prevArg = getType<SynFunctionArgument>(prevArg->next);
-					prevType = prevType->next;
-				}
+				ctx.AddVariable(new VariableData(prevArg, ctx.scope, 0, data.type, data.name, 0, ctx.uniqueVariableId++));
 			}
-		
+
 			type = AnalyzeType(ctx, argument->type);
 
 			if(type == ctx.typeAuto)
@@ -4191,11 +4200,10 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 		ExprBase *initializer = argument->initializer ? AnalyzeExpression(ctx, argument->initializer) : NULL;
 
-		argTypes.push_back(new TypeHandle(type));
 		argData.push_back(ArgumentData(argument, argument->isExplicit, argument->name, type, initializer));
 	}
 
-	TypeFunction *functionType = ctx.GetFunctionType(returnType, argTypes);
+	TypeFunction *functionType = ctx.GetFunctionType(returnType, argData);
 
 	if(instance)
 		assert(functionType == instance);
@@ -4254,9 +4262,9 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		ctx.AddVariable(variable);
 	}
 
-	IntrusiveList<ExprVariableDefinition> arguments;
+	IntrusiveList<ExprVariableDefinition> variables;
 
-	CreateFunctionArgumentVariables(ctx, argData, arguments);
+	CreateFunctionArgumentVariables(ctx, argData, variables);
 
 	IntrusiveList<ExprBase> code;
 
@@ -4302,7 +4310,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of parameters", FMT_ISTR(function->name));
 	}
 
-	function->definition = new ExprFunctionDefinition(source, function->type, function, arguments, code);
+	function->definition = new ExprFunctionDefinition(source, function->type, function, variables, code);
 
 	ctx.definitions.push_back(function->definition);
 
@@ -4401,7 +4409,6 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		returnType = ctx.typeAuto;
 
 	IntrusiveList<MatchData> argCasts;
-	IntrusiveList<TypeHandle> argTypes;
 	SmallArray<ArgumentData, 32> argData;
 
 	TypeHandle *expected = argumentType->arguments.head;
@@ -4420,14 +4427,9 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 				IntrusiveList<MatchData> aliases;
 
 				if(TypeBase *match = MatchGenericType(ctx, syntax, expected->type, type, aliases, false))
-				{
-					argTypes.push_back(new TypeHandle(match));
 					argData.push_back(ArgumentData(param, false, param->name, match, NULL));
-				}
 				else
-				{
 					return NULL;
-				}
 			}
 			else
 			{
@@ -4435,7 +4437,6 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 				sprintf(name, "%.*s$", FMT_ISTR(param->name));
 
-				argTypes.push_back(new TypeHandle(expected->type));
 				argData.push_back(ArgumentData(param, false, InplaceStr(name), expected->type, NULL));
 
 				argCasts.push_back(new MatchData(param->name, type));
@@ -4443,7 +4444,6 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		}
 		else
 		{
-			argTypes.push_back(new TypeHandle(expected->type));
 			argData.push_back(ArgumentData(param, false, param->name, expected->type, NULL));
 		}
 
@@ -4452,7 +4452,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	InplaceStr functionName = GetFunctionName(ctx, ctx.scope, NULL, InplaceStr(), false, false);
 
-	FunctionData *function = new FunctionData(syntax, ctx.scope, false, false, ctx.GetFunctionType(returnType, argTypes), functionName, ctx.uniqueFunctionId++);
+	FunctionData *function = new FunctionData(syntax, ctx.scope, false, false, ctx.GetFunctionType(returnType, argData), functionName, ctx.uniqueFunctionId++);
 
 	// Fill in argument data
 	for(unsigned i = 0; i < argData.size(); i++)
@@ -4532,6 +4532,43 @@ void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefi
 	}
 }
 
+void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *type, IntrusiveList<SynConstant> constants, IntrusiveList<ConstantData> &target)
+{
+	for(SynConstant *constant = constants.head; constant; constant = getType<SynConstant>(constant->next))
+	{
+		ExprBase *value = NULL;
+			
+		if(constant->value)
+		{
+			value = AnalyzeExpression(ctx, constant->value);
+
+			if(type == ctx.typeAuto)
+				type = value->type;
+
+			if(!ctx.IsNumericType(type))
+				Stop(ctx, source->pos, "ERROR: only basic numeric types can be used as constants");
+
+			value = Evaluate(ctx, CreateCast(ctx, constant, value, type, false));
+		}
+		else if(ctx.IsIntegerType(type) && constant != constants.head)
+		{
+			value = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, constant, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, target.tail->value, new ExprIntegerLiteral(constant, type, 1)), type, false)));
+		}
+		else
+		{
+			if(constant == constants.head)
+				Stop(ctx, source->pos, "ERROR: '=' not found after constant name");
+			else
+				Stop(ctx, source->pos, "ERROR: only integer constant list gets automatically incremented by 1");
+		}
+
+		if(!isType<ExprCharacterLiteral>(value) && !isType<ExprIntegerLiteral>(value) && !isType<ExprRationalLiteral>(value))
+			Stop(ctx, source->pos, "ERROR: expression didn't evaluate to a constant number");
+
+		target.push_back(new ConstantData(constant->name, value));
+	}
+}
+
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax)
 {
 	// TODO: can't access sizeof and type members until finalization
@@ -4562,39 +4599,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 	{
 		TypeBase *type = AnalyzeType(ctx, constantSet->type);
 
-		for(SynConstant *constant = constantSet->constants.head; constant; constant = getType<SynConstant>(constant->next))
-		{
-			ExprBase *value = NULL;
-			
-			if(constant->value)
-			{
-				value = AnalyzeExpression(ctx, constant->value);
-
-				if(type == ctx.typeAuto)
-					type = value->type;
-
-				if(!ctx.IsNumericType(type))
-					Stop(ctx, syntax->pos, "ERROR: only basic numeric types can be used as constants");
-
-				value = Evaluate(ctx, CreateCast(ctx, constant, value, type, false));
-			}
-			else if(ctx.IsIntegerType(type) && constant != constantSet->constants.head)
-			{
-				value = Evaluate(ctx, CreateCast(ctx, constant, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, classDefinition->classType->constants.tail->value, new ExprIntegerLiteral(constant, type, 1)), type, false));
-			}
-			else
-			{
-				if(constant == constantSet->constants.head)
-					Stop(ctx, syntax->pos, "ERROR: '=' not found after constant name");
-				else
-					Stop(ctx, syntax->pos, "ERROR: only integer constant list gets automatically incremented by 1");
-			}
-
-			if(!value)
-				Stop(ctx, syntax->pos, "ERROR: expression didn't evaluate to a constant number");
-
-			classDefinition->classType->constants.push_back(new ConstantData(constant->name, value));
-		}
+		AnalyzeClassConstants(ctx, constantSet, type, constantSet->constants, classDefinition->classType->constants);
 	}
 
 	for(SynFunctionDefinition *function = syntax->functions.head; function; function = getType<SynFunctionDefinition>(function->next))
@@ -4641,9 +4646,6 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics)
 {
-	if(ctx.GetCurrentType())
-		Stop(ctx, syntax->pos, "ERROR: different type is being defined");
-
 	InplaceStr typeName = GetTypeNameInScope(ctx.scope, syntax->name);
 
 	if(!proto && !syntax->aliases.empty())
@@ -4728,6 +4730,117 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 		Stop(ctx, syntax->pos, "ERROR: class size cannot exceed 65535 bytes");
 
 	return classDefinition;
+}
+
+void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *type, IntrusiveList<SynConstant> constants, IntrusiveList<ConstantData> &target)
+{
+	ExprIntegerLiteral *last = NULL;
+
+	for(SynConstant *constant = constants.head; constant; constant = getType<SynConstant>(constant->next))
+	{
+		ExprIntegerLiteral *value = NULL;
+			
+		if(constant->value)
+			value = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, constant, AnalyzeExpression(ctx, constant->value), ctx.typeInt, false)));
+		else if(last)
+			value = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, last, new ExprIntegerLiteral(constant, ctx.typeInt, 1))));
+		else
+			value = new ExprIntegerLiteral(source, ctx.typeInt, 1);
+
+		if(!value)
+			Stop(ctx, source->pos, "ERROR: expression didn't evaluate to a constant number");
+
+		last = value;
+
+		target.push_back(new ConstantData(constant->name, new ExprIntegerLiteral(source, type, value->value)));
+	}
+}
+
+ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *syntax)
+{
+	InplaceStr typeName = GetTypeNameInScope(ctx.scope, syntax->name);
+
+	TypeEnum *enumType = new TypeEnum(syntax, typeName);
+
+	AnalyzeEnumConstants(ctx, syntax, enumType, syntax->values, enumType->constants);
+
+	enumType->alignment = ctx.typeInt->alignment;
+
+	ctx.AddType(enumType);
+	
+	ScopeData *scope = ctx.scope;
+
+	// Switch to global scope
+	ctx.SwitchToScopeAtPoint(NULL, ctx.globalScope, NULL);
+
+	// Create conversion operator int int(enum_type)
+	ExprBase *castToInt = NULL;
+
+	{
+		SmallArray<ArgumentData, 32> arguments;
+		arguments.push_back(ArgumentData(syntax, false, InplaceStr("x"), enumType, NULL));
+
+		FunctionData *function = new FunctionData(syntax, ctx.scope, false, false, ctx.GetFunctionType(ctx.typeInt, arguments), InplaceStr("int"), ctx.uniqueFunctionId++);
+
+		// Fill in argument data
+		for(unsigned i = 0; i < arguments.size(); i++)
+			function->arguments.push_back(arguments[i]);
+
+		ctx.AddFunction(function);
+
+		ctx.PushScope(function);
+
+		function->functionScope = ctx.scope;
+
+		IntrusiveList<ExprVariableDefinition> variables;
+		CreateFunctionArgumentVariables(ctx, arguments, variables);
+
+		IntrusiveList<ExprBase> expressions;
+		expressions.push_back(new ExprReturn(syntax, ctx.typeVoid, new ExprTypeCast(syntax, ctx.typeInt, new ExprVariableAccess(syntax, enumType, variables.tail->variable), EXPR_CAST_REINTERPRET)));
+
+		ctx.PopScope();
+
+		castToInt = new ExprFunctionDefinition(syntax, function->type, function, variables, expressions);
+
+		ctx.definitions.push_back(castToInt);
+	}
+
+	// Create conversion operator enum_type enum_type(int)
+	ExprBase *castToEnum = NULL;
+
+	{
+		SmallArray<ArgumentData, 32> arguments;
+		arguments.push_back(ArgumentData(syntax, false, InplaceStr("x"), ctx.typeInt, NULL));
+
+		FunctionData *function = new FunctionData(syntax, ctx.scope, false, false, ctx.GetFunctionType(enumType, arguments), typeName, ctx.uniqueFunctionId++);
+
+		// Fill in argument data
+		for(unsigned i = 0; i < arguments.size(); i++)
+			function->arguments.push_back(arguments[i]);
+
+		ctx.AddFunction(function);
+
+		ctx.PushScope(function);
+
+		function->functionScope = ctx.scope;
+
+		IntrusiveList<ExprVariableDefinition> variables;
+		CreateFunctionArgumentVariables(ctx, arguments, variables);
+
+		IntrusiveList<ExprBase> expressions;
+		expressions.push_back(new ExprReturn(syntax, ctx.typeVoid, new ExprTypeCast(syntax, enumType, new ExprVariableAccess(syntax, ctx.typeInt, variables.tail->variable), EXPR_CAST_REINTERPRET)));
+
+		ctx.PopScope();
+
+		castToEnum = new ExprFunctionDefinition(syntax, function->type, function, variables, expressions);
+
+		ctx.definitions.push_back(castToEnum);
+	}
+
+	// Restore old scope
+	ctx.SwitchToScopeAtPoint(NULL, scope, NULL);
+
+	return new ExprEnumDefinition(syntax, ctx.typeVoid, enumType, castToInt, castToEnum);
 }
 
 ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefinition *syntax)
@@ -5235,6 +5348,11 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 		IntrusiveList<TypeHandle> generics;
 
 		return AnalyzeClassDefinition(ctx, node, NULL, generics);
+	}
+
+	if(SynEnumDefinition *node = getType<SynEnumDefinition>(syntax))
+	{
+		return AnalyzeEnumDefinition(ctx, node);
 	}
 
 	if(SynNamespaceDefinition *node = getType<SynNamespaceDefinition>(syntax))

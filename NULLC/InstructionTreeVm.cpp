@@ -5,8 +5,10 @@
 // TODO: VM code generation should use a special pointer type to generate special pointer instructions
 #ifdef _M_X64
 	#define VM_INST_LOAD_POINTER VM_INST_LOAD_LONG
+	#define VM_INST_STORE_POINTER VM_INST_STORE_LONG
 #else
 	#define VM_INST_LOAD_POINTER VM_INST_LOAD_INT
+	#define VM_INST_STORE_POINTER VM_INST_STORE_INT
 #endif
 
 namespace
@@ -285,10 +287,7 @@ namespace
 		if(type == ctx.typeAutoArray)
 			return CreateInstruction(module, VmType::AutoArray, VM_INST_LOAD_STRUCT, address);
 
-		if(isType<TypeTypeID>(type))
-			return CreateInstruction(module, VmType::Int, VM_INST_LOAD_INT, address);
-
-		if(isType<TypeFunctionID>(type))
+		if(isType<TypeTypeID>(type) || isType<TypeFunctionID>(type) || isType<TypeEnum>(type))
 			return CreateInstruction(module, VmType::Int, VM_INST_LOAD_INT, address);
 
 		if(type->size == 0)
@@ -303,47 +302,37 @@ namespace
 
 	VmValue* CreateStore(ExpressionContext &ctx, VmModule *module, TypeBase *type, VmValue *address, VmValue *value)
 	{
-		if(type == ctx.typeBool || type == ctx.typeChar)
-		{
-			assert(value->type == VmType::Int);
+		assert(value->type == GetVmType(ctx, type));
 
+		if(type == ctx.typeBool || type == ctx.typeChar)
 			return CreateInstruction(module, VmType::Void, VM_INST_STORE_BYTE, address, value);
-		}
 
 		if(type == ctx.typeShort)
-		{
-			assert(value->type == VmType::Int);
-
 			return CreateInstruction(module, VmType::Void, VM_INST_STORE_SHORT, address, value);
-		}
 
 		if(type == ctx.typeInt)
-		{
-			assert(value->type == VmType::Int);
-
 			return CreateInstruction(module, VmType::Void, VM_INST_STORE_INT, address, value);
-		}
 
 		if(type == ctx.typeFloat)
-		{
-			assert(value->type == VmType::Double);
-
 			return CreateInstruction(module, VmType::Void, VM_INST_STORE_FLOAT, address, value);
-		}
 
 		if(type == ctx.typeDouble)
-		{
-			assert(value->type == VmType::Double);
-
 			return CreateInstruction(module, VmType::Void, VM_INST_STORE_DOUBLE, address, value);
-		}
 
 		if(type == ctx.typeLong)
-		{
-			assert(value->type == VmType::Long);
-
 			return CreateInstruction(module, VmType::Void, VM_INST_STORE_LONG, address, value);
-		}
+
+		if(isType<TypeRef>(type))
+			return CreateInstruction(module, VmType::Void, VM_INST_STORE_POINTER, address, value);
+
+		if(isType<TypeEnum>(type))
+			return CreateInstruction(module, VmType::Void, VM_INST_STORE_INT, address, value);
+
+		if(isType<TypeFunction>(type) || isType<TypeUnsizedArray>(type) || type == ctx.typeAutoRef || type == ctx.typeAutoArray)
+			return CreateInstruction(module, VmType::Void, VM_INST_STORE_STRUCT, address, value);
+
+		if(isType<TypeTypeID>(type) || isType<TypeFunctionID>(type) || isType<TypeEnum>(type))
+			return CreateInstruction(module, VmType::Void, VM_INST_STORE_INT, address, value);
 
 		if(type->size == 0)
 			return new VmVoid();
@@ -351,7 +340,7 @@ namespace
 		assert(type->size % 4 == 0);
 		assert(type->size != 0);
 		assert(type->size < NULLC_MAX_TYPE_SIZE);
-		assert(value->type == GetVmType(ctx, type));
+		assert(value->type.type == VM_TYPE_STRUCT);
 
 		return CreateInstruction(module, VmType::Void, VM_INST_STORE_STRUCT, address, value);
 	}
@@ -1154,6 +1143,9 @@ VmType GetVmType(ExpressionContext &ctx, TypeBase *type)
 		return VmType::Struct(type->size);
 	}
 
+	if(isType<TypeEnum>(type))
+		return VmType::Int;
+
 	assert(!"unknown type");
 
 	return VmType::Void;
@@ -1198,6 +1190,9 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		if(node->type == ctx.typeLong)
 			return CheckType(ctx, expression, CreateConstantLong(node->value));
+
+		if(isType<TypeEnum>(node->type))
+			return CheckType(ctx, expression, CreateConstantInt(int(node->value)));
 
 		assert(!"unknown type");
 	}
@@ -1790,9 +1785,10 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprClassDefinition *node = getType<ExprClassDefinition>(expression))
 	{
-		for(ExprBase *value = node->functions.head; value; value = value->next)
-			CompileVm(ctx, module, value);
-
+		return CheckType(ctx, expression, new VmVoid());
+	}
+	else if(ExprEnumDefinition *node = getType<ExprEnumDefinition>(expression))
+	{
 		return CheckType(ctx, expression, new VmVoid());
 	}
 	else if(ExprIfElse *node = getType<ExprIfElse>(expression))
