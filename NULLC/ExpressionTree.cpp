@@ -2174,6 +2174,16 @@ ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *synt
 	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
 	ExprBase *falseBlock = AnalyzeStatement(ctx, syntax->falseBlock);
 
+	// Handle null pointer promotion
+	if(trueBlock->type != falseBlock->type)
+	{
+		if(trueBlock->type == ctx.typeNullPtr)
+			trueBlock = CreateCast(ctx, syntax->trueBlock, trueBlock, falseBlock->type, false);
+
+		if(falseBlock->type == ctx.typeNullPtr)
+			falseBlock = CreateCast(ctx, syntax->falseBlock, falseBlock, trueBlock->type, false);
+	}
+
 	TypeBase *resultType = NULL;
 
 	if(trueBlock->type == falseBlock->type)
