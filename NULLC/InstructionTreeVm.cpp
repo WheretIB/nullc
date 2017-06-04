@@ -288,6 +288,9 @@ namespace
 		if(isType<TypeTypeID>(type))
 			return CreateInstruction(module, VmType::Int, VM_INST_LOAD_INT, address);
 
+		if(isType<TypeFunctionID>(type))
+			return CreateInstruction(module, VmType::Int, VM_INST_LOAD_INT, address);
+
 		if(type->size == 0)
 			return CreateConstantInt(0);
 
@@ -1136,6 +1139,9 @@ VmType GetVmType(ExpressionContext &ctx, TypeBase *type)
 	if(isType<TypeTypeID>(type))
 		return VmType::Int;
 
+	if(isType<TypeFunctionID>(type))
+		return VmType::Int;
+
 	if(isType<TypeArray>(type) || isType<TypeClass>(type))
 	{
 		if(isType<TypeClass>(type) && type->size == 0)
@@ -1688,11 +1694,11 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		VmFunction *function = node->function->vmFunction;
 
-		if(node->function->isPrototype)
-			return CheckType(ctx, expression, function);
-
 		if(module->skipFunctionDefinitions)
-			return CheckType(ctx, expression, function);
+			return CheckType(ctx, expression, CreateConstruct(module, VmType::FunctionRef, function, CreateConstantPointer(0, false), NULL, NULL));
+
+		if(node->function->isPrototype)
+			return new VmVoid();
 
 		module->skipFunctionDefinitions = true;
 
@@ -1725,7 +1731,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		module->skipFunctionDefinitions = false;
 
-		return CheckType(ctx, expression, function);
+		return new VmVoid();
 	}
 	else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(expression))
 	{
@@ -1735,7 +1741,11 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		assert(node->function->vmFunction);
 
-		return CheckType(ctx, expression, node->function->vmFunction);
+		VmValue *context = node->context ? CompileVm(ctx, module, node->context) : CreateConstantPointer(0, false);
+
+		VmValue *funcRef = CreateConstruct(module, VmType::FunctionRef, node->function->vmFunction, context, NULL, NULL);
+
+		return CheckType(ctx, expression, funcRef);
 	}
 	else if(ExprFunctionCall *node = getType<ExprFunctionCall>(expression))
 	{
@@ -1977,7 +1987,7 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 			if(function->vmFunction)
 				continue;
 
-			VmFunction *vmFunction = new VmFunction(GetVmType(ctx, function->type), function, function->functionScope, GetVmType(ctx, function->type->returnType));
+			VmFunction *vmFunction = new VmFunction(GetVmType(ctx, ctx.typeFunctionID), function, function->functionScope, GetVmType(ctx, function->type->returnType));
 
 			function->vmFunction = vmFunction;
 
