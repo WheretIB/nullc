@@ -5087,15 +5087,14 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		Stop(ctx, syntax->pos, "ERROR: cannot infer type for inline function outside of the function call");
 	}
 
+	if(SynTypeReference *node = getType<SynTypeReference>(syntax))
+		return new ExprTypeLiteral(node, ctx.typeTypeID, AnalyzeType(ctx, syntax));
+
+	if(SynTypeFunction *node = getType<SynTypeFunction>(syntax))
+		return new ExprTypeLiteral(node, ctx.typeTypeID, AnalyzeType(ctx, syntax));
+
 	if(SynTypeGenericInstance *node = getType<SynTypeGenericInstance>(syntax))
-	{
-		TypeBase *type = AnalyzeType(ctx, syntax);
-
-		if(type == ctx.typeAuto)
-			Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
-
-		return new ExprTypeLiteral(node, ctx.typeTypeID, type);
-	}
+		return new ExprTypeLiteral(node, ctx.typeTypeID, AnalyzeType(ctx, syntax));
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");
 
