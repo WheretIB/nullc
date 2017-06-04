@@ -608,6 +608,17 @@ struct ExprBlock: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprSequence: ExprBase
+{
+	ExprSequence(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), expressions(expressions)
+	{
+	}
+
+	IntrusiveList<ExprBase> expressions;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprModule: ExprBase
 {
 	ExprModule(SynBase *source, TypeBase *type, ScopeData *moduleScope, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), moduleScope(moduleScope), expressions(expressions)

@@ -419,6 +419,15 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 
 		PrintLeaveBlock(ctx);
 	}
+	else if(ExprSequence *node = getType<ExprSequence>(expression))
+	{
+		PrintEnterBlock(ctx, name, node->type, "ExprSequence()");
+
+		for(ExprBase *value = node->expressions.head; value; value = value->next)
+			PrintGraph(ctx, value, "");
+
+		PrintLeaveBlock(ctx);
+	}
 	else if(ExprModule *node = getType<ExprModule>(expression))
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprModule()");

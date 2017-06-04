@@ -1928,6 +1928,15 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		return CheckType(ctx, expression, new VmVoid());
 	}
+	else if(ExprSequence *node = getType<ExprSequence>(expression))
+	{
+		VmValue *result = new VmVoid();
+
+		for(ExprBase *value = node->expressions.head; value; value = value->next)
+			result = CompileVm(ctx, module, value);
+
+		return CheckType(ctx, expression, result);
+	}
 	else if(!expression)
 	{
 		return NULL;
