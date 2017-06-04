@@ -5460,6 +5460,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 	ExternTypeInfo *typeList = FindFirstType(bCode);
 	ExternMemberInfo *memberList = (ExternMemberInfo*)(typeList + bCode->typeCount);
 	ExternConstantInfo *constantList = FindFirstConstant(bCode);
+	ExternTypedefInfo *aliasList = FindFirstTypedef(bCode);
 
 	module.types.resize(bCode->typeCount);
 
@@ -5536,76 +5537,125 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			{
 				InplaceStr className = InplaceStr(symbols + type.offsetToName);
 
+				TypeBase *importedType = NULL;
+
 				if(type.namespaceHash != ~0u)
 					Stop(ctx, source->pos, "ERROR: can't import namespace type");
 
 				if(type.constantCount != 0)
 					Stop(ctx, source->pos, "ERROR: can't import constants of type");
 
-				if(type.definitionOffset != ~0u)
+				if(type.definitionOffset != ~0u && type.definitionOffset & 0x80000000)
 				{
-					if(type.definitionOffset & 0x80000000)
+					TypeBase *proto = module.types[type.definitionOffset & ~0x80000000];
+
+					if(!proto)
+						Stop(ctx, source->pos, "ERROR: can't find proto type for '%s' in module %s", symbols + type.offsetToName, module.name);
+
+					TypeGenericClassProto *protoClass = getType<TypeGenericClassProto>(proto);
+
+					if(!protoClass)
+						Stop(ctx, source->pos, "ERROR: can't find correct proto type for '%s' in module %s", symbols + type.offsetToName, module.name);
+
+					// Find all generics for this type
+					bool isGeneric = false;
+					IntrusiveList<TypeHandle> generics;
+					IntrusiveList<MatchData> actualGenerics;
+
+					for(unsigned k = 0; k < bCode->typedefCount; k++)
 					{
-						Stop(ctx, source->pos, "ERROR: can't import derived type");
+						ExternTypedefInfo &alias = aliasList[k];
+
+						InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
+
+						TypeBase *targetType = module.types[alias.targetType];
+
+						if(!targetType)
+							Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, module.name);
+
+						if(alias.parentType == i)
+						{
+							isGeneric |= targetType->isGeneric;
+							generics.push_back(new TypeHandle(targetType));
+							actualGenerics.push_back(new MatchData(aliasName, targetType));
+						}
+					}
+
+					if(isGeneric)
+					{
+						importedType = new TypeGenericClass(className, protoClass, generics);
 					}
 					else
 					{
-						Lexeme *start = type.definitionOffset + module.lexer.GetStreamStart() - 3;
+						TypeClass *classType = new TypeClass(source, className, protoClass, actualGenerics, false, NULL);
 
-						ParseContext pCtx;
+						classType->imported = true;
 
-						pCtx.currentLexeme = start;
+						importedType = classType;
 
-						SynClassDefinition *definition = getType<SynClassDefinition>(ParseClassDefinition(pCtx));
-
-						if(!definition)
-							Stop(ctx, source->pos, "ERROR: failed to import generic class body");
-
-						definition->imported = true;
-
-						TypeGenericClassProto *genericProtoType = new TypeGenericClassProto(className, definition);
-
-						ctx.AddType(genericProtoType);
-
-						module.types[i] = genericProtoType;
+						ctx.AddType(importedType);
 					}
+				}
+				else if(type.definitionOffset != ~0u)
+				{
+					Lexeme *start = type.definitionOffset + module.lexer.GetStreamStart() - 3;
 
-					continue;
+					ParseContext pCtx;
+
+					pCtx.currentLexeme = start;
+
+					SynClassDefinition *definition = getType<SynClassDefinition>(ParseClassDefinition(pCtx));
+
+					if(!definition)
+						Stop(ctx, source->pos, "ERROR: failed to import generic class body");
+
+					definition->imported = true;
+
+					importedType = new TypeGenericClassProto(className, definition);
+
+					ctx.AddType(importedType);
+				}
+				else
+				{
+					IntrusiveList<MatchData> actualGenerics;
+
+					TypeClass *classType = new TypeClass(source, className, NULL, actualGenerics, false, NULL);
+
+					classType->imported = true;
+
+					importedType = classType;
+
+					ctx.AddType(importedType);
 				}
 
-				IntrusiveList<MatchData> actualGenerics;
+				module.types[i] = importedType;
 
-				TypeClass *classType = new TypeClass(source, className, NULL, actualGenerics, false, NULL);
-
-				classType->imported = true;
-
-				classType->alignment = type.defaultAlign;
-				classType->size = type.size;
-
-				ctx.AddType(classType);
-
-				module.types[i] = classType;
+				importedType->alignment = type.defaultAlign;
+				importedType->size = type.size;
 
 				const char *memberNames = className.end + 1;
 
-				ctx.PushScope(classType);
-
-				for(unsigned n = 0; n < type.memberCount; n++)
+				if(TypeClass *classType = getType<TypeClass>(importedType))
 				{
-					InplaceStr memberName = InplaceStr(memberNames);
-					memberNames = memberName.end + 1;
+					ctx.PushScope(importedType);
 
-					TypeBase *memberType = module.types[memberList[type.memberOffset + n].type];
+					for(unsigned n = 0; n < type.memberCount; n++)
+					{
+						InplaceStr memberName = InplaceStr(memberNames);
+						memberNames = memberName.end + 1;
 
-					if(!memberType)
-						Stop(ctx, source->pos, "ERROR: can't find member %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
+						TypeBase *memberType = module.types[memberList[type.memberOffset + n].type];
 
-					VariableData *member = new VariableData(source, ctx.scope, 0, memberType, memberName, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
+						if(!memberType)
+							Stop(ctx, source->pos, "ERROR: can't find member %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
 
-					classType->members.push_back(new VariableHandle(member));
+						VariableData *member = new VariableData(source, ctx.scope, 0, memberType, memberName, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
+
+						classType->members.push_back(new VariableHandle(member));
+					}
+
+					ctx.PopScope();
 				}
-
-				ctx.PopScope();
 			}
 			break;
 		default:
@@ -5685,7 +5735,7 @@ void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext
 			{
 				type->aliases.push_back(new MatchData(aliasName, targetType));
 			}
-			else if(!isType<TypeGenericClassProto>(parentType))
+			else if(!isType<TypeGenericClass>(parentType) && !isType<TypeGenericClassProto>(parentType))
 			{
 				Stop(ctx, source->pos, "ERROR: can't import class alias");
 			}
