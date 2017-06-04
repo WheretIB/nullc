@@ -1528,17 +1528,33 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		if(node->arguments.size() > 1)
 			Stop(ctx, syntax->pos, "ERROR: ',' is not expected in array type size");
 
-		ExprBase *size = AnalyzeExpression(ctx, node->arguments.head);
+		SynCallArgument *argument = node->arguments.head;
+
+		if(!argument->name.empty())
+			Stop(ctx, syntax->pos, "ERROR: named argument not expected in array type size");
+
+		ExprBase *size = AnalyzeExpression(ctx, argument->value);
 		
 		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, node, size, ctx.typeLong, false))))
 		{
+			if(TypeArgumentSet *lhs = getType<TypeArgumentSet>(type))
+			{
+				if(number->value < 0)
+					Stop(ctx, syntax->pos, "ERROR: argument index can't be negative");
+
+				if(number->value >= lhs->types.size())
+					Stop(ctx, syntax->pos, "ERROR: this function type '%.*s' has only %d argument(s)", FMT_ISTR(type->name), lhs->types.size());
+
+				return lhs->types[number->value]->type;
+			}
+
 			if(number->value <= 0)
 				Stop(ctx, syntax->pos, "ERROR: array size can't be negative or zero");
 
 			return ctx.GetArrayType(type, number->value);
 		}
 
-		Stop(ctx, syntax->pos, "ERROR: can't get array size");
+		Stop(ctx, syntax->pos, "ERROR: index must be a constant expression");
 	}
 
 	if(SynTypeFunction *node = getType<SynTypeFunction>(syntax))
