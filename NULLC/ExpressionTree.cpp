@@ -215,6 +215,14 @@ namespace
 		return SYN_BINARY_OP_UNKNOWN;
 	}
 
+	ScopeData* NamedScopeFrom(ScopeData *scope)
+	{
+		if(!scope || scope->ownerNamespace)
+			return scope;
+
+		return NamedScopeFrom(scope->scope);
+	}
+
 	ScopeData* NamedOrGlobalScopeFrom(ScopeData *scope)
 	{
 		if(!scope || scope->ownerNamespace || scope->scope == NULL)
@@ -1545,7 +1553,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 				if(number->value >= lhs->types.size())
 					Stop(ctx, syntax->pos, "ERROR: this function type '%.*s' has only %d argument(s)", FMT_ISTR(type->name), lhs->types.size());
 
-				return lhs->types[number->value]->type;
+				return lhs->types[unsigned(number->value)]->type;
 			}
 
 			if(number->value <= 0)
@@ -3759,9 +3767,6 @@ ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *s
 
 ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 {
-	if(!syntax->arguments.empty())
-		Stop(ctx, syntax->pos, "ERROR: constructor call is not supported");
-
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
 
 	ExprBase *size = new ExprIntegerLiteral(syntax, ctx.typeInt, type->size);
@@ -3769,6 +3774,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 	if(syntax->count)
 	{
+		assert(syntax->arguments.empty());
 		assert(syntax->constructor.empty());
 
 		ExprBase *count = AnalyzeExpression(ctx, syntax->count);
@@ -3778,15 +3784,88 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 	ExprBase *alloc = new ExprTypeCast(syntax, ctx.GetReferenceType(type), CreateFunctionCall(ctx, syntax, InplaceStr("__newS"), size, typeId, false), EXPR_CAST_REINTERPRET);
 
+	// Call constructor
+	TypeRef *allocType = getType<TypeRef>(alloc->type);
+
+	TypeBase *parentType = allocType->subType;
+
+	unsigned hash = StringHashContinue(parentType->name.hash(), "::");
+
+	if(TypeClass *classType = getType<TypeClass>(parentType))
+	{
+		InplaceStr functionName = parentType->name;
+
+		if(TypeGenericClassProto *proto = classType->proto)
+			functionName = proto->name;
+
+		// TODO: add type scopes and lookup owner namespace
+		for(const char *pos = functionName.end; pos > functionName.begin; pos--)
+		{
+			if(*pos == '.')
+			{
+				functionName = InplaceStr(pos + 1, functionName.end);
+				break;
+			}
+		}
+
+		hash = StringHashContinue(hash, functionName.begin, functionName.end);
+	}
+	else
+	{
+		hash = StringHashContinue(hash, parentType->name.begin, parentType->name.end);
+	}
+
+	if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+	{
+		VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
+
+		ExprBase *pointer = new ExprVariableAccess(syntax, variable->type, variable);
+
+		ExprBase *assignment = CreateAssignment(ctx, syntax, pointer, alloc);
+
+		ExprBase *overloads = CreateFunctionAccess(ctx, syntax, function, pointer);
+
+		ExprBase *call = CreateFunctionCall(ctx, syntax, overloads, syntax->arguments.head, false);
+
+		IntrusiveList<ExprBase> expressions;
+
+		expressions.push_back(assignment);
+		expressions.push_back(call);
+		expressions.push_back(pointer);
+
+		alloc = new ExprSequence(syntax, allocType, expressions);
+	}
+	else if(syntax->arguments.size() == 1 && syntax->arguments.head->name.empty())
+	{
+		VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
+
+		ExprBase *pointer = new ExprVariableAccess(syntax, variable->type, variable);
+
+		ExprBase *assignment = CreateAssignment(ctx, syntax, pointer, alloc);
+
+		ExprBase *copy = CreateAssignment(ctx, syntax, new ExprDereference(syntax, parentType, pointer), AnalyzeExpression(ctx, syntax->arguments.head->value));
+
+		IntrusiveList<ExprBase> expressions;
+
+		expressions.push_back(assignment);
+		expressions.push_back(copy);
+		expressions.push_back(pointer);
+
+		alloc = new ExprSequence(syntax, allocType, expressions);
+	}
+	else if(!syntax->arguments.empty())
+	{
+		Stop(ctx, syntax->pos, "ERROR: function '%.*s::%.*s' that accepts %d arguments is undefined", FMT_ISTR(parentType->name), FMT_ISTR(parentType->name), syntax->arguments.size());
+	}
+
+	// Handle custom constructor
 	if(!syntax->constructor.empty())
 	{
 		VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
 
-		ExprBase *assignment = CreateAssignment(ctx, syntax, new ExprVariableAccess(syntax, variable->type, variable), alloc);
+		ExprBase *pointer = new ExprVariableAccess(syntax, variable->type, variable);
 
-		TypeRef *allocType = getType<TypeRef>(alloc->type);
-
-		TypeBase *parentType = allocType->subType;
+		ExprBase *assignment = CreateAssignment(ctx, syntax, pointer, alloc);
 
 		// Create a member function with the constructor body
 		InplaceStr name = GetTemporaryFunctionName(ctx);
@@ -3807,7 +3886,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		expressions.push_back(assignment);
 		expressions.push_back(call);
-		expressions.push_back(new ExprVariableAccess(syntax, variable->type, variable));
+		expressions.push_back(pointer);
 
 		alloc = new ExprSequence(syntax, allocType, expressions);
 	}
@@ -4594,6 +4673,8 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		if(!baseClass || !baseClass->extendable)
 			Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not extendable", FMT_ISTR(type->name));
+
+		Stop(ctx, syntax->pos, "ERROR: inheritance is not supported");
 	}
 
 	IntrusiveList<MatchData> actualGenerics;
