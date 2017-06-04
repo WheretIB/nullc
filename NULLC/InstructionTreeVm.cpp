@@ -2106,6 +2106,30 @@ void RunPeepholeOptimizations(VmModule *module, VmValue* value)
 				}
 			}
 			break;
+		case VM_INST_LESS:
+			if((inst->type == VmType::Int || inst->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
+				ReplaceValueUsersWith(inst, CreateConstantInt(0), &module->peepholeOptimizations);
+			break;
+		case VM_INST_GREATER:
+			if((inst->type == VmType::Int || inst->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
+				ReplaceValueUsersWith(inst, CreateConstantInt(0), &module->peepholeOptimizations);
+			break;
+		case VM_INST_LESS_EQUAL:
+			if((inst->type == VmType::Int || inst->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
+				ReplaceValueUsersWith(inst, CreateConstantInt(1), &module->peepholeOptimizations);
+			break;
+		case VM_INST_GREATER_EQUAL:
+			if((inst->type == VmType::Int || inst->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
+				ReplaceValueUsersWith(inst, CreateConstantInt(1), &module->peepholeOptimizations);
+			break;
+		case VM_INST_EQUAL:
+			if((inst->type == VmType::Int || inst->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
+				ReplaceValueUsersWith(inst, CreateConstantInt(1), &module->peepholeOptimizations);
+			break;
+		case VM_INST_NOT_EQUAL:
+			if((inst->type == VmType::Int || inst->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
+				ReplaceValueUsersWith(inst, CreateConstantInt(0), &module->peepholeOptimizations);
+			break;
 		}
 	}
 }
