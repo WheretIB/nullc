@@ -930,7 +930,7 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, TypeBase *type, IntrusiveList<MatchData> aliases);
 
 FunctionValue SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
-FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, FunctionValue proto, SmallArray<ArgumentData, 32> &arguments);
+FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *source, FunctionValue proto, SmallArray<ArgumentData, 32> &arguments);
 void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *function, SmallArray<FunctionValue, 32> &functions);
 void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* errPos, SmallArray<FunctionValue, 32> &functions);
 void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* errPos, InplaceStr functionName, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo);
@@ -1038,7 +1038,7 @@ FunctionValue GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBa
 			TypeFunction *overloadType = getType<TypeFunction>(function->type);
 
 			if(overloadType->isGeneric || (function->scope->ownerType && function->scope->ownerType->isGeneric))
-				bestOverload = CreateGenericFunctionInstance(ctx, bestOverload, arguments);
+				bestOverload = CreateGenericFunctionInstance(ctx, source, bestOverload, arguments);
 
 			if(bestOverload)
 			{
@@ -3435,7 +3435,7 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallA
 	return bestFunction;
 }
 
-FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, FunctionValue proto, SmallArray<ArgumentData, 32> &arguments)
+FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *source, FunctionValue proto, SmallArray<ArgumentData, 32> &arguments)
 {
 	FunctionData *function = proto.function;
 
@@ -3454,7 +3454,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, FunctionValu
 	SynFunctionDefinition *syntax = getType<SynFunctionDefinition>(function->source);
 
 	if(!syntax)
-		Stop(ctx, NULL, "ERROR: imported generic function call is not supported");
+		Stop(ctx, source->pos, "ERROR: imported generic function call is not supported");
 
 	TypeBase *parentType = syntax->parentType ? AnalyzeType(ctx, syntax->parentType) : NULL;
 
@@ -3687,7 +3687,7 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 
 		if(type->isGeneric || (function->scope->ownerType && function->scope->ownerType->isGeneric))
 		{
-			bestOverload = CreateGenericFunctionInstance(ctx, bestOverload, arguments);
+			bestOverload = CreateGenericFunctionInstance(ctx, source, bestOverload, arguments);
 
 			function = bestOverload.function;
 
