@@ -5231,6 +5231,9 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 	if(SynSizeof *node = getType<SynSizeof>(syntax))
 	{
+		if(TypeBase *type = AnalyzeType(ctx, node->value, false))
+			return new ExprIntegerLiteral(node, ctx.typeInt, type->size);
+
 		ExprBase *value = AnalyzeExpression(ctx, node->value);
 
 		if(value->type == ctx.typeAuto)
