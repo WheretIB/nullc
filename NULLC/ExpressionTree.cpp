@@ -3845,7 +3845,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *pointer = new ExprVariableAccess(syntax, variable->type, variable);
 
-		ExprBase *assignment = CreateAssignment(ctx, syntax, pointer, alloc);
+		ExprBase *definition = new ExprVariableDefinition(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, pointer, alloc));
 
 		ExprBase *overloads = CreateFunctionAccess(ctx, syntax, function, pointer);
 
@@ -3853,7 +3853,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		IntrusiveList<ExprBase> expressions;
 
-		expressions.push_back(assignment);
+		expressions.push_back(definition);
 		expressions.push_back(call);
 		expressions.push_back(pointer);
 
@@ -3865,13 +3865,13 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *pointer = new ExprVariableAccess(syntax, variable->type, variable);
 
-		ExprBase *assignment = CreateAssignment(ctx, syntax, pointer, alloc);
+		ExprBase *definition = new ExprVariableDefinition(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, pointer, alloc));
 
 		ExprBase *copy = CreateAssignment(ctx, syntax, new ExprDereference(syntax, parentType, pointer), AnalyzeExpression(ctx, syntax->arguments.head->value));
 
 		IntrusiveList<ExprBase> expressions;
 
-		expressions.push_back(assignment);
+		expressions.push_back(definition);
 		expressions.push_back(copy);
 		expressions.push_back(pointer);
 
@@ -3889,18 +3889,18 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *pointer = new ExprVariableAccess(syntax, variable->type, variable);
 
-		ExprBase *assignment = CreateAssignment(ctx, syntax, pointer, alloc);
+		ExprBase *definition = new ExprVariableDefinition(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, pointer, alloc));
 
 		// Create a member function with the constructor body
 		InplaceStr name = GetTemporaryFunctionName(ctx);
 
 		ExprBase *function = CreateFunctionDefinition(ctx, syntax, false, false, parentType, false, ctx.typeVoid, false, name, IntrusiveList<SynIdentifier>(), IntrusiveList<SynFunctionArgument>(), syntax->constructor, NULL, IntrusiveList<MatchData>());
 
-		ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(function);
+		ExprFunctionDefinition *functionDefinition = getType<ExprFunctionDefinition>(function);
 
 		// Call this member function
 		SmallArray<FunctionValue, 32> functions;
-		functions.push_back(FunctionValue(definition->function, new ExprVariableAccess(syntax, alloc->type, variable)));
+		functions.push_back(FunctionValue(functionDefinition->function, new ExprVariableAccess(syntax, alloc->type, variable)));
 
 		SmallArray<ArgumentData, 32> arguments;
 
@@ -3908,7 +3908,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		IntrusiveList<ExprBase> expressions;
 
-		expressions.push_back(assignment);
+		expressions.push_back(definition);
 		expressions.push_back(call);
 		expressions.push_back(pointer);
 
