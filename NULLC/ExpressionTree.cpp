@@ -2023,18 +2023,6 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 			if(function)
 				break;
-
-			if(TypeBase **type = ctx.typeMap.find(hash))
-			{
-				hash = StringHashContinue((*type)->nameHash, "::");
-
-				hash = StringHashContinue(hash, name.begin, name.end);
-
-				function = ctx.functionMap.first(hash);
-
-				if(function)
-					break;
-			}
 		}
 	}
 
@@ -3835,16 +3823,88 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 	return new ExprFunctionCall(source, type->returnType, value, actualArguments);
 }
 
-ExprFunctionCall* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
+ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 {
 	ExprBase *function = AnalyzeExpression(ctx, syntax->value);
 
 	if(ExprTypeLiteral *type = getType<ExprTypeLiteral>(function))
 	{
-		if(ExprBase *constructor = CreateVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name))
-			function = constructor;
+		if(ExprBase *regular = CreateVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name))
+		{
+			function = regular;
+		}
 		else
-			Stop(ctx, syntax->pos, "ERROR: implicit type constructors are not supported");
+		{
+			TypeClass *classType = getType<TypeClass>(type->value);
+
+			VariableData *variable = AllocateTemporary(ctx, syntax, type->value);
+
+			ExprBase *pointer = new ExprGetAddress(syntax, ctx.GetReferenceType(type->value), variable);
+
+			ExprBase *definition = new ExprVariableDefinition(syntax, ctx.typeVoid, variable, NULL);
+
+			unsigned hash = StringHashContinue(type->value->nameHash, "::");
+
+			if(classType)
+			{
+				InplaceStr functionName = classType->name;
+
+				if(TypeGenericClassProto *proto = classType->proto)
+					functionName = proto->name;
+
+				// TODO: add type scopes and lookup owner namespace
+				for(const char *pos = functionName.end; pos > functionName.begin; pos--)
+				{
+					if(*pos == '.')
+					{
+						functionName = InplaceStr(pos + 1, functionName.end);
+						break;
+					}
+				}
+
+				hash = StringHashContinue(hash, functionName.begin, functionName.end);
+			}
+			else
+			{
+				hash = StringHashContinue(hash, type->value->name.begin, type->value->name.end);
+			}
+
+			ExprBase *constructor = NULL;
+
+			if(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash))
+			{
+				constructor = CreateFunctionAccess(ctx, syntax, node, pointer);
+			}
+			else if(classType)
+			{
+				if(TypeGenericClassProto *proto = classType->proto)
+				{
+					// Look for a member function in a generic class base and instantiate them
+					unsigned hash = StringHashContinue(proto->nameHash, "::");
+
+					hash = StringHashContinue(hash, proto->name.begin, proto->name.end);
+
+					if(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash))
+						constructor = CreateFunctionAccess(ctx, syntax, node, pointer);
+				}
+			}
+
+			if(!constructor && syntax->arguments.empty())
+				return new ExprVariableAccess(syntax, variable->type, variable);
+
+			if(constructor)
+			{
+				ExprBase *call = CreateFunctionCall(ctx, syntax, constructor, syntax->arguments.head, false);
+
+				IntrusiveList<ExprBase> expressions;
+
+				expressions.push_back(definition);
+				expressions.push_back(call);
+				expressions.push_back(new ExprVariableAccess(syntax, variable->type, variable));
+
+				return new ExprSequence(syntax, type->value, expressions);
+			}
+		}
 	}
 
 	if(!syntax->aliases.empty())
