@@ -2836,7 +2836,7 @@ unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, TypeF
 			{
 				if(TypeFunction *target = getType<TypeFunction>(expectedType))
 				{
-					if(actualArgument.value)
+					if(actualArgument.value && (isType<TypeFunction>(actualArgument.type) || isType<TypeFunctionSet>(actualArgument.type)))
 					{
 						if(FunctionValue function = GetFunctionForType(ctx, actualArgument.value->source, actualArgument.value, target))
 							continue;
@@ -2927,7 +2927,7 @@ unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, TypeF
 			{
 				TypeFunction *lFunction = getType<TypeFunction>(expectedType);
 
-				if(actualArgument.value)
+				if(actualArgument.value && (isType<TypeFunction>(actualArgument.type) || isType<TypeFunctionSet>(actualArgument.type)))
 				{
 					if(FunctionValue function = GetFunctionForType(ctx, actualArgument.value->source, actualArgument.value, lFunction))
 						continue;
