@@ -4529,6 +4529,8 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 		ctx.AddVariable(variable);
 
+		ExprBase *pointer = new ExprVariableAccess(syntax, variable->type, variable);
+
 		char *name = new char[el->name.length() + 2];
 
 		sprintf(name, "%.*s$", FMT_ISTR(el->name));
@@ -4537,7 +4539,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 		access = CreateCast(ctx, syntax, access, el->type, true);
 
-		expressions.push_back(new ExprVariableDefinition(syntax, ctx.typeVoid, variable, access));
+		expressions.push_back(new ExprVariableDefinition(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, pointer, access)));
 	}
 
 	for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
