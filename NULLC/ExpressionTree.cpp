@@ -4077,7 +4077,7 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 		return new ExprReturn(syntax, ctx.typeVoid, result);
 	}
 
-	if(!ctx.IsNumericType(result->type))
+	if(!ctx.IsNumericType(result->type) && !isType<TypeEnum>(result->type))
 		Stop(ctx, syntax->pos, "ERROR: global return cannot accept '%.*s'", FMT_ISTR(result->type->name));
 
 	return new ExprReturn(syntax, ctx.typeVoid, result);
