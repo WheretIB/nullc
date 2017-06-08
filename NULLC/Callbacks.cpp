@@ -558,7 +558,7 @@ void EndBlock(bool hideFunctions, bool saveLocals)
 			CodeInfo::funcInfo.back()->parentClass = fInfo->parentClass;
 
 			// Start of function source
-			Lexeme *start = CodeInfo::lexStart + fInfo->generic->start;
+			Lexeme *start = CodeInfo::lexStart + fInfo->generic->offset;
 			CodeInfo::lastKnownStartPos = NULL;
 
 			// Get function parameters from function prototype
@@ -1703,7 +1703,7 @@ TypeInfo* GetCurrentArgumentType(const char *pos, unsigned arguments)
 			if(func->generic)
 			{
 				// Having only a partial set of arguments, begin parsing arguments to the point that the current argument will be known
-				Lexeme *start = CodeInfo::lexStart + func->generic->start;
+				Lexeme *start = CodeInfo::lexStart + func->generic->offset;
 
 				// Save current type
 				TypeInfo *lastType = currType;
@@ -3476,7 +3476,7 @@ void FunctionAdd(const char* pos, const char* funcName, bool isOperator)
 		lastFunc->type = FunctionInfo::THISCALL;
 		lastFunc->parentClass = newType;
 		if(newType->genericInfo)
-			FunctionGeneric(true);
+			FunctionGeneric(true, 0, 0);
 		if(newType->genericBase)
 			lastFunc->genericBase = newType->genericBase->genericInfo;
 	}
@@ -3497,12 +3497,12 @@ void FunctionAdd(const char* pos, const char* funcName, bool isOperator)
 		lastFunc->visible = false;
 }
 
-bool FunctionGeneric(bool setGeneric, unsigned pos)
+bool FunctionGeneric(bool setGeneric, unsigned offsetStart, unsigned offset)
 {
 	FunctionInfo &lastFunc = *currDefinedFunc.back();
 	if(setGeneric)
 	{
-		lastFunc.generic = currDefinedFunc.back()->CreateGenericContext(pos);
+		lastFunc.generic = currDefinedFunc.back()->CreateGenericContext(offsetStart, offset);
 		lastFunc.generic->globalVarTop = varTop;
 		lastFunc.generic->blockDepth = lastFunc.vTopSize;
 		lastFunc.generic->parent = &lastFunc;
@@ -4119,7 +4119,7 @@ TypeInfo* GetGenericFunctionRating(FunctionInfo *fInfo, unsigned &newRating, uns
 	// Out function
 	unsigned argumentCount = fInfo->paramCount;
 
-	Lexeme *start = CodeInfo::lexStart + fInfo->generic->start;
+	Lexeme *start = CodeInfo::lexStart + fInfo->generic->offset;
 
 	// Save current type
 	TypeInfo *lastType = currType;
@@ -5248,7 +5248,7 @@ NodeZeroOP* CreateGenericFunctionInstance(const char* pos, FunctionInfo* fInfo, 
 
 	AliasInfo *aliasParent = functionInstance->childAlias;
 
-	Lexeme *start = CodeInfo::lexStart + fInfo->generic->start;
+	Lexeme *start = CodeInfo::lexStart + fInfo->generic->offset;
 	CodeInfo::lastKnownStartPos = NULL;
 
 	unsigned argOffset = CodeInfo::nodeList.size() - fType->paramCount;
@@ -6378,9 +6378,9 @@ void TypeStop()
 	EndBlock(false, false);
 }
 
-void TypeGeneric(unsigned pos)
+void TypeGeneric(unsigned offsetStart, unsigned offset)
 {
-	newType->genericInfo = newType->CreateGenericContext(pos);
+	newType->genericInfo = newType->CreateGenericContext(offsetStart, offset);
 	newType->genericInfo->globalVarTop = varTop;
 	newType->genericInfo->blockDepth = currDefinedFunc.size() ? currDefinedFunc.back()->vTopSize : 1;
 	currType = newType;
@@ -6430,7 +6430,7 @@ void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool
 
 	base = type->value;
 
-	Lexeme *start = CodeInfo::lexStart + base->genericInfo->start;
+	Lexeme *start = CodeInfo::lexStart + base->genericInfo->offset;
 
 	AliasInfo *aliasList = NULL;
 

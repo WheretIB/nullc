@@ -55,7 +55,8 @@ class GenericContext
 public:
 	GenericContext()
 	{
-		start = 0;
+		offsetStart = 0;
+		offset = 0;
 		globalVarTop = 0;
 		blockDepth = 0;
 		parent = NULL;
@@ -63,7 +64,8 @@ public:
 		aliasCount = 0;
 	}
 
-	unsigned		start;
+	unsigned		offsetStart;
+	unsigned		offset;
 	unsigned		globalVarTop;
 	unsigned		blockDepth;
 	FunctionInfo	*parent;
@@ -433,10 +435,11 @@ public:
 		info->next = NULL;
 		return info;
 	}
-	GenericContext*	CreateGenericContext(unsigned genericStart)
+	GenericContext*	CreateGenericContext(unsigned genericOffsetStart, unsigned genericOffset)
 	{
 		genericInfo = new (typeInfoPool.Allocate(sizeof(GenericContext))) GenericContext();
-		genericInfo->start = genericStart;
+		genericInfo->offsetStart = genericOffsetStart;
+		genericInfo->offset = genericOffset;
 		return genericInfo;
 	}
 
@@ -805,10 +808,11 @@ public:
 		}
 		return NULL;
 	}
-	GenericContext*	CreateGenericContext(unsigned genericStart)
+	GenericContext*	CreateGenericContext(unsigned genericOffsetStart, unsigned genericOffset)
 	{
 		generic = new (functionPool.Allocate(sizeof(GenericContext))) GenericContext();
-		generic->start = genericStart;
+		generic->offsetStart = genericOffsetStart;
+		generic->offset = genericOffset;
 		return generic;
 	}
 // Specialized allocation

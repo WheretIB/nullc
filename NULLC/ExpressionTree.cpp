@@ -929,11 +929,11 @@ ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<
 TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *matchType, TypeBase *argType, IntrusiveList<MatchData> &aliases, bool strict);
 TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, TypeBase *type, IntrusiveList<MatchData> aliases);
 
-FunctionValue SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
+FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
 FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *source, FunctionValue proto, SmallArray<ArgumentData, 32> &arguments);
 void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *function, SmallArray<FunctionValue, 32> &functions);
-void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* errPos, SmallArray<FunctionValue, 32> &functions);
-void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* errPos, InplaceStr functionName, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo);
+void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, SmallArray<FunctionValue, 32> &functions);
+void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, InplaceStr functionName, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo);
 ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, bool allowFailure);
 ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, bool allowFailure);
 ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, ExprBase *arg2, bool allowFailure);
@@ -942,6 +942,7 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, SynCallArgument *argumentHead, bool allowFailure);
 ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
 
+bool RestoreParentTypeScope(ExpressionContext &ctx, SynBase *source, TypeBase *parentType);
 ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, InplaceStr(name), IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches);
 
 FunctionValue GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBase *value, TypeFunction *type)
@@ -1426,6 +1427,7 @@ ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax);
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> matches);
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeFunction *argumentType);
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &arguments);
 
 // Apply in reverse order
@@ -2032,7 +2034,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 	{
 		// TODO: function context
 
-		return CreateFunctionAccess(ctx, source, function, NULL);
+		return CreateFunctionAccess(ctx, source, function, new ExprNullptrLiteral(source, ctx.GetReferenceType(ctx.typeVoid)));
 	}
 
 	return NULL;
@@ -2994,7 +2996,7 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 		if(strict)
 			return NULL;
 
-		return argType;
+		return matchType;
 	}
 
 	// 'generic' match with 'type' results with 'type'
@@ -3213,52 +3215,96 @@ TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, Typ
 	return NULL;
 }
 
-TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, FunctionData *function, SmallArray<ArgumentData, 32> &arguments, IntrusiveList<MatchData> &aliases)
+TypeBase* MatchArgumentType(ExpressionContext &ctx, SynBase *source, TypeBase *expectedType, TypeBase *actualType, ExprBase *actualValue, IntrusiveList<MatchData> &aliases)
+{
+	if(actualType->isGeneric)
+	{
+		if(TypeFunction *target = getType<TypeFunction>(expectedType))
+		{
+			if(FunctionValue bestOverload = GetFunctionForType(ctx, source, actualValue, target))
+				actualType = bestOverload.function->type;
+		}
+
+		if(actualType->isGeneric)
+			return NULL;
+	}
+
+	return MatchGenericType(ctx, source, expectedType, actualType, aliases, false);
+}
+
+TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *source, FunctionData *function, SmallArray<ArgumentData, 32> &arguments, IntrusiveList<MatchData> &aliases)
 {
 	assert(function->arguments.size() == arguments.size());
 
 	IntrusiveList<TypeHandle> types;
 
-	for(unsigned i = 0; i < function->arguments.size(); i++)
+	if(SynFunctionDefinition *syntax = function->definition)
 	{
-		ArgumentData &funtionArgument = function->arguments[i];
-		
-		ArgumentData &actualArgument = arguments[i];
+		TypeBase *parentType = syntax->parentType ? AnalyzeType(ctx, syntax->parentType) : NULL;
 
-		TypeBase *actualType = actualArgument.type;
+		bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
 
-		if(actualType->isGeneric)
+		// Create temporary scope with known arguments for reference in type expression
+		ctx.PushScope();
+
+		unsigned pos = 0;
+
+		for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next), pos++)
 		{
-			if(TypeFunction *target = getType<TypeFunction>(funtionArgument.type))
-			{
-				if(FunctionValue bestOverload = GetFunctionForType(ctx, function->source, actualArgument.value, target))
-					actualType = bestOverload.function->type;
-			}
+			TypeBase *expectedType = AnalyzeType(ctx, argument->type);
 
-			if(actualType->isGeneric)
-				return NULL;
+			ArgumentData &actualArgument = arguments[pos];
+
+			TypeBase *type = MatchArgumentType(ctx, argument, expectedType, actualArgument.type, actualArgument.value, aliases);
+
+			if(!type)
+				break;
+
+			ctx.AddVariable(new VariableData(argument, ctx.scope, 0, type, argument->name, 0, ctx.uniqueVariableId++));
+
+			types.push_back(new TypeHandle(type));
 		}
 
-		TypeBase *type = MatchGenericType(ctx, funtionArgument.source, funtionArgument.type, actualType, aliases, false);
+		ctx.PopScope();
 
-		if(!type)
-			return NULL;
-
-		types.push_back(new TypeHandle(type));
+		if(addedParentScope)
+			ctx.PopScope();
 	}
+	else
+	{
+		if(function->imported)
+			Stop(ctx, source->pos, "ERROR: imported generic function call is not supported");
+
+		for(unsigned i = 0; i < function->arguments.size(); i++)
+		{
+			ArgumentData &funtionArgument = function->arguments[i];
+
+			ArgumentData &actualArgument = arguments[i];
+
+			TypeBase *type = MatchArgumentType(ctx, funtionArgument.source, funtionArgument.type, actualArgument.type, actualArgument.value, aliases);
+
+			if(!type)
+				return NULL;
+
+			types.push_back(new TypeHandle(type));
+		}
+	}
+
+	if(types.size() != arguments.size())
+		return NULL;
 
 	return ctx.GetFunctionType(function->type->returnType, types);
 }
 
-void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* errPos, SmallArray<FunctionValue, 32> &functions)
+void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, SmallArray<FunctionValue, 32> &functions)
 {
 	SmallArray<ArgumentData, 32> arguments;
 	SmallArray<unsigned, 32> ratings;
 
-	StopOnFunctionSelectError(ctx, pos, errPos, InplaceStr(), functions, arguments, ratings, 0, false);
+	StopOnFunctionSelectError(ctx, source, errPos, InplaceStr(), functions, arguments, ratings, 0, false);
 }
 
-void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* errPos, InplaceStr functionName, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo)
+void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, InplaceStr functionName, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo)
 {
 	if(!functionName.empty())
 	{
@@ -3298,7 +3344,7 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* er
 			{
 				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here");
 			}
-			else if(TypeFunction *instance = GetGenericFunctionInstanceType(ctx, function, arguments, aliases))
+			else if(TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, function, arguments, aliases))
 			{
 				GetFunctionRating(ctx, function, instance, result);
 
@@ -3324,12 +3370,12 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, const char *pos, char* er
 		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")\n");
 	}
 
-	ctx.errorPos = pos;
+	ctx.errorPos = source->pos;
 
 	longjmp(ctx.errorHandler, 1);
 }
 
-FunctionValue SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure)
+FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, bool allowFailure)
 {
 	SmallArray<unsigned, 32> ratings;
 
@@ -3364,7 +3410,7 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallA
 		if(function->type->isGeneric || (function->scope->ownerType && function->scope->ownerType->isGeneric))
 		{
 			IntrusiveList<MatchData> aliases;
-			TypeFunction *instance = GetGenericFunctionInstanceType(ctx, function, result, aliases);
+			TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, function, result, aliases);
 
 			if(!instance)
 			{
@@ -3418,7 +3464,7 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallA
 
 		char *errPos = ctx.errorBuf;
 		errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function with following parameters:\n");
-		StopOnFunctionSelectError(ctx, pos, errPos, functions[0].function->name, functions, arguments, ratings, bestRating, true);
+		StopOnFunctionSelectError(ctx, source, errPos, functions[0].function->name, functions, arguments, ratings, bestRating, true);
 	}
 
 	// Check if multiple functions share the same rating
@@ -3428,7 +3474,7 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, const char *pos, SmallA
 		{
 			char *errPos = ctx.errorBuf;
 			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available for the call:\n");
-			StopOnFunctionSelectError(ctx, pos, errPos, functions[0].function->name, functions, arguments, ratings, bestRating, true);
+			StopOnFunctionSelectError(ctx, source, errPos, functions[0].function->name, functions, arguments, ratings, bestRating, true);
 		}
 	}
 
@@ -3446,38 +3492,37 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 	IntrusiveList<MatchData> aliases;
 
-	TypeFunction *instance = GetGenericFunctionInstanceType(ctx, function, result, aliases);
+	TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, function, result, aliases);
 
 	assert(instance);
 	assert(!instance->isGeneric);
 
-	SynFunctionDefinition *syntax = getType<SynFunctionDefinition>(function->source);
+	TypeBase *parentType = NULL;
 
-	if(!syntax)
-		Stop(ctx, source->pos, "ERROR: imported generic function call is not supported");
-
-	TypeBase *parentType = syntax->parentType ? AnalyzeType(ctx, syntax->parentType) : NULL;
-
-	TypeBase *instanceParent = NULL;
-
-	if(syntax->parentType)
+	if(SynFunctionDefinition *syntax = function->definition)
 	{
-		assert(function->scope->ownerType);
-		assert(isType<TypeRef>(proto.context->type));
+		if(syntax->parentType)
+		{
+			assert(function->scope->ownerType);
+			assert(isType<TypeRef>(proto.context->type));
 
-		if(TypeRef *type = getType<TypeRef>(proto.context->type))
-			instanceParent = type->subType;
+			if(TypeRef *type = getType<TypeRef>(proto.context->type))
+				parentType = type->subType;
+		}
 	}
 
 	// Search for an existing functions
-	InplaceStr functionName = GetFunctionName(ctx, ctx.scope, instanceParent ? instanceParent : parentType, syntax->name, syntax->isOperator, syntax->accessor);
-
-	for(HashMap<FunctionData*>::Node *curr = ctx.functionMap.first(functionName.hash()); curr; curr = ctx.functionMap.next(curr))
+	for(unsigned i = 0; i < function->instances.size(); i++)
 	{
-		// TODO: generic function list
+		FunctionData *data = function->instances[i];
 
-		if(curr->value->type == instance)
-			return FunctionValue(curr->value, proto.context);
+		TypeFunction *testType = instance;
+
+		if(testType->returnType == ctx.typeAuto)
+			testType = ctx.GetFunctionType(data->type->returnType, instance->arguments);
+
+		if(data->type == testType)
+			return FunctionValue(function->instances[i], proto.context);
 	}
 
 	// Switch to original function scope
@@ -3485,7 +3530,14 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 	ctx.SwitchToScopeAtPoint(NULL, function->scope, function->source);
 
-	ExprBase *expr = AnalyzeFunctionDefinition(ctx, syntax, instance, instanceParent, aliases);
+	ExprBase *expr = NULL;
+	
+	if(SynFunctionDefinition *syntax = function->definition)
+		expr = AnalyzeFunctionDefinition(ctx, syntax, instance, parentType, aliases);
+	else if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(function->declaration->source))
+		expr = AnalyzeShortFunctionDefinition(ctx, node, instance);
+	else
+		Stop(ctx, source->pos, "ERROR: imported generic function call is not supported");
 
 	// Restore old scope
 	ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
@@ -3493,6 +3545,8 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(expr);
 
 	assert(definition);
+
+	function->instances.push_back(definition->function);
 
 	return FunctionValue(definition->function, proto.context);
 }
@@ -3507,13 +3561,13 @@ void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *functio
 	{
 		// TODO: function context
 
-		functions.push_back(FunctionValue(node->function, NULL));
+		functions.push_back(FunctionValue(node->function, new ExprNullptrLiteral(source, ctx.GetReferenceType(ctx.typeVoid))));
 	}
 	else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(function))
 	{
 		// TODO: function context
 
-		functions.push_back(FunctionValue(node->function, NULL));
+		functions.push_back(FunctionValue(node->function, new ExprNullptrLiteral(source, ctx.GetReferenceType(ctx.typeVoid))));
 	}
 	else if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(function))
 	{
@@ -3676,7 +3730,7 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 
 	if(!functions.empty())
 	{
-		FunctionValue bestOverload = SelectBestFunction(ctx, source->pos, functions, arguments, allowFailure);
+		FunctionValue bestOverload = SelectBestFunction(ctx, source, functions, arguments, allowFailure);
 
 		if(allowFailure && !bestOverload)
 			return NULL;
@@ -4045,7 +4099,7 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 
 			char *errPos = ctx.errorBuf;
 			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available:\n");
-			StopOnFunctionSelectError(ctx, syntax->pos, errPos, functions);
+			StopOnFunctionSelectError(ctx, syntax, errPos, functions);
 		}
 
 		type = initializer->type;
@@ -4096,6 +4150,51 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 	return new ExprVariableDefinitions(syntax, ctx.typeVoid, definitions);
 }
 
+ExprVariableDefinition* CreateMemberFunctionContext(ExpressionContext &ctx, SynBase *source, TypeBase *parent)
+{
+	TypeBase *type = ctx.GetReferenceType(parent);
+
+	assert(!type->isGeneric);
+
+	unsigned offset = AllocateVariableInScope(ctx.scope, 0, type);
+	VariableData *variable = new VariableData(source, ctx.scope, 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
+
+	ctx.AddVariable(variable);
+
+	return new ExprVariableDefinition(source, ctx.typeVoid, variable, NULL);
+}
+
+bool RestoreParentTypeScope(ExpressionContext &ctx, SynBase *source, TypeBase *parentType)
+{
+	if(parentType && ctx.scope->ownerType != parentType)
+	{
+		ctx.PushScope(parentType);
+
+		if(TypeClass *classType = getType<TypeClass>(parentType))
+		{
+			for(MatchData *el = classType->generics.head; el; el = el->next)
+				ctx.AddAlias(new AliasData(source, ctx.scope, el->type, el->name, ctx.uniqueAliasId++));
+
+			for(MatchData *el = classType->aliases.head; el; el = el->next)
+				ctx.AddAlias(new AliasData(source, ctx.scope, el->type, el->name, ctx.uniqueAliasId++));
+
+			for(VariableHandle *el = classType->members.head; el; el = el->next)
+				ctx.AddVariable(el->variable);
+		}
+		else if(TypeGenericClassProto *genericProto = getType<TypeGenericClassProto>(parentType))
+		{
+			SynClassDefinition *definition = genericProto->definition;
+
+			for(SynIdentifier *curr = definition->aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
+				ctx.AddAlias(new AliasData(source, ctx.scope, new TypeGeneric(InplaceStr("generic")), curr->name, ctx.uniqueAliasId++));
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 void CreateFunctionArgumentVariables(ExpressionContext &ctx, SmallArray<ArgumentData, 32> &arguments, IntrusiveList<ExprVariableDefinition> &variables)
 {
 	for(unsigned i = 0; i < arguments.size(); i++)
@@ -4127,33 +4226,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, InplaceStr(name), IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches)
 {
-	bool addedParentScope = false;
-
-	if(parentType && ctx.scope->ownerType != parentType)
-	{
-		addedParentScope = true;
-
-		ctx.PushScope(parentType);
-
-		if(TypeClass *classType = getType<TypeClass>(parentType))
-		{
-			for(MatchData *el = classType->generics.head; el; el = el->next)
-				ctx.AddAlias(new AliasData(source, ctx.scope, el->type, el->name, ctx.uniqueAliasId++));
-
-			for(MatchData *el = classType->aliases.head; el; el = el->next)
-				ctx.AddAlias(new AliasData(source, ctx.scope, el->type, el->name, ctx.uniqueAliasId++));
-
-			for(VariableHandle *el = classType->members.head; el; el = el->next)
-				ctx.AddVariable(el->variable);
-		}
-		else if(TypeGenericClassProto *genericProto = getType<TypeGenericClassProto>(parentType))
-		{
-			SynClassDefinition *definition = genericProto->definition;
-
-			for(SynIdentifier *curr = definition->aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
-				ctx.AddAlias(new AliasData(source, ctx.scope, new TypeGeneric(InplaceStr("generic")), curr->name, ctx.uniqueAliasId++));
-		}
-	}
+	bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
 
 	if(!aliases.empty())
 		Stop(ctx, source->pos, "ERROR: functions with explicit generic arguments are not implemented");
@@ -4203,6 +4276,8 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		argData.push_back(ArgumentData(argument, argument->isExplicit, argument->name, type, initializer));
 	}
 
+	TypeBase *contextType = parentType ? ctx.GetReferenceType(parentType) : ctx.GetReferenceType(ctx.typeVoid);
+
 	TypeFunction *functionType = ctx.GetFunctionType(returnType, argData);
 
 	if(instance)
@@ -4216,7 +4291,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
 	}
 
-	FunctionData *function = new FunctionData(source, ctx.scope, coroutine, accessor, functionType, functionName, ctx.uniqueFunctionId++);
+	FunctionData *function = new FunctionData(source, ctx.scope, coroutine, accessor, functionType, contextType, functionName, ctx.uniqueFunctionId++);
 
 	function->aliases = matches;
 
@@ -4240,7 +4315,12 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		if(addedParentScope)
 			ctx.PopScope();
 
-		return new ExprGenericFunctionPrototype(source, function->type, function);
+		assert(isType<SynFunctionDefinition>(source));
+
+		function->definition = getType<SynFunctionDefinition>(source);
+		function->declaration = new ExprGenericFunctionPrototype(source, function->type, function);
+
+		return function->declaration;
 	}
 
 	ctx.PushScope(function);
@@ -4250,17 +4330,10 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	for(MatchData *curr = function->aliases.head; curr; curr = curr->next)
 		ctx.AddAlias(new AliasData(source, ctx.scope, curr->type, curr->name, ctx.uniqueAliasId++));
 
+	ExprVariableDefinition *context = NULL;
+
 	if(TypeBase *parent = function->scope->ownerType)
-	{
-		TypeBase *type = ctx.GetReferenceType(parent);
-
-		assert(!type->isGeneric);
-
-		unsigned offset = AllocateVariableInScope(ctx.scope, 0, type);
-		VariableData *variable = new VariableData(source, ctx.scope, 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
-
-		ctx.AddVariable(variable);
-	}
+		context = CreateMemberFunctionContext(ctx, source, parent);
 
 	IntrusiveList<ExprVariableDefinition> variables;
 
@@ -4304,17 +4377,17 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		{
 			ctx.HideFunction(function);
 
-			return conflict->definition;
+			return conflict->declaration;
 		}
 
 		Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of parameters", FMT_ISTR(function->name));
 	}
 
-	function->definition = new ExprFunctionDefinition(source, function->type, function, variables, code);
+	function->declaration = new ExprFunctionDefinition(source, function->type, function, context, variables, code);
 
-	ctx.definitions.push_back(function->definition);
+	ctx.definitions.push_back(function->declaration);
 
-	return function->definition;
+	return function->declaration;
 }
 
 void DeduceShortFunctionReturnValue(ExpressionContext &ctx, SynBase *source, FunctionData *function, IntrusiveList<ExprBase> &expressions)
@@ -4359,47 +4432,8 @@ void DeduceShortFunctionReturnValue(ExpressionContext &ctx, SynBase *source, Fun
 	function->hasExplicitReturn = true;
 }
 
-ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &currArguments)
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeFunction *argumentType)
 {
-	TypeFunction *functionType = getType<TypeFunction>(type);
-
-	// Only applies to function calls
-	if(!functionType)
-		return NULL;
-
-	IntrusiveList<TypeHandle> &fuctionArgs = functionType->arguments;
-
-	// Function doesn't accept any more arguments
-	if(currArguments.size() + 1 > fuctionArgs.size())
-		return NULL;
-
-	// Get current argument type
-	TypeBase *target = NULL;
-
-	if(functionType->isGeneric)
-	{
-		// Collect aliases up to the current argument
-		IntrusiveList<MatchData> aliases;
-
-		for(unsigned i = 0; i < currArguments.size(); i++)
-		{
-			// Exit if the arguments before the short inline function fail to match
-			if(!MatchGenericType(ctx, syntax, fuctionArgs[i]->type, currArguments[i].type, aliases, false))
-				return NULL;
-		}
-
-		target = ResolveGenericTypeAliases(ctx, syntax, fuctionArgs[currArguments.size()]->type, aliases);
-	}
-	else
-	{
-		target = fuctionArgs[currArguments.size()]->type;
-	}
-
-	TypeFunction *argumentType = getType<TypeFunction>(target);
-
-	if(!argumentType)
-		return NULL;
-
 	if(syntax->arguments.size() != argumentType->arguments.size())
 		return NULL;
 
@@ -4452,7 +4486,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	InplaceStr functionName = GetFunctionName(ctx, ctx.scope, NULL, InplaceStr(), false, false);
 
-	FunctionData *function = new FunctionData(syntax, ctx.scope, false, false, ctx.GetFunctionType(returnType, argData), functionName, ctx.uniqueFunctionId++);
+	FunctionData *function = new FunctionData(syntax, ctx.scope, false, false, ctx.GetFunctionType(returnType, argData), ctx.GetReferenceType(ctx.typeVoid), functionName, ctx.uniqueFunctionId++);
 
 	// Fill in argument data
 	for(unsigned i = 0; i < argData.size(); i++)
@@ -4461,7 +4495,11 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	ctx.AddFunction(function);
 
 	if(function->type->isGeneric)
-		return new ExprGenericFunctionPrototype(syntax, function->type, function);
+	{
+		function->declaration = new ExprGenericFunctionPrototype(syntax, function->type, function);
+
+		return function->declaration;
+	}
 
 	ctx.PushScope(function);
 
@@ -4506,11 +4544,57 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	ctx.PopScope();
 
-	function->definition = new ExprFunctionDefinition(syntax, function->type, function, arguments, expressions);
+	// TODO: create captured context
 
-	ctx.definitions.push_back(function->definition);
+	function->declaration = new ExprFunctionDefinition(syntax, function->type, function, NULL, arguments, expressions);
 
-	return function->definition;
+	ctx.definitions.push_back(function->declaration);
+
+	return function->declaration;
+}
+
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &currArguments)
+{
+	TypeFunction *functionType = getType<TypeFunction>(type);
+
+	// Only applies to function calls
+	if(!functionType)
+		return NULL;
+
+	IntrusiveList<TypeHandle> &fuctionArgs = functionType->arguments;
+
+	// Function doesn't accept any more arguments
+	if(currArguments.size() + 1 > fuctionArgs.size())
+		return NULL;
+
+	// Get current argument type
+	TypeBase *target = NULL;
+
+	if(functionType->isGeneric)
+	{
+		// Collect aliases up to the current argument
+		IntrusiveList<MatchData> aliases;
+
+		for(unsigned i = 0; i < currArguments.size(); i++)
+		{
+			// Exit if the arguments before the short inline function fail to match
+			if(!MatchGenericType(ctx, syntax, fuctionArgs[i]->type, currArguments[i].type, aliases, false))
+				return NULL;
+		}
+
+		target = ResolveGenericTypeAliases(ctx, syntax, fuctionArgs[currArguments.size()]->type, aliases);
+	}
+	else
+	{
+		target = fuctionArgs[currArguments.size()]->type;
+	}
+
+	TypeFunction *argumentType = getType<TypeFunction>(target);
+
+	if(!argumentType)
+		return NULL;
+
+	return AnalyzeShortFunctionDefinition(ctx, syntax, argumentType);
 }
 
 void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassStaticIf *syntax)
@@ -4519,7 +4603,9 @@ void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
-	if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(Evaluate(ctx, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
+	ExpressionEvalContext evalCtx(ctx);
+
+	if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(Evaluate(evalCtx, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
 	{
 		if(number->value)
 			AnalyzeClassElements(ctx, classDefinition, syntax->trueBlock);
@@ -4780,7 +4866,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		SmallArray<ArgumentData, 32> arguments;
 		arguments.push_back(ArgumentData(syntax, false, InplaceStr("x"), enumType, NULL));
 
-		FunctionData *function = new FunctionData(syntax, ctx.scope, false, false, ctx.GetFunctionType(ctx.typeInt, arguments), InplaceStr("int"), ctx.uniqueFunctionId++);
+		FunctionData *function = new FunctionData(syntax, ctx.scope, false, false, ctx.GetFunctionType(ctx.typeInt, arguments), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("int"), ctx.uniqueFunctionId++);
 
 		// Fill in argument data
 		for(unsigned i = 0; i < arguments.size(); i++)
@@ -4800,7 +4886,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 		ctx.PopScope();
 
-		castToInt = new ExprFunctionDefinition(syntax, function->type, function, variables, expressions);
+		castToInt = new ExprFunctionDefinition(syntax, function->type, function, NULL, variables, expressions);
 
 		ctx.definitions.push_back(castToInt);
 	}
@@ -4812,7 +4898,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		SmallArray<ArgumentData, 32> arguments;
 		arguments.push_back(ArgumentData(syntax, false, InplaceStr("x"), ctx.typeInt, NULL));
 
-		FunctionData *function = new FunctionData(syntax, ctx.scope, false, false, ctx.GetFunctionType(enumType, arguments), typeName, ctx.uniqueFunctionId++);
+		FunctionData *function = new FunctionData(syntax, ctx.scope, false, false, ctx.GetFunctionType(enumType, arguments), ctx.GetReferenceType(ctx.typeVoid), typeName, ctx.uniqueFunctionId++);
 
 		// Fill in argument data
 		for(unsigned i = 0; i < arguments.size(); i++)
@@ -4832,7 +4918,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 		ctx.PopScope();
 
-		castToEnum = new ExprFunctionDefinition(syntax, function->type, function, variables, expressions);
+		castToEnum = new ExprFunctionDefinition(syntax, function->type, function, NULL, variables, expressions);
 
 		ctx.definitions.push_back(castToEnum);
 	}
@@ -4948,7 +5034,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 		TypeBase *type = NULL;
 
 		if(curr->type)
-			type = AnalyzeType(ctx, curr);
+			type = AnalyzeType(ctx, curr->type);
 
 		// Special implementation of for each for built-in arrays
 		if(isType<TypeArray>(value->type) || isType<TypeUnsizedArray>(value->type))
@@ -5599,9 +5685,9 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						ctx.AddType(importedType);
 					}
 				}
-				else if(type.definitionOffset != ~0u)
+				else if(type.definitionOffsetStart != ~0u)
 				{
-					Lexeme *start = type.definitionOffset + module.lexer.GetStreamStart() - 3;
+					Lexeme *start = type.definitionOffsetStart + module.lexer.GetStreamStart();
 
 					ParseContext pCtx;
 
@@ -5795,6 +5881,9 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 				Stop(ctx, source->pos, "ERROR: can't find function '%s' context type in module %s", symbols + function.offsetToName, module.name);
 		}
 
+		if(!contextType)
+			contextType = ctx.GetReferenceType(ctx.typeVoid);
+
 		if(function.explicitTypeCount != 0)
 			Stop(ctx, source->pos, "ERROR: can't import generic function with explicit arguments");
 
@@ -5803,14 +5892,14 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		bool coroutine = function.funcCat == ExternFuncInfo::COROUTINE;
 		bool accessor = *(functionName.end - 1) == '$';
 
-		FunctionData *data = new FunctionData(source, ctx.scope, coroutine, accessor, getType<TypeFunction>(functionType), functionName, ctx.uniqueFunctionId++);
+		if(parentType)
+			ctx.PushScope(parentType);
+
+		FunctionData *data = new FunctionData(source, ctx.scope, coroutine, accessor, getType<TypeFunction>(functionType), contextType, functionName, ctx.uniqueFunctionId++);
 
 		data->imported = true;
 
 		ctx.AddFunction(data);
-
-		if(parentType)
-			ctx.PushScope(parentType);
 
 		ctx.PushScope(data);
 
@@ -5848,6 +5937,19 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		if(function.funcType == 0)
 		{
+			Lexeme *start = function.genericOffsetStart + module.lexer.GetStreamStart();
+
+			ParseContext pCtx;
+
+			pCtx.currentLexeme = start;
+
+			SynFunctionDefinition *definition = ParseFunctionDefinition(pCtx);
+
+			if(!definition)
+				Stop(ctx, source->pos, "ERROR: failed to import generic functions body");
+
+			data->definition = definition;
+
 			TypeBase *returnType = ctx.typeAuto;
 
 			if(function.genericReturnType != ~0u)

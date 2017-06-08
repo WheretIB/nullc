@@ -481,7 +481,7 @@ bool ParseSelectType(Lexeme** str, unsigned flag, TypeInfo* instanceType, bool* 
 				while(CodeInfo::nodeList.size() > nodeCount)
 					CodeInfo::nodeList.pop_back();
 
-				if(!FunctionGeneric(false))
+				if(!FunctionGeneric(false, 0, 0))
 				{
 					memcpy(CodeInfo::errorHandler, oldHandler, sizeof(jmp_buf));
 					longjmp(CodeInfo::errorHandler, 1);
@@ -913,6 +913,8 @@ void ParseClassBody(Lexeme** str)
 
 bool ParseClassDefinition(Lexeme** str)
 {
+	Lexeme *offsetStart = *str;
+
 	SetCurrentAlignment(TypeInfo::ALIGNMENT_UNSPECIFIED);
 
 	ParseAlignment(str);
@@ -954,7 +956,7 @@ bool ParseClassDefinition(Lexeme** str)
 			if(proto)
 				ThrowError((*str)->pos, "ERROR: type was forward declared as a non-generic type");
 
-			TypeGeneric(unsigned(start - CodeInfo::lexStart));
+			TypeGeneric(unsigned(offsetStart - CodeInfo::lexStart), unsigned(start - CodeInfo::lexStart));
 
 			TypeInfo *newType = GetSelectedType();
 
@@ -1260,7 +1262,7 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 
 	genericArg = GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
 	if(genericArg)
-		FunctionGeneric(true);
+		FunctionGeneric(true, 0, 0);
 
 	unsigned argID = 0;
 	if(genericArg && nodeOffset)
@@ -1324,7 +1326,7 @@ bool ParseFunctionVariables(Lexeme** str, unsigned nodeOffset)
 
 		genericArg |= GetSelectedType() ? GetSelectedType()->dependsOnGeneric : false;
 		if(genericArg)
-			FunctionGeneric(true);
+			FunctionGeneric(true, 0, 0);
 
 		if(genericArg && nodeOffset)
 		{
@@ -1452,7 +1454,7 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 		(*str)++;
 	}else if((*str)->type == lex_less){
 		// Explicit generic type list
-		FunctionGeneric(true);
+		FunctionGeneric(true, 0, 0);
 		(*str)++;
 
 		do
@@ -1499,7 +1501,7 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 
 	if(ParseLexem(str, lex_semicolon))
 	{
-		if(FunctionGeneric(false))
+		if(FunctionGeneric(false, 0, 0))
 			ThrowError((*str)->pos, "ERROR: generic function cannot be forward-declared");
 		if(isOperator)
 			FunctionToOperator(start->pos);
@@ -1509,11 +1511,11 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 		return true;
 	}
 
-	if(FunctionGeneric(false))
+	if(FunctionGeneric(false, 0, 0))
 	{
 		if(!ParseLexem(str, lex_ofigure))
 			ThrowError((*str)->pos, "ERROR: '{' not found after function header");
-		FunctionGeneric(true, unsigned(vars - CodeInfo::lexStart));
+		FunctionGeneric(true, unsigned(start - CodeInfo::lexStart), unsigned(vars - CodeInfo::lexStart));
 
 		// Setup function explicit type list
 		FunctionInfo *currFunction = GetCurrentFunction();

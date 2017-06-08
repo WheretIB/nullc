@@ -154,7 +154,7 @@ void FunctionPrototype(const char* pos);
 void FunctionStart(const char* pos);
 void FunctionEnd(const char* pos);
 void FunctionToOperator(const char* pos);
-bool FunctionGeneric(bool setGeneric, unsigned pos = 0);
+bool FunctionGeneric(bool setGeneric, unsigned offsetStart, unsigned offset);
 
 void SelectFunctionsForHash(unsigned funcNameHash, unsigned scope);
 unsigned SelectBestFunction(unsigned count, unsigned callArgCount, unsigned int &minRating, TypeInfo* forcedParentType = NULL, bool hideGenerics = true);
@@ -187,7 +187,7 @@ void TypePrototypeFinish();
 void TypeFinish();
 void TypeContinue(const char* pos);
 void TypeStop();
-void TypeGeneric(unsigned pos);
+void TypeGeneric(unsigned offsetStart, unsigned offset);
 void TypeInstanceGeneric(const char* pos, TypeInfo* base, unsigned aliases, bool genericTemp = false);
 void TypeDeriveFrom(const char* pos, TypeInfo* type);
 TypeInfo*	GetDefinedType();

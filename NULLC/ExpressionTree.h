@@ -446,12 +446,14 @@ struct ExprVariableAccess: ExprBase
 
 struct ExprFunctionDefinition: ExprBase
 {
-	ExprFunctionDefinition(SynBase *source, TypeBase *type, FunctionData* function, IntrusiveList<ExprVariableDefinition> arguments, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), function(function), arguments(arguments), expressions(expressions)
+	ExprFunctionDefinition(SynBase *source, TypeBase *type, FunctionData *function, ExprVariableDefinition *context, IntrusiveList<ExprVariableDefinition> arguments, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), function(function), context(context), arguments(arguments), expressions(expressions)
 	{
 		wasHidden = false;
 	}
 
 	FunctionData* function;
+
+	ExprVariableDefinition *context;
 
 	IntrusiveList<ExprVariableDefinition> arguments;
 

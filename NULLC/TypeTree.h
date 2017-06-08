@@ -160,7 +160,7 @@ struct ArgumentData
 
 struct FunctionData
 {
-	FunctionData(SynBase *source, ScopeData *scope, bool coroutine, bool accessor, TypeFunction *type, InplaceStr name, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), accessor(accessor), type(type), name(name), uniqueId(uniqueId)
+	FunctionData(SynBase *source, ScopeData *scope, bool coroutine, bool accessor, TypeFunction *type, TypeBase *contextType, InplaceStr name, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), accessor(accessor), type(type), contextType(contextType), name(name), uniqueId(uniqueId)
 	{
 		imported = false;
 
@@ -170,6 +170,8 @@ struct FunctionData
 		implementation = NULL;
 
 		definition = NULL;
+
+		declaration = NULL;
 
 		functionScope = NULL;
 		stackSize = 0;
@@ -190,6 +192,8 @@ struct FunctionData
 
 	TypeFunction *type;
 
+	TypeBase *contextType;
+
 	InplaceStr name;
 	unsigned nameHash;
 
@@ -202,7 +206,11 @@ struct FunctionData
 	bool isPrototype;
 	FunctionData *implementation;
 
-	ExprBase *definition;
+	SmallArray<FunctionData*, 32> instances;
+
+	SynFunctionDefinition *definition;
+
+	ExprBase *declaration;
 
 	ScopeData *functionScope;
 	long long stackSize;

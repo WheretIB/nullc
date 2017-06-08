@@ -823,7 +823,7 @@ bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
 					{
 						newInfo->genericBase = CodeInfo::typeInfo[typeRemap[tInfo->definitionOffset & ~0x80000000]];
 					}else{ // Or because it is a generic type base
-						newInfo->genericInfo = newInfo->CreateGenericContext(tInfo->definitionOffset + int(CodeInfo::lexFullStart - CodeInfo::lexStart));
+						newInfo->genericInfo = newInfo->CreateGenericContext(tInfo->definitionOffsetStart + int(CodeInfo::lexFullStart - CodeInfo::lexStart), tInfo->definitionOffset + int(CodeInfo::lexFullStart - CodeInfo::lexStart));
 
 						newInfo->genericInfo->aliasCount = tInfo->genericTypeCount;
 
@@ -1051,7 +1051,7 @@ bool Compiler::ImportModuleFunctions(const char* bytecode, const char* pos)
 
 			if(lastFunc->funcType == typeVoid)
 			{
-				lastFunc->generic = lastFunc->CreateGenericContext(fInfo->genericOffset + int(CodeInfo::lexFullStart - CodeInfo::lexStart));
+				lastFunc->generic = lastFunc->CreateGenericContext(fInfo->genericOffsetStart + int(CodeInfo::lexFullStart - CodeInfo::lexStart), fInfo->genericOffset + int(CodeInfo::lexFullStart - CodeInfo::lexStart));
 				lastFunc->generic->parent = lastFunc;
 				lastFunc->vTopSize = 1;
 
@@ -2321,7 +2321,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			typeInfo.subType = 0;
 			typeInfo.memberCount = 0;
 		}
-		typeInfo.definitionOffset = refType.genericInfo ? refType.genericInfo->start - int(CodeInfo::lexFullStart - CodeInfo::lexStart) : ~0u;
+		typeInfo.definitionOffsetStart = refType.genericInfo ? refType.genericInfo->offsetStart - int(CodeInfo::lexFullStart - CodeInfo::lexStart) : ~0u;
+		typeInfo.definitionOffset = refType.genericInfo ? refType.genericInfo->offset - int(CodeInfo::lexFullStart - CodeInfo::lexStart) : ~0u;
 		if(refType.genericBase)
 			typeInfo.definitionOffset = 0x80000000 | refType.genericBase->typeIndex;
 
@@ -2450,7 +2451,8 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 			memset(funcInfo.rOffsets, 0, 8 * sizeof(unsigned));
 			memset(funcInfo.fOffsets, 0, 8 * sizeof(unsigned));
 			funcInfo.ps3Callable = false;
-			funcInfo.genericOffset = refFunc->generic->start - int(CodeInfo::lexFullStart - CodeInfo::lexStart);
+			funcInfo.genericOffsetStart = refFunc->generic->offsetStart - int(CodeInfo::lexFullStart - CodeInfo::lexStart);
+			funcInfo.genericOffset = refFunc->generic->offset - int(CodeInfo::lexFullStart - CodeInfo::lexStart);
 			funcInfo.genericReturnType = refFunc->retType ? refFunc->retType->typeIndex : ~0u;
 		}
 
