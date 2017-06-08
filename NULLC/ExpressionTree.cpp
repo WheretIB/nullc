@@ -401,6 +401,8 @@ namespace
 
 ExpressionContext::ExpressionContext()
 {
+	baseModuleFunctionCount = 0;
+
 	errorPos = NULL;
 	errorBuf = NULL;
 	errorBufSize = 0;
@@ -1454,7 +1456,9 @@ TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase 
 
 	ExprBase *sizeValue = AnalyzeExpression(ctx, size);
 
-	if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, size, sizeValue, ctx.typeLong, false))))
+	ExpressionEvalContext evalCtx(ctx);
+
+	if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, size, sizeValue, ctx.typeLong, false))))
 	{
 		if(number->value <= 0)
 			Stop(ctx, size->pos, "ERROR: array size can't be negative or zero");
@@ -1556,7 +1560,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		ExprBase *size = AnalyzeExpression(ctx, argument->value);
 		
-		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, node, size, ctx.typeLong, false))))
+		ExpressionEvalContext evalCtx(ctx);
+
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, node, size, ctx.typeLong, false))))
 		{
 			if(TypeArgumentSet *lhs = getType<TypeArgumentSet>(type))
 			{
@@ -1724,7 +1730,9 @@ unsigned AnalyzeAlignment(ExpressionContext &ctx, SynAlign *syntax)
 
 	ExprBase *align = AnalyzeNumber(ctx, syntax->value);
 
-	if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, syntax, align, ctx.typeLong, false))))
+	ExpressionEvalContext evalCtx(ctx);
+
+	if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, syntax, align, ctx.typeLong, false))))
 	{
 		if(alignValue->value > 16)
 			Stop(ctx, syntax->pos, "ERROR: alignment must be less than 16 bytes");
@@ -2497,7 +2505,9 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 {
 	index = CreateCast(ctx, source, index, ctx.typeInt, false);
 
-	ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(Evaluate(ctx, index));
+	ExpressionEvalContext evalCtx(ctx);
+
+	ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(Evaluate(evalCtx, index));
 
 	if(indexValue && indexValue->value < 0)
 		Stop(ctx, source->pos, "ERROR: array index cannot be negative");
@@ -4634,11 +4644,15 @@ void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *ty
 			if(!ctx.IsNumericType(type))
 				Stop(ctx, source->pos, "ERROR: only basic numeric types can be used as constants");
 
-			value = Evaluate(ctx, CreateCast(ctx, constant, value, type, false));
+			ExpressionEvalContext evalCtx(ctx);
+
+			value = Evaluate(evalCtx, CreateCast(ctx, constant, value, type, false));
 		}
 		else if(ctx.IsIntegerType(type) && constant != constants.head)
 		{
-			value = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, constant, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, target.tail->value, new ExprIntegerLiteral(constant, type, 1)), type, false)));
+			ExpressionEvalContext evalCtx(ctx);
+
+			value = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, constant, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, target.tail->value, new ExprIntegerLiteral(constant, type, 1)), type, false)));
 		}
 		else
 		{
@@ -4827,11 +4841,21 @@ void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 		ExprIntegerLiteral *value = NULL;
 			
 		if(constant->value)
-			value = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateCast(ctx, constant, AnalyzeExpression(ctx, constant->value), ctx.typeInt, false)));
+		{
+			ExpressionEvalContext evalCtx(ctx);
+
+			value = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, constant, AnalyzeExpression(ctx, constant->value), ctx.typeInt, false)));
+		}
 		else if(last)
-			value = getType<ExprIntegerLiteral>(Evaluate(ctx, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, last, new ExprIntegerLiteral(constant, ctx.typeInt, 1))));
+		{
+			ExpressionEvalContext evalCtx(ctx);
+
+			value = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, last, new ExprIntegerLiteral(constant, ctx.typeInt, 1))));
+		}
 		else
+		{
 			value = new ExprIntegerLiteral(source, ctx.typeInt, 1);
+		}
 
 		if(!value)
 			Stop(ctx, source->pos, "ERROR: expression didn't evaluate to a constant number");
@@ -4973,7 +4997,9 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 
 	if(syntax->staticIf)
 	{
-		if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(Evaluate(ctx, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
+		ExpressionEvalContext evalCtx(ctx);
+
+		if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(Evaluate(evalCtx, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
 		{
 			if(number->value)
 			{
@@ -6046,6 +6072,8 @@ ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
 		ImportModule(ctx, syntax, bytecode, "$base$.nc");
 	else
 		Stop(ctx, syntax->pos, "ERROR: base module couldn't be imported");
+
+	ctx.baseModuleFunctionCount = ctx.functions.size();
 
 	if(SynModule *node = getType<SynModule>(syntax))
 	{

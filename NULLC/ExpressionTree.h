@@ -59,6 +59,8 @@ struct ExpressionContext
 
 	HashMap<TypeClass*> genericTypeMap;
 
+	unsigned baseModuleFunctionCount;
+
 	// Context info
 	HashMap<TypeBase*> typeMap;
 	HashMap<FunctionData*> functionMap;
@@ -203,6 +205,43 @@ struct ExprNullptrLiteral: ExprBase
 	ExprNullptrLiteral(SynBase *source, TypeBase *type): ExprBase(myTypeID, source, type)
 	{
 	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprFunctionLiteral: ExprBase
+{
+	ExprFunctionLiteral(SynBase *source, TypeBase *type, FunctionData *data, ExprBase *context): ExprBase(myTypeID, source, type), data(data), context(context)
+	{
+	}
+
+	FunctionData *data;
+
+	ExprBase *context;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprPointerLiteral: ExprBase
+{
+	ExprPointerLiteral(SynBase *source, TypeBase *type, unsigned char *ptr, unsigned char *end): ExprBase(myTypeID, source, type), ptr(ptr), end(end)
+	{
+		assert(ptr <= end);
+	}
+
+	unsigned char *ptr;
+	unsigned char *end;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprMemoryLiteral: ExprBase
+{
+	ExprMemoryLiteral(SynBase *source, TypeBase *type, ExprPointerLiteral *ptr): ExprBase(myTypeID, source, type), ptr(ptr)
+	{
+	}
+
+	ExprPointerLiteral *ptr;
 
 	static const unsigned myTypeID = __LINE__;
 };
