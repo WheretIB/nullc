@@ -3718,7 +3718,7 @@ ExprFunctionCall* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, Ex
 
 				TypeFunctionSet *type = new TypeFunctionSet(GetFunctionSetTypeName(types), types);
 
-				argument = new ExprFunctionOverloadSet(source, type, overloads, NULL);
+				argument = new ExprFunctionOverloadSet(source, type, overloads, new ExprNullptrLiteral(source, ctx.GetReferenceType(ctx.typeVoid)));
 			}
 		}
 		else
