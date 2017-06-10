@@ -1479,7 +1479,15 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 	if(TypeClass **prev = ctx.genericTypeMap.find(className.hash()))
 		return *prev;
 
+	// Switch to original type scope
+	ScopeData *scope = ctx.scope;
+
+	ctx.SwitchToScopeAtPoint(NULL, proto->scope, proto->source);
+
 	ExprBase *result = AnalyzeClassDefinition(ctx, proto->definition, proto, types);
+
+	// Restore old scope
+	ctx.SwitchToScopeAtPoint(proto->source, scope, NULL);
 
 	if(ExprClassDefinition *definition = getType<ExprClassDefinition>(result))
 	{
@@ -4846,7 +4854,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 	if(!proto && !syntax->aliases.empty())
 	{
-		TypeGenericClassProto *genericProtoType = new TypeGenericClassProto(typeName, syntax);
+		TypeGenericClassProto *genericProtoType = new TypeGenericClassProto(syntax, ctx.scope, typeName, syntax);
 
 		ctx.AddType(genericProtoType);
 
@@ -4900,7 +4908,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 		}
 	}
 	
-	TypeClass *classType = new TypeClass(syntax, className, proto, actualGenerics, syntax->extendable, baseClass);
+	TypeClass *classType = new TypeClass(syntax, ctx.scope, className, proto, actualGenerics, syntax->extendable, baseClass);
 
 	classType->alignment = alignment;
 
@@ -4966,7 +4974,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 {
 	InplaceStr typeName = GetTypeNameInScope(ctx.scope, syntax->name);
 
-	TypeEnum *enumType = new TypeEnum(syntax, typeName);
+	TypeEnum *enumType = new TypeEnum(syntax, ctx.scope, typeName);
 
 	AnalyzeEnumConstants(ctx, syntax, enumType, syntax->values, enumType->constants);
 

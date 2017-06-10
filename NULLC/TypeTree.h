@@ -586,10 +586,14 @@ struct TypeFunction: TypeBase
 
 struct TypeGenericClassProto: TypeBase
 {
-	TypeGenericClassProto(InplaceStr name, SynClassDefinition *definition): TypeBase(myTypeID, name), definition(definition)
+	TypeGenericClassProto(SynBase *source, ScopeData *scope, InplaceStr name, SynClassDefinition *definition): TypeBase(myTypeID, name), source(source), scope(scope), definition(definition)
 	{
 		isGeneric = true;
 	}
+
+	SynBase *source;
+
+	ScopeData *scope;
 
 	SynClassDefinition *definition;
 
@@ -614,7 +618,7 @@ struct TypeGenericClass: TypeBase
 
 struct TypeClass: TypeStruct
 {
-	TypeClass(SynBase *source, InplaceStr name, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), source(source), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass)
+	TypeClass(SynBase *source, ScopeData *scope, InplaceStr name, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), source(source), scope(scope), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass)
 	{
 		imported = false;
 	}
@@ -622,6 +626,8 @@ struct TypeClass: TypeStruct
 	SynBase *source;
 
 	bool imported;
+
+	ScopeData *scope;
 
 	TypeGenericClassProto *proto;
 
@@ -638,7 +644,7 @@ struct TypeClass: TypeStruct
 
 struct TypeEnum: TypeStruct
 {
-	TypeEnum(SynBase *source, InplaceStr name): TypeStruct(myTypeID, name), source(source)
+	TypeEnum(SynBase *source, ScopeData *scope, InplaceStr name): TypeStruct(myTypeID, name), source(source), scope(scope)
 	{
 		size = 4;
 		alignment = GetTypeAlignment<int>();
@@ -649,6 +655,8 @@ struct TypeEnum: TypeStruct
 	SynBase *source;
 
 	bool imported;
+
+	ScopeData *scope;
 
 	static const unsigned myTypeID = __LINE__;
 };
