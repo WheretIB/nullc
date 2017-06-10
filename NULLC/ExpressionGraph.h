@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+struct ScopeData;
+
 struct ExprBase;
 
 struct ExpressionGraphContext
@@ -12,6 +14,7 @@ struct ExpressionGraphContext
 
 		depth = 0;
 
+		skipImported = false;
 		skipFunctionDefinitions = false;
 	}
 
@@ -19,7 +22,9 @@ struct ExpressionGraphContext
 
 	unsigned depth;
 
+	bool skipImported;
 	bool skipFunctionDefinitions;
 };
 
+void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImported);
 void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *name);

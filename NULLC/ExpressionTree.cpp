@@ -441,6 +441,7 @@ ExpressionContext::ExpressionContext()
 	uniqueVariableId = 0;
 	uniqueFunctionId = 0;
 	uniqueAliasId = 0;
+	uniqueScopeId = 0;
 
 	unnamedFuncCount = 0;
 	unnamedVariableCount = 0;
@@ -460,28 +461,55 @@ void ExpressionContext::PushScope()
 {
 	unsigned depth = scope ? scope->depth + 1 : 0;
 
-	scope = new ScopeData(depth, scope);
+	ScopeData *next = new ScopeData(depth, scope, uniqueScopeId++);
+
+	if(scope)
+		scope->scopes.push_back(next);
+
+	scope = next;
 }
 
 void ExpressionContext::PushScope(NamespaceData *nameSpace)
 {
 	unsigned depth = scope ? scope->depth + 1 : 0;
 
-	scope = new ScopeData(depth, scope, nameSpace);
+	ScopeData *next = new ScopeData(depth, scope, uniqueScopeId++, nameSpace);
+
+	if(scope)
+		scope->scopes.push_back(next);
+
+	scope = next;
 }
 
 void ExpressionContext::PushScope(FunctionData *function)
 {
 	unsigned depth = scope ? scope->depth + 1 : 0;
 
-	scope = new ScopeData(depth, scope, function);
+	ScopeData *next = new ScopeData(depth, scope, uniqueScopeId++, function);
+
+	if(scope)
+		scope->scopes.push_back(next);
+
+	scope = next;
 }
 
 void ExpressionContext::PushScope(TypeBase *type)
 {
 	unsigned depth = scope ? scope->depth + 1 : 0;
 
-	scope = new ScopeData(depth, scope, type);
+	ScopeData *next = new ScopeData(depth, scope, uniqueScopeId++, type);
+
+	if(scope)
+		scope->scopes.push_back(next);
+
+	scope = next;
+}
+
+void ExpressionContext::PushTemporaryScope()
+{
+	unsigned depth = scope ? scope->depth + 1 : 0;
+
+	scope = new ScopeData(depth, scope, 0);
 }
 
 void ExpressionContext::PopScope(SynBase *location)
@@ -3295,7 +3323,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 		bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
 
 		// Create temporary scope with known arguments for reference in type expression
-		ctx.PushScope();
+		ctx.PushTemporaryScope();
 
 		unsigned pos = 0;
 
@@ -4376,7 +4404,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		else
 		{
 			// Create temporary scope with known arguments for reference in type expression
-			ctx.PushScope();
+			ctx.PushTemporaryScope();
 
 			unsigned pos = 0;
 

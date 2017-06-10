@@ -21,6 +21,7 @@ struct ExpressionContext
 	void PushScope(NamespaceData *nameSpace);
 	void PushScope(FunctionData *function);
 	void PushScope(TypeBase *type);
+	void PushTemporaryScope();
 	void PopScope(SynBase *location = 0);
 	void RestoreScopesAtPoint(ScopeData *target, SynBase *location);
 	void SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *target, SynBase *targetLocation);
@@ -102,6 +103,7 @@ struct ExpressionContext
 	unsigned uniqueVariableId;
 	unsigned uniqueFunctionId;
 	unsigned uniqueAliasId;
+	unsigned uniqueScopeId;
 
 	unsigned unnamedFuncCount;
 	unsigned unnamedVariableCount;

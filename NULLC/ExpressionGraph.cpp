@@ -73,6 +73,151 @@ void PrintLeaveBlock(ExpressionGraphContext &ctx)
 	fprintf(ctx.file, "}\n");
 }
 
+bool ContainsData(ScopeData *scope, bool imported)
+{
+	for(unsigned i = 0; i < scope->types.size(); i++)
+	{
+		TypeBase *data = scope->types[i];
+
+		if(imported == (getType<TypeClass>(data) && getType<TypeClass>(data)->imported))
+			return true;
+	}
+
+	for(unsigned i = 0; i < scope->functions.size(); i++)
+	{
+		if(imported == scope->functions[i]->imported)
+			return true;
+	}
+
+	if(!scope->ownerFunction || scope->ownerFunction->imported == imported)
+	{
+		for(unsigned i = 0; i < scope->variables.size(); i++)
+		{
+			if(imported == scope->variables[i]->imported)
+				return true;
+		}
+	}
+
+	for(unsigned i = 0; i < scope->aliases.size(); i++)
+	{
+		if(imported == scope->aliases[i]->imported)
+			return true;
+	}
+
+	for(unsigned i = 0; i < scope->scopes.size(); i++)
+	{
+		if(ContainsData(scope->scopes[i], imported))
+			return true;
+	}
+
+	return false;
+}
+
+void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImported)
+{
+	PrintIndent(ctx);
+
+	if(FunctionData *owner = scope->ownerFunction)
+		Print(ctx, "ScopeData({%.*s: f%04x}: s%04x){\n", FMT_ISTR(owner->name), owner->uniqueId, scope->uniqueId);
+	else if(TypeBase *owner = scope->ownerType)
+		Print(ctx, "ScopeData({%.*s}: s%04x){\n", FMT_ISTR(owner->name), scope->uniqueId);
+	else if(NamespaceData *owner = scope->ownerNamespace)
+		Print(ctx, "ScopeData({%.*s: n%04x}: s%04x){\n", FMT_ISTR(owner->name), owner->uniqueId, scope->uniqueId);
+	else
+		Print(ctx, "ScopeData({}: s%04x){\n", scope->uniqueId);
+
+	ctx.depth++;
+
+	if(!scope->types.empty())
+	{
+		PrintEnterBlock(ctx, InplaceStr(), 0, "types");
+
+		for(unsigned i = 0; i < scope->types.size(); i++)
+		{
+			TypeBase *data = scope->types[i];
+
+			bool imported = getType<TypeClass>(data) && getType<TypeClass>(data)->imported;
+
+			if(printImported != imported)
+				continue;
+
+			PrintIndented(ctx, InplaceStr(), data, ";");
+		}
+
+		PrintLeaveBlock(ctx);
+	}
+
+	if(!scope->functions.empty())
+	{
+		PrintEnterBlock(ctx, InplaceStr(), 0, "functions");
+
+		for(unsigned i = 0; i < scope->functions.size(); i++)
+		{
+			FunctionData *data = scope->functions[i];
+
+			if(printImported != data->imported)
+				continue;
+
+			PrintIndented(ctx, InplaceStr(), data->type, "%.*s: f%04x", FMT_ISTR(data->name), data->uniqueId);
+		}
+
+		PrintLeaveBlock(ctx);
+	}
+
+	if(!scope->variables.empty())
+	{
+		PrintEnterBlock(ctx, InplaceStr(), 0, "variables");
+
+		for(unsigned i = 0; i < scope->variables.size(); i++)
+		{
+			VariableData *data = scope->variables[i];
+
+			if(printImported != data->imported)
+				continue;
+
+			PrintIndented(ctx, InplaceStr(), data->type, "%.*s: v%04x", FMT_ISTR(data->name), data->uniqueId);
+		}
+
+		PrintLeaveBlock(ctx);
+	}
+
+	if(!scope->aliases.empty())
+	{
+		PrintEnterBlock(ctx, InplaceStr(), 0, "aliases");
+
+		for(unsigned i = 0; i < scope->aliases.size(); i++)
+		{
+			AliasData *data = scope->aliases[i];
+
+			if(printImported != data->imported)
+				continue;
+
+			PrintIndented(ctx, InplaceStr("typedef"), data->type, "%.*s: a%04x", FMT_ISTR(data->name), data->uniqueId);
+		}
+
+		PrintLeaveBlock(ctx);
+	}
+
+	if(!scope->scopes.empty())
+	{
+		for(unsigned i = 0; i < scope->scopes.size(); i++)
+		{
+			ScopeData *data = scope->scopes[i];
+
+			if(data->ownerFunction && data->ownerFunction->imported)
+				continue;
+
+			if(ContainsData(data, printImported))
+				PrintGraph(ctx, data, printImported);
+		}
+	}
+
+	ctx.depth--;
+
+	PrintIndent(ctx);
+	Print(ctx, "}\n");
+}
+
 void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr name)
 {
 	if(ExprVoid *node = getType<ExprVoid>(expression))
@@ -274,6 +419,8 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintEnterBlock(ctx, name, node->type, "ExprFunctionDefinition(%s%.*s: f%04x)", node->function->isPrototype ? "prototype, " : "", FMT_ISTR(node->function->name), node->function->uniqueId);
 
+		PrintGraph(ctx, node->context, "context");
+
 		PrintEnterBlock(ctx, InplaceStr("arguments"), 0, "");
 
 		for(ExprBase *arg = node->arguments.head; arg; arg = arg->next)
@@ -454,6 +601,11 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	else if(ExprModule *node = getType<ExprModule>(expression))
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprModule()");
+
+		if(!ctx.skipImported)
+			PrintGraph(ctx, node->moduleScope, true);
+
+		PrintGraph(ctx, node->moduleScope, false);
 
 		PrintEnterBlock(ctx, InplaceStr("definitions"), 0, "");
 
