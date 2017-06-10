@@ -1493,7 +1493,7 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 	return NULL;
 }
 
-TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = true)
+TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = true, bool *failed = NULL)
 {
 	if(SynTypeAuto *node = getType<SynTypeAuto>(syntax))
 	{
@@ -1514,7 +1514,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynTypeReference *node = getType<SynTypeReference>(syntax))
 	{
-		TypeBase *type = AnalyzeType(ctx, node->type);
+		TypeBase *type = AnalyzeType(ctx, node->type, true, failed);
 
 		if(isType<TypeAuto>(type))
 			return ctx.typeAutoRef;
@@ -1524,7 +1524,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynTypeArray *node = getType<SynTypeArray>(syntax))
 	{
-		TypeBase *type = AnalyzeType(ctx, node->type, onlyType);
+		TypeBase *type = AnalyzeType(ctx, node->type, onlyType, failed);
 
 		if(!onlyType && !type)
 			return NULL;
@@ -1534,7 +1534,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynArrayIndex *node = getType<SynArrayIndex>(syntax))
 	{
-		TypeBase *type = AnalyzeType(ctx, node->value, onlyType);
+		TypeBase *type = AnalyzeType(ctx, node->value, onlyType, failed);
 
 		if(!onlyType && !type)
 			return NULL;
@@ -1586,13 +1586,13 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynTypeFunction *node = getType<SynTypeFunction>(syntax))
 	{
-		TypeBase *returnType = AnalyzeType(ctx, node->returnType);
+		TypeBase *returnType = AnalyzeType(ctx, node->returnType, true, failed);
 
 		IntrusiveList<TypeHandle> arguments;
 
 		for(SynBase *el = node->arguments.head; el; el = el->next)
 		{
-			TypeBase *argType = AnalyzeType(ctx, el);
+			TypeBase *argType = AnalyzeType(ctx, el, true, failed);
 
 			if(argType == ctx.typeAuto)
 				Stop(ctx, syntax->pos, "ERROR: function parameter cannot be an auto type");
@@ -1608,15 +1608,40 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynTypeof *node = getType<SynTypeof>(syntax))
 	{
-		if(TypeBase *type = AnalyzeType(ctx, node->value, false))
-			return type;
+		jmp_buf prevErrorHandler;
+		memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));
 
-		ExprBase *value = AnalyzeExpression(ctx, node->value);
+		if(!setjmp(ctx.errorHandler))
+		{
+			TypeBase *type = AnalyzeType(ctx, node->value, false);
 
-		if(value->type == ctx.typeAuto)
-			Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
+			if(!type)
+			{
+				ExprBase *value = AnalyzeExpression(ctx, node->value);
 
-		return value->type;
+				if(value->type == ctx.typeAuto)
+					Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
+
+				type = value->type;
+			}
+
+			memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+
+			if(type)
+				return type;
+		}
+		else
+		{
+			memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+
+			if(failed)
+			{
+				*failed = true;
+				return new TypeGeneric(InplaceStr("generic"));
+			}
+
+			longjmp(ctx.errorHandler, 1);
+		}
 	}
 
 	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
@@ -1650,7 +1675,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynMemberAccess *node = getType<SynMemberAccess>(syntax))
 	{
-		TypeBase *value = AnalyzeType(ctx, node->value, onlyType);
+		TypeBase *value = AnalyzeType(ctx, node->value, onlyType, failed);
 
 		if(!onlyType && !value)
 			return NULL;
@@ -1677,7 +1702,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynTypeGenericInstance *node = getType<SynTypeGenericInstance>(syntax))
 	{
-		TypeBase *baseType = AnalyzeType(ctx, node->baseType);
+		TypeBase *baseType = AnalyzeType(ctx, node->baseType, true, failed);
 
 		// TODO: overloads with a different number of generic arguments
 
@@ -1696,7 +1721,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 			for(SynBase *el = node->types.head; el; el = el->next)
 			{
-				TypeBase *type = AnalyzeType(ctx, el);
+				TypeBase *type = AnalyzeType(ctx, el, true, failed);
 
 				isGeneric |= type->isGeneric;
 
@@ -3249,7 +3274,11 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 
 		for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next), pos++)
 		{
-			TypeBase *expectedType = AnalyzeType(ctx, argument->type);
+			bool failed = false;
+			TypeBase *expectedType = AnalyzeType(ctx, argument->type, true, &failed);
+
+			if(failed)
+				break;
 
 			ArgumentData &actualArgument = arguments[pos];
 
@@ -4305,6 +4334,8 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	TypeHandle *instanceArg = instance ? instance->arguments.head : NULL;
 
+	bool hadGenericArgument = false;
+
 	for(SynFunctionArgument *argument = arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next))
 	{
 		TypeBase *type = NULL;
@@ -4329,13 +4360,16 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 				ctx.AddVariable(new VariableData(prevArg, ctx.scope, 0, data.type, data.name, 0, ctx.uniqueVariableId++));
 			}
 
-			type = AnalyzeType(ctx, argument->type);
+			bool failed = false;
+			type = AnalyzeType(ctx, argument->type, true, hadGenericArgument ? &failed : NULL);
 
 			if(type == ctx.typeAuto)
 				Stop(ctx, argument->type->pos, "ERROR: function parameter cannot be an auto type");
 
 			if(type == ctx.typeVoid)
 				Stop(ctx, argument->type->pos, "ERROR: function parameter cannot be a void type");
+
+			hadGenericArgument |= type->isGeneric;
 
 			// Remove temporary scope
 			ctx.PopScope();
@@ -5764,7 +5798,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					}
 					else
 					{
-						TypeClass *classType = new TypeClass(source, className, protoClass, actualGenerics, false, NULL);
+						TypeClass *classType = new TypeClass(source, ctx.scope, className, protoClass, actualGenerics, false, NULL);
 
 						classType->imported = true;
 
@@ -5788,7 +5822,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 					definition->imported = true;
 
-					importedType = new TypeGenericClassProto(className, definition);
+					importedType = new TypeGenericClassProto(source, ctx.scope, className, definition);
 
 					ctx.AddType(importedType);
 				}
@@ -5796,7 +5830,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				{
 					IntrusiveList<MatchData> actualGenerics;
 
-					TypeClass *classType = new TypeClass(source, className, NULL, actualGenerics, false, NULL);
+					TypeClass *classType = new TypeClass(source, ctx.scope, className, NULL, actualGenerics, false, NULL);
 
 					classType->imported = true;
 
