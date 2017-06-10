@@ -2004,6 +2004,19 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 		return access;
 	}
 
+	if(path.empty())
+	{
+		// Try a class constant or an alias
+		if(TypeStruct *structType = getType<TypeStruct>(ctx.GetCurrentType()))
+		{
+			for(ConstantData *curr = structType->constants.head; curr; curr = curr->next)
+			{
+				if(curr->name == name)
+					return curr->value;
+			}
+		}
+	}
+
 	HashMap<FunctionData*>::Node *function = NULL;
 	
 	if(path.empty())
