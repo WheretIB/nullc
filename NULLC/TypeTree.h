@@ -245,25 +245,27 @@ struct AliasData
 
 struct ScopeData
 {
-	ScopeData(unsigned depth, ScopeData *scope): depth(depth), scope(scope), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(0)
+	ScopeData(unsigned depth, ScopeData *scope, unsigned uniqueId): depth(depth), scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(0)
 	{
 	}
 
-	ScopeData(unsigned depth, ScopeData *scope, NamespaceData *ownerNamespace): depth(depth), scope(scope), globalSize(0), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0)
+	ScopeData(unsigned depth, ScopeData *scope, unsigned uniqueId, NamespaceData *ownerNamespace): depth(depth), scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0)
 	{
 	}
 
-	ScopeData(unsigned depth, ScopeData *scope, FunctionData *ownerFunction): depth(depth), scope(scope), globalSize(0), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0)
+	ScopeData(unsigned depth, ScopeData *scope, unsigned uniqueId, FunctionData *ownerFunction): depth(depth), scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0)
 	{
 	}
 
-	ScopeData(unsigned depth, ScopeData *scope, TypeBase *ownerType): depth(depth), scope(scope), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(ownerType)
+	ScopeData(unsigned depth, ScopeData *scope, unsigned uniqueId, TypeBase *ownerType): depth(depth), scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(ownerType)
 	{
 	}
 
 	unsigned depth;
 
 	ScopeData *scope;
+
+	unsigned uniqueId;
 
 	long long globalSize;
 
@@ -275,6 +277,7 @@ struct ScopeData
 	FastVector<FunctionData*> functions;
 	FastVector<VariableData*> variables;
 	FastVector<AliasData*> aliases;
+	FastVector<ScopeData*> scopes;
 };
 
 struct FunctionValue
