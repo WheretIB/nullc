@@ -2569,17 +2569,8 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 	return CreateMemberAccess(ctx, syntax, value, syntax->member);
 }
 
-ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *value, ExprBase *index)
+ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *value, SmallArray<ArgumentData, 32> &arguments)
 {
-	index = CreateCast(ctx, source, index, ctx.typeInt, false);
-
-	ExpressionEvalContext evalCtx(ctx);
-
-	ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(Evaluate(evalCtx, index));
-
-	if(indexValue && indexValue->value < 0)
-		Stop(ctx, source->pos, "ERROR: array index cannot be negative");
-
 	ExprBase* wrapped = value;
 
 	if(TypeRef *refType = getType<TypeRef>(value->type))
@@ -2603,10 +2594,50 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 		{
 			wrapped = node->value;
 		}
+		else if(!isType<TypeRef>(wrapped->type))
+		{
+			VariableData *storage = AllocateTemporary(ctx, source, wrapped->type);
+
+			CreateAssignment(ctx, source, new ExprVariableAccess(source, wrapped->type, storage), value);
+
+			wrapped = new ExprGetAddress(source, ctx.GetReferenceType(wrapped->type), storage);
+		}
 	}
 
 	if(isType<TypeRef>(wrapped->type) || isType<TypeUnsizedArray>(value->type))
 	{
+		bool findOverload = arguments.empty() || arguments.size() > 1;
+
+		for(unsigned i = 0; i < arguments.size(); i++)
+		{
+			if(!arguments[i].name.empty())
+				findOverload = true;
+		}
+
+		if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("[]")))
+		{
+			SmallArray<ArgumentData, 32> callArguments;
+			callArguments.push_back(ArgumentData(wrapped->source, false, InplaceStr(), wrapped->type, wrapped));
+
+			for(unsigned i = 0; i < arguments.size(); i++)
+				callArguments.push_back(arguments[i]);
+
+			if(ExprBase *result = CreateFunctionCall(ctx, source, overloads, callArguments, !findOverload))
+				return result;
+		}
+
+		if(findOverload)
+			Stop(ctx, source->pos, "ERROR: overloaded '[]' operator is not available");
+
+		ExprBase *index = CreateCast(ctx, source, arguments[0].value, ctx.typeInt, false);
+
+		ExpressionEvalContext evalCtx(ctx);
+
+		ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(Evaluate(evalCtx, index));
+
+		if(indexValue && indexValue->value < 0)
+			Stop(ctx, source->pos, "ERROR: array index cannot be negative");
+
 		if(TypeArray *type = getType<TypeArray>(value->type))
 		{
 			if(indexValue && indexValue->value >= type->length)
@@ -2634,37 +2665,18 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 
 ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 {
-	bool findOverload = syntax->arguments.empty() || syntax->arguments.size() > 1;
+	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
+
+	SmallArray<ArgumentData, 32> arguments;
 
 	for(SynCallArgument *curr = syntax->arguments.head; curr; curr = getType<SynCallArgument>(curr->next))
 	{
-		if(!curr->name.empty())
-			findOverload = true;
+		ExprBase *index = AnalyzeExpression(ctx, curr->value);
+
+		arguments.push_back(ArgumentData(index->source, false, curr->name, index->type, index));
 	}
 
-	if(ExprBase *overloads = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr("[]")))
-	{
-		SynCallArgument *arg0 = new SynCallArgument(syntax->value->pos, InplaceStr(), syntax->value);
-
-		// Link in value as the first argument
-		arg0->next = syntax->arguments.head;
-
-		if(ExprBase *result = CreateFunctionCall(ctx, syntax, overloads, arg0, !findOverload))
-			return result;
-
-		arg0->next = NULL;
-	}
-
-	if(findOverload)
-		Stop(ctx, syntax->pos, "ERROR: overloaded '[]' operator is not available");
-
-	SynCallArgument *argument = syntax->arguments.head;
-
-	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
-
-	ExprBase *index = AnalyzeExpression(ctx, argument->value);
-
-	return CreateArrayIndex(ctx, syntax, value, index);
+	return CreateArrayIndex(ctx, syntax, value, arguments);
 }
 
 ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
@@ -5257,7 +5269,11 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			ctx.AddVariable(variable);
 
 			ExprBase *variableValue = new ExprVariableAccess(curr, type, variable);
-			ExprBase *arrayIndex = CreateArrayIndex(ctx, curr, value, iteratorValue);
+
+			SmallArray<ArgumentData, 32> arguments;
+			arguments.push_back(ArgumentData(iteratorValue->source, false, InplaceStr(), iteratorValue->type, iteratorValue));
+
+			ExprBase *arrayIndex = CreateArrayIndex(ctx, curr, value, arguments);
 
 			assert(isType<ExprDereference>(arrayIndex));
 
