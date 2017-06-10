@@ -2381,6 +2381,12 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 			if(curr->name == member)
 				return new ExprTypeLiteral(source, ctx.typeTypeID, curr->type);
 		}
+
+		for(MatchData *curr = classType->generics.head; curr; curr = curr->next)
+		{
+			if(curr->name == member)
+				return new ExprTypeLiteral(source, ctx.typeTypeID, curr->type);
+		}
 	}
 
 	if(TypeStruct *structType = getType<TypeStruct>(type))
