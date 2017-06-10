@@ -1562,7 +1562,39 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 	{
 		if(ctx.emulateKnownExternals && GetFunctionIndex(ctx, ptr->data) < ctx.ctx.baseModuleFunctionCount)
 		{
-			if(ptr->data->name == InplaceStr("bool") && arguments[0]->type == ctx.ctx.typeBool)
+			if(ptr->data->name == InplaceStr("assert") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
+			{
+				long long value;
+				if(!TryTakeLong(arguments[0], value))
+					return Report(ctx, "ERROR: failed to evaluate value");
+
+				if(value == 0)
+					return Report(ctx, "ERROR: Assertion failed");
+
+				return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
+			}
+			else if(ptr->data->name == InplaceStr("assert") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeInt && arguments[1]->type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
+			{
+				long long value;
+				if(!TryTakeLong(arguments[0], value))
+					return Report(ctx, "ERROR: failed to evaluate value");
+
+				ExprMemoryLiteral *memory = getType<ExprMemoryLiteral>(arguments[1]);
+
+				ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(CreateExtract(ctx, memory, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
+				ExprIntegerLiteral *length = getType<ExprIntegerLiteral>(CreateExtract(ctx, memory, sizeof(void*), ctx.ctx.typeInt));
+
+				if(!ptr)
+					return Report(ctx, "ERROR: null pointer access");
+
+				assert(length);
+
+				if(value == 0)
+					return Report(ctx, "ERROR: %.*s", length->value, ptr->ptr);
+
+				return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
+			}
+			else if(ptr->data->name == InplaceStr("bool") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeBool)
 			{
 				long long value;
 				if(!TryTakeLong(arguments[0], value))
@@ -1570,7 +1602,7 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, new ExprBoolLiteral(expression->source, ctx.ctx.typeBool, value != 0));
 			}
-			else if(ptr->data->name == InplaceStr("char") && arguments[0]->type == ctx.ctx.typeChar)
+			else if(ptr->data->name == InplaceStr("char") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeChar)
 			{
 				long long value;
 				if(!TryTakeLong(arguments[0], value))
@@ -1578,7 +1610,7 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, new ExprIntegerLiteral(expression->source, ctx.ctx.typeChar, char(value)));
 			}
-			else if(ptr->data->name == InplaceStr("short") && arguments[0]->type == ctx.ctx.typeShort)
+			else if(ptr->data->name == InplaceStr("short") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeShort)
 			{
 				long long value;
 				if(!TryTakeLong(arguments[0], value))
@@ -1586,7 +1618,7 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, new ExprIntegerLiteral(expression->source, ctx.ctx.typeShort, short(value)));
 			}
-			else if(ptr->data->name == InplaceStr("int") && arguments[0]->type == ctx.ctx.typeInt)
+			else if(ptr->data->name == InplaceStr("int") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
 			{
 				long long value;
 				if(!TryTakeLong(arguments[0], value))
@@ -1594,7 +1626,7 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, new ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, int(value)));
 			}
-			else if(ptr->data->name == InplaceStr("long") && arguments[0]->type == ctx.ctx.typeLong)
+			else if(ptr->data->name == InplaceStr("long") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeLong)
 			{
 				long long value;
 				if(!TryTakeLong(arguments[0], value))
@@ -1602,7 +1634,7 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, new ExprIntegerLiteral(expression->source, ctx.ctx.typeLong, value));
 			}
-			else if(ptr->data->name == InplaceStr("float") && arguments[0]->type == ctx.ctx.typeFloat)
+			else if(ptr->data->name == InplaceStr("float") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeFloat)
 			{
 				double value;
 				if(!TryTakeDouble(arguments[0], value))
@@ -1610,13 +1642,62 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, new ExprRationalLiteral(expression->source, ctx.ctx.typeFloat, value));
 			}
-			else if(ptr->data->name == InplaceStr("double") && arguments[0]->type == ctx.ctx.typeDouble)
+			else if(ptr->data->name == InplaceStr("double") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeDouble)
 			{
 				double value;
 				if(!TryTakeDouble(arguments[0], value))
 					return Report(ctx, "ERROR: failed to evaluate value");
 
 				return CheckType(expression, new ExprRationalLiteral(expression->source, ctx.ctx.typeDouble, value));
+			}
+			else if(ptr->data->name == InplaceStr("bool::bool") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeBool)
+			{
+				if(!CreateStore(ctx, ptr->context, arguments[0]))
+					return NULL;
+
+				return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
+			}
+			else if(ptr->data->name == InplaceStr("char::char") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeChar)
+			{
+				if(!CreateStore(ctx, ptr->context, arguments[0]))
+					return NULL;
+
+				return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
+			}
+			else if(ptr->data->name == InplaceStr("short::short") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeShort)
+			{
+				if(!CreateStore(ctx, ptr->context, arguments[0]))
+					return NULL;
+
+				return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
+			}
+			else if(ptr->data->name == InplaceStr("int::int") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
+			{
+				if(!CreateStore(ctx, ptr->context, arguments[0]))
+					return NULL;
+
+				return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
+			}
+			else if(ptr->data->name == InplaceStr("long::long") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeLong)
+			{
+				if(!CreateStore(ctx, ptr->context, arguments[0]))
+					return NULL;
+
+				return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
+			}
+			else if(ptr->data->name == InplaceStr("float::float") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeFloat)
+			{
+				if(!CreateStore(ctx, ptr->context, arguments[0]))
+					return NULL;
+
+				return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
+			}
+			else if(ptr->data->name == InplaceStr("double::double") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeDouble)
+			{
+				if(!CreateStore(ctx, ptr->context, arguments[0]))
+					return NULL;
+
+				return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
 			}
 			else if(ptr->data->name == InplaceStr("__newS"))
 			{
