@@ -5014,18 +5014,6 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 	unsigned alignment = syntax->align ? AnalyzeAlignment(ctx, syntax->align) : 0;
 
-	TypeClass *baseClass = NULL;
-
-	if(syntax->baseClass)
-	{
-		TypeBase *type = AnalyzeType(ctx, syntax->baseClass);
-
-		baseClass = getType<TypeClass>(type);
-
-		if(!baseClass || !baseClass->extendable)
-			Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not extendable", FMT_ISTR(type->name));
-	}
-
 	IntrusiveList<MatchData> actualGenerics;
 
 	{
@@ -5039,6 +5027,25 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 			currType = currType->next;
 			currName = getType<SynIdentifier>(currName->next);
 		}
+	}
+
+	TypeClass *baseClass = NULL;
+
+	if(syntax->baseClass)
+	{
+		ctx.PushTemporaryScope();
+
+		for(MatchData *el = actualGenerics.head; el; el = el->next)
+			ctx.AddAlias(new AliasData(syntax, ctx.scope, el->type, el->name, ctx.uniqueAliasId++));
+
+		TypeBase *type = AnalyzeType(ctx, syntax->baseClass);
+
+		ctx.PopScope();
+
+		baseClass = getType<TypeClass>(type);
+
+		if(!baseClass || !baseClass->extendable)
+			Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not extendable", FMT_ISTR(type->name));
 	}
 	
 	bool extendable = syntax->extendable || baseClass;
