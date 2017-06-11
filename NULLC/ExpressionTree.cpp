@@ -1315,16 +1315,26 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 		{
 			if(access->function->accessor)
 			{
+				SmallArray<ArgumentData, 32> arguments;
+				arguments.push_back(ArgumentData(rhs->source, false, InplaceStr(), rhs->type, rhs));
+
 				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(access->function->name.hash()))
 				{
 					ExprBase *overloads = CreateFunctionAccess(ctx, source, function, access->context);
 
-					SmallArray<ArgumentData, 32> arguments;
-
-					arguments.push_back(ArgumentData(rhs->source, false, InplaceStr(), rhs->type, rhs));
-
 					if(ExprBase *call = CreateFunctionCall(ctx, source, overloads, arguments, true))
 						return call;
+				}
+
+				if(FunctionData *proto = access->function->proto)
+				{
+					if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(proto->name.hash()))
+					{
+						ExprBase *overloads = CreateFunctionAccess(ctx, source, function, access->context);
+
+						if(ExprBase *call = CreateFunctionCall(ctx, source, overloads, arguments, true))
+							return call;
+					}
 				}
 			}
 		}
@@ -3625,6 +3635,8 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(expr);
 
 	assert(definition);
+
+	definition->function->proto = function;
 
 	function->instances.push_back(definition->function);
 

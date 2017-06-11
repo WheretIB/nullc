@@ -169,6 +169,8 @@ struct FunctionData
 		isPrototype = false;
 		implementation = NULL;
 
+		proto = NULL;
+
 		definition = NULL;
 
 		declaration = NULL;
@@ -205,6 +207,8 @@ struct FunctionData
 
 	bool isPrototype;
 	FunctionData *implementation;
+
+	FunctionData *proto;
 
 	SmallArray<FunctionData*, 32> instances;
 
