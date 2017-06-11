@@ -5801,6 +5801,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 	module.types.resize(bCode->typeCount);
 
+	ExternConstantInfo *currentConstant = constantList;
+
 	for(unsigned i = 0; i < bCode->typeCount; i++)
 	{
 		ExternTypeInfo &type = typeList[i];
@@ -5879,9 +5881,6 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				if(type.namespaceHash != ~0u)
 					Stop(ctx, source->pos, "ERROR: can't import namespace type");
 
-				if(type.constantCount != 0)
-					Stop(ctx, source->pos, "ERROR: can't import constants of type");
-
 				if(type.definitionOffset != ~0u && type.definitionOffset & 0x80000000)
 				{
 					TypeBase *proto = module.types[type.definitionOffset & ~0x80000000];
@@ -5952,6 +5951,16 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 					ctx.AddType(importedType);
 				}
+				else if(type.type != ExternTypeInfo::TYPE_COMPLEX)
+				{
+					TypeEnum *enumType = new TypeEnum(source, ctx.scope, className);
+
+					enumType->imported = true;
+
+					importedType = enumType;
+
+					ctx.AddType(importedType);
+				}
 				else
 				{
 					IntrusiveList<MatchData> actualGenerics;
@@ -5972,7 +5981,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 				const char *memberNames = className.end + 1;
 
-				if(TypeClass *classType = getType<TypeClass>(importedType))
+				if(TypeStruct *classType = getType<TypeStruct>(importedType))
 				{
 					ctx.PushScope(importedType);
 
@@ -5989,6 +5998,41 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						VariableData *member = new VariableData(source, ctx.scope, 0, memberType, memberName, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
 
 						classType->members.push_back(new VariableHandle(member));
+					}
+
+					for(unsigned int n = 0; n < type.constantCount; n++)
+					{
+						InplaceStr memberName = InplaceStr(memberNames);
+						memberNames = memberName.end + 1;
+
+						TypeBase *constantType = module.types[currentConstant->type];
+
+						if(!constantType)
+							Stop(ctx, source->pos, "ERROR: can't find constant %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
+
+						ExprBase *value = NULL;
+
+						if(constantType == ctx.typeBool)
+						{
+							value = new ExprBoolLiteral(source, constantType, currentConstant->value != 0);
+						}
+						else if(ctx.IsIntegerType(constantType) || isType<TypeEnum>(constantType))
+						{
+							value = new ExprIntegerLiteral(source, constantType, currentConstant->value);
+						}
+						else if(ctx.IsFloatingPointType(constantType))
+						{
+							double data = 0.0;
+							memcpy(&data, &currentConstant->value, sizeof(double));
+							value = new ExprRationalLiteral(source, constantType, data);
+						}
+							
+						if(!value)
+							Stop(ctx, source->pos, "ERROR: can't import constant %d of type '%.*s'", n + 1, FMT_ISTR(constantType->name));
+
+						classType->constants.push_back(new ConstantData(memberName, value));
+
+						currentConstant++;
 					}
 
 					ctx.PopScope();
