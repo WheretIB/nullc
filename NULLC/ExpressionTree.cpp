@@ -5285,12 +5285,21 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			ExprBase* wrapped = value;
 
 			if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
+			{
 				wrapped = new ExprGetAddress(value->source, ctx.GetReferenceType(value->type), node->variable);
+			}
 			else if(ExprDereference *node = getType<ExprDereference>(value))
+			{
 				wrapped = node->value;
+			}
+			else if(!isType<TypeRef>(wrapped->type))
+			{
+				VariableData *storage = AllocateTemporary(ctx, value->source, wrapped->type);
 
-			if(!isType<TypeRef>(wrapped->type))
-				Stop(ctx, value->source->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(value->type->name));
+				CreateAssignment(ctx, value->source, new ExprVariableAccess(value->source, wrapped->type, storage), value);
+
+				wrapped = new ExprGetAddress(value->source, ctx.GetReferenceType(wrapped->type), storage);
+			}
 
 			// Create initializer
 			VariableData *iterator = AllocateTemporary(ctx, curr, ctx.typeInt);
