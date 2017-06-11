@@ -831,10 +831,22 @@ ExprBase* EvaluateCast(Eval &ctx, ExprTypeCast *expression)
 		}
 		break;
 	case EXPR_CAST_PTR_TO_BOOL:
-		break;
+		return CheckType(expression, new ExprBoolLiteral(expression->source, ctx.ctx.typeBool, !isType<ExprNullptrLiteral>(value)));
 	case EXPR_CAST_UNSIZED_TO_BOOL:
+		{
+			ExprMemoryLiteral *memLiteral = getType<ExprMemoryLiteral>(value);
+
+			ExprBase *ptr = CreateExtract(ctx, memLiteral, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
+
+			return CheckType(expression, new ExprBoolLiteral(expression->source, ctx.ctx.typeBool, !isType<ExprNullptrLiteral>(ptr)));
+		}
 		break;
 	case EXPR_CAST_FUNCTION_TO_BOOL:
+		{
+			ExprFunctionLiteral *funcLiteral = getType<ExprFunctionLiteral>(value);
+
+			return CheckType(expression, new ExprBoolLiteral(expression->source, ctx.ctx.typeBool, funcLiteral->data != NULL));
+		}
 		break;
 	case EXPR_CAST_NULL_TO_PTR:
 		return CheckType(expression, new ExprNullptrLiteral(expression->source, expression->type));
