@@ -4747,7 +4747,10 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 		ExprBase *access = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr(name));
 
-		access = CreateCast(ctx, syntax, access, el->type, true);
+		if(ctx.GetReferenceType(el->type) == access->type)
+			access = new ExprDereference(syntax, el->type, access);
+		else
+			access = CreateCast(ctx, syntax, access, el->type, true);
 
 		expressions.push_back(new ExprVariableDefinition(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, pointer, access)));
 	}
@@ -5389,13 +5392,25 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 			ExprBase *variableValue = new ExprVariableAccess(curr, type, variable);
 
-			definitions.push_back(new ExprVariableDefinition(curr, ctx.typeVoid, functPtr, CreateAssignment(ctx, curr, variableValue, CreateFunctionCall(ctx, curr, functPtrValue, NULL, false))));
+			if(ExprBase *call = CreateFunctionCall(ctx, curr, functPtrValue, NULL, false))
+			{
+				if(ctx.GetReferenceType(type) == call->type)
+					call = new ExprDereference(curr, type, call);
+
+				definitions.push_back(new ExprVariableDefinition(curr, ctx.typeVoid, functPtr, CreateAssignment(ctx, curr, variableValue, call)));
+			}
 
 			// Create condition
 			conditions.push_back(new ExprUnaryOp(curr, ctx.typeBool, SYN_UNARY_OP_LOGICAL_NOT, CreateFunctionCall(ctx, curr, InplaceStr("isCoroutineReset"), functPtrValue, false)));
 
 			// Create increment
-			increments.push_back(CreateAssignment(ctx, curr, variableValue, CreateFunctionCall(ctx, curr, functPtrValue, NULL, false)));
+			if(ExprBase *call = CreateFunctionCall(ctx, curr, functPtrValue, NULL, false))
+			{
+				if(ctx.GetReferenceType(type) == call->type)
+					call = new ExprDereference(curr, type, call);
+
+				increments.push_back(CreateAssignment(ctx, curr, variableValue, call));
+			}
 		}
 		else
 		{
@@ -5420,6 +5435,9 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			variable->isReference = curr->type == NULL && isType<TypeRef>(type);
 
 			ctx.AddVariable(variable);
+
+			if(ctx.GetReferenceType(type) == call->type)
+				call = new ExprDereference(curr, type, call);
 
 			definitions.push_back(new ExprVariableDefinition(curr, ctx.typeVoid, variable, CreateAssignment(ctx, curr, new ExprVariableAccess(curr, type, variable), call)));
 		}
