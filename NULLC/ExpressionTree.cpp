@@ -1268,11 +1268,20 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 
 ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase *value)
 {
-	if(!ctx.IsNumericType(value->type) && !isType<TypeRef>(value->type))
+	if(!ctx.IsNumericType(value->type))
 	{
 		// TODO: function overload
 
-		if(isType<TypeFunction>(value->type) || isType<TypeUnsizedArray>(value->type) || value->type == ctx.typeAutoRef)
+		if(isType<TypeRef>(value->type))
+			return CreateCast(ctx, source, value, ctx.typeBool, false);
+
+		if(isType<TypeUnsizedArray>(value->type))
+			return CreateCast(ctx, source, value, ctx.typeBool, false);
+
+		if(isType<TypeFunction>(value->type))
+			return CreateCast(ctx, source, value, ctx.typeBool, false);
+
+		if(value->type == ctx.typeAutoRef)
 		{
 			ExprBase *nullPtr = new ExprNullptrLiteral(value->source, ctx.typeNullPtr);
 
