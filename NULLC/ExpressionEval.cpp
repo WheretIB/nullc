@@ -155,7 +155,7 @@ bool CreateStore(Eval &ctx, ExprBase *target, ExprBase *value)
 
 	if(ExprFunctionLiteral *expr = getType<ExprFunctionLiteral>(value))
 	{
-		unsigned index = GetFunctionIndex(ctx, expr->data);
+		unsigned index = expr->data ? GetFunctionIndex(ctx, expr->data) + 1 : 0;
 		memcpy(ptr->ptr, &index, sizeof(unsigned));
 
 		if(ExprNullptrLiteral *value = getType<ExprNullptrLiteral>(expr->context))
@@ -289,11 +289,18 @@ ExprBase* CreateLoad(Eval &ctx, ExprBase *target)
 		unsigned index = 0;
 		memcpy(&index, ptr->ptr, sizeof(unsigned));
 
-		FunctionData *data = ctx.ctx.functions[index];
+		FunctionData *data = index != 0 ? ctx.ctx.functions[index - 1] : NULL;
 
 		unsigned char *value = 0;
 		memcpy(&value, ptr->ptr + 4, sizeof(value));
 		
+		if(!data)
+		{
+			assert(value == NULL);
+
+			return new ExprFunctionLiteral(target->source, type, NULL, new ExprNullptrLiteral(target->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+		}
+
 		TypeRef *ptrType = getType<TypeRef>(data->contextType);
 
 		assert(ptrType);
@@ -875,7 +882,7 @@ ExprBase* EvaluateCast(Eval &ctx, ExprTypeCast *expression)
 		{
 			ExprBase *context = new ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
 
-			ExprFunctionLiteral *result = new ExprFunctionLiteral(expression->source, expression->type, ctx.ctx.functions[0], context);
+			ExprFunctionLiteral *result = new ExprFunctionLiteral(expression->source, expression->type, NULL, context);
 
 			return CheckType(expression, result);
 		}
@@ -1556,7 +1563,8 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 	ExprFunctionLiteral *ptr = getType<ExprFunctionLiteral>(function);
 
-	assert(ptr);
+	if(!ptr->data)
+		return Report(ctx, "ERROR: null function pointer call");
 
 	if(!ptr->data->declaration)
 	{
