@@ -1308,7 +1308,7 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase 
 		}
 		else
 		{
-			Stop(ctx, source->pos, "ERROR: condition type cannot be '%.*s' and function for conversion to bool is undefined", FMT_ISTR(value->type->name));
+			return CreateFunctionCall(ctx, source, InplaceStr("bool"), value, false);
 		}
 	}
 
