@@ -1319,6 +1319,9 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 				}
 			}
 		}
+
+		if(TypeRef *refType = getType<TypeRef>(lhs->type))
+			lhs = new ExprDereference(source, refType->subType, lhs);
 	}
 
 	if(!isType<TypeRef>(wrapped->type))
@@ -2618,7 +2621,12 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 				callArguments.push_back(arguments[i]);
 
 			if(ExprBase *result = CreateFunctionCall(ctx, source, overloads, callArguments, !findOverload))
+			{
+				if(TypeRef *refType = getType<TypeRef>(result->type))
+					return new ExprDereference(source, refType->subType, result);
+
 				return result;
+			}
 		}
 
 		if(findOverload)
