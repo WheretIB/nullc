@@ -1352,6 +1352,12 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 	if(lhs->type == ctx.typeVoid)
 		Stop(ctx, source->pos, "ERROR: cannot convert from %.*s to void", FMT_ISTR(rhs->type->name));
 
+	if(ExprBase *result = CreateFunctionCall(ctx, source, InplaceStr("="), wrapped, rhs, true))
+		return result;
+
+	if((isType<TypeArray>(lhs->type) || isType<TypeUnsizedArray>(lhs->type)) && rhs->type == ctx.typeAutoArray)
+		return CreateFunctionCall(ctx, source, InplaceStr("__aaassignrev"), wrapped, rhs, false);
+
 	rhs = CreateCast(ctx, source, rhs, lhs->type, false);
 
 	return new ExprAssignment(source, lhs->type, wrapped, rhs);
@@ -2315,9 +2321,6 @@ ExprBase* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
 {
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
-
-	if(ExprBase *result = CreateFunctionCall(ctx, syntax, InplaceStr("="), lhs, rhs, true))
-		return result;
 
 	return CreateAssignment(ctx, syntax, lhs, rhs);
 }
@@ -4333,7 +4336,7 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 		TypeArray *arrType = getType<TypeArray>(variable->type);
 
 		// Single-level array might be set with a single element at the point of definition
-		if(arrType && !isType<TypeArray>(initializer->type))
+		if(arrType && !isType<TypeArray>(initializer->type) && initializer->type != ctx.typeAutoArray)
 		{
 			initializer = CreateCast(ctx, syntax->initializer, initializer, arrType->subType, false);
 
