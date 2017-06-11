@@ -6141,6 +6141,8 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 	ExternFuncInfo *functionList = FindFirstFunc(bCode);
 	ExternLocalInfo *localList = FindFirstLocal(bCode);
 
+	unsigned currCount = ctx.functions.size();
+
 	for(unsigned i = 0; i < bCode->functionCount - bCode->moduleFunctionCount; i++)
 	{
 		ExternFuncInfo &function = functionList[i];
@@ -6218,7 +6220,6 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 			InplaceStr argName = InplaceStr(symbols + argument.offsetToName);
 
-			// TODO: default argument values
 			data->arguments.push_back(ArgumentData(source, isExplicit, argName, argType, NULL));
 
 			unsigned offset = AllocateVariableInScope(ctx.scope, 0, argType);
@@ -6268,6 +6269,27 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		if(parentType)
 			ctx.PopScope();
+	}
+
+	for(unsigned i = 0; i < bCode->functionCount - bCode->moduleFunctionCount; i++)
+	{
+		ExternFuncInfo &function = functionList[i];
+
+		FunctionData *data = ctx.functions[currCount + i];
+
+		for(unsigned n = 0; n < function.paramCount; n++)
+		{
+			ExternLocalInfo &argument = localList[function.offsetToFirstLocal + n];
+
+			if(argument.defaultFuncId != 0xffff)
+			{
+				FunctionData *target = ctx.functions[currCount + argument.defaultFuncId - bCode->moduleFunctionCount];
+
+				ExprBase *access = new ExprFunctionAccess(source, target->type, target, new ExprNullptrLiteral(source, ctx.GetReferenceType(ctx.typeVoid)));
+
+				data->arguments[n].value = new ExprFunctionCall(source, target->type->returnType, access, IntrusiveList<ExprBase>());
+			}
+		}
 	}
 }
 
