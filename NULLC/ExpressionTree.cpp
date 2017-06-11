@@ -4137,15 +4137,20 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *overloads = CreateFunctionAccess(ctx, syntax, function, pointer);
 
-		ExprBase *call = CreateFunctionCall(ctx, syntax, overloads, syntax->arguments.head, false);
+		if(ExprBase *call = CreateFunctionCall(ctx, syntax, overloads, syntax->arguments.head, syntax->arguments.empty()))
+		{
+			IntrusiveList<ExprBase> expressions;
 
-		IntrusiveList<ExprBase> expressions;
+			expressions.push_back(definition);
+			expressions.push_back(call);
+			expressions.push_back(pointer);
 
-		expressions.push_back(definition);
-		expressions.push_back(call);
-		expressions.push_back(pointer);
-
-		alloc = new ExprSequence(syntax, allocType, expressions);
+			alloc = new ExprSequence(syntax, allocType, expressions);
+		}
+		else
+		{
+			// TODO: default constructor call
+		}
 	}
 	else if(syntax->arguments.size() == 1 && syntax->arguments.head->name.empty())
 	{
