@@ -5335,16 +5335,90 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			if(ExprDereference *node = getType<ExprDereference>(arrayIndex))
 				arrayIndex = node->value;
 
-			ExprBase *variableAssignment = CreateAssignment(ctx, curr, variableValue, arrayIndex);
-
-			definitions.push_back(new ExprVariableDefinition(curr, ctx.typeVoid, variable, variableAssignment));
+			definitions.push_back(new ExprVariableDefinition(curr, ctx.typeVoid, variable, CreateAssignment(ctx, curr, variableValue, arrayIndex)));
 
 			// Create increment
 			increments.push_back(new ExprPreModify(curr, ctx.typeInt, new ExprGetAddress(curr, ctx.GetReferenceType(ctx.typeInt), iterator), true));
+			continue;
+		}
+
+		TypeFunction *functionType = getType<TypeFunction>(value->type);
+		ExprBase *startCall = NULL;
+		
+		// If we don't have a function, get an iterator
+		if(!functionType)
+		{
+			startCall = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, value, InplaceStr("start")), NULL, false);
+
+			// Check if iteartor is a coroutine
+			functionType = getType<TypeFunction>(startCall->type);
+
+			if(functionType)
+				value = startCall;
+		}
+
+		if(functionType)
+		{
+			// Store function pointer in a variable
+			VariableData *functPtr = AllocateTemporary(ctx, curr, value->type);
+			ExprBase *functPtrValue = new ExprVariableAccess(curr, value->type, functPtr);
+
+			initializers.push_back(new ExprVariableDefinition(curr, ctx.typeVoid, functPtr, CreateAssignment(ctx, curr, functPtrValue, value)));
+
+			if(ExprFunctionAccess *access = getType<ExprFunctionAccess>(value))
+			{
+				if(!access->function->coroutine)
+					Stop(ctx, curr->pos, "ERROR: function is not a coroutine");
+			}
+			else
+			{
+				initializers.push_back(CreateFunctionCall(ctx, curr, InplaceStr("__assertCoroutine"), functPtrValue, false));
+			}
+
+			// Create definition
+			if(!type)
+				type = functionType->returnType;
+
+			unsigned variableOffset = AllocateVariableInScope(ctx.scope, type->alignment, type);
+			VariableData *variable = new VariableData(curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
+
+			ctx.AddVariable(variable);
+
+			ExprBase *variableValue = new ExprVariableAccess(curr, type, variable);
+
+			definitions.push_back(new ExprVariableDefinition(curr, ctx.typeVoid, functPtr, CreateAssignment(ctx, curr, variableValue, CreateFunctionCall(ctx, curr, functPtrValue, NULL, false))));
+
+			// Create condition
+			conditions.push_back(new ExprUnaryOp(curr, ctx.typeBool, SYN_UNARY_OP_LOGICAL_NOT, CreateFunctionCall(ctx, curr, InplaceStr("isCoroutineReset"), functPtrValue, false)));
+
+			// Create increment
+			increments.push_back(CreateAssignment(ctx, curr, variableValue, CreateFunctionCall(ctx, curr, functPtrValue, NULL, false)));
 		}
 		else
 		{
-			Stop(ctx, value->source->pos, "ERROR: iterating over '%.*s' is not supported", FMT_ISTR(value->type->name));
+			// Store iterator in a variable
+			VariableData *iterator = AllocateTemporary(ctx, curr, startCall->type);
+			ExprBase *iteratorValue = new ExprVariableAccess(curr, startCall->type, iterator);
+
+			initializers.push_back(new ExprVariableDefinition(curr, ctx.typeVoid, iterator, CreateAssignment(ctx, curr, iteratorValue, startCall)));
+
+			// Create condition
+			conditions.push_back(CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, iteratorValue, InplaceStr("hasnext")), NULL, false));
+
+			// Create definition
+			ExprBase *call = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, iteratorValue, InplaceStr("next")), NULL, false);
+
+			if(!type)
+				type = call->type;
+
+			unsigned variableOffset = AllocateVariableInScope(ctx.scope, type->alignment, type);
+			VariableData *variable = new VariableData(curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
+
+			variable->isReference = curr->type == NULL && isType<TypeRef>(type);
+
+			ctx.AddVariable(variable);
+
+			definitions.push_back(new ExprVariableDefinition(curr, ctx.typeVoid, variable, CreateAssignment(ctx, curr, new ExprVariableAccess(curr, type, variable), call)));
 		}
 	}
 
