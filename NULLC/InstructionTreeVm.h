@@ -110,6 +110,7 @@ enum VmInstructionType
 	VM_INST_CHECKED_RETURN,
 
 	VM_INST_CONSTRUCT, // Pseudo instruction to collect multiple elements into a single value
+	VM_INST_EXTRACT, // Pseudo instruction to extract an element from a composite value
 };
 
 enum VmOptimizationType

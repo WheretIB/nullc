@@ -342,6 +342,9 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 	case VM_INST_CONSTRUCT:
 		Print(ctx, "construct");
 		break;
+	case VM_INST_EXTRACT:
+		Print(ctx, "extract");
+		break;
 	default:
 		assert(!"unknown instruction");
 	}

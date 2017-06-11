@@ -673,6 +673,13 @@ namespace
 		return CreateInstruction(module, type, VM_INST_CONSTRUCT, el0, el1, el2, el3);
 	}
 
+	VmValue* CreateExtract(VmModule *module, VmType type, VmValue *value, unsigned offset)
+	{
+		assert(offset + type.size <= value->type.size);
+
+		return CreateInstruction(module, type, VM_INST_EXTRACT, value, CreateConstantInt(offset));
+	}
+
 	VmValue* AllocateScopeVariable(ExpressionContext &ctx, VmModule *module, TypeBase *type)
 	{
 		FunctionData *function = module->currentFunction->function;
@@ -1288,9 +1295,19 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		case EXPR_CAST_PTR_TO_BOOL:
 			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0, false)));
 		case EXPR_CAST_UNSIZED_TO_BOOL:
-			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0, false)));
+			{
+				VmValue *ptr = CreateExtract(module, VmType::Pointer, value, 0);
+
+				return CheckType(ctx, expression, CreateCompareNotEqual(module, ptr, CreateConstantPointer(0, false)));
+			}
+			break;
 		case EXPR_CAST_FUNCTION_TO_BOOL:
-			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0, false)));
+			{
+				VmValue *index = CreateExtract(module, VmType::Int, value, sizeof(void*));
+
+				return CheckType(ctx, expression, CreateCompareNotEqual(module, index, CreateConstantInt(0)));
+			}
+			break;
 		case EXPR_CAST_NULL_TO_PTR:
 			return CheckType(ctx, expression, CreateConstantPointer(0, false));
 		case EXPR_CAST_NULL_TO_AUTO_PTR:
