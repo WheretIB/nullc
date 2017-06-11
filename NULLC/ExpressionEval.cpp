@@ -173,7 +173,7 @@ bool CreateStore(Eval &ctx, ExprBase *target, ExprBase *value)
 		TypeRef *ptrType = getType<TypeRef>(expr->type);
 
 		assert(ptrType);
-		assert(expr->ptr + ptrType->subType->size == expr->end);
+		assert(expr->ptr + ptrType->subType->size <= expr->end);
 
 		memcpy(ptr->ptr, &expr->ptr, unsigned(value->type->size));
 		return true;

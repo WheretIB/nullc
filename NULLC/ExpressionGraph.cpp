@@ -279,7 +279,64 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	}
 	else if(ExprTypeCast *node = getType<ExprTypeCast>(expression))
 	{
-		PrintEnterBlock(ctx, name, node->type, "ExprTypeCast()");
+		const char *category = "";
+
+		switch(node->category)
+		{
+		case EXPR_CAST_NUMERICAL:
+			category = "EXPR_CAST_NUMERICAL";
+			break;
+		case EXPR_CAST_PTR_TO_BOOL:
+			category = "EXPR_CAST_PTR_TO_BOOL";
+			break;
+		case EXPR_CAST_UNSIZED_TO_BOOL:
+			category = "EXPR_CAST_UNSIZED_TO_BOOL";
+			break;
+		case EXPR_CAST_FUNCTION_TO_BOOL:
+			category = "EXPR_CAST_FUNCTION_TO_BOOL";
+			break;
+		case EXPR_CAST_NULL_TO_PTR:
+			category = "EXPR_CAST_NULL_TO_PTR";
+			break;
+		case EXPR_CAST_NULL_TO_AUTO_PTR:
+			category = "EXPR_CAST_NULL_TO_AUTO_PTR";
+			break;
+		case EXPR_CAST_NULL_TO_UNSIZED:
+			category = "EXPR_CAST_NULL_TO_UNSIZED";
+			break;
+		case EXPR_CAST_NULL_TO_AUTO_ARRAY:
+			category = "EXPR_CAST_NULL_TO_AUTO_ARRAY";
+			break;
+		case EXPR_CAST_NULL_TO_FUNCTION:
+			category = "EXPR_CAST_NULL_TO_FUNCTION";
+			break;
+		case EXPR_CAST_ARRAY_TO_UNSIZED:
+			category = "EXPR_CAST_ARRAY_TO_UNSIZED";
+			break;
+		case EXPR_CAST_ARRAY_PTR_TO_UNSIZED:
+			category = "EXPR_CAST_ARRAY_PTR_TO_UNSIZED";
+			break;
+		case EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR:
+			category = "EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR";
+			break;
+		case EXPR_CAST_PTR_TO_AUTO_PTR:
+			category = "EXPR_CAST_PTR_TO_AUTO_PTR";
+			break;
+		case EXPR_CAST_ANY_TO_PTR:
+			category = "EXPR_CAST_ANY_TO_PTR";
+			break;
+		case EXPR_CAST_AUTO_PTR_TO_PTR:
+			category = "EXPR_CAST_AUTO_PTR_TO_PTR";
+			break;
+		case EXPR_CAST_UNSIZED_TO_AUTO_ARRAY:
+			category = "EXPR_CAST_UNSIZED_TO_AUTO_ARRAY";
+			break;
+		case EXPR_CAST_REINTERPRET:
+			category = "EXPR_CAST_REINTERPRET";
+			break;
+		}
+
+		PrintEnterBlock(ctx, name, node->type, "ExprTypeCast(%s)", category);
 
 		PrintGraph(ctx, node->value, "value");
 
@@ -500,7 +557,10 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	}
 	else if(ExprClassDefinition *node = getType<ExprClassDefinition>(expression))
 	{
-		PrintEnterBlock(ctx, name, node->type, "ExprClassDefinition(%.*s)", FMT_ISTR(node->classType->name));
+		if(node->classType->baseClass)
+			PrintEnterBlock(ctx, name, node->type, "ExprClassDefinition(%.*s: %.*s)", FMT_ISTR(node->classType->name), FMT_ISTR(node->classType->baseClass->name));
+		else
+			PrintEnterBlock(ctx, name, node->type, "ExprClassDefinition(%.*s%s)", FMT_ISTR(node->classType->name), node->classType->extendable ? " extendable" : "");
 
 		PrintEnterBlock(ctx, InplaceStr("variables"), 0, "");
 

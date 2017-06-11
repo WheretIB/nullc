@@ -1178,6 +1178,25 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 					return new ExprTypeCast(source, type, value, EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR);
 				}
 			}
+
+			if(isType<TypeClass>(target->subType) && isType<TypeClass>(valueType->subType))
+			{
+				TypeClass *targetClass = getType<TypeClass>(target->subType);
+				TypeClass *valueClass = getType<TypeClass>(valueType->subType);
+
+				if(IsDerivedFrom(valueClass, targetClass))
+					return new ExprTypeCast(source, type, value, EXPR_CAST_REINTERPRET);
+
+				if(IsDerivedFrom(targetClass, valueClass))
+				{
+					ExprBase *untyped = new ExprTypeCast(source, ctx.GetReferenceType(ctx.typeVoid), value, EXPR_CAST_REINTERPRET);
+					ExprBase *typeID = new ExprTypeLiteral(source, ctx.typeTypeID, targetClass);
+
+					ExprBase *checked = CreateFunctionCall(ctx, source, InplaceStr("assert_derived_from_base"), untyped, typeID, false);
+
+					return new ExprTypeCast(source, type, checked, EXPR_CAST_REINTERPRET);
+				}
+			}
 		}
 		else if(value->type == ctx.typeAutoRef)
 		{
@@ -5000,8 +5019,6 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		if(!baseClass || !baseClass->extendable)
 			Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not extendable", FMT_ISTR(type->name));
-
-		Stop(ctx, syntax->pos, "ERROR: inheritance is not supported");
 	}
 
 	IntrusiveList<MatchData> actualGenerics;
@@ -5019,9 +5036,9 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 		}
 	}
 	
-	TypeClass *classType = new TypeClass(syntax, ctx.scope, className, proto, actualGenerics, syntax->extendable, baseClass);
+	bool extendable = syntax->extendable || baseClass;
 
-	classType->alignment = alignment;
+	TypeClass *classType = new TypeClass(syntax, ctx.scope, className, proto, actualGenerics, extendable, baseClass);
 
 	ctx.AddType(classType);
 
@@ -5035,7 +5052,51 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	for(MatchData *el = classType->generics.head; el; el = el->next)
 		ctx.AddAlias(new AliasData(syntax, ctx.scope, el->type, el->name, ctx.uniqueAliasId++));
 
-	// TODO: Base class members should be introduced into the scope
+	// Base class adds a typeid parameter
+	if(extendable && !baseClass)
+	{
+		unsigned offset = AllocateVariableInScope(ctx.scope, ctx.typeTypeID->alignment, ctx.typeTypeID);
+		VariableData *member = new VariableData(syntax, ctx.scope, ctx.typeTypeID->alignment, ctx.typeTypeID, InplaceStr("$typeid"), offset, ctx.uniqueVariableId++);
+
+		ctx.AddVariable(member);
+
+		classType->members.push_back(new VariableHandle(member));
+	}
+
+	if(baseClass)
+	{
+		// Use base class alignment at ths point to match member locations
+		classType->alignment = baseClass->alignment;
+
+		// Add members of base class
+		for(MatchData *el = baseClass->aliases.head; el; el = el->next)
+		{
+			ctx.AddAlias(new AliasData(syntax, ctx.scope, el->type, el->name, ctx.uniqueAliasId++));
+
+			classType->aliases.push_back(new MatchData(el->name, el->type));
+		}
+
+		for(VariableHandle *el = baseClass->members.head; el; el = el->next)
+		{
+			unsigned offset = AllocateVariableInScope(ctx.scope, el->variable->alignment, el->variable->type);
+
+			assert(offset == el->variable->offset);
+
+			VariableData *member = new VariableData(syntax, ctx.scope, el->variable->alignment, el->variable->type, el->variable->name, offset, ctx.uniqueVariableId++);
+
+			ctx.AddVariable(member);
+
+			classType->members.push_back(new VariableHandle(member));
+		}
+
+		for(ConstantData *el = baseClass->constants.head; el; el = el->next)
+			classType->constants.push_back(new ConstantData(el->name, el->value));
+
+		assert(classType->size == baseClass->size - baseClass->padding);
+	}
+
+	if(syntax->align)
+		classType->alignment = alignment;
 
 	AnalyzeClassElements(ctx, classDefinition, syntax->elements);
 
