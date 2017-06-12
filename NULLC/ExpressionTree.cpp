@@ -4327,6 +4327,34 @@ ExprYield* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 	return NULL;
 }
 
+ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprBase *initializer)
+{
+	if(!initializer)
+		Stop(ctx, source->pos, "ERROR: auto variable must be initialized in place of definition");
+
+	if(initializer->type == ctx.typeVoid)
+		Stop(ctx, source->pos, "ERROR: r-value type is 'void'");
+
+	if(TypeFunction *target = getType<TypeFunction>(initializer->type))
+	{
+		if(FunctionValue bestOverload = GetFunctionForType(ctx, initializer->source, initializer, target))
+			initializer = new ExprFunctionAccess(initializer->source, bestOverload.function->type, bestOverload.function, bestOverload.context);
+	}
+
+	if(isType<ExprFunctionOverloadSet>(initializer))
+	{
+		SmallArray<FunctionValue, 32> functions;
+
+		GetNodeFunctions(ctx, initializer->source, initializer, functions);
+
+		char *errPos = ctx.errorBuf;
+		errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available:\n");
+		StopOnFunctionSelectError(ctx, source, errPos, functions);
+	}
+
+	return initializer;
+}
+
 ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinition *syntax, unsigned alignment, TypeBase *type)
 {
 	if(syntax->name == InplaceStr("this"))
@@ -4353,28 +4381,7 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 
 	if(type == ctx.typeAuto)
 	{
-		if(!initializer)
-			Stop(ctx, syntax->pos, "ERROR: auto variable must be initialized in place of definition");
-
-		if(initializer->type == ctx.typeVoid)
-			Stop(ctx, syntax->pos, "ERROR: r-value type is 'void'");
-
-		if(TypeFunction *target = getType<TypeFunction>(initializer->type))
-		{
-			if(FunctionValue bestOverload = GetFunctionForType(ctx, initializer->source, initializer, target))
-				initializer = new ExprFunctionAccess(initializer->source, bestOverload.function->type, bestOverload.function, bestOverload.context);
-		}
-
-		if(isType<ExprFunctionOverloadSet>(initializer))
-		{
-			SmallArray<FunctionValue, 32> functions;
-
-			GetNodeFunctions(ctx, initializer->source, initializer, functions);
-
-			char *errPos = ctx.errorBuf;
-			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available:\n");
-			StopOnFunctionSelectError(ctx, syntax, errPos, functions);
-		}
+		initializer = ResolveInitializerValue(ctx, syntax->initializer, initializer);
 
 		type = initializer->type;
 	}
@@ -4513,6 +4520,8 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	for(SynFunctionArgument *argument = arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next))
 	{
+		ExprBase *initializer = argument->initializer ? AnalyzeExpression(ctx, argument->initializer) : NULL;
+
 		TypeBase *type = NULL;
 
 		if(instance)
@@ -4539,7 +4548,11 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			type = AnalyzeType(ctx, argument->type, true, hadGenericArgument ? &failed : NULL);
 
 			if(type == ctx.typeAuto)
-				Stop(ctx, argument->type->pos, "ERROR: function parameter cannot be an auto type");
+			{
+				initializer = ResolveInitializerValue(ctx, argument, initializer);
+
+				type = initializer->type;
+			}
 
 			if(type == ctx.typeVoid)
 				Stop(ctx, argument->type->pos, "ERROR: function parameter cannot be a void type");
@@ -4549,8 +4562,6 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			// Remove temporary scope
 			ctx.PopScope();
 		}
-
-		ExprBase *initializer = argument->initializer ? AnalyzeExpression(ctx, argument->initializer) : NULL;
 
 		argData.push_back(ArgumentData(argument, argument->isExplicit, argument->name, type, initializer));
 	}
