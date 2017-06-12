@@ -3489,7 +3489,7 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 			{
 				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here");
 			}
-			else if(TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, function, arguments, aliases))
+			else if(TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, function, result, aliases))
 			{
 				GetFunctionRating(ctx, function, instance, result);
 
