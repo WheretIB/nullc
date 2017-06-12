@@ -3988,7 +3988,14 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 	if(ExprTypeLiteral *type = getType<ExprTypeLiteral>(function))
 	{
-		if(ExprBase *regular = CreateVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name))
+		ExprBase *regular = NULL;
+
+		if(SynTypeSimple *node = getType<SynTypeSimple>(syntax->value))
+			regular = CreateVariableAccess(ctx, syntax->value, node->path, node->name);
+		else
+			regular = CreateVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name);
+
+		if(regular)
 		{
 			// Collect a set of available functions
 			SmallArray<FunctionValue, 32> functions;
