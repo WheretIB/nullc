@@ -4802,6 +4802,47 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	return function->declaration;
 }
 
+ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
+{
+	InplaceStr functionName = GetTemporaryFunctionName(ctx);
+
+	SmallArray<ArgumentData, 32> arguments;
+
+	FunctionData *function = new FunctionData(syntax, ctx.scope, true, false, ctx.GetFunctionType(ctx.typeAuto, arguments), ctx.GetReferenceType(ctx.typeVoid), functionName, ctx.uniqueFunctionId++);
+
+	ctx.AddFunction(function);
+
+	ctx.PushScope(function);
+
+	function->functionScope = ctx.scope;
+
+	IntrusiveList<ExprBase> expressions;
+
+	for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
+		expressions.push_back(AnalyzeStatement(ctx, expression));
+
+	if(!function->hasExplicitReturn)
+		Stop(ctx, syntax->pos, "ERROR: not a single element is generated, and an array element type is unknown");
+
+	if(function->type->returnType == ctx.typeVoid)
+		Stop(ctx, syntax->pos, "ERROR: cannot generate an array of 'void' element type");
+
+	VariableData *empty = AllocateTemporary(ctx, syntax, function->type->returnType);
+
+	expressions.push_back(new ExprReturn(syntax, ctx.typeVoid, new ExprVariableAccess(syntax, empty->type, empty)));
+
+	ctx.PopScope();
+
+	ExprFunctionDefinition *definition = new ExprFunctionDefinition(syntax, function->type, function, NULL, IntrusiveList<ExprVariableDefinition>(), expressions);
+
+	ctx.definitions.push_back(definition);
+
+	// TODO: function context
+	ExprBase *access = new ExprFunctionAccess(syntax, function->type, function, new ExprNullptrLiteral(syntax, ctx.GetReferenceType(ctx.typeVoid)));
+
+	return CreateFunctionCall(ctx, syntax, InplaceStr("__gen_list"), access, false);
+}
+
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &currArguments)
 {
 	TypeFunction *functionType = getType<TypeFunction>(type);
@@ -5810,6 +5851,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(syntax))
 	{
 		Stop(ctx, syntax->pos, "ERROR: cannot infer type for inline function outside of the function call");
+	}
+
+	if(SynGenerator *node = getType<SynGenerator>(syntax))
+	{
+		return AnalyzeGenerator(ctx, node);
 	}
 
 	if(SynTypeReference *node = getType<SynTypeReference>(syntax))
