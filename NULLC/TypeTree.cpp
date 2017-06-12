@@ -162,6 +162,15 @@ InplaceStr GetArgumentSetTypeName(IntrusiveList<TypeHandle> types)
 	return InplaceStr(name);
 }
 
+InplaceStr GetMemberSetTypeName(TypeBase* type)
+{
+	unsigned nameLength = type->name.length() + strlen(" members");
+	char *name = new char[nameLength + 1];
+	sprintf(name, "%.*s members", FMT_ISTR(type->name));
+
+	return InplaceStr(name);
+}
+
 InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str)
 {
 	bool foundNamespace = false;

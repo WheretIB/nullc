@@ -2475,9 +2475,10 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 			if(curr->name == member)
 				return curr->value;
 		}
-	}
 
-	// hasMember(x)/[n]
+		if(member == InplaceStr("hasMember"))
+			return new ExprTypeLiteral(source, ctx.typeTypeID, new TypeMemberSet(GetMemberSetTypeName(structType), structType));
+	}
 
 	return NULL;
 }
@@ -3988,6 +3989,27 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 	if(ExprTypeLiteral *type = getType<ExprTypeLiteral>(function))
 	{
+		// Handle hasMember(x) expresion
+		if(TypeMemberSet *memberSet = getType<TypeMemberSet>(type->value))
+		{
+			if(syntax->arguments.size() == 1 && syntax->arguments.head->name.empty())
+			{
+				if(SynTypeSimple *name = getType<SynTypeSimple>(syntax->arguments.head->value))
+				{
+					if(name->path.empty())
+					{
+						for(VariableHandle *curr = memberSet->type->members.head; curr; curr = curr->next)
+						{
+							if(curr->variable->name == name->name)
+								return new ExprBoolLiteral(syntax, ctx.typeBool, true);
+						}
+
+						return new ExprBoolLiteral(syntax, ctx.typeBool, false);
+					}
+				}
+			}
+		}
+
 		ExprBase *regular = NULL;
 
 		if(SynTypeSimple *node = getType<SynTypeSimple>(syntax->value))
