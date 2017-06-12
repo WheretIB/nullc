@@ -1852,7 +1852,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmBlock *iterationBlock = new VmBlock(InplaceStr("for_iter"), module->nextBlockId++);
 		VmBlock *exitBlock = new VmBlock(InplaceStr("for_exit"), module->nextBlockId++);
 
-		//currLoopIDs.push_back(LoopInfo(exitBlock, iterationBlock));
+		module->loopInfo.push_back(VmModule::LoopInfo(exitBlock, iterationBlock));
 
 		CreateJump(module, conditionBlock);
 
@@ -1880,7 +1880,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		module->currentFunction->AddBlock(exitBlock);
 		module->currentBlock = exitBlock;
 
-		//currLoopIDs.pop_back();
+		module->loopInfo.pop_back();
 
 		return CheckType(ctx, expression, new VmVoid());
 	}
@@ -1890,7 +1890,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmBlock *bodyBlock = new VmBlock(InplaceStr("while_body"), module->nextBlockId++);
 		VmBlock *exitBlock = new VmBlock(InplaceStr("while_exit"), module->nextBlockId++);
 
-		//currLoopIDs.push_back(LoopInfo(exitBlock, conditionBlock));
+		module->loopInfo.push_back(VmModule::LoopInfo(exitBlock, conditionBlock));
 
 		CreateJump(module, conditionBlock);
 
@@ -1911,7 +1911,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		module->currentFunction->AddBlock(exitBlock);
 		module->currentBlock = exitBlock;
 
-		//currLoopIDs.pop_back();
+		module->loopInfo.pop_back();
 
 		return CheckType(ctx, expression, new VmVoid());
 	}
@@ -1926,7 +1926,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		module->currentFunction->AddBlock(bodyBlock);
 		module->currentBlock = bodyBlock;
 
-		//currLoopIDs.push_back(LoopInfo(exitBlock, condBlock));
+		module->loopInfo.push_back(VmModule::LoopInfo(exitBlock, condBlock));
 
 		CompileVm(ctx, module, node->body);
 
@@ -1942,7 +1942,25 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		module->currentFunction->AddBlock(exitBlock);
 		module->currentBlock = exitBlock;
 
-		//currLoopIDs.pop_back();
+		module->loopInfo.pop_back();
+
+		return CheckType(ctx, expression, new VmVoid());
+	}
+	else if(ExprBreak *node = getType<ExprBreak>(expression))
+	{
+		VmBlock *target = module->loopInfo[module->loopInfo.size() - node->depth].breakBlock;
+
+		CreateJump(module, target);
+
+		return CheckType(ctx, expression, new VmVoid());
+	}
+	else if(ExprContinue *node = getType<ExprContinue>(expression))
+	{
+		VmBlock *target = module->loopInfo[module->loopInfo.size() - node->depth].continueBlock;
+
+		CreateJump(module, target);
+
+		return CheckType(ctx, expression, new VmVoid());
 	}
 	else if(ExprBlock *node = getType<ExprBlock>(expression))
 	{

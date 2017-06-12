@@ -459,9 +459,7 @@ void ExpressionContext::Stop(const char *pos, const char *msg, ...)
 
 void ExpressionContext::PushScope()
 {
-	unsigned depth = scope ? scope->depth + 1 : 0;
-
-	ScopeData *next = new ScopeData(depth, scope, uniqueScopeId++);
+	ScopeData *next = new ScopeData(scope, uniqueScopeId++);
 
 	if(scope)
 		scope->scopes.push_back(next);
@@ -471,9 +469,7 @@ void ExpressionContext::PushScope()
 
 void ExpressionContext::PushScope(NamespaceData *nameSpace)
 {
-	unsigned depth = scope ? scope->depth + 1 : 0;
-
-	ScopeData *next = new ScopeData(depth, scope, uniqueScopeId++, nameSpace);
+	ScopeData *next = new ScopeData(scope, uniqueScopeId++, nameSpace);
 
 	if(scope)
 		scope->scopes.push_back(next);
@@ -483,9 +479,7 @@ void ExpressionContext::PushScope(NamespaceData *nameSpace)
 
 void ExpressionContext::PushScope(FunctionData *function)
 {
-	unsigned depth = scope ? scope->depth + 1 : 0;
-
-	ScopeData *next = new ScopeData(depth, scope, uniqueScopeId++, function);
+	ScopeData *next = new ScopeData(scope, uniqueScopeId++, function);
 
 	if(scope)
 		scope->scopes.push_back(next);
@@ -495,9 +489,7 @@ void ExpressionContext::PushScope(FunctionData *function)
 
 void ExpressionContext::PushScope(TypeBase *type)
 {
-	unsigned depth = scope ? scope->depth + 1 : 0;
-
-	ScopeData *next = new ScopeData(depth, scope, uniqueScopeId++, type);
+	ScopeData *next = new ScopeData(scope, uniqueScopeId++, type);
 
 	if(scope)
 		scope->scopes.push_back(next);
@@ -505,11 +497,21 @@ void ExpressionContext::PushScope(TypeBase *type)
 	scope = next;
 }
 
+void ExpressionContext::PushLoopScope()
+{
+	ScopeData *next = new ScopeData(scope, uniqueScopeId++);
+
+	if(scope)
+		scope->scopes.push_back(next);
+
+	next->loopDepth++;
+
+	scope = next;
+}
+
 void ExpressionContext::PushTemporaryScope()
 {
-	unsigned depth = scope ? scope->depth + 1 : 0;
-
-	scope = new ScopeData(depth, scope, 0);
+	scope = new ScopeData(scope, 0);
 }
 
 void ExpressionContext::PopScope(SynBase *location)
@@ -639,13 +641,13 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 void ExpressionContext::SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *target, SynBase *targetLocation)
 {
 	// Reach the same depth
-	while(scope->depth > target->depth)
+	while(scope->scopeDepth > target->scopeDepth)
 		PopScope();
 
 	// Reach the same parent
 	ScopeData *curr = target;
 
-	while(curr->depth > scope->depth)
+	while(curr->scopeDepth > scope->scopeDepth)
 		curr = curr->scope;
 
 	while(scope->scope != curr->scope)
@@ -5405,7 +5407,7 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 
 ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 {
-	ctx.PushScope();
+	ctx.PushLoopScope();
 
 	ExprBase *initializer = syntax->initializer ? AnalyzeStatement(ctx, syntax->initializer) : new ExprVoid(syntax, ctx.typeVoid);
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
@@ -5421,7 +5423,7 @@ ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 
 ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 {
-	ctx.PushScope();
+	ctx.PushLoopScope();
 
 	IntrusiveList<ExprBase> initializers;
 	IntrusiveList<ExprBase> conditions;
@@ -5629,7 +5631,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 ExprWhile* AnalyzeWhile(ExpressionContext &ctx, SynWhile *syntax)
 {
-	ctx.PushScope();
+	ctx.PushLoopScope();
 
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(syntax, ctx.typeVoid);
@@ -5643,7 +5645,7 @@ ExprWhile* AnalyzeWhile(ExpressionContext &ctx, SynWhile *syntax)
 
 ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 {
-	ctx.PushScope();
+	ctx.PushLoopScope();
 
 	IntrusiveList<ExprBase> expressions;
 
@@ -5657,6 +5659,64 @@ ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 	ctx.PopScope();
 
 	return new ExprDoWhile(syntax, ctx.typeVoid, new ExprBlock(syntax, ctx.typeVoid, expressions), condition);
+}
+
+ExprBreak* AnalyzeBreak(ExpressionContext &ctx, SynBreak *syntax)
+{
+	unsigned depth = 1;
+
+	if(syntax->number)
+	{
+		ExprBase *numberValue = AnalyzeExpression(ctx, syntax->number);
+
+		ExpressionEvalContext evalCtx(ctx);
+
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, syntax->number, numberValue, ctx.typeLong, false))))
+		{
+			if(number->value <= 0)
+				Stop(ctx, syntax->number->pos, "ERROR: break level can't be negative or zero");
+
+			if(ctx.scope->loopDepth < number->value)
+				Stop(ctx, syntax->number->pos, "ERROR: break level is greater that loop depth");
+
+			depth = unsigned(number->value);
+		}
+		else
+		{
+			Stop(ctx, syntax->number->pos, "ERROR: break statement must be followed by ';' or a constant");
+		}
+	}
+
+	return new ExprBreak(syntax, ctx.typeVoid, depth);
+}
+
+ExprContinue* AnalyzeContinue(ExpressionContext &ctx, SynContinue *syntax)
+{
+	unsigned depth = 1;
+
+	if(syntax->number)
+	{
+		ExprBase *numberValue = AnalyzeExpression(ctx, syntax->number);
+
+		ExpressionEvalContext evalCtx(ctx);
+
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, syntax->number, numberValue, ctx.typeLong, false))))
+		{
+			if(number->value <= 0)
+				Stop(ctx, syntax->number->pos, "ERROR: continue level can't be negative or zero");
+
+			if(ctx.scope->loopDepth < number->value)
+				Stop(ctx, syntax->number->pos, "ERROR: continue level is greater that loop depth");
+
+			depth = unsigned(number->value);
+		}
+		else
+		{
+			Stop(ctx, syntax->number->pos, "ERROR: continue statement must be followed by ';' or a constant");
+		}
+	}
+
+	return new ExprContinue(syntax, ctx.typeVoid, depth);
 }
 
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope)
@@ -5998,6 +6058,16 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 	if(SynDoWhile *node = getType<SynDoWhile>(syntax))
 	{
 		return AnalyzeDoWhile(ctx, node);
+	}
+
+	if(SynBreak *node = getType<SynBreak>(syntax))
+	{
+		return AnalyzeBreak(ctx, node);
+	}
+
+	if(SynContinue *node = getType<SynContinue>(syntax))
+	{
+		return AnalyzeContinue(ctx, node);
 	}
 
 	if(SynBlock *node = getType<SynBlock>(syntax))

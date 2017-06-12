@@ -336,6 +336,22 @@ struct VmModule
 	unsigned nextBlockId;
 	unsigned nextInstructionId;
 
+	struct LoopInfo
+	{
+		LoopInfo(): breakBlock(0), continueBlock(0)
+		{
+		}
+
+		LoopInfo(VmBlock* breakBlock, VmBlock* continueBlock): breakBlock(breakBlock), continueBlock(continueBlock)
+		{
+		}
+
+		VmBlock* breakBlock;
+		VmBlock* continueBlock;
+	};
+
+	FastVector<LoopInfo> loopInfo;
+
 	unsigned peepholeOptimizations;
 	unsigned constantPropagations;
 	unsigned deadCodeEliminations;

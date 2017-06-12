@@ -2177,6 +2177,12 @@ ExprBase* Evaluate(Eval &ctx, ExprBase *expression)
 	if(ExprDoWhile *expr = getType<ExprDoWhile>(expression))
 		return EvaluateDoWhile(ctx, expr);
 
+	if(ExprBreak *expr = getType<ExprBreak>(expression))
+		return Report(ctx, "ERROR: 'break' is not supported");
+
+	if(ExprContinue *expr = getType<ExprContinue>(expression))
+		return Report(ctx, "ERROR: 'continue' is not supported");
+
 	if(ExprBlock *expr = getType<ExprBlock>(expression))
 		return EvaluateBlock(ctx, expr);
 

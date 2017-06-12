@@ -21,6 +21,7 @@ struct ExpressionContext
 	void PushScope(NamespaceData *nameSpace);
 	void PushScope(FunctionData *function);
 	void PushScope(TypeBase *type);
+	void PushLoopScope();
 	void PushTemporaryScope();
 	void PopScope(SynBase *location = 0);
 	void RestoreScopesAtPoint(ScopeData *target, SynBase *location);
@@ -651,6 +652,28 @@ struct ExprDoWhile: ExprBase
 
 	ExprBase *body;
 	ExprBase *condition;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprBreak: ExprBase
+{
+	ExprBreak(SynBase *source, TypeBase *type, unsigned depth): ExprBase(myTypeID, source, type), depth(depth)
+	{
+	}
+
+	unsigned depth;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprContinue: ExprBase
+{
+	ExprContinue(SynBase *source, TypeBase *type, unsigned depth): ExprBase(myTypeID, source, type), depth(depth)
+	{
+	}
+
+	unsigned depth;
 
 	static const unsigned myTypeID = __LINE__;
 };

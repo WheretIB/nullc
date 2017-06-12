@@ -640,6 +640,14 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintLeaveBlock(ctx);
 	}
+	else if(ExprBreak *node = getType<ExprBreak>(expression))
+	{
+		PrintIndented(ctx, name, node->type, "ExprBreak(%d)", node->depth);
+	}
+	else if(ExprContinue *node = getType<ExprContinue>(expression))
+	{
+		PrintIndented(ctx, name, node->type, "ExprContinue(%d)", node->depth);
+	}
 	else if(ExprBlock *node = getType<ExprBlock>(expression))
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprBlock()");
