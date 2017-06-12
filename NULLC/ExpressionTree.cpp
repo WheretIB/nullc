@@ -1670,13 +1670,19 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynTypeFunction *node = getType<SynTypeFunction>(syntax))
 	{
-		TypeBase *returnType = AnalyzeType(ctx, node->returnType, true, failed);
+		TypeBase *returnType = AnalyzeType(ctx, node->returnType, onlyType, failed);
+
+		if(!onlyType && !returnType)
+			return NULL;
 
 		IntrusiveList<TypeHandle> arguments;
 
 		for(SynBase *el = node->arguments.head; el; el = el->next)
 		{
-			TypeBase *argType = AnalyzeType(ctx, el, true, failed);
+			TypeBase *argType = AnalyzeType(ctx, el, onlyType, failed);
+
+			if(!onlyType && !argType)
+				return NULL;
 
 			if(argType == ctx.typeAuto)
 				Stop(ctx, syntax->pos, "ERROR: function parameter cannot be an auto type");
@@ -5891,7 +5897,20 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return new ExprTypeLiteral(node, ctx.typeTypeID, AnalyzeType(ctx, syntax));
 
 	if(SynTypeFunction *node = getType<SynTypeFunction>(syntax))
-		return new ExprTypeLiteral(node, ctx.typeTypeID, AnalyzeType(ctx, syntax));
+	{
+		if(TypeBase *type = AnalyzeType(ctx, syntax, false))
+			return new ExprTypeLiteral(node, ctx.typeTypeID, type);
+
+		// Transform 'type ref(arguments)' into a 'type ref' constructor call
+		SynBase* value = new SynTypeReference(node->pos, node->returnType);
+
+		IntrusiveList<SynCallArgument> arguments;
+
+		for(SynBase *curr = node->arguments.head; curr; curr = curr->next)
+			arguments.push_back(new SynCallArgument(curr->pos, InplaceStr(), curr));
+
+		return AnalyzeFunctionCall(ctx, new SynFunctionCall(node->pos, value, IntrusiveList<SynBase>(), arguments));
+	}
 
 	if(SynTypeGenericInstance *node = getType<SynTypeGenericInstance>(syntax))
 		return new ExprTypeLiteral(node, ctx.typeTypeID, AnalyzeType(ctx, syntax));
