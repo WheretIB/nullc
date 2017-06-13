@@ -2061,28 +2061,28 @@ ExprBase* EvaluateModule(Eval &ctx, ExprModule *expression)
 ExprBase* Evaluate(Eval &ctx, ExprBase *expression)
 {
 	if(ExprVoid *expr = getType<ExprVoid>(expression))
-		return expr;
+		return new ExprVoid(expr->source, expr->type);
 
 	if(ExprBoolLiteral *expr = getType<ExprBoolLiteral>(expression))
-		return expr;
+		return new ExprBoolLiteral(expr->source, expr->type, expr->value);
 
 	if(ExprCharacterLiteral *expr = getType<ExprCharacterLiteral>(expression))
-		return expr;
+		return new ExprCharacterLiteral(expr->source, expr->type, expr->value);
 
 	if(ExprStringLiteral *expr = getType<ExprStringLiteral>(expression))
-		return expr;
+		return new ExprStringLiteral(expr->source, expr->type, expr->value, expr->length);
 
 	if(ExprIntegerLiteral *expr = getType<ExprIntegerLiteral>(expression))
-		return expr;
+		return new ExprIntegerLiteral(expr->source, expr->type, expr->value);
 
 	if(ExprRationalLiteral *expr = getType<ExprRationalLiteral>(expression))
-		return expr;
+		return new ExprRationalLiteral(expr->source, expr->type, expr->value);
 
 	if(ExprTypeLiteral *expr = getType<ExprTypeLiteral>(expression))
-		return expr;
+		return new ExprTypeLiteral(expr->source, expr->type, expr->value);
 
 	if(ExprNullptrLiteral *expr = getType<ExprNullptrLiteral>(expression))
-		return expr;
+		return new ExprNullptrLiteral(expr->source, expr->type);
 
 	if(ExprArray *expr = getType<ExprArray>(expression))
 		return EvaluateArray(ctx, expr);

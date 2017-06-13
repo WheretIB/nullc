@@ -1946,6 +1946,69 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		return CheckType(ctx, expression, new VmVoid());
 	}
+	else if(ExprSwitch *node = getType<ExprSwitch>(expression))
+	{
+		CompileVm(ctx, module, node->condition);
+
+		SmallArray<VmBlock*, 64> conditionBlocks;
+		SmallArray<VmBlock*, 64> caseBlocks;
+
+		// Generate blocks for all cases
+		for(ExprBase *curr = node->cases.head; curr; curr = curr->next)
+			conditionBlocks.push_back(new VmBlock(InplaceStr("switch_case"), module->nextBlockId++));
+
+		// Generate blocks for all cases
+		for(ExprBase *curr = node->blocks.head; curr; curr = curr->next)
+			caseBlocks.push_back(new VmBlock(InplaceStr("case_block"), module->nextBlockId++));
+
+		VmBlock *defaultBlock = new VmBlock(InplaceStr("default_block"), module->nextBlockId++);
+		VmBlock *exitBlock = new VmBlock(InplaceStr("switch_exit"), module->nextBlockId++);
+
+		CreateJump(module, conditionBlocks.empty() ? defaultBlock : conditionBlocks[0]);
+
+		unsigned i;
+
+		// Generate code for all conditions
+		i = 0;
+		for(ExprBase *curr = node->cases.head; curr; curr = curr->next, i++)
+		{
+			module->currentFunction->AddBlock(conditionBlocks[i]);
+			module->currentBlock = conditionBlocks[i];
+
+			VmValue *condition = CompileVm(ctx, module, curr);
+
+			CreateJumpNotZero(module, condition, caseBlocks[i], curr->next ? conditionBlocks[i + 1] : defaultBlock);
+		}
+
+		module->loopInfo.push_back(VmModule::LoopInfo(exitBlock, NULL));
+
+		// Generate code for all cases
+		i = 0;
+		for(ExprBase *curr = node->blocks.head; curr; curr = curr->next, i++)
+		{
+			module->currentFunction->AddBlock(caseBlocks[i]);
+			module->currentBlock = caseBlocks[i];
+
+			CompileVm(ctx, module, curr);
+
+			CreateJump(module, curr->next ? caseBlocks[i + 1] : defaultBlock);
+		}
+
+		// Create default block
+		module->currentFunction->AddBlock(defaultBlock);
+		module->currentBlock = defaultBlock;
+
+		if(node->defaultBlock)
+			CompileVm(ctx, module, node->defaultBlock);
+		CreateJump(module, exitBlock);
+
+		module->currentFunction->AddBlock(exitBlock);
+		module->currentBlock = exitBlock;
+
+		module->loopInfo.pop_back();
+
+		return CheckType(ctx, expression, new VmVoid());
+	}
 	else if(ExprBreak *node = getType<ExprBreak>(expression))
 	{
 		VmBlock *target = module->loopInfo[module->loopInfo.size() - node->depth].breakBlock;

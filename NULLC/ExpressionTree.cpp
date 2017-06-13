@@ -5661,6 +5661,56 @@ ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 	return new ExprDoWhile(syntax, ctx.typeVoid, new ExprBlock(syntax, ctx.typeVoid, expressions), condition);
 }
 
+ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
+{
+	ctx.PushLoopScope();
+
+	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
+
+	VariableData *conditionVariable = AllocateTemporary(ctx, syntax, condition->type);
+
+	ExprBase *conditionAccess = new ExprVariableAccess(syntax->condition, condition->type, conditionVariable);
+
+	condition = CreateAssignment(ctx, syntax->condition, conditionAccess, condition);
+
+	IntrusiveList<ExprBase> cases;
+	IntrusiveList<ExprBase> blocks;
+	ExprBase *defaultBlock = NULL;
+
+	for(SynSwitchCase *curr = syntax->cases.head; curr; curr = getType<SynSwitchCase>(curr->next))
+	{
+		if(curr->value)
+		{
+			ExprBase *caseValue = AnalyzeExpression(ctx, curr->value);
+
+			cases.push_back(CreateBinaryOp(ctx, curr->value, SYN_BINARY_OP_EQUAL, caseValue, conditionAccess));
+		}
+
+		IntrusiveList<ExprBase> expressions;
+
+		for(SynBase *expression = curr->expressions.head; expression; expression = expression->next)
+			expressions.push_back(AnalyzeStatement(ctx, expression));
+
+		ExprBase *block = new ExprBlock(syntax, ctx.typeVoid, expressions);
+
+		if(curr->value)
+		{
+			blocks.push_back(block);
+		}
+		else
+		{
+			if(defaultBlock)
+				Stop(ctx, curr->pos, "ERROR: default switch case is already defined");
+
+			defaultBlock = block;
+		}
+	}
+
+	ctx.PopScope();
+
+	return new ExprSwitch(syntax, ctx.typeVoid, condition, cases, blocks, defaultBlock);
+}
+
 ExprBreak* AnalyzeBreak(ExpressionContext &ctx, SynBreak *syntax)
 {
 	unsigned depth = 1;
@@ -6058,6 +6108,11 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 	if(SynDoWhile *node = getType<SynDoWhile>(syntax))
 	{
 		return AnalyzeDoWhile(ctx, node);
+	}
+
+	if(SynSwitch *node = getType<SynSwitch>(syntax))
+	{
+		return AnalyzeSwitch(ctx, node);
 	}
 
 	if(SynBreak *node = getType<SynBreak>(syntax))

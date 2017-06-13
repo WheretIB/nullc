@@ -640,6 +640,30 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintLeaveBlock(ctx);
 	}
+	else if(ExprSwitch *node = getType<ExprSwitch>(expression))
+	{
+		PrintEnterBlock(ctx, name, node->type, "ExprSwitch()");
+
+		PrintGraph(ctx, node->condition, "condition");
+
+		PrintEnterBlock(ctx, InplaceStr("cases"), 0, "");
+
+		for(ExprBase *value = node->cases.head; value; value = value->next)
+			PrintGraph(ctx, value, "");
+
+		PrintLeaveBlock(ctx);
+
+		PrintEnterBlock(ctx, InplaceStr("blocks"), 0, "");
+
+		for(ExprBase *value = node->blocks.head; value; value = value->next)
+			PrintGraph(ctx, value, "");
+
+		PrintLeaveBlock(ctx);
+
+		PrintGraph(ctx, node->defaultBlock, "defaultBlock");
+
+		PrintLeaveBlock(ctx);
+	}
 	else if(ExprBreak *node = getType<ExprBreak>(expression))
 	{
 		PrintIndented(ctx, name, node->type, "ExprBreak(%d)", node->depth);

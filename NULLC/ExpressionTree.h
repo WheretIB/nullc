@@ -656,6 +656,20 @@ struct ExprDoWhile: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprSwitch: ExprBase
+{
+	ExprSwitch(SynBase *source, TypeBase *type, ExprBase *condition, IntrusiveList<ExprBase> cases, IntrusiveList<ExprBase> blocks, ExprBase *defaultBlock): ExprBase(myTypeID, source, type), condition(condition), cases(cases), blocks(blocks), defaultBlock(defaultBlock)
+	{
+	}
+
+	ExprBase *condition;
+	IntrusiveList<ExprBase> cases;
+	IntrusiveList<ExprBase> blocks;
+	ExprBase *defaultBlock;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprBreak: ExprBase
 {
 	ExprBreak(SynBase *source, TypeBase *type, unsigned depth): ExprBase(myTypeID, source, type), depth(depth)
