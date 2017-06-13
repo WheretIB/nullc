@@ -1088,6 +1088,25 @@ FunctionValue GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBa
 	return FunctionValue();
 }
 
+ExprBase* CreateLiteralCopy(ExpressionContext &ctx, SynBase *source, ExprBase *value)
+{
+	if(ExprBoolLiteral *node = getType<ExprBoolLiteral>(value))
+		return new ExprBoolLiteral(node->source, node->type, node->value);
+
+	if(ExprCharacterLiteral *node = getType<ExprCharacterLiteral>(value))
+		return new ExprCharacterLiteral(node->source, node->type, node->value);
+
+	if(ExprIntegerLiteral *node = getType<ExprIntegerLiteral>(value))
+		return new ExprIntegerLiteral(node->source, node->type, node->value);
+
+	if(ExprRationalLiteral *node = getType<ExprRationalLiteral>(value))
+		return new ExprRationalLiteral(node->source, node->type, node->value);
+
+	Stop(ctx, source->pos, "ERROR: unknown literal type");
+
+	return NULL;
+}
+
 ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, TypeBase *type, bool isFunctionArgument)
 {
 	// When function is used as value, hide its visibility immediately after use
@@ -2096,7 +2115,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 			for(ConstantData *curr = structType->constants.head; curr; curr = curr->next)
 			{
 				if(curr->name == name)
-					return curr->value;
+					return CreateLiteralCopy(ctx, source, curr->value);
 			}
 		}
 	}
@@ -2481,7 +2500,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 		for(ConstantData *curr = structType->constants.head; curr; curr = curr->next)
 		{
 			if(curr->name == member)
-				return curr->value;
+				return CreateLiteralCopy(ctx, source, curr->value);
 		}
 
 		if(member == InplaceStr("hasMember"))
@@ -4990,7 +5009,7 @@ void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *ty
 				Stop(ctx, source->pos, "ERROR: only integer constant list gets automatically incremented by 1");
 		}
 
-		if(!isType<ExprCharacterLiteral>(value) && !isType<ExprIntegerLiteral>(value) && !isType<ExprRationalLiteral>(value))
+		if(!isType<ExprBoolLiteral>(value) && !isType<ExprCharacterLiteral>(value) && !isType<ExprIntegerLiteral>(value) && !isType<ExprRationalLiteral>(value))
 			Stop(ctx, source->pos, "ERROR: expression didn't evaluate to a constant number");
 
 		target.push_back(new ConstantData(constant->name, value));
