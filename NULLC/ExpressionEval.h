@@ -50,13 +50,16 @@ struct ExpressionEvalContext
 
 	struct StackFrame
 	{
-		StackFrame(): returnValue(0)
+		StackFrame(): returnValue(0), breakDepth(0), continueDepth(0)
 		{
 		}
 
 		SmallArray<StackVariable, 32> variables;
 
 		ExprBase *returnValue;
+
+		unsigned breakDepth;
+		unsigned continueDepth;
 	};
 
 	// Error info

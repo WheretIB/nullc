@@ -1524,11 +1524,13 @@ ExprBase* EvaluateFunction(Eval &ctx, ExprFunctionDefinition *expression, ExprBa
 		if(!Evaluate(ctx, value))
 			return NULL;
 
-		if(ctx.stackFrames.back()->returnValue)
+		assert(frame->breakDepth == 0 && frame->continueDepth == 0);
+
+		if(frame->returnValue)
 			break;
 	}
 
-	ExprBase *result = ctx.stackFrames.back()->returnValue;
+	ExprBase *result = frame->returnValue;
 
 	if(!result && expression->function->type->returnType == ctx.ctx.typeVoid)
 		result = new ExprVoid(expression->source, ctx.ctx.typeVoid);
@@ -1914,6 +1916,8 @@ ExprBase* EvaluateFor(Eval &ctx, ExprFor *expression)
 	if(!Evaluate(ctx, expression->initializer))
 		return NULL;
 
+	Eval::StackFrame *frame = ctx.stackFrames.back();
+
 	for(;;)
 	{
 		if(!AddInstruction(ctx))
@@ -1934,7 +1938,23 @@ ExprBase* EvaluateFor(Eval &ctx, ExprFor *expression)
 		if(!Evaluate(ctx, expression->body))
 			return NULL;
 
-		if(ctx.stackFrames.back()->returnValue)
+		// On break, decrease depth and exit
+		if(frame->breakDepth)
+		{
+			frame->breakDepth--;
+			break;
+		}
+
+		// On continue, decrease depth and proceed to next iteration, unless it's a multi-level continue
+		if(frame->continueDepth)
+		{
+			frame->continueDepth--;
+
+			if(frame->continueDepth)
+				break;
+		}
+
+		if(frame->returnValue)
 			break;
 
 		if(!Evaluate(ctx, expression->increment))
@@ -1946,6 +1966,8 @@ ExprBase* EvaluateFor(Eval &ctx, ExprFor *expression)
 
 ExprBase* EvaluateWhile(Eval &ctx, ExprWhile *expression)
 {
+	Eval::StackFrame *frame = ctx.stackFrames.back();
+
 	for(;;)
 	{
 		if(!AddInstruction(ctx))
@@ -1966,7 +1988,23 @@ ExprBase* EvaluateWhile(Eval &ctx, ExprWhile *expression)
 		if(!Evaluate(ctx, expression->body))
 			return NULL;
 
-		if(ctx.stackFrames.back()->returnValue)
+		// On break, decrease depth and exit
+		if(frame->breakDepth)
+		{
+			frame->breakDepth--;
+			break;
+		}
+
+		// On continue, decrease depth and proceed to next iteration, unless it's a multi-level continue
+		if(frame->continueDepth)
+		{
+			frame->continueDepth--;
+
+			if(frame->continueDepth)
+				break;
+		}
+
+		if(frame->returnValue)
 			break;
 	}
 
@@ -1975,6 +2013,8 @@ ExprBase* EvaluateWhile(Eval &ctx, ExprWhile *expression)
 
 ExprBase* EvaluateDoWhile(Eval &ctx, ExprDoWhile *expression)
 {
+	Eval::StackFrame *frame = ctx.stackFrames.back();
+
 	for(;;)
 	{
 		if(!AddInstruction(ctx))
@@ -1983,7 +2023,23 @@ ExprBase* EvaluateDoWhile(Eval &ctx, ExprDoWhile *expression)
 		if(!Evaluate(ctx, expression->body))
 			return NULL;
 
-		if(ctx.stackFrames.back()->returnValue)
+		// On break, decrease depth and exit
+		if(frame->breakDepth)
+		{
+			frame->breakDepth--;
+			break;
+		}
+
+		// On continue, decrease depth and proceed to next iteration, unless it's a multi-level continue
+		if(frame->continueDepth)
+		{
+			frame->continueDepth--;
+
+			if(frame->continueDepth)
+				break;
+		}
+
+		if(frame->returnValue)
 			break;
 
 		ExprBase *condition = Evaluate(ctx, expression->condition);
@@ -2002,17 +2058,37 @@ ExprBase* EvaluateDoWhile(Eval &ctx, ExprDoWhile *expression)
 	return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
+ExprBase* EvaluateBreak(Eval &ctx, ExprBreak *expression)
+{
+	assert(ctx.stackFrames.back()->breakDepth == 0);
+
+	ctx.stackFrames.back()->breakDepth = expression->depth;
+
+	return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
+}
+
+ExprBase* EvaluateContinue(Eval &ctx, ExprContinue *expression)
+{
+	assert(ctx.stackFrames.back()->continueDepth == 0);
+
+	ctx.stackFrames.back()->continueDepth = expression->depth;
+
+	return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
+}
+
 ExprBase* EvaluateBlock(Eval &ctx, ExprBlock *expression)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
+
+	Eval::StackFrame *frame = ctx.stackFrames.back();
 
 	for(ExprBase *value = expression->expressions.head; value; value = value->next)
 	{
 		if(!Evaluate(ctx, value))
 			return NULL;
 
-		if(ctx.stackFrames.back()->returnValue)
+		if(frame->continueDepth || frame->breakDepth || frame->returnValue)
 			break;
 	}
 
@@ -2042,13 +2118,17 @@ ExprBase* EvaluateModule(Eval &ctx, ExprModule *expression)
 	ctx.globalFrame = new Eval::StackFrame();
 	ctx.stackFrames.push_back(ctx.globalFrame);
 
+	Eval::StackFrame *frame = ctx.stackFrames.back();
+
 	for(ExprBase *value = expression->expressions.head; value; value = value->next)
 	{
 		if(!Evaluate(ctx, value))
 			return NULL;
 
-		if(ctx.stackFrames.back()->returnValue)
-			return ctx.stackFrames.back()->returnValue;
+		assert(frame->breakDepth == 0 && frame->continueDepth == 0);
+
+		if(frame->returnValue)
+			return frame->returnValue;
 	}
 
 	ctx.stackFrames.pop_back();
@@ -2177,11 +2257,14 @@ ExprBase* Evaluate(Eval &ctx, ExprBase *expression)
 	if(ExprDoWhile *expr = getType<ExprDoWhile>(expression))
 		return EvaluateDoWhile(ctx, expr);
 
+	if(ExprSwitch *expr = getType<ExprSwitch>(expression))
+		return Report(ctx, "ERROR: 'switch' is not supported");
+
 	if(ExprBreak *expr = getType<ExprBreak>(expression))
-		return Report(ctx, "ERROR: 'break' is not supported");
+		return EvaluateBreak(ctx, expr);
 
 	if(ExprContinue *expr = getType<ExprContinue>(expression))
-		return Report(ctx, "ERROR: 'continue' is not supported");
+		return EvaluateContinue(ctx, expr);
 
 	if(ExprBlock *expr = getType<ExprBlock>(expression))
 		return EvaluateBlock(ctx, expr);
