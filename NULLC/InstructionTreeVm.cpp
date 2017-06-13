@@ -2142,27 +2142,27 @@ void RunPeepholeOptimizations(VmModule *module, VmValue* value)
 			}
 			break;
 		case VM_INST_LESS:
-			if((inst->type == VmType::Int || inst->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
+			if((inst->arguments[0]->type == VmType::Int || inst->arguments[0]->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
 				ReplaceValueUsersWith(inst, CreateConstantInt(0), &module->peepholeOptimizations);
 			break;
 		case VM_INST_GREATER:
-			if((inst->type == VmType::Int || inst->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
+			if((inst->arguments[0]->type == VmType::Int || inst->arguments[0]->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
 				ReplaceValueUsersWith(inst, CreateConstantInt(0), &module->peepholeOptimizations);
 			break;
 		case VM_INST_LESS_EQUAL:
-			if((inst->type == VmType::Int || inst->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
+			if((inst->arguments[0]->type == VmType::Int || inst->arguments[0]->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
 				ReplaceValueUsersWith(inst, CreateConstantInt(1), &module->peepholeOptimizations);
 			break;
 		case VM_INST_GREATER_EQUAL:
-			if((inst->type == VmType::Int || inst->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
+			if((inst->arguments[0]->type == VmType::Int || inst->arguments[0]->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
 				ReplaceValueUsersWith(inst, CreateConstantInt(1), &module->peepholeOptimizations);
 			break;
 		case VM_INST_EQUAL:
-			if((inst->type == VmType::Int || inst->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
+			if((inst->arguments[0]->type == VmType::Int || inst->arguments[0]->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
 				ReplaceValueUsersWith(inst, CreateConstantInt(1), &module->peepholeOptimizations);
 			break;
 		case VM_INST_NOT_EQUAL:
-			if((inst->type == VmType::Int || inst->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
+			if((inst->arguments[0]->type == VmType::Int || inst->arguments[0]->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
 				ReplaceValueUsersWith(inst, CreateConstantInt(0), &module->peepholeOptimizations);
 			break;
 		}
@@ -2285,51 +2285,51 @@ void RunConstantPropagation(VmModule *module, VmValue* value)
 			}
 			break;
 		case VM_INST_LESS:
-			if(inst->type == VmType::Int)
+			if(consts[0]->type == VmType::Int)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue < consts[1]->iValue), &module->constantPropagations);
-			else if(inst->type == VmType::Double)
+			else if(consts[0]->type == VmType::Double)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->dValue < consts[1]->dValue), &module->constantPropagations);
-			else if(inst->type == VmType::Long)
+			else if(consts[0]->type == VmType::Long)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue < consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_GREATER:
-			if(inst->type == VmType::Int)
+			if(consts[0]->type == VmType::Int)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue > consts[1]->iValue), &module->constantPropagations);
-			else if(inst->type == VmType::Double)
+			else if(consts[0]->type == VmType::Double)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->dValue > consts[1]->dValue), &module->constantPropagations);
-			else if(inst->type == VmType::Long)
+			else if(consts[0]->type == VmType::Long)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue > consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_LESS_EQUAL:
-			if(inst->type == VmType::Int)
+			if(consts[0]->type == VmType::Int)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue <= consts[1]->iValue), &module->constantPropagations);
-			else if(inst->type == VmType::Double)
+			else if(consts[0]->type == VmType::Double)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->dValue <= consts[1]->dValue), &module->constantPropagations);
-			else if(inst->type == VmType::Long)
+			else if(consts[0]->type == VmType::Long)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue <= consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_GREATER_EQUAL:
-			if(inst->type == VmType::Int)
+			if(consts[0]->type == VmType::Int)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue >= consts[1]->iValue), &module->constantPropagations);
-			else if(inst->type == VmType::Double)
+			else if(consts[0]->type == VmType::Double)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->dValue >= consts[1]->dValue), &module->constantPropagations);
-			else if(inst->type == VmType::Long)
+			else if(consts[0]->type == VmType::Long)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue >= consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_EQUAL:
-			if(inst->type == VmType::Int)
+			if(consts[0]->type == VmType::Int)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue == consts[1]->iValue), &module->constantPropagations);
-			else if(inst->type == VmType::Double)
+			else if(consts[0]->type == VmType::Double)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->dValue == consts[1]->dValue), &module->constantPropagations);
-			else if(inst->type == VmType::Long)
+			else if(consts[0]->type == VmType::Long)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue == consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_NOT_EQUAL:
-			if(inst->type == VmType::Int)
+			if(consts[0]->type == VmType::Int)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue != consts[1]->iValue), &module->constantPropagations);
-			else if(inst->type == VmType::Double)
+			else if(consts[0]->type == VmType::Double)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->dValue != consts[1]->dValue), &module->constantPropagations);
-			else if(inst->type == VmType::Long)
+			else if(consts[0]->type == VmType::Long)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue != consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_SHL:
@@ -2363,21 +2363,21 @@ void RunConstantPropagation(VmModule *module, VmValue* value)
 				ReplaceValueUsersWith(inst, CreateConstantLong(consts[0]->lValue ^ consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_LOG_AND:
-			if(inst->type == VmType::Int)
+			if(consts[0]->type == VmType::Int)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue && consts[1]->iValue), &module->constantPropagations);
-			else if(inst->type == VmType::Long)
+			else if(consts[0]->type == VmType::Long)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue && consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_LOG_OR:
-			if(inst->type == VmType::Int)
+			if(consts[0]->type == VmType::Int)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue || consts[1]->iValue), &module->constantPropagations);
-			else if(inst->type == VmType::Long)
+			else if(consts[0]->type == VmType::Long)
 				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue || consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_LOG_XOR:
-			if(inst->type == VmType::Int)
+			if(consts[0]->type == VmType::Int)
 				ReplaceValueUsersWith(inst, CreateConstantInt((consts[0]->iValue != 0) != (consts[1]->iValue != 0)), &module->constantPropagations);
-			else if(inst->type == VmType::Long)
+			else if(consts[0]->type == VmType::Long)
 				ReplaceValueUsersWith(inst, CreateConstantInt((consts[0]->lValue != 0) != (consts[1]->lValue != 0)), &module->constantPropagations);
 			break;
 		case VM_INST_NEG:
@@ -2395,9 +2395,9 @@ void RunConstantPropagation(VmModule *module, VmValue* value)
 				ReplaceValueUsersWith(inst, CreateConstantLong(~consts[0]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_LOG_NOT:
-			if(inst->type == VmType::Int)
+			if(consts[0]->type == VmType::Int)
 				ReplaceValueUsersWith(inst, CreateConstantInt(!consts[0]->iValue), &module->constantPropagations);
-			else if(inst->type == VmType::Long)
+			else if(consts[0]->type == VmType::Long)
 				ReplaceValueUsersWith(inst, CreateConstantLong(!consts[0]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_INDEX:
