@@ -387,6 +387,9 @@ ExprPointerLiteral* FindVariableStorage(Eval &ctx, VariableData *data)
 			return variable.ptr;
 	}
 
+	if(data->imported)
+		return (ExprPointerLiteral*)Report(ctx, "ERROR: can't access external variable '%.*s'", FMT_ISTR(data->name));
+
 	return (ExprPointerLiteral*)Report(ctx, "ERROR: variable '%.*s' not found", FMT_ISTR(data->name));
 }
 
