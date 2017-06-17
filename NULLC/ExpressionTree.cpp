@@ -1144,6 +1144,27 @@ FunctionValue GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBa
 	return FunctionValue();
 }
 
+ExprBase* CreateSequence(SynBase *source, ExprBase *first, ExprBase *second)
+{
+	IntrusiveList<ExprBase> expressions;
+
+	expressions.push_back(first);
+	expressions.push_back(second);
+
+	return new ExprSequence(source, second->type, expressions);
+}
+
+ExprBase* CreateSequence(SynBase *source, ExprBase *first, ExprBase *second, ExprBase *third)
+{
+	IntrusiveList<ExprBase> expressions;
+
+	expressions.push_back(first);
+	expressions.push_back(second);
+	expressions.push_back(third);
+
+	return new ExprSequence(source, third->type, expressions);
+}
+
 ExprBase* CreateLiteralCopy(ExpressionContext &ctx, SynBase *source, ExprBase *value)
 {
 	if(ExprBoolLiteral *node = getType<ExprBoolLiteral>(value))
@@ -2690,9 +2711,11 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 	{
 		VariableData *storage = AllocateTemporary(ctx, source, wrapped->type);
 
-		CreateAssignment(ctx, source, new ExprVariableAccess(source, wrapped->type, storage), value);
+		ExprBase *assignment = CreateAssignment(ctx, source, new ExprVariableAccess(source, storage->type, storage), value);
 
-		wrapped = new ExprGetAddress(source, ctx.GetReferenceType(wrapped->type), storage);
+		ExprBase *definition = new ExprVariableDefinition(value->source, ctx.typeVoid, storage, assignment);
+
+		wrapped = CreateSequence(source, definition, new ExprGetAddress(source, ctx.GetReferenceType(wrapped->type), storage));
 	}
 
 	if(TypeArray *node = getType<TypeArray>(value->type))
@@ -2819,9 +2842,11 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 	{
 		VariableData *storage = AllocateTemporary(ctx, source, wrapped->type);
 
-		CreateAssignment(ctx, source, new ExprVariableAccess(source, wrapped->type, storage), value);
+		ExprBase *assignment = CreateAssignment(ctx, source, new ExprVariableAccess(source, storage->type, storage), value);
 
-		wrapped = new ExprGetAddress(source, ctx.GetReferenceType(wrapped->type), storage);
+		ExprBase *definition = new ExprVariableDefinition(source, ctx.typeVoid, storage, assignment);
+
+		wrapped = CreateSequence(source, definition, new ExprGetAddress(source, ctx.GetReferenceType(wrapped->type), storage));
 	}
 
 	if(isType<TypeRef>(wrapped->type) || isType<TypeUnsizedArray>(value->type))
@@ -4275,7 +4300,14 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 			}
 
 			if(!constructor && syntax->arguments.empty())
-				return new ExprVariableAccess(syntax, variable->type, variable);
+			{
+				IntrusiveList<ExprBase> expressions;
+
+				expressions.push_back(definition);
+				expressions.push_back(new ExprVariableAccess(syntax, variable->type, variable));
+
+				return new ExprSequence(syntax, type->value, expressions);
+			}
 
 			if(constructor)
 			{
@@ -5755,9 +5787,11 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			{
 				VariableData *storage = AllocateTemporary(ctx, value->source, wrapped->type);
 
-				CreateAssignment(ctx, value->source, new ExprVariableAccess(value->source, wrapped->type, storage), value);
+				ExprBase *assignment = CreateAssignment(ctx, value->source, new ExprVariableAccess(value->source, storage->type, storage), value);
 
-				wrapped = new ExprGetAddress(value->source, ctx.GetReferenceType(wrapped->type), storage);
+				ExprBase *definition = new ExprVariableDefinition(value->source, ctx.typeVoid, storage, assignment);
+
+				wrapped = CreateSequence(value->source, definition, new ExprGetAddress(value->source, ctx.GetReferenceType(wrapped->type), storage));
 			}
 
 			// Create initializer
