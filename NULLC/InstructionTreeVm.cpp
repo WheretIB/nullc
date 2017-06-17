@@ -1215,6 +1215,12 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		return CheckType(ctx, expression, CreateConstantPointer(0, false));
 	}
+	else if(ExprPassthrough *node = getType<ExprPassthrough>(expression))
+	{
+		VmValue *value = CompileVm(ctx, module, node->value);
+
+		return CheckType(ctx, expression, value);
+	}
 	else if(ExprArray *node = getType<ExprArray>(expression))
 	{
 		VmValue *address = AllocateScopeVariable(ctx, module, node->type);

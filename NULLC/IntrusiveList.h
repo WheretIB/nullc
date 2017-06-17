@@ -14,6 +14,9 @@ public:
 	{
 		assert(node);
 		assert(node->next == 0);
+		assert(!node->listed);
+
+		node->listed = true;
 
 		if(!head)
 		{

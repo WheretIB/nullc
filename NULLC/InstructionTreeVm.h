@@ -288,6 +288,7 @@ struct VmFunction: VmValue
 		lastBlock = NULL;
 
 		next = NULL;
+		listed = false;
 	}
 
 	void AddBlock(VmBlock *block);
@@ -302,6 +303,7 @@ struct VmFunction: VmValue
 	VmBlock *lastBlock;
 
 	VmFunction *next;
+	bool listed;
 
 	static const unsigned myTypeID = __LINE__;
 };

@@ -2186,6 +2186,9 @@ ExprBase* Evaluate(Eval &ctx, ExprBase *expression)
 	if(ExprNullptrLiteral *expr = getType<ExprNullptrLiteral>(expression))
 		return new ExprNullptrLiteral(expr->source, expr->type);
 
+	if(ExprPassthrough *expr = getType<ExprPassthrough>(expression))
+		return Evaluate(ctx, expr->value);
+
 	if(ExprArray *expr = getType<ExprArray>(expression))
 		return EvaluateArray(ctx, expr);
 

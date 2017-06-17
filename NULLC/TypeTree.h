@@ -27,46 +27,38 @@ struct VmFunction;
 
 struct VariableHandle
 {
-	VariableHandle(VariableData *variable): variable(variable), next(0)
+	VariableHandle(VariableData *variable): variable(variable), next(0), listed(false)
 	{
 	}
 
 	VariableData *variable;
 
 	VariableHandle *next;
+	bool listed;
 };
 
 struct FunctionHandle
 {
-	FunctionHandle(FunctionData *function): function(function), next(0)
+	FunctionHandle(FunctionData *function): function(function), next(0), listed(false)
 	{
 	}
 
 	FunctionData *function;
 
 	FunctionHandle *next;
+	bool listed;
 };
 
 struct TypeHandle
 {
-	TypeHandle(TypeBase *type): type(type), next(0)
+	TypeHandle(TypeBase *type): type(type), next(0), listed(false)
 	{
 	}
 
 	TypeBase *type;
 
 	TypeHandle *next;
-};
-
-struct AliasHandle
-{
-	AliasHandle(AliasData *alias): alias(alias), next(0)
-	{
-	}
-
-	AliasData *alias;
-
-	AliasHandle *next;
+	bool listed;
 };
 
 struct NamespaceData
@@ -131,7 +123,7 @@ struct VariableData
 
 struct MatchData
 {
-	MatchData(InplaceStr name, TypeBase *type): name(name), type(type), next(0)
+	MatchData(InplaceStr name, TypeBase *type): name(name), type(type), next(0), listed(false)
 	{
 	}
 
@@ -139,6 +131,7 @@ struct MatchData
 	TypeBase *type;
 
 	MatchData *next;
+	bool listed;
 };
 
 struct ArgumentData
@@ -160,7 +153,7 @@ struct ArgumentData
 
 struct UpvalueData
 {
-	UpvalueData(VariableData *variable, VariableData *target, VariableData *copy): variable(variable), target(target), copy(copy), next(0)
+	UpvalueData(VariableData *variable, VariableData *target, VariableData *copy): variable(variable), target(target), copy(copy), next(0), listed(false)
 	{
 	}
 
@@ -169,6 +162,7 @@ struct UpvalueData
 	VariableData *copy;
 
 	UpvalueData *next;
+	bool listed;
 };
 
 struct FunctionData
@@ -351,7 +345,7 @@ private:
 
 struct ConstantData
 {
-	ConstantData(InplaceStr name, ExprBase *value): name(name), value(value), next(0)
+	ConstantData(InplaceStr name, ExprBase *value): name(name), value(value), next(0), listed(false)
 	{
 	}
 
@@ -359,6 +353,7 @@ struct ConstantData
 	ExprBase *value;
 
 	ConstantData *next;
+	bool listed;
 };
 
 template<typename T>

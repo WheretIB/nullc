@@ -41,7 +41,7 @@ struct ParseContext
 
 struct SynBase
 {
-	SynBase(unsigned typeID, const char *pos): typeID(typeID), pos(pos), next(0)
+	SynBase(unsigned typeID, const char *pos): typeID(typeID), pos(pos), next(0), listed(false)
 	{
 	}
 
@@ -53,6 +53,7 @@ struct SynBase
 
 	const char *pos;
 	SynBase *next;
+	bool listed;
 };
 
 template<typename T>

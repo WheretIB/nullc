@@ -252,6 +252,14 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintIndented(ctx, name, node->type, "ExprNullptrLiteral()");
 	}
+	else if(ExprPassthrough *node = getType<ExprPassthrough>(expression))
+	{
+		PrintEnterBlock(ctx, name, node->type, "ExprPassthrough()");
+
+		PrintGraph(ctx, node->value, "value");
+
+		PrintLeaveBlock(ctx);
+	}
 	else if(ExprArray *node = getType<ExprArray>(expression))
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprArray()");

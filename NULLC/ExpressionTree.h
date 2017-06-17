@@ -117,7 +117,7 @@ struct ExpressionContext
 
 struct ExprBase
 {
-	ExprBase(unsigned typeID, SynBase *source, TypeBase *type): typeID(typeID), source(source), type(type), next(0)
+	ExprBase(unsigned typeID, SynBase *source, TypeBase *type): typeID(typeID), source(source), type(type), next(0), listed(false)
 	{
 	}
 
@@ -130,6 +130,7 @@ struct ExprBase
 	SynBase *source;
 	TypeBase *type;
 	ExprBase *next;
+	bool listed;
 };
 
 struct ExprVoid: ExprBase
@@ -250,6 +251,20 @@ struct ExprMemoryLiteral: ExprBase
 	}
 
 	ExprPointerLiteral *ptr;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprPassthrough: ExprBase
+{
+	ExprPassthrough(SynBase *source, TypeBase *type, ExprBase *value): ExprBase(myTypeID, source, type), data(data), value(value)
+	{
+		assert(type == value->type);
+	}
+
+	FunctionData *data;
+
+	ExprBase *value;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -489,6 +504,7 @@ struct ExprVariableAccess: ExprBase
 	ExprVariableAccess(SynBase *source, TypeBase *type, VariableData *variable): ExprBase(myTypeID, source, type), variable(variable)
 	{
 		assert(variable);
+		assert(type == variable->type);
 	}
 
 	VariableData *variable;
