@@ -2058,6 +2058,64 @@ ExprBase* EvaluateDoWhile(Eval &ctx, ExprDoWhile *expression)
 	return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
+ExprBase* EvaluateSwitch(Eval &ctx, ExprSwitch *expression)
+{
+	if(!AddInstruction(ctx))
+		return NULL;
+
+	Eval::StackFrame *frame = ctx.stackFrames.back();
+
+	ExprBase *condition = Evaluate(ctx, expression->condition);
+
+	if(!condition)
+		return NULL;
+
+	bool matched = false;
+
+	for(ExprBase *currCase = expression->cases.head, *currBlock = expression->blocks.head; currCase && currBlock; currCase = currCase->next, currBlock = currBlock->next)
+	{
+		if(!AddInstruction(ctx))
+			return NULL;
+
+		ExprBase *value = Evaluate(ctx, currCase);
+
+		if(!value)
+			return NULL;
+
+		long long result;
+		if(!TryTakeLong(value, result))
+			return Report(ctx, "ERROR: failed to evaluate 'case' value");
+
+		// Try next case
+		if(!result)
+			continue;
+
+		matched = true;
+
+		if(!Evaluate(ctx, currBlock))
+			return NULL;
+
+		// On break, decrease depth and exit
+		if(frame->breakDepth)
+		{
+			frame->breakDepth--;
+			break;
+		}
+	}
+
+	if(!matched && expression->defaultBlock)
+	{
+		if(!Evaluate(ctx, expression->defaultBlock))
+			return NULL;
+
+		// On break, decrease depth and exit
+		if(frame->breakDepth)
+			frame->breakDepth--;
+	}
+
+	return CheckType(expression, new ExprVoid(expression->source, ctx.ctx.typeVoid));
+}
+
 ExprBase* EvaluateBreak(Eval &ctx, ExprBreak *expression)
 {
 	assert(ctx.stackFrames.back()->breakDepth == 0);
@@ -2258,7 +2316,7 @@ ExprBase* Evaluate(Eval &ctx, ExprBase *expression)
 		return EvaluateDoWhile(ctx, expr);
 
 	if(ExprSwitch *expr = getType<ExprSwitch>(expression))
-		return Report(ctx, "ERROR: 'switch' is not supported");
+		return EvaluateSwitch(ctx, expr);
 
 	if(ExprBreak *expr = getType<ExprBreak>(expression))
 		return EvaluateBreak(ctx, expr);
