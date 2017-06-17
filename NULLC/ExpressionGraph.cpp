@@ -506,7 +506,16 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	}
 	else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(expression))
 	{
-		PrintIndented(ctx, name, node->type, "ExprGenericFunctionPrototype(%.*s: f%04x)", FMT_ISTR(node->function->name), node->function->uniqueId);
+		PrintEnterBlock(ctx, name, node->type, "ExprGenericFunctionPrototype(%.*s: f%04x)", FMT_ISTR(node->function->name), node->function->uniqueId);
+
+		PrintEnterBlock(ctx, InplaceStr("contextVariables"), 0, "");
+
+		for(ExprBase *expr = node->contextVariables.head; expr; expr = expr->next)
+			PrintGraph(ctx, expr, "");
+
+		PrintLeaveBlock(ctx);
+
+		PrintLeaveBlock(ctx);
 	}
 	else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expression))
 	{

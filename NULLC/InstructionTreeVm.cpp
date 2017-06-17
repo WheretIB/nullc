@@ -1753,6 +1753,9 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(expression))
 	{
+		for(ExprBase *expr = node->contextVariables.head; expr; expr = expr->next)
+			CompileVm(ctx, module, expr);
+
 		return new VmVoid();
 	}
 	else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expression))

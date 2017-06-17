@@ -1133,9 +1133,13 @@ ExprBase* EvaluateBinaryOp(Eval &ctx, ExprBinaryOp *expression)
 		return NULL;
 
 	ExprBase *lhs = Evaluate(ctx, expression->lhs);
+
+	if(!lhs)
+		return NULL;
+
 	ExprBase *rhs = Evaluate(ctx, expression->rhs);
 
-	if(!lhs || !rhs)
+	if(!rhs)
 		return NULL;
 
 	ExprBase *result = CreateBinaryOp(ctx, expression->source, lhs, rhs, expression->op);
@@ -1442,6 +1446,20 @@ ExprBase* EvaluateFunctionDefinition(Eval &ctx, ExprFunctionDefinition *expressi
 	ExprBase *context = new ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
 
 	return CheckType(expression, new ExprFunctionLiteral(expression->source, expression->function->type, expression->function, context));
+}
+
+ExprBase* EvaluateGenericFunctionPrototype(Eval &ctx, ExprGenericFunctionPrototype *expression)
+{
+	if(!AddInstruction(ctx))
+		return NULL;
+
+	for(ExprBase *expr = expression->contextVariables.head; expr; expr = expr->next)
+	{
+		if(!Evaluate(ctx, expr))
+			return NULL;
+	}
+
+	return new ExprVoid(expression->source, ctx.ctx.typeVoid);
 }
 
 ExprBase* EvaluateFunction(Eval &ctx, ExprFunctionDefinition *expression, ExprBase *context, SmallArray<ExprBase*, 32> &arguments)
@@ -2250,7 +2268,7 @@ ExprBase* Evaluate(Eval &ctx, ExprBase *expression)
 		return EvaluateFunctionDefinition(ctx, expr);
 
 	if(ExprGenericFunctionPrototype *expr = getType<ExprGenericFunctionPrototype>(expression))
-		return new ExprVoid(expr->source, ctx.ctx.typeVoid);
+		return EvaluateGenericFunctionPrototype(ctx, expr);
 
 	if(ExprFunctionAccess *expr = getType<ExprFunctionAccess>(expression))
 		return EvaluateFunctionAccess(ctx, expr);

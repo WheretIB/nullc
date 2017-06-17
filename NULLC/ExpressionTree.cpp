@@ -1009,6 +1009,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs);
 
+ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, VariableData *variable);
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name);
 
 ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, FunctionData *function);
@@ -2114,9 +2115,9 @@ ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, F
 	ExprBase *context = NULL;
 
 	if(ctx.GetCurrentFunction() == function)
-		context = new ExprVariableAccess(source, function->contextType, function->contextArgument);
+		context = CreateVariableAccess(ctx, source, function->contextArgument);
 	else if(function->contextVariable)
-		context = new ExprVariableAccess(source, function->contextType, function->contextVariable);
+		context = CreateVariableAccess(ctx, source, function->contextVariable);
 	else
 		context = new ExprNullptrLiteral(source, function->contextType);
 
@@ -3868,6 +3869,12 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 	function->instances.push_back(definition->function);
 
+	if(definition->contextVariable)
+	{
+		if(ExprGenericFunctionPrototype *proto = getType<ExprGenericFunctionPrototype>(function->declaration))
+			proto->contextVariables.push_back(definition->contextVariable);
+	}
+
 	ExprBase *context = proto.context;
 
 	if(!definition->function->scope->ownerType)
@@ -3876,9 +3883,6 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 		context = CreateFunctionContextAccess(ctx, source, definition->function);
 	}
-
-	if(definition->contextVariable)
-		return FunctionValue(definition->function, CreateSequence(source, definition, definition->contextVariable, context));
 
 	return FunctionValue(definition->function, CreateSequence(source, definition, context));
 }

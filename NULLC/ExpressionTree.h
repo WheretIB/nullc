@@ -539,6 +539,8 @@ struct ExprGenericFunctionPrototype: ExprBase
 
 	FunctionData* function;
 
+	IntrusiveList<ExprVariableDefinition> contextVariables;
+
 	static const unsigned myTypeID = __LINE__;
 };
 
