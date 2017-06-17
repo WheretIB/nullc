@@ -81,7 +81,7 @@ bool CreateStore(Eval &ctx, ExprBase *target, ExprBase *value)
 
 	if(ExprStringLiteral *expr = getType<ExprStringLiteral>(value))
 	{
-		memcpy(ptr->ptr, &expr->value, unsigned(value->type->size));
+		memcpy(ptr->ptr, expr->value, unsigned(value->type->size));
 		return true;
 	}
 
