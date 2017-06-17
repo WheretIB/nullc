@@ -1535,7 +1535,12 @@ ExprBase* EvaluateFunctionAccess(Eval &ctx, ExprFunctionAccess *expression)
 	if(!context)
 		return NULL;
 
-	return CheckType(expression, new ExprFunctionLiteral(expression->source, expression->function->type, expression->function, context));
+	FunctionData *function = expression->function;
+
+	if(function->implementation)
+		function = function->implementation;
+
+	return CheckType(expression, new ExprFunctionLiteral(expression->source, function->type, function, context));
 }
 
 ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
