@@ -158,6 +158,19 @@ struct ArgumentData
 	ExprBase *value;
 };
 
+struct UpvalueData
+{
+	UpvalueData(VariableData *variable, VariableData *target, VariableData *copy): variable(variable), target(target), copy(copy), next(0)
+	{
+	}
+
+	VariableData *variable;
+	VariableData *target;
+	VariableData *copy;
+
+	UpvalueData *next;
+};
+
 struct FunctionData
 {
 	FunctionData(SynBase *source, ScopeData *scope, bool coroutine, bool accessor, TypeFunction *type, TypeBase *contextType, InplaceStr name, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), accessor(accessor), type(type), contextType(contextType), name(name), uniqueId(uniqueId)
@@ -177,6 +190,10 @@ struct FunctionData
 
 		functionScope = NULL;
 		stackSize = 0;
+
+		contextArgument = NULL;
+
+		contextVariable = NULL;
 
 		hasExplicitReturn = false;
 
@@ -216,8 +233,17 @@ struct FunctionData
 
 	ExprBase *declaration;
 
+	// Scope where function variables reside
 	ScopeData *functionScope;
 	long long stackSize;
+
+	// Variable for the argument containing reference to function context
+	VariableData *contextArgument;
+
+	IntrusiveList<UpvalueData> upvalues;
+
+	// Variable containg a pointer to the function context
+	VariableData *contextVariable;
 
 	bool hasExplicitReturn;
 
@@ -301,6 +327,7 @@ struct FunctionValue
 
 	FunctionValue(FunctionData *function, ExprBase *context): function(function), context(context)
 	{
+		assert(context);
 	}
 
 	FunctionData *function;
@@ -655,6 +682,9 @@ struct TypeClass: TypeStruct
 
 	TypeClass *baseClass;
 
+	// Scope where class members reside
+	ScopeData *typeScope;
+
 	static const unsigned myTypeID = __LINE__;
 };
 
@@ -741,10 +771,13 @@ InplaceStr GetReferenceTypeName(TypeBase* type);
 InplaceStr GetArrayTypeName(TypeBase* type, long long length);
 InplaceStr GetUnsizedArrayTypeName(TypeBase* type);
 InplaceStr GetFunctionTypeName(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
-InplaceStr GetGenericClassName(TypeBase* proto, IntrusiveList<TypeHandle> generics);
+InplaceStr GetGenericClassTypeName(TypeBase* proto, IntrusiveList<TypeHandle> generics);
 InplaceStr GetFunctionSetTypeName(IntrusiveList<TypeHandle> types);
 InplaceStr GetArgumentSetTypeName(IntrusiveList<TypeHandle> types);
 InplaceStr GetMemberSetTypeName(TypeBase* type);
+
+InplaceStr GetFunctionContextTypeName(InplaceStr functionName, unsigned index);
+InplaceStr GetFunctionContextVariableName(FunctionData *function);
 
 InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str);
 InplaceStr GetVariableNameInScope(ScopeData *scope, InplaceStr str);

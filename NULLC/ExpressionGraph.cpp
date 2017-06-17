@@ -456,7 +456,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		if(ctx.skipFunctionDefinitions)
 		{
-			PrintIndented(ctx, name, node->type, "ExprFunctionDefinition(%s%.*s: f%04x)", node->function->isPrototype ? "prototype, " : "", FMT_ISTR(node->function->name), node->function->uniqueId);
+			PrintIndented(ctx, name, node->type, "ExprFunctionDefinition(%s%.*s: f%04x);", node->function->isPrototype ? "prototype, " : "", FMT_ISTR(node->function->name), node->function->uniqueId);
 			return;
 		}
 
@@ -476,7 +476,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintEnterBlock(ctx, name, node->type, "ExprFunctionDefinition(%s%.*s: f%04x)", node->function->isPrototype ? "prototype, " : "", FMT_ISTR(node->function->name), node->function->uniqueId);
 
-		PrintGraph(ctx, node->context, "context");
+		PrintGraph(ctx, node->contextArgument, "contextArgument");
 
 		PrintEnterBlock(ctx, InplaceStr("arguments"), 0, "");
 

@@ -61,7 +61,7 @@ InplaceStr GetFunctionTypeName(TypeBase* returnType, IntrusiveList<TypeHandle> a
 	return InplaceStr(name);
 }
 
-InplaceStr GetGenericClassName(TypeBase* proto, IntrusiveList<TypeHandle> generics)
+InplaceStr GetGenericClassTypeName(TypeBase* proto, IntrusiveList<TypeHandle> generics)
 {
 	unsigned nameLength = proto->name.length() + strlen("<>");
 
@@ -167,6 +167,24 @@ InplaceStr GetMemberSetTypeName(TypeBase* type)
 	unsigned nameLength = type->name.length() + strlen(" members");
 	char *name = new char[nameLength + 1];
 	sprintf(name, "%.*s members", FMT_ISTR(type->name));
+
+	return InplaceStr(name);
+}
+
+InplaceStr GetFunctionContextTypeName(InplaceStr functionName, unsigned index)
+{
+	unsigned nameLength = functionName.length() + 32;
+	char *name = new char[nameLength + 1];
+	sprintf(name, "__%.*s_%d_cls", FMT_ISTR(functionName), index);
+
+	return InplaceStr(name);
+}
+
+InplaceStr GetFunctionContextVariableName(FunctionData *function)
+{
+	unsigned nameLength = function->name.length() + 32;
+	char *name = new char[nameLength + 1];
+	sprintf(name, "$%.*s_%u_ext", FMT_ISTR(function->name), function->type->name.hash());
 
 	return InplaceStr(name);
 }

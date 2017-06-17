@@ -36,42 +36,6 @@ bool AddInstruction(Eval &ctx)
 	return false;
 }
 
-unsigned GetTypeIndex(Eval &ctx, TypeBase *type)
-{
-	unsigned index = ~0u;
-
-	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
-	{
-		if(ctx.ctx.types[i] == type)
-		{
-			index = i;
-			break;
-		}
-	}
-
-	assert(index != ~0u);
-
-	return index;
-}
-
-unsigned GetFunctionIndex(Eval &ctx, FunctionData *data)
-{
-	unsigned index = ~0u;
-
-	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
-	{
-		if(ctx.ctx.functions[i] == data)
-		{
-			index = i;
-			break;
-		}
-	}
-
-	assert(index != ~0u);
-
-	return index;
-}
-
 ExprPointerLiteral* AllocateTypeStorage(Eval &ctx, SynBase *source, TypeBase *type)
 {
 	if(type->size > ctx.variableMemoryLimit)
@@ -142,7 +106,7 @@ bool CreateStore(Eval &ctx, ExprBase *target, ExprBase *value)
 
 	if(ExprTypeLiteral *expr = getType<ExprTypeLiteral>(value))
 	{
-		unsigned index = GetTypeIndex(ctx, expr->value);
+		unsigned index = ctx.ctx.GetTypeIndex(expr->value);
 		memcpy(ptr->ptr, &index, unsigned(value->type->size));
 		return true;
 	}
@@ -155,7 +119,7 @@ bool CreateStore(Eval &ctx, ExprBase *target, ExprBase *value)
 
 	if(ExprFunctionLiteral *expr = getType<ExprFunctionLiteral>(value))
 	{
-		unsigned index = expr->data ? GetFunctionIndex(ctx, expr->data) + 1 : 0;
+		unsigned index = expr->data ? ctx.ctx.GetFunctionIndex(expr->data) + 1 : 0;
 		memcpy(ptr->ptr, &index, sizeof(unsigned));
 
 		if(ExprNullptrLiteral *value = getType<ExprNullptrLiteral>(expr->context))
@@ -1043,7 +1007,7 @@ ExprBase* EvaluateCast(Eval &ctx, ExprTypeCast *expression)
 		{
 			ExprTypeLiteral *typeLiteral = getType<ExprTypeLiteral>(value);
 
-			unsigned index = GetTypeIndex(ctx, typeLiteral->value);
+			unsigned index = ctx.ctx.GetTypeIndex(typeLiteral->value);
 
 			return CheckType(expression, new ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, index));
 		}
@@ -1489,7 +1453,7 @@ ExprBase* EvaluateFunction(Eval &ctx, ExprFunctionDefinition *expression, ExprBa
 
 	Eval::StackFrame *frame = ctx.stackFrames.back();
 
-	if(ExprVariableDefinition *curr = expression->context)
+	if(ExprVariableDefinition *curr = expression->contextArgument)
 	{
 		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, curr->source, curr->variable->type);
 
@@ -1582,7 +1546,7 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 	if(!ptr->data->declaration)
 	{
-		if(ctx.emulateKnownExternals && GetFunctionIndex(ctx, ptr->data) < ctx.ctx.baseModuleFunctionCount)
+		if(ctx.emulateKnownExternals && ctx.ctx.GetFunctionIndex(ptr->data) < ctx.ctx.baseModuleFunctionCount)
 		{
 			if(ptr->data->name == InplaceStr("assert") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
 			{

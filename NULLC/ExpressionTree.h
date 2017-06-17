@@ -31,12 +31,17 @@ struct ExpressionContext
 	FunctionData* GetCurrentFunction();
 	TypeBase* GetCurrentType();
 
+	FunctionData* GetFunctionOwner(ScopeData *scope);
+
 	unsigned GetGenericClassInstantiationDepth();
 
 	void AddType(TypeBase *type);
 	void AddFunction(FunctionData *function);
 	void AddVariable(VariableData *variable);
 	void AddAlias(AliasData *alias);
+
+	unsigned GetTypeIndex(TypeBase *type);
+	unsigned GetFunctionIndex(FunctionData *data);
 
 	void HideFunction(FunctionData *function);
 
@@ -384,6 +389,10 @@ struct ExprAssignment: ExprBase
 {
 	ExprAssignment(SynBase *source, TypeBase *type, ExprBase *lhs, ExprBase *rhs): ExprBase(myTypeID, source, type), lhs(lhs), rhs(rhs)
 	{
+		TypeRef *refType = getType<TypeRef>(lhs->type);
+
+		assert(refType);
+		assert(refType->subType == rhs->type);
 	}
 
 	ExprBase *lhs;
@@ -479,6 +488,7 @@ struct ExprVariableAccess: ExprBase
 {
 	ExprVariableAccess(SynBase *source, TypeBase *type, VariableData *variable): ExprBase(myTypeID, source, type), variable(variable)
 	{
+		assert(variable);
 	}
 
 	VariableData *variable;
@@ -488,20 +498,19 @@ struct ExprVariableAccess: ExprBase
 
 struct ExprFunctionDefinition: ExprBase
 {
-	ExprFunctionDefinition(SynBase *source, TypeBase *type, FunctionData *function, ExprVariableDefinition *context, IntrusiveList<ExprVariableDefinition> arguments, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), function(function), context(context), arguments(arguments), expressions(expressions)
+	ExprFunctionDefinition(SynBase *source, TypeBase *type, FunctionData *function, ExprVariableDefinition *contextArgument, IntrusiveList<ExprVariableDefinition> arguments, IntrusiveList<ExprBase> expressions, ExprVariableDefinition *contextVariable): ExprBase(myTypeID, source, type), function(function), contextArgument(contextArgument), arguments(arguments), expressions(expressions), contextVariable(contextVariable)
 	{
-		wasHidden = false;
 	}
 
 	FunctionData* function;
 
-	ExprVariableDefinition *context;
+	ExprVariableDefinition *contextArgument;
 
 	IntrusiveList<ExprVariableDefinition> arguments;
 
 	IntrusiveList<ExprBase> expressions;
 
-	bool wasHidden;
+	ExprVariableDefinition *contextVariable;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -521,6 +530,7 @@ struct ExprFunctionAccess: ExprBase
 {
 	ExprFunctionAccess(SynBase *source, TypeBase *type, FunctionData *function, ExprBase *context): ExprBase(myTypeID, source, type), function(function), context(context)
 	{
+		assert(context);
 	}
 
 	FunctionData *function;
