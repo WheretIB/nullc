@@ -3877,7 +3877,10 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		context = CreateFunctionContextAccess(ctx, source, definition->function);
 	}
 
-	return FunctionValue(definition->function, context);
+	if(definition->contextVariable)
+		return FunctionValue(definition->function, CreateSequence(source, definition, definition->contextVariable, context));
+
+	return FunctionValue(definition->function, CreateSequence(source, definition, context));
 }
 
 void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *function, SmallArray<FunctionValue, 32> &functions)
