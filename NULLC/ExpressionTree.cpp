@@ -4642,7 +4642,20 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 {
 	unsigned alignment = syntax->align ? AnalyzeAlignment(ctx, syntax->align) : 0;
 
+	TypeBase *parentType = ctx.scope->ownerType;
+
+	if(parentType)
+	{
+		// Introduce 'this' variable into a temporary scope
+		ctx.PushTemporaryScope();
+
+		ctx.AddVariable(new VariableData(syntax, ctx.scope, 0, ctx.GetReferenceType(parentType), InplaceStr("this"), 0, ctx.uniqueVariableId++));
+	}
+
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
+
+	if(parentType)
+		ctx.PopScope();
 
 	IntrusiveList<ExprVariableDefinition> definitions;
 
@@ -5339,16 +5352,18 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 		classDefinition->classType->aliases.push_back(new MatchData(alias->alias->name, alias->alias->type));
 	}
 
-	for(SynVariableDefinitions *member = syntax->members.head; member; member = getType<SynVariableDefinitions>(member->next))
 	{
-		ExprVariableDefinitions *node = AnalyzeVariableDefinitions(ctx, member);
-
-		for(ExprVariableDefinition *definition = node->definitions.head; definition; definition = getType<ExprVariableDefinition>(definition->next))
+		for(SynVariableDefinitions *member = syntax->members.head; member; member = getType<SynVariableDefinitions>(member->next))
 		{
-			if(definition->initializer)
-				Stop(ctx, syntax->pos, "ERROR: member can't have an initializer");
+			ExprVariableDefinitions *node = AnalyzeVariableDefinitions(ctx, member);
 
-			classDefinition->classType->members.push_back(new VariableHandle(definition->variable));
+			for(ExprVariableDefinition *definition = node->definitions.head; definition; definition = getType<ExprVariableDefinition>(definition->next))
+			{
+				if(definition->initializer)
+					Stop(ctx, syntax->pos, "ERROR: member can't have an initializer");
+
+				classDefinition->classType->members.push_back(new VariableHandle(definition->variable));
+			}
 		}
 	}
 
