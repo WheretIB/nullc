@@ -4929,6 +4929,8 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		function->definition = getType<SynFunctionDefinition>(source);
 		function->declaration = new ExprGenericFunctionPrototype(source, function->type, function);
 
+		function->contextType = ctx.GetReferenceType(ctx.typeVoid);
+
 		return function->declaration;
 	}
 
@@ -5107,6 +5109,8 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	if(function->type->isGeneric)
 	{
 		function->declaration = new ExprGenericFunctionPrototype(syntax, function->type, function);
+
+		function->contextType = ctx.GetReferenceType(ctx.typeVoid);
 
 		return function->declaration;
 	}
