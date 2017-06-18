@@ -173,6 +173,8 @@ struct FunctionData
 
 		nameHash = GetStringHash(name.begin, name.end);
 
+		functionIndex = ~0u;
+
 		isPrototype = false;
 		implementation = NULL;
 
@@ -209,6 +211,8 @@ struct FunctionData
 
 	InplaceStr name;
 	unsigned nameHash;
+
+	unsigned functionIndex;
 
 	unsigned uniqueId;
 
@@ -373,6 +377,8 @@ struct TypeBase
 	TypeBase(unsigned typeID, InplaceStr name): typeID(typeID), name(name)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
+
+		typeIndex = ~0u;
 
 		size = 0;
 		alignment = 0;
@@ -773,6 +779,7 @@ InplaceStr GetMemberSetTypeName(TypeBase* type);
 
 InplaceStr GetFunctionContextTypeName(InplaceStr functionName, unsigned index);
 InplaceStr GetFunctionContextVariableName(FunctionData *function);
+InplaceStr GetFunctionTableName(FunctionData *function);
 
 InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str);
 InplaceStr GetVariableNameInScope(ScopeData *scope, InplaceStr str);

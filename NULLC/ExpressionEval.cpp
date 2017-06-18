@@ -117,6 +117,13 @@ bool CreateStore(Eval &ctx, ExprBase *target, ExprBase *value)
 		return true;
 	}
 
+	if(ExprFunctionIndexLiteral *expr = getType<ExprFunctionIndexLiteral>(value))
+	{
+		unsigned index = expr->function ? ctx.ctx.GetFunctionIndex(expr->function) + 1 : 0;
+		memcpy(ptr->ptr, &index, unsigned(value->type->size));
+		return true;
+	}
+
 	if(ExprFunctionLiteral *expr = getType<ExprFunctionLiteral>(value))
 	{
 		unsigned index = expr->data ? ctx.ctx.GetFunctionIndex(expr->data) + 1 : 0;
@@ -246,6 +253,16 @@ ExprBase* CreateLoad(Eval &ctx, ExprBase *target)
 		TypeBase *data = ctx.ctx.types[index];
 
 		return new ExprTypeLiteral(target->source, type, data);
+	}
+
+	if(type == ctx.ctx.typeFunctionID)
+	{
+		unsigned index = 0;
+		memcpy(&index, ptr->ptr, sizeof(unsigned));
+
+		FunctionData *data = index != 0 ? ctx.ctx.functions[index - 1] : NULL;
+
+		return new ExprFunctionIndexLiteral(target->source, type, data);
 	}
 
 	if(TypeFunction *functionType = getType<TypeFunction>(type))
@@ -1853,6 +1870,50 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, new ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, memcmp(a->ptr->ptr, b->ptr->ptr, unsigned(a->type->size)) != 0));
 			}
+			else if(ptr->data->name == InplaceStr("__typeCount"))
+			{
+				return CheckType(expression, new ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, ctx.ctx.types.size()));
+			}
+			else if(ptr->data->name == InplaceStr("__redirect"))
+			{
+				ExprMemoryLiteral *autoRef = getType<ExprMemoryLiteral>(arguments[0]);
+				ExprPointerLiteral *tableRef = getType<ExprPointerLiteral>(arguments[1]);
+
+				if(!tableRef)
+					return Report(ctx, "ERROR: null pointer access");
+
+				ExprTypeLiteral *typeID = getType<ExprTypeLiteral>(CreateExtract(ctx, autoRef, 0, ctx.ctx.typeTypeID));
+
+				assert(typeID);
+
+				unsigned typeIndex = ctx.ctx.GetTypeIndex(typeID->value);
+
+				ExprBase *ptr = CreateExtract(ctx, autoRef, 4, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]));
+
+				assert(ptr);
+
+				ExprMemoryLiteral *table = getType<ExprMemoryLiteral>(CreateLoad(ctx, tableRef));
+
+				ExprPointerLiteral *tableArray = getType<ExprPointerLiteral>(CreateExtract(ctx, table, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeFunctionID)));
+				ExprIntegerLiteral *tableSize = getType<ExprIntegerLiteral>(CreateExtract(ctx, table, sizeof(void*), ctx.ctx.typeInt));
+
+				assert(tableArray && tableSize);
+
+				if(typeIndex >= tableSize->value)
+					return Report(ctx, "ERROR: type index is out of bounds of redirection table");
+
+				unsigned char *targetPtr = tableArray->ptr + typeIndex * ctx.ctx.typeTypeID->size;
+
+				unsigned index = 0;
+				memcpy(&index, targetPtr, sizeof(unsigned));
+
+				FunctionData *data = index != 0 ? ctx.ctx.functions[index - 1] : NULL;
+
+				if(!data)
+					return Report(ctx, "ERROR: type '%.*s' doesn't implement method", FMT_ISTR(ctx.ctx.types[typeIndex]->name));
+
+				return CheckType(expression, new ExprFunctionLiteral(expression->source, expression->type, data, ptr));
+			}
 		}
 
 		return Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(ptr->data->name));
@@ -2168,6 +2229,12 @@ ExprBase* EvaluateModule(Eval &ctx, ExprModule *expression)
 
 	Eval::StackFrame *frame = ctx.stackFrames.back();
 
+	for(ExprBase *value = expression->setup.head; value; value = value->next)
+	{
+		if(!Evaluate(ctx, value))
+			return NULL;
+	}
+
 	for(ExprBase *value = expression->expressions.head; value; value = value->next)
 	{
 		if(!Evaluate(ctx, value))
@@ -2211,6 +2278,9 @@ ExprBase* Evaluate(Eval &ctx, ExprBase *expression)
 
 	if(ExprNullptrLiteral *expr = getType<ExprNullptrLiteral>(expression))
 		return new ExprNullptrLiteral(expr->source, expr->type);
+
+	if(ExprFunctionIndexLiteral *expr = getType<ExprFunctionIndexLiteral>(expression))
+		return new ExprFunctionIndexLiteral(expr->source, expr->type, expr->function);
 
 	if(ExprPassthrough *expr = getType<ExprPassthrough>(expression))
 		return Evaluate(ctx, expr->value);

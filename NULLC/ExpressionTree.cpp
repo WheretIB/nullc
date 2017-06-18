@@ -1023,6 +1023,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *function, SmallArray<FunctionValue, 32> &functions);
 void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, SmallArray<FunctionValue, 32> &functions);
 void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, InplaceStr functionName, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo);
+ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, bool allowFailure);
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, bool allowFailure);
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, bool allowFailure);
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, ExprBase *arg2, bool allowFailure);
@@ -2685,6 +2686,51 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 	return NULL;
 }
 
+ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name)
+{
+	IntrusiveList<TypeHandle> types;
+	IntrusiveList<FunctionHandle> functions;
+
+	// Find all member functions with the specified name
+	for(unsigned i = 0; i < ctx.functions.size(); i++)
+	{
+		FunctionData *function = ctx.functions[i];
+
+		TypeBase *parentType = function->scope->ownerType;
+
+		if(!parentType)
+			continue;
+
+		unsigned hash = StringHashContinue(parentType->nameHash, "::");
+
+		hash = StringHashContinue(hash, name.begin, name.end);
+
+		if(function->nameHash != hash)
+			continue;
+
+		bool found = false;
+
+		for(TypeHandle *curr = types.head; curr; curr = curr->next)
+		{
+			if(curr->type == function->type)
+			{
+				found = true;
+				break;
+			}
+		}
+
+		if(found)
+			continue;
+
+		types.push_back(new TypeHandle(function->type));
+		functions.push_back(new FunctionHandle(function));
+	}
+
+	TypeFunctionSet *type = new TypeFunctionSet(GetFunctionSetTypeName(types), types);
+
+	return new ExprFunctionOverloadSet(source, type, functions, value);
+}
+
 ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name)
 {
 	ExprBase* wrapped = value;
@@ -2699,6 +2745,10 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 			value = new ExprDereference(source, refType->subType, value);
 		}
+	}
+	else if(value->type == ctx.typeAutoRef)
+	{
+		return CreateAutoRefFunctionSet(ctx, source, value, name);
 	}
 	else if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
 	{
@@ -3918,6 +3968,32 @@ void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *functio
 	}
 }
 
+ExprBase* GetFunctionTable(ExpressionContext &ctx, SynBase *source, FunctionData *function)
+{
+	InplaceStr vtableName = GetFunctionTableName(function);
+
+	if(VariableData **variable = ctx.variableMap.find(vtableName.hash()))
+	{
+		return new ExprVariableAccess(source, (*variable)->type, *variable);
+	}
+	
+	TypeBase *type = ctx.GetUnsizedArrayType(ctx.typeFunctionID);
+
+	unsigned offset = AllocateVariableInScope(ctx.scope, type->alignment, type);
+	VariableData *variable = new VariableData(source, ctx.scope, type->alignment, type, vtableName, offset, ctx.uniqueVariableId++);
+
+	ctx.vtables.push_back(variable);
+
+	return new ExprVariableAccess(source, variable->type, variable);
+}
+
+ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, bool allowFailure)
+{
+	SmallArray<ArgumentData, 32> arguments;
+
+	return CreateFunctionCall(ctx, source, name, arguments, allowFailure);
+}
+
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, bool allowFailure)
 {
 	SmallArray<ArgumentData, 32> arguments;
@@ -4124,7 +4200,18 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 			type = getType<TypeFunction>(function->type);
 		}
 
-		value = new ExprFunctionAccess(source, function->type, function, bestOverload.context);
+		if(bestOverload.context->type == ctx.typeAutoRef)
+		{
+			ExprBase *table = GetFunctionTable(ctx, source, bestOverload.function);
+
+			value = CreateFunctionCall(ctx, source, InplaceStr("__redirect"), bestOverload.context, table, false);
+
+			value = new ExprTypeCast(source, function->type, value, EXPR_CAST_REINTERPRET);
+		}
+		else
+		{
+			value = new ExprFunctionAccess(source, function->type, function, bestOverload.context);
+		}
 
 		SmallArray<ArgumentData, 32> result;
 
@@ -6818,6 +6905,9 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 		data->imported = true;
 
 		ctx.AddVariable(data);
+
+		if(name.length() > 5 && memcmp(name.begin, "$vtbl", 5) == 0)
+			ctx.vtables.push_back(data);
 	}
 }
 
@@ -7104,6 +7194,104 @@ void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 		Stop(ctx, syntax->pos, "ERROR: module import is not implemented");
 }
 
+ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, VariableData *vtable)
+{
+	IntrusiveList<ExprBase> expressions;
+
+	// Find function name
+	InplaceStr name = InplaceStr(vtable->name.begin + 15); // 15 to skip $vtbl0123456789 from name
+
+	// Find function type from name
+	unsigned typeNameHash = strtoul(vtable->name.begin + 5, NULL, 10);
+
+	TypeBase *functionType = NULL;
+			
+	for(unsigned i = 0; i < ctx.types.size(); i++)
+	{
+		if(ctx.types[i]->nameHash == typeNameHash)
+		{
+			functionType = getType<TypeFunction>(ctx.types[i]);
+			break;
+		}
+	}
+
+	if(!functionType)
+		Stop(ctx, source->pos, "ERROR: Can't find function type for virtual function table '%.*s'", FMT_ISTR(vtable->name));
+
+	if(!vtable->imported)
+	{
+		ExprBase *size = new ExprIntegerLiteral(source, ctx.typeInt, 4);
+		ExprBase *count = CreateFunctionCall(ctx, source, InplaceStr("__typeCount"), false);
+		ExprBase *typeId = new ExprTypeCast(source, ctx.typeInt, new ExprTypeLiteral(source, ctx.typeTypeID, ctx.typeFunctionID), EXPR_CAST_REINTERPRET);
+
+		ExprBase *alloc = new ExprTypeCast(source, vtable->type, CreateFunctionCall(ctx, source, InplaceStr("__newA"), size, count, typeId, false), EXPR_CAST_REINTERPRET);
+
+		ExprBase *assignment = CreateAssignment(ctx, source, new ExprVariableAccess(source, vtable->type, vtable), alloc);
+
+		expressions.push_back(new ExprVariableDefinition(source, ctx.typeVoid, vtable, assignment));
+
+		ctx.AddVariable(vtable);
+	}
+
+	// Find all functions with called name that are member functions and have target type
+	SmallArray<FunctionData*, 32> functions;
+
+	for(unsigned i = 0; i < ctx.functions.size(); i++)
+	{
+		FunctionData *function = ctx.functions[i];
+
+		TypeBase *parentType = function->scope->ownerType;
+
+		if(!parentType || function->imported)
+			continue;
+
+		const char *pos = strstr(function->name.begin, "::");
+
+		if(!pos)
+			continue;
+
+		if(InplaceStr(pos + 2) == name && function->type == functionType)
+			functions.push_back(function);
+	}
+
+	for(unsigned i = 0; i < ctx.types.size(); i++)
+	{
+		for(unsigned k = 0; k < functions.size(); k++)
+		{
+			TypeBase *type = ctx.types[i];
+			FunctionData *function = functions[k];
+
+			while(type)
+			{
+				if(function->scope->ownerType == type)
+				{
+					ExprBase *vtableAccess = new ExprVariableAccess(source, vtable->type, vtable);
+
+					ExprBase *typeId = new ExprTypeLiteral(source, ctx.typeTypeID, type);
+
+					SmallArray<ArgumentData, 32> arguments;
+					arguments.push_back(ArgumentData(source, false, InplaceStr(), ctx.typeInt, new ExprTypeCast(source, ctx.typeInt, typeId, EXPR_CAST_REINTERPRET)));
+
+					ExprBase *arraySlot = CreateArrayIndex(ctx, source, vtableAccess, arguments);
+
+					ExprBase *assignment = CreateAssignment(ctx, source, arraySlot, new ExprFunctionIndexLiteral(source, ctx.typeFunctionID, function));
+
+					expressions.push_back(assignment);
+					break;
+				}
+
+				// Stepping through the class inheritance tree will ensure that the base class function will be used if the derived class function is not available
+				if(TypeClass *classType = getType<TypeClass>(type))
+					type = classType->baseClass;
+				else
+					type = NULL;
+			}
+		}
+	}
+
+	return new ExprBlock(source, ctx.typeVoid, expressions);
+}
+
 ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
 {
 	if(const char *bytecode = BinaryCache::GetBytecode("$base$.nc"))
@@ -7127,6 +7315,9 @@ ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
 
 		for(unsigned i = 0; i < ctx.definitions.size(); i++)
 			module->definitions.push_back(ctx.definitions[i]);
+
+		for(unsigned i = 0; i < ctx.vtables.size(); i++)
+			module->setup.push_back(CreateVirtualTableUpdate(ctx, syntax, ctx.vtables[i]));
 
 		return module;
 	}

@@ -252,6 +252,10 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintIndented(ctx, name, node->type, "ExprNullptrLiteral()");
 	}
+	else if(ExprFunctionIndexLiteral *node = getType<ExprFunctionIndexLiteral>(expression))
+	{
+		PrintIndented(ctx, name, node->type, "ExprFunctionIndexLiteral(%.*s: f%04x)", FMT_ISTR(node->function->name), node->function->uniqueId);
+	}
 	else if(ExprPassthrough *node = getType<ExprPassthrough>(expression))
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprPassthrough()");

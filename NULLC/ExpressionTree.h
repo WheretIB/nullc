@@ -63,6 +63,7 @@ struct ExpressionContext
 	FastVector<VariableData*> variables;
 
 	FastVector<ExprBase*> definitions;
+	FastVector<VariableData*> vtables;
 
 	HashMap<TypeClass*> genericTypeMap;
 
@@ -214,6 +215,17 @@ struct ExprNullptrLiteral: ExprBase
 	ExprNullptrLiteral(SynBase *source, TypeBase *type): ExprBase(myTypeID, source, type)
 	{
 	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct ExprFunctionIndexLiteral: ExprBase
+{
+	ExprFunctionIndexLiteral(SynBase *source, TypeBase *type, FunctionData *function): ExprBase(myTypeID, source, type), function(function)
+	{
+	}
+
+	FunctionData *function;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -549,6 +561,11 @@ struct ExprFunctionAccess: ExprBase
 	ExprFunctionAccess(SynBase *source, TypeBase *type, FunctionData *function, ExprBase *context): ExprBase(myTypeID, source, type), function(function), context(context)
 	{
 		assert(context);
+
+		assert(context->type->name != InplaceStr("auto ref"));
+
+		if(!function->type->isGeneric && !(function->scope->ownerType && function->scope->ownerType->isGeneric))
+			assert(function->contextType == context->type);
 	}
 
 	FunctionData *function;
@@ -751,6 +768,8 @@ struct ExprModule: ExprBase
 	ScopeData *moduleScope;
 
 	FastVector<ExprBase*> definitions;
+
+	IntrusiveList<ExprBase> setup;
 
 	IntrusiveList<ExprBase> expressions;
 

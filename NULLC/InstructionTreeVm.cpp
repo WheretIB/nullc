@@ -650,6 +650,11 @@ namespace
 		return CreateInstruction(module, VmType::Int, VM_INST_TYPE_ID, CreateConstantInt(type->typeIndex));
 	}
 
+	VmValue* CreateFunctionAddress(VmModule *module, FunctionData *function)
+	{
+		return CreateInstruction(module, VmType::Int, VM_INST_FUNCTION_ADDRESS, CreateConstantInt(function->functionIndex));
+	}
+
 	VmValue* CreateConvertPtr(VmModule *module, VmValue *ptr, TypeBase *type)
 	{
 		return CreateInstruction(module, VmType::Pointer, VM_INST_CONVERT_POINTER, ptr, CreateTypeIndex(module, type));
@@ -1214,6 +1219,10 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	else if(ExprNullptrLiteral *node = getType<ExprNullptrLiteral>(expression))
 	{
 		return CheckType(ctx, expression, CreateConstantPointer(0, false));
+	}
+	else if(ExprFunctionIndexLiteral *node = getType<ExprFunctionIndexLiteral>(expression))
+	{
+		return CheckType(ctx, expression, CreateFunctionAddress(module, node->function));
 	}
 	else if(ExprPassthrough *node = getType<ExprPassthrough>(expression))
 	{
@@ -2073,11 +2082,11 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 
 		// Generate type indexes
 		for(unsigned i = 0; i < ctx.types.size(); i++)
-		{
-			TypeBase *type = ctx.types[i];
+			ctx.types[i]->typeIndex = i;
 
-			type->typeIndex = i;
-		}
+		// Generate function indexes
+		for(unsigned i = 0; i < ctx.functions.size(); i++)
+			ctx.functions[i]->functionIndex = i;
 
 		// Generate VmFunction object for each function
 		for(unsigned i = 0; i < ctx.functions.size(); i++)
@@ -2113,6 +2122,9 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 		global->AddBlock(block);
 		module->currentBlock = block;
 		block->AddUse(global);
+
+		for(ExprBase *value = node->setup.head; value; value = value->next)
+			CompileVm(ctx, module, value);
 
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
 			CompileVm(ctx, module, value);
@@ -2577,7 +2589,9 @@ void RunControlFlowOptimization(VmModule *module, VmValue *value)
 						inst->parent = curr;
 
 					curr->lastInstruction->nextSibling = next->firstInstruction;
-					next->firstInstruction->prevSibling = curr->lastInstruction;
+
+					if(next->firstInstruction)
+						next->firstInstruction->prevSibling = curr->lastInstruction;
 
 					curr->lastInstruction = next->lastInstruction;
 

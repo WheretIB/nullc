@@ -189,6 +189,21 @@ InplaceStr GetFunctionContextVariableName(FunctionData *function)
 	return InplaceStr(name);
 }
 
+InplaceStr GetFunctionTableName(FunctionData *function)
+{
+	assert(function->scope->ownerType);
+
+	const char *pos = strstr(function->name.begin, "::");
+
+	assert(pos);
+
+	unsigned nameLength = function->name.length() + 32;
+	char *name = new char[nameLength + 1];
+	sprintf(name, "$vtbl%010u%s", function->type->name.hash(), pos + 2);
+
+	return InplaceStr(name);
+}
+
 InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str)
 {
 	bool foundNamespace = false;
