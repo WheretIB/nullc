@@ -1515,7 +1515,7 @@ bool ParseFunctionDefinition(Lexeme** str, bool coroutine)
 	{
 		if(!ParseLexem(str, lex_ofigure))
 			ThrowError((*str)->pos, "ERROR: '{' not found after function header");
-		FunctionGeneric(true, unsigned(start - CodeInfo::lexStart), unsigned(vars - CodeInfo::lexStart));
+		FunctionGeneric(true, unsigned(start - CodeInfo::lexStart - (coroutine ? 1 : 0)), unsigned(vars - CodeInfo::lexStart));
 
 		// Setup function explicit type list
 		FunctionInfo *currFunction = GetCurrentFunction();
