@@ -5229,8 +5229,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	ctx.definitions.push_back(definition);
 
-	// TODO: function context
-	ExprBase *access = new ExprFunctionAccess(syntax, function->type, function, new ExprNullptrLiteral(syntax, ctx.GetReferenceType(ctx.typeVoid)));
+	ExprBase *access = new ExprFunctionAccess(syntax, function->type, function, CreateFunctionContextAccess(ctx, syntax, function));
 
 	return CreateFunctionCall(ctx, syntax, InplaceStr("__gen_list"), access, false);
 }
