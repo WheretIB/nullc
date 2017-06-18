@@ -3835,6 +3835,9 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	{
 		FunctionData *data = function->instances[i];
 
+		if(parentType != data->scope->ownerType)
+			continue;
+
 		TypeFunction *testType = instance;
 
 		if(testType->returnType == ctx.typeAuto)
