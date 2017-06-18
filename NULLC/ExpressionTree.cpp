@@ -5831,7 +5831,15 @@ ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 {
 	ctx.PushLoopScope();
 
-	ExprBase *initializer = syntax->initializer ? AnalyzeStatement(ctx, syntax->initializer) : new ExprVoid(syntax, ctx.typeVoid);
+	ExprBase *initializer = NULL;
+
+	if(SynBlock *block = getType<SynBlock>(syntax->initializer))
+		initializer = AnalyzeBlock(ctx, block, false);
+	else if(syntax->initializer)
+		initializer = AnalyzeStatement(ctx, syntax->initializer);
+	else
+		initializer = new ExprVoid(syntax, ctx.typeVoid);
+
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 	ExprBase *increment = syntax->increment ? AnalyzeStatement(ctx, syntax->increment) : new ExprVoid(syntax, ctx.typeVoid);
 	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new ExprVoid(syntax, ctx.typeVoid);
