@@ -4685,6 +4685,10 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 			Stop(ctx, syntax->pos, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(syntax->name));
 	}
 
+	VariableData *variable = new VariableData(syntax, ctx.scope, 0, type, fullName, 0, ctx.uniqueVariableId++);
+
+	ctx.AddVariable(variable);
+
 	ExprBase *initializer = syntax->initializer ? AnalyzeExpression(ctx, syntax->initializer) : NULL;
 
 	if(type == ctx.typeAuto)
@@ -4700,10 +4704,12 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 	assert(!type->isGeneric);
 	assert(type != ctx.typeAuto);
 
+	// Fixup variable data not that the final type is known
 	unsigned offset = AllocateVariableInScope(ctx.scope, alignment, type);
-	VariableData *variable = new VariableData(syntax, ctx.scope, alignment, type, fullName, offset, ctx.uniqueVariableId++);
-
-	ctx.AddVariable(variable);
+	
+	variable->type = type;
+	variable->alignment = alignment;
+	variable->offset = offset;
 
 	if(initializer)
 	{
