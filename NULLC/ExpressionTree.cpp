@@ -6900,7 +6900,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		}
 
 		if(!contextType)
-			contextType = ctx.GetReferenceType(ctx.typeVoid);
+			contextType = ctx.GetReferenceType(parentType ? parentType : ctx.typeVoid);
 
 		if(function.explicitTypeCount != 0)
 			Stop(ctx, source->pos, "ERROR: can't import generic function with explicit arguments");
