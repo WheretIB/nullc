@@ -1012,6 +1012,8 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, VariableData *variable);
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name);
 
+ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, bool allowFailure);
+
 ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, FunctionData *function);
 ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<FunctionData*>::Node *function, ExprBase *context);
 
@@ -2294,37 +2296,10 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 	{
 		if(TypeBase* type = FindNextTypeFromScope(ctx.scope))
 		{
-			unsigned hash = StringHashContinue(type->nameHash, "::");
-
-			hash = StringHashContinue(hash, name.begin, name.end);
-
-			function = ctx.functionMap.first(hash);
-
-			if(function)
+			if(VariableData **variable = ctx.variableMap.find(InplaceStr("this").hash()))
 			{
-				ExprBase *context = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("this"));
-
-				if(!context)
-					Stop(ctx, source->pos, "ERROR: 'this' variable is not available");
-
-				return CreateFunctionAccess(ctx, source, function, context);
-			}
-
-			// Try accessor
-			hash = StringHashContinue(hash, "$");
-
-			function = ctx.functionMap.first(hash);
-
-			if(function)
-			{
-				ExprBase *context = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("this"));
-
-				if(!context)
-					Stop(ctx, source->pos, "ERROR: 'this' variable is not available");
-
-				ExprBase *access = CreateFunctionAccess(ctx, source, function, context);
-
-				return CreateFunctionCall(ctx, source, access, NULL, false);
+				if(ExprBase *member = CreateMemberAccess(ctx, source, CreateVariableAccess(ctx, source, *variable), name, true))
+					return member;
 			}
 		}
 	}
@@ -2731,7 +2706,7 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 	return new ExprFunctionOverloadSet(source, type, functions, value);
 }
 
-ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name)
+ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, bool allowFailure)
 {
 	ExprBase* wrapped = value;
 
@@ -2842,6 +2817,9 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 			}
 		}
 
+		if(allowFailure)
+			return NULL;
+
 		Stop(ctx, source->pos, "ERROR: member variable or function '%.*s' is not defined in class '%.*s'", FMT_ISTR(name), FMT_ISTR(value->type->name));
 	}
 
@@ -2863,7 +2841,7 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 
 	ExprBase* value = AnalyzeExpression(ctx, syntax->value);
 
-	return CreateMemberAccess(ctx, syntax, value, syntax->member);
+	return CreateMemberAccess(ctx, syntax, value, syntax->member, false);
 }
 
 ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *value, SmallArray<ArgumentData, 32> &arguments)
@@ -5925,7 +5903,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			initializers.push_back(new ExprVariableDefinition(curr, ctx.typeVoid, iterator, iteratorAssignment));
 
 			// Create condition
-			conditions.push_back(CreateBinaryOp(ctx, curr, SYN_BINARY_OP_LESS, new ExprVariableAccess(curr, iterator->type, iterator), CreateMemberAccess(ctx, curr, value, InplaceStr("size"))));
+			conditions.push_back(CreateBinaryOp(ctx, curr, SYN_BINARY_OP_LESS, new ExprVariableAccess(curr, iterator->type, iterator), CreateMemberAccess(ctx, curr, value, InplaceStr("size"), false)));
 
 			// Create definition
 			type = ctx.GetReferenceType(type);
@@ -5959,7 +5937,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 		// If we don't have a function, get an iterator
 		if(!functionType)
 		{
-			startCall = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, value, InplaceStr("start")), NULL, false);
+			startCall = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, value, InplaceStr("start"), false), NULL, false);
 
 			// Check if iteartor is a coroutine
 			functionType = getType<TypeFunction>(startCall->type);
@@ -6022,10 +6000,10 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			initializers.push_back(new ExprVariableDefinition(curr, ctx.typeVoid, iterator, CreateAssignment(ctx, curr, new ExprVariableAccess(curr, iterator->type, iterator), startCall)));
 
 			// Create condition
-			conditions.push_back(CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, new ExprVariableAccess(curr, iterator->type, iterator), InplaceStr("hasnext")), NULL, false));
+			conditions.push_back(CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, new ExprVariableAccess(curr, iterator->type, iterator), InplaceStr("hasnext"), false), NULL, false));
 
 			// Create definition
-			ExprBase *call = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, new ExprVariableAccess(curr, iterator->type, iterator), InplaceStr("next")), NULL, false);
+			ExprBase *call = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, new ExprVariableAccess(curr, iterator->type, iterator), InplaceStr("next"), false), NULL, false);
 
 			if(!type)
 				type = call->type;
