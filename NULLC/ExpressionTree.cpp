@@ -5278,25 +5278,25 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 		if(type)
 		{
+			char *name = new char[param->name.length() + 2];
+
+			sprintf(name, "%.*s$", FMT_ISTR(param->name));
+
 			if(expected->type->isGeneric)
 			{
 				IntrusiveList<MatchData> aliases;
 
 				if(TypeBase *match = MatchGenericType(ctx, syntax, expected->type, type, aliases, false))
-					argData.push_back(ArgumentData(param, false, param->name, match, NULL));
+					argData.push_back(ArgumentData(param, false, InplaceStr(name), match, NULL));
 				else
 					return NULL;
 			}
 			else
 			{
-				char *name = new char[param->name.length() + 2];
-
-				sprintf(name, "%.*s$", FMT_ISTR(param->name));
-
 				argData.push_back(ArgumentData(param, false, InplaceStr(name), expected->type, NULL));
-
-				argCasts.push_back(new MatchData(param->name, type));
 			}
+
+			argCasts.push_back(new MatchData(param->name, type));
 		}
 		else
 		{
