@@ -397,6 +397,20 @@ namespace
 
 		return false;
 	}
+
+	bool SameArguments(TypeFunction *a, TypeFunction *b)
+	{
+		TypeHandle *ca = a->arguments.head;
+		TypeHandle *cb = b->arguments.head;
+
+		for(; ca && cb; ca = ca->next, cb = cb->next)
+		{
+			if(ca->type != cb->type)
+				return false;
+		}
+
+		return ca == cb;
+	}
 }
 
 ExpressionContext::ExpressionContext()
@@ -2780,8 +2794,70 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 		hash = StringHashContinue(hash, name.begin, name.end);
 
+		ExprBase *mainFuncton = NULL;
+
 		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
-			return CreateFunctionAccess(ctx, source, function, wrapped);
+			mainFuncton = CreateFunctionAccess(ctx, source, function, wrapped);
+
+		ExprBase *baseFunction = NULL;
+
+		// Look for a member function in a generic class base
+		if(TypeClass *classType = getType<TypeClass>(value->type))
+		{
+			if(TypeGenericClassProto *protoType = classType->proto)
+			{
+				unsigned hash = StringHashContinue(protoType->nameHash, "::");
+
+				hash = StringHashContinue(hash, name.begin, name.end);
+
+				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+					baseFunction = CreateFunctionAccess(ctx, source, function, wrapped);
+			}
+		}
+
+		// Add together instantiated and generic base functions
+		if(mainFuncton && baseFunction)
+		{
+			IntrusiveList<TypeHandle> types;
+			IntrusiveList<FunctionHandle> overloads;
+
+			// Collect a set of available functions
+			SmallArray<FunctionValue, 32> functions;
+
+			GetNodeFunctions(ctx, source, mainFuncton, functions);
+			GetNodeFunctions(ctx, source, baseFunction, functions);
+
+			for(unsigned i = 0; i < functions.size(); i++)
+			{
+				FunctionValue function = functions[i];
+
+				bool instantiated = false;
+
+				for(FunctionHandle *curr = overloads.head; curr && !instantiated; curr = curr->next)
+				{
+					if(curr->function->proto == function.function)
+						instantiated = true;
+					else if(SameArguments(curr->function->type, function.function->type))
+						instantiated = true;
+				}
+
+				if(instantiated)
+					continue;
+
+				types.push_back(new TypeHandle(function.function->type));
+				overloads.push_back(new FunctionHandle(function.function));
+			}
+
+			TypeFunctionSet *type = new TypeFunctionSet(GetFunctionSetTypeName(types), types);
+
+			return new ExprFunctionOverloadSet(source, type, overloads, wrapped);
+		}
+
+		if(mainFuncton)
+			return mainFuncton;
+
+		if(baseFunction)
+			return baseFunction;
 
 		// Look for an accessor
 		hash = StringHashContinue(hash, "$");
@@ -2793,7 +2869,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 			return CreateFunctionCall(ctx, source, access, NULL, false);
 		}
 
-		// Look for a member function in a generic class base and instantiate them
+		// Look for a member function in a generic class base
 		if(TypeClass *classType = getType<TypeClass>(value->type))
 		{
 			if(TypeGenericClassProto *protoType = classType->proto)
@@ -2801,9 +2877,6 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 				unsigned hash = StringHashContinue(protoType->nameHash, "::");
 
 				hash = StringHashContinue(hash, name.begin, name.end);
-
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
-					return CreateFunctionAccess(ctx, source, function, wrapped);
 
 				// Look for an accessor
 				hash = StringHashContinue(hash, "$");
@@ -3601,16 +3674,19 @@ TypeBase* MatchArgumentType(ExpressionContext &ctx, SynBase *source, TypeBase *e
 	return MatchGenericType(ctx, source, expectedType, actualType, aliases, false);
 }
 
-TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *source, FunctionData *function, SmallArray<ArgumentData, 32> &arguments, IntrusiveList<MatchData> &aliases)
+TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *source, TypeBase *parentType, FunctionData *function, SmallArray<ArgumentData, 32> &arguments, IntrusiveList<MatchData> &aliases)
 {
 	assert(function->arguments.size() == arguments.size());
+
+	// Switch to original function scope
+	ScopeData *scope = ctx.scope;
+
+	ctx.SwitchToScopeAtPoint(NULL, function->scope, function->source);
 
 	IntrusiveList<TypeHandle> types;
 
 	if(SynFunctionDefinition *syntax = function->definition)
 	{
-		TypeBase *parentType = syntax->parentType ? AnalyzeType(ctx, syntax->parentType) : NULL;
-
 		bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
 
 		// Create temporary scope with known arguments for reference in type expression
@@ -3663,6 +3739,9 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 		}
 	}
 
+	// Restore old scope
+	ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
+
 	if(types.size() != arguments.size())
 		return NULL;
 
@@ -3707,8 +3786,10 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name));
 		}
 
-		if(function->type->isGeneric && showInstanceInfo)
+		if((function->type->isGeneric || (function->scope->ownerType && function->scope->ownerType->isGeneric)) && showInstanceInfo)
 		{
+			TypeBase *parentType = function->scope->ownerType ? getType<TypeRef>(functions[i].context->type)->subType : NULL;
+
 			IntrusiveList<MatchData> aliases;
 			SmallArray<ArgumentData, 32> result;
 
@@ -3717,7 +3798,7 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 			{
 				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here");
 			}
-			else if(TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, function, result, aliases))
+			else if(TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, parentType, function, result, aliases))
 			{
 				GetFunctionRating(ctx, function, instance, result);
 
@@ -3780,8 +3861,20 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, SmallA
 
 		if(function->type->isGeneric || (function->scope->ownerType && function->scope->ownerType->isGeneric))
 		{
+			TypeBase *parentType = NULL;
+
+			if(value.context->type == ctx.typeAutoRef)
+			{
+				assert(function->scope->ownerType && !function->scope->ownerType->isGeneric);
+				parentType = function->scope->ownerType;
+			}
+			else if(function->scope->ownerType)
+			{
+				parentType = getType<TypeRef>(value.context->type)->subType;
+			}
+
 			IntrusiveList<MatchData> aliases;
-			TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, function, result, aliases);
+			TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, parentType, function, result, aliases);
 
 			if(!instance)
 			{
@@ -3837,26 +3930,24 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, false))
 		assert(!"unexpected");
 
+	TypeBase *parentType = NULL;
+
+	if(proto.context->type == ctx.typeAutoRef)
+	{
+		assert(function->scope->ownerType && !function->scope->ownerType->isGeneric);
+		parentType = function->scope->ownerType;
+	}
+	else if(function->scope->ownerType)
+	{
+		parentType = getType<TypeRef>(proto.context->type)->subType;
+	}
+
 	IntrusiveList<MatchData> aliases;
 
-	TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, function, result, aliases);
+	TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, parentType, function, result, aliases);
 
 	assert(instance);
 	assert(!instance->isGeneric);
-
-	TypeBase *parentType = NULL;
-
-	if(SynFunctionDefinition *syntax = function->definition)
-	{
-		if(syntax->parentType)
-		{
-			assert(function->scope->ownerType);
-			assert(isType<TypeRef>(proto.context->type));
-
-			if(TypeRef *type = getType<TypeRef>(proto.context->type))
-				parentType = type->subType;
-		}
-	}
 
 	// Search for an existing functions
 	for(unsigned i = 0; i < function->instances.size(); i++)
@@ -3866,12 +3957,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		if(parentType != data->scope->ownerType)
 			continue;
 
-		TypeFunction *testType = instance;
-
-		if(testType->returnType == ctx.typeAuto)
-			testType = ctx.GetFunctionType(data->type->returnType, instance->arguments);
-
-		if(data->type == testType)
+		if(SameArguments(data->type, instance))
 			return FunctionValue(function->instances[i], proto.context);
 	}
 
