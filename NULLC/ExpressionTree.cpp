@@ -4006,6 +4006,9 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *function, SmallArray<FunctionValue, 32> &functions)
 {
+	if(ExprPassthrough *node = getType<ExprPassthrough>(function))
+		function = node->value;
+
 	if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(function))
 	{
 		functions.push_back(FunctionValue(node->function, node->context));
