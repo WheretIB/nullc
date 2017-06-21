@@ -4713,15 +4713,35 @@ ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprB
 			initializer = new ExprFunctionAccess(initializer->source, bestOverload.function->type, bestOverload.function, bestOverload.context);
 	}
 
-	if(isType<ExprFunctionOverloadSet>(initializer))
+	if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(initializer))
 	{
-		SmallArray<FunctionValue, 32> functions;
+		if(node->functions.size() == 1)
+		{
+			FunctionData *function = node->functions.head->function;
 
-		GetNodeFunctions(ctx, initializer->source, initializer, functions);
+			if(node->context->type == ctx.typeAutoRef)
+			{
+				ExprBase *table = GetFunctionTable(ctx, source, function);
 
-		char *errPos = ctx.errorBuf;
-		errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available:\n");
-		StopOnFunctionSelectError(ctx, source, errPos, functions);
+				initializer = CreateFunctionCall(ctx, source, InplaceStr("__redirect_ptr"), node->context, table, false);
+
+				initializer = new ExprTypeCast(source, function->type, initializer, EXPR_CAST_REINTERPRET);
+			}
+			else
+			{
+				initializer = new ExprFunctionAccess(initializer->source, function->type, function, node->context);
+			}
+		}
+		else
+		{
+			SmallArray<FunctionValue, 32> functions;
+
+			GetNodeFunctions(ctx, initializer->source, initializer, functions);
+
+			char *errPos = ctx.errorBuf;
+			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available:\n");
+			StopOnFunctionSelectError(ctx, source, errPos, functions);
+		}
 	}
 
 	return initializer;
