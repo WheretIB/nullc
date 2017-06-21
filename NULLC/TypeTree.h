@@ -179,6 +179,7 @@ struct FunctionData
 		implementation = NULL;
 
 		proto = NULL;
+		isGenericInstance = false;
 
 		definition = NULL;
 
@@ -224,6 +225,7 @@ struct FunctionData
 	FunctionData *implementation;
 
 	FunctionData *proto;
+	bool isGenericInstance;
 
 	SmallArray<FunctionData*, 32> instances;
 

@@ -6974,10 +6974,33 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 	{
 		ExternFuncInfo &function = functionList[i];
 
+		InplaceStr functionName = InplaceStr(symbols + function.offsetToName);
+
 		TypeBase *functionType = module.types[function.funcType];
 
 		if(!functionType)
 			Stop(ctx, source->pos, "ERROR: can't find function '%s' type in module %s", symbols + function.offsetToName, module.name);
+
+		FunctionData *prev = NULL;
+
+		for(HashMap<FunctionData*>::Node *curr = ctx.functionMap.first(function.nameHash); curr; curr = ctx.functionMap.next(curr))
+		{
+			if(curr->value->type == functionType)
+			{
+				prev = curr->value;
+				break;
+			}
+		}
+
+		if(prev)
+		{
+			if(*prev->name.begin == '$' || prev->isGenericInstance)
+				ctx.functions.push_back(prev);
+			else
+				Stop(ctx, source->pos, "ERROR: function %.*s (type %.*s) is already defined. While importing %s", FMT_ISTR(prev->name), FMT_ISTR(prev->type->name), module.name);
+
+			continue;
+		}
 
 		if(function.namespaceHash != ~0u)
 			Stop(ctx, source->pos, "ERROR: can't import namespace function");
@@ -7008,8 +7031,6 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		if(function.explicitTypeCount != 0)
 			Stop(ctx, source->pos, "ERROR: can't import generic function with explicit arguments");
 
-		InplaceStr functionName = InplaceStr(symbols + function.offsetToName);
-
 		bool coroutine = function.funcCat == ExternFuncInfo::COROUTINE;
 		bool accessor = *(functionName.end - 1) == '$';
 
@@ -7019,6 +7040,9 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		FunctionData *data = new FunctionData(source, ctx.scope, coroutine, accessor, getType<TypeFunction>(functionType), contextType, functionName, ctx.uniqueFunctionId++);
 
 		data->imported = true;
+
+		// TODO: find function proto
+		data->isGenericInstance = !!function.isGenericInstance;
 
 		ctx.AddFunction(data);
 
