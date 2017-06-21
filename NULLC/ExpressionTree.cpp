@@ -4934,7 +4934,7 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 		}
 		else
 		{
-			expressions.push_back(CreateAssignment(ctx, source, target, value = CreateGetAddress(ctx, source, value)));
+			expressions.push_back(CreateAssignment(ctx, source, target, CreateGetAddress(ctx, source, value)));
 		}
 	}
 
