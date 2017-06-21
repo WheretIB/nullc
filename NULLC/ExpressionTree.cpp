@@ -4472,7 +4472,12 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 			if(constructor)
 			{
-				ExprBase *call = CreateFunctionCall(ctx, syntax, constructor, syntax->arguments.head, false);
+				// Collect a set of available functions
+				SmallArray<FunctionValue, 32> functions;
+
+				GetNodeFunctions(ctx, syntax, constructor, functions);
+
+				ExprBase *call = CreateFunctionCall(ctx, syntax, function, functions, syntax->arguments.head, false);
 
 				IntrusiveList<ExprBase> expressions;
 
