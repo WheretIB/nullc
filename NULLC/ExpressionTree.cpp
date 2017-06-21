@@ -3704,7 +3704,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 
 			ArgumentData &actualArgument = arguments[pos];
 
-			TypeBase *type = MatchArgumentType(ctx, argument, expectedType, actualArgument.type, actualArgument.value, aliases);
+			TypeBase *type = expectedType == ctx.typeAuto ? actualArgument.type : MatchArgumentType(ctx, argument, expectedType, actualArgument.type, actualArgument.value, aliases);
 
 			if(!type)
 				break;
