@@ -3444,6 +3444,13 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 	// 'generic' match with 'type' results with 'type'
 	if(TypeGeneric *lhs = getType<TypeGeneric>(matchType))
 	{
+		if(!strict)
+		{
+			// 'generic' match with 'type[N]' results with 'type[]'
+			if(TypeArray *rhs = getType<TypeArray>(argType))
+				argType = ctx.GetUnsizedArrayType(rhs->subType);
+		}
+
 		if(lhs->name == InplaceStr("generic"))
 			return argType;
 
