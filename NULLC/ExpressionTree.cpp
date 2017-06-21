@@ -3161,7 +3161,7 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SmallArray<Argument
 			if(result[i].type == NULL)
 			{
 				if(ExprBase *value = argument.value)
-					result.push_back(ArgumentData(argument.source, false, InplaceStr(), value->type, new ExprPassthrough(argument.source, value->type, value)));
+					result[i] = ArgumentData(argument.source, false, InplaceStr(), value->type, new ExprPassthrough(argument.source, value->type, value));
 			}
 		}
 
