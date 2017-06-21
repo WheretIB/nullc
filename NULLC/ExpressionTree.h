@@ -269,12 +269,10 @@ struct ExprMemoryLiteral: ExprBase
 
 struct ExprPassthrough: ExprBase
 {
-	ExprPassthrough(SynBase *source, TypeBase *type, ExprBase *value): ExprBase(myTypeID, source, type), data(data), value(value)
+	ExprPassthrough(SynBase *source, TypeBase *type, ExprBase *value): ExprBase(myTypeID, source, type), value(value)
 	{
 		assert(type == value->type);
 	}
-
-	FunctionData *data;
 
 	ExprBase *value;
 
