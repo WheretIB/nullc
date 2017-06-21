@@ -1023,7 +1023,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs);
 
-ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, VariableData *variable);
+ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, VariableData *variable, bool handleReference);
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name);
 
 ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, bool allowFailure);
@@ -2132,9 +2132,9 @@ ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, F
 	ExprBase *context = NULL;
 
 	if(ctx.GetCurrentFunction() == function)
-		context = CreateVariableAccess(ctx, source, function->contextArgument);
+		context = CreateVariableAccess(ctx, source, function->contextArgument, true);
 	else if(function->contextVariable)
-		context = CreateVariableAccess(ctx, source, function->contextVariable);
+		context = CreateVariableAccess(ctx, source, function->contextVariable, true);
 	else
 		context = new ExprNullptrLiteral(source, function->contextType);
 
@@ -2216,7 +2216,7 @@ VariableData* AddFunctionUpvalue(ExpressionContext &ctx, SynBase *source, Functi
 	return target;
 }
 
-ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, VariableData *variable)
+ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, VariableData *variable, bool handleReference)
 {
 	if(variable->type == ctx.typeAuto)
 		Stop(ctx, source->pos, "ERROR: variable '%.*s' is being used while its type is unknown", FMT_ISTR(variable->name));
@@ -2235,6 +2235,8 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Variable
 		return new ExprDereference(source, variable->type, shift);
 	}
 
+	ExprBase *access = NULL;
+
 	FunctionData *currentFunction = ctx.GetCurrentFunction();
 
 	FunctionData *variableFunctionOwner = ctx.GetFunctionOwner(variable->scope);
@@ -2249,12 +2251,14 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Variable
 
 		member = new ExprDereference(source, closureMember->type, member);
 
-		return new ExprDereference(source, variable->type, member);
+		access = new ExprDereference(source, variable->type, member);
+	}
+	else
+	{
+		access = new ExprVariableAccess(source, variable->type, variable);
 	}
 
-	ExprBase *access = new ExprVariableAccess(source, variable->type, variable);
-
-	if(variable->isReference)
+	if(variable->isReference && handleReference)
 	{
 		assert(isType<TypeRef>(variable->type));
 
@@ -2289,7 +2293,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 	}
 
 	if(variable)
-		return CreateVariableAccess(ctx, source, *variable);
+		return CreateVariableAccess(ctx, source, *variable, true);
 
 	if(path.empty())
 	{
@@ -2312,7 +2316,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 		{
 			if(VariableData **variable = ctx.variableMap.find(InplaceStr("this").hash()))
 			{
-				if(ExprBase *member = CreateMemberAccess(ctx, source, CreateVariableAccess(ctx, source, *variable), name, true))
+				if(ExprBase *member = CreateMemberAccess(ctx, source, CreateVariableAccess(ctx, source, *variable, true), name, true))
 					return member;
 			}
 		}
@@ -4932,7 +4936,7 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 
 		target = new ExprDereference(source, upvalue->target->type, target);
 
-		ExprBase *value = CreateVariableAccess(ctx, source, upvalue->variable);
+		ExprBase *value = CreateVariableAccess(ctx, source, upvalue->variable, false);
 
 		// Close coroutine upvalues immediately
 		if(function->coroutine)
