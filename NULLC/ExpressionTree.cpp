@@ -2845,8 +2845,6 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 	{
 		if(name == InplaceStr("size"))
 			return new ExprIntegerLiteral(source, ctx.typeInt, node->length);
-
-		Stop(ctx, source->pos, "ERROR: array doesn't have member with this name");
 	}
 
 	if(isType<TypeRef>(wrapped->type))
