@@ -4473,7 +4473,22 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 	}
 	else
 	{
-		Stop(ctx, source->pos, "ERROR: unknown call");
+		// Call operator()
+		if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("()")))
+		{
+			SmallArray<ArgumentData, 32> callArguments;
+			callArguments.push_back(ArgumentData(value->source, false, InplaceStr(), value->type, value));
+
+			for(unsigned i = 0; i < arguments.size(); i++)
+				callArguments.push_back(arguments[i]);
+
+			if(ExprBase *result = CreateFunctionCall(ctx, source, overloads, callArguments, false))
+				return result;
+		}
+		else
+		{
+			Stop(ctx, source->pos, "operator '()' accepting %d argument(s) is undefined for a class '%.*s'", arguments.size(), FMT_ISTR(value->type->name));
+		}
 	}
 
 	assert(type);
