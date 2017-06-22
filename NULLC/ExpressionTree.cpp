@@ -2153,18 +2153,50 @@ ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 {
 	assert(syntax->values.head);
 
-	IntrusiveList<ExprBase> values;
+	SmallArray<ExprBase*, 64> raw;
 
-	TypeBase *subType = NULL;
+	TypeBase *nestedUnsizedType = NULL;
 
 	for(SynBase *el = syntax->values.head; el; el = el->next)
 	{
 		ExprBase *value = AnalyzeExpression(ctx, el);
 
+		if(!raw.empty() && raw[0]->type != value->type)
+		{
+			if(TypeArray *arrayType = getType<TypeArray>(raw[0]->type))
+				nestedUnsizedType = ctx.GetUnsizedArrayType(arrayType->subType);
+		}
+
+		raw.push_back(value);
+	}
+
+	IntrusiveList<ExprBase> values;
+
+	TypeBase *subType = NULL;
+
+	for(unsigned i = 0; i < raw.size(); i++)
+	{
+		ExprBase *value = raw[i];
+
+		if(nestedUnsizedType)
+			value = CreateCast(ctx, value->source, value, nestedUnsizedType, false);
+
 		if(subType == NULL)
+		{
 			subType = value->type;
+		}
 		else if(subType != value->type)
-			Stop(ctx, el->pos, "ERROR: array element type mismatch");
+		{
+			// Allow numeric promotion
+			if(ctx.IsIntegerType(value->type) && ctx.IsFloatingPointType(subType))
+				value = CreateCast(ctx, value->source, value, subType, false);
+			else if(ctx.IsIntegerType(value->type) && ctx.IsIntegerType(subType) && subType->size > value->type->size)
+				value = CreateCast(ctx, value->source, value, subType, false);
+			else if(ctx.IsFloatingPointType(value->type) && ctx.IsFloatingPointType(subType) && subType->size > value->type->size)
+				value = CreateCast(ctx, value->source, value, subType, false);
+			else
+				Stop(ctx, value->source->pos, "ERROR: array element type '%.*s' doesn't match '%.*s", FMT_ISTR(value->type->name), FMT_ISTR(subType->name));
+		}
 
 		values.push_back(value);
 	}
