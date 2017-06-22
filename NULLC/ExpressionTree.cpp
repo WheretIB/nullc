@@ -6603,6 +6603,9 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		if(value->type == ctx.typeAuto)
 			Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
 
+		if(isType<ExprTypeLiteral>(value))
+			return value;
+
 		return new ExprTypeLiteral(node, ctx.typeTypeID, value->type);
 	}
 
