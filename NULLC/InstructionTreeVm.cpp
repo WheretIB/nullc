@@ -2093,7 +2093,7 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 		{
 			FunctionData *function = ctx.functions[i];
 
-			if(function->type->isGeneric || (function->scope->ownerType && function->scope->ownerType->isGeneric))
+			if(ctx.IsGenericFunction(function))
 				continue;
 
 			if(function->vmFunction)

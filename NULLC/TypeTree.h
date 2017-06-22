@@ -167,7 +167,7 @@ struct UpvalueData
 
 struct FunctionData
 {
-	FunctionData(SynBase *source, ScopeData *scope, bool coroutine, bool accessor, TypeFunction *type, TypeBase *contextType, InplaceStr name, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), accessor(accessor), type(type), contextType(contextType), name(name), uniqueId(uniqueId)
+	FunctionData(SynBase *source, ScopeData *scope, bool coroutine, bool accessor, TypeFunction *type, TypeBase *contextType, InplaceStr name, IntrusiveList<MatchData> generics, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), accessor(accessor), type(type), contextType(contextType), name(name), generics(generics), uniqueId(uniqueId)
 	{
 		imported = false;
 
@@ -216,6 +216,8 @@ struct FunctionData
 	unsigned functionIndex;
 
 	unsigned uniqueId;
+
+	IntrusiveList<MatchData> generics;
 
 	IntrusiveList<MatchData> aliases;
 

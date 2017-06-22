@@ -45,6 +45,8 @@ struct ExpressionContext
 
 	void HideFunction(FunctionData *function);
 
+	bool IsGenericFunction(FunctionData *function);
+
 	bool IsIntegerType(TypeBase* type);
 	bool IsFloatingPointType(TypeBase* type);
 	bool IsNumericType(TypeBase* type);
