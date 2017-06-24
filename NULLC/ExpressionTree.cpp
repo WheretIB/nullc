@@ -7013,8 +7013,19 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 				TypeBase *importedType = NULL;
 
-				if(type.namespaceHash != ~0u)
-					Stop(ctx, source->pos, "ERROR: can't import namespace type");
+				NamespaceData *parentNamespace = NULL;
+
+				for(unsigned k = 0; k < ctx.namespaces.size(); k++)
+				{
+					if(ctx.namespaces[k]->fullNameHash == type.namespaceHash)
+					{
+						parentNamespace = ctx.namespaces[k];
+						break;
+					}
+				}
+
+				if(parentNamespace)
+					ctx.PushScope(parentNamespace);
 
 				if(type.definitionOffset != ~0u && type.definitionOffset & 0x80000000)
 				{
@@ -7175,6 +7186,9 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 					ctx.PopScope();
 				}
+
+				if(parentNamespace)
+					ctx.PopScope();
 			}
 			break;
 		default:
@@ -7320,8 +7334,19 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			continue;
 		}
 
-		if(function.namespaceHash != ~0u)
-			Stop(ctx, source->pos, "ERROR: can't import namespace function");
+		NamespaceData *parentNamespace = NULL;
+
+		for(unsigned k = 0; k < ctx.namespaces.size(); k++)
+		{
+			if(ctx.namespaces[k]->fullNameHash == function.namespaceHash)
+			{
+				parentNamespace = ctx.namespaces[k];
+				break;
+			}
+		}
+
+		if(parentNamespace)
+			ctx.PushScope(parentNamespace);
 
 		TypeBase *parentType = NULL;
 
@@ -7459,6 +7484,9 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		ctx.PopScope();
 
 		if(parentType)
+			ctx.PopScope();
+
+		if(parentNamespace)
 			ctx.PopScope();
 	}
 
