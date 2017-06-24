@@ -4713,8 +4713,8 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 	{
 		InplaceStr functionName = parentType->name;
 
-		if(TypeGenericClassProto *proto = classType->proto)
-			functionName = proto->name;
+		if(classType->proto)
+			functionName = classType->proto->name;
 
 		// TODO: add type scopes and lookup owner namespace
 		for(const char *pos = functionName.end; pos > functionName.begin; pos--)
@@ -4727,6 +4727,13 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		}
 
 		hash = StringHashContinue(hash, functionName.begin, functionName.end);
+
+		if(classType->proto && !ctx.functionMap.first(hash))
+		{
+			hash = StringHashContinue(classType->proto->name.hash(), "::");
+
+			hash = StringHashContinue(hash, functionName.begin, functionName.end);
+		}
 	}
 	else
 	{
