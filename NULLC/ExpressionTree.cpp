@@ -1559,6 +1559,10 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 		if(TypeRef *refType = getType<TypeRef>(lhs->type))
 			lhs = allocate(ExprDereference)(source, refType->subType, lhs);
 	}
+	else if(TypeRef *refType = getType<TypeRef>(lhs->type))
+	{
+		lhs = allocate(ExprDereference)(source, refType->subType, lhs);
+	}
 
 	if(!isType<TypeRef>(wrapped->type))
 		Stop(ctx, source->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
