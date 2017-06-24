@@ -1429,6 +1429,16 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateTypeIndex(module, unsizedType->subType), value, NULL, NULL));
 			}
+		case EXPR_CAST_DERIVED_TO_BASE:
+			{
+				VmValue *address = AllocateScopeVariable(ctx, module, node->value->type);
+
+				CreateStore(ctx, module, node->value->type, address, value);
+
+				VmValue *result = CreateLoad(ctx, module, node->type, address);
+
+				return CheckType(ctx, expression, result);
+			}
 		case EXPR_CAST_REINTERPRET:
 			return CheckType(ctx, expression, value);
 		default:

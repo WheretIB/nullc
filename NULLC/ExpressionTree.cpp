@@ -1472,6 +1472,12 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 		}
 	}
 
+	if(TypeClass *target = getType<TypeClass>(type))
+	{
+		if(IsDerivedFrom(getType<TypeClass>(value->type), target))
+			return allocate(ExprTypeCast)(source, type, value, EXPR_CAST_DERIVED_TO_BASE);
+	}
+
 	Stop(ctx, source->pos, "ERROR: can't convert '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));
 
 	return NULL;
