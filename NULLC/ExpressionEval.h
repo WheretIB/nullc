@@ -12,7 +12,7 @@ struct ExpressionContext;
 
 struct ExpressionEvalContext
 {
-	ExpressionEvalContext(ExpressionContext &ctx): ctx(ctx)
+	ExpressionEvalContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), stackFrames(allocator)
 	{
 		errorBuf = 0;
 		errorBufSize = 0;
@@ -50,7 +50,7 @@ struct ExpressionEvalContext
 
 	struct StackFrame
 	{
-		StackFrame(): returnValue(0), breakDepth(0), continueDepth(0)
+		StackFrame(Allocator *allocator): returnValue(0), breakDepth(0), continueDepth(0), variables(allocator)
 		{
 		}
 

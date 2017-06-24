@@ -435,7 +435,7 @@ Compiler::Compiler()
 
 	char *bytecode = NULL;
 	GetBytecode(&bytecode);
-	BinaryCache::PutBytecode("$base$.nc", bytecode, NULL, 0);
+	BinaryCache::PutBytecode("$base$.nc", bytecode, lexer.GetStreamStart(), lexer.GetStreamSize());
 
 #ifndef NULLC_NO_EXECUTOR
 	AddModuleFunction("$base$", (void (*)())NULLC::Assert, "assert", 0);

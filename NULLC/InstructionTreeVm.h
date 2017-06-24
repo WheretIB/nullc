@@ -162,7 +162,7 @@ struct VmType
 
 struct VmValue
 {
-	VmValue(unsigned typeID, VmType type): typeID(typeID), type(type)
+	VmValue(unsigned typeID, Allocator *allocator, VmType type): typeID(typeID), type(type), users(allocator)
 	{
 		hasSideEffects = false;
 		hasMemoryAccess = false;
@@ -189,7 +189,7 @@ struct VmValue
 
 struct VmVoid: VmValue
 {
-	VmVoid(): VmValue(myTypeID, VmType::Void)
+	VmVoid(Allocator *allocator): VmValue(myTypeID, allocator, VmType::Void)
 	{
 	}
 
@@ -198,7 +198,7 @@ struct VmVoid: VmValue
 
 struct VmConstant: VmValue
 {
-	VmConstant(VmType type): VmValue(myTypeID, type)
+	VmConstant(Allocator *allocator, VmType type): VmValue(myTypeID, allocator, type)
 	{
 		iValue = 0;
 		dValue = 0.0;
@@ -225,7 +225,7 @@ struct VmConstant: VmValue
 
 struct VmInstruction: VmValue
 {
-	VmInstruction(VmType type, VmInstructionType cmd, unsigned uniqueId): VmValue(myTypeID, type), cmd(cmd), uniqueId(uniqueId)
+	VmInstruction(Allocator *allocator, VmType type, VmInstructionType cmd, unsigned uniqueId): VmValue(myTypeID, allocator, type), cmd(cmd), uniqueId(uniqueId), arguments(allocator)
 	{
 		parent = NULL;
 
@@ -251,7 +251,7 @@ struct VmInstruction: VmValue
 
 struct VmBlock: VmValue
 {
-	VmBlock(InplaceStr name, unsigned uniqueId): VmValue(myTypeID, VmType::Label), name(name), uniqueId(uniqueId)
+	VmBlock(Allocator *allocator, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Label), name(name), uniqueId(uniqueId)
 	{
 		parent = NULL;
 
@@ -282,7 +282,7 @@ struct VmBlock: VmValue
 
 struct VmFunction: VmValue
 {
-	VmFunction(VmType type, FunctionData *function, ScopeData *scope, VmType returnType): VmValue(myTypeID, type), function(function), scope(scope), returnType(returnType)
+	VmFunction(Allocator *allocator, VmType type, FunctionData *function, ScopeData *scope, VmType returnType): VmValue(myTypeID, allocator, type), function(function), scope(scope), returnType(returnType)
 	{
 		firstBlock = NULL;
 		lastBlock = NULL;
@@ -310,7 +310,7 @@ struct VmFunction: VmValue
 
 struct VmModule
 {
-	VmModule()
+	VmModule(Allocator *allocator): allocator(allocator), loopInfo(allocator), loadStoreInfo(allocator)
 	{
 		skipFunctionDefinitions = false;
 
@@ -352,7 +352,7 @@ struct VmModule
 		VmBlock* continueBlock;
 	};
 
-	FastVector<LoopInfo> loopInfo;
+	SmallArray<LoopInfo, 32> loopInfo;
 
 	unsigned peepholeOptimizations;
 	unsigned constantPropagations;
@@ -377,7 +377,16 @@ struct VmModule
 		VmConstant *address;
 	};
 
-	FastVector<LoadStoreInfo> loadStoreInfo;
+	SmallArray<LoadStoreInfo, 32> loadStoreInfo;
+
+	// Memory pool
+	Allocator *allocator;
+
+	template<typename T>
+	T* get()
+	{
+		return (T*)allocator->alloc(sizeof(T));
+	}
 };
 
 template<typename T>

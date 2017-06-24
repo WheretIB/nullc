@@ -1,5 +1,11 @@
 #include "Lexer.h"
 
+Lexer::Lexer(Allocator *allocator)
+{
+	if(allocator)
+		lexems.set_allocator(allocator);
+}
+
 void Lexer::Clear(unsigned count)
 {
 	if(count)
@@ -10,6 +16,8 @@ void Lexer::Clear(unsigned count)
 
 void Lexer::Lexify(const char* code)
 {
+	lexems.reserve(2048);
+
 	LexemeType lType = lex_none;
 	int lLength = 1;
 

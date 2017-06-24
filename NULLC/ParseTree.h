@@ -6,12 +6,80 @@
 
 struct SynBase;
 
-struct SynBinaryOpElement;
+enum SynUnaryOpType
+{
+	SYN_UNARY_OP_UNKNOWN,
+
+	SYN_UNARY_OP_PLUS,
+	SYN_UNARY_OP_NEGATE,
+	SYN_UNARY_OP_BIT_NOT,
+	SYN_UNARY_OP_LOGICAL_NOT,
+};
+
+enum SynBinaryOpType
+{
+	SYN_BINARY_OP_UNKNOWN,
+
+	SYN_BINARY_OP_ADD,
+	SYN_BINARY_OP_SUB,
+	SYN_BINARY_OP_MUL,
+	SYN_BINARY_OP_DIV,
+	SYN_BINARY_OP_MOD,
+	SYN_BINARY_OP_POW,
+	SYN_BINARY_OP_SHL,
+	SYN_BINARY_OP_SHR,
+	SYN_BINARY_OP_LESS,
+	SYN_BINARY_OP_LESS_EQUAL,
+	SYN_BINARY_OP_GREATER,
+	SYN_BINARY_OP_GREATER_EQUAL,
+	SYN_BINARY_OP_EQUAL,
+	SYN_BINARY_OP_NOT_EQUAL,
+	SYN_BINARY_OP_BIT_AND,
+	SYN_BINARY_OP_BIT_OR,
+	SYN_BINARY_OP_BIT_XOR,
+	SYN_BINARY_OP_LOGICAL_AND,
+	SYN_BINARY_OP_LOGICAL_OR,
+	SYN_BINARY_OP_LOGICAL_XOR,
+	SYN_BINARY_OP_IN,
+};
+
+enum SynModifyAssignType
+{
+	SYN_MODIFY_ASSIGN_UNKNOWN,
+
+	SYN_MODIFY_ASSIGN_ADD,
+	SYN_MODIFY_ASSIGN_SUB,
+	SYN_MODIFY_ASSIGN_MUL,
+	SYN_MODIFY_ASSIGN_DIV,
+	SYN_MODIFY_ASSIGN_POW,
+	SYN_MODIFY_ASSIGN_MOD,
+	SYN_MODIFY_ASSIGN_SHL,
+	SYN_MODIFY_ASSIGN_SHR,
+	SYN_MODIFY_ASSIGN_BIT_AND,
+	SYN_MODIFY_ASSIGN_BIT_OR,
+	SYN_MODIFY_ASSIGN_BIT_XOR,
+};
+
+struct SynBinaryOpElement
+{
+	SynBinaryOpElement(): pos(0), type(SYN_BINARY_OP_UNKNOWN), value(0)
+	{
+	}
+
+	SynBinaryOpElement(const char* pos, SynBinaryOpType type, SynBase* value): pos(pos), type(type), value(value)
+	{
+	}
+
+	const char* pos;
+	SynBinaryOpType type;
+	SynBase* value;
+};
+
 struct SynNamespaceElement;
 
 struct ParseContext
 {
-	ParseContext();
+	ParseContext(Allocator *allocator);
 
 	LexemeType Peek();
 	InplaceStr Value();
@@ -29,14 +97,23 @@ struct ParseContext
 
 	Lexeme *currentLexeme;
 
-	FastVector<SynBinaryOpElement> binaryOpStack;
+	SmallArray<SynBinaryOpElement, 32> binaryOpStack;
 
-	FastVector<SynNamespaceElement*> namespaceList;
+	SmallArray<SynNamespaceElement*, 32> namespaceList;
 	SynNamespaceElement *currentNamespace;
 
 	const char *errorPos;
 	char *errorBuf;
 	unsigned errorBufSize;
+
+	// Memory pool
+	Allocator *allocator;
+
+	template<typename T>
+	T* get()
+	{
+		return (T*)allocator->alloc(sizeof(T));
+	}
 };
 
 struct SynBase
@@ -579,16 +656,6 @@ struct SynSwitch: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
-enum SynUnaryOpType
-{
-	SYN_UNARY_OP_UNKNOWN,
-
-	SYN_UNARY_OP_PLUS,
-	SYN_UNARY_OP_NEGATE,
-	SYN_UNARY_OP_BIT_NOT,
-	SYN_UNARY_OP_LOGICAL_NOT,
-};
-
 struct SynUnaryOp: SynBase
 {
 	SynUnaryOp(const char* pos, SynUnaryOpType type, SynBase* value): SynBase(myTypeID, pos), type(type), value(value)
@@ -599,48 +666,6 @@ struct SynUnaryOp: SynBase
 	SynBase* value;
 
 	static const unsigned myTypeID = __LINE__;
-};
-
-enum SynBinaryOpType
-{
-	SYN_BINARY_OP_UNKNOWN,
-
-	SYN_BINARY_OP_ADD,
-	SYN_BINARY_OP_SUB,
-	SYN_BINARY_OP_MUL,
-	SYN_BINARY_OP_DIV,
-	SYN_BINARY_OP_MOD,
-	SYN_BINARY_OP_POW,
-	SYN_BINARY_OP_SHL,
-	SYN_BINARY_OP_SHR,
-	SYN_BINARY_OP_LESS,
-	SYN_BINARY_OP_LESS_EQUAL,
-	SYN_BINARY_OP_GREATER,
-	SYN_BINARY_OP_GREATER_EQUAL,
-	SYN_BINARY_OP_EQUAL,
-	SYN_BINARY_OP_NOT_EQUAL,
-	SYN_BINARY_OP_BIT_AND,
-	SYN_BINARY_OP_BIT_OR,
-	SYN_BINARY_OP_BIT_XOR,
-	SYN_BINARY_OP_LOGICAL_AND,
-	SYN_BINARY_OP_LOGICAL_OR,
-	SYN_BINARY_OP_LOGICAL_XOR,
-	SYN_BINARY_OP_IN,
-};
-
-struct SynBinaryOpElement
-{
-	SynBinaryOpElement(): pos(0), type(SYN_BINARY_OP_UNKNOWN), value(0)
-	{
-	}
-
-	SynBinaryOpElement(const char* pos, SynBinaryOpType type, SynBase* value): pos(pos), type(type), value(value)
-	{
-	}
-
-	const char* pos;
-	SynBinaryOpType type;
-	SynBase* value;
 };
 
 struct SynBinaryOp: SynBase
@@ -666,23 +691,6 @@ struct SynAssignment: SynBase
 	SynBase* rhs;
 
 	static const unsigned myTypeID = __LINE__;
-};
-
-enum SynModifyAssignType
-{
-	SYN_MODIFY_ASSIGN_UNKNOWN,
-
-	SYN_MODIFY_ASSIGN_ADD,
-	SYN_MODIFY_ASSIGN_SUB,
-	SYN_MODIFY_ASSIGN_MUL,
-	SYN_MODIFY_ASSIGN_DIV,
-	SYN_MODIFY_ASSIGN_POW,
-	SYN_MODIFY_ASSIGN_MOD,
-	SYN_MODIFY_ASSIGN_SHL,
-	SYN_MODIFY_ASSIGN_SHR,
-	SYN_MODIFY_ASSIGN_BIT_AND,
-	SYN_MODIFY_ASSIGN_BIT_OR,
-	SYN_MODIFY_ASSIGN_BIT_XOR,
 };
 
 struct SynModifyAssignment: SynBase

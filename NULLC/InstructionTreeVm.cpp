@@ -2,6 +2,8 @@
 
 #include "ExpressionTree.h"
 
+#define allocate(T) new (module->get<T>()) T
+
 // TODO: VM code generation should use a special pointer type to generate special pointer instructions
 #ifdef _M_X64
 	#define VM_INST_LOAD_POINTER VM_INST_LOAD_LONG
@@ -82,36 +84,41 @@ namespace
 		return value;
 	}
 
-	VmValue* CreateConstantInt(int value)
+	VmValue* CreateVoid(VmModule *module)
 	{
-		VmConstant *result = new VmConstant(VmType::Int);
+		return allocate(VmVoid)(module->allocator);
+	}
+
+	VmValue* CreateConstantInt(VmModule *module, int value)
+	{
+		VmConstant *result = allocate(VmConstant)(module->allocator, VmType::Int);
 
 		result->iValue = value;
 
 		return result;
 	}
 
-	VmValue* CreateConstantDouble(double value)
+	VmValue* CreateConstantDouble(VmModule *module, double value)
 	{
-		VmConstant *result = new VmConstant(VmType::Double);
+		VmConstant *result = allocate(VmConstant)(module->allocator, VmType::Double);
 
 		result->dValue = value;
 
 		return result;
 	}
 
-	VmValue* CreateConstantLong(long long value)
+	VmValue* CreateConstantLong(VmModule *module, long long value)
 	{
-		VmConstant *result = new VmConstant(VmType::Long);
+		VmConstant *result = allocate(VmConstant)(module->allocator, VmType::Long);
 
 		result->lValue = value;
 
 		return result;
 	}
 
-	VmValue* CreateConstantPointer(int value, bool isFrameOffset)
+	VmValue* CreateConstantPointer(VmModule *module, int value, bool isFrameOffset)
 	{
-		VmConstant *result = new VmConstant(VmType::Pointer);
+		VmConstant *result = allocate(VmConstant)(module->allocator, VmType::Pointer);
 
 		result->iValue = value;
 		result->isFrameOffset = isFrameOffset;
@@ -119,15 +126,20 @@ namespace
 		return result;
 	}
 
-	VmValue* CreateConstantStruct(char *value, int size)
+	VmValue* CreateConstantStruct(VmModule *module, char *value, int size)
 	{
 		assert(size % 4 == 0);
 
-		VmConstant *result = new VmConstant(VmType::Struct(size));
+		VmConstant *result = allocate(VmConstant)(module->allocator, VmType::Struct(size));
 
 		result->sValue = value;
 
 		return result;
+	}
+
+	VmBlock* CreateBlock(VmModule *module, const char *name)
+	{
+		return allocate(VmBlock)(module->allocator, InplaceStr(name), module->nextBlockId++);
 	}
 
 	bool HasSideEffects(VmInstructionType cmd)
@@ -210,7 +222,7 @@ namespace
 	{
 		assert(module->currentBlock);
 
-		VmInstruction *inst = new VmInstruction(type, cmd, module->nextInstructionId++);
+		VmInstruction *inst = allocate(VmInstruction)(module->allocator, type, cmd, module->nextInstructionId++);
 
 		if(first)
 			inst->AddArgument(first);
@@ -291,7 +303,7 @@ namespace
 			return CreateInstruction(module, VmType::Int, VM_INST_LOAD_INT, address);
 
 		if(type->size == 0)
-			return CreateConstantInt(0);
+			return CreateConstantInt(module, 0);
 
 		assert(type->size % 4 == 0);
 		assert(type->size != 0);
@@ -335,7 +347,7 @@ namespace
 			return CreateInstruction(module, VmType::Void, VM_INST_STORE_INT, address, value);
 
 		if(type->size == 0)
-			return new VmVoid();
+			return CreateVoid(module);
 
 		assert(type->size % 4 == 0);
 		assert(type->size != 0);
@@ -377,7 +389,7 @@ namespace
 
 		assert(!"unknown cast");
 
-		return new VmVoid();
+		return CreateVoid(module);
 	}
 
 	VmValue* CreateIndex(VmModule *module, VmValue *arrayLength, VmValue *elementSize, VmValue *value, VmValue *index)
@@ -632,13 +644,13 @@ namespace
 		return CreateInstruction(module, VmType::Void, VM_INST_YIELD, value);
 	}
 
-	VmValue* CreateVariableAddress(VariableData *variable)
+	VmValue* CreateVariableAddress(VmModule *module, VariableData *variable)
 	{
 		assert(!IsMemberScope(variable->scope));
 
 		bool isFrameOffset = !IsGlobalScope(variable->scope);
 
-		VmValue *value = CreateConstantPointer(variable->offset, isFrameOffset);
+		VmValue *value = CreateConstantPointer(module, variable->offset, isFrameOffset);
 
 		value->comment = variable->name;
 
@@ -647,12 +659,12 @@ namespace
 
 	VmValue* CreateTypeIndex(VmModule *module, TypeBase *type)
 	{
-		return CreateInstruction(module, VmType::Int, VM_INST_TYPE_ID, CreateConstantInt(type->typeIndex));
+		return CreateInstruction(module, VmType::Int, VM_INST_TYPE_ID, CreateConstantInt(module, type->typeIndex));
 	}
 
 	VmValue* CreateFunctionAddress(VmModule *module, FunctionData *function)
 	{
-		return CreateInstruction(module, VmType::Int, VM_INST_FUNCTION_ADDRESS, CreateConstantInt(function->functionIndex));
+		return CreateInstruction(module, VmType::Int, VM_INST_FUNCTION_ADDRESS, CreateConstantInt(module, function->functionIndex));
 	}
 
 	VmValue* CreateConvertPtr(VmModule *module, VmValue *ptr, TypeBase *type)
@@ -682,7 +694,7 @@ namespace
 	{
 		assert(offset + type.size <= value->type.size);
 
-		return CreateInstruction(module, type, VM_INST_EXTRACT, value, CreateConstantInt(offset));
+		return CreateInstruction(module, type, VM_INST_EXTRACT, value, CreateConstantInt(module, offset));
 	}
 
 	VmValue* AllocateScopeVariable(ExpressionContext &ctx, VmModule *module, TypeBase *type)
@@ -715,23 +727,23 @@ namespace
 
 		assert(scope);
 
-		char *name = new char[16];
+		char *name = (char*)ctx.allocator->alloc(16);
 		sprintf(name, "$temp%d", ctx.unnamedVariableCount++);
 
-		VariableData *variable = new VariableData(NULL, scope, type->alignment, type, InplaceStr(name), offset, 0);
+		VariableData *variable = allocate(VariableData)(NULL, scope, type->alignment, type, InplaceStr(name), offset, 0);
 
 		scope->variables.push_back(variable);
 
 		ctx.variables.push_back(variable);
 
-		return CreateVariableAddress(variable);
+		return CreateVariableAddress(module, variable);
 	}
 
-	void ChangeInstructionTo(VmInstruction *inst, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth, unsigned *optCount)
+	void ChangeInstructionTo(VmModule *module, VmInstruction *inst, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth, unsigned *optCount)
 	{
 		inst->cmd = cmd;
 
-		SmallArray<VmValue*, 128> arguments;
+		SmallArray<VmValue*, 128> arguments(module->allocator);
 		arguments.reserve(inst->arguments.size());
 		arguments.push_back(inst->arguments.data, inst->arguments.size());
 
@@ -803,9 +815,9 @@ namespace
 		}
 	}
 
-	void ReplaceValueUsersWith(VmValue *original, VmValue *replacement, unsigned *optCount)
+	void ReplaceValueUsersWith(VmModule *module, VmValue *original, VmValue *replacement, unsigned *optCount)
 	{
-		SmallArray<VmValue*, 256> users;
+		SmallArray<VmValue*, 256> users(module->allocator);
 		users.reserve(original->users.size());
 		users.push_back(original->users.data, original->users.size());
 
@@ -1167,15 +1179,15 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 {
 	if(ExprVoid *node = getType<ExprVoid>(expression))
 	{
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprBoolLiteral *node = getType<ExprBoolLiteral>(expression))
 	{
-		return CheckType(ctx, expression, CreateConstantInt(node->value ? 1 : 0));
+		return CheckType(ctx, expression, CreateConstantInt(module, node->value ? 1 : 0));
 	}
 	else if(ExprCharacterLiteral *node = getType<ExprCharacterLiteral>(expression))
 	{
-		return CheckType(ctx, expression, CreateConstantInt(node->value));
+		return CheckType(ctx, expression, CreateConstantInt(module, node->value));
 	}
 	else if(ExprStringLiteral *node = getType<ExprStringLiteral>(expression))
 	{
@@ -1184,33 +1196,33 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		// Align to 4
 		size = (size + 3) & ~3;
 
-		char *value = new char[size];
+		char *value = (char*)ctx.allocator->alloc(size);
 		memset(value, 0, size);
 
 		for(unsigned i = 0; i < node->length; i++)
 			value[i] = node->value[i];
 
-		return CheckType(ctx, expression, CreateConstantStruct(value, size));
+		return CheckType(ctx, expression, CreateConstantStruct(module, value, size));
 	}
 	else if(ExprIntegerLiteral *node = getType<ExprIntegerLiteral>(expression))
 	{
 		if(node->type == ctx.typeShort)
-			return CheckType(ctx, expression, CreateConstantInt(short(node->value)));
+			return CheckType(ctx, expression, CreateConstantInt(module, short(node->value)));
 
 		if(node->type == ctx.typeInt)
-			return CheckType(ctx, expression, CreateConstantInt(int(node->value)));
+			return CheckType(ctx, expression, CreateConstantInt(module, int(node->value)));
 
 		if(node->type == ctx.typeLong)
-			return CheckType(ctx, expression, CreateConstantLong(node->value));
+			return CheckType(ctx, expression, CreateConstantLong(module, node->value));
 
 		if(isType<TypeEnum>(node->type))
-			return CheckType(ctx, expression, CreateConstantInt(int(node->value)));
+			return CheckType(ctx, expression, CreateConstantInt(module, int(node->value)));
 
 		assert(!"unknown type");
 	}
 	else if(ExprRationalLiteral *node = getType<ExprRationalLiteral>(expression))
 	{
-		return CheckType(ctx, expression, CreateConstantDouble(node->value));
+		return CheckType(ctx, expression, CreateConstantDouble(module, node->value));
 	}
 	else if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expression))
 	{
@@ -1218,7 +1230,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprNullptrLiteral *node = getType<ExprNullptrLiteral>(expression))
 	{
-		return CheckType(ctx, expression, CreateConstantPointer(0, false));
+		return CheckType(ctx, expression, CreateConstantPointer(module, 0, false));
 	}
 	else if(ExprFunctionIndexLiteral *node = getType<ExprFunctionIndexLiteral>(expression))
 	{
@@ -1244,7 +1256,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		{
 			VmValue *element = CompileVm(ctx, module, value);
 
-			CreateStore(ctx, module, arrayType->subType, CreateAdd(module, address, CreateConstantInt(offset)), element);
+			CreateStore(ctx, module, arrayType->subType, CreateAdd(module, address, CreateConstantInt(module, offset)), element);
 
 			offset += unsigned(arrayType->subType->size);
 		}
@@ -1262,11 +1274,11 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmValue *value = CreateLoad(ctx, module, refType->subType, address);
 
 		if(value->type == VmType::Int)
-			value = CreateAdd(module, value, CreateConstantInt(node->isIncrement ? 1 : -1));
+			value = CreateAdd(module, value, CreateConstantInt(module, node->isIncrement ? 1 : -1));
 		else if(value->type == VmType::Double)
-			value = CreateAdd(module, value, CreateConstantDouble(node->isIncrement ? 1.0 : -1.0));
+			value = CreateAdd(module, value, CreateConstantDouble(module, node->isIncrement ? 1.0 : -1.0));
 		else if(value->type == VmType::Long)
-			value = CreateAdd(module, value, CreateConstantLong(node->isIncrement ? 1ll : -1ll));
+			value = CreateAdd(module, value, CreateConstantLong(module, node->isIncrement ? 1ll : -1ll));
 		else
 			assert("!unknown type");
 
@@ -1287,11 +1299,11 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmValue *result = value;
 
 		if(value->type == VmType::Int)
-			value = CreateAdd(module, value, CreateConstantInt(node->isIncrement ? 1 : -1));
+			value = CreateAdd(module, value, CreateConstantInt(module, node->isIncrement ? 1 : -1));
 		else if(value->type == VmType::Double)
-			value = CreateAdd(module, value, CreateConstantDouble(node->isIncrement ? 1.0 : -1.0));
+			value = CreateAdd(module, value, CreateConstantDouble(module, node->isIncrement ? 1.0 : -1.0));
 		else if(value->type == VmType::Long)
-			value = CreateAdd(module, value, CreateConstantLong(node->isIncrement ? 1ll : -1ll));
+			value = CreateAdd(module, value, CreateConstantLong(module, node->isIncrement ? 1ll : -1ll));
 		else
 			assert("!unknown type");
 
@@ -1308,31 +1320,31 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		case EXPR_CAST_NUMERICAL:
 			return CheckType(ctx, expression, CreateCast(module, value, GetVmType(ctx, node->type)));
 		case EXPR_CAST_PTR_TO_BOOL:
-			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(0, false)));
+			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(module, 0, false)));
 		case EXPR_CAST_UNSIZED_TO_BOOL:
 			{
 				VmValue *ptr = CreateExtract(module, VmType::Pointer, value, 0);
 
-				return CheckType(ctx, expression, CreateCompareNotEqual(module, ptr, CreateConstantPointer(0, false)));
+				return CheckType(ctx, expression, CreateCompareNotEqual(module, ptr, CreateConstantPointer(module, 0, false)));
 			}
 			break;
 		case EXPR_CAST_FUNCTION_TO_BOOL:
 			{
 				VmValue *index = CreateExtract(module, VmType::Int, value, sizeof(void*));
 
-				return CheckType(ctx, expression, CreateCompareNotEqual(module, index, CreateConstantInt(0)));
+				return CheckType(ctx, expression, CreateCompareNotEqual(module, index, CreateConstantInt(module, 0)));
 			}
 			break;
 		case EXPR_CAST_NULL_TO_PTR:
-			return CheckType(ctx, expression, CreateConstantPointer(0, false));
+			return CheckType(ctx, expression, CreateConstantPointer(module, 0, false));
 		case EXPR_CAST_NULL_TO_AUTO_PTR:
-			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantInt(0), CreateConstantPointer(0, false), NULL, NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantInt(module, 0), CreateConstantPointer(module, 0, false), NULL, NULL));
 		case EXPR_CAST_NULL_TO_UNSIZED:
-			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantPointer(0, false), CreateConstantInt(0), NULL, NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantPointer(module, 0, false), CreateConstantInt(module, 0), NULL, NULL));
 		case EXPR_CAST_NULL_TO_AUTO_ARRAY:
-			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantInt(0), CreateConstantPointer(0, false), CreateConstantInt(0), NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantInt(module, 0), CreateConstantPointer(module, 0, false), CreateConstantInt(module, 0), NULL));
 		case EXPR_CAST_NULL_TO_FUNCTION:
-			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantPointer(0, false), CreateConstantInt(0), NULL, NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantPointer(module, 0, false), CreateConstantInt(module, 0), NULL, NULL));
 		case EXPR_CAST_ARRAY_TO_UNSIZED:
 			{
 				TypeArray *arrType = getType<TypeArray>(node->value->type);
@@ -1344,7 +1356,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 				CreateStore(ctx, module, arrType, address, value);
 
-				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), address, CreateConstantInt(unsigned(arrType->length)), NULL, NULL));
+				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), address, CreateConstantInt(module, unsigned(arrType->length)), NULL, NULL));
 			}
 			break;
 		case EXPR_CAST_ARRAY_PTR_TO_UNSIZED:
@@ -1358,7 +1370,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 				assert(arrType);
 				assert(unsigned(arrType->length) == arrType->length);
 
-				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), value, CreateConstantInt(unsigned(arrType->length)), NULL, NULL));
+				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), value, CreateConstantInt(module, unsigned(arrType->length)), NULL, NULL));
 			}
 			break;
 		case EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR:
@@ -1378,7 +1390,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 				VmValue *address = AllocateScopeVariable(ctx, module, targetRefType->subType);
 
-				CreateStore(ctx, module, targetRefType->subType, address, CreateConstruct(module, GetVmType(ctx, targetRefType->subType), address, CreateConstantInt(unsigned(arrType->length)), NULL, NULL));
+				CreateStore(ctx, module, targetRefType->subType, address, CreateConstruct(module, GetVmType(ctx, targetRefType->subType), address, CreateConstantInt(module, unsigned(arrType->length)), NULL, NULL));
 
 				return CheckType(ctx, expression, address);
 			}
@@ -1528,7 +1540,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprGetAddress *node = getType<ExprGetAddress>(expression))
 	{
-		return CheckType(ctx, expression, CreateVariableAddress(node->variable));
+		return CheckType(ctx, expression, CreateVariableAddress(module, node->variable));
 	}
 	else if(ExprDereference *node = getType<ExprDereference>(expression))
 	{
@@ -1547,9 +1559,9 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		VmValue* condition = CompileVm(ctx, module, node->condition);
 
-		VmBlock *trueBlock = new VmBlock(InplaceStr("if_true"), module->nextBlockId++);
-		VmBlock *falseBlock = new VmBlock(InplaceStr("if_false"), module->nextBlockId++);
-		VmBlock *exitBlock = new VmBlock(InplaceStr("if_exit"), module->nextBlockId++);
+		VmBlock *trueBlock = CreateBlock(module, "if_true");
+		VmBlock *falseBlock = CreateBlock(module, "if_false");
+		VmBlock *exitBlock = CreateBlock(module, "if_exit");
 
 		if(node->falseBlock)
 			CreateJumpNotZero(module, condition, trueBlock, falseBlock);
@@ -1599,7 +1611,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		assert(isType<TypeRef>(node->value->type));
 
-		VmValue *offset = CreateConstantInt(node->member->offset);
+		VmValue *offset = CreateConstantInt(module, node->member->offset);
 
 		return CheckType(ctx, expression, CreateAdd(module, value, offset));
 	}
@@ -1610,7 +1622,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		if(TypeUnsizedArray *arrayType = getType<TypeUnsizedArray>(node->value->type))
 		{
-			VmValue *elementSize = CreateConstantInt(unsigned(arrayType->subType->size));
+			VmValue *elementSize = CreateConstantInt(module, unsigned(arrayType->subType->size));
 
 			return CheckType(ctx, expression, CreateIndexUnsized(module, elementSize, value, index));
 		}
@@ -1624,8 +1636,8 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		assert(arrayType);
 		assert(unsigned(arrayType->subType->size) == arrayType->subType->size);
 
-		VmValue *arrayLength = CreateConstantInt(unsigned(arrayType->length));
-		VmValue *elementSize = CreateConstantInt(unsigned(arrayType->subType->size));
+		VmValue *arrayLength = CreateConstantInt(module, unsigned(arrayType->length));
+		VmValue *elementSize = CreateConstantInt(module, unsigned(arrayType->subType->size));
 
 		return CheckType(ctx, expression, CreateIndex(module, arrayLength, elementSize, value, index));
 	}
@@ -1652,7 +1664,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		if(node->initializer)
 			CompileVm(ctx, module, node->initializer);
 
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprArraySetup *node = getType<ExprArraySetup>(expression))
 	{
@@ -1662,15 +1674,15 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		VmValue *initializer = CompileVm(ctx, module, node->initializer);
 
-		VmValue *address = CreateVariableAddress(node->variable);
+		VmValue *address = CreateVariableAddress(module, node->variable);
 
 		// TODO: use cmdSetRange for supported types
 
 		VmValue *offsetPtr = AllocateScopeVariable(ctx, module, ctx.typeInt);
 
-		VmBlock *conditionBlock = new VmBlock(InplaceStr("arr_setup_cond"), module->nextBlockId++);
-		VmBlock *bodyBlock = new VmBlock(InplaceStr("arr_setup_body"), module->nextBlockId++);
-		VmBlock *exitBlock = new VmBlock(InplaceStr("arr_setup_exit"), module->nextBlockId++);
+		VmBlock *conditionBlock = CreateBlock(module, "arr_setup_cond");
+		VmBlock *bodyBlock = CreateBlock(module, "arr_setup_body");
+		VmBlock *exitBlock = CreateBlock(module, "arr_setup_exit");
 
 		CreateJump(module, conditionBlock);
 
@@ -1681,7 +1693,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		assert(int(arrayType->length * arrayType->subType->size) == arrayType->length * arrayType->subType->size);
 
 		// While offset is less than array size
-		VmValue* condition = CreateCompareLess(module, CreateLoad(ctx, module, ctx.typeInt, offsetPtr), CreateConstantInt(int(arrayType->length * arrayType->subType->size)));
+		VmValue* condition = CreateCompareLess(module, CreateLoad(ctx, module, ctx.typeInt, offsetPtr), CreateConstantInt(module, int(arrayType->length * arrayType->subType->size)));
 
 		CreateJumpNotZero(module, condition, bodyBlock, exitBlock);
 
@@ -1691,25 +1703,25 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmValue *offset = CreateLoad(ctx, module, ctx.typeInt, offsetPtr);
 
 		CreateStore(ctx, module, arrayType->subType, CreateAdd(module, address, offset), initializer);
-		CreateStore(ctx, module, ctx.typeInt, offsetPtr, CreateAdd(module, offset, CreateConstantInt(int(arrayType->subType->size))));
+		CreateStore(ctx, module, ctx.typeInt, offsetPtr, CreateAdd(module, offset, CreateConstantInt(module, int(arrayType->subType->size))));
 
 		CreateJump(module, conditionBlock);
 
 		module->currentFunction->AddBlock(exitBlock);
 		module->currentBlock = exitBlock;
 
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprVariableDefinitions *node = getType<ExprVariableDefinitions>(expression))
 	{
 		for(ExprVariableDefinition *value = node->definitions.head; value; value = getType<ExprVariableDefinition>(value->next))
 			CompileVm(ctx, module, value);
 
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprVariableAccess *node = getType<ExprVariableAccess>(expression))
 	{
-		VmValue *address = CreateVariableAddress(node->variable);
+		VmValue *address = CreateVariableAddress(module, node->variable);
 
 		VmValue *value = CreateLoad(ctx, module, node->variable->type, address);
 
@@ -1722,10 +1734,10 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmFunction *function = node->function->vmFunction;
 
 		if(module->skipFunctionDefinitions)
-			return CheckType(ctx, expression, CreateConstruct(module, VmType::FunctionRef, function, CreateConstantPointer(0, false), NULL, NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, VmType::FunctionRef, function, CreateConstantPointer(module, 0, false), NULL, NULL));
 
 		if(node->function->isPrototype)
-			return new VmVoid();
+			return CreateVoid(module);
 
 		module->skipFunctionDefinitions = true;
 
@@ -1741,7 +1753,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		module->currentFunction = function;
 
-		VmBlock *block = new VmBlock(InplaceStr("start"), module->nextBlockId++);
+		VmBlock *block = CreateBlock(module, "start");
 
 		module->currentFunction->AddBlock(block);
 		module->currentBlock = block;
@@ -1758,20 +1770,20 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		module->skipFunctionDefinitions = false;
 
-		return new VmVoid();
+		return CreateVoid(module);
 	}
 	else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(expression))
 	{
 		for(ExprBase *expr = node->contextVariables.head; expr; expr = expr->next)
 			CompileVm(ctx, module, expr);
 
-		return new VmVoid();
+		return CreateVoid(module);
 	}
 	else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expression))
 	{
 		assert(node->function->vmFunction);
 
-		VmValue *context = node->context ? CompileVm(ctx, module, node->context) : CreateConstantPointer(0, false);
+		VmValue *context = node->context ? CompileVm(ctx, module, node->context) : CreateConstantPointer(module, 0, false);
 
 		VmValue *funcRef = CreateConstruct(module, VmType::FunctionRef, node->function->vmFunction, context, NULL, NULL);
 
@@ -1783,7 +1795,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		assert(module->currentBlock);
 
-		VmInstruction *inst = new VmInstruction(GetVmType(ctx, node->type), VM_INST_CALL, module->nextInstructionId++);
+		VmInstruction *inst = allocate(VmInstruction)(module->allocator, GetVmType(ctx, node->type), VM_INST_CALL, module->nextInstructionId++);
 
 		unsigned argCount = 1;
 
@@ -1812,27 +1824,27 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprAliasDefinition *node = getType<ExprAliasDefinition>(expression))
 	{
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprGenericClassPrototype *node = getType<ExprGenericClassPrototype>(expression))
 	{
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprClassDefinition *node = getType<ExprClassDefinition>(expression))
 	{
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprEnumDefinition *node = getType<ExprEnumDefinition>(expression))
 	{
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprIfElse *node = getType<ExprIfElse>(expression))
 	{
 		VmValue* condition = CompileVm(ctx, module, node->condition);
 
-		VmBlock *trueBlock = new VmBlock(InplaceStr("if_true"), module->nextBlockId++);
-		VmBlock *falseBlock = new VmBlock(InplaceStr("if_false"), module->nextBlockId++);
-		VmBlock *exitBlock = new VmBlock(InplaceStr("if_exit"), module->nextBlockId++);
+		VmBlock *trueBlock = CreateBlock(module, "if_true");
+		VmBlock *falseBlock = CreateBlock(module, "if_false");
+		VmBlock *exitBlock = CreateBlock(module, "if_exit");
 
 		if(node->falseBlock)
 			CreateJumpNotZero(module, condition, trueBlock, falseBlock);
@@ -1859,16 +1871,16 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		module->currentFunction->AddBlock(exitBlock);
 		module->currentBlock = exitBlock;
 
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprFor *node = getType<ExprFor>(expression))
 	{
 		CompileVm(ctx, module, node->initializer);
 
-		VmBlock *conditionBlock = new VmBlock(InplaceStr("for_cond"), module->nextBlockId++);
-		VmBlock *bodyBlock = new VmBlock(InplaceStr("for_body"), module->nextBlockId++);
-		VmBlock *iterationBlock = new VmBlock(InplaceStr("for_iter"), module->nextBlockId++);
-		VmBlock *exitBlock = new VmBlock(InplaceStr("for_exit"), module->nextBlockId++);
+		VmBlock *conditionBlock = CreateBlock(module, "for_cond");
+		VmBlock *bodyBlock = CreateBlock(module, "for_body");
+		VmBlock *iterationBlock = CreateBlock(module, "for_iter");
+		VmBlock *exitBlock = CreateBlock(module, "for_exit");
 
 		module->loopInfo.push_back(VmModule::LoopInfo(exitBlock, iterationBlock));
 
@@ -1900,13 +1912,13 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		module->loopInfo.pop_back();
 
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprWhile *node = getType<ExprWhile>(expression))
 	{
-		VmBlock *conditionBlock = new VmBlock(InplaceStr("while_cond"), module->nextBlockId++);
-		VmBlock *bodyBlock = new VmBlock(InplaceStr("while_body"), module->nextBlockId++);
-		VmBlock *exitBlock = new VmBlock(InplaceStr("while_exit"), module->nextBlockId++);
+		VmBlock *conditionBlock = CreateBlock(module, "while_cond");
+		VmBlock *bodyBlock = CreateBlock(module, "while_body");
+		VmBlock *exitBlock = CreateBlock(module, "while_exit");
 
 		module->loopInfo.push_back(VmModule::LoopInfo(exitBlock, conditionBlock));
 
@@ -1931,13 +1943,13 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		module->loopInfo.pop_back();
 
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprDoWhile *node = getType<ExprDoWhile>(expression))
 	{
-		VmBlock *bodyBlock = new VmBlock(InplaceStr("do_body"), module->nextBlockId++);
-		VmBlock *condBlock = new VmBlock(InplaceStr("do_cond"), module->nextBlockId++);
-		VmBlock *exitBlock = new VmBlock(InplaceStr("do_exit"), module->nextBlockId++);
+		VmBlock *bodyBlock = CreateBlock(module, "do_body");
+		VmBlock *condBlock = CreateBlock(module, "do_cond");
+		VmBlock *exitBlock = CreateBlock(module, "do_exit");
 
 		CreateJump(module, bodyBlock);
 
@@ -1962,25 +1974,25 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		module->loopInfo.pop_back();
 
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprSwitch *node = getType<ExprSwitch>(expression))
 	{
 		CompileVm(ctx, module, node->condition);
 
-		SmallArray<VmBlock*, 64> conditionBlocks;
-		SmallArray<VmBlock*, 64> caseBlocks;
+		SmallArray<VmBlock*, 64> conditionBlocks(module->allocator);
+		SmallArray<VmBlock*, 64> caseBlocks(module->allocator);
 
 		// Generate blocks for all cases
 		for(ExprBase *curr = node->cases.head; curr; curr = curr->next)
-			conditionBlocks.push_back(new VmBlock(InplaceStr("switch_case"), module->nextBlockId++));
+			conditionBlocks.push_back(CreateBlock(module, "switch_case"));
 
 		// Generate blocks for all cases
 		for(ExprBase *curr = node->blocks.head; curr; curr = curr->next)
-			caseBlocks.push_back(new VmBlock(InplaceStr("case_block"), module->nextBlockId++));
+			caseBlocks.push_back(CreateBlock(module, "case_block"));
 
-		VmBlock *defaultBlock = new VmBlock(InplaceStr("default_block"), module->nextBlockId++);
-		VmBlock *exitBlock = new VmBlock(InplaceStr("switch_exit"), module->nextBlockId++);
+		VmBlock *defaultBlock = CreateBlock(module, "default_block");
+		VmBlock *exitBlock = CreateBlock(module, "switch_exit");
 
 		CreateJump(module, conditionBlocks.empty() ? defaultBlock : conditionBlocks[0]);
 
@@ -2025,7 +2037,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		module->loopInfo.pop_back();
 
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprBreak *node = getType<ExprBreak>(expression))
 	{
@@ -2033,7 +2045,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		CreateJump(module, target);
 
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprContinue *node = getType<ExprContinue>(expression))
 	{
@@ -2041,18 +2053,18 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		CreateJump(module, target);
 
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprBlock *node = getType<ExprBlock>(expression))
 	{
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
 			CompileVm(ctx, module, value);
 
-		return CheckType(ctx, expression, new VmVoid());
+		return CheckType(ctx, expression, CreateVoid(module));
 	}
 	else if(ExprSequence *node = getType<ExprSequence>(expression))
 	{
-		VmValue *result = new VmVoid();
+		VmValue *result = CreateVoid(module);
 
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
 			result = CompileVm(ctx, module, value);
@@ -2075,10 +2087,10 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 {
 	if(ExprModule *node = getType<ExprModule>(expression))
 	{
-		VmModule *module = new VmModule();
+		VmModule *module = new (ctx.get<VmModule>()) VmModule(ctx.allocator);
 
 		// Generate global function
-		VmFunction *global = new VmFunction(VmType::Void, NULL, node->moduleScope, VmType::Void);
+		VmFunction *global = allocate(VmFunction)(module->allocator, VmType::Void, NULL, node->moduleScope, VmType::Void);
 
 		// Generate type indexes
 		for(unsigned i = 0; i < ctx.types.size(); i++)
@@ -2099,7 +2111,7 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 			if(function->vmFunction)
 				continue;
 
-			VmFunction *vmFunction = new VmFunction(GetVmType(ctx, ctx.typeFunctionID), function, function->functionScope, GetVmType(ctx, function->type->returnType));
+			VmFunction *vmFunction = allocate(VmFunction)(module->allocator, GetVmType(ctx, ctx.typeFunctionID), function, function->functionScope, GetVmType(ctx, function->type->returnType));
 
 			function->vmFunction = vmFunction;
 
@@ -2117,7 +2129,7 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 		// Setup global function
 		module->currentFunction = global;
 
-		VmBlock *block = new VmBlock(InplaceStr("start"), module->nextBlockId++);
+		VmBlock *block = CreateBlock(module, "start");
 
 		global->AddBlock(block);
 		module->currentBlock = block;
@@ -2167,33 +2179,33 @@ void RunPeepholeOptimizations(VmModule *module, VmValue* value)
 		{
 		case VM_INST_ADD:
 			if(IsConstantZero(inst->arguments[0])) // 0 + x, all types
-				ReplaceValueUsersWith(inst, inst->arguments[1], &module->peepholeOptimizations);
+				ReplaceValueUsersWith(module, inst, inst->arguments[1], &module->peepholeOptimizations);
 			else if(IsConstantZero(inst->arguments[1])) // x + 0, all types
-				ReplaceValueUsersWith(inst, inst->arguments[0], &module->peepholeOptimizations);
+				ReplaceValueUsersWith(module, inst, inst->arguments[0], &module->peepholeOptimizations);
 			break;
 		case VM_INST_SUB:
 			if(DoesConstantIntegerMatch(inst->arguments[0], 0)) // 0 - x, integer types
-				ChangeInstructionTo(inst, VM_INST_NEG, inst->arguments[1], NULL, NULL, NULL, &module->peepholeOptimizations);
+				ChangeInstructionTo(module, inst, VM_INST_NEG, inst->arguments[1], NULL, NULL, NULL, &module->peepholeOptimizations);
 			else if(IsConstantZero(inst->arguments[1])) // x - 0, all types
-				ReplaceValueUsersWith(inst, inst->arguments[0], &module->peepholeOptimizations);
+				ReplaceValueUsersWith(module, inst, inst->arguments[0], &module->peepholeOptimizations);
 			break;
 		case VM_INST_MUL:
 			if(IsConstantZero(inst->arguments[0]) || IsConstantZero(inst->arguments[1])) // 0 * x or x * 0, all types
 			{
 				if(inst->type == VmType::Int)
-					ReplaceValueUsersWith(inst, CreateConstantInt(0), &module->peepholeOptimizations);
+					ReplaceValueUsersWith(module, inst, CreateConstantInt(module, 0), &module->peepholeOptimizations);
 				else if(inst->type == VmType::Double)
-					ReplaceValueUsersWith(inst, CreateConstantDouble(0), &module->peepholeOptimizations);
+					ReplaceValueUsersWith(module, inst, CreateConstantDouble(module, 0), &module->peepholeOptimizations);
 				else if(inst->type == VmType::Long)
-					ReplaceValueUsersWith(inst, CreateConstantLong(0), &module->peepholeOptimizations);
+					ReplaceValueUsersWith(module, inst, CreateConstantLong(module, 0), &module->peepholeOptimizations);
 			}
 			else if(IsConstantOne(inst->arguments[0])) // 1 * x, all types
 			{
-				ReplaceValueUsersWith(inst, inst->arguments[1], &module->peepholeOptimizations);
+				ReplaceValueUsersWith(module, inst, inst->arguments[1], &module->peepholeOptimizations);
 			}
 			else if(IsConstantOne(inst->arguments[1])) // x * 1, all types
 			{
-				ReplaceValueUsersWith(inst, inst->arguments[0], &module->peepholeOptimizations);
+				ReplaceValueUsersWith(module, inst, inst->arguments[0], &module->peepholeOptimizations);
 			}
 			break;
 		case VM_INST_INDEX_UNSIZED:
@@ -2201,7 +2213,7 @@ void RunPeepholeOptimizations(VmModule *module, VmValue* value)
 			if(VmInstruction *objectConstruct = getType<VmInstruction>(inst->arguments[1]))
 			{
 				if(objectConstruct->cmd == VM_INST_CONSTRUCT && isType<VmConstant>(objectConstruct->arguments[1]))
-					ChangeInstructionTo(inst, VM_INST_INDEX, objectConstruct->arguments[1], inst->arguments[0], objectConstruct->arguments[0], inst->arguments[2], &module->peepholeOptimizations);
+					ChangeInstructionTo(module, inst, VM_INST_INDEX, objectConstruct->arguments[1], inst->arguments[0], objectConstruct->arguments[0], inst->arguments[2], &module->peepholeOptimizations);
 			}
 			break;
 		case VM_INST_CONVERT_POINTER:
@@ -2220,34 +2232,34 @@ void RunPeepholeOptimizations(VmModule *module, VmValue* value)
 						VmConstant *typeIndexConvert = getType<VmConstant>(typeidConvert->arguments[0]);
 
 						if(typeIndexConstruct && typeIndexConvert && typeIndexConstruct->iValue == typeIndexConvert->iValue)
-							ReplaceValueUsersWith(inst, objectConstruct->arguments[1], &module->peepholeOptimizations);
+							ReplaceValueUsersWith(module, inst, objectConstruct->arguments[1], &module->peepholeOptimizations);
 					}
 				}
 			}
 			break;
 		case VM_INST_LESS:
 			if((inst->arguments[0]->type == VmType::Int || inst->arguments[0]->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
-				ReplaceValueUsersWith(inst, CreateConstantInt(0), &module->peepholeOptimizations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, 0), &module->peepholeOptimizations);
 			break;
 		case VM_INST_GREATER:
 			if((inst->arguments[0]->type == VmType::Int || inst->arguments[0]->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
-				ReplaceValueUsersWith(inst, CreateConstantInt(0), &module->peepholeOptimizations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, 0), &module->peepholeOptimizations);
 			break;
 		case VM_INST_LESS_EQUAL:
 			if((inst->arguments[0]->type == VmType::Int || inst->arguments[0]->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
-				ReplaceValueUsersWith(inst, CreateConstantInt(1), &module->peepholeOptimizations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, 1), &module->peepholeOptimizations);
 			break;
 		case VM_INST_GREATER_EQUAL:
 			if((inst->arguments[0]->type == VmType::Int || inst->arguments[0]->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
-				ReplaceValueUsersWith(inst, CreateConstantInt(1), &module->peepholeOptimizations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, 1), &module->peepholeOptimizations);
 			break;
 		case VM_INST_EQUAL:
 			if((inst->arguments[0]->type == VmType::Int || inst->arguments[0]->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
-				ReplaceValueUsersWith(inst, CreateConstantInt(1), &module->peepholeOptimizations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, 1), &module->peepholeOptimizations);
 			break;
 		case VM_INST_NOT_EQUAL:
 			if((inst->arguments[0]->type == VmType::Int || inst->arguments[0]->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
-				ReplaceValueUsersWith(inst, CreateConstantInt(0), &module->peepholeOptimizations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, 0), &module->peepholeOptimizations);
 			break;
 		}
 	}
@@ -2282,7 +2294,7 @@ void RunConstantPropagation(VmModule *module, VmValue* value)
 		if(inst->type != VmType::Int && inst->type != VmType::Double && inst->type != VmType::Long && inst->type != VmType::Pointer)
 			return;
 
-		SmallArray<VmConstant*, 32> consts;
+		SmallArray<VmConstant*, 32> consts(module->allocator);
 
 		for(unsigned i = 0; i < inst->arguments.size(); i++)
 		{
@@ -2297,22 +2309,22 @@ void RunConstantPropagation(VmModule *module, VmValue* value)
 		switch(inst->cmd)
 		{
 		case VM_INST_DOUBLE_TO_INT:
-			ReplaceValueUsersWith(inst, CreateConstantInt(int(consts[0]->dValue)), &module->constantPropagations);
+			ReplaceValueUsersWith(module, inst, CreateConstantInt(module, int(consts[0]->dValue)), &module->constantPropagations);
 			break;
 		case VM_INST_DOUBLE_TO_LONG:
-			ReplaceValueUsersWith(inst, CreateConstantLong((long long)(consts[0]->dValue)), &module->constantPropagations);
+			ReplaceValueUsersWith(module, inst, CreateConstantLong(module, (long long)(consts[0]->dValue)), &module->constantPropagations);
 			break;
 		case VM_INST_INT_TO_DOUBLE:
-			ReplaceValueUsersWith(inst, CreateConstantDouble(double(consts[0]->iValue)), &module->constantPropagations);
+			ReplaceValueUsersWith(module, inst, CreateConstantDouble(module, double(consts[0]->iValue)), &module->constantPropagations);
 			break;
 		case VM_INST_LONG_TO_DOUBLE:
-			ReplaceValueUsersWith(inst, CreateConstantDouble(double(consts[0]->lValue)), &module->constantPropagations);
+			ReplaceValueUsersWith(module, inst, CreateConstantDouble(module, double(consts[0]->lValue)), &module->constantPropagations);
 			break;
 		case VM_INST_INT_TO_LONG:
-			ReplaceValueUsersWith(inst, CreateConstantLong((long long)(consts[0]->iValue)), &module->constantPropagations);
+			ReplaceValueUsersWith(module, inst, CreateConstantLong(module, (long long)(consts[0]->iValue)), &module->constantPropagations);
 			break;
 		case VM_INST_LONG_TO_INT:
-			ReplaceValueUsersWith(inst, CreateConstantInt(int(consts[0]->lValue)), &module->constantPropagations);
+			ReplaceValueUsersWith(module, inst, CreateConstantInt(module, int(consts[0]->lValue)), &module->constantPropagations);
 			break;
 		case VM_INST_ADD:
 			if(inst->type == VmType::Pointer)
@@ -2320,169 +2332,169 @@ void RunConstantPropagation(VmModule *module, VmValue* value)
 				// Both arguments can't be a frame offset
 				assert(!(consts[0]->isFrameOffset && consts[1]->isFrameOffset));
 
-				ReplaceValueUsersWith(inst, CreateConstantPointer(consts[0]->iValue + consts[1]->iValue, consts[0]->isFrameOffset || consts[1]->isFrameOffset), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantPointer(module, consts[0]->iValue + consts[1]->iValue, consts[0]->isFrameOffset || consts[1]->isFrameOffset), &module->constantPropagations);
 			}
 			else
 			{
 				if(inst->type == VmType::Int)
-					ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue + consts[1]->iValue), &module->constantPropagations);
+					ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue + consts[1]->iValue), &module->constantPropagations);
 				else if(inst->type == VmType::Double)
-					ReplaceValueUsersWith(inst, CreateConstantDouble(consts[0]->dValue + consts[1]->dValue), &module->constantPropagations);
+					ReplaceValueUsersWith(module, inst, CreateConstantDouble(module, consts[0]->dValue + consts[1]->dValue), &module->constantPropagations);
 				else if(inst->type == VmType::Long)
-					ReplaceValueUsersWith(inst, CreateConstantLong(consts[0]->lValue + consts[1]->lValue), &module->constantPropagations);
+					ReplaceValueUsersWith(module, inst, CreateConstantLong(module, consts[0]->lValue + consts[1]->lValue), &module->constantPropagations);
 			}
 			break;
 		case VM_INST_SUB:
 			if(inst->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue - consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue - consts[1]->iValue), &module->constantPropagations);
 			else if(inst->type == VmType::Double)
-				ReplaceValueUsersWith(inst, CreateConstantDouble(consts[0]->dValue - consts[1]->dValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantDouble(module, consts[0]->dValue - consts[1]->dValue), &module->constantPropagations);
 			else if(inst->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantLong(consts[0]->lValue - consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantLong(module, consts[0]->lValue - consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_MUL:
 			if(inst->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue * consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue * consts[1]->iValue), &module->constantPropagations);
 			else if(inst->type == VmType::Double)
-				ReplaceValueUsersWith(inst, CreateConstantDouble(consts[0]->dValue * consts[1]->dValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantDouble(module, consts[0]->dValue * consts[1]->dValue), &module->constantPropagations);
 			else if(inst->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantLong(consts[0]->lValue * consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantLong(module, consts[0]->lValue * consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_DIV:
 			if(!IsConstantZero(consts[1]))
 			{
 				if(inst->type == VmType::Int)
-					ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue / consts[1]->iValue), &module->constantPropagations);
+					ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue / consts[1]->iValue), &module->constantPropagations);
 				else if(inst->type == VmType::Double)
-					ReplaceValueUsersWith(inst, CreateConstantDouble(consts[0]->dValue / consts[1]->dValue), &module->constantPropagations);
+					ReplaceValueUsersWith(module, inst, CreateConstantDouble(module, consts[0]->dValue / consts[1]->dValue), &module->constantPropagations);
 				else if(inst->type == VmType::Long)
-					ReplaceValueUsersWith(inst, CreateConstantLong(consts[0]->lValue / consts[1]->lValue), &module->constantPropagations);
+					ReplaceValueUsersWith(module, inst, CreateConstantLong(module, consts[0]->lValue / consts[1]->lValue), &module->constantPropagations);
 			}
 			break;
 		case VM_INST_MOD:
 			if(!IsConstantZero(consts[1]))
 			{
 				if(inst->type == VmType::Int)
-					ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue % consts[1]->iValue), &module->constantPropagations);
+					ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue % consts[1]->iValue), &module->constantPropagations);
 				else if(inst->type == VmType::Long)
-					ReplaceValueUsersWith(inst, CreateConstantLong(consts[0]->lValue % consts[1]->lValue), &module->constantPropagations);
+					ReplaceValueUsersWith(module, inst, CreateConstantLong(module, consts[0]->lValue % consts[1]->lValue), &module->constantPropagations);
 			}
 			break;
 		case VM_INST_LESS:
 			if(consts[0]->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue < consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue < consts[1]->iValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Double)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->dValue < consts[1]->dValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->dValue < consts[1]->dValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue < consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->lValue < consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_GREATER:
 			if(consts[0]->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue > consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue > consts[1]->iValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Double)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->dValue > consts[1]->dValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->dValue > consts[1]->dValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue > consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->lValue > consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_LESS_EQUAL:
 			if(consts[0]->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue <= consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue <= consts[1]->iValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Double)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->dValue <= consts[1]->dValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->dValue <= consts[1]->dValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue <= consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->lValue <= consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_GREATER_EQUAL:
 			if(consts[0]->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue >= consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue >= consts[1]->iValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Double)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->dValue >= consts[1]->dValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->dValue >= consts[1]->dValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue >= consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->lValue >= consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_EQUAL:
 			if(consts[0]->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue == consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue == consts[1]->iValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Double)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->dValue == consts[1]->dValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->dValue == consts[1]->dValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue == consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->lValue == consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_NOT_EQUAL:
 			if(consts[0]->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue != consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue != consts[1]->iValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Double)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->dValue != consts[1]->dValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->dValue != consts[1]->dValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue != consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->lValue != consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_SHL:
 			if(inst->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue << consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue << consts[1]->iValue), &module->constantPropagations);
 			else if(inst->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantLong(consts[0]->lValue << consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantLong(module, consts[0]->lValue << consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_SHR:
 			if(inst->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue >> consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue >> consts[1]->iValue), &module->constantPropagations);
 			else if(inst->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantLong(consts[0]->lValue >> consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantLong(module, consts[0]->lValue >> consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_BIT_AND:
 			if(inst->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue & consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue & consts[1]->iValue), &module->constantPropagations);
 			else if(inst->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantLong(consts[0]->lValue & consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantLong(module, consts[0]->lValue & consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_BIT_OR:
 			if(inst->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue | consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue | consts[1]->iValue), &module->constantPropagations);
 			else if(inst->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantLong(consts[0]->lValue | consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantLong(module, consts[0]->lValue | consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_BIT_XOR:
 			if(inst->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue ^ consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue ^ consts[1]->iValue), &module->constantPropagations);
 			else if(inst->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantLong(consts[0]->lValue ^ consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantLong(module, consts[0]->lValue ^ consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_LOG_AND:
 			if(consts[0]->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue && consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue && consts[1]->iValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue && consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->lValue && consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_LOG_OR:
 			if(consts[0]->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->iValue || consts[1]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue || consts[1]->iValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantInt(consts[0]->lValue || consts[1]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->lValue || consts[1]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_LOG_XOR:
 			if(consts[0]->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt((consts[0]->iValue != 0) != (consts[1]->iValue != 0)), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, (consts[0]->iValue != 0) != (consts[1]->iValue != 0)), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantInt((consts[0]->lValue != 0) != (consts[1]->lValue != 0)), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, (consts[0]->lValue != 0) != (consts[1]->lValue != 0)), &module->constantPropagations);
 			break;
 		case VM_INST_NEG:
 			if(inst->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(-consts[0]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, -consts[0]->iValue), &module->constantPropagations);
 			else if(inst->type == VmType::Double)
-				ReplaceValueUsersWith(inst, CreateConstantDouble(-consts[0]->dValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantDouble(module, -consts[0]->dValue), &module->constantPropagations);
 			else if(inst->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantLong(-consts[0]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantLong(module, -consts[0]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_BIT_NOT:
 			if(inst->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(~consts[0]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, ~consts[0]->iValue), &module->constantPropagations);
 			else if(inst->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantLong(~consts[0]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantLong(module, ~consts[0]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_LOG_NOT:
 			if(consts[0]->type == VmType::Int)
-				ReplaceValueUsersWith(inst, CreateConstantInt(!consts[0]->iValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, !consts[0]->iValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Long)
-				ReplaceValueUsersWith(inst, CreateConstantLong(!consts[0]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantLong(module, !consts[0]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_INDEX:
 			{
@@ -2493,7 +2505,7 @@ void RunConstantPropagation(VmModule *module, VmValue* value)
 				unsigned index = consts[3]->iValue;
 
 				if(index < arrayLength)
-					ReplaceValueUsersWith(inst, CreateConstantPointer(ptr + elementSize * index, consts[2]->isFrameOffset), &module->constantPropagations);
+					ReplaceValueUsersWith(module, inst, CreateConstantPointer(module, ptr + elementSize * index, consts[2]->isFrameOffset), &module->constantPropagations);
 			}
 			break;
 		}
@@ -2546,9 +2558,9 @@ void RunDeadCodeElimiation(VmModule *module, VmValue* value)
 			if(VmConstant *condition = getType<VmConstant>(inst->arguments[0]))
 			{
 				if(inst->cmd == VM_INST_JUMP_Z)
-					ChangeInstructionTo(inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[1] : inst->arguments[2], NULL, NULL, NULL, &module->deadCodeEliminations);
+					ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[1] : inst->arguments[2], NULL, NULL, NULL, &module->deadCodeEliminations);
 				else
-					ChangeInstructionTo(inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[2] : inst->arguments[1], NULL, NULL, NULL, &module->deadCodeEliminations);
+					ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[2] : inst->arguments[1], NULL, NULL, NULL, &module->deadCodeEliminations);
 			}
 		}
 	}
@@ -2642,7 +2654,7 @@ void RunControlFlowOptimization(VmModule *module, VmValue *value)
 
 				assert(target);
 
-				ReplaceValueUsersWith(curr, target, &module->controlFlowSimplifications);
+				ReplaceValueUsersWith(module, curr, target, &module->controlFlowSimplifications);
 			}
 
 			curr = next;
@@ -2682,7 +2694,7 @@ void RunLoadStorePropagation(VmModule *module, VmValue *value)
 			case VM_INST_LOAD_LONG:
 			case VM_INST_LOAD_STRUCT:
 				if(VmValue* value = GetLoadStoreInfo(module, curr))
-					ReplaceValueUsersWith(curr, value, &module->loadStorePropagations);
+					ReplaceValueUsersWith(module, curr, value, &module->loadStorePropagations);
 				else
 					AddLoadInfo(module, curr);
 				break;
@@ -2753,7 +2765,7 @@ void RunLoadStorePropagation(VmModule *module, VmValue *value)
 					prev = prev->prevSibling;
 
 				if(prev && (prev->cmd >= VM_INST_STORE_BYTE && prev->cmd <= VM_INST_STORE_STRUCT) && GetAccessSize(prev) == GetAccessSize(curr) && prev->arguments[0] == curr->arguments[0])
-					ReplaceValueUsersWith(curr, prev->arguments[1], &module->loadStorePropagations);
+					ReplaceValueUsersWith(module, curr, prev->arguments[1], &module->loadStorePropagations);
 			}
 
 			curr = next;
@@ -2817,7 +2829,7 @@ void RunCommonSubexpressionElimination(VmModule *module, VmValue* value)
 
 					if(same)
 					{
-						ReplaceValueUsersWith(curr, prev, &module->commonSubexprEliminations);
+						ReplaceValueUsersWith(module, curr, prev, &module->commonSubexprEliminations);
 						break;
 					}
 				}

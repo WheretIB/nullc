@@ -2,6 +2,7 @@
 
 #include "stdafx.h"
 #include "IntrusiveList.h"
+#include "Allocator.h"
 #include "Array.h"
 #include "HashMap.h"
 #include "StrAlgo.h"
@@ -13,7 +14,7 @@ struct ExprBase;
 
 struct ExpressionContext
 {
-	ExpressionContext();
+	ExpressionContext(Allocator *allocator);
 
 	void Stop(const char *pos, const char *msg, ...);
 
@@ -59,13 +60,15 @@ struct ExpressionContext
 	TypeFunction* GetFunctionType(TypeBase* returnType, SmallArray<ArgumentData, 32> &arguments);
 
 	// Full state info
-	FastVector<NamespaceData*> namespaces;
-	FastVector<TypeBase*> types;
-	FastVector<FunctionData*> functions;
-	FastVector<VariableData*> variables;
+	SmallArray<NamespaceData*, 128> namespaces;
+	SmallArray<TypeBase*, 128> types;
+	SmallArray<FunctionData*, 128> functions;
+	SmallArray<VariableData*, 128> variables;
 
-	FastVector<ExprBase*> definitions;
-	FastVector<VariableData*> vtables;
+	SmallArray<ExprBase*, 128> definitions;
+	SmallArray<VariableData*, 128> vtables;
+
+	SmallArray<TypeFunction*, 128> functionTypes;
 
 	HashMap<TypeClass*> genericTypeMap;
 
@@ -116,6 +119,15 @@ struct ExpressionContext
 
 	unsigned unnamedFuncCount;
 	unsigned unnamedVariableCount;
+
+	// Memory pool
+	Allocator *allocator;
+
+	template<typename T>
+	T* get()
+	{
+		return (T*)allocator->alloc(sizeof(T));
+	}
 };
 
 struct ExprBase
@@ -761,13 +773,13 @@ struct ExprSequence: ExprBase
 
 struct ExprModule: ExprBase
 {
-	ExprModule(SynBase *source, TypeBase *type, ScopeData *moduleScope, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), moduleScope(moduleScope), expressions(expressions)
+	ExprModule(Allocator *allocator, SynBase *source, TypeBase *type, ScopeData *moduleScope, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), moduleScope(moduleScope), expressions(expressions), definitions(allocator)
 	{
 	}
 
 	ScopeData *moduleScope;
 
-	FastVector<ExprBase*> definitions;
+	SmallArray<ExprBase*, 32> definitions;
 
 	IntrusiveList<ExprBase> setup;
 

@@ -2,6 +2,8 @@
 #ifndef NULLC_ARRAY_H
 #define NULLC_ARRAY_H
 
+#include "Allocator.h"
+
 #ifndef _MSC_VER
 #undef __forceinline
 #define __forceinline inline // TODO: NULLC_FORCEINLINE?
@@ -240,7 +242,7 @@ template<typename T, unsigned N>
 class SmallArray
 {
 public:
-	SmallArray()
+	SmallArray(Allocator *allocator = 0): allocator(allocator)
 	{
 		data = little;
 		max = N;
@@ -251,13 +253,30 @@ public:
 	~SmallArray()
 	{
 		if(data != little)
-			NULLC::destruct(data, max);
+		{
+			if(allocator)
+				allocator->destruct(data, max);
+			else
+				NULLC::destruct(data, max);
+		}
+	}
+
+	void set_allocator(Allocator *allocator)
+	{
+		assert(data == little);
+
+		this->allocator = allocator;
 	}
 
 	void reset()
 	{
 		if(data != little)
-			NULLC::destruct(data, max);
+		{
+			if(allocator)
+				allocator->destruct(data, max);
+			else
+				NULLC::destruct(data, max);
+		}
 
 		data = little;
 		max = N;
@@ -360,13 +379,23 @@ public:
 		else
 			newSize += 4;
 
-		T* newData = NULLC::construct<T>(newSize);
+		T* newData = 0;
+		
+		if(allocator)
+			newData = allocator->construct<T>(newSize);
+		else
+			newData = NULLC::construct<T>(newSize);
 
 		for(unsigned i = 0; i < count; i++)
 			newData[i] = data[i];
 
 		if(data != little)
-			NULLC::destruct(data, max);
+		{
+			if(allocator)
+				allocator->destruct(data, max);
+			else
+				NULLC::destruct(data, max);
+		}
 
 		data = newData;
 
@@ -382,6 +411,8 @@ private:
 	SmallArray(SmallArray &r);
 
 	T little[N];
+
+	Allocator *allocator;
 };
 
 #endif

@@ -1,54 +1,65 @@
 #include "TypeTree.h"
 
+#include "ExpressionTree.h"
+
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
-InplaceStr GetReferenceTypeName(TypeBase* type)
+InplaceStr GetReferenceTypeName(ExpressionContext &ctx, TypeBase* type)
 {
 	unsigned nameLength = type->name.length() + strlen(" ref");
-	char *name = new char[nameLength + 1];
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 	sprintf(name, "%.*s ref", FMT_ISTR(type->name));
 
 	return InplaceStr(name);
 }
 
-InplaceStr GetArrayTypeName(TypeBase* type, long long length)
+InplaceStr GetArrayTypeName(ExpressionContext &ctx, TypeBase* type, long long length)
 {
 	unsigned nameLength = type->name.length() + strlen("[]") + 21;
-	char *name = new char[nameLength + 1];
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 	sprintf(name, "%.*s[%lld]", FMT_ISTR(type->name), length);
 
 	return InplaceStr(name);
 }
 
-InplaceStr GetUnsizedArrayTypeName(TypeBase* type)
+InplaceStr GetUnsizedArrayTypeName(ExpressionContext &ctx, TypeBase* type)
 {
 	unsigned nameLength = type->name.length() + strlen("[]");
-	char *name = new char[nameLength + 1];
-	sprintf(name, "%.*s[]", FMT_ISTR(type->name));
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+
+	char *pos = name;
+
+	memcpy(pos, type->name.begin, type->name.length());
+	pos += type->name.length();
+
+	memcpy(pos, "[]", 2);
+	pos += 2;
+
+	*pos++ = 0;
 
 	return InplaceStr(name);
 }
 
-InplaceStr GetFunctionTypeName(TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
+InplaceStr GetFunctionTypeName(ExpressionContext &ctx, TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
 {
 	unsigned nameLength = returnType->name.length() + strlen(" ref()");
 
 	for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
 		nameLength += arg->type->name.length() + 1;
 
-	char *name = new char[nameLength + 1];
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 
 	char *pos = name;
 
-	sprintf(pos, "%.*s", FMT_ISTR(returnType->name));
+	memcpy(pos, returnType->name.begin, returnType->name.length());
 	pos += returnType->name.length();
 
-	strcpy(pos, " ref(");
+	memcpy(pos, " ref(", 5);
 	pos += 5;
 
 	for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
 	{
-		sprintf(pos, "%.*s", FMT_ISTR(arg->type->name));
+		memcpy(pos, arg->type->name.begin, arg->type->name.length());
 		pos += arg->type->name.length();
 
 		if(arg->next)
@@ -61,7 +72,7 @@ InplaceStr GetFunctionTypeName(TypeBase* returnType, IntrusiveList<TypeHandle> a
 	return InplaceStr(name);
 }
 
-InplaceStr GetGenericClassTypeName(TypeBase* proto, IntrusiveList<TypeHandle> generics)
+InplaceStr GetGenericClassTypeName(ExpressionContext &ctx, TypeBase* proto, IntrusiveList<TypeHandle> generics)
 {
 	unsigned nameLength = proto->name.length() + strlen("<>");
 
@@ -73,7 +84,7 @@ InplaceStr GetGenericClassTypeName(TypeBase* proto, IntrusiveList<TypeHandle> ge
 			nameLength += arg->type->name.length() + 1;
 	}
 
-	char *name = new char[nameLength + 1];
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 
 	char *pos = name;
 
@@ -106,14 +117,14 @@ InplaceStr GetGenericClassTypeName(TypeBase* proto, IntrusiveList<TypeHandle> ge
 	return InplaceStr(name);
 }
 
-InplaceStr GetFunctionSetTypeName(IntrusiveList<TypeHandle> types)
+InplaceStr GetFunctionSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHandle> types)
 {
 	unsigned nameLength = 0;
 
 	for(TypeHandle *arg = types.head; arg; arg = arg->next)
 		nameLength += arg->type->name.length() + strlen(" or ");
 
-	char *name = new char[nameLength + 1];
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 
 	char *pos = name;
 
@@ -134,14 +145,14 @@ InplaceStr GetFunctionSetTypeName(IntrusiveList<TypeHandle> types)
 	return InplaceStr(name);
 }
 
-InplaceStr GetArgumentSetTypeName(IntrusiveList<TypeHandle> types)
+InplaceStr GetArgumentSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHandle> types)
 {
 	unsigned nameLength = 2;
 
 	for(TypeHandle *arg = types.head; arg; arg = arg->next)
 		nameLength += arg->type->name.length() + 1;
 
-	char *name = new char[nameLength + 1];
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 
 	char *pos = name;
 
@@ -162,34 +173,34 @@ InplaceStr GetArgumentSetTypeName(IntrusiveList<TypeHandle> types)
 	return InplaceStr(name);
 }
 
-InplaceStr GetMemberSetTypeName(TypeBase* type)
+InplaceStr GetMemberSetTypeName(ExpressionContext &ctx, TypeBase* type)
 {
 	unsigned nameLength = type->name.length() + strlen(" members");
-	char *name = new char[nameLength + 1];
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 	sprintf(name, "%.*s members", FMT_ISTR(type->name));
 
 	return InplaceStr(name);
 }
 
-InplaceStr GetFunctionContextTypeName(InplaceStr functionName, unsigned index)
+InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functionName, unsigned index)
 {
 	unsigned nameLength = functionName.length() + 32;
-	char *name = new char[nameLength + 1];
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 	sprintf(name, "__%.*s_%d_cls", FMT_ISTR(functionName), index);
 
 	return InplaceStr(name);
 }
 
-InplaceStr GetFunctionContextVariableName(FunctionData *function)
+InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *function)
 {
 	unsigned nameLength = function->name.length() + 32;
-	char *name = new char[nameLength + 1];
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 	sprintf(name, "$%.*s_%u_ext", FMT_ISTR(function->name), function->type->name.hash());
 
 	return InplaceStr(name);
 }
 
-InplaceStr GetFunctionTableName(FunctionData *function)
+InplaceStr GetFunctionTableName(ExpressionContext &ctx, FunctionData *function)
 {
 	assert(function->scope->ownerType);
 
@@ -198,13 +209,13 @@ InplaceStr GetFunctionTableName(FunctionData *function)
 	assert(pos);
 
 	unsigned nameLength = function->name.length() + 32;
-	char *name = new char[nameLength + 1];
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 	sprintf(name, "$vtbl%010u%s", function->type->name.hash(), pos + 2);
 
 	return InplaceStr(name);
 }
 
-InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str)
+InplaceStr GetTypeNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceStr str)
 {
 	bool foundNamespace = false;
 
@@ -226,7 +237,7 @@ InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str)
 	if(!foundNamespace)
 		return str;
 
-	char *name = new char[nameLength + 1];
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 
 	// Format a string back-to-front
 	char *pos = name + nameLength + 1;
@@ -256,19 +267,19 @@ InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str)
 	return InplaceStr(name);
 }
 
-InplaceStr GetVariableNameInScope(ScopeData *scope, InplaceStr str)
+InplaceStr GetVariableNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceStr str)
 {
-	return GetTypeNameInScope(scope, str);
+	return GetTypeNameInScope(ctx, scope, str);
 }
 
-InplaceStr GetFunctionNameInScope(ScopeData *scope, TypeBase *parentType, InplaceStr str, bool isOperator, bool isAccessor)
+InplaceStr GetFunctionNameInScope(ExpressionContext &ctx, ScopeData *scope, TypeBase *parentType, InplaceStr str, bool isOperator, bool isAccessor)
 {
 	if(isOperator)
 		return str;
 
 	if(parentType)
 	{
-		char *name = new char[parentType->name.length() + 2 + str.length() + (isAccessor ? 1 : 0) + 1];
+		char *name = (char*)ctx.allocator->alloc(parentType->name.length() + 2 + str.length() + (isAccessor ? 1 : 0) + 1);
 
 		sprintf(name, "%.*s::%.*s%s", FMT_ISTR(parentType->name), FMT_ISTR(str), isAccessor ? "$" : "");
 
@@ -298,7 +309,7 @@ InplaceStr GetFunctionNameInScope(ScopeData *scope, TypeBase *parentType, Inplac
 		}
 	}
 
-	char *name = new char[nameLength + 1];
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 
 	if(!foundNamespace)
 		return str;

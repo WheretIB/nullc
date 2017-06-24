@@ -8,6 +8,7 @@
 #include "ParseTree.h"
 
 struct ExprBase;
+struct ExpressionContext;
 
 struct TypeBase;
 struct TypeStruct;
@@ -167,7 +168,7 @@ struct UpvalueData
 
 struct FunctionData
 {
-	FunctionData(SynBase *source, ScopeData *scope, bool coroutine, bool accessor, TypeFunction *type, TypeBase *contextType, InplaceStr name, IntrusiveList<MatchData> generics, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), accessor(accessor), type(type), contextType(contextType), name(name), generics(generics), uniqueId(uniqueId)
+	FunctionData(Allocator *allocator, SynBase *source, ScopeData *scope, bool coroutine, bool accessor, TypeFunction *type, TypeBase *contextType, InplaceStr name, IntrusiveList<MatchData> generics, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), accessor(accessor), type(type), contextType(contextType), name(name), generics(generics), uniqueId(uniqueId), arguments(allocator), instances(allocator)
 	{
 		imported = false;
 
@@ -221,7 +222,7 @@ struct FunctionData
 
 	IntrusiveList<MatchData> aliases;
 
-	SmallArray<ArgumentData, 32> arguments;
+	SmallArray<ArgumentData, 8> arguments;
 
 	bool isPrototype;
 	FunctionData *implementation;
@@ -229,7 +230,7 @@ struct FunctionData
 	FunctionData *proto;
 	bool isGenericInstance;
 
-	SmallArray<FunctionData*, 32> instances;
+	SmallArray<FunctionData*, 8> instances;
 
 	SynFunctionDefinition *definition;
 
@@ -277,25 +278,25 @@ struct AliasData
 
 struct ScopeData
 {
-	ScopeData(ScopeData *scope, unsigned uniqueId): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(0)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		loopDepth = scope ? scope->loopDepth : 0;
 	}
 
-	ScopeData(ScopeData *scope, unsigned uniqueId, NamespaceData *ownerNamespace): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, NamespaceData *ownerNamespace): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		loopDepth = 0;
 	}
 
-	ScopeData(ScopeData *scope, unsigned uniqueId, FunctionData *ownerFunction): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, FunctionData *ownerFunction): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		loopDepth = 0;
 	}
 
-	ScopeData(ScopeData *scope, unsigned uniqueId, TypeBase *ownerType): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(ownerType)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, TypeBase *ownerType): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(ownerType), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		loopDepth = 0;
@@ -314,11 +315,11 @@ struct ScopeData
 
 	long long globalSize;
 
-	FastVector<TypeBase*> types;
-	FastVector<FunctionData*> functions;
-	FastVector<VariableData*> variables;
-	FastVector<AliasData*> aliases;
-	FastVector<ScopeData*> scopes;
+	SmallArray<TypeBase*, 4> types;
+	SmallArray<FunctionData*, 4> functions;
+	SmallArray<VariableData*, 4> variables;
+	SmallArray<AliasData*, 4> aliases;
+	SmallArray<ScopeData*, 4> scopes;
 };
 
 struct FunctionValue
@@ -412,7 +413,7 @@ struct TypeBase
 	bool isGeneric;
 
 	TypeRef *refType; // Reference type to this type
-	FastVector<TypeArray*> arrayTypes; // Array types derived from this type
+	IntrusiveList<TypeHandle> arrayTypes; // Array types derived from this type
 	TypeUnsizedArray *unsizedArrayType; // An unsized array type derived from this type
 };
 
@@ -772,21 +773,21 @@ inline TypeStruct* getType(TypeBase *node)
 	return 0;
 }
 
-InplaceStr GetReferenceTypeName(TypeBase* type);
-InplaceStr GetArrayTypeName(TypeBase* type, long long length);
-InplaceStr GetUnsizedArrayTypeName(TypeBase* type);
-InplaceStr GetFunctionTypeName(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
-InplaceStr GetGenericClassTypeName(TypeBase* proto, IntrusiveList<TypeHandle> generics);
-InplaceStr GetFunctionSetTypeName(IntrusiveList<TypeHandle> types);
-InplaceStr GetArgumentSetTypeName(IntrusiveList<TypeHandle> types);
-InplaceStr GetMemberSetTypeName(TypeBase* type);
+InplaceStr GetReferenceTypeName(ExpressionContext &ctx, TypeBase* type);
+InplaceStr GetArrayTypeName(ExpressionContext &ctx, TypeBase* type, long long length);
+InplaceStr GetUnsizedArrayTypeName(ExpressionContext &ctx, TypeBase* type);
+InplaceStr GetFunctionTypeName(ExpressionContext &ctx, TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
+InplaceStr GetGenericClassTypeName(ExpressionContext &ctx, TypeBase* proto, IntrusiveList<TypeHandle> generics);
+InplaceStr GetFunctionSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHandle> types);
+InplaceStr GetArgumentSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHandle> types);
+InplaceStr GetMemberSetTypeName(ExpressionContext &ctx, TypeBase* type);
 
-InplaceStr GetFunctionContextTypeName(InplaceStr functionName, unsigned index);
-InplaceStr GetFunctionContextVariableName(FunctionData *function);
-InplaceStr GetFunctionTableName(FunctionData *function);
+InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functionName, unsigned index);
+InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *function);
+InplaceStr GetFunctionTableName(ExpressionContext &ctx, FunctionData *function);
 
-InplaceStr GetTypeNameInScope(ScopeData *scope, InplaceStr str);
-InplaceStr GetVariableNameInScope(ScopeData *scope, InplaceStr str);
-InplaceStr GetFunctionNameInScope(ScopeData *scope, TypeBase *parentType, InplaceStr str, bool isOperator, bool isAccessor);
+InplaceStr GetTypeNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceStr str);
+InplaceStr GetVariableNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceStr str);
+InplaceStr GetFunctionNameInScope(ExpressionContext &ctx, ScopeData *scope, TypeBase *parentType, InplaceStr str, bool isOperator, bool isAccessor);
 
 unsigned GetAlignmentOffset(long long offset, unsigned alignment);
