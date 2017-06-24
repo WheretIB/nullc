@@ -7029,6 +7029,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 		if(TypeBase **prev = ctx.typeMap.find(type.nameHash))
 		{
 			module.types[i] = *prev;
+
+			currentConstant += type.constantCount;
 			continue;
 		}
 
