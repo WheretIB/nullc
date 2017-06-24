@@ -1087,6 +1087,17 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, SmallArra
 	return GetFunctionType(returnType, types);
 }
 
+ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax);
+ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax);
+ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax);
+ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope);
+ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax);
+ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
+void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
+ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> matches, bool createAccess, bool isLocal);
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeFunction *argumentType);
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &arguments);
+
 ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr member);
 
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs);
@@ -1096,6 +1107,10 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, bool allowFailure);
 
+InplaceStr GetTemporaryFunctionName(ExpressionContext &ctx);
+TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, InplaceStr functionName);
+ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, SynBase *source, FunctionData *function);
+ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, SynBase *source, FunctionData *function);
 ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, FunctionData *function);
 ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<FunctionData*>::Node *function, ExprBase *context);
 
@@ -1584,6 +1599,38 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 	return allocate(ExprAssignment)(source, lhs->type, wrapped, rhs);
 }
 
+ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, ExprBase *value)
+{
+	InplaceStr functionName = GetTemporaryFunctionName(ctx);
+
+	SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+
+	TypeBase *contextClassType = CreateFunctionContextType(ctx, source, functionName);
+
+	FunctionData *function = allocate(FunctionData)(ctx.allocator, source, ctx.scope, true, false, ctx.GetFunctionType(value->type, arguments), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+
+	ctx.AddFunction(function);
+
+	ctx.PushScope(function);
+
+	function->functionScope = ctx.scope;
+
+	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, source, function);
+
+	IntrusiveList<ExprBase> expressions;
+	expressions.push_back(allocate(ExprReturn)(source, ctx.typeVoid, AnalyzeExpression(ctx, value->source)));
+
+	ctx.PopScope();
+
+	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function);
+
+	function->declaration = allocate(ExprFunctionDefinition)(source, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), expressions, contextVariableDefinition);
+
+	ctx.definitions.push_back(function->declaration);
+
+	return allocate(ExprFunctionAccess)(source, function->type, function, CreateFunctionContextAccess(ctx, source, function));
+}
+
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs)
 {
 	bool skipOverload = false;
@@ -1627,6 +1674,16 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 
 		if(lhs->type == ctx.typeTypeID && rhs->type == ctx.typeTypeID)
 			skipOverload = true;
+	}
+
+	if(!skipOverload)
+	{
+		// For && and || try to find a function that accepts a wrapped right-hand-side evaluation
+		if((op == SYN_BINARY_OP_LOGICAL_AND || op == SYN_BINARY_OP_LOGICAL_OR) && isType<TypeClass>(lhs->type))
+		{
+			if(ExprBase *result = CreateFunctionCall(ctx, source, InplaceStr(GetOpName(op)), lhs, CreateValueFunctionWrapper(ctx, source, rhs), true))
+				return result;
+		}
 	}
 
 	// Promotion to bool for some types
@@ -1698,17 +1755,6 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 
 	return allocate(ExprBinaryOp)(source, resultType, op, lhs, rhs);
 }
-
-ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax);
-ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax);
-ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax);
-ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope);
-ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax);
-ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
-void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
-ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> matches, bool createAccess, bool isLocal);
-ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeFunction *argumentType);
-ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &arguments);
 
 // Apply in reverse order
 TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase *sizes)
@@ -5224,7 +5270,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	return value;
 }
 
-ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, InplaceStr(name), IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches)
+ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, InplaceStr name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches)
 {
 	bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
 
@@ -5635,9 +5681,9 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, syntax, function);
 
-	ExprFunctionDefinition *definition = allocate(ExprFunctionDefinition)(syntax, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), expressions, contextVariableDefinition);
+	function->declaration = allocate(ExprFunctionDefinition)(syntax, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), expressions, contextVariableDefinition);
 
-	ctx.definitions.push_back(definition);
+	ctx.definitions.push_back(function->declaration);
 
 	ExprBase *access = allocate(ExprFunctionAccess)(syntax, function->type, function, CreateFunctionContextAccess(ctx, syntax, function));
 
@@ -6046,9 +6092,11 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 		ctx.PopScope();
 
-		castToInt = allocate(ExprFunctionDefinition)(syntax, function->type, function, contextArgumentDefinition, variables, expressions, NULL);
+		function->declaration = allocate(ExprFunctionDefinition)(syntax, function->type, function, contextArgumentDefinition, variables, expressions, NULL);
 
-		ctx.definitions.push_back(castToInt);
+		ctx.definitions.push_back(function->declaration);
+
+		castToInt = function->declaration;
 	}
 
 	// Create conversion operator enum_type enum_type(int)
@@ -6080,9 +6128,11 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 		ctx.PopScope();
 
-		castToEnum = allocate(ExprFunctionDefinition)(syntax, function->type, function, contextArgumentDefinition, variables, expressions, NULL);
+		function->declaration = allocate(ExprFunctionDefinition)(syntax, function->type, function, contextArgumentDefinition, variables, expressions, NULL);
 
-		ctx.definitions.push_back(castToEnum);
+		ctx.definitions.push_back(function->declaration);
+
+		castToEnum = function->declaration;
 	}
 
 	// Restore old scope
