@@ -3862,6 +3862,24 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 	if(types.size() != arguments.size())
 		return NULL;
 
+	// Check that all generics have been resolved
+	for(MatchData *curr = function->generics.head; curr; curr = curr->next)
+	{
+		bool matched = false;
+
+		for(MatchData *alias = aliases.head; alias; alias = alias->next)
+		{
+			if(curr->name == alias->name)
+			{
+				matched = true;
+				break;
+			}
+		}
+
+		if(!matched)
+			return NULL;
+	}
+
 	return ctx.GetFunctionType(function->type->returnType, types);
 }
 
@@ -3962,12 +3980,6 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, SmallA
 
 		FunctionData *function = value.function;
 
-		if(function->generics.size() != generics.size())
-		{
-			ratings[i] = ~0u;
-			continue;
-		}
-
 		if(!generics.empty())
 		{
 			MatchData *ca = function->generics.head;
@@ -3981,6 +3993,10 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, SmallA
 					continue;
 				}
 			}
+
+			// Fail if provided explicit type list is larger than expected explicit type list
+			if(cb)
+				ratings[i] = ~0u;
 
 			if(ratings[i] == ~0u)
 				continue;
