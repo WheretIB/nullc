@@ -505,7 +505,30 @@ ExprBase* CreateBinaryOp(Eval &ctx, SynBase *source, ExprBase *lhs, ExprBase *rh
 		long long lhsValue = 0;
 		long long rhsValue = 0;
 
-		if(TryTakeLong(lhs, lhsValue) && TryTakeLong(rhs, rhsValue))
+		// Short-circuit behaviour
+		if(op == SYN_BINARY_OP_LOGICAL_AND)
+		{
+			if(TryTakeLong(lhs, lhsValue))
+			{
+				if(lhsValue == 0)
+					return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, false);
+
+				if(TryTakeLong(rhs, rhsValue))
+					return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, rhsValue != 0);
+			}
+		}
+		else if(op == SYN_BINARY_OP_LOGICAL_OR)
+		{
+			if(TryTakeLong(lhs, lhsValue))
+			{
+				if(lhsValue == 1)
+					return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, true);
+
+				if(TryTakeLong(rhs, rhsValue))
+					return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, rhsValue != 0);
+			}
+		}
+		else if(TryTakeLong(lhs, lhsValue) && TryTakeLong(rhs, rhsValue))
 		{
 			switch(op)
 			{
@@ -574,10 +597,6 @@ ExprBase* CreateBinaryOp(Eval &ctx, SynBase *source, ExprBase *lhs, ExprBase *rh
 				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue | rhsValue);
 			case SYN_BINARY_OP_BIT_XOR:
 				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue ^ rhsValue);
-			case SYN_BINARY_OP_LOGICAL_AND:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue && rhsValue);
-			case SYN_BINARY_OP_LOGICAL_OR:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue || rhsValue);
 			case SYN_BINARY_OP_LOGICAL_XOR:
 				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, !!lhsValue != !!rhsValue);
 			}
