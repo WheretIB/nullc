@@ -575,7 +575,7 @@ void ExpressionContext::PushTemporaryScope()
 	scope = allocate_(ScopeData)(allocator, scope, 0);
 }
 
-void ExpressionContext::PopScope(SynBase *location)
+void ExpressionContext::PopScope(SynBase *location, bool keepOperators)
 {
 	// When namespace scope ends, all the contents remain accessible through an outer namespace/global scope
 	if(!location && scope->ownerNamespace)
@@ -616,6 +616,9 @@ void ExpressionContext::PopScope(SynBase *location)
 		if(function->scope->ownerType)
 			continue;
 
+		if(keepOperators && function->isOperator)
+			continue;
+
 		if(scope->scope && function->isPrototype && !function->implementation)
 			Stop(function->source->pos, "ERROR: local function '%.*s' went out of scope unimplemented", FMT_ISTR(function->name));
 
@@ -642,11 +645,11 @@ void ExpressionContext::PopScope(SynBase *location)
 	scope = scope->scope;
 }
 
-void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *location)
+void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *location, bool skipOperators)
 {
 	// Restore parent first, up to the current scope
 	if(target->scope != scope)
-		RestoreScopesAtPoint(target->scope, location);
+		RestoreScopesAtPoint(target->scope, location, skipOperators);
 
 	for(unsigned i = 0, e = target->variables.count; i < e; i++)
 	{
@@ -662,6 +665,9 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 
 		// Class functions are kept visible, no need to add again
 		if(function->scope->ownerType)
+			continue;
+
+		if(skipOperators && function->isOperator)
 			continue;
 
 		if(!location || function->imported || function->source->pos <= location->pos)
@@ -703,7 +709,7 @@ void ExpressionContext::SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *t
 {
 	// Reach the same depth
 	while(scope->scopeDepth > target->scopeDepth)
-		PopScope();
+		PopScope(NULL, true);
 
 	// Reach the same parent
 	ScopeData *curr = target;
@@ -713,16 +719,16 @@ void ExpressionContext::SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *t
 
 	while(scope->scope != curr->scope)
 	{
-		PopScope();
+		PopScope(NULL, true);
 
 		curr = curr->scope;
 	}
 
 	// When the common parent is reached, remove it without ejecting namespace variables into the outer scope
-	PopScope(currLocation);
+	PopScope(currLocation, true);
 
 	// Now restore each namespace data up to the source location
-	RestoreScopesAtPoint(target, targetLocation);
+	RestoreScopesAtPoint(target, targetLocation, true);
 }
 
 NamespaceData* ExpressionContext::GetCurrentNamespace()
@@ -1607,7 +1613,7 @@ ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, Ex
 
 	TypeBase *contextClassType = CreateFunctionContextType(ctx, source, functionName);
 
-	FunctionData *function = allocate(FunctionData)(ctx.allocator, source, ctx.scope, true, false, ctx.GetFunctionType(value->type, arguments), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+	FunctionData *function = allocate(FunctionData)(ctx.allocator, source, ctx.scope, true, false, false, ctx.GetFunctionType(value->type, arguments), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 	ctx.AddFunction(function);
 
@@ -1710,7 +1716,7 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 	ok |= isType<TypeEnum>(lhs->type) && lhs->type == rhs->type;
 
 	if(!ok)
-		Stop(ctx, source->pos, "ERROR: binary operations between complex types are not supported yet");
+		Stop(ctx, source->pos, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(op), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
 
 	if(lhs->type == ctx.typeVoid)
 		Stop(ctx, source->pos, "ERROR: first operand type is 'void'");
@@ -2680,7 +2686,7 @@ ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *synt
 	}
 	else
 	{
-		Stop(ctx, syntax->pos, "ERROR: Unknown common type");
+		Stop(ctx, syntax->pos, "ERROR: can't find common type between '%.*s' and '%.*s'", FMT_ISTR(trueBlock->type->name), FMT_ISTR(falseBlock->type->name));
 	}
 
 	return allocate(ExprConditional)(syntax, resultType, condition, trueBlock, falseBlock);
@@ -5370,7 +5376,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
 	}
 
-	FunctionData *function = allocate(FunctionData)(ctx.allocator, source, ctx.scope, coroutine, accessor, functionType, contextRefType, functionName, generics, ctx.uniqueFunctionId++);
+	FunctionData *function = allocate(FunctionData)(ctx.allocator, source, ctx.scope, coroutine, accessor, isOperator, functionType, contextRefType, functionName, generics, ctx.uniqueFunctionId++);
 
 	function->contextType = contextRefType;
 
@@ -5570,7 +5576,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	TypeBase *contextClassType = CreateFunctionContextType(ctx, syntax, functionName);
 
-	FunctionData *function = allocate(FunctionData)(ctx.allocator, syntax, ctx.scope, false, false, ctx.GetFunctionType(returnType, argData), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+	FunctionData *function = allocate(FunctionData)(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(returnType, argData), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 	// Fill in argument data
 	for(unsigned i = 0; i < argData.size(); i++)
@@ -5652,7 +5658,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	TypeBase *contextClassType = CreateFunctionContextType(ctx, syntax, functionName);
 
-	FunctionData *function = allocate(FunctionData)(ctx.allocator, syntax, ctx.scope, true, false, ctx.GetFunctionType(ctx.typeAuto, arguments), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+	FunctionData *function = allocate(FunctionData)(ctx.allocator, syntax, ctx.scope, true, false, false, ctx.GetFunctionType(ctx.typeAuto, arguments), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 	ctx.AddFunction(function);
 
@@ -6070,7 +6076,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 		arguments.push_back(ArgumentData(syntax, false, InplaceStr("x"), enumType, NULL));
 
-		FunctionData *function = allocate(FunctionData)(ctx.allocator, syntax, ctx.scope, false, false, ctx.GetFunctionType(ctx.typeInt, arguments), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("int"), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+		FunctionData *function = allocate(FunctionData)(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(ctx.typeInt, arguments), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("int"), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 		// Fill in argument data
 		for(unsigned i = 0; i < arguments.size(); i++)
@@ -6106,7 +6112,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 		arguments.push_back(ArgumentData(syntax, false, InplaceStr("x"), ctx.typeInt, NULL));
 
-		FunctionData *function = allocate(FunctionData)(ctx.allocator, syntax, ctx.scope, false, false, ctx.GetFunctionType(enumType, arguments), ctx.GetReferenceType(ctx.typeVoid), typeName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+		FunctionData *function = allocate(FunctionData)(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(enumType, arguments), ctx.GetReferenceType(ctx.typeVoid), typeName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 		// Fill in argument data
 		for(unsigned i = 0; i < arguments.size(); i++)
@@ -7478,11 +7484,12 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		bool coroutine = function.funcCat == ExternFuncInfo::COROUTINE;
 		bool accessor = *(functionName.end - 1) == '$';
+		bool isOperator = false; // TODO: detect operators
 
 		if(parentType)
 			ctx.PushScope(parentType);
 
-		FunctionData *data = allocate(FunctionData)(ctx.allocator, source, ctx.scope, coroutine, accessor, getType<TypeFunction>(functionType), contextType, functionName, generics, ctx.uniqueFunctionId++);
+		FunctionData *data = allocate(FunctionData)(ctx.allocator, source, ctx.scope, coroutine, accessor, isOperator, getType<TypeFunction>(functionType), contextType, functionName, generics, ctx.uniqueFunctionId++);
 
 		data->imported = true;
 

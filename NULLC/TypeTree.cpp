@@ -119,6 +119,8 @@ InplaceStr GetGenericClassTypeName(ExpressionContext &ctx, TypeBase* proto, Intr
 
 InplaceStr GetFunctionSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHandle> types)
 {
+	assert(!types.empty());
+
 	unsigned nameLength = 0;
 
 	for(TypeHandle *arg = types.head; arg; arg = arg->next)
