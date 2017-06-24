@@ -7161,6 +7161,9 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						importedType = classType;
 
 						ctx.AddType(importedType);
+
+						if(!generics.empty())
+							ctx.genericTypeMap.insert(className.hash(), classType);
 					}
 				}
 				else if(type.definitionOffsetStart != ~0u)
