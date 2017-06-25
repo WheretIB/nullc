@@ -5030,7 +5030,7 @@ ExprYield* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 
 		// TODO: checked return value
 
-		return allocate(ExprYield)(syntax, ctx.typeVoid, result);
+		return allocate(ExprYield)(syntax, ctx.typeVoid, result, ++function->yieldCount);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: global yield is not allowed");

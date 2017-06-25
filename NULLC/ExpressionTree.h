@@ -478,11 +478,14 @@ struct ExprReturn: ExprBase
 
 struct ExprYield: ExprBase
 {
-	ExprYield(SynBase *source, TypeBase *type, ExprBase* value): ExprBase(myTypeID, source, type), value(value)
+	ExprYield(SynBase *source, TypeBase *type, ExprBase* value, unsigned order): ExprBase(myTypeID, source, type), value(value), order(order)
 	{
 	}
 
 	ExprBase* value;
+
+	// 1-based index of the yield in the current function
+	unsigned order;
 
 	static const unsigned myTypeID = __LINE__;
 };

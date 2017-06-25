@@ -193,6 +193,8 @@ struct FunctionData
 
 		contextVariable = NULL;
 
+		yieldCount = 0;
+
 		hasExplicitReturn = false;
 
 		vmFunction = NULL;
@@ -251,6 +253,8 @@ struct FunctionData
 
 	// Variable containing a pointer to the function context
 	VariableData *contextVariable;
+
+	unsigned yieldCount;
 
 	bool hasExplicitReturn;
 

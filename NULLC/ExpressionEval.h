@@ -3,6 +3,7 @@
 #include "stdafx.h"
 #include "Array.h"
 
+struct FunctionData;
 struct VariableData;
 
 struct ExprBase;
@@ -50,13 +51,17 @@ struct ExpressionEvalContext
 
 	struct StackFrame
 	{
-		StackFrame(Allocator *allocator): returnValue(0), breakDepth(0), continueDepth(0), variables(allocator)
+		StackFrame(Allocator *allocator, FunctionData *owner): owner(owner), returnValue(0), targetYield(0), breakDepth(0), continueDepth(0), variables(allocator)
 		{
 		}
+
+		FunctionData *owner;
 
 		SmallArray<StackVariable, 32> variables;
 
 		ExprBase *returnValue;
+
+		unsigned targetYield;
 
 		unsigned breakDepth;
 		unsigned continueDepth;
