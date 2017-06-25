@@ -4,6 +4,8 @@
 #include <setjmp.h>
 #include <stdarg.h>
 
+#include "BinaryCache.h"
+#include "Bytecode.h"
 #include "Lexer.h"
 
 #define allocate(T) new (ctx.get<T>()) T
@@ -348,11 +350,8 @@ SynNamespaceElement* ParseContext::PushNamespace(InplaceStr name)
 	}
 
 	// Create new namespace
-	SynNamespaceElement *ns = allocate_(SynNamespaceElement)();
+	SynNamespaceElement *ns = allocate_(SynNamespaceElement)(current, name);
 	namespaceList.push_back(ns);
-
-	ns->parent = current;
-	ns->name = name;
 
 	currentNamespace = ns;
 	return ns;
@@ -2414,6 +2413,63 @@ IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx)
 	return expressions;
 }
 
+const char* GetBytecodeFromPath(ParseContext &ctx, const char *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream)
+{
+	const char *importPath = BinaryCache::GetImportPath();
+
+	InplaceStr path = GetImportPath(ctx.allocator, importPath, parts);
+	InplaceStr pathNoImport = importPath ? InplaceStr(path.begin + strlen(importPath)) : path;
+
+	const char *bytecode = BinaryCache::GetBytecode(path.begin);
+	lexCount = 0;
+	lexStream = BinaryCache::GetLexems(path.begin, lexCount);
+
+	if(!bytecode)
+	{
+		bytecode = BinaryCache::GetBytecode(pathNoImport.begin);
+		lexStream = BinaryCache::GetLexems(pathNoImport.begin, lexCount);
+	}
+
+	if(!bytecode)
+		Stop(ctx, start, "ERROR: module import is not implemented");
+
+	return bytecode;
+}
+
+void ImportModuleNamespaces(ParseContext &ctx, const char *pos, ByteCode *bCode)
+{
+	char *symbols = FindSymbols(bCode);
+
+	// Import namespaces
+	ExternNamespaceInfo *namespaceList = FindFirstNamespace(bCode);
+
+	for(unsigned i = 0; i < bCode->namespaceCount; i++)
+	{
+		ExternNamespaceInfo &ns = namespaceList[i];
+
+		const char *name = symbols + ns.offsetToName;
+
+		SynNamespaceElement *parent = NULL;
+
+		if(ns.parentHash != ~0u)
+		{
+			for(unsigned k = 0; k < ctx.namespaceList.size(); k++)
+			{
+				if(ctx.namespaceList[k]->fullNameHash == ns.parentHash)
+				{
+					parent = ctx.namespaceList[k];
+					break;
+				}
+			}
+
+			if(!parent)
+				Stop(ctx, pos, "ERROR: namespace %s parent not found", name);
+		}
+
+		ctx.namespaceList.push_back(allocate(SynNamespaceElement)(parent, InplaceStr(name)));
+	}
+}
+
 SynModuleImport* ParseImport(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
@@ -2438,6 +2494,12 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 		}
 
 		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after import expression");
+
+		unsigned lexCount = 0;
+		Lexeme *lexStream = NULL;
+
+		if(const char *binary = GetBytecodeFromPath(ctx, start, path, lexCount, lexStream))
+			ImportModuleNamespaces(ctx, start, (ByteCode*)binary);
 
 		return allocate(SynModuleImport)(start, path);
 	}
@@ -2593,4 +2655,38 @@ const char* GetOpName(SynModifyAssignType type)
 
 	assert(!"unknown operation type");
 	return "";
+}
+
+InplaceStr GetImportPath(Allocator *allocator, const char *importPath, IntrusiveList<SynIdentifier> parts)
+{
+	unsigned pathLength = (importPath ? strlen(importPath) : 0) + parts.size() - 1 + strlen(".nc");
+
+	for(SynIdentifier *part = parts.head; part; part = getType<SynIdentifier>(part->next))
+		pathLength += part->name.length();
+
+	char *path = (char*)allocator->alloc(pathLength + 1);
+
+	char *pos = path;
+
+	if(importPath)
+	{
+		strcpy(pos, importPath);
+		pos += strlen(importPath);
+	}
+
+	for(SynIdentifier *part = parts.head; part; part = getType<SynIdentifier>(part->next))
+	{
+		memcpy(pos, part->name.begin, part->name.length());
+		pos += part->name.length();
+
+		if(part->next)
+			*pos++ = '/';
+	}
+
+	strcpy(pos, ".nc");
+	pos += strlen(".nc");
+
+	*pos = 0;
+
+	return InplaceStr(path);
 }

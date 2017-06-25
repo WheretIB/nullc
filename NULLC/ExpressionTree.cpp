@@ -7724,50 +7724,23 @@ void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 {
 	const char *importPath = BinaryCache::GetImportPath();
 
-	unsigned pathLength = (importPath ? strlen(importPath) : 0) + syntax->path.size() - 1 + strlen(".nc");
+	InplaceStr path = GetImportPath(ctx.allocator, importPath, syntax->path);
+	InplaceStr pathNoImport = importPath ? InplaceStr(path.begin + strlen(importPath)) : path;
 
-	for(SynIdentifier *part = syntax->path.head; part; part = getType<SynIdentifier>(part->next))
-		pathLength += part->name.length();
-
-	char *path = (char*)ctx.allocator->alloc(pathLength + 1);
-	char *pathNoImport = importPath ? path + strlen(importPath) : path;
-
-	char *pos = path;
-
-	if(importPath)
-	{
-		strcpy(pos, importPath);
-		pos += strlen(importPath);
-	}
-
-	for(SynIdentifier *part = syntax->path.head; part; part = getType<SynIdentifier>(part->next))
-	{
-		sprintf(pos, "%.*s", FMT_ISTR(part->name));
-		pos += part->name.length();
-
-		if(part->next)
-			*pos++ = '/';
-	}
-
-	strcpy(pos, ".nc");
-	pos += strlen(".nc");
-
-	*pos = 0;
-
-	const char *bytecode = BinaryCache::GetBytecode(path);
+	const char *bytecode = BinaryCache::GetBytecode(path.begin);
 	unsigned lexCount = 0;
-	Lexeme *lexStream = BinaryCache::GetLexems(path, lexCount);
+	Lexeme *lexStream = BinaryCache::GetLexems(path.begin, lexCount);
 
 	if(!bytecode)
 	{
-		bytecode = BinaryCache::GetBytecode(pathNoImport);
-		lexStream = BinaryCache::GetLexems(path, lexCount);
+		bytecode = BinaryCache::GetBytecode(pathNoImport.begin);
+		lexStream = BinaryCache::GetLexems(pathNoImport.begin, lexCount);
 	}
 
 	if(!bytecode)
 		Stop(ctx, syntax->pos, "ERROR: module import is not implemented");
 
-	ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, pathNoImport);
+	ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, pathNoImport.begin);
 }
 
 ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, VariableData *vtable)

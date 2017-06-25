@@ -2,6 +2,7 @@
 
 #include "Lexer.h"
 #include "IntrusiveList.h"
+#include "Allocator.h"
 #include "Array.h"
 
 struct SynBase;
@@ -902,12 +903,17 @@ struct SynEnumDefinition: SynBase
 
 struct SynNamespaceElement
 {
-	SynNamespaceElement(): parent(0)
+	SynNamespaceElement(SynNamespaceElement *parent, InplaceStr name): parent(parent), name(name)
 	{
+		if(parent)
+			fullNameHash = StringHashContinue(StringHashContinue(parent->fullNameHash, "."), name.begin, name.end);
+		else
+			fullNameHash = name.hash();
 	}
 
 	SynNamespaceElement *parent;
 	InplaceStr name;
+	unsigned fullNameHash;
 };
 
 struct SynNamespaceDefinition: SynBase
@@ -953,3 +959,5 @@ SynBase* Parse(ParseContext &context, const char *code);
 const char* GetOpName(SynUnaryOpType type);
 const char* GetOpName(SynBinaryOpType type);
 const char* GetOpName(SynModifyAssignType type);
+
+InplaceStr GetImportPath(Allocator *allocator, const char *importPath, IntrusiveList<SynIdentifier> parts);
