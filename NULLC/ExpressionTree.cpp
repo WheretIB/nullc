@@ -2543,6 +2543,9 @@ ExprPreModify* AnalyzePreModify(ExpressionContext &ctx, SynPreModify *syntax)
 	if(!isType<TypeRef>(wrapped->type))
 		Stop(ctx, syntax->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(value->type->name));
 
+	if(!ctx.IsNumericType(value->type))
+		Stop(ctx, syntax->pos, "ERROR: %s is not supported on '%.*s'", (syntax->isIncrement ? "increment" : "decrement"), FMT_ISTR(value->type->name));
+
 	return allocate(ExprPreModify)(syntax, value->type, wrapped, syntax->isIncrement);
 }
 
@@ -2878,6 +2881,9 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 		types.push_back(allocate(TypeHandle)(function->type));
 		functions.push_back(allocate(FunctionHandle)(function));
 	}
+
+	if(functions.empty())
+		Stop(ctx, source->pos, "ERROR: function '%.*s' is undefined in any of existing classes", FMT_ISTR(name));
 
 	TypeFunctionSet *type = allocate(TypeFunctionSet)(GetFunctionSetTypeName(ctx, types), types);
 
@@ -4581,7 +4587,7 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 		}
 		else
 		{
-			Stop(ctx, source->pos, "operator '()' accepting %d argument(s) is undefined for a class '%.*s'", arguments.size(), FMT_ISTR(value->type->name));
+			Stop(ctx, source->pos, "ERROR: operator '()' accepting %d argument(s) is undefined for a class '%.*s'", arguments.size(), FMT_ISTR(value->type->name));
 		}
 	}
 
@@ -5010,6 +5016,9 @@ ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprB
 		}
 	}
 
+	if(isType<ExprGenericFunctionPrototype>(initializer))
+		Stop(ctx, source->pos, "ERROR: cannot instance generic function, because target type is not known");
+
 	return initializer;
 }
 
@@ -5043,7 +5052,7 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 
 	if(type == ctx.typeAuto)
 	{
-		initializer = ResolveInitializerValue(ctx, syntax->initializer, initializer);
+		initializer = ResolveInitializerValue(ctx, syntax, initializer);
 
 		type = initializer->type;
 	}
@@ -5487,7 +5496,7 @@ void DeduceShortFunctionReturnValue(ExpressionContext &ctx, SynBase *source, Fun
 	if(expected == ctx.typeVoid)
 		return;
 
-	TypeBase *actual = expressions.tail->type;
+	TypeBase *actual = expressions.tail ? expressions.tail->type : ctx.typeVoid;
 
 	if(actual == ctx.typeVoid)
 		return;
@@ -6500,7 +6509,12 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 		{
 			ExprBase *caseValue = AnalyzeExpression(ctx, curr->value);
 
-			cases.push_back(CreateBinaryOp(ctx, curr->value, SYN_BINARY_OP_EQUAL, caseValue, allocate(ExprVariableAccess)(syntax->condition, conditionVariable->type, conditionVariable)));
+			ExprBase *condition = CreateBinaryOp(ctx, curr->value, SYN_BINARY_OP_EQUAL, caseValue, allocate(ExprVariableAccess)(syntax->condition, conditionVariable->type, conditionVariable));
+
+			if(!ctx.IsIntegerType(condition->type) || condition->type == ctx.typeLong)
+				Stop(ctx, curr->pos, "ERROR: '==' operator result type must be bool, char, short or int");
+
+			cases.push_back(condition);
 		}
 
 		IntrusiveList<ExprBase> expressions;
@@ -6543,9 +6557,6 @@ ExprBreak* AnalyzeBreak(ExpressionContext &ctx, SynBreak *syntax)
 			if(number->value <= 0)
 				Stop(ctx, syntax->number->pos, "ERROR: break level can't be negative or zero");
 
-			if(ctx.scope->loopDepth < number->value)
-				Stop(ctx, syntax->number->pos, "ERROR: break level is greater that loop depth");
-
 			depth = unsigned(number->value);
 		}
 		else
@@ -6553,6 +6564,9 @@ ExprBreak* AnalyzeBreak(ExpressionContext &ctx, SynBreak *syntax)
 			Stop(ctx, syntax->number->pos, "ERROR: break statement must be followed by ';' or a constant");
 		}
 	}
+
+	if(ctx.scope->loopDepth < depth)
+		Stop(ctx, syntax->pos, "ERROR: break level is greater that loop depth");
 
 	return allocate(ExprBreak)(syntax, ctx.typeVoid, depth);
 }
@@ -6572,9 +6586,6 @@ ExprContinue* AnalyzeContinue(ExpressionContext &ctx, SynContinue *syntax)
 			if(number->value <= 0)
 				Stop(ctx, syntax->number->pos, "ERROR: continue level can't be negative or zero");
 
-			if(ctx.scope->loopDepth < number->value)
-				Stop(ctx, syntax->number->pos, "ERROR: continue level is greater that loop depth");
-
 			depth = unsigned(number->value);
 		}
 		else
@@ -6582,6 +6593,9 @@ ExprContinue* AnalyzeContinue(ExpressionContext &ctx, SynContinue *syntax)
 			Stop(ctx, syntax->number->pos, "ERROR: continue statement must be followed by ';' or a constant");
 		}
 	}
+
+	if(ctx.scope->loopDepth < depth)
+		Stop(ctx, syntax->pos, "ERROR: continue level is greater that loop depth");
 
 	return allocate(ExprContinue)(syntax, ctx.typeVoid, depth);
 }
