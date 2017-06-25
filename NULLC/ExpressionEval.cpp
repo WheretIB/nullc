@@ -1961,7 +1961,69 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, allocate(ExprFunctionLiteral)(expression->source, expression->type, data, ptr));
 			}
-			else if(ptr->data->name == InplaceStr("array_copy") && ptr->context && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeAutoArray && arguments[1]->type == ctx.ctx.typeAutoArray)
+			else if(ptr->data->name == InplaceStr("duplicate") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
+			{
+				ExprMemoryLiteral *ptr = getType<ExprMemoryLiteral>(arguments[0]);
+
+				assert(ptr);
+
+				ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, ptr, 0, ctx.ctx.typeTypeID));
+				ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, ptr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
+
+				ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoRef);
+
+				if(!storage)
+					return NULL;
+
+				ExprMemoryLiteral *result = allocate(ExprMemoryLiteral)(expression->source, ctx.ctx.typeAutoRef, storage);
+
+				CreateInsert(ctx, result, 0, allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, ptrTypeID->value));
+
+				if(!ptrPtr)
+				{
+					CreateInsert(ctx, result, 4, allocate(ExprNullptrLiteral)(expression->source, ctx.ctx.GetReferenceType(ptrTypeID->value)));
+
+					return CheckType(expression, result);
+				}
+
+				ExprPointerLiteral *resultPtr = AllocateTypeStorage(ctx, expression->source, ptrTypeID->value);
+
+				if(!resultPtr)
+					return NULL;
+
+				CreateInsert(ctx, result, 4, resultPtr);
+
+				CreateStore(ctx, resultPtr, CreateLoad(ctx, ptrPtr));
+
+				return CheckType(expression, result);
+			}
+			else if(ptr->data->name == InplaceStr("auto_array") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeTypeID && arguments[1]->type == ctx.ctx.typeInt)
+			{
+				ExprTypeLiteral *type = getType<ExprTypeLiteral>(arguments[0]);
+				ExprIntegerLiteral *count = getType<ExprIntegerLiteral>(arguments[1]);
+
+				assert(type && count);
+
+				ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoArray);
+
+				if(!storage)
+					return NULL;
+
+				ExprMemoryLiteral *result = allocate(ExprMemoryLiteral)(expression->source, ctx.ctx.typeAutoArray, storage);
+
+				CreateInsert(ctx, result, 0, allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, type->value));
+
+				ExprPointerLiteral *resultPtr = AllocateTypeStorage(ctx, expression->source, ctx.ctx.GetArrayType(type->value, count->value));
+
+				if(!resultPtr)
+					return NULL;
+
+				CreateInsert(ctx, result, 4, resultPtr);
+				CreateInsert(ctx, result, 4 + sizeof(void*), allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, count->value));
+
+				return CheckType(expression, result);
+			}
+			else if(ptr->data->name == InplaceStr("array_copy") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeAutoArray && arguments[1]->type == ctx.ctx.typeAutoArray)
 			{
 				ExprMemoryLiteral *dst = getType<ExprMemoryLiteral>(arguments[0]);
 				ExprMemoryLiteral *src = getType<ExprMemoryLiteral>(arguments[1]);
@@ -1991,6 +2053,62 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 				memcpy(dstPtr->ptr, srcPtr->ptr, unsigned(dstTypeID->value->size * srcLen->value));
 
 				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+			}
+			else if(ptr->data->name == InplaceStr("__assertCoroutine") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
+			{
+				ExprMemoryLiteral *ptr = getType<ExprMemoryLiteral>(arguments[0]);
+
+				assert(ptr);
+
+				ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, ptr, 0, ctx.ctx.typeTypeID));
+
+				if(!isType<TypeFunction>(ptrTypeID->value))
+					return Report(ctx, "ERROR: '%.*s' is not a function'", FMT_ISTR(ptrTypeID->value->name));
+
+				ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, ptr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
+
+				assert(ptrPtr);
+
+				ExprFunctionLiteral *function = getType<ExprFunctionLiteral>(CreateLoad(ctx, ptrPtr));
+
+				if(!function->data->coroutine)
+					return Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->data->name));
+
+				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+			}
+			else if(ptr->data->name == InplaceStr("isCoroutineReset") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
+			{
+				ExprMemoryLiteral *ptr = getType<ExprMemoryLiteral>(arguments[0]);
+
+				assert(ptr);
+
+				ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, ptr, 0, ctx.ctx.typeTypeID));
+
+				if(!isType<TypeFunction>(ptrTypeID->value))
+					return Report(ctx, "ERROR: '%.*s' is not a function'", FMT_ISTR(ptrTypeID->value->name));
+
+				ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, ptr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
+
+				assert(ptrPtr);
+
+				ExprFunctionLiteral *function = getType<ExprFunctionLiteral>(CreateLoad(ctx, ptrPtr));
+
+				if(!function->data->coroutine)
+					return Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->data->name));
+
+				ExprMemoryLiteral *context = getType<ExprMemoryLiteral>(CreateLoad(ctx, function->context));
+
+				// TODO: remove this check, all coroutines must have a context
+				if(!context)
+					return Report(ctx, "ERROR: '%.*s' coroutine has no context'", FMT_ISTR(function->data->name));
+
+				ExprPointerLiteral *jmpOffsetTarget = getType<ExprPointerLiteral>(CreateExtract(ctx, context, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
+
+				assert(jmpOffsetTarget);
+
+				ExprIntegerLiteral *jmpOffset = getType<ExprIntegerLiteral>(CreateLoad(ctx, jmpOffsetTarget));
+
+				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, jmpOffset->value == 0));
 			}
 		}
 
