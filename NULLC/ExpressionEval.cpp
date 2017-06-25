@@ -397,12 +397,15 @@ ExprPointerLiteral* FindVariableStorage(Eval &ctx, VariableData *data)
 			return variable.ptr;
 	}
 
-	for(unsigned i = 0; i < ctx.globalFrame->variables.size(); i++)
+	if(ctx.globalFrame)
 	{
-		Eval::StackVariable &variable = ctx.globalFrame->variables[i];
+		for(unsigned i = 0; i < ctx.globalFrame->variables.size(); i++)
+		{
+			Eval::StackVariable &variable = ctx.globalFrame->variables[i];
 
-		if(variable.variable == data)
-			return variable.ptr;
+			if(variable.variable == data)
+				return variable.ptr;
+		}
 	}
 
 	if(data->imported)

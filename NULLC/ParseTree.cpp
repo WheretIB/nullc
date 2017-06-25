@@ -870,12 +870,19 @@ IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx)
 	{
 		arguments.push_back(argument);
 
+		bool namedCall = !argument->name.empty();
+
 		while(ctx.Consume(lex_comma))
 		{
 			argument = ParseCallArgument(ctx);
 
 			if(!argument)
 				Stop(ctx, ctx.Position(), "ERROR: expression not found after ',' in function parameter list");
+
+			if(namedCall && argument->name.empty())
+				Stop(ctx, ctx.Position(), "ERROR: function parameter name expected after ','");
+
+			namedCall |= !argument->name.empty();
 
 			arguments.push_back(argument);
 		}
@@ -1843,6 +1850,10 @@ SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 	if(ctx.At(lex_string))
 	{
 		InplaceStr name = ctx.Consume();
+
+		if(name.length() >= NULLC_MAX_VARIABLE_NAME_LENGTH)
+			Stop(ctx, ctx.Position(), "ERROR: variable name length is limited to %d symbols", NULLC_MAX_VARIABLE_NAME_LENGTH);
+
 		SynBase *initializer = NULL;
 
 		if(ctx.Consume(lex_set))
@@ -2452,17 +2463,18 @@ SynBase* ParseModule(ParseContext &ctx)
 
 	IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
 
+	if(!ctx.Consume(lex_none))
+		Stop(ctx, ctx.Position(), "ERROR: unexpected symbol");
+
+	if(expressions.empty())
+		Stop(ctx, ctx.Position(), "ERROR: module contains no code");
+
 	return allocate(SynModule)(start, imports, expressions);
 }
 
 SynBase* Parse(ParseContext &ctx)
 {
-	SynBase *tree = ParseModule(ctx);
-
-	if(!ctx.Consume(lex_none))
-		Stop(ctx, ctx.Position(), "ERROR: unexpected symbol");
-
-	return tree;
+	return ParseModule(ctx);
 }
 
 SynBase* Parse(ParseContext &ctx, const char *code)

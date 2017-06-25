@@ -2014,7 +2014,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		if(!onlyType)
 			return NULL;
 
-		Stop(ctx, syntax->pos, "ERROR: unknown simple type");
+		Stop(ctx, syntax->pos, "ERROR: '%.*s' is not a known type name", FMT_ISTR(node->name));
 	}
 
 	if(SynMemberAccess *node = getType<SynMemberAccess>(syntax))
@@ -5056,12 +5056,24 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 
 		type = initializer->type;
 	}
+	else if(type->isGeneric && initializer)
+	{
+		IntrusiveList<MatchData> aliases;
+
+		TypeBase *match = MatchGenericType(ctx, syntax, type, initializer->type, aliases, true);
+
+		if(!match || match->isGeneric)
+			Stop(ctx, syntax->pos, "ERROR: can't resolve generic type '%.*s' instance for '%.*s'", FMT_ISTR(initializer->type->name), FMT_ISTR(type->name));
+
+		type = match;
+	}
+	else if(type->isGeneric)
+	{
+		Stop(ctx, syntax->pos, "ERROR: initializer is required to resolve generic type '%.*s'", FMT_ISTR(type->name));
+	}
 
 	if(alignment == 0 && type->alignment != 0)
 		alignment = type->alignment;
-
-	assert(!type->isGeneric);
-	assert(type != ctx.typeAuto);
 
 	// Fixup variable data not that the final type is known
 	unsigned offset = AllocateVariableInScope(ctx.scope, alignment, type);
@@ -5893,6 +5905,12 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 	if(!proto && !syntax->aliases.empty())
 	{
+		for(SynIdentifier *curr = syntax->aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
+		{
+			if(ctx.typeMap.find(curr->name.hash()))
+				Stop(ctx, curr->pos, "ERROR: there is already a type or an alias with the same name");
+		}
+
 		TypeGenericClassProto *genericProtoType = allocate(TypeGenericClassProto)(syntax, ctx.scope, typeName, syntax);
 
 		ctx.AddType(genericProtoType);
@@ -6182,6 +6200,9 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 
 ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax)
 {
+	if(ctx.typeMap.find(syntax->alias.hash()))
+		Stop(ctx, syntax->pos, "ERROR: there is already a type or an alias with the same name");
+
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
 
 	AliasData *alias = allocate(AliasData)(syntax, ctx.scope, type, syntax->alias, ctx.uniqueAliasId++);
