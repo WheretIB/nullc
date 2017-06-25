@@ -2899,10 +2899,6 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 			value = allocate(ExprDereference)(source, refType->subType, value);
 		}
 	}
-	else if(value->type == ctx.typeAutoRef)
-	{
-		return CreateAutoRefFunctionSet(ctx, source, value, name);
-	}
 	else if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
 	{
 		wrapped = allocate(ExprGetAddress)(source, ctx.GetReferenceType(value->type), node->variable);
@@ -2949,6 +2945,11 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 					return allocate(ExprDereference)(source, el->variable->type, shift);
 				}
 			}
+		}
+
+		if(value->type == ctx.typeAutoRef)
+		{
+			return CreateAutoRefFunctionSet(ctx, source, value, name);
 		}
 
 		// Look for a member function
@@ -3070,8 +3071,6 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 	{
 		if(ExprBase *result = CreateTypeidMemberAccess(ctx, syntax, type, syntax->member))
 			return result;
-
-		Stop(ctx, syntax->pos, "ERROR: unknown member expression type");
 	}
 
 	ExprBase* value = AnalyzeExpression(ctx, syntax->value);
