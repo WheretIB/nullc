@@ -3301,7 +3301,7 @@ bool HasMatchingArgumentNames(SmallArray<ArgumentData, 8> &functionArguments, Sm
 	return true;
 }
 
-bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SmallArray<ArgumentData, 8> &functionArguments, SmallArray<ArgumentData, 32> &arguments, SmallArray<ArgumentData, 32> &result, bool prepareValues)
+bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SmallArray<ArgumentData, 8> &functionArguments, SmallArray<ArgumentData, 32> &arguments, SmallArray<ArgumentData, 32> &result, unsigned *extraRating, bool prepareValues)
 {
 	result.clear();
 
@@ -3389,6 +3389,9 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SmallArray<Argument
 		{
 			if(result.size() >= functionArguments.size() - 1 && !(result.size() == functionArguments.size() && result.back().type == varArgType))
 			{
+				if(extraRating)
+					*extraRating = 10 + (result.size() - functionArguments.size() - 1) * 5;
+
 				ExprBase *value = NULL;
 
 				if(prepareValues)
@@ -4015,7 +4018,7 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 			SmallArray<ArgumentData, 32> result(ctx.allocator);
 
 			// Handle named argument order, default argument values and variadic functions
-			if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, false))
+			if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, NULL, false))
 			{
 				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here");
 			}
@@ -4090,8 +4093,10 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, SmallA
 
 		SmallArray<ArgumentData, 32> result(ctx.allocator);
 
+		unsigned extraRating = 0;
+
 		// Handle named argument order, default argument values and variadic functions
-		if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, false))
+		if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, &extraRating, false))
 		{
 			ratings[i] = ~0u;
 			continue;
@@ -4101,6 +4106,8 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, SmallA
 
 		if(ratings[i] == ~0u)
 			continue;
+
+		ratings[i] += extraRating;
 
 		if(ctx.IsGenericFunction(function))
 		{
@@ -4179,7 +4186,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 	SmallArray<ArgumentData, 32> result(ctx.allocator);
 
-	if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, false))
+	if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, NULL, false))
 		assert(!"unexpected");
 
 	TypeBase *parentType = NULL;
@@ -4547,7 +4554,7 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 		SmallArray<ArgumentData, 32> result(ctx.allocator);
 
-		PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, true);
+		PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, NULL, true);
 
 		for(unsigned i = 0; i < result.size(); i++)
 			actualArguments.push_back(result[i].value);
@@ -4561,7 +4568,7 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 		SmallArray<ArgumentData, 32> result(ctx.allocator);
 
-		if(!PrepareArgumentsForFunctionCall(ctx, functionArguments, arguments, result, true))
+		if(!PrepareArgumentsForFunctionCall(ctx, functionArguments, arguments, result, NULL, true))
 		{
 			if(allowFailure)
 				return NULL;
