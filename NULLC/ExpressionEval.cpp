@@ -1957,6 +1957,37 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, allocate(ExprFunctionLiteral)(expression->source, expression->type, data, ptr));
 			}
+			else if(ptr->data->name == InplaceStr("array_copy") && ptr->context && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeAutoArray && arguments[1]->type == ctx.ctx.typeAutoArray)
+			{
+				ExprMemoryLiteral *dst = getType<ExprMemoryLiteral>(arguments[0]);
+				ExprMemoryLiteral *src = getType<ExprMemoryLiteral>(arguments[1]);
+
+				assert(dst && src);
+
+				ExprTypeLiteral *dstTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, dst, 0, ctx.ctx.typeTypeID));
+				ExprPointerLiteral *dstPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, dst, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+				ExprIntegerLiteral *dstLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, dst, 4 + sizeof(void*), ctx.ctx.typeInt));
+
+				ExprTypeLiteral *srcTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, src, 0, ctx.ctx.typeTypeID));
+				ExprPointerLiteral *srcPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, src, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+				ExprIntegerLiteral *srcLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, src, 4 + sizeof(void*), ctx.ctx.typeInt));
+
+				if(!dstPtr && !srcPtr)
+					return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+
+				if(!srcPtr || dstPtr->ptr == srcPtr->ptr)
+					return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+
+				if(dstTypeID->value != srcTypeID->value)
+					return Report(ctx, "ERROR: destination element type '%.*s' doesn't match source element type '%.*s'", FMT_ISTR(dstTypeID->value->name), FMT_ISTR(srcTypeID->value->name));
+
+				if(dstLen->value < srcLen->value)
+					return Report(ctx, "ERROR: destination array size '%d' is smaller than source array size '%d'", unsigned(dstLen->value), unsigned(srcLen->value));
+
+				memcpy(dstPtr->ptr, srcPtr->ptr, unsigned(dstTypeID->value->size * srcLen->value));
+
+				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+			}
 		}
 
 		return Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(ptr->data->name));
