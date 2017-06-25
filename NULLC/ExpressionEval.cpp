@@ -2585,6 +2585,9 @@ ExprBase* EvaluateSequence(Eval &ctx, ExprSequence *expression)
 			return NULL;
 	}
 
+	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
+		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+
 	return CheckType(expression, result);
 }
 

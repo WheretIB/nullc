@@ -5244,9 +5244,11 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 
 	// Create a variable holding a reference to a closure
 	unsigned offset = AllocateVariableInScope(ctx, source, refType->alignment, refType);
-	function->contextVariable = allocate(VariableData)(source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function), offset, ctx.uniqueVariableId++);
+	VariableData *context = allocate(VariableData)(source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function), offset, ctx.uniqueVariableId++);
 
-	ctx.AddVariable(function->contextVariable);
+	function->contextVariable = context;
+
+	ctx.AddVariable(context);
 
 	// Allocate closure
 	ExprBase *size = allocate(ExprIntegerLiteral)(source, ctx.typeInt, classType->size);
@@ -5257,11 +5259,11 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 	// Initialize closure
 	IntrusiveList<ExprBase> expressions;
 
-	expressions.push_back(allocate(ExprVariableDefinition)(source, ctx.typeVoid, function->contextVariable, CreateAssignment(ctx, source, allocate(ExprVariableAccess)(source, refType, function->contextVariable), alloc)));
+	expressions.push_back(CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, context, true), alloc));//allocate(ExprVariableDefinition)(source, ctx.typeVoid, context, ));
 
 	for(UpvalueData *upvalue = function->upvalues.head; upvalue; upvalue = upvalue->next)
 	{
-		ExprBase *target = allocate(ExprMemberAccess)(source, ctx.GetReferenceType(upvalue->target->type), allocate(ExprVariableAccess)(source, refType, function->contextVariable), upvalue->target);
+		ExprBase *target = allocate(ExprMemberAccess)(source, ctx.GetReferenceType(upvalue->target->type), CreateVariableAccess(ctx, source, context, true), upvalue->target);
 
 		target = allocate(ExprDereference)(source, upvalue->target->type, target);
 
@@ -5272,7 +5274,7 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 		{
 			assert(!IsArgumentVariable(function, upvalue->variable));
 
-			ExprBase *copy = allocate(ExprMemberAccess)(source, ctx.GetReferenceType(upvalue->copy->type), allocate(ExprVariableAccess)(source, refType, function->contextVariable), upvalue->copy);
+			ExprBase *copy = allocate(ExprMemberAccess)(source, ctx.GetReferenceType(upvalue->copy->type), CreateVariableAccess(ctx, source, context, true), upvalue->copy);
 
 			expressions.push_back(CreateAssignment(ctx, source, target, copy));
 		}
@@ -5286,7 +5288,7 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 
 	ExprBase *initializer = allocate(ExprBlock)(source, ctx.typeVoid, expressions);
 
-	return allocate(ExprVariableDefinition)(source, ctx.typeVoid, function->contextVariable, initializer);
+	return allocate(ExprVariableDefinition)(source, ctx.typeVoid, context, initializer);
 }
 
 bool RestoreParentTypeScope(ExpressionContext &ctx, SynBase *source, TypeBase *parentType)
