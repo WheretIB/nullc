@@ -139,6 +139,14 @@ int bar(vec3 ref x){ return x.z; }\r\n\
 return bar(&x);";
 TEST_RUNTIME_FAIL("Base to derived type pointer conversion failure 2", testBaseToDerivedFail2, "ERROR: cannot convert from 'vec2' to 'vec3'");
 
+const char	*testAssertionFail1 =
+"assert(0, \"%s%s%s%s%s%s%s\");";
+TEST_RUNTIME_FAIL("Assertion fail correctly handles formatting string", testAssertionFail1, "%s%s%s%s%s%s%s");
+
+const char	*testAssertionFail2 =
+"char[4] a = 'a'; char[1024] b = 'b'; assert(0, a);";
+TEST_RUNTIME_FAIL("Assertion fail correctly handles string length", testAssertionFail2, "aaaa");
+
 void RecallerTransition(int x)
 {
 	nullcRunFunction("inside", x);

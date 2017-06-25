@@ -1952,7 +1952,7 @@ void Executor::Stop(const char* error)
 	codeRunning = false;
 
 	callContinue = false;
-	SafeSprintf(execError, ERROR_BUFFER_SIZE, error);
+	SafeSprintf(execError, ERROR_BUFFER_SIZE, "%s", error);
 }
 
 #ifdef NULLC_VM_CALL_STACK_UNWRAP
