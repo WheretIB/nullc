@@ -244,13 +244,13 @@ namespace
 		return FindNextTypeFromScope(scope->scope);
 	}
 
-	unsigned AllocateVariableInScope(ScopeData *scope, unsigned alignment, TypeBase *type)
+	unsigned AllocateVariableInScope(ExpressionContext &ctx, SynBase *source, unsigned alignment, TypeBase *type)
 	{
 		assert((alignment & (alignment - 1)) == 0 && alignment <= 16);
 
 		long long size = type->size;
 
-		assert(scope);
+		ScopeData *scope = ctx.scope;
 
 		while(scope->scope)
 		{
@@ -259,6 +259,9 @@ namespace
 				scope->ownerFunction->stackSize += GetAlignmentOffset(scope->ownerFunction->stackSize, alignment);
 
 				unsigned result = unsigned(scope->ownerFunction->stackSize);
+
+				if(result + size > (1 << 24))
+					ctx.Stop(source->pos, "ERROR: variable size limit exceeded");
 
 				scope->ownerFunction->stackSize += size;
 
@@ -270,6 +273,9 @@ namespace
 				scope->ownerType->size += GetAlignmentOffset(scope->ownerType->size, alignment);
 
 				unsigned result = unsigned(scope->ownerType->size);
+
+				if(result + size > (1 << 24))
+					ctx.Stop(source->pos, "ERROR: variable size limit exceeded");
 
 				scope->ownerType->size += size;
 
@@ -283,14 +289,37 @@ namespace
 
 		unsigned result = unsigned(scope->globalSize);
 
+		if(result + size > (1 << 24))
+			ctx.Stop(source->pos, "ERROR: variable size limit exceeded");
+
 		scope->globalSize += size;
 
 		return result;
 	}
+	
+	void CheckVariableConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
+	{
+		if(ctx.typeMap.find(name.hash()))
+			Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(name));
+
+		if(VariableData **variable = ctx.variableMap.find(name.hash()))
+		{
+			if((*variable)->scope == ctx.scope)
+				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
+		}
+
+		if(FunctionData **functions = ctx.functionMap.find(name.hash()))
+		{
+			if((*functions)->scope == ctx.scope)
+				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(name));
+		}
+	}
 
 	VariableData* AllocateClassMember(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr name, unsigned uniqueId)
 	{
-		unsigned offset = AllocateVariableInScope(ctx.scope, type->alignment, type);
+		CheckVariableConflict(ctx, source, name);
+
+		unsigned offset = AllocateVariableInScope(ctx, source, type->alignment, type);
 
 		assert(!type->isGeneric);
 
@@ -306,7 +335,7 @@ namespace
 		char *name = (char*)ctx.allocator->alloc(16);
 		sprintf(name, "$temp%d", ctx.unnamedVariableCount++);
 
-		unsigned offset = AllocateVariableInScope(ctx.scope, type->alignment, type);
+		unsigned offset = AllocateVariableInScope(ctx, source, type->alignment, type);
 		VariableData *variable = allocate(VariableData)(source, ctx.scope, type->alignment, type, InplaceStr(name), offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
@@ -4282,7 +4311,7 @@ ExprBase* GetFunctionTable(ExpressionContext &ctx, SynBase *source, FunctionData
 	
 	TypeBase *type = ctx.GetUnsizedArrayType(ctx.typeFunctionID);
 
-	unsigned offset = AllocateVariableInScope(ctx.scope, type->alignment, type);
+	unsigned offset = AllocateVariableInScope(ctx, source, type->alignment, type);
 	VariableData *variable = allocate(VariableData)(source, ctx.scope, type->alignment, type, vtableName, offset, ctx.uniqueVariableId++);
 
 	ctx.vtables.push_back(variable);
@@ -4760,6 +4789,9 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 {
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
 
+	if(type == ctx.typeVoid || type == ctx.typeAuto)
+		Stop(ctx, syntax->pos, "ERROR: can't allocate objects of type '%.*s'", FMT_ISTR(type->name));
+
 	ExprBase *size = allocate(ExprIntegerLiteral)(syntax, ctx.typeInt, type->size);
 	ExprBase *typeId = allocate(ExprTypeCast)(syntax, ctx.typeInt, allocate(ExprTypeLiteral)(syntax, ctx.typeTypeID, type), EXPR_CAST_REINTERPRET);
 
@@ -5029,20 +5061,7 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 
 	InplaceStr fullName = GetVariableNameInScope(ctx, ctx.scope, syntax->name);
 
-	if(ctx.typeMap.find(fullName.hash()))
-		Stop(ctx, syntax->pos, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(syntax->name));
-
-	if(VariableData **variable = ctx.variableMap.find(fullName.hash()))
-	{
-		if((*variable)->scope == ctx.scope)
-			Stop(ctx, syntax->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(syntax->name));
-	}
-
-	if(FunctionData **functions = ctx.functionMap.find(fullName.hash()))
-	{
-		if((*functions)->scope == ctx.scope)
-			Stop(ctx, syntax->pos, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(syntax->name));
-	}
+	CheckVariableConflict(ctx, syntax, fullName);
 
 	VariableData *variable = allocate(VariableData)(syntax, ctx.scope, 0, type, fullName, 0, ctx.uniqueVariableId++);
 
@@ -5076,7 +5095,7 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 		alignment = type->alignment;
 
 	// Fixup variable data not that the final type is known
-	unsigned offset = AllocateVariableInScope(ctx.scope, alignment, type);
+	unsigned offset = AllocateVariableInScope(ctx, syntax, alignment, type);
 	
 	variable->type = type;
 	variable->alignment = alignment;
@@ -5152,7 +5171,7 @@ ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, Sy
 
 	assert(!type->isGeneric);
 
-	unsigned offset = AllocateVariableInScope(ctx.scope, 0, type);
+	unsigned offset = AllocateVariableInScope(ctx, source, 0, type);
 
 	function->contextArgument = allocate(VariableData)(source, ctx.scope, 0, type, InplaceStr(function->scope->ownerType ? "this" : "$context"), offset, ctx.uniqueVariableId++);
 
@@ -5182,7 +5201,7 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 	}
 
 	// Create a variable holding a reference to a closure
-	unsigned offset = AllocateVariableInScope(ctx.scope, refType->alignment, refType);
+	unsigned offset = AllocateVariableInScope(ctx, source, refType->alignment, refType);
 	function->contextVariable = allocate(VariableData)(source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function), offset, ctx.uniqueVariableId++);
 
 	ctx.AddVariable(function->contextVariable);
@@ -5256,7 +5275,7 @@ bool RestoreParentTypeScope(ExpressionContext &ctx, SynBase *source, TypeBase *p
 	return false;
 }
 
-void CreateFunctionArgumentVariables(ExpressionContext &ctx, SmallArray<ArgumentData, 32> &arguments, IntrusiveList<ExprVariableDefinition> &variables)
+void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, SmallArray<ArgumentData, 32> &arguments, IntrusiveList<ExprVariableDefinition> &variables)
 {
 	for(unsigned i = 0; i < arguments.size(); i++)
 	{
@@ -5264,7 +5283,9 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SmallArray<Argument
 
 		assert(!argument.type->isGeneric);
 
-		unsigned offset = AllocateVariableInScope(ctx.scope, 0, argument.type);
+		CheckVariableConflict(ctx, source, argument.name);
+
+		unsigned offset = AllocateVariableInScope(ctx, source, 0, argument.type);
 		VariableData *variable = allocate(VariableData)(argument.source, ctx.scope, 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
@@ -5374,7 +5395,6 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 		argData.push_back(ArgumentData(argument, argument->isExplicit, argument->name, type, initializer));
 	}
-
 	if(parentType)
 		assert(ctx.scope->ownerType == parentType);
 
@@ -5443,7 +5463,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	IntrusiveList<ExprVariableDefinition> variables;
 
-	CreateFunctionArgumentVariables(ctx, argData, variables);
+	CreateFunctionArgumentVariables(ctx, source, argData, variables);
 
 	IntrusiveList<ExprBase> code;
 
@@ -5471,6 +5491,20 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	if(addedParentScope)
 		ctx.PopScope();
+
+	if(parentType)
+	{
+		InplaceStr parentName = parentType->name;
+
+		if(TypeClass *classType = getType<TypeClass>(parentType))
+		{
+			if(classType->proto)
+				parentName = classType->proto->name;
+		}
+
+		if(name == parentName && function->type->returnType != ctx.typeVoid)
+			Stop(ctx, source->pos, "ERROR: type constructor return type must be 'void'");
+	}
 
 	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function);
 
@@ -5621,14 +5655,16 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	IntrusiveList<ExprVariableDefinition> arguments;
 
-	CreateFunctionArgumentVariables(ctx, argData, arguments);
+	CreateFunctionArgumentVariables(ctx, syntax, argData, arguments);
 
 	IntrusiveList<ExprBase> expressions;
 
 	// Create casts of arguments with a wrong type
 	for(MatchData *el = argCasts.head; el; el = el->next)
 	{
-		unsigned offset = AllocateVariableInScope(ctx.scope, el->type->alignment, el->type);
+		CheckVariableConflict(ctx, syntax, el->name);
+
+		unsigned offset = AllocateVariableInScope(ctx, syntax, el->type->alignment, el->type);
 		VariableData *variable = allocate(VariableData)(syntax, ctx.scope, el->type->alignment, el->type, el->name, offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
@@ -5991,7 +6027,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	// Base class adds a typeid parameter
 	if(extendable && !baseClass)
 	{
-		unsigned offset = AllocateVariableInScope(ctx.scope, ctx.typeTypeID->alignment, ctx.typeTypeID);
+		unsigned offset = AllocateVariableInScope(ctx, syntax, ctx.typeTypeID->alignment, ctx.typeTypeID);
 		VariableData *member = allocate(VariableData)(syntax, ctx.scope, ctx.typeTypeID->alignment, ctx.typeTypeID, InplaceStr("$typeid"), offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(member);
@@ -6014,7 +6050,9 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		for(VariableHandle *el = baseClass->members.head; el; el = el->next)
 		{
-			unsigned offset = AllocateVariableInScope(ctx.scope, el->variable->alignment, el->variable->type);
+			CheckVariableConflict(ctx, syntax, el->variable->name);
+
+			unsigned offset = AllocateVariableInScope(ctx, syntax, el->variable->alignment, el->variable->type);
 
 			assert(offset == el->variable->offset);
 
@@ -6117,7 +6155,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
 
 		IntrusiveList<ExprVariableDefinition> variables;
-		CreateFunctionArgumentVariables(ctx, arguments, variables);
+		CreateFunctionArgumentVariables(ctx, syntax, arguments, variables);
 
 		IntrusiveList<ExprBase> expressions;
 		expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprTypeCast)(syntax, ctx.typeInt, allocate(ExprVariableAccess)(syntax, enumType, variables.tail->variable), EXPR_CAST_REINTERPRET)));
@@ -6153,7 +6191,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
 
 		IntrusiveList<ExprVariableDefinition> variables;
-		CreateFunctionArgumentVariables(ctx, arguments, variables);
+		CreateFunctionArgumentVariables(ctx, syntax, arguments, variables);
 
 		IntrusiveList<ExprBase> expressions;
 		expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprTypeCast)(syntax, enumType, allocate(ExprVariableAccess)(syntax, ctx.typeInt, variables.tail->variable), EXPR_CAST_REINTERPRET)));
@@ -6339,7 +6377,10 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 			// Create definition
 			type = ctx.GetReferenceType(type);
-			unsigned variableOffset = AllocateVariableInScope(ctx.scope, type->alignment, type);
+
+			CheckVariableConflict(ctx, curr, curr->name);
+
+			unsigned variableOffset = AllocateVariableInScope(ctx, curr, type->alignment, type);
 			VariableData *variable = allocate(VariableData)(curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
 
 			variable->isReference = true;
@@ -6399,7 +6440,9 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			if(!type)
 				type = functionType->returnType;
 
-			unsigned variableOffset = AllocateVariableInScope(ctx.scope, type->alignment, type);
+			CheckVariableConflict(ctx, curr, curr->name);
+
+			unsigned variableOffset = AllocateVariableInScope(ctx, curr, type->alignment, type);
 			VariableData *variable = allocate(VariableData)(curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
@@ -6440,7 +6483,9 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			if(!type)
 				type = call->type;
 
-			unsigned variableOffset = AllocateVariableInScope(ctx.scope, type->alignment, type);
+			CheckVariableConflict(ctx, curr, curr->name);
+
+			unsigned variableOffset = AllocateVariableInScope(ctx, curr, type->alignment, type);
 			VariableData *variable = allocate(VariableData)(curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
 
 			variable->isReference = curr->type == NULL && isType<TypeRef>(type);
@@ -6791,7 +6836,12 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	if(SynSizeof *node = getType<SynSizeof>(syntax))
 	{
 		if(TypeBase *type = AnalyzeType(ctx, node->value, false))
+		{
+			if(type == ctx.typeAuto)
+				Stop(ctx, syntax->pos, "ERROR: sizeof(auto) is illegal");
+
 			return allocate(ExprIntegerLiteral)(node, ctx.typeInt, type->size);
+		}
 
 		ExprBase *value = AnalyzeExpression(ctx, node->value);
 
@@ -7538,7 +7588,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		{
 			TypeBase *type = ctx.GetReferenceType(parentType);
 
-			unsigned offset = AllocateVariableInScope(ctx.scope, 0, type);
+			unsigned offset = AllocateVariableInScope(ctx, source, 0, type);
 			VariableData *variable = allocate(VariableData)(source, ctx.scope, 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
@@ -7559,7 +7609,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 			data->arguments.push_back(ArgumentData(source, isExplicit, argName, argType, NULL));
 
-			unsigned offset = AllocateVariableInScope(ctx.scope, 0, argType);
+			unsigned offset = AllocateVariableInScope(ctx, source, 0, argType);
 			VariableData *variable = allocate(VariableData)(source, ctx.scope, 0, argType, argName, offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
