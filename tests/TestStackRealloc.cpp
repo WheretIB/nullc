@@ -416,7 +416,7 @@ return a;";
 			testsCount[t]++;
 			if(Tests::RunCode(testEval, t, "59705", "Dynamic code. eval()"))
 				testsPassed[t]++;
-			printf("Eval test finished in %f\r", myGetPreciseTime() - evalStart);
+			printf("Eval test finished in %f\n", myGetPreciseTime() - evalStart);
 		}
 		nullcTerminate();
 		nullcInit(MODULE_PATH);
