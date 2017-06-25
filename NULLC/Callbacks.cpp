@@ -1594,6 +1594,9 @@ void AddGetAddressNode(const char* pos, InplaceStr varName)
 				AddGetAddressNode(pos, InplaceStr("this", 4));
 				CodeInfo::nodeList.push_back(new NodeDereference());
 				CodeInfo::nodeList.push_back(new NodeShiftAddress(curr));
+
+				if(newType->arrLevel || newType == typeObject || newType == typeAutoArray)
+					CodeInfo::nodeList.push_back(new NodeDereference(NULL, 0, true));
 				return;
 			}else if(curr){ // If we are in a type definition but not in a function, then this must be an typeof expression
 				CodeInfo::nodeList.push_back(new NodeGetAddress(vInfo, vInfo->pos, vInfo->varType));

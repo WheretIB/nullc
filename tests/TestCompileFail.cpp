@@ -241,6 +241,8 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("Read-only member", "auto[] x = new int[2]; (&x.size)++; return x.size;", "ERROR: cannot take pointer to a read-only variable");
 	TEST_FOR_FAIL("Read-only member", "auto[] x = new int[2]; (&x.size)--; return x.size;", "ERROR: cannot take pointer to a read-only variable");
 	TEST_FOR_FAIL("Read-only member", "int[] x = new int[2]; (auto(int ref x){ return x; })(&x.size) = 56; return x.size;", "ERROR: cannot take pointer to a read-only variable");
+	TEST_FOR_FAIL("Read-only member", "int[] x = { 1, 2 }; typedef int[] wrap; void wrap:rewrite(int x){ size = x; } x.rewrite(2048); return x[1000];", "ERROR: cannot change immutable value of type int");
+	TEST_FOR_FAIL("Read-only member", "auto[] x = { 1, 2 }; typedef auto[] wrap; void wrap:rewrite(){ type = long; } x.rewrite(); return long(x[0]);", "ERROR: cannot change immutable value of type typeid");
 
 	nullcLoadModuleBySource("test.redefinitionPartA", "int foo(int x){ return -x; }");
 	nullcLoadModuleBySource("test.redefinitionPartB", "int foo(int x){ return ~x; }");
