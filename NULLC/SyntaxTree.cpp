@@ -291,7 +291,7 @@ NodeUnaryOp::NodeUnaryOp(CmdID cmd, unsigned int argument)
 	{
 		if(first->typeInfo->refLevel != 0 && !logicalOp)
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmd - cmdNeg], first->typeInfo->GetFullTypeName());
-		if(first->typeInfo->type == TypeInfo::TYPE_COMPLEX && first->typeInfo != typeObject)
+		if(first->typeInfo->type == TypeInfo::TYPE_COMPLEX && !(first->typeInfo == typeObject && cmd == cmdLogNot))
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmd - cmdNeg], first->typeInfo->GetFullTypeName());
 		if(!logicalOp && first->typeInfo == typeBool)
 			ThrowError(CodeInfo::lastKnownStartPos, "ERROR: unary operation '%s' is not supported on '%s'", unaryCommandToText[cmd - cmdNeg], first->typeInfo->GetFullTypeName());
