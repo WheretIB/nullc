@@ -155,9 +155,17 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 			if(execShouldFail)
 			{
 				char buf[512];
-				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+
+				if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+					strncpy(buf, pos, 511);
+				else
+					strncpy(buf, nullcGetLastError(), 511);
+
+				buf[511] = 0;
+
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
+
 				if(strcmp(expected, buf) != 0)
 				{
 					if(message && !messageVerbose)
@@ -360,9 +368,17 @@ void TEST_FOR_FAIL(const char* name, const char* str, const char* error)
 	if(!good)
 	{
 		char buf[1024];
-		strncpy(buf, strstr(nullcGetLastError(), "ERROR:"), 1023); buf[1023] = 0;
+
+		if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+			strncpy(buf, pos, 1023);
+		else
+			strncpy(buf, nullcGetLastError(), 1023);
+
+		buf[1023] = 0;
+
 		if(char *lineEnd = strchr(buf, '\r'))
 			*lineEnd = 0;
+
 		if(strcmp(error, buf) != 0)
 		{
 			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error);
@@ -381,7 +397,14 @@ void TEST_FOR_FAIL_GENERIC(const char* name, const char* str, const char* error1
 	if(!good)
 	{
 		char buf[1024];
-		strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+
+		if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+			strncpy(buf, pos, 1023);
+		else
+			strncpy(buf, nullcGetLastError(), 1023);
+
+		buf[1023] = 0;
+
 		if(memcmp(buf, error1, strlen(error1)) != 0)
 		{
 			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error1);

@@ -247,9 +247,17 @@ struct Test_testDepthOverflow : TestQueue
 			{
 				const char *error = "ERROR: allocated stack overflow";
 				char buf[512];
-				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+
+				if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+					strncpy(buf, pos, 511);
+				else
+					strncpy(buf, nullcGetLastError(), 511);
+
+				buf[511] = 0;
+
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
+
 				if(strcmp(error, buf) != 0)
 				{
 					if(!Tests::messageVerbose)
@@ -306,7 +314,14 @@ struct Test_testGlobalOverflow : TestQueue
 			{
 				const char *error = "ERROR: allocated stack overflow";
 				char buf[512];
-				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+
+				if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+					strncpy(buf, pos, 511);
+				else
+					strncpy(buf, nullcGetLastError(), 511);
+
+				buf[511] = 0;
+
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
 				if(strcmp(error, buf) != 0)
@@ -355,10 +370,18 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 			if(!good)
 			{
 				const char *error = "ERROR: failed to reserve new stack memory";
-				char buf[512];\
-				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+				char buf[512];
+
+				if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+					strncpy(buf, pos, 511);
+				else
+					strncpy(buf, nullcGetLastError(), 511);
+
+				buf[511] = 0;
+
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
+
 				if(strcmp(error, buf) != 0)
 				{
 					if(Tests::messageVerbose)
