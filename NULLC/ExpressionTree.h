@@ -502,11 +502,11 @@ struct ExprVariableDefinition: ExprBase
 
 struct ExprArraySetup: ExprBase
 {
-	ExprArraySetup(SynBase *source, TypeBase *type, VariableData* variable, ExprBase* initializer): ExprBase(myTypeID, source, type), variable(variable), initializer(initializer)
+	ExprArraySetup(SynBase *source, TypeBase *type, ExprBase *lhs, ExprBase* initializer): ExprBase(myTypeID, source, type), lhs(lhs), initializer(initializer)
 	{
 	}
 
-	VariableData* variable;
+	ExprBase *lhs;
 
 	ExprBase* initializer;
 

@@ -1678,13 +1678,17 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprArraySetup *node = getType<ExprArraySetup>(expression))
 	{
-		TypeArray *arrayType = getType<TypeArray>(node->variable->type);
+		TypeRef *refType = getType<TypeRef>(node->lhs->type);
+
+		assert(refType);
+
+		TypeArray *arrayType = getType<TypeArray>(refType->subType);
 
 		assert(arrayType);
 
 		VmValue *initializer = CompileVm(ctx, module, node->initializer);
 
-		VmValue *address = CreateVariableAddress(module, node->variable);
+		VmValue *address = CompileVm(ctx, module, node->lhs);
 
 		// TODO: use cmdSetRange for supported types
 

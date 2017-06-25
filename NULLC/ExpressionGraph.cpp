@@ -448,8 +448,9 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	}
 	else if(ExprArraySetup *node = getType<ExprArraySetup>(expression))
 	{
-		PrintEnterBlock(ctx, name, node->type, "ExprArraySetup(%.*s %.*s: v%04x)", FMT_ISTR(node->variable->type->name), FMT_ISTR(node->variable->name), node->variable->uniqueId);
+		PrintEnterBlock(ctx, name, node->type, "ExprArraySetup()");
 
+		PrintGraph(ctx, node->lhs, "lhs");
 		PrintGraph(ctx, node->initializer, "initializer");
 
 		PrintLeaveBlock(ctx);

@@ -241,12 +241,15 @@ struct FunctionData
 	ScopeData *functionScope;
 	long long stackSize;
 
+	// Variables for arguments
+	IntrusiveList<VariableHandle> argumentVariables;
+
 	// Variable for the argument containing reference to function context
 	VariableData *contextArgument;
 
 	IntrusiveList<UpvalueData> upvalues;
 
-	// Variable containg a pointer to the function context
+	// Variable containing a pointer to the function context
 	VariableData *contextVariable;
 
 	bool hasExplicitReturn;

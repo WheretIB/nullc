@@ -317,8 +317,6 @@ namespace
 
 	VariableData* AllocateClassMember(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr name, unsigned uniqueId)
 	{
-		CheckVariableConflict(ctx, source, name);
-
 		unsigned offset = AllocateVariableInScope(ctx, source, type->alignment, type);
 
 		assert(!type->isGeneric);
@@ -2405,6 +2403,17 @@ VariableData* AddFunctionUpvalue(ExpressionContext &ctx, SynBase *source, Functi
 	return target;
 }
 
+bool IsArgumentVariable(FunctionData *function, VariableData *data)
+{
+	for(VariableHandle *curr = function->argumentVariables.head; curr; curr = curr->next)
+	{
+		if(data == curr->variable)
+			return true;
+	}
+
+	return false;
+}
+
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, VariableData *variable, bool handleReference)
 {
 	if(variable->type == ctx.typeAuto)
@@ -2430,7 +2439,17 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Variable
 
 	FunctionData *variableFunctionOwner = ctx.GetFunctionOwner(variable->scope);
 
-	if(currentFunction && variableFunctionOwner && variableFunctionOwner != currentFunction)
+	bool externalAccess = false;
+
+	if(currentFunction && variableFunctionOwner)
+	{
+		if(variableFunctionOwner != currentFunction)
+			externalAccess = true;
+		else if(currentFunction->coroutine && !IsArgumentVariable(currentFunction, variable))
+			externalAccess = true;
+	}
+
+	if(externalAccess)
 	{
 		ExprBase *context = allocate(ExprVariableAccess)(source, currentFunction->contextArgument->type, currentFunction->contextArgument);
 
@@ -4230,7 +4249,16 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		if(!SameArguments(data->type, instance))
 			continue;
 
-		return FunctionValue(function->instances[i], proto.context);
+		ExprBase *context = proto.context;
+
+		if(!data->scope->ownerType)
+		{
+			assert(isType<ExprNullptrLiteral>(context));
+
+			context = CreateFunctionContextAccess(ctx, source, data);
+		}
+
+		return FunctionValue(function->instances[i], context);
 	}
 
 	// Switch to original function scope
@@ -5110,6 +5138,8 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 
 	if(initializer)
 	{
+		ExprBase *access = CreateVariableAccess(ctx, syntax, variable, true);
+
 		TypeArray *arrType = getType<TypeArray>(variable->type);
 
 		// Single-level array might be set with a single element at the point of definition
@@ -5117,11 +5147,16 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 		{
 			initializer = CreateCast(ctx, syntax->initializer, initializer, arrType->subType, false);
 
-			initializer = allocate(ExprArraySetup)(syntax->initializer, ctx.typeVoid, variable, initializer);
+			if(ExprVariableAccess *node = getType<ExprVariableAccess>(access))
+				access = allocate(ExprGetAddress)(access->source, ctx.GetReferenceType(access->type), node->variable);
+			else if(ExprDereference *node = getType<ExprDereference>(access))
+				access = node->value;
+
+			initializer = allocate(ExprArraySetup)(syntax->initializer, ctx.typeVoid, access, initializer);
 		}
 		else
 		{
-			initializer = CreateAssignment(ctx, syntax->initializer, allocate(ExprVariableAccess)(syntax->initializer, variable->type, variable), initializer);
+			initializer = CreateAssignment(ctx, syntax->initializer, access, initializer);
 		}
 	}
 
@@ -5230,18 +5265,21 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 
 		target = allocate(ExprDereference)(source, upvalue->target->type, target);
 
-		ExprBase *value = CreateVariableAccess(ctx, source, upvalue->variable, false);
+		FunctionData *variableFunctionOwner = ctx.GetFunctionOwner(upvalue->variable->scope);
 
-		// Close coroutine upvalues immediately
-		if(function->coroutine)
+		// Close coroutine local upvalues immediately
+		if(function->coroutine && function == variableFunctionOwner)
 		{
+			assert(!IsArgumentVariable(function, upvalue->variable));
+
 			ExprBase *copy = allocate(ExprMemberAccess)(source, ctx.GetReferenceType(upvalue->copy->type), allocate(ExprVariableAccess)(source, refType, function->contextVariable), upvalue->copy);
 
-			expressions.push_back(CreateAssignment(ctx, source, allocate(ExprDereference)(source, upvalue->copy->type, copy), value));
 			expressions.push_back(CreateAssignment(ctx, source, target, copy));
 		}
 		else
 		{
+			ExprBase *value = CreateVariableAccess(ctx, source, upvalue->variable, false);
+
 			expressions.push_back(CreateAssignment(ctx, source, target, CreateGetAddress(ctx, source, value)));
 		}
 	}
@@ -5282,7 +5320,7 @@ bool RestoreParentTypeScope(ExpressionContext &ctx, SynBase *source, TypeBase *p
 	return false;
 }
 
-void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, SmallArray<ArgumentData, 32> &arguments, IntrusiveList<ExprVariableDefinition> &variables)
+void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, FunctionData *function, SmallArray<ArgumentData, 32> &arguments, IntrusiveList<ExprVariableDefinition> &variables)
 {
 	for(unsigned i = 0; i < arguments.size(); i++)
 	{
@@ -5298,6 +5336,8 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, Sm
 		ctx.AddVariable(variable);
 
 		variables.push_back(allocate(ExprVariableDefinition)(argument.source, ctx.typeVoid, variable, NULL));
+
+		function->argumentVariables.push_back(allocate(VariableHandle)(variable));
 	}
 }
 
@@ -5470,7 +5510,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	IntrusiveList<ExprVariableDefinition> variables;
 
-	CreateFunctionArgumentVariables(ctx, source, argData, variables);
+	CreateFunctionArgumentVariables(ctx, source, function, argData, variables);
 
 	IntrusiveList<ExprBase> code;
 
@@ -5483,6 +5523,18 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	}
 	else
 	{
+		if(function->coroutine)
+		{
+			unsigned offset = AllocateVariableInScope(ctx, source, ctx.typeInt->alignment, ctx.typeInt);
+			VariableData *jmpOffset = allocate(VariableData)(source, ctx.scope, 0, ctx.typeInt, InplaceStr("$jmpOffset"), offset, ctx.uniqueVariableId++);
+
+			ctx.AddVariable(jmpOffset);
+
+			AddFunctionUpvalue(ctx, source, function, jmpOffset);
+
+			code.push_back(allocate(ExprVariableDefinition)(source, ctx.typeVoid, function->contextArgument, NULL));
+		}
+
 		for(SynBase *expression = expressions.head; expression; expression = expression->next)
 			code.push_back(AnalyzeStatement(ctx, expression));
 
@@ -5662,7 +5714,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	IntrusiveList<ExprVariableDefinition> arguments;
 
-	CreateFunctionArgumentVariables(ctx, syntax, argData, arguments);
+	CreateFunctionArgumentVariables(ctx, syntax, function, argData, arguments);
 
 	IntrusiveList<ExprBase> expressions;
 
@@ -6162,7 +6214,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
 
 		IntrusiveList<ExprVariableDefinition> variables;
-		CreateFunctionArgumentVariables(ctx, syntax, arguments, variables);
+		CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
 
 		IntrusiveList<ExprBase> expressions;
 		expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprTypeCast)(syntax, ctx.typeInt, allocate(ExprVariableAccess)(syntax, enumType, variables.tail->variable), EXPR_CAST_REINTERPRET)));
@@ -6198,7 +6250,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
 
 		IntrusiveList<ExprVariableDefinition> variables;
-		CreateFunctionArgumentVariables(ctx, syntax, arguments, variables);
+		CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
 
 		IntrusiveList<ExprBase> expressions;
 		expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprTypeCast)(syntax, enumType, allocate(ExprVariableAccess)(syntax, ctx.typeInt, variables.tail->variable), EXPR_CAST_REINTERPRET)));

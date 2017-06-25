@@ -1433,7 +1433,11 @@ ExprBase* EvaluateArraySetup(Eval &ctx, ExprArraySetup *expression)
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	TypeArray *arrayType = getType<TypeArray>(expression->variable->type);
+	TypeRef *refType = getType<TypeRef>(expression->lhs->type);
+
+	assert(refType);
+
+	TypeArray *arrayType = getType<TypeArray>(refType->subType);
 
 	assert(arrayType);
 
@@ -1442,7 +1446,7 @@ ExprBase* EvaluateArraySetup(Eval &ctx, ExprArraySetup *expression)
 	if(!initializer)
 		return NULL;
 
-	ExprPointerLiteral *ptr = FindVariableStorage(ctx, expression->variable);
+	ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(Evaluate(ctx, expression->lhs));
 
 	if(!ptr)
 		return NULL;
