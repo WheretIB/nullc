@@ -7166,7 +7166,12 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 	ExternConstantInfo *constantList = FindFirstConstant(bCode);
 	ExternTypedefInfo *aliasList = FindFirstTypedef(bCode);
 
+	unsigned prevSize = module.types.size();
+
 	module.types.resize(bCode->typeCount);
+
+	for(unsigned i = prevSize; i < module.types.size(); i++)
+		module.types[i] = NULL;
 
 	ExternConstantInfo *currentConstant = constantList;
 
