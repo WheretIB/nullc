@@ -3052,9 +3052,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 				for(FunctionHandle *curr = overloads.head; curr && !instantiated; curr = curr->next)
 				{
-					if(curr->function->proto == function.function)
-						instantiated = true;
-					else if(SameArguments(curr->function->type, function.function->type))
+					if(SameArguments(curr->function->type, function.function->type))
 						instantiated = true;
 				}
 
