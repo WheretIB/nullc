@@ -563,11 +563,11 @@ bool TryTakePointer(ExprBase *expression, void* &result)
 	return false;
 }
 
-ExprBase* CreateBinaryOp(Eval &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs, SynBinaryOpType op)
+ExprBase* CreateBinaryOp(Eval &ctx, SynBase *source, ExprBase *lhs, ExprBase *unevaluatedRhs, SynBinaryOpType op)
 {
-	assert(lhs->type == rhs->type);
+	assert(lhs->type == unevaluatedRhs->type);
 
-	if((ctx.ctx.IsIntegerType(lhs->type) || isType<TypeEnum>(lhs->type)) && (ctx.ctx.IsIntegerType(rhs->type) || isType<TypeEnum>(rhs->type)))
+	if((ctx.ctx.IsIntegerType(lhs->type) || isType<TypeEnum>(lhs->type)) && (ctx.ctx.IsIntegerType(unevaluatedRhs->type) || isType<TypeEnum>(unevaluatedRhs->type)))
 	{
 		long long lhsValue = 0;
 		long long rhsValue = 0;
@@ -580,22 +580,43 @@ ExprBase* CreateBinaryOp(Eval &ctx, SynBase *source, ExprBase *lhs, ExprBase *rh
 				if(lhsValue == 0)
 					return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, false);
 
+				ExprBase *rhs = Evaluate(ctx, unevaluatedRhs);
+
+				if(!rhs)
+					return NULL;
+
 				if(TryTakeLong(rhs, rhsValue))
 					return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, rhsValue != 0);
 			}
+
+			return NULL;
 		}
-		else if(op == SYN_BINARY_OP_LOGICAL_OR)
+
+		if(op == SYN_BINARY_OP_LOGICAL_OR)
 		{
 			if(TryTakeLong(lhs, lhsValue))
 			{
 				if(lhsValue == 1)
 					return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, true);
 
+				ExprBase *rhs = Evaluate(ctx, unevaluatedRhs);
+
+				if(!rhs)
+					return NULL;
+
 				if(TryTakeLong(rhs, rhsValue))
 					return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, rhsValue != 0);
 			}
+
+			return NULL;
 		}
-		else if(TryTakeLong(lhs, lhsValue) && TryTakeLong(rhs, rhsValue))
+
+		ExprBase *rhs = Evaluate(ctx, unevaluatedRhs);
+
+		if(!rhs)
+			return NULL;
+
+		if(TryTakeLong(lhs, lhsValue) && TryTakeLong(rhs, rhsValue))
 		{
 			switch(op)
 			{
@@ -668,7 +689,15 @@ ExprBase* CreateBinaryOp(Eval &ctx, SynBase *source, ExprBase *lhs, ExprBase *rh
 				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, !!lhsValue != !!rhsValue);
 			}
 		}
+
+		return NULL;
 	}
+
+	ExprBase *rhs = Evaluate(ctx, unevaluatedRhs);
+
+	if(!rhs)
+		return NULL;
+
 	if(ctx.ctx.IsFloatingPointType(lhs->type) && ctx.ctx.IsFloatingPointType(rhs->type))
 	{
 		double lhsValue = 0;
@@ -1273,12 +1302,8 @@ ExprBase* EvaluateBinaryOp(Eval &ctx, ExprBinaryOp *expression)
 	if(!lhs)
 		return NULL;
 
-	ExprBase *rhs = Evaluate(ctx, expression->rhs);
-
-	if(!rhs)
-		return NULL;
-
-	ExprBase *result = CreateBinaryOp(ctx, expression->source, lhs, rhs, expression->op);
+	// rhs remain unevaluated
+	ExprBase *result = CreateBinaryOp(ctx, expression->source, lhs, expression->rhs, expression->op);
 
 	if(!result)
 		return result;
