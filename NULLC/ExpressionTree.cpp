@@ -2999,6 +2999,13 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 					return allocate(ExprDereference)(source, el->variable->type, shift);
 				}
 			}
+
+			// Search for a member constant
+			for(ConstantData *curr = node->constants.head; curr; curr = curr->next)
+			{
+				if(curr->name == name)
+					return CreateLiteralCopy(ctx, source, curr->value);
+			}
 		}
 
 		if(value->type == ctx.typeAutoRef)
