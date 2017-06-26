@@ -276,9 +276,6 @@ InplaceStr GetVariableNameInScope(ExpressionContext &ctx, ScopeData *scope, Inpl
 
 InplaceStr GetFunctionNameInScope(ExpressionContext &ctx, ScopeData *scope, TypeBase *parentType, InplaceStr str, bool isOperator, bool isAccessor)
 {
-	if(isOperator)
-		return str;
-
 	if(parentType)
 	{
 		char *name = (char*)ctx.allocator->alloc(parentType->name.length() + 2 + str.length() + (isAccessor ? 1 : 0) + 1);
@@ -287,6 +284,9 @@ InplaceStr GetFunctionNameInScope(ExpressionContext &ctx, ScopeData *scope, Type
 
 		return InplaceStr(name);
 	}
+
+	if(isOperator)
+		return str;
 
 	assert(!isAccessor);
 
