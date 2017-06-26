@@ -4528,7 +4528,15 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 			// auto ref -> type cast
 			if(isType<ExprTypeLiteral>(value) && arguments.size() == 1 && arguments[0].type == ctx.typeAutoRef && arguments[0].name.empty())
-				return CreateCast(ctx, source, arguments[0].value, ((ExprTypeLiteral*)value)->value, true);
+			{
+				ExprBase *result = CreateCast(ctx, source, arguments[0].value, ((ExprTypeLiteral*)value)->value, true);
+
+				// If this was a member function call, store to context
+				if(!isType<ExprNullptrLiteral>(functions[0].context))
+					return CreateAssignment(ctx, source, functions[0].context, result);
+
+				return result;
+			}
 
 			char *errPos = ctx.errorBuf;
 			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function with following parameters:\n");
