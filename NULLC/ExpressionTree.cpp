@@ -1982,6 +1982,15 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		jmp_buf prevErrorHandler;
 		memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));
 
+		char *errorBuf = ctx.errorBuf;
+		unsigned errorBufSize = ctx.errorBufSize;
+
+		if(failed)
+		{
+			ctx.errorBuf = 0;
+			ctx.errorBufSize = 0;
+		}
+
 		if(!setjmp(ctx.errorHandler))
 		{
 			TypeBase *type = AnalyzeType(ctx, node->value, false);
@@ -1998,12 +2007,18 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 			memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 
+			ctx.errorBuf = errorBuf;
+			ctx.errorBufSize = errorBufSize;
+
 			if(type)
 				return type;
 		}
 		else
 		{
 			memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+
+			ctx.errorBuf = errorBuf;
+			ctx.errorBufSize = errorBufSize;
 
 			if(failed)
 			{
@@ -4006,6 +4021,13 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 
 void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, InplaceStr functionName, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo)
 {
+	if(!errPos)
+	{
+		ctx.errorPos = source->pos;
+
+		longjmp(ctx.errorHandler, 1);
+	}
+
 	if(!functionName.empty())
 	{
 		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "  %.*s(", FMT_ISTR(functionName));
@@ -4544,7 +4566,10 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 			}
 
 			char *errPos = ctx.errorBuf;
-			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function with following parameters:\n");
+
+			if(errPos)
+				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function with following parameters:\n");
+
 			StopOnFunctionSelectError(ctx, source, errPos, functions[0].function->name, functions, arguments, ratings, ~0u, true);
 		}
 
@@ -4562,7 +4587,10 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 			if(functions[i].function != bestOverload.function && ratings[i] == bestRating)
 			{
 				char *errPos = ctx.errorBuf;
-				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available for the call:\n");
+
+				if(errPos)
+					errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available for the call:\n");
+
 				StopOnFunctionSelectError(ctx, source, errPos, functions[0].function->name, functions, arguments, ratings, bestRating, true);
 			}
 		}
@@ -4615,6 +4643,13 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 				return NULL;
 
 			char *errPos = ctx.errorBuf;
+
+			if(!errPos)
+			{
+				ctx.errorPos = source->pos;
+
+				longjmp(ctx.errorHandler, 1);
+			}
 
 			if(arguments.size() != functionArguments.size())
 				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: function expects %d argument(s), while %d are supplied\r\n", functionArguments.size(), arguments.size());
@@ -5091,7 +5126,10 @@ ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprB
 			GetNodeFunctions(ctx, initializer->source, initializer, functions);
 
 			char *errPos = ctx.errorBuf;
-			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available:\n");
+
+			if(errPos)
+				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available:\n");
+
 			StopOnFunctionSelectError(ctx, source, errPos, functions);
 		}
 	}
