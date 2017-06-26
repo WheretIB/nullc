@@ -6513,7 +6513,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 				if(ctx.GetReferenceType(type) == call->type)
 					call = allocate(ExprDereference)(curr, type, call);
 
-				definitions.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, functPtr, CreateAssignment(ctx, curr, allocate(ExprVariableAccess)(curr, variable->type, variable), call)));
+				initializers.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, variable, CreateAssignment(ctx, curr, allocate(ExprVariableAccess)(curr, variable->type, variable), call)));
 			}
 
 			// Create condition
