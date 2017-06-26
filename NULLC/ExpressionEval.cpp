@@ -2204,6 +2204,49 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, result);
 			}
+			else if(ptr->data->name == InplaceStr("duplicate") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoArray)
+			{
+				ExprMemoryLiteral *arr = getType<ExprMemoryLiteral>(arguments[0]);
+
+				assert(arr);
+
+				ExprTypeLiteral *arrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, arr, 0, ctx.ctx.typeTypeID));
+				ExprIntegerLiteral *arrLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, arr, 4 + sizeof(void*), ctx.ctx.typeInt));
+				ExprPointerLiteral *arrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, arr, 4, ctx.ctx.GetReferenceType(ctx.ctx.GetArrayType(arrTypeID->value, arrLen->value))));
+
+				ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoArray);
+
+				if(!storage)
+					return NULL;
+
+				ExprMemoryLiteral *result = allocate(ExprMemoryLiteral)(expression->source, ctx.ctx.typeAutoArray, storage);
+
+				CreateInsert(ctx, result, 0, allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, arrTypeID->value));
+				CreateInsert(ctx, result, 4 + sizeof(void*), allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, arrLen->value));
+
+				if(!arrPtr)
+				{
+					CreateInsert(ctx, result, 4, allocate(ExprNullptrLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+
+					return CheckType(expression, result);
+				}
+
+				ExprPointerLiteral *resultPtr = AllocateTypeStorage(ctx, expression->source, ctx.ctx.GetArrayType(arrTypeID->value, arrLen->value));
+
+				if(!resultPtr)
+					return NULL;
+
+				CreateInsert(ctx, result, 4, resultPtr);
+
+				ExprBase *ptrPtrLoad = CreateLoad(ctx, arrPtr);
+
+				if(!ptrPtrLoad)
+					return NULL;
+
+				CreateStore(ctx, resultPtr, ptrPtrLoad);
+
+				return CheckType(expression, result);
+			}
 			else if(ptr->data->name == InplaceStr("auto_array") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeTypeID && arguments[1]->type == ctx.ctx.typeInt)
 			{
 				ExprTypeLiteral *type = getType<ExprTypeLiteral>(arguments[0]);
@@ -2260,6 +2303,58 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 				memcpy(dstPtr->ptr, srcPtr->ptr, unsigned(dstTypeID->value->size * srcLen->value));
 
 				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+			}
+			else if(ptr->data->name == InplaceStr("[]") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeAutoArray) && arguments[1]->type == ctx.ctx.typeInt)
+			{
+				// Get arguments
+				ExprPointerLiteral *arrPtrArg = getType<ExprPointerLiteral>(arguments[0]);
+
+				if(!arrPtrArg)
+					return Report(ctx, "ERROR: null pointer access");
+
+				ExprIntegerLiteral *indexArg = getType<ExprIntegerLiteral>(arguments[1]);
+
+				assert(indexArg);
+
+				ExprBase *arrPtrLoad = CreateLoad(ctx, arrPtrArg);
+
+				if(!arrPtrLoad)
+					return NULL;
+
+				ExprMemoryLiteral *arr = getType<ExprMemoryLiteral>(arrPtrLoad);
+
+				assert(arr);
+
+				// Load auto[] array members
+				ExprTypeLiteral *arrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, arr, 0, ctx.ctx.typeTypeID));
+				ExprIntegerLiteral *arrLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, arr, 4 + sizeof(void*), ctx.ctx.typeInt));
+				ExprPointerLiteral *arrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, arr, 4, ctx.ctx.GetReferenceType(ctx.ctx.GetArrayType(arrTypeID->value, arrLen->value))));
+
+				if(unsigned(indexArg->value) >= arrLen->value)
+					return Report(ctx, "ERROR: array index out of bounds");
+
+				// Create storage for result
+				ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoRef);
+
+				if(!storage)
+					return NULL;
+
+				// Create result in that storage
+				ExprMemoryLiteral *result = allocate(ExprMemoryLiteral)(expression->source, ctx.ctx.typeAutoRef, storage);
+
+				// Save typeid
+				CreateInsert(ctx, result, 0, allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, arrTypeID->value));
+
+				// Save pointer to array element
+				assert(arrPtr->ptr + indexArg->value * arrTypeID->value->size + arrTypeID->value->size <= arrPtr->end);
+
+				unsigned char *targetPtr = arrPtr->ptr + indexArg->value * arrTypeID->value->size;
+
+				ExprPointerLiteral *shifted = allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(arrTypeID->value), targetPtr, targetPtr + arrTypeID->value->size);
+
+				CreateInsert(ctx, result, 4, shifted);
+
+				return CheckType(expression, result);
 			}
 			else if(ptr->data->name == InplaceStr("__assertCoroutine") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
 			{
