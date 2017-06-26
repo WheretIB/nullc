@@ -34,11 +34,30 @@ bool AddInstruction(Eval &ctx)
 		return true;
 	}
 
+	Report(ctx, "ERROR: instruction limit reached");
+
 	return false;
 }
 
 ExprPointerLiteral* AllocateTypeStorage(Eval &ctx, SynBase *source, TypeBase *type)
 {
+	for(unsigned i = 0; i < ctx.abandonedMemory.size(); i++)
+	{
+		ExprPointerLiteral *ptr = ctx.abandonedMemory[i];
+
+		if(ptr->end - ptr->ptr == type->size)
+		{
+			ptr->type = ctx.ctx.GetReferenceType(type);
+
+			memset(ptr->ptr, 0, unsigned(type->size));
+
+			ctx.abandonedMemory[i] = ctx.abandonedMemory.back();
+			ctx.abandonedMemory.pop_back();
+
+			return ptr;
+		}
+	}
+
 	if(type->size > ctx.variableMemoryLimit)
 		return (ExprPointerLiteral*)Report(ctx, "ERROR: single variable memory limit");
 
@@ -52,6 +71,11 @@ ExprPointerLiteral* AllocateTypeStorage(Eval &ctx, SynBase *source, TypeBase *ty
 	memset(memory, 0, unsigned(type->size));
 
 	return allocate(ExprPointerLiteral)(source, ctx.ctx.GetReferenceType(type), memory, memory + type->size);
+}
+
+void FreeMemoryLiteral(Eval &ctx, ExprMemoryLiteral *memory)
+{
+	ctx.abandonedMemory.push_back(memory->ptr);
 }
 
 bool CreateStore(Eval &ctx, ExprBase *target, ExprBase *value)
@@ -436,11 +460,20 @@ ExprPointerLiteral* FindCoroutineJmpOffsetStorage(Eval &ctx)
 	if(!contextPtr)
 		return (ExprPointerLiteral*)Report(ctx, "ERROR: '%.*s' coroutine has no context'", FMT_ISTR(frame->owner->name));
 
-	ExprMemoryLiteral *context = getType<ExprMemoryLiteral>(CreateLoad(ctx, contextPtr));
+	ExprBase *contextLoad = CreateLoad(ctx, contextPtr);
+
+	if(!contextLoad)
+		return NULL;
+
+	ExprMemoryLiteral *context = getType<ExprMemoryLiteral>(contextLoad);
+
+	assert(context);
 
 	ExprPointerLiteral *jmpOffsetTarget = getType<ExprPointerLiteral>(CreateExtract(ctx, context, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
 
 	assert(jmpOffsetTarget);
+
+	FreeMemoryLiteral(ctx, context);
 
 	return jmpOffsetTarget;
 }
@@ -2078,7 +2111,12 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				assert(ptr);
 
-				ExprMemoryLiteral *table = getType<ExprMemoryLiteral>(CreateLoad(ctx, tableRef));
+				ExprBase *tableRefLoad = CreateLoad(ctx, tableRef);
+
+				if(!tableRefLoad)
+					return NULL;
+
+				ExprMemoryLiteral *table = getType<ExprMemoryLiteral>(tableRefLoad);
 
 				ExprPointerLiteral *tableArray = getType<ExprPointerLiteral>(CreateExtract(ctx, table, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeFunctionID)));
 				ExprIntegerLiteral *tableSize = getType<ExprIntegerLiteral>(CreateExtract(ctx, table, sizeof(void*), ctx.ctx.typeInt));
@@ -2132,7 +2170,12 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				CreateInsert(ctx, result, 4, resultPtr);
 
-				CreateStore(ctx, resultPtr, CreateLoad(ctx, ptrPtr));
+				ExprBase *ptrPtrLoad = CreateLoad(ctx, ptrPtr);
+
+				if(!ptrPtrLoad)
+					return NULL;
+
+				CreateStore(ctx, resultPtr, ptrPtrLoad);
 
 				return CheckType(expression, result);
 			}
@@ -2235,13 +2278,20 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 				if(!function->data->coroutine)
 					return Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->data->name));
 
-				ExprMemoryLiteral *context = getType<ExprMemoryLiteral>(CreateLoad(ctx, function->context));
+				ExprBase *contextLoad = CreateLoad(ctx, function->context);
+
+				if(!contextLoad)
+					return NULL;
+
+				ExprMemoryLiteral *context = getType<ExprMemoryLiteral>(contextLoad);
 
 				// TODO: remove this check, all coroutines must have a context
 				if(!context)
 					return Report(ctx, "ERROR: '%.*s' coroutine has no context'", FMT_ISTR(function->data->name));
 
 				ExprPointerLiteral *jmpOffsetTarget = getType<ExprPointerLiteral>(CreateExtract(ctx, context, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
+
+				FreeMemoryLiteral(ctx, context);
 
 				assert(jmpOffsetTarget);
 

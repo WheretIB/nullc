@@ -13,7 +13,7 @@ struct ExpressionContext;
 
 struct ExpressionEvalContext
 {
-	ExpressionEvalContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), stackFrames(allocator)
+	ExpressionEvalContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), stackFrames(allocator), abandonedMemory(allocator)
 	{
 		errorBuf = 0;
 		errorBufSize = 0;
@@ -77,6 +77,8 @@ struct ExpressionEvalContext
 	unsigned stackDepthLimit;
 
 	bool emulateKnownExternals;
+
+	SmallArray<ExprPointerLiteral*, 32> abandonedMemory;
 
 	unsigned variableMemoryLimit;
 
