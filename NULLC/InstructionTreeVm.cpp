@@ -878,6 +878,14 @@ namespace
 		{
 			VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
 
+			// Any opaque pointer might be clobbered
+			if(el.pointer)
+			{
+				module->loadStoreInfo[i] = module->loadStoreInfo.back();
+				module->loadStoreInfo.pop_back();
+				continue;
+			}
+
 			unsigned otherOffset = unsigned(el.address->iValue);
 			unsigned otherSize = GetAccessSize(el.loadInst ? el.loadInst : el.storeInst);
 
@@ -888,27 +896,25 @@ namespace
 			{
 				module->loadStoreInfo[i] = module->loadStoreInfo.back();
 				module->loadStoreInfo.pop_back();
+				continue;
 			}
-			else
-			{
-				i++;
-			}
+
+			i++;
 		}
 	}
 
 	void AddLoadInfo(VmModule *module, VmInstruction* inst)
 	{
+		VmModule::LoadStoreInfo info;
+
+		info.loadInst = inst;
+
 		if(VmConstant *address = getType<VmConstant>(inst->arguments[0]))
-		{
-			VmModule::LoadStoreInfo info;
-
-			info.loadInst = inst;
-			info.storeInst = NULL;
-
 			info.address = address;
+		else
+			info.pointer = inst->arguments[0];
 
-			module->loadStoreInfo.push_back(info);
-		}
+		module->loadStoreInfo.push_back(info);
 	}
 
 	void AddStoreInfo(VmModule *module, VmInstruction* inst)
@@ -917,7 +923,6 @@ namespace
 		{
 			VmModule::LoadStoreInfo info;
 
-			info.loadInst = NULL;
 			info.storeInst = inst;
 
 			info.address = address;
@@ -968,11 +973,27 @@ namespace
 			{
 				VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
 
+				if(el.pointer)
+					continue;
+
 				if(el.loadInst && *el.address == *address && GetAccessSize(inst) == GetAccessSize(el.loadInst))
 					return el.loadInst;
 
 				if(el.storeInst && *el.address == *address && GetAccessSize(inst) == GetAccessSize(el.storeInst))
 					return el.storeInst->arguments[1];
+			}
+		}
+		else if(VmValue *pointer = inst->arguments[0])
+		{
+			for(unsigned i = 0; i < module->loadStoreInfo.size(); i++)
+			{
+				VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
+
+				if(el.address)
+					continue;
+
+				if(el.loadInst && el.pointer == pointer && GetAccessSize(inst) == GetAccessSize(el.loadInst))
+					return el.loadInst;
 			}
 		}
 
