@@ -66,6 +66,7 @@ struct ExpressionContext
 	SmallArray<VariableData*, 128> variables;
 
 	SmallArray<ExprBase*, 128> definitions;
+	SmallArray<ExprBase*, 128> setup;
 	SmallArray<VariableData*, 128> vtables;
 
 	SmallArray<TypeFunction*, 128> functionTypes;

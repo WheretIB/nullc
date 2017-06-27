@@ -1506,7 +1506,14 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 	if(TypeFunction *target = getType<TypeFunction>(type))
 	{
 		if(FunctionValue function = GetFunctionForType(ctx, source, value, target))
-			return allocate(ExprFunctionAccess)(source, type, function.function, function.context);
+		{
+			ExprBase *access = allocate(ExprFunctionAccess)(source, type, function.function, function.context);
+
+			if(isType<ExprFunctionDefinition>(value) || isType<ExprGenericFunctionPrototype>(value))
+				return CreateSequence(ctx, source, value, access);
+
+			return access;
+		}
 	}
 
 	if(value->type == ctx.typeAutoRef)
@@ -4317,6 +4324,8 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	{
 		if(ExprGenericFunctionPrototype *proto = getType<ExprGenericFunctionPrototype>(function->declaration))
 			proto->contextVariables.push_back(definition->contextVariable);
+		else
+			ctx.setup.push_back(definition->contextVariable);
 	}
 
 	ExprBase *context = proto.context;
@@ -5838,6 +5847,18 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	IntrusiveList<ExprBase> expressions;
 
+	if(function->coroutine)
+	{
+		unsigned offset = AllocateVariableInScope(ctx, syntax, ctx.typeInt->alignment, ctx.typeInt);
+		VariableData *jmpOffset = allocate(VariableData)(syntax, ctx.scope, 0, ctx.typeInt, InplaceStr("$jmpOffset"), offset, ctx.uniqueVariableId++);
+
+		ctx.AddVariable(jmpOffset);
+
+		AddFunctionUpvalue(ctx, syntax, function, jmpOffset);
+
+		expressions.push_back(allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, function->contextArgument, NULL));
+	}
+
 	for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
 		expressions.push_back(AnalyzeStatement(ctx, expression));
 
@@ -5861,7 +5882,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	ExprBase *access = allocate(ExprFunctionAccess)(syntax, function->type, function, CreateFunctionContextAccess(ctx, syntax, function));
 
-	return CreateFunctionCall(ctx, syntax, InplaceStr("__gen_list"), access, false);
+	return CreateFunctionCall(ctx, syntax, InplaceStr("__gen_list"), CreateSequence(ctx, syntax, contextVariableDefinition, access), false);
 }
 
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &currArguments)
@@ -7985,6 +8006,9 @@ ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
 
 		for(unsigned i = 0; i < ctx.definitions.size(); i++)
 			module->definitions.push_back(ctx.definitions[i]);
+
+		for(unsigned i = 0; i < ctx.setup.size(); i++)
+			module->setup.push_back(ctx.setup[i]);
 
 		for(unsigned i = 0; i < ctx.vtables.size(); i++)
 			module->setup.push_back(CreateVirtualTableUpdate(ctx, syntax, ctx.vtables[i]));
