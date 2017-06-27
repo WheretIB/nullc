@@ -1140,6 +1140,12 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, bool allowFailure);
 
+InplaceStr GetTypeConstructorName(TypeClass *classType);
+HashMap<FunctionData*>::Node* GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type);
+ExprBase* GetTypeConstructors(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *context);
+bool HasDefautConstructor(ExpressionContext &ctx, SynBase *source, TypeBase *type);
+ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *pointer);
+
 InplaceStr GetTemporaryFunctionName(ExpressionContext &ctx);
 TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, InplaceStr functionName);
 ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, SynBase *source, FunctionData *function);
@@ -4790,59 +4796,13 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 		}
 		else
 		{
-			TypeClass *classType = getType<TypeClass>(type->value);
-
 			VariableData *variable = AllocateTemporary(ctx, syntax, type->value);
 
 			ExprBase *pointer = allocate(ExprGetAddress)(syntax, ctx.GetReferenceType(type->value), variable);
 
 			ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, NULL);
 
-			unsigned hash = StringHashContinue(type->value->nameHash, "::");
-
-			if(classType)
-			{
-				InplaceStr functionName = classType->name;
-
-				if(TypeGenericClassProto *proto = classType->proto)
-					functionName = proto->name;
-
-				// TODO: add type scopes and lookup owner namespace
-				for(const char *pos = functionName.end; pos > functionName.begin; pos--)
-				{
-					if(*pos == '.')
-					{
-						functionName = InplaceStr(pos + 1, functionName.end);
-						break;
-					}
-				}
-
-				hash = StringHashContinue(hash, functionName.begin, functionName.end);
-			}
-			else
-			{
-				hash = StringHashContinue(hash, type->value->name.begin, type->value->name.end);
-			}
-
-			ExprBase *constructor = NULL;
-
-			if(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash))
-			{
-				constructor = CreateFunctionAccess(ctx, syntax, node, pointer);
-			}
-			else if(classType)
-			{
-				if(TypeGenericClassProto *proto = classType->proto)
-				{
-					// Look for a member function in a generic class base and instantiate them
-					unsigned hash = StringHashContinue(proto->nameHash, "::");
-
-					hash = StringHashContinue(hash, proto->name.begin, proto->name.end);
-
-					if(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash))
-						constructor = CreateFunctionAccess(ctx, syntax, node, pointer);
-				}
-			}
+			ExprBase *constructor = GetTypeConstructors(ctx, syntax, type->value, pointer);
 
 			if(!constructor && syntax->arguments.empty())
 			{
@@ -4904,46 +4864,15 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 	TypeBase *parentType = allocType->subType;
 
-	unsigned hash = StringHashContinue(parentType->name.hash(), "::");
+	HashMap<FunctionData*>::Node *constructor = GetTypeConstructorFunctions(ctx, parentType);
 
-	if(TypeClass *classType = getType<TypeClass>(parentType))
-	{
-		InplaceStr functionName = parentType->name;
-
-		if(classType->proto)
-			functionName = classType->proto->name;
-
-		// TODO: add type scopes and lookup owner namespace
-		for(const char *pos = functionName.end; pos > functionName.begin; pos--)
-		{
-			if(*pos == '.')
-			{
-				functionName = InplaceStr(pos + 1, functionName.end);
-				break;
-			}
-		}
-
-		hash = StringHashContinue(hash, functionName.begin, functionName.end);
-
-		if(classType->proto && !ctx.functionMap.first(hash))
-		{
-			hash = StringHashContinue(classType->proto->name.hash(), "::");
-
-			hash = StringHashContinue(hash, functionName.begin, functionName.end);
-		}
-	}
-	else
-	{
-		hash = StringHashContinue(hash, parentType->name.begin, parentType->name.end);
-	}
-
-	if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+	if(constructor)
 	{
 		VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
 
 		ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, allocate(ExprVariableAccess)(syntax, variable->type, variable), alloc));
 
-		ExprBase *overloads = CreateFunctionAccess(ctx, syntax, function, allocate(ExprVariableAccess)(syntax, variable->type, variable));
+		ExprBase *overloads = CreateFunctionAccess(ctx, syntax, constructor, allocate(ExprVariableAccess)(syntax, variable->type, variable));
 
 		if(ExprBase *call = CreateFunctionCall(ctx, syntax, overloads, IntrusiveList<TypeHandle>(), syntax->arguments.head, syntax->arguments.empty()))
 		{
@@ -5217,6 +5146,16 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 		else
 		{
 			initializer = CreateAssignment(ctx, syntax->initializer, access, initializer);
+		}
+	}
+	else if(!variable->scope->ownerType)
+	{
+		if(HasDefautConstructor(ctx, syntax, variable->type))
+		{
+			ExprBase *access = CreateVariableAccess(ctx, syntax, variable, true);
+
+			if(ExprBase *call = CreateDefaultConstructorCall(ctx, syntax, variable->type, CreateGetAddress(ctx, syntax, access)))
+				initializer = call;
 		}
 	}
 
@@ -5929,6 +5868,265 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	return AnalyzeShortFunctionDefinition(ctx, syntax, argumentType);
 }
 
+InplaceStr GetTypeConstructorName(TypeClass *classType)
+{
+	InplaceStr functionName = classType->name;
+
+	if(TypeGenericClassProto *proto = classType->proto)
+		functionName = proto->name;
+
+	// TODO: add type scopes and lookup owner namespace
+	for(const char *pos = functionName.end; pos > functionName.begin; pos--)
+	{
+		if(*pos == '.')
+		{
+			functionName = InplaceStr(pos + 1, functionName.end);
+			break;
+		}
+	}
+
+	return functionName;
+}
+
+InplaceStr GetTypeDefaultConstructorName(ExpressionContext &ctx, TypeClass *classType)
+{
+	InplaceStr baseName(GetTypeConstructorName(classType));
+
+	char *name = (char*)ctx.allocator->alloc(baseName.length() + 2);
+	sprintf(name, "%.*s$", FMT_ISTR(baseName));
+
+	return InplaceStr(name);
+}
+
+HashMap<FunctionData*>::Node* GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type)
+{
+	TypeClass *classType = getType<TypeClass>(type);
+
+	unsigned hash = StringHashContinue(type->nameHash, "::");
+
+	if(classType)
+	{
+		InplaceStr functionName = GetTypeConstructorName(classType);
+
+		hash = StringHashContinue(hash, functionName.begin, functionName.end);
+	}
+	else
+	{
+		hash = StringHashContinue(hash, type->name.begin, type->name.end);
+	}
+
+	if(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash))
+		return node;
+
+	if(classType && classType->proto)
+	{
+		// Look for a member function in a generic class base and instantiate them
+		unsigned hash = StringHashContinue(classType->proto->nameHash, "::");
+
+		hash = StringHashContinue(hash, classType->proto->name.begin, classType->proto->name.end);
+
+		if(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash))
+			return node;
+	}
+
+	if(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(StringHashContinue(hash, "$")))
+		return node;
+
+	if(classType && classType->proto)
+	{
+		// Look for a member function in a generic class base and instantiate them
+		unsigned hash = StringHashContinue(classType->proto->nameHash, "::");
+
+		hash = StringHashContinue(hash, classType->proto->name.begin, classType->proto->name.end);
+
+		if(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(StringHashContinue(hash, "$")))
+			return node;
+	}
+
+	return NULL;
+}
+
+ExprBase* GetTypeConstructors(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *context)
+{
+	if(HashMap<FunctionData*>::Node *node = GetTypeConstructorFunctions(ctx, type))
+		return CreateFunctionAccess(ctx, source, node, context);
+
+	return NULL;
+}
+
+bool HasDefautConstructor(ExpressionContext &ctx, SynBase *source, TypeBase *type)
+{
+	// Find array element type
+	while(TypeArray *arrType = getType<TypeArray>(type))
+		type = arrType->subType;
+
+	if(HashMap<FunctionData*>::Node *node = GetTypeConstructorFunctions(ctx, type))
+	{
+		SmallArray<FunctionValue, 32> functions(ctx.allocator);
+
+		for(HashMap<FunctionData*>::Node *curr = node; curr; curr = ctx.functionMap.next(curr))
+			functions.push_back(FunctionValue(curr->value, allocate(ExprNullptrLiteral)(source, curr->value->contextType)));
+
+		SmallArray<unsigned, 32> ratings(ctx.allocator);
+		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+
+		if(FunctionValue bestOverload = SelectBestFunction(ctx, source, functions, IntrusiveList<TypeHandle>(), arguments, ratings))
+			return true;
+
+		return false;
+	}
+
+	return false;
+}
+
+ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *pointer)
+{
+	assert(isType<TypeRef>(pointer->type));
+
+	if(TypeArray *arrType = getType<TypeArray>(type))
+	{
+		type = arrType->subType;
+
+		if(HasDefautConstructor(ctx, source, type))
+		{
+			VariableData *value = AllocateTemporary(ctx, source, pointer->type);
+
+			ExprBase *valueInit = allocate(ExprVariableDefinition)(source, ctx.typeVoid, value, CreateAssignment(ctx, source, allocate(ExprVariableAccess)(source, value->type, value), pointer));
+
+			ctx.PushLoopScope();
+
+			// Create initializer
+			VariableData *iterator = AllocateTemporary(ctx, source, ctx.typeInt);
+
+			ExprBase *iteratorInit = CreateAssignment(ctx, source, allocate(ExprVariableAccess)(source, iterator->type, iterator), allocate(ExprIntegerLiteral)(source, ctx.typeInt, 0));
+
+			ExprBase *initializer = allocate(ExprVariableDefinition)(source, ctx.typeVoid, iterator, iteratorInit);
+
+			// Create condition
+			ExprBase *condition = CreateBinaryOp(ctx, source, SYN_BINARY_OP_LESS, allocate(ExprVariableAccess)(source, iterator->type, iterator), allocate(ExprIntegerLiteral)(source, ctx.typeInt, arrType->length));
+
+			// Create increment
+			ExprBase *increment = allocate(ExprPreModify)(source, ctx.typeInt, allocate(ExprGetAddress)(source, ctx.GetReferenceType(ctx.typeInt), iterator), true);
+
+			// Create body
+			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+			arguments.push_back(ArgumentData(source, false, InplaceStr(), ctx.typeInt, allocate(ExprVariableAccess)(source, iterator->type, iterator)));
+
+			ExprBase *element = CreateArrayIndex(ctx, source, allocate(ExprVariableAccess)(source, value->type, value), arguments);
+
+			ExprBase *body = CreateDefaultConstructorCall(ctx, source, type, CreateGetAddress(ctx, source, element));
+
+			assert(body);
+
+			ctx.PopScope();
+
+			return CreateSequence(ctx, source, valueInit, allocate(ExprFor)(source, ctx.typeVoid, initializer, condition, increment, body));
+		}
+
+		return NULL;
+	}
+
+	if(ExprBase *constructor = GetTypeConstructors(ctx, source, type, pointer))
+	{
+		// Collect a set of available functions
+		SmallArray<FunctionValue, 32> functions(ctx.allocator);
+
+		GetNodeFunctions(ctx, source, constructor, functions);
+
+		return CreateFunctionCall(ctx, source, constructor, functions, IntrusiveList<TypeHandle>(), NULL, false);
+	}
+
+	return NULL;
+}
+
+void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, ExprClassDefinition *classDefinition)
+{
+	TypeClass *classType = classDefinition->classType;
+
+	// Check if custom default assignment operator is required
+	bool customConstructor = false;
+
+	if(classType->extendable)
+	{
+		customConstructor = true;
+	}
+	else
+	{
+		for(VariableHandle *el = classType->members.head; el; el = el->next)
+		{
+			TypeBase *base = el->variable->type;
+
+			// Find array element type
+			while(TypeArray *arrType = getType<TypeArray>(base))
+				base = arrType->subType;
+
+			if(HasDefautConstructor(ctx, source, base))
+			{
+				customConstructor = true;
+				break;
+			}
+		}
+	}
+
+	if(customConstructor)
+	{
+		bool addedParentScope = RestoreParentTypeScope(ctx, source, classType);
+
+		InplaceStr functionName = GetFunctionNameInScope(ctx, ctx.scope, classType, GetTypeDefaultConstructorName(ctx, classType), false, false);
+
+		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+
+		FunctionData *function = allocate(FunctionData)(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(ctx.typeVoid, arguments), ctx.GetReferenceType(classType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+
+		ctx.AddFunction(function);
+
+		ctx.PushScope(function);
+
+		function->functionScope = ctx.scope;
+
+		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, source, function);
+
+		IntrusiveList<ExprBase> expressions;
+
+		for(VariableHandle *el = classType->members.head; el; el = el->next)
+		{
+			VariableData *variable = el->variable;
+
+			ExprBase *member = CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, variable, true));
+
+			if(variable->name == InplaceStr("$typeid"))
+			{
+				expressions.push_back(CreateAssignment(ctx, source, member, allocate(ExprTypeLiteral)(source, ctx.typeTypeID, classType)));
+				continue;
+			}
+
+			if(HasDefautConstructor(ctx, source, variable->type))
+			{
+				if(ExprBase *call = CreateDefaultConstructorCall(ctx, source, variable->type, member))
+					expressions.push_back(call);
+			}
+		}
+
+		ctx.PopScope();
+
+		if(addedParentScope)
+			ctx.PopScope();
+
+		ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function);
+
+		function->declaration = allocate(ExprFunctionDefinition)(source, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), expressions, contextVariableDefinition);
+
+		ctx.definitions.push_back(function->declaration);
+
+		classDefinition->functions.push_back(function->declaration);
+	}
+}
+
+void CreateDefaultClassMembers(ExpressionContext &ctx, SynBase *source, ExprClassDefinition *classDefinition)
+{
+	CreateDefaultClassConstructor(ctx, source, classDefinition);
+}
+
 void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassStaticIf *syntax)
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
@@ -6211,6 +6409,8 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 	if(classType->size >= 64 * 1024)
 		Stop(ctx, syntax->pos, "ERROR: class size cannot exceed 65535 bytes");
+
+	CreateDefaultClassMembers(ctx, syntax, classDefinition);
 
 	return classDefinition;
 }
@@ -6498,8 +6698,6 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 			// Create initializer
 			VariableData *iterator = AllocateTemporary(ctx, curr, ctx.typeInt);
-
-			ctx.AddVariable(iterator);
 
 			ExprBase *iteratorAssignment = CreateAssignment(ctx, curr, allocate(ExprVariableAccess)(curr, iterator->type, iterator), allocate(ExprIntegerLiteral)(curr, ctx.typeInt, 0));
 
