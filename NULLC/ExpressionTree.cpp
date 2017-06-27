@@ -4854,7 +4854,19 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *count = AnalyzeExpression(ctx, syntax->count);
 
-		return allocate(ExprTypeCast)(syntax, ctx.GetUnsizedArrayType(type), CreateFunctionCall(ctx, syntax, InplaceStr("__newA"), size, count, typeId, false), EXPR_CAST_REINTERPRET);
+		ExprBase *alloc = allocate(ExprTypeCast)(syntax, ctx.GetUnsizedArrayType(type), CreateFunctionCall(ctx, syntax, InplaceStr("__newA"), size, count, typeId, false), EXPR_CAST_REINTERPRET);
+
+		if(HasDefautConstructor(ctx, syntax, type))
+		{
+			VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
+
+			ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, allocate(ExprVariableAccess)(syntax, variable->type, variable), alloc));
+
+			if(ExprBase *call = CreateDefaultConstructorCall(ctx, syntax, variable->type, CreateVariableAccess(ctx, syntax, variable, true)))
+				return CreateSequence(ctx, syntax, definition, call, CreateVariableAccess(ctx, syntax, variable, true));
+		}
+
+		return alloc;
 	}
 
 	ExprBase *alloc = allocate(ExprTypeCast)(syntax, ctx.GetReferenceType(type), CreateFunctionCall(ctx, syntax, InplaceStr("__newS"), size, typeId, false), EXPR_CAST_REINTERPRET);
@@ -5981,11 +5993,14 @@ bool HasDefautConstructor(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 
 ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *pointer)
 {
-	assert(isType<TypeRef>(pointer->type));
+	assert(isType<TypeRef>(pointer->type) || isType<TypeUnsizedArray>(pointer->type));
 
-	if(TypeArray *arrType = getType<TypeArray>(type))
+	if(isType<TypeArray>(type) || isType<TypeUnsizedArray>(type))
 	{
-		type = arrType->subType;
+		if(TypeArray *arrType = getType<TypeArray>(type))
+			type = arrType->subType;
+		else if(TypeUnsizedArray *arrType = getType<TypeUnsizedArray>(type))
+			type = arrType->subType;
 
 		if(HasDefautConstructor(ctx, source, type))
 		{
@@ -6003,7 +6018,8 @@ ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, 
 			ExprBase *initializer = allocate(ExprVariableDefinition)(source, ctx.typeVoid, iterator, iteratorInit);
 
 			// Create condition
-			ExprBase *condition = CreateBinaryOp(ctx, source, SYN_BINARY_OP_LESS, allocate(ExprVariableAccess)(source, iterator->type, iterator), allocate(ExprIntegerLiteral)(source, ctx.typeInt, arrType->length));
+			ExprBase *size = CreateMemberAccess(ctx, source, allocate(ExprVariableAccess)(source, value->type, value), InplaceStr("size"), false);
+			ExprBase *condition = CreateBinaryOp(ctx, source, SYN_BINARY_OP_LESS, allocate(ExprVariableAccess)(source, iterator->type, iterator), size);
 
 			// Create increment
 			ExprBase *increment = allocate(ExprPreModify)(source, ctx.typeInt, allocate(ExprGetAddress)(source, ctx.GetReferenceType(ctx.typeInt), iterator), true);
