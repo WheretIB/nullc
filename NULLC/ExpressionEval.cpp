@@ -2419,6 +2419,35 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, jmpOffset->value == 0));
 			}
+			else if(ptr->data->name == InplaceStr("assert_derived_from_base") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && arguments[1]->type == ctx.ctx.typeTypeID)
+			{
+				ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(arguments[0]);
+				ExprTypeLiteral *base = getType<ExprTypeLiteral>(arguments[1]);
+
+				if(!ptr)
+					return CheckType(expression, allocate(ExprNullptrLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+
+				assert(ptr->end - ptr->ptr >= sizeof(unsigned));
+
+				ExprTypeLiteral *derived = getType<ExprTypeLiteral>(CreateLoad(ctx, allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeTypeID), ptr->ptr, ptr->end)));
+
+				assert(derived);
+
+				TypeBase *curr = derived->value;
+
+				while(curr)
+				{
+					if(curr == base->value)
+						return allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(curr), ptr->ptr, ptr->ptr + curr->size);
+
+					if(TypeClass *classType = getType<TypeClass>(curr))
+						curr = classType->baseClass;
+					else
+						curr = NULL;
+				}
+
+				return Report(ctx, "ERROR: cannot convert from '%.*s' to '%.*s'", FMT_ISTR(derived->value->name), FMT_ISTR(base->value->name));
+			}
 		}
 
 		return Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(ptr->data->name));
