@@ -5125,8 +5125,15 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 		Stop(ctx, syntax->pos, "ERROR: initializer is required to resolve generic type '%.*s'", FMT_ISTR(type->name));
 	}
 
-	if(alignment == 0 && type->alignment != 0)
-		alignment = type->alignment;
+	if(alignment == 0)
+	{
+		TypeBase *parentType = ctx.scope->ownerType;
+
+		if(parentType && parentType->alignment != 0 && parentType->alignment < type->alignment)
+			alignment = parentType->alignment;
+		else
+			alignment = type->alignment;
+	}
 
 	// Fixup variable data not that the final type is known
 	unsigned offset = AllocateVariableInScope(ctx, syntax, alignment, type);
@@ -6477,7 +6484,9 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 		for(ConstantData *el = baseClass->constants.head; el; el = el->next)
 			classType->constants.push_back(allocate(ConstantData)(el->name, el->value));
 
-		assert(classType->size == baseClass->size - baseClass->padding);
+		FinalizeAlignment(classType);
+
+		assert(classType->size == baseClass->size);
 	}
 
 	if(syntax->align)
