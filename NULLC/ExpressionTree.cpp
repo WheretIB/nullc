@@ -5546,6 +5546,13 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			code.push_back(allocate(ExprVariableDefinition)(source, ctx.typeVoid, function->contextArgument, NULL));
 		}
 
+		// If this is a custom default constructor, add a prolog
+		if(TypeClass *classType = getType<TypeClass>(function->scope->ownerType))
+		{
+			if(GetTypeConstructorName(classType) == name)
+				CreateDefaultConstructorCode(ctx, source, classType, code);
+		}
+
 		for(SynBase *expression = expressions.head; expression; expression = expression->next)
 			code.push_back(AnalyzeStatement(ctx, expression));
 
