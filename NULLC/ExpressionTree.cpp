@@ -1159,7 +1159,7 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, TypeBase *type, IntrusiveList<MatchData> aliases);
 
 FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, SmallArray<FunctionValue, 32> &functions, IntrusiveList<TypeHandle> generics, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings);
-FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *source, FunctionValue proto, IntrusiveList<TypeHandle> generics, SmallArray<ArgumentData, 32> &arguments);
+FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *source, FunctionValue proto, IntrusiveList<TypeHandle> generics, SmallArray<ArgumentData, 32> &arguments, bool standalone);
 void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *function, SmallArray<FunctionValue, 32> &functions);
 void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, SmallArray<FunctionValue, 32> &functions);
 void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, InplaceStr functionName, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo);
@@ -1268,7 +1268,7 @@ FunctionValue GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBa
 			FunctionData *function = bestOverload.function;
 
 			if(ctx.IsGenericFunction(function))
-				bestOverload = CreateGenericFunctionInstance(ctx, source, bestOverload, IntrusiveList<TypeHandle>(), arguments);
+				bestOverload = CreateGenericFunctionInstance(ctx, source, bestOverload, IntrusiveList<TypeHandle>(), arguments, false);
 
 			if(bestOverload)
 			{
@@ -4279,14 +4279,19 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, SmallA
 			FunctionData *function = functions[i].function;
 
 			if(ctx.IsGenericFunction(function))
+			{
+				if(bestRating != ~0u && ratings[i] == bestRating && functions[i].context->type == ctx.typeAutoRef)
+					CreateGenericFunctionInstance(ctx, source, functions[i], generics, arguments, true);
+
 				ratings[i] = ~0u;
+			}
 		}
 	}
 
 	return bestFunction;
 }
 
-FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *source, FunctionValue proto, IntrusiveList<TypeHandle> generics, SmallArray<ArgumentData, 32> &arguments)
+FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *source, FunctionValue proto, IntrusiveList<TypeHandle> generics, SmallArray<ArgumentData, 32> &arguments, bool standalone)
 {
 	FunctionData *function = proto.function;
 
@@ -4380,6 +4385,9 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		else
 			ctx.setup.push_back(definition->contextVariable);
 	}
+
+	if(standalone)
+		return FunctionValue();
 
 	ExprBase *context = proto.context;
 
@@ -4663,7 +4671,7 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 		if(ctx.IsGenericFunction(function))
 		{
-			bestOverload = CreateGenericFunctionInstance(ctx, source, bestOverload, generics, arguments);
+			bestOverload = CreateGenericFunctionInstance(ctx, source, bestOverload, generics, arguments, false);
 
 			function = bestOverload.function;
 
@@ -8286,7 +8294,7 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 				{
 					ExprBase *vtableAccess = allocate(ExprVariableAccess)(source, vtable->type, vtable);
 
-					ExprBase *typeId = allocate(ExprTypeLiteral)(source, ctx.typeTypeID, type);
+					ExprBase *typeId = allocate(ExprTypeLiteral)(source, ctx.typeTypeID, ctx.types[i]);
 
 					SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 					arguments.push_back(ArgumentData(source, false, InplaceStr(), ctx.typeInt, allocate(ExprTypeCast)(source, ctx.typeInt, typeId, EXPR_CAST_REINTERPRET)));
