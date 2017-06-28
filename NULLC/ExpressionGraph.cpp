@@ -175,7 +175,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 			if(printImported != data->imported)
 				continue;
 
-			PrintIndented(ctx, InplaceStr(), data->type, "%.*s: v%04x", FMT_ISTR(data->name), data->uniqueId);
+			PrintIndented(ctx, InplaceStr(), data->type, "%.*s: v%04x @ 0x%x", FMT_ISTR(data->name), data->uniqueId, data->offset);
 		}
 
 		PrintLeaveBlock(ctx);
@@ -590,7 +590,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 		PrintEnterBlock(ctx, InplaceStr("variables"), 0, "");
 
 		for(VariableHandle *value = node->classType->members.head; value; value = value->next)
-			PrintIndented(ctx, InplaceStr(), value->variable->type, "%.*s: v%04x", FMT_ISTR(value->variable->name), value->variable->uniqueId);
+			PrintIndented(ctx, InplaceStr(), value->variable->type, "%.*s: v%04x @ 0x%x", FMT_ISTR(value->variable->name), value->variable->uniqueId, value->variable->offset);
 
 		PrintLeaveBlock(ctx);
 
