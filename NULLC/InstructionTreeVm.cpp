@@ -1422,7 +1422,16 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 				assert(refType);
 
-				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateTypeIndex(module, refType->subType), value, NULL, NULL));
+				TypeClass *classType = getType<TypeClass>(refType->subType);
+
+				VmValue *typeId = NULL;
+
+				if(classType && (classType->extendable || classType->baseClass))
+					typeId = CreateLoad(ctx, module, ctx.typeTypeID, value);
+				else
+					typeId = CreateTypeIndex(module, refType->subType);
+
+				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), typeId, value, NULL, NULL));
 			}
 			break;
 		case EXPR_CAST_ANY_TO_PTR:

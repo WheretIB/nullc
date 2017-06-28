@@ -1080,7 +1080,23 @@ ExprBase* EvaluateCast(Eval &ctx, ExprTypeCast *expression)
 
 			assert(refType);
 
-			ExprBase *typeId = allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, refType->subType);
+			TypeClass *classType = getType<TypeClass>(refType->subType);
+
+			ExprBase *typeId = NULL;
+
+			if(classType && (classType->extendable || classType->baseClass))
+			{
+				ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(value);
+
+				assert(ptr);
+				assert(ptr->end - ptr->ptr >= 4);
+
+				typeId = CreateLoad(ctx, allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeTypeID), ptr->ptr, ptr->ptr + 4));
+			}
+			else
+			{
+				typeId = allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, refType->subType);
+			}
 
 			ExprBase *result = CreateConstruct(ctx, expression->type, typeId, value, NULL);
 
@@ -2118,7 +2134,7 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 			{
 				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, ctx.ctx.types.size()));
 			}
-			else if(ptr->data->name == InplaceStr("__redirect"))
+			else if(ptr->data->name == InplaceStr("__redirect") || ptr->data->name == InplaceStr("__redirect_ptr"))
 			{
 				ExprMemoryLiteral *autoRef = getType<ExprMemoryLiteral>(arguments[0]);
 				ExprPointerLiteral *tableRef = getType<ExprPointerLiteral>(arguments[1]);
@@ -2132,9 +2148,9 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				unsigned typeIndex = ctx.ctx.GetTypeIndex(typeID->value);
 
-				ExprBase *ptr = CreateExtract(ctx, autoRef, 4, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]));
+				ExprBase *context = CreateExtract(ctx, autoRef, 4, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]));
 
-				assert(ptr);
+				assert(context);
 
 				ExprBase *tableRefLoad = CreateLoad(ctx, tableRef);
 
@@ -2159,9 +2175,14 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 				FunctionData *data = index != 0 ? ctx.ctx.functions[index - 1] : NULL;
 
 				if(!data)
-					return Report(ctx, "ERROR: type '%.*s' doesn't implement method", FMT_ISTR(ctx.ctx.types[typeIndex]->name));
+				{
+					if(ptr->data->name == InplaceStr("__redirect_ptr"))
+						return CheckType(expression, allocate(ExprFunctionLiteral)(expression->source, expression->type, NULL, allocate(ExprNullptrLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]))));
 
-				return CheckType(expression, allocate(ExprFunctionLiteral)(expression->source, expression->type, data, ptr));
+					return Report(ctx, "ERROR: type '%.*s' doesn't implement method", FMT_ISTR(ctx.ctx.types[typeIndex]->name));
+				}
+
+				return CheckType(expression, allocate(ExprFunctionLiteral)(expression->source, expression->type, data, context));
 			}
 			else if(ptr->data->name == InplaceStr("duplicate") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
 			{

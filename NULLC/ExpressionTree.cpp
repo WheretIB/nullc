@@ -2920,7 +2920,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 	return NULL;
 }
 
-ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name)
+ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, TypeClass *preferredParent)
 {
 	IntrusiveList<TypeHandle> types;
 	IntrusiveList<FunctionHandle> functions;
@@ -2956,12 +2956,20 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 		if(found)
 			continue;
 
+		if(preferredParent && !IsDerivedFrom(preferredParent, getType<TypeClass>(parentType)))
+			continue;
+
 		types.push_back(allocate(TypeHandle)(function->type));
 		functions.push_back(allocate(FunctionHandle)(function));
 	}
 
 	if(functions.empty())
+	{
+		if(value->type != ctx.typeAutoRef)
+			return NULL;
+
 		Stop(ctx, source->pos, "ERROR: function '%.*s' is undefined in any of existing classes", FMT_ISTR(name));
+	}
 
 	TypeFunctionSet *type = allocate(TypeFunctionSet)(GetFunctionSetTypeName(ctx, types), types);
 
@@ -3039,8 +3047,15 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		}
 
 		if(value->type == ctx.typeAutoRef)
+			return CreateAutoRefFunctionSet(ctx, source, value, name, NULL);
+
+		if(TypeClass *classType = getType<TypeClass>(value->type))
 		{
-			return CreateAutoRefFunctionSet(ctx, source, value, name);
+			if(classType->baseClass != NULL || classType->extendable)
+			{
+				if(ExprBase *overloads = CreateAutoRefFunctionSet(ctx, source, wrapped, name, classType))
+					return overloads;
+			}
 		}
 
 		// Look for a member function
@@ -4114,6 +4129,36 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 	longjmp(ctx.errorHandler, 1);
 }
 
+bool IsVirtualFunctionCall(ExpressionContext &ctx, FunctionData *function, TypeBase *type)
+{
+	assert(function);
+
+	if(type == ctx.typeAutoRef)
+		return true;
+
+	if(TypeRef *refType = getType<TypeRef>(type))
+	{
+		if(TypeClass *classType = getType<TypeClass>(refType->subType))
+		{
+			if(classType->extendable || classType->baseClass != NULL)
+			{
+				unsigned hash = StringHashContinue(classType->nameHash, "::");
+
+				InplaceStr constructor = GetTypeConstructorName(classType);
+
+				hash = StringHashContinue(hash, constructor.begin, constructor.end);
+
+				if(function->nameHash == hash || function->nameHash == StringHashContinue(hash, "$"))
+					return false;
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, SmallArray<FunctionValue, 32> &functions, IntrusiveList<TypeHandle> generics, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings)
 {
 	ratings.resize(functions.size());
@@ -4625,7 +4670,7 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 			type = getType<TypeFunction>(function->type);
 		}
 
-		if(bestOverload.context->type == ctx.typeAutoRef)
+		if(IsVirtualFunctionCall(ctx, function, bestOverload.context->type))
 		{
 			ExprBase *table = GetFunctionTable(ctx, source, bestOverload.function);
 
@@ -5054,7 +5099,7 @@ ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprB
 		{
 			FunctionData *function = node->functions.head->function;
 
-			if(node->context->type == ctx.typeAutoRef)
+			if(IsVirtualFunctionCall(ctx, function, node->context->type))
 			{
 				ExprBase *table = GetFunctionTable(ctx, source, function);
 

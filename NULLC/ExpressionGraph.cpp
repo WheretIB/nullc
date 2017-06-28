@@ -733,6 +733,13 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		ctx.skipFunctionDefinitions = true;
 
+		PrintEnterBlock(ctx, InplaceStr("setup"), 0, "");
+
+		for(ExprBase *value = node->setup.head; value; value = value->next)
+			PrintGraph(ctx, value, "");
+
+		PrintLeaveBlock(ctx);
+
 		PrintEnterBlock(ctx, InplaceStr("expressions"), 0, "");
 
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
