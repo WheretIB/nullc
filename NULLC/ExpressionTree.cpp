@@ -1141,10 +1141,12 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, bool allowFailure);
 
 InplaceStr GetTypeConstructorName(TypeClass *classType);
-HashMap<FunctionData*>::Node* GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type);
-ExprBase* GetTypeConstructors(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *context);
+bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, SmallArray<FunctionData*, 32> &functions);
+ExprBase* CreateConstructorAccess(ExpressionContext &ctx, SynBase *source, SmallArray<FunctionData*, 32> &functions, ExprBase *context);
+ExprBase* CreateConstructorAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *context);
 bool HasDefautConstructor(ExpressionContext &ctx, SynBase *source, TypeBase *type);
 ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *pointer);
+void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeClass *classType, IntrusiveList<ExprBase> &expressions);
 
 InplaceStr GetTemporaryFunctionName(ExpressionContext &ctx);
 TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, InplaceStr functionName);
@@ -4802,7 +4804,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 			ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, NULL);
 
-			ExprBase *constructor = GetTypeConstructors(ctx, syntax, type->value, pointer);
+			ExprBase *constructor = CreateConstructorAccess(ctx, syntax, type->value, pointer);
 
 			if(!constructor && syntax->arguments.empty())
 			{
@@ -4876,15 +4878,15 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 	TypeBase *parentType = allocType->subType;
 
-	HashMap<FunctionData*>::Node *constructor = GetTypeConstructorFunctions(ctx, parentType);
+	SmallArray<FunctionData*, 32> functions(ctx.allocator);
 
-	if(constructor)
+	if(GetTypeConstructorFunctions(ctx, parentType, functions))
 	{
 		VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
 
 		ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, allocate(ExprVariableAccess)(syntax, variable->type, variable), alloc));
 
-		ExprBase *overloads = CreateFunctionAccess(ctx, syntax, constructor, allocate(ExprVariableAccess)(syntax, variable->type, variable));
+		ExprBase *overloads = CreateConstructorAccess(ctx, syntax, functions, allocate(ExprVariableAccess)(syntax, variable->type, variable));
 
 		if(ExprBase *call = CreateFunctionCall(ctx, syntax, overloads, IntrusiveList<TypeHandle>(), syntax->arguments.head, syntax->arguments.empty()))
 		{
@@ -4895,10 +4897,6 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 			expressions.push_back(allocate(ExprVariableAccess)(syntax, variable->type, variable));
 
 			alloc = allocate(ExprSequence)(syntax, allocType, expressions);
-		}
-		else
-		{
-			// TODO: default constructor call
 		}
 	}
 	else if(syntax->arguments.size() == 1 && syntax->arguments.head->name.empty())
@@ -5910,7 +5908,18 @@ InplaceStr GetTypeDefaultConstructorName(ExpressionContext &ctx, TypeClass *clas
 	return InplaceStr(name);
 }
 
-HashMap<FunctionData*>::Node* GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type)
+bool ContainsSameOverload(SmallArray<FunctionData*, 32> &functions, FunctionData *value)
+{
+	for(unsigned i = 0; i < functions.size(); i++)
+	{
+		if(SameArguments(functions[i]->type, value->type))
+			return true;
+	}
+
+	return false;
+}
+
+bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, SmallArray<FunctionData*, 32> &functions)
 {
 	TypeClass *classType = getType<TypeClass>(type);
 
@@ -5927,8 +5936,11 @@ HashMap<FunctionData*>::Node* GetTypeConstructorFunctions(ExpressionContext &ctx
 		hash = StringHashContinue(hash, type->name.begin, type->name.end);
 	}
 
-	if(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash))
-		return node;
+	for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash); node; node = ctx.functionMap.next(node))
+	{
+		if(!ContainsSameOverload(functions, node->value))
+			functions.push_back(node->value);
+	}
 
 	if(classType && classType->proto)
 	{
@@ -5937,12 +5949,18 @@ HashMap<FunctionData*>::Node* GetTypeConstructorFunctions(ExpressionContext &ctx
 
 		hash = StringHashContinue(hash, classType->proto->name.begin, classType->proto->name.end);
 
-		if(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash))
-			return node;
+		for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash); node; node = ctx.functionMap.next(node))
+		{
+			if(!ContainsSameOverload(functions, node->value))
+				functions.push_back(node->value);
+		}
 	}
 
-	if(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(StringHashContinue(hash, "$")))
-		return node;
+	for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(StringHashContinue(hash, "$")); node; node = ctx.functionMap.next(node))
+	{
+		if(!ContainsSameOverload(functions, node->value))
+			functions.push_back(node->value);
+	}
 
 	if(classType && classType->proto)
 	{
@@ -5951,17 +5969,45 @@ HashMap<FunctionData*>::Node* GetTypeConstructorFunctions(ExpressionContext &ctx
 
 		hash = StringHashContinue(hash, classType->proto->name.begin, classType->proto->name.end);
 
-		if(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(StringHashContinue(hash, "$")))
-			return node;
+		for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(StringHashContinue(hash, "$")); node; node = ctx.functionMap.next(node))
+		{
+			if(!ContainsSameOverload(functions, node->value))
+				functions.push_back(node->value);
+		}
 	}
 
-	return NULL;
+	return !functions.empty();
 }
 
-ExprBase* GetTypeConstructors(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *context)
+ExprBase* CreateConstructorAccess(ExpressionContext &ctx, SynBase *source, SmallArray<FunctionData*, 32> &functions, ExprBase *context)
 {
-	if(HashMap<FunctionData*>::Node *node = GetTypeConstructorFunctions(ctx, type))
-		return CreateFunctionAccess(ctx, source, node, context);
+	if(functions.size() > 1)
+	{
+		IntrusiveList<TypeHandle> types;
+		IntrusiveList<FunctionHandle> handles;
+
+		for(unsigned i = 0; i < functions.size(); i++)
+		{
+			FunctionData *curr = functions[i];
+
+			types.push_back(allocate(TypeHandle)(curr->type));
+			handles.push_back(allocate(FunctionHandle)(curr));
+		}
+
+		TypeFunctionSet *type = allocate(TypeFunctionSet)(GetFunctionSetTypeName(ctx, types), types);
+
+		return allocate(ExprFunctionOverloadSet)(source, type, handles, context);
+	}
+
+	return allocate(ExprFunctionAccess)(source, functions[0]->type, functions[0], context);
+}
+
+ExprBase* CreateConstructorAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *context)
+{
+	SmallArray<FunctionData*, 32> functions(ctx.allocator);
+
+	if(GetTypeConstructorFunctions(ctx, type, functions))
+		return CreateConstructorAccess(ctx, source, functions, context);
 
 	return NULL;
 }
@@ -5972,17 +6018,23 @@ bool HasDefautConstructor(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 	while(TypeArray *arrType = getType<TypeArray>(type))
 		type = arrType->subType;
 
-	if(HashMap<FunctionData*>::Node *node = GetTypeConstructorFunctions(ctx, type))
-	{
-		SmallArray<FunctionValue, 32> functions(ctx.allocator);
+	SmallArray<FunctionData*, 32> functions(ctx.allocator);
 
-		for(HashMap<FunctionData*>::Node *curr = node; curr; curr = ctx.functionMap.next(curr))
-			functions.push_back(FunctionValue(curr->value, allocate(ExprNullptrLiteral)(source, curr->value->contextType)));
+	if(GetTypeConstructorFunctions(ctx, type, functions))
+	{
+		SmallArray<FunctionValue, 32> overloads(ctx.allocator);
+
+		for(unsigned i = 0; i < functions.size(); i++)
+		{
+			FunctionData *curr = functions[i];
+
+			overloads.push_back(FunctionValue(curr, allocate(ExprNullptrLiteral)(source, curr->contextType)));
+		}
 
 		SmallArray<unsigned, 32> ratings(ctx.allocator);
 		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
-		if(FunctionValue bestOverload = SelectBestFunction(ctx, source, functions, IntrusiveList<TypeHandle>(), arguments, ratings))
+		if(FunctionValue bestOverload = SelectBestFunction(ctx, source, overloads, IntrusiveList<TypeHandle>(), arguments, ratings))
 			return true;
 
 		return false;
@@ -6042,7 +6094,7 @@ ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, 
 		return NULL;
 	}
 
-	if(ExprBase *constructor = GetTypeConstructors(ctx, source, type, pointer))
+	if(ExprBase *constructor = CreateConstructorAccess(ctx, source, type, pointer))
 	{
 		// Collect a set of available functions
 		SmallArray<FunctionValue, 32> functions(ctx.allocator);
@@ -6053,6 +6105,28 @@ ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, 
 	}
 
 	return NULL;
+}
+
+void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeClass *classType, IntrusiveList<ExprBase> &expressions)
+{
+	for(VariableHandle *el = classType->members.head; el; el = el->next)
+	{
+		VariableData *variable = el->variable;
+
+		ExprBase *member = CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, variable, true));
+
+		if(variable->name == InplaceStr("$typeid"))
+		{
+			expressions.push_back(CreateAssignment(ctx, source, member, allocate(ExprTypeLiteral)(source, ctx.typeTypeID, classType)));
+			continue;
+		}
+
+		if(HasDefautConstructor(ctx, source, variable->type))
+		{
+			if(ExprBase *call = CreateDefaultConstructorCall(ctx, source, variable->type, member))
+				expressions.push_back(call);
+		}
+	}
 }
 
 void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, ExprClassDefinition *classDefinition)
@@ -6104,24 +6178,7 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 
 		IntrusiveList<ExprBase> expressions;
 
-		for(VariableHandle *el = classType->members.head; el; el = el->next)
-		{
-			VariableData *variable = el->variable;
-
-			ExprBase *member = CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, variable, true));
-
-			if(variable->name == InplaceStr("$typeid"))
-			{
-				expressions.push_back(CreateAssignment(ctx, source, member, allocate(ExprTypeLiteral)(source, ctx.typeTypeID, classType)));
-				continue;
-			}
-
-			if(HasDefautConstructor(ctx, source, variable->type))
-			{
-				if(ExprBase *call = CreateDefaultConstructorCall(ctx, source, variable->type, member))
-					expressions.push_back(call);
-			}
-		}
+		CreateDefaultConstructorCode(ctx, source, classType, expressions);
 
 		ctx.PopScope();
 
