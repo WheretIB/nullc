@@ -2268,6 +2268,16 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, result);
 			}
+			else if(ptr->data->name == InplaceStr("typeid") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
+			{
+				ExprMemoryLiteral *reference = getType<ExprMemoryLiteral>(arguments[0]);
+
+				assert(reference);
+
+				ExprTypeLiteral *typeID = getType<ExprTypeLiteral>(CreateExtract(ctx, reference, 0, ctx.ctx.typeTypeID));
+
+				return CheckType(expression, typeID);
+			}
 			else if(ptr->data->name == InplaceStr("auto_array") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeTypeID && arguments[1]->type == ctx.ctx.typeInt)
 			{
 				ExprTypeLiteral *type = getType<ExprTypeLiteral>(arguments[0]);
