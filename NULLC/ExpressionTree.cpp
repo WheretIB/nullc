@@ -2346,9 +2346,24 @@ ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, F
 {
 	assert(!function->scope->ownerType);
 
+	bool inFunctionScope = false;
+
+	// Walk up, but if we reach a type owner, stop - we're not in a context of a function
+	for(ScopeData *curr = ctx.scope; curr; curr = curr->scope)
+	{
+		if(curr->ownerType)
+			break;
+
+		if(curr->ownerFunction == function)
+		{
+			inFunctionScope = true;
+			break;
+		}
+	}
+
 	ExprBase *context = NULL;
 
-	if(ctx.GetCurrentFunction() == function)
+	if(inFunctionScope)
 		context = CreateVariableAccess(ctx, source, function->contextArgument, true);
 	else if(function->contextVariable)
 		context = CreateVariableAccess(ctx, source, function->contextVariable, true);
