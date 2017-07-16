@@ -96,8 +96,6 @@ enum VmInstructionType
 	VM_INST_BIT_AND,
 	VM_INST_BIT_OR,
 	VM_INST_BIT_XOR,
-	VM_INST_LOG_AND,
-	VM_INST_LOG_OR,
 	VM_INST_LOG_XOR,
 
 	VM_INST_NEG,
@@ -113,19 +111,21 @@ enum VmInstructionType
 	VM_INST_EXTRACT, // Pseudo instruction to extract an element from a composite value
 };
 
-enum VmOptimizationType
+enum VmPassType
 {
-	VM_OPT_PEEPHOLE,
-	VM_OPT_CONSTANT_PROPAGATION,
-	VM_OPT_DEAD_CODE_ELIMINATION,
-	VM_OPT_CONTROL_FLOW_SIPLIFICATION,
-	VM_OPT_LOAD_STORE_PROPAGATION,
-	VM_OPT_COMMON_SUBEXPRESSION_ELIMINATION,
+	VM_PASS_OPT_PEEPHOLE,
+	VM_PASS_OPT_CONSTANT_PROPAGATION,
+	VM_PASS_OPT_DEAD_CODE_ELIMINATION,
+	VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION,
+	VM_PASS_OPT_LOAD_STORE_PROPAGATION,
+	VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION,
+
+	VM_PASS_LEGALIZE_STACK_VM_REGS,
 };
 
 struct VmType
 {
-	VmType(VmValueType type, unsigned size): type(type), size(size)
+	VmType(VmValueType type, unsigned size, TypeBase *structType): type(type), size(size), structType(structType)
 	{
 	}
 
@@ -141,22 +141,43 @@ struct VmType
 	VmValueType type;
 	unsigned size;
 
+	TypeBase *structType;
+
 	static const VmType Void;
 	static const VmType Int;
 	static const VmType Double;
 	static const VmType Long;
 	static const VmType Label;
-	static const VmType Pointer;
-	static const VmType FunctionRef;
-	static const VmType ArrayRef;
 	static const VmType AutoRef;
 	static const VmType AutoArray;
 
-	static const VmType Struct(long long size)
+	static const VmType Pointer(TypeBase *structType)
+	{
+		assert(structType);
+
+		return VmType(VM_TYPE_POINTER, NULLC_PTR_SIZE, structType);
+	}
+
+	static const VmType FunctionRef(TypeBase *structType)
+	{
+		assert(structType);
+
+		return VmType(VM_TYPE_FUNCTION_REF, NULLC_PTR_SIZE + 4, structType);
+	}
+
+	static const VmType ArrayRef(TypeBase *structType)
+	{
+		assert(structType);
+
+		return VmType(VM_TYPE_ARRAY_REF, NULLC_PTR_SIZE + 4, structType);
+	}
+
+	static const VmType Struct(long long size, TypeBase *structType)
 	{
 		assert(unsigned(size) == size);
+		assert(structType);
 
-		return VmType(VM_TYPE_STRUCT, unsigned(size));
+		return VmType(VM_TYPE_STRUCT, unsigned(size), structType);
 	}
 };
 
@@ -166,6 +187,8 @@ struct VmValue
 	{
 		hasSideEffects = false;
 		hasMemoryAccess = false;
+
+		canBeRemoved = true;
 	}
 
 	virtual ~VmValue()
@@ -183,6 +206,8 @@ struct VmValue
 
 	bool hasSideEffects;
 	bool hasMemoryAccess;
+
+	bool canBeRemoved;
 
 	SmallArray<VmValue*, 8> users;
 };
@@ -260,6 +285,10 @@ struct VmBlock: VmValue
 
 		firstInstruction = NULL;
 		lastInstruction = NULL;
+
+		insertPoint = NULL;
+
+		address = ~0u;
 	}
 
 	void AddInstruction(VmInstruction* instruction);
@@ -277,6 +306,10 @@ struct VmBlock: VmValue
 	VmInstruction *firstInstruction;
 	VmInstruction *lastInstruction;
 
+	VmInstruction *insertPoint;
+
+	unsigned address;
+
 	static const unsigned myTypeID = __LINE__;
 };
 
@@ -289,6 +322,8 @@ struct VmFunction: VmValue
 
 		next = NULL;
 		listed = false;
+
+		address = ~0u;
 	}
 
 	void AddBlock(VmBlock *block);
@@ -304,6 +339,8 @@ struct VmFunction: VmValue
 
 	VmFunction *next;
 	bool listed;
+
+	unsigned address;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -411,4 +448,4 @@ VmType GetVmType(ExpressionContext &ctx, TypeBase *type);
 VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expression);
 VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression);
 
-void RunOptimizationPass(VmModule *module, VmOptimizationType type);
+void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type);

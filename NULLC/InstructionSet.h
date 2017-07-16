@@ -313,8 +313,14 @@ struct VMCmd
 			break;
 
 		case cmdPop:
+			curr += sprintf(curr, " sizeof(%d)", argument);
+			break;
 		case cmdIndex:
+			curr += sprintf(curr, " limit(%d) sizeof(%d)", argument, helper);
+			break;
 		case cmdIndexStk:
+			curr += sprintf(curr, " sizeof(%d)", helper);
+			break;
 		case cmdGetAddr:
 		case cmdFuncAddr:
 		case cmdPushVTop:

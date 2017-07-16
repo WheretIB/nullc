@@ -17,6 +17,12 @@ void Print(InstructionVMGraphContext &ctx, const char *format, ...)
 	va_end(args);
 }
 
+void PrintIndent(InstructionVMGraphContext &ctx)
+{
+	for(unsigned i = 0; i < ctx.depth; i++)
+		fprintf(ctx.file, "  ");
+}
+
 void PrintLine(InstructionVMGraphContext &ctx)
 {
 	fprintf(ctx.file, "\n");
@@ -46,18 +52,18 @@ void PrintType(InstructionVMGraphContext &ctx, VmType type)
 		Print(ctx, "long");
 	else if(type == VmType::Label)
 		Print(ctx, "label");
-	else if(type == VmType::Pointer)
+	else if(type.type == VM_TYPE_POINTER)
 		Print(ctx, "ptr");
-	else if(type == VmType::FunctionRef)
+	else if(type.type == VM_TYPE_FUNCTION_REF)
 		Print(ctx, "func_ref");
-	else if(type == VmType::ArrayRef)
-		Print(ctx, "arr_ref");
+	else if(type.type == VM_TYPE_ARRAY_REF)
+		Print(ctx, "array_ref");
 	else if(type == VmType::AutoRef)
-		Print(ctx, "auto_ref");
+		Print(ctx, "auto ref");
 	else if(type == VmType::AutoArray)
-		Print(ctx, "auto_arr");
+		Print(ctx, "auto[]");
 	else if(type.type == VM_TYPE_STRUCT)
-		Print(ctx, "struct(%d)", type.size);
+		Print(ctx, "%.*s", FMT_ISTR(type.structType->name));
 	else
 		assert(!"unknown type");
 }
@@ -138,29 +144,17 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 		Print(ctx, "%f", constant->dValue);
 	else if(constant->type == VmType::Long)
 		Print(ctx, "%lldl", constant->lValue);
-	else if(constant->type == VmType::Pointer)
+	else if(constant->type.type == VM_TYPE_POINTER)
 		Print(ctx, "%s0x%x", constant->isFrameOffset ? "base+" : "", constant->iValue);
 	else if(constant->type.type == VM_TYPE_STRUCT)
-		Print(ctx, "{ %d bytes }", constant->type.size);
+		Print(ctx, "{ %.*s }", FMT_ISTR(constant->type.structType->name));
 	else
 		assert(!"unknown type");
 }
 
-void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction)
+void PrintInstructionName(InstructionVMGraphContext &ctx, VmInstructionType cmd)
 {
-	PrintUsers(ctx, instruction, false);
-
-	if(instruction->type != VmType::Void)
-	{
-		PrintType(ctx, instruction->type);
-
-		if(!instruction->comment.empty())
-			Print(ctx, " %%%d (%.*s) = ", instruction->uniqueId, FMT_ISTR(instruction->comment));
-		else
-			Print(ctx, " %%%d = ", instruction->uniqueId);
-	}
-
-	switch(instruction->cmd)
+	switch(cmd)
 	{
 	case VM_INST_LOAD_BYTE:
 		Print(ctx, "loadb");
@@ -309,12 +303,6 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 	case VM_INST_BIT_XOR:
 		Print(ctx, "xor");
 		break;
-	case VM_INST_LOG_AND:
-		Print(ctx, "land");
-		break;
-	case VM_INST_LOG_OR:
-		Print(ctx, "lor");
-		break;
 	case VM_INST_LOG_XOR:
 		Print(ctx, "lxor");
 		break;
@@ -348,23 +336,70 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 	default:
 		assert(!"unknown instruction");
 	}
+}
 
-	for(unsigned i = 0; i < instruction->arguments.size(); i++)
+void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction)
+{
+	PrintUsers(ctx, instruction, false);
+
+	if(instruction->type != VmType::Void)
 	{
-		VmValue *value = instruction->arguments[i];
+		PrintType(ctx, instruction->type);
 
-		if(value == instruction->arguments[0])
-			Print(ctx, " ");
+		if(!instruction->comment.empty())
+			Print(ctx, " %%%d (%.*s) = ", instruction->uniqueId, FMT_ISTR(instruction->comment));
 		else
-			Print(ctx, ", ");
-
-		PrintName(ctx, value, false);
+			Print(ctx, " %%%d = ", instruction->uniqueId);
 	}
 
-	if(instruction->type == VmType::Void && ctx.showUsers)
-		Print(ctx, " // %%%d", instruction->uniqueId);
+	PrintInstructionName(ctx, instruction->cmd);
 
-	PrintLine(ctx);
+	if(ctx.displayAsTree)
+	{
+		PrintLine(ctx);
+
+		ctx.depth++;
+
+		for(unsigned i = 0; i < instruction->arguments.size(); i++)
+		{
+			VmValue *value = instruction->arguments[i];
+
+			PrintIndent(ctx);
+
+			VmInstruction *inst = getType<VmInstruction>(value);
+
+			if(inst && !inst->users.empty())
+			{
+				PrintInstruction(ctx, inst);
+			}
+			else
+			{
+				PrintName(ctx, value, false);
+				PrintLine(ctx);
+			}
+		}
+
+		ctx.depth--;
+	}
+	else
+	{
+		for(unsigned i = 0; i < instruction->arguments.size(); i++)
+		{
+			VmValue *value = instruction->arguments[i];
+
+			if(value == instruction->arguments[0])
+				Print(ctx, " ");
+			else
+				Print(ctx, ", ");
+
+			PrintName(ctx, value, false);
+		}
+
+		if(instruction->type == VmType::Void && ctx.showUsers)
+			Print(ctx, " // %%%d", instruction->uniqueId);
+
+		PrintLine(ctx);
+	}
 }
 
 void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
@@ -373,11 +408,18 @@ void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 
 	PrintLine(ctx, "%.*s.b%d:", FMT_ISTR(block->name), block->uniqueId);
 
+	ctx.depth++;
+
 	for(VmInstruction *value = block->firstInstruction; value; value = value->nextSibling)
 	{
-		Print(ctx, "  ");
+		if(ctx.displayAsTree && !value->users.empty())
+			continue;
+
+		PrintIndent(ctx);
 		PrintInstruction(ctx, value);
 	}
+
+	ctx.depth--;
 
 	PrintLine(ctx);
 }

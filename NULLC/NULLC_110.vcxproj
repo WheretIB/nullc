@@ -198,6 +198,7 @@
     <ClCompile Include="ExpressionEval.cpp" />
     <ClCompile Include="InstructionTreeVm.cpp" />
     <ClCompile Include="InstructionTreeVmGraph.cpp" />
+    <ClCompile Include="InstructionTreeVmLower.cpp" />
     <ClCompile Include="nullc.cpp" />
     <ClCompile Include="ParseGraph.cpp" />
     <ClCompile Include="ParseTree.cpp" />
@@ -242,6 +243,7 @@
     <ClInclude Include="..\external\dyncall\dyncall.h" />
     <ClInclude Include="..\external\dyncall\dyncall_callvm.h" />
     <ClInclude Include="..\external\dyncall\dyncall_types.h" />
+    <ClInclude Include="Allocator.h" />
     <ClInclude Include="Array.h" />
     <ClInclude Include="BinaryCache.h" />
     <ClInclude Include="Bytecode.h" />
@@ -253,6 +255,7 @@
     <ClInclude Include="InstructionSet.h" />
     <ClInclude Include="InstructionTreeVm.h" />
     <ClInclude Include="InstructionTreeVmGraph.h" />
+    <ClInclude Include="InstructionTreeVmLower.h" />
     <ClInclude Include="IntrusiveList.h" />
     <ClInclude Include="nullbind.h" />
     <ClInclude Include="nullc.h" />

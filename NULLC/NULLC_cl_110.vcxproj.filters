@@ -83,6 +83,9 @@
     <ClCompile Include="InstructionTreeVmGraph.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
+    <ClCompile Include="InstructionTreeVmLower.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -161,6 +164,9 @@
       <Filter>Compiler</Filter>
     </ClInclude>
     <ClInclude Include="InstructionTreeVmGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVmLower.h">
       <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>

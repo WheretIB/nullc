@@ -15,12 +15,20 @@ struct InstructionVMGraphContext
 	{
 		file = 0;
 
+		depth = 0;
+
 		showUsers = false;
+
+		displayAsTree = false;
 	}
 
 	FILE *file;
 
+	unsigned depth;
+
 	bool showUsers;
+
+	bool displayAsTree;
 };
 
 void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant);
