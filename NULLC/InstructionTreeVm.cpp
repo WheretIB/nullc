@@ -20,20 +20,6 @@ namespace
 		return scope->ownerType != NULL;
 	}
 
-	bool IsGlobalScope(ScopeData *scope)
-	{
-		// Not a global scope if there is an enclosing function or a type
-		while(scope)
-		{
-			if(scope->ownerFunction || scope->ownerType)
-				return false;
-
-			scope = scope->scope;
-		}
-
-		return true;
-	}
-
 	bool DoesConstantIntegerMatch(VmValue* value, long long number)
 	{
 		if(VmConstant *constant = getType<VmConstant>(value))
@@ -116,12 +102,15 @@ namespace
 		return result;
 	}
 
-	VmValue* CreateConstantPointer(VmModule *module, int value, bool isFrameOffset, TypeBase *structType)
+	VmValue* CreateConstantPointer(VmModule *module, int value, VariableData *container, TypeBase *structType)
 	{
 		VmConstant *result = allocate(VmConstant)(module->allocator, VmType::Pointer(structType));
 
 		result->iValue = value;
-		result->isFrameOffset = isFrameOffset;
+		result->container = container;
+
+		if(container)
+			container->vmUseCount++;
 
 		return result;
 	}
@@ -633,11 +622,7 @@ namespace
 	{
 		assert(!IsMemberScope(variable->scope));
 
-		bool isFrameOffset = !IsGlobalScope(variable->scope);
-
-		VmValue *value = CreateConstantPointer(module, variable->offset, isFrameOffset, structType);
-
-		value->comment = variable->name;
+		VmValue *value = CreateConstantPointer(module, 0, variable, structType);
 
 		return value;
 	}
@@ -682,12 +667,26 @@ namespace
 		return CreateInstruction(module, type, VM_INST_EXTRACT, value, CreateConstantInt(module, offset));
 	}
 
-	VmValue* AllocateScopeVariable(ExpressionContext &ctx, VmModule *module, TypeBase *type, const char *suffix)
+	VmValue* CreateAlloca(ExpressionContext &ctx, VmModule *module, TypeBase *type, const char *suffix)
+	{
+		char *name = (char*)ctx.allocator->alloc(16);
+		sprintf(name, "$temp%d_%s", ctx.unnamedVariableCount++, suffix);
+
+		VariableData *variable = allocate(VariableData)(NULL, NULL, type->alignment, type, InplaceStr(name), 0, 0);
+
+		VmValue *value = CreateConstantPointer(module, 0, variable, ctx.GetReferenceType(variable->type));
+
+		module->currentFunction->allocas.push_back(variable);
+
+		return value;
+	}
+
+	ScopeData* AllocateScopeSlot(ExpressionContext &ctx, VmModule *module, TypeBase *type, unsigned &offset)
 	{
 		FunctionData *function = module->currentFunction->function;
 
 		ScopeData *scope = NULL;
-		unsigned offset = 0;
+		offset = 0;
 
 		if(function)
 		{
@@ -712,16 +711,19 @@ namespace
 
 		assert(scope);
 
-		char *name = (char*)ctx.allocator->alloc(16);
-		sprintf(name, "$temp%d_%s", ctx.unnamedVariableCount++, suffix);
+		return scope;
+	}
 
-		VariableData *variable = allocate(VariableData)(NULL, scope, type->alignment, type, InplaceStr(name), offset, 0);
+	void FinalizeAlloca(ExpressionContext &ctx, VmModule *module, VariableData *variable)
+	{
+		unsigned offset = 0;
+		ScopeData *scope = AllocateScopeSlot(ctx, module, variable->type, offset);
+
+		variable->offset = offset;
 
 		scope->variables.push_back(variable);
 
 		ctx.variables.push_back(variable);
-
-		return CreateVariableAddress(module, variable, ctx.GetReferenceType(variable->type));
 	}
 
 	void ChangeInstructionTo(VmModule *module, VmInstruction *inst, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth, unsigned *optCount)
@@ -855,7 +857,7 @@ namespace
 		module->loadStoreInfo.clear();
 	}
 
-	void ClearLoadStoreInfo(VmModule *module, bool isFrameOffset, unsigned storeOffset, unsigned storeSize)
+	void ClearLoadStoreInfo(VmModule *module, VariableData *container, unsigned storeOffset, unsigned storeSize)
 	{
 		assert(storeSize != 0);
 
@@ -877,7 +879,7 @@ namespace
 			assert(otherSize != 0);
 
 			// (a+aw >= b) && (a <= b+bw)
-			if(isFrameOffset == el.address->isFrameOffset && storeOffset + storeSize - 1 >= otherOffset && storeOffset <= otherOffset + otherSize - 1)
+			if(container == el.address->container && storeOffset + storeSize - 1 >= otherOffset && storeOffset <= otherOffset + otherSize - 1)
 			{
 				module->loadStoreInfo[i] = module->loadStoreInfo.back();
 				module->loadStoreInfo.pop_back();
@@ -913,7 +915,7 @@ namespace
 			info.address = address;
 
 			// Remove previous loads and stores to this address range
-			ClearLoadStoreInfo(module, address->isFrameOffset, unsigned(address->iValue), GetAccessSize(inst));
+			ClearLoadStoreInfo(module, address->container, unsigned(address->iValue), GetAccessSize(inst));
 
 			module->loadStoreInfo.push_back(info);
 		}
@@ -940,7 +942,7 @@ namespace
 							storeSize = elemSize->iValue;
 						}
 
-						ClearLoadStoreInfo(module, base->isFrameOffset, storeOffset, storeSize);
+						ClearLoadStoreInfo(module, base->container, storeOffset, storeSize);
 						return;
 					}
 				}
@@ -1064,7 +1066,16 @@ void VmValue::RemoveUse(VmValue* user)
 
 	if(users.empty() && !hasSideEffects && canBeRemoved)
 	{
-		if(VmInstruction *instruction = getType<VmInstruction>(this))
+		if(VmConstant *constant = getType<VmConstant>(this))
+		{
+			if(VariableData *container = constant->container)
+			{
+				assert(container->vmUseCount);
+
+				container->vmUseCount--;
+			}
+		}
+		else if(VmInstruction *instruction = getType<VmInstruction>(this))
 		{
 			instruction->parent->RemoveInstruction(instruction);
 		}
@@ -1302,7 +1313,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprNullptrLiteral *node = getType<ExprNullptrLiteral>(expression))
 	{
-		return CheckType(ctx, expression, CreateConstantPointer(module, 0, false, node->type));
+		return CheckType(ctx, expression, CreateConstantPointer(module, 0, NULL, node->type));
 	}
 	else if(ExprFunctionIndexLiteral *node = getType<ExprFunctionIndexLiteral>(expression))
 	{
@@ -1316,24 +1327,14 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprArray *node = getType<ExprArray>(expression))
 	{
-		VmValue *address = AllocateScopeVariable(ctx, module, node->type, "lit_arr");
-
-		TypeArray *arrayType = getType<TypeArray>(node->type);
-
-		assert(arrayType);
-
-		unsigned offset = 0;
+		VmInstruction *inst = allocate(VmInstruction)(module->allocator, GetVmType(ctx, node->type), VM_INST_CONSTRUCT, module->nextInstructionId++);
 
 		for(ExprBase *value = node->values.head; value; value = value->next)
-		{
-			VmValue *element = CompileVm(ctx, module, value);
+			inst->AddArgument(CompileVm(ctx, module, value));
 
-			CreateStore(ctx, module, arrayType->subType, CreateMemberAccess(module, address, CreateConstantInt(module, offset), ctx.GetReferenceType(arrayType->subType)), element);
+		module->currentBlock->AddInstruction(inst);
 
-			offset += unsigned(arrayType->subType->size);
-		}
-
-		return CheckType(ctx, expression, CreateLoad(ctx, module, node->type, address));
+		return CheckType(ctx, expression, inst);
 	}
 	else if(ExprPreModify *node = getType<ExprPreModify>(expression))
 	{
@@ -1392,7 +1393,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		case EXPR_CAST_NUMERICAL:
 			return CheckType(ctx, expression, CreateCast(module, value, GetVmType(ctx, node->type)));
 		case EXPR_CAST_PTR_TO_BOOL:
-			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(module, 0, false, ctx.typeNullPtr)));
+			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(module, 0, NULL, ctx.typeNullPtr)));
 		case EXPR_CAST_UNSIZED_TO_BOOL:
 			{
 				TypeUnsizedArray *unsizedArrType = getType<TypeUnsizedArray>(node->value->type);
@@ -1401,7 +1402,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 				VmValue *ptr = CreateExtract(module, VmType::Pointer(ctx.GetReferenceType(unsizedArrType->subType)), value, 0);
 
-				return CheckType(ctx, expression, CreateCompareNotEqual(module, ptr, CreateConstantPointer(module, 0, false, ctx.typeNullPtr)));
+				return CheckType(ctx, expression, CreateCompareNotEqual(module, ptr, CreateConstantPointer(module, 0, NULL, ctx.typeNullPtr)));
 			}
 			break;
 		case EXPR_CAST_FUNCTION_TO_BOOL:
@@ -1412,15 +1413,15 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			}
 			break;
 		case EXPR_CAST_NULL_TO_PTR:
-			return CheckType(ctx, expression, CreateConstantPointer(module, 0, false, ctx.typeNullPtr));
+			return CheckType(ctx, expression, CreateConstantPointer(module, 0, NULL, ctx.typeNullPtr));
 		case EXPR_CAST_NULL_TO_AUTO_PTR:
-			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantInt(module, 0), CreateConstantPointer(module, 0, false, ctx.typeNullPtr), NULL, NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantInt(module, 0), CreateConstantPointer(module, 0, NULL, ctx.typeNullPtr), NULL, NULL));
 		case EXPR_CAST_NULL_TO_UNSIZED:
-			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantPointer(module, 0, false, ctx.typeNullPtr), CreateConstantInt(module, 0), NULL, NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantPointer(module, 0, NULL, ctx.typeNullPtr), CreateConstantInt(module, 0), NULL, NULL));
 		case EXPR_CAST_NULL_TO_AUTO_ARRAY:
-			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantInt(module, 0), CreateConstantPointer(module, 0, false, ctx.typeNullPtr), CreateConstantInt(module, 0), NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantInt(module, 0), CreateConstantPointer(module, 0, NULL, ctx.typeNullPtr), CreateConstantInt(module, 0), NULL));
 		case EXPR_CAST_NULL_TO_FUNCTION:
-			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantPointer(module, 0, false, ctx.typeNullPtr), CreateConstantInt(module, 0), NULL, NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantPointer(module, 0, NULL, ctx.typeNullPtr), CreateConstantInt(module, 0), NULL, NULL));
 		case EXPR_CAST_ARRAY_TO_UNSIZED:
 			{
 				TypeArray *arrType = getType<TypeArray>(node->value->type);
@@ -1428,7 +1429,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 				assert(arrType);
 				assert(unsigned(arrType->length) == arrType->length);
 
-				VmValue *address = AllocateScopeVariable(ctx, module, arrType, "lit_arr");
+				VmValue *address = CreateAlloca(ctx, module, arrType, "lit_arr");
 
 				CreateStore(ctx, module, arrType, address, value);
 
@@ -1464,7 +1465,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 				assert(targetRefType);
 
-				VmValue *address = AllocateScopeVariable(ctx, module, targetRefType->subType, "arr_ptr");
+				VmValue *address = CreateAlloca(ctx, module, targetRefType->subType, "arr_ptr");
 
 				CreateStore(ctx, module, targetRefType->subType, address, CreateConstruct(module, GetVmType(ctx, targetRefType->subType), address, CreateConstantInt(module, unsigned(arrType->length)), NULL, NULL));
 
@@ -1491,7 +1492,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			break;
 		case EXPR_CAST_ANY_TO_PTR:
 			{
-				VmValue *address = AllocateScopeVariable(ctx, module, node->value->type, "lit");
+				VmValue *address = CreateAlloca(ctx, module, node->value->type, "lit");
 
 				CreateStore(ctx, module, node->value->type, address, value);
 
@@ -1516,7 +1517,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			}
 		case EXPR_CAST_DERIVED_TO_BASE:
 			{
-				VmValue *address = AllocateScopeVariable(ctx, module, node->value->type, "derived");
+				VmValue *address = CreateAlloca(ctx, module, node->value->type, "derived");
 
 				CreateStore(ctx, module, node->value->type, address, value);
 
@@ -1564,7 +1565,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		if(node->op == SYN_BINARY_OP_LOGICAL_AND)
 		{
-			VmValue *address = AllocateScopeVariable(ctx, module, ctx.typeInt, "cond");
+			VmValue *address = CreateAlloca(ctx, module, ctx.typeInt, "cond");
 
 			VmBlock *checkRhsBlock = CreateBlock(module, "land_check_rhs");
 			VmBlock *storeOneBlock = CreateBlock(module, "land_store_1");
@@ -1602,7 +1603,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		if(node->op == SYN_BINARY_OP_LOGICAL_OR)
 		{
-			VmValue *address = AllocateScopeVariable(ctx, module, ctx.typeInt, "cond");
+			VmValue *address = CreateAlloca(ctx, module, ctx.typeInt, "cond");
 
 			VmBlock *checkRhsBlock = CreateBlock(module, "lor_check_rhs");
 			VmBlock *storeOneBlock = CreateBlock(module, "lor_store_1");
@@ -1721,7 +1722,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprConditional *node = getType<ExprConditional>(expression))
 	{
-		VmValue *address = AllocateScopeVariable(ctx, module, node->type, "cond");
+		VmValue *address = CreateAlloca(ctx, module, node->type, "cond");
 
 		VmValue* condition = CompileVm(ctx, module, node->condition);
 
@@ -1848,7 +1849,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		// TODO: use cmdSetRange for supported types
 
-		VmValue *offsetPtr = AllocateScopeVariable(ctx, module, ctx.typeInt, "arr_it");
+		VmValue *offsetPtr = CreateAlloca(ctx, module, ctx.typeInt, "arr_it");
 
 		VmBlock *conditionBlock = CreateBlock(module, "arr_setup_cond");
 		VmBlock *bodyBlock = CreateBlock(module, "arr_setup_body");
@@ -1904,7 +1905,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmFunction *function = node->function->vmFunction;
 
 		if(module->skipFunctionDefinitions)
-			return CheckType(ctx, expression, CreateConstruct(module, VmType::FunctionRef(node->function->type), function, CreateConstantPointer(module, 0, false, ctx.typeNullPtr), NULL, NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, VmType::FunctionRef(node->function->type), function, CreateConstantPointer(module, 0, NULL, ctx.typeNullPtr), NULL, NULL));
 
 		if(node->function->isPrototype)
 			return CreateVoid(module);
@@ -1953,7 +1954,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		assert(node->function->vmFunction);
 
-		VmValue *context = node->context ? CompileVm(ctx, module, node->context) : CreateConstantPointer(module, 0, false, ctx.typeNullPtr);
+		VmValue *context = node->context ? CompileVm(ctx, module, node->context) : CreateConstantPointer(module, 0, NULL, ctx.typeNullPtr);
 
 		VmValue *funcRef = CreateConstruct(module, VmType::FunctionRef(node->function->type), node->function->vmFunction, context, NULL, NULL);
 
@@ -2502,10 +2503,10 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 		case VM_INST_ADD:
 			if(inst->type.type == VM_TYPE_POINTER)
 			{
-				// Both arguments can't be a frame offset
-				assert(!(consts[0]->isFrameOffset && consts[1]->isFrameOffset));
+				// Both arguments can't be based on an offset
+				assert(!(consts[0]->container && consts[1]->container));
 
-				ReplaceValueUsersWith(module, inst, CreateConstantPointer(module, consts[0]->iValue + consts[1]->iValue, consts[0]->isFrameOffset || consts[1]->isFrameOffset, inst->type.structType), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantPointer(module, consts[0]->iValue + consts[1]->iValue, consts[0]->container ? consts[0]->container : consts[1]->container, inst->type.structType), &module->constantPropagations);
 			}
 			else
 			{
@@ -2666,7 +2667,7 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 				unsigned index = consts[3]->iValue;
 
 				if(index < arrayLength)
-					ReplaceValueUsersWith(module, inst, CreateConstantPointer(module, ptr + elementSize * index, consts[2]->isFrameOffset, inst->type.structType), &module->constantPropagations);
+					ReplaceValueUsersWith(module, inst, CreateConstantPointer(module, ptr + elementSize * index, consts[2]->container, inst->type.structType), &module->constantPropagations);
 			}
 			break;
 		}
@@ -3005,14 +3006,34 @@ void RunCommonSubexpressionElimination(ExpressionContext &ctx, VmModule *module,
 	}
 }
 
-void RunLegalizeVmStackRegs(ExpressionContext &ctx, VmModule *module, VmValue* value)
+void RunCreateAllocaStorage(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		module->currentFunction = function;
+
+		for(unsigned i = 0; i < function->allocas.size(); i++)
+		{
+			VariableData *variable = function->allocas[i];
+
+			if(variable->vmUseCount == 0)
+				continue;
+
+			FinalizeAlloca(ctx, module, variable);
+		}
+
+		module->currentFunction = NULL;
+	}
+}
+
+void RunLegalizeVm(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
 		module->currentFunction = function;
 
 		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
-			RunLegalizeVmStackRegs(ctx, module, curr);
+			RunLegalizeVm(ctx, module, curr);
 
 		module->currentFunction = NULL;
 	}
@@ -3039,7 +3060,7 @@ void RunLegalizeVmStackRegs(ExpressionContext &ctx, VmModule *module, VmValue* v
 
 			block->insertPoint = curr;
 
-			VmValue *address = AllocateScopeVariable(ctx, module, type, "reg");
+			VmValue *address = CreateAlloca(ctx, module, type, "reg");
 
 			curr->canBeRemoved = false;
 
@@ -3051,6 +3072,9 @@ void RunLegalizeVmStackRegs(ExpressionContext &ctx, VmModule *module, VmValue* v
 
 			block->insertPoint = block->lastInstruction;
 		}
+
+		// Check that constructs that require a temporary
+		// TODO
 
 		module->currentBlock = NULL;
 	}
@@ -3080,8 +3104,11 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 		case VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION:
 			RunCommonSubexpressionElimination(ctx, module, value);
 			break;
-		case VM_PASS_LEGALIZE_STACK_VM_REGS:
-			RunLegalizeVmStackRegs(ctx, module, value);
+		case VM_PASS_CREATE_ALLOCA_STORAGE:
+			RunCreateAllocaStorage(ctx, module, value);
+			break;
+		case VM_PASS_LEGALIZE_VM:
+			RunLegalizeVm(ctx, module, value);
 			break;
 		}
 	}

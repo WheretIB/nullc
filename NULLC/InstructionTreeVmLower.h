@@ -18,6 +18,7 @@ struct InstructionVMLowerContext
 		file = 0;
 
 		currentFunction = 0;
+		currentBlock = 0;
 	}
 
 	ExpressionContext &ctx;
@@ -43,6 +44,7 @@ struct InstructionVMLowerContext
 	SmallArray<FixupPoint, 32> fixupPoints;
 
 	VmFunction *currentFunction;
+	VmBlock *currentBlock;
 
 private:
 	InstructionVMLowerContext(const InstructionVMLowerContext&);

@@ -144,8 +144,10 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 		Print(ctx, "%f", constant->dValue);
 	else if(constant->type == VmType::Long)
 		Print(ctx, "%lldl", constant->lValue);
+	else if(constant->type.type == VM_TYPE_POINTER && constant->container)
+		Print(ctx, "%.*s+0x%x", FMT_ISTR(constant->container->name), constant->iValue);
 	else if(constant->type.type == VM_TYPE_POINTER)
-		Print(ctx, "%s0x%x", constant->isFrameOffset ? "base+" : "", constant->iValue);
+		Print(ctx, "0x%x", constant->iValue);
 	else if(constant->type.type == VM_TYPE_STRUCT)
 		Print(ctx, "{ %.*s }", FMT_ISTR(constant->type.structType->name));
 	else

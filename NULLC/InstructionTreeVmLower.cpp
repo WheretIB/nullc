@@ -5,6 +5,25 @@
 
 typedef InstructionVMLowerContext Context;
 
+namespace
+{
+	bool IsLocalScope(VariableData *container)
+	{
+		ScopeData *scope = container->scope;
+
+		// Not a global scope if there is an enclosing function or a type
+		while(scope)
+		{
+			if(scope->ownerFunction || scope->ownerType)
+				return true;
+
+			scope = scope->scope;
+		}
+
+		return false;
+	}
+}
+
 void Lower(Context &ctx, VmValue *value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
@@ -34,6 +53,10 @@ void Lower(Context &ctx, VmValue *value)
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
 	{
+		assert(ctx.currentBlock == NULL);
+
+		ctx.currentBlock = block;
+
 		block->address = ctx.cmds.size();
 
 		for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
@@ -46,6 +69,8 @@ void Lower(Context &ctx, VmValue *value)
 			if(curr->type.size)
 				ctx.cmds.push_back(VMCmd(cmdPop, curr->type.size));
 		}
+
+		ctx.currentBlock = NULL;
 	}
 	else if(VmInstruction *inst = getType<VmInstruction>(value))
 	{
@@ -54,7 +79,7 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_BYTE:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushInt, constant->isFrameOffset ? 1 : 0, 1, constant->iValue));
+				ctx.cmds.push_back(VMCmd(cmdPushInt, IsLocalScope(constant->container), 1, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -65,7 +90,7 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_SHORT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushShort, constant->isFrameOffset ? 1 : 0, 2, constant->iValue));
+				ctx.cmds.push_back(VMCmd(cmdPushShort, IsLocalScope(constant->container), 2, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -76,7 +101,7 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_INT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushInt, constant->isFrameOffset ? 1 : 0, 4, constant->iValue));
+				ctx.cmds.push_back(VMCmd(cmdPushInt, IsLocalScope(constant->container), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -87,7 +112,7 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_FLOAT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushFloat, constant->isFrameOffset ? 1 : 0, 4, constant->iValue));
+				ctx.cmds.push_back(VMCmd(cmdPushFloat, IsLocalScope(constant->container), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -99,7 +124,7 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_LONG:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushDorL, constant->isFrameOffset ? 1 : 0, 8, constant->iValue));
+				ctx.cmds.push_back(VMCmd(cmdPushDorL, IsLocalScope(constant->container), 8, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -110,7 +135,7 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_STRUCT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushCmplx, constant->isFrameOffset ? 1 : 0, (unsigned short)inst->type.size, constant->iValue));
+				ctx.cmds.push_back(VMCmd(cmdPushCmplx, IsLocalScope(constant->container), (unsigned short)inst->type.size, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -123,7 +148,7 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovChar, constant->isFrameOffset ? 1 : 0, 1, constant->iValue));
+				ctx.cmds.push_back(VMCmd(cmdMovChar, IsLocalScope(constant->container), 1, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -138,7 +163,7 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovShort, constant->isFrameOffset ? 1 : 0, 2, constant->iValue));
+				ctx.cmds.push_back(VMCmd(cmdMovShort, IsLocalScope(constant->container), 2, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -153,7 +178,7 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovInt, constant->isFrameOffset ? 1 : 0, 4, constant->iValue));
+				ctx.cmds.push_back(VMCmd(cmdMovInt, IsLocalScope(constant->container), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -170,7 +195,7 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovFloat, constant->isFrameOffset ? 1 : 0, 4, constant->iValue));
+				ctx.cmds.push_back(VMCmd(cmdMovFloat, IsLocalScope(constant->container), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -186,7 +211,7 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovDorL, constant->isFrameOffset ? 1 : 0, 8, constant->iValue));
+				ctx.cmds.push_back(VMCmd(cmdMovDorL, IsLocalScope(constant->container), 8, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -201,7 +226,7 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovCmplx, constant->isFrameOffset ? 1 : 0, (unsigned short)inst->arguments[1]->type.size, constant->iValue));
+				ctx.cmds.push_back(VMCmd(cmdMovCmplx, IsLocalScope(constant->container), (unsigned short)inst->arguments[1]->type.size, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -666,9 +691,16 @@ void Lower(Context &ctx, VmValue *value)
 		}
 		else if(constant->type.type == VM_TYPE_POINTER)
 		{
-			// TODO: null pointer is not the same as the first address
+			if(!constant->container)
+			{
+				assert(constant->iValue == 0);
 
-			ctx.cmds.push_back(VMCmd(cmdGetAddr, constant->isFrameOffset, constant->iValue));
+				ctx.cmds.push_back(VMCmd(cmdPushPtrImmt, 0));
+			}
+			else
+			{
+				ctx.cmds.push_back(VMCmd(cmdGetAddr, IsLocalScope(constant->container), constant->iValue + constant->container->offset));
+			}
 		}
 		else if(constant->type.type == VM_TYPE_STRUCT)
 		{

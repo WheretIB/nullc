@@ -5,6 +5,7 @@
 
 struct TypeBase;
 struct ExprBase;
+struct VariableData;
 struct FunctionData;
 struct ScopeData;
 
@@ -120,7 +121,9 @@ enum VmPassType
 	VM_PASS_OPT_LOAD_STORE_PROPAGATION,
 	VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION,
 
-	VM_PASS_LEGALIZE_STACK_VM_REGS,
+	VM_PASS_CREATE_ALLOCA_STORAGE,
+
+	VM_PASS_LEGALIZE_VM,
 };
 
 struct VmType
@@ -230,20 +233,20 @@ struct VmConstant: VmValue
 		lValue = 0ll;
 		sValue = NULL;
 
-		isFrameOffset = false;
+		container = NULL;
 	}
 
 	bool operator==(const VmConstant& rhs) const
 	{
-		return type == rhs.type && iValue == rhs.iValue && dValue == rhs.dValue && lValue == rhs.lValue && sValue == rhs.sValue && isFrameOffset == rhs.isFrameOffset;
+		return type == rhs.type && iValue == rhs.iValue && dValue == rhs.dValue && lValue == rhs.lValue && sValue == rhs.sValue && container == rhs.container;
 	}
 
 	int iValue;
 	double dValue;
 	long long lValue;
-	char *sValue;
+	const char *sValue;
 
-	bool isFrameOffset;
+	VariableData *container;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -315,7 +318,7 @@ struct VmBlock: VmValue
 
 struct VmFunction: VmValue
 {
-	VmFunction(Allocator *allocator, VmType type, FunctionData *function, ScopeData *scope, VmType returnType): VmValue(myTypeID, allocator, type), function(function), scope(scope), returnType(returnType)
+	VmFunction(Allocator *allocator, VmType type, FunctionData *function, ScopeData *scope, VmType returnType): VmValue(myTypeID, allocator, type), function(function), scope(scope), returnType(returnType), allocas(allocator)
 	{
 		firstBlock = NULL;
 		lastBlock = NULL;
@@ -341,6 +344,8 @@ struct VmFunction: VmValue
 	bool listed;
 
 	unsigned address;
+
+	SmallArray<VariableData*, 4> allocas;
 
 	static const unsigned myTypeID = __LINE__;
 };
