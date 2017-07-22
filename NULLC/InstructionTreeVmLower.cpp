@@ -143,6 +143,9 @@ void Lower(Context &ctx, VmValue *value)
 				ctx.cmds.push_back(VMCmd(cmdPushCmplxStk, (unsigned short)inst->type.size, 0));
 			}
 			break;
+		case VM_INST_LOAD_IMMEDIATE:
+			Lower(ctx, inst->arguments[0]);
+			break;
 		case VM_INST_STORE_BYTE:
 			Lower(ctx, inst->arguments[1]);
 

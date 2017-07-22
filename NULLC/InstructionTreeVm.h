@@ -47,6 +47,8 @@ enum VmInstructionType
 	VM_INST_LOAD_LONG,
 	VM_INST_LOAD_STRUCT,
 
+	VM_INST_LOAD_IMMEDIATE,
+
 	VM_INST_STORE_BYTE,
 	VM_INST_STORE_SHORT,
 	VM_INST_STORE_INT,
@@ -110,6 +112,8 @@ enum VmInstructionType
 
 	VM_INST_CONSTRUCT, // Pseudo instruction to collect multiple elements into a single value
 	VM_INST_EXTRACT, // Pseudo instruction to extract an element from a composite value
+
+	VM_INST_PHI, // Pseudo instruction to create a value based on control flow
 };
 
 enum VmPassType

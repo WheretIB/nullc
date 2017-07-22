@@ -179,6 +179,9 @@ void PrintInstructionName(InstructionVMGraphContext &ctx, VmInstructionType cmd)
 	case VM_INST_LOAD_STRUCT:
 		Print(ctx, "loads");
 		break;
+	case VM_INST_LOAD_IMMEDIATE:
+		Print(ctx, "loadimm");
+		break;
 	case VM_INST_STORE_BYTE:
 		Print(ctx, "storeb");
 		break;
@@ -335,6 +338,9 @@ void PrintInstructionName(InstructionVMGraphContext &ctx, VmInstructionType cmd)
 	case VM_INST_EXTRACT:
 		Print(ctx, "extract");
 		break;
+	case VM_INST_PHI:
+		Print(ctx, "phi");
+		break;
 	default:
 		assert(!"unknown instruction");
 	}
@@ -355,6 +361,26 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 	}
 
 	PrintInstructionName(ctx, instruction->cmd);
+
+	if(instruction->cmd == VM_INST_PHI)
+	{
+		for(unsigned i = 0; i < instruction->arguments.size(); i += 2)
+		{
+			VmValue *value = instruction->arguments[i];
+			VmValue *edge = instruction->arguments[i + 1];
+
+			Print(ctx, value == instruction->arguments[0] ? " [" : ", ");
+
+			PrintName(ctx, value, false);
+			Print(ctx, " from ");
+			PrintName(ctx, edge, false);
+		}
+
+		Print(ctx, "]");
+		PrintLine(ctx);
+
+		return;
+	}
 
 	if(ctx.displayAsTree)
 	{

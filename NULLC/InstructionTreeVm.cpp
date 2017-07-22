@@ -75,7 +75,7 @@ namespace
 		return allocate(VmVoid)(module->allocator);
 	}
 
-	VmValue* CreateConstantInt(VmModule *module, int value)
+	VmConstant* CreateConstantInt(VmModule *module, int value)
 	{
 		VmConstant *result = allocate(VmConstant)(module->allocator, VmType::Int);
 
@@ -84,7 +84,7 @@ namespace
 		return result;
 	}
 
-	VmValue* CreateConstantDouble(VmModule *module, double value)
+	VmConstant* CreateConstantDouble(VmModule *module, double value)
 	{
 		VmConstant *result = allocate(VmConstant)(module->allocator, VmType::Double);
 
@@ -93,7 +93,7 @@ namespace
 		return result;
 	}
 
-	VmValue* CreateConstantLong(VmModule *module, long long value)
+	VmConstant* CreateConstantLong(VmModule *module, long long value)
 	{
 		VmConstant *result = allocate(VmConstant)(module->allocator, VmType::Long);
 
@@ -102,7 +102,7 @@ namespace
 		return result;
 	}
 
-	VmValue* CreateConstantPointer(VmModule *module, int value, VariableData *container, TypeBase *structType)
+	VmConstant* CreateConstantPointer(VmModule *module, int value, VariableData *container, TypeBase *structType)
 	{
 		VmConstant *result = allocate(VmConstant)(module->allocator, VmType::Pointer(structType));
 
@@ -115,7 +115,7 @@ namespace
 		return result;
 	}
 
-	VmValue* CreateConstantStruct(VmModule *module, char *value, int size, TypeBase *structType)
+	VmConstant* CreateConstantStruct(VmModule *module, char *value, int size, TypeBase *structType)
 	{
 		assert(size % 4 == 0);
 
@@ -667,6 +667,20 @@ namespace
 		return CreateInstruction(module, type, VM_INST_EXTRACT, value, CreateConstantInt(module, offset));
 	}
 
+	VmValue* CreateLoadImmediate(VmModule *module, VmConstant *value)
+	{
+		return CreateInstruction(module, value->type, VM_INST_LOAD_IMMEDIATE, value);
+	}
+
+	VmValue* CreatePhi(VmModule *module, VmInstruction *valueA, VmInstruction *valueB)
+	{
+		assert(valueA);
+		assert(valueB);
+		assert(valueA->type == valueB->type);
+
+		return CreateInstruction(module, valueA->type, VM_INST_PHI, valueA, valueA->parent, valueB, valueB->parent);
+	}
+
 	VmValue* CreateAlloca(ExpressionContext &ctx, VmModule *module, TypeBase *type, const char *suffix)
 	{
 		char *name = (char*)ctx.allocator->alloc(16);
@@ -789,6 +803,9 @@ namespace
 		}
 		else if(VmInstruction *inst = getType<VmInstruction>(value))
 		{
+			if(inst->cmd == VM_INST_PHI)
+				return;
+
 			for(unsigned i = 0; i < inst->arguments.size(); i++)
 			{
 				if(inst->arguments[i] == original)
@@ -799,6 +816,10 @@ namespace
 					inst->arguments[i] = replacement;
 				}
 			}
+		}
+		else
+		{
+			assert(!"unknown type");
 		}
 	}
 
@@ -1084,6 +1105,14 @@ void VmValue::RemoveUse(VmValue* user)
 			// Remove all block instructions
 			while(block->lastInstruction)
 				block->RemoveInstruction(block->lastInstruction);
+		}
+		else if(VmFunction *function = getType<VmFunction>(this))
+		{
+			// Do not remove functions
+		}
+		else
+		{
+			assert(!"unknown type");
 		}
 	}
 }
@@ -1565,8 +1594,6 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		if(node->op == SYN_BINARY_OP_LOGICAL_AND)
 		{
-			VmValue *address = CreateAlloca(ctx, module, ctx.typeInt, "cond");
-
 			VmBlock *checkRhsBlock = CreateBlock(module, "land_check_rhs");
 			VmBlock *storeOneBlock = CreateBlock(module, "land_store_1");
 			VmBlock *storeZeroBlock = CreateBlock(module, "land_store_0");
@@ -1584,27 +1611,27 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			module->currentFunction->AddBlock(storeOneBlock);
 			module->currentBlock = storeOneBlock;
 
-			CreateStore(ctx, module, node->type, address, CreateConstantInt(module, 1));
+			VmValue *trueValue = CreateLoadImmediate(module, CreateConstantInt(module, 1));
 
 			CreateJump(module, exitBlock);
 
 			module->currentFunction->AddBlock(storeZeroBlock);
 			module->currentBlock = storeZeroBlock;
 
-			CreateStore(ctx, module, node->type, address, CreateConstantInt(module, 0));
+			VmValue *falseValue = CreateLoadImmediate(module, CreateConstantInt(module, 0));
 
 			CreateJump(module, exitBlock);
 
 			module->currentFunction->AddBlock(exitBlock);
 			module->currentBlock = exitBlock;
 
-			return CheckType(ctx, expression, CreateLoad(ctx, module, ctx.typeInt, address));
+			VmValue *phi = CreatePhi(module, getType<VmInstruction>(trueValue), getType<VmInstruction>(falseValue));
+
+			return CheckType(ctx, expression, phi);
 		}
 
 		if(node->op == SYN_BINARY_OP_LOGICAL_OR)
 		{
-			VmValue *address = CreateAlloca(ctx, module, ctx.typeInt, "cond");
-
 			VmBlock *checkRhsBlock = CreateBlock(module, "lor_check_rhs");
 			VmBlock *storeOneBlock = CreateBlock(module, "lor_store_1");
 			VmBlock *storeZeroBlock = CreateBlock(module, "lor_store_0");
@@ -1622,21 +1649,23 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			module->currentFunction->AddBlock(storeOneBlock);
 			module->currentBlock = storeOneBlock;
 
-			CreateStore(ctx, module, node->type, address, CreateConstantInt(module, 1));
+			VmValue *trueValue = CreateLoadImmediate(module, CreateConstantInt(module, 1));
 
 			CreateJump(module, exitBlock);
 
 			module->currentFunction->AddBlock(storeZeroBlock);
 			module->currentBlock = storeZeroBlock;
 
-			CreateStore(ctx, module, node->type, address, CreateConstantInt(module, 0));
+			VmValue *falseValue = CreateLoadImmediate(module, CreateConstantInt(module, 0));
 
 			CreateJump(module, exitBlock);
 
 			module->currentFunction->AddBlock(exitBlock);
 			module->currentBlock = exitBlock;
 
-			return CheckType(ctx, expression, CreateLoad(ctx, module, ctx.typeInt, address));
+			VmValue *phi = CreatePhi(module, getType<VmInstruction>(trueValue), getType<VmInstruction>(falseValue));
+
+			return CheckType(ctx, expression, phi);
 		}
 
 		VmValue *rhs = CompileVm(ctx, module, node->rhs);
@@ -1722,40 +1751,40 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprConditional *node = getType<ExprConditional>(expression))
 	{
-		VmValue *address = CreateAlloca(ctx, module, node->type, "cond");
-
 		VmValue* condition = CompileVm(ctx, module, node->condition);
 
 		VmBlock *trueBlock = CreateBlock(module, "if_true");
 		VmBlock *falseBlock = CreateBlock(module, "if_false");
 		VmBlock *exitBlock = CreateBlock(module, "if_exit");
 
-		if(node->falseBlock)
-			CreateJumpNotZero(module, condition, trueBlock, falseBlock);
-		else
-			CreateJumpNotZero(module, condition, trueBlock, exitBlock);
+		CreateJumpNotZero(module, condition, trueBlock, falseBlock);
 
 		module->currentFunction->AddBlock(trueBlock);
 		module->currentBlock = trueBlock;
 
-		CreateStore(ctx, module, node->type, address, CompileVm(ctx, module, node->trueBlock));
+		VmValue *trueValue = CompileVm(ctx, module, node->trueBlock);
+
+		if(VmConstant *constant = getType<VmConstant>(trueValue))
+			trueValue = CreateLoadImmediate(module, constant);
 
 		CreateJump(module, exitBlock);
 
-		if(node->falseBlock)
-		{
-			module->currentFunction->AddBlock(falseBlock);
-			module->currentBlock = falseBlock;
+		module->currentFunction->AddBlock(falseBlock);
+		module->currentBlock = falseBlock;
 
-			CreateStore(ctx, module, node->type, address, CompileVm(ctx, module, node->falseBlock));
+		VmValue *falseValue = CompileVm(ctx, module, node->falseBlock);
 
-			CreateJump(module, exitBlock);
-		}
+		if(VmConstant *constant = getType<VmConstant>(falseValue))
+			falseValue = CreateLoadImmediate(module, constant);
+
+		CreateJump(module, exitBlock);
 
 		module->currentFunction->AddBlock(exitBlock);
 		module->currentBlock = exitBlock;
 
-		return CheckType(ctx, expression, CreateLoad(ctx, module, node->type, address));
+		VmValue *phi = CreatePhi(module, getType<VmInstruction>(trueValue), getType<VmInstruction>(falseValue));
+
+		return CheckType(ctx, expression, phi);
 	}
 	else if(ExprAssignment *node = getType<ExprAssignment>(expression))
 	{
@@ -2482,6 +2511,14 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 
 		switch(inst->cmd)
 		{
+		case VM_INST_LOAD_IMMEDIATE:
+			if(inst->type == VmType::Int)
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module, consts[0]->iValue), &module->constantPropagations);
+			else if(inst->type == VmType::Double)
+				ReplaceValueUsersWith(module, inst, CreateConstantDouble(module, consts[0]->dValue), &module->constantPropagations);
+			else if(inst->type == VmType::Long)
+				ReplaceValueUsersWith(module, inst, CreateConstantLong(module, consts[0]->lValue), &module->constantPropagations);
+			break;
 		case VM_INST_DOUBLE_TO_INT:
 			ReplaceValueUsersWith(module, inst, CreateConstantInt(module, int(consts[0]->dValue)), &module->constantPropagations);
 			break;
@@ -2798,20 +2835,82 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 					module->controlFlowSimplifications++;
 				}
 			}
+
+			// If block contains a single conditional jump, and the condition is a phi node with constant arguments, try to redirect predecessor to our target
+			if(currLastInst && (currLastInst->cmd == VM_INST_JUMP_Z || currLastInst->cmd == VM_INST_JUMP_NZ))
+			{
+				VmInstruction *phi = getType<VmInstruction>(currLastInst->arguments[0]);
+				VmValue *trueBlock = currLastInst->arguments[1];
+				VmValue *falseBlock = currLastInst->arguments[2];
+
+				if(phi && phi->cmd == VM_INST_PHI && phi == currLastInst->prevSibling && phi == curr->firstInstruction)
+				{
+					for(unsigned i = 0; i < phi->arguments.size(); i += 2)
+					{
+						VmInstruction *value = getType<VmInstruction>(phi->arguments[i]);
+						VmBlock *edge = getType<VmBlock>(phi->arguments[i + 1]);
+
+						if(value->cmd != VM_INST_LOAD_IMMEDIATE)
+							continue;
+
+						VmConstant *condition = getType<VmConstant>(value->arguments[0]);
+
+						VmValue *target = condition->iValue != 0 ? (currLastInst->cmd == VM_INST_JUMP_NZ ? trueBlock : falseBlock) : (currLastInst->cmd == VM_INST_JUMP_NZ ? falseBlock : trueBlock);
+
+						VmInstruction *terminator = edge->lastInstruction;
+
+						if(terminator->cmd == VM_INST_JUMP)
+						{
+							assert(terminator->arguments[0] == curr);
+
+							ReplaceValue(terminator, terminator->arguments[0], target);
+
+							module->controlFlowSimplifications++;
+						}
+					}
+				}
+			}
+
+			// If block contains a return, and the return value is a phi node with constant arguments, try to return directly from predecessors
+			if(currLastInst && currLastInst->cmd == VM_INST_RETURN && !currLastInst->arguments.empty())
+			{
+				VmInstruction *phi = getType<VmInstruction>(currLastInst->arguments[0]);
+
+				if(phi && phi->cmd == VM_INST_PHI && phi == currLastInst->prevSibling && phi == curr->firstInstruction)
+				{
+					for(unsigned i = 0; i < phi->arguments.size(); i += 2)
+					{
+						VmInstruction *value = getType<VmInstruction>(phi->arguments[i]);
+						VmBlock *edge = getType<VmBlock>(phi->arguments[i + 1]);
+
+						VmInstruction *terminator = edge->lastInstruction;
+
+						if(terminator->cmd == VM_INST_JUMP)
+						{
+							assert(terminator->arguments[0] == curr);
+
+							ChangeInstructionTo(module, terminator, VM_INST_RETURN, value, 0, 0, 0, &module->controlFlowSimplifications);
+						}
+					}
+				}
+			}
+
+			// Reverse conditional jump with unconditional if both targets are the same
+			if(currLastInst && (currLastInst->cmd == VM_INST_JUMP_Z || currLastInst->cmd == VM_INST_JUMP_NZ))
+			{
+				VmValue *trueBlock = currLastInst->arguments[1];
+				VmValue *falseBlock = currLastInst->arguments[2];
+
+				if(trueBlock == falseBlock)
+					ChangeInstructionTo(module, currLastInst, VM_INST_JUMP, trueBlock, 0, 0, 0, &module->controlFlowSimplifications);
+			}
 		}
 
 		for(VmBlock *curr = function->firstBlock; curr;)
 		{
 			VmBlock *next = curr->nextSibling;
 
-			if(curr->users.empty())
-			{
-				// Remove unused blocks
-				function->RemoveBlock(curr);
-
-				module->controlFlowSimplifications++;
-			}
-			else if(curr->firstInstruction && curr->firstInstruction == curr->lastInstruction && curr->firstInstruction->cmd == VM_INST_JUMP)
+			if(curr->firstInstruction && curr->firstInstruction == curr->lastInstruction && curr->firstInstruction->cmd == VM_INST_JUMP)
 			{
 				// Remove blocks that only contain an unconditional branch to some other block
 				VmBlock *target = getType<VmBlock>(curr->firstInstruction->arguments[0]);
@@ -2819,6 +2918,14 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 				assert(target);
 
 				ReplaceValueUsersWith(module, curr, target, &module->controlFlowSimplifications);
+			}
+
+			if(curr->users.empty())
+			{
+				// Remove unused blocks
+				function->RemoveBlock(curr);
+
+				module->controlFlowSimplifications++;
 			}
 
 			curr = next;
@@ -3026,6 +3133,88 @@ void RunCreateAllocaStorage(ExpressionContext &ctx, VmModule *module, VmValue* v
 	}
 }
 
+void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *block)
+{
+	module->currentBlock = block;
+
+	// Replace non-trivial instructions that have multiple uses with stack variables
+	for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
+	{
+		if(curr->users.size() <= 1)
+			continue;
+
+		if(curr->type == VmType::Label)
+			continue;
+
+		if(IsLoad(curr))
+			continue;
+
+		if(curr->cmd == VM_INST_CONSTRUCT && (curr->type.type == VM_TYPE_FUNCTION_REF || curr->type.type == VM_TYPE_ARRAY_REF))
+			continue;
+
+		TypeBase *type = GetBaseType(ctx, curr->type);
+
+		VmValue *address = CreateAlloca(ctx, module, type, "reg");
+
+		block->insertPoint = curr;
+
+		curr->canBeRemoved = false;
+
+		ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, type, address), NULL);
+
+		curr->canBeRemoved = true;
+
+		CreateStore(ctx, module, type, address, curr);
+
+		block->insertPoint = block->lastInstruction;
+	}
+
+	module->currentBlock = NULL;
+}
+
+void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *block)
+{
+	// Alias phi argument registers to the same storage
+	for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
+	{
+		if(curr->cmd != VM_INST_PHI)
+			continue;
+
+		// Can't have any instructions before phi
+		assert(curr->prevSibling == NULL || curr->prevSibling->cmd == VM_INST_PHI);
+
+		TypeBase *type = GetBaseType(ctx, curr->type);
+
+		VmValue *address = CreateAlloca(ctx, module, type, "reg");
+
+		for(unsigned i = 0; i < curr->arguments.size(); i += 2)
+		{
+			VmInstruction *value = getType<VmInstruction>(curr->arguments[i]);
+			VmBlock *edge = getType<VmBlock>(curr->arguments[i + 1]);
+
+			module->currentBlock = edge;
+
+			edge->insertPoint = value;
+
+			CreateStore(ctx, module, GetBaseType(ctx, value->type), address, value);
+
+			edge->insertPoint = edge->lastInstruction;
+
+			module->currentBlock = NULL;
+		}
+
+		module->currentBlock = block;
+
+		block->insertPoint = curr;
+
+		ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, type, address), NULL);
+
+		block->insertPoint = block->lastInstruction;
+
+		module->currentBlock = NULL;
+	}
+}
+
 void RunLegalizeVm(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
@@ -3039,44 +3228,12 @@ void RunLegalizeVm(ExpressionContext &ctx, VmModule *module, VmValue* value)
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
 	{
-		module->currentBlock = block;
+		LegalizeVmRegisterUsage(ctx, module, block);
 
-		// Replace non-trivial instructions that have multiple uses with stack variables
-		for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
-		{
-			if(curr->users.size() <= 1)
-				continue;
-
-			if(curr->type == VmType::Label)
-				continue;
-
-			if(IsLoad(curr))
-				continue;
-
-			if(curr->cmd == VM_INST_CONSTRUCT && (curr->type.type == VM_TYPE_FUNCTION_REF || curr->type.type == VM_TYPE_ARRAY_REF))
-				continue;
-
-			TypeBase *type = GetBaseType(ctx, curr->type);
-
-			block->insertPoint = curr;
-
-			VmValue *address = CreateAlloca(ctx, module, type, "reg");
-
-			curr->canBeRemoved = false;
-
-			ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, type, address), NULL);
-
-			curr->canBeRemoved = true;
-
-			CreateStore(ctx, module, type, address, curr);
-
-			block->insertPoint = block->lastInstruction;
-		}
+		LegalizeVmPhiStorage(ctx, module, block);
 
 		// Check that constructs that require a temporary
 		// TODO
-
-		module->currentBlock = NULL;
 	}
 }
 
