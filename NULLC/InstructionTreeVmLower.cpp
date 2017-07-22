@@ -308,30 +308,52 @@ void Lower(Context &ctx, VmValue *value)
 			assert(!"not implemented");
 			break;
 		case VM_INST_JUMP:
-			ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[0])));
-			ctx.cmds.push_back(VMCmd(cmdJmp, ~0u));
+			// Check if jump is fall-through
+			if(!(ctx.currentBlock->nextSibling && ctx.currentBlock->nextSibling == inst->arguments[0]))
+			{
+				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[0])));
+				ctx.cmds.push_back(VMCmd(cmdJmp, ~0u));
+			}
 			break;
 		case VM_INST_JUMP_Z:
 			assert(inst->arguments[0]->type.size == 4);
 
 			Lower(ctx, inst->arguments[0]);
 
-			ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[1])));
-			ctx.cmds.push_back(VMCmd(cmdJmpZ, ~0u));
+			// Check if one side of the jump is fall-through
+			if(ctx.currentBlock->nextSibling && ctx.currentBlock->nextSibling == inst->arguments[1])
+			{
+				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
+				ctx.cmds.push_back(VMCmd(cmdJmpNZ, ~0u));
+			}
+			else
+			{
+				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[1])));
+				ctx.cmds.push_back(VMCmd(cmdJmpZ, ~0u));
 
-			ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
-			ctx.cmds.push_back(VMCmd(cmdJmp, ~0u));
+				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
+				ctx.cmds.push_back(VMCmd(cmdJmp, ~0u));
+			}
 			break;
 		case VM_INST_JUMP_NZ:
 			assert(inst->arguments[0]->type.size == 4);
 
 			Lower(ctx, inst->arguments[0]);
 
-			ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[1])));
-			ctx.cmds.push_back(VMCmd(cmdJmpNZ, ~0u));
+			// Check if one side of the jump is fall-through
+			if(ctx.currentBlock->nextSibling && ctx.currentBlock->nextSibling == inst->arguments[1])
+			{
+				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
+				ctx.cmds.push_back(VMCmd(cmdJmpZ, ~0u));
+			}
+			else
+			{
+				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[1])));
+				ctx.cmds.push_back(VMCmd(cmdJmpNZ, ~0u));
 
-			ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
-			ctx.cmds.push_back(VMCmd(cmdJmp, ~0u));
+				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
+				ctx.cmds.push_back(VMCmd(cmdJmp, ~0u));
+			}
 			break;
 		case VM_INST_CALL:
 			{
