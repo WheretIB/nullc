@@ -100,6 +100,8 @@ struct VariableData
 
 		if(alignment != 0)
 			assert(offset % alignment == 0);
+
+		vmUseCount = 0;
 	}
 
 	SynBase *source;
@@ -120,6 +122,8 @@ struct VariableData
 	unsigned offset;
 
 	unsigned uniqueId;
+
+	unsigned vmUseCount;
 };
 
 struct MatchData
