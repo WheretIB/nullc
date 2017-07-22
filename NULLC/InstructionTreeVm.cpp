@@ -811,9 +811,10 @@ namespace
 				if(inst->arguments[i] == original)
 				{
 					replacement->AddUse(inst);
-					original->RemoveUse(inst);
 
 					inst->arguments[i] = replacement;
+
+					original->RemoveUse(inst);
 				}
 			}
 		}
