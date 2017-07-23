@@ -22,6 +22,23 @@ namespace
 
 		return false;
 	}
+
+	bool DoesConstantMatchEither(VmValue* value, int iValue, double dValue, long long lValue)
+	{
+		if(VmConstant *constant = getType<VmConstant>(value))
+		{
+			if(constant->type == VmType::Int)
+				return constant->iValue == iValue;
+
+			if(constant->type == VmType::Double)
+				return constant->dValue == dValue;
+
+			if(constant->type == VmType::Long)
+				return constant->lValue == lValue;
+		}
+
+		return false;
+	}
 }
 
 void Lower(Context &ctx, VmValue *value)
@@ -436,26 +453,62 @@ void Lower(Context &ctx, VmValue *value)
 			ctx.cmds.push_back(VMCmd(cmdNop));
 			break;
 		case VM_INST_ADD:
-			Lower(ctx, inst->arguments[0]);
-			Lower(ctx, inst->arguments[1]);
+			{
+				bool isContantOneLhs = DoesConstantMatchEither(inst->arguments[0], 1, 1.0f, 1ll);
 
-			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdAdd));
-			else if(inst->type == VmType::Double)
-				ctx.cmds.push_back(VMCmd(cmdAddD));
-			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdAddL));
+				if(isContantOneLhs || DoesConstantMatchEither(inst->arguments[1], 1, 1.0f, 1ll))
+				{
+					Lower(ctx, isContantOneLhs ? inst->arguments[1] : inst->arguments[0]);
+
+					if(inst->type == VmType::Int)
+						ctx.cmds.push_back(VMCmd(cmdIncI));
+					else if(inst->type == VmType::Double)
+						ctx.cmds.push_back(VMCmd(cmdIncD));
+					else if(inst->type == VmType::Long)
+						ctx.cmds.push_back(VMCmd(cmdIncL));
+				}
+				else
+				{
+					Lower(ctx, inst->arguments[0]);
+					Lower(ctx, inst->arguments[1]);
+
+					if(inst->type == VmType::Int)
+						ctx.cmds.push_back(VMCmd(cmdAdd));
+					else if(inst->type == VmType::Double)
+						ctx.cmds.push_back(VMCmd(cmdAddD));
+					else if(inst->type == VmType::Long)
+						ctx.cmds.push_back(VMCmd(cmdAddL));
+				}
+			}
 			break;
 		case VM_INST_SUB:
-			Lower(ctx, inst->arguments[0]);
-			Lower(ctx, inst->arguments[1]);
+			{
+				bool isContantOneLhs = DoesConstantMatchEither(inst->arguments[0], 1, 1.0f, 1ll);
 
-			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdSub));
-			else if(inst->type == VmType::Double)
-				ctx.cmds.push_back(VMCmd(cmdSubD));
-			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdSubL));
+				if(isContantOneLhs || DoesConstantMatchEither(inst->arguments[1], 1, 1.0f, 1ll))
+				{
+					Lower(ctx, isContantOneLhs ? inst->arguments[1] : inst->arguments[0]);
+
+					if(inst->type == VmType::Int)
+						ctx.cmds.push_back(VMCmd(cmdDecI));
+					else if(inst->type == VmType::Double)
+						ctx.cmds.push_back(VMCmd(cmdDecD));
+					else if(inst->type == VmType::Long)
+						ctx.cmds.push_back(VMCmd(cmdDecL));
+				}
+				else
+				{
+					Lower(ctx, inst->arguments[0]);
+					Lower(ctx, inst->arguments[1]);
+
+					if(inst->type == VmType::Int)
+						ctx.cmds.push_back(VMCmd(cmdSub));
+					else if(inst->type == VmType::Double)
+						ctx.cmds.push_back(VMCmd(cmdSubD));
+					else if(inst->type == VmType::Long)
+						ctx.cmds.push_back(VMCmd(cmdSubL));
+				}
+			}
 			break;
 		case VM_INST_MUL:
 			Lower(ctx, inst->arguments[0]);
