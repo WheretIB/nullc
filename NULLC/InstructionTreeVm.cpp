@@ -974,6 +974,31 @@ namespace
 		}
 	}
 
+	VmValue* TryExtractConstructElement(VmValue* value, unsigned offset, unsigned size)
+	{
+		VmInstruction *inst = getType<VmInstruction>(value);
+
+		if(inst && inst->cmd == VM_INST_CONSTRUCT)
+		{
+			unsigned pos = 0;
+
+			for(unsigned k = 0; k < inst->arguments.size(); k++)
+			{
+				VmValue *component = inst->arguments[k];
+
+				if(pos == offset && size == component->type.size)
+					return component;
+
+				if(offset >= pos && offset + size <= pos + component->type.size)
+					return TryExtractConstructElement(component, offset - pos, size);
+
+				pos += component->type.size;
+			}
+		}
+
+		return NULL;
+	}
+
 	VmValue* GetLoadStoreInfo(VmModule *module, VmInstruction* inst)
 	{
 		if(VmConstant *address = getType<VmConstant>(inst->arguments[0]))
@@ -990,6 +1015,12 @@ namespace
 
 				if(el.storeInst && *el.address == *address && GetAccessSize(inst) == GetAccessSize(el.storeInst))
 					return el.storeInst->arguments[1];
+
+				if(el.storeInst && el.address->container == address->container)
+				{
+					if(VmValue *component = TryExtractConstructElement(el.storeInst->arguments[1], address->iValue, GetAccessSize(inst)))
+						return component;
+				}
 			}
 		}
 		else if(VmValue *pointer = inst->arguments[0])
