@@ -306,8 +306,10 @@ NodeNumber* NodeVariableModify::Evaluate(char *memory, unsigned int size)
 
 	// Compute second value
 	NodeNumber *valueRight = second->Evaluate(memory, size);
-	if(!valueRight)
+	if (!valueRight) {
+		delete valueLeft;
 		return NULL;
+	}
 	// Convert it to the result type
 	if(midType == typeDouble || midType == typeFloat)
 		valueRight->ConvertTo(typeDouble);
@@ -477,8 +479,10 @@ NodeNumber* NodePreOrPostOp::Evaluate(char *memory, unsigned int size)
 			*(float*)(memory + addrShift) = *(float*)(memory + addrShift) + 1.0f * (incOp ? 1 : -1);
 		else if(typeInfo == typeDouble)
 			*(double*)(memory + addrShift) = *(double*)(memory + addrShift) + 1.0 * (incOp ? 1 : -1);
-		else
+		else {
+			delete value;
 			return NULL;
+		}
 	}
 	return optimised ? new NodeNumber(0, typeVoid) : value;
 }
