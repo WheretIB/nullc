@@ -6337,7 +6337,7 @@ void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *ty
 				Stop(ctx, source->pos, "ERROR: only integer constant list gets automatically incremented by 1");
 		}
 
-		if(!isType<ExprBoolLiteral>(value) && !isType<ExprCharacterLiteral>(value) && !isType<ExprIntegerLiteral>(value) && !isType<ExprRationalLiteral>(value))
+		if(!value || (!isType<ExprBoolLiteral>(value) && !isType<ExprCharacterLiteral>(value) && !isType<ExprIntegerLiteral>(value) && !isType<ExprRationalLiteral>(value)))
 			Stop(ctx, source->pos, "ERROR: expression didn't evaluate to a constant number");
 
 		target.push_back(allocate(ConstantData)(constant->name, value));
