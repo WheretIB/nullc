@@ -3313,6 +3313,8 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 
 		curr->canBeRemoved = true;
 
+		block->insertPoint = curr;
+
 		CreateStore(ctx, module, type, address, curr);
 
 		block->insertPoint = block->lastInstruction;
