@@ -102,15 +102,24 @@ namespace
 		return result;
 	}
 
-	VmConstant* CreateConstantPointer(VmModule *module, int value, VariableData *container, TypeBase *structType)
+	VmConstant* CreateConstantPointer(VmModule *module, int offset, VariableData *container, TypeBase *structType)
 	{
+		if(container)
+		{
+			for(unsigned i = 0; i < container->users.size(); i++)
+			{
+				if(container->users[i]->iValue == offset)
+					return container->users[i];
+			}
+		}
+
 		VmConstant *result = allocate(VmConstant)(module->allocator, VmType::Pointer(structType));
 
-		result->iValue = value;
+		result->iValue = offset;
 		result->container = container;
 
 		if(container)
-			container->vmUseCount++;
+			container->users.push_back(result);
 
 		return result;
 	}
@@ -686,7 +695,7 @@ namespace
 		char *name = (char*)ctx.allocator->alloc(16);
 		sprintf(name, "$temp%d_%s", ctx.unnamedVariableCount++, suffix);
 
-		VariableData *variable = allocate(VariableData)(NULL, NULL, type->alignment, type, InplaceStr(name), 0, 0);
+		VariableData *variable = allocate(VariableData)(ctx.allocator, NULL, NULL, type->alignment, type, InplaceStr(name), 0, 0);
 
 		VmValue *value = CreateConstantPointer(module, 0, variable, ctx.GetReferenceType(variable->type));
 
@@ -1123,9 +1132,21 @@ void VmValue::RemoveUse(VmValue* user)
 		{
 			if(VariableData *container = constant->container)
 			{
-				assert(container->vmUseCount);
+				bool found = false;
 
-				container->vmUseCount--;
+				for(unsigned i = 0; i < container->users.size(); i++)
+				{
+					if(container->users[i] == constant)
+					{
+						found = true;
+
+						container->users[i] = container->users.back();
+						container->users.pop_back();
+						break;
+					}
+				}
+
+				assert(found);
 			}
 		}
 		else if(VmInstruction *instruction = getType<VmInstruction>(this))
@@ -3155,7 +3176,7 @@ void RunCreateAllocaStorage(ExpressionContext &ctx, VmModule *module, VmValue* v
 		{
 			VariableData *variable = function->allocas[i];
 
-			if(variable->vmUseCount == 0)
+			if(variable->users.empty())
 				continue;
 
 			FinalizeAlloca(ctx, module, variable);

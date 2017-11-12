@@ -488,7 +488,53 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 		{
 			VariableData *variable = scope->variables[i];
 
-			PrintLine(ctx, "// %s0x%x: %.*s %.*s", variable->imported ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name));
+			Print(ctx, "// %s0x%x: %.*s %.*s", variable->imported ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name));
+
+			if(ctx.showUsers)
+			{
+				Print(ctx, " [");
+
+				bool addressTaken = false;
+
+				for(unsigned i = 0; i < variable->users.size(); i++)
+				{
+					VmConstant *user = variable->users[i];
+
+					for(unsigned k = 0; k < user->users.size(); k++)
+					{
+						if(i != 0 || k != 0)
+							Print(ctx, ", ");
+
+						if(VmInstruction *inst = getType<VmInstruction>(user->users[k]))
+						{
+							PrintName(ctx, inst, inst->parent->parent != function);
+
+							bool simpleUse = false;
+
+							if(inst->cmd >= VM_INST_LOAD_BYTE && inst->cmd <= VM_INST_LOAD_STRUCT)
+								simpleUse = true;
+							else if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
+								simpleUse = true;
+							else
+								simpleUse = false;
+
+							if(!simpleUse)
+								addressTaken = true;
+						}
+						else
+						{
+							assert(!"invalid constant use");
+						}
+					}
+				}
+
+				Print(ctx, "]");
+
+				if(!addressTaken)
+					Print(ctx, " noalias");
+			}
+
+			PrintLine(ctx);
 		}
 	}
 

@@ -24,6 +24,7 @@ struct VariableData;
 struct FunctionData;
 struct AliasData;
 
+struct VmConstant;
 struct VmFunction;
 
 struct VariableHandle
@@ -90,7 +91,7 @@ struct NamespaceData
 
 struct VariableData
 {
-	VariableData(SynBase *source, ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name, unsigned offset, unsigned uniqueId): source(source), scope(scope), alignment(alignment), type(type), name(name), offset(offset), uniqueId(uniqueId)
+	VariableData(Allocator *allocator, SynBase *source, ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name, unsigned offset, unsigned uniqueId): source(source), scope(scope), alignment(alignment), type(type), name(name), offset(offset), uniqueId(uniqueId), users(allocator)
 	{
 		imported = false;
 
@@ -100,8 +101,6 @@ struct VariableData
 
 		if(alignment != 0)
 			assert(offset % alignment == 0);
-
-		vmUseCount = 0;
 	}
 
 	SynBase *source;
@@ -123,7 +122,7 @@ struct VariableData
 
 	unsigned uniqueId;
 
-	unsigned vmUseCount;
+	SmallArray<VmConstant*, 8> users;
 };
 
 struct MatchData

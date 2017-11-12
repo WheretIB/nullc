@@ -321,7 +321,7 @@ namespace
 
 		assert(!type->isGeneric);
 
-		VariableData *variable = allocate(VariableData)(source, ctx.scope, type->alignment, type, name, offset, uniqueId);
+		VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, type->alignment, type, name, offset, uniqueId);
 
 		ctx.AddVariable(variable);
 
@@ -334,7 +334,7 @@ namespace
 		sprintf(name, "$temp%d", ctx.unnamedVariableCount++);
 
 		unsigned offset = AllocateVariableInScope(ctx, source, type->alignment, type);
-		VariableData *variable = allocate(VariableData)(source, ctx.scope, type->alignment, type, InplaceStr(name), offset, ctx.uniqueVariableId++);
+		VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, type->alignment, type, InplaceStr(name), offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
 
@@ -1058,7 +1058,7 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 	// Create new type
 	TypeUnsizedArray* result = allocate_(TypeUnsizedArray)(GetUnsizedArrayTypeName(*this, type), type);
 
-	result->members.push_back(allocate_(VariableHandle)(allocate_(VariableData)(NULL, scope, 4, typeInt, InplaceStr("size"), NULLC_PTR_SIZE, uniqueVariableId++)));
+	result->members.push_back(allocate_(VariableHandle)(allocate_(VariableData)(allocator, NULL, scope, 4, typeInt, InplaceStr("size"), NULLC_PTR_SIZE, uniqueVariableId++)));
 
 	result->size = NULLC_PTR_SIZE + 4;
 
@@ -3999,7 +3999,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 			if(!type)
 				break;
 
-			ctx.AddVariable(allocate(VariableData)(argument, ctx.scope, 0, type, argument->name, 0, ctx.uniqueVariableId++));
+			ctx.AddVariable(allocate(VariableData)(ctx.allocator, argument, ctx.scope, 0, type, argument->name, 0, ctx.uniqueVariableId++));
 
 			types.push_back(allocate(TypeHandle)(type));
 		}
@@ -4459,7 +4459,7 @@ ExprBase* GetFunctionTable(ExpressionContext &ctx, SynBase *source, FunctionData
 	TypeBase *type = ctx.GetUnsizedArrayType(ctx.typeFunctionID);
 
 	unsigned offset = AllocateVariableInScope(ctx, source, type->alignment, type);
-	VariableData *variable = allocate(VariableData)(source, ctx.scope, type->alignment, type, vtableName, offset, ctx.uniqueVariableId++);
+	VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, type->alignment, type, vtableName, offset, ctx.uniqueVariableId++);
 
 	ctx.vtables.push_back(variable);
 
@@ -5165,7 +5165,7 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 
 	CheckVariableConflict(ctx, syntax, fullName);
 
-	VariableData *variable = allocate(VariableData)(syntax, ctx.scope, 0, type, fullName, 0, ctx.uniqueVariableId++);
+	VariableData *variable = allocate(VariableData)(ctx.allocator, syntax, ctx.scope, 0, type, fullName, 0, ctx.uniqueVariableId++);
 
 	ctx.AddVariable(variable);
 
@@ -5258,7 +5258,7 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 		// Introduce 'this' variable into a temporary scope
 		ctx.PushTemporaryScope();
 
-		ctx.AddVariable(allocate(VariableData)(syntax, ctx.scope, 0, ctx.GetReferenceType(parentType), InplaceStr("this"), 0, ctx.uniqueVariableId++));
+		ctx.AddVariable(allocate(VariableData)(ctx.allocator, syntax, ctx.scope, 0, ctx.GetReferenceType(parentType), InplaceStr("this"), 0, ctx.uniqueVariableId++));
 	}
 
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
@@ -5299,7 +5299,7 @@ ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, Sy
 
 	unsigned offset = AllocateVariableInScope(ctx, source, 0, type);
 
-	function->contextArgument = allocate(VariableData)(source, ctx.scope, 0, type, InplaceStr(function->scope->ownerType ? "this" : "$context"), offset, ctx.uniqueVariableId++);
+	function->contextArgument = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, type, InplaceStr(function->scope->ownerType ? "this" : "$context"), offset, ctx.uniqueVariableId++);
 
 	ctx.AddVariable(function->contextArgument);
 
@@ -5328,7 +5328,7 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 
 	// Create a variable holding a reference to a closure
 	unsigned offset = AllocateVariableInScope(ctx, source, refType->alignment, refType);
-	VariableData *context = allocate(VariableData)(source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function), offset, ctx.uniqueVariableId++);
+	VariableData *context = allocate(VariableData)(ctx.allocator, source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function), offset, ctx.uniqueVariableId++);
 
 	function->contextVariable = context;
 
@@ -5417,7 +5417,7 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, Fu
 		CheckVariableConflict(ctx, source, argument.name);
 
 		unsigned offset = AllocateVariableInScope(ctx, source, 0, argument.type);
-		VariableData *variable = allocate(VariableData)(argument.source, ctx.scope, 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
+		VariableData *variable = allocate(VariableData)(ctx.allocator, argument.source, ctx.scope, 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
 
@@ -5504,7 +5504,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			{
 				ArgumentData &data = argData[pos++];
 
-				ctx.AddVariable(allocate(VariableData)(prevArg, ctx.scope, 0, data.type, data.name, 0, ctx.uniqueVariableId++));
+				ctx.AddVariable(allocate(VariableData)(ctx.allocator, prevArg, ctx.scope, 0, data.type, data.name, 0, ctx.uniqueVariableId++));
 			}
 
 			bool failed = false;
@@ -5612,7 +5612,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		if(function->coroutine)
 		{
 			unsigned offset = AllocateVariableInScope(ctx, source, ctx.typeInt->alignment, ctx.typeInt);
-			VariableData *jmpOffset = allocate(VariableData)(source, ctx.scope, 0, ctx.typeInt, InplaceStr("$jmpOffset"), offset, ctx.uniqueVariableId++);
+			VariableData *jmpOffset = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, ctx.typeInt, InplaceStr("$jmpOffset"), offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(jmpOffset);
 
@@ -5817,7 +5817,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		CheckVariableConflict(ctx, syntax, el->name);
 
 		unsigned offset = AllocateVariableInScope(ctx, syntax, el->type->alignment, el->type);
-		VariableData *variable = allocate(VariableData)(syntax, ctx.scope, el->type->alignment, el->type, el->name, offset, ctx.uniqueVariableId++);
+		VariableData *variable = allocate(VariableData)(ctx.allocator, syntax, ctx.scope, el->type->alignment, el->type, el->name, offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
 
@@ -5881,7 +5881,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 	if(function->coroutine)
 	{
 		unsigned offset = AllocateVariableInScope(ctx, syntax, ctx.typeInt->alignment, ctx.typeInt);
-		VariableData *jmpOffset = allocate(VariableData)(syntax, ctx.scope, 0, ctx.typeInt, InplaceStr("$jmpOffset"), offset, ctx.uniqueVariableId++);
+		VariableData *jmpOffset = allocate(VariableData)(ctx.allocator, syntax, ctx.scope, 0, ctx.typeInt, InplaceStr("$jmpOffset"), offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(jmpOffset);
 
@@ -6514,7 +6514,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	if(extendable && !baseClass)
 	{
 		unsigned offset = AllocateVariableInScope(ctx, syntax, ctx.typeTypeID->alignment, ctx.typeTypeID);
-		VariableData *member = allocate(VariableData)(syntax, ctx.scope, ctx.typeTypeID->alignment, ctx.typeTypeID, InplaceStr("$typeid"), offset, ctx.uniqueVariableId++);
+		VariableData *member = allocate(VariableData)(ctx.allocator, syntax, ctx.scope, ctx.typeTypeID->alignment, ctx.typeTypeID, InplaceStr("$typeid"), offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(member);
 
@@ -6542,7 +6542,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 			assert(offset == el->variable->offset);
 
-			VariableData *member = allocate(VariableData)(syntax, ctx.scope, el->variable->alignment, el->variable->type, el->variable->name, offset, ctx.uniqueVariableId++);
+			VariableData *member = allocate(VariableData)(ctx.allocator, syntax, ctx.scope, el->variable->alignment, el->variable->type, el->variable->name, offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(member);
 
@@ -6869,7 +6869,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			CheckVariableConflict(ctx, curr, curr->name);
 
 			unsigned variableOffset = AllocateVariableInScope(ctx, curr, type->alignment, type);
-			VariableData *variable = allocate(VariableData)(curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
+			VariableData *variable = allocate(VariableData)(ctx.allocator, curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
 
 			variable->isReference = true;
 
@@ -6931,7 +6931,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			CheckVariableConflict(ctx, curr, curr->name);
 
 			unsigned variableOffset = AllocateVariableInScope(ctx, curr, type->alignment, type);
-			VariableData *variable = allocate(VariableData)(curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
+			VariableData *variable = allocate(VariableData)(ctx.allocator, curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 
@@ -6974,7 +6974,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			CheckVariableConflict(ctx, curr, curr->name);
 
 			unsigned variableOffset = AllocateVariableInScope(ctx, curr, type->alignment, type);
-			VariableData *variable = allocate(VariableData)(curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
+			VariableData *variable = allocate(VariableData)(ctx.allocator, curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
 
 			variable->isReference = curr->type == NULL && isType<TypeRef>(type);
 
@@ -7815,7 +7815,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						if(!memberType)
 							Stop(ctx, source->pos, "ERROR: can't find member %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
 
-						VariableData *member = allocate(VariableData)(source, ctx.scope, 0, memberType, memberName, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
+						VariableData *member = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, memberType, memberName, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
 
 						structType->members.push_back(allocate(VariableHandle)(member));
 					}
@@ -7891,7 +7891,7 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 		if(!type)
 			Stop(ctx, source->pos, "ERROR: can't find variable '%s' type in module %s", symbols + variable.offsetToName, module.name);
 
-		VariableData *data = allocate(VariableData)(source, ctx.scope, 0, type, name, variable.offset, ctx.uniqueVariableId++);
+		VariableData *data = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, type, name, variable.offset, ctx.uniqueVariableId++);
 
 		data->imported = true;
 
@@ -8082,7 +8082,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			TypeBase *type = ctx.GetReferenceType(parentType);
 
 			unsigned offset = AllocateVariableInScope(ctx, source, 0, type);
-			VariableData *variable = allocate(VariableData)(source, ctx.scope, 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
+			VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 		}
@@ -8103,7 +8103,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			data->arguments.push_back(ArgumentData(source, isExplicit, argName, argType, NULL));
 
 			unsigned offset = AllocateVariableInScope(ctx, source, 0, argType);
-			VariableData *variable = allocate(VariableData)(source, ctx.scope, 0, argType, argName, offset, ctx.uniqueVariableId++);
+			VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, argType, argName, offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 		}
