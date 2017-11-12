@@ -15,6 +15,25 @@
 
 namespace
 {
+	bool IsGlobalScope(ScopeData *scope)
+	{
+		if(!scope)
+			return false;
+
+		while(scope->scope)
+		{
+			if(scope->ownerFunction)
+				return false;
+
+			if(scope->ownerType)
+				return false;
+
+			scope = scope->scope;
+		}
+
+		return true;
+	}
+
 	bool IsMemberScope(ScopeData *scope)
 	{
 		return scope->ownerType != NULL;
@@ -883,9 +902,77 @@ namespace
 		return 0;
 	}
 
+	bool HasAddressTaken(VariableData *container)
+	{
+		for(unsigned i = 0; i < container->users.size(); i++)
+		{
+			VmConstant *user = container->users[i];
+
+			for(unsigned i = 0; i < user->users.size(); i++)
+			{
+				if(VmInstruction *inst = getType<VmInstruction>(user->users[i]))
+				{
+					bool simpleUse = false;
+
+					if(inst->cmd >= VM_INST_LOAD_BYTE && inst->cmd <= VM_INST_LOAD_STRUCT)
+						simpleUse = true;
+					else if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
+						simpleUse = true;
+					else
+						simpleUse = false;
+
+					if(!simpleUse)
+						return true;
+				}
+				else
+				{
+					assert(!"invalid constant use");
+				}
+			}
+		}
+
+		return false;
+	}
+
 	void ClearLoadStoreInfo(VmModule *module)
 	{
 		module->loadStoreInfo.clear();
+	}
+
+	void ClearLoadStoreInfoAliasing(VmModule *module)
+	{
+		for(unsigned i = 0; i < module->loadStoreInfo.size();)
+		{
+			VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
+
+			if(el.address && el.address->container && !HasAddressTaken(el.address->container))
+			{
+				i++;
+				continue;
+			}
+
+			module->loadStoreInfo[i] = module->loadStoreInfo.back();
+			module->loadStoreInfo.pop_back();
+		}
+	}
+
+	void ClearLoadStoreInfoGlobal(VmModule *module)
+	{
+		for(unsigned i = 0; i < module->loadStoreInfo.size();)
+		{
+			VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
+
+			if(el.address && el.address->container && IsGlobalScope(el.address->container->scope))
+			{
+				module->loadStoreInfo[i] = module->loadStoreInfo.back();
+				module->loadStoreInfo.pop_back();
+			}
+			else
+			{
+				i++;
+				continue;
+			}
+		}
 	}
 
 	void ClearLoadStoreInfo(VmModule *module, VariableData *container, unsigned storeOffset, unsigned storeSize)
@@ -899,6 +986,12 @@ namespace
 			// Any opaque pointer might be clobbered
 			if(el.pointer)
 			{
+				if(!HasAddressTaken(container))
+				{
+					i++;
+					continue;
+				}
+
 				module->loadStoreInfo[i] = module->loadStoreInfo.back();
 				module->loadStoreInfo.pop_back();
 				continue;
@@ -979,7 +1072,7 @@ namespace
 				}
 			}
 
-			ClearLoadStoreInfo(module);
+			ClearLoadStoreInfoAliasing(module);
 		}
 	}
 
@@ -3032,10 +3125,13 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 				AddStoreInfo(module, curr);
 				break;
 			case VM_INST_SET_RANGE:
-			case VM_INST_CALL:
 			case VM_INST_YIELD:
 			case VM_INST_CLOSE_UPVALUES:
-				ClearLoadStoreInfo(module);
+				ClearLoadStoreInfoAliasing(module);
+				break;
+			case VM_INST_CALL:
+				ClearLoadStoreInfoAliasing(module);
+				ClearLoadStoreInfoGlobal(module);
 				break;
 			}
 
