@@ -559,3 +559,16 @@ void PrintGraph(InstructionVMGraphContext &ctx, VmModule *module)
 	PrintLine(ctx, "// Load store propagation: %d", module->loadStorePropagations);
 	PrintLine(ctx, "// Common subexpression eliminations: %d", module->commonSubexprEliminations);
 }
+
+void DumpGraph(VmModule *module)
+{
+	InstructionVMGraphContext instGraphCtx;
+
+	instGraphCtx.file = fopen("instruction_graph.txt", "w");
+	instGraphCtx.showUsers = true;
+	instGraphCtx.displayAsTree = false;
+
+	PrintGraph(instGraphCtx, module);
+
+	fclose(instGraphCtx.file);
+}

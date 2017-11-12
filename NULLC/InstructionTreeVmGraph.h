@@ -36,3 +36,5 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block);
 void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function);
 void PrintGraph(InstructionVMGraphContext &ctx, VmModule *module);
+
+void DumpGraph(VmModule *module);
