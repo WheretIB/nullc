@@ -33,9 +33,20 @@ struct InstructionVMEvalContext
 		instructionsLimit = 64 * 1024;
 	}
 
+	struct Storage
+	{
+		Storage(Allocator *allocator): data(allocator)
+		{
+		}
+
+		bool Reserve(InstructionVMEvalContext &ctx, unsigned offset, unsigned size);
+
+		SmallArray<char, 128> data;
+	};
+
 	struct StackFrame
 	{
-		StackFrame(Allocator *allocator): instructionValues(allocator), data(allocator)
+		StackFrame(Allocator *allocator, VmFunction *owner): owner(owner), instructionValues(allocator), allocas(allocator), stack(allocator)
 		{
 		}
 
@@ -43,11 +54,12 @@ struct InstructionVMEvalContext
 
 		VmConstant* ReadRegister(unsigned id);
 
-		bool ReserveStack(InstructionVMEvalContext &ctx, unsigned offset, unsigned size);
+		VmFunction *owner;
 
 		SmallArray<VmConstant*, 128> instructionValues;
 
-		SmallArray<char, 128> data;
+		Storage allocas;
+		Storage stack;
 	};
 
 	ExpressionContext &ctx;
