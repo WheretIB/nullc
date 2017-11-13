@@ -398,6 +398,9 @@ Eval::Storage* FindTarget(Eval &ctx, VmConstant *value, unsigned &base)
 
 	if(VariableData *variable = value->container)
 	{
+		if(variable->imported)
+			return NULL;
+
 		if(unsigned address = GetAllocaAddress(ctx, variable))
 		{
 			target = &frame->allocas;
@@ -665,6 +668,9 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 				if(original.type->size == 0)
 					continue;
+
+				if(original.type == ctx.ctx.typeFloat)
+					return (VmConstant*)Report(ctx, "ERROR: unsupported float argument");
 
 				unsigned argumentSize = argument->type.size;
 
