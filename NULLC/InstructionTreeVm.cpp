@@ -1050,6 +1050,7 @@ const VmType VmType::Int = VmType(VM_TYPE_INT, 4, NULL);
 const VmType VmType::Double = VmType(VM_TYPE_DOUBLE, 8, NULL);
 const VmType VmType::Long = VmType(VM_TYPE_LONG, 8, NULL);
 const VmType VmType::Block = VmType(VM_TYPE_BLOCK, 4, NULL);
+const VmType VmType::Function = VmType(VM_TYPE_FUNCTION, 4, NULL);
 const VmType VmType::AutoRef = VmType(VM_TYPE_AUTO_REF, 4 + NULLC_PTR_SIZE, NULL); // type + ptr
 const VmType VmType::AutoArray = VmType(VM_TYPE_AUTO_ARRAY, 4 + NULLC_PTR_SIZE + 4, NULL); // type + ptr + length
 

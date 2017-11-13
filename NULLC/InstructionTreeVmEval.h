@@ -10,9 +10,11 @@ struct VmBlock;
 struct VmFunction;
 struct VmModule;
 
+struct ExpressionContext;
+
 struct InstructionVMEvalContext
 {
-	InstructionVMEvalContext(Allocator *allocator): allocator(allocator), stackFrames(allocator)
+	InstructionVMEvalContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), allocator(allocator), stackFrames(allocator)
 	{
 		module = 0;
 
@@ -47,6 +49,8 @@ struct InstructionVMEvalContext
 
 		SmallArray<char, 128> data;
 	};
+
+	ExpressionContext &ctx;
 
 	VmModule *module;
 

@@ -27,6 +27,7 @@ enum VmValueType
 	VM_TYPE_LONG,
 
 	VM_TYPE_BLOCK,
+	VM_TYPE_FUNCTION,
 
 	VM_TYPE_POINTER,
 	VM_TYPE_FUNCTION_REF,
@@ -156,6 +157,7 @@ struct VmType
 	static const VmType Double;
 	static const VmType Long;
 	static const VmType Block;
+	static const VmType Function;
 	static const VmType AutoRef;
 	static const VmType AutoArray;
 

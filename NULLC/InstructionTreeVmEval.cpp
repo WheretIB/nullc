@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "ExpressionTree.h"
 #include "TypeTree.h"
 #include "InstructionTreeVm.h"
 #include "InstructionTreeVmCommon.h"
@@ -143,6 +144,82 @@ bool Eval::StackFrame::ReserveStack(Eval &ctx, unsigned offset, unsigned size)
 	return true;
 }
 
+VmConstant* LoadFrameByte(Eval &ctx, Eval::StackFrame *frame, unsigned offset)
+{
+	char value = 0;
+	if(!frame->ReserveStack(ctx, offset, sizeof(value)))
+		return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+	memcpy(&value, frame->data.data + offset, sizeof(value));
+
+	return CreateConstantInt(ctx.allocator, value);
+}
+
+VmConstant* LoadFrameShort(Eval &ctx, Eval::StackFrame *frame, unsigned offset)
+{
+	short value = 0;
+	if(!frame->ReserveStack(ctx, offset, sizeof(value)))
+		return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+	memcpy(&value, frame->data.data + offset, sizeof(value));
+
+	return CreateConstantInt(ctx.allocator, value);
+}
+
+VmConstant* LoadFrameInt(Eval &ctx, Eval::StackFrame *frame, unsigned offset, VmType type)
+{
+	int value = 0;
+	if(!frame->ReserveStack(ctx, offset, sizeof(value)))
+		return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+	memcpy(&value, frame->data.data + offset, sizeof(value));
+
+	if (type.type == VM_TYPE_POINTER)
+		return CreateConstantPointer(ctx.allocator, value, NULL, type.structType, false);
+
+	return CreateConstantInt(ctx.allocator, value);
+}
+
+VmConstant* LoadFrameFloat(Eval &ctx, Eval::StackFrame *frame, unsigned offset)
+{
+	float value = 0;
+	if(!frame->ReserveStack(ctx, offset, sizeof(value)))
+		return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+	memcpy(&value, frame->data.data + offset, sizeof(value));
+
+	return CreateConstantDouble(ctx.allocator, value);
+}
+
+VmConstant* LoadFrameDouble(Eval &ctx, Eval::StackFrame *frame, unsigned offset)
+{
+	double value = 0;
+	if(!frame->ReserveStack(ctx, offset, sizeof(value)))
+		return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+	memcpy(&value, frame->data.data + offset, sizeof(value));
+
+	return CreateConstantDouble(ctx.allocator, value);
+}
+
+VmConstant* LoadFrameLong(Eval &ctx, Eval::StackFrame *frame, unsigned offset, VmType type)
+{
+	long long value = 0;
+	if(!frame->ReserveStack(ctx, offset, sizeof(value)))
+		return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+	memcpy(&value, frame->data.data + offset, sizeof(value));
+
+	if (type.type == VM_TYPE_POINTER)
+	{
+		assert(unsigned(value) == value);
+
+		return CreateConstantPointer(ctx.allocator, unsigned(value), NULL, type.structType, false);
+	}
+
+	return CreateConstantLong(ctx.allocator, value);
+}
+
 void CopyConstantRaw(Eval &ctx, char *dst, unsigned dstSize, VmConstant *src, unsigned storeSize)
 {
 	assert(dstSize >= storeSize);
@@ -256,7 +333,7 @@ VmConstant* EvaluateOperand(Eval &ctx, VmValue *value)
 
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::Int);
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::Function);
 
 		result->fValue = function;
 
@@ -300,17 +377,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			}
 
 			if(target)
-			{
-				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
-
-				char value = 0;
-				if(!target->ReserveStack(ctx, offset, sizeof(value)))
-					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
-
-				memcpy(&value, target->data.data + offset, sizeof(value));
-
-				return CreateConstantInt(ctx.allocator, value);
-			}
+				return LoadFrameByte(ctx, target, (arguments[0]->iValue & memoryPointerMask) + base);
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
@@ -330,17 +397,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			}
 
 			if(target)
-			{
-				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
-
-				short value = 0;
-				if(!target->ReserveStack(ctx, offset, sizeof(value)))
-					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
-
-				memcpy(&value, target->data.data + offset, sizeof(value));
-
-				return CreateConstantInt(ctx.allocator, value);
-			}
+				return LoadFrameShort(ctx, target, (arguments[0]->iValue & memoryPointerMask) + base);
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
@@ -360,20 +417,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			}
 
 			if(target)
-			{
-				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
-
-				int value = 0;
-				if(!target->ReserveStack(ctx, offset, sizeof(value)))
-					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
-
-				memcpy(&value, target->data.data + offset, sizeof(value));
-
-				if (instruction->type.type == VM_TYPE_POINTER)
-					return CreateConstantPointer(ctx.allocator, value, NULL, instruction->type.structType, false);
-
-				return CreateConstantInt(ctx.allocator, value);
-			}
+				return LoadFrameInt(ctx, target, (arguments[0]->iValue & memoryPointerMask) + base, instruction->type);
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
@@ -393,17 +437,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			}
 
 			if(target)
-			{
-				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
-
-				float value = 0;
-				if(!target->ReserveStack(ctx, offset, sizeof(value)))
-					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
-
-				memcpy(&value, target->data.data + offset, sizeof(value));
-
-				return CreateConstantDouble(ctx.allocator, value);
-			}
+				return LoadFrameFloat(ctx, target, (arguments[0]->iValue & memoryPointerMask) + base);
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
@@ -423,17 +457,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			}
 
 			if(target)
-			{
-				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
-
-				double value = 0;
-				if(!target->ReserveStack(ctx, offset, sizeof(value)))
-					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
-
-				memcpy(&value, target->data.data + offset, sizeof(value));
-
-				return CreateConstantDouble(ctx.allocator, value);
-			}
+				return LoadFrameDouble(ctx, target, (arguments[0]->iValue & memoryPointerMask) + base);
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
@@ -453,24 +477,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			}
 
 			if(target)
-			{
-				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
-
-				long long value = 0;
-				if(!target->ReserveStack(ctx, offset, sizeof(value)))
-					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
-
-				memcpy(&value, target->data.data + offset, sizeof(value));
-
-				if (instruction->type.type == VM_TYPE_POINTER)
-				{
-					assert(unsigned(value) == value);
-
-					return CreateConstantPointer(ctx.allocator, unsigned(value), NULL, instruction->type.structType, false);
-				}
-
-				return CreateConstantLong(ctx.allocator, value);
-			}
+				return LoadFrameLong(ctx, target, (arguments[0]->iValue & memoryPointerMask) + base, instruction->type);
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
@@ -1036,6 +1043,54 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 	return (VmConstant*)Report(ctx, "ERROR: unsupported instruction kind");
 }
 
+unsigned GetArgumentOffset(FunctionData *data, unsigned argument)
+{
+	// Start at context
+	unsigned offset = sizeof(void*);
+
+	for(unsigned i = 0; i < argument; i++)
+	{
+		unsigned size = unsigned(data->arguments[i].type->size);
+
+		if(size < 4)
+			size = 4;
+
+		offset += size;
+	}
+
+	return offset;
+}
+
+VmConstant* GetArgumentValue(Eval &ctx, FunctionData *data, unsigned argument)
+{
+	Eval::StackFrame *frame = ctx.stackFrames.back();
+
+	VmType type = GetVmType(ctx.ctx, data->arguments[argument].type);
+
+	if (type == VmType::Int)
+		return LoadFrameInt(ctx, frame, GetArgumentOffset(data, argument), type);
+
+	return (VmConstant*)Report(ctx, "ERROR: failed to load function '%.*s' argument '%.*s'", FMT_ISTR(data->name), FMT_ISTR(data->arguments[argument].name));
+}
+
+VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
+{
+	if(function->name == InplaceStr("assert") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeInt)
+	{
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!value)
+			return NULL;
+
+		if(value->iValue == 0)
+			return (VmConstant*)Report(ctx, "ERROR: assertion failed");
+
+		return CreateConstantVoid(ctx.allocator);
+	}
+
+	return NULL;
+}
+
 VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
 {
 	Eval::StackFrame *frame = ctx.stackFrames.back();
@@ -1043,8 +1098,16 @@ VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
 	VmBlock *predecessorBlock = NULL;
 	VmBlock *currentBlock = function->firstBlock;
 
-	if(function->function && function->function->imported)
-		return (VmConstant*)Report(ctx, "ERROR: imported function %.*s", FMT_ISTR(function->function->name));
+	if(function->function && !function->function->declaration)
+	{
+		if(ctx.emulateKnownExternals && ctx.ctx.GetFunctionIndex(function->function) < ctx.ctx.baseModuleFunctionCount)
+		{
+			if(VmConstant *result = EvaluateKnownExternalFunction(ctx, function->function))
+				return result;
+		}
+
+		return (VmConstant*)Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(function->function->name));
+	}
 
 	while(currentBlock)
 	{
