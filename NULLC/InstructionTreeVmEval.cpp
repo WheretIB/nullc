@@ -653,6 +653,11 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			{
 				VmConstant *argument = arguments[i];
 
+				ArgumentData &original = function->function->arguments[i - 1];
+
+				if(original.type->size == 0)
+					continue;
+
 				unsigned argumentSize = argument->type.size;
 
 				if(!calleeFrame->stack.Reserve(ctx, offset, argumentSize))
@@ -1029,7 +1034,7 @@ unsigned GetArgumentOffset(FunctionData *data, unsigned argument)
 	{
 		unsigned size = unsigned(data->arguments[i].type->size);
 
-		if(size < 4)
+		if(size != 0 && size < 4)
 			size = 4;
 
 		offset += size;
