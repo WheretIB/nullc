@@ -1526,7 +1526,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 				CreateStore(ctx, module, node->value->type, address, value);
 
-				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), address, NULL, NULL, NULL));
+				return CheckType(ctx, expression, address);
 			}
 			break;
 		case EXPR_CAST_AUTO_PTR_TO_PTR:
