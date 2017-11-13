@@ -1087,6 +1087,54 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		return CreateConstantVoid(ctx.allocator);
 	}
+	else if(function->name == InplaceStr("bool") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeBool)
+	{
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!value)
+			return NULL;
+
+		return CreateConstantInt(ctx.allocator, value->iValue != 0);
+	}
+	else if(function->name == InplaceStr("char") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeChar)
+	{
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!value)
+			return NULL;
+
+		return CreateConstantInt(ctx.allocator, char(value->iValue));
+	}
+	else if(function->name == InplaceStr("short") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeShort)
+	{
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!value)
+			return NULL;
+
+		return CreateConstantInt(ctx.allocator, short(value->iValue));
+	}
+	else if(function->name == InplaceStr("int") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeInt)
+	{
+		return GetArgumentValue(ctx, function, 0);
+	}
+	else if(function->name == InplaceStr("long") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeLong)
+	{
+		return GetArgumentValue(ctx, function, 0);
+	}
+	else if(function->name == InplaceStr("float") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeFloat)
+	{
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!value)
+			return NULL;
+
+		return CreateConstantDouble(ctx.allocator, float(value->dValue));
+	}
+	else if(function->name == InplaceStr("double") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeDouble)
+	{
+		return GetArgumentValue(ctx, function, 0);
+	}
 
 	return NULL;
 }
