@@ -1,0 +1,1100 @@
+#include "InstructionTreeVmEval.h"
+
+#include <math.h>
+
+#include "TypeTree.h"
+#include "InstructionTreeVm.h"
+#include "InstructionTreeVmCommon.h"
+
+#define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
+#define allocate(T) new (ctx.get<T>()) T
+
+typedef InstructionVMEvalContext Eval;
+
+const unsigned memoryFlagGlobal = 1u << 29u;
+const unsigned memoryFlagStack = 1u << 30u;
+const unsigned memoryFlagHeap = 1u << 31u;
+
+const unsigned memoryPointerMask = (1u << 29u) - 1;
+
+namespace
+{
+	unsigned GetFunctionIndex(VmModule *module, VmFunction *function)
+	{
+		unsigned index = ~0u;
+
+		for(unsigned i = 0, e = module->functions.size(); i < e; i++)
+		{
+			if(module->functions[i] == function)
+			{
+				index = i;
+				break;
+			}
+		}
+
+		assert(index != ~0u);
+
+		return index;
+	}
+
+	int GetIntPow(int power, int number)
+	{
+		if(power < 0)
+			return number == 1 ? 1 : (number == -1 ? (power & 1 ? -1 : 1) : 0);
+
+		int result = 1;
+		while(power)
+		{
+			if(power & 1)
+			{
+				result *= number;
+				power--;
+			}
+			number *= number;
+			power >>= 1;
+		}
+		return result;
+	}
+
+	long long GetLongPow(long long power, long long number)
+	{
+		if(power < 0)
+			return number == 1 ? 1 : (number == -1 ? (power & 1 ? -1 : 1) : 0);
+
+		long long result = 1;
+		while(power)
+		{
+			if(power & 1)
+			{
+				result *= number;
+				power--;
+			}
+			number *= number;
+			power >>= 1;
+		}
+		return result;
+	}
+
+	ExprBase* Report(Eval &ctx, const char *msg, ...)
+	{
+		if(ctx.errorBuf && ctx.errorBufSize)
+		{
+			va_list args;
+			va_start(args, msg);
+
+			vsnprintf(ctx.errorBuf, ctx.errorBufSize, msg, args);
+
+			va_end(args);
+
+			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
+		}
+
+		return NULL;
+	}
+
+	bool HasReport(Eval &ctx)
+	{
+		return *ctx.errorBuf != 0;
+	}
+}
+
+void Eval::StackFrame::AssignRegister(unsigned id, VmConstant *constant)
+{
+	assert(id != 0);
+
+	unsigned oldSize = instructionValues.size();
+	unsigned newSize = id;
+
+	if(newSize > oldSize)
+	{
+		instructionValues.resize(newSize + 32);
+
+		memset(&instructionValues[oldSize], 0, (instructionValues.size() - oldSize) * sizeof(instructionValues[0]));
+	}
+
+	instructionValues[id - 1] = constant;
+}
+
+VmConstant* Eval::StackFrame::ReadRegister(unsigned id)
+{
+	assert(id != 0);
+
+	if(id - 1 < instructionValues.size())
+		return instructionValues[id - 1];
+
+	return 0;
+}
+
+bool Eval::StackFrame::ReserveStack(Eval &ctx, unsigned offset, unsigned size)
+{
+	unsigned oldSize = data.size();
+	unsigned newSize = offset + size;
+
+	if(newSize >= ctx.frameMemoryLimit)
+		return false;
+
+	if(newSize > oldSize)
+	{
+		data.resize(newSize + 32);
+
+		memset(&data[oldSize], 0, data.size() - oldSize);
+	}
+
+	return true;
+}
+
+void CopyConstantRaw(Eval &ctx, char *dst, unsigned dstSize, VmConstant *src, unsigned storeSize)
+{
+	assert(dstSize >= storeSize);
+
+	if(src->type == VmType::Int)
+	{
+		if(storeSize == 1)
+		{
+			char tmp = (char)src->iValue;
+			memcpy(dst, &tmp, storeSize);
+		}
+		else if(storeSize == 2)
+		{
+			short tmp = (short)src->iValue;
+			memcpy(dst, &tmp, storeSize);
+		}
+		else if(storeSize == 4)
+		{
+			memcpy(dst, &src->iValue, storeSize);
+		}
+		else
+		{
+			assert(!"invalid store size");
+		}
+	}
+	else if(src->type == VmType::Double)
+	{
+		if(storeSize == 4)
+		{
+			float tmp = (float)src->dValue;
+			memcpy(dst, &tmp, storeSize);
+		}
+		else if(storeSize == 8)
+		{
+			memcpy(dst, &src->dValue, storeSize);
+		}
+		else
+		{
+			assert(!"invalid store size");
+		}
+	}
+	else if(src->type == VmType::Long)
+	{
+		assert(src->type.size == 8);
+
+		memcpy(dst, &src->lValue, src->type.size);
+	}
+	else if(src->type.type == VM_TYPE_POINTER)
+	{
+		assert(src->type.size == sizeof(void*));
+
+		unsigned long long pointer = 0;
+
+		if(src->container)
+		{
+			if(IsGlobalScope(src->container->scope))
+			{
+				pointer = src->iValue + src->container->offset;
+				pointer |= memoryFlagGlobal;
+			}
+			else
+			{
+				pointer = src->iValue + src->container->offset;
+				pointer |= memoryFlagStack;
+			}
+		}
+		else
+		{
+			pointer = src->iValue;
+			pointer |= memoryFlagHeap;
+		}
+
+		memcpy(dst, &pointer, src->type.size);
+	}
+	else if(src->sValue)
+	{
+		memcpy(dst, src->sValue, src->type.size);
+	}
+	else if(src->fValue)
+	{
+		assert(src->type.size == 4);
+
+		unsigned index = GetFunctionIndex(ctx.module, src->fValue);
+
+		memcpy(dst, &index, src->type.size);
+	}
+	else
+	{
+		assert(!"unknown constant type");
+	}
+}
+
+VmConstant* EvaluateOperand(Eval &ctx, VmValue *value)
+{
+	Eval::StackFrame *frame = ctx.stackFrames.back();
+
+	if(VmConstant *constant = getType<VmConstant>(value))
+		return constant;
+
+	if(VmInstruction *instruction = getType<VmInstruction>(value))
+		return frame->ReadRegister(instruction->uniqueId);
+
+	if(VmBlock *block = getType<VmBlock>(value))
+	{
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::Block);
+
+		result->bValue = block;
+
+		return result;
+	}
+
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::Int);
+
+		result->fValue = function;
+
+		return result;
+	}
+
+	assert(!"unknown type");
+
+	return NULL;
+}
+
+VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *predecessor, VmBlock **nextBlock)
+{
+	ctx.instruction++;
+
+	if(ctx.instruction >= ctx.instructionsLimit)
+		return (VmConstant*)Report(ctx, "ERROR: instruction limit reached");
+
+	Eval::StackFrame *frame = ctx.stackFrames.back();
+
+	SmallArray<VmConstant*, 8> arguments(ctx.allocator);
+
+	for(unsigned i = 0; i < instruction->arguments.size(); i++)
+		arguments.push_back(EvaluateOperand(ctx, instruction->arguments[i]));
+
+	switch(instruction->cmd)
+	{
+	case VM_INST_LOAD_BYTE:
+		{
+			Eval::StackFrame *target = NULL;
+			unsigned base = 0;
+
+			if(VariableData *variable = arguments[0]->container)
+			{
+				target = IsGlobalScope(variable->scope) ? ctx.globalFrame : frame;
+				base = variable->offset;
+			}
+			else if(arguments[0]->iValue & memoryFlagGlobal)
+			{
+				target = ctx.globalFrame;
+			}
+
+			if(target)
+			{
+				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
+
+				char value = 0;
+				if(!target->ReserveStack(ctx, offset, sizeof(value)))
+					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+				memcpy(&value, target->data.data + offset, sizeof(value));
+
+				return CreateConstantInt(ctx.allocator, value);
+			}
+		}
+
+		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+	case VM_INST_LOAD_SHORT:
+		{
+			Eval::StackFrame *target = NULL;
+			unsigned base = 0;
+
+			if(VariableData *variable = arguments[0]->container)
+			{
+				target = IsGlobalScope(variable->scope) ? ctx.globalFrame : frame;
+				base = variable->offset;
+			}
+			else if(arguments[0]->iValue & memoryFlagGlobal)
+			{
+				target = ctx.globalFrame;
+			}
+
+			if(target)
+			{
+				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
+
+				short value = 0;
+				if(!target->ReserveStack(ctx, offset, sizeof(value)))
+					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+				memcpy(&value, target->data.data + offset, sizeof(value));
+
+				return CreateConstantInt(ctx.allocator, value);
+			}
+		}
+
+		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+	case VM_INST_LOAD_INT:
+		{
+			Eval::StackFrame *target = NULL;
+			unsigned base = 0;
+
+			if(VariableData *variable = arguments[0]->container)
+			{
+				target = IsGlobalScope(variable->scope) ? ctx.globalFrame : frame;
+				base = variable->offset;
+			}
+			else if(arguments[0]->iValue & memoryFlagGlobal)
+			{
+				target = ctx.globalFrame;
+			}
+
+			if(target)
+			{
+				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
+
+				int value = 0;
+				if(!target->ReserveStack(ctx, offset, sizeof(value)))
+					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+				memcpy(&value, target->data.data + offset, sizeof(value));
+
+				if (instruction->type.type == VM_TYPE_POINTER)
+					return CreateConstantPointer(ctx.allocator, value, NULL, instruction->type.structType, false);
+
+				return CreateConstantInt(ctx.allocator, value);
+			}
+		}
+
+		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+	case VM_INST_LOAD_FLOAT:
+		{
+			Eval::StackFrame *target = NULL;
+			unsigned base = 0;
+
+			if(VariableData *variable = arguments[0]->container)
+			{
+				target = IsGlobalScope(variable->scope) ? ctx.globalFrame : frame;
+				base = variable->offset;
+			}
+			else if(arguments[0]->iValue & memoryFlagGlobal)
+			{
+				target = ctx.globalFrame;
+			}
+
+			if(target)
+			{
+				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
+
+				float value = 0;
+				if(!target->ReserveStack(ctx, offset, sizeof(value)))
+					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+				memcpy(&value, target->data.data + offset, sizeof(value));
+
+				return CreateConstantDouble(ctx.allocator, value);
+			}
+		}
+
+		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+	case VM_INST_LOAD_DOUBLE:
+		{
+			Eval::StackFrame *target = NULL;
+			unsigned base = 0;
+
+			if(VariableData *variable = arguments[0]->container)
+			{
+				target = IsGlobalScope(variable->scope) ? ctx.globalFrame : frame;
+				base = variable->offset;
+			}
+			else if(arguments[0]->iValue & memoryFlagGlobal)
+			{
+				target = ctx.globalFrame;
+			}
+
+			if(target)
+			{
+				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
+
+				double value = 0;
+				if(!target->ReserveStack(ctx, offset, sizeof(value)))
+					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+				memcpy(&value, target->data.data + offset, sizeof(value));
+
+				return CreateConstantDouble(ctx.allocator, value);
+			}
+		}
+
+		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+	case VM_INST_LOAD_LONG:
+		{
+			Eval::StackFrame *target = NULL;
+			unsigned base = 0;
+
+			if(VariableData *variable = arguments[0]->container)
+			{
+				target = IsGlobalScope(variable->scope) ? ctx.globalFrame : frame;
+				base = variable->offset;
+			}
+			else if(arguments[0]->iValue & memoryFlagGlobal)
+			{
+				target = ctx.globalFrame;
+			}
+
+			if(target)
+			{
+				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
+
+				long long value = 0;
+				if(!target->ReserveStack(ctx, offset, sizeof(value)))
+					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+				memcpy(&value, target->data.data + offset, sizeof(value));
+
+				if (instruction->type.type == VM_TYPE_POINTER)
+				{
+					assert(unsigned(value) == value);
+
+					return CreateConstantPointer(ctx.allocator, unsigned(value), NULL, instruction->type.structType, false);
+				}
+
+				return CreateConstantLong(ctx.allocator, value);
+			}
+		}
+
+		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+	case VM_INST_LOAD_STRUCT:
+		{
+			Eval::StackFrame *target = NULL;
+			unsigned base = 0;
+
+			if(VariableData *variable = arguments[0]->container)
+			{
+				target = IsGlobalScope(variable->scope) ? ctx.globalFrame : frame;
+				base = variable->offset;
+			}
+			else if(arguments[0]->iValue & memoryFlagGlobal)
+			{
+				target = ctx.globalFrame;
+			}
+
+			if(target)
+			{
+				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
+
+				unsigned size = instruction->type.size;
+
+				char *value = (char*)ctx.allocator->alloc(size);
+				memset(value, 0, size);
+
+				if(!target->ReserveStack(ctx, offset, size))
+					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+				memcpy(value, target->data.data + offset, size);
+
+				VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type);
+
+				result->sValue = value;
+
+				return result;
+			}
+		}
+
+		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+	case VM_INST_LOAD_IMMEDIATE:
+		return arguments[0];
+	case VM_INST_STORE_BYTE:
+	case VM_INST_STORE_SHORT:
+	case VM_INST_STORE_INT:
+	case VM_INST_STORE_FLOAT:
+	case VM_INST_STORE_DOUBLE:
+	case VM_INST_STORE_LONG:
+	case VM_INST_STORE_STRUCT:
+		{
+			Eval::StackFrame *target = NULL;
+			unsigned base = 0;
+
+			if(VariableData *variable = arguments[0]->container)
+			{
+				target = IsGlobalScope(variable->scope) ? ctx.globalFrame : frame;
+				base = variable->offset;
+			}
+			else if(arguments[0]->iValue & memoryFlagGlobal)
+			{
+				target = ctx.globalFrame;
+			}
+
+			if(target)
+			{
+				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
+
+				if(!target->ReserveStack(ctx, offset, arguments[1]->type.size))
+					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+				CopyConstantRaw(ctx, target->data.data + offset, target->data.size() - offset, arguments[1], GetAccessSize(instruction));
+			}
+			else
+			{
+				Report(ctx, "ERROR: heap memory access");
+			}
+		}
+
+		return NULL;
+	case VM_INST_DOUBLE_TO_INT:
+		return CreateConstantInt(ctx.allocator, int(arguments[0]->dValue));
+	case VM_INST_DOUBLE_TO_LONG:
+		return CreateConstantLong(ctx.allocator, (long long)(arguments[0]->dValue));
+	case VM_INST_INT_TO_DOUBLE:
+		return CreateConstantDouble(ctx.allocator, double(arguments[0]->iValue));
+	case VM_INST_LONG_TO_DOUBLE:
+		return CreateConstantDouble(ctx.allocator, double(arguments[0]->lValue));
+	case VM_INST_INT_TO_LONG:
+		return CreateConstantLong(ctx.allocator, (long long)(arguments[0]->iValue));
+	case VM_INST_LONG_TO_INT:
+		return CreateConstantInt(ctx.allocator, int(arguments[0]->lValue));
+	case VM_INST_INDEX:
+		{
+			VmConstant *arrayLength = arguments[0];
+			VmConstant *elementSize = arguments[1];
+			VmConstant *value = arguments[2];
+			VmConstant *index = arguments[3];
+
+			assert(arrayLength->type == VmType::Int);
+			assert(elementSize->type == VmType::Int);
+			assert(value->type.type == VM_TYPE_POINTER);
+			assert(index->type == VmType::Int);
+
+			if(unsigned(index->iValue) >= unsigned(arrayLength->iValue))
+				return (VmConstant*)Report(ctx, "ERROR: array index out of bounds");
+
+			return CreateConstantPointer(ctx.allocator, value->iValue + index->iValue * elementSize->iValue, value->container, instruction->type.structType, false);
+		}
+
+		break;
+	case VM_INST_INDEX_UNSIZED:
+		{
+			VmConstant *elementSize = arguments[0];
+			VmConstant *value = arguments[1];
+			VmConstant *index = arguments[2];
+
+			assert(value->type.type == VM_TYPE_ARRAY_REF && value->sValue);
+			assert(elementSize->type == VmType::Int);
+			assert(index->type == VmType::Int);
+
+			unsigned long long pointer = 0;
+			memcpy(&pointer, value->sValue + 0, sizeof(void*));
+
+			unsigned length = 0;
+			memcpy(&length, value->sValue + sizeof(void*), 4);
+
+			if(unsigned(index->iValue) >= length)
+				return (VmConstant*)Report(ctx, "ERROR: array index out of bounds");
+
+			assert(unsigned(pointer) == pointer);
+
+			return CreateConstantPointer(ctx.allocator, unsigned(pointer) + index->iValue * elementSize->iValue, NULL, instruction->type.structType, false);
+		}
+
+		break;
+	case VM_INST_FUNCTION_ADDRESS:
+		break;
+	case VM_INST_TYPE_ID:
+		return arguments[0];
+	case VM_INST_SET_RANGE:
+		break;
+	case VM_INST_JUMP:
+		assert(arguments[0]->type == VmType::Block && arguments[0]->bValue);
+
+		*nextBlock = arguments[0]->bValue;
+
+		return NULL;
+	case VM_INST_JUMP_Z:
+		assert(arguments[0]->type == VmType::Int);
+		assert(arguments[1]->type == VmType::Block && arguments[1]->bValue);
+		assert(arguments[2]->type == VmType::Block && arguments[2]->bValue);
+
+		*nextBlock = arguments[0]->iValue == 0 ? arguments[1]->bValue : arguments[2]->bValue;
+
+		return NULL;
+	case VM_INST_JUMP_NZ:
+		assert(arguments[0]->type == VmType::Int);
+		assert(arguments[1]->type == VmType::Block && arguments[1]->bValue);
+		assert(arguments[2]->type == VmType::Block && arguments[2]->bValue);
+
+		*nextBlock = arguments[0]->iValue != 0 ? arguments[1]->bValue : arguments[2]->bValue;
+
+		return NULL;
+	case VM_INST_CALL:
+		{
+			assert(arguments[0]->type.type == VM_TYPE_FUNCTION_REF);
+
+			unsigned functionIndex = 0;
+			memcpy(&functionIndex, arguments[0]->sValue + 0, 4);
+
+			if(functionIndex >= ctx.module->functions.size())
+				return (VmConstant*)Report(ctx, "ERROR: invalid function index");
+
+			VmFunction *function = ctx.module->functions[functionIndex];
+
+			unsigned long long context = 0;
+			memcpy(&context, arguments[0]->sValue + 4, sizeof(void*));
+
+			Eval::StackFrame *calleeFrame = allocate(Eval::StackFrame)(ctx.allocator);
+
+			ctx.stackFrames.push_back(calleeFrame);
+
+			if(ctx.stackFrames.size() >= ctx.stackDepthLimit)
+				return (VmConstant*)Report(ctx, "ERROR: stack depth limit");
+
+			unsigned offset = 0;
+
+			if(!calleeFrame->ReserveStack(ctx, offset, sizeof(void*)))
+				return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+			memcpy(calleeFrame->data.data + offset, &context, sizeof(void*));
+			offset += sizeof(void*);
+
+			for(unsigned i = 1; i < arguments.size(); i++)
+			{
+				VmConstant *argument = arguments[i];
+
+				unsigned argumentSize = argument->type.size;
+
+				if(!calleeFrame->ReserveStack(ctx, offset, argumentSize))
+					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+				CopyConstantRaw(ctx, calleeFrame->data.data + offset, calleeFrame->data.size() - offset, argument, argumentSize);
+
+				offset += argumentSize > 4 ? argumentSize : 4;
+			}
+
+			VmConstant *result = EvaluateFunction(ctx, function);
+
+			ctx.stackFrames.pop_back();
+
+			return result;
+		}
+		break;
+	case VM_INST_RETURN:
+		if(arguments.empty())
+			return CreateConstantVoid(ctx.allocator);
+
+		return arguments[0];
+	case VM_INST_YIELD:
+		return (VmConstant*)Report(ctx, "ERROR: yield is not supported");
+	case VM_INST_ADD:
+		if(arguments[0]->type.type == VM_TYPE_POINTER || arguments[1]->type.type == VM_TYPE_POINTER)
+		{
+			// Both arguments can't be based on an offset
+			assert(!(arguments[0]->container && arguments[1]->container));
+
+			return CreateConstantPointer(ctx.allocator, arguments[0]->iValue + arguments[1]->iValue, arguments[0]->container ? arguments[0]->container : arguments[1]->container, instruction->type.structType, false);
+		}
+		else
+		{
+			assert(arguments[0]->type == arguments[1]->type);
+
+			if(arguments[0]->type == VmType::Int)
+				return CreateConstantInt(ctx.allocator, arguments[0]->iValue + arguments[1]->iValue);
+			else if(arguments[0]->type == VmType::Double)
+				return CreateConstantDouble(ctx.allocator, arguments[0]->dValue + arguments[1]->dValue);
+			else if(arguments[0]->type == VmType::Long)
+				return CreateConstantLong(ctx.allocator, arguments[0]->lValue + arguments[1]->lValue);
+		}
+		break;
+	case VM_INST_SUB:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue - arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Double)
+			return CreateConstantDouble(ctx.allocator, arguments[0]->dValue - arguments[1]->dValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantLong(ctx.allocator, arguments[0]->lValue - arguments[1]->lValue);
+
+		break;
+	case VM_INST_MUL:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue * arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Double)
+			return CreateConstantDouble(ctx.allocator, arguments[0]->dValue * arguments[1]->dValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantLong(ctx.allocator, arguments[0]->lValue * arguments[1]->lValue);
+
+		break;
+	case VM_INST_DIV:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(IsConstantZero(arguments[1]))
+			return (VmConstant*)Report(ctx, "ERROR: division by zero");
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue / arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Double)
+			return CreateConstantDouble(ctx.allocator, arguments[0]->dValue / arguments[1]->dValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantLong(ctx.allocator, arguments[0]->lValue / arguments[1]->lValue);
+
+		break;
+	case VM_INST_POW:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, GetIntPow(arguments[0]->iValue, arguments[1]->iValue));
+		else if(arguments[0]->type == VmType::Double)
+			return CreateConstantDouble(ctx.allocator, pow(arguments[0]->dValue, arguments[1]->dValue));
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantLong(ctx.allocator, GetLongPow(arguments[0]->lValue, arguments[1]->lValue));
+
+		break;
+	case VM_INST_MOD:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(IsConstantZero(arguments[1]))
+			return (VmConstant*)Report(ctx, "ERROR: division by zero");
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue % arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Double)
+			return CreateConstantDouble(ctx.allocator, fmod(arguments[0]->dValue, arguments[1]->dValue));
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantLong(ctx.allocator, arguments[0]->lValue % arguments[1]->lValue);
+
+		break;
+	case VM_INST_LESS:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue < arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Double)
+			return CreateConstantInt(ctx.allocator, arguments[0]->dValue < arguments[1]->dValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantInt(ctx.allocator, arguments[0]->lValue < arguments[1]->lValue);
+
+		break;
+	case VM_INST_GREATER:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue > arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Double)
+			return CreateConstantInt(ctx.allocator, arguments[0]->dValue > arguments[1]->dValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantInt(ctx.allocator, arguments[0]->lValue > arguments[1]->lValue);
+
+		break;
+	case VM_INST_LESS_EQUAL:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue <= arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Double)
+			return CreateConstantInt(ctx.allocator, arguments[0]->dValue <= arguments[1]->dValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantInt(ctx.allocator, arguments[0]->lValue <= arguments[1]->lValue);
+
+		break;
+	case VM_INST_GREATER_EQUAL:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue >= arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Double)
+			return CreateConstantInt(ctx.allocator, arguments[0]->dValue >= arguments[1]->dValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantInt(ctx.allocator, arguments[0]->lValue >= arguments[1]->lValue);
+
+		break;
+	case VM_INST_EQUAL:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue == arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Double)
+			return CreateConstantInt(ctx.allocator, arguments[0]->dValue == arguments[1]->dValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantInt(ctx.allocator, arguments[0]->lValue == arguments[1]->lValue);
+		else if(arguments[0]->type.type == VM_TYPE_POINTER)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue == arguments[1]->iValue && arguments[0]->container == arguments[1]->container);
+
+		break;
+	case VM_INST_NOT_EQUAL:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue != arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Double)
+			return CreateConstantInt(ctx.allocator, arguments[0]->dValue != arguments[1]->dValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantInt(ctx.allocator, arguments[0]->lValue != arguments[1]->lValue);
+		else if(arguments[0]->type.type == VM_TYPE_POINTER)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue != arguments[1]->iValue || arguments[0]->container != arguments[1]->container);
+
+		break;
+	case VM_INST_SHL:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue << arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantLong(ctx.allocator, arguments[0]->lValue << arguments[1]->lValue);
+		break;
+	case VM_INST_SHR:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue >> arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantLong(ctx.allocator, arguments[0]->lValue >> arguments[1]->lValue);
+		break;
+	case VM_INST_BIT_AND:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue & arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantLong(ctx.allocator, arguments[0]->lValue & arguments[1]->lValue);
+		break;
+	case VM_INST_BIT_OR:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue | arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantLong(ctx.allocator, arguments[0]->lValue | arguments[1]->lValue);
+		break;
+	case VM_INST_BIT_XOR:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue ^ arguments[1]->iValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantLong(ctx.allocator, arguments[0]->lValue ^ arguments[1]->lValue);
+		break;
+	case VM_INST_LOG_XOR:
+		assert(arguments[0]->type == arguments[1]->type);
+
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, (arguments[0]->iValue != 0) != (arguments[1]->iValue != 0));
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantInt(ctx.allocator, (arguments[0]->lValue != 0) != (arguments[1]->lValue != 0));
+		break;
+	case VM_INST_NEG:
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, -arguments[0]->iValue);
+		else if(arguments[0]->type == VmType::Double)
+			return CreateConstantDouble(ctx.allocator, -arguments[0]->dValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantLong(ctx.allocator, -arguments[0]->lValue);
+		break;
+	case VM_INST_BIT_NOT:
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, ~arguments[0]->iValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantLong(ctx.allocator, ~arguments[0]->lValue);
+		break;
+	case VM_INST_LOG_NOT:
+		if(arguments[0]->type == VmType::Int)
+			return CreateConstantInt(ctx.allocator, !arguments[0]->iValue);
+		else if(arguments[0]->type == VmType::Long)
+			return CreateConstantInt(ctx.allocator, !arguments[0]->lValue);
+		else if(arguments[0]->type.type == VM_TYPE_POINTER)
+			return CreateConstantInt(ctx.allocator, !((arguments[0]->iValue & memoryFlagHeap) != 0 && (arguments[0]->iValue & memoryPointerMask) == 0));
+		break;
+	case VM_INST_CREATE_CLOSURE:
+		break;
+	case VM_INST_CLOSE_UPVALUES:
+		break;
+	case VM_INST_CONVERT_POINTER:
+		{
+			VmConstant *value = arguments[0];
+			VmConstant *typeID = arguments[1];
+
+			assert(value->type.type == VM_TYPE_AUTO_REF && value->sValue);
+			assert(typeID->type == VmType::Int);
+
+			unsigned valueTypeID = 0;
+			memcpy(&valueTypeID, value->sValue + 0, 4);
+
+			return (VmConstant*)Report(ctx, "ERROR: pointer convertion unsupported");
+		}
+		break;
+	case VM_INST_CHECKED_RETURN:
+		break;
+	case VM_INST_CONSTRUCT:
+		{
+			unsigned size = instruction->type.size;
+
+			char *value = (char*)ctx.allocator->alloc(size);
+			memset(value, 0, size);
+
+			unsigned offset = 0;
+
+			for(unsigned i = 0; i < arguments.size(); i++)
+			{
+				VmConstant *argument = arguments[i];
+
+				unsigned argumentSize = argument->type.size;
+
+				CopyConstantRaw(ctx, value + offset, size - offset, argument, argumentSize);
+
+				offset += argumentSize > 4 ? argumentSize : 4;
+			}
+
+			VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type);
+
+			result->sValue = value;
+
+			return result;
+		}
+		break;
+	case VM_INST_ARRAY:
+		{
+			unsigned size = instruction->type.size;
+
+			char *value = (char*)ctx.allocator->alloc(size);
+			memset(value, 0, size);
+
+			unsigned offset = 0;
+
+			TypeArray *arrayType = getType<TypeArray>(instruction->type.structType);
+
+			assert(arrayType);
+
+			unsigned elementSize = unsigned(arrayType->subType->size);
+
+			for(unsigned i = 0; i < arguments.size(); i++)
+			{
+				VmConstant *argument = arguments[i];
+
+				CopyConstantRaw(ctx, value + offset, size - offset, argument, elementSize);
+
+				offset += elementSize;
+			}
+
+			VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type);
+
+			result->sValue = value;
+
+			return result;
+		}
+		break;
+	case VM_INST_EXTRACT:
+		{
+			unsigned size = instruction->type.size;
+
+			assert(arguments[0]->sValue);
+			assert(arguments[1]->type == VmType::Int);
+			assert(arguments[1]->iValue + size <= arguments[0]->type.size);
+
+			char *value = (char*)ctx.allocator->alloc(size);
+			memcpy(value, arguments[0]->sValue + arguments[1]->iValue, size);
+
+			VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type);
+
+			result->sValue = value;
+
+			return result;
+		}
+		break;
+	case VM_INST_PHI:
+		{
+			VmConstant *valueA = arguments[0];
+			VmConstant *parentA = arguments[1];
+			VmConstant *valueB = arguments[2];
+			VmConstant *parentB = arguments[3];
+
+			assert(parentA->type == VmType::Block && parentA->bValue);
+			assert(parentB->type == VmType::Block && parentB->bValue);
+
+			if(parentA->bValue == predecessor)
+				return valueA;
+
+			if(parentB->bValue == predecessor)
+				return valueB;
+
+			assert(!"phi instruction can't handle the predecessor");
+		}
+		break;
+	default:
+		assert(!"unknown instruction");
+	}
+
+	return (VmConstant*)Report(ctx, "ERROR: unsupported instruction kind");
+}
+
+VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
+{
+	Eval::StackFrame *frame = ctx.stackFrames.back();
+
+	VmBlock *predecessorBlock = NULL;
+	VmBlock *currentBlock = function->firstBlock;
+
+	if(function->function && function->function->imported)
+		return (VmConstant*)Report(ctx, "ERROR: imported function %.*s", FMT_ISTR(function->function->name));
+
+	while(currentBlock)
+	{
+		if(!currentBlock->firstInstruction)
+			break;
+
+		for(VmInstruction *instruction = currentBlock->firstInstruction; instruction; instruction = instruction->nextSibling)
+		{
+			VmBlock *nextBlock = NULL;
+
+			VmConstant *result = EvaluateInstruction(ctx, instruction, predecessorBlock, &nextBlock);
+
+			if(HasReport(ctx))
+				return NULL;
+
+			frame->AssignRegister(instruction->uniqueId, result);
+
+			if(instruction->cmd == VM_INST_RETURN || instruction->cmd == VM_INST_YIELD)
+				return result;
+
+			if(nextBlock)
+			{
+				predecessorBlock = currentBlock;
+				currentBlock = nextBlock;
+				break;
+			}
+
+			if(instruction == currentBlock->lastInstruction)
+				currentBlock = NULL;
+		}
+	}
+
+	return NULL;
+}
+
+VmConstant* EvaluateModule(Eval &ctx, VmModule *module)
+{
+	ctx.module = module;
+
+	ctx.globalFrame = allocate(Eval::StackFrame)(ctx.allocator);
+	ctx.stackFrames.push_back(ctx.globalFrame);
+
+	VmConstant *result = EvaluateFunction(ctx, module->functions.tail);
+
+	if(HasReport(ctx))
+		return NULL;
+
+	ctx.stackFrames.pop_back();
+
+	assert(ctx.stackFrames.empty());
+
+	return result;
+}

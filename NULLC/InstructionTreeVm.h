@@ -26,7 +26,7 @@ enum VmValueType
 	VM_TYPE_DOUBLE,
 	VM_TYPE_LONG,
 
-	VM_TYPE_LABEL,
+	VM_TYPE_BLOCK,
 
 	VM_TYPE_POINTER,
 	VM_TYPE_FUNCTION_REF,
@@ -111,6 +111,7 @@ enum VmInstructionType
 	VM_INST_CHECKED_RETURN,
 
 	VM_INST_CONSTRUCT, // Pseudo instruction to collect multiple elements into a single value
+	VM_INST_ARRAY, // Pseudo instruction to collect multiple elements into a single array
 	VM_INST_EXTRACT, // Pseudo instruction to extract an element from a composite value
 
 	VM_INST_PHI, // Pseudo instruction to create a value based on control flow
@@ -154,7 +155,7 @@ struct VmType
 	static const VmType Int;
 	static const VmType Double;
 	static const VmType Long;
-	static const VmType Label;
+	static const VmType Block;
 	static const VmType AutoRef;
 	static const VmType AutoArray;
 
@@ -236,19 +237,23 @@ struct VmConstant: VmValue
 		dValue = 0.0;
 		lValue = 0ll;
 		sValue = NULL;
+		bValue = NULL;
+		fValue = NULL;
 
 		container = NULL;
 	}
 
 	bool operator==(const VmConstant& rhs) const
 	{
-		return type == rhs.type && iValue == rhs.iValue && dValue == rhs.dValue && lValue == rhs.lValue && sValue == rhs.sValue && container == rhs.container;
+		return type == rhs.type && iValue == rhs.iValue && dValue == rhs.dValue && lValue == rhs.lValue && sValue == rhs.sValue && bValue == rhs.bValue && fValue == rhs.fValue && container == rhs.container;
 	}
 
 	int iValue;
 	double dValue;
 	long long lValue;
 	const char *sValue;
+	VmBlock *bValue;
+	VmFunction *fValue;
 
 	VariableData *container;
 
@@ -283,7 +288,7 @@ struct VmInstruction: VmValue
 
 struct VmBlock: VmValue
 {
-	VmBlock(Allocator *allocator, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Label), name(name), uniqueId(uniqueId)
+	VmBlock(Allocator *allocator, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Block), name(name), uniqueId(uniqueId)
 	{
 		parent = NULL;
 

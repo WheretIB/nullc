@@ -50,7 +50,7 @@ void PrintType(InstructionVMGraphContext &ctx, VmType type)
 		Print(ctx, "double");
 	else if(type == VmType::Long)
 		Print(ctx, "long");
-	else if(type == VmType::Label)
+	else if(type == VmType::Block)
 		Print(ctx, "label");
 	else if(type.type == VM_TYPE_POINTER)
 		Print(ctx, "ptr");
@@ -334,6 +334,9 @@ void PrintInstructionName(InstructionVMGraphContext &ctx, VmInstructionType cmd)
 		break;
 	case VM_INST_CONSTRUCT:
 		Print(ctx, "construct");
+		break;
+	case VM_INST_ARRAY:
+		Print(ctx, "array");
 		break;
 	case VM_INST_EXTRACT:
 		Print(ctx, "extract");

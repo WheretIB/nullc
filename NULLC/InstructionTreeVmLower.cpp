@@ -2,44 +2,9 @@
 
 #include "ExpressionTree.h"
 #include "InstructionTreeVm.h"
+#include "InstructionTreeVmCommon.h"
 
 typedef InstructionVMLowerContext Context;
-
-namespace
-{
-	bool IsLocalScope(VariableData *container)
-	{
-		ScopeData *scope = container->scope;
-
-		// Not a global scope if there is an enclosing function or a type
-		while(scope)
-		{
-			if(scope->ownerFunction || scope->ownerType)
-				return true;
-
-			scope = scope->scope;
-		}
-
-		return false;
-	}
-
-	bool DoesConstantMatchEither(VmValue* value, int iValue, double dValue, long long lValue)
-	{
-		if(VmConstant *constant = getType<VmConstant>(value))
-		{
-			if(constant->type == VmType::Int)
-				return constant->iValue == iValue;
-
-			if(constant->type == VmType::Double)
-				return constant->dValue == dValue;
-
-			if(constant->type == VmType::Long)
-				return constant->lValue == lValue;
-		}
-
-		return false;
-	}
-}
 
 void Lower(Context &ctx, VmValue *value)
 {
@@ -96,7 +61,7 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_BYTE:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushInt, IsLocalScope(constant->container), 1, constant->iValue + constant->container->offset));
+				ctx.cmds.push_back(VMCmd(cmdPushInt, IsLocalScope(constant->container->scope), 1, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -107,7 +72,7 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_SHORT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushShort, IsLocalScope(constant->container), 2, constant->iValue + constant->container->offset));
+				ctx.cmds.push_back(VMCmd(cmdPushShort, IsLocalScope(constant->container->scope), 2, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -118,7 +83,7 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_INT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushInt, IsLocalScope(constant->container), 4, constant->iValue + constant->container->offset));
+				ctx.cmds.push_back(VMCmd(cmdPushInt, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -129,7 +94,7 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_FLOAT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushFloat, IsLocalScope(constant->container), 4, constant->iValue + constant->container->offset));
+				ctx.cmds.push_back(VMCmd(cmdPushFloat, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -141,7 +106,7 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_LONG:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushDorL, IsLocalScope(constant->container), 8, constant->iValue + constant->container->offset));
+				ctx.cmds.push_back(VMCmd(cmdPushDorL, IsLocalScope(constant->container->scope), 8, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -152,7 +117,7 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_STRUCT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushCmplx, IsLocalScope(constant->container), (unsigned short)inst->type.size, constant->iValue + constant->container->offset));
+				ctx.cmds.push_back(VMCmd(cmdPushCmplx, IsLocalScope(constant->container->scope), (unsigned short)inst->type.size, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -168,7 +133,7 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovChar, IsLocalScope(constant->container), 1, constant->iValue + constant->container->offset));
+				ctx.cmds.push_back(VMCmd(cmdMovChar, IsLocalScope(constant->container->scope), 1, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -183,7 +148,7 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovShort, IsLocalScope(constant->container), 2, constant->iValue + constant->container->offset));
+				ctx.cmds.push_back(VMCmd(cmdMovShort, IsLocalScope(constant->container->scope), 2, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -198,7 +163,7 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovInt, IsLocalScope(constant->container), 4, constant->iValue + constant->container->offset));
+				ctx.cmds.push_back(VMCmd(cmdMovInt, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -215,7 +180,7 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovFloat, IsLocalScope(constant->container), 4, constant->iValue + constant->container->offset));
+				ctx.cmds.push_back(VMCmd(cmdMovFloat, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -231,7 +196,7 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovDorL, IsLocalScope(constant->container), 8, constant->iValue + constant->container->offset));
+				ctx.cmds.push_back(VMCmd(cmdMovDorL, IsLocalScope(constant->container->scope), 8, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -246,7 +211,7 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovCmplx, IsLocalScope(constant->container), (unsigned short)inst->arguments[1]->type.size, constant->iValue + constant->container->offset));
+				ctx.cmds.push_back(VMCmd(cmdMovCmplx, IsLocalScope(constant->container->scope), (unsigned short)inst->arguments[1]->type.size, constant->iValue + constant->container->offset));
 			}
 			else
 			{
@@ -722,6 +687,7 @@ void Lower(Context &ctx, VmValue *value)
 			assert(!"not implemented");
 			break;
 		case VM_INST_CONSTRUCT:
+		case VM_INST_ARRAY:
 			for(unsigned i = 0; i < inst->arguments.size(); i++)
 			{
 				VmValue *argument = inst->arguments[i];
@@ -777,7 +743,7 @@ void Lower(Context &ctx, VmValue *value)
 			}
 			else
 			{
-				ctx.cmds.push_back(VMCmd(cmdGetAddr, IsLocalScope(constant->container), constant->iValue + constant->container->offset));
+				ctx.cmds.push_back(VMCmd(cmdGetAddr, IsLocalScope(constant->container->scope), constant->iValue + constant->container->offset));
 			}
 		}
 		else if(constant->type.type == VM_TYPE_STRUCT)
@@ -813,6 +779,6 @@ void PrintInstructions(Context &ctx)
 		char buf[256];
 		cmd.Decode(buf);
 
-		fprintf(ctx.file, "// %d %s\n", i, buf);
+		fprintf(ctx.file, "// %s\n", buf);
 	}
 }

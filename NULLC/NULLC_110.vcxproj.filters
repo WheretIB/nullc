@@ -206,6 +206,12 @@
     <ClCompile Include="InstructionTreeVmLower.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
+    <ClCompile Include="InstructionTreeVmEval.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeVmCommon.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -395,6 +401,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="InstructionTreeVmLower.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVmEval.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVmCommon.h">
       <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>
