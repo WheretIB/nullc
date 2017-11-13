@@ -400,6 +400,10 @@ Eval::Storage* FindTarget(Eval &ctx, VmConstant *value, unsigned &base)
 	{
 		target = &ctx.globalFrame->stack;
 	}
+	else if(value->iValue & memoryFlagStack)
+	{
+		target = &frame->stack;
+	}
 	else if(value->iValue & memoryFlagAllocas)
 	{
 		target = &frame->allocas;
