@@ -5635,8 +5635,13 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		if(function->type->returnType == ctx.typeAuto)
 			function->type = ctx.GetFunctionType(ctx.typeVoid, function->type->arguments);
 
-		if(function->type->returnType != ctx.typeVoid && !function->hasExplicitReturn)
-			Stop(ctx, source->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+		if(!function->hasExplicitReturn)
+		{
+			if(function->type->returnType != ctx.typeVoid)
+				Stop(ctx, source->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+
+			code.push_back(allocate(ExprReturn)(source, ctx.typeVoid, allocate(ExprVoid)(source, ctx.typeVoid)));
+		}
 	}
 
 	ctx.PopScope();
