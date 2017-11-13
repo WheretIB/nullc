@@ -14,7 +14,7 @@ struct ExpressionContext;
 
 struct InstructionVMEvalContext
 {
-	InstructionVMEvalContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), allocator(allocator), stackFrames(allocator)
+	InstructionVMEvalContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), allocator(allocator), stackFrames(allocator), heap(allocator), storageSet(allocator)
 	{
 		module = 0;
 
@@ -35,11 +35,13 @@ struct InstructionVMEvalContext
 
 	struct Storage
 	{
-		Storage(Allocator *allocator): data(allocator)
+		Storage(Allocator *allocator): index(0u), data(allocator)
 		{
 		}
 
 		bool Reserve(InstructionVMEvalContext &ctx, unsigned offset, unsigned size);
+
+		unsigned index;
 
 		SmallArray<char, 128> data;
 	};
@@ -74,6 +76,10 @@ struct InstructionVMEvalContext
 
 	SmallArray<StackFrame*, 32> stackFrames;
 	unsigned stackDepthLimit;
+
+	Storage heap;
+
+	SmallArray<Storage*, 32> storageSet;
 
 	bool emulateKnownExternals;
 

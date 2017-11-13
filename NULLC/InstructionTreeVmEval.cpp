@@ -12,12 +12,9 @@
 
 typedef InstructionVMEvalContext Eval;
 
-const unsigned memoryFlagGlobal = 1u << 28u;
-const unsigned memoryFlagAllocas = 1u << 29u;
-const unsigned memoryFlagStack = 1u << 30u;
-const unsigned memoryFlagHeap = 1u << 31u;
-
-const unsigned memoryPointerMask = (1u << 28u) - 1;
+const unsigned memoryStorageBits = 16u;
+const unsigned memoryOffsetMask = (1u << memoryStorageBits) - 1;
+const unsigned memoryStorageMask = ~0u & ~memoryOffsetMask;
 
 namespace
 {
@@ -240,8 +237,21 @@ unsigned GetAllocaAddress(Eval &ctx, VariableData *container)
 	return 0;
 }
 
+unsigned GetStorageIndex(Eval &ctx, Eval::Storage *storage)
+{
+	if(storage->index != 0)
+		return storage->index;
+
+	ctx.storageSet.push_back(storage);
+	storage->index = ctx.storageSet.size();
+
+	return storage->index;
+}
+
 void CopyConstantRaw(Eval &ctx, char *dst, unsigned dstSize, VmConstant *src, unsigned storeSize)
 {
+	Eval::StackFrame *frame = ctx.stackFrames.back();
+
 	assert(dstSize >= storeSize);
 
 	if(src->type == VmType::Int)
@@ -298,23 +308,31 @@ void CopyConstantRaw(Eval &ctx, char *dst, unsigned dstSize, VmConstant *src, un
 			if(unsigned offset = GetAllocaAddress(ctx, src->container))
 			{
 				pointer = src->iValue + offset;
-				pointer |= memoryFlagAllocas;
+				assert((pointer & memoryOffsetMask) == pointer);
+				pointer |= GetStorageIndex(ctx, &frame->allocas) << memoryStorageBits;
 			}
 			else if(IsGlobalScope(src->container->scope))
 			{
 				pointer = src->iValue + src->container->offset;
-				pointer |= memoryFlagGlobal;
+				assert((pointer & memoryOffsetMask) == pointer);
+				pointer |= GetStorageIndex(ctx, &ctx.globalFrame->stack) << memoryStorageBits;
 			}
 			else
 			{
 				pointer = src->iValue + src->container->offset;
-				pointer |= memoryFlagStack;
+				assert((pointer & memoryOffsetMask) == pointer);
+				pointer |= GetStorageIndex(ctx, &frame->stack) << memoryStorageBits;
 			}
 		}
 		else
 		{
 			pointer = src->iValue;
-			pointer |= memoryFlagHeap;
+
+			if(pointer == 0)
+			{
+				assert((pointer & memoryOffsetMask) == pointer);
+				pointer |= GetStorageIndex(ctx, &ctx.heap) << memoryStorageBits;
+			}
 		}
 
 		memcpy(dst, &pointer, src->type.size);
@@ -396,17 +414,9 @@ Eval::Storage* FindTarget(Eval &ctx, VmConstant *value, unsigned &base)
 			base = variable->offset;
 		}
 	}
-	else if(value->iValue & memoryFlagGlobal)
+	else if(unsigned storageIndex = (value->iValue & memoryStorageMask) >> memoryStorageBits)
 	{
-		target = &ctx.globalFrame->stack;
-	}
-	else if(value->iValue & memoryFlagStack)
-	{
-		target = &frame->stack;
-	}
-	else if(value->iValue & memoryFlagAllocas)
-	{
-		target = &frame->allocas;
+		target = ctx.storageSet[storageIndex - 1];
 	}
 
 	return target;
@@ -431,7 +441,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			unsigned base = 0;
 
 			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-				return LoadFrameByte(ctx, target, (arguments[0]->iValue & memoryPointerMask) + base);
+				return LoadFrameByte(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base);
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
@@ -440,7 +450,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			unsigned base = 0;
 
 			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-				return LoadFrameShort(ctx, target, (arguments[0]->iValue & memoryPointerMask) + base);
+				return LoadFrameShort(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base);
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
@@ -449,7 +459,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			unsigned base = 0;
 
 			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-				return LoadFrameInt(ctx, target, (arguments[0]->iValue & memoryPointerMask) + base, instruction->type);
+				return LoadFrameInt(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base, instruction->type);
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
@@ -458,7 +468,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			unsigned base = 0;
 
 			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-				return LoadFrameFloat(ctx, target, (arguments[0]->iValue & memoryPointerMask) + base);
+				return LoadFrameFloat(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base);
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
@@ -467,7 +477,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			unsigned base = 0;
 
 			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-				return LoadFrameDouble(ctx, target, (arguments[0]->iValue & memoryPointerMask) + base);
+				return LoadFrameDouble(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base);
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
@@ -476,7 +486,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			unsigned base = 0;
 
 			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-				return LoadFrameLong(ctx, target, (arguments[0]->iValue & memoryPointerMask) + base, instruction->type);
+				return LoadFrameLong(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base, instruction->type);
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
@@ -486,7 +496,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
 			{
-				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
+				unsigned offset = (arguments[0]->iValue & memoryOffsetMask) + base;
 
 				unsigned size = instruction->type.size;
 
@@ -521,7 +531,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
 			{
-				unsigned offset = (arguments[0]->iValue & memoryPointerMask) + base;
+				unsigned offset = (arguments[0]->iValue & memoryOffsetMask) + base;
 
 				if(!target->Reserve(ctx, offset, arguments[1]->type.size))
 					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
@@ -900,8 +910,13 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			return CreateConstantInt(ctx.allocator, !arguments[0]->iValue);
 		else if(arguments[0]->type == VmType::Long)
 			return CreateConstantInt(ctx.allocator, !arguments[0]->lValue);
-		else if(arguments[0]->type.type == VM_TYPE_POINTER)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue == 0 || ((arguments[0]->iValue & memoryFlagHeap) != 0 && (arguments[0]->iValue & memoryPointerMask) == 0));
+
+		if(arguments[0]->type.type == VM_TYPE_POINTER)
+		{
+			unsigned storageIndex = (arguments[0]->iValue & memoryStorageMask) >> memoryStorageBits;
+
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue == 0 || (ctx.heap.index == storageIndex && (arguments[0]->iValue & memoryOffsetMask) == 0));
+		}
 		break;
 	case VM_INST_CREATE_CLOSURE:
 		break;
