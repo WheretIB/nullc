@@ -901,7 +901,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 		else if(arguments[0]->type == VmType::Long)
 			return CreateConstantInt(ctx.allocator, !arguments[0]->lValue);
 		else if(arguments[0]->type.type == VM_TYPE_POINTER)
-			return CreateConstantInt(ctx.allocator, !((arguments[0]->iValue & memoryFlagHeap) != 0 && (arguments[0]->iValue & memoryPointerMask) == 0));
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue == 0 || ((arguments[0]->iValue & memoryFlagHeap) != 0 && (arguments[0]->iValue & memoryPointerMask) == 0));
 		break;
 	case VM_INST_CREATE_CLOSURE:
 		break;
