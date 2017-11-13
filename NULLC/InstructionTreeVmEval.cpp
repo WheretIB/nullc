@@ -646,8 +646,6 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 			Eval::StackFrame *calleeFrame = allocate(Eval::StackFrame)(ctx.allocator, function);
 
-			ctx.stackFrames.push_back(calleeFrame);
-
 			if(ctx.stackFrames.size() >= ctx.stackDepthLimit)
 				return (VmConstant*)Report(ctx, "ERROR: stack depth limit");
 
@@ -677,6 +675,8 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 				offset += argumentSize > 4 ? argumentSize : 4;
 			}
+
+			ctx.stackFrames.push_back(calleeFrame);
 
 			VmConstant *result = EvaluateFunction(ctx, function);
 
