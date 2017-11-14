@@ -663,7 +663,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 		break;
 	case VM_INST_FUNCTION_ADDRESS:
-		break;
+		return arguments[0];
 	case VM_INST_TYPE_ID:
 		return arguments[0];
 	case VM_INST_SET_RANGE:
@@ -1325,6 +1325,10 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		int order = memcmp(a->sValue, b->sValue, NULLC_PTR_SIZE + 4);
 
 		return CreateConstantInt(ctx.allocator, function->name == InplaceStr("__acomp") ? order == 0 : order != 0);
+	}
+	else if(function->name == InplaceStr("__typeCount"))
+	{
+		return CreateConstantInt(ctx.allocator, ctx.ctx.types.size());
 	}
 
 	return NULL;
