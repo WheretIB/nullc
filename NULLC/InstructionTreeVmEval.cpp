@@ -172,7 +172,7 @@ VmConstant* LoadFrameInt(Eval &ctx, Eval::Storage *storage, unsigned offset, VmT
 
 	memcpy(&value, storage->data.data + offset, sizeof(value));
 
-	if (type.type == VM_TYPE_POINTER)
+	if(type.type == VM_TYPE_POINTER)
 		return CreateConstantPointer(ctx.allocator, value, NULL, type.structType, false);
 
 	return CreateConstantInt(ctx.allocator, value);
@@ -208,7 +208,7 @@ VmConstant* LoadFrameLong(Eval &ctx, Eval::Storage *storage, unsigned offset, Vm
 
 	memcpy(&value, storage->data.data + offset, sizeof(value));
 
-	if (type.type == VM_TYPE_POINTER)
+	if(type.type == VM_TYPE_POINTER)
 	{
 		assert(unsigned(value) == value);
 
@@ -228,7 +228,7 @@ unsigned GetAllocaAddress(Eval &ctx, VariableData *container)
 	{
 		VariableData *data = frame->owner->allocas[i];
 
-		if (container == data)
+		if(container == data)
 			return offset;
 
 		offset += unsigned(data->type->size);
@@ -1010,14 +1010,46 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			assert(arguments[1]->type == VmType::Int);
 			assert(arguments[1]->iValue + size <= arguments[0]->type.size);
 
-			char *value = (char*)ctx.allocator->alloc(size);
-			memcpy(value, arguments[0]->sValue + arguments[1]->iValue, size);
+			const char *source = arguments[0]->sValue + arguments[1]->iValue;
 
-			VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type);
+			if(instruction->type == VmType::Int)
+			{
+				int value = 0;
+				memcpy(&value, source, sizeof(value));
+				return CreateConstantInt(ctx.allocator, value);
+			}
+			else if(instruction->type == VmType::Double)
+			{
+				double value = 0;
+				memcpy(&value, source, sizeof(value));
+				return CreateConstantDouble(ctx.allocator, value);
+			}
+			else if(instruction->type == VmType::Long)
+			{
+				long long value = 0;
+				memcpy(&value, source, sizeof(value));
+				return CreateConstantLong(ctx.allocator, value);
+			}
+			else if(instruction->type.type == VM_TYPE_POINTER)
+			{
+				unsigned long long pointer = 0;
+				memcpy(&pointer, source, sizeof(void*));
 
-			result->sValue = value;
+				assert(unsigned(pointer) == pointer);
 
-			return result;
+				return CreateConstantPointer(ctx.allocator, unsigned(pointer), NULL, instruction->type.structType, false);
+			}
+			else
+			{
+				char *value = (char*)ctx.allocator->alloc(size);
+				memcpy(value, source, size);
+
+				VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type);
+
+				result->sValue = value;
+
+				return result;
+			}
 		}
 		break;
 	case VM_INST_PHI:
@@ -1070,7 +1102,7 @@ VmConstant* GetArgumentValue(Eval &ctx, FunctionData *data, unsigned argument)
 
 	VmType type = GetVmType(ctx.ctx, data->arguments[argument].type);
 
-	if (type == VmType::Int)
+	if(type == VmType::Int)
 		return LoadFrameInt(ctx, &frame->stack, GetArgumentOffset(data, argument), type);
 
 	return (VmConstant*)Report(ctx, "ERROR: failed to load function '%.*s' argument '%.*s'", FMT_ISTR(data->name), FMT_ISTR(data->arguments[argument].name));
