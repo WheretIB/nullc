@@ -218,6 +218,82 @@ VmConstant* LoadFrameLong(Eval &ctx, Eval::Storage *storage, unsigned offset, Vm
 	return CreateConstantLong(ctx.allocator, value);
 }
 
+VmConstant* LoadFrameStruct(Eval &ctx, Eval::Storage *storage, unsigned offset, VmType type)
+{
+	unsigned size = type.size;
+
+	char *value = (char*)ctx.allocator->alloc(size);
+	memset(value, 0, size);
+
+	if(!storage->Reserve(ctx, offset, size))
+		return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+	memcpy(value, storage->data.data + offset, size);
+
+	VmConstant *result = allocate(VmConstant)(ctx.allocator, type);
+
+	result->sValue = value;
+
+	return result;
+}
+
+VmConstant* ExtractValue(Eval &ctx, VmConstant *value, unsigned offset, VmType type)
+{
+	assert(value->sValue);
+	assert(offset + type.size <= value->type.size);
+
+	const char *source = value->sValue + offset;
+
+	if(type == VmType::Int)
+	{
+		int value = 0;
+		memcpy(&value, source, sizeof(value));
+		return CreateConstantInt(ctx.allocator, value);
+	}
+	else if(type == VmType::Double)
+	{
+		double value = 0;
+		memcpy(&value, source, sizeof(value));
+		return CreateConstantDouble(ctx.allocator, value);
+	}
+	else if(type == VmType::Long)
+	{
+		long long value = 0;
+		memcpy(&value, source, sizeof(value));
+		return CreateConstantLong(ctx.allocator, value);
+	}
+	else if(type.type == VM_TYPE_POINTER)
+	{
+		unsigned long long pointer = 0;
+
+		if(sizeof(void*) == 4)
+		{
+			unsigned tmp;
+			memcpy(&tmp, source, sizeof(void*));
+			pointer = tmp;
+		}
+		else
+		{
+			memcpy(&pointer, source, sizeof(void*));
+		}
+
+		assert(unsigned(pointer) == pointer);
+
+		return CreateConstantPointer(ctx.allocator, unsigned(pointer), NULL, type.structType, false);
+	}
+	else
+	{
+		char *value = (char*)ctx.allocator->alloc(type.size);
+		memcpy(value, source, type.size);
+
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, type);
+
+		result->sValue = value;
+
+		return result;
+	}
+}
+
 unsigned GetAllocaAddress(Eval &ctx, VariableData *container)
 {
 	Eval::StackFrame *frame = ctx.stackFrames.back();
@@ -498,25 +574,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			unsigned base = 0;
 
 			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-			{
-				unsigned offset = (arguments[0]->iValue & memoryOffsetMask) + base;
-
-				unsigned size = instruction->type.size;
-
-				char *value = (char*)ctx.allocator->alloc(size);
-				memset(value, 0, size);
-
-				if(!target->Reserve(ctx, offset, size))
-					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
-
-				memcpy(value, target->data.data + offset, size);
-
-				VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type);
-
-				result->sValue = value;
-
-				return result;
-			}
+				return LoadFrameStruct(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base, instruction->type);
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
@@ -1004,52 +1062,9 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 		break;
 	case VM_INST_EXTRACT:
 		{
-			unsigned size = instruction->type.size;
-
-			assert(arguments[0]->sValue);
 			assert(arguments[1]->type == VmType::Int);
-			assert(arguments[1]->iValue + size <= arguments[0]->type.size);
 
-			const char *source = arguments[0]->sValue + arguments[1]->iValue;
-
-			if(instruction->type == VmType::Int)
-			{
-				int value = 0;
-				memcpy(&value, source, sizeof(value));
-				return CreateConstantInt(ctx.allocator, value);
-			}
-			else if(instruction->type == VmType::Double)
-			{
-				double value = 0;
-				memcpy(&value, source, sizeof(value));
-				return CreateConstantDouble(ctx.allocator, value);
-			}
-			else if(instruction->type == VmType::Long)
-			{
-				long long value = 0;
-				memcpy(&value, source, sizeof(value));
-				return CreateConstantLong(ctx.allocator, value);
-			}
-			else if(instruction->type.type == VM_TYPE_POINTER)
-			{
-				unsigned long long pointer = 0;
-				memcpy(&pointer, source, sizeof(void*));
-
-				assert(unsigned(pointer) == pointer);
-
-				return CreateConstantPointer(ctx.allocator, unsigned(pointer), NULL, instruction->type.structType, false);
-			}
-			else
-			{
-				char *value = (char*)ctx.allocator->alloc(size);
-				memcpy(value, source, size);
-
-				VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type);
-
-				result->sValue = value;
-
-				return result;
-			}
+			return ExtractValue(ctx, arguments[0], arguments[1]->iValue, instruction->type);
 		}
 		break;
 	case VM_INST_PHI:
@@ -1102,10 +1117,16 @@ VmConstant* GetArgumentValue(Eval &ctx, FunctionData *data, unsigned argument)
 
 	VmType type = GetVmType(ctx.ctx, data->arguments[argument].type);
 
-	if(type == VmType::Int)
+	if(type == VmType::Int || (type.type == VM_TYPE_POINTER && sizeof(void*) == 4))
 		return LoadFrameInt(ctx, &frame->stack, GetArgumentOffset(data, argument), type);
 
-	return (VmConstant*)Report(ctx, "ERROR: failed to load function '%.*s' argument '%.*s'", FMT_ISTR(data->name), FMT_ISTR(data->arguments[argument].name));
+	if(type == VmType::Double)
+		return LoadFrameDouble(ctx, &frame->stack, GetArgumentOffset(data, argument));
+
+	if(type == VmType::Long || (type.type == VM_TYPE_POINTER && sizeof(void*) == 8))
+		return LoadFrameLong(ctx, &frame->stack, GetArgumentOffset(data, argument), type);
+	
+	return LoadFrameStruct(ctx, &frame->stack, GetArgumentOffset(data, argument), type);
 }
 
 VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
@@ -1254,6 +1275,57 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		return result;
 	}
+	else if(function->name == InplaceStr("__rcomp") || function->name == InplaceStr("__rncomp"))
+	{
+		VmConstant *a = GetArgumentValue(ctx, function, 0);
+
+		if(!a)
+			return NULL;
+
+		VmConstant *b = GetArgumentValue(ctx, function, 1);
+
+		if(!b)
+			return NULL;
+
+		a = ExtractValue(ctx, a, 4, VmType::Pointer(ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+		b = ExtractValue(ctx, b, 4, VmType::Pointer(ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+
+		assert(a && b);
+
+		return CreateConstantInt(ctx.allocator, function->name == InplaceStr("__rcomp") ? a->iValue == b->iValue : a->iValue != b->iValue);
+	}
+	else if(function->name == InplaceStr("__pcomp") || function->name == InplaceStr("__pncomp"))
+	{
+		VmConstant *a = GetArgumentValue(ctx, function, 0);
+
+		if(!a)
+			return NULL;
+
+		VmConstant *b = GetArgumentValue(ctx, function, 1);
+
+		if(!b)
+			return NULL;
+
+		int order = memcmp(a->sValue, b->sValue, NULLC_PTR_SIZE + 4);
+
+		return CreateConstantInt(ctx.allocator, function->name == InplaceStr("__pcomp") ? order == 0 : order != 0);
+	}
+	else if(function->name == InplaceStr("__acomp") || function->name == InplaceStr("__ancomp"))
+	{
+		VmConstant *a = GetArgumentValue(ctx, function, 0);
+
+		if(!a)
+			return NULL;
+
+		VmConstant *b = GetArgumentValue(ctx, function, 1);
+
+		if(!b)
+			return NULL;
+
+		int order = memcmp(a->sValue, b->sValue, NULLC_PTR_SIZE + 4);
+
+		return CreateConstantInt(ctx.allocator, function->name == InplaceStr("__acomp") ? order == 0 : order != 0);
+	}
 
 	return NULL;
 }
@@ -1267,13 +1339,17 @@ VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
 
 	if(function->function && !function->function->declaration)
 	{
-		if(ctx.emulateKnownExternals && ctx.ctx.GetFunctionIndex(function->function) < ctx.ctx.baseModuleFunctionCount)
+		bool isBaseModuleFunction = ctx.ctx.GetFunctionIndex(function->function) < ctx.ctx.baseModuleFunctionCount;
+
+		if(ctx.emulateKnownExternals && isBaseModuleFunction)
 		{
 			if(VmConstant *result = EvaluateKnownExternalFunction(ctx, function->function))
 				return result;
+
+			return (VmConstant*)Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(function->function->name));
 		}
 
-		return (VmConstant*)Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(function->function->name));
+		return (VmConstant*)Report(ctx, "ERROR: imported function has no source");
 	}
 
 	while(currentBlock)
