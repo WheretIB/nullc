@@ -5416,7 +5416,7 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, Fu
 
 		CheckVariableConflict(ctx, source, argument.name);
 
-		unsigned offset = AllocateVariableInScope(ctx, source, 0, argument.type);
+		unsigned offset = AllocateVariableInScope(ctx, source, 4, argument.type);
 		VariableData *variable = allocate(VariableData)(ctx.allocator, argument.source, ctx.scope, 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(variable);
