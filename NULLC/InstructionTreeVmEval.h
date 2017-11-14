@@ -16,8 +16,6 @@ struct InstructionVMEvalContext
 {
 	InstructionVMEvalContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), allocator(allocator), stackFrames(allocator), heap(allocator), storageSet(allocator)
 	{
-		module = 0;
-
 		errorBuf = 0;
 		errorBufSize = 0;
 
@@ -69,8 +67,6 @@ struct InstructionVMEvalContext
 	};
 
 	ExpressionContext &ctx;
-
-	VmModule *module;
 
 	// Error info
 	char *errorBuf;

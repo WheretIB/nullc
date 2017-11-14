@@ -18,24 +18,6 @@ const unsigned memoryStorageMask = ~0u & ~memoryOffsetMask;
 
 namespace
 {
-	unsigned GetFunctionIndex(VmModule *module, VmFunction *function)
-	{
-		unsigned index = ~0u;
-
-		for(unsigned i = 0, e = module->functions.size(); i < e; i++)
-		{
-			if(module->functions[i] == function)
-			{
-				index = i;
-				break;
-			}
-		}
-
-		assert(index != ~0u);
-
-		return index;
-	}
-
 	int GetIntPow(int number, int power)
 	{
 		if(power < 0)
@@ -423,7 +405,7 @@ void CopyConstantRaw(Eval &ctx, char *dst, unsigned dstSize, VmConstant *src, un
 	{
 		assert(src->type.size == 4);
 
-		unsigned index = GetFunctionIndex(ctx.module, src->fValue);
+		unsigned index = ctx.ctx.GetFunctionIndex(src->fValue->function);
 
 		memcpy(dst, &index, src->type.size);
 	}
@@ -431,19 +413,6 @@ void CopyConstantRaw(Eval &ctx, char *dst, unsigned dstSize, VmConstant *src, un
 	{
 		assert(!"unknown constant type");
 	}
-}
-
-bool StoreFrameValue(Eval &ctx, Eval::Storage *storage, unsigned offset, VmConstant *value, unsigned storeSize)
-{
-	if(!storage->Reserve(ctx, offset, value->type.size))
-	{
-		Report(ctx, "ERROR: out of stack space");
-		return false;
-	}
-
-	CopyConstantRaw(ctx, storage->data.data + offset, storage->data.size() - offset, value, storeSize);
-
-	return true;
 }
 
 VmConstant* EvaluateOperand(Eval &ctx, VmValue *value)
@@ -519,6 +488,59 @@ Eval::Storage* FindTarget(Eval &ctx, VmConstant *value, unsigned &base)
 	return target;
 }
 
+VmConstant* LoadFrameValue(Eval &ctx, VmConstant *pointer, VmType type, unsigned loadSize)
+{
+	unsigned base = 0;
+
+	if(Eval::Storage *target = FindTarget(ctx, pointer, base))
+	{
+		if(type == VmType::Int && loadSize == 1)
+			return LoadFrameByte(ctx, target, (pointer->iValue & memoryOffsetMask) + base);
+
+		if(type == VmType::Int && loadSize == 2)
+			return LoadFrameShort(ctx, target, (pointer->iValue & memoryOffsetMask) + base);
+
+		if((type == VmType::Int || type.type == VM_TYPE_POINTER) && loadSize == 4)
+			return LoadFrameInt(ctx, target, (pointer->iValue & memoryOffsetMask) + base, type);
+
+		if(type == VmType::Double && loadSize == 4)
+			return LoadFrameFloat(ctx, target, (pointer->iValue & memoryOffsetMask) + base);
+
+		if(type == VmType::Double && loadSize == 8)
+			return LoadFrameDouble(ctx, target, (pointer->iValue & memoryOffsetMask) + base);
+
+		if((type == VmType::Long || type.type == VM_TYPE_POINTER) && loadSize == 8)
+			return LoadFrameLong(ctx, target, (pointer->iValue & memoryOffsetMask) + base, type);
+
+		return LoadFrameStruct(ctx, target, (pointer->iValue & memoryOffsetMask) + base, type);
+	}
+
+	return (VmConstant*)Report(ctx, "ERROR: null pointer access");
+}
+
+bool StoreFrameValue(Eval &ctx, VmConstant *pointer, VmConstant *value, unsigned storeSize)
+{
+	unsigned base = 0;
+
+	if(Eval::Storage *target = FindTarget(ctx, pointer, base))
+	{
+		unsigned offset = (pointer->iValue & memoryOffsetMask) + base;
+
+		if(!target->Reserve(ctx, offset, value->type.size))
+		{
+			Report(ctx, "ERROR: out of stack space");
+			return false;
+		}
+
+		CopyConstantRaw(ctx, target->data.data + offset, target->data.size() - offset, value, storeSize);
+
+		return true;
+	}
+
+	Report(ctx, "ERROR: null pointer access");
+	return false;
+}
+
 VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *predecessor, VmBlock **nextBlock)
 {
 	ctx.instruction++;
@@ -534,89 +556,13 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 	switch(instruction->cmd)
 	{
 	case VM_INST_LOAD_BYTE:
-		{
-			unsigned base = 0;
-
-			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-				return LoadFrameByte(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base);
-		}
-
-		if(HasReport(ctx))
-			return NULL;
-
-		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_LOAD_SHORT:
-		{
-			unsigned base = 0;
-
-			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-				return LoadFrameShort(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base);
-		}
-
-		if(HasReport(ctx))
-			return NULL;
-
-		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_LOAD_INT:
-		{
-			unsigned base = 0;
-
-			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-				return LoadFrameInt(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base, instruction->type);
-		}
-
-		if(HasReport(ctx))
-			return NULL;
-
-		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_LOAD_FLOAT:
-		{
-			unsigned base = 0;
-
-			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-				return LoadFrameFloat(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base);
-		}
-
-		if(HasReport(ctx))
-			return NULL;
-
-		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_LOAD_DOUBLE:
-		{
-			unsigned base = 0;
-
-			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-				return LoadFrameDouble(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base);
-		}
-
-		if(HasReport(ctx))
-			return NULL;
-
-		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_LOAD_LONG:
-		{
-			unsigned base = 0;
-
-			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-				return LoadFrameLong(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base, instruction->type);
-		}
-
-		if(HasReport(ctx))
-			return NULL;
-
-		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_LOAD_STRUCT:
-		{
-			unsigned base = 0;
-
-			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-				return LoadFrameStruct(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base, instruction->type);
-		}
-
-		if(HasReport(ctx))
-			return NULL;
-
-		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
+		return LoadFrameValue(ctx, arguments[0], instruction->type, GetAccessSize(instruction));
 	case VM_INST_LOAD_IMMEDIATE:
 		return arguments[0];
 	case VM_INST_STORE_BYTE:
@@ -626,20 +572,9 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 	case VM_INST_STORE_DOUBLE:
 	case VM_INST_STORE_LONG:
 	case VM_INST_STORE_STRUCT:
-		{
-			unsigned base = 0;
+		StoreFrameValue(ctx, arguments[0], arguments[1], GetAccessSize(instruction));
 
-			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
-			{
-				if(StoreFrameValue(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base, arguments[1], GetAccessSize(instruction)))
-					return NULL;
-			}
-		}
-
-		if(HasReport(ctx))
-			return NULL;
-
-		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
+		return NULL;
 	case VM_INST_DOUBLE_TO_INT:
 		return CreateConstantInt(ctx.allocator, int(arguments[0]->dValue));
 	case VM_INST_DOUBLE_TO_LONG:
@@ -738,15 +673,15 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			assert(arguments[0]->type.type == VM_TYPE_FUNCTION_REF);
 
 			unsigned functionIndex = 0;
-			memcpy(&functionIndex, arguments[0]->sValue + 0, 4);
+			memcpy(&functionIndex, arguments[0]->sValue + sizeof(void*), 4);
 
-			if(functionIndex >= ctx.module->functions.size())
+			if(functionIndex >= ctx.ctx.functions.size())
 				return (VmConstant*)Report(ctx, "ERROR: invalid function index");
 
-			VmFunction *function = ctx.module->functions[functionIndex];
+			VmFunction *function = ctx.ctx.functions[functionIndex]->vmFunction;
 
 			unsigned long long context = 0;
-			memcpy(&context, arguments[0]->sValue + 4, sizeof(void*));
+			memcpy(&context, arguments[0]->sValue, sizeof(void*));
 
 			Eval::StackFrame *calleeFrame = allocate(Eval::StackFrame)(ctx.allocator, function);
 
@@ -1240,13 +1175,8 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		unsigned base = 0;
-
-		if(Eval::Storage *target = FindTarget(ctx, context, base))
-		{
-			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 1))
-				return NULL;
-		}
+		if(!StoreFrameValue(ctx, context, value, 1))
+			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
 	}
@@ -1258,13 +1188,8 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		unsigned base = 0;
-
-		if(Eval::Storage *target = FindTarget(ctx, context, base))
-		{
-			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 1))
-				return NULL;
-		}
+		if(!StoreFrameValue(ctx, context, value, 1))
+			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
 	}
@@ -1276,13 +1201,8 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		unsigned base = 0;
-
-		if(Eval::Storage *target = FindTarget(ctx, context, base))
-		{
-			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 2))
-				return NULL;
-		}
+		if(!StoreFrameValue(ctx, context, value, 2))
+			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
 	}
@@ -1294,13 +1214,8 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		unsigned base = 0;
-
-		if(Eval::Storage *target = FindTarget(ctx, context, base))
-		{
-			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 4))
-				return NULL;
-		}
+		if(!StoreFrameValue(ctx, context, value, 4))
+			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
 	}
@@ -1312,13 +1227,8 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		unsigned base = 0;
-
-		if(Eval::Storage *target = FindTarget(ctx, context, base))
-		{
-			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 8))
-				return NULL;
-		}
+		if(!StoreFrameValue(ctx, context, value, 8))
+			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
 	}
@@ -1330,13 +1240,8 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		unsigned base = 0;
-
-		if(Eval::Storage *target = FindTarget(ctx, context, base))
-		{
-			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 4))
-				return NULL;
-		}
+		if(!StoreFrameValue(ctx, context, value, 4))
+			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
 	}
@@ -1348,13 +1253,8 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		unsigned base = 0;
-
-		if(Eval::Storage *target = FindTarget(ctx, context, base))
-		{
-			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 8))
-				return NULL;
-		}
+		if(!StoreFrameValue(ctx, context, value, 8))
+			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
 	}
@@ -1454,8 +1354,8 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!b)
 			return NULL;
 
-		a = ExtractValue(ctx, a, 4, VmType::Pointer(ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
-		b = ExtractValue(ctx, b, 4, VmType::Pointer(ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+		a = ExtractValue(ctx, a, 4, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+		b = ExtractValue(ctx, b, 4, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
 
 		assert(a && b);
 
@@ -1517,6 +1417,9 @@ VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
 			if(VmConstant *result = EvaluateKnownExternalFunction(ctx, function->function))
 				return result;
 
+			if(HasReport(ctx))
+				return NULL;
+
 			return (VmConstant*)Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(function->function->name));
 		}
 
@@ -1559,8 +1462,6 @@ VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
 
 VmConstant* EvaluateModule(Eval &ctx, VmModule *module)
 {
-	ctx.module = module;
-
 	VmFunction *global = module->functions.tail;
 
 	ctx.heap.Reserve(ctx, 0, 4096);

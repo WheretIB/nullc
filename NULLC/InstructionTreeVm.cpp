@@ -1942,7 +1942,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmFunction *function = node->function->vmFunction;
 
 		if(module->skipFunctionDefinitions)
-			return CheckType(ctx, expression, CreateConstruct(module, VmType::FunctionRef(node->function->type), function, CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), NULL, NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, VmType::FunctionRef(node->function->type), CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), function, NULL, NULL));
 
 		if(node->function->isPrototype)
 			return CreateVoid(module);
@@ -1993,7 +1993,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		VmValue *context = node->context ? CompileVm(ctx, module, node->context) : CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false);
 
-		VmValue *funcRef = CreateConstruct(module, VmType::FunctionRef(node->function->type), node->function->vmFunction, context, NULL, NULL);
+		VmValue *funcRef = CreateConstruct(module, VmType::FunctionRef(node->function->type), context, node->function->vmFunction, NULL, NULL);
 
 		return CheckType(ctx, expression, funcRef);
 	}

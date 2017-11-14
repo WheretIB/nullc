@@ -358,8 +358,8 @@ void Lower(Context &ctx, VmValue *value)
 
 				if(target->cmd == VM_INST_CONSTRUCT)
 				{
-					VmFunction *function = getType<VmFunction>(target->arguments[0]);
-					VmValue *context = target->arguments[1];
+					VmValue *context = target->arguments[0];
+					VmFunction *function = getType<VmFunction>(target->arguments[1]);
 
 					Lower(ctx, context);
 
