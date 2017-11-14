@@ -237,6 +237,14 @@ VmConstant* LoadFrameStruct(Eval &ctx, Eval::Storage *storage, unsigned offset, 
 	return result;
 }
 
+VmConstant* LoadFramePointer(Eval &ctx, Eval::Storage *storage, unsigned offset, VmType type)
+{
+	if(sizeof(void*) == 4)
+		return LoadFrameInt(ctx, storage, offset, type);
+
+	return LoadFrameLong(ctx, storage, offset, type);
+}
+
 VmConstant* ExtractValue(Eval &ctx, VmConstant *value, unsigned offset, VmType type)
 {
 	assert(value->sValue);
@@ -425,6 +433,19 @@ void CopyConstantRaw(Eval &ctx, char *dst, unsigned dstSize, VmConstant *src, un
 	}
 }
 
+bool StoreFrameValue(Eval &ctx, Eval::Storage *storage, unsigned offset, VmConstant *value, unsigned storeSize)
+{
+	if(!storage->Reserve(ctx, offset, value->type.size))
+	{
+		Report(ctx, "ERROR: out of stack space");
+		return false;
+	}
+
+	CopyConstantRaw(ctx, storage->data.data + offset, storage->data.size() - offset, value, storeSize);
+
+	return true;
+}
+
 VmConstant* EvaluateOperand(Eval &ctx, VmValue *value)
 {
 	Eval::StackFrame *frame = ctx.stackFrames.back();
@@ -610,14 +631,8 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 			if(Eval::Storage *target = FindTarget(ctx, arguments[0], base))
 			{
-				unsigned offset = (arguments[0]->iValue & memoryOffsetMask) + base;
-
-				if(!target->Reserve(ctx, offset, arguments[1]->type.size))
-					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
-
-				CopyConstantRaw(ctx, target->data.data + offset, target->data.size() - offset, arguments[1], GetAccessSize(instruction));
-
-				return NULL;
+				if(StoreFrameValue(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base, arguments[1], GetAccessSize(instruction)))
+					return NULL;
 			}
 		}
 
@@ -1136,12 +1151,17 @@ VmConstant* GetArgumentValue(Eval &ctx, FunctionData *data, unsigned argument)
 {
 	Eval::StackFrame *frame = ctx.stackFrames.back();
 
-	VmType type = GetVmType(ctx.ctx, data->arguments[argument].type);
+	TypeBase *argumentType = data->arguments[argument].type;
+
+	VmType type = GetVmType(ctx.ctx, argumentType);
 
 	if(type == VmType::Int || (type.type == VM_TYPE_POINTER && sizeof(void*) == 4))
 		return LoadFrameInt(ctx, &frame->stack, GetArgumentOffset(data, argument), type);
 
-	if(type == VmType::Double)
+	if(type == VmType::Double && argumentType == ctx.ctx.typeFloat)
+		return LoadFrameFloat(ctx, &frame->stack, GetArgumentOffset(data, argument));
+
+	if(type == VmType::Double && argumentType == ctx.ctx.typeDouble)
 		return LoadFrameDouble(ctx, &frame->stack, GetArgumentOffset(data, argument));
 
 	if(type == VmType::Long || (type.type == VM_TYPE_POINTER && sizeof(void*) == 8))
@@ -1211,6 +1231,132 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 	else if(function->name == InplaceStr("double") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeDouble)
 	{
 		return GetArgumentValue(ctx, function, 0);
+	}
+	else if(function->name == InplaceStr("bool::bool") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeBool)
+	{
+		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeBool)));
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!context || !value)
+			return NULL;
+
+		unsigned base = 0;
+
+		if(Eval::Storage *target = FindTarget(ctx, context, base))
+		{
+			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 1))
+				return NULL;
+		}
+
+		return CreateConstantVoid(ctx.allocator);
+	}
+	else if(function->name == InplaceStr("char::char") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeChar)
+	{
+		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!context || !value)
+			return NULL;
+
+		unsigned base = 0;
+
+		if(Eval::Storage *target = FindTarget(ctx, context, base))
+		{
+			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 1))
+				return NULL;
+		}
+
+		return CreateConstantVoid(ctx.allocator);
+	}
+	else if(function->name == InplaceStr("short::short") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeShort)
+	{
+		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeShort)));
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!context || !value)
+			return NULL;
+
+		unsigned base = 0;
+
+		if(Eval::Storage *target = FindTarget(ctx, context, base))
+		{
+			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 2))
+				return NULL;
+		}
+
+		return CreateConstantVoid(ctx.allocator);
+	}
+	else if(function->name == InplaceStr("int::int") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeInt)
+	{
+		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!context || !value)
+			return NULL;
+
+		unsigned base = 0;
+
+		if(Eval::Storage *target = FindTarget(ctx, context, base))
+		{
+			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 4))
+				return NULL;
+		}
+
+		return CreateConstantVoid(ctx.allocator);
+	}
+	else if(function->name == InplaceStr("long::long") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeLong)
+	{
+		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeLong)));
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!context || !value)
+			return NULL;
+
+		unsigned base = 0;
+
+		if(Eval::Storage *target = FindTarget(ctx, context, base))
+		{
+			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 8))
+				return NULL;
+		}
+
+		return CreateConstantVoid(ctx.allocator);
+	}
+	else if(function->name == InplaceStr("float::float") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeFloat)
+	{
+		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeFloat)));
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!context || !value)
+			return NULL;
+
+		unsigned base = 0;
+
+		if(Eval::Storage *target = FindTarget(ctx, context, base))
+		{
+			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 4))
+				return NULL;
+		}
+
+		return CreateConstantVoid(ctx.allocator);
+	}
+	else if(function->name == InplaceStr("double::double") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeDouble)
+	{
+		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeDouble)));
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!context || !value)
+			return NULL;
+
+		unsigned base = 0;
+
+		if(Eval::Storage *target = FindTarget(ctx, context, base))
+		{
+			if(!StoreFrameValue(ctx, target, (context->iValue & memoryOffsetMask) + base, value, 8))
+				return NULL;
+		}
+
+		return CreateConstantVoid(ctx.allocator);
 	}
 	else if(function->name == InplaceStr("__newS"))
 	{
