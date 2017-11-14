@@ -1397,6 +1397,66 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 	{
 		return CreateConstantInt(ctx.allocator, ctx.ctx.types.size());
 	}
+	else if(function->name == InplaceStr("__redirect") || function->name == InplaceStr("__redirect_ptr"))
+	{
+		VmConstant *autoRef = GetArgumentValue(ctx, function, 0);
+
+		if(!autoRef)
+			return NULL;
+
+		VmConstant *tableRef = GetArgumentValue(ctx, function, 1);
+
+		if(!tableRef)
+			return NULL;
+
+		VmConstant *typeID = ExtractValue(ctx, autoRef, 0, GetVmType(ctx.ctx, ctx.ctx.typeTypeID));
+
+		assert(typeID);
+
+		unsigned typeIndex = unsigned(typeID->iValue);
+
+		VmConstant *context = ExtractValue(ctx, autoRef, 4, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex])));
+
+		assert(context);
+
+		VmConstant *table = LoadFrameValue(ctx, tableRef, VmType::ArrayRef(ctx.ctx.typeFunctionID), NULLC_PTR_SIZE + 4);
+
+		if(!table)
+			return NULL;
+
+		VmConstant *tableArray = ExtractValue(ctx, table, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeFunctionID)));
+		VmConstant *tableSize = ExtractValue(ctx, table, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeInt));
+
+		assert(tableArray && tableSize);
+
+		if(typeIndex >= unsigned(tableSize->iValue))
+			return (VmConstant*)Report(ctx, "ERROR: type index is out of bounds of redirection table");
+
+		VmConstant *indexLocation = CreateConstantPointer(ctx.allocator, unsigned(tableArray->iValue + typeIndex * ctx.ctx.typeTypeID->size), tableArray->container, ctx.ctx.GetReferenceType(ctx.ctx.typeFunctionID), false);
+
+		VmConstant *index = LoadFrameValue(ctx, indexLocation, VmType::Int, 4);
+
+		if(index->iValue == 0)
+		{
+			if(function->name == InplaceStr("__redirect"))
+				return (VmConstant*)Report(ctx, "ERROR: type '%.*s' doesn't implement method", FMT_ISTR(ctx.ctx.types[typeIndex]->name));
+
+			context = CreateConstantPointer(ctx.allocator, 0, NULL, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]), false);
+		}
+
+		VmType resultType = GetVmType(ctx.ctx, function->type->returnType);
+
+		char *value = (char*)ctx.allocator->alloc(resultType.size);
+
+		CopyConstantRaw(ctx, value + 0, resultType.size, context, context->type.size);
+		CopyConstantRaw(ctx, value + sizeof(void*), resultType.size - sizeof(void*), CreateConstantInt(ctx.allocator, index->iValue), 4);
+
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, resultType);
+
+		result->sValue = value;
+
+		return result;
+	}
 
 	return NULL;
 }
