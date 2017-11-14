@@ -27,7 +27,11 @@ struct InstructionVMEvalContext
 
 		stackDepthLimit = 64;
 
+		heapSize = 0;
+
 		frameMemoryLimit = 8 * 1024;
+
+		variableMemoryLimit = 4 * 1024;
 
 		instruction = 0;
 		instructionsLimit = 64 * 1024;
@@ -78,12 +82,15 @@ struct InstructionVMEvalContext
 	unsigned stackDepthLimit;
 
 	Storage heap;
+	unsigned heapSize;
 
 	SmallArray<Storage*, 32> storageSet;
 
 	bool emulateKnownExternals;
 
 	unsigned frameMemoryLimit;
+
+	unsigned variableMemoryLimit;
 
 	unsigned instruction;
 	unsigned instructionsLimit;

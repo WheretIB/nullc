@@ -1138,6 +1138,90 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 	{
 		return GetArgumentValue(ctx, function, 0);
 	}
+	else if(function->name == InplaceStr("__newS"))
+	{
+		VmConstant *size = GetArgumentValue(ctx, function, 0);
+
+		if(!size)
+			return NULL;
+
+		VmConstant *type = GetArgumentValue(ctx, function, 1);
+
+		if(!type)
+			return NULL;
+
+		TypeBase *target = ctx.ctx.types[unsigned(type->iValue)];
+
+		assert(target->size == size->iValue);
+
+		unsigned offset = ctx.heapSize;
+
+		ctx.heap.Reserve(ctx, offset, size->iValue);
+		ctx.heapSize += size->iValue;
+
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(target)));
+
+		result->iValue = offset;
+		assert(int(result->iValue & memoryOffsetMask) == result->iValue);
+		result->iValue |= GetStorageIndex(ctx, &ctx.heap) << memoryStorageBits;
+
+		return result;
+	}
+	else if(function->name == InplaceStr("__newA"))
+	{
+		VmConstant *size = GetArgumentValue(ctx, function, 0);
+
+		if(!size)
+			return NULL;
+
+		VmConstant *count = GetArgumentValue(ctx, function, 1);
+
+		if(!count)
+			return NULL;
+
+		VmConstant *type = GetArgumentValue(ctx, function, 2);
+
+		if(!type)
+			return NULL;
+
+		TypeBase *target = ctx.ctx.types[unsigned(type->iValue)];
+
+		assert(target->size == size->iValue);
+
+		if(unsigned(size->iValue * count->iValue) > ctx.variableMemoryLimit)
+			return (VmConstant*)Report(ctx, "ERROR: single variable memory limit");
+
+		unsigned offset = ctx.heapSize;
+
+		ctx.heap.Reserve(ctx, offset, size->iValue * count->iValue);
+		ctx.heapSize += size->iValue * count->iValue;
+
+		unsigned pointer = 0;
+
+		pointer = offset;
+		assert(int(pointer & memoryOffsetMask) == pointer);
+		pointer |= GetStorageIndex(ctx, &ctx.heap) << memoryStorageBits;
+
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::ArrayRef(ctx.ctx.GetUnsizedArrayType(target)));
+
+		char *storage = (char*)ctx.allocator->alloc(NULLC_PTR_SIZE + 4);
+
+		if(sizeof(void*) == 4)
+		{
+			memcpy(storage, &pointer, 4);
+		}
+		else
+		{
+			unsigned long long tmp = pointer;
+			memcpy(storage, &tmp, 8);
+		}
+
+		memcpy(storage + sizeof(void*), &count->iValue, 4);
+
+		result->sValue = storage;
+
+		return result;
+	}
 
 	return NULL;
 }
@@ -1199,6 +1283,9 @@ VmConstant* EvaluateModule(Eval &ctx, VmModule *module)
 	ctx.module = module;
 
 	VmFunction *global = module->functions.tail;
+
+	ctx.heap.Reserve(ctx, 0, 4096);
+	ctx.heapSize += 4096;
 
 	ctx.globalFrame = allocate(Eval::StackFrame)(ctx.allocator, global);
 	ctx.stackFrames.push_back(ctx.globalFrame);
