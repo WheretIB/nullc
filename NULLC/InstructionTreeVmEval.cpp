@@ -960,15 +960,35 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 	case VM_INST_CONVERT_POINTER:
 		{
 			VmConstant *value = arguments[0];
-			VmConstant *typeID = arguments[1];
+			VmConstant *typeID = arguments[1]; // target
 
 			assert(value->type.type == VM_TYPE_AUTO_REF && value->sValue);
 			assert(typeID->type == VmType::Int);
 
-			unsigned valueTypeID = 0;
-			memcpy(&valueTypeID, value->sValue + 0, 4);
+			VmConstant *valueTypeID = ExtractValue(ctx, value, 0, VmType::Int);
+			VmConstant *valuePtr = ExtractValue(ctx, value, 4, instruction->type);
 
-			return (VmConstant*)Report(ctx, "ERROR: pointer convertion unsupported");
+			if(valueTypeID->iValue == typeID->iValue)
+				return valuePtr;
+
+			if(unsigned(valueTypeID->iValue) >= ctx.ctx.types.size())
+				return (VmConstant*)Report(ctx, "ERROR: invalid type index");
+
+			TypeBase *sourceType = ctx.ctx.types[valueTypeID->iValue];
+			TypeBase *targetType = ctx.ctx.types[typeID->iValue];
+
+			if(TypeClass *classType = getType<TypeClass>(sourceType))
+			{
+				while(classType->baseClass)
+				{
+					classType = classType->baseClass;
+
+					if(classType == targetType)
+						return valuePtr;
+				}
+			}
+
+			return (VmConstant*)Report(ctx, "ERROR: cannot convert from %.*s ref to %.*s ref", FMT_ISTR(sourceType->name), FMT_ISTR(targetType->name));
 		}
 		break;
 	case VM_INST_CHECKED_RETURN:
