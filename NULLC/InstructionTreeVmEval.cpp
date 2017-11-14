@@ -36,7 +36,7 @@ namespace
 		return index;
 	}
 
-	int GetIntPow(int power, int number)
+	int GetIntPow(int number, int power)
 	{
 		if(power < 0)
 			return number == 1 ? 1 : (number == -1 ? (power & 1 ? -1 : 1) : 0);
@@ -55,7 +55,7 @@ namespace
 		return result;
 	}
 
-	long long GetLongPow(long long power, long long number)
+	long long GetLongPow(long long number, long long power)
 	{
 		if(power < 0)
 			return number == 1 ? 1 : (number == -1 ? (power & 1 ? -1 : 1) : 0);
