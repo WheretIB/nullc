@@ -403,12 +403,6 @@ void CopyConstantRaw(Eval &ctx, char *dst, unsigned dstSize, VmConstant *src, un
 		else
 		{
 			pointer = src->iValue;
-
-			if(pointer == 0)
-			{
-				assert((pointer & memoryOffsetMask) == pointer);
-				pointer |= GetStorageIndex(ctx, &ctx.heap) << memoryStorageBits;
-			}
 		}
 
 		memcpy(dst, &pointer, src->type.size);
@@ -475,7 +469,10 @@ Eval::Storage* FindTarget(Eval &ctx, VmConstant *value, unsigned &base)
 	if(VariableData *variable = value->container)
 	{
 		if(variable->imported)
+		{
+			Report(ctx, "ERROR: can't access imported variable");
 			return NULL;
+		}
 
 		if(unsigned address = GetAllocaAddress(ctx, variable))
 		{
@@ -523,7 +520,10 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 				return LoadFrameByte(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base);
 		}
 
-		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+		if(HasReport(ctx))
+			return NULL;
+
+		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_LOAD_SHORT:
 		{
 			unsigned base = 0;
@@ -532,7 +532,10 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 				return LoadFrameShort(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base);
 		}
 
-		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+		if(HasReport(ctx))
+			return NULL;
+
+		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_LOAD_INT:
 		{
 			unsigned base = 0;
@@ -541,7 +544,10 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 				return LoadFrameInt(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base, instruction->type);
 		}
 
-		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+		if(HasReport(ctx))
+			return NULL;
+
+		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_LOAD_FLOAT:
 		{
 			unsigned base = 0;
@@ -550,7 +556,10 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 				return LoadFrameFloat(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base);
 		}
 
-		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+		if(HasReport(ctx))
+			return NULL;
+
+		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_LOAD_DOUBLE:
 		{
 			unsigned base = 0;
@@ -559,7 +568,10 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 				return LoadFrameDouble(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base);
 		}
 
-		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+		if(HasReport(ctx))
+			return NULL;
+
+		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_LOAD_LONG:
 		{
 			unsigned base = 0;
@@ -568,7 +580,10 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 				return LoadFrameLong(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base, instruction->type);
 		}
 
-		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+		if(HasReport(ctx))
+			return NULL;
+
+		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_LOAD_STRUCT:
 		{
 			unsigned base = 0;
@@ -577,7 +592,10 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 				return LoadFrameStruct(ctx, target, (arguments[0]->iValue & memoryOffsetMask) + base, instruction->type);
 		}
 
-		return (VmConstant*)Report(ctx, "ERROR: heap memory access");
+		if(HasReport(ctx))
+			return NULL;
+
+		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_LOAD_IMMEDIATE:
 		return arguments[0];
 	case VM_INST_STORE_BYTE:
@@ -598,14 +616,15 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 					return (VmConstant*)Report(ctx, "ERROR: out of stack space");
 
 				CopyConstantRaw(ctx, target->data.data + offset, target->data.size() - offset, arguments[1], GetAccessSize(instruction));
-			}
-			else
-			{
-				Report(ctx, "ERROR: heap memory access");
+
+				return NULL;
 			}
 		}
 
-		return NULL;
+		if(HasReport(ctx))
+			return NULL;
+
+		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 	case VM_INST_DOUBLE_TO_INT:
 		return CreateConstantInt(ctx.allocator, int(arguments[0]->dValue));
 	case VM_INST_DOUBLE_TO_LONG:
@@ -982,11 +1001,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			return CreateConstantInt(ctx.allocator, !arguments[0]->lValue);
 
 		if(arguments[0]->type.type == VM_TYPE_POINTER)
-		{
-			unsigned storageIndex = (arguments[0]->iValue & memoryStorageMask) >> memoryStorageBits;
-
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue == 0 || (ctx.heap.index == storageIndex && (arguments[0]->iValue & memoryOffsetMask) == 0));
-		}
+			return CreateConstantInt(ctx.allocator, arguments[0]->iValue == 0);
 		break;
 	case VM_INST_CREATE_CLOSURE:
 		break;
