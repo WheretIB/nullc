@@ -2020,6 +2020,9 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 			assert(argument->type != VmType::Void);
 
+			if(value->type == ctx.typeFloat)
+				argument = CreateInstruction(module, VmType::Int, VM_INST_DOUBLE_TO_FLOAT, argument);
+
 			inst->AddArgument(argument);
 		}
 

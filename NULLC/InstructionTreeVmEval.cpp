@@ -610,6 +610,15 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 		return CreateConstantInt(ctx.allocator, int(arguments[0]->dValue));
 	case VM_INST_DOUBLE_TO_LONG:
 		return CreateConstantLong(ctx.allocator, (long long)(arguments[0]->dValue));
+	case VM_INST_DOUBLE_TO_FLOAT:
+		{
+			float source = float(arguments[0]->dValue);
+
+			int target = 0;
+			memcpy(&target, &source, sizeof(float));
+
+			return CreateConstantInt(ctx.allocator, target);
+		}
 	case VM_INST_INT_TO_DOUBLE:
 		return CreateConstantDouble(ctx.allocator, double(arguments[0]->iValue));
 	case VM_INST_LONG_TO_DOUBLE:
@@ -726,9 +735,6 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 				if(original.type->size == 0)
 					continue;
-
-				if(original.type == ctx.ctx.typeFloat)
-					return (VmConstant*)Report(ctx, "ERROR: unsupported float argument");
 
 				unsigned argumentSize = argument->type.size;
 
