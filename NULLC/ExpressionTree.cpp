@@ -4327,6 +4327,9 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		parentType = getType<TypeRef>(proto.context->type)->subType;
 	}
 
+	if(parentType && parentType->isGeneric)
+		Stop(ctx, source->pos, "ERROR: generic type arguments required for type '%.*s'", FMT_ISTR(parentType->name));
+
 	IntrusiveList<MatchData> aliases;
 
 	{
