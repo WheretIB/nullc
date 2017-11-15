@@ -4854,9 +4854,16 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 		ExprBase *regular = NULL;
 
 		if(SynTypeSimple *node = getType<SynTypeSimple>(syntax->value))
+		{
 			regular = CreateVariableAccess(ctx, syntax->value, node->path, node->name);
+
+			if(!regular && node->path.empty())
+				regular = CreateVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name);
+		}
 		else
+		{
 			regular = CreateVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name);
+		}
 
 		if(regular)
 		{
