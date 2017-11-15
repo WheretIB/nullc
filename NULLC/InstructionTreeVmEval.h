@@ -18,6 +18,7 @@ struct InstructionVMEvalContext
 	{
 		errorBuf = 0;
 		errorBufSize = 0;
+		hasError = false;
 
 		globalFrame = 0;
 
@@ -71,6 +72,7 @@ struct InstructionVMEvalContext
 	// Error info
 	char *errorBuf;
 	unsigned errorBufSize;
+	bool hasError;
 
 	StackFrame *globalFrame;
 

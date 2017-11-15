@@ -58,6 +58,10 @@ namespace
 
 	ExprBase* Report(Eval &ctx, const char *msg, ...)
 	{
+		// Do not replace previous error
+		if(ctx.hasError)
+			return NULL;
+
 		if(ctx.errorBuf && ctx.errorBufSize)
 		{
 			va_list args;
@@ -70,12 +74,9 @@ namespace
 			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
 		}
 
-		return NULL;
-	}
+		ctx.hasError = true;
 
-	bool HasReport(Eval &ctx)
-	{
-		return *ctx.errorBuf != 0;
+		return NULL;
 	}
 }
 
@@ -1497,9 +1498,6 @@ VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
 			if(VmConstant *result = EvaluateKnownExternalFunction(ctx, function->function))
 				return result;
 
-			if(HasReport(ctx))
-				return NULL;
-
 			return (VmConstant*)Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(function->function->name));
 		}
 
@@ -1517,7 +1515,7 @@ VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
 
 			VmConstant *result = EvaluateInstruction(ctx, instruction, predecessorBlock, &nextBlock);
 
-			if(HasReport(ctx))
+			if(ctx.hasError)
 				return NULL;
 
 			frame->AssignRegister(instruction->uniqueId, result);
@@ -1544,6 +1542,8 @@ VmConstant* EvaluateModule(Eval &ctx, VmModule *module)
 {
 	VmFunction *global = module->functions.tail;
 
+	ctx.hasError = false;
+
 	ctx.heap.Reserve(ctx, 0, 4096);
 	ctx.heapSize += 4096;
 
@@ -1552,7 +1552,7 @@ VmConstant* EvaluateModule(Eval &ctx, VmModule *module)
 
 	VmConstant *result = EvaluateFunction(ctx, global);
 
-	if(HasReport(ctx))
+	if(ctx.hasError)
 		return NULL;
 
 	ctx.stackFrames.pop_back();
