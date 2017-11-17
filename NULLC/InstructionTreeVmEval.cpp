@@ -542,6 +542,56 @@ bool StoreFrameValue(Eval &ctx, VmConstant *pointer, VmConstant *value, unsigned
 	return false;
 }
 
+VmConstant* AllocateHeapObject(Eval &ctx, TypeBase *target)
+{
+	unsigned offset = ctx.heapSize;
+
+	ctx.heap.Reserve(ctx, offset, unsigned(target->size));
+	ctx.heapSize += unsigned(target->size);
+
+	VmConstant *result = allocate(VmConstant)(ctx.allocator, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(target)));
+
+	result->iValue = offset;
+	assert(int(result->iValue & memoryOffsetMask) == result->iValue);
+	result->iValue |= GetStorageIndex(ctx, &ctx.heap) << memoryStorageBits;
+
+	return result;
+}
+
+VmConstant* AllocateHeapArray(Eval &ctx, TypeBase *target, unsigned count)
+{
+	unsigned offset = ctx.heapSize;
+
+	ctx.heap.Reserve(ctx, offset, unsigned(target->size) * count);
+	ctx.heapSize += unsigned(target->size) * count;
+
+	unsigned pointer = 0;
+
+	pointer = offset;
+	assert(int(pointer & memoryOffsetMask) == pointer);
+	pointer |= GetStorageIndex(ctx, &ctx.heap) << memoryStorageBits;
+
+	VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::ArrayRef(ctx.ctx.GetUnsizedArrayType(target)));
+
+	char *storage = (char*)ctx.allocator->alloc(result->type.size);
+
+	if(sizeof(void*) == 4)
+	{
+		memcpy(storage, &pointer, 4);
+	}
+	else
+	{
+		unsigned long long tmp = pointer;
+		memcpy(storage, &tmp, 8);
+	}
+
+	memcpy(storage + sizeof(void*), &count, 4);
+
+	result->sValue = storage;
+
+	return result;
+}
+
 VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *predecessor, VmBlock **nextBlock)
 {
 	ctx.instruction++;
@@ -1295,18 +1345,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		assert(target->size == size->iValue);
 
-		unsigned offset = ctx.heapSize;
-
-		ctx.heap.Reserve(ctx, offset, size->iValue);
-		ctx.heapSize += size->iValue;
-
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(target)));
-
-		result->iValue = offset;
-		assert(int(result->iValue & memoryOffsetMask) == result->iValue);
-		result->iValue |= GetStorageIndex(ctx, &ctx.heap) << memoryStorageBits;
-
-		return result;
+		return AllocateHeapObject(ctx, target);
 	}
 	else if(function->name == InplaceStr("__newA"))
 	{
@@ -1332,36 +1371,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(unsigned(size->iValue * count->iValue) > ctx.variableMemoryLimit)
 			return (VmConstant*)Report(ctx, "ERROR: single variable memory limit");
 
-		unsigned offset = ctx.heapSize;
-
-		ctx.heap.Reserve(ctx, offset, size->iValue * count->iValue);
-		ctx.heapSize += size->iValue * count->iValue;
-
-		unsigned pointer = 0;
-
-		pointer = offset;
-		assert(int(pointer & memoryOffsetMask) == pointer);
-		pointer |= GetStorageIndex(ctx, &ctx.heap) << memoryStorageBits;
-
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::ArrayRef(ctx.ctx.GetUnsizedArrayType(target)));
-
-		char *storage = (char*)ctx.allocator->alloc(NULLC_PTR_SIZE + 4);
-
-		if(sizeof(void*) == 4)
-		{
-			memcpy(storage, &pointer, 4);
-		}
-		else
-		{
-			unsigned long long tmp = pointer;
-			memcpy(storage, &tmp, 8);
-		}
-
-		memcpy(storage + sizeof(void*), &count->iValue, 4);
-
-		result->sValue = storage;
-
-		return result;
+		return AllocateHeapArray(ctx, target, count->iValue);
 	}
 	else if(function->name == InplaceStr("__rcomp") || function->name == InplaceStr("__rncomp"))
 	{
@@ -1477,6 +1487,184 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		result->sValue = value;
 
 		return result;
+	}
+	else if(function->name == InplaceStr("duplicate") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeAutoRef)
+	{
+		VmConstant *ptr = GetArgumentValue(ctx, function, 0);
+
+		if(!ptr)
+			return NULL;
+
+		VmConstant *ptrTypeID = ExtractValue(ctx, ptr, 0, GetVmType(ctx.ctx, ctx.ctx.typeTypeID));
+
+		TypeBase *targetType = ctx.ctx.types[ptrTypeID->iValue];
+
+		VmConstant *ptrPtr = ExtractValue(ctx, ptr, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(targetType)));
+
+		VmType storageType = GetVmType(ctx.ctx, ctx.ctx.typeAutoRef);
+
+		char *storageValue = (char*)ctx.allocator->alloc(storageType.size);
+
+		CopyConstantRaw(ctx, storageValue + 0, storageType.size, ptrTypeID, ptrTypeID->type.size);
+
+		if(!ptrPtr->iValue)
+		{
+			VmConstant *result = allocate(VmConstant)(ctx.allocator, storageType);
+
+			result->sValue = storageValue;
+
+			return result;
+		}
+
+		VmConstant *resultPtr = AllocateHeapObject(ctx, targetType);
+
+		CopyConstantRaw(ctx, storageValue + 4, storageType.size - 4, resultPtr, resultPtr->type.size);
+
+		if(targetType->size != 0)
+			StoreFrameValue(ctx, resultPtr, LoadFrameValue(ctx, ptrPtr, GetVmType(ctx.ctx, targetType), unsigned(targetType->size)), unsigned(targetType->size));
+
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, storageType);
+
+		result->sValue = storageValue;
+
+		return result;
+	}
+	else if(function->name == InplaceStr("typeid") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeAutoRef)
+	{
+		VmConstant *reference = GetArgumentValue(ctx, function, 0);
+
+		if(!reference)
+			return NULL;
+
+		return ExtractValue(ctx, reference, 0, GetVmType(ctx.ctx, ctx.ctx.typeTypeID));
+	}
+	else if(function->name == InplaceStr("auto_array") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.typeTypeID && function->arguments[1].type == ctx.ctx.typeInt)
+	{
+		VmConstant *type = GetArgumentValue(ctx, function, 0);
+
+		if(!type)
+			return NULL;
+
+		VmConstant *count = GetArgumentValue(ctx, function, 1);
+
+		if(!count)
+			return NULL;
+
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::AutoArray);
+
+		char *storage = (char*)ctx.allocator->alloc(result->type.size);
+		
+		result->sValue = storage;
+
+		CopyConstantRaw(ctx, storage + 0, result->type.size, type, type->type.size);
+
+		VmConstant *resultPtr = AllocateHeapObject(ctx, ctx.ctx.GetArrayType(ctx.ctx.types[type->iValue], count->iValue));
+		
+		CopyConstantRaw(ctx, storage + 4, result->type.size - 4, resultPtr, resultPtr->type.size);
+
+		CopyConstantRaw(ctx, storage + 4 + sizeof(void*), result->type.size - 4 - sizeof(void*), count, count->type.size);
+
+		return result;
+	}
+	else if(function->name == InplaceStr("array_copy") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.typeAutoArray && function->arguments[1].type == ctx.ctx.typeAutoArray)
+	{
+		VmConstant *dst = GetArgumentValue(ctx, function, 0);
+
+		if(!dst)
+			return NULL;
+
+		VmConstant *src = GetArgumentValue(ctx, function, 1);
+
+		if(!src)
+			return NULL;
+
+		VmConstant *dstTypeID = ExtractValue(ctx, dst, 0, GetVmType(ctx.ctx, ctx.ctx.typeTypeID));
+		VmConstant *dstPtr = ExtractValue(ctx, dst, 4, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+		VmConstant *dstLen = ExtractValue(ctx, dst, 4 + sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeInt));
+
+		VmConstant *srcTypeID = ExtractValue(ctx, src, 0, GetVmType(ctx.ctx, ctx.ctx.typeTypeID));
+		VmConstant *srcPtr = ExtractValue(ctx, src, 4, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+		VmConstant *srcLen = ExtractValue(ctx, src, 4 + sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeInt));
+
+		if(!dstPtr->iValue && !srcPtr->iValue)
+			return CreateConstantVoid(ctx.allocator);
+
+		if(!srcPtr->iValue || dstPtr->iValue == srcPtr->iValue)
+			return CreateConstantVoid(ctx.allocator);
+
+		if(dstTypeID->iValue != srcTypeID->iValue)
+			return (VmConstant*)Report(ctx, "ERROR: destination element type '%.*s' doesn't match source element type '%.*s'", FMT_ISTR(ctx.ctx.types[dstTypeID->iValue]->name), FMT_ISTR(ctx.ctx.types[srcTypeID->iValue]->name));
+
+		if(dstLen->iValue < srcLen->iValue)
+			return (VmConstant*)Report(ctx, "ERROR: destination array size '%d' is smaller than source array size '%d'", unsigned(dstLen->iValue), unsigned(srcLen->iValue));
+
+		TypeBase *arrayType = ctx.ctx.GetArrayType(ctx.ctx.types[srcTypeID->iValue], srcLen->iValue);
+
+		StoreFrameValue(ctx, dstPtr, LoadFrameValue(ctx, srcPtr, GetVmType(ctx.ctx, arrayType), unsigned(arrayType->size)), unsigned(arrayType->size));
+
+		return CreateConstantVoid(ctx.allocator);
+	}
+	else if(function->name == InplaceStr("__assertCoroutine") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeAutoRef)
+	{
+		VmConstant *ptr = GetArgumentValue(ctx, function, 0);
+
+		if(!ptr)
+			return NULL;
+
+		VmConstant *ptrTypeID = ExtractValue(ctx, ptr, 0, GetVmType(ctx.ctx, ctx.ctx.typeTypeID));
+
+		TypeBase *targetType = ctx.ctx.types[ptrTypeID->iValue];
+
+		if(!isType<TypeFunction>(targetType))
+			return (VmConstant*)Report(ctx, "ERROR: '%.*s' is not a function'", FMT_ISTR(targetType->name));
+
+		VmConstant *ptrPtr = ExtractValue(ctx, ptr, 4, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(targetType)));
+
+		VmConstant *functionRef = LoadFrameValue(ctx, ptrPtr, GetVmType(ctx.ctx, targetType), unsigned(targetType->size));
+
+		VmConstant *functionIndex = ExtractValue(ctx, functionRef, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeFunctionID));
+
+		if(unsigned(functionIndex->iValue) >= ctx.ctx.functions.size())
+			return (VmConstant*)Report(ctx, "ERROR: invalid function index");
+
+		FunctionData *function = ctx.ctx.functions[functionIndex->iValue];
+
+		if(!function->coroutine)
+			return (VmConstant*)Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->name));
+
+		return CreateConstantVoid(ctx.allocator);
+	}
+	else if(function->name == InplaceStr("assert_derived_from_base") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && function->arguments[1].type == ctx.ctx.typeTypeID)
+	{
+		VmConstant *ptr = GetArgumentValue(ctx, function, 0);
+
+		if(!ptr)
+			return NULL;
+
+		VmConstant *base = GetArgumentValue(ctx, function, 1);
+
+		if(!base)
+			return NULL;
+
+		if(!ptr->iValue)
+			return ptr;
+
+		VmConstant *derived = LoadFrameValue(ctx, ptr, GetVmType(ctx.ctx, ctx.ctx.typeTypeID), unsigned(ctx.ctx.typeTypeID->size));//ExtractValue(ctx, ptr, 0, GetVmType(ctx.ctx, ctx.ctx.typeTypeID));
+
+		TypeBase *curr = ctx.ctx.types[derived->iValue];
+
+		while(curr)
+		{
+			if(curr == ctx.ctx.types[base->iValue])
+				return ptr;
+
+			if(TypeClass *classType = getType<TypeClass>(curr))
+				curr = classType->baseClass;
+			else
+				curr = NULL;
+		}
+
+		return (VmConstant*)Report(ctx, "ERROR: cannot convert from '%.*s' to '%.*s'", FMT_ISTR(ctx.ctx.types[derived->iValue]->name), FMT_ISTR(ctx.ctx.types[base->iValue]->name));
 	}
 
 	return NULL;
