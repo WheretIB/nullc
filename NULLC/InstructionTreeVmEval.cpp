@@ -895,7 +895,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 	case VM_INST_DIV:
 		assert(arguments[0]->type == arguments[1]->type);
 
-		if(IsConstantZero(arguments[1]))
+		if(arguments[0]->type != VmType::Double && IsConstantZero(arguments[1]))
 			return (VmConstant*)Report(ctx, "ERROR: division by zero");
 
 		if(arguments[0]->type == VmType::Int)
@@ -920,7 +920,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 	case VM_INST_MOD:
 		assert(arguments[0]->type == arguments[1]->type);
 
-		if(IsConstantZero(arguments[1]))
+		if(arguments[0]->type != VmType::Double && IsConstantZero(arguments[1]))
 			return (VmConstant*)Report(ctx, "ERROR: division by zero");
 
 		if(arguments[0]->type == VmType::Int)
