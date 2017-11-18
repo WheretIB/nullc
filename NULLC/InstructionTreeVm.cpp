@@ -44,6 +44,7 @@ namespace
 		case VM_INST_JUMP_NZ:
 		case VM_INST_RETURN:
 		case VM_INST_YIELD:
+		case VM_INST_UNYIELD:
 			return true;
 		}
 
@@ -71,6 +72,7 @@ namespace
 		case VM_INST_CREATE_CLOSURE:
 		case VM_INST_CLOSE_UPVALUES:
 		case VM_INST_CHECKED_RETURN:
+		case VM_INST_UNYIELD:
 			return true;
 		}
 
@@ -527,14 +529,14 @@ namespace
 		return CreateInstruction(module, VmType::Void, VM_INST_RETURN, value);
 	}
 
-	VmValue* CreateYield(VmModule *module)
+	VmValue* CreateYield(VmModule *module, VmValue *nextBlock)
 	{
-		return CreateInstruction(module, VmType::Void, VM_INST_YIELD);
+		return CreateInstruction(module, VmType::Void, VM_INST_YIELD, nextBlock);
 	}
 
-	VmValue* CreateYield(VmModule *module, VmValue *value)
+	VmValue* CreateYield(VmModule *module, VmValue *nextBlock, VmValue *value)
 	{
-		return CreateInstruction(module, VmType::Void, VM_INST_YIELD, value);
+		return CreateInstruction(module, VmType::Void, VM_INST_YIELD, nextBlock, value);
 	}
 
 	VmValue* CreateVariableAddress(VmModule *module, VariableData *variable, TypeBase *structType)
@@ -751,6 +753,17 @@ namespace
 
 		for(unsigned i = 0; i < users.size(); i++)
 			ReplaceValue(users[i], original, replacement);
+
+		if(VmBlock *block = getType<VmBlock>(original))
+		{
+			VmFunction *function = block->parent;
+
+			for(unsigned i = 0; i < function->restoreBlocks.size(); i++)
+			{
+				if(original == function->restoreBlocks[i])
+					function->restoreBlocks[i] = getType<VmBlock>(replacement);
+			}
+		}
 
 		if(optCount)
 			(*optCount)++;
@@ -1858,10 +1871,14 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		VmValue *value = CompileVm(ctx, module, node->value);
 
-		if(node->value->type == ctx.typeVoid)
-			return CheckType(ctx, expression, CreateYield(module));
+		VmBlock *block = module->currentFunction->restoreBlocks[++module->currentFunction->nextRestoreBlock];
 
-		return CheckType(ctx, expression, CreateYield(module, value));
+		VmValue *result = node->value->type == ctx.typeVoid ? CreateYield(module, block) : CreateYield(module, block, value);
+
+		module->currentFunction->AddBlock(block);
+		module->currentBlock = block;
+
+		return CheckType(ctx, expression, result);
 	}
 	else if(ExprVariableDefinition *node = getType<ExprVariableDefinition>(expression))
 	{
@@ -1966,6 +1983,31 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		module->currentFunction->AddBlock(block);
 		module->currentBlock = block;
 		block->AddUse(function);
+
+		if(node->function->coroutine)
+		{
+			VmInstruction *inst = CreateInstruction(module, VmType::Void, VM_INST_UNYIELD, NULL, NULL, NULL, NULL);
+
+			{
+				VmBlock *block = CreateBlock(module, "co_start");
+
+				inst->AddArgument(block);
+
+				module->currentFunction->AddBlock(block);
+				module->currentBlock = block;
+
+				function->restoreBlocks.push_back(block);
+			}
+
+			for(unsigned i = 0; i < node->function->yieldCount; i++)
+			{
+				VmBlock *block = CreateBlock(module, "restore");
+
+				inst->AddArgument(block);
+
+				function->restoreBlocks.push_back(block);
+			}
+		}
 
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
 			CompileVm(ctx, module, value);

@@ -114,7 +114,7 @@ enum VmInstructionType
 	VM_INST_CONSTRUCT, // Pseudo instruction to collect multiple elements into a single value
 	VM_INST_ARRAY, // Pseudo instruction to collect multiple elements into a single array
 	VM_INST_EXTRACT, // Pseudo instruction to extract an element from a composite value
-
+	VM_INST_UNYIELD, // Pseudo instruction to restore function execution state
 	VM_INST_PHI, // Pseudo instruction to create a value based on control flow
 };
 
@@ -329,7 +329,7 @@ struct VmBlock: VmValue
 
 struct VmFunction: VmValue
 {
-	VmFunction(Allocator *allocator, VmType type, FunctionData *function, ScopeData *scope, VmType returnType): VmValue(myTypeID, allocator, type), function(function), scope(scope), returnType(returnType), allocas(allocator)
+	VmFunction(Allocator *allocator, VmType type, FunctionData *function, ScopeData *scope, VmType returnType): VmValue(myTypeID, allocator, type), function(function), scope(scope), returnType(returnType), allocas(allocator), restoreBlocks(allocator)
 	{
 		firstBlock = NULL;
 		lastBlock = NULL;
@@ -338,6 +338,8 @@ struct VmFunction: VmValue
 		listed = false;
 
 		address = ~0u;
+
+		nextRestoreBlock = 0;
 	}
 
 	void AddBlock(VmBlock *block);
@@ -357,6 +359,9 @@ struct VmFunction: VmValue
 	unsigned address;
 
 	SmallArray<VariableData*, 4> allocas;
+
+	unsigned nextRestoreBlock;
+	SmallArray<VmBlock*, 4> restoreBlocks;
 
 	static const unsigned myTypeID = __LINE__;
 };

@@ -341,6 +341,9 @@ void PrintInstructionName(InstructionVMGraphContext &ctx, VmInstructionType cmd)
 	case VM_INST_EXTRACT:
 		Print(ctx, "extract");
 		break;
+	case VM_INST_UNYIELD:
+		Print(ctx, "unyield");
+		break;
 	case VM_INST_PHI:
 		Print(ctx, "phi");
 		break;

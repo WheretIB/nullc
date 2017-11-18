@@ -703,6 +703,9 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_EXTRACT:
 			ctx.cmds.push_back(VMCmd(cmdNop));
 			break;
+		case VM_INST_UNYIELD:
+			ctx.cmds.push_back(VMCmd(cmdNop));
+			break;
 		default:
 			assert(!"unknown instruction");
 		}

@@ -592,6 +592,24 @@ VmConstant* AllocateHeapArray(Eval &ctx, TypeBase *target, unsigned count)
 	return result;
 }
 
+VmConstant* GetJumpOffsetPtr(Eval &ctx)
+{
+	Eval::StackFrame *frame = ctx.stackFrames.back();
+
+	VmConstant *contextPtr = LoadFramePointer(ctx, &frame->stack, 0, GetVmType(ctx.ctx, frame->owner->function->contextType));
+
+	if(!contextPtr->iValue)
+		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
+
+	TypeRef *refType = getType<TypeRef>(frame->owner->function->contextType);
+
+	VmType contextType = GetVmType(ctx.ctx, refType->subType);
+
+	VmConstant *context = LoadFrameValue(ctx, contextPtr, contextType, contextType.size);
+
+	return ExtractValue(ctx, context, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
+}
+
 VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *predecessor, VmBlock **nextBlock)
 {
 	ctx.instruction++;
@@ -776,12 +794,62 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 		}
 		break;
 	case VM_INST_RETURN:
+		{
+			Eval::StackFrame *frame = ctx.stackFrames.back();
+
+			if(frame->owner->function && frame->owner->function->coroutine)
+			{
+				VmConstant *offsetPtr = GetJumpOffsetPtr(ctx);
+
+				if(ctx.hasError)
+					return NULL;
+
+				VmType offsetType = VmType::Int;
+
+				StoreFrameValue(ctx, offsetPtr, CreateConstantInt(ctx.allocator, 0), offsetType.size);
+			}
+		}
+
 		if(arguments.empty())
 			return CreateConstantVoid(ctx.allocator);
 
 		return arguments[0];
 	case VM_INST_YIELD:
-		return (VmConstant*)Report(ctx, "ERROR: yield is not supported");
+		{
+			VmConstant *block = arguments[0];
+
+			assert(block->type == VmType::Block && block->bValue);
+
+			Eval::StackFrame *frame = ctx.stackFrames.back();
+
+			unsigned targetIndex = ~0u;
+
+			for(unsigned i = 0; i < frame->owner->restoreBlocks.size(); i++)
+			{
+				if(frame->owner->restoreBlocks[i] == block->bValue)
+				{
+					targetIndex = i;
+					break;
+				}
+			}
+
+			assert(targetIndex != ~0u);
+
+			VmConstant *offsetPtr = GetJumpOffsetPtr(ctx);
+
+			if(ctx.hasError)
+				return NULL;
+
+			VmType offsetType = VmType::Int;
+
+			StoreFrameValue(ctx, offsetPtr, CreateConstantInt(ctx.allocator, targetIndex), offsetType.size);
+
+			if(arguments.size() == 1)
+				return CreateConstantVoid(ctx.allocator);
+
+			return arguments[1];
+		}
+		break;
 	case VM_INST_ADD:
 		if(arguments[0]->type.type == VM_TYPE_POINTER || arguments[1]->type.type == VM_TYPE_POINTER)
 		{
@@ -1107,6 +1175,24 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			assert(arguments[1]->type == VmType::Int);
 
 			return ExtractValue(ctx, arguments[0], arguments[1]->iValue, instruction->type);
+		}
+		break;
+	case VM_INST_UNYIELD:
+		{
+			Eval::StackFrame *frame = ctx.stackFrames.back();
+
+			VmConstant *offsetPtr = GetJumpOffsetPtr(ctx);
+
+			if(ctx.hasError)
+				return NULL;
+
+			VmType offsetType = VmType::Int;
+
+			VmConstant *offset = LoadFrameValue(ctx, offsetPtr, offsetType, offsetType.size);
+
+			*nextBlock = frame->owner->restoreBlocks[offset->iValue];
+
+			return NULL;
 		}
 		break;
 	case VM_INST_PHI:
