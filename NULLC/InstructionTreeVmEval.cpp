@@ -1720,6 +1720,53 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		return CreateConstantVoid(ctx.allocator);
 	}
+	else if(function->name == InplaceStr("isCoroutineReset") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeAutoRef)
+	{
+		VmConstant *ptr = GetArgumentValue(ctx, function, 0);
+
+		if(!ptr)
+			return NULL;
+
+		VmConstant *ptrTypeID = ExtractValue(ctx, ptr, 0, GetVmType(ctx.ctx, ctx.ctx.typeTypeID));
+
+		TypeBase *targetType = ctx.ctx.types[ptrTypeID->iValue];
+
+		if(!isType<TypeFunction>(targetType))
+			return (VmConstant*)Report(ctx, "ERROR: '%.*s' is not a function'", FMT_ISTR(targetType->name));
+
+		VmConstant *ptrPtr = ExtractValue(ctx, ptr, 4, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(targetType)));
+
+		VmConstant *functionRef = LoadFrameValue(ctx, ptrPtr, GetVmType(ctx.ctx, targetType), unsigned(targetType->size));
+
+		VmConstant *functionIndex = ExtractValue(ctx, functionRef, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeFunctionID));
+
+		if(unsigned(functionIndex->iValue) >= ctx.ctx.functions.size())
+			return (VmConstant*)Report(ctx, "ERROR: invalid function index");
+
+		FunctionData *function = ctx.ctx.functions[functionIndex->iValue];
+
+		if(!function->coroutine)
+			return (VmConstant*)Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->name));
+
+		VmConstant *functionContextPtr = ExtractValue(ctx, functionRef, 0, GetVmType(ctx.ctx, function->contextType));
+
+		if(!functionContextPtr->iValue)
+			return (VmConstant*)Report(ctx, "ERROR: null pointer access");
+
+		TypeRef *refType = getType<TypeRef>(function->contextType);
+
+		VmType contextType = GetVmType(ctx.ctx, refType->subType);
+
+		VmConstant *functionContext = LoadFrameValue(ctx, functionContextPtr, contextType, contextType.size);
+
+		VmConstant *jmpOffsetTarget = ExtractValue(ctx, functionContext, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
+
+		VmType offsetType = VmType::Int;
+
+		VmConstant *jmpOffset = LoadFrameValue(ctx, jmpOffsetTarget, offsetType, offsetType.size);
+
+		return CreateConstantInt(ctx.allocator, jmpOffset->iValue == 0);
+	}
 	else if(function->name == InplaceStr("assert_derived_from_base") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && function->arguments[1].type == ctx.ctx.typeTypeID)
 	{
 		VmConstant *ptr = GetArgumentValue(ctx, function, 0);
@@ -1735,7 +1782,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!ptr->iValue)
 			return ptr;
 
-		VmConstant *derived = LoadFrameValue(ctx, ptr, GetVmType(ctx.ctx, ctx.ctx.typeTypeID), unsigned(ctx.ctx.typeTypeID->size));//ExtractValue(ctx, ptr, 0, GetVmType(ctx.ctx, ctx.ctx.typeTypeID));
+		VmConstant *derived = LoadFrameValue(ctx, ptr, GetVmType(ctx.ctx, ctx.ctx.typeTypeID), unsigned(ctx.ctx.typeTypeID->size));
 
 		TypeBase *curr = ctx.ctx.types[derived->iValue];
 
