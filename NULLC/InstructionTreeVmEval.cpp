@@ -1799,6 +1799,118 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		return (VmConstant*)Report(ctx, "ERROR: cannot convert from '%.*s' to '%.*s'", FMT_ISTR(ctx.ctx.types[derived->iValue]->name), FMT_ISTR(ctx.ctx.types[base->iValue]->name));
 	}
+	else if(function->name == InplaceStr("int::str") && function->arguments.size() == 0)
+	{
+		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
+
+		if(!context)
+			return NULL;
+
+		VmConstant *value = LoadFrameValue(ctx, context, VmType::Int, 4);
+
+		char buf[32];
+		sprintf(buf, "%d", value->iValue);
+
+		unsigned length = strlen(buf) + 1;
+
+		VmConstant *result = AllocateHeapArray(ctx, ctx.ctx.typeChar, length);
+
+		VmConstant *pointer = ExtractValue(ctx, result, 0, VmType::Pointer(ctx.ctx.typeChar));
+
+		StoreFrameValue(ctx, pointer, CreateConstantStruct(ctx.allocator, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
+
+		return result;
+	}
+	else if(function->name == InplaceStr("long::str") && function->arguments.size() == 0)
+	{
+		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
+
+		if(!context)
+			return NULL;
+
+		VmConstant *value = LoadFrameValue(ctx, context, VmType::Long, 8);
+
+		char buf[32];
+		sprintf(buf, "%lld", value->lValue);
+
+		unsigned length = strlen(buf) + 1;
+
+		VmConstant *result = AllocateHeapArray(ctx, ctx.ctx.typeChar, length);
+
+		VmConstant *pointer = ExtractValue(ctx, result, 0, VmType::Pointer(ctx.ctx.typeChar));
+
+		StoreFrameValue(ctx, pointer, CreateConstantStruct(ctx.allocator, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
+
+		return result;
+	}
+	else if(function->name == InplaceStr("int") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
+	{
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!value)
+			return NULL;
+
+		VmConstant *valuePtr = ExtractValue(ctx, value, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
+		VmConstant *valueLen = ExtractValue(ctx, value, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeInt));
+
+		if(valueLen->iValue == 0 || valueLen->iValue >= 32)
+			return CreateConstantInt(ctx.allocator, 0);
+
+		VmConstant *valueBuf = LoadFrameValue(ctx, valuePtr, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, valueLen->iValue)), valueLen->iValue);
+
+		char buf[32];
+		strcpy(buf, valueBuf->sValue);
+
+		return CreateConstantInt(ctx.allocator, strtol(buf, 0, 10));
+	}
+	else if(function->name == InplaceStr("long") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
+	{
+		VmConstant *value = GetArgumentValue(ctx, function, 0);
+
+		if(!value)
+			return NULL;
+
+		VmConstant *valuePtr = ExtractValue(ctx, value, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
+		VmConstant *valueLen = ExtractValue(ctx, value, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeInt));
+
+		if(valueLen->iValue == 0 || valueLen->iValue >= 32)
+			return CreateConstantLong(ctx.allocator, 0);
+
+		VmConstant *valueBuf = LoadFrameValue(ctx, valuePtr, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, valueLen->iValue)), valueLen->iValue);
+
+		char buf[32];
+		strcpy(buf, valueBuf->sValue);
+
+		return CreateConstantLong(ctx.allocator, strtol(buf, 0, 10));
+	}
+	else if((function->name == InplaceStr("==") || function->name == InplaceStr("!=")) && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar) && function->arguments[1].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
+	{
+		VmConstant *lhs = GetArgumentValue(ctx, function, 0);
+
+		if(!lhs)
+			return NULL;
+
+		VmConstant *rhs = GetArgumentValue(ctx, function, 1);
+
+		if(!rhs)
+			return NULL;
+
+		VmConstant *lhsPtr = ExtractValue(ctx, lhs, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
+		VmConstant *lhsLen = ExtractValue(ctx, lhs, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeInt));
+
+		VmConstant *rhsPtr = ExtractValue(ctx, rhs, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
+		VmConstant *rhsLen = ExtractValue(ctx, rhs, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeInt));
+
+		if(lhsLen->iValue != rhsLen->iValue)
+			return CreateConstantInt(ctx.allocator, function->name == InplaceStr("==") ? 0 : 1);
+
+		VmConstant *lhsBuf = LoadFrameValue(ctx, lhsPtr, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, lhsLen->iValue)), lhsLen->iValue);
+		VmConstant *rhsBuf = LoadFrameValue(ctx, rhsPtr, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, rhsLen->iValue)), rhsLen->iValue);
+
+		int order = memcmp(lhsBuf->sValue, rhsBuf->sValue, lhsLen->iValue);
+
+		return CreateConstantInt(ctx.allocator, function->name == InplaceStr("==") ? order == 0 : order != 0);
+	}
 
 	return NULL;
 }
