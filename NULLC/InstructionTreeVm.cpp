@@ -1770,6 +1770,12 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		return CheckType(ctx, expression, CreateLoad(ctx, module, node->type, value));
 	}
+	else if(ExprUnboxing *node = getType<ExprUnboxing>(expression))
+	{
+		VmValue *value = CompileVm(ctx, module, node->value);
+
+		return CheckType(ctx, expression, value);
+	}
 	else if(ExprConditional *node = getType<ExprConditional>(expression))
 	{
 		VmValue* condition = CompileVm(ctx, module, node->condition);

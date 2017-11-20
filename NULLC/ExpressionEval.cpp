@@ -2908,6 +2908,9 @@ ExprBase* Evaluate(Eval &ctx, ExprBase *expression)
 	if(ExprDereference *expr = getType<ExprDereference>(expression))
 		return EvaluateDereference(ctx, expr);
 
+	if(ExprUnboxing *expr = getType<ExprUnboxing>(expression))
+		return Evaluate(ctx, expr->value);
+
 	if(ExprConditional *expr = getType<ExprConditional>(expression))
 		return EvaluateConditional(ctx, expr);
 

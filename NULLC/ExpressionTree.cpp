@@ -1578,6 +1578,12 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase 
 
 ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs)
 {
+	if(ExprUnboxing *node = getType<ExprUnboxing>(lhs))
+	{
+		lhs = CreateCast(ctx, source, lhs, ctx.GetReferenceType(rhs->type), false);
+		lhs = allocate(ExprDereference)(source, rhs->type, lhs);
+	}
+
 	ExprBase* wrapped = lhs;
 
 	if(ExprVariableAccess *node = getType<ExprVariableAccess>(lhs))
@@ -2734,13 +2740,18 @@ ExprBase* AnalyzeGetAddress(ExpressionContext &ctx, SynGetAddress *syntax)
 	return CreateGetAddress(ctx, syntax, value);
 }
 
-ExprDereference* AnalyzeDereference(ExpressionContext &ctx, SynDereference *syntax)
+ExprBase* AnalyzeDereference(ExpressionContext &ctx, SynDereference *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
 	if(TypeRef *type = getType<TypeRef>(value->type))
 	{
 		return allocate(ExprDereference)(syntax, type->subType, value);
+	}
+
+	if(TypeAutoRef *type = getType<TypeAutoRef>(value->type))
+	{
+		return allocate(ExprUnboxing)(syntax, ctx.typeAutoRef, value);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: cannot dereference type '%.*s' that is not a pointer", FMT_ISTR(value->type->name));

@@ -413,6 +413,17 @@ struct ExprDereference: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprUnboxing: ExprBase
+{
+	ExprUnboxing(SynBase *source, TypeBase *type, ExprBase* value): ExprBase(myTypeID, source, type), value(value)
+	{
+	}
+
+	ExprBase* value;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprConditional: ExprBase
 {
 	ExprConditional(SynBase *source, TypeBase *type, ExprBase *condition, ExprBase *trueBlock, ExprBase *falseBlock): ExprBase(myTypeID, source, type), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)

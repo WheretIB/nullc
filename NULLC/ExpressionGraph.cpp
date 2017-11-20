@@ -386,6 +386,14 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintLeaveBlock(ctx);
 	}
+	else if(ExprUnboxing *node = getType<ExprUnboxing>(expression))
+	{
+		PrintEnterBlock(ctx, name, node->type, "ExprUnboxing()");
+
+		PrintGraph(ctx, node->value, "value");
+
+		PrintLeaveBlock(ctx);
+	}
 	else if(ExprConditional *node = getType<ExprConditional>(expression))
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprConditional()");
