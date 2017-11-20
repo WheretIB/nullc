@@ -3148,7 +3148,12 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		{
 			ExprBase *access = CreateFunctionAccess(ctx, source, function, wrapped);
 
-			return CreateFunctionCall(ctx, source, access, IntrusiveList<TypeHandle>(), NULL, false);
+			ExprBase *call = CreateFunctionCall(ctx, source, access, IntrusiveList<TypeHandle>(), NULL, false);;
+
+			if(TypeRef *refType = getType<TypeRef>(call->type))
+				return allocate(ExprDereference)(source, refType->subType, call);
+
+			return call;
 		}
 
 		// Look for a member function in a generic class base
@@ -3167,7 +3172,12 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 				{
 					ExprBase *access = CreateFunctionAccess(ctx, source, function, wrapped);
 
-					return CreateFunctionCall(ctx, source, access, IntrusiveList<TypeHandle>(), NULL, false);
+					ExprBase *call = CreateFunctionCall(ctx, source, access, IntrusiveList<TypeHandle>(), NULL, false);
+
+					if(TypeRef *refType = getType<TypeRef>(call->type))
+						return allocate(ExprDereference)(source, refType->subType, call);
+
+					return call;
 				}
 			}
 		}
@@ -6440,6 +6450,8 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 	{
 		SynBase *parentType = allocate(SynTypeSimple)(accessor->pos, IntrusiveList<SynIdentifier>(), classDefinition->classType->name);
 
+		TypeBase *accessorType = AnalyzeType(ctx, accessor->type);
+
 		if(accessor->getBlock)
 		{
 			IntrusiveList<SynIdentifier> aliases;
@@ -6449,13 +6461,18 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 			SynFunctionDefinition *function = allocate(SynFunctionDefinition)(accessor->pos, false, false, parentType, true, accessor->type, false, accessor->name, aliases, arguments, expressions);
 
-			classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, NULL, NULL, IntrusiveList<MatchData>(), false, false));
+			TypeFunction *instance = ctx.GetFunctionType(accessorType, IntrusiveList<TypeHandle>());
+
+			ExprBase *definition = AnalyzeFunctionDefinition(ctx, function, instance, NULL, IntrusiveList<MatchData>(), false, false);
+
+			if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(definition))
+				accessorType = node->function->type->returnType;
+
+			classDefinition->functions.push_back(definition);
 		}
 
 		if(accessor->setBlock)
 		{
-			SynBase *returnType = allocate(SynTypeAuto)(accessor->pos);
-
 			IntrusiveList<SynIdentifier> aliases;
 
 			IntrusiveList<SynFunctionArgument> arguments;
@@ -6463,9 +6480,14 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 			IntrusiveList<SynBase> expressions = accessor->setBlock->expressions;
 
-			SynFunctionDefinition *function = allocate(SynFunctionDefinition)(accessor->pos, false, false, parentType, true, returnType, false, accessor->name, aliases, arguments, expressions);
+			SynFunctionDefinition *function = allocate(SynFunctionDefinition)(accessor->pos, false, false, parentType, true, allocate(SynTypeAuto)(accessor->pos), false, accessor->name, aliases, arguments, expressions);
 
-			classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, NULL, NULL, IntrusiveList<MatchData>(), false, false));
+			IntrusiveList<TypeHandle> argTypes;
+			argTypes.push_back(allocate(TypeHandle)(accessorType));
+
+			TypeFunction *instance = ctx.GetFunctionType(ctx.typeAuto, argTypes);
+
+			classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, instance, NULL, IntrusiveList<MatchData>(), false, false));
 		}
 	}
 
