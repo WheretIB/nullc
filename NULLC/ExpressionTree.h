@@ -628,6 +628,17 @@ struct ExprAliasDefinition: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprClassPrototype: ExprBase
+{
+	ExprClassPrototype(SynBase *source, TypeBase *type, TypeClass *classType): ExprBase(myTypeID, source, type), classType(classType)
+	{
+	}
+
+	TypeClass *classType;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprGenericClassPrototype: ExprBase
 {
 	ExprGenericClassPrototype(SynBase *source, TypeBase *type, TypeGenericClassProto *genericProtoType): ExprBase(myTypeID, source, type), genericProtoType(genericProtoType)

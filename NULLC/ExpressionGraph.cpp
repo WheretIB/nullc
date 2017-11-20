@@ -567,6 +567,10 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintIndented(ctx, name, node->type, "ExprAliasDefinition(%.*s %.*s: a%04x)", FMT_ISTR(node->alias->type->name), FMT_ISTR(node->alias->name), node->alias->uniqueId);
 	}
+	else if(ExprClassPrototype *node = getType<ExprClassPrototype>(expression))
+	{
+		PrintIndented(ctx, name, node->type, "ExprClassPrototype(%.*s)", FMT_ISTR(node->classType->name));
+	}
 	else if(ExprGenericClassPrototype *node = getType<ExprGenericClassPrototype>(expression))
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprGenericClassPrototype(%.*s)", FMT_ISTR(node->genericProtoType->name));

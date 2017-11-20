@@ -2956,6 +2956,9 @@ ExprBase* Evaluate(Eval &ctx, ExprBase *expression)
 	if(ExprAliasDefinition *expr = getType<ExprAliasDefinition>(expression))
 		return CheckType(expression, allocate(ExprVoid)(expr->source, ctx.ctx.typeVoid));
 
+	if(ExprClassPrototype *expr = getType<ExprClassPrototype>(expression))
+		return CheckType(expression, allocate(ExprVoid)(expr->source, ctx.ctx.typeVoid));
+
 	if(ExprGenericClassPrototype *expr = getType<ExprGenericClassPrototype>(expression))
 		return CheckType(expression, allocate(ExprVoid)(expr->source, ctx.ctx.typeVoid));
 
@@ -2995,5 +2998,7 @@ ExprBase* Evaluate(Eval &ctx, ExprBase *expression)
 	if(ExprModule *expr = getType<ExprModule>(expression))
 		return EvaluateModule(ctx, expr);
 
-	return Report(ctx, "ERROR: unknown expression type");
+	assert(!"unknown type");
+
+	return NULL;
 }

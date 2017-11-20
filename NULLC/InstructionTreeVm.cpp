@@ -2079,6 +2079,10 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		return CheckType(ctx, expression, CreateVoid(module));
 	}
+	else if(ExprClassPrototype *node = getType<ExprClassPrototype>(expression))
+	{
+		return CheckType(ctx, expression, CreateVoid(module));
+	}
 	else if(ExprGenericClassPrototype *node = getType<ExprGenericClassPrototype>(expression))
 	{
 		return CheckType(ctx, expression, CreateVoid(module));

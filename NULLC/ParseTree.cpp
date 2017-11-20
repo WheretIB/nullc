@@ -1279,7 +1279,12 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 		InplaceStr name = ctx.Consume();
 
 		if(ctx.Consume(lex_semicolon))
+		{
+			if(align)
+				Stop(ctx, ctx.Position(), "ERROR: can't specify alignment of a class prototype");
+
 			return allocate(SynClassPrototype)(start, name);
+		}
 
 		IntrusiveList<SynIdentifier> aliases;
 

@@ -5335,6 +5335,8 @@ TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, Inp
 
 	ctx.PopScope();
 
+	contextClassType->completed = true;
+
 	return contextClassType;
 }
 
@@ -6496,8 +6498,15 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 	InplaceStr className = generics.empty() ? typeName : GetGenericClassTypeName(ctx, proto, generics);
 
-	if(ctx.typeMap.find(className.hash()))
-		Stop(ctx, syntax->pos, "ERROR: '%.*s' is being redefined", FMT_ISTR(syntax->name));
+	TypeClass *originalDefinition = NULL;
+
+	if(TypeBase **type = ctx.typeMap.find(className.hash()))
+	{
+		originalDefinition = getType<TypeClass>(*type);
+
+		if(!originalDefinition || originalDefinition->completed)
+			Stop(ctx, syntax->pos, "ERROR: '%.*s' is being redefined", FMT_ISTR(syntax->name));
+	}
 
 	if(!generics.empty())
 	{
@@ -6546,9 +6555,21 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	
 	bool extendable = syntax->extendable || baseClass;
 
-	TypeClass *classType = allocate(TypeClass)(syntax, ctx.scope, className, proto, actualGenerics, extendable, baseClass);
+	TypeClass *classType = NULL;
+	
+	if(originalDefinition)
+	{
+		classType = originalDefinition;
 
-	ctx.AddType(classType);
+		classType->extendable = extendable;
+		classType->baseClass = baseClass;
+	}
+	else
+	{
+		classType = allocate(TypeClass)(syntax, ctx.scope, className, proto, actualGenerics, extendable, baseClass);
+
+		ctx.AddType(classType);
+	}
 
 	if(!generics.empty())
 		ctx.genericTypeMap.insert(className.hash(), classType);
@@ -6621,7 +6642,32 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 	CreateDefaultClassMembers(ctx, syntax, classDefinition);
 
+	classType->completed = true;
+
 	return classDefinition;
+}
+
+ExprBase* AnalyzeClassPrototype(ExpressionContext &ctx, SynClassPrototype *syntax)
+{
+	InplaceStr typeName = GetTypeNameInScope(ctx, ctx.scope, syntax->name);
+
+	if(TypeBase **type = ctx.typeMap.find(typeName.hash()))
+	{
+		TypeClass *originalDefinition = getType<TypeClass>(*type);
+
+		if(!originalDefinition || originalDefinition->completed)
+			Stop(ctx, syntax->pos, "ERROR: '%.*s' is being redefined", FMT_ISTR(syntax->name));
+
+		return allocate(ExprClassPrototype)(syntax, ctx.typeVoid, originalDefinition);
+	}
+
+	IntrusiveList<MatchData> actualGenerics;
+
+	TypeClass *classType = allocate(TypeClass)(syntax, ctx.scope, typeName, NULL, actualGenerics, false, NULL);
+
+	ctx.AddType(classType);
+
+	return allocate(ExprClassPrototype)(syntax, ctx.typeVoid, classType);
 }
 
 void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *type, IntrusiveList<SynConstant> constants, IntrusiveList<ConstantData> &target)
@@ -7520,6 +7566,11 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeClassDefinition(ctx, node, NULL, generics);
 	}
 
+	if(SynClassPrototype *node = getType<SynClassPrototype>(syntax))
+	{
+		return AnalyzeClassPrototype(ctx, node);
+	}
+
 	if(SynEnumDefinition *node = getType<SynEnumDefinition>(syntax))
 	{
 		return AnalyzeEnumDefinition(ctx, node);
@@ -7792,6 +7843,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						TypeClass *classType = allocate(TypeClass)(source, ctx.scope, className, protoClass, actualGenerics, false, NULL);
 
 						classType->imported = true;
+						classType->completed = true;
 
 						importedType = classType;
 
@@ -7837,6 +7889,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					TypeClass *classType = allocate(TypeClass)(source, ctx.scope, className, NULL, actualGenerics, false, NULL);
 
 					classType->imported = true;
+					classType->completed = true;
 
 					importedType = classType;
 

@@ -681,6 +681,8 @@ struct TypeClass: TypeStruct
 	TypeClass(SynBase *source, ScopeData *scope, InplaceStr name, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), source(source), scope(scope), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass)
 	{
 		imported = false;
+
+		completed = false;
 	}
 
 	SynBase *source;
@@ -698,6 +700,8 @@ struct TypeClass: TypeStruct
 	bool extendable;
 
 	TypeClass *baseClass;
+
+	bool completed;
 
 	// Scope where class members reside
 	ScopeData *typeScope;
