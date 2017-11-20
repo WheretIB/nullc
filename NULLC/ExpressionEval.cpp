@@ -2110,7 +2110,7 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, a->data != b->data || aContext != bContext));
 			}
-			else if(ptr->data->name == InplaceStr("__pcomp") || ptr->data->name == InplaceStr("__acomp"))
+			else if(ptr->data->name == InplaceStr("__acomp"))
 			{
 				ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
 				ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
@@ -2120,7 +2120,7 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, memcmp(a->ptr->ptr, b->ptr->ptr, unsigned(a->type->size)) == 0));
 			}
-			else if(ptr->data->name == InplaceStr("__pncomp") || ptr->data->name == InplaceStr("__ancomp"))
+			else if(ptr->data->name == InplaceStr("__ancomp"))
 			{
 				ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
 				ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
