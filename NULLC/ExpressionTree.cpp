@@ -3283,6 +3283,16 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 
 				return result;
 			}
+
+			callArguments[0] = ArgumentData(value->source, false, InplaceStr(), value->type, value);
+
+			if(ExprBase *result = CreateFunctionCall(ctx, source, overloads, callArguments, !findOverload))
+			{
+				if(TypeRef *refType = getType<TypeRef>(result->type))
+					return allocate(ExprDereference)(source, refType->subType, result);
+
+				return result;
+			}
 		}
 
 		if(findOverload)
