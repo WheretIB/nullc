@@ -1967,6 +1967,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			return ctx.GetArrayType(type, number->value);
 		}
 
+		if(!onlyType)
+			return NULL;
+
 		Stop(ctx, syntax->pos, "ERROR: index must be a constant expression");
 	}
 
@@ -4977,7 +4980,38 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 {
-	TypeBase *type = AnalyzeType(ctx, syntax->type);
+	TypeBase *type = AnalyzeType(ctx, syntax->type, false);
+
+	// If there is no count and we have an array type that failed, take last extend as the size
+	if(!type && !syntax->count && isType<SynArrayIndex>(syntax->type))
+	{
+		SynArrayIndex *arrayIndex = getType<SynArrayIndex>(syntax->type);
+
+		if(arrayIndex->arguments.size() == 1 && arrayIndex->arguments.head->name.empty())
+		{
+			syntax->count = arrayIndex->arguments.head->value;
+			syntax->type = arrayIndex->value;
+
+			type = AnalyzeType(ctx, syntax->type, false);
+		}
+	}
+
+	// If there are no arguments and we have a function type that failed, take the arguments list as constructor arguments
+	if(!type && syntax->arguments.empty() && isType<SynTypeFunction>(syntax->type))
+	{
+		SynTypeFunction *functionType = getType<SynTypeFunction>(syntax->type);
+
+		for(SynBase *curr = functionType->arguments.head; curr; curr = curr->next)
+			syntax->arguments.push_back(allocate(SynCallArgument)(curr->pos, InplaceStr(), curr));
+
+		syntax->type = allocate(SynTypeReference)(functionType->pos, functionType->returnType);
+
+		type = AnalyzeType(ctx, syntax->type, false);
+	}
+
+	// Report the original error
+	if(!type)
+		AnalyzeType(ctx, syntax->type);
 
 	if(type == ctx.typeVoid || type == ctx.typeAuto)
 		Stop(ctx, syntax->pos, "ERROR: can't allocate objects of type '%.*s'", FMT_ISTR(type->name));
