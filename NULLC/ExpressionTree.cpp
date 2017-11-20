@@ -3199,6 +3199,33 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 
 ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *value, SmallArray<ArgumentData, 32> &arguments)
 {
+	// Handle argument[x] expresion
+	if(ExprTypeLiteral *type = getType<ExprTypeLiteral>(value))
+	{
+		if(TypeArgumentSet *argumentSet = getType<TypeArgumentSet>(type->value))
+		{
+			if(arguments.size() == 1)
+			{
+				ExpressionEvalContext evalCtx(ctx, ctx.allocator);
+
+				if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(evalCtx, arguments[0].value)))
+				{
+					if(number->value < 0)
+						Stop(ctx, source->pos, "ERROR: argument index can't be negative");
+
+					if(number->value >= argumentSet->types.size())
+						Stop(ctx, source->pos, "ERROR: function has only %d argument(s)", argumentSet->types.size());
+
+					return allocate(ExprTypeLiteral)(source, ctx.typeTypeID, argumentSet->types[unsigned(number->value)]->type);
+				}
+				else
+				{
+					Stop(ctx, source->pos, "ERROR: expression didn't evaluate to a constant number");
+				}
+			}
+		}
+	}
+
 	ExprBase* wrapped = value;
 
 	if(TypeRef *refType = getType<TypeRef>(value->type))
