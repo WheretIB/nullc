@@ -2274,10 +2274,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 
 		long long num = ParseLong(ctx, value.begin, value.end, 10);
 
-		if(int(num) == num)
-			return allocate(ExprIntegerLiteral)(syntax, ctx.typeInt, num);
-
-		Stop(ctx, value.begin, "ERROR: overflow in decimal constant");
+		return allocate(ExprIntegerLiteral)(syntax, ctx.typeInt, num);
 	}
 
 	if(syntax->suffix == InplaceStr("f"))
