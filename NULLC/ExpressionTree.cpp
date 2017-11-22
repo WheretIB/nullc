@@ -7754,13 +7754,9 @@ void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleConte
 		}
 
 		if(parent)
-		{
-			Stop(ctx, source->pos, "ERROR: can't import nested namespace");
-		}
+			ctx.namespaces.push_back(allocate(NamespaceData)(source, ctx.scope, parent, InplaceStr(symbols + ns.offsetToName), ctx.uniqueNamespaceId++));
 		else
-		{
 			ctx.namespaces.push_back(allocate(NamespaceData)(source, ctx.scope, ctx.GetCurrentNamespace(), InplaceStr(symbols + ns.offsetToName), ctx.uniqueNamespaceId++));
-		}
 	}
 }
 
