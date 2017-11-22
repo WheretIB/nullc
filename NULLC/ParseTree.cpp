@@ -591,7 +591,7 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow)
 					// Backtrack
 					ctx.currentLexeme = refLexeme;
 
-					return base;
+					return allocate(SynTypeReference)(start, base);
 				}
 
 				base = allocate(SynTypeFunction)(start, base, arguments);
