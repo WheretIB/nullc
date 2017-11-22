@@ -289,25 +289,25 @@ struct AliasData
 
 struct ScopeData
 {
-	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		loopDepth = scope ? scope->loopDepth : 0;
 	}
 
-	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, NamespaceData *ownerNamespace): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, NamespaceData *ownerNamespace): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		loopDepth = 0;
 	}
 
-	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, FunctionData *ownerFunction): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, FunctionData *ownerFunction): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		loopDepth = 0;
 	}
 
-	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, TypeBase *ownerType): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(ownerType), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, TypeBase *ownerType): scope(scope), uniqueId(uniqueId), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(ownerType), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		loopDepth = 0;
@@ -331,6 +331,8 @@ struct ScopeData
 	SmallArray<VariableData*, 4> variables;
 	SmallArray<AliasData*, 4> aliases;
 	SmallArray<ScopeData*, 4> scopes;
+
+	SmallArray<VariableData*, 4> shadowedVariables;
 };
 
 struct FunctionValue

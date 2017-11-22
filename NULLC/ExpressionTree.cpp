@@ -669,6 +669,13 @@ void ExpressionContext::PopScope(SynBase *location, bool keepFunctions)
 			typeMap.remove(alias->nameHash, alias->type);
 	}
 
+	for(int i = int(scope->shadowedVariables.count) - 1; i >= 0; i--)
+	{
+		VariableData *variable = scope->shadowedVariables[i];
+
+		variableMap.insert(variable->nameHash, variable);
+	}
+
 	scope = scope->scope;
 }
 
@@ -684,6 +691,18 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 
 		if(!location || variable->imported || variable->source->pos <= location->pos)
 			variableMap.insert(variable->nameHash, variable);
+	}
+
+	// For functions, restore only the variable shadowing state
+	for(unsigned i = 0, e = target->functions.count; i < e; i++)
+	{
+		FunctionData *function = target->functions.data[i];
+
+		if(!location || function->imported || function->source->pos <= location->pos)
+		{
+			while(VariableData **variable = variableMap.find(function->nameHash))
+				variableMap.remove(function->nameHash, *variable);
+		}
 	}
 
 	for(unsigned i = 0, e = target->types.count; i < e; i++)
@@ -833,6 +852,13 @@ void ExpressionContext::AddFunction(FunctionData *function)
 
 	functions.push_back(function);
 	functionMap.insert(function->nameHash, function);
+
+	while(VariableData **variable = variableMap.find(function->nameHash))
+	{
+		variableMap.remove(function->nameHash, *variable);
+
+		scope->shadowedVariables.push_back(*variable);
+	}
 }
 
 void ExpressionContext::AddVariable(VariableData *variable)
@@ -2552,8 +2578,6 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 		}
 	}
 
-	HashMap<FunctionData*>::Node *function = NULL;
-
 	if(path.empty())
 	{
 		if(TypeBase* type = FindNextTypeFromScope(ctx.scope))
@@ -2566,25 +2590,24 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 		}
 	}
 
-	if(!function)
+	HashMap<FunctionData*>::Node *function = NULL;
+
+	for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scope); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
 	{
-		for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scope); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
+		unsigned hash = nsScope->ownerNamespace ? StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : GetStringHash("");
+
+		for(SynIdentifier *part = path.head; part; part = getType<SynIdentifier>(part->next))
 		{
-			unsigned hash = nsScope->ownerNamespace ? StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : GetStringHash("");
-
-			for(SynIdentifier *part = path.head; part; part = getType<SynIdentifier>(part->next))
-			{
-				hash = StringHashContinue(hash, part->name.begin, part->name.end);
-				hash = StringHashContinue(hash, ".");
-			}
-
-			hash = StringHashContinue(hash, name.begin, name.end);
-
-			function = ctx.functionMap.first(hash);
-
-			if(function)
-				break;
+			hash = StringHashContinue(hash, part->name.begin, part->name.end);
+			hash = StringHashContinue(hash, ".");
 		}
+
+		hash = StringHashContinue(hash, name.begin, name.end);
+
+		function = ctx.functionMap.first(hash);
+
+		if(function)
+			break;
 	}
 
 	if(function)
