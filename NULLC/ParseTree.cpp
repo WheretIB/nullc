@@ -308,6 +308,10 @@ SynNamespaceElement* ParseContext::IsNamespace(SynNamespaceElement *parent, Inpl
 				return ns;
 		}
 
+		// Try from context of the parent namespace
+		if(parent->parent)
+			return IsNamespace(parent->parent, name);
+
 		return NULL;
 	}
 
