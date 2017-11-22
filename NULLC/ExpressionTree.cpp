@@ -3282,7 +3282,7 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 			for(unsigned i = 0; i < arguments.size(); i++)
 				callArguments.push_back(arguments[i]);
 
-			if(ExprBase *result = CreateFunctionCall(ctx, source, overloads, callArguments, !findOverload))
+			if(ExprBase *result = CreateFunctionCall(ctx, source, overloads, callArguments, true))
 			{
 				if(TypeRef *refType = getType<TypeRef>(result->type))
 					return allocate(ExprDereference)(source, refType->subType, result);
