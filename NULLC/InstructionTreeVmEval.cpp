@@ -56,6 +56,22 @@ namespace
 		return result;
 	}
 
+	long long StrToLong(const char* p)
+	{
+		while(*p && *p <= ' ')
+			p++;
+
+		bool negative = *p == '-';
+		if(negative)
+			p++;
+
+		unsigned long long res = 0;
+		while(unsigned(*p - '0') < 10)
+			res = res * 10 + unsigned(*p++ - '0');
+
+		return res * (negative ? -1 : 1);
+	}
+
 	ExprBase* Report(Eval &ctx, const char *msg, ...)
 	{
 		// Do not replace previous error
@@ -1881,7 +1897,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		char buf[32];
 		strcpy(buf, valueBuf->sValue);
 
-		return CreateConstantLong(ctx.allocator, strtol(buf, 0, 10));
+		return CreateConstantLong(ctx.allocator, StrToLong(buf));
 	}
 	else if((function->name == InplaceStr("==") || function->name == InplaceStr("!=")) && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar) && function->arguments[1].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
 	{
