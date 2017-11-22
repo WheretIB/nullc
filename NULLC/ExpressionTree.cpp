@@ -8202,9 +8202,16 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			Stop(ctx, source->pos, "ERROR: can't find function '%s' type in module %s", symbols + function.offsetToName, module.name);
 
 		FunctionData *prev = NULL;
+		FunctionData *prototype = NULL;
 
 		for(HashMap<FunctionData*>::Node *curr = ctx.functionMap.first(function.nameHash); curr; curr = ctx.functionMap.next(curr))
 		{
+			if(curr->value->isPrototype)
+			{
+				prototype = curr->value;
+				continue;
+			}
+
 			if(curr->value->type == functionType)
 			{
 				prev = curr->value;
@@ -8288,6 +8295,11 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		FunctionData *data = allocate(FunctionData)(ctx.allocator, source, ctx.scope, coroutine, accessor, isOperator, getType<TypeFunction>(functionType), contextType, functionName, generics, ctx.uniqueFunctionId++);
 
 		data->imported = true;
+
+		data->isPrototype = (function.codeSize & 0x80000000) != 0;
+
+		if(prototype)
+			prototype->implementation = data;
 
 		// TODO: find function proto
 		data->isGenericInstance = !!function.isGenericInstance;
@@ -8373,6 +8385,9 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		assert(data->type);
 
 		ctx.PopScope();
+
+		if(data->isPrototype)
+			ctx.HideFunction(data);
 
 		if(parentType)
 			ctx.PopScope();
