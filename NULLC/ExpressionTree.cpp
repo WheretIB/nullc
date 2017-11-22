@@ -3079,6 +3079,25 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
 			mainFuncton = CreateFunctionAccess(ctx, source, function, wrapped);
 
+		if(!mainFuncton)
+		{
+			if(TypeArray *node = getType<TypeArray>(value->type))
+			{
+				TypeUnsizedArray *arrayType = ctx.GetUnsizedArrayType(node->subType);
+
+				unsigned hash = StringHashContinue(arrayType->nameHash, "::");
+
+				hash = StringHashContinue(hash, name.begin, name.end);
+
+				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+				{
+					wrapped = CreateCast(ctx, source, wrapped, ctx.GetReferenceType(arrayType), false);
+
+					return CreateFunctionAccess(ctx, source, function, wrapped);
+				}
+			}
+		}
+
 		ExprBase *baseFunction = NULL;
 
 		// Look for a member function in a generic class base
@@ -3140,10 +3159,32 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		// Look for an accessor
 		hash = StringHashContinue(hash, "$");
 
-		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
-		{
-			ExprBase *access = CreateFunctionAccess(ctx, source, function, wrapped);
+		ExprBase *access = NULL;
 
+		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+			access = CreateFunctionAccess(ctx, source, function, wrapped);
+
+		if(!access)
+		{
+			if(TypeArray *node = getType<TypeArray>(value->type))
+			{
+				TypeUnsizedArray *arrayType = ctx.GetUnsizedArrayType(node->subType);
+
+				unsigned hash = StringHashContinue(arrayType->nameHash, "::");
+
+				hash = StringHashContinue(hash, name.begin, name.end);
+
+				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+				{
+					wrapped = CreateCast(ctx, source, wrapped, ctx.GetReferenceType(arrayType), false);
+
+					access = CreateFunctionAccess(ctx, source, function, wrapped);
+				}
+			}
+		}
+
+		if(access)
+		{
 			ExprBase *call = CreateFunctionCall(ctx, source, access, IntrusiveList<TypeHandle>(), NULL, false);;
 
 			if(TypeRef *refType = getType<TypeRef>(call->type))
