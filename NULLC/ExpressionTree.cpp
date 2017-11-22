@@ -7896,15 +7896,15 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					{
 						ExternTypedefInfo &alias = aliasList[k];
 
-						InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
-
-						TypeBase *targetType = module.types[alias.targetType];
-
-						if(!targetType)
-							Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, module.name);
-
 						if(alias.parentType == i)
 						{
+							InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
+
+							TypeBase *targetType = module.types[alias.targetType];
+
+							if(!targetType)
+								Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, module.name);
+
 							isGeneric |= targetType->isGeneric;
 							generics.push_back(allocate(TypeHandle)(targetType));
 							actualGenerics.push_back(allocate(MatchData)(aliasName, targetType));
