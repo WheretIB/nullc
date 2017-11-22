@@ -7782,6 +7782,17 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 	for(unsigned i = prevSize; i < module.types.size(); i++)
 		module.types[i] = NULL;
 
+	struct DelayedType
+	{
+		DelayedType(): index(0), constants(0){}
+		DelayedType(unsigned index, ExternConstantInfo *constants): index(index), constants(constants){}
+
+		unsigned index;
+		ExternConstantInfo *constants;
+	};
+
+	SmallArray<DelayedType, 32> delayedTypes;
+
 	ExternConstantInfo *currentConstant = constantList;
 
 	for(unsigned i = 0; i < bCode->typeCount; i++)
@@ -7978,6 +7989,35 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				importedType->alignment = type.defaultAlign;
 				importedType->size = type.size;
 
+				if(TypeStruct *structType = getType<TypeStruct>(importedType))
+				{
+					delayedTypes.push_back(DelayedType(i, currentConstant));
+
+					currentConstant += type.constantCount;
+				}
+
+				if(parentNamespace)
+					ctx.PopScope();
+			}
+			break;
+		default:
+			Stop(ctx, source->pos, "ERROR: new type in module %s named %s unsupported", module.name, symbols + type.offsetToName);
+		}
+	}
+
+	for(unsigned i = 0; i < delayedTypes.size(); i++)
+	{
+		DelayedType &delayedType = delayedTypes[i];
+		ExternTypeInfo &type = typeList[delayedType.index];
+
+		switch(type.subCat)
+		{
+		case ExternTypeInfo::CAT_CLASS:
+			{
+				InplaceStr className = InplaceStr(symbols + type.offsetToName);
+
+				TypeBase *importedType = module.types[delayedType.index];
+
 				const char *memberNames = className.end + 1;
 
 				if(TypeStruct *structType = getType<TypeStruct>(importedType))
@@ -8002,12 +8042,14 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						structType->members.push_back(allocate(VariableHandle)(member));
 					}
 
+					ExternConstantInfo *constantInfo = delayedType.constants;
+
 					for(unsigned int n = 0; n < type.constantCount; n++)
 					{
 						InplaceStr memberName = InplaceStr(memberNames);
 						memberNames = memberName.end + 1;
 
-						TypeBase *constantType = module.types[currentConstant->type];
+						TypeBase *constantType = module.types[constantInfo->type];
 
 						if(!constantType)
 							Stop(ctx, source->pos, "ERROR: can't find constant %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
@@ -8016,16 +8058,16 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 						if(constantType == ctx.typeBool)
 						{
-							value = allocate(ExprBoolLiteral)(source, constantType, currentConstant->value != 0);
+							value = allocate(ExprBoolLiteral)(source, constantType, constantInfo->value != 0);
 						}
 						else if(ctx.IsIntegerType(constantType) || isType<TypeEnum>(constantType))
 						{
-							value = allocate(ExprIntegerLiteral)(source, constantType, currentConstant->value);
+							value = allocate(ExprIntegerLiteral)(source, constantType, constantInfo->value);
 						}
 						else if(ctx.IsFloatingPointType(constantType))
 						{
 							double data = 0.0;
-							memcpy(&data, &currentConstant->value, sizeof(double));
+							memcpy(&data, &constantInfo->value, sizeof(double));
 							value = allocate(ExprRationalLiteral)(source, constantType, data);
 						}
 							
@@ -8034,18 +8076,13 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 						structType->constants.push_back(allocate(ConstantData)(memberName, value));
 
-						currentConstant++;
+						constantInfo++;
 					}
 
 					ctx.PopScope();
 				}
-
-				if(parentNamespace)
-					ctx.PopScope();
 			}
 			break;
-		default:
-			Stop(ctx, source->pos, "ERROR: new type in module %s named %s unsupported", module.name, symbols + type.offsetToName);
 		}
 	}
 }
