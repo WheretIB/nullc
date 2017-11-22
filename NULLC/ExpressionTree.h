@@ -24,8 +24,8 @@ struct ExpressionContext
 	void PushScope(TypeBase *type);
 	void PushLoopScope();
 	void PushTemporaryScope();
-	void PopScope(SynBase *location = 0, bool keepOperators = false);
-	void RestoreScopesAtPoint(ScopeData *target, SynBase *location, bool skipOperators);
+	void PopScope(SynBase *location = 0, bool keepFunctions = false);
+	void RestoreScopesAtPoint(ScopeData *target, SynBase *location);
 	void SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *target, SynBase *targetLocation);
 
 	NamespaceData* GetCurrentNamespace();

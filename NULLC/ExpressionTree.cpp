@@ -602,7 +602,7 @@ void ExpressionContext::PushTemporaryScope()
 	scope = allocate_(ScopeData)(allocator, scope, 0);
 }
 
-void ExpressionContext::PopScope(SynBase *location, bool keepOperators)
+void ExpressionContext::PopScope(SynBase *location, bool keepFunctions)
 {
 	// When namespace scope ends, all the contents remain accessible through an outer namespace/global scope
 	if(!location && scope->ownerNamespace)
@@ -635,22 +635,22 @@ void ExpressionContext::PopScope(SynBase *location, bool keepOperators)
 			variableMap.remove(variable->nameHash, variable);
 	}
 
-	for(int i = int(scope->functions.count) - 1; i >= 0; i--)
+	if(!keepFunctions)
 	{
-		FunctionData *function = scope->functions[i];
+		for(int i = int(scope->functions.count) - 1; i >= 0; i--)
+		{
+			FunctionData *function = scope->functions[i];
 
-		// Keep class functions visible
-		if(function->scope->ownerType)
-			continue;
+			// Keep class functions visible
+			if(function->scope->ownerType)
+				continue;
 
-		if(keepOperators && function->isOperator)
-			continue;
+			if(scope->scope && function->isPrototype && !function->implementation)
+				Stop(function->source->pos, "ERROR: local function '%.*s' went out of scope unimplemented", FMT_ISTR(function->name));
 
-		if(scope->scope && function->isPrototype && !function->implementation)
-			Stop(function->source->pos, "ERROR: local function '%.*s' went out of scope unimplemented", FMT_ISTR(function->name));
-
-		if(functionMap.find(function->nameHash, function))
-			functionMap.remove(function->nameHash, function);
+			if(functionMap.find(function->nameHash, function))
+				functionMap.remove(function->nameHash, function);
+		}
 	}
 
 	for(int i = int(scope->types.count) - 1; i >= 0; i--)
@@ -672,11 +672,11 @@ void ExpressionContext::PopScope(SynBase *location, bool keepOperators)
 	scope = scope->scope;
 }
 
-void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *location, bool skipOperators)
+void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *location)
 {
 	// Restore parent first, up to the current scope
 	if(target->scope != scope)
-		RestoreScopesAtPoint(target->scope, location, skipOperators);
+		RestoreScopesAtPoint(target->scope, location);
 
 	for(unsigned i = 0, e = target->variables.count; i < e; i++)
 	{
@@ -684,21 +684,6 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 
 		if(!location || variable->imported || variable->source->pos <= location->pos)
 			variableMap.insert(variable->nameHash, variable);
-	}
-
-	for(unsigned i = 0, e = target->functions.count; i < e; i++)
-	{
-		FunctionData *function = target->functions.data[i];
-
-		// Class functions are kept visible, no need to add again
-		if(function->scope->ownerType)
-			continue;
-
-		if(skipOperators && function->isOperator)
-			continue;
-
-		if(!location || function->imported || function->source->pos <= location->pos)
-			functionMap.insert(function->nameHash, function);
 	}
 
 	for(unsigned i = 0, e = target->types.count; i < e; i++)
@@ -755,7 +740,7 @@ void ExpressionContext::SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *t
 	PopScope(currLocation, true);
 
 	// Now restore each namespace data up to the source location
-	RestoreScopesAtPoint(target, targetLocation, true);
+	RestoreScopesAtPoint(target, targetLocation);
 }
 
 NamespaceData* ExpressionContext::GetCurrentNamespace()
