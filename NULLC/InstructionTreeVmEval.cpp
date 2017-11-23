@@ -386,23 +386,29 @@ void CopyConstantRaw(Eval &ctx, char *dst, unsigned dstSize, VmConstant *src, un
 
 		unsigned long long pointer = 0;
 
-		if(src->container)
+		if(VariableData *variable = src->container)
 		{
-			if(unsigned offset = GetAllocaAddress(ctx, src->container))
+			if(variable->imported)
+			{
+				Report(ctx, "ERROR: can't access imported variable");
+				return;
+			}
+
+			if(unsigned offset = GetAllocaAddress(ctx, variable))
 			{
 				pointer = src->iValue + offset;
 				assert((pointer & memoryOffsetMask) == pointer);
 				pointer |= GetStorageIndex(ctx, &frame->allocas) << memoryStorageBits;
 			}
-			else if(IsGlobalScope(src->container->scope))
+			else if(IsGlobalScope(variable->scope))
 			{
-				pointer = src->iValue + src->container->offset;
+				pointer = src->iValue + variable->offset;
 				assert((pointer & memoryOffsetMask) == pointer);
 				pointer |= GetStorageIndex(ctx, &ctx.globalFrame->stack) << memoryStorageBits;
 			}
 			else
 			{
-				pointer = src->iValue + src->container->offset;
+				pointer = src->iValue + variable->offset;
 				assert((pointer & memoryOffsetMask) == pointer);
 				pointer |= GetStorageIndex(ctx, &frame->stack) << memoryStorageBits;
 			}
