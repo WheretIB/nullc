@@ -1140,7 +1140,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax);
 ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> matches, bool createAccess, bool isLocal);
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeFunction *argumentType);
-ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &arguments);
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &arguments, IntrusiveList<MatchData> aliases);
 
 ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr member);
 
@@ -4665,14 +4665,26 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 			if(functions.empty())
 			{
-				if(ExprBase *option = AnalyzeShortFunctionDefinition(ctx, node, value->type, arguments))
+				if(ExprBase *option = AnalyzeShortFunctionDefinition(ctx, node, value->type, arguments, IntrusiveList<MatchData>()))
 					options.push_back(option);
 			}
 			else
 			{
 				for(unsigned i = 0; i < functions.size(); i++)
 				{
-					if(ExprBase *option = AnalyzeShortFunctionDefinition(ctx, node, functions[i].function->type, arguments))
+					IntrusiveList<MatchData> aliases;
+
+					FunctionData *function = functions[i].function;
+
+					TypeBase *parentType = function->scope->ownerType ? getType<TypeRef>(functions[i].context->type)->subType : NULL;
+
+					if(TypeClass *classType = getType<TypeClass>(parentType))
+					{
+						for(MatchData *el = classType->generics.head; el; el = el->next)
+							aliases.push_back(allocate(MatchData)(el->name, el->type));
+					}
+
+					if(ExprBase *option = AnalyzeShortFunctionDefinition(ctx, node, function->type, arguments, aliases))
 					{
 						bool found = false;
 
@@ -5563,7 +5575,7 @@ bool RestoreParentTypeScope(ExpressionContext &ctx, SynBase *source, TypeBase *p
 			SynClassDefinition *definition = genericProto->definition;
 
 			for(SynIdentifier *curr = definition->aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
-				ctx.AddAlias(allocate(AliasData)(source, ctx.scope, allocate(TypeGeneric)(InplaceStr("generic")), curr->name, ctx.uniqueAliasId++));
+				ctx.AddAlias(allocate(AliasData)(source, ctx.scope, allocate(TypeGeneric)(curr->name), curr->name, ctx.uniqueAliasId++));
 		}
 
 		return true;
@@ -6087,7 +6099,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 	return CreateFunctionCall(ctx, syntax, InplaceStr("__gen_list"), CreateSequence(ctx, syntax, contextVariableDefinition, access), false);
 }
 
-ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &currArguments)
+ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &currArguments, IntrusiveList<MatchData> aliases)
 {
 	TypeFunction *functionType = getType<TypeFunction>(type);
 
@@ -6107,8 +6119,6 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	if(functionType->isGeneric)
 	{
 		// Collect aliases up to the current argument
-		IntrusiveList<MatchData> aliases;
-
 		for(unsigned i = 0; i < currArguments.size(); i++)
 		{
 			// Exit if the arguments before the short inline function fail to match
