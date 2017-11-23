@@ -315,6 +315,15 @@ namespace
 		}
 	}
 
+	void CheckFunctionConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
+	{
+		if(name == InplaceStr("__newA") || name == InplaceStr("__newS"))
+		{
+			if(ctx.functionMap.find(name.hash()))
+				Stop(ctx, source->pos, "ERROR: function '%.*s' is reserved", FMT_ISTR(name));
+		}
+	}
+
 	VariableData* AllocateClassMember(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr name, unsigned uniqueId)
 	{
 		unsigned offset = AllocateVariableInScope(ctx, source, type->alignment, type);
@@ -1147,7 +1156,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs);
 
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, VariableData *variable, bool handleReference);
-ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name);
+ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name, bool allowInternal);
 
 ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, bool allowFailure);
 
@@ -1174,11 +1183,11 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *function, SmallArray<FunctionValue, 32> &functions);
 void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, SmallArray<FunctionValue, 32> &functions);
 void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, InplaceStr functionName, SmallArray<FunctionValue, 32> &functions, SmallArray<ArgumentData, 32> &arguments, SmallArray<unsigned, 32> &ratings, unsigned bestRating, bool showInstanceInfo);
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, bool allowFailure);
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, bool allowFailure);
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, bool allowFailure);
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, ExprBase *arg2, bool allowFailure);
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
+ExprBase* CreateFunctionCall0(ExpressionContext &ctx, SynBase *source, InplaceStr name, bool allowFailure, bool allowInternal);
+ExprBase* CreateFunctionCall1(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, bool allowFailure, bool allowInternal);
+ExprBase* CreateFunctionCall2(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, bool allowFailure, bool allowInternal);
+ExprBase* CreateFunctionCall3(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, ExprBase *arg2, bool allowFailure, bool allowInternal);
+ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, SmallArray<ArgumentData, 32> &arguments, bool allowFailure, bool allowInternal);
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure);
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, SmallArray<FunctionValue, 32> &functions, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure);
@@ -1451,7 +1460,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 					ExprBase *untyped = allocate(ExprTypeCast)(source, ctx.GetReferenceType(ctx.typeVoid), value, EXPR_CAST_REINTERPRET);
 					ExprBase *typeID = allocate(ExprTypeLiteral)(source, ctx.typeTypeID, targetClass);
 
-					ExprBase *checked = CreateFunctionCall(ctx, source, InplaceStr("assert_derived_from_base"), untyped, typeID, false);
+					ExprBase *checked = CreateFunctionCall2(ctx, source, InplaceStr("assert_derived_from_base"), untyped, typeID, false, false);
 
 					return allocate(ExprTypeCast)(source, type, checked, EXPR_CAST_REINTERPRET);
 				}
@@ -1504,7 +1513,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 		else
 		{
 			// type to auto ref conversion (boxing)
-			return CreateFunctionCall(ctx, source, InplaceStr("duplicate"), value, false);
+			return CreateFunctionCall1(ctx, source, InplaceStr("duplicate"), value, false, false);
 		}
 	}
 
@@ -1580,7 +1589,7 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase 
 		}
 		else
 		{
-			return CreateFunctionCall(ctx, source, InplaceStr("bool"), value, false);
+			return CreateFunctionCall1(ctx, source, InplaceStr("bool"), value, false, false);
 		}
 	}
 
@@ -1653,11 +1662,11 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 	if(lhs->type == ctx.typeVoid)
 		Stop(ctx, source->pos, "ERROR: cannot convert from %.*s to void", FMT_ISTR(rhs->type->name));
 
-	if(ExprBase *result = CreateFunctionCall(ctx, source, InplaceStr("="), wrapped, rhs, true))
+	if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr("="), wrapped, rhs, true, false))
 		return result;
 
 	if((isType<TypeArray>(lhs->type) || isType<TypeUnsizedArray>(lhs->type)) && rhs->type == ctx.typeAutoArray)
-		return CreateFunctionCall(ctx, source, InplaceStr("__aaassignrev"), wrapped, rhs, false);
+		return CreateFunctionCall2(ctx, source, InplaceStr("__aaassignrev"), wrapped, rhs, false, false);
 
 	rhs = CreateCast(ctx, source, rhs, lhs->type, false);
 
@@ -1673,6 +1682,8 @@ ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, Ex
 	TypeBase *contextClassType = CreateFunctionContextType(ctx, source, functionName);
 
 	FunctionData *function = allocate(FunctionData)(ctx.allocator, source, ctx.scope, true, false, false, ctx.GetFunctionType(value->type, arguments), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+
+	CheckFunctionConflict(ctx, source, function->name);
 
 	ctx.AddFunction(function);
 
@@ -1714,7 +1725,7 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 
 		if(lhs->type == ctx.typeAutoRef && lhs->type == rhs->type)
 		{
-			return CreateFunctionCall(ctx, source, InplaceStr(op == SYN_BINARY_OP_EQUAL ? "__rcomp" : "__rncomp"), lhs, rhs, false);
+			return CreateFunctionCall2(ctx, source, InplaceStr(op == SYN_BINARY_OP_EQUAL ? "__rcomp" : "__rncomp"), lhs, rhs, false, false);
 		}
 
 		if(isType<TypeFunction>(lhs->type) && lhs->type == rhs->type)
@@ -1726,15 +1737,15 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 			lhs = allocate(ExprTypeCast)(lhs->source, type, lhs, EXPR_CAST_REINTERPRET);
 			rhs = allocate(ExprTypeCast)(rhs->source, type, rhs, EXPR_CAST_REINTERPRET);
 
-			return CreateFunctionCall(ctx, source, InplaceStr(op == SYN_BINARY_OP_EQUAL ? "__pcomp" : "__pncomp"), lhs, rhs, false);
+			return CreateFunctionCall2(ctx, source, InplaceStr(op == SYN_BINARY_OP_EQUAL ? "__pcomp" : "__pncomp"), lhs, rhs, false, false);
 		}
 
 		if(isType<TypeUnsizedArray>(lhs->type) && lhs->type == rhs->type)
 		{
-			if(ExprBase *result = CreateFunctionCall(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, true))
+			if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, true, false))
 				return result;
 
-			return CreateFunctionCall(ctx, source, InplaceStr(op == SYN_BINARY_OP_EQUAL ? "__acomp" : "__ancomp"), lhs, rhs, false);
+			return CreateFunctionCall2(ctx, source, InplaceStr(op == SYN_BINARY_OP_EQUAL ? "__acomp" : "__ancomp"), lhs, rhs, false, false);
 		}
 
 		if(lhs->type == ctx.typeTypeID && rhs->type == ctx.typeTypeID)
@@ -1746,7 +1757,7 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 		// For && and || try to find a function that accepts a wrapped right-hand-side evaluation
 		if((op == SYN_BINARY_OP_LOGICAL_AND || op == SYN_BINARY_OP_LOGICAL_OR) && isType<TypeClass>(lhs->type))
 		{
-			if(ExprBase *result = CreateFunctionCall(ctx, source, InplaceStr(GetOpName(op)), lhs, CreateValueFunctionWrapper(ctx, source, rhs), true))
+			if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, CreateValueFunctionWrapper(ctx, source, rhs), true, false))
 				return result;
 		}
 	}
@@ -1760,7 +1771,7 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 
 	if(!skipOverload)
 	{
-		if(ExprBase *result = CreateFunctionCall(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, true))
+		if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, true, false))
 			return result;
 	}
 
@@ -2484,7 +2495,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Variable
 	// Is this is a class member access
 	if(variable->scope->ownerType)
 	{
-		ExprBase *thisAccess = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("this"));
+		ExprBase *thisAccess = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("this"), false);
 
 		if(!thisAccess)
 			Stop(ctx, source->pos, "ERROR: 'this' variable is not available");
@@ -2540,7 +2551,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Variable
 	return access;
 }
 
-ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name)
+ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name, bool allowInternal)
 {
 	VariableData **variable = NULL;
 
@@ -2607,7 +2618,12 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 		function = ctx.functionMap.first(hash);
 
 		if(function)
+		{
+			if(function->value->isInternal && !allowInternal)
+				function = NULL;
+
 			break;
+		}
 	}
 
 	if(function)
@@ -2618,7 +2634,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynIdentifier *syntax)
 {
-	ExprBase *value = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), syntax->name);
+	ExprBase *value = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), syntax->name, false);
 
 	if(!value)
 		Stop(ctx, syntax->pos, "ERROR: unknown variable");
@@ -2628,7 +2644,7 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynIdentifier *syntax)
 
 ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynTypeSimple *syntax)
 {
-	ExprBase *value = CreateVariableAccess(ctx, syntax, syntax->path, syntax->name);
+	ExprBase *value = CreateVariableAccess(ctx, syntax, syntax->path, syntax->name, false);
 
 	if(!value)
 		Stop(ctx, syntax->pos, "ERROR: unknown variable");
@@ -2680,7 +2696,7 @@ ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-	if(ExprBase *result = CreateFunctionCall(ctx, syntax, InplaceStr(GetOpName(syntax->type)), value, true))
+	if(ExprBase *result = CreateFunctionCall1(ctx, syntax, InplaceStr(GetOpName(syntax->type)), value, true, false))
 		return result;
 
 	bool binaryOp = IsBinaryOp(syntax->type);
@@ -2820,7 +2836,7 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
-	if(ExprBase *result = CreateFunctionCall(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true))
+	if(ExprBase *result = CreateFunctionCall2(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true, false))
 		return result;
 
 	return CreateAssignment(ctx, syntax, lhs, CreateBinaryOp(ctx, syntax, GetBinaryOpType(syntax->type), lhs, rhs));
@@ -3338,7 +3354,7 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 				findOverload = true;
 		}
 
-		if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("[]")))
+		if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("[]"), false))
 		{
 			SmallArray<ArgumentData, 32> callArguments(ctx.allocator);
 			callArguments.push_back(ArgumentData(wrapped->source, false, InplaceStr(), wrapped->type, wrapped));
@@ -4576,33 +4592,33 @@ ExprBase* GetFunctionTable(ExpressionContext &ctx, SynBase *source, FunctionData
 	return allocate(ExprVariableAccess)(source, variable->type, variable);
 }
 
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, bool allowFailure)
+ExprBase* CreateFunctionCall0(ExpressionContext &ctx, SynBase *source, InplaceStr name, bool allowFailure, bool allowInternal)
 {
 	SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
-	return CreateFunctionCall(ctx, source, name, arguments, allowFailure);
+	return CreateFunctionCall(ctx, source, name, arguments, allowFailure, allowInternal);
 }
 
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, bool allowFailure)
+ExprBase* CreateFunctionCall1(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, bool allowFailure, bool allowInternal)
 {
 	SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
 	arguments.push_back(ArgumentData(arg0->source, false, InplaceStr(), arg0->type, arg0));
 
-	return CreateFunctionCall(ctx, source, name, arguments, allowFailure);
+	return CreateFunctionCall(ctx, source, name, arguments, allowFailure, allowInternal);
 }
 
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, bool allowFailure)
+ExprBase* CreateFunctionCall2(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, bool allowFailure, bool allowInternal)
 {
 	SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
 	arguments.push_back(ArgumentData(arg0->source, false, InplaceStr(), arg0->type, arg0));
 	arguments.push_back(ArgumentData(arg1->source, false, InplaceStr(), arg1->type, arg1));
 
-	return CreateFunctionCall(ctx, source, name, arguments, allowFailure);
+	return CreateFunctionCall(ctx, source, name, arguments, allowFailure, allowInternal);
 }
 
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, ExprBase *arg2, bool allowFailure)
+ExprBase* CreateFunctionCall3(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, ExprBase *arg2, bool allowFailure, bool allowInternal)
 {
 	SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
@@ -4610,12 +4626,12 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr
 	arguments.push_back(ArgumentData(arg1->source, false, InplaceStr(), arg1->type, arg1));
 	arguments.push_back(ArgumentData(arg2->source, false, InplaceStr(), arg2->type, arg2));
 
-	return CreateFunctionCall(ctx, source, name, arguments, allowFailure);
+	return CreateFunctionCall(ctx, source, name, arguments, allowFailure, allowInternal);
 }
 
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, SmallArray<ArgumentData, 32> &arguments, bool allowFailure)
+ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, SmallArray<ArgumentData, 32> &arguments, bool allowFailure, bool allowInternal)
 {
-	if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), name))
+	if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), name, allowInternal))
 	{
 		if(ExprBase *result = CreateFunctionCall(ctx, source, overloads, arguments, allowFailure))
 			return result;
@@ -4819,7 +4835,7 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 		{
 			ExprBase *table = GetFunctionTable(ctx, source, bestOverload.function);
 
-			value = CreateFunctionCall(ctx, source, InplaceStr("__redirect"), bestOverload.context, table, false);
+			value = CreateFunctionCall2(ctx, source, InplaceStr("__redirect"), bestOverload.context, table, false, false);
 
 			value = allocate(ExprTypeCast)(source, function->type, value, EXPR_CAST_REINTERPRET);
 		}
@@ -4893,7 +4909,7 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 	else
 	{
 		// Call operator()
-		if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("()")))
+		if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("()"), false))
 		{
 			SmallArray<ArgumentData, 32> callArguments(ctx.allocator);
 			callArguments.push_back(ArgumentData(value->source, false, InplaceStr(), value->type, value));
@@ -4974,14 +4990,14 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 		if(SynTypeSimple *node = getType<SynTypeSimple>(syntax->value))
 		{
-			regular = CreateVariableAccess(ctx, syntax->value, node->path, node->name);
+			regular = CreateVariableAccess(ctx, syntax->value, node->path, node->name, false);
 
 			if(!regular && node->path.empty())
-				regular = CreateVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name);
+				regular = CreateVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name, false);
 		}
 		else
 		{
-			regular = CreateVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name);
+			regular = CreateVariableAccess(ctx, syntax->value, IntrusiveList<SynIdentifier>(), type->value->name, false);
 		}
 
 		if(regular)
@@ -5100,7 +5116,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *count = AnalyzeExpression(ctx, syntax->count);
 
-		ExprBase *alloc = allocate(ExprTypeCast)(syntax, ctx.GetUnsizedArrayType(type), CreateFunctionCall(ctx, syntax, InplaceStr("__newA"), size, count, typeId, false), EXPR_CAST_REINTERPRET);
+		ExprBase *alloc = allocate(ExprTypeCast)(syntax, ctx.GetUnsizedArrayType(type), CreateFunctionCall3(ctx, syntax, InplaceStr("__newA"), size, count, typeId, false, true), EXPR_CAST_REINTERPRET);
 
 		if(HasDefautConstructor(ctx, syntax, type))
 		{
@@ -5115,7 +5131,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		return alloc;
 	}
 
-	ExprBase *alloc = allocate(ExprTypeCast)(syntax, ctx.GetReferenceType(type), CreateFunctionCall(ctx, syntax, InplaceStr("__newS"), size, typeId, false), EXPR_CAST_REINTERPRET);
+	ExprBase *alloc = allocate(ExprTypeCast)(syntax, ctx.GetReferenceType(type), CreateFunctionCall2(ctx, syntax, InplaceStr("__newS"), size, typeId, false, true), EXPR_CAST_REINTERPRET);
 
 	// Call constructor
 	TypeRef *allocType = getType<TypeRef>(alloc->type);
@@ -5302,7 +5318,7 @@ ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprB
 			{
 				ExprBase *table = GetFunctionTable(ctx, source, function);
 
-				initializer = CreateFunctionCall(ctx, source, InplaceStr("__redirect_ptr"), node->context, table, false);
+				initializer = CreateFunctionCall2(ctx, source, InplaceStr("__redirect_ptr"), node->context, table, false, false);
 
 				initializer = allocate(ExprTypeCast)(source, function->type, initializer, EXPR_CAST_REINTERPRET);
 			}
@@ -5516,7 +5532,7 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 	ExprBase *size = allocate(ExprIntegerLiteral)(source, ctx.typeInt, classType->size);
 	ExprBase *typeId = allocate(ExprTypeCast)(source, ctx.typeInt, allocate(ExprTypeLiteral)(source, ctx.typeTypeID, classType), EXPR_CAST_REINTERPRET);
 
-	ExprBase *alloc = allocate(ExprTypeCast)(source, refType, CreateFunctionCall(ctx, source, InplaceStr("__newS"), size, typeId, false), EXPR_CAST_REINTERPRET);
+	ExprBase *alloc = allocate(ExprTypeCast)(source, refType, CreateFunctionCall2(ctx, source, InplaceStr("__newS"), size, typeId, false, true), EXPR_CAST_REINTERPRET);
 
 	// Initialize closure
 	IntrusiveList<ExprBase> expressions;
@@ -5740,6 +5756,8 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	// If the type is known, implement the prototype immediately
 	if(functionType->returnType != ctx.typeAuto)
 		ImplementPrototype(ctx, function);
+
+	CheckFunctionConflict(ctx, source, function->name);
 
 	ctx.AddFunction(function);
 
@@ -5971,6 +5989,8 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	for(unsigned i = 0; i < argData.size(); i++)
 		function->arguments.push_back(argData[i]);
 
+	CheckFunctionConflict(ctx, syntax, function->name);
+
 	ctx.AddFunction(function);
 
 	if(ctx.IsGenericFunction(function))
@@ -6008,7 +6028,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 		sprintf(name, "%.*s$", FMT_ISTR(el->name));
 
-		ExprBase *access = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr(name));
+		ExprBase *access = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), InplaceStr(name), false);
 
 		if(ctx.GetReferenceType(el->type) == access->type)
 			access = allocate(ExprDereference)(syntax, el->type, access);
@@ -6050,6 +6070,8 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 	TypeBase *contextClassType = CreateFunctionContextType(ctx, syntax, functionName);
 
 	FunctionData *function = allocate(FunctionData)(ctx.allocator, syntax, ctx.scope, true, false, false, ctx.GetFunctionType(ctx.typeAuto, arguments), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+
+	CheckFunctionConflict(ctx, syntax, function->name);
 
 	ctx.AddFunction(function);
 
@@ -6096,7 +6118,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	ExprBase *access = allocate(ExprFunctionAccess)(syntax, function->type, function, CreateFunctionContextAccess(ctx, syntax, function));
 
-	return CreateFunctionCall(ctx, syntax, InplaceStr("__gen_list"), CreateSequence(ctx, syntax, contextVariableDefinition, access), false);
+	return CreateFunctionCall1(ctx, syntax, InplaceStr("__gen_list"), CreateSequence(ctx, syntax, contextVariableDefinition, access), false, false);
 }
 
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, SmallArray<ArgumentData, 32> &currArguments, IntrusiveList<MatchData> aliases)
@@ -6442,6 +6464,8 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
 		FunctionData *function = allocate(FunctionData)(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(ctx.typeVoid, arguments), ctx.GetReferenceType(classType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+
+		CheckFunctionConflict(ctx, source, function->name);
 
 		ctx.AddFunction(function);
 
@@ -6885,6 +6909,8 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		for(unsigned i = 0; i < arguments.size(); i++)
 			function->arguments.push_back(arguments[i]);
 
+		CheckFunctionConflict(ctx, syntax, function->name);
+
 		ctx.AddFunction(function);
 
 		ctx.PushScope(function);
@@ -6920,6 +6946,8 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		// Fill in argument data
 		for(unsigned i = 0; i < arguments.size(); i++)
 			function->arguments.push_back(arguments[i]);
+
+		CheckFunctionConflict(ctx, syntax, function->name);
 
 		ctx.AddFunction(function);
 
@@ -7170,7 +7198,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			}
 			else
 			{
-				initializers.push_back(CreateFunctionCall(ctx, curr, InplaceStr("__assertCoroutine"), allocate(ExprVariableAccess)(curr, functPtr->type, functPtr), false));
+				initializers.push_back(CreateFunctionCall1(ctx, curr, InplaceStr("__assertCoroutine"), allocate(ExprVariableAccess)(curr, functPtr->type, functPtr), false, false));
 			}
 
 			// Create definition
@@ -7193,7 +7221,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			}
 
 			// Create condition
-			conditions.push_back(allocate(ExprUnaryOp)(curr, ctx.typeBool, SYN_UNARY_OP_LOGICAL_NOT, CreateFunctionCall(ctx, curr, InplaceStr("isCoroutineReset"), allocate(ExprVariableAccess)(curr, functPtr->type, functPtr), false)));
+			conditions.push_back(allocate(ExprUnaryOp)(curr, ctx.typeBool, SYN_UNARY_OP_LOGICAL_NOT, CreateFunctionCall1(ctx, curr, InplaceStr("isCoroutineReset"), allocate(ExprVariableAccess)(curr, functPtr->type, functPtr), false, false)));
 
 			// Create increment
 			if(ExprBase *call = CreateFunctionCall(ctx, curr, allocate(ExprVariableAccess)(curr, functPtr->type, functPtr), IntrusiveList<TypeHandle>(), NULL, false))
@@ -8374,6 +8402,9 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		// TODO: find function proto
 		data->isGenericInstance = !!function.isGenericInstance;
 
+		if(data->name == InplaceStr("__newA") || data->name == InplaceStr("__newS"))
+			data->isInternal = true;
+
 		ctx.AddFunction(data);
 
 		ctx.PushScope(data);
@@ -8567,10 +8598,10 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 	if(!vtable->imported)
 	{
 		ExprBase *size = allocate(ExprIntegerLiteral)(source, ctx.typeInt, 4);
-		ExprBase *count = CreateFunctionCall(ctx, source, InplaceStr("__typeCount"), false);
+		ExprBase *count = CreateFunctionCall0(ctx, source, InplaceStr("__typeCount"), false, false);
 		ExprBase *typeId = allocate(ExprTypeCast)(source, ctx.typeInt, allocate(ExprTypeLiteral)(source, ctx.typeTypeID, ctx.typeFunctionID), EXPR_CAST_REINTERPRET);
 
-		ExprBase *alloc = allocate(ExprTypeCast)(source, vtable->type, CreateFunctionCall(ctx, source, InplaceStr("__newA"), size, count, typeId, false), EXPR_CAST_REINTERPRET);
+		ExprBase *alloc = allocate(ExprTypeCast)(source, vtable->type, CreateFunctionCall3(ctx, source, InplaceStr("__newA"), size, count, typeId, false, true), EXPR_CAST_REINTERPRET);
 
 		ExprBase *assignment = CreateAssignment(ctx, source, allocate(ExprVariableAccess)(source, vtable->type, vtable), alloc);
 
