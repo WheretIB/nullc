@@ -5801,7 +5801,8 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			else if(initializer)
 			{
 				// Just a test
-				CreateCast(ctx, argument->type, initializer, type, true);
+				if(!type->isGeneric)
+					CreateCast(ctx, argument->type, initializer, type, true);
 			}
 
 			if(type == ctx.typeVoid)
