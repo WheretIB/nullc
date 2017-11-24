@@ -4263,7 +4263,17 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 
 		if(ctx.IsGenericFunction(function) && showInstanceInfo)
 		{
-			TypeBase *parentType = function->scope->ownerType ? getType<TypeRef>(functions[i].context->type)->subType : NULL;
+			TypeBase *parentType = NULL;
+
+			if(functions[i].context->type == ctx.typeAutoRef)
+			{
+				assert(function->scope->ownerType && !function->scope->ownerType->isGeneric);
+				parentType = function->scope->ownerType;
+			}
+			else if(function->scope->ownerType)
+			{
+				parentType = getType<TypeRef>(functions[i].context->type)->subType;
+			}
 
 			IntrusiveList<MatchData> aliases;
 			SmallArray<ArgumentData, 32> result(ctx.allocator);
