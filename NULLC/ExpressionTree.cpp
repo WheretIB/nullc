@@ -335,13 +335,15 @@ namespace
 		return expr;
 	}
 
-	VariableData* AllocateClassMember(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr name, unsigned uniqueId)
+	VariableData* AllocateClassMember(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr name, bool readonly, unsigned uniqueId)
 	{
 		unsigned offset = AllocateVariableInScope(ctx, source, type->alignment, type);
 
 		assert(!type->isGeneric);
 
 		VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, type->alignment, type, name, offset, uniqueId);
+
+		variable->isReadonly = readonly;
 
 		ctx.AddVariable(variable);
 
@@ -1105,6 +1107,7 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 	TypeUnsizedArray* result = allocate_(TypeUnsizedArray)(GetUnsizedArrayTypeName(*this, type), type);
 
 	result->members.push_back(allocate_(VariableHandle)(allocate_(VariableData)(allocator, NULL, scope, 4, typeInt, InplaceStr("size"), NULLC_PTR_SIZE, uniqueVariableId++)));
+	result->members.tail->variable->isReadonly = true;
 
 	result->size = NULLC_PTR_SIZE + 4;
 
@@ -2506,12 +2509,12 @@ VariableData* AddFunctionUpvalue(ExpressionContext &ctx, SynBase *source, Functi
 	ctx.scope = classType->typeScope;
 
 	// Pointer to target variable
-	VariableData *target = AllocateClassMember(ctx, source, ctx.GetReferenceType(data->type), GetFunctionContextMemberName(ctx, data->name, InplaceStr("target")), ctx.uniqueVariableId++);
+	VariableData *target = AllocateClassMember(ctx, source, ctx.GetReferenceType(data->type), GetFunctionContextMemberName(ctx, data->name, InplaceStr("target")), false, ctx.uniqueVariableId++);
 
 	classType->members.push_back(allocate(VariableHandle)(target));
 
 	// Copy of the data
-	VariableData *copy = AllocateClassMember(ctx, source, data->type, GetFunctionContextMemberName(ctx, data->name, InplaceStr("copy")), ctx.uniqueVariableId++);
+	VariableData *copy = AllocateClassMember(ctx, source, data->type, GetFunctionContextMemberName(ctx, data->name, InplaceStr("copy")), false, ctx.uniqueVariableId++);
 
 	classType->members.push_back(allocate(VariableHandle)(copy));
 
@@ -3136,7 +3139,12 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 					// Member access only shifts an address, so we are left with a reference to get value from
 					ExprMemberAccess *shift = allocate(ExprMemberAccess)(source, ctx.GetReferenceType(el->variable->type), wrapped, el->variable);
 
-					return allocate(ExprDereference)(source, el->variable->type, shift);
+					ExprBase *value = allocate(ExprDereference)(source, el->variable->type, shift);
+
+					if(el->variable->isReadonly)
+						return allocate(ExprPassthrough)(source, el->variable->type, value);
+
+					return value;
 				}
 			}
 
@@ -8801,15 +8809,15 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 
 	ctx.AddType(ctx.typeAutoRef = allocate(TypeAutoRef)(InplaceStr("auto ref")));
 	ctx.PushScope(ctx.typeAutoRef);
-	ctx.typeAutoRef->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
-	ctx.typeAutoRef->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
+	ctx.typeAutoRef->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++)));
+	ctx.typeAutoRef->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++)));
 	ctx.PopScope();
 
 	ctx.AddType(ctx.typeAutoArray = allocate(TypeAutoArray)(InplaceStr("auto[]")));
 	ctx.PushScope(ctx.typeAutoArray);
-	ctx.typeAutoArray->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.typeTypeID, InplaceStr("type"), ctx.uniqueVariableId++)));
-	ctx.typeAutoArray->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), ctx.uniqueVariableId++)));
-	ctx.typeAutoArray->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.typeInt, InplaceStr("size"), ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++)));
+	ctx.typeAutoArray->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.typeInt, InplaceStr("size"), true, ctx.uniqueVariableId++)));
 	ctx.PopScope();
 
 	// Analyze module

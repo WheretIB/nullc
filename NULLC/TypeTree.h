@@ -98,6 +98,7 @@ struct VariableData
 		nameHash = GetStringHash(name.begin, name.end);
 
 		isReference = false;
+		isReadonly = false;
 
 		if(alignment != 0)
 			assert(offset % alignment == 0);
@@ -117,6 +118,7 @@ struct VariableData
 	unsigned nameHash;
 
 	bool isReference;
+	bool isReadonly;
 
 	unsigned offset;
 
