@@ -5716,6 +5716,9 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, InplaceStr name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches)
 {
+	if(parentType && coroutine)
+		Stop(ctx, source->pos, "ERROR: coroutine cannot be a member function");
+
 	bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
 
 	IntrusiveList<MatchData> generics;
@@ -5782,6 +5785,11 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 				initializer = ResolveInitializerValue(ctx, argument, initializer);
 
 				type = initializer->type;
+			}
+			else if(initializer)
+			{
+				// Just a test
+				CreateCast(ctx, argument->type, initializer, type, true);
 			}
 
 			if(type == ctx.typeVoid)
