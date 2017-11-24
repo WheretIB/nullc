@@ -1051,6 +1051,9 @@ TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
 
 TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 {
+	// Can't have array of void
+	assert(type != typeVoid);
+
 	// Can't derive from pseudo types
 	assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
 
@@ -1089,6 +1092,9 @@ TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 
 TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 {
+	// Can't have array of void
+	assert(type != typeVoid);
+
 	// Can't derive from pseudo types
 	assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
 
@@ -1616,7 +1622,10 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase 
 		}
 		else
 		{
-			return CreateFunctionCall1(ctx, source, InplaceStr("bool"), value, false, false);
+			if(ExprBase *call = CreateFunctionCall1(ctx, source, InplaceStr("bool"), value, true, false))
+				return call;
+
+			Stop(ctx, source->pos, "ERROR: condition type cannot be '%.*s' and function for conversion to bool is undefined", FMT_ISTR(value->type->name));
 		}
 	}
 
@@ -1879,6 +1888,9 @@ TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase 
 
 		return ctx.typeAutoArray;
 	}
+
+	if(type == ctx.typeVoid)
+		Stop(ctx, size->pos, "ERROR: cannot specify array size for void");
 
 	if(!size)
 		return ctx.GetUnsizedArrayType(type);
@@ -2393,6 +2405,9 @@ ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 				Stop(ctx, value->source->pos, "ERROR: array element type '%.*s' doesn't match '%.*s", FMT_ISTR(value->type->name), FMT_ISTR(subType->name));
 		}
 
+		if(value->type == ctx.typeVoid)
+			Stop(ctx, value->source->pos, "ERROR: array cannot be constructed from void type elements");
+
 		AssertValueExpression(ctx, value->source, value);
 
 		values.push_back(value);
@@ -2668,7 +2683,7 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynIdentifier *syntax)
 	ExprBase *value = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), syntax->name, false);
 
 	if(!value)
-		Stop(ctx, syntax->pos, "ERROR: unknown variable");
+		Stop(ctx, syntax->pos, "ERROR: unknown identifier '%.*s'", FMT_ISTR(syntax->name));
 
 	return value;
 }
@@ -2678,7 +2693,7 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynTypeSimple *syntax)
 	ExprBase *value = CreateVariableAccess(ctx, syntax, syntax->path, syntax->name, false);
 
 	if(!value)
-		Stop(ctx, syntax->pos, "ERROR: unknown variable");
+		Stop(ctx, syntax->pos, "ERROR: unknown identifier '%.*s'", FMT_ISTR(syntax->name));
 
 	return value;
 }
@@ -3433,7 +3448,7 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 		if(TypeArray *type = getType<TypeArray>(value->type))
 		{
 			if(indexValue && indexValue->value >= type->length)
-				Stop(ctx, source->pos, "ERROR: array index bounds");
+				Stop(ctx, source->pos, "ERROR: array index out of bounds");
 
 			// Array index only shifts an address, so we are left with a reference to get value from
 			ExprArrayIndex *shift = allocate(ExprArrayIndex)(source, ctx.GetReferenceType(type->subType), wrapped, index);
@@ -4838,7 +4853,7 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 			char *errPos = ctx.errorBuf;
 
 			if(errPos)
-				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function with following parameters:\n");
+				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function '%.*s' with following parameters:\n", FMT_ISTR(functions[0].function->name));
 
 			StopOnFunctionSelectError(ctx, source, errPos, functions[0].function->name, functions, arguments, ratings, ~0u, true);
 		}
@@ -5753,6 +5768,9 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 			if(type == ctx.typeAuto)
 			{
+				if(!initializer)
+					Stop(ctx, argument->type->pos, "ERROR: function parameter cannot be an auto type");
+
 				initializer = ResolveInitializerValue(ctx, argument, initializer);
 
 				type = initializer->type;
