@@ -5472,6 +5472,12 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 	variable->alignment = alignment;
 	variable->offset = offset;
 
+	if(TypeClass *classType = getType<TypeClass>(variable->type))
+	{
+		if(classType->hasFinalizer)
+			Stop(ctx, syntax->pos, "ERROR: cannot create '%.*s' that implements 'finalize' on stack", FMT_ISTR(classType->name));
+	}
+
 	if(initializer)
 	{
 		ExprBase *access = CreateVariableAccess(ctx, syntax, variable, true);
@@ -5683,6 +5689,12 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, Fu
 		unsigned offset = AllocateVariableInScope(ctx, source, 4, argument.type);
 		VariableData *variable = allocate(VariableData)(ctx.allocator, argument.source, ctx.scope, 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
 
+		if(TypeClass *classType = getType<TypeClass>(variable->type))
+		{
+			if(classType->hasFinalizer)
+				Stop(ctx, argument.source->pos, "ERROR: cannot create '%.*s' that implements 'finalize' on stack", FMT_ISTR(classType->name));
+		}
+
 		ctx.AddVariable(variable);
 
 		variables.push_back(allocate(ExprVariableDefinition)(argument.source, ctx.typeVoid, variable, NULL));
@@ -5803,6 +5815,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 		argData.push_back(ArgumentData(argument, argument->isExplicit, argument->name, type, initializer));
 	}
+
 	if(parentType)
 		assert(ctx.scope->ownerType == parentType);
 
@@ -5822,6 +5835,12 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	{
 		if((*variable)->scope == ctx.scope)
 			Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
+	}
+
+	if(TypeClass *classType = getType<TypeClass>(parentType))
+	{
+		if(name == InplaceStr("finalize"))
+			classType->hasFinalizer = true;
 	}
 
 	FunctionData *function = allocate(FunctionData)(ctx.allocator, source, ctx.scope, coroutine, accessor, isOperator, functionType, contextRefType, functionName, generics, ctx.uniqueFunctionId++);
@@ -8174,6 +8193,9 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 					currentConstant += type.constantCount;
 				}
+
+				if(TypeClass *classType = getType<TypeClass>(importedType))
+					classType->hasFinalizer = type.typeFlags & ExternTypeInfo::TYPE_HAS_FINALIZER;
 
 				if(parentNamespace)
 					ctx.PopScope();

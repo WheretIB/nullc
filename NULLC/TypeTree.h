@@ -691,6 +691,8 @@ struct TypeClass: TypeStruct
 		imported = false;
 
 		completed = false;
+
+		hasFinalizer = false;
 	}
 
 	SynBase *source;
@@ -710,6 +712,8 @@ struct TypeClass: TypeStruct
 	TypeClass *baseClass;
 
 	bool completed;
+
+	bool hasFinalizer;
 
 	// Scope where class members reside
 	ScopeData *typeScope;
