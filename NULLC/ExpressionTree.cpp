@@ -324,6 +324,17 @@ namespace
 		}
 	}
 
+	ExprBase* AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
+	{
+		if(isType<ExprFunctionOverloadSet>(expr))
+			Stop(ctx, source->pos, "ERROR: ambiguity, the expression is an overloaded function. Could be %.*s", FMT_ISTR(expr->type->name));
+
+		if(isType<ExprGenericFunctionPrototype>(expr))
+			Stop(ctx, source->pos, "ERROR: ambiguity, the expression is a generic function");
+
+		return expr;
+	}
+
 	VariableData* AllocateClassMember(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr name, unsigned uniqueId)
 	{
 		unsigned offset = AllocateVariableInScope(ctx, source, type->alignment, type);
@@ -1018,6 +1029,9 @@ TypeBase* ExpressionContext::GetBinaryOpResultType(TypeBase* a, TypeBase* b)
 
 TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
 {
+	// Can't derive from pseudo types
+	assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
+
 	if(type->refType)
 		return type->refType;
 
@@ -1037,6 +1051,9 @@ TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
 
 TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 {
+	// Can't derive from pseudo types
+	assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
+
 	for(TypeHandle *curr = type->arrayTypes.head; curr; curr = curr->next)
 	{
 		if(TypeArray *type = getType<TypeArray>(curr->type))
@@ -1072,6 +1089,9 @@ TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 
 TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 {
+	// Can't derive from pseudo types
+	assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
+
 	if(type->unsizedArrayType)
 		return type->unsizedArrayType;
 
@@ -1095,6 +1115,12 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 
 TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
 {
+	// Can't derive from pseudo types
+	assert(!isType<TypeArgumentSet>(returnType) && !isType<TypeMemberSet>(returnType) && !isType<TypeFunctionSet>(returnType));
+
+	for(TypeHandle *curr = arguments.head; curr; curr = curr->next)
+		assert(!isType<TypeArgumentSet>(curr->type) && !isType<TypeMemberSet>(curr->type) && !isType<TypeFunctionSet>(curr->type));
+
 	for(unsigned i = 0, e = functionTypes.count; i < e; i++)
 	{
 		if(TypeFunction *type = functionTypes.data[i])
@@ -1142,6 +1168,7 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, SmallArra
 
 ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax);
 ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax);
+ExprBase* AnalyzeValueExpression(ExpressionContext &ctx, SynBase *syntax);
 ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax);
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope);
 ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax);
@@ -1568,7 +1595,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 
 ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase *value)
 {
-	if(!ctx.IsNumericType(value->type))
+	if(!ctx.IsNumericType(value->type) && !value->type->isGeneric)
 	{
 		// TODO: function overload
 
@@ -1592,6 +1619,8 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase 
 			return CreateFunctionCall1(ctx, source, InplaceStr("bool"), value, false, false);
 		}
 	}
+
+	AssertValueExpression(ctx, source, value);
 
 	return value;
 }
@@ -1775,8 +1804,8 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 			return result;
 	}
 
-	// TODO: 'in' is a function call
-	// TODO: && and || could have an operator overload where second argument is wrapped in a function for short-circuit evaluation
+	AssertValueExpression(ctx, lhs->source, lhs);
+	AssertValueExpression(ctx, rhs->source, rhs);
 
 	bool ok = false;
 	
@@ -2364,6 +2393,8 @@ ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 				Stop(ctx, value->source->pos, "ERROR: array element type '%.*s' doesn't match '%.*s", FMT_ISTR(value->type->name), FMT_ISTR(subType->name));
 		}
 
+		AssertValueExpression(ctx, value->source, value);
+
 		values.push_back(value);
 	}
 
@@ -2683,6 +2714,8 @@ ExprPostModify* AnalyzePostModify(ExpressionContext &ctx, SynPostModify *syntax)
 	else if(ExprDereference *node = getType<ExprDereference>(value))
 		wrapped = node->value;
 
+	AssertValueExpression(ctx, syntax, value);
+
 	if(!isType<TypeRef>(wrapped->type))
 		Stop(ctx, syntax->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(value->type->name));
 
@@ -2698,6 +2731,8 @@ ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 
 	if(ExprBase *result = CreateFunctionCall1(ctx, syntax, InplaceStr(GetOpName(syntax->type)), value, true, false))
 		return result;
+
+	AssertValueExpression(ctx, syntax, value);
 
 	bool binaryOp = IsBinaryOp(syntax->type);
 	bool logicalOp = IsLogicalOp(syntax->type);
@@ -2819,6 +2854,8 @@ ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *synt
 	{
 		Stop(ctx, syntax->pos, "ERROR: can't find common type between '%.*s' and '%.*s'", FMT_ISTR(trueBlock->type->name), FMT_ISTR(falseBlock->type->name));
 	}
+
+	AssertValueExpression(ctx, syntax, condition);
 
 	return allocate(ExprConditional)(syntax, resultType, condition, trueBlock, falseBlock);
 }
