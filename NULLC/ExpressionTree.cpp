@@ -1588,7 +1588,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 			return allocate(ExprTypeCast)(source, type, value, EXPR_CAST_DERIVED_TO_BASE);
 	}
 
-	Stop(ctx, source->pos, "ERROR: can't convert '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));
+	Stop(ctx, source->pos, "ERROR: cannot convert '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));
 
 	return NULL;
 }
@@ -5280,12 +5280,12 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 			function->type = ctx.GetFunctionType(returnType, function->type->arguments);
 		}
 
-		result = CreateCast(ctx, syntax, result, function->type->returnType, false);
-
 		if(returnType == ctx.typeVoid && result->type != ctx.typeVoid)
 			Stop(ctx, syntax->pos, "ERROR: 'void' function returning a value");
 		if(returnType != ctx.typeVoid && result->type == ctx.typeVoid)
-			Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%s'", FMT_ISTR(returnType->name));
+			Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+
+		result = CreateCast(ctx, syntax, result, function->type->returnType, false);
 
 		function->hasExplicitReturn = true;
 
@@ -5322,12 +5322,12 @@ ExprYield* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 			function->type = ctx.GetFunctionType(returnType, function->type->arguments);
 		}
 
-		result = CreateCast(ctx, syntax, result, function->type->returnType, false);
-
 		if(returnType == ctx.typeVoid && result->type != ctx.typeVoid)
 			Stop(ctx, syntax->pos, "ERROR: 'void' function returning a value");
 		if(returnType != ctx.typeVoid && result->type == ctx.typeVoid)
-			Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%s'", FMT_ISTR(returnType->name));
+			Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+
+		result = CreateCast(ctx, syntax, result, function->type->returnType, false);
 
 		function->hasExplicitReturn = true;
 
