@@ -1472,7 +1472,7 @@ SynBreak* ParseBreak(ParseContext &ctx)
 		// Optional
 		SynNumber *node = ParseNumber(ctx);
 
-		AssertConsume(ctx, lex_semicolon, "ERROR: break statement must be followed by ';'");
+		AssertConsume(ctx, lex_semicolon, "ERROR: break statement must be followed by ';' or a constant");
 
 		return allocate(SynBreak)(start, node);
 	}
@@ -1489,7 +1489,7 @@ SynContinue* ParseContinue(ParseContext &ctx)
 		// Optional
 		SynNumber *node = ParseNumber(ctx);
 
-		AssertConsume(ctx, lex_semicolon, "ERROR: continue statement must be followed by ';'");
+		AssertConsume(ctx, lex_semicolon, "ERROR: continue statement must be followed by ';' or a constant");
 
 		return allocate(SynContinue)(start, node);
 	}
