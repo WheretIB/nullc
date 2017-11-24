@@ -175,6 +175,8 @@ struct FunctionData
 	{
 		imported = false;
 
+		isInternal = false;
+
 		nameHash = GetStringHash(name.begin, name.end);
 
 		functionIndex = ~0u;
@@ -206,6 +208,8 @@ struct FunctionData
 	SynBase *source;
 
 	bool imported;
+
+	bool isInternal;
 
 	ScopeData *scope;
 
