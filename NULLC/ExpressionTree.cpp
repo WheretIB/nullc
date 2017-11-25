@@ -2021,6 +2021,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 				if(number->value < 0)
 					Stop(ctx, syntax->pos, "ERROR: argument index can't be negative");
 
+				if(lhs->types.empty())
+					Stop(ctx, syntax->pos, "ERROR: function argument set is empty");
+
 				if(number->value >= lhs->types.size())
 					Stop(ctx, syntax->pos, "ERROR: this function type '%.*s' has only %d argument(s)", FMT_ISTR(type->name), lhs->types.size());
 
@@ -2968,7 +2971,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
 		{
 			if(argumentsType->types.empty())
-				Stop(ctx, source->pos, "ERROR: this function type '%.*s' doesn't have arguments", FMT_ISTR(type->name));
+				Stop(ctx, source->pos, "ERROR: function argument set is empty");
 
 			return allocate(ExprTypeLiteral)(source, ctx.typeTypeID, argumentsType->types.head->type);
 		}
@@ -2981,7 +2984,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
 		{
 			if(argumentsType->types.empty())
-				Stop(ctx, source->pos, "ERROR: this function type '%.*s' doesn't have arguments", FMT_ISTR(type->name));
+				Stop(ctx, source->pos, "ERROR: function argument set is empty");
 
 			return allocate(ExprTypeLiteral)(source, ctx.typeTypeID, argumentsType->types.tail->type);
 		}
@@ -3358,6 +3361,9 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 				{
 					if(number->value < 0)
 						Stop(ctx, source->pos, "ERROR: argument index can't be negative");
+
+					if(argumentSet->types.empty())
+						Stop(ctx, source->pos, "ERROR: function argument set is empty");
 
 					if(number->value >= argumentSet->types.size())
 						Stop(ctx, source->pos, "ERROR: function has only %d argument(s)", argumentSet->types.size());
