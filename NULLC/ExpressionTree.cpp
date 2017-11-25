@@ -5038,6 +5038,12 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 	{
 		TypeBase *type = AnalyzeType(ctx, curr);
 
+		if(type == ctx.typeAuto)
+			Stop(ctx, syntax->pos, "ERROR: explicit generic argument type can't be auto");
+
+		if(type == ctx.typeVoid)
+			Stop(ctx, syntax->pos, "ERROR: explicit generic argument cannot be a void type");
+
 		generics.push_back(allocate(TypeHandle)(type));
 	}
 
@@ -5327,6 +5333,8 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 
 	if(isType<TypeFunction>(result->type))
 		result = CreateCast(ctx, syntax, result, result->type, false);
+
+	AssertValueExpression(ctx, result->source, result);
 
 	if(!ctx.IsNumericType(result->type) && !isType<TypeEnum>(result->type))
 		Stop(ctx, syntax->pos, "ERROR: global return cannot accept '%.*s'", FMT_ISTR(result->type->name));
@@ -6060,6 +6068,12 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 		if(type)
 		{
+			if(type == ctx.typeAuto)
+				Stop(ctx, syntax->pos, "ERROR: function parameter cannot be an auto type");
+
+			if(type == ctx.typeVoid)
+				Stop(ctx, syntax->pos, "ERROR: function parameter cannot be a void type");
+
 			char *name = (char*)ctx.allocator->alloc(param->name.length() + 2);
 
 			sprintf(name, "%.*s$", FMT_ISTR(param->name));
