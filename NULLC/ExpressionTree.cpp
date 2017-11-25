@@ -6769,6 +6769,12 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 		{
 			if(ctx.typeMap.find(curr->name.hash()))
 				Stop(ctx, curr->pos, "ERROR: there is already a type or an alias with the same name");
+
+			for(SynIdentifier *prev = syntax->aliases.head; prev && prev != curr; prev = getType<SynIdentifier>(prev->next))
+			{
+				if(prev->name == curr->name)
+					Stop(ctx, curr->pos, "ERROR: there is already a type or an alias with the same name");
+			}
 		}
 
 		TypeGenericClassProto *genericProtoType = allocate(TypeGenericClassProto)(syntax, ctx.scope, typeName, syntax);
