@@ -1177,7 +1177,6 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, SmallArra
 
 ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax);
 ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax);
-ExprBase* AnalyzeValueExpression(ExpressionContext &ctx, SynBase *syntax);
 ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax);
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope);
 ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax);
@@ -2048,6 +2047,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		if(!onlyType && !returnType)
 			return NULL;
+
+		if(returnType == ctx.typeAuto)
+			Stop(ctx, syntax->pos, "ERROR: return type of a function type cannot be auto");
 
 		IntrusiveList<TypeHandle> arguments;
 
