@@ -3923,7 +3923,15 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 		for(MatchData *curr = aliases.head; curr; curr = curr->next)
 		{
 			if(curr->name == lhs->name)
+			{
+				if(strict)
+				{
+					if(curr->type != argType)
+						return NULL;
+				}
+
 				return curr->type;
+			}
 		}
 
 		aliases.push_back(allocate(MatchData)(lhs->name, argType));
