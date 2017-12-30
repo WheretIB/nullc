@@ -17,7 +17,11 @@ struct InstructionVMGraphContext
 
 		depth = 0;
 
+		showTypes = true;
+		showFullTypes = false;
 		showUsers = false;
+		showComments = true;
+		showContainers = true;
 
 		displayAsTree = false;
 	}
@@ -26,7 +30,11 @@ struct InstructionVMGraphContext
 
 	unsigned depth;
 
+	bool showTypes;
+	bool showFullTypes;
 	bool showUsers;
+	bool showComments;
+	bool showContainers;
 
 	bool displayAsTree;
 };

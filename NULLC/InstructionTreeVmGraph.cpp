@@ -3,6 +3,7 @@
 #include <stdarg.h>
 
 #include "InstructionTreeVm.h"
+#include "InstructionTreeVmCommon.h"
 #include "TypeTree.h"
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
@@ -109,7 +110,21 @@ void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName)
 		assert(!"unknown type");
 	}
 
-	if(!value->comment.empty())
+	if(ctx.showFullTypes)
+	{
+		if(value->type.structType)
+		{
+			Print(ctx, " <%.*s>", FMT_ISTR(value->type.structType->name));
+		}
+		else
+		{
+			Print(ctx, " <");
+			PrintType(ctx, value->type);
+			Print(ctx, ">");
+		}
+	}
+
+	if(ctx.showComments && !value->comment.empty())
 		Print(ctx, " (%.*s)", FMT_ISTR(value->comment));
 }
 
@@ -144,8 +159,10 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 		Print(ctx, "%f", constant->dValue);
 	else if(constant->type == VmType::Long)
 		Print(ctx, "%lldl", constant->lValue);
-	else if(constant->type.type == VM_TYPE_POINTER && constant->container)
+	else if(constant->type.type == VM_TYPE_POINTER && constant->container && ctx.showContainers)
 		Print(ctx, "%.*s+0x%x", FMT_ISTR(constant->container->name), constant->iValue);
+	else if(constant->type.type == VM_TYPE_POINTER && constant->container)
+		Print(ctx, "0x%x", constant->container->offset + constant->iValue);
 	else if(constant->type.type == VM_TYPE_POINTER)
 		Print(ctx, "0x%x", constant->iValue);
 	else if(constant->type.type == VM_TYPE_STRUCT)
@@ -358,12 +375,16 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 
 	if(instruction->type != VmType::Void)
 	{
-		PrintType(ctx, instruction->type);
+		if(ctx.showTypes)
+		{
+			PrintType(ctx, instruction->type);
+			Print(ctx, " ");
+		}
 
-		if(!instruction->comment.empty())
-			Print(ctx, " %%%d (%.*s) = ", instruction->uniqueId, FMT_ISTR(instruction->comment));
+		if(ctx.showComments && !instruction->comment.empty())
+			Print(ctx, "%%%d (%.*s) = ", instruction->uniqueId, FMT_ISTR(instruction->comment));
 		else
-			Print(ctx, " %%%d = ", instruction->uniqueId);
+			Print(ctx, "%%%d = ", instruction->uniqueId);
 	}
 
 	PrintInstructionName(ctx, instruction->cmd);
@@ -573,6 +594,7 @@ void DumpGraph(VmModule *module)
 	instGraphCtx.file = fopen("instruction_graph.txt", "w");
 	instGraphCtx.showUsers = true;
 	instGraphCtx.displayAsTree = false;
+	instGraphCtx.showFullTypes = true;
 
 	PrintGraph(instGraphCtx, module);
 
