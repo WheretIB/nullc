@@ -494,6 +494,16 @@ namespace
 
 		return false;
 	}
+
+	ExprBase* EvaluateExpression(ExpressionContext &ctx, ExprBase *expression)
+	{
+		ExpressionEvalContext evalCtx(ctx, ctx.allocator);
+
+		evalCtx.globalFrame = allocate(ExpressionEvalContext::StackFrame)(ctx.allocator, NULL);
+		evalCtx.stackFrames.push_back(evalCtx.globalFrame);
+
+		return Evaluate(evalCtx, expression);
+	}
 }
 
 ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
@@ -1899,9 +1909,7 @@ TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase 
 
 	ExprBase *sizeValue = AnalyzeExpression(ctx, size);
 
-	ExpressionEvalContext evalCtx(ctx, ctx.allocator);
-
-	if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, size, sizeValue, ctx.typeLong, false))))
+	if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, size, sizeValue, ctx.typeLong, false))))
 	{
 		if(number->value <= 0)
 			Stop(ctx, size->pos, "ERROR: array size can't be negative or zero");
@@ -2010,10 +2018,8 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			Stop(ctx, syntax->pos, "ERROR: named argument not expected in array type size");
 
 		ExprBase *size = AnalyzeExpression(ctx, argument->value);
-		
-		ExpressionEvalContext evalCtx(ctx, ctx.allocator);
 
-		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, node, size, ctx.typeLong, false))))
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, node, size, ctx.typeLong, false))))
 		{
 			if(TypeArgumentSet *lhs = getType<TypeArgumentSet>(type))
 			{
@@ -2236,9 +2242,7 @@ unsigned AnalyzeAlignment(ExpressionContext &ctx, SynAlign *syntax)
 
 	ExprBase *align = AnalyzeNumber(ctx, syntax->value);
 
-	ExpressionEvalContext evalCtx(ctx, ctx.allocator);
-
-	if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, syntax, align, ctx.typeLong, false))))
+	if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, syntax, align, ctx.typeLong, false))))
 	{
 		if(alignValue->value > 16)
 			Stop(ctx, syntax->pos, "ERROR: alignment must be less than 16 bytes");
@@ -3357,9 +3361,7 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 		{
 			if(arguments.size() == 1)
 			{
-				ExpressionEvalContext evalCtx(ctx, ctx.allocator);
-
-				if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(evalCtx, arguments[0].value)))
+				if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, arguments[0].value)))
 				{
 					if(number->value < 0)
 						Stop(ctx, source->pos, "ERROR: argument index can't be negative");
@@ -3454,9 +3456,7 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 
 		ExprBase *index = CreateCast(ctx, source, arguments[0].value, ctx.typeInt, false);
 
-		ExpressionEvalContext evalCtx(ctx, ctx.allocator);
-
-		ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(Evaluate(evalCtx, index));
+		ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, index));
 
 		if(indexValue && indexValue->value < 0)
 			Stop(ctx, source->pos, "ERROR: array index cannot be negative");
@@ -6636,9 +6636,7 @@ void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
-	ExpressionEvalContext evalCtx(ctx, ctx.allocator);
-
-	if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(Evaluate(evalCtx, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
+	if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(EvaluateExpression(ctx, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
 	{
 		if(number->value)
 			AnalyzeClassElements(ctx, classDefinition, syntax->trueBlock);
@@ -6667,15 +6665,11 @@ void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *ty
 			if(!ctx.IsNumericType(type))
 				Stop(ctx, source->pos, "ERROR: only basic numeric types can be used as constants");
 
-			ExpressionEvalContext evalCtx(ctx, ctx.allocator);
-
-			value = Evaluate(evalCtx, CreateCast(ctx, constant, value, type, false));
+			value = EvaluateExpression(ctx, CreateCast(ctx, constant, value, type, false));
 		}
 		else if(ctx.IsIntegerType(type) && constant != constants.head)
 		{
-			ExpressionEvalContext evalCtx(ctx, ctx.allocator);
-
-			value = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, constant, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, target.tail->value, allocate(ExprIntegerLiteral)(constant, type, 1)), type, false)));
+			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, constant, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, target.tail->value, allocate(ExprIntegerLiteral)(constant, type, 1)), type, false)));
 		}
 		else
 		{
@@ -6992,15 +6986,11 @@ void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 			
 		if(constant->value)
 		{
-			ExpressionEvalContext evalCtx(ctx, ctx.allocator);
-
-			value = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, constant, AnalyzeExpression(ctx, constant->value), ctx.typeInt, false)));
+			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, constant, AnalyzeExpression(ctx, constant->value), ctx.typeInt, false)));
 		}
 		else if(last)
 		{
-			ExpressionEvalContext evalCtx(ctx, ctx.allocator);
-
-			value = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, last, allocate(ExprIntegerLiteral)(constant, ctx.typeInt, 1))));
+			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, last, allocate(ExprIntegerLiteral)(constant, ctx.typeInt, 1))));
 		}
 		else
 		{
@@ -7162,9 +7152,7 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 
 	if(syntax->staticIf)
 	{
-		ExpressionEvalContext evalCtx(ctx, ctx.allocator);
-
-		if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(Evaluate(evalCtx, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
+		if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(EvaluateExpression(ctx, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
 		{
 			if(number->value)
 			{
@@ -7518,9 +7506,7 @@ ExprBreak* AnalyzeBreak(ExpressionContext &ctx, SynBreak *syntax)
 	{
 		ExprBase *numberValue = AnalyzeExpression(ctx, syntax->number);
 
-		ExpressionEvalContext evalCtx(ctx, ctx.allocator);
-
-		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, syntax->number, numberValue, ctx.typeLong, false))))
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, syntax->number, numberValue, ctx.typeLong, false))))
 		{
 			if(number->value <= 0)
 				Stop(ctx, syntax->number->pos, "ERROR: break level can't be negative or zero");
@@ -7547,9 +7533,7 @@ ExprContinue* AnalyzeContinue(ExpressionContext &ctx, SynContinue *syntax)
 	{
 		ExprBase *numberValue = AnalyzeExpression(ctx, syntax->number);
 
-		ExpressionEvalContext evalCtx(ctx, ctx.allocator);
-
-		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(Evaluate(evalCtx, CreateCast(ctx, syntax->number, numberValue, ctx.typeLong, false))))
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, syntax->number, numberValue, ctx.typeLong, false))))
 		{
 			if(number->value <= 0)
 				Stop(ctx, syntax->number->pos, "ERROR: continue level can't be negative or zero");
