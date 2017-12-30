@@ -1205,6 +1205,8 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, bool allowFailure);
 
+ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs);
+
 InplaceStr GetTypeConstructorName(TypeClass *classType);
 bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool noArguments, SmallArray<FunctionData*, 32> &functions);
 ExprBase* CreateConstructorAccess(ExpressionContext &ctx, SynBase *source, SmallArray<FunctionData*, 32> &functions, ExprBase *context);
@@ -1471,7 +1473,21 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 					return allocate(ExprTypeCast)(source, type, node->value, EXPR_CAST_ARRAY_PTR_TO_UNSIZED);
 				}
 
-				return allocate(ExprTypeCast)(source, type, value, EXPR_CAST_ARRAY_TO_UNSIZED);
+				// Allocate storage in heap and copy literal data into it
+				VariableData *storage = AllocateTemporary(ctx, source, ctx.GetReferenceType(valueType));
+
+				ExprBase *size = allocate(ExprIntegerLiteral)(source, ctx.typeInt, valueType->size);
+				ExprBase *typeId = allocate(ExprTypeCast)(source, ctx.typeInt, allocate(ExprTypeLiteral)(source, ctx.typeTypeID, valueType), EXPR_CAST_REINTERPRET);
+
+				ExprBase *alloc = allocate(ExprTypeCast)(source, ctx.GetReferenceType(valueType), CreateFunctionCall2(ctx, source, InplaceStr("__newS"), size, typeId, false, true), EXPR_CAST_REINTERPRET);
+
+				ExprBase *definition = allocate(ExprVariableDefinition)(value->source, ctx.typeVoid, storage, CreateAssignment(ctx, source, allocate(ExprVariableAccess)(source, storage->type, storage), alloc));
+
+				ExprBase *assignment = CreateAssignment(ctx, source, allocate(ExprDereference)(source, valueType, allocate(ExprVariableAccess)(source, storage->type, storage)), value);
+
+				ExprBase *result = allocate(ExprTypeCast)(source, type, allocate(ExprVariableAccess)(source, storage->type, storage), EXPR_CAST_ARRAY_PTR_TO_UNSIZED);
+
+				return CreateSequence(ctx, source, definition, assignment, result);
 			}
 		}
 	}

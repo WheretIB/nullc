@@ -1443,20 +1443,6 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantInt(module->allocator, 0), CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, 0), NULL));
 		case EXPR_CAST_NULL_TO_FUNCTION:
 			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, 0), NULL, NULL));
-		case EXPR_CAST_ARRAY_TO_UNSIZED:
-			{
-				TypeArray *arrType = getType<TypeArray>(node->value->type);
-
-				assert(arrType);
-				assert(unsigned(arrType->length) == arrType->length);
-
-				VmValue *address = CreateAlloca(ctx, module, arrType, "lit_arr");
-
-				CreateStore(ctx, module, arrType, address, value);
-
-				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), address, CreateConstantInt(module->allocator, unsigned(arrType->length)), NULL, NULL));
-			}
-			break;
 		case EXPR_CAST_ARRAY_PTR_TO_UNSIZED:
 			{
 				TypeRef *refType = getType<TypeRef>(node->value->type);

@@ -1005,29 +1005,6 @@ ExprBase* EvaluateCast(Eval &ctx, ExprTypeCast *expression)
 			return CheckType(expression, result);
 		}
 		break;
-	case EXPR_CAST_ARRAY_TO_UNSIZED:
-		{
-			TypeArray *arrType = getType<TypeArray>(value->type);
-
-			assert(arrType);
-			assert(unsigned(arrType->length) == arrType->length);
-
-			ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, value->type);
-
-			if(!storage)
-				return NULL;
-
-			if(!CreateStore(ctx, storage, value))
-				return NULL;
-
-			ExprBase *result = CreateConstruct(ctx, expression->type, storage, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, arrType->length), NULL);
-
-			if(!result)
-				return NULL;
-
-			return CheckType(expression, result);
-		}
-		break;
 	case EXPR_CAST_ARRAY_PTR_TO_UNSIZED:
 		{
 			TypeRef *refType = getType<TypeRef>(value->type);

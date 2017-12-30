@@ -322,9 +322,6 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 		case EXPR_CAST_NULL_TO_FUNCTION:
 			category = "EXPR_CAST_NULL_TO_FUNCTION";
 			break;
-		case EXPR_CAST_ARRAY_TO_UNSIZED:
-			category = "EXPR_CAST_ARRAY_TO_UNSIZED";
-			break;
 		case EXPR_CAST_ARRAY_PTR_TO_UNSIZED:
 			category = "EXPR_CAST_ARRAY_PTR_TO_UNSIZED";
 			break;
