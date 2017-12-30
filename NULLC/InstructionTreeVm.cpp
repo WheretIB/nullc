@@ -769,38 +769,6 @@ namespace
 			(*optCount)++;
 	}
 
-	bool HasAddressTaken(VariableData *container)
-	{
-		for(unsigned i = 0; i < container->users.size(); i++)
-		{
-			VmConstant *user = container->users[i];
-
-			for(unsigned i = 0; i < user->users.size(); i++)
-			{
-				if(VmInstruction *inst = getType<VmInstruction>(user->users[i]))
-				{
-					bool simpleUse = false;
-
-					if(inst->cmd >= VM_INST_LOAD_BYTE && inst->cmd <= VM_INST_LOAD_STRUCT)
-						simpleUse = true;
-					else if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
-						simpleUse = true;
-					else
-						simpleUse = false;
-
-					if(!simpleUse)
-						return true;
-				}
-				else
-				{
-					assert(!"invalid constant use");
-				}
-			}
-		}
-
-		return false;
-	}
-
 	void ClearLoadStoreInfo(VmModule *module)
 	{
 		module->loadStoreInfo.clear();
