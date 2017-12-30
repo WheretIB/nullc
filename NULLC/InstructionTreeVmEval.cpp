@@ -1236,6 +1236,29 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			assert(!"phi instruction can't handle the predecessor");
 		}
 		break;
+	case VM_INST_BITCAST:
+		{
+			VmConstant *value = arguments[0];
+
+			if(value->type.type == VM_TYPE_STRUCT)
+				return ExtractValue(ctx, value, 0, instruction->type);
+
+			if(instruction->type.type == VM_TYPE_STRUCT)
+			{
+				char *storage = (char*)ctx.allocator->alloc(instruction->type.size);
+
+				CopyConstantRaw(ctx, storage, instruction->type.size, value, value->type.size);
+
+				VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type);
+
+				result->sValue = storage;
+
+				return result;
+			}
+
+			assert(!"unsupported bitcast");
+		}
+		break;
 	default:
 		assert(!"unknown instruction");
 	}

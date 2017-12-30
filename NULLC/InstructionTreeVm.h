@@ -116,6 +116,7 @@ enum VmInstructionType
 	VM_INST_EXTRACT, // Pseudo instruction to extract an element from a composite value
 	VM_INST_UNYIELD, // Pseudo instruction to restore function execution state
 	VM_INST_PHI, // Pseudo instruction to create a value based on control flow
+	VM_INST_BITCAST, // Pseudo instruction to transform value type
 };
 
 enum VmPassType

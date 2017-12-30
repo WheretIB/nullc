@@ -364,6 +364,9 @@ void PrintInstructionName(InstructionVMGraphContext &ctx, VmInstructionType cmd)
 	case VM_INST_PHI:
 		Print(ctx, "phi");
 		break;
+	case VM_INST_BITCAST:
+		Print(ctx, "bitcast");
+		break;
 	default:
 		assert(!"unknown instruction");
 	}

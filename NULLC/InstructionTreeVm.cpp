@@ -979,11 +979,21 @@ namespace
 				if(el.pointer)
 					continue;
 
+				// Reuse previous load
 				if(el.loadInst && *el.address == *address && GetAccessSize(inst) == GetAccessSize(el.loadInst))
 					return el.loadInst;
 
+				// Reuse store argument
 				if(el.storeInst && *el.address == *address && GetAccessSize(inst) == GetAccessSize(el.storeInst))
-					return el.storeInst->arguments[1];
+				{
+					VmValue *value = el.storeInst->arguments[1];
+
+					// Can't reuse arguments of a different size
+					if(value->type.size != inst->type.size)
+						return NULL;
+
+					return value;
+				}
 
 				if(el.storeInst && el.address->container == address->container)
 				{
@@ -3028,9 +3038,32 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 			case VM_INST_LOAD_LONG:
 			case VM_INST_LOAD_STRUCT:
 				if(VmValue* value = GetLoadStoreInfo(module, curr))
-					ReplaceValueUsersWith(module, curr, value, &module->loadStorePropagations);
+				{
+					if(curr->type != value->type)
+					{
+						assert(curr->type.size == value->type.size);
+
+						module->currentBlock = block;
+
+						block->insertPoint = curr->prevSibling;
+
+						value = CreateInstruction(module, curr->type, VM_INST_BITCAST, value, NULL, NULL, NULL);
+
+						block->insertPoint = block->lastInstruction;
+
+						module->currentBlock = NULL;
+
+						ReplaceValueUsersWith(module, curr, value, &module->loadStorePropagations);
+					}
+					else
+					{
+						ReplaceValueUsersWith(module, curr, value, &module->loadStorePropagations);
+					}
+				}
 				else
+				{
 					AddLoadInfo(module, curr);
+				}
 				break;
 			case VM_INST_STORE_BYTE:
 			case VM_INST_STORE_SHORT:
