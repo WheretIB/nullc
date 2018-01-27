@@ -69,7 +69,7 @@ void PrintType(InstructionVMGraphContext &ctx, VmType type)
 		assert(!"unknown type");
 }
 
-void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName)
+void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName, bool noExtraInfo)
 {
 	if(VmConstant *constant = getType<VmConstant>(value))
 	{
@@ -83,11 +83,11 @@ void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName)
 			{
 				if(VmFunction *function = block->parent)
 				{
-					PrintName(ctx, function, true);
+					PrintName(ctx, function, true, true);
 					Print(ctx, ".");
 				}
 
-				PrintName(ctx, block, true);
+				PrintName(ctx, block, true, true);
 				Print(ctx, ".");
 			}
 		}
@@ -109,6 +109,9 @@ void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName)
 	{
 		assert(!"unknown type");
 	}
+
+	if(noExtraInfo)
+		return;
 
 	if(ctx.showFullTypes)
 	{
@@ -143,7 +146,7 @@ void PrintUsers(InstructionVMGraphContext &ctx, VmValue *value, bool fullNames)
 		if(value->hasSideEffects || i != 0)
 			Print(ctx, ", ");
 
-		PrintName(ctx, value->users[i], fullNames);
+		PrintName(ctx, value->users[i], fullNames, true);
 	}
 
 	Print(ctx, "] ");
@@ -401,9 +404,9 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 
 			Print(ctx, value == instruction->arguments[0] ? " [" : ", ");
 
-			PrintName(ctx, value, false);
+			PrintName(ctx, value, false, false);
 			Print(ctx, " from ");
-			PrintName(ctx, edge, false);
+			PrintName(ctx, edge, false, false);
 		}
 
 		Print(ctx, "]");
@@ -432,7 +435,7 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 			}
 			else
 			{
-				PrintName(ctx, value, false);
+				PrintName(ctx, value, false, false);
 				PrintLine(ctx);
 			}
 		}
@@ -450,7 +453,7 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 			else
 				Print(ctx, ", ");
 
-			PrintName(ctx, value, false);
+			PrintName(ctx, value, false, false);
 		}
 
 		if(instruction->type == VmType::Void && ctx.showUsers)
@@ -537,7 +540,7 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 
 						if(VmInstruction *inst = getType<VmInstruction>(user->users[k]))
 						{
-							PrintName(ctx, inst, inst->parent->parent != function);
+							PrintName(ctx, inst, inst->parent->parent != function, true);
 
 							bool simpleUse = false;
 

@@ -321,12 +321,16 @@ namespace
 		return CreateInstruction(module, VmType::Pointer(structType), VM_INST_INDEX_UNSIZED, elementSize, value, index);
 	}
 
-	VmValue* CreateMemberAccess(VmModule *module, VmValue *ptr, VmValue *shift, TypeBase *structType)
+	VmValue* CreateMemberAccess(VmModule *module, VmValue *ptr, VmValue *shift, TypeBase *structType, InplaceStr name)
 	{
 		assert(ptr->type.type == VM_TYPE_POINTER);
 		assert(shift->type == VmType::Int);
 
-		return CreateInstruction(module, VmType::Pointer(structType), VM_INST_ADD, ptr, shift);
+		VmInstruction *inst = CreateInstruction(module, VmType::Pointer(structType), VM_INST_ADD, ptr, shift);
+
+		inst->comment = name;
+
+		return inst;
 	}
 
 	VmValue* CreateAdd(VmModule *module, VmValue *lhs, VmValue *rhs)
@@ -1800,7 +1804,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		VmValue *offset = CreateConstantInt(module->allocator, node->member->offset);
 
-		return CheckType(ctx, expression, CreateMemberAccess(module, value, offset, ctx.GetReferenceType(node->member->type)));
+		return CheckType(ctx, expression, CreateMemberAccess(module, value, offset, ctx.GetReferenceType(node->member->type), node->member->name));
 	}
 	else if(ExprArrayIndex *node = getType<ExprArrayIndex>(expression))
 	{
@@ -1897,7 +1901,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		VmValue *offset = CreateLoad(ctx, module, ctx.typeInt, offsetPtr);
 
-		CreateStore(ctx, module, arrayType->subType, CreateMemberAccess(module, address, offset, ctx.GetReferenceType(arrayType->subType)), initializer);
+		CreateStore(ctx, module, arrayType->subType, CreateMemberAccess(module, address, offset, ctx.GetReferenceType(arrayType->subType), InplaceStr()), initializer);
 		CreateStore(ctx, module, ctx.typeInt, offsetPtr, CreateAdd(module, offset, CreateConstantInt(module->allocator, int(arrayType->subType->size))));
 
 		CreateJump(module, conditionBlock);
