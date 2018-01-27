@@ -577,9 +577,9 @@ void ExpressionContext::Stop(const char *pos, const char *msg, ...)
 	va_end(args);
 }
 
-void ExpressionContext::PushScope()
+void ExpressionContext::PushScope(ScopeType type)
 {
-	ScopeData *next = allocate_(ScopeData)(allocator, scope, uniqueScopeId++);
+	ScopeData *next = allocate_(ScopeData)(allocator, scope, uniqueScopeId++, type);
 
 	if(scope)
 		scope->scopes.push_back(next);
@@ -619,7 +619,7 @@ void ExpressionContext::PushScope(TypeBase *type)
 
 void ExpressionContext::PushLoopScope()
 {
-	ScopeData *next = allocate_(ScopeData)(allocator, scope, uniqueScopeId++);
+	ScopeData *next = allocate_(ScopeData)(allocator, scope, uniqueScopeId++, SCOPE_LOOP);
 
 	if(scope)
 		scope->scopes.push_back(next);
@@ -631,11 +631,13 @@ void ExpressionContext::PushLoopScope()
 
 void ExpressionContext::PushTemporaryScope()
 {
-	scope = allocate_(ScopeData)(allocator, scope, 0);
+	scope = allocate_(ScopeData)(allocator, scope, 0, SCOPE_TEMPORARY);
 }
 
-void ExpressionContext::PopScope(SynBase *location, bool keepFunctions)
+void ExpressionContext::PopScope(ScopeType type, SynBase *location, bool keepFunctions)
 {
+	assert(scope->type == type);
+
 	// When namespace scope ends, all the contents remain accessible through an outer namespace/global scope
 	if(!location && scope->ownerNamespace)
 	{
@@ -711,6 +713,11 @@ void ExpressionContext::PopScope(SynBase *location, bool keepFunctions)
 	scope = scope->scope;
 }
 
+void ExpressionContext::PopScope(ScopeType type)
+{
+	PopScope(type, 0, false);
+}
+
 void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *location)
 {
 	// Restore parent first, up to the current scope
@@ -772,7 +779,7 @@ void ExpressionContext::SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *t
 {
 	// Reach the same depth
 	while(scope->scopeDepth > target->scopeDepth)
-		PopScope(NULL, true);
+		PopScope(scope->type, NULL, true);
 
 	// Reach the same parent
 	ScopeData *curr = target;
@@ -782,13 +789,13 @@ void ExpressionContext::SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *t
 
 	while(scope->scope != curr->scope)
 	{
-		PopScope(NULL, true);
+		PopScope(scope->type, NULL, true);
 
 		curr = curr->scope;
 	}
 
 	// When the common parent is reached, remove it without ejecting namespace variables into the outer scope
-	PopScope(currLocation, true);
+	PopScope(scope->type, currLocation, true);
 
 	// Now restore each namespace data up to the source location
 	RestoreScopesAtPoint(target, targetLocation);
@@ -1762,7 +1769,7 @@ ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, Ex
 	IntrusiveList<ExprBase> expressions;
 	expressions.push_back(allocate(ExprReturn)(source, ctx.typeVoid, AnalyzeExpression(ctx, value->source)));
 
-	ctx.PopScope();
+	ctx.PopScope(SCOPE_FUNCTION);
 
 	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function);
 
@@ -4219,10 +4226,10 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 			types.push_back(allocate(TypeHandle)(type));
 		}
 
-		ctx.PopScope();
+		ctx.PopScope(SCOPE_TEMPORARY);
 
 		if(addedParentScope)
-			ctx.PopScope();
+			ctx.PopScope(SCOPE_TYPE);
 	}
 	else
 	{
@@ -5572,7 +5579,7 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
 
 	if(parentType)
-		ctx.PopScope();
+		ctx.PopScope(SCOPE_TEMPORARY);
 
 	IntrusiveList<ExprVariableDefinition> definitions;
 
@@ -5594,7 +5601,7 @@ TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, Inp
 
 	contextClassType->typeScope = ctx.scope;
 
-	ctx.PopScope();
+	ctx.PopScope(SCOPE_TYPE);
 
 	contextClassType->completed = true;
 
@@ -5851,7 +5858,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			hadGenericArgument |= type->isGeneric;
 
 			// Remove temporary scope
-			ctx.PopScope();
+			ctx.PopScope(SCOPE_TEMPORARY);
 		}
 
 		argData.push_back(ArgumentData(argument, argument->isExplicit, argument->name, type, initializer));
@@ -5910,7 +5917,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			Stop(ctx, source->pos, "ERROR: generic function cannot be forward-declared");
 
 		if(addedParentScope)
-			ctx.PopScope();
+			ctx.PopScope(SCOPE_TYPE);
 
 		assert(isType<SynFunctionDefinition>(source));
 
@@ -5981,10 +5988,10 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		}
 	}
 
-	ctx.PopScope();
+	ctx.PopScope(SCOPE_FUNCTION);
 
 	if(addedParentScope)
-		ctx.PopScope();
+		ctx.PopScope(SCOPE_TYPE);
 
 	if(parentType)
 	{
@@ -6197,7 +6204,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	if(function->type->returnType != ctx.typeVoid && !function->hasExplicitReturn)
 		Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
 
-	ctx.PopScope();
+	ctx.PopScope(SCOPE_FUNCTION);
 
 	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, syntax, function);
 
@@ -6255,7 +6262,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprVariableAccess)(syntax, empty->type, empty)));
 
-	ctx.PopScope();
+	ctx.PopScope(SCOPE_FUNCTION);
 
 	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, syntax, function);
 
@@ -6530,7 +6537,7 @@ ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, 
 
 			assert(body);
 
-			ctx.PopScope();
+			ctx.PopScope(SCOPE_LOOP);
 
 			return CreateSequence(ctx, source, valueInit, allocate(ExprFor)(source, ctx.typeVoid, initializer, condition, increment, body));
 		}
@@ -6626,10 +6633,10 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 
 		CreateDefaultConstructorCode(ctx, source, classType, expressions);
 
-		ctx.PopScope();
+		ctx.PopScope(SCOPE_FUNCTION);
 
 		if(addedParentScope)
-			ctx.PopScope();
+			ctx.PopScope(SCOPE_TYPE);
 
 		ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function);
 
@@ -6867,7 +6874,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		TypeBase *type = AnalyzeType(ctx, syntax->baseClass);
 
-		ctx.PopScope();
+		ctx.PopScope(SCOPE_TEMPORARY);
 
 		baseClass = getType<TypeClass>(type);
 
@@ -6957,7 +6964,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 	AnalyzeClassElements(ctx, classDefinition, syntax->elements);
 
-	ctx.PopScope();
+	ctx.PopScope(SCOPE_TYPE);
 
 	if(classType->size >= 64 * 1024)
 		Stop(ctx, syntax->pos, "ERROR: class size cannot exceed 65535 bytes");
@@ -7068,7 +7075,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		IntrusiveList<ExprBase> expressions;
 		expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprTypeCast)(syntax, ctx.typeInt, allocate(ExprVariableAccess)(syntax, enumType, variables.tail->variable), EXPR_CAST_REINTERPRET)));
 
-		ctx.PopScope();
+		ctx.PopScope(SCOPE_FUNCTION);
 
 		function->declaration = allocate(ExprFunctionDefinition)(syntax, function->type, function, contextArgumentDefinition, variables, expressions, NULL);
 
@@ -7106,7 +7113,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		IntrusiveList<ExprBase> expressions;
 		expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprTypeCast)(syntax, enumType, allocate(ExprVariableAccess)(syntax, ctx.typeInt, variables.tail->variable), EXPR_CAST_REINTERPRET)));
 
-		ctx.PopScope();
+		ctx.PopScope(SCOPE_FUNCTION);
 
 		function->declaration = allocate(ExprFunctionDefinition)(syntax, function->type, function, contextArgumentDefinition, variables, expressions, NULL);
 
@@ -7141,7 +7148,7 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 		expressions.push_back(AnalyzeStatement(ctx, expression));
 
 	for(SynIdentifier *name = syntax->path.head; name; name = getType<SynIdentifier>(name->next))
-		ctx.PopScope();
+		ctx.PopScope(SCOPE_NAMESPACE);
 
 	return allocate(ExprBlock)(syntax, ctx.typeVoid, expressions);
 }
@@ -7216,7 +7223,7 @@ ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
-	ctx.PopScope();
+	ctx.PopScope(SCOPE_LOOP);
 
 	return allocate(ExprFor)(syntax, ctx.typeVoid, initializer, condition, increment, body);
 }
@@ -7424,7 +7431,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 	ExprBase *body = allocate(ExprBlock)(syntax, ctx.typeVoid, definitions);
 
-	ctx.PopScope();
+	ctx.PopScope(SCOPE_LOOP);
 
 	return allocate(ExprFor)(syntax, ctx.typeVoid, initializer, condition, increment, body);
 }
@@ -7438,7 +7445,7 @@ ExprWhile* AnalyzeWhile(ExpressionContext &ctx, SynWhile *syntax)
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
-	ctx.PopScope();
+	ctx.PopScope(SCOPE_LOOP);
 
 	return allocate(ExprWhile)(syntax, ctx.typeVoid, condition, body);
 }
@@ -7456,7 +7463,7 @@ ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
-	ctx.PopScope();
+	ctx.PopScope(SCOPE_LOOP);
 
 	return allocate(ExprDoWhile)(syntax, ctx.typeVoid, allocate(ExprBlock)(syntax, ctx.typeVoid, expressions), condition);
 }
@@ -7509,7 +7516,7 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 		}
 	}
 
-	ctx.PopScope();
+	ctx.PopScope(SCOPE_LOOP);
 
 	return allocate(ExprSwitch)(syntax, ctx.typeVoid, condition, cases, blocks, defaultBlock);
 }
@@ -7571,7 +7578,7 @@ ExprContinue* AnalyzeContinue(ExpressionContext &ctx, SynContinue *syntax)
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope)
 {
 	if(createScope)
-		ctx.PushScope();
+		ctx.PushScope(SCOPE_EXPLICIT);
 
 	IntrusiveList<ExprBase> expressions;
 
@@ -7579,7 +7586,7 @@ ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createSco
 		expressions.push_back(AnalyzeStatement(ctx, expression));
 
 	if(createScope)
-		ctx.PopScope();
+		ctx.PopScope(SCOPE_EXPLICIT);
 
 	return allocate(ExprBlock)(syntax, ctx.typeVoid, expressions);
 }
@@ -8235,7 +8242,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					classType->hasFinalizer = type.typeFlags & ExternTypeInfo::TYPE_HAS_FINALIZER;
 
 				if(parentNamespace)
-					ctx.PopScope();
+					ctx.PopScope(SCOPE_NAMESPACE);
 			}
 			break;
 		default:
@@ -8317,7 +8324,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						constantInfo++;
 					}
 
-					ctx.PopScope();
+					ctx.PopScope(SCOPE_TYPE);
 				}
 			}
 			break;
@@ -8625,16 +8632,16 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		assert(data->type);
 
-		ctx.PopScope();
+		ctx.PopScope(SCOPE_FUNCTION);
 
 		if(data->isPrototype)
 			ctx.HideFunction(data);
 
 		if(parentType)
-			ctx.PopScope();
+			ctx.PopScope(SCOPE_TYPE);
 
 		if(parentNamespace)
-			ctx.PopScope();
+			ctx.PopScope(SCOPE_NAMESPACE);
 	}
 
 	for(unsigned i = 0; i < bCode->functionCount - bCode->moduleFunctionCount; i++)
@@ -8853,7 +8860,7 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 {
 	assert(!ctx.globalScope);
 
-	ctx.PushScope();
+	ctx.PushScope(SCOPE_EXPLICIT);
 	ctx.globalScope = ctx.scope;
 
 	ctx.AddType(ctx.typeVoid = allocate(TypeVoid)(InplaceStr("void")));
@@ -8878,21 +8885,21 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 	ctx.PushScope(ctx.typeAutoRef);
 	ctx.typeAutoRef->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++)));
 	ctx.typeAutoRef->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++)));
-	ctx.PopScope();
+	ctx.PopScope(SCOPE_TYPE);
 
 	ctx.AddType(ctx.typeAutoArray = allocate(TypeAutoArray)(InplaceStr("auto[]")));
 	ctx.PushScope(ctx.typeAutoArray);
 	ctx.typeAutoArray->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++)));
 	ctx.typeAutoArray->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++)));
 	ctx.typeAutoArray->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, ctx.typeInt, InplaceStr("size"), true, ctx.uniqueVariableId++)));
-	ctx.PopScope();
+	ctx.PopScope(SCOPE_TYPE);
 
 	// Analyze module
 	if(!setjmp(ctx.errorHandler))
 	{
 		ExprBase *module = AnalyzeModule(ctx, syntax);
 
-		ctx.PopScope();
+		ctx.PopScope(SCOPE_EXPLICIT);
 
 		assert(ctx.scope == NULL);
 

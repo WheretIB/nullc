@@ -117,14 +117,40 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 {
 	PrintIndent(ctx);
 
+	const char *type = "";
+
+	switch(scope->type)
+	{
+	case SCOPE_EXPLICIT:
+		type = "SCOPE_EXPLICIT";
+		break;
+	case SCOPE_NAMESPACE:
+		type = "SCOPE_NAMESPACE";
+		break;
+	case SCOPE_FUNCTION:
+		type = "SCOPE_FUNCTION";
+		break;
+	case SCOPE_TYPE:
+		type = "SCOPE_TYPE";
+		break;
+	case SCOPE_LOOP:
+		type = "SCOPE_LOOP";
+		break;
+	case SCOPE_TEMPORARY:
+		type = "SCOPE_TEMPORARY";
+		break;
+	default:
+		assert(!"unknown type");
+	}
+
 	if(FunctionData *owner = scope->ownerFunction)
-		Print(ctx, "ScopeData({%.*s: f%04x}: s%04x){\n", FMT_ISTR(owner->name), owner->uniqueId, scope->uniqueId);
+		Print(ctx, "ScopeData(%s, {%.*s: f%04x}: s%04x){\n", type, FMT_ISTR(owner->name), owner->uniqueId, scope->uniqueId);
 	else if(TypeBase *owner = scope->ownerType)
-		Print(ctx, "ScopeData({%.*s}: s%04x){\n", FMT_ISTR(owner->name), scope->uniqueId);
+		Print(ctx, "ScopeData(%s, {%.*s}: s%04x){\n", type, FMT_ISTR(owner->name), scope->uniqueId);
 	else if(NamespaceData *owner = scope->ownerNamespace)
-		Print(ctx, "ScopeData({%.*s: n%04x}: s%04x){\n", FMT_ISTR(owner->name), owner->uniqueId, scope->uniqueId);
+		Print(ctx, "ScopeData(%s, {%.*s: n%04x}: s%04x){\n", type, FMT_ISTR(owner->name), owner->uniqueId, scope->uniqueId);
 	else
-		Print(ctx, "ScopeData({}: s%04x){\n", scope->uniqueId);
+		Print(ctx, "ScopeData(%s, {}: s%04x){\n", type, scope->uniqueId);
 
 	ctx.depth++;
 
@@ -346,6 +372,8 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 		case EXPR_CAST_REINTERPRET:
 			category = "EXPR_CAST_REINTERPRET";
 			break;
+		default:
+			assert(!"unknown category");
 		}
 
 		PrintEnterBlock(ctx, name, node->type, "ExprTypeCast(%s)", category);

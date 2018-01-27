@@ -18,13 +18,14 @@ struct ExpressionContext
 
 	void Stop(const char *pos, const char *msg, ...);
 
-	void PushScope();
+	void PushScope(ScopeType type);
 	void PushScope(NamespaceData *nameSpace);
 	void PushScope(FunctionData *function);
 	void PushScope(TypeBase *type);
 	void PushLoopScope();
 	void PushTemporaryScope();
-	void PopScope(SynBase *location = 0, bool keepFunctions = false);
+	void PopScope(ScopeType type, SynBase *location, bool keepFunctions);
+	void PopScope(ScopeType type);
 	void RestoreScopesAtPoint(ScopeData *target, SynBase *location);
 	void SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *target, SynBase *targetLocation);
 
