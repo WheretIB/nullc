@@ -217,6 +217,28 @@ InplaceStr GetFunctionTableName(ExpressionContext &ctx, FunctionData *function)
 	return InplaceStr(name);
 }
 
+InplaceStr GetFunctionContextMemberName(ExpressionContext &ctx, InplaceStr prefix, InplaceStr suffix)
+{
+	unsigned nameLength = prefix.length() + 1 + suffix.length() + 1;
+	char *name = (char*)ctx.allocator->alloc(nameLength);
+	sprintf(name, "%.*s_%.*s", FMT_ISTR(prefix), FMT_ISTR(suffix));
+
+	return InplaceStr(name);
+}
+
+InplaceStr GetFunctionVariableUpvalueName(ExpressionContext &ctx, VariableData *variable)
+{
+	FunctionData *function = ctx.GetFunctionOwner(variable->scope);
+
+	assert(function);
+
+	unsigned nameLength = function->name.length() + variable->name.length() + 24;
+	char *name = (char*)ctx.allocator->alloc(nameLength);
+	sprintf(name, "$upvalue_%.*s_%.*s_%04x", FMT_ISTR(function->name), FMT_ISTR(variable->name), variable->uniqueId);
+
+	return InplaceStr(name);
+}
+
 InplaceStr GetTypeNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceStr str)
 {
 	bool foundNamespace = false;

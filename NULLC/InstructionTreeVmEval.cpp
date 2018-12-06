@@ -508,7 +508,31 @@ Eval::Storage* FindTarget(Eval &ctx, VmConstant *value, unsigned &base)
 		target = ctx.storageSet[storageIndex - 1];
 	}
 
+	if(!target)
+	{
+		Report(ctx, "ERROR: null pointer access");
+		return NULL;
+	}
+
+	if(target->expired)
+	{
+		Report(ctx, "ERROR: dead memory access");
+		return NULL;
+	}
+
 	return target;
+}
+
+char* GetPointerDataPtr(Eval &ctx, unsigned vmPointer)
+{
+	if(unsigned storageIndex = (vmPointer & memoryStorageMask) >> memoryStorageBits)
+	{
+		Eval::Storage *storage = ctx.storageSet[storageIndex - 1];
+
+		return storage->data.data + (vmPointer & memoryOffsetMask);
+	}
+
+	return NULL;
 }
 
 VmConstant* LoadFrameValue(Eval &ctx, VmConstant *pointer, VmType type, unsigned loadSize)
@@ -517,25 +541,34 @@ VmConstant* LoadFrameValue(Eval &ctx, VmConstant *pointer, VmType type, unsigned
 
 	if(Eval::Storage *target = FindTarget(ctx, pointer, base))
 	{
+		if(ctx.printExecution)
+		{
+			InplaceStr functionName = target->functionOwner && target->functionOwner->function? target->functionOwner->function->name : InplaceStr("---");
+
+			printf("      LoadFrameValue %.*s [%s] @ %04x + %02x [%02x]\n", FMT_ISTR(functionName), target->tag, base, pointer->iValue & memoryOffsetMask, loadSize);
+		}
+
+		unsigned offset = (pointer->iValue & memoryOffsetMask) + base;
+
 		if(type == VmType::Int && loadSize == 1)
-			return LoadFrameByte(ctx, target, (pointer->iValue & memoryOffsetMask) + base);
+			return LoadFrameByte(ctx, target, offset);
 
 		if(type == VmType::Int && loadSize == 2)
-			return LoadFrameShort(ctx, target, (pointer->iValue & memoryOffsetMask) + base);
+			return LoadFrameShort(ctx, target, offset);
 
 		if((type == VmType::Int || type.type == VM_TYPE_POINTER) && loadSize == 4)
-			return LoadFrameInt(ctx, target, (pointer->iValue & memoryOffsetMask) + base, type);
+			return LoadFrameInt(ctx, target, offset, type);
 
 		if(type == VmType::Double && loadSize == 4)
-			return LoadFrameFloat(ctx, target, (pointer->iValue & memoryOffsetMask) + base);
+			return LoadFrameFloat(ctx, target, offset);
 
 		if(type == VmType::Double && loadSize == 8)
-			return LoadFrameDouble(ctx, target, (pointer->iValue & memoryOffsetMask) + base);
+			return LoadFrameDouble(ctx, target, offset);
 
 		if((type == VmType::Long || type.type == VM_TYPE_POINTER) && loadSize == 8)
-			return LoadFrameLong(ctx, target, (pointer->iValue & memoryOffsetMask) + base, type);
+			return LoadFrameLong(ctx, target, offset, type);
 
-		return LoadFrameStruct(ctx, target, (pointer->iValue & memoryOffsetMask) + base, type);
+		return LoadFrameStruct(ctx, target, offset, type);
 	}
 
 	return (VmConstant*)Report(ctx, "ERROR: null pointer access");
@@ -547,6 +580,13 @@ bool StoreFrameValue(Eval &ctx, VmConstant *pointer, VmConstant *value, unsigned
 
 	if(Eval::Storage *target = FindTarget(ctx, pointer, base))
 	{
+		if(ctx.printExecution)
+		{
+			InplaceStr functionName = target->functionOwner && target->functionOwner->function ? target->functionOwner->function->name : InplaceStr("---");
+
+			printf("      StoreFrameValue %.*s [%s] @ %04x + %02x [%02x]\n", FMT_ISTR(functionName), target->tag, base, pointer->iValue & memoryOffsetMask, storeSize);
+		}
+
 		unsigned offset = (pointer->iValue & memoryOffsetMask) + base;
 
 		if(!target->Reserve(ctx, offset, value->type.size))
@@ -614,24 +654,6 @@ VmConstant* AllocateHeapArray(Eval &ctx, TypeBase *target, unsigned count)
 	return result;
 }
 
-VmConstant* GetJumpOffsetPtr(Eval &ctx)
-{
-	Eval::StackFrame *frame = ctx.stackFrames.back();
-
-	VmConstant *contextPtr = LoadFramePointer(ctx, &frame->stack, 0, GetVmType(ctx.ctx, frame->owner->function->contextType));
-
-	if(!contextPtr->iValue)
-		return (VmConstant*)Report(ctx, "ERROR: null pointer access");
-
-	TypeRef *refType = getType<TypeRef>(frame->owner->function->contextType);
-
-	VmType contextType = GetVmType(ctx.ctx, refType->subType);
-
-	VmConstant *context = LoadFrameValue(ctx, contextPtr, contextType, contextType.size);
-
-	return ExtractValue(ctx, context, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
-}
-
 VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *predecessor, VmBlock **nextBlock)
 {
 	ctx.instruction++;
@@ -643,6 +665,9 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 	for(unsigned i = 0; i < instruction->arguments.size(); i++)
 		arguments.push_back(EvaluateOperand(ctx, instruction->arguments[i]));
+
+	if(ctx.printExecution)
+		printf("    EvaluateInstruction %d = %s\n", instruction->uniqueId, GetInstructionName(instruction));
 
 	switch(instruction->cmd)
 	{
@@ -810,68 +835,24 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 			VmConstant *result = EvaluateFunction(ctx, function);
 
+			calleeFrame->stack.expired = true;
+			calleeFrame->allocas.expired = true;
+
 			ctx.stackFrames.pop_back();
 
 			return result;
 		}
 		break;
 	case VM_INST_RETURN:
-		{
-			Eval::StackFrame *frame = ctx.stackFrames.back();
-
-			if(frame->owner->function && frame->owner->function->coroutine)
-			{
-				VmConstant *offsetPtr = GetJumpOffsetPtr(ctx);
-
-				if(ctx.hasError)
-					return NULL;
-
-				VmType offsetType = VmType::Int;
-
-				StoreFrameValue(ctx, offsetPtr, CreateConstantInt(ctx.allocator, 0), offsetType.size);
-			}
-		}
-
 		if(arguments.empty())
 			return CreateConstantVoid(ctx.allocator);
 
 		return arguments[0];
 	case VM_INST_YIELD:
-		{
-			VmConstant *block = arguments[0];
+		if(arguments.empty())
+			return CreateConstantVoid(ctx.allocator);
 
-			assert(block->type == VmType::Block && block->bValue);
-
-			Eval::StackFrame *frame = ctx.stackFrames.back();
-
-			unsigned targetIndex = ~0u;
-
-			for(unsigned i = 0; i < frame->owner->restoreBlocks.size(); i++)
-			{
-				if(frame->owner->restoreBlocks[i] == block->bValue)
-				{
-					targetIndex = i;
-					break;
-				}
-			}
-
-			assert(targetIndex != ~0u);
-
-			VmConstant *offsetPtr = GetJumpOffsetPtr(ctx);
-
-			if(ctx.hasError)
-				return NULL;
-
-			VmType offsetType = VmType::Int;
-
-			StoreFrameValue(ctx, offsetPtr, CreateConstantInt(ctx.allocator, targetIndex), offsetType.size);
-
-			if(arguments.size() == 1)
-				return CreateConstantVoid(ctx.allocator);
-
-			return arguments[1];
-		}
-		break;
+		return arguments[0];
 	case VM_INST_ADD:
 		if(arguments[0]->type.type == VM_TYPE_POINTER || arguments[1]->type.type == VM_TYPE_POINTER)
 		{
@@ -1203,16 +1184,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 		{
 			Eval::StackFrame *frame = ctx.stackFrames.back();
 
-			VmConstant *offsetPtr = GetJumpOffsetPtr(ctx);
-
-			if(ctx.hasError)
-				return NULL;
-
-			VmType offsetType = VmType::Int;
-
-			VmConstant *offset = LoadFrameValue(ctx, offsetPtr, offsetType, offsetType.size);
-
-			*nextBlock = frame->owner->restoreBlocks[offset->iValue];
+			*nextBlock = frame->owner->restoreBlocks[arguments[0]->iValue];
 
 			return NULL;
 		}
@@ -1804,11 +1776,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		VmConstant *functionContext = LoadFrameValue(ctx, functionContextPtr, contextType, contextType.size);
 
-		VmConstant *jmpOffsetTarget = ExtractValue(ctx, functionContext, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
-
-		VmType offsetType = VmType::Int;
-
-		VmConstant *jmpOffset = LoadFrameValue(ctx, jmpOffsetTarget, offsetType, offsetType.size);
+		VmConstant *jmpOffset = ExtractValue(ctx, functionContext, 0, GetVmType(ctx.ctx, ctx.ctx.typeInt));
 
 		return CreateConstantInt(ctx.allocator, jmpOffset->iValue == 0);
 	}
@@ -1956,6 +1924,64 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		return CreateConstantInt(ctx.allocator, function->name == InplaceStr("==") ? order == 0 : order != 0);
 	}
+	else if(function->name == InplaceStr("__closeUpvalue"))
+	{
+		VmConstant *upvalueListLocation = GetArgumentValue(ctx, function, 0);
+
+		if(!upvalueListLocation)
+			return NULL;
+
+		VmConstant *variableLocation = GetArgumentValue(ctx, function, 1);
+
+		if(!variableLocation)
+			return NULL;
+
+		VmConstant *offsetToCopy = GetArgumentValue(ctx, function, 2);
+
+		if(!offsetToCopy)
+			return NULL;
+
+		VmConstant *copySize = GetArgumentValue(ctx, function, 3);
+
+		if(!copySize)
+			return NULL;
+
+		VmConstant *upvalueListHead = LoadFrameValue(ctx, upvalueListLocation, VmType::Pointer(ctx.ctx.typeVoid), NULLC_PTR_SIZE);
+
+		char *upvalueListHeadData = GetPointerDataPtr(ctx, upvalueListHead->iValue);
+
+		if(!upvalueListHeadData)
+			return CreateConstantVoid(ctx.allocator);
+
+		struct Upvalue
+		{
+			intptr_t target;
+			intptr_t next;
+		};
+
+		int upvalueVmPtr = upvalueListHead->iValue;
+		Upvalue *upvalueDataPtr = (Upvalue*)upvalueListHeadData;
+
+		while(upvalueDataPtr && upvalueDataPtr->target == variableLocation->iValue)
+		{
+			int nextVmPtr = upvalueDataPtr->next;
+			Upvalue *nextDataPtr = (Upvalue*)GetPointerDataPtr(ctx, upvalueDataPtr->next);
+
+			char *variableLocationData = GetPointerDataPtr(ctx, variableLocation->iValue);
+
+			char *copy = (char*)upvalueDataPtr + offsetToCopy->iValue;
+			memcpy(copy, variableLocationData, unsigned(copySize->iValue));
+			upvalueDataPtr->target = upvalueVmPtr + offsetToCopy->iValue;
+			upvalueDataPtr->next = 0;
+
+			upvalueVmPtr = nextVmPtr;
+			upvalueDataPtr = nextDataPtr;
+		}
+
+		StoreFrameValue(ctx, upvalueListLocation, CreateConstantPointer(ctx.allocator, upvalueVmPtr, NULL, ctx.ctx.typeVoid, false), NULLC_PTR_SIZE);
+
+		return CreateConstantVoid(ctx.allocator);
+	}
 
 	return NULL;
 }
@@ -1982,8 +2008,19 @@ VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
 		return (VmConstant*)Report(ctx, "ERROR: imported function has no source");
 	}
 
+	if(ctx.printExecution)
+	{
+		if(function->function)
+			printf("EvaluateFunction %.*s\n", FMT_ISTR(function->function->name));
+		else
+			printf("EvaluateFunction 'global'\n");
+	}
+
 	while(currentBlock)
 	{
+		if(ctx.printExecution)
+			printf("  EvaluateFunction block %.*s\n", FMT_ISTR(currentBlock->name));
+
 		if(!currentBlock->firstInstruction)
 			break;
 

@@ -533,14 +533,14 @@ namespace
 		return CreateInstruction(module, VmType::Void, VM_INST_RETURN, value);
 	}
 
-	VmValue* CreateYield(VmModule *module, VmValue *nextBlock)
+	VmValue* CreateYield(VmModule *module)
 	{
-		return CreateInstruction(module, VmType::Void, VM_INST_YIELD, nextBlock);
+		return CreateInstruction(module, VmType::Void, VM_INST_YIELD);
 	}
 
-	VmValue* CreateYield(VmModule *module, VmValue *nextBlock, VmValue *value)
+	VmValue* CreateYield(VmModule *module, VmValue *value)
 	{
-		return CreateInstruction(module, VmType::Void, VM_INST_YIELD, nextBlock, value);
+		return CreateInstruction(module, VmType::Void, VM_INST_YIELD, value);
 	}
 
 	VmValue* CreateVariableAddress(VmModule *module, VariableData *variable, TypeBase *structType)
@@ -641,11 +641,11 @@ namespace
 		{
 			scope = ctx.globalScope;
 
-			scope->globalSize += GetAlignmentOffset(scope->globalSize, type->alignment);
+			scope->dataSize += GetAlignmentOffset(scope->dataSize, type->alignment);
 
-			offset = unsigned(scope->globalSize);
+			offset = unsigned(scope->dataSize);
 
-			scope->globalSize += type->size; // TODO: alignment
+			scope->dataSize += type->size; // TODO: alignment
 		}
 
 		assert(scope);
@@ -1836,6 +1836,12 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		VmValue *value = CompileVm(ctx, module, node->value);
 
+		if(node->coroutineStateUpdate)
+			CompileVm(ctx, module, node->coroutineStateUpdate);
+
+		for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
+			CompileVm(ctx, module, expr);
+
 		if(node->value->type == ctx.typeVoid)
 			return CheckType(ctx, expression, CreateReturn(module));
 
@@ -1845,9 +1851,15 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		VmValue *value = CompileVm(ctx, module, node->value);
 
+		if(node->coroutineStateUpdate)
+			CompileVm(ctx, module, node->coroutineStateUpdate);
+
+		for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
+			CompileVm(ctx, module, expr);
+
 		VmBlock *block = module->currentFunction->restoreBlocks[++module->currentFunction->nextRestoreBlock];
 
-		VmValue *result = node->value->type == ctx.typeVoid ? CreateYield(module, block) : CreateYield(module, block, value);
+		VmValue *result = node->value->type == ctx.typeVoid ? CreateYield(module) : CreateYield(module, value);
 
 		module->currentFunction->AddBlock(block);
 		module->currentBlock = block;
@@ -1960,7 +1972,9 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		if(node->function->coroutine)
 		{
-			VmInstruction *inst = CreateInstruction(module, VmType::Void, VM_INST_UNYIELD, NULL, NULL, NULL, NULL);
+			VmValue *state = CompileVm(ctx, module, node->coroutineStateRead);
+
+			VmInstruction *inst = CreateInstruction(module, VmType::Void, VM_INST_UNYIELD, state, NULL, NULL, NULL);
 
 			{
 				VmBlock *block = CreateBlock(module, "co_start");
@@ -2272,6 +2286,9 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprBreak *node = getType<ExprBreak>(expression))
 	{
+		for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
+			CompileVm(ctx, module, expr);
+
 		VmBlock *target = module->loopInfo[module->loopInfo.size() - node->depth].breakBlock;
 
 		CreateJump(module, target);
@@ -2280,6 +2297,9 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprContinue *node = getType<ExprContinue>(expression))
 	{
+		for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
+			CompileVm(ctx, module, expr);
+
 		VmBlock *target = module->loopInfo[module->loopInfo.size() - node->depth].continueBlock;
 
 		CreateJump(module, target);
@@ -2290,6 +2310,9 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
 			CompileVm(ctx, module, value);
+
+		for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
+			CompileVm(ctx, module, expr);
 
 		return CheckType(ctx, expression, CreateVoid(module));
 	}

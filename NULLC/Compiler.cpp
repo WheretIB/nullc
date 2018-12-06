@@ -320,7 +320,8 @@ auto __gen_list(@T ref() y)\r\n\
 	\r\n\
 	T[] r = res;\r\n\
 	return r;\r\n\
-}";
+}\r\n\
+void __closeUpvalue(void ref ref l, void ref v, int offset, int size);";
 
 Compiler::Compiler()
 {
@@ -521,6 +522,8 @@ Compiler::Compiler()
 	AddModuleFunction("$base$", (void (*)())NULLC::GetFinalizationList, "__getFinalizeList", 0);
 
 	AddModuleFunction("$base$", (void (*)())NULLC::AssertDerivedFromBase, "assert_derived_from_base", 0);
+
+	AddModuleFunction("$base$", (void (*)())NULLC::CloseUpvalue, "__closeUpvalue", 0);
 #endif
 }
 

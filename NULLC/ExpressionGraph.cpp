@@ -144,13 +144,13 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 	}
 
 	if(FunctionData *owner = scope->ownerFunction)
-		Print(ctx, "ScopeData(%s, {%.*s: f%04x}: s%04x){\n", type, FMT_ISTR(owner->name), owner->uniqueId, scope->uniqueId);
+		Print(ctx, "ScopeData(%s, {%.*s: f%04x}: s%04x) @ 0x%x-0x%x {\n", type, FMT_ISTR(owner->name), owner->uniqueId, scope->uniqueId, unsigned(scope->startOffset), unsigned(scope->dataSize));
 	else if(TypeBase *owner = scope->ownerType)
 		Print(ctx, "ScopeData(%s, {%.*s}: s%04x){\n", type, FMT_ISTR(owner->name), scope->uniqueId);
 	else if(NamespaceData *owner = scope->ownerNamespace)
 		Print(ctx, "ScopeData(%s, {%.*s: n%04x}: s%04x){\n", type, FMT_ISTR(owner->name), owner->uniqueId, scope->uniqueId);
 	else
-		Print(ctx, "ScopeData(%s, {}: s%04x){\n", type, scope->uniqueId);
+		Print(ctx, "ScopeData(%s, {}: s%04x) @ 0x%x-0x%x {\n", type, scope->uniqueId, unsigned(scope->startOffset), unsigned(scope->dataSize));
 
 	ctx.depth++;
 
@@ -201,7 +201,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 			if(printImported != data->imported)
 				continue;
 
-			PrintIndented(ctx, InplaceStr(), data->type, "%.*s: v%04x @ 0x%x", FMT_ISTR(data->name), data->uniqueId, data->offset);
+			PrintIndented(ctx, InplaceStr(), data->type, "%.*s: v%04x @ 0x%x%s%s%s", FMT_ISTR(data->name), data->uniqueId, data->offset, data->isReadonly ? " readonly" : "", data->isReference ? " reference" : "", data->usedAsExternal ? " captured" : "");
 		}
 
 		PrintLeaveBlock(ctx);
@@ -461,6 +461,18 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintGraph(ctx, node->value, "value");
 
+		PrintGraph(ctx, node->coroutineStateUpdate, "coroutineStateUpdate");
+
+		if(!node->closures.empty())
+		{
+			PrintEnterBlock(ctx, InplaceStr("closures"), 0, "");
+
+			for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
+				PrintGraph(ctx, expr, "");
+
+			PrintLeaveBlock(ctx);
+		}
+
 		PrintLeaveBlock(ctx);
 	}
 	else if(ExprYield *node = getType<ExprYield>(expression))
@@ -468,6 +480,18 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 		PrintEnterBlock(ctx, name, node->type, "ExprYield()");
 
 		PrintGraph(ctx, node->value, "value");
+
+		PrintGraph(ctx, node->coroutineStateUpdate, "coroutineStateUpdate");
+
+		if(!node->closures.empty())
+		{
+			PrintEnterBlock(ctx, InplaceStr("closures"), 0, "");
+
+			for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
+				PrintGraph(ctx, expr, "");
+
+			PrintLeaveBlock(ctx);
+		}
 
 		PrintLeaveBlock(ctx);
 	}
@@ -533,6 +557,8 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 			PrintGraph(ctx, arg, "");
 
 		PrintLeaveBlock(ctx);
+
+		PrintGraph(ctx, node->coroutineStateRead, "coroutineStateRead");
 
 		PrintEnterBlock(ctx, InplaceStr("expressions"), 0, "");
 
@@ -728,11 +754,35 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	}
 	else if(ExprBreak *node = getType<ExprBreak>(expression))
 	{
-		PrintIndented(ctx, name, node->type, "ExprBreak(%d)", node->depth);
+		PrintEnterBlock(ctx, name, node->type, "ExprBreak(%d)", node->depth);
+
+		if(!node->closures.empty())
+		{
+			PrintEnterBlock(ctx, InplaceStr("closures"), 0, "");
+
+			for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
+				PrintGraph(ctx, expr, "");
+
+			PrintLeaveBlock(ctx);
+		}
+
+		PrintLeaveBlock(ctx);
 	}
 	else if(ExprContinue *node = getType<ExprContinue>(expression))
 	{
-		PrintIndented(ctx, name, node->type, "ExprContinue(%d)", node->depth);
+		PrintEnterBlock(ctx, name, node->type, "ExprContinue(%d)", node->depth);
+
+		if(!node->closures.empty())
+		{
+			PrintEnterBlock(ctx, InplaceStr("closures"), 0, "");
+
+			for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
+				PrintGraph(ctx, expr, "");
+
+			PrintLeaveBlock(ctx);
+		}
+
+		PrintLeaveBlock(ctx);
 	}
 	else if(ExprBlock *node = getType<ExprBlock>(expression))
 	{
@@ -740,6 +790,16 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
 			PrintGraph(ctx, value, "");
+
+		if(!node->closures.empty())
+		{
+			PrintEnterBlock(ctx, InplaceStr("closures"), 0, "");
+
+			for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
+				PrintGraph(ctx, expr, "");
+
+			PrintLeaveBlock(ctx);
+		}
 
 		PrintLeaveBlock(ctx);
 	}

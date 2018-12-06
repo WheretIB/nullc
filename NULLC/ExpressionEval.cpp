@@ -446,38 +446,6 @@ ExprPointerLiteral* FindVariableStorage(Eval &ctx, VariableData *data)
 	return (ExprPointerLiteral*)Report(ctx, "ERROR: variable '%.*s' not found", FMT_ISTR(data->name));
 }
 
-ExprPointerLiteral* FindCoroutineJmpOffsetStorage(Eval &ctx)
-{
-	Eval::StackFrame *frame = ctx.stackFrames.back();
-
-	ExprPointerLiteral *storage = FindVariableStorage(ctx, frame->owner->contextArgument);
-
-	assert(storage);
-
-	ExprPointerLiteral *contextPtr = getType<ExprPointerLiteral>(CreateLoad(ctx, storage));
-
-	// TODO: remove this check, all coroutines must have a context
-	if(!contextPtr)
-		return (ExprPointerLiteral*)Report(ctx, "ERROR: '%.*s' coroutine has no context'", FMT_ISTR(frame->owner->name));
-
-	ExprBase *contextLoad = CreateLoad(ctx, contextPtr);
-
-	if(!contextLoad)
-		return NULL;
-
-	ExprMemoryLiteral *context = getType<ExprMemoryLiteral>(contextLoad);
-
-	assert(context);
-
-	ExprPointerLiteral *jmpOffsetTarget = getType<ExprPointerLiteral>(CreateExtract(ctx, context, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
-
-	assert(jmpOffsetTarget);
-
-	FreeMemoryLiteral(ctx, context);
-
-	return jmpOffsetTarget;
-}
-
 bool TryTakeLong(ExprBase *expression, long long &result)
 {
 	if(ExprBoolLiteral *expr = getType<ExprBoolLiteral>(expression))
@@ -1515,10 +1483,16 @@ ExprBase* EvaluateReturn(Eval &ctx, ExprReturn *expression)
 
 	frame->returnValue = value;
 
-	if(frame->owner && frame->owner->coroutine)
+	if(expression->coroutineStateUpdate)
 	{
-		if(ExprPointerLiteral *jmpOffsetTarget = FindCoroutineJmpOffsetStorage(ctx))
-			CreateStore(ctx, jmpOffsetTarget, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, 0));
+		if(!Evaluate(ctx, expression->coroutineStateUpdate))
+			return NULL;
+	}
+
+	for(ExprBase *value = expression->closures.head; value; value = value->next)
+	{
+		if(!Evaluate(ctx, value))
+			return NULL;
 	}
 
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
@@ -1552,10 +1526,16 @@ ExprBase* EvaluateYield(Eval &ctx, ExprYield *expression)
 
 	frame->returnValue = value;
 
-	if(frame->owner && frame->owner->coroutine)
+	if(expression->coroutineStateUpdate)
 	{
-		if(ExprPointerLiteral *jmpOffsetTarget = FindCoroutineJmpOffsetStorage(ctx))
-			CreateStore(ctx, jmpOffsetTarget, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, expression->order));
+		if(!Evaluate(ctx, expression->coroutineStateUpdate))
+			return NULL;
+	}
+
+	for(ExprBase *value = expression->closures.head; value; value = value->next)
+	{
+		if(!Evaluate(ctx, value))
+			return NULL;
 	}
 
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
@@ -1738,12 +1718,10 @@ ExprBase* EvaluateFunction(Eval &ctx, ExprFunctionDefinition *expression, ExprBa
 		pos++;
 	}
 
-	if(frame->owner && frame->owner->coroutine)
+	if(expression->coroutineStateRead)
 	{
-		if(ExprPointerLiteral *jmpOffsetTarget = FindCoroutineJmpOffsetStorage(ctx))
+		if(ExprIntegerLiteral *jmpOffset = getType<ExprIntegerLiteral>(Evaluate(ctx, expression->coroutineStateRead)))
 		{
-			ExprIntegerLiteral *jmpOffset = getType<ExprIntegerLiteral>(CreateLoad(ctx, jmpOffsetTarget));
-
 			frame->targetYield = unsigned(jmpOffset->value);
 		}
 		else
@@ -2417,13 +2395,7 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 				if(!context)
 					return Report(ctx, "ERROR: '%.*s' coroutine has no context'", FMT_ISTR(function->data->name));
 
-				ExprPointerLiteral *jmpOffsetTarget = getType<ExprPointerLiteral>(CreateExtract(ctx, context, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
-
-				FreeMemoryLiteral(ctx, context);
-
-				assert(jmpOffsetTarget);
-
-				ExprIntegerLiteral *jmpOffset = getType<ExprIntegerLiteral>(CreateLoad(ctx, jmpOffsetTarget));
+				ExprIntegerLiteral *jmpOffset = getType<ExprIntegerLiteral>(CreateExtract(ctx, context, 0, ctx.ctx.typeInt));
 
 				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, jmpOffset->value == 0));
 			}
@@ -2455,6 +2427,54 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 				}
 
 				return Report(ctx, "ERROR: cannot convert from '%.*s' to '%.*s'", FMT_ISTR(derived->value->name), FMT_ISTR(base->value->name));
+			}
+			else if(ptr->data->name == InplaceStr("__closeUpvalue") && arguments.size() == 4)
+			{
+				ExprPointerLiteral *upvalueListLocation = getType<ExprPointerLiteral>(arguments[0]);
+				ExprPointerLiteral *variableLocation = getType<ExprPointerLiteral>(arguments[1]);
+				ExprIntegerLiteral *offsetToCopy = getType<ExprIntegerLiteral>(arguments[2]);
+				ExprIntegerLiteral *copySize = getType<ExprIntegerLiteral>(arguments[3]);
+
+				assert(upvalueListLocation);
+				assert(variableLocation);
+				assert(offsetToCopy);
+				assert(copySize);
+
+				ExprBase *upvalueListHeadBase = CreateLoad(ctx, upvalueListLocation);
+
+				// Nothing to close if the list is empty
+				if(getType<ExprNullptrLiteral>(upvalueListHeadBase))
+					return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+
+				ExprPointerLiteral *upvalueListHead = getType<ExprPointerLiteral>(upvalueListHeadBase);
+
+				assert(upvalueListHead);
+
+				struct Upvalue
+				{
+					void *target;
+					Upvalue *next;
+				};
+
+				Upvalue *upvalue = (Upvalue*)upvalueListHead->ptr;
+
+				assert(upvalue);
+
+				while (upvalue && upvalue->target == variableLocation->ptr)
+				{
+					Upvalue *next = upvalue->next;
+
+					unsigned char *copy = (unsigned char*)upvalue + offsetToCopy->value;
+					memcpy(copy, variableLocation->ptr, unsigned(copySize->value));
+					upvalue->target = copy;
+					upvalue->next = NULL;
+
+					upvalue = next;
+				}
+
+				CreateStore(ctx, upvalueListLocation, allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid), (unsigned char*)upvalue, (unsigned char*)upvalue + NULLC_PTR_SIZE));
+
+				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 			}
 		}
 
@@ -2741,6 +2761,12 @@ ExprBase* EvaluateBreak(Eval &ctx, ExprBreak *expression)
 		frame->breakDepth = expression->depth;
 	}
 
+	for(ExprBase *value = expression->closures.head; value; value = value->next)
+	{
+		if(!Evaluate(ctx, value))
+			return NULL;
+	}
+
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
@@ -2753,6 +2779,12 @@ ExprBase* EvaluateContinue(Eval &ctx, ExprContinue *expression)
 		assert(frame->continueDepth == 0);
 
 		frame->continueDepth = expression->depth;
+	}
+
+	for(ExprBase *value = expression->closures.head; value; value = value->next)
+	{
+		if(!Evaluate(ctx, value))
+			return NULL;
 	}
 
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
@@ -2771,7 +2803,13 @@ ExprBase* EvaluateBlock(Eval &ctx, ExprBlock *expression)
 			return NULL;
 
 		if(frame->continueDepth || frame->breakDepth || frame->returnValue)
-			break;
+			return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	}
+
+	for(ExprBase *value = expression->closures.head; value; value = value->next)
+	{
+		if(!Evaluate(ctx, value))
+			return NULL;
 	}
 
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));

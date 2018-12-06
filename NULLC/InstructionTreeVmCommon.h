@@ -33,3 +33,5 @@ bool IsConstantOne(VmValue* value);
 unsigned GetAccessSize(VmInstruction *inst);
 
 bool HasAddressTaken(VariableData *container);
+
+const char* GetInstructionName(VmInstruction *inst);

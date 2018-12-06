@@ -100,6 +100,8 @@ struct VariableData
 		isReference = false;
 		isReadonly = false;
 
+		usedAsExternal = false;
+
 		if(alignment != 0)
 			assert(offset % alignment == 0);
 	}
@@ -119,6 +121,8 @@ struct VariableData
 
 	bool isReference;
 	bool isReadonly;
+
+	bool usedAsExternal;
 
 	unsigned offset;
 
@@ -159,15 +163,29 @@ struct ArgumentData
 
 struct UpvalueData
 {
-	UpvalueData(VariableData *variable, VariableData *target, VariableData *copy): variable(variable), target(target), copy(copy), next(0), listed(false)
+	UpvalueData(VariableData *variable, VariableData *target, VariableData *nextUpvalue, VariableData *copy): variable(variable), target(target), nextUpvalue(nextUpvalue), copy(copy), next(0), listed(false)
 	{
 	}
 
 	VariableData *variable;
 	VariableData *target;
+	VariableData *nextUpvalue;
 	VariableData *copy;
 
 	UpvalueData *next;
+	bool listed;
+};
+
+struct CoroutineStateData
+{
+	CoroutineStateData(VariableData *variable, VariableData *storage) : variable(variable), storage(storage), next(0), listed(false)
+	{
+	}
+
+	VariableData *variable;
+	VariableData *storage;
+
+	CoroutineStateData *next;
 	bool listed;
 };
 
@@ -197,6 +215,8 @@ struct FunctionData
 		stackSize = 0;
 
 		contextArgument = NULL;
+
+		coroutineJumpOffset = NULL;
 
 		contextVariable = NULL;
 
@@ -258,7 +278,11 @@ struct FunctionData
 	// Variable for the argument containing reference to function context
 	VariableData *contextArgument;
 
+	VariableData *coroutineJumpOffset;
+
 	IntrusiveList<UpvalueData> upvalues;
+
+	IntrusiveList<CoroutineStateData> coroutineState;
 
 	// Variable containing a pointer to the function context
 	VariableData *contextVariable;
@@ -305,28 +329,40 @@ enum ScopeType
 
 struct ScopeData
 {
-	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, ScopeType type): scope(scope), uniqueId(uniqueId), type(type), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, ScopeType type): scope(scope), uniqueId(uniqueId), type(type), ownerNamespace(0), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		loopDepth = scope ? scope->loopDepth : 0;
+
+		startOffset = 0;
+		dataSize = 0;
 	}
 
-	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, NamespaceData *ownerNamespace): scope(scope), uniqueId(uniqueId), type(SCOPE_NAMESPACE), globalSize(0), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, NamespaceData *ownerNamespace): scope(scope), uniqueId(uniqueId), type(SCOPE_NAMESPACE), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		loopDepth = 0;
+
+		startOffset = 0;
+		dataSize = 0;
 	}
 
-	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, FunctionData *ownerFunction): scope(scope), uniqueId(uniqueId), type(SCOPE_FUNCTION), globalSize(0), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, FunctionData *ownerFunction): scope(scope), uniqueId(uniqueId), type(SCOPE_FUNCTION), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		loopDepth = 0;
+
+		startOffset = 0;
+		dataSize = 0;
 	}
 
-	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, TypeBase *ownerType): scope(scope), uniqueId(uniqueId), type(SCOPE_TYPE), globalSize(0), ownerNamespace(0), ownerFunction(0), ownerType(ownerType), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator)
+	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, TypeBase *ownerType): scope(scope), uniqueId(uniqueId), type(SCOPE_TYPE), ownerNamespace(0), ownerFunction(0), ownerType(ownerType), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
 		loopDepth = 0;
+
+		startOffset = 0;
+		dataSize = 0;
 	}
 
 	ScopeData *scope;
@@ -342,7 +378,8 @@ struct ScopeData
 	unsigned scopeDepth;
 	unsigned loopDepth;
 
-	long long globalSize;
+	long long startOffset;
+	long long dataSize;
 
 	SmallArray<TypeBase*, 4> types;
 	SmallArray<FunctionData*, 4> functions;
@@ -824,6 +861,8 @@ InplaceStr GetMemberSetTypeName(ExpressionContext &ctx, TypeBase* type);
 InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functionName, unsigned index);
 InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *function);
 InplaceStr GetFunctionTableName(ExpressionContext &ctx, FunctionData *function);
+InplaceStr GetFunctionContextMemberName(ExpressionContext &ctx, InplaceStr prefix, InplaceStr suffix);
+InplaceStr GetFunctionVariableUpvalueName(ExpressionContext &ctx, VariableData *variable);
 
 InplaceStr GetTypeNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceStr str);
 InplaceStr GetVariableNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceStr str);

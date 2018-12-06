@@ -69,6 +69,7 @@ struct ExpressionContext
 	SmallArray<ExprBase*, 128> definitions;
 	SmallArray<ExprBase*, 128> setup;
 	SmallArray<VariableData*, 128> vtables;
+	SmallArray<VariableData*, 128> upvalues;
 
 	SmallArray<TypeFunction*, 128> functionTypes;
 
@@ -479,22 +480,30 @@ struct ExprArrayIndex: ExprBase
 
 struct ExprReturn: ExprBase
 {
-	ExprReturn(SynBase *source, TypeBase *type, ExprBase* value): ExprBase(myTypeID, source, type), value(value)
+	ExprReturn(SynBase *source, TypeBase *type, ExprBase* value, ExprBase *coroutineStateUpdate, IntrusiveList<ExprBase> closures): ExprBase(myTypeID, source, type), value(value), coroutineStateUpdate(coroutineStateUpdate), closures(closures)
 	{
 	}
 
 	ExprBase* value;
+
+	ExprBase *coroutineStateUpdate;
+
+	IntrusiveList<ExprBase> closures;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
 struct ExprYield: ExprBase
 {
-	ExprYield(SynBase *source, TypeBase *type, ExprBase* value, unsigned order): ExprBase(myTypeID, source, type), value(value), order(order)
+	ExprYield(SynBase *source, TypeBase *type, ExprBase* value, ExprBase *coroutineStateUpdate, IntrusiveList<ExprBase> closures, unsigned order): ExprBase(myTypeID, source, type), value(value), coroutineStateUpdate(coroutineStateUpdate), closures(closures), order(order)
 	{
 	}
 
 	ExprBase* value;
+
+	ExprBase *coroutineStateUpdate;
+
+	IntrusiveList<ExprBase> closures;
 
 	// 1-based index of the yield in the current function
 	unsigned order;
@@ -554,7 +563,7 @@ struct ExprVariableAccess: ExprBase
 
 struct ExprFunctionDefinition: ExprBase
 {
-	ExprFunctionDefinition(SynBase *source, TypeBase *type, FunctionData *function, ExprVariableDefinition *contextArgument, IntrusiveList<ExprVariableDefinition> arguments, IntrusiveList<ExprBase> expressions, ExprVariableDefinition *contextVariable): ExprBase(myTypeID, source, type), function(function), contextArgument(contextArgument), arguments(arguments), expressions(expressions), contextVariable(contextVariable)
+	ExprFunctionDefinition(SynBase *source, TypeBase *type, FunctionData *function, ExprVariableDefinition *contextArgument, IntrusiveList<ExprVariableDefinition> arguments, ExprBase *coroutineStateRead, IntrusiveList<ExprBase> expressions, ExprVariableDefinition *contextVariable): ExprBase(myTypeID, source, type), function(function), contextArgument(contextArgument), arguments(arguments), coroutineStateRead(coroutineStateRead), expressions(expressions), contextVariable(contextVariable)
 	{
 	}
 
@@ -563,6 +572,8 @@ struct ExprFunctionDefinition: ExprBase
 	ExprVariableDefinition *contextArgument;
 
 	IntrusiveList<ExprVariableDefinition> arguments;
+
+	ExprBase *coroutineStateRead;
 
 	IntrusiveList<ExprBase> expressions;
 
@@ -756,33 +767,39 @@ struct ExprSwitch: ExprBase
 
 struct ExprBreak: ExprBase
 {
-	ExprBreak(SynBase *source, TypeBase *type, unsigned depth): ExprBase(myTypeID, source, type), depth(depth)
+	ExprBreak(SynBase *source, TypeBase *type, unsigned depth, IntrusiveList<ExprBase> closures): ExprBase(myTypeID, source, type), depth(depth), closures(closures)
 	{
 	}
 
 	unsigned depth;
+
+	IntrusiveList<ExprBase> closures;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
 struct ExprContinue: ExprBase
 {
-	ExprContinue(SynBase *source, TypeBase *type, unsigned depth): ExprBase(myTypeID, source, type), depth(depth)
+	ExprContinue(SynBase *source, TypeBase *type, unsigned depth, IntrusiveList<ExprBase> closures): ExprBase(myTypeID, source, type), depth(depth), closures(closures)
 	{
 	}
 
 	unsigned depth;
+
+	IntrusiveList<ExprBase> closures;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
 struct ExprBlock: ExprBase
 {
-	ExprBlock(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), expressions(expressions)
+	ExprBlock(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> expressions, IntrusiveList<ExprBase> closures): ExprBase(myTypeID, source, type), expressions(expressions), closures(closures)
 	{
 	}
 
 	IntrusiveList<ExprBase> expressions;
+
+	IntrusiveList<ExprBase> closures;
 
 	static const unsigned myTypeID = __LINE__;
 };

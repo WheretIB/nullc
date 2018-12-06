@@ -108,4 +108,6 @@ namespace NULLC
 	void	ArrayCopy(NULLCAutoArray dst, NULLCAutoArray src);
 
 	void*	AssertDerivedFromBase(unsigned* derived, unsigned base);
+
+	void	CloseUpvalue(void **upvalueList, void *variable, int offset, int size);
 }

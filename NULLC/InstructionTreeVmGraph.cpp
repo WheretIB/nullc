@@ -174,207 +174,6 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 		assert(!"unknown type");
 }
 
-void PrintInstructionName(InstructionVMGraphContext &ctx, VmInstructionType cmd)
-{
-	switch(cmd)
-	{
-	case VM_INST_LOAD_BYTE:
-		Print(ctx, "loadb");
-		break;
-	case VM_INST_LOAD_SHORT:
-		Print(ctx, "loadw");
-		break;
-	case VM_INST_LOAD_INT:
-		Print(ctx, "load");
-		break;
-	case VM_INST_LOAD_FLOAT:
-		Print(ctx, "loadf");
-		break;
-	case VM_INST_LOAD_DOUBLE:
-		Print(ctx, "loadd");
-		break;
-	case VM_INST_LOAD_LONG:
-		Print(ctx, "loadl");
-		break;
-	case VM_INST_LOAD_STRUCT:
-		Print(ctx, "loads");
-		break;
-	case VM_INST_LOAD_IMMEDIATE:
-		Print(ctx, "loadimm");
-		break;
-	case VM_INST_STORE_BYTE:
-		Print(ctx, "storeb");
-		break;
-	case VM_INST_STORE_SHORT:
-		Print(ctx, "storew");
-		break;
-	case VM_INST_STORE_INT:
-		Print(ctx, "store");
-		break;
-	case VM_INST_STORE_FLOAT:
-		Print(ctx, "storef");
-		break;
-	case VM_INST_STORE_DOUBLE:
-		Print(ctx, "stored");
-		break;
-	case VM_INST_STORE_LONG:
-		Print(ctx, "storel");
-		break;
-	case VM_INST_STORE_STRUCT:
-		Print(ctx, "stores");
-		break;
-	case VM_INST_DOUBLE_TO_INT:
-		Print(ctx, "dti");
-		break;
-	case VM_INST_DOUBLE_TO_LONG:
-		Print(ctx, "dtl");
-		break;
-	case VM_INST_DOUBLE_TO_FLOAT:
-		Print(ctx, "dtf");
-		break;
-	case VM_INST_INT_TO_DOUBLE:
-		Print(ctx, "itd");
-		break;
-	case VM_INST_LONG_TO_DOUBLE:
-		Print(ctx, "ltd");
-		break;
-	case VM_INST_INT_TO_LONG:
-		Print(ctx, "itl");
-		break;
-	case VM_INST_LONG_TO_INT:
-		Print(ctx, "lti");
-		break;
-	case VM_INST_INDEX:
-		Print(ctx, "index");
-		break;
-	case VM_INST_INDEX_UNSIZED:
-		Print(ctx, "indexu");
-		break;
-	case VM_INST_FUNCTION_ADDRESS:
-		Print(ctx, "faddr");
-		break;
-	case VM_INST_TYPE_ID:
-		Print(ctx, "typeid");
-		break;
-	case VM_INST_SET_RANGE:
-		Print(ctx, "setrange");
-		break;
-	case VM_INST_JUMP:
-		Print(ctx, "jmp");
-		break;
-	case VM_INST_JUMP_Z:
-		Print(ctx, "jmpz");
-		break;
-	case VM_INST_JUMP_NZ:
-		Print(ctx, "jmpnz");
-		break;
-	case VM_INST_CALL:
-		Print(ctx, "call");
-		break;
-	case VM_INST_RETURN:
-		Print(ctx, "ret");
-		break;
-	case VM_INST_YIELD:
-		Print(ctx, "yield");
-		break;
-	case VM_INST_ADD:
-		Print(ctx, "add");
-		break;
-	case VM_INST_SUB:
-		Print(ctx, "sub");
-		break;
-	case VM_INST_MUL:
-		Print(ctx, "mul");
-		break;
-	case VM_INST_DIV:
-		Print(ctx, "div");
-		break;
-	case VM_INST_POW:
-		Print(ctx, "pow");
-		break;
-	case VM_INST_MOD:
-		Print(ctx, "mod");
-		break;
-	case VM_INST_LESS:
-		Print(ctx, "lt");
-		break;
-	case VM_INST_GREATER:
-		Print(ctx, "gt");
-		break;
-	case VM_INST_LESS_EQUAL:
-		Print(ctx, "lte");
-		break;
-	case VM_INST_GREATER_EQUAL:
-		Print(ctx, "gte");
-		break;
-	case VM_INST_EQUAL:
-		Print(ctx, "eq");
-		break;
-	case VM_INST_NOT_EQUAL:
-		Print(ctx, "neq");
-		break;
-	case VM_INST_SHL:
-		Print(ctx, "shl");
-		break;
-	case VM_INST_SHR:
-		Print(ctx, "shr");
-		break;
-	case VM_INST_BIT_AND:
-		Print(ctx, "and");
-		break;
-	case VM_INST_BIT_OR:
-		Print(ctx, "or");
-		break;
-	case VM_INST_BIT_XOR:
-		Print(ctx, "xor");
-		break;
-	case VM_INST_LOG_XOR:
-		Print(ctx, "lxor");
-		break;
-	case VM_INST_NEG:
-		Print(ctx, "neg");
-		break;
-	case VM_INST_BIT_NOT:
-		Print(ctx, "not");
-		break;
-	case VM_INST_LOG_NOT:
-		Print(ctx, "lnot");
-		break;
-	case VM_INST_CREATE_CLOSURE:
-		Print(ctx, "create_closure");
-		break;
-	case VM_INST_CLOSE_UPVALUES:
-		Print(ctx, "close_upvalues");
-		break;
-	case VM_INST_CONVERT_POINTER:
-		Print(ctx, "convert_pointer");
-		break;
-	case VM_INST_CHECKED_RETURN:
-		Print(ctx, "checked_return");
-		break;
-	case VM_INST_CONSTRUCT:
-		Print(ctx, "construct");
-		break;
-	case VM_INST_ARRAY:
-		Print(ctx, "array");
-		break;
-	case VM_INST_EXTRACT:
-		Print(ctx, "extract");
-		break;
-	case VM_INST_UNYIELD:
-		Print(ctx, "unyield");
-		break;
-	case VM_INST_PHI:
-		Print(ctx, "phi");
-		break;
-	case VM_INST_BITCAST:
-		Print(ctx, "bitcast");
-		break;
-	default:
-		assert(!"unknown instruction");
-	}
-}
-
 void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction)
 {
 	PrintUsers(ctx, instruction, false);
@@ -393,7 +192,7 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 			Print(ctx, "%%%d = ", instruction->uniqueId);
 	}
 
-	PrintInstructionName(ctx, instruction->cmd);
+	Print(ctx, GetInstructionName(instruction));
 
 	if(instruction->cmd == VM_INST_PHI)
 	{
@@ -597,7 +396,7 @@ void DumpGraph(VmModule *module)
 {
 	InstructionVMGraphContext instGraphCtx;
 
-	instGraphCtx.file = fopen("instruction_graph.txt", "w");
+	instGraphCtx.file = fopen("inst_graph.txt", "w");
 	instGraphCtx.showUsers = true;
 	instGraphCtx.displayAsTree = false;
 	instGraphCtx.showFullTypes = true;

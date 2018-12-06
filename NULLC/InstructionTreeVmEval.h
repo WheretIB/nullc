@@ -10,11 +10,14 @@ struct VmBlock;
 struct VmFunction;
 struct VmModule;
 
+struct VariableData;
+struct FunctionData;
+
 struct ExpressionContext;
 
 struct InstructionVMEvalContext
 {
-	InstructionVMEvalContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), allocator(allocator), stackFrames(allocator), heap(allocator), storageSet(allocator)
+	InstructionVMEvalContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), allocator(allocator), stackFrames(allocator), heap(allocator, NULL, "heap"), storageSet(allocator)
 	{
 		errorBuf = 0;
 		errorBufSize = 0;
@@ -23,6 +26,7 @@ struct InstructionVMEvalContext
 		globalFrame = 0;
 
 		emulateKnownExternals = false;
+		printExecution = false;
 
 		stackDepthLimit = 64;
 
@@ -38,20 +42,26 @@ struct InstructionVMEvalContext
 
 	struct Storage
 	{
-		Storage(Allocator *allocator): index(0u), data(allocator)
+		Storage(Allocator *allocator, VmFunction *functionOwner, const char *tag): functionOwner(functionOwner), tag(tag), index(0u), data(allocator)
 		{
+			expired = false;
 		}
 
 		bool Reserve(InstructionVMEvalContext &ctx, unsigned offset, unsigned size);
 
+		VmFunction *functionOwner;
+		const char *tag;
+
 		unsigned index;
+
+		bool expired;
 
 		SmallArray<char, 128> data;
 	};
 
 	struct StackFrame
 	{
-		StackFrame(Allocator *allocator, VmFunction *owner): owner(owner), instructionValues(allocator), allocas(allocator), stack(allocator)
+		StackFrame(Allocator *allocator, VmFunction *owner): owner(owner), instructionValues(allocator), allocas(allocator, owner, "allocas"), stack(allocator, owner, "stack")
 		{
 		}
 
@@ -85,6 +95,7 @@ struct InstructionVMEvalContext
 	SmallArray<Storage*, 32> storageSet;
 
 	bool emulateKnownExternals;
+	bool printExecution;
 
 	unsigned frameMemoryLimit;
 

@@ -1391,3 +1391,34 @@ void* NULLC::AssertDerivedFromBase(unsigned* derived, unsigned base)
 	nullcThrowError("ERROR: cannot convert from '%s' to '%s'", nullcGetTypeName(*derived), nullcGetTypeName(base));
 	return derived;
 }
+
+void NULLC::CloseUpvalue(void **upvalueList, void *variable, int offset, int size)
+{
+	if (!upvalueList || !variable)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return;
+	}
+
+	struct Upvalue
+	{
+		void *target;
+		Upvalue *next;
+	};
+
+	Upvalue *upvalue = *(Upvalue**)upvalueList;
+
+	while (upvalue && upvalue->target == variable)
+	{
+		Upvalue *next = upvalue->next;
+
+		char *copy = (char*)upvalue + offset;
+		memcpy(copy, variable, unsigned(size));
+		upvalue->target = copy;
+		upvalue->next = NULL;
+
+		upvalue = next;
+	}
+
+	*(Upvalue**)upvalueList = upvalue;
+}
