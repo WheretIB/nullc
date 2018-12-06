@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="IntrusiveList&lt;*&gt;">
+    <Expand>
+      <LinkedListItems>
+        <HeadPointer>head</HeadPointer>
+        <NextPointer>($T1*)next</NextPointer>
+        <ValueNode>this,na</ValueNode>
+      </LinkedListItems>
+    </Expand>
+  </Type>
+  
+  <Type Name="SmallArray&lt;*,*&gt;">
+    <Expand>
+      <Item Name="[size]">count</Item>
+      <Item Name="[capacity]">max</Item>
+      <ArrayItems>
+        <Size>count</Size>
+        <ValuePointer>data</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+  
+  <Type Name="NULLC::InplaceStr">
+    <DisplayString>{begin,[end-begin]na}</DisplayString>
+  </Type>
+  
+  <Type Name="ExprPointerLiteral">
+    <Expand>
+      <Item Name="[Base]">(ExprBase*)this,nd</Item>
+      <Item Name="poisoned">poisoned</Item>
+      <Item Name="ptr">ptr</Item>
+      <Synthetic Name="bytes" Condition="ptr != 0">
+        <DisplayString>size = {end-ptr}</DisplayString>
+        <Expand>
+          <Item Name="[size]">end-ptr</Item>
+          <ArrayItems>
+            <Size>end-ptr</Size>
+            <ValuePointer>(unsigned char*)ptr</ValuePointer>
+          </ArrayItems>
+        </Expand>
+      </Synthetic>
+      <Synthetic Name="ints" Condition="ptr != 0">
+        <DisplayString>size = {(end-ptr) / 4}</DisplayString>
+        <Expand>
+          <Item Name="[size]">(end-ptr) / 4</Item>
+          <ArrayItems>
+            <Size>(end-ptr) / 4</Size>
+            <ValuePointer>(unsigned*)ptr</ValuePointer>
+          </ArrayItems>
+        </Expand>
+      </Synthetic>
+      <Synthetic Name="pointers" Condition="ptr != 0">
+        <DisplayString>size = {(end-ptr) / 4}</DisplayString>
+        <Expand>
+          <Item Name="[size]">(end-ptr) / 4</Item>
+          <ArrayItems>
+            <Size>(end-ptr) / 4</Size>
+            <ValuePointer>(unsigned**)ptr</ValuePointer>
+          </ArrayItems>
+        </Expand>
+      </Synthetic>
+    </Expand>
+  </Type>
+</AutoVisualizer>
