@@ -6190,13 +6190,11 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		if(function->type->returnType == ctx.typeAuto)
 			function->type = ctx.GetFunctionType(ctx.typeVoid, function->type->arguments);
 
-		if(!function->hasExplicitReturn)
-		{
-			if(function->type->returnType != ctx.typeVoid)
-				Stop(ctx, source->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+		if(function->type->returnType != ctx.typeVoid && !function->hasExplicitReturn)
+			Stop(ctx, source->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
 
-			code.push_back(allocate(ExprReturn)(source, ctx.typeVoid, allocate(ExprVoid)(source, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, source, function, 0), CreateFunctionUpvalueClose(ctx, source, ctx.scope)));
-		}
+		// User might have not returned from all control paths, for a void function we will generate a return
+		code.push_back(allocate(ExprReturn)(source, ctx.typeVoid, allocate(ExprVoid)(source, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, source, function, 0), CreateFunctionUpvalueClose(ctx, source, ctx.scope)));
 	}
 
 	ctx.PopScope(SCOPE_FUNCTION);
@@ -6414,6 +6412,9 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	if(function->type->returnType != ctx.typeVoid && !function->hasExplicitReturn)
 		Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+
+	// User might have not returned from all control paths, for a void function we will generate a return
+	expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprVoid)(syntax, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, ctx.scope)));
 
 	ctx.PopScope(SCOPE_FUNCTION);
 
@@ -6845,6 +6846,8 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 		IntrusiveList<ExprBase> expressions;
 
 		CreateDefaultConstructorCode(ctx, source, classType, expressions);
+
+		expressions.push_back(allocate(ExprReturn)(source, ctx.typeVoid, allocate(ExprVoid)(source, ctx.typeVoid), NULL, IntrusiveList<ExprBase>()));
 
 		ctx.PopScope(SCOPE_FUNCTION);
 
