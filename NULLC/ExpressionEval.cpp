@@ -1743,8 +1743,8 @@ ExprBase* EvaluateFunction(Eval &ctx, ExprFunctionDefinition *expression, ExprBa
 
 	ExprBase *result = frame->returnValue;
 
-	if(!result && expression->function->type->returnType == ctx.ctx.typeVoid)
-		result = allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+	if(!result)
+		return Report(ctx, "ERROR: function didn't return a value");
 
 	ctx.stackFrames.pop_back();
 
@@ -2480,6 +2480,9 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 
 		return Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(ptr->data->name));
 	}
+
+	if(ptr->data->isPrototype)
+		return Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(ptr->data->name));
 
 	ExprFunctionDefinition *declaration = getType<ExprFunctionDefinition>(ptr->data->declaration);
 
