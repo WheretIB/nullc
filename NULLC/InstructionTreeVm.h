@@ -335,6 +335,9 @@ struct VmFunction: VmValue
 		firstBlock = NULL;
 		lastBlock = NULL;
 
+		nextBlockId = 1;
+		nextInstructionId = 1;
+
 		next = NULL;
 		listed = false;
 
@@ -353,6 +356,9 @@ struct VmFunction: VmValue
 
 	VmBlock *firstBlock;
 	VmBlock *lastBlock;
+
+	unsigned nextBlockId;
+	unsigned nextInstructionId;
 
 	VmFunction *next;
 	bool listed;
@@ -376,9 +382,6 @@ struct VmModule
 		currentFunction = NULL;
 		currentBlock = NULL;
 
-		nextBlockId = 1;
-		nextInstructionId = 1;
-
 		peepholeOptimizations = 0;
 		constantPropagations = 0;
 		deadCodeEliminations = 0;
@@ -393,9 +396,6 @@ struct VmModule
 
 	VmFunction *currentFunction;
 	VmBlock *currentBlock;
-
-	unsigned nextBlockId;
-	unsigned nextInstructionId;
 
 	struct LoopInfo
 	{

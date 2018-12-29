@@ -32,7 +32,7 @@ namespace
 
 	VmBlock* CreateBlock(VmModule *module, const char *name)
 	{
-		return allocate(VmBlock)(module->allocator, InplaceStr(name), module->nextBlockId++);
+		return allocate(VmBlock)(module->allocator, InplaceStr(name), module->currentFunction->nextBlockId++);
 	}
 
 	bool IsBlockTerminator(VmInstructionType cmd)
@@ -132,7 +132,7 @@ namespace
 	{
 		assert(module->currentBlock);
 
-		VmInstruction *inst = allocate(VmInstruction)(module->allocator, type, cmd, module->nextInstructionId++);
+		VmInstruction *inst = allocate(VmInstruction)(module->allocator, type, cmd, module->currentFunction->nextInstructionId++);
 
 		if(first)
 			inst->AddArgument(first);
@@ -1352,7 +1352,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprArray *node = getType<ExprArray>(expression))
 	{
-		VmInstruction *inst = allocate(VmInstruction)(module->allocator, GetVmType(ctx, node->type), VM_INST_ARRAY, module->nextInstructionId++);
+		VmInstruction *inst = allocate(VmInstruction)(module->allocator, GetVmType(ctx, node->type), VM_INST_ARRAY, module->currentFunction->nextInstructionId++);
 
 		for(ExprBase *value = node->values.head; value; value = value->next)
 			inst->AddArgument(CompileVm(ctx, module, value));
@@ -1953,15 +1953,10 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		module->skipFunctionDefinitions = true;
 
 		// Store state
-		unsigned nextBlockId = module->nextBlockId;
-		unsigned nextInstructionId = module->nextInstructionId;
 		VmFunction *currentFunction = module->currentFunction;
 		VmBlock *currentBlock = module->currentBlock;
 
 		// Switch to new function
-		module->nextBlockId = 1;
-		module->nextInstructionId = 1;
-
 		module->currentFunction = function;
 
 		VmBlock *block = CreateBlock(module, "start");
@@ -2001,8 +1996,6 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			CompileVm(ctx, module, value);
 
 		// Restore state
-		module->nextBlockId = nextBlockId;
-		module->nextInstructionId = nextInstructionId;
 		module->currentFunction = currentFunction;
 		module->currentBlock = currentBlock;
 
@@ -2033,7 +2026,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		assert(module->currentBlock);
 
-		VmInstruction *inst = allocate(VmInstruction)(module->allocator, GetVmType(ctx, node->type), VM_INST_CALL, module->nextInstructionId++);
+		VmInstruction *inst = allocate(VmInstruction)(module->allocator, GetVmType(ctx, node->type), VM_INST_CALL, module->currentFunction->nextInstructionId++);
 
 		unsigned argCount = 1;
 
@@ -2991,6 +2984,8 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 {
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
+		module->currentFunction = function;
+
 		VmBlock *curr = function->firstBlock;
 
 		while(curr)
@@ -2999,6 +2994,8 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 			RunLoadStorePropagation(ctx, module, curr);
 			curr = next;
 		}
+
+		module->currentFunction = NULL;
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
 	{
