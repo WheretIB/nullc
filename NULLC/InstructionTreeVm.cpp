@@ -3120,8 +3120,31 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 				while(prev && !HasMemoryAccess(prev->cmd))
 					prev = prev->prevSibling;
 
-				if(prev && (prev->cmd >= VM_INST_STORE_BYTE && prev->cmd <= VM_INST_STORE_STRUCT) && GetAccessSize(prev) == GetAccessSize(curr) && prev->arguments[0] == curr->arguments[0])
-					ReplaceValueUsersWith(module, curr, prev->arguments[1], &module->loadStorePropagations);
+				if(prev && (prev->cmd >= VM_INST_STORE_BYTE && prev->cmd <= VM_INST_STORE_STRUCT) && GetAccessSize(prev) == GetAccessSize(curr) && prev->arguments[0] == curr->arguments[0] && curr->type.size == prev->arguments[1]->type.size)
+				{
+					VmValue* value = prev->arguments[1];
+
+					if(curr->type != value->type)
+					{
+						assert(curr->type.size == value->type.size);
+
+						module->currentBlock = block;
+
+						block->insertPoint = curr->prevSibling;
+
+						value = CreateInstruction(module, curr->type, VM_INST_BITCAST, value, NULL, NULL, NULL);
+
+						block->insertPoint = block->lastInstruction;
+
+						module->currentBlock = NULL;
+
+						ReplaceValueUsersWith(module, curr, value, &module->loadStorePropagations);
+					}
+					else
+					{
+						ReplaceValueUsersWith(module, curr, value, &module->loadStorePropagations);
+					}
+				}
 			}
 
 			curr = next;
