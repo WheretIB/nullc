@@ -7664,21 +7664,22 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 			if(!type)
 				type = call->type;
+			else if(type == ctx.typeAuto)
+				type = call->type;
+			else
+				type = ctx.GetReferenceType(type);
 
 			CheckVariableConflict(ctx, curr, curr->name);
 
 			unsigned variableOffset = AllocateVariableInScope(ctx, curr, type->alignment, type);
 			VariableData *variable = allocate(VariableData)(ctx.allocator, curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
 
-			variable->isReference = curr->type == NULL && isType<TypeRef>(type);
+			variable->isReference = isType<TypeRef>(type);
 
 			if (IsLookupOnlyVariable(ctx, variable))
 				variable->lookupOnly = true;
 
 			ctx.AddVariable(variable);
-
-			if(ctx.GetReferenceType(type) == call->type)
-				call = allocate(ExprDereference)(curr, type, call);
 
 			definitions.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, variable, CreateAssignment(ctx, curr, CreateVariableAccess(ctx, curr, variable, false), call)));
 		}
