@@ -3921,7 +3921,17 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SmallArray<Argument
 					IntrusiveList<ExprBase> values;
 
 					for(unsigned i = functionArguments.size() - 1; i < result.size(); i++)
-						values.push_back(CreateCast(ctx, result[i].value->source, result[i].value, ctx.typeAutoRef, true));
+					{
+						ExprBase *value = result[i].value;
+
+						if(TypeArray *arrType = getType<TypeArray>(value->type))
+						{
+							// type[N] is converted to type[] first
+							value = CreateCast(ctx, value->source, value, ctx.GetUnsizedArrayType(arrType->subType), false);
+						}
+
+						values.push_back(CreateCast(ctx, value->source, value, ctx.typeAutoRef, true));
+					}
 
 					if(values.empty())
 						value = allocate(ExprNullptrLiteral)(source, ctx.typeNullPtr);
