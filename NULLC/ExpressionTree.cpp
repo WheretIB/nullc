@@ -274,6 +274,12 @@ namespace
 
 		while(scope->scope)
 		{
+			// Don't let allocations escape the temporary scope
+			if(scope->type == SCOPE_TEMPORARY)
+			{
+				return 0;
+			}
+
 			if(scope->ownerFunction)
 			{
 				scope->dataSize += GetAlignmentOffset(scope->dataSize, alignment);
