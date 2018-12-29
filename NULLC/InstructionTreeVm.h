@@ -347,7 +347,10 @@ struct VmFunction: VmValue
 	}
 
 	void AddBlock(VmBlock *block);
+	void DetachBlock(VmBlock *block);
 	void RemoveBlock(VmBlock *block);
+
+	void MoveEntryBlockToStart();
 
 	FunctionData *function;
 	ScopeData *scope;

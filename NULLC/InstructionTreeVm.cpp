@@ -1203,11 +1203,10 @@ void VmFunction::AddBlock(VmBlock* block)
 	}
 }
 
-void VmFunction::RemoveBlock(VmBlock* block)
+void VmFunction::DetachBlock(VmBlock *block)
 {
 	assert(block);
 	assert(block->parent == this);
-	assert(block->users.empty());
 
 	if(block == firstBlock)
 		firstBlock = block->nextSibling;
@@ -1223,9 +1222,62 @@ void VmFunction::RemoveBlock(VmBlock* block)
 	block->parent = NULL;
 	block->prevSibling = NULL;
 	block->nextSibling = NULL;
+}
+
+void VmFunction::RemoveBlock(VmBlock* block)
+{
+	assert(block->users.empty());
+
+	DetachBlock(block);
 
 	while(block->lastInstruction)
 		block->RemoveInstruction(block->lastInstruction);
+}
+
+void VmFunction::MoveEntryBlockToStart()
+{
+	if(!firstBlock)
+		return;
+
+	// Function must start from the first block
+	VmBlock *entryBlock = NULL;
+
+	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
+	{
+		for(unsigned i = 0; i < curr->users.size(); i++)
+		{
+			if(curr->users[i] == this)
+			{
+				entryBlock = curr;
+				break;
+			}
+		}
+
+		if(entryBlock)
+			break;
+	}
+
+	assert(entryBlock);
+
+	if(firstBlock != entryBlock)
+	{
+		// Detach entry block
+		DetachBlock(entryBlock);
+
+		// Re-attach to front
+		if(!firstBlock)
+		{
+			firstBlock = lastBlock = entryBlock;
+		}
+		else
+		{
+			firstBlock->prevSibling = entryBlock;
+			entryBlock->nextSibling = firstBlock;
+			firstBlock = entryBlock;
+		}
+
+		entryBlock->parent = this;
+	}
 }
 
 VmType GetVmType(ExpressionContext &ctx, TypeBase *type)
@@ -3378,5 +3430,8 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 			RunLegalizeVm(ctx, module, value);
 			break;
 		}
+
+		// Preserve entry block order for execution
+		value->MoveEntryBlockToStart();
 	}
 }
