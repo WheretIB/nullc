@@ -909,6 +909,10 @@ TypeBase* ExpressionContext::GetCurrentType()
 
 FunctionData* ExpressionContext::GetFunctionOwner(ScopeData *scope)
 {
+	// Temporary scopes have no owner
+	if(scope->type == SCOPE_TEMPORARY)
+		return NULL;
+
 	// Walk up, but if we reach a type or namespace owner, stop - we're not in a context of a function
 	for(ScopeData *curr = scope; curr; curr = curr->scope)
 	{
