@@ -2951,6 +2951,14 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 				if(trueBlock == falseBlock)
 					ChangeInstructionTo(module, currLastInst, VM_INST_JUMP, trueBlock, 0, 0, 0, &module->controlFlowSimplifications);
 			}
+
+			// Remove coroutine unyield that only contains a single target
+			if(currLastInst && currLastInst->cmd == VM_INST_UNYIELD && currLastInst->arguments.size() == 2)
+			{
+				VmValue *targetBlock = currLastInst->arguments[1];
+
+				ChangeInstructionTo(module, currLastInst, VM_INST_JUMP, targetBlock, 0, 0, 0, &module->controlFlowSimplifications);
+			}
 		}
 
 		for(VmBlock *curr = function->firstBlock; curr;)
