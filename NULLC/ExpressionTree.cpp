@@ -435,7 +435,9 @@ namespace
 		if(type->size % maximumAlignment != 0)
 		{
 			type->padding = maximumAlignment - (type->size % maximumAlignment);
-			type->size += maximumAlignment - (type->size % maximumAlignment);
+
+			type->size += type->padding;
+			type->typeScope->dataSize += type->padding;
 		}
 	}
 
