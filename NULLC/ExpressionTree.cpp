@@ -538,17 +538,26 @@ namespace
 		return NULL;
 	}
 
-	bool IsDerivedFrom(TypeClass *type, TypeClass *target)
+	unsigned GetDerivedFromDepth(TypeClass *type, TypeClass *target)
 	{
+		unsigned depth = 0;
+
 		while(type)
 		{
 			if(target == type)
-				return true;
+				return depth;
+
+			depth++;
 
 			type = type->baseClass;
 		}
 
-		return false;
+		return ~0u;
+	}
+
+	bool IsDerivedFrom(TypeClass *type, TypeClass *target)
+	{
+		return GetDerivedFromDepth(type, target) != ~0u;
 	}
 
 	ExprBase* EvaluateExpression(ExpressionContext &ctx, ExprBase *expression)
@@ -3301,22 +3310,33 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 		if(function->nameHash != hash)
 			continue;
 
-		bool found = false;
+		if(preferredParent && !IsDerivedFrom(preferredParent, getType<TypeClass>(parentType)))
+			continue;
 
-		for(TypeHandle *curr = types.head; curr; curr = curr->next)
+		FunctionHandle *prev = NULL;
+
+		for(FunctionHandle *curr = functions.head; curr; curr = curr->next)
 		{
-			if(curr->type == function->type)
+			if(curr->function->type == function->type)
 			{
-				found = true;
+				prev = curr;
 				break;
 			}
 		}
 
-		if(found)
-			continue;
+		if(prev)
+		{
+			if(preferredParent)
+			{
+				auto prevDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(prev->function->scope->ownerType));
+				auto currDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(function->scope->ownerType));
 
-		if(preferredParent && !IsDerivedFrom(preferredParent, getType<TypeClass>(parentType)))
+				if (currDepth < prevDepth)
+					prev->function = function;
+			}
+
 			continue;
+		}
 
 		types.push_back(allocate(TypeHandle)(function->type));
 		functions.push_back(allocate(FunctionHandle)(function));
