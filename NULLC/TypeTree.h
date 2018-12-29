@@ -102,6 +102,8 @@ struct VariableData
 
 		usedAsExternal = false;
 
+		lookupOnly = false;
+
 		if(alignment != 0)
 			assert(offset % alignment == 0);
 	}
@@ -123,6 +125,8 @@ struct VariableData
 	bool isReadonly;
 
 	bool usedAsExternal;
+
+	bool lookupOnly;
 
 	unsigned offset;
 

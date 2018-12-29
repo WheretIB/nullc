@@ -341,6 +341,34 @@ namespace
 		}
 	}
 
+	bool IsArgumentVariable(FunctionData *function, VariableData *data)
+	{
+		for(VariableHandle *curr = function->argumentVariables.head; curr; curr = curr->next)
+		{
+			if(data == curr->variable)
+				return true;
+		}
+
+		return false;
+	}
+
+	bool IsLookupOnlyVariable(ExpressionContext &ctx, VariableData *variable)
+	{
+		FunctionData *currentFunction = ctx.GetCurrentFunction();
+		FunctionData *variableFunctionOwner = ctx.GetFunctionOwner(variable->scope);
+
+		if(currentFunction && variableFunctionOwner)
+		{
+			if(variableFunctionOwner != currentFunction)
+				return true;
+
+			if(currentFunction->coroutine && !IsArgumentVariable(currentFunction, variable))
+				return true;
+		}
+
+		return false;
+	}
+
 	ExprBase* AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
 	{
 		if(isType<ExprFunctionOverloadSet>(expr))
@@ -374,6 +402,9 @@ namespace
 
 		unsigned offset = AllocateVariableInScope(ctx, source, type->alignment, type);
 		VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, type->alignment, type, InplaceStr(name), offset, ctx.uniqueVariableId++);
+
+		if (IsLookupOnlyVariable(ctx, variable))
+			variable->lookupOnly = true;
 
 		ctx.AddVariable(variable);
 
@@ -1522,11 +1553,11 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 
 				ExprBase *alloc = allocate(ExprTypeCast)(source, ctx.GetReferenceType(valueType), CreateFunctionCall2(ctx, source, InplaceStr("__newS"), size, typeId, false, true), EXPR_CAST_REINTERPRET);
 
-				ExprBase *definition = allocate(ExprVariableDefinition)(value->source, ctx.typeVoid, storage, CreateAssignment(ctx, source, allocate(ExprVariableAccess)(source, storage->type, storage), alloc));
+				ExprBase *definition = allocate(ExprVariableDefinition)(value->source, ctx.typeVoid, storage, CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, storage, false), alloc));
 
-				ExprBase *assignment = CreateAssignment(ctx, source, allocate(ExprDereference)(source, valueType, allocate(ExprVariableAccess)(source, storage->type, storage)), value);
+				ExprBase *assignment = CreateAssignment(ctx, source, allocate(ExprDereference)(source, valueType, CreateVariableAccess(ctx, source, storage, false)), value);
 
-				ExprBase *result = allocate(ExprTypeCast)(source, type, allocate(ExprVariableAccess)(source, storage->type, storage), EXPR_CAST_ARRAY_PTR_TO_UNSIZED);
+				ExprBase *result = allocate(ExprTypeCast)(source, type, CreateVariableAccess(ctx, source, storage, false), EXPR_CAST_ARRAY_PTR_TO_UNSIZED);
 
 				return CreateSequence(ctx, source, definition, assignment, result);
 			}
@@ -2733,17 +2764,6 @@ VariableData* AddFunctionCoroutineVariable(ExpressionContext &ctx, SynBase *sour
 	return storage;
 }
 
-bool IsArgumentVariable(FunctionData *function, VariableData *data)
-{
-	for(VariableHandle *curr = function->argumentVariables.head; curr; curr = curr->next)
-	{
-		if(data == curr->variable)
-			return true;
-	}
-
-	return false;
-}
-
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, VariableData *variable, bool handleReference)
 {
 	if(variable->type == ctx.typeAuto)
@@ -3327,11 +3347,11 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 	{
 		VariableData *storage = AllocateTemporary(ctx, source, wrapped->type);
 
-		ExprBase *assignment = CreateAssignment(ctx, source, allocate(ExprVariableAccess)(source, storage->type, storage), value);
+		ExprBase *assignment = CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, storage, false), value);
 
 		ExprBase *definition = allocate(ExprVariableDefinition)(value->source, ctx.typeVoid, storage, assignment);
 
-		wrapped = CreateSequence(ctx, source, definition, allocate(ExprGetAddress)(source, ctx.GetReferenceType(wrapped->type), storage));
+		wrapped = CreateSequence(ctx, source, definition, CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false)));
 	}
 
 	if(TypeArray *node = getType<TypeArray>(value->type))
@@ -3617,11 +3637,11 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 	{
 		VariableData *storage = AllocateTemporary(ctx, source, wrapped->type);
 
-		ExprBase *assignment = CreateAssignment(ctx, source, allocate(ExprVariableAccess)(source, storage->type, storage), value);
+		ExprBase *assignment = CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, storage, false), value);
 
 		ExprBase *definition = allocate(ExprVariableDefinition)(source, ctx.typeVoid, storage, assignment);
 
-		wrapped = CreateSequence(ctx, source, definition, allocate(ExprGetAddress)(source, ctx.GetReferenceType(wrapped->type), storage));
+		wrapped = CreateSequence(ctx, source, definition, CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false)));
 	}
 
 	if(isType<TypeRef>(wrapped->type) || isType<TypeUnsizedArray>(value->type))
@@ -5349,7 +5369,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 		VariableData *variable = AllocateTemporary(ctx, syntax, type->value);
 
-		ExprBase *pointer = allocate(ExprGetAddress)(syntax, ctx.GetReferenceType(type->value), variable);
+		ExprBase *pointer = CreateGetAddress(ctx, syntax, CreateVariableAccess(ctx, syntax, variable, false));
 
 		ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, NULL);
 
@@ -5360,7 +5380,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 			IntrusiveList<ExprBase> expressions;
 
 			expressions.push_back(definition);
-			expressions.push_back(allocate(ExprVariableAccess)(syntax, variable->type, variable));
+			expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
 
 			return allocate(ExprSequence)(syntax, type->value, expressions);
 		}
@@ -5378,7 +5398,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 			expressions.push_back(definition);
 			expressions.push_back(call);
-			expressions.push_back(allocate(ExprVariableAccess)(syntax, variable->type, variable));
+			expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
 
 			return allocate(ExprSequence)(syntax, type->value, expressions);
 		}
@@ -5441,7 +5461,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		{
 			VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
 
-			ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, allocate(ExprVariableAccess)(syntax, variable->type, variable), alloc));
+			ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, CreateVariableAccess(ctx, syntax, variable, false), alloc));
 
 			if(ExprBase *call = CreateDefaultConstructorCall(ctx, syntax, variable->type, CreateVariableAccess(ctx, syntax, variable, true)))
 				return CreateSequence(ctx, syntax, definition, call, CreateVariableAccess(ctx, syntax, variable, true));
@@ -5463,9 +5483,9 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 	{
 		VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
 
-		ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, allocate(ExprVariableAccess)(syntax, variable->type, variable), alloc));
+		ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, CreateVariableAccess(ctx, syntax, variable, false), alloc));
 
-		ExprBase *overloads = CreateConstructorAccess(ctx, syntax, functions, allocate(ExprVariableAccess)(syntax, variable->type, variable));
+		ExprBase *overloads = CreateConstructorAccess(ctx, syntax, functions, CreateVariableAccess(ctx, syntax, variable, false));
 
 		if(ExprBase *call = CreateFunctionCall(ctx, syntax, overloads, IntrusiveList<TypeHandle>(), syntax->arguments.head, syntax->arguments.empty()))
 		{
@@ -5473,7 +5493,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 			expressions.push_back(definition);
 			expressions.push_back(call);
-			expressions.push_back(allocate(ExprVariableAccess)(syntax, variable->type, variable));
+			expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
 
 			alloc = allocate(ExprSequence)(syntax, allocType, expressions);
 		}
@@ -5482,15 +5502,15 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 	{
 		VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
 
-		ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, allocate(ExprVariableAccess)(syntax, variable->type, variable), alloc));
+		ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, CreateVariableAccess(ctx, syntax, variable, false), alloc));
 
-		ExprBase *copy = CreateAssignment(ctx, syntax, allocate(ExprDereference)(syntax, parentType, allocate(ExprVariableAccess)(syntax, variable->type, variable)), AnalyzeExpression(ctx, syntax->arguments.head->value));
+		ExprBase *copy = CreateAssignment(ctx, syntax, allocate(ExprDereference)(syntax, parentType, CreateVariableAccess(ctx, syntax, variable, false)), AnalyzeExpression(ctx, syntax->arguments.head->value));
 
 		IntrusiveList<ExprBase> expressions;
 
 		expressions.push_back(definition);
 		expressions.push_back(copy);
-		expressions.push_back(allocate(ExprVariableAccess)(syntax, variable->type, variable));
+		expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
 
 		alloc = allocate(ExprSequence)(syntax, allocType, expressions);
 	}
@@ -5504,7 +5524,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 	{
 		VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
 
-		ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, allocate(ExprVariableAccess)(syntax, variable->type, variable), alloc));
+		ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, CreateVariableAccess(ctx, syntax, variable, false), alloc));
 
 		// Create a member function with the constructor body
 		InplaceStr name = GetTemporaryFunctionName(ctx);
@@ -5515,7 +5535,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		// Call this member function
 		SmallArray<FunctionValue, 32> functions(ctx.allocator);
-		functions.push_back(FunctionValue(functionDefinition->function, allocate(ExprVariableAccess)(syntax, variable->type, variable)));
+		functions.push_back(FunctionValue(functionDefinition->function, CreateVariableAccess(ctx, syntax, variable, false)));
 
 		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
@@ -5525,7 +5545,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		expressions.push_back(definition);
 		expressions.push_back(call);
-		expressions.push_back(allocate(ExprVariableAccess)(syntax, variable->type, variable));
+		expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
 
 		alloc = allocate(ExprSequence)(syntax, allocType, expressions);
 	}
@@ -5681,6 +5701,9 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 	CheckVariableConflict(ctx, syntax, fullName);
 
 	VariableData *variable = allocate(VariableData)(ctx.allocator, syntax, ctx.scope, 0, type, fullName, 0, ctx.uniqueVariableId++);
+
+	if (IsLookupOnlyVariable(ctx, variable))
+		variable->lookupOnly = true;
 
 	ctx.AddVariable(variable);
 
@@ -5873,8 +5896,6 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 		ExprBase *target = allocate(ExprMemberAccess)(source, ctx.GetReferenceType(upvalue->target->type), CreateVariableAccess(ctx, source, context, true), upvalue->target);
 
 		target = allocate(ExprDereference)(source, upvalue->target->type, target);
-
-		FunctionData *variableFunctionOwner = ctx.GetFunctionOwner(upvalue->variable->scope);
 
 		// Save variable address to current target value
 		ExprBase *value = CreateVariableAccess(ctx, source, upvalue->variable, false);
@@ -6385,6 +6406,9 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		unsigned offset = AllocateVariableInScope(ctx, syntax, el->type->alignment, el->type);
 		VariableData *variable = allocate(VariableData)(ctx.allocator, syntax, ctx.scope, el->type->alignment, el->type, el->name, offset, ctx.uniqueVariableId++);
 
+		if (IsLookupOnlyVariable(ctx, variable))
+			variable->lookupOnly = true;
+
 		ctx.AddVariable(variable);
 
 		char *name = (char*)ctx.allocator->alloc(el->name.length() + 2);
@@ -6398,7 +6422,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		else
 			access = CreateCast(ctx, syntax, access, el->type, true);
 
-		expressions.push_back(allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, allocate(ExprVariableAccess)(syntax, variable->type, variable), access)));
+		expressions.push_back(allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, variable, CreateAssignment(ctx, syntax, CreateVariableAccess(ctx, syntax, variable, false), access)));
 	}
 
 	for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
@@ -6474,7 +6498,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	VariableData *empty = AllocateTemporary(ctx, syntax, function->type->returnType);
 
-	expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprVariableAccess)(syntax, empty->type, empty), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, ctx.scope)));
+	expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, CreateVariableAccess(ctx, syntax, empty, false), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, ctx.scope)));
 
 	ctx.PopScope(SCOPE_FUNCTION);
 
@@ -6723,29 +6747,29 @@ ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, 
 		{
 			VariableData *value = AllocateTemporary(ctx, source, pointer->type);
 
-			ExprBase *valueInit = allocate(ExprVariableDefinition)(source, ctx.typeVoid, value, CreateAssignment(ctx, source, allocate(ExprVariableAccess)(source, value->type, value), pointer));
+			ExprBase *valueInit = allocate(ExprVariableDefinition)(source, ctx.typeVoid, value, CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, value, false), pointer));
 
 			ctx.PushLoopScope();
 
 			// Create initializer
 			VariableData *iterator = AllocateTemporary(ctx, source, ctx.typeInt);
 
-			ExprBase *iteratorInit = CreateAssignment(ctx, source, allocate(ExprVariableAccess)(source, iterator->type, iterator), allocate(ExprIntegerLiteral)(source, ctx.typeInt, 0));
+			ExprBase *iteratorInit = CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, iterator, false), allocate(ExprIntegerLiteral)(source, ctx.typeInt, 0));
 
 			ExprBase *initializer = allocate(ExprVariableDefinition)(source, ctx.typeVoid, iterator, iteratorInit);
 
 			// Create condition
-			ExprBase *size = CreateMemberAccess(ctx, source, allocate(ExprVariableAccess)(source, value->type, value), InplaceStr("size"), false);
-			ExprBase *condition = CreateBinaryOp(ctx, source, SYN_BINARY_OP_LESS, allocate(ExprVariableAccess)(source, iterator->type, iterator), size);
+			ExprBase *size = CreateMemberAccess(ctx, source, CreateVariableAccess(ctx, source, value, false), InplaceStr("size"), false);
+			ExprBase *condition = CreateBinaryOp(ctx, source, SYN_BINARY_OP_LESS, CreateVariableAccess(ctx, source, iterator, false), size);
 
 			// Create increment
-			ExprBase *increment = allocate(ExprPreModify)(source, ctx.typeInt, allocate(ExprGetAddress)(source, ctx.GetReferenceType(ctx.typeInt), iterator), true);
+			ExprBase *increment = allocate(ExprPreModify)(source, ctx.typeInt, CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, iterator, false)), true);
 
 			// Create body
 			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
-			arguments.push_back(ArgumentData(source, false, InplaceStr(), ctx.typeInt, allocate(ExprVariableAccess)(source, iterator->type, iterator)));
+			arguments.push_back(ArgumentData(source, false, InplaceStr(), ctx.typeInt, CreateVariableAccess(ctx, source, iterator, false)));
 
-			ExprBase *element = CreateArrayIndex(ctx, source, allocate(ExprVariableAccess)(source, value->type, value), arguments);
+			ExprBase *element = CreateArrayIndex(ctx, source, CreateVariableAccess(ctx, source, value, false), arguments);
 
 			ExprBase *body = CreateDefaultConstructorCall(ctx, source, type, CreateGetAddress(ctx, source, element));
 
@@ -7489,22 +7513,22 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			{
 				VariableData *storage = AllocateTemporary(ctx, value->source, wrapped->type);
 
-				ExprBase *assignment = CreateAssignment(ctx, value->source, allocate(ExprVariableAccess)(value->source, storage->type, storage), value);
+				ExprBase *assignment = CreateAssignment(ctx, value->source, CreateVariableAccess(ctx, value->source, storage, false), value);
 
 				ExprBase *definition = allocate(ExprVariableDefinition)(value->source, ctx.typeVoid, storage, assignment);
 
-				wrapped = CreateSequence(ctx, value->source, definition, allocate(ExprGetAddress)(value->source, ctx.GetReferenceType(wrapped->type), storage));
+				wrapped = CreateSequence(ctx, value->source, definition, CreateGetAddress(ctx, value->source, CreateVariableAccess(ctx, value->source, storage, false)));
 			}
 
 			// Create initializer
 			VariableData *iterator = AllocateTemporary(ctx, curr, ctx.typeInt);
 
-			ExprBase *iteratorAssignment = CreateAssignment(ctx, curr, allocate(ExprVariableAccess)(curr, iterator->type, iterator), allocate(ExprIntegerLiteral)(curr, ctx.typeInt, 0));
+			ExprBase *iteratorAssignment = CreateAssignment(ctx, curr, CreateVariableAccess(ctx, curr, iterator, false), allocate(ExprIntegerLiteral)(curr, ctx.typeInt, 0));
 
 			initializers.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, iterator, iteratorAssignment));
 
 			// Create condition
-			conditions.push_back(CreateBinaryOp(ctx, curr, SYN_BINARY_OP_LESS, allocate(ExprVariableAccess)(curr, iterator->type, iterator), CreateMemberAccess(ctx, curr, value, InplaceStr("size"), false)));
+			conditions.push_back(CreateBinaryOp(ctx, curr, SYN_BINARY_OP_LESS, CreateVariableAccess(ctx, curr, iterator, false), CreateMemberAccess(ctx, curr, value, InplaceStr("size"), false)));
 
 			// Create definition
 			type = ctx.GetReferenceType(type);
@@ -7516,10 +7540,13 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 			variable->isReference = true;
 
+			if (IsLookupOnlyVariable(ctx, variable))
+				variable->lookupOnly = true;
+
 			ctx.AddVariable(variable);
 
 			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
-			arguments.push_back(ArgumentData(curr, false, InplaceStr(), ctx.typeInt, allocate(ExprVariableAccess)(curr, iterator->type, iterator)));
+			arguments.push_back(ArgumentData(curr, false, InplaceStr(), ctx.typeInt, CreateVariableAccess(ctx, curr, iterator, false)));
 
 			ExprBase *arrayIndex = CreateArrayIndex(ctx, curr, value, arguments);
 
@@ -7528,10 +7555,10 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			if(ExprDereference *node = getType<ExprDereference>(arrayIndex))
 				arrayIndex = node->value;
 
-			definitions.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, variable, CreateAssignment(ctx, curr, allocate(ExprVariableAccess)(curr, variable->type, variable), arrayIndex)));
+			definitions.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, variable, CreateAssignment(ctx, curr, CreateVariableAccess(ctx, curr, variable, false), arrayIndex)));
 
 			// Create increment
-			increments.push_back(allocate(ExprPreModify)(curr, ctx.typeInt, allocate(ExprGetAddress)(curr, ctx.GetReferenceType(ctx.typeInt), iterator), true));
+			increments.push_back(allocate(ExprPreModify)(curr, ctx.typeInt, CreateGetAddress(ctx, curr, CreateVariableAccess(ctx, curr, iterator, false)), true));
 			continue;
 		}
 
@@ -7555,7 +7582,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			// Store function pointer in a variable
 			VariableData *functPtr = AllocateTemporary(ctx, curr, value->type);
 
-			initializers.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, functPtr, CreateAssignment(ctx, curr, allocate(ExprVariableAccess)(curr, functPtr->type, functPtr), value)));
+			initializers.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, functPtr, CreateAssignment(ctx, curr, CreateVariableAccess(ctx, curr, functPtr, false), value)));
 
 			if(ExprFunctionAccess *access = getType<ExprFunctionAccess>(value))
 			{
@@ -7564,7 +7591,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			}
 			else
 			{
-				initializers.push_back(CreateFunctionCall1(ctx, curr, InplaceStr("__assertCoroutine"), allocate(ExprVariableAccess)(curr, functPtr->type, functPtr), false, true));
+				initializers.push_back(CreateFunctionCall1(ctx, curr, InplaceStr("__assertCoroutine"), CreateVariableAccess(ctx, curr, functPtr, false), false, true));
 			}
 
 			// Create definition
@@ -7576,26 +7603,29 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			unsigned variableOffset = AllocateVariableInScope(ctx, curr, type->alignment, type);
 			VariableData *variable = allocate(VariableData)(ctx.allocator, curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
 
+			if (IsLookupOnlyVariable(ctx, variable))
+				variable->lookupOnly = true;
+
 			ctx.AddVariable(variable);
 
-			if(ExprBase *call = CreateFunctionCall(ctx, curr, allocate(ExprVariableAccess)(curr, functPtr->type, functPtr), IntrusiveList<TypeHandle>(), NULL, false))
+			if(ExprBase *call = CreateFunctionCall(ctx, curr, CreateVariableAccess(ctx, curr, functPtr, false), IntrusiveList<TypeHandle>(), NULL, false))
 			{
 				if(ctx.GetReferenceType(type) == call->type)
 					call = allocate(ExprDereference)(curr, type, call);
 
-				initializers.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, variable, CreateAssignment(ctx, curr, allocate(ExprVariableAccess)(curr, variable->type, variable), call)));
+				initializers.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, variable, CreateAssignment(ctx, curr, CreateVariableAccess(ctx, curr, variable, false), call)));
 			}
 
 			// Create condition
-			conditions.push_back(allocate(ExprUnaryOp)(curr, ctx.typeBool, SYN_UNARY_OP_LOGICAL_NOT, CreateFunctionCall1(ctx, curr, InplaceStr("isCoroutineReset"), allocate(ExprVariableAccess)(curr, functPtr->type, functPtr), false, false)));
+			conditions.push_back(allocate(ExprUnaryOp)(curr, ctx.typeBool, SYN_UNARY_OP_LOGICAL_NOT, CreateFunctionCall1(ctx, curr, InplaceStr("isCoroutineReset"), CreateVariableAccess(ctx, curr, functPtr, false), false, false)));
 
 			// Create increment
-			if(ExprBase *call = CreateFunctionCall(ctx, curr, allocate(ExprVariableAccess)(curr, functPtr->type, functPtr), IntrusiveList<TypeHandle>(), NULL, false))
+			if(ExprBase *call = CreateFunctionCall(ctx, curr, CreateVariableAccess(ctx, curr, functPtr, false), IntrusiveList<TypeHandle>(), NULL, false))
 			{
 				if(ctx.GetReferenceType(type) == call->type)
 					call = allocate(ExprDereference)(curr, type, call);
 
-				increments.push_back(CreateAssignment(ctx, curr, allocate(ExprVariableAccess)(curr, variable->type, variable), call));
+				increments.push_back(CreateAssignment(ctx, curr, CreateVariableAccess(ctx, curr, variable, false), call));
 			}
 		}
 		else
@@ -7603,13 +7633,13 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			// Store iterator in a variable
 			VariableData *iterator = AllocateTemporary(ctx, curr, startCall->type);
 
-			initializers.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, iterator, CreateAssignment(ctx, curr, allocate(ExprVariableAccess)(curr, iterator->type, iterator), startCall)));
+			initializers.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, iterator, CreateAssignment(ctx, curr, CreateVariableAccess(ctx, curr, iterator, false), startCall)));
 
 			// Create condition
-			conditions.push_back(CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, allocate(ExprVariableAccess)(curr, iterator->type, iterator), InplaceStr("hasnext"), false), IntrusiveList<TypeHandle>(), NULL, false));
+			conditions.push_back(CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, CreateVariableAccess(ctx, curr, iterator, false), InplaceStr("hasnext"), false), IntrusiveList<TypeHandle>(), NULL, false));
 
 			// Create definition
-			ExprBase *call = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, allocate(ExprVariableAccess)(curr, iterator->type, iterator), InplaceStr("next"), false), IntrusiveList<TypeHandle>(), NULL, false);
+			ExprBase *call = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, CreateVariableAccess(ctx, curr, iterator, false), InplaceStr("next"), false), IntrusiveList<TypeHandle>(), NULL, false);
 
 			if(!type)
 				type = call->type;
@@ -7621,12 +7651,15 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 			variable->isReference = curr->type == NULL && isType<TypeRef>(type);
 
+			if (IsLookupOnlyVariable(ctx, variable))
+				variable->lookupOnly = true;
+
 			ctx.AddVariable(variable);
 
 			if(ctx.GetReferenceType(type) == call->type)
 				call = allocate(ExprDereference)(curr, type, call);
 
-			definitions.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, variable, CreateAssignment(ctx, curr, allocate(ExprVariableAccess)(curr, variable->type, variable), call)));
+			definitions.push_back(allocate(ExprVariableDefinition)(curr, ctx.typeVoid, variable, CreateAssignment(ctx, curr, CreateVariableAccess(ctx, curr, variable, false), call)));
 		}
 	}
 
@@ -7696,7 +7729,7 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 
 	VariableData *conditionVariable = AllocateTemporary(ctx, syntax, condition->type);
 
-	condition = allocate(ExprVariableDefinition)(syntax->condition, ctx.typeVoid, conditionVariable, CreateAssignment(ctx, syntax->condition, allocate(ExprVariableAccess)(syntax->condition, conditionVariable->type, conditionVariable), condition));
+	condition = allocate(ExprVariableDefinition)(syntax->condition, ctx.typeVoid, conditionVariable, CreateAssignment(ctx, syntax->condition, CreateVariableAccess(ctx, syntax, conditionVariable, false), condition));
 
 	IntrusiveList<ExprBase> cases;
 	IntrusiveList<ExprBase> blocks;
@@ -7708,7 +7741,7 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 		{
 			ExprBase *caseValue = AnalyzeExpression(ctx, curr->value);
 
-			ExprBase *condition = CreateBinaryOp(ctx, curr->value, SYN_BINARY_OP_EQUAL, caseValue, allocate(ExprVariableAccess)(syntax->condition, conditionVariable->type, conditionVariable));
+			ExprBase *condition = CreateBinaryOp(ctx, curr->value, SYN_BINARY_OP_EQUAL, caseValue, CreateVariableAccess(ctx, syntax, conditionVariable, false));
 
 			if(!ctx.IsIntegerType(condition->type) || condition->type == ctx.typeLong)
 				Stop(ctx, curr->pos, "ERROR: '==' operator result type must be bool, char, short or int");

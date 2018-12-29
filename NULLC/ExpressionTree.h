@@ -396,6 +396,7 @@ struct ExprGetAddress: ExprBase
 {
 	ExprGetAddress(SynBase *source, TypeBase *type, VariableData *variable): ExprBase(myTypeID, source, type), variable(variable)
 	{
+		assert(!variable->lookupOnly);
 	}
 
 	VariableData *variable;
@@ -554,6 +555,7 @@ struct ExprVariableAccess: ExprBase
 	{
 		assert(variable);
 		assert(type == variable->type);
+		assert(!variable->lookupOnly);
 	}
 
 	VariableData *variable;
