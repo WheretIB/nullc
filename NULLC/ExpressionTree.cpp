@@ -7475,9 +7475,15 @@ ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
+	IntrusiveList<ExprBase> iteration = CreateBlockUpvalueClose(ctx, syntax, ctx.scope);
+
+	iteration.push_back(increment);
+
+	ExprBlock *block = allocate(ExprBlock)(syntax, ctx.typeVoid, iteration, IntrusiveList<ExprBase>());
+
 	ctx.PopScope(SCOPE_LOOP);
 
-	return allocate(ExprFor)(syntax, ctx.typeVoid, initializer, condition, increment, body);
+	return allocate(ExprFor)(syntax, ctx.typeVoid, initializer, condition, block, body);
 }
 
 ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
