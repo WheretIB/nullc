@@ -3326,6 +3326,7 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 
 		if(prev)
 		{
+			// Select the most specialized function for extendable member function call
 			if(preferredParent)
 			{
 				auto prevDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(prev->function->scope->ownerType));
