@@ -14,7 +14,7 @@ struct ExprBase;
 
 struct ExpressionContext
 {
-	ExpressionContext(Allocator *allocator);
+	ExpressionContext(Allocator *allocator, const char *code);
 
 	void Stop(const char *pos, const char *msg, ...);
 
@@ -59,6 +59,9 @@ struct ExpressionContext
 	TypeUnsizedArray* GetUnsizedArrayType(TypeBase* type);
 	TypeFunction* GetFunctionType(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
 	TypeFunction* GetFunctionType(TypeBase* returnType, SmallArray<ArgumentData, 32> &arguments);
+
+	// Source code
+	const char *code;
 
 	// Full state info
 	SmallArray<NamespaceData*, 128> namespaces;

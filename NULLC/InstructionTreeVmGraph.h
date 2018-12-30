@@ -13,28 +13,38 @@ struct InstructionVMGraphContext
 {
 	InstructionVMGraphContext()
 	{
+		code = 0;
+
 		file = 0;
 
 		depth = 0;
+
+		lastStart = 0;
 
 		showTypes = true;
 		showFullTypes = false;
 		showUsers = false;
 		showComments = true;
 		showContainers = true;
+		showSource = false;
 
 		displayAsTree = false;
 	}
 
+	const char *code;
+
 	FILE *file;
 
 	unsigned depth;
+
+	const char *lastStart;
 
 	bool showTypes;
 	bool showFullTypes;
 	bool showUsers;
 	bool showComments;
 	bool showContainers;
+	bool showSource;
 
 	bool displayAsTree;
 };

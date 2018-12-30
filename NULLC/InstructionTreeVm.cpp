@@ -128,11 +128,11 @@ namespace
 		return false;
 	}
 
-	VmInstruction* CreateInstruction(VmModule *module, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth)
+	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth)
 	{
 		assert(module->currentBlock);
 
-		VmInstruction *inst = allocate(VmInstruction)(module->allocator, type, cmd, module->currentFunction->nextInstructionId++);
+		VmInstruction *inst = allocate(VmInstruction)(module->allocator, type, source, cmd, module->currentFunction->nextInstructionId++);
 
 		if(first)
 			inst->AddArgument(first);
@@ -154,63 +154,63 @@ namespace
 		return inst;
 	}
 
-	VmInstruction* CreateInstruction(VmModule *module, VmType type, VmInstructionType cmd)
+	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd)
 	{
-		return CreateInstruction(module, type, cmd, NULL, NULL, NULL, NULL);
+		return CreateInstruction(module, source, type, cmd, NULL, NULL, NULL, NULL);
 	}
 
-	VmInstruction* CreateInstruction(VmModule *module, VmType type, VmInstructionType cmd, VmValue *first)
+	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first)
 	{
-		return CreateInstruction(module, type, cmd, first, NULL, NULL, NULL);
+		return CreateInstruction(module, source, type, cmd, first, NULL, NULL, NULL);
 	}
 
-	VmInstruction* CreateInstruction(VmModule *module, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second)
+	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second)
 	{
-		return CreateInstruction(module, type, cmd, first, second, NULL, NULL);
+		return CreateInstruction(module, source, type, cmd, first, second, NULL, NULL);
 	}
 
-	VmInstruction* CreateInstruction(VmModule *module, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third)
+	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third)
 	{
-		return CreateInstruction(module, type, cmd, first, second, third, NULL);
+		return CreateInstruction(module, source, type, cmd, first, second, third, NULL);
 	}
 
-	VmValue* CreateLoad(ExpressionContext &ctx, VmModule *module, TypeBase *type, VmValue *address)
+	VmValue* CreateLoad(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, VmValue *address)
 	{
 		if(type == ctx.typeBool || type == ctx.typeChar)
-			return CreateInstruction(module, VmType::Int, VM_INST_LOAD_BYTE, address);
+			return CreateInstruction(module, source, VmType::Int, VM_INST_LOAD_BYTE, address);
 
 		if(type == ctx.typeShort)
-			return CreateInstruction(module, VmType::Int, VM_INST_LOAD_SHORT, address);
+			return CreateInstruction(module, source, VmType::Int, VM_INST_LOAD_SHORT, address);
 
 		if(type == ctx.typeInt)
-			return CreateInstruction(module, VmType::Int, VM_INST_LOAD_INT, address);
+			return CreateInstruction(module, source, VmType::Int, VM_INST_LOAD_INT, address);
 
 		if(type == ctx.typeFloat)
-			return CreateInstruction(module, VmType::Double, VM_INST_LOAD_FLOAT, address);
+			return CreateInstruction(module, source, VmType::Double, VM_INST_LOAD_FLOAT, address);
 
 		if(type == ctx.typeDouble)
-			return CreateInstruction(module, VmType::Double, VM_INST_LOAD_DOUBLE, address);
+			return CreateInstruction(module, source, VmType::Double, VM_INST_LOAD_DOUBLE, address);
 
 		if(type == ctx.typeLong)
-			return CreateInstruction(module, VmType::Long, VM_INST_LOAD_LONG, address);
+			return CreateInstruction(module, source, VmType::Long, VM_INST_LOAD_LONG, address);
 
 		if(isType<TypeRef>(type))
-			return CreateInstruction(module, VmType::Pointer(type), VM_INST_LOAD_POINTER, address);
+			return CreateInstruction(module, source, VmType::Pointer(type), VM_INST_LOAD_POINTER, address);
 
 		if(isType<TypeFunction>(type))
-			return CreateInstruction(module, VmType::FunctionRef(type), VM_INST_LOAD_STRUCT, address);
+			return CreateInstruction(module, source, VmType::FunctionRef(type), VM_INST_LOAD_STRUCT, address);
 
 		if(isType<TypeUnsizedArray>(type))
-			return CreateInstruction(module, VmType::ArrayRef(type), VM_INST_LOAD_STRUCT, address);
+			return CreateInstruction(module, source, VmType::ArrayRef(type), VM_INST_LOAD_STRUCT, address);
 
 		if(type == ctx.typeAutoRef)
-			return CreateInstruction(module, VmType::AutoRef, VM_INST_LOAD_STRUCT, address);
+			return CreateInstruction(module, source, VmType::AutoRef, VM_INST_LOAD_STRUCT, address);
 
 		if(type == ctx.typeAutoArray)
-			return CreateInstruction(module, VmType::AutoArray, VM_INST_LOAD_STRUCT, address);
+			return CreateInstruction(module, source, VmType::AutoArray, VM_INST_LOAD_STRUCT, address);
 
 		if(isType<TypeTypeID>(type) || isType<TypeFunctionID>(type) || isType<TypeEnum>(type))
-			return CreateInstruction(module, VmType::Int, VM_INST_LOAD_INT, address);
+			return CreateInstruction(module, source, VmType::Int, VM_INST_LOAD_INT, address);
 
 		if(type->size == 0)
 			return CreateConstantInt(module->allocator, 0);
@@ -219,42 +219,42 @@ namespace
 		assert(type->size != 0);
 		assert(type->size < NULLC_MAX_TYPE_SIZE);
 
-		return CreateInstruction(module, VmType::Struct(type->size, type), VM_INST_LOAD_STRUCT, address);
+		return CreateInstruction(module, source, VmType::Struct(type->size, type), VM_INST_LOAD_STRUCT, address);
 	}
 
-	VmValue* CreateStore(ExpressionContext &ctx, VmModule *module, TypeBase *type, VmValue *address, VmValue *value)
+	VmValue* CreateStore(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, VmValue *address, VmValue *value)
 	{
 		assert(value->type == GetVmType(ctx, type));
 
 		if(type == ctx.typeBool || type == ctx.typeChar)
-			return CreateInstruction(module, VmType::Void, VM_INST_STORE_BYTE, address, value);
+			return CreateInstruction(module, source, VmType::Void, VM_INST_STORE_BYTE, address, value);
 
 		if(type == ctx.typeShort)
-			return CreateInstruction(module, VmType::Void, VM_INST_STORE_SHORT, address, value);
+			return CreateInstruction(module, source, VmType::Void, VM_INST_STORE_SHORT, address, value);
 
 		if(type == ctx.typeInt)
-			return CreateInstruction(module, VmType::Void, VM_INST_STORE_INT, address, value);
+			return CreateInstruction(module, source, VmType::Void, VM_INST_STORE_INT, address, value);
 
 		if(type == ctx.typeFloat)
-			return CreateInstruction(module, VmType::Void, VM_INST_STORE_FLOAT, address, value);
+			return CreateInstruction(module, source, VmType::Void, VM_INST_STORE_FLOAT, address, value);
 
 		if(type == ctx.typeDouble)
-			return CreateInstruction(module, VmType::Void, VM_INST_STORE_DOUBLE, address, value);
+			return CreateInstruction(module, source, VmType::Void, VM_INST_STORE_DOUBLE, address, value);
 
 		if(type == ctx.typeLong)
-			return CreateInstruction(module, VmType::Void, VM_INST_STORE_LONG, address, value);
+			return CreateInstruction(module, source, VmType::Void, VM_INST_STORE_LONG, address, value);
 
 		if(isType<TypeRef>(type))
-			return CreateInstruction(module, VmType::Void, VM_INST_STORE_POINTER, address, value);
+			return CreateInstruction(module, source, VmType::Void, VM_INST_STORE_POINTER, address, value);
 
 		if(isType<TypeEnum>(type))
-			return CreateInstruction(module, VmType::Void, VM_INST_STORE_INT, address, value);
+			return CreateInstruction(module, source, VmType::Void, VM_INST_STORE_INT, address, value);
 
 		if(isType<TypeFunction>(type) || isType<TypeUnsizedArray>(type) || type == ctx.typeAutoRef || type == ctx.typeAutoArray)
-			return CreateInstruction(module, VmType::Void, VM_INST_STORE_STRUCT, address, value);
+			return CreateInstruction(module, source, VmType::Void, VM_INST_STORE_STRUCT, address, value);
 
 		if(isType<TypeTypeID>(type) || isType<TypeFunctionID>(type) || isType<TypeEnum>(type))
-			return CreateInstruction(module, VmType::Void, VM_INST_STORE_INT, address, value);
+			return CreateInstruction(module, source, VmType::Void, VM_INST_STORE_INT, address, value);
 
 		if(type->size == 0)
 			return CreateVoid(module);
@@ -264,10 +264,10 @@ namespace
 		assert(type->size < NULLC_MAX_TYPE_SIZE);
 		assert(value->type.type == VM_TYPE_STRUCT);
 
-		return CreateInstruction(module, VmType::Void, VM_INST_STORE_STRUCT, address, value);
+		return CreateInstruction(module, source, VmType::Void, VM_INST_STORE_STRUCT, address, value);
 	}
 
-	VmValue* CreateCast(VmModule *module, VmValue *value, VmType target)
+	VmValue* CreateCast(VmModule *module, SynBase *source, VmValue *value, VmType target)
 	{
 		if(target == value->type)
 			return value;
@@ -275,26 +275,26 @@ namespace
 		if(target == VmType::Int)
 		{
 			if(value->type == VmType::Double)
-				return CreateInstruction(module, target, VM_INST_DOUBLE_TO_INT, value);
+				return CreateInstruction(module, source, target, VM_INST_DOUBLE_TO_INT, value);
 
 			if(value->type == VmType::Long)
-				return CreateInstruction(module, target, VM_INST_LONG_TO_INT, value);
+				return CreateInstruction(module, source, target, VM_INST_LONG_TO_INT, value);
 		}
 		else if(target == VmType::Double)
 		{
 			if(value->type == VmType::Int)
-				return CreateInstruction(module, target, VM_INST_INT_TO_DOUBLE, value);
+				return CreateInstruction(module, source, target, VM_INST_INT_TO_DOUBLE, value);
 
 			if(value->type == VmType::Long)
-				return CreateInstruction(module, target, VM_INST_LONG_TO_DOUBLE, value);
+				return CreateInstruction(module, source, target, VM_INST_LONG_TO_DOUBLE, value);
 		}
 		else if(target == VmType::Long)
 		{
 			if(value->type == VmType::Int)
-				return CreateInstruction(module, target, VM_INST_INT_TO_LONG, value);
+				return CreateInstruction(module, source, target, VM_INST_INT_TO_LONG, value);
 
 			if(value->type == VmType::Double)
-				return CreateInstruction(module, target, VM_INST_DOUBLE_TO_LONG, value);
+				return CreateInstruction(module, source, target, VM_INST_DOUBLE_TO_LONG, value);
 		}
 
 		assert(!"unknown cast");
@@ -302,245 +302,245 @@ namespace
 		return CreateVoid(module);
 	}
 
-	VmValue* CreateIndex(VmModule *module, VmValue *arrayLength, VmValue *elementSize, VmValue *value, VmValue *index, TypeBase *structType)
+	VmValue* CreateIndex(VmModule *module, SynBase *source, VmValue *arrayLength, VmValue *elementSize, VmValue *value, VmValue *index, TypeBase *structType)
 	{
 		assert(arrayLength->type == VmType::Int);
 		assert(elementSize->type == VmType::Int);
 		assert(value->type.type == VM_TYPE_POINTER);
 		assert(index->type == VmType::Int);
 
-		return CreateInstruction(module, VmType::Pointer(structType), VM_INST_INDEX, arrayLength, elementSize, value, index);
+		return CreateInstruction(module, source, VmType::Pointer(structType), VM_INST_INDEX, arrayLength, elementSize, value, index);
 	}
 
-	VmValue* CreateIndexUnsized(VmModule *module, VmValue *elementSize, VmValue *value, VmValue *index, TypeBase *structType)
+	VmValue* CreateIndexUnsized(VmModule *module, SynBase *source, VmValue *elementSize, VmValue *value, VmValue *index, TypeBase *structType)
 	{
 		assert(value->type.type == VM_TYPE_ARRAY_REF);
 		assert(elementSize->type == VmType::Int);
 		assert(index->type == VmType::Int);
 
-		return CreateInstruction(module, VmType::Pointer(structType), VM_INST_INDEX_UNSIZED, elementSize, value, index);
+		return CreateInstruction(module, source, VmType::Pointer(structType), VM_INST_INDEX_UNSIZED, elementSize, value, index);
 	}
 
-	VmValue* CreateMemberAccess(VmModule *module, VmValue *ptr, VmValue *shift, TypeBase *structType, InplaceStr name)
+	VmValue* CreateMemberAccess(VmModule *module, SynBase *source, VmValue *ptr, VmValue *shift, TypeBase *structType, InplaceStr name)
 	{
 		assert(ptr->type.type == VM_TYPE_POINTER);
 		assert(shift->type == VmType::Int);
 
-		VmInstruction *inst = CreateInstruction(module, VmType::Pointer(structType), VM_INST_ADD, ptr, shift);
+		VmInstruction *inst = CreateInstruction(module, source, VmType::Pointer(structType), VM_INST_ADD, ptr, shift);
 
 		inst->comment = name;
 
 		return inst;
 	}
 
-	VmValue* CreateAdd(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateAdd(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, lhs->type, VM_INST_ADD, lhs, rhs);
+		return CreateInstruction(module, source, lhs->type, VM_INST_ADD, lhs, rhs);
 	}
 
-	VmValue* CreateSub(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateSub(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, lhs->type, VM_INST_SUB, lhs, rhs);
+		return CreateInstruction(module, source, lhs->type, VM_INST_SUB, lhs, rhs);
 	}
 
-	VmValue* CreateMul(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateMul(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, lhs->type, VM_INST_MUL, lhs, rhs);
+		return CreateInstruction(module, source, lhs->type, VM_INST_MUL, lhs, rhs);
 	}
 
-	VmValue* CreateDiv(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateDiv(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, lhs->type, VM_INST_DIV, lhs, rhs);
+		return CreateInstruction(module, source, lhs->type, VM_INST_DIV, lhs, rhs);
 	}
 
-	VmValue* CreatePow(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreatePow(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, lhs->type, VM_INST_POW, lhs, rhs);
+		return CreateInstruction(module, source, lhs->type, VM_INST_POW, lhs, rhs);
 	}
 
-	VmValue* CreateMod(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateMod(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, lhs->type, VM_INST_MOD, lhs, rhs);
+		return CreateInstruction(module, source, lhs->type, VM_INST_MOD, lhs, rhs);
 	}
 
-	VmValue* CreateCompareLess(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateCompareLess(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, VmType::Int, VM_INST_LESS, lhs, rhs);
+		return CreateInstruction(module, source, VmType::Int, VM_INST_LESS, lhs, rhs);
 	}
 
-	VmValue* CreateCompareGreater(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateCompareGreater(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, VmType::Int, VM_INST_GREATER, lhs, rhs);
+		return CreateInstruction(module, source, VmType::Int, VM_INST_GREATER, lhs, rhs);
 	}
 
-	VmValue* CreateCompareLessEqual(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateCompareLessEqual(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, VmType::Int, VM_INST_LESS_EQUAL, lhs, rhs);
+		return CreateInstruction(module, source, VmType::Int, VM_INST_LESS_EQUAL, lhs, rhs);
 	}
 
-	VmValue* CreateCompareGreaterEqual(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateCompareGreaterEqual(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, VmType::Int, VM_INST_GREATER_EQUAL, lhs, rhs);
+		return CreateInstruction(module, source, VmType::Int, VM_INST_GREATER_EQUAL, lhs, rhs);
 	}
 
-	VmValue* CreateCompareEqual(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateCompareEqual(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long || lhs->type.type == VM_TYPE_POINTER);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, VmType::Int, VM_INST_EQUAL, lhs, rhs);
+		return CreateInstruction(module, source, VmType::Int, VM_INST_EQUAL, lhs, rhs);
 	}
 
-	VmValue* CreateCompareNotEqual(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateCompareNotEqual(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Double || lhs->type == VmType::Long || lhs->type.type == VM_TYPE_POINTER);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, VmType::Int, VM_INST_NOT_EQUAL, lhs, rhs);
+		return CreateInstruction(module, source, VmType::Int, VM_INST_NOT_EQUAL, lhs, rhs);
 	}
 
-	VmValue* CreateShl(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateShl(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, lhs->type, VM_INST_SHL, lhs, rhs);
+		return CreateInstruction(module, source, lhs->type, VM_INST_SHL, lhs, rhs);
 	}
 
-	VmValue* CreateShr(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateShr(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, lhs->type, VM_INST_SHR, lhs, rhs);
+		return CreateInstruction(module, source, lhs->type, VM_INST_SHR, lhs, rhs);
 	}
 
-	VmValue* CreateAnd(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateAnd(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, lhs->type, VM_INST_BIT_AND, lhs, rhs);
+		return CreateInstruction(module, source, lhs->type, VM_INST_BIT_AND, lhs, rhs);
 	}
 
-	VmValue* CreateOr(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateOr(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, lhs->type, VM_INST_BIT_OR, lhs, rhs);
+		return CreateInstruction(module, source, lhs->type, VM_INST_BIT_OR, lhs, rhs);
 	}
 
-	VmValue* CreateXor(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateXor(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, lhs->type, VM_INST_BIT_XOR, lhs, rhs);
+		return CreateInstruction(module, source, lhs->type, VM_INST_BIT_XOR, lhs, rhs);
 	}
 
-	VmValue* CreateLogicalXor(VmModule *module, VmValue *lhs, VmValue *rhs)
+	VmValue* CreateLogicalXor(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
 	{
 		assert(lhs->type == VmType::Int || lhs->type == VmType::Long);
 		assert(lhs->type == rhs->type);
 
-		return CreateInstruction(module, VmType::Int, VM_INST_LOG_XOR, lhs, rhs);
+		return CreateInstruction(module, source, VmType::Int, VM_INST_LOG_XOR, lhs, rhs);
 	}
 
-	VmValue* CreateNeg(VmModule *module, VmValue *value)
+	VmValue* CreateNeg(VmModule *module, SynBase *source, VmValue *value)
 	{
 		assert(value->type == VmType::Int || value->type == VmType::Double || value->type == VmType::Long);
 
-		return CreateInstruction(module, value->type, VM_INST_NEG, value);
+		return CreateInstruction(module, source, value->type, VM_INST_NEG, value);
 	}
 
-	VmValue* CreateNot(VmModule *module, VmValue *value)
+	VmValue* CreateNot(VmModule *module, SynBase *source, VmValue *value)
 	{
 		assert(value->type == VmType::Int || value->type == VmType::Long);
 
-		return CreateInstruction(module, value->type, VM_INST_BIT_NOT, value);
+		return CreateInstruction(module, source, value->type, VM_INST_BIT_NOT, value);
 	}
 
-	VmValue* CreateLogicalNot(VmModule *module, VmValue *value)
+	VmValue* CreateLogicalNot(VmModule *module, SynBase *source, VmValue *value)
 	{
 		assert(value->type == VmType::Int || value->type == VmType::Long || value->type.type == VM_TYPE_POINTER);
 
-		return CreateInstruction(module, VmType::Int, VM_INST_LOG_NOT, value);
+		return CreateInstruction(module, source, VmType::Int, VM_INST_LOG_NOT, value);
 	}
 
-	VmValue* CreateJump(VmModule *module, VmValue *label)
+	VmValue* CreateJump(VmModule *module, SynBase *source, VmValue *label)
 	{
 		assert(label->type == VmType::Block);
 
-		return CreateInstruction(module, VmType::Void, VM_INST_JUMP, label);
+		return CreateInstruction(module, source, VmType::Void, VM_INST_JUMP, label);
 	}
 
-	VmValue* CreateJumpZero(VmModule *module, VmValue *value, VmValue *trueLabel, VmValue *falseLabel)
+	VmValue* CreateJumpZero(VmModule *module, SynBase *source, VmValue *value, VmValue *trueLabel, VmValue *falseLabel)
 	{
 		assert(value->type == VmType::Int);
 		assert(trueLabel->type == VmType::Block);
 		assert(falseLabel->type == VmType::Block);
 
-		return CreateInstruction(module, VmType::Void, VM_INST_JUMP_Z, value, trueLabel, falseLabel);
+		return CreateInstruction(module, source, VmType::Void, VM_INST_JUMP_Z, value, trueLabel, falseLabel);
 	}
 
-	VmValue* CreateJumpNotZero(VmModule *module, VmValue *value, VmValue *trueLabel, VmValue *falseLabel)
+	VmValue* CreateJumpNotZero(VmModule *module, SynBase *source, VmValue *value, VmValue *trueLabel, VmValue *falseLabel)
 	{
 		assert(value->type == VmType::Int);
 		assert(trueLabel->type == VmType::Block);
 		assert(falseLabel->type == VmType::Block);
 
-		return CreateInstruction(module, VmType::Void, VM_INST_JUMP_NZ, value, trueLabel, falseLabel);
+		return CreateInstruction(module, source, VmType::Void, VM_INST_JUMP_NZ, value, trueLabel, falseLabel);
 	}
 
-	VmValue* CreateReturn(VmModule *module)
+	VmValue* CreateReturn(VmModule *module, SynBase *source)
 	{
-		return CreateInstruction(module, VmType::Void, VM_INST_RETURN);
+		return CreateInstruction(module, source, VmType::Void, VM_INST_RETURN);
 	}
 
-	VmValue* CreateReturn(VmModule *module, VmValue *value)
+	VmValue* CreateReturn(VmModule *module, SynBase *source, VmValue *value)
 	{
-		return CreateInstruction(module, VmType::Void, VM_INST_RETURN, value);
+		return CreateInstruction(module, source, VmType::Void, VM_INST_RETURN, value);
 	}
 
-	VmValue* CreateYield(VmModule *module)
+	VmValue* CreateYield(VmModule *module, SynBase *source)
 	{
-		return CreateInstruction(module, VmType::Void, VM_INST_YIELD);
+		return CreateInstruction(module, source, VmType::Void, VM_INST_YIELD);
 	}
 
-	VmValue* CreateYield(VmModule *module, VmValue *value)
+	VmValue* CreateYield(VmModule *module, SynBase *source, VmValue *value)
 	{
-		return CreateInstruction(module, VmType::Void, VM_INST_YIELD, value);
+		return CreateInstruction(module, source, VmType::Void, VM_INST_YIELD, value);
 	}
 
 	VmValue* CreateVariableAddress(VmModule *module, VariableData *variable, TypeBase *structType)
@@ -552,22 +552,22 @@ namespace
 		return value;
 	}
 
-	VmValue* CreateTypeIndex(VmModule *module, TypeBase *type)
+	VmValue* CreateTypeIndex(VmModule *module, SynBase *source, TypeBase *type)
 	{
-		return CreateInstruction(module, VmType::Int, VM_INST_TYPE_ID, CreateConstantInt(module->allocator, type->typeIndex));
+		return CreateInstruction(module, source, VmType::Int, VM_INST_TYPE_ID, CreateConstantInt(module->allocator, type->typeIndex));
 	}
 
-	VmValue* CreateFunctionAddress(VmModule *module, FunctionData *function)
+	VmValue* CreateFunctionAddress(VmModule *module, SynBase *source, FunctionData *function)
 	{
-		return CreateInstruction(module, VmType::Int, VM_INST_FUNCTION_ADDRESS, CreateConstantInt(module->allocator, function->functionIndex));
+		return CreateInstruction(module, source, VmType::Int, VM_INST_FUNCTION_ADDRESS, CreateConstantInt(module->allocator, function->functionIndex));
 	}
 
-	VmValue* CreateConvertPtr(VmModule *module, VmValue *ptr, TypeBase *type, TypeBase *structType)
+	VmValue* CreateConvertPtr(VmModule *module, SynBase *source, VmValue *ptr, TypeBase *type, TypeBase *structType)
 	{
-		return CreateInstruction(module, VmType::Pointer(structType), VM_INST_CONVERT_POINTER, ptr, CreateConstantInt(module->allocator, type->typeIndex));
+		return CreateInstruction(module, source, VmType::Pointer(structType), VM_INST_CONVERT_POINTER, ptr, CreateConstantInt(module->allocator, type->typeIndex));
 	}
 
-	VmValue* CreateConstruct(VmModule *module, VmType type, VmValue *el0, VmValue *el1, VmValue *el2, VmValue *el3)
+	VmValue* CreateConstruct(VmModule *module, SynBase *source, VmType type, VmValue *el0, VmValue *el1, VmValue *el2, VmValue *el3)
 	{
 		unsigned size = el0->type.size;
 
@@ -582,28 +582,28 @@ namespace
 
 		assert(type.size == size);
 
-		return CreateInstruction(module, type, VM_INST_CONSTRUCT, el0, el1, el2, el3);
+		return CreateInstruction(module, source, type, VM_INST_CONSTRUCT, el0, el1, el2, el3);
 	}
 
-	VmValue* CreateExtract(VmModule *module, VmType type, VmValue *value, unsigned offset)
+	VmValue* CreateExtract(VmModule *module, SynBase *source, VmType type, VmValue *value, unsigned offset)
 	{
 		assert(offset + type.size <= value->type.size);
 
-		return CreateInstruction(module, type, VM_INST_EXTRACT, value, CreateConstantInt(module->allocator, offset));
+		return CreateInstruction(module, source, type, VM_INST_EXTRACT, value, CreateConstantInt(module->allocator, offset));
 	}
 
-	VmValue* CreateLoadImmediate(VmModule *module, VmConstant *value)
+	VmValue* CreateLoadImmediate(VmModule *module, SynBase *source, VmConstant *value)
 	{
-		return CreateInstruction(module, value->type, VM_INST_LOAD_IMMEDIATE, value);
+		return CreateInstruction(module, source, value->type, VM_INST_LOAD_IMMEDIATE, value);
 	}
 
-	VmValue* CreatePhi(VmModule *module, VmInstruction *valueA, VmInstruction *valueB)
+	VmValue* CreatePhi(VmModule *module, SynBase *source, VmInstruction *valueA, VmInstruction *valueB)
 	{
 		assert(valueA);
 		assert(valueB);
 		assert(valueA->type == valueB->type);
 
-		return CreateInstruction(module, valueA->type, VM_INST_PHI, valueA, valueA->parent, valueB, valueB->parent);
+		return CreateInstruction(module, source, valueA->type, VM_INST_PHI, valueA, valueA->parent, valueB, valueB->parent);
 	}
 
 	VmValue* CreateAlloca(ExpressionContext &ctx, VmModule *module, TypeBase *type, const char *suffix)
@@ -1386,7 +1386,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expression))
 	{
-		return CheckType(ctx, expression, CreateTypeIndex(module, node->value));
+		return CheckType(ctx, expression, CreateTypeIndex(module, node->source, node->value));
 	}
 	else if(ExprNullptrLiteral *node = getType<ExprNullptrLiteral>(expression))
 	{
@@ -1394,7 +1394,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprFunctionIndexLiteral *node = getType<ExprFunctionIndexLiteral>(expression))
 	{
-		return CheckType(ctx, expression, CreateFunctionAddress(module, node->function));
+		return CheckType(ctx, expression, CreateFunctionAddress(module, node->source, node->function));
 	}
 	else if(ExprPassthrough *node = getType<ExprPassthrough>(expression))
 	{
@@ -1404,7 +1404,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprArray *node = getType<ExprArray>(expression))
 	{
-		VmInstruction *inst = allocate(VmInstruction)(module->allocator, GetVmType(ctx, node->type), VM_INST_ARRAY, module->currentFunction->nextInstructionId++);
+		VmInstruction *inst = allocate(VmInstruction)(module->allocator, GetVmType(ctx, node->type), node->source, VM_INST_ARRAY, module->currentFunction->nextInstructionId++);
 
 		for(ExprBase *value = node->values.head; value; value = value->next)
 			inst->AddArgument(CompileVm(ctx, module, value));
@@ -1421,18 +1421,18 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		assert(refType);
 
-		VmValue *value = CreateLoad(ctx, module, refType->subType, address);
+		VmValue *value = CreateLoad(ctx, module, node->source, refType->subType, address);
 
 		if(value->type == VmType::Int)
-			value = CreateAdd(module, value, CreateConstantInt(module->allocator, node->isIncrement ? 1 : -1));
+			value = CreateAdd(module, node->source, value, CreateConstantInt(module->allocator, node->isIncrement ? 1 : -1));
 		else if(value->type == VmType::Double)
-			value = CreateAdd(module, value, CreateConstantDouble(module->allocator, node->isIncrement ? 1.0 : -1.0));
+			value = CreateAdd(module, node->source, value, CreateConstantDouble(module->allocator, node->isIncrement ? 1.0 : -1.0));
 		else if(value->type == VmType::Long)
-			value = CreateAdd(module, value, CreateConstantLong(module->allocator, node->isIncrement ? 1ll : -1ll));
+			value = CreateAdd(module, node->source, value, CreateConstantLong(module->allocator, node->isIncrement ? 1ll : -1ll));
 		else
 			assert("!unknown type");
 
-		CreateStore(ctx, module, refType->subType, address, value);
+		CreateStore(ctx, module, node->source, refType->subType, address, value);
 
 		return CheckType(ctx, expression, value);
 
@@ -1445,19 +1445,19 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		assert(refType);
 
-		VmValue *value = CreateLoad(ctx, module, refType->subType, address);
+		VmValue *value = CreateLoad(ctx, module, node->source, refType->subType, address);
 		VmValue *result = value;
 
 		if(value->type == VmType::Int)
-			value = CreateAdd(module, value, CreateConstantInt(module->allocator, node->isIncrement ? 1 : -1));
+			value = CreateAdd(module, node->source, value, CreateConstantInt(module->allocator, node->isIncrement ? 1 : -1));
 		else if(value->type == VmType::Double)
-			value = CreateAdd(module, value, CreateConstantDouble(module->allocator, node->isIncrement ? 1.0 : -1.0));
+			value = CreateAdd(module, node->source, value, CreateConstantDouble(module->allocator, node->isIncrement ? 1.0 : -1.0));
 		else if(value->type == VmType::Long)
-			value = CreateAdd(module, value, CreateConstantLong(module->allocator, node->isIncrement ? 1ll : -1ll));
+			value = CreateAdd(module, node->source, value, CreateConstantLong(module->allocator, node->isIncrement ? 1ll : -1ll));
 		else
 			assert("!unknown type");
 
-		CreateStore(ctx, module, refType->subType, address, value);
+		CreateStore(ctx, module, node->source, refType->subType, address, value);
 
 		return CheckType(ctx, expression, result);
 	}
@@ -1468,37 +1468,37 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		switch(node->category)
 		{
 		case EXPR_CAST_NUMERICAL:
-			return CheckType(ctx, expression, CreateCast(module, value, GetVmType(ctx, node->type)));
+			return CheckType(ctx, expression, CreateCast(module, node->source, value, GetVmType(ctx, node->type)));
 		case EXPR_CAST_PTR_TO_BOOL:
-			return CheckType(ctx, expression, CreateCompareNotEqual(module, value, CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false)));
+			return CheckType(ctx, expression, CreateCompareNotEqual(module, node->source, value, CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false)));
 		case EXPR_CAST_UNSIZED_TO_BOOL:
 			{
 				TypeUnsizedArray *unsizedArrType = getType<TypeUnsizedArray>(node->value->type);
 
 				assert(unsizedArrType);
 
-				VmValue *ptr = CreateExtract(module, VmType::Pointer(ctx.GetReferenceType(unsizedArrType->subType)), value, 0);
+				VmValue *ptr = CreateExtract(module, node->source, VmType::Pointer(ctx.GetReferenceType(unsizedArrType->subType)), value, 0);
 
-				return CheckType(ctx, expression, CreateCompareNotEqual(module, ptr, CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false)));
+				return CheckType(ctx, expression, CreateCompareNotEqual(module, node->source, ptr, CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false)));
 			}
 			break;
 		case EXPR_CAST_FUNCTION_TO_BOOL:
 			{
-				VmValue *index = CreateExtract(module, VmType::Int, value, sizeof(void*));
+				VmValue *index = CreateExtract(module, node->source, VmType::Int, value, sizeof(void*));
 
-				return CheckType(ctx, expression, CreateCompareNotEqual(module, index, CreateConstantInt(module->allocator, 0)));
+				return CheckType(ctx, expression, CreateCompareNotEqual(module, node->source, index, CreateConstantInt(module->allocator, 0)));
 			}
 			break;
 		case EXPR_CAST_NULL_TO_PTR:
 			return CheckType(ctx, expression, CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false));
 		case EXPR_CAST_NULL_TO_AUTO_PTR:
-			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantInt(module->allocator, 0), CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), NULL, NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, node->source, GetVmType(ctx, node->type), CreateConstantInt(module->allocator, 0), CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), NULL, NULL));
 		case EXPR_CAST_NULL_TO_UNSIZED:
-			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, 0), NULL, NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, node->source, GetVmType(ctx, node->type), CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, 0), NULL, NULL));
 		case EXPR_CAST_NULL_TO_AUTO_ARRAY:
-			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantInt(module->allocator, 0), CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, 0), NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, node->source, GetVmType(ctx, node->type), CreateConstantInt(module->allocator, 0), CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, 0), NULL));
 		case EXPR_CAST_NULL_TO_FUNCTION:
-			return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, 0), NULL, NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, node->source, GetVmType(ctx, node->type), CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, 0), NULL, NULL));
 		case EXPR_CAST_ARRAY_PTR_TO_UNSIZED:
 			{
 				TypeRef *refType = getType<TypeRef>(node->value->type);
@@ -1510,7 +1510,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 				assert(arrType);
 				assert(unsigned(arrType->length) == arrType->length);
 
-				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), value, CreateConstantInt(module->allocator, unsigned(arrType->length)), NULL, NULL));
+				return CheckType(ctx, expression, CreateConstruct(module, node->source, GetVmType(ctx, node->type), value, CreateConstantInt(module->allocator, unsigned(arrType->length)), NULL, NULL));
 			}
 			break;
 		case EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR:
@@ -1530,7 +1530,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 				VmValue *address = CreateAlloca(ctx, module, targetRefType->subType, "arr_ptr");
 
-				CreateStore(ctx, module, targetRefType->subType, address, CreateConstruct(module, GetVmType(ctx, targetRefType->subType), address, CreateConstantInt(module->allocator, unsigned(arrType->length)), NULL, NULL));
+				CreateStore(ctx, module, node->source, targetRefType->subType, address, CreateConstruct(module, node->source, GetVmType(ctx, targetRefType->subType), address, CreateConstantInt(module->allocator, unsigned(arrType->length)), NULL, NULL));
 
 				return CheckType(ctx, expression, address);
 			}
@@ -1546,18 +1546,18 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 				VmValue *typeId = NULL;
 
 				if(classType && (classType->extendable || classType->baseClass))
-					typeId = CreateLoad(ctx, module, ctx.typeTypeID, value);
+					typeId = CreateLoad(ctx, module, node->source, ctx.typeTypeID, value);
 				else
-					typeId = CreateTypeIndex(module, refType->subType);
+					typeId = CreateTypeIndex(module, node->source, refType->subType);
 
-				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), typeId, value, NULL, NULL));
+				return CheckType(ctx, expression, CreateConstruct(module, node->source, GetVmType(ctx, node->type), typeId, value, NULL, NULL));
 			}
 			break;
 		case EXPR_CAST_ANY_TO_PTR:
 			{
 				VmValue *address = CreateAlloca(ctx, module, node->value->type, "lit");
 
-				CreateStore(ctx, module, node->value->type, address, value);
+				CreateStore(ctx, module, node->source, node->value->type, address, value);
 
 				return CheckType(ctx, expression, address);
 			}
@@ -1568,7 +1568,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 				assert(refType);
 
-				return CheckType(ctx, expression, CreateConvertPtr(module, value, refType->subType, ctx.GetReferenceType(refType->subType)));
+				return CheckType(ctx, expression, CreateConvertPtr(module, node->source, value, refType->subType, ctx.GetReferenceType(refType->subType)));
 			}
 		case EXPR_CAST_UNSIZED_TO_AUTO_ARRAY:
 			{
@@ -1576,15 +1576,15 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 				assert(unsizedType);
 
-				return CheckType(ctx, expression, CreateConstruct(module, GetVmType(ctx, node->type), CreateTypeIndex(module, unsizedType->subType), value, NULL, NULL));
+				return CheckType(ctx, expression, CreateConstruct(module, node->source, GetVmType(ctx, node->type), CreateTypeIndex(module, node->source, unsizedType->subType), value, NULL, NULL));
 			}
 		case EXPR_CAST_DERIVED_TO_BASE:
 			{
 				VmValue *address = CreateAlloca(ctx, module, node->value->type, "derived");
 
-				CreateStore(ctx, module, node->value->type, address, value);
+				CreateStore(ctx, module, node->source, node->value->type, address, value);
 
-				VmValue *result = CreateLoad(ctx, module, node->type, address);
+				VmValue *result = CreateLoad(ctx, module, node->source, node->type, address);
 
 				return CheckType(ctx, expression, result);
 			}
@@ -1608,19 +1608,19 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			result = value;
 			break;
 		case SYN_UNARY_OP_NEGATE:
-			result = CreateNeg(module, value);
+			result = CreateNeg(module, node->source, value);
 			break;
 		case SYN_UNARY_OP_BIT_NOT:
-			result = CreateNot(module, value);
+			result = CreateNot(module, node->source, value);
 			break;
 		case SYN_UNARY_OP_LOGICAL_NOT:
 			if(value->type == VmType::AutoRef)
 			{
-				result = CreateLogicalNot(module, CreateExtract(module, VmType::Pointer(ctx.GetReferenceType(ctx.typeVoid)), value, 4));
+				result = CreateLogicalNot(module, node->source, CreateExtract(module, node->source, VmType::Pointer(ctx.GetReferenceType(ctx.typeVoid)), value, 4));
 			}
 			else
 			{
-				result = CreateLogicalNot(module, value);
+				result = CreateLogicalNot(module, node->source, value);
 			}
 			break;
 		}
@@ -1640,33 +1640,33 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			VmBlock *storeZeroBlock = CreateBlock(module, "land_store_0");
 			VmBlock *exitBlock = CreateBlock(module, "land_exit");
 
-			CreateJumpZero(module, lhs, storeZeroBlock, checkRhsBlock);
+			CreateJumpZero(module, node->source, lhs, storeZeroBlock, checkRhsBlock);
 
 			module->currentFunction->AddBlock(checkRhsBlock);
 			module->currentBlock = checkRhsBlock;
 
 			VmValue *rhs = CompileVm(ctx, module, node->rhs);
 
-			CreateJumpZero(module, rhs, storeZeroBlock, storeOneBlock);
+			CreateJumpZero(module, node->source, rhs, storeZeroBlock, storeOneBlock);
 
 			module->currentFunction->AddBlock(storeOneBlock);
 			module->currentBlock = storeOneBlock;
 
-			VmValue *trueValue = CreateLoadImmediate(module, CreateConstantInt(module->allocator, 1));
+			VmValue *trueValue = CreateLoadImmediate(module, node->source, CreateConstantInt(module->allocator, 1));
 
-			CreateJump(module, exitBlock);
+			CreateJump(module, node->source, exitBlock);
 
 			module->currentFunction->AddBlock(storeZeroBlock);
 			module->currentBlock = storeZeroBlock;
 
-			VmValue *falseValue = CreateLoadImmediate(module, CreateConstantInt(module->allocator, 0));
+			VmValue *falseValue = CreateLoadImmediate(module, node->source, CreateConstantInt(module->allocator, 0));
 
-			CreateJump(module, exitBlock);
+			CreateJump(module, node->source, exitBlock);
 
 			module->currentFunction->AddBlock(exitBlock);
 			module->currentBlock = exitBlock;
 
-			VmValue *phi = CreatePhi(module, getType<VmInstruction>(trueValue), getType<VmInstruction>(falseValue));
+			VmValue *phi = CreatePhi(module, node->source, getType<VmInstruction>(trueValue), getType<VmInstruction>(falseValue));
 
 			return CheckType(ctx, expression, phi);
 		}
@@ -1678,33 +1678,33 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			VmBlock *storeZeroBlock = CreateBlock(module, "lor_store_0");
 			VmBlock *exitBlock = CreateBlock(module, "lor_exit");
 
-			CreateJumpNotZero(module, lhs, storeOneBlock, checkRhsBlock);
+			CreateJumpNotZero(module, node->source, lhs, storeOneBlock, checkRhsBlock);
 
 			module->currentFunction->AddBlock(checkRhsBlock);
 			module->currentBlock = checkRhsBlock;
 
 			VmValue *rhs = CompileVm(ctx, module, node->rhs);
 
-			CreateJumpNotZero(module, rhs, storeOneBlock, storeZeroBlock);
+			CreateJumpNotZero(module, node->source, rhs, storeOneBlock, storeZeroBlock);
 
 			module->currentFunction->AddBlock(storeOneBlock);
 			module->currentBlock = storeOneBlock;
 
-			VmValue *trueValue = CreateLoadImmediate(module, CreateConstantInt(module->allocator, 1));
+			VmValue *trueValue = CreateLoadImmediate(module, node->source, CreateConstantInt(module->allocator, 1));
 
-			CreateJump(module, exitBlock);
+			CreateJump(module, node->source, exitBlock);
 
 			module->currentFunction->AddBlock(storeZeroBlock);
 			module->currentBlock = storeZeroBlock;
 
-			VmValue *falseValue = CreateLoadImmediate(module, CreateConstantInt(module->allocator, 0));
+			VmValue *falseValue = CreateLoadImmediate(module, node->source, CreateConstantInt(module->allocator, 0));
 
-			CreateJump(module, exitBlock);
+			CreateJump(module, node->source, exitBlock);
 
 			module->currentFunction->AddBlock(exitBlock);
 			module->currentBlock = exitBlock;
 
-			VmValue *phi = CreatePhi(module, getType<VmInstruction>(trueValue), getType<VmInstruction>(falseValue));
+			VmValue *phi = CreatePhi(module, node->source, getType<VmInstruction>(trueValue), getType<VmInstruction>(falseValue));
 
 			return CheckType(ctx, expression, phi);
 		}
@@ -1716,58 +1716,58 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		switch(node->op)
 		{
 		case SYN_BINARY_OP_ADD:
-			result = CreateAdd(module, lhs, rhs);
+			result = CreateAdd(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_SUB:
-			result = CreateSub(module, lhs, rhs);
+			result = CreateSub(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_MUL:
-			result = CreateMul(module, lhs, rhs);
+			result = CreateMul(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_DIV:
-			result = CreateDiv(module, lhs, rhs);
+			result = CreateDiv(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_MOD:
-			result = CreateMod(module, lhs, rhs);
+			result = CreateMod(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_POW:
-			result = CreatePow(module, lhs, rhs);
+			result = CreatePow(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_SHL:
-			result = CreateShl(module, lhs, rhs);
+			result = CreateShl(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_SHR:
-			result = CreateShr(module, lhs, rhs);
+			result = CreateShr(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_LESS:
-			result = CreateCompareLess(module, lhs, rhs);
+			result = CreateCompareLess(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_LESS_EQUAL:
-			result = CreateCompareLessEqual(module, lhs, rhs);
+			result = CreateCompareLessEqual(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_GREATER:
-			result = CreateCompareGreater(module, lhs, rhs);
+			result = CreateCompareGreater(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_GREATER_EQUAL:
-			result = CreateCompareGreaterEqual(module, lhs, rhs);
+			result = CreateCompareGreaterEqual(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_EQUAL:
-			result = CreateCompareEqual(module, lhs, rhs);
+			result = CreateCompareEqual(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_NOT_EQUAL:
-			result = CreateCompareNotEqual(module, lhs, rhs);
+			result = CreateCompareNotEqual(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_BIT_AND:
-			result = CreateAnd(module, lhs, rhs);
+			result = CreateAnd(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_BIT_OR:
-			result = CreateOr(module, lhs, rhs);
+			result = CreateOr(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_BIT_XOR:
-			result = CreateXor(module, lhs, rhs);
+			result = CreateXor(module, node->source, lhs, rhs);
 			break;
 		case SYN_BINARY_OP_LOGICAL_XOR:
-			result = CreateLogicalXor(module, lhs, rhs);
+			result = CreateLogicalXor(module, node->source, lhs, rhs);
 			break;
 		}
 
@@ -1788,7 +1788,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		assert(refType);
 		assert(refType->subType == node->type);
 
-		return CheckType(ctx, expression, CreateLoad(ctx, module, node->type, value));
+		return CheckType(ctx, expression, CreateLoad(ctx, module, node->source, node->type, value));
 	}
 	else if(ExprUnboxing *node = getType<ExprUnboxing>(expression))
 	{
@@ -1804,7 +1804,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmBlock *falseBlock = CreateBlock(module, "if_false");
 		VmBlock *exitBlock = CreateBlock(module, "if_exit");
 
-		CreateJumpNotZero(module, condition, trueBlock, falseBlock);
+		CreateJumpNotZero(module, node->source, condition, trueBlock, falseBlock);
 
 		module->currentFunction->AddBlock(trueBlock);
 		module->currentBlock = trueBlock;
@@ -1812,9 +1812,9 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmValue *trueValue = CompileVm(ctx, module, node->trueBlock);
 
 		if(VmConstant *constant = getType<VmConstant>(trueValue))
-			trueValue = CreateLoadImmediate(module, constant);
+			trueValue = CreateLoadImmediate(module, node->source, constant);
 
-		CreateJump(module, exitBlock);
+		CreateJump(module, node->source, exitBlock);
 
 		module->currentFunction->AddBlock(falseBlock);
 		module->currentBlock = falseBlock;
@@ -1822,14 +1822,14 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmValue *falseValue = CompileVm(ctx, module, node->falseBlock);
 
 		if(VmConstant *constant = getType<VmConstant>(falseValue))
-			falseValue = CreateLoadImmediate(module, constant);
+			falseValue = CreateLoadImmediate(module, node->source, constant);
 
-		CreateJump(module, exitBlock);
+		CreateJump(module, node->source, exitBlock);
 
 		module->currentFunction->AddBlock(exitBlock);
 		module->currentBlock = exitBlock;
 
-		VmValue *phi = CreatePhi(module, getType<VmInstruction>(trueValue), getType<VmInstruction>(falseValue));
+		VmValue *phi = CreatePhi(module, node->source, getType<VmInstruction>(trueValue), getType<VmInstruction>(falseValue));
 
 		return CheckType(ctx, expression, phi);
 	}
@@ -1844,7 +1844,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		VmValue *initializer = CompileVm(ctx, module, node->rhs);
 
-		CreateStore(ctx, module, node->rhs->type, address, initializer);
+		CreateStore(ctx, module, node->source, node->rhs->type, address, initializer);
 
 		return CheckType(ctx, expression, initializer);
 	}
@@ -1856,7 +1856,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		VmValue *offset = CreateConstantInt(module->allocator, node->member->offset);
 
-		return CheckType(ctx, expression, CreateMemberAccess(module, value, offset, ctx.GetReferenceType(node->member->type), node->member->name));
+		return CheckType(ctx, expression, CreateMemberAccess(module, node->source, value, offset, ctx.GetReferenceType(node->member->type), node->member->name));
 	}
 	else if(ExprArrayIndex *node = getType<ExprArrayIndex>(expression))
 	{
@@ -1867,7 +1867,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		{
 			VmValue *elementSize = CreateConstantInt(module->allocator, unsigned(arrayType->subType->size));
 
-			return CheckType(ctx, expression, CreateIndexUnsized(module, elementSize, value, index, ctx.GetReferenceType(arrayType->subType)));
+			return CheckType(ctx, expression, CreateIndexUnsized(module, node->source, elementSize, value, index, ctx.GetReferenceType(arrayType->subType)));
 		}
 
 		TypeRef *refType = getType<TypeRef>(node->value->type);
@@ -1882,7 +1882,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmValue *arrayLength = CreateConstantInt(module->allocator, unsigned(arrayType->length));
 		VmValue *elementSize = CreateConstantInt(module->allocator, unsigned(arrayType->subType->size));
 
-		return CheckType(ctx, expression, CreateIndex(module, arrayLength, elementSize, value, index, ctx.GetReferenceType(arrayType->subType)));
+		return CheckType(ctx, expression, CreateIndex(module, node->source, arrayLength, elementSize, value, index, ctx.GetReferenceType(arrayType->subType)));
 	}
 	else if(ExprReturn *node = getType<ExprReturn>(expression))
 	{
@@ -1895,9 +1895,9 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			CompileVm(ctx, module, expr);
 
 		if(node->value->type == ctx.typeVoid)
-			return CheckType(ctx, expression, CreateReturn(module));
+			return CheckType(ctx, expression, CreateReturn(module, node->source));
 
-		return CheckType(ctx, expression, CreateReturn(module, value));
+		return CheckType(ctx, expression, CreateReturn(module, node->source, value));
 	}
 	else if(ExprYield *node = getType<ExprYield>(expression))
 	{
@@ -1911,7 +1911,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		VmBlock *block = module->currentFunction->restoreBlocks[++module->currentFunction->nextRestoreBlock];
 
-		VmValue *result = node->value->type == ctx.typeVoid ? CreateYield(module) : CreateYield(module, value);
+		VmValue *result = node->value->type == ctx.typeVoid ? CreateYield(module, node->source) : CreateYield(module, node->source, value);
 
 		module->currentFunction->AddBlock(block);
 		module->currentBlock = block;
@@ -1947,7 +1947,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmBlock *bodyBlock = CreateBlock(module, "arr_setup_body");
 		VmBlock *exitBlock = CreateBlock(module, "arr_setup_exit");
 
-		CreateJump(module, conditionBlock);
+		CreateJump(module, node->source, conditionBlock);
 
 		module->currentFunction->AddBlock(conditionBlock);
 		module->currentBlock = conditionBlock;
@@ -1956,19 +1956,19 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		assert(int(arrayType->length * arrayType->subType->size) == arrayType->length * arrayType->subType->size);
 
 		// While offset is less than array size
-		VmValue* condition = CreateCompareLess(module, CreateLoad(ctx, module, ctx.typeInt, offsetPtr), CreateConstantInt(module->allocator, int(arrayType->length * arrayType->subType->size)));
+		VmValue* condition = CreateCompareLess(module, node->source, CreateLoad(ctx, module, node->source, ctx.typeInt, offsetPtr), CreateConstantInt(module->allocator, int(arrayType->length * arrayType->subType->size)));
 
-		CreateJumpNotZero(module, condition, bodyBlock, exitBlock);
+		CreateJumpNotZero(module, node->source, condition, bodyBlock, exitBlock);
 
 		module->currentFunction->AddBlock(bodyBlock);
 		module->currentBlock = bodyBlock;
 
-		VmValue *offset = CreateLoad(ctx, module, ctx.typeInt, offsetPtr);
+		VmValue *offset = CreateLoad(ctx, module, node->source, ctx.typeInt, offsetPtr);
 
-		CreateStore(ctx, module, arrayType->subType, CreateMemberAccess(module, address, offset, ctx.GetReferenceType(arrayType->subType), InplaceStr()), initializer);
-		CreateStore(ctx, module, ctx.typeInt, offsetPtr, CreateAdd(module, offset, CreateConstantInt(module->allocator, int(arrayType->subType->size))));
+		CreateStore(ctx, module, node->source, arrayType->subType, CreateMemberAccess(module, node->source, address, offset, ctx.GetReferenceType(arrayType->subType), InplaceStr()), initializer);
+		CreateStore(ctx, module, node->source, ctx.typeInt, offsetPtr, CreateAdd(module, node->source, offset, CreateConstantInt(module->allocator, int(arrayType->subType->size))));
 
-		CreateJump(module, conditionBlock);
+		CreateJump(module, node->source, conditionBlock);
 
 		module->currentFunction->AddBlock(exitBlock);
 		module->currentBlock = exitBlock;
@@ -1986,7 +1986,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		VmValue *address = CreateVariableAddress(module, node->variable, ctx.GetReferenceType(node->variable->type));
 
-		VmValue *value = CreateLoad(ctx, module, node->variable->type, address);
+		VmValue *value = CreateLoad(ctx, module, node->source, node->variable->type, address);
 
 		value->comment = node->variable->name;
 
@@ -1997,7 +1997,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmFunction *function = node->function->vmFunction;
 
 		if(module->skipFunctionDefinitions)
-			return CheckType(ctx, expression, CreateConstruct(module, VmType::FunctionRef(node->function->type), CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), function, NULL, NULL));
+			return CheckType(ctx, expression, CreateConstruct(module, node->source, VmType::FunctionRef(node->function->type), CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false), function, NULL, NULL));
 
 		if(node->function->isPrototype)
 			return CreateVoid(module);
@@ -2021,7 +2021,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		{
 			VmValue *state = CompileVm(ctx, module, node->coroutineStateRead);
 
-			VmInstruction *inst = CreateInstruction(module, VmType::Void, VM_INST_UNYIELD, state, NULL, NULL, NULL);
+			VmInstruction *inst = CreateInstruction(module, node->source, VmType::Void, VM_INST_UNYIELD, state, NULL, NULL, NULL);
 
 			{
 				VmBlock *block = CreateBlock(module, "co_start");
@@ -2068,7 +2068,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		VmValue *context = node->context ? CompileVm(ctx, module, node->context) : CreateConstantPointer(module->allocator, 0, NULL, ctx.typeNullPtr, false);
 
-		VmValue *funcRef = CreateConstruct(module, VmType::FunctionRef(node->function->type), context, node->function->vmFunction, NULL, NULL);
+		VmValue *funcRef = CreateConstruct(module, node->source, VmType::FunctionRef(node->function->type), context, node->function->vmFunction, NULL, NULL);
 
 		return CheckType(ctx, expression, funcRef);
 	}
@@ -2078,7 +2078,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		assert(module->currentBlock);
 
-		VmInstruction *inst = allocate(VmInstruction)(module->allocator, GetVmType(ctx, node->type), VM_INST_CALL, module->currentFunction->nextInstructionId++);
+		VmInstruction *inst = allocate(VmInstruction)(module->allocator, GetVmType(ctx, node->type), node->source, VM_INST_CALL, module->currentFunction->nextInstructionId++);
 
 		unsigned argCount = 1;
 
@@ -2096,7 +2096,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			assert(argument->type != VmType::Void);
 
 			if(value->type == ctx.typeFloat)
-				argument = CreateInstruction(module, VmType::Int, VM_INST_DOUBLE_TO_FLOAT, argument);
+				argument = CreateInstruction(module, node->source, VmType::Int, VM_INST_DOUBLE_TO_FLOAT, argument);
 
 			inst->AddArgument(argument);
 		}
@@ -2137,16 +2137,16 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmBlock *exitBlock = CreateBlock(module, "if_exit");
 
 		if(node->falseBlock)
-			CreateJumpNotZero(module, condition, trueBlock, falseBlock);
+			CreateJumpNotZero(module, node->source, condition, trueBlock, falseBlock);
 		else
-			CreateJumpNotZero(module, condition, trueBlock, exitBlock);
+			CreateJumpNotZero(module, node->source, condition, trueBlock, exitBlock);
 
 		module->currentFunction->AddBlock(trueBlock);
 		module->currentBlock = trueBlock;
 
 		CompileVm(ctx, module, node->trueBlock);
 
-		CreateJump(module, exitBlock);
+		CreateJump(module, node->source, exitBlock);
 
 		if(node->falseBlock)
 		{
@@ -2155,7 +2155,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 			CompileVm(ctx, module, node->falseBlock);
 
-			CreateJump(module, exitBlock);
+			CreateJump(module, node->source, exitBlock);
 		}
 
 		module->currentFunction->AddBlock(exitBlock);
@@ -2174,28 +2174,28 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		module->loopInfo.push_back(VmModule::LoopInfo(exitBlock, iterationBlock));
 
-		CreateJump(module, conditionBlock);
+		CreateJump(module, node->source, conditionBlock);
 
 		module->currentFunction->AddBlock(conditionBlock);
 		module->currentBlock = conditionBlock;
 
 		VmValue* condition = CompileVm(ctx, module, node->condition);
 
-		CreateJumpNotZero(module, condition, bodyBlock, exitBlock);
+		CreateJumpNotZero(module, node->source, condition, bodyBlock, exitBlock);
 
 		module->currentFunction->AddBlock(bodyBlock);
 		module->currentBlock = bodyBlock;
 
 		CompileVm(ctx, module, node->body);
 
-		CreateJump(module, iterationBlock);
+		CreateJump(module, node->source, iterationBlock);
 
 		module->currentFunction->AddBlock(iterationBlock);
 		module->currentBlock = iterationBlock;
 
 		CompileVm(ctx, module, node->increment);
 
-		CreateJump(module, conditionBlock);
+		CreateJump(module, node->source, conditionBlock);
 
 		module->currentFunction->AddBlock(exitBlock);
 		module->currentBlock = exitBlock;
@@ -2212,21 +2212,21 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		module->loopInfo.push_back(VmModule::LoopInfo(exitBlock, conditionBlock));
 
-		CreateJump(module, conditionBlock);
+		CreateJump(module, node->source, conditionBlock);
 
 		module->currentFunction->AddBlock(conditionBlock);
 		module->currentBlock = conditionBlock;
 
 		VmValue* condition = CompileVm(ctx, module, node->condition);
 
-		CreateJumpNotZero(module, condition, bodyBlock, exitBlock);
+		CreateJumpNotZero(module, node->source, condition, bodyBlock, exitBlock);
 
 		module->currentFunction->AddBlock(bodyBlock);
 		module->currentBlock = bodyBlock;
 
 		CompileVm(ctx, module, node->body);
 
-		CreateJump(module, conditionBlock);
+		CreateJump(module, node->source, conditionBlock);
 
 		module->currentFunction->AddBlock(exitBlock);
 		module->currentBlock = exitBlock;
@@ -2241,7 +2241,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmBlock *condBlock = CreateBlock(module, "do_cond");
 		VmBlock *exitBlock = CreateBlock(module, "do_exit");
 
-		CreateJump(module, bodyBlock);
+		CreateJump(module, node->source, bodyBlock);
 
 		module->currentFunction->AddBlock(bodyBlock);
 		module->currentBlock = bodyBlock;
@@ -2250,14 +2250,14 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		CompileVm(ctx, module, node->body);
 
-		CreateJump(module, condBlock);
+		CreateJump(module, node->source, condBlock);
 
 		module->currentFunction->AddBlock(condBlock);
 		module->currentBlock = condBlock;
 
 		VmValue* condition = CompileVm(ctx, module, node->condition);
 
-		CreateJumpNotZero(module, condition, bodyBlock, exitBlock);
+		CreateJumpNotZero(module, node->source, condition, bodyBlock, exitBlock);
 
 		module->currentFunction->AddBlock(exitBlock);
 		module->currentBlock = exitBlock;
@@ -2284,7 +2284,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmBlock *defaultBlock = CreateBlock(module, "default_block");
 		VmBlock *exitBlock = CreateBlock(module, "switch_exit");
 
-		CreateJump(module, conditionBlocks.empty() ? defaultBlock : conditionBlocks[0]);
+		CreateJump(module, node->source, conditionBlocks.empty() ? defaultBlock : conditionBlocks[0]);
 
 		unsigned i;
 
@@ -2297,7 +2297,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 			VmValue *condition = CompileVm(ctx, module, curr);
 
-			CreateJumpNotZero(module, condition, caseBlocks[i], curr->next ? conditionBlocks[i + 1] : defaultBlock);
+			CreateJumpNotZero(module, node->source, condition, caseBlocks[i], curr->next ? conditionBlocks[i + 1] : defaultBlock);
 		}
 
 		module->loopInfo.push_back(VmModule::LoopInfo(exitBlock, NULL));
@@ -2311,7 +2311,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 			CompileVm(ctx, module, curr);
 
-			CreateJump(module, curr->next ? caseBlocks[i + 1] : defaultBlock);
+			CreateJump(module, node->source, curr->next ? caseBlocks[i + 1] : defaultBlock);
 		}
 
 		// Create default block
@@ -2320,7 +2320,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		if(node->defaultBlock)
 			CompileVm(ctx, module, node->defaultBlock);
-		CreateJump(module, exitBlock);
+		CreateJump(module, node->source, exitBlock);
 
 		module->currentFunction->AddBlock(exitBlock);
 		module->currentBlock = exitBlock;
@@ -2336,7 +2336,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		VmBlock *target = module->loopInfo[module->loopInfo.size() - node->depth].breakBlock;
 
-		CreateJump(module, target);
+		CreateJump(module, node->source, target);
 
 		return CheckType(ctx, expression, CreateVoid(module));
 	}
@@ -2347,7 +2347,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		VmBlock *target = module->loopInfo[module->loopInfo.size() - node->depth].continueBlock;
 
-		CreateJump(module, target);
+		CreateJump(module, node->source, target);
 
 		return CheckType(ctx, expression, CreateVoid(module));
 	}
@@ -2386,7 +2386,7 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
 {
 	if(ExprModule *node = getType<ExprModule>(expression))
 	{
-		VmModule *module = new (ctx.get<VmModule>()) VmModule(ctx.allocator);
+		VmModule *module = new (ctx.get<VmModule>()) VmModule(ctx.allocator, ctx.code);
 
 		// Generate global function
 		VmFunction *global = allocate(VmFunction)(module->allocator, VmType::Void, NULL, node->moduleScope, VmType::Void);
@@ -3085,7 +3085,7 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 
 						block->insertPoint = curr->prevSibling;
 
-						value = CreateInstruction(module, curr->type, VM_INST_BITCAST, value, NULL, NULL, NULL);
+						value = CreateInstruction(module, curr->source, curr->type, VM_INST_BITCAST, value, NULL, NULL, NULL);
 
 						block->insertPoint = block->lastInstruction;
 
@@ -3184,7 +3184,7 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 
 						block->insertPoint = curr->prevSibling;
 
-						value = CreateInstruction(module, curr->type, VM_INST_BITCAST, value, NULL, NULL, NULL);
+						value = CreateInstruction(module, curr->source, curr->type, VM_INST_BITCAST, value, NULL, NULL, NULL);
 
 						block->insertPoint = block->lastInstruction;
 
@@ -3320,13 +3320,13 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 
 		curr->canBeRemoved = false;
 
-		ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, type, address), NULL);
+		ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, NULL, type, address), NULL);
 
 		curr->canBeRemoved = true;
 
 		block->insertPoint = curr;
 
-		CreateStore(ctx, module, type, address, curr);
+		CreateStore(ctx, module, curr->source, type, address, curr);
 
 		block->insertPoint = block->lastInstruction;
 	}
@@ -3358,7 +3358,7 @@ void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *blo
 
 			edge->insertPoint = value;
 
-			CreateStore(ctx, module, GetBaseType(ctx, value->type), address, value);
+			CreateStore(ctx, module, value->source, GetBaseType(ctx, value->type), address, value);
 
 			edge->insertPoint = edge->lastInstruction;
 
@@ -3369,7 +3369,7 @@ void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *blo
 
 		block->insertPoint = curr;
 
-		ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, type, address), NULL);
+		ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, curr->source, type, address), NULL);
 
 		block->insertPoint = block->lastInstruction;
 

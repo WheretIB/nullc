@@ -3,6 +3,8 @@
 #include "stdafx.h"
 #include "IntrusiveList.h"
 
+struct SynBase;
+
 struct TypeBase;
 struct ExprBase;
 struct VariableData;
@@ -265,8 +267,10 @@ struct VmConstant: VmValue
 
 struct VmInstruction: VmValue
 {
-	VmInstruction(Allocator *allocator, VmType type, VmInstructionType cmd, unsigned uniqueId): VmValue(myTypeID, allocator, type), cmd(cmd), uniqueId(uniqueId), arguments(allocator)
+	VmInstruction(Allocator *allocator, VmType type, SynBase *source, VmInstructionType cmd, unsigned uniqueId): VmValue(myTypeID, allocator, type), source(source), cmd(cmd), uniqueId(uniqueId), arguments(allocator)
 	{
+		source = NULL;
+
 		parent = NULL;
 
 		prevSibling = NULL;
@@ -274,6 +278,8 @@ struct VmInstruction: VmValue
 	}
 
 	void AddArgument(VmValue *argument);
+
+	SynBase *source;
 
 	VmInstructionType cmd;
 
@@ -378,7 +384,7 @@ struct VmFunction: VmValue
 
 struct VmModule
 {
-	VmModule(Allocator *allocator): allocator(allocator), loopInfo(allocator), loadStoreInfo(allocator)
+	VmModule(Allocator *allocator, const char *code): allocator(allocator), loopInfo(allocator), loadStoreInfo(allocator), code(code)
 	{
 		skipFunctionDefinitions = false;
 
@@ -392,6 +398,8 @@ struct VmModule
 		loadStorePropagations = 0;
 		commonSubexprEliminations = 0;
 	}
+
+	const char *code;
 
 	IntrusiveList<VmFunction> functions;
 

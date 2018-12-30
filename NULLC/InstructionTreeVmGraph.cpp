@@ -176,6 +176,27 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 
 void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction)
 {
+	if(ctx.showSource && instruction->source)
+	{
+		const char *start = instruction->source->pos;
+		const char *end = start + 1;
+
+		while(start > ctx.code && *(start - 1) != '\r' && *(start - 1) != '\n')
+			start--;
+
+		while(*end && *end != '\r' && *end != '\n')
+			end++;
+
+		if(start != ctx.lastStart)
+		{
+			Print(ctx, "// %.*s", unsigned(end - start), start);
+			PrintLine(ctx);
+			PrintIndent(ctx);
+
+			ctx.lastStart = start;
+		}
+	}
+
 	PrintUsers(ctx, instruction, false);
 
 	if(instruction->type != VmType::Void)
@@ -264,6 +285,8 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 
 void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 {
+	ctx.lastStart = NULL;
+
 	PrintUsers(ctx, block, false);
 
 	PrintLine(ctx, "%.*s.b%d:", FMT_ISTR(block->name), block->uniqueId);
@@ -381,6 +404,8 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 
 void PrintGraph(InstructionVMGraphContext &ctx, VmModule *module)
 {
+	ctx.code = module->code;
+
 	for(VmFunction *value = module->functions.head; value; value = value->next)
 		PrintFunction(ctx, value);
 
@@ -400,6 +425,7 @@ void DumpGraph(VmModule *module)
 	instGraphCtx.showUsers = true;
 	instGraphCtx.displayAsTree = false;
 	instGraphCtx.showFullTypes = true;
+	instGraphCtx.showSource = true;
 
 	PrintGraph(instGraphCtx, module);
 

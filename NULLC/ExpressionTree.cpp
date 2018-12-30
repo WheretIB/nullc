@@ -571,7 +571,7 @@ namespace
 	}
 }
 
-ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
+ExpressionContext::ExpressionContext(Allocator *allocator, const char *code): allocator(allocator), code(code)
 {
 	baseModuleFunctionCount = 0;
 
