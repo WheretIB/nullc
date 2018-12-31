@@ -1191,19 +1191,16 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 		break;
 	case VM_INST_PHI:
 		{
-			VmConstant *valueA = arguments[0];
-			VmConstant *parentA = arguments[1];
-			VmConstant *valueB = arguments[2];
-			VmConstant *parentB = arguments[3];
+			for(unsigned i = 0; i < arguments.size(); i += 2)
+			{
+				VmConstant *value = arguments[i];
+				VmConstant *edge = arguments[i + 1];
 
-			assert(parentA->type == VmType::Block && parentA->bValue);
-			assert(parentB->type == VmType::Block && parentB->bValue);
+				assert(edge->type == VmType::Block && edge->bValue);
 
-			if(parentA->bValue == predecessor)
-				return valueA;
-
-			if(parentB->bValue == predecessor)
-				return valueB;
+				if(edge->bValue == predecessor)
+					return value;
+			}
 
 			assert(!"phi instruction can't handle the predecessor");
 		}
