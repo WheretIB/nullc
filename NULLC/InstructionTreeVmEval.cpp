@@ -149,7 +149,7 @@ VmConstant* LoadFrameByte(Eval &ctx, Eval::Storage *storage, unsigned offset)
 
 	memcpy(&value, storage->data.data + offset, sizeof(value));
 
-	return CreateConstantInt(ctx.allocator, value);
+	return CreateConstantInt(ctx.allocator, NULL, value);
 }
 
 VmConstant* LoadFrameShort(Eval &ctx, Eval::Storage *storage, unsigned offset)
@@ -160,7 +160,7 @@ VmConstant* LoadFrameShort(Eval &ctx, Eval::Storage *storage, unsigned offset)
 
 	memcpy(&value, storage->data.data + offset, sizeof(value));
 
-	return CreateConstantInt(ctx.allocator, value);
+	return CreateConstantInt(ctx.allocator, NULL, value);
 }
 
 VmConstant* LoadFrameInt(Eval &ctx, Eval::Storage *storage, unsigned offset, VmType type)
@@ -172,9 +172,9 @@ VmConstant* LoadFrameInt(Eval &ctx, Eval::Storage *storage, unsigned offset, VmT
 	memcpy(&value, storage->data.data + offset, sizeof(value));
 
 	if(type.type == VM_TYPE_POINTER)
-		return CreateConstantPointer(ctx.allocator, value, NULL, type.structType, false);
+		return CreateConstantPointer(ctx.allocator, NULL, value, NULL, type.structType, false);
 
-	return CreateConstantInt(ctx.allocator, value);
+	return CreateConstantInt(ctx.allocator, NULL, value);
 }
 
 VmConstant* LoadFrameFloat(Eval &ctx, Eval::Storage *storage, unsigned offset)
@@ -185,7 +185,7 @@ VmConstant* LoadFrameFloat(Eval &ctx, Eval::Storage *storage, unsigned offset)
 
 	memcpy(&value, storage->data.data + offset, sizeof(value));
 
-	return CreateConstantDouble(ctx.allocator, value);
+	return CreateConstantDouble(ctx.allocator, NULL, value);
 }
 
 VmConstant* LoadFrameDouble(Eval &ctx, Eval::Storage *storage, unsigned offset)
@@ -196,7 +196,7 @@ VmConstant* LoadFrameDouble(Eval &ctx, Eval::Storage *storage, unsigned offset)
 
 	memcpy(&value, storage->data.data + offset, sizeof(value));
 
-	return CreateConstantDouble(ctx.allocator, value);
+	return CreateConstantDouble(ctx.allocator, NULL, value);
 }
 
 VmConstant* LoadFrameLong(Eval &ctx, Eval::Storage *storage, unsigned offset, VmType type)
@@ -211,10 +211,10 @@ VmConstant* LoadFrameLong(Eval &ctx, Eval::Storage *storage, unsigned offset, Vm
 	{
 		assert(unsigned(value) == value);
 
-		return CreateConstantPointer(ctx.allocator, unsigned(value), NULL, type.structType, false);
+		return CreateConstantPointer(ctx.allocator, NULL, unsigned(value), NULL, type.structType, false);
 	}
 
-	return CreateConstantLong(ctx.allocator, value);
+	return CreateConstantLong(ctx.allocator, NULL, value);
 }
 
 VmConstant* LoadFrameStruct(Eval &ctx, Eval::Storage *storage, unsigned offset, VmType type)
@@ -229,7 +229,7 @@ VmConstant* LoadFrameStruct(Eval &ctx, Eval::Storage *storage, unsigned offset, 
 
 	memcpy(value, storage->data.data + offset, size);
 
-	VmConstant *result = allocate(VmConstant)(ctx.allocator, type);
+	VmConstant *result = allocate(VmConstant)(ctx.allocator, type, NULL);
 
 	result->sValue = value;
 
@@ -255,19 +255,19 @@ VmConstant* ExtractValue(Eval &ctx, VmConstant *value, unsigned offset, VmType t
 	{
 		int value = 0;
 		memcpy(&value, source, sizeof(value));
-		return CreateConstantInt(ctx.allocator, value);
+		return CreateConstantInt(ctx.allocator, NULL, value);
 	}
 	else if(type == VmType::Double)
 	{
 		double value = 0;
 		memcpy(&value, source, sizeof(value));
-		return CreateConstantDouble(ctx.allocator, value);
+		return CreateConstantDouble(ctx.allocator, NULL, value);
 	}
 	else if(type == VmType::Long)
 	{
 		long long value = 0;
 		memcpy(&value, source, sizeof(value));
-		return CreateConstantLong(ctx.allocator, value);
+		return CreateConstantLong(ctx.allocator, NULL, value);
 	}
 	else if(type.type == VM_TYPE_POINTER)
 	{
@@ -286,14 +286,14 @@ VmConstant* ExtractValue(Eval &ctx, VmConstant *value, unsigned offset, VmType t
 
 		assert(unsigned(pointer) == pointer);
 
-		return CreateConstantPointer(ctx.allocator, unsigned(pointer), NULL, type.structType, false);
+		return CreateConstantPointer(ctx.allocator, NULL, unsigned(pointer), NULL, type.structType, false);
 	}
 	else
 	{
 		char *value = (char*)ctx.allocator->alloc(type.size);
 		memcpy(value, source, type.size);
 
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, type);
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, type, NULL);
 
 		result->sValue = value;
 
@@ -450,7 +450,7 @@ VmConstant* EvaluateOperand(Eval &ctx, VmValue *value)
 
 	if(VmBlock *block = getType<VmBlock>(value))
 	{
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::Block);
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::Block, NULL);
 
 		result->bValue = block;
 
@@ -459,7 +459,7 @@ VmConstant* EvaluateOperand(Eval &ctx, VmValue *value)
 
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::Function);
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::Function, NULL);
 
 		result->fValue = function;
 
@@ -611,7 +611,7 @@ VmConstant* AllocateHeapObject(Eval &ctx, TypeBase *target)
 	ctx.heap.Reserve(ctx, offset, unsigned(target->size));
 	ctx.heapSize += unsigned(target->size);
 
-	VmConstant *result = allocate(VmConstant)(ctx.allocator, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(target)));
+	VmConstant *result = allocate(VmConstant)(ctx.allocator, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(target)), NULL);
 
 	result->iValue = offset;
 	assert(int(result->iValue & memoryOffsetMask) == result->iValue);
@@ -633,7 +633,7 @@ VmConstant* AllocateHeapArray(Eval &ctx, TypeBase *target, unsigned count)
 	assert(int(pointer & memoryOffsetMask) == pointer);
 	pointer |= GetStorageIndex(ctx, &ctx.heap) << memoryStorageBits;
 
-	VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::ArrayRef(ctx.ctx.GetUnsizedArrayType(target)));
+	VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::ArrayRef(ctx.ctx.GetUnsizedArrayType(target)), NULL);
 
 	char *storage = (char*)ctx.allocator->alloc(result->type.size);
 
@@ -692,9 +692,9 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 		return NULL;
 	case VM_INST_DOUBLE_TO_INT:
-		return CreateConstantInt(ctx.allocator, int(arguments[0]->dValue));
+		return CreateConstantInt(ctx.allocator, NULL, int(arguments[0]->dValue));
 	case VM_INST_DOUBLE_TO_LONG:
-		return CreateConstantLong(ctx.allocator, (long long)(arguments[0]->dValue));
+		return CreateConstantLong(ctx.allocator, NULL, (long long)(arguments[0]->dValue));
 	case VM_INST_DOUBLE_TO_FLOAT:
 		{
 			float source = float(arguments[0]->dValue);
@@ -702,16 +702,16 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			int target = 0;
 			memcpy(&target, &source, sizeof(float));
 
-			return CreateConstantInt(ctx.allocator, target);
+			return CreateConstantInt(ctx.allocator, NULL, target);
 		}
 	case VM_INST_INT_TO_DOUBLE:
-		return CreateConstantDouble(ctx.allocator, double(arguments[0]->iValue));
+		return CreateConstantDouble(ctx.allocator, NULL, double(arguments[0]->iValue));
 	case VM_INST_LONG_TO_DOUBLE:
-		return CreateConstantDouble(ctx.allocator, double(arguments[0]->lValue));
+		return CreateConstantDouble(ctx.allocator, NULL, double(arguments[0]->lValue));
 	case VM_INST_INT_TO_LONG:
-		return CreateConstantLong(ctx.allocator, (long long)(arguments[0]->iValue));
+		return CreateConstantLong(ctx.allocator, NULL, (long long)(arguments[0]->iValue));
 	case VM_INST_LONG_TO_INT:
-		return CreateConstantInt(ctx.allocator, int(arguments[0]->lValue));
+		return CreateConstantInt(ctx.allocator, NULL, int(arguments[0]->lValue));
 	case VM_INST_INDEX:
 		{
 			VmConstant *arrayLength = arguments[0];
@@ -727,7 +727,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			if(unsigned(index->iValue) >= unsigned(arrayLength->iValue))
 				return (VmConstant*)Report(ctx, "ERROR: array index out of bounds");
 
-			return CreateConstantPointer(ctx.allocator, value->iValue + index->iValue * elementSize->iValue, value->container, instruction->type.structType, false);
+			return CreateConstantPointer(ctx.allocator, NULL, value->iValue + index->iValue * elementSize->iValue, value->container, instruction->type.structType, false);
 		}
 
 		break;
@@ -752,7 +752,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 			assert(unsigned(pointer) == pointer);
 
-			return CreateConstantPointer(ctx.allocator, unsigned(pointer) + index->iValue * elementSize->iValue, NULL, instruction->type.structType, false);
+			return CreateConstantPointer(ctx.allocator, NULL, unsigned(pointer) + index->iValue * elementSize->iValue, NULL, instruction->type.structType, false);
 		}
 
 		break;
@@ -859,40 +859,40 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			// Both arguments can't be based on an offset
 			assert(!(arguments[0]->container && arguments[1]->container));
 
-			return CreateConstantPointer(ctx.allocator, arguments[0]->iValue + arguments[1]->iValue, arguments[0]->container ? arguments[0]->container : arguments[1]->container, instruction->type.structType, false);
+			return CreateConstantPointer(ctx.allocator, NULL, arguments[0]->iValue + arguments[1]->iValue, arguments[0]->container ? arguments[0]->container : arguments[1]->container, instruction->type.structType, false);
 		}
 		else
 		{
 			assert(arguments[0]->type == arguments[1]->type);
 
 			if(arguments[0]->type == VmType::Int)
-				return CreateConstantInt(ctx.allocator, arguments[0]->iValue + arguments[1]->iValue);
+				return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue + arguments[1]->iValue);
 			else if(arguments[0]->type == VmType::Double)
-				return CreateConstantDouble(ctx.allocator, arguments[0]->dValue + arguments[1]->dValue);
+				return CreateConstantDouble(ctx.allocator, NULL, arguments[0]->dValue + arguments[1]->dValue);
 			else if(arguments[0]->type == VmType::Long)
-				return CreateConstantLong(ctx.allocator, arguments[0]->lValue + arguments[1]->lValue);
+				return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue + arguments[1]->lValue);
 		}
 		break;
 	case VM_INST_SUB:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue - arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue - arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Double)
-			return CreateConstantDouble(ctx.allocator, arguments[0]->dValue - arguments[1]->dValue);
+			return CreateConstantDouble(ctx.allocator, NULL, arguments[0]->dValue - arguments[1]->dValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantLong(ctx.allocator, arguments[0]->lValue - arguments[1]->lValue);
+			return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue - arguments[1]->lValue);
 
 		break;
 	case VM_INST_MUL:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue * arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue * arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Double)
-			return CreateConstantDouble(ctx.allocator, arguments[0]->dValue * arguments[1]->dValue);
+			return CreateConstantDouble(ctx.allocator, NULL, arguments[0]->dValue * arguments[1]->dValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantLong(ctx.allocator, arguments[0]->lValue * arguments[1]->lValue);
+			return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue * arguments[1]->lValue);
 
 		break;
 	case VM_INST_DIV:
@@ -902,22 +902,22 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			return (VmConstant*)Report(ctx, "ERROR: division by zero");
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue / arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue / arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Double)
-			return CreateConstantDouble(ctx.allocator, arguments[0]->dValue / arguments[1]->dValue);
+			return CreateConstantDouble(ctx.allocator, NULL, arguments[0]->dValue / arguments[1]->dValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantLong(ctx.allocator, arguments[0]->lValue / arguments[1]->lValue);
+			return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue / arguments[1]->lValue);
 
 		break;
 	case VM_INST_POW:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, GetIntPow(arguments[0]->iValue, arguments[1]->iValue));
+			return CreateConstantInt(ctx.allocator, NULL, GetIntPow(arguments[0]->iValue, arguments[1]->iValue));
 		else if(arguments[0]->type == VmType::Double)
-			return CreateConstantDouble(ctx.allocator, pow(arguments[0]->dValue, arguments[1]->dValue));
+			return CreateConstantDouble(ctx.allocator, NULL, pow(arguments[0]->dValue, arguments[1]->dValue));
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantLong(ctx.allocator, GetLongPow(arguments[0]->lValue, arguments[1]->lValue));
+			return CreateConstantLong(ctx.allocator, NULL, GetLongPow(arguments[0]->lValue, arguments[1]->lValue));
 
 		break;
 	case VM_INST_MOD:
@@ -927,153 +927,153 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 			return (VmConstant*)Report(ctx, "ERROR: division by zero");
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue % arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue % arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Double)
-			return CreateConstantDouble(ctx.allocator, fmod(arguments[0]->dValue, arguments[1]->dValue));
+			return CreateConstantDouble(ctx.allocator, NULL, fmod(arguments[0]->dValue, arguments[1]->dValue));
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantLong(ctx.allocator, arguments[0]->lValue % arguments[1]->lValue);
+			return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue % arguments[1]->lValue);
 
 		break;
 	case VM_INST_LESS:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue < arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue < arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Double)
-			return CreateConstantInt(ctx.allocator, arguments[0]->dValue < arguments[1]->dValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->dValue < arguments[1]->dValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantInt(ctx.allocator, arguments[0]->lValue < arguments[1]->lValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->lValue < arguments[1]->lValue);
 
 		break;
 	case VM_INST_GREATER:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue > arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue > arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Double)
-			return CreateConstantInt(ctx.allocator, arguments[0]->dValue > arguments[1]->dValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->dValue > arguments[1]->dValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantInt(ctx.allocator, arguments[0]->lValue > arguments[1]->lValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->lValue > arguments[1]->lValue);
 
 		break;
 	case VM_INST_LESS_EQUAL:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue <= arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue <= arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Double)
-			return CreateConstantInt(ctx.allocator, arguments[0]->dValue <= arguments[1]->dValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->dValue <= arguments[1]->dValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantInt(ctx.allocator, arguments[0]->lValue <= arguments[1]->lValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->lValue <= arguments[1]->lValue);
 
 		break;
 	case VM_INST_GREATER_EQUAL:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue >= arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue >= arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Double)
-			return CreateConstantInt(ctx.allocator, arguments[0]->dValue >= arguments[1]->dValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->dValue >= arguments[1]->dValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantInt(ctx.allocator, arguments[0]->lValue >= arguments[1]->lValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->lValue >= arguments[1]->lValue);
 
 		break;
 	case VM_INST_EQUAL:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue == arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue == arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Double)
-			return CreateConstantInt(ctx.allocator, arguments[0]->dValue == arguments[1]->dValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->dValue == arguments[1]->dValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantInt(ctx.allocator, arguments[0]->lValue == arguments[1]->lValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->lValue == arguments[1]->lValue);
 		else if(arguments[0]->type.type == VM_TYPE_POINTER)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue == arguments[1]->iValue && arguments[0]->container == arguments[1]->container);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue == arguments[1]->iValue && arguments[0]->container == arguments[1]->container);
 
 		break;
 	case VM_INST_NOT_EQUAL:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue != arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue != arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Double)
-			return CreateConstantInt(ctx.allocator, arguments[0]->dValue != arguments[1]->dValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->dValue != arguments[1]->dValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantInt(ctx.allocator, arguments[0]->lValue != arguments[1]->lValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->lValue != arguments[1]->lValue);
 		else if(arguments[0]->type.type == VM_TYPE_POINTER)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue != arguments[1]->iValue || arguments[0]->container != arguments[1]->container);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue != arguments[1]->iValue || arguments[0]->container != arguments[1]->container);
 
 		break;
 	case VM_INST_SHL:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue << arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue << arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantLong(ctx.allocator, arguments[0]->lValue << arguments[1]->lValue);
+			return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue << arguments[1]->lValue);
 		break;
 	case VM_INST_SHR:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue >> arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue >> arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantLong(ctx.allocator, arguments[0]->lValue >> arguments[1]->lValue);
+			return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue >> arguments[1]->lValue);
 		break;
 	case VM_INST_BIT_AND:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue & arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue & arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantLong(ctx.allocator, arguments[0]->lValue & arguments[1]->lValue);
+			return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue & arguments[1]->lValue);
 		break;
 	case VM_INST_BIT_OR:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue | arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue | arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantLong(ctx.allocator, arguments[0]->lValue | arguments[1]->lValue);
+			return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue | arguments[1]->lValue);
 		break;
 	case VM_INST_BIT_XOR:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue ^ arguments[1]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue ^ arguments[1]->iValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantLong(ctx.allocator, arguments[0]->lValue ^ arguments[1]->lValue);
+			return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue ^ arguments[1]->lValue);
 		break;
 	case VM_INST_LOG_XOR:
 		assert(arguments[0]->type == arguments[1]->type);
 
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, (arguments[0]->iValue != 0) != (arguments[1]->iValue != 0));
+			return CreateConstantInt(ctx.allocator, NULL, (arguments[0]->iValue != 0) != (arguments[1]->iValue != 0));
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantInt(ctx.allocator, (arguments[0]->lValue != 0) != (arguments[1]->lValue != 0));
+			return CreateConstantInt(ctx.allocator, NULL, (arguments[0]->lValue != 0) != (arguments[1]->lValue != 0));
 		break;
 	case VM_INST_NEG:
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, -arguments[0]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, -arguments[0]->iValue);
 		else if(arguments[0]->type == VmType::Double)
-			return CreateConstantDouble(ctx.allocator, -arguments[0]->dValue);
+			return CreateConstantDouble(ctx.allocator, NULL, -arguments[0]->dValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantLong(ctx.allocator, -arguments[0]->lValue);
+			return CreateConstantLong(ctx.allocator, NULL, -arguments[0]->lValue);
 		break;
 	case VM_INST_BIT_NOT:
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, ~arguments[0]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, ~arguments[0]->iValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantLong(ctx.allocator, ~arguments[0]->lValue);
+			return CreateConstantLong(ctx.allocator, NULL, ~arguments[0]->lValue);
 		break;
 	case VM_INST_LOG_NOT:
 		if(arguments[0]->type == VmType::Int)
-			return CreateConstantInt(ctx.allocator, !arguments[0]->iValue);
+			return CreateConstantInt(ctx.allocator, NULL, !arguments[0]->iValue);
 		else if(arguments[0]->type == VmType::Long)
-			return CreateConstantInt(ctx.allocator, !arguments[0]->lValue);
+			return CreateConstantInt(ctx.allocator, NULL, !arguments[0]->lValue);
 
 		if(arguments[0]->type.type == VM_TYPE_POINTER)
-			return CreateConstantInt(ctx.allocator, arguments[0]->iValue == 0);
+			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue == 0);
 		break;
 	case VM_INST_CREATE_CLOSURE:
 		break;
@@ -1135,7 +1135,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 				offset += argumentSize > 4 ? argumentSize : 4;
 			}
 
-			VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type);
+			VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type, NULL);
 
 			result->sValue = value;
 
@@ -1166,7 +1166,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 				offset += elementSize;
 			}
 
-			VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type);
+			VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type, NULL);
 
 			result->sValue = value;
 
@@ -1221,7 +1221,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 				CopyConstantRaw(ctx, storage, instruction->type.size, value, value->type.size);
 
-				VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type);
+				VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type, NULL);
 
 				result->sValue = storage;
 
@@ -1300,7 +1300,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!value)
 			return NULL;
 
-		return CreateConstantInt(ctx.allocator, value->iValue != 0);
+		return CreateConstantInt(ctx.allocator, NULL, value->iValue != 0);
 	}
 	else if(function->name == InplaceStr("char") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeChar)
 	{
@@ -1309,7 +1309,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!value)
 			return NULL;
 
-		return CreateConstantInt(ctx.allocator, char(value->iValue));
+		return CreateConstantInt(ctx.allocator, NULL, char(value->iValue));
 	}
 	else if(function->name == InplaceStr("short") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeShort)
 	{
@@ -1318,7 +1318,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!value)
 			return NULL;
 
-		return CreateConstantInt(ctx.allocator, short(value->iValue));
+		return CreateConstantInt(ctx.allocator, NULL, short(value->iValue));
 	}
 	else if(function->name == InplaceStr("int") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeInt)
 	{
@@ -1335,7 +1335,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!value)
 			return NULL;
 
-		return CreateConstantDouble(ctx.allocator, float(value->dValue));
+		return CreateConstantDouble(ctx.allocator, NULL, float(value->dValue));
 	}
 	else if(function->name == InplaceStr("double") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeDouble)
 	{
@@ -1493,7 +1493,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		assert(a && b);
 
-		return CreateConstantInt(ctx.allocator, function->name == InplaceStr("__rcomp") ? a->iValue == b->iValue : a->iValue != b->iValue);
+		return CreateConstantInt(ctx.allocator, NULL, function->name == InplaceStr("__rcomp") ? a->iValue == b->iValue : a->iValue != b->iValue);
 	}
 	else if(function->name == InplaceStr("__pcomp") || function->name == InplaceStr("__pncomp"))
 	{
@@ -1509,7 +1509,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		int order = memcmp(a->sValue, b->sValue, NULLC_PTR_SIZE + 4);
 
-		return CreateConstantInt(ctx.allocator, function->name == InplaceStr("__pcomp") ? order == 0 : order != 0);
+		return CreateConstantInt(ctx.allocator, NULL, function->name == InplaceStr("__pcomp") ? order == 0 : order != 0);
 	}
 	else if(function->name == InplaceStr("__acomp") || function->name == InplaceStr("__ancomp"))
 	{
@@ -1525,11 +1525,11 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		int order = memcmp(a->sValue, b->sValue, NULLC_PTR_SIZE + 4);
 
-		return CreateConstantInt(ctx.allocator, function->name == InplaceStr("__acomp") ? order == 0 : order != 0);
+		return CreateConstantInt(ctx.allocator, NULL, function->name == InplaceStr("__acomp") ? order == 0 : order != 0);
 	}
 	else if(function->name == InplaceStr("__typeCount"))
 	{
-		return CreateConstantInt(ctx.allocator, ctx.ctx.types.size());
+		return CreateConstantInt(ctx.allocator, NULL, ctx.ctx.types.size());
 	}
 	else if(function->name == InplaceStr("__redirect") || function->name == InplaceStr("__redirect_ptr"))
 	{
@@ -1566,7 +1566,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(typeIndex >= unsigned(tableSize->iValue))
 			return (VmConstant*)Report(ctx, "ERROR: type index is out of bounds of redirection table");
 
-		VmConstant *indexLocation = CreateConstantPointer(ctx.allocator, unsigned(tableArray->iValue + typeIndex * ctx.ctx.typeTypeID->size), tableArray->container, ctx.ctx.GetReferenceType(ctx.ctx.typeFunctionID), false);
+		VmConstant *indexLocation = CreateConstantPointer(ctx.allocator, NULL, unsigned(tableArray->iValue + typeIndex * ctx.ctx.typeTypeID->size), tableArray->container, ctx.ctx.GetReferenceType(ctx.ctx.typeFunctionID), false);
 
 		VmConstant *index = LoadFrameValue(ctx, indexLocation, VmType::Int, 4);
 
@@ -1575,7 +1575,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 			if(function->name == InplaceStr("__redirect"))
 				return (VmConstant*)Report(ctx, "ERROR: type '%.*s' doesn't implement method", FMT_ISTR(ctx.ctx.types[typeIndex]->name));
 
-			context = CreateConstantPointer(ctx.allocator, 0, NULL, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]), false);
+			context = CreateConstantPointer(ctx.allocator, NULL, 0, NULL, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]), false);
 		}
 
 		VmType resultType = GetVmType(ctx.ctx, function->type->returnType);
@@ -1583,9 +1583,9 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		char *value = (char*)ctx.allocator->alloc(resultType.size);
 
 		CopyConstantRaw(ctx, value + 0, resultType.size, context, context->type.size);
-		CopyConstantRaw(ctx, value + sizeof(void*), resultType.size - sizeof(void*), CreateConstantInt(ctx.allocator, index->iValue), 4);
+		CopyConstantRaw(ctx, value + sizeof(void*), resultType.size - sizeof(void*), CreateConstantInt(ctx.allocator, NULL, index->iValue), 4);
 
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, resultType);
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, resultType, NULL);
 
 		result->sValue = value;
 
@@ -1612,7 +1612,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		if(!ptrPtr->iValue)
 		{
-			VmConstant *result = allocate(VmConstant)(ctx.allocator, storageType);
+			VmConstant *result = allocate(VmConstant)(ctx.allocator, storageType, NULL);
 
 			result->sValue = storageValue;
 
@@ -1626,7 +1626,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(targetType->size != 0)
 			StoreFrameValue(ctx, resultPtr, LoadFrameValue(ctx, ptrPtr, GetVmType(ctx.ctx, targetType), unsigned(targetType->size)), unsigned(targetType->size));
 
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, storageType);
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, storageType, NULL);
 
 		result->sValue = storageValue;
 
@@ -1653,7 +1653,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!count)
 			return NULL;
 
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::AutoArray);
+		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::AutoArray, NULL);
 
 		char *storage = (char*)ctx.allocator->alloc(result->type.size);
 		
@@ -1778,7 +1778,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		VmConstant *jmpOffset = ExtractValue(ctx, functionContext, 0, GetVmType(ctx.ctx, ctx.ctx.typeInt));
 
-		return CreateConstantInt(ctx.allocator, jmpOffset->iValue == 0);
+		return CreateConstantInt(ctx.allocator, NULL, jmpOffset->iValue == 0);
 	}
 	else if(function->name == InplaceStr("assert_derived_from_base") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && function->arguments[1].type == ctx.ctx.typeTypeID)
 	{
@@ -1830,7 +1830,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		VmConstant *pointer = ExtractValue(ctx, result, 0, VmType::Pointer(ctx.ctx.typeChar));
 
-		StoreFrameValue(ctx, pointer, CreateConstantStruct(ctx.allocator, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
+		StoreFrameValue(ctx, pointer, CreateConstantStruct(ctx.allocator, NULL, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
 
 		return result;
 	}
@@ -1852,7 +1852,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		VmConstant *pointer = ExtractValue(ctx, result, 0, VmType::Pointer(ctx.ctx.typeChar));
 
-		StoreFrameValue(ctx, pointer, CreateConstantStruct(ctx.allocator, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
+		StoreFrameValue(ctx, pointer, CreateConstantStruct(ctx.allocator, NULL, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
 
 		return result;
 	}
@@ -1867,14 +1867,14 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		VmConstant *valueLen = ExtractValue(ctx, value, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeInt));
 
 		if(valueLen->iValue == 0 || valueLen->iValue >= 32)
-			return CreateConstantInt(ctx.allocator, 0);
+			return CreateConstantInt(ctx.allocator, NULL, 0);
 
 		VmConstant *valueBuf = LoadFrameValue(ctx, valuePtr, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, valueLen->iValue)), valueLen->iValue);
 
 		char buf[32];
 		strcpy(buf, valueBuf->sValue);
 
-		return CreateConstantInt(ctx.allocator, strtol(buf, 0, 10));
+		return CreateConstantInt(ctx.allocator, NULL, strtol(buf, 0, 10));
 	}
 	else if(function->name == InplaceStr("long") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
 	{
@@ -1887,14 +1887,14 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		VmConstant *valueLen = ExtractValue(ctx, value, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeInt));
 
 		if(valueLen->iValue == 0 || valueLen->iValue >= 32)
-			return CreateConstantLong(ctx.allocator, 0);
+			return CreateConstantLong(ctx.allocator, NULL, 0);
 
 		VmConstant *valueBuf = LoadFrameValue(ctx, valuePtr, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, valueLen->iValue)), valueLen->iValue);
 
 		char buf[32];
 		strcpy(buf, valueBuf->sValue);
 
-		return CreateConstantLong(ctx.allocator, StrToLong(buf));
+		return CreateConstantLong(ctx.allocator, NULL, StrToLong(buf));
 	}
 	else if((function->name == InplaceStr("==") || function->name == InplaceStr("!=")) && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar) && function->arguments[1].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
 	{
@@ -1915,14 +1915,14 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		VmConstant *rhsLen = ExtractValue(ctx, rhs, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeInt));
 
 		if(lhsLen->iValue != rhsLen->iValue)
-			return CreateConstantInt(ctx.allocator, function->name == InplaceStr("==") ? 0 : 1);
+			return CreateConstantInt(ctx.allocator, NULL, function->name == InplaceStr("==") ? 0 : 1);
 
 		VmConstant *lhsBuf = LoadFrameValue(ctx, lhsPtr, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, lhsLen->iValue)), lhsLen->iValue);
 		VmConstant *rhsBuf = LoadFrameValue(ctx, rhsPtr, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, rhsLen->iValue)), rhsLen->iValue);
 
 		int order = memcmp(lhsBuf->sValue, rhsBuf->sValue, lhsLen->iValue);
 
-		return CreateConstantInt(ctx.allocator, function->name == InplaceStr("==") ? order == 0 : order != 0);
+		return CreateConstantInt(ctx.allocator, NULL, function->name == InplaceStr("==") ? order == 0 : order != 0);
 	}
 	else if(function->name == InplaceStr("__closeUpvalue"))
 	{
@@ -1978,7 +1978,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 			upvalueDataPtr = nextDataPtr;
 		}
 
-		StoreFrameValue(ctx, upvalueListLocation, CreateConstantPointer(ctx.allocator, upvalueVmPtr, NULL, ctx.ctx.typeVoid, false), NULLC_PTR_SIZE);
+		StoreFrameValue(ctx, upvalueListLocation, CreateConstantPointer(ctx.allocator, NULL, upvalueVmPtr, NULL, ctx.ctx.typeVoid, false), NULLC_PTR_SIZE);
 
 		return CreateConstantVoid(ctx.allocator);
 	}

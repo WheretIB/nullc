@@ -196,7 +196,7 @@ struct VmType
 
 struct VmValue
 {
-	VmValue(unsigned typeID, Allocator *allocator, VmType type): typeID(typeID), type(type), users(allocator)
+	VmValue(unsigned typeID, Allocator *allocator, VmType type, SynBase *source): typeID(typeID), type(type), source(source), users(allocator)
 	{
 		hasSideEffects = false;
 		hasMemoryAccess = false;
@@ -215,6 +215,8 @@ struct VmValue
 
 	VmType type;
 
+	SynBase *source;
+
 	InplaceStr comment;
 
 	bool hasSideEffects;
@@ -227,7 +229,7 @@ struct VmValue
 
 struct VmVoid: VmValue
 {
-	VmVoid(Allocator *allocator): VmValue(myTypeID, allocator, VmType::Void)
+	VmVoid(Allocator *allocator): VmValue(myTypeID, allocator, VmType::Void, NULL)
 	{
 	}
 
@@ -236,7 +238,7 @@ struct VmVoid: VmValue
 
 struct VmConstant: VmValue
 {
-	VmConstant(Allocator *allocator, VmType type): VmValue(myTypeID, allocator, type)
+	VmConstant(Allocator *allocator, VmType type, SynBase *source): VmValue(myTypeID, allocator, type, source)
 	{
 		iValue = 0;
 		dValue = 0.0;
@@ -267,7 +269,7 @@ struct VmConstant: VmValue
 
 struct VmInstruction: VmValue
 {
-	VmInstruction(Allocator *allocator, VmType type, SynBase *source, VmInstructionType cmd, unsigned uniqueId): VmValue(myTypeID, allocator, type), source(source), cmd(cmd), uniqueId(uniqueId), arguments(allocator)
+	VmInstruction(Allocator *allocator, VmType type, SynBase *source, VmInstructionType cmd, unsigned uniqueId): VmValue(myTypeID, allocator, type, source), cmd(cmd), uniqueId(uniqueId), arguments(allocator)
 	{
 		source = NULL;
 
@@ -278,8 +280,6 @@ struct VmInstruction: VmValue
 	}
 
 	void AddArgument(VmValue *argument);
-
-	SynBase *source;
 
 	VmInstructionType cmd;
 
@@ -297,7 +297,7 @@ struct VmInstruction: VmValue
 
 struct VmBlock: VmValue
 {
-	VmBlock(Allocator *allocator, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Block), name(name), uniqueId(uniqueId)
+	VmBlock(Allocator *allocator, SynBase *source, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Block, source), name(name), uniqueId(uniqueId)
 	{
 		parent = NULL;
 
@@ -336,7 +336,7 @@ struct VmBlock: VmValue
 
 struct VmFunction: VmValue
 {
-	VmFunction(Allocator *allocator, VmType type, FunctionData *function, ScopeData *scope, VmType returnType): VmValue(myTypeID, allocator, type), function(function), scope(scope), returnType(returnType), allocas(allocator), restoreBlocks(allocator)
+	VmFunction(Allocator *allocator, VmType type, SynBase *source, FunctionData *function, ScopeData *scope, VmType returnType): VmValue(myTypeID, allocator, type, source), function(function), scope(scope), returnType(returnType), allocas(allocator), restoreBlocks(allocator)
 	{
 		firstBlock = NULL;
 		lastBlock = NULL;

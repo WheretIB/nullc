@@ -45,37 +45,37 @@ bool IsLocalScope(ScopeData *scope)
 
 VmConstant* CreateConstantVoid(Allocator *allocator)
 {
-	return allocate(VmConstant)(allocator, VmType::Void);
+	return allocate(VmConstant)(allocator, VmType::Void, NULL);
 }
 
-VmConstant* CreateConstantInt(Allocator *allocator, int value)
+VmConstant* CreateConstantInt(Allocator *allocator, SynBase *source, int value)
 {
-	VmConstant *result = allocate(VmConstant)(allocator, VmType::Int);
+	VmConstant *result = allocate(VmConstant)(allocator, VmType::Int, source);
 
 	result->iValue = value;
 
 	return result;
 }
 
-VmConstant* CreateConstantDouble(Allocator *allocator, double value)
+VmConstant* CreateConstantDouble(Allocator *allocator, SynBase *source, double value)
 {
-	VmConstant *result = allocate(VmConstant)(allocator, VmType::Double);
+	VmConstant *result = allocate(VmConstant)(allocator, VmType::Double, source);
 
 	result->dValue = value;
 
 	return result;
 }
 
-VmConstant* CreateConstantLong(Allocator *allocator, long long value)
+VmConstant* CreateConstantLong(Allocator *allocator, SynBase *source, long long value)
 {
-	VmConstant *result = allocate(VmConstant)(allocator, VmType::Long);
+	VmConstant *result = allocate(VmConstant)(allocator, VmType::Long, source);
 
 	result->lValue = value;
 
 	return result;
 }
 
-VmConstant* CreateConstantPointer(Allocator *allocator, int offset, VariableData *container, TypeBase *structType, bool trackUsers)
+VmConstant* CreateConstantPointer(Allocator *allocator, SynBase *source, int offset, VariableData *container, TypeBase *structType, bool trackUsers)
 {
 	if(trackUsers && container)
 	{
@@ -86,7 +86,7 @@ VmConstant* CreateConstantPointer(Allocator *allocator, int offset, VariableData
 		}
 	}
 
-	VmConstant *result = allocate(VmConstant)(allocator, VmType::Pointer(structType));
+	VmConstant *result = allocate(VmConstant)(allocator, VmType::Pointer(structType), source);
 
 	result->iValue = offset;
 	result->container = container;
@@ -97,11 +97,11 @@ VmConstant* CreateConstantPointer(Allocator *allocator, int offset, VariableData
 	return result;
 }
 
-VmConstant* CreateConstantStruct(Allocator *allocator, char *value, int size, TypeBase *structType)
+VmConstant* CreateConstantStruct(Allocator *allocator, SynBase *source, char *value, int size, TypeBase *structType)
 {
 	assert(size % 4 == 0);
 
-	VmConstant *result = allocate(VmConstant)(allocator, VmType::Struct(size, structType));
+	VmConstant *result = allocate(VmConstant)(allocator, VmType::Struct(size, structType), source);
 
 	result->sValue = value;
 
