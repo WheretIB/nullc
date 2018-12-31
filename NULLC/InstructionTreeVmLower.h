@@ -7,6 +7,8 @@
 
 struct ExpressionContext;
 
+struct SynBase;
+
 struct VmBlock;
 struct VmFunction;
 struct VmModule;
@@ -19,13 +21,22 @@ struct InstructionVMLowerContext
 
 		currentFunction = 0;
 		currentBlock = 0;
+
+		lastStart = 0;
+
+		showSource = false;
 	}
 
 	ExpressionContext &ctx;
 
+	FastVector<SynBase*> locations;
 	FastVector<VMCmd> cmds;
 
 	FILE *file;
+
+	const char *lastStart;
+
+	bool showSource;
 
 	struct FixupPoint
 	{

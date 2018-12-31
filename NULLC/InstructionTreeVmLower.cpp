@@ -4,7 +4,15 @@
 #include "InstructionTreeVm.h"
 #include "InstructionTreeVmCommon.h"
 
+#define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
+
 typedef InstructionVMLowerContext Context;
+
+void AddCommand(Context &ctx, SynBase *source, VMCmd cmd)
+{
+	ctx.locations.push_back(source);
+	ctx.cmds.push_back(cmd);
+}
 
 void Lower(Context &ctx, VmValue *value)
 {
@@ -49,7 +57,7 @@ void Lower(Context &ctx, VmValue *value)
 			Lower(ctx, curr);
 
 			if(curr->type.size)
-				ctx.cmds.push_back(VMCmd(cmdPop, curr->type.size));
+				AddCommand(ctx, block->source, VMCmd(cmdPop, curr->type.size));
 		}
 
 		ctx.currentBlock = NULL;
@@ -61,68 +69,68 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_BYTE:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushInt, IsLocalScope(constant->container->scope), 1, constant->iValue + constant->container->offset));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushInt, IsLocalScope(constant->container->scope), 1, constant->iValue + constant->container->offset));
 			}
 			else
 			{
 				Lower(ctx, inst->arguments[0]);
-				ctx.cmds.push_back(VMCmd(cmdPushIntStk, 1, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushIntStk, 1, 0));
 			}
 			break;
 		case VM_INST_LOAD_SHORT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushShort, IsLocalScope(constant->container->scope), 2, constant->iValue + constant->container->offset));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushShort, IsLocalScope(constant->container->scope), 2, constant->iValue + constant->container->offset));
 			}
 			else
 			{
 				Lower(ctx, inst->arguments[0]);
-				ctx.cmds.push_back(VMCmd(cmdPushShortStk, 2, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushShortStk, 2, 0));
 			}
 			break;
 		case VM_INST_LOAD_INT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushInt, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushInt, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
 				Lower(ctx, inst->arguments[0]);
-				ctx.cmds.push_back(VMCmd(cmdPushIntStk, 4, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushIntStk, 4, 0));
 			}
 			break;
 		case VM_INST_LOAD_FLOAT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushFloat, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushFloat, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
 				Lower(ctx, inst->arguments[0]);
-				ctx.cmds.push_back(VMCmd(cmdPushFloatStk, 4, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushFloatStk, 4, 0));
 			}
 			break;
 		case VM_INST_LOAD_DOUBLE:
 		case VM_INST_LOAD_LONG:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushDorL, IsLocalScope(constant->container->scope), 8, constant->iValue + constant->container->offset));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushDorL, IsLocalScope(constant->container->scope), 8, constant->iValue + constant->container->offset));
 			}
 			else
 			{
 				Lower(ctx, inst->arguments[0]);
-				ctx.cmds.push_back(VMCmd(cmdPushDorLStk, 8, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushDorLStk, 8, 0));
 			}
 			break;
 		case VM_INST_LOAD_STRUCT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdPushCmplx, IsLocalScope(constant->container->scope), (unsigned short)inst->type.size, constant->iValue + constant->container->offset));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushCmplx, IsLocalScope(constant->container->scope), (unsigned short)inst->type.size, constant->iValue + constant->container->offset));
 			}
 			else
 			{
 				Lower(ctx, inst->arguments[0]);
-				ctx.cmds.push_back(VMCmd(cmdPushCmplxStk, (unsigned short)inst->type.size, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushCmplxStk, (unsigned short)inst->type.size, 0));
 			}
 			break;
 		case VM_INST_LOAD_IMMEDIATE:
@@ -133,62 +141,62 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovChar, IsLocalScope(constant->container->scope), 1, constant->iValue + constant->container->offset));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovChar, IsLocalScope(constant->container->scope), 1, constant->iValue + constant->container->offset));
 			}
 			else
 			{
 				Lower(ctx, inst->arguments[0]);
-				ctx.cmds.push_back(VMCmd(cmdMovCharStk, 1, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovCharStk, 1, 0));
 			}
 
-			ctx.cmds.push_back(VMCmd(cmdPop, inst->arguments[1]->type.size));
+			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[1]->type.size));
 			break;
 		case VM_INST_STORE_SHORT:
 			Lower(ctx, inst->arguments[1]);
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovShort, IsLocalScope(constant->container->scope), 2, constant->iValue + constant->container->offset));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovShort, IsLocalScope(constant->container->scope), 2, constant->iValue + constant->container->offset));
 			}
 			else
 			{
 				Lower(ctx, inst->arguments[0]);
-				ctx.cmds.push_back(VMCmd(cmdMovShortStk, 2, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovShortStk, 2, 0));
 			}
 
-			ctx.cmds.push_back(VMCmd(cmdPop, inst->arguments[1]->type.size));
+			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[1]->type.size));
 			break;
 		case VM_INST_STORE_INT:
 			Lower(ctx, inst->arguments[1]);
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovInt, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovInt, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
 				Lower(ctx, inst->arguments[0]);
-				ctx.cmds.push_back(VMCmd(cmdMovIntStk, 4, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovIntStk, 4, 0));
 			}
 
-			ctx.cmds.push_back(VMCmd(cmdPop, inst->arguments[1]->type.size));
+			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[1]->type.size));
 			break;
 		case VM_INST_STORE_FLOAT:
 			Lower(ctx, inst->arguments[1]);
 
-			ctx.cmds.push_back(VMCmd(cmdDtoF));
+			AddCommand(ctx, inst->source, VMCmd(cmdDtoF));
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovFloat, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovFloat, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
 				Lower(ctx, inst->arguments[0]);
-				ctx.cmds.push_back(VMCmd(cmdMovFloatStk, 4, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovFloatStk, 4, 0));
 			}
 
-			ctx.cmds.push_back(VMCmd(cmdPop, inst->arguments[1]->type.size));
+			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[1]->type.size));
 			break;
 		case VM_INST_STORE_LONG:
 		case VM_INST_STORE_DOUBLE:
@@ -196,51 +204,51 @@ void Lower(Context &ctx, VmValue *value)
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovDorL, IsLocalScope(constant->container->scope), 8, constant->iValue + constant->container->offset));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovDorL, IsLocalScope(constant->container->scope), 8, constant->iValue + constant->container->offset));
 			}
 			else
 			{
 				Lower(ctx, inst->arguments[0]);
-				ctx.cmds.push_back(VMCmd(cmdMovDorLStk, 8, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovDorLStk, 8, 0));
 			}
 
-			ctx.cmds.push_back(VMCmd(cmdPop, inst->arguments[1]->type.size));
+			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[1]->type.size));
 			break;
 		case VM_INST_STORE_STRUCT:
 			Lower(ctx, inst->arguments[1]);
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				ctx.cmds.push_back(VMCmd(cmdMovCmplx, IsLocalScope(constant->container->scope), (unsigned short)inst->arguments[1]->type.size, constant->iValue + constant->container->offset));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovCmplx, IsLocalScope(constant->container->scope), (unsigned short)inst->arguments[1]->type.size, constant->iValue + constant->container->offset));
 			}
 			else
 			{
 				Lower(ctx, inst->arguments[0]);
-				ctx.cmds.push_back(VMCmd(cmdMovCmplxStk, (unsigned short)inst->arguments[1]->type.size, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovCmplxStk, (unsigned short)inst->arguments[1]->type.size, 0));
 			}
 
-			ctx.cmds.push_back(VMCmd(cmdPop, inst->arguments[1]->type.size));
+			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[1]->type.size));
 			break;
 		case VM_INST_DOUBLE_TO_INT:
-			ctx.cmds.push_back(VMCmd(cmdDtoI));
+			AddCommand(ctx, inst->source, VMCmd(cmdDtoI));
 			break;
 		case VM_INST_DOUBLE_TO_LONG:
-			ctx.cmds.push_back(VMCmd(cmdDtoL));
+			AddCommand(ctx, inst->source, VMCmd(cmdDtoL));
 			break;
 		case VM_INST_DOUBLE_TO_FLOAT:
-			ctx.cmds.push_back(VMCmd(cmdDtoF));
+			AddCommand(ctx, inst->source, VMCmd(cmdDtoF));
 			break;
 		case VM_INST_INT_TO_DOUBLE:
-			ctx.cmds.push_back(VMCmd(cmdItoD));
+			AddCommand(ctx, inst->source, VMCmd(cmdItoD));
 			break;
 		case VM_INST_LONG_TO_DOUBLE:
-			ctx.cmds.push_back(VMCmd(cmdLtoD));
+			AddCommand(ctx, inst->source, VMCmd(cmdLtoD));
 			break;
 		case VM_INST_INT_TO_LONG:
-			ctx.cmds.push_back(VMCmd(cmdItoL));
+			AddCommand(ctx, inst->source, VMCmd(cmdItoL));
 			break;
 		case VM_INST_LONG_TO_INT:
-			ctx.cmds.push_back(VMCmd(cmdLtoI));
+			AddCommand(ctx, inst->source, VMCmd(cmdLtoI));
 			break;
 		case VM_INST_INDEX:
 			{
@@ -254,7 +262,7 @@ void Lower(Context &ctx, VmValue *value)
 				Lower(ctx, pointer);
 				Lower(ctx, index);
 
-				ctx.cmds.push_back(VMCmd(cmdIndex, (unsigned short)elementSize->iValue, arrSize->iValue));
+				AddCommand(ctx, inst->source, VMCmd(cmdIndex, (unsigned short)elementSize->iValue, arrSize->iValue));
 			}
 			break;
 		case VM_INST_INDEX_UNSIZED:
@@ -268,7 +276,7 @@ void Lower(Context &ctx, VmValue *value)
 				Lower(ctx, arr);
 				Lower(ctx, index);
 
-				ctx.cmds.push_back(VMCmd(cmdIndexStk, (unsigned short)elementSize->iValue, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdIndexStk, (unsigned short)elementSize->iValue, 0));
 			}
 			break;
 		case VM_INST_FUNCTION_ADDRESS:
@@ -277,7 +285,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(funcIndex);
 
-				ctx.cmds.push_back(VMCmd(cmdFuncAddr, funcIndex->iValue));
+				AddCommand(ctx, inst->source, VMCmd(cmdFuncAddr, funcIndex->iValue));
 			}
 			break;
 		case VM_INST_TYPE_ID:
@@ -286,7 +294,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(typeIndex);
 
-				ctx.cmds.push_back(VMCmd(cmdPushTypeID, typeIndex->iValue));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushTypeID, typeIndex->iValue));
 			}
 			break;
 		case VM_INST_SET_RANGE:
@@ -297,7 +305,7 @@ void Lower(Context &ctx, VmValue *value)
 			if(!(ctx.currentBlock->nextSibling && ctx.currentBlock->nextSibling == inst->arguments[0]))
 			{
 				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[0])));
-				ctx.cmds.push_back(VMCmd(cmdJmp, ~0u));
+				AddCommand(ctx, inst->source, VMCmd(cmdJmp, ~0u));
 			}
 			break;
 		case VM_INST_JUMP_Z:
@@ -309,15 +317,15 @@ void Lower(Context &ctx, VmValue *value)
 			if(ctx.currentBlock->nextSibling && ctx.currentBlock->nextSibling == inst->arguments[1])
 			{
 				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
-				ctx.cmds.push_back(VMCmd(cmdJmpNZ, ~0u));
+				AddCommand(ctx, inst->source, VMCmd(cmdJmpNZ, ~0u));
 			}
 			else
 			{
 				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[1])));
-				ctx.cmds.push_back(VMCmd(cmdJmpZ, ~0u));
+				AddCommand(ctx, inst->source, VMCmd(cmdJmpZ, ~0u));
 
 				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
-				ctx.cmds.push_back(VMCmd(cmdJmp, ~0u));
+				AddCommand(ctx, inst->source, VMCmd(cmdJmp, ~0u));
 			}
 			break;
 		case VM_INST_JUMP_NZ:
@@ -329,15 +337,15 @@ void Lower(Context &ctx, VmValue *value)
 			if(ctx.currentBlock->nextSibling && ctx.currentBlock->nextSibling == inst->arguments[1])
 			{
 				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
-				ctx.cmds.push_back(VMCmd(cmdJmpZ, ~0u));
+				AddCommand(ctx, inst->source, VMCmd(cmdJmpZ, ~0u));
 			}
 			else
 			{
 				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[1])));
-				ctx.cmds.push_back(VMCmd(cmdJmpNZ, ~0u));
+				AddCommand(ctx, inst->source, VMCmd(cmdJmpNZ, ~0u));
 
 				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
-				ctx.cmds.push_back(VMCmd(cmdJmp, ~0u));
+				AddCommand(ctx, inst->source, VMCmd(cmdJmp, ~0u));
 			}
 			break;
 		case VM_INST_CALL:
@@ -366,7 +374,7 @@ void Lower(Context &ctx, VmValue *value)
 					for(unsigned i = 1; i < inst->arguments.size(); i++)
 						Lower(ctx, inst->arguments[i]);
 
-					ctx.cmds.push_back(VMCmd(cmdCall, helper, function->function->functionIndex));
+					AddCommand(ctx, inst->source, VMCmd(cmdCall, helper, function->function->functionIndex));
 				}
 				else
 				{
@@ -383,7 +391,7 @@ void Lower(Context &ctx, VmValue *value)
 						paramSize += size > 4 ? size : 4;
 					}
 
-					ctx.cmds.push_back(VMCmd(cmdCallPtr, helper, paramSize));
+					AddCommand(ctx, inst->source, VMCmd(cmdCallPtr, helper, paramSize));
 				}
 			}
 			break;
@@ -406,16 +414,16 @@ void Lower(Context &ctx, VmValue *value)
 					else if(result->type == VmType::Long)
 						operType = OTYPE_LONG;
 
-					ctx.cmds.push_back(VMCmd(cmdReturn, operType, (unsigned short)localReturn, result->type.size));
+					AddCommand(ctx, inst->source, VMCmd(cmdReturn, operType, (unsigned short)localReturn, result->type.size));
 				}
 				else
 				{
-					ctx.cmds.push_back(VMCmd(cmdReturn, OTYPE_COMPLEX, (unsigned short)localReturn, 0));
+					AddCommand(ctx, inst->source, VMCmd(cmdReturn, OTYPE_COMPLEX, (unsigned short)localReturn, 0));
 				}
 			}
 			break;
 		case VM_INST_YIELD:
-			ctx.cmds.push_back(VMCmd(cmdNop));
+			AddCommand(ctx, inst->source, VMCmd(cmdNop));
 			break;
 		case VM_INST_ADD:
 			{
@@ -426,11 +434,11 @@ void Lower(Context &ctx, VmValue *value)
 					Lower(ctx, isContantOneLhs ? inst->arguments[1] : inst->arguments[0]);
 
 					if(inst->type == VmType::Int)
-						ctx.cmds.push_back(VMCmd(cmdIncI));
+						AddCommand(ctx, inst->source, VMCmd(cmdIncI));
 					else if(inst->type == VmType::Double)
-						ctx.cmds.push_back(VMCmd(cmdIncD));
+						AddCommand(ctx, inst->source, VMCmd(cmdIncD));
 					else if(inst->type == VmType::Long)
-						ctx.cmds.push_back(VMCmd(cmdIncL));
+						AddCommand(ctx, inst->source, VMCmd(cmdIncL));
 				}
 				else
 				{
@@ -438,11 +446,11 @@ void Lower(Context &ctx, VmValue *value)
 					Lower(ctx, inst->arguments[1]);
 
 					if(inst->type == VmType::Int)
-						ctx.cmds.push_back(VMCmd(cmdAdd));
+						AddCommand(ctx, inst->source, VMCmd(cmdAdd));
 					else if(inst->type == VmType::Double)
-						ctx.cmds.push_back(VMCmd(cmdAddD));
+						AddCommand(ctx, inst->source, VMCmd(cmdAddD));
 					else if(inst->type == VmType::Long)
-						ctx.cmds.push_back(VMCmd(cmdAddL));
+						AddCommand(ctx, inst->source, VMCmd(cmdAddL));
 				}
 			}
 			break;
@@ -455,11 +463,11 @@ void Lower(Context &ctx, VmValue *value)
 					Lower(ctx, isContantOneLhs ? inst->arguments[1] : inst->arguments[0]);
 
 					if(inst->type == VmType::Int)
-						ctx.cmds.push_back(VMCmd(cmdDecI));
+						AddCommand(ctx, inst->source, VMCmd(cmdDecI));
 					else if(inst->type == VmType::Double)
-						ctx.cmds.push_back(VMCmd(cmdDecD));
+						AddCommand(ctx, inst->source, VMCmd(cmdDecD));
 					else if(inst->type == VmType::Long)
-						ctx.cmds.push_back(VMCmd(cmdDecL));
+						AddCommand(ctx, inst->source, VMCmd(cmdDecL));
 				}
 				else
 				{
@@ -467,11 +475,11 @@ void Lower(Context &ctx, VmValue *value)
 					Lower(ctx, inst->arguments[1]);
 
 					if(inst->type == VmType::Int)
-						ctx.cmds.push_back(VMCmd(cmdSub));
+						AddCommand(ctx, inst->source, VMCmd(cmdSub));
 					else if(inst->type == VmType::Double)
-						ctx.cmds.push_back(VMCmd(cmdSubD));
+						AddCommand(ctx, inst->source, VMCmd(cmdSubD));
 					else if(inst->type == VmType::Long)
-						ctx.cmds.push_back(VMCmd(cmdSubL));
+						AddCommand(ctx, inst->source, VMCmd(cmdSubL));
 				}
 			}
 			break;
@@ -480,190 +488,190 @@ void Lower(Context &ctx, VmValue *value)
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdMul));
+				AddCommand(ctx, inst->source, VMCmd(cmdMul));
 			else if(inst->type == VmType::Double)
-				ctx.cmds.push_back(VMCmd(cmdMulD));
+				AddCommand(ctx, inst->source, VMCmd(cmdMulD));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdMulL));
+				AddCommand(ctx, inst->source, VMCmd(cmdMulL));
 			break;
 		case VM_INST_DIV:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdDiv));
+				AddCommand(ctx, inst->source, VMCmd(cmdDiv));
 			else if(inst->type == VmType::Double)
-				ctx.cmds.push_back(VMCmd(cmdDivD));
+				AddCommand(ctx, inst->source, VMCmd(cmdDivD));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdDivL));
+				AddCommand(ctx, inst->source, VMCmd(cmdDivL));
 			break;
 		case VM_INST_POW:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdPow));
+				AddCommand(ctx, inst->source, VMCmd(cmdPow));
 			else if(inst->type == VmType::Double)
-				ctx.cmds.push_back(VMCmd(cmdPowD));
+				AddCommand(ctx, inst->source, VMCmd(cmdPowD));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdPowL));
+				AddCommand(ctx, inst->source, VMCmd(cmdPowL));
 			break;
 		case VM_INST_MOD:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdMod));
+				AddCommand(ctx, inst->source, VMCmd(cmdMod));
 			else if(inst->type == VmType::Double)
-				ctx.cmds.push_back(VMCmd(cmdModD));
+				AddCommand(ctx, inst->source, VMCmd(cmdModD));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdModL));
+				AddCommand(ctx, inst->source, VMCmd(cmdModL));
 			break;
 		case VM_INST_LESS:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdLess));
+				AddCommand(ctx, inst->source, VMCmd(cmdLess));
 			else if(inst->type == VmType::Double)
-				ctx.cmds.push_back(VMCmd(cmdLessD));
+				AddCommand(ctx, inst->source, VMCmd(cmdLessD));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdLessL));
+				AddCommand(ctx, inst->source, VMCmd(cmdLessL));
 			break;
 		case VM_INST_GREATER:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdGreater));
+				AddCommand(ctx, inst->source, VMCmd(cmdGreater));
 			else if(inst->type == VmType::Double)
-				ctx.cmds.push_back(VMCmd(cmdGreaterD));
+				AddCommand(ctx, inst->source, VMCmd(cmdGreaterD));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdGreaterL));
+				AddCommand(ctx, inst->source, VMCmd(cmdGreaterL));
 			break;
 		case VM_INST_LESS_EQUAL:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdLEqual));
+				AddCommand(ctx, inst->source, VMCmd(cmdLEqual));
 			else if(inst->type == VmType::Double)
-				ctx.cmds.push_back(VMCmd(cmdLEqualD));
+				AddCommand(ctx, inst->source, VMCmd(cmdLEqualD));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdLEqualL));
+				AddCommand(ctx, inst->source, VMCmd(cmdLEqualL));
 			break;
 		case VM_INST_GREATER_EQUAL:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdGEqual));
+				AddCommand(ctx, inst->source, VMCmd(cmdGEqual));
 			else if(inst->type == VmType::Double)
-				ctx.cmds.push_back(VMCmd(cmdGEqualD));
+				AddCommand(ctx, inst->source, VMCmd(cmdGEqualD));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdGEqualL));
+				AddCommand(ctx, inst->source, VMCmd(cmdGEqualL));
 			break;
 		case VM_INST_EQUAL:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdEqual));
+				AddCommand(ctx, inst->source, VMCmd(cmdEqual));
 			else if(inst->type == VmType::Double)
-				ctx.cmds.push_back(VMCmd(cmdEqualD));
+				AddCommand(ctx, inst->source, VMCmd(cmdEqualD));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdEqualL));
+				AddCommand(ctx, inst->source, VMCmd(cmdEqualL));
 			break;
 		case VM_INST_NOT_EQUAL:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdNEqual));
+				AddCommand(ctx, inst->source, VMCmd(cmdNEqual));
 			else if(inst->type == VmType::Double)
-				ctx.cmds.push_back(VMCmd(cmdNEqualD));
+				AddCommand(ctx, inst->source, VMCmd(cmdNEqualD));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdNEqualL));
+				AddCommand(ctx, inst->source, VMCmd(cmdNEqualL));
 			break;
 		case VM_INST_SHL:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdShl));
+				AddCommand(ctx, inst->source, VMCmd(cmdShl));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdShlL));
+				AddCommand(ctx, inst->source, VMCmd(cmdShlL));
 			break;
 		case VM_INST_SHR:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdShr));
+				AddCommand(ctx, inst->source, VMCmd(cmdShr));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdShrL));
+				AddCommand(ctx, inst->source, VMCmd(cmdShrL));
 			break;
 		case VM_INST_BIT_AND:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdBitAnd));
+				AddCommand(ctx, inst->source, VMCmd(cmdBitAnd));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdBitAndL));
+				AddCommand(ctx, inst->source, VMCmd(cmdBitAndL));
 			break;
 		case VM_INST_BIT_OR:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdBitOr));
+				AddCommand(ctx, inst->source, VMCmd(cmdBitOr));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdBitOrL));
+				AddCommand(ctx, inst->source, VMCmd(cmdBitOrL));
 			break;
 		case VM_INST_BIT_XOR:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdBitXor));
+				AddCommand(ctx, inst->source, VMCmd(cmdBitXor));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdBitXorL));
+				AddCommand(ctx, inst->source, VMCmd(cmdBitXorL));
 			break;
 		case VM_INST_LOG_XOR:
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdLogXor));
+				AddCommand(ctx, inst->source, VMCmd(cmdLogXor));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdLogXorL));
+				AddCommand(ctx, inst->source, VMCmd(cmdLogXorL));
 			break;
 		case VM_INST_NEG:
 			Lower(ctx, inst->arguments[0]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdNeg));
+				AddCommand(ctx, inst->source, VMCmd(cmdNeg));
 			else if(inst->type == VmType::Double)
-				ctx.cmds.push_back(VMCmd(cmdNegD));
+				AddCommand(ctx, inst->source, VMCmd(cmdNegD));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdNegL));
+				AddCommand(ctx, inst->source, VMCmd(cmdNegL));
 			break;
 		case VM_INST_BIT_NOT:
 			Lower(ctx, inst->arguments[0]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdBitNot));
+				AddCommand(ctx, inst->source, VMCmd(cmdBitNot));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdBitNotL));
+				AddCommand(ctx, inst->source, VMCmd(cmdBitNotL));
 			break;
 		case VM_INST_LOG_NOT:
 			Lower(ctx, inst->arguments[0]);
 
 			if(inst->type == VmType::Int)
-				ctx.cmds.push_back(VMCmd(cmdLogNot));
+				AddCommand(ctx, inst->source, VMCmd(cmdLogNot));
 			else if(inst->type == VmType::Long)
-				ctx.cmds.push_back(VMCmd(cmdLogNotL));
+				AddCommand(ctx, inst->source, VMCmd(cmdLogNotL));
 			break;
 		case VM_INST_CREATE_CLOSURE:
 			assert(!"not implemented");
@@ -680,7 +688,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				Lower(ctx, pointer);
 
-				ctx.cmds.push_back(VMCmd(cmdConvertPtr, typeIndex->iValue));
+				AddCommand(ctx, inst->source, VMCmd(cmdConvertPtr, typeIndex->iValue));
 			}
 			break;
 		case VM_INST_CHECKED_RETURN:
@@ -695,16 +703,16 @@ void Lower(Context &ctx, VmValue *value)
 				assert(argument->type.size % 4 == 0);
 				
 				if(VmFunction *function = getType<VmFunction>(argument))
-					ctx.cmds.push_back(VMCmd(cmdFuncAddr, function->function->functionIndex));
+					AddCommand(ctx, inst->source, VMCmd(cmdFuncAddr, function->function->functionIndex));
 				else
 					Lower(ctx, inst->arguments[i]);
 			}
 			break;
 		case VM_INST_EXTRACT:
-			ctx.cmds.push_back(VMCmd(cmdNop));
+			AddCommand(ctx, inst->source, VMCmd(cmdNop));
 			break;
 		case VM_INST_UNYIELD:
-			ctx.cmds.push_back(VMCmd(cmdNop));
+			AddCommand(ctx, inst->source, VMCmd(cmdNop));
 			break;
 		case VM_INST_BITCAST:
 			Lower(ctx, inst->arguments[0]);
@@ -721,23 +729,23 @@ void Lower(Context &ctx, VmValue *value)
 		}
 		else if(constant->type == VmType::Int)
 		{
-			ctx.cmds.push_back(VMCmd(cmdPushImmt, constant->iValue));
+			AddCommand(ctx, constant->source, VMCmd(cmdPushImmt, constant->iValue));
 		}
 		else if(constant->type == VmType::Double)
 		{
 			unsigned data[2];
 			memcpy(data, &constant->dValue, 8);
 
-			ctx.cmds.push_back(VMCmd(cmdPushImmt, data[1]));
-			ctx.cmds.push_back(VMCmd(cmdPushImmt, data[0]));
+			AddCommand(ctx, constant->source, VMCmd(cmdPushImmt, data[1]));
+			AddCommand(ctx, constant->source, VMCmd(cmdPushImmt, data[0]));
 		}
 		else if(constant->type == VmType::Long)
 		{
 			unsigned data[2];
 			memcpy(data, &constant->lValue, 8);
 
-			ctx.cmds.push_back(VMCmd(cmdPushImmt, data[1]));
-			ctx.cmds.push_back(VMCmd(cmdPushImmt, data[0]));
+			AddCommand(ctx, constant->source, VMCmd(cmdPushImmt, data[1]));
+			AddCommand(ctx, constant->source, VMCmd(cmdPushImmt, data[0]));
 		}
 		else if(constant->type.type == VM_TYPE_POINTER)
 		{
@@ -745,11 +753,11 @@ void Lower(Context &ctx, VmValue *value)
 			{
 				assert(constant->iValue == 0);
 
-				ctx.cmds.push_back(VMCmd(cmdPushPtrImmt, 0));
+				AddCommand(ctx, constant->source, VMCmd(cmdPushPtrImmt, 0));
 			}
 			else
 			{
-				ctx.cmds.push_back(VMCmd(cmdGetAddr, IsLocalScope(constant->container->scope), constant->iValue + constant->container->offset));
+				AddCommand(ctx, constant->source, VMCmd(cmdGetAddr, IsLocalScope(constant->container->scope), constant->iValue + constant->container->offset));
 			}
 		}
 		else if(constant->type.type == VM_TYPE_STRUCT)
@@ -757,7 +765,7 @@ void Lower(Context &ctx, VmValue *value)
 			assert(constant->type.size % 4 == 0);
 
 			for(unsigned i = 0; i < constant->type.size / 4; i++)
-				ctx.cmds.push_back(VMCmd(cmdPushImmt, ((unsigned*)constant->sValue)[i]));
+				AddCommand(ctx, constant->source, VMCmd(cmdPushImmt, ((unsigned*)constant->sValue)[i]));
 		}
 		else
 		{
@@ -776,15 +784,38 @@ void LowerModule(Context &ctx, VmModule *module)
 
 void PrintInstructions(Context &ctx)
 {
-	// TODO: Source code locations
+	assert(ctx.locations.size() == ctx.cmds.size());
 
 	for(unsigned i = 0; i < ctx.cmds.size(); i++)
 	{
+		SynBase *source = ctx.locations[i];
 		VMCmd &cmd = ctx.cmds[i];
+
+		if(ctx.showSource && source)
+		{
+			const char *start = source->pos;
+			const char *end = start + 1;
+
+			while(start > ctx.ctx.code && *(start - 1) != '\r' && *(start - 1) != '\n')
+				start--;
+
+			while(*end && *end != '\r' && *end != '\n')
+				end++;
+
+			if(start != ctx.lastStart)
+			{
+				fprintf(ctx.file, "%.*s\n", unsigned(end - start), start);
+
+				ctx.lastStart = start;
+			}
+		}
 
 		char buf[256];
 		cmd.Decode(buf);
 
-		fprintf(ctx.file, "// %s\n", buf);
+		if(cmd.cmd == cmdCall || cmd.cmd == cmdFuncAddr)
+			fprintf(ctx.file, "// %s (%.*s)\n", buf, FMT_ISTR(ctx.ctx.functions[cmd.argument]->name));
+		else
+			fprintf(ctx.file, "// %s\n", buf);
 	}
 }
