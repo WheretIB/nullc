@@ -2853,12 +2853,38 @@ void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmValue* va
 		}
 		else if(inst->cmd == VM_INST_JUMP_Z || inst->cmd == VM_INST_JUMP_NZ)
 		{
+			// Remove conditional branches with constant condition
 			if(VmConstant *condition = getType<VmConstant>(inst->arguments[0]))
 			{
 				if(inst->cmd == VM_INST_JUMP_Z)
 					ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[1] : inst->arguments[2], NULL, NULL, NULL, &module->deadCodeEliminations);
 				else
 					ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[2] : inst->arguments[1], NULL, NULL, NULL, &module->deadCodeEliminations);
+			}
+		}
+		else if(inst->cmd == VM_INST_PHI)
+		{
+			// Remove incoming branches that are never executed (phi instruction is the only user)
+			for(unsigned i = 0; i < inst->arguments.size();)
+			{
+				VmValue *value = inst->arguments[i];
+				VmValue *edge = inst->arguments[i + 1];
+
+				if(edge->users.size() == 1 && edge->users[0] == inst)
+				{
+					value->RemoveUse(inst);
+					edge->RemoveUse(inst);
+
+					inst->arguments[i] = inst->arguments[inst->arguments.size() - 2];
+					inst->arguments[i + 1] = inst->arguments[inst->arguments.size() - 1];
+
+					inst->arguments.pop_back();
+					inst->arguments.pop_back();
+				}
+				else
+				{
+					i += 2;
+				}
 			}
 		}
 	}
@@ -2896,6 +2922,22 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 
 				if(next && currLastInst->arguments[0] == next && next->users.size() == 1 && next->users[0] == currLastInst)
 				{
+					// Fixup phi instructions
+					for(VmInstruction *inst = next->firstInstruction; inst;)
+					{
+						VmInstruction *nextInst = inst->nextSibling;
+
+						if(inst->cmd == VM_INST_PHI)
+						{
+							// Check that phi only expects us to come from the block we are merging with
+							assert(inst->arguments.size() == 2 && inst->arguments[1] == curr);
+
+							ReplaceValueUsersWith(module, inst, inst->arguments[0], &module->controlFlowSimplifications);
+						}
+
+						inst = nextInst;
+					}
+
 					// Steal target block instructions
 					for(VmInstruction *inst = next->firstInstruction; inst; inst = inst->nextSibling)
 						inst->parent = curr;
