@@ -3780,9 +3780,9 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
 		IntrusiveList<SynCallArgument> arguments;
 
 		if(!isType<SynNothing>(el))
-			arguments.push_back(allocate(SynCallArgument)(el->pos, InplaceStr(), el));
+			arguments.push_back(allocate(SynCallArgument)(el->pos, el->end, InplaceStr(), el));
 
-		value = allocate(SynArrayIndex)(el->pos, value ? value : syntax->type, arguments);
+		value = allocate(SynArrayIndex)(el->pos, el->end, value ? value : syntax->type, arguments);
 	}
 
 	return AnalyzeArrayIndex(ctx, value);
@@ -5477,9 +5477,9 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		SynTypeFunction *functionType = getType<SynTypeFunction>(syntax->type);
 
 		for(SynBase *curr = functionType->arguments.head; curr; curr = curr->next)
-			syntax->arguments.push_back(allocate(SynCallArgument)(curr->pos, InplaceStr(), curr));
+			syntax->arguments.push_back(allocate(SynCallArgument)(curr->pos, curr->end, InplaceStr(), curr));
 
-		syntax->type = allocate(SynTypeReference)(functionType->pos, functionType->returnType);
+		syntax->type = allocate(SynTypeReference)(functionType->pos, functionType->end, functionType->returnType);
 
 		type = AnalyzeType(ctx, syntax->type, false);
 	}
@@ -7035,7 +7035,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 	for(SynAccessor *accessor = syntax->accessors.head; accessor; accessor = getType<SynAccessor>(accessor->next))
 	{
-		SynBase *parentType = allocate(SynTypeSimple)(accessor->pos, IntrusiveList<SynIdentifier>(), classDefinition->classType->name);
+		SynBase *parentType = allocate(SynTypeSimple)(accessor->pos, accessor->end, IntrusiveList<SynIdentifier>(), classDefinition->classType->name);
 
 		TypeBase *accessorType = AnalyzeType(ctx, accessor->type);
 
@@ -7046,7 +7046,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 			IntrusiveList<SynBase> expressions = accessor->getBlock->expressions;
 
-			SynFunctionDefinition *function = allocate(SynFunctionDefinition)(accessor->pos, false, false, parentType, true, accessor->type, false, accessor->name, aliases, arguments, expressions);
+			SynFunctionDefinition *function = allocate(SynFunctionDefinition)(accessor->pos, accessor->end, false, false, parentType, true, accessor->type, false, accessor->name, aliases, arguments, expressions);
 
 			TypeFunction *instance = ctx.GetFunctionType(accessorType, IntrusiveList<TypeHandle>());
 
@@ -7063,11 +7063,11 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 			IntrusiveList<SynIdentifier> aliases;
 
 			IntrusiveList<SynFunctionArgument> arguments;
-			arguments.push_back(allocate(SynFunctionArgument)(accessor->pos, false, accessor->type, accessor->setName.empty() ? InplaceStr("r") : accessor->setName, NULL));
+			arguments.push_back(allocate(SynFunctionArgument)(accessor->pos, accessor->end, false, accessor->type, accessor->setName.empty() ? InplaceStr("r") : accessor->setName, NULL));
 
 			IntrusiveList<SynBase> expressions = accessor->setBlock->expressions;
 
-			SynFunctionDefinition *function = allocate(SynFunctionDefinition)(accessor->pos, false, false, parentType, true, allocate(SynTypeAuto)(accessor->pos), false, accessor->name, aliases, arguments, expressions);
+			SynFunctionDefinition *function = allocate(SynFunctionDefinition)(accessor->pos, accessor->end, false, false, parentType, true, allocate(SynTypeAuto)(accessor->pos, accessor->end), false, accessor->name, aliases, arguments, expressions);
 
 			IntrusiveList<TypeHandle> argTypes;
 			argTypes.push_back(allocate(TypeHandle)(accessorType));
@@ -8158,14 +8158,14 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 			return allocate(ExprTypeLiteral)(node, ctx.typeTypeID, type);
 
 		// Transform 'type ref(arguments)' into a 'type ref' constructor call
-		SynBase* value = allocate(SynTypeReference)(node->pos, node->returnType);
+		SynBase* value = allocate(SynTypeReference)(node->pos, node->end, node->returnType);
 
 		IntrusiveList<SynCallArgument> arguments;
 
 		for(SynBase *curr = node->arguments.head; curr; curr = curr->next)
-			arguments.push_back(allocate(SynCallArgument)(curr->pos, InplaceStr(), curr));
+			arguments.push_back(allocate(SynCallArgument)(curr->pos, curr->end, InplaceStr(), curr));
 
-		return AnalyzeFunctionCall(ctx, allocate(SynFunctionCall)(node->pos, value, IntrusiveList<SynBase>(), arguments));
+		return AnalyzeFunctionCall(ctx, allocate(SynFunctionCall)(node->pos, node->end, value, IntrusiveList<SynBase>(), arguments));
 	}
 
 	if(SynTypeGenericInstance *node = getType<SynTypeGenericInstance>(syntax))

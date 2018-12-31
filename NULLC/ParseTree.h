@@ -67,11 +67,12 @@ struct SynBinaryOpElement
 	{
 	}
 
-	SynBinaryOpElement(const char* pos, SynBinaryOpType type, SynBase* value): pos(pos), type(type), value(value)
+	SynBinaryOpElement(const char* pos, const char *end, SynBinaryOpType type, SynBase* value): pos(pos), end(end), type(type), value(value)
 	{
 	}
 
 	const char* pos;
+	const char* end;
 	SynBinaryOpType type;
 	SynBase* value;
 };
@@ -91,11 +92,13 @@ struct ParseContext
 	void Skip();
 
 	const char* Position();
+	const char* LastEnding();
 
 	SynNamespaceElement* IsNamespace(SynNamespaceElement *parent, InplaceStr name);
 	SynNamespaceElement* PushNamespace(InplaceStr name);
 	void PopNamespace();
 
+	Lexeme *firstLexeme;
 	Lexeme *currentLexeme;
 
 	SmallArray<SynBinaryOpElement, 32> binaryOpStack;
@@ -119,8 +122,9 @@ struct ParseContext
 
 struct SynBase
 {
-	SynBase(unsigned typeID, const char *pos): typeID(typeID), pos(pos), next(0), listed(false)
+	SynBase(unsigned typeID, const char *pos, const char *end): typeID(typeID), pos(pos), end(end), next(0), listed(false)
 	{
+		assert(end > pos);
 	}
 
 	virtual ~SynBase()
@@ -130,6 +134,7 @@ struct SynBase
 	unsigned typeID;
 
 	const char *pos;
+	const char *end;
 	SynBase *next;
 	bool listed;
 };
@@ -151,7 +156,7 @@ T* getType(SynBase *node)
 
 struct SynNothing: SynBase
 {
-	SynNothing(const char* pos): SynBase(myTypeID, pos)
+	SynNothing(const char *pos, const char *end): SynBase(myTypeID, pos, end)
 	{
 	}
 
@@ -160,7 +165,7 @@ struct SynNothing: SynBase
 
 struct SynIdentifier: SynBase
 {
-	SynIdentifier(const char* pos, InplaceStr name): SynBase(myTypeID, pos), name(name)
+	SynIdentifier(const char *pos, const char *end, InplaceStr name): SynBase(myTypeID, pos, end), name(name)
 	{
 	}
 
@@ -171,7 +176,7 @@ struct SynIdentifier: SynBase
 
 struct SynTypeAuto: SynBase
 {
-	SynTypeAuto(const char *pos): SynBase(myTypeID, pos)
+	SynTypeAuto(const char *pos, const char *end): SynBase(myTypeID, pos, end)
 	{
 	}
 
@@ -180,7 +185,7 @@ struct SynTypeAuto: SynBase
 
 struct SynTypeGeneric: SynBase
 {
-	SynTypeGeneric(const char *pos): SynBase(myTypeID, pos)
+	SynTypeGeneric(const char *pos, const char *end): SynBase(myTypeID, pos, end)
 	{
 	}
 
@@ -189,7 +194,7 @@ struct SynTypeGeneric: SynBase
 
 struct SynTypeSimple: SynBase
 {
-	SynTypeSimple(const char *pos, IntrusiveList<SynIdentifier> path, InplaceStr name): SynBase(myTypeID, pos), path(path), name(name)
+	SynTypeSimple(const char *pos, const char *end, IntrusiveList<SynIdentifier> path, InplaceStr name): SynBase(myTypeID, pos, end), path(path), name(name)
 	{
 	}
 
@@ -201,7 +206,7 @@ struct SynTypeSimple: SynBase
 
 struct SynTypeAlias: SynBase
 {
-	SynTypeAlias(const char *pos, InplaceStr name): SynBase(myTypeID, pos), name(name)
+	SynTypeAlias(const char *pos, const char *end, InplaceStr name): SynBase(myTypeID, pos, end), name(name)
 	{
 	}
 
@@ -212,7 +217,7 @@ struct SynTypeAlias: SynBase
 
 struct SynTypeArray: SynBase
 {
-	SynTypeArray(const char *pos, SynBase *type, IntrusiveList<SynBase> sizes): SynBase(myTypeID, pos), type(type), sizes(sizes)
+	SynTypeArray(const char *pos, const char *end, SynBase *type, IntrusiveList<SynBase> sizes): SynBase(myTypeID, pos, end), type(type), sizes(sizes)
 	{
 	}
 
@@ -224,7 +229,7 @@ struct SynTypeArray: SynBase
 
 struct SynTypeReference: SynBase
 {
-	SynTypeReference(const char *pos, SynBase *type): SynBase(myTypeID, pos), type(type)
+	SynTypeReference(const char *pos, const char *end, SynBase *type): SynBase(myTypeID, pos, end), type(type)
 	{
 	}
 
@@ -235,7 +240,7 @@ struct SynTypeReference: SynBase
 
 struct SynTypeFunction: SynBase
 {
-	SynTypeFunction(const char *pos, SynBase *returnType, IntrusiveList<SynBase> arguments): SynBase(myTypeID, pos), returnType(returnType), arguments(arguments)
+	SynTypeFunction(const char *pos, const char *end, SynBase *returnType, IntrusiveList<SynBase> arguments): SynBase(myTypeID, pos, end), returnType(returnType), arguments(arguments)
 	{
 	}
 
@@ -247,7 +252,7 @@ struct SynTypeFunction: SynBase
 
 struct SynTypeGenericInstance: SynBase
 {
-	SynTypeGenericInstance(const char *pos, SynBase *baseType, IntrusiveList<SynBase> types): SynBase(myTypeID, pos), baseType(baseType), types(types)
+	SynTypeGenericInstance(const char *pos, const char *end, SynBase *baseType, IntrusiveList<SynBase> types): SynBase(myTypeID, pos, end), baseType(baseType), types(types)
 	{
 	}
 
@@ -259,7 +264,7 @@ struct SynTypeGenericInstance: SynBase
 
 struct SynTypeof: SynBase
 {
-	SynTypeof(const char *pos, SynBase* value): SynBase(myTypeID, pos), value(value)
+	SynTypeof(const char *pos, const char *end, SynBase* value): SynBase(myTypeID, pos, end), value(value)
 	{
 	}
 
@@ -270,7 +275,7 @@ struct SynTypeof: SynBase
 
 struct SynBool: SynBase
 {
-	SynBool(const char* pos, bool value): SynBase(myTypeID, pos), value(value)
+	SynBool(const char *pos, const char *end, bool value): SynBase(myTypeID, pos, end), value(value)
 	{
 	}
 
@@ -281,7 +286,7 @@ struct SynBool: SynBase
 
 struct SynNumber: SynBase
 {
-	SynNumber(const char* pos, InplaceStr value, InplaceStr suffix): SynBase(myTypeID, pos), value(value), suffix(suffix)
+	SynNumber(const char *pos, const char *end, InplaceStr value, InplaceStr suffix): SynBase(myTypeID, pos, end), value(value), suffix(suffix)
 	{
 	}
 
@@ -293,7 +298,7 @@ struct SynNumber: SynBase
 
 struct SynNullptr: SynBase
 {
-	SynNullptr(const char* pos): SynBase(myTypeID, pos)
+	SynNullptr(const char *pos, const char *end): SynBase(myTypeID, pos, end)
 	{
 	}
 
@@ -302,7 +307,7 @@ struct SynNullptr: SynBase
 
 struct SynCharacter: SynBase
 {
-	SynCharacter(const char* pos, InplaceStr value): SynBase(myTypeID, pos), value(value)
+	SynCharacter(const char *pos, const char *end, InplaceStr value): SynBase(myTypeID, pos, end), value(value)
 	{
 	}
 
@@ -313,7 +318,7 @@ struct SynCharacter: SynBase
 
 struct SynString: SynBase
 {
-	SynString(const char* pos, bool rawLiteral, InplaceStr value): SynBase(myTypeID, pos), rawLiteral(rawLiteral), value(value)
+	SynString(const char *pos, const char *end, bool rawLiteral, InplaceStr value): SynBase(myTypeID, pos, end), rawLiteral(rawLiteral), value(value)
 	{
 	}
 
@@ -325,7 +330,7 @@ struct SynString: SynBase
 
 struct SynArray: SynBase
 {
-	SynArray(const char* pos, IntrusiveList<SynBase> values): SynBase(myTypeID, pos), values(values)
+	SynArray(const char *pos, const char *end, IntrusiveList<SynBase> values): SynBase(myTypeID, pos, end), values(values)
 	{
 	}
 
@@ -336,7 +341,7 @@ struct SynArray: SynBase
 
 struct SynGenerator: SynBase
 {
-	SynGenerator(const char* pos, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), expressions(expressions)
+	SynGenerator(const char *pos, const char *end, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos, end), expressions(expressions)
 	{
 	}
 
@@ -347,7 +352,7 @@ struct SynGenerator: SynBase
 
 struct SynAlign: SynBase
 {
-	SynAlign(const char* pos, SynNumber* value): SynBase(myTypeID, pos), value(value)
+	SynAlign(const char *pos, const char *end, SynNumber* value): SynBase(myTypeID, pos, end), value(value)
 	{
 	}
 
@@ -358,7 +363,7 @@ struct SynAlign: SynBase
 
 struct SynTypedef: SynBase
 {
-	SynTypedef(const char* pos, SynBase *type, InplaceStr alias): SynBase(myTypeID, pos), type(type), alias(alias)
+	SynTypedef(const char *pos, const char *end, SynBase *type, InplaceStr alias): SynBase(myTypeID, pos, end), type(type), alias(alias)
 	{
 	}
 
@@ -370,7 +375,7 @@ struct SynTypedef: SynBase
 
 struct SynMemberAccess: SynBase
 {
-	SynMemberAccess(const char* pos, SynBase* value, InplaceStr member): SynBase(myTypeID, pos), value(value), member(member)
+	SynMemberAccess(const char *pos, const char *end, SynBase* value, InplaceStr member): SynBase(myTypeID, pos, end), value(value), member(member)
 	{
 	}
 
@@ -382,7 +387,7 @@ struct SynMemberAccess: SynBase
 
 struct SynCallArgument: SynBase
 {
-	SynCallArgument(const char* pos, InplaceStr name, SynBase* value): SynBase(myTypeID, pos), name(name), value(value)
+	SynCallArgument(const char *pos, const char *end, InplaceStr name, SynBase* value): SynBase(myTypeID, pos, end), name(name), value(value)
 	{
 	}
 
@@ -394,7 +399,7 @@ struct SynCallArgument: SynBase
 
 struct SynArrayIndex: SynBase
 {
-	SynArrayIndex(const char* pos, SynBase* value, IntrusiveList<SynCallArgument> arguments): SynBase(myTypeID, pos), value(value), arguments(arguments)
+	SynArrayIndex(const char *pos, const char *end, SynBase* value, IntrusiveList<SynCallArgument> arguments): SynBase(myTypeID, pos, end), value(value), arguments(arguments)
 	{
 	}
 
@@ -406,7 +411,7 @@ struct SynArrayIndex: SynBase
 
 struct SynFunctionCall: SynBase
 {
-	SynFunctionCall(const char* pos, SynBase* value, IntrusiveList<SynBase> aliases, IntrusiveList<SynCallArgument> arguments): SynBase(myTypeID, pos), value(value), aliases(aliases), arguments(arguments)
+	SynFunctionCall(const char *pos, const char *end, SynBase* value, IntrusiveList<SynBase> aliases, IntrusiveList<SynCallArgument> arguments): SynBase(myTypeID, pos, end), value(value), aliases(aliases), arguments(arguments)
 	{
 	}
 
@@ -419,7 +424,7 @@ struct SynFunctionCall: SynBase
 
 struct SynPreModify: SynBase
 {
-	SynPreModify(const char* pos, SynBase* value, bool isIncrement): SynBase(myTypeID, pos), value(value), isIncrement(isIncrement)
+	SynPreModify(const char *pos, const char *end, SynBase* value, bool isIncrement): SynBase(myTypeID, pos, end), value(value), isIncrement(isIncrement)
 	{
 	}
 
@@ -431,7 +436,7 @@ struct SynPreModify: SynBase
 
 struct SynPostModify: SynBase
 {
-	SynPostModify(const char* pos, SynBase* value, bool isIncrement): SynBase(myTypeID, pos), value(value), isIncrement(isIncrement)
+	SynPostModify(const char *pos, const char *end, SynBase* value, bool isIncrement): SynBase(myTypeID, pos, end), value(value), isIncrement(isIncrement)
 	{
 	}
 
@@ -443,7 +448,7 @@ struct SynPostModify: SynBase
 
 struct SynGetAddress: SynBase
 {
-	SynGetAddress(const char* pos, SynBase* value): SynBase(myTypeID, pos), value(value)
+	SynGetAddress(const char *pos, const char *end, SynBase* value): SynBase(myTypeID, pos, end), value(value)
 	{
 	}
 
@@ -454,7 +459,7 @@ struct SynGetAddress: SynBase
 
 struct SynDereference: SynBase
 {
-	SynDereference(const char* pos, SynBase* value): SynBase(myTypeID, pos), value(value)
+	SynDereference(const char *pos, const char *end, SynBase* value): SynBase(myTypeID, pos, end), value(value)
 	{
 	}
 
@@ -465,7 +470,7 @@ struct SynDereference: SynBase
 
 struct SynSizeof: SynBase
 {
-	SynSizeof(const char* pos, SynBase* value): SynBase(myTypeID, pos), value(value)
+	SynSizeof(const char *pos, const char *end, SynBase* value): SynBase(myTypeID, pos, end), value(value)
 	{
 	}
 
@@ -476,7 +481,7 @@ struct SynSizeof: SynBase
 
 struct SynNew: SynBase
 {
-	SynNew(const char* pos, SynBase *type, IntrusiveList<SynCallArgument> arguments, SynBase *count, IntrusiveList<SynBase> constructor): SynBase(myTypeID, pos), type(type), arguments(arguments), count(count), constructor(constructor)
+	SynNew(const char *pos, const char *end, SynBase *type, IntrusiveList<SynCallArgument> arguments, SynBase *count, IntrusiveList<SynBase> constructor): SynBase(myTypeID, pos, end), type(type), arguments(arguments), count(count), constructor(constructor)
 	{
 	}
 
@@ -490,7 +495,7 @@ struct SynNew: SynBase
 
 struct SynConditional: SynBase
 {
-	SynConditional(const char* pos, SynBase* condition, SynBase* trueBlock, SynBase* falseBlock): SynBase(myTypeID, pos), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
+	SynConditional(const char *pos, const char *end, SynBase* condition, SynBase* trueBlock, SynBase* falseBlock): SynBase(myTypeID, pos, end), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
 	{
 	}
 
@@ -503,7 +508,7 @@ struct SynConditional: SynBase
 
 struct SynReturn: SynBase
 {
-	SynReturn(const char* pos, SynBase* value): SynBase(myTypeID, pos), value(value)
+	SynReturn(const char *pos, const char *end, SynBase* value): SynBase(myTypeID, pos, end), value(value)
 	{
 	}
 
@@ -514,7 +519,7 @@ struct SynReturn: SynBase
 
 struct SynYield: SynBase
 {
-	SynYield(const char* pos, SynBase* value): SynBase(myTypeID, pos), value(value)
+	SynYield(const char *pos, const char *end, SynBase* value): SynBase(myTypeID, pos, end), value(value)
 	{
 	}
 
@@ -525,7 +530,7 @@ struct SynYield: SynBase
 
 struct SynBreak: SynBase
 {
-	SynBreak(const char* pos, SynNumber* number): SynBase(myTypeID, pos), number(number)
+	SynBreak(const char *pos, const char *end, SynNumber* number): SynBase(myTypeID, pos, end), number(number)
 	{
 	}
 
@@ -536,7 +541,7 @@ struct SynBreak: SynBase
 
 struct SynContinue: SynBase
 {
-	SynContinue(const char* pos, SynNumber* number): SynBase(myTypeID, pos), number(number)
+	SynContinue(const char *pos, const char *end, SynNumber* number): SynBase(myTypeID, pos, end), number(number)
 	{
 	}
 
@@ -547,7 +552,7 @@ struct SynContinue: SynBase
 
 struct SynBlock: SynBase
 {
-	SynBlock(const char* pos, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), expressions(expressions)
+	SynBlock(const char *pos, const char *end, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos, end), expressions(expressions)
 	{
 	}
 
@@ -558,7 +563,7 @@ struct SynBlock: SynBase
 
 struct SynIfElse: SynBase
 {
-	SynIfElse(const char* pos, bool staticIf, SynBase* condition, SynBase* trueBlock, SynBase* falseBlock): SynBase(myTypeID, pos), staticIf(staticIf), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
+	SynIfElse(const char *pos, const char *end, bool staticIf, SynBase* condition, SynBase* trueBlock, SynBase* falseBlock): SynBase(myTypeID, pos, end), staticIf(staticIf), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
 	{
 	}
 
@@ -572,7 +577,7 @@ struct SynIfElse: SynBase
 
 struct SynFor: SynBase
 {
-	SynFor(const char* pos, SynBase* initializer, SynBase* condition, SynBase* increment, SynBase* body): SynBase(myTypeID, pos), initializer(initializer), condition(condition), increment(increment), body(body)
+	SynFor(const char *pos, const char *end, SynBase* initializer, SynBase* condition, SynBase* increment, SynBase* body): SynBase(myTypeID, pos, end), initializer(initializer), condition(condition), increment(increment), body(body)
 	{
 	}
 
@@ -586,7 +591,7 @@ struct SynFor: SynBase
 
 struct SynForEachIterator: SynBase
 {
-	SynForEachIterator(const char* pos, SynBase* type, InplaceStr name, SynBase* value): SynBase(myTypeID, pos), type(type), name(name), value(value)
+	SynForEachIterator(const char *pos, const char *end, SynBase* type, InplaceStr name, SynBase* value): SynBase(myTypeID, pos, end), type(type), name(name), value(value)
 	{
 	}
 
@@ -599,7 +604,7 @@ struct SynForEachIterator: SynBase
 
 struct SynForEach: SynBase
 {
-	SynForEach(const char* pos, IntrusiveList<SynForEachIterator> iterators, SynBase* body): SynBase(myTypeID, pos), iterators(iterators), body(body)
+	SynForEach(const char *pos, const char *end, IntrusiveList<SynForEachIterator> iterators, SynBase* body): SynBase(myTypeID, pos, end), iterators(iterators), body(body)
 	{
 	}
 
@@ -611,7 +616,7 @@ struct SynForEach: SynBase
 
 struct SynWhile: SynBase
 {
-	SynWhile(const char* pos, SynBase* condition, SynBase* body): SynBase(myTypeID, pos), condition(condition), body(body)
+	SynWhile(const char *pos, const char *end, SynBase* condition, SynBase* body): SynBase(myTypeID, pos, end), condition(condition), body(body)
 	{
 	}
 
@@ -623,7 +628,7 @@ struct SynWhile: SynBase
 
 struct SynDoWhile: SynBase
 {
-	SynDoWhile(const char* pos, IntrusiveList<SynBase> expressions, SynBase* condition): SynBase(myTypeID, pos), expressions(expressions), condition(condition)
+	SynDoWhile(const char *pos, const char *end, IntrusiveList<SynBase> expressions, SynBase* condition): SynBase(myTypeID, pos, end), expressions(expressions), condition(condition)
 	{
 	}
 
@@ -635,7 +640,7 @@ struct SynDoWhile: SynBase
 
 struct SynSwitchCase: SynBase
 {
-	SynSwitchCase(const char* pos, SynBase* value, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), value(value), expressions(expressions)
+	SynSwitchCase(const char *pos, const char *end, SynBase* value, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos, end), value(value), expressions(expressions)
 	{
 	}
 
@@ -647,7 +652,7 @@ struct SynSwitchCase: SynBase
 
 struct SynSwitch: SynBase
 {
-	SynSwitch(const char* pos, SynBase* condition, IntrusiveList<SynSwitchCase> cases): SynBase(myTypeID, pos), condition(condition), cases(cases)
+	SynSwitch(const char *pos, const char *end, SynBase* condition, IntrusiveList<SynSwitchCase> cases): SynBase(myTypeID, pos, end), condition(condition), cases(cases)
 	{
 	}
 
@@ -659,7 +664,7 @@ struct SynSwitch: SynBase
 
 struct SynUnaryOp: SynBase
 {
-	SynUnaryOp(const char* pos, SynUnaryOpType type, SynBase* value): SynBase(myTypeID, pos), type(type), value(value)
+	SynUnaryOp(const char *pos, const char *end, SynUnaryOpType type, SynBase* value): SynBase(myTypeID, pos, end), type(type), value(value)
 	{
 	}
 
@@ -671,7 +676,7 @@ struct SynUnaryOp: SynBase
 
 struct SynBinaryOp: SynBase
 {
-	SynBinaryOp(const char* pos, SynBinaryOpType type, SynBase* lhs, SynBase* rhs): SynBase(myTypeID, pos), type(type), lhs(lhs), rhs(rhs)
+	SynBinaryOp(const char *pos, const char *end, SynBinaryOpType type, SynBase* lhs, SynBase* rhs): SynBase(myTypeID, pos, end), type(type), lhs(lhs), rhs(rhs)
 	{
 	}
 
@@ -684,7 +689,7 @@ struct SynBinaryOp: SynBase
 
 struct SynAssignment: SynBase
 {
-	SynAssignment(const char* pos, SynBase* lhs, SynBase* rhs): SynBase(myTypeID, pos), lhs(lhs), rhs(rhs)
+	SynAssignment(const char *pos, const char *end, SynBase* lhs, SynBase* rhs): SynBase(myTypeID, pos, end), lhs(lhs), rhs(rhs)
 	{
 	}
 
@@ -696,7 +701,7 @@ struct SynAssignment: SynBase
 
 struct SynModifyAssignment: SynBase
 {
-	SynModifyAssignment(const char* pos, SynModifyAssignType type, SynBase* lhs, SynBase* rhs): SynBase(myTypeID, pos), type(type), lhs(lhs), rhs(rhs)
+	SynModifyAssignment(const char *pos, const char *end, SynModifyAssignType type, SynBase* lhs, SynBase* rhs): SynBase(myTypeID, pos, end), type(type), lhs(lhs), rhs(rhs)
 	{
 	}
 
@@ -709,7 +714,7 @@ struct SynModifyAssignment: SynBase
 
 struct SynVariableDefinition: SynBase
 {
-	SynVariableDefinition(const char* pos, InplaceStr name, SynBase *initializer): SynBase(myTypeID, pos), name(name), initializer(initializer)
+	SynVariableDefinition(const char *pos, const char *end, InplaceStr name, SynBase *initializer): SynBase(myTypeID, pos, end), name(name), initializer(initializer)
 	{
 	}
 
@@ -721,7 +726,7 @@ struct SynVariableDefinition: SynBase
 
 struct SynVariableDefinitions: SynBase
 {
-	SynVariableDefinitions(const char* pos, SynAlign* align, SynBase *type, IntrusiveList<SynVariableDefinition> definitions): SynBase(myTypeID, pos), align(align), type(type), definitions(definitions)
+	SynVariableDefinitions(const char *pos, const char *end, SynAlign* align, SynBase *type, IntrusiveList<SynVariableDefinition> definitions): SynBase(myTypeID, pos, end), align(align), type(type), definitions(definitions)
 	{
 	}
 
@@ -734,7 +739,7 @@ struct SynVariableDefinitions: SynBase
 
 struct SynAccessor: SynBase
 {
-	SynAccessor(const char* pos, SynBase *type, InplaceStr name, SynBlock *getBlock, SynBlock *setBlock, InplaceStr setName): SynBase(myTypeID, pos), type(type), name(name), getBlock(getBlock), setBlock(setBlock), setName(setName)
+	SynAccessor(const char *pos, const char *end, SynBase *type, InplaceStr name, SynBlock *getBlock, SynBlock *setBlock, InplaceStr setName): SynBase(myTypeID, pos, end), type(type), name(name), getBlock(getBlock), setBlock(setBlock), setName(setName)
 	{
 	}
 
@@ -749,7 +754,7 @@ struct SynAccessor: SynBase
 
 struct SynFunctionArgument: SynBase
 {
-	SynFunctionArgument(const char* pos, bool isExplicit, SynBase* type, InplaceStr name, SynBase* initializer): SynBase(myTypeID, pos), isExplicit(isExplicit), type(type), name(name), initializer(initializer)
+	SynFunctionArgument(const char *pos, const char *end, bool isExplicit, SynBase* type, InplaceStr name, SynBase* initializer): SynBase(myTypeID, pos, end), isExplicit(isExplicit), type(type), name(name), initializer(initializer)
 	{
 	}
 
@@ -763,7 +768,7 @@ struct SynFunctionArgument: SynBase
 
 struct SynFunctionDefinition: SynBase
 {
-	SynFunctionDefinition(const char* pos, bool prototype, bool coroutine, SynBase *parentType, bool accessor, SynBase *returnType, bool isOperator, InplaceStr name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), prototype(prototype), coroutine(coroutine), parentType(parentType), accessor(accessor), returnType(returnType), isOperator(isOperator), name(name), aliases(aliases), arguments(arguments), expressions(expressions)
+	SynFunctionDefinition(const char *pos, const char *end, bool prototype, bool coroutine, SynBase *parentType, bool accessor, SynBase *returnType, bool isOperator, InplaceStr name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos, end), prototype(prototype), coroutine(coroutine), parentType(parentType), accessor(accessor), returnType(returnType), isOperator(isOperator), name(name), aliases(aliases), arguments(arguments), expressions(expressions)
 	{
 	}
 
@@ -783,7 +788,7 @@ struct SynFunctionDefinition: SynBase
 
 struct SynShortFunctionArgument: SynBase
 {
-	SynShortFunctionArgument(const char* pos, SynBase* type, InplaceStr name): SynBase(myTypeID, pos), type(type), name(name)
+	SynShortFunctionArgument(const char *pos, const char *end, SynBase* type, InplaceStr name): SynBase(myTypeID, pos, end), type(type), name(name)
 	{
 	}
 
@@ -795,7 +800,7 @@ struct SynShortFunctionArgument: SynBase
 
 struct SynShortFunctionDefinition: SynBase
 {
-	SynShortFunctionDefinition(const char* pos, IntrusiveList<SynShortFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), arguments(arguments), expressions(expressions)
+	SynShortFunctionDefinition(const char *pos, const char *end, IntrusiveList<SynShortFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos, end), arguments(arguments), expressions(expressions)
 	{
 	}
 
@@ -807,7 +812,7 @@ struct SynShortFunctionDefinition: SynBase
 
 struct SynConstant: SynBase
 {
-	SynConstant(const char* pos, InplaceStr name, SynBase *value): SynBase(myTypeID, pos), name(name), value(value)
+	SynConstant(const char *pos, const char *end, InplaceStr name, SynBase *value): SynBase(myTypeID, pos, end), name(name), value(value)
 	{
 	}
 
@@ -819,7 +824,7 @@ struct SynConstant: SynBase
 
 struct SynConstantSet: SynBase
 {
-	SynConstantSet(const char* pos, SynBase *type, IntrusiveList<SynConstant> constants): SynBase(myTypeID, pos), type(type), constants(constants)
+	SynConstantSet(const char *pos, const char *end, SynBase *type, IntrusiveList<SynConstant> constants): SynBase(myTypeID, pos, end), type(type), constants(constants)
 	{
 	}
 
@@ -831,7 +836,7 @@ struct SynConstantSet: SynBase
 
 struct SynClassPrototype: SynBase
 {
-	SynClassPrototype(const char* pos, InplaceStr name): SynBase(myTypeID, pos), name(name)
+	SynClassPrototype(const char *pos, const char *end, InplaceStr name): SynBase(myTypeID, pos, end), name(name)
 	{
 	}
 
@@ -844,7 +849,7 @@ struct SynClassElements;
 
 struct SynClassStaticIf: SynBase
 {
-	SynClassStaticIf(const char* pos, SynBase *condition, SynClassElements *trueBlock, SynClassElements *falseBlock): SynBase(myTypeID, pos), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
+	SynClassStaticIf(const char *pos, const char *end, SynBase *condition, SynClassElements *trueBlock, SynClassElements *falseBlock): SynBase(myTypeID, pos, end), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock)
 	{
 	}
 
@@ -857,7 +862,7 @@ struct SynClassStaticIf: SynBase
 
 struct SynClassElements: SynBase
 {
-	SynClassElements(const char* pos, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynAccessor> accessors, IntrusiveList<SynVariableDefinitions> members, IntrusiveList<SynConstantSet> constantSets, IntrusiveList<SynClassStaticIf> staticIfs): SynBase(myTypeID, pos), typedefs(typedefs), functions(functions), accessors(accessors), members(members), constantSets(constantSets), staticIfs(staticIfs)
+	SynClassElements(const char *pos, const char *end, IntrusiveList<SynTypedef> typedefs, IntrusiveList<SynFunctionDefinition> functions, IntrusiveList<SynAccessor> accessors, IntrusiveList<SynVariableDefinitions> members, IntrusiveList<SynConstantSet> constantSets, IntrusiveList<SynClassStaticIf> staticIfs): SynBase(myTypeID, pos, end), typedefs(typedefs), functions(functions), accessors(accessors), members(members), constantSets(constantSets), staticIfs(staticIfs)
 	{
 	}
 
@@ -873,7 +878,7 @@ struct SynClassElements: SynBase
 
 struct SynClassDefinition: SynBase
 {
-	SynClassDefinition(const char* pos, SynAlign* align, InplaceStr name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, SynClassElements *elements): SynBase(myTypeID, pos), align(align), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), elements(elements)
+	SynClassDefinition(const char *pos, const char *end, SynAlign* align, InplaceStr name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, SynClassElements *elements): SynBase(myTypeID, pos, end), align(align), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), elements(elements)
 	{
 		imported = false;
 	}
@@ -891,7 +896,7 @@ struct SynClassDefinition: SynBase
 
 struct SynEnumDefinition: SynBase
 {
-	SynEnumDefinition(const char* pos, InplaceStr name, IntrusiveList<SynConstant> values): SynBase(myTypeID, pos), name(name), values(values)
+	SynEnumDefinition(const char *pos, const char *end, InplaceStr name, IntrusiveList<SynConstant> values): SynBase(myTypeID, pos, end), name(name), values(values)
 	{
 	}
 
@@ -918,7 +923,7 @@ struct SynNamespaceElement
 
 struct SynNamespaceDefinition: SynBase
 {
-	SynNamespaceDefinition(const char* pos, IntrusiveList<SynIdentifier> path, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), path(path), expressions(expressions)
+	SynNamespaceDefinition(const char *pos, const char *end, IntrusiveList<SynIdentifier> path, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos, end), path(path), expressions(expressions)
 	{
 	}
 
@@ -930,7 +935,7 @@ struct SynNamespaceDefinition: SynBase
 
 struct SynModuleImport: SynBase
 {
-	SynModuleImport(const char* pos, IntrusiveList<SynIdentifier> path): SynBase(myTypeID, pos), path(path)
+	SynModuleImport(const char *pos, const char *end, IntrusiveList<SynIdentifier> path): SynBase(myTypeID, pos, end), path(path)
 	{
 	}
 
@@ -941,7 +946,7 @@ struct SynModuleImport: SynBase
 
 struct SynModule: SynBase
 {
-	SynModule(const char* pos, IntrusiveList<SynModuleImport> imports, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos), imports(imports), expressions(expressions)
+	SynModule(const char *pos, const char *end, IntrusiveList<SynModuleImport> imports, IntrusiveList<SynBase> expressions): SynBase(myTypeID, pos, end), imports(imports), expressions(expressions)
 	{
 	}
 
