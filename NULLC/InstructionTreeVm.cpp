@@ -545,9 +545,11 @@ namespace
 
 	VmValue* CreateVariableAddress(VmModule *module, SynBase *source, VariableData *variable, TypeBase *structType)
 	{
+		(void)source;
+
 		assert(!IsMemberScope(variable->scope));
 
-		VmValue *value = CreateConstantPointer(module->allocator, source, 0, variable, structType, true);
+		VmValue *value = CreateConstantPointer(module->allocator, NULL, 0, variable, structType, true);
 
 		return value;
 	}
