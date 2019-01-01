@@ -418,7 +418,7 @@ void Lower(Context &ctx, VmValue *value)
 				}
 				else
 				{
-					AddCommand(ctx, inst->source, VMCmd(cmdReturn, OTYPE_COMPLEX, (unsigned short)localReturn, 0));
+					AddCommand(ctx, inst->source, VMCmd(cmdReturn, 0, (unsigned short)localReturn, 0));
 				}
 			}
 			break;
