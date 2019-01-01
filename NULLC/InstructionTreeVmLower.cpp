@@ -807,7 +807,7 @@ VariableData* FindGlobalAt(Context &ctx, unsigned offset)
 	{
 		VariableData *variable = ctx.ctx.variables[i];
 
-		if(variable->scope == ctx.ctx.globalScope && !variable->imported && offset >= variable->offset && offset < variable->offset + variable->type->size)
+		if(IsGlobalScope(variable->scope) && !variable->imported && offset >= variable->offset && offset < variable->offset + variable->type->size)
 			return variable;
 	}
 
