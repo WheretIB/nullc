@@ -2051,7 +2051,20 @@ VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
 			frame->AssignRegister(instruction->uniqueId, result);
 
 			if(instruction->cmd == VM_INST_RETURN || instruction->cmd == VM_INST_YIELD)
+			{
+				if(result && result->container)
+				{
+					assert(result->type.type == VM_TYPE_POINTER);
+
+					VmConstant *clean = allocate(VmConstant)(ctx.allocator, result->type, NULL);
+
+					CopyConstantRaw(ctx, (char*)&clean->iValue, clean->type.size, result, result->type.size);
+
+					return clean;
+				}
+
 				return result;
+			}
 
 			if(nextBlock)
 			{
