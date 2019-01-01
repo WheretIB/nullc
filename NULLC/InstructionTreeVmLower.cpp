@@ -782,6 +782,19 @@ void LowerModule(Context &ctx, VmModule *module)
 	}
 }
 
+VariableData* FindGlobalAt(Context &ctx, unsigned offset)
+{
+	for(unsigned i = 0; i < ctx.ctx.variables.size(); i++)
+	{
+		VariableData *variable = ctx.ctx.variables[i];
+
+		if(variable->scope == ctx.ctx.globalScope && !variable->imported && offset >= variable->offset && offset < variable->offset + variable->type->size)
+			return variable;
+	}
+
+	return NULL;
+}
+
 void PrintInstructions(Context &ctx)
 {
 	assert(ctx.locations.size() == ctx.cmds.size());
@@ -851,9 +864,43 @@ void PrintInstructions(Context &ctx)
 		char buf[256];
 		cmd.Decode(buf);
 
-		if(cmd.cmd == cmdCall || cmd.cmd == cmdFuncAddr)
+		switch(cmd.cmd)
+		{
+		case cmdCall:
+		case cmdFuncAddr:
 			fprintf(ctx.file, "// %s (%.*s)\n", buf, FMT_ISTR(ctx.ctx.functions[cmd.argument]->name));
-		else
+			break;
+		case cmdPushTypeID:
+			fprintf(ctx.file, "// %s (%.*s)\n", buf, FMT_ISTR(ctx.ctx.types[cmd.argument]->name));
+			break;
+		case cmdPushChar:
+		case cmdPushShort:
+		case cmdPushInt:
+		case cmdPushFloat:
+		case cmdPushDorL:
+		case cmdPushCmplx:
+		case cmdPushPtr:
+		case cmdMovChar:
+		case cmdMovShort:
+		case cmdMovInt:
+		case cmdMovFloat:
+		case cmdMovDorL:
+		case cmdMovCmplx:
+		case cmdGetAddr:
+			if(VariableData *global = cmd.flag == 0 ? FindGlobalAt(ctx, cmd.argument) : NULL)
+			{
+				if(global->offset == cmd.argument)
+					fprintf(ctx.file, "// %s (%.*s)\n", buf, FMT_ISTR(global->name));
+				else
+					fprintf(ctx.file, "// %s (inside %.*s)\n", buf, FMT_ISTR(global->name));
+			}
+			else
+			{
+				fprintf(ctx.file, "// %s\n", buf);
+			}
+			break;
+		default:
 			fprintf(ctx.file, "// %s\n", buf);
+		}
 	}
 }
