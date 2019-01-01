@@ -776,8 +776,13 @@ void Lower(Context &ctx, VmValue *value)
 
 void LowerModule(Context &ctx, VmModule *module)
 {
+	AddCommand(ctx, NULL, VMCmd(cmdJmp, 0));
+
 	for(VmFunction *value = module->functions.head; value; value = value->next)
 	{
+		if(!value->function)
+			ctx.cmds[0].argument = ctx.cmds.size();
+
 		Lower(ctx, value);
 	}
 }
