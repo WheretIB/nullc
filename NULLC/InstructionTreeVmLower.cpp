@@ -385,7 +385,7 @@ void Lower(Context &ctx, VmValue *value)
 
 					Lower(ctx, context);
 
-					for(unsigned i = 1; i < inst->arguments.size(); i++)
+					for(int i = int(inst->arguments.size() - 1); i >= 1; i--)
 						Lower(ctx, inst->arguments[i]);
 
 					AddCommand(ctx, inst->source, VMCmd(cmdCall, helper, function->function->functionIndex));
@@ -396,7 +396,7 @@ void Lower(Context &ctx, VmValue *value)
 
 					Lower(ctx, target);
 
-					for(unsigned i = 1; i < inst->arguments.size(); i++)
+					for(int i = int(inst->arguments.size() - 1); i >= 1; i--)
 					{
 						Lower(ctx, inst->arguments[i]);
 
@@ -710,7 +710,7 @@ void Lower(Context &ctx, VmValue *value)
 			break;
 		case VM_INST_CONSTRUCT:
 		case VM_INST_ARRAY:
-			for(unsigned i = 0; i < inst->arguments.size(); i++)
+			for(int i = int(inst->arguments.size() - 1); i >= 0; i--)
 			{
 				VmValue *argument = inst->arguments[i];
 
