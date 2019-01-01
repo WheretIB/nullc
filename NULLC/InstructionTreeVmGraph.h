@@ -20,6 +20,8 @@ struct InstructionVMGraphContext
 		depth = 0;
 
 		lastStart = 0;
+		lastStartOffset = 0;
+		lastEndOffset = 0;
 
 		showTypes = true;
 		showFullTypes = false;
@@ -27,6 +29,7 @@ struct InstructionVMGraphContext
 		showComments = true;
 		showContainers = true;
 		showSource = false;
+		showAnnotatedSource = false;
 
 		displayAsTree = false;
 	}
@@ -38,6 +41,8 @@ struct InstructionVMGraphContext
 	unsigned depth;
 
 	const char *lastStart;
+	unsigned lastStartOffset;
+	unsigned lastEndOffset;
 
 	bool showTypes;
 	bool showFullTypes;
@@ -45,6 +50,7 @@ struct InstructionVMGraphContext
 	bool showComments;
 	bool showContainers;
 	bool showSource;
+	bool showAnnotatedSource;
 
 	bool displayAsTree;
 };

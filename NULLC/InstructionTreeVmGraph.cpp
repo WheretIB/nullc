@@ -178,7 +178,7 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 {
 	if(ctx.showSource && instruction->source)
 	{
-		const char *start = instruction->source->pos;
+		const char *start = instruction->source->pos.begin;
 		const char *end = start + 1;
 
 		while(start > ctx.code && *(start - 1) != '\r' && *(start - 1) != '\n')
@@ -187,13 +187,56 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 		while(*end && *end != '\r' && *end != '\n')
 			end++;
 
-		if(start != ctx.lastStart)
+		if (ctx.showAnnotatedSource)
 		{
-			Print(ctx, "// %.*s", unsigned(end - start), start);
-			PrintLine(ctx);
-			PrintIndent(ctx);
+			unsigned startOffset = unsigned(instruction->source->pos.begin - start);
+			unsigned endOffset = unsigned(instruction->source->pos.end - start);
 
-			ctx.lastStart = start;
+			if(start != ctx.lastStart || startOffset != ctx.lastStartOffset || endOffset != ctx.lastEndOffset)
+			{
+				Print(ctx, "// %.*s", unsigned(end - start), start);
+				PrintLine(ctx);
+				PrintIndent(ctx);
+
+				if (instruction->source->pos.end < end)
+				{
+					Print(ctx, "// ");
+
+					for (unsigned i = 0; i < startOffset; i++)
+					{
+						Print(ctx, " ");
+
+						if (start[i] == '\t')
+							Print(ctx, i == 0 ? "  " : "   ");
+					}
+
+					for (unsigned i = startOffset; i < endOffset; i++)
+					{
+						Print(ctx, "~");
+
+						if (start[i] == '\t')
+							Print(ctx, i == 0 ? "~~" : "~~~");
+					}
+
+					PrintLine(ctx);
+					PrintIndent(ctx);
+				}
+
+				ctx.lastStart = start;
+				ctx.lastStartOffset = startOffset;
+				ctx.lastEndOffset = endOffset;
+			}
+		}
+		else
+		{
+			if(start != ctx.lastStart)
+			{
+				Print(ctx, "// %.*s", unsigned(end - start), start);
+				PrintLine(ctx);
+				PrintIndent(ctx);
+
+				ctx.lastStart = start;
+			}
 		}
 	}
 
@@ -285,8 +328,6 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 
 void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 {
-	ctx.lastStart = NULL;
-
 	PrintUsers(ctx, block, false);
 
 	PrintLine(ctx, "%.*s.b%d:", FMT_ISTR(block->name), block->uniqueId);

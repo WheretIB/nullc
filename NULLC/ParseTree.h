@@ -63,15 +63,15 @@ enum SynModifyAssignType
 
 struct SynBinaryOpElement
 {
-	SynBinaryOpElement(): pos(0), type(SYN_BINARY_OP_UNKNOWN), value(0)
+	SynBinaryOpElement(): begin(0), end(0), type(SYN_BINARY_OP_UNKNOWN), value(0)
 	{
 	}
 
-	SynBinaryOpElement(const char* pos, const char *end, SynBinaryOpType type, SynBase* value): pos(pos), end(end), type(type), value(value)
+	SynBinaryOpElement(const char* begin, const char *end, SynBinaryOpType type, SynBase* value): begin(begin), end(end), type(type), value(value)
 	{
 	}
 
-	const char* pos;
+	const char* begin;
 	const char* end;
 	SynBinaryOpType type;
 	SynBase* value;
@@ -122,9 +122,8 @@ struct ParseContext
 
 struct SynBase
 {
-	SynBase(unsigned typeID, const char *pos, const char *end): typeID(typeID), pos(pos), end(end), next(0), listed(false)
+	SynBase(unsigned typeID, const char *begin, const char *end): typeID(typeID), pos(begin, end), next(0), listed(false)
 	{
-		assert(end > pos);
 	}
 
 	virtual ~SynBase()
@@ -133,8 +132,7 @@ struct SynBase
 
 	unsigned typeID;
 
-	const char *pos;
-	const char *end;
+	InplaceStr pos;
 	SynBase *next;
 	bool listed;
 };

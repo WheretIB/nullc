@@ -17,6 +17,7 @@ struct ExpressionContext
 	ExpressionContext(Allocator *allocator, const char *code);
 
 	void Stop(const char *pos, const char *msg, ...);
+	void Stop(InplaceStr pos, const char *msg, ...);
 
 	void PushScope(ScopeType type);
 	void PushScope(NamespaceData *nameSpace);

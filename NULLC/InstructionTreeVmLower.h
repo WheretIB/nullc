@@ -23,8 +23,11 @@ struct InstructionVMLowerContext
 		currentBlock = 0;
 
 		lastStart = 0;
+		lastStartOffset = 0;
+		lastEndOffset = 0;
 
 		showSource = false;
+		showAnnotatedSource = false;
 	}
 
 	ExpressionContext &ctx;
@@ -35,8 +38,11 @@ struct InstructionVMLowerContext
 	FILE *file;
 
 	const char *lastStart;
+	unsigned lastStartOffset;
+	unsigned lastEndOffset;
 
 	bool showSource;
+	bool showAnnotatedSource;
 
 	struct FixupPoint
 	{

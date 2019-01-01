@@ -1151,7 +1151,7 @@ SynBase* ParseArithmetic(ParseContext &ctx)
 
 		while(ctx.binaryOpStack.size() > startSize && GetBinaryOpPrecedence(ctx.binaryOpStack.back().type) <= GetBinaryOpPrecedence(binaryOp))
 		{
-			lhs = allocate(SynBinaryOp)(ctx.binaryOpStack.back().pos, ctx.binaryOpStack.back().end, ctx.binaryOpStack.back().type, ctx.binaryOpStack.back().value, lhs);
+			lhs = allocate(SynBinaryOp)(ctx.binaryOpStack.back().begin, ctx.binaryOpStack.back().end, ctx.binaryOpStack.back().type, ctx.binaryOpStack.back().value, lhs);
 
 			ctx.binaryOpStack.pop_back();
 		}
@@ -1166,7 +1166,7 @@ SynBase* ParseArithmetic(ParseContext &ctx)
 
 	while(ctx.binaryOpStack.size() > startSize)
 	{
-		lhs = allocate(SynBinaryOp)(ctx.binaryOpStack.back().pos, ctx.binaryOpStack.back().end, ctx.binaryOpStack.back().type, ctx.binaryOpStack.back().value, lhs);
+		lhs = allocate(SynBinaryOp)(ctx.binaryOpStack.back().begin, ctx.binaryOpStack.back().end, ctx.binaryOpStack.back().type, ctx.binaryOpStack.back().value, lhs);
 
 		ctx.binaryOpStack.pop_back();
 	}
@@ -1279,7 +1279,9 @@ SynClassElements* ParseClassElements(ParseContext &ctx)
 		}
 	}
 
-	return allocate(SynClassElements)(start, ctx.LastEnding(), typedefs, functions, accessors, members, constantSets, staticIfs);
+	const char *end = start == ctx.Position() ? start : ctx.LastEnding();
+
+	return allocate(SynClassElements)(start, end, typedefs, functions, accessors, members, constantSets, staticIfs);
 }
 
 SynBase* ParseClassDefinition(ParseContext &ctx)

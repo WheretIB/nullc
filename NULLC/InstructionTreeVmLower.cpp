@@ -793,7 +793,7 @@ void PrintInstructions(Context &ctx)
 
 		if(ctx.showSource && source)
 		{
-			const char *start = source->pos;
+			const char *start = source->pos.begin;
 			const char *end = start + 1;
 
 			while(start > ctx.ctx.code && *(start - 1) != '\r' && *(start - 1) != '\n')
@@ -802,11 +802,49 @@ void PrintInstructions(Context &ctx)
 			while(*end && *end != '\r' && *end != '\n')
 				end++;
 
-			if(start != ctx.lastStart)
+			if (ctx.showAnnotatedSource)
 			{
-				fprintf(ctx.file, "%.*s\n", unsigned(end - start), start);
+				unsigned startOffset = unsigned(source->pos.begin - start);
+				unsigned endOffset = unsigned(source->pos.end - start);
 
-				ctx.lastStart = start;
+				if(start != ctx.lastStart || startOffset != ctx.lastStartOffset || endOffset != ctx.lastEndOffset)
+				{
+					fprintf(ctx.file, "%.*s\n", unsigned(end - start), start);
+
+					if (source->pos.end < end)
+					{
+						for (unsigned i = 0; i < startOffset; i++)
+						{
+							fprintf(ctx.file, " ");
+
+							if (start[i] == '\t')
+								fprintf(ctx.file, "   ");
+						}
+
+						for (unsigned i = startOffset; i < endOffset; i++)
+						{
+							fprintf(ctx.file, "~");
+
+							if (start[i] == '\t')
+								fprintf(ctx.file, "~~~");
+						}
+
+						fprintf(ctx.file, "\n");
+					}
+
+					ctx.lastStart = start;
+					ctx.lastStartOffset = startOffset;
+					ctx.lastEndOffset = endOffset;
+				}
+			}
+			else
+			{
+				if(start != ctx.lastStart)
+				{
+					fprintf(ctx.file, "%.*s\n", unsigned(end - start), start);
+
+					ctx.lastStart = start;
+				}
 			}
 		}
 
