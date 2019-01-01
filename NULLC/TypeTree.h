@@ -216,6 +216,7 @@ struct FunctionData
 		declaration = NULL;
 
 		functionScope = NULL;
+		argumentsSize = 0;
 		stackSize = 0;
 
 		contextArgument = NULL;
@@ -274,6 +275,7 @@ struct FunctionData
 
 	// Scope where function variables reside
 	ScopeData *functionScope;
+	long long argumentsSize;
 	long long stackSize;
 
 	// Variables for arguments

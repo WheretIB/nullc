@@ -18,11 +18,25 @@ void Lower(Context &ctx, VmValue *value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
+		if(function->function && function->function->imported)
+			return;
+
 		assert(ctx.currentFunction == NULL);
 
 		ctx.currentFunction = function;
 
 		function->address = ctx.cmds.size();
+
+		if(FunctionData *data = function->function)
+		{
+			assert(data->argumentsSize < 65536);
+
+			// Stack frame should remain aligned, so its size should multiple of 16
+			unsigned size = (data->stackSize + 0xf) & ~0xf;
+
+			// Save previous stack frame, and expand current by shift bytes
+			AddCommand(ctx, data->source, VMCmd(cmdPushVTop, (unsigned short)data->argumentsSize, size));
+		}
 
 		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
 			Lower(ctx, curr);

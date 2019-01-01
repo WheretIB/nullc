@@ -1974,6 +1974,8 @@ ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, Ex
 
 	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, source, function);
 
+	function->argumentsSize = function->functionScope->dataSize;
+
 	IntrusiveList<ExprBase> expressions;
 	expressions.push_back(allocate(ExprReturn)(source, ctx.typeVoid, AnalyzeExpression(ctx, value->source), NULL, CreateFunctionUpvalueClose(ctx, source, ctx.scope)));
 
@@ -6238,6 +6240,8 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	CreateFunctionArgumentVariables(ctx, source, function, argData, variables);
 
+	function->argumentsSize = function->functionScope->dataSize;
+
 	ExprBase *coroutineStateRead = NULL;
 
 	IntrusiveList<ExprBase> code;
@@ -6462,6 +6466,8 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	CreateFunctionArgumentVariables(ctx, syntax, function, argData, arguments);
 
+	function->argumentsSize = function->functionScope->dataSize;
+
 	IntrusiveList<ExprBase> expressions;
 
 	// Create casts of arguments with a wrong type
@@ -6536,6 +6542,8 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 	function->functionScope = ctx.scope;
 
 	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
+
+	function->argumentsSize = function->functionScope->dataSize;
 
 	ExprBase *coroutineStateRead = NULL;
 
@@ -6932,6 +6940,8 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 		function->functionScope = ctx.scope;
 
 		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, source, function);
+
+		function->argumentsSize = function->functionScope->dataSize;
 
 		IntrusiveList<ExprBase> expressions;
 
@@ -7378,6 +7388,8 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		IntrusiveList<ExprVariableDefinition> variables;
 		CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
 
+		function->argumentsSize = function->functionScope->dataSize;
+
 		IntrusiveList<ExprBase> expressions;
 		expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprTypeCast)(syntax, ctx.typeInt, allocate(ExprVariableAccess)(syntax, enumType, variables.tail->variable), EXPR_CAST_REINTERPRET), NULL, CreateFunctionUpvalueClose(ctx, syntax, ctx.scope)));
 
@@ -7415,6 +7427,8 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 		IntrusiveList<ExprVariableDefinition> variables;
 		CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
+
+		function->argumentsSize = function->functionScope->dataSize;
 
 		IntrusiveList<ExprBase> expressions;
 		expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprTypeCast)(syntax, enumType, allocate(ExprVariableAccess)(syntax, ctx.typeInt, variables.tail->variable), EXPR_CAST_REINTERPRET), NULL, CreateFunctionUpvalueClose(ctx, syntax, ctx.scope)));
