@@ -571,7 +571,9 @@ VmConstant* LoadFrameValue(Eval &ctx, VmConstant *pointer, VmType type, unsigned
 		return LoadFrameStruct(ctx, target, offset, type);
 	}
 
-	return (VmConstant*)Report(ctx, "ERROR: null pointer access");
+	assert(ctx.hasError);
+
+	return NULL;
 }
 
 bool StoreFrameValue(Eval &ctx, VmConstant *pointer, VmConstant *value, unsigned storeSize)
@@ -600,7 +602,8 @@ bool StoreFrameValue(Eval &ctx, VmConstant *pointer, VmConstant *value, unsigned
 		return true;
 	}
 
-	Report(ctx, "ERROR: null pointer access");
+	assert(ctx.hasError);
+
 	return false;
 }
 
@@ -796,21 +799,12 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 			VmFunction *function = ctx.ctx.functions[functionIndex]->vmFunction;
 
-			unsigned long long context = 0;
-			memcpy(&context, arguments[0]->sValue, sizeof(void*));
-
 			Eval::StackFrame *calleeFrame = allocate(Eval::StackFrame)(ctx.allocator, function);
 
 			if(ctx.stackFrames.size() >= ctx.stackDepthLimit)
 				return (VmConstant*)Report(ctx, "ERROR: stack depth limit");
 
 			unsigned offset = 0;
-
-			if(!calleeFrame->stack.Reserve(ctx, offset, sizeof(void*)))
-				return (VmConstant*)Report(ctx, "ERROR: out of stack space");
-
-			memcpy(calleeFrame->stack.data.data + offset, &context, sizeof(void*));
-			offset += sizeof(void*);
 
 			for(unsigned i = 1; i < arguments.size(); i++)
 			{
@@ -830,6 +824,15 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 				offset += argumentSize > 4 ? argumentSize : 4;
 			}
+
+			unsigned long long context = 0;
+			memcpy(&context, arguments[0]->sValue, sizeof(void*));
+
+			if(!calleeFrame->stack.Reserve(ctx, offset, sizeof(void*)))
+				return (VmConstant*)Report(ctx, "ERROR: out of stack space");
+
+			memcpy(calleeFrame->stack.data.data + offset, &context, sizeof(void*));
+			offset += sizeof(void*);
 
 			ctx.stackFrames.push_back(calleeFrame);
 
@@ -1238,7 +1241,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 unsigned GetArgumentOffset(FunctionData *data, unsigned argument)
 {
 	// Start at context
-	unsigned offset = sizeof(void*);
+	unsigned offset = 0;
 
 	for(unsigned i = 0; i < argument; i++)
 	{
@@ -1261,19 +1264,34 @@ VmConstant* GetArgumentValue(Eval &ctx, FunctionData *data, unsigned argument)
 
 	VmType type = GetVmType(ctx.ctx, argumentType);
 
+	unsigned offset = GetArgumentOffset(data, argument);
+
 	if(type == VmType::Int || (type.type == VM_TYPE_POINTER && sizeof(void*) == 4))
-		return LoadFrameInt(ctx, &frame->stack, GetArgumentOffset(data, argument), type);
+		return LoadFrameInt(ctx, &frame->stack, offset, type);
 
 	if(type == VmType::Double && argumentType == ctx.ctx.typeFloat)
-		return LoadFrameFloat(ctx, &frame->stack, GetArgumentOffset(data, argument));
+		return LoadFrameFloat(ctx, &frame->stack, offset);
 
 	if(type == VmType::Double && argumentType == ctx.ctx.typeDouble)
-		return LoadFrameDouble(ctx, &frame->stack, GetArgumentOffset(data, argument));
+		return LoadFrameDouble(ctx, &frame->stack, offset);
 
 	if(type == VmType::Long || (type.type == VM_TYPE_POINTER && sizeof(void*) == 8))
-		return LoadFrameLong(ctx, &frame->stack, GetArgumentOffset(data, argument), type);
+		return LoadFrameLong(ctx, &frame->stack, offset, type);
 	
-	return LoadFrameStruct(ctx, &frame->stack, GetArgumentOffset(data, argument), type);
+	return LoadFrameStruct(ctx, &frame->stack, offset, type);
+}
+
+VmConstant* GetContextValue(Eval &ctx, FunctionData *data)
+{
+	Eval::StackFrame *frame = ctx.stackFrames.back();
+
+	TypeBase *contextType = data->contextType;
+
+	VmType type = GetVmType(ctx.ctx, contextType);
+
+	unsigned offset = GetArgumentOffset(data, data->arguments.size());
+
+	return LoadFramePointer(ctx, &frame->stack, offset, type);
 }
 
 VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
@@ -1340,7 +1358,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 	}
 	else if(function->name == InplaceStr("bool::bool") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeBool)
 	{
-		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeBool)));
+		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
 		if(!context || !value)
@@ -1353,7 +1371,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 	}
 	else if(function->name == InplaceStr("char::char") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeChar)
 	{
-		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
+		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
 		if(!context || !value)
@@ -1366,7 +1384,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 	}
 	else if(function->name == InplaceStr("short::short") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeShort)
 	{
-		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeShort)));
+		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
 		if(!context || !value)
@@ -1379,7 +1397,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 	}
 	else if(function->name == InplaceStr("int::int") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeInt)
 	{
-		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
+		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
 		if(!context || !value)
@@ -1392,7 +1410,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 	}
 	else if(function->name == InplaceStr("long::long") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeLong)
 	{
-		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeLong)));
+		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
 		if(!context || !value)
@@ -1405,7 +1423,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 	}
 	else if(function->name == InplaceStr("float::float") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeFloat)
 	{
-		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeFloat)));
+		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
 		if(!context || !value)
@@ -1418,7 +1436,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 	}
 	else if(function->name == InplaceStr("double::double") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeDouble)
 	{
-		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeDouble)));
+		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
 		if(!context || !value)
@@ -1811,7 +1829,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 	}
 	else if(function->name == InplaceStr("int::str") && function->arguments.size() == 0)
 	{
-		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
+		VmConstant *context = GetContextValue(ctx, function);
 
 		if(!context)
 			return NULL;
@@ -1833,7 +1851,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 	}
 	else if(function->name == InplaceStr("long::str") && function->arguments.size() == 0)
 	{
-		VmConstant *context = LoadFramePointer(ctx, &ctx.stackFrames.back()->stack, 0, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(ctx.ctx.typeInt)));
+		VmConstant *context = GetContextValue(ctx, function);
 
 		if(!context)
 			return NULL;

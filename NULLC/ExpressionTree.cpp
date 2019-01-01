@@ -6234,11 +6234,11 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	for(MatchData *curr = function->aliases.head; curr; curr = curr->next)
 		ctx.AddAlias(allocate(AliasData)(source, ctx.scope, curr->type, curr->name, ctx.uniqueAliasId++));
 
-	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, source, function);
-
 	IntrusiveList<ExprVariableDefinition> variables;
 
 	CreateFunctionArgumentVariables(ctx, source, function, argData, variables);
+
+	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, source, function);
 
 	function->argumentsSize = function->functionScope->dataSize;
 
@@ -6460,11 +6460,11 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	function->functionScope = ctx.scope;
 
-	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
-
 	IntrusiveList<ExprVariableDefinition> arguments;
 
 	CreateFunctionArgumentVariables(ctx, syntax, function, argData, arguments);
+
+	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
 
 	function->argumentsSize = function->functionScope->dataSize;
 
@@ -7383,10 +7383,11 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 		function->functionScope = ctx.scope;
 
-		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
-
 		IntrusiveList<ExprVariableDefinition> variables;
+
 		CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
+
+		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
 
 		function->argumentsSize = function->functionScope->dataSize;
 
@@ -7423,10 +7424,11 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 		function->functionScope = ctx.scope;
 
-		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
-
 		IntrusiveList<ExprVariableDefinition> variables;
+
 		CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
+
+		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
 
 		function->argumentsSize = function->functionScope->dataSize;
 
