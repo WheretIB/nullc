@@ -10,6 +10,9 @@ bool IsGlobalScope(ScopeData *scope)
 	if(!scope)
 		return false;
 
+	if(scope->type == SCOPE_TEMPORARY)
+		return false;
+
 	while(scope->scope)
 	{
 		if(scope->ownerFunction)
@@ -31,6 +34,12 @@ bool IsMemberScope(ScopeData *scope)
 
 bool IsLocalScope(ScopeData *scope)
 {
+	if(!scope)
+		return false;
+
+	if(scope->type == SCOPE_TEMPORARY)
+		return false;
+
 	// Not a global scope if there is an enclosing function or a type
 	while(scope)
 	{
