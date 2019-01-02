@@ -17,6 +17,7 @@ struct ExpressionEvalContext
 	{
 		errorBuf = 0;
 		errorBufSize = 0;
+		errorCritical = false;
 
 		globalFrame = 0;
 
@@ -70,6 +71,7 @@ struct ExpressionEvalContext
 	// Error info
 	char *errorBuf;
 	unsigned errorBufSize;
+	bool errorCritical; // If error wasn't a limitation of the evaluation engine, but was an error in the program itself
 
 	StackFrame *globalFrame;
 

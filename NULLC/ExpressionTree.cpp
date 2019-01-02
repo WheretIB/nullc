@@ -574,10 +574,22 @@ namespace
 	{
 		ExpressionEvalContext evalCtx(ctx, ctx.allocator);
 
+		evalCtx.errorBuf = ctx.errorBuf;
+		evalCtx.errorBufSize = ctx.errorBufSize;
+
 		evalCtx.globalFrame = allocate(ExpressionEvalContext::StackFrame)(ctx.allocator, NULL);
 		evalCtx.stackFrames.push_back(evalCtx.globalFrame);
 
-		return Evaluate(evalCtx, expression);
+		ExprBase *result = Evaluate(evalCtx, expression);
+
+		if(evalCtx.errorCritical)
+		{
+			ctx.errorPos = expression->source->pos.begin;
+
+			longjmp(ctx.errorHandler, 1);
+		}
+
+		return result;
 	}
 }
 

@@ -23,6 +23,27 @@ ExprBase* Report(Eval &ctx, const char *msg, ...)
 		ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
 	}
 
+	ctx.errorCritical = false;
+
+	return NULL;
+}
+
+ExprBase* ReportCritical(Eval &ctx, const char *msg, ...)
+{
+	if(ctx.errorBuf && ctx.errorBufSize)
+	{
+		va_list args;
+		va_start(args, msg);
+
+		vsnprintf(ctx.errorBuf, ctx.errorBufSize, msg, args);
+
+		va_end(args);
+
+		ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
+	}
+
+	ctx.errorCritical = true;
+
 	return NULL;
 }
 
@@ -596,17 +617,17 @@ ExprBase* CreateBinaryOp(Eval &ctx, SynBase *source, ExprBase *lhs, ExprBase *un
 				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue * rhsValue);
 			case SYN_BINARY_OP_DIV:
 				if(rhsValue == 0)
-					ctx.ctx.Stop(source->pos, "ERROR: division by zero during constant folding");
+					return ReportCritical(ctx, "ERROR: division by zero during constant folding");
 
 				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue / rhsValue);
 			case SYN_BINARY_OP_MOD:
 				if(rhsValue == 0)
-					ctx.ctx.Stop(source->pos, "ERROR: modulus division by zero during constant folding");
+					return ReportCritical(ctx, "ERROR: modulus division by zero during constant folding");
 
 				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue % rhsValue);
 			case SYN_BINARY_OP_POW:
 				if(rhsValue < 0)
-					ctx.ctx.Stop(source->pos, "ERROR: negative power on integer number in exponentiation during constant folding");
+					return ReportCritical(ctx, "ERROR: negative power on integer number in exponentiation during constant folding");
 
 				long long result, power;
 
@@ -627,12 +648,12 @@ ExprBase* CreateBinaryOp(Eval &ctx, SynBase *source, ExprBase *lhs, ExprBase *un
 				return allocate(ExprIntegerLiteral)(source, lhs->type, result);
 			case SYN_BINARY_OP_SHL:
 				if(rhsValue < 0)
-					ctx.ctx.Stop(source->pos, "ERROR: negative shift value");
+					return ReportCritical(ctx, "ERROR: negative shift value");
 
 				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue << rhsValue);
 			case SYN_BINARY_OP_SHR:
 				if(rhsValue < 0)
-					ctx.ctx.Stop(source->pos, "ERROR: negative shift value");
+					return ReportCritical(ctx, "ERROR: negative shift value");
 
 				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue >> rhsValue);
 			case SYN_BINARY_OP_LESS:
@@ -1424,7 +1445,7 @@ ExprBase* EvaluateArrayIndex(Eval &ctx, ExprArrayIndex *expression)
 			return NULL;
 
 		if(result < 0 || result >= size->value)
-			return Report(ctx, "ERROR: array index out of bounds");
+			return ReportCritical(ctx, "ERROR: array index out of bounds");
 
 		ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(value);
 
@@ -1449,7 +1470,7 @@ ExprBase* EvaluateArrayIndex(Eval &ctx, ExprArrayIndex *expression)
 		return Report(ctx, "ERROR: array index of a null array");
 
 	if(result < 0 || result >= arrayType->length)
-		return Report(ctx, "ERROR: array index out of bounds");
+		return ReportCritical(ctx, "ERROR: array index out of bounds");
 
 	ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(value);
 
@@ -1744,7 +1765,7 @@ ExprBase* EvaluateFunction(Eval &ctx, ExprFunctionDefinition *expression, ExprBa
 	ExprBase *result = frame->returnValue;
 
 	if(!result)
-		return Report(ctx, "ERROR: function didn't return a value");
+		return ReportCritical(ctx, "ERROR: function didn't return a value");
 
 	ctx.stackFrames.pop_back();
 
