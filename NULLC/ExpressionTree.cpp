@@ -593,7 +593,7 @@ namespace
 	}
 }
 
-ExpressionContext::ExpressionContext(Allocator *allocator, const char *code): allocator(allocator), code(code)
+ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
 {
 	baseModuleFunctionCount = 0;
 
@@ -9178,7 +9178,7 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 	return allocate(ExprBlock)(source, ctx.typeVoid, expressions, IntrusiveList<ExprBase>());
 }
 
-ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
+ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 {
 	const char *bytecode = BinaryCache::GetBytecode("$base$.nc");
 	unsigned lexCount = 0;
@@ -9191,37 +9191,32 @@ ExprBase* AnalyzeModule(ExpressionContext &ctx, SynBase *syntax)
 
 	ctx.baseModuleFunctionCount = ctx.functions.size();
 
-	if(SynModule *node = getType<SynModule>(syntax))
-	{
-		for(SynModuleImport *import = node->imports.head; import; import = getType<SynModuleImport>(import->next))
-			AnalyzeModuleImport(ctx, import);
+	for(SynModuleImport *import = syntax->imports.head; import; import = getType<SynModuleImport>(import->next))
+		AnalyzeModuleImport(ctx, import);
 
-		IntrusiveList<ExprBase> expressions;
+	IntrusiveList<ExprBase> expressions;
 
-		for(SynBase *expr = node->expressions.head; expr; expr = expr->next)
-			expressions.push_back(AnalyzeStatement(ctx, expr));
+	for(SynBase *expr = syntax->expressions.head; expr; expr = expr->next)
+		expressions.push_back(AnalyzeStatement(ctx, expr));
 
-		ExprModule *module = allocate(ExprModule)(ctx.allocator, syntax, ctx.typeVoid, ctx.globalScope, expressions);
+	ExprModule *module = allocate(ExprModule)(ctx.allocator, syntax, ctx.typeVoid, ctx.globalScope, expressions);
 
-		for(unsigned i = 0; i < ctx.definitions.size(); i++)
-			module->definitions.push_back(ctx.definitions[i]);
+	for(unsigned i = 0; i < ctx.definitions.size(); i++)
+		module->definitions.push_back(ctx.definitions[i]);
 
-		for(unsigned i = 0; i < ctx.setup.size(); i++)
-			module->setup.push_back(ctx.setup[i]);
+	for(unsigned i = 0; i < ctx.setup.size(); i++)
+		module->setup.push_back(ctx.setup[i]);
 
-		for(unsigned i = 0; i < ctx.vtables.size(); i++)
-			module->setup.push_back(CreateVirtualTableUpdate(ctx, syntax, ctx.vtables[i]));
+	for(unsigned i = 0; i < ctx.vtables.size(); i++)
+		module->setup.push_back(CreateVirtualTableUpdate(ctx, syntax, ctx.vtables[i]));
 
-		for(unsigned i = 0; i < ctx.upvalues.size(); i++)
-			module->setup.push_back(allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, ctx.upvalues[i], NULL));
+	for(unsigned i = 0; i < ctx.upvalues.size(); i++)
+		module->setup.push_back(allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, ctx.upvalues[i], NULL));
 
-		return module;
-	}
-
-	return NULL;
+	return module;
 }
 
-ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
+ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax)
 {
 	assert(!ctx.globalScope);
 
@@ -9262,7 +9257,7 @@ ExprBase* Analyze(ExpressionContext &ctx, SynBase *syntax)
 	// Analyze module
 	if(!setjmp(ctx.errorHandler))
 	{
-		ExprBase *module = AnalyzeModule(ctx, syntax);
+		ExprModule *module = AnalyzeModule(ctx, syntax);
 
 		ctx.PopScope(SCOPE_EXPLICIT);
 

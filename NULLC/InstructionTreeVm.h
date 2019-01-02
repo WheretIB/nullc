@@ -479,6 +479,6 @@ T* getType(VmValue *node)
 VmType GetVmType(ExpressionContext &ctx, TypeBase *type);
 
 VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expression);
-VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression);
+VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *code);
 
 void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type);

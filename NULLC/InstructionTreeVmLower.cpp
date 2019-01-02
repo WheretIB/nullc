@@ -814,7 +814,7 @@ VariableData* FindGlobalAt(Context &ctx, unsigned offset)
 	return NULL;
 }
 
-void PrintInstructions(Context &ctx)
+void PrintInstructions(Context &ctx, const char *code)
 {
 	assert(ctx.locations.size() == ctx.cmds.size());
 
@@ -828,7 +828,7 @@ void PrintInstructions(Context &ctx)
 			const char *start = source->pos.begin;
 			const char *end = start + 1;
 
-			while(start > ctx.ctx.code && *(start - 1) != '\r' && *(start - 1) != '\n')
+			while(start > code && *(start - 1) != '\r' && *(start - 1) != '\n')
 				start--;
 
 			while(*end && *end != '\r' && *end != '\n')

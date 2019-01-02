@@ -2384,11 +2384,11 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	return NULL;
 }
 
-VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression)
+VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *code)
 {
 	if(ExprModule *node = getType<ExprModule>(expression))
 	{
-		VmModule *module = new (ctx.get<VmModule>()) VmModule(ctx.allocator, ctx.code);
+		VmModule *module = new (ctx.get<VmModule>()) VmModule(ctx.allocator, code);
 
 		// Generate global function
 		VmFunction *global = allocate(VmFunction)(module->allocator, VmType::Void, node->source, NULL, node->moduleScope, VmType::Void);

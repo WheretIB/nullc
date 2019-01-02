@@ -69,4 +69,4 @@ private:
 };
 
 void LowerModule(InstructionVMLowerContext &ctx, VmModule *module);
-void PrintInstructions(InstructionVMLowerContext &ctx);
+void PrintInstructions(InstructionVMLowerContext &ctx, const char *code);

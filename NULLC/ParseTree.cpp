@@ -2550,7 +2550,7 @@ IntrusiveList<SynModuleImport> ParseImports(ParseContext &ctx)
 	return imports;
 }
 
-SynBase* ParseModule(ParseContext &ctx)
+SynModule* ParseModule(ParseContext &ctx)
 {
 	const char *start = ctx.Position();
 
@@ -2567,12 +2567,7 @@ SynBase* ParseModule(ParseContext &ctx)
 	return allocate(SynModule)(start, ctx.LastEnding(), imports, expressions);
 }
 
-SynBase* Parse(ParseContext &ctx)
-{
-	return ParseModule(ctx);
-}
-
-SynBase* Parse(ParseContext &ctx, const char *code)
+SynModule* Parse(ParseContext &ctx, const char *code)
 {
 	Lexer lexer(ctx.allocator);
 
@@ -2583,7 +2578,7 @@ SynBase* Parse(ParseContext &ctx, const char *code)
 		ctx.firstLexeme = lexer.GetStreamStart();
 		ctx.currentLexeme = lexer.GetStreamStart();
 
-		return Parse(ctx);
+		return ParseModule(ctx);
 	}
 
 	return NULL;

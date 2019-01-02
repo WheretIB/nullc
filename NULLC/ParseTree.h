@@ -957,7 +957,7 @@ struct SynModule: SynBase
 
 SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx);
 SynBase* ParseClassDefinition(ParseContext &ctx);
-SynBase* Parse(ParseContext &context, const char *code);
+SynModule* Parse(ParseContext &context, const char *code);
 
 const char* GetOpName(SynUnaryOpType type);
 const char* GetOpName(SynBinaryOpType type);
