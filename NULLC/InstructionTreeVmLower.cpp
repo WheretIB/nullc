@@ -467,6 +467,8 @@ void Lower(Context &ctx, VmValue *value)
 						AddCommand(ctx, inst->source, VMCmd(cmdIncD));
 					else if(inst->type == VmType::Long)
 						AddCommand(ctx, inst->source, VMCmd(cmdIncL));
+					else
+						assert(!"unknown type");
 				}
 				else
 				{
@@ -479,6 +481,10 @@ void Lower(Context &ctx, VmValue *value)
 						AddCommand(ctx, inst->source, VMCmd(cmdAddD));
 					else if(inst->type == VmType::Long)
 						AddCommand(ctx, inst->source, VMCmd(cmdAddL));
+					else if(inst->type.type == VM_TYPE_POINTER)
+						AddCommand(ctx, inst->source, VMCmd(cmdAdd));
+					else
+						assert(!"unknown type");
 				}
 			}
 			break;
@@ -496,6 +502,8 @@ void Lower(Context &ctx, VmValue *value)
 						AddCommand(ctx, inst->source, VMCmd(cmdDecD));
 					else if(inst->type == VmType::Long)
 						AddCommand(ctx, inst->source, VMCmd(cmdDecL));
+					else
+						assert(!"unknown type");
 				}
 				else
 				{
@@ -508,6 +516,8 @@ void Lower(Context &ctx, VmValue *value)
 						AddCommand(ctx, inst->source, VMCmd(cmdSubD));
 					else if(inst->type == VmType::Long)
 						AddCommand(ctx, inst->source, VMCmd(cmdSubL));
+					else
+						assert(!"unknown type");
 				}
 			}
 			break;
@@ -521,6 +531,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdMulD));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdMulL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_DIV:
 			Lower(ctx, inst->arguments[0]);
@@ -532,6 +544,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdDivD));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdDivL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_POW:
 			Lower(ctx, inst->arguments[0]);
@@ -543,6 +557,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdPowD));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdPowL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_MOD:
 			Lower(ctx, inst->arguments[0]);
@@ -554,6 +570,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdModD));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdModL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_LESS:
 			Lower(ctx, inst->arguments[0]);
@@ -565,6 +583,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdLessD));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdLessL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_GREATER:
 			Lower(ctx, inst->arguments[0]);
@@ -576,6 +596,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdGreaterD));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdGreaterL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_LESS_EQUAL:
 			Lower(ctx, inst->arguments[0]);
@@ -587,6 +609,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdLEqualD));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdLEqualL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_GREATER_EQUAL:
 			Lower(ctx, inst->arguments[0]);
@@ -598,6 +622,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdGEqualD));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdGEqualL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_EQUAL:
 			Lower(ctx, inst->arguments[0]);
@@ -609,6 +635,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdEqualD));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdEqualL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_NOT_EQUAL:
 			Lower(ctx, inst->arguments[0]);
@@ -620,6 +648,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdNEqualD));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdNEqualL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_SHL:
 			Lower(ctx, inst->arguments[0]);
@@ -629,6 +659,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdShl));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdShlL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_SHR:
 			Lower(ctx, inst->arguments[0]);
@@ -638,6 +670,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdShr));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdShrL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_BIT_AND:
 			Lower(ctx, inst->arguments[0]);
@@ -647,6 +681,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdBitAnd));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdBitAndL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_BIT_OR:
 			Lower(ctx, inst->arguments[0]);
@@ -656,6 +692,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdBitOr));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdBitOrL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_BIT_XOR:
 			Lower(ctx, inst->arguments[0]);
@@ -665,6 +703,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdBitXor));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdBitXorL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_LOG_XOR:
 			Lower(ctx, inst->arguments[0]);
@@ -674,6 +714,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdLogXor));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdLogXorL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_NEG:
 			Lower(ctx, inst->arguments[0]);
@@ -684,6 +726,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdNegD));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdNegL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_BIT_NOT:
 			Lower(ctx, inst->arguments[0]);
@@ -692,6 +736,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdBitNot));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdBitNotL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_LOG_NOT:
 			Lower(ctx, inst->arguments[0]);
@@ -700,6 +746,8 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdLogNot));
 			else if(inst->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdLogNotL));
+			else
+				assert(!"unknown type");
 			break;
 		case VM_INST_CREATE_CLOSURE:
 			assert(!"not implemented");
