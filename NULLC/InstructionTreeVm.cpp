@@ -700,7 +700,7 @@ namespace
 			(*optCount)++;
 	}
 
-	void ReplaceValue(VmValue *value, VmValue *original, VmValue *replacement)
+	void ReplaceValue(VmModule *module, VmValue *value, VmValue *original, VmValue *replacement)
 	{
 		assert(original);
 		assert(replacement);
@@ -717,7 +717,7 @@ namespace
 			{
 				assert(curr != original || curr == function->firstBlock); // Function can only use first block
 
-				ReplaceValue(curr, original, replacement);
+				ReplaceValue(module, curr, original, replacement);
 			}
 		}
 		else if(VmBlock *block = getType<VmBlock>(value))
@@ -726,7 +726,7 @@ namespace
 			{
 				assert(curr != original); // Block doesn't use instructions
 
-				ReplaceValue(curr, original, replacement);
+				ReplaceValue(module, curr, original, replacement);
 			}
 		}
 		else if(VmInstruction *inst = getType<VmInstruction>(value))
@@ -745,6 +745,37 @@ namespace
 					original->RemoveUse(inst);
 				}
 			}
+
+			// Legalize constant offset in load/store instruction
+			switch(inst->cmd)
+			{
+			case VM_INST_LOAD_BYTE:
+			case VM_INST_LOAD_SHORT:
+			case VM_INST_LOAD_INT:
+			case VM_INST_LOAD_FLOAT:
+			case VM_INST_LOAD_DOUBLE:
+			case VM_INST_LOAD_LONG:
+			case VM_INST_LOAD_STRUCT:
+			case VM_INST_STORE_BYTE:
+			case VM_INST_STORE_SHORT:
+			case VM_INST_STORE_INT:
+			case VM_INST_STORE_FLOAT:
+			case VM_INST_STORE_DOUBLE:
+			case VM_INST_STORE_LONG:
+			case VM_INST_STORE_STRUCT:
+				if(VmConstant *address = getType<VmConstant>(inst->arguments[0]))
+				{
+					VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+					if(address->container && offset->iValue != 0)
+					{
+						VmConstant *target = CreateConstantPointer(module->allocator, NULL, address->iValue + offset->iValue, address->container, address->type.structType, true);
+
+						ChangeInstructionTo(module, inst, inst->cmd, target, CreateConstantInt(module->allocator, NULL, 0), inst->arguments.size() == 3 ? inst->arguments[2] : NULL, NULL, NULL);
+					}
+				}
+				break;
+			}
 		}
 		else
 		{
@@ -759,7 +790,7 @@ namespace
 		users.push_back(original->users.data, original->users.size());
 
 		for(unsigned i = 0; i < users.size(); i++)
-			ReplaceValue(users[i], original, replacement);
+			ReplaceValue(module, users[i], original, replacement);
 
 		if(VmBlock *block = getType<VmBlock>(original))
 		{
@@ -923,9 +954,9 @@ namespace
 							indexSize = elemSize->iValue;
 						}
 
-						assert(storeOffset->iValue == 0 && "just a hit test");
+						unsigned totalOffset = indexOffset + storeOffset->iValue;
 
-						ClearLoadStoreInfo(module, base->container, indexOffset + storeOffset->iValue, indexSize);
+						ClearLoadStoreInfo(module, base->container, totalOffset, indexSize - totalOffset);
 						return;
 					}
 				}
@@ -1007,8 +1038,6 @@ namespace
 
 				if(el.address)
 					continue;
-
-				assert(loadOffset->iValue == 0 && "just a hit test");
 
 				if(el.loadInst && el.pointer == pointer && el.offset->iValue == loadOffset->iValue && GetAccessSize(inst) == GetAccessSize(el.loadInst))
 					return el.loadInst;
@@ -2627,6 +2656,69 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 			if((inst->arguments[0]->type == VmType::Int || inst->arguments[0]->type == VmType::Long) && inst->arguments[0] == inst->arguments[1])
 				ReplaceValueUsersWith(module, inst, CreateConstantInt(module->allocator, inst->source, 0), &module->peepholeOptimizations);
 			break;
+			// Try to place address offset into the load/store instruction
+		case VM_INST_LOAD_BYTE:
+		case VM_INST_LOAD_SHORT:
+		case VM_INST_LOAD_INT:
+		case VM_INST_LOAD_FLOAT:
+		case VM_INST_LOAD_DOUBLE:
+		case VM_INST_LOAD_LONG:
+		case VM_INST_LOAD_STRUCT:
+			if(VmInstruction *address = getType<VmInstruction>(inst->arguments[0]))
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				if(address->cmd == VM_INST_ADD)
+				{
+					VmConstant *lhsAsConstant = getType<VmConstant>(address->arguments[0]);
+					VmConstant *rhsAsConstant = getType<VmConstant>(address->arguments[1]);
+
+					if(lhsAsConstant && !lhsAsConstant->container && !rhsAsConstant)
+					{
+						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + lhsAsConstant->iValue);
+
+						ChangeInstructionTo(module, inst, inst->cmd, address->arguments[1], totalOffset, NULL, NULL, &module->peepholeOptimizations);
+					}
+					else if(rhsAsConstant && !rhsAsConstant->container && !lhsAsConstant)
+					{
+						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + rhsAsConstant->iValue);
+
+						ChangeInstructionTo(module, inst, inst->cmd, address->arguments[0], totalOffset, NULL, NULL, &module->peepholeOptimizations);
+					}
+				}
+			}
+			break;
+		case VM_INST_STORE_BYTE:
+		case VM_INST_STORE_SHORT:
+		case VM_INST_STORE_INT:
+		case VM_INST_STORE_FLOAT:
+		case VM_INST_STORE_DOUBLE:
+		case VM_INST_STORE_LONG:
+		case VM_INST_STORE_STRUCT:
+			if(VmInstruction *address = getType<VmInstruction>(inst->arguments[0]))
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				if(address->cmd == VM_INST_ADD)
+				{
+					VmConstant *lhsAsConstant = getType<VmConstant>(address->arguments[0]);
+					VmConstant *rhsAsConstant = getType<VmConstant>(address->arguments[1]);
+
+					if(lhsAsConstant && !lhsAsConstant->container && !rhsAsConstant)
+					{
+						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + lhsAsConstant->iValue);
+
+						ChangeInstructionTo(module, inst, inst->cmd, address->arguments[1], totalOffset, inst->arguments[2], NULL, &module->peepholeOptimizations);
+					}
+					else if(rhsAsConstant && !rhsAsConstant->container && !lhsAsConstant)
+					{
+						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + rhsAsConstant->iValue);
+
+						ChangeInstructionTo(module, inst, inst->cmd, address->arguments[0], totalOffset, inst->arguments[2], NULL, &module->peepholeOptimizations);
+					}
+				}
+			}
+			break;
 		}
 	}
 }
@@ -3068,7 +3160,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 						{
 							assert(terminator->arguments[0] == curr);
 
-							ReplaceValue(terminator, terminator->arguments[0], target);
+							ReplaceValue(module, terminator, terminator->arguments[0], target);
 
 							module->controlFlowSimplifications++;
 						}
@@ -3250,12 +3342,8 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 					VmConstant *prevAddressAsConst = getType<VmConstant>(prev->arguments[0]);
 					VmConstant *prevOffset = getType<VmConstant>(prev->arguments[1]);
 
-					assert(prevOffset->iValue == 0 && "just a hit test");
-
 					VmConstant *currAddressAsConst = getType<VmConstant>(curr->arguments[0]);
 					VmConstant *currOffset = getType<VmConstant>(curr->arguments[1]);
-
-					assert(currOffset->iValue == 0 && "just a hit test");
 
 					if(currAddressAsConst && prevAddressAsConst)
 						same = *currAddressAsConst == *prevAddressAsConst && prevOffset->iValue == currOffset->iValue;
