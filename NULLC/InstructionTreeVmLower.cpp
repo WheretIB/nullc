@@ -661,11 +661,11 @@ void Lower(Context &ctx, VmValue *value)
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
-			if(inst->type == VmType::Int)
+			if(inst->arguments[0]->type == VmType::Int)
 				AddCommand(ctx, inst->source, VMCmd(cmdLess));
-			else if(inst->type == VmType::Double)
+			else if(inst->arguments[0]->type == VmType::Double)
 				AddCommand(ctx, inst->source, VMCmd(cmdLessD));
-			else if(inst->type == VmType::Long)
+			else if(inst->arguments[0]->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdLessL));
 			else
 				assert(!"unknown type");
@@ -674,11 +674,11 @@ void Lower(Context &ctx, VmValue *value)
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
-			if(inst->type == VmType::Int)
+			if(inst->arguments[0]->type == VmType::Int)
 				AddCommand(ctx, inst->source, VMCmd(cmdGreater));
-			else if(inst->type == VmType::Double)
+			else if(inst->arguments[0]->type == VmType::Double)
 				AddCommand(ctx, inst->source, VMCmd(cmdGreaterD));
-			else if(inst->type == VmType::Long)
+			else if(inst->arguments[0]->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdGreaterL));
 			else
 				assert(!"unknown type");
@@ -687,11 +687,11 @@ void Lower(Context &ctx, VmValue *value)
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
-			if(inst->type == VmType::Int)
+			if(inst->arguments[0]->type == VmType::Int)
 				AddCommand(ctx, inst->source, VMCmd(cmdLEqual));
-			else if(inst->type == VmType::Double)
+			else if(inst->arguments[0]->type == VmType::Double)
 				AddCommand(ctx, inst->source, VMCmd(cmdLEqualD));
-			else if(inst->type == VmType::Long)
+			else if(inst->arguments[0]->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdLEqualL));
 			else
 				assert(!"unknown type");
@@ -700,11 +700,11 @@ void Lower(Context &ctx, VmValue *value)
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
-			if(inst->type == VmType::Int)
+			if(inst->arguments[0]->type == VmType::Int)
 				AddCommand(ctx, inst->source, VMCmd(cmdGEqual));
-			else if(inst->type == VmType::Double)
+			else if(inst->arguments[0]->type == VmType::Double)
 				AddCommand(ctx, inst->source, VMCmd(cmdGEqualD));
-			else if(inst->type == VmType::Long)
+			else if(inst->arguments[0]->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdGEqualL));
 			else
 				assert(!"unknown type");
@@ -713,11 +713,11 @@ void Lower(Context &ctx, VmValue *value)
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
-			if(inst->type == VmType::Int)
+			if(inst->arguments[0]->type == VmType::Int)
 				AddCommand(ctx, inst->source, VMCmd(cmdEqual));
-			else if(inst->type == VmType::Double)
+			else if(inst->arguments[0]->type == VmType::Double)
 				AddCommand(ctx, inst->source, VMCmd(cmdEqualD));
-			else if(inst->type == VmType::Long)
+			else if(inst->arguments[0]->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdEqualL));
 			else
 				assert(!"unknown type");
@@ -726,11 +726,11 @@ void Lower(Context &ctx, VmValue *value)
 			Lower(ctx, inst->arguments[0]);
 			Lower(ctx, inst->arguments[1]);
 
-			if(inst->type == VmType::Int)
+			if(inst->arguments[0]->type == VmType::Int)
 				AddCommand(ctx, inst->source, VMCmd(cmdNEqual));
-			else if(inst->type == VmType::Double)
+			else if(inst->arguments[0]->type == VmType::Double)
 				AddCommand(ctx, inst->source, VMCmd(cmdNEqualD));
-			else if(inst->type == VmType::Long)
+			else if(inst->arguments[0]->type == VmType::Long)
 				AddCommand(ctx, inst->source, VMCmd(cmdNEqualL));
 			else
 				assert(!"unknown type");
