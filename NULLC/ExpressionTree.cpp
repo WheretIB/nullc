@@ -227,14 +227,6 @@ namespace
 		return SYN_BINARY_OP_UNKNOWN;
 	}
 
-	ScopeData* NamedScopeFrom(ScopeData *scope)
-	{
-		if(!scope || scope->ownerNamespace)
-			return scope;
-
-		return NamedScopeFrom(scope->scope);
-	}
-
 	ScopeData* NamedOrGlobalScopeFrom(ScopeData *scope)
 	{
 		if(!scope || scope->ownerNamespace || scope->scope == NULL)
@@ -3814,9 +3806,9 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynTypeArray *syntax)
 		IntrusiveList<SynCallArgument> arguments;
 
 		if(!isType<SynNothing>(el))
-			arguments.push_back(allocate(SynCallArgument)(el->pos.begin, el->pos.end, InplaceStr(), el));
+			arguments.push_back(allocate(SynCallArgument)(el->begin, el->end, InplaceStr(), el));
 
-		value = allocate(SynArrayIndex)(el->pos.begin, el->pos.end, value ? value : syntax->type, arguments);
+		value = allocate(SynArrayIndex)(el->begin, el->end, value ? value : syntax->type, arguments);
 	}
 
 	return AnalyzeArrayIndex(ctx, value);
@@ -5511,9 +5503,9 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		SynTypeFunction *functionType = getType<SynTypeFunction>(syntax->type);
 
 		for(SynBase *curr = functionType->arguments.head; curr; curr = curr->next)
-			syntax->arguments.push_back(allocate(SynCallArgument)(curr->pos.begin, curr->pos.end, InplaceStr(), curr));
+			syntax->arguments.push_back(allocate(SynCallArgument)(curr->begin, curr->end, InplaceStr(), curr));
 
-		syntax->type = allocate(SynTypeReference)(functionType->pos.begin, functionType->pos.end, functionType->returnType);
+		syntax->type = allocate(SynTypeReference)(functionType->begin, functionType->end, functionType->returnType);
 
 		type = AnalyzeType(ctx, syntax->type, false);
 	}
@@ -7077,7 +7069,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 	for(SynAccessor *accessor = syntax->accessors.head; accessor; accessor = getType<SynAccessor>(accessor->next))
 	{
-		SynBase *parentType = allocate(SynTypeSimple)(accessor->pos.begin, accessor->pos.end, IntrusiveList<SynIdentifier>(), classDefinition->classType->name);
+		SynBase *parentType = allocate(SynTypeSimple)(accessor->begin, accessor->end, IntrusiveList<SynIdentifier>(), classDefinition->classType->name);
 
 		TypeBase *accessorType = AnalyzeType(ctx, accessor->type);
 
@@ -7088,7 +7080,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 			IntrusiveList<SynBase> expressions = accessor->getBlock->expressions;
 
-			SynFunctionDefinition *function = allocate(SynFunctionDefinition)(accessor->pos.begin, accessor->pos.end, false, false, parentType, true, accessor->type, false, accessor->name, aliases, arguments, expressions);
+			SynFunctionDefinition *function = allocate(SynFunctionDefinition)(accessor->begin, accessor->end, false, false, parentType, true, accessor->type, false, accessor->name, aliases, arguments, expressions);
 
 			TypeFunction *instance = ctx.GetFunctionType(accessorType, IntrusiveList<TypeHandle>());
 
@@ -7105,11 +7097,11 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 			IntrusiveList<SynIdentifier> aliases;
 
 			IntrusiveList<SynFunctionArgument> arguments;
-			arguments.push_back(allocate(SynFunctionArgument)(accessor->pos.begin, accessor->pos.end, false, accessor->type, accessor->setName.empty() ? InplaceStr("r") : accessor->setName, NULL));
+			arguments.push_back(allocate(SynFunctionArgument)(accessor->begin, accessor->end, false, accessor->type, accessor->setName.empty() ? InplaceStr("r") : accessor->setName, NULL));
 
 			IntrusiveList<SynBase> expressions = accessor->setBlock->expressions;
 
-			SynFunctionDefinition *function = allocate(SynFunctionDefinition)(accessor->pos.begin, accessor->pos.end, false, false, parentType, true, allocate(SynTypeAuto)(accessor->pos.begin, accessor->pos.end), false, accessor->name, aliases, arguments, expressions);
+			SynFunctionDefinition *function = allocate(SynFunctionDefinition)(accessor->begin, accessor->end, false, false, parentType, true, allocate(SynTypeAuto)(accessor->begin, accessor->end), false, accessor->name, aliases, arguments, expressions);
 
 			IntrusiveList<TypeHandle> argTypes;
 			argTypes.push_back(allocate(TypeHandle)(accessorType));
@@ -8206,14 +8198,14 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 			return allocate(ExprTypeLiteral)(node, ctx.typeTypeID, type);
 
 		// Transform 'type ref(arguments)' into a 'type ref' constructor call
-		SynBase* value = allocate(SynTypeReference)(node->pos.begin, node->pos.end, node->returnType);
+		SynBase* value = allocate(SynTypeReference)(node->begin, node->end, node->returnType);
 
 		IntrusiveList<SynCallArgument> arguments;
 
 		for(SynBase *curr = node->arguments.head; curr; curr = curr->next)
-			arguments.push_back(allocate(SynCallArgument)(curr->pos.begin, curr->pos.end, InplaceStr(), curr));
+			arguments.push_back(allocate(SynCallArgument)(curr->begin, curr->end, InplaceStr(), curr));
 
-		return AnalyzeFunctionCall(ctx, allocate(SynFunctionCall)(node->pos.begin, node->pos.end, value, IntrusiveList<SynBase>(), arguments));
+		return AnalyzeFunctionCall(ctx, allocate(SynFunctionCall)(node->begin, node->end, value, IntrusiveList<SynBase>(), arguments));
 	}
 
 	if(SynTypeGenericInstance *node = getType<SynTypeGenericInstance>(syntax))
@@ -8323,13 +8315,13 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 
 struct ModuleContext
 {
-	ModuleContext(Allocator *allocator): bytecode(NULL), lexStream(NULL), name(NULL), types(allocator)
+	ModuleContext(Allocator *allocator): bytecode(NULL), lexStream(NULL), types(allocator)
 	{
 	}
 
 	ByteCode* bytecode;
 	Lexeme* lexStream;
-	const char *name;
+	InplaceStr name;
 
 	SmallArray<TypeBase*, 32> types;
 };
