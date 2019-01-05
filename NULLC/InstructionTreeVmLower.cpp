@@ -53,6 +53,8 @@ void Lower(Context &ctx, VmValue *value)
 
 		ctx.fixupPoints.clear();
 
+		function->codeSize = ctx.cmds.size() - function->address;
+
 		ctx.currentFunction = NULL;
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
@@ -795,7 +797,11 @@ void LowerModule(Context &ctx, VmModule *module)
 	for(VmFunction *value = module->functions.head; value; value = value->next)
 	{
 		if(!value->function)
-			ctx.cmds[0].argument = ctx.cmds.size();
+		{
+			module->globalCodeStart = ctx.cmds.size();
+
+			ctx.cmds[0].argument = module->globalCodeStart;
+		}
 
 		Lower(ctx, value);
 	}
