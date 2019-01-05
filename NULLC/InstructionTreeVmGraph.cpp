@@ -181,6 +181,7 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 		const char *start = instruction->source->pos.begin;
 		const char *end = start + 1;
 
+		// TODO: handle source locations from imported modules
 		while(start > ctx.code && *(start - 1) != '\r' && *(start - 1) != '\n')
 			start--;
 

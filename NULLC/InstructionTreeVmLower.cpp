@@ -984,6 +984,7 @@ void PrintInstructions(Context &ctx, const char *code)
 			const char *start = source->pos.begin;
 			const char *end = start + 1;
 
+			// TODO: handle source locations from imported modules
 			while(start > code && *(start - 1) != '\r' && *(start - 1) != '\n')
 				start--;
 
