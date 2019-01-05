@@ -819,7 +819,10 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 				ArgumentData &original = function->function->arguments[i - 1];
 
 				if(original.type->size == 0)
+				{
+					offset += 4;
 					continue;
+				}
 
 				unsigned argumentSize = argument->type.size;
 

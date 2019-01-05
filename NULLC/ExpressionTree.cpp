@@ -246,11 +246,9 @@ namespace
 		return FindNextTypeFromScope(scope->scope);
 	}
 
-	unsigned AllocateGlobalVariable(ExpressionContext &ctx, SynBase *source, unsigned alignment, TypeBase *type)
+	unsigned AllocateGlobalVariable(ExpressionContext &ctx, SynBase *source, unsigned alignment, long long size)
 	{
 		assert((alignment & (alignment - 1)) == 0 && alignment <= 16);
-
-		long long size = type->size;
 
 		ScopeData *scope = ctx.globalScope;
 
@@ -266,11 +264,9 @@ namespace
 		return result;
 	}
 
-	unsigned AllocateVariableInScope(ExpressionContext &ctx, SynBase *source, unsigned alignment, TypeBase *type)
+	unsigned AllocateVariableInScope(ExpressionContext &ctx, SynBase *source, unsigned alignment, long long size)
 	{
 		assert((alignment & (alignment - 1)) == 0 && alignment <= 16);
-
-		long long size = type->size;
 
 		ScopeData *scope = ctx.scope;
 
@@ -319,7 +315,17 @@ namespace
 
 		assert(scope == ctx.globalScope);
 
-		return AllocateGlobalVariable(ctx, source, alignment, type);
+		return AllocateGlobalVariable(ctx, source, alignment, size);
+	}
+
+	unsigned AllocateVariableInScope(ExpressionContext &ctx, SynBase *source, unsigned alignment, TypeBase *type)
+	{
+		return AllocateVariableInScope(ctx, source, alignment, type->size);
+	}
+
+	unsigned AllocateArgumentInScope(ExpressionContext &ctx, SynBase *source, unsigned alignment, TypeBase *type)
+	{
+		return AllocateVariableInScope(ctx, source, alignment, type->size >= 4 ? type->size : 4);
 	}
 	
 	void CheckVariableConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
@@ -1867,7 +1873,7 @@ ExprBase* GetFunctionUpvalue(ExpressionContext &ctx, SynBase *source, VariableDa
 
 	TypeBase *type = ctx.GetReferenceType(ctx.typeVoid);
 
-	unsigned offset = AllocateGlobalVariable(ctx, source, type->alignment, type);
+	unsigned offset = AllocateGlobalVariable(ctx, source, type->alignment, type->size);
 	VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.globalScope, type->alignment, type, upvalueName, offset, ctx.uniqueVariableId++);
 
 	ctx.globalScope->variables.push_back(variable);
@@ -4972,7 +4978,7 @@ ExprBase* GetFunctionTable(ExpressionContext &ctx, SynBase *source, FunctionData
 	
 	TypeBase *type = ctx.GetUnsizedArrayType(ctx.typeFunctionID);
 
-	unsigned offset = AllocateGlobalVariable(ctx, source, type->alignment, type);
+	unsigned offset = AllocateGlobalVariable(ctx, source, type->alignment, type->size);
 	VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.globalScope, type->alignment, type, vtableName, offset, ctx.uniqueVariableId++);
 
 	ctx.globalScope->variables.push_back(variable);
@@ -5915,7 +5921,7 @@ ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, Sy
 
 	assert(!type->isGeneric);
 
-	unsigned offset = AllocateVariableInScope(ctx, source, 0, type);
+	unsigned offset = AllocateArgumentInScope(ctx, source, 0, type);
 
 	function->contextArgument = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, type, InplaceStr(function->scope->ownerType ? "this" : "$context"), offset, ctx.uniqueVariableId++);
 
@@ -6035,7 +6041,7 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, Fu
 
 		CheckVariableConflict(ctx, source, argument.name);
 
-		unsigned offset = AllocateVariableInScope(ctx, source, 4, argument.type);
+		unsigned offset = AllocateArgumentInScope(ctx, source, 4, argument.type);
 		VariableData *variable = allocate(VariableData)(ctx.allocator, argument.source, ctx.scope, 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
 
 		if(TypeClass *classType = getType<TypeClass>(variable->type))
@@ -8916,7 +8922,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		{
 			TypeBase *type = ctx.GetReferenceType(parentType);
 
-			unsigned offset = AllocateVariableInScope(ctx, source, 0, type);
+			unsigned offset = AllocateArgumentInScope(ctx, source, 0, type);
 			VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
@@ -8937,7 +8943,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 			data->arguments.push_back(ArgumentData(source, isExplicit, argName, argType, NULL));
 
-			unsigned offset = AllocateVariableInScope(ctx, source, 0, argType);
+			unsigned offset = AllocateArgumentInScope(ctx, source, 0, argType);
 			VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, argType, argName, offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
