@@ -326,9 +326,21 @@ void Lower(Context &ctx, VmValue *value)
 			AddCommand(ctx, inst->source, VMCmd(cmdDtoL));
 			break;
 		case VM_INST_DOUBLE_TO_FLOAT:
-			Lower(ctx, inst->arguments[0]);
+			if(VmConstant *value = getType<VmConstant>(inst->arguments[0]))
+			{
+				float result = float(value->dValue);
 
-			AddCommand(ctx, inst->source, VMCmd(cmdDtoF));
+				unsigned target = 0;
+				memcpy(&target, &result, sizeof(float));
+
+				AddCommand(ctx, inst->source, VMCmd(cmdPushImmt, target));
+			}
+			else
+			{
+				Lower(ctx, inst->arguments[0]);
+
+				AddCommand(ctx, inst->source, VMCmd(cmdDtoF));
+			}
 			break;
 		case VM_INST_INT_TO_DOUBLE:
 			Lower(ctx, inst->arguments[0]);
