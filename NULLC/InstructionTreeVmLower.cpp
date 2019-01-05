@@ -840,7 +840,7 @@ void Lower(Context &ctx, VmValue *value)
 		{
 			assert(constant->type.size % 4 == 0);
 
-			for(unsigned i = 0; i < constant->type.size / 4; i++)
+			for(int i = int(constant->type.size / 4) - 1; i >= 0; i--)
 				AddCommand(ctx, constant->source, VMCmd(cmdPushImmt, ((unsigned*)constant->sValue)[i]));
 		}
 		else
