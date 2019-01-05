@@ -9022,7 +9022,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 	}
 }
 
-void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, Lexeme *lexStream, const char* name)
+void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, Lexeme *lexStream, InplaceStr name)
 {
 	assert(bytecode);
 
@@ -9040,6 +9040,8 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 	module.lexStream = lexStream;
 	module.name = name;
 
+	unsigned startingFunctionIndex = ctx.functions.size();
+
 	ImportModuleNamespaces(ctx, source, module);
 
 	ImportModuleTypes(ctx, source, module);
@@ -9049,6 +9051,10 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 	ImportModuleTypedefs(ctx, source, module);
 
 	ImportModuleFunctions(ctx, source, module);
+
+	unsigned functionCount = ctx.functions.size() - startingFunctionIndex;
+
+	ctx.modules.push_back(allocate(ModuleData)(source, name, startingFunctionIndex, functionCount));
 }
 
 void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
@@ -9071,7 +9077,7 @@ void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 	if(!bytecode)
 		Stop(ctx, syntax->pos, "ERROR: module import is not implemented");
 
-	ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, pathNoImport.begin);
+	ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, pathNoImport);
 }
 
 ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, VariableData *vtable)
@@ -9172,16 +9178,24 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 
 ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 {
-	const char *bytecode = BinaryCache::GetBytecode("$base$.nc");
-	unsigned lexCount = 0;
-	Lexeme *lexStream = BinaryCache::GetLexems("$base$.nc", lexCount);
+	// Import base module
+	{
+		IntrusiveList<SynIdentifier> importParts;
+		importParts.push_back(allocate(SynIdentifier)(syntax->begin, syntax->end, InplaceStr("$base$")));
 
-	if(bytecode)
-		ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, "$base$.nc");
-	else
-		Stop(ctx, syntax->pos, "ERROR: base module couldn't be imported");
+		InplaceStr importPath = GetImportPath(ctx.allocator, "", importParts);
 
-	ctx.baseModuleFunctionCount = ctx.functions.size();
+		const char *bytecode = BinaryCache::GetBytecode(importPath.begin);
+		unsigned lexCount = 0;
+		Lexeme *lexStream = BinaryCache::GetLexems(importPath.begin, lexCount);
+
+		if(bytecode)
+			ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, importPath);
+		else
+			Stop(ctx, syntax->pos, "ERROR: base module couldn't be imported");
+
+		ctx.baseModuleFunctionCount = ctx.functions.size();
+	}
 
 	for(SynModuleImport *import = syntax->imports.head; import; import = getType<SynModuleImport>(import->next))
 		AnalyzeModuleImport(ctx, import);

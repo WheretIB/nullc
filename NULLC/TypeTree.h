@@ -63,6 +63,20 @@ struct TypeHandle
 	bool listed;
 };
 
+struct ModuleData
+{
+	ModuleData(SynBase *source, InplaceStr name, unsigned startingFunctionIndex, unsigned functionCount): source(source), name(name), startingFunctionIndex(startingFunctionIndex), functionCount(functionCount)
+	{
+	}
+
+	SynBase *source;
+
+	InplaceStr name;
+
+	unsigned startingFunctionIndex;
+	unsigned functionCount;
+};
+
 struct NamespaceData
 {
 	NamespaceData(SynBase *source, ScopeData *scope, NamespaceData *parent, InplaceStr name, unsigned uniqueId): source(source), scope(scope), parent(parent), name(name), uniqueId(uniqueId)
