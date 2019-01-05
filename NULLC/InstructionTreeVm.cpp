@@ -660,6 +660,7 @@ namespace
 		unsigned offset = 0;
 		ScopeData *scope = AllocateScopeSlot(ctx, module, variable->type, offset);
 
+		variable->scope = scope;
 		variable->offset = offset;
 
 		scope->variables.push_back(variable);

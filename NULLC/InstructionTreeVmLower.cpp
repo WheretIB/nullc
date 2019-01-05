@@ -952,8 +952,10 @@ void PrintInstructions(Context &ctx, const char *code)
 		switch(cmd.cmd)
 		{
 		case cmdCall:
+			fprintf(ctx.file, "// %s (%.*s [%.*s]) param size %d\n", buf, FMT_ISTR(ctx.ctx.functions[cmd.argument]->name), FMT_ISTR(ctx.ctx.functions[cmd.argument]->type->name), ctx.ctx.functions[cmd.argument]->argumentsSize);
+			break;
 		case cmdFuncAddr:
-			fprintf(ctx.file, "// %s (%.*s)\n", buf, FMT_ISTR(ctx.ctx.functions[cmd.argument]->name));
+			fprintf(ctx.file, "// %s (%.*s [%.*s])\n", buf, FMT_ISTR(ctx.ctx.functions[cmd.argument]->name), FMT_ISTR(ctx.ctx.functions[cmd.argument]->type->name));
 			break;
 		case cmdPushTypeID:
 			fprintf(ctx.file, "// %s (%.*s)\n", buf, FMT_ISTR(ctx.ctx.types[cmd.argument]->name));
@@ -975,9 +977,9 @@ void PrintInstructions(Context &ctx, const char *code)
 			if(VariableData *global = cmd.flag == 0 ? FindGlobalAt(ctx, cmd.argument) : NULL)
 			{
 				if(global->offset == cmd.argument)
-					fprintf(ctx.file, "// %s (%.*s)\n", buf, FMT_ISTR(global->name));
+					fprintf(ctx.file, "// %s (%.*s [%.*s])\n", buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name));
 				else
-					fprintf(ctx.file, "// %s (inside %.*s)\n", buf, FMT_ISTR(global->name));
+					fprintf(ctx.file, "// %s (inside %.*s [%.*s])\n", buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name));
 			}
 			else
 			{
