@@ -246,24 +246,38 @@ void Lower(Context &ctx, VmValue *value)
 			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[1]->type.size));
 			break;
 		case VM_INST_DOUBLE_TO_INT:
+			Lower(ctx, inst->arguments[0]);
+
 			AddCommand(ctx, inst->source, VMCmd(cmdDtoI));
 			break;
 		case VM_INST_DOUBLE_TO_LONG:
+			Lower(ctx, inst->arguments[0]);
+
 			AddCommand(ctx, inst->source, VMCmd(cmdDtoL));
 			break;
 		case VM_INST_DOUBLE_TO_FLOAT:
+			Lower(ctx, inst->arguments[0]);
+
 			AddCommand(ctx, inst->source, VMCmd(cmdDtoF));
 			break;
 		case VM_INST_INT_TO_DOUBLE:
+			Lower(ctx, inst->arguments[0]);
+
 			AddCommand(ctx, inst->source, VMCmd(cmdItoD));
 			break;
 		case VM_INST_LONG_TO_DOUBLE:
+			Lower(ctx, inst->arguments[0]);
+
 			AddCommand(ctx, inst->source, VMCmd(cmdLtoD));
 			break;
 		case VM_INST_INT_TO_LONG:
+			Lower(ctx, inst->arguments[0]);
+
 			AddCommand(ctx, inst->source, VMCmd(cmdItoL));
 			break;
 		case VM_INST_LONG_TO_INT:
+			Lower(ctx, inst->arguments[0]);
+
 			AddCommand(ctx, inst->source, VMCmd(cmdLtoI));
 			break;
 		case VM_INST_INDEX:
