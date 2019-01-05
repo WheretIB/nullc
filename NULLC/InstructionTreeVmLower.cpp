@@ -89,14 +89,14 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(offset->iValue == 0);
 
-				AddCommand(ctx, inst->source, VMCmd(cmdPushInt, IsLocalScope(constant->container->scope), 1, constant->iValue + constant->container->offset));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushChar, IsLocalScope(constant->container->scope), 1, constant->iValue + constant->container->offset));
 			}
 			else
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
 				Lower(ctx, inst->arguments[0]);
-				AddCommand(ctx, inst->source, VMCmd(cmdPushIntStk, 1, offset->iValue));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushCharStk, 1, offset->iValue));
 			}
 			break;
 		case VM_INST_LOAD_SHORT:
