@@ -200,8 +200,6 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_STORE_FLOAT:
 			Lower(ctx, inst->arguments[1]);
 
-			AddCommand(ctx, inst->source, VMCmd(cmdDtoF));
-
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
 				AddCommand(ctx, inst->source, VMCmd(cmdMovFloat, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
