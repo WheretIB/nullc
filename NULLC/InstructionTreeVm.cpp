@@ -3519,6 +3519,9 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 		if(curr->cmd == VM_INST_CONSTRUCT && (curr->type.type == VM_TYPE_FUNCTION_REF || curr->type.type == VM_TYPE_ARRAY_REF))
 			continue;
 
+		if(curr->cmd == VM_INST_FUNCTION_ADDRESS || curr->cmd == VM_INST_TYPE_ID)
+			continue;
+
 		TypeBase *type = GetBaseType(ctx, curr->type);
 
 		VmValue *address = CreateAlloca(ctx, module, curr->source, type, "reg");
