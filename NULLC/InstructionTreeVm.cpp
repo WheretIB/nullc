@@ -1409,8 +1409,23 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		VmInstruction *inst = allocate(VmInstruction)(module->allocator, GetVmType(ctx, node->type), node->source, VM_INST_ARRAY, module->currentFunction->nextInstructionId++);
 
+		assert(isType<TypeArray>(node->type));
+
+		TypeArray *typeArray = getType<TypeArray>(node->type);
+
+		TypeBase *elementType = typeArray->subType;
+
+		assert(elementType != ctx.typeChar && elementType != ctx.typeShort);
+
 		for(ExprBase *value = node->values.head; value; value = value->next)
-			inst->AddArgument(CompileVm(ctx, module, value));
+		{
+			VmValue *element = CompileVm(ctx, module, value);
+
+			if(elementType == ctx.typeFloat)
+				element = CreateInstruction(module, node->source, VmType::Int, VM_INST_DOUBLE_TO_FLOAT, element);
+
+			inst->AddArgument(element);
+		}
 
 		module->currentBlock->AddInstruction(inst);
 
