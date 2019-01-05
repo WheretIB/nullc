@@ -535,7 +535,7 @@ char* GetPointerDataPtr(Eval &ctx, unsigned vmPointer)
 	return NULL;
 }
 
-VmConstant* LoadFrameValue(Eval &ctx, VmConstant *pointer, VmType type, unsigned loadSize)
+VmConstant* LoadFrameValue(Eval &ctx, VmConstant *pointer, VmConstant *offset, VmType type, unsigned loadSize)
 {
 	unsigned base = 0;
 
@@ -548,27 +548,30 @@ VmConstant* LoadFrameValue(Eval &ctx, VmConstant *pointer, VmType type, unsigned
 			printf("      LoadFrameValue %.*s [%s] @ %04x + %02x [%02x]\n", FMT_ISTR(functionName), target->tag, base, pointer->iValue & memoryOffsetMask, loadSize);
 		}
 
-		unsigned offset = (pointer->iValue & memoryOffsetMask) + base;
+		unsigned location = (pointer->iValue & memoryOffsetMask) + base;
+
+		if(offset)
+			location += offset->iValue;
 
 		if(type == VmType::Int && loadSize == 1)
-			return LoadFrameByte(ctx, target, offset);
+			return LoadFrameByte(ctx, target, location);
 
 		if(type == VmType::Int && loadSize == 2)
-			return LoadFrameShort(ctx, target, offset);
+			return LoadFrameShort(ctx, target, location);
 
 		if((type == VmType::Int || type.type == VM_TYPE_POINTER) && loadSize == 4)
-			return LoadFrameInt(ctx, target, offset, type);
+			return LoadFrameInt(ctx, target, location, type);
 
 		if(type == VmType::Double && loadSize == 4)
-			return LoadFrameFloat(ctx, target, offset);
+			return LoadFrameFloat(ctx, target, location);
 
 		if(type == VmType::Double && loadSize == 8)
-			return LoadFrameDouble(ctx, target, offset);
+			return LoadFrameDouble(ctx, target, location);
 
 		if((type == VmType::Long || type.type == VM_TYPE_POINTER) && loadSize == 8)
-			return LoadFrameLong(ctx, target, offset, type);
+			return LoadFrameLong(ctx, target, location, type);
 
-		return LoadFrameStruct(ctx, target, offset, type);
+		return LoadFrameStruct(ctx, target, location, type);
 	}
 
 	assert(ctx.hasError);
@@ -576,7 +579,7 @@ VmConstant* LoadFrameValue(Eval &ctx, VmConstant *pointer, VmType type, unsigned
 	return NULL;
 }
 
-bool StoreFrameValue(Eval &ctx, VmConstant *pointer, VmConstant *value, unsigned storeSize)
+bool StoreFrameValue(Eval &ctx, VmConstant *pointer, VmConstant *offset, VmConstant *value, unsigned storeSize)
 {
 	unsigned base = 0;
 
@@ -589,15 +592,18 @@ bool StoreFrameValue(Eval &ctx, VmConstant *pointer, VmConstant *value, unsigned
 			printf("      StoreFrameValue %.*s [%s] @ %04x + %02x [%02x]\n", FMT_ISTR(functionName), target->tag, base, pointer->iValue & memoryOffsetMask, storeSize);
 		}
 
-		unsigned offset = (pointer->iValue & memoryOffsetMask) + base;
+		unsigned location = (pointer->iValue & memoryOffsetMask) + base;
 
-		if(!target->Reserve(ctx, offset, value->type.size))
+		if(offset)
+			location += offset->iValue;
+
+		if(!target->Reserve(ctx, location, value->type.size))
 		{
 			Report(ctx, "ERROR: out of stack space");
 			return false;
 		}
 
-		CopyConstantRaw(ctx, target->data.data + offset, target->data.size() - offset, value, storeSize);
+		CopyConstantRaw(ctx, target->data.data + location, target->data.size() - location, value, storeSize);
 
 		return true;
 	}
@@ -681,7 +687,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 	case VM_INST_LOAD_DOUBLE:
 	case VM_INST_LOAD_LONG:
 	case VM_INST_LOAD_STRUCT:
-		return LoadFrameValue(ctx, arguments[0], instruction->type, GetAccessSize(instruction));
+		return LoadFrameValue(ctx, arguments[0], arguments[1], instruction->type, GetAccessSize(instruction));
 	case VM_INST_LOAD_IMMEDIATE:
 		return arguments[0];
 	case VM_INST_STORE_BYTE:
@@ -691,7 +697,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 	case VM_INST_STORE_DOUBLE:
 	case VM_INST_STORE_LONG:
 	case VM_INST_STORE_STRUCT:
-		StoreFrameValue(ctx, arguments[0], arguments[1], GetAccessSize(instruction));
+		StoreFrameValue(ctx, arguments[0], arguments[1], arguments[2], GetAccessSize(instruction));
 
 		return NULL;
 	case VM_INST_DOUBLE_TO_INT:
@@ -1364,7 +1370,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, value, 1))
+		if(!StoreFrameValue(ctx, context, NULL, value, 1))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1377,7 +1383,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, value, 1))
+		if(!StoreFrameValue(ctx, context, NULL, value, 1))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1390,7 +1396,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, value, 2))
+		if(!StoreFrameValue(ctx, context, NULL, value, 2))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1403,7 +1409,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, value, 4))
+		if(!StoreFrameValue(ctx, context, NULL, value, 4))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1416,7 +1422,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, value, 8))
+		if(!StoreFrameValue(ctx, context, NULL, value, 8))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1429,7 +1435,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, value, 4))
+		if(!StoreFrameValue(ctx, context, NULL, value, 4))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1442,7 +1448,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, value, 8))
+		if(!StoreFrameValue(ctx, context, NULL, value, 8))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1568,7 +1574,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		assert(context);
 
-		VmConstant *table = LoadFrameValue(ctx, tableRef, VmType::ArrayRef(ctx.ctx.typeFunctionID), NULLC_PTR_SIZE + 4);
+		VmConstant *table = LoadFrameValue(ctx, tableRef, NULL, VmType::ArrayRef(ctx.ctx.typeFunctionID), NULLC_PTR_SIZE + 4);
 
 		if(!table)
 			return NULL;
@@ -1583,7 +1589,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		VmConstant *indexLocation = CreateConstantPointer(ctx.allocator, NULL, unsigned(tableArray->iValue + typeIndex * ctx.ctx.typeTypeID->size), tableArray->container, ctx.ctx.GetReferenceType(ctx.ctx.typeFunctionID), false);
 
-		VmConstant *index = LoadFrameValue(ctx, indexLocation, VmType::Int, 4);
+		VmConstant *index = LoadFrameValue(ctx, indexLocation, NULL, VmType::Int, 4);
 
 		if(index->iValue == 0)
 		{
@@ -1639,7 +1645,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		CopyConstantRaw(ctx, storageValue + 4, storageType.size - 4, resultPtr, resultPtr->type.size);
 
 		if(targetType->size != 0)
-			StoreFrameValue(ctx, resultPtr, LoadFrameValue(ctx, ptrPtr, GetVmType(ctx.ctx, targetType), unsigned(targetType->size)), unsigned(targetType->size));
+			StoreFrameValue(ctx, resultPtr, NULL, LoadFrameValue(ctx, ptrPtr, NULL, GetVmType(ctx.ctx, targetType), unsigned(targetType->size)), unsigned(targetType->size));
 
 		VmConstant *result = allocate(VmConstant)(ctx.allocator, storageType, NULL);
 
@@ -1718,7 +1724,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		TypeBase *arrayType = ctx.ctx.GetArrayType(ctx.ctx.types[srcTypeID->iValue], srcLen->iValue);
 
-		StoreFrameValue(ctx, dstPtr, LoadFrameValue(ctx, srcPtr, GetVmType(ctx.ctx, arrayType), unsigned(arrayType->size)), unsigned(arrayType->size));
+		StoreFrameValue(ctx, dstPtr, NULL, LoadFrameValue(ctx, srcPtr, NULL, GetVmType(ctx.ctx, arrayType), unsigned(arrayType->size)), unsigned(arrayType->size));
 
 		return CreateConstantVoid(ctx.allocator);
 	}
@@ -1738,7 +1744,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		VmConstant *ptrPtr = ExtractValue(ctx, ptr, 4, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(targetType)));
 
-		VmConstant *functionRef = LoadFrameValue(ctx, ptrPtr, GetVmType(ctx.ctx, targetType), unsigned(targetType->size));
+		VmConstant *functionRef = LoadFrameValue(ctx, ptrPtr, NULL, GetVmType(ctx.ctx, targetType), unsigned(targetType->size));
 
 		VmConstant *functionIndex = ExtractValue(ctx, functionRef, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeFunctionID));
 
@@ -1768,7 +1774,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		VmConstant *ptrPtr = ExtractValue(ctx, ptr, 4, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(targetType)));
 
-		VmConstant *functionRef = LoadFrameValue(ctx, ptrPtr, GetVmType(ctx.ctx, targetType), unsigned(targetType->size));
+		VmConstant *functionRef = LoadFrameValue(ctx, ptrPtr, NULL, GetVmType(ctx.ctx, targetType), unsigned(targetType->size));
 
 		VmConstant *functionIndex = ExtractValue(ctx, functionRef, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeFunctionID));
 
@@ -1789,7 +1795,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		VmType contextType = GetVmType(ctx.ctx, refType->subType);
 
-		VmConstant *functionContext = LoadFrameValue(ctx, functionContextPtr, contextType, contextType.size);
+		VmConstant *functionContext = LoadFrameValue(ctx, functionContextPtr, NULL, contextType, contextType.size);
 
 		VmConstant *jmpOffset = ExtractValue(ctx, functionContext, 0, GetVmType(ctx.ctx, ctx.ctx.typeInt));
 
@@ -1810,7 +1816,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!ptr->iValue)
 			return ptr;
 
-		VmConstant *derived = LoadFrameValue(ctx, ptr, GetVmType(ctx.ctx, ctx.ctx.typeTypeID), unsigned(ctx.ctx.typeTypeID->size));
+		VmConstant *derived = LoadFrameValue(ctx, ptr, NULL, GetVmType(ctx.ctx, ctx.ctx.typeTypeID), unsigned(ctx.ctx.typeTypeID->size));
 
 		TypeBase *curr = ctx.ctx.types[derived->iValue];
 
@@ -1834,7 +1840,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context)
 			return NULL;
 
-		VmConstant *value = LoadFrameValue(ctx, context, VmType::Int, 4);
+		VmConstant *value = LoadFrameValue(ctx, context, NULL, VmType::Int, 4);
 
 		char buf[32];
 		sprintf(buf, "%d", value->iValue);
@@ -1845,7 +1851,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		VmConstant *pointer = ExtractValue(ctx, result, 0, VmType::Pointer(ctx.ctx.typeChar));
 
-		StoreFrameValue(ctx, pointer, CreateConstantStruct(ctx.allocator, NULL, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
+		StoreFrameValue(ctx, pointer, NULL, CreateConstantStruct(ctx.allocator, NULL, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
 
 		return result;
 	}
@@ -1856,7 +1862,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!context)
 			return NULL;
 
-		VmConstant *value = LoadFrameValue(ctx, context, VmType::Long, 8);
+		VmConstant *value = LoadFrameValue(ctx, context, NULL, VmType::Long, 8);
 
 		char buf[32];
 		sprintf(buf, "%lld", value->lValue);
@@ -1867,7 +1873,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		VmConstant *pointer = ExtractValue(ctx, result, 0, VmType::Pointer(ctx.ctx.typeChar));
 
-		StoreFrameValue(ctx, pointer, CreateConstantStruct(ctx.allocator, NULL, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
+		StoreFrameValue(ctx, pointer, NULL, CreateConstantStruct(ctx.allocator, NULL, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
 
 		return result;
 	}
@@ -1884,7 +1890,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(valueLen->iValue == 0 || valueLen->iValue >= 32)
 			return CreateConstantInt(ctx.allocator, NULL, 0);
 
-		VmConstant *valueBuf = LoadFrameValue(ctx, valuePtr, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, valueLen->iValue)), valueLen->iValue);
+		VmConstant *valueBuf = LoadFrameValue(ctx, valuePtr, NULL, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, valueLen->iValue)), valueLen->iValue);
 
 		char buf[32];
 		strcpy(buf, valueBuf->sValue);
@@ -1904,7 +1910,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(valueLen->iValue == 0 || valueLen->iValue >= 32)
 			return CreateConstantLong(ctx.allocator, NULL, 0);
 
-		VmConstant *valueBuf = LoadFrameValue(ctx, valuePtr, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, valueLen->iValue)), valueLen->iValue);
+		VmConstant *valueBuf = LoadFrameValue(ctx, valuePtr, NULL, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, valueLen->iValue)), valueLen->iValue);
 
 		char buf[32];
 		strcpy(buf, valueBuf->sValue);
@@ -1932,8 +1938,8 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(lhsLen->iValue != rhsLen->iValue)
 			return CreateConstantInt(ctx.allocator, NULL, function->name == InplaceStr("==") ? 0 : 1);
 
-		VmConstant *lhsBuf = LoadFrameValue(ctx, lhsPtr, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, lhsLen->iValue)), lhsLen->iValue);
-		VmConstant *rhsBuf = LoadFrameValue(ctx, rhsPtr, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, rhsLen->iValue)), rhsLen->iValue);
+		VmConstant *lhsBuf = LoadFrameValue(ctx, lhsPtr, NULL, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, lhsLen->iValue)), lhsLen->iValue);
+		VmConstant *rhsBuf = LoadFrameValue(ctx, rhsPtr, NULL, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, rhsLen->iValue)), rhsLen->iValue);
 
 		int order = memcmp(lhsBuf->sValue, rhsBuf->sValue, lhsLen->iValue);
 
@@ -1961,7 +1967,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!copySize)
 			return NULL;
 
-		VmConstant *upvalueListHead = LoadFrameValue(ctx, upvalueListLocation, VmType::Pointer(ctx.ctx.typeVoid), NULLC_PTR_SIZE);
+		VmConstant *upvalueListHead = LoadFrameValue(ctx, upvalueListLocation, NULL, VmType::Pointer(ctx.ctx.typeVoid), NULLC_PTR_SIZE);
 
 		char *upvalueListHeadData = GetPointerDataPtr(ctx, upvalueListHead->iValue);
 
@@ -1993,7 +1999,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 			upvalueDataPtr = nextDataPtr;
 		}
 
-		StoreFrameValue(ctx, upvalueListLocation, CreateConstantPointer(ctx.allocator, NULL, upvalueVmPtr, NULL, ctx.ctx.typeVoid, false), NULLC_PTR_SIZE);
+		StoreFrameValue(ctx, upvalueListLocation, NULL, CreateConstantPointer(ctx.allocator, NULL, upvalueVmPtr, NULL, ctx.ctx.typeVoid, false), NULLC_PTR_SIZE);
 
 		return CreateConstantVoid(ctx.allocator);
 	}

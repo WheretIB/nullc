@@ -85,163 +85,235 @@ void Lower(Context &ctx, VmValue *value)
 		case VM_INST_LOAD_BYTE:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				assert(offset->iValue == 0);
+
 				AddCommand(ctx, inst->source, VMCmd(cmdPushInt, IsLocalScope(constant->container->scope), 1, constant->iValue + constant->container->offset));
 			}
 			else
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
 				Lower(ctx, inst->arguments[0]);
-				AddCommand(ctx, inst->source, VMCmd(cmdPushIntStk, 1, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushIntStk, 1, offset->iValue));
 			}
 			break;
 		case VM_INST_LOAD_SHORT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				assert(offset->iValue == 0);
+
 				AddCommand(ctx, inst->source, VMCmd(cmdPushShort, IsLocalScope(constant->container->scope), 2, constant->iValue + constant->container->offset));
 			}
 			else
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
 				Lower(ctx, inst->arguments[0]);
-				AddCommand(ctx, inst->source, VMCmd(cmdPushShortStk, 2, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushShortStk, 2, offset->iValue));
 			}
 			break;
 		case VM_INST_LOAD_INT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				assert(offset->iValue == 0);
+
 				AddCommand(ctx, inst->source, VMCmd(cmdPushInt, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
 				Lower(ctx, inst->arguments[0]);
-				AddCommand(ctx, inst->source, VMCmd(cmdPushIntStk, 4, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushIntStk, 4, offset->iValue));
 			}
 			break;
 		case VM_INST_LOAD_FLOAT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				assert(offset->iValue == 0);
+
 				AddCommand(ctx, inst->source, VMCmd(cmdPushFloat, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
 				Lower(ctx, inst->arguments[0]);
-				AddCommand(ctx, inst->source, VMCmd(cmdPushFloatStk, 4, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushFloatStk, 4, offset->iValue));
 			}
 			break;
 		case VM_INST_LOAD_DOUBLE:
 		case VM_INST_LOAD_LONG:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				assert(offset->iValue == 0);
+
 				AddCommand(ctx, inst->source, VMCmd(cmdPushDorL, IsLocalScope(constant->container->scope), 8, constant->iValue + constant->container->offset));
 			}
 			else
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
 				Lower(ctx, inst->arguments[0]);
-				AddCommand(ctx, inst->source, VMCmd(cmdPushDorLStk, 8, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdPushDorLStk, 8, offset->iValue));
 			}
 			break;
 		case VM_INST_LOAD_STRUCT:
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				assert(offset->iValue == 0);
+
 				AddCommand(ctx, inst->source, VMCmd(inst->type.size == 8 ? cmdPushDorL : cmdPushCmplx, IsLocalScope(constant->container->scope), (unsigned short)inst->type.size, constant->iValue + constant->container->offset));
 			}
 			else
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
 				Lower(ctx, inst->arguments[0]);
-				AddCommand(ctx, inst->source, VMCmd(inst->type.size == 8 ? cmdPushDorLStk : cmdPushCmplxStk, (unsigned short)inst->type.size, 0));
+				AddCommand(ctx, inst->source, VMCmd(inst->type.size == 8 ? cmdPushDorLStk : cmdPushCmplxStk, (unsigned short)inst->type.size, offset->iValue));
 			}
 			break;
 		case VM_INST_LOAD_IMMEDIATE:
 			Lower(ctx, inst->arguments[0]);
 			break;
 		case VM_INST_STORE_BYTE:
-			Lower(ctx, inst->arguments[1]);
+			Lower(ctx, inst->arguments[2]);
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				assert(offset->iValue == 0);
+
 				AddCommand(ctx, inst->source, VMCmd(cmdMovChar, IsLocalScope(constant->container->scope), 1, constant->iValue + constant->container->offset));
 			}
 			else
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
 				Lower(ctx, inst->arguments[0]);
-				AddCommand(ctx, inst->source, VMCmd(cmdMovCharStk, 1, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovCharStk, 1, offset->iValue));
 			}
 
-			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[1]->type.size));
+			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[2]->type.size));
 			break;
 		case VM_INST_STORE_SHORT:
-			Lower(ctx, inst->arguments[1]);
+			Lower(ctx, inst->arguments[2]);
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				assert(offset->iValue == 0);
+
 				AddCommand(ctx, inst->source, VMCmd(cmdMovShort, IsLocalScope(constant->container->scope), 2, constant->iValue + constant->container->offset));
 			}
 			else
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
 				Lower(ctx, inst->arguments[0]);
-				AddCommand(ctx, inst->source, VMCmd(cmdMovShortStk, 2, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovShortStk, 2, offset->iValue));
 			}
 
-			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[1]->type.size));
+			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[2]->type.size));
 			break;
 		case VM_INST_STORE_INT:
-			Lower(ctx, inst->arguments[1]);
+			Lower(ctx, inst->arguments[2]);
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				assert(offset->iValue == 0);
+
 				AddCommand(ctx, inst->source, VMCmd(cmdMovInt, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
 				Lower(ctx, inst->arguments[0]);
-				AddCommand(ctx, inst->source, VMCmd(cmdMovIntStk, 4, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovIntStk, 4, offset->iValue));
 			}
 
-			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[1]->type.size));
+			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[2]->type.size));
 			break;
 		case VM_INST_STORE_FLOAT:
-			Lower(ctx, inst->arguments[1]);
+			Lower(ctx, inst->arguments[2]);
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				assert(offset->iValue == 0);
+
 				AddCommand(ctx, inst->source, VMCmd(cmdMovFloat, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset));
 			}
 			else
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
 				Lower(ctx, inst->arguments[0]);
-				AddCommand(ctx, inst->source, VMCmd(cmdMovFloatStk, 4, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovFloatStk, 4, offset->iValue));
 			}
 
-			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[1]->type.size));
+			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[2]->type.size));
 			break;
 		case VM_INST_STORE_LONG:
 		case VM_INST_STORE_DOUBLE:
-			Lower(ctx, inst->arguments[1]);
+			Lower(ctx, inst->arguments[2]);
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				assert(offset->iValue == 0);
+
 				AddCommand(ctx, inst->source, VMCmd(cmdMovDorL, IsLocalScope(constant->container->scope), 8, constant->iValue + constant->container->offset));
 			}
 			else
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
 				Lower(ctx, inst->arguments[0]);
-				AddCommand(ctx, inst->source, VMCmd(cmdMovDorLStk, 8, 0));
+				AddCommand(ctx, inst->source, VMCmd(cmdMovDorLStk, 8, offset->iValue));
 			}
 
-			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[1]->type.size));
+			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[2]->type.size));
 			break;
 		case VM_INST_STORE_STRUCT:
-			Lower(ctx, inst->arguments[1]);
+			Lower(ctx, inst->arguments[2]);
 
 			if(VmConstant *constant = getType<VmConstant>(inst->arguments[0]))
 			{
-				AddCommand(ctx, inst->source, VMCmd(inst->arguments[1]->type.size == 8 ? cmdMovDorL : cmdMovCmplx, IsLocalScope(constant->container->scope), (unsigned short)inst->arguments[1]->type.size, constant->iValue + constant->container->offset));
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+				assert(offset->iValue == 0);
+
+				AddCommand(ctx, inst->source, VMCmd(inst->arguments[2]->type.size == 8 ? cmdMovDorL : cmdMovCmplx, IsLocalScope(constant->container->scope), (unsigned short)inst->arguments[2]->type.size, constant->iValue + constant->container->offset));
 			}
 			else
 			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
 				Lower(ctx, inst->arguments[0]);
-				AddCommand(ctx, inst->source, VMCmd(inst->arguments[1]->type.size == 8 ? cmdMovDorLStk : cmdMovCmplxStk, (unsigned short)inst->arguments[1]->type.size, 0));
+				AddCommand(ctx, inst->source, VMCmd(inst->arguments[2]->type.size == 8 ? cmdMovDorLStk : cmdMovCmplxStk, (unsigned short)inst->arguments[2]->type.size, offset->iValue));
 			}
 
-			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[1]->type.size));
+			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->arguments[2]->type.size));
 			break;
 		case VM_INST_DOUBLE_TO_INT:
 			Lower(ctx, inst->arguments[0]);

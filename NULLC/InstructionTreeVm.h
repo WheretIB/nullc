@@ -445,14 +445,18 @@ struct VmModule
 			storeInst = 0;
 
 			address = 0;
+
 			pointer = 0;
+			offset = 0;
 		}
 
 		VmInstruction *loadInst;
 		VmInstruction *storeInst;
 
 		VmConstant *address;
+
 		VmValue *pointer;
+		VmConstant *offset;
 	};
 
 	SmallArray<LoadStoreInfo, 32> loadStoreInfo;
