@@ -9051,6 +9051,7 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 	ModuleData *moduleData = allocate(ModuleData)(source, name);
 	ctx.modules.push_back(moduleData);
 
+	module.name = name;
 	module.data = moduleData;
 
 	moduleData->index = ctx.modules.size();
