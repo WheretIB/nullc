@@ -353,7 +353,7 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 {
 	if(FunctionData *fData = function->function)
 	{
-		if(fData->imported && function->users.empty())
+		if(fData->importModule != NULL && function->users.empty())
 			return;
 
 		PrintUsers(ctx, function, true);
@@ -369,7 +369,12 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 			Print(ctx, "%s%s%.*s %.*s", i == 0 ? "" : ", ", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name), FMT_ISTR(argument.name));
 		}
 
-		PrintLine(ctx, ")%s", function->firstBlock == NULL ? ";" : "");
+		Print(ctx, ")%s", function->firstBlock == NULL ? ";" : "");
+
+		if(fData->importModule)
+			Print(ctx, " from '%.*s'", FMT_ISTR(fData->importModule->name));
+
+		PrintLine(ctx);
 
 		if(function->firstBlock == NULL)
 			return;
@@ -385,7 +390,7 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 		{
 			VariableData *variable = scope->variables[i];
 
-			Print(ctx, "// %s0x%x: %.*s %.*s", variable->imported ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name));
+			Print(ctx, "// %s0x%x: %.*s %.*s", variable->importModule ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name));
 
 			if(ctx.showUsers)
 			{
@@ -430,6 +435,9 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 				if(!addressTaken)
 					Print(ctx, " noalias");
 			}
+
+			if(variable->importModule)
+				Print(ctx, " from '%.*s'", FMT_ISTR(variable->importModule->name));
 
 			PrintLine(ctx);
 		}

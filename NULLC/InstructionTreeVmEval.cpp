@@ -388,7 +388,7 @@ void CopyConstantRaw(Eval &ctx, char *dst, unsigned dstSize, VmConstant *src, un
 
 		if(VariableData *variable = src->container)
 		{
-			if(variable->imported)
+			if(variable->importModule)
 			{
 				Report(ctx, "ERROR: can't access imported variable");
 				return;
@@ -481,7 +481,7 @@ Eval::Storage* FindTarget(Eval &ctx, VmConstant *value, unsigned &base)
 
 	if(VariableData *variable = value->container)
 	{
-		if(variable->imported)
+		if(variable->importModule)
 		{
 			Report(ctx, "ERROR: can't access imported variable");
 			return NULL;

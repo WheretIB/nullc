@@ -73,40 +73,50 @@ void PrintLeaveBlock(ExpressionGraphContext &ctx)
 	fprintf(ctx.file, "}\n");
 }
 
-bool ContainsData(ScopeData *scope, bool imported)
+bool ContainsData(ScopeData *scope, bool checkImported)
 {
 	for(unsigned i = 0; i < scope->types.size(); i++)
 	{
 		TypeBase *data = scope->types[i];
 
-		if(imported == (getType<TypeClass>(data) && getType<TypeClass>(data)->imported))
+		bool imported = getType<TypeClass>(data) && getType<TypeClass>(data)->importModule != NULL;
+
+		if(checkImported == imported)
 			return true;
 	}
 
 	for(unsigned i = 0; i < scope->functions.size(); i++)
 	{
-		if(imported == scope->functions[i]->imported)
+		bool imported = scope->functions[i]->importModule != NULL;
+
+		if(checkImported == imported)
 			return true;
 	}
 
-	if(!scope->ownerFunction || scope->ownerFunction->imported == imported)
+	bool ownerFunctionImported = scope->ownerFunction && scope->ownerFunction->importModule != NULL;
+
+	if(!scope->ownerFunction || checkImported == ownerFunctionImported)
 	{
 		for(unsigned i = 0; i < scope->variables.size(); i++)
 		{
-			if(imported == scope->variables[i]->imported)
+			bool imported = scope->variables[i]->importModule != NULL;
+
+			if(checkImported == imported)
 				return true;
 		}
 	}
 
 	for(unsigned i = 0; i < scope->aliases.size(); i++)
 	{
-		if(imported == scope->aliases[i]->imported)
+		bool imported = scope->aliases[i]->importModule != NULL;
+
+		if(checkImported == imported)
 			return true;
 	}
 
 	for(unsigned i = 0; i < scope->scopes.size(); i++)
 	{
-		if(ContainsData(scope->scopes[i], imported))
+		if(ContainsData(scope->scopes[i], checkImported))
 			return true;
 	}
 
@@ -162,7 +172,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 		{
 			TypeBase *data = scope->types[i];
 
-			bool imported = getType<TypeClass>(data) && getType<TypeClass>(data)->imported;
+			bool imported = getType<TypeClass>(data) && getType<TypeClass>(data)->importModule != NULL;
 
 			if(printImported != imported)
 				continue;
@@ -181,7 +191,9 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 		{
 			FunctionData *data = scope->functions[i];
 
-			if(printImported != data->imported)
+			bool imported = data->importModule != NULL;
+
+			if(printImported != imported)
 				continue;
 
 			PrintIndented(ctx, InplaceStr(), data->type, "%.*s: f%04x", FMT_ISTR(data->name), data->uniqueId);
@@ -198,7 +210,9 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 		{
 			VariableData *data = scope->variables[i];
 
-			if(printImported != data->imported)
+			bool imported = data->importModule != NULL;
+
+			if(printImported != imported)
 				continue;
 
 			PrintIndented(ctx, InplaceStr(), data->type, "%.*s: v%04x @ 0x%x%s%s%s", FMT_ISTR(data->name), data->uniqueId, data->offset, data->isReadonly ? " readonly" : "", data->isReference ? " reference" : "", data->usedAsExternal ? " captured" : "");
@@ -215,7 +229,9 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 		{
 			AliasData *data = scope->aliases[i];
 
-			if(printImported != data->imported)
+			bool imported = data->importModule != NULL;
+
+			if(printImported != imported)
 				continue;
 
 			PrintIndented(ctx, InplaceStr("typedef"), data->type, "%.*s: a%04x", FMT_ISTR(data->name), data->uniqueId);
@@ -230,7 +246,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 		{
 			ScopeData *data = scope->scopes[i];
 
-			if(data->ownerFunction && data->ownerFunction->imported)
+			if(data->ownerFunction && data->ownerFunction->importModule != NULL)
 				continue;
 
 			if(ContainsData(data, printImported))

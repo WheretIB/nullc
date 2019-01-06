@@ -836,7 +836,7 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 	{
 		VariableData *variable = target->variables.data[i];
 
-		if(!location || variable->imported || variable->source->pos.begin <= location->pos.begin)
+		if(!location || variable->importModule != NULL || variable->source->pos.begin <= location->pos.begin)
 			variableMap.insert(variable->nameHash, variable);
 	}
 
@@ -845,7 +845,7 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 	{
 		FunctionData *function = target->functions.data[i];
 
-		if(!location || function->imported || function->source->pos.begin <= location->pos.begin)
+		if(!location || function->importModule != NULL || function->source->pos.begin <= location->pos.begin)
 		{
 			while(VariableData **variable = variableMap.find(function->nameHash))
 				variableMap.remove(function->nameHash, *variable);
@@ -858,7 +858,7 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 
 		if(TypeClass *exact = getType<TypeClass>(type))
 		{
-			if(!location || exact->imported || exact->source->pos.begin <= location->pos.begin)
+			if(!location || exact->importModule != NULL || exact->source->pos.begin <= location->pos.begin)
 				typeMap.insert(type->nameHash, type);
 		}
 		else if(TypeGenericClassProto *exact = getType<TypeGenericClassProto>(type))
@@ -876,7 +876,7 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 	{
 		AliasData *alias = target->aliases.data[i];
 
-		if(!location || alias->imported || alias->source->pos.begin <= location->pos.begin)
+		if(!location || alias->importModule != NULL || alias->source->pos.begin <= location->pos.begin)
 			typeMap.insert(alias->nameHash, alias->type);
 	}
 
@@ -4518,7 +4518,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 	}
 	else
 	{
-		if(function->imported)
+		if(function->importModule)
 			Stop(ctx, source->pos, "ERROR: imported generic function call is not supported");
 
 		for(unsigned i = 0; i < function->arguments.size(); i++)
@@ -8321,13 +8321,16 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 
 struct ModuleContext
 {
-	ModuleContext(Allocator *allocator): bytecode(NULL), lexStream(NULL), types(allocator)
+	ModuleContext(Allocator *allocator): bytecode(NULL), lexStream(NULL), data(NULL), types(allocator)
 	{
 	}
 
 	ByteCode* bytecode;
 	Lexeme* lexStream;
+
 	InplaceStr name;
+
+	ModuleData *data;
 
 	SmallArray<TypeBase*, 32> types;
 };
@@ -8534,7 +8537,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					{
 						TypeClass *classType = allocate(TypeClass)(source, ctx.scope, className, protoClass, actualGenerics, false, NULL);
 
-						classType->imported = true;
+						classType->importModule = module.data;
 						classType->completed = true;
 
 						importedType = classType;
@@ -8568,7 +8571,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				{
 					TypeEnum *enumType = allocate(TypeEnum)(source, ctx.scope, className);
 
-					enumType->imported = true;
+					enumType->importModule = module.data;
 
 					importedType = enumType;
 
@@ -8580,7 +8583,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 					TypeClass *classType = allocate(TypeClass)(source, ctx.scope, className, NULL, actualGenerics, false, NULL);
 
-					classType->imported = true;
+					classType->importModule = module.data;
 					classType->completed = true;
 
 					importedType = classType;
@@ -8719,7 +8722,7 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		VariableData *data = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, type, name, variable.offset, ctx.uniqueVariableId++);
 
-		data->imported = true;
+		data->importModule = module.data;
 
 		ctx.AddVariable(data);
 
@@ -8777,7 +8780,7 @@ void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext
 		{
 			AliasData *alias = allocate(AliasData)(source, ctx.scope, targetType, aliasName, ctx.uniqueAliasId++);
 
-			alias->imported = true;
+			alias->importModule = module.data;
 
 			ctx.AddAlias(alias);
 		}
@@ -8901,7 +8904,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		FunctionData *data = allocate(FunctionData)(ctx.allocator, source, ctx.scope, coroutine, accessor, isOperator, getType<TypeFunction>(functionType), contextType, functionName, generics, ctx.uniqueFunctionId++);
 
-		data->imported = true;
+		data->importModule = module.data;
 
 		data->isPrototype = (function.codeSize & 0x80000000) != 0;
 
@@ -9044,9 +9047,15 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 
 	module.bytecode = bytecode;
 	module.lexStream = lexStream;
-	module.name = name;
 
-	unsigned startingFunctionIndex = ctx.functions.size();
+	ModuleData *moduleData = allocate(ModuleData)(source, name);
+	ctx.modules.push_back(moduleData);
+
+	module.data = moduleData;
+
+	moduleData->index = ctx.modules.size();
+
+	moduleData->startingFunctionIndex = ctx.functions.size();
 
 	ImportModuleNamespaces(ctx, source, module);
 
@@ -9058,9 +9067,7 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 
 	ImportModuleFunctions(ctx, source, module);
 
-	unsigned functionCount = ctx.functions.size() - startingFunctionIndex;
-
-	ctx.modules.push_back(allocate(ModuleData)(source, name, startingFunctionIndex, functionCount));
+	moduleData->functionCount = ctx.functions.size() - moduleData->startingFunctionIndex;
 }
 
 void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
@@ -9110,7 +9117,7 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 	if(!functionType)
 		Stop(ctx, source->pos, "ERROR: Can't find function type for virtual function table '%.*s'", FMT_ISTR(vtable->name));
 
-	if(!vtable->imported)
+	if(vtable->importModule == NULL)
 	{
 		ExprBase *size = allocate(ExprIntegerLiteral)(source, ctx.typeInt, 4);
 		ExprBase *count = CreateFunctionCall0(ctx, source, InplaceStr("__typeCount"), false, true);
@@ -9132,7 +9139,7 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 
 		TypeBase *parentType = function->scope->ownerType;
 
-		if(!parentType || function->imported)
+		if(!parentType || function->importModule != NULL)
 			continue;
 
 		const char *pos = strstr(function->name.begin, "::");

@@ -65,13 +65,19 @@ struct TypeHandle
 
 struct ModuleData
 {
-	ModuleData(SynBase *source, InplaceStr name, unsigned startingFunctionIndex, unsigned functionCount): source(source), name(name), startingFunctionIndex(startingFunctionIndex), functionCount(functionCount)
+	ModuleData(SynBase *source, InplaceStr name): source(source), name(name)
 	{
+		index = 0;
+
+		startingFunctionIndex = 0;
+		functionCount = 0;
 	}
 
 	SynBase *source;
 
 	InplaceStr name;
+
+	unsigned index;
 
 	unsigned startingFunctionIndex;
 	unsigned functionCount;
@@ -107,7 +113,7 @@ struct VariableData
 {
 	VariableData(Allocator *allocator, SynBase *source, ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name, unsigned offset, unsigned uniqueId): source(source), scope(scope), alignment(alignment), type(type), name(name), offset(offset), uniqueId(uniqueId), users(allocator)
 	{
-		imported = false;
+		importModule = NULL;
 
 		nameHash = GetStringHash(name.begin, name.end);
 
@@ -124,7 +130,7 @@ struct VariableData
 
 	SynBase *source;
 
-	bool imported;
+	ModuleData *importModule;
 
 	ScopeData *scope;
 
@@ -211,7 +217,7 @@ struct FunctionData
 {
 	FunctionData(Allocator *allocator, SynBase *source, ScopeData *scope, bool coroutine, bool accessor, bool isOperator, TypeFunction *type, TypeBase *contextType, InplaceStr name, IntrusiveList<MatchData> generics, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), accessor(accessor), isOperator(isOperator), type(type), contextType(contextType), name(name), generics(generics), uniqueId(uniqueId), arguments(allocator), instances(allocator)
 	{
-		imported = false;
+		importModule = 0;
 
 		isInternal = false;
 
@@ -248,7 +254,7 @@ struct FunctionData
 
 	SynBase *source;
 
-	bool imported;
+	ModuleData *importModule;
 
 	bool isInternal;
 
@@ -318,14 +324,14 @@ struct AliasData
 {
 	AliasData(SynBase *source, ScopeData *scope, TypeBase *type, InplaceStr name, unsigned uniqueId): source(source), scope(scope), type(type), name(name), uniqueId(uniqueId)
 	{
-		imported = false;
+		importModule = NULL;
 
 		nameHash = GetStringHash(name.begin, name.end);
 	}
 
 	SynBase *source;
 
-	bool imported;
+	ModuleData *importModule;
 
 	ScopeData *scope;
 
@@ -757,7 +763,7 @@ struct TypeClass: TypeStruct
 {
 	TypeClass(SynBase *source, ScopeData *scope, InplaceStr name, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), source(source), scope(scope), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass)
 	{
-		imported = false;
+		importModule = NULL;
 
 		completed = false;
 
@@ -766,7 +772,7 @@ struct TypeClass: TypeStruct
 
 	SynBase *source;
 
-	bool imported;
+	ModuleData *importModule;
 
 	ScopeData *scope;
 
@@ -797,12 +803,12 @@ struct TypeEnum: TypeStruct
 		size = 4;
 		alignment = GetTypeAlignment<int>();
 
-		imported = false;
+		importModule = NULL;
 	}
 
 	SynBase *source;
 
-	bool imported;
+	ModuleData *importModule;
 
 	ScopeData *scope;
 
