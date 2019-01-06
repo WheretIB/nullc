@@ -956,6 +956,9 @@ void Lower(Context &ctx, VmValue *value)
 
 			for(int i = int(constant->type.size / 4) - 1; i >= 0; i--)
 				AddCommand(ctx, constant->source, VMCmd(cmdPushImmt, ((unsigned*)constant->sValue)[i]));
+
+			if(constant->type.size == 0)
+				AddCommand(ctx, constant->source, VMCmd(cmdPushImmt, 0));
 		}
 		else
 		{

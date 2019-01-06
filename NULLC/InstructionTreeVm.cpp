@@ -213,10 +213,9 @@ namespace
 			return CreateInstruction(module, source, VmType::Int, VM_INST_LOAD_INT, address, CreateConstantInt(ctx.allocator, source, 0));
 
 		if(type->size == 0)
-			return CreateConstantInt(module->allocator, source, 0);
+			return CreateConstantStruct(ctx.allocator, source, "", 0, type);
 
 		assert(type->size % 4 == 0);
-		assert(type->size != 0);
 		assert(type->size < NULLC_MAX_TYPE_SIZE);
 
 		return CreateInstruction(module, source, VmType::Struct(type->size, type), VM_INST_LOAD_STRUCT, address, CreateConstantInt(ctx.allocator, source, 0));
@@ -1373,11 +1372,7 @@ VmType GetVmType(ExpressionContext &ctx, TypeBase *type)
 
 	if(isType<TypeArray>(type) || isType<TypeClass>(type))
 	{
-		if(isType<TypeClass>(type) && type->size == 0)
-			return VmType::Int;
-
 		assert(type->size % 4 == 0);
-		assert(type->size != 0);
 		assert(type->size < NULLC_MAX_TYPE_SIZE);
 
 		return VmType::Struct(type->size, type);
