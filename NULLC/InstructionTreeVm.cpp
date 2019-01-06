@@ -3513,14 +3513,62 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 		if(curr->type == VmType::Block)
 			continue;
 
-		if(IsLoad(curr))
-			continue;
-
 		if(curr->cmd == VM_INST_CONSTRUCT && (curr->type.type == VM_TYPE_FUNCTION_REF || curr->type.type == VM_TYPE_ARRAY_REF))
 			continue;
 
 		if(curr->cmd == VM_INST_FUNCTION_ADDRESS || curr->cmd == VM_INST_TYPE_ID)
 			continue;
+
+		if(IsLoad(curr))
+		{
+			// Check that going forward from this load to the users, memory location is not invalidated by any stores or aliasing operations
+			ClearLoadStoreInfo(module);
+
+			AddLoadInfo(module, curr);
+
+			unsigned checkedUsers = 0;
+
+			for(VmInstruction *inst = curr->nextSibling; inst; inst = inst->nextSibling)
+			{
+				for(unsigned i = 0; i < curr->users.size(); i++)
+				{
+					if(curr->users[i] == inst)
+						checkedUsers++;
+				}
+
+				// Found all users, stop checking
+				if(checkedUsers == curr->users.size())
+					break;
+
+				switch(inst->cmd)
+				{
+				case VM_INST_STORE_BYTE:
+				case VM_INST_STORE_SHORT:
+				case VM_INST_STORE_INT:
+				case VM_INST_STORE_FLOAT:
+				case VM_INST_STORE_DOUBLE:
+				case VM_INST_STORE_LONG:
+				case VM_INST_STORE_STRUCT:
+					AddStoreInfo(module, inst);
+					break;
+				case VM_INST_SET_RANGE:
+				case VM_INST_YIELD:
+				case VM_INST_CLOSE_UPVALUES:
+					ClearLoadStoreInfoAliasing(module);
+					break;
+				case VM_INST_CALL:
+					ClearLoadStoreInfoAliasing(module);
+					ClearLoadStoreInfoGlobal(module);
+					break;
+				}
+			}
+
+			assert(checkedUsers == curr->users.size());
+
+			// If load is still valid at the last user location, we can safely perform it at each use place
+			if (!module->loadStoreInfo.empty() && module->loadStoreInfo[0].loadInst == curr)
+				continue;
+		}
 
 		TypeBase *type = GetBaseType(ctx, curr->type);
 
@@ -3600,9 +3648,9 @@ void RunLegalizeVm(ExpressionContext &ctx, VmModule *module, VmValue* value)
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
 	{
-		LegalizeVmRegisterUsage(ctx, module, block);
-
 		LegalizeVmPhiStorage(ctx, module, block);
+
+		LegalizeVmRegisterUsage(ctx, module, block);
 
 		// Check that constructs that require a temporary
 		// TODO
