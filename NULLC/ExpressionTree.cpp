@@ -8885,7 +8885,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		{
 			InplaceStr name = InplaceStr(symbols + vInfo[k].offsetToName);
 
-			TypeBase *type = module.types[vInfo[k].type];
+			TypeBase *type = vInfo[k].type == ~0u ? allocate(TypeGeneric)(InplaceStr("generic")) : module.types[vInfo[k].type];
 
 			if(!type)
 				Stop(ctx, source->pos, "ERROR: can't find function '%s' explicit type '%d' in module %s", symbols + function.offsetToName, k, module.name);
@@ -8937,7 +8937,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 			bool isExplicit = (argument.paramFlags & ExternLocalInfo::IS_EXPLICIT) != 0;
 
-			TypeBase *argType = module.types[argument.type];
+			TypeBase *argType = argument.type == ~0u ? allocate(TypeGeneric)(InplaceStr("generic")) : module.types[argument.type];
 
 			if(!argType)
 				Stop(ctx, source->pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + function.offsetToName, module.name);
@@ -8981,7 +8981,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			{
 				ExternLocalInfo &argument = localList[function.offsetToFirstLocal + n];
 
-				argTypes.push_back(allocate(TypeHandle)(module.types[argument.type]));
+				argTypes.push_back(allocate(TypeHandle)(argument.type == ~0u ? allocate(TypeGeneric)(InplaceStr("generic")) : module.types[argument.type]));
 			}
 
 			data->type = ctx.GetFunctionType(returnType, argTypes);
