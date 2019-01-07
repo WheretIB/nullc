@@ -89,7 +89,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(offset->iValue == 0);
 
-				unsigned moduleId = constant->container->importModule ? constant->container->importModule->index << 24 : 0;
+				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
 
 				AddCommand(ctx, inst->source, VMCmd(cmdPushChar, IsLocalScope(constant->container->scope), 1, constant->iValue + constant->container->offset + moduleId));
 			}
@@ -108,7 +108,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(offset->iValue == 0);
 
-				unsigned moduleId = constant->container->importModule ? constant->container->importModule->index << 24 : 0;
+				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
 
 				AddCommand(ctx, inst->source, VMCmd(cmdPushShort, IsLocalScope(constant->container->scope), 2, constant->iValue + constant->container->offset + moduleId));
 			}
@@ -127,7 +127,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(offset->iValue == 0);
 
-				unsigned moduleId = constant->container->importModule ? constant->container->importModule->index << 24 : 0;
+				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
 
 				AddCommand(ctx, inst->source, VMCmd(cmdPushInt, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset + moduleId));
 			}
@@ -146,7 +146,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(offset->iValue == 0);
 
-				unsigned moduleId = constant->container->importModule ? constant->container->importModule->index << 24 : 0;
+				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
 
 				AddCommand(ctx, inst->source, VMCmd(cmdPushFloat, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset + moduleId));
 			}
@@ -166,7 +166,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(offset->iValue == 0);
 
-				unsigned moduleId = constant->container->importModule ? constant->container->importModule->index << 24 : 0;
+				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
 
 				AddCommand(ctx, inst->source, VMCmd(cmdPushDorL, IsLocalScope(constant->container->scope), 8, constant->iValue + constant->container->offset + moduleId));
 			}
@@ -185,7 +185,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(offset->iValue == 0);
 
-				unsigned moduleId = constant->container->importModule ? constant->container->importModule->index << 24 : 0;
+				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
 
 				AddCommand(ctx, inst->source, VMCmd(inst->type.size == 8 ? cmdPushDorL : cmdPushCmplx, IsLocalScope(constant->container->scope), (unsigned short)inst->type.size, constant->iValue + constant->container->offset + moduleId));
 			}
@@ -209,7 +209,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(offset->iValue == 0);
 
-				unsigned moduleId = constant->container->importModule ? constant->container->importModule->index << 24 : 0;
+				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
 
 				AddCommand(ctx, inst->source, VMCmd(cmdMovChar, IsLocalScope(constant->container->scope), 1, constant->iValue + constant->container->offset + moduleId));
 			}
@@ -232,7 +232,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(offset->iValue == 0);
 
-				unsigned moduleId = constant->container->importModule ? constant->container->importModule->index << 24 : 0;
+				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
 
 				AddCommand(ctx, inst->source, VMCmd(cmdMovShort, IsLocalScope(constant->container->scope), 2, constant->iValue + constant->container->offset + moduleId));
 			}
@@ -255,7 +255,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(offset->iValue == 0);
 
-				unsigned moduleId = constant->container->importModule ? constant->container->importModule->index << 24 : 0;
+				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
 
 				AddCommand(ctx, inst->source, VMCmd(cmdMovInt, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset + moduleId));
 			}
@@ -278,7 +278,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(offset->iValue == 0);
 
-				unsigned moduleId = constant->container->importModule ? constant->container->importModule->index << 24 : 0;
+				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
 
 				AddCommand(ctx, inst->source, VMCmd(cmdMovFloat, IsLocalScope(constant->container->scope), 4, constant->iValue + constant->container->offset + moduleId));
 			}
@@ -302,7 +302,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(offset->iValue == 0);
 
-				unsigned moduleId = constant->container->importModule ? constant->container->importModule->index << 24 : 0;
+				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
 
 				AddCommand(ctx, inst->source, VMCmd(cmdMovDorL, IsLocalScope(constant->container->scope), 8, constant->iValue + constant->container->offset + moduleId));
 			}
@@ -325,7 +325,7 @@ void Lower(Context &ctx, VmValue *value)
 
 				assert(offset->iValue == 0);
 
-				unsigned moduleId = constant->container->importModule ? constant->container->importModule->index << 24 : 0;
+				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
 
 				AddCommand(ctx, inst->source, VMCmd(inst->arguments[2]->type.size == 8 ? cmdMovDorL : cmdMovCmplx, IsLocalScope(constant->container->scope), (unsigned short)inst->arguments[2]->type.size, constant->iValue + constant->container->offset + moduleId));
 			}
@@ -995,7 +995,7 @@ VariableData* FindGlobalAt(Context &ctx, unsigned offset)
 	{
 		VariableData *variable = ctx.ctx.variables[i];
 
-		unsigned variableModuleIndex = variable->importModule ? variable->importModule->index : 0;
+		unsigned variableModuleIndex = variable->importModule ? variable->importModule->importIndex : 0;
 
 		if(IsGlobalScope(variable->scope) && variableModuleIndex == targetModuleIndex && offset >= variable->offset && (offset < variable->offset + variable->type->size || variable->type->size == 0))
 			return variable;

@@ -8321,23 +8321,86 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 
 struct ModuleContext
 {
-	ModuleContext(Allocator *allocator): bytecode(NULL), lexStream(NULL), data(NULL), types(allocator)
+	ModuleContext(Allocator *allocator): types(allocator)
 	{
+		data = NULL;
+
+		dependencyDepth = 1;
 	}
 
-	ByteCode* bytecode;
-	Lexeme* lexStream;
-
-	InplaceStr name;
+	SmallArray<TypeBase*, 32> types;
 
 	ModuleData *data;
 
-	SmallArray<TypeBase*, 32> types;
+	unsigned dependencyDepth;
 };
 
-void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
+void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx, ByteCode *moduleBytecode)
 {
-	ByteCode *bCode = module.bytecode;
+	char *symbols = FindSymbols(moduleBytecode);
+
+	ExternModuleInfo *moduleList = FindFirstModule(moduleBytecode);
+
+	for(unsigned i = 0; i < moduleBytecode->dependsCount; i++)
+	{
+		ExternModuleInfo &moduleInfo = moduleList[i];
+
+		const char *moduleFileName = symbols + moduleInfo.nameOffset;
+
+		const char *importPath = BinaryCache::GetImportPath();
+
+		InplaceStr path = GetImportPath(ctx.allocator, importPath, moduleFileName);
+		InplaceStr pathNoImport = importPath ? InplaceStr(path.begin + strlen(importPath)) : path;
+
+		const char *bytecode = BinaryCache::GetBytecode(path.begin);
+		unsigned lexStreamSize = 0;
+		Lexeme *lexStream = BinaryCache::GetLexems(path.begin, lexStreamSize);
+
+		if(!bytecode)
+		{
+			bytecode = BinaryCache::GetBytecode(pathNoImport.begin);
+			lexStream = BinaryCache::GetLexems(pathNoImport.begin, lexStreamSize);
+		}
+
+		if(!bytecode)
+			Stop(ctx, source->pos, "ERROR: module dependency import is not implemented");
+
+#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
+		for(unsigned k = 0; k < moduleCtx.dependencyDepth; k++)
+			printf("  ");
+		printf("  importing module %.*s as dependency #%d\n", FMT_ISTR(pathNoImport), ctx.dependencies.size() + 1);
+#endif
+
+		ModuleData *moduleData = allocate(ModuleData)(source, pathNoImport);
+
+		ctx.dependencies.push_back(moduleData);
+		moduleData->dependencyIndex = ctx.dependencies.size();
+
+		moduleData->bytecode = (ByteCode*)bytecode;
+
+		if(!lexStream)
+		{
+			moduleData->lexer = allocate(Lexer)();
+
+			moduleData->lexer->Lexify(FindSource(moduleData->bytecode));
+			lexStream = moduleData->lexer->GetStreamStart();
+			lexStreamSize = moduleData->lexer->GetStreamSize();
+		}
+
+		moduleData->lexStream = lexStream;
+		moduleData->lexStreamSize = lexStreamSize;
+
+		moduleCtx.dependencyDepth++;
+
+		ImportModuleDependencies(ctx, source, moduleCtx, moduleData->bytecode);
+
+		moduleCtx.dependencyDepth--;
+	}
+}
+
+void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx)
+{
+	ByteCode *bCode = moduleCtx.data->bytecode;
 	char *symbols = FindSymbols(bCode);
 
 	// Import namespaces
@@ -8371,9 +8434,9 @@ void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleConte
 	}
 }
 
-void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
+void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx)
 {
-	ByteCode *bCode = module.bytecode;
+	ByteCode *bCode = moduleCtx.data->bytecode;
 	char *symbols = FindSymbols(bCode);
 
 	// Import types
@@ -8382,12 +8445,12 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 	ExternConstantInfo *constantList = FindFirstConstant(bCode);
 	ExternTypedefInfo *aliasList = FindFirstTypedef(bCode);
 
-	unsigned prevSize = module.types.size();
+	unsigned prevSize = moduleCtx.types.size();
 
-	module.types.resize(bCode->typeCount);
+	moduleCtx.types.resize(bCode->typeCount);
 
-	for(unsigned i = prevSize; i < module.types.size(); i++)
-		module.types[i] = NULL;
+	for(unsigned i = prevSize; i < moduleCtx.types.size(); i++)
+		moduleCtx.types[i] = NULL;
 
 	struct DelayedType
 	{
@@ -8409,7 +8472,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 		// Skip existing types
 		if(TypeBase **prev = ctx.typeMap.find(type.nameHash))
 		{
-			module.types[i] = *prev;
+			moduleCtx.types[i] = *prev;
 
 			currentConstant += type.constantCount;
 			continue;
@@ -8421,56 +8484,64 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			if(strcmp(symbols + type.offsetToName, "generic") == 0)
 			{
 				// TODO: after generic type clean-up we should have this type as a real one
-				module.types[i] = allocate(TypeGeneric)(InplaceStr("generic"));
+				moduleCtx.types[i] = allocate(TypeGeneric)(InplaceStr("generic"));
+
+				moduleCtx.types[i]->importModule = moduleCtx.data;
 			}
 			else
 			{
-				Stop(ctx, source->pos, "ERROR: new type in module %s named %s unsupported", module.name, symbols + type.offsetToName);
+				Stop(ctx, source->pos, "ERROR: new type in module %s named %s unsupported", moduleCtx.data->name, symbols + type.offsetToName);
 			}
 			break;
 		case ExternTypeInfo::CAT_ARRAY:
-			if(TypeBase *subType = module.types[type.subType])
+			if(TypeBase *subType = moduleCtx.types[type.subType])
 			{
 				if(type.arrSize == ~0u)
-					module.types[i] = ctx.GetUnsizedArrayType(subType);
+					moduleCtx.types[i] = ctx.GetUnsizedArrayType(subType);
 				else
-					module.types[i] = ctx.GetArrayType(subType, type.arrSize);
+					moduleCtx.types[i] = ctx.GetArrayType(subType, type.arrSize);
+
+				moduleCtx.types[i]->importModule = moduleCtx.data;
 			}
 			else
 			{
-				Stop(ctx, source->pos, "ERROR: can't find sub type for '%s' in module %s", symbols + type.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find sub type for '%s' in module %s", symbols + type.offsetToName, moduleCtx.data->name);
 			}
 			break;
 		case ExternTypeInfo::CAT_POINTER:
-			if(TypeBase *subType = module.types[type.subType])
+			if(TypeBase *subType = moduleCtx.types[type.subType])
 			{
-				module.types[i] = ctx.GetReferenceType(subType);
+				moduleCtx.types[i] = ctx.GetReferenceType(subType);
+
+				moduleCtx.types[i]->importModule = moduleCtx.data;
 			}
 			else
 			{
-				Stop(ctx, source->pos, "ERROR: can't find sub type for '%s' in module %s", symbols + type.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find sub type for '%s' in module %s", symbols + type.offsetToName, moduleCtx.data->name);
 			}
 			break;
 		case ExternTypeInfo::CAT_FUNCTION:
-			if(TypeBase *returnType = module.types[memberList[type.memberOffset].type])
+			if(TypeBase *returnType = moduleCtx.types[memberList[type.memberOffset].type])
 			{
 				IntrusiveList<TypeHandle> arguments;
 
 				for(unsigned n = 0; n < type.memberCount; n++)
 				{
-					TypeBase *argType = module.types[memberList[type.memberOffset + n + 1].type];
+					TypeBase *argType = moduleCtx.types[memberList[type.memberOffset + n + 1].type];
 
 					if(!argType)
-						Stop(ctx, source->pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
+						Stop(ctx, source->pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, moduleCtx.data->name);
 
 					arguments.push_back(allocate(TypeHandle)(argType));
 				}
 
-				module.types[i] = ctx.GetFunctionType(returnType, arguments);
+				moduleCtx.types[i] = ctx.GetFunctionType(returnType, arguments);
+
+				moduleCtx.types[i]->importModule = moduleCtx.data;
 			}
 			else
 			{
-				Stop(ctx, source->pos, "ERROR: can't find return type for '%s' in module %s", symbols + type.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find return type for '%s' in module %s", symbols + type.offsetToName, moduleCtx.data->name);
 			}
 			break;
 		case ExternTypeInfo::CAT_CLASS:
@@ -8478,6 +8549,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				InplaceStr className = InplaceStr(symbols + type.offsetToName);
 
 				TypeBase *importedType = NULL;
+
+				ModuleData *importModule = moduleCtx.data;
 
 				NamespaceData *parentNamespace = NULL;
 
@@ -8495,15 +8568,15 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 				if(type.definitionOffset != ~0u && type.definitionOffset & 0x80000000)
 				{
-					TypeBase *proto = module.types[type.definitionOffset & ~0x80000000];
+					TypeBase *proto = moduleCtx.types[type.definitionOffset & ~0x80000000];
 
 					if(!proto)
-						Stop(ctx, source->pos, "ERROR: can't find proto type for '%s' in module %s", symbols + type.offsetToName, module.name);
+						Stop(ctx, source->pos, "ERROR: can't find proto type for '%s' in module %s", symbols + type.offsetToName, moduleCtx.data->name);
 
 					TypeGenericClassProto *protoClass = getType<TypeGenericClassProto>(proto);
 
 					if(!protoClass)
-						Stop(ctx, source->pos, "ERROR: can't find correct proto type for '%s' in module %s", symbols + type.offsetToName, module.name);
+						Stop(ctx, source->pos, "ERROR: can't find correct proto type for '%s' in module %s", symbols + type.offsetToName, moduleCtx.data->name);
 
 					// Find all generics for this type
 					bool isGeneric = false;
@@ -8518,10 +8591,10 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						{
 							InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
 
-							TypeBase *targetType = module.types[alias.targetType];
+							TypeBase *targetType = moduleCtx.types[alias.targetType];
 
 							if(!targetType)
-								Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, module.name);
+								Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, moduleCtx.data->name);
 
 							isGeneric |= targetType->isGeneric;
 							generics.push_back(allocate(TypeHandle)(targetType));
@@ -8537,7 +8610,6 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					{
 						TypeClass *classType = allocate(TypeClass)(source, ctx.scope, className, protoClass, actualGenerics, false, NULL);
 
-						classType->importModule = module.data;
 						classType->completed = true;
 
 						importedType = classType;
@@ -8550,7 +8622,11 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				}
 				else if(type.definitionOffsetStart != ~0u)
 				{
-					Lexeme *start = type.definitionOffsetStart + module.lexStream;
+					if(type.definitionModule != 0)
+						importModule = ctx.dependencies[moduleCtx.data->startingDependencyIndex + type.definitionModule - 1];
+
+					assert(type.definitionOffsetStart < importModule->lexStreamSize);
+					Lexeme *start = type.definitionOffsetStart + importModule->lexStream;
 
 					ParseContext *parser = allocate(ParseContext)(ctx.allocator);
 
@@ -8571,8 +8647,6 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				{
 					TypeEnum *enumType = allocate(TypeEnum)(source, ctx.scope, className);
 
-					enumType->importModule = module.data;
-
 					importedType = enumType;
 
 					ctx.AddType(importedType);
@@ -8582,8 +8656,6 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					IntrusiveList<MatchData> actualGenerics;
 
 					TypeClass *classType = allocate(TypeClass)(source, ctx.scope, className, NULL, actualGenerics, false, NULL);
-
-					classType->importModule = module.data;
 					classType->completed = true;
 
 					importedType = classType;
@@ -8591,7 +8663,9 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					ctx.AddType(importedType);
 				}
 
-				module.types[i] = importedType;
+				moduleCtx.types[i] = importedType;
+
+				moduleCtx.types[i]->importModule = importModule;
 
 				importedType->alignment = type.defaultAlign;
 				importedType->size = type.size;
@@ -8611,7 +8685,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			}
 			break;
 		default:
-			Stop(ctx, source->pos, "ERROR: new type in module %s named %s unsupported", module.name, symbols + type.offsetToName);
+			Stop(ctx, source->pos, "ERROR: new type in module %s named %s unsupported", moduleCtx.data->name, symbols + type.offsetToName);
 		}
 	}
 
@@ -8626,7 +8700,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			{
 				InplaceStr className = InplaceStr(symbols + type.offsetToName);
 
-				TypeBase *importedType = module.types[delayedType.index];
+				TypeBase *importedType = moduleCtx.types[delayedType.index];
 
 				const char *memberNames = className.end + 1;
 
@@ -8642,10 +8716,10 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						InplaceStr memberName = InplaceStr(memberNames);
 						memberNames = memberName.end + 1;
 
-						TypeBase *memberType = module.types[memberList[type.memberOffset + n].type];
+						TypeBase *memberType = moduleCtx.types[memberList[type.memberOffset + n].type];
 
 						if(!memberType)
-							Stop(ctx, source->pos, "ERROR: can't find member %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
+							Stop(ctx, source->pos, "ERROR: can't find member %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, moduleCtx.data->name);
 
 						VariableData *member = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, memberType, memberName, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
 
@@ -8659,10 +8733,10 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						InplaceStr memberName = InplaceStr(memberNames);
 						memberNames = memberName.end + 1;
 
-						TypeBase *constantType = module.types[constantInfo->type];
+						TypeBase *constantType = moduleCtx.types[constantInfo->type];
 
 						if(!constantType)
-							Stop(ctx, source->pos, "ERROR: can't find constant %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, module.name);
+							Stop(ctx, source->pos, "ERROR: can't find constant %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, moduleCtx.data->name);
 
 						ExprBase *value = NULL;
 
@@ -8697,9 +8771,9 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 	}
 }
 
-void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
+void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx)
 {
-	ByteCode *bCode = module.bytecode;
+	ByteCode *bCode = moduleCtx.data->bytecode;
 	char *symbols = FindSymbols(bCode);
 
 	// Import variables
@@ -8715,14 +8789,14 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 		if(name == InplaceStr("$temp"))
 			continue;
 
-		TypeBase *type = module.types[variable.type];
+		TypeBase *type = moduleCtx.types[variable.type];
 
 		if(!type)
-			Stop(ctx, source->pos, "ERROR: can't find variable '%s' type in module %s", symbols + variable.offsetToName, module.name);
+			Stop(ctx, source->pos, "ERROR: can't find variable '%s' type in module %s", symbols + variable.offsetToName, moduleCtx.data->name);
 
 		VariableData *data = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, type, name, variable.offset, ctx.uniqueVariableId++);
 
-		data->importModule = module.data;
+		data->importModule = moduleCtx.data;
 
 		ctx.AddVariable(data);
 
@@ -8731,9 +8805,9 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 	}
 }
 
-void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
+void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx)
 {
-	ByteCode *bCode = module.bytecode;
+	ByteCode *bCode = moduleCtx.data->bytecode;
 	char *symbols = FindSymbols(bCode);
 
 	// Import type aliases
@@ -8745,10 +8819,10 @@ void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext
 
 		InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
 
-		TypeBase *targetType = module.types[alias.targetType];
+		TypeBase *targetType = moduleCtx.types[alias.targetType];
 
 		if(!targetType)
-			Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, module.name);
+			Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, moduleCtx.data->name);
 
 		if(TypeBase **prev = ctx.typeMap.find(aliasName.hash()))
 		{
@@ -8762,7 +8836,7 @@ void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext
 		}
 		else if(alias.parentType != ~0u)
 		{
-			TypeBase *parentType = module.types[alias.parentType];
+			TypeBase *parentType = moduleCtx.types[alias.parentType];
 
 			if(!parentType)
 				Stop(ctx, source->pos, "ERROR: can't find alias '%s' parent type", symbols + alias.offsetToName);
@@ -8780,16 +8854,16 @@ void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext
 		{
 			AliasData *alias = allocate(AliasData)(source, ctx.scope, targetType, aliasName, ctx.uniqueAliasId++);
 
-			alias->importModule = module.data;
+			alias->importModule = moduleCtx.data;
 
 			ctx.AddAlias(alias);
 		}
 	}
 }
 
-void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContext &module)
+void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx)
 {
-	ByteCode *bCode = module.bytecode;
+	ByteCode *bCode = moduleCtx.data->bytecode;
 	char *symbols = FindSymbols(bCode);
 
 	ExternVarInfo *vInfo = FindFirstVar(bCode);
@@ -8806,10 +8880,10 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		InplaceStr functionName = InplaceStr(symbols + function.offsetToName);
 
-		TypeBase *functionType = module.types[function.funcType];
+		TypeBase *functionType = moduleCtx.types[function.funcType];
 
 		if(!functionType)
-			Stop(ctx, source->pos, "ERROR: can't find function '%s' type in module %s", symbols + function.offsetToName, module.name);
+			Stop(ctx, source->pos, "ERROR: can't find function '%s' type in module %s", symbols + function.offsetToName, moduleCtx.data->name);
 
 		FunctionData *prev = NULL;
 		FunctionData *prototype = NULL;
@@ -8834,7 +8908,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			if(*prev->name.begin == '$' || prev->isGenericInstance)
 				ctx.functions.push_back(prev);
 			else
-				Stop(ctx, source->pos, "ERROR: function %.*s (type %.*s) is already defined. While importing %s", FMT_ISTR(prev->name), FMT_ISTR(prev->type->name), module.name);
+				Stop(ctx, source->pos, "ERROR: function %.*s (type %.*s) is already defined. While importing %s", FMT_ISTR(prev->name), FMT_ISTR(prev->type->name), moduleCtx.data->name);
 
 			vInfo += function.explicitTypeCount;
 
@@ -8859,20 +8933,20 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		if(function.parentType != ~0u)
 		{
-			parentType = module.types[function.parentType];
+			parentType = moduleCtx.types[function.parentType];
 
 			if(!parentType)
-				Stop(ctx, source->pos, "ERROR: can't find function '%s' parent type in module %s", symbols + function.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find function '%s' parent type in module %s", symbols + function.offsetToName, moduleCtx.data->name);
 		}
 
 		TypeBase *contextType = NULL;
 
 		if(function.contextType != ~0u)
 		{
-			contextType = module.types[function.contextType];
+			contextType = moduleCtx.types[function.contextType];
 
 			if(!contextType)
-				Stop(ctx, source->pos, "ERROR: can't find function '%s' context type in module %s", symbols + function.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find function '%s' context type in module %s", symbols + function.offsetToName, moduleCtx.data->name);
 		}
 
 		if(!contextType)
@@ -8885,10 +8959,10 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		{
 			InplaceStr name = InplaceStr(symbols + vInfo[k].offsetToName);
 
-			TypeBase *type = vInfo[k].type == ~0u ? allocate(TypeGeneric)(InplaceStr("generic")) : module.types[vInfo[k].type];
+			TypeBase *type = vInfo[k].type == ~0u ? allocate(TypeGeneric)(InplaceStr("generic")) : moduleCtx.types[vInfo[k].type];
 
 			if(!type)
-				Stop(ctx, source->pos, "ERROR: can't find function '%s' explicit type '%d' in module %s", symbols + function.offsetToName, k, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find function '%s' explicit type '%d' in module %s", symbols + function.offsetToName, k, moduleCtx.data->name);
 
 			generics.push_back(allocate(MatchData)(name, type));
 		}
@@ -8904,7 +8978,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		FunctionData *data = allocate(FunctionData)(ctx.allocator, source, ctx.scope, coroutine, accessor, isOperator, getType<TypeFunction>(functionType), contextType, functionName, generics, ctx.uniqueFunctionId++);
 
-		data->importModule = module.data;
+		data->importModule = moduleCtx.data;
 
 		data->isPrototype = (function.codeSize & 0x80000000) != 0;
 
@@ -8937,10 +9011,10 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 			bool isExplicit = (argument.paramFlags & ExternLocalInfo::IS_EXPLICIT) != 0;
 
-			TypeBase *argType = argument.type == ~0u ? allocate(TypeGeneric)(InplaceStr("generic")) : module.types[argument.type];
+			TypeBase *argType = argument.type == ~0u ? allocate(TypeGeneric)(InplaceStr("generic")) : moduleCtx.types[argument.type];
 
 			if(!argType)
-				Stop(ctx, source->pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + function.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + function.offsetToName, moduleCtx.data->name);
 
 			InplaceStr argName = InplaceStr(symbols + argument.offsetToName);
 
@@ -8954,7 +9028,11 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		if(function.funcType == 0)
 		{
-			Lexeme *start = function.genericOffsetStart + module.lexStream;
+			if(function.genericModuleIndex != 0)
+				data->importModule = ctx.dependencies[moduleCtx.data->startingDependencyIndex + function.genericModuleIndex - 1];
+
+			assert(function.genericOffsetStart < data->importModule->lexStreamSize);
+			Lexeme *start = function.genericOffsetStart + data->importModule->lexStream;
 
 			ParseContext *parser = allocate(ParseContext)(ctx.allocator);
 
@@ -8970,10 +9048,10 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			TypeBase *returnType = ctx.typeAuto;
 
 			if(function.genericReturnType != ~0u)
-				returnType = module.types[function.genericReturnType];
+				returnType = moduleCtx.types[function.genericReturnType];
 
 			if(!returnType)
-				Stop(ctx, source->pos, "ERROR: can't find generic function '%s' return type in module %s", symbols + function.offsetToName, module.name);
+				Stop(ctx, source->pos, "ERROR: can't find generic function '%s' return type in module %s", symbols + function.offsetToName, moduleCtx.data->name);
 
 			IntrusiveList<TypeHandle> argTypes;
 
@@ -8981,7 +9059,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			{
 				ExternLocalInfo &argument = localList[function.offsetToFirstLocal + n];
 
-				argTypes.push_back(allocate(TypeHandle)(argument.type == ~0u ? allocate(TypeGeneric)(InplaceStr("generic")) : module.types[argument.type]));
+				argTypes.push_back(allocate(TypeHandle)(argument.type == ~0u ? allocate(TypeGeneric)(InplaceStr("generic")) : moduleCtx.types[argument.type]));
 			}
 
 			data->type = ctx.GetFunctionType(returnType, argTypes);
@@ -9031,42 +9109,55 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 	}
 }
 
-void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, Lexeme *lexStream, InplaceStr name)
+void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, Lexeme *lexStream, unsigned lexStreamSize, InplaceStr name)
 {
+#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
+	printf("  importing module %.*s as dependency #%d\n", FMT_ISTR(name), ctx.imports.size() + 1, ctx.dependencies.size() + 1);
+#endif
+
 	assert(bytecode);
 
-	Lexer lexer(ctx.allocator);
+	ModuleData *moduleData = allocate(ModuleData)(source, name);
+
+	ctx.imports.push_back(moduleData);
+	moduleData->importIndex = ctx.imports.size();
+
+	ctx.dependencies.push_back(moduleData);
+	moduleData->dependencyIndex = ctx.dependencies.size();
+
+	moduleData->bytecode = bytecode;
 
 	if(!lexStream)
 	{
-		lexer.Lexify(FindSource(bytecode));
-		lexStream = lexer.GetStreamStart();
+		moduleData->lexer = allocate(Lexer)();
+
+		moduleData->lexer->Lexify(FindSource(bytecode));
+		lexStream = moduleData->lexer->GetStreamStart();
+		lexStreamSize = moduleData->lexer->GetStreamSize();
 	}
 
-	ModuleContext module(ctx.allocator);
-
-	module.bytecode = bytecode;
-	module.lexStream = lexStream;
-
-	ModuleData *moduleData = allocate(ModuleData)(source, name);
-	ctx.modules.push_back(moduleData);
-
-	module.name = name;
-	module.data = moduleData;
-
-	moduleData->index = ctx.modules.size();
+	moduleData->lexStream = lexStream;
+	moduleData->lexStreamSize = lexStreamSize;
 
 	moduleData->startingFunctionIndex = ctx.functions.size();
 
-	ImportModuleNamespaces(ctx, source, module);
+	moduleData->startingDependencyIndex = ctx.dependencies.size();
 
-	ImportModuleTypes(ctx, source, module);
+	ModuleContext moduleCtx(ctx.allocator);
 
-	ImportModuleVariables(ctx, source, module);
+	moduleCtx.data = moduleData;
 
-	ImportModuleTypedefs(ctx, source, module);
+	ImportModuleDependencies(ctx, source, moduleCtx, moduleData->bytecode);
 
-	ImportModuleFunctions(ctx, source, module);
+	ImportModuleNamespaces(ctx, source, moduleCtx);
+
+	ImportModuleTypes(ctx, source, moduleCtx);
+
+	ImportModuleVariables(ctx, source, moduleCtx);
+
+	ImportModuleTypedefs(ctx, source, moduleCtx);
+
+	ImportModuleFunctions(ctx, source, moduleCtx);
 
 	moduleData->functionCount = ctx.functions.size() - moduleData->startingFunctionIndex;
 }
@@ -9079,19 +9170,19 @@ void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 	InplaceStr pathNoImport = importPath ? InplaceStr(path.begin + strlen(importPath)) : path;
 
 	const char *bytecode = BinaryCache::GetBytecode(path.begin);
-	unsigned lexCount = 0;
-	Lexeme *lexStream = BinaryCache::GetLexems(path.begin, lexCount);
+	unsigned lexStreamSize = 0;
+	Lexeme *lexStream = BinaryCache::GetLexems(path.begin, lexStreamSize);
 
 	if(!bytecode)
 	{
 		bytecode = BinaryCache::GetBytecode(pathNoImport.begin);
-		lexStream = BinaryCache::GetLexems(pathNoImport.begin, lexCount);
+		lexStream = BinaryCache::GetLexems(pathNoImport.begin, lexStreamSize);
 	}
 
 	if(!bytecode)
 		Stop(ctx, syntax->pos, "ERROR: module import is not implemented");
 
-	ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, pathNoImport);
+	ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, lexStreamSize, pathNoImport);
 }
 
 ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, VariableData *vtable)
@@ -9194,17 +9285,12 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 {
 	// Import base module
 	{
-		IntrusiveList<SynIdentifier> importParts;
-		importParts.push_back(allocate(SynIdentifier)(syntax->begin, syntax->end, InplaceStr("$base$")));
-
-		InplaceStr importPath = GetImportPath(ctx.allocator, "", importParts);
-
-		const char *bytecode = BinaryCache::GetBytecode(importPath.begin);
-		unsigned lexCount = 0;
-		Lexeme *lexStream = BinaryCache::GetLexems(importPath.begin, lexCount);
+		const char *bytecode = BinaryCache::GetBytecode("$base$.nc");
+		unsigned lexStreamSize = 0;
+		Lexeme *lexStream = BinaryCache::GetLexems("$base$.nc", lexStreamSize);
 
 		if(bytecode)
-			ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, importPath);
+			ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, lexStreamSize, InplaceStr("$base$.nc"));
 		else
 			Stop(ctx, syntax->pos, "ERROR: base module couldn't be imported");
 

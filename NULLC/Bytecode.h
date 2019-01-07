@@ -43,9 +43,13 @@ struct ExternTypeInfo
 	};
 
 	unsigned int	nameHash;
-	unsigned int	definitionOffsetStart; // For generic types, an offset in a lexeme stream to the point of class definition start
-	unsigned int	definitionOffset; // For generic types, an offset in a lexeme stream to the point of type argument list
+
+	// For generic types
+	unsigned int	definitionModule; // Index of the module containing the definition
+	unsigned int	definitionOffsetStart; // Offset in a lexeme stream to the point of class definition start
+	unsigned int	definitionOffset; // Offset in a lexeme stream to the point of type argument list
 	unsigned int	genericTypeCount;
+
 	unsigned int	namespaceHash;
 	unsigned int	baseType;
 };
@@ -149,9 +153,10 @@ struct ExternFuncInfo
 	unsigned int	fOffsets[8];
 	unsigned int	ps3Callable;
 
-	unsigned int	genericOffsetStart;
+	// For generic functions
+	unsigned int	genericModuleIndex; // Index of the module containing the definition
+	unsigned int	genericOffsetStart; // Position in the lexeme stream of the definition
 	unsigned int	genericOffset;
-
 	unsigned int	genericReturnType;
 
 	// Size of the explicit type list for generic functions and generic function instances

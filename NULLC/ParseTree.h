@@ -970,4 +970,5 @@ const char* GetOpName(SynUnaryOpType type);
 const char* GetOpName(SynBinaryOpType type);
 const char* GetOpName(SynModifyAssignType type);
 
+InplaceStr GetImportPath(Allocator *allocator, const char *importPath, const char *moduleFileName);
 InplaceStr GetImportPath(Allocator *allocator, const char *importPath, IntrusiveList<SynIdentifier> parts);

@@ -7,6 +7,8 @@
 
 #include "ParseTree.h"
 
+struct ByteCode;
+
 struct ExprBase;
 struct ExpressionContext;
 
@@ -67,20 +69,38 @@ struct ModuleData
 {
 	ModuleData(SynBase *source, InplaceStr name): source(source), name(name)
 	{
-		index = 0;
+		importIndex = 0;
+		dependencyIndex = 0;
+
+		bytecode = NULL;
+
+		lexer = NULL;
+		lexStream = NULL;
+		lexStreamSize = 0;
 
 		startingFunctionIndex = 0;
 		functionCount = 0;
+
+		startingDependencyIndex = 0;
 	}
 
 	SynBase *source;
 
 	InplaceStr name;
 
-	unsigned index;
+	unsigned importIndex;
+	unsigned dependencyIndex;
+
+	ByteCode* bytecode;
+
+	Lexer *lexer;
+	Lexeme* lexStream;
+	unsigned lexStreamSize;
 
 	unsigned startingFunctionIndex;
 	unsigned functionCount;
+
+	unsigned startingDependencyIndex;
 };
 
 struct NamespaceData
@@ -477,6 +497,8 @@ struct TypeBase
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 
+		importModule = NULL;
+
 		typeIndex = ~0u;
 
 		size = 0;
@@ -497,6 +519,8 @@ struct TypeBase
 
 	InplaceStr name;
 	unsigned nameHash;
+
+	ModuleData *importModule;
 
 	unsigned typeIndex;
 	
@@ -763,16 +787,12 @@ struct TypeClass: TypeStruct
 {
 	TypeClass(SynBase *source, ScopeData *scope, InplaceStr name, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), source(source), scope(scope), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass)
 	{
-		importModule = NULL;
-
 		completed = false;
 
 		hasFinalizer = false;
 	}
 
 	SynBase *source;
-
-	ModuleData *importModule;
 
 	ScopeData *scope;
 
@@ -802,13 +822,9 @@ struct TypeEnum: TypeStruct
 	{
 		size = 4;
 		alignment = GetTypeAlignment<int>();
-
-		importModule = NULL;
 	}
 
 	SynBase *source;
-
-	ModuleData *importModule;
 
 	ScopeData *scope;
 

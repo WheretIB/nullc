@@ -62,7 +62,8 @@ struct ExpressionContext
 	TypeFunction* GetFunctionType(TypeBase* returnType, SmallArray<ArgumentData, 32> &arguments);
 
 	// Full state info
-	SmallArray<ModuleData*, 128> modules;
+	SmallArray<ModuleData*, 128> dependencies;
+	SmallArray<ModuleData*, 128> imports;
 	SmallArray<NamespaceData*, 128> namespaces;
 	SmallArray<TypeBase*, 128> types;
 	SmallArray<FunctionData*, 128> functions;

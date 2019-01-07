@@ -2685,6 +2685,28 @@ const char* GetOpName(SynModifyAssignType type)
 	return "";
 }
 
+InplaceStr GetImportPath(Allocator *allocator, const char *importPath, const char *moduleFileName)
+{
+	unsigned pathLength = (importPath ? strlen(importPath) : 0) + strlen(moduleFileName);
+
+	char *path = (char*)allocator->alloc(pathLength + 1);
+
+	char *pos = path;
+
+	if(importPath)
+	{
+		strcpy(pos, importPath);
+		pos += strlen(importPath);
+	}
+
+	strcpy(pos, moduleFileName);
+	pos += strlen(moduleFileName);
+
+	*pos = 0;
+
+	return InplaceStr(path);
+}
+
 InplaceStr GetImportPath(Allocator *allocator, const char *importPath, IntrusiveList<SynIdentifier> parts)
 {
 	unsigned pathLength = (importPath ? strlen(importPath) : 0) + parts.size() - 1 + strlen(".nc");
