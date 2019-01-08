@@ -560,7 +560,30 @@ void Lower(Context &ctx, VmValue *value)
 			}
 			break;
 		case VM_INST_YIELD:
-			AddCommand(ctx, inst->source, VMCmd(cmdNop));
+			{
+				if(!inst->arguments.empty())
+				{
+					VmValue *result = inst->arguments[0];
+
+					if(result->type.size != 0)
+						Lower(ctx, result);
+
+					unsigned char operType = OTYPE_COMPLEX;
+
+					if(result->type == VmType::Int)
+						operType = OTYPE_INT;
+					else if(result->type == VmType::Double)
+						operType = OTYPE_DOUBLE;
+					else if(result->type == VmType::Long)
+						operType = OTYPE_LONG;
+
+					AddCommand(ctx, inst->source, VMCmd(cmdReturn, operType, 1, result->type.size));
+				}
+				else
+				{
+					AddCommand(ctx, inst->source, VMCmd(cmdReturn, 0, 1, 0));
+				}
+			}
 			break;
 		case VM_INST_ADD:
 			{
@@ -903,7 +926,24 @@ void Lower(Context &ctx, VmValue *value)
 			AddCommand(ctx, inst->source, VMCmd(cmdNop));
 			break;
 		case VM_INST_UNYIELD:
-			AddCommand(ctx, inst->source, VMCmd(cmdNop));
+			// Check secondary blocks first
+			for(unsigned i = 2; i < inst->arguments.size(); i++)
+			{
+				Lower(ctx, inst->arguments[0]);
+
+				AddCommand(ctx, inst->source, VMCmd(cmdPushImmt, i - 1));
+				AddCommand(ctx, inst->source, VMCmd(cmdEqual));
+
+				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[i])));
+				AddCommand(ctx, inst->source, VMCmd(cmdJmpNZ, ~0u));
+			}
+
+			// jump to entry block by default
+			if(!(ctx.currentBlock->nextSibling && ctx.currentBlock->nextSibling == inst->arguments[1]))
+			{
+				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[1])));
+				AddCommand(ctx, inst->source, VMCmd(cmdJmp, ~0u));
+			}
 			break;
 		case VM_INST_BITCAST:
 			Lower(ctx, inst->arguments[0]);
