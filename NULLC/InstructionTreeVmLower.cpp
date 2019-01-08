@@ -539,7 +539,8 @@ void Lower(Context &ctx, VmValue *value)
 				{
 					VmValue *result = inst->arguments[0];
 
-					Lower(ctx, result);
+					if(result->type.size != 0)
+						Lower(ctx, result);
 
 					unsigned char operType = OTYPE_COMPLEX;
 
