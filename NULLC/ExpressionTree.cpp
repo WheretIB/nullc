@@ -8998,15 +8998,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		ctx.PushScope(data);
 
-		if(parentType)
-		{
-			TypeBase *type = ctx.GetReferenceType(parentType);
-
-			unsigned offset = AllocateArgumentInScope(ctx, source, 0, type);
-			VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
-
-			ctx.AddVariable(variable);
-		}
+		data->functionScope = ctx.scope;
 
 		for(unsigned n = 0; n < function.paramCount; n++)
 		{
@@ -9028,6 +9020,27 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 			ctx.AddVariable(variable);
 		}
+
+		assert(contextType);
+
+		if(parentType)
+		{
+			TypeBase *type = ctx.GetReferenceType(parentType);
+
+			unsigned offset = AllocateArgumentInScope(ctx, source, 0, type);
+			VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
+
+			ctx.AddVariable(variable);
+		}
+		else if(contextType)
+		{
+			unsigned offset = AllocateArgumentInScope(ctx, source, 0, contextType);
+			VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, contextType, InplaceStr("$context"), offset, ctx.uniqueVariableId++);
+
+			ctx.AddVariable(variable);
+		}
+
+		data->argumentsSize = data->functionScope->dataSize;
 
 		if(function.funcType == 0)
 		{
