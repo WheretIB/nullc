@@ -428,13 +428,18 @@ namespace
 		return variable;
 	}
 
-	void FinalizeAlignment(TypeClass *type)
+	void FinalizeAlignment(TypeStruct *type)
 	{
 		unsigned maximumAlignment = 0;
 
 		// Additional padding may apply to preserve the alignment of members
 		for(VariableHandle *curr = type->members.head; curr; curr = curr->next)
+		{
 			maximumAlignment = maximumAlignment > curr->variable->alignment ? maximumAlignment : curr->variable->alignment;
+
+			if(curr->variable->type->hasPointers)
+				type->hasPointers = true;
+		}
 
 		// If explicit alignment is not specified, then class must be aligned to the maximum alignment of the members
 		if(type->alignment == 0)
@@ -1238,10 +1243,16 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 	// Create new type
 	TypeUnsizedArray* result = allocate_(TypeUnsizedArray)(GetUnsizedArrayTypeName(*this, type), type);
 
+	PushScope(result);
+
+	result->typeScope = scope;
+
 	result->members.push_back(allocate_(VariableHandle)(allocate_(VariableData)(allocator, NULL, scope, 4, typeInt, InplaceStr("size"), NULLC_PTR_SIZE, uniqueVariableId++)));
 	result->members.tail->variable->isReadonly = true;
 
 	result->size = NULLC_PTR_SIZE + 4;
+
+	PopScope(SCOPE_TYPE);
 
 	if(!type->isGeneric)
 	{
@@ -5903,7 +5914,7 @@ TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, Inp
 {
 	InplaceStr functionContextName = GetFunctionContextTypeName(ctx, functionName, ctx.functions.size());
 
-	TypeClass *contextClassType = allocate(TypeClass)(source, ctx.scope, functionContextName, NULL, IntrusiveList<MatchData>(), false, NULL);
+	TypeClass *contextClassType = allocate(TypeClass)(functionContextName, source, ctx.scope, NULL, IntrusiveList<MatchData>(), false, NULL);
 
 	ctx.AddType(contextClassType);
 
@@ -5945,6 +5956,8 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 	TypeClass *classType = getType<TypeClass>(refType->subType);
 
 	assert(classType);
+
+	FinalizeAlignment(classType);
 
 	if(classType->members.empty())
 	{
@@ -7224,7 +7237,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	}
 	else
 	{
-		classType = allocate(TypeClass)(syntax, ctx.scope, className, proto, actualGenerics, extendable, baseClass);
+		classType = allocate(TypeClass)(className, syntax, ctx.scope, proto, actualGenerics, extendable, baseClass);
 
 		ctx.AddType(classType);
 	}
@@ -7321,7 +7334,7 @@ ExprBase* AnalyzeClassPrototype(ExpressionContext &ctx, SynClassPrototype *synta
 
 	IntrusiveList<MatchData> actualGenerics;
 
-	TypeClass *classType = allocate(TypeClass)(syntax, ctx.scope, typeName, NULL, actualGenerics, false, NULL);
+	TypeClass *classType = allocate(TypeClass)(typeName, syntax, ctx.scope, NULL, actualGenerics, false, NULL);
 
 	ctx.AddType(classType);
 
@@ -7362,13 +7375,19 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 {
 	InplaceStr typeName = GetTypeNameInScope(ctx, ctx.scope, syntax->name);
 
-	TypeEnum *enumType = allocate(TypeEnum)(syntax, ctx.scope, typeName);
+	TypeEnum *enumType = allocate(TypeEnum)(typeName, syntax, ctx.scope);
+
+	ctx.AddType(enumType);
+
+	ctx.PushScope(enumType);
+
+	enumType->typeScope = ctx.scope;
 
 	AnalyzeEnumConstants(ctx, syntax, enumType, syntax->values, enumType->constants);
 
 	enumType->alignment = ctx.typeInt->alignment;
 
-	ctx.AddType(enumType);
+	ctx.PopScope(SCOPE_TYPE);
 	
 	ScopeData *scope = ctx.scope;
 
@@ -8611,7 +8630,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					}
 					else
 					{
-						TypeClass *classType = allocate(TypeClass)(source, ctx.scope, className, protoClass, actualGenerics, false, NULL);
+						TypeClass *classType = allocate(TypeClass)(className, source, ctx.scope, protoClass, actualGenerics, false, NULL);
 
 						classType->completed = true;
 
@@ -8648,7 +8667,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				}
 				else if(type.type != ExternTypeInfo::TYPE_COMPLEX)
 				{
-					TypeEnum *enumType = allocate(TypeEnum)(source, ctx.scope, className);
+					TypeEnum *enumType = allocate(TypeEnum)(className, source, ctx.scope);
 
 					importedType = enumType;
 
@@ -8658,7 +8677,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				{
 					IntrusiveList<MatchData> actualGenerics;
 
-					TypeClass *classType = allocate(TypeClass)(source, ctx.scope, className, NULL, actualGenerics, false, NULL);
+					TypeClass *classType = allocate(TypeClass)(className, source, ctx.scope, NULL, actualGenerics, false, NULL);
 					classType->completed = true;
 
 					importedType = classType;
@@ -8711,7 +8730,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				{
 					ctx.PushScope(importedType);
 
-					if(TypeClass *classType = getType<TypeClass>(structType))
+					if(TypeStruct *classType = getType<TypeStruct>(structType))
 						classType->typeScope = ctx.scope;
 
 					for(unsigned n = 0; n < type.memberCount; n++)
@@ -9365,15 +9384,19 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax)
 
 	ctx.AddType(ctx.typeAutoRef = allocate(TypeAutoRef)(InplaceStr("auto ref")));
 	ctx.PushScope(ctx.typeAutoRef);
+	ctx.typeAutoRef->typeScope = ctx.scope;
 	ctx.typeAutoRef->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, 0, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++)));
 	ctx.typeAutoRef->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++)));
+	FinalizeAlignment(ctx.typeAutoRef);
 	ctx.PopScope(SCOPE_TYPE);
 
 	ctx.AddType(ctx.typeAutoArray = allocate(TypeAutoArray)(InplaceStr("auto[]")));
 	ctx.PushScope(ctx.typeAutoArray);
+	ctx.typeAutoArray->typeScope = ctx.scope;
 	ctx.typeAutoArray->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, 0, ctx.typeTypeID, InplaceStr("type"), true, ctx.uniqueVariableId++)));
 	ctx.typeAutoArray->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, 0, ctx.GetReferenceType(ctx.typeVoid), InplaceStr("ptr"), true, ctx.uniqueVariableId++)));
 	ctx.typeAutoArray->members.push_back(allocate(VariableHandle)(AllocateClassMember(ctx, syntax, 0, ctx.typeInt, InplaceStr("size"), true, ctx.uniqueVariableId++)));
+	FinalizeAlignment(ctx.typeAutoArray);
 	ctx.PopScope(SCOPE_TYPE);
 
 	// Analyze module
@@ -9386,6 +9409,12 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax)
 		assert(ctx.scope == NULL);
 
 		return module;
+	}
+
+	for(unsigned i = 0; i < ctx.types.size(); i++)
+	{
+		if(TypeStruct *typeStruct = getType<TypeStruct>(ctx.types[i]))
+			assert(typeStruct->typeScope);
 	}
 
 	return NULL;

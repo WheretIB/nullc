@@ -506,6 +506,7 @@ struct TypeBase
 		padding = 0;
 
 		isGeneric = false;
+		hasPointers = false;
 
 		refType = 0;
 		unsizedArrayType = 0;
@@ -529,6 +530,7 @@ struct TypeBase
 	unsigned padding;
 
 	bool isGeneric;
+	bool hasPointers;
 
 	TypeRef *refType; // Reference type to this type
 	IntrusiveList<TypeHandle> arrayTypes; // Array types derived from this type
@@ -666,7 +668,11 @@ struct TypeStruct: TypeBase
 {
 	TypeStruct(unsigned myTypeID, InplaceStr name): TypeBase(myTypeID, name)
 	{
+		typeScope = NULL;
 	}
+
+	// Scope where class members reside
+	ScopeData *typeScope;
 
 	IntrusiveList<VariableHandle> members;
 
@@ -677,6 +683,7 @@ struct TypeAutoRef: TypeStruct
 {
 	TypeAutoRef(InplaceStr name): TypeStruct(myTypeID, name)
 	{
+		hasPointers = true;
 	}
 
 	static const unsigned myTypeID = __LINE__;
@@ -686,6 +693,7 @@ struct TypeAutoArray: TypeStruct
 {
 	TypeAutoArray(InplaceStr name): TypeStruct(myTypeID, name)
 	{
+		hasPointers = true;
 	}
 
 	static const unsigned myTypeID = __LINE__;
@@ -699,6 +707,8 @@ struct TypeRef: TypeBase
 		alignment = 4;
 
 		isGeneric = subType->isGeneric;
+
+		hasPointers = true;
 	}
 
 	TypeBase *subType;
@@ -713,6 +723,8 @@ struct TypeArray: TypeBase
 		size = subType->size * length;
 
 		isGeneric = subType->isGeneric;
+
+		hasPointers = subType->hasPointers;
 	}
 
 	TypeBase *subType;
@@ -726,6 +738,8 @@ struct TypeUnsizedArray: TypeStruct
 	TypeUnsizedArray(InplaceStr name, TypeBase *subType): TypeStruct(myTypeID, name), subType(subType)
 	{
 		isGeneric = subType->isGeneric;
+
+		hasPointers = true;
 	}
 
 	TypeBase *subType;
@@ -743,6 +757,8 @@ struct TypeFunction: TypeBase
 
 		for(TypeHandle *el = arguments.head; el; el = el->next)
 			isGeneric |= el->type->isGeneric;
+
+		hasPointers = true;
 	}
 
 	TypeBase *returnType;
@@ -785,7 +801,7 @@ struct TypeGenericClass: TypeBase
 
 struct TypeClass: TypeStruct
 {
-	TypeClass(SynBase *source, ScopeData *scope, InplaceStr name, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), source(source), scope(scope), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass)
+	TypeClass(InplaceStr name, SynBase *source, ScopeData *scope, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), source(source), scope(scope), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass)
 	{
 		completed = false;
 
@@ -810,15 +826,12 @@ struct TypeClass: TypeStruct
 
 	bool hasFinalizer;
 
-	// Scope where class members reside
-	ScopeData *typeScope;
-
 	static const unsigned myTypeID = __LINE__;
 };
 
 struct TypeEnum: TypeStruct
 {
-	TypeEnum(SynBase *source, ScopeData *scope, InplaceStr name): TypeStruct(myTypeID, name), source(source), scope(scope)
+	TypeEnum(InplaceStr name, SynBase *source, ScopeData *scope): TypeStruct(myTypeID, name), source(source), scope(scope)
 	{
 		size = 4;
 		alignment = GetTypeAlignment<int>();

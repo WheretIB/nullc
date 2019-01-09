@@ -177,7 +177,22 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 			if(printImported != imported)
 				continue;
 
-			PrintIndented(ctx, InplaceStr(), data, ";");
+			PrintIndent(ctx);
+
+			if(data->isGeneric)
+			{
+				if(data->importModule)
+					Print(ctx, "%.*s: generic from %.*s\n", FMT_ISTR(data->name), FMT_ISTR(data->importModule->name));
+				else
+					Print(ctx, "%.*s: generic\n", FMT_ISTR(data->name));
+			}
+			else
+			{
+				if(data->importModule)
+					Print(ctx, "%.*s: size(%d) align(%d) padding(%d)%s from %.*s\n", FMT_ISTR(data->name), unsigned(data->size), data->alignment, data->padding, data->hasPointers ? " gc_check" : "", FMT_ISTR(data->importModule->name));
+				else
+					Print(ctx, "%.*s: size(%d) align(%d) padding(%d)%s\n", FMT_ISTR(data->name), unsigned(data->size), data->alignment, data->padding, data->hasPointers ? " gc_check" : "");
+			}
 		}
 
 		PrintLeaveBlock(ctx);
@@ -215,7 +230,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 			if(printImported != imported)
 				continue;
 
-			PrintIndented(ctx, InplaceStr(), data->type, "%.*s: v%04x @ 0x%x%s%s%s", FMT_ISTR(data->name), data->uniqueId, data->offset, data->isReadonly ? " readonly" : "", data->isReference ? " reference" : "", data->usedAsExternal ? " captured" : "");
+			PrintIndented(ctx, InplaceStr(), data->type, "%.*s: v%04x @ 0x%x%s%s%s%s", FMT_ISTR(data->name), data->uniqueId, data->offset, data->isReadonly ? " readonly" : "", data->isReference ? " reference" : "", data->usedAsExternal ? " captured" : "", data->type->hasPointers ? " gc_check" : "");
 		}
 
 		PrintLeaveBlock(ctx);
