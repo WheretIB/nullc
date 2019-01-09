@@ -551,6 +551,9 @@ void Lower(Context &ctx, VmValue *value)
 					else if(result->type == VmType::Long)
 						operType = OTYPE_LONG;
 
+					if(result->type.structType && (isType<TypeRef>(result->type.structType) || isType<TypeUnsizedArray>(result->type.structType)))
+						AddCommand(ctx, inst->source, VMCmd(cmdCheckedRet, result->type.structType->typeIndex));
+
 					AddCommand(ctx, inst->source, VMCmd(cmdReturn, operType, (unsigned short)localReturn, result->type.size));
 				}
 				else
@@ -576,6 +579,9 @@ void Lower(Context &ctx, VmValue *value)
 						operType = OTYPE_DOUBLE;
 					else if(result->type == VmType::Long)
 						operType = OTYPE_LONG;
+
+					if(result->type.structType && (isType<TypeRef>(result->type.structType) || isType<TypeUnsizedArray>(result->type.structType)))
+						AddCommand(ctx, inst->source, VMCmd(cmdCheckedRet, result->type.structType->typeIndex));
 
 					AddCommand(ctx, inst->source, VMCmd(cmdReturn, operType, 1, result->type.size));
 				}
