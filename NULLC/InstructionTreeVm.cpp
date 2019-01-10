@@ -1602,6 +1602,20 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		switch(node->category)
 		{
 		case EXPR_CAST_NUMERICAL:
+			if(node->type == ctx.typeBool)
+			{
+				if(value->type == VmType::Int)
+					return CheckType(ctx, expression, CreateCompareNotEqual(module, node->source, value, CreateConstantInt(module->allocator, node->source, 0)));
+
+				if(value->type == VmType::Double)
+					return CheckType(ctx, expression, CreateCompareNotEqual(module, node->source, value, CreateConstantDouble(module->allocator, node->source, 0.0)));
+
+				if(value->type == VmType::Long)
+					return CheckType(ctx, expression, CreateCompareNotEqual(module, node->source, value, CreateConstantLong(module->allocator, node->source, 0ll)));
+
+				assert(!"unknown type");
+			}
+
 			return CheckType(ctx, expression, CreateCast(module, node->source, value, GetVmType(ctx, node->type)));
 		case EXPR_CAST_PTR_TO_BOOL:
 			return CheckType(ctx, expression, CreateCompareNotEqual(module, node->source, value, CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false)));
