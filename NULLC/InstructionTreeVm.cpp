@@ -709,6 +709,7 @@ namespace
 		variable->offset = offset;
 
 		scope->variables.push_back(variable);
+		scope->allVariables.push_back(variable);
 
 		ctx.variables.push_back(variable);
 	}

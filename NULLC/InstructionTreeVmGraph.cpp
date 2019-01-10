@@ -386,9 +386,9 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 
 	if(ScopeData *scope = function->scope)
 	{
-		for(unsigned i = 0; i < scope->variables.size(); i++)
+		for(unsigned i = 0; i < scope->allVariables.size(); i++)
 		{
-			VariableData *variable = scope->variables[i];
+			VariableData *variable = scope->allVariables[i];
 
 			Print(ctx, "// %s0x%x: %.*s %.*s", variable->importModule ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name));
 

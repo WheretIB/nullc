@@ -767,13 +767,25 @@ void ExpressionContext::PopScope(ScopeType type, SynBase *location, bool keepFun
 		adopter->types.push_back(scope->types.data, scope->types.size());
 		adopter->aliases.push_back(scope->aliases.data, scope->aliases.size());
 
+		adopter->allVariables.push_back(scope->allVariables.data, scope->allVariables.size());
+
 		scope->variables.clear();
 		scope->functions.clear();
 		scope->types.clear();
 		scope->aliases.clear();
 
+		scope->allVariables.clear();
+
 		scope = scope->scope;
 		return;
+	}
+
+	// Full set of scope variables is moved to the outer scope untill we reach function, namespace or a global scope
+	if(!location && scope->scope && (scope->type == SCOPE_EXPLICIT || scope->type == SCOPE_LOOP))
+	{
+		scope->scope->allVariables.push_back(scope->allVariables.data, scope->allVariables.size());
+
+		scope->allVariables.clear();
 	}
 
 	// Remove scope members from lookup maps
@@ -1023,6 +1035,7 @@ void ExpressionContext::AddFunction(FunctionData *function)
 void ExpressionContext::AddVariable(VariableData *variable)
 {
 	scope->variables.push_back(variable);
+	scope->allVariables.push_back(variable);
 
 	variables.push_back(variable);
 	variableMap.insert(variable->nameHash, variable);
@@ -1891,6 +1904,7 @@ ExprBase* GetFunctionUpvalue(ExpressionContext &ctx, SynBase *source, VariableDa
 	VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.globalScope, type->alignment, type, upvalueName, offset, ctx.uniqueVariableId++);
 
 	ctx.globalScope->variables.push_back(variable);
+	ctx.globalScope->allVariables.push_back(variable);
 
 	ctx.variables.push_back(variable);
 	ctx.variableMap.insert(variable->nameHash, variable);
@@ -5023,6 +5037,7 @@ ExprBase* GetFunctionTable(ExpressionContext &ctx, SynBase *source, FunctionData
 	VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.globalScope, type->alignment, type, vtableName, offset, ctx.uniqueVariableId++);
 
 	ctx.globalScope->variables.push_back(variable);
+	ctx.globalScope->allVariables.push_back(variable);
 
 	ctx.variables.push_back(variable);
 	ctx.variableMap.insert(variable->nameHash, variable);
