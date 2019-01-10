@@ -3203,7 +3203,34 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 	if(ExprBase *result = CreateFunctionCall2(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true, false))
 		return result;
 
-	return CreateAssignment(ctx, syntax, lhs, CreateBinaryOp(ctx, syntax, GetBinaryOpType(syntax->type), lhs, rhs));
+	// Unwrap modifiable pointer
+	ExprBase* wrapped = lhs;
+
+	if(ExprVariableAccess *node = getType<ExprVariableAccess>(lhs))
+	{
+		wrapped = allocate(ExprGetAddress)(lhs->source, ctx.GetReferenceType(lhs->type), node->variable);
+	}
+	else if(ExprDereference *node = getType<ExprDereference>(lhs))
+	{
+		wrapped = node->value;
+	}
+
+	TypeRef *typeRef = getType<TypeRef>(wrapped->type);
+
+	if(!typeRef)
+		Stop(ctx, syntax->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
+
+	VariableData *storage = AllocateTemporary(ctx, syntax, wrapped->type);
+
+	ExprBase *assignment = CreateAssignment(ctx, syntax, CreateVariableAccess(ctx, syntax, storage, false), wrapped);
+
+	ExprBase *definition = allocate(ExprVariableDefinition)(syntax, ctx.typeVoid, storage, assignment);
+
+	ExprBase *lhsValue = allocate(ExprDereference)(syntax, typeRef->subType, CreateVariableAccess(ctx, syntax, storage, false));
+
+	ExprBase *result = CreateBinaryOp(ctx, syntax, GetBinaryOpType(syntax->type), lhsValue, rhs);
+
+	return CreateSequence(ctx, syntax, definition, CreateAssignment(ctx, syntax, allocate(ExprDereference)(syntax, typeRef->subType, CreateVariableAccess(ctx, syntax, storage, false)), result));
 }
 
 ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr member)
