@@ -3367,6 +3367,66 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 			curr = next;
 		}
 
+		// Remove allocas that are only used by stores
+		for(unsigned i = 0; i < function->allocas.size(); i++)
+		{
+			VariableData *variable = function->allocas[i];
+
+			bool nonStoreUse = false;
+
+			for(unsigned k = 0; k < variable->users.size(); k++)
+			{
+				VmConstant *user = variable->users[k];
+
+				for(unsigned l = 0; l < user->users.size(); l++)
+				{
+					if(VmInstruction *inst = getType<VmInstruction>(user->users[l]))
+					{
+						if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
+							continue;
+
+						nonStoreUse = true;
+						break;
+					}
+					else
+					{
+						assert(!"invalid constant use");
+					}
+
+					if(nonStoreUse)
+						break;
+				}
+
+				if(nonStoreUse)
+					break;
+			}
+
+			if(!nonStoreUse)
+			{
+				SmallArray<VmInstruction*, 32> deadStores;
+
+				for(unsigned k = 0; k < variable->users.size(); k++)
+				{
+					VmConstant *user = variable->users[k];
+
+					for(unsigned l = 0; l < user->users.size(); l++)
+					{
+						if(VmInstruction *inst = getType<VmInstruction>(user->users[l]))
+							deadStores.push_back(inst);
+					}
+				}
+
+				for(unsigned k = 0; k < deadStores.size(); k++)
+				{
+					VmInstruction *inst = deadStores[k];
+
+					inst->parent->RemoveInstruction(inst);
+
+					module->loadStorePropagations++;
+				}
+			}
+		}
+
 		module->currentFunction = NULL;
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))

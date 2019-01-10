@@ -390,6 +390,9 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 		{
 			VariableData *variable = scope->allVariables[i];
 
+			if(variable->isAlloca && variable->users.empty())
+				continue;
+
 			Print(ctx, "// %s0x%x: %.*s %.*s", variable->importModule ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name));
 
 			if(ctx.showUsers)
