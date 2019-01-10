@@ -393,48 +393,54 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 			Print(ctx, "// %s0x%x: %.*s %.*s", variable->importModule ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name));
 
 			if(ctx.showUsers)
-			{
 				Print(ctx, " [");
 
-				bool addressTaken = false;
+			bool addressTaken = false;
 
-				for(unsigned i = 0; i < variable->users.size(); i++)
+			for(unsigned i = 0; i < variable->users.size(); i++)
+			{
+				VmConstant *user = variable->users[i];
+
+				for(unsigned k = 0; k < user->users.size(); k++)
 				{
-					VmConstant *user = variable->users[i];
-
-					for(unsigned k = 0; k < user->users.size(); k++)
+					if(ctx.showUsers)
 					{
 						if(i != 0 || k != 0)
 							Print(ctx, ", ");
+					}
 
-						if(VmInstruction *inst = getType<VmInstruction>(user->users[k]))
-						{
+					if(VmInstruction *inst = getType<VmInstruction>(user->users[k]))
+					{
+						if(ctx.showUsers)
 							PrintName(ctx, inst, inst->parent->parent != function, true);
 
-							bool simpleUse = false;
+						bool simpleUse = false;
 
-							if(inst->cmd >= VM_INST_LOAD_BYTE && inst->cmd <= VM_INST_LOAD_STRUCT)
-								simpleUse = true;
-							else if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
-								simpleUse = true;
-							else
-								simpleUse = false;
-
-							if(!simpleUse)
-								addressTaken = true;
-						}
+						if(inst->cmd >= VM_INST_LOAD_BYTE && inst->cmd <= VM_INST_LOAD_STRUCT)
+							simpleUse = true;
+						else if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
+							simpleUse = true;
 						else
-						{
-							assert(!"invalid constant use");
-						}
+							simpleUse = false;
+
+						if(!simpleUse)
+							addressTaken = true;
+					}
+					else
+					{
+						assert(!"invalid constant use");
 					}
 				}
+			}
 
+			if(ctx.showUsers)
 				Print(ctx, "]");
 
-				if(!addressTaken)
-					Print(ctx, " noalias");
-			}
+			if(!addressTaken)
+				Print(ctx, " noalias");
+
+			if(variable->isAlloca)
+				Print(ctx, " alloca");
 
 			if(variable->importModule)
 				Print(ctx, " from '%.*s'", FMT_ISTR(variable->importModule->name));

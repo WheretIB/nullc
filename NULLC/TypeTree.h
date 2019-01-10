@@ -144,6 +144,8 @@ struct VariableData
 
 		lookupOnly = false;
 
+		isAlloca = false;
+
 		if(alignment != 0)
 			assert(offset % alignment == 0);
 	}
@@ -167,6 +169,8 @@ struct VariableData
 	bool usedAsExternal;
 
 	bool lookupOnly;
+
+	bool isAlloca;
 
 	unsigned offset;
 

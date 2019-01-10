@@ -708,10 +708,23 @@ namespace
 		variable->scope = scope;
 		variable->offset = offset;
 
-		scope->variables.push_back(variable);
-		scope->allVariables.push_back(variable);
+		bool found = false;
 
-		ctx.variables.push_back(variable);
+		for(unsigned i = 0; i < scope->allVariables.size(); i++)
+		{
+			if(scope->allVariables[i] == variable)
+			{
+				found = true;
+				break;
+			}
+		}
+
+		if(!found)
+		{
+			scope->variables.push_back(variable);
+			scope->allVariables.push_back(variable);
+			ctx.variables.push_back(variable);
+		}
 	}
 
 	void ChangeInstructionTo(VmModule *module, VmInstruction *inst, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth, unsigned *optCount)
@@ -2540,6 +2553,14 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *co
 		// Generate global function
 		VmFunction *global = allocate(VmFunction)(module->allocator, VmType::Void, node->source, NULL, node->moduleScope, VmType::Void);
 
+		for(unsigned k = 0; k < global->scope->allVariables.size(); k++)
+		{
+			VariableData *variable = global->scope->allVariables[k];
+
+			if(variable->isAlloca)
+				global->allocas.push_back(variable);
+		}
+
 		// Generate type indexes
 		for(unsigned i = 0; i < ctx.types.size(); i++)
 			ctx.types[i]->typeIndex = i;
@@ -2560,6 +2581,14 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *co
 				continue;
 
 			VmFunction *vmFunction = allocate(VmFunction)(module->allocator, GetVmType(ctx, ctx.typeFunctionID), function->source, function, function->functionScope, GetVmType(ctx, function->type->returnType));
+
+			for(unsigned k = 0; k < vmFunction->scope->allVariables.size(); k++)
+			{
+				VariableData *variable = vmFunction->scope->allVariables[k];
+
+				if(variable->isAlloca)
+					vmFunction->allocas.push_back(variable);
+			}
 
 			function->vmFunction = vmFunction;
 
@@ -3576,7 +3605,21 @@ void RunCreateAllocaStorage(ExpressionContext &ctx, VmModule *module, VmValue* v
 			VariableData *variable = function->allocas[i];
 
 			if(variable->users.empty())
+			{
+				for(unsigned i = 0; i < function->scope->allVariables.size(); i++)
+				{
+					if(function->scope->allVariables[i] == variable)
+					{
+						for(unsigned k = i; k < function->scope->allVariables.size() - 1; k++)
+							function->scope->allVariables[k] = function->scope->allVariables[k + 1];
+
+						function->scope->allVariables.pop_back();
+						break;
+					}
+				}
+
 				continue;
+			}
 
 			FinalizeAlloca(ctx, module, variable);
 		}

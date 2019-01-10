@@ -417,11 +417,13 @@ namespace
 		char *name = (char*)ctx.allocator->alloc(16);
 		sprintf(name, "$temp%d", ctx.unnamedVariableCount++);
 
-		unsigned offset = AllocateVariableInScope(ctx, source, type->alignment, type);
-		VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, type->alignment, type, InplaceStr(name), offset, ctx.uniqueVariableId++);
+		VariableData *variable = allocate(VariableData)(ctx.allocator, source, ctx.scope, type->alignment, type, InplaceStr(name), 0, ctx.uniqueVariableId++);
 
 		if (IsLookupOnlyVariable(ctx, variable))
 			variable->lookupOnly = true;
+
+		variable->isAlloca = true;
+		variable->offset = ~0u;
 
 		ctx.AddVariable(variable);
 
