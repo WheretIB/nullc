@@ -1667,6 +1667,40 @@ ExprBase* EvaluateVariableAccess(Eval &ctx, ExprVariableAccess *expression)
 	return CheckType(expression, value);
 }
 
+ExprBase* EvaluateFunctionContextAccess(Eval &ctx, ExprFunctionContextAccess *expression)
+{
+	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
+		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+
+	if(!AddInstruction(ctx))
+		return NULL;
+
+	ExprPointerLiteral *ptr = FindVariableStorage(ctx, expression->function->contextVariable);
+
+	if(!ptr)
+		return NULL;
+
+	ExprBase *value = NULL;
+
+	TypeRef *refType = getType<TypeRef>(expression->function->contextType);
+
+	assert(refType);
+
+	TypeClass *classType = getType<TypeClass>(refType->subType);
+
+	assert(classType);
+
+	if(classType->members.empty())
+		value = allocate(ExprNullptrLiteral)(expression->source, expression->function->contextType);
+	else
+		value = CreateLoad(ctx, ptr);
+
+	if(!value)
+		return NULL;
+
+	return CheckType(expression, value);
+}
+
 ExprBase* EvaluateFunctionDefinition(Eval &ctx, ExprFunctionDefinition *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
@@ -2979,6 +3013,9 @@ ExprBase* Evaluate(Eval &ctx, ExprBase *expression)
 
 	if(ExprVariableAccess *expr = getType<ExprVariableAccess>(expression))
 		return EvaluateVariableAccess(ctx, expr);
+
+	if(ExprFunctionContextAccess *expr = getType<ExprFunctionContextAccess>(expression))
+		return EvaluateFunctionContextAccess(ctx, expr);
 
 	if(ExprFunctionDefinition *expr = getType<ExprFunctionDefinition>(expression))
 		return EvaluateFunctionDefinition(ctx, expr);

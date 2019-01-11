@@ -559,6 +559,10 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintIndented(ctx, name, node->type, "ExprVariableAccess(%.*s: v%04x)", FMT_ISTR(node->variable->name), node->variable->uniqueId);
 	}
+	else if(ExprFunctionContextAccess *node = getType<ExprFunctionContextAccess>(expression))
+	{
+		PrintIndented(ctx, name, node->type, "ExprFunctionContextAccess(%.*s: f%04x)", FMT_ISTR(node->function->name), node->function->uniqueId);
+	}
 	else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(expression))
 	{
 		if(ctx.skipFunctionDefinitions)

@@ -2154,6 +2154,33 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		return CheckType(ctx, expression, value);
 	}
+	else if(ExprFunctionContextAccess *node = getType<ExprFunctionContextAccess>(expression))
+	{
+		TypeRef *refType = getType<TypeRef>(node->function->contextType);
+
+		assert(refType);
+
+		TypeClass *classType = getType<TypeClass>(refType->subType);
+
+		assert(classType);
+
+		VmValue *value = NULL;
+
+		if(classType->members.empty())
+		{
+			value = CreateConstantPointer(module->allocator, node->source, 0, NULL, node->type, false);
+		}
+		else
+		{
+			VmValue *address = CreateVariableAddress(module, node->source, node->function->contextVariable, ctx.GetReferenceType(node->function->contextVariable->type));
+
+			value = CreateLoad(ctx, module, node->source, node->function->contextVariable->type, address, 0);
+
+			value->comment = node->function->contextVariable->name;
+		}
+
+		return CheckType(ctx, expression, value);
+	}
 	else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(expression))
 	{
 		VmFunction *function = node->function->vmFunction;

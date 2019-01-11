@@ -459,10 +459,10 @@ namespace
 		}
 	}
 
-	void ImplementPrototype(ExpressionContext &ctx, FunctionData *function)
+	FunctionData* ImplementPrototype(ExpressionContext &ctx, FunctionData *function)
 	{
 		if(function->isPrototype)
-			return;
+			return NULL;
 
 		SmallArray<FunctionData*, 4> &functions = ctx.scope->functions;
 
@@ -481,9 +481,12 @@ namespace
 				curr->implementation = function;
 
 				ctx.HideFunction(curr);
-				break;
+
+				return curr;
 			}
 		}
+
+		return NULL;
 	}
 
 	bool SameGenerics(IntrusiveList<MatchData> a, IntrusiveList<TypeHandle> b)
@@ -1368,7 +1371,7 @@ void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeC
 InplaceStr GetTemporaryFunctionName(ExpressionContext &ctx);
 TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, InplaceStr functionName);
 ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, SynBase *source, FunctionData *function);
-ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, SynBase *source, FunctionData *function);
+ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, SynBase *source, FunctionData *function, FunctionData *prototype);
 ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, FunctionData *function);
 ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<FunctionData*>::Node *function, ExprBase *context);
 ExprBase* CreateFunctionCoroutineStateUpdate(ExpressionContext &ctx, SynBase *source, FunctionData *function, int state);
@@ -2021,7 +2024,7 @@ ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, Ex
 
 	ctx.PopScope(SCOPE_FUNCTION);
 
-	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function);
+	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function, NULL);
 
 	function->declaration = allocate(ExprFunctionDefinition)(source, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), NULL, expressions, contextVariableDefinition);
 
@@ -2723,11 +2726,24 @@ ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, F
 	ExprBase *context = NULL;
 
 	if(inFunctionScope)
+	{
 		context = CreateVariableAccess(ctx, source, function->contextArgument, true);
+	}
 	else if(function->contextVariable)
+	{
 		context = CreateVariableAccess(ctx, source, function->contextVariable, true);
+
+		if(ExprVariableAccess *access = getType<ExprVariableAccess>(context))
+		{
+			assert(access->variable == function->contextVariable);
+
+			context = allocate(ExprFunctionContextAccess)(source, access->type, function);
+		}
+	}
 	else
+	{
 		context = allocate(ExprNullptrLiteral)(source, function->contextType);
+	}
 
 	return context;
 }
@@ -5213,7 +5229,7 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 				TypeFunctionSet *type = allocate(TypeFunctionSet)(GetFunctionSetTypeName(ctx, types), types);
 
-				argument = allocate(ExprFunctionOverloadSet)(source, type, overloads, allocate(ExprNullptrLiteral)(source, ctx.GetReferenceType(ctx.typeVoid)));
+				argument = allocate(ExprFunctionOverloadSet)(source, type, overloads, NULL);
 			}
 		}
 		else
@@ -5988,7 +6004,7 @@ ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, Sy
 	return allocate(ExprVariableDefinition)(source, ctx.typeVoid, function->contextArgument, NULL);
 }
 
-ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, SynBase *source, FunctionData *function)
+ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, SynBase *source, FunctionData *function, FunctionData *prototype)
 {
 	if(function->scope->ownerType)
 		return NULL;
@@ -6004,19 +6020,27 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 	FinalizeAlignment(classType);
 
 	if(classType->members.empty())
-	{
-		function->contextType = ctx.GetReferenceType(ctx.typeVoid);
-
 		return NULL;
+
+	VariableData *context = NULL;
+
+	if(prototype)
+	{
+		context = prototype->contextVariable;
+
+		context->isAlloca = false;
+		context->offset = AllocateVariableInScope(ctx, source, refType->alignment, refType);
+	}
+	else
+	{
+		// Create a variable holding a reference to a closure
+		unsigned offset = AllocateVariableInScope(ctx, source, refType->alignment, refType);
+		context = allocate(VariableData)(ctx.allocator, source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function), offset, ctx.uniqueVariableId++);
+
+		ctx.AddVariable(context);
 	}
 
-	// Create a variable holding a reference to a closure
-	unsigned offset = AllocateVariableInScope(ctx, source, refType->alignment, refType);
-	VariableData *context = allocate(VariableData)(ctx.allocator, source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function), offset, ctx.uniqueVariableId++);
-
 	function->contextVariable = context;
-
-	ctx.AddVariable(context);
 
 	// Allocate closure
 	ExprBase *size = allocate(ExprIntegerLiteral)(source, ctx.typeInt, classType->size);
@@ -6056,6 +6080,16 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 	}
 
 	ExprBase *initializer = allocate(ExprBlock)(source, ctx.typeVoid, expressions, IntrusiveList<ExprBase>());
+
+	if(prototype)
+	{
+		ExprFunctionDefinition *declaration = getType<ExprFunctionDefinition>(prototype->declaration);
+
+		assert(declaration);
+
+		declaration->contextVariable->initializer = initializer;
+		return NULL;
+	}
 
 	return allocate(ExprVariableDefinition)(source, ctx.typeVoid, context, initializer);
 }
@@ -6261,17 +6295,24 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	FunctionData *function = allocate(FunctionData)(ctx.allocator, source, ctx.scope, coroutine, accessor, isOperator, functionType, contextRefType, functionName, generics, ctx.uniqueFunctionId++);
 
-	function->contextType = contextRefType;
-
 	function->aliases = matches;
 
 	// Fill in argument data
 	for(unsigned i = 0; i < argData.size(); i++)
 		function->arguments.push_back(argData[i]);
 
+	FunctionData *implementedPrototype = NULL;
+
 	// If the type is known, implement the prototype immediately
 	if(functionType->returnType != ctx.typeAuto)
-		ImplementPrototype(ctx, function);
+	{
+		if(FunctionData *prototype = ImplementPrototype(ctx, function))
+		{
+			function->contextType = prototype->contextType;
+
+			implementedPrototype = prototype;
+		}
+	}
 
 	CheckFunctionConflict(ctx, source, function->name);
 
@@ -6377,10 +6418,44 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			Stop(ctx, source->pos, "ERROR: type constructor return type must be 'void'");
 	}
 
-	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function);
+	ExprVariableDefinition *contextVariableDefinition = NULL;
+
+	if(prototype)
+	{
+		TypeRef *refType = getType<TypeRef>(function->contextType);
+
+		assert(refType);
+
+		VariableData *context = allocate(VariableData)(ctx.allocator, source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function), 0, ctx.uniqueVariableId++);
+
+		context->isAlloca = true;
+		context->offset = ~0u;
+
+		function->contextVariable = context;
+
+		ctx.AddVariable(context);
+
+		contextVariableDefinition = allocate(ExprVariableDefinition)(source, ctx.typeVoid, context, NULL);
+	}
+	else
+	{
+		contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function, implementedPrototype);
+	}
 
 	// If the type was deduced, implement prototype now that it's known
-	ImplementPrototype(ctx, function);
+	if(FunctionData *prototype = ImplementPrototype(ctx, function))
+	{
+		TypeRef *refType = getType<TypeRef>(function->contextType);
+
+		assert(refType);
+
+		TypeClass *classType = getType<TypeClass>(refType->subType);
+
+		assert(classType);
+
+		if(!classType->members.empty())
+			Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of parameters", FMT_ISTR(function->name));
+	}
 
 	FunctionData *conflict = CheckUniqueness(ctx, function);
 
@@ -6584,7 +6659,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	ctx.PopScope(SCOPE_FUNCTION);
 
-	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, syntax, function);
+	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, syntax, function, NULL);
 
 	function->declaration = allocate(ExprFunctionDefinition)(syntax, function->type, function, contextArgumentDefinition, arguments, NULL, expressions, contextVariableDefinition);
 
@@ -6646,7 +6721,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	ctx.PopScope(SCOPE_FUNCTION);
 
-	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, syntax, function);
+	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, syntax, function, NULL);
 
 	function->declaration = allocate(ExprFunctionDefinition)(syntax, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), coroutineStateRead, expressions, contextVariableDefinition);
 
@@ -7024,7 +7099,7 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 		if(addedParentScope)
 			ctx.PopScope(SCOPE_TYPE);
 
-		ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function);
+		ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function, NULL);
 
 		function->declaration = allocate(ExprFunctionDefinition)(source, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), NULL, expressions, contextVariableDefinition);
 

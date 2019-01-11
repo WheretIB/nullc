@@ -566,6 +566,20 @@ struct ExprVariableAccess: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprFunctionContextAccess: ExprBase
+{
+	ExprFunctionContextAccess(SynBase *source, TypeBase *type, FunctionData *function): ExprBase(myTypeID, source, type), function(function)
+	{
+		assert(function);
+		assert(type == function->contextVariable->type);
+		assert(!function->contextVariable->lookupOnly);
+	}
+
+	FunctionData *function;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprFunctionDefinition: ExprBase
 {
 	ExprFunctionDefinition(SynBase *source, TypeBase *type, FunctionData *function, ExprVariableDefinition *contextArgument, IntrusiveList<ExprVariableDefinition> arguments, ExprBase *coroutineStateRead, IntrusiveList<ExprBase> expressions, ExprVariableDefinition *contextVariable): ExprBase(myTypeID, source, type), function(function), contextArgument(contextArgument), arguments(arguments), coroutineStateRead(coroutineStateRead), expressions(expressions), contextVariable(contextVariable)
