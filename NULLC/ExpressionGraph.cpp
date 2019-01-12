@@ -497,15 +497,8 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintGraph(ctx, node->coroutineStateUpdate, "coroutineStateUpdate");
 
-		if(!node->closures.empty())
-		{
-			PrintEnterBlock(ctx, InplaceStr("closures"), 0, "");
-
-			for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
-				PrintGraph(ctx, expr, "");
-
-			PrintLeaveBlock(ctx);
-		}
+		if(node->closures)
+			PrintGraph(ctx, node->closures, "closures");
 
 		PrintLeaveBlock(ctx);
 	}
@@ -517,15 +510,8 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintGraph(ctx, node->coroutineStateUpdate, "coroutineStateUpdate");
 
-		if(!node->closures.empty())
-		{
-			PrintEnterBlock(ctx, InplaceStr("closures"), 0, "");
-
-			for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
-				PrintGraph(ctx, expr, "");
-
-			PrintLeaveBlock(ctx);
-		}
+		if(node->closures)
+			PrintGraph(ctx, node->closures, "closures");
 
 		PrintLeaveBlock(ctx);
 	}
@@ -794,15 +780,8 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprBreak(%d)", node->depth);
 
-		if(!node->closures.empty())
-		{
-			PrintEnterBlock(ctx, InplaceStr("closures"), 0, "");
-
-			for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
-				PrintGraph(ctx, expr, "");
-
-			PrintLeaveBlock(ctx);
-		}
+		if(node->closures)
+			PrintGraph(ctx, node->closures, "closures");
 
 		PrintLeaveBlock(ctx);
 	}
@@ -810,15 +789,8 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprContinue(%d)", node->depth);
 
-		if(!node->closures.empty())
-		{
-			PrintEnterBlock(ctx, InplaceStr("closures"), 0, "");
-
-			for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
-				PrintGraph(ctx, expr, "");
-
-			PrintLeaveBlock(ctx);
-		}
+		if(node->closures)
+			PrintGraph(ctx, node->closures, "closures");
 
 		PrintLeaveBlock(ctx);
 	}
@@ -829,15 +801,8 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
 			PrintGraph(ctx, value, "");
 
-		if(!node->closures.empty())
-		{
-			PrintEnterBlock(ctx, InplaceStr("closures"), 0, "");
-
-			for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
-				PrintGraph(ctx, expr, "");
-
-			PrintLeaveBlock(ctx);
-		}
+		if(node->closures)
+			PrintGraph(ctx, node->closures, "closures");
 
 		PrintLeaveBlock(ctx);
 	}

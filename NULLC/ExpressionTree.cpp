@@ -363,6 +363,9 @@ namespace
 				return true;
 		}
 
+		if(data == function->contextArgument)
+			return true;
+
 		return false;
 	}
 
@@ -1939,62 +1942,93 @@ ExprBase* CreateUpvalueClose(ExpressionContext &ctx, SynBase *source, VariableDa
 	return CreateFunctionCall4(ctx, source, InplaceStr("__closeUpvalue"), upvalueAddress, variableAddress, copyOffset, copySize, false, true);
 }
 
-IntrusiveList<ExprBase> CreateFunctionUpvalueClose(ExpressionContext &ctx, SynBase *source, ScopeData *fromScope)
+ExprBase* CreateFunctionUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *fromScope)
 {
-	IntrusiveList<ExprBase> expressions;
+	if(!onwerFunction)
+		return NULL;
 
-	for(ScopeData *scope = fromScope; scope; scope = scope->scope)
-	{
-		for(unsigned i = 0; i < scope->variables.size(); i++)
-		{
-			VariableData *variable = scope->variables[i];
+	ExprSequence *holder = allocate(ExprSequence)(source, ctx.typeVoid, IntrusiveList<ExprBase>());
 
-			if(variable->usedAsExternal)
-				expressions.push_back(CreateUpvalueClose(ctx, source, variable));
-		}
+	onwerFunction->closeUpvalues.push_back(allocate(CloseUpvaluesData)(holder, CLOSE_UPVALUES_FUNCTION, source, fromScope, 0));
 
-		if(scope->ownerFunction)
-			break;
-	}
-
-	return expressions;
+	return holder;
 }
 
-IntrusiveList<ExprBase> CreateBlockUpvalueClose(ExpressionContext &ctx, SynBase *source, ScopeData *scope)
+ExprBase* CreateBlockUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *scope)
 {
-	IntrusiveList<ExprBase> expressions;
+	if(!onwerFunction)
+		return NULL;
 
-	for(unsigned i = 0; i < scope->variables.size(); i++)
-	{
-		VariableData *variable = scope->variables[i];
+	ExprSequence *holder = allocate(ExprSequence)(source, ctx.typeVoid, IntrusiveList<ExprBase>());
 
-		if(variable->usedAsExternal)
-			expressions.push_back(CreateUpvalueClose(ctx, source, variable));
-	}
+	onwerFunction->closeUpvalues.push_back(allocate(CloseUpvaluesData)(holder, CLOSE_UPVALUES_BLOCK, source, scope, 0));
 
-	return expressions;
+	return holder;
 }
 
-
-IntrusiveList<ExprBase> CreateLoopUpvalueClose(ExpressionContext &ctx, SynBase *source, ScopeData *fromScope, unsigned depth)
+ExprBase* CreateLoopUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *fromScope, unsigned depth)
 {
-	IntrusiveList<ExprBase> expressions;
+	if(!onwerFunction)
+		return NULL;
 
-	for(ScopeData *scope = fromScope; scope; scope = scope->scope)
+	ExprSequence *holder = allocate(ExprSequence)(source, ctx.typeVoid, IntrusiveList<ExprBase>());
+
+	onwerFunction->closeUpvalues.push_back(allocate(CloseUpvaluesData)(holder, CLOSE_UPVALUES_LOOP, source, fromScope, depth));
+
+	return holder;
+}
+
+void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
+{
+	for(CloseUpvaluesData *curr = function->closeUpvalues.head; curr; curr = curr->next)
 	{
-		if(scope->loopDepth == fromScope->loopDepth - depth)
-			break;
+		CloseUpvaluesData &data = *curr;
 
-		for(unsigned i = 0; i < scope->variables.size(); i++)
+		assert(function == ctx.GetCurrentFunction());
+
+		switch(data.type)
 		{
-			VariableData *variable = scope->variables[i];
+		case CLOSE_UPVALUES_FUNCTION:
+			for(ScopeData *scope = data.scope; scope; scope = scope->scope)
+			{
+				for(unsigned i = 0; i < scope->variables.size(); i++)
+				{
+					VariableData *variable = scope->variables[i];
 
-			if(variable->usedAsExternal)
-				expressions.push_back(CreateUpvalueClose(ctx, source, variable));
+					if(variable->usedAsExternal)
+						data.expr->expressions.push_back(CreateUpvalueClose(ctx, data.source, variable));
+				}
+
+				if(scope->ownerFunction)
+					break;
+			}
+			break;
+		case CLOSE_UPVALUES_BLOCK:
+			for(unsigned i = 0; i < data.scope->variables.size(); i++)
+			{
+				VariableData *variable = data.scope->variables[i];
+
+				if(variable->usedAsExternal)
+					data.expr->expressions.push_back(CreateUpvalueClose(ctx, data.source, variable));
+			}
+			break;
+		case CLOSE_UPVALUES_LOOP:
+			for(ScopeData *scope = data.scope; scope; scope = scope->scope)
+			{
+				if(scope->loopDepth == data.scope->loopDepth - data.depth)
+					break;
+
+				for(unsigned i = 0; i < scope->variables.size(); i++)
+				{
+					VariableData *variable = scope->variables[i];
+
+					if(variable->usedAsExternal)
+						data.expr->expressions.push_back(CreateUpvalueClose(ctx, data.source, variable));
+				}
+			}
+			break;
 		}
 	}
-
-	return expressions;
 }
 
 ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, ExprBase *value)
@@ -2020,7 +2054,9 @@ ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, Ex
 	function->argumentsSize = function->functionScope->dataSize;
 
 	IntrusiveList<ExprBase> expressions;
-	expressions.push_back(allocate(ExprReturn)(source, ctx.typeVoid, AnalyzeExpression(ctx, value->source), NULL, CreateFunctionUpvalueClose(ctx, source, ctx.scope)));
+	expressions.push_back(allocate(ExprReturn)(source, ctx.typeVoid, AnalyzeExpression(ctx, value->source), NULL, CreateFunctionUpvalueClose(ctx, source, function, ctx.scope)));
+
+	ClosePendingUpvalues(ctx, function);
 
 	ctx.PopScope(SCOPE_FUNCTION);
 
@@ -5735,7 +5771,7 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 
 		// TODO: checked return value
 
-		return allocate(ExprReturn)(syntax, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, ctx.scope));
+		return allocate(ExprReturn)(syntax, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope));
 	}
 
 	if(isType<TypeFunction>(result->type))
@@ -5746,7 +5782,7 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 	if(!ctx.IsNumericType(result->type) && !isType<TypeEnum>(result->type))
 		Stop(ctx, syntax->pos, "ERROR: global return cannot accept '%.*s'", FMT_ISTR(result->type->name));
 
-	return allocate(ExprReturn)(syntax, ctx.typeVoid, result, NULL, IntrusiveList<ExprBase>());
+	return allocate(ExprReturn)(syntax, ctx.typeVoid, result, NULL, NULL);
 }
 
 ExprYield* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
@@ -5781,7 +5817,7 @@ ExprYield* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 
 		unsigned yieldId = ++function->yieldCount;
 
-		return allocate(ExprYield)(syntax, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, syntax, function, yieldId), CreateFunctionUpvalueClose(ctx, syntax, ctx.scope), yieldId);
+		return allocate(ExprYield)(syntax, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, syntax, function, yieldId), CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope), yieldId);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: global yield is not allowed");
@@ -6079,7 +6115,7 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 		expressions.push_back(CreateAssignment(ctx, source, GetFunctionUpvalue(ctx, source, upvalue->variable), newHead));
 	}
 
-	ExprBase *initializer = allocate(ExprBlock)(source, ctx.typeVoid, expressions, IntrusiveList<ExprBase>());
+	ExprBase *initializer = allocate(ExprBlock)(source, ctx.typeVoid, expressions, NULL);
 
 	if(prototype)
 	{
@@ -6396,8 +6432,10 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			Stop(ctx, source->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
 
 		// User might have not returned from all control paths, for a void function we will generate a return
-		code.push_back(allocate(ExprReturn)(source, ctx.typeVoid, allocate(ExprVoid)(source, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, source, function, 0), CreateFunctionUpvalueClose(ctx, source, ctx.scope)));
+		code.push_back(allocate(ExprReturn)(source, ctx.typeVoid, allocate(ExprVoid)(source, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, source, function, 0), CreateFunctionUpvalueClose(ctx, source, function, ctx.scope)));
 	}
+
+	ClosePendingUpvalues(ctx, function);
 
 	ctx.PopScope(SCOPE_FUNCTION);
 
@@ -6498,7 +6536,7 @@ void DeduceShortFunctionReturnValue(ExpressionContext &ctx, SynBase *source, Fun
 		function->type = ctx.GetFunctionType(actual, function->type->arguments);
 
 	ExprBase *result = expected == ctx.typeAuto ? expressions.tail : CreateCast(ctx, source, expressions.tail, expected, false);
-	result = allocate(ExprReturn)(source, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, source, function, 0), CreateFunctionUpvalueClose(ctx, source, ctx.scope));
+	result = allocate(ExprReturn)(source, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, source, function, 0), CreateFunctionUpvalueClose(ctx, source, function, ctx.scope));
 
 	if(expressions.head == expressions.tail)
 	{
@@ -6655,7 +6693,9 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
 
 	// User might have not returned from all control paths, for a void function we will generate a return
-	expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprVoid)(syntax, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, ctx.scope)));
+	expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprVoid)(syntax, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
+
+	ClosePendingUpvalues(ctx, function);
 
 	ctx.PopScope(SCOPE_FUNCTION);
 
@@ -6717,7 +6757,9 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	VariableData *empty = AllocateTemporary(ctx, syntax, function->type->returnType);
 
-	expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, CreateVariableAccess(ctx, syntax, empty, false), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, ctx.scope)));
+	expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, CreateVariableAccess(ctx, syntax, empty, false), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
+
+	ClosePendingUpvalues(ctx, function);
 
 	ctx.PopScope(SCOPE_FUNCTION);
 
@@ -7092,7 +7134,9 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 
 		CreateDefaultConstructorCode(ctx, source, classType, expressions);
 
-		expressions.push_back(allocate(ExprReturn)(source, ctx.typeVoid, allocate(ExprVoid)(source, ctx.typeVoid), NULL, IntrusiveList<ExprBase>()));
+		expressions.push_back(allocate(ExprReturn)(source, ctx.typeVoid, allocate(ExprVoid)(source, ctx.typeVoid), NULL, NULL));
+
+		ClosePendingUpvalues(ctx, function);
 
 		ctx.PopScope(SCOPE_FUNCTION);
 
@@ -7543,7 +7587,9 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		function->argumentsSize = function->functionScope->dataSize;
 
 		IntrusiveList<ExprBase> expressions;
-		expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprTypeCast)(syntax, ctx.typeInt, allocate(ExprVariableAccess)(syntax, enumType, variables.tail->variable), EXPR_CAST_REINTERPRET), NULL, CreateFunctionUpvalueClose(ctx, syntax, ctx.scope)));
+		expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprTypeCast)(syntax, ctx.typeInt, allocate(ExprVariableAccess)(syntax, enumType, variables.tail->variable), EXPR_CAST_REINTERPRET), NULL, CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
+
+		ClosePendingUpvalues(ctx, function);
 
 		ctx.PopScope(SCOPE_FUNCTION);
 
@@ -7584,7 +7630,9 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		function->argumentsSize = function->functionScope->dataSize;
 
 		IntrusiveList<ExprBase> expressions;
-		expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprTypeCast)(syntax, enumType, allocate(ExprVariableAccess)(syntax, ctx.typeInt, variables.tail->variable), EXPR_CAST_REINTERPRET), NULL, CreateFunctionUpvalueClose(ctx, syntax, ctx.scope)));
+		expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprTypeCast)(syntax, enumType, allocate(ExprVariableAccess)(syntax, ctx.typeInt, variables.tail->variable), EXPR_CAST_REINTERPRET), NULL, CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
+
+		ClosePendingUpvalues(ctx, function);
 
 		ctx.PopScope(SCOPE_FUNCTION);
 
@@ -7620,7 +7668,7 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 	for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
 		expressions.push_back(AnalyzeStatement(ctx, expression));
 
-	ExprBlock *block = allocate(ExprBlock)(syntax, ctx.typeVoid, expressions, IntrusiveList<ExprBase>());
+	ExprBlock *block = allocate(ExprBlock)(syntax, ctx.typeVoid, expressions, NULL);
 
 	for(SynIdentifier *name = syntax->path.head; name; name = getType<SynIdentifier>(name->next))
 		ctx.PopScope(SCOPE_NAMESPACE);
@@ -7698,11 +7746,14 @@ ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
-	IntrusiveList<ExprBase> iteration = CreateBlockUpvalueClose(ctx, syntax, ctx.scope);
+	IntrusiveList<ExprBase> iteration;
+
+	if(ExprBase *closures = CreateBlockUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope))
+		iteration.push_back(closures);
 
 	iteration.push_back(increment);
 
-	ExprBlock *block = allocate(ExprBlock)(syntax, ctx.typeVoid, iteration, IntrusiveList<ExprBase>());
+	ExprBlock *block = allocate(ExprBlock)(syntax, ctx.typeVoid, iteration, NULL);
 
 	ctx.PopScope(SCOPE_LOOP);
 
@@ -7903,7 +7954,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 		}
 	}
 
-	ExprBase *initializer = allocate(ExprBlock)(syntax, ctx.typeVoid, initializers, IntrusiveList<ExprBase>());
+	ExprBase *initializer = allocate(ExprBlock)(syntax, ctx.typeVoid, initializers, NULL);
 
 	ExprBase *condition = NULL;
 
@@ -7915,12 +7966,12 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			condition = CreateBinaryOp(ctx, syntax, SYN_BINARY_OP_LOGICAL_AND, condition, curr);
 	}
 
-	ExprBase *increment = allocate(ExprBlock)(syntax, ctx.typeVoid, increments, IntrusiveList<ExprBase>());
+	ExprBase *increment = allocate(ExprBlock)(syntax, ctx.typeVoid, increments, NULL);
 
 	if(syntax->body)
 		definitions.push_back(AnalyzeStatement(ctx, syntax->body));
 
-	ExprBase *body = allocate(ExprBlock)(syntax, ctx.typeVoid, definitions, CreateBlockUpvalueClose(ctx, syntax, ctx.scope));
+	ExprBase *body = allocate(ExprBlock)(syntax, ctx.typeVoid, definitions, CreateBlockUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope));
 
 	ctx.PopScope(SCOPE_LOOP);
 
@@ -7954,7 +8005,7 @@ ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
-	ExprBase *block = allocate(ExprBlock)(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, syntax, ctx.scope));
+	ExprBase *block = allocate(ExprBlock)(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope));
 
 	ctx.PopScope(SCOPE_LOOP);
 
@@ -7994,7 +8045,7 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 		for(SynBase *expression = curr->expressions.head; expression; expression = expression->next)
 			expressions.push_back(AnalyzeStatement(ctx, expression));
 
-		ExprBase *block = allocate(ExprBlock)(syntax, ctx.typeVoid, expressions, IntrusiveList<ExprBase>());
+		ExprBase *block = allocate(ExprBlock)(syntax, ctx.typeVoid, expressions, NULL);
 
 		if(curr->value)
 		{
@@ -8038,7 +8089,7 @@ ExprBreak* AnalyzeBreak(ExpressionContext &ctx, SynBreak *syntax)
 	if(ctx.scope->loopDepth < depth)
 		Stop(ctx, syntax->pos, "ERROR: break level is greater that loop depth");
 
-	return allocate(ExprBreak)(syntax, ctx.typeVoid, depth, CreateLoopUpvalueClose(ctx, syntax, ctx.scope, depth));
+	return allocate(ExprBreak)(syntax, ctx.typeVoid, depth, CreateLoopUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope, depth));
 }
 
 ExprContinue* AnalyzeContinue(ExpressionContext &ctx, SynContinue *syntax)
@@ -8065,7 +8116,7 @@ ExprContinue* AnalyzeContinue(ExpressionContext &ctx, SynContinue *syntax)
 	if(ctx.scope->loopDepth < depth)
 		Stop(ctx, syntax->pos, "ERROR: continue level is greater that loop depth");
 
-	return allocate(ExprContinue)(syntax, ctx.typeVoid, depth, CreateLoopUpvalueClose(ctx, syntax, ctx.scope, depth));
+	return allocate(ExprContinue)(syntax, ctx.typeVoid, depth, CreateLoopUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope, depth));
 }
 
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope)
@@ -8079,7 +8130,7 @@ ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createSco
 		for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
 			expressions.push_back(AnalyzeStatement(ctx, expression));
 
-		ExprBlock *block = allocate(ExprBlock)(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, syntax, ctx.scope));
+		ExprBlock *block = allocate(ExprBlock)(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope));
 
 		ctx.PopScope(SCOPE_EXPLICIT);
 
@@ -8091,7 +8142,7 @@ ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createSco
 	for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
 		expressions.push_back(AnalyzeStatement(ctx, expression));
 
-	return allocate(ExprBlock)(syntax, ctx.typeVoid, expressions, IntrusiveList<ExprBase>());
+	return allocate(ExprBlock)(syntax, ctx.typeVoid, expressions, NULL);
 }
 
 ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
@@ -9432,7 +9483,7 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 		}
 	}
 
-	return allocate(ExprBlock)(source, ctx.typeVoid, expressions, IntrusiveList<ExprBase>());
+	return allocate(ExprBlock)(source, ctx.typeVoid, expressions, NULL);
 }
 
 ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)

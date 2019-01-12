@@ -484,7 +484,7 @@ struct ExprArrayIndex: ExprBase
 
 struct ExprReturn: ExprBase
 {
-	ExprReturn(SynBase *source, TypeBase *type, ExprBase* value, ExprBase *coroutineStateUpdate, IntrusiveList<ExprBase> closures): ExprBase(myTypeID, source, type), value(value), coroutineStateUpdate(coroutineStateUpdate), closures(closures)
+	ExprReturn(SynBase *source, TypeBase *type, ExprBase* value, ExprBase *coroutineStateUpdate, ExprBase *closures): ExprBase(myTypeID, source, type), value(value), coroutineStateUpdate(coroutineStateUpdate), closures(closures)
 	{
 	}
 
@@ -492,14 +492,14 @@ struct ExprReturn: ExprBase
 
 	ExprBase *coroutineStateUpdate;
 
-	IntrusiveList<ExprBase> closures;
+	ExprBase *closures;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
 struct ExprYield: ExprBase
 {
-	ExprYield(SynBase *source, TypeBase *type, ExprBase* value, ExprBase *coroutineStateUpdate, IntrusiveList<ExprBase> closures, unsigned order): ExprBase(myTypeID, source, type), value(value), coroutineStateUpdate(coroutineStateUpdate), closures(closures), order(order)
+	ExprYield(SynBase *source, TypeBase *type, ExprBase* value, ExprBase *coroutineStateUpdate, ExprBase *closures, unsigned order): ExprBase(myTypeID, source, type), value(value), coroutineStateUpdate(coroutineStateUpdate), closures(closures), order(order)
 	{
 	}
 
@@ -507,7 +507,7 @@ struct ExprYield: ExprBase
 
 	ExprBase *coroutineStateUpdate;
 
-	IntrusiveList<ExprBase> closures;
+	ExprBase *closures;
 
 	// 1-based index of the yield in the current function
 	unsigned order;
@@ -786,39 +786,39 @@ struct ExprSwitch: ExprBase
 
 struct ExprBreak: ExprBase
 {
-	ExprBreak(SynBase *source, TypeBase *type, unsigned depth, IntrusiveList<ExprBase> closures): ExprBase(myTypeID, source, type), depth(depth), closures(closures)
+	ExprBreak(SynBase *source, TypeBase *type, unsigned depth, ExprBase *closures): ExprBase(myTypeID, source, type), depth(depth), closures(closures)
 	{
 	}
 
 	unsigned depth;
 
-	IntrusiveList<ExprBase> closures;
+	ExprBase *closures;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
 struct ExprContinue: ExprBase
 {
-	ExprContinue(SynBase *source, TypeBase *type, unsigned depth, IntrusiveList<ExprBase> closures): ExprBase(myTypeID, source, type), depth(depth), closures(closures)
+	ExprContinue(SynBase *source, TypeBase *type, unsigned depth, ExprBase *closures): ExprBase(myTypeID, source, type), depth(depth), closures(closures)
 	{
 	}
 
 	unsigned depth;
 
-	IntrusiveList<ExprBase> closures;
+	ExprBase *closures;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
 struct ExprBlock: ExprBase
 {
-	ExprBlock(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> expressions, IntrusiveList<ExprBase> closures): ExprBase(myTypeID, source, type), expressions(expressions), closures(closures)
+	ExprBlock(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> expressions, ExprBase *closures): ExprBase(myTypeID, source, type), expressions(expressions), closures(closures)
 	{
 	}
 
 	IntrusiveList<ExprBase> expressions;
 
-	IntrusiveList<ExprBase> closures;
+	ExprBase *closures;
 
 	static const unsigned myTypeID = __LINE__;
 };

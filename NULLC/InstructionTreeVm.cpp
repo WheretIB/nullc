@@ -2053,8 +2053,8 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		if(node->coroutineStateUpdate)
 			CompileVm(ctx, module, node->coroutineStateUpdate);
 
-		for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
-			CompileVm(ctx, module, expr);
+		if(node->closures)
+			CompileVm(ctx, module, node->closures);
 
 		if(node->value->type == ctx.typeVoid)
 			return CheckType(ctx, expression, CreateReturn(module, node->source));
@@ -2068,8 +2068,8 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		if(node->coroutineStateUpdate)
 			CompileVm(ctx, module, node->coroutineStateUpdate);
 
-		for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
-			CompileVm(ctx, module, expr);
+		if(node->closures)
+			CompileVm(ctx, module, node->closures);
 
 		VmBlock *block = module->currentFunction->restoreBlocks[++module->currentFunction->nextRestoreBlock];
 
@@ -2520,8 +2520,8 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprBreak *node = getType<ExprBreak>(expression))
 	{
-		for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
-			CompileVm(ctx, module, expr);
+		if(node->closures)
+			CompileVm(ctx, module, node->closures);
 
 		VmBlock *target = module->loopInfo[module->loopInfo.size() - node->depth].breakBlock;
 
@@ -2531,8 +2531,8 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprContinue *node = getType<ExprContinue>(expression))
 	{
-		for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
-			CompileVm(ctx, module, expr);
+		if(node->closures)
+			CompileVm(ctx, module, node->closures);
 
 		VmBlock *target = module->loopInfo[module->loopInfo.size() - node->depth].continueBlock;
 
@@ -2545,8 +2545,8 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
 			CompileVm(ctx, module, value);
 
-		for(ExprBase *expr = node->closures.head; expr; expr = expr->next)
-			CompileVm(ctx, module, expr);
+		if(node->closures)
+			CompileVm(ctx, module, node->closures);
 
 		return CheckType(ctx, expression, CreateVoid(module));
 	}

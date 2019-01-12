@@ -1510,9 +1510,9 @@ ExprBase* EvaluateReturn(Eval &ctx, ExprReturn *expression)
 			return NULL;
 	}
 
-	for(ExprBase *value = expression->closures.head; value; value = value->next)
+	if(expression->closures)
 	{
-		if(!Evaluate(ctx, value))
+		if(!Evaluate(ctx, expression->closures))
 			return NULL;
 	}
 
@@ -1553,9 +1553,9 @@ ExprBase* EvaluateYield(Eval &ctx, ExprYield *expression)
 			return NULL;
 	}
 
-	for(ExprBase *value = expression->closures.head; value; value = value->next)
+	if(expression->closures)
 	{
-		if(!Evaluate(ctx, value))
+		if(!Evaluate(ctx, expression->closures))
 			return NULL;
 	}
 
@@ -2819,9 +2819,9 @@ ExprBase* EvaluateBreak(Eval &ctx, ExprBreak *expression)
 		frame->breakDepth = expression->depth;
 	}
 
-	for(ExprBase *value = expression->closures.head; value; value = value->next)
+	if(expression->closures)
 	{
-		if(!Evaluate(ctx, value))
+		if(!Evaluate(ctx, expression->closures))
 			return NULL;
 	}
 
@@ -2839,9 +2839,9 @@ ExprBase* EvaluateContinue(Eval &ctx, ExprContinue *expression)
 		frame->continueDepth = expression->depth;
 	}
 
-	for(ExprBase *value = expression->closures.head; value; value = value->next)
+	if(expression->closures)
 	{
-		if(!Evaluate(ctx, value))
+		if(!Evaluate(ctx, expression->closures))
 			return NULL;
 	}
 
@@ -2864,9 +2864,9 @@ ExprBase* EvaluateBlock(Eval &ctx, ExprBlock *expression)
 			return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 	}
 
-	for(ExprBase *value = expression->closures.head; value; value = value->next)
+	if(expression->closures)
 	{
-		if(!Evaluate(ctx, value))
+		if(!Evaluate(ctx, expression->closures))
 			return NULL;
 	}
 

@@ -10,6 +10,7 @@
 struct ByteCode;
 
 struct ExprBase;
+struct ExprSequence;
 struct ExpressionContext;
 
 struct TypeBase;
@@ -237,6 +238,30 @@ struct CoroutineStateData
 	bool listed;
 };
 
+enum CloseUpvaluesType
+{
+	CLOSE_UPVALUES_FUNCTION,
+	CLOSE_UPVALUES_BLOCK,
+	CLOSE_UPVALUES_LOOP,
+};
+
+struct CloseUpvaluesData
+{
+	CloseUpvaluesData(ExprSequence *expr, CloseUpvaluesType type, SynBase *source, ScopeData *scope, unsigned depth): expr(expr), type(type), source(source), scope(scope), depth(depth), next(0), listed(false)
+	{
+	}
+
+	ExprSequence *expr;
+
+	CloseUpvaluesType type;
+	SynBase *source;
+	ScopeData *scope;
+	unsigned depth;
+
+	CloseUpvaluesData *next;
+	bool listed;
+};
+
 struct FunctionData
 {
 	FunctionData(Allocator *allocator, SynBase *source, ScopeData *scope, bool coroutine, bool accessor, bool isOperator, TypeFunction *type, TypeBase *contextType, InplaceStr name, IntrusiveList<MatchData> generics, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), accessor(accessor), isOperator(isOperator), type(type), contextType(contextType), name(name), generics(generics), uniqueId(uniqueId), arguments(allocator), instances(allocator)
@@ -340,6 +365,8 @@ struct FunctionData
 	unsigned yieldCount;
 
 	bool hasExplicitReturn;
+
+	IntrusiveList<CloseUpvaluesData> closeUpvalues;
 
 	VmFunction *vmFunction;
 };
