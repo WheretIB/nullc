@@ -195,11 +195,11 @@ struct MatchData
 
 struct ArgumentData
 {
-	ArgumentData(): source(0), isExplicit(false), type(0), value(0)
+	ArgumentData(): source(0), isExplicit(false), type(0), value(0), valueFunction(0)
 	{
 	}
 
-	ArgumentData(SynBase *source, bool isExplicit, InplaceStr name, TypeBase *type, ExprBase *value): source(source), isExplicit(isExplicit), name(name), type(type), value(value)
+	ArgumentData(SynBase *source, bool isExplicit, InplaceStr name, TypeBase *type, ExprBase *value): source(source), isExplicit(isExplicit), name(name), type(type), value(value), valueFunction(0)
 	{
 	}
 
@@ -208,6 +208,7 @@ struct ArgumentData
 	InplaceStr name;
 	TypeBase *type;
 	ExprBase *value;
+	FunctionData *valueFunction;
 };
 
 struct UpvalueData

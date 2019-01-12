@@ -2031,7 +2031,7 @@ void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 	}
 }
 
-ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, ExprBase *value)
+ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, ExprBase *value)
 {
 	InplaceStr functionName = GetTemporaryFunctionName(ctx);
 
@@ -2054,7 +2054,7 @@ ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, Ex
 	function->argumentsSize = function->functionScope->dataSize;
 
 	IntrusiveList<ExprBase> expressions;
-	expressions.push_back(allocate(ExprReturn)(source, ctx.typeVoid, AnalyzeExpression(ctx, value->source), NULL, CreateFunctionUpvalueClose(ctx, source, function, ctx.scope)));
+	expressions.push_back(allocate(ExprReturn)(source, ctx.typeVoid, value, NULL, CreateFunctionUpvalueClose(ctx, source, function, ctx.scope)));
 
 	ClosePendingUpvalues(ctx, function);
 
@@ -9306,7 +9306,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			{
 				FunctionData *target = ctx.functions[currCount + argument.defaultFuncId - bCode->moduleFunctionCount];
 
-				ExprBase *access = allocate(ExprFunctionAccess)(source, target->type, target, allocate(ExprNullptrLiteral)(source, ctx.GetReferenceType(ctx.typeVoid)));
+				ExprBase *access = allocate(ExprFunctionAccess)(source, target->type, target, allocate(ExprNullptrLiteral)(source, target->contextType));
 
 				data->arguments[n].value = allocate(ExprFunctionCall)(source, target->type->returnType, access, IntrusiveList<ExprBase>());
 			}
@@ -9388,6 +9388,41 @@ void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 		Stop(ctx, syntax->pos, "ERROR: module import is not implemented");
 
 	ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, lexStreamSize, pathNoImport);
+}
+
+void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
+{
+	for(unsigned i = 0; i < ctx.functions.size(); i++)
+	{
+		FunctionData *function = ctx.functions[i];
+
+		if(function->importModule)
+			continue;
+
+		// Handle only global visible functions
+		if(function->scope != ctx.globalScope && !function->scope->ownerType)
+			continue;
+
+		// Go through all function parameters
+		for(unsigned k = 0; k < function->arguments.size(); k++)
+		{
+			ArgumentData &argument = function->arguments[k];
+
+			if(argument.value)
+			{
+				assert(argument.valueFunction == NULL);
+
+				ExprBase *value = argument.value;
+
+				if(isType<TypeFunctionSet>(value->type))
+					value = CreateCast(ctx, argument.source, argument.value, argument.type, true);
+
+				ExprFunctionAccess *access = CreateValueFunctionWrapper(ctx, argument.source, value);
+
+				argument.valueFunction = access->function;
+			}
+		}
+	}
 }
 
 ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, VariableData *vtable)
@@ -9509,6 +9544,8 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 
 	for(SynBase *expr = syntax->expressions.head; expr; expr = expr->next)
 		expressions.push_back(AnalyzeStatement(ctx, expr));
+
+	CreateDefaultArgumentFunctionWrappers(ctx);
 
 	ExprModule *module = allocate(ExprModule)(ctx.allocator, syntax, ctx.typeVoid, ctx.globalScope, expressions);
 
