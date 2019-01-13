@@ -320,11 +320,23 @@ namespace
 
 	unsigned AllocateVariableInScope(ExpressionContext &ctx, SynBase *source, unsigned alignment, TypeBase *type)
 	{
+		if(TypeClass *typeClass = getType<TypeClass>(type))
+		{
+			if(!typeClass->completed)
+				Stop(ctx, source->pos, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(type->name));
+		}
+
 		return AllocateVariableInScope(ctx, source, alignment, type->size);
 	}
 
 	unsigned AllocateArgumentInScope(ExpressionContext &ctx, SynBase *source, unsigned alignment, TypeBase *type)
 	{
+		if(TypeClass *typeClass = getType<TypeClass>(type))
+		{
+			if(!typeClass->completed)
+				Stop(ctx, source->pos, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(type->name));
+		}
+
 		return AllocateVariableInScope(ctx, source, alignment, type->size >= 4 ? type->size : 4);
 	}
 	
