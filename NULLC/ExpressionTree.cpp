@@ -7308,6 +7308,14 @@ void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *ty
 		if(!value || (!isType<ExprBoolLiteral>(value) && !isType<ExprCharacterLiteral>(value) && !isType<ExprIntegerLiteral>(value) && !isType<ExprRationalLiteral>(value)))
 			Stop(ctx, source->pos, "ERROR: expression didn't evaluate to a constant number");
 
+		for(ConstantData *curr = target.head; curr; curr = curr->next)
+		{
+			if(constant->name == curr->name)
+				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken");
+		}
+
+		CheckVariableConflict(ctx, source, constant->name);
+
 		target.push_back(allocate(ConstantData)(constant->name, value));
 	}
 }
@@ -7625,6 +7633,14 @@ void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 			Stop(ctx, source->pos, "ERROR: expression didn't evaluate to a constant number");
 
 		last = value;
+
+		for(ConstantData *curr = target.head; curr; curr = curr->next)
+		{
+			if(constant->name == curr->name)
+				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken");
+		}
+
+		CheckVariableConflict(ctx, source, constant->name);
 
 		target.push_back(allocate(ConstantData)(constant->name, allocate(ExprIntegerLiteral)(source, type, value->value)));
 	}
