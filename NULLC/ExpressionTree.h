@@ -89,6 +89,8 @@ struct ExpressionContext
 
 	ScopeData *globalScope;
 
+	unsigned instanceDepth;
+
 	// Error info
 	jmp_buf errorHandler;
 	const char *errorPos;

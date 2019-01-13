@@ -666,6 +666,8 @@ ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
 
 	globalScope = NULL;
 
+	instanceDepth = 0;
+
 	genericTypeMap.init();
 
 	uniqueNamespaceId = 0;
@@ -5011,6 +5013,11 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 	ctx.SwitchToScopeAtPoint(NULL, function->scope, function->source);
 
+	ctx.instanceDepth++;
+
+	if(ctx.instanceDepth > NULLC_MAX_GENERIC_INSTANCE_DEPTH)
+		Stop(ctx, source->pos, "ERROR: reached maximum generic function instance depth (%d)", NULLC_MAX_GENERIC_INSTANCE_DEPTH);
+
 	ExprBase *expr = NULL;
 	
 	if(SynFunctionDefinition *syntax = function->definition)
@@ -5019,6 +5026,8 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		expr = AnalyzeShortFunctionDefinition(ctx, node, instance);
 	else
 		Stop(ctx, source->pos, "ERROR: imported generic function call is not supported");
+
+	ctx.instanceDepth--;
 
 	// Restore old scope
 	ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
