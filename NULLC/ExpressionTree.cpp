@@ -7448,7 +7448,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 		originalDefinition = getType<TypeClass>(*type);
 
 		if(!originalDefinition || originalDefinition->completed)
-			Stop(ctx, syntax->pos, "ERROR: '%.*s' is being redefined", FMT_ISTR(syntax->name));
+			Stop(ctx, syntax->pos, "ERROR: '%.*s' is being redefined", FMT_ISTR(className));
 	}
 
 	if(!generics.empty())
