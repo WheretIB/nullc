@@ -8317,6 +8317,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeVariableAccess(ctx, node);
 	}
 
+	if(SynTypeAuto *node = getType<SynTypeAuto>(syntax))
+	{
+		Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
+	}
+
 	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
 	{
 		// It could be a typeid
