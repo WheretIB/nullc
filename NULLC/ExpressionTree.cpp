@@ -1206,6 +1206,9 @@ TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
 	// Can't derive from pseudo types
 	assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
 
+	// Can't create reference to auto this way
+	assert(type != typeAuto);
+
 	if(type->refType)
 		return type->refType;
 
@@ -1228,8 +1231,14 @@ TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 	// Can't have array of void
 	assert(type != typeVoid);
 
+	// Can't have array of auto
+	assert(type != typeAuto);
+
 	// Can't derive from pseudo types
 	assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
+
+	if(TypeClass *typeClass = getType<TypeClass>(type))
+		assert(typeClass->completed && !typeClass->hasFinalizer);
 
 	for(TypeHandle *curr = type->arrayTypes.head; curr; curr = curr->next)
 	{
@@ -1269,6 +1278,9 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 	// Can't have array of void
 	assert(type != typeVoid);
 
+	// Can't create array of auto types this way
+	assert(type != typeAuto);
+
 	// Can't derive from pseudo types
 	assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
 
@@ -1306,7 +1318,12 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 	assert(!isType<TypeArgumentSet>(returnType) && !isType<TypeMemberSet>(returnType) && !isType<TypeFunctionSet>(returnType));
 
 	for(TypeHandle *curr = arguments.head; curr; curr = curr->next)
+	{
 		assert(!isType<TypeArgumentSet>(curr->type) && !isType<TypeMemberSet>(curr->type) && !isType<TypeFunctionSet>(curr->type));
+
+		// Can't have auto as argument
+		assert(curr->type != typeAuto);
+	}
 
 	for(unsigned i = 0, e = functionTypes.count; i < e; i++)
 	{
@@ -2240,6 +2257,15 @@ TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase 
 		if(number->value <= 0)
 			Stop(ctx, size->pos, "ERROR: array size can't be negative or zero");
 
+		if(TypeClass *typeClass = getType<TypeClass>(type))
+		{
+			if(!typeClass->completed)
+				Stop(ctx, size->pos, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(type->name));
+
+			if(typeClass->hasFinalizer)
+				Stop(ctx, size->pos, "ERROR: class '%.*s' implements 'finalize' so only an unsized array type can be created", FMT_ISTR(type->name));
+		}
+
 		return ctx.GetArrayType(type, number->value);
 	}
 
@@ -2364,6 +2390,12 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			if(number->value <= 0)
 				Stop(ctx, syntax->pos, "ERROR: array size can't be negative or zero");
 
+			if(TypeClass *typeClass = getType<TypeClass>(type))
+			{
+				if(typeClass->hasFinalizer)
+					Stop(ctx, syntax->pos, "ERROR: class '%.*s' implements 'finalize' so only an unsized array type can be created", FMT_ISTR(type->name));
+			}
+
 			return ctx.GetArrayType(type, number->value);
 		}
 
@@ -2438,7 +2470,11 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			ctx.errorBufSize = errorBufSize;
 
 			if(type)
+			{
+				assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
+
 				return type;
+			}
 		}
 		else
 		{
@@ -2535,6 +2571,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			for(SynBase *el = node->types.head; el; el = el->next)
 			{
 				TypeBase *type = AnalyzeType(ctx, el, true, failed);
+
+				if(type == ctx.typeAuto)
+					Stop(ctx, syntax->pos, "ERROR: 'auto' type cannot be used as template parameter");
 
 				isGeneric |= type->isGeneric;
 
@@ -2749,6 +2788,12 @@ ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 		AssertValueExpression(ctx, value->source, value);
 
 		values.push_back(value);
+	}
+
+	if(TypeClass *typeClass = getType<TypeClass>(subType))
+	{
+		if(typeClass->hasFinalizer)
+			Stop(ctx, syntax->pos, "ERROR: class '%.*s' implements 'finalize' so only an unsized array type can be created", FMT_ISTR(subType->name));
 	}
 
 	return allocate(ExprArray)(syntax, ctx.GetArrayType(subType, values.size()), values);
@@ -4561,6 +4606,9 @@ TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, Typ
 		{
 			TypeBase *type = ResolveGenericTypeAliases(ctx, source, curr->type, aliases);
 
+			if(type == ctx.typeAuto)
+				Stop(ctx, source->pos, "ERROR: 'auto' type cannot be used as template parameter");
+
 			isGeneric |= type->isGeneric;
 
 			types.push_back(allocate(TypeHandle)(type));
@@ -5653,6 +5701,12 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 	if(type == ctx.typeVoid || type == ctx.typeAuto)
 		Stop(ctx, syntax->pos, "ERROR: can't allocate objects of type '%.*s'", FMT_ISTR(type->name));
+
+	if(TypeClass *typeClass = getType<TypeClass>(type))
+	{
+		if(!typeClass->completed)
+			Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(type->name));
+	}
 
 	ExprBase *size = allocate(ExprIntegerLiteral)(syntax, ctx.typeInt, type->size);
 	ExprBase *typeId = allocate(ExprTypeCast)(syntax, ctx.typeInt, allocate(ExprTypeLiteral)(syntax, ctx.typeTypeID, type), EXPR_CAST_REINTERPRET);
@@ -7251,8 +7305,6 @@ void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *ty
 
 void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassElements *syntax)
 {
-	// TODO: can't access sizeof and type members until finalization
-
 	for(SynTypedef *typeDef = syntax->typedefs.head; typeDef; typeDef = getType<SynTypedef>(typeDef->next))
 	{
 		ExprAliasDefinition *alias = AnalyzeTypedef(ctx, typeDef);
@@ -7276,6 +7328,8 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 	}
 
 	FinalizeAlignment(classDefinition->classType);
+
+	classDefinition->classType->completed = true;
 
 	for(SynConstantSet *constantSet = syntax->constantSets.head; constantSet; constantSet = getType<SynConstantSet>(constantSet->next))
 	{
@@ -7511,8 +7565,6 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 	CreateDefaultClassMembers(ctx, syntax, classDefinition);
 
-	classType->completed = true;
-
 	return classDefinition;
 }
 
@@ -7717,6 +7769,9 @@ ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax)
 		Stop(ctx, syntax->pos, "ERROR: there is already a type or an alias with the same name");
 
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
+
+	if(type == ctx.typeAuto)
+		Stop(ctx, syntax->pos, "ERROR: can't alias 'auto' type");
 
 	AliasData *alias = allocate(AliasData)(syntax, ctx.scope, type, syntax->alias, ctx.uniqueAliasId++);
 
@@ -8343,6 +8398,14 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 			if(type == ctx.typeAuto)
 				Stop(ctx, syntax->pos, "ERROR: sizeof(auto) is illegal");
 
+			if(TypeClass *typeClass = getType<TypeClass>(type))
+			{
+				if(!typeClass->completed)
+					Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(type->name));
+			}
+
+			assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
+
 			return allocate(ExprIntegerLiteral)(node, ctx.typeInt, type->size);
 		}
 
@@ -8350,6 +8413,16 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 		if(value->type == ctx.typeAuto)
 			Stop(ctx, syntax->pos, "ERROR: sizeof(auto) is illegal");
+
+		if(TypeClass *typeClass = getType<TypeClass>(value->type))
+		{
+			if(!typeClass->completed)
+				Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(value->type->name));
+		}
+
+		ResolveInitializerValue(ctx, syntax, value);
+
+		assert(!isType<TypeArgumentSet>(value->type) && !isType<TypeMemberSet>(value->type) && !isType<TypeFunctionSet>(value->type));
 
 		return allocate(ExprIntegerLiteral)(node, ctx.typeInt, value->type->size);
 	}
