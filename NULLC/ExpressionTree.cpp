@@ -1297,6 +1297,7 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 	result->members.push_back(allocate_(VariableHandle)(allocate_(VariableData)(allocator, NULL, scope, 4, typeInt, InplaceStr("size"), NULLC_PTR_SIZE, uniqueVariableId++)));
 	result->members.tail->variable->isReadonly = true;
 
+	result->alignment = 4;
 	result->size = NULLC_PTR_SIZE + 4;
 
 	PopScope(SCOPE_TYPE);
@@ -1350,6 +1351,8 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 
 	// Create new type
 	TypeFunction* result = allocate_(TypeFunction)(GetFunctionTypeName(*this, returnType, arguments), returnType, arguments);
+
+	result->alignment = 4;
 
 	if(!result->isGeneric)
 	{
