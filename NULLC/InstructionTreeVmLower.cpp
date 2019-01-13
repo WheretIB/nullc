@@ -21,6 +21,9 @@ void Lower(Context &ctx, VmValue *value)
 		if(function->function && function->function->importModule != NULL)
 			return;
 
+		if(function->function && function->function->isPrototype && !function->function->implementation)
+			return;
+
 		assert(ctx.currentFunction == NULL);
 
 		ctx.currentFunction = function;
@@ -37,6 +40,8 @@ void Lower(Context &ctx, VmValue *value)
 			// Save previous stack frame, and expand current by shift bytes
 			AddCommand(ctx, data->source, VMCmd(cmdPushVTop, (unsigned short)data->argumentsSize, size));
 		}
+
+		assert(function->firstBlock);
 
 		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
 			Lower(ctx, curr);
