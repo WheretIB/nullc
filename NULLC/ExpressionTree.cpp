@@ -7629,7 +7629,7 @@ void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 		}
 		else
 		{
-			value = allocate(ExprIntegerLiteral)(source, ctx.typeInt, 1);
+			value = allocate(ExprIntegerLiteral)(source, ctx.typeInt, 0);
 		}
 
 		if(!value)
