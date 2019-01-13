@@ -355,9 +355,9 @@ void Lower(Context &ctx, VmValue *value)
 			AddCommand(ctx, inst->source, VMCmd(cmdDtoL));
 			break;
 		case VM_INST_DOUBLE_TO_FLOAT:
-			if(VmConstant *value = getType<VmConstant>(inst->arguments[0]))
+			if(VmConstant *argument = getType<VmConstant>(inst->arguments[0]))
 			{
-				float result = float(value->dValue);
+				float result = float(argument->dValue);
 
 				unsigned target = 0;
 				memcpy(&target, &result, sizeof(float));
@@ -1088,19 +1088,19 @@ void PrintInstructions(Context &ctx, const char *code)
 
 					if (source->pos.end < end)
 					{
-						for (unsigned i = 0; i < startOffset; i++)
+						for (unsigned k = 0; k < startOffset; k++)
 						{
 							fprintf(ctx.file, " ");
 
-							if (start[i] == '\t')
+							if (start[k] == '\t')
 								fprintf(ctx.file, "   ");
 						}
 
-						for (unsigned i = startOffset; i < endOffset; i++)
+						for (unsigned k = startOffset; k < endOffset; k++)
 						{
 							fprintf(ctx.file, "~");
 
-							if (start[i] == '\t')
+							if (start[k] == '\t')
 								fprintf(ctx.file, "~~~");
 						}
 
@@ -1130,7 +1130,7 @@ void PrintInstructions(Context &ctx, const char *code)
 		{
 		case cmdCall:
 			if(FunctionData *function = ctx.ctx.functions[cmd.argument])
-				fprintf(ctx.file, "// %s (%.*s [%.*s]) param size %d\n", buf, FMT_ISTR(function->name), FMT_ISTR(function->type->name), function->argumentsSize);
+				fprintf(ctx.file, "// %s (%.*s [%.*s]) param size %u\n", buf, FMT_ISTR(function->name), FMT_ISTR(function->type->name), (unsigned)function->argumentsSize);
 			break;
 		case cmdFuncAddr:
 			if(FunctionData *function = ctx.ctx.functions[cmd.argument])
