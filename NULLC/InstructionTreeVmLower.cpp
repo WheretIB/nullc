@@ -999,7 +999,9 @@ void Lower(Context &ctx, VmValue *value)
 			}
 			else
 			{
-				AddCommand(ctx, constant->source, VMCmd(cmdGetAddr, IsLocalScope(constant->container->scope), constant->iValue + constant->container->offset));
+				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
+
+				AddCommand(ctx, constant->source, VMCmd(cmdGetAddr, IsLocalScope(constant->container->scope), constant->iValue + constant->container->offset + moduleId));
 			}
 		}
 		else if(constant->type.type == VM_TYPE_STRUCT)
