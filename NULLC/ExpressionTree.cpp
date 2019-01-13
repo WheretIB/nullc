@@ -464,9 +464,6 @@ namespace
 
 	FunctionData* ImplementPrototype(ExpressionContext &ctx, FunctionData *function)
 	{
-		if(function->isPrototype)
-			return NULL;
-
 		SmallArray<FunctionData*, 4> &functions = ctx.scope->functions;
 
 		for(unsigned i = 0, e = functions.count; i < e; i++)
@@ -6342,11 +6339,14 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	// If the type is known, implement the prototype immediately
 	if(functionType->returnType != ctx.typeAuto)
 	{
-		if(FunctionData *prototype = ImplementPrototype(ctx, function))
+		if(FunctionData *functionPrototype = ImplementPrototype(ctx, function))
 		{
-			function->contextType = prototype->contextType;
+			if(prototype)
+				Stop(ctx, source->pos, "ERROR: function is already defined");
 
-			implementedPrototype = prototype;
+			function->contextType = functionPrototype->contextType;
+
+			implementedPrototype = functionPrototype;
 		}
 	}
 
