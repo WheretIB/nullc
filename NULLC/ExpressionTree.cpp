@@ -6352,7 +6352,9 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	CheckFunctionConflict(ctx, source, function->name);
 
-	ctx.AddFunction(function);
+	// Operator overloads can't be called recursively and become available at the end of the definition
+	if(!isOperator)
+		ctx.AddFunction(function);
 
 	if(ctx.IsGenericFunction(function))
 	{
@@ -6370,6 +6372,10 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		function->declaration = allocate(ExprGenericFunctionPrototype)(source, function->type, function);
 
 		function->contextType = ctx.GetReferenceType(ctx.typeVoid);
+
+		// Time to make operator overload visible
+		if(isOperator)
+			ctx.AddFunction(function);
 
 		return function->declaration;
 	}
@@ -6494,6 +6500,10 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		if(!classType->members.empty())
 			Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of parameters", FMT_ISTR(function->name));
 	}
+
+	// Time to make operator overload visible
+	if(isOperator)
+		ctx.AddFunction(function);
 
 	FunctionData *conflict = CheckUniqueness(ctx, function);
 
