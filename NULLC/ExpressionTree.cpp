@@ -9683,6 +9683,20 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 	for(SynBase *expr = syntax->expressions.head; expr; expr = expr->next)
 		expressions.push_back(AnalyzeStatement(ctx, expr));
 
+	for(unsigned i = 0; i < ctx.types.size(); i++)
+	{
+		if(TypeStruct *typeStruct = getType<TypeStruct>(ctx.types[i]))
+		{
+			if(TypeClass *typeClass = getType<TypeClass>(typeStruct))
+			{
+				if(!typeClass->completed)
+					Stop(ctx, syntax->pos, "ERROR: type '%.*s' implementation is not found", FMT_ISTR(typeClass->name));
+			}
+
+			assert(typeStruct->typeScope);
+		}
+	}
+
 	CreateDefaultArgumentFunctionWrappers(ctx);
 
 	ExprModule *module = allocate(ExprModule)(ctx.allocator, syntax, ctx.typeVoid, ctx.globalScope, expressions);
@@ -9758,12 +9772,6 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax)
 		assert(ctx.scope == NULL);
 
 		return module;
-	}
-
-	for(unsigned i = 0; i < ctx.types.size(); i++)
-	{
-		if(TypeStruct *typeStruct = getType<TypeStruct>(ctx.types[i]))
-			assert(typeStruct->typeScope);
 	}
 
 	return NULL;
