@@ -6297,6 +6297,15 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	for(SynIdentifier *curr = aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
 	{
+		if(ctx.typeMap.find(curr->name.hash()))
+			Stop(ctx, curr->pos, "ERROR: there is already a type with the same name");
+
+		for(SynIdentifier *prev = aliases.head; prev && prev != curr; prev = getType<SynIdentifier>(prev->next))
+		{
+			if(prev->name == curr->name)
+				Stop(ctx, curr->pos, "ERROR: there is already an alias with the same name");
+		}
+
 		TypeBase *target = NULL;
 
 		for(MatchData *match = matches.head; match; match = match->next)
