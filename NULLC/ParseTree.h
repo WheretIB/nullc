@@ -111,6 +111,8 @@ struct ParseContext
 	SmallArray<SynNamespaceElement*, 32> namespaceList;
 	SynNamespaceElement *currentNamespace;
 
+	bool errorHandlerActive;
+	jmp_buf errorHandler;
 	const char *errorPos;
 	char *errorBuf;
 	unsigned errorBufSize;

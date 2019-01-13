@@ -13,8 +13,6 @@
 
 namespace
 {
-	jmp_buf errorHandler;
-
 	void Stop(ParseContext &ctx, const char *pos, const char *msg, va_list args)
 	{
 		ctx.errorPos = pos;
@@ -25,7 +23,9 @@ namespace
 			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
 		}
 
-		longjmp(errorHandler, 1);
+		assert(ctx.errorHandlerActive);
+
+		longjmp(ctx.errorHandler, 1);
 	}
 
 	void Stop(ParseContext &ctx, const char *pos, const char *msg, ...)
@@ -241,6 +241,7 @@ ParseContext::ParseContext(Allocator *allocator): allocator(allocator), lexer(al
 	firstLexeme = NULL;
 	currentLexeme = NULL;
 
+	errorHandlerActive = false;
 	errorPos = NULL;
 	errorBuf = NULL;
 	errorBufSize = 0;
@@ -2572,12 +2573,18 @@ SynModule* Parse(ParseContext &ctx, const char *code)
 {
 	ctx.lexer.Lexify(code);
 
-	if(!setjmp(errorHandler))
+	if(!setjmp(ctx.errorHandler))
 	{
+		ctx.errorHandlerActive = true;
+
 		ctx.firstLexeme = ctx.lexer.GetStreamStart();
 		ctx.currentLexeme = ctx.lexer.GetStreamStart();
 
-		return ParseModule(ctx);
+		SynModule *module = ParseModule(ctx);
+
+		ctx.errorHandlerActive = false;
+
+		return module;
 	}
 
 	return NULL;
