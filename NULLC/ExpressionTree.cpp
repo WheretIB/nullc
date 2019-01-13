@@ -9119,7 +9119,7 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 		InplaceStr name = InplaceStr(symbols + variable.offsetToName);
 
 		// Exclude temporary variables from import
-		if(name == InplaceStr("$temp"))
+		if(name.length() >= 5 && InplaceStr(name.begin, name.begin + 5) == InplaceStr("$temp"))
 			continue;
 
 		TypeBase *type = moduleCtx.types[variable.type];
