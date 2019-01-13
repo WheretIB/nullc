@@ -4449,10 +4449,10 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 		// Only match with arrays of the same size
 		if(TypeArray *rhs = getType<TypeArray>(argType))
 		{
-			if(lhs->size == rhs->size)
+			if(lhs->length == rhs->length)
 			{
 				if(TypeBase *match = MatchGenericType(ctx, source, lhs->subType, rhs->subType, aliases, true))
-					return ctx.GetArrayType(match, lhs->size);
+					return ctx.GetArrayType(match, lhs->length);
 
 				return NULL;
 			}
@@ -4580,7 +4580,7 @@ TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, Typ
 		return ctx.GetReferenceType(ResolveGenericTypeAliases(ctx, source, lhs->subType, aliases));
 
 	if(TypeArray *lhs = getType<TypeArray>(type))
-		return ctx.GetArrayType(ResolveGenericTypeAliases(ctx, source, lhs->subType, aliases), lhs->size);
+		return ctx.GetArrayType(ResolveGenericTypeAliases(ctx, source, lhs->subType, aliases), lhs->length);
 
 	if(TypeUnsizedArray *lhs = getType<TypeUnsizedArray>(type))
 		return ctx.GetUnsizedArrayType(ResolveGenericTypeAliases(ctx, source, lhs->subType, aliases));
