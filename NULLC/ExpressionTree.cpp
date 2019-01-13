@@ -20,6 +20,8 @@ namespace
 			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
 		}
 
+		assert(ctx.errorHandlerActive);
+
 		longjmp(ctx.errorHandler, 1);
 	}
 
@@ -634,6 +636,7 @@ ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
 	functionMap.set_allocator(allocator);
 	variableMap.set_allocator(allocator);
 
+	errorHandlerActive = false;
 	errorPos = NULL;
 	errorBuf = NULL;
 	errorBufSize = 0;
@@ -9641,7 +9644,11 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax)
 	// Analyze module
 	if(!setjmp(ctx.errorHandler))
 	{
+		ctx.errorHandlerActive = true;
+
 		ExprModule *module = AnalyzeModule(ctx, syntax);
+
+		ctx.errorHandlerActive = false;
 
 		ctx.PopScope(SCOPE_EXPLICIT);
 

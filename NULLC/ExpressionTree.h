@@ -92,6 +92,7 @@ struct ExpressionContext
 	unsigned instanceDepth;
 
 	// Error info
+	bool errorHandlerActive;
 	jmp_buf errorHandler;
 	const char *errorPos;
 	char *errorBuf;
