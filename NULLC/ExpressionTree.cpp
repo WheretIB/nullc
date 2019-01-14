@@ -8899,6 +8899,38 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				if(parentNamespace)
 					ctx.PushScope(parentNamespace);
 
+				// Find all generics for this type
+				bool isGeneric = false;
+
+				IntrusiveList<TypeHandle> generics;
+				IntrusiveList<MatchData> actualGenerics;
+
+				IntrusiveList<MatchData> aliases;
+
+				for(unsigned k = 0; k < bCode->typedefCount; k++)
+				{
+					ExternTypedefInfo &alias = aliasList[k];
+
+					if(alias.parentType == i)
+					{
+						InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
+
+						TypeBase *targetType = moduleCtx.types[alias.targetType];
+
+						if(!targetType)
+							Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, moduleCtx.data->name);
+
+						isGeneric |= targetType->isGeneric;
+
+						generics.push_back(allocate(TypeHandle)(targetType));
+
+						if(actualGenerics.size() < type.genericTypeCount)
+							actualGenerics.push_back(allocate(MatchData)(aliasName, targetType));
+						else
+							aliases.push_back(allocate(MatchData)(aliasName, targetType));
+					}
+				}
+
 				if(type.definitionOffset != ~0u && type.definitionOffset & 0x80000000)
 				{
 					TypeBase *proto = moduleCtx.types[type.definitionOffset & ~0x80000000];
@@ -8911,33 +8943,11 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					if(!protoClass)
 						Stop(ctx, source->pos, "ERROR: can't find correct proto type for '%s' in module %s", symbols + type.offsetToName, moduleCtx.data->name);
 
-					// Find all generics for this type
-					bool isGeneric = false;
-					IntrusiveList<TypeHandle> generics;
-					IntrusiveList<MatchData> actualGenerics;
-
-					for(unsigned k = 0; k < bCode->typedefCount; k++)
-					{
-						ExternTypedefInfo &alias = aliasList[k];
-
-						if(alias.parentType == i)
-						{
-							InplaceStr aliasName = InplaceStr(symbols + alias.offsetToName);
-
-							TypeBase *targetType = moduleCtx.types[alias.targetType];
-
-							if(!targetType)
-								Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, moduleCtx.data->name);
-
-							isGeneric |= targetType->isGeneric;
-							generics.push_back(allocate(TypeHandle)(targetType));
-							actualGenerics.push_back(allocate(MatchData)(aliasName, targetType));
-						}
-					}
-
 					if(isGeneric)
 					{
 						importedType = allocate(TypeGenericClass)(className, protoClass, generics);
+
+						// TODO: assert that alias list is empty and that correct number of generics was exported
 					}
 					else
 					{
@@ -8948,6 +8958,10 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						importedType = classType;
 
 						ctx.AddType(importedType);
+
+						classType->aliases = aliases;
+
+						assert(type.genericTypeCount == generics.size());
 
 						if(!generics.empty())
 							ctx.genericTypeMap.insert(className.hash(), classType);
@@ -8975,6 +8989,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					importedType = allocate(TypeGenericClassProto)(source, ctx.scope, className, definition);
 
 					ctx.AddType(importedType);
+
+					// TODO: check that type doesn't have generics or aliases
 				}
 				else if(type.type != ExternTypeInfo::TYPE_COMPLEX)
 				{
@@ -8983,6 +8999,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					importedType = enumType;
 
 					ctx.AddType(importedType);
+
+					assert(generics.empty() && aliases.empty());
 				}
 				else
 				{
@@ -8994,6 +9012,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					importedType = classType;
 
 					ctx.AddType(importedType);
+
+					classType->aliases = aliases;
 				}
 
 				moduleCtx.types[i] = importedType;
@@ -9169,19 +9189,7 @@ void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext
 		}
 		else if(alias.parentType != ~0u)
 		{
-			TypeBase *parentType = moduleCtx.types[alias.parentType];
-
-			if(!parentType)
-				Stop(ctx, source->pos, "ERROR: can't find alias '%s' parent type", symbols + alias.offsetToName);
-
-			if(TypeClass *type = getType<TypeClass>(parentType))
-			{
-				type->aliases.push_back(allocate(MatchData)(aliasName, targetType));
-			}
-			else if(!isType<TypeGenericClass>(parentType) && !isType<TypeGenericClassProto>(parentType))
-			{
-				Stop(ctx, source->pos, "ERROR: can't import class alias");
-			}
+			// Type alises were imported during type import
 		}
 		else
 		{
