@@ -2166,7 +2166,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		VmValue *value = NULL;
 
-		if(classType->members.empty())
+		if(classType->size == 0)
 		{
 			value = CreateConstantPointer(module->allocator, node->source, 0, NULL, node->type, false);
 		}
