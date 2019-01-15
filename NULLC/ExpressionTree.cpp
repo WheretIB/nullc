@@ -2225,7 +2225,13 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 	else
 		resultType = lhs->type;
 
-	return allocate(ExprBinaryOp)(source, resultType, op, lhs, rhs);
+	ExprBase *result = allocate(ExprBinaryOp)(source, resultType, op, lhs, rhs);
+
+	// Arithmetic operation on bool results in an int
+	if(lhs->type == ctx.typeBool && !binaryOp && !comparisonOp && !logicalOp)
+		return CreateCast(ctx, source, result, ctx.typeInt, false);
+
+	return result;
 }
 
 // Apply in reverse order
