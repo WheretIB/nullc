@@ -688,6 +688,18 @@ struct TypeGeneric: TypeBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct TypeGenericAlias: TypeBase
+{
+	TypeGenericAlias(InplaceStr name, InplaceStr baseName): TypeBase(myTypeID, name), baseName(baseName)
+	{
+		isGeneric = true;
+	}
+
+	InplaceStr baseName;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct TypeAuto: TypeBase
 {
 	TypeAuto(InplaceStr name): TypeBase(myTypeID, name)
@@ -945,6 +957,7 @@ InplaceStr GetGenericClassTypeName(ExpressionContext &ctx, TypeBase* proto, Intr
 InplaceStr GetFunctionSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHandle> types);
 InplaceStr GetArgumentSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHandle> types);
 InplaceStr GetMemberSetTypeName(ExpressionContext &ctx, TypeBase* type);
+InplaceStr GetGenericAliasTypeName(ExpressionContext &ctx, InplaceStr name);
 
 InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functionName, unsigned index);
 InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *function);

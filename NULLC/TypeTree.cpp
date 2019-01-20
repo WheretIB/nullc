@@ -184,6 +184,16 @@ InplaceStr GetMemberSetTypeName(ExpressionContext &ctx, TypeBase* type)
 	return InplaceStr(name);
 }
 
+
+InplaceStr GetGenericAliasTypeName(ExpressionContext &ctx, InplaceStr baseName)
+{
+	unsigned nameLength = baseName.length() + 1;
+	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
+	sprintf(name, "@%.*s", FMT_ISTR(baseName));
+
+	return InplaceStr(name);
+}
+
 InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functionName, unsigned index)
 {
 	unsigned nameLength = functionName.length() + 32;

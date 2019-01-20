@@ -60,6 +60,8 @@ struct ExpressionContext
 	TypeUnsizedArray* GetUnsizedArrayType(TypeBase* type);
 	TypeFunction* GetFunctionType(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
 	TypeFunction* GetFunctionType(TypeBase* returnType, SmallArray<ArgumentData, 32> &arguments);
+	TypeGenericAlias* GetGenericAliasType(InplaceStr baseName);
+	TypeGenericClass* GetGenericClassType(TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 
 	// Full state info
 	SmallArray<ModuleData*, 128> dependencies;
@@ -75,6 +77,8 @@ struct ExpressionContext
 	SmallArray<VariableData*, 128> upvalues;
 
 	SmallArray<TypeFunction*, 128> functionTypes;
+	SmallArray<TypeGenericAlias*, 128> genericAliasTypes;
+	SmallArray<TypeGenericClass*, 128> genericClassTypes;
 
 	HashMap<TypeClass*> genericTypeMap;
 
@@ -114,6 +118,8 @@ struct ExpressionContext
 	TypeBase* typeTypeID;
 	TypeBase* typeFunctionID;
 	TypeBase* typeNullPtr;
+
+	TypeBase* typeGeneric;
 
 	TypeBase* typeAuto;
 	TypeStruct* typeAutoRef;

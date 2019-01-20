@@ -630,6 +630,8 @@ ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
 	vtables.set_allocator(allocator);
 	upvalues.set_allocator(allocator);
 	functionTypes.set_allocator(allocator);
+	genericAliasTypes.set_allocator(allocator);
+	genericClassTypes.set_allocator(allocator);
 
 	genericTypeMap.set_allocator(allocator);
 	typeMap.set_allocator(allocator);
@@ -1032,9 +1034,6 @@ void ExpressionContext::AddType(TypeBase *type)
 {
 	scope->types.push_back(type);
 
-	if(!isType<TypeGenericClassProto>(type))
-		assert(!type->isGeneric);
-
 	types.push_back(type);
 	typeMap.insert(type->nameHash, type);
 }
@@ -1215,13 +1214,10 @@ TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
 	// Create new type
 	TypeRef* result = allocate_(TypeRef)(GetReferenceTypeName(*this, type), type);
 
-	if(!type->isGeneric)
-	{
-		// Save it for future use
-		type->refType = result;
+	// Save it for future use
+	type->refType = result;
 
-		types.push_back(result);
-	}
+	types.push_back(result);
 
 	return result;
 }
@@ -1262,13 +1258,10 @@ TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 		result->size += result->padding;
 	}
 
-	if(!type->isGeneric)
-	{
-		// Save it for future use
-		type->arrayTypes.push_back(allocate_(TypeHandle)(result));
+	// Save it for future use
+	type->arrayTypes.push_back(allocate_(TypeHandle)(result));
 
-		types.push_back(result);
-	}
+	types.push_back(result);
 
 	return result;
 }
@@ -1302,13 +1295,10 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 
 	PopScope(SCOPE_TYPE);
 
-	if(!type->isGeneric)
-	{
-		// Save it for future use
-		type->unsizedArrayType = result;
+	// Save it for future use
+	type->unsizedArrayType = result;
 
-		types.push_back(result);
-	}
+	types.push_back(result);
 
 	return result;
 }
@@ -1354,11 +1344,8 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 
 	result->alignment = 4;
 
-	if(!result->isGeneric)
-	{
-		functionTypes.push_back(result);
-		types.push_back(result);
-	}
+	functionTypes.push_back(result);
+	types.push_back(result);
 
 	return result;
 }
@@ -1371,6 +1358,60 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, SmallArra
 		types.push_back(allocate_(TypeHandle)(arguments[i].type));
 
 	return GetFunctionType(returnType, types);
+}
+
+TypeGenericAlias* ExpressionContext::GetGenericAliasType(InplaceStr baseName)
+{
+	for(unsigned i = 0, e = genericAliasTypes.count; i < e; i++)
+	{
+		if(TypeGenericAlias *type = genericAliasTypes.data[i])
+		{
+			if(type->baseName == baseName)
+				return type;
+		}
+	}
+
+	// Create new type
+	TypeGenericAlias* result = allocate_(TypeGenericAlias)(GetGenericAliasTypeName(*this, baseName), baseName);
+
+	genericAliasTypes.push_back(result);
+	types.push_back(result);
+
+	return result;
+}
+
+TypeGenericClass* ExpressionContext::GetGenericClassType(TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics)
+{
+	for(unsigned i = 0, e = genericClassTypes.count; i < e; i++)
+	{
+		if(TypeGenericClass *type = genericClassTypes.data[i])
+		{
+			if(type->proto != proto)
+				continue;
+
+			TypeHandle *leftArg = type->generics.head;
+			TypeHandle *rightArg = generics.head;
+
+			while(leftArg && rightArg && leftArg->type == rightArg->type)
+			{
+				leftArg = leftArg->next;
+				rightArg = rightArg->next;
+			}
+
+			if(leftArg != rightArg)
+				continue;
+
+			return type;
+		}
+	}
+
+	// Create new type
+	TypeGenericClass *result = allocate_(TypeGenericClass)(GetGenericClassTypeName(*this, proto, generics), proto, generics);
+
+	genericClassTypes.push_back(result);
+	types.push_back(result);
+
+	return result;
 }
 
 ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax);
@@ -1433,7 +1474,7 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, SmallArray<FunctionValue, 32> &functions, IntrusiveList<TypeHandle> generics, SmallArray<ArgumentData, 32> &arguments, bool allowFailure);
 
 bool RestoreParentTypeScope(ExpressionContext &ctx, SynBase *source, TypeBase *parentType);
-ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, InplaceStr(name), IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches);
+ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, InplaceStr name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches);
 
 FunctionValue GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBase *value, TypeFunction *type)
 {
@@ -2322,14 +2363,12 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 	if(SynTypeGeneric *node = getType<SynTypeGeneric>(syntax))
 	{
-		return allocate(TypeGeneric)(InplaceStr("generic"));
+		return ctx.typeGeneric;
 	}
 
 	if(SynTypeAlias *node = getType<SynTypeAlias>(syntax))
 	{
-		TypeGeneric *type = allocate(TypeGeneric)(node->name);
-
-		return type;
+		return ctx.GetGenericAliasType(node->name);
 	}
 
 	if(SynTypeReference *node = getType<SynTypeReference>(syntax))
@@ -2495,7 +2534,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			if(failed)
 			{
 				*failed = true;
-				return allocate(TypeGeneric)(InplaceStr("generic"));
+				return ctx.typeGeneric;
 			}
 
 			longjmp(ctx.errorHandler, 1);
@@ -2539,7 +2578,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			return NULL;
 
 		if(isType<TypeGeneric>(value))
-			return allocate(TypeGeneric)(InplaceStr("generic"));
+			return ctx.typeGeneric;
 
 		ExprBase *result = CreateTypeidMemberAccess(ctx, syntax, value, node->member);
 
@@ -2589,10 +2628,8 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 				types.push_back(allocate(TypeHandle)(type));
 			}
 
-			InplaceStr className = GetGenericClassTypeName(ctx, proto, types);
-
 			if(isGeneric)
-				return allocate(TypeGenericClass)(className, proto, types);
+				return ctx.GetGenericClassType(proto, types);
 			
 			return CreateGenericTypeInstance(ctx, syntax, proto, types);
 		}
@@ -3524,12 +3561,16 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 
 		FunctionHandle *prev = NULL;
 
-		for(FunctionHandle *curr = functions.head; curr; curr = curr->next)
+		// Pointer to generic types don't stricly match because they might be resolved to different types
+		if (!function->type->isGeneric)
 		{
-			if(curr->function->type == function->type)
+			for(FunctionHandle *curr = functions.head; curr; curr = curr->next)
 			{
-				prev = curr;
-				break;
+				if(curr->function->type == function->type)
+				{
+					prev = curr;
+					break;
+				}
 			}
 		}
 
@@ -4410,12 +4451,21 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 				argType = ctx.GetUnsizedArrayType(rhs->subType);
 		}
 
-		if(lhs->name == InplaceStr("generic"))
-			return argType;
+		return argType;
+	}
+
+	if(TypeGenericAlias *lhs = getType<TypeGenericAlias>(matchType))
+	{
+		if(!strict)
+		{
+			// 'generic' match with 'type[N]' results with 'type[]'
+			if(TypeArray *rhs = getType<TypeArray>(argType))
+				argType = ctx.GetUnsizedArrayType(rhs->subType);
+		}
 
 		for(MatchData *curr = aliases.head; curr; curr = curr->next)
 		{
-			if(curr->name == lhs->name)
+			if(curr->name == lhs->baseName)
 			{
 				if(strict)
 				{
@@ -4427,7 +4477,7 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 			}
 		}
 
-		aliases.push_back(allocate(MatchData)(lhs->name, argType));
+		aliases.push_back(allocate(MatchData)(lhs->baseName, argType));
 
 		return argType;
 	}
@@ -4572,17 +4622,18 @@ TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, Typ
 
 	// Replace with alias type if there is a match, otherwise leave as generic
 	if(TypeGeneric *lhs = getType<TypeGeneric>(type))
-	{
-		if(lhs->name == InplaceStr("generic"))
-			return type;
+		return type;
 
+	// Replace with alias type if there is a match, otherwise leave as generic
+	if(TypeGenericAlias *lhs = getType<TypeGenericAlias>(type))
+	{
 		for(MatchData *curr = aliases.head; curr; curr = curr->next)
 		{
-			if(curr->name == lhs->name)
+			if(curr->name == lhs->baseName)
 				return curr->type;
 		}
 
-		return type;
+		return ctx.typeGeneric;
 	}
 
 	if(TypeRef *lhs = getType<TypeRef>(type))
@@ -4624,8 +4675,8 @@ TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, Typ
 		}
 
 		if(isGeneric)
-			return allocate(TypeGenericClass)(GetGenericClassTypeName(ctx, lhs->proto, types), lhs->proto, types);
-			
+			return ctx.GetGenericClassType(lhs->proto, types);
+
 		return CreateGenericTypeInstance(ctx, source, lhs->proto, types);
 	}
 
@@ -6236,7 +6287,7 @@ bool RestoreParentTypeScope(ExpressionContext &ctx, SynBase *source, TypeBase *p
 			SynClassDefinition *definition = genericProto->definition;
 
 			for(SynIdentifier *curr = definition->aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
-				ctx.AddAlias(allocate(AliasData)(source, ctx.scope, allocate(TypeGeneric)(curr->name), curr->name, ctx.uniqueAliasId++));
+				ctx.AddAlias(allocate(AliasData)(source, ctx.scope, ctx.GetGenericAliasType(curr->name), curr->name, ctx.uniqueAliasId++));
 		}
 
 		return true;
@@ -6327,7 +6378,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		}
 
 		if(!target)
-			target = allocate(TypeGeneric)(curr->name);
+			target = ctx.GetGenericAliasType(curr->name);
 
 		generics.push_back(allocate(MatchData)(curr->name, target));
 	}
@@ -6448,9 +6499,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	CheckFunctionConflict(ctx, source, function->name);
 
-	// Operator overloads can't be called recursively and become available at the end of the definition
-	if(!isOperator)
-		ctx.AddFunction(function);
+	ctx.AddFunction(function);
 
 	if(ctx.IsGenericFunction(function))
 	{
@@ -6469,12 +6518,12 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 		function->contextType = ctx.GetReferenceType(ctx.typeVoid);
 
-		// Time to make operator overload visible
-		if(isOperator)
-			ctx.AddFunction(function);
-
 		return function->declaration;
 	}
+
+	// Operator overloads can't be called recursively and become available at the end of the definition
+	if (isOperator)
+		ctx.functionMap.remove(function->nameHash, function);
 
 	ctx.PushScope(function);
 
@@ -6600,7 +6649,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	// Time to make operator overload visible
 	if(isOperator)
-		ctx.AddFunction(function);
+		ctx.functionMap.insert(function->nameHash, function);
 
 	FunctionData *conflict = CheckUniqueness(ctx, function);
 
@@ -8822,8 +8871,15 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 		case ExternTypeInfo::CAT_NONE:
 			if(strcmp(symbols + type.offsetToName, "generic") == 0)
 			{
-				// TODO: after generic type clean-up we should have this type as a real one
-				moduleCtx.types[i] = allocate(TypeGeneric)(InplaceStr("generic"));
+				// TODO: explicit category
+				moduleCtx.types[i] = ctx.typeGeneric;
+
+				moduleCtx.types[i]->importModule = moduleCtx.data;
+			}
+			else if(*(symbols + type.offsetToName) == '@')
+			{
+				// TODO: explicit category
+				moduleCtx.types[i] = ctx.GetGenericAliasType(InplaceStr(symbols + type.offsetToName + 1));
 
 				moduleCtx.types[i]->importModule = moduleCtx.data;
 			}
@@ -8954,6 +9010,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						importedType = allocate(TypeGenericClass)(className, protoClass, generics);
 
 						// TODO: assert that alias list is empty and that correct number of generics was exported
+						// TODO: add to genericClassTypes array
 					}
 					else
 					{
@@ -9302,14 +9359,19 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		// Import function explicit type list
 		IntrusiveList<MatchData> generics;
 
+		bool hasGenericExplicitType = false;
+
 		for(unsigned k = 0; k < function.explicitTypeCount; k++)
 		{
 			InplaceStr name = InplaceStr(symbols + vInfo[k].offsetToName);
 
-			TypeBase *type = vInfo[k].type == ~0u ? allocate(TypeGeneric)(InplaceStr("generic")) : moduleCtx.types[vInfo[k].type];
+			TypeBase *type = vInfo[k].type == ~0u ? ctx.typeGeneric : moduleCtx.types[vInfo[k].type];
 
 			if(!type)
 				Stop(ctx, source->pos, "ERROR: can't find function '%s' explicit type '%d' in module %s", symbols + function.offsetToName, k, moduleCtx.data->name);
+
+			if(type->isGeneric)
+				hasGenericExplicitType = true;
 
 			generics.push_back(allocate(MatchData)(name, type));
 		}
@@ -9350,7 +9412,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 			bool isExplicit = (argument.paramFlags & ExternLocalInfo::IS_EXPLICIT) != 0;
 
-			TypeBase *argType = argument.type == ~0u ? allocate(TypeGeneric)(InplaceStr("generic")) : moduleCtx.types[argument.type];
+			TypeBase *argType = argument.type == ~0u ? ctx.typeGeneric : moduleCtx.types[argument.type];
 
 			if(!argType)
 				Stop(ctx, source->pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + function.offsetToName, moduleCtx.data->name);
@@ -9386,7 +9448,8 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		data->argumentsSize = data->functionScope->dataSize;
 
-		if(function.funcType == 0)
+		// TODO: explicit flag
+		if(function.funcType == 0 || functionType->isGeneric || hasGenericExplicitType || (parentType && parentType->isGeneric))
 		{
 			if(function.genericModuleIndex != 0)
 				data->importModule = ctx.dependencies[moduleCtx.data->startingDependencyIndex + function.genericModuleIndex - 1];
@@ -9419,7 +9482,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			{
 				ExternLocalInfo &argument = localList[function.offsetToFirstLocal + n];
 
-				argTypes.push_back(allocate(TypeHandle)(argument.type == ~0u ? allocate(TypeGeneric)(InplaceStr("generic")) : moduleCtx.types[argument.type]));
+				argTypes.push_back(allocate(TypeHandle)(argument.type == ~0u ? ctx.typeGeneric : moduleCtx.types[argument.type]));
 			}
 
 			data->type = ctx.GetFunctionType(returnType, argTypes);
@@ -9755,6 +9818,8 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax)
 	ctx.AddType(ctx.typeTypeID = allocate(TypeTypeID)(InplaceStr("typeid")));
 	ctx.AddType(ctx.typeFunctionID = allocate(TypeFunctionID)(InplaceStr("__function")));
 	ctx.AddType(ctx.typeNullPtr = allocate(TypeFunctionID)(InplaceStr("__nullptr")));
+
+	ctx.AddType(ctx.typeGeneric = allocate(TypeGeneric)(InplaceStr("generic")));
 
 	ctx.AddType(ctx.typeAuto = allocate(TypeAuto)(InplaceStr("auto")));
 
