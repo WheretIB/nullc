@@ -1043,7 +1043,10 @@ void ExpressionContext::AddFunction(FunctionData *function)
 	scope->functions.push_back(function);
 
 	functions.push_back(function);
-	functionMap.insert(function->nameHash, function);
+
+	// Don't add internal functions to named lookup
+	if(*function->name.begin != '$')
+		functionMap.insert(function->nameHash, function);
 
 	while(VariableData **variable = variableMap.find(function->nameHash))
 	{
@@ -1107,7 +1110,9 @@ unsigned ExpressionContext::GetFunctionIndex(FunctionData *data)
 
 void ExpressionContext::HideFunction(FunctionData *function)
 {
-	functionMap.remove(function->nameHash, function);
+	// Don't have to remove internal functions since they are never added to lookup
+	if(*function->name.begin != '$')
+		functionMap.remove(function->nameHash, function);
 
 	SmallArray<FunctionData*, 4> &functions = function->scope->functions;
 
