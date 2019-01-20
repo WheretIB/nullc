@@ -8871,6 +8871,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			continue;
 		}
 
+		InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
+
 		switch(type.subCat)
 		{
 		case ExternTypeInfo::CAT_NONE:
@@ -8880,6 +8882,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				moduleCtx.types[i] = ctx.typeGeneric;
 
 				moduleCtx.types[i]->importModule = moduleCtx.data;
+
+				assert(moduleCtx.types[i]->name == typeName);
 			}
 			else if(*(symbols + type.offsetToName) == '@')
 			{
@@ -8887,6 +8891,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				moduleCtx.types[i] = ctx.GetGenericAliasType(InplaceStr(symbols + type.offsetToName + 1));
 
 				moduleCtx.types[i]->importModule = moduleCtx.data;
+
+				assert(moduleCtx.types[i]->name == typeName);
 			}
 			else
 			{
@@ -8902,6 +8908,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					moduleCtx.types[i] = ctx.GetArrayType(subType, type.arrSize);
 
 				moduleCtx.types[i]->importModule = moduleCtx.data;
+
+				assert(moduleCtx.types[i]->name == typeName);
 			}
 			else
 			{
@@ -8914,6 +8922,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				moduleCtx.types[i] = ctx.GetReferenceType(subType);
 
 				moduleCtx.types[i]->importModule = moduleCtx.data;
+
+				assert(moduleCtx.types[i]->name == typeName);
 			}
 			else
 			{
@@ -8938,6 +8948,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				moduleCtx.types[i] = ctx.GetFunctionType(returnType, arguments);
 
 				moduleCtx.types[i]->importModule = moduleCtx.data;
+
+				assert(moduleCtx.types[i]->name == typeName);
 			}
 			else
 			{
@@ -8946,8 +8958,6 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			break;
 		case ExternTypeInfo::CAT_CLASS:
 			{
-				InplaceStr className = InplaceStr(symbols + type.offsetToName);
-
 				TypeBase *importedType = NULL;
 
 				ModuleData *importModule = moduleCtx.data;
@@ -9012,14 +9022,13 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 					if(isGeneric)
 					{
-						importedType = allocate(TypeGenericClass)(className, protoClass, generics);
+						importedType = ctx.GetGenericClassType(protoClass, generics);
 
 						// TODO: assert that alias list is empty and that correct number of generics was exported
-						// TODO: add to genericClassTypes array
 					}
 					else
 					{
-						TypeClass *classType = allocate(TypeClass)(className, source, ctx.scope, protoClass, actualGenerics, false, NULL);
+						TypeClass *classType = allocate(TypeClass)(typeName, source, ctx.scope, protoClass, actualGenerics, false, NULL);
 
 						classType->completed = true;
 
@@ -9032,7 +9041,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						assert(type.genericTypeCount == generics.size());
 
 						if(!generics.empty())
-							ctx.genericTypeMap.insert(className.hash(), classType);
+							ctx.genericTypeMap.insert(typeName.hash(), classType);
 					}
 				}
 				else if(type.definitionOffsetStart != ~0u)
@@ -9054,7 +9063,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 					definition->imported = true;
 
-					importedType = allocate(TypeGenericClassProto)(source, ctx.scope, className, definition);
+					importedType = allocate(TypeGenericClassProto)(source, ctx.scope, typeName, definition);
 
 					ctx.AddType(importedType);
 
@@ -9062,7 +9071,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				}
 				else if(type.type != ExternTypeInfo::TYPE_COMPLEX)
 				{
-					TypeEnum *enumType = allocate(TypeEnum)(className, source, ctx.scope);
+					TypeEnum *enumType = allocate(TypeEnum)(typeName, source, ctx.scope);
 
 					importedType = enumType;
 
@@ -9074,7 +9083,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				{
 					IntrusiveList<MatchData> actualGenerics;
 
-					TypeClass *classType = allocate(TypeClass)(className, source, ctx.scope, NULL, actualGenerics, false, NULL);
+					TypeClass *classType = allocate(TypeClass)(typeName, source, ctx.scope, NULL, actualGenerics, false, NULL);
 					classType->completed = true;
 
 					importedType = classType;
@@ -9087,6 +9096,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				moduleCtx.types[i] = importedType;
 
 				moduleCtx.types[i]->importModule = importModule;
+
+				assert(moduleCtx.types[i]->name == typeName);
 
 				importedType->alignment = type.defaultAlign;
 				importedType->size = type.size;
