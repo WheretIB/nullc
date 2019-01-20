@@ -3736,53 +3736,70 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 
 		if(IsLoad(curr))
 		{
-			// Check that going forward from this load to the users, memory location is not invalidated by any stores or aliasing operations
-			ClearLoadStoreInfo(module);
+			bool usedFromOtherBlock = false;
 
-			AddLoadInfo(module, curr);
-
-			unsigned checkedUsers = 0;
-
-			for(VmInstruction *inst = curr->nextSibling; inst; inst = inst->nextSibling)
+			for(unsigned i = 0; i < curr->users.size(); i++)
 			{
-				for(unsigned i = 0; i < curr->users.size(); i++)
+				if(VmInstruction *inst = getType<VmInstruction>(curr->users[i]))
 				{
-					if(curr->users[i] == inst)
-						checkedUsers++;
-				}
-
-				// Found all users, stop checking
-				if(checkedUsers == curr->users.size())
-					break;
-
-				switch(inst->cmd)
-				{
-				case VM_INST_STORE_BYTE:
-				case VM_INST_STORE_SHORT:
-				case VM_INST_STORE_INT:
-				case VM_INST_STORE_FLOAT:
-				case VM_INST_STORE_DOUBLE:
-				case VM_INST_STORE_LONG:
-				case VM_INST_STORE_STRUCT:
-					AddStoreInfo(module, inst);
-					break;
-				case VM_INST_SET_RANGE:
-				case VM_INST_YIELD:
-				case VM_INST_CLOSE_UPVALUES:
-					ClearLoadStoreInfoAliasing(module);
-					break;
-				case VM_INST_CALL:
-					ClearLoadStoreInfoAliasing(module);
-					ClearLoadStoreInfoGlobal(module);
-					break;
+					if(inst->parent != curr->parent)
+					{
+						usedFromOtherBlock = true;
+						break;
+					}
 				}
 			}
 
-			assert(checkedUsers == curr->users.size());
+			if(!usedFromOtherBlock)
+			{
+				// Check that going forward from this load to the users, memory location is not invalidated by any stores or aliasing operations
+				ClearLoadStoreInfo(module);
 
-			// If load is still valid at the last user location, we can safely perform it at each use place
-			if (!module->loadStoreInfo.empty() && module->loadStoreInfo[0].loadInst == curr)
-				continue;
+				AddLoadInfo(module, curr);
+
+				unsigned checkedUsers = 0;
+
+				for(VmInstruction *inst = curr->nextSibling; inst; inst = inst->nextSibling)
+				{
+					for(unsigned i = 0; i < curr->users.size(); i++)
+					{
+						if(curr->users[i] == inst)
+							checkedUsers++;
+					}
+
+					// Found all users, stop checking
+					if(checkedUsers == curr->users.size())
+						break;
+
+					switch(inst->cmd)
+					{
+					case VM_INST_STORE_BYTE:
+					case VM_INST_STORE_SHORT:
+					case VM_INST_STORE_INT:
+					case VM_INST_STORE_FLOAT:
+					case VM_INST_STORE_DOUBLE:
+					case VM_INST_STORE_LONG:
+					case VM_INST_STORE_STRUCT:
+						AddStoreInfo(module, inst);
+						break;
+					case VM_INST_SET_RANGE:
+					case VM_INST_YIELD:
+					case VM_INST_CLOSE_UPVALUES:
+						ClearLoadStoreInfoAliasing(module);
+						break;
+					case VM_INST_CALL:
+						ClearLoadStoreInfoAliasing(module);
+						ClearLoadStoreInfoGlobal(module);
+						break;
+					}
+				}
+
+				assert(checkedUsers == curr->users.size());
+
+				// If load is still valid at the last user location, we can safely perform it at each use place
+				if (!module->loadStoreInfo.empty() && module->loadStoreInfo[0].loadInst == curr)
+					continue;
+			}
 		}
 
 		TypeBase *type = GetBaseType(ctx, curr->type);
@@ -3802,6 +3819,10 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 		CreateStore(ctx, module, curr->source, type, address, curr);
 
 		block->insertPoint = block->lastInstruction;
+
+		// Skip generated load and store instructions
+		curr = curr->nextSibling;
+		curr = curr->nextSibling;
 	}
 
 	module->currentBlock = NULL;
