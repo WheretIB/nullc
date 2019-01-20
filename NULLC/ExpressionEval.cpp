@@ -1569,14 +1569,17 @@ ExprBase* EvaluateVariableDefinition(Eval &ctx, ExprVariableDefinition *expressi
 
 	Eval::StackFrame *frame = ctx.stackFrames.back();
 
-	TypeBase *type = expression->variable->type;
+	if(FindVariableStorage(ctx, expression->variable) == NULL)
+	{
+		TypeBase *type = expression->variable->type;
 
-	ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, type);
+		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, type);
 
-	if(!storage)
-		return NULL;
+		if(!storage)
+			return NULL;
 
-	frame->variables.push_back(Eval::StackVariable(expression->variable, storage));
+		frame->variables.push_back(Eval::StackVariable(expression->variable, storage));
+	}
 
 	if(!frame->targetYield)
 	{
