@@ -101,6 +101,8 @@ struct ParseContext
 	SynNamespaceElement* PushNamespace(InplaceStr name);
 	void PopNamespace();
 
+	char* (*bytecodeBuilder)(InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize);
+
 	Lexer lexer;
 
 	Lexeme *firstLexeme;

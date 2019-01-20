@@ -2462,7 +2462,19 @@ const char* GetBytecodeFromPath(ParseContext &ctx, const char *start, IntrusiveL
 	}
 
 	if(!bytecode)
-		Stop(ctx, start, "ERROR: module import is not implemented");
+	{
+		if(!ctx.bytecodeBuilder)
+			Stop(ctx, start, "ERROR: import builder is not provided");
+
+		bytecode = ctx.bytecodeBuilder(path, pathNoImport, &ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
+
+		if(!bytecode)
+		{
+			assert(ctx.errorHandlerActive);
+
+			longjmp(ctx.errorHandler, 1);
+		}
+	}
 
 	return bytecode;
 }
