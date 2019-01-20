@@ -3536,6 +3536,15 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 			return allocate(ExprTypeLiteral)(source, ctx.typeTypeID, allocate(TypeMemberSet)(GetMemberSetTypeName(ctx, structType), structType));
 	}
 
+	if(TypeGenericClass *typeGenericClass = getType<TypeGenericClass>(type))
+	{
+		for(SynIdentifier *curr = typeGenericClass->proto->definition->aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
+		{
+			if(curr->name == member)
+				return allocate(ExprTypeLiteral)(source, ctx.typeTypeID, ctx.typeGeneric);
+		}
+	}
+
 	return NULL;
 }
 
