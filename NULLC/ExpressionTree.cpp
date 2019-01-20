@@ -8885,7 +8885,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			}
 			else
 			{
-				Stop(ctx, source->pos, "ERROR: new type in module %s named %s unsupported", moduleCtx.data->name, symbols + type.offsetToName);
+				Stop(ctx, source->pos, "ERROR: new type in module %.*s named %s unsupported", FMT_ISTR(moduleCtx.data->name), symbols + type.offsetToName);
 			}
 			break;
 		case ExternTypeInfo::CAT_ARRAY:
@@ -8900,7 +8900,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			}
 			else
 			{
-				Stop(ctx, source->pos, "ERROR: can't find sub type for '%s' in module %s", symbols + type.offsetToName, moduleCtx.data->name);
+				Stop(ctx, source->pos, "ERROR: can't find sub type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
 			}
 			break;
 		case ExternTypeInfo::CAT_POINTER:
@@ -8912,7 +8912,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			}
 			else
 			{
-				Stop(ctx, source->pos, "ERROR: can't find sub type for '%s' in module %s", symbols + type.offsetToName, moduleCtx.data->name);
+				Stop(ctx, source->pos, "ERROR: can't find sub type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
 			}
 			break;
 		case ExternTypeInfo::CAT_FUNCTION:
@@ -8925,7 +8925,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					TypeBase *argType = moduleCtx.types[memberList[type.memberOffset + n + 1].type];
 
 					if(!argType)
-						Stop(ctx, source->pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, moduleCtx.data->name);
+						Stop(ctx, source->pos, "ERROR: can't find argument %d type for '%s' in module %.*s", n + 1, symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
 					arguments.push_back(allocate(TypeHandle)(argType));
 				}
@@ -8936,7 +8936,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			}
 			else
 			{
-				Stop(ctx, source->pos, "ERROR: can't find return type for '%s' in module %s", symbols + type.offsetToName, moduleCtx.data->name);
+				Stop(ctx, source->pos, "ERROR: can't find return type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
 			}
 			break;
 		case ExternTypeInfo::CAT_CLASS:
@@ -8980,7 +8980,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						TypeBase *targetType = moduleCtx.types[alias.targetType];
 
 						if(!targetType)
-							Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, moduleCtx.data->name);
+							Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %.*s", symbols + alias.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
 						isGeneric |= targetType->isGeneric;
 
@@ -8998,12 +8998,12 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					TypeBase *proto = moduleCtx.types[type.definitionOffset & ~0x80000000];
 
 					if(!proto)
-						Stop(ctx, source->pos, "ERROR: can't find proto type for '%s' in module %s", symbols + type.offsetToName, moduleCtx.data->name);
+						Stop(ctx, source->pos, "ERROR: can't find proto type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
 					TypeGenericClassProto *protoClass = getType<TypeGenericClassProto>(proto);
 
 					if(!protoClass)
-						Stop(ctx, source->pos, "ERROR: can't find correct proto type for '%s' in module %s", symbols + type.offsetToName, moduleCtx.data->name);
+						Stop(ctx, source->pos, "ERROR: can't find correct proto type for '%s' in module %.*s", symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
 					if(isGeneric)
 					{
@@ -9101,7 +9101,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			}
 			break;
 		default:
-			Stop(ctx, source->pos, "ERROR: new type in module %s named %s unsupported", moduleCtx.data->name, symbols + type.offsetToName);
+			Stop(ctx, source->pos, "ERROR: new type in module %.*s named %s unsupported", FMT_ISTR(moduleCtx.data->name), symbols + type.offsetToName);
 		}
 	}
 
@@ -9135,7 +9135,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						TypeBase *memberType = moduleCtx.types[memberList[type.memberOffset + n].type];
 
 						if(!memberType)
-							Stop(ctx, source->pos, "ERROR: can't find member %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, moduleCtx.data->name);
+							Stop(ctx, source->pos, "ERROR: can't find member %d type for '%s' in module %.*s", n + 1, symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
 						VariableData *member = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, memberType, memberName, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
 
@@ -9152,7 +9152,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						TypeBase *constantType = moduleCtx.types[constantInfo->type];
 
 						if(!constantType)
-							Stop(ctx, source->pos, "ERROR: can't find constant %d type for '%s' in module %s", n + 1, symbols + type.offsetToName, moduleCtx.data->name);
+							Stop(ctx, source->pos, "ERROR: can't find constant %d type for '%s' in module %.*s", n + 1, symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
 						ExprBase *value = NULL;
 
@@ -9208,7 +9208,7 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 		TypeBase *type = moduleCtx.types[variable.type];
 
 		if(!type)
-			Stop(ctx, source->pos, "ERROR: can't find variable '%s' type in module %s", symbols + variable.offsetToName, moduleCtx.data->name);
+			Stop(ctx, source->pos, "ERROR: can't find variable '%s' type in module %.*s", symbols + variable.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
 		VariableData *data = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, type, name, variable.offset, ctx.uniqueVariableId++);
 
@@ -9238,7 +9238,7 @@ void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext
 		TypeBase *targetType = moduleCtx.types[alias.targetType];
 
 		if(!targetType)
-			Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %s", symbols + alias.offsetToName, moduleCtx.data->name);
+			Stop(ctx, source->pos, "ERROR: can't find alias '%s' target type in module %.*s", symbols + alias.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
 		if(TypeBase **prev = ctx.typeMap.find(aliasName.hash()))
 		{
@@ -9287,7 +9287,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		TypeBase *functionType = moduleCtx.types[function.funcType];
 
 		if(!functionType)
-			Stop(ctx, source->pos, "ERROR: can't find function '%s' type in module %s", symbols + function.offsetToName, moduleCtx.data->name);
+			Stop(ctx, source->pos, "ERROR: can't find function '%s' type in module %.*s", symbols + function.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
 		FunctionData *prev = NULL;
 		FunctionData *prototype = NULL;
@@ -9312,7 +9312,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			if(*prev->name.begin == '$' || prev->isGenericInstance)
 				ctx.functions.push_back(prev);
 			else
-				Stop(ctx, source->pos, "ERROR: function %.*s (type %.*s) is already defined. While importing %s", FMT_ISTR(prev->name), FMT_ISTR(prev->type->name), moduleCtx.data->name);
+				Stop(ctx, source->pos, "ERROR: function %.*s (type %.*s) is already defined. While importing %.*s", FMT_ISTR(prev->name), FMT_ISTR(prev->type->name), FMT_ISTR(moduleCtx.data->name));
 
 			vInfo += function.explicitTypeCount;
 
@@ -9340,7 +9340,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			parentType = moduleCtx.types[function.parentType];
 
 			if(!parentType)
-				Stop(ctx, source->pos, "ERROR: can't find function '%s' parent type in module %s", symbols + function.offsetToName, moduleCtx.data->name);
+				Stop(ctx, source->pos, "ERROR: can't find function '%s' parent type in module %.*s", symbols + function.offsetToName, FMT_ISTR(moduleCtx.data->name));
 		}
 
 		TypeBase *contextType = NULL;
@@ -9350,7 +9350,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			contextType = moduleCtx.types[function.contextType];
 
 			if(!contextType)
-				Stop(ctx, source->pos, "ERROR: can't find function '%s' context type in module %s", symbols + function.offsetToName, moduleCtx.data->name);
+				Stop(ctx, source->pos, "ERROR: can't find function '%s' context type in module %.*s", symbols + function.offsetToName, FMT_ISTR(moduleCtx.data->name));
 		}
 
 		if(!contextType)
@@ -9368,7 +9368,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			TypeBase *type = vInfo[k].type == ~0u ? ctx.typeGeneric : moduleCtx.types[vInfo[k].type];
 
 			if(!type)
-				Stop(ctx, source->pos, "ERROR: can't find function '%s' explicit type '%d' in module %s", symbols + function.offsetToName, k, moduleCtx.data->name);
+				Stop(ctx, source->pos, "ERROR: can't find function '%s' explicit type '%d' in module %.*s", symbols + function.offsetToName, k, FMT_ISTR(moduleCtx.data->name));
 
 			if(type->isGeneric)
 				hasGenericExplicitType = true;
@@ -9415,7 +9415,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			TypeBase *argType = argument.type == ~0u ? ctx.typeGeneric : moduleCtx.types[argument.type];
 
 			if(!argType)
-				Stop(ctx, source->pos, "ERROR: can't find argument %d type for '%s' in module %s", n + 1, symbols + function.offsetToName, moduleCtx.data->name);
+				Stop(ctx, source->pos, "ERROR: can't find argument %d type for '%s' in module %.*s", n + 1, symbols + function.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
 			InplaceStr argName = InplaceStr(symbols + argument.offsetToName);
 
@@ -9474,7 +9474,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 				returnType = moduleCtx.types[function.genericReturnType];
 
 			if(!returnType)
-				Stop(ctx, source->pos, "ERROR: can't find generic function '%s' return type in module %s", symbols + function.offsetToName, moduleCtx.data->name);
+				Stop(ctx, source->pos, "ERROR: can't find generic function '%s' return type in module %.*s", symbols + function.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
 			IntrusiveList<TypeHandle> argTypes;
 
