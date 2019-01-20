@@ -1,9 +1,7 @@
 #include "Lexer.h"
 
-Lexer::Lexer(Allocator *allocator)
+Lexer::Lexer()
 {
-	if(allocator)
-		lexems.set_allocator(allocator);
 }
 
 void Lexer::Clear(unsigned count)
