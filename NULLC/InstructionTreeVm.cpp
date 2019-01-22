@@ -1033,7 +1033,7 @@ namespace
 
 						unsigned totalOffset = indexOffset + storeOffset->iValue;
 
-						ClearLoadStoreInfo(module, base->container, totalOffset, indexSize - totalOffset);
+						ClearLoadStoreInfo(module, base->container, totalOffset, indexSize - storeOffset->iValue);
 						return;
 					}
 				}
