@@ -138,13 +138,22 @@ namespace
 			inst->AddArgument(first);
 
 		if(second)
+		{
+			assert(first);
 			inst->AddArgument(second);
+		}
 
 		if(third)
+		{
+			assert(second);
 			inst->AddArgument(third);
+		}
 
 		if(fourth)
+		{
+			assert(third);
 			inst->AddArgument(fourth);
+		}
 
 		inst->hasSideEffects = HasSideEffects(inst->cmd);
 		inst->hasMemoryAccess = HasMemoryAccess(inst->cmd);
@@ -741,13 +750,22 @@ namespace
 			inst->AddArgument(first);
 
 		if(second)
+		{
+			assert(first);
 			inst->AddArgument(second);
+		}
 
 		if(third)
+		{
+			assert(second);
 			inst->AddArgument(third);
+		}
 
 		if(fourth)
+		{
+			assert(third);
 			inst->AddArgument(fourth);
+		}
 
 		for(unsigned i = 0; i < arguments.size(); i++)
 			arguments[i]->RemoveUse(inst);
@@ -2855,7 +2873,7 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 					{
 						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + addressOffset->iValue);
 
-						ChangeInstructionTo(module, inst, GetLoadInstruction(ctx, GetBaseType(ctx, inst->type)), addressAsConstant, totalOffset, NULL, NULL, &module->peepholeOptimizations);
+						ChangeInstructionTo(module, inst, GetLoadInstruction(ctx, GetBaseType(ctx, inst->type)), address, totalOffset, NULL, NULL, &module->peepholeOptimizations);
 					}
 				}
 			}
