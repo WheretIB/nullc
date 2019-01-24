@@ -9768,8 +9768,8 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 {
 	// Import base module
+	if(const char *bytecode = BinaryCache::GetBytecode("$base$.nc"))
 	{
-		const char *bytecode = BinaryCache::GetBytecode("$base$.nc");
 		unsigned lexStreamSize = 0;
 		Lexeme *lexStream = BinaryCache::GetLexems("$base$.nc", lexStreamSize);
 
