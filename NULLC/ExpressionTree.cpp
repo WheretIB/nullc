@@ -3048,7 +3048,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Variable
 	if(externalAccess)
 	{
 		if(currentFunction->scope->ownerType)
-			Stop(ctx, source->pos, "ERROR: member function cannot access external variables");
+			Stop(ctx, source->pos, "ERROR: member function '%.*s' cannot access external variable '%.*s'", FMT_ISTR(currentFunction->name), FMT_ISTR(variable->name));
 
 		ExprBase *context = allocate(ExprVariableAccess)(source, currentFunction->contextArgument->type, currentFunction->contextArgument);
 
