@@ -2032,6 +2032,9 @@ VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
 		return (VmConstant*)Report(ctx, "ERROR: imported function has no source");
 	}
 
+	if(!function->firstBlock)
+		return (VmConstant*)Report(ctx, "ERROR: function implementation was not found");
+
 	if(ctx.printExecution)
 	{
 		if(function->function)
