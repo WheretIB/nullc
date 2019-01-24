@@ -6362,10 +6362,13 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 
 ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, InplaceStr name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches)
 {
+	bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
+
+	if(ctx.scope->ownerType && !parentType)
+		parentType = ctx.scope->ownerType;
+
 	if(parentType && coroutine)
 		Stop(ctx, source->pos, "ERROR: coroutine cannot be a member function");
-
-	bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
 
 	IntrusiveList<MatchData> generics;
 
@@ -6460,15 +6463,9 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		argData.push_back(ArgumentData(argument, argument->isExplicit, argument->name, type, initializer));
 	}
 
-	if(parentType)
-		assert(ctx.scope->ownerType == parentType);
+	InplaceStr functionName = GetFunctionName(ctx, ctx.scope, parentType, name, isOperator, accessor);
 
-	InplaceStr functionName = GetFunctionName(ctx, ctx.scope, ctx.scope->ownerType, name, isOperator, accessor);
-
-	// TODO: do not create for class member functions
-	TypeBase *contextClassType = CreateFunctionContextType(ctx, source, functionName);
-
-	TypeBase *contextRefType = ctx.scope->ownerType ? ctx.GetReferenceType(ctx.scope->ownerType) : ctx.GetReferenceType(contextClassType);
+	TypeBase *contextRefType = parentType ? ctx.GetReferenceType(parentType) : ctx.GetReferenceType(CreateFunctionContextType(ctx, source, functionName));
 
 	TypeFunction *functionType = ctx.GetFunctionType(returnType, argData);
 
@@ -6624,7 +6621,11 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	ExprVariableDefinition *contextVariableDefinition = NULL;
 
-	if(prototype)
+	if(parentType)
+	{
+		contextVariableDefinition = NULL;
+	}
+	else if(prototype)
 	{
 		TypeRef *refType = getType<TypeRef>(function->contextType);
 
