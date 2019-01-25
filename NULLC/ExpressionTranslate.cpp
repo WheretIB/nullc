@@ -383,7 +383,19 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_NULL_TO_FUNCTION)*/", FMT_ISTR(expression->type->name));
 		break;
 	case EXPR_CAST_ARRAY_PTR_TO_UNSIZED:
-		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_ARRAY_PTR_TO_UNSIZED)*/", FMT_ISTR(expression->type->name));
+		if(TypeRef *typeRef = getType<TypeRef>(expression->value->type))
+		{
+			TypeArray *typeArray = getType<TypeArray>(typeRef->subType);
+
+			assert(typeArray);
+			assert(unsigned(typeArray->length) == typeArray->length);
+
+			Print(ctx, "__makeNullcArray<");
+			TranslateTypeName(ctx, typeArray->subType);
+			Print(ctx, ">(");
+			Translate(ctx, expression->value);
+			Print(ctx, ", %d)", (unsigned)typeArray->length);
+		}
 		break;
 	case EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR:
 		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR)*/", FMT_ISTR(expression->type->name));
