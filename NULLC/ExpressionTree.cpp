@@ -6465,7 +6465,14 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	InplaceStr functionName = GetFunctionName(ctx, ctx.scope, parentType, name, isOperator, accessor);
 
-	TypeBase *contextRefType = parentType ? ctx.GetReferenceType(parentType) : ctx.GetReferenceType(CreateFunctionContextType(ctx, source, functionName));
+	TypeBase *contextRefType = NULL;
+
+	if(parentType)
+		contextRefType = ctx.GetReferenceType(parentType);
+	else if(!coroutine && ctx.GetFunctionOwner(ctx.scope) == NULL)
+		contextRefType = ctx.GetReferenceType(ctx.typeVoid);
+	else
+		contextRefType = ctx.GetReferenceType(CreateFunctionContextType(ctx, source, functionName));
 
 	TypeFunction *functionType = ctx.GetFunctionType(returnType, argData);
 
@@ -6625,6 +6632,10 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	{
 		contextVariableDefinition = NULL;
 	}
+	else if(!coroutine && ctx.GetFunctionOwner(ctx.scope) == NULL)
+	{
+		contextVariableDefinition = NULL;
+	}
 	else if(prototype)
 	{
 		TypeRef *refType = getType<TypeRef>(function->contextType);
@@ -6654,12 +6665,15 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 		assert(refType);
 
-		TypeClass *classType = getType<TypeClass>(refType->subType);
+		if(refType->subType != ctx.typeVoid)
+		{
+			TypeClass *classType = getType<TypeClass>(refType->subType);
 
-		assert(classType);
+			assert(classType);
 
-		if(!classType->members.empty())
-			Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of parameters", FMT_ISTR(function->name));
+			if(!classType->members.empty())
+				Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of parameters", FMT_ISTR(function->name));
+		}
 	}
 
 	// Time to make operator overload visible
