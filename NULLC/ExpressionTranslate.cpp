@@ -415,8 +415,6 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 				Translate(ctx, expression->value);
 				Print(ctx, ", __nullcTR[%d])", typeRef->subType->typeIndex);
 			}
-
-			Print(ctx, ")");
 		}
 		break;
 	case EXPR_CAST_ANY_TO_PTR:
@@ -746,6 +744,8 @@ void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDe
 
 	if(expression->initializer)
 		Translate(ctx, expression->initializer);
+	else
+		Print(ctx, "0");
 }
 
 void TranslateArraySetup(ExpressionTranslateContext &ctx, ExprArraySetup *expression)
@@ -758,11 +758,9 @@ void TranslateVariableDefinitions(ExpressionTranslateContext &ctx, ExprVariableD
 	for(ExprVariableDefinition *value = expression->definitions.head; value; value = getType<ExprVariableDefinition>(value->next))
 	{
 		Translate(ctx, value);
-		Print(ctx, ";");
-		PrintLine(ctx);
 
 		if(value->next)
-			PrintIndent(ctx);
+			Print(ctx, ", ");
 	}
 }
 
@@ -857,8 +855,7 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 
 			Translate(ctx, value);
 
-			if(value->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(value))
-				Print(ctx, ";");
+			Print(ctx, ";");
 
 			PrintLine(ctx);
 		}
@@ -993,8 +990,7 @@ void TranslateIfElse(ExpressionTranslateContext &ctx, ExprIfElse *expression)
 
 	Translate(ctx, expression->trueBlock);
 	
-	if(expression->trueBlock->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(expression->trueBlock))
-		Print(ctx, ";");
+	Print(ctx, ";");
 
 	PrintLine(ctx);
 	ctx.depth--;
@@ -1010,8 +1006,7 @@ void TranslateIfElse(ExpressionTranslateContext &ctx, ExprIfElse *expression)
 
 		Translate(ctx, expression->falseBlock);
 
-		if(expression->falseBlock->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(expression->falseBlock))
-			Print(ctx, ";");
+		Print(ctx, ";");
 
 		PrintLine(ctx);
 		ctx.depth--;
@@ -1022,6 +1017,8 @@ void TranslateIfElse(ExpressionTranslateContext &ctx, ExprIfElse *expression)
 void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 {
 	Translate(ctx, expression->initializer);
+	Print(ctx, ";");
+	PrintLine(ctx);
 
 	PrintIndent(ctx);
 	Print(ctx, "while(");
@@ -1035,8 +1032,7 @@ void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 
 	Translate(ctx, expression->body);
 
-	if(expression->body->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(expression->body))
-		Print(ctx, ";");
+	Print(ctx, ";");
 
 	PrintLine(ctx);
 
@@ -1045,8 +1041,7 @@ void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 	PrintIndent(ctx);
 	Translate(ctx, expression->increment);
 
-	if(expression->increment->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(expression->increment))
-		Print(ctx, ";");
+	Print(ctx, ";");
 
 	PrintLine(ctx);
 	ctx.depth--;
@@ -1066,8 +1061,7 @@ void TranslateWhile(ExpressionTranslateContext &ctx, ExprWhile *expression)
 
 	Translate(ctx, expression->body);
 
-	if(expression->body->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(expression->body))
-		Print(ctx, ";");
+	Print(ctx, ";");
 
 	PrintLine(ctx);
 	ctx.depth--;
@@ -1107,8 +1101,7 @@ void TranslateBlock(ExpressionTranslateContext &ctx, ExprBlock *expression)
 
 		Translate(ctx, value);
 
-		if(value->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(value))
-			Print(ctx, ";");
+		Print(ctx, ";");
 
 		PrintLine(ctx);
 	}
@@ -1388,8 +1381,7 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 
 		Translate(ctx, value);
 
-		if(value->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(value))
-			Print(ctx, ";");
+		Print(ctx, ";");
 
 		PrintLine(ctx);
 	}
@@ -1404,8 +1396,7 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 
 		Translate(ctx, value);
 
-		if(value->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(value))
-			Print(ctx, ";");
+		Print(ctx, ";");
 
 		PrintLine(ctx);
 	}
