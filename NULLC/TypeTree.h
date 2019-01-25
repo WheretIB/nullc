@@ -949,6 +949,8 @@ inline TypeStruct* getType(TypeBase *node)
 	return 0;
 }
 
+InplaceStr GetOperatorName(InplaceStr name);
+
 InplaceStr GetReferenceTypeName(ExpressionContext &ctx, TypeBase* type);
 InplaceStr GetArrayTypeName(ExpressionContext &ctx, TypeBase* type, long long length);
 InplaceStr GetUnsizedArrayTypeName(ExpressionContext &ctx, TypeBase* type);

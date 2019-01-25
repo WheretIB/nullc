@@ -4,6 +4,101 @@
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
+InplaceStr GetOperatorName(InplaceStr name)
+{
+	if(name == InplaceStr("+"))
+		return InplaceStr("__operatorAdd");
+
+	if(name == InplaceStr("-"))
+		return InplaceStr("__operatorSub");
+
+	if(name == InplaceStr("*"))
+		return InplaceStr("__operatorMul");
+
+	if(name == InplaceStr("/"))
+		return InplaceStr("__operatorDiv");
+
+	if(name == InplaceStr("%"))
+		return InplaceStr("__operatorMod");
+
+	if(name == InplaceStr("**"))
+		return InplaceStr("__operatorPow");
+
+	if(name == InplaceStr("<"))
+		return InplaceStr("__operatorLess");
+
+	if(name == InplaceStr(">"))
+		return InplaceStr("__operatorGreater");
+
+	if(name == InplaceStr("<="))
+		return InplaceStr("__operatorLEqual");
+
+	if(name == InplaceStr(">="))
+		return InplaceStr("__operatorGEqual");
+
+	if(name == InplaceStr("=="))
+		return InplaceStr("__operatorEqual");
+
+	if(name == InplaceStr("!="))
+		return InplaceStr("__operatorNEqual");
+
+	if(name == InplaceStr("<<"))
+		return InplaceStr("__operatorShiftLeft");
+
+	if(name == InplaceStr(">>"))
+		return InplaceStr("__operatorShiftRight");
+
+	if(name == InplaceStr("="))
+		return InplaceStr("__operatorSet");
+
+	if(name == InplaceStr("+="))
+		return InplaceStr("__operatorAddSet");
+
+	if(name == InplaceStr("-="))
+		return InplaceStr("__operatorSubSet");
+
+	if(name == InplaceStr("*="))
+		return InplaceStr("__operatorMulSet");
+
+	if(name == InplaceStr("/="))
+		return InplaceStr("__operatorDivSet");
+
+	if(name == InplaceStr("**="))
+		return InplaceStr("__operatorPowSet");
+
+	if(name == InplaceStr("%="))
+		return InplaceStr("__operatorModSet");
+
+	if(name == InplaceStr("<<="))
+		return InplaceStr("__operatorShlSet");
+
+	if(name == InplaceStr(">>="))
+		return InplaceStr("__operatorShrSet");
+
+	if(name == InplaceStr("&="))
+		return InplaceStr("__operatorAndSet");
+
+	if(name == InplaceStr("|="))
+		return InplaceStr("__operatorOrSet");
+
+	if(name == InplaceStr("^="))
+		return InplaceStr("__operatorXorSet");
+
+	if(name == InplaceStr("[]"))
+		return InplaceStr("__operatorIndex");
+
+	if(name == InplaceStr("!"))
+		return InplaceStr("__operatorLogNot");
+
+	if(name == InplaceStr("~"))
+		return InplaceStr("__operatorBitNot");
+
+	if(name == InplaceStr("()"))
+		return InplaceStr("__operatorFuncCall");
+
+	return InplaceStr();
+}
+
 InplaceStr GetReferenceTypeName(ExpressionContext &ctx, TypeBase* type)
 {
 	unsigned nameLength = type->name.length() + strlen(" ref");
@@ -196,6 +291,11 @@ InplaceStr GetGenericAliasTypeName(ExpressionContext &ctx, InplaceStr baseName)
 
 InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functionName, unsigned index)
 {
+	InplaceStr operatorName = GetOperatorName(functionName);
+
+	if(!operatorName.empty())
+		functionName = operatorName;
+
 	unsigned nameLength = functionName.length() + 32;
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 	sprintf(name, "__%.*s_%d_cls", FMT_ISTR(functionName), index);
@@ -205,9 +305,15 @@ InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functio
 
 InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *function)
 {
-	unsigned nameLength = function->name.length() + 32;
+	InplaceStr functionName = function->name;
+	InplaceStr operatorName = GetOperatorName(functionName);
+
+	if(!operatorName.empty())
+		functionName = operatorName;
+
+	unsigned nameLength = functionName.length() + 32;
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
-	sprintf(name, "$%.*s_%u_ext", FMT_ISTR(function->name), function->type->name.hash());
+	sprintf(name, "$%.*s_%u_ext", FMT_ISTR(functionName), function->type->name.hash());
 
 	return InplaceStr(name);
 }
