@@ -629,11 +629,22 @@ void TranslateMemberAccess(ExpressionTranslateContext &ctx, ExprMemberAccess *ex
 
 void TranslateArrayIndex(ExpressionTranslateContext &ctx, ExprArrayIndex *expression)
 {
-	Print(ctx, "&(");
-	Translate(ctx, expression->value);
-	Print(ctx, ")->ptr[");
-	Translate(ctx, expression->index);
-	Print(ctx, "]");
+	if(TypeUnsizedArray *typeUnsizedArray = getType<TypeUnsizedArray>(expression->value->type))
+	{
+		Print(ctx, "&(");
+		Translate(ctx, expression->value);
+		Print(ctx, ").ptr[");
+		Translate(ctx, expression->index);
+		Print(ctx, "]");
+	}
+	else
+	{
+		Print(ctx, "&(");
+		Translate(ctx, expression->value);
+		Print(ctx, ")->ptr[");
+		Translate(ctx, expression->index);
+		Print(ctx, "]");
+	}
 }
 
 void TranslateReturn(ExpressionTranslateContext &ctx, ExprReturn *expression)
@@ -731,6 +742,8 @@ void TranslateYield(ExpressionTranslateContext &ctx, ExprYield *expression)
 
 void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDefinition *expression)
 {
+	Print(ctx, "/* Definition of variable '%.*s' */", FMT_ISTR(expression->variable->name));
+
 	if(expression->initializer)
 		Translate(ctx, expression->initializer);
 }
@@ -792,11 +805,11 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 		TranslateFunctionName(ctx, expression->function);
 		Print(ctx, "(");
 
-		for(ExprVariableDefinition *value = expression->arguments.head; value; value = getType<ExprVariableDefinition>(value->next))
+		for(ExprVariableDefinition *curr = expression->arguments.head; curr; curr = getType<ExprVariableDefinition>(curr->next))
 		{
-			TranslateTypeName(ctx, value->variable->type);
+			TranslateTypeName(ctx, curr->variable->type);
 			Print(ctx, " ");
-			TranslateVariableName(ctx, value->variable);
+			TranslateVariableName(ctx, curr->variable);
 			Print(ctx, ", ");
 		}
 
@@ -808,6 +821,32 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 		PrintLine(ctx);
 		PrintIndentedLine(ctx, "{");
 		ctx.depth++;
+
+		for(unsigned k = 0; k < expression->function->functionScope->allVariables.size(); k++)
+		{
+			VariableData *variable = expression->function->functionScope->allVariables[k];
+
+			bool isArgument = false;
+
+			for(ExprVariableDefinition *curr = expression->arguments.head; curr; curr = getType<ExprVariableDefinition>(curr->next))
+			{
+				if(variable == curr->variable)
+				{
+					isArgument = true;
+					break;
+				}
+			}
+
+			if(isArgument || variable == expression->contextArgument->variable)
+				continue;
+
+			PrintIndent(ctx);
+			TranslateTypeName(ctx, variable->type);
+			Print(ctx, " ");
+			TranslateVariableName(ctx, variable);
+			Print(ctx, ";");
+			PrintLine(ctx);
+		}
 
 		if(expression->coroutineStateRead)
 			PrintIndentedLine(ctx, "/*TODO: ExprFunctionDefinition::coroutineStateRead*/");
@@ -954,7 +993,7 @@ void TranslateIfElse(ExpressionTranslateContext &ctx, ExprIfElse *expression)
 
 	Translate(ctx, expression->trueBlock);
 	
-	if(expression->trueBlock->type != ctx.ctx.typeVoid)
+	if(expression->trueBlock->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(expression->trueBlock))
 		Print(ctx, ";");
 
 	PrintLine(ctx);
@@ -971,7 +1010,7 @@ void TranslateIfElse(ExpressionTranslateContext &ctx, ExprIfElse *expression)
 
 		Translate(ctx, expression->falseBlock);
 
-		if(expression->falseBlock->type != ctx.ctx.typeVoid)
+		if(expression->falseBlock->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(expression->falseBlock))
 			Print(ctx, ";");
 
 		PrintLine(ctx);
@@ -996,7 +1035,7 @@ void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 
 	Translate(ctx, expression->body);
 
-	if(expression->body->type != ctx.ctx.typeVoid)
+	if(expression->body->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(expression->body))
 		Print(ctx, ";");
 
 	PrintLine(ctx);
@@ -1006,7 +1045,7 @@ void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 	PrintIndent(ctx);
 	Translate(ctx, expression->increment);
 
-	if(expression->increment->type != ctx.ctx.typeVoid)
+	if(expression->increment->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(expression->increment))
 		Print(ctx, ";");
 
 	PrintLine(ctx);
@@ -1027,7 +1066,7 @@ void TranslateWhile(ExpressionTranslateContext &ctx, ExprWhile *expression)
 
 	Translate(ctx, expression->body);
 
-	if(expression->body->type != ctx.ctx.typeVoid)
+	if(expression->body->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(expression->body))
 		Print(ctx, ";");
 
 	PrintLine(ctx);
@@ -1140,17 +1179,7 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 		if(type->isGeneric)
 			continue;
 
-		/*if(type->importModule)
-		{
-			if(isType<TypeFunction>(type) || isType<TypeArray>(type) || isType<TypeClass>(type) || isType<TypeEnum>(type))
-			{
-				Print(ctx, "// ");
-				TranslateTypeName(ctx, type);
-				Print(ctx, " '%.*s' from '%.*s'", FMT_ISTR(type->name), FMT_ISTR(type->importModule->name));
-				PrintLine(ctx);
-			}
-		}
-		else */if(TypeFunction *typeFunction = getType<TypeFunction>(type))
+		if(TypeFunction *typeFunction = getType<TypeFunction>(type))
 		{
 			Print(ctx, "struct __typeProxy_");
 			PrintEscapedName(ctx, typeFunction->name);
@@ -1229,71 +1258,62 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 		if(ctx.ctx.IsGenericFunction(function))
 			continue;
 
-		/*if(function->importModule)
+		
+		if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
+			Print(ctx, "static ");
+
+		TranslateTypeName(ctx, function->type->returnType);
+		Print(ctx, " ");
+		TranslateFunctionName(ctx, function);
+		Print(ctx, "(");
+
+		if(function->importModule)
 		{
-			Print(ctx, "// ");
-			TranslateFunctionName(ctx, function);
-			Print(ctx, " '%.*s' '%.*s' from '%.*s'", FMT_ISTR(function->name), FMT_ISTR(function->type->name), FMT_ISTR(function->importModule->name));
-			PrintLine(ctx);
-		}
-		else*/
-		{
-			if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
-				Print(ctx, "static ");
-
-			TranslateTypeName(ctx, function->type->returnType);
-			Print(ctx, " ");
-			TranslateFunctionName(ctx, function);
-			Print(ctx, "(");
-
-			if(function->importModule)
+			for(unsigned i = 0; i < function->arguments.size(); i++)
 			{
-				for(unsigned i = 0; i < function->arguments.size(); i++)
-				{
-					ArgumentData &argument = function->arguments[i];
+				ArgumentData &argument = function->arguments[i];
 
-					TranslateTypeName(ctx, argument.type);
-					Print(ctx, " ");
-
-					if(argument.name == InplaceStr("this"))
-					{
-						Print(ctx, "__context");
-					}
-					else if(*argument.name.begin == '$')
-					{
-						InplaceStr name = InplaceStr(argument.name.begin + 1, argument.name.end);
-
-						Print(ctx, "__%.*s", FMT_ISTR(name));
-					}
-					else
-					{
-						Print(ctx, "%.*s", FMT_ISTR(argument.name));
-					}
-
-					Print(ctx, ", ");
-				}
-
-				TranslateTypeName(ctx, function->contextType);
-				Print(ctx, " __context");
-			}
-			else
-			{
-				for(VariableHandle *curr = function->argumentVariables.head; curr; curr = curr->next)
-				{
-					TranslateTypeName(ctx, curr->variable->type);
-					Print(ctx, " ");
-					TranslateVariableName(ctx, curr->variable);
-					Print(ctx, ", ");
-				}
-
-				TranslateTypeName(ctx, function->contextArgument->type);
+				TranslateTypeName(ctx, argument.type);
 				Print(ctx, " ");
-				TranslateVariableName(ctx, function->contextArgument);
+
+				if(argument.name == InplaceStr("this"))
+				{
+					Print(ctx, "__context");
+				}
+				else if(*argument.name.begin == '$')
+				{
+					InplaceStr name = InplaceStr(argument.name.begin + 1, argument.name.end);
+
+					Print(ctx, "__%.*s", FMT_ISTR(name));
+				}
+				else
+				{
+					Print(ctx, "%.*s", FMT_ISTR(argument.name));
+				}
+
+				Print(ctx, ", ");
 			}
 
-			Print(ctx, ");");
-			PrintLine(ctx);
+			TranslateTypeName(ctx, function->contextType);
+			Print(ctx, " __context");
 		}
+		else
+		{
+			for(VariableHandle *curr = function->argumentVariables.head; curr; curr = curr->next)
+			{
+				TranslateTypeName(ctx, curr->variable->type);
+				Print(ctx, " ");
+				TranslateVariableName(ctx, curr->variable);
+				Print(ctx, ", ");
+			}
+
+			TranslateTypeName(ctx, function->contextArgument->type);
+			Print(ctx, " ");
+			TranslateVariableName(ctx, function->contextArgument);
+		}
+
+		Print(ctx, ");");
+		PrintLine(ctx);
 	}
 
 	PrintLine(ctx);
@@ -1368,7 +1388,7 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 
 		Translate(ctx, value);
 
-		if(value->type != ctx.ctx.typeVoid)
+		if(value->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(value))
 			Print(ctx, ";");
 
 		PrintLine(ctx);
@@ -1384,7 +1404,7 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 
 		Translate(ctx, value);
 
-		if(value->type != ctx.ctx.typeVoid)
+		if(value->type != ctx.ctx.typeVoid || isType<ExprFunctionCall>(value))
 			Print(ctx, ";");
 
 		PrintLine(ctx);
