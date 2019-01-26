@@ -1325,7 +1325,6 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 		if(ctx.ctx.IsGenericFunction(function))
 			continue;
 
-		
 		if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
 			Print(ctx, "static ");
 
@@ -1516,8 +1515,6 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 
 		if(TypeStruct *typeStruct = getType<TypeStruct>(type))
 		{
-			PrintIndentedLine(ctx, "// type '%.*s' members", FMT_ISTR(type->name));
-
 			PrintIndent(ctx);
 			Print(ctx, "__nullcRegisterMembers(__nullcTR[%d], %d", i, typeStruct->members.size());
 
@@ -1527,9 +1524,68 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 				Print(ctx, ", %d", curr->variable->offset);
 			}
 
-			Print(ctx, ");");
+			Print(ctx, "); // type '%.*s' members", FMT_ISTR(type->name));
 			PrintLine(ctx);
 		}
+	}
+
+	PrintIndentedLine(ctx, "");
+	PrintIndentedLine(ctx, "// register globals");
+
+	for(unsigned int i = 0; i < ctx.ctx.variables.size(); i++)
+	{
+		VariableData *variable = ctx.ctx.variables[i];
+
+		// Don't need variables allocated by intermediate vm compilation
+		if(variable->isVmAlloca)
+			continue;
+
+		if(variable->importModule)
+			continue;
+
+		if(variable->scope == ctx.ctx.globalScope || variable->scope->ownerNamespace || GlobalScopeFrom(variable->scope))
+		{
+			PrintIndent(ctx);
+			Print(ctx, "__nullcRegisterGlobal((void*)&");
+			TranslateVariableName(ctx, variable);
+			Print(ctx, ", __nullcTR[%d]);", variable->type->typeIndex);
+			PrintLine(ctx);
+		}
+	}
+
+	PrintIndentedLine(ctx, "");
+	PrintIndentedLine(ctx, "// register functions");
+
+	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
+	{
+		FunctionData *function = ctx.ctx.functions[i];
+
+		if(ctx.ctx.IsGenericFunction(function))
+		{
+			PrintIndentedLine(ctx, "__nullcFR[%d] = 0; // generic function '%.*s'", i, FMT_ISTR(function->name));
+			continue;
+		}
+
+		PrintIndent(ctx);
+		Print(ctx, "__nullcFR[%d] = __nullcRegisterFunction(\"", i);
+		TranslateFunctionName(ctx, function);
+		Print(ctx, "\", (void*)");
+		TranslateFunctionName(ctx, function);
+
+		if(function->contextType)
+			Print(ctx, ", __nullcTR[%d]", function->contextType->typeIndex);
+		else
+			Print(ctx, ", -1");
+
+		if(function->scope->ownerType)
+			Print(ctx, ", FunctionCategory::THISCALL);");
+		else if(function->coroutine)
+			Print(ctx, ", FunctionCategory::COROUTINE);");
+		else if(function->contextType != ctx.ctx.typeVoid->refType)
+			Print(ctx, ", FunctionCategory::LOCAL);");
+		else
+			Print(ctx, ", FunctionCategory::NORMAL);");
+		PrintLine(ctx);
 	}
 
 	PrintIndentedLine(ctx, "");
