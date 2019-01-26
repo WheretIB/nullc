@@ -669,6 +669,8 @@ namespace
 
 		VariableData *variable = allocate(VariableData)(ctx.allocator, NULL, NULL, type->alignment, type, InplaceStr(name), 0, 0);
 
+		variable->isVmAlloca = true;
+
 		VmValue *value = CreateConstantPointer(module->allocator, source, 0, variable, ctx.GetReferenceType(variable->type), true);
 
 		module->currentFunction->allocas.push_back(variable);
@@ -730,6 +732,8 @@ namespace
 
 		if(!found)
 		{
+			assert(variable->isVmAlloca);
+
 			scope->variables.push_back(variable);
 			scope->allVariables.push_back(variable);
 			ctx.variables.push_back(variable);
@@ -3688,21 +3692,7 @@ void RunCreateAllocaStorage(ExpressionContext &ctx, VmModule *module, VmValue* v
 			VariableData *variable = function->allocas[i];
 
 			if(variable->users.empty())
-			{
-				for(unsigned i = 0; i < function->scope->allVariables.size(); i++)
-				{
-					if(function->scope->allVariables[i] == variable)
-					{
-						for(unsigned k = i; k < function->scope->allVariables.size() - 1; k++)
-							function->scope->allVariables[k] = function->scope->allVariables[k + 1];
-
-						function->scope->allVariables.pop_back();
-						break;
-					}
-				}
-
 				continue;
-			}
 
 			FinalizeAlloca(ctx, module, variable);
 		}

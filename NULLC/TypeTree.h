@@ -146,6 +146,7 @@ struct VariableData
 		lookupOnly = false;
 
 		isAlloca = false;
+		isVmAlloca = false;
 
 		if(alignment != 0)
 			assert(offset % alignment == 0);
@@ -172,6 +173,7 @@ struct VariableData
 	bool lookupOnly;
 
 	bool isAlloca;
+	bool isVmAlloca;
 
 	unsigned offset;
 

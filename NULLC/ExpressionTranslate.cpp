@@ -821,6 +821,10 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 		{
 			VariableData *variable = expression->function->functionScope->allVariables[k];
 
+			// Don't need variables allocated by intermediate vm compilation
+			if(variable->isVmAlloca)
+				continue;
+
 			bool isArgument = false;
 
 			for(ExprVariableDefinition *curr = expression->arguments.head; curr; curr = getType<ExprVariableDefinition>(curr->next))
@@ -1312,6 +1316,10 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 	for(unsigned int i = 0; i < ctx.ctx.variables.size(); i++)
 	{
 		VariableData *variable = ctx.ctx.variables[i];
+
+		// Don't need variables allocated by intermediate vm compilation
+		if(variable->isVmAlloca)
+			continue;
 
 		if(variable->importModule)
 		{
