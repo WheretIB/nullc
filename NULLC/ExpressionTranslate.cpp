@@ -354,7 +354,9 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 		Print(ctx, ")");
 		break;
 	case EXPR_CAST_PTR_TO_BOOL:
-		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_PTR_TO_BOOL)*/", FMT_ISTR(expression->type->name));
+		Print(ctx, "(!!(");
+		Translate(ctx, expression->value);
+		Print(ctx, "))");
 		break;
 	case EXPR_CAST_UNSIZED_TO_BOOL:
 		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_UNSIZED_TO_BOOL)*/", FMT_ISTR(expression->type->name));
@@ -363,7 +365,12 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_FUNCTION_TO_BOOL)*/", FMT_ISTR(expression->type->name));
 		break;
 	case EXPR_CAST_NULL_TO_PTR:
-		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_NULL_TO_PTR)*/", FMT_ISTR(expression->type->name));
+		if(TypeRef *typeRef = getType<TypeRef>(expression->type))
+		{
+			Print(ctx, "(");
+			TranslateTypeName(ctx, typeRef->subType);
+			Print(ctx, "*)0");
+		}
 		break;
 	case EXPR_CAST_NULL_TO_AUTO_PTR:
 		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_NULL_TO_AUTO_PTR)*/", FMT_ISTR(expression->type->name));
@@ -380,7 +387,8 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_NULL_TO_AUTO_ARRAY)*/", FMT_ISTR(expression->type->name));
 		break;
 	case EXPR_CAST_NULL_TO_FUNCTION:
-		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_NULL_TO_FUNCTION)*/", FMT_ISTR(expression->type->name));
+		TranslateTypeName(ctx, expression->type);
+		Print(ctx, "()");
 		break;
 	case EXPR_CAST_ARRAY_PTR_TO_UNSIZED:
 		if(TypeRef *typeRef = getType<TypeRef>(expression->value->type))
@@ -463,6 +471,13 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 			Print(ctx, "(");
 			TranslateTypeName(ctx, expression->type);
 			Print(ctx, ")(");
+			Translate(ctx, expression->value);
+			Print(ctx, ")");
+		}
+		else if(isType<TypeFunction>(expression->type) && isType<TypeFunction>(expression->value->type))
+		{
+			TranslateTypeName(ctx, expression->type);
+			Print(ctx, "(");
 			Translate(ctx, expression->value);
 			Print(ctx, ")");
 		}
@@ -600,7 +615,7 @@ void TranslateDereference(ExpressionTranslateContext &ctx, ExprDereference *expr
 
 void TranslateUnboxing(ExpressionTranslateContext &ctx, ExprUnboxing *expression)
 {
-	Print(ctx, "/*TODO: %.*s ExprUnboxing*/", FMT_ISTR(expression->type->name));
+	Translate(ctx, expression->value);
 }
 
 void TranslateConditional(ExpressionTranslateContext &ctx, ExprConditional *expression)
