@@ -770,9 +770,41 @@ void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDe
 	Print(ctx, "/* Definition of variable '%.*s' */", FMT_ISTR(expression->variable->name));
 
 	if(expression->initializer)
-		Translate(ctx, expression->initializer);
+	{
+		if(ExprBlock *blockInitializer = getType<ExprBlock>(expression->initializer))
+		{
+			// Translate block initializer as a sequence
+			Print(ctx, "(");
+			PrintLine(ctx);
+
+			ctx.depth++;
+
+			for(ExprBase *curr = blockInitializer->expressions.head; curr; curr = curr->next)
+			{
+				PrintIndent(ctx);
+
+				Translate(ctx, curr);
+
+				if(curr->next)
+					Print(ctx, ",");
+
+				PrintLine(ctx);
+			}
+
+			ctx.depth--;
+
+			PrintIndent(ctx);
+			Print(ctx, ")");
+		}
+		else
+		{
+			Translate(ctx, expression->initializer);
+		}
+	}
 	else
+	{
 		Print(ctx, "0");
+	}
 }
 
 void TranslateArraySetup(ExpressionTranslateContext &ctx, ExprArraySetup *expression)
@@ -1150,7 +1182,8 @@ void TranslateBlock(ExpressionTranslateContext &ctx, ExprBlock *expression)
 
 	ctx.depth--;
 
-	PrintIndentedLine(ctx, "}");
+	PrintIndent(ctx);
+	Print(ctx, "}");
 }
 
 void TranslateSequence(ExpressionTranslateContext &ctx, ExprSequence *expression)
