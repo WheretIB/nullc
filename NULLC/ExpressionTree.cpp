@@ -2133,9 +2133,14 @@ ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *
 
 	SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
-	TypeBase *contextClassType = CreateFunctionContextType(ctx, source, functionName);
+	TypeBase *contextRefType = NULL;
 
-	FunctionData *function = allocate(FunctionData)(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(value->type, arguments), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+	if(ctx.GetFunctionOwner(ctx.scope) == NULL)
+		contextRefType = ctx.GetReferenceType(ctx.typeVoid);
+	else
+		contextRefType = ctx.GetReferenceType(CreateFunctionContextType(ctx, source, functionName));
+
+	FunctionData *function = allocate(FunctionData)(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(value->type, arguments), contextRefType, functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 	CheckFunctionConflict(ctx, source, function->name);
 
@@ -2156,7 +2161,16 @@ ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *
 
 	ctx.PopScope(SCOPE_FUNCTION);
 
-	ExprVariableDefinition *contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function, NULL);
+	ExprVariableDefinition *contextVariableDefinition = NULL;
+
+	if(ctx.GetFunctionOwner(ctx.scope) == NULL)
+	{
+		contextVariableDefinition = NULL;
+	}
+	else 
+	{
+		contextVariableDefinition = CreateFunctionContextVariable(ctx, source, function, NULL);
+	}
 
 	function->declaration = allocate(ExprFunctionDefinition)(source, function->type, function, contextArgumentDefinition, IntrusiveList<ExprVariableDefinition>(), NULL, expressions, contextVariableDefinition);
 
