@@ -626,19 +626,21 @@ void TranslateArrayIndex(ExpressionTranslateContext &ctx, ExprArrayIndex *expres
 {
 	if(TypeUnsizedArray *typeUnsizedArray = getType<TypeUnsizedArray>(expression->value->type))
 	{
-		Print(ctx, "&(");
+		Print(ctx, "((");
+		TranslateTypeName(ctx, typeUnsizedArray->subType);
+		Print(ctx, "*)&(");
 		Translate(ctx, expression->value);
 		Print(ctx, ").ptr[");
 		Translate(ctx, expression->index);
-		Print(ctx, "]");
+		Print(ctx, "])");
 	}
 	else
 	{
-		Print(ctx, "&(");
+		Print(ctx, "(&(");
 		Translate(ctx, expression->value);
 		Print(ctx, ")->ptr[");
 		Translate(ctx, expression->index);
-		Print(ctx, "]");
+		Print(ctx, "])");
 	}
 }
 
@@ -1233,6 +1235,11 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 
 			PrintIndentedLine(ctx, "{");
 			ctx.depth++;
+
+			PrintIndent(ctx);
+			PrintEscapedName(ctx, typeEnum->name);
+			Print(ctx, "(int v): value(v){}");
+			PrintLine(ctx);
 
 			PrintIndentedLine(ctx, "int value;");
 
