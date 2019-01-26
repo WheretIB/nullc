@@ -330,7 +330,7 @@ void TranslateArray(ExpressionTranslateContext &ctx, ExprArray *expression)
 
 void TranslatePreModify(ExpressionTranslateContext &ctx, ExprPreModify *expression)
 {
-	Print(ctx, expression->isIncrement ? "++(*(" : "--*(");
+	Print(ctx, expression->isIncrement ? "++(*(" : "--(*(");
 	Translate(ctx, expression->value);
 	Print(ctx, "))");
 }
