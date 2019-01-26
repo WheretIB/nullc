@@ -2,15 +2,14 @@
 
 #include <stdio.h>
 
-struct ExpressionContext;
-
-struct ExprBase;
+#include "Array.h"
+#include "ExpressionTree.h"
 
 struct FunctionData;
 
 struct ExpressionTranslateContext
 {
-	ExpressionTranslateContext(ExpressionContext &ctx): ctx(ctx)
+	ExpressionTranslateContext(ExpressionContext &ctx): ctx(ctx), loopIdStack(ctx.allocator)
 	{
 		file = 0;
 
@@ -19,6 +18,8 @@ struct ExpressionTranslateContext
 		indent = "\t";
 
 		depth = 0;
+
+		nextLoopId = 1;
 
 		skipFunctionDefinitions = false;
 
@@ -34,6 +35,10 @@ struct ExpressionTranslateContext
 	const char *indent;
 
 	unsigned depth;
+
+	unsigned nextLoopId;
+
+	SmallArray<unsigned, 32> loopIdStack;
 
 	bool skipFunctionDefinitions;
 

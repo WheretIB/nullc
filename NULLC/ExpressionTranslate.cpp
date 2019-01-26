@@ -1103,6 +1103,9 @@ void TranslateIfElse(ExpressionTranslateContext &ctx, ExprIfElse *expression)
 
 void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 {
+	unsigned loopId = ctx.nextLoopId++;
+	ctx.loopIdStack.push_back(loopId);
+
 	Translate(ctx, expression->initializer);
 	Print(ctx, ";");
 	PrintLine(ctx);
@@ -1123,6 +1126,9 @@ void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 
 	PrintLine(ctx);
 
+	Print(ctx, "continue_%d:", loopId);
+	PrintLine(ctx);
+
 	PrintIndentedLine(ctx, "// increment");
 
 	PrintIndent(ctx);
@@ -1133,10 +1139,19 @@ void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 	PrintLine(ctx);
 	ctx.depth--;
 	PrintIndentedLine(ctx, "}");
+
+	Print(ctx, "break_%d:", loopId);
+	PrintLine(ctx);
+	PrintIndent(ctx);
+
+	ctx.loopIdStack.pop_back();
 }
 
 void TranslateWhile(ExpressionTranslateContext &ctx, ExprWhile *expression)
 {
+	unsigned loopId = ctx.nextLoopId++;
+	ctx.loopIdStack.push_back(loopId);
+
 	Print(ctx, "while(");
 	Translate(ctx, expression->condition);
 	Print(ctx, ")");
@@ -1150,9 +1165,18 @@ void TranslateWhile(ExpressionTranslateContext &ctx, ExprWhile *expression)
 
 	Print(ctx, ";");
 
+	Print(ctx, "continue_%d:", loopId);
+	PrintLine(ctx);
+
 	PrintLine(ctx);
 	ctx.depth--;
 	PrintIndentedLine(ctx, "}");
+
+	Print(ctx, "break_%d:", loopId);
+	PrintLine(ctx);
+	PrintIndent(ctx);
+
+	ctx.loopIdStack.pop_back();
 }
 
 void TranslateDoWhile(ExpressionTranslateContext &ctx, ExprDoWhile *expression)
@@ -1167,12 +1191,12 @@ void TranslateSwitch(ExpressionTranslateContext &ctx, ExprSwitch *expression)
 
 void TranslateBreak(ExpressionTranslateContext &ctx, ExprBreak *expression)
 {
-	Print(ctx, "/*TODO: %.*s ExprBreak*/", FMT_ISTR(expression->type->name));
+	Print(ctx, "goto break_%d;", ctx.loopIdStack[ctx.loopIdStack.size() - expression->depth]);
 }
 
 void TranslateContinue(ExpressionTranslateContext &ctx, ExprContinue *expression)
 {
-	Print(ctx, "/*TODO: %.*s ExprContinue*/", FMT_ISTR(expression->type->name));
+	Print(ctx, "goto continue_%d;", ctx.loopIdStack[ctx.loopIdStack.size() - expression->depth]);
 }
 
 void TranslateBlock(ExpressionTranslateContext &ctx, ExprBlock *expression)
