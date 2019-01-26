@@ -1045,19 +1045,6 @@ ExprBase* EvaluateCast(Eval &ctx, ExprTypeCast *expression)
 			return CheckType(expression, result);
 		}
 		break;
-	case EXPR_CAST_ANY_TO_PTR:
-		{
-			ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, value->type);
-
-			if(!storage)
-				return NULL;
-
-			if(!CreateStore(ctx, storage, value))
-				return NULL;
-
-			return CheckType(expression, storage);
-		}
-		break;
 	case EXPR_CAST_AUTO_PTR_TO_PTR:
 		{
 			TypeRef *refType = getType<TypeRef>(expression->type);

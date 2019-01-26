@@ -388,9 +388,6 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 		case EXPR_CAST_PTR_TO_AUTO_PTR:
 			category = "EXPR_CAST_PTR_TO_AUTO_PTR";
 			break;
-		case EXPR_CAST_ANY_TO_PTR:
-			category = "EXPR_CAST_ANY_TO_PTR";
-			break;
 		case EXPR_CAST_AUTO_PTR_TO_PTR:
 			category = "EXPR_CAST_AUTO_PTR_TO_PTR";
 			break;

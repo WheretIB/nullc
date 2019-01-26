@@ -1715,15 +1715,6 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 				return CheckType(ctx, expression, CreateConstruct(module, node->source, GetVmType(ctx, node->type), typeId, value, NULL, NULL));
 			}
 			break;
-		case EXPR_CAST_ANY_TO_PTR:
-			{
-				VmValue *address = CreateAlloca(ctx, module, node->source, node->value->type, "lit");
-
-				CreateStore(ctx, module, node->source, node->value->type, address, value);
-
-				return CheckType(ctx, expression, address);
-			}
-			break;
 		case EXPR_CAST_AUTO_PTR_TO_PTR:
 			{
 				TypeRef *refType = getType<TypeRef>(node->type);

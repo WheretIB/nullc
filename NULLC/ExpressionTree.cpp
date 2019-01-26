@@ -1791,7 +1791,15 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 				return node->value;
 			}
 
-			return allocate(ExprTypeCast)(source, type, value, EXPR_CAST_ANY_TO_PTR);
+			VariableData *storage = AllocateTemporary(ctx, source, target->subType);
+
+			ExprBase *assignment = allocate(ExprAssignment)(source, storage->type, CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false)), value);
+
+			ExprBase *definition = allocate(ExprVariableDefinition)(source, ctx.typeVoid, storage, assignment);
+
+			ExprBase *result = CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false));
+
+			return CreateSequence(ctx, source, definition, result);
 		}
 	}
 

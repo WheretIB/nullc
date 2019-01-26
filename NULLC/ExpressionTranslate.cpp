@@ -414,9 +414,6 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 			}
 		}
 		break;
-	case EXPR_CAST_ANY_TO_PTR:
-		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_ANY_TO_PTR)*/", FMT_ISTR(expression->type->name));
-		break;
 	case EXPR_CAST_AUTO_PTR_TO_PTR:
 		if(TypeRef *typeRef = getType<TypeRef>(expression->type))
 		{
