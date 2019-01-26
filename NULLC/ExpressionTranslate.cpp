@@ -518,7 +518,11 @@ void TranslateBinaryOp(ExpressionTranslateContext &ctx, ExprBinaryOp *expression
 {
 	if(expression->op == SYN_BINARY_OP_POW)
 	{
-		Print(ctx, "/*TODO: %.*s ExprBinaryOp(SYN_BINARY_OP_POW)*/", FMT_ISTR(expression->type->name));
+		Print(ctx, "__nullcPow(");
+		Translate(ctx, expression->lhs);
+		Print(ctx, ", ");
+		Translate(ctx, expression->rhs);
+		Print(ctx, ")");
 	}
 	else if(expression->op == SYN_BINARY_OP_LOGICAL_XOR)
 	{
