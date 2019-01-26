@@ -887,6 +887,9 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 			if(variable->isVmAlloca)
 				continue;
 
+			if(variable->lookupOnly)
+				continue;
+
 			bool isArgument = false;
 
 			for(ExprVariableDefinition *curr = expression->arguments.head; curr; curr = getType<ExprVariableDefinition>(curr->next))
