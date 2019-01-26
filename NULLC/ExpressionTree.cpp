@@ -1742,7 +1742,15 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 
 				if(targetSub->subType == sourceSub->subType)
 				{
-					return allocate(ExprTypeCast)(source, type, value, EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR);
+					VariableData *storage = AllocateTemporary(ctx, source, targetSub);
+
+					ExprBase *assignment = CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, storage, false), allocate(ExprTypeCast)(source, targetSub, value, EXPR_CAST_ARRAY_PTR_TO_UNSIZED));
+
+					ExprBase *definition = allocate(ExprVariableDefinition)(source, ctx.typeVoid, storage, assignment);
+
+					ExprBase *result = CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false));
+
+					return CreateSequence(ctx, source, definition, result);
 				}
 			}
 

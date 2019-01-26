@@ -1013,33 +1013,6 @@ ExprBase* EvaluateCast(Eval &ctx, ExprTypeCast *expression)
 			return CheckType(expression, result);
 		}
 		break;
-	case EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR:
-		{
-			TypeRef *refType = getType<TypeRef>(value->type);
-
-			assert(refType);
-
-			TypeArray *arrType = getType<TypeArray>(refType->subType);
-
-			assert(arrType);
-			assert(unsigned(arrType->length) == arrType->length);
-
-			ExprBase *result = CreateConstruct(ctx, ctx.ctx.GetUnsizedArrayType(arrType->subType), value, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, arrType->length), NULL);
-
-			if(!result)
-				return NULL;
-
-			ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.GetUnsizedArrayType(arrType->subType));
-
-			if(!storage)
-				return NULL;
-
-			if(!CreateStore(ctx, storage, result))
-				return NULL;
-
-			return CheckType(expression, storage);
-		}
-		break;
 	case EXPR_CAST_PTR_TO_AUTO_PTR:
 		{
 			TypeRef *refType = getType<TypeRef>(value->type);

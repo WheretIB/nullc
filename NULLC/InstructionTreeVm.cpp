@@ -1693,28 +1693,6 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 				return CheckType(ctx, expression, CreateConstruct(module, node->source, GetVmType(ctx, node->type), value, CreateConstantInt(module->allocator, node->source, unsigned(arrType->length)), NULL, NULL));
 			}
 			break;
-		case EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR:
-			{
-				TypeRef *refType = getType<TypeRef>(node->value->type);
-
-				assert(refType);
-
-				TypeArray *arrType = getType<TypeArray>(refType->subType);
-
-				assert(arrType);
-				assert(unsigned(arrType->length) == arrType->length);
-
-				TypeRef *targetRefType = getType<TypeRef>(node->type);
-
-				assert(targetRefType);
-
-				VmValue *address = CreateAlloca(ctx, module, node->source, targetRefType->subType, "arr_ptr");
-
-				CreateStore(ctx, module, node->source, targetRefType->subType, address, CreateConstruct(module, node->source, GetVmType(ctx, targetRefType->subType), value, CreateConstantInt(module->allocator, node->source, unsigned(arrType->length)), NULL, NULL));
-
-				return CheckType(ctx, expression, address);
-			}
-			break;
 		case EXPR_CAST_PTR_TO_AUTO_PTR:
 			{
 				TypeRef *refType = getType<TypeRef>(node->value->type);

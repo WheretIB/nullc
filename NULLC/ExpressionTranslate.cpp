@@ -397,9 +397,6 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 			Print(ctx, ", %d)", (unsigned)typeArray->length);
 		}
 		break;
-	case EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR:
-		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_ARRAY_PTR_TO_UNSIZED_PTR)*/", FMT_ISTR(expression->type->name));
-		break;
 	case EXPR_CAST_PTR_TO_AUTO_PTR:
 		if(TypeRef *typeRef = getType<TypeRef>(expression->value->type))
 		{
