@@ -373,7 +373,7 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 		}
 		break;
 	case EXPR_CAST_NULL_TO_AUTO_PTR:
-		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_NULL_TO_AUTO_PTR)*/", FMT_ISTR(expression->type->name));
+		Print(ctx, "__nullcMakeAutoRef(0, 0)");
 		break;
 	case EXPR_CAST_NULL_TO_UNSIZED:
 		if(TypeUnsizedArray *typeUnsizedArray = getType<TypeUnsizedArray>(expression->type))
@@ -384,7 +384,7 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 		}
 		break;
 	case EXPR_CAST_NULL_TO_AUTO_ARRAY:
-		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_NULL_TO_AUTO_ARRAY)*/", FMT_ISTR(expression->type->name));
+		Print(ctx, "__makeAutoArray(0, NULLCArray<void>())");
 		break;
 	case EXPR_CAST_NULL_TO_FUNCTION:
 		TranslateTypeName(ctx, expression->type);
