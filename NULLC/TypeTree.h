@@ -302,6 +302,8 @@ struct FunctionData
 		hasExplicitReturn = false;
 
 		vmFunction = NULL;
+
+		nextTranslateRestoreBlock = 0;
 	}
 
 	SynBase *source;
@@ -372,6 +374,8 @@ struct FunctionData
 	IntrusiveList<CloseUpvaluesData> closeUpvalues;
 
 	VmFunction *vmFunction;
+
+	unsigned nextTranslateRestoreBlock;
 };
 
 struct AliasData

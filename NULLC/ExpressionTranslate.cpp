@@ -693,7 +693,7 @@ void TranslateReturn(ExpressionTranslateContext &ctx, ExprReturn *expression)
 		}
 	}
 
-	if(ctx.isInGlobalCode)
+	if(!ctx.currentFunction)
 	{
 		if(expression->value->type == ctx.ctx.typeBool || expression->value->type == ctx.ctx.typeChar || expression->value->type == ctx.ctx.typeShort || expression->value->type == ctx.ctx.typeInt)
 			Print(ctx, "__nullcOutputResultInt((int)");
@@ -763,6 +763,10 @@ void TranslateYield(ExpressionTranslateContext &ctx, ExprYield *expression)
 		Translate(ctx, expression->value);
 		Print(ctx, ";");
 	}
+
+	PrintLine(ctx);
+
+	Print(ctx, "yield_%d:", ctx.currentFunction->nextTranslateRestoreBlock++);
 }
 
 void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDefinition *expression)
@@ -913,7 +917,24 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 		}
 
 		if(expression->coroutineStateRead)
-			PrintIndentedLine(ctx, "/*TODO: ExprFunctionDefinition::coroutineStateRead*/");
+		{
+			PrintIndent(ctx);
+			Print(ctx, "int __currJmpOffset = ");
+			Translate(ctx, expression->coroutineStateRead);
+			Print(ctx, ";");
+			PrintLine(ctx);
+
+			for(unsigned i = 0; i < expression->function->yieldCount; i++)
+			{
+				PrintIndentedLine(ctx, "if(__currJmpOffset == %d)", i + 1);
+
+				ctx.depth++;
+
+				PrintIndentedLine(ctx, "goto yield_%d;", i + 1);
+
+				ctx.depth--;
+			}
+		}
 
 		for(ExprBase *value = expression->expressions.head; value; value = value->next)
 		{
@@ -1214,11 +1235,21 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 {
 	// Generate type indexes
 	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
-		ctx.ctx.types[i]->typeIndex = i;
+	{
+		TypeBase *type = ctx.ctx.types[i];
+
+		type->typeIndex = i;
+	}
 
 	// Generate function indexes
 	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
-		ctx.ctx.functions[i]->functionIndex = i;
+	{
+		FunctionData *function = ctx.ctx.functions[i];
+
+		function->functionIndex = i;
+
+		function->nextTranslateRestoreBlock = 1;
+	}
 
 	PrintIndentedLine(ctx, "#include \"runtime.h\"");
 	PrintIndentedLine(ctx, "// Typeid redirect table");
@@ -1284,7 +1315,9 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 				PrintIndent(ctx);
 
 				TranslateTypeName(ctx, curr->variable->type);
-				Print(ctx, " %.*s;", FMT_ISTR(curr->variable->name));
+				Print(ctx, " ");
+				TranslateVariableName(ctx, curr->variable);
+				Print(ctx, ";");
 				PrintLine(ctx);
 			}
 
@@ -1429,10 +1462,16 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 
 	for(unsigned i = 0; i < expression->definitions.size(); i++)
 	{
-		Translate(ctx, expression->definitions[i]);
+		ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(expression->definitions[i]);
+
+		ctx.currentFunction = definition->function;
+
+		Translate(ctx, definition);
 
 		PrintLine(ctx);
 	}
+
+	ctx.currentFunction = NULL;
 
 	ctx.skipFunctionDefinitions = true;
 
@@ -1608,8 +1647,6 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 	PrintIndentedLine(ctx, "");
 	PrintIndentedLine(ctx, "// expressions");
 
-	ctx.isInGlobalCode = true;
-
 	for(ExprBase *value = expression->expressions.head; value; value = value->next)
 	{
 		PrintIndent(ctx);
@@ -1620,8 +1657,6 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 
 		PrintLine(ctx);
 	}
-
-	ctx.isInGlobalCode = false;
 
 	ctx.depth--;
 

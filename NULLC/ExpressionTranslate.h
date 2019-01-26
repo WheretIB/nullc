@@ -6,6 +6,8 @@ struct ExpressionContext;
 
 struct ExprBase;
 
+struct FunctionData;
+
 struct ExpressionTranslateContext
 {
 	ExpressionTranslateContext(ExpressionContext &ctx): ctx(ctx)
@@ -19,7 +21,8 @@ struct ExpressionTranslateContext
 		depth = 0;
 
 		skipFunctionDefinitions = false;
-		isInGlobalCode = false;
+
+		currentFunction = 0;
 	}
 
 	ExpressionContext &ctx;
@@ -33,7 +36,8 @@ struct ExpressionTranslateContext
 	unsigned depth;
 
 	bool skipFunctionDefinitions;
-	bool isInGlobalCode;
+
+	FunctionData *currentFunction;
 
 private:
 	ExpressionTranslateContext(const ExpressionTranslateContext&);
