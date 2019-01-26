@@ -1451,6 +1451,88 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 	PrintIndentedLine(ctx, "__nullcRegisterBase(&__local);");
 	PrintIndentedLine(ctx, "__nullcInitBaseModule();");
 
+	PrintIndentedLine(ctx, "");
+	PrintIndentedLine(ctx, "// register types");
+
+	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
+	{
+		TypeBase *type = ctx.ctx.types[i];
+
+		if(type->isGeneric)
+		{
+			PrintIndentedLine(ctx, "__nullcTR[%d] = 0; // generic type '%.*s'", i, FMT_ISTR(type->name));
+			continue;
+		}
+
+		PrintIndent(ctx);
+		Print(ctx, "__nullcTR[%d] = __nullcRegisterType(", i);
+		Print(ctx, "%uu, ", type->nameHash);
+		Print(ctx, "\"%.*s\", ", FMT_ISTR(type->name));
+		Print(ctx, "%d, ", type->size);
+
+		if(TypeArray *typeArray = getType<TypeArray>(type))
+		{
+			Print(ctx, "__nullcTR[%d], ", typeArray->subType->typeIndex);
+			Print(ctx, "%d, NULLC_ARRAY);", (unsigned)typeArray->length);
+		}
+		else if(TypeUnsizedArray *typeUnsizedArray = getType<TypeUnsizedArray>(type))
+		{
+			Print(ctx, "__nullcTR[%d], ", typeUnsizedArray->subType->typeIndex);
+			Print(ctx, "-1, NULLC_ARRAY);");
+		}
+		else if(TypeRef *typeRef = getType<TypeRef>(type))
+		{
+			Print(ctx, "__nullcTR[%d], ", typeRef->subType->typeIndex);
+			Print(ctx, "1, NULLC_POINTER);");
+		}
+		else if(TypeFunction *typeFunction = getType<TypeFunction>(type))
+		{
+			Print(ctx, "__nullcTR[0], ");
+			Print(ctx, "0, NULLC_FUNCTION);");
+		}
+		else if(TypeStruct *typeStruct = getType<TypeStruct>(type))
+		{
+			Print(ctx, "__nullcTR[0], ");
+			Print(ctx, "%d, NULLC_CLASS);", typeStruct->members.size());
+		}
+		else
+		{
+			Print(ctx, "__nullcTR[0], ");
+			Print(ctx, "0, NULLC_NONE);");
+		}
+
+		PrintLine(ctx);
+	}
+
+	PrintIndentedLine(ctx, "");
+	PrintIndentedLine(ctx, "// register type members");
+
+	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
+	{
+		TypeBase *type = ctx.ctx.types[i];
+
+		if(type->isGeneric)
+			continue;
+
+		if(TypeStruct *typeStruct = getType<TypeStruct>(type))
+		{
+			PrintIndentedLine(ctx, "// type '%.*s' members", FMT_ISTR(type->name));
+
+			PrintIndent(ctx);
+			Print(ctx, "__nullcRegisterMembers(__nullcTR[%d], %d", i, typeStruct->members.size());
+
+			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			{
+				Print(ctx, ", __nullcTR[%d]", curr->variable->type->typeIndex);
+				Print(ctx, ", %d", curr->variable->offset);
+			}
+
+			Print(ctx, ");");
+			PrintLine(ctx);
+		}
+	}
+
+	PrintIndentedLine(ctx, "");
 	PrintIndentedLine(ctx, "// setup");
 
 	for(ExprBase *value = expression->setup.head; value; value = value->next)
@@ -1464,6 +1546,7 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 		PrintLine(ctx);
 	}
 
+	PrintIndentedLine(ctx, "");
 	PrintIndentedLine(ctx, "// expressions");
 
 	ctx.isInGlobalCode = true;
