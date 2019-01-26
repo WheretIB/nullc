@@ -1200,6 +1200,7 @@ void TranslateBlock(ExpressionTranslateContext &ctx, ExprBlock *expression)
 		PrintIndent(ctx);
 
 		Translate(ctx, expression->closures);
+		Print(ctx, ";");
 
 		PrintLine(ctx);
 	}
@@ -1219,15 +1220,25 @@ void TranslateSequence(ExpressionTranslateContext &ctx, ExprSequence *expression
 	}
 
 	Print(ctx, "(");
+	PrintLine(ctx);
+
+	ctx.depth++;
 
 	for(ExprBase *curr = expression->expressions.head; curr; curr = curr->next)
 	{
+		PrintIndent(ctx);
+
 		Translate(ctx, curr);
 
 		if(curr->next)
 			Print(ctx, ", ");
+
+		PrintLine(ctx);
 	}
 
+	ctx.depth--;
+
+	PrintIndent(ctx);
 	Print(ctx, ")");
 }
 
