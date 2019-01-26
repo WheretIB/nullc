@@ -1299,6 +1299,11 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 
 			PrintIndent(ctx);
 			PrintEscapedName(ctx, typeEnum->name);
+			Print(ctx, "(): value(0){}");
+			PrintLine(ctx);
+
+			PrintIndent(ctx);
+			PrintEscapedName(ctx, typeEnum->name);
 			Print(ctx, "(int v): value(v){}");
 			PrintLine(ctx);
 
