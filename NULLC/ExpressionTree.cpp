@@ -6606,6 +6606,9 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			unsigned offset = AllocateVariableInScope(ctx, source, ctx.typeInt->alignment, ctx.typeInt);
 			function->coroutineJumpOffset = allocate(VariableData)(ctx.allocator, source, ctx.scope, 0, ctx.typeInt, InplaceStr("$jmpOffset"), offset, ctx.uniqueVariableId++);
 
+			if (IsLookupOnlyVariable(ctx, function->coroutineJumpOffset))
+				function->coroutineJumpOffset->lookupOnly = true;
+
 			ctx.AddVariable(function->coroutineJumpOffset);
 
 			AddFunctionCoroutineVariable(ctx, source, function, function->coroutineJumpOffset);
@@ -6953,6 +6956,9 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 	{
 		unsigned offset = AllocateVariableInScope(ctx, syntax, ctx.typeInt->alignment, ctx.typeInt);
 		function->coroutineJumpOffset = allocate(VariableData)(ctx.allocator, syntax, ctx.scope, 0, ctx.typeInt, InplaceStr("$jmpOffset"), offset, ctx.uniqueVariableId++);
+
+		if (IsLookupOnlyVariable(ctx, function->coroutineJumpOffset))
+			function->coroutineJumpOffset->lookupOnly = true;
 
 		ctx.AddVariable(function->coroutineJumpOffset);
 
