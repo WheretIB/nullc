@@ -418,10 +418,22 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_ANY_TO_PTR)*/", FMT_ISTR(expression->type->name));
 		break;
 	case EXPR_CAST_AUTO_PTR_TO_PTR:
-		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_AUTO_PTR_TO_PTR)*/", FMT_ISTR(expression->type->name));
+		if(TypeRef *typeRef = getType<TypeRef>(expression->type))
+		{
+			Print(ctx, "(");
+			TranslateTypeName(ctx, typeRef->subType);
+			Print(ctx, "*)__nullcGetAutoRef(");
+			Translate(ctx, expression->value);
+			Print(ctx, ", __nullcTR[%d])", typeRef->subType->typeIndex);
+		}
 		break;
 	case EXPR_CAST_UNSIZED_TO_AUTO_ARRAY:
-		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_UNSIZED_TO_AUTO_ARRAY)*/", FMT_ISTR(expression->type->name));
+		if(TypeUnsizedArray *typeUnsizedArray = getType<TypeUnsizedArray>(expression->value->type))
+		{
+			Print(ctx, "__makeAutoArray(__nullcTR[%d], ", typeUnsizedArray->subType->typeIndex);
+			Translate(ctx, expression->value);
+			Print(ctx, ")");
+		}
 		break;
 	case EXPR_CAST_DERIVED_TO_BASE:
 		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_DERIVED_TO_BASE)*/", FMT_ISTR(expression->type->name));
