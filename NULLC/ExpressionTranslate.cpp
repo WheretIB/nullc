@@ -489,7 +489,7 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 		}
 		else
 		{
-			Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_REINTERPRET)*/", FMT_ISTR(expression->type->name));
+			assert(!"unknown cast");
 		}
 		break;
 	default:
@@ -819,7 +819,19 @@ void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDe
 
 void TranslateArraySetup(ExpressionTranslateContext &ctx, ExprArraySetup *expression)
 {
-	Print(ctx, "/*TODO: %.*s ExprArraySetup*/", FMT_ISTR(expression->type->name));
+	TypeRef *refType = getType<TypeRef>(expression->lhs->type);
+
+	assert(refType);
+
+	TypeArray *arrayType = getType<TypeArray>(refType->subType);
+
+	assert(arrayType);
+
+	Print(ctx, "__nullcSetupArray((");
+	Translate(ctx, expression->lhs);
+	Print(ctx, ")->ptr, %u, ", (unsigned)arrayType->length);
+	Translate(ctx, expression->initializer);
+	Print(ctx, ")");
 }
 
 void TranslateVariableDefinitions(ExpressionTranslateContext &ctx, ExprVariableDefinitions *expression)
