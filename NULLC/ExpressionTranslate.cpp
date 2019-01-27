@@ -412,7 +412,9 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 
 			if(classType && (classType->extendable || classType->baseClass))
 			{
-				Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_PTR_TO_AUTO_PTR)*/", FMT_ISTR(expression->type->name));
+				Print(ctx, "__nullcMakeExtendableAutoRef(");
+				Translate(ctx, expression->value);
+				Print(ctx, ")");
 			}
 			else
 			{
