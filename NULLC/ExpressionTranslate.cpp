@@ -660,21 +660,19 @@ void TranslateArrayIndex(ExpressionTranslateContext &ctx, ExprArrayIndex *expres
 {
 	if(TypeUnsizedArray *typeUnsizedArray = getType<TypeUnsizedArray>(expression->value->type))
 	{
-		Print(ctx, "((");
-		TranslateTypeName(ctx, typeUnsizedArray->subType);
-		Print(ctx, "*)&(");
+		Print(ctx, "__nullcIndexUnsizedArray(");
 		Translate(ctx, expression->value);
-		Print(ctx, ").ptr[");
+		Print(ctx, ", ");
 		Translate(ctx, expression->index);
-		Print(ctx, "])");
+		Print(ctx, ")");
 	}
 	else
 	{
-		Print(ctx, "(&(");
+		Print(ctx, "(");
 		Translate(ctx, expression->value);
-		Print(ctx, ")->ptr[");
+		Print(ctx, ")->index(");
 		Translate(ctx, expression->index);
-		Print(ctx, "])");
+		Print(ctx, ")");
 	}
 }
 
@@ -1442,6 +1440,11 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 			Print(ctx, "& set(unsigned index, ");
 			TranslateTypeName(ctx, typeArray->subType);
 			Print(ctx, " const& val){ ptr[index] = val; return *this; }");
+			PrintLine(ctx);
+
+			PrintIndent(ctx);
+			TranslateTypeName(ctx, typeArray->subType);
+			Print(ctx, "* index(unsigned i){ if(unsigned(i) < %u) return &ptr[i]; nullcThrowError(\"ERROR: array index out of bounds\"); return 0; }", (unsigned)typeArray->length);
 			PrintLine(ctx);
 
 			ctx.depth--;
