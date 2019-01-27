@@ -1186,7 +1186,69 @@ void TranslateDoWhile(ExpressionTranslateContext &ctx, ExprDoWhile *expression)
 
 void TranslateSwitch(ExpressionTranslateContext &ctx, ExprSwitch *expression)
 {
-	Print(ctx, "/*TODO: %.*s ExprSwitch*/", FMT_ISTR(expression->type->name));
+	unsigned loopId = ctx.nextLoopId++;
+	ctx.loopIdStack.push_back(loopId);
+
+	Print(ctx, "{");
+	PrintLine(ctx);
+	ctx.depth++;
+
+	PrintIndent(ctx);
+	Translate(ctx, expression->condition);
+	Print(ctx, ";");
+	PrintLine(ctx);
+
+	unsigned i;
+
+	i = 0;
+	for(ExprBase *curr = expression->cases.head; curr; curr = curr->next, i++)
+	{
+		PrintIndent(ctx);
+		Print(ctx, "if(");
+		Translate(ctx, curr);
+		Print(ctx, ")");
+		PrintLine(ctx);
+
+		ctx.depth++;
+		PrintIndentedLine(ctx, "goto switch_%d_case_%d;", loopId, i);
+		ctx.depth--;
+	}
+
+	if(expression->defaultBlock)
+		PrintIndentedLine(ctx, "goto switch_%d_default;", loopId);
+
+	i = 0;
+	for(ExprBase *curr = expression->blocks.head; curr; curr = curr->next, i++)
+	{
+		Print(ctx, "switch_%d_case_%d:", loopId, i);
+		PrintLine(ctx);
+
+		PrintIndent(ctx);
+		Translate(ctx, curr);
+
+		if(curr->next || expression->defaultBlock)
+			PrintLine(ctx);
+	}
+
+	if(expression->defaultBlock)
+	{
+		Print(ctx, "switch_%d_default:", loopId);
+		PrintLine(ctx);
+
+		PrintIndent(ctx);
+		Translate(ctx, expression->defaultBlock);
+	}
+
+	PrintLine(ctx);
+
+	ctx.depth--;
+	PrintIndentedLine(ctx, "}");
+
+	Print(ctx, "break_%d:", loopId);
+	PrintLine(ctx);
+	PrintIndent(ctx);
+
+	ctx.loopIdStack.pop_back();
 }
 
 void TranslateBreak(ExpressionTranslateContext &ctx, ExprBreak *expression)
