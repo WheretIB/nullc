@@ -359,10 +359,14 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 		Print(ctx, "))");
 		break;
 	case EXPR_CAST_UNSIZED_TO_BOOL:
-		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_UNSIZED_TO_BOOL)*/", FMT_ISTR(expression->type->name));
+		Print(ctx, "((");
+		Translate(ctx, expression->value);
+		Print(ctx, ").ptr != 0)");
 		break;
 	case EXPR_CAST_FUNCTION_TO_BOOL:
-		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_FUNCTION_TO_BOOL)*/", FMT_ISTR(expression->type->name));
+		Print(ctx, "((");
+		Translate(ctx, expression->value);
+		Print(ctx, ").id != 0)");
 		break;
 	case EXPR_CAST_NULL_TO_PTR:
 		if(TypeRef *typeRef = getType<TypeRef>(expression->type))
