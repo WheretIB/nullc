@@ -1533,6 +1533,8 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 			unsigned currLen = (unsigned)strlen(ctx.errorBuf);
 			SafeSprintf(ctx.errorBuf + currLen, ctx.errorBufSize - currLen, " [in module '%.*s']", FMT_ISTR(data->name));
 
+			fclose(nested.file);
+
 			return false;
 		}
 
@@ -1564,6 +1566,26 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	PrintIndentedLine(ctx, "static __nullcFunctionArray* __nullcFM;");
 	PrintIndentedLine(ctx, "// Function pointer redirect table");
 	PrintIndentedLine(ctx, "static unsigned __nullcFR[%d];", ctx.ctx.functions.size());
+
+	PrintLine(ctx);
+	PrintIndentedLine(ctx, "// Type prototypes");
+
+	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
+	{
+		TypeBase *type = ctx.ctx.types[i];
+
+		if(type->isGeneric)
+			continue;
+
+		if(TypeStruct *typeStruct = getType<TypeStruct>(type))
+		{
+			Print(ctx, "struct ");
+			PrintEscapedName(ctx, typeStruct->name);
+			Print(ctx, ";");
+			PrintLine(ctx);
+		}
+	}
+
 
 	PrintLine(ctx);
 	PrintIndentedLine(ctx, "// Type definitions");
