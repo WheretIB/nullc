@@ -1181,7 +1181,38 @@ void TranslateWhile(ExpressionTranslateContext &ctx, ExprWhile *expression)
 
 void TranslateDoWhile(ExpressionTranslateContext &ctx, ExprDoWhile *expression)
 {
-	Print(ctx, "/*TODO: %.*s ExprDoWhile*/", FMT_ISTR(expression->type->name));
+	unsigned loopId = ctx.nextLoopId++;
+	ctx.loopIdStack.push_back(loopId);
+
+	Print(ctx, "do");
+	PrintLine(ctx);
+
+	PrintIndentedLine(ctx, "{");
+	ctx.depth++;
+	PrintIndent(ctx);
+
+	Translate(ctx, expression->body);
+
+	Print(ctx, ";");
+	PrintLine(ctx);
+
+	Print(ctx, "continue_%d:;", loopId);
+	PrintLine(ctx);
+
+	ctx.depth--;
+	PrintIndentedLine(ctx, "}");
+
+	PrintIndent(ctx);
+	Print(ctx, "while(");
+	Translate(ctx, expression->condition);
+	Print(ctx, ");");
+	PrintLine(ctx);
+
+	Print(ctx, "break_%d:", loopId);
+	PrintLine(ctx);
+	PrintIndent(ctx);
+
+	ctx.loopIdStack.pop_back();
 }
 
 void TranslateSwitch(ExpressionTranslateContext &ctx, ExprSwitch *expression)
