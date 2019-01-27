@@ -9,13 +9,17 @@ struct FunctionData;
 
 struct ExpressionTranslateContext
 {
-	ExpressionTranslateContext(ExpressionContext &ctx): ctx(ctx), loopIdStack(ctx.allocator)
+	ExpressionTranslateContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), allocator(allocator), loopIdStack(allocator)
 	{
 		file = 0;
 
 		mainName = "main";
 
 		indent = "\t";
+
+		errorPos = 0;
+		errorBuf = 0;
+		errorBufSize = 0;
 
 		depth = 0;
 
@@ -34,6 +38,10 @@ struct ExpressionTranslateContext
 
 	const char *indent;
 
+	const char *errorPos;
+	char *errorBuf;
+	unsigned errorBufSize;
+
 	unsigned depth;
 
 	unsigned nextLoopId;
@@ -44,9 +52,19 @@ struct ExpressionTranslateContext
 
 	FunctionData *currentFunction;
 
+	// Memory pool
+	Allocator *allocator;
+
+	template<typename T>
+	T* get()
+	{
+		return (T*)allocator->alloc(sizeof(T));
+	}
+
 private:
 	ExpressionTranslateContext(const ExpressionTranslateContext&);
 	ExpressionTranslateContext& operator=(const ExpressionTranslateContext&);
 };
 
 void Translate(ExpressionTranslateContext &ctx, ExprBase *expression);
+bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, SmallArray<const char*, 32> &dependencies);

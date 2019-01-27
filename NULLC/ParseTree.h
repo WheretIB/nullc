@@ -101,7 +101,7 @@ struct ParseContext
 	SynNamespaceElement* PushNamespace(InplaceStr name);
 	void PopNamespace();
 
-	char* (*bytecodeBuilder)(InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize);
+	char* (*bytecodeBuilder)(Allocator *allocator, InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize);
 
 	Lexer lexer;
 
@@ -974,5 +974,5 @@ const char* GetOpName(SynUnaryOpType type);
 const char* GetOpName(SynBinaryOpType type);
 const char* GetOpName(SynModifyAssignType type);
 
-InplaceStr GetImportPath(Allocator *allocator, const char *importPath, const char *moduleFileName);
+InplaceStr GetImportPath(Allocator *allocator, const char *importPath, InplaceStr moduleFileName);
 InplaceStr GetImportPath(Allocator *allocator, const char *importPath, IntrusiveList<SynIdentifier> parts);

@@ -8802,7 +8802,7 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 
 		const char *importPath = BinaryCache::GetImportPath();
 
-		InplaceStr path = GetImportPath(ctx.allocator, importPath, moduleFileName);
+		InplaceStr path = GetImportPath(ctx.allocator, importPath, InplaceStr(moduleFileName));
 		InplaceStr pathNoImport = importPath ? InplaceStr(path.begin + strlen(importPath)) : path;
 
 		const char *bytecode = BinaryCache::GetBytecode(path.begin);

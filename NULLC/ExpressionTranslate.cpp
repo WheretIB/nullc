@@ -2,10 +2,14 @@
 
 #include <stdarg.h>
 
+#include "BinaryCache.h"
+#include "Compiler.h"
 #include "ExpressionTree.h"
 
 // TODO: common
 ScopeData* GlobalScopeFrom(ScopeData *scope);
+
+ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code);
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
@@ -1145,7 +1149,7 @@ void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 	Print(ctx, "continue_%d:", loopId);
 	PrintLine(ctx);
 
-	PrintIndentedLine(ctx, "// increment");
+	PrintIndentedLine(ctx, "// Increment");
 
 	PrintIndent(ctx);
 	Translate(ctx, expression->increment);
@@ -1328,7 +1332,7 @@ void TranslateBlock(ExpressionTranslateContext &ctx, ExprBlock *expression)
 
 	if(expression->closures)
 	{
-		PrintIndentedLine(ctx, "// closures");
+		PrintIndentedLine(ctx, "// Closures");
 
 		PrintIndent(ctx);
 
@@ -1375,8 +1379,166 @@ void TranslateSequence(ExpressionTranslateContext &ctx, ExprSequence *expression
 	Print(ctx, ")");
 }
 
-void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
+const char* GetModuleOutputPath(Allocator *allocator, InplaceStr moduleName)
 {
+	unsigned length = strlen("import_") + moduleName.length() + strlen(".cpp") + 1;
+	char *targetName = (char*)allocator->alloc(length);
+
+	char *pos = targetName;
+
+	strcpy(pos, "import_");
+	pos += strlen(pos);
+
+	memcpy(pos, moduleName.begin, moduleName.length());
+	pos += moduleName.length();
+
+	*pos = 0;
+
+	for(unsigned i = 0; i < strlen(targetName); i++)
+	{
+		if(targetName[i] == '/' || targetName[i] == '.')
+			targetName[i] = '_';
+	}
+
+	strcpy(pos, ".cpp");
+
+	return targetName;
+}
+
+const char* GetModuleMainName(Allocator *allocator, InplaceStr moduleName)
+{
+	unsigned length = moduleName.length() + + strlen("__init_") + 1;
+	char *targetName = (char*)allocator->alloc(length);
+
+	SafeSprintf(targetName, length, "__init_%.*s", FMT_ISTR(moduleName));
+
+	for(unsigned i = 0; i < length; i++)
+	{
+		if(targetName[i] == '/' || targetName[i] == '.')
+			targetName[i] = '_';
+	}
+
+	return targetName;
+}
+
+bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, SmallArray<const char*, 32> &dependencies)
+{
+	// Translate all imports (expept base)
+	for(unsigned i = 1; i < ctx.ctx.imports.size(); i++)
+	{
+		ModuleData *data = ctx.ctx.imports[i];
+
+		PrintIndentedLine(ctx, "// Requires '%.*s'", FMT_ISTR(data->name));
+
+		const char *targetName = GetModuleOutputPath(ctx.allocator, data->name);
+
+		bool found = false;
+
+		for(unsigned k = 0; k < dependencies.size(); k++)
+		{
+			if(strcmp(dependencies[k], targetName) == 0)
+			{
+				found = true;
+				break;
+			}
+		}
+
+		if(found)
+			continue;
+
+		dependencies.push_back(targetName);
+
+		const char *importPath = BinaryCache::GetImportPath();
+
+		InplaceStr path = GetImportPath(ctx.ctx.allocator, importPath, data->name);
+		InplaceStr pathNoImport = importPath ? InplaceStr(path.begin + strlen(importPath)) : path;
+
+		char filePath[1024];
+
+		unsigned fileSize = 0;
+		int needDelete = false;
+
+		assert(path.length() < 1024);
+		SafeSprintf(filePath, 1024, "%.*s", path.length(), path.begin);
+
+		char *fileContent = (char*)NULLC::fileLoad(filePath, &fileSize, &needDelete);
+
+		if(!fileContent)
+		{
+			assert(pathNoImport.length() < 1024);
+			SafeSprintf(filePath, 1024, "%.*s", pathNoImport.length(), pathNoImport.begin);
+
+			fileContent = (char*)NULLC::fileLoad(filePath, &fileSize, &needDelete);
+		}
+
+		if(!fileContent)
+		{
+			const char *bytecode = BinaryCache::GetBytecode(path.begin);
+
+			if(!bytecode)
+			{
+				bytecode = BinaryCache::GetBytecode(pathNoImport.begin);
+			}
+
+			if(!bytecode)
+			{
+				SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' input file '%s' could not be opened", FMT_ISTR(data->name));
+				return false;
+			}
+
+			fileContent = FindSource((ByteCode*)bytecode);
+		}
+
+		CompilerContext compilerCtx(ctx.allocator);
+
+		compilerCtx.errorBuf = ctx.errorBuf;
+		compilerCtx.errorBufSize = ctx.errorBufSize;
+
+		ExprModule* nestedModule = AnalyzeModuleFromSource(compilerCtx, fileContent);
+
+		if(!nestedModule)
+		{
+			if(ctx.errorPos)
+				ctx.errorPos = compilerCtx.errorPos;
+
+			if(ctx.errorBuf && ctx.errorBufSize)
+			{
+				unsigned currLen = (unsigned)strlen(ctx.errorBuf);
+				SafeSprintf(ctx.errorBuf + currLen, ctx.errorBufSize - currLen, " [in module '%.*s']", FMT_ISTR(data->name));
+			}
+
+			return false;
+		}
+
+		ExpressionTranslateContext nested(compilerCtx.exprCtx, compilerCtx.allocator);
+
+		nested.file = fopen(targetName, "w");
+
+		if(!nested.file)
+		{
+			SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' output file '%s' could not be opened", filePath);
+
+			return false;
+		}
+
+		nested.mainName = GetModuleMainName(ctx.allocator, data->name);
+
+		nested.indent = ctx.indent;
+
+		nested.errorBuf = ctx.errorBuf;
+		nested.errorBufSize = ctx.errorBufSize;
+
+		if(!TranslateModule(nested, nestedModule, dependencies))
+		{
+			unsigned currLen = (unsigned)strlen(ctx.errorBuf);
+			SafeSprintf(ctx.errorBuf + currLen, ctx.errorBufSize - currLen, " [in module '%.*s']", FMT_ISTR(data->name));
+
+			return false;
+		}
+
+		fclose(nested.file);
+	}
+
 	// Generate type indexes
 	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
 	{
@@ -1613,6 +1775,9 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 	{
 		ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(expression->definitions[i]);
 
+		if(definition->function->isPrototype)
+			continue;
+
 		ctx.currentFunction = definition->function;
 
 		Translate(ctx, definition);
@@ -1623,6 +1788,19 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 	ctx.currentFunction = NULL;
 
 	ctx.skipFunctionDefinitions = true;
+
+	PrintLine(ctx);
+	PrintIndentedLine(ctx, "// Module initializers");
+
+	for(unsigned i = 1; i < ctx.ctx.imports.size(); i++)
+	{
+		ModuleData *data = ctx.ctx.imports[i];
+
+		PrintIndentedLine(ctx, "extern int %s();", GetModuleMainName(ctx.allocator, data->name));
+	}
+
+	PrintLine(ctx);
+	PrintIndentedLine(ctx, "// Global code");
 
 	PrintIndentedLine(ctx, "int %s()", ctx.mainName);
 	PrintIndentedLine(ctx, "{");
@@ -1641,8 +1819,18 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 	PrintIndentedLine(ctx, "__nullcRegisterBase(&__local);");
 	PrintIndentedLine(ctx, "__nullcInitBaseModule();");
 
-	PrintIndentedLine(ctx, "");
-	PrintIndentedLine(ctx, "// register types");
+	PrintLine(ctx);
+	PrintIndentedLine(ctx, "// Initialize modules");
+
+	for(unsigned i = 1; i < ctx.ctx.imports.size(); i++)
+	{
+		ModuleData *data = ctx.ctx.imports[i];
+
+		PrintIndentedLine(ctx, "%s();", GetModuleMainName(ctx.allocator, data->name));
+	}
+
+	PrintLine(ctx);
+	PrintIndentedLine(ctx, "// Register types");
 
 	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
 	{
@@ -1694,8 +1882,8 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 		PrintLine(ctx);
 	}
 
-	PrintIndentedLine(ctx, "");
-	PrintIndentedLine(ctx, "// register type members");
+	PrintLine(ctx);
+	PrintIndentedLine(ctx, "// Register type members");
 
 	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
 	{
@@ -1720,8 +1908,8 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 		}
 	}
 
-	PrintIndentedLine(ctx, "");
-	PrintIndentedLine(ctx, "// register globals");
+	PrintLine(ctx);
+	PrintIndentedLine(ctx, "// Register globals");
 
 	for(unsigned int i = 0; i < ctx.ctx.variables.size(); i++)
 	{
@@ -1744,8 +1932,8 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 		}
 	}
 
-	PrintIndentedLine(ctx, "");
-	PrintIndentedLine(ctx, "// register functions");
+	PrintLine(ctx);
+	PrintIndentedLine(ctx, "// Register functions");
 
 	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
 	{
@@ -1779,8 +1967,8 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 		PrintLine(ctx);
 	}
 
-	PrintIndentedLine(ctx, "");
-	PrintIndentedLine(ctx, "// setup");
+	PrintLine(ctx);
+	PrintIndentedLine(ctx, "// Setup");
 
 	for(ExprBase *value = expression->setup.head; value; value = value->next)
 	{
@@ -1793,8 +1981,8 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 		PrintLine(ctx);
 	}
 
-	PrintIndentedLine(ctx, "");
-	PrintIndentedLine(ctx, "// expressions");
+	PrintLine(ctx);
+	PrintIndentedLine(ctx, "// Expressions");
 
 	for(ExprBase *value = expression->expressions.head; value; value = value->next)
 	{
@@ -1807,9 +1995,13 @@ void TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression)
 		PrintLine(ctx);
 	}
 
+	PrintIndentedLine(ctx, "return 0;");
+
 	ctx.depth--;
 
 	PrintIndentedLine(ctx, "}");
+
+	return true;
 }
 
 void Translate(ExpressionTranslateContext &ctx, ExprBase *expression)
@@ -1912,8 +2104,6 @@ void Translate(ExpressionTranslateContext &ctx, ExprBase *expression)
 		TranslateBlock(ctx, expr);
 	else if(ExprSequence *expr = getType<ExprSequence>(expression))
 		TranslateSequence(ctx, expr);
-	else if(ExprModule *expr = getType<ExprModule>(expression))
-		TranslateModule(ctx, expr);
 	else
 		assert(!"unknown type");
 }

@@ -2466,7 +2466,7 @@ const char* GetBytecodeFromPath(ParseContext &ctx, const char *start, IntrusiveL
 		if(!ctx.bytecodeBuilder)
 			Stop(ctx, start, "ERROR: import builder is not provided");
 
-		bytecode = ctx.bytecodeBuilder(path, pathNoImport, &ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
+		bytecode = ctx.bytecodeBuilder(ctx.allocator, path, pathNoImport, &ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
 
 		if(!bytecode)
 		{
@@ -2704,9 +2704,9 @@ const char* GetOpName(SynModifyAssignType type)
 	return "";
 }
 
-InplaceStr GetImportPath(Allocator *allocator, const char *importPath, const char *moduleFileName)
+InplaceStr GetImportPath(Allocator *allocator, const char *importPath, InplaceStr moduleFileName)
 {
-	unsigned pathLength = (importPath ? strlen(importPath) : 0) + strlen(moduleFileName);
+	unsigned pathLength = (importPath ? strlen(importPath) : 0) + moduleFileName.length();
 
 	char *path = (char*)allocator->alloc(pathLength + 1);
 
@@ -2718,8 +2718,8 @@ InplaceStr GetImportPath(Allocator *allocator, const char *importPath, const cha
 		pos += strlen(importPath);
 	}
 
-	strcpy(pos, moduleFileName);
-	pos += strlen(moduleFileName);
+	memcpy(pos, moduleFileName.begin, moduleFileName.length());
+	pos += moduleFileName.length();
 
 	*pos = 0;
 
