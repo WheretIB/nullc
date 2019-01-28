@@ -202,6 +202,106 @@ void TranslateVariableName(ExpressionTranslateContext &ctx, VariableData *variab
 	}
 }
 
+void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
+{
+	if(type->hasTranslation)
+		return;
+
+	type->hasTranslation = true;
+
+	if(type->isGeneric)
+		return;
+
+	if(TypeFunction *typeFunction = getType<TypeFunction>(type))
+	{
+		Print(ctx, "struct __typeProxy_");
+		PrintEscapedName(ctx, typeFunction->name);
+		Print(ctx, "{};");
+		PrintLine(ctx);
+	}
+	else if(TypeArray *typeArray = getType<TypeArray>(type))
+	{
+		TranslateTypeDefinition(ctx, typeArray->subType);
+
+		Print(ctx, "struct ");
+		PrintEscapedName(ctx, typeArray->name);
+		PrintLine(ctx);
+
+		PrintIndentedLine(ctx, "{");
+		ctx.depth++;
+
+		PrintIndent(ctx);
+		TranslateTypeName(ctx, typeArray->subType);
+		Print(ctx, " ptr[%d];", typeArray->length + ((4 - (typeArray->length * typeArray->subType->size % 4)) & 3)); // Round total byte size to 4
+		PrintLine(ctx);
+
+		PrintIndent(ctx);
+		PrintEscapedName(ctx, typeArray->name);
+		Print(ctx, "& set(unsigned index, ");
+		TranslateTypeName(ctx, typeArray->subType);
+		Print(ctx, " const& val){ ptr[index] = val; return *this; }");
+		PrintLine(ctx);
+
+		PrintIndent(ctx);
+		TranslateTypeName(ctx, typeArray->subType);
+		Print(ctx, "* index(unsigned i){ if(unsigned(i) < %u) return &ptr[i]; nullcThrowError(\"ERROR: array index out of bounds\"); return 0; }", (unsigned)typeArray->length);
+		PrintLine(ctx);
+
+		ctx.depth--;
+		PrintIndentedLine(ctx, "};");
+	}
+	else if(TypeClass *typeClass = getType<TypeClass>(type))
+	{
+		for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+			TranslateTypeDefinition(ctx, curr->variable->type);
+
+		Print(ctx, "struct ");
+		PrintEscapedName(ctx, typeClass->name);
+		PrintLine(ctx);
+
+		PrintIndentedLine(ctx, "{");
+		ctx.depth++;
+
+		for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+		{
+			PrintIndent(ctx);
+
+			TranslateTypeName(ctx, curr->variable->type);
+			Print(ctx, " ");
+			TranslateVariableName(ctx, curr->variable);
+			Print(ctx, ";");
+			PrintLine(ctx);
+		}
+
+		ctx.depth--;
+		PrintIndentedLine(ctx, "};");
+	}
+	else if(TypeEnum *typeEnum = getType<TypeEnum>(type))
+	{
+		Print(ctx, "struct ");
+		PrintEscapedName(ctx, typeEnum->name);
+		PrintLine(ctx);
+
+		PrintIndentedLine(ctx, "{");
+		ctx.depth++;
+
+		PrintIndent(ctx);
+		PrintEscapedName(ctx, typeEnum->name);
+		Print(ctx, "(): value(0){}");
+		PrintLine(ctx);
+
+		PrintIndent(ctx);
+		PrintEscapedName(ctx, typeEnum->name);
+		Print(ctx, "(int v): value(v){}");
+		PrintLine(ctx);
+
+		PrintIndentedLine(ctx, "int value;");
+
+		ctx.depth--;
+		PrintIndentedLine(ctx, "};");
+	}
+}
+
 void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *function)
 {
 	InplaceStr name = function->name;
@@ -1547,6 +1647,8 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 		TypeBase *type = ctx.ctx.types[i];
 
 		type->typeIndex = i;
+
+		type->hasTranslation = false;
 	}
 
 	// Generate function indexes
@@ -1595,92 +1697,7 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	{
 		TypeBase *type = ctx.ctx.types[i];
 
-		if(type->isGeneric)
-			continue;
-
-		if(TypeFunction *typeFunction = getType<TypeFunction>(type))
-		{
-			Print(ctx, "struct __typeProxy_");
-			PrintEscapedName(ctx, typeFunction->name);
-			Print(ctx, "{};");
-			PrintLine(ctx);
-		}
-		else if(TypeArray *typeArray = getType<TypeArray>(type))
-		{
-			Print(ctx, "struct ");
-			PrintEscapedName(ctx, typeArray->name);
-			PrintLine(ctx);
-
-			PrintIndentedLine(ctx, "{");
-			ctx.depth++;
-
-			PrintIndent(ctx);
-			TranslateTypeName(ctx, typeArray->subType);
-			Print(ctx, " ptr[%d];", typeArray->length + ((4 - (typeArray->length * typeArray->subType->size % 4)) & 3)); // Round total byte size to 4
-			PrintLine(ctx);
-
-			PrintIndent(ctx);
-			PrintEscapedName(ctx, typeArray->name);
-			Print(ctx, "& set(unsigned index, ");
-			TranslateTypeName(ctx, typeArray->subType);
-			Print(ctx, " const& val){ ptr[index] = val; return *this; }");
-			PrintLine(ctx);
-
-			PrintIndent(ctx);
-			TranslateTypeName(ctx, typeArray->subType);
-			Print(ctx, "* index(unsigned i){ if(unsigned(i) < %u) return &ptr[i]; nullcThrowError(\"ERROR: array index out of bounds\"); return 0; }", (unsigned)typeArray->length);
-			PrintLine(ctx);
-
-			ctx.depth--;
-			PrintIndentedLine(ctx, "};");
-		}
-		else if(TypeClass *typeClass = getType<TypeClass>(type))
-		{
-			Print(ctx, "struct ");
-			PrintEscapedName(ctx, typeClass->name);
-			PrintLine(ctx);
-
-			PrintIndentedLine(ctx, "{");
-			ctx.depth++;
-
-			for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
-			{
-				PrintIndent(ctx);
-
-				TranslateTypeName(ctx, curr->variable->type);
-				Print(ctx, " ");
-				TranslateVariableName(ctx, curr->variable);
-				Print(ctx, ";");
-				PrintLine(ctx);
-			}
-
-			ctx.depth--;
-			PrintIndentedLine(ctx, "};");
-		}
-		else if(TypeEnum *typeEnum = getType<TypeEnum>(type))
-		{
-			Print(ctx, "struct ");
-			PrintEscapedName(ctx, typeEnum->name);
-			PrintLine(ctx);
-
-			PrintIndentedLine(ctx, "{");
-			ctx.depth++;
-
-			PrintIndent(ctx);
-			PrintEscapedName(ctx, typeEnum->name);
-			Print(ctx, "(): value(0){}");
-			PrintLine(ctx);
-
-			PrintIndent(ctx);
-			PrintEscapedName(ctx, typeEnum->name);
-			Print(ctx, "(int v): value(v){}");
-			PrintLine(ctx);
-
-			PrintIndentedLine(ctx, "int value;");
-
-			ctx.depth--;
-			PrintIndentedLine(ctx, "};");
-		}
+		TranslateTypeDefinition(ctx, type);
 	}
 	PrintIndentedLine(ctx, "#pragma pack(pop)");
 

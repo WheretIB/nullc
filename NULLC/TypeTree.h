@@ -547,6 +547,8 @@ struct TypeBase
 		isGeneric = false;
 		hasPointers = false;
 
+		hasTranslation = false;
+
 		refType = 0;
 		unsizedArrayType = 0;
 	}
@@ -570,6 +572,8 @@ struct TypeBase
 
 	bool isGeneric;
 	bool hasPointers;
+
+	bool hasTranslation;
 
 	TypeRef *refType; // Reference type to this type
 	IntrusiveList<TypeHandle> arrayTypes; // Array types derived from this type
