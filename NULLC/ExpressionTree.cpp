@@ -3740,15 +3740,37 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 			}
 		}
 
+		// Check if a name resembles a type alias of the value class
+		TypeBase *aliasType = NULL;
+
+		if(TypeBase **typeName = ctx.typeMap.find(name.hash()))
+		{
+			TypeBase *type = *typeName;
+
+			if(type == value->type && type->name != name)
+			{
+				if(TypeClass *typeClass = getType<TypeClass>(type))
+				{
+					if(typeClass->proto)
+						type = typeClass->proto;
+				}
+
+				aliasType = type;
+			}
+		}
+
 		// Look for a member function
+		ExprBase *mainFuncton = NULL;
+
 		unsigned hash = StringHashContinue(value->type->nameHash, "::");
 
 		hash = StringHashContinue(hash, name.begin, name.end);
 
-		ExprBase *mainFuncton = NULL;
-
 		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
 			mainFuncton = CreateFunctionAccess(ctx, source, function, wrapped);
+
+		if(!mainFuncton && aliasType)
+			mainFuncton = CreateConstructorAccess(ctx, source, value->type, false, wrapped);
 
 		if(!mainFuncton)
 		{
@@ -3782,6 +3804,9 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
 					baseFunction = CreateFunctionAccess(ctx, source, function, wrapped);
+
+				if(!baseFunction && aliasType)
+					baseFunction = CreateConstructorAccess(ctx, source, protoType, false, wrapped);
 			}
 		}
 
@@ -3864,7 +3889,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 			return call;
 		}
 
-		// Look for a member function in a generic class base
+		// Look for an accessor function in a generic class base
 		if(TypeClass *classType = getType<TypeClass>(value->type))
 		{
 			if(TypeGenericClassProto *protoType = classType->proto)
@@ -7048,13 +7073,8 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	return AnalyzeShortFunctionDefinition(ctx, syntax, argumentType);
 }
 
-InplaceStr GetTypeConstructorName(TypeClass *classType)
+InplaceStr GetTypeConstructorName(InplaceStr functionName)
 {
-	InplaceStr functionName = classType->name;
-
-	if(TypeGenericClassProto *proto = classType->proto)
-		functionName = proto->name;
-
 	// TODO: add type scopes and lookup owner namespace
 	for(const char *pos = functionName.end; pos > functionName.begin; pos--)
 	{
@@ -7066,6 +7086,19 @@ InplaceStr GetTypeConstructorName(TypeClass *classType)
 	}
 
 	return functionName;
+}
+
+InplaceStr GetTypeConstructorName(TypeClass *classType)
+{
+	if(TypeGenericClassProto *proto = classType->proto)
+		return GetTypeConstructorName(proto->name);
+
+	return GetTypeConstructorName(classType->name);
+}
+
+InplaceStr GetTypeConstructorName(TypeGenericClassProto *typeGenericClassProto)
+{
+	return GetTypeConstructorName(typeGenericClassProto->name);
 }
 
 InplaceStr GetTypeDefaultConstructorName(ExpressionContext &ctx, TypeClass *classType)
@@ -7092,6 +7125,10 @@ bool ContainsSameOverload(SmallArray<FunctionData*, 32> &functions, FunctionData
 bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool noArguments, SmallArray<FunctionData*, 32> &functions)
 {
 	TypeClass *classType = getType<TypeClass>(type);
+	TypeGenericClassProto *typeGenericClassProto = getType<TypeGenericClassProto>(type);
+
+	if(classType && classType->proto)
+		typeGenericClassProto = classType->proto;
 
 	unsigned hash = StringHashContinue(type->nameHash, "::");
 
@@ -7115,12 +7152,12 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 			functions.push_back(node->value);
 	}
 
-	if(classType && classType->proto)
+	if(typeGenericClassProto)
 	{
 		// Look for a member function in a generic class base and instantiate them
-		unsigned hash = StringHashContinue(classType->proto->nameHash, "::");
+		unsigned hash = StringHashContinue(typeGenericClassProto->nameHash, "::");
 
-		hash = StringHashContinue(hash, classType->proto->name.begin, classType->proto->name.end);
+		hash = StringHashContinue(hash, typeGenericClassProto->name.begin, typeGenericClassProto->name.end);
 
 		for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash); node; node = ctx.functionMap.next(node))
 		{
@@ -7141,12 +7178,12 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 			functions.push_back(node->value);
 	}
 
-	if(classType && classType->proto)
+	if(typeGenericClassProto)
 	{
 		// Look for a member function in a generic class base and instantiate them
-		unsigned hash = StringHashContinue(classType->proto->nameHash, "::");
+		unsigned hash = StringHashContinue(typeGenericClassProto->nameHash, "::");
 
-		hash = StringHashContinue(hash, classType->proto->name.begin, classType->proto->name.end);
+		hash = StringHashContinue(hash, typeGenericClassProto->name.begin, typeGenericClassProto->name.end);
 
 		for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(StringHashContinue(hash, "$")); node; node = ctx.functionMap.next(node))
 		{
