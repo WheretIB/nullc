@@ -6405,10 +6405,12 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, Fu
 
 ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinition *syntax, TypeFunction *instance, TypeBase *instanceParent, IntrusiveList<MatchData> matches, bool createAccess, bool hideFunction)
 {
-	TypeBase *parentType = syntax->parentType ? AnalyzeType(ctx, syntax->parentType) : NULL;
+	TypeBase *parentType = NULL;
 
 	if(instanceParent)
 		parentType = instanceParent;
+	else if(syntax->parentType)
+		parentType = AnalyzeType(ctx, syntax->parentType);
 
 	TypeBase *returnType = AnalyzeType(ctx, syntax->returnType);
 
