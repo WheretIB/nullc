@@ -54,7 +54,7 @@ void PrintEscapedName(ExpressionTranslateContext &ctx, InplaceStr name)
 	{
 		char ch = name.begin[i];
 
-		if(ch == ' ' || ch == '[' || ch == ']' || ch == '(' || ch == ')' || ch == ',' || ch == ':' || ch == '$' || ch == '<' || ch == '>')
+		if(ch == ' ' || ch == '[' || ch == ']' || ch == '(' || ch == ')' || ch == ',' || ch == ':' || ch == '$' || ch == '<' || ch == '>' || ch == '.')
 			fprintf(ctx.file, "_");
 		else
 			fprintf(ctx.file, "%c", ch);
@@ -188,13 +188,13 @@ void TranslateVariableName(ExpressionTranslateContext &ctx, VariableData *variab
 	{
 		if(*variable->name.begin == '$')
 		{
-			InplaceStr name = InplaceStr(variable->name.begin + 1, variable->name.end);
+			Print(ctx, "__");
 
-			Print(ctx, "__%.*s", FMT_ISTR(name));
+			PrintEscapedName(ctx, InplaceStr(variable->name.begin + 1, variable->name.end));
 		}
 		else
 		{
-			Print(ctx, "%.*s", FMT_ISTR(variable->name));
+			PrintEscapedName(ctx, variable->name);
 		}
 
 		if(variable->scope != ctx.ctx.globalScope && !variable->scope->ownerType && !variable->scope->ownerFunction && !variable->scope->ownerNamespace)
