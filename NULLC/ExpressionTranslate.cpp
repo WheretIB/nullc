@@ -8,6 +8,7 @@
 
 // TODO: common
 ScopeData* GlobalScopeFrom(ScopeData *scope);
+bool IsGenericInstance(FunctionData *function);
 
 ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code);
 
@@ -981,9 +982,18 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 		// Skip nested definitions
 		ctx.skipFunctionDefinitions = true;
 
-		TranslateTypeName(ctx, expression->function->type->returnType);
+		FunctionData *function = expression->function;
+
+		if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
+			Print(ctx, "static ");
+		else if(*function->name.begin == '$')
+			Print(ctx, "static ");
+		else if(IsGenericInstance(function))
+			Print(ctx, "static ");
+
+		TranslateTypeName(ctx, function->type->returnType);
 		Print(ctx, " ");
-		TranslateFunctionName(ctx, expression->function);
+		TranslateFunctionName(ctx, function);
 		Print(ctx, "(");
 
 		for(ExprVariableDefinition *curr = expression->arguments.head; curr; curr = getType<ExprVariableDefinition>(curr->next))
@@ -1003,9 +1013,9 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 		PrintIndentedLine(ctx, "{");
 		ctx.depth++;
 
-		for(unsigned k = 0; k < expression->function->functionScope->allVariables.size(); k++)
+		for(unsigned k = 0; k < function->functionScope->allVariables.size(); k++)
 		{
-			VariableData *variable = expression->function->functionScope->allVariables[k];
+			VariableData *variable = function->functionScope->allVariables[k];
 
 			// Don't need variables allocated by intermediate vm compilation
 			if(variable->isVmAlloca)
@@ -1044,7 +1054,7 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 			Print(ctx, ";");
 			PrintLine(ctx);
 
-			for(unsigned i = 0; i < expression->function->yieldCount; i++)
+			for(unsigned i = 0; i < function->yieldCount; i++)
 			{
 				PrintIndentedLine(ctx, "if(__currJmpOffset == %d)", i + 1);
 
@@ -1711,7 +1721,16 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 		if(ctx.ctx.IsGenericFunction(function))
 			continue;
 
+		bool isStatic = false;
+
 		if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
+			isStatic = true;
+		else if(*function->name.begin == '$')
+			isStatic = true;
+		else if(IsGenericInstance(function))
+			isStatic = true;
+
+		if(isStatic)
 			Print(ctx, "static ");
 
 		TranslateTypeName(ctx, function->type->returnType);
