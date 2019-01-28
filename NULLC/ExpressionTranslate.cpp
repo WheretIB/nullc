@@ -307,6 +307,9 @@ void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *functi
 {
 	InplaceStr name = function->name;
 
+	if(function->implementation)
+		function = function->implementation;
+
 	if(*name.begin == '$')
 	{
 		Print(ctx, "__");
@@ -325,7 +328,7 @@ void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *functi
 		Print(ctx, "_");
 		PrintEscapedName(ctx, function->type->name);
 	}
-	else if(function->scope == ctx.ctx.globalScope || function->scope->ownerNamespace)
+	else if((function->scope == ctx.ctx.globalScope || function->scope->ownerNamespace) && !function->isHidden)
 	{
 		PrintEscapedName(ctx, name);
 		Print(ctx, "_");
@@ -1022,6 +1025,8 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 		if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
 			Print(ctx, "static ");
 		else if(*function->name.begin == '$')
+			Print(ctx, "static ");
+		else if(function->isHidden)
 			Print(ctx, "static ");
 		else if(IsGenericInstance(function))
 			Print(ctx, "static ");
@@ -1753,11 +1758,16 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 		if(ctx.ctx.IsGenericFunction(function))
 			continue;
 
+		if(function->implementation)
+			continue;
+
 		bool isStatic = false;
 
 		if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
 			isStatic = true;
 		else if(*function->name.begin == '$')
+			isStatic = true;
+		else if(function->isHidden)
 			isStatic = true;
 		else if(IsGenericInstance(function))
 			isStatic = true;
