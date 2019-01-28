@@ -1288,7 +1288,7 @@ void TranslateFor(ExpressionTranslateContext &ctx, ExprFor *expression)
 
 	PrintLine(ctx);
 
-	Print(ctx, "continue_%d:", loopId);
+	Print(ctx, "continue_%d:;", loopId);
 	PrintLine(ctx);
 
 	PrintIndentedLine(ctx, "// Increment");
@@ -1327,7 +1327,7 @@ void TranslateWhile(ExpressionTranslateContext &ctx, ExprWhile *expression)
 
 	Print(ctx, ";");
 
-	Print(ctx, "continue_%d:", loopId);
+	Print(ctx, "continue_%d:;", loopId);
 	PrintLine(ctx);
 
 	PrintLine(ctx);
