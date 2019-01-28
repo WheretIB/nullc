@@ -946,6 +946,10 @@ void ExpressionContext::SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *t
 		curr = curr->scope;
 	}
 
+	// We have common parent, but we are in different scopes, go to common parent
+	if(scope != curr)
+		PopScope(scope->type, NULL, true);
+
 	// When the common parent is reached, remove it without ejecting namespace variables into the outer scope
 	PopScope(scope->type, currLocation, true);
 
