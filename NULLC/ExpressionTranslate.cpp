@@ -345,7 +345,7 @@ void TranslateVoid(ExpressionTranslateContext &ctx, ExprVoid *expression)
 {
 	(void)expression;
 
-	Print(ctx, "(void)");
+	Print(ctx, "/*void*/");
 }
 
 void TranslateBoolLiteral(ExpressionTranslateContext &ctx, ExprBoolLiteral *expression)
