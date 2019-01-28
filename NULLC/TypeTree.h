@@ -273,6 +273,8 @@ struct FunctionData
 
 		isInternal = false;
 
+		isHidden = false;
+
 		nameHash = GetStringHash(name.begin, name.end);
 
 		functionIndex = ~0u;
@@ -311,6 +313,8 @@ struct FunctionData
 	ModuleData *importModule;
 
 	bool isInternal;
+
+	bool isHidden;
 
 	ScopeData *scope;
 

@@ -1637,7 +1637,11 @@ ExprBase* CreateLiteralCopy(ExpressionContext &ctx, SynBase *source, ExprBase *v
 ExprBase* CreateFunctionPointer(ExpressionContext &ctx, SynBase *source, ExprFunctionDefinition *definition, bool hideFunction)
 {
 	if(hideFunction)
+	{
 		ctx.HideFunction(definition->function);
+
+		definition->function->isHidden = true;
+	}
 
 	IntrusiveList<ExprBase> expressions;
 
@@ -9497,6 +9501,9 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		if(data->name == InplaceStr("__newS") || data->name == InplaceStr("__newA") || data->name == InplaceStr("__closeUpvalue"))
 			data->isInternal = true;
 
+		if(function.funcCat == ExternFuncInfo::LOCAL)
+			data->isHidden = true;
+
 		ctx.AddFunction(data);
 
 		ctx.PushScope(data);
@@ -9598,6 +9605,8 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		ctx.PopScope(SCOPE_FUNCTION);
 
 		if(data->isPrototype)
+			ctx.HideFunction(data);
+		else if(data->isHidden)
 			ctx.HideFunction(data);
 
 		if(parentType)
@@ -9716,6 +9725,9 @@ void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 
 		// Handle only global visible functions
 		if(function->scope != ctx.globalScope && !function->scope->ownerType)
+			continue;
+
+		if(function->isHidden)
 			continue;
 
 		// Go through all function parameters
