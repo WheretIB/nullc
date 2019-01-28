@@ -978,7 +978,7 @@ InplaceStr GetGenericAliasTypeName(ExpressionContext &ctx, InplaceStr name);
 InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functionName, unsigned index);
 InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *function);
 InplaceStr GetFunctionTableName(ExpressionContext &ctx, FunctionData *function);
-InplaceStr GetFunctionContextMemberName(ExpressionContext &ctx, InplaceStr prefix, InplaceStr suffix);
+InplaceStr GetFunctionContextMemberName(ExpressionContext &ctx, InplaceStr prefix, InplaceStr suffix, unsigned index);
 InplaceStr GetFunctionVariableUpvalueName(ExpressionContext &ctx, VariableData *variable);
 
 InplaceStr GetTypeNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceStr str);

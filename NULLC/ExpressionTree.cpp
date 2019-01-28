@@ -2990,18 +2990,29 @@ VariableData* AddFunctionUpvalue(ExpressionContext &ctx, SynBase *source, Functi
 
 	ctx.scope = classType->typeScope;
 
+	unsigned index = 0;
+
+	for(UpvalueData *upvalue = function->upvalues.head; upvalue; upvalue = upvalue->next)
+	{
+		if(upvalue->variable->name == data->name)
+		{
+			index = classType->members.size();
+			break;
+		}
+	}
+
 	// Pointer to target variable
-	VariableData *target = AllocateClassMember(ctx, source, 0, ctx.GetReferenceType(data->type), GetFunctionContextMemberName(ctx, data->name, InplaceStr("target")), true, ctx.uniqueVariableId++);
+	VariableData *target = AllocateClassMember(ctx, source, 0, ctx.GetReferenceType(data->type), GetFunctionContextMemberName(ctx, data->name, InplaceStr("target"), index), true, ctx.uniqueVariableId++);
 
 	classType->members.push_back(allocate(VariableHandle)(target));
 
 	// Pointer to next upvalue
-	VariableData *nextUpvalue = AllocateClassMember(ctx, source, 0, ctx.GetReferenceType(ctx.typeVoid), GetFunctionContextMemberName(ctx, data->name, InplaceStr("nextUpvalue")), true, ctx.uniqueVariableId++);
+	VariableData *nextUpvalue = AllocateClassMember(ctx, source, 0, ctx.GetReferenceType(ctx.typeVoid), GetFunctionContextMemberName(ctx, data->name, InplaceStr("nextUpvalue"), index), true, ctx.uniqueVariableId++);
 
 	classType->members.push_back(allocate(VariableHandle)(nextUpvalue));
 
 	// Copy of the data
-	VariableData *copy = AllocateClassMember(ctx, source, data->alignment, data->type, GetFunctionContextMemberName(ctx, data->name, InplaceStr("copy")), true, ctx.uniqueVariableId++);
+	VariableData *copy = AllocateClassMember(ctx, source, data->alignment, data->type, GetFunctionContextMemberName(ctx, data->name, InplaceStr("copy"), index), true, ctx.uniqueVariableId++);
 
 	classType->members.push_back(allocate(VariableHandle)(copy));
 
@@ -3034,8 +3045,19 @@ VariableData* AddFunctionCoroutineVariable(ExpressionContext &ctx, SynBase *sour
 
 	ctx.scope = classType->typeScope;
 
+	unsigned index = 0;
+
+	for(CoroutineStateData *curr = function->coroutineState.head; curr; curr = curr->next)
+	{
+		if(curr->variable->name == data->name)
+		{
+			index = classType->members.size();
+			break;
+		}
+	}
+
 	// Copy of the data
-	VariableData *storage = AllocateClassMember(ctx, source, data->alignment, data->type, GetFunctionContextMemberName(ctx, data->name, InplaceStr("storage")), true, ctx.uniqueVariableId++);
+	VariableData *storage = AllocateClassMember(ctx, source, data->alignment, data->type, GetFunctionContextMemberName(ctx, data->name, InplaceStr("storage"), index), true, ctx.uniqueVariableId++);
 
 	classType->members.push_back(allocate(VariableHandle)(storage));
 
