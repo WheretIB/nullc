@@ -1456,6 +1456,7 @@ ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, 
 void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeClass *classType, IntrusiveList<ExprBase> &expressions);
 
 InplaceStr GetTemporaryFunctionName(ExpressionContext &ctx);
+InplaceStr GetDefaultArgumentWrapperFunctionName(ExpressionContext &ctx, FunctionData *function, InplaceStr argumentName);
 TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, InplaceStr functionName);
 ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, SynBase *source, FunctionData *function);
 ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, SynBase *source, FunctionData *function, FunctionData *prototype);
@@ -2131,10 +2132,8 @@ void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 	}
 }
 
-ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, ExprBase *value)
+ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr functionName)
 {
-	InplaceStr functionName = GetTemporaryFunctionName(ctx);
-
 	SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
 	TypeBase *contextRefType = NULL;
@@ -2233,7 +2232,7 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 		// For && and || try to find a function that accepts a wrapped right-hand-side evaluation
 		if((op == SYN_BINARY_OP_LOGICAL_AND || op == SYN_BINARY_OP_LOGICAL_OR) && isType<TypeClass>(lhs->type))
 		{
-			if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, CreateValueFunctionWrapper(ctx, source, rhs), true, false))
+			if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, CreateValueFunctionWrapper(ctx, source, rhs, GetTemporaryFunctionName(ctx)), true, false))
 				return result;
 		}
 	}
@@ -4090,6 +4089,14 @@ InplaceStr GetTemporaryFunctionName(ExpressionContext &ctx)
 {
 	char *name = (char*)ctx.allocator->alloc(16);
 	sprintf(name, "$func%d", ctx.unnamedFuncCount++);
+
+	return InplaceStr(name);
+}
+
+InplaceStr GetDefaultArgumentWrapperFunctionName(ExpressionContext &ctx, FunctionData *function, InplaceStr argumentName)
+{
+	char *name = (char*)ctx.allocator->alloc(function->name.length() + argumentName.length() + 16);
+	sprintf(name, "%.*s_%u_%.*s$", FMT_ISTR(function->name), function->type->nameHash, FMT_ISTR(argumentName));
 
 	return InplaceStr(name);
 }
@@ -9715,7 +9722,9 @@ void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 				if(isType<TypeFunctionSet>(value->type))
 					value = CreateCast(ctx, argument.source, argument.value, argument.type, true);
 
-				ExprFunctionAccess *access = CreateValueFunctionWrapper(ctx, argument.source, value);
+				InplaceStr functionName = GetDefaultArgumentWrapperFunctionName(ctx, function, argument.name);
+
+				ExprFunctionAccess *access = CreateValueFunctionWrapper(ctx, argument.source, value, functionName);
 
 				argument.valueFunction = access->function;
 			}
