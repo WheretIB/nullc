@@ -373,15 +373,26 @@ void TranslateStringLiteral(ExpressionTranslateContext &ctx, ExprStringLiteral *
 void TranslateIntegerLiteral(ExpressionTranslateContext &ctx, ExprIntegerLiteral *expression)
 {
 	if(expression->type == ctx.ctx.typeShort)
+	{
 		Print(ctx, "((short)%d)", short(expression->value));
+	}
 	else if(expression->type == ctx.ctx.typeInt)
+	{
 		Print(ctx, "%d", int(expression->value));
+	}
 	else if(expression->type == ctx.ctx.typeLong)
+	{
 		Print(ctx, "%lldll", expression->value);
+	}
 	else if(isType<TypeEnum>(expression->type))
-		Print(ctx, "%d", int(expression->value));
+	{
+		TranslateTypeName(ctx, expression->type);
+		Print(ctx, "(%d)", int(expression->value));
+	}
 	else
+	{
 		assert(!"unknown type");
+	}
 }
 
 void TranslateRationalLiteral(ExpressionTranslateContext &ctx, ExprRationalLiteral *expression)
@@ -629,25 +640,46 @@ void TranslateBinaryOp(ExpressionTranslateContext &ctx, ExprBinaryOp *expression
 {
 	if(expression->op == SYN_BINARY_OP_POW)
 	{
-		Print(ctx, "__nullcPow(");
+		Print(ctx, "__nullcPow((");
 		Translate(ctx, expression->lhs);
-		Print(ctx, ", ");
+		Print(ctx, ")");
+
+		if(isType<TypeEnum>(expression->lhs->type))
+			Print(ctx, ".value");
+
+		Print(ctx, ", (");
 		Translate(ctx, expression->rhs);
+		Print(ctx, ")");
+
+		if(isType<TypeEnum>(expression->rhs->type))
+			Print(ctx, ".value");
+
 		Print(ctx, ")");
 	}
 	else if(expression->op == SYN_BINARY_OP_LOGICAL_XOR)
 	{
 		Print(ctx, "!!(");
 		Translate(ctx, expression->lhs);
-		Print(ctx, ") != !!(");
+		Print(ctx, ")");
+
+		if(isType<TypeEnum>(expression->lhs->type))
+			Print(ctx, ".value");
+
+		Print(ctx, " != !!(");
 		Translate(ctx, expression->rhs);
 		Print(ctx, ")");
+
+		if(isType<TypeEnum>(expression->rhs->type))
+			Print(ctx, ".value");
 	}
 	else
 	{
 		Print(ctx, "(");
 		Translate(ctx, expression->lhs);
 		Print(ctx, ")");
+
+		if(isType<TypeEnum>(expression->lhs->type))
+			Print(ctx, ".value");
 
 		switch(expression->op)
 		{
@@ -712,6 +744,9 @@ void TranslateBinaryOp(ExpressionTranslateContext &ctx, ExprBinaryOp *expression
 		Print(ctx, "(");
 		Translate(ctx, expression->rhs);
 		Print(ctx, ")");
+
+		if(isType<TypeEnum>(expression->rhs->type))
+			Print(ctx, ".value");
 	}
 }
 
@@ -1189,9 +1224,6 @@ void TranslateClassDefinition(ExpressionTranslateContext &ctx, ExprClassDefiniti
 void TranslateEnumDefinition(ExpressionTranslateContext &ctx, ExprEnumDefinition *expression)
 {
 	Print(ctx, "/* Definition of enum '%.*s' */", FMT_ISTR(expression->enumType->name));
-
-	Translate(ctx, expression->toInt);
-	Translate(ctx, expression->toEnum);
 }
 
 void TranslateIfElse(ExpressionTranslateContext &ctx, ExprIfElse *expression)
