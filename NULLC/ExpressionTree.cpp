@@ -7277,39 +7277,10 @@ ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, 
 
 		if(HasDefautConstructor(ctx, source, type))
 		{
-			VariableData *value = AllocateTemporary(ctx, source, pointer->type);
+			if(TypeRef *typeRef = getType<TypeRef>(pointer->type))
+				return CreateFunctionCall1(ctx, source, InplaceStr("__init_array"), allocate(ExprDereference)(source, typeRef->subType, pointer), false, true);
 
-			ExprBase *valueInit = allocate(ExprVariableDefinition)(source, ctx.typeVoid, value, CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, value, false), pointer));
-
-			ctx.PushLoopScope();
-
-			// Create initializer
-			VariableData *iterator = AllocateTemporary(ctx, source, ctx.typeInt);
-
-			ExprBase *iteratorInit = CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, iterator, false), allocate(ExprIntegerLiteral)(source, ctx.typeInt, 0));
-
-			ExprBase *initializer = allocate(ExprVariableDefinition)(source, ctx.typeVoid, iterator, iteratorInit);
-
-			// Create condition
-			ExprBase *size = CreateMemberAccess(ctx, source, CreateVariableAccess(ctx, source, value, false), InplaceStr("size"), false);
-			ExprBase *condition = CreateBinaryOp(ctx, source, SYN_BINARY_OP_LESS, CreateVariableAccess(ctx, source, iterator, false), size);
-
-			// Create increment
-			ExprBase *increment = allocate(ExprPreModify)(source, ctx.typeInt, CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, iterator, false)), true);
-
-			// Create body
-			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
-			arguments.push_back(ArgumentData(source, false, InplaceStr(), ctx.typeInt, CreateVariableAccess(ctx, source, iterator, false)));
-
-			ExprBase *element = CreateArrayIndex(ctx, source, CreateVariableAccess(ctx, source, value, false), arguments);
-
-			ExprBase *body = CreateDefaultConstructorCall(ctx, source, type, CreateGetAddress(ctx, source, element));
-
-			assert(body);
-
-			ctx.PopScope(SCOPE_LOOP);
-
-			return CreateSequence(ctx, source, valueInit, allocate(ExprFor)(source, ctx.typeVoid, initializer, condition, increment, body));
+			return CreateFunctionCall1(ctx, source, InplaceStr("__init_array"), pointer, false, true);
 		}
 
 		return NULL;
