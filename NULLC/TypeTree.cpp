@@ -313,7 +313,7 @@ InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *
 
 	unsigned nameLength = functionName.length() + 32;
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
-	sprintf(name, "$%.*s_%u_ext", FMT_ISTR(functionName), function->type->name.hash());
+	sprintf(name, "$%.*s_%u_%u_ext", FMT_ISTR(functionName), function->type->name.hash(), function->uniqueId);
 
 	return InplaceStr(name);
 }
