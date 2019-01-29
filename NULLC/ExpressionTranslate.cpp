@@ -135,9 +135,9 @@ void TranslateTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 	}
 	else if(TypeUnsizedArray *typeUnsizedArray = getType<TypeUnsizedArray>(type))
 	{
-		Print(ctx, "NULLCArray<");
+		Print(ctx, "NULLCArray< ");
 		TranslateTypeName(ctx, typeUnsizedArray->subType);
-		Print(ctx, ">");
+		Print(ctx, " >");
 	}
 	else if(TypeFunction *typeFunction = getType<TypeFunction>(type))
 	{
@@ -501,9 +501,9 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 	case EXPR_CAST_NULL_TO_UNSIZED:
 		if(TypeUnsizedArray *typeUnsizedArray = getType<TypeUnsizedArray>(expression->type))
 		{
-			Print(ctx, "NULLCArray<");
+			Print(ctx, "NULLCArray< ");
 			TranslateTypeName(ctx, typeUnsizedArray->subType);
-			Print(ctx, ">()");
+			Print(ctx, " >()");
 		}
 		break;
 	case EXPR_CAST_NULL_TO_AUTO_ARRAY:
@@ -521,9 +521,9 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 			assert(typeArray);
 			assert(unsigned(typeArray->length) == typeArray->length);
 
-			Print(ctx, "__makeNullcArray<");
+			Print(ctx, "__makeNullcArray< ");
 			TranslateTypeName(ctx, typeArray->subType);
-			Print(ctx, ">(");
+			Print(ctx, " >(");
 			Translate(ctx, expression->value);
 			Print(ctx, ", %d)", (unsigned)typeArray->length);
 		}
