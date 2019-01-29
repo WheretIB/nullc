@@ -370,9 +370,15 @@ InplaceStr GetFunctionVariableUpvalueName(ExpressionContext &ctx, VariableData *
 
 	assert(function);
 
-	unsigned nameLength = function->name.length() + variable->name.length() + 24;
+	InplaceStr functionName = function->name;
+	InplaceStr operatorName = GetOperatorName(functionName);
+
+	if(!operatorName.empty())
+		functionName = operatorName;
+
+	unsigned nameLength = functionName.length() + variable->name.length() + 24;
 	char *name = (char*)ctx.allocator->alloc(nameLength);
-	sprintf(name, "$upvalue_%.*s_%.*s_%04x", FMT_ISTR(function->name), FMT_ISTR(variable->name), variable->uniqueId);
+	sprintf(name, "$upvalue_%.*s_%.*s_%04x", FMT_ISTR(functionName), FMT_ISTR(variable->name), variable->uniqueId);
 
 	return InplaceStr(name);
 }
