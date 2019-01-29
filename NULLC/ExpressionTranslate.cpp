@@ -857,19 +857,15 @@ void TranslateReturn(ExpressionTranslateContext &ctx, ExprReturn *expression)
 		PrintIndent(ctx);
 	}
 
-	if(ExprSequence *closures = getType<ExprSequence>(expression->closures))
-	{
-		if(closures->expressions.head)
-		{
-			Translate(ctx, expression->closures);
-			Print(ctx, ";");
-			PrintLine(ctx);
-			PrintIndent(ctx);
-		}
-	}
+	ExprSequence *closures = getType<ExprSequence>(expression->closures);
+
+	if(closures && !closures->expressions.head)
+		closures = nullptr;
 
 	if(!ctx.currentFunction)
 	{
+		assert(!closures);
+
 		if(expression->value->type == ctx.ctx.typeBool || expression->value->type == ctx.ctx.typeChar || expression->value->type == ctx.ctx.typeShort || expression->value->type == ctx.ctx.typeInt)
 			Print(ctx, "__nullcOutputResultInt((int)");
 		else if(expression->value->type == ctx.ctx.typeLong)
@@ -896,7 +892,30 @@ void TranslateReturn(ExpressionTranslateContext &ctx, ExprReturn *expression)
 	{
 		if(expression->value->type == ctx.ctx.typeVoid)
 		{
+			if(closures)
+			{
+				Translate(ctx, expression->closures);
+				Print(ctx, ";");
+				PrintLine(ctx);
+				PrintIndent(ctx);
+			}
+
 			Print(ctx, "return;");
+		}
+		else if(closures)
+		{
+			Print(ctx, "__nullcReturnValue_%d = ", ctx.nextReturnValueId);
+			Translate(ctx, expression->value);
+			Print(ctx, ";");
+			PrintLine(ctx);
+			PrintIndent(ctx);
+
+			Translate(ctx, expression->closures);
+			Print(ctx, ";");
+			PrintLine(ctx);
+			PrintIndent(ctx);
+
+			Print(ctx, "return __nullcReturnValue_%d;", ctx.nextReturnValueId);
 		}
 		else
 		{
@@ -917,20 +936,37 @@ void TranslateYield(ExpressionTranslateContext &ctx, ExprYield *expression)
 		PrintIndent(ctx);
 	}
 
-	if(ExprSequence *closures = getType<ExprSequence>(expression->closures))
+	ExprSequence *closures = getType<ExprSequence>(expression->closures);
+
+	if(closures && !closures->expressions.head)
+		closures = nullptr;
+
+	if(expression->value->type == ctx.ctx.typeVoid)
 	{
-		if(closures->expressions.head)
+		if(closures)
 		{
 			Translate(ctx, expression->closures);
 			Print(ctx, ";");
 			PrintLine(ctx);
 			PrintIndent(ctx);
 		}
-	}
 
-	if(expression->value->type == ctx.ctx.typeVoid)
-	{
 		Print(ctx, "return;");
+	}
+	else if(closures)
+	{
+		Print(ctx, "__nullcReturnValue_%d = ", ctx.nextReturnValueId);
+		Translate(ctx, expression->value);
+		Print(ctx, ";");
+		PrintLine(ctx);
+		PrintIndent(ctx);
+
+		Translate(ctx, expression->closures);
+		Print(ctx, ";");
+		PrintLine(ctx);
+		PrintIndent(ctx);
+
+		Print(ctx, "return __nullcReturnValue_%d;", ctx.nextReturnValueId);
 	}
 	else
 	{
@@ -1114,6 +1150,14 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 			PrintLine(ctx);
 		}
 
+		if(function->type->returnType != ctx.ctx.typeVoid)
+		{
+			PrintIndent(ctx);
+			TranslateTypeName(ctx, function->type->returnType);
+			Print(ctx, " __nullcReturnValue_%d;", ctx.nextReturnValueId);
+			PrintLine(ctx);
+		}
+
 		if(expression->coroutineStateRead)
 		{
 			PrintIndent(ctx);
@@ -1149,6 +1193,8 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 		ctx.depth--;
 
 		PrintIndentedLine(ctx, "}");
+
+		ctx.nextReturnValueId++;
 
 		ctx.skipFunctionDefinitions = false;
 	}

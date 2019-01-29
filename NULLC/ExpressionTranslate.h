@@ -24,6 +24,7 @@ struct ExpressionTranslateContext
 		depth = 0;
 
 		nextLoopId = 1;
+		nextReturnValueId = 1;
 
 		skipFunctionDefinitions = false;
 
@@ -45,6 +46,7 @@ struct ExpressionTranslateContext
 	unsigned depth;
 
 	unsigned nextLoopId;
+	unsigned nextReturnValueId;
 
 	SmallArray<unsigned, 32> loopIdStack;
 
