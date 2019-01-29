@@ -727,7 +727,7 @@ void TranslateBinaryOp(ExpressionTranslateContext &ctx, ExprBinaryOp *expression
 			Print(ctx, " / ");
 			break;
 		case SYN_BINARY_OP_MOD:
-			Print(ctx, " % ");
+			Print(ctx, " %% ");
 			break;
 		case SYN_BINARY_OP_SHL:
 			Print(ctx, " << ");
