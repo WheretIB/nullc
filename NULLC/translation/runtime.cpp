@@ -5,6 +5,7 @@
 #include <stdarg.h>
 
 #include <malloc.h>
+#include <stdio.h>
 #include <stdlib.h>
 #ifndef _MSC_VER
 	#include <stdint.h>
@@ -12,6 +13,8 @@
 
 #undef assert
 #define __assert(_Expression) if(!(_Expression)){ printf("assertion failed"); abort(); };
+
+typedef uintptr_t markerType;
 
 int	SafeSprintf(char* dst, size_t size, const char* src, ...)
 {
@@ -132,8 +135,25 @@ private:
 	FastVector(FastVector &r);
 };
 
-FastVector<NULLCTypeInfo>	__nullcTypeList;
-FastVector<unsigned int>	__nullcTypePart;
+FastVector<NULLCTypeInfo> __nullcTypeList;
+FastVector<unsigned int> __nullcTypePart;
+
+FastVector<__nullcFunction> funcTable;
+
+struct NULLCFuncInfo
+{
+	unsigned	hash;
+	unsigned	extraType;
+	unsigned	funcType;
+	NULLCFuncInfo(unsigned nHash, unsigned nType, unsigned nFuncType)
+	{
+		hash = nHash;
+		extraType = nType;
+		funcType = nFuncType;
+	}
+};
+
+FastVector<NULLCFuncInfo> funcTableExt;
 
 unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, unsigned subTypeID, int memberCount, unsigned category)
 {
@@ -196,6 +216,9 @@ unsigned int nullcGetTypeSize(unsigned int typeID)
 
 int			__nullcPow(int number, int power)
 {
+	if(power < 0)
+		return number == 1 ? 1 : (number == -1 ? (power & 1 ? -1 : 1) : 0);
+
 	int result = 1;
 	while(power)
 	{
@@ -317,7 +340,7 @@ void __nullcCloseUpvalue(__nullcUpvalue *&head, void *ptr)
 		curr = next;
 	}
 }
-NULLCFuncPtr<>	__nullcMakeFunction(unsigned int id, void* context)
+NULLCFuncPtr<> __nullcMakeFunction(unsigned int id, void* context)
 {
 	NULLCFuncPtr<> ret;
 	ret.id = id;
@@ -325,18 +348,28 @@ NULLCFuncPtr<>	__nullcMakeFunction(unsigned int id, void* context)
 	return ret;
 }
 
-NULLCRef		__nullcMakeAutoRef(void* ptr, unsigned int typeID)
+NULLCRef __nullcMakeAutoRef(void* ptr, unsigned int typeID)
 {
 	NULLCRef ret;
 	ret.ptr = (char*)ptr;
 	ret.typeID = typeID;
 	return ret;
 }
-void*			__nullcGetAutoRef(const NULLCRef &ref, unsigned int typeID)
+
+NULLCRef __nullcMakeExtendableAutoRef(void* ptr)
+{
+	NULLCRef ret;
+	ret.ptr = (char*)ptr;
+	ret.typeID = ptr ? *(unsigned*)ptr : 0; // Take type from first class typeid member
+	return ret;
+}
+
+void* __nullcGetAutoRef(const NULLCRef &ref, unsigned int typeID)
 {
 	__assert(ref.typeID == typeID);
 	return (void*)ref.ptr;
 }
+
 NULLCAutoArray	__makeAutoArray(unsigned type, NULLCArray<void> arr)
 {
 	NULLCAutoArray ret;
@@ -359,19 +392,10 @@ bool operator !(const NULLCRef& a)
 	return !a.ptr;
 }
 
-int  __operatorEqual(unsigned int a, unsigned int b, void* unused)
+struct const_string
 {
-	return a == b;
-}
-int  __operatorNEqual(unsigned int a, unsigned int b, void* unused)
-{
-	return a != b;
-}
-
-void  assert(int val, void* unused)
-{
-	__assert(val);
-}
+	NULLCArray<char> arr;
+};
 
 void  assert(int val, const char* message, void* unused)
 {
@@ -380,14 +404,19 @@ void  assert(int val, const char* message, void* unused)
 	__assert(val);
 }
 
-void  assert(int val, NULLCArray<char> message, void* unused)
+void assert_void_ref_int_(int val, void* __context)
+{
+	__assert(val);
+}
+
+void assert_void_ref_int_char___(int val, NULLCArray<char> message, void* __context)
 {
 	if(!val)
 		printf("%s\n", message.ptr);
 	__assert(val);
 }
 
-int  __operatorEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused)
+int  __operatorEqual_int_ref_char___char___(NULLCArray<char> a, NULLCArray<char> b, void* unused)
 {
 	if(a.size != b.size)
 		return 0;
@@ -396,17 +425,17 @@ int  __operatorEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused)
 	return 0;
 }
 
-int  __operatorNEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused)
+int __operatorNEqual_int_ref_char___char___(NULLCArray<char> a, NULLCArray<char> b, void* unused)
 {
-	return !__operatorEqual(a, b, 0);
+	return !__operatorEqual_int_ref_char___char___(a, b, 0);
 }
 
-NULLCArray<char>  __operatorAdd(NULLCArray<char> a, NULLCArray<char> b, void* unused)
+NULLCArray<char>  __operatorAdd_char___ref_char___char___(NULLCArray<char> a, NULLCArray<char> b, void* unused)
 {
 	NULLCArray<char> ret;
 
 	ret.size = a.size + b.size - 1;
-	ret.ptr = (char*)(intptr_t)__newS(ret.size, 0);
+	ret.ptr = (char*)(intptr_t)__newS_void_ref_ref_int_int_(ret.size, 0, 0);
 	if(!ret.ptr)
 		return ret;
 
@@ -416,104 +445,109 @@ NULLCArray<char>  __operatorAdd(NULLCArray<char> a, NULLCArray<char> b, void* un
 	return ret;
 }
 
-NULLCArray<char>  __operatorAddSet(NULLCArray<char> * a, NULLCArray<char> b, void* unused)
+NULLCArray<char> __operatorAddSet_char___ref_char___ref_char___(NULLCArray<char> * a, NULLCArray<char> b, void* unused)
 {
-	return *a = __operatorAdd(*a, b, 0);
+	return *a = __operatorAdd_char___ref_char___char___(*a, b, 0);
 }
 
-char  char__(char a, void* unused)
+bool bool_bool_ref_bool_(bool a, void* __context)
 {
 	return a;
 }
 
-short  short__(short a, void* unused)
+char char_char_ref_char_(char a, void* __context)
 {
 	return a;
 }
 
-int  int__(int a, void* unused)
+short short_short_ref_short_(short a, void* __context)
 {
 	return a;
 }
 
-long long  long__(long long a, void* unused)
+int int_int_ref_int_(int a, void* __context)
 {
 	return a;
 }
 
-float  float__(float a, void* unused)
+long long long_long_ref_long_(long long a, void* __context)
 {
 	return a;
 }
 
-double  double__(double a, void* unused)
+float float_float_ref_float_(float a, void* __context)
 {
 	return a;
 }
+
+double double_double_ref_double_(double a, void* __context)
+{
+	return a;
+}
+
+void bool__bool_void_ref_bool_(bool a, bool *target)
+{
+	*target = a;
+}
+
 void char__char_void_ref_char_(char a, char *target)
 {
 	*target = a;
 }
+
 void short__short_void_ref_short_(short a, short *target)
 {
 	*target = a;
 }
+
 void int__int_void_ref_int_(int a, int *target)
 {
 	*target = a;
 }
+
 void long__long_void_ref_long_(long long a, long long *target)
 {
 	*target = a;
 }
+
 void float__float_void_ref_float_(float a, float *target)
 {
 	*target = a;
 }
+
 void double__double_void_ref_double_(double a, double *target)
 {
 	*target = a;
 }
 
-int const_string__size__int_ref__(const_string* str)
+int as_unsigned_int_ref_char_(char a, void* __context)
 {
-	return str->arr.size;
-}
-const_string const_string__(NULLCArray<char> arr, void* unused)
-{
-	const_string str;
-	str.arr = arr;
-	return str;
+	return (int)a;
 }
 
-char __char_a_12()
+int as_unsigned_int_ref_short_(short a, void* __context)
 {
-	return 0;
-}
-short __short_a_13()
-{
-	return 0;
-}
-int __int_a_14()
-{
-	return 0;
-}
-long long __long_a_15()
-{
-	return 0;
-}
-float __float_a_16()
-{
-	return 0;
-}
-double __double_a_17()
-{
-	return 0;
+	return (int)a;
 }
 
-NULLCArray<char>  int__str_char___ref__(int* r)
+long long as_unsigned_long_ref_int_(int a, void* __context)
 {
-	int number = *r;
+	return (long long)a;
+}
+
+short short_short_ref_char___(NULLCArray<char> str, void* __context)
+{
+	return short(atoi(str.ptr));
+}
+
+void short__short_void_ref_char___(NULLCArray<char> str, short *__context)
+{
+	*__context = str.ptr ? short(atoi(str.ptr)) : 0;
+}
+
+NULLCArray<char> short__str_char___ref__(short* __context)
+{
+	int number = *__context;
 	bool sign = 0;
 	char buf[16];
 	char *curr = buf;
@@ -525,7 +559,7 @@ NULLCArray<char>  int__str_char___ref__(int* r)
 		*curr++ = (char)(abs(number % 10) + '0');
 	if(sign)
 		*curr++ = '-';
-	NULLCArray<char> arr = __newA(1, (int)(curr - buf) + 1, 0);
+	NULLCArray<char> arr = __newA_int___ref_int_int_int_(1, (int)(curr - buf) + 1, 0, 0);
 	char *str = arr.ptr;
 	do 
 	{
@@ -534,26 +568,134 @@ NULLCArray<char>  int__str_char___ref__(int* r)
 	}while(curr != buf);
 	return arr;
 }
-NULLCArray<char>  double__str_char___ref_int_(int precision, int* r)
+
+int int_int_ref_char___(NULLCArray<char> str, void* __context)
+{
+	return atoi(str.ptr);
+}
+
+void int__int_void_ref_char___(NULLCArray<char> str, int* __context)
+{
+	*__context = str.ptr ? atoi(str.ptr) : 0;
+}
+
+NULLCArray<char> int__str_char___ref__(int* __context)
+{
+	int number = *__context;
+	bool sign = 0;
+	char buf[16];
+	char *curr = buf;
+	if(number < 0)
+		sign = 1;
+
+	*curr++ = (char)(abs(number % 10) + '0');
+	while(number /= 10)
+		*curr++ = (char)(abs(number % 10) + '0');
+	if(sign)
+		*curr++ = '-';
+	NULLCArray<char> arr = __newA_int___ref_int_int_int_(1, (int)(curr - buf) + 1, 0, 0);
+	char *str = arr.ptr;
+	do 
+	{
+		--curr;
+		*str++ = *curr;
+	}while(curr != buf);
+	return arr;
+}
+
+long long long_long_ref_char___(NULLCArray<char> str, void* __context)
+{
+	return strtoll(str.ptr, 0, 10);
+}
+
+void long__long_void_ref_char___(NULLCArray<char> str, long long* __context)
+{
+	*__context = str.ptr ? strtoll(str.ptr, 0, 10) : 0;
+}
+
+NULLCArray<char> long__str_char___ref__(long long* __context)
+{
+	long long number = *__context;
+	bool sign = 0;
+	char buf[32];
+	char *curr = buf;
+	if(number < 0)
+		sign = 1;
+
+	*curr++ = (char)(abs(number % 10) + '0');
+	while(number /= 10)
+		*curr++ = (char)(abs(number % 10) + '0');
+	if(sign)
+		*curr++ = '-';
+	NULLCArray<char> arr = __newA_int___ref_int_int_int_(1, (int)(curr - buf) + 1, 0, 0);
+	char *str = arr.ptr;
+	do 
+	{
+		--curr;
+		*str++ = *curr;
+	}while(curr != buf);
+	return arr;
+}
+
+float float_float_ref_char___(NULLCArray<char> str, void* __context)
+{
+	return (float)atof(str.ptr);
+}
+
+void float__float_void_ref_char___(NULLCArray<char> str, float* __context)
+{
+	*__context = str.ptr ? (float)atof(str.ptr) : 0;
+}
+
+NULLCArray<char> float__str_char___ref_int_bool_(int precision, bool showExponent, float* __context)
 {
 	char buf[256];
-	SafeSprintf(buf, 256, "%.*f", precision, *r);
-	NULLCArray<char> arr = __newA(1, (int)strlen(buf) + 1, 0);
+	SafeSprintf(buf, 256, showExponent ? "%.*e" : "%.*f", precision, *__context);
+	NULLCArray<char> arr = __newA_int___ref_int_int_int_(1, (int)strlen(buf) + 1, 0, 0);
 	memcpy(arr.ptr, buf, arr.size);
 	return arr;
 }
 
-NULLCRef  duplicate(NULLCRef obj, void* unused)
+double double_double_ref_char___(NULLCArray<char> str, void* __context)
+{
+	return atof(str.ptr);
+}
+
+void double__double_void_ref_char___(NULLCArray<char> str, double* __context)
+{
+	*__context = str.ptr ? atof(str.ptr) : 0;
+}
+
+NULLCArray<char> double__str_char___ref_int_bool_(int precision, bool showExponent, double* r)
+{
+	char buf[256];
+	SafeSprintf(buf, 256, showExponent ? "%.*e" : "%.*f", precision, *r);
+	NULLCArray<char> arr = __newA_int___ref_int_int_int_(1, (int)strlen(buf) + 1, 0, 0);
+	memcpy(arr.ptr, buf, arr.size);
+	return arr;
+}
+
+void* __newS_void_ref_ref_int_int_(int size, int type, void* __context)
+{
+	return NULLC::AllocObject(size, type);
+}
+
+NULLCArray<int> __newA_int___ref_int_int_int_(int size, int count, int type, void* __context)
+{
+	return NULLC::AllocArray(size, count, type);
+}
+
+NULLCRef duplicate_auto_ref_ref_auto_ref_(NULLCRef obj, void* unused)
 {
 	NULLCRef ret;
 	ret.typeID = obj.typeID;
 	unsigned int objSize = nullcGetTypeSize(ret.typeID);
-	ret.ptr = (char*)__newS(objSize, 0);
+	ret.ptr = (char*)__newS_void_ref_ref_int_int_(objSize, 0, 0);
 	memcpy(ret.ptr, obj.ptr, objSize);
 	return ret;
 }
 
-void	__duplicate_array(NULLCAutoArray* dst, NULLCAutoArray src, void* unused)
+void __duplicate_array_void_ref_auto___ref_auto___(NULLCAutoArray* dst, NULLCAutoArray src, void* unused)
 {
 	dst->typeID = src.typeID;
 	dst->len = src.len;
@@ -561,14 +703,14 @@ void	__duplicate_array(NULLCAutoArray* dst, NULLCAutoArray src, void* unused)
 	memcpy(dst->ptr, src.ptr, src.len * nullcGetTypeSize(src.typeID));
 }
 
-NULLCAutoArray	duplicate(NULLCAutoArray arr, void* unused)
+NULLCAutoArray duplicate_auto___ref_auto___(NULLCAutoArray arr, void* unused)
 {
 	NULLCAutoArray ret;
-	__duplicate_array(&ret, arr, NULL);
+	__duplicate_array_void_ref_auto___ref_auto___(&ret, arr, NULL);
 	return ret;
 }
 
-NULLCRef replace(NULLCRef l, NULLCRef r, void* unused)
+NULLCRef replace_auto_ref_ref_auto_ref_auto_ref_(NULLCRef l, NULLCRef r, void* unused)
 {
 	if(l.typeID != r.typeID)
 	{
@@ -579,7 +721,7 @@ NULLCRef replace(NULLCRef l, NULLCRef r, void* unused)
 	return l;
 }
 
-void		swap(NULLCRef l, NULLCRef r, void* unused)
+void swap_void_ref_auto_ref_auto_ref_(NULLCRef l, NULLCRef r, void* unused)
 {
 	if(l.typeID != r.typeID)
 	{
@@ -596,7 +738,7 @@ void		swap(NULLCRef l, NULLCRef r, void* unused)
 	memcpy(r.ptr, tmp, size);
 }
 
-int			equal(NULLCRef l, NULLCRef r, void* unused)
+int equal_int_ref_auto_ref_auto_ref_(NULLCRef l, NULLCRef r, void* unused)
 {
 	if(l.typeID != r.typeID)
 	{
@@ -606,44 +748,199 @@ int			equal(NULLCRef l, NULLCRef r, void* unused)
 	return 0 == memcmp(l.ptr, r.ptr, nullcGetTypeSize(l.typeID));
 }
 
-int __rcomp(NULLCRef a, NULLCRef b, void* unused)
+void assign_void_ref_auto_ref_auto_ref_(NULLCRef l, NULLCRef r, void* unused)
+{
+	if(nullcGetSubType(l.typeID) != r.typeID)
+	{
+		nullcThrowError("ERROR: can't assign value of type %s to a pointer of type %s", __nullcGetTypeInfo(r.typeID)->name, __nullcGetTypeInfo(l.typeID)->name);
+		return;
+	}
+	memcpy(l.ptr, &r.ptr, nullcGetTypeSize(l.typeID));
+}
+
+void array_copy_void_ref_auto___auto___(NULLCAutoArray l, NULLCAutoArray r, void* __context)
+{
+	if(l.ptr == r.ptr)
+		return;
+
+	if(l.typeID != r.typeID)
+	{
+		nullcThrowError("ERROR: destination element type '%s' doesn't match source element type '%s'", nullcGetTypeName(l.typeID), nullcGetTypeName(r.typeID));
+		return;
+	}
+	if(l.len < r.len)
+	{
+		nullcThrowError("ERROR: destination array size '%d' is smaller than source array size '%s'", l.len, r.len);
+		return;
+	}
+
+	memcpy(l.ptr, r.ptr, nullcGetTypeSize(l.typeID) * r.len);
+}
+
+NULLCFuncPtr<__typeProxy_void_ref__> __redirect_void_ref___ref_auto_ref___function___ref_(NULLCRef r, NULLCArray<__function>* arr, void* __context)
+{
+	unsigned int *funcs = (unsigned int*)arr->ptr;
+	NULLCFuncPtr<> ret;
+	if(r.typeID > arr->size)
+	{
+		nullcThrowError("ERROR: type index is out of bounds of redirection table");
+		return ret;
+	}
+	// If there is no implementation for a method
+	if(!funcs[r.typeID])
+	{
+		// Find implemented function ID as a type reference
+		unsigned int found = 0;
+		for(; found < arr->size; found++)
+		{
+			if(funcs[found])
+				break;
+		}
+		//if(found == arr->size)
+		nullcThrowError("ERROR: type '%s' doesn't implement method", nullcGetTypeName(r.typeID));
+		//else
+		//	nullcThrowError("ERROR: type '%s' doesn't implement method '%s%s' of type '%s'", nullcGetTypeName(r.typeID), nullcGetTypeName(r.typeID), strchr(nullcGetFunctionName(funcs[found]), ':'), nullcGetTypeName(nullcGetFunctionType(funcs[found])));
+		return ret;
+	}
+	ret.context = r.ptr;
+	ret.id = funcs[r.typeID];
+	return ret;
+}
+
+NULLCFuncPtr<__typeProxy_void_ref__> __redirect_ptr_void_ref___ref_auto_ref___function___ref_(NULLCRef r, NULLCArray<__function>* arr, void* __context)
+{
+	NULLCFuncPtr<> ret;
+
+	if(!arr)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return ret;
+	}
+
+	unsigned int *funcs = (unsigned int*)arr->ptr;
+
+	if(r.typeID >= arr->size)
+	{
+		nullcThrowError("ERROR: type index is out of bounds of redirection table");
+		return ret;
+	}
+
+	ret.context = funcs[r.typeID] ? r.ptr : 0;
+	ret.id = funcs[r.typeID];
+
+	return ret;
+}
+
+NULLCArray<char>* __operatorSet_char___ref_ref_char___ref_int___(NULLCArray<char>* dst, NULLCArray<int> src, void* __context)
+{
+	if(dst->size < src.size)
+		*dst = __newA_int___ref_int_int_int_(1, src.size, 0, 0);
+	for(int i = 0; i < src.size; i++)
+		((char*)dst->ptr)[i] = ((int*)src.ptr)[i];
+	return dst;
+}
+
+NULLCArray<short>* __operatorSet_short___ref_ref_short___ref_int___(NULLCArray<short>* dst, NULLCArray<int> src, void* __context)
+{
+	if(dst->size < src.size)
+		*dst = __newA_int___ref_int_int_int_(2, src.size, 0, 0);
+	for(int i = 0; i < src.size; i++)
+		((short*)dst->ptr)[i] = ((int*)src.ptr)[i];
+	return dst;
+}
+
+NULLCArray<float>* __operatorSet_float___ref_ref_float___ref_double___(NULLCArray<float>* dst, NULLCArray<double> src, void* __context)
+{
+	if(dst->size < src.size)
+		*dst = __newA_int___ref_int_int_int_(4, src.size, 0, 0);
+	for(int i = 0; i < src.size; i++)
+		((float*)dst->ptr)[i] = ((double*)src.ptr)[i];
+	return dst;
+}
+
+unsigned typeid_typeid_ref_auto_ref_(NULLCRef type, void* __context)
+{
+	// TODO: extendable type redirect
+
+	return type.typeID;
+}
+
+int typeid__size__int_ref___(unsigned * __context)
+{
+	return __nullcGetTypeInfo(*__context)->size;
+}
+
+int  __operatorEqual_int_ref_typeid_typeid_(unsigned a, unsigned b, void* unused)
+{
+	return a == b;
+}
+int  __operatorNEqual_int_ref_typeid_typeid_(unsigned a, unsigned b, void* unused)
+{
+	return a != b;
+}
+
+int __rcomp_int_ref_auto_ref_auto_ref_(NULLCRef a, NULLCRef b, void* unused)
 {
 	return a.ptr == b.ptr;
 }
 
-int __rncomp(NULLCRef a, NULLCRef b, void* unused)
+int __rncomp_int_ref_auto_ref_auto_ref_(NULLCRef a, NULLCRef b, void* unused)
 {
 	return a.ptr != b.ptr;
 }
 
-void nullcThrowError(const char* error, ...)
+bool __operatorLess_bool_ref_auto_ref_auto_ref_(NULLCRef a, NULLCRef b, void* unused)
 {
-	va_list args;
-	va_start(args, error);
-	vprintf(error, args);
-	va_end(args);
+	return uintptr_t(a.ptr) < uintptr_t(b.ptr);
 }
 
-unsigned int typeid__(NULLCRef type, void* unused)
+bool __operatorLEqual_bool_ref_auto_ref_auto_ref_(NULLCRef a, NULLCRef b, void* unused)
 {
-	return type.typeID;
+	return uintptr_t(a.ptr) <= uintptr_t(b.ptr);
 }
 
-int __pcomp(NULLCFuncPtr<> a, NULLCFuncPtr<> b, void* unused)
+bool __operatorGreater_bool_ref_auto_ref_auto_ref_(NULLCRef a, NULLCRef b, void* unused)
+{
+	return uintptr_t(a.ptr) > uintptr_t(b.ptr);
+}
+
+bool __operatorGEqual_bool_ref_auto_ref_auto_ref_(NULLCRef a, NULLCRef b, void* unused)
+{
+	return uintptr_t(a.ptr) >= uintptr_t(b.ptr);
+}
+
+int hash_value_int_ref_auto_ref_(NULLCRef a, void* unused)
+{
+	long long value = (long long)(intptr_t)(a.ptr);
+	return (int)((value >> 32) ^ value);
+}
+
+int __pcomp_int_ref_void_ref_int__void_ref_int__(NULLCFuncPtr<__typeProxy_void_ref_int_> a, NULLCFuncPtr<__typeProxy_void_ref_int_> b, void* __context)
 {
 	return a.context == b.context && a.id == b.id;
 }
-int __pncomp(NULLCFuncPtr<> a, NULLCFuncPtr<> b, void* unused)
+
+int __pncomp_int_ref_void_ref_int__void_ref_int__(NULLCFuncPtr<__typeProxy_void_ref_int_> a, NULLCFuncPtr<__typeProxy_void_ref_int_> b, void* __context)
 {
 	return a.context != b.context || a.id != b.id;
 }
 
-int __typeCount(void* unused)
+int __acomp_int_ref_auto___auto___(NULLCAutoArray a, NULLCAutoArray b, void* __context)
+{
+	return a.size == b.size && a.ptr == b.ptr;
+}
+
+int __ancomp_int_ref_auto___auto___(NULLCAutoArray a, NULLCAutoArray b, void* __context)
+{
+	return a.size != b.size || a.ptr != b.ptr;
+}
+
+int __typeCount_int_ref__(void* __context)
 {
 	return __nullcTypeList.size() + 1024;
 }
 
-NULLCAutoArray* __operatorSet(NULLCAutoArray* left, NULLCRef right, void* unused)
+NULLCAutoArray* __operatorSet_auto___ref_ref_auto___ref_auto_ref_(NULLCAutoArray* left, NULLCRef right, void* unused)
 {
 	if(!nullcIsArray(right.typeID))
 	{
@@ -662,7 +959,8 @@ NULLCAutoArray* __operatorSet(NULLCAutoArray* left, NULLCRef right, void* unused
 	left->typeID = nullcGetSubType(right.typeID);
 	return left;
 }
-NULLCRef __operatorSet(NULLCRef left, NULLCAutoArray *right, void* unused)
+
+NULLCRef __aaassignrev_auto_ref_ref_auto_ref_auto___ref_(NULLCRef left, NULLCAutoArray *right, void* unused)
 {
 	NULLCRef ret = { 0, 0 };
 	if(!nullcIsArray(left.typeID))
@@ -691,14 +989,8 @@ NULLCRef __operatorSet(NULLCRef left, NULLCAutoArray *right, void* unused)
 	}
 	return left;
 }
-NULLCAutoArray* __operatorSet(NULLCAutoArray* left, NULLCAutoArray* right, void* unused)
-{
-	left->len = right->len;
-	left->ptr = right->ptr;
-	left->typeID = right->typeID;
-	return left;
-}
-NULLCRef __operatorIndex(NULLCAutoArray* left, unsigned int index, void* unused)
+
+NULLCRef __operatorIndex_auto_ref_ref_auto___ref_int_(NULLCAutoArray* left, int index, void* unused)
 {
 	NULLCRef ret = { 0, 0 };
 	if(index >= left->len)
@@ -711,78 +1003,257 @@ NULLCRef __operatorIndex(NULLCAutoArray* left, unsigned int index, void* unused)
 	return ret;
 }
 
-NULLCFuncPtr<> __redirect(NULLCRef r, NULLCArray<int>* arr, void* unused)
+int const_string__size__int_ref___(const_string* str)
 {
-	unsigned int *funcs = (unsigned int*)arr->ptr;
-	NULLCFuncPtr<> ret;
-	if(r.typeID > arr->size)
-	{
-		nullcThrowError("ERROR: type index is out of bounds of redirection table");
-		return ret;
-	}
-	// If there is no implementation for a method
-	if(!funcs[r.typeID])
-	{
-		// Find implemented function ID as a type reference
-		unsigned int found = 0;
-		for(; found < arr->size; found++)
-		{
-			if(funcs[found])
-				break;
-		}
-		//if(found == arr->size)
-			nullcThrowError("ERROR: type '%s' doesn't implement method", nullcGetTypeName(r.typeID));
-		//else
-		//	nullcThrowError("ERROR: type '%s' doesn't implement method '%s%s' of type '%s'", nullcGetTypeName(r.typeID), nullcGetTypeName(r.typeID), strchr(nullcGetFunctionName(funcs[found]), ':'), nullcGetTypeName(nullcGetFunctionType(funcs[found])));
-		return ret;
-	}
-	ret.context = r.ptr;
-	ret.id = funcs[r.typeID];
+	return str->arr.size;
+}
+
+const_string* __operatorSet_const_string_ref_ref_const_string_ref_char___(const_string* l, NULLCArray<char> arr, void* __context)
+{
+	l->arr = arr;
+	return l;
+}
+
+const_string const_string_const_string_ref_char___(NULLCArray<char> arr, void* unused)
+{
+	const_string str;
+	str.arr = arr;
+	return str;
+}
+
+
+char __operatorIndex_char_ref_const_string_ref_int_(const_string* l, int index, void* __context)
+{
+	// TODO: index check
+	return l->arr.ptr[index];
+}
+
+int __operatorEqual_int_ref_const_string_const_string_(const_string a, const_string b, void* __context)
+{
+	return __operatorEqual_int_ref_char___char___(a.arr, b.arr, 0);
+}
+
+int __operatorEqual_int_ref_const_string_char___(const_string a, NULLCArray<char> b, void* __context)
+{
+	return __operatorEqual_int_ref_char___char___(a.arr, b, 0);
+}
+
+int __operatorEqual_int_ref_char___const_string_(NULLCArray<char> a, const_string b, void* __context)
+{
+	return __operatorEqual_int_ref_char___char___(a, b.arr, 0);
+}
+
+int __operatorNEqual_int_ref_const_string_const_string_(const_string a, const_string b, void* __context)
+{
+	return __operatorNEqual_int_ref_char___char___(a.arr, b.arr, 0);
+}
+
+int __operatorNEqual_int_ref_const_string_char___(const_string a, NULLCArray<char> b, void* __context)
+{
+	return __operatorNEqual_int_ref_char___char___(a.arr, b, 0);
+}
+
+int __operatorNEqual_int_ref_char___const_string_(NULLCArray<char> a, const_string b, void* __context)
+{
+	return __operatorNEqual_int_ref_char___char___(a, b.arr, 0);
+}
+
+const_string __operatorAdd_const_string_ref_const_string_const_string_(const_string a, const_string b, void* __context)
+{
+	const_string ret;
+	ret.arr = __operatorAdd_char___ref_char___char___(a.arr, b.arr, 0);
 	return ret;
 }
 
-
-NULLCArray<char>* __operatorSet(NULLCArray<char>* dst, NULLCArray<int> src, void* unused)
+const_string __operatorAdd_const_string_ref_const_string_char___(const_string a, NULLCArray<char> b, void* __context)
 {
-	if(dst->size < src.size)
-		*dst = __newA(1, src.size, 0);
-	for(int i = 0; i < src.size; i++)
-		((char*)dst->ptr)[i] = ((int*)src.ptr)[i];
-	return dst;
-}
-// short inline array definition support
-NULLCArray<short>* __operatorSet(NULLCArray<short>* dst, NULLCArray<int> src, void* unused)
-{
-	if(dst->size < src.size)
-		*dst = __newA(2, src.size, 0);
-	for(int i = 0; i < src.size; i++)
-		((short*)dst->ptr)[i] = ((int*)src.ptr)[i];
-	return dst;
-}
-// float inline array definition support
-NULLCArray<float>* __operatorSet(NULLCArray<float>* dst, NULLCArray<double> src, void* unused)
-{
-	if(dst->size < src.size)
-		*dst = __newA(4, src.size, 0);
-	for(int i = 0; i < src.size; i++)
-		((float*)dst->ptr)[i] = ((double*)src.ptr)[i];
-	return dst;
+	const_string ret;
+	ret.arr = __operatorAdd_char___ref_char___char___(a.arr, b, 0);
+	return ret;
 }
 
-FastVector<__nullcFunction> funcTable;
-struct NULLCFuncInfo
+const_string __operatorAdd_const_string_ref_char___const_string_(NULLCArray<char> a, const_string b, void* __context)
 {
-	unsigned	hash;
-	unsigned	extraType;
-	unsigned	funcType;
-	NULLCFuncInfo(unsigned nHash, unsigned nType, unsigned nFuncType)
+	const_string ret;
+	ret.arr = __operatorAdd_char___ref_char___char___(a, b.arr, 0);
+	return ret;
+}
+
+int isStackPointer_int_ref_auto_ref_(NULLCRef ptr, void* unused)
+{
+	GC::unmanageableBase = (char*)&ptr;
+	return ptr.ptr >= GC::unmanageableBase && ptr.ptr <= GC::unmanageableTop;
+}
+
+void auto_array_impl_void_ref_auto___ref_typeid_int_(NULLCAutoArray* arr, unsigned type, int count, void* unused)
+{
+	arr->typeID = type;
+	arr->len = count;
+	arr->ptr = (char*)__newS_void_ref_ref_int_int_(typeid__size__int_ref___(&type) * (count), type, 0);
+}
+
+NULLCAutoArray auto_array_auto___ref_typeid_int_(unsigned type, int count, void* unused)
+{
+	NULLCAutoArray res;
+	auto_array_impl_void_ref_auto___ref_typeid_int_(&res, type, count, NULL);
+	return res;
+}
+
+void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, NULLCAutoArray* arr)
+{
+	if(x.typeID != arr->typeID)
 	{
-		hash = nHash;
-		extraType = nType;
-		funcType = nFuncType;
+		nullcThrowError("ERROR: cannot convert from '%s' to an 'auto[]' element type '%s'", nullcGetTypeName(x.typeID), nullcGetTypeName(arr->typeID));
+		return;
 	}
-};
-FastVector<NULLCFuncInfo> funcTableExt;
+	unsigned elemSize = __nullcGetTypeInfo(arr->typeID)->size;
+	if(pos >= arr->len)
+	{
+		unsigned newSize = 1 + arr->len + (arr->len >> 1);
+		if(pos >= newSize)
+			newSize = pos;
+		NULLCAutoArray n;
+		auto_array_impl_void_ref_auto___ref_typeid_int_(&n, arr->typeID, newSize, NULL);
+		memcpy(n.ptr, arr->ptr, arr->len * elemSize);
+		*arr = n;
+	}
+	memcpy(arr->ptr + elemSize * pos, x.ptr, elemSize);
+}
+
+void __force_size_void_ref_auto___ref_int_(NULLCAutoArray* arr, int size, void* unused)
+{
+	if(size > (unsigned)arr->len)
+	{
+		nullcThrowError("ERROR: cannot extend array");
+		return;
+	}
+	arr->len = size;
+}
+
+int isCoroutineReset_int_ref_auto_ref_(NULLCRef f, void* unused)
+{
+	if(__nullcGetTypeInfo(f.typeID)->category != NULLC_FUNCTION)
+	{
+		nullcThrowError("Argument is not a function");
+		return 0;
+	}
+	NULLCFuncPtr<> *fPtr = (NULLCFuncPtr<>*)f.ptr;
+	if(funcTableExt[fPtr->id].funcType != FunctionCategory::COROUTINE)
+	{
+		nullcThrowError("Function is not a coroutine");
+		return 0;
+	}
+
+	unsigned jmpOffset = *(unsigned*)fPtr->context;
+	return jmpOffset == 0;
+}
+
+void __assertCoroutine_void_ref_auto_ref_(NULLCRef f, void* unused)
+{
+	if(__nullcGetTypeInfo(f.typeID)->category != NULLC_FUNCTION)
+		nullcThrowError("Argument is not a function");
+	NULLCFuncPtr<> *fPtr = (NULLCFuncPtr<>*)f.ptr;
+	if(funcTableExt[fPtr->id].funcType != FunctionCategory::COROUTINE)
+		nullcThrowError("ERROR: function is not a coroutine");
+}
+
+NULLCArray<NULLCRef> __getFinalizeList_auto_ref___ref__(void* __context)
+{
+	NULLCArray<NULLCRef> ret;
+	return ret;
+}
+
+void __FinalizeProxy__finalize_void_ref__(__FinalizeProxy* __context)
+{
+}
+
+void __finalizeObjects_void_ref__(void* __context)
+{
+}
+
+void* assert_derived_from_base_void_ref_ref_void_ref_typeid_(void* derived, unsigned base, void* unused)
+{
+	if(!derived)
+		return derived;
+
+	unsigned typeId = *(unsigned*)derived;
+	for(;;)
+	{
+		if(base == typeId)
+			return derived;
+
+		// TODO: register base types
+		/*if(nullcGetBaseType(typeId))
+		{
+			typeId = nullcGetBaseType(typeId);
+		}else{
+			break;
+		}*/
+
+		break;
+	}
+	nullcThrowError("ERROR: cannot convert from '%s' to '%s'", nullcGetTypeName(*(unsigned*)derived), nullcGetTypeName(base));
+	return derived;
+}
+
+void __closeUpvalue_void_ref_void_ref_ref_void_ref_int_int_(void **upvalueList, void *variable, int offset, int size, void* __context)
+{
+	if (!upvalueList || !variable)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return;
+	}
+
+	struct Upvalue
+	{
+		void *target;
+		Upvalue *next;
+	};
+
+	Upvalue *upvalue = *(Upvalue**)upvalueList;
+
+	while (upvalue && upvalue->target == variable)
+	{
+		Upvalue *next = upvalue->next;
+
+		char *copy = (char*)upvalue + offset;
+		memcpy(copy, variable, unsigned(size));
+		upvalue->target = copy;
+		upvalue->next = NULL;
+
+		upvalue = next;
+	}
+
+	*(Upvalue**)upvalueList = upvalue;
+}
+
+int float__str_610894668_precision__int_ref___(void* __context)
+{
+	return 6;
+}
+
+bool float__str_610894668_showExponent__bool_ref___(void* __context)
+{
+	return false;
+}
+
+int double__str_610894668_precision__int_ref___(void* __context)
+{
+	return 6;
+}
+
+bool double__str_610894668_showExponent__bool_ref___(void* __context)
+{
+	return false;
+}
+
+void nullcThrowError(const char* error, ...)
+{
+	va_list args;
+	va_start(args, error);
+	vprintf(error, args);
+	va_end(args);
+}
 
 __nullcFunctionArray* __nullcGetFunctionTable()
 {
@@ -843,7 +1314,7 @@ namespace GC
 				return;
 			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
 			// Marker is 4 bytes before the block
-			unsigned int *marker = (unsigned int*)(basePtr)-1;
+			markerType *marker = (markerType*)(basePtr)-1;
 			GC_DEBUG_PRINT("\tMarker is %d\r\n", *marker & 0xff);
 
 			// If block is unmarked
@@ -1032,7 +1503,7 @@ void MarkUsedBlocks()
 			// If there is no base, this pointer points to memory that is not GCs memory
 			if(basePtr)
 			{
-				unsigned int *marker = (unsigned int*)(basePtr)-1;
+				markerType *marker = (markerType*)(basePtr)-1;
 				// If block is unmarked, mark it as used
 				if((*marker & 0xff) == 0)
 				{
@@ -1063,28 +1534,51 @@ namespace NULLC
 	void*	defaultAlloc(int size);
 	void	defaultDealloc(void* ptr);
 
-	extern void*	(*alloc)(int);
-	extern void		(*dealloc)(void*);
+	void*	alignedAlloc(int size);
+	void*	alignedAlloc(int size, int extraSize);
+	void	alignedDealloc(void* ptr);
 }
-
 
 void*	NULLC::defaultAlloc(int size)
 {
 	return malloc(size);
 }
+
 void	NULLC::defaultDealloc(void* ptr)
 {
 	free(ptr);
 }
 
-void*	(*NULLC::alloc)(int) = NULLC::defaultAlloc;
-void	(*NULLC::dealloc)(void*) = NULLC::defaultDealloc;
+void* NULLC::alignedAlloc(int size)
+{
+	void *unaligned = defaultAlloc((size + 16 - 1) + sizeof(void*));
+	if(!unaligned)
+		return NULL;
+	void *ptr = (void*)(((intptr_t)unaligned + sizeof(void*) + 16 - 1) & ~(16 - 1));
+	*((void**)ptr - 1) = unaligned;
+	return ptr;
+}
+
+void* NULLC::alignedAlloc(int size, int extraSize)
+{
+	void *unaligned = defaultAlloc((size + 16 - 1) + sizeof(void*) + extraSize);
+	if(!unaligned)
+		return NULL;
+	void *ptr = (void*)((((intptr_t)unaligned + sizeof(void*) + extraSize + 16 - 1) & ~(16 - 1)) - extraSize);
+	*((void**)ptr - 1) = unaligned;
+	return ptr;
+}
+
+void NULLC::alignedDealloc(void* ptr)
+{
+	defaultDealloc(*((void **)ptr - 1));
+}
 
 template<int elemSize>
 union SmallBlock
 {
 	char			data[elemSize];
-	unsigned int	marker;
+	markerType		marker;
 	SmallBlock		*next;
 };
 
@@ -1092,6 +1586,10 @@ template<int elemSize, int countInBlock>
 struct LargeBlock
 {
 	typedef SmallBlock<elemSize> Block;
+
+	// Padding is used to break the 16 byte alignment of pages in a way that after a marker offset is added to the block, the object pointer will be correctly aligned
+	char padding[16 - sizeof(markerType)];
+
 	Block		page[countInBlock];
 	LargeBlock	*next;
 };
@@ -1115,7 +1613,7 @@ public:
 		do
 		{
 			MyLargeBlock* following = activePages->next;
-			NULLC::dealloc(activePages);
+			NULLC::alignedDealloc(activePages);
 			activePages = following;
 		}while(activePages != NULL);
 		freeBlocks = &lastBlock;
@@ -1134,7 +1632,7 @@ public:
 		}else{
 			if(lastNum == countInBlock)
 			{
-				MyLargeBlock* newPage = (MyLargeBlock*)NULLC::alloc(sizeof(MyLargeBlock));
+				MyLargeBlock* newPage = (MyLargeBlock*)NULLC::alignedAlloc(sizeof(MyLargeBlock));
 				//memset(newPage, 0, sizeof(MyLargeBlock));
 				newPage->next = activePages;
 				activePages = newPage;
@@ -1329,7 +1827,7 @@ void* NULLC::AllocObject(int size, unsigned typeID)
 				data = pool512.Alloc();
 				realSize = 512;
 			}else{
-				globalObjects.push_back(NULLC::alloc(size+4));
+				globalObjects.push_back(NULLC::alignedAlloc(size - sizeof(markerType), 4 + sizeof(markerType)));
 				if(globalObjects.back() == NULL)
 				{
 					nullcThrowError("Allocation failed.");
@@ -1358,9 +1856,9 @@ unsigned int NULLC::UsedMemory()
 	return usedMemory;
 }
 
-NULLCArray<void> NULLC::AllocArray(int size, int count, unsigned typeID)
+NULLCArray<int> NULLC::AllocArray(int size, int count, unsigned typeID)
 {
-	NULLCArray<void> ret;
+	NULLCArray<int> ret;
 	ret.ptr = (char*)AllocObject(count * size, typeID);
 	ret.size = count;
 	return ret;
@@ -1454,7 +1952,7 @@ void NULLC::CollectMemory()
 		if(((unsigned int*)globalObjects[i])[1] == 0)
 		{
 			usedMemory -= *(unsigned int*)globalObjects[i];
-			NULLC::dealloc(globalObjects[i]);
+			NULLC::alignedDealloc(globalObjects[i]);
 			globalObjects[i] = globalObjects.back();
 			globalObjects.pop_back();
 			unusedBlocks++;
@@ -1505,94 +2003,6 @@ double NULLC::CollectTime()
 	return collectTime;
 }
 
-int  __newS(int size, unsigned typeID, void* unused)
-{
-	return (int)(intptr_t)NULLC::AllocObject(size, typeID);
-}
-
-NULLCArray<void>  __newA(int size, int count, unsigned typeID, void* unused)
-{
-	return NULLC::AllocArray(size, count, typeID);
-}
-
-int isStackPointer(NULLCRef ptr, void* unused)
-{
-	GC::unmanageableBase = (char*)&ptr;
-	return ptr.ptr >= GC::unmanageableBase && ptr.ptr <= GC::unmanageableTop;
-}
-
-int typeid__size__int_ref__(unsigned int * __context)
-{
-	return __nullcGetTypeInfo(*__context)->size;
-}
-
-void auto_array_impl(NULLCAutoArray* arr, unsigned int type, int count, void* unused)
-{
-	arr->typeID = type;
-	arr->len = count;
-	arr->ptr = (char*)__newS(typeid__size__int_ref__(&type) * (count), type);
-}
-NULLCAutoArray auto_array__(unsigned type, int count, void* unused)
-{
-	NULLCAutoArray res;
-	auto_array_impl(&res, type, count, NULL);
-	return res;
-}
-void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, void* unused)
-{
-	NULLCAutoArray *arr = (NULLCAutoArray*)unused;
-	if(x.typeID != arr->typeID)
-	{
-		nullcThrowError("ERROR: cannot convert from '%s' to an 'auto[]' element type '%s'", nullcGetTypeName(x.typeID), nullcGetTypeName(arr->typeID));
-		return;
-	}
-	unsigned elemSize = __nullcGetTypeInfo(arr->typeID)->size;
-	if(pos >= arr->len)
-	{
-		unsigned newSize = 1 + arr->len + (arr->len >> 1);
-		if(pos >= newSize)
-			newSize = pos;
-		NULLCAutoArray n;
-		auto_array_impl(&n, arr->typeID, newSize, NULL);
-		memcpy(n.ptr, arr->ptr, arr->len * elemSize);
-		*arr = n;
-	}
-	memcpy(arr->ptr + elemSize * pos, x.ptr, elemSize);
-}
-void __force_size(NULLCAutoArray* arr, int size, void* unused)
-{
-	if(size > (unsigned)arr->len)
-	{
-		nullcThrowError("ERROR: cannot extend array");
-		return;
-	}
-	arr->len = size;
-}
-
-int isCoroutineReset(NULLCRef f, void* unused)
-{
-	if(__nullcGetTypeInfo(f.typeID)->category != NULLC_FUNCTION)
-	{
-		nullcThrowError("Argument is not a function");
-		return 0;
-	}
-	NULLCFuncPtr<> *fPtr = (NULLCFuncPtr<>*)f.ptr;
-	if(funcTableExt[fPtr->id].funcType != FunctionCategory::COROUTINE)
-	{
-		nullcThrowError("Function is not a coroutine");
-		return 0;
-	}
-	return !**(int**)fPtr->context;
-}
-void __assertCoroutine(NULLCRef f, void* unused)
-{
-	if(__nullcGetTypeInfo(f.typeID)->category != NULLC_FUNCTION)
-		nullcThrowError("Argument is not a function");
-	NULLCFuncPtr<> *fPtr = (NULLCFuncPtr<>*)f.ptr;
-	if(funcTableExt[fPtr->id].funcType != FunctionCategory::COROUTINE)
-		nullcThrowError("ERROR: function is not a coroutine");
-}
-
 int	__nullcOutputResultInt(int x)
 {
 	printf("%d", x);
@@ -1609,19 +2019,6 @@ int	__nullcOutputResultDouble(double x)
 {
 	printf("%f", x);
 	return 0;
-}
-
-NULLCArray<NULLCRef> __getFinalizeList()
-{
-	NULLCArray<NULLCRef> ret;
-	return ret;
-}
-void __FinalizeProxy__finalize_void_ref__()
-{
-}
-
-void	__finalizeObjects()
-{
 }
 
 NULLCArray<int> __vtbl3761170085finalize;
