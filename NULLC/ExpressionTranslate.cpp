@@ -1165,10 +1165,33 @@ void TranslateGenericFunctionPrototype(ExpressionTranslateContext &ctx, ExprGene
 {
 	Print(ctx, "/* Definition of generic function prototype '%.*s' */", FMT_ISTR(expression->function->name));
 
-	for(ExprBase *value = expression->contextVariables.head; value; value = value->next)
+	if(!expression->contextVariables.head)
 	{
-		Translate(ctx, value);
+		Print(ctx, "0");
+		return;
 	}
+
+	Print(ctx, "(");
+	PrintLine(ctx);
+
+	ctx.depth++;
+
+	for(ExprBase *curr = expression->contextVariables.head; curr; curr = curr->next)
+	{
+		PrintIndent(ctx);
+
+		Translate(ctx, curr);
+
+		if(curr->next)
+			Print(ctx, ", ");
+
+		PrintLine(ctx);
+	}
+
+	ctx.depth--;
+
+	PrintIndent(ctx);
+	Print(ctx, ")");
 }
 
 void TranslateFunctionAccess(ExpressionTranslateContext &ctx, ExprFunctionAccess *expression)
@@ -1237,26 +1260,36 @@ void TranslateFunctionCall(ExpressionTranslateContext &ctx, ExprFunctionCall *ex
 void TranslateAliasDefinition(ExpressionTranslateContext &ctx, ExprAliasDefinition *expression)
 {
 	Print(ctx, "/* Definition of class typedef '%.*s' */", FMT_ISTR(expression->alias->name));
+
+	Print(ctx, "0");
 }
 
 void TranslateClassPrototype(ExpressionTranslateContext &ctx, ExprClassPrototype *expression)
 {
 	Print(ctx, "/* Definition of class prototype '%.*s' */", FMT_ISTR(expression->classType->name));
+
+	Print(ctx, "0");
 }
 
 void TranslateGenericClassPrototype(ExpressionTranslateContext &ctx, ExprGenericClassPrototype *expression)
 {
 	Print(ctx, "/* Definition of generic class prototype '%.*s' */", FMT_ISTR(expression->genericProtoType->name));
+
+	Print(ctx, "0");
 }
 
 void TranslateClassDefinition(ExpressionTranslateContext &ctx, ExprClassDefinition *expression)
 {
 	Print(ctx, "/* Definition of class '%.*s' */", FMT_ISTR(expression->classType->name));
+
+	Print(ctx, "0");
 }
 
 void TranslateEnumDefinition(ExpressionTranslateContext &ctx, ExprEnumDefinition *expression)
 {
 	Print(ctx, "/* Definition of enum '%.*s' */", FMT_ISTR(expression->enumType->name));
+
+	Print(ctx, "0");
 }
 
 void TranslateIfElse(ExpressionTranslateContext &ctx, ExprIfElse *expression)
