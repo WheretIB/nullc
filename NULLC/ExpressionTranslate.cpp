@@ -333,7 +333,26 @@ void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *functi
 
 	if(function->scope->ownerType)
 	{
-		PrintEscapedName(ctx, name);
+		if(name.length() > function->scope->ownerType->name.length() + 2)
+		{
+			InplaceStr operatorName = GetOperatorName(InplaceStr(name.begin + function->scope->ownerType->name.length() + 2, name.end));
+
+			if(!operatorName.empty())
+			{
+				PrintEscapedName(ctx, function->scope->ownerType->name);
+				Print(ctx, "__");
+				PrintEscapedName(ctx, operatorName);
+			}
+			else
+			{
+				PrintEscapedName(ctx, name);
+			}
+		}
+		else
+		{
+			PrintEscapedName(ctx, name);
+		}
+
 		Print(ctx, "_");
 		PrintEscapedName(ctx, function->type->name);
 	}
