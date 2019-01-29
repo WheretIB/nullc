@@ -48,6 +48,24 @@ InplaceStr GetOperatorName(InplaceStr name)
 	if(name == InplaceStr(">>"))
 		return InplaceStr("__operatorShiftRight");
 
+	if(name == InplaceStr("&"))
+		return InplaceStr("__operatorBitAnd");
+
+	if(name == InplaceStr("|"))
+		return InplaceStr("__operatorBitOr");
+
+	if(name == InplaceStr("^"))
+		return InplaceStr("__operatorBitXor");
+
+	if(name == InplaceStr("&&"))
+		return InplaceStr("__operatorLogAnd");
+
+	if(name == InplaceStr("||"))
+		return InplaceStr("__operatorLogOr");
+
+	if(name == InplaceStr("^^"))
+		return InplaceStr("__operatorLogXor");
+
 	if(name == InplaceStr("="))
 		return InplaceStr("__operatorSet");
 
