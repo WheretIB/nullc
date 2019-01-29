@@ -6985,7 +6985,8 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
 
 	// User might have not returned from all control paths, for a void function we will generate a return
-	expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprVoid)(syntax, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
+	if(function->type->returnType == ctx.typeVoid)
+		expressions.push_back(allocate(ExprReturn)(syntax, ctx.typeVoid, allocate(ExprVoid)(syntax, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
 
 	ClosePendingUpvalues(ctx, function);
 
