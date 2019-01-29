@@ -1,5 +1,7 @@
 #include "runtime.h"
 
+void  assert(int val, const char* message, void* unused);
+
 void override(NULLCRef a, NULLCRef b, void* unused)
 {
 	assert(__nullcGetTypeInfo(a.typeID)->category == NULLC_FUNCTION, "ERROR: first argument to 'override' is not a function", 0);

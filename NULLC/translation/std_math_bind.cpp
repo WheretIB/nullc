@@ -1,5 +1,5 @@
-//#include "std_math.cpp"
 #include "runtime.h"
+
 #include <math.h>
 
 struct float2
@@ -21,73 +21,92 @@ struct float4
 	float w;
 };
 
-double cos(double deg, void* unused)
+double cos_double_ref_double_(double deg, void* __context)
 {
 	return cos(deg);
 }
-double sin(double deg, void* unused)
+
+double sin_double_ref_double_(double deg, void* __context)
 {
 	return sin(deg);
 }
-double tan(double deg, void* unused)
+
+double tan_double_ref_double_(double deg, void* __context)
 {
 	return tan(deg);
 }
-double ctg(double deg, void* unused)
+
+double ctg_double_ref_double_(double deg, void* __context)
 {
 	return 1.0 / tan(deg);
 }
 
-double cosh(double deg, void* unused)
+double cosh_double_ref_double_(double deg, void* __context)
 {
 	return cosh(deg);
 }
-double sinh(double deg, void* unused)
+
+double sinh_double_ref_double_(double deg, void* __context)
 {
 	return sinh(deg);
 }
-double tanh(double deg, void* unused)
+
+double tanh_double_ref_double_(double deg, void* __context)
 {
 	return tanh(deg);
 }
-double coth(double deg, void* unused)
+
+double coth_double_ref_double_(double deg, void* __context)
 {
 	return 1.0 / tanh(deg);
 }
-double acos(double deg, void* unused)
+
+double acos_double_ref_double_(double deg, void* __context)
 {
 	return acos(deg);
 }
-double asin(double deg, void* unused)
+
+double asin_double_ref_double_(double deg, void* __context)
 {
 	return asin(deg);
 }
-double atan(double deg, void* unused)
+
+double atan_double_ref_double_(double deg, void* __context)
 {
 	return atan(deg);
 }
-double ceil(double num, void* unused)
+
+double atan2_double_ref_double_double_(double y, double x, void* __context)
+{
+	return atan2(y, x);
+}
+
+double ceil_double_ref_double_(double num, void* __context)
 {
 	return ceil(num);
 }
-double floor(double num, void* unused)
+
+double floor_double_ref_double_(double num, void* __context)
 {
 	return floor(num);
 }
-double exp(double num, void* unused)
+
+double exp_double_ref_double_(double num, void* __context)
 {
 	return exp(num);
 }
-double log(double num, void* unused)
+
+double log_double_ref_double_(double num, void* __context)
 {
 	return log(num);
 }
-double sqrt(double num, void* unused)
+
+double sqrt_double_ref_double_(double num, void* __context)
 {
 	return sqrt(num);
 }
 
-double clamp(double val, double min, double max, void* unused)
+double clamp_double_ref_double_double_double_(double val, double min, double max, void* __context)
 {
 	if(val < min)
 		return min;
@@ -96,7 +115,7 @@ double clamp(double val, double min, double max, void* unused)
 	return val;
 }
 
-double saturate(double val, void* unused)
+double saturate_double_ref_double_(double val, void* __context)
 {
 	if(val < 0.0)
 		return 0.0;
@@ -105,28 +124,28 @@ double saturate(double val, void* unused)
 	return val;
 }
 
-double abs(double val, void* unused)
+double abs_double_ref_double_(double val, void* __context)
 {
 	if(val < 0.0)
 		return -val;
 	return val;
 }
 
-float * __operatorIndex(float2 * a, int index, void* unused)
+float * __operatorIndex_float_ref_ref_float2_ref_int_(float2 * a, int index, void* __context)
 {
 	if((unsigned)index >= 2)
 		nullcThrowError("Array index out of bounds");
 	return (float*)&a->x + index;
 }
 
-float * __operatorIndex(float3 * a, int index, void* unused)
+float * __operatorIndex_float_ref_ref_float3_ref_int_(float3 * a, int index, void* __context)
 {
 	if((unsigned)index >= 3)
 		nullcThrowError("Array index out of bounds");
 	return (float*)&a->x + index;
 }
 
-float * __operatorIndex(float4 * a, int index, void* unused)
+float * __operatorIndex_float_ref_ref_float4_ref_int_(float4 * a, int index, void* __context)
 {
 	if((unsigned)index >= 4)
 		nullcThrowError("Array index out of bounds");
@@ -171,15 +190,15 @@ float float4__normalize_float_ref__(float4 * v)
 	return len;
 }
 
-float dot(float2 * a, float2 * b, void* unused)
+float dot_float_ref_float2_ref_float2_ref_(float2 * a, float2 * b, void* __context)
 {
 	return a->x*b->x + a->y*b->y;
 }
-float dot(float3 * a, float3 * b, void* unused)
+float dot_float_ref_float3_ref_float3_ref_(float3 * a, float3 * b, void* __context)
 {
 	return a->x*b->x + a->y*b->y + a->z*b->z;
 }
-float dot(float4 * a, float4 * b, void* unused)
+float dot_float_ref_float4_ref_float4_ref_(float4 * a, float4 * b, void* __context)
 {
 	return a->x*b->x + a->y*b->y + a->z*b->z + a->w*b->w;
 }
