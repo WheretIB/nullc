@@ -1479,11 +1479,33 @@ void TranslateSwitch(ExpressionTranslateContext &ctx, ExprSwitch *expression)
 
 void TranslateBreak(ExpressionTranslateContext &ctx, ExprBreak *expression)
 {
+	if(ExprSequence *closures = getType<ExprSequence>(expression->closures))
+	{
+		if(closures->expressions.head)
+		{
+			Translate(ctx, expression->closures);
+			Print(ctx, ";");
+			PrintLine(ctx);
+			PrintIndent(ctx);
+		}
+	}
+
 	Print(ctx, "goto break_%d;", ctx.loopIdStack[ctx.loopIdStack.size() - expression->depth]);
 }
 
 void TranslateContinue(ExpressionTranslateContext &ctx, ExprContinue *expression)
 {
+	if(ExprSequence *closures = getType<ExprSequence>(expression->closures))
+	{
+		if(closures->expressions.head)
+		{
+			Translate(ctx, expression->closures);
+			Print(ctx, ";");
+			PrintLine(ctx);
+			PrintIndent(ctx);
+		}
+	}
+
 	Print(ctx, "goto continue_%d;", ctx.loopIdStack[ctx.loopIdStack.size() - expression->depth]);
 }
 
