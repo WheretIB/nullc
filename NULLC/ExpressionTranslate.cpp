@@ -263,8 +263,14 @@ void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
 		PrintIndentedLine(ctx, "{");
 		ctx.depth++;
 
+		unsigned offset = 0;
+		unsigned index = 0;
+
 		for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
 		{
+			if(curr->variable->offset > offset)
+				PrintIndentedLine(ctx, "char pad_%d[%d];", index, int(curr->variable->offset - offset));
+
 			PrintIndent(ctx);
 
 			TranslateTypeName(ctx, curr->variable->type);
@@ -272,6 +278,9 @@ void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
 			TranslateVariableName(ctx, curr->variable);
 			Print(ctx, ";");
 			PrintLine(ctx);
+
+			offset = curr->variable->offset + curr->variable->type->size;
+			index++;
 		}
 
 		ctx.depth--;
