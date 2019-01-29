@@ -1882,7 +1882,17 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 	if(TypeClass *target = getType<TypeClass>(type))
 	{
 		if(IsDerivedFrom(getType<TypeClass>(value->type), target))
-			return allocate(ExprTypeCast)(source, type, value, EXPR_CAST_DERIVED_TO_BASE);
+		{
+			VariableData *storage = AllocateTemporary(ctx, source, value->type);
+
+			ExprBase *assignment = allocate(ExprAssignment)(source, storage->type, CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false)), value);
+
+			ExprBase *definition = allocate(ExprVariableDefinition)(source, ctx.typeVoid, storage, assignment);
+
+			ExprBase *result = allocate(ExprDereference)(source, type, allocate(ExprTypeCast)(source, ctx.GetReferenceType(type), CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false)), EXPR_CAST_REINTERPRET));
+
+			return CreateSequence(ctx, source, definition, result);
+		}
 	}
 
 	Stop(ctx, source->pos, "ERROR: cannot convert '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));

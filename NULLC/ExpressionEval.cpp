@@ -1086,26 +1086,6 @@ ExprBase* EvaluateCast(Eval &ctx, ExprTypeCast *expression)
 			return CheckType(expression, result);
 		}
 		break;
-	case EXPR_CAST_DERIVED_TO_BASE:
-		{
-			ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, value->type);
-
-			if(!storage)
-				return NULL;
-
-			if(!CreateStore(ctx, storage, value))
-				return NULL;
-
-			storage = allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(expression->type), storage->ptr, storage->end);
-
-			ExprBase *result = CreateLoad(ctx, storage);
-
-			if(!result)
-				return NULL;
-
-			return CheckType(expression, result);
-		}
-		break;
 	case EXPR_CAST_REINTERPRET:
 		if(expression->type == ctx.ctx.typeInt && value->type == ctx.ctx.typeTypeID)
 		{

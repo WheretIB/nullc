@@ -593,9 +593,6 @@ void TranslateCast(ExpressionTranslateContext &ctx, ExprTypeCast *expression)
 			Print(ctx, ")");
 		}
 		break;
-	case EXPR_CAST_DERIVED_TO_BASE:
-		Print(ctx, "/*TODO: %.*s ExprTypeCast(EXPR_CAST_DERIVED_TO_BASE)*/", FMT_ISTR(expression->type->name));
-		break;
 	case EXPR_CAST_REINTERPRET:
 		if(isType<TypeUnsizedArray>(expression->type) && isType<TypeUnsizedArray>(expression->value->type))
 		{
