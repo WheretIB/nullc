@@ -72,17 +72,45 @@ typedef struct
 } NULLCAutoArray;
 #pragma pack(pop)
 
-typedef struct
+struct NULLCTypeInfo
 {
 	unsigned int	hash;
 	const char		*name;
 	unsigned int	size;
-	unsigned int	subTypeID;
+	union
+	{
+		unsigned int	subTypeID;
+		unsigned int	baseClassID;
+		unsigned int	returnTypeID;
+	};
 	int				memberCount;
 	unsigned int	category;
 	unsigned int	members;
+};
 
-} NULLCTypeInfo;
+struct NULLCMemberInfo
+{
+	unsigned int typeID;
+	unsigned int offset;
+	const char *name;
+};
+
+struct NULLCFuncInfo
+{
+	unsigned	hash;
+	const char	*name;
+	unsigned	extraType;
+	unsigned	funcType;
+};
+
+#define NULLC_BASETYPE_VOID 0
+#define NULLC_BASETYPE_BOOL 1
+#define NULLC_BASETYPE_CHAR 2
+#define NULLC_BASETYPE_SHORT 3
+#define NULLC_BASETYPE_INT 4
+#define NULLC_BASETYPE_LONG 5
+#define NULLC_BASETYPE_FLOAT 6
+#define NULLC_BASETYPE_DOUBLE 7
 
 #define NULLC_NONE 0
 #define NULLC_CLASS 1
@@ -282,14 +310,19 @@ inline unsigned int	__nullcIndex(unsigned int index, unsigned int size)
 void nullcThrowError(const char* error, ...);
 unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, unsigned subTypeID, int memberCount, unsigned category);
 void __nullcRegisterMembers(unsigned id, unsigned count, ...);
+unsigned __nullcGetTypeCount();
 NULLCTypeInfo* __nullcGetTypeInfo(unsigned id);
+NULLCMemberInfo* __nullcGetTypeMembers(unsigned id);
 
 unsigned int typeid__(NULLCRef type, void* unused);
+
+unsigned int __nullcGetStringHash(const char *str);
 
 typedef void* __nullcFunction;
 typedef __nullcFunction* __nullcFunctionArray;
 __nullcFunctionArray* __nullcGetFunctionTable();
 unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType, unsigned funcType);
+NULLCFuncInfo* __nullcGetFunctionInfo(unsigned id);
 
 void __nullcRegisterGlobal(void* ptr, unsigned typeID);
 void __nullcRegisterBase(void* ptr);

@@ -136,22 +136,9 @@ private:
 };
 
 FastVector<NULLCTypeInfo> __nullcTypeList;
-FastVector<unsigned int> __nullcTypePart;
+FastVector<NULLCMemberInfo> __nullcTypePart;
 
 FastVector<__nullcFunction> funcTable;
-
-struct NULLCFuncInfo
-{
-	unsigned	hash;
-	unsigned	extraType;
-	unsigned	funcType;
-	NULLCFuncInfo(unsigned nHash, unsigned nType, unsigned nFuncType)
-	{
-		hash = nHash;
-		extraType = nType;
-		funcType = nFuncType;
-	}
-};
 
 FastVector<NULLCFuncInfo> funcTableExt;
 
@@ -172,25 +159,45 @@ unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, uns
 	__nullcTypeList.back().members = 0;
 	return __nullcTypeList.size() - 1;
 }
+
 void __nullcRegisterMembers(unsigned id, unsigned count, ...)
 {
 	if(__nullcTypeList[id].members || !count)
 		return;
+
 	va_list args;
 	va_start(args, count);
 	__nullcTypeList[id].members = __nullcTypePart.size();
-	for(unsigned i = 0; i < count * 2; i++)
+
+	for(unsigned i = 0; i < count * 3; i++)
 	{
-		__nullcTypePart.push_back(va_arg(args, int));
-		__nullcTypePart.push_back(va_arg(args, int));
+		NULLCMemberInfo member;
+
+		member.typeID = va_arg(args, unsigned);
+		member.offset = va_arg(args, unsigned);
+		member.name = va_arg(args, const char*);
+
+		__nullcTypePart.push_back(member);
 	}
+
 	va_end(args);
+}
+
+unsigned __nullcGetTypeCount()
+{
+	return __nullcTypeList.size();
 }
 
 NULLCTypeInfo* __nullcGetTypeInfo(unsigned id)
 {
 	return &__nullcTypeList[id];
 }
+
+NULLCMemberInfo* __nullcGetTypeMembers(unsigned id)
+{
+	return &__nullcTypePart[__nullcTypeList[id].members];
+}
+
 bool nullcIsArray(unsigned int typeID)
 {
 	return __nullcGetTypeInfo(typeID)->category == NULLC_ARRAY;
@@ -205,10 +212,12 @@ unsigned int nullcGetArraySize(unsigned int typeID)
 {
 	return __nullcGetTypeInfo(typeID)->memberCount;
 }
+
 unsigned int nullcGetSubType(unsigned int typeID)
 {
 	return __nullcGetTypeInfo(typeID)->subTypeID;
 }
+
 unsigned int nullcGetTypeSize(unsigned int typeID)
 {
 	return __nullcGetTypeInfo(typeID)->size;
@@ -435,7 +444,7 @@ NULLCArray<char>  __operatorAdd_char___ref_char___char___(NULLCArray<char> a, NU
 	NULLCArray<char> ret;
 
 	ret.size = a.size + b.size - 1;
-	ret.ptr = (char*)(intptr_t)__newS_void_ref_ref_int_int_(ret.size, 0, 0);
+	ret.ptr = (char*)(intptr_t)__newS_void_ref_ref_int_int_(ret.size, NULLC_BASETYPE_CHAR, 0);
 	if(!ret.ptr)
 		return ret;
 
@@ -1177,22 +1186,26 @@ void* assert_derived_from_base_void_ref_ref_void_ref_typeid_(void* derived, unsi
 		return derived;
 
 	unsigned typeId = *(unsigned*)derived;
+
 	for(;;)
 	{
 		if(base == typeId)
 			return derived;
 
-		// TODO: register base types
-		/*if(nullcGetBaseType(typeId))
-		{
-			typeId = nullcGetBaseType(typeId);
-		}else{
-			break;
-		}*/
+		NULLCTypeInfo *info = __nullcGetTypeInfo(typeId);
 
-		break;
+		if(info->category == NULLC_CLASS && info->baseClassID != 0)
+		{
+			typeId = info->baseClassID;
+		}
+		else
+		{
+			break;
+		}
 	}
+
 	nullcThrowError("ERROR: cannot convert from '%s' to '%s'", nullcGetTypeName(*(unsigned*)derived), nullcGetTypeName(base));
+
 	return derived;
 }
 
@@ -1260,7 +1273,7 @@ __nullcFunctionArray* __nullcGetFunctionTable()
 	return &funcTable.data;
 }
 
-unsigned int GetStringHash(const char *str)
+unsigned int __nullcGetStringHash(const char *str)
 {
 	unsigned int hash = 5381;
 	int c;
@@ -1271,13 +1284,31 @@ unsigned int GetStringHash(const char *str)
 
 unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType, unsigned funcType)
 {
-	unsigned hash = GetStringHash(name);
+	unsigned hash = __nullcGetStringHash(name);
+
 	for(unsigned int i = 0; i < funcTable.size(); i++)
+	{
 		if(funcTableExt[i].hash == hash)
 			return i;
+	}
+
 	funcTable.push_back(fPtr);
-	funcTableExt.push_back(NULLCFuncInfo(hash, extraType, funcType));
+
+	NULLCFuncInfo info;
+
+	info.hash = hash;
+	info.name = name;
+	info.extraType = extraType;
+	info.funcType = funcType;
+
+	funcTableExt.push_back(info);
+
 	return funcTable.size() - 1;
+}
+
+NULLCFuncInfo* __nullcGetFunctionInfo(unsigned id)
+{
+	return &funcTableExt[id];
 }
 
 // Memory allocation and GC
@@ -1288,8 +1319,8 @@ unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraTyp
 #define NULLC_PTR_SIZE sizeof(void*)
 namespace GC
 {
-	unsigned int	objectName = GetStringHash("auto ref");
-	unsigned int	autoArrayName = GetStringHash("auto[]");
+	unsigned int	objectName = __nullcGetStringHash("auto ref");
+	unsigned int	autoArrayName = __nullcGetStringHash("auto[]");
 
 	void CheckArray(char* ptr, const NULLCTypeInfo& type);
 	void CheckClass(char* ptr, const NULLCTypeInfo& type);
@@ -1424,13 +1455,13 @@ namespace GC
 			return;
 		}
 		// Get class member type list
-		unsigned int *memberList = &__nullcTypePart[realType->members];
+		NULLCMemberInfo *memberList = &__nullcTypePart[realType->members];
 		// Check pointer members
 		for(unsigned int n = 0; n < realType->memberCount; n++)
 		{
 			// Get member type
-			NULLCTypeInfo &subType = __nullcTypeList[memberList[n * 2]];
-			unsigned int pos = memberList[n * 2 + 1];
+			NULLCTypeInfo &subType = __nullcTypeList[memberList[n].typeID];
+			unsigned int pos = memberList[n].offset;
 			// Check member
 			CheckVariable(ptr + pos, subType);
 		}
