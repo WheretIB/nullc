@@ -353,18 +353,41 @@ void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *functi
 			PrintEscapedName(ctx, name);
 		}
 
+		for(MatchData *alias = function->generics.head; alias; alias = alias->next)
+		{
+			Print(ctx, "_");
+			PrintEscapedName(ctx, alias->type->name);
+			Print(ctx, "_");
+		}
+
 		Print(ctx, "_");
 		PrintEscapedName(ctx, function->type->name);
 	}
 	else if((function->scope == ctx.ctx.globalScope || function->scope->ownerNamespace) && !function->isHidden)
 	{
 		PrintEscapedName(ctx, name);
+
+		for(MatchData *alias = function->generics.head; alias; alias = alias->next)
+		{
+			Print(ctx, "_");
+			PrintEscapedName(ctx, alias->type->name);
+			Print(ctx, "_");
+		}
+
 		Print(ctx, "_");
 		PrintEscapedName(ctx, function->type->name);
 	}
 	else
 	{
 		PrintEscapedName(ctx, name);
+
+		for(MatchData *alias = function->generics.head; alias; alias = alias->next)
+		{
+			Print(ctx, "_");
+			PrintEscapedName(ctx, alias->type->name);
+			Print(ctx, "_");
+		}
+
 		Print(ctx, "_%d", function->functionIndex);
 	}
 
