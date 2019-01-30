@@ -906,6 +906,11 @@ void TranslateReturn(ExpressionTranslateContext &ctx, ExprReturn *expression)
 				PrintIndent(ctx);
 			}
 
+			Translate(ctx, expression->value);
+			Print(ctx, ";");
+			PrintLine(ctx);
+			PrintIndent(ctx);
+
 			Print(ctx, "return;");
 		}
 		else if(closures)
@@ -956,6 +961,11 @@ void TranslateYield(ExpressionTranslateContext &ctx, ExprYield *expression)
 			PrintLine(ctx);
 			PrintIndent(ctx);
 		}
+
+		Translate(ctx, expression->value);
+		Print(ctx, ";");
+		PrintLine(ctx);
+		PrintIndent(ctx);
 
 		Print(ctx, "return;");
 	}
