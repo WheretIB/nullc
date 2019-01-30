@@ -685,6 +685,14 @@ void TranslateBinaryOp(ExpressionTranslateContext &ctx, ExprBinaryOp *expression
 
 		Print(ctx, ")");
 	}
+	else if(expression->op == SYN_BINARY_OP_MOD && (expression->lhs->type == ctx.ctx.typeFloat || expression->lhs->type == ctx.ctx.typeDouble))
+	{
+		Print(ctx, "__nullcMod((");
+		Translate(ctx, expression->lhs);
+		Print(ctx, "), (");
+		Translate(ctx, expression->rhs);
+		Print(ctx, "))");
+	}
 	else if(expression->op == SYN_BINARY_OP_LOGICAL_XOR)
 	{
 		Print(ctx, "!!(");
