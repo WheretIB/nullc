@@ -873,13 +873,13 @@ void TranslateReturn(ExpressionTranslateContext &ctx, ExprReturn *expression)
 		assert(!closures);
 
 		if(expression->value->type == ctx.ctx.typeBool || expression->value->type == ctx.ctx.typeChar || expression->value->type == ctx.ctx.typeShort || expression->value->type == ctx.ctx.typeInt)
-			Print(ctx, "__nullcOutputResultInt((int)");
+			Print(ctx, "__nullcOutputResultInt((int)(");
 		else if(expression->value->type == ctx.ctx.typeLong)
-			Print(ctx, "__nullcOutputResultLong((long long)");
+			Print(ctx, "__nullcOutputResultLong((long long)(");
 		else if(expression->value->type == ctx.ctx.typeFloat || expression->value->type == ctx.ctx.typeDouble)
-			Print(ctx, "__nullcOutputResultDouble((double)");
+			Print(ctx, "__nullcOutputResultDouble((double)(");
 		else if(isType<TypeEnum>(expression->value->type))
-			Print(ctx, "__nullcOutputResultInt((int)");
+			Print(ctx, "__nullcOutputResultInt((int)(");
 		else
 			assert(!"unknown global return type");
 
@@ -888,7 +888,7 @@ void TranslateReturn(ExpressionTranslateContext &ctx, ExprReturn *expression)
 		if(isType<TypeEnum>(expression->value->type))
 			Print(ctx, ".value");
 
-		Print(ctx, ");");
+		Print(ctx, "));");
 		PrintLine(ctx);
 		PrintIndent(ctx);
 
