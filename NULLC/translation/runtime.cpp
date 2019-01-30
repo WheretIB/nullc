@@ -16,6 +16,51 @@
 
 typedef uintptr_t markerType;
 
+namespace NULLC
+{
+	void*	defaultAlloc(int size);
+	void	defaultDealloc(void* ptr);
+
+	void*	alignedAlloc(int size);
+	void*	alignedAlloc(int size, int extraSize);
+	void	alignedDealloc(void* ptr);
+}
+
+void*	NULLC::defaultAlloc(int size)
+{
+	return malloc(size);
+}
+
+void	NULLC::defaultDealloc(void* ptr)
+{
+	free(ptr);
+}
+
+void* NULLC::alignedAlloc(int size)
+{
+	void *unaligned = defaultAlloc((size + 16 - 1) + sizeof(void*));
+	if(!unaligned)
+		return NULL;
+	void *ptr = (void*)(((intptr_t)unaligned + sizeof(void*) + 16 - 1) & ~(16 - 1));
+	*((void**)ptr - 1) = unaligned;
+	return ptr;
+}
+
+void* NULLC::alignedAlloc(int size, int extraSize)
+{
+	void *unaligned = defaultAlloc((size + 16 - 1) + sizeof(void*) + extraSize);
+	if(!unaligned)
+		return NULL;
+	void *ptr = (void*)((((intptr_t)unaligned + sizeof(void*) + extraSize + 16 - 1) & ~(16 - 1)) - extraSize);
+	*((void**)ptr - 1) = unaligned;
+	return ptr;
+}
+
+void NULLC::alignedDealloc(void* ptr)
+{
+	defaultDealloc(*((void **)ptr - 1));
+}
+
 int	SafeSprintf(char* dst, size_t size, const char* src, ...)
 {
 	va_list args;
@@ -133,6 +178,347 @@ private:
 	// Disable assignment and copy constructor
 	void operator =(FastVector &r);
 	FastVector(FastVector &r);
+};
+
+namespace detail
+{
+	template<typename T>
+	T max(T x, T y)
+	{
+		return x > y ? x : y;
+	}
+
+	template<typename T>
+	struct node
+	{
+		node(): left(NULL), right(NULL), height(1u)
+		{
+		}
+
+		node* min_tree()
+		{
+			node* x = this;
+
+			while(x->left)
+				x = x->left;
+
+			return x;
+		}
+
+		T		key;
+
+		node	*left;
+		node	*right;
+
+		int		height;
+	};
+}
+
+namespace detail
+{
+	template<typename T>
+	union SmallBlock
+	{
+		char		data[sizeof(T)];
+		SmallBlock	*next;
+	};
+
+	template<typename T, int countInBlock>
+	struct LargeBlock
+	{
+		typedef SmallBlock<T> Block;
+		Block		page[countInBlock];
+		LargeBlock	*next;
+	};
+}
+
+template<typename T, int countInBlock>
+class TypedObjectPool
+{
+	typedef detail::SmallBlock<T> MySmallBlock;
+	typedef typename detail::LargeBlock<T, countInBlock> MyLargeBlock;
+public:
+	TypedObjectPool()
+	{
+		freeBlocks = NULL;
+		activePages = NULL;
+		lastNum = countInBlock;
+	}
+	~TypedObjectPool()
+	{
+		Reset();
+	}
+	void Reset()
+	{
+		freeBlocks = NULL;
+		lastNum = countInBlock;
+
+		while(activePages)
+		{
+			MyLargeBlock *following = activePages->next;
+			NULLC::alignedDealloc(activePages);
+			activePages = following;
+		}
+	}
+
+	T* Allocate()
+	{
+		MySmallBlock *result;
+		if(freeBlocks)
+		{
+			result = freeBlocks;
+			freeBlocks = freeBlocks->next;
+		}else{
+			if(lastNum == countInBlock)
+			{
+				MyLargeBlock *newPage = new(NULLC::alignedAlloc(sizeof(MyLargeBlock))) MyLargeBlock;
+				newPage->next = activePages;
+				activePages = newPage;
+				lastNum = 0;
+			}
+			result = &activePages->page[lastNum++];
+		}
+		return new(result) T;
+	}
+
+	void Deallocate(T* ptr)
+	{
+		if(!ptr)
+			return;
+
+		MySmallBlock *freedBlock = (MySmallBlock*)(void*)ptr;
+		ptr->~T();	// Destroy object
+
+		freedBlock->next = freeBlocks;
+		freeBlocks = freedBlock;
+	}
+public:
+	MySmallBlock	*freeBlocks;
+	MyLargeBlock	*activePages;
+	unsigned		lastNum;
+};
+
+template<typename T>
+class Tree
+{
+public:
+	typedef detail::node<T>* iterator;
+	typedef detail::node<T> node_type;
+
+	TypedObjectPool<node_type, 1024> pool;
+
+	Tree(): root(NULL)
+	{
+	}
+
+	void reset()
+	{
+		pool.Reset();
+		root = NULL;
+	}
+
+	void clear()
+	{
+		pool.Reset();
+		root = NULL;
+	}
+
+	iterator insert(const T& key)
+	{
+		return root = insert(root, key);
+	}
+
+	void erase(const T& key)
+	{
+		root = erase(root, key);
+	}
+
+	iterator find(const T& key)
+	{
+		node_type *curr = root;
+
+		while(curr)
+		{
+			if(curr->key == key)
+				return iterator(curr);
+
+			curr = key < curr->key ? curr->left : curr->right;
+		}
+
+		return iterator(NULL);
+	}
+
+	void for_each(void (*it)(T&))
+	{
+		if(root)
+			for_each(root, it);
+	}
+private:
+	int get_height(node_type* n)
+	{
+		return n ? n->height : 0;
+	}
+
+	int get_balance(node_type* n)
+	{
+		return n ? get_height(n->left) - get_height(n->right) : 0;
+	}
+
+	node_type* left_rotate(node_type* x)
+	{
+		node_type *y = x->right;
+		node_type *T2 = y->left;
+
+		y->left = x;
+		x->right = T2;
+
+		x->height = detail::max(get_height(x->left), get_height(x->right)) + 1;
+		y->height = detail::max(get_height(y->left), get_height(y->right)) + 1;
+
+		return y;
+	}
+
+	node_type* right_rotate(node_type* y)
+	{
+		node_type *x = y->left;
+		node_type *T2 = x->right;
+
+		x->right = y;
+		y->left = T2;
+
+		y->height = detail::max(get_height(y->left), get_height(y->right)) + 1;
+		x->height = detail::max(get_height(x->left), get_height(x->right)) + 1;
+
+		return x;
+	}
+
+	node_type* insert(node_type* node, const T& key)
+	{
+		if(node == NULL)
+		{
+			node_type *t = pool.Allocate();
+			t->key = key;
+			return t;
+		}
+
+		if(key < node->key)
+			node->left = insert(node->left, key);
+		else
+			node->right = insert(node->right, key);
+
+		node->height = detail::max(get_height(node->left), get_height(node->right)) + 1;
+
+		int balance = get_balance(node);
+
+		if(balance > 1 && key < node->left->key)
+			return right_rotate(node);
+
+		if(balance < -1 && key > node->right->key)
+			return left_rotate(node);
+
+		if(balance > 1 && key > node->left->key)
+		{
+			node->left =  left_rotate(node->left);
+			return right_rotate(node);
+		}
+
+		if(balance < -1 && key < node->right->key)
+		{
+			node->right = right_rotate(node->right);
+			return left_rotate(node);
+		}
+
+		return node;
+	}
+
+	node_type* erase(node_type* node, const T& key)
+	{
+		if(node == NULL)
+			return node;
+
+		if(key < node->key)
+		{
+			node->left = erase(node->left, key);
+		}else if(key > node->key){
+			node->right = erase(node->right, key);
+		}else{
+			if((node->left == NULL) || (node->right == NULL))
+			{
+				node_type *temp = node->left ? node->left : node->right;
+
+				if(temp == NULL)
+				{
+					temp = node;
+					node = NULL;
+				}else{
+					*node = *temp;
+				}
+
+				pool.Deallocate(temp);
+
+				if(temp == root)
+					root = node;
+			}else{
+				node_type* temp = node->right->min_tree();
+
+				node->key = temp->key;
+
+				node->right = erase(node->right, temp->key);
+			}
+		}
+
+		if(node == NULL)
+			return node;
+
+		node->height = detail::max(get_height(node->left), get_height(node->right)) + 1;
+
+		int balance = get_balance(node);
+
+		if(balance > 1 && get_balance(node->left) >= 0)
+			return right_rotate(node);
+
+		if(balance > 1 && get_balance(node->left) < 0)
+		{
+			node->left =  left_rotate(node->left);
+			return right_rotate(node);
+		}
+
+		if(balance < -1 && get_balance(node->right) <= 0)
+			return left_rotate(node);
+
+		if(balance < -1 && get_balance(node->right) > 0)
+		{
+			node->right = right_rotate(node->right);
+			return left_rotate(node);
+		}
+
+		return node;
+	}
+
+	node_type* find(node_type* node, const T& key)
+	{
+		if(!node)
+			return NULL;
+
+		if(node->key == key)
+			return node;
+
+		if(key < node->key)
+			return find(node->left, key);
+
+		return find(node->right, key);
+	}
+
+	void for_each(node_type* node, void (*it)(T&))
+	{
+		if(node->left)
+			for_each(node->left, it);
+		it(node->key);
+		if(node->right)
+			for_each(node->right, it);
+	}
+
+	node_type	*root;
 };
 
 FastVector<NULLCTypeInfo> __nullcTypeList;
@@ -1317,10 +1703,38 @@ NULLCFuncInfo* __nullcGetFunctionInfo(unsigned id)
 //#define GC_DEBUG_PRINT printf
 
 #define NULLC_PTR_SIZE sizeof(void*)
+
 namespace GC
 {
 	unsigned int	objectName = __nullcGetStringHash("auto ref");
 	unsigned int	autoArrayName = __nullcGetStringHash("auto[]");
+
+	void PrintMarker(markerType marker)
+	{
+		GC_DEBUG_PRINT("\tMarker is 0x%2x [", marker);
+
+		const uintptr_t OBJECT_VISIBLE		= 1 << 0;
+		const uintptr_t OBJECT_FREED		= 1 << 1;
+		const uintptr_t OBJECT_FINALIZABLE	= 1 << 2;
+		const uintptr_t OBJECT_FINALIZED	= 1 << 3;
+		const uintptr_t OBJECT_ARRAY		= 1 << 4;
+
+		if(marker & OBJECT_VISIBLE)
+			GC_DEBUG_PRINT("visible");
+		else
+			GC_DEBUG_PRINT("unmarked");
+
+		if(marker & OBJECT_FREED)
+			GC_DEBUG_PRINT(" freed");
+		if(marker & OBJECT_FINALIZABLE)
+			GC_DEBUG_PRINT(" finalizable");
+		if(marker & OBJECT_FINALIZED)
+			GC_DEBUG_PRINT(" finalized");
+		if(marker & OBJECT_ARRAY)
+			GC_DEBUG_PRINT(" array");
+
+		GC_DEBUG_PRINT("] type %d '%s'\r\n", marker >> 8, __nullcGetTypeInfo(marker >> 8)->name);
+	}
 
 	void CheckArray(char* ptr, const NULLCTypeInfo& type);
 	void CheckClass(char* ptr, const NULLCTypeInfo& type);
@@ -1336,7 +1750,7 @@ namespace GC
 		if(*rPtr > (char*)0x00010000 && (*rPtr < unmanageableBase || *rPtr > unmanageableTop))
 		{
 			// Get type that pointer points to
-			GC_DEBUG_PRINT("\tGlobal pointer %s %p (at %p)\r\n", type.name, *rPtr, ptr);
+			GC_DEBUG_PRINT("\tGlobal pointer [ref] %s %p (at %p)\r\n", type.name, *rPtr, ptr);
 
 			// Get pointer to the start of memory block. Some pointers may point to the middle of memory blocks
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(*rPtr);
@@ -1345,11 +1759,12 @@ namespace GC
 				return;
 			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
 			// Marker is 4 bytes before the block
-			markerType *marker = (markerType*)(basePtr)-1;
-			GC_DEBUG_PRINT("\tMarker is %d\r\n", *marker & 0xff);
+			markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
+
+			PrintMarker(*marker);
 
 			// If block is unmarked
-			if((*marker & 0xff) == 0)
+			if(!(*marker & 1))
 			{
 				// Mark block as used
 				*marker |= 1;
@@ -1357,7 +1772,9 @@ namespace GC
 				// And if type is not simple, check memory to which pointer points to
 				if(type.category != NULLC_NONE)
 					CheckVariable(*rPtr, takeSubtype ? __nullcTypeList[/*type.subTypeID*/*marker >> 8] : type);
-			}else if(takeSubtype && __nullcTypeList[type.subTypeID].category == NULLC_POINTER){
+			}
+			else if(takeSubtype && __nullcTypeList[type.subTypeID].category == NULLC_POINTER)
+			{
 				MarkPointer(*rPtr, __nullcTypeList[type.subTypeID], true); 
 			}
 		}
@@ -1381,14 +1798,21 @@ namespace GC
 			// If uninitialized or points to stack memory, return
 			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
 				return;
-			GC_DEBUG_PRINT("\tGlobal pointer %p\r\n", ptr);
+			GC_DEBUG_PRINT("\tGlobal pointer [array] %p\r\n", ptr);
 			// Get base pointer
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+
+			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
+
+			markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
+
+			PrintMarker(*marker);
+
 			// If there is no base pointer or memory already marked, exit
-			if(!basePtr || (*((unsigned int*)(basePtr) - 1) & 0xff))
+			if(!basePtr || (*marker & 1))
 				return;
 			// Mark memory as used
-			*((unsigned int*)(basePtr) - 1) |= 1;
+			*marker |= 1;
 		}else if(type.hash == autoArrayName){
 			NULLCAutoArray *data = (NULLCAutoArray*)ptr;
 			// Get real variable type
@@ -1438,13 +1862,23 @@ namespace GC
 			// If uninitialized or points to stack memory, return
 			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
 				return;
+
+			GC_DEBUG_PRINT("\tGlobal pointer [class] %p\r\n", ptr);
+
 			// Get base pointer
 			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+
+			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
+
+			markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
+
+			PrintMarker(*marker);
+
 			// If there is no base pointer or memory already marked, exit
-			if(!basePtr || (*((unsigned int*)(basePtr) - 1) & 0xff))
+			if(!basePtr || (*marker & 1))
 				return;
 			// Mark memory as used
-			*((unsigned int*)(basePtr) - 1) |= 1;
+			*marker |= 1;
 			// Fixup target
 			CheckVariable(ptr, *realType);
 			// Exit
@@ -1483,6 +1917,7 @@ namespace GC
 	// Function that decides, how variable of type 'type' should be checked for pointers
 	void CheckVariable(char* ptr, const NULLCTypeInfo& type)
 	{
+		// TODO: extendable types
 		switch(type.category)
 		{
 		case NULLC_ARRAY:
@@ -1557,53 +1992,50 @@ void __nullcRegisterGlobal(void* ptr, unsigned typeID)
 }
 void __nullcRegisterBase(void* ptr)
 {
-	GC::unmanageableTop = GC::unmanageableTop ? ((char*)ptr > GC::unmanageableTop ? (char*)ptr : GC::unmanageableTop) : (char*)ptr;
+	if(GC::unmanageableTop)
+		GC::unmanageableTop = (uintptr_t)ptr > (uintptr_t)GC::unmanageableTop ? (char*)ptr : GC::unmanageableTop;
+	else
+		GC::unmanageableTop = (char*)ptr;
 }
 
 namespace NULLC
 {
-	void*	defaultAlloc(int size);
-	void	defaultDealloc(void* ptr);
+	FastVector<NULLCRef>	finalizeList;
 
-	void*	alignedAlloc(int size);
-	void*	alignedAlloc(int size, int extraSize);
-	void	alignedDealloc(void* ptr);
+	static uintptr_t OBJECT_VISIBLE		= 1 << 0;
+	static uintptr_t OBJECT_FREED		= 1 << 1;
+	static uintptr_t OBJECT_FINALIZABLE	= 1 << 2;
+	static uintptr_t OBJECT_FINALIZED	= 1 << 3;
+	static uintptr_t OBJECT_ARRAY		= 1 << 4;
+	static uintptr_t OBJECT_MASK		= OBJECT_VISIBLE | OBJECT_FREED;
+
+	void FinalizeObject(markerType& marker, char* base)
+	{
+		if(marker & NULLC::OBJECT_ARRAY)
+		{
+			NULLCTypeInfo *typeInfo = __nullcGetTypeInfo((unsigned)marker >> 8);
+
+			unsigned arrayPadding = 4; // TODO: take type default alignment
+
+			unsigned count = *(unsigned*)(base + sizeof(markerType) + arrayPadding - 4);
+			NULLCRef r = { (unsigned)marker >> 8, base + sizeof(markerType) + arrayPadding }; // skip over marker and array size
+
+			for(unsigned i = 0; i < count; i++)
+			{
+				NULLC::finalizeList.push_back(r);
+				r.ptr += typeInfo->size;
+			}
+		}
+		else
+		{
+			NULLCRef r = { (unsigned)marker >> 8, base + sizeof(markerType) }; // skip over marker
+			NULLC::finalizeList.push_back(r);
+		}
+
+		marker |= NULLC::OBJECT_FINALIZED;
+	}
 }
 
-void*	NULLC::defaultAlloc(int size)
-{
-	return malloc(size);
-}
-
-void	NULLC::defaultDealloc(void* ptr)
-{
-	free(ptr);
-}
-
-void* NULLC::alignedAlloc(int size)
-{
-	void *unaligned = defaultAlloc((size + 16 - 1) + sizeof(void*));
-	if(!unaligned)
-		return NULL;
-	void *ptr = (void*)(((intptr_t)unaligned + sizeof(void*) + 16 - 1) & ~(16 - 1));
-	*((void**)ptr - 1) = unaligned;
-	return ptr;
-}
-
-void* NULLC::alignedAlloc(int size, int extraSize)
-{
-	void *unaligned = defaultAlloc((size + 16 - 1) + sizeof(void*) + extraSize);
-	if(!unaligned)
-		return NULL;
-	void *ptr = (void*)((((intptr_t)unaligned + sizeof(void*) + extraSize + 16 - 1) & ~(16 - 1)) - extraSize);
-	*((void**)ptr - 1) = unaligned;
-	return ptr;
-}
-
-void NULLC::alignedDealloc(void* ptr)
-{
-	defaultDealloc(*((void **)ptr - 1));
-}
 
 template<int elemSize>
 union SmallBlock
@@ -1659,12 +2091,12 @@ public:
 		if(freeBlocks && freeBlocks != &lastBlock)
 		{
 			result = freeBlocks;
-			freeBlocks = freeBlocks->next;
+			freeBlocks = (MySmallBlock*)((intptr_t)freeBlocks->next & ~NULLC::OBJECT_MASK);
 		}else{
 			if(lastNum == countInBlock)
 			{
 				MyLargeBlock* newPage = (MyLargeBlock*)NULLC::alignedAlloc(sizeof(MyLargeBlock));
-				//memset(newPage, 0, sizeof(MyLargeBlock));
+				memset(newPage, 0, sizeof(MyLargeBlock));
 				newPage->next = activePages;
 				activePages = newPage;
 				lastNum = 0;
@@ -1688,7 +2120,7 @@ public:
 		if(!ptr)
 			return;
 		MySmallBlock* freedBlock = static_cast<MySmallBlock*>(static_cast<void*>(ptr));
-		freedBlock->next = freeBlocks;
+		freedBlock->next = (MySmallBlock*)((intptr_t)freeBlocks | NULLC::OBJECT_FREED);
 		freeBlocks = freedBlock;
 	}
 	bool IsBasePointer(void* ptr)
@@ -1727,26 +2159,25 @@ public:
 			pointer++;
 		MyLargeBlock *best = sortedPages[pointer];
 
-		if(ptr < best || ptr > (char*)best + sizeof(MyLargeBlock))
+		if(ptr < best->page || ptr > (char*)best + sizeof(best->page))
 			return NULL;
 		unsigned int fromBase = (unsigned int)(intptr_t)((char*)ptr - (char*)best->page);
-		return (char*)best->page + (fromBase & ~(elemSize - 1)) + 4;
+		return (char*)best->page + (fromBase & ~(elemSize - 1)) + sizeof(markerType);
 	}
 	void Mark(unsigned int number)
 	{
-		__assert(number < 128);
+		__assert(number <= 1);
 		MyLargeBlock *curr = activePages;
 		while(curr)
 		{
 			for(unsigned int i = 0; i < (curr == activePages ? lastNum : countInBlock); i++)
 			{
-				if((curr->page[i].marker & 0xff) < 128)
-					curr->page[i].marker = (curr->page[i].marker & ~0xff) | number;
+				curr->page[i].marker = (curr->page[i].marker & ~NULLC::OBJECT_VISIBLE) | number;
 			}
 			curr = curr->next;
 		}
 	}
-	unsigned int FreeMarked(unsigned int number)
+	unsigned int FreeMarked()
 	{
 		unsigned int freed = 0;
 		MyLargeBlock *curr = activePages;
@@ -1754,10 +2185,15 @@ public:
 		{
 			for(unsigned int i = 0; i < (curr == activePages ? lastNum : countInBlock); i++)
 			{
-				if((curr->page[i].marker & 0xff) == number)
+				if(!(curr->page[i].marker & (NULLC::OBJECT_VISIBLE | NULLC::OBJECT_FREED)))
 				{
-					Free(&curr->page[i]);
-					freed++;
+					if((curr->page[i].marker & NULLC::OBJECT_FINALIZABLE) && !(curr->page[i].marker & NULLC::OBJECT_FINALIZED))
+					{
+						NULLC::FinalizeObject(curr->page[i].marker, curr->page[i].data);
+					}else{
+						Free(&curr->page[i]);
+						freed++;
+					}
 				}
 			}
 			curr = curr->next;
@@ -1791,7 +2227,45 @@ namespace NULLC
 	ObjectBlockPool<256, poolBlockSize / 256>	pool256;
 	ObjectBlockPool<512, poolBlockSize / 512>	pool512;
 
-	FastVector<void*>				globalObjects;
+	struct Range
+	{
+		Range(): start(NULL), end(NULL)
+		{
+		}
+		Range(void* start, void* end): start(start), end(end)
+		{
+		}
+
+		// Ranges are equal if they intersect
+		bool operator==(const Range& rhs) const
+		{
+			return !(start > rhs.end || end < rhs.start);
+		}
+
+		bool operator<(const Range& rhs) const
+		{
+			return end < rhs.start;
+		}
+
+		bool operator>(const Range& rhs) const
+		{
+			return start > rhs.end;
+		}
+
+		void *start, *end;
+	};
+
+	typedef Tree<Range>::iterator BigBlockIterator;
+	Tree<Range>	bigBlocks;
+
+	unsigned currentMark = 0;
+	unsigned unusedBlocks = 0;
+
+	FastVector<Range> toErase;
+
+	void MarkBlock(Range& curr);
+	void CollectBlock(Range& curr);
+	void FinalizeBlock(Range& curr);
 
 	double	markTime = 0.0;
 	double	collectTime = 0.0;
@@ -1805,7 +2279,7 @@ void* NULLC::AllocObject(int size, unsigned typeID)
 		return NULL;
 	}
 	void *data = NULL;
-	size += 4;
+	size += sizeof(markerType);
 
 	if((unsigned int)(usedMemory + size) > globalMemoryLimit)
 	{
@@ -1858,14 +2332,18 @@ void* NULLC::AllocObject(int size, unsigned typeID)
 				data = pool512.Alloc();
 				realSize = 512;
 			}else{
-				globalObjects.push_back(NULLC::alignedAlloc(size - sizeof(markerType), 4 + sizeof(markerType)));
-				if(globalObjects.back() == NULL)
+				void *ptr = NULLC::alignedAlloc(size - sizeof(markerType), 4 + sizeof(markerType));
+				if(ptr == NULL)
 				{
 					nullcThrowError("Allocation failed.");
 					return NULL;
 				}
-				realSize = *(int*)globalObjects.back() = size;
-				data = (char*)globalObjects.back() + 4;
+
+				Range range(ptr, (char*)ptr + size + 4);
+				bigBlocks.insert(range);
+
+				realSize = *(int*)ptr = size;
+				data = (char*)ptr + 4;
 			}
 		}
 	}
@@ -1876,10 +2354,11 @@ void* NULLC::AllocObject(int size, unsigned typeID)
 		nullcThrowError("Allocation failed.");
 		return NULL;
 	}
+	// TODO: mark finalizable types
 
 	memset(data, 0, size);
-	*(int*)data = typeID << 8;
-	return (char*)data + 4;
+	*(markerType*)data = typeID << 8;
+	return (char*)data + sizeof(markerType);
 }
 
 unsigned int NULLC::UsedMemory()
@@ -1890,15 +2369,55 @@ unsigned int NULLC::UsedMemory()
 NULLCArray<int> NULLC::AllocArray(int size, int count, unsigned typeID)
 {
 	NULLCArray<int> ret;
-	ret.ptr = (char*)AllocObject(count * size, typeID);
+
+	ret.size = 0;
+	ret.ptr = NULL;
+
+	if((unsigned long long)size * count > globalMemoryLimit)
+	{
+		nullcThrowError("ERROR: can't allocate array with %u elements of size %u", count, size);
+		return ret;
+	}
+
+	NULLCTypeInfo *type = __nullcGetTypeInfo(typeID);
+
+	unsigned arrayPadding = 4; // TODO: take type default alignment
+
+	unsigned bytes = count * size;
+	
+	if(bytes == 0)
+		bytes += 4;
+
+	char *ptr = (char*)AllocObject(bytes + arrayPadding, typeID);
+
+	if(!ptr)
+		return ret;
+
 	ret.size = count;
+	ret.ptr = arrayPadding + ptr;
+
+	((unsigned*)ret.ptr)[-1] = count;
+
+	markerType *marker = (markerType*)(ptr - sizeof(markerType));
+	*marker |= OBJECT_ARRAY;
+
 	return ret;
+}
+
+void NULLC::MarkBlock(Range& curr)
+{
+	markerType *marker = (markerType*)((char*)curr.start + 4);
+	*marker = (*marker & ~NULLC::OBJECT_VISIBLE) | currentMark;
 }
 
 void NULLC::MarkMemory(unsigned int number)
 {
-	for(unsigned int i = 0; i < globalObjects.size(); i++)
-		((unsigned int*)globalObjects[i])[1] = number;
+	__assert(number <= 1);
+
+	currentMark = number;
+
+	bigBlocks.for_each(MarkBlock);
+
 	pool8.Mark(number);
 	pool16.Mark(number);
 	pool32.Mark(number);
@@ -1925,12 +2444,16 @@ bool NULLC::IsBasePointer(void* ptr)
 		return true;
 	if(pool512.IsBasePointer(ptr))
 		return true;
+
 	// Search in global pool
-	for(unsigned int i = 0; i < globalObjects.size(); i++)
+	if(BigBlockIterator it = bigBlocks.find(Range(ptr, ptr)))
 	{
-		if((char*)ptr - 8 == globalObjects[i])
+		void *block = it->key.start;
+
+		if((char*)ptr - 4 - sizeof(markerType) == block)
 			return true;
 	}
+
 	return false;
 }
 
@@ -1951,13 +2474,38 @@ void* NULLC::GetBasePointer(void* ptr)
 		return base;
 	if(void *base = pool512.GetBasePointer(ptr))
 		return base;
+
 	// Search in global pool
-	for(unsigned int i = 0; i < globalObjects.size(); i++)
+	if(BigBlockIterator it = bigBlocks.find(Range(ptr, ptr)))
 	{
-		if(ptr >= globalObjects[i] && ptr <= (char*)globalObjects[i] + *(unsigned int*)globalObjects[i])
-			return (char*)globalObjects[i] + 8;
+		void *block = it->key.start;
+
+		if(ptr >= block && ptr <= (char*)block + *(unsigned int*)block)
+			return (char*)block + 4 + sizeof(markerType);
 	}
+
 	return NULL;
+}
+
+void NULLC::CollectBlock(Range& curr)
+{
+	void *block = curr.start;
+
+	markerType &marker = *(markerType*)((char*)block + 4);
+	if(!(marker & NULLC::OBJECT_VISIBLE))
+	{
+		if((marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
+		{
+			NULLC::FinalizeObject(marker, (char*)block + 4);
+		}else{
+			usedMemory -= *(unsigned int*)block;
+			NULLC::alignedDealloc(block);
+
+			toErase.push_back(curr);
+
+			unusedBlocks++;
+		}
+	}
 }
 
 void NULLC::CollectMemory()
@@ -1977,42 +2525,41 @@ void NULLC::CollectMemory()
 	time = (double(clock()) / CLOCKS_PER_SEC);
 
 	// Globally allocated objects marked with 0 are deleted
-	unsigned int unusedBlocks = 0;
-	for(unsigned int i = 0; i < globalObjects.size(); i++)
-	{
-		if(((unsigned int*)globalObjects[i])[1] == 0)
-		{
-			usedMemory -= *(unsigned int*)globalObjects[i];
-			NULLC::alignedDealloc(globalObjects[i]);
-			globalObjects[i] = globalObjects.back();
-			globalObjects.pop_back();
-			unusedBlocks++;
-		}
-	}
-//	printf("%d unused globally allocated blocks destroyed (%d remains)\r\n", unusedBlocks, globalObjects.size());
+	unusedBlocks = 0;
+
+	toErase.clear();
+
+	bigBlocks.for_each(CollectBlock);
+
+	for(unsigned i = 0; i < toErase.size(); i++)
+		bigBlocks.erase(toErase[i]);
+
+	toErase.clear();
+
+//	printf("%d unused globally allocated blocks destroyed\r\n", unusedBlocks);
 
 //	printf("%d used memory\r\n", usedMemory);
 
 	// Objects allocated from pools are freed
-	unusedBlocks = pool8.FreeMarked(0);
+	unusedBlocks = pool8.FreeMarked();
 	usedMemory -= unusedBlocks * 8;
 //	printf("%d unused pool blocks freed (8 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool16.FreeMarked(0);
+	unusedBlocks = pool16.FreeMarked();
 	usedMemory -= unusedBlocks * 16;
 //	printf("%d unused pool blocks freed (16 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool32.FreeMarked(0);
+	unusedBlocks = pool32.FreeMarked();
 	usedMemory -= unusedBlocks * 32;
 //	printf("%d unused pool blocks freed (32 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool64.FreeMarked(0);
+	unusedBlocks = pool64.FreeMarked();
 	usedMemory -= unusedBlocks * 64;
 //	printf("%d unused pool blocks freed (64 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool128.FreeMarked(0);
+	unusedBlocks = pool128.FreeMarked();
 	usedMemory -= unusedBlocks * 128;
 //	printf("%d unused pool blocks freed (128 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool256.FreeMarked(0);
+	unusedBlocks = pool256.FreeMarked();
 	usedMemory -= unusedBlocks * 256;
 //	printf("%d unused pool blocks freed (256 bytes)\r\n", unusedBlocks);
-	unusedBlocks = pool512.FreeMarked(0);
+	unusedBlocks = pool512.FreeMarked();
 	usedMemory -= unusedBlocks * 512;
 //	printf("%d unused pool blocks freed (512 bytes)\r\n", unusedBlocks);
 
@@ -2022,6 +2569,9 @@ void NULLC::CollectMemory()
 
 	if(usedMemory + (usedMemory >> 1) >= collectableMinimum)
 		collectableMinimum <<= 1;
+
+	// TODO: nullcRunFunction("__finalizeObjects");
+	finalizeList.clear();
 }
 
 double NULLC::MarkTime()
@@ -2032,6 +2582,32 @@ double NULLC::MarkTime()
 double NULLC::CollectTime()
 {
 	return collectTime;
+}
+
+void NULLC::FinalizeBlock(Range& curr)
+{
+	void *block = curr.start;
+
+	markerType &marker = *(markerType*)((char*)block + 4);
+	if(!(marker & NULLC::OBJECT_VISIBLE) && (marker & NULLC::OBJECT_FINALIZABLE) && !(marker & NULLC::OBJECT_FINALIZED))
+		NULLC::FinalizeObject(marker, (char*)block + 4);
+}
+
+void NULLC::FinalizeMemory()
+{
+	MarkMemory(0);
+	pool8.FreeMarked();
+	pool16.FreeMarked();
+	pool32.FreeMarked();
+	pool64.FreeMarked();
+	pool128.FreeMarked();
+	pool256.FreeMarked();
+	pool512.FreeMarked();
+
+	bigBlocks.for_each(FinalizeBlock);
+
+	// TODO: nullcRunFunction("__finalizeObjects");
+	finalizeList.clear();
 }
 
 int	__nullcOutputResultInt(int x)
@@ -2052,9 +2628,49 @@ int	__nullcOutputResultDouble(double x)
 	return 0;
 }
 
-NULLCArray<int> __vtbl3761170085finalize;
-void __nullcInitBaseModule()
-{
-	__vtbl3761170085finalize = NULLC::AllocArray(4, 1024, 4);
-}
+// Typeid redirect table
+static unsigned __nullcTR[17];
 
+NULLCArray<__function> __vtbl3761170085finalize;
+
+int __nullcInitBaseModule()
+{
+	static int moduleInitialized = 0;
+	if(moduleInitialized++)
+		return 0;
+
+	int __local = 0;
+	__nullcRegisterBase(&__local);
+
+	// Register types
+	__nullcTR[0] = __nullcRegisterType(2090838615u, "void", 0, __nullcTR[0], 0, NULLC_NONE);
+	__nullcTR[1] = __nullcRegisterType(2090120081u, "bool", 1, __nullcTR[0], 0, NULLC_NONE);
+	__nullcTR[2] = __nullcRegisterType(2090147939u, "char", 1, __nullcTR[0], 0, NULLC_NONE);
+	__nullcTR[3] = __nullcRegisterType(274395349u, "short", 2, __nullcTR[0], 0, NULLC_NONE);
+	__nullcTR[4] = __nullcRegisterType(193495088u, "int", 4, __nullcTR[0], 0, NULLC_NONE);
+	__nullcTR[5] = __nullcRegisterType(2090479413u, "long", 8, __nullcTR[0], 0, NULLC_NONE);
+	__nullcTR[6] = __nullcRegisterType(259121563u, "float", 4, __nullcTR[0], 0, NULLC_NONE);
+	__nullcTR[7] = __nullcRegisterType(4181547808u, "double", 8, __nullcTR[0], 0, NULLC_NONE);
+	__nullcTR[8] = __nullcRegisterType(524429492u, "typeid", 4, __nullcTR[0], 0, NULLC_NONE);
+	__nullcTR[9] = __nullcRegisterType(1211668521u, "__function", 4, __nullcTR[0], 0, NULLC_NONE);
+	__nullcTR[10] = __nullcRegisterType(84517172u, "__nullptr", 4, __nullcTR[0], 0, NULLC_NONE);
+	__nullcTR[11] = 0; // generic type 'generic'
+	__nullcTR[12] = __nullcRegisterType(2090090846u, "auto", 0, __nullcTR[0], 0, NULLC_NONE);
+	__nullcTR[13] = __nullcRegisterType(1166360283u, "auto ref", 8, __nullcTR[0], 2, NULLC_CLASS);
+	__nullcTR[14] = __nullcRegisterType(3198057556u, "void ref", 4, __nullcTR[0], 1, NULLC_POINTER);
+	__nullcTR[15] = __nullcRegisterType(4071234806u, "auto[]", 12, __nullcTR[0], 3, NULLC_CLASS);
+	__nullcTR[16] = __nullcRegisterType(952062593u, "__function[]", 8, __nullcTR[9], -1, NULLC_ARRAY);
+
+	// Register type members
+	__nullcRegisterMembers(__nullcTR[13], 2, __nullcTR[8], 0, "type", __nullcTR[14], 4, "ptr"); // type 'auto ref' members
+	__nullcRegisterMembers(__nullcTR[15], 3, __nullcTR[8], 0, "type", __nullcTR[14], 4, "ptr", __nullcTR[4], 8, "size"); // type 'auto[]' members
+	__nullcRegisterMembers(__nullcTR[16], 1, __nullcTR[4], 4, "size"); // type '__function[]' members
+
+	 // Register globals
+	__nullcRegisterGlobal((void*)&__vtbl3761170085finalize, __nullcTR[16]);
+
+	// Expressions
+	__vtbl3761170085finalize = NULLC::AllocArray(4, 1024, __nullcTR[9]);
+
+	return 0;
+}

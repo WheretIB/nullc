@@ -342,6 +342,8 @@ namespace NULLC
 	unsigned int	UsedMemory();
 	double		MarkTime();
 	double		CollectTime();
+
+	void		FinalizeMemory();
 }
 
 inline double __nullcZero()
@@ -409,4 +411,4 @@ template<typename T> NULLCArray<T> __nullcCheckedRet(unsigned typeID, NULLCArray
 	return data;
 }
 
-void __nullcInitBaseModule();
+int __nullcInitBaseModule();
