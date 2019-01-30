@@ -646,22 +646,23 @@ void TranslateUnaryOp(ExpressionTranslateContext &ctx, ExprUnaryOp *expression)
 	switch(expression->op)
 	{
 	case SYN_UNARY_OP_PLUS:
-		Print(ctx, "+");
+		Print(ctx, "+(");
 		break;
 	case SYN_UNARY_OP_NEGATE:
-		Print(ctx, "-");
+		Print(ctx, "-(");
 		break;
 	case SYN_UNARY_OP_BIT_NOT:
-		Print(ctx, "~");
+		Print(ctx, "~(");
 		break;
 	case SYN_UNARY_OP_LOGICAL_NOT:
-		Print(ctx, "!");
+		Print(ctx, "!(");
 		break;
 	default:
 		assert(!"unknown type");
 	}
 
 	Translate(ctx, expression->value);
+	Print(ctx, ")");
 }
 
 void TranslateBinaryOp(ExpressionTranslateContext &ctx, ExprBinaryOp *expression)
