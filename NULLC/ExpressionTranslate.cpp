@@ -2091,13 +2091,38 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 		}
 		else if(TypeFunction *typeFunction = getType<TypeFunction>(type))
 		{
-			Print(ctx, "__nullcTR[0], ");
+			Print(ctx, "__nullcTR[%d], ", typeFunction->returnType->typeIndex);
 			Print(ctx, "0, NULLC_FUNCTION);");
+		}
+		else if(TypeClass *typeClass = getType<TypeClass>(type))
+		{
+			unsigned count = 0;
+
+			for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+			{
+				if(*curr->variable->name.begin == '$')
+					continue;
+
+				count++;
+			}
+
+			Print(ctx, "__nullcTR[%d], ", typeClass->baseClass ? typeClass->baseClass->typeIndex : 0);
+			Print(ctx, "%d, NULLC_CLASS);", count);
 		}
 		else if(TypeStruct *typeStruct = getType<TypeStruct>(type))
 		{
+			unsigned count = 0;
+
+			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			{
+				if(*curr->variable->name.begin == '$')
+					continue;
+
+				count++;
+			}
+
 			Print(ctx, "__nullcTR[0], ");
-			Print(ctx, "%d, NULLC_CLASS);", typeStruct->members.size());
+			Print(ctx, "%d, NULLC_CLASS);", count);
 		}
 		else
 		{
@@ -2118,15 +2143,44 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 		if(type->isGeneric)
 			continue;
 
-		if(TypeStruct *typeStruct = getType<TypeStruct>(type))
+		if(TypeFunction *typeFunction = getType<TypeFunction>(type))
 		{
 			PrintIndent(ctx);
-			Print(ctx, "__nullcRegisterMembers(__nullcTR[%d], %d", i, typeStruct->members.size());
+			Print(ctx, "__nullcRegisterMembers(__nullcTR[%d], %d", i, typeFunction->arguments.size());
+
+			for(TypeHandle *curr = typeFunction->arguments.head; curr; curr = curr->next)
+			{
+				Print(ctx, ", __nullcTR[%d], 0", curr->type->typeIndex);
+				Print(ctx, ", 0");
+				Print(ctx, ", \"\"");
+			}
+
+			Print(ctx, "); // type '%.*s' arguments", FMT_ISTR(type->name));
+			PrintLine(ctx);
+		}
+		else if(TypeStruct *typeStruct = getType<TypeStruct>(type))
+		{
+			unsigned count = 0;
 
 			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
+				if(*curr->variable->name.begin == '$')
+					continue;
+
+				count++;
+			}
+
+			PrintIndent(ctx);
+			Print(ctx, "__nullcRegisterMembers(__nullcTR[%d], %d", i, count);
+
+			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			{
+				if(*curr->variable->name.begin == '$')
+					continue;
+
 				Print(ctx, ", __nullcTR[%d]", curr->variable->type->typeIndex);
 				Print(ctx, ", %d", curr->variable->offset);
+				Print(ctx, ", \"%.*s\"", FMT_ISTR(curr->variable->name));
 			}
 
 			Print(ctx, "); // type '%.*s' members", FMT_ISTR(type->name));
