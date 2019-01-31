@@ -62,6 +62,20 @@ void PrintEscapedName(ExpressionTranslateContext &ctx, InplaceStr name)
 	}
 }
 
+bool UseNonStaticTemplate(ExpressionTranslateContext &ctx, FunctionData *function)
+{
+	if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
+		return false;
+	else if(*function->name.begin == '$')
+		return false;
+	else if(function->isHidden)
+		return false;
+	else if(IsGenericInstance(function))
+		return true;
+
+	return false;
+}
+
 void TranslateTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 {
 	if(TypeVoid *typeVoid = getType<TypeVoid>(type))
@@ -1125,14 +1139,22 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 
 		FunctionData *function = expression->function;
 
+		bool isStatic = false;
+		bool isGeneric = false;
+
 		if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
-			Print(ctx, "static ");
+			isStatic = true;
 		else if(*function->name.begin == '$')
-			Print(ctx, "static ");
+			isStatic = true;
 		else if(function->isHidden)
-			Print(ctx, "static ");
+			isStatic = true;
 		else if(IsGenericInstance(function))
+			isGeneric = true;
+
+		if(isStatic)
 			Print(ctx, "static ");
+		else if(isGeneric)
+			Print(ctx, "template<int I> ");
 
 		TranslateTypeName(ctx, function->type->returnType);
 		Print(ctx, " ");
@@ -1235,6 +1257,31 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 
 		ctx.nextReturnValueId++;
 
+		if(isGeneric)
+		{
+			Print(ctx, "template ");
+
+			TranslateTypeName(ctx, function->type->returnType);
+			Print(ctx, " ");
+			TranslateFunctionName(ctx, function);
+			Print(ctx, "<0>(");
+
+			for(ExprVariableDefinition *curr = expression->arguments.head; curr; curr = getType<ExprVariableDefinition>(curr->next))
+			{
+				TranslateTypeName(ctx, curr->variable->type);
+				Print(ctx, " ");
+				TranslateVariableName(ctx, curr->variable);
+				Print(ctx, ", ");
+			}
+
+			TranslateTypeName(ctx, expression->contextArgument->variable->type);
+			Print(ctx, " ");
+			TranslateVariableName(ctx, expression->contextArgument->variable);
+
+			Print(ctx, ");");
+			PrintLine(ctx);
+		}
+
 		ctx.skipFunctionDefinitions = false;
 	}
 	else
@@ -1294,6 +1341,10 @@ void TranslateFunctionCall(ExpressionTranslateContext &ctx, ExprFunctionCall *ex
 	if(ExprFunctionAccess *functionAccess = getType<ExprFunctionAccess>(expression->function))
 	{
 		TranslateFunctionName(ctx, functionAccess->function);
+
+		if(UseNonStaticTemplate(ctx, functionAccess->function))
+			Print(ctx, "<0>");
+
 		Print(ctx, "(");
 
 		for(ExprBase *value = expression->arguments.head; value; value = value->next)
@@ -1930,6 +1981,7 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 			continue;
 
 		bool isStatic = false;
+		bool isGeneric = false;
 
 		if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
 			isStatic = true;
@@ -1938,10 +1990,12 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 		else if(function->isHidden)
 			isStatic = true;
 		else if(IsGenericInstance(function))
-			isStatic = true;
+			isGeneric = true;
 
 		if(isStatic)
 			Print(ctx, "static ");
+		else if(isGeneric)
+			Print(ctx, "template<int I> ");
 
 		TranslateTypeName(ctx, function->type->returnType);
 		Print(ctx, " ");
@@ -2272,6 +2326,9 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 		TranslateFunctionName(ctx, function);
 		Print(ctx, "\", (void*)");
 		TranslateFunctionName(ctx, function);
+
+		if(UseNonStaticTemplate(ctx, function))
+			Print(ctx, "<0>");
 
 		if(function->contextType)
 			Print(ctx, ", __nullcTR[%d]", function->contextType->typeIndex);
