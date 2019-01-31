@@ -609,7 +609,7 @@ unsigned int nullcGetTypeSize(unsigned int typeID)
 	return __nullcGetTypeInfo(typeID)->size;
 }
 
-int			__nullcPow(int number, int power)
+int __nullcPow(int number, int power)
 {
 	if(power < 0)
 		return number == 1 ? 1 : (number == -1 ? (power & 1 ? -1 : 1) : 0);
@@ -628,34 +628,28 @@ int			__nullcPow(int number, int power)
 	return result;
 }
 
-double		__nullcPow(double a, double b)
+double __nullcPow(double a, double b)
 {
 	return pow(a, b);
 }
 
-long long	__nullcPow(long long num, long long pow)
+long long __nullcPow(long long number, long long power)
 {
-	if(pow < 0)
-		return (num == 1 ? 1 : 0);
-	if(pow == 0)
-		return 1;
-	if(pow == 1)
-		return num;
-	if(pow > 64)
-		return num;
-	long long res = 1;
-	int power = (int)pow;
+	if(power < 0)
+		return number == 1 ? 1 : (number == -1 ? (power & 1 ? -1 : 1) : 0);
+
+	long long result = 1;
 	while(power)
 	{
-		if(power & 0x01)
+		if(power & 1)
 		{
-			res *= num;
+			result *= number;
 			power--;
 		}
-		num *= num;
+		number *= number;
 		power >>= 1;
 	}
-	return res;
+	return result;
 }
 
 double		__nullcMod(double a, double b)
@@ -761,8 +755,21 @@ NULLCRef __nullcMakeExtendableAutoRef(void* ptr)
 
 void* __nullcGetAutoRef(const NULLCRef &ref, unsigned int typeID)
 {
-	__assert(ref.typeID == typeID);
-	return (void*)ref.ptr;
+	unsigned sourceTypeID = ref.typeID;
+
+	if(sourceTypeID == typeID)
+		return (void*)ref.ptr;
+
+	while(__nullcGetTypeInfo(sourceTypeID)->baseClassID)
+	{
+		sourceTypeID = __nullcGetTypeInfo(sourceTypeID)->baseClassID;
+
+		if(sourceTypeID == typeID)
+			return (void*)ref.ptr;
+	}
+
+	nullcThrowError("ERROR: cannot convert from %s ref to %s ref", __nullcGetTypeInfo(ref.typeID)->name, __nullcGetTypeInfo(typeID)->name);
+	return 0;
 }
 
 NULLCAutoArray	__makeAutoArray(unsigned type, NULLCArray<void> arr)
@@ -1388,7 +1395,7 @@ NULLCRef __aaassignrev_auto_ref_ref_auto_ref_auto___ref_(NULLCRef left, NULLCAut
 NULLCRef __operatorIndex_auto_ref_ref_auto___ref_int_(NULLCAutoArray* left, int index, void* unused)
 {
 	NULLCRef ret = { 0, 0 };
-	if(index >= left->len)
+	if(unsigned(index) >= unsigned(left->len))
 	{
 		nullcThrowError("ERROR: array index out of bounds");
 		return ret;
@@ -1502,7 +1509,7 @@ void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, NULLCAutoArray* arr
 		return;
 	}
 	unsigned elemSize = __nullcGetTypeInfo(arr->typeID)->size;
-	if(pos >= arr->len)
+	if(unsigned(pos) >= unsigned(arr->len))
 	{
 		unsigned newSize = 1 + arr->len + (arr->len >> 1);
 		if(pos >= newSize)
@@ -1517,7 +1524,7 @@ void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, NULLCAutoArray* arr
 
 void __force_size_void_ref_auto___ref_int_(NULLCAutoArray* arr, int size, void* unused)
 {
-	if(size > (unsigned)arr->len)
+	if(unsigned(size) > unsigned(arr->len))
 	{
 		nullcThrowError("ERROR: cannot extend array");
 		return;

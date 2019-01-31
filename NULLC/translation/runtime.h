@@ -9,13 +9,15 @@
 template<typename T>
 struct NULLCArray
 {
-	char			*ptr;
-	unsigned int	size;
+	char *ptr;
+	int size;
+
 	NULLCArray()
 	{
 		ptr = NULL;
 		size = 0;
 	}
+
 	template<typename Y>
 	NULLCArray(const NULLCArray<Y> r)
 	{
@@ -56,7 +58,7 @@ struct NULLCFuncPtr
 };
 
 // Wrapper over NULLC auto[] class for use in external functions
-typedef struct
+struct NULLCAutoArray
 {
 	union
 	{
@@ -66,10 +68,10 @@ typedef struct
 	char			*ptr;
 	union
 	{
-		unsigned	len;
-		unsigned	size;
+		int	len;
+		int	size;
 	};
-} NULLCAutoArray;
+};
 #pragma pack(pop)
 
 struct NULLCTypeInfo
@@ -358,7 +360,7 @@ int	__nullcOutputResultDouble(double x);
 template<typename T>
 T* __nullcIndexUnsizedArray(const NULLCArray<T>& arr, int index)
 {
-	if(unsigned(index) < arr.size)
+	if(unsigned(index) < unsigned(arr.size))
 		return &((T*)arr.ptr)[index];
 
 	nullcThrowError("ERROR: array index out of bounds");
