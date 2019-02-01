@@ -87,6 +87,8 @@ struct NULLCTypeInfo
 	};
 	int				memberCount;
 	unsigned int	category;
+	unsigned int	alignment;
+	unsigned int	flags;
 	unsigned int	members;
 };
 
@@ -119,6 +121,9 @@ struct NULLCFuncInfo
 #define NULLC_ARRAY 2
 #define NULLC_POINTER 3
 #define NULLC_FUNCTION 4
+
+#define NULLC_TYPE_FLAG_HAS_FINALIZER 1 << 0
+#define NULLC_TYPE_FLAG_IS_EXTENDABLE 1 << 1
 
 namespace FunctionCategory
 {
@@ -310,7 +315,7 @@ inline unsigned int	__nullcIndex(unsigned int index, unsigned int size)
 }
 
 void nullcThrowError(const char* error, ...);
-unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, unsigned subTypeID, int memberCount, unsigned category);
+unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, unsigned subTypeID, int memberCount, unsigned category, unsigned alignment, unsigned flags);
 void __nullcRegisterMembers(unsigned id, unsigned count, ...);
 unsigned __nullcGetTypeCount();
 NULLCTypeInfo* __nullcGetTypeInfo(unsigned id);
@@ -358,10 +363,10 @@ int	__nullcOutputResultLong(long long x);
 int	__nullcOutputResultDouble(double x);
 
 template<typename T>
-T* __nullcIndexUnsizedArray(const NULLCArray<T>& arr, int index)
+T* __nullcIndexUnsizedArray(const NULLCArray<T>& arr, int index, int elemSize)
 {
 	if(unsigned(index) < unsigned(arr.size))
-		return &((T*)arr.ptr)[index];
+		return (T*)(arr.ptr + index * elemSize);
 
 	nullcThrowError("ERROR: array index out of bounds");
 	return 0;

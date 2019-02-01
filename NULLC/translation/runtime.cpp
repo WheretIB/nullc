@@ -521,6 +521,13 @@ private:
 	node_type	*root;
 };
 
+namespace NULLC
+{
+	FastVector<NULLCRef> finalizeList;
+}
+
+NULLCArray<__function> __vtbl3761170085finalize;
+
 FastVector<NULLCTypeInfo> __nullcTypeList;
 FastVector<NULLCMemberInfo> __nullcTypePart;
 
@@ -528,7 +535,7 @@ FastVector<__nullcFunction> funcTable;
 
 FastVector<NULLCFuncInfo> funcTableExt;
 
-unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, unsigned subTypeID, int memberCount, unsigned category)
+unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, unsigned subTypeID, int memberCount, unsigned category, unsigned alignment, unsigned flags)
 {
 	for(unsigned int i = 0; i < __nullcTypeList.size(); i++)
 	{
@@ -542,6 +549,8 @@ unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, uns
 	__nullcTypeList.back().subTypeID = subTypeID;
 	__nullcTypeList.back().memberCount = memberCount;
 	__nullcTypeList.back().category = category;
+	__nullcTypeList.back().alignment = alignment;
+	__nullcTypeList.back().flags = flags;
 	__nullcTypeList.back().members = 0;
 	return __nullcTypeList.size() - 1;
 }
@@ -1262,7 +1271,11 @@ NULLCArray<float>* __operatorSet_float___ref_ref_float___ref_double___(NULLCArra
 
 unsigned typeid_typeid_ref_auto_ref_(NULLCRef type, void* __context)
 {
-	// TODO: extendable type redirect
+	NULLCTypeInfo *info = __nullcGetTypeInfo(type.typeID);
+
+	// Read first member of an extendable class
+	if(info->category == NULLC_CLASS && (info->flags & NULLC_TYPE_FLAG_IS_EXTENDABLE) != 0)
+		return *(unsigned*)type.ptr;
 
 	return type.typeID;
 }
@@ -1561,8 +1574,10 @@ void __assertCoroutine_void_ref_auto_ref_(NULLCRef f, void* unused)
 
 NULLCArray<NULLCRef> __getFinalizeList_auto_ref___ref__(void* __context)
 {
-	NULLCArray<NULLCRef> ret;
-	return ret;
+	NULLCArray<NULLCRef> arr;
+	arr.ptr = (char*)NULLC::finalizeList.data;
+	arr.size = NULLC::finalizeList.size();
+	return arr;
 }
 
 void __FinalizeProxy__finalize_void_ref__(__FinalizeProxy* __context)
@@ -1571,6 +1586,16 @@ void __FinalizeProxy__finalize_void_ref__(__FinalizeProxy* __context)
 
 void __finalizeObjects_void_ref__(void* __context)
 {
+	NULLCArray<NULLCRef> l = __getFinalizeList_auto_ref___ref__(0);
+
+	for(int i = 0; i < l.size; i++)
+	{
+		NULLCRef *el = __nullcIndexUnsizedArray(l, i, sizeof(NULLCRef));
+
+		NULLCFuncPtr<__typeProxy_void_ref__> function = NULLCFuncPtr<__typeProxy_void_ref__>(__redirect_void_ref___ref_auto_ref___function___ref_(*el, &__vtbl3761170085finalize, 0));
+
+		((void(*)(void*))funcTable[function.id])(function.context);
+	}
 }
 
 void* assert_derived_from_base_void_ref_ref_void_ref_typeid_(void* derived, unsigned base, void* unused)
@@ -1924,7 +1949,11 @@ namespace GC
 	// Function that decides, how variable of type 'type' should be checked for pointers
 	void CheckVariable(char* ptr, const NULLCTypeInfo& type)
 	{
-		// TODO: extendable types
+		const NULLCTypeInfo *realType = &type;
+
+		if((type.flags & NULLC_TYPE_FLAG_IS_EXTENDABLE) != 0)
+			realType = __nullcGetTypeInfo(*(unsigned*)ptr);
+
 		switch(type.category)
 		{
 		case NULLC_ARRAY:
@@ -1934,7 +1963,7 @@ namespace GC
 			MarkPointer(ptr, type, true);
 			break;
 		case NULLC_CLASS:
-			CheckClass(ptr, type);
+			CheckClass(ptr, *realType);
 			break;
 		case NULLC_FUNCTION:
 			CheckFunction(ptr);
@@ -2007,8 +2036,6 @@ void __nullcRegisterBase(void* ptr)
 
 namespace NULLC
 {
-	FastVector<NULLCRef>	finalizeList;
-
 	static uintptr_t OBJECT_VISIBLE		= 1 << 0;
 	static uintptr_t OBJECT_FREED		= 1 << 1;
 	static uintptr_t OBJECT_FINALIZABLE	= 1 << 2;
@@ -2022,7 +2049,7 @@ namespace NULLC
 		{
 			NULLCTypeInfo *typeInfo = __nullcGetTypeInfo((unsigned)marker >> 8);
 
-			unsigned arrayPadding = 4; // TODO: take type default alignment
+			unsigned arrayPadding = typeInfo->alignment > 4 ? typeInfo->alignment : 4;
 
 			unsigned count = *(unsigned*)(base + sizeof(markerType) + arrayPadding - 4);
 			NULLCRef r = { (unsigned)marker >> 8, base + sizeof(markerType) + arrayPadding }; // skip over marker and array size
@@ -2361,10 +2388,13 @@ void* NULLC::AllocObject(int size, unsigned typeID)
 		nullcThrowError("Allocation failed.");
 		return NULL;
 	}
-	// TODO: mark finalizable types
+
+	int finalize = 0;
+	if(typeID && (__nullcGetTypeInfo(typeID)->flags & NULLC_TYPE_FLAG_HAS_FINALIZER) != 0)
+		finalize = (int)OBJECT_FINALIZABLE;
 
 	memset(data, 0, size);
-	*(markerType*)data = typeID << 8;
+	*(markerType*)data = finalize | (typeID << 8);
 	return (char*)data + sizeof(markerType);
 }
 
@@ -2388,7 +2418,7 @@ NULLCArray<int> NULLC::AllocArray(int size, int count, unsigned typeID)
 
 	NULLCTypeInfo *type = __nullcGetTypeInfo(typeID);
 
-	unsigned arrayPadding = 4; // TODO: take type default alignment
+	unsigned arrayPadding = type->alignment > 4 ? type->alignment : 4;
 
 	unsigned bytes = count * size;
 	
@@ -2577,7 +2607,7 @@ void NULLC::CollectMemory()
 	if(usedMemory + (usedMemory >> 1) >= collectableMinimum)
 		collectableMinimum <<= 1;
 
-	// TODO: nullcRunFunction("__finalizeObjects");
+	__finalizeObjects_void_ref__(0);
 	finalizeList.clear();
 }
 
@@ -2613,7 +2643,7 @@ void NULLC::FinalizeMemory()
 
 	bigBlocks.for_each(FinalizeBlock);
 
-	// TODO: nullcRunFunction("__finalizeObjects");
+	__finalizeObjects_void_ref__(0);
 	finalizeList.clear();
 }
 
@@ -2638,8 +2668,6 @@ int	__nullcOutputResultDouble(double x)
 // Typeid redirect table
 static unsigned __nullcTR[17];
 
-NULLCArray<__function> __vtbl3761170085finalize;
-
 int __nullcInitBaseModule()
 {
 	static int moduleInitialized = 0;
@@ -2650,23 +2678,23 @@ int __nullcInitBaseModule()
 	__nullcRegisterBase(&__local);
 
 	// Register types
-	__nullcTR[0] = __nullcRegisterType(2090838615u, "void", 0, __nullcTR[0], 0, NULLC_NONE);
-	__nullcTR[1] = __nullcRegisterType(2090120081u, "bool", 1, __nullcTR[0], 0, NULLC_NONE);
-	__nullcTR[2] = __nullcRegisterType(2090147939u, "char", 1, __nullcTR[0], 0, NULLC_NONE);
-	__nullcTR[3] = __nullcRegisterType(274395349u, "short", 2, __nullcTR[0], 0, NULLC_NONE);
-	__nullcTR[4] = __nullcRegisterType(193495088u, "int", 4, __nullcTR[0], 0, NULLC_NONE);
-	__nullcTR[5] = __nullcRegisterType(2090479413u, "long", 8, __nullcTR[0], 0, NULLC_NONE);
-	__nullcTR[6] = __nullcRegisterType(259121563u, "float", 4, __nullcTR[0], 0, NULLC_NONE);
-	__nullcTR[7] = __nullcRegisterType(4181547808u, "double", 8, __nullcTR[0], 0, NULLC_NONE);
-	__nullcTR[8] = __nullcRegisterType(524429492u, "typeid", 4, __nullcTR[0], 0, NULLC_NONE);
-	__nullcTR[9] = __nullcRegisterType(1211668521u, "__function", 4, __nullcTR[0], 0, NULLC_NONE);
-	__nullcTR[10] = __nullcRegisterType(84517172u, "__nullptr", 4, __nullcTR[0], 0, NULLC_NONE);
+	__nullcTR[0] = __nullcRegisterType(2090838615u, "void", 0, __nullcTR[0], 0, NULLC_NONE, 0, 0);
+	__nullcTR[1] = __nullcRegisterType(2090120081u, "bool", 1, __nullcTR[0], 0, NULLC_NONE, 0, 0);
+	__nullcTR[2] = __nullcRegisterType(2090147939u, "char", 1, __nullcTR[0], 0, NULLC_NONE, 0, 0);
+	__nullcTR[3] = __nullcRegisterType(274395349u, "short", 2, __nullcTR[0], 0, NULLC_NONE, 2, 0);
+	__nullcTR[4] = __nullcRegisterType(193495088u, "int", 4, __nullcTR[0], 0, NULLC_NONE, 4, 0);
+	__nullcTR[5] = __nullcRegisterType(2090479413u, "long", 8, __nullcTR[0], 0, NULLC_NONE, 4, 0);
+	__nullcTR[6] = __nullcRegisterType(259121563u, "float", 4, __nullcTR[0], 0, NULLC_NONE, 4, 0);
+	__nullcTR[7] = __nullcRegisterType(4181547808u, "double", 8, __nullcTR[0], 0, NULLC_NONE, 8, 0);
+	__nullcTR[8] = __nullcRegisterType(524429492u, "typeid", 4, __nullcTR[0], 0, NULLC_NONE, 4, 0);
+	__nullcTR[9] = __nullcRegisterType(1211668521u, "__function", 4, __nullcTR[0], 0, NULLC_NONE, 4, 0);
+	__nullcTR[10] = __nullcRegisterType(84517172u, "__nullptr", 4, __nullcTR[0], 0, NULLC_NONE, 4, 0);
 	__nullcTR[11] = 0; // generic type 'generic'
-	__nullcTR[12] = __nullcRegisterType(2090090846u, "auto", 0, __nullcTR[0], 0, NULLC_NONE);
-	__nullcTR[13] = __nullcRegisterType(1166360283u, "auto ref", 8, __nullcTR[0], 2, NULLC_CLASS);
-	__nullcTR[14] = __nullcRegisterType(3198057556u, "void ref", 4, __nullcTR[0], 1, NULLC_POINTER);
-	__nullcTR[15] = __nullcRegisterType(4071234806u, "auto[]", 12, __nullcTR[0], 3, NULLC_CLASS);
-	__nullcTR[16] = __nullcRegisterType(952062593u, "__function[]", 8, __nullcTR[9], -1, NULLC_ARRAY);
+	__nullcTR[12] = __nullcRegisterType(2090090846u, "auto", 0, __nullcTR[0], 0, NULLC_NONE, 0, 0);
+	__nullcTR[13] = __nullcRegisterType(1166360283u, "auto ref", 8, __nullcTR[0], 2, NULLC_CLASS, 4, 0);
+	__nullcTR[14] = __nullcRegisterType(3198057556u, "void ref", 4, __nullcTR[0], 1, NULLC_POINTER, 4, 0);
+	__nullcTR[15] = __nullcRegisterType(4071234806u, "auto[]", 12, __nullcTR[0], 3, NULLC_CLASS, 4, 0);
+	__nullcTR[16] = __nullcRegisterType(952062593u, "__function[]", 8, __nullcTR[9], -1, NULLC_ARRAY, 4, 0);
 
 	// Register type members
 	__nullcRegisterMembers(__nullcTR[13], 2, __nullcTR[8], 0, "type", __nullcTR[14], 4, "ptr"); // type 'auto ref' members
