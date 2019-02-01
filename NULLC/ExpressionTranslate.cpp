@@ -1992,6 +1992,9 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 		else if(IsGenericInstance(function))
 			isGeneric = true;
 
+		if(isStatic && function->importModule)
+			continue;
+
 		if(isStatic)
 			Print(ctx, "static ");
 		else if(isGeneric)
@@ -2329,6 +2332,21 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 		if(ctx.ctx.IsGenericFunction(function))
 		{
 			PrintIndentedLine(ctx, "__nullcFR[%d] = 0; // generic function '%.*s'", i, FMT_ISTR(function->name));
+			continue;
+		}
+
+		bool isStatic = false;
+
+		if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
+			isStatic = true;
+		else if(*function->name.begin == '$')
+			isStatic = true;
+		else if(function->isHidden)
+			isStatic = true;
+
+		if(isStatic && function->importModule)
+		{
+			PrintIndentedLine(ctx, "__nullcFR[%d] = 0; // module '%.*s' internal function '%.*s'", i, FMT_ISTR(function->importModule->name), FMT_ISTR(function->name));
 			continue;
 		}
 
