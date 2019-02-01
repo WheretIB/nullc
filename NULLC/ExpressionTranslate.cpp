@@ -878,7 +878,7 @@ void TranslateArrayIndex(ExpressionTranslateContext &ctx, ExprArrayIndex *expres
 		Translate(ctx, expression->value);
 		Print(ctx, ", ");
 		Translate(ctx, expression->index);
-		Print(ctx, ")");
+		Print(ctx, ", %d)", typeUnsizedArray->subType->size);
 	}
 	else
 	{
@@ -2173,22 +2173,22 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 		if(TypeArray *typeArray = getType<TypeArray>(type))
 		{
 			Print(ctx, "__nullcTR[%d], ", typeArray->subType->typeIndex);
-			Print(ctx, "%d, NULLC_ARRAY);", (unsigned)typeArray->length);
+			Print(ctx, "%d, NULLC_ARRAY, %d, 0);", (unsigned)typeArray->length, typeArray->alignment);
 		}
 		else if(TypeUnsizedArray *typeUnsizedArray = getType<TypeUnsizedArray>(type))
 		{
 			Print(ctx, "__nullcTR[%d], ", typeUnsizedArray->subType->typeIndex);
-			Print(ctx, "-1, NULLC_ARRAY);");
+			Print(ctx, "-1, NULLC_ARRAY, %d, 0);", typeUnsizedArray->alignment);
 		}
 		else if(TypeRef *typeRef = getType<TypeRef>(type))
 		{
 			Print(ctx, "__nullcTR[%d], ", typeRef->subType->typeIndex);
-			Print(ctx, "1, NULLC_POINTER);");
+			Print(ctx, "1, NULLC_POINTER, %d, 0);", typeRef->alignment);
 		}
 		else if(TypeFunction *typeFunction = getType<TypeFunction>(type))
 		{
 			Print(ctx, "__nullcTR[%d], ", typeFunction->returnType->typeIndex);
-			Print(ctx, "0, NULLC_FUNCTION);");
+			Print(ctx, "0, NULLC_FUNCTION, %d, 0);", typeFunction->alignment);
 		}
 		else if(TypeClass *typeClass = getType<TypeClass>(type))
 		{
@@ -2203,7 +2203,18 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 			}
 
 			Print(ctx, "__nullcTR[%d], ", typeClass->baseClass ? typeClass->baseClass->typeIndex : 0);
-			Print(ctx, "%d, NULLC_CLASS);", count);
+			Print(ctx, "%d, NULLC_CLASS, %d, ", count, typeClass->alignment);
+
+			if(typeClass->hasFinalizer && typeClass->extendable)
+				Print(ctx, "NULLC_TYPE_FLAG_HAS_FINALIZER | NULLC_TYPE_FLAG_IS_EXTENDABLE");
+			else if(typeClass->hasFinalizer)
+				Print(ctx, "NULLC_TYPE_FLAG_HAS_FINALIZER");
+			else if(typeClass->extendable)
+				Print(ctx, "NULLC_TYPE_FLAG_IS_EXTENDABLE");
+			else
+				Print(ctx, "0");
+
+			Print(ctx, ");", count, typeClass->alignment);
 		}
 		else if(TypeStruct *typeStruct = getType<TypeStruct>(type))
 		{
@@ -2218,12 +2229,12 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 			}
 
 			Print(ctx, "__nullcTR[0], ");
-			Print(ctx, "%d, NULLC_CLASS);", count);
+			Print(ctx, "%d, NULLC_CLASS, %d, 0);", count, typeStruct->alignment);
 		}
 		else
 		{
 			Print(ctx, "__nullcTR[0], ");
-			Print(ctx, "0, NULLC_NONE);");
+			Print(ctx, "0, NULLC_NONE, %d, 0);", type->alignment);
 		}
 
 		PrintLine(ctx);
