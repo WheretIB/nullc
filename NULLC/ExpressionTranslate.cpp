@@ -297,6 +297,9 @@ void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
 			index++;
 		}
 
+		if(typeClass->padding != 0)
+			PrintIndentedLine(ctx, "char pad_%d[%d];", index, typeClass->padding);
+
 		ctx.depth--;
 		PrintIndentedLine(ctx, "};");
 	}
