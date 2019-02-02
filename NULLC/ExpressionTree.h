@@ -454,6 +454,7 @@ struct ExprAssignment: ExprBase
 	{
 		TypeRef *refType = getType<TypeRef>(lhs->type);
 
+		(void)refType;
 		assert(refType);
 		assert(refType->subType == rhs->type);
 	}

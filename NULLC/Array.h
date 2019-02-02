@@ -415,4 +415,62 @@ private:
 	Allocator *allocator;
 };
 
+template<typename T>
+class ArrayView
+{
+public:
+	ArrayView()
+	{
+		data = 0;
+		count = 0;
+	}
+
+	ArrayView(FastVector<T> &rhs)
+	{
+		data = rhs.data;
+		count = rhs.size();
+	}
+
+	template<unsigned N>
+	ArrayView(FixedArray<T, N> &rhs)
+	{
+		data = rhs.data;
+		count = rhs.size();
+	}
+
+	template<unsigned N>
+	ArrayView(SmallArray<T, N> &rhs)
+	{
+		data = rhs.data;
+		count = rhs.size();
+	}
+
+	T& back()
+	{
+		assert(count > 0);
+
+		return data[count - 1];
+	}
+
+	bool empty()
+	{
+		return count == 0;
+	}
+
+	unsigned size()
+	{
+		return count;
+	}
+
+	T& operator[](unsigned index)
+	{
+		assert(index < count);
+
+		return data[index];
+	}
+
+	T *data;
+	unsigned count;
+};
+
 #endif

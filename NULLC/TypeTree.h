@@ -337,7 +337,7 @@ struct FunctionData
 
 	IntrusiveList<MatchData> aliases;
 
-	SmallArray<ArgumentData, 8> arguments;
+	SmallArray<ArgumentData, 4> arguments;
 
 	bool isPrototype;
 	FunctionData *implementation;
@@ -469,13 +469,13 @@ struct ScopeData
 	long long startOffset;
 	long long dataSize;
 
-	SmallArray<TypeBase*, 4> types;
-	SmallArray<FunctionData*, 4> functions;
+	SmallArray<TypeBase*, 2> types;
+	SmallArray<FunctionData*, 2> functions;
 	SmallArray<VariableData*, 4> variables;
-	SmallArray<AliasData*, 4> aliases;
-	SmallArray<ScopeData*, 4> scopes;
+	SmallArray<AliasData*, 2> aliases;
+	SmallArray<ScopeData*, 2> scopes;
 
-	SmallArray<VariableData*, 4> shadowedVariables;
+	SmallArray<VariableData*, 2> shadowedVariables;
 	SmallArray<VariableData*, 4> allVariables;
 };
 
