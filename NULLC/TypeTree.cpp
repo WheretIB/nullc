@@ -321,7 +321,7 @@ InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functio
 	return InplaceStr(name);
 }
 
-InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *function)
+InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *function, unsigned index)
 {
 	InplaceStr functionName = function->name;
 	InplaceStr operatorName = GetOperatorName(functionName);
@@ -331,7 +331,7 @@ InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *
 
 	unsigned nameLength = functionName.length() + 32;
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
-	sprintf(name, "$%.*s_%u_%u_ext", FMT_ISTR(functionName), function->type->name.hash(), function->uniqueId);
+	sprintf(name, "$%.*s_%u_%u_ext", FMT_ISTR(functionName), function->type->name.hash(), index);
 
 	return InplaceStr(name);
 }

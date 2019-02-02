@@ -6317,7 +6317,7 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 	{
 		// Create a variable holding a reference to a closure
 		unsigned offset = AllocateVariableInScope(ctx, source, refType->alignment, refType);
-		context = allocate(VariableData)(ctx.allocator, source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function), offset, ctx.uniqueVariableId++);
+		context = allocate(VariableData)(ctx.allocator, source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function, ctx.GetFunctionIndex(function)), offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(context);
 	}
@@ -6744,7 +6744,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 		assert(refType);
 
-		VariableData *context = allocate(VariableData)(ctx.allocator, source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function), 0, ctx.uniqueVariableId++);
+		VariableData *context = allocate(VariableData)(ctx.allocator, source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function, ctx.GetFunctionIndex(function)), 0, ctx.uniqueVariableId++);
 
 		context->isAlloca = true;
 		context->offset = ~0u;
@@ -9622,7 +9622,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		if(function.funcCat == ExternFuncInfo::COROUTINE)
 		{
-			InplaceStr contextVariableName = GetFunctionContextVariableName(ctx, data);
+			InplaceStr contextVariableName = GetFunctionContextVariableName(ctx, data, i + bCode->moduleFunctionCount);
 
 			if(VariableData **variable = ctx.variableMap.find(contextVariableName.hash()))
 				data->contextVariable = *variable;
