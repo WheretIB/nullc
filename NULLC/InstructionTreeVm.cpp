@@ -21,6 +21,7 @@ namespace
 		VmType exprType = GetVmType(ctx, expr->type);
 
 		assert(exprType == value->type);
+		assert(exprType.structType == value->type.structType);
 
 		return value;
 	}
@@ -660,6 +661,11 @@ namespace
 		assert(valueA->type == valueB->type);
 
 		return CreateInstruction(module, source, valueA->type, VM_INST_PHI, valueA, valueA->parent, valueB, valueB->parent);
+	}
+
+	VmValue* CreateBitcast(VmModule *module, SynBase *source, VmType type, VmValue *value)
+	{
+		return CreateInstruction(module, source, type, VM_INST_BITCAST, value, NULL, NULL, NULL);
 	}
 
 	VmValue* CreateAlloca(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, const char *suffix)
@@ -1674,7 +1680,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			}
 			break;
 		case EXPR_CAST_NULL_TO_PTR:
-			return CheckType(ctx, expression, CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false));
+			return CheckType(ctx, expression, CreateConstantPointer(module->allocator, node->source, 0, NULL, node->type, false));
 		case EXPR_CAST_NULL_TO_AUTO_PTR:
 			return CheckType(ctx, expression, CreateConstruct(module, node->source, GetVmType(ctx, node->type), CreateConstantInt(module->allocator, node->source, 0), CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), NULL, NULL));
 		case EXPR_CAST_NULL_TO_UNSIZED:
@@ -1732,6 +1738,16 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 				return CheckType(ctx, expression, CreateConstruct(module, node->source, GetVmType(ctx, node->type), CreateTypeIndex(module, node->source, unsizedType->subType), value, NULL, NULL));
 			}
 		case EXPR_CAST_REINTERPRET:
+			if(expression->type == node->value->type)
+				return CheckType(ctx, expression, value);
+
+			if(isType<TypeUnsizedArray>(expression->type) && isType<TypeUnsizedArray>(node->value->type))
+				return CheckType(ctx, expression, CreateBitcast(module, node->source, GetVmType(ctx, node->type), value));
+			else if(isType<TypeRef>(expression->type) && isType<TypeRef>(node->value->type))
+				return CheckType(ctx, expression, CreateBitcast(module, node->source, GetVmType(ctx, node->type), value));
+			else if(isType<TypeFunction>(expression->type) && isType<TypeFunction>(node->value->type))
+				return CheckType(ctx, expression, CreateBitcast(module, node->source, GetVmType(ctx, node->type), value));
+
 			return CheckType(ctx, expression, value);
 		default:
 			assert(!"unknown cast");
@@ -3469,7 +3485,7 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 
 						block->insertPoint = curr->prevSibling;
 
-						value = CreateInstruction(module, curr->source, curr->type, VM_INST_BITCAST, value, NULL, NULL, NULL);
+						value = CreateBitcast(module, curr->source, curr->type, value);
 
 						block->insertPoint = block->lastInstruction;
 
@@ -3576,7 +3592,7 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 
 							block->insertPoint = curr->prevSibling;
 
-							storeValue = CreateInstruction(module, curr->source, curr->type, VM_INST_BITCAST, storeValue, NULL, NULL, NULL);
+							storeValue = CreateBitcast(module, curr->source, curr->type, storeValue);
 
 							block->insertPoint = block->lastInstruction;
 

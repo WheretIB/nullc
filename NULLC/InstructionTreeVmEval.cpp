@@ -1222,6 +1222,15 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 		{
 			VmConstant *value = arguments[0];
 
+			if(value->type.type == VM_TYPE_ARRAY_REF && instruction->type.type == VM_TYPE_ARRAY_REF)
+				return value;
+
+			if(value->type.type == VM_TYPE_POINTER && instruction->type.type == VM_TYPE_POINTER)
+				return value;
+
+			if(value->type.type == VM_TYPE_FUNCTION_REF && instruction->type.type == VM_TYPE_FUNCTION_REF)
+				return value;
+
 			if(value->type.type == VM_TYPE_STRUCT)
 				return ExtractValue(ctx, value, 0, instruction->type);
 
