@@ -2462,6 +2462,8 @@ const char* GetBytecodeFromPath(ParseContext &ctx, const char *start, IntrusiveL
 
 		if(!bytecode)
 		{
+			ctx.errorPos = start;
+
 			assert(ctx.errorHandlerActive);
 
 			longjmp(ctx.errorHandler, 1);
