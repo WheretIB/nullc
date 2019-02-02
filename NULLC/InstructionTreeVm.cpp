@@ -2092,6 +2092,8 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 		VmBlock *bodyBlock = CreateBlock(module, node->source, "arr_setup_body");
 		VmBlock *exitBlock = CreateBlock(module, node->source, "arr_setup_exit");
 
+		CreateStore(ctx, module, node->source, ctx.typeInt, offsetPtr, CreateConstantInt(module->allocator, node->source, 0));
+
 		CreateJump(module, node->source, conditionBlock);
 
 		module->currentFunction->AddBlock(conditionBlock);
