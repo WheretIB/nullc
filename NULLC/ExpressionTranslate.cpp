@@ -366,7 +366,7 @@ void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
 			Print(ctx, ";");
 			PrintLine(ctx);
 
-			offset = curr->variable->offset + curr->variable->type->size;
+			offset = unsigned(curr->variable->offset + curr->variable->type->size);
 			index++;
 		}
 
