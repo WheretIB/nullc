@@ -59,7 +59,7 @@ struct ExpressionContext
 	TypeArray* GetArrayType(TypeBase* type, long long size);
 	TypeUnsizedArray* GetUnsizedArrayType(TypeBase* type);
 	TypeFunction* GetFunctionType(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
-	TypeFunction* GetFunctionType(TypeBase* returnType, SmallArray<ArgumentData, 32> &arguments);
+	TypeFunction* GetFunctionType(TypeBase* returnType, ArrayView<ArgumentData> arguments);
 	TypeGenericAlias* GetGenericAliasType(InplaceStr baseName);
 	TypeGenericClass* GetGenericClassType(TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 
