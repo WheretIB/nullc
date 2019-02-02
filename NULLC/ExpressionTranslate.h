@@ -21,6 +21,10 @@ struct ExpressionTranslateContext
 		errorBuf = 0;
 		errorBufSize = 0;
 
+		outBuf = 0;
+		outBufSize = 0;
+		outBufPos = 0;
+
 		depth = 0;
 
 		nextLoopId = 1;
@@ -42,6 +46,10 @@ struct ExpressionTranslateContext
 	const char *errorPos;
 	char *errorBuf;
 	unsigned errorBufSize;
+
+	char *outBuf;
+	unsigned outBufSize;
+	unsigned outBufPos;
 
 	unsigned depth;
 

@@ -14,12 +14,85 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code);
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
+void PrintBuffered(ExpressionTranslateContext &ctx, char ch)
+{
+	ctx.outBuf[ctx.outBufPos++] = ch;
+
+	if(ctx.outBufPos == ctx.outBufSize)
+	{
+		fwrite(ctx.outBuf, 1, ctx.outBufPos, ctx.file);
+		ctx.outBufPos = 0;
+	}
+}
+
+void PrintBuffered(ExpressionTranslateContext &ctx, const char *str)
+{
+	unsigned length = strlen(str);
+
+	if(ctx.outBufPos + length < ctx.outBufSize)
+	{
+		memcpy(ctx.outBuf + ctx.outBufPos, str, length);
+		ctx.outBufPos += length;
+	}
+	else
+	{
+		unsigned remainder = ctx.outBufSize - ctx.outBufPos;
+
+		memcpy(ctx.outBuf + ctx.outBufPos, str, remainder);
+		fwrite(ctx.outBuf, 1, ctx.outBufPos, ctx.file);
+		ctx.outBufPos = 0;
+
+		str += remainder;
+		length -= remainder;
+
+		if(!length)
+			return;
+
+		if(length < ctx.outBufSize)
+		{
+			memcpy(ctx.outBuf + ctx.outBufPos, str, length);
+			ctx.outBufPos += length;
+		}
+		else
+		{
+			fwrite(str, 1, length, ctx.file);
+		}
+	}
+}
+
+void PrintBuffered(ExpressionTranslateContext &ctx, const char *format, va_list args)
+{
+	const int tmpSize = 1024;
+	char tmp[tmpSize];
+
+	int length = vsnprintf(tmp, tmpSize - 1, format, args);
+
+	if(length < 0 || length > tmpSize - 1)
+	{
+		fwrite(ctx.outBuf, 1, ctx.outBufPos, ctx.file);
+		ctx.outBufPos = 0;
+
+		vfprintf(ctx.file, format, args);
+	}
+	else
+	{
+		PrintBuffered(ctx, tmp);
+	}
+}
+
+void FlushBuffered(ExpressionTranslateContext &ctx)
+{
+	if(ctx.outBufPos)
+		fwrite(ctx.outBuf, 1, ctx.outBufPos, ctx.file);
+	ctx.outBufPos = 0;
+}
+
 void Print(ExpressionTranslateContext &ctx, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
 
-	vfprintf(ctx.file, format, args);
+	PrintBuffered(ctx, format, args);
 
 	va_end(args);
 }
@@ -27,12 +100,12 @@ void Print(ExpressionTranslateContext &ctx, const char *format, ...)
 void PrintIndent(ExpressionTranslateContext &ctx)
 {
 	for(unsigned i = 0; i < ctx.depth; i++)
-		fprintf(ctx.file, ctx.indent);
+		PrintBuffered(ctx, ctx.indent);
 }
 
 void PrintLine(ExpressionTranslateContext &ctx)
 {
-	fprintf(ctx.file, "\n");
+	PrintBuffered(ctx, "\n");
 }
 
 void PrintIndentedLine(ExpressionTranslateContext &ctx, const char *format, ...)
@@ -42,7 +115,7 @@ void PrintIndentedLine(ExpressionTranslateContext &ctx, const char *format, ...)
 	va_list args;
 	va_start(args, format);
 
-	vfprintf(ctx.file, format, args);
+	PrintBuffered(ctx, format, args);
 
 	va_end(args);
 
@@ -56,9 +129,9 @@ void PrintEscapedName(ExpressionTranslateContext &ctx, InplaceStr name)
 		char ch = name.begin[i];
 
 		if(ch == ' ' || ch == '[' || ch == ']' || ch == '(' || ch == ')' || ch == ',' || ch == ':' || ch == '$' || ch == '<' || ch == '>' || ch == '.')
-			fprintf(ctx.file, "_");
+			PrintBuffered(ctx, "_");
 		else
-			fprintf(ctx.file, "%c", ch);
+			PrintBuffered(ctx, ch);
 	}
 }
 
@@ -1790,7 +1863,7 @@ const char* GetModuleMainName(Allocator *allocator, InplaceStr moduleName)
 	return targetName;
 }
 
-bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, SmallArray<const char*, 32> &dependencies)
+bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const char*, 32> &dependencies)
 {
 	// Translate all imports (expept base)
 	for(unsigned i = 1; i < ctx.ctx.imports.size(); i++)
@@ -1897,6 +1970,10 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 		nested.errorBuf = ctx.errorBuf;
 		nested.errorBufSize = ctx.errorBufSize;
 
+		char outBufTmp[1024];
+		nested.outBuf = outBufTmp;
+		nested.outBufSize = 1024;
+
 		if(!TranslateModule(nested, nestedModule, dependencies))
 		{
 			unsigned currLen = (unsigned)strlen(ctx.errorBuf);
@@ -1910,35 +1987,11 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 		fclose(nested.file);
 	}
 
-	// Generate type indexes
-	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
-	{
-		TypeBase *type = ctx.ctx.types[i];
+	return true;
+}
 
-		type->typeIndex = i;
-
-		type->hasTranslation = false;
-	}
-
-	// Generate function indexes
-	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
-	{
-		FunctionData *function = ctx.ctx.functions[i];
-
-		function->functionIndex = i;
-
-		function->nextTranslateRestoreBlock = 1;
-	}
-
-	PrintIndentedLine(ctx, "#include \"runtime.h\"");
-	PrintIndentedLine(ctx, "// Typeid redirect table");
-	PrintIndentedLine(ctx, "static unsigned __nullcTR[%d];", ctx.ctx.types.size());
-	PrintIndentedLine(ctx, "// Function pointer table");
-	PrintIndentedLine(ctx, "static __nullcFunctionArray* __nullcFM;");
-	PrintIndentedLine(ctx, "// Function pointer redirect table");
-	PrintIndentedLine(ctx, "static unsigned __nullcFR[%d];", ctx.ctx.functions.size());
-
-	PrintLine(ctx);
+void TranslateModuleTypePrototypes(ExpressionTranslateContext &ctx)
+{
 	PrintIndentedLine(ctx, "// Type prototypes");
 
 	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
@@ -1957,8 +2010,11 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 		}
 	}
 
-
 	PrintLine(ctx);
+}
+
+void TranslateModuleTypeDefinitions(ExpressionTranslateContext &ctx)
+{
 	PrintIndentedLine(ctx, "// Type definitions");
 	PrintIndentedLine(ctx, "#pragma pack(push, 4)");
 
@@ -1971,6 +2027,10 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	PrintIndentedLine(ctx, "#pragma pack(pop)");
 
 	PrintLine(ctx);
+}
+
+void TranslateModuleFunctionPrototypes(ExpressionTranslateContext &ctx)
+{
 	PrintIndentedLine(ctx, "// Function prototypes");
 
 	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
@@ -2058,6 +2118,10 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	}
 
 	PrintLine(ctx);
+}
+
+void TranslateModuleGlobalVariables(ExpressionTranslateContext &ctx)
+{
 	PrintIndentedLine(ctx, "// Global variables");
 
 	for(unsigned int i = 0; i < ctx.ctx.variables.size(); i++)
@@ -2097,6 +2161,10 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	}
 
 	PrintLine(ctx);
+}
+
+void TranslateModuleFunctionDefinitions(ExpressionTranslateContext &ctx, ExprModule *expression)
+{
 	PrintIndentedLine(ctx, "// Function definitions");
 
 	for(unsigned i = 0; i < expression->definitions.size(); i++)
@@ -2118,46 +2186,10 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	ctx.skipFunctionDefinitions = true;
 
 	PrintLine(ctx);
-	PrintIndentedLine(ctx, "// Module initializers");
+}
 
-	for(unsigned i = 1; i < ctx.ctx.imports.size(); i++)
-	{
-		ModuleData *data = ctx.ctx.imports[i];
-
-		PrintIndentedLine(ctx, "extern int %s();", GetModuleMainName(ctx.allocator, data->name));
-	}
-
-	PrintLine(ctx);
-	PrintIndentedLine(ctx, "// Global code");
-
-	PrintIndentedLine(ctx, "int %s()", ctx.mainName);
-	PrintIndentedLine(ctx, "{");
-
-	ctx.depth++;
-
-	PrintIndentedLine(ctx, "static int moduleInitialized = 0;");
-	PrintIndentedLine(ctx, "if(moduleInitialized++)");
-
-	ctx.depth++;
-	PrintIndentedLine(ctx, "return 0;");
-	ctx.depth--;
-
-	PrintIndentedLine(ctx, "__nullcFM = __nullcGetFunctionTable();");
-	PrintIndentedLine(ctx, "int __local = 0;");
-	PrintIndentedLine(ctx, "__nullcRegisterBase(&__local);");
-	PrintIndentedLine(ctx, "__nullcInitBaseModule();");
-
-	PrintLine(ctx);
-	PrintIndentedLine(ctx, "// Initialize modules");
-
-	for(unsigned i = 1; i < ctx.ctx.imports.size(); i++)
-	{
-		ModuleData *data = ctx.ctx.imports[i];
-
-		PrintIndentedLine(ctx, "%s();", GetModuleMainName(ctx.allocator, data->name));
-	}
-
-	PrintLine(ctx);
+void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
+{
 	PrintIndentedLine(ctx, "// Register types");
 
 	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
@@ -2247,6 +2279,7 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	}
 
 	PrintLine(ctx);
+
 	PrintIndentedLine(ctx, "// Register type members");
 
 	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
@@ -2302,6 +2335,10 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	}
 
 	PrintLine(ctx);
+}
+
+void TranslateModuleGlobalVariableInformation(ExpressionTranslateContext &ctx)
+{
 	PrintIndentedLine(ctx, "// Register globals");
 
 	for(unsigned int i = 0; i < ctx.ctx.variables.size(); i++)
@@ -2326,6 +2363,10 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	}
 
 	PrintLine(ctx);
+}
+
+void TranslateModuleGlobalFunctionInformation(ExpressionTranslateContext &ctx)
+{
 	PrintIndentedLine(ctx, "// Register functions");
 
 	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
@@ -2379,6 +2420,99 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	}
 
 	PrintLine(ctx);
+}
+
+bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, SmallArray<const char*, 32> &dependencies)
+{
+	if(!TranslateModuleImports(ctx, dependencies))
+		return false;
+
+	// Generate type indexes
+	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
+	{
+		TypeBase *type = ctx.ctx.types[i];
+
+		type->typeIndex = i;
+
+		type->hasTranslation = false;
+	}
+
+	// Generate function indexes
+	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
+	{
+		FunctionData *function = ctx.ctx.functions[i];
+
+		function->functionIndex = i;
+
+		function->nextTranslateRestoreBlock = 1;
+	}
+
+	PrintIndentedLine(ctx, "#include \"runtime.h\"");
+	PrintIndentedLine(ctx, "// Typeid redirect table");
+	PrintIndentedLine(ctx, "static unsigned __nullcTR[%d];", ctx.ctx.types.size());
+	PrintIndentedLine(ctx, "// Function pointer table");
+	PrintIndentedLine(ctx, "static __nullcFunctionArray* __nullcFM;");
+	PrintIndentedLine(ctx, "// Function pointer redirect table");
+	PrintIndentedLine(ctx, "static unsigned __nullcFR[%d];", ctx.ctx.functions.size());
+	PrintLine(ctx);
+
+	TranslateModuleTypePrototypes(ctx);
+
+	TranslateModuleTypeDefinitions(ctx);
+	
+	TranslateModuleFunctionPrototypes(ctx);
+
+	TranslateModuleGlobalVariables(ctx);
+	
+	TranslateModuleFunctionDefinitions(ctx, expression);
+
+	PrintIndentedLine(ctx, "// Module initializers");
+
+	for(unsigned i = 1; i < ctx.ctx.imports.size(); i++)
+	{
+		ModuleData *data = ctx.ctx.imports[i];
+
+		PrintIndentedLine(ctx, "extern int %s();", GetModuleMainName(ctx.allocator, data->name));
+	}
+
+	PrintLine(ctx);
+	PrintIndentedLine(ctx, "// Global code");
+
+	PrintIndentedLine(ctx, "int %s()", ctx.mainName);
+	PrintIndentedLine(ctx, "{");
+
+	ctx.depth++;
+
+	PrintIndentedLine(ctx, "static int moduleInitialized = 0;");
+	PrintIndentedLine(ctx, "if(moduleInitialized++)");
+
+	ctx.depth++;
+	PrintIndentedLine(ctx, "return 0;");
+	ctx.depth--;
+
+	PrintIndentedLine(ctx, "__nullcFM = __nullcGetFunctionTable();");
+	PrintIndentedLine(ctx, "int __local = 0;");
+	PrintIndentedLine(ctx, "__nullcRegisterBase(&__local);");
+	PrintIndentedLine(ctx, "__nullcInitBaseModule();");
+
+	PrintLine(ctx);
+	PrintIndentedLine(ctx, "// Initialize modules");
+
+	for(unsigned i = 1; i < ctx.ctx.imports.size(); i++)
+	{
+		ModuleData *data = ctx.ctx.imports[i];
+
+		PrintIndentedLine(ctx, "%s();", GetModuleMainName(ctx.allocator, data->name));
+	}
+
+	PrintLine(ctx);
+
+	TranslateModuleTypeInformation(ctx);
+	
+	TranslateModuleGlobalVariableInformation(ctx);
+	
+	TranslateModuleGlobalFunctionInformation(ctx);
+	
 	PrintIndentedLine(ctx, "// Setup");
 
 	for(ExprBase *value = expression->setup.head; value; value = value->next)
@@ -2411,6 +2545,8 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 	ctx.depth--;
 
 	PrintIndentedLine(ctx, "}");
+
+	FlushBuffered(ctx);
 
 	return true;
 }
