@@ -1928,6 +1928,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		TypeRef *refType = getType<TypeRef>(node->value->type);
 
+		(void)refType;
 		assert(refType);
 		assert(refType->subType == node->type);
 
@@ -1980,6 +1981,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	{
 		TypeRef *refType = getType<TypeRef>(node->lhs->type);
 
+		(void)refType;
 		assert(refType);
 		assert(refType->subType == node->rhs->type);
 

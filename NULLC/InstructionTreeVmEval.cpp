@@ -335,6 +335,7 @@ void CopyConstantRaw(Eval &ctx, char *dst, unsigned dstSize, VmConstant *src, un
 {
 	Eval::StackFrame *frame = ctx.stackFrames.back();
 
+	(void)dstSize;
 	assert(dstSize >= storeSize);
 
 	if(src->type == VmType::Int)

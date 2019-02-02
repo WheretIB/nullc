@@ -193,6 +193,7 @@ bool CreateStore(Eval &ctx, ExprBase *target, ExprBase *value)
 	{
 		TypeRef *ptrType = getType<TypeRef>(expr->type);
 
+		(void)ptrType;
 		assert(ptrType);
 		assert(expr->ptr + ptrType->subType->size <= expr->end);
 
@@ -771,6 +772,7 @@ ExprBase* CreateBinaryOp(Eval &ctx, SynBase *source, ExprBase *lhs, ExprBase *un
 
 ExprBase* CheckType(ExprBase* expression, ExprBase *value)
 {
+	(void)expression;
 	assert(expression->type == value->type);
 
 	return value;
@@ -1104,6 +1106,7 @@ ExprBase* EvaluateCast(Eval &ctx, ExprTypeCast *expression)
 			
 			if(ExprPointerLiteral *tmp = getType<ExprPointerLiteral>(value))
 			{
+				(void)refType;
 				assert(uintptr_t(tmp->end - tmp->ptr) >= refType->subType->size);
 
 				return CheckType(expression, allocate(ExprPointerLiteral)(expression->source, expression->type, tmp->ptr, tmp->end));

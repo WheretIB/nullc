@@ -92,6 +92,7 @@ void Lower(Context &ctx, VmValue *value)
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
+				(void)offset;
 				assert(offset->iValue == 0);
 
 				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
@@ -111,6 +112,7 @@ void Lower(Context &ctx, VmValue *value)
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
+				(void)offset;
 				assert(offset->iValue == 0);
 
 				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
@@ -130,6 +132,7 @@ void Lower(Context &ctx, VmValue *value)
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
+				(void)offset;
 				assert(offset->iValue == 0);
 
 				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
@@ -149,6 +152,7 @@ void Lower(Context &ctx, VmValue *value)
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
+				(void)offset;
 				assert(offset->iValue == 0);
 
 				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
@@ -169,6 +173,7 @@ void Lower(Context &ctx, VmValue *value)
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
+				(void)offset;
 				assert(offset->iValue == 0);
 
 				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
@@ -188,6 +193,7 @@ void Lower(Context &ctx, VmValue *value)
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
+				(void)offset;
 				assert(offset->iValue == 0);
 
 				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
@@ -212,6 +218,7 @@ void Lower(Context &ctx, VmValue *value)
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
+				(void)offset;
 				assert(offset->iValue == 0);
 
 				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
@@ -235,6 +242,7 @@ void Lower(Context &ctx, VmValue *value)
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
+				(void)offset;
 				assert(offset->iValue == 0);
 
 				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
@@ -258,6 +266,7 @@ void Lower(Context &ctx, VmValue *value)
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
+				(void)offset;
 				assert(offset->iValue == 0);
 
 				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
@@ -281,6 +290,7 @@ void Lower(Context &ctx, VmValue *value)
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
+				(void)offset;
 				assert(offset->iValue == 0);
 
 				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
@@ -305,6 +315,7 @@ void Lower(Context &ctx, VmValue *value)
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
+				(void)offset;
 				assert(offset->iValue == 0);
 
 				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;
@@ -328,6 +339,7 @@ void Lower(Context &ctx, VmValue *value)
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
+				(void)offset;
 				assert(offset->iValue == 0);
 
 				unsigned moduleId = constant->container->importModule ? constant->container->importModule->importIndex << 24 : 0;

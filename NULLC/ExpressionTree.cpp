@@ -770,6 +770,7 @@ void ExpressionContext::PushTemporaryScope()
 
 void ExpressionContext::PopScope(ScopeType type, SynBase *location, bool keepFunctions)
 {
+	(void)type;
 	assert(scope->type == type);
 
 	// When namespace scope ends, all the contents remain accessible through an outer namespace/global scope
