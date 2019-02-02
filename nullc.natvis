@@ -20,6 +20,16 @@
       </ArrayItems>
     </Expand>
   </Type>
+
+  <Type Name="ArrayView&lt;*&gt;">
+    <Expand>
+      <Item Name="[size]">count</Item>
+      <ArrayItems>
+        <Size>count</Size>
+        <ValuePointer>data</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
   
   <Type Name="NULLC::InplaceStr">
     <DisplayString>{begin,[end-begin]na}</DisplayString>
@@ -60,6 +70,39 @@
           </ArrayItems>
         </Expand>
       </Synthetic>
+    </Expand>
+  </Type>
+
+  <Type Name="FastVector&lt;*,*,*&gt;">
+    <Expand>
+      <Item Name="[size]">count</Item>
+      <Item Name="[capacity]">max</Item>
+      <ArrayItems>
+        <Size>count</Size>
+        <ValuePointer>data</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+  <Type Name="HashMap&lt;*&gt;">
+    <Expand>
+      <CustomListItems MaxItemsPerView="5000">
+        <Variable Name="iBucket" InitialValue="-1" />
+        <Variable Name="pBucket" InitialValue="entries == nullptr ? nullptr : *entries" />
+        <Variable Name="iBucketIncrement" InitialValue="-1" />
+
+        <Exec>pBucket = nullptr</Exec>
+        <Loop>
+          <If Condition="pBucket == nullptr">
+            <Exec>iBucket++</Exec>
+            <Exec>iBucketIncrement = __findnonnull(entries + iBucket, 1024 - iBucket)</Exec>
+            <Break Condition="iBucketIncrement == -1" />
+            <Exec>iBucket += iBucketIncrement</Exec>
+            <Exec>pBucket = entries[iBucket]</Exec>
+          </If>
+          <Item>pBucket,na</Item>
+          <Exec>pBucket = pBucket->next</Exec>
+        </Loop>
+      </CustomListItems>
     </Expand>
   </Type>
 </AutoVisualizer>
