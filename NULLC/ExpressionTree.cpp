@@ -9828,7 +9828,7 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 
 		TypeBase *parentType = function->scope->ownerType;
 
-		if(!parentType || function->importModule != NULL)
+		if(!parentType)
 			continue;
 
 		const char *pos = strstr(function->name.begin, "::");
