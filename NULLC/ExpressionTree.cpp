@@ -31,8 +31,6 @@ namespace
 		va_start(args, msg);
 
 		Stop(ctx, pos, msg, args);
-
-		va_end(args);
 	}
 
 	void Stop(ExpressionContext &ctx, InplaceStr pos, const char *msg, ...)
@@ -41,8 +39,6 @@ namespace
 		va_start(args, msg);
 
 		Stop(ctx, pos.begin, msg, args);
-
-		va_end(args);
 	}
 
 	unsigned char ParseEscapeSequence(ExpressionContext &ctx, const char* str)
@@ -701,8 +697,6 @@ void ExpressionContext::Stop(InplaceStr pos, const char *msg, ...)
 	va_start(args, msg);
 
 	::Stop(*this, pos.begin, msg, args);
-
-	va_end(args);
 }
 
 void ExpressionContext::PushScope(ScopeType type)

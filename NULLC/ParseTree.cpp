@@ -34,8 +34,6 @@ namespace
 		va_start(args, msg);
 
 		Stop(ctx, pos, msg, args);
-
-		va_end(args);
 	}
 
 	void Stop(ParseContext &ctx, Lexeme *pos, const char *msg, ...)
@@ -44,8 +42,6 @@ namespace
 		va_start(args, msg);
 
 		Stop(ctx, pos->pos, msg, args);
-
-		va_end(args);
 	}
 
 	void AssertAt(ParseContext &ctx, LexemeType type, const char *msg, ...)
@@ -56,8 +52,6 @@ namespace
 			va_start(args, msg);
 
 			Stop(ctx, ctx.Position(), msg, args);
-
-			va_end(args);
 		}
 	}
 
@@ -69,8 +63,6 @@ namespace
 			va_start(args, msg);
 
 			Stop(ctx, ctx.Position(), msg, args);
-
-			va_end(args);
 		}
 	}
 
