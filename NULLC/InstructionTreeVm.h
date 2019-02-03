@@ -271,8 +271,6 @@ struct VmInstruction: VmValue
 {
 	VmInstruction(Allocator *allocator, VmType type, SynBase *source, VmInstructionType cmd, unsigned uniqueId): VmValue(myTypeID, allocator, type, source), cmd(cmd), uniqueId(uniqueId), arguments(allocator)
 	{
-		source = NULL;
-
 		parent = NULL;
 
 		prevSibling = NULL;
