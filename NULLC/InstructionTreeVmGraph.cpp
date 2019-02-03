@@ -315,7 +315,7 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 		{
 			VmValue *value = instruction->arguments[i];
 
-			if(value == instruction->arguments[0])
+			if(i == 0)
 				Print(ctx, " ");
 			else
 				Print(ctx, ", ");
