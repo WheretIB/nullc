@@ -341,14 +341,8 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "not";
 	case VM_INST_LOG_NOT:
 		return "lnot";
-	case VM_INST_CREATE_CLOSURE:
-		return "create_closure";
-	case VM_INST_CLOSE_UPVALUES:
-		return "close_upvalues";
 	case VM_INST_CONVERT_POINTER:
 		return "convert_pointer";
-	case VM_INST_CHECKED_RETURN:
-		return "checked_return";
 	case VM_INST_CONSTRUCT:
 		return "construct";
 	case VM_INST_ARRAY:

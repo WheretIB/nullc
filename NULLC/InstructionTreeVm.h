@@ -108,10 +108,7 @@ enum VmInstructionType
 	VM_INST_BIT_NOT,
 	VM_INST_LOG_NOT,
 
-	VM_INST_CREATE_CLOSURE,
-	VM_INST_CLOSE_UPVALUES,
 	VM_INST_CONVERT_POINTER,
-	VM_INST_CHECKED_RETURN,
 
 	VM_INST_CONSTRUCT, // Pseudo instruction to collect multiple elements into a single value
 	VM_INST_ARRAY, // Pseudo instruction to collect multiple elements into a single array

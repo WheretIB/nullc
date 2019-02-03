@@ -1088,10 +1088,6 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 		if(arguments[0]->type.type == VM_TYPE_POINTER)
 			return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue == 0);
 		break;
-	case VM_INST_CREATE_CLOSURE:
-		break;
-	case VM_INST_CLOSE_UPVALUES:
-		break;
 	case VM_INST_CONVERT_POINTER:
 		{
 			VmConstant *value = arguments[0];
@@ -1125,8 +1121,6 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 			return (VmConstant*)Report(ctx, "ERROR: cannot convert from %.*s ref to %.*s ref", FMT_ISTR(sourceType->name), FMT_ISTR(targetType->name));
 		}
-		break;
-	case VM_INST_CHECKED_RETURN:
 		break;
 	case VM_INST_CONSTRUCT:
 		{

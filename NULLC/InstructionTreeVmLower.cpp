@@ -907,12 +907,6 @@ void Lower(Context &ctx, VmValue *value)
 			else
 				assert(!"unknown type");
 			break;
-		case VM_INST_CREATE_CLOSURE:
-			assert(!"not implemented");
-			break;
-		case VM_INST_CLOSE_UPVALUES:
-			assert(!"not implemented");
-			break;
 		case VM_INST_CONVERT_POINTER:
 			{
 				VmValue *pointer = inst->arguments[0];
@@ -924,9 +918,6 @@ void Lower(Context &ctx, VmValue *value)
 
 				AddCommand(ctx, inst->source, VMCmd(cmdConvertPtr, typeIndex->iValue));
 			}
-			break;
-		case VM_INST_CHECKED_RETURN:
-			assert(!"not implemented");
 			break;
 		case VM_INST_CONSTRUCT:
 		case VM_INST_ARRAY:

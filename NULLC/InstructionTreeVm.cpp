@@ -70,9 +70,6 @@ namespace
 		case VM_INST_CALL:
 		case VM_INST_RETURN:
 		case VM_INST_YIELD:
-		case VM_INST_CREATE_CLOSURE:
-		case VM_INST_CLOSE_UPVALUES:
-		case VM_INST_CHECKED_RETURN:
 		case VM_INST_UNYIELD:
 			return true;
 		}
@@ -93,8 +90,6 @@ namespace
 		case VM_INST_STORE_STRUCT:
 		case VM_INST_SET_RANGE:
 		case VM_INST_CALL:
-		case VM_INST_CREATE_CLOSURE:
-		case VM_INST_CLOSE_UPVALUES:
 			return true;
 		}
 
@@ -121,8 +116,6 @@ namespace
 		case VM_INST_STORE_STRUCT:
 		case VM_INST_SET_RANGE:
 		case VM_INST_CALL:
-		case VM_INST_CREATE_CLOSURE:
-		case VM_INST_CLOSE_UPVALUES:
 			return true;
 		}
 
@@ -3552,10 +3545,6 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 				AddStoreInfo(module, curr);
 				break;
 			case VM_INST_SET_RANGE:
-			case VM_INST_YIELD:
-			case VM_INST_CLOSE_UPVALUES:
-				ClearLoadStoreInfoAliasing(module);
-				break;
 			case VM_INST_CALL:
 				ClearLoadStoreInfoAliasing(module);
 				ClearLoadStoreInfoGlobal(module);
@@ -3809,10 +3798,6 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 						AddStoreInfo(module, inst);
 						break;
 					case VM_INST_SET_RANGE:
-					case VM_INST_YIELD:
-					case VM_INST_CLOSE_UPVALUES:
-						ClearLoadStoreInfoAliasing(module);
-						break;
 					case VM_INST_CALL:
 						ClearLoadStoreInfoAliasing(module);
 						ClearLoadStoreInfoGlobal(module);
