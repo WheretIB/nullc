@@ -122,6 +122,40 @@ namespace
 		return false;
 	}
 
+	bool IsLoad(VmInstructionType cmd)
+	{
+		switch(cmd)
+		{
+		case VM_INST_LOAD_BYTE:
+		case VM_INST_LOAD_SHORT:
+		case VM_INST_LOAD_INT:
+		case VM_INST_LOAD_FLOAT:
+		case VM_INST_LOAD_DOUBLE:
+		case VM_INST_LOAD_LONG:
+		case VM_INST_LOAD_STRUCT:
+			return true;
+		}
+
+		return false;
+	}
+
+	bool IsStore(VmInstructionType cmd)
+	{
+		switch(cmd)
+		{
+		case VM_INST_STORE_BYTE:
+		case VM_INST_STORE_SHORT:
+		case VM_INST_STORE_INT:
+		case VM_INST_STORE_FLOAT:
+		case VM_INST_STORE_DOUBLE:
+		case VM_INST_STORE_LONG:
+		case VM_INST_STORE_STRUCT:
+			return true;
+		}
+
+		return false;
+	}
+
 	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth)
 	{
 		assert(module->currentBlock);
@@ -1130,19 +1164,7 @@ namespace
 	bool IsLoad(VmValue *value)
 	{
 		if(VmInstruction *inst = getType<VmInstruction>(value))
-		{
-			switch(inst->cmd)
-			{
-			case VM_INST_LOAD_BYTE:
-			case VM_INST_LOAD_SHORT:
-			case VM_INST_LOAD_INT:
-			case VM_INST_LOAD_FLOAT:
-			case VM_INST_LOAD_DOUBLE:
-			case VM_INST_LOAD_LONG:
-			case VM_INST_LOAD_STRUCT:
-				return true;
-			}
-		}
+			return IsLoad(inst->cmd);
 
 		return false;
 	}
@@ -3737,8 +3759,36 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 	// Replace non-trivial instructions that have multiple uses with stack variables
 	for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
 	{
-		if(curr->users.size() <= 1)
-			continue;
+		if(curr->cmd == VM_INST_CALL || IsLoad(curr))
+		{
+			// If call/load instuction has even a single user, store it's result in a temporary register so that the store will be lowered at the correct place
+			if(curr->users.empty())
+				continue;
+
+			if(curr->users.size() == 1)
+			{
+				if(VmInstruction *inst = getType<VmInstruction>(curr->users[0]))
+				{
+					if(curr->nextSibling == inst)
+					{
+						// But if the single user is the next instruction that itself will be lowered at the correct place, result can still be forwarded without a temporary
+						if(inst->type == VmType::Void)
+							continue;
+
+						if(inst->cmd == VM_INST_CALL)
+							continue;
+
+						if(IsLoad(inst))
+							continue;
+					}
+				}
+			}
+		}
+		else
+		{
+			if(curr->users.size() <= 1)
+				continue;
+		}
 
 		if(curr->type == VmType::Block)
 			continue;
@@ -3748,70 +3798,6 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 
 		if(curr->cmd == VM_INST_FUNCTION_ADDRESS || curr->cmd == VM_INST_TYPE_ID)
 			continue;
-
-		if(IsLoad(curr))
-		{
-			bool usedFromOtherBlock = false;
-
-			for(unsigned i = 0; i < curr->users.size(); i++)
-			{
-				if(VmInstruction *inst = getType<VmInstruction>(curr->users[i]))
-				{
-					if(inst->parent != curr->parent)
-					{
-						usedFromOtherBlock = true;
-						break;
-					}
-				}
-			}
-
-			if(!usedFromOtherBlock)
-			{
-				// Check that going forward from this load to the users, memory location is not invalidated by any stores or aliasing operations
-				ClearLoadStoreInfo(module);
-
-				AddLoadInfo(module, curr);
-
-				unsigned checkedUsers = 0;
-
-				for(VmInstruction *inst = curr->nextSibling; inst; inst = inst->nextSibling)
-				{
-					for(unsigned i = 0; i < curr->users.size(); i++)
-					{
-						if(curr->users[i] == inst)
-							checkedUsers++;
-					}
-
-					// Found all users, stop checking
-					if(checkedUsers == curr->users.size())
-						break;
-
-					switch(inst->cmd)
-					{
-					case VM_INST_STORE_BYTE:
-					case VM_INST_STORE_SHORT:
-					case VM_INST_STORE_INT:
-					case VM_INST_STORE_FLOAT:
-					case VM_INST_STORE_DOUBLE:
-					case VM_INST_STORE_LONG:
-					case VM_INST_STORE_STRUCT:
-						AddStoreInfo(module, inst);
-						break;
-					case VM_INST_SET_RANGE:
-					case VM_INST_CALL:
-						ClearLoadStoreInfoAliasing(module);
-						ClearLoadStoreInfoGlobal(module);
-						break;
-					}
-				}
-
-				assert(checkedUsers == curr->users.size());
-
-				// If load is still valid at the last user location, we can safely perform it at each use place
-				if (!module->loadStoreInfo.empty() && module->loadStoreInfo[0].loadInst == curr)
-					continue;
-			}
-		}
 
 		TypeBase *type = GetBaseType(ctx, curr->type);
 
