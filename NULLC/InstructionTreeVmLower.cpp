@@ -76,9 +76,6 @@ void Lower(Context &ctx, VmValue *value)
 				continue;
 
 			Lower(ctx, curr);
-
-			if(curr->type.size)
-				AddCommand(ctx, block->source, VMCmd(cmdPop, curr->type.size));
 		}
 
 		ctx.currentBlock = NULL;
@@ -974,6 +971,9 @@ void Lower(Context &ctx, VmValue *value)
 		default:
 			assert(!"unknown instruction");
 		}
+
+		if(inst->type.size != 0 && inst->users.empty())
+			AddCommand(ctx, inst->source, VMCmd(cmdPop, inst->type.size));
 	}
 	else if(VmConstant *constant = getType<VmConstant>(value))
 	{
