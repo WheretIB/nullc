@@ -1477,6 +1477,8 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure);
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure);
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, bool allowFailure);
+ExprBase* CreateObjectAllocation(ExpressionContext &ctx, SynBase *source, TypeBase *type);
+ExprBase* CreateArrayAllocation(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *count);
 
 bool RestoreParentTypeScope(ExpressionContext &ctx, SynBase *source, TypeBase *parentType);
 ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, InplaceStr name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches);
@@ -1718,10 +1720,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 				// Allocate storage in heap and copy literal data into it
 				VariableData *storage = AllocateTemporary(ctx, source, ctx.GetReferenceType(valueType));
 
-				ExprBase *size = allocate(ExprIntegerLiteral)(source, ctx.typeInt, valueType->size);
-				ExprBase *typeId = allocate(ExprTypeCast)(source, ctx.typeInt, allocate(ExprTypeLiteral)(source, ctx.typeTypeID, valueType), EXPR_CAST_REINTERPRET);
-
-				ExprBase *alloc = allocate(ExprTypeCast)(source, ctx.GetReferenceType(valueType), CreateFunctionCall2(ctx, source, InplaceStr("__newS"), size, typeId, false, true), EXPR_CAST_REINTERPRET);
+				ExprBase *alloc = CreateObjectAllocation(ctx, source, valueType);
 
 				ExprBase *definition = allocate(ExprVariableDefinition)(value->source, ctx.typeVoid, storage, CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, storage, false), alloc));
 
@@ -5711,6 +5710,22 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 	return allocate(ExprFunctionCall)(source, type->returnType, value, actualArguments);
 }
 
+ExprBase* CreateObjectAllocation(ExpressionContext &ctx, SynBase *source, TypeBase *type)
+{
+	ExprBase *size = allocate(ExprIntegerLiteral)(source, ctx.typeInt, type->size);
+	ExprBase *typeId = allocate(ExprTypeCast)(source, ctx.typeInt, allocate(ExprTypeLiteral)(source, ctx.typeTypeID, type), EXPR_CAST_REINTERPRET);
+
+	return allocate(ExprTypeCast)(source, ctx.GetReferenceType(type), CreateFunctionCall2(ctx, source, InplaceStr("__newS"), size, typeId, false, true), EXPR_CAST_REINTERPRET);
+}
+
+ExprBase* CreateArrayAllocation(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *count)
+{
+	ExprBase *size = allocate(ExprIntegerLiteral)(source, ctx.typeInt, type->size);
+	ExprBase *typeId = allocate(ExprTypeCast)(source, ctx.typeInt, allocate(ExprTypeLiteral)(source, ctx.typeTypeID, type), EXPR_CAST_REINTERPRET);
+
+	return allocate(ExprTypeCast)(source, ctx.GetUnsizedArrayType(type), CreateFunctionCall3(ctx, source, InplaceStr("__newA"), size, count, typeId, false, true), EXPR_CAST_REINTERPRET);
+}
+
 ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 {
 	ExprBase *function = AnalyzeExpression(ctx, syntax->value);
@@ -5879,9 +5894,6 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 			Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(type->name));
 	}
 
-	ExprBase *size = allocate(ExprIntegerLiteral)(syntax, ctx.typeInt, type->size);
-	ExprBase *typeId = allocate(ExprTypeCast)(syntax, ctx.typeInt, allocate(ExprTypeLiteral)(syntax, ctx.typeTypeID, type), EXPR_CAST_REINTERPRET);
-
 	if(syntax->count)
 	{
 		assert(syntax->arguments.empty());
@@ -5889,7 +5901,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *count = AnalyzeExpression(ctx, syntax->count);
 
-		ExprBase *alloc = allocate(ExprTypeCast)(syntax, ctx.GetUnsizedArrayType(type), CreateFunctionCall3(ctx, syntax, InplaceStr("__newA"), size, count, typeId, false, true), EXPR_CAST_REINTERPRET);
+		ExprBase *alloc = CreateArrayAllocation(ctx, syntax, type, count);
 
 		if(HasDefautConstructor(ctx, syntax, type))
 		{
@@ -5904,7 +5916,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		return alloc;
 	}
 
-	ExprBase *alloc = allocate(ExprTypeCast)(syntax, ctx.GetReferenceType(type), CreateFunctionCall2(ctx, syntax, InplaceStr("__newS"), size, typeId, false, true), EXPR_CAST_REINTERPRET);
+	ExprBase *alloc = CreateObjectAllocation(ctx, syntax, type);
 
 	// Call constructor
 	TypeRef *allocType = getType<TypeRef>(alloc->type);
@@ -6325,10 +6337,7 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 	function->contextVariable = context;
 
 	// Allocate closure
-	ExprBase *size = allocate(ExprIntegerLiteral)(source, ctx.typeInt, classType->size);
-	ExprBase *typeId = allocate(ExprTypeCast)(source, ctx.typeInt, allocate(ExprTypeLiteral)(source, ctx.typeTypeID, classType), EXPR_CAST_REINTERPRET);
-
-	ExprBase *alloc = allocate(ExprTypeCast)(source, refType, CreateFunctionCall2(ctx, source, InplaceStr("__newS"), size, typeId, false, true), EXPR_CAST_REINTERPRET);
+	ExprBase *alloc = CreateObjectAllocation(ctx, source, classType);
 
 	// Initialize closure
 	IntrusiveList<ExprBase> expressions;
@@ -9793,7 +9802,7 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 	unsigned typeNameHash = strtoul(vtable->name.begin + 5, NULL, 10);
 
 	TypeBase *functionType = NULL;
-			
+
 	for(unsigned i = 0; i < ctx.types.size(); i++)
 	{
 		if(ctx.types[i]->nameHash == typeNameHash)
@@ -9808,11 +9817,9 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 
 	if(vtable->importModule == NULL)
 	{
-		ExprBase *size = allocate(ExprIntegerLiteral)(source, ctx.typeInt, 4);
 		ExprBase *count = CreateFunctionCall0(ctx, source, InplaceStr("__typeCount"), false, true);
-		ExprBase *typeId = allocate(ExprTypeCast)(source, ctx.typeInt, allocate(ExprTypeLiteral)(source, ctx.typeTypeID, ctx.typeFunctionID), EXPR_CAST_REINTERPRET);
 
-		ExprBase *alloc = allocate(ExprTypeCast)(source, vtable->type, CreateFunctionCall3(ctx, source, InplaceStr("__newA"), size, count, typeId, false, true), EXPR_CAST_REINTERPRET);
+		ExprBase *alloc = CreateArrayAllocation(ctx, source, ctx.typeFunctionID, count);
 
 		ExprBase *assignment = CreateAssignment(ctx, source, allocate(ExprVariableAccess)(source, vtable->type, vtable), alloc);
 
