@@ -9831,6 +9831,10 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 		if(!parentType)
 			continue;
 
+		// If both type and table are imported, then it should have been filled up inside the module for that type
+		if(parentType->importModule && vtable->importModule && parentType->importModule == vtable->importModule)
+			continue;
+
 		const char *pos = strstr(function->name.begin, "::");
 
 		if(!pos)
