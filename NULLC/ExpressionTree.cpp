@@ -1998,6 +1998,9 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 	if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr("="), wrapped, rhs, true, false))
 		return result;
 
+	if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr("default_assign$_"), wrapped, rhs, true, false))
+		return result;
+
 	if((isType<TypeArray>(lhs->type) || isType<TypeUnsizedArray>(lhs->type)) && rhs->type == ctx.typeAutoArray)
 		return CreateFunctionCall2(ctx, source, InplaceStr("__aaassignrev"), wrapped, rhs, false, true);
 
@@ -7440,9 +7443,134 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 	}
 }
 
+void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprClassDefinition *classDefinition)
+{
+	TypeClass *classType = classDefinition->classType;
+
+	IntrusiveList<VariableHandle> customAssignMembers;
+
+	for(VariableHandle *curr = classType->members.head; curr; curr = curr->next)
+	{
+		TypeBase *type = curr->variable->type;
+
+		if(isType<TypeRef>(type) || isType<TypeArray>(type) || isType<TypeUnsizedArray>(type) || isType<TypeFunction>(type))
+			continue;
+
+		SmallArray<ArgumentData, 2> arguments(ctx.allocator);
+
+		arguments.push_back(ArgumentData(source, false, InplaceStr(), ctx.GetReferenceType(type), NULL));
+		arguments.push_back(ArgumentData(source, false, InplaceStr(), type, NULL));
+
+		if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("="), false))
+		{
+			SmallArray<FunctionValue, 32> functions(ctx.allocator);
+
+			GetNodeFunctions(ctx, source, overloads, functions);
+
+			if(!functions.empty())
+			{
+				SmallArray<unsigned, 32> ratings(ctx.allocator);
+
+				FunctionValue bestOverload = SelectBestFunction(ctx, source, functions, IntrusiveList<TypeHandle>(), arguments, ratings);
+
+				if(bestOverload)
+				{
+					customAssignMembers.push_back(allocate(VariableHandle)(curr->variable));
+					continue;
+				}
+			}
+		}
+
+		if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("default_assign$_"), false))
+		{
+			SmallArray<FunctionValue, 32> functions(ctx.allocator);
+
+			GetNodeFunctions(ctx, source, overloads, functions);
+
+			if(!functions.empty())
+			{
+				SmallArray<unsigned, 32> ratings(ctx.allocator);
+
+				FunctionValue bestOverload = SelectBestFunction(ctx, source, functions, IntrusiveList<TypeHandle>(), arguments, ratings);
+
+				if(bestOverload)
+				{
+					customAssignMembers.push_back(allocate(VariableHandle)(curr->variable));
+					continue;
+				}
+			}
+		}
+	}
+
+	if(!customAssignMembers.empty())
+	{
+		InplaceStr functionName = GetFunctionNameInScope(ctx, ctx.scope, NULL, InplaceStr("default_assign$_"), false, false);
+
+		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+
+		arguments.push_back(ArgumentData(source, false, InplaceStr("left"), ctx.GetReferenceType(classType), NULL));
+		arguments.push_back(ArgumentData(source, false, InplaceStr("right"), classType, NULL));
+
+		FunctionData *function = allocate(FunctionData)(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(ctx.typeVoid, arguments), ctx.GetReferenceType(ctx.typeVoid), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+
+		// Fill in argument data
+		for(unsigned i = 0; i < arguments.size(); i++)
+			function->arguments.push_back(arguments[i]);
+
+		CheckFunctionConflict(ctx, source, function->name);
+
+		ctx.AddFunction(function);
+
+		ctx.PushScope(function);
+
+		function->functionScope = ctx.scope;
+
+		IntrusiveList<ExprVariableDefinition> variables;
+
+		CreateFunctionArgumentVariables(ctx, source, function, arguments, variables);
+
+		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, source, function);
+
+		function->argumentsSize = function->functionScope->dataSize;
+
+		IntrusiveList<ExprBase> expressions;
+
+		for(VariableHandle *curr = customAssignMembers.head; curr; curr = curr->next)
+		{
+			VariableData *leftArgument = variables.head->variable;
+
+			ExprBase *left = CreateVariableAccess(ctx, source, leftArgument, false);
+
+			ExprBase *leftMember = CreateMemberAccess(ctx, source, left, curr->variable->name, false);
+
+			VariableData *rightArgument = getType<ExprVariableDefinition>(variables.head->next)->variable;
+
+			ExprBase *right = CreateVariableAccess(ctx, source, rightArgument, false);
+
+			ExprBase *rightMember = CreateMemberAccess(ctx, source, right, curr->variable->name, false);
+
+			expressions.push_back(CreateAssignment(ctx, source, leftMember, rightMember));
+		}
+
+		expressions.push_back(allocate(ExprReturn)(source, ctx.typeVoid, allocate(ExprVoid)(source, ctx.typeVoid), NULL, NULL));
+
+		ClosePendingUpvalues(ctx, function);
+
+		ctx.PopScope(SCOPE_FUNCTION);
+
+		function->declaration = allocate(ExprFunctionDefinition)(source, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL);
+
+		ctx.definitions.push_back(function->declaration);
+
+		classDefinition->functions.push_back(function->declaration);
+	}
+}
+
 void CreateDefaultClassMembers(ExpressionContext &ctx, SynBase *source, ExprClassDefinition *classDefinition)
 {
 	CreateDefaultClassConstructor(ctx, source, classDefinition);
+
+	CreateDefaultClassAssignment(ctx, source, classDefinition);
 }
 
 void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassStaticIf *syntax)
