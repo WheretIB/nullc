@@ -281,6 +281,9 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 
 	if(ctx.displayAsTree)
 	{
+		if(instruction->type == VmType::Void)
+			Print(ctx, " // %%%d", instruction->uniqueId);
+
 		PrintLine(ctx);
 
 		ctx.depth++;
@@ -320,7 +323,7 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 			PrintName(ctx, value, false, false);
 		}
 
-		if(instruction->type == VmType::Void && ctx.showUsers)
+		if(instruction->type == VmType::Void)
 			Print(ctx, " // %%%d", instruction->uniqueId);
 
 		PrintLine(ctx);
