@@ -1742,11 +1742,50 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 				return CheckType(ctx, expression, value);
 
 			if(isType<TypeUnsizedArray>(expression->type) && isType<TypeUnsizedArray>(node->value->type))
+			{
+				// Try changing the target call type
+				if(VmInstruction *inst = getType<VmInstruction>(value))
+				{
+					if(inst->cmd == VM_INST_CALL)
+					{
+						inst->type = GetVmType(ctx, expression->type);
+
+						return CheckType(ctx, expression, value);
+					}
+				}
+
 				return CheckType(ctx, expression, CreateBitcast(module, node->source, GetVmType(ctx, node->type), value));
+			}
 			else if(isType<TypeRef>(expression->type) && isType<TypeRef>(node->value->type))
+			{
+				// Try changing the target call type
+				if(VmInstruction *inst = getType<VmInstruction>(value))
+				{
+					if(inst->cmd == VM_INST_CALL)
+					{
+						inst->type = GetVmType(ctx, expression->type);
+
+						return CheckType(ctx, expression, value);
+					}
+				}
+
 				return CheckType(ctx, expression, CreateBitcast(module, node->source, GetVmType(ctx, node->type), value));
+			}
 			else if(isType<TypeFunction>(expression->type) && isType<TypeFunction>(node->value->type))
+			{
+				// Try changing the target call type
+				if(VmInstruction *inst = getType<VmInstruction>(value))
+				{
+					if(inst->cmd == VM_INST_CALL)
+					{
+						inst->type = GetVmType(ctx, expression->type);
+
+						return CheckType(ctx, expression, value);
+					}
+				}
+
 				return CheckType(ctx, expression, CreateBitcast(module, node->source, GetVmType(ctx, node->type), value));
+			}
 
 			return CheckType(ctx, expression, value);
 		default:

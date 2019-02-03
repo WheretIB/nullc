@@ -5715,7 +5715,9 @@ ExprBase* CreateObjectAllocation(ExpressionContext &ctx, SynBase *source, TypeBa
 	ExprBase *size = allocate(ExprIntegerLiteral)(source, ctx.typeInt, type->size);
 	ExprBase *typeId = allocate(ExprTypeCast)(source, ctx.typeInt, allocate(ExprTypeLiteral)(source, ctx.typeTypeID, type), EXPR_CAST_REINTERPRET);
 
-	return allocate(ExprTypeCast)(source, ctx.GetReferenceType(type), CreateFunctionCall2(ctx, source, InplaceStr("__newS"), size, typeId, false, true), EXPR_CAST_REINTERPRET);
+	ExprFunctionCall *alloc = getType<ExprFunctionCall>(CreateFunctionCall2(ctx, source, InplaceStr("__newS"), size, typeId, false, true));
+
+	return allocate(ExprTypeCast)(source, ctx.GetReferenceType(type), alloc, EXPR_CAST_REINTERPRET);
 }
 
 ExprBase* CreateArrayAllocation(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *count)
@@ -5723,7 +5725,9 @@ ExprBase* CreateArrayAllocation(ExpressionContext &ctx, SynBase *source, TypeBas
 	ExprBase *size = allocate(ExprIntegerLiteral)(source, ctx.typeInt, type->size);
 	ExprBase *typeId = allocate(ExprTypeCast)(source, ctx.typeInt, allocate(ExprTypeLiteral)(source, ctx.typeTypeID, type), EXPR_CAST_REINTERPRET);
 
-	return allocate(ExprTypeCast)(source, ctx.GetUnsizedArrayType(type), CreateFunctionCall3(ctx, source, InplaceStr("__newA"), size, count, typeId, false, true), EXPR_CAST_REINTERPRET);
+	ExprFunctionCall *alloc = getType<ExprFunctionCall>(CreateFunctionCall3(ctx, source, InplaceStr("__newA"), size, count, typeId, false, true));
+
+	return allocate(ExprTypeCast)(source, ctx.GetUnsizedArrayType(type), alloc, EXPR_CAST_REINTERPRET);
 }
 
 ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
