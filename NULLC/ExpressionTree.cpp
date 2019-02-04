@@ -2090,6 +2090,18 @@ ExprBase* CreateLoopUpvalueClose(ExpressionContext &ctx, SynBase *source, Functi
 	return holder;
 }
 
+ExprBase* CreateArgumentUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction)
+{
+	if(!onwerFunction)
+		return NULL;
+
+	ExprSequence *holder = allocate(ExprSequence)(source, ctx.typeVoid, IntrusiveList<ExprBase>());
+
+	onwerFunction->closeUpvalues.push_back(allocate(CloseUpvaluesData)(holder, CLOSE_UPVALUES_ARGUMENT, source, NULL, 0));
+
+	return holder;
+}
+
 void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 {
 	for(CloseUpvaluesData *curr = function->closeUpvalues.head; curr; curr = curr->next)
@@ -2139,6 +2151,18 @@ void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 				}
 			}
 			break;
+		case CLOSE_UPVALUES_ARGUMENT:
+			for(VariableHandle *curr = function->argumentVariables.head; curr; curr = curr->next)
+			{
+				if(curr->variable->usedAsExternal)
+					data.expr->expressions.push_back(CreateUpvalueClose(ctx, data.source, curr->variable));
+			}
+
+			if(VariableData *variable = function->contextArgument)
+			{
+				if(variable->usedAsExternal)
+					data.expr->expressions.push_back(CreateUpvalueClose(ctx, data.source, variable));
+			}
 		}
 	}
 }
@@ -6082,7 +6106,7 @@ ExprYield* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 
 		unsigned yieldId = ++function->yieldCount;
 
-		return allocate(ExprYield)(syntax, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, syntax, function, yieldId), CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope), yieldId);
+		return allocate(ExprYield)(syntax, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, syntax, function, yieldId), CreateArgumentUpvalueClose(ctx, syntax, function), yieldId);
 	}
 
 	Stop(ctx, syntax->pos, "ERROR: global yield is not allowed");
