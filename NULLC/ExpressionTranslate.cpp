@@ -2011,6 +2011,13 @@ void TranslateModuleTypePrototypes(ExpressionTranslateContext &ctx)
 			Print(ctx, ";");
 			PrintLine(ctx);
 		}
+		else if(TypeArray *typeArray = getType<TypeArray>(type))
+		{
+			Print(ctx, "struct ");
+			PrintEscapedName(ctx, typeArray->name);
+			Print(ctx, ";");
+			PrintLine(ctx);
+		}
 	}
 
 	PrintLine(ctx);
