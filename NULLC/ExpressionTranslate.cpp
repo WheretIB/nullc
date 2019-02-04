@@ -2,6 +2,7 @@
 
 #include <stdarg.h>
 
+#include "Bytecode.h"
 #include "BinaryCache.h"
 #include "Compiler.h"
 #include "ExpressionTree.h"
@@ -39,6 +40,8 @@ void PrintBuffered(ExpressionTranslateContext &ctx, const char *str)
 		unsigned remainder = ctx.outBufSize - ctx.outBufPos;
 
 		memcpy(ctx.outBuf + ctx.outBufPos, str, remainder);
+		ctx.outBufPos += remainder;
+
 		fwrite(ctx.outBuf, 1, ctx.outBufPos, ctx.file);
 		ctx.outBufPos = 0;
 
