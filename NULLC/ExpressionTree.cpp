@@ -5063,17 +5063,31 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 {
 	ratings.resize(functions.size());
 
-	unsigned bestRating = ~0u;
-	FunctionValue bestFunction;
+	SmallArray<TypeFunction*, 16> instanceTypes;
 
-	unsigned bestGenericRating = ~0u;
-	FunctionValue bestGenericFunction;
-	
+	TypeClass *preferredParent = NULL;
+
 	for(unsigned i = 0; i < functions.size(); i++)
 	{
 		FunctionValue value = functions[i];
 
 		FunctionData *function = value.function;
+
+		instanceTypes.push_back(function->type);
+
+		if(TypeRef *typeRef = getType<TypeRef>(value.context->type))
+		{
+			if(TypeClass *typeClass = getType<TypeClass>(typeRef->subType))
+			{
+				if(typeClass->extendable)
+				{
+					if(!preferredParent)
+						preferredParent = typeClass;
+					else
+						assert(preferredParent == typeClass);
+				}
+			}
+		}
 
 		if(!generics.empty())
 		{
@@ -5141,6 +5155,8 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 
 			TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, parentType, function, result, aliases);
 
+			instanceTypes.back() = instance;
+
 			if(!instance)
 			{
 				ratings[i] = ~0u;
@@ -5148,7 +5164,64 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 			}
 			
 			ratings[i] = GetFunctionRating(ctx, function, instance, result);
+		}
+	}
 
+	// For member functions, if there are multiple functions with the same rating and arguments, hide those which parent is derived further from preferred parent
+	if(preferredParent)
+	{
+		for(unsigned i = 0; i < functions.size(); i++)
+		{
+			FunctionData *a = functions[i].function;
+
+			for(unsigned k = 0; k < functions.size(); k++)
+			{
+				if(i == k)
+					continue;
+
+				if(ratings[k] == ~0u)
+					continue;
+
+				FunctionData *b = functions[k].function;
+
+				if(ratings[i] == ratings[k] && instanceTypes[i]->arguments.size() == instanceTypes[k]->arguments.size())
+				{
+					bool sameArguments = true;
+
+					for(unsigned arg = 0; arg < instanceTypes[i]->arguments.size(); arg++)
+					{
+						if(instanceTypes[i]->arguments[arg]->type != instanceTypes[k]->arguments[arg]->type)
+							sameArguments = false;
+					}
+
+					if(sameArguments)
+					{
+						auto aDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(a->scope->ownerType));
+						auto bDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(b->scope->ownerType));
+
+						if (aDepth < bDepth)
+							ratings[k] = ~0u;
+					}
+				}
+			}
+		}
+	}
+
+	// Select best generic and non-generic function
+	unsigned bestRating = ~0u;
+	FunctionValue bestFunction;
+
+	unsigned bestGenericRating = ~0u;
+	FunctionValue bestGenericFunction;
+
+	for(unsigned i = 0; i < functions.size(); i++)
+	{
+		FunctionValue value = functions[i];
+
+		FunctionData *function = value.function;
+
+		if(ctx.IsGenericFunction(function))
+		{
 			if(ratings[i] < bestGenericRating)
 			{
 				bestGenericRating = ratings[i];
