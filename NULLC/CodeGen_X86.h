@@ -2,8 +2,8 @@
 
 #include "stdafx.h"
 
+#include "InstructionSet.h"
 #include "Instruction_X86.h"
-#include "ParseClass.h"
 #include "Bytecode.h"
 
 const unsigned int JUMP_NEAR = (unsigned int)(1 << 31);
