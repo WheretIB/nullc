@@ -1048,7 +1048,7 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 
 		if(subType.subCat == ExternTypeInfo::CAT_NONE || subType.subCat == ExternTypeInfo::CAT_POINTER)
 			it += safeprintf(it, 256 - int(it - name), " %s", GetBasicVariableInfo(subType, ptr));
-		else if(&subType == &codeTypes[8])	// for typeid
+		else if(&subType == &codeTypes[NULLC_TYPE_TYPEID])
 			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr)].offsetToName : "invalid: out of range");
 
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
@@ -1108,7 +1108,7 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 
 		if(memberType.subCat == ExternTypeInfo::CAT_NONE || memberType.subCat == ExternTypeInfo::CAT_POINTER)
 			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(memberType, ptr + localOffset));
-		else if(&memberType == &codeTypes[8])	// for typeid
+		else if(&memberType == &codeTypes[NULLC_TYPE_TYPEID])
 			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr + localOffset) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr + localOffset)].offsetToName : "invalid: out of range");
 
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
@@ -1258,16 +1258,18 @@ void FillFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 
 void FillVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM parent, bool update)
 {
-	if(&type == &codeTypes[8])	// typeid
+	if(&type == &codeTypes[NULLC_TYPE_TYPEID])
 		return;
-	if(&type == &codeTypes[7])
+
+	if(&type == &codeTypes[NULLC_TYPE_AUTO_REF])
 	{
-		FillAutoInfo(ptr, parent);	// auto ref
+		FillAutoInfo(ptr, parent);
 		return;
 	}
-	if(&type == &codeTypes[10])
+
+	if(&type == &codeTypes[NULLC_TYPE_AUTO_ARRAY])
 	{
-		FillAutoArrayInfo(ptr, parent);	// auto[]
+		FillAutoArrayInfo(ptr, parent);
 		return;
 	}
 
@@ -1326,7 +1328,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 
 		if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
 			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, data + codeVars[i].offset));
-		else if(&type == &codeTypes[8])	// for typeid
+		else if(&type == &codeTypes[NULLC_TYPE_TYPEID])
 			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + codeVars[i].offset)].offsetToName);
 
 		if(showTemps || (strstr(name, "$temp") == 0 && strstr(name, "$vtbl") == 0))
@@ -1604,7 +1606,7 @@ void UpdateWatchedVariables()
 
 		if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
 			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, (char*)extra.address));
-		else if(&type == &codeTypes[8])	// for typeid
+		else if(&type == &codeTypes[NULLC_TYPE_TYPEID])
 			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(extra.address)].offsetToName);
 
 		item.pszText = name;
@@ -2259,7 +2261,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 					if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
 						it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, ptr));
-					else if(&type == &codeTypes[8])	// for typeid
+					else if(&type == &codeTypes[NULLC_TYPE_TYPEID])
 						it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)ptr].offsetToName);
 
 					TVINSERTSTRUCT helpInsert;
