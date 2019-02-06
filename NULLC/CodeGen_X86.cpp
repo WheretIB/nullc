@@ -801,7 +801,7 @@ void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2)
 		NULLC::InvalidateDependand(reg1);
 	}else if(op == o_test && reg1 == reg2 && NULLC::reg[reg1].type == x86Argument::argReg){
 		reg1 = reg2 = NULLC::reg[reg1].reg;
-	}else{
+	}else if(op != o_sal && op != o_sar){
 		if(NULLC::reg[reg2].type == x86Argument::argReg)
 			reg2 = NULLC::reg[reg2].reg;
 	}
