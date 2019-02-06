@@ -40,6 +40,8 @@ namespace NULLC
 		}
 		InplaceStr(const char *strBegin, const char *strEnd)
 		{
+			assert(strEnd >= strBegin);
+
 			begin = strBegin;
 			end = strEnd;
 		}
