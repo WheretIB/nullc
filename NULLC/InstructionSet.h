@@ -288,12 +288,12 @@ struct VMCmd
 		case cmdPushDorLStk:
 		case cmdPushCmplxStk:
 		case cmdPushPtrStk:
-			curr += sprintf(curr, " [%d%s] sizeof(%d)", argument, flag ? " + base" : "", helper);
+			curr += sprintf(curr, " [%u%s] sizeof(%u)", argument, flag ? " + base" : "", helper);
 			break;
 
 		case cmdPushImmt:
 		case cmdPushPtrImmt:
-			curr += sprintf(curr, " %d", argument);
+			curr += sprintf(curr, " %u", argument);
 			break;
 
 		case cmdMovChar:
@@ -309,62 +309,66 @@ struct VMCmd
 		case cmdMovFloatStk:
 		case cmdMovDorLStk:
 		case cmdMovCmplxStk:
-			curr += sprintf(curr, " [%d%s] sizeof(%d)", argument, flag ? " + base" : "", helper);
+			curr += sprintf(curr, " [%u%s] sizeof(%u)", argument, flag ? " + base" : "", helper);
 			break;
 
 		case cmdPop:
-			curr += sprintf(curr, " sizeof(%d)", argument);
+			curr += sprintf(curr, " sizeof(%u)", argument);
 			break;
 		case cmdIndex:
-			curr += sprintf(curr, " limit(%d) sizeof(%d)", argument, helper);
+			curr += sprintf(curr, " limit(%u) sizeof(%u)", argument, helper);
 			break;
 		case cmdIndexStk:
-			curr += sprintf(curr, " sizeof(%d)", helper);
+			curr += sprintf(curr, " sizeof(%u)", helper);
 			break;
 		case cmdGetAddr:
+			curr += sprintf(curr, " [%u%s]", argument, flag ? " + base" : "");
+			break;
 		case cmdFuncAddr:
+			curr += sprintf(curr, " %u", argument);
+			break;
 		case cmdPushVTop:
-			curr += sprintf(curr, " %d", argument);
+			curr += sprintf(curr, " total(%u) arguments(%u)", argument, helper);
 			break;
 
 		case cmdSetRangeStk:
-			curr += sprintf(curr, " element count: %d dtype: %d", argument, helper);
+			curr += sprintf(curr, " element count: %u dtype: %u", argument, helper);
 			break;
 
 		case cmdJmp:
 		case cmdJmpZ:
 		case cmdJmpNZ:
-			curr += sprintf(curr, " %d", argument);
+			curr += sprintf(curr, " %u", argument);
 			break;
 
 		case cmdCall:
-			curr += sprintf(curr, " Function id: %d ret size: %d", argument, helper);
+			curr += sprintf(curr, " Function id: %u ret size: %u", argument, helper);
 			break;
 
 		case cmdCallPtr:
-			curr += sprintf(curr, " Param size: %d ret size: %d", argument, helper);
+			curr += sprintf(curr, " Param size: %u ret size: %u", argument, helper);
 			break;
 
 		case cmdReturn:
-			curr += sprintf(curr, " %s flag: %d sizeof: %d", helper ? "local" : "global", (int)flag, argument);
+			curr += sprintf(curr, " %s flag: %d sizeof: %u", helper ? "local" : "global", (int)flag, argument);
 			break;
 
 		case cmdCreateClosure:
-			curr += sprintf(curr, " Function id: %d Previous closure at %d", argument, helper);
+			curr += sprintf(curr, " Function id: %u Previous closure at %u", argument, helper);
 			break;
 		case cmdCloseUpvals:
-			curr += sprintf(curr, " Function id: %d Stack offset: %d", helper, argument);
+			curr += sprintf(curr, " Function id: %u Stack offset: %u", helper, argument);
 			break;
 
 		case cmdPushTypeID:
-			curr += sprintf(curr, " %d", argument);
+			curr += sprintf(curr, " %u", argument);
 			break;
 		case cmdConvertPtr:
-			curr += sprintf(curr, " Type id: %d", argument);
+			curr += sprintf(curr, " Type id: %u", argument);
 			break;
 
 		case cmdYield:
-			curr += sprintf(curr, " %s %s (context at %d)", flag ? "Restore" : "Save", flag ? " " : (helper ? "Yield" : "Return"), argument);
+			curr += sprintf(curr, " %s %s (context at %u)", flag ? "Restore" : "Save", flag ? " " : (helper ? "Yield" : "Return"), argument);
 			break;
 		}
 		return (int)(curr-buf);
