@@ -473,4 +473,43 @@ public:
 	unsigned count;
 };
 
+template<typename T>
+struct VectorView
+{
+	VectorView(): count(0), capacity(0), data(NULL)
+	{
+	}
+
+	VectorView(T* data, unsigned capacity): count(0), capacity(capacity), data(data)
+	{
+	}
+
+	T& push_back()
+	{
+		assert(count < capacity);
+
+		return data[count++];
+	}
+
+	void push_back(const T& elem)
+	{
+		assert(count < capacity);
+
+		data[count++] = elem;
+	}
+
+	void push_back(const T* elems, unsigned amount)
+	{
+		assert(count + amount <= capacity);
+
+		memcpy(data + count, elems, amount * sizeof(T));
+		count += amount;
+	}
+
+	unsigned count;
+	unsigned capacity;
+
+	T *data;
+};
+
 #endif
