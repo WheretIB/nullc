@@ -121,3 +121,7 @@ private:
 VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *instruction, VmBlock *predecessor, VmBlock **nextBlock);
 VmConstant* EvaluateFunction(InstructionVMEvalContext &ctx, VmFunction *function);
 VmConstant* EvaluateModule(InstructionVMEvalContext &ctx, VmModule *module);
+
+bool EvaluateToBuffer(InstructionVMEvalContext &ctx, VmModule *module, char *resultBuf, unsigned resultBufSize);
+
+bool TestEvaluation(ExpressionContext &ctx, VmModule *module, char *resultBuf, unsigned resultBufSize, char *errorBuf, unsigned errorBufSize);

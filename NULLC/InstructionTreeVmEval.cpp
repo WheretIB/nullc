@@ -2117,3 +2117,42 @@ VmConstant* EvaluateModule(InstructionVMEvalContext &ctx, VmModule *module)
 
 	return result;
 }
+
+bool EvaluateToBuffer(InstructionVMEvalContext &ctx, VmModule *module, char *resultBuf, unsigned resultBufSize)
+{
+	if(VmConstant *value = EvaluateModule(ctx, module))
+	{
+		if(value->type == VmType::Int)
+		{
+			SafeSprintf(resultBuf, resultBufSize, "%d", value->iValue);
+		}
+		else if(value->type == VmType::Double)
+		{
+			SafeSprintf(resultBuf, resultBufSize, "%f", value->dValue);
+		}
+		else if(value->type == VmType::Long)
+		{
+			SafeSprintf(resultBuf, resultBufSize, "%lldL", value->lValue);
+		}
+		else
+		{
+			SafeSprintf(resultBuf, resultBufSize, "unknown");
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+bool TestEvaluation(ExpressionContext &ctx, VmModule *module, char *resultBuf, unsigned resultBufSize, char *errorBuf, unsigned errorBufSize)
+{
+	InstructionVMEvalContext evalCtx(ctx, ctx.allocator);
+
+	evalCtx.errorBuf = errorBuf;
+	evalCtx.errorBufSize = errorBufSize;
+
+	evalCtx.emulateKnownExternals = true;
+
+	return EvaluateToBuffer(evalCtx, module, resultBuf, resultBufSize);
+}
