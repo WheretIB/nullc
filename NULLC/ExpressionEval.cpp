@@ -7,9 +7,7 @@
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 #define allocate(T) new (ctx.ctx.get<T>()) T
 
-typedef ExpressionEvalContext Eval;
-
-ExprBase* Report(Eval &ctx, const char *msg, ...)
+ExprBase* Report(ExpressionEvalContext &ctx, const char *msg, ...)
 {
 	if(ctx.errorBuf && ctx.errorBufSize)
 	{
@@ -28,7 +26,7 @@ ExprBase* Report(Eval &ctx, const char *msg, ...)
 	return NULL;
 }
 
-ExprBase* ReportCritical(Eval &ctx, const char *msg, ...)
+ExprBase* ReportCritical(ExpressionEvalContext &ctx, const char *msg, ...)
 {
 	if(ctx.errorBuf && ctx.errorBufSize)
 	{
@@ -47,7 +45,7 @@ ExprBase* ReportCritical(Eval &ctx, const char *msg, ...)
 	return NULL;
 }
 
-bool AddInstruction(Eval &ctx)
+bool AddInstruction(ExpressionEvalContext &ctx)
 {
 	if(ctx.instruction < ctx.instructionsLimit)
 	{
@@ -60,7 +58,7 @@ bool AddInstruction(Eval &ctx)
 	return false;
 }
 
-ExprPointerLiteral* AllocateTypeStorage(Eval &ctx, SynBase *source, TypeBase *type)
+ExprPointerLiteral* AllocateTypeStorage(ExpressionEvalContext &ctx, SynBase *source, TypeBase *type)
 {
 	for(unsigned i = 0; i < ctx.abandonedMemory.size(); i++)
 	{
@@ -94,12 +92,12 @@ ExprPointerLiteral* AllocateTypeStorage(Eval &ctx, SynBase *source, TypeBase *ty
 	return allocate(ExprPointerLiteral)(source, ctx.ctx.GetReferenceType(type), memory, memory + type->size);
 }
 
-void FreeMemoryLiteral(Eval &ctx, ExprMemoryLiteral *memory)
+void FreeMemoryLiteral(ExpressionEvalContext &ctx, ExprMemoryLiteral *memory)
 {
 	ctx.abandonedMemory.push_back(memory->ptr);
 }
 
-bool CreateStore(Eval &ctx, ExprBase *target, ExprBase *value)
+bool CreateStore(ExpressionEvalContext &ctx, ExprBase *target, ExprBase *value)
 {
 	// No side-effects while coroutine is skipping to target node
 	if(!ctx.stackFrames.empty())
@@ -212,7 +210,7 @@ bool CreateStore(Eval &ctx, ExprBase *target, ExprBase *value)
 	return false;
 }
 
-ExprBase* CreateLoad(Eval &ctx, ExprBase *target)
+ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 {
 	// No side-effects while coroutine is skipping to target node
 	if(!ctx.stackFrames.empty())
@@ -373,7 +371,7 @@ ExprBase* CreateLoad(Eval &ctx, ExprBase *target)
 	return allocate(ExprMemoryLiteral)(target->source, type, storage);
 }
 
-bool CreateInsert(Eval &ctx, ExprMemoryLiteral *memory, unsigned offset, ExprBase *value)
+bool CreateInsert(ExpressionEvalContext &ctx, ExprMemoryLiteral *memory, unsigned offset, ExprBase *value)
 {
 	assert(memory->ptr->ptr + value->type->size <= memory->ptr->end);
 
@@ -385,7 +383,7 @@ bool CreateInsert(Eval &ctx, ExprMemoryLiteral *memory, unsigned offset, ExprBas
 	return true;
 }
 
-ExprBase* CreateExtract(Eval &ctx, ExprMemoryLiteral *memory, unsigned offset, TypeBase *type)
+ExprBase* CreateExtract(ExpressionEvalContext &ctx, ExprMemoryLiteral *memory, unsigned offset, TypeBase *type)
 {
 	assert(memory->ptr->ptr + type->size <= memory->ptr->end);
 
@@ -394,7 +392,7 @@ ExprBase* CreateExtract(Eval &ctx, ExprMemoryLiteral *memory, unsigned offset, T
 	return CreateLoad(ctx, &addr);
 }
 
-ExprMemoryLiteral* CreateConstruct(Eval &ctx, TypeBase *type, ExprBase *el0, ExprBase *el1, ExprBase *el2)
+ExprMemoryLiteral* CreateConstruct(ExpressionEvalContext &ctx, TypeBase *type, ExprBase *el0, ExprBase *el1, ExprBase *el2)
 {
 	long long size = 0;
 	
@@ -436,16 +434,16 @@ ExprMemoryLiteral* CreateConstruct(Eval &ctx, TypeBase *type, ExprBase *el0, Exp
 	return memory;
 }
 
-ExprPointerLiteral* FindVariableStorage(Eval &ctx, VariableData *data)
+ExprPointerLiteral* FindVariableStorage(ExpressionEvalContext &ctx, VariableData *data)
 {
 	if(ctx.stackFrames.empty())
 		return (ExprPointerLiteral*)Report(ctx, "ERROR: no stack frame");
 
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	for(unsigned i = 0; i < frame->variables.size(); i++)
 	{
-		Eval::StackVariable &variable = frame->variables[i];
+		ExpressionEvalContext::StackVariable &variable = frame->variables[i];
 
 		if(variable.variable == data)
 			return variable.ptr;
@@ -455,7 +453,7 @@ ExprPointerLiteral* FindVariableStorage(Eval &ctx, VariableData *data)
 	{
 		for(unsigned i = 0; i < ctx.globalFrame->variables.size(); i++)
 		{
-			Eval::StackVariable &variable = ctx.globalFrame->variables[i];
+			ExpressionEvalContext::StackVariable &variable = ctx.globalFrame->variables[i];
 
 			if(variable.variable == data)
 				return variable.ptr;
@@ -553,7 +551,7 @@ bool TryTakePointer(ExprBase *expression, void* &result)
 	return false;
 }
 
-ExprBase* CreateBinaryOp(Eval &ctx, SynBase *source, ExprBase *lhs, ExprBase *unevaluatedRhs, SynBinaryOpType op)
+ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *unevaluatedRhs, SynBinaryOpType op)
 {
 	assert(lhs->type == unevaluatedRhs->type);
 
@@ -778,7 +776,7 @@ ExprBase* CheckType(ExprBase* expression, ExprBase *value)
 	return value;
 }
 
-ExprBase* EvaluateArray(Eval &ctx, ExprArray *expression)
+ExprBase* EvaluateArray(ExpressionEvalContext &ctx, ExprArray *expression)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -820,7 +818,7 @@ ExprBase* EvaluateArray(Eval &ctx, ExprArray *expression)
 	return CheckType(expression, load);
 }
 
-ExprBase* EvaluatePreModify(Eval &ctx, ExprPreModify *expression)
+ExprBase* EvaluatePreModify(ExpressionEvalContext &ctx, ExprPreModify *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -849,7 +847,7 @@ ExprBase* EvaluatePreModify(Eval &ctx, ExprPreModify *expression)
 	return CheckType(expression, modified);
 }
 
-ExprBase* EvaluatePostModify(Eval &ctx, ExprPostModify *expression)
+ExprBase* EvaluatePostModify(ExpressionEvalContext &ctx, ExprPostModify *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -878,7 +876,7 @@ ExprBase* EvaluatePostModify(Eval &ctx, ExprPostModify *expression)
 	return CheckType(expression, value);
 }
 
-ExprBase* EvaluateCast(Eval &ctx, ExprTypeCast *expression)
+ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1130,7 +1128,7 @@ ExprBase* EvaluateCast(Eval &ctx, ExprTypeCast *expression)
 	return Report(ctx, "ERROR: failed to cast '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(expression->type->name));
 }
 
-ExprBase* EvaluateUnaryOp(Eval &ctx, ExprUnaryOp *expression)
+ExprBase* EvaluateUnaryOp(ExpressionEvalContext &ctx, ExprUnaryOp *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -1214,7 +1212,7 @@ ExprBase* EvaluateUnaryOp(Eval &ctx, ExprUnaryOp *expression)
 	return Report(ctx, "ERROR: failed to eval unary op");
 }
 
-ExprBase* EvaluateBinaryOp(Eval &ctx, ExprBinaryOp *expression)
+ExprBase* EvaluateBinaryOp(ExpressionEvalContext &ctx, ExprBinaryOp *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -1236,7 +1234,7 @@ ExprBase* EvaluateBinaryOp(Eval &ctx, ExprBinaryOp *expression)
 	return CheckType(expression, result);
 }
 
-ExprBase* EvaluateGetAddress(Eval &ctx, ExprGetAddress *expression)
+ExprBase* EvaluateGetAddress(ExpressionEvalContext &ctx, ExprGetAddress *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -1252,7 +1250,7 @@ ExprBase* EvaluateGetAddress(Eval &ctx, ExprGetAddress *expression)
 	return CheckType(expression, ptr);
 }
 
-ExprBase* EvaluateDereference(Eval &ctx, ExprDereference *expression)
+ExprBase* EvaluateDereference(ExpressionEvalContext &ctx, ExprDereference *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -1273,7 +1271,7 @@ ExprBase* EvaluateDereference(Eval &ctx, ExprDereference *expression)
 	return CheckType(expression, value);
 }
 
-ExprBase* EvaluateConditional(Eval &ctx, ExprConditional *expression)
+ExprBase* EvaluateConditional(ExpressionEvalContext &ctx, ExprConditional *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -1298,7 +1296,7 @@ ExprBase* EvaluateConditional(Eval &ctx, ExprConditional *expression)
 	return CheckType(expression, value);
 }
 
-ExprBase* EvaluateAssignment(Eval &ctx, ExprAssignment *expression)
+ExprBase* EvaluateAssignment(ExpressionEvalContext &ctx, ExprAssignment *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -1318,7 +1316,7 @@ ExprBase* EvaluateAssignment(Eval &ctx, ExprAssignment *expression)
 	return CheckType(expression, rhs);
 }
 
-ExprBase* EvaluateMemberAccess(Eval &ctx, ExprMemberAccess *expression)
+ExprBase* EvaluateMemberAccess(ExpressionEvalContext &ctx, ExprMemberAccess *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -1346,7 +1344,7 @@ ExprBase* EvaluateMemberAccess(Eval &ctx, ExprMemberAccess *expression)
 	return CheckType(expression, shifted);
 }
 
-ExprBase* EvaluateArrayIndex(Eval &ctx, ExprArrayIndex *expression)
+ExprBase* EvaluateArrayIndex(ExpressionEvalContext &ctx, ExprArrayIndex *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -1427,12 +1425,12 @@ ExprBase* EvaluateArrayIndex(Eval &ctx, ExprArrayIndex *expression)
 	return CheckType(expression, shifted);
 }
 
-ExprBase* EvaluateReturn(Eval &ctx, ExprReturn *expression)
+ExprBase* EvaluateReturn(ExpressionEvalContext &ctx, ExprReturn *expression)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	if(frame->targetYield)
 		return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
@@ -1462,12 +1460,12 @@ ExprBase* EvaluateReturn(Eval &ctx, ExprReturn *expression)
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
-ExprBase* EvaluateYield(Eval &ctx, ExprYield *expression)
+ExprBase* EvaluateYield(ExpressionEvalContext &ctx, ExprYield *expression)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	// Check if we reached target yield
 	if(frame->targetYield == expression->order)
@@ -1505,12 +1503,12 @@ ExprBase* EvaluateYield(Eval &ctx, ExprYield *expression)
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
-ExprBase* EvaluateVariableDefinition(Eval &ctx, ExprVariableDefinition *expression)
+ExprBase* EvaluateVariableDefinition(ExpressionEvalContext &ctx, ExprVariableDefinition *expression)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	if(FindVariableStorage(ctx, expression->variable) == NULL)
 	{
@@ -1521,7 +1519,7 @@ ExprBase* EvaluateVariableDefinition(Eval &ctx, ExprVariableDefinition *expressi
 		if(!storage)
 			return NULL;
 
-		frame->variables.push_back(Eval::StackVariable(expression->variable, storage));
+		frame->variables.push_back(ExpressionEvalContext::StackVariable(expression->variable, storage));
 	}
 
 	if(!frame->targetYield)
@@ -1536,7 +1534,7 @@ ExprBase* EvaluateVariableDefinition(Eval &ctx, ExprVariableDefinition *expressi
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
-ExprBase* EvaluateArraySetup(Eval &ctx, ExprArraySetup *expression)
+ExprBase* EvaluateArraySetup(ExpressionEvalContext &ctx, ExprArraySetup *expression)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1578,7 +1576,7 @@ ExprBase* EvaluateArraySetup(Eval &ctx, ExprArraySetup *expression)
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
-ExprBase* EvaluateVariableDefinitions(Eval &ctx, ExprVariableDefinitions *expression)
+ExprBase* EvaluateVariableDefinitions(ExpressionEvalContext &ctx, ExprVariableDefinitions *expression)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1592,7 +1590,7 @@ ExprBase* EvaluateVariableDefinitions(Eval &ctx, ExprVariableDefinitions *expres
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
-ExprBase* EvaluateVariableAccess(Eval &ctx, ExprVariableAccess *expression)
+ExprBase* EvaluateVariableAccess(ExpressionEvalContext &ctx, ExprVariableAccess *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -1613,7 +1611,7 @@ ExprBase* EvaluateVariableAccess(Eval &ctx, ExprVariableAccess *expression)
 	return CheckType(expression, value);
 }
 
-ExprBase* EvaluateFunctionContextAccess(Eval &ctx, ExprFunctionContextAccess *expression)
+ExprBase* EvaluateFunctionContextAccess(ExpressionEvalContext &ctx, ExprFunctionContextAccess *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -1647,7 +1645,7 @@ ExprBase* EvaluateFunctionContextAccess(Eval &ctx, ExprFunctionContextAccess *ex
 	return CheckType(expression, value);
 }
 
-ExprBase* EvaluateFunctionDefinition(Eval &ctx, ExprFunctionDefinition *expression)
+ExprBase* EvaluateFunctionDefinition(ExpressionEvalContext &ctx, ExprFunctionDefinition *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -1660,7 +1658,7 @@ ExprBase* EvaluateFunctionDefinition(Eval &ctx, ExprFunctionDefinition *expressi
 	return CheckType(expression, allocate(ExprFunctionLiteral)(expression->source, expression->function->type, expression->function, context));
 }
 
-ExprBase* EvaluateGenericFunctionPrototype(Eval &ctx, ExprGenericFunctionPrototype *expression)
+ExprBase* EvaluateGenericFunctionPrototype(ExpressionEvalContext &ctx, ExprGenericFunctionPrototype *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -1677,7 +1675,7 @@ ExprBase* EvaluateGenericFunctionPrototype(Eval &ctx, ExprGenericFunctionPrototy
 	return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
 }
 
-ExprBase* EvaluateFunction(Eval &ctx, ExprFunctionDefinition *expression, ExprBase *context, SmallArray<ExprBase*, 32> &arguments)
+ExprBase* EvaluateFunction(ExpressionEvalContext &ctx, ExprFunctionDefinition *expression, ExprBase *context, SmallArray<ExprBase*, 32> &arguments)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1685,9 +1683,9 @@ ExprBase* EvaluateFunction(Eval &ctx, ExprFunctionDefinition *expression, ExprBa
 	if(ctx.stackFrames.size() >= ctx.stackDepthLimit)
 		return Report(ctx, "ERROR: stack depth limit");
 
-	ctx.stackFrames.push_back(allocate(Eval::StackFrame)(ctx.ctx.allocator, expression->function));
+	ctx.stackFrames.push_back(allocate(ExpressionEvalContext::StackFrame)(ctx.ctx.allocator, expression->function));
 
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	if(ExprVariableDefinition *curr = expression->contextArgument)
 	{
@@ -1696,7 +1694,7 @@ ExprBase* EvaluateFunction(Eval &ctx, ExprFunctionDefinition *expression, ExprBa
 		if(!storage)
 			return NULL;
 
-		frame->variables.push_back(Eval::StackVariable(curr->variable, storage));
+		frame->variables.push_back(ExpressionEvalContext::StackVariable(curr->variable, storage));
 
 		if(!CreateStore(ctx, storage, context))
 			return NULL;
@@ -1711,7 +1709,7 @@ ExprBase* EvaluateFunction(Eval &ctx, ExprFunctionDefinition *expression, ExprBa
 		if(!storage)
 			return NULL;
 
-		frame->variables.push_back(Eval::StackVariable(curr->variable, storage));
+		frame->variables.push_back(ExpressionEvalContext::StackVariable(curr->variable, storage));
 
 		if(!CreateStore(ctx, storage, arguments[pos]))
 			return NULL;
@@ -1752,7 +1750,7 @@ ExprBase* EvaluateFunction(Eval &ctx, ExprFunctionDefinition *expression, ExprBa
 	return result;
 }
 
-ExprBase* EvaluateFunctionAccess(Eval &ctx, ExprFunctionAccess *expression)
+ExprBase* EvaluateFunctionAccess(ExpressionEvalContext &ctx, ExprFunctionAccess *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -1773,7 +1771,7 @@ ExprBase* EvaluateFunctionAccess(Eval &ctx, ExprFunctionAccess *expression)
 	return CheckType(expression, allocate(ExprFunctionLiteral)(expression->source, function->type, function, context));
 }
 
-ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
+ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
 		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
@@ -2497,7 +2495,7 @@ ExprBase* EvaluateFunctionCall(Eval &ctx, ExprFunctionCall *expression)
 	return CheckType(expression, call);
 }
 
-ExprBase* EvaluateIfElse(Eval &ctx, ExprIfElse *expression)
+ExprBase* EvaluateIfElse(ExpressionEvalContext &ctx, ExprIfElse *expression)
 {
 	if(ctx.stackFrames.back()->targetYield)
 		return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
@@ -2528,12 +2526,12 @@ ExprBase* EvaluateIfElse(Eval &ctx, ExprIfElse *expression)
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
-ExprBase* EvaluateFor(Eval &ctx, ExprFor *expression)
+ExprBase* EvaluateFor(ExpressionEvalContext &ctx, ExprFor *expression)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	if(!frame->targetYield)
 	{
@@ -2593,9 +2591,9 @@ ExprBase* EvaluateFor(Eval &ctx, ExprFor *expression)
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
-ExprBase* EvaluateWhile(Eval &ctx, ExprWhile *expression)
+ExprBase* EvaluateWhile(ExpressionEvalContext &ctx, ExprWhile *expression)
 {
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	for(;;)
 	{
@@ -2643,9 +2641,9 @@ ExprBase* EvaluateWhile(Eval &ctx, ExprWhile *expression)
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
-ExprBase* EvaluateDoWhile(Eval &ctx, ExprDoWhile *expression)
+ExprBase* EvaluateDoWhile(ExpressionEvalContext &ctx, ExprDoWhile *expression)
 {
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	for(;;)
 	{
@@ -2693,12 +2691,12 @@ ExprBase* EvaluateDoWhile(Eval &ctx, ExprDoWhile *expression)
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
-ExprBase* EvaluateSwitch(Eval &ctx, ExprSwitch *expression)
+ExprBase* EvaluateSwitch(ExpressionEvalContext &ctx, ExprSwitch *expression)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	if(frame->targetYield)
 		return Report(ctx, "ERROR: can't yield back into a switch statement");
@@ -2754,9 +2752,9 @@ ExprBase* EvaluateSwitch(Eval &ctx, ExprSwitch *expression)
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
-ExprBase* EvaluateBreak(Eval &ctx, ExprBreak *expression)
+ExprBase* EvaluateBreak(ExpressionEvalContext &ctx, ExprBreak *expression)
 {
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	if(!frame->targetYield)
 	{
@@ -2774,9 +2772,9 @@ ExprBase* EvaluateBreak(Eval &ctx, ExprBreak *expression)
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
-ExprBase* EvaluateContinue(Eval &ctx, ExprContinue *expression)
+ExprBase* EvaluateContinue(ExpressionEvalContext &ctx, ExprContinue *expression)
 {
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	if(!frame->targetYield)
 	{
@@ -2794,12 +2792,12 @@ ExprBase* EvaluateContinue(Eval &ctx, ExprContinue *expression)
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
-ExprBase* EvaluateBlock(Eval &ctx, ExprBlock *expression)
+ExprBase* EvaluateBlock(ExpressionEvalContext &ctx, ExprBlock *expression)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	for(ExprBase *value = expression->expressions.head; value; value = value->next)
 	{
@@ -2819,7 +2817,7 @@ ExprBase* EvaluateBlock(Eval &ctx, ExprBlock *expression)
 	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
 }
 
-ExprBase* EvaluateSequence(Eval &ctx, ExprSequence *expression)
+ExprBase* EvaluateSequence(ExpressionEvalContext &ctx, ExprSequence *expression)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -2840,12 +2838,12 @@ ExprBase* EvaluateSequence(Eval &ctx, ExprSequence *expression)
 	return CheckType(expression, result);
 }
 
-ExprBase* EvaluateModule(Eval &ctx, ExprModule *expression)
+ExprBase* EvaluateModule(ExpressionEvalContext &ctx, ExprModule *expression)
 {
-	ctx.globalFrame = allocate(Eval::StackFrame)(ctx.ctx.allocator, NULL);
+	ctx.globalFrame = allocate(ExpressionEvalContext::StackFrame)(ctx.ctx.allocator, NULL);
 	ctx.stackFrames.push_back(ctx.globalFrame);
 
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	for(ExprBase *value = expression->setup.head; value; value = value->next)
 	{
@@ -2871,7 +2869,7 @@ ExprBase* EvaluateModule(Eval &ctx, ExprModule *expression)
 	return NULL;
 }
 
-ExprBase* Evaluate(Eval &ctx, ExprBase *expression)
+ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression)
 {
 	if(ExprVoid *expr = getType<ExprVoid>(expression))
 		return allocate(ExprVoid)(expr->source, expr->type);
