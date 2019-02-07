@@ -854,3 +854,27 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 {
 	PrintGraph(ctx, expression, InplaceStr(name));
 }
+
+void DumpGraph(ExprBase *tree)
+{
+	ExpressionGraphContext exprGraphCtx;
+
+	exprGraphCtx.file = fopen("expr_graph.txt", "w");
+
+	PrintGraph(exprGraphCtx, tree, "");
+
+	fclose(exprGraphCtx.file);
+}
+
+void DumpGraph(ScopeData *scope)
+{
+	ExpressionGraphContext exprGraphCtx;
+
+	exprGraphCtx.file = fopen("expr_graph.txt", "w");
+
+	PrintGraph(exprGraphCtx, scope, true);
+
+	PrintGraph(exprGraphCtx, scope, false);
+
+	fclose(exprGraphCtx.file);
+}

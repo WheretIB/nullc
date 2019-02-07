@@ -28,3 +28,6 @@ struct ExpressionGraphContext
 
 void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImported);
 void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *name);
+
+void DumpGraph(ExprBase *tree);
+void DumpGraph(ScopeData *scope);
