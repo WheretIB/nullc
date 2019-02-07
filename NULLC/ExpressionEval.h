@@ -96,3 +96,6 @@ private:
 };
 
 ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression);
+bool EvaluateToBuffer(ExpressionEvalContext &ctx, ExprBase *expression, char *resultBuf, unsigned resultBufSize);
+
+bool TestEvaluation(ExpressionContext &ctx, ExprBase *expression, char *resultBuf, unsigned resultBufSize, char *errorBuf, unsigned errorBufSize);

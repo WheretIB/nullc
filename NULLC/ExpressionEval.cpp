@@ -3027,3 +3027,49 @@ ExprBase* Evaluate(Eval &ctx, ExprBase *expression)
 
 	return NULL;
 }
+
+bool EvaluateToBuffer(ExpressionEvalContext &ctx, ExprBase *expression, char *resultBuf, unsigned resultBufSize)
+{
+	if(ExprBase *value = Evaluate(ctx, expression))
+	{
+		if(ExprBoolLiteral *result = getType<ExprBoolLiteral>(value))
+		{
+			SafeSprintf(resultBuf, resultBufSize, "%d", result->value ? 1 : 0);
+		}
+		else if(ExprCharacterLiteral *result = getType<ExprCharacterLiteral>(value))
+		{
+			SafeSprintf(resultBuf, resultBufSize, "%d", result->value);
+		}
+		else if(ExprIntegerLiteral *result = getType<ExprIntegerLiteral>(value))
+		{
+			if(result->type == ctx.ctx.typeLong)
+				SafeSprintf(resultBuf, resultBufSize, "%lldL", result->value);
+			else
+				SafeSprintf(resultBuf, resultBufSize, "%d", result->value);
+		}
+		else if(ExprRationalLiteral *result = getType<ExprRationalLiteral>(value))
+		{
+			SafeSprintf(resultBuf, resultBufSize, "%f", result->value);
+		}
+		else
+		{
+			SafeSprintf(resultBuf, resultBufSize, "unknown");
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+bool TestEvaluation(ExpressionContext &ctx, ExprBase *expression, char *resultBuf, unsigned resultBufSize, char *errorBuf, unsigned errorBufSize)
+{
+	ExpressionEvalContext evalCtx(ctx, ctx.allocator);
+
+	evalCtx.errorBuf = errorBuf;
+	evalCtx.errorBufSize = errorBufSize;
+
+	evalCtx.emulateKnownExternals = true;
+
+	return EvaluateToBuffer(evalCtx, expression, resultBuf, resultBufSize);
+}
