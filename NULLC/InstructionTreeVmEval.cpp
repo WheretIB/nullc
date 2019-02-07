@@ -9,8 +9,6 @@
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
-typedef InstructionVMEvalContext Eval;
-
 const unsigned memoryStorageBits = 16u;
 const unsigned memoryOffsetMask = (1u << memoryStorageBits) - 1;
 const unsigned memoryStorageMask = ~0u & ~memoryOffsetMask;
@@ -71,7 +69,7 @@ namespace
 		return res * (negative ? -1 : 1);
 	}
 
-	ExprBase* Report(Eval &ctx, const char *msg, ...)
+	ExprBase* Report(InstructionVMEvalContext &ctx, const char *msg, ...)
 	{
 		// Do not replace previous error
 		if(ctx.hasError)
@@ -95,7 +93,7 @@ namespace
 	}
 }
 
-bool Eval::Storage::Reserve(Eval &ctx, unsigned offset, unsigned size)
+bool InstructionVMEvalContext::Storage::Reserve(InstructionVMEvalContext &ctx, unsigned offset, unsigned size)
 {
 	unsigned oldSize = data.size();
 	unsigned newSize = offset + size;
@@ -113,7 +111,7 @@ bool Eval::Storage::Reserve(Eval &ctx, unsigned offset, unsigned size)
 	return true;
 }
 
-void Eval::StackFrame::AssignRegister(unsigned id, VmConstant *constant)
+void InstructionVMEvalContext::StackFrame::AssignRegister(unsigned id, VmConstant *constant)
 {
 	assert(id != 0);
 
@@ -130,7 +128,7 @@ void Eval::StackFrame::AssignRegister(unsigned id, VmConstant *constant)
 	instructionValues[id - 1] = constant;
 }
 
-VmConstant* Eval::StackFrame::ReadRegister(unsigned id)
+VmConstant* InstructionVMEvalContext::StackFrame::ReadRegister(unsigned id)
 {
 	assert(id != 0);
 
@@ -140,7 +138,7 @@ VmConstant* Eval::StackFrame::ReadRegister(unsigned id)
 	return 0;
 }
 
-VmConstant* LoadFrameByte(Eval &ctx, Eval::Storage *storage, unsigned offset)
+VmConstant* LoadFrameByte(InstructionVMEvalContext &ctx, InstructionVMEvalContext::Storage *storage, unsigned offset)
 {
 	char value = 0;
 	if(!storage->Reserve(ctx, offset, sizeof(value)))
@@ -151,7 +149,7 @@ VmConstant* LoadFrameByte(Eval &ctx, Eval::Storage *storage, unsigned offset)
 	return CreateConstantInt(ctx.allocator, NULL, value);
 }
 
-VmConstant* LoadFrameShort(Eval &ctx, Eval::Storage *storage, unsigned offset)
+VmConstant* LoadFrameShort(InstructionVMEvalContext &ctx, InstructionVMEvalContext::Storage *storage, unsigned offset)
 {
 	short value = 0;
 	if(!storage->Reserve(ctx, offset, sizeof(value)))
@@ -162,7 +160,7 @@ VmConstant* LoadFrameShort(Eval &ctx, Eval::Storage *storage, unsigned offset)
 	return CreateConstantInt(ctx.allocator, NULL, value);
 }
 
-VmConstant* LoadFrameInt(Eval &ctx, Eval::Storage *storage, unsigned offset, VmType type)
+VmConstant* LoadFrameInt(InstructionVMEvalContext &ctx, InstructionVMEvalContext::Storage *storage, unsigned offset, VmType type)
 {
 	int value = 0;
 	if(!storage->Reserve(ctx, offset, sizeof(value)))
@@ -176,7 +174,7 @@ VmConstant* LoadFrameInt(Eval &ctx, Eval::Storage *storage, unsigned offset, VmT
 	return CreateConstantInt(ctx.allocator, NULL, value);
 }
 
-VmConstant* LoadFrameFloat(Eval &ctx, Eval::Storage *storage, unsigned offset)
+VmConstant* LoadFrameFloat(InstructionVMEvalContext &ctx, InstructionVMEvalContext::Storage *storage, unsigned offset)
 {
 	float value = 0;
 	if(!storage->Reserve(ctx, offset, sizeof(value)))
@@ -187,7 +185,7 @@ VmConstant* LoadFrameFloat(Eval &ctx, Eval::Storage *storage, unsigned offset)
 	return CreateConstantDouble(ctx.allocator, NULL, value);
 }
 
-VmConstant* LoadFrameDouble(Eval &ctx, Eval::Storage *storage, unsigned offset)
+VmConstant* LoadFrameDouble(InstructionVMEvalContext &ctx, InstructionVMEvalContext::Storage *storage, unsigned offset)
 {
 	double value = 0;
 	if(!storage->Reserve(ctx, offset, sizeof(value)))
@@ -198,7 +196,7 @@ VmConstant* LoadFrameDouble(Eval &ctx, Eval::Storage *storage, unsigned offset)
 	return CreateConstantDouble(ctx.allocator, NULL, value);
 }
 
-VmConstant* LoadFrameLong(Eval &ctx, Eval::Storage *storage, unsigned offset, VmType type)
+VmConstant* LoadFrameLong(InstructionVMEvalContext &ctx, InstructionVMEvalContext::Storage *storage, unsigned offset, VmType type)
 {
 	long long value = 0;
 	if(!storage->Reserve(ctx, offset, sizeof(value)))
@@ -216,7 +214,7 @@ VmConstant* LoadFrameLong(Eval &ctx, Eval::Storage *storage, unsigned offset, Vm
 	return CreateConstantLong(ctx.allocator, NULL, value);
 }
 
-VmConstant* LoadFrameStruct(Eval &ctx, Eval::Storage *storage, unsigned offset, VmType type)
+VmConstant* LoadFrameStruct(InstructionVMEvalContext &ctx, InstructionVMEvalContext::Storage *storage, unsigned offset, VmType type)
 {
 	unsigned size = type.size;
 
@@ -235,7 +233,7 @@ VmConstant* LoadFrameStruct(Eval &ctx, Eval::Storage *storage, unsigned offset, 
 	return result;
 }
 
-VmConstant* LoadFramePointer(Eval &ctx, Eval::Storage *storage, unsigned offset, VmType type)
+VmConstant* LoadFramePointer(InstructionVMEvalContext &ctx, InstructionVMEvalContext::Storage *storage, unsigned offset, VmType type)
 {
 	if(sizeof(void*) == 4)
 		return LoadFrameInt(ctx, storage, offset, type);
@@ -243,7 +241,7 @@ VmConstant* LoadFramePointer(Eval &ctx, Eval::Storage *storage, unsigned offset,
 	return LoadFrameLong(ctx, storage, offset, type);
 }
 
-VmConstant* ExtractValue(Eval &ctx, VmConstant *value, unsigned offset, VmType type)
+VmConstant* ExtractValue(InstructionVMEvalContext &ctx, VmConstant *value, unsigned offset, VmType type)
 {
 	assert(value->sValue);
 	assert(offset + type.size <= value->type.size);
@@ -300,9 +298,9 @@ VmConstant* ExtractValue(Eval &ctx, VmConstant *value, unsigned offset, VmType t
 	}
 }
 
-unsigned GetAllocaAddress(Eval &ctx, VariableData *container)
+unsigned GetAllocaAddress(InstructionVMEvalContext &ctx, VariableData *container)
 {
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	InstructionVMEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	unsigned offset = 8;
 
@@ -319,7 +317,7 @@ unsigned GetAllocaAddress(Eval &ctx, VariableData *container)
 	return 0;
 }
 
-unsigned GetStorageIndex(Eval &ctx, Eval::Storage *storage)
+unsigned GetStorageIndex(InstructionVMEvalContext &ctx, InstructionVMEvalContext::Storage *storage)
 {
 	if(storage->index != 0)
 		return storage->index;
@@ -330,9 +328,9 @@ unsigned GetStorageIndex(Eval &ctx, Eval::Storage *storage)
 	return storage->index;
 }
 
-void CopyConstantRaw(Eval &ctx, char *dst, unsigned dstSize, VmConstant *src, unsigned storeSize)
+void CopyConstantRaw(InstructionVMEvalContext &ctx, char *dst, unsigned dstSize, VmConstant *src, unsigned storeSize)
 {
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	InstructionVMEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	(void)dstSize;
 	assert(dstSize >= storeSize);
@@ -438,9 +436,9 @@ void CopyConstantRaw(Eval &ctx, char *dst, unsigned dstSize, VmConstant *src, un
 	}
 }
 
-VmConstant* EvaluateOperand(Eval &ctx, VmValue *value)
+VmConstant* EvaluateOperand(InstructionVMEvalContext &ctx, VmValue *value)
 {
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	InstructionVMEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	if(VmConstant *constant = getType<VmConstant>(value))
 		return constant;
@@ -471,11 +469,11 @@ VmConstant* EvaluateOperand(Eval &ctx, VmValue *value)
 	return NULL;
 }
 
-Eval::Storage* FindTarget(Eval &ctx, VmConstant *value, unsigned &base)
+InstructionVMEvalContext::Storage* FindTarget(InstructionVMEvalContext &ctx, VmConstant *value, unsigned &base)
 {
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	InstructionVMEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
-	Eval::Storage *target = NULL;
+	InstructionVMEvalContext::Storage *target = NULL;
 
 	base = 0;
 
@@ -523,11 +521,11 @@ Eval::Storage* FindTarget(Eval &ctx, VmConstant *value, unsigned &base)
 	return target;
 }
 
-char* GetPointerDataPtr(Eval &ctx, unsigned vmPointer)
+char* GetPointerDataPtr(InstructionVMEvalContext &ctx, unsigned vmPointer)
 {
 	if(unsigned storageIndex = (vmPointer & memoryStorageMask) >> memoryStorageBits)
 	{
-		Eval::Storage *storage = ctx.storageSet[storageIndex - 1];
+		InstructionVMEvalContext::Storage *storage = ctx.storageSet[storageIndex - 1];
 
 		return storage->data.data + (vmPointer & memoryOffsetMask);
 	}
@@ -535,11 +533,11 @@ char* GetPointerDataPtr(Eval &ctx, unsigned vmPointer)
 	return NULL;
 }
 
-VmConstant* LoadFrameValue(Eval &ctx, VmConstant *pointer, VmConstant *offset, VmType type, unsigned loadSize)
+VmConstant* LoadFrameValue(InstructionVMEvalContext &ctx, VmConstant *pointer, VmConstant *offset, VmType type, unsigned loadSize)
 {
 	unsigned base = 0;
 
-	if(Eval::Storage *target = FindTarget(ctx, pointer, base))
+	if(InstructionVMEvalContext::Storage *target = FindTarget(ctx, pointer, base))
 	{
 		if(ctx.printExecution)
 		{
@@ -579,11 +577,11 @@ VmConstant* LoadFrameValue(Eval &ctx, VmConstant *pointer, VmConstant *offset, V
 	return NULL;
 }
 
-bool StoreFrameValue(Eval &ctx, VmConstant *pointer, VmConstant *offset, VmConstant *value, unsigned storeSize)
+bool StoreFrameValue(InstructionVMEvalContext &ctx, VmConstant *pointer, VmConstant *offset, VmConstant *value, unsigned storeSize)
 {
 	unsigned base = 0;
 
-	if(Eval::Storage *target = FindTarget(ctx, pointer, base))
+	if(InstructionVMEvalContext::Storage *target = FindTarget(ctx, pointer, base))
 	{
 		if(ctx.printExecution)
 		{
@@ -613,7 +611,7 @@ bool StoreFrameValue(Eval &ctx, VmConstant *pointer, VmConstant *offset, VmConst
 	return false;
 }
 
-VmConstant* AllocateHeapObject(Eval &ctx, TypeBase *target)
+VmConstant* AllocateHeapObject(InstructionVMEvalContext &ctx, TypeBase *target)
 {
 	unsigned offset = ctx.heapSize;
 
@@ -629,7 +627,7 @@ VmConstant* AllocateHeapObject(Eval &ctx, TypeBase *target)
 	return result;
 }
 
-VmConstant* AllocateHeapArray(Eval &ctx, TypeBase *target, unsigned count)
+VmConstant* AllocateHeapArray(InstructionVMEvalContext &ctx, TypeBase *target, unsigned count)
 {
 	unsigned offset = ctx.heapSize;
 
@@ -663,7 +661,7 @@ VmConstant* AllocateHeapArray(Eval &ctx, TypeBase *target, unsigned count)
 	return result;
 }
 
-VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *predecessor, VmBlock **nextBlock)
+VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *instruction, VmBlock *predecessor, VmBlock **nextBlock)
 {
 	ctx.instruction++;
 
@@ -805,7 +803,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 			VmFunction *function = ctx.ctx.functions[functionIndex]->vmFunction;
 
-			Eval::StackFrame *calleeFrame = new (ctx.get<Eval::StackFrame>()) Eval::StackFrame(ctx.allocator, function);
+			InstructionVMEvalContext::StackFrame *calleeFrame = new (ctx.get<InstructionVMEvalContext::StackFrame>()) InstructionVMEvalContext::StackFrame(ctx.allocator, function);
 
 			if(ctx.stackFrames.size() >= ctx.stackDepthLimit)
 				return (VmConstant*)Report(ctx, "ERROR: stack depth limit");
@@ -1188,7 +1186,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 		break;
 	case VM_INST_UNYIELD:
 		{
-			Eval::StackFrame *frame = ctx.stackFrames.back();
+			InstructionVMEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 			*nextBlock = frame->owner->restoreBlocks[arguments[0]->iValue];
 
@@ -1268,9 +1266,9 @@ unsigned GetArgumentOffset(FunctionData *data, unsigned argument)
 	return offset;
 }
 
-VmConstant* GetArgumentValue(Eval &ctx, FunctionData *data, unsigned argument)
+VmConstant* GetArgumentValue(InstructionVMEvalContext &ctx, FunctionData *data, unsigned argument)
 {
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	InstructionVMEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	TypeBase *argumentType = data->arguments[argument].type;
 
@@ -1293,9 +1291,9 @@ VmConstant* GetArgumentValue(Eval &ctx, FunctionData *data, unsigned argument)
 	return LoadFrameStruct(ctx, &frame->stack, offset, type);
 }
 
-VmConstant* GetContextValue(Eval &ctx, FunctionData *data)
+VmConstant* GetContextValue(InstructionVMEvalContext &ctx, FunctionData *data)
 {
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	InstructionVMEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	TypeBase *contextType = data->contextType;
 
@@ -1306,7 +1304,7 @@ VmConstant* GetContextValue(Eval &ctx, FunctionData *data)
 	return LoadFramePointer(ctx, &frame->stack, offset, type);
 }
 
-VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
+VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, FunctionData *function)
 {
 	if(function->name == InplaceStr("assert") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeInt)
 	{
@@ -2013,9 +2011,9 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 	return NULL;
 }
 
-VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
+VmConstant* EvaluateFunction(InstructionVMEvalContext &ctx, VmFunction *function)
 {
-	Eval::StackFrame *frame = ctx.stackFrames.back();
+	InstructionVMEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	VmBlock *predecessorBlock = NULL;
 	VmBlock *currentBlock = function->firstBlock;
@@ -2096,7 +2094,7 @@ VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
 	return NULL;
 }
 
-VmConstant* EvaluateModule(Eval &ctx, VmModule *module)
+VmConstant* EvaluateModule(InstructionVMEvalContext &ctx, VmModule *module)
 {
 	VmFunction *global = module->functions.tail;
 
@@ -2105,7 +2103,7 @@ VmConstant* EvaluateModule(Eval &ctx, VmModule *module)
 	ctx.heap.Reserve(ctx, 0, 4096);
 	ctx.heapSize += 4096;
 
-	ctx.globalFrame = new (ctx.get<Eval::StackFrame>()) Eval::StackFrame(ctx.allocator, global);
+	ctx.globalFrame = new (ctx.get<InstructionVMEvalContext::StackFrame>()) InstructionVMEvalContext::StackFrame(ctx.allocator, global);
 	ctx.stackFrames.push_back(ctx.globalFrame);
 
 	VmConstant *result = EvaluateFunction(ctx, global);
