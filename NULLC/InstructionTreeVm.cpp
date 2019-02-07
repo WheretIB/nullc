@@ -3,8 +3,6 @@
 #include "ExpressionTree.h"
 #include "InstructionTreeVmCommon.h"
 
-#define allocate(T) new (module->get<T>()) T
-
 // TODO: VM code generation should use a special pointer type to generate special pointer instructions
 #ifdef _M_X64
 	#define VM_INST_LOAD_POINTER VM_INST_LOAD_LONG
@@ -28,12 +26,12 @@ namespace
 
 	VmValue* CreateVoid(VmModule *module)
 	{
-		return allocate(VmVoid)(module->allocator);
+		return new (module->get<VmVoid>()) VmVoid(module->allocator);
 	}
 
 	VmBlock* CreateBlock(VmModule *module, SynBase *source, const char *name)
 	{
-		return allocate(VmBlock)(module->allocator, source, InplaceStr(name), module->currentFunction->nextBlockId++);
+		return new (module->get<VmBlock>()) VmBlock(module->allocator, source, InplaceStr(name), module->currentFunction->nextBlockId++);
 	}
 
 	bool IsBlockTerminator(VmInstructionType cmd)
@@ -160,7 +158,7 @@ namespace
 	{
 		assert(module->currentBlock);
 
-		VmInstruction *inst = allocate(VmInstruction)(module->allocator, type, source, cmd, module->currentFunction->nextInstructionId++);
+		VmInstruction *inst = new (module->get<VmInstruction>()) VmInstruction(module->allocator, type, source, cmd, module->currentFunction->nextInstructionId++);
 
 		if(first)
 			inst->AddArgument(first);
@@ -700,7 +698,7 @@ namespace
 		char *name = (char*)ctx.allocator->alloc(16);
 		sprintf(name, "$temp%d_%s", ctx.unnamedVariableCount++, suffix);
 
-		VariableData *variable = allocate(VariableData)(ctx.allocator, NULL, NULL, type->alignment, type, InplaceStr(name), 0, 0);
+		VariableData *variable = new (module->get<VariableData>()) VariableData(ctx.allocator, NULL, NULL, type->alignment, type, InplaceStr(name), 0, 0);
 
 		variable->isVmAlloca = true;
 
@@ -1588,7 +1586,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 			return CheckType(ctx, expression, CreateLoad(ctx, module, node->source, typeArray, storage, 0));
 		}
 
-		VmInstruction *inst = allocate(VmInstruction)(module->allocator, GetVmType(ctx, node->type), node->source, VM_INST_ARRAY, module->currentFunction->nextInstructionId++);
+		VmInstruction *inst = new (module->get<VmInstruction>()) VmInstruction(module->allocator, GetVmType(ctx, node->type), node->source, VM_INST_ARRAY, module->currentFunction->nextInstructionId++);
 
 		for(ExprBase *value = node->values.head; value; value = value->next)
 		{
@@ -2322,7 +2320,7 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 		assert(module->currentBlock);
 
-		VmInstruction *inst = allocate(VmInstruction)(module->allocator, GetVmType(ctx, node->type), node->source, VM_INST_CALL, module->currentFunction->nextInstructionId++);
+		VmInstruction *inst = new (module->get<VmInstruction>()) VmInstruction(module->allocator, GetVmType(ctx, node->type), node->source, VM_INST_CALL, module->currentFunction->nextInstructionId++);
 
 		unsigned argCount = 1;
 
@@ -2633,7 +2631,7 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *co
 		VmModule *module = new (ctx.get<VmModule>()) VmModule(ctx.allocator, code);
 
 		// Generate global function
-		VmFunction *global = allocate(VmFunction)(module->allocator, VmType::Void, node->source, NULL, node->moduleScope, VmType::Void);
+		VmFunction *global = new (module->get<VmFunction>()) VmFunction(module->allocator, VmType::Void, node->source, NULL, node->moduleScope, VmType::Void);
 
 		for(unsigned k = 0; k < global->scope->allVariables.size(); k++)
 		{
@@ -2662,7 +2660,7 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *co
 			if(function->vmFunction)
 				continue;
 
-			VmFunction *vmFunction = allocate(VmFunction)(module->allocator, GetVmType(ctx, ctx.typeFunctionID), function->source, function, function->functionScope, GetVmType(ctx, function->type->returnType));
+			VmFunction *vmFunction = new (module->get<VmFunction>()) VmFunction(module->allocator, GetVmType(ctx, ctx.typeFunctionID), function->source, function, function->functionScope, GetVmType(ctx, function->type->returnType));
 
 			for(unsigned k = 0; k < vmFunction->scope->allVariables.size(); k++)
 			{

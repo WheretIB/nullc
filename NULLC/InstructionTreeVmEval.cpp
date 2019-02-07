@@ -8,7 +8,6 @@
 #include "InstructionTreeVmCommon.h"
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
-#define allocate(T) new (ctx.get<T>()) T
 
 typedef InstructionVMEvalContext Eval;
 
@@ -229,7 +228,7 @@ VmConstant* LoadFrameStruct(Eval &ctx, Eval::Storage *storage, unsigned offset, 
 
 	memcpy(value, storage->data.data + offset, size);
 
-	VmConstant *result = allocate(VmConstant)(ctx.allocator, type, NULL);
+	VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, type, NULL);
 
 	result->sValue = value;
 
@@ -293,7 +292,7 @@ VmConstant* ExtractValue(Eval &ctx, VmConstant *value, unsigned offset, VmType t
 		char *value = (char*)ctx.allocator->alloc(type.size);
 		memcpy(value, source, type.size);
 
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, type, NULL);
+		VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, type, NULL);
 
 		result->sValue = value;
 
@@ -451,7 +450,7 @@ VmConstant* EvaluateOperand(Eval &ctx, VmValue *value)
 
 	if(VmBlock *block = getType<VmBlock>(value))
 	{
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::Block, NULL);
+		VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, VmType::Block, NULL);
 
 		result->bValue = block;
 
@@ -460,7 +459,7 @@ VmConstant* EvaluateOperand(Eval &ctx, VmValue *value)
 
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::Function, NULL);
+		VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, VmType::Function, NULL);
 
 		result->fValue = function;
 
@@ -621,7 +620,7 @@ VmConstant* AllocateHeapObject(Eval &ctx, TypeBase *target)
 	ctx.heap.Reserve(ctx, offset, unsigned(target->size));
 	ctx.heapSize += unsigned(target->size);
 
-	VmConstant *result = allocate(VmConstant)(ctx.allocator, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(target)), NULL);
+	VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(target)), NULL);
 
 	result->iValue = offset;
 	assert(int(result->iValue & memoryOffsetMask) == result->iValue);
@@ -643,7 +642,7 @@ VmConstant* AllocateHeapArray(Eval &ctx, TypeBase *target, unsigned count)
 	assert(int(pointer & memoryOffsetMask) == pointer);
 	pointer |= GetStorageIndex(ctx, &ctx.heap) << memoryStorageBits;
 
-	VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::ArrayRef(ctx.ctx.GetUnsizedArrayType(target)), NULL);
+	VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, VmType::ArrayRef(ctx.ctx.GetUnsizedArrayType(target)), NULL);
 
 	char *storage = (char*)ctx.allocator->alloc(result->type.size);
 
@@ -806,7 +805,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 			VmFunction *function = ctx.ctx.functions[functionIndex]->vmFunction;
 
-			Eval::StackFrame *calleeFrame = allocate(Eval::StackFrame)(ctx.allocator, function);
+			Eval::StackFrame *calleeFrame = new (ctx.get<Eval::StackFrame>()) Eval::StackFrame(ctx.allocator, function);
 
 			if(ctx.stackFrames.size() >= ctx.stackDepthLimit)
 				return (VmConstant*)Report(ctx, "ERROR: stack depth limit");
@@ -1142,7 +1141,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 				offset += argumentSize > 4 ? argumentSize : 4;
 			}
 
-			VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type, NULL);
+			VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, instruction->type, NULL);
 
 			result->sValue = value;
 
@@ -1173,7 +1172,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 				offset += elementSize;
 			}
 
-			VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type, NULL);
+			VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, instruction->type, NULL);
 
 			result->sValue = value;
 
@@ -1234,7 +1233,7 @@ VmConstant* EvaluateInstruction(Eval &ctx, VmInstruction *instruction, VmBlock *
 
 				CopyConstantRaw(ctx, storage, instruction->type.size, value, value->type.size);
 
-				VmConstant *result = allocate(VmConstant)(ctx.allocator, instruction->type, NULL);
+				VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, instruction->type, NULL);
 
 				result->sValue = storage;
 
@@ -1613,7 +1612,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		CopyConstantRaw(ctx, value + 0, resultType.size, context, context->type.size);
 		CopyConstantRaw(ctx, value + sizeof(void*), resultType.size - sizeof(void*), CreateConstantInt(ctx.allocator, NULL, index->iValue), 4);
 
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, resultType, NULL);
+		VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, resultType, NULL);
 
 		result->sValue = value;
 
@@ -1640,7 +1639,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 
 		if(!ptrPtr->iValue)
 		{
-			VmConstant *result = allocate(VmConstant)(ctx.allocator, storageType, NULL);
+			VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, storageType, NULL);
 
 			result->sValue = storageValue;
 
@@ -1654,7 +1653,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(targetType->size != 0)
 			StoreFrameValue(ctx, resultPtr, NULL, LoadFrameValue(ctx, ptrPtr, NULL, GetVmType(ctx.ctx, targetType), unsigned(targetType->size)), unsigned(targetType->size));
 
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, storageType, NULL);
+		VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, storageType, NULL);
 
 		result->sValue = storageValue;
 
@@ -1681,7 +1680,7 @@ VmConstant* EvaluateKnownExternalFunction(Eval &ctx, FunctionData *function)
 		if(!count)
 			return NULL;
 
-		VmConstant *result = allocate(VmConstant)(ctx.allocator, VmType::AutoArray, NULL);
+		VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, VmType::AutoArray, NULL);
 
 		char *storage = (char*)ctx.allocator->alloc(result->type.size);
 		
@@ -2072,7 +2071,7 @@ VmConstant* EvaluateFunction(Eval &ctx, VmFunction *function)
 				{
 					assert(result->type.type == VM_TYPE_POINTER);
 
-					VmConstant *clean = allocate(VmConstant)(ctx.allocator, result->type, NULL);
+					VmConstant *clean = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, result->type, NULL);
 
 					CopyConstantRaw(ctx, (char*)&clean->iValue, clean->type.size, result, result->type.size);
 
@@ -2106,7 +2105,7 @@ VmConstant* EvaluateModule(Eval &ctx, VmModule *module)
 	ctx.heap.Reserve(ctx, 0, 4096);
 	ctx.heapSize += 4096;
 
-	ctx.globalFrame = allocate(Eval::StackFrame)(ctx.allocator, global);
+	ctx.globalFrame = new (ctx.get<Eval::StackFrame>()) Eval::StackFrame(ctx.allocator, global);
 	ctx.stackFrames.push_back(ctx.globalFrame);
 
 	VmConstant *result = EvaluateFunction(ctx, global);

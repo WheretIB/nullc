@@ -3,7 +3,14 @@
 #include "TypeTree.h"
 #include "InstructionTreeVm.h"
 
-#define allocate(T) new ((T*)allocator->alloc(sizeof(T))) T
+namespace
+{
+	template<typename T>
+	T* get(Allocator *allocator)
+	{
+		return (T*)allocator->alloc(sizeof(T));
+	}
+}
 
 bool IsGlobalScope(ScopeData *scope)
 {
@@ -54,12 +61,12 @@ bool IsLocalScope(ScopeData *scope)
 
 VmConstant* CreateConstantVoid(Allocator *allocator)
 {
-	return allocate(VmConstant)(allocator, VmType::Void, NULL);
+	return new (get<VmConstant>(allocator)) VmConstant(allocator, VmType::Void, NULL);
 }
 
 VmConstant* CreateConstantInt(Allocator *allocator, SynBase *source, int value)
 {
-	VmConstant *result = allocate(VmConstant)(allocator, VmType::Int, source);
+	VmConstant *result = new (get<VmConstant>(allocator)) VmConstant(allocator, VmType::Int, source);
 
 	result->iValue = value;
 
@@ -68,7 +75,7 @@ VmConstant* CreateConstantInt(Allocator *allocator, SynBase *source, int value)
 
 VmConstant* CreateConstantDouble(Allocator *allocator, SynBase *source, double value)
 {
-	VmConstant *result = allocate(VmConstant)(allocator, VmType::Double, source);
+	VmConstant *result = new (get<VmConstant>(allocator)) VmConstant(allocator, VmType::Double, source);
 
 	result->dValue = value;
 
@@ -77,7 +84,7 @@ VmConstant* CreateConstantDouble(Allocator *allocator, SynBase *source, double v
 
 VmConstant* CreateConstantLong(Allocator *allocator, SynBase *source, long long value)
 {
-	VmConstant *result = allocate(VmConstant)(allocator, VmType::Long, source);
+	VmConstant *result = new (get<VmConstant>(allocator)) VmConstant(allocator, VmType::Long, source);
 
 	result->lValue = value;
 
@@ -95,7 +102,7 @@ VmConstant* CreateConstantPointer(Allocator *allocator, SynBase *source, int off
 		}
 	}
 
-	VmConstant *result = allocate(VmConstant)(allocator, VmType::Pointer(structType), source);
+	VmConstant *result = new (get<VmConstant>(allocator)) VmConstant(allocator, VmType::Pointer(structType), source);
 
 	result->iValue = offset;
 	result->container = container;
@@ -110,7 +117,7 @@ VmConstant* CreateConstantStruct(Allocator *allocator, SynBase *source, char *va
 {
 	assert(size % 4 == 0);
 
-	VmConstant *result = allocate(VmConstant)(allocator, VmType::Struct(size, structType), source);
+	VmConstant *result = new (get<VmConstant>(allocator)) VmConstant(allocator, VmType::Struct(size, structType), source);
 
 	result->sValue = value;
 

@@ -5,7 +5,6 @@
 #include "ExpressionTree.h"
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
-#define allocate(T) new (ctx.ctx.get<T>()) T
 
 ExprBase* Report(ExpressionEvalContext &ctx, const char *msg, ...)
 {
@@ -89,7 +88,7 @@ ExprPointerLiteral* AllocateTypeStorage(ExpressionEvalContext &ctx, SynBase *sou
 
 	memset(memory, 0, unsigned(type->size));
 
-	return allocate(ExprPointerLiteral)(source, ctx.ctx.GetReferenceType(type), memory, memory + type->size);
+	return new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(source, ctx.ctx.GetReferenceType(type), memory, memory + type->size);
 }
 
 void FreeMemoryLiteral(ExpressionEvalContext &ctx, ExprMemoryLiteral *memory)
@@ -241,7 +240,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		assert(type->size == sizeof(value));
 		memcpy(&value, ptr->ptr, unsigned(type->size));
 
-		return allocate(ExprBoolLiteral)(target->source, type, value);
+		return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(target->source, type, value);
 	}
 
 	if(type == ctx.ctx.typeChar)
@@ -250,7 +249,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		assert(type->size == sizeof(value));
 		memcpy(&value, ptr->ptr, unsigned(type->size));
 
-		return allocate(ExprCharacterLiteral)(target->source, type, value);
+		return new (ctx.ctx.get<ExprCharacterLiteral>()) ExprCharacterLiteral(target->source, type, value);
 	}
 
 	if(type == ctx.ctx.typeShort)
@@ -259,7 +258,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		assert(type->size == sizeof(value));
 		memcpy(&value, ptr->ptr, unsigned(type->size));
 
-		return allocate(ExprIntegerLiteral)(target->source, type, value);
+		return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(target->source, type, value);
 	}
 
 	if(type == ctx.ctx.typeInt)
@@ -268,7 +267,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		assert(type->size == sizeof(value));
 		memcpy(&value, ptr->ptr, unsigned(type->size));
 
-		return allocate(ExprIntegerLiteral)(target->source, type, value);
+		return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(target->source, type, value);
 	}
 
 	if(type == ctx.ctx.typeLong)
@@ -277,7 +276,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		assert(type->size == sizeof(value));
 		memcpy(&value, ptr->ptr, unsigned(type->size));
 
-		return allocate(ExprIntegerLiteral)(target->source, type, value);
+		return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(target->source, type, value);
 	}
 
 	if(type == ctx.ctx.typeFloat)
@@ -286,7 +285,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		assert(type->size == sizeof(value));
 		memcpy(&value, ptr->ptr, unsigned(type->size));
 
-		return allocate(ExprRationalLiteral)(target->source, type, value);
+		return new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(target->source, type, value);
 	}
 
 	if(type == ctx.ctx.typeDouble)
@@ -295,7 +294,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		assert(type->size == sizeof(value));
 		memcpy(&value, ptr->ptr, unsigned(type->size));
 
-		return allocate(ExprRationalLiteral)(target->source, type, value);
+		return new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(target->source, type, value);
 	}
 
 	if(type == ctx.ctx.typeTypeID)
@@ -305,7 +304,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 
 		TypeBase *data = ctx.ctx.types[index];
 
-		return allocate(ExprTypeLiteral)(target->source, type, data);
+		return new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(target->source, type, data);
 	}
 
 	if(type == ctx.ctx.typeFunctionID)
@@ -315,7 +314,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 
 		FunctionData *data = index != 0 ? ctx.ctx.functions[index - 1] : NULL;
 
-		return allocate(ExprFunctionIndexLiteral)(target->source, type, data);
+		return new (ctx.ctx.get<ExprFunctionIndexLiteral>()) ExprFunctionIndexLiteral(target->source, type, data);
 	}
 
 	if(TypeFunction *functionType = getType<TypeFunction>(type))
@@ -332,7 +331,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		{
 			assert(value == NULL);
 
-			return allocate(ExprFunctionLiteral)(target->source, type, NULL, allocate(ExprNullptrLiteral)(target->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+			return new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(target->source, type, NULL, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(target->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
 		}
 
 		TypeRef *ptrType = getType<TypeRef>(data->contextType);
@@ -342,11 +341,11 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		ExprBase *context = NULL;
 
 		if(value == NULL)
-			context = allocate(ExprNullptrLiteral)(target->source, ptrType);
+			context = new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(target->source, ptrType);
 		else
-			context = allocate(ExprPointerLiteral)(target->source, ptrType, value, value + ptrType->subType->size);
+			context = new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(target->source, ptrType, value, value + ptrType->subType->size);
 
-		return allocate(ExprFunctionLiteral)(target->source, type, data, context);
+		return new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(target->source, type, data, context);
 	}
 
 	if(TypeRef *ptrType = getType<TypeRef>(type))
@@ -356,9 +355,9 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		memcpy(&value, ptr->ptr, unsigned(type->size));
 		
 		if(value == NULL)
-			return allocate(ExprNullptrLiteral)(target->source, type);
+			return new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(target->source, type);
 
-		return allocate(ExprPointerLiteral)(target->source, type, value, value + ptrType->subType->size);
+		return new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(target->source, type, value, value + ptrType->subType->size);
 	}
 
 	ExprPointerLiteral *storage = AllocateTypeStorage(ctx, target->source, type);
@@ -368,7 +367,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 
 	memcpy(storage->ptr, ptr->ptr, unsigned(type->size));
 
-	return allocate(ExprMemoryLiteral)(target->source, type, storage);
+	return new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(target->source, type, storage);
 }
 
 bool CreateInsert(ExpressionEvalContext &ctx, ExprMemoryLiteral *memory, unsigned offset, ExprBase *value)
@@ -412,7 +411,7 @@ ExprMemoryLiteral* CreateConstruct(ExpressionEvalContext &ctx, TypeBase *type, E
 	if(!storage)
 		return NULL;
 
-	ExprMemoryLiteral *memory = allocate(ExprMemoryLiteral)(el0->source, type, storage);
+	ExprMemoryLiteral *memory = new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(el0->source, type, storage);
 
 	unsigned offset = 0;
 
@@ -566,7 +565,7 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 			if(TryTakeLong(lhs, lhsValue))
 			{
 				if(lhsValue == 0)
-					return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, false);
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, false);
 
 				ExprBase *rhs = Evaluate(ctx, unevaluatedRhs);
 
@@ -574,7 +573,7 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 					return NULL;
 
 				if(TryTakeLong(rhs, rhsValue))
-					return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, rhsValue != 0);
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, rhsValue != 0);
 			}
 
 			return NULL;
@@ -585,7 +584,7 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 			if(TryTakeLong(lhs, lhsValue))
 			{
 				if(lhsValue == 1)
-					return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, true);
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, true);
 
 				ExprBase *rhs = Evaluate(ctx, unevaluatedRhs);
 
@@ -593,7 +592,7 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 					return NULL;
 
 				if(TryTakeLong(rhs, rhsValue))
-					return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, rhsValue != 0);
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, rhsValue != 0);
 			}
 
 			return NULL;
@@ -609,21 +608,21 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 			switch(op)
 			{
 			case SYN_BINARY_OP_ADD:
-				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue + rhsValue);
+				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue + rhsValue);
 			case SYN_BINARY_OP_SUB:
-				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue - rhsValue);
+				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue - rhsValue);
 			case SYN_BINARY_OP_MUL:
-				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue * rhsValue);
+				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue * rhsValue);
 			case SYN_BINARY_OP_DIV:
 				if(rhsValue == 0)
 					return ReportCritical(ctx, "ERROR: division by zero during constant folding");
 
-				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue / rhsValue);
+				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue / rhsValue);
 			case SYN_BINARY_OP_MOD:
 				if(rhsValue == 0)
 					return ReportCritical(ctx, "ERROR: modulus division by zero during constant folding");
 
-				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue % rhsValue);
+				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue % rhsValue);
 			case SYN_BINARY_OP_POW:
 				if(rhsValue < 0)
 					return ReportCritical(ctx, "ERROR: negative power on integer number in exponentiation during constant folding");
@@ -644,37 +643,37 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 					power >>= 1;
 				}
 
-				return allocate(ExprIntegerLiteral)(source, lhs->type, result);
+				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, result);
 			case SYN_BINARY_OP_SHL:
 				if(rhsValue < 0)
 					return ReportCritical(ctx, "ERROR: negative shift value");
 
-				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue << rhsValue);
+				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue << rhsValue);
 			case SYN_BINARY_OP_SHR:
 				if(rhsValue < 0)
 					return ReportCritical(ctx, "ERROR: negative shift value");
 
-				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue >> rhsValue);
+				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue >> rhsValue);
 			case SYN_BINARY_OP_LESS:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue < rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue < rhsValue);
 			case SYN_BINARY_OP_LESS_EQUAL:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue <= rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue <= rhsValue);
 			case SYN_BINARY_OP_GREATER:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue > rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue > rhsValue);
 			case SYN_BINARY_OP_GREATER_EQUAL:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue >= rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue >= rhsValue);
 			case SYN_BINARY_OP_EQUAL:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue == rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue == rhsValue);
 			case SYN_BINARY_OP_NOT_EQUAL:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue != rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue != rhsValue);
 			case SYN_BINARY_OP_BIT_AND:
-				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue & rhsValue);
+				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue & rhsValue);
 			case SYN_BINARY_OP_BIT_OR:
-				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue | rhsValue);
+				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue | rhsValue);
 			case SYN_BINARY_OP_BIT_XOR:
-				return allocate(ExprIntegerLiteral)(source, lhs->type, lhsValue ^ rhsValue);
+				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue ^ rhsValue);
 			case SYN_BINARY_OP_LOGICAL_XOR:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, !!lhsValue != !!rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, !!lhsValue != !!rhsValue);
 			}
 		}
 
@@ -696,29 +695,29 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 			switch(op)
 			{
 			case SYN_BINARY_OP_ADD:
-				return allocate(ExprRationalLiteral)(source, lhs->type, lhsValue + rhsValue);
+				return new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(source, lhs->type, lhsValue + rhsValue);
 			case SYN_BINARY_OP_SUB:
-				return allocate(ExprRationalLiteral)(source, lhs->type, lhsValue - rhsValue);
+				return new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(source, lhs->type, lhsValue - rhsValue);
 			case SYN_BINARY_OP_MUL:
-				return allocate(ExprRationalLiteral)(source, lhs->type, lhsValue * rhsValue);
+				return new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(source, lhs->type, lhsValue * rhsValue);
 			case SYN_BINARY_OP_DIV:
-				return allocate(ExprRationalLiteral)(source, lhs->type, lhsValue / rhsValue);
+				return new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(source, lhs->type, lhsValue / rhsValue);
 			case SYN_BINARY_OP_MOD:
-				return allocate(ExprRationalLiteral)(source, lhs->type, fmod(lhsValue, rhsValue));
+				return new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(source, lhs->type, fmod(lhsValue, rhsValue));
 			case SYN_BINARY_OP_POW:
-				return allocate(ExprRationalLiteral)(source, lhs->type, pow(lhsValue, rhsValue));
+				return new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(source, lhs->type, pow(lhsValue, rhsValue));
 			case SYN_BINARY_OP_LESS:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue < rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue < rhsValue);
 			case SYN_BINARY_OP_LESS_EQUAL:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue <= rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue <= rhsValue);
 			case SYN_BINARY_OP_GREATER:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue > rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue > rhsValue);
 			case SYN_BINARY_OP_GREATER_EQUAL:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue >= rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue >= rhsValue);
 			case SYN_BINARY_OP_EQUAL:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue == rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue == rhsValue);
 			case SYN_BINARY_OP_NOT_EQUAL:
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue != rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue != rhsValue);
 			}
 		}
 	}
@@ -730,10 +729,10 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 		if(TryTakeTypeId(lhs, lhsValue) && TryTakeTypeId(rhs, rhsValue))
 		{
 			if(op == SYN_BINARY_OP_EQUAL)
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue == rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue == rhsValue);
 
 			if(op == SYN_BINARY_OP_NOT_EQUAL)
-				return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lhsValue != rhsValue);
+				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue != rhsValue);
 		}
 	}
 	else if(isType<TypeRef>(lhs->type) && isType<TypeRef>(rhs->type))
@@ -759,10 +758,10 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 			assert(!"unknown type");
 
 		if(op == SYN_BINARY_OP_EQUAL)
-			return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lPtr == rPtr);
+			return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lPtr == rPtr);
 
 		if(op == SYN_BINARY_OP_NOT_EQUAL)
-			return allocate(ExprBoolLiteral)(source, ctx.ctx.typeBool, lPtr != rPtr);
+			return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lPtr != rPtr);
 	}
 
 	return Report(ctx, "ERROR: failed to eval binary op");
@@ -803,7 +802,7 @@ ExprBase* EvaluateArray(ExpressionEvalContext &ctx, ExprArray *expression)
 
 		unsigned char *targetPtr = storage->ptr + offset;
 
-		ExprPointerLiteral *target = allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(arrayType->subType), targetPtr, targetPtr + arrayType->subType->size);
+		ExprPointerLiteral *target = new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(arrayType->subType), targetPtr, targetPtr + arrayType->subType->size);
 
 		CreateStore(ctx, target, element);
 
@@ -821,7 +820,7 @@ ExprBase* EvaluateArray(ExpressionEvalContext &ctx, ExprArray *expression)
 ExprBase* EvaluatePreModify(ExpressionEvalContext &ctx, ExprPreModify *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -836,7 +835,7 @@ ExprBase* EvaluatePreModify(ExpressionEvalContext &ctx, ExprPreModify *expressio
 	if(!value)
 		return NULL;
 
-	ExprBase *modified = CreateBinaryOp(ctx, expression->source, value, allocate(ExprIntegerLiteral)(expression->source, value->type, 1), expression->isIncrement ? SYN_BINARY_OP_ADD : SYN_BINARY_OP_SUB);
+	ExprBase *modified = CreateBinaryOp(ctx, expression->source, value, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, value->type, 1), expression->isIncrement ? SYN_BINARY_OP_ADD : SYN_BINARY_OP_SUB);
 
 	if(!modified)
 		return NULL;
@@ -850,7 +849,7 @@ ExprBase* EvaluatePreModify(ExpressionEvalContext &ctx, ExprPreModify *expressio
 ExprBase* EvaluatePostModify(ExpressionEvalContext &ctx, ExprPostModify *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -865,7 +864,7 @@ ExprBase* EvaluatePostModify(ExpressionEvalContext &ctx, ExprPostModify *express
 	if(!value)
 		return NULL;
 
-	ExprBase *modified = CreateBinaryOp(ctx, expression->source, value, allocate(ExprIntegerLiteral)(expression->source, value->type, 1), expression->isIncrement ? SYN_BINARY_OP_ADD : SYN_BINARY_OP_SUB);
+	ExprBase *modified = CreateBinaryOp(ctx, expression->source, value, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, value->type, 1), expression->isIncrement ? SYN_BINARY_OP_ADD : SYN_BINARY_OP_SUB);
 
 	if(!modified)
 		return NULL;
@@ -896,19 +895,19 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 			if(TryTakeLong(value, result))
 			{
 				if(expression->type == ctx.ctx.typeBool)
-					return CheckType(expression, allocate(ExprBoolLiteral)(expression->source, ctx.ctx.typeBool, result != 0));
+					return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, ctx.ctx.typeBool, result != 0));
 
 				if(expression->type == ctx.ctx.typeChar)
-					return CheckType(expression, allocate(ExprCharacterLiteral)(expression->source, ctx.ctx.typeChar, (char)result));
+					return CheckType(expression, new (ctx.ctx.get<ExprCharacterLiteral>()) ExprCharacterLiteral(expression->source, ctx.ctx.typeChar, (char)result));
 
 				if(expression->type == ctx.ctx.typeShort)
-					return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeShort, (short)result));
+					return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeShort, (short)result));
 
 				if(expression->type == ctx.ctx.typeInt)
-					return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, (int)result));
+					return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, (int)result));
 
 				if(expression->type == ctx.ctx.typeLong)
-					return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeLong, result));
+					return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeLong, result));
 			}
 		}
 		else if(ctx.ctx.IsFloatingPointType(expression->type))
@@ -918,37 +917,37 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 			if(TryTakeDouble(value, result))
 			{
 				if(expression->type == ctx.ctx.typeFloat)
-					return CheckType(expression, allocate(ExprRationalLiteral)(expression->source, ctx.ctx.typeFloat, (float)result));
+					return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, ctx.ctx.typeFloat, (float)result));
 
 				if(expression->type == ctx.ctx.typeDouble)
-					return CheckType(expression, allocate(ExprRationalLiteral)(expression->source, ctx.ctx.typeDouble, result));
+					return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, ctx.ctx.typeDouble, result));
 			}
 		}
 		break;
 	case EXPR_CAST_PTR_TO_BOOL:
-		return CheckType(expression, allocate(ExprBoolLiteral)(expression->source, ctx.ctx.typeBool, !isType<ExprNullptrLiteral>(value)));
+		return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, ctx.ctx.typeBool, !isType<ExprNullptrLiteral>(value)));
 	case EXPR_CAST_UNSIZED_TO_BOOL:
 		{
 			ExprMemoryLiteral *memLiteral = getType<ExprMemoryLiteral>(value);
 
 			ExprBase *ptr = CreateExtract(ctx, memLiteral, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
 
-			return CheckType(expression, allocate(ExprBoolLiteral)(expression->source, ctx.ctx.typeBool, !isType<ExprNullptrLiteral>(ptr)));
+			return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, ctx.ctx.typeBool, !isType<ExprNullptrLiteral>(ptr)));
 		}
 		break;
 	case EXPR_CAST_FUNCTION_TO_BOOL:
 		{
 			ExprFunctionLiteral *funcLiteral = getType<ExprFunctionLiteral>(value);
 
-			return CheckType(expression, allocate(ExprBoolLiteral)(expression->source, ctx.ctx.typeBool, funcLiteral->data != NULL));
+			return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, ctx.ctx.typeBool, funcLiteral->data != NULL));
 		}
 		break;
 	case EXPR_CAST_NULL_TO_PTR:
-		return CheckType(expression, allocate(ExprNullptrLiteral)(expression->source, expression->type));
+		return CheckType(expression, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, expression->type));
 	case EXPR_CAST_NULL_TO_AUTO_PTR:
 		{
-			ExprBase *typeId = allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, ctx.ctx.typeVoid);
-			ExprBase *ptr = allocate(ExprNullptrLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
+			ExprBase *typeId = new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, ctx.ctx.typeVoid);
+			ExprBase *ptr = new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
 
 			ExprBase *result = CreateConstruct(ctx, expression->type, typeId, ptr, NULL);
 
@@ -960,8 +959,8 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 		break;
 	case EXPR_CAST_NULL_TO_UNSIZED:
 		{
-			ExprBase *ptr = allocate(ExprNullptrLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
-			ExprBase *size = allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, 0);
+			ExprBase *ptr = new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
+			ExprBase *size = new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, 0);
 
 			ExprBase *result = CreateConstruct(ctx, expression->type, ptr, size, NULL);
 
@@ -973,9 +972,9 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 		break;
 	case EXPR_CAST_NULL_TO_AUTO_ARRAY:
 		{
-			ExprBase *typeId = allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, ctx.ctx.typeVoid);
-			ExprBase *ptr = allocate(ExprNullptrLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
-			ExprBase *length = allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, 0);
+			ExprBase *typeId = new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, ctx.ctx.typeVoid);
+			ExprBase *ptr = new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
+			ExprBase *length = new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, 0);
 
 			ExprBase *result = CreateConstruct(ctx, expression->type, typeId, ptr, length);
 
@@ -987,9 +986,9 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 		break;
 	case EXPR_CAST_NULL_TO_FUNCTION:
 		{
-			ExprBase *context = allocate(ExprNullptrLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
+			ExprBase *context = new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
 
-			ExprFunctionLiteral *result = allocate(ExprFunctionLiteral)(expression->source, expression->type, NULL, context);
+			ExprFunctionLiteral *result = new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, expression->type, NULL, context);
 
 			return CheckType(expression, result);
 		}
@@ -1005,7 +1004,7 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 			assert(arrType);
 			assert(unsigned(arrType->length) == arrType->length);
 
-			ExprBase *result = CreateConstruct(ctx, expression->type, value, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, arrType->length), NULL);
+			ExprBase *result = CreateConstruct(ctx, expression->type, value, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, arrType->length), NULL);
 
 			if(!result)
 				return NULL;
@@ -1030,11 +1029,11 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 				assert(ptr);
 				assert(ptr->end - ptr->ptr >= 4);
 
-				typeId = CreateLoad(ctx, allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeTypeID), ptr->ptr, ptr->ptr + 4));
+				typeId = CreateLoad(ctx, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeTypeID), ptr->ptr, ptr->ptr + 4));
 			}
 			else
 			{
-				typeId = allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, refType->subType);
+				typeId = new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, refType->subType);
 			}
 
 			ExprBase *result = CreateConstruct(ctx, expression->type, typeId, value, NULL);
@@ -1074,7 +1073,7 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 
 			ExprMemoryLiteral *memLiteral = getType<ExprMemoryLiteral>(value);
 
-			ExprBase *typeId = allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, arrType->subType);
+			ExprBase *typeId = new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, arrType->subType);
 			ExprBase *ptr = CreateExtract(ctx, memLiteral, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
 			ExprBase *length = CreateExtract(ctx, memLiteral, sizeof(void*), ctx.ctx.typeInt);
 
@@ -1093,34 +1092,34 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 
 			unsigned index = ctx.ctx.GetTypeIndex(typeLiteral->value);
 
-			return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, index));
+			return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, index));
 		}
 		else if(isType<TypeRef>(expression->type) && isType<TypeRef>(value->type))
 		{
 			TypeRef *refType = getType<TypeRef>(expression->type);
 
 			if(ExprNullptrLiteral *tmp = getType<ExprNullptrLiteral>(value))
-				return CheckType(expression, allocate(ExprNullptrLiteral)(expression->source, expression->type));
+				return CheckType(expression, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, expression->type));
 			
 			if(ExprPointerLiteral *tmp = getType<ExprPointerLiteral>(value))
 			{
 				(void)refType;
 				assert(uintptr_t(tmp->end - tmp->ptr) >= refType->subType->size);
 
-				return CheckType(expression, allocate(ExprPointerLiteral)(expression->source, expression->type, tmp->ptr, tmp->end));
+				return CheckType(expression, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, expression->type, tmp->ptr, tmp->end));
 			}
 		}
 		else if(isType<TypeUnsizedArray>(expression->type) && isType<TypeUnsizedArray>(value->type))
 		{
 			ExprMemoryLiteral *memLiteral = getType<ExprMemoryLiteral>(value);
 
-			return CheckType(expression, allocate(ExprMemoryLiteral)(expression->source, expression->type, memLiteral->ptr));
+			return CheckType(expression, new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(expression->source, expression->type, memLiteral->ptr));
 		}
 		else if(isType<TypeFunction>(expression->type) && isType<TypeFunction>(value->type))
 		{
 			ExprFunctionLiteral *funcLiteral = getType<ExprFunctionLiteral>(value);
 
-			return CheckType(expression, allocate(ExprFunctionLiteral)(expression->source, expression->type, funcLiteral->data, funcLiteral->context));
+			return CheckType(expression, new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, expression->type, funcLiteral->data, funcLiteral->context));
 		}
 		break;
 	}
@@ -1131,7 +1130,7 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 ExprBase* EvaluateUnaryOp(ExpressionEvalContext &ctx, ExprUnaryOp *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1146,7 +1145,7 @@ ExprBase* EvaluateUnaryOp(ExpressionEvalContext &ctx, ExprUnaryOp *expression)
 		if(ExprBoolLiteral *expr = getType<ExprBoolLiteral>(value))
 		{
 			if(expression->op == SYN_UNARY_OP_LOGICAL_NOT)
-				return CheckType(expression, allocate(ExprBoolLiteral)(expression->source, expression->type, !expr->value));
+				return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, expression->type, !expr->value));
 		}
 	}
 	else if(ctx.ctx.IsIntegerType(value->type))
@@ -1158,13 +1157,13 @@ ExprBase* EvaluateUnaryOp(ExpressionEvalContext &ctx, ExprUnaryOp *expression)
 			switch(expression->op)
 			{
 			case SYN_UNARY_OP_PLUS:
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, expression->type, result));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, expression->type, result));
 			case SYN_UNARY_OP_NEGATE:
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, expression->type, -result));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, expression->type, -result));
 			case SYN_UNARY_OP_BIT_NOT:
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, expression->type, ~result));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, expression->type, ~result));
 			case SYN_UNARY_OP_LOGICAL_NOT:
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, expression->type, !result));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, expression->type, !result));
 			}
 		}
 	}
@@ -1177,9 +1176,9 @@ ExprBase* EvaluateUnaryOp(ExpressionEvalContext &ctx, ExprUnaryOp *expression)
 			switch(expression->op)
 			{
 			case SYN_UNARY_OP_PLUS:
-				return CheckType(expression, allocate(ExprRationalLiteral)(expression->source, expression->type, result));
+				return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, expression->type, result));
 			case SYN_UNARY_OP_NEGATE:
-				return CheckType(expression, allocate(ExprRationalLiteral)(expression->source, expression->type, -result));
+				return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, expression->type, -result));
 			}
 		}
 	}
@@ -1195,7 +1194,7 @@ ExprBase* EvaluateUnaryOp(ExpressionEvalContext &ctx, ExprUnaryOp *expression)
 			assert(!"unknown type");
 
 		if(expression->op == SYN_UNARY_OP_LOGICAL_NOT)
-			return CheckType(expression, allocate(ExprBoolLiteral)(expression->source, ctx.ctx.typeBool, !lPtr));
+			return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, ctx.ctx.typeBool, !lPtr));
 	}
 	else if(value->type == ctx.ctx.typeAutoRef)
 	{
@@ -1205,7 +1204,7 @@ ExprBase* EvaluateUnaryOp(ExpressionEvalContext &ctx, ExprUnaryOp *expression)
 		if(!TryTakePointer(CreateExtract(ctx, memLiteral, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)), lPtr))
 			return Report(ctx, "ERROR: failed to evaluate auto ref value");
 
-		return CheckType(expression, allocate(ExprBoolLiteral)(expression->source, ctx.ctx.typeBool, !lPtr));
+		return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, ctx.ctx.typeBool, !lPtr));
 
 	}
 
@@ -1215,7 +1214,7 @@ ExprBase* EvaluateUnaryOp(ExpressionEvalContext &ctx, ExprUnaryOp *expression)
 ExprBase* EvaluateBinaryOp(ExpressionEvalContext &ctx, ExprBinaryOp *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1237,7 +1236,7 @@ ExprBase* EvaluateBinaryOp(ExpressionEvalContext &ctx, ExprBinaryOp *expression)
 ExprBase* EvaluateGetAddress(ExpressionEvalContext &ctx, ExprGetAddress *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1253,7 +1252,7 @@ ExprBase* EvaluateGetAddress(ExpressionEvalContext &ctx, ExprGetAddress *express
 ExprBase* EvaluateDereference(ExpressionEvalContext &ctx, ExprDereference *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1274,7 +1273,7 @@ ExprBase* EvaluateDereference(ExpressionEvalContext &ctx, ExprDereference *expre
 ExprBase* EvaluateConditional(ExpressionEvalContext &ctx, ExprConditional *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1299,7 +1298,7 @@ ExprBase* EvaluateConditional(ExpressionEvalContext &ctx, ExprConditional *expre
 ExprBase* EvaluateAssignment(ExpressionEvalContext &ctx, ExprAssignment *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1319,7 +1318,7 @@ ExprBase* EvaluateAssignment(ExpressionEvalContext &ctx, ExprAssignment *express
 ExprBase* EvaluateMemberAccess(ExpressionEvalContext &ctx, ExprMemberAccess *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1339,7 +1338,7 @@ ExprBase* EvaluateMemberAccess(ExpressionEvalContext &ctx, ExprMemberAccess *exp
 
 	unsigned char *targetPtr = ptr->ptr + expression->member->offset;
 
-	ExprPointerLiteral *shifted = allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(expression->member->type), targetPtr, targetPtr + expression->member->type->size);
+	ExprPointerLiteral *shifted = new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(expression->member->type), targetPtr, targetPtr + expression->member->type->size);
 
 	return CheckType(expression, shifted);
 }
@@ -1347,7 +1346,7 @@ ExprBase* EvaluateMemberAccess(ExpressionEvalContext &ctx, ExprMemberAccess *exp
 ExprBase* EvaluateArrayIndex(ExpressionEvalContext &ctx, ExprArrayIndex *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1394,7 +1393,7 @@ ExprBase* EvaluateArrayIndex(ExpressionEvalContext &ctx, ExprArrayIndex *express
 
 		unsigned char *targetPtr = ptr->ptr + result * arrayType->subType->size;
 
-		ExprPointerLiteral *shifted = allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(arrayType->subType), targetPtr, targetPtr + arrayType->subType->size);
+		ExprPointerLiteral *shifted = new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(arrayType->subType), targetPtr, targetPtr + arrayType->subType->size);
 
 		return CheckType(expression, shifted);
 	}
@@ -1420,7 +1419,7 @@ ExprBase* EvaluateArrayIndex(ExpressionEvalContext &ctx, ExprArrayIndex *express
 
 	unsigned char *targetPtr = ptr->ptr + result * arrayType->subType->size;
 
-	ExprPointerLiteral *shifted = allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(arrayType->subType), targetPtr, targetPtr + arrayType->subType->size);
+	ExprPointerLiteral *shifted = new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(arrayType->subType), targetPtr, targetPtr + arrayType->subType->size);
 
 	return CheckType(expression, shifted);
 }
@@ -1433,7 +1432,7 @@ ExprBase* EvaluateReturn(ExpressionEvalContext &ctx, ExprReturn *expression)
 	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
 	if(frame->targetYield)
-		return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 
 	ExprBase *value = Evaluate(ctx, expression->value);
 
@@ -1457,7 +1456,7 @@ ExprBase* EvaluateReturn(ExpressionEvalContext &ctx, ExprReturn *expression)
 			return NULL;
 	}
 
-	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
 ExprBase* EvaluateYield(ExpressionEvalContext &ctx, ExprYield *expression)
@@ -1472,11 +1471,11 @@ ExprBase* EvaluateYield(ExpressionEvalContext &ctx, ExprYield *expression)
 	{
 		frame->targetYield = 0;
 
-		return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
 
 	if(frame->targetYield)
-		return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 
 	ExprBase *value = Evaluate(ctx, expression->value);
 
@@ -1500,7 +1499,7 @@ ExprBase* EvaluateYield(ExpressionEvalContext &ctx, ExprYield *expression)
 			return NULL;
 	}
 
-	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
 ExprBase* EvaluateVariableDefinition(ExpressionEvalContext &ctx, ExprVariableDefinition *expression)
@@ -1531,7 +1530,7 @@ ExprBase* EvaluateVariableDefinition(ExpressionEvalContext &ctx, ExprVariableDef
 		}
 	}
 
-	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
 ExprBase* EvaluateArraySetup(ExpressionEvalContext &ctx, ExprArraySetup *expression)
@@ -1567,13 +1566,13 @@ ExprBase* EvaluateArraySetup(ExpressionEvalContext &ctx, ExprArraySetup *express
 
 		unsigned char *targetPtr = ptr->ptr + i * arrayType->subType->size;
 
-		ExprPointerLiteral *shifted = allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(arrayType->subType), targetPtr, targetPtr + arrayType->subType->size);
+		ExprPointerLiteral *shifted = new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(arrayType->subType), targetPtr, targetPtr + arrayType->subType->size);
 
 		if(!CreateStore(ctx, shifted, initializer))
 			return NULL;
 	}
 
-	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
 ExprBase* EvaluateVariableDefinitions(ExpressionEvalContext &ctx, ExprVariableDefinitions *expression)
@@ -1587,13 +1586,13 @@ ExprBase* EvaluateVariableDefinitions(ExpressionEvalContext &ctx, ExprVariableDe
 			return NULL;
 	}
 
-	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
 ExprBase* EvaluateVariableAccess(ExpressionEvalContext &ctx, ExprVariableAccess *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1614,7 +1613,7 @@ ExprBase* EvaluateVariableAccess(ExpressionEvalContext &ctx, ExprVariableAccess 
 ExprBase* EvaluateFunctionContextAccess(ExpressionEvalContext &ctx, ExprFunctionContextAccess *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1635,7 +1634,7 @@ ExprBase* EvaluateFunctionContextAccess(ExpressionEvalContext &ctx, ExprFunction
 	assert(classType);
 
 	if(classType->members.empty())
-		value = allocate(ExprNullptrLiteral)(expression->source, expression->function->contextType);
+		value = new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, expression->function->contextType);
 	else
 		value = CreateLoad(ctx, ptr);
 
@@ -1648,20 +1647,20 @@ ExprBase* EvaluateFunctionContextAccess(ExpressionEvalContext &ctx, ExprFunction
 ExprBase* EvaluateFunctionDefinition(ExpressionEvalContext &ctx, ExprFunctionDefinition *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	ExprBase *context = allocate(ExprNullptrLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
+	ExprBase *context = new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid));
 
-	return CheckType(expression, allocate(ExprFunctionLiteral)(expression->source, expression->function->type, expression->function, context));
+	return CheckType(expression, new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, expression->function->type, expression->function, context));
 }
 
 ExprBase* EvaluateGenericFunctionPrototype(ExpressionEvalContext &ctx, ExprGenericFunctionPrototype *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1672,7 +1671,7 @@ ExprBase* EvaluateGenericFunctionPrototype(ExpressionEvalContext &ctx, ExprGener
 			return NULL;
 	}
 
-	return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+	return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 }
 
 ExprBase* EvaluateFunction(ExpressionEvalContext &ctx, ExprFunctionDefinition *expression, ExprBase *context, SmallArray<ExprBase*, 32> &arguments)
@@ -1683,7 +1682,7 @@ ExprBase* EvaluateFunction(ExpressionEvalContext &ctx, ExprFunctionDefinition *e
 	if(ctx.stackFrames.size() >= ctx.stackDepthLimit)
 		return Report(ctx, "ERROR: stack depth limit");
 
-	ctx.stackFrames.push_back(allocate(ExpressionEvalContext::StackFrame)(ctx.ctx.allocator, expression->function));
+	ctx.stackFrames.push_back(new (ctx.ctx.get<ExpressionEvalContext::StackFrame>()) ExpressionEvalContext::StackFrame(ctx.ctx.allocator, expression->function));
 
 	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
@@ -1753,7 +1752,7 @@ ExprBase* EvaluateFunction(ExpressionEvalContext &ctx, ExprFunctionDefinition *e
 ExprBase* EvaluateFunctionAccess(ExpressionEvalContext &ctx, ExprFunctionAccess *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1768,13 +1767,13 @@ ExprBase* EvaluateFunctionAccess(ExpressionEvalContext &ctx, ExprFunctionAccess 
 	if(function->implementation)
 		function = function->implementation;
 
-	return CheckType(expression, allocate(ExprFunctionLiteral)(expression->source, function->type, function, context));
+	return CheckType(expression, new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, function->type, function, context));
 }
 
 ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1814,7 +1813,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(value == 0)
 					return Report(ctx, "ERROR: Assertion failed");
 
-				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 			}
 			else if(ptr->data->name == InplaceStr("assert") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeInt && arguments[1]->type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
 			{
@@ -1835,7 +1834,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(value == 0)
 					return Report(ctx, "ERROR: %.*s", length->value, ptr->ptr);
 
-				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 			}
 			else if(ptr->data->name == InplaceStr("bool") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeBool)
 			{
@@ -1843,7 +1842,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!TryTakeLong(arguments[0], value))
 					return Report(ctx, "ERROR: failed to evaluate value");
 
-				return CheckType(expression, allocate(ExprBoolLiteral)(expression->source, ctx.ctx.typeBool, value != 0));
+				return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, ctx.ctx.typeBool, value != 0));
 			}
 			else if(ptr->data->name == InplaceStr("char") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeChar)
 			{
@@ -1851,7 +1850,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!TryTakeLong(arguments[0], value))
 					return Report(ctx, "ERROR: failed to evaluate value");
 
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeChar, char(value)));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeChar, char(value)));
 			}
 			else if(ptr->data->name == InplaceStr("short") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeShort)
 			{
@@ -1859,7 +1858,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!TryTakeLong(arguments[0], value))
 					return Report(ctx, "ERROR: failed to evaluate value");
 
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeShort, short(value)));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeShort, short(value)));
 			}
 			else if(ptr->data->name == InplaceStr("int") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
 			{
@@ -1867,7 +1866,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!TryTakeLong(arguments[0], value))
 					return Report(ctx, "ERROR: failed to evaluate value");
 
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, int(value)));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, int(value)));
 			}
 			else if(ptr->data->name == InplaceStr("long") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeLong)
 			{
@@ -1875,7 +1874,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!TryTakeLong(arguments[0], value))
 					return Report(ctx, "ERROR: failed to evaluate value");
 
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeLong, value));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeLong, value));
 			}
 			else if(ptr->data->name == InplaceStr("float") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeFloat)
 			{
@@ -1883,7 +1882,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!TryTakeDouble(arguments[0], value))
 					return Report(ctx, "ERROR: failed to evaluate value");
 
-				return CheckType(expression, allocate(ExprRationalLiteral)(expression->source, ctx.ctx.typeFloat, value));
+				return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, ctx.ctx.typeFloat, value));
 			}
 			else if(ptr->data->name == InplaceStr("double") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeDouble)
 			{
@@ -1891,56 +1890,56 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!TryTakeDouble(arguments[0], value))
 					return Report(ctx, "ERROR: failed to evaluate value");
 
-				return CheckType(expression, allocate(ExprRationalLiteral)(expression->source, ctx.ctx.typeDouble, value));
+				return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, ctx.ctx.typeDouble, value));
 			}
 			else if(ptr->data->name == InplaceStr("bool::bool") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeBool)
 			{
 				if(!CreateStore(ctx, ptr->context, arguments[0]))
 					return NULL;
 
-				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 			}
 			else if(ptr->data->name == InplaceStr("char::char") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeChar)
 			{
 				if(!CreateStore(ctx, ptr->context, arguments[0]))
 					return NULL;
 
-				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 			}
 			else if(ptr->data->name == InplaceStr("short::short") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeShort)
 			{
 				if(!CreateStore(ctx, ptr->context, arguments[0]))
 					return NULL;
 
-				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 			}
 			else if(ptr->data->name == InplaceStr("int::int") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
 			{
 				if(!CreateStore(ctx, ptr->context, arguments[0]))
 					return NULL;
 
-				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 			}
 			else if(ptr->data->name == InplaceStr("long::long") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeLong)
 			{
 				if(!CreateStore(ctx, ptr->context, arguments[0]))
 					return NULL;
 
-				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 			}
 			else if(ptr->data->name == InplaceStr("float::float") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeFloat)
 			{
 				if(!CreateStore(ctx, ptr->context, arguments[0]))
 					return NULL;
 
-				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 			}
 			else if(ptr->data->name == InplaceStr("double::double") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeDouble)
 			{
 				if(!CreateStore(ctx, ptr->context, arguments[0]))
 					return NULL;
 
-				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 			}
 			else if(ptr->data->name == InplaceStr("__newS"))
 			{
@@ -1961,7 +1960,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!storage)
 					return NULL;
 
-				return CheckType(expression, allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid), storage->ptr, storage->end));
+				return CheckType(expression, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid), storage->ptr, storage->end));
 			}
 			else if(ptr->data->name == InplaceStr("__newA"))
 			{
@@ -1989,7 +1988,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!storage)
 					return NULL;
 
-				ExprBase *result = CreateConstruct(ctx, ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeInt), storage, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, count), NULL);
+				ExprBase *result = CreateConstruct(ctx, ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeInt), storage, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, count), NULL);
 
 				if(!result)
 					return NULL;
@@ -2011,7 +2010,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!TryTakePointer(CreateExtract(ctx, b, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)), rPtr))
 					return Report(ctx, "ERROR: failed to evaluate second argument");
 
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, lPtr == rPtr));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, lPtr == rPtr));
 			}
 			else if(ptr->data->name == InplaceStr("__rncomp"))
 			{
@@ -2028,7 +2027,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!TryTakePointer(CreateExtract(ctx, b, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)), rPtr))
 					return Report(ctx, "ERROR: failed to evaluate second argument");
 
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, lPtr != rPtr));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, lPtr != rPtr));
 			}
 			else if(ptr->data->name == InplaceStr("__pcomp"))
 			{
@@ -2045,7 +2044,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(b->context && !TryTakePointer(b->context, bContext))
 					return Report(ctx, "ERROR: failed to evaluate second argument");
 
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, a->data == b->data && aContext == bContext));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, a->data == b->data && aContext == bContext));
 			}
 			else if(ptr->data->name == InplaceStr("__pncomp"))
 			{
@@ -2062,7 +2061,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(b->context && !TryTakePointer(b->context, bContext))
 					return Report(ctx, "ERROR: failed to evaluate second argument");
 
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, a->data != b->data || aContext != bContext));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, a->data != b->data || aContext != bContext));
 			}
 			else if(ptr->data->name == InplaceStr("__acomp"))
 			{
@@ -2072,7 +2071,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				assert(a && b);
 				assert(a->type->size == b->type->size);
 
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, memcmp(a->ptr->ptr, b->ptr->ptr, unsigned(a->type->size)) == 0));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, memcmp(a->ptr->ptr, b->ptr->ptr, unsigned(a->type->size)) == 0));
 			}
 			else if(ptr->data->name == InplaceStr("__ancomp"))
 			{
@@ -2082,11 +2081,11 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				assert(a && b);
 				assert(a->type->size == b->type->size);
 
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, memcmp(a->ptr->ptr, b->ptr->ptr, unsigned(a->type->size)) != 0));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, memcmp(a->ptr->ptr, b->ptr->ptr, unsigned(a->type->size)) != 0));
 			}
 			else if(ptr->data->name == InplaceStr("__typeCount"))
 			{
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, ctx.ctx.types.size()));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, ctx.ctx.types.size()));
 			}
 			else if(ptr->data->name == InplaceStr("__redirect") || ptr->data->name == InplaceStr("__redirect_ptr"))
 			{
@@ -2131,12 +2130,12 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!data)
 				{
 					if(ptr->data->name == InplaceStr("__redirect_ptr"))
-						return CheckType(expression, allocate(ExprFunctionLiteral)(expression->source, expression->type, NULL, allocate(ExprNullptrLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]))));
+						return CheckType(expression, new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, expression->type, NULL, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]))));
 
 					return Report(ctx, "ERROR: type '%.*s' doesn't implement method", FMT_ISTR(ctx.ctx.types[typeIndex]->name));
 				}
 
-				return CheckType(expression, allocate(ExprFunctionLiteral)(expression->source, expression->type, data, context));
+				return CheckType(expression, new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, expression->type, data, context));
 			}
 			else if(ptr->data->name == InplaceStr("duplicate") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
 			{
@@ -2152,13 +2151,13 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!storage)
 					return NULL;
 
-				ExprMemoryLiteral *result = allocate(ExprMemoryLiteral)(expression->source, ctx.ctx.typeAutoRef, storage);
+				ExprMemoryLiteral *result = new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(expression->source, ctx.ctx.typeAutoRef, storage);
 
-				CreateInsert(ctx, result, 0, allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, ptrTypeID->value));
+				CreateInsert(ctx, result, 0, new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, ptrTypeID->value));
 
 				if(!ptrPtr)
 				{
-					CreateInsert(ctx, result, 4, allocate(ExprNullptrLiteral)(expression->source, ctx.ctx.GetReferenceType(ptrTypeID->value)));
+					CreateInsert(ctx, result, 4, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ptrTypeID->value)));
 
 					return CheckType(expression, result);
 				}
@@ -2194,14 +2193,14 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!storage)
 					return NULL;
 
-				ExprMemoryLiteral *result = allocate(ExprMemoryLiteral)(expression->source, ctx.ctx.typeAutoArray, storage);
+				ExprMemoryLiteral *result = new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(expression->source, ctx.ctx.typeAutoArray, storage);
 
-				CreateInsert(ctx, result, 0, allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, arrTypeID->value));
-				CreateInsert(ctx, result, 4 + sizeof(void*), allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, arrLen->value));
+				CreateInsert(ctx, result, 0, new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, arrTypeID->value));
+				CreateInsert(ctx, result, 4 + sizeof(void*), new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, arrLen->value));
 
 				if(!arrPtr)
 				{
-					CreateInsert(ctx, result, 4, allocate(ExprNullptrLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+					CreateInsert(ctx, result, 4, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
 
 					return CheckType(expression, result);
 				}
@@ -2244,9 +2243,9 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!storage)
 					return NULL;
 
-				ExprMemoryLiteral *result = allocate(ExprMemoryLiteral)(expression->source, ctx.ctx.typeAutoArray, storage);
+				ExprMemoryLiteral *result = new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(expression->source, ctx.ctx.typeAutoArray, storage);
 
-				CreateInsert(ctx, result, 0, allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, type->value));
+				CreateInsert(ctx, result, 0, new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, type->value));
 
 				ExprPointerLiteral *resultPtr = AllocateTypeStorage(ctx, expression->source, ctx.ctx.GetArrayType(type->value, count->value));
 
@@ -2254,7 +2253,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 					return NULL;
 
 				CreateInsert(ctx, result, 4, resultPtr);
-				CreateInsert(ctx, result, 4 + sizeof(void*), allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, count->value));
+				CreateInsert(ctx, result, 4 + sizeof(void*), new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, count->value));
 
 				return CheckType(expression, result);
 			}
@@ -2274,10 +2273,10 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				ExprIntegerLiteral *srcLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, src, 4 + sizeof(void*), ctx.ctx.typeInt));
 
 				if(!dstPtr && !srcPtr)
-					return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+					return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 
 				if(!srcPtr || dstPtr->ptr == srcPtr->ptr)
-					return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+					return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 
 				if(dstTypeID->value != srcTypeID->value)
 					return Report(ctx, "ERROR: destination element type '%.*s' doesn't match source element type '%.*s'", FMT_ISTR(dstTypeID->value->name), FMT_ISTR(srcTypeID->value->name));
@@ -2287,7 +2286,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 
 				memcpy(dstPtr->ptr, srcPtr->ptr, unsigned(dstTypeID->value->size * srcLen->value));
 
-				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 			}
 			else if(ptr->data->name == InplaceStr("[]") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeAutoArray) && arguments[1]->type == ctx.ctx.typeInt)
 			{
@@ -2325,17 +2324,17 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 					return NULL;
 
 				// Create result in that storage
-				ExprMemoryLiteral *result = allocate(ExprMemoryLiteral)(expression->source, ctx.ctx.typeAutoRef, storage);
+				ExprMemoryLiteral *result = new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(expression->source, ctx.ctx.typeAutoRef, storage);
 
 				// Save typeid
-				CreateInsert(ctx, result, 0, allocate(ExprTypeLiteral)(expression->source, ctx.ctx.typeTypeID, arrTypeID->value));
+				CreateInsert(ctx, result, 0, new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, arrTypeID->value));
 
 				// Save pointer to array element
 				assert(arrPtr->ptr + indexArg->value * arrTypeID->value->size + arrTypeID->value->size <= arrPtr->end);
 
 				unsigned char *targetPtr = arrPtr->ptr + indexArg->value * arrTypeID->value->size;
 
-				ExprPointerLiteral *shifted = allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(arrTypeID->value), targetPtr, targetPtr + arrTypeID->value->size);
+				ExprPointerLiteral *shifted = new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(arrTypeID->value), targetPtr, targetPtr + arrTypeID->value->size);
 
 				CreateInsert(ctx, result, 4, shifted);
 
@@ -2361,7 +2360,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!function->data->coroutine)
 					return Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->data->name));
 
-				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 			}
 			else if(ptr->data->name == InplaceStr("isCoroutineReset") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
 			{
@@ -2396,7 +2395,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 
 				ExprIntegerLiteral *jmpOffset = getType<ExprIntegerLiteral>(CreateExtract(ctx, context, 0, ctx.ctx.typeInt));
 
-				return CheckType(expression, allocate(ExprIntegerLiteral)(expression->source, ctx.ctx.typeInt, jmpOffset->value == 0));
+				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, jmpOffset->value == 0));
 			}
 			else if(ptr->data->name == InplaceStr("assert_derived_from_base") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && arguments[1]->type == ctx.ctx.typeTypeID)
 			{
@@ -2404,11 +2403,11 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				ExprTypeLiteral *base = getType<ExprTypeLiteral>(arguments[1]);
 
 				if(!ptr)
-					return CheckType(expression, allocate(ExprNullptrLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+					return CheckType(expression, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
 
 				assert(ptr->end - ptr->ptr >= sizeof(unsigned));
 
-				ExprTypeLiteral *derived = getType<ExprTypeLiteral>(CreateLoad(ctx, allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeTypeID), ptr->ptr, ptr->end)));
+				ExprTypeLiteral *derived = getType<ExprTypeLiteral>(CreateLoad(ctx, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeTypeID), ptr->ptr, ptr->end)));
 
 				assert(derived);
 
@@ -2417,7 +2416,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				while(curr)
 				{
 					if(curr == base->value)
-						return allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(curr), ptr->ptr, ptr->ptr + curr->size);
+						return new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(curr), ptr->ptr, ptr->ptr + curr->size);
 
 					if(TypeClass *classType = getType<TypeClass>(curr))
 						curr = classType->baseClass;
@@ -2443,7 +2442,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 
 				// Nothing to close if the list is empty
 				if(getType<ExprNullptrLiteral>(upvalueListHeadBase))
-					return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+					return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 
 				ExprPointerLiteral *upvalueListHead = getType<ExprPointerLiteral>(upvalueListHeadBase);
 
@@ -2471,9 +2470,9 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 					upvalue = next;
 				}
 
-				CreateStore(ctx, upvalueListLocation, allocate(ExprPointerLiteral)(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid), (unsigned char*)upvalue, (unsigned char*)upvalue + NULLC_PTR_SIZE));
+				CreateStore(ctx, upvalueListLocation, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid), (unsigned char*)upvalue, (unsigned char*)upvalue + NULLC_PTR_SIZE));
 
-				return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 			}
 		}
 
@@ -2498,7 +2497,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 ExprBase* EvaluateIfElse(ExpressionEvalContext &ctx, ExprIfElse *expression)
 {
 	if(ctx.stackFrames.back()->targetYield)
-		return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -2523,7 +2522,7 @@ ExprBase* EvaluateIfElse(ExpressionEvalContext &ctx, ExprIfElse *expression)
 			return NULL;
 	}
 
-	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
 ExprBase* EvaluateFor(ExpressionEvalContext &ctx, ExprFor *expression)
@@ -2588,7 +2587,7 @@ ExprBase* EvaluateFor(ExpressionEvalContext &ctx, ExprFor *expression)
 		}
 	}
 
-	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
 ExprBase* EvaluateWhile(ExpressionEvalContext &ctx, ExprWhile *expression)
@@ -2638,7 +2637,7 @@ ExprBase* EvaluateWhile(ExpressionEvalContext &ctx, ExprWhile *expression)
 			break;
 	}
 
-	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
 ExprBase* EvaluateDoWhile(ExpressionEvalContext &ctx, ExprDoWhile *expression)
@@ -2688,7 +2687,7 @@ ExprBase* EvaluateDoWhile(ExpressionEvalContext &ctx, ExprDoWhile *expression)
 		}
 	}
 
-	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
 ExprBase* EvaluateSwitch(ExpressionEvalContext &ctx, ExprSwitch *expression)
@@ -2749,7 +2748,7 @@ ExprBase* EvaluateSwitch(ExpressionEvalContext &ctx, ExprSwitch *expression)
 			frame->breakDepth--;
 	}
 
-	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
 ExprBase* EvaluateBreak(ExpressionEvalContext &ctx, ExprBreak *expression)
@@ -2769,7 +2768,7 @@ ExprBase* EvaluateBreak(ExpressionEvalContext &ctx, ExprBreak *expression)
 			return NULL;
 	}
 
-	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
 ExprBase* EvaluateContinue(ExpressionEvalContext &ctx, ExprContinue *expression)
@@ -2789,7 +2788,7 @@ ExprBase* EvaluateContinue(ExpressionEvalContext &ctx, ExprContinue *expression)
 			return NULL;
 	}
 
-	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
 ExprBase* EvaluateBlock(ExpressionEvalContext &ctx, ExprBlock *expression)
@@ -2805,7 +2804,7 @@ ExprBase* EvaluateBlock(ExpressionEvalContext &ctx, ExprBlock *expression)
 			return NULL;
 
 		if(frame->continueDepth || frame->breakDepth || frame->returnValue)
-			return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+			return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
 
 	if(expression->closures)
@@ -2814,7 +2813,7 @@ ExprBase* EvaluateBlock(ExpressionEvalContext &ctx, ExprBlock *expression)
 			return NULL;
 	}
 
-	return CheckType(expression, allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid));
+	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 }
 
 ExprBase* EvaluateSequence(ExpressionEvalContext &ctx, ExprSequence *expression)
@@ -2822,7 +2821,7 @@ ExprBase* EvaluateSequence(ExpressionEvalContext &ctx, ExprSequence *expression)
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	ExprBase *result = allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+	ExprBase *result = new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	for(ExprBase *value = expression->expressions.head; value; value = value->next)
 	{
@@ -2833,14 +2832,14 @@ ExprBase* EvaluateSequence(ExpressionEvalContext &ctx, ExprSequence *expression)
 	}
 
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
-		return allocate(ExprVoid)(expression->source, ctx.ctx.typeVoid);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 
 	return CheckType(expression, result);
 }
 
 ExprBase* EvaluateModule(ExpressionEvalContext &ctx, ExprModule *expression)
 {
-	ctx.globalFrame = allocate(ExpressionEvalContext::StackFrame)(ctx.ctx.allocator, NULL);
+	ctx.globalFrame = new (ctx.ctx.get<ExpressionEvalContext::StackFrame>()) ExpressionEvalContext::StackFrame(ctx.ctx.allocator, NULL);
 	ctx.stackFrames.push_back(ctx.globalFrame);
 
 	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
@@ -2872,31 +2871,31 @@ ExprBase* EvaluateModule(ExpressionEvalContext &ctx, ExprModule *expression)
 ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression)
 {
 	if(ExprVoid *expr = getType<ExprVoid>(expression))
-		return allocate(ExprVoid)(expr->source, expr->type);
+		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expr->source, expr->type);
 
 	if(ExprBoolLiteral *expr = getType<ExprBoolLiteral>(expression))
-		return allocate(ExprBoolLiteral)(expr->source, expr->type, expr->value);
+		return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expr->source, expr->type, expr->value);
 
 	if(ExprCharacterLiteral *expr = getType<ExprCharacterLiteral>(expression))
-		return allocate(ExprCharacterLiteral)(expr->source, expr->type, expr->value);
+		return new (ctx.ctx.get<ExprCharacterLiteral>()) ExprCharacterLiteral(expr->source, expr->type, expr->value);
 
 	if(ExprStringLiteral *expr = getType<ExprStringLiteral>(expression))
-		return allocate(ExprStringLiteral)(expr->source, expr->type, expr->value, expr->length);
+		return new (ctx.ctx.get<ExprStringLiteral>()) ExprStringLiteral(expr->source, expr->type, expr->value, expr->length);
 
 	if(ExprIntegerLiteral *expr = getType<ExprIntegerLiteral>(expression))
-		return allocate(ExprIntegerLiteral)(expr->source, expr->type, expr->value);
+		return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expr->source, expr->type, expr->value);
 
 	if(ExprRationalLiteral *expr = getType<ExprRationalLiteral>(expression))
-		return allocate(ExprRationalLiteral)(expr->source, expr->type, expr->value);
+		return new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expr->source, expr->type, expr->value);
 
 	if(ExprTypeLiteral *expr = getType<ExprTypeLiteral>(expression))
-		return allocate(ExprTypeLiteral)(expr->source, expr->type, expr->value);
+		return new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expr->source, expr->type, expr->value);
 
 	if(ExprNullptrLiteral *expr = getType<ExprNullptrLiteral>(expression))
-		return allocate(ExprNullptrLiteral)(expr->source, expr->type);
+		return new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expr->source, expr->type);
 
 	if(ExprFunctionIndexLiteral *expr = getType<ExprFunctionIndexLiteral>(expression))
-		return allocate(ExprFunctionIndexLiteral)(expr->source, expr->type, expr->function);
+		return new (ctx.ctx.get<ExprFunctionIndexLiteral>()) ExprFunctionIndexLiteral(expr->source, expr->type, expr->function);
 
 	if(ExprPassthrough *expr = getType<ExprPassthrough>(expression))
 		return Evaluate(ctx, expr->value);
@@ -2977,19 +2976,19 @@ ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression)
 		return EvaluateFunctionCall(ctx, expr);
 
 	if(ExprAliasDefinition *expr = getType<ExprAliasDefinition>(expression))
-		return CheckType(expression, allocate(ExprVoid)(expr->source, ctx.ctx.typeVoid));
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expr->source, ctx.ctx.typeVoid));
 
 	if(ExprClassPrototype *expr = getType<ExprClassPrototype>(expression))
-		return CheckType(expression, allocate(ExprVoid)(expr->source, ctx.ctx.typeVoid));
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expr->source, ctx.ctx.typeVoid));
 
 	if(ExprGenericClassPrototype *expr = getType<ExprGenericClassPrototype>(expression))
-		return CheckType(expression, allocate(ExprVoid)(expr->source, ctx.ctx.typeVoid));
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expr->source, ctx.ctx.typeVoid));
 
 	if(ExprClassDefinition *expr = getType<ExprClassDefinition>(expression))
-		return CheckType(expression, allocate(ExprVoid)(expr->source, ctx.ctx.typeVoid));
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expr->source, ctx.ctx.typeVoid));
 
 	if(ExprEnumDefinition *expr = getType<ExprEnumDefinition>(expression))
-		return CheckType(expression, allocate(ExprVoid)(expr->source, ctx.ctx.typeVoid));
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expr->source, ctx.ctx.typeVoid));
 
 	if(ExprIfElse *expr = getType<ExprIfElse>(expression))
 		return EvaluateIfElse(ctx, expr);
