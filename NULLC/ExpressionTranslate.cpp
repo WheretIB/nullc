@@ -7,12 +7,6 @@
 #include "Compiler.h"
 #include "ExpressionTree.h"
 
-// TODO: common
-ScopeData* GlobalScopeFrom(ScopeData *scope);
-bool IsGenericInstance(FunctionData *function);
-
-ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code);
-
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
 void PrintBuffered(ExpressionTranslateContext &ctx, char ch)
@@ -146,7 +140,7 @@ bool UseNonStaticTemplate(ExpressionTranslateContext &ctx, FunctionData *functio
 		return false;
 	else if(function->isHidden)
 		return false;
-	else if(IsGenericInstance(function))
+	else if(ctx.ctx.IsGenericInstance(function))
 		return true;
 
 	return false;
@@ -1227,7 +1221,7 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 			isStatic = true;
 		else if(function->isHidden)
 			isStatic = true;
-		else if(IsGenericInstance(function))
+		else if(ctx.ctx.IsGenericInstance(function))
 			isGeneric = true;
 
 		if(isStatic)
@@ -2062,7 +2056,7 @@ void TranslateModuleFunctionPrototypes(ExpressionTranslateContext &ctx)
 			isStatic = true;
 		else if(function->isHidden)
 			isStatic = true;
-		else if(IsGenericInstance(function))
+		else if(ctx.ctx.IsGenericInstance(function))
 			isGeneric = true;
 
 		if(isStatic && function->importModule)
@@ -2159,7 +2153,7 @@ void TranslateModuleGlobalVariables(ExpressionTranslateContext &ctx)
 			Print(ctx, ";");
 			PrintLine(ctx);
 		}
-		else if(GlobalScopeFrom(variable->scope))
+		else if(ctx.ctx.GlobalScopeFrom(variable->scope))
 		{
 			Print(ctx, "static ");
 			TranslateTypeName(ctx, variable->type);
@@ -2362,7 +2356,7 @@ void TranslateModuleGlobalVariableInformation(ExpressionTranslateContext &ctx)
 		if(variable->importModule)
 			continue;
 
-		if(variable->scope == ctx.ctx.globalScope || variable->scope->ownerNamespace || GlobalScopeFrom(variable->scope))
+		if(variable->scope == ctx.ctx.globalScope || variable->scope->ownerNamespace || ctx.ctx.GlobalScopeFrom(variable->scope))
 		{
 			PrintIndent(ctx);
 			Print(ctx, "__nullcRegisterGlobal((void*)&");

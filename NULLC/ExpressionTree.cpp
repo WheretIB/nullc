@@ -1011,6 +1011,34 @@ FunctionData* ExpressionContext::GetFunctionOwner(ScopeData *scope)
 	return NULL;
 }
 
+ScopeData* ExpressionContext::NamespaceScopeFrom(ScopeData *scope)
+{
+	if(!scope || scope->ownerNamespace)
+		return scope;
+
+	return NamespaceScopeFrom(scope->scope);
+}
+
+ScopeData* ExpressionContext::GlobalScopeFrom(ScopeData *scope)
+{
+	if(!scope)
+		return NULL;
+
+	if(scope->type == SCOPE_TEMPORARY)
+		return NULL;
+
+	if(scope->ownerFunction)
+		return NULL;
+
+	if(scope->ownerType)
+		return NULL;
+
+	if(scope->scope)
+		return GlobalScopeFrom(scope->scope);
+
+	return scope;
+}
+
 unsigned ExpressionContext::GetGenericClassInstantiationDepth()
 {
 	unsigned depth = 0;
@@ -1025,6 +1053,26 @@ unsigned ExpressionContext::GetGenericClassInstantiationDepth()
 	}
 
 	return depth;
+}
+
+bool ExpressionContext::IsGenericInstance(FunctionData *function)
+{
+	if(function->isGenericInstance)
+		return true;
+
+	if(function->proto != nullptr)
+		return true;
+
+	if(function->scope->ownerType)
+	{
+		if(TypeClass *typeClass = getType<TypeClass>(function->scope->ownerType))
+		{
+			if(typeClass->proto)
+				return true;
+		}
+	}
+
+	return false;
 }
 
 void ExpressionContext::AddType(TypeBase *type)

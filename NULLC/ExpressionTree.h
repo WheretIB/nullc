@@ -36,7 +36,11 @@ struct ExpressionContext
 
 	FunctionData* GetFunctionOwner(ScopeData *scope);
 
+	ScopeData* NamespaceScopeFrom(ScopeData *scope);
+	ScopeData* GlobalScopeFrom(ScopeData *scope);
+
 	unsigned GetGenericClassInstantiationDepth();
+	bool IsGenericInstance(FunctionData *function);
 
 	void AddType(TypeBase *type);
 	void AddFunction(FunctionData *function);
