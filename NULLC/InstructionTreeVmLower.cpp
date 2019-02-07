@@ -1135,14 +1135,14 @@ void PrintInstructions(Context &ctx, const char *code)
 		{
 		case cmdCall:
 			if(FunctionData *function = ctx.ctx.functions[cmd.argument])
-				fprintf(ctx.file, "// %s (%.*s [%.*s]) param size %u\n", buf, FMT_ISTR(function->name), FMT_ISTR(function->type->name), (unsigned)function->argumentsSize);
+				fprintf(ctx.file, "// %4d: %s (%.*s [%.*s]) param size %u\n", i, buf, FMT_ISTR(function->name), FMT_ISTR(function->type->name), (unsigned)function->argumentsSize);
 			break;
 		case cmdFuncAddr:
 			if(FunctionData *function = ctx.ctx.functions[cmd.argument])
-				fprintf(ctx.file, "// %s (%.*s [%.*s])\n", buf, FMT_ISTR(function->name), FMT_ISTR(function->type->name));
+				fprintf(ctx.file, "// %4d: %s (%.*s [%.*s])\n", i, buf, FMT_ISTR(function->name), FMT_ISTR(function->type->name));
 			break;
 		case cmdPushTypeID:
-			fprintf(ctx.file, "// %s (%.*s)\n", buf, FMT_ISTR(ctx.ctx.types[cmd.argument]->name));
+			fprintf(ctx.file, "// %4d: %s (%.*s)\n", i, buf, FMT_ISTR(ctx.ctx.types[cmd.argument]->name));
 			break;
 		case cmdPushChar:
 		case cmdPushShort:
@@ -1163,25 +1163,25 @@ void PrintInstructions(Context &ctx, const char *code)
 				if(global->importModule)
 				{
 					if(global->offset == cmd.argument)
-						fprintf(ctx.file, "// %s (%.*s [%.*s] from '%.*s')\n", buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
+						fprintf(ctx.file, "// %4d: %s (%.*s [%.*s] from '%.*s')\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
 					else
-						fprintf(ctx.file, "// %s (inside %.*s [%.*s] from '%.*s')\n", buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
+						fprintf(ctx.file, "// %4d: %s (inside %.*s [%.*s] from '%.*s')\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
 				}
 				else
 				{
 					if(global->offset == cmd.argument)
-						fprintf(ctx.file, "// %s (%.*s [%.*s])\n", buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name));
+						fprintf(ctx.file, "// %4d: %s (%.*s [%.*s])\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name));
 					else
-						fprintf(ctx.file, "// %s (inside %.*s [%.*s])\n", buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name));
+						fprintf(ctx.file, "// %4d: %s (inside %.*s [%.*s])\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name));
 				}
 			}
 			else
 			{
-				fprintf(ctx.file, "// %s\n", buf);
+				fprintf(ctx.file, "// %4d: %s\n", i, buf);
 			}
 			break;
 		default:
-			fprintf(ctx.file, "// %s\n", buf);
+			fprintf(ctx.file, "// %4d: %s\n", i, buf);
 		}
 	}
 }
