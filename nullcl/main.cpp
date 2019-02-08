@@ -6,6 +6,15 @@
 #include <string.h>
 #include <stdlib.h>
 
+const char* translationDependencies[128];
+unsigned translationDependencyCount = 0;
+
+void AddDependency(const char *fileName)
+{
+	if(translationDependencyCount < 128)
+		translationDependencies[translationDependencyCount++] = fileName;
+}
+
 int main(int argc, char** argv)
 {
 	nullcInit("Modules/");
@@ -13,14 +22,14 @@ int main(int argc, char** argv)
 	if(argc == 1)
 	{
 		printf("usage: nullcl [-o output.ncm] file.nc [-m module.name] [file2.nc [-m module.name] ...]\n");
-#ifdef NULLC_ENABLE_C_TRANSLATION
 		printf("usage: nullcl -c output.cpp file.nc\n");
 		printf("usage: nullcl -x output.exe file.nc\n");
-#endif
 		return 0;
 	}
+
 	int argIndex = 1;
 	FILE *mergeFile = NULL;
+
 	if(strcmp("-o", argv[argIndex]) == 0)
 	{
 		argIndex++;
@@ -39,7 +48,6 @@ int main(int argc, char** argv)
 		}
 		argIndex++;
 	}else if(strcmp("-c", argv[argIndex]) == 0 || strcmp("-x", argv[argIndex]) == 0){
-#ifdef NULLC_ENABLE_C_TRANSLATION
 		bool link = strcmp("-x", argv[argIndex]) == 0;
 		argIndex++;
 		if(argIndex == argc)
@@ -49,6 +57,14 @@ int main(int argc, char** argv)
 			return 0;
 		}
 		const char *outputName = argv[argIndex++];
+
+		if(argIndex == argc)
+		{
+			printf("Input file name not found\n");
+			nullcTerminate();
+			return 0;
+		}
+
 		const char *fileName = argv[argIndex++];
 		FILE *ncFile = fopen(fileName, "rb");
 		if(!ncFile)
@@ -72,99 +88,108 @@ int main(int argc, char** argv)
 			delete[] fileContent;
 			return false;
 		}
-		nullcTranslateToC(link ? "__temp.cpp" : outputName, "main");
+
+		if(!nullcTranslateToC(link ? "__temp.cpp" : outputName, "main", AddDependency))
+		{
+			printf("Compilation of %s failed with error:\n%s\n", fileName, nullcGetLastError());
+			delete[] fileContent;
+			return false;
+		}
 
 		if(link)
 		{
 			// $$$ move this to a dependency file?
-			char cmdLine[1024];
-			strcpy(cmdLine, "gcc -g -o ");
-			strcat(cmdLine, outputName);
-			strcat(cmdLine, " __temp.cpp");
-			strcat(cmdLine, " translation/runtime.cpp -lstdc++");
-			if(strstr(fileContent, "std.math;"))
+			char cmdLine[4096];
+
+			char *pos = cmdLine;
+			strcpy(pos, "gcc -g -o ");
+			pos += strlen(pos);
+
+			strcpy(pos, outputName);
+			pos += strlen(pos);
+
+			strcpy(pos, " __temp.cpp");
+			pos += strlen(pos);
+
+			strcpy(pos, " -lstdc++");
+			pos += strlen(pos);
+
+			char tmp[256];
+			sprintf(tmp, "runtime.cpp");
+
+			if(FILE *file = fopen(tmp, "r"))
 			{
-				strcat(cmdLine, " translation/std_math.cpp");
-				strcat(cmdLine, " translation/std_math_bind.cpp");
+				*(pos++) = ' ';
+				strcpy(pos, tmp);
+				pos += strlen(pos);
+
+				fclose(file);
 			}
-			if(strstr(fileContent, "std.typeinfo;"))
+			else
 			{
-				strcat(cmdLine, " translation/std_typeinfo.cpp");
-				strcat(cmdLine, " translation/std_typeinfo_bind.cpp");
-			}
-			if(strstr(fileContent, "std.file;"))
-			{
-				strcat(cmdLine, " translation/std_file.cpp");
-				strcat(cmdLine, " translation/std_file_bind.cpp");
-			}
-			if(strstr(fileContent, "std.vector;"))
-			{
-				strcat(cmdLine, " translation/std_vector.cpp");
-				strcat(cmdLine, " translation/std_vector_bind.cpp");
-				if(!strstr(fileContent, "std.typeinfo;"))
+				sprintf(tmp, "translation/runtime.cpp");
+
+				if(FILE *file = fopen(tmp, "r"))
 				{
-					strcat(cmdLine, " translation/std_typeinfo.cpp");
-					strcat(cmdLine, " translation/std_typeinfo_bind.cpp");
+					*(pos++) = ' ';
+					strcpy(pos, tmp);
+					pos += strlen(pos);
+
+					fclose(file);
 				}
 			}
-			if(strstr(fileContent, "std.list;"))
+
+			for(unsigned i = 0; i < translationDependencyCount; i++)
 			{
-				strcat(cmdLine, " translation/std_list.cpp");
-				if(!strstr(fileContent, "std.typeinfo;"))
+				const char *dependency = translationDependencies[i];
+
+				*(pos++) = ' ';
+
+				strcpy(pos, dependency);
+				pos += strlen(pos);
+
+				if(strstr(dependency, "import_"))
 				{
-					strcat(cmdLine, " translation/std_typeinfo.cpp");
-					strcat(cmdLine, " translation/std_typeinfo_bind.cpp");
+					sprintf(tmp, "%s", dependency + strlen("import_"));
+
+					if(char *pos = strstr(tmp, "_nc.cpp"))
+						strcpy(pos, "_bind.cpp");
+
+					if(FILE *file = fopen(tmp, "r"))
+					{
+						*(pos++) = ' ';
+						strcpy(pos, tmp);
+						pos += strlen(pos);
+
+						fclose(file);
+					}
+					else
+					{
+						sprintf(tmp, "translation/%s", dependency + strlen("import_"));
+
+						if(char *pos = strstr(tmp, "_nc.cpp"))
+							strcpy(pos, "_bind.cpp");
+
+						if(FILE *file = fopen(tmp, "r"))
+						{
+							*(pos++) = ' ';
+							strcpy(pos, tmp);
+							pos += strlen(pos);
+
+							fclose(file);
+						}
+					}
 				}
 			}
-			if(strstr(fileContent, "std.range;"))
-			{
-				strcat(cmdLine, " translation/std_range.cpp");
-			}
-			if(strstr(fileContent, "std.gc;"))
-			{
-				strcat(cmdLine, " translation/std_gc.cpp");
-				strcat(cmdLine, " translation/std_gc_bind.cpp");
-			}
-			if(strstr(fileContent, "std.io;"))
-			{
-				strcat(cmdLine, " translation/std_io.cpp");
-				strcat(cmdLine, " translation/std_io_bind.cpp");
-			}
-			if(strstr(fileContent, "std.dynamic;"))
-			{
-				strcat(cmdLine, " translation/std_dynamic.cpp");
-				strcat(cmdLine, " translation/std_dynamic_bind.cpp");
-			}
-			if(strstr(fileContent, "std.time;"))
-			{
-				strcat(cmdLine, " translation/std_time.cpp");
-				strcat(cmdLine, " translation/std_time_bind.cpp");
-			}
-			if(strstr(fileContent, "img.canvas;"))
-			{
-				strcat(cmdLine, " translation/img_canvas.cpp");
-				strcat(cmdLine, " translation/img_canvas_bind.cpp");
-			}
-			if(strstr(fileContent, "win.window;"))
-			{
-				strcat(cmdLine, " translation/win_window.cpp");
-				strcat(cmdLine, " translation/win_window_bind.cpp");
-				strcat(cmdLine, " translation/win_window_ex.cpp");
-				strcat(cmdLine, " translation/win_window_ex_bind.cpp -mwindows -mconsole");
-				if(!strstr(fileContent, "img.canvas;"))
-				{
-					strcat(cmdLine, " translation/img_canvas.cpp");
-					strcat(cmdLine, " translation/img_canvas_bind.cpp");
-				}
-			}
+			
 			printf("Command line: %s\n", cmdLine);
+
+			
+
 			system(cmdLine);
 		}
 		delete[] fileContent;
 		nullcTerminate();
-#else
-		printf("To use this flag, compile with NULLC_ENABLE_C_TRANSLATION defined\n");
-#endif
 		return 0;
 	}
 	int currIndex = argIndex;
