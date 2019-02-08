@@ -355,14 +355,37 @@ int i1 = arr[0]();\r\n\
 int i2 = arr[1]();\r\n\
 int i3 = arr[2]();\r\n\
 int i4 = arr[3]();\r\n\
-return 1;";
-TEST("Closure with upvalues test 4", testUpvalues4, "1")
-{
-	CHECK_INT("i1", 0, 17);
-	CHECK_INT("i2", 0, 9);
-	CHECK_INT("i3", 0, 22);
-	CHECK_INT("i4", 0, 10);
-}
+return i1 * 1000000 + i2 * 10000 + i3 * 100 + i4;";
+TEST_RESULT("Closure with upvalues test 4", testUpvalues4, "17092210");
+
+const char	*testUpvalues4b =
+"int ref()[4] arr;\r\n\
+\r\n\
+int func()\r\n\
+{\r\n\
+	int m = 8;\r\n\
+	for(int i = 0; i < 2; i++)\r\n\
+	{\r\n\
+		arr[i*2+0] = auto(){ return 5 * (i + 1) + m; };\r\n\
+		arr[i*2+1] = auto(){ return i - 3 + m; };\r\n\
+	}\r\n\
+	m = 12;\r\n\
+	return 0;\r\n\
+}\r\n\
+int clear()\r\n\
+{\r\n\
+	int[20] clr = 0;\r\n\
+	int ref a = &clr[0];\r\n\
+	return *a;\r\n\
+}\r\n\
+func();\r\n\
+clear();\r\n\
+int i1 = arr[0]();\r\n\
+int i2 = arr[1]();\r\n\
+int i3 = arr[2]();\r\n\
+int i4 = arr[3]();\r\n\
+return i1 * 1000000 + i2 * 10000 + i3 * 100 + i4;";
+TEST_RESULT("Closure with upvalues test 4b", testUpvalues4b, "17092210");
 
 const char	*testUpvalues5 =
 "int func()\r\n\
@@ -704,3 +727,71 @@ for(int i = 0; i < 128; i++)\r\n\
 	m += (coroutine auto(){ int[1024] x; align(16) int y = 2; return CheckAlignment(y, 16); })();\r\n\
 return x() + m;";
 TEST_RESULT("Closure alignment test 4", testClosureAlignment4, "129");
+
+const char	*testBreakClosure =
+"auto foo()\r\n\
+{\r\n\
+	int ref() f; \r\n\
+	for(int k = 0; k < 5; k++)\r\n\
+	{\r\n\
+		for(int i = 0; i < 5; i++)\r\n\
+		{\r\n\
+			if(k == 0)\r\n\
+				f = auto() { return k * 100 + i; };\r\n\
+			if(k == 0 && i == 0)\r\n\
+			{ \r\n\
+				k = 3;\r\n\
+				i = 1;\r\n\
+				break 2;\r\n\
+			}\r\n\
+		}\r\n\
+	}\r\n\
+	return f;\r\n\
+}\r\n\
+return foo()();";
+TEST_RESULT("Closure on loop break", testBreakClosure, "301");
+
+const char	*testContinueClosure =
+"auto foo()\r\n\
+{\r\n\
+	int ref() f; \r\n\
+	for(int k = 0; k < 5; k++)\r\n\
+	{\r\n\
+		for(int i = 0; i < 5; i++)\r\n\
+		{\r\n\
+			if(k == 0)\r\n\
+				f = auto() { return k * 100 + i; };\r\n\
+			if(k == 0 && i == 0)\r\n\
+			{ \r\n\
+				k = 3;\r\n\
+				i = 1;\r\n\
+				continue 2;\r\n\
+			}\r\n\
+		}\r\n\
+	}\r\n\
+	return f;\r\n\
+}\r\n\
+return foo()();";
+TEST_RESULT("Closure on loop continue", testContinueClosure, "301");
+
+const char	*testFunctionPointerUpvalueClosure =
+"auto runner()\r\n\
+{\r\n\
+	int ref() k;\r\n\
+	auto foo(int x)\r\n\
+	{\r\n\
+		int ref() m;\r\n\
+		for(int y = 0; y < 10; y++)\r\n\
+		{\r\n\
+			m = auto(){ return y + x; };\r\n\
+			if(y == 6)\r\n\
+				k = m;\r\n\
+		}\r\n\
+		return m;\r\n\
+	}\r\n\
+	return foo(5)() + k();\r\n\
+}\r\n\
+int result = runner();\r\n\
+\r\n\
+return result;";
+TEST_RESULT("Closure of function pointer upvalue", testFunctionPointerUpvalueClosure, "25");

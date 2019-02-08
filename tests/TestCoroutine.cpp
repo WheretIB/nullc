@@ -178,7 +178,7 @@ for(i in arr2)\r\n\
 	i = gen3from2();\r\n\
 	t2 = t2 * 10 + i;\r\n\
 }\r\n\
-return (t1 == 567856) + (t2 == 234523);";
+return (t1 == 567756) + (t2 == 234423);";
 TEST_RESULT("Coroutine 11 (coroutine in local function with local function inside).", testCoroutine10, "2");
 
 const char	*testCoroutine11 =
@@ -214,7 +214,7 @@ for(i in arr2)\r\n\
 	i = gen3from2(2);\r\n\
 	t2 = t2 * 10 + i;\r\n\
 }\r\n\
-return (t1 == 345634) + (t2 == 563456);";
+return (t1 == 345534) + (t2 == 553455);";
 TEST_RESULT("Coroutine 12 (coroutine with local function inside).", testCoroutine11, "2");
 
 const char	*testCoroutine12 =
@@ -249,8 +249,67 @@ for(i in arr2)\r\n\
 	i = gen3from2(2);\r\n\
 	t2 = t2 * 10 + i;\r\n\
 }\r\n\
-return (t1 == 567856) + (t2 == 452345);";
+return (t1 == 567756) + (t2 == 442344);";
 TEST_RESULT("Coroutine 13 (coroutine with local function inside, argument closure).", testCoroutine12, "2");
+
+const char	*testCoroutine13 =
+"int ref()[6] m;\r\n\
+int index = 0;\r\n\
+auto get3GenFrom(int x)\r\n\
+{\r\n\
+	void gen3from()\r\n\
+	{\r\n\
+		for(int i = x; i < x + 3; i++)\r\n\
+		{\r\n\
+			int help(){ return i; }\r\n\
+			m[index++] = help;\r\n\
+		}\r\n\
+	}\r\n\
+	gen3from();\r\n\
+	\r\n\
+	coroutine void gen3from2()\r\n\
+	{\r\n\
+		for(int i = x; i < x + 3; i++)\r\n\
+		{\r\n\
+			int help(){ return i; }\r\n\
+			m[index++] = help;\r\n\
+		}\r\n\
+	}\r\n\
+	gen3from2();\r\n\
+}\r\n\
+get3GenFrom(5);\r\n\
+return m[5]() + m[4]() * 10 + m[3]() * 100 + m[2]() * 1000 + m[1]() * 10000 + m[0]() * 100000;";
+TEST_RESULT("Coroutine 14 (coroutine variable closure should follow semantics of a regular function).", testCoroutine13, "567567");
+
+const char	*testCoroutine14 =
+"int[3] arr = { 5, 6, 7 };\r\n\
+int ref()[6] m;\r\n\
+int index = 0;\r\n\
+auto get3GenFrom()\r\n\
+{\r\n\
+	void gen3from()\r\n\
+	{\r\n\
+		for(i in arr)\r\n\
+		{\r\n\
+			int help1(){ return i; }\r\n\
+			m[index++] = help1;\r\n\
+		}\r\n\
+	}\r\n\
+	gen3from();\r\n\
+	\r\n\
+	coroutine void gen3from2()\r\n\
+	{\r\n\
+		for(j in arr)\r\n\
+		{\r\n\
+			int help2(){ return j; }\r\n\
+			m[index++] = help2;\r\n\
+		}\r\n\
+	}\r\n\
+	gen3from2();\r\n\
+}\r\n\
+get3GenFrom();\r\n\
+return m[5]() + m[4]() * 10 + m[3]() * 100 + m[2]() * 1000 + m[1]() * 10000 + m[0]() * 100000;";
+TEST_RESULT("Coroutine 15 (for each loop is the same as a regular loop).", testCoroutine14, "567567");
 
 const char	*testCoroutineExampleA =
 "import std.vector;\r\n\
@@ -473,3 +532,124 @@ const char	*testCoroutineArrayInit =
 return f() + f() + f() + f();";
 TEST_RESULT("Array initialization inside a coroutine", testCoroutineArrayInit, "4");
 
+const char	*testCoroutineLocalClosure =
+"coroutine auto foo()\r\n\
+{\r\n\
+	for(int x = 1;1;x++)\r\n\
+		yield auto(){ return x; };\r\n\
+}\r\n\
+\r\n\
+auto a = foo();\r\n\
+auto b = foo();\r\n\
+\r\n\
+auto c = a(), d = b();\r\n\
+\r\n\
+return c + d;";
+TEST_RESULT("Coroutine local variables are closed when they go out of scope", testCoroutineLocalClosure, "3");
+
+const char	*testCoroutineLocalClosure2 =
+"coroutine auto foo1()\r\n\
+{\r\n\
+	int ref() f;\r\n\
+	\r\n\
+	for(int i = 0; i < 10; i++)\r\n\
+	{\r\n\
+		coroutine int bar();\r\n\
+		yield bar;\r\n\
+		f = bar;\r\n\
+		\r\n\
+		coroutine int bar()\r\n\
+		{\r\n\
+			return i;\r\n\
+		}\r\n\
+	}\r\n\
+	\r\n\
+	yield f;\r\n\
+	\r\n\
+	for(;1;)\r\n\
+		yield f;\r\n\
+}\r\n\
+\r\n\
+int ref()[15] arr1;\r\n\
+\r\n\
+for (a in foo1, b in arr1)\r\n\
+	b = a;\r\n\
+\r\n\
+int sum1 = 0;\r\n\
+\r\n\
+for (a in arr1)\r\n\
+	sum1 += a();\r\n\
+\r\n\
+return sum1;";
+TEST_RESULT("Coroutine local variables are closed when they go out of scope 2", testCoroutineLocalClosure2, "90");
+
+const char	*testCoroutineLocalClosure3 =
+"int ref()[15] arr2;\r\n\
+int arc2s = 0;\r\n\
+\r\n\
+auto foo2()\r\n\
+{\r\n\
+	int ref() f;\r\n\
+	\r\n\
+	for(int i = 0; i < 10; i++)\r\n\
+	{\r\n\
+		coroutine int bar()\r\n\
+		{\r\n\
+			return i;\r\n\
+		}\r\n\
+		\r\n\
+		arr2[arc2s++] = bar;\r\n\
+		f = bar;\r\n\
+	}\r\n\
+	\r\n\
+	arr2[arc2s++] = f;\r\n\
+	\r\n\
+	while(arc2s < arr2.size)\r\n\
+		arr2[arc2s++] = f;\r\n\
+}\r\n\
+\r\n\
+foo2();\r\n\
+\r\n\
+int sum2 = 0;\r\n\
+\r\n\
+for (a in arr2)\r\n\
+	sum2 += a();\r\n\
+\r\n\
+return sum2;";
+TEST_RESULT("Coroutine local variables are closed when they go out of scope 3", testCoroutineLocalClosure3, "90");
+
+const char	*testCoroutineLocalClosure4 =
+"int ref()[15] arr3;\r\n\
+int arc3s = 0;\r\n\
+\r\n\
+auto foo3()\r\n\
+{\r\n\
+	int ref() f;\r\n\
+	\r\n\
+	for(int i = 0; i < 10; i++)\r\n\
+	{\r\n\
+		coroutine int bar();\r\n\
+		arr3[arc3s++] = bar;\r\n\
+		f = bar;\r\n\
+		\r\n\
+		coroutine int bar()\r\n\
+		{\r\n\
+			return i;\r\n\
+		}\r\n\
+	}\r\n\
+	\r\n\
+	arr3[arc3s++] = f;\r\n\
+	\r\n\
+	while(arc3s < arr3.size)\r\n\
+		arr3[arc3s++] = f;\r\n\
+}\r\n\
+\r\n\
+foo3();\r\n\
+\r\n\
+int sum3 = 0;\r\n\
+\r\n\
+for (a in arr3)\r\n\
+	sum3 += a();\r\n\
+\r\n\
+return sum3;";
+TEST_RESULT("Coroutine local variables are closed when they go out of scope 4", testCoroutineLocalClosure4, "90");
