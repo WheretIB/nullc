@@ -13,6 +13,11 @@ public:
 	}
 	~ChunkedStackPool()
 	{
+		Reset();
+	}
+
+	void Reset()
+	{
 		while(first)
 		{
 			StackChunk *next = first->next;
@@ -28,6 +33,7 @@ public:
 		curr = first;
 		size = first ? 0 : chunkSize;
 	}
+
 	void	ClearTo(unsigned int bytes)
 	{
 		if(!first)
@@ -41,6 +47,7 @@ public:
 		}
 		size = bytes;
 	}
+
 	void*	Allocate(unsigned int bytes)
 	{
 		bytes = (bytes + 7) & ~7; // 8-byte align
@@ -69,6 +76,7 @@ public:
 		size = bytes;
 		return curr->data;
 	}
+
 	unsigned int GetSize()
 	{
 		unsigned int wholeSize = 0;
