@@ -164,7 +164,6 @@ void KILL_REG_IMPL(x86Reg reg)
 
 #endif
 
-#ifdef NULLC_LOG_FILES
 void EMIT_COMMENT(const char* text)
 {
 	(void)text;
@@ -172,9 +171,6 @@ void EMIT_COMMENT(const char* text)
 	x86Op->comment = text;
 	x86Op++;*/
 }
-#else
-#define EMIT_COMMENT(x)
-#endif
 
 void EMIT_LABEL(unsigned int labelID, int invalidate = true)
 {

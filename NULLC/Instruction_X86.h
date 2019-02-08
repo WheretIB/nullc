@@ -261,28 +261,24 @@ struct x86Instruction
 	unsigned int	instID;
 	x86Argument	argA, argB;
 
-#ifdef NULLC_LOG_FILES
 	union
 	{
 		unsigned int	labelID;
 		const char		*comment;
 	};
-#else
-	unsigned int	labelID;
-#endif
 
 	// returns string length
 	int	Decode(char *buf)
 	{
 		char *curr = buf;
+
 		if(name == o_label)
 			curr += sprintf(curr, "0x%p:", (int*)(intptr_t)labelID);
-#ifdef NULLC_LOG_FILES
 		else if(name == o_other)
 			curr += sprintf(curr, "  ; %s", comment);
-#endif
 		else
 			curr += sprintf(curr, "%s", x86CmdText[name]);
+
 		if(name != o_none)
 		{
 			if(argA.type != x86Argument::argNone)
