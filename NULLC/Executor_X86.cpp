@@ -1130,7 +1130,6 @@ bool ExecutorX86::TranslateToNative()
 		if(instList[i].name != o_none && instList[i].name != o_other)
 			instCount++;
 	}
-	printf("So far, %d optimizations (%d instructions)\r\n", GetOptimizationCount(), instCount);
 
 	FILE *fAsm = fopen("asmX86.txt", "wb");
 	char instBuf[128];
@@ -1138,12 +1137,25 @@ bool ExecutorX86::TranslateToNative()
 	{
 		if(instList[i].name == o_other)
 			continue;
+
 		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
 		{
 			fprintf(fAsm, "; ------------------- Invalidation ----------------\r\n");
-			fprintf(fAsm, "0x%x\r\n", 0xc0000000 | (instList[i].instID - 1));
+			fprintf(fAsm, "0x%x: ; %4d\r\n", 0xc0000000 | (instList[i].instID - 1), instList[i].instID - 1);
 		}
+
+		if(instList[i].instID && instList[i].instID - 1 < exCode.size())
+		{
+			VMCmd &cmd = exCode[instList[i].instID - 1];
+
+			char buf[256];
+			cmd.Decode(buf);
+
+			fprintf(fAsm, "; %4d: %s\r\n", instList[i].instID - 1, buf);
+		}
+
 		instList[i].Decode(instBuf);
+
 		fprintf(fAsm, "%s\r\n", instBuf);
 	}
 	fclose(fAsm);
