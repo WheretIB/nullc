@@ -65,6 +65,27 @@ for(int i in a)\r\n\
 return sum + sum2;";
 TEST_RESULT("For each with specified element type", testForEach2, "78");
 
+const char	*testForEach2b =
+"import std.vector;\r\n\
+auto a = vector<int>();\r\n\
+a.push_back(4);\r\n\
+a.push_back(8);\r\n\
+a.push_back(14);\r\n\
+\r\n\
+int sum = 0;\r\n\
+for(auto i in a)\r\n\
+{\r\n\
+	sum += i;\r\n\
+	i *= 2;\r\n\
+}\r\n\
+int sum2 = 0;\r\n\
+for(auto i in a)\r\n\
+{\r\n\
+	sum2 += i;\r\n\
+}\r\n\
+return sum + sum2;";
+TEST_RESULT("For each with specified element type 2", testForEach2b, "78");
+
 const char	*testForEach3 =
 "int[] arr1 = { 2, 6, 7 };\r\n\
 int sum1 = 0;\r\n\
