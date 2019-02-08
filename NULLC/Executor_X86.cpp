@@ -1458,9 +1458,11 @@ bool ExecutorX86::TranslateToNative()
 				code += x86SHL(code, cmd.argA.reg, cmd.argB.num);
 			break;
 		case o_sal:
+			assert(cmd.argA.reg == rEAX && cmd.argB.reg == rECX);
 			code += x86SAL(code);
 			break;
 		case o_sar:
+			assert(cmd.argA.reg == rEAX && cmd.argB.reg == rECX);
 			code += x86SAR(code);
 			break;
 		case o_not:
