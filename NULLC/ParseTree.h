@@ -157,7 +157,7 @@ bool isType(SynBase *node)
 template<typename T>
 T* getType(SynBase *node)
 {
-	if(node && isType<T>(node))
+	if(node && node->typeID == typename T::myTypeID)
 		return static_cast<T*>(node);
 
 	return 0;

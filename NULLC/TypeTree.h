@@ -949,7 +949,7 @@ bool isType(TypeBase *node)
 template<typename T>
 T* getType(TypeBase *node)
 {
-	if(node && isType<T>(node))
+	if(node && node->typeID == typename T::myTypeID)
 		return static_cast<T*>(node);
 
 	return 0;
@@ -958,7 +958,7 @@ T* getType(TypeBase *node)
 template<>
 inline TypeStruct* getType(TypeBase *node)
 {
-	if(node && (isType<TypeAutoRef>(node) || isType<TypeAutoArray>(node) || isType<TypeUnsizedArray>(node) || isType<TypeClass>(node) || isType<TypeEnum>(node)))
+	if(node && (node->typeID == TypeAutoRef::myTypeID || node->typeID == TypeAutoArray::myTypeID || node->typeID == TypeUnsizedArray::myTypeID || node->typeID == TypeClass::myTypeID || node->typeID == TypeEnum::myTypeID))
 		return static_cast<TypeStruct*>(node);
 
 	return 0;

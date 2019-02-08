@@ -873,7 +873,7 @@ bool isType(ExprBase *node)
 template<typename T>
 T* getType(ExprBase *node)
 {
-	if(node && isType<T>(node))
+	if(node && node->typeID == typename T::myTypeID)
 		return static_cast<T*>(node);
 
 	return 0;
