@@ -321,6 +321,17 @@ auto x = new Foo[32];\r\n\
 return x[19].x;";
 TEST_RESULT_SIMPLE("constructor call for every array element 2", testConstructorForArrayElements2, "29");
 
+const char	*testConstructorForArrayElements2b =
+"class Foo{ int x; void Foo(){ x = 42; } }\r\n\
+auto x = new Foo[32];\r\n\
+class Bar{ int x; void Bar(int y = 42){ x = y; } }\r\n\
+auto y = new Bar[32];\r\n\
+Foo[4][4] z;\r\n\
+class Fez{ int x; Foo y; void Fez(int a){ x = a; } }\r\n\
+auto w = new Fez[4];\r\n\
+return x.size + x[1].x + y[1].x + z[1][2].x + w[1].y.x;";
+TEST_RESULT_SIMPLE("constructor call for every array element 2b", testConstructorForArrayElements2b, "200");
+
 const char	*testImplicitConstructorCallForGenericType1 =
 "class Foo<T>\r\n\
 {\r\n\
@@ -710,21 +721,36 @@ assert(a.a != b.a);\r\n\
 assert(*a.a == 4);\r\n\
 assert(*b.a == 10);\r\n\
 \r\n\
-class Bar\r\n\
+class Bar1\r\n\
 {\r\n\
 	int x;\r\n\
 	Foo y;\r\n\
 }\r\n\
-Bar m, n;\r\n\
-m.x = 7;\r\n\
-m.y.a = &m.x;\r\n\
+Bar1 m1, n1;\r\n\
+m1.x = 7;\r\n\
+m1.y.a = &m1.x;\r\n\
 \r\n\
-n = m;\r\n\
-*n.y.a = 14;\r\n\
+n1 = m1;\r\n\
+*n1.y.a = 14;\r\n\
 \r\n\
-assert(m.y.a != n.y.a);\r\n\
-assert(*m.y.a == 7);\r\n\
-assert(*n.y.a == 14);\r\n\
+assert(m1.y.a != n1.y.a);\r\n\
+assert(*m1.y.a == 7);\r\n\
+assert(*n1.y.a == 14);\r\n\
+\r\n\
+class Bar2\r\n\
+{\r\n\
+	Bar1 a;\r\n\
+}\r\n\
+Bar2 m2, n2;\r\n\
+m2.a.x = 7;\r\n\
+m2.a.y.a = &m2.a.x;\r\n\
+\r\n\
+n2 = m2;\r\n\
+*n2.a.y.a = 14;\r\n\
+\r\n\
+assert(m2.a.y.a != n2.a.y.a);\r\n\
+assert(*m2.a.y.a == 7);\r\n\
+assert(*n2.a.y.a == 14);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("A default custom assignment operator is generated for classes that have members with a custom assignment operators", testClassAssignmentOperator, "1");
@@ -1099,3 +1125,25 @@ class X\r\n\
 X m = X();\r\n\
 return m.y.x.a;";
 TEST_RESULT("Default constructor call from explicit constructor", testDefaultConstructCallFromExplicitConstructor, "4");
+
+const char	*testMemberFunctionsWorkWithCompleteClass =
+"class Test\r\n\
+{\r\n\
+	int x, y;\r\n\
+	\r\n\
+	int sum(Test t, Test u)\r\n\
+	{\r\n\
+		return t.x + t.y + u.x + u.y;\r\n\
+	}\r\n\
+	\r\n\
+	int z, w;\r\n\
+}\r\n\
+\r\n\
+Test a;\r\n\
+a.x = 1; a.y = 2; a.z = 3; a.w = 4;\r\n\
+\r\n\
+Test b;\r\n\
+b.x = 10; b.y = 20; b.z = 30; b.w = 40;\r\n\
+\r\n\
+return a.sum(a, b);";
+TEST_RESULT("Member functions are analyzed when the class is complete", testMemberFunctionsWorkWithCompleteClass, "33");
