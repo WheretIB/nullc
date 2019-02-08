@@ -152,7 +152,7 @@ unsigned	nullcGetBytecodeNoCache(char **bytecode);
 nullres		nullcSaveListing(const char *fileName);
 
 /*	This function saved analog of C++ code of last compiled code into file	*/
-nullres		nullcTranslateToC(const char *fileName, const char *mainName, void (*addDependency)(const char *fileName));
+nullres		nullcTranslateToC(const char *fileName, const char *mainName, void (NCDECL *addDependency)(const char *fileName));
 
 /*	Clean all accumulated bytecode	*/
 void		nullcClean();

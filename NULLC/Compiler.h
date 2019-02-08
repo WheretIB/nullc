@@ -52,7 +52,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode);
 
 bool SaveListing(CompilerContext &ctx, const char *fileName);
 
-bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (*addDependency)(const char *fileName));
+bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (NCDECL *addDependency)(const char *fileName));
 
 char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize);
 char* BuildModuleFromPath(Allocator *allocator, InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize);

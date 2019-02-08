@@ -1654,7 +1654,7 @@ bool SaveListing(CompilerContext &ctx, const char *fileName)
 	return true;
 }
 
-bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (*addDependency)(const char *fileName))
+bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (NCDECL *addDependency)(const char *fileName))
 {
 	ExpressionTranslateContext exprTranslateCtx(ctx.exprCtx, ctx.allocator);
 

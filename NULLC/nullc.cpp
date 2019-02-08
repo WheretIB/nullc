@@ -345,7 +345,7 @@ nullres nullcSaveListing(const char *fileName)
 	return 1;
 }
 
-nullres	nullcTranslateToC(const char *fileName, const char *mainName, void (*addDependency)(const char *fileName))
+nullres	nullcTranslateToC(const char *fileName, const char *mainName, void (NCDECL *addDependency)(const char *fileName))
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
