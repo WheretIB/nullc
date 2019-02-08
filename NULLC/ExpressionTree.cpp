@@ -402,6 +402,15 @@ namespace
 		if(isType<ExprGenericFunctionPrototype>(expr))
 			Stop(ctx, source->pos, "ERROR: ambiguity, the expression is a generic function");
 
+		if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expr))
+		{
+			if(isType<TypeArgumentSet>(node->value))
+				Stop(ctx, source->pos, "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
+
+			if(isType<TypeMemberSet>(node->value))
+				Stop(ctx, source->pos, "ERROR: expected '(' after 'hasMember'");
+		}
+
 		return expr;
 	}
 
@@ -1739,7 +1748,11 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 		return CreateFunctionPointer(ctx, source, definition, true);
 
 	if(value->type == type)
+	{
+		AssertValueExpression(ctx, source, value);
+
 		return value;
+	}
 
 	if(ctx.IsNumericType(value->type) && ctx.IsNumericType(type))
 		return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, value, EXPR_CAST_NUMERICAL);
@@ -9137,7 +9150,11 @@ ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeBlock(ctx, node, true);
 	}
 
-	return AnalyzeExpression(ctx, syntax);
+	ExprBase *expression = AnalyzeExpression(ctx, syntax);
+
+	AssertValueExpression(ctx, syntax, expression);
+
+	return expression;
 }
 
 struct ModuleContext

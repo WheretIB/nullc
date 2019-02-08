@@ -1544,6 +1544,8 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 	}
 	else if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expression))
 	{
+		assert(!isType<TypeFunctionSet>(node->value) && !isType<TypeArgumentSet>(node->value) && !isType<TypeMemberSet>(node->value));
+
 		return CheckType(ctx, expression, CreateTypeIndex(module, node->source, node->value));
 	}
 	else if(ExprNullptrLiteral *node = getType<ExprNullptrLiteral>(expression))
