@@ -752,9 +752,9 @@ namespace
 
 		bool found = false;
 
-		for(unsigned i = 0; i < scope->allVariables.size(); i++)
+		for(unsigned i = 0, e = scope->allVariables.size(); i < e; i++)
 		{
-			if(scope->allVariables[i] == variable)
+			if(scope->allVariables.data[i] == variable)
 			{
 				found = true;
 				break;
