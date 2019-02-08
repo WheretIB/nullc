@@ -3083,11 +3083,8 @@ ExprBase* CreateFunctionCoroutineStateUpdate(ExpressionContext &ctx, SynBase *so
 
 VariableData* AddFunctionUpvalue(ExpressionContext &ctx, SynBase *source, FunctionData *function, VariableData *data)
 {
-	for(UpvalueData *upvalue = function->upvalues.head; upvalue; upvalue = upvalue->next)
-	{
-		if(upvalue->variable == data)
-			return upvalue->target;
-	}
+	if(UpvalueData **prev = function->upvalueVariableMap.find(data))
+		return (*prev)->target;
 
 	TypeRef *refType = getType<TypeRef>(function->contextType);
 
@@ -3103,14 +3100,8 @@ VariableData* AddFunctionUpvalue(ExpressionContext &ctx, SynBase *source, Functi
 
 	unsigned index = 0;
 
-	for(UpvalueData *upvalue = function->upvalues.head; upvalue; upvalue = upvalue->next)
-	{
-		if(upvalue->variable->name == data->name)
-		{
-			index = classType->members.size();
-			break;
-		}
-	}
+	if(function->upvalueNameSet.contains(data->name))
+		index = classType->members.size();
 
 	// Pointer to target variable
 	VariableData *target = AllocateClassMember(ctx, source, 0, ctx.GetReferenceType(data->type), GetFunctionContextMemberName(ctx, data->name, InplaceStr("target"), index), true, ctx.uniqueVariableId++);
@@ -3131,18 +3122,20 @@ VariableData* AddFunctionUpvalue(ExpressionContext &ctx, SynBase *source, Functi
 
 	data->usedAsExternal = true;
 
-	function->upvalues.push_back(new (ctx.get<UpvalueData>()) UpvalueData(data, target, nextUpvalue, copy));
+	UpvalueData *upvalue = new (ctx.get<UpvalueData>()) UpvalueData(data, target, nextUpvalue, copy);
+
+	function->upvalues.push_back(upvalue);
+
+	function->upvalueVariableMap.insert(data, upvalue);
+	function->upvalueNameSet.insert(data->name);
 
 	return target;
 }
 
 VariableData* AddFunctionCoroutineVariable(ExpressionContext &ctx, SynBase *source, FunctionData *function, VariableData *data)
 {
-	for(CoroutineStateData *curr = function->coroutineState.head; curr; curr = curr->next)
-	{
-		if(curr->variable == data)
-			return curr->storage;
-	}
+	if(CoroutineStateData **prev = function->coroutineStateVariableMap.find(data))
+		return (*prev)->storage;
 
 	TypeRef *refType = getType<TypeRef>(function->contextType);
 
@@ -3158,14 +3151,8 @@ VariableData* AddFunctionCoroutineVariable(ExpressionContext &ctx, SynBase *sour
 
 	unsigned index = 0;
 
-	for(CoroutineStateData *curr = function->coroutineState.head; curr; curr = curr->next)
-	{
-		if(curr->variable->name == data->name)
-		{
-			index = classType->members.size();
-			break;
-		}
-	}
+	if(function->coroutineStateNameSet.contains(data->name))
+		index = classType->members.size();
 
 	// Copy of the data
 	VariableData *storage = AllocateClassMember(ctx, source, data->alignment, data->type, GetFunctionContextMemberName(ctx, data->name, InplaceStr("storage"), index), true, ctx.uniqueVariableId++);
@@ -3174,7 +3161,12 @@ VariableData* AddFunctionCoroutineVariable(ExpressionContext &ctx, SynBase *sour
 
 	ctx.scope = currScope;
 
-	function->coroutineState.push_back(new (ctx.get<CoroutineStateData>()) CoroutineStateData(data, storage));
+	CoroutineStateData *state = new (ctx.get<CoroutineStateData>()) CoroutineStateData(data, storage);
+
+	function->coroutineState.push_back(state);
+
+	function->coroutineStateVariableMap.insert(data, state);
+	function->coroutineStateNameSet.insert(data->name);
 
 	return storage;
 }

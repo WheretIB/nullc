@@ -2,6 +2,7 @@
 
 #include "stdafx.h"
 #include "Array.h"
+#include "DenseMap.h"
 #include "IntrusiveList.h"
 #include "StrAlgo.h"
 
@@ -180,6 +181,14 @@ struct VariableData
 	unsigned uniqueId;
 
 	SmallArray<VmConstant*, 8> users;
+};
+
+struct VariableDataHasher
+{
+	unsigned operator()(VariableData* key)
+	{
+		return key->uniqueId;
+	}
 };
 
 struct MatchData
@@ -367,7 +376,13 @@ struct FunctionData
 
 	IntrusiveList<UpvalueData> upvalues;
 
+	SmallDenseMap<VariableData*, UpvalueData*, VariableDataHasher, 2> upvalueVariableMap;
+	SmallDenseSet<InplaceStr, InplaceStrHasher, 2> upvalueNameSet;
+
 	IntrusiveList<CoroutineStateData> coroutineState;
+
+	SmallDenseMap<VariableData*, CoroutineStateData*, VariableDataHasher, 2> coroutineStateVariableMap;
+	SmallDenseSet<InplaceStr, InplaceStrHasher, 2> coroutineStateNameSet;
 
 	// Variable containing a pointer to the function context
 	VariableData *contextVariable;

@@ -63,7 +63,10 @@ namespace NULLC
 
 		bool operator==(const InplaceStr& rhs) const
 		{
-			return length() == rhs.length() && memcmp(begin, rhs.begin, length()) == 0;
+			if(begin == rhs.begin && end == rhs.end)
+				return true;
+
+			return unsigned(end - begin) == unsigned(rhs.end - rhs.begin) && memcmp(begin, rhs.begin, unsigned(end - begin)) == 0;
 		}
 		
 		bool operator!=(const InplaceStr& rhs) const
@@ -72,6 +75,14 @@ namespace NULLC
 		}
 
 		const char *begin, *end;
+	};
+
+	struct InplaceStrHasher
+	{
+		unsigned operator()(InplaceStr key)
+		{
+			return key.hash();
+		}
 	};
 }
 
