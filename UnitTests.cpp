@@ -152,8 +152,8 @@ int RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsig
 	//SpeedTestFile("blob.nc");
 	return 0;*/
 
-	//RunParseFailTests();
-	//RunCompileFailTests();
+	RunParseFailTests();
+	RunCompileFailTests();
 
 #ifdef __linux
 	system("cp NULLC/translation/runtime.h runtime.h");
