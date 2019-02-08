@@ -18,6 +18,11 @@ const char *testGenericExplicit2 =
 return typeof(bar with<int>(2l)) == int && bar with<int>(2l) == 2;";
 TEST_RESULT("Generic function test with explicit template arguments (single type enforcement)", testGenericExplicit2, "1");
 
+const char *testGenericExplicit2b =
+"auto bar<@T>(@T a){ return a; }\r\n\
+{return bar with<int>(2l) == 2;}";
+TEST_RESULT("Generic function test with explicit template arguments (single type enforcement, local instantiation)", testGenericExplicit2b, "1");
+
 const char *testGenericExplicit3 =
 "auto bar<@T>(@T a, @T ref b){ return typeof(a) == int && typeof(b) == int ref; }\r\n\
 return bar with<int>(2l, 2);";
