@@ -3,8 +3,6 @@
 
 #include "Instruction_X86.h"
 
-#include "ParseClass.h"
-
 #include "Executor_Common.h"
 
 class ExecutorX86
