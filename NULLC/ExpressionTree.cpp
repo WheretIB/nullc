@@ -4265,9 +4265,9 @@ InplaceStr GetFunctionName(ExpressionContext &ctx, ScopeData *scope, TypeBase *p
 
 bool HasNamedCallArguments(ArrayView<ArgumentData> arguments)
 {
-	for(unsigned i = 0; i < arguments.size(); i++)
+	for(unsigned i = 0, e = arguments.count; i < e; i++)
 	{
-		if(!arguments[i].name.empty())
+		if(!arguments.data[i].name.empty())
 			return true;
 	}
 
