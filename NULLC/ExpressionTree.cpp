@@ -623,7 +623,9 @@ ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
 	definitions.set_allocator(allocator);
 	vtables.set_allocator(allocator);
 	upvalues.set_allocator(allocator);
+
 	functionTypes.set_allocator(allocator);
+	functionSetTypes.set_allocator(allocator);
 	genericAliasTypes.set_allocator(allocator);
 	genericClassTypes.set_allocator(allocator);
 
@@ -1408,6 +1410,38 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, ArrayView
 		types.push_back(new (get<TypeHandle>()) TypeHandle(arguments[i].type));
 
 	return GetFunctionType(returnType, types);
+}
+
+TypeFunctionSet* ExpressionContext::GetFunctionSetType(IntrusiveList<TypeHandle> types)
+{
+	for(unsigned i = 0, e = functionSetTypes.count; i < e; i++)
+	{
+		if(TypeFunctionSet *type = functionSetTypes.data[i])
+		{
+			TypeHandle *leftArg = type->types.head;
+			TypeHandle *rightArg = types.head;
+
+			while(leftArg && rightArg && leftArg->type == rightArg->type)
+			{
+				leftArg = leftArg->next;
+				rightArg = rightArg->next;
+			}
+
+			if(leftArg != rightArg)
+				continue;
+
+			return type;
+		}
+	}
+
+	// Create new type
+	TypeFunctionSet* result = new (get<TypeFunctionSet>()) TypeFunctionSet(GetFunctionSetTypeName(*this, types), types);
+
+	functionSetTypes.push_back(result);
+
+	// This type is not added to export list
+
+	return result;
 }
 
 TypeGenericAlias* ExpressionContext::GetGenericAliasType(InplaceStr baseName)
@@ -3026,7 +3060,7 @@ ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<
 			curr = ctx.functionMap.next(curr);
 		}
 
-		TypeFunctionSet *type = new (ctx.get<TypeFunctionSet>()) TypeFunctionSet(GetFunctionSetTypeName(ctx, types), types);
+		TypeFunctionSet *type = ctx.GetFunctionSetType(types);
 
 		return new (ctx.get<ExprFunctionOverloadSet>()) ExprFunctionOverloadSet(source, type, functions, context);
 	}
@@ -3751,7 +3785,7 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 		Stop(ctx, source->pos, "ERROR: function '%.*s' is undefined in any of existing classes", FMT_ISTR(name));
 	}
 
-	TypeFunctionSet *type = new (ctx.get<TypeFunctionSet>()) TypeFunctionSet(GetFunctionSetTypeName(ctx, types), types);
+	TypeFunctionSet *type = ctx.GetFunctionSetType(types);
 
 	return new (ctx.get<ExprFunctionOverloadSet>()) ExprFunctionOverloadSet(source, type, functions, value);
 }
@@ -3944,7 +3978,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 				overloads.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function.function));
 			}
 
-			TypeFunctionSet *type = new (ctx.get<TypeFunctionSet>()) TypeFunctionSet(GetFunctionSetTypeName(ctx, types), types);
+			TypeFunctionSet *type = ctx.GetFunctionSetType(types);
 
 			return new (ctx.get<ExprFunctionOverloadSet>()) ExprFunctionOverloadSet(source, type, overloads, wrapped);
 		}
@@ -5648,7 +5682,7 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 						overloads.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function->function));
 				}
 
-				TypeFunctionSet *type = new (ctx.get<TypeFunctionSet>()) TypeFunctionSet(GetFunctionSetTypeName(ctx, types), types);
+				TypeFunctionSet *type = ctx.GetFunctionSetType(types);
 
 				argument = new (ctx.get<ExprFunctionOverloadSet>()) ExprFunctionOverloadSet(source, type, overloads, NULL);
 			}
@@ -7406,7 +7440,7 @@ ExprBase* CreateConstructorAccess(ExpressionContext &ctx, SynBase *source, Array
 			handles.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(curr));
 		}
 
-		TypeFunctionSet *type = new (ctx.get<TypeFunctionSet>()) TypeFunctionSet(GetFunctionSetTypeName(ctx, types), types);
+		TypeFunctionSet *type = ctx.GetFunctionSetType(types);
 
 		return new (ctx.get<ExprFunctionOverloadSet>()) ExprFunctionOverloadSet(source, type, handles, context);
 	}

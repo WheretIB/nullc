@@ -64,6 +64,7 @@ struct ExpressionContext
 	TypeUnsizedArray* GetUnsizedArrayType(TypeBase* type);
 	TypeFunction* GetFunctionType(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
 	TypeFunction* GetFunctionType(TypeBase* returnType, ArrayView<ArgumentData> arguments);
+	TypeFunctionSet* GetFunctionSetType(IntrusiveList<TypeHandle> types);
 	TypeGenericAlias* GetGenericAliasType(InplaceStr baseName);
 	TypeGenericClass* GetGenericClassType(TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 
@@ -81,6 +82,7 @@ struct ExpressionContext
 	SmallArray<VariableData*, 128> upvalues;
 
 	SmallArray<TypeFunction*, 128> functionTypes;
+	SmallArray<TypeFunctionSet*, 128> functionSetTypes;
 	SmallArray<TypeGenericAlias*, 128> genericAliasTypes;
 	SmallArray<TypeGenericClass*, 128> genericClassTypes;
 
