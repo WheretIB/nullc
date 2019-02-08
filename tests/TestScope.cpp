@@ -35,14 +35,24 @@ a.y = 15;\r\n\
 return a.sum(5);";
 TEST_RESULT("Member function hides members", testClassMemberHide, "20");
 
-const char	*testVariableHiding =
-"int a;\r\n\
+const char	*testVariableHiding1 =
+"int a = 4;\r\n\
 {\r\n\
 	auto a(){ }\r\n\
 	a();\r\n\
 }\r\n\
-return 0;";
-TEST_RESULT("Variable hiding by function", testVariableHiding, "0");
+return a;";
+TEST_RESULT("Variable hiding by function 1", testVariableHiding1, "4");
+
+const char	*testVariableHiding2 =
+"int a = 4;\r\n\
+{\r\n\
+	auto a(){ }\r\n\
+	auto b = a;\r\n\
+	b();\r\n\
+}\r\n\
+return a;";
+TEST_RESULT("Variable hiding by function 2", testVariableHiding2, "4");
 
 const char	*testFunctionVisibility =
 "int func()\r\n\
