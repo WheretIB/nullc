@@ -6,15 +6,13 @@
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
-typedef InstructionVMLowerContext Context;
-
-void AddCommand(Context &ctx, SynBase *source, VMCmd cmd)
+void AddCommand(InstructionVMLowerContext &ctx, SynBase *source, VMCmd cmd)
 {
 	ctx.locations.push_back(source);
 	ctx.cmds.push_back(cmd);
 }
 
-void Lower(Context &ctx, VmValue *value)
+void Lower(InstructionVMLowerContext &ctx, VmValue *value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
@@ -48,7 +46,7 @@ void Lower(Context &ctx, VmValue *value)
 
 		for(unsigned i = 0; i < ctx.fixupPoints.size(); i++)
 		{
-			Context::FixupPoint &point = ctx.fixupPoints[i];
+			InstructionVMLowerContext::FixupPoint &point = ctx.fixupPoints[i];
 
 			assert(point.target);
 			assert(point.target->address != ~0u);
@@ -454,7 +452,7 @@ void Lower(Context &ctx, VmValue *value)
 			// Check if jump is fall-through
 			if(!(ctx.currentBlock->nextSibling && ctx.currentBlock->nextSibling == inst->arguments[0]))
 			{
-				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[0])));
+				ctx.fixupPoints.push_back(InstructionVMLowerContext::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[0])));
 				AddCommand(ctx, inst->source, VMCmd(cmdJmp, ~0u));
 			}
 			break;
@@ -466,15 +464,15 @@ void Lower(Context &ctx, VmValue *value)
 			// Check if one side of the jump is fall-through
 			if(ctx.currentBlock->nextSibling && ctx.currentBlock->nextSibling == inst->arguments[1])
 			{
-				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
+				ctx.fixupPoints.push_back(InstructionVMLowerContext::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
 				AddCommand(ctx, inst->source, VMCmd(cmdJmpNZ, ~0u));
 			}
 			else
 			{
-				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[1])));
+				ctx.fixupPoints.push_back(InstructionVMLowerContext::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[1])));
 				AddCommand(ctx, inst->source, VMCmd(cmdJmpZ, ~0u));
 
-				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
+				ctx.fixupPoints.push_back(InstructionVMLowerContext::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
 				AddCommand(ctx, inst->source, VMCmd(cmdJmp, ~0u));
 			}
 			break;
@@ -486,15 +484,15 @@ void Lower(Context &ctx, VmValue *value)
 			// Check if one side of the jump is fall-through
 			if(ctx.currentBlock->nextSibling && ctx.currentBlock->nextSibling == inst->arguments[1])
 			{
-				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
+				ctx.fixupPoints.push_back(InstructionVMLowerContext::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
 				AddCommand(ctx, inst->source, VMCmd(cmdJmpZ, ~0u));
 			}
 			else
 			{
-				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[1])));
+				ctx.fixupPoints.push_back(InstructionVMLowerContext::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[1])));
 				AddCommand(ctx, inst->source, VMCmd(cmdJmpNZ, ~0u));
 
-				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
+				ctx.fixupPoints.push_back(InstructionVMLowerContext::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[2])));
 				AddCommand(ctx, inst->source, VMCmd(cmdJmp, ~0u));
 			}
 			break;
@@ -945,14 +943,14 @@ void Lower(Context &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdPushImmt, i - 1));
 				AddCommand(ctx, inst->source, VMCmd(cmdEqual));
 
-				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[i])));
+				ctx.fixupPoints.push_back(InstructionVMLowerContext::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[i])));
 				AddCommand(ctx, inst->source, VMCmd(cmdJmpNZ, ~0u));
 			}
 
 			// jump to entry block by default
 			if(!(ctx.currentBlock->nextSibling && ctx.currentBlock->nextSibling == inst->arguments[1]))
 			{
-				ctx.fixupPoints.push_back(Context::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[1])));
+				ctx.fixupPoints.push_back(InstructionVMLowerContext::FixupPoint(ctx.cmds.size(), getType<VmBlock>(inst->arguments[1])));
 				AddCommand(ctx, inst->source, VMCmd(cmdJmp, ~0u));
 			}
 			break;
@@ -1024,7 +1022,7 @@ void Lower(Context &ctx, VmValue *value)
 	}
 }
 
-void LowerModule(Context &ctx, VmModule *module)
+void LowerModule(InstructionVMLowerContext &ctx, VmModule *module)
 {
 	AddCommand(ctx, NULL, VMCmd(cmdJmp, 0));
 
@@ -1041,7 +1039,7 @@ void LowerModule(Context &ctx, VmModule *module)
 	}
 }
 
-VariableData* FindGlobalAt(Context &ctx, unsigned offset)
+VariableData* FindGlobalAt(InstructionVMLowerContext &ctx, unsigned offset)
 {
 	unsigned targetModuleIndex = offset >> 24;
 
@@ -1061,7 +1059,7 @@ VariableData* FindGlobalAt(Context &ctx, unsigned offset)
 	return NULL;
 }
 
-void PrintInstructions(Context &ctx, const char *code)
+void PrintInstructions(InstructionVMLowerContext &ctx, const char *code)
 {
 	assert(ctx.locations.size() == ctx.cmds.size());
 
