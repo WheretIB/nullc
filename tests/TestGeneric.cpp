@@ -1747,6 +1747,23 @@ auto x = foo(Foo<int>(2), Foo<int>(5), <Foo<int> x, y>{ x.x + y.x; });\r\n\
 return x;";
 TEST_RESULT("short inline function type inference improvement 7", testGeneric152, "7");
 
+const char *testGeneric153 =
+"import test.generic_export4;\r\n\
+int bar1(int a){ return foo(a); }\r\n\
+double bar2(double a){ return foo(a); }\r\n\
+auto a = bar1(4);\r\n\
+auto b = foo(4);\r\n\
+auto c = bar2(4.0);\r\n\
+auto d = foo(4.0);\r\n\
+return 1;";
+TEST("Generic coroutine import (same instantitaion in local scopes)", testGeneric153, "1")
+{
+	CHECK_INT("a", 0, -4, lastFailed);
+	CHECK_INT("b", 0, 8, lastFailed);
+	CHECK_DOUBLE("c", 0, -4.0, lastFailed);
+	CHECK_DOUBLE("d", 0, 8.0, lastFailed);
+}
+
 const char	*testDefaultGenericFuncVars =
 "auto test(generic c, auto a = auto(int i){ return i++; }, int b = 5){ return a(3) + c * b; }\r\n\
 return test(1) + test(2, auto(int l){ return l * 2; });";
