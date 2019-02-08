@@ -204,13 +204,24 @@ unsigned GetAccessSize(VmInstruction *inst)
 
 bool HasAddressTaken(VariableData *container)
 {
-	for(unsigned i = 0; i < container->users.size(); i++)
+	for(unsigned userPos = 0, userCount = container->users.count; userPos < userCount; userPos++)
 	{
-		VmConstant *user = container->users[i];
+		VmConstant *user = container->users.data[userPos];
 
-		for(unsigned i = 0; i < user->users.size(); i++)
+		if(user->hasKnownSimpleUse)
 		{
-			if(VmInstruction *inst = getType<VmInstruction>(user->users[i]))
+			assert(!user->hasKnownNonSimpleUse);
+			continue;
+		}
+
+		if(user->hasKnownNonSimpleUse)
+			return true;
+
+		for(unsigned i = 0, e = user->users.count; i < e; i++)
+		{
+			VmValue *value = user->users.data[i];
+
+			if(VmInstruction *inst = value->typeID == VmInstruction::myTypeID ? static_cast<VmInstruction*>(value) : NULL)
 			{
 				bool simpleUse = false;
 
@@ -222,13 +233,19 @@ bool HasAddressTaken(VariableData *container)
 					simpleUse = false;
 
 				if(!simpleUse)
+				{
+					user->hasKnownNonSimpleUse = true;
+
 					return true;
+				}
 			}
 			else
 			{
 				assert(!"invalid constant use");
 			}
 		}
+
+		user->hasKnownSimpleUse = true;
 	}
 
 	return false;

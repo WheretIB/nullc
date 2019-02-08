@@ -1210,22 +1210,28 @@ void VmValue::AddUse(VmValue* user)
 	// Can't use empty values
 	assert(type != VmType::Void);
 
+	hasKnownSimpleUse = false;
+	hasKnownNonSimpleUse = false;
+
 	users.push_back(user);
 }
 
 void VmValue::RemoveUse(VmValue* user)
 {
-	for(unsigned i = 0; i < users.size(); i++)
+	for(unsigned i = 0, e = users.count; i < e; i++)
 	{
-		if(users[i] == user)
+		if(users.data[i] == user)
 		{
-			users[i] = users.back();
+			users.data[i] = users.back();
 			users.pop_back();
+
+			hasKnownSimpleUse = false;
+			hasKnownNonSimpleUse = false;
 			break;
 		}
 	}
 
-	if(users.empty() && !hasSideEffects && canBeRemoved)
+	if(users.count == 0 && !hasSideEffects && canBeRemoved)
 	{
 		if(VmConstant *constant = getType<VmConstant>(this))
 		{

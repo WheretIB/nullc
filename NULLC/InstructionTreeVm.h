@@ -198,6 +198,9 @@ struct VmValue
 		hasSideEffects = false;
 		hasMemoryAccess = false;
 
+		hasKnownSimpleUse = false;
+		hasKnownNonSimpleUse = false;
+
 		canBeRemoved = true;
 	}
 
@@ -220,6 +223,9 @@ struct VmValue
 	bool hasMemoryAccess;
 
 	bool canBeRemoved;
+
+	bool hasKnownSimpleUse;
+	bool hasKnownNonSimpleUse;
 
 	SmallArray<VmValue*, 8> users;
 };
