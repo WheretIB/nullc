@@ -3676,8 +3676,6 @@ void RunCommonSubexpressionElimination(ExpressionContext &ctx, VmModule *module,
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
 	{
-		VmInstruction *start = block->firstInstruction;
-
 		for(VmInstruction *curr = block->firstInstruction; curr;)
 		{
 			VmInstruction *next = curr->nextSibling;
@@ -3688,21 +3686,23 @@ void RunCommonSubexpressionElimination(ExpressionContext &ctx, VmModule *module,
 				continue;
 			}
 
-			VmInstruction *prev = start;
+			VmInstruction *prev = curr->prevSibling;
 
-			while(prev != curr)
+			unsigned distance = 0;
+
+			while(prev && distance < 64)
 			{
-				if(prev->cmd == curr->cmd && prev->arguments.size() == curr->arguments.size())
+				if(prev->cmd == curr->cmd && prev->arguments.count == curr->arguments.count)
 				{
 					bool same = true;
 
-					for(unsigned i = 0; i < curr->arguments.size(); i++)
+					for(unsigned i = 0, e = curr->arguments.count; i < e; i++)
 					{
-						VmValue *currArg = curr->arguments[i];
-						VmValue *prevArg = prev->arguments[i];
+						VmValue *currArg = curr->arguments.data[i];
+						VmValue *prevArg = prev->arguments.data[i];
 
-						VmConstant *currArgAsConst = getType<VmConstant>(currArg);
-						VmConstant *prevArgAsConst = getType<VmConstant>(prevArg);
+						VmConstant *currArgAsConst = currArg->typeID == VmConstant::myTypeID ? static_cast<VmConstant*>(currArg) : NULL;
+						VmConstant *prevArgAsConst = prevArg->typeID == VmConstant::myTypeID ? static_cast<VmConstant*>(prevArg) : NULL;
 
 						if(currArgAsConst && prevArgAsConst)
 						{
@@ -3722,7 +3722,8 @@ void RunCommonSubexpressionElimination(ExpressionContext &ctx, VmModule *module,
 					}
 				}
 
-				prev = prev->nextSibling;
+				prev = prev->prevSibling;
+				distance++;
 			}
 
 			curr = next;
