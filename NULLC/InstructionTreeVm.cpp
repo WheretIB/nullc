@@ -1210,8 +1210,8 @@ void VmValue::AddUse(VmValue* user)
 	// Can't use empty values
 	assert(type != VmType::Void);
 
+	// New user might not be simple
 	hasKnownSimpleUse = false;
-	hasKnownNonSimpleUse = false;
 
 	users.push_back(user);
 }
@@ -1225,7 +1225,7 @@ void VmValue::RemoveUse(VmValue* user)
 			users.data[i] = users.back();
 			users.pop_back();
 
-			hasKnownSimpleUse = false;
+			// Might have removed last non-simple use
 			hasKnownNonSimpleUse = false;
 			break;
 		}
