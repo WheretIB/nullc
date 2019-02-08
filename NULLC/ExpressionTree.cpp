@@ -1518,11 +1518,11 @@ ExprBase* CreateFunctionCall1(ExpressionContext &ctx, SynBase *source, InplaceSt
 ExprBase* CreateFunctionCall2(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, bool allowFailure, bool allowInternal);
 ExprBase* CreateFunctionCall3(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, ExprBase *arg2, bool allowFailure, bool allowInternal);
 ExprBase* CreateFunctionCall4(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, ExprBase *arg2, ExprBase *arg3, bool allowFailure, bool allowInternal);
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ArrayView<ArgumentData> arguments, bool allowFailure, bool allowInternal);
+ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, InplaceStr name, ArrayView<ArgumentData> arguments, bool allowFailure, bool allowInternal);
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<ArgumentData> arguments, bool allowFailure);
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure);
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure);
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, bool allowFailure);
+ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, bool allowFailure);
 ExprBase* CreateObjectAllocation(ExpressionContext &ctx, SynBase *source, TypeBase *type);
 ExprBase* CreateArrayAllocation(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *count);
 
@@ -5109,7 +5109,9 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 {
 	ratings.resize(functions.size());
 
-	SmallArray<TypeFunction*, 16> instanceTypes;
+	SmallArray<TypeFunction*, 16> instanceTypes(ctx.allocator);
+
+	SmallArray<ArgumentData, 32> result(ctx.allocator);
 
 	TypeClass *preferredParent = NULL;
 
@@ -5156,8 +5158,6 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 			if(ratings[i] == ~0u)
 				continue;
 		}
-
-		SmallArray<ArgumentData, 32> result(ctx.allocator);
 
 		unsigned extraRating = 0;
 
@@ -5490,7 +5490,7 @@ ExprBase* CreateFunctionCall0(ExpressionContext &ctx, SynBase *source, InplaceSt
 {
 	SmallArray<ArgumentData, 1> arguments(ctx.allocator);
 
-	return CreateFunctionCall(ctx, source, name, arguments, allowFailure, allowInternal);
+	return CreateFunctionCallByName(ctx, source, name, arguments, allowFailure, allowInternal);
 }
 
 ExprBase* CreateFunctionCall1(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, bool allowFailure, bool allowInternal)
@@ -5499,7 +5499,7 @@ ExprBase* CreateFunctionCall1(ExpressionContext &ctx, SynBase *source, InplaceSt
 
 	arguments.push_back(ArgumentData(arg0->source, false, InplaceStr(), arg0->type, arg0));
 
-	return CreateFunctionCall(ctx, source, name, arguments, allowFailure, allowInternal);
+	return CreateFunctionCallByName(ctx, source, name, arguments, allowFailure, allowInternal);
 }
 
 ExprBase* CreateFunctionCall2(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, bool allowFailure, bool allowInternal)
@@ -5509,7 +5509,7 @@ ExprBase* CreateFunctionCall2(ExpressionContext &ctx, SynBase *source, InplaceSt
 	arguments.push_back(ArgumentData(arg0->source, false, InplaceStr(), arg0->type, arg0));
 	arguments.push_back(ArgumentData(arg1->source, false, InplaceStr(), arg1->type, arg1));
 
-	return CreateFunctionCall(ctx, source, name, arguments, allowFailure, allowInternal);
+	return CreateFunctionCallByName(ctx, source, name, arguments, allowFailure, allowInternal);
 }
 
 ExprBase* CreateFunctionCall3(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, ExprBase *arg2, bool allowFailure, bool allowInternal)
@@ -5520,7 +5520,7 @@ ExprBase* CreateFunctionCall3(ExpressionContext &ctx, SynBase *source, InplaceSt
 	arguments.push_back(ArgumentData(arg1->source, false, InplaceStr(), arg1->type, arg1));
 	arguments.push_back(ArgumentData(arg2->source, false, InplaceStr(), arg2->type, arg2));
 
-	return CreateFunctionCall(ctx, source, name, arguments, allowFailure, allowInternal);
+	return CreateFunctionCallByName(ctx, source, name, arguments, allowFailure, allowInternal);
 }
 
 ExprBase* CreateFunctionCall4(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, ExprBase *arg2, ExprBase *arg3, bool allowFailure, bool allowInternal)
@@ -5532,10 +5532,10 @@ ExprBase* CreateFunctionCall4(ExpressionContext &ctx, SynBase *source, InplaceSt
 	arguments.push_back(ArgumentData(arg2->source, false, InplaceStr(), arg2->type, arg2));
 	arguments.push_back(ArgumentData(arg3->source, false, InplaceStr(), arg3->type, arg3));
 
-	return CreateFunctionCall(ctx, source, name, arguments, allowFailure, allowInternal);
+	return CreateFunctionCallByName(ctx, source, name, arguments, allowFailure, allowInternal);
 }
 
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, InplaceStr name, ArrayView<ArgumentData> arguments, bool allowFailure, bool allowInternal)
+ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, InplaceStr name, ArrayView<ArgumentData> arguments, bool allowFailure, bool allowInternal)
 {
 	if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), name, allowInternal))
 	{
@@ -5556,7 +5556,7 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 	GetNodeFunctions(ctx, source, value, functions);
 
-	return CreateFunctionCall(ctx, source, value, functions, IntrusiveList<TypeHandle>(), arguments, allowFailure);
+	return CreateFunctionCallFinal(ctx, source, value, functions, IntrusiveList<TypeHandle>(), arguments, allowFailure);
 }
 
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure)
@@ -5661,10 +5661,10 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 		arguments.push_back(ArgumentData(el, false, el->name, argument->type, argument));
 	}
 
-	return CreateFunctionCall(ctx, source, value, functions, generics, arguments, allowFailure);
+	return CreateFunctionCallFinal(ctx, source, value, functions, generics, arguments, allowFailure);
 }
 
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, bool allowFailure)
+ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, bool allowFailure)
 {
 	TypeFunction *type = getType<TypeFunction>(value->type);
 
@@ -6135,7 +6135,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
-		ExprBase *call = CreateFunctionCall(ctx, syntax, function, functions, IntrusiveList<TypeHandle>(), arguments, false);
+		ExprBase *call = CreateFunctionCallFinal(ctx, syntax, function, functions, IntrusiveList<TypeHandle>(), arguments, false);
 
 		IntrusiveList<ExprBase> expressions;
 
