@@ -1,9 +1,10 @@
 #pragma once
+
 #include "stdafx.h"
 
-#include "Instruction_X86.h"
-
 #include "Executor_Common.h"
+#include "InstructionSet.h"
+#include "Instruction_X86.h"
 
 class ExecutorX86
 {

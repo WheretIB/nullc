@@ -921,7 +921,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 			BeginCallStack();
 			while(unsigned int address = GetNextAddress())
-				currPos += PrintStackFrame(address, currPos, 512 - int(currPos - execError));
+				currPos += PrintStackFrame(address, currPos, 512 - int(currPos - execError), false);
 		}
 		codeRunning = false;
 		NULLC::dataHead->instructionPtr = 0;

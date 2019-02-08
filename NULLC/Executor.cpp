@@ -1916,7 +1916,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 			BeginCallStack();
 			while(unsigned int address = GetNextAddress())
-				currPos += PrintStackFrame(address, currPos, ERROR_BUFFER_SIZE - int(currPos - execError));
+				currPos += PrintStackFrame(address, currPos, ERROR_BUFFER_SIZE - int(currPos - execError), false);
 		}
 		// Ascertain that execution stops when there is a chain of nullcRunFunction
 		callContinue = false;
@@ -2428,9 +2428,13 @@ namespace ExPriv
 	char *oldBase;
 	char *newBase;
 	unsigned int oldSize;
+	unsigned int newSize;
 	unsigned int objectName = GetStringHash("auto ref");
 	unsigned int autoArrayName = GetStringHash("auto[]");
 }
+
+#define RELOCATE_DEBUG_PRINT(...) (void)0
+//#define RELOCATE_DEBUG_PRINT printf
 
 void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 {
@@ -2439,17 +2443,44 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 	{
 		if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
 		{
-//			printf("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
+			RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
 
 			*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
-		}else{
+		}
+		else if(*rPtr >= ExPriv::newBase && *rPtr < (ExPriv::newBase + ExPriv::newSize))
+		{
 			ExternTypeInfo &subType = exTypes[type.subType];
-//			printf("\tGlobal pointer %s %p (at %p)\r\n", symbols + subType.offsetToName, *rPtr, ptr);
+			(void)subType;
+			RELOCATE_DEBUG_PRINT("\tStack%s pointer %s %p (at %p)\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, *rPtr, ptr);
+		}
+		else
+		{
+			ExternTypeInfo &subType = exTypes[type.subType];
+			RELOCATE_DEBUG_PRINT("\tGlobal%s pointer %s %p (at %p) base %p\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, *rPtr, ptr, NULLC::GetBasePointer(*rPtr));
 
 			if(NULLC::IsBasePointer(*rPtr))
 			{
 				markerType *marker = (markerType*)((char*)*rPtr - sizeof(markerType));
-//				printf("\tMarker is %d\r\n", *marker);
+				RELOCATE_DEBUG_PRINT("\tMarker is %d", *marker);
+
+				const uintptr_t OBJECT_VISIBLE		= 1 << 0;
+				const uintptr_t OBJECT_FREED		= 1 << 1;
+				const uintptr_t OBJECT_FINALIZABLE	= 1 << 2;
+				const uintptr_t OBJECT_FINALIZED	= 1 << 3;
+				const uintptr_t OBJECT_ARRAY		= 1 << 4;
+
+				if(*marker & OBJECT_VISIBLE)
+					RELOCATE_DEBUG_PRINT(" visible");
+				if(*marker & OBJECT_FREED)
+					RELOCATE_DEBUG_PRINT(" freed");
+				if(*marker & OBJECT_FINALIZABLE)
+					RELOCATE_DEBUG_PRINT(" finalizable");
+				if(*marker & OBJECT_FINALIZED)
+					RELOCATE_DEBUG_PRINT(" finalized");
+				if(*marker & OBJECT_ARRAY)
+					RELOCATE_DEBUG_PRINT(" array");
+
+				RELOCATE_DEBUG_PRINT(" %s\r\n", symbols + exTypes[*marker >> 8].offsetToName);
 
 				if(*marker & 1)
 				{
@@ -2466,7 +2497,7 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 {
 	ExternTypeInfo *subType = type.nameHash == ExPriv::autoArrayName ? NULL : &exTypes[type.subType];
 	unsigned int size = type.arrSize;
-	if(type.arrSize == TypeInfo::UNSIZED_ARRAY)
+	if(type.arrSize == ~0u)
 	{
 		// Get real array size
 		size = *(int*)(ptr + NULLC_PTR_SIZE);
@@ -2581,18 +2612,21 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 
 	// Get class member type list
 	ExternMemberInfo *memberList = &exLinker->exTypeExtra[realType->memberOffset + realType->memberCount];
-	//char *str = symbols + type.offsetToName;
-	//const char *memberName = symbols + type.offsetToName + strlen(str) + 1;
+	char *str = symbols + type.offsetToName;
+	const char *memberName = symbols + type.offsetToName + strlen(str) + 1;
 	// Check pointer members
 	for(unsigned int n = 0; n < realType->pointerCount; n++)
 	{
 		// Get member type
 		ExternTypeInfo &subType = exTypes[memberList[n].type];
 		unsigned int pos = memberList[n].offset;
+
+		RELOCATE_DEBUG_PRINT("\tChecking member %s at offset %d\r\n", memberName, pos);
+
 		// Check member
 		FixupVariable(ptr + pos, subType);
-		//unsigned int strLength = (unsigned int)strlen(memberName) + 1;
-		//memberName += strLength;
+		unsigned int strLength = (unsigned int)strlen(memberName) + 1;
+		memberName += strLength;
 	}
 }
 
@@ -2635,8 +2669,8 @@ void Executor::FixupVariable(char* ptr, const ExternTypeInfo& type)
 
 bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *current)
 {
-//	printf("Old base: %p-%p\r\n", oldBase, oldBase + oldSize);
-//	printf("New base: %p-%p\r\n", genParams.data, genParams.data + genParams.max);
+	RELOCATE_DEBUG_PRINT("Old base: %p-%p\r\n", oldBase, oldBase + oldSize);
+	RELOCATE_DEBUG_PRINT("New base: %p-%p\r\n", genParams.data, genParams.data + genParams.max);
 
 	SetUnmanagableRange(genParams.data, genParams.max);
 
@@ -2645,6 +2679,7 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 	ExPriv::oldBase = oldBase;
 	ExPriv::newBase = genParams.data;
 	ExPriv::oldSize = oldSize;
+	ExPriv::newSize = genParams.max;
 
 	symbols = exLinker->exSymbols.data;
 
@@ -2652,7 +2687,13 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 	ExternTypeInfo *types = exLinker->exTypes.data;
 	// Fix global variables
 	for(unsigned int i = 0; i < exLinker->exVariables.size(); i++)
-		FixupVariable(genParams.data + vars[i].offset, types[vars[i].type]);
+	{
+		ExternVarInfo &varInfo = vars[i];
+
+		RELOCATE_DEBUG_PRINT("Global variable %s (with offset of %d)\r\n", symbols + varInfo.offsetToName, varInfo.offset);
+
+		FixupVariable(genParams.data + varInfo.offset, types[varInfo.type]);
+	}
 
 	int offset = exLinker->globalVarSize;
 	int n = 0;
@@ -2674,7 +2715,7 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 			ExternFuncInfo &funcInfo = exFunctions[funcID];
 
 			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
-//			printf("In function %s (with offset of %d)\r\n", symbols + funcInfo.offsetToName, alignOffset);
+			RELOCATE_DEBUG_PRINT("In function %s (with offset of %d)\r\n", symbols + funcInfo.offsetToName, alignOffset);
 			offset += alignOffset;
 
 			unsigned int offsetToNextFrame = funcInfo.bytesToPop;
@@ -2685,20 +2726,20 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 				ExternLocalInfo &lInfo = exLinker->exLocals[funcInfo.offsetToFirstLocal + i];
 				if(funcInfo.funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= funcInfo.bytesToPop)
 					break;
-//				printf("Local %s %s (with offset of %d+%d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
+				RELOCATE_DEBUG_PRINT("Local %s %s (with offset of %d+%d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
 				FixupVariable(genParams.data + offset + lInfo.offset, types[lInfo.type]);
 				if(lInfo.offset + lInfo.size > offsetToNextFrame)
 					offsetToNextFrame = lInfo.offset + lInfo.size;
 			}
 			if(funcInfo.contextType != ~0u)
 			{
-//				printf("Local %s $context (with offset of %d+%d)\r\n", symbols + types[funcInfo.contextType].offsetToName, offset, funcInfo.bytesToPop - NULLC_PTR_SIZE);
+				RELOCATE_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[funcInfo.contextType].offsetToName, offset, funcInfo.bytesToPop - NULLC_PTR_SIZE);
 				char *ptr = genParams.data + offset + funcInfo.bytesToPop - NULLC_PTR_SIZE;
 				// Fixup pointer itself
 				char **rPtr = (char**)ptr;
 				if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
 				{
-//					printf("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
+					RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
 					*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
 				}
 				// Fixup what it was pointing to
@@ -2706,7 +2747,7 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 					FixupVariable(*rPtr, types[funcInfo.contextType]);
 			}
 			offset += offsetToNextFrame;
-//			printf("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
+			RELOCATE_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
 		}
 	}
 	fcallStack.pop_back();
