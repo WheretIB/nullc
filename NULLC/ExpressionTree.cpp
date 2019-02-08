@@ -1555,7 +1555,7 @@ ExprBase* CreateFunctionCall4(ExpressionContext &ctx, SynBase *source, InplaceSt
 ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, InplaceStr name, ArrayView<ArgumentData> arguments, bool allowFailure, bool allowInternal);
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<ArgumentData> arguments, bool allowFailure);
 ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure);
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure);
+ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure);
 ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, bool allowFailure);
 ExprBase* CreateObjectAllocation(ExpressionContext &ctx, SynBase *source, TypeBase *type);
 ExprBase* CreateArrayAllocation(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *count);
@@ -4301,7 +4301,7 @@ bool HasMatchingArgumentNames(ArrayView<ArgumentData> &functionArguments, ArrayV
 	return true;
 }
 
-bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentData> functionArguments, ArrayView<ArgumentData> arguments, SmallArray<ArgumentData, 32> &result, unsigned *extraRating, bool prepareValues)
+bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentData> functionArguments, ArrayView<ArgumentData> arguments, SmallArray<CallArgumentData, 16> &result, unsigned *extraRating, bool prepareValues)
 {
 	result.clear();
 
@@ -4316,7 +4316,7 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentD
 			ArgumentData &argument = arguments[i];
 
 			if(argument.name.empty())
-				result.push_back(argument);
+				result.push_back(CallArgumentData(argument.type, argument.value));
 			else
 				break;
 		}
@@ -4325,7 +4325,7 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentD
 
 		// Reserve slots for all remaining arguments
 		for(unsigned i = unnamedCount; i < functionArguments.size(); i++)
-			result.push_back(ArgumentData());
+			result.push_back(CallArgumentData(NULL, NULL));
 
 		// Put named arguments in appropriate slots
 		for(unsigned i = unnamedCount; i < arguments.size(); i++)
@@ -4341,7 +4341,7 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentD
 					if(result[targetPos].type != NULL)
 						Stop(ctx, argument.value->source->pos, "ERROR: argument '%.*s' is already set", FMT_ISTR(argument.name));
 
-					result[targetPos] = argument;
+					result[targetPos] = CallArgumentData(argument.type, argument.value);
 					break;
 				}
 
@@ -4357,7 +4357,7 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentD
 			if(result[i].type == NULL)
 			{
 				if(ExprBase *value = argument.value)
-					result[i] = ArgumentData(argument.source, false, InplaceStr(), value->type, new (ctx.get<ExprPassthrough>()) ExprPassthrough(argument.source, value->type, value));
+					result[i] = CallArgumentData(value->type, new (ctx.get<ExprPassthrough>()) ExprPassthrough(argument.source, value->type, value));
 			}
 		}
 
@@ -4371,7 +4371,12 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentD
 	else
 	{
 		// Add arguments
-		result.push_back(arguments.data, arguments.size());
+		for(unsigned i = 0; i < arguments.size(); i++)
+		{
+			ArgumentData &argument = arguments[i];
+
+			result.push_back(CallArgumentData(argument.type, argument.value));
+		}
 
 		// Add any arguments with default values
 		for(unsigned i = result.size(); i < functionArguments.size(); i++)
@@ -4379,7 +4384,7 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentD
 			ArgumentData &argument = functionArguments[i];
 
 			if(ExprBase *value = argument.value)
-				result.push_back(ArgumentData(argument.source, false, InplaceStr(), value->type, new (ctx.get<ExprPassthrough>()) ExprPassthrough(argument.source, value->type, value)));
+				result.push_back(CallArgumentData(value->type, new (ctx.get<ExprPassthrough>()) ExprPassthrough(argument.source, value->type, value)));
 		}
 
 		// Create variadic pack if neccessary
@@ -4422,7 +4427,7 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentD
 				}
 
 				result.shrink(functionArguments.size() - 1);
-				result.push_back(ArgumentData(NULL, false, functionArguments.back().name, varArgType, value));
+				result.push_back(CallArgumentData(varArgType, value));
 			}
 		}
 	}
@@ -4435,7 +4440,7 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentD
 	{
 		for(unsigned i = 0; i < result.size(); i++)
 		{
-			ArgumentData &argument = result[i];
+			CallArgumentData &argument = result[i];
 
 			assert(argument.value);
 
@@ -4448,7 +4453,7 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentD
 	return true;
 }
 
-unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, TypeFunction *instance, ArrayView<ArgumentData> arguments)
+unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, TypeFunction *instance, ArrayView<CallArgumentData> arguments)
 {
 	if(function->arguments.size() != arguments.size())
 		return ~0u;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
@@ -4462,7 +4467,7 @@ unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, TypeF
 		ArgumentData &expectedArgument = function->arguments[i];
 		TypeBase *expectedType = argType->type;
 
-		ArgumentData &actualArgument = arguments[i];
+		CallArgumentData &actualArgument = arguments[i];
 		TypeBase *actualType = actualArgument.type;
 
 		if(expectedType != actualType)
@@ -4911,7 +4916,7 @@ TypeBase* MatchArgumentType(ExpressionContext &ctx, SynBase *source, TypeBase *e
 	return MatchGenericType(ctx, source, expectedType, actualType, aliases, !actualValue);
 }
 
-TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *source, TypeBase *parentType, FunctionData *function, ArrayView<ArgumentData> arguments, IntrusiveList<MatchData> &aliases)
+TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *source, TypeBase *parentType, FunctionData *function, ArrayView<CallArgumentData> arguments, IntrusiveList<MatchData> &aliases)
 {
 	assert(function->arguments.size() == arguments.size());
 
@@ -4939,7 +4944,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 			if(failed)
 				break;
 
-			ArgumentData &actualArgument = arguments[pos];
+			CallArgumentData &actualArgument = arguments[pos];
 
 			TypeBase *type = expectedType == ctx.typeAuto ? actualArgument.type : MatchArgumentType(ctx, argument, expectedType, actualArgument.type, actualArgument.value, aliases);
 
@@ -4965,7 +4970,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 		{
 			ArgumentData &funtionArgument = function->arguments[i];
 
-			ArgumentData &actualArgument = arguments[i];
+			CallArgumentData &actualArgument = arguments[i];
 
 			TypeBase *type = MatchArgumentType(ctx, funtionArgument.source, funtionArgument.type, actualArgument.type, actualArgument.value, aliases);
 
@@ -5063,7 +5068,7 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 			}
 
 			IntrusiveList<MatchData> aliases;
-			SmallArray<ArgumentData, 32> result(ctx.allocator);
+			SmallArray<CallArgumentData, 16> result(ctx.allocator);
 
 			// Handle named argument order, default argument values and variadic functions
 			if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, NULL, false))
@@ -5137,7 +5142,7 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 
 	SmallArray<TypeFunction*, 16> instanceTypes(ctx.allocator);
 
-	SmallArray<ArgumentData, 32> result(ctx.allocator);
+	SmallArray<CallArgumentData, 16> result(ctx.allocator);
 
 	TypeClass *preferredParent = NULL;
 
@@ -5340,7 +5345,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 {
 	FunctionData *function = proto.function;
 
-	SmallArray<ArgumentData, 32> result(ctx.allocator);
+	SmallArray<CallArgumentData, 16> result(ctx.allocator);
 
 	if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, NULL, false))
 		assert(!"unexpected");
@@ -5592,10 +5597,10 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 	GetNodeFunctions(ctx, source, value, functions);
 
-	return CreateFunctionCall(ctx, source, value, functions, generics, argumentHead, allowFailure);
+	return CreateFunctionCallOverloaded(ctx, source, value, functions, generics, argumentHead, allowFailure);
 }
 
-ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure)
+ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure)
 {
 	// Analyze arguments
 	SmallArray<ArgumentData, 32> arguments(ctx.allocator);
@@ -5776,7 +5781,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 			value = new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, function->type, function, bestOverload.context);
 		}
 
-		SmallArray<ArgumentData, 32> result(ctx.allocator);
+		SmallArray<CallArgumentData, 16> result(ctx.allocator);
 
 		PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, NULL, true);
 
@@ -5790,7 +5795,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 		for(TypeHandle *argType = type->arguments.head; argType; argType = argType->next)
 			functionArguments.push_back(ArgumentData(NULL, false, InplaceStr(), argType->type, NULL));
 
-		SmallArray<ArgumentData, 32> result(ctx.allocator);
+		SmallArray<CallArgumentData, 16> result(ctx.allocator);
 
 		if(!PrepareArgumentsForFunctionCall(ctx, functionArguments, arguments, result, NULL, true))
 		{
@@ -5979,7 +5984,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 			if(hasReturnValue)
 			{
-				ExprBase *call = CreateFunctionCall(ctx, syntax, function, functions, generics, syntax->arguments.head, true);
+				ExprBase *call = CreateFunctionCallOverloaded(ctx, syntax, function, functions, generics, syntax->arguments.head, true);
 
 				if(call)
 					return call;
@@ -6011,7 +6016,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 			GetNodeFunctions(ctx, syntax, constructor, functions);
 
-			ExprBase *call = CreateFunctionCall(ctx, syntax, function, functions, generics, syntax->arguments.head, false);
+			ExprBase *call = CreateFunctionCallOverloaded(ctx, syntax, function, functions, generics, syntax->arguments.head, false);
 
 			IntrusiveList<ExprBase> expressions;
 
@@ -7510,7 +7515,7 @@ ExprBase* CreateDefaultConstructorCall(ExpressionContext &ctx, SynBase *source, 
 
 		GetNodeFunctions(ctx, source, constructor, functions);
 
-		return CreateFunctionCall(ctx, source, constructor, functions, IntrusiveList<TypeHandle>(), NULL, false);
+		return CreateFunctionCallOverloaded(ctx, source, constructor, functions, IntrusiveList<TypeHandle>(), NULL, false);
 	}
 
 	return NULL;

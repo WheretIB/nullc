@@ -222,6 +222,20 @@ struct ArgumentData
 	FunctionData *valueFunction;
 };
 
+struct CallArgumentData
+{
+	CallArgumentData(): type(0), value(0)
+	{
+	}
+
+	CallArgumentData(TypeBase *type, ExprBase *value): type(type), value(value)
+	{
+	}
+
+	TypeBase *type;
+	ExprBase *value;
+};
+
 struct UpvalueData
 {
 	UpvalueData(VariableData *variable, VariableData *target, VariableData *nextUpvalue, VariableData *copy): variable(variable), target(target), nextUpvalue(nextUpvalue), copy(copy), next(0), listed(false)
