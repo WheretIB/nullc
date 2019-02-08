@@ -164,3 +164,10 @@ import test.variablecollision3c;\r\n\
 auto ref x = new Foo();\r\n\
 return x.foo();";
 TEST_RESULT("Variable collision 3", testVariableCollsion3, "12");
+
+LOAD_MODULE(test_Imporhide2, "test.importhide2", "auto x = auto lam_bda(int x){ return x * 2; };");
+const char	*testImportHidding2 =
+"import test.importhide2;\r\n\
+auto y = auto lam_bda(int x){ return x + 2; };\r\n\
+return x(10) + y(4);";
+TEST_RESULT("Hidden local function excludion from import", testImportHidding2, "26");
