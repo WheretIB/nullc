@@ -4,7 +4,7 @@
 
 #include "stdafx.h"
 #include "HashMap.h"
-#include "ParseClass.h"
+#include "InstructionSet.h"
 
 #include "Bytecode.h"
 
@@ -18,6 +18,7 @@ public:
 
 	void	CleanCode();
 	bool	LinkCode(const char *bytecode);
+	bool	SaveListing(const char *fileName);
 
 	const char*	GetLinkError();
 

@@ -550,53 +550,79 @@ bool Linker::LinkCode(const char *code)
 #endif
 
 #ifdef NULLC_LOG_FILES
-	FILE *linkAsm = fopen("link.txt", "wb");
+	SaveListing("link.txt");
+#endif
+
+	return true;
+}
+
+
+bool Linker::SaveListing(const char *fileName)
+{
+	FILE *linkAsm = fopen(fileName, "wb");
+	if(!linkAsm)
+		return false;
+
 	char instBuf[128];
-	unsigned int line = 0, lastLine = ~0u;
+	unsigned line = 0, lastLine = ~0u;
 
 	struct SourceInfo
 	{
-		unsigned int byteCodePos;
-		unsigned int sourceOffset;
+		unsigned byteCodePos;
+		unsigned sourceOffset;
 	};
 
 	SourceInfo *info = (SourceInfo*)exCodeInfo.data;
-	unsigned int infoSize = exCodeInfo.size() / 2;
+	unsigned infoSize = exCodeInfo.size() / 2;
 
 	const char *lastSourcePos = exSource.data;
-	for(unsigned int i = 0; infoSize && i < exCode.size(); i++)
+	const char *lastCodeStart = NULL;
+
+	for(unsigned i = 0; infoSize && i < exCode.size(); i++)
 	{
 		while((line < infoSize - 1) && (i >= info[line + 1].byteCodePos))
 			line++;
+
 		if(line != lastLine)
 		{
 			lastLine = line;
-			const char *codeStart = &exSource[0] + info[line].sourceOffset;
+			const char *codeStart = exSource.data + info[line].sourceOffset;
+
 			// Find beginning of the line
-			while(codeStart != &exSource[0] && *(codeStart-1) != '\n')
+			while(codeStart != exSource.data && *(codeStart-1) != '\n')
 				codeStart--;
+
 			// Skip whitespace
 			while(*codeStart == ' ' || *codeStart == '\t')
 				codeStart++;
+
 			const char *codeEnd = codeStart;
 			while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
 				codeEnd++;
+
 			if(codeEnd > lastSourcePos)
 			{
-				fprintf(linkAsm, "%.*s\r\n", codeEnd - lastSourcePos, lastSourcePos);
+				fprintf(linkAsm, "%.*s\r\n", int(codeEnd - lastSourcePos), lastSourcePos);
 				lastSourcePos = codeEnd;
-			}else{
-				fprintf(linkAsm, "%.*s\r\n", codeEnd - codeStart, codeStart);
+			}
+			else
+			{
+				if(codeStart != lastCodeStart)
+					fprintf(linkAsm, "%.*s\r\n", int(codeEnd - codeStart), codeStart);
+
+				lastCodeStart = codeStart;
 			}
 		}
+
 		exCode[i].Decode(instBuf);
-		if(exCode[i].cmd == cmdCall)
-			fprintf(linkAsm, "// %d %s (%s)\r\n", i, instBuf, &exSymbols[exFunctions[exCode[i].argument].offsetToName]);
+		if(exCode[i].cmd == cmdCall || exCode[i].cmd == cmdFuncAddr)
+			fprintf(linkAsm, "// %4d: %s (%s)\r\n", i, instBuf, exSymbols.data + exFunctions[exCode[i].argument].offsetToName);
+		else if(exCode[i].cmd == cmdPushTypeID)
+			fprintf(linkAsm, "// %4d: %s (%s)\r\n", i, instBuf, exSymbols.data + exTypes[exCode[i].argument].offsetToName);
 		else
-			fprintf(linkAsm, "// %d %s\r\n", i, instBuf);
+			fprintf(linkAsm, "// %4d: %s\r\n", i, instBuf);
 	}
 	fclose(linkAsm);
-#endif
 
 	return true;
 }
