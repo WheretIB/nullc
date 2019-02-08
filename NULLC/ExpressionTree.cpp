@@ -2626,10 +2626,10 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 				return NULL;
 
 			if(argType == ctx.typeAuto)
-				Stop(ctx, syntax->pos, "ERROR: function parameter cannot be an auto type");
+				Stop(ctx, syntax->pos, "ERROR: function argument cannot be an auto type");
 
 			if(argType == ctx.typeVoid)
-				Stop(ctx, syntax->pos, "ERROR: function parameter cannot be a void type");
+				Stop(ctx, syntax->pos, "ERROR: function argument cannot be a void type");
 
 			arguments.push_back(new (ctx.get<TypeHandle>()) TypeHandle(argType));
 		}
@@ -2774,7 +2774,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 				TypeBase *type = AnalyzeType(ctx, el, true, failed);
 
 				if(type == ctx.typeAuto)
-					Stop(ctx, syntax->pos, "ERROR: 'auto' type cannot be used as template parameter");
+					Stop(ctx, syntax->pos, "ERROR: 'auto' type cannot be used as template argument");
 
 				isGeneric |= type->isGeneric;
 
@@ -4456,7 +4456,7 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentD
 unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, TypeFunction *instance, ArrayView<CallArgumentData> arguments)
 {
 	if(function->arguments.size() != arguments.size())
-		return ~0u;	// Definitely, this isn't the function we are trying to call. Parameter count does not match.
+		return ~0u;	// Definitely, this isn't the function we are trying to call. Argument count does not match.
 
 	unsigned rating = 0;
 
@@ -4881,7 +4881,7 @@ TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, Typ
 			TypeBase *type = ResolveGenericTypeAliases(ctx, source, curr->type, aliases);
 
 			if(type == ctx.typeAuto)
-				Stop(ctx, source->pos, "ERROR: 'auto' type cannot be used as template parameter");
+				Stop(ctx, source->pos, "ERROR: 'auto' type cannot be used as template argument");
 
 			isGeneric |= type->isGeneric;
 
@@ -5728,7 +5728,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 			char *errPos = ctx.errorBuf;
 
 			if(errPos)
-				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function '%.*s' with following parameters:\n", FMT_ISTR(functions[0].function->name));
+				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(functions[0].function->name));
 
 			StopOnFunctionSelectError(ctx, source, errPos, functions[0].function->name, functions, arguments, ratings, ~0u, true);
 		}
@@ -6727,7 +6727,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			if(type == ctx.typeAuto)
 			{
 				if(!initializer)
-					Stop(ctx, argument->type->pos, "ERROR: function parameter cannot be an auto type");
+					Stop(ctx, argument->type->pos, "ERROR: function argument cannot be an auto type");
 
 				initializer = ResolveInitializerValue(ctx, argument, initializer);
 
@@ -6741,7 +6741,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			}
 
 			if(type == ctx.typeVoid)
-				Stop(ctx, argument->type->pos, "ERROR: function parameter cannot be a void type");
+				Stop(ctx, argument->type->pos, "ERROR: function argument cannot be a void type");
 
 			hadGenericArgument |= type->isGeneric;
 
@@ -6964,7 +6964,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			assert(classType);
 
 			if(!classType->members.empty())
-				Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of parameters", FMT_ISTR(function->name));
+				Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name));
 		}
 	}
 
@@ -6983,7 +6983,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			return conflict->declaration;
 		}
 
-		Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of parameters", FMT_ISTR(function->name));
+		Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name));
 	}
 
 	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, variables, coroutineStateRead, code, contextVariableDefinition);
@@ -7060,10 +7060,10 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		if(type)
 		{
 			if(type == ctx.typeAuto)
-				Stop(ctx, syntax->pos, "ERROR: function parameter cannot be an auto type");
+				Stop(ctx, syntax->pos, "ERROR: function argument cannot be an auto type");
 
 			if(type == ctx.typeVoid)
-				Stop(ctx, syntax->pos, "ERROR: function parameter cannot be a void type");
+				Stop(ctx, syntax->pos, "ERROR: function argument cannot be a void type");
 
 			char *name = (char*)ctx.allocator->alloc(param->name.length() + 2);
 
@@ -8014,7 +8014,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	for(MatchData *el = classType->generics.head; el; el = el->next)
 		ctx.AddAlias(new (ctx.get<AliasData>()) AliasData(syntax, ctx.scope, el->type, el->name, ctx.uniqueAliasId++));
 
-	// Base class adds a typeid parameter
+	// Base class adds a typeid member
 	if(extendable && !baseClass)
 	{
 		unsigned offset = AllocateVariableInScope(ctx, syntax, ctx.typeTypeID->alignment, ctx.typeTypeID);
@@ -10073,7 +10073,7 @@ void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 		if(function->isHidden)
 			continue;
 
-		// Go through all function parameters
+		// Go through all function arguments
 		for(unsigned k = 0; k < function->arguments.size(); k++)
 		{
 			ArgumentData &argument = function->arguments[k];
