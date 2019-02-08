@@ -47,7 +47,7 @@ for(int i = 0; i < e.size; i++)\r\n\
 return e.size;";
 TEST("Function with variable argument count (print)", testVarargs3, "8")
 {
-	CHECK_STR("str", 0, "12 14 5");
+	CHECK_STR("str", 0, "12 14 5", lastFailed);
 }
 
 const char	*testVarargs4 =
@@ -86,7 +86,7 @@ for(int i = 0; i < e.size; i++)\r\n\
 return e.size;";
 TEST("Function with variable argument count (print)", testVarargs5, "8")
 {
-	CHECK_STR("str", 0, "12 14 5");
+	CHECK_STR("str", 0, "12 14 5", lastFailed);
 }
 
 const char	*testVarargs6 =

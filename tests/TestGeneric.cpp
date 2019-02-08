@@ -7,8 +7,8 @@ double b = test(5.5);\r\n\
 return test(5l) + test(3);";
 TEST("Generic function test (one-argument)", testGeneric1, "-8L")
 {
-	CHECK_INT("a", 0, -5);
-	CHECK_DOUBLE("b", 0, -5.5);
+	CHECK_INT("a", 0, -5, lastFailed);
+	CHECK_DOUBLE("b", 0, -5.5, lastFailed);
 }
 
 const char *testGeneric2 =
@@ -98,9 +98,9 @@ auto c = x.foo(7l);\r\n\
 return int(a * 100 + b * 10 + c);";
 TEST("Generic member function test", testGeneric10, "1084")
 {
-	CHECK_INT("a", 0, 10);
-	CHECK_DOUBLE("b", 0, 7);
-	CHECK_LONG("c", 0, 14);
+	CHECK_INT("a", 0, 10, lastFailed);
+	CHECK_DOUBLE("b", 0, 7, lastFailed);
+	CHECK_LONG("c", 0, 14, lastFailed);
 }
 
 const char *testGeneric10a =
@@ -118,9 +118,9 @@ auto c = x.foo(7l);\r\n\
 return int(a * 100 + b * 10 + c);";
 TEST("Generic member function test 2 ", testGeneric10a, "1084")
 {
-	CHECK_INT("a", 0, 10);
-	CHECK_DOUBLE("b", 0, 7);
-	CHECK_LONG("c", 0, 14);
+	CHECK_INT("a", 0, 10, lastFailed);
+	CHECK_DOUBLE("b", 0, 7, lastFailed);
+	CHECK_LONG("c", 0, 14, lastFailed);
 }
 
 const char *testGeneric11 =
@@ -151,12 +151,12 @@ auto f = foo(7l);\r\n\
 return 1;";
 TEST("Generic coroutine function test", testGeneric13, "1")
 {
-	CHECK_INT("a", 0, 8);
-	CHECK_DOUBLE("b", 0, 13);
-	CHECK_LONG("c", 0, 6);
-	CHECK_INT("d", 0, 16);
-	CHECK_DOUBLE("e", 0, 15);
-	CHECK_LONG("f", 0, 14);
+	CHECK_INT("a", 0, 8, lastFailed);
+	CHECK_DOUBLE("b", 0, 13, lastFailed);
+	CHECK_LONG("c", 0, 6, lastFailed);
+	CHECK_INT("d", 0, 16, lastFailed);
+	CHECK_DOUBLE("e", 0, 15, lastFailed);
+	CHECK_LONG("f", 0, 14, lastFailed);
 }
 
 const char *testGeneric14 =
@@ -180,8 +180,8 @@ auto b = foo(2, 2.5);\r\n\
 return 1;";
 TEST("Generic function import", testGeneric15, "1")
 {
-	CHECK_INT("a", 0, 32);
-	CHECK_DOUBLE("b", 0, 5);
+	CHECK_INT("a", 0, 32, lastFailed);
+	CHECK_DOUBLE("b", 0, 5, lastFailed);
 }
 
 const char *testGeneric16 =
@@ -201,8 +201,8 @@ auto b = foo(2, 2.5);\r\n\
 return 1;";
 TEST("Generic function import 2", testGeneric17, "1")
 {
-	CHECK_INT("a", 0, /*48*/32);
-	CHECK_DOUBLE("b", 0, /*10.25*/5);
+	CHECK_INT("a", 0, /*48*/32, lastFailed);
+	CHECK_DOUBLE("b", 0, /*10.25*/5, lastFailed);
 }
 
 const char *testGeneric18 =
@@ -241,9 +241,9 @@ auto z = sum(3.5, 4, 2.0);\r\n\
 return 0;";
 TEST("Generic function import 3", testGeneric20, "0")
 {
-	CHECK_DOUBLE("x", 0, 12);
-	CHECK_INT("y", 0, 11);
-	CHECK_DOUBLE("z", 0, 11.5);
+	CHECK_DOUBLE("x", 0, 12, lastFailed);
+	CHECK_INT("y", 0, 11, lastFailed);
+	CHECK_DOUBLE("z", 0, 11.5, lastFailed);
 }
 
 LOAD_MODULE(test_generic_export3, "test.generic_export3", "import std.math; auto foo(generic u, v){ float2 x = float2(u, v); return typeof(u*v)(dot(x, x)); }");
@@ -255,8 +255,8 @@ auto b = foo(2, 2.5);\r\n\
 return 1;";
 TEST("Generic function import 4", testGeneric21, "1")
 {
-	CHECK_INT("a", 0, 80);
-	CHECK_DOUBLE("b", 0, 10.25);
+	CHECK_INT("a", 0, 80, lastFailed);
+	CHECK_DOUBLE("b", 0, 10.25, lastFailed);
 }
 
 const char *testGeneric22 =
@@ -549,10 +549,10 @@ const char *testGeneric39 =
 }";
 TEST("Generic function test (locally instanced local function context placement) 4", testGeneric39, "11")
 {
-	CHECK_INT("a", 0, 4);
-	CHECK_INT("b", 0, 5);
-	CHECK_INT("c", 0, 6);
-	CHECK_INT("d", 0, 7);
+	CHECK_INT("a", 0, 4, lastFailed);
+	CHECK_INT("b", 0, 5, lastFailed);
+	CHECK_INT("c", 0, 6, lastFailed);
+	CHECK_INT("d", 0, 7, lastFailed);
 }
 
 const char *testGeneric40 =
@@ -744,7 +744,7 @@ auto a = bar(1);\r\n\
 return bar(1);";
 TEST("Generic function test (coroutine inside a coroutine) 2", testGeneric48, "25")
 {
-	CHECK_INT("a", 0, 49);
+	CHECK_INT("a", 0, 49, lastFailed);
 }
 
 LOAD_MODULE(test_generic_export4, "test.generic_export4", "coroutine auto foo(generic a){ yield -a; return a+a; }");
@@ -757,10 +757,10 @@ auto d = foo(4.0);\r\n\
 return 1;";
 TEST("Generic coroutine import", testGeneric49, "1")
 {
-	CHECK_INT("a", 0, -4);
-	CHECK_INT("b", 0, 8);
-	CHECK_DOUBLE("c", 0, -4.0);
-	CHECK_DOUBLE("d", 0, 8.0);
+	CHECK_INT("a", 0, -4, lastFailed);
+	CHECK_INT("b", 0, 8, lastFailed);
+	CHECK_DOUBLE("c", 0, -4.0, lastFailed);
+	CHECK_DOUBLE("d", 0, 8.0, lastFailed);
 }
 
 const char *testGeneric50 =
@@ -774,10 +774,10 @@ auto d = bar2(4.0);\r\n\
 return 1;";
 TEST("Generic coroutine import 2", testGeneric50, "1")
 {
-	CHECK_INT("a", 0, -4);
-	CHECK_INT("b", 0, 8);
-	CHECK_DOUBLE("c", 0, -4.0);
-	CHECK_DOUBLE("d", 0, 8.0);
+	CHECK_INT("a", 0, -4, lastFailed);
+	CHECK_INT("b", 0, 8, lastFailed);
+	CHECK_DOUBLE("c", 0, -4.0, lastFailed);
+	CHECK_DOUBLE("d", 0, 8.0, lastFailed);
 }
 
 const char *testGeneric51 =
@@ -1138,7 +1138,7 @@ class Foo\r\n\
 Foo z;\r\n\
 z.x = 10;\r\n\
 return z.foo(6);";
-TEST_RESULT("Generic member function accesses member variables", testGeneric83, "21");
+TEST_RESULT_SIMPLE("Generic member function accesses member variables", testGeneric83, "21");
 
 const char *testGeneric84 =
 "int a = 5;\r\n\
@@ -1157,7 +1157,7 @@ class Bar\r\n\
 Bar w;\r\n\
 w.y = 2000;\r\n\
 return w.bar(100);";
-TEST_RESULT("Generic member function instance while generic function is intanced", testGeneric84, "2121");
+TEST_RESULT_SIMPLE("Generic member function instance while generic function is intanced", testGeneric84, "2121");
 
 const char *testGeneric85 =
 "class Foo{ auto foo(generic a){ return -a; } }\r\n\
@@ -1436,17 +1436,17 @@ const char *testGeneric110 =
 	assert(foo(4) == 20);\r\n\
 	assert(foo(4, 3) == 12);\r\n\
 	assert(foo(5) == 25);\r\n\
-	assert(int(foo(2.2)) == 11);\r\n\
-	assert(int(foo(1.5, 6)) == 9);\r\n\
-	assert(int(foo(2.4)) == 12);\r\n\
+	assert(int(foo(2.2) + 0.5) == 11);\r\n\
+	assert(int(foo(1.5, 6) + 0.5) == 9);\r\n\
+	assert(int(foo(2.4) + 0.5) == 12);\r\n\
 }\r\n\
 {\r\n\
 	auto foo(generic x, int a = 5){ return x * a; }\r\n\
 \r\n\
 	assert(foo(4, 3) == 12);\r\n\
 	assert(foo(5) == 25);\r\n\
-	assert(int(foo(1.5, 6)) == 9);\r\n\
-	assert(int(foo(2.4)) == 12);\r\n\
+	assert(int(foo(1.5, 6) + 0.5) == 9);\r\n\
+	assert(int(foo(2.4) + 0.5) == 12);\r\n\
 }\r\n\
 return 1;";
 TEST_RESULT("generic functions with default argument values", testGeneric110, "1");
@@ -1489,9 +1489,9 @@ const char *testGeneric113 =
 assert(foo(4) == 20);\r\n\
 assert(foo(4, 3) == 12);\r\n\
 assert(foo(5) == 25);\r\n\
-assert(int(foo(2.2)) == 11);\r\n\
-assert(int(foo(1.5, 6)) == 9);\r\n\
-assert(int(foo(2.4)) == 12);\r\n\
+assert(int(foo(2.2) + 0.5) == 11);\r\n\
+assert(int(foo(1.5, 6) + 0.5) == 9);\r\n\
+assert(int(foo(2.4) + 0.5) == 12);\r\n\
 return 1;";
 TEST_RESULT("generic functions with default argument values 4 (import)", testGeneric113, "1");
 
@@ -1499,8 +1499,8 @@ const char *testGeneric114 =
 "import test.generic_export10;\r\n\
 assert(foo(4, 3) == 12);\r\n\
 assert(foo(5) == 25);\r\n\
-assert(int(foo(1.5, 6)) == 9);\r\n\
-assert(int(foo(2.4)) == 12);\r\n\
+assert(int(foo(1.5, 6) + 0.5) == 9);\r\n\
+assert(int(foo(2.4) + 0.5) == 12);\r\n\
 return 1;";
 TEST_RESULT("generic functions with default argument values 5 (import)", testGeneric114, "1");
 
@@ -1510,9 +1510,9 @@ const char *testGeneric115 =
 assert(foo(4) == 20);\r\n\
 assert(foo(4, 3) == 12);\r\n\
 assert(foo(5) == 25);\r\n\
-assert(int(foo(2.2)) == 11);\r\n\
-assert(int(foo(1.5, 6)) == 9);\r\n\
-assert(int(foo(2.4)) == 12);\r\n\
+assert(int(foo(2.2) + 0.5) == 11);\r\n\
+assert(int(foo(1.5, 6) + 0.5) == 9);\r\n\
+assert(int(foo(2.4) + 0.5) == 12);\r\n\
 return 1;";
 TEST_RESULT("generic functions with default argument values 6 (import)", testGeneric115, "1");
 
@@ -1520,8 +1520,8 @@ const char *testGeneric116 =
 "import test.generic_export11;\r\n\
 assert(foo(4, 3) == 12);\r\n\
 assert(foo(5) == 25);\r\n\
-assert(int(foo(1.5, 6)) == 9);\r\n\
-assert(int(foo(2.4)) == 12);\r\n\
+assert(int(foo(1.5, 6) + 0.5) == 9);\r\n\
+assert(int(foo(2.4) + 0.5) == 12);\r\n\
 return 1;";
 TEST_RESULT("generic functions with default argument values 7 (import)", testGeneric116, "1");
 

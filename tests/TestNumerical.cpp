@@ -42,12 +42,12 @@ return a >> b;";
 
 TEST("Integer operation test", testIntOp, "1")
 {
-	CHECK_INT("a", 0, 14);
-	CHECK_INT("b", 0, 3);
-	CHECK_INT("c", 0, 0);
+	CHECK_INT("a", 0, 14, lastFailed);
+	CHECK_INT("b", 0, 3, lastFailed);
+	CHECK_INT("c", 0, 0, lastFailed);
 	int resExp[] = { 17, 11, -14, -4, 42, 4, 2, 2744, 1, 0, 1, 0, 0, 1, 112, 1, 2, 15, 13, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1 };
 	for(int i = 0; i < 27; i++)
-		CHECK_INT("res", i, resExp[i]);
+		CHECK_INT("res", i, resExp[i], lastFailed);
 }
 
 const char	*testDoubleOp = 
@@ -71,11 +71,11 @@ return a+b;";
 
 TEST("Double operation test", testDoubleOp, "17.000000")
 {
-	CHECK_DOUBLE("a", 0, 14.0);
-	CHECK_DOUBLE("b", 0, 3.0);
+	CHECK_DOUBLE("a", 0, 14.0, lastFailed);
+	CHECK_DOUBLE("b", 0, 3.0, lastFailed);
 	double resExp[] = { 17.0, 11.0, -14.0, 42.0, 14.0/3.0, 2.0, 2744.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0};
 	for(int i = 0; i < 14; i++)
-		CHECK_DOUBLE("res", i, resExp[i]);
+		CHECK_DOUBLE("res", i, resExp[i], lastFailed);
 }
 
 const char	*testLongOp = 
@@ -122,13 +122,13 @@ return 1;";
 
 TEST("Long operation test", testLongOp, "1")
 {
-	CHECK_LONG("a", 0, 4494967296ll);
-	CHECK_LONG("b", 0, 594967296ll);
-	CHECK_LONG("c", 0, 3ll);
+	CHECK_LONG("a", 0, 4494967296ll, lastFailed);
+	CHECK_LONG("b", 0, 594967296ll, lastFailed);
+	CHECK_LONG("c", 0, 3ll, lastFailed);
 	long long resExp[] = { 5089934592ll, 3900000000ll, -4494967296ll, -4494967297ll, 2674358537709551616ll, 7, 330196224, 210609828468829063ll, 1, 0, 1, 0, 0, 1,
 		35959738368ll, 105553116266496ll, 561870912, 56771072, 5033163520ll, 4976392448ll, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1 };
 	for(int i = 0; i < 24; i++)
-		CHECK_LONG("res", i, resExp[i]);
+		CHECK_LONG("res", i, resExp[i], lastFailed);
 }
 
 const char	*tesIncDec =
@@ -165,22 +165,22 @@ TEST("Decrement and increment tests for all types", tesIncDec, "1")
 
 	int num = 1;
 	for(int i = 0; i < 6; i++)
-		CHECK_DOUBLE(Tests::Format("%s%d", name[i], num), 0, value[i]);
+		CHECK_DOUBLE(Tests::Format("%s%d", name[i], num), 0, value[i], lastFailed);
 	num = 2;
 	for(int i = 0; i < 6; i++)
-		CHECK_FLOAT(Tests::Format("%s%d", name[i], num), 0, value[i]);
+		CHECK_FLOAT(Tests::Format("%s%d", name[i], num), 0, (float)value[i], lastFailed);
 	num = 3;
 	for(int i = 0; i < 6; i++)
-		CHECK_LONG(Tests::Format("%s%d", name[i], num), 0, value[i]);
+		CHECK_LONG(Tests::Format("%s%d", name[i], num), 0, value[i], lastFailed);
 	num = 4;
 	for(int i = 0; i < 6; i++)
-		CHECK_INT(Tests::Format("%s%d", name[i], num), 0, value[i]);
+		CHECK_INT(Tests::Format("%s%d", name[i], num), 0, value[i], lastFailed);
 	num = 5;
 	for(int i = 0; i < 6; i++)
-		CHECK_SHORT(Tests::Format("%s%d", name[i], num), 0, value[i]);
+		CHECK_SHORT(Tests::Format("%s%d", name[i], num), 0, (short)value[i], lastFailed);
 	num = 6;
 	for(int i = 0; i < 6; i++)
-		CHECK_CHAR(Tests::Format("%s%d", name[i], num), 0, value[i]);
+		CHECK_CHAR(Tests::Format("%s%d", name[i], num), 0, (char)value[i], lastFailed);
 }
 
 const char	*testTypeConv = 
@@ -197,15 +197,15 @@ lc = da;\r\n\
 return 1;";
 TEST("Type conversions", testTypeConv, "1")
 {
-	CHECK_INT("ia", 0, 3);
-	CHECK_INT("ib", 0, 5);
-	CHECK_INT("ic", 0, 4);
-	CHECK_DOUBLE("da", 0, 5.0);
-	CHECK_DOUBLE("db", 0, 3.0);
-	CHECK_DOUBLE("dc", 0, 4.0);
-	CHECK_LONG("la", 0, 4);
-	CHECK_LONG("lb", 0, 3);
-	CHECK_LONG("lc", 0, 5);
+	CHECK_INT("ia", 0, 3, lastFailed);
+	CHECK_INT("ib", 0, 5, lastFailed);
+	CHECK_INT("ic", 0, 4, lastFailed);
+	CHECK_DOUBLE("da", 0, 5.0, lastFailed);
+	CHECK_DOUBLE("db", 0, 3.0, lastFailed);
+	CHECK_DOUBLE("dc", 0, 4.0, lastFailed);
+	CHECK_LONG("la", 0, 4, lastFailed);
+	CHECK_LONG("lb", 0, 3, lastFailed);
+	CHECK_LONG("lc", 0, 5, lastFailed);
 }
 
 const char	*testDoublePow = 
@@ -213,7 +213,7 @@ const char	*testDoublePow =
 return a**2.0;";
 TEST("Double power", testDoublePow, "0.810000")
 {
-	CHECK_DOUBLE("a", 0, 0.9);
+	CHECK_DOUBLE("a", 0, 0.9, lastFailed);
 }
 
 const char	*testHexConst = 
@@ -224,9 +224,9 @@ auto c = 0x7fffffffffffffff;\r\n\
 return a;";
 TEST("Hexadecimal constants", testHexConst, "3735928559L")
 {
-	CHECK_LONG("a", 0, 3735928559ll);
-	CHECK_INT("b", 0, 51966);
-	CHECK_LONG("c", 0, 9223372036854775807ll);
+	CHECK_LONG("a", 0, 3735928559ll, lastFailed);
+	CHECK_INT("b", 0, 51966, lastFailed);
+	CHECK_LONG("c", 0, 9223372036854775807ll, lastFailed);
 }
 
 const char	*testPriority = 
@@ -237,12 +237,12 @@ res[1] = a + b ** (c-10) * a;\r\n\
 return 1;";
 TEST("Operation priority test", testPriority, "1")
 {
-	CHECK_INT("a", 0, 13);
-	CHECK_INT("b", 0, 17);
-	CHECK_INT("c", 0, 14);
+	CHECK_INT("a", 0, 13, lastFailed);
+	CHECK_INT("b", 0, 17, lastFailed);
+	CHECK_INT("c", 0, 14, lastFailed);
 	int resExp[] = { 251, 1085786, -14, -4, 42, 4, 2, 2744, 1, 0, 1, 0, 0, 1, 112, 1, 2, 15, 13, 1, 1, 0, 0, 1, 1, 0, 1 };
 	for(int i = 0; i < 2; i++)
-		CHECK_INT("res", i, resExp[i]);
+		CHECK_INT("res", i, resExp[i], lastFailed);
 }
 
 const char	*testLongIncDec =

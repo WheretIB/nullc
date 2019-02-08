@@ -19,9 +19,9 @@ for({int i = 0;}; i < 4; {i++;})\r\n\
 return 4;";
 TEST("Function visibility test", testVisibility, "4")
 {
-	CHECK_INT("u", 0, 5);
-	CHECK_INT("t1", 0, 9);
-	CHECK_INT("t2", 0, 12);
+	CHECK_INT("u", 0, 5, lastFailed);
+	CHECK_INT("t1", 0, 9, lastFailed);
+	CHECK_INT("t2", 0, 12, lastFailed);
 }
 
 const char	*testClassMemberHide =

@@ -20,9 +20,9 @@ int a = 3, b = 0;\r\n\
 return u;";
 TEST("Switch test", testSwitch, "12")
 {
-	CHECK_INT("u", 0, 12);
-	CHECK_INT("a", 0, 3);
-	CHECK_INT("b", 0, 7);
+	CHECK_INT("u", 0, 12, lastFailed);
+	CHECK_INT("a", 0, 3, lastFailed);
+	CHECK_INT("b", 0, 7, lastFailed);
 }
 
 const char	*testSwitch2 = 
@@ -122,8 +122,8 @@ int b = k;\r\n\
 return a + b;";
 TEST("Multi-depth break and continue", testDepthBreakContinue, "24")
 {
-	CHECK_INT("a", 0, 10);
-	CHECK_INT("b", 0, 14);
+	CHECK_INT("a", 0, 10, lastFailed);
+	CHECK_INT("b", 0, 14, lastFailed);
 }
 
 const char	*testBreakContinueTests =
@@ -147,8 +147,8 @@ for(int k2 = 0; 1; k2++)\r\n\
 return 0;";
 TEST("More break and continue tests", testBreakContinueTests, "0")
 {
-	CHECK_INT("k", 0, 10);
-	CHECK_INT("k2", 0, 0);
+	CHECK_INT("k", 0, 10, lastFailed);
+	CHECK_INT("k2", 0, 0, lastFailed);
 }
 
 const char	*testDoWhileScope =

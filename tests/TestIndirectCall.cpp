@@ -32,14 +32,14 @@ farr[0] = cls.test;\r\n\
 return (farr[0])(12);";
 TEST("Indirect function pointers", testIndirectPointers, "312")
 {
-	CHECK_INT("a1", 0, -12);
-	CHECK_INT("a2", 0, 24);
-	CHECK_INT("b1", 0, -12);
-	CHECK_INT("b2", 0, 24);
-	CHECK_INT("c1", 0, 24);
-	CHECK_INT("c2", 0, -12);
-	CHECK_INT("d1", 0, -12);
-	CHECK_INT("d2", 0, 24);
+	CHECK_INT("a1", 0, -12, lastFailed);
+	CHECK_INT("a2", 0, 24, lastFailed);
+	CHECK_INT("b1", 0, -12, lastFailed);
+	CHECK_INT("b2", 0, 24, lastFailed);
+	CHECK_INT("c1", 0, 24, lastFailed);
+	CHECK_INT("c2", 0, -12, lastFailed);
+	CHECK_INT("d1", 0, -12, lastFailed);
+	CHECK_INT("d2", 0, 24, lastFailed);
 }
 
 const char	*testMemberFuncCallPostExpr =
@@ -69,15 +69,15 @@ int i6 = f.func()().func2()().arr[2];\r\n\
 return 1;";
 TEST("Member function call post expressions", testMemberFuncCallPostExpr, "1")
 {
-	CHECK_FLOAT("f1", 0, 4);
-	CHECK_FLOAT("f2", 0, 9);
-	CHECK_FLOAT("f3", 0, 9);
-	CHECK_INT("i1", 0, 12);
-	CHECK_INT("i2", 0, 14);
-	CHECK_INT("i3", 0, 17);
-	CHECK_INT("i4", 0, 12);
-	CHECK_INT("i5", 0, 14);
-	CHECK_INT("i6", 0, 17);
+	CHECK_FLOAT("f1", 0, 4, lastFailed);
+	CHECK_FLOAT("f2", 0, 9, lastFailed);
+	CHECK_FLOAT("f3", 0, 9, lastFailed);
+	CHECK_INT("i1", 0, 12, lastFailed);
+	CHECK_INT("i2", 0, 14, lastFailed);
+	CHECK_INT("i3", 0, 17, lastFailed);
+	CHECK_INT("i4", 0, 12, lastFailed);
+	CHECK_INT("i5", 0, 14, lastFailed);
+	CHECK_INT("i6", 0, 17, lastFailed);
 }
 
 const char	*testClassFuncReturn =
@@ -93,7 +93,7 @@ auto k = a.bar()();\r\n\
 return 1;";
 TEST("Class function return", testClassFuncReturn, "1")
 {
-	CHECK_INT("k", 0, 5);
+	CHECK_INT("k", 0, 5, lastFailed);
 }
 
 const char	*testMemberFuncCallRef =

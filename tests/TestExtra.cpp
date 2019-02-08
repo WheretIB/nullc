@@ -21,52 +21,44 @@ long f2 = 3l << 12l;\r\n\
 int f4 = 0 - f1;\r\n\
 double f5 = 2 * 3.0, f6 = f1 - 0.0;\r\n\
 \r\n\
-return 1;";
-TEST("Group of tests", testMissingTests, "1")
+return (d1[0] == '\\\\') + (d1[1] == '\\\'') + (d1[2] == 0) + (d1[3] == '\\\"') + (d1[4] == 0);";
+TEST("Group of tests", testMissingTests, "5")
 {
-	CHECK_LONG("a1", 0, 1);
+	CHECK_LONG("a1", 0, 1, lastFailed);
 
-	CHECK_LONG("a2", 0, 255);
-	CHECK_LONG("a3", 0, 524287);
-	CHECK_LONG("a4", 0, 562949953421311ll);
+	CHECK_LONG("a2", 0, 255, lastFailed);
+	CHECK_LONG("a3", 0, 524287, lastFailed);
+	CHECK_LONG("a4", 0, 562949953421311ll, lastFailed);
 
-	CHECK_LONG("b1", 0, 0);
-	CHECK_LONG("b2", 0, 1);
-	CHECK_LONG("b3", 0, 33538725);
-	CHECK_LONG("b4", 0, 6154922420991617705ll);
+	CHECK_LONG("b1", 0, 0, lastFailed);
+	CHECK_LONG("b2", 0, 1, lastFailed);
+	CHECK_LONG("b3", 0, 33538725, lastFailed);
+	CHECK_LONG("b4", 0, 6154922420991617705ll, lastFailed);
 
-	CHECK_DOUBLE("c1", 0, 1e-3);
-	CHECK_DOUBLE("c2", 0, 1e6);
-	CHECK_DOUBLE("c3", 0, 123e2);
-	CHECK_DOUBLE("c4", 0, 0.121e-4);
+	CHECK_DOUBLE("c1", 0, 1e-3, lastFailed);
+	CHECK_DOUBLE("c2", 0, 1e6, lastFailed);
+	CHECK_DOUBLE("c3", 0, 123e2, lastFailed);
+	CHECK_DOUBLE("c4", 0, 0.121e-4, lastFailed);
 
-	CHECK_INT("d1size", 0, 5);
+	CHECK_INT("d1size", 0, 5, lastFailed);
 
-	char* str = *(char**)Tests::FindVar("$temp1");
-	if(str[0] != '\\' || str[1] != '\'' || str[2] != '\0' || str[3] != '\"' || str[4] != '\0')
-	{
-		TEST_NAME();
-		printf(" Failed\r\n");
-		lastFailed = true;
-	}
+	CHECK_INT("d2", 0, !4, lastFailed);
+	CHECK_INT("d3", 0, ~5, lastFailed);
+	CHECK_INT("d4", 0, -12, lastFailed);
 
-	CHECK_INT("d2", 0, !4);
-	CHECK_INT("d3", 0, ~5);
-	CHECK_INT("d4", 0, -12);
+	CHECK_FLOAT("e2", 0, -1.0f, lastFailed);
+	CHECK_DOUBLE("e3", 0, -3.0, lastFailed);
 
-	CHECK_FLOAT("e2", 0, -1.0f);
-	CHECK_DOUBLE("e3", 0, -3.0);
+	CHECK_LONG("e4", 0, !324324234324234423ll, lastFailed);
+	CHECK_LONG("e5", 0, ~89435763476541ll, lastFailed);
+	CHECK_LONG("e6", 0, -1687313675313735ll, lastFailed);
 
-	CHECK_LONG("e4", 0, !324324234324234423ll);
-	CHECK_LONG("e5", 0, ~89435763476541ll);
-	CHECK_LONG("e6", 0, -1687313675313735ll);
+	CHECK_INT("f1", 0, 2 << 4, lastFailed);
+	CHECK_LONG("f2", 0, 3ll << 12ll, lastFailed);
 
-	CHECK_INT("f1", 0, 2 << 4);
-	CHECK_LONG("f2", 0, 3ll << 12ll);
-
-	CHECK_INT("f4", 0, -(2 << 4));
-	CHECK_DOUBLE("f5", 0, 6.0);
-	CHECK_DOUBLE("f6", 0, (2 << 4));
+	CHECK_INT("f4", 0, -(2 << 4), lastFailed);
+	CHECK_DOUBLE("f5", 0, 6.0, lastFailed);
+	CHECK_DOUBLE("f6", 0, (2 << 4), lastFailed);
 }
 
 const char	*testMissingTests2 =
@@ -95,13 +87,13 @@ n44();\r\n\
 return 1;";
 TEST("Group of tests 2", testMissingTests2, "1")
 {
-	CHECK_INT("d", 0, 3);
-	CHECK_INT("e", 0, 4);
+	CHECK_INT("d", 0, 3, lastFailed);
+	CHECK_INT("e", 0, 4, lastFailed);
 
-	CHECK_INT("k1", 0, -5);
-	CHECK_INT("k2", 0, -12);
-	CHECK_INT("k3", 0, ~7);
-	CHECK_INT("k4", 0, 4096);
+	CHECK_INT("k1", 0, -5, lastFailed);
+	CHECK_INT("k2", 0, -12, lastFailed);
+	CHECK_INT("k3", 0, ~7, lastFailed);
+	CHECK_INT("k4", 0, 4096, lastFailed);
 }
 
 const char	*testMissingTests3 =
@@ -125,21 +117,21 @@ double opt4 = 8.0 % 3.0;\r\n\
 return 1;";
 TEST("Group of tests 3", testMissingTests3, "1")
 {
-	CHECK_INT("a1", 0, 3);
-	CHECK_INT("a2", 0, 2);
-	CHECK_INT("a3", 0, 7);
+	CHECK_INT("a1", 0, 3, lastFailed);
+	CHECK_INT("a2", 0, 2, lastFailed);
+	CHECK_INT("a3", 0, 7, lastFailed);
 
-	CHECK_INT("b1", 0, 3);
-	CHECK_INT("b2", 0, 2);
-	CHECK_INT("b3", 0, 7);
+	CHECK_INT("b1", 0, 3, lastFailed);
+	CHECK_INT("b2", 0, 2, lastFailed);
+	CHECK_INT("b3", 0, 7, lastFailed);
 
-	CHECK_INT("c1", 0, 512);
+	CHECK_INT("c1", 0, 512, lastFailed);
 
-	CHECK_INT("opt1", 0, (1 != 1 + (18 >> 2) % (4 & 4 ^ 0 | 0xffff) + 1) ? 1 : 0);
-	CHECK_LONG("opt2", 0, 18l >> 2l % 5l ^ 9l | 12l & 13l);
-	CHECK_LONG("opt3", 0, 1);
+	CHECK_INT("opt1", 0, (1 != 1 + (18 >> 2) % (4 & 4 ^ 0 | 0xffff) + 1) ? 1 : 0, lastFailed);
+	CHECK_LONG("opt2", 0, 18l >> 2l % 5l ^ 9l | 12l & 13l, lastFailed);
+	CHECK_LONG("opt3", 0, 1, lastFailed);
 
-	CHECK_DOUBLE("opt4", 0, 2.0);
+	CHECK_DOUBLE("opt4", 0, 2.0, lastFailed);
 }
 
 const char	*testMissingTests4 =
@@ -173,37 +165,13 @@ int k1 = k[0], k2 = k[1], k3 = k[2], k4 = k[3];\r\n\
 return m[1][3] + 2;";
 TEST("Group of tests 4", testMissingTests4, "6")
 {
-	int* str1 = *(int**)Tests::FindVar("$temp1");
-	if(str1[0] != 1 || str1[1] != 2 || str1[2] != 3 || str1[3] != 4)
-	{
-		TEST_NAME();
-		printf(" Failed\r\n");
-		lastFailed = true;
-	}
+	CHECK_INT("ksize", 0, 4, lastFailed);
+	CHECK_INT("isize", 0, 2, lastFailed);
 
-	int* str2 = *(int**)Tests::FindVar("$temp2");
-	if(str2[0] != 4 || str2[1] != 2 || str2[2] != 5 || str2[3] != 3)
-	{
-		TEST_NAME();
-		printf(" Failed\r\n");
-		lastFailed = true;
-	}
-
-	int* str3 = *(int**)Tests::FindVar("$temp3");
-	if(str3[0] != 4 || str3[1] != 7)
-	{
-		TEST_NAME();
-		printf(" Failed\r\n");
-		lastFailed = true;
-	}
-
-	CHECK_INT("ksize", 0, 4);
-	CHECK_INT("isize", 0, 2);
-
-	CHECK_INT("k1", 0, 5);
-	CHECK_INT("k2", 0, 4);
-	CHECK_INT("k3", 0, 8);
-	CHECK_INT("k4", 0, 7);
+	CHECK_INT("k1", 0, 5, lastFailed);
+	CHECK_INT("k2", 0, 4, lastFailed);
+	CHECK_INT("k3", 0, 8, lastFailed);
+	CHECK_INT("k4", 0, 7, lastFailed);
 }
 
 int CheckAlignment(NULLCRef ptr, int alignment)
@@ -234,10 +202,10 @@ good += r2();\r\n\
 return good;";
 TEST("Group of tests 5", testMissingTests5a, "2")
 {
-	CHECK_LONG("b1", 0, 7625597484987ll);
-	CHECK_LONG("b2", 0, 1);
-	CHECK_LONG("b3", 0, 1);
-	CHECK_LONG("b4", 0, 0);
+	CHECK_LONG("b1", 0, 7625597484987ll, lastFailed);
+	CHECK_LONG("b2", 0, 1, lastFailed);
+	CHECK_LONG("b3", 0, 1, lastFailed);
+	CHECK_LONG("b4", 0, 0, lastFailed);
 }
 
 const char	*testStaticIf1 =
@@ -294,10 +262,10 @@ int d = bar(4l);\r\n\
 return 1;";
 TEST("Static if test 4", testStaticIf4, "1")
 {
-	CHECK_INT("a", 0, 1);
-	CHECK_INT("b", 0, 0);
-	CHECK_INT("c", 0, 1);
-	CHECK_INT("d", 0, 0);
+	CHECK_INT("a", 0, 1, lastFailed);
+	CHECK_INT("b", 0, 0, lastFailed);
+	CHECK_INT("c", 0, 1, lastFailed);
+	CHECK_INT("d", 0, 0, lastFailed);
 }
 
 const char	*testStaticIf5 =

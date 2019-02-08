@@ -49,7 +49,7 @@ hashmap<int, float> hh;\r\n\
 \r\n\
 hh[short(1)] = 6;\r\n\
 return int(hh[short(1)]);";
-TEST_RESULT("sgl.hashmap test (key is not an array)", testSglHashmap2, "6");
+TEST_RESULT_SIMPLE("sgl.hashmap test (key is not an array)", testSglHashmap2, "6");
 
 const char *testSglHashmap3 =
 "import std.hashmap;\r\n\
@@ -57,4 +57,4 @@ int hash_value(int x){ return x; }\r\n\
 hashmap<bool, int> h;\r\n\
 h[true] = 1;\r\n\
 return h[true];";
-TEST_RESULT("sgl.hashmap test (hash_value is not perfect for key type)", testSglHashmap3, "1");
+TEST_RESULT_SIMPLE("sgl.hashmap test (hash_value is not perfect for key type)", testSglHashmap3, "1");

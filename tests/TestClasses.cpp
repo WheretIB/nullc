@@ -30,19 +30,19 @@ return 1;";
 
 TEST("Complex type test (simple)", testCmplxType1, "1")
 {
-	CHECK_FLOAT("f1", 0, 1);
+	CHECK_FLOAT("f1", 0, 1, lastFailed);
 
-	CHECK_FLOAT("f2", 0, 14);
-	CHECK_FLOAT("f2", 1, 9);
+	CHECK_FLOAT("f2", 0, 14, lastFailed);
+	CHECK_FLOAT("f2", 1, 9, lastFailed);
 
-	CHECK_FLOAT("f3", 0, 9);
-	CHECK_FLOAT("f3", 1, 1);
-	CHECK_FLOAT("f3", 2, 5);
+	CHECK_FLOAT("f3", 0, 9, lastFailed);
+	CHECK_FLOAT("f3", 1, 1, lastFailed);
+	CHECK_FLOAT("f3", 2, 5, lastFailed);
 
-	CHECK_FLOAT("f4", 0, 5);
-	CHECK_FLOAT("f4", 1, 6);
-	CHECK_FLOAT("f4", 2, 1);
-	CHECK_FLOAT("f4", 3, 84);
+	CHECK_FLOAT("f4", 0, 5, lastFailed);
+	CHECK_FLOAT("f4", 1, 6, lastFailed);
+	CHECK_FLOAT("f4", 2, 1, lastFailed);
+	CHECK_FLOAT("f4", 3, 84, lastFailed);
 }
 
 const char	*testCmplxType2 = 
@@ -61,7 +61,7 @@ TEST("Complex type test (complex)", testCmplxType2, "1")
 {
 	float values[] = { 1, 0, 100, 9, 4, 101, 17, 8, 102, 25, 12, 103, 33, 16, 104, 41, 20, 105, 49, 24, 106, 57, 28, 107, 65, 32, 108, 73, 36, 109 };
 	for(int i = 0; i < 30; i++)
-		CHECK_FLOAT("fa", i, values[i]);
+		CHECK_FLOAT("fa", i, values[i], lastFailed);
 }
 
 const char	*testCmplx3 = 
@@ -72,7 +72,7 @@ mat.row1.y = 5;\r\n\
 return 1;";
 TEST("Complex type test", testCmplx3, "1")
 {
-	CHECK_FLOAT("mat", 1, 5.0f);
+	CHECK_FLOAT("mat", 1, 5.0f, lastFailed);
 }
 
 const char	*testClass1 = 
@@ -98,10 +98,10 @@ two.c.x = 2;\r\n\
 return 1;";
 TEST("Class test", testClass1, "1")
 {
-	CHECK_INT("one", 0, 3);
-	CHECK_FLOAT("one", 3, 2.0f);
-	CHECK_INT("two", 0, 14);
-	CHECK_FLOAT("two", 10, 2.0f);
+	CHECK_INT("one", 0, 3, lastFailed);
+	CHECK_FLOAT("one", 3, 2.0f, lastFailed);
+	CHECK_INT("two", 0, 14, lastFailed);
+	CHECK_FLOAT("two", 10, 2.0f, lastFailed);
 }
 
 const char	*testClass2 = 
@@ -135,17 +135,17 @@ twonext = two;\r\n\
 return 1;";
 TEST("Class test 2", testClass2, "1")
 {
-	CHECK_CHAR("c", 0, 66);
-	CHECK_SHORT("u", 0, 15);
-	CHECK_LONG("l", 0, 45645ll * 4594454795ll);
+	CHECK_CHAR("c", 0, 66, lastFailed);
+	CHECK_SHORT("u", 0, 15, lastFailed);
+	CHECK_LONG("l", 0, 45645ll * 4594454795ll, lastFailed);
 	
-	CHECK_INT("two", 0, 14);
-	CHECK_FLOAT("two", 10, 2);
-	CHECK_INT("two", 13, 5);
+	CHECK_INT("two", 0, 14, lastFailed);
+	CHECK_FLOAT("two", 10, 2, lastFailed);
+	CHECK_INT("two", 13, 5, lastFailed);
 
-	CHECK_INT("twonext", 0, 14);
-	CHECK_FLOAT("twonext", 10, 2);
-	CHECK_INT("twonext", 13, 5);
+	CHECK_INT("twonext", 0, 14, lastFailed);
+	CHECK_FLOAT("twonext", 10, 2, lastFailed);
+	CHECK_INT("twonext", 13, 5, lastFailed);
 }
 
 const char	*testCmplx4 = 
@@ -182,27 +182,27 @@ TEST("Complex types test #4", testCmplx4, "56.000000")
 {
 	float values[] = { 6, 3, 5, 0, 2, 3, 7, 0, 12, 4.7f, 0, 11, 3, 5, 0, 2.5f, 1.2f, 5, 6, 5.9f, 5.9f, 5.9f, 5.9f, 12, 4.7f, 0, 2 };
 	for(int i = 0; i < 4; i++)
-		CHECK_FLOAT("n", i, values[i]);
+		CHECK_FLOAT("n", i, values[i], lastFailed);
 	for(int i = 0; i < 4; i++)
-		CHECK_FLOAT("m", i, values[i+4]);
+		CHECK_FLOAT("m", i, values[i+4], lastFailed);
 	for(int i = 0; i < 3; i++)
-		CHECK_FLOAT("k", i, values[i+8]);
+		CHECK_FLOAT("k", i, values[i+8], lastFailed);
 	for(int i = 0; i < 4; i++)
-		CHECK_FLOAT("u", i, values[i+11]);
+		CHECK_FLOAT("u", i, values[i+11], lastFailed);
 	for(int i = 0; i < 4; i++)
-		CHECK_FLOAT("v", i, values[i+15]);
+		CHECK_FLOAT("v", i, values[i+15], lastFailed);
 	for(int i = 0; i < 4; i++)
-		CHECK_FLOAT("w", i, values[i+19]);
+		CHECK_FLOAT("w", i, values[i+19], lastFailed);
 	for(int i = 0; i < 4; i++)
-		CHECK_FLOAT("q", i, values[i+23]);
+		CHECK_FLOAT("q", i, values[i+23], lastFailed);
 
 	float values2[] = { 0.0, 1.5, 3.0, 4.5, 6.0, 7.5, 9.0, 10.5, 12.0, 13.5 };
 	for(int i = 0; i < 10; i++)
-		CHECK_FLOAT("arr", i, values2[i]);
-	CHECK_FLOAT("arrSum", 0, 67.5f);
+		CHECK_FLOAT("arr", i, values2[i], lastFailed);
+	CHECK_FLOAT("arrSum", 0, 67.5f, lastFailed);
 	for(int i = 0; i < 10; i++)
-		CHECK_FLOAT("iArr", i, values2[i]+1.0f);
-	CHECK_FLOAT("iArrSum", 0, 77.5f);
+		CHECK_FLOAT("iArr", i, values2[i]+1.0f, lastFailed);
+	CHECK_FLOAT("iArrSum", 0, 77.5f, lastFailed);
 }
 
 const char	*testSmallClass =
@@ -319,7 +319,7 @@ class Foo\r\n\
 }\r\n\
 auto x = new Foo[32];\r\n\
 return x[19].x;";
-TEST_RESULT("constructor call for every array element 2", testConstructorForArrayElements2, "29");
+TEST_RESULT_SIMPLE("constructor call for every array element 2", testConstructorForArrayElements2, "29");
 
 const char	*testImplicitConstructorCallForGenericType1 =
 "class Foo<T>\r\n\
@@ -392,7 +392,7 @@ class Foo<T>\r\n\
 }\r\n\
 auto x = new Foo<int>[32];\r\n\
 return x[19].x;";
-TEST_RESULT("constructor call for every array element 3", testConstructorForArrayElements3, "29");
+TEST_RESULT_SIMPLE("constructor call for every array element 3", testConstructorForArrayElements3, "29");
 
 const char	*testConstructorForArrayElements4 =
 "int m = 10;\r\n\
@@ -403,7 +403,7 @@ class Foo<T>\r\n\
 void Foo:Foo(){ x = m++; }\r\n\
 auto x = new Foo<int>[32];\r\n\
 return x[19].x;";
-TEST_RESULT("constructor call for every array element 4", testConstructorForArrayElements4, "29");
+TEST_RESULT_SIMPLE("constructor call for every array element 4", testConstructorForArrayElements4, "29");
 
 const char	*testConstructorForArrayElements5 =
 "int m = 10;\r\n\
@@ -415,7 +415,7 @@ void Foo:Foo(){ x = 10; }\r\n\
 void Foo<int>:Foo(){ x = m++; }\r\n\
 auto x = new Foo<int>[32];\r\n\
 return x[19].x;";
-TEST_RESULT("constructor call for every array element 5", testConstructorForArrayElements5, "29");
+TEST_RESULT_SIMPLE("constructor call for every array element 5", testConstructorForArrayElements5, "29");
 
 const char	*testConstructorCallOnStaticConstructionOfGenericType1 =
 "class Foo<T>{ T curr; }\r\n\
@@ -1054,7 +1054,16 @@ const char	*testMemberAccessFromLocalFunctionInsideMemberFunction =
 "class X\r\n\
 {\r\n\
 	int a, b, c;\r\n\
-	auto Members(){ return coroutine auto(){ yield a; yield b; yield c; return 0; }; }\r\n\
+	auto Members()\r\n\
+	{\r\n\
+		return coroutine auto()\r\n\
+		{\r\n\
+			yield a;\r\n\
+			yield b;\r\n\
+			yield c;\r\n\
+			return 0;\r\n\
+		};\r\n\
+	}\r\n\
 }\r\n\
 X x;\r\n\
 x.a = 4;\r\n\

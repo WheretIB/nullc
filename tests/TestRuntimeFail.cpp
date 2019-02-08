@@ -2,7 +2,7 @@
 
 #include <assert.h>
 
-#if !defined(_DEBUG) && !defined(NULLC_ENABLE_C_TRANSLATION) && !defined(NULLC_LLVM_SUPPORT)
+#if !defined(_DEBUG) && !defined(NULLC_LLVM_SUPPORT)
 	#define FAILURE_TEST
 #endif
 
@@ -181,7 +181,7 @@ struct Test_testMultipleTransiotions : TestQueue
 	{
 		if(Tests::messageVerbose)
 			printf("Call stack when there are various transitions between NULLC and C\r\n");
-		for(int t = 0; t < TEST_COUNT; t++)
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
 			if(!Tests::testExecutor[t])
 				continue;
@@ -256,7 +256,7 @@ struct Test_testDepthOverflow : TestQueue
 						printf("Call depth test\r\n");
 					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
 				}else{
-					testsPassed[1]++;
+					testsPassed[TEST_TYPE_X86]++;
 				}
 			}else{
 				if(!Tests::messageVerbose)
@@ -315,7 +315,7 @@ struct Test_testGlobalOverflow : TestQueue
 						printf("Global overflow test\r\n");
 					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
 				}else{
-					testsPassed[1]++;
+					testsPassed[TEST_TYPE_X86]++;
 				}
 			}else{
 				if(!Tests::messageVerbose)
@@ -365,7 +365,7 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 						printf("Depth overflow in unmanaged memory\r\n");
 					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
 				}else{
-					testsPassed[1]++;
+					testsPassed[TEST_TYPE_X86]++;
 				}
 			}else{
 				if(Tests::messageVerbose)

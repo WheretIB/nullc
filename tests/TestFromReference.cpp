@@ -190,5 +190,5 @@ TEST("example of parallel random number generators", testReference9, "1")
 {
 	static const int arr[8] = { 16838, 5758, 10113, 17515, 28306, 25322, 1693, 12038 };
 	for(unsigned i = 0; i < 8; i++)
-		CHECK_INT("array", i, arr[i]);
+		CHECK_INT("array", i, arr[i], lastFailed);
 }

@@ -27,7 +27,7 @@ funcholder c = test;\r\n\
 return (c.ptr)(12);";
 TEST("Overloaded operator = with arrays and functions", testOverloadedOperator2, "-12")
 {
-	CHECK_INT("b", 0, 5);
+	CHECK_INT("b", 0, 5, lastFailed);
 }
 
 const char	*testOverloadedOperator3 =
@@ -100,9 +100,9 @@ int w = funcC(4, 8);\r\n\
 return u + v + w;";
 TEST("Local operator definition", testLocalOperators, "40")
 {
-	CHECK_INT("u", 0, 32);
-	CHECK_INT("v", 0, -4);
-	CHECK_INT("w", 0, 12);
+	CHECK_INT("u", 0, 32, lastFailed);
+	CHECK_INT("v", 0, -4, lastFailed);
+	CHECK_INT("w", 0, 12, lastFailed);
 }
 
 const char	*testClassOperators =
@@ -132,8 +132,8 @@ int v = funcA(test.x, test.y);\r\n\
 return u + v;";
 TEST("Class operator definition", testClassOperators, "37")
 {
-	CHECK_INT("u", 0, 35);
-	CHECK_INT("v", 0, -2);
+	CHECK_INT("u", 0, 35, lastFailed);
+	CHECK_INT("v", 0, -2, lastFailed);
 }
 
 const char	*testOverloadedOperatorFunctionCall =

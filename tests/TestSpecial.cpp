@@ -415,14 +415,14 @@ int r8 = y8(1000000, 7); // 3\r\n\
 return 1;";
 TEST("Function binding", testBind, "1")
 {
-	CHECK_INT("r1", 0, 20);
-	CHECK_INT("r2", 0, 3);
-	CHECK_INT("r3", 0, 10);
-	CHECK_INT("r4", 0, -9);
-	CHECK_INT("r5", 0, 0);
-	CHECK_INT("r6", 0, 0);
-	CHECK_INT("r7", 0, 2);
-	CHECK_INT("r8", 0, 3);
+	CHECK_INT("r1", 0, 20, lastFailed);
+	CHECK_INT("r2", 0, 3, lastFailed);
+	CHECK_INT("r3", 0, 10, lastFailed);
+	CHECK_INT("r4", 0, -9, lastFailed);
+	CHECK_INT("r5", 0, 0, lastFailed);
+	CHECK_INT("r6", 0, 0, lastFailed);
+	CHECK_INT("r7", 0, 2, lastFailed);
+	CHECK_INT("r8", 0, 3, lastFailed);
 }
 
 const char	*testVectorSplice =

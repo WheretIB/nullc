@@ -25,14 +25,14 @@ char[] r = arr + arr2;\r\n\
 return r.size;";
 TEST_RESULT("Hidden variable exclusion from import", testImportHidding, "12");
 
-#if defined(NULLC_AUTOBINDING) && !defined(NULLC_ENABLE_C_TRANSLATION)
+#if defined(NULLC_AUTOBINDING)
 
 NULLC_BIND int myFoo(int x){ return x + 15; }
 
 const char	*testFunctionAutobinding =
 "int myFoo(int x);\r\n\
 return myFoo(5);";
-TEST_RESULT("Automatic function binding", testFunctionAutobinding, "20");
+TEST_RESULT_SIMPLE("Automatic function binding", testFunctionAutobinding, "20");
 
 LOAD_MODULE(test_Autobind, "test.autobind", "int myFoo(int x);");
 const char	*testFunctionAutobinding2 =

@@ -26,15 +26,14 @@ print(\"does work\");\r\n\
 return sum(u);";
 TEST("Implicit pointers to arrays", testArrPtr, "112")
 {
-	CHECK_INT("u", 1, 5);
-	CHECK_INT("u", 2, 2);
-	CHECK_INT("u", 3, 5);
-	CHECK_INT("u", 4, 100);
+	CHECK_INT("u", 1, 5, lastFailed);
+	CHECK_INT("u", 2, 2, lastFailed);
+	CHECK_INT("u", 3, 5, lastFailed);
+	CHECK_INT("u", 4, 100, lastFailed);
 
-	CHECK_INT("uu", 7, 100);
+	CHECK_INT("uu", 7, 100, lastFailed);
 
-	CHECK_STR("name", 0, "omfg");
-	CHECK_HEAP_STR("$temp1", 0, "does work");
+	CHECK_STR("name", 0, "omfg", lastFailed);
 }
 
 const char	*testArrays = 
@@ -51,14 +50,14 @@ int kl5 = test3(kl4);\r\n\
 return 1;";
 TEST("Arrays test", testArrays, "1")
 {
-	CHECK_INT("kl", 0, 10);
-	CHECK_FLOAT("kl2", 0, 5.0f);
-	CHECK_FLOAT("kl2", 1, 3.0f);
+	CHECK_INT("kl", 0, 10, lastFailed);
+	CHECK_FLOAT("kl2", 0, 5.0f, lastFailed);
+	CHECK_FLOAT("kl2", 1, 3.0f, lastFailed);
 
-	CHECK_FLOAT("res2", 0, 2.0f);
+	CHECK_FLOAT("res2", 0, 2.0f, lastFailed);
 
-	CHECK_INT("kl5", 0, 12);
-	CHECK_STR("kl4", 0, "kjskadjaskd");
+	CHECK_INT("kl5", 0, 12, lastFailed);
+	CHECK_STR("kl4", 0, "kjskadjaskd", lastFailed);
 }
 
 const char	*testArrays2 = 
@@ -82,27 +81,19 @@ int ns = sum(n), ts = sum({10, 12, 14, 16});\r\n\
 return 1;";
 TEST("Array test 2", testArrays2, "1")
 {
-	CHECK_INT("n", 0, 10);
-	CHECK_INT("n", 1, 12);
-	CHECK_INT("n", 2, 11);
-	CHECK_INT("n", 3, 156);
+	CHECK_INT("n", 0, 10, lastFailed);
+	CHECK_INT("n", 1, 12, lastFailed);
+	CHECK_INT("n", 2, 11, lastFailed);
+	CHECK_INT("n", 3, 156, lastFailed);
 
-	CHECK_STR("m", 0, "hello?");
+	CHECK_STR("m", 0, "hello?", lastFailed);
 
-	CHECK_INT("l", 0, 1);
-	CHECK_INT("l", 1, 2);
-	CHECK_INT("l", 2, 3);
+	CHECK_SHORT("l", 0, 1, lastFailed);
+	CHECK_SHORT("l", 1, 2, lastFailed);
+	CHECK_SHORT("l", 2, 3, lastFailed);
 
-	CHECK_INT("ns", 0, 189);
-	CHECK_INT("ts", 0, 52);
-
-	int* arr = *(int**)Tests::FindVar("$temp1");
-	if(arr[0] != 10 || arr[1] != 12 || arr[2] != 14 || arr[3] != 16)
-	{
-		TEST_NAME();
-		printf(" Failed\r\n");
-		lastFailed = true;
-	}
+	CHECK_INT("ns", 0, 189, lastFailed);
+	CHECK_INT("ts", 0, 52, lastFailed);
 }
 
 const char	*testStrings = 
@@ -115,8 +106,7 @@ arr[test(\"hello\\r\\n\")] += 3;\r\n\
 return 1;";
 TEST("Strings test", testStrings, "1")
 {
-	CHECK_STR("hm", 0, "World\r\n");
-	CHECK_HEAP_STR("$temp1", 0, "hello\r\n");
+	CHECK_STR("hm", 0, "World\r\n", lastFailed);
 }
 
 const char	*testInplaceArraysWithArrayElements =

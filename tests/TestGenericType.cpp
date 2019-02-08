@@ -1069,7 +1069,7 @@ s.push_back(3);\r\n\
 s.push_back(4.0);\r\n\
 s.push_back(5);\r\n\
 return s.pop_back() + s.pop_back() + (s.back() = 8);";
-TEST_RESULT("Generic type test Stack type 1", testGenericType71, "17");
+TEST_RESULT("Generic type test Stack type 2", testGenericType71, "17");
 
 LOAD_MODULE(test_generic_type72, "test.generic_type72",
 "class Stack<T>\r\n\

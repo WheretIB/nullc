@@ -93,11 +93,11 @@ for(i in { 1, 2, 3 })\r\n\
 return 0;";
 TEST("For each for standard arrays", testForEach3, "0")
 {
-	CHECK_INT("sum1", 0, 15);
-	CHECK_INT("sum2", 0, 15);
-	CHECK_INT("sum3", 0, 21);
-	CHECK_INT("sum4", 0, 7);
-	CHECK_INT("sum5", 0, 6);
+	CHECK_INT("sum1", 0, 15, lastFailed);
+	CHECK_INT("sum2", 0, 15, lastFailed);
+	CHECK_INT("sum3", 0, 21, lastFailed);
+	CHECK_INT("sum4", 0, 7, lastFailed);
+	CHECK_INT("sum5", 0, 6, lastFailed);
 }
 
 const char	*testForEach4 =
@@ -112,9 +112,9 @@ for(i in arr1, j in arr2)\r\n\
 return sum;";
 TEST("For each with multiple arrays", testForEach4, "21")
 {
-	CHECK_INT("arr1", 0, 10);
-	CHECK_INT("arr1", 1, 2);
-	CHECK_INT("arr1", 2, 9);
+	CHECK_INT("arr1", 0, 10, lastFailed);
+	CHECK_INT("arr1", 1, 2, lastFailed);
+	CHECK_INT("arr1", 2, 9, lastFailed);
 }
 
 const char	*testRangeIterator =

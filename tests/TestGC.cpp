@@ -56,7 +56,7 @@ class A\r\n\
 }\r\n\
 A ref[] arr1 = new A ref[2];\r\n\
 A ref tmp;\r\n\
-arr1[0] = tmp = new A;\r\n\
+(auto(){arr1[0] = tmp = new A;\r\n\
 tmp.d = new A;\r\n\
 tmp.e = new A;\r\n\
 tmp.f = new A;\r\n\
@@ -66,10 +66,10 @@ arr1[1].d = new A;\r\n\
 arr1[1].e = new A;\r\n\
 arr1[1].f = new A;\r\n\
 arr1[0] = nullptr;\r\n\
-arr1[1] = nullptr;\r\n\
+arr1[1] = nullptr;})();\r\n\
 GC.CollectMemory();\r\n\
 return GC.UsedMemory() - start;";
-TEST_RESULT("Garbage collection correctness 2.", testGarbageCollectionCorrectness2, sizeof(void*) == 8 ? "32" : "16");
+TEST_RESULT_SIMPLE("Garbage collection correctness 2.", testGarbageCollectionCorrectness2, sizeof(void*) == 8 ? "32" : "16");
 
 const char	*testGarbageCollectionCorrectness3 =
 "import std.gc;\r\n\
@@ -407,7 +407,7 @@ auto foo(int x)\r\n\
 }\r\n\
 foo(5)() + k();\r\n\
 return GC.UsedMemory() - start;";
-TEST_RESULT("Unused upvalues GC test", testUnusedUpvaluesGC2, sizeof(void*) == 8 ? "256" : "128");
+TEST_RESULT_SIMPLE("Unused upvalues GC test 2", testUnusedUpvaluesGC2, sizeof(void*) == 8 ? "256" : "128");
 
 const char	*testDoubleMemoryRemovalGC =
 "import std.gc;\r\n\
@@ -428,7 +428,7 @@ auto foo(int x)\r\n\
 foo(5)() + k();\r\n\
 GC.CollectMemory();\r\n\
 return GC.UsedMemory() - start;";
-TEST_RESULT("Prevention of double memory removal", testDoubleMemoryRemovalGC, sizeof(void*) == 8 ? "128" : "64");
+TEST_RESULT_SIMPLE("Prevention of double memory removal", testDoubleMemoryRemovalGC, sizeof(void*) == 8 ? "128" : "64");
 
 const char	*testDoubleMemoryRemovalGC2 =
 "import std.gc;\r\n\
@@ -509,24 +509,26 @@ int sum = 0;\r\n\
 for(i in *a, j in *b) sum += *i.x + *j.x;\r\n\
 \r\n\
 return sum;";
-TEST_RESULT("Check for bug in GC with allocating pointers to arrays", testGCOnAllocatedArrayPointer, "36");
-
-#ifndef NULLC_ENABLE_C_TRANSLATION
+TEST_RESULT_SIMPLE("Check for bug in GC with allocating pointers to arrays", testGCOnAllocatedArrayPointer, "36");
 
 int RecallerGC1()
 {
-	nullcRunFunction("first");
-	return nullcGetResultInt();
+	if(nullcRunFunction("first"))
+		return nullcGetResultInt();
+
+	return -1;
 }
 int RecallerGC2()
 {
-	nullcRunFunction("second");
-	return nullcGetResultInt();
+	if(nullcRunFunction("second"))
+		return nullcGetResultInt();
+	return -1;
 }
 int RecallerGC3()
 {
-	nullcRunFunction("runGC");
-	return nullcGetResultInt();
+	if(nullcRunFunction("runGC"))
+		return nullcGetResultInt();
+	return -1;
 }
 
 LOAD_MODULE_BIND(test_gctransition1, "func.gctransition1", "int Recaller1(); int Recaller2(); int Recaller3();")
@@ -571,6 +573,4 @@ int m = Recaller1();\r\n\
 assert(*a == 5);\r\n\
 assert(m == 6);\r\n\
 return 1;";
-TEST_RESULT("GC execution when callstack is full of NULLC->C transitions", testGCWhenTransitions, "1");
-
-#endif
+TEST_RESULT_SIMPLE("GC execution when callstack is full of NULLC->C transitions", testGCWhenTransitions, "1");

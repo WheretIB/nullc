@@ -15,8 +15,8 @@ testB(b);\r\n\
 return testA(&a);";
 TEST("Pointers", testPointers, "325")
 {
-	CHECK_INT("a", 0, 65);
-	CHECK_INT("c", 0, 5);
+	CHECK_INT("a", 0, 65, lastFailed);
+	CHECK_INT("c", 0, 5, lastFailed);
 }
 
 const char	*testPointersCmplx = 
@@ -41,10 +41,10 @@ normalize(&a);\r\n\
 return length(b);";
 TEST("Pointers on complex", testPointersCmplx, "1.000000")
 {
-	CHECK_FLOAT("a", 0, 12.0f/13.0f);
-	CHECK_FLOAT("a", 1, 4.0f/13.0f);
-	CHECK_FLOAT("a", 2, 3.0f/13.0f);
-	CHECK_FLOAT("a", 3, 1.0f);
+	CHECK_FLOAT("a", 0, 12.0f/13.0f, lastFailed);
+	CHECK_FLOAT("a", 1, 4.0f/13.0f, lastFailed);
+	CHECK_FLOAT("a", 2, 3.0f/13.0f, lastFailed);
+	CHECK_FLOAT("a", 3, 1.0f, lastFailed);
 }
 
 const char	*testPointersCmplx2 = 
@@ -55,7 +55,7 @@ b.x = 5.0f;\r\n\
 return b.x;";
 TEST("Pointers on complex 2", testPointersCmplx2, "5.000000")
 {
-	CHECK_FLOAT("a", 0, 5.0);
+	CHECK_FLOAT("a", 0, 5.0, lastFailed);
 }
 
 const char	*testPointers2 = 
@@ -67,7 +67,7 @@ a.x = 5.0f;\r\n\
 return testA(b);";
 TEST("Pointers 2", testPointers2, "5.000000")
 {
-	CHECK_FLOAT("a", 0, 5.0);
+	CHECK_FLOAT("a", 0, 5.0, lastFailed);
 }
 
 const char	*testPointers3 = 
@@ -91,14 +91,14 @@ float ref c = &arrF[1].y;\r\n\
 return 1;";
 TEST("Pointers test 3", testPointers3, "1")
 {
-	CHECK_INT("arr", 1, 5);
-	CHECK_INT("arr", 3, 55);
+	CHECK_INT("arr", 1, 5, lastFailed);
+	CHECK_INT("arr", 3, 55, lastFailed);
 
-	CHECK_FLOAT("arrF", 4, 85.0);
-	CHECK_FLOAT("arrF", 5, 125.0);
+	CHECK_FLOAT("arrF", 4, 85.0, lastFailed);
+	CHECK_FLOAT("arrF", 5, 125.0, lastFailed);
 
-	CHECK_FLOAT("arrF", 8, 8.0);
-	CHECK_FLOAT("arrF", 9, 12.0);
+	CHECK_FLOAT("arrF", 8, 8.0, lastFailed);
+	CHECK_FLOAT("arrF", 9, 12.0, lastFailed);
 }
 
 const char *testCorrectDereference =

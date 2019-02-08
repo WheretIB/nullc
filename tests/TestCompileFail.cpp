@@ -4,7 +4,7 @@
 
 void TEST_FOR_FAIL_FULL(const char* name, const char* str, const char* error)
 {
-	testsCount[TEST_FAILURE_INDEX]++;
+	testsCount[TEST_TYPE_FAILURE]++;
 	nullres good = nullcCompile(str);
 	if(!good)
 	{
@@ -14,7 +14,7 @@ void TEST_FOR_FAIL_FULL(const char* name, const char* str, const char* error)
 		{
 			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error);
 		}else{
-			testsPassed[TEST_FAILURE_INDEX]++;
+			testsPassed[TEST_TYPE_FAILURE]++;
 		}
 	}else{
 		printf("Test \"%s\" failed to fail.\r\n", name);
@@ -215,7 +215,6 @@ void RunCompileFailTests()
 
 	TEST_FOR_FAIL("Constructor returns a value", "auto int:int(int x, y){ *this = x; return this; } return *new int(4, 8);", "ERROR: type constructor return type must be void");
 
-#ifdef NULLC_PURE_FUNCTIONS
 const char	*testCompileTimeNoReturn =
 "int foo(int m)\r\n\
 {\r\n\
@@ -224,8 +223,6 @@ const char	*testCompileTimeNoReturn =
 }\r\n\
 int[foo(3)] arr;";
 	TEST_FOR_FAIL("Compile time function evaluation doesn't return.", testCompileTimeNoReturn, "ERROR: array size must be a constant expression. During constant folding, 'foo' function couldn't be evaluated");
-
-#endif
 
 	TEST_FOR_FAIL("Inline function with wrong type", "int foo(int ref(int) x){ return x(4); } foo(auto(){});", "ERROR: can't find function 'foo' with following parameters:");
 	TEST_FOR_FAIL("Function argument already defined", "int foo(int x, x){ return x + x; } return foo(5, 4);", "ERROR: parameter with name 'x' is already defined");
@@ -862,7 +859,7 @@ struct Test_testModuleImportsSelf1 : TestQueue
 		if(Tests::messageVerbose)
 			printf("Module imports itself 1 \r\n");
 
-		testsCount[TEST_FAILURE_INDEX]++;
+		testsCount[TEST_TYPE_FAILURE]++;
 		nullres good = nullcCompile(testModuleImportsSelf1);
 		if(!good)
 		{
@@ -872,7 +869,7 @@ struct Test_testModuleImportsSelf1 : TestQueue
 			{
 				printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", "Module imports itself 1", buf, "ERROR: found cyclic dependency on module 'n.nc' [in module Modules/n.nc]");
 			}else{
-				testsPassed[TEST_FAILURE_INDEX]++;
+				testsPassed[TEST_TYPE_FAILURE]++;
 			}
 		}else{
 			printf("Test \"%s\" failed to fail.\r\n", "Module imports itself 1");
@@ -904,7 +901,7 @@ struct Test_testModuleImportsSelf2 : TestQueue
 		if(Tests::messageVerbose)
 			printf("Module imports itself 2 \r\n");
 
-		testsCount[TEST_FAILURE_INDEX]++;
+		testsCount[TEST_TYPE_FAILURE]++;
 		nullres good = nullcCompile(testModuleImportsSelf2a);
 		if(!good)
 		{
@@ -914,7 +911,7 @@ struct Test_testModuleImportsSelf2 : TestQueue
 			{
 				printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", "Module imports itself 1", buf, "ERROR: found cyclic dependency on module 'a.nc' [in module Modules/a.nc] [in module Modules/b.nc]");
 			}else{
-				testsPassed[TEST_FAILURE_INDEX]++;
+				testsPassed[TEST_TYPE_FAILURE]++;
 			}
 		}else{
 			printf("Test \"%s\" failed to fail.\r\n", "Module imports itself 1");

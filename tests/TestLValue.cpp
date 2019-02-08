@@ -13,10 +13,10 @@ g()[1] = 18;\r\n\
 return 1;";
 TEST("L-value extended cases", testLeftValueExtends, "1")
 {
-	CHECK_INT("v", 0, 5);
-	CHECK_INT("k", 0, 12);
-	CHECK_INT("k", 1, 18);
-	CHECK_INT("v2", 0, 5);
-	CHECK_INT("v4", 0, 15);
+	CHECK_INT("v", 0, 5, lastFailed);
+	CHECK_INT("k", 0, 12, lastFailed);
+	CHECK_INT("k", 1, 18, lastFailed);
+	CHECK_INT("v2", 0, 5, lastFailed);
+	CHECK_INT("v4", 0, 15, lastFailed);
 }
 
