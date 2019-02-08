@@ -585,3 +585,55 @@ class X{ char x; auto[] y; }\r\n\
 X x;\r\n\
 return CheckAlignment(&x.y, 4);";
 TEST_RESULT("Alignment of derived types 4", testAlignmentDerived4, "1");
+
+const char	*testAlignmentDerived5 =
+"import test.alignment;\r\n\
+class X{ char x; int ref() y; }\r\n\
+X x;\r\n\
+return CheckAlignment(&x.y, 4);";
+TEST_RESULT("Alignment of derived types 4", testAlignmentDerived5, "1");
+
+const char	*testSideEffectOrdering1 =
+"int a = 5;\r\n\
+int set(int x){ a = x; return a; }\r\n\
+int get(){ return a; }\r\n\
+int ref getr(){ return &a; }\r\n\
+return (getr() = 10) + get() + get();";
+TEST_RESULT("Side-effect ordering test 1", testSideEffectOrdering1, "30");
+
+const char	*testSideEffectOrdering2 =
+"int a = 5;\r\n\
+int set(int x){ a = x; return a; }\r\n\
+int get(){ return a; }\r\n\
+int ref getr(){ return &a; }\r\n\
+return get() + (getr() = 10) + get();";
+TEST_RESULT("Side-effect ordering test 2", testSideEffectOrdering2, "25");
+
+const char	*testSideEffectOrdering3 =
+"int a = 5;\r\n\
+int set(int x){ a = x; return a; }\r\n\
+int get(){ return a; }\r\n\
+int ref getr(){ return &a; }\r\n\
+return get() + get() + (getr() = 10);";
+TEST_RESULT("Side-effect ordering test 3", testSideEffectOrdering3, "20");
+
+const char	*testSideEffectOrdering4 =
+"int a = 5;\r\n\
+int set(int x){ a = x; return a; }\r\n\
+set(5); // optimization barrier\r\n\
+return (a = 10) + a + a;";
+TEST_RESULT("Side-effect ordering test 4", testSideEffectOrdering4, "30");
+
+const char	*testSideEffectOrdering5 =
+"int a = 5;\r\n\
+int set(int x){ a = x; return a; }\r\n\
+set(5); // optimization barrier\r\n\
+return a + (a = 10) + a;";
+TEST_RESULT("Side-effect ordering test 5", testSideEffectOrdering5, "25");
+
+const char	*testSideEffectOrdering6 =
+"int a = 5;\r\n\
+int set(int x){ a = x; return a; }\r\n\
+set(5); // optimization barrier\r\n\
+return a + a + (a = 10);";
+TEST_RESULT("Side-effect ordering test 6", testSideEffectOrdering6, "20");
