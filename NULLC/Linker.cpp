@@ -316,14 +316,22 @@ bool Linker::LinkCode(const char *code)
 			}
 		}
 
+		// There is no conflict between internal funcitons
+		if(*(symbolInfo + fInfo->offsetToName) == '$')
+			index = index_none;
+
 		// If the function exists, check if redefinition is allowed
 		if(index != index_none)
 		{
-			// It is allowed for generic base function, generic function instances and default argument values
-			if(*(symbolInfo + fInfo->offsetToName) == '$' || fInfo->isGenericInstance || fInfo->funcType == 0)
+			// It is allowed for generic base function and generic function instances
+			if(fInfo->isGenericInstance || fInfo->funcType == 0)
 			{
 				exFunctions.push_back(exFunctions[index]);
 				funcMap.insert(exFunctions.back().nameHash, exFunctions.size()-1);
+
+#ifdef LINK_VERBOSE_DEBUG_OUTPUT
+				printf("Rebind function %3d %-20s (to address %4d [external %p] function %3d)\r\n", exFunctions.size() - 1, &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr, index);
+#endif
 				continue;
 			}else{
 				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: function '%s' is redefined", symbolInfo + fInfo->offsetToName);
@@ -400,8 +408,7 @@ bool Linker::LinkCode(const char *code)
 			}
 
 #ifdef LINK_VERBOSE_DEBUG_OUTPUT
-			printf("Adding function %-16s (at address %4d [external %p])\r\n", &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr);
-			printf("Closure list start: %d\r\n", exFunctions.back().closeListStart);
+			printf("Adding function %3d %-20s (at address %4d [external %p])\r\n", exFunctions.size() - 1, &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr);
 #endif
 		}
 	}
