@@ -399,7 +399,7 @@ IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx);
 SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx);
 SynShortFunctionDefinition* ParseShortFunctionDefinition(ParseContext &ctx);
 SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx);
-SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx);
+SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx, bool classMembers);
 SynAccessor* ParseAccessorDefinition(ParseContext &ctx);
 SynConstantSet* ParseConstantSet(ParseContext &ctx);
 SynClassStaticIf* ParseClassStaticIf(ParseContext &ctx, bool nested);
@@ -829,7 +829,7 @@ SynNew* ParseNew(ParseContext &ctx)
 		{
 			arguments = ParseCallArguments(ctx);
 
-			AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function parameter list");
+			AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function argument list");
 		}
 
 		if(ctx.Consume(lex_ofigure))
@@ -858,7 +858,7 @@ SynCallArgument* ParseCallArgument(ParseContext &ctx)
 			SynBase *value = ParseAssignment(ctx);
 
 			if(!value)
-				Stop(ctx, ctx.Position(), "ERROR: expression not found after ':' in function parameter list");
+				Stop(ctx, ctx.Position(), "ERROR: expression not found after ':' in function argument list");
 
 			return new (ctx.get<SynCallArgument>()) SynCallArgument(start, ctx.Previous(), name, value);
 		}
@@ -892,10 +892,10 @@ IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx)
 			argument = ParseCallArgument(ctx);
 
 			if(!argument)
-				Stop(ctx, ctx.Position(), "ERROR: expression not found after ',' in function parameter list");
+				Stop(ctx, ctx.Position(), "ERROR: expression not found after ',' in function argument list");
 
 			if(namedCall && argument->name.empty())
-				Stop(ctx, ctx.Position(), "ERROR: function parameter name expected after ','");
+				Stop(ctx, ctx.Position(), "ERROR: function argument name expected after ','");
 
 			namedCall |= !argument->name.empty();
 
@@ -959,7 +959,7 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 
 			IntrusiveList<SynCallArgument> arguments = ParseCallArguments(ctx);
 
-			AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function parameter list");
+			AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function argument list");
 
 			node = new (ctx.get<SynFunctionCall>()) SynFunctionCall(pos, ctx.Previous(), node, aliases, arguments);
 		}
@@ -968,7 +968,7 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 			IntrusiveList<SynBase> aliases;
 			IntrusiveList<SynCallArgument> arguments = ParseCallArguments(ctx);
 
-			AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function parameter list");
+			AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function argument list");
 
 			node = new (ctx.get<SynFunctionCall>()) SynFunctionCall(pos, ctx.Previous(), node, aliases, arguments);
 		}
@@ -1035,7 +1035,7 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 		bool isOperator = (ctx.Peek() >= lex_add && ctx.Peek() <= lex_in) || (ctx.Peek() >= lex_set && ctx.Peek() <= lex_xorset) || ctx.Peek() == lex_bitnot || ctx.Peek() == lex_lognot;
 
 		if(!isOperator)
-			Stop(ctx, ctx.Position(), "ERROR: string expected after '@'");
+			Stop(ctx, ctx.Position(), "ERROR: name expected after '@'");
 
 		InplaceStr value = ctx.Consume();
 
@@ -1269,7 +1269,7 @@ SynClassElements* ParseClassElements(ParseContext &ctx)
 		{
 			accessors.push_back(node);
 		}
-		else if(SynVariableDefinitions *node = ParseVariableDefinitions(ctx))
+		else if(SynVariableDefinitions *node = ParseVariableDefinitions(ctx, true))
 		{
 			members.push_back(node);
 		}
@@ -1348,7 +1348,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 		SynClassElements *elements = ParseClassElements(ctx);
 
-		AssertConsume(ctx, lex_cfigure, "ERROR: '{' not found after class name");
+		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after class definition");
 
 		return new (ctx.get<SynClassDefinition>()) SynClassDefinition(start, ctx.Previous(), align, name, aliases, extendable, baseClass, elements);
 	}
@@ -1670,7 +1670,7 @@ SynForEach* ParseForEach(ParseContext &ctx)
 
 		while(ctx.Consume(lex_comma))
 		{
-			iterator = ParseForEachIterator(ctx, true);
+			iterator = ParseForEachIterator(ctx, false);
 
 			if(!iterator)
 				Stop(ctx, ctx.Position(), "ERROR: variable name or type expected before 'in'");
@@ -1707,7 +1707,7 @@ SynFor* ParseFor(ParseContext &ctx)
 
 			AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after initializer in 'for'");
 		}
-		else if(SynBase *node = ParseVariableDefinitions(ctx))
+		else if(SynBase *node = ParseVariableDefinitions(ctx, false))
 		{
 			initializer = node;
 		}
@@ -1896,7 +1896,7 @@ SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 	return NULL;
 }
 
-SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx)
+SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx, bool classMembers)
 {
 	Lexeme *start = ctx.currentLexeme;
 
@@ -1923,12 +1923,27 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx)
 			definition = ParseVariableDefinition(ctx);
 
 			if(!definition)
-				Stop(ctx, ctx.Position(), "ERROR: next variable definition excepted after ','");
+			{
+				if(classMembers)
+					Stop(ctx, ctx.Position(), "ERROR: member name expected after ','");
+				else
+					Stop(ctx, ctx.Position(), "ERROR: next variable definition excepted after ','");
+			}
 
 			definitions.push_back(definition);
 		}
 
-		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after variable definition");
+		if(classMembers)
+		{
+			AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after class member list");
+		}
+		else if(!ctx.Consume(lex_semicolon))
+		{
+			if(ctx.Peek() == lex_obracket)
+				AssertConsume(ctx, lex_semicolon, "ERROR: array size must be specified after type name");
+			else
+				AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after variable definition");
+		}
 
 		return new (ctx.get<SynVariableDefinitions>()) SynVariableDefinitions(start, ctx.Previous(), align, type, definitions);
 	}
@@ -2141,7 +2156,7 @@ SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, bool lastExplicit,
 			initializer = ParseTernaryExpr(ctx);
 
 			if(!initializer)
-				Stop(ctx, ctx.Position(), "ERROR: default parameter value not found after '='");
+				Stop(ctx, ctx.Position(), "ERROR: default argument value not found after '='");
 		}
 
 		return new (ctx.get<SynFunctionArgument>()) SynFunctionArgument(start, ctx.Previous(), isExplicit, type, name, initializer);
@@ -2166,7 +2181,7 @@ IntrusiveList<SynFunctionArgument> ParseFunctionArguments(ParseContext &ctx)
 			argument = ParseFunctionArgument(ctx, arguments.tail->isExplicit, arguments.tail->type);
 
 			if(!argument)
-				Stop(ctx, ctx.Position(), "ERROR: expression not found after ',' in function parameter list");
+				Stop(ctx, ctx.Position(), "ERROR: argument name not found after ',' in function argument list");
 
 			arguments.push_back(argument);
 		}
@@ -2316,10 +2331,14 @@ SynShortFunctionDefinition* ParseShortFunctionDefinition(ParseContext &ctx)
 	{
 		IntrusiveList<SynShortFunctionArgument> arguments;
 
+		bool isFirst = true;
+
 		do
 		{
-			if(ctx.At(lex_greater))
+			if(isFirst && ctx.At(lex_greater))
 				break;
+
+			isFirst = false;
 
 			Lexeme *pos = ctx.currentLexeme;
 
@@ -2410,7 +2429,7 @@ SynBase* ParseExpression(ParseContext &ctx)
 	if(SynBase *node = ParseFunctionDefinition(ctx))
 		return node;
 
-	if(SynBase *node = ParseVariableDefinitions(ctx))
+	if(SynBase *node = ParseVariableDefinitions(ctx, false))
 		return node;
 
 	if(SynBase *node = ParseAssignment(ctx))
