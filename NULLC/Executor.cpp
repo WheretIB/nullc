@@ -2458,7 +2458,7 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 			ExternTypeInfo &subType = exTypes[type.subType];
 			RELOCATE_DEBUG_PRINT("\tGlobal%s pointer %s %p (at %p) base %p\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, *rPtr, ptr, NULLC::GetBasePointer(*rPtr));
 
-			if(NULLC::IsBasePointer(*rPtr))
+			if(type.subType != 0 && NULLC::IsBasePointer(*rPtr))
 			{
 				markerType *marker = (markerType*)((char*)*rPtr - sizeof(markerType));
 				RELOCATE_DEBUG_PRINT("\tMarker is %d", *marker);
@@ -2724,8 +2724,7 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 			{
 				// Get information about local
 				ExternLocalInfo &lInfo = exLinker->exLocals[funcInfo.offsetToFirstLocal + i];
-				if(funcInfo.funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= funcInfo.bytesToPop)
-					break;
+
 				RELOCATE_DEBUG_PRINT("Local %s %s (with offset of %d+%d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
 				FixupVariable(genParams.data + offset + lInfo.offset, types[lInfo.type]);
 				if(lInfo.offset + lInfo.size > offsetToNextFrame)

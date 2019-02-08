@@ -1331,7 +1331,9 @@ int NULLC::IsCoroutineReset(NULLCRef f)
 		nullcThrowError("Function is not a coroutine");
 		return 0;
 	}
-	return !**(int**)fPtr->context;
+
+	unsigned jmpOffset = *(unsigned*)fPtr->context;
+	return jmpOffset == 0;
 }
 
 void NULLC::AssertCoroutine(NULLCRef f)

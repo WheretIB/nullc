@@ -2,8 +2,6 @@
 #include "nullc.h"
 #include "nullc_debug.h"
 
-#include "CodeInfo.h"
-
 #include "Compiler.h"
 #include "Linker.h"
 #include "Executor.h"
@@ -20,37 +18,15 @@
 #include "includes/typeinfo.h"
 #include "includes/dynamic.h"
 
-CompilerError				CodeInfo::lastError;
-
-FastVector<FunctionInfo*>	CodeInfo::funcInfo;
-FastVector<VariableInfo*>	CodeInfo::varInfo;
-FastVector<TypeInfo*>		CodeInfo::typeInfo;
-HashMap<TypeInfo*>			CodeInfo::classMap;
-FastVector<TypeInfo*>		CodeInfo::typeArrays;
-FastVector<TypeInfo*>		CodeInfo::typeFunctions;
-AliasInfo					*CodeInfo::globalAliases = NULL;
-
-FastVector<NamespaceInfo*>	CodeInfo::namespaceInfo;
-
-SourceInfo					CodeInfo::cmdInfoList;
-FastVector<VMCmd>			CodeInfo::cmdList;
-FastVector<NodeZeroOP*>		CodeInfo::nodeList;
-FastVector<NodeZeroOP*>		CodeInfo::funcDefList;
-const char*					CodeInfo::lastKnownStartPos = NULL;
-
-Lexeme						*CodeInfo::lexStart = NULL, *CodeInfo::lexFullStart = NULL;
-
 class Executor;
 class ExecutorX86;
 class ExecutorLLVM;
 
+class Linker;
+
 namespace NULLC
 {
-	Compiler*	compiler;
-
-#ifndef NULLC_NO_EXECUTOR
 	Linker*		linker;
-#endif
 
 	Executor*		executor;
 	ExecutorX86*	executorX86;
@@ -58,50 +34,49 @@ namespace NULLC
 
 	const char*	nullcLastError = NULL;
 
-	unsigned int currExec = 0;
-	char	*argBuf = NULL;
+	unsigned currExec = 0;
+	char *argBuf = NULL;
 
 	bool initialized = false;
+
+	char *errorBuf = NULL;
+
+	ChunkedStackPool<65532> pool;
+	GrowingAllocatorRef<ChunkedStackPool<65532>> allocator(pool);
+
+	CompilerContext *compilerCtx = NULL;
 }
 
-unsigned int nullcFindFunctionIndex(const char* name);
+unsigned nullcFindFunctionIndex(const char* name);
 
 #define NULLC_CHECK_INITIALIZED(retval) if(!initialized){ nullcLastError = "ERROR: NULLC is not initialized"; return retval; }
 
-void	nullcInit(const char* importPath)
+nullres nullcInit(const char* importPath)
 {
-	nullcInitCustomAlloc(NULL, NULL, importPath);
+	return nullcInitCustomAlloc(NULL, NULL, importPath);
 }
 
-void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocFunc)(void*), const char* importPath)
+nullres nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocFunc)(void*), const char* importPath)
 {
 	using namespace NULLC;
+
+	nullcLastError = "";
+
 	if(initialized)
 	{
 		nullcLastError = "ERROR: NULLC is already initialized";
-		return;
+		return 0;
 	}
-	nullcLastError = "";
 
 	NULLC::alloc = allocFunc ? allocFunc : NULLC::defaultAlloc;
 	NULLC::dealloc = deallocFunc ? deallocFunc : NULLC::defaultDealloc;
 	NULLC::fileLoad = NULLC::defaultFileLoad;
 
-	CodeInfo::funcInfo.reserve(256);
-	CodeInfo::varInfo.reserve(256);
-	CodeInfo::typeInfo.reserve(256);
-	CodeInfo::typeArrays.reserve(64);
-	CodeInfo::typeFunctions.reserve(128);
-	CodeInfo::cmdList.reserve(2048);
-	CodeInfo::nodeList.reserve(1024);
-	CodeInfo::funcDefList.reserve(64);
-	CodeInfo::namespaceInfo.reserve(64);
-	CodeInfo::classMap.init();
+	errorBuf = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
 
 	BinaryCache::Initialize();
 	BinaryCache::SetImportPath(importPath);
 
-	compiler = NULLC::construct<Compiler>();
 #ifndef NULLC_NO_EXECUTOR
 	linker = NULLC::construct<Linker>();
 	executor = new(NULLC::alloc(sizeof(Executor))) Executor(linker);
@@ -124,19 +99,31 @@ void	nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocF
 #endif
 
 	initialized = true;
+
+	if(!BuildBaseModule(&allocator))
+	{
+		pool.Clear();
+
+		nullcLastError = "ERROR: Failed to initialize base module";
+		return 0;
+	}
+
+	pool.Clear();
+
+	return 1;
 }
 
-void	nullcSetImportPath(const char* importPath)
+void nullcSetImportPath(const char* importPath)
 {
 	BinaryCache::SetImportPath(importPath);
 }
 
-void	nullcSetFileReadHandler(const void* (NCDECL *fileLoadFunc)(const char* name, unsigned int* size, int* nullcShouldFreePtr))
+void nullcSetFileReadHandler(const void* (NCDECL *fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr))
 {
 	NULLC::fileLoad = fileLoadFunc ? fileLoadFunc : NULLC::defaultFileLoad;
 }
 
-void	nullcSetExecutor(unsigned int id)
+void nullcSetExecutor(unsigned id)
 {
 	using namespace NULLC;
 
@@ -144,7 +131,7 @@ void	nullcSetExecutor(unsigned int id)
 }
 
 #ifdef NULLC_BUILD_X86_JIT
-nullres	nullcSetJiTStack(void* start, void* end, unsigned int flagMemoryAllocated)
+nullres nullcSetJiTStack(void* start, void* end, unsigned flagMemoryAllocated)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
@@ -159,7 +146,7 @@ nullres	nullcSetJiTStack(void* start, void* end, unsigned int flagMemoryAllocate
 #endif
 
 #ifndef NULLC_NO_EXECUTOR
-void nullcSetGlobalMemoryLimit(unsigned int limit)
+void nullcSetGlobalMemoryLimit(unsigned limit)
 {
 	NULLC::SetGlobalLimit(limit);
 }
@@ -170,10 +157,22 @@ nullres	nullcBindModuleFunction(const char* module, void (NCDECL *ptr)(), const 
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
-	nullres good = compiler->AddModuleFunction(module, ptr, name, index);
-	if(good == 0)
-		nullcLastError = compiler->GetError();
-	return good;
+	assert(!compilerCtx);
+
+	const char *errorPos = NULL;
+
+	if(!AddModuleFunction(&allocator, module, ptr, name, index, &errorPos, errorBuf, NULLC_ERROR_BUFFER_SIZE))
+	{
+		pool.Clear();
+
+		nullcLastError = errorBuf;
+
+		return false;
+	}
+
+	pool.Clear();
+
+	return true;
 }
 
 nullres nullcLoadModuleBySource(const char* module, const char* code)
@@ -183,6 +182,7 @@ nullres nullcLoadModuleBySource(const char* module, const char* code)
 
 	if(!nullcCompile(code))
 		return false;
+
 	if(strlen(module) > 512)
 	{
 		nullcLastError = "ERROR: module name is too long";
@@ -205,6 +205,8 @@ nullres nullcLoadModuleBySource(const char* module, const char* code)
 
 	char *bytecode = NULL;
 	nullcGetBytecode(&bytecode);
+	nullcClean();
+
 	BinaryCache::PutBytecode(path, bytecode, NULL, 0);
 	return 1;
 }
@@ -264,50 +266,103 @@ nullres	nullcCompile(const char* code)
 	NULLC_CHECK_INITIALIZED(false);
 
 	nullcLastError = "";
-	nullres good = compiler->Compile(code);
-	if(good == 0)
-		nullcLastError = compiler->GetError();
-	return good;
+
+	NULLC::destruct(compilerCtx);
+
+	compilerCtx = new(NULLC::alloc(sizeof(CompilerContext))) CompilerContext(&allocator);
+
+	*errorBuf = 0;
+
+	compilerCtx->errorBuf = errorBuf;
+	compilerCtx->errorBufSize = NULLC_ERROR_BUFFER_SIZE;
+
+#ifdef NULLC_LOG_FILES
+	compilerCtx->enableLogFiles = true;
+#endif
+
+	if(!CompileModuleFromSource(*compilerCtx, code))
+	{
+		if(compilerCtx->errorPos)
+			nullcLastError = compilerCtx->errorBuf;
+		else
+			nullcLastError = "ERROR: internal error";
+
+		return 0;
+	}
+
+	return 1;
 }
 
-unsigned int nullcGetBytecode(char **bytecode)
+unsigned nullcGetBytecode(char **bytecode)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 
-	unsigned int size = compiler->GetBytecode(bytecode);
+	if(!compilerCtx)
+	{
+		nullcLastError = "ERROR: there is no active compiler context";
+		return 0;
+	}
+
+	unsigned size = GetBytecode(*compilerCtx, bytecode);
+
 	// Load it into cache
 	BinaryCache::LastBytecode(*bytecode);
 	return size;
 }
 
-unsigned int nullcGetBytecodeNoCache(char **bytecode)
+unsigned nullcGetBytecodeNoCache(char **bytecode)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 
-	return compiler->GetBytecode(bytecode);
+	if(!compilerCtx)
+	{
+		nullcLastError = "ERROR: there is no active compiler context";
+		return 0;
+	}
+
+	return GetBytecode(*compilerCtx, bytecode);
 }
 
-bool	nullcSaveListing(const char *fileName)
+nullres nullcSaveListing(const char *fileName)
 {
 	using namespace NULLC;
-	NULLC_CHECK_INITIALIZED(false);
+	NULLC_CHECK_INITIALIZED(0);
 
-	return compiler->SaveListing(fileName);
+	if(!compilerCtx)
+	{
+		nullcLastError = "ERROR: there is no active compiler context";
+		return 0;
+	}
+
+	if(!SaveListing(*compilerCtx, fileName))
+	{
+		nullcLastError = compilerCtx->errorBuf;
+		return 0;
+	}
+
+	return 1;
 }
 
-void	nullcTranslateToC(const char *fileName, const char *mainName)
+nullres	nullcTranslateToC(const char *fileName, const char *mainName, void (*addDependency)(const char *fileName))
 {
 	using namespace NULLC;
-	NULLC_CHECK_INITIALIZED((void)0);
+	NULLC_CHECK_INITIALIZED(0);
 
-#ifdef NULLC_ENABLE_C_TRANSLATION
-	compiler->TranslateToC(fileName, mainName);
-#else
-	(void)fileName;
-	(void)mainName;
-#endif
+	if(!compilerCtx)
+	{
+		nullcLastError = "ERROR: there is no active compiler context";
+		return 0;
+	}
+
+	if(!TranslateToC(*compilerCtx, fileName, mainName, addDependency))
+	{
+		nullcLastError = compilerCtx->errorBuf;
+		return 0;
+	}
+
+	return 1;
 }
 
 void nullcClean()
@@ -323,6 +378,13 @@ void nullcClean()
 	executorX86->ClearNative();
 	#endif
 #endif
+
+	nullcLastError = "";
+
+	NULLC::destruct(compilerCtx);
+	compilerCtx = NULL;
+
+	pool.Clear();
 }
 
 nullres nullcLinkCode(const char *bytecode)
@@ -384,14 +446,17 @@ nullres nullcBuild(const char* code)
 
 	if(!nullcCompile(code))
 		return false;
+
 	char *bytecode = NULL;
 	nullcGetBytecode(&bytecode);
 	nullcClean();
+
 	if(!nullcLinkCode(bytecode))
 	{
 		delete[] bytecode;
 		return false;
 	}
+
 	delete[] bytecode;
 	return true;
 }
@@ -410,14 +475,14 @@ nullres	nullcRun()
 }
 
 #ifndef NULLC_NO_EXECUTOR
-const char*	nullcGetArgumentVector(unsigned int functionID, uintptr_t extra, va_list args)
+const char*	nullcGetArgumentVector(unsigned functionID, uintptr_t extra, va_list args)
 {
 	using namespace NULLC;
 
 	// Copy arguments in argument buffer
 	ExternFuncInfo	&func = linker->exFunctions[functionID];
 	char *argPos = argBuf;
-	for(unsigned int i = 0; i < func.paramCount; i++)
+	for(unsigned i = 0; i < func.paramCount; i++)
 	{
 		ExternLocalInfo &lInfo = linker->exLocals[func.offsetToFirstLocal + i];
 		ExternTypeInfo &tInfo = linker->exTypes[lInfo.type];
@@ -442,8 +507,8 @@ const char*	nullcGetArgumentVector(unsigned int functionID, uintptr_t extra, va_
 			argPos += 8;
 			break;
 		case ExternTypeInfo::TYPE_COMPLEX:
-			static unsigned int autoRefHash = GetStringHash("auto ref");
-			static unsigned int autoArrayHash = GetStringHash("auto[]");
+			static unsigned autoRefHash = GetStringHash("auto ref");
+			static unsigned autoArrayHash = GetStringHash("auto[]");
 #ifdef _WIN64
 			if(tInfo.size <= 4)
 				*(int*)argPos = va_arg(args, int);
@@ -453,7 +518,7 @@ const char*	nullcGetArgumentVector(unsigned int functionID, uintptr_t extra, va_
 				memcpy(argPos, va_arg(args, char*), tInfo.size);
 			argPos += tInfo.size;
 #elif defined(__x86_64__)
-			if((tInfo.subCat == ExternTypeInfo::CAT_ARRAY && tInfo.arrSize == TypeInfo::UNSIZED_ARRAY) || tInfo.subCat == ExternTypeInfo::CAT_FUNCTION)
+			if((tInfo.subCat == ExternTypeInfo::CAT_ARRAY && tInfo.arrSize == ~0u) || tInfo.subCat == ExternTypeInfo::CAT_FUNCTION)
 			{
 				*(NULLCArray*)argPos = va_arg(args, NULLCArray);
 				argPos += 12;
@@ -465,7 +530,7 @@ const char*	nullcGetArgumentVector(unsigned int functionID, uintptr_t extra, va_
 				argPos += sizeof(NULLCAutoArray);
 			}else if(tInfo.subCat == ExternTypeInfo::CAT_CLASS){
 				ExternMemberInfo *memberList = &linker->exTypeExtra[tInfo.memberOffset];
-				for(unsigned int k = 0; k < tInfo.memberCount; k++)
+				for(unsigned k = 0; k < tInfo.memberCount; k++)
 				{
 					const ExternTypeInfo &subType = linker->exTypes[memberList[k].type];
 					switch(subType.type)
@@ -498,7 +563,7 @@ const char*	nullcGetArgumentVector(unsigned int functionID, uintptr_t extra, va_
 				return NULL;
 			}
 #else
-			for(unsigned int u = 0; u < tInfo.size >> 2; u++, argPos += 4)
+			for(unsigned u = 0; u < tInfo.size >> 2; u++, argPos += 4)
 				*(int*)argPos = va_arg(args, int);
 #endif
 			break;
@@ -516,7 +581,7 @@ nullres	nullcRunFunction(const char* funcName, ...)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
-	unsigned int functionID = ~0u;
+	unsigned functionID = ~0u;
 
 #ifndef NULLC_NO_EXECUTOR
 	static char	errorBuf[512];
@@ -667,8 +732,8 @@ nullres nullcSetGlobal(const char* name, void* data)
 	char* mem = (char*)nullcGetVariableData(NULL);
 	if(!linker || !name || !data || !mem)
 		return 0;
-	unsigned int hash = GetStringHash(name);
-	for(unsigned int i = 0; i < linker->exVariables.size(); i++)
+	unsigned hash = GetStringHash(name);
+	for(unsigned i = 0; i < linker->exVariables.size(); i++)
 	{
 		if(linker->exVariables[i].nameHash == hash)
 		{
@@ -687,8 +752,8 @@ void* nullcGetGlobal(const char* name)
 	char* mem = (char*)nullcGetVariableData(NULL);
 	if(!linker || !name || !mem)
 		return NULL;
-	unsigned int hash = GetStringHash(name);
-	for(unsigned int i = 0; i < linker->exVariables.size(); i++)
+	unsigned hash = GetStringHash(name);
+	for(unsigned i = 0; i < linker->exVariables.size(); i++)
 	{
 		if(linker->exVariables[i].nameHash == hash)
 			return mem + linker->exVariables[i].offset;
@@ -696,7 +761,7 @@ void* nullcGetGlobal(const char* name)
 	return NULL;
 }
 
-unsigned int nullcGetGlobalType(const char* name)
+unsigned nullcGetGlobalType(const char* name)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
@@ -704,8 +769,8 @@ unsigned int nullcGetGlobalType(const char* name)
 	char* mem = (char*)nullcGetVariableData(NULL);
 	if(!linker || !name || !mem)
 		return 0;
-	unsigned int hash = GetStringHash(name);
-	for(unsigned int i = 0; i < linker->exVariables.size(); i++)
+	unsigned hash = GetStringHash(name);
+	for(unsigned i = 0; i < linker->exVariables.size(); i++)
 	{
 		if(linker->exVariables[i].nameHash == hash)
 			return linker->exVariables[i].type;
@@ -713,7 +778,7 @@ unsigned int nullcGetGlobalType(const char* name)
 	return 0;
 }
 
-unsigned int nullcFindFunctionIndex(const char* name)
+unsigned nullcFindFunctionIndex(const char* name)
 {
 	using namespace NULLC;
 
@@ -727,9 +792,9 @@ unsigned int nullcFindFunctionIndex(const char* name)
 		nullcLastError = "ERROR: function name is 'null'";
 		return ~0u;
 	}
-	unsigned int hash = GetStringHash(name);
-	unsigned int index = ~0u;
-	for(unsigned int i = 0; i < linker->exFunctions.size(); i++)
+	unsigned hash = GetStringHash(name);
+	unsigned index = ~0u;
+	for(unsigned i = 0; i < linker->exFunctions.size(); i++)
 	{
 		if(linker->exFunctions[i].isVisible && linker->exFunctions[i].nameHash == hash)
 		{
@@ -764,7 +829,7 @@ nullres nullcGetFunction(const char* name, NULLCFuncPtr* func)
 		nullcLastError = "ERROR: passed pointer to NULLC function is 'null'";
 		return false;
 	}
-	unsigned int index = nullcFindFunctionIndex(name);
+	unsigned index = nullcFindFunctionIndex(name);
 	if(index == ~0u)
 		return false;
 	func->id = index;
@@ -777,7 +842,7 @@ nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
-	unsigned int index = nullcFindFunctionIndex(name);
+	unsigned index = nullcFindFunctionIndex(name);
 	if(index == ~0u)
 		return false;
 	if(linker->exFunctions[func.id].funcCat != ExternFuncInfo::NORMAL)
@@ -912,21 +977,21 @@ nullres nullcFinalize()
 	return 1;
 }
 
-void* nullcAllocate(unsigned int size)
+void* nullcAllocate(unsigned size)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 	return NULLC::AllocObject(size);
 }
 
-void* nullcAllocateTyped(unsigned int typeID)
+void* nullcAllocateTyped(unsigned typeID)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 	return NULLC::AllocObject(nullcGetTypeSize(typeID), typeID);
 }
 
-NULLCArray nullcAllocateArrayTyped(unsigned int typeID, unsigned int count)
+NULLCArray nullcAllocateArrayTyped(unsigned typeID, unsigned count)
 {
 	using namespace NULLC;
 	NULLCArray arr = { 0, 0 };
@@ -953,13 +1018,19 @@ void nullcTerminate()
 	if(!initialized)
 		return;
 
+	NULLC::destruct(compilerCtx);
+	compilerCtx = NULL;
+
+	pool.Reset();
+
 	NULLC::dealloc(argBuf);
 	argBuf = NULL;
 
+	NULLC::dealloc(errorBuf);
+	errorBuf = NULL;
+
 	BinaryCache::Terminate();
 
-	NULLC::destruct(compiler);
-	compiler = NULL;
 #ifndef NULLC_NO_EXECUTOR
 	nullcDeinitTypeinfoModule();
 	nullcDeinitDynamicModule();
@@ -976,23 +1047,48 @@ void nullcTerminate()
 #ifndef NULLC_NO_EXECUTOR
 	NULLC::ResetMemory();
 #endif
-	CodeInfo::funcInfo.reset();
-	CodeInfo::varInfo.reset();
-	CodeInfo::typeInfo.reset();
-
-	CodeInfo::cmdList.reset();
-	CodeInfo::nodeList.reset();
-	CodeInfo::funcDefList.reset();
-
-	CodeInfo::cmdInfoList.Reset();
-
-	CodeInfo::typeArrays.reset();
-	CodeInfo::typeFunctions.reset();
-	CodeInfo::classMap.reset();
-
-	CodeInfo::namespaceInfo.reset();
 
 	initialized = false;
+}
+
+nullres nullcTestEvaluateExpressionTree(char *resultBuf, unsigned resultBufSize)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
+	if(!compilerCtx)
+	{
+		nullcLastError = "ERROR: there is no active compiler context";
+		return 0;
+	}
+
+	if(!TestEvaluation(compilerCtx->exprCtx, compilerCtx->exprModule, resultBuf, resultBufSize, compilerCtx->errorBuf, compilerCtx->errorBufSize))
+	{
+		nullcLastError = compilerCtx->errorBuf;
+		return false;
+	}
+
+	return true;
+}
+
+nullres nullcTestEvaluateInstructionTree(char *resultBuf, unsigned resultBufSize)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
+	if(!compilerCtx)
+	{
+		nullcLastError = "ERROR: there is no active compiler context";
+		return 0;
+	}
+
+	if(!TestEvaluation(compilerCtx->exprCtx, compilerCtx->vmModule, resultBuf, resultBufSize, compilerCtx->errorBuf, compilerCtx->errorBufSize))
+	{
+		nullcLastError = compilerCtx->errorBuf;
+		return false;
+	}
+
+	return true;
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -498,9 +498,6 @@ void nullcDumpStackData()
 				ExternLocalInfo &lInfo = codeLocals[function.offsetToFirstLocal + i];
 				ExternTypeInfo &localType = codeTypes[lInfo.type];
 
-				if(function.funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= function.bytesToPop)
-					break;
-
 				nullcPrintDepthIndent(indent);
 				printf("0x%x: %s %s", data + offset + lInfo.offset, codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
 
@@ -644,6 +641,10 @@ namespace GC
 			// If there is no base, this pointer points to memory that is not GCs memory
 			if(!basePtr)
 				return;
+
+			if(type.subType == 0)
+				return;
+
 			GC_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
 
 			// Marker is before the block
@@ -997,8 +998,7 @@ void MarkUsedBlocks()
 			{
 				// Get information about local
 				ExternLocalInfo &lInfo = NULLC::commonLinker->exLocals[functions[funcID].offsetToFirstLocal + i];
-				if(functions[funcID].funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= functions[funcID].bytesToPop)
-					break;
+
 				GC_DEBUG_PRINT("Local %s %s (with offset of %d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset + lInfo.offset);
 				// Check it
 				GC::CheckVariable(GC::unmanageableBase + offset + lInfo.offset, types[lInfo.type]);
