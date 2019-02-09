@@ -79,6 +79,9 @@ struct SynBinaryOpElement
 
 struct SynNamespaceElement;
 
+#pragma warning(push)
+#pragma warning(disable: 4324) // structure was padded due to __declspec(align())
+
 struct ParseContext
 {
 	ParseContext(Allocator *allocator);
@@ -130,6 +133,8 @@ struct ParseContext
 		return (T*)allocator->alloc(sizeof(T));
 	}
 };
+
+#pragma warning(pop)
 
 struct SynBase
 {

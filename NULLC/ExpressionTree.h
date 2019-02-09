@@ -12,6 +12,9 @@
 
 struct ExprBase;
 
+#pragma warning(push)
+#pragma warning(disable: 4324) // structure was padded due to __declspec(align())
+
 struct ExpressionContext
 {
 	ExpressionContext(Allocator *allocator);
@@ -150,6 +153,8 @@ struct ExpressionContext
 		return (T*)allocator->alloc(sizeof(T));
 	}
 };
+
+#pragma warning(pop)
 
 struct ExprBase
 {
