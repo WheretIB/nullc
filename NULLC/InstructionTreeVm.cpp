@@ -332,7 +332,7 @@ namespace
 	VmValue* CreateLoad(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, VmValue *address, unsigned offset)
 	{
 		if(type->size == 0)
-			return CreateConstantStruct(ctx.allocator, source, "", 0, type);
+			return CreateConstantStruct(ctx.allocator, source, NULL, 0, type);
 
 		return CreateInstruction(module, source, GetLoadResultType(ctx, type), GetLoadInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, offset));
 	}
