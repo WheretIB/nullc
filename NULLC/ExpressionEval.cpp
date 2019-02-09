@@ -1104,7 +1104,7 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 			if(ExprPointerLiteral *tmp = getType<ExprPointerLiteral>(value))
 			{
 				(void)refType;
-				assert(uintptr_t(tmp->end - tmp->ptr) >= refType->subType->size);
+				assert(uintptr_t(tmp->end - tmp->ptr) >= uintptr_t(refType->subType->size));
 
 				return CheckType(expression, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, expression->type, tmp->ptr, tmp->end));
 			}
@@ -2405,7 +2405,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				if(!ptr)
 					return CheckType(expression, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
 
-				assert(ptr->end - ptr->ptr >= sizeof(unsigned));
+				assert(uintptr_t(ptr->end - ptr->ptr) >= sizeof(unsigned));
 
 				ExprTypeLiteral *derived = getType<ExprTypeLiteral>(CreateLoad(ctx, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeTypeID), ptr->ptr, ptr->end)));
 
