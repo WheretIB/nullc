@@ -878,13 +878,24 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	unsigned offsetToCode = size;
 	size += ctx.instLowerCtx.cmds.size() * sizeof(VMCmd);
 
+	unsigned sourceLength = (unsigned)strlen(ctx.code) + 1;
+
+	unsigned infoCount = 0;
+
+	for(unsigned i = 0; i < ctx.instLowerCtx.locations.size(); i++)
+	{
+		SynBase *location = ctx.instLowerCtx.locations[i];
+
+		if(location && location->pos.begin >= ctx.code && location->pos.begin < ctx.code + sourceLength)
+			infoCount++;
+	}
+
 	unsigned offsetToInfo = size;
-	size += sizeof(unsigned) * 2 * ctx.instLowerCtx.locations.size();
+	size += sizeof(unsigned) * 2 * infoCount;
 
 	unsigned offsetToSymbols = size;
 	size += symbolStorageSize;
 
-	unsigned sourceLength = (unsigned)strlen(ctx.code) + 1;
 	unsigned offsetToSource = size;
 	size += sourceLength;
 
@@ -1559,21 +1570,18 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	code->offsetToInfo = offsetToInfo;
 	code->offsetToSource = offsetToSource;
 
-	unsigned infoCount = ctx.instLowerCtx.locations.size();
 	code->infoSize = infoCount;
-	unsigned *infoArray = FindSourceInfo(code);
+	VectorView<unsigned> infoArray(FindSourceInfo(code), infoCount * 2);
 
-	// TODO: only save locations of instructions that have that info
-	for(unsigned i = 0; i < infoCount; i++)
+	for(unsigned i = 0; i < ctx.instLowerCtx.locations.size(); i++)
 	{
 		SynBase *location = ctx.instLowerCtx.locations[i];
 
-		infoArray[i * 2 + 0] = i;
-
 		if(location && location->pos.begin >= ctx.code && location->pos.begin < ctx.code + sourceLength)
-			infoArray[i * 2 + 1] = (unsigned)(location->pos.begin - ctx.code);
-		else
-			infoArray[i * 2 + 1] = 0;
+		{
+			infoArray.push_back(i);
+			infoArray.push_back(unsigned(location->pos.begin - ctx.code));
+		}
 	}
 
 	char *sourceCode = (char*)code + offsetToSource;
@@ -1675,6 +1683,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	assert(vInfo.count == externVariableInfoCount);
 	assert(fInfo.count == exportedFunctionCount);
 	assert(localInfo.count == localCount);
+	assert(infoArray.count == infoCount * 2);
 	assert(namespaceList.count == ctx.exprCtx.namespaces.size());
 
 	return size;
