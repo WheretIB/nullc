@@ -2802,7 +2802,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			return CreateGenericTypeInstance(ctx, syntax, proto, types);
 		}
 
-		Stop(ctx, syntax->pos, "ERROR: type '%s' can't have generic arguments", baseType->name);
+		Stop(ctx, syntax->pos, "ERROR: type '%.*s' can't have generic arguments", FMT_ISTR(baseType->name));
 	}
 
 	if(!onlyType)
