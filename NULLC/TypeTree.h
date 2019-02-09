@@ -972,13 +972,13 @@ struct TypeMemberSet: TypeBase
 template<typename T>
 bool isType(TypeBase *node)
 {
-	return node->typeID == typename T::myTypeID;
+	return node->typeID == T::myTypeID;
 }
 
 template<typename T>
 T* getType(TypeBase *node)
 {
-	if(node && node->typeID == typename T::myTypeID)
+	if(node && node->typeID == T::myTypeID)
 		return static_cast<T*>(node);
 
 	return 0;
