@@ -349,6 +349,38 @@ double myGetPreciseTime()
 	return temp*1000.0;
 }
 
+const char* GetLastNullcErrorWindows()
+{
+	const unsigned formattedSize = 8192;
+	static char formatted[formattedSize];
+
+	const char *src = nullcGetLastError();
+	char *dst = formatted;
+
+	while(*src)
+	{
+		if(*src == '\n')
+		{
+			if(dst < formatted + formattedSize - 1)
+				*dst++ = '\r';
+
+			if(dst < formatted + formattedSize - 1)
+				*dst++ = '\n';
+		}
+		else
+		{
+			if(dst < formatted + formattedSize - 1)
+				*dst++ = *src;
+		}
+
+		src++;
+	}
+
+	*dst = 0;
+
+	return formatted;
+}
+
 HANDLE breakResponse = NULL;
 unsigned int	breakCommand = NULLC_BREAK_PROCEED, lastBreakCommand = NULLC_BREAK_PROCEED;
 unsigned int	lastCodeLine = ~0u;
@@ -542,7 +574,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		return 0;
 
 	if(!nullcDebugSetBreakFunction(IDEDebugBreakEx))
-		strcat(initError, nullcGetLastError());
+		strcat(initError, GetLastNullcErrorWindows());
 
 	WORD wVersionRequested = MAKEWORD(2, 2);
 	WSADATA wsaData;
@@ -1831,11 +1863,10 @@ void SuperCalcRun(bool debug)
 	nullcSetExecutor(Button_GetCheck(hJITEnabled) ? NULLC_X86 : NULLC_VM);
 
 	nullres good = nullcBuild(source);
-	nullcSaveListing("asm.txt");
 
 	if(!good)
 	{
-		SetWindowText(hCode, nullcGetLastError());
+		SetWindowText(hCode, GetLastNullcErrorWindows());
 		TabbedFiles::SetCurrentTab(hDebugTabs, 0);
 	}else{
 		if(debug)
@@ -2156,7 +2187,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				FillVariableInfoTree();
 				TabbedFiles::SetCurrentTab(hDebugTabs, 1);
 			}else{
-				_snprintf(result, 1024, "%s", nullcGetLastError());
+				_snprintf(result, 1024, "%s", GetLastNullcErrorWindows());
 				result[1023] = '\0';
 				SetWindowText(hCode, result);
 				TabbedFiles::SetCurrentTab(hDebugTabs, 0);
@@ -2845,7 +2876,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 			const char *compileErr = NULL;
 			if(!nullcCompile((char*)RichTextarea::GetAreaText(wnd)))
-				compileErr = nullcGetLastError();
+				compileErr = GetLastNullcErrorWindows();
 
 			RichTextarea::BeginStyleUpdate(wnd);
 			if(!colorer->ColorText(wnd, (char*)RichTextarea::GetAreaText(wnd), RichTextarea::SetStyleToSelection))
