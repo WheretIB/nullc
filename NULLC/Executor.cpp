@@ -1447,12 +1447,16 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				unsigned int oldSize = genParams.max;
 
 				unsigned int paramSize = exFunctions[cmd.argument].bytesToPop;
+
 				// Parameter stack is always aligned to 16 bytes
 				assert(genParams.size() % 16 == 0);
+
 				// Reserve place for new stack frame (cmdPushVTop will resize)
 				genParams.reserve(genParams.size() + paramSize);
+
 				// Copy function arguments to new stack frame
 				memcpy((char*)(genParams.data + genParams.size()), genStackPtr, paramSize);
+
 				// Pop arguments from stack
 				genStackPtr += paramSize >> 2;
 
@@ -1496,10 +1500,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 				// Parameter stack is always aligned to 16 bytes
 				assert(genParams.size() % 16 == 0);
+
 				// Reserve place for new stack frame (cmdPushVTop will resize)
 				genParams.reserve(genParams.size() + paramSize);
+
 				// Copy function arguments to new stack frame
 				memcpy((char*)(genParams.data + genParams.size()), genStackPtr, paramSize);
+
 				// Pop arguments from stack
 				genStackPtr += (paramSize >> 2) + 1;
 				RUNTIME_ERROR(genStackPtr <= genStackBase + 8, "ERROR: stack overflow");
@@ -2454,29 +2461,30 @@ namespace ExPriv
 
 void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType)
 {
-	char **rPtr = (char**)ptr;
-	if(*rPtr > (char*)0x00010000)
+	char *target = vmLoadPointer(ptr);
+
+	if(target > (char*)0x00010000)
 	{
-		if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
+		if(target >= ExPriv::oldBase && target < (ExPriv::oldBase + ExPriv::oldSize))
 		{
 			RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
 
-			*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
+			vmStorePointer(ptr, target - ExPriv::oldBase + ExPriv::newBase);
 		}
-		else if(*rPtr >= ExPriv::newBase && *rPtr < (ExPriv::newBase + ExPriv::newSize))
+		else if(target >= ExPriv::newBase && target < (ExPriv::newBase + ExPriv::newSize))
 		{
 			const ExternTypeInfo &subType = takeSubType ? exTypes[type.subType] : type;
 			(void)subType;
-			RELOCATE_DEBUG_PRINT("\tStack%s pointer %s %p (at %p)\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, *rPtr, ptr);
+			RELOCATE_DEBUG_PRINT("\tStack%s pointer %s %p (at %p)\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, target, ptr);
 		}
 		else
 		{
 			const ExternTypeInfo &subType = takeSubType ? exTypes[type.subType] : type;
-			RELOCATE_DEBUG_PRINT("\tGlobal%s pointer %s %p (at %p) base %p\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, *rPtr, ptr, NULLC::GetBasePointer(*rPtr));
+			RELOCATE_DEBUG_PRINT("\tGlobal%s pointer %s %p (at %p) base %p\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, target, ptr, NULLC::GetBasePointer(target));
 
-			if(type.subType != 0 && NULLC::IsBasePointer(*rPtr))
+			if(type.subType != 0 && NULLC::IsBasePointer(target))
 			{
-				markerType *marker = (markerType*)((char*)*rPtr - sizeof(markerType));
+				markerType *marker = (markerType*)((char*)target - sizeof(markerType));
 				RELOCATE_DEBUG_PRINT("\tMarker is %d", *marker);
 
 				const uintptr_t OBJECT_VISIBLE		= 1 << 0;
@@ -2502,7 +2510,7 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubT
 				{
 					*marker &= ~1;
 					if(type.subCat != ExternTypeInfo::CAT_NONE)
-						FixupVariable(*rPtr, subType);
+						FixupVariable(target, subType);
 				}
 			}
 		}
@@ -2519,15 +2527,15 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 		size = *(int*)(ptr + NULLC_PTR_SIZE);
 
 		// Switch pointer to array data
-		char **rPtr = (char**)ptr;
+		char *target = vmLoadPointer(ptr);
 
 		// If it points to stack, fix it and return
-		if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
+		if(target >= ExPriv::oldBase && target < (ExPriv::oldBase + ExPriv::oldSize))
 		{
-			*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
+			vmStorePointer(ptr, target - ExPriv::oldBase + ExPriv::newBase);
 			return;
 		}
-		ptr = *rPtr;
+		ptr = target;
 
 		// If uninitialized, return
 		if(!ptr || ptr <= (char*)0x00010000)
@@ -2596,15 +2604,18 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 	{
 		// Get real variable type
 		realType = &exTypes[*(int*)ptr];
+
 		// Switch pointer to target
-		char **rPtr = (char**)(ptr + 4);
+		char *target = vmLoadPointer(ptr + 4);
+
 		// If it points to stack, fix it and return
-		if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
+		if(target >= ExPriv::oldBase && target < (ExPriv::oldBase + ExPriv::oldSize))
 		{
-			*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
+			vmStorePointer(ptr + 4, target - ExPriv::oldBase + ExPriv::newBase);
 			return;
 		}
-		ptr = *rPtr;
+		ptr = target;
+
 		// If uninitialized, return
 		if(!ptr || ptr <= (char*)0x00010000)
 			return;
@@ -2617,7 +2628,7 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 		// Mark memory as used
 		*marker &= ~1;
 		// Fixup target
-		FixupVariable(*rPtr, *realType);
+		FixupVariable(target, *realType);
 		// Exit
 		return;
 	}else if(type.nameHash == ExPriv::autoArrayName){
@@ -2750,16 +2761,19 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 			{
 				RELOCATE_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[funcInfo.contextType].offsetToName, offset, funcInfo.bytesToPop - NULLC_PTR_SIZE);
 				char *ptr = genParams.data + offset + funcInfo.bytesToPop - NULLC_PTR_SIZE;
+
 				// Fixup pointer itself
-				char **rPtr = (char**)ptr;
-				if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
+				char *target = vmLoadPointer(ptr);
+
+				if(target >= ExPriv::oldBase && target < (ExPriv::oldBase + ExPriv::oldSize))
 				{
 					RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
-					*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
+					vmStorePointer(ptr, target - ExPriv::oldBase + ExPriv::newBase);
 				}
+
 				// Fixup what it was pointing to
-				if(*rPtr)
-					FixupVariable(*rPtr, types[funcInfo.contextType]);
+				if(char *fixedTarget = vmLoadPointer(ptr))
+					FixupVariable(fixedTarget, types[funcInfo.contextType]);
 			}
 			offset += offsetToNextFrame;
 			RELOCATE_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);

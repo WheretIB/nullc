@@ -6,6 +6,21 @@
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
+namespace
+{
+	void* ReadVmMemoryPointer(void* address)
+	{
+		void *result;
+		memcpy(&result, address, sizeof(void*));
+		return result;
+	}
+
+	void WriteVmMemoryPointer(void* address, void *value)
+	{
+		memcpy(address, &value, sizeof(void*));
+	}
+}
+
 ExprBase* Report(ExpressionEvalContext &ctx, const char *msg, ...)
 {
 	if(ctx.errorBuf && ctx.errorBufSize)
@@ -2463,14 +2478,14 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 
 				assert(upvalue);
 
-				while (upvalue && upvalue->target == variableLocation->ptr)
+				while (upvalue && ReadVmMemoryPointer(&upvalue->target) == variableLocation->ptr)
 				{
-					Upvalue *next = upvalue->next;
+					Upvalue *next = (Upvalue*)ReadVmMemoryPointer(&upvalue->next);
 
 					unsigned char *copy = (unsigned char*)upvalue + offsetToCopy->value;
 					memcpy(copy, variableLocation->ptr, unsigned(copySize->value));
-					upvalue->target = copy;
-					upvalue->next = NULL;
+					WriteVmMemoryPointer(&upvalue->target, copy);
+					WriteVmMemoryPointer(&upvalue->next, NULL);
 
 					upvalue = next;
 				}

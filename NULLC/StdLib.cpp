@@ -18,6 +18,21 @@
 // small array storage:				marker, count, data...
 // big array storage:		size,	marker, count, data...
 
+namespace
+{
+	void* ReadVmMemoryPointer(void* address)
+	{
+		void *result;
+		memcpy(&result, address, sizeof(void*));
+		return result;
+	}
+
+	void WriteVmMemoryPointer(void* address, void *value)
+	{
+		memcpy(address, &value, sizeof(void*));
+	}
+}
+
 namespace NULLC
 {
 	static Linker	*linker = NULL;
@@ -1411,19 +1426,19 @@ void NULLC::CloseUpvalue(void **upvalueList, void *variable, int offset, int siz
 		Upvalue *next;
 	};
 
-	Upvalue *upvalue = *(Upvalue**)upvalueList;
+	Upvalue *upvalue = (Upvalue*)ReadVmMemoryPointer(upvalueList);
 
-	while (upvalue && upvalue->target == variable)
+	while (upvalue && ReadVmMemoryPointer(&upvalue->target) == variable)
 	{
-		Upvalue *next = upvalue->next;
+		Upvalue *next = (Upvalue*)ReadVmMemoryPointer(&upvalue->next);
 
 		char *copy = (char*)upvalue + offset;
 		memcpy(copy, variable, unsigned(size));
-		upvalue->target = copy;
-		upvalue->next = NULL;
+		WriteVmMemoryPointer(&upvalue->target, copy);
+		WriteVmMemoryPointer(&upvalue->next, NULL);
 
 		upvalue = next;
 	}
 
-	*(Upvalue**)upvalueList = upvalue;
+	WriteVmMemoryPointer(upvalueList, upvalue);
 }

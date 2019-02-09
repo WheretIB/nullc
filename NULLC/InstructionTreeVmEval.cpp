@@ -91,6 +91,18 @@ namespace
 
 		return NULL;
 	}
+
+	intptr_t ReadVmMemoryPointer(void* address)
+	{
+		intptr_t result;
+		memcpy(&result, address, sizeof(intptr_t));
+		return result;
+	}
+
+	void WriteVmMemoryPointer(void* address, intptr_t value)
+	{
+		memcpy(address, &value, sizeof(intptr_t));
+	}
 }
 
 bool InstructionVMEvalContext::Storage::Reserve(InstructionVMEvalContext &ctx, unsigned offset, unsigned size)
@@ -1987,17 +1999,17 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		int upvalueVmPtr = upvalueListHead->iValue;
 		Upvalue *upvalueDataPtr = (Upvalue*)upvalueListHeadData;
 
-		while(upvalueDataPtr && upvalueDataPtr->target == variableLocation->iValue)
+		while(upvalueDataPtr && ReadVmMemoryPointer(&upvalueDataPtr->target) == variableLocation->iValue)
 		{
-			int nextVmPtr = int(upvalueDataPtr->next);
+			int nextVmPtr = (int)ReadVmMemoryPointer(&upvalueDataPtr->next);
 			Upvalue *nextDataPtr = (Upvalue*)GetPointerDataPtr(ctx, nextVmPtr);
 
 			char *variableLocationData = GetPointerDataPtr(ctx, variableLocation->iValue);
 
 			char *copy = (char*)upvalueDataPtr + offsetToCopy->iValue;
 			memcpy(copy, variableLocationData, unsigned(copySize->iValue));
-			upvalueDataPtr->target = upvalueVmPtr + offsetToCopy->iValue;
-			upvalueDataPtr->next = 0;
+			WriteVmMemoryPointer(&upvalueDataPtr->target, upvalueVmPtr + offsetToCopy->iValue);
+			WriteVmMemoryPointer(&upvalueDataPtr->next, 0);
 
 			upvalueVmPtr = nextVmPtr;
 			upvalueDataPtr = nextDataPtr;

@@ -624,19 +624,27 @@ namespace GC
 		GC_DEBUG_PRINT("] type %d '%s'\r\n", unsigned(marker >> 8), NULLC::commonLinker->exSymbols.data + NULLC::commonLinker->exTypes[marker >> 8].offsetToName);
 	}
 
+	char* ReadVmMemoryPointer(void* address)
+	{
+		char *result;
+		memcpy(&result, address, sizeof(char*));
+		return result;
+	}
+
 	// Function that marks memory blocks belonging to GC
 	void MarkPointer(char* ptr, const ExternTypeInfo& type, bool takeSubtype)
 	{
 		// We have pointer to stack that has a pointer inside, so 'ptr' is really a pointer to pointer
-		char **rPtr = (char**)ptr;
+		char *target = ReadVmMemoryPointer(ptr);
+
 		// Check for unmanageable ranges. Range of 0x00000000-0x00010000 is unmanageable by default due to upvalues with offsets inside closures.
-		if(*rPtr > (char*)0x00010000 && (*rPtr < unmanageableBase || *rPtr > unmanageableTop))
+		if(target > (char*)0x00010000 && (target < unmanageableBase || target > unmanageableTop))
 		{
 			// Get type that pointer points to
-			GC_DEBUG_PRINT("\tGlobal pointer [ref] %s %p (at %p)\r\n", NULLC::commonLinker->exSymbols.data + type.offsetToName, *rPtr, ptr);
+			GC_DEBUG_PRINT("\tGlobal pointer [ref] %s %p (at %p)\r\n", NULLC::commonLinker->exSymbols.data + type.offsetToName, target, ptr);
 
 			// Get pointer to the start of memory block. Some pointers may point to the middle of memory blocks
-			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(*rPtr);
+			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(target);
 
 			// If there is no base, this pointer points to memory that is not GCs memory
 			if(!basePtr)
@@ -661,7 +669,7 @@ namespace GC
 
 				// And if type is not simple, check memory to which pointer points to
 				if(type.subCat != ExternTypeInfo::CAT_NONE)
-					next->push_back(RootInfo(*rPtr, takeSubtype ? &NULLC::commonLinker->exTypes[type.subType] : &type));
+					next->push_back(RootInfo(target, takeSubtype ? &NULLC::commonLinker->exTypes[type.subType] : &type));
 			}
 		}
 	}
@@ -671,16 +679,19 @@ namespace GC
 	{
 		// Get array element type
 		ExternTypeInfo *subType = type.nameHash == autoArrayName ? NULL : &NULLC::commonLinker->exTypes[type.subType];
+
 		// Real array size (changed for unsized arrays)
 		unsigned int size = type.arrSize;
+
 		// If array type is an unsized array, check pointer that points to actual array contents
 		if(type.arrSize == ~0u)
 		{
 			// Get real array size
 			size = *(int*)(ptr + NULLC_PTR_SIZE);
+
 			// Switch pointer to array data
-			char **rPtr = (char**)ptr;
-			ptr = *rPtr;
+			ptr = ReadVmMemoryPointer(ptr);
+
 			// If uninitialized or points to stack memory, return
 			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
 				return;
@@ -707,22 +718,31 @@ namespace GC
 			*marker |= 1;
 
 			GC_DEBUG_PRINT("\tMarked as used\r\n");
-		}else if(type.nameHash == autoArrayName){
+		}
+		else if(type.nameHash == autoArrayName)
+		{
 			NULLCAutoArray *data = (NULLCAutoArray*)ptr;
+
 			// Get real variable type
 			subType = &NULLC::commonLinker->exTypes[data->typeID];
-			// skip uninitialized array
+
+			// Skip uninitialized array
 			if(!data->ptr)
 				return;
+
 			// Mark target data
 			MarkPointer((char*)&data->ptr, *subType, false);
+
 			// Switch pointer to target
 			ptr = data->ptr;
+
 			// Get array size
 			size = data->len;
 		}
+
 		if(!subType->pointerCount)
 			return;
+
 		// Otherwise, check every array element is it's either array, pointer of class
 		switch(subType->subCat)
 		{
@@ -753,18 +773,18 @@ namespace GC
 		{
 			// Get real variable type
 			realType = &NULLC::commonLinker->exTypes[*(int*)ptr];
+
 			// Switch pointer to target
-			char **rPtr = (char**)(ptr + 4);
-			ptr = *rPtr;
+			char *target = ReadVmMemoryPointer(ptr + 4);
 
 			// If uninitialized or points to stack memory, return
-			if(!ptr || ptr <= (char*)0x00010000 || (ptr >= unmanageableBase && ptr <= unmanageableTop))
+			if(!target || target <= (char*)0x00010000 || (target >= unmanageableBase && target <= unmanageableTop))
 				return;
 
-			GC_DEBUG_PRINT("\tGlobal pointer [class] %p\r\n", ptr);
+			GC_DEBUG_PRINT("\tGlobal pointer [class] %p\r\n", target);
 
 			// Get base pointer
-			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(target);
 
 			// If there is no base, this pointer points to memory that is not GCs memory
 			if(!basePtr)
@@ -785,16 +805,21 @@ namespace GC
 			GC_DEBUG_PRINT("\tMarked as used\r\n");
 
 			// Fixup target
-			CheckVariable(*rPtr, *realType);
+			CheckVariable(target, *realType);
+
 			// Exit
 			return;
-		}else if(type.nameHash == autoArrayName){
+		}
+		else if(type.nameHash == autoArrayName)
+		{
 			CheckArray(ptr, type);
 			// Exit
 			return;
 		}
+
 		// Get class member type list
 		ExternMemberInfo *memberList = realType->pointerCount ? &NULLC::commonLinker->exTypeExtra[realType->memberOffset + realType->memberCount] : NULL;
+
 		// Check pointer members
 		for(unsigned int n = 0; n < realType->pointerCount; n++)
 		{
@@ -810,13 +835,16 @@ namespace GC
 	void CheckFunction(char* ptr)
 	{
 		NULLCFuncPtr *fPtr = (NULLCFuncPtr*)ptr;
+
 		// If there's no context, there's nothing to check
 		if(!fPtr->context)
 			return;
+
 		const ExternFuncInfo &func = NULLC::commonLinker->exFunctions[fPtr->id];
 		// External functions shouldn't be checked
 		if(func.address == -1)
 			return;
+
 		// If context is "this" pointer
 		if(func.contextType != ~0u)
 		{
@@ -829,8 +857,10 @@ namespace GC
 	void CheckVariable(char* ptr, const ExternTypeInfo& type)
 	{
 		const ExternTypeInfo *realType = &type;
+
 		if(type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE)
 			realType = &NULLC::commonLinker->exTypes[*(int*)ptr];
+
 		if(!realType->pointerCount)
 			return;
 		switch(type.subCat)
@@ -1076,10 +1106,12 @@ void MarkUsedBlocks()
 
 	// Check that temporary stack range is correct
 	assert(tempStackTop >= tempStackBase);
+
 	// Check temporary stack for pointers
 	while(tempStackBase < tempStackTop)
 	{
-		char *ptr = *(char**)(tempStackBase);
+		char *ptr = GC::ReadVmMemoryPointer(tempStackBase);
+
 		// Check for unmanageable ranges. Range of 0x00000000-0x00010000 is unmanageable by default due to upvalues with offsets inside closures.
 		if(ptr > (char*)0x00010000 && (ptr < GC::unmanageableBase || ptr > GC::unmanageableTop))
 		{

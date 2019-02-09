@@ -569,7 +569,8 @@ const char*	nullcGetArgumentVector(unsigned functionID, uintptr_t extra, va_list
 			break;
 		}
 	}
-	*(uintptr_t*)argPos = extra;
+
+	memcpy(argPos, &extra, sizeof(extra));
 	argPos += sizeof(uintptr_t);
 
 	return argBuf;
