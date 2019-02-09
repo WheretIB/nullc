@@ -2359,3 +2359,17 @@ Foo<double> b;\r\n\
 Foo<char> c;\r\n\
 return typeof(a).hasMember(a) && typeof(a.a) == int && !typeof(b).hasMember(a) && !typeof(c).hasMember(a);";
 TEST_RESULT("static if in type body 6", testGenericType146, "1");
+
+const char *testGenericType147 =
+"class Foo<T>{ T x; }\r\n\
+\r\n\
+Foo a = Foo<int>();\r\n\
+a.x = 5;\r\n\
+\r\n\
+int foo(Foo a)\r\n\
+{\r\n\
+	return a.x;\r\n\
+}\r\n\
+\r\n\
+return foo(a);";
+TEST_RESULT("Generic class name can be used if the generic arguments can be deduced", testGenericType147, "5");

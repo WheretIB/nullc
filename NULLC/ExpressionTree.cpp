@@ -4837,6 +4837,20 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 		return NULL;
 	}
 
+	if(TypeGenericClassProto *lhs = getType<TypeGenericClassProto>(matchType))
+	{
+		// Match with a generic class instance
+		if(TypeClass *rhs = getType<TypeClass>(argType))
+		{
+			if(lhs != rhs->proto)
+				return NULL;
+
+			return argType;
+		}
+
+		return NULL;
+	}
+
 	Stop(ctx, source->pos, "ERROR: unknown generic type match");
 
 	return NULL;
