@@ -26,48 +26,60 @@ endif
 LIB_SOURCES = \
   NULLC/BinaryCache.cpp \
   NULLC/Bytecode.cpp \
-  NULLC/Callbacks.cpp \
   NULLC/CodeGen_X86.cpp \
-  NULLC/CodeInfo.cpp \
   NULLC/Compiler.cpp \
   NULLC/Executor_Common.cpp \
   NULLC/Executor.cpp \
   NULLC/Executor_X86.cpp \
+  NULLC/ExpressionEval.cpp \
+  NULLC/ExpressionGraph.cpp \
+  NULLC/ExpressionTranslate.cpp \
+  NULLC/ExpressionTree.cpp \
+  NULLC/InstructionTreeVm.cpp \
+  NULLC/InstructionTreeVmCommon.cpp \
+  NULLC/InstructionTreeVmEval.cpp \
+  NULLC/InstructionTreeVmGraph.cpp \
+  NULLC/InstructionTreeVmLower.cpp \
+  NULLC/InstructionTreeVmLowerGraph.cpp \
   NULLC/Lexer.cpp \
   NULLC/Linker.cpp \
   NULLC/nullc.cpp \
-  NULLC/Parser.cpp \
+  NULLC/ParseGraph.cpp \
+  NULLC/ParseTree.cpp \
   NULLC/stdafx.cpp \
   NULLC/StdLib.cpp \
   NULLC/StrAlgo.cpp \
-  NULLC/SyntaxTree.cpp \
-  NULLC/SyntaxTreeEvaluate.cpp \
-  NULLC/SyntaxTreeGraph.cpp \
-  NULLC/SyntaxTreeTranslate.cpp \
-  NULLC/Translator_X86.cpp
+  NULLC/Translator_X86.cpp \
+  NULLC/TypeTree.cpp
 
 LIB_TARGETS = \
   temp/BinaryCache.o \
   temp/Bytecode.o \
-  temp/Callbacks.o \
   temp/CodeGen_X86.o \
-  temp/CodeInfo.o \
   temp/Compiler.o \
   temp/Executor_Common.o \
   temp/Executor.o \
   temp/Executor_X86.o \
+  temp/ExpressionEval.o \
+  temp/ExpressionGraph.o \
+  temp/ExpressionTranslate.o \
+  temp/ExpressionTree.o \
+  temp/InstructionTreeVm.o \
+  temp/InstructionTreeVmCommon.o \
+  temp/InstructionTreeVmEval.o \
+  temp/InstructionTreeVmGraph.o \
+  temp/InstructionTreeVmLower.o \
+  temp/InstructionTreeVmLowerGraph.o \
   temp/Lexer.o \
   temp/Linker.o \
   temp/nullc.o \
-  temp/Parser.o \
+  temp/ParseGraph.o \
+  temp/ParseTree.o \
   temp/stdafx.o \
   temp/StdLib.o \
   temp/StrAlgo.o \
-  temp/SyntaxTree.o \
-  temp/SyntaxTreeEvaluate.o \
-  temp/SyntaxTreeGraph.o \
-  temp/SyntaxTreeTranslate.o \
-  temp/Translator_X86.o
+  temp/Translator_X86.o \
+  temp/TypeTree.o
 
 
 STDLIB_SOURCES = \
@@ -116,16 +128,16 @@ DYNCALL_TARGETS = \
   temp/dyncall/dyncall_vector.o \
   temp/dyncall_s/dyncall_call.o
 
-all: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy \
+all: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/testrun/.dummy \
     bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
 
 ifeq ($(config),coverage)
-test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy \
+test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/testrun/.dummy \
     bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
 	./TestRun
-	gcov -o temp NULLC/BinaryCache.cpp NULLC/nullc.cpp NULLC/Bytecode.cpp NULLC/Parser.cpp NULLC/Callbacks.cpp NULLC/stdafx.cpp NULLC/StdLib.cpp NULLC/CodeInfo.cpp NULLC/StrAlgo.cpp NULLC/Compiler.cpp NULLC/SyntaxTree.cpp NULLC/Executor_Common.cpp NULLC/SyntaxTreeEvaluate.cpp NULLC/Executor.cpp NULLC/Lexer.cpp NULLC/Linker.cpp
+	gcov -o temp NULLC/BinaryCache.cpp NULLC/Bytecode.cpp NULLC/Compiler.cpp NULLC/Executor_Common.cpp NULLC/Executor.cpp NULLC/ExpressionEval.cpp NULLC/ExpressionGraph.cpp NULLC/ExpressionTranslate.cpp NULLC/ExpressionTree.cpp NULLC/InstructionTreeVm.cpp NULLC/InstructionTreeVmCommon.cpp NULLC/InstructionTreeVmEval.cpp NULLC/InstructionTreeVmGraph.cpp NULLC/InstructionTreeVmLower.cpp NULLC/InstructionTreeVmLowerGraph.cpp NULLC/Lexer.cpp NULLC/Linker.cpp NULLC/nullc.cpp NULLC/ParseGraph.cpp NULLC/ParseTree.cpp NULLC/stdafx.cpp NULLC/StdLib.cpp NULLC/StrAlgo.cpp NULLC/TypeTree.cpp
 else
-test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy \
+test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/testrun/.dummy \
     bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
 	./TestRun
 endif
@@ -171,6 +183,10 @@ temp/tests/.dummy:
 	mkdir -p temp/tests
 	touch temp/tests/.dummy
 
+temp/testrun/.dummy:
+	mkdir -p temp/testrun
+	touch temp/testrun/.dummy
+	
 ifeq ($(extcall),dyncall)
 bin/libnullc.a: ${LIB_TARGETS} ${STDLIB_TARGETS} ${PUGIXML_TARGETS} ${DYNCALL_TARGETS}
 	$(AR) rcs $@ $^
@@ -187,34 +203,46 @@ clean:
 COMPILERLIB_SOURCES = \
   NULLC/BinaryCache.cpp \
   NULLC/Bytecode.cpp \
-  NULLC/CodeInfo.cpp \
+  NULLC/Compiler.cpp \
+  NULLC/ExpressionEval.cpp \
+  NULLC/ExpressionGraph.cpp \
+  NULLC/ExpressionTranslate.cpp \
+  NULLC/ExpressionTree.cpp \
+  NULLC/InstructionTreeVm.cpp \
+  NULLC/InstructionTreeVmCommon.cpp \
+  NULLC/InstructionTreeVmEval.cpp \
+  NULLC/InstructionTreeVmGraph.cpp \
+  NULLC/InstructionTreeVmLower.cpp \
+  NULLC/InstructionTreeVmLowerGraph.cpp \
+  NULLC/Lexer.cpp \
   NULLC/nullc.cpp \
+  NULLC/ParseGraph.cpp \
+  NULLC/ParseTree.cpp \
   NULLC/stdafx.cpp \
   NULLC/StrAlgo.cpp \
-  NULLC/Callbacks.cpp \
-  NULLC/Compiler.cpp \
-  NULLC/Lexer.cpp \
-  NULLC/Parser.cpp \
-  NULLC/SyntaxTree.cpp \
-  NULLC/SyntaxTreeEvaluate.cpp \
-  NULLC/SyntaxTreeGraph.cpp \
-  NULLC/SyntaxTreeTranslate.cpp
+  NULLC/TypeTree.cpp
 
 COMPILERLIB_TARGETS = \
   temp/compiler/BinaryCache.o \
   temp/compiler/Bytecode.o \
-  temp/compiler/CodeInfo.o \
+  temp/compiler/Compiler.o \
+  temp/compiler/ExpressionEval.o \
+  temp/compiler/ExpressionGraph.o \
+  temp/compiler/ExpressionTranslate.o \
+  temp/compiler/ExpressionTree.o \
+  temp/compiler/InstructionTreeVm.o \
+  temp/compiler/InstructionTreeVmCommon.o \
+  temp/compiler/InstructionTreeVmEval.o \
+  temp/compiler/InstructionTreeVmGraph.o \
+  temp/compiler/InstructionTreeVmLower.o \
+  temp/compiler/InstructionTreeVmLowerGraph.o \
+  temp/compiler/Lexer.o \
   temp/compiler/nullc.o \
+  temp/compiler/ParseGraph.o \
+  temp/compiler/ParseTree.o \
   temp/compiler/stdafx.o \
   temp/compiler/StrAlgo.o \
-  temp/compiler/Callbacks.o \
-  temp/compiler/Compiler.o \
-  temp/compiler/Lexer.o \
-  temp/compiler/Parser.o \
-  temp/compiler/SyntaxTree.o \
-  temp/compiler/SyntaxTreeEvaluate.o \
-  temp/compiler/SyntaxTreeGraph.o \
-  temp/compiler/SyntaxTreeTranslate.o
+  temp/compiler/TypeTree.o
 
 temp/compiler/%.o: NULLC/%.cpp
 	$(CXX) $(COMP_CFLAGS) -c $< -o $@
@@ -268,8 +296,8 @@ TEST_SOURCES = \
 	tests/TestNamespace.cpp          tests/TestInheritance.cpp
 
 TEST_OBJECTS = \
-	TestRun.o \
-	UnitTests.o \
+	temp/testrun/TestRun.o \
+	temp/testrun/UnitTests.o \
 	temp/tests/TestAccessors.o          temp/tests/TestInference.o \
 	temp/tests/TestArray.o              temp/tests/TestInterface.o \
 	temp/tests/TestArraySpecial.o       temp/tests/TestListComprehension.o \
@@ -302,7 +330,7 @@ TEST_OBJECTS = \
 	temp/tests/TestGenericExplicit.o    temp/tests/TestNamedArguments.o \
 	temp/tests/TestSglEvent.o           temp/tests/TestSglString.o
 
-%.o: %.cpp
+temp/testrun/%.o: %.cpp
 	$(CXX) $(REG_CFLAGS) -o $@ -c $<
 
 temp/tests/%.o: tests/%.cpp
