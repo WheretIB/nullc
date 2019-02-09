@@ -1627,7 +1627,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		TypeBase *targetType = ctx.ctx.types[ptrTypeID->iValue];
 
-		VmConstant *ptrPtr = ExtractValue(ctx, ptr, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(targetType)));
+		VmConstant *ptrPtr = ExtractValue(ctx, ptr, 4, GetVmType(ctx.ctx, ctx.ctx.GetReferenceType(targetType)));
 
 		VmType storageType = GetVmType(ctx.ctx, ctx.ctx.typeAutoRef);
 
