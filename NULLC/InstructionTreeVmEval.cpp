@@ -649,7 +649,7 @@ VmConstant* AllocateHeapArray(InstructionVMEvalContext &ctx, TypeBase *target, u
 	unsigned pointer = 0;
 
 	pointer = offset;
-	assert(int(pointer & memoryOffsetMask) == pointer);
+	assert(unsigned(pointer & memoryOffsetMask) == pointer);
 	pointer |= GetStorageIndex(ctx, &ctx.heap) << memoryStorageBits;
 
 	VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, VmType::ArrayRef(ctx.ctx.GetUnsizedArrayType(target)), NULL);

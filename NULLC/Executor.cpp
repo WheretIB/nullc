@@ -1552,7 +1552,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			}
 			if(fcallStack.size() == finalReturn)
 			{
-				if(retType == -1)
+				if(int(retType) == -1)
 					retType = (asmOperType)(int)cmd.flag;
 				cmdStream = NULL;
 				errorState = false;
@@ -2804,7 +2804,7 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 
 const char* Executor::GetResult()
 {
-	if(!codeRunning && genStackSize > (lastResultType == -1 ? 1 : 0))
+	if(!codeRunning && genStackSize > (int(lastResultType) == -1 ? 1 : 0))
 	{
 		SafeSprintf(execResult, 64, "There is more than one value on the stack (%d)", genStackSize);
 		return execResult;
