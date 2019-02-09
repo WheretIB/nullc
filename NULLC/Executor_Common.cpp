@@ -621,7 +621,7 @@ namespace GC
 		if(marker & OBJECT_ARRAY)
 			GC_DEBUG_PRINT(" array");
 
-		GC_DEBUG_PRINT("] type %d '%s'\r\n", marker >> 8, NULLC::commonLinker->exSymbols.data + NULLC::commonLinker->exTypes[marker >> 8].offsetToName);
+		GC_DEBUG_PRINT("] type %d '%s'\r\n", unsigned(marker >> 8), NULLC::commonLinker->exSymbols.data + NULLC::commonLinker->exTypes[marker >> 8].offsetToName);
 	}
 
 	// Function that marks memory blocks belonging to GC
