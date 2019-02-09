@@ -1370,6 +1370,9 @@ void NULLC::ArrayCopy(NULLCAutoArray dst, NULLCAutoArray src)
 		return;
 	}
 
+	if(src.len == 0)
+		return;
+
 	memcpy(dst.ptr, src.ptr, nullcGetTypeSize(dst.typeID) * src.len);
 }
 
