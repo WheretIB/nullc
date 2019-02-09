@@ -1108,7 +1108,7 @@ void MarkUsedBlocks()
 	assert(tempStackTop >= tempStackBase);
 
 	// Check temporary stack for pointers
-	while(tempStackBase < tempStackTop)
+	while(tempStackBase + sizeof(void*) <= tempStackTop)
 	{
 		char *ptr = GC::ReadVmMemoryPointer(tempStackBase);
 
