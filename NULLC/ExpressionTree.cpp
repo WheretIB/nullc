@@ -2832,7 +2832,7 @@ unsigned AnalyzeAlignment(ExpressionContext &ctx, SynAlign *syntax)
 
 	Stop(ctx, syntax->pos, "ERROR: alignment must be a constant expression");
 
-	return NULL;
+	return 0;
 }
 
 ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)

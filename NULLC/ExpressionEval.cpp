@@ -219,7 +219,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 	{
 		Report(ctx, "ERROR: load from null pointer");
 
-		return false;
+		return NULL;
 	}
 
 	ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(target);
