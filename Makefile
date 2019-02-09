@@ -4,23 +4,29 @@
 
 config=debug
 extcall=manual
+check=none
 
 REG_CFLAGS=-g -W
 COMP_CFLAGS=-g -W -D NULLC_NO_EXECUTOR
 
 ifeq ($(config),release)
-	REG_CFLAGS+=-O3 -fno-omit-frame-pointer -DNDEBUG
-	COMP_CFLAGS+=-O3 -fno-omit-frame-pointer -DNDEBUG
+	REG_CFLAGS += -O3 -fno-omit-frame-pointer -DNDEBUG
+	COMP_CFLAGS += -O3 -fno-omit-frame-pointer -DNDEBUG
 endif
 
 ifeq ($(config),coverage)
-	REG_CFLAGS+=-coverage
-	COMP_CFLAGS+=-coverage
+	REG_CFLAGS += -coverage
+	COMP_CFLAGS += -coverage
 endif
 
 ifeq ($(extcall),dyncall)
-	REG_CFLAGS+=-DNULLC_USE_DYNCALL
-	COMP_CFLAGS+=-DNULLC_USE_DYNCALL
+	REG_CFLAGS += -DNULLC_USE_DYNCALL
+	COMP_CFLAGS += -DNULLC_USE_DYNCALL
+endif
+
+ifeq ($(check),sanitize)
+	REG_CFLAGS += -fsanitize=undefined -fsanitize=address
+	COMP_CFLAGS += -fsanitize=undefined -fsanitize=address
 endif
 
 LIB_SOURCES = \
