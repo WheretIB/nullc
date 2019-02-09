@@ -637,3 +637,13 @@ int set(int x){ a = x; return a; }\r\n\
 set(5); // optimization barrier\r\n\
 return a + a + (a = 10);";
 TEST_RESULT("Side-effect ordering test 6", testSideEffectOrdering6, "20");
+
+const char	*testNullPointerTypeUse =
+"__nullptr t;\r\n\
+__nullptr u;\r\n\
+int ref a = t;\r\n\
+a = new int(4);\r\n\
+t = u;\r\n\
+a = t;\r\n\
+return !a;";
+TEST_RESULT("nullptr type being explicitly used", testNullPointerTypeUse, "1");

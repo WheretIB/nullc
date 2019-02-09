@@ -317,6 +317,11 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		return new (ctx.ctx.get<ExprFunctionIndexLiteral>()) ExprFunctionIndexLiteral(target->source, type, data);
 	}
 
+	if(type == ctx.ctx.typeNullPtr)
+	{
+		return new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(target->source, type);
+	}
+
 	if(TypeFunction *functionType = getType<TypeFunction>(type))
 	{
 		unsigned index = 0;

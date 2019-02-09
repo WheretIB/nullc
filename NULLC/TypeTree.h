@@ -722,6 +722,17 @@ struct TypeFunctionID: TypeBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct TypeNullptr: TypeBase
+{
+	TypeNullptr(InplaceStr name): TypeBase(myTypeID, name)
+	{
+		size = NULLC_PTR_SIZE;
+		alignment = GetTypeAlignment<int>();
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct TypeGeneric: TypeBase
 {
 	TypeGeneric(InplaceStr name): TypeBase(myTypeID, name)

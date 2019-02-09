@@ -10306,7 +10306,7 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax)
 
 	ctx.AddType(ctx.typeTypeID = new (ctx.get<TypeTypeID>()) TypeTypeID(InplaceStr("typeid")));
 	ctx.AddType(ctx.typeFunctionID = new (ctx.get<TypeFunctionID>()) TypeFunctionID(InplaceStr("__function")));
-	ctx.AddType(ctx.typeNullPtr = new (ctx.get<TypeFunctionID>()) TypeFunctionID(InplaceStr("__nullptr")));
+	ctx.AddType(ctx.typeNullPtr = new (ctx.get<TypeNullptr>()) TypeNullptr(InplaceStr("__nullptr")));
 
 	ctx.AddType(ctx.typeGeneric = new (ctx.get<TypeGeneric>()) TypeGeneric(InplaceStr("generic")));
 

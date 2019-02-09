@@ -247,6 +247,9 @@ namespace
 		if(isType<TypeTypeID>(type) || isType<TypeFunctionID>(type) || isType<TypeEnum>(type))
 			return VM_INST_LOAD_INT;
 
+		if(isType<TypeNullptr>(type))
+			return VM_INST_LOAD_POINTER;
+
 		assert(type->size != 0);
 		assert(type->size % 4 == 0);
 		assert(type->size < NULLC_MAX_TYPE_SIZE);
@@ -286,6 +289,9 @@ namespace
 		if(isType<TypeTypeID>(type) || isType<TypeFunctionID>(type) || isType<TypeEnum>(type))
 			return VM_INST_STORE_INT;
 
+		if(isType<TypeNullptr>(type))
+			return VM_INST_STORE_POINTER;
+
 		assert(type->size != 0);
 		assert(type->size % 4 == 0);
 		assert(type->size < NULLC_MAX_TYPE_SIZE);
@@ -321,6 +327,9 @@ namespace
 
 		if(isType<TypeTypeID>(type) || isType<TypeFunctionID>(type) || isType<TypeEnum>(type))
 			return VmType::Int;
+
+		if(isType<TypeNullptr>(type))
+			return VmType::Pointer(type);
 
 		assert(type->size != 0);
 		assert(type->size % 4 == 0);
@@ -1456,7 +1465,7 @@ VmType GetVmType(ExpressionContext &ctx, TypeBase *type)
 	if(type == ctx.typeFloat || type == ctx.typeDouble)
 		return VmType::Double;
 
-	if(isType<TypeRef>(type) || type == ctx.typeNullPtr)
+	if(isType<TypeRef>(type))
 		return VmType::Pointer(type);
 
 	if(isType<TypeFunction>(type))
@@ -1476,6 +1485,9 @@ VmType GetVmType(ExpressionContext &ctx, TypeBase *type)
 
 	if(isType<TypeFunctionID>(type))
 		return VmType::Int;
+
+	if(isType<TypeNullptr>(type))
+		return VmType::Pointer(type);
 
 	if(isType<TypeArray>(type) || isType<TypeClass>(type))
 	{

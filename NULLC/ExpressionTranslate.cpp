@@ -188,6 +188,10 @@ void TranslateTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 	{
 		Print(ctx, "__function");
 	}
+	else if(TypeNullptr *typeNullptr = getType<TypeNullptr>(type))
+	{
+		Print(ctx, "__nullptr");
+	}
 	else if(TypeGeneric *typeGeneric = getType<TypeGeneric>(type))
 	{
 		assert(!"generic type TypeGeneric is not translated");
