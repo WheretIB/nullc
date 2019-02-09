@@ -9561,6 +9561,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				importedType->alignment = type.defaultAlign;
 				importedType->size = type.size;
 
+				importedType->hasPointers = type.pointerCount != 0;
+
 				if(TypeStruct *structType = getType<TypeStruct>(importedType))
 				{
 					delayedTypes.push_back(DelayedType(i, currentConstant));

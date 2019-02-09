@@ -33,18 +33,18 @@ class A\r\n\
 }\r\n\
 A ref[] arr1 = new A ref[2];\r\n\
 A ref tmp;\r\n\
-arr1[0] = tmp = new A;\r\n\
+(auto(){arr1[0] = tmp = new A;\r\n\
 tmp.d = new A;\r\n\
 tmp.e = new A;\r\n\
 tmp.f = new A;\r\n\
-tmp = nullptr;\r\n\
+tmp = nullptr;})();\r\n\
 arr1[1] = new A;\r\n\
 arr1[1].d = new A;\r\n\
 arr1[1].e = new A;\r\n\
 arr1[1].f = new A;\r\n\
 GC.CollectMemory();\r\n\
 return GC.UsedMemory() - start;";
-TEST_RESULT("Garbage collection correctness.", testGarbageCollectionCorrectness, sizeof(void*) == 8 ? "544" : "272");
+TEST_RESULT_SIMPLE("Garbage collection correctness.", testGarbageCollectionCorrectness, sizeof(void*) == 8 ? "544" : "272");
 
 const char	*testGarbageCollectionCorrectness2 =
 "import std.gc;\r\n\
@@ -140,7 +140,7 @@ class A\r\n\
 	int x, y;\r\n\
 	int sum(){ return x + y; }\r\n\
 }\r\n\
-auto a = new A;\r\n\
+A ref a; (auto(){ a = new A; })();\r\n\
 a.x = 4;\r\n\
 a.y = 9;\r\n\
 auto f = a.sum;\r\n\
@@ -160,7 +160,7 @@ class A\r\n\
 	int ref y;\r\n\
 	int sum(){ return x + *y; }\r\n\
 }\r\n\
-auto a = new A;\r\n\
+A ref a; (auto(){ a = new A; })();\r\n\
 a.x = 4;\r\n\
 a.y = new int;\r\n\
 *a.y = 9;\r\n\
@@ -207,7 +207,7 @@ class A\r\n\
 	int x, y;\r\n\
 	auto sum(){ return auto(){ return this.x + y; }; }\r\n\
 }\r\n\
-auto a = new A;\r\n\
+A ref a; (auto(){ a = new A; })();\r\n\
 a.x = 4;\r\n\
 a.y = 9;\r\n\
 auto f = a.sum();\r\n\
@@ -226,7 +226,7 @@ class A\r\n\
 	int x, y;\r\n\
 	auto sum(){ return auto(){ return x + y; }; }\r\n\
 }\r\n\
-auto a = new A;\r\n\
+A ref a; (auto(){ a = new A; })();\r\n\
 a.x = 4;\r\n\
 a.y = 9;\r\n\
 auto f = a.sum();\r\n\
@@ -245,7 +245,7 @@ class A\r\n\
 	int x, y;\r\n\
 	auto sum(){ return auto(){ return x + y; }; }\r\n\
 }\r\n\
-auto a = new A;\r\n\
+A ref a; (auto(){ a = new A; })();\r\n\
 a.x = 4;\r\n\
 a.y = 9;\r\n\
 int ref()[1] f;\r\n\
@@ -269,11 +269,11 @@ class A\r\n\
 vector arr = vector(A);\r\n\
 auto test = new A;\r\n\
 test.a = new int;\r\n\
-*test.a = 6;\r\n\
+(auto(){*test.a = 6;\r\n\
 test.b = new int;\r\n\
 *test.b = 5;\r\n\
 arr.push_back(test);\r\n\
-test = nullptr;\r\n\
+test = nullptr;})();\r\n\
 GC.CollectMemory();\r\n\
 auto test2 = new A;\r\n\
 test2.a = new int;\r\n\
@@ -283,6 +283,32 @@ test2.b = new int;\r\n\
 test = arr.back();\r\n\
 return *test.a * 10 + *test.b;";
 TEST_RESULT("Garbage collection correctness 11 (auto[] type).", testGarbageCollectionCorrectness11, "65");
+
+const char	*testGarbageCollectionCorrectness11b =
+"import old.vector;\r\n\
+import std.gc;\r\n\
+\r\n\
+class A\r\n\
+{\r\n\
+	long ref a, b;\r\n\
+}\r\n\
+vector arr = vector(A);\r\n\
+auto test = new A;\r\n\
+test.a = new long;\r\n\
+(auto(){*test.a = 6;\r\n\
+test.b = new long;\r\n\
+*test.b = 5;\r\n\
+arr.push_back(test);\r\n\
+test = nullptr;})();\r\n\
+GC.CollectMemory();\r\n\
+auto test2 = new A;\r\n\
+test2.a = new long;\r\n\
+*test2.a = 9;\r\n\
+test2.b = new long;\r\n\
+*test2.b = 4;\r\n\
+test = arr.back();\r\n\
+return int(*test.a * 10 + *test.b);";
+TEST_RESULT("Garbage collection correctness 11 (auto[] type, larger interference).", testGarbageCollectionCorrectness11b, "65");
 
 const char	*testGarbageCollectionCorrectness12 =
 "import std.gc;\r\n\
@@ -314,7 +340,7 @@ const char	*testGarbageCollectionCorrectness15 =
 "import old.vector;\r\n\
 import old.list;\r\n\
 import std.gc;\r\n\
-auto a = new list;\r\n\
+list ref a; (auto(){ a = new list; })();\r\n\
 a.list(int);\r\n\
 a.push_back(6);\r\n\
 int ref y;\r\n\
