@@ -976,7 +976,7 @@ void TranslateReturn(ExpressionTranslateContext &ctx, ExprReturn *expression)
 	ExprSequence *closures = getType<ExprSequence>(expression->closures);
 
 	if(closures && !closures->expressions.head)
-		closures = nullptr;
+		closures = NULL;
 
 	if(!ctx.currentFunction)
 	{
@@ -1060,7 +1060,7 @@ void TranslateYield(ExpressionTranslateContext &ctx, ExprYield *expression)
 	ExprSequence *closures = getType<ExprSequence>(expression->closures);
 
 	if(closures && !closures->expressions.head)
-		closures = nullptr;
+		closures = NULL;
 
 	if(expression->value->type == ctx.ctx.typeVoid)
 	{

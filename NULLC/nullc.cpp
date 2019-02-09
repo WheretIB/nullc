@@ -42,7 +42,7 @@ namespace NULLC
 	char *errorBuf = NULL;
 
 	ChunkedStackPool<65532> pool;
-	GrowingAllocatorRef<ChunkedStackPool<65532>> allocator(pool);
+	GrowingAllocatorRef<ChunkedStackPool<65532> > allocator(pool);
 
 	CompilerContext *compilerCtx = NULL;
 }

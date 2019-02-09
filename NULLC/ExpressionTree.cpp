@@ -1071,7 +1071,7 @@ bool ExpressionContext::IsGenericInstance(FunctionData *function)
 	if(function->isGenericInstance)
 		return true;
 
-	if(function->proto != nullptr)
+	if(function->proto != NULL)
 		return true;
 
 	if(function->scope->ownerType)
@@ -3768,8 +3768,8 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 			// Select the most specialized function for extendable member function call
 			if(preferredParent)
 			{
-				auto prevDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(prev->function->scope->ownerType));
-				auto currDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(function->scope->ownerType));
+				unsigned prevDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(prev->function->scope->ownerType));
+				unsigned currDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(function->scope->ownerType));
 
 				if (currDepth < prevDepth)
 					prev->function = function;
@@ -5300,8 +5300,8 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 
 					if(sameArguments)
 					{
-						auto aDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(a->scope->ownerType));
-						auto bDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(b->scope->ownerType));
+						unsigned aDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(a->scope->ownerType));
+						unsigned bDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(b->scope->ownerType));
 
 						if (aDepth < bDepth)
 							ratings[k] = ~0u;
@@ -9286,6 +9286,15 @@ void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleConte
 	}
 }
 
+struct DelayedType
+{
+	DelayedType(): index(0), constants(0){}
+	DelayedType(unsigned index, ExternConstantInfo *constants): index(index), constants(constants){}
+
+	unsigned index;
+	ExternConstantInfo *constants;
+};
+
 void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx)
 {
 	ByteCode *bCode = moduleCtx.data->bytecode;
@@ -9303,15 +9312,6 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 	for(unsigned i = prevSize; i < moduleCtx.types.size(); i++)
 		moduleCtx.types[i] = NULL;
-
-	struct DelayedType
-	{
-		DelayedType(): index(0), constants(0){}
-		DelayedType(unsigned index, ExternConstantInfo *constants): index(index), constants(constants){}
-
-		unsigned index;
-		ExternConstantInfo *constants;
-	};
 
 	SmallArray<DelayedType, 32> delayedTypes;
 
