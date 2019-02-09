@@ -724,7 +724,9 @@ void NULLC::CopyArray(NULLCAutoArray* dst, NULLCAutoArray src)
 	dst->typeID = src.typeID;
 	dst->len = src.len;
 	dst->ptr = (char*)NULLC::AllocObject(src.len * linker->exTypes[src.typeID].size);
-	memcpy(dst->ptr, src.ptr, src.len * linker->exTypes[src.typeID].size);
+
+	if(src.len)
+		memcpy(dst->ptr, src.ptr, src.len * linker->exTypes[src.typeID].size);
 }
 
 NULLCRef NULLC::ReplaceObject(NULLCRef l, NULLCRef r)
@@ -801,8 +803,11 @@ NULLCArray NULLC::StrConcatenate(NULLCArray a, NULLCArray b)
 	if(!ret.ptr)
 		return ret;
 
-	memcpy(ret.ptr, a.ptr, a.len);
-	memcpy(ret.ptr + a.len - shift, b.ptr, b.len);
+	if(a.len)
+		memcpy(ret.ptr, a.ptr, a.len);
+
+	if(b.len)
+		memcpy(ret.ptr + a.len - shift, b.ptr, b.len);
 
 	return ret;
 }

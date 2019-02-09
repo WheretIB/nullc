@@ -55,7 +55,10 @@ namespace NULLCVector
 			// Allocate new
 			unsigned int newSize = 32 > vec->data.len ? 32 : (vec->data.len << 1) + vec->data.len;
 			char *newData = (char*)nullcAllocate(vec->elemSize * newSize);
-			memcpy(newData, vec->data.ptr, vec->elemSize * vec->data.len);
+
+			if(vec->data.len)
+				memcpy(newData, vec->data.ptr, vec->elemSize * vec->data.len);
+
 			vec->data.len = newSize;
 			vec->data.ptr = newData;
 		}
