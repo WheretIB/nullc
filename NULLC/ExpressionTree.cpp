@@ -5200,21 +5200,30 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 			MatchData *ca = function->generics.head;
 			TypeHandle *cb = generics.head;
 
+			bool sameGenerics = true;
+
 			for(; ca && cb; ca = ca->next, cb = cb->next)
 			{
 				if(!ca->type->isGeneric && ca->type != cb->type)
 				{
-					ratings[i] = ~0u;
-					continue;
+					sameGenerics = false;
+					break;
 				}
+			}
+
+			// Fail if provided explicit type list elements can't match
+			if(!sameGenerics)
+			{
+				ratings[i] = ~0u;
+				continue;
 			}
 
 			// Fail if provided explicit type list is larger than expected explicit type list
 			if(cb)
+			{
 				ratings[i] = ~0u;
-
-			if(ratings[i] == ~0u)
 				continue;
+			}
 		}
 
 		unsigned extraRating = 0;
@@ -5268,6 +5277,9 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 			}
 			
 			ratings[i] = GetFunctionRating(ctx, function, instance, result);
+
+			if(ratings[i] == ~0u)
+				continue;
 		}
 	}
 
