@@ -2525,7 +2525,7 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 		return definition->classType;
 	}
 
-	Stop(ctx, source->pos, "ERROR: type '%s' couldn't be instantiated", proto->name);
+	Stop(ctx, source->pos, "ERROR: type '%.*s' couldn't be instantiated", FMT_ISTR(proto->name));
 
 	return NULL;
 }
