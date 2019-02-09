@@ -85,7 +85,7 @@ private:
 
 	bool RunExternalFunction(unsigned int funcID, unsigned int extraPopDW);
 
-	void FixupPointer(char* ptr, const ExternTypeInfo& type);
+	void FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType);
 	void FixupArray(char* ptr, const ExternTypeInfo& type);
 	void FixupClass(char* ptr, const ExternTypeInfo& type);
 	void FixupFunction(char* ptr);

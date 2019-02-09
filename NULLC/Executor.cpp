@@ -2435,7 +2435,7 @@ namespace ExPriv
 #define RELOCATE_DEBUG_PRINT(...) (void)0
 //#define RELOCATE_DEBUG_PRINT printf
 
-void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
+void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType)
 {
 	char **rPtr = (char**)ptr;
 	if(*rPtr > (char*)0x00010000)
@@ -2448,13 +2448,13 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 		}
 		else if(*rPtr >= ExPriv::newBase && *rPtr < (ExPriv::newBase + ExPriv::newSize))
 		{
-			ExternTypeInfo &subType = exTypes[type.subType];
+			const ExternTypeInfo &subType = takeSubType ? exTypes[type.subType] : type;
 			(void)subType;
 			RELOCATE_DEBUG_PRINT("\tStack%s pointer %s %p (at %p)\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, *rPtr, ptr);
 		}
 		else
 		{
-			ExternTypeInfo &subType = exTypes[type.subType];
+			const ExternTypeInfo &subType = takeSubType ? exTypes[type.subType] : type;
 			RELOCATE_DEBUG_PRINT("\tGlobal%s pointer %s %p (at %p) base %p\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, *rPtr, ptr, NULLC::GetBasePointer(*rPtr));
 
 			if(type.subType != 0 && NULLC::IsBasePointer(*rPtr))
@@ -2479,7 +2479,7 @@ void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
 				if(*marker & OBJECT_ARRAY)
 					RELOCATE_DEBUG_PRINT(" array");
 
-				RELOCATE_DEBUG_PRINT(" %s\r\n", symbols + exTypes[*marker >> 8].offsetToName);
+				RELOCATE_DEBUG_PRINT(" %s\r\n", symbols + exTypes[unsigned(*marker >> 8)].offsetToName);
 
 				if(*marker & 1)
 				{
@@ -2541,7 +2541,7 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 			data->ptr = data->ptr - ExPriv::oldBase + ExPriv::newBase;
 
 		// Mark target data
-		FixupPointer(data->ptr, *subType);
+		FixupPointer(data->ptr, *subType, false);
 
 		// Switch pointer to target
 		ptr = data->ptr;
@@ -2559,7 +2559,7 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 		break;
 	case ExternTypeInfo::CAT_POINTER:
 		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-			FixupPointer(ptr, *subType);
+			FixupPointer(ptr, *subType, true);
 		break;
 	case ExternTypeInfo::CAT_CLASS:
 		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
@@ -2641,7 +2641,7 @@ void Executor::FixupFunction(char* ptr)
 
 	// If function context type is valid
 	if(func.contextType != ~0u)
-		FixupPointer((char*)&fPtr->context, exTypes[func.contextType]);
+		FixupPointer((char*)&fPtr->context, exTypes[func.contextType], true);
 }
 
 void Executor::FixupVariable(char* ptr, const ExternTypeInfo& type)
@@ -2655,7 +2655,7 @@ void Executor::FixupVariable(char* ptr, const ExternTypeInfo& type)
 		FixupArray(ptr, type);
 		break;
 	case ExternTypeInfo::CAT_POINTER:
-		FixupPointer(ptr, type);
+		FixupPointer(ptr, type, true);
 		break;
 	case ExternTypeInfo::CAT_CLASS:
 		FixupClass(ptr, type);
