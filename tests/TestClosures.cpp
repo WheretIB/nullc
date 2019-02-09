@@ -574,6 +574,31 @@ const char	*testLocalFunctionPrototype8 =
 return foo(5);";
 TEST_RESULT("Local function prototype 8", testLocalFunctionPrototype8, "-4");
 
+const char	*testLocalFunctionPrototype9 =
+"int foo(int x)\r\n\
+{\r\n\
+	int bar();\r\n\
+	int hell()\r\n\
+	{\r\n\
+		auto y = bar;\r\n\
+		return y();\r\n\
+	}\r\n\
+	auto m = bar();\r\n\
+	int bar()\r\n\
+	{\r\n\
+		auto y1 = bar;\r\n\
+		auto y2 = bar;\r\n\
+		auto y3 = bar;\r\n\
+		auto y4 = bar;\r\n\
+		auto y5 = bar;\r\n\
+		return -2;\r\n\
+	}\r\n\
+	auto z = bar;\r\n\
+	return m + z();\r\n\
+}\r\n\
+return foo(5);";
+TEST_RESULT("Local function prototype 9", testLocalFunctionPrototype9, "-4");
+
 const char	*testLocalFunctionMultilevelReturn =
 "auto foo()\r\n\
 {\r\n\

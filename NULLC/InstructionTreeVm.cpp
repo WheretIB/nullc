@@ -2665,6 +2665,10 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *co
 			if(ctx.IsGenericFunction(function))
 				continue;
 
+			// Skip prototypes that will have an implementation later
+			if(function->isPrototype && function->implementation)
+				continue;
+
 			if(function->vmFunction)
 				continue;
 
@@ -2680,10 +2684,15 @@ VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *co
 
 			function->vmFunction = vmFunction;
 
-			if(FunctionData *implementation = function->implementation)
-				implementation->vmFunction = vmFunction;
-
 			module->functions.push_back(vmFunction);
+		}
+
+		for(unsigned i = 0; i < ctx.functions.size(); i++)
+		{
+			FunctionData *function = ctx.functions[i];
+
+			if(function->isPrototype && function->implementation)
+				function->vmFunction = function->implementation->vmFunction;
 		}
 
 		for(unsigned i = 0; i < node->definitions.size(); i++)
