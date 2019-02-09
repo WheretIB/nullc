@@ -160,6 +160,8 @@ namespace
 		case SYN_BINARY_OP_BIT_OR:
 		case SYN_BINARY_OP_BIT_XOR:
 			return true;
+		default:
+			break;
 		}
 
 		return false;
@@ -176,6 +178,8 @@ namespace
 		case SYN_BINARY_OP_EQUAL:
 		case SYN_BINARY_OP_NOT_EQUAL:
 			return true;
+		default:
+			break;
 		}
 
 		return false;
@@ -189,6 +193,8 @@ namespace
 		case SYN_BINARY_OP_LOGICAL_OR:
 		case SYN_BINARY_OP_LOGICAL_XOR:
 			return true;
+		default:
+			break;
 		}
 
 		return false;
@@ -220,6 +226,8 @@ namespace
 			return SYN_BINARY_OP_BIT_OR;
 		case SYN_MODIFY_ASSIGN_BIT_XOR:
 			return SYN_BINARY_OP_BIT_XOR;
+		default:
+			break;
 		}
 
 		return SYN_BINARY_OP_UNKNOWN;
@@ -9689,6 +9697,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					ctx.PopScope(SCOPE_TYPE);
 				}
 			}
+			break;
+		default:
 			break;
 		}
 	}

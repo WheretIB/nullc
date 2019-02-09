@@ -144,19 +144,27 @@ bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
 		//printf("member %s; ", exLinker->exSymbols.data + memberType.offsetToName);
 		switch(memberType.type)
 		{
-		case ExternTypeInfo::TYPE_CHAR:
+		case ExternTypeInfo::TYPE_COMPLEX:
 			break;
-		case ExternTypeInfo::TYPE_SHORT:
-			if(pos % 2 != 0)
-				aligned = 0;
+		case ExternTypeInfo::TYPE_VOID:
 			break;
 		case ExternTypeInfo::TYPE_INT:
 			if(pos % 4 != 0)
 				aligned = 0;
 			break;
+		case ExternTypeInfo::TYPE_FLOAT:
+			break;
 		case ExternTypeInfo::TYPE_LONG:
 			if(pos % 8 != 0)
 				aligned = 0;
+			break;
+		case ExternTypeInfo::TYPE_DOUBLE:
+			break;
+		case ExternTypeInfo::TYPE_SHORT:
+			if(pos % 2 != 0)
+				aligned = 0;
+			break;
+		case ExternTypeInfo::TYPE_CHAR:
 			break;
 		}
 		pos += memberType.size;
@@ -356,6 +364,8 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 
 		switch(typeCat)
 		{
+		case ExternTypeInfo::TYPE_VOID:
+			break;
 		case ExternTypeInfo::TYPE_FLOAT:
 		case ExternTypeInfo::TYPE_DOUBLE:
 #ifdef _WIN64
@@ -1964,6 +1974,8 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 	case OTYPE_INT:
 		genStackPtr++;
 		break;
+	case OTYPE_COMPLEX:
+		break;
 	}
 	// If the call was started from an internal function call, a value pushed on stack for correct global return is still on stack
 	if(!codeRunning && functionID != ~0u)
@@ -2574,10 +2586,14 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 		// Get array size
 		size = data->len;
 	}
+
 	if(!subType->pointerCount)
 		return;
+
 	switch(subType->subCat)
 	{
+	case ExternTypeInfo::CAT_NONE:
+		break;
 	case ExternTypeInfo::CAT_ARRAY:
 		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
 			FixupArray(ptr, *subType);
@@ -2586,13 +2602,13 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
 			FixupPointer(ptr, *subType, true);
 		break;
-	case ExternTypeInfo::CAT_CLASS:
-		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-			FixupClass(ptr, *subType);
-		break;
 	case ExternTypeInfo::CAT_FUNCTION:
 		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
 			FixupFunction(ptr);
+		break;
+	case ExternTypeInfo::CAT_CLASS:
+		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
+			FixupClass(ptr, *subType);
 		break;
 	}
 }
@@ -2679,17 +2695,19 @@ void Executor::FixupVariable(char* ptr, const ExternTypeInfo& type)
 
 	switch(type.subCat)
 	{
+	case ExternTypeInfo::CAT_NONE:
+		break;
 	case ExternTypeInfo::CAT_ARRAY:
 		FixupArray(ptr, type);
 		break;
 	case ExternTypeInfo::CAT_POINTER:
 		FixupPointer(ptr, type, true);
 		break;
-	case ExternTypeInfo::CAT_CLASS:
-		FixupClass(ptr, type);
-		break;
 	case ExternTypeInfo::CAT_FUNCTION:
 		FixupFunction(ptr);
+		break;
+	case ExternTypeInfo::CAT_CLASS:
+		FixupClass(ptr, type);
 		break;
 	}
 }

@@ -45,6 +45,8 @@ namespace
 		case VM_INST_YIELD:
 		case VM_INST_UNYIELD:
 			return true;
+		default:
+			break;
 		}
 
 		return false;
@@ -70,6 +72,8 @@ namespace
 		case VM_INST_YIELD:
 		case VM_INST_UNYIELD:
 			return true;
+		default:
+			break;
 		}
 
 		return false;
@@ -89,6 +93,8 @@ namespace
 		case VM_INST_SET_RANGE:
 		case VM_INST_CALL:
 			return true;
+		default:
+			break;
 		}
 
 		return false;
@@ -115,6 +121,8 @@ namespace
 		case VM_INST_SET_RANGE:
 		case VM_INST_CALL:
 			return true;
+		default:
+			break;
 		}
 
 		return false;
@@ -132,6 +140,8 @@ namespace
 		case VM_INST_LOAD_LONG:
 		case VM_INST_LOAD_STRUCT:
 			return true;
+		default:
+			break;
 		}
 
 		return false;
@@ -149,6 +159,8 @@ namespace
 		case VM_INST_STORE_LONG:
 		case VM_INST_STORE_STRUCT:
 			return true;
+		default:
+			break;
 		}
 
 		return false;
@@ -895,6 +907,8 @@ namespace
 						ChangeInstructionTo(module, inst, inst->cmd, target, CreateConstantInt(module->allocator, NULL, 0), inst->arguments.size() == 3 ? inst->arguments[2] : NULL, NULL, NULL);
 					}
 				}
+				break;
+			default:
 				break;
 			}
 		}
@@ -1706,23 +1720,21 @@ VmValue* CompileVmTypeCast(ExpressionContext &ctx, VmModule *module, ExprTypeCas
 	case EXPR_CAST_PTR_TO_BOOL:
 		return CheckType(ctx, node, CreateCompareNotEqual(module, node->source, value, CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false)));
 	case EXPR_CAST_UNSIZED_TO_BOOL:
-	{
-		TypeUnsizedArray *unsizedArrType = getType<TypeUnsizedArray>(node->value->type);
+		if(TypeUnsizedArray *unsizedArrType = getType<TypeUnsizedArray>(node->value->type))
+		{
+			VmValue *ptr = CreateExtract(module, node->source, VmType::Pointer(ctx.GetReferenceType(unsizedArrType->subType)), value, 0);
 
-		assert(unsizedArrType);
-
-		VmValue *ptr = CreateExtract(module, node->source, VmType::Pointer(ctx.GetReferenceType(unsizedArrType->subType)), value, 0);
-
-		return CheckType(ctx, node, CreateCompareNotEqual(module, node->source, ptr, CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false)));
-	}
-	break;
+			return CheckType(ctx, node, CreateCompareNotEqual(module, node->source, ptr, CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false)));
+		}
+		
+		break;
 	case EXPR_CAST_FUNCTION_TO_BOOL:
-	{
-		VmValue *index = CreateExtract(module, node->source, VmType::Int, value, sizeof(void*));
+		if(VmValue *index = CreateExtract(module, node->source, VmType::Int, value, sizeof(void*)))
+		{
+			return CheckType(ctx, node, CreateCompareNotEqual(module, node->source, index, CreateConstantInt(module->allocator, node->source, 0)));
+		}
 
-		return CheckType(ctx, node, CreateCompareNotEqual(module, node->source, index, CreateConstantInt(module->allocator, node->source, 0)));
-	}
-	break;
+		break;
 	case EXPR_CAST_NULL_TO_PTR:
 		return CheckType(ctx, node, CreateConstantPointer(module->allocator, node->source, 0, NULL, node->type, false));
 	case EXPR_CAST_NULL_TO_AUTO_PTR:
@@ -1734,53 +1746,46 @@ VmValue* CompileVmTypeCast(ExpressionContext &ctx, VmModule *module, ExprTypeCas
 	case EXPR_CAST_NULL_TO_FUNCTION:
 		return CheckType(ctx, node, CreateConstruct(module, node->source, GetVmType(ctx, node->type), CreateConstantPointer(module->allocator, node->source, 0, NULL, ctx.typeNullPtr, false), CreateConstantInt(module->allocator, node->source, 0), NULL, NULL));
 	case EXPR_CAST_ARRAY_PTR_TO_UNSIZED:
-	{
-		TypeRef *refType = getType<TypeRef>(node->value->type);
+		if(TypeRef *refType = getType<TypeRef>(node->value->type))
+		{
+			TypeArray *arrType = getType<TypeArray>(refType->subType);
 
-		assert(refType);
+			assert(arrType);
+			assert(unsigned(arrType->length) == arrType->length);
 
-		TypeArray *arrType = getType<TypeArray>(refType->subType);
+			return CheckType(ctx, node, CreateConstruct(module, node->source, GetVmType(ctx, node->type), value, CreateConstantInt(module->allocator, node->source, unsigned(arrType->length)), NULL, NULL));
+		}
 
-		assert(arrType);
-		assert(unsigned(arrType->length) == arrType->length);
-
-		return CheckType(ctx, node, CreateConstruct(module, node->source, GetVmType(ctx, node->type), value, CreateConstantInt(module->allocator, node->source, unsigned(arrType->length)), NULL, NULL));
-	}
-	break;
+		break;
 	case EXPR_CAST_PTR_TO_AUTO_PTR:
-	{
-		TypeRef *refType = getType<TypeRef>(node->value->type);
+		if(TypeRef *refType = getType<TypeRef>(node->value->type))
+		{
+			TypeClass *classType = getType<TypeClass>(refType->subType);
 
-		assert(refType);
+			VmValue *typeId = NULL;
 
-		TypeClass *classType = getType<TypeClass>(refType->subType);
+			if(classType && (classType->extendable || classType->baseClass))
+				typeId = CreateLoad(ctx, module, node->source, ctx.typeTypeID, value, 0);
+			else
+				typeId = CreateTypeIndex(module, node->source, refType->subType);
 
-		VmValue *typeId = NULL;
-
-		if(classType && (classType->extendable || classType->baseClass))
-			typeId = CreateLoad(ctx, module, node->source, ctx.typeTypeID, value, 0);
-		else
-			typeId = CreateTypeIndex(module, node->source, refType->subType);
-
-		return CheckType(ctx, node, CreateConstruct(module, node->source, GetVmType(ctx, node->type), typeId, value, NULL, NULL));
-	}
-	break;
+			return CheckType(ctx, node, CreateConstruct(module, node->source, GetVmType(ctx, node->type), typeId, value, NULL, NULL));
+		}
+		break;
 	case EXPR_CAST_AUTO_PTR_TO_PTR:
-	{
-		TypeRef *refType = getType<TypeRef>(node->type);
+		if(TypeRef *refType = getType<TypeRef>(node->type))
+		{
+			return CheckType(ctx, node, CreateConvertPtr(module, node->source, value, refType->subType, ctx.GetReferenceType(refType->subType)));
+		}
 
-		assert(refType);
-
-		return CheckType(ctx, node, CreateConvertPtr(module, node->source, value, refType->subType, ctx.GetReferenceType(refType->subType)));
-	}
+		break;
 	case EXPR_CAST_UNSIZED_TO_AUTO_ARRAY:
-	{
-		TypeUnsizedArray *unsizedType = getType<TypeUnsizedArray>(node->value->type);
+		if(TypeUnsizedArray *unsizedType = getType<TypeUnsizedArray>(node->value->type))
+		{
+			return CheckType(ctx, node, CreateConstruct(module, node->source, GetVmType(ctx, node->type), CreateTypeIndex(module, node->source, unsizedType->subType), value, NULL, NULL));
+		}
 
-		assert(unsizedType);
-
-		return CheckType(ctx, node, CreateConstruct(module, node->source, GetVmType(ctx, node->type), CreateTypeIndex(module, node->source, unsizedType->subType), value, NULL, NULL));
-	}
+		break;
 	case EXPR_CAST_REINTERPRET:
 		if(node->type == node->value->type)
 			return CheckType(ctx, node, value);
@@ -1847,6 +1852,8 @@ VmValue* CompileVmUnaryOp(ExpressionContext &ctx, VmModule *module, ExprUnaryOp 
 
 	switch(node->op)
 	{
+	case SYN_UNARY_OP_UNKNOWN:
+		break;
 	case SYN_UNARY_OP_PLUS:
 		result = value;
 		break;
@@ -2012,6 +2019,8 @@ VmValue* CompileVmBinaryOp(ExpressionContext &ctx, VmModule *module, ExprBinaryO
 		break;
 	case SYN_BINARY_OP_LOGICAL_XOR:
 		result = CreateLogicalXor(module, node->source, lhs, rhs);
+		break;
+	default:
 		break;
 	}
 
@@ -3130,6 +3139,8 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 				}
 			}
 			break;
+		default:
+			break;
 		}
 	}
 }
@@ -3372,6 +3383,8 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 				if(index < arrayLength)
 					ReplaceValueUsersWith(module, inst, CreateConstantPointer(module->allocator, inst->source, ptr + elementSize * index, consts[2]->container, inst->type.structType, true), &module->constantPropagations);
 			}
+			break;
+		default:
 			break;
 		}
 	}
@@ -3785,6 +3798,8 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 			case VM_INST_CALL:
 				ClearLoadStoreInfoAliasing(module);
 				ClearLoadStoreInfoGlobal(module);
+				break;
+			default:
 				break;
 			}
 

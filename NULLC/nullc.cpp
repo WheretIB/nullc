@@ -488,6 +488,8 @@ const char*	nullcGetArgumentVector(unsigned functionID, uintptr_t extra, va_list
 		ExternTypeInfo &tInfo = linker->exTypes[lInfo.type];
 		switch(tInfo.type)
 		{
+		case ExternTypeInfo::TYPE_VOID:
+			break;
 		case ExternTypeInfo::TYPE_CHAR:
 		case ExternTypeInfo::TYPE_SHORT:
 		case ExternTypeInfo::TYPE_INT:

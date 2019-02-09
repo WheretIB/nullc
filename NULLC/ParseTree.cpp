@@ -87,6 +87,8 @@ SynUnaryOpType GetUnaryOpType(LexemeType type)
 		return SYN_UNARY_OP_BIT_NOT;
 	case lex_lognot:
 		return SYN_UNARY_OP_LOGICAL_NOT;
+	default:
+		break;
 	}
 
 	return SYN_UNARY_OP_UNKNOWN;
@@ -138,6 +140,8 @@ SynBinaryOpType GetBinaryOpType(LexemeType type)
 		return SYN_BINARY_OP_LOGICAL_XOR;
 	case lex_in:
 		return SYN_BINARY_OP_IN;
+	default:
+		break;
 	}
 
 	return SYN_BINARY_OP_UNKNOWN;
@@ -189,6 +193,8 @@ unsigned GetBinaryOpPrecedence(SynBinaryOpType op)
 		return 10;
 	case SYN_BINARY_OP_IN:
 		return 12;
+	default:
+		break;
 	}
 
 	return 0;
@@ -220,6 +226,8 @@ SynModifyAssignType GetModifyAssignType(LexemeType type)
 		return SYN_MODIFY_ASSIGN_BIT_OR;
 	case lex_xorset:
 		return SYN_MODIFY_ASSIGN_BIT_XOR;
+	default:
+		break;
 	}
 
 	return SYN_MODIFY_ASSIGN_UNKNOWN;
@@ -2648,6 +2656,8 @@ const char* GetOpName(SynUnaryOpType type)
 		return "~";
 	case SYN_UNARY_OP_LOGICAL_NOT:
 		return "!";
+	default:
+		break;
 	}
 
 	assert(!"unknown operation type");
@@ -2700,6 +2710,8 @@ const char* GetOpName(SynBinaryOpType type)
 		return "^^";
 	case SYN_BINARY_OP_IN:
 		return "in";
+	default:
+		break;
 	}
 
 	assert(!"unknown operation type");
@@ -2732,6 +2744,8 @@ const char* GetOpName(SynModifyAssignType type)
 		return "|=";
 	case SYN_MODIFY_ASSIGN_BIT_XOR:
 		return "^=";
+	default:
+		break;
 	}
 
 	assert(!"unknown operation type");

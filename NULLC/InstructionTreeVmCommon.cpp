@@ -197,6 +197,8 @@ unsigned GetAccessSize(VmInstruction *inst)
 		return 8;
 	case VM_INST_STORE_STRUCT:
 		return inst->arguments[2]->type.size;
+	default:
+		break;
 	}
 
 	return 0;

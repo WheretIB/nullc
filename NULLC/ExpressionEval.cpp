@@ -694,6 +694,9 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue ^ rhsValue);
 			case SYN_BINARY_OP_LOGICAL_XOR:
 				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, !!lhsValue != !!rhsValue);
+			default:
+				assert(!"unexpected type");
+				break;
 			}
 		}
 
@@ -738,6 +741,9 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue == rhsValue);
 			case SYN_BINARY_OP_NOT_EQUAL:
 				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue != rhsValue);
+			default:
+				assert(!"unexpected type");
+				break;
 			}
 		}
 	}
@@ -1184,6 +1190,8 @@ ExprBase* EvaluateUnaryOp(ExpressionEvalContext &ctx, ExprUnaryOp *expression)
 				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, expression->type, ~result));
 			case SYN_UNARY_OP_LOGICAL_NOT:
 				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, expression->type, !result));
+			default:
+				assert(!"unknown unary operation");
 			}
 		}
 	}
@@ -1199,6 +1207,8 @@ ExprBase* EvaluateUnaryOp(ExpressionEvalContext &ctx, ExprUnaryOp *expression)
 				return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, expression->type, result));
 			case SYN_UNARY_OP_NEGATE:
 				return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, expression->type, -result));
+			default:
+				assert(!"unknown unary operation");
 			}
 		}
 	}

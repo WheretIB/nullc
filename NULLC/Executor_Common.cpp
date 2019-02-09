@@ -430,14 +430,18 @@ void nullcPrintVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned inde
 
 	switch(type.subCat)
 	{
+	case ExternTypeInfo::CAT_NONE:
+		break;
+	case ExternTypeInfo::CAT_ARRAY:
+		//nullcPrintArrayVariableInfo(type, ptr);
+		break;
+	case ExternTypeInfo::CAT_POINTER:
+		break;
 	case ExternTypeInfo::CAT_FUNCTION:
 		nullcPrintFunctionPointerInfo(type, ptr, indentDepth);
 		break;
 	case ExternTypeInfo::CAT_CLASS:
 		nullcPrintComplexVariableInfo(type, ptr, indentDepth);
-		break;
-	case ExternTypeInfo::CAT_ARRAY:
-		//nullcPrintArrayVariableInfo(type, ptr);
 		break;
 	}
 }
@@ -746,6 +750,8 @@ namespace GC
 		// Otherwise, check every array element is it's either array, pointer of class
 		switch(subType->subCat)
 		{
+		case ExternTypeInfo::CAT_NONE:
+			break;
 		case ExternTypeInfo::CAT_ARRAY:
 			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
 				CheckArray(ptr, *subType);
@@ -754,13 +760,13 @@ namespace GC
 			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
 				MarkPointer(ptr, *subType, true);
 			break;
-		case ExternTypeInfo::CAT_CLASS:
-			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-				CheckClass(ptr, *subType);
-			break;
 		case ExternTypeInfo::CAT_FUNCTION:
 			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
 				CheckFunction(ptr);
+			break;
+		case ExternTypeInfo::CAT_CLASS:
+			for(unsigned int i = 0; i < size; i++, ptr += subType->size)
+				CheckClass(ptr, *subType);
 			break;
 		}
 	}
@@ -863,19 +869,22 @@ namespace GC
 
 		if(!realType->pointerCount)
 			return;
+
 		switch(type.subCat)
 		{
+		case ExternTypeInfo::CAT_NONE:
+			break;
 		case ExternTypeInfo::CAT_ARRAY:
 			CheckArray(ptr, type);
 			break;
 		case ExternTypeInfo::CAT_POINTER:
 			MarkPointer(ptr, type, true);
 			break;
-		case ExternTypeInfo::CAT_CLASS:
-			CheckClass(ptr, *realType);
-			break;
 		case ExternTypeInfo::CAT_FUNCTION:
 			CheckFunction(ptr);
+			break;
+		case ExternTypeInfo::CAT_CLASS:
+			CheckClass(ptr, *realType);
 			break;
 		}
 	}
