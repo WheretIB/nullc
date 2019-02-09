@@ -1849,7 +1849,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		char buf[32];
 		sprintf(buf, "%d", value->iValue);
 
-		unsigned length = strlen(buf) + 1;
+		unsigned length = unsigned(strlen(buf) + 1);
 
 		VmConstant *result = AllocateHeapArray(ctx, ctx.ctx.typeChar, length);
 
@@ -1871,7 +1871,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		char buf[32];
 		sprintf(buf, "%lld", value->lValue);
 
-		unsigned length = strlen(buf) + 1;
+		unsigned length = unsigned(strlen(buf) + 1);
 
 		VmConstant *result = AllocateHeapArray(ctx, ctx.ctx.typeChar, length);
 
@@ -1989,8 +1989,8 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		while(upvalueDataPtr && upvalueDataPtr->target == variableLocation->iValue)
 		{
-			int nextVmPtr = upvalueDataPtr->next;
-			Upvalue *nextDataPtr = (Upvalue*)GetPointerDataPtr(ctx, upvalueDataPtr->next);
+			int nextVmPtr = int(upvalueDataPtr->next);
+			Upvalue *nextDataPtr = (Upvalue*)GetPointerDataPtr(ctx, nextVmPtr);
 
 			char *variableLocationData = GetPointerDataPtr(ctx, variableLocation->iValue);
 

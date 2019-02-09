@@ -913,7 +913,6 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 	cmdBase = &exLinker->exCode[0];
 	VMCmd *cmdStream = &exLinker->exCode[exLinker->offsetToGlobalCode];
-#define cmdStreamPos (cmdStream-cmdStreamBase)
 
 	// By default error is flagged, normal return will clear it
 	bool	errorState = true;

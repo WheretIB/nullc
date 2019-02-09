@@ -119,7 +119,7 @@ InplaceStr GetOperatorName(InplaceStr name)
 
 InplaceStr GetReferenceTypeName(ExpressionContext &ctx, TypeBase* type)
 {
-	unsigned nameLength = type->name.length() + strlen(" ref");
+	unsigned nameLength = unsigned(type->name.length() + strlen(" ref"));
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 	sprintf(name, "%.*s ref", FMT_ISTR(type->name));
 
@@ -128,7 +128,7 @@ InplaceStr GetReferenceTypeName(ExpressionContext &ctx, TypeBase* type)
 
 InplaceStr GetArrayTypeName(ExpressionContext &ctx, TypeBase* type, long long length)
 {
-	unsigned nameLength = type->name.length() + strlen("[]") + 21;
+	unsigned nameLength = unsigned(type->name.length() + strlen("[]") + 21);
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 	sprintf(name, "%.*s[%lld]", FMT_ISTR(type->name), length);
 
@@ -137,7 +137,7 @@ InplaceStr GetArrayTypeName(ExpressionContext &ctx, TypeBase* type, long long le
 
 InplaceStr GetUnsizedArrayTypeName(ExpressionContext &ctx, TypeBase* type)
 {
-	unsigned nameLength = type->name.length() + strlen("[]");
+	unsigned nameLength = unsigned(type->name.length() + strlen("[]"));
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 
 	char *pos = name;
@@ -155,7 +155,7 @@ InplaceStr GetUnsizedArrayTypeName(ExpressionContext &ctx, TypeBase* type)
 
 InplaceStr GetFunctionTypeName(ExpressionContext &ctx, TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
 {
-	unsigned nameLength = returnType->name.length() + strlen(" ref()");
+	unsigned nameLength = unsigned(returnType->name.length() + strlen(" ref()"));
 
 	for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
 		nameLength += arg->type->name.length() + 1;
@@ -187,12 +187,12 @@ InplaceStr GetFunctionTypeName(ExpressionContext &ctx, TypeBase* returnType, Int
 
 InplaceStr GetGenericClassTypeName(ExpressionContext &ctx, TypeBase* proto, IntrusiveList<TypeHandle> generics)
 {
-	unsigned nameLength = proto->name.length() + strlen("<>");
+	unsigned nameLength = unsigned(proto->name.length() + strlen("<>"));
 
 	for(TypeHandle *arg = generics.head; arg; arg = arg->next)
 	{
 		if(arg->type->isGeneric)
-			nameLength += strlen("generic") + 1;
+			nameLength += unsigned(strlen("generic") + 1);
 		else
 			nameLength += arg->type->name.length() + 1;
 	}
@@ -237,7 +237,7 @@ InplaceStr GetFunctionSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHand
 	unsigned nameLength = 0;
 
 	for(TypeHandle *arg = types.head; arg; arg = arg->next)
-		nameLength += arg->type->name.length() + strlen(" or ");
+		nameLength += unsigned(arg->type->name.length() + strlen(" or "));
 
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 
@@ -290,7 +290,7 @@ InplaceStr GetArgumentSetTypeName(ExpressionContext &ctx, IntrusiveList<TypeHand
 
 InplaceStr GetMemberSetTypeName(ExpressionContext &ctx, TypeBase* type)
 {
-	unsigned nameLength = type->name.length() + strlen(" members");
+	unsigned nameLength = unsigned(type->name.length() + strlen(" members"));
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 	sprintf(name, "%.*s members", FMT_ISTR(type->name));
 

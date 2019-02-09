@@ -213,7 +213,7 @@ bool BuildBaseModule(Allocator *allocator)
 	const char *errorPos = NULL;
 	char errorBuf[256];
 
-	if(!BuildModuleFromSource(allocator, "$base$.nc", nullcBaseCode, strlen(nullcBaseCode), &errorPos, errorBuf, 256))
+	if(!BuildModuleFromSource(allocator, "$base$.nc", nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256))
 	{
 		assert("Failed to compile base NULLC module");
 		return false;

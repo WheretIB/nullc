@@ -22,7 +22,7 @@ void PrintBuffered(ExpressionTranslateContext &ctx, char ch)
 
 void PrintBuffered(ExpressionTranslateContext &ctx, const char *str)
 {
-	unsigned length = strlen(str);
+	unsigned length = unsigned(strlen(str));
 
 	if(ctx.outBufPos + length < ctx.outBufSize)
 	{
@@ -1820,7 +1820,7 @@ void TranslateSequence(ExpressionTranslateContext &ctx, ExprSequence *expression
 
 const char* GetModuleOutputPath(Allocator *allocator, InplaceStr moduleName)
 {
-	unsigned length = strlen("import_") + moduleName.length() + strlen(".cpp") + 1;
+	unsigned length = unsigned(strlen("import_") + moduleName.length() + strlen(".cpp") + 1);
 	char *targetName = (char*)allocator->alloc(length);
 
 	char *pos = targetName;
@@ -1846,7 +1846,7 @@ const char* GetModuleOutputPath(Allocator *allocator, InplaceStr moduleName)
 
 const char* GetModuleMainName(Allocator *allocator, InplaceStr moduleName)
 {
-	unsigned length = moduleName.length() + + strlen("__init_") + 1;
+	unsigned length = unsigned(moduleName.length() + + strlen("__init_") + 1);
 	char *targetName = (char*)allocator->alloc(length);
 
 	SafeSprintf(targetName, length, "__init_%.*s", FMT_ISTR(moduleName));
