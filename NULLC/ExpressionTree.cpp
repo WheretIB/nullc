@@ -5658,7 +5658,7 @@ ExprBase* CreateFunctionCall(ExpressionContext &ctx, SynBase *source, ExprBase *
 ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, SynCallArgument *argumentHead, bool allowFailure)
 {
 	// Analyze arguments
-	SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+	SmallArray<ArgumentData, 16> arguments(ctx.allocator);
 	
 	for(SynCallArgument *el = argumentHead; el; el = getType<SynCallArgument>(el->next))
 	{
@@ -5669,7 +5669,7 @@ ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, 
 
 		if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(el->value))
 		{
-			SmallArray<ExprBase*, 32> options(ctx.allocator);
+			SmallArray<ExprBase*, 16> options(ctx.allocator);
 
 			if(functions.empty())
 			{
