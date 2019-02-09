@@ -57,22 +57,41 @@ long long vmLongPow(long long power, long long number)
 	return result;
 }
 
-#if defined(__arm__)
-long long vmLoadInt64(char* target)
+long long vmLoadLong(void* target)
 {
 	long long value;
-	memcpy(&value, target, 8);
+	memcpy(&value, target, sizeof(long long));
 	return value;
 }
 
-void vmStoreInt64(char* target, long long value)
+void vmStoreLong(void* target, long long value)
 {
-	memcpy(target, &value, 8);
+	memcpy(target, &value, sizeof(long long));
 }
-#else
-#define vmLoadInt64(x) (*(long long*)(x))
-#define vmStoreInt64(x, y) (*(long long*)(x) = y)
-#endif
+
+double vmLoadDouble(void* target)
+{
+	double value;
+	memcpy(&value, target, sizeof(double));
+	return value;
+}
+
+void vmStoreDouble(void* target, double value)
+{
+	memcpy(target, &value, sizeof(double));
+}
+
+char* vmLoadPointer(void* target)
+{
+	char* value;
+	memcpy(&value, target, sizeof(char*));
+	return value;
+}
+
+void vmStorePointer(void* target, char* value)
+{
+	memcpy(target, &value, sizeof(char*));
+}
 
 #if defined(_M_X64)
 #ifdef _WIN64
@@ -1066,11 +1085,11 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 		case cmdPushFloat:
 			genStackPtr -= 2;
-			*(double*)(genStackPtr) = (double)*((float*)(&genParams[cmd.argument + (paramBase * cmd.flag)]));
+			vmStoreDouble(genStackPtr, (double)*((float*)(&genParams[cmd.argument + (paramBase * cmd.flag)])));
 			break;
 		case cmdPushDorL:
 			genStackPtr -= 2;
-			*(long long*)(genStackPtr) = vmLoadInt64(&genParams[cmd.argument + (paramBase * cmd.flag)]);
+			vmStoreLong(genStackPtr, vmLoadLong(&genParams[cmd.argument + (paramBase * cmd.flag)]));
 			break;
 		case cmdPushCmplx:
 		{
@@ -1087,9 +1106,9 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 		case cmdPushCharStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
 			genStackPtr++;
-			*genStackPtr = *(char*)(cmd.argument + *(char**)(genStackPtr-1));
+			*genStackPtr = *(char*)(cmd.argument + vmLoadPointer(genStackPtr - 1));
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			*genStackPtr = *((char*)NULL + cmd.argument + *genStackPtr);
@@ -1097,9 +1116,9 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 		case cmdPushShortStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
 			genStackPtr++;
-			*genStackPtr = *(short*)(cmd.argument + *(char**)(genStackPtr-1));
+			*genStackPtr = *(short*)(cmd.argument + vmLoadPointer(genStackPtr - 1));
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			*genStackPtr = *(short*)((char*)NULL + cmd.argument + *genStackPtr);
@@ -1107,9 +1126,9 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 		case cmdPushIntStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
 			genStackPtr++;
-			*genStackPtr = *(int*)(cmd.argument + *(char**)(genStackPtr-1));
+			*genStackPtr = *(int*)(cmd.argument + vmLoadPointer(genStackPtr - 1));
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			*genStackPtr = *(int*)((char*)NULL + cmd.argument + *genStackPtr);
@@ -1117,29 +1136,29 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 		case cmdPushFloatStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
-			*(double*)(genStackPtr) = (double)*(float*)(cmd.argument + *(char**)(genStackPtr));
+			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			vmStoreDouble(genStackPtr, (double)*(float*)(cmd.argument + vmLoadPointer(genStackPtr)));
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr--;
-			*(double*)(genStackPtr) = (double)*(float*)((char*)NULL + cmd.argument + *(genStackPtr+1));
+			vmStoreDouble(genStackPtr, (double)*(float*)((char*)NULL + cmd.argument + *(genStackPtr + 1)));
 #endif
 			break;
 		case cmdPushDorLStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
-			*(long long*)(genStackPtr) = *(long long*)(cmd.argument + *(char**)(genStackPtr));
+			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			vmStoreLong(genStackPtr, vmLoadLong(cmd.argument + vmLoadPointer(genStackPtr)));
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr--;
-			*(long long*)(genStackPtr) = vmLoadInt64((char*)NULL + cmd.argument + *(genStackPtr+1));
+			vmStoreLong(genStackPtr, vmLoadLong((char*)NULL + cmd.argument + *(genStackPtr + 1)));
 #endif
 			break;
 		case cmdPushCmplxStk:
 		{
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
-			char *start = cmd.argument + *(char**)genStackPtr;
+			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			char *start = cmd.argument + vmLoadPointer(genStackPtr);
 			genStackPtr += 2;
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
@@ -1171,10 +1190,10 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			*((int*)(&genParams[cmd.argument + (paramBase * cmd.flag)])) = (int)(*genStackPtr);
 			break;
 		case cmdMovFloat:
-			*((float*)(&genParams[cmd.argument + (paramBase * cmd.flag)])) = (float)*(double*)(genStackPtr);
+			*((float*)(&genParams[cmd.argument + (paramBase * cmd.flag)])) = (float)vmLoadDouble(genStackPtr);
 			break;
 		case cmdMovDorL:
-			vmStoreInt64(&genParams[cmd.argument + (paramBase * cmd.flag)], *(long long*)(genStackPtr));
+			vmStoreLong(&genParams[cmd.argument + (paramBase * cmd.flag)], vmLoadLong(genStackPtr));
 			break;
 		case cmdMovCmplx:
 		{
@@ -1191,9 +1210,9 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 		case cmdMovCharStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
 			genStackPtr += 2;
-			*(cmd.argument + *(char**)(genStackPtr-2)) = (unsigned char)(*genStackPtr);
+			*(cmd.argument + vmLoadPointer(genStackPtr - 2)) = (unsigned char)(*genStackPtr);
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
@@ -1202,9 +1221,9 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 		case cmdMovShortStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
 			genStackPtr += 2;
-			*(unsigned short*)(cmd.argument + *(char**)(genStackPtr-2)) = (unsigned short)(*genStackPtr);
+			*(unsigned short*)(cmd.argument + vmLoadPointer(genStackPtr - 2)) = (unsigned short)(*genStackPtr);
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
@@ -1213,9 +1232,9 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 		case cmdMovIntStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
 			genStackPtr += 2;
-			*(int*)(cmd.argument + *(char**)(genStackPtr-2)) = (int)(*genStackPtr);
+			*(int*)(cmd.argument + vmLoadPointer(genStackPtr - 2)) = (int)(*genStackPtr);
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
@@ -1225,31 +1244,31 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 		case cmdMovFloatStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
 			genStackPtr += 2;
-			*(float*)(cmd.argument + *(char**)(genStackPtr-2)) = (float)*(double*)(genStackPtr);
+			*(float*)(cmd.argument + vmLoadPointer(genStackPtr - 2)) = (float)vmLoadDouble(genStackPtr);
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
-			*(float*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (float)*(double*)(genStackPtr);
+			*(float*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (float)vmLoadDouble(genStackPtr);
 #endif
 			break;
 		case cmdMovDorLStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
 			genStackPtr += 2;
-			*(long long*)(cmd.argument + *(char**)(genStackPtr-2)) = *(long long*)(genStackPtr);
+			vmStoreLong(cmd.argument + vmLoadPointer(genStackPtr - 2), vmLoadLong(genStackPtr));
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
 			genStackPtr++;
-			vmStoreInt64((char*)NULL + cmd.argument + *(genStackPtr-1), *(long long*)(genStackPtr));
+			vmStoreLong((char*)NULL + cmd.argument + *(genStackPtr-1), vmLoadLong(genStackPtr));
 #endif
 			break;
 		case cmdMovCmplxStk:
 		{
 #ifdef _M_X64
-			RUNTIME_ERROR(*(char**)genStackPtr == 0, "ERROR: null pointer access");
-			char *start = cmd.argument + *(char**)genStackPtr;
+			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			char *start = cmd.argument + vmLoadPointer(genStackPtr);
 			genStackPtr += 2;
 #else
 			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
@@ -1272,67 +1291,63 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 
 		case cmdDtoI:
-			*(genStackPtr+1) = int(*(double*)(genStackPtr));
+			*(genStackPtr + 1) = int(vmLoadDouble(genStackPtr));
 			genStackPtr++;
 			break;
 		case cmdDtoL:
-			*(long long*)(genStackPtr) = (long long)*(double*)(genStackPtr);
+			vmStoreLong(genStackPtr, (long long)vmLoadDouble(genStackPtr));
 			break;
 		case cmdDtoF:
-			*((float*)(genStackPtr+1)) = float(*(double*)(genStackPtr));
+			*((float*)(genStackPtr + 1)) = float(vmLoadDouble(genStackPtr));
 			genStackPtr++;
 			break;
 		case cmdItoD:
 			genStackPtr--;
-			*(double*)(genStackPtr) = double(*(int*)(genStackPtr+1));
+			vmStoreDouble(genStackPtr, double(*(int*)(genStackPtr + 1)));
 			break;
 		case cmdLtoD:
-			*(double*)(genStackPtr) = double(*(long long*)(genStackPtr));
+			vmStoreDouble(genStackPtr, double(vmLoadLong(genStackPtr)));
 			break;
 		case cmdItoL:
 			genStackPtr--;
-			*(long long*)(genStackPtr) = (long long)(*(int*)(genStackPtr+1));
+			vmStoreLong(genStackPtr, (long long)(*(int*)(genStackPtr + 1)));
 			break;
 		case cmdLtoI:
 			genStackPtr++;
-			*genStackPtr = (int)*(long long*)(genStackPtr - 1);
+			*genStackPtr = (int)vmLoadLong(genStackPtr - 1);
 			break;
 
 		case cmdIndex:
 			RUNTIME_ERROR(*genStackPtr >= (unsigned int)cmd.argument, "ERROR: array index out of bounds");
-#ifdef _M_X64
-			*(char**)(genStackPtr+1) += cmd.helper * (*genStackPtr);
-#else
-			*(char**)(genStackPtr+1) += cmd.helper * (*genStackPtr);
-#endif
+			vmStorePointer(genStackPtr + 1, vmLoadPointer(genStackPtr + 1) + cmd.helper * (*genStackPtr));
 			genStackPtr++;
 			break;
 		case cmdIndexStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*genStackPtr >= *(genStackPtr+3), "ERROR: array index out of bounds");
-			*(char**)(genStackPtr+2) = *(char**)(genStackPtr+1) + cmd.helper * (*genStackPtr);
+			RUNTIME_ERROR(*genStackPtr >= *(genStackPtr + 3), "ERROR: array index out of bounds");
+			vmStorePointer(genStackPtr + 2, vmLoadPointer(genStackPtr + 1) + cmd.helper * (*genStackPtr));
 			genStackPtr += 2;
 #else
-			RUNTIME_ERROR(*genStackPtr >= *(genStackPtr+2), "ERROR: array index out of bounds");
-			*(int*)(genStackPtr+2) = *(genStackPtr+1) + cmd.helper * (*genStackPtr);
+			RUNTIME_ERROR(*genStackPtr >= *(genStackPtr + 2), "ERROR: array index out of bounds");
+			*(int*)(genStackPtr + 2) = *(genStackPtr + 1) + cmd.helper * (*genStackPtr);
 			genStackPtr += 2;
 #endif
 			break;
 
 		case cmdCopyDorL:
 			genStackPtr -= 2;
-			*genStackPtr = *(genStackPtr+2);
-			*(genStackPtr+1) = *(genStackPtr+3);
+			*genStackPtr = *(genStackPtr + 2);
+			*(genStackPtr + 1) = *(genStackPtr + 3);
 			break;
 		case cmdCopyI:
 			genStackPtr--;
-			*genStackPtr = *(genStackPtr+1);
+			*genStackPtr = *(genStackPtr + 1);
 			break;
 
 		case cmdGetAddr:
 #ifdef _M_X64
 			genStackPtr -= 2;
-			*(void**)genStackPtr = cmd.argument + paramBase * cmd.helper + genParams.data;
+			vmStorePointer(genStackPtr, cmd.argument + paramBase * cmd.helper + genParams.data);
 #else
 			genStackPtr--;
 			*genStackPtr = cmd.argument + paramBase * cmd.helper + (int)(intptr_t)genParams.data;
@@ -1346,10 +1361,10 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			unsigned int count = cmd.argument;
 
 #ifdef _M_X64
-			char *start =  *(char**)(genStackPtr);
+			char *start =  vmLoadPointer(genStackPtr);
 			genStackPtr += 2;
 #else
-			char *start = *(char**)(genStackPtr);
+			char *start = vmLoadPointer(genStackPtr);
 			genStackPtr++;
 #endif
 
@@ -1358,15 +1373,15 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				switch(cmd.helper)
 				{
 				case DTYPE_DOUBLE:
-					*((double*)start) = *(double*)(genStackPtr);
+					*((double*)start) = vmLoadDouble(genStackPtr);
 					start += 8;
 					break;
 				case DTYPE_FLOAT:
-					*((float*)start) = float(*(double*)(genStackPtr));
+					*((float*)start) = float(vmLoadDouble(genStackPtr));
 					start += 4;
 					break;
 				case DTYPE_LONG:
-					vmStoreInt64(start, *(long long*)(genStackPtr));
+					vmStoreLong(start, vmLoadLong(genStackPtr));
 					start += 8;
 					break;
 				case DTYPE_INT:
@@ -1558,21 +1573,21 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 
 		case cmdAdd:
-			*(int*)(genStackPtr+1) += *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) += *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdSub:
-			*(int*)(genStackPtr+1) -= *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) -= *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdMul:
-			*(int*)(genStackPtr+1) *= *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) *= *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdDiv:
 			if(*(int*)(genStackPtr))
 			{
-				*(int*)(genStackPtr+1) /= *(int*)(genStackPtr);
+				*(int*)(genStackPtr + 1) /= *(int*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
 				fcallStack.push_back(cmdStream); 
@@ -1581,13 +1596,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			genStackPtr++;
 			break;
 		case cmdPow:
-			*(int*)(genStackPtr+1) = vmIntPow(*(int*)(genStackPtr), *(int*)(genStackPtr+1));
+			*(int*)(genStackPtr + 1) = vmIntPow(*(int*)(genStackPtr), *(int*)(genStackPtr + 1));
 			genStackPtr++;
 			break;
 		case cmdMod:
 			if(*(int*)(genStackPtr))
 			{
-				*(int*)(genStackPtr+1) %= *(int*)(genStackPtr);
+				*(int*)(genStackPtr + 1) %= *(int*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
 				fcallStack.push_back(cmdStream); 
@@ -1596,74 +1611,76 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			genStackPtr++;
 			break;
 		case cmdLess:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) < *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) < *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdGreater:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) > *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) > *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdLEqual:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) <= *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) <= *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdGEqual:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) >= *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) >= *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdEqual:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) == *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) == *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdNEqual:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) != *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) != *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdShl:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) << *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) << *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdShr:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) >> *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) >> *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdBitAnd:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) & *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) & *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdBitOr:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) | *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) | *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdBitXor:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) ^ *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) ^ *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdLogAnd:
 		case cmdLogOr:
 			break;
 		case cmdLogXor:
-			*(int*)(genStackPtr+1) = !!(*(int*)(genStackPtr+1)) ^ !!(*(int*)(genStackPtr));
+			*(int*)(genStackPtr + 1) = !!(*(int*)(genStackPtr + 1)) ^ !!(*(int*)(genStackPtr));
 			genStackPtr++;
 			break;
 
 		case cmdAddL:
-			*(long long*)(genStackPtr+2) += *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) + vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdSubL:
-			*(long long*)(genStackPtr+2) -= *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) - vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdMulL:
-			*(long long*)(genStackPtr+2) *= *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) * vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdDivL:
-			if(*(long long*)(genStackPtr))
+			if(long long value = vmLoadLong(genStackPtr))
 			{
-				*(long long*)(genStackPtr+2) /= *(long long*)(genStackPtr);
-			}else{
+				vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) / value);
+			}
+			else
+			{
 				strcpy(execError, "ERROR: integer division by zero");
 				fcallStack.push_back(cmdStream); 
 				cmdStream = NULL;
@@ -1671,13 +1688,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			genStackPtr += 2;
 			break;
 		case cmdPowL:
-			*(long long*)(genStackPtr+2) = vmLongPow(*(long long*)(genStackPtr), *(long long*)(genStackPtr+2));
+			vmStoreLong(genStackPtr + 2, vmLongPow(vmLoadLong(genStackPtr), vmLoadLong(genStackPtr + 2)));
 			genStackPtr += 2;
 			break;
 		case cmdModL:
-			if(*(long long*)(genStackPtr))
+			if(long long value = vmLoadLong(genStackPtr))
 			{
-				*(long long*)(genStackPtr+2) %= *(long long*)(genStackPtr);
+				vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) % value);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
 				fcallStack.push_back(cmdStream); 
@@ -1686,103 +1703,103 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			genStackPtr += 2;
 			break;
 		case cmdLessL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) < *(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadLong(genStackPtr + 2) < vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdGreaterL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) > *(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadLong(genStackPtr + 2) > vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdLEqualL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) <= *(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadLong(genStackPtr + 2) <= vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdGEqualL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) >= *(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadLong(genStackPtr + 2) >= vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdEqualL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) == *(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadLong(genStackPtr + 2) == vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdNEqualL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) != *(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadLong(genStackPtr + 2) != vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdShlL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) << *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) << vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdShrL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) >> *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) >> vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdBitAndL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) & *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) & vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdBitOrL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) | *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) | vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdBitXorL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) ^ *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) ^ vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdLogAndL:
 		case cmdLogOrL:
 			break;
 		case cmdLogXorL:
-			*(int*)(genStackPtr+3) = !!(*(long long*)(genStackPtr+2)) ^ !!(*(long long*)(genStackPtr));
+			*(int*)(genStackPtr + 3) = !!vmLoadLong(genStackPtr + 2) ^ !!vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 
 		case cmdAddD:
-			*(double*)(genStackPtr+2) += *(double*)(genStackPtr);
+			vmStoreDouble(genStackPtr + 2, vmLoadDouble(genStackPtr + 2) + vmLoadDouble(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdSubD:
-			*(double*)(genStackPtr+2) -= *(double*)(genStackPtr);
+			vmStoreDouble(genStackPtr + 2, vmLoadDouble(genStackPtr + 2) - vmLoadDouble(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdMulD:
-			*(double*)(genStackPtr+2) *= *(double*)(genStackPtr);
+			vmStoreDouble(genStackPtr + 2, vmLoadDouble(genStackPtr + 2) * vmLoadDouble(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdDivD:
-			*(double*)(genStackPtr+2) /= *(double*)(genStackPtr);
+			vmStoreDouble(genStackPtr + 2, vmLoadDouble(genStackPtr + 2) / vmLoadDouble(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdPowD:
-			*(double*)(genStackPtr+2) = pow(*(double*)(genStackPtr+2), *(double*)(genStackPtr));
+			vmStoreDouble(genStackPtr + 2, pow(vmLoadDouble(genStackPtr + 2), vmLoadDouble(genStackPtr)));
 			genStackPtr += 2;
 			break;
 		case cmdModD:
-			*(double*)(genStackPtr+2) = fmod(*(double*)(genStackPtr+2), *(double*)(genStackPtr));
+			vmStoreDouble(genStackPtr + 2, fmod(vmLoadDouble(genStackPtr + 2), vmLoadDouble(genStackPtr)));
 			genStackPtr += 2;
 			break;
 		case cmdLessD:
-			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) < *(double*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadDouble(genStackPtr + 2) < vmLoadDouble(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdGreaterD:
-			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) > *(double*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadDouble(genStackPtr + 2) > vmLoadDouble(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdLEqualD:
-			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) <= *(double*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadDouble(genStackPtr + 2) <= vmLoadDouble(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdGEqualD:
-			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) >= *(double*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadDouble(genStackPtr + 2) >= vmLoadDouble(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdEqualD:
-			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) == *(double*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadDouble(genStackPtr + 2) == vmLoadDouble(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdNEqualD:
-			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) != *(double*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadDouble(genStackPtr + 2) != vmLoadDouble(genStackPtr);
 			genStackPtr += 3;
 			break;
 
@@ -1790,24 +1807,24 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			*(int*)(genStackPtr) = -*(int*)(genStackPtr);
 			break;
 		case cmdNegL:
-			*(long long*)(genStackPtr) = -*(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr, -vmLoadLong(genStackPtr));
 			break;
 		case cmdNegD:
-			*(double*)(genStackPtr) = -*(double*)(genStackPtr);
+			vmStoreDouble(genStackPtr, -vmLoadDouble(genStackPtr));
 			break;
 
 		case cmdBitNot:
 			*(int*)(genStackPtr) = ~*(int*)(genStackPtr);
 			break;
 		case cmdBitNotL:
-			*(long long*)(genStackPtr) = ~*(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr, ~vmLoadLong(genStackPtr));
 			break;
 
 		case cmdLogNot:
 			*(int*)(genStackPtr) = !*(int*)(genStackPtr);
 			break;
 		case cmdLogNotL:
-			*(int*)(genStackPtr+1) = !*(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = !vmLoadLong(genStackPtr);
 			genStackPtr++;
 			break;
 		
@@ -1815,20 +1832,20 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			(*(int*)(genStackPtr))++;
 			break;
 		case cmdIncD:
-			*(double*)(genStackPtr) += 1.0;
+			vmStoreDouble(genStackPtr, vmLoadDouble(genStackPtr) + 1.0f);
 			break;
 		case cmdIncL:
-			(*(long long*)(genStackPtr))++;
+			vmStoreLong(genStackPtr, vmLoadLong(genStackPtr) + 1);
 			break;
 
 		case cmdDecI:
 			(*(int*)(genStackPtr))--;
 			break;
 		case cmdDecD:
-			*(double*)(genStackPtr) -= 1.0;
+			vmStoreDouble(genStackPtr, vmLoadDouble(genStackPtr) - 1.0f);
 			break;
 		case cmdDecL:
-			(*(long long*)(genStackPtr))--;
+			vmStoreLong(genStackPtr, vmLoadLong(genStackPtr) - 1);
 			break;
 
 		case cmdCreateClosure:
@@ -1885,20 +1902,20 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			}
 			break;
 		case cmdCheckedRet:
-			if(*(void**)genStackPtr >= &genParams[paramBase] && *(void**)genStackPtr <= genParams.data + genParams.size())
+			if(vmLoadPointer(genStackPtr) >= &genParams[paramBase] && vmLoadPointer(genStackPtr) <= genParams.data + genParams.size())
 			{
 				ExternTypeInfo &type = exLinker->exTypes[cmd.argument];
 				if(type.arrSize == ~0u)
 				{
 					unsigned length = *(int*)(((char*)genStackPtr) + sizeof(void*));
 					char *copy = (char*)NULLC::AllocObject(exLinker->exTypes[type.subType].size * length);
-					memcpy(copy, *(char**)genStackPtr, exLinker->exTypes[type.subType].size * length);
-					*(char**)genStackPtr = copy;
+					memcpy(copy, vmLoadPointer(genStackPtr), exLinker->exTypes[type.subType].size * length);
+					vmStorePointer(genStackPtr, copy);
 				}else{
 					unsigned int objSize = type.size;
 					char *copy = (char*)NULLC::AllocObject(objSize);
-					memcpy(copy, *(char**)genStackPtr, objSize);
-					*(char**)genStackPtr = copy;
+					memcpy(copy, vmLoadPointer(genStackPtr), objSize);
+					vmStorePointer(genStackPtr, copy);
 				}
 			}
 			break;
@@ -1927,8 +1944,8 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 	lastResultInt = *(int*)genStackPtr;
 	if(genStackSize > 1)
 	{
-		lastResultLong = *(long long*)genStackPtr;
-		lastResultDouble = *(double*)genStackPtr;
+		lastResultLong = vmLoadLong(genStackPtr);
+		lastResultDouble = vmLoadDouble(genStackPtr);
 	}
 
 	switch(retType)
