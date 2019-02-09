@@ -310,6 +310,45 @@ bool BuildBaseModule(Allocator *allocator)
 	return true;
 }
 
+void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize)
+{
+	if(!errorPos)
+		return;
+
+	if(!errorBuf)
+		return;
+
+	const char *codeEnd = codeStart + strlen(codeStart);
+
+	if(errorPos < codeStart || errorPos >= codeEnd)
+		return;
+
+	const char *start = errorPos;
+	const char *end = start + 1;
+
+	while(start > codeStart && *(start - 1) != '\r' && *(start - 1) != '\n')
+		start--;
+
+	while(*end && *end != '\r' && *end != '\n')
+		end++;
+
+	char *errorCurr = errorBuf + strlen(errorBuf);
+
+	if(errorBufSize > unsigned(errorCurr - errorBuf))
+		*(errorCurr++) = '\n';
+
+	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "  at '%.*s'\n", unsigned(end - start), start);
+	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "      ");
+
+	for(unsigned i = 0; i < unsigned(errorPos - start); i++)
+	{
+		if(errorBufSize > unsigned(errorCurr - errorBuf))
+			*(errorCurr++) = ' ';
+	}
+
+	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "^\n");
+}
+
 ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 {
 	ctx.code = code;
@@ -326,7 +365,11 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 	if(!ctx.synModule)
 	{
 		if(parseCtx.errorPos)
+		{
 			ctx.errorPos = parseCtx.errorPos;
+
+			AddErrorLocationInfo(code, ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
+		}
 
 		return NULL;
 	}
@@ -354,7 +397,11 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 	if(!ctx.exprModule)
 	{
 		if(exprCtx.errorPos)
+		{
 			ctx.errorPos = exprCtx.errorPos;
+
+			AddErrorLocationInfo(code, ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
+		}
 
 		return NULL;
 	}
