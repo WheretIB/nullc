@@ -5071,7 +5071,23 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 		if(!ratings.empty() && ratings[i] != bestRating)
 			continue;
 
-		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "  %.*s %.*s(", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name));
+		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "  %.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name));
+
+		if(!function->generics.empty())
+		{
+			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "<");
+
+			for(unsigned k = 0; k < function->generics.size(); k++)
+			{
+				MatchData *match = function->generics[k];
+
+				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%.*s", k != 0 ? ", " : "", FMT_ISTR(match->type->name));
+			}
+
+			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ">");
+		}
+
+		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "(");
 
 		for(unsigned k = 0; k < function->arguments.size(); k++)
 		{
