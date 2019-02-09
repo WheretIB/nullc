@@ -2758,7 +2758,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		// isReference/isArray/isFunction/arraySize/hasMember(x)/class member/class typedef
 
-		Stop(ctx, syntax->pos, "ERROR: unknown member access type");
+		Stop(ctx, syntax->pos, "ERROR: typeof expression result is not a type");
 
 		return NULL;
 	}
@@ -4100,7 +4100,7 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 						Stop(ctx, source->pos, "ERROR: function argument set is empty");
 
 					if(number->value >= argumentSet->types.size())
-						Stop(ctx, source->pos, "ERROR: function has only %d argument(s)", argumentSet->types.size());
+						Stop(ctx, source->pos, "ERROR: function arguemnt set '%.*s' has only %d argument(s)", FMT_ISTR(argumentSet->name), argumentSet->types.size());
 
 					return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, argumentSet->types[unsigned(number->value)]->type);
 				}
@@ -8337,7 +8337,7 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 			return new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
 		}
 
-		Stop(ctx, syntax->pos, "ERROR: can't get condition value");
+		Stop(ctx, syntax->pos, "ERROR: couldn't evaluate condition at compilation time");
 	}
 
 	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);

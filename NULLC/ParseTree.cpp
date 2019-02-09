@@ -229,6 +229,7 @@ ParseContext::ParseContext(Allocator *allocator): allocator(allocator), binaryOp
 {
 	firstLexeme = NULL;
 	currentLexeme = NULL;
+	lastLexeme = NULL;
 
 	errorHandlerActive = false;
 	errorPos = NULL;
@@ -300,6 +301,11 @@ Lexeme* ParseContext::Previous()
 	assert(currentLexeme > firstLexeme);
 
 	return currentLexeme - 1;
+}
+
+Lexeme* ParseContext::Last()
+{
+	return lastLexeme;
 }
 
 const char* ParseContext::Position()
@@ -388,7 +394,7 @@ void ParseContext::PopNamespace()
 	currentNamespace = currentNamespace->parent;
 }
 
-SynBase* ParseType(ParseContext &ctx, bool *shrBorrow = 0);
+SynBase* ParseType(ParseContext &ctx, bool *shrBorrow = 0, bool onlyType = false);
 SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node);
 SynBase* ParseTerminal(ParseContext &ctx);
 SynBase* ParseTernaryExpr(ParseContext &ctx);
@@ -436,6 +442,9 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 
 			if(!type)
 			{
+				if(ctx.Peek() == lex_greater)
+					Stop(ctx, ctx.Position(), "ERROR: typename required after '<'");
+
 				// Backtrack
 				ctx.currentLexeme = start;
 
@@ -527,7 +536,7 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 	return NULL;
 }
 
-SynBase* ParseType(ParseContext &ctx, bool *shrBorrow)
+SynBase* ParseType(ParseContext &ctx, bool *shrBorrow, bool onlyType)
 {
 	Lexeme *start = ctx.currentLexeme;
 
@@ -567,6 +576,9 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow)
 
 				if(size && !ctx.At(lex_cbracket))
 				{
+					if(onlyType)
+						Stop(ctx, ctx.Position(), "ERROR: ']' not found after expression");
+
 					// Backtrack
 					ctx.currentLexeme = start;
 
@@ -778,7 +790,7 @@ SynNew* ParseNew(ParseContext &ctx)
 		}
 		else
 		{
-			type = ParseType(ctx);
+			type = ParseType(ctx, NULL, true);
 
 			if(!type)
 				Stop(ctx, ctx.Position(), "ERROR: type name expected after 'new'");
@@ -1165,7 +1177,7 @@ SynBase* ParseArithmetic(ParseContext &ctx)
 		lhs = ParseTerminal(ctx);
 
 		if(!lhs)
-			Stop(ctx, ctx.Position(), "ERROR: terminal expression not found after binary operation");
+			Stop(ctx, ctx.Position(), "ERROR: expression not found after binary operation");
 	}
 
 	while(ctx.binaryOpStack.size() > startSize)
@@ -1460,7 +1472,7 @@ SynReturn* ParseReturn(ParseContext &ctx)
 		// Optional
 		SynBase *value = ParseAssignment(ctx);
 
-		AssertConsume(ctx, lex_semicolon, "ERROR: return statement must be followed by ';'");
+		AssertConsume(ctx, lex_semicolon, "ERROR: return statement must be followed by an expression or ';'");
 
 		return new (ctx.get<SynReturn>()) SynReturn(start, ctx.Previous(), value);
 	}
@@ -1477,7 +1489,7 @@ SynYield* ParseYield(ParseContext &ctx)
 		// Optional
 		SynBase *value = ParseAssignment(ctx);
 
-		AssertConsume(ctx, lex_semicolon, "ERROR: yield statement must be followed by ';'");
+		AssertConsume(ctx, lex_semicolon, "ERROR: yield statement must be followed by an expression or ';'");
 
 		return new (ctx.get<SynYield>()) SynYield(start, ctx.Previous(), value);
 	}
@@ -1910,6 +1922,9 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx, bool classMe
 
 		if(!definition)
 		{
+			if(align)
+				Stop(ctx, ctx.Position(), "ERROR: variable or class definition is expected after alignment specifier");
+
 			// Backtrack
 			ctx.currentLexeme = start;
 
@@ -2135,6 +2150,9 @@ SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, bool lastExplicit,
 	{
 		if(!ctx.At(lex_string) && lastType)
 		{
+			if(isExplicit)
+				Stop(ctx, ctx.Position(), "ERROR: variable name not found after type in function variable list");
+
 			// Backtrack
 			ctx.currentLexeme = start;
 
@@ -2434,6 +2452,9 @@ SynBase* ParseExpression(ParseContext &ctx)
 
 	if(SynBase *node = ParseAssignment(ctx))
 	{
+		if(ctx.Peek() == lex_none && ctx.Current() != ctx.Last())
+			Stop(ctx, ctx.Position(), "ERROR: unknown lexeme");
+
 		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after expression");
 
 		return node;
@@ -2597,10 +2618,13 @@ SynModule* Parse(ParseContext &ctx, const char *code)
 
 	if(!setjmp(ctx.errorHandler))
 	{
+		assert(ctx.lexer.GetStreamSize() != 0);
+
 		ctx.errorHandlerActive = true;
 
 		ctx.firstLexeme = ctx.lexer.GetStreamStart();
 		ctx.currentLexeme = ctx.lexer.GetStreamStart();
+		ctx.lastLexeme = ctx.lexer.GetStreamStart() + (ctx.lexer.GetStreamSize() - 1);
 
 		SynModule *module = ParseModule(ctx);
 

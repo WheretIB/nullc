@@ -93,6 +93,7 @@ struct ParseContext
 
 	Lexeme* Current();
 	Lexeme* Previous();
+	Lexeme* Last();
 
 	const char* Position();
 	const char* LastEnding();
@@ -107,6 +108,7 @@ struct ParseContext
 
 	Lexeme *firstLexeme;
 	Lexeme *currentLexeme;
+	Lexeme *lastLexeme;
 
 	SmallArray<SynBinaryOpElement, 32> binaryOpStack;
 
