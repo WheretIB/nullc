@@ -466,7 +466,11 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 #endif
 			fgets(buf, 256, resPipe);
 
+#if defined(_MSC_VER)
 			_pclose(resPipe);
+#else
+			pclose(resPipe);
+#endif
 
 			char expectedCopy[256];
 			strcpy(expectedCopy, expected);
