@@ -6,6 +6,8 @@
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
+#pragma warning(disable: 4702)
+
 namespace
 {
 	void Stop(ExpressionContext &ctx, const char *pos, const char *msg, va_list args)
