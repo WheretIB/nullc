@@ -276,3 +276,11 @@ float bar(){ return 2.0; }\r\n\
 \r\n\
 return foo(bar);";
 TEST_RESULT("Explicit function arguments 3", testExplicitArguments3, "8");
+
+const char	*testEmptyClassReturnType =
+"class Empty{}\r\n\
+int sum = 0;\r\n\
+Empty foo(Empty x, int y){ sum += y; return x; }\r\n\
+foo(foo(Empty(), 1), 20);\r\n\
+return sum;";
+TEST_RESULT("Empty class return passed as argument", testEmptyClassReturnType, "21");

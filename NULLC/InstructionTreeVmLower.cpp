@@ -518,7 +518,12 @@ void Lower(InstructionVMLowerContext &ctx, VmValue *value)
 					Lower(ctx, context);
 
 					for(int i = int(inst->arguments.size() - 1); i >= 1; i--)
+					{
 						Lower(ctx, inst->arguments[i]);
+
+						if(inst->arguments[i]->type.size == 0)
+							AddCommand(ctx, inst->arguments[i]->source, VMCmd(cmdPushImmt, 0));
+					}
 
 					AddCommand(ctx, inst->source, VMCmd(cmdCall, helper, function->function->functionIndex));
 				}
@@ -531,6 +536,9 @@ void Lower(InstructionVMLowerContext &ctx, VmValue *value)
 					for(int i = int(inst->arguments.size() - 1); i >= 1; i--)
 					{
 						Lower(ctx, inst->arguments[i]);
+
+						if(inst->arguments[i]->type.size == 0)
+							AddCommand(ctx, inst->arguments[i]->source, VMCmd(cmdPushImmt, 0));
 
 						unsigned size = inst->arguments[i]->type.size;
 
@@ -1009,9 +1017,6 @@ void Lower(InstructionVMLowerContext &ctx, VmValue *value)
 
 			for(int i = int(constant->type.size / 4) - 1; i >= 0; i--)
 				AddCommand(ctx, constant->source, VMCmd(cmdPushImmt, ((unsigned*)constant->sValue)[i]));
-
-			if(constant->type.size == 0)
-				AddCommand(ctx, constant->source, VMCmd(cmdPushImmt, 0));
 		}
 		else
 		{
