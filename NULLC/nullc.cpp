@@ -42,7 +42,7 @@ namespace NULLC
 	char *errorBuf = NULL;
 
 	ChunkedStackPool<65532> pool;
-	GrowingAllocatorRef<ChunkedStackPool<65532> > allocator(pool);
+	GrowingAllocatorRef<ChunkedStackPool<65532>, 16384> allocator(pool);
 
 	CompilerContext *compilerCtx = NULL;
 }
@@ -102,13 +102,13 @@ nullres nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deall
 
 	if(!BuildBaseModule(&allocator))
 	{
-		pool.Clear();
+		allocator.Clear();
 
 		nullcLastError = "ERROR: Failed to initialize base module";
 		return 0;
 	}
 
-	pool.Clear();
+	allocator.Clear();
 
 	return 1;
 }
@@ -163,14 +163,14 @@ nullres	nullcBindModuleFunction(const char* module, void (NCDECL *ptr)(), const 
 
 	if(!AddModuleFunction(&allocator, module, ptr, name, index, &errorPos, errorBuf, NULLC_ERROR_BUFFER_SIZE))
 	{
-		pool.Clear();
+		allocator.Clear();
 
 		nullcLastError = errorBuf;
 
 		return false;
 	}
 
-	pool.Clear();
+	allocator.Clear();
 
 	return true;
 }
@@ -384,7 +384,7 @@ void nullcClean()
 	NULLC::destruct(compilerCtx);
 	compilerCtx = NULL;
 
-	pool.Clear();
+	allocator.Clear();
 }
 
 nullres nullcLinkCode(const char *bytecode)
@@ -1024,7 +1024,7 @@ void nullcTerminate()
 	NULLC::destruct(compilerCtx);
 	compilerCtx = NULL;
 
-	pool.Reset();
+	allocator.Reset();
 
 	NULLC::dealloc(argBuf);
 	argBuf = NULL;
