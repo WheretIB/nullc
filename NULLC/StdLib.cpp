@@ -968,9 +968,9 @@ NULLCArray NULLC::LongToStr(long long* r)
 	if(number < 0)
 		sign = 1;
 
-	*curr++ = (char)(abs(number % 10) + '0');
+	*curr++ = (char)(abs(int(number % 10)) + '0');
 	while(number /= 10)
-		*curr++ = (char)(abs(number % 10) + '0');
+		*curr++ = (char)(abs(int(number % 10)) + '0');
 	if(sign)
 		*curr++ = '-';
 	arr = AllocArray(1, (int)(curr - buf) + 1);
