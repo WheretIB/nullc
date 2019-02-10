@@ -1999,9 +1999,12 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 
 ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase *value)
 {
-	if(!ctx.IsNumericType(value->type) && !value->type->isGeneric)
+	if(!ctx.IsIntegerType(value->type) && !value->type->isGeneric)
 	{
 		// TODO: function overload
+
+		if(ctx.IsFloatingPointType(value->type))
+			return CreateCast(ctx, source, value, ctx.typeBool, false);
 
 		if(isType<TypeRef>(value->type))
 			return CreateCast(ctx, source, value, ctx.typeBool, false);
@@ -2028,6 +2031,9 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase 
 	}
 
 	AssertValueExpression(ctx, source, value);
+
+	if(value->type == ctx.typeLong)
+		value = CreateCast(ctx, source, value, ctx.typeBool, false);
 
 	return value;
 }

@@ -168,3 +168,27 @@ do\r\n\
 }while(0);\r\n\
 return 1;";
 TEST_RESULT("do...while cycle variable scope test 2", testDoWhileScope2, "1")
+
+const char	*testConditionType1 =
+"long i = 10;\r\n\
+while(i) i--;\r\n\
+return int(i);";
+TEST_RESULT("Unusual loop condition types 1", testConditionType1, "0")
+
+const char	*testConditionType2 =
+"float i = 10;\r\n\
+while(i) i = 0.0f;\r\n\
+return int(i);";
+TEST_RESULT("Unusual loop condition types 2", testConditionType2, "0")
+
+const char	*testConditionType3 =
+"double i = 10;\r\n\
+while(i) i = 0.0;\r\n\
+return int(i);";
+TEST_RESULT("Unusual loop condition types 3", testConditionType3, "0")
+
+const char	*testConditionType4 =
+"short i = 10;\r\n\
+while(i) i--;\r\n\
+return int(i);";
+TEST_RESULT("Unusual loop condition types 4", testConditionType4, "0")
