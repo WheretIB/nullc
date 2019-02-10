@@ -114,13 +114,34 @@ void Lexer::Lexify(const char* code)
 				while(*code && depth)
 				{
 					if(code[0] == '*' && code[1] == '/')
-						code++, depth--;
+					{
+						code += 2;
+						depth--;
+					}
 					else if(code[0] == '/' && code[1] == '*')
-						code++, depth++;
-					else if(code[0] == '\"' && code++)
+					{
+						code += 2;
+						depth++;
+					}
+					else if(code[0] == '\"')
+					{
+						code++;
+
 						while(code[0] && code[0] != '\"')
-							code += (code[0] == '\\' && code[1]) ? 2 : 1;
-					code++;
+						{
+							if(code[0] == '\\' && code[1])
+								code += 2;
+							else
+								code += 1;
+						}
+
+						if(code[0] == '\"')
+							code++;
+					}
+					else
+					{
+						code++;
+					}
 				}
 				continue;
 			}else{

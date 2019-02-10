@@ -515,6 +515,9 @@ TEST_RESULT("nested comments", testNestedComment, "1");
 const char	*testNestedComment2 = "return /* \"/*\" */1;";
 TEST_RESULT("nested comments 2", testNestedComment2, "1");
 
+const char	*testNestedComment3 = "return 1; /*aa\"bb";
+TEST_RESULT_SIMPLE("nested comments 3", testNestedComment3, "1");
+
 const char	*testIntegerConstantFolding1 = "class X{ const short A = 2; } return -X.A;";
 TEST_RESULT("Integer type constant folding 1", testIntegerConstantFolding1, "-2");
 
