@@ -239,6 +239,10 @@ ParseContext::ParseContext(Allocator *allocator): allocator(allocator), binaryOp
 	currentLexeme = NULL;
 	lastLexeme = NULL;
 
+	expressionGroupDepth = 0;
+	expressionBlockDepth = 0;
+	statementBlockDepth = 0;
+
 	errorHandlerActive = false;
 	errorPos = NULL;
 	errorBuf = NULL;
@@ -661,6 +665,13 @@ SynBase* ParseArray(ParseContext &ctx)
 			return new (ctx.get<SynGenerator>()) SynGenerator(start, ctx.Previous(), expressions);
 		}
 
+		const unsigned blockLimit = 256;
+
+		if(ctx.expressionBlockDepth >= blockLimit)
+			Stop(ctx, ctx.Position(), "ERROR: reached nested array limit of %d", blockLimit);
+
+		ctx.expressionBlockDepth++;
+
 		IntrusiveList<SynBase> values;
 
 		SynBase *value = ParseTernaryExpr(ctx);
@@ -679,6 +690,8 @@ SynBase* ParseArray(ParseContext &ctx)
 
 			values.push_back(value);
 		}
+
+		ctx.expressionBlockDepth--;
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after inline array");
 
@@ -1026,7 +1039,16 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 
 	if(ctx.Consume(lex_oparen))
 	{
+		const unsigned groupLimit = 256;
+
+		if(ctx.expressionGroupDepth >= groupLimit)
+			Stop(ctx, ctx.Position(), "ERROR: reached nested '(' limit of %d", groupLimit);
+
+		ctx.expressionGroupDepth++;
+
 		node = ParseAssignment(ctx);
+
+		ctx.expressionGroupDepth--;
 
 		if(!node)
 			Stop(ctx, ctx.Position(), "ERROR: expression not found after '('");
@@ -1175,7 +1197,9 @@ SynBase* ParseArithmetic(ParseContext &ctx)
 
 		while(ctx.binaryOpStack.size() > startSize && GetBinaryOpPrecedence(ctx.binaryOpStack.back().type) <= GetBinaryOpPrecedence(binaryOp))
 		{
-			lhs = new (ctx.get<SynBinaryOp>()) SynBinaryOp(ctx.binaryOpStack.back().begin, ctx.binaryOpStack.back().end, ctx.binaryOpStack.back().type, ctx.binaryOpStack.back().value, lhs);
+			auto &lastOp = ctx.binaryOpStack.back();
+
+			lhs = new (ctx.get<SynBinaryOp>()) SynBinaryOp(lastOp.begin, lastOp.end, lastOp.type, lastOp.value, lhs);
 
 			ctx.binaryOpStack.pop_back();
 		}
@@ -1190,7 +1214,9 @@ SynBase* ParseArithmetic(ParseContext &ctx)
 
 	while(ctx.binaryOpStack.size() > startSize)
 	{
-		lhs = new (ctx.get<SynBinaryOp>()) SynBinaryOp(ctx.binaryOpStack.back().begin, ctx.binaryOpStack.back().end, ctx.binaryOpStack.back().type, ctx.binaryOpStack.back().value, lhs);
+		auto &lastOp = ctx.binaryOpStack.back();
+
+		lhs = new (ctx.get<SynBinaryOp>()) SynBinaryOp(lastOp.begin, lastOp.end, lastOp.type, lastOp.value, lhs);
 
 		ctx.binaryOpStack.pop_back();
 	}
@@ -1568,7 +1594,16 @@ SynBlock* ParseBlock(ParseContext &ctx)
 
 	if(ctx.Consume(lex_ofigure))
 	{
+		const unsigned blockLimit = 256;
+
+		if(ctx.statementBlockDepth >= blockLimit)
+			Stop(ctx, ctx.Position(), "ERROR: reached nested '{' limit of %d", blockLimit);
+
+		ctx.statementBlockDepth++;
+
 		IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
+
+		ctx.statementBlockDepth--;
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: closing '}' not found");
 

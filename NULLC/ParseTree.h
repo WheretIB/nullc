@@ -115,6 +115,10 @@ struct ParseContext
 
 	SmallArray<SynBinaryOpElement, 32> binaryOpStack;
 
+	unsigned expressionGroupDepth;
+	unsigned expressionBlockDepth;
+	unsigned statementBlockDepth;
+
 	SmallArray<SynNamespaceElement*, 32> namespaceList;
 	SynNamespaceElement *currentNamespace;
 
