@@ -1764,6 +1764,21 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 		return value;
 	}
 
+	if(TypeFunction *target = getType<TypeFunction>(type))
+	{
+		if(FunctionValue function = GetFunctionForType(ctx, source, value, target))
+		{
+			ExprBase *access = new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, type, function.function, function.context);
+
+			if(isType<ExprFunctionDefinition>(value) || isType<ExprGenericFunctionPrototype>(value))
+				return CreateSequence(ctx, source, value, access);
+
+			return access;
+		}
+	}
+
+	AssertValueExpression(ctx, source, value);
+
 	if(ctx.IsNumericType(value->type) && ctx.IsNumericType(type))
 		return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, value, EXPR_CAST_NUMERICAL);
 
@@ -1949,19 +1964,6 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 			ExprBase *unsized = CreateCast(ctx, source, value, ctx.GetUnsizedArrayType(valueType->subType), false);
 
 			return CreateCast(ctx, source, unsized, type, false);
-		}
-	}
-
-	if(TypeFunction *target = getType<TypeFunction>(type))
-	{
-		if(FunctionValue function = GetFunctionForType(ctx, source, value, target))
-		{
-			ExprBase *access = new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, type, function.function, function.context);
-
-			if(isType<ExprFunctionDefinition>(value) || isType<ExprGenericFunctionPrototype>(value))
-				return CreateSequence(ctx, source, value, access);
-
-			return access;
 		}
 	}
 
@@ -3836,6 +3838,8 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 	}
 	else if(!isType<TypeRef>(wrapped->type))
 	{
+		AssertValueExpression(ctx, source, wrapped);
+
 		VariableData *storage = AllocateTemporary(ctx, source, wrapped->type);
 
 		ExprBase *assignment = CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, storage, false), value);
@@ -4151,6 +4155,8 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 	}
 	else if(!isType<TypeRef>(wrapped->type))
 	{
+		AssertValueExpression(ctx, source, wrapped);
+
 		VariableData *storage = AllocateTemporary(ctx, source, wrapped->type);
 
 		ExprBase *assignment = CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, storage, false), value);
@@ -8950,6 +8956,10 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 		if(isType<ExprTypeLiteral>(value))
 			return value;
+
+		ResolveInitializerValue(ctx, syntax, value);
+
+		assert(!isType<TypeArgumentSet>(value->type) && !isType<TypeMemberSet>(value->type) && !isType<TypeFunctionSet>(value->type));
 
 		return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(node, ctx.typeTypeID, value->type);
 	}
