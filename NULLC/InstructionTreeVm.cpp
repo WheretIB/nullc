@@ -864,7 +864,8 @@ namespace
 		}
 		else if(VmInstruction *inst = getType<VmInstruction>(value))
 		{
-			if(inst->cmd == VM_INST_PHI)
+			// Can't replace phi instruction argument with a constant
+			if(inst->cmd == VM_INST_PHI && isType<VmConstant>(replacement))
 				return;
 
 			for(unsigned i = 0; i < inst->arguments.size(); i++)

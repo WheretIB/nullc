@@ -647,3 +647,10 @@ t = u;\r\n\
 a = t;\r\n\
 return !a;";
 TEST_RESULT("nullptr type being explicitly used", testNullPointerTypeUse, "1");
+
+const char	*testChainedPhiLegalizeIssue =
+"int get(){ return 1987; }\r\n\
+int year = get();\r\n\
+int result = (year % 4 == 0) ? ((year % 400 == 0) ? 28 : 29) : 28;\r\n\
+return result;";
+TEST_RESULT("Issue with chained phi instruction legalization", testChainedPhiLegalizeIssue, "28");
