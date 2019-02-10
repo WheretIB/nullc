@@ -2330,6 +2330,9 @@ ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *
 
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs)
 {
+	if(op == SYN_BINARY_OP_IN)
+		return CreateFunctionCall2(ctx, source, InplaceStr("in"), lhs, rhs, false, false);
+
 	bool skipOverload = false;
 
 	// Built-in comparisons
