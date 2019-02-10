@@ -2696,6 +2696,8 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 				if(value->type == ctx.typeAuto)
 					Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
 
+				AssertValueExpression(ctx, syntax, value);
+
 				type = value->type;
 			}
 
