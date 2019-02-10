@@ -127,8 +127,8 @@ TEST("Group of tests 3", testMissingTests3, "1")
 
 	CHECK_INT("c1", 0, 512, lastFailed);
 
-	CHECK_INT("opt1", 0, (1 != 1 + (18 >> 2) % (4 & 4 ^ 0 | 0xffff) + 1) ? 1 : 0, lastFailed);
-	CHECK_LONG("opt2", 0, 18l >> 2l % 5l ^ 9l | 12l & 13l, lastFailed);
+	CHECK_INT("opt1", 0, (1 != 1 + (18 >> 2) % (((4 & 4) ^ 0) | 0xffff) + 1) ? 1 : 0, lastFailed);
+	CHECK_LONG("opt2", 0, (18l >> 2l % 5l ^ 9l) | (12l & 13l), lastFailed);
 	CHECK_LONG("opt3", 0, 1, lastFailed);
 
 	CHECK_DOUBLE("opt4", 0, 2.0, lastFailed);
