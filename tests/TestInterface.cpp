@@ -365,7 +365,7 @@ void RunInterfaceTests()
 				continue;
 			}
 #define TEST_CALL(name, arg, expected)\
-			if(!nullcRunFunction(name, arg)){ printf("nullcRunFunction("name") failed: %s\r\n", nullcGetLastError()); continue; }\
+			if(!nullcRunFunction(name, arg)){ printf("nullcRunFunction(" name ") failed: %s\r\n", nullcGetLastError()); continue; }\
 			if(nullcGetResultInt() != expected){ printf("nullcGetResultInt failed to return " #expected " result\r\n"); continue; }
 
 			TEST_CALL("Char", 12, -12*2);
