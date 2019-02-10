@@ -2482,7 +2482,7 @@ TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase 
 	}
 
 	if(type == ctx.typeVoid)
-		Stop(ctx, size->pos, "ERROR: cannot specify array size for void");
+		Stop(ctx, sizes->pos, "ERROR: cannot specify array size for void");
 
 	if(!size)
 		return ctx.GetUnsizedArrayType(type);
