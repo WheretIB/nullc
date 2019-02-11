@@ -852,6 +852,20 @@ namespace
 
 				ReplaceValue(module, curr, original, replacement);
 			}
+
+			// Move replacement block to first position
+			VmBlock *block = getType<VmBlock>(replacement);
+
+			if(block != function->firstBlock)
+			{
+				function->DetachBlock(block);
+
+				block->parent = function;
+				block->nextSibling = function->firstBlock;
+
+				function->firstBlock->prevSibling = block;
+				function->firstBlock = block;
+			}
 		}
 		else if(VmBlock *block = getType<VmBlock>(value))
 		{
@@ -1280,7 +1294,8 @@ void VmValue::RemoveUse(VmValue* user)
 		}
 		else if(VmInstruction *instruction = getType<VmInstruction>(this))
 		{
-			instruction->parent->RemoveInstruction(instruction);
+			if(instruction->parent)
+				instruction->parent->RemoveInstruction(instruction);
 		}
 		else if(VmBlock *block = getType<VmBlock>(this))
 		{
@@ -3430,7 +3445,8 @@ void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmValue* va
 		{
 			module->deadCodeEliminations++;
 
-			inst->parent->RemoveInstruction(inst);
+			if(inst->parent)
+				inst->parent->RemoveInstruction(inst);
 		}
 		else if(inst->cmd == VM_INST_JUMP_Z || inst->cmd == VM_INST_JUMP_NZ)
 		{
@@ -3523,7 +3539,8 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 					for(VmInstruction *inst = next->firstInstruction; inst; inst = inst->nextSibling)
 						inst->parent = curr;
 
-					curr->lastInstruction->nextSibling = next->firstInstruction;
+					if(curr->lastInstruction)
+						curr->lastInstruction->nextSibling = next->firstInstruction;
 
 					if(next->firstInstruction)
 						next->firstInstruction->prevSibling = curr->lastInstruction;
@@ -3533,7 +3550,8 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 					next->firstInstruction = next->lastInstruction = NULL;
 
 					// Remove branch
-					curr->RemoveInstruction(currLastInst);
+					if(currLastInst->parent)
+						curr->RemoveInstruction(currLastInst);
 
 					module->controlFlowSimplifications++;
 				}
@@ -3731,7 +3749,8 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 				{
 					VmInstruction *inst = deadStores[k];
 
-					inst->parent->RemoveInstruction(inst);
+					if(inst->parent)
+						inst->parent->RemoveInstruction(inst);
 
 					module->loadStorePropagations++;
 				}

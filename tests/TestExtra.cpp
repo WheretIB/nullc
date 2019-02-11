@@ -654,3 +654,19 @@ int year = get();\r\n\
 int result = (year % 4 == 0) ? ((year % 400 == 0) ? 28 : 29) : 28;\r\n\
 return result;";
 TEST_RESULT("Issue with chained phi instruction legalization", testChainedPhiLegalizeIssue, "28");
+
+const char	*testFuzzingCrash1 =
+"1||1&&2; return 1;";
+TEST_RESULT("Fuzzing crash result 1", testFuzzingCrash1, "1");
+
+const char	*testFuzzingCrash2 =
+"1&&1||0&&1; return 1;";
+TEST_RESULT("Fuzzing crash result 2", testFuzzingCrash2, "1");
+
+const char	*testFuzzingCrash3 =
+"1||1^^1&&1||1; return 1;";
+TEST_RESULT("Fuzzing crash result 3", testFuzzingCrash3, "1");
+
+const char	*testFuzzingCrash4 =
+"1||1||1^^1&&1||1; return 1;";
+TEST_RESULT("Fuzzing crash result 4", testFuzzingCrash4, "1");
