@@ -655,6 +655,10 @@ int result = (year % 4 == 0) ? ((year % 400 == 0) ? 28 : 29) : 28;\r\n\
 return result;";
 TEST_RESULT("Issue with chained phi instruction legalization", testChainedPhiLegalizeIssue, "28");
 
+const char *testTypeAliasLexemeSkip =
+"int foo(@T x){ @U y = 4; return x * y; } return foo(4);";
+TEST_RESULT("Type alias definition should not be skipped", testTypeAliasLexemeSkip, "16");
+
 const char	*testFuzzingCrash1 =
 "1||1&&2; return 1;";
 TEST_RESULT("Fuzzing crash result 1", testFuzzingCrash1, "1");

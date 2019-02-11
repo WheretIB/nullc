@@ -1657,6 +1657,12 @@ SynIfElse* ParseIfElse(ParseContext &ctx, bool forceStaticIf)
 		return new (ctx.get<SynIfElse>()) SynIfElse(start, ctx.Previous(), staticIf, condition, trueBlock, falseBlock);
 	}
 
+	if(staticIf)
+	{
+		// Backtrack
+		ctx.currentLexeme = start;
+	}
+
 	return NULL;
 }
 
