@@ -2111,7 +2111,7 @@ VmConstant* EvaluateFunction(InstructionVMEvalContext &ctx, VmFunction *function
 			printf("  EvaluateFunction block %.*s\n", FMT_ISTR(currentBlock->name));
 
 		if(!currentBlock->firstInstruction)
-			break;
+			return (VmConstant*)Report(ctx, "ERROR: function didn't return a value");
 
 		for(VmInstruction *instruction = currentBlock->firstInstruction; instruction; instruction = instruction->nextSibling)
 		{
