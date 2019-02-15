@@ -7884,7 +7884,7 @@ void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *ty
 		for(ConstantData *curr = target.head; curr; curr = curr->next)
 		{
 			if(constant->name == curr->name)
-				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken");
+				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken", FMT_ISTR(curr->name));
 		}
 
 		CheckVariableConflict(ctx, source, constant->name);
@@ -8210,7 +8210,7 @@ void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 		for(ConstantData *curr = target.head; curr; curr = curr->next)
 		{
 			if(constant->name == curr->name)
-				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken");
+				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken", FMT_ISTR(curr->name));
 		}
 
 		CheckVariableConflict(ctx, source, constant->name);
