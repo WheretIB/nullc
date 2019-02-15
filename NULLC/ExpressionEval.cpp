@@ -918,7 +918,24 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 		{
 			long long result = 0;
 
-			if(TryTakeLong(value, result))
+			if(ExprRationalLiteral *expr = getType<ExprRationalLiteral>(value))
+			{
+				if(expression->type == ctx.ctx.typeBool)
+					return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, ctx.ctx.typeBool, expr->value != 0.0));
+
+				if(expression->type == ctx.ctx.typeChar)
+					return CheckType(expression, new (ctx.ctx.get<ExprCharacterLiteral>()) ExprCharacterLiteral(expression->source, ctx.ctx.typeChar, (char)expr->value));
+
+				if(expression->type == ctx.ctx.typeShort)
+					return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeShort, (short)expr->value));
+
+				if(expression->type == ctx.ctx.typeInt)
+					return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, (int)expr->value));
+
+				if(expression->type == ctx.ctx.typeLong)
+					return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeLong, (long long)expr->value));
+			}
+			else if(TryTakeLong(value, result))
 			{
 				if(expression->type == ctx.ctx.typeBool)
 					return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, ctx.ctx.typeBool, result != 0));
