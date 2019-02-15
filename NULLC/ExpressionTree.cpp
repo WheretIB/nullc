@@ -5217,7 +5217,7 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 			{
 				GetFunctionRating(ctx, function, instance, result);
 
-				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") instanced to\n    %.*s(", FMT_ISTR(function->name));
+				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") instanced to\n    %.*s %.*s(", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name));
 
 				TypeHandle *curr = instance->arguments.head;
 
