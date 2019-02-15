@@ -2383,23 +2383,23 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 		rhs = CreateConditionCast(ctx, rhs->source, rhs);
 	}
 
+	bool hasBuiltIn = false;
+
+	hasBuiltIn |= ctx.IsNumericType(lhs->type) && ctx.IsNumericType(rhs->type);
+	hasBuiltIn |= lhs->type == ctx.typeTypeID && rhs->type == ctx.typeTypeID && (op == SYN_BINARY_OP_EQUAL || op == SYN_BINARY_OP_NOT_EQUAL);
+	hasBuiltIn |= isType<TypeRef>(lhs->type) && lhs->type == rhs->type && (op == SYN_BINARY_OP_EQUAL || op == SYN_BINARY_OP_NOT_EQUAL);
+	hasBuiltIn |= isType<TypeEnum>(lhs->type) && lhs->type == rhs->type;
+
 	if(!skipOverload)
 	{
-		if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, true, false))
+		if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, rhs, hasBuiltIn, false))
 			return result;
 	}
 
 	AssertValueExpression(ctx, lhs->source, lhs);
 	AssertValueExpression(ctx, rhs->source, rhs);
 
-	bool ok = false;
-	
-	ok |= ctx.IsNumericType(lhs->type) && ctx.IsNumericType(rhs->type);
-	ok |= lhs->type == ctx.typeTypeID && rhs->type == ctx.typeTypeID && (op == SYN_BINARY_OP_EQUAL || op == SYN_BINARY_OP_NOT_EQUAL);
-	ok |= isType<TypeRef>(lhs->type) && lhs->type == rhs->type && (op == SYN_BINARY_OP_EQUAL || op == SYN_BINARY_OP_NOT_EQUAL);
-	ok |= isType<TypeEnum>(lhs->type) && lhs->type == rhs->type;
-
-	if(!ok)
+	if(!hasBuiltIn)
 		Stop(ctx, source->pos, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(op), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
 
 	if(lhs->type == ctx.typeVoid)
@@ -8836,6 +8836,9 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
+	if(condition->type == ctx.typeVoid)
+		Stop(ctx, syntax->condition->pos, "ERROR: condition type cannot be '%.*s'", FMT_ISTR(condition->type->name));
+
 	VariableData *conditionVariable = AllocateTemporary(ctx, syntax, condition->type);
 
 	condition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax->condition, ctx.typeVoid, conditionVariable, CreateAssignment(ctx, syntax->condition, CreateVariableAccess(ctx, syntax, conditionVariable, false), condition));
@@ -8849,6 +8852,9 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 		if(curr->value)
 		{
 			ExprBase *caseValue = AnalyzeExpression(ctx, curr->value);
+
+			if(caseValue->type == ctx.typeVoid)
+				Stop(ctx, syntax->condition->pos, "ERROR: case value type cannot be '%.*s'", FMT_ISTR(caseValue->type->name));
 
 			ExprBase *condition = CreateBinaryOp(ctx, curr->value, SYN_BINARY_OP_EQUAL, caseValue, CreateVariableAccess(ctx, syntax, conditionVariable, false));
 
