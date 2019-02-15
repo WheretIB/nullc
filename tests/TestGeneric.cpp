@@ -1764,6 +1764,15 @@ TEST("Generic coroutine import (same instantitaion in local scopes)", testGeneri
 	CHECK_DOUBLE("d", 0, 8.0, lastFailed);
 }
 
+const char *testGeneric154 =
+"class F{}\r\n\
+int F:f(generic x){ return 2; }\r\n\
+float F:f(generic x){ return 2; }\r\n\
+F a;\r\n\
+int operator+(int a, int ref(int) b){ return a + b(1); }\r\n\
+return 1 + a.f;";
+TEST_RESULT("Class generic function pointer access selection (return type match)", testGeneric154, "3");
+
 const char	*testDefaultGenericFuncVars =
 "auto test(generic c, auto a = auto(int i){ return i++; }, int b = 5){ return a(3) + c * b; }\r\n\
 return test(1) + test(2, auto(int l){ return l * 2; });";

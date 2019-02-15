@@ -1660,7 +1660,10 @@ FunctionValue GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBa
 						matches++;
 				}
 
-				if(matches == type->arguments.size())
+				if(functionType->returnType == ctx.typeAuto || functionType->returnType == type->returnType)
+					matches++;
+
+				if(matches == type->arguments.size() + 1)
 				{
 					if(bestGenericMatch)
 						return FunctionValue();
