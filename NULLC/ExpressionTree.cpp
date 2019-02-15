@@ -404,42 +404,6 @@ namespace
 		return false;
 	}
 
-	ExprBase* AssertResolvableTypeLiteral(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
-	{
-		if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expr))
-		{
-			if(isType<TypeArgumentSet>(node->value))
-				Stop(ctx, source->pos, "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
-
-			if(isType<TypeMemberSet>(node->value))
-				Stop(ctx, source->pos, "ERROR: expected '(' after 'hasMember'");
-
-			if(node->value->isGeneric)
-				Stop(ctx, source->pos, "ERROR: cannot take typeid from generic type");
-		}
-
-		return expr;
-	}
-
-	ExprBase* AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
-	{
-		if(isType<ExprFunctionOverloadSet>(expr))
-			Stop(ctx, source->pos, "ERROR: ambiguity, the expression is an overloaded function. Could be %.*s", FMT_ISTR(expr->type->name));
-
-		if(isType<ExprGenericFunctionPrototype>(expr))
-			Stop(ctx, source->pos, "ERROR: ambiguity, the expression is a generic function");
-
-		if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expr))
-		{
-			if(ctx.IsGenericFunction(node->function))
-				Stop(ctx, source->pos, "ERROR: ambiguity, the expression is a generic function");
-		}
-
-		AssertResolvableTypeLiteral(ctx, source, expr);
-
-		return expr;
-	}
-
 	VariableData* AllocateClassMember(ExpressionContext &ctx, SynBase *source, unsigned alignment, TypeBase *type, InplaceStr name, bool readonly, unsigned uniqueId)
 	{
 		if(alignment == 0)
@@ -1558,6 +1522,9 @@ ExprBase* CreateGetAddress(ExpressionContext &ctx, SynBase *source, ExprBase *va
 ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, bool allowFailure);
 
 ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs);
+
+ExprBase* AssertResolvableTypeLiteral(ExpressionContext &ctx, SynBase *source, ExprBase *expr);
+ExprBase* AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expr);
 
 InplaceStr GetTypeConstructorName(TypeClass *classType);
 bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool noArguments, SmallArray<FunctionData*, 32> &functions);
@@ -7478,6 +7445,53 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		return NULL;
 
 	return AnalyzeShortFunctionDefinition(ctx, syntax, argumentType);
+}
+
+ExprBase* AssertResolvableTypeLiteral(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
+{
+	if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expr))
+	{
+		if(isType<TypeArgumentSet>(node->value))
+			Stop(ctx, source->pos, "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
+
+		if(isType<TypeMemberSet>(node->value))
+			Stop(ctx, source->pos, "ERROR: expected '(' after 'hasMember'");
+
+		if(node->value->isGeneric)
+			Stop(ctx, source->pos, "ERROR: cannot take typeid from generic type");
+	}
+
+	return expr;
+}
+
+ExprBase* AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
+{
+	if(isType<ExprFunctionOverloadSet>(expr))
+	{
+		SmallArray<FunctionValue, 32> functions(ctx.allocator);
+
+		GetNodeFunctions(ctx, source, expr, functions);
+
+		char *errPos = ctx.errorBuf;
+
+		if(errPos)
+			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available:\n");
+
+		StopOnFunctionSelectError(ctx, source, errPos, functions);
+	}
+
+	if(isType<ExprGenericFunctionPrototype>(expr))
+		Stop(ctx, source->pos, "ERROR: ambiguity, the expression is a generic function");
+
+	if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expr))
+	{
+		if(ctx.IsGenericFunction(node->function))
+			Stop(ctx, source->pos, "ERROR: ambiguity, the expression is a generic function");
+	}
+
+	AssertResolvableTypeLiteral(ctx, source, expr);
+
+	return expr;
 }
 
 InplaceStr GetTypeConstructorName(InplaceStr functionName)
