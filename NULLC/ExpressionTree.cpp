@@ -463,6 +463,8 @@ namespace
 		char *name = (char*)ctx.allocator->alloc(16);
 		sprintf(name, "$temp%d", ctx.unnamedVariableCount++);
 
+		assert(!type->isGeneric);
+
 		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, type->alignment, type, InplaceStr(name), 0, ctx.uniqueVariableId++);
 
 		if (IsLookupOnlyVariable(ctx, variable))
@@ -4053,7 +4055,18 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 			return mainFuncton;
 
 		if(baseFunction)
+		{
+			if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(baseFunction))
+			{
+				if(node->function->scope->ownerType && node->function->scope->ownerType->isGeneric && !node->function->type->isGeneric)
+				{
+					if(FunctionValue bestOverload = GetFunctionForType(ctx, source, baseFunction, node->function->type))
+						return new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, bestOverload.function->type, bestOverload.function, bestOverload.context);
+				}
+			}
+
 			return baseFunction;
+		}
 
 		// Look for an accessor
 		hash = StringHashContinue(hash, "$");
@@ -6149,40 +6162,43 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 			}
 		}
 
-		VariableData *variable = AllocateTemporary(ctx, syntax, type->value);
-
-		ExprBase *pointer = CreateGetAddress(ctx, syntax, CreateVariableAccess(ctx, syntax, variable, false));
-
-		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, variable, NULL);
-
-		ExprBase *constructor = CreateConstructorAccess(ctx, syntax, type->value, syntax->arguments.empty(), pointer);
-
-		if(!constructor && syntax->arguments.empty())
+		if(!type->value->isGeneric)
 		{
-			IntrusiveList<ExprBase> expressions;
+			VariableData *variable = AllocateTemporary(ctx, syntax, type->value);
 
-			expressions.push_back(definition);
-			expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
+			ExprBase *pointer = CreateGetAddress(ctx, syntax, CreateVariableAccess(ctx, syntax, variable, false));
 
-			return new (ctx.get<ExprSequence>()) ExprSequence(syntax, type->value, expressions);
-		}
+			ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, variable, NULL);
 
-		if(constructor)
-		{
-			// Collect a set of available functions
-			SmallArray<FunctionValue, 32> functions(ctx.allocator);
+			ExprBase *constructor = CreateConstructorAccess(ctx, syntax, type->value, syntax->arguments.empty(), pointer);
 
-			GetNodeFunctions(ctx, syntax, constructor, functions);
+			if(!constructor && syntax->arguments.empty())
+			{
+				IntrusiveList<ExprBase> expressions;
 
-			ExprBase *call = CreateFunctionCallOverloaded(ctx, syntax, function, functions, generics, syntax->arguments.head, false);
+				expressions.push_back(definition);
+				expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
 
-			IntrusiveList<ExprBase> expressions;
+				return new (ctx.get<ExprSequence>()) ExprSequence(syntax, type->value, expressions);
+			}
 
-			expressions.push_back(definition);
-			expressions.push_back(call);
-			expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
+			if(constructor)
+			{
+				// Collect a set of available functions
+				SmallArray<FunctionValue, 32> functions(ctx.allocator);
 
-			return new (ctx.get<ExprSequence>()) ExprSequence(syntax, type->value, expressions);
+				GetNodeFunctions(ctx, syntax, constructor, functions);
+
+				ExprBase *call = CreateFunctionCallOverloaded(ctx, syntax, function, functions, generics, syntax->arguments.head, false);
+
+				IntrusiveList<ExprBase> expressions;
+
+				expressions.push_back(definition);
+				expressions.push_back(call);
+				expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
+
+				return new (ctx.get<ExprSequence>()) ExprSequence(syntax, type->value, expressions);
+			}
 		}
 	}
 
@@ -6857,7 +6873,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	TypeHandle *instanceArg = instance ? instance->arguments.head : NULL;
 
-	bool hadGenericArgument = false;
+	bool hadGenericArgument = parentType ? parentType->isGeneric : false;
 
 	for(SynFunctionArgument *argument = arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next))
 	{

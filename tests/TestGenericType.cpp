@@ -2373,3 +2373,21 @@ int foo(Foo a)\r\n\
 \r\n\
 return foo(a);";
 TEST_RESULT("Generic class name can be used if the generic arguments can be deduced", testGenericType147, "5");
+
+const char *testGenericType148 =
+"class F<T>{}\r\n\
+int F:f(){ return 2; }\r\n\
+F<int> a;\r\n\
+int operator+(int a, int ref() b){ return a + b(); }\r\n\
+return 1 + a.f;";
+TEST_RESULT("Generic class function pointer access performs instantiation", testGenericType148, "3");
+
+const char *testGenericType149 =
+"class F<T>{}\r\n\
+int F:f(){ return 2; }\r\n\
+float F:f(){ return 2; }\r\n\
+double F:f(){ return 2; }\r\n\
+F<int> a;\r\n\
+int operator+(int a, int ref() b){ return a + b(); }\r\n\
+return 1 + a.f;";
+TEST_RESULT("Generic class function pointer access performs instantiation", testGenericType149, "3");
