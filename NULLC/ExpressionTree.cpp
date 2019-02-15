@@ -2526,10 +2526,28 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 
 	ctx.SwitchToScopeAtPoint(NULL, proto->scope, proto->source);
 
-	ExprBase *result = AnalyzeClassDefinition(ctx, proto->definition, proto, types);
+	ExprBase *result = NULL;
+
+	jmp_buf prevErrorHandler;
+	memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));
+
+	if(!setjmp(ctx.errorHandler))
+	{
+		result = AnalyzeClassDefinition(ctx, proto->definition, proto, types);
+	}
+	else
+	{
+		// Restore old scope
+		ctx.SwitchToScopeAtPoint(proto->source, scope, NULL);
+
+		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+		longjmp(ctx.errorHandler, 1);
+	}
 
 	// Restore old scope
 	ctx.SwitchToScopeAtPoint(proto->source, scope, NULL);
+
+	memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 
 	if(ExprClassDefinition *definition = getType<ExprClassDefinition>(result))
 	{
@@ -4983,62 +5001,81 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 
 	IntrusiveList<TypeHandle> types;
 
-	if(SynFunctionDefinition *syntax = function->definition)
+	jmp_buf prevErrorHandler;
+	memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));
+
+	if(!setjmp(ctx.errorHandler))
 	{
-		bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
-
-		// Create temporary scope with known arguments for reference in type expression
-		ctx.PushTemporaryScope();
-
-		unsigned pos = 0;
-
-		for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next), pos++)
+		if(SynFunctionDefinition *syntax = function->definition)
 		{
-			bool failed = false;
-			TypeBase *expectedType = AnalyzeType(ctx, argument->type, true, &failed);
+			bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
 
-			if(failed)
-				break;
+			// Create temporary scope with known arguments for reference in type expression
+			ctx.PushTemporaryScope();
 
-			CallArgumentData &actualArgument = arguments[pos];
+			unsigned pos = 0;
 
-			TypeBase *type = expectedType == ctx.typeAuto ? actualArgument.type : MatchArgumentType(ctx, argument, expectedType, actualArgument.type, actualArgument.value, aliases);
+			for(SynFunctionArgument *argument = syntax->arguments.head; argument; argument = getType<SynFunctionArgument>(argument->next), pos++)
+			{
+				bool failed = false;
+				TypeBase *expectedType = AnalyzeType(ctx, argument->type, true, &failed);
 
-			if(!type)
-				break;
+				if(failed)
+					break;
 
-			ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, argument, ctx.scope, 0, type, argument->name, 0, ctx.uniqueVariableId++));
+				CallArgumentData &actualArgument = arguments[pos];
 
-			types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(type));
+				TypeBase *type = expectedType == ctx.typeAuto ? actualArgument.type : MatchArgumentType(ctx, argument, expectedType, actualArgument.type, actualArgument.value, aliases);
+
+				if(!type)
+					break;
+
+				ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, argument, ctx.scope, 0, type, argument->name, 0, ctx.uniqueVariableId++));
+
+				types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(type));
+			}
+
+			ctx.PopScope(SCOPE_TEMPORARY);
+
+			if(addedParentScope)
+				ctx.PopScope(SCOPE_TYPE);
 		}
+		else
+		{
+			if(function->importModule)
+				Stop(ctx, source->pos, "ERROR: imported generic function call is not supported");
 
-		ctx.PopScope(SCOPE_TEMPORARY);
+			for(unsigned i = 0; i < function->arguments.size(); i++)
+			{
+				ArgumentData &funtionArgument = function->arguments[i];
 
-		if(addedParentScope)
-			ctx.PopScope(SCOPE_TYPE);
+				CallArgumentData &actualArgument = arguments[i];
+
+				TypeBase *type = MatchArgumentType(ctx, funtionArgument.source, funtionArgument.type, actualArgument.type, actualArgument.value, aliases);
+
+				if(!type)
+				{
+					// TODO: what about scope restore
+					return NULL;
+				}
+
+				types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(type));
+			}
+		}
 	}
 	else
 	{
-		if(function->importModule)
-			Stop(ctx, source->pos, "ERROR: imported generic function call is not supported");
+		// Restore old scope
+		ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
 
-		for(unsigned i = 0; i < function->arguments.size(); i++)
-		{
-			ArgumentData &funtionArgument = function->arguments[i];
-
-			CallArgumentData &actualArgument = arguments[i];
-
-			TypeBase *type = MatchArgumentType(ctx, funtionArgument.source, funtionArgument.type, actualArgument.type, actualArgument.value, aliases);
-
-			if(!type)
-				return NULL;
-
-			types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(type));
-		}
+		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+		longjmp(ctx.errorHandler, 1);
 	}
 
 	// Restore old scope
 	ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
+
+	memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 
 	if(types.size() != arguments.size())
 		return NULL;
@@ -5500,19 +5537,37 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	if(ctx.instanceDepth > NULLC_MAX_GENERIC_INSTANCE_DEPTH)
 		Stop(ctx, source->pos, "ERROR: reached maximum generic function instance depth (%d)", NULLC_MAX_GENERIC_INSTANCE_DEPTH);
 
+	jmp_buf prevErrorHandler;
+	memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));
+
 	ExprBase *expr = NULL;
 	
-	if(SynFunctionDefinition *syntax = function->definition)
-		expr = AnalyzeFunctionDefinition(ctx, syntax, instance, parentType, aliases, false, false);
-	else if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(function->declaration->source))
-		expr = AnalyzeShortFunctionDefinition(ctx, node, instance);
+	if(!setjmp(ctx.errorHandler))
+	{
+		if(SynFunctionDefinition *syntax = function->definition)
+			expr = AnalyzeFunctionDefinition(ctx, syntax, instance, parentType, aliases, false, false);
+		else if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(function->declaration->source))
+			expr = AnalyzeShortFunctionDefinition(ctx, node, instance);
+		else
+			Stop(ctx, source->pos, "ERROR: imported generic function call is not supported");
+	}
 	else
-		Stop(ctx, source->pos, "ERROR: imported generic function call is not supported");
+	{
+		ctx.instanceDepth--;
+
+		// Restore old scope
+		ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
+
+		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+		longjmp(ctx.errorHandler, 1);
+	}
 
 	ctx.instanceDepth--;
 
 	// Restore old scope
 	ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
+
+	memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 
 	ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(expr);
 
@@ -8244,94 +8299,109 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 	// Switch to global scope
 	ctx.SwitchToScopeAtPoint(NULL, ctx.globalScope, NULL);
 
-	// Create conversion operator int int(enum_type)
 	ExprBase *castToInt = NULL;
-
-	{
-		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
-		arguments.push_back(ArgumentData(syntax, false, InplaceStr("x"), enumType, NULL));
-
-		FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(ctx.typeInt, arguments), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("int"), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
-
-		// Fill in argument data
-		for(unsigned i = 0; i < arguments.size(); i++)
-			function->arguments.push_back(arguments[i]);
-
-		CheckFunctionConflict(ctx, syntax, function->name);
-
-		ctx.AddFunction(function);
-
-		ctx.PushScope(function);
-
-		function->functionScope = ctx.scope;
-
-		IntrusiveList<ExprVariableDefinition> variables;
-
-		CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
-
-		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
-
-		function->argumentsSize = function->functionScope->dataSize;
-
-		IntrusiveList<ExprBase> expressions;
-		expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, new (ctx.get<ExprTypeCast>()) ExprTypeCast(syntax, ctx.typeInt, new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(syntax, enumType, variables.tail->variable), EXPR_CAST_REINTERPRET), NULL, CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
-
-		ClosePendingUpvalues(ctx, function);
-
-		ctx.PopScope(SCOPE_FUNCTION);
-
-		function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntax, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL);
-
-		ctx.definitions.push_back(function->declaration);
-
-		castToInt = function->declaration;
-	}
-
-	// Create conversion operator enum_type enum_type(int)
 	ExprBase *castToEnum = NULL;
 
+	jmp_buf prevErrorHandler;
+	memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));
+
+	if(!setjmp(ctx.errorHandler))
 	{
-		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
-		arguments.push_back(ArgumentData(syntax, false, InplaceStr("x"), ctx.typeInt, NULL));
+		// Create conversion operator int int(enum_type)
+		{
+			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+			arguments.push_back(ArgumentData(syntax, false, InplaceStr("x"), enumType, NULL));
 
-		FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(enumType, arguments), ctx.GetReferenceType(ctx.typeVoid), typeName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(ctx.typeInt, arguments), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("int"), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
-		// Fill in argument data
-		for(unsigned i = 0; i < arguments.size(); i++)
-			function->arguments.push_back(arguments[i]);
+			// Fill in argument data
+			for(unsigned i = 0; i < arguments.size(); i++)
+				function->arguments.push_back(arguments[i]);
 
-		CheckFunctionConflict(ctx, syntax, function->name);
+			CheckFunctionConflict(ctx, syntax, function->name);
 
-		ctx.AddFunction(function);
+			ctx.AddFunction(function);
 
-		ctx.PushScope(function);
+			ctx.PushScope(function);
 
-		function->functionScope = ctx.scope;
+			function->functionScope = ctx.scope;
 
-		IntrusiveList<ExprVariableDefinition> variables;
+			IntrusiveList<ExprVariableDefinition> variables;
 
-		CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
+			CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
 
-		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
+			ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
 
-		function->argumentsSize = function->functionScope->dataSize;
+			function->argumentsSize = function->functionScope->dataSize;
 
-		IntrusiveList<ExprBase> expressions;
-		expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, new (ctx.get<ExprTypeCast>()) ExprTypeCast(syntax, enumType, new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(syntax, ctx.typeInt, variables.tail->variable), EXPR_CAST_REINTERPRET), NULL, CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
+			IntrusiveList<ExprBase> expressions;
+			expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, new (ctx.get<ExprTypeCast>()) ExprTypeCast(syntax, ctx.typeInt, new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(syntax, enumType, variables.tail->variable), EXPR_CAST_REINTERPRET), NULL, CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
 
-		ClosePendingUpvalues(ctx, function);
+			ClosePendingUpvalues(ctx, function);
 
-		ctx.PopScope(SCOPE_FUNCTION);
+			ctx.PopScope(SCOPE_FUNCTION);
 
-		function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntax, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL);
+			function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntax, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL);
 
-		ctx.definitions.push_back(function->declaration);
+			ctx.definitions.push_back(function->declaration);
 
-		castToEnum = function->declaration;
+			castToInt = function->declaration;
+		}
+
+		// Create conversion operator enum_type enum_type(int)
+		{
+			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+			arguments.push_back(ArgumentData(syntax, false, InplaceStr("x"), ctx.typeInt, NULL));
+
+			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(enumType, arguments), ctx.GetReferenceType(ctx.typeVoid), typeName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+
+			// Fill in argument data
+			for(unsigned i = 0; i < arguments.size(); i++)
+				function->arguments.push_back(arguments[i]);
+
+			CheckFunctionConflict(ctx, syntax, function->name);
+
+			ctx.AddFunction(function);
+
+			ctx.PushScope(function);
+
+			function->functionScope = ctx.scope;
+
+			IntrusiveList<ExprVariableDefinition> variables;
+
+			CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
+
+			ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
+
+			function->argumentsSize = function->functionScope->dataSize;
+
+			IntrusiveList<ExprBase> expressions;
+			expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, new (ctx.get<ExprTypeCast>()) ExprTypeCast(syntax, enumType, new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(syntax, ctx.typeInt, variables.tail->variable), EXPR_CAST_REINTERPRET), NULL, CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
+
+			ClosePendingUpvalues(ctx, function);
+
+			ctx.PopScope(SCOPE_FUNCTION);
+
+			function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntax, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL);
+
+			ctx.definitions.push_back(function->declaration);
+
+			castToEnum = function->declaration;
+		}
+	}
+	else
+	{
+		// Restore old scope
+		ctx.SwitchToScopeAtPoint(NULL, scope, NULL);
+
+		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+		longjmp(ctx.errorHandler, 1);
 	}
 
 	// Restore old scope
 	ctx.SwitchToScopeAtPoint(NULL, scope, NULL);
+
+	memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 
 	return new (ctx.get<ExprEnumDefinition>()) ExprEnumDefinition(syntax, ctx.typeVoid, enumType, castToInt, castToEnum);
 }
