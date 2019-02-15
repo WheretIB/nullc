@@ -1911,16 +1911,18 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 			{
 				return node->value;
 			}
+			else if(target->subType == value->type)
+			{
+				VariableData *storage = AllocateTemporary(ctx, source, target->subType);
 
-			VariableData *storage = AllocateTemporary(ctx, source, target->subType);
+				ExprBase *assignment = new (ctx.get<ExprAssignment>()) ExprAssignment(source, storage->type, CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false)), value);
 
-			ExprBase *assignment = new (ctx.get<ExprAssignment>()) ExprAssignment(source, storage->type, CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false)), value);
+				ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(source, ctx.typeVoid, storage, assignment);
 
-			ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(source, ctx.typeVoid, storage, assignment);
+				ExprBase *result = CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false));
 
-			ExprBase *result = CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false));
-
-			return CreateSequence(ctx, source, definition, result);
+				return CreateSequence(ctx, source, definition, result);
+			}
 		}
 	}
 
