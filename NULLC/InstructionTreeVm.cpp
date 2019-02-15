@@ -3500,7 +3500,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 			{
 				if(inst->cmd == VM_INST_JUMP || inst->cmd == VM_INST_JUMP_Z || inst->cmd == VM_INST_JUMP_NZ || inst->cmd == VM_INST_RETURN)
 				{
-					while(curr->lastInstruction != inst)
+					while(curr->lastInstruction && curr->lastInstruction != inst)
 					{
 						module->controlFlowSimplifications++;
 

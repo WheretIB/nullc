@@ -674,3 +674,7 @@ TEST_RESULT("Fuzzing crash result 3", testFuzzingCrash3, "1");
 const char	*testFuzzingCrash4 =
 "1||1||1^^1&&1||1; return 1;";
 TEST_RESULT("Fuzzing crash result 4", testFuzzingCrash4, "1");
+
+const char	*testFuzzingCrash5 =
+"return 1; for(;1;) return 0;";
+TEST_RESULT("Fuzzing crash result 5", testFuzzingCrash5, "1");
