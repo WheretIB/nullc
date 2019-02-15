@@ -404,6 +404,23 @@ namespace
 		return false;
 	}
 
+	ExprBase* AssertResolvableTypeLiteral(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
+	{
+		if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expr))
+		{
+			if(isType<TypeArgumentSet>(node->value))
+				Stop(ctx, source->pos, "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
+
+			if(isType<TypeMemberSet>(node->value))
+				Stop(ctx, source->pos, "ERROR: expected '(' after 'hasMember'");
+
+			if(node->value->isGeneric)
+				Stop(ctx, source->pos, "ERROR: cannot take typeid from generic type");
+		}
+
+		return expr;
+	}
+
 	ExprBase* AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
 	{
 		if(isType<ExprFunctionOverloadSet>(expr))
@@ -412,14 +429,13 @@ namespace
 		if(isType<ExprGenericFunctionPrototype>(expr))
 			Stop(ctx, source->pos, "ERROR: ambiguity, the expression is a generic function");
 
-		if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expr))
+		if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expr))
 		{
-			if(isType<TypeArgumentSet>(node->value))
-				Stop(ctx, source->pos, "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
-
-			if(isType<TypeMemberSet>(node->value))
-				Stop(ctx, source->pos, "ERROR: expected '(' after 'hasMember'");
+			if(ctx.IsGenericFunction(node->function))
+				Stop(ctx, source->pos, "ERROR: ambiguity, the expression is a generic function");
 		}
+
+		AssertResolvableTypeLiteral(ctx, source, expr);
 
 		return expr;
 	}
@@ -5838,6 +5854,9 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 {
 	TypeFunction *type = getType<TypeFunction>(value->type);
 
+	for(unsigned i = 0; i < arguments.size(); i++)
+		AssertResolvableTypeLiteral(ctx, source, arguments[i].value);
+
 	IntrusiveList<ExprBase> actualArguments;
 
 	if(!functions.empty())
@@ -6205,8 +6224,11 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 	if(!type)
 		AnalyzeType(ctx, syntax->type);
 
+	if(type->isGeneric)
+		Stop(ctx, syntax->type->pos, "ERROR: generic type is not allowed");
+
 	if(type == ctx.typeVoid || type == ctx.typeAuto)
-		Stop(ctx, syntax->pos, "ERROR: can't allocate objects of type '%.*s'", FMT_ISTR(type->name));
+		Stop(ctx, syntax->type->pos, "ERROR: can't allocate objects of type '%.*s'", FMT_ISTR(type->name));
 
 	if(TypeClass *typeClass = getType<TypeClass>(type))
 	{
@@ -6773,6 +6795,9 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 		parentType = AnalyzeType(ctx, syntax->parentType);
 
 	TypeBase *returnType = AnalyzeType(ctx, syntax->returnType);
+
+	if(returnType->isGeneric)
+		Stop(ctx, syntax->pos, "ERROR: return type can't be generic");
 
 	ExprBase *value = CreateFunctionDefinition(ctx, syntax, syntax->prototype, syntax->coroutine, parentType, syntax->accessor, returnType, syntax->isOperator, syntax->name, syntax->aliases, syntax->arguments, syntax->expressions, instance, matches);
 
@@ -9046,11 +9071,6 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeVariableAccess(ctx, node);
 	}
 
-	if(SynTypeAuto *node = getType<SynTypeAuto>(syntax))
-	{
-		Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
-	}
-
 	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
 	{
 		// It could be a typeid
@@ -9069,8 +9089,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	{
 		if(TypeBase *type = AnalyzeType(ctx, node->value, false))
 		{
+			if(type->isGeneric)
+				Stop(ctx, syntax->pos, "ERROR: sizeof generic type is illegal");
+
 			if(type == ctx.typeAuto)
-				Stop(ctx, syntax->pos, "ERROR: sizeof(auto) is illegal");
+				Stop(ctx, syntax->pos, "ERROR: sizeof auto type is illegal");
 
 			if(TypeClass *typeClass = getType<TypeClass>(type))
 			{
@@ -9086,7 +9109,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		ExprBase *value = AnalyzeExpression(ctx, node->value);
 
 		if(value->type == ctx.typeAuto)
-			Stop(ctx, syntax->pos, "ERROR: sizeof(auto) is illegal");
+			Stop(ctx, syntax->pos, "ERROR: sizeof auto type is illegal");
 
 		if(TypeClass *typeClass = getType<TypeClass>(value->type))
 		{
@@ -9195,6 +9218,15 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 	if(SynTypeGenericInstance *node = getType<SynTypeGenericInstance>(syntax))
 		return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(node, ctx.typeTypeID, AnalyzeType(ctx, syntax));
+
+	if(SynTypeAuto *node = getType<SynTypeAuto>(syntax))
+		Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
+
+	if(SynTypeAlias *node = getType<SynTypeAlias>(syntax))
+		Stop(ctx, syntax->pos, "ERROR: cannot take typeid from generic type");
+
+	if(SynTypeGeneric *node = getType<SynTypeGeneric>(syntax))
+		Stop(ctx, syntax->pos, "ERROR: cannot take typeid from generic type");
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");
 
