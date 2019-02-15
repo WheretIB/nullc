@@ -8852,16 +8852,9 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 		ExprBase *block = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, expressions, NULL);
 
 		if(curr->value)
-		{
 			blocks.push_back(block);
-		}
 		else
-		{
-			if(defaultBlock)
-				Stop(ctx, curr->pos, "ERROR: default switch case is already defined");
-
 			defaultBlock = block;
-		}
 	}
 
 	ctx.PopScope(SCOPE_LOOP);

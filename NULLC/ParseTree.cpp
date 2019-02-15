@@ -1895,6 +1895,8 @@ SynSwitch* ParseSwitch(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after 'switch(...)'");
 
+		bool hadDefautltCase = false;
+
 		IntrusiveList<SynSwitchCase> cases;
 
 		while(ctx.At(lex_case) || ctx.At(lex_default))
@@ -1905,6 +1907,9 @@ SynSwitch* ParseSwitch(ParseContext &ctx)
 
 			if(ctx.Consume(lex_case))
 			{
+				if(hadDefautltCase)
+					Stop(ctx, ctx.Position(), "ERROR: default switch case can't be followed by more cases");
+
 				value = ParseAssignment(ctx);
 
 				if(!value)
@@ -1912,7 +1917,12 @@ SynSwitch* ParseSwitch(ParseContext &ctx)
 			}
 			else
 			{
+				if(hadDefautltCase)
+					Stop(ctx, ctx.Position(), "ERROR: default switch case is already defined");
+
 				ctx.Consume(lex_default);
+
+				hadDefautltCase = true;
 			}
 
 			AssertConsume(ctx, lex_colon, "ERROR: ':' expected");
