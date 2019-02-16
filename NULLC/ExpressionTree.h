@@ -26,7 +26,7 @@ struct ExpressionContext
 	void PushScope(NamespaceData *nameSpace);
 	void PushScope(FunctionData *function);
 	void PushScope(TypeBase *type);
-	void PushLoopScope();
+	void PushLoopScope(bool allowBreak, bool allowContinue);
 	void PushTemporaryScope();
 	void PopScope(ScopeType type, SynBase *location, bool keepFunctions);
 	void PopScope(ScopeType type);

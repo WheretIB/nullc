@@ -796,7 +796,7 @@ void ExpressionContext::PushScope(TypeBase *type)
 	scope = next;
 }
 
-void ExpressionContext::PushLoopScope()
+void ExpressionContext::PushLoopScope(bool allowBreak, bool allowContinue)
 {
 	ScopeData *next = new (get<ScopeData>()) ScopeData(allocator, scope, uniqueScopeId++, SCOPE_LOOP);
 
@@ -807,7 +807,11 @@ void ExpressionContext::PushLoopScope()
 		next->startOffset = scope->dataSize;
 	}
 
-	next->loopDepth++;
+	if(allowBreak)
+		next->breakDepth++;
+
+	if(allowContinue)
+		next->contiueDepth++;
 
 	scope = next;
 }
@@ -2227,14 +2231,26 @@ ExprBase* CreateBlockUpvalueClose(ExpressionContext &ctx, SynBase *source, Funct
 	return holder;
 }
 
-ExprBase* CreateLoopUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *fromScope, unsigned depth)
+ExprBase* CreateBreakUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *fromScope, unsigned depth)
 {
 	if(!onwerFunction)
 		return NULL;
 
 	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, IntrusiveList<ExprBase>());
 
-	onwerFunction->closeUpvalues.push_back(new (ctx.get<CloseUpvaluesData>()) CloseUpvaluesData(holder, CLOSE_UPVALUES_LOOP, source, fromScope, depth));
+	onwerFunction->closeUpvalues.push_back(new (ctx.get<CloseUpvaluesData>()) CloseUpvaluesData(holder, CLOSE_UPVALUES_BREAK, source, fromScope, depth));
+
+	return holder;
+}
+
+ExprBase* CreateContinueUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *fromScope, unsigned depth)
+{
+	if(!onwerFunction)
+		return NULL;
+
+	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, IntrusiveList<ExprBase>());
+
+	onwerFunction->closeUpvalues.push_back(new (ctx.get<CloseUpvaluesData>()) CloseUpvaluesData(holder, CLOSE_UPVALUES_CONTINUE, source, fromScope, depth));
 
 	return holder;
 }
@@ -2285,10 +2301,25 @@ void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 					data.expr->expressions.push_back(CreateUpvalueClose(ctx, data.source, variable));
 			}
 			break;
-		case CLOSE_UPVALUES_LOOP:
+		case CLOSE_UPVALUES_BREAK:
 			for(ScopeData *scope = data.scope; scope; scope = scope->scope)
 			{
-				if(scope->loopDepth == data.scope->loopDepth - data.depth)
+				if(scope->breakDepth == data.scope->breakDepth - data.depth)
+					break;
+
+				for(unsigned i = 0; i < scope->variables.size(); i++)
+				{
+					VariableData *variable = scope->variables[i];
+
+					if(variable->usedAsExternal)
+						data.expr->expressions.push_back(CreateUpvalueClose(ctx, data.source, variable));
+				}
+			}
+			break;
+		case CLOSE_UPVALUES_CONTINUE:
+			for(ScopeData *scope = data.scope; scope; scope = scope->scope)
+			{
+				if(scope->contiueDepth == data.scope->contiueDepth - data.depth)
 					break;
 
 				for(unsigned i = 0; i < scope->variables.size(); i++)
@@ -8693,7 +8724,7 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 
 ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 {
-	ctx.PushLoopScope();
+	ctx.PushLoopScope(true, true);
 
 	ExprBase *initializer = NULL;
 
@@ -8726,7 +8757,7 @@ ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 
 ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 {
-	ctx.PushLoopScope();
+	ctx.PushLoopScope(true, true);
 
 	IntrusiveList<ExprBase> initializers;
 	IntrusiveList<ExprBase> conditions;
@@ -8944,7 +8975,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 ExprWhile* AnalyzeWhile(ExpressionContext &ctx, SynWhile *syntax)
 {
-	ctx.PushLoopScope();
+	ctx.PushLoopScope(true, true);
 
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 	ExprBase *body = syntax->body ? AnalyzeStatement(ctx, syntax->body) : new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
@@ -8958,7 +8989,7 @@ ExprWhile* AnalyzeWhile(ExpressionContext &ctx, SynWhile *syntax)
 
 ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 {
-	ctx.PushLoopScope();
+	ctx.PushLoopScope(true, true);
 
 	IntrusiveList<ExprBase> expressions;
 
@@ -8978,7 +9009,7 @@ ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 
 ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 {
-	ctx.PushLoopScope();
+	ctx.PushLoopScope(true, false);
 
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
@@ -9049,10 +9080,10 @@ ExprBreak* AnalyzeBreak(ExpressionContext &ctx, SynBreak *syntax)
 		}
 	}
 
-	if(ctx.scope->loopDepth < depth)
+	if(ctx.scope->breakDepth < depth)
 		Stop(ctx, syntax->pos, "ERROR: break level is greater that loop depth");
 
-	return new (ctx.get<ExprBreak>()) ExprBreak(syntax, ctx.typeVoid, depth, CreateLoopUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope, depth));
+	return new (ctx.get<ExprBreak>()) ExprBreak(syntax, ctx.typeVoid, depth, CreateBreakUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope, depth));
 }
 
 ExprContinue* AnalyzeContinue(ExpressionContext &ctx, SynContinue *syntax)
@@ -9076,10 +9107,10 @@ ExprContinue* AnalyzeContinue(ExpressionContext &ctx, SynContinue *syntax)
 		}
 	}
 
-	if(ctx.scope->loopDepth < depth)
+	if(ctx.scope->contiueDepth < depth)
 		Stop(ctx, syntax->pos, "ERROR: continue level is greater that loop depth");
 
-	return new (ctx.get<ExprContinue>()) ExprContinue(syntax, ctx.typeVoid, depth, CreateLoopUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope, depth));
+	return new (ctx.get<ExprContinue>()) ExprContinue(syntax, ctx.typeVoid, depth, CreateContinueUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope, depth));
 }
 
 ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createScope)

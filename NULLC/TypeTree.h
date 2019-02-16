@@ -268,7 +268,8 @@ enum CloseUpvaluesType
 {
 	CLOSE_UPVALUES_FUNCTION,
 	CLOSE_UPVALUES_BLOCK,
-	CLOSE_UPVALUES_LOOP,
+	CLOSE_UPVALUES_BREAK,
+	CLOSE_UPVALUES_CONTINUE,
 	CLOSE_UPVALUES_ARGUMENT,
 };
 
@@ -450,7 +451,8 @@ struct ScopeData
 	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, ScopeType type): scope(scope), uniqueId(uniqueId), type(type), ownerNamespace(0), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator), allVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
-		loopDepth = scope ? scope->loopDepth : 0;
+		breakDepth = scope ? scope->breakDepth : 0;
+		contiueDepth = scope ? scope->contiueDepth : 0;
 
 		startOffset = 0;
 		dataSize = 0;
@@ -459,7 +461,8 @@ struct ScopeData
 	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, NamespaceData *ownerNamespace): scope(scope), uniqueId(uniqueId), type(SCOPE_NAMESPACE), ownerNamespace(ownerNamespace), ownerFunction(0), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator), allVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
-		loopDepth = 0;
+		breakDepth = 0;
+		contiueDepth = 0;
 
 		startOffset = 0;
 		dataSize = 0;
@@ -468,7 +471,8 @@ struct ScopeData
 	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, FunctionData *ownerFunction): scope(scope), uniqueId(uniqueId), type(SCOPE_FUNCTION), ownerNamespace(0), ownerFunction(ownerFunction), ownerType(0), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator), allVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
-		loopDepth = 0;
+		breakDepth = 0;
+		contiueDepth = 0;
 
 		startOffset = 0;
 		dataSize = 0;
@@ -477,7 +481,8 @@ struct ScopeData
 	ScopeData(Allocator *allocator, ScopeData *scope, unsigned uniqueId, TypeBase *ownerType): scope(scope), uniqueId(uniqueId), type(SCOPE_TYPE), ownerNamespace(0), ownerFunction(0), ownerType(ownerType), types(allocator), functions(allocator), variables(allocator), aliases(allocator), scopes(allocator), shadowedVariables(allocator), allVariables(allocator)
 	{
 		scopeDepth = scope ? scope->scopeDepth + 1 : 0;
-		loopDepth = 0;
+		breakDepth = 0;
+		contiueDepth = 0;
 
 		startOffset = 0;
 		dataSize = 0;
@@ -494,7 +499,8 @@ struct ScopeData
 	TypeBase *ownerType;
 
 	unsigned scopeDepth;
-	unsigned loopDepth;
+	unsigned breakDepth;
+	unsigned contiueDepth;
 
 	long long startOffset;
 	long long dataSize;
