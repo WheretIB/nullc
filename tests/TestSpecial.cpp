@@ -382,8 +382,10 @@ auto bind(generic f, generic v0, v1)\r\n\
 		return auto(typeof(f).argument[0] x, typeof(f).argument[0] y){ return f(typeof(v0) == ph1 ? x : y, typeof(v1) == ph1 ? x : y); };\r\n\
 	else if(typeof(v0) == ph1)\r\n\
 		return bind(auto(typeof(f).argument[0] x){ return f(x, v1); }, v0);\r\n\
-	else if(typeof(v0) == ph2 || typeof(v1) == ph2)\r\n\
-		return auto(typeof(f).argument[1] x, typeof(f).argument[0] y){ return f(typeof(v0) == ph2 ? y : v0, typeof(v1) == ph2 ? y : v1); };\r\n\
+	else if(typeof(v0) == ph2)\r\n\
+		return auto(typeof(f).argument[1] x, typeof(f).argument[0] y){ return f(y, v1); };\r\n\
+	else if(typeof(v1) == ph2)\r\n\
+		return auto(typeof(f).argument[1] x, typeof(f).argument[0] y){ return f(v0, y); };\r\n\
 	else\r\n\
 		return bind(auto(typeof(f).argument[0] x){ return f(v0, x); }, v1);\r\n\
 }\r\n\
