@@ -6903,7 +6903,7 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, Fu
 
 		assert(!argument.type->isGeneric);
 
-		CheckVariableConflict(ctx, source, argument.name);
+		CheckVariableConflict(ctx, argument.source, argument.name);
 
 		unsigned offset = AllocateArgumentInScope(ctx, source, 4, argument.type);
 		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, argument.source, ctx.scope, 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
@@ -8153,7 +8153,7 @@ void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *ty
 				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken", FMT_ISTR(curr->name));
 		}
 
-		CheckVariableConflict(ctx, source, constant->name);
+		CheckVariableConflict(ctx, constant, constant->name);
 
 		target.push_back(new (ctx.get<ConstantData>()) ConstantData(constant->name, value));
 	}
@@ -8482,7 +8482,7 @@ void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken", FMT_ISTR(curr->name));
 		}
 
-		CheckVariableConflict(ctx, source, constant->name);
+		CheckVariableConflict(ctx, constant, constant->name);
 
 		target.push_back(new (ctx.get<ConstantData>()) ConstantData(constant->name, new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, type, value->value)));
 	}
