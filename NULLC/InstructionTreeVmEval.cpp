@@ -1131,6 +1131,8 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 			return (VmConstant*)Report(ctx, "ERROR: cannot convert from %.*s ref to %.*s ref", FMT_ISTR(sourceType->name), FMT_ISTR(targetType->name));
 		}
 		break;
+	case VM_INST_ABORT_NO_RETURN:
+		return (VmConstant*)Report(ctx, "ERROR: function didn't return a value");
 	case VM_INST_CONSTRUCT:
 		{
 			unsigned size = instruction->type.size;

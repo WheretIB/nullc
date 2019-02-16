@@ -2,12 +2,6 @@
 
 #include <assert.h>
 
-#if !defined(_DEBUG) && !defined(NULLC_LLVM_SUPPORT)
-	#define FAILURE_TEST
-#endif
-
-#ifdef FAILURE_TEST
-
 const char	*testDivZeroInt = 
 "// Division by zero handling\r\n\
 int a = 5, b = 0;\r\n\
@@ -216,9 +210,7 @@ struct Test_testMultipleTransiotions : TestQueue
 };
 Test_testMultipleTransiotions test_testMultipleTransiotions;
 
-#endif
-
-#if defined(FAILURE_TEST) && defined(NULLC_BUILD_X86_JIT)
+#if defined(NULLC_BUILD_X86_JIT)
 
 const char	*testDepthOverflow = 
 "int fib(int n)\r\n\
@@ -236,7 +228,7 @@ struct Test_testDepthOverflow : TestQueue
 		nullcSetJiTStack(stackMem, stackMem + 32*1024, true);
 		if(Tests::messageVerbose)
 			printf("Call depth test\r\n");
-		if(Tests::testExecutor[1])
+		if(Tests::testExecutor[1] && 1 < TEST_RUNTIME_FAIL_EXECUTORS)
 		{
 			testsCount[1]++;
 			nullcSetExecutor(NULLC_X86);
@@ -295,7 +287,7 @@ struct Test_testGlobalOverflow : TestQueue
 		if(Tests::messageVerbose)
 			printf("Global overflow test\r\n");
 		nullcSetJiTStack(stackMem, stackMem + 32*1024, true);
-		if(Tests::testExecutor[1])
+		if(Tests::testExecutor[1] && 1 < TEST_RUNTIME_FAIL_EXECUTORS)
 		{
 			testsCount[1]++;
 			nullcSetExecutor(NULLC_X86);
@@ -345,7 +337,7 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 		nullcSetJiTStack((void*)0x20000000, (void*)(0x20000000 + 1024*1024), false);
 		if(Tests::messageVerbose)
 			printf("Depth overflow in unmanaged memory\r\n");
-		if(Tests::testExecutor[1])
+		if(Tests::testExecutor[1] && 1 < TEST_RUNTIME_FAIL_EXECUTORS)
 		{
 			testsCount[1]++;
 			nullcSetExecutor(NULLC_X86);

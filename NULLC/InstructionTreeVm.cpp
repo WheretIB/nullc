@@ -44,6 +44,7 @@ namespace
 		case VM_INST_RETURN:
 		case VM_INST_YIELD:
 		case VM_INST_UNYIELD:
+		case VM_INST_ABORT_NO_RETURN:
 			return true;
 		default:
 			break;
@@ -71,6 +72,8 @@ namespace
 		case VM_INST_RETURN:
 		case VM_INST_YIELD:
 		case VM_INST_UNYIELD:
+		case VM_INST_CONVERT_POINTER:
+		case VM_INST_ABORT_NO_RETURN:
 			return true;
 		default:
 			break;
@@ -642,6 +645,11 @@ namespace
 	VmValue* CreateYield(VmModule *module, SynBase *source, VmValue *value)
 	{
 		return CreateInstruction(module, source, VmType::Void, VM_INST_YIELD, value);
+	}
+
+	VmValue* CreateAbortNoReturn(VmModule *module, SynBase *source)
+	{
+		return CreateInstruction(module, source, VmType::Void, VM_INST_ABORT_NO_RETURN);
 	}
 
 	VmValue* CreateVariableAddress(VmModule *module, SynBase *source, VariableData *variable, TypeBase *structType)
@@ -2362,6 +2370,8 @@ VmValue* CompileVmFunctionDefinition(ExpressionContext &ctx, VmModule *module, E
 	for(ExprBase *value = node->expressions.head; value; value = value->next)
 		CompileVm(ctx, module, value);
 
+	CreateAbortNoReturn(module, node->source);
+
 	// Restore state
 	module->currentFunction = currentFunction;
 	module->currentBlock = currentBlock;
@@ -3513,7 +3523,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 			// Remove any instructions after a branch
 			for(VmInstruction *inst = curr->firstInstruction; inst; inst = inst->nextSibling)
 			{
-				if(inst->cmd == VM_INST_JUMP || inst->cmd == VM_INST_JUMP_Z || inst->cmd == VM_INST_JUMP_NZ || inst->cmd == VM_INST_RETURN)
+				if(IsBlockTerminator(inst->cmd))
 				{
 					while(curr->lastInstruction && curr->lastInstruction != inst)
 					{

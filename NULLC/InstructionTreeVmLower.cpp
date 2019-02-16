@@ -923,6 +923,9 @@ void Lower(InstructionVMLowerContext &ctx, VmValue *value)
 				AddCommand(ctx, inst->source, VMCmd(cmdConvertPtr, typeIndex->iValue));
 			}
 			break;
+		case VM_INST_ABORT_NO_RETURN:
+			AddCommand(ctx, inst->source, VMCmd(cmdReturn, bitRetError, 1, 0));
+			break;
 		case VM_INST_CONSTRUCT:
 		case VM_INST_ARRAY:
 			for(int i = int(inst->arguments.size() - 1); i >= 0; i--)

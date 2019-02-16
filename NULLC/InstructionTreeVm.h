@@ -110,6 +110,8 @@ enum VmInstructionType
 
 	VM_INST_CONVERT_POINTER,
 
+	VM_INST_ABORT_NO_RETURN,
+
 	VM_INST_CONSTRUCT, // Pseudo instruction to collect multiple elements into a single value
 	VM_INST_ARRAY, // Pseudo instruction to collect multiple elements into a single array
 	VM_INST_EXTRACT, // Pseudo instruction to extract an element from a composite value

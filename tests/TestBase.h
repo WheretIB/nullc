@@ -462,10 +462,16 @@ inline void CHECK_HEAP_STR(const char *var, unsigned index, const char* expected
 	}
 }
 
+#if defined(NDEBUG)
+#define TEST_RUNTIME_FAIL_EXECUTORS 2
+#else
+#define TEST_RUNTIME_FAIL_EXECUTORS 1
+#endif
+
 #define TEST_RUNTIME_FAIL(name, code, result)	\
 struct Test_##code : TestQueue {	\
 	virtual void Run(){	\
-		for(int t = 0; t < 2; t++)	\
+		for(int t = 0; t < TEST_RUNTIME_FAIL_EXECUTORS; t++)	\
 		{	\
 			if(!Tests::testExecutor[t])	\
 				continue;	\

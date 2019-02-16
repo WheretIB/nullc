@@ -369,6 +369,8 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "lnot";
 	case VM_INST_CONVERT_POINTER:
 		return "convert_pointer";
+	case VM_INST_ABORT_NO_RETURN:
+		return "abort_no_return";
 	case VM_INST_CONSTRUCT:
 		return "construct";
 	case VM_INST_ARRAY:
