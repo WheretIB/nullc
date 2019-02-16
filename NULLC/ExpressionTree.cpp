@@ -2462,6 +2462,12 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 		rhs = CreateConditionCast(ctx, rhs->source, rhs);
 	}
 
+	if(lhs->type == ctx.typeVoid)
+		Stop(ctx, source->pos, "ERROR: first operand type is 'void'");
+
+	if(rhs->type == ctx.typeVoid)
+		Stop(ctx, source->pos, "ERROR: second operand type is 'void'");
+
 	bool hasBuiltIn = false;
 
 	hasBuiltIn |= ctx.IsNumericType(lhs->type) && ctx.IsNumericType(rhs->type);
@@ -2480,12 +2486,6 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 
 	if(!hasBuiltIn)
 		Stop(ctx, source->pos, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(op), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
-
-	if(lhs->type == ctx.typeVoid)
-		Stop(ctx, source->pos, "ERROR: first operand type is 'void'");
-
-	if(rhs->type == ctx.typeVoid)
-		Stop(ctx, source->pos, "ERROR: second operand type is 'void'");
 
 	bool binaryOp = IsBinaryOp(op);
 	bool comparisonOp = IsComparisonOp(op);
@@ -3120,7 +3120,7 @@ ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 			else if(ctx.IsFloatingPointType(value->type) && ctx.IsFloatingPointType(subType) && subType->size > value->type->size)
 				value = CreateCast(ctx, value->source, value, subType, false);
 			else
-				Stop(ctx, value->source->pos, "ERROR: array element type '%.*s' doesn't match '%.*s", FMT_ISTR(value->type->name), FMT_ISTR(subType->name));
+				Stop(ctx, value->source->pos, "ERROR: array element %d type '%.*s' doesn't match '%.*s'", i + 1, FMT_ISTR(value->type->name), FMT_ISTR(subType->name));
 		}
 
 		if(value->type == ctx.typeVoid)
@@ -5222,10 +5222,11 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 		for(unsigned i = 0; i < arguments.size(); i++)
 			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
 
-		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")\n");
+		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), !functions.empty() ? ")\n" : ")");
 	}
 
-	errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), bestRating == ~0u ? " the only available are:\n" : " candidates are:\n");
+	if(!functions.empty())
+		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), bestRating == ~0u ? " the only available are:\n" : " candidates are:\n");
 
 	for(unsigned i = 0; i < functions.size(); i++)
 	{
@@ -5862,7 +5863,17 @@ ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, Inpl
 	}
 
 	if(!allowFailure)
-		Stop(ctx, source->pos, "ERROR: unknown identifier '%.*s'", FMT_ISTR(name));
+	{
+		ArrayView<FunctionValue> functions;
+		ArrayView<unsigned> ratings;
+
+		char *errPos = ctx.errorBuf;
+
+		if(errPos)
+			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(name));
+
+		StopOnFunctionSelectError(ctx, source, errPos, name, functions, arguments, ratings, ~0u, true);
+	}
 
 	return NULL;
 }
@@ -6490,7 +6501,7 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 		if(returnType == ctx.typeAuto)
 		{
 			if(result->type->isGeneric)
-				Stop(ctx, syntax->pos, "ERROR: generic return type is not supported");
+				AssertValueExpression(ctx, syntax, result);
 
 			returnType = result->type;
 
@@ -10658,7 +10669,7 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 			if(TypeClass *typeClass = getType<TypeClass>(typeStruct))
 			{
 				if(!typeClass->completed)
-					Stop(ctx, syntax->pos, "ERROR: type '%.*s' implementation is not found", FMT_ISTR(typeClass->name));
+					Stop(ctx, syntax->pos, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(typeClass->name));
 			}
 
 			assert(typeStruct->typeScope);
