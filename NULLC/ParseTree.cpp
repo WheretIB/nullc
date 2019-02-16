@@ -1623,7 +1623,31 @@ SynIfElse* ParseIfElse(ParseContext &ctx, bool forceStaticIf)
 	{
 		AssertConsume(ctx, lex_oparen, "ERROR: '(' not found after 'if'");
 
-		SynBase *condition = ParseAssignment(ctx);
+		Lexeme *conditionPos = ctx.currentLexeme;
+
+		SynBase *condition = NULL;
+
+		if(!staticIf)
+		{
+			if(SynBase *type = ParseType(ctx))
+			{
+				IntrusiveList<SynVariableDefinition> definitions;
+
+				if(SynVariableDefinition *definition = ParseVariableDefinition(ctx))
+				{
+					definitions.push_back(definition);
+
+					condition = new (ctx.get<SynVariableDefinitions>()) SynVariableDefinitions(start, ctx.Previous(), NULL, type, definitions);
+				}
+				else
+				{
+					ctx.currentLexeme = conditionPos;
+				}
+			}
+		}
+
+		if(!condition)
+			condition = ParseAssignment(ctx);
 
 		if(!condition)
 			Stop(ctx, ctx.Position(), "ERROR: condition not found in 'if' statement");

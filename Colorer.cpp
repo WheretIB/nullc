@@ -668,7 +668,10 @@ namespace ColorerGrammar
 				!chP('@')[ColorText] >> strWP("if")[ColorRWord] >>
 				(
 					('(' | epsP[LogError("ERROR: '(' not found after 'if'")])[ColorText] >>
-					(term5 | epsP[LogError("ERROR: condition not found in 'if' statement")]) >>
+					(
+						((typeExpr - (typeExpr >> chP('('))) >> addvarp) |
+						(term5) | epsP[LogError("ERROR: condition not found in 'if' statement")]
+					) >>
 					(')' | epsP[LogError("ERROR: ')' not found after 'if' condition")])[ColorText]
 				) >>
 				(expr | epsP[LogError("ERROR: expression not found after 'if' statement")]) >>

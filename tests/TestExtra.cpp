@@ -706,3 +706,11 @@ TEST_RESULT("Manual type cast 6", testManualCast6, "4");
 const char	*testManualCast7 =
 "int foo(int x){ return x * 2; } auto ref a = foo; return int ref(int)(a)(2);";
 TEST_RESULT("Manual type cast 7", testManualCast7, "4");
+
+const char	*testConsitionVariable1 =
+"int f(int x){ return x; }\r\n\
+int b = 0;\r\n\
+if(int a = f(15))\r\n\
+	b = a * 2;\r\n\
+return b;";
+TEST_RESULT("Variable definition inside a condition 1", testConsitionVariable1, "30");

@@ -8536,7 +8536,26 @@ ExprAliasDefinition* AnalyzeTypedef(ExpressionContext &ctx, SynTypedef *syntax)
 
 ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 {
-	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
+	SynVariableDefinitions *definitions = getType<SynVariableDefinitions>(syntax->condition);
+
+	ExprBase *condition = NULL;
+
+	if(definitions)
+	{
+		ctx.PushScope(SCOPE_EXPLICIT);
+
+		assert(definitions->definitions.size() == 1);
+
+		TypeBase *type = AnalyzeType(ctx, definitions->type);
+
+		ExprVariableDefinition *definition = AnalyzeVariableDefinition(ctx, definitions->definitions.head, 0, type);
+
+		condition = CreateSequence(ctx, syntax, definition, CreateVariableAccess(ctx, syntax, definition->variable, false));
+	}
+	else
+	{
+		condition = AnalyzeExpression(ctx, syntax->condition);
+	}
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
@@ -8566,6 +8585,10 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 	}
 
 	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
+
+	if(definitions)
+		ctx.PopScope(SCOPE_EXPLICIT);
+
 	ExprBase *falseBlock = syntax->falseBlock ? AnalyzeStatement(ctx, syntax->falseBlock) : NULL;
 
 	return new (ctx.get<ExprIfElse>()) ExprIfElse(syntax, ctx.typeVoid, condition, trueBlock, falseBlock);
