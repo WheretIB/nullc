@@ -2670,12 +2670,27 @@ VmValue* CompileVmBreak(ExpressionContext &ctx, VmModule *module, ExprBreak *nod
 	return CheckType(ctx, node, CreateVoid(module));
 }
 
+VmBlock* GetLoopContinueBlock(VmModule *module, unsigned depth)
+{
+	unsigned pos = module->loopInfo.size();
+
+	for(unsigned i = 0; i < depth; i++)
+	{
+		pos--;
+
+		while(!module->loopInfo[pos].continueBlock)
+			pos--;
+	}
+
+	return module->loopInfo[pos].continueBlock;
+}
+
 VmValue* CompileVmContinue(ExpressionContext &ctx, VmModule *module, ExprContinue *node)
 {
 	if(node->closures)
 		CompileVm(ctx, module, node->closures);
 
-	VmBlock *target = module->loopInfo[module->loopInfo.size() - node->depth].continueBlock;
+	VmBlock *target = GetLoopContinueBlock(module, node->depth);
 
 	CreateJump(module, node->source, target);
 

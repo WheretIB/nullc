@@ -192,3 +192,45 @@ const char	*testConditionType4 =
 while(i) i--;\r\n\
 return int(i);";
 TEST_RESULT("Unusual loop condition types 4", testConditionType4, "0")
+
+const char	*testSwitchContinue1 =
+"int s = 0;\r\n\
+\r\n\
+for(int i = 0; i < 10; i++)\r\n\
+{\r\n\
+	switch(i)\r\n\
+	{\r\n\
+	case 4:\r\n\
+		continue;\r\n\
+	}\r\n\
+\r\n\
+	s += i;\r\n\
+}\r\n\
+\r\n\
+return s;";
+TEST_RESULT("Continue from switch 1", testSwitchContinue1, "41")
+
+const char	*testSwitchContinue2 =
+"int s = 0;\r\n\
+\r\n\
+for(int i = 0; i < 10; i++)\r\n\
+{\r\n\
+	switch(i)\r\n\
+	{\r\n\
+	case 4:\r\n\
+		for(int k = 0; k < 10; k++)\r\n\
+		{\r\n\
+			switch(k)\r\n\
+			{\r\n\
+			case 4:\r\n\
+				continue 2;\r\n\
+			}\r\n\
+		}\r\n\
+		break;\r\n\
+	}\r\n\
+\r\n\
+	s += i;\r\n\
+}\r\n\
+\r\n\
+return s;";
+TEST_RESULT("Continue from switch 2", testSwitchContinue2, "41")
