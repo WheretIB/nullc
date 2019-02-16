@@ -8,6 +8,8 @@
 #include "Bytecode.h"
 #include "Lexer.h"
 
+void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize);
+
 namespace
 {
 	void Stop(ParseContext &ctx, const char *pos, const char *msg, va_list args)
@@ -18,6 +20,8 @@ namespace
 		{
 			vsnprintf(ctx.errorBuf, ctx.errorBufSize, msg, args);
 			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
+
+			AddErrorLocationInfo(ctx.code, ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
 		}
 
 		assert(ctx.errorHandlerActive);
@@ -235,6 +239,8 @@ SynModifyAssignType GetModifyAssignType(LexemeType type)
 
 ParseContext::ParseContext(Allocator *allocator): allocator(allocator), binaryOpStack(allocator), namespaceList(allocator)
 {
+	code = NULL;
+
 	firstLexeme = NULL;
 	currentLexeme = NULL;
 	lastLexeme = NULL;
@@ -2660,9 +2666,11 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 		Lexeme *lexStream = NULL;
 
 		if(const char *binary = GetBytecodeFromPath(ctx, start->pos, path, lexCount, lexStream))
+		{
 			ImportModuleNamespaces(ctx, start->pos, (ByteCode*)binary);
 
-		return new (ctx.get<SynModuleImport>()) SynModuleImport(start, ctx.Previous(), path);
+			return new (ctx.get<SynModuleImport>()) SynModuleImport(start, ctx.Previous(), path, (ByteCode*)binary);
+		}
 	}
 
 	return NULL;
@@ -2697,6 +2705,8 @@ SynModule* ParseModule(ParseContext &ctx)
 
 SynModule* Parse(ParseContext &ctx, const char *code)
 {
+	ctx.code = code;
+
 	ctx.lexer.Lexify(code);
 
 	if(!setjmp(ctx.errorHandler))
@@ -2713,8 +2723,12 @@ SynModule* Parse(ParseContext &ctx, const char *code)
 
 		ctx.errorHandlerActive = false;
 
+		ctx.code = NULL;
+
 		return module;
 	}
+
+	ctx.code = NULL;
 
 	return NULL;
 }

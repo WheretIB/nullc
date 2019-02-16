@@ -72,6 +72,8 @@ struct ExpressionContext
 	TypeGenericClass* GetGenericClassType(TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 
 	// Full state info
+	const char *code;
+
 	SmallArray<ModuleData*, 128> dependencies;
 	SmallArray<ModuleData*, 128> imports;
 	SmallArray<NamespaceData*, 128> namespaces;
@@ -884,4 +886,4 @@ T* getType(ExprBase *node)
 	return 0;
 }
 
-ExprModule* Analyze(ExpressionContext &context, SynModule *syntax);
+ExprModule* Analyze(ExpressionContext &context, SynModule *syntax, const char *code);

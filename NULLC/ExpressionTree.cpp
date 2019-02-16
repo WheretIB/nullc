@@ -8,6 +8,10 @@
 
 #pragma warning(disable: 4702)
 
+void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize);
+InplaceStr FindModuleNameWithSourceLocation(ExpressionContext &ctx, const char *position);
+const char* FindModuleCodeWithSourceLocation(ExpressionContext &ctx, const char *position);
+
 namespace
 {
 	void Stop(ExpressionContext &ctx, const char *pos, const char *msg, va_list args)
@@ -18,6 +22,16 @@ namespace
 		{
 			vsnprintf(ctx.errorBuf, ctx.errorBufSize, msg, args);
 			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
+
+			AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, ctx.errorPos), ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
+
+			InplaceStr parentModule = FindModuleNameWithSourceLocation(ctx, ctx.errorPos);
+
+			if(!parentModule.empty())
+			{
+				unsigned currLen = (unsigned)strlen(ctx.errorBuf);
+				SafeSprintf(ctx.errorBuf + currLen, ctx.errorBufSize - currLen, " [in module '%.*s']\n", FMT_ISTR(parentModule));
+			}
 		}
 
 		assert(ctx.errorHandlerActive);
@@ -641,6 +655,8 @@ namespace
 
 ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
 {
+	code = NULL;
+
 	baseModuleFunctionCount = 0;
 
 	namespaces.set_allocator(allocator);
@@ -2553,6 +2569,25 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 	{
 		// Restore old scope
 		ctx.SwitchToScopeAtPoint(proto->source, scope, NULL);
+
+		// Additional error info
+		if(ctx.errorBuf)
+		{
+			char *errorCurr = ctx.errorBuf + strlen(ctx.errorBuf);
+
+			errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "while instantiating generic type %.*s<", FMT_ISTR(proto->name));
+
+			for(TypeHandle *curr = types.head; curr; curr = curr->next)
+			{
+				TypeBase *type = curr->type;
+
+				errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "%s%.*s", curr != types.head ? ", " : "", FMT_ISTR(type->name));
+			}
+
+			errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), ">");
+
+			AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBuf, ctx.errorBufSize);
+		}
 
 		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 		longjmp(ctx.errorHandler, 1);
@@ -5207,7 +5242,7 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 			// Handle named argument order, default argument values and variadic functions
 			if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, NULL, false))
 			{
-				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here");
+				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here)");
 			}
 			else if(TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, parentType, function, result, aliases))
 			{
@@ -5225,14 +5260,24 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 
 					curr = curr->next;
 				}
+
+				if(!aliases.empty())
+				{
+					errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") with [");
+
+					for(MatchData *curr = aliases.head; curr; curr = curr->next)
+						errPos += SafeSprintf(errPos, ctx.errorBufSize - unsigned(errPos - ctx.errorBuf), "%s%.*s = %.*s", curr != aliases.head ? ", " : "", FMT_ISTR(curr->name), FMT_ISTR(curr->type->name));
+
+					errPos += SafeSprintf(errPos, ctx.errorBufSize - unsigned(errPos - ctx.errorBuf), "]");
+				}
 			}
 			else
 			{
-				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here");
+				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here)");
 			}
 		}
 
-		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")\n");
+		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "\n");
 	}
 
 	ctx.errorPos = source->pos.begin;
@@ -5582,6 +5627,41 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 		// Restore old scope
 		ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
+
+		// Additional error info
+		if(ctx.errorBuf)
+		{
+			char *errorCurr = ctx.errorBuf + strlen(ctx.errorBuf);
+
+			errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "while instantiating generic function %.*s(", FMT_ISTR(function->name));
+
+			for(TypeHandle *curr = function->type->arguments.head; curr; curr = curr->next)
+				errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "%s%.*s", curr != function->type->arguments.head ? ", " : "", FMT_ISTR(curr->type->name));
+
+			errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), ")");
+
+			if(!arguments.empty())
+			{
+				errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "\n  using argument(s) (");
+
+				for(unsigned i = 0; i < arguments.size(); i++)
+					errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
+
+				errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), ")");
+			}
+
+			if(!aliases.empty())
+			{
+				errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "\n  with [");
+
+				for(MatchData *curr = aliases.head; curr; curr = curr->next)
+					errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "%s%.*s = %.*s", curr != aliases.head ? ", " : "", FMT_ISTR(curr->name), FMT_ISTR(curr->type->name));
+
+				errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "]");
+			}
+
+			AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBuf, ctx.errorBufSize);
+		}
 
 		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 		longjmp(ctx.errorHandler, 1);
@@ -10531,9 +10611,11 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 	return module;
 }
 
-ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax)
+ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 {
 	assert(!ctx.globalScope);
+
+	ctx.code = code;
 
 	ctx.PushScope(SCOPE_EXPLICIT);
 	ctx.globalScope = ctx.scope;
@@ -10588,8 +10670,12 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax)
 
 		assert(ctx.scope == NULL);
 
+		ctx.code = NULL;
+
 		return module;
 	}
+
+	ctx.code = NULL;
 
 	return NULL;
 }

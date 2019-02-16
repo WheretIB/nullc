@@ -312,6 +312,9 @@ bool BuildBaseModule(Allocator *allocator)
 
 void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize)
 {
+	if(!codeStart)
+		return;
+
 	if(!errorPos)
 		return;
 
@@ -358,6 +361,42 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "^\n");
 }
 
+bool HasSourceCode(ByteCode *bytecode, const char *position)
+{
+	char *code = FindSource(bytecode);
+	unsigned length = bytecode->sourceSize;
+
+	if(position >= code && position <= code + length)
+		return true;
+
+	return false;
+}
+
+InplaceStr FindModuleNameWithSourceLocation(ExpressionContext &ctx, const char *position)
+{
+	for(unsigned i = 0; i < ctx.imports.size(); i++)
+	{
+		if(HasSourceCode(ctx.imports[i]->bytecode, position))
+			return ctx.imports[i]->name;
+	}
+
+	return InplaceStr();
+}
+
+const char* FindModuleCodeWithSourceLocation(ExpressionContext &ctx, const char *position)
+{
+	if(position >= ctx.code && position <= ctx.code + strlen(ctx.code))
+		return ctx.code;
+
+	for(unsigned i = 0; i < ctx.imports.size(); i++)
+	{
+		if(HasSourceCode(ctx.imports[i]->bytecode, position))
+			return FindSource(ctx.imports[i]->bytecode);
+	}
+
+	return NULL;
+}
+
 ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 {
 	ctx.code = code;
@@ -374,11 +413,7 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 	if(!ctx.synModule)
 	{
 		if(parseCtx.errorPos)
-		{
 			ctx.errorPos = parseCtx.errorPos;
-
-			AddErrorLocationInfo(code, ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
-		}
 
 		return NULL;
 	}
@@ -401,16 +436,12 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 	exprCtx.errorBuf = ctx.errorBuf;
 	exprCtx.errorBufSize = ctx.errorBufSize;
 
-	ctx.exprModule = Analyze(exprCtx, ctx.synModule);
+	ctx.exprModule = Analyze(exprCtx, ctx.synModule, ctx.code);
 
 	if(!ctx.exprModule)
 	{
 		if(exprCtx.errorPos)
-		{
 			ctx.errorPos = exprCtx.errorPos;
-
-			AddErrorLocationInfo(code, ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
-		}
 
 		return NULL;
 	}

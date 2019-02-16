@@ -5,6 +5,8 @@
 #include "Allocator.h"
 #include "Array.h"
 
+struct ByteCode;
+
 struct SynBase;
 
 enum SynUnaryOpType
@@ -104,6 +106,8 @@ struct ParseContext
 	SynNamespaceElement* IsNamespace(SynNamespaceElement *parent, InplaceStr name);
 	SynNamespaceElement* PushNamespace(InplaceStr name);
 	void PopNamespace();
+
+	const char *code;
 
 	char* (*bytecodeBuilder)(Allocator *allocator, InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize);
 
@@ -955,11 +959,12 @@ struct SynNamespaceDefinition: SynBase
 
 struct SynModuleImport: SynBase
 {
-	SynModuleImport(Lexeme *begin, Lexeme *end, IntrusiveList<SynIdentifier> path): SynBase(myTypeID, begin, end), path(path)
+	SynModuleImport(Lexeme *begin, Lexeme *end, IntrusiveList<SynIdentifier> path, ByteCode *bytecode): SynBase(myTypeID, begin, end), path(path), bytecode(bytecode)
 	{
 	}
 
 	IntrusiveList<SynIdentifier> path;
+	ByteCode *bytecode;
 
 	static const unsigned myTypeID = __LINE__;
 };
