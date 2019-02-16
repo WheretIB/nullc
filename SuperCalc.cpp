@@ -1141,6 +1141,25 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 
 	char name[256];
 
+	if(type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE)
+	{
+		char *it = name;
+		memset(name, 0, 256);
+
+		ExternTypeInfo &memberType = codeTypes[NULLC_TYPE_TYPEID];
+
+		it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + memberType.offsetToName, "$typeid");
+		it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr)].offsetToName : "invalid: out of range");
+
+		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
+		helpInsert.item.pszText = name;
+		helpInsert.item.cChildren = 0;
+		helpInsert.item.lParam = 0;
+
+		HTREEITEM lastItem;
+		lastItem = TreeView_InsertItem(hVars, &helpInsert);
+	}
+
 	const char *memberName = codeSymbols + type.offsetToName + (unsigned int)strlen(codeSymbols + type.offsetToName) + 1;
 	for(unsigned int i = 0; i < type.memberCount; i++)
 	{
