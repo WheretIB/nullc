@@ -337,7 +337,16 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 	if(errorBufSize > unsigned(errorCurr - errorBuf))
 		*(errorCurr++) = '\n';
 
-	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "  at '%.*s'\n", unsigned(end - start), start);
+	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "  at '");
+
+	for(const char *pos = start; pos < end; pos++)
+	{
+		if(errorBufSize > unsigned(errorCurr - errorBuf))
+			*(errorCurr++) = *pos == '\t' ? ' ' : *pos;
+	}
+
+	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "'\n");
+
 	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "      ");
 
 	for(unsigned i = 0; i < unsigned(errorPos - start); i++)
