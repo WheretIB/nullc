@@ -163,6 +163,18 @@ int foo(int x)\r\n\
 return foo(5);";
 TEST_RESULT("Function prototype is implemented at a correct time", testFunctionPrototypes3, "16");
 
+const char	*testFunctionPrototypes4 =
+"class Test{ int f(); }\r\n\
+int Test:f(){ return 2; }\r\n\
+return Test().f();";
+TEST_RESULT("Member function prototype implementation in a different scope 1", testFunctionPrototypes4, "2");
+
+const char	*testFunctionPrototypes5 =
+"class Test{ int f(int a); }\r\n\
+int Test:f(int a){ if(a) return f(0); return 10; }\r\n\
+return Test().f(1);";
+TEST_RESULT("Member function prototype implementation in a different scope 2", testFunctionPrototypes5, "10");
+
 const char	*testSingleArrayIndexCalculation =
 "int a = 0, b = 0;\r\n\
 int func(int ref v, int index){ *v += 5; return index; }\r\n\

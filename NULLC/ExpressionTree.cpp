@@ -495,6 +495,32 @@ namespace
 			}
 		}
 
+		if(function->scope->ownerType)
+		{
+			HashMap<FunctionData*>::Node *curr = ctx.functionMap.first(function->nameHash);
+
+			while(curr)
+			{
+				// Skip current function
+				if(curr->value == function)
+				{
+					curr = ctx.functionMap.next(curr);
+					continue;
+				}
+
+				if(curr->value->isPrototype && /*SameGenerics(curr->value->generics, function->generics) &&*/ curr->value->type == function->type)
+				{
+					curr->value->implementation = function;
+
+					ctx.HideFunction(curr->value);
+
+					return curr->value;
+				}
+
+				curr = ctx.functionMap.next(curr);
+			}
+		}
+
 		return NULL;
 	}
 
