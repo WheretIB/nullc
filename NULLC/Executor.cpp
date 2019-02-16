@@ -2181,6 +2181,8 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
 	void* fPtr = exFunctions[funcID].funcPtr;
 
+	assert(fPtr);
+
 	unsigned int *stackStart = genStackPtr;
 	unsigned int *newStackPtr = genStackPtr + dwordsToPop + extraPopDW;
 
