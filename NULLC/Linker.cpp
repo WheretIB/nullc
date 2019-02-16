@@ -296,7 +296,7 @@ bool Linker::LinkCode(const char *code)
 	memset(exCloseLists.data + oldListCount, 0, bCode->closureListCount * sizeof(ExternFuncInfo::Upvalue*));
 
 	// Add new functions
-	ExternVarInfo *explicitInfo = FindFirstVar(bCode);
+	ExternVarInfo *explicitInfo = FindFirstVar(bCode) + bCode->variableCount;
 
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
 

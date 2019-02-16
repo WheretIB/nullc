@@ -10100,7 +10100,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 	ByteCode *bCode = moduleCtx.data->bytecode;
 	char *symbols = FindSymbols(bCode);
 
-	ExternVarInfo *vInfo = FindFirstVar(bCode);
+	ExternVarInfo *explicitTypeInfo = FindFirstVar(bCode) + bCode->variableCount;
 
 	// Import functions
 	ExternFuncInfo *functionList = FindFirstFunc(bCode);
@@ -10126,9 +10126,9 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		for(unsigned k = 0; k < function.explicitTypeCount; k++)
 		{
-			InplaceStr name = InplaceStr(symbols + vInfo[k].offsetToName);
+			InplaceStr name = InplaceStr(symbols + explicitTypeInfo[k].offsetToName);
 
-			TypeBase *type = vInfo[k].type == ~0u ? ctx.typeGeneric : moduleCtx.types[vInfo[k].type];
+			TypeBase *type = explicitTypeInfo[k].type == ~0u ? ctx.typeGeneric : moduleCtx.types[explicitTypeInfo[k].type];
 
 			if(!type)
 				Stop(ctx, source->pos, "ERROR: can't find function '%s' explicit type '%d' in module %.*s", symbols + function.offsetToName, k, FMT_ISTR(moduleCtx.data->name));
@@ -10139,7 +10139,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			generics.push_back(new (ctx.get<MatchData>()) MatchData(name, type));
 		}
 
-		vInfo += function.explicitTypeCount;
+		explicitTypeInfo += function.explicitTypeCount;
 
 		FunctionData *prev = NULL;
 		FunctionData *prototype = NULL;
@@ -10298,6 +10298,9 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		{
 			if(function.genericModuleIndex != 0)
 				data->importModule = ctx.dependencies[moduleCtx.data->startingDependencyIndex + function.genericModuleIndex - 1];
+
+			if(function.genericOffsetStart >= data->importModule->lexStreamSize)
+				Stop(ctx, source->pos, "ERROR: bad generic function");
 
 			assert(function.genericOffsetStart < data->importModule->lexStreamSize);
 			Lexeme *start = function.genericOffsetStart + data->importModule->lexStream;
