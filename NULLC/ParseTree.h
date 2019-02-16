@@ -86,7 +86,7 @@ struct SynNamespaceElement;
 
 struct ParseContext
 {
-	ParseContext(Allocator *allocator);
+	ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImports);
 
 	LexemeType Peek();
 	InplaceStr Value();
@@ -109,7 +109,7 @@ struct ParseContext
 
 	const char *code;
 
-	char* (*bytecodeBuilder)(Allocator *allocator, InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize);
+	char* (*bytecodeBuilder)(Allocator *allocator, InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports);
 
 	Lexer lexer;
 
@@ -125,6 +125,8 @@ struct ParseContext
 
 	SmallArray<SynNamespaceElement*, 32> namespaceList;
 	SynNamespaceElement *currentNamespace;
+
+	SmallArray<InplaceStr, 8> importList;
 
 	bool errorHandlerActive;
 	jmp_buf errorHandler;

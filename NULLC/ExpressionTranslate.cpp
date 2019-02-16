@@ -1932,7 +1932,7 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 			fileContent = FindSource((ByteCode*)bytecode);
 		}
 
-		CompilerContext compilerCtx(ctx.allocator);
+		CompilerContext compilerCtx(ctx.allocator, ArrayView<InplaceStr>());
 
 		compilerCtx.errorBuf = ctx.errorBuf;
 		compilerCtx.errorBufSize = ctx.errorBufSize;

@@ -213,7 +213,7 @@ bool BuildBaseModule(Allocator *allocator)
 	const char *errorPos = NULL;
 	char errorBuf[256];
 
-	if(!BuildModuleFromSource(allocator, "$base$.nc", nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256))
+	if(!BuildModuleFromSource(allocator, "$base$.nc", nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256, ArrayView<InplaceStr>()))
 	{
 		assert("Failed to compile base NULLC module");
 		return false;
@@ -1810,9 +1810,9 @@ bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainNa
 	return true;
 }
 
-char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize)
+char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports)
 {
-	CompilerContext ctx(allocator);
+	CompilerContext ctx(allocator, activeImports);
 
 	ctx.errorBuf = errorBuf;
 	ctx.errorBufSize = errorBufSize;
@@ -1852,7 +1852,7 @@ char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const 
 	return bytecode;
 }
 
-char* BuildModuleFromPath(Allocator *allocator, InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize)
+char* BuildModuleFromPath(Allocator *allocator, InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports)
 {
 	char filePath[1024];
 
@@ -1882,7 +1882,7 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr path, InplaceStr path
 		return NULL;
 	}
 
-	char *bytecode = BuildModuleFromSource(allocator, filePath, fileContent, fileSize, errorPos, errorBuf, errorBufSize);
+	char *bytecode = BuildModuleFromSource(allocator, filePath, fileContent, fileSize, errorPos, errorBuf, errorBufSize, activeImports);
 
 	if(needDelete)
 		NULLC::dealloc(fileContent);
@@ -1914,7 +1914,7 @@ bool AddModuleFunction(Allocator *allocator, const char* module, void (NCDECL *p
 
 	// Create module if not found
 	if(!bytecode)
-		bytecode = BuildModuleFromPath(allocator, InplaceStr(path), InplaceStr(pathNoImport), errorPos, errorBuf, errorBufSize);
+		bytecode = BuildModuleFromPath(allocator, InplaceStr(path), InplaceStr(pathNoImport), errorPos, errorBuf, errorBufSize, ArrayView<InplaceStr>());
 
 	if(!bytecode)
 		return false;

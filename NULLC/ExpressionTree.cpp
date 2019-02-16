@@ -9904,7 +9904,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					assert(type.definitionOffsetStart < importModule->lexStreamSize);
 					Lexeme *start = type.definitionOffsetStart + importModule->lexStream;
 
-					ParseContext *parser = new (ctx.get<ParseContext>()) ParseContext(ctx.allocator);
+					ParseContext *parser = new (ctx.get<ParseContext>()) ParseContext(ctx.allocator, ArrayView<InplaceStr>());
 
 					parser->currentLexeme = start;
 
@@ -10341,13 +10341,10 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			if(function.genericModuleIndex != 0)
 				data->importModule = ctx.dependencies[moduleCtx.data->startingDependencyIndex + function.genericModuleIndex - 1];
 
-			if(function.genericOffsetStart >= data->importModule->lexStreamSize)
-				Stop(ctx, source->pos, "ERROR: bad generic function");
-
 			assert(function.genericOffsetStart < data->importModule->lexStreamSize);
 			Lexeme *start = function.genericOffsetStart + data->importModule->lexStream;
 
-			ParseContext *parser = new (ctx.get<ParseContext>()) ParseContext(ctx.allocator);
+			ParseContext *parser = new (ctx.get<ParseContext>()) ParseContext(ctx.allocator, ArrayView<InplaceStr>());
 
 			parser->currentLexeme = start;
 

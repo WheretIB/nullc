@@ -16,7 +16,7 @@
 
 struct CompilerContext
 {
-	CompilerContext(Allocator *allocator): allocator(allocator), code(0), errorPos(0), errorBuf(0), errorBufSize(0), parseCtx(allocator), synModule(0), exprCtx(allocator), exprModule(0), vmModule(0), instLowerCtx(exprCtx, allocator)
+	CompilerContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): allocator(allocator), code(0), errorPos(0), errorBuf(0), errorBufSize(0), parseCtx(allocator, activeImports), synModule(0), exprCtx(allocator), exprModule(0), vmModule(0), instLowerCtx(exprCtx, allocator)
 	{
 		enableLogFiles = false;
 	}
@@ -54,7 +54,7 @@ bool SaveListing(CompilerContext &ctx, const char *fileName);
 
 bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (NCDECL *addDependency)(const char *fileName));
 
-char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize);
-char* BuildModuleFromPath(Allocator *allocator, InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize);
+char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports);
+char* BuildModuleFromPath(Allocator *allocator, InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports);
 
 bool AddModuleFunction(Allocator *allocator, const char* module, void (NCDECL *ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize);

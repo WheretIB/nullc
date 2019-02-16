@@ -237,7 +237,7 @@ SynModifyAssignType GetModifyAssignType(LexemeType type)
 	return SYN_MODIFY_ASSIGN_UNKNOWN;
 }
 
-ParseContext::ParseContext(Allocator *allocator): allocator(allocator), binaryOpStack(allocator), namespaceList(allocator)
+ParseContext::ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): allocator(allocator), binaryOpStack(allocator), namespaceList(allocator), importList(allocator)
 {
 	code = NULL;
 
@@ -255,6 +255,9 @@ ParseContext::ParseContext(Allocator *allocator): allocator(allocator), binaryOp
 	errorBufSize = 0;
 
 	currentNamespace = NULL;
+
+	for(unsigned i = 0; i < activeImports.size(); i++)
+		importList.push_back(activeImports[i]);
 }
 
 LexemeType ParseContext::Peek()
@@ -2562,7 +2565,7 @@ IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx)
 	return expressions;
 }
 
-const char* GetBytecodeFromPath(ParseContext &ctx, const char *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream)
+const char* GetBytecodeFromPath(ParseContext &ctx, const char *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream, ArrayView<InplaceStr> activeImports)
 {
 	const char *importPath = BinaryCache::GetImportPath();
 
@@ -2584,7 +2587,7 @@ const char* GetBytecodeFromPath(ParseContext &ctx, const char *start, IntrusiveL
 		if(!ctx.bytecodeBuilder)
 			Stop(ctx, start, "ERROR: import builder is not provided");
 
-		bytecode = ctx.bytecodeBuilder(ctx.allocator, path, pathNoImport, &ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
+		bytecode = ctx.bytecodeBuilder(ctx.allocator, path, pathNoImport, &ctx.errorPos, ctx.errorBuf, ctx.errorBufSize, activeImports);
 
 		if(!bytecode)
 		{
@@ -2662,10 +2665,20 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after import expression");
 
+		InplaceStr moduleName = GetImportPath(ctx.allocator, NULL, path);
+
+		for(unsigned i = 0; i < ctx.importList.size(); i++)
+		{
+			if(ctx.importList[i] == moduleName)
+				Stop(ctx, start, "ERROR: found cyclic dependency on module '%.*s'", moduleName.length(), moduleName.begin);
+		}
+
+		ctx.importList.push_back(moduleName);
+
 		unsigned lexCount = 0;
 		Lexeme *lexStream = NULL;
 
-		if(const char *binary = GetBytecodeFromPath(ctx, start->pos, path, lexCount, lexStream))
+		if(const char *binary = GetBytecodeFromPath(ctx, start->pos, path, lexCount, lexStream, ctx.importList))
 		{
 			ImportModuleNamespaces(ctx, start->pos, (ByteCode*)binary);
 

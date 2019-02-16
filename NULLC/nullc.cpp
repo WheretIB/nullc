@@ -269,7 +269,9 @@ nullres	nullcCompile(const char* code)
 
 	NULLC::destruct(compilerCtx);
 
-	compilerCtx = new(NULLC::alloc(sizeof(CompilerContext))) CompilerContext(&allocator);
+	allocator.Clear();
+
+	compilerCtx = new(NULLC::alloc(sizeof(CompilerContext))) CompilerContext(&allocator, ArrayView<InplaceStr>());
 
 	*errorBuf = 0;
 
