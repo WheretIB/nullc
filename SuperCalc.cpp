@@ -1018,7 +1018,19 @@ const char* GetBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 			safeprintf(val, 256, "%d", *(short*)ptr);
 		break;
 	case ExternTypeInfo::TYPE_INT:
-		safeprintf(val, 256, type.subType == 0 ? (strcmp(codeSymbols + type.offsetToName, "uint") == 0 ? "%u" : "%d") : "0x%x", *(int*)ptr);
+		if(type.subCat == ExternTypeInfo::CAT_CLASS)
+		{
+			const char *memberName = codeSymbols + type.offsetToName + (unsigned int)strlen(codeSymbols + type.offsetToName) + 1;
+
+			for(unsigned i = 0; i < type.constantCount && i < *(unsigned*)ptr; i++)
+				memberName += (unsigned)strlen(memberName) + 1;
+
+			safeprintf(val, 256, "%s (%d)", memberName, *(int*)ptr);
+		}
+		else
+		{
+			safeprintf(val, 256, type.subType == 0 ? (strcmp(codeSymbols + type.offsetToName, "uint") == 0 ? "%u" : "%d") : "0x%x", *(int*)ptr);
+		}
 		break;
 	case ExternTypeInfo::TYPE_LONG:
 		safeprintf(val, 256, type.subType == 0 ? (strcmp(codeSymbols + type.offsetToName, "ulong") == 0 ? "%llu" : "%lld") : "0x%llx", *(long long*)ptr);
@@ -1078,16 +1090,19 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 
 		it += safeprintf(it, 256 - int(it - name), "[%d]: ", i);
 
-		if(subType.subCat == ExternTypeInfo::CAT_NONE || subType.subCat == ExternTypeInfo::CAT_POINTER)
+		bool simpleType = subType.subCat == ExternTypeInfo::CAT_NONE || (subType.subCat == ExternTypeInfo::CAT_CLASS && subType.type != ExternTypeInfo::TYPE_COMPLEX);
+		bool pointerType = subType.subCat == ExternTypeInfo::CAT_POINTER;
+
+		if(simpleType || pointerType)
 			it += safeprintf(it, 256 - int(it - name), " %s", GetBasicVariableInfo(subType, ptr));
 		else if(&subType == &codeTypes[NULLC_TYPE_TYPEID])
 			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr)].offsetToName : "invalid: out of range");
 
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
-		helpInsert.item.cChildren = subType.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (subType.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
-		helpInsert.item.lParam = subType.subCat == ExternTypeInfo::CAT_POINTER ? tiExtra.size() : 0;
-		if(subType.subCat == ExternTypeInfo::CAT_POINTER)
+		helpInsert.item.cChildren = pointerType ? I_CHILDRENCALLBACK : (simpleType ? 0 : 1);
+		helpInsert.item.lParam = pointerType ? tiExtra.size() : 0;
+		if(pointerType)
 			tiExtra.push_back(TreeItemExtra());
 
 		HTREEITEM lastItem;
@@ -1098,7 +1113,7 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 			lastItem = child;
 		}else{
 			lastItem = TreeView_InsertItem(hVars, &helpInsert);
-			if(subType.subCat == ExternTypeInfo::CAT_POINTER)
+			if(pointerType)
 				tiExtra.back() = TreeItemExtra((void*)ptr, &subType, lastItem, true);
 		}
 
@@ -1138,16 +1153,19 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 
 		it += safeprintf(it, 256 - int(it - name), "%s %s", codeSymbols + memberType.offsetToName, memberName);
 
-		if(memberType.subCat == ExternTypeInfo::CAT_NONE || memberType.subCat == ExternTypeInfo::CAT_POINTER)
+		bool simpleType = memberType.subCat == ExternTypeInfo::CAT_NONE || (memberType.subCat == ExternTypeInfo::CAT_CLASS && memberType.type != ExternTypeInfo::TYPE_COMPLEX);
+		bool pointerType = memberType.subCat == ExternTypeInfo::CAT_POINTER;
+
+		if(simpleType || pointerType)
 			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(memberType, ptr + localOffset));
 		else if(&memberType == &codeTypes[NULLC_TYPE_TYPEID])
 			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr + localOffset) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr + localOffset)].offsetToName : "invalid: out of range");
 
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
-		helpInsert.item.cChildren = memberType.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (memberType.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
-		helpInsert.item.lParam = memberType.subCat == ExternTypeInfo::CAT_POINTER ? tiExtra.size() : 0;
-		if(memberType.subCat == ExternTypeInfo::CAT_POINTER)
+		helpInsert.item.cChildren = pointerType ? I_CHILDRENCALLBACK : (simpleType ? 0 : 1);
+		helpInsert.item.lParam = pointerType ? tiExtra.size() : 0;
+		if(pointerType)
 			tiExtra.push_back(TreeItemExtra());
 	
 		HTREEITEM lastItem;
@@ -1158,7 +1176,7 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 			lastItem = child;
 		}else{
 			lastItem = TreeView_InsertItem(hVars, &helpInsert);
-			if(memberType.subCat == ExternTypeInfo::CAT_POINTER)
+			if(pointerType)
 				tiExtra.back() = TreeItemExtra((void*)(ptr + localOffset), &memberType, lastItem, true);
 		}
 
@@ -1358,7 +1376,10 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 		memset(name, 0, 256);
 		it += safeprintf(it, 256 - int(it - name), "0x%x: %s %s", data + codeVars[i].offset, codeSymbols + type.offsetToName, codeSymbols + codeVars[i].offsetToName);
 
-		if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
+		bool simpleType = type.subCat == ExternTypeInfo::CAT_NONE || (type.subCat == ExternTypeInfo::CAT_CLASS && type.type != ExternTypeInfo::TYPE_COMPLEX);
+		bool pointerType = type.subCat == ExternTypeInfo::CAT_POINTER;
+
+		if(simpleType || pointerType)
 			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, data + codeVars[i].offset));
 		else if(&type == &codeTypes[NULLC_TYPE_TYPEID])
 			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + codeVars[i].offset)].offsetToName);
@@ -1367,12 +1388,12 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 		{
 			helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 			helpInsert.item.pszText = name;
-			helpInsert.item.cChildren = type.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (type.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
+			helpInsert.item.cChildren = pointerType ? I_CHILDRENCALLBACK : (simpleType ? 0 : 1);
 			helpInsert.item.lParam = tiExtra.size();
 
 			tiExtra.push_back(TreeItemExtra());
 			HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
-			tiExtra.back() = TreeItemExtra(data + codeVars[i].offset, &type, lastItem, type.subCat == ExternTypeInfo::CAT_POINTER, codeSymbols + codeVars[i].offsetToName);
+			tiExtra.back() = TreeItemExtra(data + codeVars[i].offset, &type, lastItem, pointerType, codeSymbols + codeVars[i].offsetToName);
 
 			FillVariableInfo(type, data + codeVars[i].offset, lastItem);
 		}
@@ -1523,7 +1544,10 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				char *it = name;
 				it += safeprintf(it, 256, "0x%x: %s %s", data + offset + lInfo.offset, codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
 
-				if(codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_NONE || codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER)
+				bool simpleType = codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_NONE || (codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_CLASS && codeTypes[lInfo.type].type != ExternTypeInfo::TYPE_COMPLEX);
+				bool pointerType = codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER;
+
+				if(simpleType || pointerType)
 					it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(codeTypes[lInfo.type], data + offset + lInfo.offset));
 				else if(lInfo.type == 8)	// for typeid
 					it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + offset + lInfo.offset)].offsetToName);
@@ -1536,12 +1560,12 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 					localInfo.item.cchTextMax = 0;
 					localInfo.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 					localInfo.item.pszText = name;
-					localInfo.item.cChildren = codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
+					localInfo.item.cChildren = pointerType ? I_CHILDRENCALLBACK : (simpleType ? 0 : 1);
 					localInfo.item.lParam = tiExtra.size();
 				
 					tiExtra.push_back(TreeItemExtra());
 					HTREEITEM thisItem = TreeView_InsertItem(hVars, &localInfo);
-					tiExtra.back() = TreeItemExtra((void*)(data + offset + lInfo.offset), &codeTypes[lInfo.type], thisItem, codeTypes[lInfo.type].subCat == ExternTypeInfo::CAT_POINTER, codeSymbols + lInfo.offsetToName);
+					tiExtra.back() = TreeItemExtra((void*)(data + offset + lInfo.offset), &codeTypes[lInfo.type], thisItem, pointerType, codeSymbols + lInfo.offsetToName);
 
 					if(offset + lInfo.offset + lInfo.size > dataCount)
 						InsertUnavailableInfo(thisItem);
@@ -1636,7 +1660,10 @@ void UpdateWatchedVariables()
 		memset(name, 0, 256);
 		it += safeprintf(it, 256 - int(it - name), "0x%x: %s %s", extra.address, codeSymbols + type.offsetToName, extra.name);
 
-		if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
+		bool simpleType = type.subCat == ExternTypeInfo::CAT_NONE || (type.subCat == ExternTypeInfo::CAT_CLASS && type.type != ExternTypeInfo::TYPE_COMPLEX);
+		bool pointerType = type.subCat == ExternTypeInfo::CAT_POINTER;
+
+		if(simpleType || pointerType)
 			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, (char*)extra.address));
 		else if(&type == &codeTypes[NULLC_TYPE_TYPEID])
 			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(extra.address)].offsetToName);
@@ -2286,13 +2313,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					}
 					char name[256];
 
+					const ExternTypeInfo &realType = (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) ? codeTypes[*(unsigned*)ptr] : type;
+
 					char *it = name;
 					memset(name, 0, 256);
-					it += safeprintf(it, 256 - int(it - name), "0x%x: %s ###", ptr, codeSymbols + type.offsetToName);
+					it += safeprintf(it, 256 - int(it - name), "0x%x: %s ###", ptr, codeSymbols + realType.offsetToName);
 
-					if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
-						it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, ptr));
-					else if(&type == &codeTypes[NULLC_TYPE_TYPEID])
+					bool simpleType = realType.subCat == ExternTypeInfo::CAT_NONE || (realType.subCat == ExternTypeInfo::CAT_CLASS && realType.type != ExternTypeInfo::TYPE_COMPLEX);
+					bool pointerType = realType.subCat == ExternTypeInfo::CAT_POINTER;
+
+					if(simpleType || pointerType)
+						it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(realType, ptr));
+					else if(&realType == &codeTypes[NULLC_TYPE_TYPEID])
 						it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)ptr].offsetToName);
 
 					TVINSERTSTRUCT helpInsert;
@@ -2301,16 +2333,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					helpInsert.item.cchTextMax = 0;
 					helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 					helpInsert.item.pszText = name;
-					helpInsert.item.cChildren = type.subCat == ExternTypeInfo::CAT_POINTER ? I_CHILDRENCALLBACK : (type.subCat == ExternTypeInfo::CAT_NONE ? 0 : 1);
-					helpInsert.item.lParam = type.subCat == ExternTypeInfo::CAT_POINTER ? tiExtra.size() : 0;
-					if(type.subCat == ExternTypeInfo::CAT_POINTER)
+					helpInsert.item.cChildren = pointerType ? I_CHILDRENCALLBACK : (simpleType ? 0 : 1);
+					helpInsert.item.lParam = pointerType ? tiExtra.size() : 0;
+					if(pointerType)
 						tiExtra.push_back(TreeItemExtra());
 
 					HTREEITEM lastItem = TreeView_InsertItem(hVars, &helpInsert);
-					if(type.subCat == ExternTypeInfo::CAT_POINTER)
-						tiExtra.back() = TreeItemExtra(ptr, &type, lastItem, true);
+					if(pointerType)
+						tiExtra.back() = TreeItemExtra(ptr, &realType, lastItem, true);
 
-					FillVariableInfo(type, ptr, lastItem);
+					FillVariableInfo(realType, ptr, lastItem);
 
 					if(stateRemote)
 						externalBlocks.push_back(ptr);
