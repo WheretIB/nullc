@@ -1093,10 +1093,10 @@ void FillArrayVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pare
 		bool simpleType = subType.subCat == ExternTypeInfo::CAT_NONE || (subType.subCat == ExternTypeInfo::CAT_CLASS && subType.type != ExternTypeInfo::TYPE_COMPLEX);
 		bool pointerType = subType.subCat == ExternTypeInfo::CAT_POINTER;
 
-		if(simpleType || pointerType)
-			it += safeprintf(it, 256 - int(it - name), " %s", GetBasicVariableInfo(subType, ptr));
-		else if(&subType == &codeTypes[NULLC_TYPE_TYPEID])
+		if(&subType == &codeTypes[NULLC_TYPE_TYPEID])
 			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr)].offsetToName : "invalid: out of range");
+		else if(simpleType || pointerType)
+			it += safeprintf(it, 256 - int(it - name), " %s", GetBasicVariableInfo(subType, ptr));
 
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
@@ -1156,10 +1156,10 @@ void FillComplexVariableInfo(const ExternTypeInfo& type, char* ptr, HTREEITEM pa
 		bool simpleType = memberType.subCat == ExternTypeInfo::CAT_NONE || (memberType.subCat == ExternTypeInfo::CAT_CLASS && memberType.type != ExternTypeInfo::TYPE_COMPLEX);
 		bool pointerType = memberType.subCat == ExternTypeInfo::CAT_POINTER;
 
-		if(simpleType || pointerType)
-			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(memberType, ptr + localOffset));
-		else if(&memberType == &codeTypes[NULLC_TYPE_TYPEID])
+		if(&memberType == &codeTypes[NULLC_TYPE_TYPEID])
 			it += safeprintf(it, 256 - int(it - name), " = %s", *(unsigned*)(ptr + localOffset) < codeTypeCount ? codeSymbols + codeTypes[*(int*)(ptr + localOffset)].offsetToName : "invalid: out of range");
+		else if(simpleType || pointerType)
+			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(memberType, ptr + localOffset));
 
 		helpInsert.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_PARAM;
 		helpInsert.item.pszText = name;
@@ -1379,10 +1379,10 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 		bool simpleType = type.subCat == ExternTypeInfo::CAT_NONE || (type.subCat == ExternTypeInfo::CAT_CLASS && type.type != ExternTypeInfo::TYPE_COMPLEX);
 		bool pointerType = type.subCat == ExternTypeInfo::CAT_POINTER;
 
-		if(simpleType || pointerType)
-			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, data + codeVars[i].offset));
-		else if(&type == &codeTypes[NULLC_TYPE_TYPEID])
+		if(&type == &codeTypes[NULLC_TYPE_TYPEID])
 			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(data + codeVars[i].offset)].offsetToName);
+		else if(simpleType || pointerType)
+			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, data + codeVars[i].offset));
 
 		if(showTemps || (strstr(name, "$temp") == 0 && strstr(name, "$vtbl") == 0))
 		{
@@ -1663,10 +1663,10 @@ void UpdateWatchedVariables()
 		bool simpleType = type.subCat == ExternTypeInfo::CAT_NONE || (type.subCat == ExternTypeInfo::CAT_CLASS && type.type != ExternTypeInfo::TYPE_COMPLEX);
 		bool pointerType = type.subCat == ExternTypeInfo::CAT_POINTER;
 
-		if(simpleType || pointerType)
-			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, (char*)extra.address));
-		else if(&type == &codeTypes[NULLC_TYPE_TYPEID])
+		if(&type == &codeTypes[NULLC_TYPE_TYPEID])
 			it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)(extra.address)].offsetToName);
+		else if(simpleType || pointerType)
+			it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(type, (char*)extra.address));
 
 		item.pszText = name;
 		TreeView_SetItem(hWatch, &item);
@@ -2322,10 +2322,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					bool simpleType = realType.subCat == ExternTypeInfo::CAT_NONE || (realType.subCat == ExternTypeInfo::CAT_CLASS && realType.type != ExternTypeInfo::TYPE_COMPLEX);
 					bool pointerType = realType.subCat == ExternTypeInfo::CAT_POINTER;
 
-					if(simpleType || pointerType)
-						it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(realType, ptr));
-					else if(&realType == &codeTypes[NULLC_TYPE_TYPEID])
+					if(&realType == &codeTypes[NULLC_TYPE_TYPEID])
 						it += safeprintf(it, 256 - int(it - name), " = %s", codeSymbols + codeTypes[*(int*)ptr].offsetToName);
+					else if(simpleType || pointerType)
+						it += safeprintf(it, 256 - int(it - name), " = %s", GetBasicVariableInfo(realType, ptr));
 
 					TVINSERTSTRUCT helpInsert;
 					helpInsert.hParent = extra->item;
