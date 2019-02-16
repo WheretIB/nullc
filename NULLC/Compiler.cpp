@@ -320,7 +320,7 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 
 	const char *codeEnd = codeStart + strlen(codeStart);
 
-	if(errorPos < codeStart || errorPos >= codeEnd)
+	if(errorPos < codeStart || errorPos > codeEnd)
 		return;
 
 	const char *start = errorPos;
@@ -339,7 +339,7 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 
 	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "  at '");
 
-	for(const char *pos = start; pos < end; pos++)
+	for(const char *pos = start; *pos && pos < end; pos++)
 	{
 		if(errorBufSize > unsigned(errorCurr - errorBuf))
 			*(errorCurr++) = *pos == '\t' ? ' ' : *pos;
