@@ -1203,7 +1203,7 @@ SynBase* ParseArithmetic(ParseContext &ctx)
 
 		while(ctx.binaryOpStack.size() > startSize && GetBinaryOpPrecedence(ctx.binaryOpStack.back().type) <= GetBinaryOpPrecedence(binaryOp))
 		{
-			auto &lastOp = ctx.binaryOpStack.back();
+			SynBinaryOpElement &lastOp = ctx.binaryOpStack.back();
 
 			lhs = new (ctx.get<SynBinaryOp>()) SynBinaryOp(lastOp.begin, lastOp.end, lastOp.type, lastOp.value, lhs);
 
@@ -1220,7 +1220,7 @@ SynBase* ParseArithmetic(ParseContext &ctx)
 
 	while(ctx.binaryOpStack.size() > startSize)
 	{
-		auto &lastOp = ctx.binaryOpStack.back();
+		SynBinaryOpElement &lastOp = ctx.binaryOpStack.back();
 
 		lhs = new (ctx.get<SynBinaryOp>()) SynBinaryOp(lastOp.begin, lastOp.end, lastOp.type, lastOp.value, lhs);
 
