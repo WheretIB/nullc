@@ -5282,11 +5282,17 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here)");
 			}
 		}
+		else
+		{
+			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")");
+		}
 
 		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "\n");
 	}
 
 	ctx.errorPos = source->pos.begin;
+
+	AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBuf, ctx.errorBufSize);
 
 	longjmp(ctx.errorHandler, 1);
 }
@@ -6084,6 +6090,8 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")");
 
 			ctx.errorPos = source->pos.begin;
+
+			AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBuf, ctx.errorBufSize);
 
 			longjmp(ctx.errorHandler, 1);
 		}
