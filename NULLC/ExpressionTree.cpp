@@ -23,14 +23,20 @@ namespace
 			vsnprintf(ctx.errorBuf, ctx.errorBufSize, msg, args);
 			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
 
-			AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, ctx.errorPos), ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
-
-			InplaceStr parentModule = FindModuleNameWithSourceLocation(ctx, ctx.errorPos);
-
-			if(!parentModule.empty())
+			if(const char *code = FindModuleCodeWithSourceLocation(ctx, ctx.errorPos))
 			{
-				unsigned currLen = (unsigned)strlen(ctx.errorBuf);
-				SafeSprintf(ctx.errorBuf + currLen, ctx.errorBufSize - currLen, " [in module '%.*s']\n", FMT_ISTR(parentModule));
+				AddErrorLocationInfo(code, ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
+
+				if(code != ctx.code)
+				{
+					InplaceStr parentModule = FindModuleNameWithSourceLocation(ctx, ctx.errorPos);
+
+					if(!parentModule.empty())
+					{
+						unsigned currength = (unsigned)strlen(ctx.errorBuf);
+						SafeSprintf(ctx.errorBuf + currength, ctx.errorBufSize - currength, " [in module '%.*s']\n", FMT_ISTR(parentModule));
+					}
+				}
 			}
 		}
 

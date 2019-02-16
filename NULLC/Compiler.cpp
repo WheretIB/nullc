@@ -310,6 +310,21 @@ bool BuildBaseModule(Allocator *allocator)
 	return true;
 }
 
+unsigned GetErrorLocationLineNumber(const char *codeStart, const char *errorPos)
+{
+	if(!codeStart)
+		return 0;
+
+	if(!errorPos)
+		return 0;
+
+	int line = 1;
+	for(const char *pos = codeStart; pos < errorPos; pos++)
+		line += *pos == '\n';
+
+	return line;
+}
+
 void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize)
 {
 	if(!codeStart)
@@ -340,7 +355,14 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 	if(errorBufSize > unsigned(errorCurr - errorBuf))
 		*(errorCurr++) = '\n';
 
-	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "  at '");
+	char *errorCurrBefore = errorCurr;
+
+	if(unsigned line = GetErrorLocationLineNumber(codeStart, errorPos))
+		errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "  at line %d: '", line);
+	else
+		errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "  at '");
+
+	unsigned spacing = unsigned(errorCurr - errorCurrBefore);
 
 	for(const char *pos = start; *pos && pos < end; pos++)
 	{
@@ -350,9 +372,7 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 
 	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "'\n");
 
-	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "      ");
-
-	for(unsigned i = 0; i < unsigned(errorPos - start); i++)
+	for(unsigned i = 0; i < spacing + unsigned(errorPos - start); i++)
 	{
 		if(errorBufSize > unsigned(errorCurr - errorBuf))
 			*(errorCurr++) = ' ';
