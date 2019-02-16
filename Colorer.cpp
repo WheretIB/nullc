@@ -384,7 +384,7 @@ namespace ColorerGrammar
 		{
 			symb		=	graphP - alnumP - chP(')') - chP('@');
 			symb2		=	graphP - alphaP;
-			typeName	=	idP - strP("return");
+			typeName	=	idP - strWP("return");
 
 			arrayDef	=
 				(
@@ -651,7 +651,7 @@ namespace ColorerGrammar
 				) |
 				fcallpart;
 
-			appval		=	(idP - (strP("case") | strP("default")))[ColorVar] >> ~chP('(') >> *postExpr;
+			appval		=	(idP - (strWP("case") | strWP("default")))[ColorVar] >> ~chP('(') >> *postExpr;
 			addvarp		=
 				(
 				idP[ColorVarDef] >> 
