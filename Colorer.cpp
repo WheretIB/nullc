@@ -65,7 +65,12 @@ namespace ColorerGrammar
 		{
 			(void)e;	// C4100
 			assert(err);
-			logStream << err << "\r\n";
+
+			int line = 1;
+			for(const char *pos = codeStart; pos < s; pos++)
+				line += *pos == '\n';
+
+			logStream << "line " << line << " - " << err << "\r\n";
 
 			const char *begin = s;
 			while((begin >= codeStart) && (*begin != '\n') && (*begin != '\r'))
