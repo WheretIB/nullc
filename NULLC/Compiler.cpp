@@ -342,7 +342,7 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 		return;
 
 	const char *start = errorPos;
-	const char *end = start + 1;
+	const char *end = start == codeEnd ? start : start + 1;
 
 	while(start > codeStart && *(start - 1) != '\r' && *(start - 1) != '\n')
 		start--;
