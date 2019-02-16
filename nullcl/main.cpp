@@ -86,14 +86,14 @@ int main(int argc, char** argv)
 		{
 			printf("Compilation of %s failed with error:\n%s\n", fileName, nullcGetLastError());
 			delete[] fileContent;
-			return false;
+			return 0;
 		}
 
 		if(!nullcTranslateToC(link ? "__temp.cpp" : outputName, "main", AddDependency))
 		{
 			printf("Compilation of %s failed with error:\n%s\n", fileName, nullcGetLastError());
 			delete[] fileContent;
-			return false;
+			return 0;
 		}
 
 		if(link)
@@ -215,7 +215,7 @@ int main(int argc, char** argv)
 		{
 			printf("Compilation of %s failed with error:\n%s\n", fileName, nullcGetLastError());
 			delete[] fileContent;
-			return false;
+			return 0;
 		}
 		unsigned int *bytecode = NULL;
 		nullcGetBytecode((char**)&bytecode);
