@@ -171,3 +171,27 @@ const char	*testImportHidding2 =
 auto y = auto lam_bda(int x){ return x + 2; };\r\n\
 return x(10) + y(4);";
 TEST_RESULT("Hidden local function excludion from import", testImportHidding2, "26");
+
+LOAD_MODULE(test_derivedtypes1, "test.derivedtypes1", "class int2 extendable{ int x, y; void int2(){ x = 10; y = 20; } } class int3 : int2{ int z; void int3(int a, int b, int2 ref c, int d){ this.z = b; } } class int4 : int2{ int z, w; void int4(){} }");
+const char	*testDerivedTypeImport1 =
+"import test.derivedtypes1;\r\n\
+auto x = new int3(1, 2, new int4, 4);\r\n\
+return x.z;";
+TEST_RESULT("Derived type import preserves base class information 1", testDerivedTypeImport1, "2");
+
+LOAD_MODULE(test_derivedtypes2, "test.derivedtypes2", "class int2<T> extendable{ T x, y; void int2(){ x = 10; y = 20; } } class int3<U> : int2<U>{ U z; void int3(U a, U b, int2<U> ref c, U d){ z = b; } } class int4<U> : int2<U>{ U z, w; void int4(){} }");
+const char	*testDerivedTypeImport2 =
+"import test.derivedtypes2;\r\n\
+auto x = new int3<int>(1, 2, new int4<int>, 4);\r\n\
+return x.z;";
+TEST_RESULT("Derived type import preserves base class information 2", testDerivedTypeImport2, "2");
+
+LOAD_MODULE(test_derivedtypes3, "test.derivedtypes3", "class int2 extendable{ int x, y; void int2(){ x = 10; y = 20; } }");
+
+const char	*testDerivedTypeImport3 =
+"import test.derivedtypes3;\r\n\
+class int3 : int2{ int z; void int3(int a, int b, int2 ref c, int d){ z = b; } }\r\n\
+class int4 : int2{ int z, w; void int4(){} }\r\n\
+auto x = new int3(1, 2, new int4, 4);\r\n\
+return x.z;";
+TEST_RESULT("Derived type import preserves base class information 3", testDerivedTypeImport3, "2");

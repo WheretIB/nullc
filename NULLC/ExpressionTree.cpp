@@ -8332,7 +8332,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 		ctx.AddAlias(new (ctx.get<AliasData>()) AliasData(syntax, ctx.scope, el->type, el->name, ctx.uniqueAliasId++));
 
 	// Base class adds a typeid member
-	if(extendable && !baseClass)
+	if(extendable)
 	{
 		unsigned offset = AllocateVariableInScope(ctx, syntax, ctx.typeTypeID->alignment, ctx.typeTypeID);
 		VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, ctx.typeTypeID->alignment, ctx.typeTypeID, InplaceStr("$typeid"), offset, ctx.uniqueVariableId++);
@@ -8357,6 +8357,9 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		for(VariableHandle *el = baseClass->members.head; el; el = el->next)
 		{
+			if(el->variable->name == InplaceStr("$typeid"))
+				continue;
+
 			CheckVariableConflict(ctx, syntax, el->variable->name);
 
 			unsigned offset = AllocateVariableInScope(ctx, syntax, el->variable->alignment, el->variable->type);
@@ -9805,6 +9808,16 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					}
 				}
 
+				TypeClass *baseType = NULL;
+
+				if(type.baseType)
+				{
+					baseType = getType<TypeClass>(moduleCtx.types[type.baseType]);
+
+					if(!baseType)
+						Stop(ctx, source->pos, "ERROR: can't find type '%.*s' base type in module %.*s", FMT_ISTR(typeName), FMT_ISTR(moduleCtx.data->name));
+				}
+
 				if(type.definitionOffset != ~0u && type.definitionOffset & 0x80000000)
 				{
 					TypeBase *proto = moduleCtx.types[type.definitionOffset & ~0x80000000];
@@ -9825,7 +9838,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					}
 					else
 					{
-						TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(typeName, source, ctx.scope, protoClass, actualGenerics, false, NULL);
+						TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(typeName, source, ctx.scope, protoClass, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
 
 						classType->completed = true;
 
@@ -9880,7 +9893,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				{
 					IntrusiveList<MatchData> actualGenerics;
 
-					TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(typeName, source, ctx.scope, NULL, actualGenerics, false, NULL);
+					TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(typeName, source, ctx.scope, NULL, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
 					classType->completed = true;
 
 					importedType = classType;
