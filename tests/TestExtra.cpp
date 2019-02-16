@@ -678,3 +678,31 @@ TEST_RESULT("Fuzzing crash result 4", testFuzzingCrash4, "1");
 const char	*testFuzzingCrash5 =
 "return 1; for(;1;) return 0;";
 TEST_RESULT("Fuzzing crash result 5", testFuzzingCrash5, "1");
+
+const char	*testManualCast1 =
+"auto s = \"hello\"; char[] b = char[](s); return b[2];";
+TEST_RESULT("Manual type cast 1", testManualCast1, "108");
+
+const char	*testManualCast2 =
+"auto s = \"hello\"; char[] b = (char[])(s); return b[2];";
+TEST_RESULT("Manual type cast 2", testManualCast2, "108");
+
+const char	*testManualCast3 =
+"auto foo(generic x){ return x * 2; } auto f = int ref(int)(foo); return f(2);";
+TEST_RESULT("Manual type cast 3", testManualCast3, "4");
+
+const char	*testManualCast4 =
+"auto foo(generic x){ return x * 2; } auto f = (int ref(int))(foo); return f(2);";
+TEST_RESULT("Manual type cast 4", testManualCast4, "4");
+
+const char	*testManualCast5 =
+"auto a = int ref(4); return *a;";
+TEST_RESULT("Manual type cast 5", testManualCast5, "4");
+
+const char	*testManualCast6 =
+"auto a = (int ref)(4); return *a;";
+TEST_RESULT("Manual type cast 6", testManualCast6, "4");
+
+const char	*testManualCast7 =
+"int foo(int x){ return x * 2; } auto ref a = foo; return int ref(int)(a)(2);";
+TEST_RESULT("Manual type cast 7", testManualCast7, "4");

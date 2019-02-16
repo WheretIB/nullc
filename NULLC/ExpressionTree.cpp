@@ -5979,9 +5979,9 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 		for(unsigned i = 0; i < result.size(); i++)
 			actualArguments.push_back(result[i].value);
 	}
-	else if(isType<ExprTypeLiteral>(value) && arguments.size() == 1 && arguments[0].type == ctx.typeAutoRef && arguments[0].name.empty())
+	else if(isType<ExprTypeLiteral>(value) && arguments.size() == 1 && arguments[0].name.empty())
 	{
-		// auto ref -> type cast
+		// Function-style type casts
 		return CreateCast(ctx, source, arguments[0].value, ((ExprTypeLiteral*)value)->value, true);
 	}
 	else
