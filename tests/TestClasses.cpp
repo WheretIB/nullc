@@ -1069,6 +1069,12 @@ Foo.Bar y = Foo.Bar(1);\r\n\
 return int(y);";
 TEST_RESULT("Enumeration test 4", testEnumeration4, "1");
 
+const char	*testEnumeration5 =
+"enum x{ C, D }\r\n\
+x y = x(1);\r\n\
+return int(y);";
+TEST_RESULT("Enumeration test 5", testEnumeration5, "1");
+
 const char	*testMemberFunctionCallFromLocalFunctionInsideMemberFunction =
 "class Foo{}\r\n\
 auto Foo:foo(){ return 1; }\r\n\

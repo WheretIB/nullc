@@ -8533,7 +8533,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		// Create conversion operator int int(enum_type)
 		{
 			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
-			arguments.push_back(ArgumentData(syntax, false, InplaceStr("x"), enumType, NULL));
+			arguments.push_back(ArgumentData(syntax, false, InplaceStr("$x"), enumType, NULL));
 
 			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(ctx.typeInt, arguments), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("int"), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
@@ -8574,7 +8574,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		// Create conversion operator enum_type enum_type(int)
 		{
 			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
-			arguments.push_back(ArgumentData(syntax, false, InplaceStr("x"), ctx.typeInt, NULL));
+			arguments.push_back(ArgumentData(syntax, false, InplaceStr("$x"), ctx.typeInt, NULL));
 
 			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(enumType, arguments), ctx.GetReferenceType(ctx.typeVoid), typeName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
