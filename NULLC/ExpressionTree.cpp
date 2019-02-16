@@ -10119,6 +10119,28 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		if(!functionType)
 			Stop(ctx, source->pos, "ERROR: can't find function '%s' type in module %.*s", symbols + function.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
+		// Import function explicit type list
+		IntrusiveList<MatchData> generics;
+
+		bool hasGenericExplicitType = false;
+
+		for(unsigned k = 0; k < function.explicitTypeCount; k++)
+		{
+			InplaceStr name = InplaceStr(symbols + vInfo[k].offsetToName);
+
+			TypeBase *type = vInfo[k].type == ~0u ? ctx.typeGeneric : moduleCtx.types[vInfo[k].type];
+
+			if(!type)
+				Stop(ctx, source->pos, "ERROR: can't find function '%s' explicit type '%d' in module %.*s", symbols + function.offsetToName, k, FMT_ISTR(moduleCtx.data->name));
+
+			if(type->isGeneric)
+				hasGenericExplicitType = true;
+
+			generics.push_back(new (ctx.get<MatchData>()) MatchData(name, type));
+		}
+
+		vInfo += function.explicitTypeCount;
+
 		FunctionData *prev = NULL;
 		FunctionData *prototype = NULL;
 
@@ -10132,8 +10154,22 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 			if(curr->value->type == functionType)
 			{
-				prev = curr->value;
-				break;
+				bool explicitTypeMatch = true;
+
+				for(unsigned k = 0; k < function.explicitTypeCount; k++)
+				{
+					TypeBase *prevType = curr->value->generics[k]->type;
+					TypeBase *type = generics[k]->type;
+
+					if(&prevType != &type)
+						explicitTypeMatch = false;
+				}
+
+				if(explicitTypeMatch)
+				{
+					prev = curr->value;
+					break;
+				}
 			}
 		}
 
@@ -10143,8 +10179,6 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 				ctx.functions.push_back(prev);
 			else
 				Stop(ctx, source->pos, "ERROR: function %.*s (type %.*s) is already defined. While importing %.*s", FMT_ISTR(prev->name), FMT_ISTR(prev->type->name), FMT_ISTR(moduleCtx.data->name));
-
-			vInfo += function.explicitTypeCount;
 
 			continue;
 		}
@@ -10185,28 +10219,6 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		if(!contextType)
 			contextType = ctx.GetReferenceType(parentType ? parentType : ctx.typeVoid);
-
-		// Import function explicit type list
-		IntrusiveList<MatchData> generics;
-
-		bool hasGenericExplicitType = false;
-
-		for(unsigned k = 0; k < function.explicitTypeCount; k++)
-		{
-			InplaceStr name = InplaceStr(symbols + vInfo[k].offsetToName);
-
-			TypeBase *type = vInfo[k].type == ~0u ? ctx.typeGeneric : moduleCtx.types[vInfo[k].type];
-
-			if(!type)
-				Stop(ctx, source->pos, "ERROR: can't find function '%s' explicit type '%d' in module %.*s", symbols + function.offsetToName, k, FMT_ISTR(moduleCtx.data->name));
-
-			if(type->isGeneric)
-				hasGenericExplicitType = true;
-
-			generics.push_back(new (ctx.get<MatchData>()) MatchData(name, type));
-		}
-
-		vInfo += function.explicitTypeCount;
 
 		bool coroutine = function.funcCat == ExternFuncInfo::COROUTINE;
 		bool accessor = *(functionName.end - 1) == '$';

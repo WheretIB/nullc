@@ -31,6 +31,8 @@ public:
 	FastVector<ExternMemberInfo>	exTypeExtra;
 	FastVector<ExternVarInfo>		exVariables;
 	FastVector<ExternFuncInfo>		exFunctions;
+	FastVector<unsigned>			exFunctionExplicitTypeArrayOffsets;
+	FastVector<unsigned>			exFunctionExplicitTypes;
 	FastVector<ExternLocalInfo>		exLocals;
 	FastVector<ExternModuleInfo>	exModules;
 	FastVector<VMCmd>			exCode;

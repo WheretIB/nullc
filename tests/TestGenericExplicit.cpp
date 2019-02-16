@@ -86,11 +86,23 @@ const char *testGenericExplicit11 =
 return typeof(foo with<int>()) == int && foo with<int>() == 4;";
 TEST_RESULT("Generic function test with explicit template arguments (import)", testGenericExplicit11, "1");
 
+LOAD_MODULE(test_explicit_type_a2, "test.explicit.type.a2", "int foo<@T>(){ return 4; }");
+const char *testGenericExplicit11b =
+"import test.explicit.type.a2;\r\n\
+return typeof(foo with<int>()) == int && foo with<int>() == 4;";
+TEST_RESULT("Generic function test with explicit template arguments (import)", testGenericExplicit11b, "1");
+
 LOAD_MODULE(test_explicit_type_b, "test.explicit.type.b", "auto foo<@T>(){ return T(4); } foo with<int>();");
 const char *testGenericExplicit12 =
 "import test.explicit.type.b;\r\n\
 return typeof(foo with<int>()) == int && foo with<int>() == 4;";
 TEST_RESULT("Generic function test with explicit template arguments (import with instance)", testGenericExplicit12, "1");
+
+LOAD_MODULE(test_explicit_type_b2, "test.explicit.type.b2", "int foo<@T>(){ return 4; } foo with<int>();");
+const char *testGenericExplicit12b =
+"import test.explicit.type.b2;\r\n\
+return typeof(foo with<int>()) == int && foo with<int>() == 4;";
+TEST_RESULT("Generic function test with explicit template arguments (import with instance)", testGenericExplicit12b, "1");
 
 LOAD_MODULE(test_explicit_type_c, "test.explicit.type.c", "auto foo<@T>(){ return T(4); } foo with<long>();");
 const char *testGenericExplicit13 =
@@ -98,12 +110,25 @@ const char *testGenericExplicit13 =
 return typeof(foo with<int>()) == int && foo with<int>() == 4;";
 TEST_RESULT("Generic function test with explicit template arguments (import with instance) 2", testGenericExplicit13, "1");
 
+LOAD_MODULE(test_explicit_type_c2, "test.explicit.type.c2", "int foo<@T>(){ return 4; } foo with<long>();");
+const char *testGenericExplicit13b =
+"import test.explicit.type.c2;\r\n\
+return typeof(foo with<int>()) == int && foo with<int>() == 4;";
+TEST_RESULT("Generic function test with explicit template arguments (import with instance) 2", testGenericExplicit13b, "1");
+
 LOAD_MODULE(test_explicit_type_d1, "test.explicit.type.d1", "auto foo<@T>(){ return T(4); }");
 LOAD_MODULE(test_explicit_type_d2, "test.explicit.type.d2", "import test.explicit.type.d1; foo with<int>();");
 const char *testGenericExplicit14 =
 "import test.explicit.type.d2;\r\n\
 return typeof(foo with<int>()) == int && foo with<int>() == 4;";
 TEST_RESULT("Generic function test with explicit template arguments (import with import)", testGenericExplicit14, "1");
+
+LOAD_MODULE(test_explicit_type_d1b, "test.explicit.type.d1b", "int foo<@T>(){ return T(4); }");
+LOAD_MODULE(test_explicit_type_d2b, "test.explicit.type.d2b", "import test.explicit.type.d1b; foo with<int>();");
+const char *testGenericExplicit14b =
+"import test.explicit.type.d2b;\r\n\
+return typeof(foo with<int>()) == int && foo with<int>() == 4;";
+TEST_RESULT("Generic function test with explicit template arguments (import with import)", testGenericExplicit14b, "1");
 
 LOAD_MODULE(test_explicit_type_e1, "test.explicit.type.e1", "auto foo<@T>(){ return T(4); }");
 LOAD_MODULE(test_explicit_type_e2, "test.explicit.type.e2", "import test.explicit.type.e1; foo with<long>();");
@@ -113,6 +138,14 @@ import test.explicit.type.e2;\r\n\
 return typeof(foo with<int>()) == int && foo with<int>() == 4;";
 TEST_RESULT("Generic function test with explicit template arguments (import with import) 2", testGenericExplicit15, "1");
 
+LOAD_MODULE(test_explicit_type_e1b, "test.explicit.type.e1b", "int foo<@T>(){ return T(4); }");
+LOAD_MODULE(test_explicit_type_e2b, "test.explicit.type.e2b", "import test.explicit.type.e1b; foo with<long>();");
+const char *testGenericExplicit15b =
+"import test.explicit.type.e1b;\r\n\
+import test.explicit.type.e2b;\r\n\
+return typeof(foo with<int>()) == int && foo with<int>() == 4;";
+TEST_RESULT("Generic function test with explicit template arguments (import with import) 2", testGenericExplicit15b, "1");
+
 LOAD_MODULE(test_explicit_type_f1, "test.explicit.type.f1", "auto foo<@T>(){ return T(4); }");
 LOAD_MODULE(test_explicit_type_f2, "test.explicit.type.f2", "import test.explicit.type.f1; foo with<int>();");
 const char *testGenericExplicit16 =
@@ -120,6 +153,12 @@ const char *testGenericExplicit16 =
 return typeof(foo with<int>()) == int && foo with<int>() == 4;";
 TEST_RESULT("Generic function test with explicit template arguments (import with import) 3", testGenericExplicit16, "1");
 
-const char *testGenericExplicit17 =
+LOAD_MODULE(test_explicit_type_f1b, "test.explicit.type.f1b", "int foo<@T>(){ return T(4); }");
+LOAD_MODULE(test_explicit_type_f2b, "test.explicit.type.f2b", "import test.explicit.type.f1b; foo with<int>();");
+const char *testGenericExplicit16b =
+"import test.explicit.type.f2b;\r\n\
+return typeof(foo with<int>()) == int && foo with<int>() == 4;";
+TEST_RESULT("Generic function test with explicit template arguments (import with import) 3b", testGenericExplicit16b, "1");
+
 "auto foo<@a>(int x, a){ return x + a; } return foo(1, 2);";
 TEST_RESULT("Generic function test with explicit template arguments (parsing context difference)", testGenericExplicit17, "3");

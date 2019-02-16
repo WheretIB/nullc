@@ -35,6 +35,8 @@ void Linker::CleanCode()
 	exTypeExtra.clear();
 	exVariables.clear();
 	exFunctions.clear();
+	exFunctionExplicitTypeArrayOffsets.clear();
+	exFunctionExplicitTypes.clear();
 	exCode.clear();
 	exSymbols.clear();
 	exLocals.clear();
@@ -294,27 +296,50 @@ bool Linker::LinkCode(const char *code)
 	memset(exCloseLists.data + oldListCount, 0, bCode->closureListCount * sizeof(ExternFuncInfo::Upvalue*));
 
 	// Add new functions
+	ExternVarInfo *explicitInfo = FindFirstVar(bCode);
+
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
-	unsigned int end = bCode->functionCount - bCode->moduleFunctionCount;
-	for(unsigned int i = 0; i < end; i++, fInfo++)
+
+	for(unsigned i = 0; i < bCode->functionCount - bCode->moduleFunctionCount; i++, fInfo++)
 	{
 		const unsigned int index_none = ~0u;
 
 		unsigned int index = index_none;
+
+		ExternVarInfo *explicitInfoStart = explicitInfo;
+
 		if(fInfo->isVisible)
 		{
 			unsigned int remappedType = typeRemap[fInfo->funcType];
 			HashMap<unsigned int>::Node *curr = funcMap.first(fInfo->nameHash);
 			while(curr)
 			{
-				if(curr->value < oldFunctionCount && exFunctions[curr->value].funcType == remappedType)
+				ExternFuncInfo &prev = exFunctions[curr->value];
+
+				if(curr->value < oldFunctionCount && prev.funcType == remappedType && prev.explicitTypeCount == fInfo->explicitTypeCount)
 				{
-					index = curr->value;
-					break;
+					bool explicitTypeMatch = true;
+
+					for(unsigned k = 0; k < fInfo->explicitTypeCount; k++)
+					{
+						ExternTypeInfo &prevType = exTypes[exFunctionExplicitTypes[exFunctionExplicitTypeArrayOffsets[curr->value] + k]];
+						ExternTypeInfo &type = exTypes[typeRemap[explicitInfoStart[k].type]];
+
+						if(&prevType != &type)
+							explicitTypeMatch = false;
+					}
+
+					if(explicitTypeMatch)
+					{
+						index = curr->value;
+						break;
+					}
 				}
 				curr = funcMap.next(curr);
 			}
 		}
+
+		explicitInfo += fInfo->explicitTypeCount;
 
 		// There is no conflict between internal funcitons
 		if(*(symbolInfo + fInfo->offsetToName) == '$')
@@ -328,6 +353,11 @@ bool Linker::LinkCode(const char *code)
 			{
 				exFunctions.push_back(exFunctions[index]);
 				funcMap.insert(exFunctions.back().nameHash, exFunctions.size()-1);
+
+				exFunctionExplicitTypeArrayOffsets.push_back(exFunctionExplicitTypes.size());
+
+				for(unsigned k = 0; k < fInfo->explicitTypeCount; k++)
+					exFunctionExplicitTypes.push_back(typeRemap[explicitInfoStart[k].type]);
 
 #ifdef LINK_VERBOSE_DEBUG_OUTPUT
 				printf("Rebind function %3d %-20s (to address %4d [external %p] function %3d)\r\n", exFunctions.size() - 1, &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr, index);
@@ -348,6 +378,11 @@ bool Linker::LinkCode(const char *code)
 		{
 			exFunctions.push_back(*fInfo);
 			funcMap.insert(exFunctions.back().nameHash, exFunctions.size()-1);
+
+			exFunctionExplicitTypeArrayOffsets.push_back(exFunctionExplicitTypes.size());
+
+			for(unsigned k = 0; k < fInfo->explicitTypeCount; k++)
+				exFunctionExplicitTypes.push_back(typeRemap[explicitInfoStart[k].type]);
 
 			if(exFunctions.back().address == 0)
 			{
@@ -534,6 +569,10 @@ bool Linker::LinkCode(const char *code)
 	size += exVariables.size() * sizeof(ExternVarInfo);
 	printf("Functions: %db, ", exFunctions.size() * sizeof(ExternFuncInfo));
 	size += exFunctions.size() * sizeof(ExternFuncInfo);
+	printf("Function explicit type array offsets: %db, ", exFunctionExplicitTypeArrayOffsets.size() * sizeof(unsigned));
+	size += exFunctionExplicitTypeArrayOffsets.size() * sizeof(unsigned);
+	printf("Function explicit types: %db, ", exFunctionExplicitTypes.size() * sizeof(unsigned));
+	size += exFunctionExplicitTypes.size() * sizeof(unsigned);
 	printf("Code: %db\r\n", exCode.size() * sizeof(VMCmd));
 	size += exCode.size() * sizeof(VMCmd);
 	printf("Symbols: %db, ", exSymbols.size() * sizeof(char));
