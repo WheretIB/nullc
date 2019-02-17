@@ -381,7 +381,7 @@ namespace
 				return namespaces[i];
 		}
 
-		return nullptr;
+		return NULL;
 	}
 
 	void CheckVariableConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
