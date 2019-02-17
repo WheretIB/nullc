@@ -126,7 +126,7 @@ struct ParseContext
 	SmallArray<SynNamespaceElement*, 32> namespaceList;
 	SynNamespaceElement *currentNamespace;
 
-	SmallArray<InplaceStr, 8> importList;
+	SmallArray<InplaceStr, 8> activeImports;
 
 	bool errorHandlerActive;
 	jmp_buf errorHandler;

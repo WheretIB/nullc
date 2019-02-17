@@ -237,7 +237,7 @@ SynModifyAssignType GetModifyAssignType(LexemeType type)
 	return SYN_MODIFY_ASSIGN_UNKNOWN;
 }
 
-ParseContext::ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): allocator(allocator), binaryOpStack(allocator), namespaceList(allocator), importList(allocator)
+ParseContext::ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): allocator(allocator), binaryOpStack(allocator), namespaceList(allocator), activeImports(allocator)
 {
 	code = NULL;
 
@@ -257,7 +257,7 @@ ParseContext::ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImp
 	currentNamespace = NULL;
 
 	for(unsigned i = 0; i < activeImports.size(); i++)
-		importList.push_back(activeImports[i]);
+		this->activeImports.push_back(activeImports[i]);
 }
 
 LexemeType ParseContext::Peek()
@@ -2667,20 +2667,22 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 
 		InplaceStr moduleName = GetImportPath(ctx.allocator, NULL, path);
 
-		for(unsigned i = 0; i < ctx.importList.size(); i++)
+		for(unsigned i = 0; i < ctx.activeImports.size(); i++)
 		{
-			if(ctx.importList[i] == moduleName)
+			if(ctx.activeImports[i] == moduleName)
 				Stop(ctx, start, "ERROR: found cyclic dependency on module '%.*s'", moduleName.length(), moduleName.begin);
 		}
 
-		ctx.importList.push_back(moduleName);
+		ctx.activeImports.push_back(moduleName);
 
 		unsigned lexCount = 0;
 		Lexeme *lexStream = NULL;
 
-		if(const char *binary = GetBytecodeFromPath(ctx, start->pos, path, lexCount, lexStream, ctx.importList))
+		if(const char *binary = GetBytecodeFromPath(ctx, start->pos, path, lexCount, lexStream, ctx.activeImports))
 		{
 			ImportModuleNamespaces(ctx, start->pos, (ByteCode*)binary);
+
+			ctx.activeImports.pop_back();
 
 			return new (ctx.get<SynModuleImport>()) SynModuleImport(start, ctx.Previous(), path, (ByteCode*)binary);
 		}
