@@ -1459,7 +1459,7 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 	return result;
 }
 
-TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
+TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* returnType, IntrusiveList<TypeHandle> arguments)
 {
 	// Can't derive from pseudo types
 	assert(!isType<TypeArgumentSet>(returnType) && !isType<TypeMemberSet>(returnType) && !isType<TypeFunctionSet>(returnType));
@@ -1498,6 +1498,9 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 	// Create new type
 	TypeFunction* result = new (get<TypeFunction>()) TypeFunction(GetFunctionTypeName(*this, returnType, arguments), returnType, arguments);
 
+	if(result->name.length() > NULLC_MAX_TYPE_NAME_LENGTH)
+		Stop(source->pos, "ERROR: generated function type name exceeds maximum type length '%d'", NULLC_MAX_TYPE_NAME_LENGTH);
+
 	result->alignment = 4;
 
 	functionTypes.push_back(result);
@@ -1506,14 +1509,14 @@ TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, Intrusive
 	return result;
 }
 
-TypeFunction* ExpressionContext::GetFunctionType(TypeBase* returnType, ArrayView<ArgumentData> arguments)
+TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* returnType, ArrayView<ArgumentData> arguments)
 {
 	IntrusiveList<TypeHandle> types;
 
 	for(unsigned i = 0; i < arguments.size(); i++)
 		types.push_back(new (get<TypeHandle>()) TypeHandle(arguments[i].type));
 
-	return GetFunctionType(returnType, types);
+	return GetFunctionType(source, returnType, types);
 }
 
 TypeFunctionSet* ExpressionContext::GetFunctionSetType(IntrusiveList<TypeHandle> types)
@@ -1568,7 +1571,7 @@ TypeGenericAlias* ExpressionContext::GetGenericAliasType(InplaceStr baseName)
 	return result;
 }
 
-TypeGenericClass* ExpressionContext::GetGenericClassType(TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics)
+TypeGenericClass* ExpressionContext::GetGenericClassType(SynBase *source, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics)
 {
 	for(unsigned i = 0, e = genericClassTypes.count; i < e; i++)
 	{
@@ -1595,6 +1598,9 @@ TypeGenericClass* ExpressionContext::GetGenericClassType(TypeGenericClassProto *
 
 	// Create new type
 	TypeGenericClass *result = new (get<TypeGenericClass>()) TypeGenericClass(GetGenericClassTypeName(*this, proto, generics), proto, generics);
+
+	if(result->name.length() > NULLC_MAX_TYPE_NAME_LENGTH)
+		Stop(source->pos, "ERROR: generated generic type name exceeds maximum type length '%d'", NULLC_MAX_TYPE_NAME_LENGTH);
 
 	genericClassTypes.push_back(result);
 	types.push_back(result);
@@ -1713,7 +1719,7 @@ FunctionValue GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBa
 						return FunctionValue();
 
 					bestGenericMatch = functions[i];
-					bestGenericMatchTarget = ctx.GetFunctionType(returnType, arguments);
+					bestGenericMatchTarget = ctx.GetFunctionType(source, returnType, arguments);
 				}
 			}
 			else if(functionType->isGeneric)
@@ -1770,7 +1776,7 @@ FunctionValue GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBa
 			if(bestOverload)
 			{
 				if(bestTarget->returnType == ctx.typeAuto)
-					bestTarget = ctx.GetFunctionType(bestOverload.function->type->returnType, bestTarget->arguments);
+					bestTarget = ctx.GetFunctionType(source, bestOverload.function->type->returnType, bestTarget->arguments);
 
 				if(bestOverload.function->type == bestTarget)
 					return bestOverload;
@@ -2412,7 +2418,7 @@ ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *
 	else
 		contextRefType = ctx.GetReferenceType(CreateFunctionContextType(ctx, source, functionName));
 
-	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(value->type, arguments), contextRefType, functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(source, value->type, arguments), contextRefType, functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 	CheckFunctionConflict(ctx, source, function->name);
 
@@ -2479,7 +2485,7 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 		{
 			IntrusiveList<TypeHandle> types;
 			types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(ctx.typeInt));
-			TypeBase *type = ctx.GetFunctionType(ctx.typeVoid, types);
+			TypeBase *type = ctx.GetFunctionType(source, ctx.typeVoid, types);
 
 			lhs = new (ctx.get<ExprTypeCast>()) ExprTypeCast(lhs->source, type, lhs, EXPR_CAST_REINTERPRET);
 			rhs = new (ctx.get<ExprTypeCast>()) ExprTypeCast(rhs->source, type, rhs, EXPR_CAST_REINTERPRET);
@@ -2828,7 +2834,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			arguments.push_back(new (ctx.get<TypeHandle>()) TypeHandle(argType));
 		}
 
-		return ctx.GetFunctionType(returnType, arguments);
+		return ctx.GetFunctionType(syntax, returnType, arguments);
 	}
 
 	if(SynTypeof *node = getType<SynTypeof>(syntax))
@@ -2978,7 +2984,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			}
 
 			if(isGeneric)
-				return ctx.GetGenericClassType(proto, types);
+				return ctx.GetGenericClassType(syntax, proto, types);
 			
 			return CreateGenericTypeInstance(ctx, syntax, proto, types);
 		}
@@ -5003,7 +5009,7 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 			if(lhsArg || rhsArg)
 				return NULL;
 
-			return ctx.GetFunctionType(returnType, arguments);
+			return ctx.GetFunctionType(source, returnType, arguments);
 		}
 
 		return NULL;
@@ -5095,7 +5101,7 @@ TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, Typ
 		for(TypeHandle *curr = lhs->arguments.head; curr; curr = curr->next)
 			arguments.push_back(new (ctx.get<TypeHandle>()) TypeHandle(ResolveGenericTypeAliases(ctx, source, curr->type, aliases)));
 
-		return ctx.GetFunctionType(returnType, arguments);
+		return ctx.GetFunctionType(source, returnType, arguments);
 	}
 
 	if(TypeGenericClass *lhs = getType<TypeGenericClass>(type))
@@ -5116,7 +5122,7 @@ TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, Typ
 		}
 
 		if(isGeneric)
-			return ctx.GetGenericClassType(lhs->proto, types);
+			return ctx.GetGenericClassType(source, lhs->proto, types);
 
 		return CreateGenericTypeInstance(ctx, source, lhs->proto, types);
 	}
@@ -5251,7 +5257,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 			return NULL;
 	}
 
-	return ctx.GetFunctionType(function->type->returnType, types);
+	return ctx.GetFunctionType(source, function->type->returnType, types);
 }
 
 void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, ArrayView<FunctionValue> functions)
@@ -6579,7 +6585,7 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 
 			returnType = result->type;
 
-			function->type = ctx.GetFunctionType(returnType, function->type->arguments);
+			function->type = ctx.GetFunctionType(syntax, returnType, function->type->arguments);
 		}
 
 		if(returnType == ctx.typeVoid && result->type != ctx.typeVoid)
@@ -6623,7 +6629,7 @@ ExprYield* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 		{
 			returnType = result->type;
 
-			function->type = ctx.GetFunctionType(returnType, function->type->arguments);
+			function->type = ctx.GetFunctionType(syntax, returnType, function->type->arguments);
 		}
 
 		if(returnType == ctx.typeVoid && result->type != ctx.typeVoid)
@@ -7175,7 +7181,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	else
 		contextRefType = ctx.GetReferenceType(CreateFunctionContextType(ctx, source, functionName));
 
-	TypeFunction *functionType = ctx.GetFunctionType(returnType, argData);
+	TypeFunction *functionType = ctx.GetFunctionType(source, returnType, argData);
 
 	if(instance)
 		assert(functionType == instance);
@@ -7299,7 +7305,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 		// If the function type is still auto it means that it hasn't returned anything
 		if(function->type->returnType == ctx.typeAuto)
-			function->type = ctx.GetFunctionType(ctx.typeVoid, function->type->arguments);
+			function->type = ctx.GetFunctionType(source, ctx.typeVoid, function->type->arguments);
 
 		if(function->type->returnType != ctx.typeVoid && !function->hasExplicitReturn)
 			Stop(ctx, source->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
@@ -7422,7 +7428,7 @@ void DeduceShortFunctionReturnValue(ExpressionContext &ctx, SynBase *source, Fun
 
 	// If return type is auto, set it to type that is being returned
 	if(function->type->returnType == ctx.typeAuto)
-		function->type = ctx.GetFunctionType(actual, function->type->arguments);
+		function->type = ctx.GetFunctionType(source, actual, function->type->arguments);
 
 	ExprBase *result = expected == ctx.typeAuto ? expressions.tail : CreateCast(ctx, source, expressions.tail, expected, false);
 	result = new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, source, function, 0), CreateFunctionUpvalueClose(ctx, source, function, ctx.scope));
@@ -7509,7 +7515,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	TypeBase *contextClassType = CreateFunctionContextType(ctx, syntax, functionName);
 
-	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(returnType, argData), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(syntax, returnType, argData), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 	// Fill in argument data
 	for(unsigned i = 0; i < argData.size(); i++)
@@ -7576,7 +7582,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	// If the function type is still auto it means that it hasn't returned anything
 	if(function->type->returnType == ctx.typeAuto)
-		function->type = ctx.GetFunctionType(ctx.typeVoid, function->type->arguments);
+		function->type = ctx.GetFunctionType(syntax, ctx.typeVoid, function->type->arguments);
 
 	if(function->type->returnType != ctx.typeVoid && !function->hasExplicitReturn)
 		Stop(ctx, syntax->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
@@ -7606,7 +7612,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	TypeBase *contextClassType = CreateFunctionContextType(ctx, syntax, functionName);
 
-	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, true, false, false, ctx.GetFunctionType(ctx.typeAuto, arguments), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, true, false, false, ctx.GetFunctionType(syntax, ctx.typeAuto, arguments), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 	CheckFunctionConflict(ctx, syntax, function->name);
 
@@ -8042,7 +8048,7 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 
 		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
-		FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(ctx.typeVoid, arguments), ctx.GetReferenceType(classType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+		FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(source, ctx.typeVoid, arguments), ctx.GetReferenceType(classType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 		CheckFunctionConflict(ctx, source, function->name);
 
@@ -8147,7 +8153,7 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 		arguments.push_back(ArgumentData(source, false, InplaceStr("left"), ctx.GetReferenceType(classType), NULL));
 		arguments.push_back(ArgumentData(source, false, InplaceStr("right"), classType, NULL));
 
-		FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(ctx.typeVoid, arguments), ctx.GetReferenceType(ctx.typeVoid), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+		FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(source, ctx.typeVoid, arguments), ctx.GetReferenceType(ctx.typeVoid), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 		// Fill in argument data
 		for(unsigned i = 0; i < arguments.size(); i++)
@@ -8326,7 +8332,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 			SynFunctionDefinition *function = new (ctx.get<SynFunctionDefinition>()) SynFunctionDefinition(accessor->begin, accessor->end, false, false, parentType, true, accessor->type, false, accessor->name, aliases, arguments, expressions);
 
-			TypeFunction *instance = ctx.GetFunctionType(accessorType, IntrusiveList<TypeHandle>());
+			TypeFunction *instance = ctx.GetFunctionType(syntax, accessorType, IntrusiveList<TypeHandle>());
 
 			ExprBase *definition = AnalyzeFunctionDefinition(ctx, function, instance, NULL, IntrusiveList<MatchData>(), false, false);
 
@@ -8350,7 +8356,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 			IntrusiveList<TypeHandle> argTypes;
 			argTypes.push_back(new (ctx.get<TypeHandle>()) TypeHandle(accessorType));
 
-			TypeFunction *instance = ctx.GetFunctionType(ctx.typeAuto, argTypes);
+			TypeFunction *instance = ctx.GetFunctionType(syntax, ctx.typeAuto, argTypes);
 
 			classDefinition->functions.push_back(AnalyzeFunctionDefinition(ctx, function, instance, NULL, IntrusiveList<MatchData>(), false, false));
 		}
@@ -8400,6 +8406,9 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	assert(generics.size() == syntax->aliases.size());
 
 	InplaceStr className = generics.empty() ? typeName : GetGenericClassTypeName(ctx, proto, generics);
+
+	if(className.length() > NULLC_MAX_TYPE_NAME_LENGTH)
+		Stop(ctx, syntax->pos, "ERROR: generated type name exceeds maximum type length '%d'", NULLC_MAX_TYPE_NAME_LENGTH);
 
 	TypeClass *originalDefinition = NULL;
 
@@ -8650,7 +8659,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 			arguments.push_back(ArgumentData(syntax, false, InplaceStr("$x"), enumType, NULL));
 
-			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(ctx.typeInt, arguments), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("int"), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(syntax, ctx.typeInt, arguments), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("int"), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 			// Fill in argument data
 			for(unsigned i = 0; i < arguments.size(); i++)
@@ -8691,7 +8700,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 			arguments.push_back(ArgumentData(syntax, false, InplaceStr("$x"), ctx.typeInt, NULL));
 
-			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(enumType, arguments), ctx.GetReferenceType(ctx.typeVoid), typeName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(syntax, enumType, arguments), ctx.GetReferenceType(ctx.typeVoid), typeName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 			// Fill in argument data
 			for(unsigned i = 0; i < arguments.size(); i++)
@@ -9915,7 +9924,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					arguments.push_back(new (ctx.get<TypeHandle>()) TypeHandle(argType));
 				}
 
-				moduleCtx.types[i] = ctx.GetFunctionType(returnType, arguments);
+				moduleCtx.types[i] = ctx.GetFunctionType(source, returnType, arguments);
 
 				moduleCtx.types[i]->importModule = moduleCtx.data;
 
@@ -10002,7 +10011,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 					if(isGeneric)
 					{
-						importedType = ctx.GetGenericClassType(protoClass, generics);
+						importedType = ctx.GetGenericClassType(source, protoClass, generics);
 
 						// TODO: assert that alias list is empty and that correct number of generics was exported
 					}
@@ -10500,7 +10509,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 				argTypes.push_back(new (ctx.get<TypeHandle>()) TypeHandle(argument.type == ~0u ? ctx.typeGeneric : moduleCtx.types[argument.type]));
 			}
 
-			data->type = ctx.GetFunctionType(returnType, argTypes);
+			data->type = ctx.GetFunctionType(source, returnType, argTypes);
 		}
 
 		if(function.funcCat == ExternFuncInfo::COROUTINE)

@@ -65,11 +65,11 @@ struct ExpressionContext
 	TypeRef* GetReferenceType(TypeBase* type);
 	TypeArray* GetArrayType(TypeBase* type, long long size);
 	TypeUnsizedArray* GetUnsizedArrayType(TypeBase* type);
-	TypeFunction* GetFunctionType(TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
-	TypeFunction* GetFunctionType(TypeBase* returnType, ArrayView<ArgumentData> arguments);
+	TypeFunction* GetFunctionType(SynBase *source, TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
+	TypeFunction* GetFunctionType(SynBase *source, TypeBase* returnType, ArrayView<ArgumentData> arguments);
 	TypeFunctionSet* GetFunctionSetType(IntrusiveList<TypeHandle> types);
 	TypeGenericAlias* GetGenericAliasType(InplaceStr baseName);
-	TypeGenericClass* GetGenericClassType(TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
+	TypeGenericClass* GetGenericClassType(SynBase *source, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 
 	// Full state info
 	const char *code;
