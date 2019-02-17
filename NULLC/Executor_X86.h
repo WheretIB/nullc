@@ -16,6 +16,7 @@ public:
 
 	void	ClearNative();
 	bool	TranslateToNative();
+	void	SaveListing(const char *fileName);
 
 	void	Run(unsigned int functionID, const char *arguments);
 	void	Stop(const char* error);

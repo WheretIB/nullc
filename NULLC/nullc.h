@@ -17,6 +17,7 @@ nullres		nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deal
 void		nullcSetImportPath(const char* importPath);
 void		nullcSetFileReadHandler(const void* (NCDECL *fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr));
 void		nullcSetGlobalMemoryLimit(unsigned limit);
+void		nullcSetEnableLogFiles(int enable);
 
 void		nullcTerminate();
 

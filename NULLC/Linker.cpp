@@ -11,6 +11,11 @@
 	#endif
 #endif
 
+namespace NULLC
+{
+	extern bool enableLogFiles;
+}
+
 Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(256), exSymbols(8192), exLocals(1024), jumpTargets(1024)
 {
 	globalVarSize = 0;
@@ -588,9 +593,8 @@ bool Linker::LinkCode(const char *code)
 	printf("Overall: %d bytes\r\n\r\n", size);
 #endif
 
-#ifdef NULLC_LOG_FILES
-	SaveListing("link.txt");
-#endif
+	if(NULLC::enableLogFiles)
+		SaveListing("link.txt");
 
 	return true;
 }

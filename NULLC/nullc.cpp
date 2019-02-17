@@ -45,6 +45,8 @@ namespace NULLC
 	GrowingAllocatorRef<ChunkedStackPool<65532>, 16384> allocator(pool);
 
 	CompilerContext *compilerCtx = NULL;
+
+	bool enableLogFiles = false;
 }
 
 unsigned nullcFindFunctionIndex(const char* name);
@@ -151,6 +153,11 @@ void nullcSetGlobalMemoryLimit(unsigned limit)
 	NULLC::SetGlobalLimit(limit);
 }
 #endif
+
+void nullcSetEnableLogFiles(int enable)
+{
+	NULLC::enableLogFiles = enable != 0;
+}
 
 nullres	nullcBindModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index)
 {
@@ -278,9 +285,7 @@ nullres	nullcCompile(const char* code)
 	compilerCtx->errorBuf = errorBuf;
 	compilerCtx->errorBufSize = NULLC_ERROR_BUFFER_SIZE;
 
-#ifdef NULLC_LOG_FILES
-	compilerCtx->enableLogFiles = true;
-#endif
+	compilerCtx->enableLogFiles = enableLogFiles;
 
 	if(!CompileModuleFromSource(*compilerCtx, code))
 	{
