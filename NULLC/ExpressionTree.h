@@ -103,6 +103,7 @@ struct ExpressionContext
 	ScopeData *scope;
 
 	ScopeData *globalScope;
+	SmallArray<NamespaceData*, 2> globalNamespaces;
 
 	unsigned instanceDepth;
 

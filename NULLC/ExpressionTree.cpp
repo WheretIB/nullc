@@ -366,6 +366,24 @@ namespace
 		return AllocateVariableInScope(ctx, source, alignment, type->size >= 4 ? type->size : 4);
 	}
 	
+	NamespaceData* FindNamespaceInCurrentScope(ExpressionContext &ctx, InplaceStr name)
+	{
+		ArrayView<NamespaceData*> namespaces;
+
+		if(NamespaceData *ns = ctx.GetCurrentNamespace())
+			namespaces = ns->children;
+		else
+			namespaces = ctx.globalNamespaces;
+
+		for(unsigned i = 0; i < namespaces.size(); i++)
+		{
+			if(namespaces[i]->name == name)
+				return namespaces[i];
+		}
+
+		return nullptr;
+	}
+
 	void CheckVariableConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
 	{
 		if(ctx.typeMap.find(name.hash()))
@@ -382,6 +400,9 @@ namespace
 			if((*functions)->scope == ctx.scope)
 				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(name));
 		}
+
+		if(FindNamespaceInCurrentScope(ctx, name))
+			Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a namespace", FMT_ISTR(name));
 	}
 
 	void CheckFunctionConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
@@ -390,6 +411,36 @@ namespace
 		{
 			if((*function)->isInternal)
 				Stop(ctx, source->pos, "ERROR: function '%.*s' is reserved", FMT_ISTR(name));
+		}
+	}
+
+	void CheckTypeConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
+	{
+		if(VariableData **variable = ctx.variableMap.find(name.hash()))
+		{
+			if((*variable)->scope == ctx.scope)
+				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
+		}
+
+		if(FindNamespaceInCurrentScope(ctx, name))
+			Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a namespace", FMT_ISTR(name));
+	}
+
+	void CheckNamespaceConflict(ExpressionContext &ctx, SynBase *source, NamespaceData *ns)
+	{
+		if(TypeBase **type = ctx.typeMap.find(ns->fullNameHash))
+			Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(ns->name));
+
+		if(VariableData **variable = ctx.variableMap.find(ns->nameHash))
+		{
+			if((*variable)->scope == ctx.scope)
+				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(ns->name));
+		}
+
+		if(FunctionData **functions = ctx.functionMap.find(ns->nameHash))
+		{
+			if((*functions)->scope == ctx.scope)
+				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(ns->name));
 		}
 	}
 
@@ -8282,6 +8333,8 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syntax, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics)
 {
+	CheckTypeConflict(ctx, syntax, syntax->name);
+
 	InplaceStr typeName = GetTypeNameInScope(ctx, ctx.scope, syntax->name);
 
 	if(!proto && !syntax->aliases.empty())
@@ -8469,6 +8522,8 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 ExprBase* AnalyzeClassPrototype(ExpressionContext &ctx, SynClassPrototype *syntax)
 {
+	CheckTypeConflict(ctx, syntax, syntax->name);
+
 	InplaceStr typeName = GetTypeNameInScope(ctx, ctx.scope, syntax->name);
 
 	if(TypeBase **type = ctx.typeMap.find(typeName.hash()))
@@ -8665,7 +8720,16 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 
 	for(SynIdentifier *name = syntax->path.head; name; name = getType<SynIdentifier>(name->next))
 	{
-		NamespaceData *ns = new (ctx.get<NamespaceData>()) NamespaceData(syntax, ctx.scope, ctx.GetCurrentNamespace(), name->name, ctx.uniqueNamespaceId++);
+		NamespaceData *parent = ctx.GetCurrentNamespace();
+
+		NamespaceData *ns = new (ctx.get<NamespaceData>()) NamespaceData(ctx.allocator, syntax, ctx.scope, parent, name->name, ctx.uniqueNamespaceId++);
+
+		CheckNamespaceConflict(ctx, syntax, ns);
+
+		if(parent)
+			parent->children.push_back(ns);
+		else
+			ctx.globalNamespaces.push_back(ns);
 
 		ctx.namespaces.push_back(ns);
 
@@ -9672,15 +9736,15 @@ void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleConte
 
 	for(unsigned i = 0; i < bCode->namespaceCount; i++)
 	{
-		ExternNamespaceInfo &ns = namespaceList[i];
+		ExternNamespaceInfo &namespaceData = namespaceList[i];
 
 		NamespaceData *parent = NULL;
 
-		if(ns.parentHash != ~0u)
+		if(namespaceData.parentHash != ~0u)
 		{
 			for(unsigned k = 0; k < ctx.namespaces.size(); k++)
 			{
-				if(ctx.namespaces[k]->nameHash == ns.parentHash)
+				if(ctx.namespaces[k]->nameHash == namespaceData.parentHash)
 				{
 					parent = ctx.namespaces[k];
 					break;
@@ -9688,13 +9752,17 @@ void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleConte
 			}
 
 			if(!parent)
-				Stop(ctx, source->pos, "ERROR: namespace %s parent not found", symbols + ns.offsetToName);
+				Stop(ctx, source->pos, "ERROR: namespace %s parent not found", symbols + namespaceData.offsetToName);
 		}
 
+		NamespaceData *ns = new (ctx.get<NamespaceData>()) NamespaceData(ctx.allocator, source, ctx.scope, parent, InplaceStr(symbols + namespaceData.offsetToName), ctx.uniqueNamespaceId++);
+
 		if(parent)
-			ctx.namespaces.push_back(new (ctx.get<NamespaceData>()) NamespaceData(source, ctx.scope, parent, InplaceStr(symbols + ns.offsetToName), ctx.uniqueNamespaceId++));
+			parent->children.push_back(ns);
 		else
-			ctx.namespaces.push_back(new (ctx.get<NamespaceData>()) NamespaceData(source, ctx.scope, ctx.GetCurrentNamespace(), InplaceStr(symbols + ns.offsetToName), ctx.uniqueNamespaceId++));
+			ctx.globalNamespaces.push_back(ns);
+
+		ctx.namespaces.push_back(ns);
 	}
 }
 

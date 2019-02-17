@@ -107,7 +107,7 @@ struct ModuleData
 
 struct NamespaceData
 {
-	NamespaceData(SynBase *source, ScopeData *scope, NamespaceData *parent, InplaceStr name, unsigned uniqueId): source(source), scope(scope), parent(parent), name(name), uniqueId(uniqueId)
+	NamespaceData(Allocator *allocator, SynBase *source, ScopeData *scope, NamespaceData *parent, InplaceStr name, unsigned uniqueId): source(source), scope(scope), parent(parent), name(name), uniqueId(uniqueId), children(allocator)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 
@@ -122,6 +122,8 @@ struct NamespaceData
 	ScopeData *scope;
 
 	NamespaceData *parent;
+
+	SmallArray<NamespaceData*, 2> children;
 
 	InplaceStr name;
 	unsigned nameHash;
