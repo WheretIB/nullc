@@ -1256,6 +1256,7 @@ bool ExecutorX86::TranslateToNative()
 			}
 			break;
 		case o_movsx:
+			assert(cmd.argB.type == x86Argument::argPtr);
 			code += x86MOVSX(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			break;
 		case o_push:
@@ -1659,6 +1660,45 @@ bool ExecutorX86::TranslateToNative()
 	oldFunctionSize = exFunctions.size();
 
 	return true;
+}
+
+void ExecutorX86::SaveListing(const char *fileName)
+{
+	static unsigned int instCount = 0;
+	for(unsigned int i = 0; i < instList.size(); i++)
+	{
+		if(instList[i].name != o_none && instList[i].name != o_other)
+			instCount++;
+	}
+
+	FILE *fAsm = fopen(fileName, "wb");
+	char instBuf[128];
+	for(unsigned int i = 0; i < instList.size(); i++)
+	{
+		if(instList[i].name == o_other)
+			continue;
+
+		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
+		{
+			fprintf(fAsm, "; ------------------- Invalidation ----------------\r\n");
+			fprintf(fAsm, "0x%x: ; %4d\r\n", 0xc0000000 | (instList[i].instID - 1), instList[i].instID - 1);
+		}
+
+		if(instList[i].instID && instList[i].instID - 1 < exCode.size())
+		{
+			VMCmd &cmd = exCode[instList[i].instID - 1];
+
+			char buf[256];
+			cmd.Decode(buf);
+
+			fprintf(fAsm, "; %4d: %s\r\n", instList[i].instID - 1, buf);
+		}
+
+		instList[i].Decode(instBuf);
+
+		fprintf(fAsm, "%s\r\n", instBuf);
+	}
+	fclose(fAsm);
 }
 
 const char* ExecutorX86::GetResult()

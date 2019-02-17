@@ -888,20 +888,24 @@ void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg index, un
 	}
 
 	x86Argument newArg = x86Argument(size, index, mult, base, shift);
-	unsigned int cIndex = NULLC::MemFind(newArg);
-	if(cIndex != ~0u)
+
+	if(op != o_movsx)
 	{
-		if(NULLC::mCache[cIndex].value.type == x86Argument::argNumber)
+		unsigned int cIndex = NULLC::MemFind(newArg);
+		if(cIndex != ~0u)
 		{
-			EMIT_OP_REG_NUM(op, reg1, NULLC::mCache[cIndex].value.num);
-			NULLC::MemUpdate(cIndex);
-			return;
-		}
-		if(NULLC::mCache[cIndex].value.type == x86Argument::argReg && op != o_imul && op != o_cmp)
-		{
-			EMIT_OP_REG_REG(op, reg1, NULLC::mCache[cIndex].value.reg);
-			NULLC::MemUpdate(cIndex);
-			return;
+			if(NULLC::mCache[cIndex].value.type == x86Argument::argNumber)
+			{
+				EMIT_OP_REG_NUM(op, reg1, NULLC::mCache[cIndex].value.num);
+				NULLC::MemUpdate(cIndex);
+				return;
+			}
+			if(NULLC::mCache[cIndex].value.type == x86Argument::argReg && op != o_imul && op != o_cmp)
+			{
+				EMIT_OP_REG_REG(op, reg1, NULLC::mCache[cIndex].value.reg);
+				NULLC::MemUpdate(cIndex);
+				return;
+			}
 		}
 	}
 	if(op == o_mov && base != rESP)
@@ -1026,7 +1030,7 @@ void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg index, int multiplier,
 		return;
 	}
 
-	if(NULLC::reg[reg2].type == x86Argument::argNumber)
+	if(size == sDWORD && NULLC::reg[reg2].type == x86Argument::argNumber)
 	{
 		EMIT_OP_RPTR_NUM(op, size, index, multiplier, base, shift, NULLC::reg[reg2].num);
 		return;
