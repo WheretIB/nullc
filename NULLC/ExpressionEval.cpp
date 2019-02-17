@@ -1721,7 +1721,7 @@ ExprBase* EvaluateGenericFunctionPrototype(ExpressionEvalContext &ctx, ExprGener
 	return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid);
 }
 
-ExprBase* EvaluateFunction(ExpressionEvalContext &ctx, ExprFunctionDefinition *expression, ExprBase *context, SmallArray<ExprBase*, 32> &arguments)
+ExprBase* EvaluateFunction(ExpressionEvalContext &ctx, ExprFunctionDefinition *expression, ExprBase *context, ArrayView<ExprBase*> arguments)
 {
 	if(!AddInstruction(ctx))
 		return NULL;
@@ -1817,6 +1817,682 @@ ExprBase* EvaluateFunctionAccess(ExpressionEvalContext &ctx, ExprFunctionAccess 
 	return CheckType(expression, new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, function->type, function, context));
 }
 
+ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *expression, ExprFunctionLiteral *ptr, ArrayView<ExprBase*> arguments)
+{
+	if(ptr->data->name == InplaceStr("assert") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
+	{
+		long long value;
+		if(!TryTakeLong(arguments[0], value))
+			return Report(ctx, "ERROR: failed to evaluate value");
+
+		if(value == 0)
+			return Report(ctx, "ERROR: Assertion failed");
+
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+	}
+	else if(ptr->data->name == InplaceStr("assert") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeInt && arguments[1]->type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
+	{
+		long long value;
+		if(!TryTakeLong(arguments[0], value))
+			return Report(ctx, "ERROR: failed to evaluate value");
+
+		ExprMemoryLiteral *memory = getType<ExprMemoryLiteral>(arguments[1]);
+
+		ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(CreateExtract(ctx, memory, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
+		ExprIntegerLiteral *length = getType<ExprIntegerLiteral>(CreateExtract(ctx, memory, sizeof(void*), ctx.ctx.typeInt));
+
+		if(!ptr)
+			return Report(ctx, "ERROR: null pointer access");
+
+		assert(length);
+
+		if(value == 0)
+			return Report(ctx, "ERROR: %.*s", length->value, ptr->ptr);
+
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+	}
+	else if(ptr->data->name == InplaceStr("bool") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeBool)
+	{
+		long long value;
+		if(!TryTakeLong(arguments[0], value))
+			return Report(ctx, "ERROR: failed to evaluate value");
+
+		return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, ctx.ctx.typeBool, value != 0));
+	}
+	else if(ptr->data->name == InplaceStr("char") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeChar)
+	{
+		long long value;
+		if(!TryTakeLong(arguments[0], value))
+			return Report(ctx, "ERROR: failed to evaluate value");
+
+		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeChar, char(value)));
+	}
+	else if(ptr->data->name == InplaceStr("short") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeShort)
+	{
+		long long value;
+		if(!TryTakeLong(arguments[0], value))
+			return Report(ctx, "ERROR: failed to evaluate value");
+
+		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeShort, short(value)));
+	}
+	else if(ptr->data->name == InplaceStr("int") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
+	{
+		long long value;
+		if(!TryTakeLong(arguments[0], value))
+			return Report(ctx, "ERROR: failed to evaluate value");
+
+		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, int(value)));
+	}
+	else if(ptr->data->name == InplaceStr("long") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeLong)
+	{
+		long long value;
+		if(!TryTakeLong(arguments[0], value))
+			return Report(ctx, "ERROR: failed to evaluate value");
+
+		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeLong, value));
+	}
+	else if(ptr->data->name == InplaceStr("float") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeFloat)
+	{
+		double value;
+		if(!TryTakeDouble(arguments[0], value))
+			return Report(ctx, "ERROR: failed to evaluate value");
+
+		return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, ctx.ctx.typeFloat, value));
+	}
+	else if(ptr->data->name == InplaceStr("double") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeDouble)
+	{
+		double value;
+		if(!TryTakeDouble(arguments[0], value))
+			return Report(ctx, "ERROR: failed to evaluate value");
+
+		return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, ctx.ctx.typeDouble, value));
+	}
+	else if(ptr->data->name == InplaceStr("bool::bool") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeBool)
+	{
+		if(!CreateStore(ctx, ptr->context, arguments[0]))
+			return NULL;
+
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+	}
+	else if(ptr->data->name == InplaceStr("char::char") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeChar)
+	{
+		if(!CreateStore(ctx, ptr->context, arguments[0]))
+			return NULL;
+
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+	}
+	else if(ptr->data->name == InplaceStr("short::short") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeShort)
+	{
+		if(!CreateStore(ctx, ptr->context, arguments[0]))
+			return NULL;
+
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+	}
+	else if(ptr->data->name == InplaceStr("int::int") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
+	{
+		if(!CreateStore(ctx, ptr->context, arguments[0]))
+			return NULL;
+
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+	}
+	else if(ptr->data->name == InplaceStr("long::long") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeLong)
+	{
+		if(!CreateStore(ctx, ptr->context, arguments[0]))
+			return NULL;
+
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+	}
+	else if(ptr->data->name == InplaceStr("float::float") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeFloat)
+	{
+		if(!CreateStore(ctx, ptr->context, arguments[0]))
+			return NULL;
+
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+	}
+	else if(ptr->data->name == InplaceStr("double::double") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeDouble)
+	{
+		if(!CreateStore(ctx, ptr->context, arguments[0]))
+			return NULL;
+
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+	}
+	else if(ptr->data->name == InplaceStr("__newS"))
+	{
+		long long size;
+		if(!TryTakeLong(arguments[0], size))
+			return Report(ctx, "ERROR: failed to evaluate type size");
+
+		long long type;
+		if(!TryTakeLong(arguments[1], type))
+			return Report(ctx, "ERROR: failed to evaluate type ID");
+
+		TypeBase *target = ctx.ctx.types[unsigned(type)];
+
+		assert(target->size == size);
+
+		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, target);
+
+		if(!storage)
+			return NULL;
+
+		return CheckType(expression, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid), storage->ptr, storage->end));
+	}
+	else if(ptr->data->name == InplaceStr("__newA"))
+	{
+		long long size;
+		if(!TryTakeLong(arguments[0], size))
+			return Report(ctx, "ERROR: failed to evaluate type size");
+
+		long long count;
+		if(!TryTakeLong(arguments[1], count))
+			return Report(ctx, "ERROR: failed to evaluate element count");
+
+		long long type;
+		if(!TryTakeLong(arguments[2], type))
+			return Report(ctx, "ERROR: failed to evaluate type ID");
+
+		TypeBase *target = ctx.ctx.types[unsigned(type)];
+
+		assert(target->size == size);
+
+		if(target->size * count > ctx.variableMemoryLimit)
+			return Report(ctx, "ERROR: single variable memory limit");
+
+		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.GetArrayType(target, count));
+
+		if(!storage)
+			return NULL;
+
+		ExprBase *result = CreateConstruct(ctx, ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeInt), storage, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, count), NULL);
+
+		if(!result)
+			return NULL;
+
+		return CheckType(expression, result);
+	}
+	else if(ptr->data->name == InplaceStr("__rcomp"))
+	{
+		ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
+		ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
+
+		assert(a && b);
+
+		void *lPtr = 0;
+		if(!TryTakePointer(CreateExtract(ctx, a, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)), lPtr))
+			return Report(ctx, "ERROR: failed to evaluate first argument");
+
+		void *rPtr = 0;
+		if(!TryTakePointer(CreateExtract(ctx, b, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)), rPtr))
+			return Report(ctx, "ERROR: failed to evaluate second argument");
+
+		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, lPtr == rPtr));
+	}
+	else if(ptr->data->name == InplaceStr("__rncomp"))
+	{
+		ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
+		ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
+
+		assert(a && b);
+
+		void *lPtr = 0;
+		if(!TryTakePointer(CreateExtract(ctx, a, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)), lPtr))
+			return Report(ctx, "ERROR: failed to evaluate first argument");
+
+		void *rPtr = 0;
+		if(!TryTakePointer(CreateExtract(ctx, b, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)), rPtr))
+			return Report(ctx, "ERROR: failed to evaluate second argument");
+
+		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, lPtr != rPtr));
+	}
+	else if(ptr->data->name == InplaceStr("__pcomp"))
+	{
+		ExprFunctionLiteral *a = getType<ExprFunctionLiteral>(arguments[0]);
+		ExprFunctionLiteral *b = getType<ExprFunctionLiteral>(arguments[1]);
+
+		assert(a && b);
+
+		void *aContext = 0;
+		if(a->context && !TryTakePointer(a->context, aContext))
+			return Report(ctx, "ERROR: failed to evaluate first argument");
+
+		void *bContext = 0;
+		if(b->context && !TryTakePointer(b->context, bContext))
+			return Report(ctx, "ERROR: failed to evaluate second argument");
+
+		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, a->data == b->data && aContext == bContext));
+	}
+	else if(ptr->data->name == InplaceStr("__pncomp"))
+	{
+		ExprFunctionLiteral *a = getType<ExprFunctionLiteral>(arguments[0]);
+		ExprFunctionLiteral *b = getType<ExprFunctionLiteral>(arguments[1]);
+
+		assert(a && b);
+
+		void *aContext = 0;
+		if(a->context && !TryTakePointer(a->context, aContext))
+			return Report(ctx, "ERROR: failed to evaluate first argument");
+
+		void *bContext = 0;
+		if(b->context && !TryTakePointer(b->context, bContext))
+			return Report(ctx, "ERROR: failed to evaluate second argument");
+
+		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, a->data != b->data || aContext != bContext));
+	}
+	else if(ptr->data->name == InplaceStr("__acomp"))
+	{
+		ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
+		ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
+
+		assert(a && b);
+		assert(a->type->size == b->type->size);
+
+		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, memcmp(a->ptr->ptr, b->ptr->ptr, unsigned(a->type->size)) == 0));
+	}
+	else if(ptr->data->name == InplaceStr("__ancomp"))
+	{
+		ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
+		ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
+
+		assert(a && b);
+		assert(a->type->size == b->type->size);
+
+		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, memcmp(a->ptr->ptr, b->ptr->ptr, unsigned(a->type->size)) != 0));
+	}
+	else if(ptr->data->name == InplaceStr("__typeCount"))
+	{
+		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, ctx.ctx.types.size()));
+	}
+	else if(ptr->data->name == InplaceStr("__redirect") || ptr->data->name == InplaceStr("__redirect_ptr"))
+	{
+		ExprMemoryLiteral *autoRef = getType<ExprMemoryLiteral>(arguments[0]);
+		ExprPointerLiteral *tableRef = getType<ExprPointerLiteral>(arguments[1]);
+
+		if(!tableRef)
+			return Report(ctx, "ERROR: null pointer access");
+
+		ExprTypeLiteral *typeID = getType<ExprTypeLiteral>(CreateExtract(ctx, autoRef, 0, ctx.ctx.typeTypeID));
+
+		assert(typeID);
+
+		unsigned typeIndex = ctx.ctx.GetTypeIndex(typeID->value);
+
+		ExprBase *context = CreateExtract(ctx, autoRef, 4, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]));
+
+		assert(context);
+
+		ExprBase *tableRefLoad = CreateLoad(ctx, tableRef);
+
+		if(!tableRefLoad)
+			return NULL;
+
+		ExprMemoryLiteral *table = getType<ExprMemoryLiteral>(tableRefLoad);
+
+		ExprPointerLiteral *tableArray = getType<ExprPointerLiteral>(CreateExtract(ctx, table, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeFunctionID)));
+		ExprIntegerLiteral *tableSize = getType<ExprIntegerLiteral>(CreateExtract(ctx, table, sizeof(void*), ctx.ctx.typeInt));
+
+		assert(tableArray && tableSize);
+
+		if(typeIndex >= tableSize->value)
+			return Report(ctx, "ERROR: type index is out of bounds of redirection table");
+
+		unsigned char *targetPtr = tableArray->ptr + typeIndex * ctx.ctx.typeTypeID->size;
+
+		unsigned index = 0;
+		memcpy(&index, targetPtr, sizeof(unsigned));
+
+		FunctionData *data = index != 0 ? ctx.ctx.functions[index - 1] : NULL;
+
+		if(!data)
+		{
+			if(ptr->data->name == InplaceStr("__redirect_ptr"))
+				return CheckType(expression, new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, expression->type, NULL, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]))));
+
+			return Report(ctx, "ERROR: type '%.*s' doesn't implement method", FMT_ISTR(ctx.ctx.types[typeIndex]->name));
+		}
+
+		return CheckType(expression, new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, expression->type, data, context));
+	}
+	else if(ptr->data->name == InplaceStr("duplicate") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
+	{
+		ExprMemoryLiteral *ptr = getType<ExprMemoryLiteral>(arguments[0]);
+
+		assert(ptr);
+
+		ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, ptr, 0, ctx.ctx.typeTypeID));
+		ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, ptr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
+
+		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoRef);
+
+		if(!storage)
+			return NULL;
+
+		ExprMemoryLiteral *result = new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(expression->source, ctx.ctx.typeAutoRef, storage);
+
+		CreateInsert(ctx, result, 0, new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, ptrTypeID->value));
+
+		if(!ptrPtr)
+		{
+			CreateInsert(ctx, result, 4, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ptrTypeID->value)));
+
+			return CheckType(expression, result);
+		}
+
+		ExprPointerLiteral *resultPtr = AllocateTypeStorage(ctx, expression->source, ptrTypeID->value);
+
+		if(!resultPtr)
+			return NULL;
+
+		CreateInsert(ctx, result, 4, resultPtr);
+
+		ExprBase *ptrPtrLoad = CreateLoad(ctx, ptrPtr);
+
+		if(!ptrPtrLoad)
+			return NULL;
+
+		CreateStore(ctx, resultPtr, ptrPtrLoad);
+
+		return CheckType(expression, result);
+	}
+	else if(ptr->data->name == InplaceStr("duplicate") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoArray)
+	{
+		ExprMemoryLiteral *arr = getType<ExprMemoryLiteral>(arguments[0]);
+
+		assert(arr);
+
+		ExprTypeLiteral *arrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, arr, 0, ctx.ctx.typeTypeID));
+		ExprIntegerLiteral *arrLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, arr, 4 + sizeof(void*), ctx.ctx.typeInt));
+		ExprPointerLiteral *arrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, arr, 4, ctx.ctx.GetReferenceType(ctx.ctx.GetArrayType(arrTypeID->value, arrLen->value))));
+
+		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoArray);
+
+		if(!storage)
+			return NULL;
+
+		ExprMemoryLiteral *result = new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(expression->source, ctx.ctx.typeAutoArray, storage);
+
+		CreateInsert(ctx, result, 0, new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, arrTypeID->value));
+		CreateInsert(ctx, result, 4 + sizeof(void*), new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, arrLen->value));
+
+		if(!arrPtr)
+		{
+			CreateInsert(ctx, result, 4, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+
+			return CheckType(expression, result);
+		}
+
+		ExprPointerLiteral *resultPtr = AllocateTypeStorage(ctx, expression->source, ctx.ctx.GetArrayType(arrTypeID->value, arrLen->value));
+
+		if(!resultPtr)
+			return NULL;
+
+		CreateInsert(ctx, result, 4, resultPtr);
+
+		ExprBase *ptrPtrLoad = CreateLoad(ctx, arrPtr);
+
+		if(!ptrPtrLoad)
+			return NULL;
+
+		CreateStore(ctx, resultPtr, ptrPtrLoad);
+
+		return CheckType(expression, result);
+	}
+	else if(ptr->data->name == InplaceStr("typeid") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
+	{
+		ExprMemoryLiteral *reference = getType<ExprMemoryLiteral>(arguments[0]);
+
+		assert(reference);
+
+		ExprTypeLiteral *typeID = getType<ExprTypeLiteral>(CreateExtract(ctx, reference, 0, ctx.ctx.typeTypeID));
+
+		return CheckType(expression, typeID);
+	}
+	else if(ptr->data->name == InplaceStr("auto_array") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeTypeID && arguments[1]->type == ctx.ctx.typeInt)
+	{
+		ExprTypeLiteral *type = getType<ExprTypeLiteral>(arguments[0]);
+		ExprIntegerLiteral *count = getType<ExprIntegerLiteral>(arguments[1]);
+
+		assert(type && count);
+
+		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoArray);
+
+		if(!storage)
+			return NULL;
+
+		ExprMemoryLiteral *result = new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(expression->source, ctx.ctx.typeAutoArray, storage);
+
+		CreateInsert(ctx, result, 0, new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, type->value));
+
+		ExprPointerLiteral *resultPtr = AllocateTypeStorage(ctx, expression->source, ctx.ctx.GetArrayType(type->value, count->value));
+
+		if(!resultPtr)
+			return NULL;
+
+		CreateInsert(ctx, result, 4, resultPtr);
+		CreateInsert(ctx, result, 4 + sizeof(void*), new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, count->value));
+
+		return CheckType(expression, result);
+	}
+	else if(ptr->data->name == InplaceStr("array_copy") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeAutoArray && arguments[1]->type == ctx.ctx.typeAutoArray)
+	{
+		ExprMemoryLiteral *dst = getType<ExprMemoryLiteral>(arguments[0]);
+		ExprMemoryLiteral *src = getType<ExprMemoryLiteral>(arguments[1]);
+
+		assert(dst && src);
+
+		ExprTypeLiteral *dstTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, dst, 0, ctx.ctx.typeTypeID));
+		ExprPointerLiteral *dstPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, dst, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+		ExprIntegerLiteral *dstLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, dst, 4 + sizeof(void*), ctx.ctx.typeInt));
+
+		ExprTypeLiteral *srcTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, src, 0, ctx.ctx.typeTypeID));
+		ExprPointerLiteral *srcPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, src, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+		ExprIntegerLiteral *srcLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, src, 4 + sizeof(void*), ctx.ctx.typeInt));
+
+		if(!dstPtr && !srcPtr)
+			return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+
+		if(!srcPtr || dstPtr->ptr == srcPtr->ptr)
+			return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+
+		if(dstTypeID->value != srcTypeID->value)
+			return Report(ctx, "ERROR: destination element type '%.*s' doesn't match source element type '%.*s'", FMT_ISTR(dstTypeID->value->name), FMT_ISTR(srcTypeID->value->name));
+
+		if(dstLen->value < srcLen->value)
+			return Report(ctx, "ERROR: destination array size '%d' is smaller than source array size '%d'", unsigned(dstLen->value), unsigned(srcLen->value));
+
+		memcpy(dstPtr->ptr, srcPtr->ptr, unsigned(dstTypeID->value->size * srcLen->value));
+
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+	}
+	else if(ptr->data->name == InplaceStr("[]") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeAutoArray) && arguments[1]->type == ctx.ctx.typeInt)
+	{
+		// Get arguments
+		ExprPointerLiteral *arrPtrArg = getType<ExprPointerLiteral>(arguments[0]);
+
+		if(!arrPtrArg)
+			return Report(ctx, "ERROR: null pointer access");
+
+		ExprIntegerLiteral *indexArg = getType<ExprIntegerLiteral>(arguments[1]);
+
+		assert(indexArg);
+
+		ExprBase *arrPtrLoad = CreateLoad(ctx, arrPtrArg);
+
+		if(!arrPtrLoad)
+			return NULL;
+
+		ExprMemoryLiteral *arr = getType<ExprMemoryLiteral>(arrPtrLoad);
+
+		assert(arr);
+
+		// Load auto[] array members
+		ExprTypeLiteral *arrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, arr, 0, ctx.ctx.typeTypeID));
+		ExprIntegerLiteral *arrLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, arr, 4 + sizeof(void*), ctx.ctx.typeInt));
+		ExprPointerLiteral *arrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, arr, 4, ctx.ctx.GetReferenceType(ctx.ctx.GetArrayType(arrTypeID->value, arrLen->value))));
+
+		if(unsigned(indexArg->value) >= arrLen->value)
+			return Report(ctx, "ERROR: array index out of bounds");
+
+		// Create storage for result
+		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoRef);
+
+		if(!storage)
+			return NULL;
+
+		// Create result in that storage
+		ExprMemoryLiteral *result = new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(expression->source, ctx.ctx.typeAutoRef, storage);
+
+		// Save typeid
+		CreateInsert(ctx, result, 0, new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, arrTypeID->value));
+
+		// Save pointer to array element
+		assert(arrPtr->ptr + indexArg->value * arrTypeID->value->size + arrTypeID->value->size <= arrPtr->end);
+
+		unsigned char *targetPtr = arrPtr->ptr + indexArg->value * arrTypeID->value->size;
+
+		ExprPointerLiteral *shifted = new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(arrTypeID->value), targetPtr, targetPtr + arrTypeID->value->size);
+
+		CreateInsert(ctx, result, 4, shifted);
+
+		return CheckType(expression, result);
+	}
+	else if(ptr->data->name == InplaceStr("__assertCoroutine") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
+	{
+		ExprMemoryLiteral *ptr = getType<ExprMemoryLiteral>(arguments[0]);
+
+		assert(ptr);
+
+		ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, ptr, 0, ctx.ctx.typeTypeID));
+
+		if(!isType<TypeFunction>(ptrTypeID->value))
+			return Report(ctx, "ERROR: '%.*s' is not a function'", FMT_ISTR(ptrTypeID->value->name));
+
+		ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, ptr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
+
+		assert(ptrPtr);
+
+		ExprFunctionLiteral *function = getType<ExprFunctionLiteral>(CreateLoad(ctx, ptrPtr));
+
+		if(!function->data->coroutine)
+			return Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->data->name));
+
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+	}
+	else if(ptr->data->name == InplaceStr("isCoroutineReset") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
+	{
+		ExprMemoryLiteral *ptr = getType<ExprMemoryLiteral>(arguments[0]);
+
+		assert(ptr);
+
+		ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, ptr, 0, ctx.ctx.typeTypeID));
+
+		if(!isType<TypeFunction>(ptrTypeID->value))
+			return Report(ctx, "ERROR: '%.*s' is not a function'", FMT_ISTR(ptrTypeID->value->name));
+
+		ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, ptr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
+
+		assert(ptrPtr);
+
+		ExprFunctionLiteral *function = getType<ExprFunctionLiteral>(CreateLoad(ctx, ptrPtr));
+
+		if(!function->data->coroutine)
+			return Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->data->name));
+
+		ExprBase *contextLoad = CreateLoad(ctx, function->context);
+
+		if(!contextLoad)
+			return NULL;
+
+		ExprMemoryLiteral *context = getType<ExprMemoryLiteral>(contextLoad);
+
+		// TODO: remove this check, all coroutines must have a context
+		if(!context)
+			return Report(ctx, "ERROR: '%.*s' coroutine has no context'", FMT_ISTR(function->data->name));
+
+		ExprIntegerLiteral *jmpOffset = getType<ExprIntegerLiteral>(CreateExtract(ctx, context, 0, ctx.ctx.typeInt));
+
+		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, jmpOffset->value == 0));
+	}
+	else if(ptr->data->name == InplaceStr("assert_derived_from_base") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && arguments[1]->type == ctx.ctx.typeTypeID)
+	{
+		ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(arguments[0]);
+		ExprTypeLiteral *base = getType<ExprTypeLiteral>(arguments[1]);
+
+		if(!ptr)
+			return CheckType(expression, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
+
+		assert(uintptr_t(ptr->end - ptr->ptr) >= sizeof(unsigned));
+
+		ExprTypeLiteral *derived = getType<ExprTypeLiteral>(CreateLoad(ctx, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeTypeID), ptr->ptr, ptr->end)));
+
+		assert(derived);
+
+		TypeBase *curr = derived->value;
+
+		while(curr)
+		{
+			if(curr == base->value)
+				return new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(curr), ptr->ptr, ptr->ptr + curr->size);
+
+			if(TypeClass *classType = getType<TypeClass>(curr))
+				curr = classType->baseClass;
+			else
+				curr = NULL;
+		}
+
+		return Report(ctx, "ERROR: cannot convert from '%.*s' to '%.*s'", FMT_ISTR(derived->value->name), FMT_ISTR(base->value->name));
+	}
+	else if(ptr->data->name == InplaceStr("__closeUpvalue") && arguments.size() == 4)
+	{
+		ExprPointerLiteral *upvalueListLocation = getType<ExprPointerLiteral>(arguments[0]);
+		ExprPointerLiteral *variableLocation = getType<ExprPointerLiteral>(arguments[1]);
+		ExprIntegerLiteral *offsetToCopy = getType<ExprIntegerLiteral>(arguments[2]);
+		ExprIntegerLiteral *copySize = getType<ExprIntegerLiteral>(arguments[3]);
+
+		assert(upvalueListLocation);
+		assert(variableLocation);
+		assert(offsetToCopy);
+		assert(copySize);
+
+		ExprBase *upvalueListHeadBase = CreateLoad(ctx, upvalueListLocation);
+
+		// Nothing to close if the list is empty
+		if(getType<ExprNullptrLiteral>(upvalueListHeadBase))
+			return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+
+		ExprPointerLiteral *upvalueListHead = getType<ExprPointerLiteral>(upvalueListHeadBase);
+
+		assert(upvalueListHead);
+
+		struct Upvalue
+		{
+			void *target;
+			Upvalue *next;
+		};
+
+		Upvalue *upvalue = (Upvalue*)upvalueListHead->ptr;
+
+		assert(upvalue);
+
+		while (upvalue && ReadVmMemoryPointer(&upvalue->target) == variableLocation->ptr)
+		{
+			Upvalue *next = (Upvalue*)ReadVmMemoryPointer(&upvalue->next);
+
+			unsigned char *copy = (unsigned char*)upvalue + offsetToCopy->value;
+			memcpy(copy, variableLocation->ptr, unsigned(copySize->value));
+			WriteVmMemoryPointer(&upvalue->target, copy);
+			WriteVmMemoryPointer(&upvalue->next, NULL);
+
+			upvalue = next;
+		}
+
+		CreateStore(ctx, upvalueListLocation, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid), (unsigned char*)upvalue, (unsigned char*)upvalue + NULLC_PTR_SIZE));
+
+		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+	}
+
+	return NULL;
+}
+
 ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *expression)
 {
 	if(!ctx.stackFrames.empty() && ctx.stackFrames.back()->targetYield)
@@ -1830,7 +2506,7 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 	if(!function)
 		return NULL;
 
-	SmallArray<ExprBase*, 32> arguments(ctx.ctx.allocator);
+	SmallArray<ExprBase*, 8> arguments(ctx.ctx.allocator);
 
 	for(ExprBase *curr = expression->arguments.head; curr; curr = curr->next)
 	{
@@ -1851,676 +2527,8 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 	{
 		if(ctx.emulateKnownExternals && ctx.ctx.GetFunctionIndex(ptr->data) < ctx.ctx.baseModuleFunctionCount)
 		{
-			if(ptr->data->name == InplaceStr("assert") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
-			{
-				long long value;
-				if(!TryTakeLong(arguments[0], value))
-					return Report(ctx, "ERROR: failed to evaluate value");
-
-				if(value == 0)
-					return Report(ctx, "ERROR: Assertion failed");
-
-				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-			}
-			else if(ptr->data->name == InplaceStr("assert") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeInt && arguments[1]->type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
-			{
-				long long value;
-				if(!TryTakeLong(arguments[0], value))
-					return Report(ctx, "ERROR: failed to evaluate value");
-
-				ExprMemoryLiteral *memory = getType<ExprMemoryLiteral>(arguments[1]);
-
-				ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(CreateExtract(ctx, memory, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
-				ExprIntegerLiteral *length = getType<ExprIntegerLiteral>(CreateExtract(ctx, memory, sizeof(void*), ctx.ctx.typeInt));
-
-				if(!ptr)
-					return Report(ctx, "ERROR: null pointer access");
-
-				assert(length);
-
-				if(value == 0)
-					return Report(ctx, "ERROR: %.*s", length->value, ptr->ptr);
-
-				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-			}
-			else if(ptr->data->name == InplaceStr("bool") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeBool)
-			{
-				long long value;
-				if(!TryTakeLong(arguments[0], value))
-					return Report(ctx, "ERROR: failed to evaluate value");
-
-				return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, ctx.ctx.typeBool, value != 0));
-			}
-			else if(ptr->data->name == InplaceStr("char") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeChar)
-			{
-				long long value;
-				if(!TryTakeLong(arguments[0], value))
-					return Report(ctx, "ERROR: failed to evaluate value");
-
-				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeChar, char(value)));
-			}
-			else if(ptr->data->name == InplaceStr("short") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeShort)
-			{
-				long long value;
-				if(!TryTakeLong(arguments[0], value))
-					return Report(ctx, "ERROR: failed to evaluate value");
-
-				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeShort, short(value)));
-			}
-			else if(ptr->data->name == InplaceStr("int") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
-			{
-				long long value;
-				if(!TryTakeLong(arguments[0], value))
-					return Report(ctx, "ERROR: failed to evaluate value");
-
-				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, int(value)));
-			}
-			else if(ptr->data->name == InplaceStr("long") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeLong)
-			{
-				long long value;
-				if(!TryTakeLong(arguments[0], value))
-					return Report(ctx, "ERROR: failed to evaluate value");
-
-				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeLong, value));
-			}
-			else if(ptr->data->name == InplaceStr("float") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeFloat)
-			{
-				double value;
-				if(!TryTakeDouble(arguments[0], value))
-					return Report(ctx, "ERROR: failed to evaluate value");
-
-				return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, ctx.ctx.typeFloat, value));
-			}
-			else if(ptr->data->name == InplaceStr("double") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeDouble)
-			{
-				double value;
-				if(!TryTakeDouble(arguments[0], value))
-					return Report(ctx, "ERROR: failed to evaluate value");
-
-				return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, ctx.ctx.typeDouble, value));
-			}
-			else if(ptr->data->name == InplaceStr("bool::bool") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeBool)
-			{
-				if(!CreateStore(ctx, ptr->context, arguments[0]))
-					return NULL;
-
-				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-			}
-			else if(ptr->data->name == InplaceStr("char::char") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeChar)
-			{
-				if(!CreateStore(ctx, ptr->context, arguments[0]))
-					return NULL;
-
-				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-			}
-			else if(ptr->data->name == InplaceStr("short::short") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeShort)
-			{
-				if(!CreateStore(ctx, ptr->context, arguments[0]))
-					return NULL;
-
-				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-			}
-			else if(ptr->data->name == InplaceStr("int::int") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
-			{
-				if(!CreateStore(ctx, ptr->context, arguments[0]))
-					return NULL;
-
-				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-			}
-			else if(ptr->data->name == InplaceStr("long::long") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeLong)
-			{
-				if(!CreateStore(ctx, ptr->context, arguments[0]))
-					return NULL;
-
-				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-			}
-			else if(ptr->data->name == InplaceStr("float::float") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeFloat)
-			{
-				if(!CreateStore(ctx, ptr->context, arguments[0]))
-					return NULL;
-
-				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-			}
-			else if(ptr->data->name == InplaceStr("double::double") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeDouble)
-			{
-				if(!CreateStore(ctx, ptr->context, arguments[0]))
-					return NULL;
-
-				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-			}
-			else if(ptr->data->name == InplaceStr("__newS"))
-			{
-				long long size;
-				if(!TryTakeLong(arguments[0], size))
-					return Report(ctx, "ERROR: failed to evaluate type size");
-
-				long long type;
-				if(!TryTakeLong(arguments[1], type))
-					return Report(ctx, "ERROR: failed to evaluate type ID");
-
-				TypeBase *target = ctx.ctx.types[unsigned(type)];
-
-				assert(target->size == size);
-
-				ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, target);
-
-				if(!storage)
-					return NULL;
-
-				return CheckType(expression, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid), storage->ptr, storage->end));
-			}
-			else if(ptr->data->name == InplaceStr("__newA"))
-			{
-				long long size;
-				if(!TryTakeLong(arguments[0], size))
-					return Report(ctx, "ERROR: failed to evaluate type size");
-
-				long long count;
-				if(!TryTakeLong(arguments[1], count))
-					return Report(ctx, "ERROR: failed to evaluate element count");
-
-				long long type;
-				if(!TryTakeLong(arguments[2], type))
-					return Report(ctx, "ERROR: failed to evaluate type ID");
-
-				TypeBase *target = ctx.ctx.types[unsigned(type)];
-
-				assert(target->size == size);
-
-				if(target->size * count > ctx.variableMemoryLimit)
-					return Report(ctx, "ERROR: single variable memory limit");
-
-				ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.GetArrayType(target, count));
-
-				if(!storage)
-					return NULL;
-
-				ExprBase *result = CreateConstruct(ctx, ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeInt), storage, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, count), NULL);
-
-				if(!result)
-					return NULL;
-
-				return CheckType(expression, result);
-			}
-			else if(ptr->data->name == InplaceStr("__rcomp"))
-			{
-				ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
-				ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
-
-				assert(a && b);
-
-				void *lPtr = 0;
-				if(!TryTakePointer(CreateExtract(ctx, a, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)), lPtr))
-					return Report(ctx, "ERROR: failed to evaluate first argument");
-
-				void *rPtr = 0;
-				if(!TryTakePointer(CreateExtract(ctx, b, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)), rPtr))
-					return Report(ctx, "ERROR: failed to evaluate second argument");
-
-				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, lPtr == rPtr));
-			}
-			else if(ptr->data->name == InplaceStr("__rncomp"))
-			{
-				ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
-				ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
-
-				assert(a && b);
-
-				void *lPtr = 0;
-				if(!TryTakePointer(CreateExtract(ctx, a, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)), lPtr))
-					return Report(ctx, "ERROR: failed to evaluate first argument");
-
-				void *rPtr = 0;
-				if(!TryTakePointer(CreateExtract(ctx, b, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)), rPtr))
-					return Report(ctx, "ERROR: failed to evaluate second argument");
-
-				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, lPtr != rPtr));
-			}
-			else if(ptr->data->name == InplaceStr("__pcomp"))
-			{
-				ExprFunctionLiteral *a = getType<ExprFunctionLiteral>(arguments[0]);
-				ExprFunctionLiteral *b = getType<ExprFunctionLiteral>(arguments[1]);
-
-				assert(a && b);
-
-				void *aContext = 0;
-				if(a->context && !TryTakePointer(a->context, aContext))
-					return Report(ctx, "ERROR: failed to evaluate first argument");
-
-				void *bContext = 0;
-				if(b->context && !TryTakePointer(b->context, bContext))
-					return Report(ctx, "ERROR: failed to evaluate second argument");
-
-				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, a->data == b->data && aContext == bContext));
-			}
-			else if(ptr->data->name == InplaceStr("__pncomp"))
-			{
-				ExprFunctionLiteral *a = getType<ExprFunctionLiteral>(arguments[0]);
-				ExprFunctionLiteral *b = getType<ExprFunctionLiteral>(arguments[1]);
-
-				assert(a && b);
-
-				void *aContext = 0;
-				if(a->context && !TryTakePointer(a->context, aContext))
-					return Report(ctx, "ERROR: failed to evaluate first argument");
-
-				void *bContext = 0;
-				if(b->context && !TryTakePointer(b->context, bContext))
-					return Report(ctx, "ERROR: failed to evaluate second argument");
-
-				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, a->data != b->data || aContext != bContext));
-			}
-			else if(ptr->data->name == InplaceStr("__acomp"))
-			{
-				ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
-				ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
-
-				assert(a && b);
-				assert(a->type->size == b->type->size);
-
-				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, memcmp(a->ptr->ptr, b->ptr->ptr, unsigned(a->type->size)) == 0));
-			}
-			else if(ptr->data->name == InplaceStr("__ancomp"))
-			{
-				ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
-				ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
-
-				assert(a && b);
-				assert(a->type->size == b->type->size);
-
-				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, memcmp(a->ptr->ptr, b->ptr->ptr, unsigned(a->type->size)) != 0));
-			}
-			else if(ptr->data->name == InplaceStr("__typeCount"))
-			{
-				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, ctx.ctx.types.size()));
-			}
-			else if(ptr->data->name == InplaceStr("__redirect") || ptr->data->name == InplaceStr("__redirect_ptr"))
-			{
-				ExprMemoryLiteral *autoRef = getType<ExprMemoryLiteral>(arguments[0]);
-				ExprPointerLiteral *tableRef = getType<ExprPointerLiteral>(arguments[1]);
-
-				if(!tableRef)
-					return Report(ctx, "ERROR: null pointer access");
-
-				ExprTypeLiteral *typeID = getType<ExprTypeLiteral>(CreateExtract(ctx, autoRef, 0, ctx.ctx.typeTypeID));
-
-				assert(typeID);
-
-				unsigned typeIndex = ctx.ctx.GetTypeIndex(typeID->value);
-
-				ExprBase *context = CreateExtract(ctx, autoRef, 4, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]));
-
-				assert(context);
-
-				ExprBase *tableRefLoad = CreateLoad(ctx, tableRef);
-
-				if(!tableRefLoad)
-					return NULL;
-
-				ExprMemoryLiteral *table = getType<ExprMemoryLiteral>(tableRefLoad);
-
-				ExprPointerLiteral *tableArray = getType<ExprPointerLiteral>(CreateExtract(ctx, table, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeFunctionID)));
-				ExprIntegerLiteral *tableSize = getType<ExprIntegerLiteral>(CreateExtract(ctx, table, sizeof(void*), ctx.ctx.typeInt));
-
-				assert(tableArray && tableSize);
-
-				if(typeIndex >= tableSize->value)
-					return Report(ctx, "ERROR: type index is out of bounds of redirection table");
-
-				unsigned char *targetPtr = tableArray->ptr + typeIndex * ctx.ctx.typeTypeID->size;
-
-				unsigned index = 0;
-				memcpy(&index, targetPtr, sizeof(unsigned));
-
-				FunctionData *data = index != 0 ? ctx.ctx.functions[index - 1] : NULL;
-
-				if(!data)
-				{
-					if(ptr->data->name == InplaceStr("__redirect_ptr"))
-						return CheckType(expression, new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, expression->type, NULL, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]))));
-
-					return Report(ctx, "ERROR: type '%.*s' doesn't implement method", FMT_ISTR(ctx.ctx.types[typeIndex]->name));
-				}
-
-				return CheckType(expression, new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, expression->type, data, context));
-			}
-			else if(ptr->data->name == InplaceStr("duplicate") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
-			{
-				ExprMemoryLiteral *ptr = getType<ExprMemoryLiteral>(arguments[0]);
-
-				assert(ptr);
-
-				ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, ptr, 0, ctx.ctx.typeTypeID));
-				ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, ptr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
-
-				ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoRef);
-
-				if(!storage)
-					return NULL;
-
-				ExprMemoryLiteral *result = new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(expression->source, ctx.ctx.typeAutoRef, storage);
-
-				CreateInsert(ctx, result, 0, new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, ptrTypeID->value));
-
-				if(!ptrPtr)
-				{
-					CreateInsert(ctx, result, 4, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ptrTypeID->value)));
-
-					return CheckType(expression, result);
-				}
-
-				ExprPointerLiteral *resultPtr = AllocateTypeStorage(ctx, expression->source, ptrTypeID->value);
-
-				if(!resultPtr)
-					return NULL;
-
-				CreateInsert(ctx, result, 4, resultPtr);
-
-				ExprBase *ptrPtrLoad = CreateLoad(ctx, ptrPtr);
-
-				if(!ptrPtrLoad)
-					return NULL;
-
-				CreateStore(ctx, resultPtr, ptrPtrLoad);
-
-				return CheckType(expression, result);
-			}
-			else if(ptr->data->name == InplaceStr("duplicate") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoArray)
-			{
-				ExprMemoryLiteral *arr = getType<ExprMemoryLiteral>(arguments[0]);
-
-				assert(arr);
-
-				ExprTypeLiteral *arrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, arr, 0, ctx.ctx.typeTypeID));
-				ExprIntegerLiteral *arrLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, arr, 4 + sizeof(void*), ctx.ctx.typeInt));
-				ExprPointerLiteral *arrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, arr, 4, ctx.ctx.GetReferenceType(ctx.ctx.GetArrayType(arrTypeID->value, arrLen->value))));
-
-				ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoArray);
-
-				if(!storage)
-					return NULL;
-
-				ExprMemoryLiteral *result = new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(expression->source, ctx.ctx.typeAutoArray, storage);
-
-				CreateInsert(ctx, result, 0, new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, arrTypeID->value));
-				CreateInsert(ctx, result, 4 + sizeof(void*), new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, arrLen->value));
-
-				if(!arrPtr)
-				{
-					CreateInsert(ctx, result, 4, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
-
-					return CheckType(expression, result);
-				}
-
-				ExprPointerLiteral *resultPtr = AllocateTypeStorage(ctx, expression->source, ctx.ctx.GetArrayType(arrTypeID->value, arrLen->value));
-
-				if(!resultPtr)
-					return NULL;
-
-				CreateInsert(ctx, result, 4, resultPtr);
-
-				ExprBase *ptrPtrLoad = CreateLoad(ctx, arrPtr);
-
-				if(!ptrPtrLoad)
-					return NULL;
-
-				CreateStore(ctx, resultPtr, ptrPtrLoad);
-
-				return CheckType(expression, result);
-			}
-			else if(ptr->data->name == InplaceStr("typeid") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
-			{
-				ExprMemoryLiteral *reference = getType<ExprMemoryLiteral>(arguments[0]);
-
-				assert(reference);
-
-				ExprTypeLiteral *typeID = getType<ExprTypeLiteral>(CreateExtract(ctx, reference, 0, ctx.ctx.typeTypeID));
-
-				return CheckType(expression, typeID);
-			}
-			else if(ptr->data->name == InplaceStr("auto_array") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeTypeID && arguments[1]->type == ctx.ctx.typeInt)
-			{
-				ExprTypeLiteral *type = getType<ExprTypeLiteral>(arguments[0]);
-				ExprIntegerLiteral *count = getType<ExprIntegerLiteral>(arguments[1]);
-
-				assert(type && count);
-
-				ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoArray);
-
-				if(!storage)
-					return NULL;
-
-				ExprMemoryLiteral *result = new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(expression->source, ctx.ctx.typeAutoArray, storage);
-
-				CreateInsert(ctx, result, 0, new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, type->value));
-
-				ExprPointerLiteral *resultPtr = AllocateTypeStorage(ctx, expression->source, ctx.ctx.GetArrayType(type->value, count->value));
-
-				if(!resultPtr)
-					return NULL;
-
-				CreateInsert(ctx, result, 4, resultPtr);
-				CreateInsert(ctx, result, 4 + sizeof(void*), new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, count->value));
-
-				return CheckType(expression, result);
-			}
-			else if(ptr->data->name == InplaceStr("array_copy") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeAutoArray && arguments[1]->type == ctx.ctx.typeAutoArray)
-			{
-				ExprMemoryLiteral *dst = getType<ExprMemoryLiteral>(arguments[0]);
-				ExprMemoryLiteral *src = getType<ExprMemoryLiteral>(arguments[1]);
-
-				assert(dst && src);
-
-				ExprTypeLiteral *dstTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, dst, 0, ctx.ctx.typeTypeID));
-				ExprPointerLiteral *dstPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, dst, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
-				ExprIntegerLiteral *dstLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, dst, 4 + sizeof(void*), ctx.ctx.typeInt));
-
-				ExprTypeLiteral *srcTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, src, 0, ctx.ctx.typeTypeID));
-				ExprPointerLiteral *srcPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, src, 4, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
-				ExprIntegerLiteral *srcLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, src, 4 + sizeof(void*), ctx.ctx.typeInt));
-
-				if(!dstPtr && !srcPtr)
-					return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-
-				if(!srcPtr || dstPtr->ptr == srcPtr->ptr)
-					return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-
-				if(dstTypeID->value != srcTypeID->value)
-					return Report(ctx, "ERROR: destination element type '%.*s' doesn't match source element type '%.*s'", FMT_ISTR(dstTypeID->value->name), FMT_ISTR(srcTypeID->value->name));
-
-				if(dstLen->value < srcLen->value)
-					return Report(ctx, "ERROR: destination array size '%d' is smaller than source array size '%d'", unsigned(dstLen->value), unsigned(srcLen->value));
-
-				memcpy(dstPtr->ptr, srcPtr->ptr, unsigned(dstTypeID->value->size * srcLen->value));
-
-				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-			}
-			else if(ptr->data->name == InplaceStr("[]") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeAutoArray) && arguments[1]->type == ctx.ctx.typeInt)
-			{
-				// Get arguments
-				ExprPointerLiteral *arrPtrArg = getType<ExprPointerLiteral>(arguments[0]);
-
-				if(!arrPtrArg)
-					return Report(ctx, "ERROR: null pointer access");
-
-				ExprIntegerLiteral *indexArg = getType<ExprIntegerLiteral>(arguments[1]);
-
-				assert(indexArg);
-
-				ExprBase *arrPtrLoad = CreateLoad(ctx, arrPtrArg);
-
-				if(!arrPtrLoad)
-					return NULL;
-
-				ExprMemoryLiteral *arr = getType<ExprMemoryLiteral>(arrPtrLoad);
-
-				assert(arr);
-
-				// Load auto[] array members
-				ExprTypeLiteral *arrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, arr, 0, ctx.ctx.typeTypeID));
-				ExprIntegerLiteral *arrLen = getType<ExprIntegerLiteral>(CreateExtract(ctx, arr, 4 + sizeof(void*), ctx.ctx.typeInt));
-				ExprPointerLiteral *arrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, arr, 4, ctx.ctx.GetReferenceType(ctx.ctx.GetArrayType(arrTypeID->value, arrLen->value))));
-
-				if(unsigned(indexArg->value) >= arrLen->value)
-					return Report(ctx, "ERROR: array index out of bounds");
-
-				// Create storage for result
-				ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoRef);
-
-				if(!storage)
-					return NULL;
-
-				// Create result in that storage
-				ExprMemoryLiteral *result = new (ctx.ctx.get<ExprMemoryLiteral>()) ExprMemoryLiteral(expression->source, ctx.ctx.typeAutoRef, storage);
-
-				// Save typeid
-				CreateInsert(ctx, result, 0, new (ctx.ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(expression->source, ctx.ctx.typeTypeID, arrTypeID->value));
-
-				// Save pointer to array element
-				assert(arrPtr->ptr + indexArg->value * arrTypeID->value->size + arrTypeID->value->size <= arrPtr->end);
-
-				unsigned char *targetPtr = arrPtr->ptr + indexArg->value * arrTypeID->value->size;
-
-				ExprPointerLiteral *shifted = new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(arrTypeID->value), targetPtr, targetPtr + arrTypeID->value->size);
-
-				CreateInsert(ctx, result, 4, shifted);
-
-				return CheckType(expression, result);
-			}
-			else if(ptr->data->name == InplaceStr("__assertCoroutine") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
-			{
-				ExprMemoryLiteral *ptr = getType<ExprMemoryLiteral>(arguments[0]);
-
-				assert(ptr);
-
-				ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, ptr, 0, ctx.ctx.typeTypeID));
-
-				if(!isType<TypeFunction>(ptrTypeID->value))
-					return Report(ctx, "ERROR: '%.*s' is not a function'", FMT_ISTR(ptrTypeID->value->name));
-
-				ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, ptr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
-
-				assert(ptrPtr);
-
-				ExprFunctionLiteral *function = getType<ExprFunctionLiteral>(CreateLoad(ctx, ptrPtr));
-
-				if(!function->data->coroutine)
-					return Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->data->name));
-
-				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-			}
-			else if(ptr->data->name == InplaceStr("isCoroutineReset") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
-			{
-				ExprMemoryLiteral *ptr = getType<ExprMemoryLiteral>(arguments[0]);
-
-				assert(ptr);
-
-				ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, ptr, 0, ctx.ctx.typeTypeID));
-
-				if(!isType<TypeFunction>(ptrTypeID->value))
-					return Report(ctx, "ERROR: '%.*s' is not a function'", FMT_ISTR(ptrTypeID->value->name));
-
-				ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, ptr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
-
-				assert(ptrPtr);
-
-				ExprFunctionLiteral *function = getType<ExprFunctionLiteral>(CreateLoad(ctx, ptrPtr));
-
-				if(!function->data->coroutine)
-					return Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->data->name));
-
-				ExprBase *contextLoad = CreateLoad(ctx, function->context);
-
-				if(!contextLoad)
-					return NULL;
-
-				ExprMemoryLiteral *context = getType<ExprMemoryLiteral>(contextLoad);
-
-				// TODO: remove this check, all coroutines must have a context
-				if(!context)
-					return Report(ctx, "ERROR: '%.*s' coroutine has no context'", FMT_ISTR(function->data->name));
-
-				ExprIntegerLiteral *jmpOffset = getType<ExprIntegerLiteral>(CreateExtract(ctx, context, 0, ctx.ctx.typeInt));
-
-				return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, jmpOffset->value == 0));
-			}
-			else if(ptr->data->name == InplaceStr("assert_derived_from_base") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && arguments[1]->type == ctx.ctx.typeTypeID)
-			{
-				ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(arguments[0]);
-				ExprTypeLiteral *base = getType<ExprTypeLiteral>(arguments[1]);
-
-				if(!ptr)
-					return CheckType(expression, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
-
-				assert(uintptr_t(ptr->end - ptr->ptr) >= sizeof(unsigned));
-
-				ExprTypeLiteral *derived = getType<ExprTypeLiteral>(CreateLoad(ctx, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeTypeID), ptr->ptr, ptr->end)));
-
-				assert(derived);
-
-				TypeBase *curr = derived->value;
-
-				while(curr)
-				{
-					if(curr == base->value)
-						return new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(curr), ptr->ptr, ptr->ptr + curr->size);
-
-					if(TypeClass *classType = getType<TypeClass>(curr))
-						curr = classType->baseClass;
-					else
-						curr = NULL;
-				}
-
-				return Report(ctx, "ERROR: cannot convert from '%.*s' to '%.*s'", FMT_ISTR(derived->value->name), FMT_ISTR(base->value->name));
-			}
-			else if(ptr->data->name == InplaceStr("__closeUpvalue") && arguments.size() == 4)
-			{
-				ExprPointerLiteral *upvalueListLocation = getType<ExprPointerLiteral>(arguments[0]);
-				ExprPointerLiteral *variableLocation = getType<ExprPointerLiteral>(arguments[1]);
-				ExprIntegerLiteral *offsetToCopy = getType<ExprIntegerLiteral>(arguments[2]);
-				ExprIntegerLiteral *copySize = getType<ExprIntegerLiteral>(arguments[3]);
-
-				assert(upvalueListLocation);
-				assert(variableLocation);
-				assert(offsetToCopy);
-				assert(copySize);
-
-				ExprBase *upvalueListHeadBase = CreateLoad(ctx, upvalueListLocation);
-
-				// Nothing to close if the list is empty
-				if(getType<ExprNullptrLiteral>(upvalueListHeadBase))
-					return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-
-				ExprPointerLiteral *upvalueListHead = getType<ExprPointerLiteral>(upvalueListHeadBase);
-
-				assert(upvalueListHead);
-
-				struct Upvalue
-				{
-					void *target;
-					Upvalue *next;
-				};
-
-				Upvalue *upvalue = (Upvalue*)upvalueListHead->ptr;
-
-				assert(upvalue);
-
-				while (upvalue && ReadVmMemoryPointer(&upvalue->target) == variableLocation->ptr)
-				{
-					Upvalue *next = (Upvalue*)ReadVmMemoryPointer(&upvalue->next);
-
-					unsigned char *copy = (unsigned char*)upvalue + offsetToCopy->value;
-					memcpy(copy, variableLocation->ptr, unsigned(copySize->value));
-					WriteVmMemoryPointer(&upvalue->target, copy);
-					WriteVmMemoryPointer(&upvalue->next, NULL);
-
-					upvalue = next;
-				}
-
-				CreateStore(ctx, upvalueListLocation, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid), (unsigned char*)upvalue, (unsigned char*)upvalue + NULLC_PTR_SIZE));
-
-				return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
-			}
+			if(ExprBase *result = EvaluateKnownExternalFunctionCall(ctx, expression, ptr, arguments))
+				return result;
 		}
 
 		return Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(ptr->data->name));
