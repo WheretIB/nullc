@@ -745,3 +745,7 @@ int b3 = a3;\r\n\
 \r\n\
 return b + b2 + b3;";
 TEST_RESULT("Short loads are sign-extended 1", testShortSignExtension1, "-3");
+
+const char	*testInvalidOptimization =
+"int foo(int c){ return 1 - 1 / c; } return foo(2);";
+TEST_RESULT("Invald optimization (sub to dec transform)", testInvalidOptimization, "1");

@@ -646,11 +646,9 @@ void Lower(InstructionVMLowerContext &ctx, VmValue *value)
 			break;
 		case VM_INST_SUB:
 			{
-				bool isContantOneLhs = DoesConstantMatchEither(inst->arguments[0], 1, 1.0f, 1ll);
-
-				if(isContantOneLhs || DoesConstantMatchEither(inst->arguments[1], 1, 1.0f, 1ll))
+				if(DoesConstantMatchEither(inst->arguments[1], 1, 1.0f, 1ll))
 				{
-					Lower(ctx, isContantOneLhs ? inst->arguments[1] : inst->arguments[0]);
+					Lower(ctx, inst->arguments[0]);
 
 					if(inst->type == VmType::Int)
 						AddCommand(ctx, inst->source, VMCmd(cmdDecI));
