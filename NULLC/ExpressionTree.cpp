@@ -2575,7 +2575,7 @@ TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase 
 		return ctx.GetArrayType(type, number->value);
 	}
 
-	Stop(ctx, size->pos, "ERROR: can't get array size");
+	Stop(ctx, size->pos, "ERROR: array size cannot be evaluated");
 
 	return NULL;
 }
@@ -6143,11 +6143,27 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 	}
 	else if(isType<ExprTypeLiteral>(value) && arguments.size() == 1 && arguments[0].name.empty())
 	{
+		if(ExprTypeLiteral *typeLiteral = getType<ExprTypeLiteral>(value))
+		{
+			if(isType<TypeGenericClassProto>(typeLiteral->value))
+				Stop(ctx, source->pos, "ERROR: generic type arguments in <> are not found after constructor name");
+			else if(typeLiteral->value->isGeneric)
+				Stop(ctx, source->pos, "ERROR: can't cast to a generic type");
+		}
+
 		// Function-style type casts
 		return CreateCast(ctx, source, arguments[0].value, ((ExprTypeLiteral*)value)->value, true);
 	}
 	else
 	{
+		if(ExprTypeLiteral *typeLiteral = getType<ExprTypeLiteral>(value))
+		{
+			if(isType<TypeGenericClassProto>(typeLiteral->value))
+				Stop(ctx, source->pos, "ERROR: generic type arguments in <> are not found after constructor name");
+			else if(typeLiteral->value->isGeneric)
+				Stop(ctx, source->pos, "ERROR: can't cast to a generic type");
+		}
+
 		// Call operator()
 		if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), InplaceStr("()"), false))
 		{
