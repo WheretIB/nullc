@@ -9,6 +9,6 @@ env:
   - CONFIG=debug EXTCALL=dyncall
   - CONFIG=release EXTCALL=dyncall
 script: 
-  - if [[ !("$CXX" == "clang++") && "$CONFIG" == "debug" && "$EXTCALL" == "manual" ]]; then make test config=coverage extcall=manual; fi
+  - if [[ !("$CXX" == "clang++") && ("$CONFIG" == "debug") && ("$EXTCALL" == "manual") ]]; then make test config=coverage extcall=manual; fi
   - make test config=$CONFIG extcall=$EXTCALL
 after_success: bash codecov.sh
