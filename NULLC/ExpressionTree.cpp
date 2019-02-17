@@ -7138,6 +7138,32 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		argData.push_back(ArgumentData(argument, argument->isExplicit, argument->name, type, initializer));
 	}
 
+	// Check required operator properties
+	if(isOperator)
+	{
+		if(name == InplaceStr("~") || name == InplaceStr("!"))
+		{
+			if(argData.size() != 1)
+				Stop(ctx, source->pos, "ERROR: operator '%.*s' definition must accept exactly one argument", FMT_ISTR(name));
+		}
+		else if(name == InplaceStr("+") || name == InplaceStr("-"))
+		{
+			if(argData.size() != 1 && argData.size() != 2)
+				Stop(ctx, source->pos, "ERROR: operator '%.*s' definition must accept one or two arguments", FMT_ISTR(name));
+		}
+		else if(name == InplaceStr("&&") || name == InplaceStr("||"))
+		{
+			// Two arguments with the second argument being special
+			if(argData.size() != 2 || !isType<TypeFunction>(argData[1].type) || getType<TypeFunction>(argData[1].type)->arguments.size() != 0)
+				Stop(ctx, source->pos, "ERROR: operator '%.*s' definition must accept a function returning desired type as the second argument", FMT_ISTR(name));
+		}
+		else if(name != InplaceStr("()") && name != InplaceStr("[]"))
+		{
+			if(argData.size() != 2)
+				Stop(ctx, source->pos, "ERROR: operator '%.*s' definition must accept exactly two arguments", FMT_ISTR(name));
+		}
+	}
+
 	InplaceStr functionName = GetFunctionName(ctx, ctx.scope, parentType, name, isOperator, accessor);
 
 	TypeBase *contextRefType = NULL;
