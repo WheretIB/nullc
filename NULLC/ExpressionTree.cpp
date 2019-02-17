@@ -3641,6 +3641,8 @@ ExprBase* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 
 ExprBase* CreateGetAddress(ExpressionContext &ctx, SynBase *source, ExprBase *value)
 {
+	AssertValueExpression(ctx, source, value);
+
 	if(ExprVariableAccess *node = getType<ExprVariableAccess>(value))
 	{
 		return new (ctx.get<ExprGetAddress>()) ExprGetAddress(source, ctx.GetReferenceType(value->type), node->variable);
@@ -7720,7 +7722,10 @@ ExprBase* AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBas
 	if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expr))
 	{
 		if(ctx.IsGenericFunction(node->function))
-			Stop(ctx, source->pos, "ERROR: ambiguity, the expression is a generic function");
+			Stop(ctx, source->pos, "ERROR: ambiguity, '%.*s' is a generic function", FMT_ISTR(node->function->name));
+
+		if(node->function->type->returnType == ctx.typeAuto)
+			Stop(ctx, source->pos, "ERROR: function '%.*s' type is unresolved at this point", FMT_ISTR(node->function->name));
 	}
 
 	AssertResolvableTypeLiteral(ctx, source, expr);
