@@ -169,13 +169,13 @@ inside (line 5: at recall(x-1);)\r\n\
 inside (line 5: at recall(x-1);)\r\n\
 inside (line 4: at assert(x);)\r\n";
 #endif
-struct Test_testMultipleTransiotions : TestQueue
+struct Test_testMultipleTransitions : TestQueue
 {
 	virtual void Run()
 	{
 		if(Tests::messageVerbose)
 			printf("Call stack when there are various transitions between NULLC and C\r\n");
-		for(int t = 0; t < TEST_TARGET_COUNT; t++)
+		for(int t = 0; t < TEST_RUNTIME_FAIL_EXECUTORS; t++)
 		{
 			if(!Tests::testExecutor[t])
 				continue;
@@ -208,7 +208,7 @@ struct Test_testMultipleTransiotions : TestQueue
 		}
 	}
 };
-Test_testMultipleTransiotions test_testMultipleTransiotions;
+Test_testMultipleTransitions test_testMultipleTransitions;
 
 #if defined(NULLC_BUILD_X86_JIT)
 
