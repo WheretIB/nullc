@@ -197,7 +197,7 @@ struct Test_##id : TestQueue {	\
 		if(nullcLoadModuleBySource(name, code))	\
 			testsPassed[TEST_TYPE_EXTRA]++;	\
 		else	\
-			printf("Test " name " failed\n");	\
+			printf("Test " name " failed: %s\n", nullcGetLastError());	\
 	}	\
 };	\
 Test_##id test_##id;
@@ -211,7 +211,7 @@ struct Test_##id : TestQueue {	\
 			testsPassed[TEST_TYPE_EXTRA]++;	\
 			RunTest();	\
 		}else{	\
-			printf("Test " name " failed\n");	\
+			printf("Test " name " failed: %s\n", nullcGetLastError());	\
 		}	\
 	}	\
 	bool lastFailed;	\
