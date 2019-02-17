@@ -1815,6 +1815,9 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 
 			return access;
 		}
+
+		if(value->type->isGeneric)
+			Stop(ctx, source->pos, "ERROR: can't resolve generic type '%.*s' instance for '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));
 	}
 
 	AssertValueExpression(ctx, source, value);
@@ -6221,6 +6224,8 @@ ExprBase* CreateArrayAllocation(ExpressionContext &ctx, SynBase *source, TypeBas
 	ExprBase *size = new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, type->size);
 	ExprBase *typeId = new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, ctx.typeInt, new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, type), EXPR_CAST_REINTERPRET);
 
+	count = CreateCast(ctx, source, count, ctx.typeInt, true);
+
 	ExprFunctionCall *alloc = getType<ExprFunctionCall>(CreateFunctionCall3(ctx, source, InplaceStr("__newA"), size, count, typeId, false, true));
 
 	return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, ctx.GetUnsizedArrayType(type), alloc, EXPR_CAST_REINTERPRET);
@@ -8291,6 +8296,14 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 				if(prev->name == curr->name)
 					Stop(ctx, curr->pos, "ERROR: there is already a type or an alias with the same name");
 			}
+		}
+
+		if(TypeBase **type = ctx.typeMap.find(typeName.hash()))
+		{
+			TypeClass *originalDefinition = getType<TypeClass>(*type);
+
+			if(originalDefinition)
+				Stop(ctx, syntax->pos, "ERROR: type '%.*s' was forward declared as a non-generic type", FMT_ISTR(typeName));
 		}
 
 		TypeGenericClassProto *genericProtoType = new (ctx.get<TypeGenericClassProto>()) TypeGenericClassProto(syntax, ctx.scope, typeName, syntax);
