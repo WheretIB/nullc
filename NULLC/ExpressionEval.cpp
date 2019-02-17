@@ -260,7 +260,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 
 	if(type == ctx.ctx.typeChar)
 	{
-		unsigned char value;
+		signed char value;
 		assert(type->size == sizeof(value));
 		memcpy(&value, ptr->ptr, unsigned(type->size));
 

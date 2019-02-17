@@ -3796,7 +3796,23 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 			switch(curr->cmd)
 			{
 			case VM_INST_LOAD_BYTE:
+				if(VmValue* value = GetLoadStoreInfo(module, curr))
+				{
+					if(VmConstant* constant = getType<VmConstant>(value))
+						ReplaceValueUsersWith(module, curr, CreateConstantInt(module->allocator, value->source, (int)(char)(constant->iValue)), &module->loadStorePropagations);
+				}
+
+				AddLoadInfo(module, curr);
+				break;
 			case VM_INST_LOAD_SHORT:
+				if(VmValue* value = GetLoadStoreInfo(module, curr))
+				{
+					if(VmConstant* constant = getType<VmConstant>(value))
+						ReplaceValueUsersWith(module, curr, CreateConstantInt(module->allocator, value->source, (int)(short)(constant->iValue)), &module->loadStorePropagations);
+				}
+
+				AddLoadInfo(module, curr);
+				break;
 			case VM_INST_LOAD_INT:
 			case VM_INST_LOAD_FLOAT:
 			case VM_INST_LOAD_DOUBLE:
@@ -3824,11 +3840,11 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 					{
 						ReplaceValueUsersWith(module, curr, value, &module->loadStorePropagations);
 					}
+
+					break;
 				}
-				else
-				{
-					AddLoadInfo(module, curr);
-				}
+
+				AddLoadInfo(module, curr);
 				break;
 			case VM_INST_STORE_BYTE:
 			case VM_INST_STORE_SHORT:
@@ -3892,7 +3908,7 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 		{
 			VmInstruction *next = curr->nextSibling;
 
-			if(curr->cmd >= VM_INST_LOAD_BYTE && curr->cmd <= VM_INST_LOAD_STRUCT)
+			if(curr->cmd >= VM_INST_LOAD_INT && curr->cmd <= VM_INST_LOAD_STRUCT)
 			{
 				VmValue *loadAddress = curr->arguments[0];
 				VmConstant *loadOffset = getType<VmConstant>(curr->arguments[1]);
@@ -3903,7 +3919,7 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 				while(prev && !HasMemoryAccess(prev->cmd))
 					prev = prev->prevSibling;
 
-				if(prev && (prev->cmd >= VM_INST_STORE_BYTE && prev->cmd <= VM_INST_STORE_STRUCT))
+				if(prev && (prev->cmd >= VM_INST_STORE_INT && prev->cmd <= VM_INST_STORE_STRUCT))
 				{
 					VmValue *storeAddress = prev->arguments[0];
 					VmConstant *storeOffset = getType<VmConstant>(prev->arguments[1]);

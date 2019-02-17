@@ -714,3 +714,34 @@ if(int a = f(15))\r\n\
 	b = a * 2;\r\n\
 return b;";
 TEST_RESULT("Variable definition inside a condition 1", testConsitionVariable1, "30");
+
+const char	*testCharSignExtension1 =
+"char a = -1;\r\n\
+int b = a;\r\n\
+\r\n\
+char a2 = 255;\r\n\
+int b2 = a2;\r\n\
+\r\n\
+char a3 = ' ' - '0';\r\n\
+int b3 = char(' ' - '0');\r\n\
+\r\n\
+int a4_ = 255;\r\n\
+char a4 = a4_;\r\n\
+int b4 = a4;\r\n\
+\r\n\
+return b + b2 + b3 + b4;";
+TEST_RESULT("Char loads are sign-extended 1", testCharSignExtension1, "-19");
+
+const char	*testShortSignExtension1 =
+"short a = -1;\r\n\
+int b = a;\r\n\
+\r\n\
+char a2 = 65535;\r\n\
+int b2 = a2;\r\n\
+\r\n\
+int a3_ = 65535;\r\n\
+char a3 = a3_;\r\n\
+int b3 = a3;\r\n\
+\r\n\
+return b + b2 + b3;";
+TEST_RESULT("Short loads are sign-extended 1", testShortSignExtension1, "-3");

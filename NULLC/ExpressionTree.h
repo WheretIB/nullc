@@ -199,11 +199,11 @@ struct ExprBoolLiteral: ExprBase
 
 struct ExprCharacterLiteral: ExprBase
 {
-	ExprCharacterLiteral(SynBase *source, TypeBase *type, unsigned char value): ExprBase(myTypeID, source, type), value(value)
+	ExprCharacterLiteral(SynBase *source, TypeBase *type, signed char value): ExprBase(myTypeID, source, type), value(value)
 	{
 	}
 
-	unsigned char value;
+	signed char value;
 
 	static const unsigned myTypeID = __LINE__;
 };
