@@ -512,25 +512,27 @@ void TEST_FOR_FAIL(const char* name, const char* str, const char* error)
 {
 	testsCount[TEST_TYPE_FAILURE]++;
 	nullres good = nullcCompile(str);
+
 	if(!good)
 	{
 		char buf[1024];
 		strncpy(buf, strstr(nullcGetLastError(), "ERROR:"), 1023); buf[1023] = 0;
 
-		char *winEnd = strchr(buf, '\r');
-		char *nixEnd = strchr(buf, '\n');
-
-		if(char *lineEnd = winEnd ? winEnd : nixEnd)
+		if(char *lineEnd = strchr(buf, '\n'))
 			*lineEnd = 0;
 
 		if(strcmp(error, buf) != 0)
 		{
-			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error);
-		}else{
+			printf("Failed %s but for wrong reason:\n    %s\nexpected:\n    %s\n", name, buf, error);
+		}
+		else
+		{
 			testsPassed[TEST_TYPE_FAILURE]++;
 		}
-	}else{
-		printf("Test \"%s\" failed to fail.\r\n", name);
+	}
+	else
+	{
+		printf("Test \"%s\" failed to fail.\n", name);
 	}
 }
 
@@ -542,21 +544,37 @@ void TEST_FOR_FAIL_GENERIC(const char* name, const char* str, const char* error1
 	{
 		char buf[1024];
 		strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+
 		if(memcmp(buf, error1, strlen(error1)) != 0)
 		{
-			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error1);
-		}else{
-			char *bufNext = strstr(buf + 1, "ERROR:");
-			if(char *lineEnd = strchr(bufNext, '\r'))
-				*lineEnd = 0;
-			if(strcmp(error2, bufNext) != 0)
+			printf("Failed %s but for wrong reason:\n    %s\nexpected:\n    %s\n", name, buf, error1);
+		}
+		else
+		{
+			char *bufNext = strstr(buf + 1, "while instantiating");
+
+			if(!bufNext)
 			{
-				printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, bufNext, error2);
-			}else{
-				testsPassed[TEST_TYPE_FAILURE]++;
+				printf("Failed %s but with no second error:\nexpected:\n    %s\n", name, error2);
+			}
+			else
+			{
+				if(char *lineEnd = strchr(bufNext, '\n'))
+					*lineEnd = 0;
+
+				if(strcmp(error2, bufNext) != 0)
+				{
+					printf("Failed %s but for wrong reason:\n    %s\nexpected:\n    %s\n", name, bufNext, error2);
+				}
+				else
+				{
+					testsPassed[TEST_TYPE_FAILURE]++;
+				}
 			}
 		}
-	}else{
-		printf("Test \"%s\" failed to fail.\r\n", name);
+	}
+	else
+	{
+		printf("Test \"%s\" failed to fail.\n", name);
 	}
 }
