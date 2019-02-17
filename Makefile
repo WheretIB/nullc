@@ -9,6 +9,7 @@ check=none
 REG_CFLAGS=-g -W
 COMP_CFLAGS=-g -W -D NULLC_NO_EXECUTOR
 STDLIB_FLAGS=-lstdc++ -lm
+FUZZ_FLAGS=
 
 ifeq ($(config),release)
 	REG_CFLAGS += -O3 -fno-omit-frame-pointer -DNDEBUG
@@ -32,6 +33,14 @@ ifeq ($(check),sanitize)
 ifeq ($(CXX),clang)
 	STDLIB_FLAGS += -lubsan
 endif
+endif
+
+ifeq ($(check),fuzz)
+	REG_CFLAGS += -fsanitize=undefined -fsanitize=address -fsanitize=fuzzer-no-link
+	COMP_CFLAGS += -fsanitize=undefined -fsanitize=address -fsanitize=fuzzer-no-link
+
+	STDLIB_FLAGS += -lubsan
+	FUZZ_FLAGS = -fsanitize=fuzzer -DSANITIZE_FUZZER
 endif
 
 LIB_SOURCES = \
@@ -270,8 +279,8 @@ bin/ConsoleCalc: temp/ConsoleCalc.o bin/libnullc.a
 temp/main.o: nullcl/main.cpp bin/libnullc.a
 	$(CXX) -c $(REG_CFLAGS) -o $@ $<
 
-bin/nullcl: temp/main.o bin/libnullc.a bin/libnullc_cl.a
-	$(CXX) $(REG_CFLAGS) -o $@ $<  -Lbin $(STDLIB_FLAGS) -lm -lnullc_cl -lnullc
+bin/nullcl: temp/main.o bin/libnullc_cl.a
+	$(CXX) $(REG_CFLAGS) -o $@ $<  -Lbin $(STDLIB_FLAGS) -lm -lnullc_cl
 
 TEST_SOURCES = \
 	TestRun.cpp \
@@ -342,16 +351,16 @@ TEST_OBJECTS = \
 	temp/tests/TestSglEvent.o           temp/tests/TestSglString.o
 
 temp/testrun/%.o: %.cpp
-	$(CXX) $(REG_CFLAGS) -o $@ -c $<
+	$(CXX) $(REG_CFLAGS) $(FUZZ_FLAGS) -o $@ -c $<
 
 temp/tests/%.o: tests/%.cpp
 	$(CXX) $(REG_CFLAGS) -o $@ -c $<
 
 TestRun: ${TEST_OBJECTS} bin/libnullc.a
-	$(CXX) -rdynamic $(REG_CFLAGS) -o $@ $(TEST_OBJECTS) -Lbin $(STDLIB_FLAGS) -lnullc -ldl
+	$(CXX) $(FUZZ_FLAGS) -rdynamic $(REG_CFLAGS) -o $@ $(TEST_OBJECTS) -Lbin $(STDLIB_FLAGS) -lnullc -ldl
 
 bin/nullclib:
-	bin/nullcl -o bin/nullclib.ncm Modules/img/canvas.nc -m img.canvas Modules/win/window_ex.nc -m win.window_ex Modules/win/window.nc -m win.window Modules/std/typeinfo.nc -m std.typeinfo Modules/std/file.nc -m std.file Modules/std/io.nc -m std.io Modules/std/string.nc -m std.string Modules/std/vector.nc -m std.vector Modules/std/list.nc -m std.list Modules/std/map.nc -m std.map Modules/std/hashmap.nc -m std.hashmap Modules/std/math.nc -m std.math Modules/std/time.nc -m std.time Modules/std/random.nc -m std.random Modules/std/range.nc -m std.range Modules/std/gc.nc -m std.gc Modules/std/dynamic.nc -m std.dynamic Modules/ext/pugixml.nc -m ext.pugixml
+	bin/nullcl -o bin/nullclib.ncm Modules/img/canvas.nc -m img.canvas Modules/win/window_ex.nc -m win.window_ex Modules/win/window.nc -m win.window Modules/std/algorithm.nc -m std.algorithm  Modules/std/typeinfo.nc -m std.typeinfo Modules/std/file.nc -m std.file Modules/std/io.nc -m std.io Modules/std/string.nc -m std.string Modules/std/vector.nc -m std.vector Modules/std/list.nc -m std.list Modules/std/map.nc -m std.map Modules/std/hashmap.nc -m std.hashmap Modules/std/math.nc -m std.math Modules/std/time.nc -m std.time Modules/std/random.nc -m std.random Modules/std/range.nc -m std.range Modules/std/gc.nc -m std.gc Modules/std/dynamic.nc -m std.dynamic Modules/ext/pugixml.nc -m ext.pugixml
 
 
 #~ g++ -c -g -W -D NULLC_NO_EXECUTOR
