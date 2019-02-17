@@ -24,7 +24,7 @@ int main(int argc, char** argv)
 		printf("usage: nullcl [-o output.ncm] file.nc [-m module.name] [file2.nc [-m module.name] ...]\n");
 		printf("usage: nullcl -c output.cpp file.nc\n");
 		printf("usage: nullcl -x output.exe file.nc\n");
-		return 0;
+		return 1;
 	}
 
 	int argIndex = 1;
@@ -37,14 +37,14 @@ int main(int argc, char** argv)
 		{
 			printf("Output file name not found after -o\n");
 			nullcTerminate();
-			return 0;
+			return 1;
 		}
 		mergeFile = fopen(argv[argIndex], "wb");
 		if(!mergeFile)
 		{
 			printf("Cannot create output file %s\n", argv[argIndex]);
 			nullcTerminate();
-			return 0;
+			return 1;
 		}
 		argIndex++;
 	}else if(strcmp("-c", argv[argIndex]) == 0 || strcmp("-x", argv[argIndex]) == 0){
@@ -54,7 +54,7 @@ int main(int argc, char** argv)
 		{
 			printf("Output file name not found after -o\n");
 			nullcTerminate();
-			return 0;
+			return 1;
 		}
 		const char *outputName = argv[argIndex++];
 
@@ -62,7 +62,7 @@ int main(int argc, char** argv)
 		{
 			printf("Input file name not found\n");
 			nullcTerminate();
-			return 0;
+			return 1;
 		}
 
 		const char *fileName = argv[argIndex++];
@@ -71,7 +71,7 @@ int main(int argc, char** argv)
 		{
 			printf("Cannot open file %s\n", fileName);
 			nullcTerminate();
-			return 0;
+			return 1;
 		}
 
 		fseek(ncFile, 0, SEEK_END);
@@ -86,14 +86,14 @@ int main(int argc, char** argv)
 		{
 			printf("Compilation of %s failed with error:\n%s\n", fileName, nullcGetLastError());
 			delete[] fileContent;
-			return 0;
+			return 1;
 		}
 
 		if(!nullcTranslateToC(link ? "__temp.cpp" : outputName, "main", AddDependency))
 		{
 			printf("Compilation of %s failed with error:\n%s\n", fileName, nullcGetLastError());
 			delete[] fileContent;
-			return 0;
+			return 1;
 		}
 
 		if(link)
@@ -215,7 +215,7 @@ int main(int argc, char** argv)
 		{
 			printf("Compilation of %s failed with error:\n%s\n", fileName, nullcGetLastError());
 			delete[] fileContent;
-			return 0;
+			return 1;
 		}
 		unsigned int *bytecode = NULL;
 		nullcGetBytecode((char**)&bytecode);
