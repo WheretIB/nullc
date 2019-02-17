@@ -813,6 +813,9 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 			if(functionIndex >= ctx.ctx.functions.size())
 				return (VmConstant*)Report(ctx, "ERROR: invalid function index");
 
+			if(functionIndex == 0)
+				return (VmConstant*)Report(ctx, "ERROR: null function pointer call");
+
 			VmFunction *function = ctx.ctx.functions[functionIndex]->vmFunction;
 
 			InstructionVMEvalContext::StackFrame *calleeFrame = new (ctx.get<InstructionVMEvalContext::StackFrame>()) InstructionVMEvalContext::StackFrame(ctx.allocator, function);
