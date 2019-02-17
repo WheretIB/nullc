@@ -8,6 +8,7 @@ env:
   - CONFIG=release EXTCALL=manual
   - CONFIG=debug EXTCALL=dyncall
   - CONFIG=release EXTCALL=dyncall
-  - CONFIG=coverage EXTCALL=manual
-script: make test config=$CONFIG extcall=$EXTCALL
+script: 
+  - if [[ !("$CXX" == "clang++" && "$TRAVIS_OS_NAME" == "linux") && "$CONFIG" == "debug" && "$EXTCALL" == "manual" ) ]]; then make test config=coverage extcall=manual; fi
+  - make test config=$CONFIG extcall=$EXTCALL
 after_success: bash codecov.sh
