@@ -1006,7 +1006,7 @@ const char* GetBasicVariableInfo(const ExternTypeInfo& type, char* ptr)
 			if(strcmp(codeSymbols + type.offsetToName, "uchar") == 0)
 				safeprintf(val, 256, "'%c' (%u)", *(unsigned char*)ptr, (int)*(unsigned char*)ptr);
 			else if(*(unsigned char*)ptr)
-				safeprintf(val, 256, "'%c' (%d)", *(unsigned char*)ptr, (int)*(unsigned char*)ptr);
+				safeprintf(val, 256, "'%c' (%d)", *(unsigned char*)ptr, (int)*(char*)ptr);
 			else
 				safeprintf(val, 256, "0");
 		}
