@@ -198,9 +198,7 @@ void PrintFunction(InstructionVmLowerGraphContext &ctx, VmLoweredFunction *lowFu
 {
 	if(FunctionData *fData = lowFunction->vmFunction->function)
 	{
-		Print(ctx, "function ");
-		//PrintType(ctx, function->returnType);
-		Print(ctx, " %.*s.f%04x(", FMT_ISTR(fData->name), fData->uniqueId);
+		Print(ctx, "function %.*s.f%04x(", FMT_ISTR(fData->name), fData->uniqueId);
 
 		for(unsigned i = 0; i < fData->arguments.size(); i++)
 		{
@@ -210,6 +208,8 @@ void PrintFunction(InstructionVmLowerGraphContext &ctx, VmLoweredFunction *lowFu
 		}
 
 		PrintLine(ctx, ")");
+
+		PrintLine(ctx, "// argument size %d", fData->argumentsSize);
 	}
 	else
 	{

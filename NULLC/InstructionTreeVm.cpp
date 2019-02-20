@@ -670,7 +670,9 @@ namespace
 
 	VmValue* CreateFunctionAddress(VmModule *module, SynBase *source, FunctionData *function)
 	{
-		return CreateInstruction(module, source, VmType::Int, VM_INST_FUNCTION_ADDRESS, CreateConstantInt(module->allocator, source, function->functionIndex));
+		assert(function->vmFunction);
+
+		return CreateInstruction(module, source, VmType::Int, VM_INST_FUNCTION_ADDRESS, CreateConstantFunction(module->allocator, source, function->vmFunction));
 	}
 
 	VmValue* CreateConvertPtr(VmModule *module, SynBase *source, VmValue *ptr, TypeBase *type, TypeBase *structType)

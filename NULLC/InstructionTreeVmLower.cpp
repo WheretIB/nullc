@@ -114,6 +114,7 @@ void VmLoweredBlock::AddInstruction(ExpressionContext &ctx, VmLoweredInstruction
 		stackDepth += pointerSlots;
 		break;
 	case cmdFuncAddr:
+		stackDepth += 1;
 		break;
 	case cmdSetRangeStk:
 		stackDepth -= pointerSlots;
@@ -125,14 +126,18 @@ void VmLoweredBlock::AddInstruction(ExpressionContext &ctx, VmLoweredInstruction
 		stackDepth -= 1;
 		break;
 	case cmdCall:
-		if(FunctionData *function = ctx.functions[instruction->argument->iValue])
+		if(FunctionData *function = instruction->argument->fValue->function)
 		{
 			stackDepth -= int(function->argumentsSize) / 4;
-			stackDepth += int(function->type->returnType->size) / 4;
+
+			if(function->type->returnType == ctx.typeFloat)
+				stackDepth += 2;
+			else
+				stackDepth += int(function->type->returnType->size + 3) / 4;
 		}
 		else
 		{
-			assert(!"filed to find function");
+			assert(!"failed to find function");
 		}
 		break;
 	case cmdCallPtr:
@@ -316,6 +321,11 @@ void VmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location, I
 	AddInstruction(ctx, new (ctx.get<VmLoweredInstruction>()) VmLoweredInstruction(location, cmd, NULL, helper, argument));
 }
 
+void VmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location, InstructionCode cmd, unsigned short helper, VmConstant *argument)
+{
+	AddInstruction(ctx, new (ctx.get<VmLoweredInstruction>()) VmLoweredInstruction(location, cmd, NULL, CreateConstantInt(ctx.allocator, NULL, helper), argument));
+}
+
 void VmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location, InstructionCode cmd, unsigned short helper, unsigned argument)
 {
 	AddInstruction(ctx, new (ctx.get<VmLoweredInstruction>()) VmLoweredInstruction(location, cmd, NULL, CreateConstantInt(ctx.allocator, NULL, helper), CreateConstantInt(ctx.allocator, NULL, argument)));
@@ -455,9 +465,6 @@ bool HasMemoryWrite(VmLoweredInstruction *lowInstruction)
 	case cmdMovFloat:
 	case cmdMovDorL:
 	case cmdMovCmplx:
-		if(!HasAddressTaken(lowInstruction->argument->container))
-			return false;
-
 		return true;
 	case cmdMovCharStk:
 	case cmdMovShortStk:
@@ -488,9 +495,6 @@ bool HasMemoryAccess(VmLoweredInstruction *lowInstruction)
 	case cmdPushFloat:
 	case cmdPushDorL:
 	case cmdPushCmplx:
-		if(!HasAddressTaken(lowInstruction->argument->container))
-			return false;
-
 		return true;
 	case cmdPushCharStk:
 	case cmdPushShortStk:
@@ -505,9 +509,6 @@ bool HasMemoryAccess(VmLoweredInstruction *lowInstruction)
 	case cmdMovFloat:
 	case cmdMovDorL:
 	case cmdMovCmplx:
-		if(!HasAddressTaken(lowInstruction->argument->container))
-			return false;
-
 		return true;
 	case cmdMovCharStk:
 	case cmdMovShortStk:
@@ -857,7 +858,7 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 			LowerIntoBlock(ctx, lowBlock, arr);
 			LowerIntoBlock(ctx, lowBlock, index);
 
-			lowBlock->AddInstruction(ctx, inst->source, cmdIndexStk, (unsigned short)elementSize->iValue, 0);
+			lowBlock->AddInstruction(ctx, inst->source, cmdIndexStk, (unsigned short)elementSize->iValue, 0u);
 		}
 		break;
 		case VM_INST_FUNCTION_ADDRESS:
@@ -866,7 +867,7 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 
 			assert(funcIndex);
 
-			lowBlock->AddInstruction(ctx, inst->source, cmdFuncAddr, funcIndex->iValue);
+			lowBlock->AddInstruction(ctx, inst->source, cmdFuncAddr, funcIndex);
 		}
 		break;
 		case VM_INST_TYPE_ID:
@@ -953,7 +954,7 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 						lowBlock->AddInstruction(ctx, inst->arguments[i]->source, cmdPushImmt, 0u);
 				}
 
-				lowBlock->AddInstruction(ctx, inst->source, cmdCall, helper, function->function->functionIndex);
+				lowBlock->AddInstruction(ctx, inst->source, cmdCall, helper, CreateConstantFunction(ctx.allocator, NULL, function));
 			}
 			else
 			{
@@ -1592,6 +1593,17 @@ bool HasUnknownMemoryWrite(VmLoweredInstruction *lowInstruction)
 	return false;
 }
 
+bool HasOtherBlockUse(VariableData *spillVariable, VmLoweredBlock *lowBlock)
+{
+	for(unsigned i = 0; i < spillVariable->lowUsers.size(); i++)
+	{
+		if(spillVariable->lowUsers[i]->parent != lowBlock)
+			return true;
+	}
+
+	return false;
+}
+
 void OptimizeByReadingTargetInsteadOfTemporary(VmLoweredModule *lowModule, VmLoweredBlock *lowBlock)
 {
 	(void)lowModule;
@@ -1610,18 +1622,7 @@ void OptimizeByReadingTargetInsteadOfTemporary(VmLoweredModule *lowModule, VmLow
 		VariableData *spillVariable = curr->argument->container;
 
 		// For safety, check that all register spill users are from the current block
-		bool hasOtherBlockUse = false;
-
-		for(unsigned i = 0; i < spillVariable->lowUsers.size(); i++)
-		{
-			if(spillVariable->lowUsers[i]->parent != lowBlock)
-			{
-				hasOtherBlockUse = true;
-				break;
-			}
-		}
-
-		if(hasOtherBlockUse)
+		if(HasOtherBlockUse(spillVariable, lowBlock))
 		{
 			curr = curr->prevSibling;
 			continue;
@@ -1756,18 +1757,7 @@ void OptimizeSingleImmediateTemporaryUses(VmLoweredModule *lowModule, VmLoweredB
 		VariableData *spillVariable = curr->argument->container;
 
 		// For safety, check that all register spill users are from the current block
-		bool hasOtherBlockUse = false;
-
-		for(unsigned i = 0; i < spillVariable->lowUsers.size(); i++)
-		{
-			if(spillVariable->lowUsers[i]->parent != lowBlock)
-			{
-				hasOtherBlockUse = true;
-				break;
-			}
-		}
-
-		if(hasOtherBlockUse)
+		if(HasOtherBlockUse(spillVariable, lowBlock))
 		{
 			curr = curr->prevSibling;
 			continue;
@@ -1806,6 +1796,7 @@ void OptimizeSingleImmediateTemporaryUses(VmLoweredModule *lowModule, VmLoweredB
 		curr = currPrevSibling;
 	}
 }
+
 void OptimizeFirstImmediateTemporaryUse(VmLoweredModule *lowModule, VmLoweredBlock *lowBlock)
 {
 	// Go from last instruction back to first
@@ -1822,18 +1813,7 @@ void OptimizeFirstImmediateTemporaryUse(VmLoweredModule *lowModule, VmLoweredBlo
 		VariableData *spillVariable = curr->argument->container;
 
 		// For safety, check that all register spill users are from the current block
-		bool hasOtherBlockUse = false;
-
-		for(unsigned i = 0; i < spillVariable->lowUsers.size(); i++)
-		{
-			if(spillVariable->lowUsers[i]->parent != lowBlock)
-			{
-				hasOtherBlockUse = true;
-				break;
-			}
-		}
-
-		if(hasOtherBlockUse)
+		if(HasOtherBlockUse(spillVariable, lowBlock))
 		{
 			curr = curr->prevSibling;
 			continue;
@@ -1873,24 +1853,215 @@ void OptimizeFirstImmediateTemporaryUse(VmLoweredModule *lowModule, VmLoweredBlo
 	}
 }
 
+void OptimizeTemporaryCreationPlacement(VmLoweredModule *lowModule, VmLoweredBlock *lowBlock)
+{
+	for(VmLoweredInstruction *curr = lowBlock->firstInstruction; curr;)
+	{
+		VmLoweredInstruction *next = curr->nextSibling;
+
+		if(!IsSpillStore(curr))
+		{
+			curr = next;
+			continue;
+		}
+
+		// Spill variable
+		VariableData *spillVariable = curr->argument->container;
+
+		// For safety, check that all register spill users are from the current block
+		if(HasOtherBlockUse(spillVariable, lowBlock))
+		{
+			curr = next;
+			continue;
+		}
+
+		if(spillVariable->lowUsers.size() >= 2)
+		{
+			VmLoweredInstruction *targetStore = spillVariable->lowUsers[0];
+
+			assert(curr == targetStore);
+
+			// Check that target store data is not used after it
+			if(targetStore->nextSibling->cmd == cmdPop && targetStore->nextSibling->argument->iValue == targetStore->helper->iValue)
+			{
+				VmLoweredInstruction *originalPop = targetStore->nextSibling;
+
+				VmLoweredInstruction *blockEnd = targetStore->nextSibling;
+
+				unsigned stackDepth = blockEnd->stackDepthAfter;
+
+				// Find beginning of the block that provides value for our store
+				VmLoweredInstruction *blockStart = targetStore;
+
+				while(blockStart)
+				{
+					if(blockStart->stackDepthBefore == stackDepth)
+						break;
+
+					blockStart = blockStart->prevSibling;
+				}
+
+				assert(blockStart);
+
+				// Find what kind of operations are made in the block
+				bool blockHasMemoryWrite = false;
+				bool blockHasMemoryAccess = false;
+
+				for(VmLoweredInstruction *inst = blockStart; inst != blockEnd; inst = inst->nextSibling)
+				{
+					if(inst == targetStore)
+						continue;
+
+					if(HasMemoryWrite(inst))
+					{
+						blockHasMemoryWrite = true;
+						break;
+					}
+
+					if(HasMemoryAccess(inst))
+						blockHasMemoryAccess = true;
+				}
+
+				// Find what kind of operations are made after the block before the first load
+				VmLoweredInstruction *firstLoad = spillVariable->lowUsers[1];
+
+				bool followerHasMemoryWrite = false;
+				bool followerHasMemoryAccess = false;
+
+				for(VmLoweredInstruction *inst = blockEnd->nextSibling; inst != firstLoad; inst = inst->nextSibling)
+				{
+					if(HasMemoryWrite(inst))
+					{
+						followerHasMemoryWrite = true;
+						break;
+					}
+
+					if(HasMemoryAccess(inst))
+						followerHasMemoryAccess = true;
+				}
+
+				// Can't reorder memory modifications
+				if(blockHasMemoryWrite && followerHasMemoryWrite)
+				{
+					curr = next;
+					continue;
+				}
+
+				// Following instructions might read something that block instructions write
+				if(blockHasMemoryWrite && followerHasMemoryAccess)
+				{
+					curr = next;
+					continue;
+				}
+
+				// Block instructions might read something that following instructions write
+				if(blockHasMemoryAccess && followerHasMemoryWrite)
+				{
+					curr = next;
+					continue;
+				}
+
+				// Detach whole block of instructions
+				if(blockStart->prevSibling)
+					blockStart->prevSibling->nextSibling = blockEnd->nextSibling;
+
+				if(blockStart == blockStart->parent->firstInstruction)
+					blockStart->parent->firstInstruction = blockEnd->nextSibling;
+
+				if(blockEnd->nextSibling)
+					blockEnd->nextSibling->prevSibling = blockStart->prevSibling;
+
+				if(blockEnd == blockEnd->parent->lastInstruction)
+					blockEnd->parent->lastInstruction = blockStart->prevSibling;
+
+				next = blockEnd->nextSibling;
+
+				blockStart->prevSibling = NULL;
+				blockEnd->nextSibling = NULL;
+
+				// Update instructin stack depth
+				unsigned originalDepth = blockStart->stackDepthBefore;
+				unsigned newDepth = firstLoad->prevSibling ? firstLoad->prevSibling->stackDepthAfter : 0;
+
+				for(VmLoweredInstruction *inst = blockStart; inst; inst = inst->nextSibling)
+				{
+					inst->stackDepthBefore -= originalDepth;
+					inst->stackDepthAfter -= originalDepth;
+
+					inst->stackDepthBefore += newDepth;
+					inst->stackDepthAfter += newDepth;
+				}
+
+				// Re-attach the block at new location
+				blockEnd->nextSibling = firstLoad;
+
+				blockStart->prevSibling = firstLoad->prevSibling;
+
+				if(firstLoad->prevSibling)
+					firstLoad->prevSibling->nextSibling = blockStart;
+
+				if(firstLoad == blockStart->parent->firstInstruction)
+					blockStart->parent->firstInstruction = blockStart;
+
+				firstLoad->prevSibling = blockEnd;
+
+				if(spillVariable->lowUsers.size() > 2)
+				{
+					lowBlock->RemoveInstruction(originalPop);
+					lowBlock->RemoveInstruction(firstLoad);
+				}
+				else
+				{
+					lowBlock->RemoveInstruction(targetStore);
+					lowBlock->RemoveInstruction(originalPop);
+
+					if(next == firstLoad)
+						next = firstLoad->nextSibling;
+
+					lowBlock->RemoveInstruction(firstLoad);
+				}
+
+				lowModule->removedSpilledRegisters++;
+			}
+		}
+
+		curr = next;
+	}
+}
+
 void OptimizeTemporaryRegisterSpills(VmLoweredModule *lowModule, VmLoweredFunction *lowFunction)
 {
 	for(unsigned i = 0; i < lowFunction->blocks.size(); i++)
 	{
-		OptimizeByReadingTargetInsteadOfTemporary(lowModule, lowFunction->blocks[i]);
+		VmLoweredBlock *lowBlock = lowFunction->blocks[i];
 
-		OptimizeSingleImmediateTemporaryUses(lowModule, lowFunction->blocks[i]);
+		if(!lowBlock->firstInstruction)
+			continue;
 
-		OptimizeFirstImmediateTemporaryUse(lowModule, lowFunction->blocks[i]);
+		OptimizeByReadingTargetInsteadOfTemporary(lowModule, lowBlock);
 
-		OptimizeUnusedTemporaries(lowModule, lowFunction->blocks[i]);
+		OptimizeSingleImmediateTemporaryUses(lowModule, lowBlock);
+
+		OptimizeFirstImmediateTemporaryUse(lowModule, lowBlock);
+
+		OptimizeUnusedTemporaries(lowModule, lowBlock);
+
+		OptimizeSingleImmediateTemporaryUses(lowModule, lowBlock);
+
+		OptimizeFirstImmediateTemporaryUse(lowModule, lowBlock);
+
+		OptimizeTemporaryCreationPlacement(lowModule, lowBlock);
 	}
 }
 
 void OptimizeTemporaryRegisterSpills(VmLoweredModule *lowModule)
 {
 	for(unsigned i = 0; i < lowModule->functions.size(); i++)
-		OptimizeTemporaryRegisterSpills(lowModule, lowModule->functions[i]);
+	{
+		VmLoweredFunction *lowFunction = lowModule->functions[i];
+
+		OptimizeTemporaryRegisterSpills(lowModule, lowFunction);
+	}
 }
 
 void FinalizeRegisterSpills(ExpressionContext &ctx, VmLoweredModule *lowModule)
@@ -1942,7 +2113,13 @@ void FinalizeInstruction(InstructionVmFinalizeContext &ctx, VmLoweredInstruction
 		}
 		else if(VmFunction *function = argument->fValue)
 		{
-			if(cmd.cmd == cmdPushVTop)
+			if(cmd.cmd == cmdCall || cmd.cmd == cmdFuncAddr)
+			{
+				FunctionData *data = function->function;
+
+				cmd.argument = data->functionIndex;
+			}
+			else if(cmd.cmd == cmdPushVTop)
 			{
 				FunctionData *data = function->function;
 

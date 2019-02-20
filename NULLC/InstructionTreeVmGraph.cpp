@@ -170,6 +170,10 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 		Print(ctx, "0x%x", constant->iValue);
 	else if(constant->type.type == VM_TYPE_STRUCT)
 		Print(ctx, "{ %.*s }", FMT_ISTR(constant->type.structType->name));
+	else if(constant->type.type == VM_TYPE_FUNCTION && constant->fValue->function)
+		Print(ctx, "%.*s.f%04x", FMT_ISTR(constant->fValue->function->name), constant->fValue->function->uniqueId);
+	else if(constant->type.type == VM_TYPE_FUNCTION)
+		Print(ctx, "global.f0000");
 	else
 		assert(!"unknown type");
 }

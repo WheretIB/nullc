@@ -62,6 +62,7 @@ struct VmLoweredBlock
 	void AddInstruction(ExpressionContext &ctx, SynBase *location, InstructionCode cmd, unsigned argument);
 	void AddInstruction(ExpressionContext &ctx, SynBase *location, InstructionCode cmd, VmBlock *argument);
 	void AddInstruction(ExpressionContext &ctx, SynBase *location, InstructionCode cmd, VmConstant *helper, VmConstant *argument);
+	void AddInstruction(ExpressionContext &ctx, SynBase *location, InstructionCode cmd, unsigned short helper, VmConstant *argument);
 	void AddInstruction(ExpressionContext &ctx, SynBase *location, InstructionCode cmd, unsigned short helper, unsigned argument);
 	void AddInstruction(ExpressionContext &ctx, SynBase *location, InstructionCode cmd, VmConstant *flag, VmConstant *helper, VmConstant *argument);
 	void AddInstruction(ExpressionContext &ctx, SynBase *location, InstructionCode cmd, unsigned char flag, unsigned short helper, unsigned argument);
