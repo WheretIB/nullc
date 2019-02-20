@@ -553,7 +553,6 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 	}
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_VM);
-	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_CREATE_ALLOCA_STORAGE);
 
 	if(ctx.enableLogFiles)
 	{
@@ -570,18 +569,34 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		fclose(instGraphCtx.file);
 	}
 
-	InstructionVMLowerContext &instLowerCtx = ctx.instLowerCtx;
-
-	LowerModule(instLowerCtx, ctx.vmModule);
+	VmLoweredModule *vmLoweredModule = LowerModule(exprCtx, ctx.vmModule);
 
 	if(ctx.enableLogFiles)
 	{
-		InstructionVMLowerGraphContext instLowerGraphCtx(instLowerCtx);
+		InstructionVmLowerGraphContext instLowerGraphCtx;
+
+		instLowerGraphCtx.file = fopen("inst_graph_low.txt", "w");
+		instLowerGraphCtx.showSource = true;
+
+		PrintGraph(instLowerGraphCtx, vmLoweredModule);
+
+		fclose(instLowerGraphCtx.file);
+	}
+
+	FinalizeRegisterSpills(ctx.exprCtx, vmLoweredModule);
+
+	InstructionVmFinalizeContext &instFinalizeCtx = ctx.instFinalizeCtx;
+
+	FinalizeModule(instFinalizeCtx, vmLoweredModule);
+
+	if(ctx.enableLogFiles)
+	{
+		InstructionVmLowerGraphContext instLowerGraphCtx;
 
 		instLowerGraphCtx.file = fopen("inst_vm.txt", "w");
 		instLowerGraphCtx.showSource = true;
 
-		PrintInstructions(instLowerGraphCtx, ctx.code);
+		PrintInstructions(instLowerGraphCtx, instFinalizeCtx, ctx.code);
 
 		fclose(instLowerGraphCtx.file);
 	}
@@ -936,15 +951,15 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	size += ctx.exprCtx.namespaces.size() * sizeof(ExternNamespaceInfo);
 
 	unsigned offsetToCode = size;
-	size += ctx.instLowerCtx.cmds.size() * sizeof(VMCmd);
+	size += ctx.instFinalizeCtx.cmds.size() * sizeof(VMCmd);
 
 	unsigned sourceLength = (unsigned)strlen(ctx.code) + 1;
 
 	unsigned infoCount = 0;
 
-	for(unsigned i = 0; i < ctx.instLowerCtx.locations.size(); i++)
+	for(unsigned i = 0; i < ctx.instFinalizeCtx.locations.size(); i++)
 	{
-		SynBase *location = ctx.instLowerCtx.locations[i];
+		SynBase *location = ctx.instFinalizeCtx.locations[i];
 
 		if(location && location->pos.begin >= ctx.code && location->pos.begin < ctx.code + sourceLength)
 			infoCount++;
@@ -1004,7 +1019,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 	code->closureListCount = 0;
 
-	code->codeSize = ctx.instLowerCtx.cmds.size();
+	code->codeSize = ctx.instFinalizeCtx.cmds.size();
 	code->offsetToCode = offsetToCode;
 
 	code->symbolLength = symbolStorageSize;
@@ -1633,9 +1648,9 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	code->infoSize = infoCount;
 	VectorView<unsigned> infoArray(FindSourceInfo(code), infoCount * 2);
 
-	for(unsigned i = 0; i < ctx.instLowerCtx.locations.size(); i++)
+	for(unsigned i = 0; i < ctx.instFinalizeCtx.locations.size(); i++)
 	{
-		SynBase *location = ctx.instLowerCtx.locations[i];
+		SynBase *location = ctx.instFinalizeCtx.locations[i];
 
 		if(location && location->pos.begin >= ctx.code && location->pos.begin < ctx.code + sourceLength)
 		{
@@ -1650,8 +1665,8 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 	code->globalCodeStart = ctx.vmModule->globalCodeStart;
 
-	if(ctx.instLowerCtx.cmds.size())
-		memcpy(FindCode(code), ctx.instLowerCtx.cmds.data, ctx.instLowerCtx.cmds.size() * sizeof(VMCmd));
+	if(ctx.instFinalizeCtx.cmds.size())
+		memcpy(FindCode(code), ctx.instFinalizeCtx.cmds.data, ctx.instFinalizeCtx.cmds.size() * sizeof(VMCmd));
 
 #ifdef NULLC_LLVM_SUPPORT
 	code->llvmSize = llvmSize;
@@ -1751,7 +1766,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 bool SaveListing(CompilerContext &ctx, const char *fileName)
 {
-	InstructionVMLowerGraphContext instLowerGraphCtx(ctx.instLowerCtx);
+	InstructionVmLowerGraphContext instLowerGraphCtx;
 
 	instLowerGraphCtx.file = fopen(fileName, "w");
 
@@ -1763,7 +1778,7 @@ bool SaveListing(CompilerContext &ctx, const char *fileName)
 
 	instLowerGraphCtx.showSource = true;
 
-	PrintInstructions(instLowerGraphCtx, ctx.code);
+	PrintInstructions(instLowerGraphCtx, ctx.instFinalizeCtx, ctx.code);
 
 	fclose(instLowerGraphCtx.file);
 

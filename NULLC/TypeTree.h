@@ -31,6 +31,8 @@ struct AliasData;
 struct VmConstant;
 struct VmFunction;
 
+struct VmLoweredInstruction;
+
 struct VariableHandle
 {
 	VariableHandle(VariableData *variable): variable(variable), next(0), listed(false)
@@ -135,7 +137,7 @@ struct NamespaceData
 
 struct VariableData
 {
-	VariableData(Allocator *allocator, SynBase *source, ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name, unsigned offset, unsigned uniqueId): source(source), scope(scope), alignment(alignment), type(type), name(name), offset(offset), uniqueId(uniqueId), users(allocator)
+	VariableData(Allocator *allocator, SynBase *source, ScopeData *scope, unsigned alignment, TypeBase *type, InplaceStr name, unsigned offset, unsigned uniqueId): source(source), scope(scope), alignment(alignment), type(type), name(name), offset(offset), uniqueId(uniqueId), users(allocator), lowUsers(allocator)
 	{
 		importModule = NULL;
 
@@ -150,6 +152,8 @@ struct VariableData
 
 		isAlloca = false;
 		isVmAlloca = false;
+
+		isVmRegSpill = false;
 
 		if(alignment != 0)
 			assert(offset % alignment == 0);
@@ -178,11 +182,15 @@ struct VariableData
 	bool isAlloca;
 	bool isVmAlloca;
 
+	bool isVmRegSpill;
+
 	unsigned offset;
 
 	unsigned uniqueId;
 
 	SmallArray<VmConstant*, 8> users;
+
+	SmallArray<VmLoweredInstruction*, 4> lowUsers;
 };
 
 struct VariableDataHasher

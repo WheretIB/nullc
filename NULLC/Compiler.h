@@ -16,7 +16,7 @@
 
 struct CompilerContext
 {
-	CompilerContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): allocator(allocator), code(0), errorPos(0), errorBuf(0), errorBufSize(0), parseCtx(allocator, activeImports), synModule(0), exprCtx(allocator), exprModule(0), vmModule(0), instLowerCtx(exprCtx, allocator)
+	CompilerContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): allocator(allocator), code(0), errorPos(0), errorBuf(0), errorBufSize(0), parseCtx(allocator, activeImports), synModule(0), exprCtx(allocator), exprModule(0), vmModule(0), instFinalizeCtx(exprCtx, allocator)
 	{
 		enableLogFiles = false;
 	}
@@ -37,7 +37,7 @@ struct CompilerContext
 
 	VmModule *vmModule;
 
-	InstructionVMLowerContext instLowerCtx;
+	InstructionVmFinalizeContext instFinalizeCtx;
 
 	bool enableLogFiles;
 };

@@ -459,22 +459,10 @@ VmConstant* EvaluateOperand(InstructionVMEvalContext &ctx, VmValue *value)
 		return frame->ReadRegister(instruction->uniqueId);
 
 	if(VmBlock *block = getType<VmBlock>(value))
-	{
-		VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, VmType::Block, NULL);
-
-		result->bValue = block;
-
-		return result;
-	}
+		return CreateConstantBlock(ctx.allocator, block->source, block);
 
 	if(VmFunction *function = getType<VmFunction>(value))
-	{
-		VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, VmType::Function, NULL);
-
-		result->fValue = function;
-
-		return result;
-	}
+		return CreateConstantFunction(ctx.allocator, function->source, function);
 
 	assert(!"unknown type");
 

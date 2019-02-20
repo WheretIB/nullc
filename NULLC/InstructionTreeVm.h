@@ -288,7 +288,7 @@ struct VmInstruction: VmValue
 
 	unsigned uniqueId;
 
-	SmallArray<VmValue*, 8> arguments;
+	SmallArray<VmValue*, 4> arguments;
 
 	VmBlock *parent;
 
@@ -316,6 +316,7 @@ struct VmBlock: VmValue
 	}
 
 	void AddInstruction(VmInstruction* instruction);
+	void DetachInstruction(VmInstruction* instruction);
 	void RemoveInstruction(VmInstruction* instruction);
 
 	InplaceStr name;
@@ -490,6 +491,7 @@ T* getType(VmValue *node)
 }
 
 VmType GetVmType(ExpressionContext &ctx, TypeBase *type);
+void FinalizeAlloca(ExpressionContext &ctx, VmModule *module, VariableData *variable);
 
 VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expression);
 VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *code);

@@ -2,12 +2,15 @@
 
 #include <stdio.h>
 
-struct InstructionVMLowerContext;
+struct VmLoweredModule;
+struct InstructionVmFinalizeContext;
 
-struct InstructionVMLowerGraphContext
+struct InstructionVmLowerGraphContext
 {
-	InstructionVMLowerGraphContext(InstructionVMLowerContext &ctx): ctx(ctx)
+	InstructionVmLowerGraphContext()
 	{
+		code = 0;
+
 		file = 0;
 
 		lastStart = 0;
@@ -18,7 +21,7 @@ struct InstructionVMLowerGraphContext
 		showAnnotatedSource = false;
 	}
 
-	InstructionVMLowerContext &ctx;
+	const char *code;
 
 	FILE *file;
 
@@ -30,8 +33,11 @@ struct InstructionVMLowerGraphContext
 	bool showAnnotatedSource;
 
 private:
-	InstructionVMLowerGraphContext(const InstructionVMLowerGraphContext&);
-	InstructionVMLowerGraphContext& operator=(const InstructionVMLowerGraphContext&);
+	InstructionVmLowerGraphContext(const InstructionVmLowerGraphContext&);
+	InstructionVmLowerGraphContext& operator=(const InstructionVmLowerGraphContext&);
 };
 
-void PrintInstructions(InstructionVMLowerGraphContext &ctx, const char *code);
+void PrintGraph(InstructionVmLowerGraphContext &ctx, VmLoweredModule *lowModule);
+void PrintInstructions(InstructionVmLowerGraphContext &ctx, InstructionVmFinalizeContext &lowerCtx, const char *code);
+
+void DumpGraph(VmLoweredModule *lowModule);

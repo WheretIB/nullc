@@ -722,16 +722,19 @@ namespace
 		return CreateInstruction(module, source, type, VM_INST_BITCAST, value, NULL, NULL, NULL);
 	}
 
-	VmValue* CreateAlloca(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, const char *suffix)
+	VmConstant* CreateAlloca(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, const char *suffix)
 	{
+		ScopeData *scope = module->currentFunction->function ? module->currentFunction->function->functionScope : ctx.globalScope;
+
 		char *name = (char*)ctx.allocator->alloc(16);
 		sprintf(name, "$temp%d_%s", ctx.unnamedVariableCount++, suffix);
 
-		VariableData *variable = new (module->get<VariableData>()) VariableData(ctx.allocator, NULL, NULL, type->alignment, type, InplaceStr(name), 0, 0);
+		VariableData *variable = new (module->get<VariableData>()) VariableData(ctx.allocator, NULL, scope, type->alignment, type, InplaceStr(name), 0, ctx.uniqueVariableId++);
 
 		variable->isVmAlloca = true;
+		variable->offset = ~0u;
 
-		VmValue *value = CreateConstantPointer(module->allocator, source, 0, variable, ctx.GetReferenceType(variable->type), true);
+		VmConstant *value = CreateConstantPointer(module->allocator, source, 0, variable, ctx.GetReferenceType(variable->type), true);
 
 		module->currentFunction->allocas.push_back(variable);
 
@@ -769,35 +772,6 @@ namespace
 		assert(scope);
 
 		return scope;
-	}
-
-	void FinalizeAlloca(ExpressionContext &ctx, VmModule *module, VariableData *variable)
-	{
-		unsigned offset = 0;
-		ScopeData *scope = AllocateScopeSlot(ctx, module, variable->type, offset);
-
-		variable->scope = scope;
-		variable->offset = offset;
-
-		bool found = false;
-
-		for(unsigned i = 0, e = scope->allVariables.size(); i < e; i++)
-		{
-			if(scope->allVariables.data[i] == variable)
-			{
-				found = true;
-				break;
-			}
-		}
-
-		if(!found)
-		{
-			assert(variable->isVmAlloca);
-
-			scope->variables.push_back(variable);
-			scope->allVariables.push_back(variable);
-			ctx.variables.push_back(variable);
-		}
 	}
 
 	void ChangeInstructionTo(VmModule *module, VmInstruction *inst, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth, unsigned *optCount)
@@ -1366,11 +1340,10 @@ void VmBlock::AddInstruction(VmInstruction* instruction)
 	insertPoint = instruction;
 }
 
-void VmBlock::RemoveInstruction(VmInstruction* instruction)
+void VmBlock::DetachInstruction(VmInstruction* instruction)
 {
 	assert(instruction);
 	assert(instruction->parent == this);
-	assert(instruction->users.empty());
 
 	if(instruction == firstInstruction)
 		firstInstruction = instruction->nextSibling;
@@ -1386,6 +1359,13 @@ void VmBlock::RemoveInstruction(VmInstruction* instruction)
 	instruction->parent = NULL;
 	instruction->prevSibling = NULL;
 	instruction->nextSibling = NULL;
+}
+
+void VmBlock::RemoveInstruction(VmInstruction* instruction)
+{
+	assert(instruction->users.empty());
+
+	DetachInstruction(instruction);
 
 	for(unsigned i = 0; i < instruction->arguments.size(); i++)
 		instruction->arguments[i]->RemoveUse(instruction);
@@ -1541,6 +1521,34 @@ VmType GetVmType(ExpressionContext &ctx, TypeBase *type)
 	assert(!"unknown type");
 
 	return VmType::Void;
+}
+
+void FinalizeAlloca(ExpressionContext &ctx, VmModule *module, VariableData *variable)
+{
+	unsigned offset = 0;
+	ScopeData *scope = AllocateScopeSlot(ctx, module, variable->type, offset);
+
+	variable->offset = offset;
+
+	bool found = false;
+
+	for(unsigned i = 0, e = scope->allVariables.size(); i < e; i++)
+	{
+		if(scope->allVariables.data[i] == variable)
+		{
+			found = true;
+			break;
+		}
+	}
+
+	if(!found)
+	{
+		assert(variable->isVmAlloca);
+
+		scope->variables.push_back(variable);
+		scope->allVariables.push_back(variable);
+		ctx.variables.push_back(variable);
+	}
 }
 
 VmValue* CompileVmVoid(ExpressionContext &ctx, VmModule *module, ExprVoid *node)
@@ -4093,7 +4101,9 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 
 		TypeBase *type = GetBaseType(ctx, curr->type);
 
-		VmValue *address = CreateAlloca(ctx, module, curr->source, type, "reg");
+		VmConstant *address = CreateAlloca(ctx, module, curr->source, type, "reg");
+
+		address->container->isVmRegSpill = true;
 
 		block->insertPoint = curr;
 
@@ -4130,7 +4140,9 @@ void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *blo
 
 		TypeBase *type = GetBaseType(ctx, curr->type);
 
-		VmValue *address = CreateAlloca(ctx, module, curr->source, type, "reg");
+		VmConstant *address = CreateAlloca(ctx, module, curr->source, type, "reg");
+
+		address->container->isVmRegSpill = true;
 
 		for(unsigned i = 0; i < curr->arguments.size(); i += 2)
 		{
@@ -4177,7 +4189,7 @@ void RunLegalizeVm(ExpressionContext &ctx, VmModule *module, VmValue* value)
 
 		LegalizeVmRegisterUsage(ctx, module, block);
 
-		// Check that constructs that require a temporary
+		// Check constructs that require a temporary
 		// TODO
 	}
 }

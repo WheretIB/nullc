@@ -124,6 +124,24 @@ VmConstant* CreateConstantStruct(Allocator *allocator, SynBase *source, char *va
 	return result;
 }
 
+VmConstant* CreateConstantBlock(Allocator *allocator, SynBase *source, VmBlock *block)
+{
+	VmConstant *result = new (get<VmConstant>(allocator)) VmConstant(allocator, VmType::Block, source);
+
+	result->bValue = block;
+
+	return result;
+}
+
+VmConstant* CreateConstantFunction(Allocator *allocator, SynBase *source, VmFunction *function)
+{
+	VmConstant *result = new (get<VmConstant>(allocator)) VmConstant(allocator, VmType::Function, source);
+
+	result->fValue = function;
+
+	return result;
+}
+
 bool DoesConstantIntegerMatch(VmValue* value, long long number)
 {
 	if(VmConstant *constant = getType<VmConstant>(value))
@@ -206,6 +224,9 @@ unsigned GetAccessSize(VmInstruction *inst)
 
 bool HasAddressTaken(VariableData *container)
 {
+	if(container->isVmRegSpill)
+		return false;
+
 	for(unsigned userPos = 0, userCount = container->users.count; userPos < userCount; userPos++)
 	{
 		VmConstant *user = container->users.data[userPos];

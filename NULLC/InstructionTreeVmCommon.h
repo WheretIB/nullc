@@ -25,6 +25,8 @@ VmConstant* CreateConstantDouble(Allocator *allocator, SynBase *source, double v
 VmConstant* CreateConstantLong(Allocator *allocator, SynBase *source, long long value);
 VmConstant* CreateConstantPointer(Allocator *allocator, SynBase *source, int offset, VariableData *container, TypeBase *structType, bool trackUsers);
 VmConstant* CreateConstantStruct(Allocator *allocator, SynBase *source, char *value, int size, TypeBase *structType);
+VmConstant* CreateConstantBlock(Allocator *allocator, SynBase *source, VmBlock *block);
+VmConstant* CreateConstantFunction(Allocator *allocator, SynBase *source, VmFunction *function);
 
 bool DoesConstantIntegerMatch(VmValue* value, long long number);
 bool DoesConstantMatchEither(VmValue* value, int iValue, double dValue, long long lValue);
