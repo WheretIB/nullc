@@ -423,8 +423,7 @@ void RemoveContainerUse(VariableData *container, VmLoweredInstruction* instructi
 	{
 		if(container->lowUsers[i] == instruction)
 		{
-			if(container->lowUsers.back() != instruction)
-				memmove(&container->lowUsers[i], &container->lowUsers[i + 1], sizeof(container->lowUsers[0]) * (container->lowUsers.size() - i - 1));
+			container->lowUsers[i] = container->lowUsers.back();
 			container->lowUsers.pop_back();
 			break;
 		}
@@ -465,7 +464,6 @@ bool HasMemoryWrite(VmLoweredInstruction *lowInstruction)
 	case cmdMovFloat:
 	case cmdMovDorL:
 	case cmdMovCmplx:
-		return true;
 	case cmdMovCharStk:
 	case cmdMovShortStk:
 	case cmdMovIntStk:
@@ -495,21 +493,18 @@ bool HasMemoryAccess(VmLoweredInstruction *lowInstruction)
 	case cmdPushFloat:
 	case cmdPushDorL:
 	case cmdPushCmplx:
-		return true;
 	case cmdPushCharStk:
 	case cmdPushShortStk:
 	case cmdPushIntStk:
 	case cmdPushFloatStk:
 	case cmdPushDorLStk:
 	case cmdPushCmplxStk:
-		return true;
 	case cmdMovChar:
 	case cmdMovShort:
 	case cmdMovInt:
 	case cmdMovFloat:
 	case cmdMovDorL:
 	case cmdMovCmplx:
-		return true;
 	case cmdMovCharStk:
 	case cmdMovShortStk:
 	case cmdMovIntStk:
@@ -1593,6 +1588,48 @@ bool HasUnknownMemoryWrite(VmLoweredInstruction *lowInstruction)
 	return false;
 }
 
+VariableData* GetMemoryWriteOfAlloca(VmLoweredInstruction *lowInstruction)
+{
+	switch(lowInstruction->cmd)
+	{
+	case cmdMovChar:
+	case cmdMovShort:
+	case cmdMovInt:
+	case cmdMovFloat:
+	case cmdMovDorL:
+	case cmdMovCmplx:
+		if(!HasAddressTaken(lowInstruction->argument->container))
+			return lowInstruction->argument->container;
+
+		break;
+	default:
+		break;
+	}
+
+	return NULL;
+}
+
+VariableData* GetMemoryReadOfAlloca(VmLoweredInstruction *lowInstruction)
+{
+	switch(lowInstruction->cmd)
+	{
+	case cmdPushChar:
+	case cmdPushShort:
+	case cmdPushInt:
+	case cmdPushFloat:
+	case cmdPushDorL:
+	case cmdPushCmplx:
+		if(!HasAddressTaken(lowInstruction->argument->container))
+			return lowInstruction->argument->container;
+
+		break;
+	default:
+		break;
+	}
+
+	return NULL;
+}
+
 bool HasOtherBlockUse(VariableData *spillVariable, VmLoweredBlock *lowBlock)
 {
 	for(unsigned i = 0; i < spillVariable->lowUsers.size(); i++)
@@ -1853,6 +1890,22 @@ void OptimizeFirstImmediateTemporaryUse(VmLoweredModule *lowModule, VmLoweredBlo
 	}
 }
 
+bool HasWritesToVariables(ArrayView<VariableData*> writeList, ArrayView<VariableData*> accessList)
+{
+	for(unsigned i = 0; i < writeList.size(); i++)
+	{
+		VariableData *write = writeList[i];
+
+		for(unsigned k = 0; k < accessList.size(); k++)
+		{
+			if(write == accessList[k])
+				return true;
+		}
+	}
+
+	return false;
+}
+
 void OptimizeTemporaryCreationPlacement(VmLoweredModule *lowModule, VmLoweredBlock *lowBlock)
 {
 	for(VmLoweredInstruction *curr = lowBlock->firstInstruction; curr;)
@@ -1904,58 +1957,109 @@ void OptimizeTemporaryCreationPlacement(VmLoweredModule *lowModule, VmLoweredBlo
 				assert(blockStart);
 
 				// Find what kind of operations are made in the block
-				bool blockHasMemoryWrite = false;
-				bool blockHasMemoryAccess = false;
+				SmallArray<VariableData*, 16> blockAllocaWrites(lowModule->allocator);
+				bool blockHasUnknownMemoryWrite = false;
+
+				SmallArray<VariableData*, 16> blockAllocaReads(lowModule->allocator);
+				bool blockHasUnknownMemoryAccess = false;
 
 				for(VmLoweredInstruction *inst = blockStart; inst != blockEnd; inst = inst->nextSibling)
 				{
 					if(inst == targetStore)
 						continue;
 
-					if(HasMemoryWrite(inst))
-					{
-						blockHasMemoryWrite = true;
-						break;
-					}
-
-					if(HasMemoryAccess(inst))
-						blockHasMemoryAccess = true;
+					if(VariableData *container = GetMemoryWriteOfAlloca(inst))
+						blockAllocaWrites.push_back(container);
+					else if(HasMemoryWrite(inst))
+						blockHasUnknownMemoryWrite = true;
+					else if(VariableData *container = GetMemoryReadOfAlloca(inst))
+						blockAllocaReads.push_back(container);
+					else if(HasMemoryAccess(inst))
+						blockHasUnknownMemoryAccess = true;
 				}
 
 				// Find what kind of operations are made after the block before the first load
-				VmLoweredInstruction *firstLoad = spillVariable->lowUsers[1];
+				VmLoweredInstruction *firstLoad = NULL;
+				
+				for(VmLoweredInstruction *inst = targetStore->nextSibling; inst; inst = inst->nextSibling)
+				{
+					for(unsigned i = 1; i < spillVariable->lowUsers.size(); i++)
+					{
+						if(inst == spillVariable->lowUsers[i])
+						{
+							firstLoad = inst;
+							break;
+						}
+					}
 
-				bool followerHasMemoryWrite = false;
-				bool followerHasMemoryAccess = false;
+					if(firstLoad)
+						break;
+				}
+
+				assert(firstLoad);
+
+				SmallArray<VariableData*, 16> followingAllocaWrites(lowModule->allocator);
+				bool followingUnknownMemoryWrite = false;
+
+				SmallArray<VariableData*, 16> followingAllocaReads(lowModule->allocator);
+				bool followingUnknownMemoryAccess = false;
 
 				for(VmLoweredInstruction *inst = blockEnd->nextSibling; inst != firstLoad; inst = inst->nextSibling)
 				{
-					if(HasMemoryWrite(inst))
-					{
-						followerHasMemoryWrite = true;
-						break;
-					}
-
-					if(HasMemoryAccess(inst))
-						followerHasMemoryAccess = true;
+					if(VariableData *container = GetMemoryWriteOfAlloca(inst))
+						followingAllocaWrites.push_back(container);
+					else if(HasMemoryWrite(inst))
+						followingUnknownMemoryWrite = true;
+					else if(VariableData *container = GetMemoryReadOfAlloca(inst))
+						followingAllocaReads.push_back(container);
+					else if(HasMemoryAccess(inst))
+						followingUnknownMemoryAccess = true;
 				}
 
 				// Can't reorder memory modifications
-				if(blockHasMemoryWrite && followerHasMemoryWrite)
+				if(blockHasUnknownMemoryWrite && followingUnknownMemoryWrite)
 				{
 					curr = next;
 					continue;
 				}
 
 				// Following instructions might read something that block instructions write
-				if(blockHasMemoryWrite && followerHasMemoryAccess)
+				if(blockHasUnknownMemoryWrite && followingUnknownMemoryAccess)
 				{
 					curr = next;
 					continue;
 				}
 
 				// Block instructions might read something that following instructions write
-				if(blockHasMemoryAccess && followerHasMemoryWrite)
+				if(blockHasUnknownMemoryAccess && followingUnknownMemoryWrite)
+				{
+					curr = next;
+					continue;
+				}
+
+				// Block writes to alloca variables that following instructions also write
+				if(HasWritesToVariables(blockAllocaWrites, followingAllocaWrites))
+				{
+					curr = next;
+					continue;
+				}
+
+				// Block writes to alloca variables that following instructions read
+				if(HasWritesToVariables(blockAllocaWrites, followingAllocaReads))
+				{
+					curr = next;
+					continue;
+				}
+
+				// Following instructions write to alloca variables that block instructions also write
+				if(HasWritesToVariables(followingAllocaWrites, blockAllocaWrites))
+				{
+					curr = next;
+					continue;
+				}
+
+				// Following instructions write to alloca variables that block instructions read
+				if(HasWritesToVariables(followingAllocaWrites, blockAllocaReads))
 				{
 					curr = next;
 					continue;

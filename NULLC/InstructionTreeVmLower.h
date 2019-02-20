@@ -93,10 +93,12 @@ struct VmLoweredFunction
 
 struct VmLoweredModule
 {
-	VmLoweredModule(Allocator *allocator, VmModule *vmModule): vmModule(vmModule), functions(allocator)
+	VmLoweredModule(Allocator *allocator, VmModule *vmModule): allocator(allocator), vmModule(vmModule), functions(allocator)
 	{
 		removedSpilledRegisters = 0;
 	}
+
+	Allocator *allocator;
 
 	VmModule *vmModule;
 
