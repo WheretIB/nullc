@@ -1630,6 +1630,23 @@ VariableData* GetMemoryReadOfAlloca(VmLoweredInstruction *lowInstruction)
 	return NULL;
 }
 
+bool IsVariableStoreOfSize(VmLoweredInstruction *lowInstruction, int size)
+{
+	switch(lowInstruction->cmd)
+	{
+	case cmdMovChar:
+	case cmdMovShort:
+	case cmdMovInt:
+	case cmdMovFloat:
+	case cmdMovDorL:
+	case cmdMovCmplx:
+		return lowInstruction->argument->container && lowInstruction->helper->iValue == size;
+	default:
+		break;
+	}
+
+	return false;
+}
 bool HasOtherBlockUse(VariableData *spillVariable, VmLoweredBlock *lowBlock)
 {
 	for(unsigned i = 0; i < spillVariable->lowUsers.size(); i++)
@@ -1771,6 +1788,12 @@ void OptimizeUnusedTemporaries(VmLoweredModule *lowModule, VmLoweredBlock *lowBl
 
 					lowModule->removedSpilledRegisters++;
 				}
+			}
+			else if(IsVariableStoreOfSize(targetStore->nextSibling, targetStore->helper->iValue))
+			{
+				lowBlock->RemoveInstruction(targetStore);
+
+				lowModule->removedSpilledRegisters++;
 			}
 		}
 
@@ -2133,6 +2156,97 @@ void OptimizeTemporaryCreationPlacement(VmLoweredModule *lowModule, VmLoweredBlo
 	}
 }
 
+void OptimizeByReadingCopyInsteadOfTemporary(VmLoweredModule *lowModule, VmLoweredBlock *lowBlock)
+{
+	(void)lowModule;
+
+	// Go from last instruction back to first
+	for(VmLoweredInstruction *curr = lowBlock->lastInstruction; curr;)
+	{
+		// We are looking for register spill loads
+		if(!IsSpillLoad(curr))
+		{
+			curr = curr->prevSibling;
+			continue;
+		}
+
+		// Spill variable
+		VariableData *spillVariable = curr->argument->container;
+
+		// For safety, check that all register spill users are from the current block
+		if(HasOtherBlockUse(spillVariable, lowBlock))
+		{
+			curr = curr->prevSibling;
+			continue;
+		}
+
+		VmLoweredInstruction *currPrevSibling = curr->prevSibling;
+
+		if(spillVariable->lowUsers.size() >= 2)
+		{
+			assert(IsSpillStore(spillVariable->lowUsers[0]));
+
+			VmLoweredInstruction *targetStore = spillVariable->lowUsers[0];
+
+			// Check if the next instruction is a store to a different variable
+			if(IsVariableStoreOfSize(targetStore->nextSibling, targetStore->helper->iValue))
+			{
+				VmLoweredInstruction *copyStore = targetStore->nextSibling;
+
+				VariableData *copyVariable = copyStore->argument->container;
+
+				// Look if it's safe to change spill read to the copy read
+				VmLoweredInstruction *it = curr->prevSibling;
+
+				bool safeToMove = true;
+
+				while(it != copyStore)
+				{
+					// Depending on original variable usage type, we might ignore more side-effecting operations
+					if(HasAddressTaken(copyVariable))
+					{
+						if(HasMemoryWriteToVariable(it, copyVariable))
+						{
+							safeToMove = false;
+							break;
+						}
+
+						if(HasUnknownMemoryWrite(it))
+						{
+							safeToMove = false;
+							break;
+						}
+					}
+					else
+					{
+						if(HasMemoryWriteToVariable(it, copyVariable))
+						{
+							safeToMove = false;
+							break;
+						}
+					}
+
+					it = it->prevSibling;
+				}
+
+				if(safeToMove)
+				{
+					assert(curr->helper->iValue == copyStore->helper->iValue);
+
+					RemoveContainerUse(curr->argument->container, curr);
+
+					curr->flag = copyStore->flag;
+					curr->argument = copyStore->argument;
+
+					curr->argument->container->lowUsers.push_back(curr);
+				}
+			}
+		}
+
+		curr = currPrevSibling;
+	}
+}
+
 void OptimizeTemporaryRegisterSpills(VmLoweredModule *lowModule, VmLoweredFunction *lowFunction)
 {
 	for(unsigned i = 0; i < lowFunction->blocks.size(); i++)
@@ -2155,6 +2269,10 @@ void OptimizeTemporaryRegisterSpills(VmLoweredModule *lowModule, VmLoweredFuncti
 		OptimizeFirstImmediateTemporaryUse(lowModule, lowBlock);
 
 		OptimizeTemporaryCreationPlacement(lowModule, lowBlock);
+
+		OptimizeByReadingCopyInsteadOfTemporary(lowModule, lowBlock);
+
+		OptimizeUnusedTemporaries(lowModule, lowBlock);
 	}
 }
 
