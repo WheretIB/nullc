@@ -110,6 +110,8 @@ bool HasMemoryAccess(VmLoweredInstruction *lowInstruction);
 
 VmLoweredModule* LowerModule(ExpressionContext &ctx, VmModule *module);
 
+void OptimizeTemporaryRegisterSpills(VmLoweredModule *lowModule);
+
 void FinalizeRegisterSpills(ExpressionContext &ctx, VmLoweredModule *lowModule);
 
 struct InstructionVmFinalizeContext

@@ -633,14 +633,19 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 				(void)offset;
 				assert(offset->iValue == 0);
 
-				lowBlock->AddInstruction(ctx, inst->source, inst->type.size == 8 ? cmdPushDorL : cmdPushCmplx, IsLocalScope(constant->container->scope), (unsigned short)inst->type.size, constant);
+				InstructionCode cmd = inst->type.size == 4 ? cmdPushInt : (inst->type.size == 8 ? cmdPushDorL : cmdPushCmplx);
+
+				lowBlock->AddInstruction(ctx, inst->source, cmd, IsLocalScope(constant->container->scope), (unsigned short)inst->type.size, constant);
 			}
 			else
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
 				LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
-				lowBlock->AddInstruction(ctx, inst->source, inst->type.size == 8 ? cmdPushDorLStk : cmdPushCmplxStk, (unsigned short)inst->type.size, offset->iValue);
+
+				InstructionCode cmd = inst->type.size == 4 ? cmdPushIntStk : (inst->type.size == 8 ? cmdPushDorLStk : cmdPushCmplxStk);
+
+				lowBlock->AddInstruction(ctx, inst->source, cmd, (unsigned short)inst->type.size, offset->iValue);
 			}
 			break;
 		case VM_INST_LOAD_IMMEDIATE:
@@ -1490,6 +1495,402 @@ VmLoweredModule* LowerModule(ExpressionContext &ctx, VmModule *vmModule)
 	}
 
 	return lowModule;
+}
+
+bool IsSpillLoad(VmLoweredInstruction *lowInstruction)
+{
+	switch(lowInstruction->cmd)
+	{
+	case cmdPushChar:
+	case cmdPushShort:
+	case cmdPushInt:
+	case cmdPushFloat:
+	case cmdPushDorL:
+	case cmdPushCmplx:
+		return lowInstruction->argument->container->isVmRegSpill;
+	default:
+		break;
+	}
+
+	return false;
+}
+
+bool IsSpillStore(VmLoweredInstruction *lowInstruction)
+{
+	switch(lowInstruction->cmd)
+	{
+	case cmdMovChar:
+	case cmdMovShort:
+	case cmdMovInt:
+	case cmdMovFloat:
+	case cmdMovDorL:
+	case cmdMovCmplx:
+		return lowInstruction->argument->container->isVmRegSpill;
+	default:
+		break;
+	}
+
+	return false;
+}
+
+bool IsVariableLoadOfSize(VmLoweredInstruction *lowInstruction, int size)
+{
+	switch(lowInstruction->cmd)
+	{
+	case cmdPushChar:
+	case cmdPushShort:
+	case cmdPushInt:
+	case cmdPushFloat:
+	case cmdPushDorL:
+	case cmdPushCmplx:
+		return lowInstruction->argument->container && lowInstruction->helper->iValue == size;
+	default:
+		break;
+	}
+
+	return false;
+}
+
+bool HasMemoryWriteToVariable(VmLoweredInstruction *lowInstruction, VariableData *variable)
+{
+	switch(lowInstruction->cmd)
+	{
+	case cmdMovChar:
+	case cmdMovShort:
+	case cmdMovInt:
+	case cmdMovFloat:
+	case cmdMovDorL:
+	case cmdMovCmplx:
+		return lowInstruction->argument->container == variable;
+	default:
+		break;
+	}
+
+	return false;
+}
+
+bool HasUnknownMemoryWrite(VmLoweredInstruction *lowInstruction)
+{
+	switch(lowInstruction->cmd)
+	{
+	case cmdMovCharStk:
+	case cmdMovShortStk:
+	case cmdMovIntStk:
+	case cmdMovFloatStk:
+	case cmdMovDorLStk:
+	case cmdMovCmplxStk:
+	case cmdSetRangeStk:
+	case cmdCall:
+	case cmdCallPtr:
+	case cmdCreateClosure:
+	case cmdCloseUpvals:
+		return true;
+	default:
+		break;
+	}
+
+	return false;
+}
+
+void OptimizeByReadingTargetInsteadOfTemporary(VmLoweredModule *lowModule, VmLoweredBlock *lowBlock)
+{
+	(void)lowModule;
+
+	// Go from last instruction back to first
+	for(VmLoweredInstruction *curr = lowBlock->lastInstruction; curr;)
+	{
+		// We are looking for register spill loads
+		if(!IsSpillLoad(curr))
+		{
+			curr = curr->prevSibling;
+			continue;
+		}
+
+		// Spill variable
+		VariableData *spillVariable = curr->argument->container;
+
+		// For safety, check that all register spill users are from the current block
+		bool hasOtherBlockUse = false;
+
+		for(unsigned i = 0; i < spillVariable->lowUsers.size(); i++)
+		{
+			if(spillVariable->lowUsers[i]->parent != lowBlock)
+			{
+				hasOtherBlockUse = true;
+				break;
+			}
+		}
+
+		if(hasOtherBlockUse)
+		{
+			curr = curr->prevSibling;
+			continue;
+		}
+
+		VmLoweredInstruction *currPrevSibling = curr->prevSibling;
+
+		if(spillVariable->lowUsers.size() >= 2)
+		{
+			assert(IsSpillStore(spillVariable->lowUsers[0]));
+
+			VmLoweredInstruction *targetStore = spillVariable->lowUsers[0];
+
+			// Check that target store received its data from a variable read of the same size
+			if(IsVariableLoadOfSize(targetStore->prevSibling, targetStore->helper->iValue))
+			{
+				VmLoweredInstruction *originalLoad = targetStore->prevSibling;
+
+				VariableData *originalVariable = originalLoad->argument->container;
+
+				// Look if it's safe to move original read near the spilled register read
+				VmLoweredInstruction *it = curr->prevSibling;
+
+				bool safeToMove = true;
+
+				while(it != targetStore)
+				{
+					// Depending on original variable usage type, we might ignore more side-effecting operations
+					if(HasAddressTaken(originalVariable))
+					{
+						if(HasMemoryWriteToVariable(it, originalVariable))
+						{
+							safeToMove = false;
+							break;
+						}
+
+						if(HasUnknownMemoryWrite(it))
+						{
+							safeToMove = false;
+							break;
+						}
+					}
+					else
+					{
+						if(HasMemoryWriteToVariable(it, originalVariable))
+						{
+							safeToMove = false;
+							break;
+						}
+					}
+
+					it = it->prevSibling;
+				}
+
+				if(safeToMove)
+				{
+					assert(curr->cmd == originalLoad->cmd);
+					assert(curr->helper->iValue == originalLoad->helper->iValue);
+
+					RemoveContainerUse(curr->argument->container, curr);
+
+					curr->flag = originalLoad->flag;
+					curr->argument = originalLoad->argument;
+
+					curr->argument->container->lowUsers.push_back(curr);
+				}
+			}
+		}
+
+		curr = currPrevSibling;
+	}
+}
+
+void OptimizeUnusedTemporaries(VmLoweredModule *lowModule, VmLoweredBlock *lowBlock)
+{
+	for(VmLoweredInstruction *curr = lowBlock->firstInstruction; curr;)
+	{
+		VmLoweredInstruction *next = curr->nextSibling;
+
+		if(!IsSpillStore(curr))
+		{
+			curr = next;
+			continue;
+		}
+
+		// Spill variable
+		VariableData *spillVariable = curr->argument->container;
+
+		if(spillVariable->lowUsers.size() == 1)
+		{
+			VmLoweredInstruction *targetStore = spillVariable->lowUsers[0];
+
+			// Check that target store received its data from a variable read of the same size
+			if(IsVariableLoadOfSize(targetStore->prevSibling, targetStore->helper->iValue))
+			{
+				VmLoweredInstruction *originalLoad = targetStore->prevSibling;
+
+				// Check that target store data is not used after it
+				if(targetStore->nextSibling->cmd == cmdPop && targetStore->nextSibling->argument->iValue == targetStore->helper->iValue)
+				{
+					VmLoweredInstruction *originalPop = targetStore->nextSibling;
+
+					next = originalPop->nextSibling;
+
+					// Detach original instructions
+					lowBlock->RemoveInstruction(originalLoad);
+					lowBlock->RemoveInstruction(targetStore);
+					lowBlock->RemoveInstruction(originalPop);
+
+					lowModule->removedSpilledRegisters++;
+				}
+			}
+		}
+
+		curr = next;
+	}
+}
+
+void OptimizeSingleImmediateTemporaryUses(VmLoweredModule *lowModule, VmLoweredBlock *lowBlock)
+{
+	// Go from last instruction back to first
+	for(VmLoweredInstruction *curr = lowBlock->lastInstruction; curr;)
+	{
+		// We are looking for register spill loads
+		if(!IsSpillLoad(curr))
+		{
+			curr = curr->prevSibling;
+			continue;
+		}
+
+		// Spill variable
+		VariableData *spillVariable = curr->argument->container;
+
+		// For safety, check that all register spill users are from the current block
+		bool hasOtherBlockUse = false;
+
+		for(unsigned i = 0; i < spillVariable->lowUsers.size(); i++)
+		{
+			if(spillVariable->lowUsers[i]->parent != lowBlock)
+			{
+				hasOtherBlockUse = true;
+				break;
+			}
+		}
+
+		if(hasOtherBlockUse)
+		{
+			curr = curr->prevSibling;
+			continue;
+		}
+
+		VmLoweredInstruction *currPrevSibling = curr->prevSibling;
+
+		// If we find a spill read with only a single other use (should be a store)
+		if(spillVariable->lowUsers.size() == 2)
+		{
+			assert(IsSpillStore(spillVariable->lowUsers[0]));
+
+			VmLoweredInstruction *targetStore = spillVariable->lowUsers[0];
+
+			// Check if the single use is not required at all
+			if(targetStore->nextSibling->nextSibling == curr)
+			{
+				// Check that target store data is not used after it
+				if(targetStore->nextSibling->cmd == cmdPop && targetStore->nextSibling->argument->iValue == targetStore->helper->iValue)
+				{
+					VmLoweredInstruction *originalPop = targetStore->nextSibling;
+
+					// Detach original instructions
+					lowBlock->RemoveInstruction(targetStore);
+					lowBlock->RemoveInstruction(originalPop);
+
+					currPrevSibling = curr->prevSibling;
+
+					lowBlock->RemoveInstruction(curr);
+
+					lowModule->removedSpilledRegisters++;
+				}
+			}
+		}
+
+		curr = currPrevSibling;
+	}
+}
+void OptimizeFirstImmediateTemporaryUse(VmLoweredModule *lowModule, VmLoweredBlock *lowBlock)
+{
+	// Go from last instruction back to first
+	for(VmLoweredInstruction *curr = lowBlock->lastInstruction; curr;)
+	{
+		// We are looking for register spill loads
+		if(!IsSpillLoad(curr))
+		{
+			curr = curr->prevSibling;
+			continue;
+		}
+
+		// Spill variable
+		VariableData *spillVariable = curr->argument->container;
+
+		// For safety, check that all register spill users are from the current block
+		bool hasOtherBlockUse = false;
+
+		for(unsigned i = 0; i < spillVariable->lowUsers.size(); i++)
+		{
+			if(spillVariable->lowUsers[i]->parent != lowBlock)
+			{
+				hasOtherBlockUse = true;
+				break;
+			}
+		}
+
+		if(hasOtherBlockUse)
+		{
+			curr = curr->prevSibling;
+			continue;
+		}
+
+		VmLoweredInstruction *currPrevSibling = curr->prevSibling;
+
+		// Try to peephole first spill read if it comes directly after store
+		if(spillVariable->lowUsers.size() > 2)
+		{
+			assert(IsSpillStore(spillVariable->lowUsers[0]));
+
+			VmLoweredInstruction *targetStore = spillVariable->lowUsers[0];
+
+			if(curr->prevSibling && curr->prevSibling->prevSibling == targetStore)
+			{
+				// Check that target store data is not used after it
+				if(targetStore->nextSibling->cmd == cmdPop && targetStore->nextSibling->argument->iValue == targetStore->helper->iValue)
+				{
+					VmLoweredInstruction *originalPop = targetStore->nextSibling;
+
+					assert(curr->helper->iValue == targetStore->helper->iValue);
+
+					// Detach original instructions
+					lowBlock->RemoveInstruction(originalPop);
+
+					currPrevSibling = curr->prevSibling;
+
+					lowBlock->RemoveInstruction(curr);
+
+					lowModule->removedSpilledRegisters++;
+				}
+			}
+		}
+
+		curr = currPrevSibling;
+	}
+}
+
+void OptimizeTemporaryRegisterSpills(VmLoweredModule *lowModule, VmLoweredFunction *lowFunction)
+{
+	for(unsigned i = 0; i < lowFunction->blocks.size(); i++)
+	{
+		OptimizeByReadingTargetInsteadOfTemporary(lowModule, lowFunction->blocks[i]);
+
+		OptimizeSingleImmediateTemporaryUses(lowModule, lowFunction->blocks[i]);
+
+		OptimizeFirstImmediateTemporaryUse(lowModule, lowFunction->blocks[i]);
+
+		OptimizeUnusedTemporaries(lowModule, lowFunction->blocks[i]);
+	}
+}
+
+void OptimizeTemporaryRegisterSpills(VmLoweredModule *lowModule)
+{
+	for(unsigned i = 0; i < lowModule->functions.size(); i++)
+		OptimizeTemporaryRegisterSpills(lowModule, lowModule->functions[i]);
 }
 
 void FinalizeRegisterSpills(ExpressionContext &ctx, VmLoweredModule *lowModule)

@@ -583,6 +583,20 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		fclose(instLowerGraphCtx.file);
 	}
 
+	OptimizeTemporaryRegisterSpills(vmLoweredModule);
+
+	if(ctx.enableLogFiles)
+	{
+		InstructionVmLowerGraphContext instLowerGraphCtx;
+
+		instLowerGraphCtx.file = fopen("inst_graph_low_opt.txt", "w");
+		instLowerGraphCtx.showSource = true;
+
+		PrintGraph(instLowerGraphCtx, vmLoweredModule);
+
+		fclose(instLowerGraphCtx.file);
+	}
+
 	FinalizeRegisterSpills(ctx.exprCtx, vmLoweredModule);
 
 	InstructionVmFinalizeContext &instFinalizeCtx = ctx.instFinalizeCtx;
