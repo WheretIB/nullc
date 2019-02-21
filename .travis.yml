@@ -6,8 +6,10 @@ compiler:
 env:
   - CONFIG=debug EXTCALL=manual
   - CONFIG=release EXTCALL=manual
+  - CONFIG=sanitize EXTCALL=manual
   - CONFIG=debug EXTCALL=dyncall
   - CONFIG=release EXTCALL=dyncall
+  - CONFIG=sanitize EXTCALL=dyncall
 script: 
   - if [[ ! ("$TRAVIS_COMPILER" == "clang") && ("$CONFIG" == "debug") && ("$EXTCALL" == "manual") ]]; then echo $TRAVIS_COMPILER; make test config=coverage extcall=manual; fi
   - make test config=$CONFIG extcall=$EXTCALL
