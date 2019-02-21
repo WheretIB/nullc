@@ -287,7 +287,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	}
 	else if(ExprCharacterLiteral *node = getType<ExprCharacterLiteral>(expression))
 	{
-		if(node->value < ' ' || node->value > 127)
+		if((int)node->value < (int)' ')
 			PrintIndented(ctx, name, node->type, "ExprCharacterLiteral(0x%02x)", node->value);
 		else
 			PrintIndented(ctx, name, node->type, "ExprCharacterLiteral(\'%c\')", node->value);
