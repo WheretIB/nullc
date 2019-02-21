@@ -11,8 +11,6 @@ namespace NULLC
 	unsigned int StringHashContinue(unsigned int hash, const char *str);
 	unsigned int StringHashContinue(unsigned int hash, const char *str, const char *end);
 
-	char*	PrintInteger(char* str, int number);
-
 	int		SafeSprintf(char* dst, size_t size, const char* src, ...);
 
 	// A string that doesn't terminate with a \0 character
