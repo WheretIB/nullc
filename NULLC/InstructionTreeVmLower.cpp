@@ -2341,19 +2341,6 @@ void FinalizeInstruction(InstructionVmFinalizeContext &ctx, VmLoweredInstruction
 
 				cmd.argument = data->functionIndex;
 			}
-			else if(cmd.cmd == cmdPushVTop)
-			{
-				FunctionData *data = function->function;
-
-				assert(data->argumentsSize < 65536);
-
-				// Stack frame should remain aligned, so its size should multiple of 16
-				unsigned size = (data->stackSize + 0xf) & ~0xf;
-
-				// Save previous stack frame, and expand current by shift bytes
-				cmd.helper = (unsigned short)data->argumentsSize;
-				cmd.argument = size;
-			}
 			else
 			{
 				assert(!"unknown instruction argument");
