@@ -1530,13 +1530,14 @@ void GenCodeCmdMovCmplx(VMCmd cmd)
 		unsigned int currShift = 0;
 		while(currShift < cmd.helper)
 		{
+			EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, currShift);
 			if(cmd.flag == ADDRESS_ABOLUTE)
-				EMIT_OP_ADDR(o_pop, sDWORD, cmd.argument+paramBase + currShift);
+				EMIT_OP_ADDR_REG(o_mov, sDWORD, cmd.argument + paramBase + currShift, rEBX);
 			else
-				EMIT_OP_RPTR(o_pop, sDWORD, rEBP, cmd.argument+paramBase + currShift);
+				EMIT_OP_RPTR_REG(o_mov, sDWORD, rEBP, cmd.argument + paramBase + currShift, rEBX);
+			KILL_REG(rEBX);
 			currShift += 4;
 		}
-		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
 		assert(currShift == cmd.helper);
 	}else{
 		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
