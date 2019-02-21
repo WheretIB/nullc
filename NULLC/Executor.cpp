@@ -1116,50 +1116,50 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 		case cmdPushCharStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
 			*genStackPtr = *(char*)(cmd.argument + vmLoadPointer(genStackPtr - 1));
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			*genStackPtr = *((char*)NULL + cmd.argument + *genStackPtr);
 #endif
 			break;
 		case cmdPushShortStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
 			*genStackPtr = *(short*)(cmd.argument + vmLoadPointer(genStackPtr - 1));
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			*genStackPtr = *(short*)((char*)NULL + cmd.argument + *genStackPtr);
 #endif
 			break;
 		case cmdPushIntStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
 			*genStackPtr = *(int*)(cmd.argument + vmLoadPointer(genStackPtr - 1));
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			*genStackPtr = *(int*)((char*)NULL + cmd.argument + *genStackPtr);
 #endif
 			break;
 		case cmdPushFloatStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			vmStoreDouble(genStackPtr, (double)*(float*)(cmd.argument + vmLoadPointer(genStackPtr)));
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr--;
 			vmStoreDouble(genStackPtr, (double)*(float*)((char*)NULL + cmd.argument + *(genStackPtr + 1)));
 #endif
 			break;
 		case cmdPushDorLStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			vmStoreLong(genStackPtr, vmLoadLong(cmd.argument + vmLoadPointer(genStackPtr)));
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr--;
 			vmStoreLong(genStackPtr, vmLoadLong((char*)NULL + cmd.argument + *(genStackPtr + 1)));
 #endif
@@ -1167,11 +1167,11 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		case cmdPushCmplxStk:
 		{
 #ifdef _M_X64
-			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			char *start = cmd.argument + vmLoadPointer(genStackPtr);
 			genStackPtr += 2;
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			char *start = (char*)NULL + cmd.argument + *genStackPtr;
 			genStackPtr++;
 #endif
@@ -1220,33 +1220,33 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 		case cmdMovCharStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr += 2;
 			*(cmd.argument + vmLoadPointer(genStackPtr - 2)) = (unsigned char)(*genStackPtr);
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
 			*((char*)NULL + cmd.argument + *(genStackPtr-1)) = (unsigned char)(*genStackPtr);
 #endif
 			break;
 		case cmdMovShortStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr += 2;
 			*(unsigned short*)(cmd.argument + vmLoadPointer(genStackPtr - 2)) = (unsigned short)(*genStackPtr);
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
 			*(unsigned short*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (unsigned short)(*genStackPtr);
 #endif
 			break;
 		case cmdMovIntStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr += 2;
 			*(int*)(cmd.argument + vmLoadPointer(genStackPtr - 2)) = (int)(*genStackPtr);
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
 			*(int*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (int)(*genStackPtr);
 #endif
@@ -1254,22 +1254,22 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 		case cmdMovFloatStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr += 2;
 			*(float*)(cmd.argument + vmLoadPointer(genStackPtr - 2)) = (float)vmLoadDouble(genStackPtr);
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
 			*(float*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (float)vmLoadDouble(genStackPtr);
 #endif
 			break;
 		case cmdMovDorLStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr += 2;
 			vmStoreLong(cmd.argument + vmLoadPointer(genStackPtr - 2), vmLoadLong(genStackPtr));
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
 			vmStoreLong((char*)NULL + cmd.argument + *(genStackPtr-1), vmLoadLong(genStackPtr));
 #endif
@@ -1277,11 +1277,11 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		case cmdMovCmplxStk:
 		{
 #ifdef _M_X64
-			RUNTIME_ERROR(vmLoadPointer(genStackPtr) == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			char *start = cmd.argument + vmLoadPointer(genStackPtr);
 			genStackPtr += 2;
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			char *start = (char*)NULL + cmd.argument + *genStackPtr;
 			genStackPtr++;
 #endif
