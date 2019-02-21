@@ -51,7 +51,7 @@ void PrintConstant(InstructionVmLowerGraphContext &ctx, VmConstant *constant)
 	else if(constant->type == VmType::Long)
 		Print(ctx, "%lldl", constant->lValue);
 	else if(constant->type.type == VM_TYPE_POINTER && constant->container && constant->iValue)
-		Print(ctx, "%.*sv%04x+0x%x%s", FMT_ISTR(constant->container->name), constant->container->uniqueId, constant->iValue, HasAddressTaken(constant->container) ? "" : " (noalias)");
+		Print(ctx, "%.*s.v%04x+0x%x%s", FMT_ISTR(constant->container->name), constant->container->uniqueId, constant->iValue, HasAddressTaken(constant->container) ? "" : " (noalias)");
 	else if(constant->type.type == VM_TYPE_POINTER && constant->container)
 		Print(ctx, "%.*s.v%04x%s", FMT_ISTR(constant->container->name), constant->container->uniqueId, HasAddressTaken(constant->container) ? "" : " (noalias)");
 	else if(constant->type.type == VM_TYPE_POINTER)
