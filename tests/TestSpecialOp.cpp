@@ -78,6 +78,26 @@ do{}while(a);\r\n\
 return 1;";
 TEST_RESULT("auto ref as a condition 4", testAutoRefCondition4, "1");
 
+const char *testFunctionCondition1 =
+"void f(long x){}\r\n\
+if(f) return 1;\r\n\
+return 0;";
+TEST_RESULT("function as a condition 1", testFunctionCondition1, "1");
+
+const char *testFunctionCondition2 =
+"void f(long x){}\r\n\
+auto g(){ return f; }\r\n\
+if(g()) return 1;\r\n\
+return 0;";
+TEST_RESULT("function as a condition 2", testFunctionCondition2, "1");
+
+const char *testFunctionCondition3 =
+"void f(long x){}\r\n\
+void ref() g(){ return nullptr; }\r\n\
+if(g()) return 1;\r\n\
+return 0;";
+TEST_RESULT("function as a condition 3", testFunctionCondition3, "0");
+
 const char	*testPointerCompareNullptr1 = "int ref ref a; return a == nullptr;";
 TEST_RESULT("pointer comparison with nullptr 1", testPointerCompareNullptr1, "1");
 

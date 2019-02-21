@@ -1227,6 +1227,9 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 			if(value->type.type == VM_TYPE_FUNCTION_REF && instruction->type.type == VM_TYPE_FUNCTION_REF)
 				return value;
 
+			if(value->type.type == VM_TYPE_FUNCTION && instruction->type.type == VM_TYPE_INT)
+				return CreateConstantInt(ctx.allocator, NULL, value->fValue->function->functionIndex);
+
 			if(value->type.type == VM_TYPE_STRUCT)
 				return ExtractValue(ctx, value, 0, instruction->type);
 

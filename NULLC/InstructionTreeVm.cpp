@@ -4129,6 +4129,76 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 	module->currentBlock = NULL;
 }
 
+void LegalizeVmInstructions(ExpressionContext &ctx, VmModule *module, VmBlock *block)
+{
+	for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
+	{
+		if(curr->cmd == VM_INST_EXTRACT)
+		{
+			VmValue *target = curr->arguments[0];
+			VmConstant *offset = getType<VmConstant>(curr->arguments[1]);
+
+			VmInstruction *targetAsInst = getType<VmInstruction>(target);
+
+			if(targetAsInst && targetAsInst->cmd == VM_INST_CONSTRUCT)
+			{
+				bool replaced = false;
+
+				int pos = 0;
+
+				for(unsigned i = 0; i < targetAsInst->arguments.size(); i++)
+				{
+					VmValue *argument = targetAsInst->arguments[i];
+
+					if(offset->iValue == pos && argument->type.size == curr->type.size)
+					{
+						if(VmFunction *function = getType<VmFunction>(argument))
+						{
+							module->currentBlock = block;
+
+							block->insertPoint = curr;
+
+							argument = CreateBitcast(module, curr->source, VmType::Int, CreateFunctionAddress(module, curr->source, function->function));
+
+							block->insertPoint = block->lastInstruction;
+
+							module->currentBlock = NULL;
+						}
+
+						ReplaceValueUsersWith(module, curr, argument, NULL);
+
+						replaced = curr->users.empty();
+						break;
+					}
+
+					pos += argument->type.size;
+				}
+
+				if(replaced)
+					continue;
+			}
+
+			VmConstant *address = CreateAlloca(ctx, module, curr->source, GetBaseType(ctx, target->type), "construct");
+
+			FinalizeAlloca(ctx, module, address->container);
+
+			module->currentBlock = block;
+
+			block->insertPoint = curr;
+
+			CreateStore(ctx, module, curr->source, GetBaseType(ctx, target->type), address, target);
+
+			VmConstant *shiftAddress = CreateConstantPointer(module->allocator, curr->source, offset->iValue, address->container, ctx.GetReferenceType(GetBaseType(ctx, curr->type)), true);
+
+			ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, curr->source, GetBaseType(ctx, curr->type), shiftAddress, 0), NULL);
+
+			block->insertPoint = block->lastInstruction;
+
+			module->currentBlock = NULL;
+		}
+	}
+}
+
 void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *block)
 {
 	// Alias phi argument registers to the same storage
@@ -4180,6 +4250,9 @@ void RunLegalizeVm(ExpressionContext &ctx, VmModule *module, VmValue* value)
 	{
 		module->currentFunction = function;
 
+		// Legal code doesn't contain dead instructions
+		RunDeadCodeElimiation(ctx, module, function);
+
 		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
 			RunLegalizeVm(ctx, module, curr);
 
@@ -4187,12 +4260,11 @@ void RunLegalizeVm(ExpressionContext &ctx, VmModule *module, VmValue* value)
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
 	{
+		LegalizeVmInstructions(ctx, module, block);
+
 		LegalizeVmPhiStorage(ctx, module, block);
 
 		LegalizeVmRegisterUsage(ctx, module, block);
-
-		// Check constructs that require a temporary
-		// TODO
 	}
 }
 

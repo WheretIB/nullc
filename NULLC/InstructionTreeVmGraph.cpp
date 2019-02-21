@@ -53,6 +53,8 @@ void PrintType(InstructionVMGraphContext &ctx, VmType type)
 		Print(ctx, "long");
 	else if(type == VmType::Block)
 		Print(ctx, "label");
+	else if(type == VmType::Function)
+		Print(ctx, "function");
 	else if(type.type == VM_TYPE_POINTER)
 		Print(ctx, "ptr");
 	else if(type.type == VM_TYPE_FUNCTION_REF)

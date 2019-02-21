@@ -1359,7 +1359,7 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 				if(VmFunction *function = getType<VmFunction>(argument))
 					lowBlock->AddInstruction(ctx, inst->source, cmdFuncAddr, function->function->functionIndex);
 				else
-					LowerIntoBlock(ctx, lowBlock, inst->arguments[i]);
+					LowerIntoBlock(ctx, lowBlock, argument);
 			}
 			break;
 		case VM_INST_EXTRACT:
@@ -1443,6 +1443,10 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 		{
 			assert(!"unknown type");
 		}
+	}
+	else
+	{
+		assert(!"unknown type");
 	}
 }
 
