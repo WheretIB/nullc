@@ -623,80 +623,169 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 		if(!rhs)
 			return NULL;
 
+		assert(lhs->type == rhs->type);
+
+		TypeBase *resultType = ctx.ctx.typeInt;
+
+		if(lhs->type == ctx.ctx.typeLong || rhs->type == ctx.ctx.typeLong)
+			resultType = ctx.ctx.typeLong;
+
 		if(TryTakeLong(lhs, lhsValue) && TryTakeLong(rhs, rhsValue))
 		{
-			switch(op)
+			if(resultType == ctx.ctx.typeInt)
 			{
-			case SYN_BINARY_OP_ADD:
-				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue + rhsValue);
-			case SYN_BINARY_OP_SUB:
-				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue - rhsValue);
-			case SYN_BINARY_OP_MUL:
-				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue * rhsValue);
-			case SYN_BINARY_OP_DIV:
-				if(rhsValue == 0)
-					return ReportCritical(ctx, "ERROR: division by zero during constant folding");
+				int lhsValueInt = int(lhsValue);
+				int rhsValueInt = int(rhsValue);
 
-				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue / rhsValue);
-			case SYN_BINARY_OP_MOD:
-				if(rhsValue == 0)
-					return ReportCritical(ctx, "ERROR: modulus division by zero during constant folding");
-
-				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue % rhsValue);
-			case SYN_BINARY_OP_POW:
-				if(rhsValue < 0)
-					return ReportCritical(ctx, "ERROR: negative power on integer number in exponentiation during constant folding");
-
-				long long result, power;
-
-				result = 1;
-				power = rhsValue;
-
-				while(power)
+				switch(op)
 				{
-					if(power & 1)
+				case SYN_BINARY_OP_ADD:
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValueInt + rhsValueInt);
+				case SYN_BINARY_OP_SUB:
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValueInt - rhsValueInt);
+				case SYN_BINARY_OP_MUL:
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValueInt * rhsValueInt);
+				case SYN_BINARY_OP_DIV:
+					if(rhsValueInt == 0)
+						return ReportCritical(ctx, "ERROR: division by zero during constant folding");
+
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValueInt / rhsValueInt);
+				case SYN_BINARY_OP_MOD:
+					if(rhsValueInt == 0)
+						return ReportCritical(ctx, "ERROR: modulus division by zero during constant folding");
+
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValueInt % rhsValueInt);
+				case SYN_BINARY_OP_POW:
+					if(rhsValueInt < 0)
+						return ReportCritical(ctx, "ERROR: negative power on integer number in exponentiation during constant folding");
+
+					long long result, power;
+
+					result = 1;
+					power = rhsValueInt;
+
+					while(power)
 					{
-						result *= lhsValue;
-						power--;
+						if(power & 1)
+						{
+							result *= lhsValueInt;
+							power--;
+						}
+						lhsValueInt *= lhsValueInt;
+						power >>= 1;
 					}
-					lhsValue *= lhsValue;
-					power >>= 1;
+
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, result);
+				case SYN_BINARY_OP_SHL:
+					if(rhsValueInt < 0)
+						return ReportCritical(ctx, "ERROR: negative shift value");
+
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValueInt << rhsValueInt);
+				case SYN_BINARY_OP_SHR:
+					if(rhsValueInt < 0)
+						return ReportCritical(ctx, "ERROR: negative shift value");
+
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValueInt >> rhsValueInt);
+				case SYN_BINARY_OP_LESS:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValueInt < rhsValueInt);
+				case SYN_BINARY_OP_LESS_EQUAL:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValueInt <= rhsValueInt);
+				case SYN_BINARY_OP_GREATER:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValueInt > rhsValueInt);
+				case SYN_BINARY_OP_GREATER_EQUAL:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValueInt >= rhsValueInt);
+				case SYN_BINARY_OP_EQUAL:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValueInt == rhsValueInt);
+				case SYN_BINARY_OP_NOT_EQUAL:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValueInt != rhsValueInt);
+				case SYN_BINARY_OP_BIT_AND:
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValueInt & rhsValueInt);
+				case SYN_BINARY_OP_BIT_OR:
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValueInt | rhsValueInt);
+				case SYN_BINARY_OP_BIT_XOR:
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValueInt ^ rhsValueInt);
+				case SYN_BINARY_OP_LOGICAL_XOR:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, !!lhsValueInt != !!rhsValueInt);
+				default:
+					assert(!"unexpected type");
+					break;
 				}
+			}
+			else
+			{
+				switch(op)
+				{
+				case SYN_BINARY_OP_ADD:
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue + rhsValue);
+				case SYN_BINARY_OP_SUB:
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue - rhsValue);
+				case SYN_BINARY_OP_MUL:
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue * rhsValue);
+				case SYN_BINARY_OP_DIV:
+					if(rhsValue == 0)
+						return ReportCritical(ctx, "ERROR: division by zero during constant folding");
 
-				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, result);
-			case SYN_BINARY_OP_SHL:
-				if(rhsValue < 0)
-					return ReportCritical(ctx, "ERROR: negative shift value");
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue / rhsValue);
+				case SYN_BINARY_OP_MOD:
+					if(rhsValue == 0)
+						return ReportCritical(ctx, "ERROR: modulus division by zero during constant folding");
 
-				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue << rhsValue);
-			case SYN_BINARY_OP_SHR:
-				if(rhsValue < 0)
-					return ReportCritical(ctx, "ERROR: negative shift value");
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue % rhsValue);
+				case SYN_BINARY_OP_POW:
+					if(rhsValue < 0)
+						return ReportCritical(ctx, "ERROR: negative power on integer number in exponentiation during constant folding");
 
-				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue >> rhsValue);
-			case SYN_BINARY_OP_LESS:
-				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue < rhsValue);
-			case SYN_BINARY_OP_LESS_EQUAL:
-				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue <= rhsValue);
-			case SYN_BINARY_OP_GREATER:
-				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue > rhsValue);
-			case SYN_BINARY_OP_GREATER_EQUAL:
-				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue >= rhsValue);
-			case SYN_BINARY_OP_EQUAL:
-				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue == rhsValue);
-			case SYN_BINARY_OP_NOT_EQUAL:
-				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue != rhsValue);
-			case SYN_BINARY_OP_BIT_AND:
-				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue & rhsValue);
-			case SYN_BINARY_OP_BIT_OR:
-				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue | rhsValue);
-			case SYN_BINARY_OP_BIT_XOR:
-				return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue ^ rhsValue);
-			case SYN_BINARY_OP_LOGICAL_XOR:
-				return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, !!lhsValue != !!rhsValue);
-			default:
-				assert(!"unexpected type");
-				break;
+					long long result, power;
+
+					result = 1;
+					power = rhsValue;
+
+					while(power)
+					{
+						if(power & 1)
+						{
+							result *= lhsValue;
+							power--;
+						}
+						lhsValue *= lhsValue;
+						power >>= 1;
+					}
+
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, result);
+				case SYN_BINARY_OP_SHL:
+					if(rhsValue < 0)
+						return ReportCritical(ctx, "ERROR: negative shift value");
+
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue << rhsValue);
+				case SYN_BINARY_OP_SHR:
+					if(rhsValue < 0)
+						return ReportCritical(ctx, "ERROR: negative shift value");
+
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue >> rhsValue);
+				case SYN_BINARY_OP_LESS:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue < rhsValue);
+				case SYN_BINARY_OP_LESS_EQUAL:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue <= rhsValue);
+				case SYN_BINARY_OP_GREATER:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue > rhsValue);
+				case SYN_BINARY_OP_GREATER_EQUAL:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue >= rhsValue);
+				case SYN_BINARY_OP_EQUAL:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue == rhsValue);
+				case SYN_BINARY_OP_NOT_EQUAL:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, lhsValue != rhsValue);
+				case SYN_BINARY_OP_BIT_AND:
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue & rhsValue);
+				case SYN_BINARY_OP_BIT_OR:
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue | rhsValue);
+				case SYN_BINARY_OP_BIT_XOR:
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValue ^ rhsValue);
+				case SYN_BINARY_OP_LOGICAL_XOR:
+					return new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.ctx.typeBool, !!lhsValue != !!rhsValue);
+				default:
+					assert(!"unexpected type");
+					break;
+				}
 			}
 		}
 
@@ -710,6 +799,8 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 
 	if(ctx.ctx.IsFloatingPointType(lhs->type) && ctx.ctx.IsFloatingPointType(rhs->type))
 	{
+		assert(lhs->type == rhs->type);
+
 		double lhsValue = 0;
 		double rhsValue = 0;
 
