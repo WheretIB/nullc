@@ -163,3 +163,26 @@ const char	*testVarargs10 =
 auto x = sum;\r\n\
 return x(7);";
 TEST_RESULT("Variable argument function pointer with 0 arguments through var_args", testVarargs10, "7");
+
+const char	*testVarargs11 =
+"int sum(auto ref[] args)\r\n\
+{\r\n\
+	int r = 0;\r\n\
+	for(i in args)\r\n\
+		r += int(i);\r\n\
+	return r;\r\n\
+}\r\n\
+return sum();";
+TEST_RESULT("Variable argument function with 0 arguments through var_args 2", testVarargs11, "0");
+
+const char	*testVarargs12 =
+"int sum(auto ref[] args)\r\n\
+{\r\n\
+	int r = 0;\r\n\
+	for(i in args)\r\n\
+		r += int(i);\r\n\
+	return r;\r\n\
+}\r\n\
+auto x = sum;\r\n\
+return x();";
+TEST_RESULT("Variable argument function pointer with 0 arguments through var_args 2", testVarargs12, "0");

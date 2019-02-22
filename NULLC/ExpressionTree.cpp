@@ -4520,7 +4520,7 @@ bool HasMatchingArgumentNames(ArrayView<ArgumentData> &functionArguments, ArrayV
 	return true;
 }
 
-bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentData> functionArguments, ArrayView<ArgumentData> arguments, SmallArray<CallArgumentData, 16> &result, unsigned *extraRating, bool prepareValues)
+bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SynBase *source, ArrayView<ArgumentData> functionArguments, ArrayView<ArgumentData> arguments, SmallArray<CallArgumentData, 16> &result, unsigned *extraRating, bool prepareValues)
 {
 	result.clear();
 
@@ -4620,7 +4620,8 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, ArrayView<ArgumentD
 
 				if(prepareValues)
 				{
-					SynBase *source = result[0].value->source;
+					if(!result.empty())
+						source = result[0].value->source;
 
 					IntrusiveList<ExprBase> values;
 
@@ -5340,7 +5341,7 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 			SmallArray<CallArgumentData, 16> result(ctx.allocator);
 
 			// Handle named argument order, default argument values and variadic functions
-			if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, NULL, false))
+			if(!PrepareArgumentsForFunctionCall(ctx, source, function->arguments, arguments, result, NULL, false))
 			{
 				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here)");
 			}
@@ -5487,7 +5488,7 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 		unsigned extraRating = 0;
 
 		// Handle named argument order, default argument values and variadic functions
-		if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, &extraRating, false))
+		if(!PrepareArgumentsForFunctionCall(ctx, source, function->arguments, arguments, result, &extraRating, false))
 		{
 			ratings[i] = ~0u;
 			continue;
@@ -5644,7 +5645,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 	SmallArray<CallArgumentData, 16> result(ctx.allocator);
 
-	if(!PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, NULL, false))
+	if(!PrepareArgumentsForFunctionCall(ctx, source, function->arguments, arguments, result, NULL, false))
 		assert(!"unexpected");
 
 	TypeBase *parentType = NULL;
@@ -6146,7 +6147,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 
 		SmallArray<CallArgumentData, 16> result(ctx.allocator);
 
-		PrepareArgumentsForFunctionCall(ctx, function->arguments, arguments, result, NULL, true);
+		PrepareArgumentsForFunctionCall(ctx, source, function->arguments, arguments, result, NULL, true);
 
 		for(unsigned i = 0; i < result.size(); i++)
 			actualArguments.push_back(result[i].value);
@@ -6160,7 +6161,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 
 		SmallArray<CallArgumentData, 16> result(ctx.allocator);
 
-		if(!PrepareArgumentsForFunctionCall(ctx, functionArguments, arguments, result, NULL, true))
+		if(!PrepareArgumentsForFunctionCall(ctx, source, functionArguments, arguments, result, NULL, true))
 		{
 			if(allowFailure)
 				return NULL;
