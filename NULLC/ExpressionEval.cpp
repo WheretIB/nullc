@@ -2767,20 +2767,23 @@ ExprBase* EvaluateSwitch(ExpressionEvalContext &ctx, ExprSwitch *expression)
 		if(!AddInstruction(ctx))
 			return NULL;
 
-		ExprBase *value = Evaluate(ctx, currCase);
+		if(!matched)
+		{
+			ExprBase *value = Evaluate(ctx, currCase);
 
-		if(!value)
-			return NULL;
+			if(!value)
+				return NULL;
 
-		long long result;
-		if(!TryTakeLong(value, result))
-			return Report(ctx, "ERROR: failed to evaluate 'case' value");
+			long long result;
+			if(!TryTakeLong(value, result))
+				return Report(ctx, "ERROR: failed to evaluate 'case' value");
 
-		// Try next case
-		if(!result)
-			continue;
+			// Try next case
+			if(!result)
+				continue;
 
-		matched = true;
+			matched = true;
+		}
 
 		if(!Evaluate(ctx, currBlock))
 			return NULL;
@@ -2789,18 +2792,23 @@ ExprBase* EvaluateSwitch(ExpressionEvalContext &ctx, ExprSwitch *expression)
 		if(frame->breakDepth)
 		{
 			frame->breakDepth--;
-			break;
+
+			return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 		}
 	}
 
-	if(!matched && expression->defaultBlock)
+	if(expression->defaultBlock)
 	{
 		if(!Evaluate(ctx, expression->defaultBlock))
 			return NULL;
 
 		// On break, decrease depth and exit
 		if(frame->breakDepth)
+		{
 			frame->breakDepth--;
+
+			return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
+		}
 	}
 
 	return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));

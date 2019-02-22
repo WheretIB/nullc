@@ -234,3 +234,33 @@ for(int i = 0; i < 10; i++)\r\n\
 \r\n\
 return s;";
 TEST_RESULT("Continue from switch 2", testSwitchContinue2, "41")
+
+const char	*testSwitchFallthrough1 = 
+"int a = 5;\r\n\
+\r\n\
+int i = 0;\r\n\
+\r\n\
+switch(a)\r\n\
+{\r\n\
+case 5:\r\n\
+	i = 5;\r\n\
+case 2:\r\n\
+	i = 2;\r\n\
+}\r\n\
+return i;";
+TEST_RESULT("Switch test (fallthrough)", testSwitchFallthrough1, "2")
+
+const char	*testSwitchFallthrough2 = 
+"int a = 5;\r\n\
+\r\n\
+int i = 0;\r\n\
+\r\n\
+switch(a)\r\n\
+{\r\n\
+case 5:\r\n\
+	i = 5;\r\n\
+default:\r\n\
+	i = 2;\r\n\
+}\r\n\
+return i;";
+TEST_RESULT("Switch test (fallthrough to default)", testSwitchFallthrough2, "2")
