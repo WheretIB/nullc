@@ -62,10 +62,14 @@ int[][] xr = x;\r\n\
 return xr[1][3];";
 TEST_RUNTIME_FAIL("Array out of bounds error check 3", testBounds3, "ERROR: array index out of bounds");
 
-const char	*testInvalidFuncPtr = 
+const char	*testInvalidFuncPtr1 = 
 "int ref(int) a;\r\n\
 return a(5);";
-TEST_RUNTIME_FAIL("Invalid function pointer check", testInvalidFuncPtr, "ERROR: invalid function pointer");
+TEST_RUNTIME_FAIL("Invalid function pointer check 1", testInvalidFuncPtr1, "ERROR: invalid function pointer");
+
+const char	*testInvalidFuncPtr2 = 
+"int foo(){ return 2; } int x = 0; auto a = x ? foo : nullptr; return a();";
+TEST_RUNTIME_FAIL("Invalid function pointer check 2", testInvalidFuncPtr2, "ERROR: invalid function pointer");
 
 const char	*testAutoReferenceMismatch =
 "int a = 17;\r\n\

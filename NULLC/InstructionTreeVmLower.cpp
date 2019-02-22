@@ -934,7 +934,7 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 			else if(inst->type == VmType::Long)
 				helper = bitRetSimple | OTYPE_LONG;
 
-			if(target->cmd == VM_INST_CONSTRUCT)
+			if(target->cmd == VM_INST_CONSTRUCT && getType<VmFunction>(target->arguments[1]))
 			{
 				VmValue *context = target->arguments[0];
 				VmFunction *function = getType<VmFunction>(target->arguments[1]);
