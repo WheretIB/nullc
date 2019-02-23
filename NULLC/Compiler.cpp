@@ -34,19 +34,14 @@ int as_unsigned(short a);\r\n\
 long as_unsigned(int a);\r\n\
 \r\n\
 short short(char[] str);\r\n\
-void short:short(char[] str){ *this = short(str); }\r\n\
 char[] short:str();\r\n\
 int int(char[] str);\r\n\
-void int:int(char[] str){ *this = int(str); }\r\n\
 char[] int:str();\r\n\
 long long(char[] str);\r\n\
-void long:long(char[] str){ *this = long(str); }\r\n\
 char[] long:str();\r\n\
 float float(char[] str);\r\n\
-void float:float(char[] str){ *this = float(str); }\r\n\
 char[] float:str(int precision = 6, bool showExponent = false);\r\n\
 double double(char[] str);\r\n\
-void double:double(char[] str){ *this = double(str); }\r\n\
 char[] double:str(int precision = 6, bool showExponent = false);\r\n\
 \r\n\
 void ref __newS(int size, int type);\r\n\
