@@ -148,67 +148,67 @@ bool UseNonStaticTemplate(ExpressionTranslateContext &ctx, FunctionData *functio
 
 void TranslateTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 {
-	if(TypeVoid *typeVoid = getType<TypeVoid>(type))
+	if(isType<TypeVoid>(type))
 	{
 		Print(ctx, "void");
 	}
-	else if(TypeBool *typeBool = getType<TypeBool>(type))
+	else if(isType<TypeBool>(type))
 	{
 		Print(ctx, "bool");
 	}
-	else if(TypeChar *typeChar = getType<TypeChar>(type))
+	else if(isType<TypeChar>(type))
 	{
 		Print(ctx, "char");
 	}
-	else if(TypeShort *typeShort = getType<TypeShort>(type))
+	else if(isType<TypeShort>(type))
 	{
 		Print(ctx, "short");
 	}
-	else if(TypeInt *typeInt = getType<TypeInt>(type))
+	else if(isType<TypeInt>(type))
 	{
 		Print(ctx, "int");
 	}
-	else if(TypeLong *typeLong = getType<TypeLong>(type))
+	else if(isType<TypeLong>(type))
 	{
 		Print(ctx, "long long");
 	}
-	else if(TypeFloat *typeFloat = getType<TypeFloat>(type))
+	else if(isType<TypeFloat>(type))
 	{
 		Print(ctx, "float");
 	}
-	else if(TypeDouble *typeDouble = getType<TypeDouble>(type))
+	else if(isType<TypeDouble>(type))
 	{
 		Print(ctx, "double");
 	}
-	else if(TypeTypeID *typeTypeid = getType<TypeTypeID>(type))
+	else if(isType<TypeTypeID>(type))
 	{
 		Print(ctx, "unsigned");
 	}
-	else if(TypeFunctionID *typeFunctionID = getType<TypeFunctionID>(type))
+	else if(isType<TypeFunctionID>(type))
 	{
 		Print(ctx, "__function");
 	}
-	else if(TypeNullptr *typeNullptr = getType<TypeNullptr>(type))
+	else if(isType<TypeNullptr>(type))
 	{
 		Print(ctx, "__nullptr");
 	}
-	else if(TypeGeneric *typeGeneric = getType<TypeGeneric>(type))
+	else if(isType<TypeGeneric>(type))
 	{
 		assert(!"generic type TypeGeneric is not translated");
 	}
-	else if(TypeGenericAlias *typeGenericAlias = getType<TypeGenericAlias>(type))
+	else if(isType<TypeGenericAlias>(type))
 	{
 		assert(!"generic type TypeGenericAlias is not translated");
 	}
-	else if(TypeAuto *typeAuto = getType<TypeAuto>(type))
+	else if(isType<TypeAuto>(type))
 	{
 		assert(!"virtual type TypeAuto is not translated");
 	}
-	else if(TypeAutoRef *typeAutoRef = getType<TypeAutoRef>(type))
+	else if(isType<TypeAutoRef>(type))
 	{
 		Print(ctx, "NULLCRef");
 	}
-	else if(TypeAutoArray *typeAutoArray = getType<TypeAutoArray>(type))
+	else if(isType<TypeAutoArray>(type))
 	{
 		Print(ctx, "NULLCAutoArray");
 	}
@@ -233,11 +233,11 @@ void TranslateTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 		PrintEscapedName(ctx, typeFunction->name);
 		Print(ctx, ">");
 	}
-	else if(TypeGenericClassProto *typeGenericClassProto = getType<TypeGenericClassProto>(type))
+	else if(isType<TypeGenericClassProto>(type))
 	{
 		assert(!"generic type TypeGenericClassProto is not translated");
 	}
-	else if(TypeGenericClass *typeGenericClass = getType<TypeGenericClass>(type))
+	else if(isType<TypeGenericClass>(type))
 	{
 		assert(!"generic type TypeGenericClass is not translated");
 	}
@@ -249,15 +249,15 @@ void TranslateTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 	{
 		PrintEscapedName(ctx, typeEnum->name);
 	}
-	else if(TypeFunctionSet *typeFunctionSet = getType<TypeFunctionSet>(type))
+	else if(isType<TypeFunctionSet>(type))
 	{
 		assert(!"virtual type TypeFunctionSet is not translated");
 	}
-	else if(TypeArgumentSet *typeArgumentSet = getType<TypeArgumentSet>(type))
+	else if(isType<TypeArgumentSet>(type))
 	{
 		assert(!"virtual type TypeArgumentSet is not translated");
 	}
-	else if(TypeMemberSet *typeMemberSet = getType<TypeMemberSet>(type))
+	else if(isType<TypeMemberSet>(type))
 	{
 		assert(!"virtual type TypeMemberSet is not translated");
 	}
@@ -2627,7 +2627,7 @@ void Translate(ExpressionTranslateContext &ctx, ExprBase *expression)
 		TranslateGenericFunctionPrototype(ctx, expr);
 	else if(ExprFunctionAccess *expr = getType<ExprFunctionAccess>(expression))
 		TranslateFunctionAccess(ctx, expr);
-	else if(ExprFunctionOverloadSet *expr = getType<ExprFunctionOverloadSet>(expression))
+	else if(isType<ExprFunctionOverloadSet>(expression))
 		assert(!"miscompiled tree");
 	else if(ExprFunctionCall *expr = getType<ExprFunctionCall>(expression))
 		TranslateFunctionCall(ctx, expr);

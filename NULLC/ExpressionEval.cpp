@@ -173,7 +173,7 @@ bool CreateStore(ExpressionEvalContext &ctx, ExprBase *target, ExprBase *value)
 		return true;
 	}
 
-	if(ExprNullptrLiteral *expr = getType<ExprNullptrLiteral>(value))
+	if(isType<ExprNullptrLiteral>(value))
 	{
 		memset(ptr->ptr, 0, unsigned(value->type->size));
 		return true;
@@ -191,7 +191,7 @@ bool CreateStore(ExpressionEvalContext &ctx, ExprBase *target, ExprBase *value)
 		unsigned index = expr->data ? ctx.ctx.GetFunctionIndex(expr->data) + 1 : 0;
 		memcpy(ptr->ptr, &index, sizeof(unsigned));
 
-		if(ExprNullptrLiteral *value = getType<ExprNullptrLiteral>(expr->context))
+		if(isType<ExprNullptrLiteral>(expr->context))
 			memset(ptr->ptr + 4, 0, sizeof(void*));
 		else if(ExprPointerLiteral *value = getType<ExprPointerLiteral>(expr->context))
 			memcpy(ptr->ptr + 4, &value->ptr, sizeof(void*));
@@ -337,7 +337,7 @@ ExprBase* CreateLoad(ExpressionEvalContext &ctx, ExprBase *target)
 		return new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(target->source, type);
 	}
 
-	if(TypeFunction *functionType = getType<TypeFunction>(type))
+	if(isType<TypeFunction>(type))
 	{
 		unsigned index = 0;
 		memcpy(&index, ptr->ptr, sizeof(unsigned));
@@ -556,7 +556,7 @@ bool TryTakeTypeId(ExprBase *expression, TypeBase* &result)
 
 bool TryTakePointer(ExprBase *expression, void* &result)
 {
-	if(ExprNullptrLiteral *expr = getType<ExprNullptrLiteral>(expression))
+	if(isType<ExprNullptrLiteral>(expression))
 	{
 		result = 0;
 		return true;
@@ -858,7 +858,7 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 
 		void *lPtr = NULL;
 
-		if(ExprNullptrLiteral *value = getType<ExprNullptrLiteral>(lhs))
+		if(isType<ExprNullptrLiteral>(lhs))
 			lPtr = NULL;
 		else if(ExprPointerLiteral *value = getType<ExprPointerLiteral>(lhs))
 			lPtr = value->ptr;
@@ -867,7 +867,7 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 
 		void *rPtr = NULL;
 
-		if(ExprNullptrLiteral *value = getType<ExprNullptrLiteral>(rhs))
+		if(isType<ExprNullptrLiteral>(rhs))
 			rPtr = NULL;
 		else if(ExprPointerLiteral *value = getType<ExprPointerLiteral>(rhs))
 			rPtr = value->ptr;
@@ -1232,7 +1232,7 @@ ExprBase* EvaluateCast(ExpressionEvalContext &ctx, ExprTypeCast *expression)
 		{
 			TypeRef *refType = getType<TypeRef>(expression->type);
 
-			if(ExprNullptrLiteral *tmp = getType<ExprNullptrLiteral>(value))
+			if(isType<ExprNullptrLiteral>(value))
 				return CheckType(expression, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, expression->type));
 			
 			if(ExprPointerLiteral *tmp = getType<ExprPointerLiteral>(value))
@@ -1324,7 +1324,7 @@ ExprBase* EvaluateUnaryOp(ExpressionEvalContext &ctx, ExprUnaryOp *expression)
 	{
 		void *lPtr = NULL;
 
-		if(ExprNullptrLiteral *tmp = getType<ExprNullptrLiteral>(value))
+		if(isType<ExprNullptrLiteral>(value))
 			lPtr = NULL;
 		else if(ExprPointerLiteral *tmp = getType<ExprPointerLiteral>(value))
 			lPtr = tmp->ptr;
@@ -3024,7 +3024,7 @@ ExprBase* EvaluateModule(ExpressionEvalContext &ctx, ExprModule *expression)
 
 ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression)
 {
-	if(ExprError *expr = getType<ExprError>(expression))
+	if(isType<ExprError>(expression))
 		return Report(ctx, "ERROR: invalid expression");
 
 	if(ExprVoid *expr = getType<ExprVoid>(expression))
@@ -3126,7 +3126,7 @@ ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression)
 	if(ExprFunctionAccess *expr = getType<ExprFunctionAccess>(expression))
 		return EvaluateFunctionAccess(ctx, expr);
 
-	if(ExprFunctionOverloadSet *expr = getType<ExprFunctionOverloadSet>(expression))
+	if(isType<ExprFunctionOverloadSet>(expression))
 		assert(!"miscompiled tree");
 
 	if(ExprFunctionCall *expr = getType<ExprFunctionCall>(expression))

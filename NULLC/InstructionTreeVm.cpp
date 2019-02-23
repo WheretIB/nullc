@@ -1247,7 +1247,7 @@ void VmValue::RemoveUse(VmValue* user)
 			while(block->lastInstruction)
 				block->RemoveInstruction(block->lastInstruction);
 		}
-		else if(VmFunction *function = getType<VmFunction>(this))
+		else if(isType<VmFunction>(this))
 		{
 			// Do not remove functions
 		}

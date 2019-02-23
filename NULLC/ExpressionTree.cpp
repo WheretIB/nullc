@@ -495,7 +495,7 @@ namespace
 
 	void CheckNamespaceConflict(ExpressionContext &ctx, SynBase *source, NamespaceData *ns)
 	{
-		if(TypeBase **type = ctx.typeMap.find(ns->fullNameHash))
+		if(ctx.typeMap.find(ns->fullNameHash))
 			Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(ns->name));
 
 		if(VariableData **variable = ctx.variableMap.find(ns->nameHash))
@@ -2123,7 +2123,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 	if(type == ctx.typeAutoRef)
 	{
 		// type ref to auto ref conversion
-		if(TypeRef *valueType = getType<TypeRef>(value->type))
+		if(isType<TypeRef>(value->type))
 			return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, value, EXPR_CAST_PTR_TO_AUTO_PTR);
 
 		if(isFunctionArgument)
@@ -2152,7 +2152,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 	if(type == ctx.typeAutoArray)
 	{
 		// type[] to auto[] conversion
-		if(TypeUnsizedArray *valueType = getType<TypeUnsizedArray>(value->type))
+		if(isType<TypeUnsizedArray>(value->type))
 			return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, value, EXPR_CAST_UNSIZED_TO_AUTO_ARRAY);
 		
 		if(TypeArray *valueType = getType<TypeArray>(value->type))
@@ -2239,7 +2239,7 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase 
 
 ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs)
 {
-	if(ExprUnboxing *node = getType<ExprUnboxing>(lhs))
+	if(isType<ExprUnboxing>(lhs))
 	{
 		lhs = CreateCast(ctx, source, lhs, ctx.GetReferenceType(rhs->type), false);
 		lhs = new (ctx.get<ExprDereference>()) ExprDereference(source, rhs->type, lhs);
@@ -2823,12 +2823,12 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 
 TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = true, bool *failed = NULL)
 {
-	if(SynTypeAuto *node = getType<SynTypeAuto>(syntax))
+	if(isType<SynTypeAuto>(syntax))
 	{
 		return ctx.typeAuto;
 	}
 
-	if(SynTypeGeneric *node = getType<SynTypeGeneric>(syntax))
+	if(isType<SynTypeGeneric>(syntax))
 	{
 		return ctx.typeGeneric;
 	}
@@ -3639,7 +3639,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 	if(path.empty())
 	{
-		if(TypeBase* type = FindNextTypeFromScope(ctx.scope))
+		if(FindNextTypeFromScope(ctx.scope))
 		{
 			if(VariableData **variable = ctx.variableMap.find(InplaceStr("this").hash()))
 			{
@@ -3842,7 +3842,7 @@ ExprBase* AnalyzeDereference(ExpressionContext &ctx, SynDereference *syntax)
 		return new (ctx.get<ExprDereference>()) ExprDereference(syntax, type->subType, value);
 	}
 
-	if(TypeAutoRef *type = getType<TypeAutoRef>(value->type))
+	if(isType<TypeAutoRef>(value->type))
 	{
 		return new (ctx.get<ExprUnboxing>()) ExprUnboxing(syntax, ctx.typeAutoRef, value);
 	}
@@ -3971,7 +3971,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 		if(TypeArray *arrType = getType<TypeArray>(type))
 			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, arrType->length);
 
-		if(TypeUnsizedArray *arrType = getType<TypeUnsizedArray>(type))
+		if(isType<TypeUnsizedArray>(type))
 			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, -1);
 
 		Stop(ctx, source->pos, "ERROR: 'arraySize' can only be applied to an array type, but we have '%.*s'", FMT_ISTR(type->name));
@@ -5057,7 +5057,7 @@ TypeBase* MatchGenericType(ExpressionContext &ctx, SynBase *source, TypeBase *ma
 	}
 
 	// 'generic' match with 'type' results with 'type'
-	if(TypeGeneric *lhs = getType<TypeGeneric>(matchType))
+	if(isType<TypeGeneric>(matchType))
 	{
 		if(!strict)
 		{
@@ -5250,7 +5250,7 @@ TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, Typ
 		return type;
 
 	// Replace with alias type if there is a match, otherwise leave as generic
-	if(TypeGeneric *lhs = getType<TypeGeneric>(type))
+	if(isType<TypeGeneric>(type))
 		return type;
 
 	// Replace with alias type if there is a match, otherwise leave as generic
@@ -7673,7 +7673,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	}
 
 	// If the type was deduced, implement prototype now that it's known
-	if(FunctionData *prototype = ImplementPrototype(ctx, function))
+	if(ImplementPrototype(ctx, function))
 	{
 		TypeRef *refType = getType<TypeRef>(function->contextType);
 
@@ -9873,7 +9873,7 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return AnalyzeFunctionDefinition(ctx, node, NULL, NULL, IntrusiveList<MatchData>(), true, true, true);
 	}
 
-	if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(syntax))
+	if(isType<SynShortFunctionDefinition>(syntax))
 	{
 		Stop(ctx, syntax->pos, "ERROR: cannot infer type for inline function outside of the function call");
 	}
@@ -9905,13 +9905,13 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	if(SynTypeGenericInstance *node = getType<SynTypeGenericInstance>(syntax))
 		return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(node, ctx.typeTypeID, AnalyzeType(ctx, syntax));
 
-	if(SynTypeAuto *node = getType<SynTypeAuto>(syntax))
+	if(isType<SynTypeAuto>(syntax))
 		Stop(ctx, syntax->pos, "ERROR: cannot take typeid from auto type");
 
-	if(SynTypeAlias *node = getType<SynTypeAlias>(syntax))
+	if(isType<SynTypeAlias>(syntax))
 		Stop(ctx, syntax->pos, "ERROR: cannot take typeid from generic type");
 
-	if(SynTypeGeneric *node = getType<SynTypeGeneric>(syntax))
+	if(isType<SynTypeGeneric>(syntax))
 		Stop(ctx, syntax->pos, "ERROR: cannot take typeid from generic type");
 
 	Stop(ctx, syntax->pos, "ERROR: unknown expression type");
@@ -10426,7 +10426,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 				importedType->hasPointers = type.pointerCount != 0;
 
-				if(TypeStruct *structType = getType<TypeStruct>(importedType))
+				if(getType<TypeStruct>(importedType))
 				{
 					delayedTypes.push_back(DelayedType(i, currentConstant));
 

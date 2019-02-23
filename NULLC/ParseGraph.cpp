@@ -81,11 +81,11 @@ void PrintLeaveBlock(ParseGraphContext &ctx)
 
 void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 {
-	if(SynError *node = getType<SynError>(syntax))
+	if(isType<SynError>(syntax))
 	{
 		PrintIndented(ctx, name, "SynError()");
 	}
-	else if(SynNothing *node = getType<SynNothing>(syntax))
+	else if(isType<SynNothing>(syntax))
 	{
 		PrintIndented(ctx, name, "SynNothing()");
 	}
@@ -93,11 +93,11 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	{
 		PrintIndented(ctx, name, "SynIdentifier(%.*s)", FMT_ISTR(node->name));
 	}
-	else if(SynTypeAuto *node = getType<SynTypeAuto>(syntax))
+	else if(isType<SynTypeAuto>(syntax))
 	{
 		PrintIndented(ctx, name, "SynTypeAuto()");
 	}
-	else if(SynTypeGeneric *node = getType<SynTypeGeneric>(syntax))
+	else if(isType<SynTypeGeneric>(syntax))
 	{
 		PrintIndented(ctx, name, "SynTypeGeneric()");
 	}
@@ -183,7 +183,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	{
 		PrintIndented(ctx, name, "SynNumber(%.*s)", FMT_ISTR(node->value));
 	}
-	else if(SynNullptr *node = getType<SynNullptr>(syntax))
+	else if(isType<SynNullptr>(syntax))
 	{
 		PrintIndented(ctx, name, "SynNullptr()");
 	}

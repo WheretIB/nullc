@@ -412,27 +412,6 @@ enum asmOperType
 	OTYPE_INT,
 };
 
-static int		stackTypeSize[] = { 4, 8, -1, 8 };
-
-// Conversion of asmStackType to appropriate asmOperType
-static asmOperType operTypeForStackType[] = { OTYPE_INT, OTYPE_LONG, OTYPE_COMPLEX, OTYPE_DOUBLE };
-
-// Conversion of asmStackType to appropriate asmDataType
-static asmDataType dataTypeForStackType[] = { DTYPE_INT, DTYPE_LONG, (asmDataType)0, DTYPE_DOUBLE };
-
-// Conversion of asmDataType to appropriate asmStackType
-static asmStackType stackTypeForDataTypeArr[] = { STYPE_INT, STYPE_INT, STYPE_INT, STYPE_LONG, STYPE_DOUBLE, STYPE_DOUBLE, STYPE_COMPLEX_TYPE };
-__forceinline asmStackType stackTypeForDataType(asmDataType dt){ return stackTypeForDataTypeArr[dt / 4]; }
-
-static InstructionCode cmdPushType[] = { cmdPushChar, cmdPushShort, cmdPushInt, cmdPushDorL, cmdPushFloat, cmdPushDorL, cmdPushCmplx };
-static InstructionCode cmdPushTypeStk[] = { cmdPushCharStk, cmdPushShortStk, cmdPushIntStk, cmdPushDorLStk, cmdPushFloatStk, cmdPushDorLStk, cmdPushCmplxStk };
-
-static InstructionCode cmdMovType[] = { cmdMovChar, cmdMovShort, cmdMovInt, cmdMovDorL, cmdMovFloat, cmdMovDorL, cmdMovCmplx };
-static InstructionCode cmdMovTypeStk[] = { cmdMovCharStk, cmdMovShortStk, cmdMovIntStk, cmdMovDorLStk, cmdMovFloatStk, cmdMovDorLStk, cmdMovCmplxStk };
-
-static InstructionCode cmdIncType[] = { cmdIncD, cmdNop, cmdIncL, cmdIncI };
-static InstructionCode cmdDecType[] = { cmdDecD, cmdNop, cmdDecL, cmdDecI };
-
 // Constants for RetFlag creation from different bits
 const unsigned int	bitRetError		= 1 << 7;	// User forgot to return a value, abort execution
 const unsigned int	bitRetSimple	= 1 << 15;	// Function returns a simple value

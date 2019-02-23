@@ -729,7 +729,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 		symbolStorageSize += type->name.length() + 1;
 
-		if(TypeUnsizedArray *typeUnsizedArray = getType<TypeUnsizedArray>(type))
+		if(isType<TypeUnsizedArray>(type))
 			continue;
 
 		else if(TypeClass *typeClass = getType<TypeClass>(type))
