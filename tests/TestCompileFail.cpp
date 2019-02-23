@@ -32,6 +32,10 @@ void RunCompileFailTests()
 	TEST_FOR_FAIL("Hex overflow", "return 0xbeefbeefbeefbeefb;", "ERROR: overflow in hexadecimal constant");
 	TEST_FOR_FAIL("Oct overflow", "return 03333333333333333333333;", "ERROR: overflow in octal constant");
 	TEST_FOR_FAIL("Bin overflow", "return 10000000000000000000000000000000000000000000000000000000000000000b;", "ERROR: overflow in binary constant");
+	TEST_FOR_FAIL("Int overflow 1", "return 2147483648;", "ERROR: overflow in integer constant");
+	TEST_FOR_FAIL("Int overflow 2", "return -2147483648;", "ERROR: overflow in integer constant");
+	TEST_FOR_FAIL("Long overflow 1", "return 9223372036854775808l;", "ERROR: overflow in integer constant");
+	TEST_FOR_FAIL("Long overflow 2", "return 100000000000000000000000000000000000l;", "ERROR: overflow in integer constant");
 	TEST_FOR_FAIL("Logical not on double", "return !0.5;", "ERROR: unary operation '!' is not supported on 'double'");
 	TEST_FOR_FAIL("Binary not on double", "return ~0.4;", "ERROR: unary operation '~' is not supported on 'double'");
 

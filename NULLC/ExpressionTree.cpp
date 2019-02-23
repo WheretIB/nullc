@@ -104,7 +104,7 @@ namespace
 		return a;
 	}
 
-	long long ParseLong(ExpressionContext &ctx, const char* s, const char* e, int base)
+	unsigned long long ParseLong(ExpressionContext &ctx, const char* s, const char* e, int base)
 	{
 		unsigned long long res = 0;
 
@@ -115,7 +115,12 @@ namespace
 			if(digit < 0 || digit >= base)
 				Stop(ctx, p, "ERROR: digit %d is not allowed in base %d", digit, base);
 
+			unsigned long long prev = res;
+
 			res = res * base + digit;
+
+			if(res < prev)
+				Stop(ctx, s, "ERROR: overflow in integer constant");
 		}
 
 		return res;
@@ -3064,7 +3069,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 		if(int(value.length() - pos) > 16)
 			Stop(ctx, value.begin, "ERROR: overflow in hexadecimal constant");
 
-		long long num = ParseLong(ctx, value.begin + pos, value.end, 16);
+		long long num = (long long)ParseLong(ctx, value.begin + pos, value.end, 16);
 
 		// If number overflows integer number, create long number
 		if(int(num) == num)
@@ -3094,7 +3099,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 			if(int(value.length() - pos) > 64)
 				Stop(ctx, value.begin, "ERROR: overflow in binary constant");
 
-			long long num = ParseLong(ctx, value.begin + pos, value.end, 2);
+			long long num = (long long)ParseLong(ctx, value.begin + pos, value.end, 2);
 
 			// If number overflows integer number, create long number
 			if(int(num) == num)
@@ -3104,9 +3109,12 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 		}
 		else if(syntax->suffix == InplaceStr("l"))
 		{
-			long long num = ParseLong(ctx, value.begin, value.end, 10);
+			unsigned long long num = ParseLong(ctx, value.begin, value.end, 10);
 
-			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(syntax, ctx.typeLong, num);
+			if(num > 9223372036854775807ull)
+				Stop(ctx, value.begin, "ERROR: overflow in integer constant");
+
+			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(syntax, ctx.typeLong, (long long)num);
 		}
 		else if(!syntax->suffix.empty())
 		{
@@ -3124,7 +3132,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 			if(int(value.length() - pos) > 22 || (int(value.length() - pos) > 21 && value.begin[pos] != '1'))
 				Stop(ctx, value.begin, "ERROR: overflow in octal constant");
 
-			long long num = ParseLong(ctx, value.begin, value.end, 8);
+			long long num = (long long)ParseLong(ctx, value.begin, value.end, 8);
 
 			// If number overflows integer number, create long number
 			if(int(num) == num)
@@ -3133,7 +3141,10 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(syntax, ctx.typeLong, num);
 		}
 
-		long long num = ParseLong(ctx, value.begin, value.end, 10);
+		long long num = (long long)ParseLong(ctx, value.begin, value.end, 10);
+
+		if(int(num) != num)
+			Stop(ctx, value.begin, "ERROR: overflow in integer constant");
 
 		return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(syntax, ctx.typeInt, num);
 	}

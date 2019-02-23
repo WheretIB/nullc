@@ -310,7 +310,7 @@ TEST_RESULT("Test string conversion 3", testStringConversion3, "1");
 const char *testStringConversion4 = "int i = 2147483647; return i.str() == \"2147483647\" && int(i.str()) == i;";
 TEST_RESULT("Test string conversion 4", testStringConversion4, "1");
 
-const char *testStringConversion5 = "int i = -2147483648; return i.str() == \"-2147483648\" && int(i.str()) == i;";
+const char *testStringConversion5 = "int i = -2147483647 - 1; return i.str() == \"-2147483648\" && int(i.str()) == i;";
 TEST_RESULT("Test string conversion 5", testStringConversion5, "1");
 
 const char *testStringConversion6 = "long i = 0; return i.str() == \"0\" && long(i.str()) == i;";
@@ -325,13 +325,13 @@ TEST_RESULT("Test string conversion 8", testStringConversion8, "1");
 const char *testStringConversion9 = "long i = 2147483647; return i.str() == \"2147483647\" && long(i.str()) == i;";
 TEST_RESULT("Test string conversion 9", testStringConversion9, "1");
 
-const char *testStringConversion10 = "long i = -2147483648; return i.str() == \"-2147483648\" && long(i.str()) == i;";
+const char *testStringConversion10 = "long i = -2147483647 - 1; return i.str() == \"-2147483648\" && long(i.str()) == i;";
 TEST_RESULT("Test string conversion 10", testStringConversion10, "1");
 
 const char *testStringConversion11 = "long i = 9223372036854775807l; return i.str() == \"9223372036854775807\" && long(i.str()) == i;";
 TEST_RESULT("Test string conversion 11", testStringConversion11, "1");
 
-const char *testStringConversion12 = "long i = -9223372036854775808l; return i.str() == \"-9223372036854775808\" && long(i.str()) == i;";
+const char *testStringConversion12 = "long i = -9223372036854775807l - 1; return i.str() == \"-9223372036854775808\" && long(i.str()) == i;";
 TEST_RESULT("Test string conversion 12", testStringConversion12, "1");
 
 const char *testStringConversion13 = "return short(\"120000\") == 120000;";
