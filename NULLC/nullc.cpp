@@ -453,14 +453,17 @@ nullres nullcLinkCode(const char *bytecode)
 	outputCtx.tempBuf = tempOutputBuf;
 	outputCtx.tempBufSize = NULLC_TEMP_OUTPUT_BUFFER_SIZE;
 
-	outputCtx.stream = outputCtx.openStream("link.txt");
-
-	if(outputCtx.stream)
+	if(enableLogFiles)
 	{
-		linker->SaveListing(outputCtx);
+		outputCtx.stream = outputCtx.openStream("link.txt");
 
-		outputCtx.closeStream(outputCtx.stream);
-		outputCtx.stream = NULL;
+		if(outputCtx.stream)
+		{
+			linker->SaveListing(outputCtx);
+
+			outputCtx.closeStream(outputCtx.stream);
+			outputCtx.stream = NULL;
+		}
 	}
 #else
 	(void)bytecode;
