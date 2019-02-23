@@ -679,6 +679,13 @@ const char	*testFuzzingCrash5 =
 "return 1; for(;1;) return 0;";
 TEST_RESULT("Fuzzing crash result 5", testFuzzingCrash5, "1");
 
+const char	*testFuzzingCrash6 =
+"int f(){ return 1; }\r\n\
+int i = f();\r\n\
+i ^= !16150l;\r\n\
+return i;";
+TEST_RESULT("Fuzzing crash result 6", testFuzzingCrash6, "1");
+
 const char	*testManualCast1 =
 "auto s = \"hello\"; char[] b = char[](s); return b[2];";
 TEST_RESULT("Manual type cast 1", testManualCast1, "108");

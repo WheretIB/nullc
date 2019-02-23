@@ -3421,7 +3421,7 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 			if(consts[0]->type == VmType::Int)
 				ReplaceValueUsersWith(module, inst, CreateConstantInt(module->allocator, inst->source, !consts[0]->iValue), &module->constantPropagations);
 			else if(consts[0]->type == VmType::Long)
-				ReplaceValueUsersWith(module, inst, CreateConstantLong(module->allocator, inst->source, !consts[0]->lValue), &module->constantPropagations);
+				ReplaceValueUsersWith(module, inst, CreateConstantInt(module->allocator, inst->source, !consts[0]->lValue), &module->constantPropagations);
 			break;
 		case VM_INST_INDEX:
 			{
