@@ -478,7 +478,7 @@ struct VmModule
 template<typename T>
 bool isType(VmValue *node)
 {
-	return node->typeID == T::myTypeID;
+	return node && node->typeID == T::myTypeID;
 }
 
 template<typename T>

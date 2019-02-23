@@ -174,7 +174,7 @@ struct SynBase
 template<typename T>
 bool isType(SynBase *node)
 {
-	return node->typeID == T::myTypeID;
+	return node && node->typeID == T::myTypeID;
 }
 
 template<typename T>
