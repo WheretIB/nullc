@@ -5553,6 +5553,10 @@ void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* 
 
 					errPos += SafeSprintf(errPos, errorBufSize - unsigned(errPos - errorBuf), "]");
 				}
+				else
+				{
+					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")");
+				}
 			}
 			else
 			{
