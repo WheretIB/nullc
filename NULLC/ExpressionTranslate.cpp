@@ -1885,6 +1885,9 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 				SafeSprintf(ctx.errorBuf + currLen, ctx.errorBufSize - currLen, " [in module '%.*s']", FMT_ISTR(data->name));
 			}
 
+			if(needDelete)
+				NULLC::dealloc(fileContent);
+
 			return false;
 		}
 
@@ -1897,6 +1900,9 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		if(!compilerCtx.outputCtx.stream)
 		{
 			SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' output file '%s' could not be opened", FMT_ISTR(data->name), filePath);
+
+			if(needDelete)
+				NULLC::dealloc(fileContent);
 
 			return false;
 		}
@@ -1916,11 +1922,17 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 			compilerCtx.outputCtx.closeStream(compilerCtx.outputCtx.stream);
 			compilerCtx.outputCtx.stream = NULL;
 
+			if(needDelete)
+				NULLC::dealloc(fileContent);
+
 			return false;
 		}
 
 		compilerCtx.outputCtx.closeStream(compilerCtx.outputCtx.stream);
 		compilerCtx.outputCtx.stream = NULL;
+
+		if(needDelete)
+			NULLC::dealloc(fileContent);
 	}
 
 	return true;
