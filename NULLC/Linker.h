@@ -3,10 +3,11 @@
 #define NULLC_LINKER_H
 
 #include "stdafx.h"
-#include "HashMap.h"
-#include "InstructionSet.h"
 
 #include "Bytecode.h"
+#include "HashMap.h"
+#include "InstructionSet.h"
+#include "Output.h"
 
 const int LINK_ERROR_BUFFER_SIZE = 512;
 
@@ -18,7 +19,7 @@ public:
 
 	void	CleanCode();
 	bool	LinkCode(const char *bytecode);
-	bool	SaveListing(const char *fileName);
+	bool	SaveListing(OutputContext &output);
 
 	const char*	GetLinkError();
 

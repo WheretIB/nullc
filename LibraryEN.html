@@ -189,7 +189,7 @@ function toggleView(a, b, c)
 	</div>
 	<div class="function">
 		<p class="code">
-<span class="rword">nullres</span>		<span class="func">nullcInitCustomAlloc</span>(<span class="rword">void</span>* (<span class="comment">NCDECL</span> *allocFunc)(<span class="rword">int</span>), <span class="rword">void</span> (<span class="comment">NCDECL</span> *deallocFunc)(<span class="rword">void</span>*), <span class="rword">const char</span>* importPath);<br />
+<span class="rword">nullres</span>		<span class="func">nullcInitCustomAlloc</span>(<span class="rword">void</span>* (*allocFunc)(<span class="rword">int</span>), <span class="rword">void</span> (*deallocFunc)(<span class="rword">void</span>*), <span class="rword">const char</span>* importPath);<br />
 		</p>
 		Function initializes NULLC library with specified allocation and deallocation functions.<br />
 		-<b>allocFunc</b> parameter sets the allocation function. It must be _cdecl function accepting one argument (allocation size) and returning pointer to allocated memory block.<br />
@@ -198,7 +198,7 @@ function toggleView(a, b, c)
 	</div>
 	<div class="function">
 		<p class="code">
-<span class="rword">void</span>		<span class="func">nullcSetFileReadHandler</span>(<span class="rword">const void</span>* (<span class="comment">NCDECL</span> *fileLoadFunc)(<span class="rword">const char</span>* name, <span class="rword">unsigned int</span>* size, <span class="rword">int</span>* nullcShouldFreePtr));<br />
+<span class="rword">void</span>		<span class="func">nullcSetFileReadHandler</span>(<span class="rword">const void</span>* (*fileLoadFunc)(<span class="rword">const char</span>* name, <span class="rword">unsigned int</span>* size, <span class="rword">int</span>* nullcShouldFreePtr));<br />
 		</p>
 		Function allows to set a handler for module file read operation. By default, fopen/ftell/fread/fclose function are used.<br />
 		-<b>fileLoadFunc</b> parameter sets the handler function. It must be _cdecl function accepting three arguments and returning pointer to a memory, where file contents are placed.<br />
@@ -249,7 +249,7 @@ function toggleView(a, b, c)
 	</div>
 	<div class="function">
 		<p class="code">
-<span class="rword">nullres</span>		<span class="func">nullcBindModuleFunction</span>(<span class="rword">const char</span>* module, <span class="rword">void</span> (<span class="comment">NCDECL</span> *ptr)(), <span class="rword">const char</span>* name, <span class="rword">int</span> index);
+<span class="rword">nullres</span>		<span class="func">nullcBindModuleFunction</span>(<span class="rword">const char</span>* module, <span class="rword">void</span> (*ptr)(), <span class="rword">const char</span>* name, <span class="rword">int</span> index);
 		</p>
 		Function is used to bind unresolved module functions to external C functions.<br />
 		Read more abount C function binding in <a href="#interop_bind">interoperability</a> section.<br />
@@ -458,7 +458,7 @@ function toggleView(a, b, c)
 	</div>
 	<div class="function">
 		<p class="code">
-<span class="rword">nullres</span>			<span class="func">nullcTranslateToC</span>(<span class="rword">const char</span>* fileName, <span class="rword">const char</span>* mainName, <span class="rword">void</span> (<span class="comment">NCDECL</span> *addDependency)(<span class="rword">const char</span> *fileName));
+<span class="rword">nullres</span>			<span class="func">nullcTranslateToC</span>(<span class="rword">const char</span>* fileName, <span class="rword">const char</span>* mainName, <span class="rword">void</span> (*addDependency)(<span class="rword">const char</span> *fileName));
 </p>
 		This function saved analog of C++ code of last compiled code into file.<br />
 	</div>

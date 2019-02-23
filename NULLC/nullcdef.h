@@ -1,12 +1,6 @@
 #ifndef NULLC_DEF_INCLUDED
 #define NULLC_DEF_INCLUDED
 
-#ifdef _MSC_VER
-	#define NCDECL _cdecl
-#else
-	#define NCDECL
-#endif
-
 #pragma pack(push, 4)
 
 // Wrapper over NULLC array, for use in external functions
@@ -44,6 +38,8 @@ struct NULLCAutoArray
 #define NULLC_MAX_TYPE_NAME_LENGTH 8192
 #define NULLC_DEFAULT_GLOBAL_MEMORY_LIMIT 1024 * 1024 * 1024
 #define NULLC_ERROR_BUFFER_SIZE 64 * 1024
+#define NULLC_OUTPUT_BUFFER_SIZE 8 * 1024
+#define NULLC_TEMP_OUTPUT_BUFFER_SIZE 16 * 1024
 #define NULLC_MAX_GENERIC_INSTANCE_DEPTH 64
 #define NULLC_MAX_TYPE_SIZE	256 * 1024 * 1024
 

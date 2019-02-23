@@ -1,18 +1,15 @@
 #pragma once
 
-#include <stdio.h>
-
 #include "Array.h"
 #include "ExpressionTree.h"
+#include "Output.h"
 
 struct FunctionData;
 
 struct ExpressionTranslateContext
 {
-	ExpressionTranslateContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), loopIdStack(allocator), allocator(allocator)
+	ExpressionTranslateContext(ExpressionContext &ctx, OutputContext &output, Allocator *allocator): ctx(ctx), output(output), loopIdStack(allocator), allocator(allocator)
 	{
-		file = 0;
-
 		mainName = "main";
 
 		indent = "\t";
@@ -20,10 +17,6 @@ struct ExpressionTranslateContext
 		errorPos = 0;
 		errorBuf = 0;
 		errorBufSize = 0;
-
-		outBuf = 0;
-		outBufSize = 0;
-		outBufPos = 0;
 
 		depth = 0;
 
@@ -37,7 +30,7 @@ struct ExpressionTranslateContext
 
 	ExpressionContext &ctx;
 
-	FILE *file;
+	OutputContext &output;
 
 	const char *mainName;
 
@@ -46,10 +39,6 @@ struct ExpressionTranslateContext
 	const char *errorPos;
 	char *errorBuf;
 	unsigned errorBufSize;
-
-	char *outBuf;
-	unsigned outBufSize;
-	unsigned outBufPos;
 
 	unsigned depth;
 

@@ -9,87 +9,12 @@
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
-void PrintBuffered(ExpressionTranslateContext &ctx, char ch)
-{
-	ctx.outBuf[ctx.outBufPos++] = ch;
-
-	if(ctx.outBufPos == ctx.outBufSize)
-	{
-		fwrite(ctx.outBuf, 1, ctx.outBufPos, ctx.file);
-		ctx.outBufPos = 0;
-	}
-}
-
-void PrintBuffered(ExpressionTranslateContext &ctx, const char *str)
-{
-	unsigned length = unsigned(strlen(str));
-
-	if(ctx.outBufPos + length < ctx.outBufSize)
-	{
-		memcpy(ctx.outBuf + ctx.outBufPos, str, length);
-		ctx.outBufPos += length;
-	}
-	else
-	{
-		unsigned remainder = ctx.outBufSize - ctx.outBufPos;
-
-		memcpy(ctx.outBuf + ctx.outBufPos, str, remainder);
-		ctx.outBufPos += remainder;
-
-		fwrite(ctx.outBuf, 1, ctx.outBufPos, ctx.file);
-		ctx.outBufPos = 0;
-
-		str += remainder;
-		length -= remainder;
-
-		if(!length)
-			return;
-
-		if(length < ctx.outBufSize)
-		{
-			memcpy(ctx.outBuf + ctx.outBufPos, str, length);
-			ctx.outBufPos += length;
-		}
-		else
-		{
-			fwrite(str, 1, length, ctx.file);
-		}
-	}
-}
-
-void PrintBuffered(ExpressionTranslateContext &ctx, const char *format, va_list args)
-{
-	const int tmpSize = 1024;
-	char tmp[tmpSize];
-
-	int length = vsnprintf(tmp, tmpSize - 1, format, args);
-
-	if(length < 0 || length > tmpSize - 1)
-	{
-		fwrite(ctx.outBuf, 1, ctx.outBufPos, ctx.file);
-		ctx.outBufPos = 0;
-
-		vfprintf(ctx.file, format, args);
-	}
-	else
-	{
-		PrintBuffered(ctx, tmp);
-	}
-}
-
-void FlushBuffered(ExpressionTranslateContext &ctx)
-{
-	if(ctx.outBufPos)
-		fwrite(ctx.outBuf, 1, ctx.outBufPos, ctx.file);
-	ctx.outBufPos = 0;
-}
-
 NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(ExpressionTranslateContext &ctx, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
 
-	PrintBuffered(ctx, format, args);
+	ctx.output.Print(format, args);
 
 	va_end(args);
 }
@@ -97,12 +22,12 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(ExpressionTranslateContext &ctx, const
 void PrintIndent(ExpressionTranslateContext &ctx)
 {
 	for(unsigned i = 0; i < ctx.depth; i++)
-		PrintBuffered(ctx, ctx.indent);
+		ctx.output.Print(ctx.indent);
 }
 
 void PrintLine(ExpressionTranslateContext &ctx)
 {
-	PrintBuffered(ctx, "\n");
+	ctx.output.Print("\n");
 }
 
 NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintIndentedLine(ExpressionTranslateContext &ctx, const char *format, ...)
@@ -112,7 +37,7 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintIndentedLine(ExpressionTranslateContext
 	va_list args;
 	va_start(args, format);
 
-	PrintBuffered(ctx, format, args);
+	ctx.output.Print(format, args);
 
 	va_end(args);
 
@@ -126,9 +51,9 @@ void PrintEscapedName(ExpressionTranslateContext &ctx, InplaceStr name)
 		char ch = name.begin[i];
 
 		if(ch == ' ' || ch == '[' || ch == ']' || ch == '(' || ch == ')' || ch == ',' || ch == ':' || ch == '$' || ch == '<' || ch == '>' || ch == '.')
-			PrintBuffered(ctx, "_");
+			ctx.output.Print("_");
 		else
-			PrintBuffered(ctx, ch);
+			ctx.output.Print(ch);
 	}
 }
 
@@ -1937,6 +1862,16 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		compilerCtx.errorBuf = ctx.errorBuf;
 		compilerCtx.errorBufSize = ctx.errorBufSize;
 
+		compilerCtx.outputCtx.openStream = ctx.output.openStream;
+		compilerCtx.outputCtx.writeStream = ctx.output.writeStream;
+		compilerCtx.outputCtx.closeStream = ctx.output.closeStream;
+
+		compilerCtx.outputCtx.outputBuf = ctx.output.outputBuf;
+		compilerCtx.outputCtx.outputBufSize = ctx.output.outputBufSize;
+
+		compilerCtx.outputCtx.tempBuf = ctx.output.tempBuf;
+		compilerCtx.outputCtx.tempBufSize = ctx.output.tempBufSize;
+
 		ExprModule* nestedModule = AnalyzeModuleFromSource(compilerCtx, fileContent);
 
 		if(!nestedModule)
@@ -1953,11 +1888,13 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 			return false;
 		}
 
-		ExpressionTranslateContext nested(compilerCtx.exprCtx, compilerCtx.allocator);
+		ExpressionTranslateContext nested(compilerCtx.exprCtx, compilerCtx.outputCtx, compilerCtx.allocator);
 
-		nested.file = fopen(targetName, "w");
+		assert(!compilerCtx.outputCtx.stream);
 
-		if(!nested.file)
+		compilerCtx.outputCtx.stream = compilerCtx.outputCtx.openStream(targetName);
+
+		if(!compilerCtx.outputCtx.stream)
 		{
 			SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' output file '%s' could not be opened", FMT_ISTR(data->name), filePath);
 
@@ -1971,21 +1908,19 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		nested.errorBuf = ctx.errorBuf;
 		nested.errorBufSize = ctx.errorBufSize;
 
-		char outBufTmp[1024];
-		nested.outBuf = outBufTmp;
-		nested.outBufSize = 1024;
-
 		if(!TranslateModule(nested, nestedModule, dependencies))
 		{
 			unsigned currLen = (unsigned)strlen(ctx.errorBuf);
 			SafeSprintf(ctx.errorBuf + currLen, ctx.errorBufSize - currLen, " [in module '%.*s']", FMT_ISTR(data->name));
 
-			fclose(nested.file);
+			compilerCtx.outputCtx.closeStream(compilerCtx.outputCtx.stream);
+			compilerCtx.outputCtx.stream = NULL;
 
 			return false;
 		}
 
-		fclose(nested.file);
+		compilerCtx.outputCtx.closeStream(compilerCtx.outputCtx.stream);
+		compilerCtx.outputCtx.stream = NULL;
 	}
 
 	return true;
@@ -2554,7 +2489,7 @@ bool TranslateModule(ExpressionTranslateContext &ctx, ExprModule *expression, Sm
 
 	PrintIndentedLine(ctx, "}");
 
-	FlushBuffered(ctx);
+	ctx.output.Flush();
 
 	return true;
 }

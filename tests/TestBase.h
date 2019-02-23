@@ -76,7 +76,6 @@ namespace Tests
 	extern const char *lastMessage;
 
 	extern double timeCompile;
-	extern double timeGetListing;
 	extern double timeGetBytecode;
 	extern double timeTranslate;
 	extern double timeExprEvaluate;
@@ -85,16 +84,24 @@ namespace Tests
 	extern double timeLinkCode;
 	extern double timeRun;
 
+	extern long long totalOutput;
+
 	extern const char		*varData;
 	extern unsigned int		variableCount;
 	extern ExternVarInfo	*varInfo;
 	extern const char		*symbols;
 
+	extern bool doSaveTranslation;
 	extern bool doTranslation;
 
 	extern bool	testExecutor[TEST_TARGET_COUNT];
 
-	extern const void* (NCDECL *fileLoadFunc)(const char*, unsigned int*, int*);
+	extern const void* (*fileLoadFunc)(const char*, unsigned int*, int*);
+
+	extern bool enableLogFiles;
+	extern void* (*openStreamFunc)(const char* name);
+	extern void (*writeStreamFunc)(void *stream, const char *data, unsigned size);
+	extern void (*closeStreamFunc)(void* stream);
 
 	void*	FindVar(const char* name);
 	bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = 0, bool execShouldFail = false);

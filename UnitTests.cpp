@@ -80,7 +80,7 @@ nullres CompileFile(const char* fileName)
 	return nullcCompile(content);
 }
 
-int RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsigned int*, int*), bool runSpeedTests)
+int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int*, int*), bool runSpeedTests, bool runOutputTests)
 {
 	Tests::messageVerbose = verbose;
 	Tests::fileLoadFunc = fileLoadFunc;
@@ -112,6 +112,17 @@ int RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsig
 	printf("Finished in %d\r\n", clock() - tStart);
 */
 
+	Tests::enableLogFiles = runOutputTests;
+
+	// To enable real log files during tests
+	/*
+	Tests::doSaveTranslation = false;
+
+	Tests::openStreamFunc = 0;
+	Tests::writeStreamFunc = 0;
+	Tests::closeStreamFunc = 0;
+	*/
+
 	// Init NULLC
 #ifdef NO_CUSTOM_ALLOCATOR
 	nullcInit(MODULE_PATH);
@@ -119,6 +130,7 @@ int RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsig
 	nullcInitCustomAlloc(testAlloc, testDealloc, MODULE_PATH);
 #endif
 	nullcSetFileReadHandler(Tests::fileLoadFunc);
+	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 
 	nullcInitTypeinfoModule();
 	nullcInitDynamicModule();
@@ -130,6 +142,7 @@ int RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsig
 	nullcInitCustomAlloc(testAlloc, testDealloc, MODULE_PATH);
 #endif
 	nullcSetFileReadHandler(Tests::fileLoadFunc);
+	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();
@@ -201,7 +214,6 @@ int RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsig
 	}
 
 	printf("Compilation time: %f\n", Tests::timeCompile);
-	printf("Get listing time: %f\n", Tests::timeGetListing);
 	printf("Get bytecode time: %f\n", Tests::timeGetBytecode);
 	printf("Expression evaluation time: %f\n", Tests::timeExprEvaluate);
 	printf("Instruction evaluation time: %f\n", Tests::timeInstEvaluate);
@@ -209,6 +221,8 @@ int RunTests(bool verbose, const void* (NCDECL *fileLoadFunc)(const char*, unsig
 	printf("Clean time: %f\n", Tests::timeClean);
 	printf("Link time: %f\n", Tests::timeLinkCode);
 	printf("Run time: %f\n", Tests::timeRun);
+
+	printf("Total log output: %lld\n", Tests::totalOutput);
 
 	printf("Passed %d of %d tests\n", allPassed, allTests);
 

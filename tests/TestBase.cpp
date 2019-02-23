@@ -34,7 +34,6 @@ namespace Tests
 	const char *testMatch = NULL;
 
 	double timeCompile = 0.0;
-	double timeGetListing = 0.0;
 	double timeGetBytecode = 0.0;
 	double timeTranslate = 0.0;
 	double timeExprEvaluate = 0.0;
@@ -43,12 +42,14 @@ namespace Tests
 	double timeLinkCode = 0.0;
 	double timeRun = 0.0;
 
+	long long totalOutput = 0;
+
 	const char		*varData = NULL;
 	unsigned int	variableCount = 0;
 	ExternVarInfo	*varInfo = NULL;
 	const char		*symbols = NULL;
 
-	bool doSaveListing = false;
+	bool doSaveTranslation = true;
 	bool doTranslation = false;
 	bool doExprEvaluation = true;
 	bool doInstEvaluation = true;
@@ -67,7 +68,32 @@ namespace Tests
 #endif
 	};
 
-	const void* (NCDECL *fileLoadFunc)(const char*, unsigned int*, int*) = 0;
+	const void* (*fileLoadFunc)(const char*, unsigned int*, int*) = 0;
+
+	void* OpenStream(const char *name)
+	{
+		(void)name;
+
+		return new int;
+	}
+
+	void WriteStream(void *stream, const char *data, unsigned size)
+	{
+		(void)stream;
+		(void)data;
+
+		totalOutput += size;
+	}
+
+	void CloseStream(void* stream)
+	{
+		delete (int*)stream;
+	}
+
+	bool enableLogFiles = true;
+	void* (*openStreamFunc)(const char* name) = OpenStream;
+	void (*writeStreamFunc)(void *stream, const char *data, unsigned size) = WriteStream;
+	void (*closeStreamFunc)(void* stream) = CloseStream;
 
 	FastVector<char*> translationDependencies;
 
@@ -216,12 +242,6 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 	timeCompile += myGetPreciseTime() - time;
 	time = myGetPreciseTime();
 
-	if(doSaveListing)
-		nullcSaveListing("asm.txt");
-
-	timeGetListing += myGetPreciseTime() - time;
-	time = myGetPreciseTime();
-
 	if(!good)
 	{
 		if(message && !messageVerbose)
@@ -237,7 +257,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		timeGetBytecode += myGetPreciseTime() - time;
 		time = myGetPreciseTime();
 
-		if(executor == NULLC_VM && !execShouldFail && doTranslation)
+		if(executor == NULLC_VM && !execShouldFail && doSaveTranslation)
 		{
 			for(unsigned i = 0; i < translationDependencies.size(); i++)
 				free(translationDependencies[i]);

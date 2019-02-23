@@ -11,7 +11,7 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(ExpressionGraphContext &ctx, const cha
 	va_list args;
 	va_start(args, format);
 
-	vfprintf(ctx.file, format, args);
+	ctx.output.Print(format, args);
 
 	va_end(args);
 }
@@ -19,7 +19,7 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(ExpressionGraphContext &ctx, const cha
 void PrintIndent(ExpressionGraphContext &ctx)
 {
 	for(unsigned i = 0; i < ctx.depth; i++)
-		fprintf(ctx.file, "  ");
+		ctx.output.Print("  ");
 }
 
 NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintIndented(ExpressionGraphContext &ctx, InplaceStr name, TypeBase *type, const char *format, ...)
@@ -27,19 +27,25 @@ NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintIndented(ExpressionGraphContext &ctx, I
 	PrintIndent(ctx);
 
 	if(!name.empty())
-		fprintf(ctx.file, "%.*s: ", FMT_ISTR(name));
+	{
+		ctx.output.Print(name.begin, unsigned(name.end - name.begin));
+		ctx.output.Print(": ");
+	}
 
 	if(type)
-		fprintf(ctx.file, "%.*s ", FMT_ISTR(type->name));
+	{
+		ctx.output.Print(type->name.begin, unsigned(type->name.end - type->name.begin));
+		ctx.output.Print(" ");
+	}
 
 	va_list args;
 	va_start(args, format);
 
-	vfprintf(ctx.file, format, args);
+	ctx.output.Print(format, args);
 
 	va_end(args);
 
-	fprintf(ctx.file, "\n");
+	ctx.output.Print("\n");
 }
 
 NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintEnterBlock(ExpressionGraphContext &ctx, InplaceStr name, TypeBase *type, const char *format, ...)
@@ -47,19 +53,25 @@ NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintEnterBlock(ExpressionGraphContext &ctx,
 	PrintIndent(ctx);
 
 	if(!name.empty())
-		fprintf(ctx.file, "%.*s: ", FMT_ISTR(name));
+	{
+		ctx.output.Print(name.begin, unsigned(name.end - name.begin));
+		ctx.output.Print(": ");
+	}
 
 	if(type)
-		fprintf(ctx.file, "%.*s ", FMT_ISTR(type->name));
+	{
+		ctx.output.Print(type->name.begin, unsigned(type->name.end - type->name.begin));
+		ctx.output.Print(" ");
+	}
 
 	va_list args;
 	va_start(args, format);
 
-	vfprintf(ctx.file, format, args);
+	ctx.output.Print(format, args);
 
 	va_end(args);
 
-	fprintf(ctx.file, "{\n");
+	ctx.output.Print("{\n");
 
 	ctx.depth++;
 }
@@ -69,12 +81,18 @@ void PrintEnterBlock(ExpressionGraphContext &ctx, InplaceStr name, TypeBase *typ
 	PrintIndent(ctx);
 
 	if(!name.empty())
-		fprintf(ctx.file, "%.*s: ", FMT_ISTR(name));
+	{
+		ctx.output.Print(name.begin, unsigned(name.end - name.begin));
+		ctx.output.Print(": ");
+	}
 
 	if(type)
-		fprintf(ctx.file, "%.*s ", FMT_ISTR(type->name));
+	{
+		ctx.output.Print(type->name.begin, unsigned(type->name.end - type->name.begin));
+		ctx.output.Print(" ");
+	}
 
-	fprintf(ctx.file, "{\n");
+	ctx.output.Print("{\n");
 
 	ctx.depth++;
 }
@@ -85,7 +103,7 @@ void PrintLeaveBlock(ExpressionGraphContext &ctx)
 
 	PrintIndent(ctx);
 
-	fprintf(ctx.file, "}\n");
+	ctx.output.Print("}\n");
 }
 
 bool ContainsData(ScopeData *scope, bool checkImported)
@@ -872,28 +890,52 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *name)
 {
 	PrintGraph(ctx, expression, InplaceStr(name));
+
+	ctx.output.Flush();
 }
 
 void DumpGraph(ExprBase *tree)
 {
-	ExpressionGraphContext exprGraphCtx;
+	OutputContext outputCtx;
 
-	exprGraphCtx.file = fopen("expr_graph.txt", "w");
+	char outputBuf[4096];
+	outputCtx.outputBuf = outputBuf;
+	outputCtx.outputBufSize = 4096;
+
+	char tempBuf[4096];
+	outputCtx.tempBuf = tempBuf;
+	outputCtx.tempBufSize = 4096;
+
+	outputCtx.stream = OutputContext::FileOpen("expr_graph.txt");
+	outputCtx.writeStream = OutputContext::FileWrite;
+
+	ExpressionGraphContext exprGraphCtx(outputCtx);
 
 	PrintGraph(exprGraphCtx, tree, "");
 
-	fclose(exprGraphCtx.file);
+	OutputContext::FileClose(outputCtx.stream);
 }
 
 void DumpGraph(ScopeData *scope)
 {
-	ExpressionGraphContext exprGraphCtx;
+	OutputContext outputCtx;
 
-	exprGraphCtx.file = fopen("expr_graph.txt", "w");
+	char outputBuf[4096];
+	outputCtx.outputBuf = outputBuf;
+	outputCtx.outputBufSize = 4096;
+
+	char tempBuf[4096];
+	outputCtx.tempBuf = tempBuf;
+	outputCtx.tempBufSize = 4096;
+
+	outputCtx.stream = OutputContext::FileOpen("expr_graph.txt");
+	outputCtx.writeStream = OutputContext::FileWrite;
+
+	ExpressionGraphContext exprGraphCtx(outputCtx);
 
 	PrintGraph(exprGraphCtx, scope, true);
 
 	PrintGraph(exprGraphCtx, scope, false);
 
-	fclose(exprGraphCtx.file);
+	OutputContext::FileClose(outputCtx.stream);
 }

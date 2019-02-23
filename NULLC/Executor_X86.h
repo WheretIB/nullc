@@ -5,6 +5,7 @@
 #include "Executor_Common.h"
 #include "InstructionSet.h"
 #include "Instruction_X86.h"
+#include "Output.h"
 
 class ExecutorX86
 {
@@ -15,8 +16,8 @@ public:
 	bool	Initialize();
 
 	void	ClearNative();
-	bool	TranslateToNative();
-	void	SaveListing(const char *fileName);
+	bool	TranslateToNative(bool enableLogFiles, OutputContext &output);
+	void	SaveListing(OutputContext &output);
 
 	void	Run(unsigned int functionID, const char *arguments);
 	void	Stop(const char* error);

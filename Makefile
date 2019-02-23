@@ -154,7 +154,7 @@ all: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/tes
 ifeq ($(config),coverage)
 test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/testrun/.dummy \
     bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
-	./TestRun
+	./TestRun -o
 	gcov -o temp NULLC/BinaryCache.cpp NULLC/Bytecode.cpp NULLC/Compiler.cpp NULLC/Executor_Common.cpp NULLC/Executor.cpp NULLC/ExpressionEval.cpp NULLC/ExpressionGraph.cpp NULLC/ExpressionTranslate.cpp NULLC/ExpressionTree.cpp NULLC/InstructionTreeVm.cpp NULLC/InstructionTreeVmCommon.cpp NULLC/InstructionTreeVmEval.cpp NULLC/InstructionTreeVmGraph.cpp NULLC/InstructionTreeVmLower.cpp NULLC/InstructionTreeVmLowerGraph.cpp NULLC/Lexer.cpp NULLC/Linker.cpp NULLC/nullc.cpp NULLC/ParseGraph.cpp NULLC/ParseTree.cpp NULLC/stdafx.cpp NULLC/StdLib.cpp NULLC/StrAlgo.cpp NULLC/TypeTree.cpp
 else
 test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/testrun/.dummy \
@@ -361,15 +361,3 @@ TestRun: ${TEST_OBJECTS} bin/libnullc.a
 
 bin/nullclib:
 	bin/nullcl -o bin/nullclib.ncm Modules/img/canvas.nc -m img.canvas Modules/win/window_ex.nc -m win.window_ex Modules/win/window.nc -m win.window Modules/std/algorithm.nc -m std.algorithm  Modules/std/typeinfo.nc -m std.typeinfo Modules/std/file.nc -m std.file Modules/std/io.nc -m std.io Modules/std/string.nc -m std.string Modules/std/vector.nc -m std.vector Modules/std/list.nc -m std.list Modules/std/map.nc -m std.map Modules/std/hashmap.nc -m std.hashmap Modules/std/math.nc -m std.math Modules/std/time.nc -m std.time Modules/std/random.nc -m std.random Modules/std/range.nc -m std.range Modules/std/gc.nc -m std.gc Modules/std/dynamic.nc -m std.dynamic Modules/ext/pugixml.nc -m ext.pugixml
-
-
-#~ g++ -c -g -W -D NULLC_NO_EXECUTOR
-#~
-#~ Building NULLC compiler-only lib
-#~ ar rcs bin/libnullc_cl.a temp/BinaryCache.o temp/Bytecode.o temp/Callbacks.o temp/CodeInfo.o temp/Compiler.o temp/Lexer.o temp/nullc.o temp/Parser.o temp/stdafx.o temp/StrAlgo.o temp/SyntaxTree.o
-#~ Building ConsoleCalc application
-#~ g++ -g -W -Lbin -o bin/ConsoleCalc.elf ConsoleCalc/ConsoleCalc.cpp -lnullc
-#~ Building nullcl application
-#~ g++ -g -W -Lbin -o bin/nullcl.elf nullcl/main.cpp -lnullc_cl
-#~ Building UnitTest application
-#~ g++ -g -W -Lbin -o TestRun.elf TestRun.cpp UnitTests.cpp -lnullc

@@ -13,7 +13,7 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(InstructionVMGraphContext &ctx, const 
 	va_list args;
 	va_start(args, format);
 
-	vfprintf(ctx.file, format, args);
+	ctx.output.Print(format, args);
 
 	va_end(args);
 }
@@ -21,12 +21,12 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(InstructionVMGraphContext &ctx, const 
 void PrintIndent(InstructionVMGraphContext &ctx)
 {
 	for(unsigned i = 0; i < ctx.depth; i++)
-		fprintf(ctx.file, "  ");
+		ctx.output.Print("  ");
 }
 
 void PrintLine(InstructionVMGraphContext &ctx)
 {
-	fprintf(ctx.file, "\n");
+	ctx.output.Print("\n");
 }
 
 NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintLine(InstructionVMGraphContext &ctx, const char *format, ...)
@@ -34,7 +34,7 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintLine(InstructionVMGraphContext &ctx, co
 	va_list args;
 	va_start(args, format);
 
-	vfprintf(ctx.file, format, args);
+	ctx.output.Print(format, args);
 
 	va_end(args);
 
@@ -483,13 +483,27 @@ void PrintGraph(InstructionVMGraphContext &ctx, VmModule *module)
 	PrintLine(ctx, "// Control flow simplifications: %d", module->controlFlowSimplifications);
 	PrintLine(ctx, "// Load store propagation: %d", module->loadStorePropagations);
 	PrintLine(ctx, "// Common subexpression eliminations: %d", module->commonSubexprEliminations);
+
+	ctx.output.Flush();
 }
 
 void DumpGraph(VmModule *module)
 {
-	InstructionVMGraphContext instGraphCtx;
+	OutputContext outputCtx;
 
-	instGraphCtx.file = fopen("inst_graph.txt", "w");
+	char outputBuf[4096];
+	outputCtx.outputBuf = outputBuf;
+	outputCtx.outputBufSize = 4096;
+
+	char tempBuf[4096];
+	outputCtx.tempBuf = tempBuf;
+	outputCtx.tempBufSize = 4096;
+
+	outputCtx.stream = OutputContext::FileOpen("inst_graph.txt");
+	outputCtx.writeStream = OutputContext::FileWrite;
+
+	InstructionVMGraphContext instGraphCtx(outputCtx);
+
 	instGraphCtx.showUsers = true;
 	instGraphCtx.displayAsTree = false;
 	instGraphCtx.showFullTypes = true;
@@ -497,5 +511,5 @@ void DumpGraph(VmModule *module)
 
 	PrintGraph(instGraphCtx, module);
 
-	fclose(instGraphCtx.file);
+	OutputContext::FileClose(outputCtx.stream);
 }

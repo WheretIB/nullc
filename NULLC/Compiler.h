@@ -13,11 +13,26 @@
 #include "InstructionTreeVmEval.h"
 #include "InstructionTreeVmLower.h"
 #include "InstructionTreeVmLowerGraph.h"
+#include "Output.h"
 
 struct CompilerContext
 {
-	CompilerContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): allocator(allocator), code(0), errorPos(0), errorBuf(0), errorBufSize(0), parseCtx(allocator, activeImports), synModule(0), exprCtx(allocator), exprModule(0), vmModule(0), instFinalizeCtx(exprCtx, allocator)
+	CompilerContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): allocator(allocator), parseCtx(allocator, activeImports), exprCtx(allocator), instFinalizeCtx(exprCtx, allocator)
 	{
+		code = 0;
+
+		errorPos = 0;
+		errorBuf = 0;
+		errorBufSize = 0;
+
+		synModule = 0;
+
+		exprModule = 0;
+
+		vmModule = 0;
+
+		vmLoweredModule = 0;
+
 		enableLogFiles = false;
 	}
 
@@ -29,6 +44,8 @@ struct CompilerContext
 	char *errorBuf;
 	unsigned errorBufSize;
 
+	OutputContext outputCtx;
+
 	ParseContext parseCtx;
 	SynModule *synModule;
 
@@ -36,6 +53,8 @@ struct CompilerContext
 	ExprModule *exprModule;
 
 	VmModule *vmModule;
+
+	VmLoweredModule *vmLoweredModule;
 
 	InstructionVmFinalizeContext instFinalizeCtx;
 
@@ -52,9 +71,9 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode);
 
 bool SaveListing(CompilerContext &ctx, const char *fileName);
 
-bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (NCDECL *addDependency)(const char *fileName));
+bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (*addDependency)(const char *fileName));
 
 char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports);
 char* BuildModuleFromPath(Allocator *allocator, InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports);
 
-bool AddModuleFunction(Allocator *allocator, const char* module, void (NCDECL *ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize);
+bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize);

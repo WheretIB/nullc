@@ -1,17 +1,15 @@
 #pragma once
 
-#include <stdio.h>
+#include "Output.h"
 
 struct VmLoweredModule;
 struct InstructionVmFinalizeContext;
 
 struct InstructionVmLowerGraphContext
 {
-	InstructionVmLowerGraphContext()
+	InstructionVmLowerGraphContext(OutputContext &output): output(output)
 	{
 		code = 0;
-
-		file = 0;
 
 		lastStart = 0;
 		lastStartOffset = 0;
@@ -23,7 +21,7 @@ struct InstructionVmLowerGraphContext
 
 	const char *code;
 
-	FILE *file;
+	OutputContext &output;
 
 	const char *lastStart;
 	unsigned lastStartOffset;

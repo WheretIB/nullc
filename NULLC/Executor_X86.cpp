@@ -20,8 +20,6 @@
 
 namespace NULLC
 {
-	extern bool enableLogFiles;
-
 	// Parameter stack range
 	void	*stackBaseAddress;
 	void	*stackEndAddress;	// if NULL, range is not upper bound (until allocation fails)
@@ -957,7 +955,7 @@ void ExecutorX86::ClearNative()
 	oldFunctionSize = 0;
 }
 
-bool ExecutorX86::TranslateToNative()
+bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 {
 	execError[0] = 0;
 
@@ -1032,8 +1030,19 @@ bool ExecutorX86::TranslateToNative()
 	// Once again, mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
 	codeJumpTargets.push_back(false);
 
-	if(NULLC::enableLogFiles)
-		SaveListing("asmX86.txt");
+	if(enableLogFiles)
+	{
+		assert(!output.stream);
+		output.stream = output.openStream("asmX86.txt");
+
+		if(output.stream)
+		{
+			SaveListing(output);
+
+			output.closeStream(output.stream);
+			output.stream = NULL;
+		}
+	}
 
 #ifdef NULLC_OPTIMIZE_X86
 	// Second optimization pass, just feed generated instructions again
@@ -1126,8 +1135,19 @@ bool ExecutorX86::TranslateToNative()
 	}
 #endif
 
-	if(NULLC::enableLogFiles)
-		SaveListing("asmX86_opt.txt");
+	if(enableLogFiles)
+	{
+		assert(!output.stream);
+		output.stream = output.openStream("asmX86_opt.txt");
+
+		if(output.stream)
+		{
+			SaveListing(output);
+
+			output.closeStream(output.stream);
+			output.stream = NULL;
+		}
+	}
 
 	codeJumpTargets.pop_back();
 
@@ -1631,17 +1651,10 @@ bool ExecutorX86::TranslateToNative()
 	return true;
 }
 
-void ExecutorX86::SaveListing(const char *fileName)
+void ExecutorX86::SaveListing(OutputContext &output)
 {
-	static unsigned int instCount = 0;
-	for(unsigned int i = 0; i < instList.size(); i++)
-	{
-		if(instList[i].name != o_none && instList[i].name != o_other)
-			instCount++;
-	}
-
-	FILE *fAsm = fopen(fileName, "wb");
 	char instBuf[128];
+
 	for(unsigned int i = 0; i < instList.size(); i++)
 	{
 		if(instList[i].name == o_other)
@@ -1649,8 +1662,8 @@ void ExecutorX86::SaveListing(const char *fileName)
 
 		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
 		{
-			fprintf(fAsm, "; ------------------- Invalidation ----------------\r\n");
-			fprintf(fAsm, "0x%x: ; %4d\r\n", 0xc0000000 | (instList[i].instID - 1), instList[i].instID - 1);
+			output.Print("; ------------------- Invalidation ----------------\n");
+			output.Printf("0x%x: ; %4d\n", 0xc0000000 | (instList[i].instID - 1), instList[i].instID - 1);
 		}
 
 		if(instList[i].instID && instList[i].instID - 1 < exCode.size())
@@ -1660,14 +1673,16 @@ void ExecutorX86::SaveListing(const char *fileName)
 			char buf[256];
 			cmd.Decode(buf);
 
-			fprintf(fAsm, "; %4d: %s\r\n", instList[i].instID - 1, buf);
+			output.Printf("; %4d: %s\n", instList[i].instID - 1, buf);
 		}
 
 		instList[i].Decode(instBuf);
 
-		fprintf(fAsm, "%s\r\n", instBuf);
+		output.Print(instBuf);
+		output.Print('\n');
 	}
-	fclose(fAsm);
+
+	output.Flush();
 }
 
 const char* ExecutorX86::GetResult()

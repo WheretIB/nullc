@@ -1,21 +1,23 @@
 #pragma once
 
-#include <stdio.h>
+#include "Output.h"
 
 struct SynBase;
 
 struct ParseGraphContext
 {
-	ParseGraphContext()
+	ParseGraphContext(OutputContext &output): output(output)
 	{
-		file = 0;
-
 		depth = 0;
 	}
 
-	FILE *file;
+	OutputContext &output;
 
 	unsigned depth;
+
+private:
+	ParseGraphContext(const ParseGraphContext&);
+	ParseGraphContext& operator=(const ParseGraphContext&);
 };
 
 void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name);

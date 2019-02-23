@@ -33,7 +33,7 @@
 	#include "../NULLC/includes/window.h"
 #endif
 
-typedef nullres (*externalInit)(nullres (*)(const char*, const char*), nullres (*)(const char*, void (NCDECL*)(), const char*, int));
+typedef nullres (*externalInit)(nullres (*)(const char*, const char*), nullres (*)(const char*, void (*)(), const char*, int));
 
 int main(int argc, char** argv)
 {

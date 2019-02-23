@@ -262,6 +262,7 @@
     <ClInclude Include="nullc_debug.h" />
     <ClInclude Include="nullc_remote.h" />
     <ClInclude Include="nullcdef.h" />
+    <ClInclude Include="Output.h" />
     <ClInclude Include="ParseGraph.h" />
     <ClInclude Include="ParseTree.h" />
     <ClInclude Include="Pool.h" />

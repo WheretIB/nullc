@@ -12,12 +12,12 @@ extern "C"
 /*				NULLC initialization and termination					*/
 
 nullres		nullcInit(const char* importPath);
-nullres		nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocFunc)(void*), const char* importPath);
+nullres		nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*), const char* importPath);
 
 void		nullcSetImportPath(const char* importPath);
-void		nullcSetFileReadHandler(const void* (NCDECL *fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr));
+void		nullcSetFileReadHandler(const void* (*fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr));
 void		nullcSetGlobalMemoryLimit(unsigned limit);
-void		nullcSetEnableLogFiles(int enable);
+void		nullcSetEnableLogFiles(int enable, void* (*openStream)(const char* name), void (*writeStream)(void *stream, const char *data, unsigned size), void (*closeStream)(void* stream));
 
 void		nullcTerminate();
 
@@ -35,7 +35,7 @@ nullres		nullcSetJiTStack(void* start, void* end, unsigned flagMemoryAllocated);
 #endif
 
 /*	Used to bind unresolved module functions to external C functions. Function index is the number of a function overload	*/
-nullres		nullcBindModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index);
+nullres		nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index);
 
 /*	Builds module and saves its binary into binary cache	*/
 nullres		nullcLoadModuleBySource(const char* module, const char* code);
@@ -153,7 +153,7 @@ unsigned	nullcGetBytecodeNoCache(char **bytecode);
 nullres		nullcSaveListing(const char *fileName);
 
 /*	This function saved analog of C++ code of last compiled code into file	*/
-nullres		nullcTranslateToC(const char *fileName, const char *mainName, void (NCDECL *addDependency)(const char *fileName));
+nullres		nullcTranslateToC(const char *fileName, const char *mainName, void (*addDependency)(const char *fileName));
 
 /*	Clean all accumulated bytecode	*/
 void		nullcClean();

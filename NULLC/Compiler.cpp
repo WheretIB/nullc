@@ -427,13 +427,18 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 
 	if(ctx.enableLogFiles && ctx.synModule)
 	{
-		ParseGraphContext parseGraphCtx;
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("syntax_graph.txt");
+		
+		if(ctx.outputCtx.stream)
+		{
+			ParseGraphContext parseGraphCtx(ctx.outputCtx);
 
-		parseGraphCtx.file = fopen("syntax_graph.txt", "w");
+			PrintGraph(parseGraphCtx, ctx.synModule, "");
 
-		PrintGraph(parseGraphCtx, ctx.synModule, "");
-
-		fclose(parseGraphCtx.file);
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
 	}
 
 	if(!ctx.synModule || parseCtx.errorCount != 0)
@@ -455,13 +460,18 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 
 	if(ctx.enableLogFiles && ctx.exprModule)
 	{
-		ExpressionGraphContext exprGraphCtx;
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("expr_graph.txt");
 
-		exprGraphCtx.file = fopen("expr_graph.txt", "w");
+		if(ctx.outputCtx.stream)
+		{
+			ExpressionGraphContext exprGraphCtx(ctx.outputCtx);
 
-		PrintGraph(exprGraphCtx, ctx.exprModule, "");
+			PrintGraph(exprGraphCtx, ctx.exprModule, "");
 
-		fclose(exprGraphCtx.file);
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
 	}
 
 	if(!ctx.exprModule || exprCtx.errorCount != 0)
@@ -500,17 +510,23 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 
 	if(ctx.enableLogFiles)
 	{
-		InstructionVMGraphContext instGraphCtx;
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph.txt");
 
-		instGraphCtx.file = fopen("inst_graph.txt", "w");
-		instGraphCtx.showUsers = true;
-		instGraphCtx.displayAsTree = false;
-		instGraphCtx.showFullTypes = false;
-		instGraphCtx.showSource = true;
+		if(ctx.outputCtx.stream)
+		{
+			InstructionVMGraphContext instGraphCtx(ctx.outputCtx);
 
-		PrintGraph(instGraphCtx, ctx.vmModule);
+			instGraphCtx.showUsers = true;
+			instGraphCtx.displayAsTree = false;
+			instGraphCtx.showFullTypes = false;
+			instGraphCtx.showSource = true;
 
-		fclose(instGraphCtx.file);
+			PrintGraph(instGraphCtx, ctx.vmModule);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
 	}
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
@@ -534,80 +550,110 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 
 	if(ctx.enableLogFiles)
 	{
-		InstructionVMGraphContext instGraphCtx;
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_opt.txt");
 
-		instGraphCtx.file = fopen("inst_graph_opt.txt", "w");
-		instGraphCtx.showUsers = true;
-		instGraphCtx.displayAsTree = false;
-		instGraphCtx.showFullTypes = false;
-		instGraphCtx.showSource = true;
+		if(ctx.outputCtx.stream)
+		{
+			InstructionVMGraphContext instGraphCtx(ctx.outputCtx);
 
-		PrintGraph(instGraphCtx, ctx.vmModule);
+			instGraphCtx.showUsers = true;
+			instGraphCtx.displayAsTree = false;
+			instGraphCtx.showFullTypes = false;
+			instGraphCtx.showSource = true;
 
-		fclose(instGraphCtx.file);
+			PrintGraph(instGraphCtx, ctx.vmModule);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
 	}
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_VM);
 
 	if(ctx.enableLogFiles)
 	{
-		InstructionVMGraphContext instGraphCtx;
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_legal.txt");
 
-		instGraphCtx.file = fopen("inst_graph_legal.txt", "w");
-		instGraphCtx.showUsers = false;
-		instGraphCtx.displayAsTree = false;
-		instGraphCtx.showFullTypes = false;
-		instGraphCtx.showSource = true;
+		if(ctx.outputCtx.stream)
+		{
+			InstructionVMGraphContext instGraphCtx(ctx.outputCtx);
 
-		PrintGraph(instGraphCtx, ctx.vmModule);
+			instGraphCtx.showUsers = false;
+			instGraphCtx.displayAsTree = false;
+			instGraphCtx.showFullTypes = false;
+			instGraphCtx.showSource = true;
 
-		fclose(instGraphCtx.file);
+			PrintGraph(instGraphCtx, ctx.vmModule);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
 	}
 
-	VmLoweredModule *vmLoweredModule = LowerModule(exprCtx, ctx.vmModule);
+	ctx.vmLoweredModule = LowerModule(exprCtx, ctx.vmModule);
 
 	if(ctx.enableLogFiles)
 	{
-		InstructionVmLowerGraphContext instLowerGraphCtx;
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_low.txt");
 
-		instLowerGraphCtx.file = fopen("inst_graph_low.txt", "w");
-		instLowerGraphCtx.showSource = true;
+		if(ctx.outputCtx.stream)
+		{
+			InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
 
-		PrintGraph(instLowerGraphCtx, vmLoweredModule);
+			instLowerGraphCtx.showSource = true;
 
-		fclose(instLowerGraphCtx.file);
+			PrintGraph(instLowerGraphCtx, ctx.vmLoweredModule);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
 	}
 
-	OptimizeTemporaryRegisterSpills(vmLoweredModule);
+	OptimizeTemporaryRegisterSpills(ctx.vmLoweredModule);
 
 	if(ctx.enableLogFiles)
 	{
-		InstructionVmLowerGraphContext instLowerGraphCtx;
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_low_opt.txt");
 
-		instLowerGraphCtx.file = fopen("inst_graph_low_opt.txt", "w");
-		instLowerGraphCtx.showSource = true;
+		if(ctx.outputCtx.stream)
+		{
+			InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
 
-		PrintGraph(instLowerGraphCtx, vmLoweredModule);
+			instLowerGraphCtx.showSource = true;
 
-		fclose(instLowerGraphCtx.file);
+			PrintGraph(instLowerGraphCtx, ctx.vmLoweredModule);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
 	}
 
-	FinalizeRegisterSpills(ctx.exprCtx, vmLoweredModule);
+	FinalizeRegisterSpills(ctx.exprCtx, ctx.vmLoweredModule);
 
 	InstructionVmFinalizeContext &instFinalizeCtx = ctx.instFinalizeCtx;
 
-	FinalizeModule(instFinalizeCtx, vmLoweredModule);
+	FinalizeModule(instFinalizeCtx, ctx.vmLoweredModule);
 
 	if(ctx.enableLogFiles)
 	{
-		InstructionVmLowerGraphContext instLowerGraphCtx;
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_vm.txt");
 
-		instLowerGraphCtx.file = fopen("inst_vm.txt", "w");
-		instLowerGraphCtx.showSource = true;
+		if(ctx.outputCtx.stream)
+		{
+			InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
 
-		PrintInstructions(instLowerGraphCtx, instFinalizeCtx, ctx.code);
+			instLowerGraphCtx.showSource = true;
 
-		fclose(instLowerGraphCtx.file);
+			PrintInstructions(instLowerGraphCtx, instFinalizeCtx, ctx.code);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
 	}
 
 	return true;
@@ -1773,55 +1819,57 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 bool SaveListing(CompilerContext &ctx, const char *fileName)
 {
-	InstructionVmLowerGraphContext instLowerGraphCtx;
+	assert(!ctx.outputCtx.stream);
+	ctx.outputCtx.stream = ctx.outputCtx.openStream(fileName);
 
-	instLowerGraphCtx.file = fopen(fileName, "w");
-
-	if(!instLowerGraphCtx.file)
+	if(!ctx.outputCtx.stream)
 	{
 		SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: failed to open file");
 		return false;
 	}
 
+	InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
+
 	instLowerGraphCtx.showSource = true;
 
 	PrintInstructions(instLowerGraphCtx, ctx.instFinalizeCtx, ctx.code);
 
-	fclose(instLowerGraphCtx.file);
+	ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+	ctx.outputCtx.stream = NULL;
 
 	return true;
 }
 
-bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (NCDECL *addDependency)(const char *fileName))
+bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (*addDependency)(const char *fileName))
 {
-	ExpressionTranslateContext exprTranslateCtx(ctx.exprCtx, ctx.allocator);
+	assert(!ctx.outputCtx.stream);
+	ctx.outputCtx.stream = ctx.outputCtx.openStream(fileName);
 
-	exprTranslateCtx.file = fopen(fileName, "w");
+	if(!ctx.outputCtx.stream)
+	{
+		SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: failed to open file");
+		return false;
+	}
+
+	ExpressionTranslateContext exprTranslateCtx(ctx.exprCtx, ctx.outputCtx, ctx.allocator);
 
 	exprTranslateCtx.mainName = mainName;
 
 	exprTranslateCtx.errorBuf = ctx.errorBuf;
 	exprTranslateCtx.errorBufSize = ctx.errorBufSize;
 
-	char outBufTmp[4096];
-	exprTranslateCtx.outBuf = outBufTmp;
-	exprTranslateCtx.outBufSize = 4096;
-
-	if(!exprTranslateCtx.file)
-	{
-		SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: failed to open file");
-		return false;
-	}
-
 	SmallArray<const char*, 32> dependencies;
 
 	if(!TranslateModule(exprTranslateCtx, ctx.exprModule, dependencies))
 	{
-		fclose(exprTranslateCtx.file);
+		ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+		ctx.outputCtx.stream = NULL;
+
 		return false;
 	}
 
-	fclose(exprTranslateCtx.file);
+	ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+	ctx.outputCtx.stream = NULL;
 
 	if(addDependency)
 	{
@@ -1912,7 +1960,7 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr path, InplaceStr path
 	return bytecode;
 }
 
-bool AddModuleFunction(Allocator *allocator, const char* module, void (NCDECL *ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize)
+bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize)
 {
 	const char *importPath = BinaryCache::GetImportPath();
 

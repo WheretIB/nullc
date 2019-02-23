@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdio.h>
+#include "Output.h"
 
 struct VmValue;
 struct VmConstant;
@@ -11,11 +11,9 @@ struct VmModule;
 
 struct InstructionVMGraphContext
 {
-	InstructionVMGraphContext()
+	InstructionVMGraphContext(OutputContext &output): output(output)
 	{
 		code = 0;
-
-		file = 0;
 
 		depth = 0;
 
@@ -36,7 +34,7 @@ struct InstructionVMGraphContext
 
 	const char *code;
 
-	FILE *file;
+	OutputContext &output;
 
 	unsigned depth;
 
@@ -53,6 +51,10 @@ struct InstructionVMGraphContext
 	bool showAnnotatedSource;
 
 	bool displayAsTree;
+
+private:
+	InstructionVMGraphContext(const InstructionVMGraphContext&);
+	InstructionVMGraphContext& operator=(const InstructionVMGraphContext&);
 };
 
 void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant);

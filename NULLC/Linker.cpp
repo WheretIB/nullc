@@ -581,19 +581,11 @@ bool Linker::LinkCode(const char *code)
 	printf("Overall: %d bytes\r\n\r\n", size);
 #endif
 
-	if(NULLC::enableLogFiles)
-		SaveListing("link.txt");
-
 	return true;
 }
 
-
-bool Linker::SaveListing(const char *fileName)
+bool Linker::SaveListing(OutputContext &output)
 {
-	FILE *linkAsm = fopen(fileName, "wb");
-	if(!linkAsm)
-		return false;
-
 	char instBuf[128];
 	unsigned line = 0, lastLine = ~0u;
 
@@ -633,13 +625,13 @@ bool Linker::SaveListing(const char *fileName)
 
 			if(codeEnd > lastSourcePos)
 			{
-				fprintf(linkAsm, "%.*s\r\n", int(codeEnd - lastSourcePos), lastSourcePos);
+				output.Printf("%.*s\r\n", int(codeEnd - lastSourcePos), lastSourcePos);
 				lastSourcePos = codeEnd;
 			}
 			else
 			{
 				if(codeStart != lastCodeStart)
-					fprintf(linkAsm, "%.*s\r\n", int(codeEnd - codeStart), codeStart);
+					output.Printf("%.*s\r\n", int(codeEnd - codeStart), codeStart);
 
 				lastCodeStart = codeStart;
 			}
@@ -647,13 +639,14 @@ bool Linker::SaveListing(const char *fileName)
 
 		exCode[i].Decode(instBuf);
 		if(exCode[i].cmd == cmdCall || exCode[i].cmd == cmdFuncAddr)
-			fprintf(linkAsm, "// %4d: %s (%s)\r\n", i, instBuf, exSymbols.data + exFunctions[exCode[i].argument].offsetToName);
+			output.Printf("// %4d: %s (%s)\r\n", i, instBuf, exSymbols.data + exFunctions[exCode[i].argument].offsetToName);
 		else if(exCode[i].cmd == cmdPushTypeID)
-			fprintf(linkAsm, "// %4d: %s (%s)\r\n", i, instBuf, exSymbols.data + exTypes[exCode[i].argument].offsetToName);
+			output.Printf("// %4d: %s (%s)\r\n", i, instBuf, exSymbols.data + exTypes[exCode[i].argument].offsetToName);
 		else
-			fprintf(linkAsm, "// %4d: %s\r\n", i, instBuf);
+			output.Printf("// %4d: %s\r\n", i, instBuf);
 	}
-	fclose(linkAsm);
+
+	output.Flush();
 
 	return true;
 }

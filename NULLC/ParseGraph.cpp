@@ -11,7 +11,7 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(ParseGraphContext &ctx, const char *fo
 	va_list args;
 	va_start(args, format);
 
-	vfprintf(ctx.file, format, args);
+	ctx.output.Print(format, args);
 
 	va_end(args);
 }
@@ -19,7 +19,7 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(ParseGraphContext &ctx, const char *fo
 void PrintIndent(ParseGraphContext &ctx)
 {
 	for(unsigned i = 0; i < ctx.depth; i++)
-		fprintf(ctx.file, "  ");
+		ctx.output.Print("  ");
 }
 
 NULLC_PRINT_FORMAT_CHECK(3, 4) void PrintIndented(ParseGraphContext &ctx, const char *name, const char *format, ...)
@@ -27,16 +27,19 @@ NULLC_PRINT_FORMAT_CHECK(3, 4) void PrintIndented(ParseGraphContext &ctx, const 
 	PrintIndent(ctx);
 
 	if(*name)
-		fprintf(ctx.file, "%s: ", name);
+	{
+		ctx.output.Print(name);
+		ctx.output.Print(": ");
+	}
 
 	va_list args;
 	va_start(args, format);
 
-	vfprintf(ctx.file, format, args);
+	ctx.output.Print(format, args);
 
 	va_end(args);
 
-	fprintf(ctx.file, "\n");
+	ctx.output.Print("\n");
 }
 
 NULLC_PRINT_FORMAT_CHECK(3, 4) void PrintEnterBlock(ParseGraphContext &ctx, const char *name, const char *format, ...)
@@ -44,16 +47,19 @@ NULLC_PRINT_FORMAT_CHECK(3, 4) void PrintEnterBlock(ParseGraphContext &ctx, cons
 	PrintIndent(ctx);
 
 	if(*name)
-		fprintf(ctx.file, "%s: ", name);
+	{
+		ctx.output.Print(name);
+		ctx.output.Print(": ");
+	}
 
 	va_list args;
 	va_start(args, format);
 
-	vfprintf(ctx.file, format, args);
+	ctx.output.Print(format, args);
 
 	va_end(args);
 
-	fprintf(ctx.file, "{\n");
+	ctx.output.Print("{\n");
 
 	ctx.depth++;
 }
@@ -63,9 +69,12 @@ void PrintEnterBlock(ParseGraphContext &ctx, const char *name)
 	PrintIndent(ctx);
 
 	if(*name)
-		fprintf(ctx.file, "%s: ", name);
+	{
+		ctx.output.Print(name);
+		ctx.output.Print(": ");
+	}
 
-	fprintf(ctx.file, "{\n");
+	ctx.output.Print("{\n");
 
 	ctx.depth++;
 }
@@ -76,7 +85,7 @@ void PrintLeaveBlock(ParseGraphContext &ctx)
 
 	PrintIndent(ctx);
 
-	fprintf(ctx.file, "}\n");
+	ctx.output.Print("}\n");
 }
 
 void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
@@ -816,6 +825,8 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 		PrintLeaveBlock(ctx);
 
 		PrintLeaveBlock(ctx);
+
+		ctx.output.Flush();
 	}
 	else if(!syntax)
 	{

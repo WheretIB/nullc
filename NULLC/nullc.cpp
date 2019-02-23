@@ -41,12 +41,20 @@ namespace NULLC
 
 	char *errorBuf = NULL;
 
+	char *outputBuf = NULL;
+
+	char *tempOutputBuf = NULL;
+
 	ChunkedStackPool<65532> pool;
 	GrowingAllocatorRef<ChunkedStackPool<65532>, 16384> allocator(pool);
 
 	CompilerContext *compilerCtx = NULL;
 
 	bool enableLogFiles = false;
+
+	void* (*openStream)(const char* name) = OutputContext::FileOpen;
+	void (*writeStream)(void *stream, const char *data, unsigned size) = OutputContext::FileWrite;
+	void (*closeStream)(void* stream) = OutputContext::FileClose;
 }
 
 unsigned nullcFindFunctionIndex(const char* name);
@@ -58,7 +66,7 @@ nullres nullcInit(const char* importPath)
 	return nullcInitCustomAlloc(NULL, NULL, importPath);
 }
 
-nullres nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocFunc)(void*), const char* importPath)
+nullres nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*), const char* importPath)
 {
 	using namespace NULLC;
 
@@ -75,6 +83,8 @@ nullres nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deall
 	NULLC::fileLoad = NULLC::defaultFileLoad;
 
 	errorBuf = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
+	outputBuf = (char*)NULLC::alloc(NULLC_OUTPUT_BUFFER_SIZE);
+	tempOutputBuf = (char*)NULLC::alloc(NULLC_TEMP_OUTPUT_BUFFER_SIZE);
 
 	BinaryCache::Initialize();
 	BinaryCache::SetImportPath(importPath);
@@ -120,7 +130,7 @@ void nullcSetImportPath(const char* importPath)
 	BinaryCache::SetImportPath(importPath);
 }
 
-void nullcSetFileReadHandler(const void* (NCDECL *fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr))
+void nullcSetFileReadHandler(const void* (*fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr))
 {
 	NULLC::fileLoad = fileLoadFunc ? fileLoadFunc : NULLC::defaultFileLoad;
 }
@@ -154,12 +164,25 @@ void nullcSetGlobalMemoryLimit(unsigned limit)
 }
 #endif
 
-void nullcSetEnableLogFiles(int enable)
+void nullcSetEnableLogFiles(int enable, void* (*openStream)(const char* name), void (*writeStream)(void *stream, const char *data, unsigned size), void (*closeStream)(void* stream))
 {
 	NULLC::enableLogFiles = enable != 0;
+
+	if(openStream || writeStream || closeStream)
+	{
+		NULLC::openStream = openStream;
+		NULLC::writeStream = writeStream;
+		NULLC::closeStream = closeStream;
+	}
+	else
+	{
+		NULLC::openStream = OutputContext::FileOpen;
+		NULLC::writeStream = OutputContext::FileWrite;
+		NULLC::closeStream = OutputContext::FileClose;
+	}
 }
 
-nullres	nullcBindModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index)
+nullres	nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
@@ -287,6 +310,16 @@ nullres	nullcCompile(const char* code)
 
 	compilerCtx->enableLogFiles = enableLogFiles;
 
+	compilerCtx->outputCtx.openStream = openStream;
+	compilerCtx->outputCtx.writeStream = writeStream;
+	compilerCtx->outputCtx.closeStream = closeStream;
+
+	compilerCtx->outputCtx.outputBuf = outputBuf;
+	compilerCtx->outputCtx.outputBufSize = NULLC_OUTPUT_BUFFER_SIZE;
+
+	compilerCtx->outputCtx.tempBuf = tempOutputBuf;
+	compilerCtx->outputCtx.tempBufSize = NULLC_TEMP_OUTPUT_BUFFER_SIZE;
+
 	if(!CompileModuleFromSource(*compilerCtx, code))
 	{
 		if(compilerCtx->errorPos)
@@ -352,7 +385,7 @@ nullres nullcSaveListing(const char *fileName)
 	return 1;
 }
 
-nullres	nullcTranslateToC(const char *fileName, const char *mainName, void (NCDECL *addDependency)(const char *fileName))
+nullres	nullcTranslateToC(const char *fileName, const char *mainName, void (*addDependency)(const char *fileName))
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
@@ -405,19 +438,44 @@ nullres nullcLinkCode(const char *bytecode)
 		nullcLastError = linker->GetLinkError();
 		return false;
 	}
+
 	nullcLastError = linker->GetLinkError();
+
+	OutputContext outputCtx;
+
+	outputCtx.openStream = openStream;
+	outputCtx.writeStream = writeStream;
+	outputCtx.closeStream = closeStream;
+
+	outputCtx.outputBuf = outputBuf;
+	outputCtx.outputBufSize = NULLC_OUTPUT_BUFFER_SIZE;
+
+	outputCtx.tempBuf = tempOutputBuf;
+	outputCtx.tempBufSize = NULLC_TEMP_OUTPUT_BUFFER_SIZE;
+
+	outputCtx.stream = outputCtx.openStream("link.txt");
+
+	if(outputCtx.stream)
+	{
+		linker->SaveListing(outputCtx);
+
+		outputCtx.closeStream(outputCtx.stream);
+		outputCtx.stream = NULL;
+	}
 #else
 	(void)bytecode;
 	nullcLastError = "No executor available, compile library without NULLC_NO_EXECUTOR";
 #endif
+
 #ifndef NULLC_NO_EXECUTOR
 	if(currExec == NULLC_VM)
 		executor->UpdateInstructionPointer();
 #endif
+
 	if(currExec == NULLC_X86)
 	{
 #ifdef NULLC_BUILD_X86_JIT
-		bool res = executorX86->TranslateToNative();
+		bool res = executorX86->TranslateToNative(enableLogFiles, outputCtx);
 		if(!res)
 		{
 			nullcLastError = executorX86->GetExecError();
@@ -427,6 +485,7 @@ nullres nullcLinkCode(const char *bytecode)
 		return false;
 #endif
 	}
+
 	if(currExec == NULLC_LLVM)
 	{
 #if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
@@ -440,6 +499,7 @@ nullres nullcLinkCode(const char *bytecode)
 		return false;
 #endif
 	}
+
 #ifndef NULLC_NO_EXECUTOR
 	return true;
 #else
@@ -1037,6 +1097,12 @@ void nullcTerminate()
 
 	NULLC::dealloc(errorBuf);
 	errorBuf = NULL;
+
+	NULLC::dealloc(outputBuf);
+	outputBuf = NULL;
+
+	NULLC::dealloc(tempOutputBuf);
+	tempOutputBuf = NULL;
 
 	BinaryCache::Terminate();
 

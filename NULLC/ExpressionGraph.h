@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdio.h>
+#include "Output.h"
 
 struct ScopeData;
 
@@ -8,22 +8,24 @@ struct ExprBase;
 
 struct ExpressionGraphContext
 {
-	ExpressionGraphContext()
+	ExpressionGraphContext(OutputContext &output): output(output)
 	{
-		file = 0;
-
 		depth = 0;
 
 		skipImported = false;
 		skipFunctionDefinitions = false;
 	}
 
-	FILE *file;
+	OutputContext &output;
 
 	unsigned depth;
 
 	bool skipImported;
 	bool skipFunctionDefinitions;
+
+private:
+	ExpressionGraphContext(const ExpressionGraphContext&);
+	ExpressionGraphContext& operator=(const ExpressionGraphContext&);
 };
 
 void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImported);

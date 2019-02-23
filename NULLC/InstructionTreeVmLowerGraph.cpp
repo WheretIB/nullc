@@ -13,19 +13,19 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(InstructionVmLowerGraphContext &ctx, c
 	va_list args;
 	va_start(args, format);
 
-	vfprintf(ctx.file, format, args);
+	ctx.output.Print(format, args);
 
 	va_end(args);
 }
 
 void PrintIndent(InstructionVmLowerGraphContext &ctx)
 {
-	fprintf(ctx.file, "  ");
+	ctx.output.Print("  ");
 }
 
 void PrintLine(InstructionVmLowerGraphContext &ctx)
 {
-	fprintf(ctx.file, "\n");
+	ctx.output.Print("\n");
 }
 
 NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintLine(InstructionVmLowerGraphContext &ctx, const char *format, ...)
@@ -33,7 +33,7 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintLine(InstructionVmLowerGraphContext &ct
 	va_list args;
 	va_start(args, format);
 
-	vfprintf(ctx.file, format, args);
+	ctx.output.Print(format, args);
 
 	va_end(args);
 
@@ -286,6 +286,8 @@ void PrintGraph(InstructionVmLowerGraphContext &ctx, VmLoweredModule *lowModule)
 		PrintFunction(ctx, lowModule->functions[i]);
 
 	Print(ctx, "// Removed register spill count: %d\n", lowModule->removedSpilledRegisters);
+
+	ctx.output.Flush();
 }
 
 VariableData* FindGlobalAt(ExpressionContext &exprCtx, unsigned offset)
@@ -336,27 +338,27 @@ void PrintInstructions(InstructionVmLowerGraphContext &ctx, InstructionVmFinaliz
 
 				if(start != ctx.lastStart || startOffset != ctx.lastStartOffset || endOffset != ctx.lastEndOffset)
 				{
-					fprintf(ctx.file, "%.*s\n", unsigned(end - start), start);
+					Print(ctx, "%.*s\n", unsigned(end - start), start);
 
 					if (source->pos.end < end)
 					{
 						for (unsigned k = 0; k < startOffset; k++)
 						{
-							fprintf(ctx.file, " ");
+							Print(ctx, " ");
 
 							if (start[k] == '\t')
-								fprintf(ctx.file, "   ");
+								Print(ctx, "   ");
 						}
 
 						for (unsigned k = startOffset; k < endOffset; k++)
 						{
-							fprintf(ctx.file, "~");
+							Print(ctx, "~");
 
 							if (start[k] == '\t')
-								fprintf(ctx.file, "~~~");
+								Print(ctx, "~~~");
 						}
 
-						fprintf(ctx.file, "\n");
+						Print(ctx, "\n");
 					}
 
 					ctx.lastStart = start;
@@ -368,7 +370,7 @@ void PrintInstructions(InstructionVmLowerGraphContext &ctx, InstructionVmFinaliz
 			{
 				if(start != ctx.lastStart)
 				{
-					fprintf(ctx.file, "%.*s\n", unsigned(end - start), start);
+					Print(ctx, "%.*s\n", unsigned(end - start), start);
 
 					ctx.lastStart = start;
 				}
@@ -382,14 +384,14 @@ void PrintInstructions(InstructionVmLowerGraphContext &ctx, InstructionVmFinaliz
 		{
 		case cmdCall:
 			if(FunctionData *function = lowerCtx.ctx.functions[cmd.argument])
-				fprintf(ctx.file, "// %4d: %s (%.*s [%.*s]) param size %u\n", i, buf, FMT_ISTR(function->name), FMT_ISTR(function->type->name), (unsigned)function->argumentsSize);
+				Print(ctx, "// %4d: %s (%.*s [%.*s]) param size %u\n", i, buf, FMT_ISTR(function->name), FMT_ISTR(function->type->name), (unsigned)function->argumentsSize);
 			break;
 		case cmdFuncAddr:
 			if(FunctionData *function = lowerCtx.ctx.functions[cmd.argument])
-				fprintf(ctx.file, "// %4d: %s (%.*s [%.*s])\n", i, buf, FMT_ISTR(function->name), FMT_ISTR(function->type->name));
+				Print(ctx, "// %4d: %s (%.*s [%.*s])\n", i, buf, FMT_ISTR(function->name), FMT_ISTR(function->type->name));
 			break;
 		case cmdPushTypeID:
-			fprintf(ctx.file, "// %4d: %s (%.*s)\n", i, buf, FMT_ISTR(lowerCtx.ctx.types[cmd.argument]->name));
+			Print(ctx, "// %4d: %s (%.*s)\n", i, buf, FMT_ISTR(lowerCtx.ctx.types[cmd.argument]->name));
 			break;
 		case cmdPushChar:
 		case cmdPushShort:
@@ -410,37 +412,51 @@ void PrintInstructions(InstructionVmLowerGraphContext &ctx, InstructionVmFinaliz
 				if(global->importModule)
 				{
 					if(global->offset == cmd.argument)
-						fprintf(ctx.file, "// %4d: %s (%.*s [%.*s] from '%.*s')\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
+						Print(ctx, "// %4d: %s (%.*s [%.*s] from '%.*s')\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
 					else
-						fprintf(ctx.file, "// %4d: %s (inside %.*s [%.*s] from '%.*s')\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
+						Print(ctx, "// %4d: %s (inside %.*s [%.*s] from '%.*s')\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
 				}
 				else
 				{
 					if(global->offset == cmd.argument)
-						fprintf(ctx.file, "// %4d: %s (%.*s [%.*s])\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name));
+						Print(ctx, "// %4d: %s (%.*s [%.*s])\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name));
 					else
-						fprintf(ctx.file, "// %4d: %s (inside %.*s [%.*s])\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name));
+						Print(ctx, "// %4d: %s (inside %.*s [%.*s])\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name));
 				}
 			}
 			else
 			{
-				fprintf(ctx.file, "// %4d: %s\n", i, buf);
+				Print(ctx, "// %4d: %s\n", i, buf);
 			}
 			break;
 		default:
-			fprintf(ctx.file, "// %4d: %s\n", i, buf);
+			Print(ctx, "// %4d: %s\n", i, buf);
 		}
 	}
+
+	ctx.output.Flush();
 }
 
 void DumpGraph(VmLoweredModule *lowModule)
 {
-	InstructionVmLowerGraphContext instLowerGraphCtx;
+	OutputContext outputCtx;
 
-	instLowerGraphCtx.file = fopen("inst_graph_low.txt", "w");
+	char outputBuf[4096];
+	outputCtx.outputBuf = outputBuf;
+	outputCtx.outputBufSize = 4096;
+
+	char tempBuf[4096];
+	outputCtx.tempBuf = tempBuf;
+	outputCtx.tempBufSize = 4096;
+
+	outputCtx.stream = OutputContext::FileOpen("inst_graph_low.txt");
+	outputCtx.writeStream = OutputContext::FileWrite;
+
+	InstructionVmLowerGraphContext instLowerGraphCtx(outputCtx);
+
 	instLowerGraphCtx.showSource = true;
 
 	PrintGraph(instLowerGraphCtx, lowModule);
 
-	fclose(instLowerGraphCtx.file);
+	OutputContext::FileClose(outputCtx.stream);
 }
