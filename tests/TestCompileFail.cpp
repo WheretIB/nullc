@@ -840,6 +840,8 @@ auto m = bar;",
 	TEST_FOR_FAIL("invalid array element size 4", "int[100000] b; typeof(b)[] a2;", "ERROR: array element size cannot exceed 65535 bytes");
 	TEST_FOR_FAIL("invalid array element size 5", "int[100000] b; auto x = { b, b };", "ERROR: array element size cannot exceed 65535 bytes");
 	TEST_FOR_FAIL("invalid array element size 6", "auto x = new (int[100000])[2];", "ERROR: array element size cannot exceed 65535 bytes");
+
+	TEST_FOR_FAIL("generic function instantiation creates a conflict", "auto foo(generic a, int f = 1){ return -a; } foo(1, 2); auto foo(generic a = 1, int f = 2){ return a; } return foo();", "ERROR: function 'foo' is being defined with the same set of arguments");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

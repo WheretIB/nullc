@@ -7695,16 +7695,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	FunctionData *conflict = CheckUniqueness(ctx, function);
 
 	if(conflict)
-	{
-		if(instance)
-		{
-			ctx.HideFunction(function);
-
-			return conflict->declaration;
-		}
-
 		Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name));
-	}
 
 	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, variables, coroutineStateRead, code, contextVariableDefinition);
 
