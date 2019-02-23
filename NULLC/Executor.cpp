@@ -1864,19 +1864,6 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			vmStoreLong(genStackPtr, vmLoadLong(genStackPtr) - 1);
 			break;
 
-		case cmdCreateClosure:
-#ifdef _M_X64
-			ClosureCreate(&genParams[paramBase], cmd.helper, cmd.argument, *(ExternFuncInfo::Upvalue**)genStackPtr);
-			genStackPtr += 2;
-#else
-			ClosureCreate(&genParams[paramBase], cmd.helper, cmd.argument, (ExternFuncInfo::Upvalue*)(intptr_t)*genStackPtr);
-			genStackPtr++;
-#endif
-			break;
-		case cmdCloseUpvals:
-			CloseUpvalues(&genParams[paramBase], cmd.flag, cmd.argument);
-			break;
-
 		case cmdConvertPtr:
 			if(!ConvertFromAutoRef(cmd.argument, *genStackPtr))
 			{

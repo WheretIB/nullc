@@ -518,9 +518,6 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdDecD] = GenCodeCmdDecD;
 	cgFuncs[cmdDecL] = GenCodeCmdDecL;
 
-	cgFuncs[cmdCreateClosure] = GenCodeCmdCreateClosure;
-	cgFuncs[cmdCloseUpvals] = GenCodeCmdCloseUpvalues;
-
 	cgFuncs[cmdConvertPtr] = GenCodeCmdConvertPtr;
 
 	cgFuncs[cmdCheckedRet] = GenCodeCmdCheckedRet;

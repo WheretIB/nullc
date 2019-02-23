@@ -48,7 +48,6 @@ void Linker::CleanCode()
 	exModules.clear();
 	exCodeInfo.clear();
 	exSource.clear();
-	exCloseLists.clear();
 
 #ifdef NULLC_LLVM_SUPPORT
 	llvmModuleSizes.clear();
@@ -296,10 +295,6 @@ bool Linker::LinkCode(const char *code)
 		exCodeInfo[i*2+1] += oldSourceSize;
 	}
 
-	unsigned int oldListCount = exCloseLists.size();
-	exCloseLists.resize(oldListCount + bCode->closureListCount);
-	memset(exCloseLists.data + oldListCount, 0, bCode->closureListCount * sizeof(ExternFuncInfo::Upvalue*));
-
 	// Add new functions
 	ExternVarInfo *explicitInfo = FindFirstVar(bCode) + bCode->variableCount;
 
@@ -432,7 +427,6 @@ bool Linker::LinkCode(const char *code)
 			// Move based pointer to the new section of symbol information
 			exFunctions.back().offsetToName += oldSymbolSize;
 			exFunctions.back().offsetToFirstLocal += oldLocalsSize;
-			exFunctions.back().closeListStart += oldListCount;
 			exFunctions.back().funcType = typeRemap[exFunctions.back().funcType];
 
 			if(exFunctions.back().parentType != ~0u)
@@ -457,8 +451,6 @@ bool Linker::LinkCode(const char *code)
 	{
 		exLocals[i].type = typeRemap[exLocals[i].type];
 		exLocals[i].offsetToName += oldSymbolSize;
-		if(exLocals[i].paramType == ExternLocalInfo::EXTERNAL)
-			exLocals[i].closeListID += oldListCount;
 	}
 
 	assert((fInfo = FindFirstFunc(bCode)) != NULL); // this is fine, we need this assignment only in debug configuration
@@ -512,12 +504,8 @@ bool Linker::LinkCode(const char *code)
 		case cmdCall:
 			assert(!(cmd.argument != funcRemap[cmd.argument] && int(cmd.argument - bCode->moduleFunctionCount) >= 0) ||
 				(fInfo[cmd.argument - bCode->moduleFunctionCount].nameHash == exFunctions[funcRemap[cmd.argument]].nameHash));
-		case cmdCreateClosure:
+
 			cmd.argument = funcRemap[cmd.argument];
-			break;
-		case cmdCloseUpvals:
-			cmd.helper = (unsigned short)funcRemap[cmd.helper];
-			cmd.argument += exFunctions[cmd.helper].closeListStart;
 			break;
 		case cmdPushTypeID:
 			cmd.cmd = cmdPushImmt;

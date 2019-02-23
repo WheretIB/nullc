@@ -140,9 +140,7 @@ struct ExternFuncInfo
 	{
 		unsigned int	*ptr;
 		Upvalue			*next;
-		unsigned int	aligmentAndSize; // Top 2 bits contain packed alignment: 1 << (packedAligment + 2)
 	};
-	unsigned int	closeListStart;
 
 	unsigned int	namespaceHash;
 

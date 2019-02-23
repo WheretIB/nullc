@@ -188,9 +188,6 @@ enum InstructionCode
 	cmdDecD,
 	cmdDecL,
 
-	cmdCreateClosure,
-	cmdCloseUpvals,
-
 	cmdPushTypeID,
 	cmdConvertPtr,
 
@@ -351,13 +348,6 @@ struct VMCmd
 
 		case cmdReturn:
 			curr += sprintf(curr, " %s flag: %d sizeof: %u", helper ? "local" : "global", (int)flag, argument);
-			break;
-
-		case cmdCreateClosure:
-			curr += sprintf(curr, " Function id: %u Previous closure at %u", argument, helper);
-			break;
-		case cmdCloseUpvals:
-			curr += sprintf(curr, " Function id: %u Stack offset: %u", helper, argument);
 			break;
 
 		case cmdPushTypeID:

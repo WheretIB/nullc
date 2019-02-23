@@ -256,11 +256,6 @@ void VmLoweredBlock::AddInstruction(ExpressionContext &ctx, VmLoweredInstruction
 	case cmdDecD:
 	case cmdDecL:
 		break;
-	case cmdCreateClosure:
-		stackDepth -= pointerSlots;
-		break;
-	case cmdCloseUpvals:
-		break;
 	case cmdPushTypeID:
 		stackDepth += 1;
 		break;
@@ -473,8 +468,6 @@ bool HasMemoryWrite(VmLoweredInstruction *lowInstruction)
 	case cmdSetRangeStk:
 	case cmdCall:
 	case cmdCallPtr:
-	case cmdCreateClosure:
-	case cmdCloseUpvals:
 		return true;
 	default:
 		break;
@@ -514,8 +507,6 @@ bool HasMemoryAccess(VmLoweredInstruction *lowInstruction)
 	case cmdSetRangeStk:
 	case cmdCall:
 	case cmdCallPtr:
-	case cmdCreateClosure:
-	case cmdCloseUpvals:
 		return true;
 	default:
 		break;
@@ -1597,8 +1588,6 @@ bool HasUnknownMemoryWrite(VmLoweredInstruction *lowInstruction)
 	case cmdSetRangeStk:
 	case cmdCall:
 	case cmdCallPtr:
-	case cmdCreateClosure:
-	case cmdCloseUpvals:
 		return true;
 	default:
 		break;

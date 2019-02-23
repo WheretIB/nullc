@@ -1637,8 +1637,6 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		debugSymbols.push_back(function->name.begin, function->name.length());
 		debugSymbols.push_back(0);
 
-		funcInfo.closeListStart = 0;
-
 		for(MatchData *curr = function->generics.head; curr; curr = curr->next)
 		{
 			funcInfo.explicitTypeCount++;

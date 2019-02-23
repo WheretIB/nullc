@@ -3158,36 +3158,6 @@ void GenCodeCmdDecL(VMCmd cmd)
 	EMIT_OP_RPTR_NUM(o_sbb, sDWORD, rESP, 4, 0);
 }
 
-void (*closureCreateFunc)() = (void(*)())ClosureCreate;
-
-void GenCodeCmdCreateClosure(VMCmd cmd)
-{
-	EMIT_COMMENT("CREATECLOSURE");
-
-	EMIT_OP_NUM(o_push, cmd.argument);
-	EMIT_OP_NUM(o_push, cmd.helper);
-	EMIT_OP_REG_RPTR(o_lea, rEBX, sNONE, rEBP, paramBase);
-	EMIT_OP_REG(o_push, rEBX);
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)closureCreateFunc);
-	EMIT_OP_REG(o_call, rECX);
-	EMIT_OP_REG_NUM(o_add, rESP, 16);
-}
-
-void (*upvaluesCloseFunc)() = (void(*)())CloseUpvalues;
-
-void GenCodeCmdCloseUpvalues(VMCmd cmd)
-{
-	EMIT_COMMENT("CLOSEUPVALUES");
-
-	EMIT_OP_NUM(o_push, cmd.argument);
-	EMIT_OP_NUM(o_push, cmd.flag);
-	EMIT_OP_REG_RPTR(o_lea, rEBX, sNONE, rEBP, paramBase);
-	EMIT_OP_REG(o_push, rEBX);
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)upvaluesCloseFunc);
-	EMIT_OP_REG(o_call, rECX);
-	EMIT_OP_REG_NUM(o_add, rESP, 12);
-}
-
 void (*convertPtrFunc)() = (void(*)())ConvertFromAutoRef;
 
 void GenCodeCmdConvertPtr(VMCmd cmd)
