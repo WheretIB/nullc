@@ -80,7 +80,7 @@ nullres CompileFile(const char* fileName)
 	return nullcCompile(content);
 }
 
-int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int*, int*), bool runSpeedTests, bool runOutputTests)
+int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int*, int*), bool runSpeedTests, bool testOutput, bool testTranslationSave)
 {
 	Tests::messageVerbose = verbose;
 	Tests::fileLoadFunc = fileLoadFunc;
@@ -112,12 +112,11 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	printf("Finished in %d\r\n", clock() - tStart);
 */
 
-	Tests::enableLogFiles = runOutputTests;
+	Tests::enableLogFiles = testOutput;
+	Tests::doSaveTranslation = testTranslationSave;
 
 	// To enable real log files during tests
 	/*
-	Tests::doSaveTranslation = false;
-
 	Tests::openStreamFunc = 0;
 	Tests::writeStreamFunc = 0;
 	Tests::closeStreamFunc = 0;

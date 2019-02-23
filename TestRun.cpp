@@ -29,7 +29,8 @@ int main(int argc, char** argv)
 
 	bool verbose = false;
 	bool runSpeedTests = false;
-	bool runOutputTests = false;
+	bool testOutput = false;
+	bool testTranslationSave = false;
 
 	for(int i = 1; i < argc; i++)
 	{
@@ -38,10 +39,12 @@ int main(int argc, char** argv)
 		else if(strcmp(argv[i], "--speed") == 0 || strcmp(argv[i], "-s") == 0)
 			runSpeedTests = true;
 		else if(strcmp(argv[i], "--output") == 0 || strcmp(argv[i], "-o") == 0)
-			runOutputTests = true;
+			testOutput = true;
+		else if(strcmp(argv[i], "--translate") == 0 || strcmp(argv[i], "-t") == 0)
+			testTranslationSave = true;
 	}
 
-	return RunTests(verbose, 0, runSpeedTests, runOutputTests);
+	return RunTests(verbose, 0, runSpeedTests, testOutput, testTranslationSave);
 }
 
 #else
