@@ -9,6 +9,8 @@
 	#include <Windows.h>
 #endif
 
+#include <vector>
+
 #include "../NULLC/nullc_debug.h"
 
 #if !defined(_MSC_VER)
@@ -95,7 +97,7 @@ namespace Tests
 	void (*writeStreamFunc)(void *stream, const char *data, unsigned size) = WriteStream;
 	void (*closeStreamFunc)(void* stream) = CloseStream;
 
-	FastVector<char*> translationDependencies;
+	std::vector<char*> translationDependencies;
 
 	void AddDependency(const char *fileName)
 	{
