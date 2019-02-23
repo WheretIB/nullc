@@ -104,7 +104,7 @@ void*		nullcAllocateTyped(unsigned typeID);
 NULLCArray	nullcAllocateArrayTyped(unsigned typeID, unsigned count);
 
 /*	Abort NULLC program execution with specified error code	*/
-void		nullcThrowError(const char* error, ...);
+void		nullcThrowError(const char* error, ...) NULLC_PRINT_FORMAT_CHECK(1, 2);
 
 /*	Call function using NULLCFuncPtr	*/
 nullres		nullcCallFunction(NULLCFuncPtr ptr, ...);

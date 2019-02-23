@@ -70,7 +70,7 @@ namespace
 		}
 	}
 
-	void Report(ExpressionContext &ctx, const char *pos, const char *msg, ...)
+	NULLC_PRINT_FORMAT_CHECK(3, 4) void Report(ExpressionContext &ctx, const char *pos, const char *msg, ...)
 	{
 		va_list args;
 		va_start(args, msg);
@@ -78,7 +78,7 @@ namespace
 		Report(ctx, pos, msg, args);
 	}
 
-	void Report(ExpressionContext &ctx, InplaceStr pos, const char *msg, ...)
+	NULLC_PRINT_FORMAT_CHECK(3, 4) void Report(ExpressionContext &ctx, InplaceStr pos, const char *msg, ...)
 	{
 		va_list args;
 		va_start(args, msg);
@@ -86,7 +86,7 @@ namespace
 		Report(ctx, pos.begin, msg, args);
 	}
 
-	ExprError* ReportExpected(ExpressionContext &ctx, SynBase *source, TypeBase *type, const char *msg, ...)
+	NULLC_PRINT_FORMAT_CHECK(4, 5) ExprError* ReportExpected(ExpressionContext &ctx, SynBase *source, TypeBase *type, const char *msg, ...)
 	{
 		va_list args;
 		va_start(args, msg);
@@ -105,7 +105,7 @@ namespace
 		longjmp(ctx.errorHandler, 1);
 	}
 
-	void Stop(ExpressionContext &ctx, const char *pos, const char *msg, ...)
+	NULLC_PRINT_FORMAT_CHECK(3, 4) void Stop(ExpressionContext &ctx, const char *pos, const char *msg, ...)
 	{
 		va_list args;
 		va_start(args, msg);
@@ -113,7 +113,7 @@ namespace
 		Stop(ctx, pos, msg, args);
 	}
 
-	void Stop(ExpressionContext &ctx, InplaceStr pos, const char *msg, ...)
+	NULLC_PRINT_FORMAT_CHECK(3, 4) void Stop(ExpressionContext &ctx, InplaceStr pos, const char *msg, ...)
 	{
 		va_list args;
 		va_start(args, msg);

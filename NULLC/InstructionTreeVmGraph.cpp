@@ -8,7 +8,7 @@
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
-void Print(InstructionVMGraphContext &ctx, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(InstructionVMGraphContext &ctx, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -29,7 +29,7 @@ void PrintLine(InstructionVMGraphContext &ctx)
 	fprintf(ctx.file, "\n");
 }
 
-void PrintLine(InstructionVMGraphContext &ctx, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintLine(InstructionVMGraphContext &ctx, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -263,7 +263,7 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 			Print(ctx, "%%%d = ", instruction->uniqueId);
 	}
 
-	Print(ctx, GetInstructionName(instruction));
+	Print(ctx, "%s", GetInstructionName(instruction));
 
 	if(instruction->cmd == VM_INST_PHI)
 	{

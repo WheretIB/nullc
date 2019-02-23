@@ -84,7 +84,7 @@ void FlushBuffered(ExpressionTranslateContext &ctx)
 	ctx.outBufPos = 0;
 }
 
-void Print(ExpressionTranslateContext &ctx, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(ExpressionTranslateContext &ctx, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -105,7 +105,7 @@ void PrintLine(ExpressionTranslateContext &ctx)
 	PrintBuffered(ctx, "\n");
 }
 
-void PrintIndentedLine(ExpressionTranslateContext &ctx, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintIndentedLine(ExpressionTranslateContext &ctx, const char *format, ...)
 {
 	PrintIndent(ctx);
 
@@ -321,7 +321,7 @@ void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
 
 		PrintIndent(ctx);
 		TranslateTypeName(ctx, typeArray->subType);
-		Print(ctx, " ptr[%d];", typeArray->length + ((4 - (typeArray->length * typeArray->subType->size % 4)) & 3)); // Round total byte size to 4
+		Print(ctx, " ptr[%lld];", typeArray->length + ((4 - (typeArray->length * typeArray->subType->size % 4)) & 3)); // Round total byte size to 4
 		PrintLine(ctx);
 
 		PrintIndent(ctx);
@@ -955,7 +955,7 @@ void TranslateArrayIndex(ExpressionTranslateContext &ctx, ExprArrayIndex *expres
 		Translate(ctx, expression->value);
 		Print(ctx, ", ");
 		Translate(ctx, expression->index);
-		Print(ctx, ", %d)", typeUnsizedArray->subType->size);
+		Print(ctx, ", %lld)", typeUnsizedArray->subType->size);
 	}
 	else
 	{
@@ -1925,7 +1925,7 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 
 			if(!bytecode)
 			{
-				SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' input file '%s' could not be opened", FMT_ISTR(data->name));
+				SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' input file '%.*s' could not be opened", FMT_ISTR(data->name), FMT_ISTR(pathNoImport));
 				return false;
 			}
 
@@ -1959,7 +1959,7 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 
 		if(!nested.file)
 		{
-			SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' output file '%s' could not be opened", filePath);
+			SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' output file '%s' could not be opened", FMT_ISTR(data->name), filePath);
 
 			return false;
 		}
@@ -2214,7 +2214,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 		Print(ctx, "__nullcTR[%d] = __nullcRegisterType(", i);
 		Print(ctx, "%uu, ", type->nameHash);
 		Print(ctx, "\"%.*s\", ", FMT_ISTR(type->name));
-		Print(ctx, "%d, ", type->size);
+		Print(ctx, "%lld, ", type->size);
 
 		if(TypeArray *typeArray = getType<TypeArray>(type))
 		{
@@ -2260,7 +2260,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 			else
 				Print(ctx, "0");
 
-			Print(ctx, ");", count, typeClass->alignment);
+			Print(ctx, ");");
 		}
 		else if(TypeStruct *typeStruct = getType<TypeStruct>(type))
 		{

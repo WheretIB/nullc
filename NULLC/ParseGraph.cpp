@@ -6,7 +6,7 @@
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
-void Print(ParseGraphContext &ctx, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(ParseGraphContext &ctx, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -22,7 +22,7 @@ void PrintIndent(ParseGraphContext &ctx)
 		fprintf(ctx.file, "  ");
 }
 
-void PrintIndented(ParseGraphContext &ctx, const char *name, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(3, 4) void PrintIndented(ParseGraphContext &ctx, const char *name, const char *format, ...)
 {
 	PrintIndent(ctx);
 
@@ -39,7 +39,7 @@ void PrintIndented(ParseGraphContext &ctx, const char *name, const char *format,
 	fprintf(ctx.file, "\n");
 }
 
-void PrintEnterBlock(ParseGraphContext &ctx, const char *name, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(3, 4) void PrintEnterBlock(ParseGraphContext &ctx, const char *name, const char *format, ...)
 {
 	PrintIndent(ctx);
 
@@ -52,6 +52,18 @@ void PrintEnterBlock(ParseGraphContext &ctx, const char *name, const char *forma
 	vfprintf(ctx.file, format, args);
 
 	va_end(args);
+
+	fprintf(ctx.file, "{\n");
+
+	ctx.depth++;
+}
+
+void PrintEnterBlock(ParseGraphContext &ctx, const char *name)
+{
+	PrintIndent(ctx);
+
+	if(*name)
+		fprintf(ctx.file, "%s: ", name);
 
 	fprintf(ctx.file, "{\n");
 
@@ -108,7 +120,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		PrintGraph(ctx, node->type, "type");
 
-		PrintEnterBlock(ctx, "sizes", "");
+		PrintEnterBlock(ctx, "sizes");
 
 		for(SynBase *size = node->sizes.head; size; size = size->next)
 			PrintGraph(ctx, size, "");
@@ -131,7 +143,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		PrintGraph(ctx, node->returnType, "returnType");
 
-		PrintEnterBlock(ctx, "arguments", "");
+		PrintEnterBlock(ctx, "arguments");
 
 		for(SynBase *arg = node->arguments.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -146,7 +158,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		PrintGraph(ctx, node->baseType, "baseType");
 
-		PrintEnterBlock(ctx, "types", "");
+		PrintEnterBlock(ctx, "types");
 
 		for(SynBase *type = node->types.head; type; type = type->next)
 			PrintGraph(ctx, type, "");
@@ -239,7 +251,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		PrintGraph(ctx, node->value, "value");
 
-		PrintEnterBlock(ctx, "arguments", "");
+		PrintEnterBlock(ctx, "arguments");
 
 		for(SynBase *arg = node->arguments.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -254,14 +266,14 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		PrintGraph(ctx, node->value, "value");
 
-		PrintEnterBlock(ctx, "aliases", "");
+		PrintEnterBlock(ctx, "aliases");
 
 		for(SynBase *arg = node->aliases.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
 
 		PrintLeaveBlock(ctx);
 
-		PrintEnterBlock(ctx, "arguments", "");
+		PrintEnterBlock(ctx, "arguments");
 
 		for(SynBase *arg = node->arguments.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -316,7 +328,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		PrintGraph(ctx, node->type, "type");
 
-		PrintEnterBlock(ctx, "arguments", "");
+		PrintEnterBlock(ctx, "arguments");
 
 		for(SynBase *arg = node->arguments.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -325,7 +337,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		PrintGraph(ctx, node->count, "count");
 
-		PrintEnterBlock(ctx, "constructor", "");
+		PrintEnterBlock(ctx, "constructor");
 
 		for(SynBase *arg = node->constructor.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -419,7 +431,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	{
 		PrintEnterBlock(ctx, name, "SynForEach()");
 
-		PrintEnterBlock(ctx, "iterators", "");
+		PrintEnterBlock(ctx, "iterators");
 
 		for(SynBase *arg = node->iterators.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -443,7 +455,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	{
 		PrintEnterBlock(ctx, name, "SynDoWhile()");
 
-		PrintEnterBlock(ctx, "expressions", "");
+		PrintEnterBlock(ctx, "expressions");
 
 		for(SynBase *arg = node->expressions.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -460,7 +472,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		PrintGraph(ctx, node->value, "value");
 
-		PrintEnterBlock(ctx, "expressions", "");
+		PrintEnterBlock(ctx, "expressions");
 
 		for(SynBase *arg = node->expressions.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -475,7 +487,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		PrintGraph(ctx, node->condition, "condition");
 
-		PrintEnterBlock(ctx, "cases", "");
+		PrintEnterBlock(ctx, "cases");
 
 		for(SynBase *arg = node->cases.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -541,7 +553,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 		PrintGraph(ctx, node->align, "align");
 		PrintGraph(ctx, node->type, "type");
 
-		PrintEnterBlock(ctx, "definitions", "");
+		PrintEnterBlock(ctx, "definitions");
 
 		for(SynBase *arg = node->definitions.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -575,21 +587,21 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 		PrintGraph(ctx, node->parentType, "parentType");
 		PrintGraph(ctx, node->returnType, "returnType");
 
-		PrintEnterBlock(ctx, "aliases", "");
+		PrintEnterBlock(ctx, "aliases");
 
 		for(SynBase *arg = node->aliases.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
 
 		PrintLeaveBlock(ctx);
 
-		PrintEnterBlock(ctx, "arguments", "");
+		PrintEnterBlock(ctx, "arguments");
 
 		for(SynBase *arg = node->arguments.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
 
 		PrintLeaveBlock(ctx);
 
-		PrintEnterBlock(ctx, "expressions", "");
+		PrintEnterBlock(ctx, "expressions");
 
 		for(SynBase *arg = node->expressions.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -610,14 +622,14 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	{
 		PrintEnterBlock(ctx, name, "SynShortFunctionDefinition()");
 
-		PrintEnterBlock(ctx, "arguments", "");
+		PrintEnterBlock(ctx, "arguments");
 
 		for(SynBase *arg = node->arguments.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
 
 		PrintLeaveBlock(ctx);
 
-		PrintEnterBlock(ctx, "expressions", "");
+		PrintEnterBlock(ctx, "expressions");
 
 		for(SynBase *arg = node->expressions.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -640,7 +652,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		PrintGraph(ctx, node->type, "type");
 
-		PrintEnterBlock(ctx, "constants", "");
+		PrintEnterBlock(ctx, "constants");
 
 		for(SynBase *arg = node->constants.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -669,7 +681,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		if(node->typedefs.head)
 		{
-			PrintEnterBlock(ctx, "typedefs", "");
+			PrintEnterBlock(ctx, "typedefs");
 
 			for(SynBase *arg = node->typedefs.head; arg; arg = arg->next)
 				PrintGraph(ctx, arg, "");
@@ -679,7 +691,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		if(node->functions.head)
 		{
-			PrintEnterBlock(ctx, "functions", "");
+			PrintEnterBlock(ctx, "functions");
 
 			for(SynBase *arg = node->functions.head; arg; arg = arg->next)
 				PrintGraph(ctx, arg, "");
@@ -689,7 +701,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		if(node->accessors.head)
 		{
-			PrintEnterBlock(ctx, "accessors", "");
+			PrintEnterBlock(ctx, "accessors");
 
 			for(SynBase *arg = node->accessors.head; arg; arg = arg->next)
 				PrintGraph(ctx, arg, "");
@@ -699,7 +711,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		if(node->members.head)
 		{
-			PrintEnterBlock(ctx, "members", "");
+			PrintEnterBlock(ctx, "members");
 
 			for(SynBase *arg = node->members.head; arg; arg = arg->next)
 				PrintGraph(ctx, arg, "");
@@ -709,7 +721,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		if(node->constantSets.head)
 		{
-			PrintEnterBlock(ctx, "constantSets", "");
+			PrintEnterBlock(ctx, "constantSets");
 
 			for(SynBase *arg = node->constantSets.head; arg; arg = arg->next)
 				PrintGraph(ctx, arg, "");
@@ -719,7 +731,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		if(node->staticIfs.head)
 		{
-			PrintEnterBlock(ctx, "staticIfs", "");
+			PrintEnterBlock(ctx, "staticIfs");
 
 			for(SynBase *arg = node->staticIfs.head; arg; arg = arg->next)
 				PrintGraph(ctx, arg, "");
@@ -735,7 +747,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 
 		PrintGraph(ctx, node->align, "align");
 
-		PrintEnterBlock(ctx, "aliases", "");
+		PrintEnterBlock(ctx, "aliases");
 
 		for(SynBase *arg = node->aliases.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -760,14 +772,14 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	{
 		PrintEnterBlock(ctx, name, "SynNamespaceDefinition()");
 
-		PrintEnterBlock(ctx, "path", "");
+		PrintEnterBlock(ctx, "path");
 
 		for(SynIdentifier *part = node->path.head; part; part = getType<SynIdentifier>(part->next))
 			PrintGraph(ctx, part, "");
 
 		PrintLeaveBlock(ctx);
 
-		PrintEnterBlock(ctx, "expressions", "");
+		PrintEnterBlock(ctx, "expressions");
 
 		for(SynBase *arg = node->expressions.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -789,14 +801,14 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	{
 		PrintEnterBlock(ctx, name, "SynModule()");
 
-		PrintEnterBlock(ctx, "imports", "");
+		PrintEnterBlock(ctx, "imports");
 
 		for(SynModuleImport *import = node->imports.head; import; import = getType<SynModuleImport>(import->next))
 			PrintGraph(ctx, import, "");
 
 		PrintLeaveBlock(ctx);
 
-		PrintEnterBlock(ctx, "expressions", "");
+		PrintEnterBlock(ctx, "expressions");
 
 		for(SynBase *expr = node->expressions.head; expr; expr = expr->next)
 			PrintGraph(ctx, expr, "");

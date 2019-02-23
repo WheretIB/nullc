@@ -69,7 +69,7 @@ namespace
 		return res * (negative ? -1 : 1);
 	}
 
-	ExprBase* Report(InstructionVMEvalContext &ctx, const char *msg, ...)
+	NULLC_PRINT_FORMAT_CHECK(2, 3) ExprBase* Report(InstructionVMEvalContext &ctx, const char *msg, ...)
 	{
 		// Do not replace previous error
 		if(ctx.hasError)

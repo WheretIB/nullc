@@ -21,7 +21,7 @@ namespace
 	}
 }
 
-ExprBase* Report(ExpressionEvalContext &ctx, const char *msg, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) ExprBase* Report(ExpressionEvalContext &ctx, const char *msg, ...)
 {
 	if(ctx.errorBuf && ctx.errorBufSize)
 	{
@@ -40,7 +40,7 @@ ExprBase* Report(ExpressionEvalContext &ctx, const char *msg, ...)
 	return NULL;
 }
 
-ExprBase* ReportCritical(ExpressionEvalContext &ctx, const char *msg, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) ExprBase* ReportCritical(ExpressionEvalContext &ctx, const char *msg, ...)
 {
 	if(ctx.errorBuf && ctx.errorBufSize)
 	{
@@ -1938,7 +1938,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 		assert(length);
 
 		if(value == 0)
-			return Report(ctx, "ERROR: %.*s", length->value, ptr->ptr);
+			return Report(ctx, "ERROR: %.*s", int(length->value), ptr->ptr);
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
@@ -3199,7 +3199,7 @@ bool EvaluateToBuffer(ExpressionEvalContext &ctx, ExprBase *expression, char *re
 			if(result->type == ctx.ctx.typeLong)
 				SafeSprintf(resultBuf, resultBufSize, "%lldL", result->value);
 			else
-				SafeSprintf(resultBuf, resultBufSize, "%d", result->value);
+				SafeSprintf(resultBuf, resultBufSize, "%d", int(result->value));
 		}
 		else if(ExprRationalLiteral *result = getType<ExprRationalLiteral>(value))
 		{

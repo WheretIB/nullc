@@ -701,7 +701,7 @@ void NULLC::Assert(int val)
 void NULLC::Assert2(int val, NULLCArray message)
 {
 	if(!val)
-		nullcThrowError(message.ptr);
+		nullcThrowError("%s", message.ptr);
 }
 
 NULLCRef NULLC::CopyObject(NULLCRef ptr)
@@ -1386,7 +1386,7 @@ void NULLC::ArrayCopy(NULLCAutoArray dst, NULLCAutoArray src)
 	}
 	if(dst.len < src.len)
 	{
-		nullcThrowError("ERROR: destination array size '%d' is smaller than source array size '%s'", dst.len, src.len);
+		nullcThrowError("ERROR: destination array size '%d' is smaller than source array size '%d'", dst.len, src.len);
 		return;
 	}
 

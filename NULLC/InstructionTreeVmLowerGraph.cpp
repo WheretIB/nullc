@@ -8,7 +8,7 @@
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
-void Print(InstructionVmLowerGraphContext &ctx, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(InstructionVmLowerGraphContext &ctx, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -28,7 +28,7 @@ void PrintLine(InstructionVmLowerGraphContext &ctx)
 	fprintf(ctx.file, "\n");
 }
 
-void PrintLine(InstructionVmLowerGraphContext &ctx, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintLine(InstructionVmLowerGraphContext &ctx, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -140,7 +140,7 @@ void PrintInstruction(InstructionVmLowerGraphContext &ctx, VmLoweredInstruction 
 	else
 		Print(ctx, "[%2d->%2d] ", lowInstruction->stackDepthBefore, lowInstruction->stackDepthAfter);
 
-	Print(ctx, vmInstructionText[lowInstruction->cmd]);
+	Print(ctx, "%s", vmInstructionText[lowInstruction->cmd]);
 
 	if(lowInstruction->flag)
 	{
@@ -209,7 +209,7 @@ void PrintFunction(InstructionVmLowerGraphContext &ctx, VmLoweredFunction *lowFu
 
 		PrintLine(ctx, ")");
 
-		PrintLine(ctx, "// argument size %d", fData->argumentsSize);
+		PrintLine(ctx, "// argument size %lld", fData->argumentsSize);
 	}
 	else
 	{

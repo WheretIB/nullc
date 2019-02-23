@@ -98,4 +98,11 @@ typedef unsigned char nullres;
 	#define NULLC_PTR_SIZE 4
 #endif
 
+
+#if defined(__GNUC__)
+	#define NULLC_PRINT_FORMAT_CHECK(format, args) __attribute__((__format__(__printf__, format, args)))
+#else
+	#define NULLC_PRINT_FORMAT_CHECK(format, args)
+#endif
+
 #endif

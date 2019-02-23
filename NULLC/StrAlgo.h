@@ -11,7 +11,7 @@ namespace NULLC
 	unsigned int StringHashContinue(unsigned int hash, const char *str);
 	unsigned int StringHashContinue(unsigned int hash, const char *str, const char *end);
 
-	int		SafeSprintf(char* dst, size_t size, const char* src, ...);
+	int		SafeSprintf(char* dst, size_t size, const char* src, ...) NULLC_PRINT_FORMAT_CHECK(3, 4);
 
 	// A string that doesn't terminate with a \0 character
 	class InplaceStr

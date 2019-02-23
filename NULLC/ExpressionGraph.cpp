@@ -6,7 +6,7 @@
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
-void Print(ExpressionGraphContext &ctx, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(ExpressionGraphContext &ctx, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -22,7 +22,7 @@ void PrintIndent(ExpressionGraphContext &ctx)
 		fprintf(ctx.file, "  ");
 }
 
-void PrintIndented(ExpressionGraphContext &ctx, InplaceStr name, TypeBase *type, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintIndented(ExpressionGraphContext &ctx, InplaceStr name, TypeBase *type, const char *format, ...)
 {
 	PrintIndent(ctx);
 
@@ -42,7 +42,7 @@ void PrintIndented(ExpressionGraphContext &ctx, InplaceStr name, TypeBase *type,
 	fprintf(ctx.file, "\n");
 }
 
-void PrintEnterBlock(ExpressionGraphContext &ctx, InplaceStr name, TypeBase *type, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintEnterBlock(ExpressionGraphContext &ctx, InplaceStr name, TypeBase *type, const char *format, ...)
 {
 	PrintIndent(ctx);
 
@@ -58,6 +58,21 @@ void PrintEnterBlock(ExpressionGraphContext &ctx, InplaceStr name, TypeBase *typ
 	vfprintf(ctx.file, format, args);
 
 	va_end(args);
+
+	fprintf(ctx.file, "{\n");
+
+	ctx.depth++;
+}
+
+void PrintEnterBlock(ExpressionGraphContext &ctx, InplaceStr name, TypeBase *type)
+{
+	PrintIndent(ctx);
+
+	if(!name.empty())
+		fprintf(ctx.file, "%.*s: ", FMT_ISTR(name));
+
+	if(type)
+		fprintf(ctx.file, "%.*s ", FMT_ISTR(type->name));
 
 	fprintf(ctx.file, "{\n");
 
@@ -570,7 +585,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintGraph(ctx, node->contextArgument, "contextArgument");
 
-		PrintEnterBlock(ctx, InplaceStr("arguments"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("arguments"), 0);
 
 		for(ExprBase *arg = node->arguments.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -579,7 +594,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintGraph(ctx, node->coroutineStateRead, "coroutineStateRead");
 
-		PrintEnterBlock(ctx, InplaceStr("expressions"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("expressions"), 0);
 
 		for(ExprBase *expr = node->expressions.head; expr; expr = expr->next)
 			PrintGraph(ctx, expr, "");
@@ -594,7 +609,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprGenericFunctionPrototype(%.*s: f%04x)", FMT_ISTR(node->function->name), node->function->uniqueId);
 
-		PrintEnterBlock(ctx, InplaceStr("contextVariables"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("contextVariables"), 0);
 
 		for(ExprBase *expr = node->contextVariables.head; expr; expr = expr->next)
 			PrintGraph(ctx, expr, "");
@@ -615,7 +630,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprFunctionOverloadSet()");
 
-		PrintEnterBlock(ctx, InplaceStr("functions"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("functions"), 0);
 
 		for(FunctionHandle *arg = node->functions.head; arg; arg = arg->next)
 			PrintIndented(ctx, name, arg->function->type, "%.*s: f%04x", FMT_ISTR(arg->function->name), arg->function->uniqueId);
@@ -632,7 +647,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintGraph(ctx, node->function, "function");
 
-		PrintEnterBlock(ctx, InplaceStr("arguments"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("arguments"), 0);
 
 		for(ExprBase *arg = node->arguments.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");
@@ -653,7 +668,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprGenericClassPrototype(%.*s)", FMT_ISTR(node->genericProtoType->name));
 
-		PrintEnterBlock(ctx, InplaceStr("instances"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("instances"), 0);
 
 		for(ExprBase *value = node->genericProtoType->instances.head; value; value = value->next)
 			PrintGraph(ctx, value, "");
@@ -669,21 +684,21 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 		else
 			PrintEnterBlock(ctx, name, node->type, "ExprClassDefinition(%.*s%s)", FMT_ISTR(node->classType->name), node->classType->extendable ? " extendable" : "");
 
-		PrintEnterBlock(ctx, InplaceStr("variables"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("variables"), 0);
 
 		for(VariableHandle *value = node->classType->members.head; value; value = value->next)
 			PrintIndented(ctx, InplaceStr(), value->variable->type, "%.*s: v%04x @ 0x%x", FMT_ISTR(value->variable->name), value->variable->uniqueId, value->variable->offset);
 
 		PrintLeaveBlock(ctx);
 
-		PrintEnterBlock(ctx, InplaceStr("functions"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("functions"), 0);
 
 		for(ExprBase *value = node->functions.head; value; value = value->next)
 			PrintGraph(ctx, value, "");
 
 		PrintLeaveBlock(ctx);
 
-		PrintEnterBlock(ctx, InplaceStr("constants"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("constants"), 0);
 
 		for(ConstantData *value = node->classType->constants.head; value; value = value->next)
 			PrintGraph(ctx, value->value, value->name);
@@ -696,7 +711,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintEnterBlock(ctx, name, node->type, "ExprEnumDefinition(%.*s)", FMT_ISTR(node->enumType->name));
 
-		PrintEnterBlock(ctx, InplaceStr("constants"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("constants"), 0);
 
 		for(ConstantData *value = node->enumType->constants.head; value; value = value->next)
 			PrintGraph(ctx, value->value, value->name);
@@ -753,14 +768,14 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintGraph(ctx, node->condition, "condition");
 
-		PrintEnterBlock(ctx, InplaceStr("cases"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("cases"), 0);
 
 		for(ExprBase *value = node->cases.head; value; value = value->next)
 			PrintGraph(ctx, value, "");
 
 		PrintLeaveBlock(ctx);
 
-		PrintEnterBlock(ctx, InplaceStr("blocks"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("blocks"), 0);
 
 		for(ExprBase *value = node->blocks.head; value; value = value->next)
 			PrintGraph(ctx, value, "");
@@ -819,7 +834,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintGraph(ctx, node->moduleScope, false);
 
-		PrintEnterBlock(ctx, InplaceStr("definitions"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("definitions"), 0);
 
 		for(unsigned i = 0; i < node->definitions.size(); i++)
 			PrintGraph(ctx, node->definitions[i], "");
@@ -828,14 +843,14 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		ctx.skipFunctionDefinitions = true;
 
-		PrintEnterBlock(ctx, InplaceStr("setup"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("setup"), 0);
 
 		for(ExprBase *value = node->setup.head; value; value = value->next)
 			PrintGraph(ctx, value, "");
 
 		PrintLeaveBlock(ctx);
 
-		PrintEnterBlock(ctx, InplaceStr("expressions"), 0, "");
+		PrintEnterBlock(ctx, InplaceStr("expressions"), 0);
 
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
 			PrintGraph(ctx, value, "");

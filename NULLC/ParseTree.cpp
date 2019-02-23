@@ -46,7 +46,7 @@ namespace
 		}
 	}
 
-	void Report(ParseContext &ctx, const char *pos, const char *msg, ...)
+	NULLC_PRINT_FORMAT_CHECK(3, 4) void Report(ParseContext &ctx, const char *pos, const char *msg, ...)
 	{
 		va_list args;
 		va_start(args, msg);
@@ -63,7 +63,7 @@ namespace
 		longjmp(ctx.errorHandler, 1);
 	}
 
-	void Stop(ParseContext &ctx, const char *pos, const char *msg, ...)
+	NULLC_PRINT_FORMAT_CHECK(3, 4) void Stop(ParseContext &ctx, const char *pos, const char *msg, ...)
 	{
 		va_list args;
 		va_start(args, msg);
@@ -71,7 +71,7 @@ namespace
 		Stop(ctx, pos, msg, args);
 	}
 
-	void Stop(ParseContext &ctx, Lexeme *pos, const char *msg, ...)
+	NULLC_PRINT_FORMAT_CHECK(3, 4) void Stop(ParseContext &ctx, Lexeme *pos, const char *msg, ...)
 	{
 		va_list args;
 		va_start(args, msg);
@@ -79,7 +79,7 @@ namespace
 		Stop(ctx, pos->pos, msg, args);
 	}
 
-	void AssertAt(ParseContext &ctx, LexemeType type, const char *msg, ...)
+	NULLC_PRINT_FORMAT_CHECK(3, 4) void AssertAt(ParseContext &ctx, LexemeType type, const char *msg, ...)
 	{
 		if(!ctx.At(type))
 		{
@@ -90,7 +90,7 @@ namespace
 		}
 	}
 
-	void AssertConsume(ParseContext &ctx, LexemeType type, const char *msg, ...)
+	NULLC_PRINT_FORMAT_CHECK(3, 4) void AssertConsume(ParseContext &ctx, LexemeType type, const char *msg, ...)
 	{
 		if(!ctx.Consume(type))
 		{
@@ -101,7 +101,7 @@ namespace
 		}
 	}
 
-	void AssertConsume(ParseContext &ctx, const char *str, const char *msg, ...)
+	NULLC_PRINT_FORMAT_CHECK(3, 4) void AssertConsume(ParseContext &ctx, const char *str, const char *msg, ...)
 	{
 		if(!ctx.Consume(str))
 		{

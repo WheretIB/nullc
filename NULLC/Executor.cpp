@@ -860,7 +860,6 @@ Executor::~Executor()
 #endif
 }
 
-#define genStackSize (genStackTop-genStackPtr)
 #define RUNTIME_ERROR(test, desc)	if(test){ fcallStack.push_back(cmdStream); cmdStream = NULL; strcpy(execError, desc); break; }
 
 void Executor::InitExecution()
@@ -1959,7 +1958,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 	
 	lastResultType = retType;
 	lastResultInt = *(int*)genStackPtr;
-	if(genStackSize > 1)
+	if(genStackTop - genStackPtr > 1)
 	{
 		lastResultLong = vmLoadLong(genStackPtr);
 		lastResultDouble = vmLoadDouble(genStackPtr);
@@ -1987,7 +1986,7 @@ void Executor::Stop(const char* error)
 	codeRunning = false;
 
 	callContinue = false;
-	SafeSprintf(execError, ERROR_BUFFER_SIZE, error);
+	SafeSprintf(execError, ERROR_BUFFER_SIZE, "%s", error);
 }
 
 #ifdef NULLC_VM_CALL_STACK_UNWRAP
@@ -2806,9 +2805,9 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 
 const char* Executor::GetResult()
 {
-	if(!codeRunning && genStackSize > (int(lastResultType) == -1 ? 1 : 0))
+	if(!codeRunning && genStackTop - genStackPtr > (int(lastResultType) == -1 ? 1 : 0))
 	{
-		SafeSprintf(execResult, 64, "There is more than one value on the stack (%d)", genStackSize);
+		SafeSprintf(execResult, 64, "There is more than one value on the stack (%d)", int(genStackTop - genStackPtr));
 		return execResult;
 	}
 
