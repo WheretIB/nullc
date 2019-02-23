@@ -274,13 +274,13 @@ temp/ConsoleCalc.o: ConsoleCalc/ConsoleCalc.cpp
 	$(CXX) $(REG_CFLAGS) -c $< -o $@
 
 bin/ConsoleCalc: temp/ConsoleCalc.o bin/libnullc.a
-	$(CXX) $(REG_CFLAGS) -o $@ $< -Lbin $(STDLIB_FLAGS) -lnullc -ldl
+	$(CXX) $(REG_CFLAGS) -o $@ $< -Lbin -lnullc -ldl $(STDLIB_FLAGS)
 
 temp/main.o: nullcl/main.cpp bin/libnullc.a
 	$(CXX) -c $(REG_CFLAGS) -o $@ $<
 
 bin/nullcl: temp/main.o bin/libnullc_cl.a
-	$(CXX) $(REG_CFLAGS) -o $@ $<  -Lbin $(STDLIB_FLAGS) -lm -lnullc_cl
+	$(CXX) $(REG_CFLAGS) -o $@ $<  -Lbin -lnullc_cl $(STDLIB_FLAGS) 
 
 TEST_SOURCES = \
 	TestRun.cpp \
