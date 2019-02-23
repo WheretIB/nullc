@@ -2237,9 +2237,6 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase 
 
 ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs)
 {
-	if(isType<ExprError>(lhs) || isType<ExprError>(rhs))
-		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
-
 	if(ExprUnboxing *node = getType<ExprUnboxing>(lhs))
 	{
 		lhs = CreateCast(ctx, source, lhs, ctx.GetReferenceType(rhs->type), false);
@@ -3825,12 +3822,18 @@ ExprBase* AnalyzeGetAddress(ExpressionContext &ctx, SynGetAddress *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
+	if(isType<ExprError>(value))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+
 	return CreateGetAddress(ctx, syntax, value);
 }
 
 ExprBase* AnalyzeDereference(ExpressionContext &ctx, SynDereference *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
+
+	if(isType<ExprError>(value))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
 
 	if(TypeRef *type = getType<TypeRef>(value->type))
 	{
@@ -3847,7 +3850,7 @@ ExprBase* AnalyzeDereference(ExpressionContext &ctx, SynDereference *syntax)
 	return NULL;
 }
 
-ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *syntax)
+ExprBase* AnalyzeConditional(ExpressionContext &ctx, SynConditional *syntax)
 {
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
@@ -3855,6 +3858,9 @@ ExprConditional* AnalyzeConditional(ExpressionContext &ctx, SynConditional *synt
 
 	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
 	ExprBase *falseBlock = AnalyzeStatement(ctx, syntax->falseBlock);
+
+	if(isType<ExprError>(condition) || isType<ExprError>(trueBlock) || isType<ExprError>(falseBlock))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
 
 	// Handle null pointer promotion
 	if(trueBlock->type != falseBlock->type)
@@ -3894,6 +3900,9 @@ ExprBase* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
+	if(isType<ExprError>(lhs) || isType<ExprError>(rhs))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+
 	return CreateAssignment(ctx, syntax, lhs, rhs);
 }
 
@@ -3901,6 +3910,9 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 {
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
+
+	if(isType<ExprError>(lhs) || isType<ExprError>(rhs))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
 
 	if(ExprBase *result = CreateFunctionCall2(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true, false))
 		return result;
@@ -4441,6 +4453,9 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 
 	ExprBase* value = AnalyzeExpression(ctx, syntax->value);
 
+	if(isType<ExprError>(value))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+
 	return CreateMemberAccess(ctx, syntax, value, syntax->member, false);
 }
 
@@ -4584,11 +4599,17 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
+	if(isType<ExprError>(value))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+
 	SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
 	for(SynCallArgument *curr = syntax->arguments.head; curr; curr = getType<SynCallArgument>(curr->next))
 	{
 		ExprBase *index = AnalyzeExpression(ctx, curr->value);
+
+		if(isType<ExprError>(value))
+			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
 
 		arguments.push_back(ArgumentData(index->source, false, curr->name, index->type, index));
 	}
@@ -6523,6 +6544,9 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 {
 	ExprBase *function = AnalyzeExpression(ctx, syntax->value);
 
+	if(isType<ExprError>(function))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+
 	IntrusiveList<TypeHandle> generics;
 
 	for(SynBase *curr = syntax->aliases.head; curr; curr = curr->next)
@@ -6700,6 +6724,9 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *count = AnalyzeExpression(ctx, syntax->count);
 
+		if(isType<ExprError>(count))
+			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+
 		ExprBase *alloc = CreateArrayAllocation(ctx, syntax, type, count);
 
 		if(HasDefautConstructor(ctx, syntax, type))
@@ -6798,9 +6825,12 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 	return alloc;
 }
 
-ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
+ExprBase* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 {
 	ExprBase *result = syntax->value ? AnalyzeExpression(ctx, syntax->value) : new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
+
+	if(isType<ExprError>(result))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
 
 	if(FunctionData *function = ctx.GetCurrentFunction())
 	{
@@ -6842,9 +6872,12 @@ ExprReturn* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 	return new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, result, NULL, NULL);
 }
 
-ExprYield* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
+ExprBase* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 {
 	ExprBase *result = syntax->value ? AnalyzeExpression(ctx, syntax->value) : new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
+
+	if(isType<ExprError>(result))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
 
 	if(FunctionData *function = ctx.GetCurrentFunction())
 	{
