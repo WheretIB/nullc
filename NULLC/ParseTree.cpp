@@ -271,7 +271,7 @@ SynModifyAssignType GetModifyAssignType(LexemeType type)
 	return SYN_MODIFY_ASSIGN_UNKNOWN;
 }
 
-ParseContext::ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): binaryOpStack(allocator), namespaceList(allocator), activeImports(allocator), allocator(allocator)
+ParseContext::ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): lexer(allocator), binaryOpStack(allocator), namespaceList(allocator), activeImports(allocator), allocator(allocator)
 {
 	code = NULL;
 

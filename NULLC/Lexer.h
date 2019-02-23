@@ -65,7 +65,7 @@ struct Lexeme
 class Lexer
 {
 public:
-	Lexer();
+	Lexer(Allocator *allocator);
 
 	void			Clear(unsigned count);
 	void			Lexify(const char* code);

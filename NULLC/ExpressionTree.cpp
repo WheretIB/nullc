@@ -10081,7 +10081,7 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 
 		if(!lexStream)
 		{
-			moduleData->lexer = new (ctx.get<Lexer>()) Lexer();
+			moduleData->lexer = new (ctx.get<Lexer>()) Lexer(ctx.allocator);
 
 			moduleData->lexer->Lexify(FindSource(moduleData->bytecode));
 			lexStream = moduleData->lexer->GetStreamStart();
@@ -10911,7 +10911,7 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 
 	if(!lexStream)
 	{
-		moduleData->lexer = new (ctx.get<Lexer>()) Lexer();
+		moduleData->lexer = new (ctx.get<Lexer>()) Lexer(ctx.allocator);
 
 		moduleData->lexer->Lexify(FindSource(bytecode));
 		lexStream = moduleData->lexer->GetStreamStart();

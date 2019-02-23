@@ -1,6 +1,6 @@
 #include "Lexer.h"
 
-Lexer::Lexer()
+Lexer::Lexer(Allocator *allocator): lexems(allocator)
 {
 }
 
