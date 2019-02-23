@@ -1718,7 +1718,7 @@ ExprBase* EvaluateVariableDefinitions(ExpressionEvalContext &ctx, ExprVariableDe
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	for(ExprVariableDefinition *definition = expression->definitions.head; definition; definition = getType<ExprVariableDefinition>(definition->next))
+	for(ExprBase *definition = expression->definitions.head; definition; definition = definition->next)
 	{
 		if(!Evaluate(ctx, definition))
 			return NULL;
@@ -3024,6 +3024,9 @@ ExprBase* EvaluateModule(ExpressionEvalContext &ctx, ExprModule *expression)
 
 ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression)
 {
+	if(ExprError *expr = getType<ExprError>(expression))
+		return Report(ctx, "ERROR: invalid expression");
+
 	if(ExprVoid *expr = getType<ExprVoid>(expression))
 		return new (ctx.ctx.get<ExprVoid>()) ExprVoid(expr->source, expr->type);
 

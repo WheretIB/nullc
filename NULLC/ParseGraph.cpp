@@ -69,7 +69,11 @@ void PrintLeaveBlock(ParseGraphContext &ctx)
 
 void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 {
-	if(SynNothing *node = getType<SynNothing>(syntax))
+	if(SynError *node = getType<SynError>(syntax))
+	{
+		PrintIndented(ctx, name, "SynError()");
+	}
+	else if(SynNothing *node = getType<SynNothing>(syntax))
 	{
 		PrintIndented(ctx, name, "SynNothing()");
 	}

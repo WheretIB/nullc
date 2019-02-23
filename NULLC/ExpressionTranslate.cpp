@@ -1171,7 +1171,7 @@ void TranslateArraySetup(ExpressionTranslateContext &ctx, ExprArraySetup *expres
 
 void TranslateVariableDefinitions(ExpressionTranslateContext &ctx, ExprVariableDefinitions *expression)
 {
-	for(ExprVariableDefinition *value = expression->definitions.head; value; value = getType<ExprVariableDefinition>(value->next))
+	for(ExprBase *value = expression->definitions.head; value; value = value->next)
 	{
 		Translate(ctx, value);
 

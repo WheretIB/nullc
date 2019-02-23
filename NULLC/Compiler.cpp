@@ -430,17 +430,7 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 
 	ctx.synModule = Parse(parseCtx, ctx.code);
 
-	if(!ctx.synModule)
-	{
-		if(parseCtx.errorPos)
-			ctx.errorPos = parseCtx.errorPos;
-
-		return NULL;
-	}
-
-	//printf("# Parse memory %dkb\n", ctx.allocator->requested() / 1024);
-
-	if(ctx.enableLogFiles)
+	if(ctx.enableLogFiles && ctx.synModule)
 	{
 		ParseGraphContext parseGraphCtx;
 
@@ -451,6 +441,16 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 		fclose(parseGraphCtx.file);
 	}
 
+	if(!ctx.synModule || parseCtx.errorCount != 0)
+	{
+		if(parseCtx.errorPos)
+			ctx.errorPos = parseCtx.errorPos;
+
+		return NULL;
+	}
+
+	//printf("# Parse memory %dkb\n", ctx.allocator->requested() / 1024);
+
 	ExpressionContext &exprCtx = ctx.exprCtx;
 
 	exprCtx.errorBuf = ctx.errorBuf;
@@ -458,7 +458,18 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 
 	ctx.exprModule = Analyze(exprCtx, ctx.synModule, ctx.code);
 
-	if(!ctx.exprModule)
+	if(ctx.enableLogFiles && ctx.exprModule)
+	{
+		ExpressionGraphContext exprGraphCtx;
+
+		exprGraphCtx.file = fopen("expr_graph.txt", "w");
+
+		PrintGraph(exprGraphCtx, ctx.exprModule, "");
+
+		fclose(exprGraphCtx.file);
+	}
+
+	if(!ctx.exprModule || exprCtx.errorCount != 0)
 	{
 		if(exprCtx.errorPos)
 			ctx.errorPos = exprCtx.errorPos;
@@ -477,17 +488,6 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		return false;
 
 	ExpressionContext &exprCtx = ctx.exprCtx;
-
-	if(ctx.enableLogFiles)
-	{
-		ExpressionGraphContext exprGraphCtx;
-
-		exprGraphCtx.file = fopen("expr_graph.txt", "w");
-
-		PrintGraph(exprGraphCtx, ctx.exprModule, "");
-
-		fclose(exprGraphCtx.file);
-	}
 
 	ctx.vmModule = CompileVm(exprCtx, ctx.exprModule, ctx.code);
 

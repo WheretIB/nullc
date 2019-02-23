@@ -131,8 +131,10 @@ struct ParseContext
 	bool errorHandlerActive;
 	jmp_buf errorHandler;
 	const char *errorPos;
+	unsigned errorCount;
 	char *errorBuf;
 	unsigned errorBufSize;
+	char *errorBufLocation;
 
 	// Memory pool
 	Allocator *allocator;
@@ -179,6 +181,15 @@ T* getType(SynBase *node)
 
 	return 0;
 }
+
+struct SynError: SynBase
+{
+	SynError(Lexeme *begin, Lexeme *end): SynBase(myTypeID, begin, end)
+	{
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
 
 struct SynNothing: SynBase
 {

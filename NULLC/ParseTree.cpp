@@ -12,17 +12,51 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 
 namespace
 {
-	void Stop(ParseContext &ctx, const char *pos, const char *msg, va_list args)
+	void Report(ParseContext &ctx, const char *pos, const char *msg, va_list args)
 	{
-		ctx.errorPos = pos;
-
 		if(ctx.errorBuf && ctx.errorBufSize)
 		{
-			vsnprintf(ctx.errorBuf, ctx.errorBufSize, msg, args);
+			if(ctx.errorCount == 0)
+			{
+				ctx.errorPos = pos;
+				ctx.errorBufLocation = ctx.errorBuf;
+			}
+
+			vsnprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), msg, args);
 			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
 
-			AddErrorLocationInfo(ctx.code, ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
+			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+			AddErrorLocationInfo(ctx.code, pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf));
+
+			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 		}
+
+		ctx.errorCount++;
+
+		if(ctx.errorCount == 100)
+		{
+			SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: error limit reached");
+
+			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+			assert(ctx.errorHandlerActive);
+
+			longjmp(ctx.errorHandler, 1);
+		}
+	}
+
+	void Report(ParseContext &ctx, const char *pos, const char *msg, ...)
+	{
+		va_list args;
+		va_start(args, msg);
+
+		Report(ctx, pos, msg, args);
+	}
+
+	void Stop(ParseContext &ctx, const char *pos, const char *msg, va_list args)
+	{
+		Report(ctx, pos, msg, args);
 
 		assert(ctx.errorHandlerActive);
 
@@ -251,8 +285,10 @@ ParseContext::ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImp
 
 	errorHandlerActive = false;
 	errorPos = NULL;
+	errorCount = 0;
 	errorBuf = NULL;
 	errorBufSize = 0;
+	errorBufLocation = NULL;
 
 	currentNamespace = NULL;
 
@@ -1218,7 +1254,11 @@ SynBase* ParseArithmetic(ParseContext &ctx)
 		lhs = ParseTerminal(ctx);
 
 		if(!lhs)
-			Stop(ctx, ctx.Position(), "ERROR: expression not found after binary operation");
+		{
+			Report(ctx, ctx.Position(), "ERROR: expression not found after binary operation");
+
+			lhs = new (ctx.get<SynError>()) SynError(start, ctx.Previous());
+		}
 	}
 
 	while(ctx.binaryOpStack.size() > startSize)
@@ -2742,6 +2782,8 @@ SynModule* Parse(ParseContext &ctx, const char *code)
 
 		return module;
 	}
+
+	assert(ctx.errorPos);
 
 	ctx.code = NULL;
 

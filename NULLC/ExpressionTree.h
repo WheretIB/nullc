@@ -62,6 +62,7 @@ struct ExpressionContext
 	bool IsNumericType(TypeBase* type);
 	TypeBase* GetBinaryOpResultType(TypeBase* a, TypeBase* b);
 
+	TypeError* GetErrorType();
 	TypeRef* GetReferenceType(TypeBase* type);
 	TypeArray* GetArrayType(TypeBase* type, long long size);
 	TypeUnsizedArray* GetUnsizedArrayType(TypeBase* type);
@@ -109,10 +110,13 @@ struct ExpressionContext
 
 	// Error info
 	bool errorHandlerActive;
+	bool errorHandlerNested;
 	jmp_buf errorHandler;
 	const char *errorPos;
+	unsigned errorCount;
 	char *errorBuf;
 	unsigned errorBufSize;
+	char *errorBufLocation;
 
 	// Base types
 	TypeBase* typeVoid;
@@ -175,6 +179,15 @@ struct ExprBase
 	TypeBase *type;
 	ExprBase *next;
 	bool listed;
+};
+
+struct ExprError: ExprBase
+{
+	ExprError(SynBase *source, TypeBase *type): ExprBase(myTypeID, source, type)
+	{
+	}
+
+	static const unsigned myTypeID = __LINE__;
 };
 
 struct ExprVoid: ExprBase
@@ -564,11 +577,11 @@ struct ExprArraySetup: ExprBase
 
 struct ExprVariableDefinitions: ExprBase
 {
-	ExprVariableDefinitions(SynBase *source, TypeBase *type, IntrusiveList<ExprVariableDefinition> definitions): ExprBase(myTypeID, source, type), definitions(definitions)
+	ExprVariableDefinitions(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> definitions): ExprBase(myTypeID, source, type), definitions(definitions)
 	{
 	}
 
-	IntrusiveList<ExprVariableDefinition> definitions;
+	IntrusiveList<ExprBase> definitions;
 
 	static const unsigned myTypeID = __LINE__;
 };

@@ -277,7 +277,11 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 
 void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr name)
 {
-	if(ExprVoid *node = getType<ExprVoid>(expression))
+	if(ExprError *node = getType<ExprError>(expression))
+	{
+		PrintIndented(ctx, name, node->type, "ExprError()");
+	}
+	else if(ExprVoid *node = getType<ExprVoid>(expression))
 	{
 		PrintIndented(ctx, name, node->type, "ExprVoid()");
 	}

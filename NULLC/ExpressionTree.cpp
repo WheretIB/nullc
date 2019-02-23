@@ -14,31 +14,91 @@ const char* FindModuleCodeWithSourceLocation(ExpressionContext &ctx, const char 
 
 namespace
 {
-	void Stop(ExpressionContext &ctx, const char *pos, const char *msg, va_list args)
+	void Report(ExpressionContext &ctx, const char *pos, const char *msg, va_list args)
 	{
-		ctx.errorPos = pos;
-
 		if(ctx.errorBuf && ctx.errorBufSize)
 		{
-			vsnprintf(ctx.errorBuf, ctx.errorBufSize, msg, args);
+			if(ctx.errorCount == 0)
+			{
+				ctx.errorPos = pos;
+				ctx.errorBufLocation = ctx.errorBuf;
+			}
+
+			vsnprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), msg, args);
 			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
 
-			if(const char *code = FindModuleCodeWithSourceLocation(ctx, ctx.errorPos))
+			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+			if(const char *code = FindModuleCodeWithSourceLocation(ctx, pos))
 			{
-				AddErrorLocationInfo(code, ctx.errorPos, ctx.errorBuf, ctx.errorBufSize);
+				AddErrorLocationInfo(code, pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf));
+
+				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
 				if(code != ctx.code)
 				{
-					InplaceStr parentModule = FindModuleNameWithSourceLocation(ctx, ctx.errorPos);
+					InplaceStr parentModule = FindModuleNameWithSourceLocation(ctx, pos);
 
 					if(!parentModule.empty())
 					{
-						unsigned currength = (unsigned)strlen(ctx.errorBuf);
-						SafeSprintf(ctx.errorBuf + currength, ctx.errorBufSize - currength, " [in module '%.*s']\n", FMT_ISTR(parentModule));
+						SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), " [in module '%.*s']\n", FMT_ISTR(parentModule));
+
+						ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 					}
 				}
 			}
 		}
+
+		if(ctx.errorHandlerNested)
+		{
+			assert(ctx.errorHandlerActive);
+
+			longjmp(ctx.errorHandler, 1);
+		}
+
+		ctx.errorCount++;
+
+		if(ctx.errorCount == 100)
+		{
+			SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: error limit reached");
+
+			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+			assert(ctx.errorHandlerActive);
+
+			longjmp(ctx.errorHandler, 1);
+		}
+	}
+
+	void Report(ExpressionContext &ctx, const char *pos, const char *msg, ...)
+	{
+		va_list args;
+		va_start(args, msg);
+
+		Report(ctx, pos, msg, args);
+	}
+
+	void Report(ExpressionContext &ctx, InplaceStr pos, const char *msg, ...)
+	{
+		va_list args;
+		va_start(args, msg);
+
+		Report(ctx, pos.begin, msg, args);
+	}
+
+	ExprError* ReportExpected(ExpressionContext &ctx, SynBase *source, TypeBase *type, const char *msg, ...)
+	{
+		va_list args;
+		va_start(args, msg);
+
+		Report(ctx, source->pos.begin, msg, args);
+
+		return new (ctx.get<ExprError>()) ExprError(source, type);
+	}
+
+	void Stop(ExpressionContext &ctx, const char *pos, const char *msg, va_list args)
+	{
+		Report(ctx, pos, msg, args);
 
 		assert(ctx.errorHandlerActive);
 
@@ -83,7 +143,7 @@ namespace
 			return '\\';
 		}
 
-		Stop(ctx, str, "ERROR: unknown escape sequence");
+		Report(ctx, str, "ERROR: unknown escape sequence");
 
 		return 0;
 	}
@@ -113,7 +173,7 @@ namespace
 			int digit = ((*p >= '0' && *p <= '9') ? *p - '0' : (*p & ~0x20) - 'A' + 10);
 
 			if(digit < 0 || digit >= base)
-				Stop(ctx, p, "ERROR: digit %d is not allowed in base %d", digit, base);
+				Report(ctx, p, "ERROR: digit %d is not allowed in base %d", digit, base);
 
 			unsigned long long prev = res;
 
@@ -696,8 +756,11 @@ namespace
 	{
 		ExpressionEvalContext evalCtx(ctx, ctx.allocator);
 
-		evalCtx.errorBuf = ctx.errorBuf;
-		evalCtx.errorBufSize = ctx.errorBufSize;
+		if(ctx.errorBuf && ctx.errorBufSize)
+		{
+			evalCtx.errorBuf = ctx.errorBufLocation ? ctx.errorBufLocation : ctx.errorBuf;
+			evalCtx.errorBufSize = ctx.errorBufSize - (ctx.errorBufLocation ? unsigned(ctx.errorBufLocation - ctx.errorBuf) : 0);
+		}
 
 		evalCtx.globalFrame = new (ctx.get<ExpressionEvalContext::StackFrame>()) ExpressionEvalContext::StackFrame(ctx.allocator, NULL);
 		evalCtx.stackFrames.push_back(evalCtx.globalFrame);
@@ -706,7 +769,16 @@ namespace
 
 		if(evalCtx.errorCritical)
 		{
-			ctx.errorPos = expression->source->pos.begin;
+			if(ctx.errorBuf && ctx.errorBufSize)
+			{
+				if(ctx.errorCount == 0)
+				{
+					ctx.errorPos = expression->source->pos.begin;
+					ctx.errorBufLocation = ctx.errorBuf;
+				}
+
+				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+			}
 
 			longjmp(ctx.errorHandler, 1);
 		}
@@ -740,9 +812,12 @@ ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
 	variableMap.set_allocator(allocator);
 
 	errorHandlerActive = false;
+	errorHandlerNested = false;
 	errorPos = NULL;
+	errorCount = 0;
 	errorBuf = NULL;
 	errorBufSize = 0;
+	errorBufLocation = NULL;
 
 	typeVoid = NULL;
 
@@ -1361,6 +1436,11 @@ TypeBase* ExpressionContext::GetBinaryOpResultType(TypeBase* a, TypeBase* b)
 	return NULL;
 }
 
+TypeError* ExpressionContext::GetErrorType()
+{
+	return new (get<TypeError>()) TypeError();
+}
+
 TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
 {
 	// Can't derive from pseudo types
@@ -1667,8 +1747,8 @@ TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, Typ
 FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, SmallArray<unsigned, 32> &ratings);
 FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *source, FunctionValue proto, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, bool standalone);
 void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *function, SmallArray<FunctionValue, 32> &functions);
-void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, ArrayView<FunctionValue> functions);
-void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, InplaceStr functionName, ArrayView<FunctionValue> functions, ArrayView<ArgumentData> arguments, ArrayView<unsigned> ratings, unsigned bestRating, bool showInstanceInfo);
+void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errorBuf, unsigned errorBufSize, ArrayView<FunctionValue> functions);
+void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errorBuf, unsigned errorBufSize, InplaceStr functionName, ArrayView<FunctionValue> functions, ArrayView<ArgumentData> arguments, ArrayView<unsigned> ratings, unsigned bestRating, bool showInstanceInfo);
 ExprBase* CreateFunctionCall0(ExpressionContext &ctx, SynBase *source, InplaceStr name, bool allowFailure, bool allowInternal);
 ExprBase* CreateFunctionCall1(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, bool allowFailure, bool allowInternal);
 ExprBase* CreateFunctionCall2(ExpressionContext &ctx, SynBase *source, InplaceStr name, ExprBase *arg0, ExprBase *arg1, bool allowFailure, bool allowInternal);
@@ -1859,6 +1939,9 @@ ExprBase* CreateFunctionPointer(ExpressionContext &ctx, SynBase *source, ExprFun
 
 ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, TypeBase *type, bool isFunctionArgument)
 {
+	if(isType<ExprError>(value))
+		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
 	// When function is used as value, hide its visibility immediately after use
 	if(ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(value))
 		return CreateFunctionPointer(ctx, source, definition, true);
@@ -2105,13 +2188,14 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 		}
 	}
 
-	Stop(ctx, source->pos, "ERROR: cannot convert '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));
-
-	return NULL;
+	return ReportExpected(ctx, source, type, "ERROR: cannot convert '%.*s' to '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));
 }
 
 ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase *value)
 {
+	if(isType<ExprError>(value))
+		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
 	if(!ctx.IsIntegerType(value->type) && !value->type->isGeneric)
 	{
 		// TODO: function overload
@@ -2139,7 +2223,7 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase 
 			if(ExprBase *call = CreateFunctionCall1(ctx, source, InplaceStr("bool"), value, true, false))
 				return call;
 
-			Stop(ctx, source->pos, "ERROR: condition type cannot be '%.*s' and function for conversion to bool is undefined", FMT_ISTR(value->type->name));
+			return ReportExpected(ctx, source, ctx.typeBool, "ERROR: condition type cannot be '%.*s' and function for conversion to bool is undefined", FMT_ISTR(value->type->name));
 		}
 	}
 
@@ -2153,6 +2237,9 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase 
 
 ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs)
 {
+	if(isType<ExprError>(lhs) || isType<ExprError>(rhs))
+		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
 	if(ExprUnboxing *node = getType<ExprUnboxing>(lhs))
 	{
 		lhs = CreateCast(ctx, source, lhs, ctx.GetReferenceType(rhs->type), false);
@@ -2209,13 +2296,13 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 	}
 
 	if(!isType<TypeRef>(wrapped->type))
-		Stop(ctx, source->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
+		return ReportExpected(ctx, source, lhs->type, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
 
 	if(rhs->type == ctx.typeVoid)
-		Stop(ctx, source->pos, "ERROR: cannot convert from void to %.*s", FMT_ISTR(lhs->type->name));
+		return ReportExpected(ctx, source, lhs->type, "ERROR: cannot convert from void to %.*s", FMT_ISTR(lhs->type->name));
 
 	if(lhs->type == ctx.typeVoid)
-		Stop(ctx, source->pos, "ERROR: cannot convert from %.*s to void", FMT_ISTR(rhs->type->name));
+		return ReportExpected(ctx, source, lhs->type, "ERROR: cannot convert from %.*s to void", FMT_ISTR(rhs->type->name));
 
 	if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr("="), wrapped, rhs, true, false))
 		return result;
@@ -2468,6 +2555,9 @@ ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *
 
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs)
 {
+	if(isType<ExprError>(lhs) || isType<ExprError>(rhs))
+		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
 	if(op == SYN_BINARY_OP_IN)
 		return CreateFunctionCall2(ctx, source, InplaceStr("in"), lhs, rhs, false, false);
 
@@ -2532,10 +2622,10 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 	}
 
 	if(lhs->type == ctx.typeVoid)
-		Stop(ctx, source->pos, "ERROR: first operand type is 'void'");
+		return ReportExpected(ctx, source, rhs->type, "ERROR: first operand type is 'void'");
 
 	if(rhs->type == ctx.typeVoid)
-		Stop(ctx, source->pos, "ERROR: second operand type is 'void'");
+		return ReportExpected(ctx, source, lhs->type, "ERROR: second operand type is 'void'");
 
 	bool hasBuiltIn = false;
 
@@ -2554,7 +2644,7 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 	AssertValueExpression(ctx, rhs->source, rhs);
 
 	if(!hasBuiltIn)
-		Stop(ctx, source->pos, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(op), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
+		return ReportExpected(ctx, source, lhs->type, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(op), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
 
 	bool binaryOp = IsBinaryOp(op);
 	bool comparisonOp = IsComparisonOp(op);
@@ -2563,7 +2653,7 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 	if(ctx.IsFloatingPointType(lhs->type) || ctx.IsFloatingPointType(rhs->type))
 	{
 		if(logicalOp || binaryOp)
-			Stop(ctx, source->pos, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(op), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
+			return ReportExpected(ctx, source, lhs->type, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(op), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
 	}
 
 	if(logicalOp)
@@ -2582,7 +2672,7 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 	}
 
 	if(lhs->type != rhs->type)
-		Stop(ctx, source->pos, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(op), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
+		return ReportExpected(ctx, source, lhs->type, "ERROR: operation %s is not supported on '%.*s' and '%.*s'", GetOpName(op), FMT_ISTR(lhs->type->name), FMT_ISTR(rhs->type->name));
 
 	TypeBase *resultType = NULL;
 
@@ -2675,6 +2765,9 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 	jmp_buf prevErrorHandler;
 	memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));
 
+	bool prevErrorHandlerNested = ctx.errorHandlerNested;
+	ctx.errorHandlerNested = true;
+
 	if(!setjmp(ctx.errorHandler))
 	{
 		result = AnalyzeClassDefinition(ctx, proto->definition, proto, types);
@@ -2701,9 +2794,13 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 			errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), ">");
 
 			AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBuf, ctx.errorBufSize);
+
+			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 		}
 
 		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+		ctx.errorHandlerNested = prevErrorHandlerNested;
+
 		longjmp(ctx.errorHandler, 1);
 	}
 
@@ -2711,6 +2808,7 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 	ctx.SwitchToScopeAtPoint(proto->source, scope, NULL);
 
 	memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+	ctx.errorHandlerNested = prevErrorHandlerNested;
 
 	if(ExprClassDefinition *definition = getType<ExprClassDefinition>(result))
 	{
@@ -2867,6 +2965,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		jmp_buf prevErrorHandler;
 		memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));
 
+		bool prevErrorHandlerNested = ctx.errorHandlerNested;
+		ctx.errorHandlerNested = true;
+
 		char *errorBuf = ctx.errorBuf;
 		unsigned errorBufSize = ctx.errorBufSize;
 
@@ -2893,6 +2994,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			}
 
 			memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+			ctx.errorHandlerNested = prevErrorHandlerNested;
 
 			ctx.errorBuf = errorBuf;
 			ctx.errorBufSize = errorBufSize;
@@ -2907,6 +3009,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		else
 		{
 			memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+			ctx.errorHandlerNested = prevErrorHandlerNested;
 
 			ctx.errorBuf = errorBuf;
 			ctx.errorBufSize = errorBufSize;
@@ -3036,15 +3139,23 @@ unsigned AnalyzeAlignment(ExpressionContext &ctx, SynAlign *syntax)
 	if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, syntax, align, ctx.typeLong, false))))
 	{
 		if(alignValue->value > 16)
-			Stop(ctx, syntax->pos, "ERROR: alignment must be less than 16 bytes");
+		{
+			Report(ctx, syntax->pos, "ERROR: alignment must be less than 16 bytes");
+
+			return 0;
+		}
 
 		if(alignValue->value & (alignValue->value - 1))
-			Stop(ctx, syntax->pos, "ERROR: alignment must be power of two");
+		{
+			Report(ctx, syntax->pos, "ERROR: alignment must be power of two");
+
+			return 0;
+		}
 
 		return unsigned(alignValue->value);
 	}
 
-	Stop(ctx, syntax->pos, "ERROR: alignment must be a constant expression");
+	Report(ctx, syntax->pos, "ERROR: alignment must be a constant expression");
 
 	return 0;
 }
@@ -3057,7 +3168,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 	if(value.length() > 1 && value.begin[1] == 'x')
 	{
 		if(value.length() == 2)
-			Stop(ctx, value.begin + 2, "ERROR: '0x' must be followed by number");
+			Report(ctx, value.begin + 2, "ERROR: '0x' must be followed by number");
 
 		// Skip 0x
 		unsigned pos = 2;
@@ -3067,7 +3178,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 			pos++;
 
 		if(int(value.length() - pos) > 16)
-			Stop(ctx, value.begin, "ERROR: overflow in hexadecimal constant");
+			Report(ctx, value.begin, "ERROR: overflow in hexadecimal constant");
 
 		long long num = (long long)ParseLong(ctx, value.begin + pos, value.end, 16);
 
@@ -3097,7 +3208,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 				pos++;
 
 			if(int(value.length() - pos) > 64)
-				Stop(ctx, value.begin, "ERROR: overflow in binary constant");
+				Report(ctx, value.begin, "ERROR: overflow in binary constant");
 
 			long long num = (long long)ParseLong(ctx, value.begin + pos, value.end, 2);
 
@@ -3118,7 +3229,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 		}
 		else if(!syntax->suffix.empty())
 		{
-			Stop(ctx, syntax->suffix.begin, "ERROR: unknown number suffix '%.*s'", syntax->suffix.length(), syntax->suffix.begin);
+			Report(ctx, syntax->suffix.begin, "ERROR: unknown number suffix '%.*s'", syntax->suffix.length(), syntax->suffix.begin);
 		}
 
 		if(value.length() > 1 && value.begin[0] == '0' && isDigit(value.begin[1]))
@@ -3130,7 +3241,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 				pos++;
 
 			if(int(value.length() - pos) > 22 || (int(value.length() - pos) > 21 && value.begin[pos] != '1'))
-				Stop(ctx, value.begin, "ERROR: overflow in octal constant");
+				Report(ctx, value.begin, "ERROR: overflow in octal constant");
 
 			long long num = (long long)ParseLong(ctx, value.begin, value.end, 8);
 
@@ -3157,7 +3268,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 	}
 	else if(!syntax->suffix.empty())
 	{
-		Stop(ctx, syntax->suffix.begin, "ERROR: unknown number suffix '%.*s'", syntax->suffix.length(), syntax->suffix.begin);
+		Report(ctx, syntax->suffix.begin, "ERROR: unknown number suffix '%.*s'", syntax->suffix.length(), syntax->suffix.begin);
 	}
 
 	double num = ParseDouble(ctx, value.begin);
@@ -3165,7 +3276,7 @@ ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax)
 	return new (ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(syntax, ctx.typeDouble, num);
 }
 
-ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
+ExprBase* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 {
 	assert(syntax->values.head);
 
@@ -3199,6 +3310,10 @@ ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 
 		if(subType == NULL)
 		{
+			// Can't analyze other elements if the first one didn't compile
+			if(isType<ExprError>(value))
+				return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+
 			subType = value->type;
 		}
 		else if(subType != value->type)
@@ -3211,7 +3326,7 @@ ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 			else if(ctx.IsFloatingPointType(value->type) && ctx.IsFloatingPointType(subType) && subType->size > value->type->size)
 				value = CreateCast(ctx, value->source, value, subType, false);
 			else
-				Stop(ctx, value->source->pos, "ERROR: array element %d type '%.*s' doesn't match '%.*s'", i + 1, FMT_ISTR(value->type->name), FMT_ISTR(subType->name));
+				value = ReportExpected(ctx, value->source, value->type, "ERROR: array element %d type '%.*s' doesn't match '%.*s'", i + 1, FMT_ISTR(value->type->name), FMT_ISTR(subType->name));
 		}
 
 		if(value->type == ctx.typeVoid)
@@ -3571,7 +3686,7 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynIdentifier *syntax)
 	ExprBase *value = CreateVariableAccess(ctx, syntax, IntrusiveList<SynIdentifier>(), syntax->name, false);
 
 	if(!value)
-		Stop(ctx, syntax->pos, "ERROR: unknown identifier '%.*s'", FMT_ISTR(syntax->name));
+		return ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: unknown identifier '%.*s'", FMT_ISTR(syntax->name));
 
 	return value;
 }
@@ -3581,14 +3696,17 @@ ExprBase* AnalyzeVariableAccess(ExpressionContext &ctx, SynTypeSimple *syntax)
 	ExprBase *value = CreateVariableAccess(ctx, syntax, syntax->path, syntax->name, false);
 
 	if(!value)
-		Stop(ctx, syntax->pos, "ERROR: unknown identifier '%.*s'", FMT_ISTR(syntax->name));
+		return ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: unknown identifier '%.*s'", FMT_ISTR(syntax->name));
 
 	return value;
 }
 
-ExprPreModify* AnalyzePreModify(ExpressionContext &ctx, SynPreModify *syntax)
+ExprBase* AnalyzePreModify(ExpressionContext &ctx, SynPreModify *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
+
+	if(isType<ExprError>(value))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
 
 	ExprBase* wrapped = value;
 
@@ -3598,17 +3716,20 @@ ExprPreModify* AnalyzePreModify(ExpressionContext &ctx, SynPreModify *syntax)
 		wrapped = node->value;
 
 	if(!isType<TypeRef>(wrapped->type))
-		Stop(ctx, syntax->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(value->type->name));
+		return ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(value->type->name));
 
 	if(!ctx.IsNumericType(value->type))
-		Stop(ctx, syntax->pos, "ERROR: %s is not supported on '%.*s'", (syntax->isIncrement ? "increment" : "decrement"), FMT_ISTR(value->type->name));
+		return ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: %s is not supported on '%.*s'", (syntax->isIncrement ? "increment" : "decrement"), FMT_ISTR(value->type->name));
 
 	return new (ctx.get<ExprPreModify>()) ExprPreModify(syntax, value->type, wrapped, syntax->isIncrement);
 }
 
-ExprPostModify* AnalyzePostModify(ExpressionContext &ctx, SynPostModify *syntax)
+ExprBase* AnalyzePostModify(ExpressionContext &ctx, SynPostModify *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
+
+	if(isType<ExprError>(value))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
 
 	ExprBase* wrapped = value;
 
@@ -3620,10 +3741,10 @@ ExprPostModify* AnalyzePostModify(ExpressionContext &ctx, SynPostModify *syntax)
 	AssertValueExpression(ctx, syntax, value);
 
 	if(!isType<TypeRef>(wrapped->type))
-		Stop(ctx, syntax->pos, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(value->type->name));
+		return ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(value->type->name));
 
 	if(!ctx.IsNumericType(value->type))
-		Stop(ctx, syntax->pos, "ERROR: %s is not supported on '%.*s'", (syntax->isIncrement ? "increment" : "decrement"), FMT_ISTR(value->type->name));
+		return ReportExpected(ctx, syntax, ctx.GetErrorType(), "ERROR: %s is not supported on '%.*s'", (syntax->isIncrement ? "increment" : "decrement"), FMT_ISTR(value->type->name));
 
 	return new (ctx.get<ExprPostModify>()) ExprPostModify(syntax, value->type, wrapped, syntax->isIncrement);
 }
@@ -3631,6 +3752,9 @@ ExprPostModify* AnalyzePostModify(ExpressionContext &ctx, SynPostModify *syntax)
 ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
+
+	if(isType<ExprError>(value))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
 
 	if(ExprBase *result = CreateFunctionCall1(ctx, syntax, InplaceStr(GetOpName(syntax->type)), value, true, false))
 		return result;
@@ -5198,6 +5322,9 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 	jmp_buf prevErrorHandler;
 	memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));
 
+	bool prevErrorHandlerNested = ctx.errorHandlerNested;
+	ctx.errorHandlerNested = true;
+
 	if(!setjmp(ctx.errorHandler))
 	{
 		if(SynFunctionDefinition *syntax = function->definition)
@@ -5263,6 +5390,8 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 		ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
 
 		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+		ctx.errorHandlerNested = prevErrorHandlerNested;
+
 		longjmp(ctx.errorHandler, 1);
 	}
 
@@ -5270,6 +5399,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 	ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
 
 	memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+	ctx.errorHandlerNested = prevErrorHandlerNested;
 
 	if(types.size() != arguments.size())
 		return NULL;
@@ -5295,35 +5425,32 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 	return ctx.GetFunctionType(source, function->type->returnType, types);
 }
 
-void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, ArrayView<FunctionValue> functions)
+void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errorBuf, unsigned errorBufSize, ArrayView<FunctionValue> functions)
 {
 	ArrayView<ArgumentData> arguments;
 	ArrayView<unsigned> ratings;
 
-	StopOnFunctionSelectError(ctx, source, errPos, InplaceStr(), functions, arguments, ratings, 0, false);
+	ReportOnFunctionSelectError(ctx, source, errorBuf, errorBufSize, InplaceStr(), functions, arguments, ratings, 0, false);
 }
 
-void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errPos, InplaceStr functionName, ArrayView<FunctionValue> functions, ArrayView<ArgumentData> arguments, ArrayView<unsigned> ratings, unsigned bestRating, bool showInstanceInfo)
+void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errorBuf, unsigned errorBufSize, InplaceStr functionName, ArrayView<FunctionValue> functions, ArrayView<ArgumentData> arguments, ArrayView<unsigned> ratings, unsigned bestRating, bool showInstanceInfo)
 {
-	if(!errPos)
-	{
-		ctx.errorPos = source->pos.begin;
+	assert(errorBuf);
 
-		longjmp(ctx.errorHandler, 1);
-	}
+	char *errPos = errorBuf;
 
 	if(!functionName.empty())
 	{
-		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "  %.*s(", FMT_ISTR(functionName));
+		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "  %.*s(", FMT_ISTR(functionName));
 
 		for(unsigned i = 0; i < arguments.size(); i++)
-			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
+			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
 
-		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), !functions.empty() ? ")\n" : ")");
+		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), !functions.empty() ? ")\n" : ")");
 	}
 
 	if(!functions.empty())
-		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), bestRating == ~0u ? " the only available are:\n" : " candidates are:\n");
+		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), bestRating == ~0u ? " the only available are:\n" : " candidates are:\n");
 
 	for(unsigned i = 0; i < functions.size(); i++)
 	{
@@ -5332,29 +5459,29 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 		if(!ratings.empty() && ratings[i] != bestRating)
 			continue;
 
-		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "  %.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name));
+		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "  %.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name));
 
 		if(!function->generics.empty())
 		{
-			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "<");
+			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "<");
 
 			for(unsigned k = 0; k < function->generics.size(); k++)
 			{
 				MatchData *match = function->generics[k];
 
-				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%.*s", k != 0 ? ", " : "", FMT_ISTR(match->type->name));
+				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", k != 0 ? ", " : "", FMT_ISTR(match->type->name));
 			}
 
-			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ">");
+			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ">");
 		}
 
-		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "(");
+		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "(");
 
 		for(unsigned k = 0; k < function->arguments.size(); k++)
 		{
 			ArgumentData &argument = function->arguments[k];
 
-			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name));
+			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name));
 		}
 
 		if(ctx.IsGenericFunction(function) && showInstanceInfo)
@@ -5377,13 +5504,13 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 			// Handle named argument order, default argument values and variadic functions
 			if(!PrepareArgumentsForFunctionCall(ctx, source, function->arguments, arguments, result, NULL, false))
 			{
-				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here)");
+				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") (wasn't instanced here)");
 			}
 			else if(TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, parentType, function, result, aliases))
 			{
 				GetFunctionRating(ctx, function, instance, result);
 
-				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") instanced to\n    %.*s %.*s(", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name));
+				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") instanced to\n    %.*s %.*s(", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name));
 
 				TypeHandle *curr = instance->arguments.head;
 
@@ -5391,39 +5518,35 @@ void StopOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* er
 				{
 					ArgumentData &argument = function->arguments[k];
 
-					errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(curr->type->name));
+					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(curr->type->name));
 
 					curr = curr->next;
 				}
 
 				if(!aliases.empty())
 				{
-					errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") with [");
+					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") with [");
 
 					for(MatchData *curr = aliases.head; curr; curr = curr->next)
-						errPos += SafeSprintf(errPos, ctx.errorBufSize - unsigned(errPos - ctx.errorBuf), "%s%.*s = %.*s", curr != aliases.head ? ", " : "", FMT_ISTR(curr->name), FMT_ISTR(curr->type->name));
+						errPos += SafeSprintf(errPos, errorBufSize - unsigned(errPos - errorBuf), "%s%.*s = %.*s", curr != aliases.head ? ", " : "", FMT_ISTR(curr->name), FMT_ISTR(curr->type->name));
 
-					errPos += SafeSprintf(errPos, ctx.errorBufSize - unsigned(errPos - ctx.errorBuf), "]");
+					errPos += SafeSprintf(errPos, errorBufSize - unsigned(errPos - errorBuf), "]");
 				}
 			}
 			else
 			{
-				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ") (wasn't instanced here)");
+				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") (wasn't instanced here)");
 			}
 		}
 		else
 		{
-			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")");
+			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")");
 		}
 
-		errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "\n");
+		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "\n");
 	}
 
-	ctx.errorPos = source->pos.begin;
-
-	AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBuf, ctx.errorBufSize);
-
-	longjmp(ctx.errorHandler, 1);
+	AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, errorBuf, errorBufSize);
 }
 
 bool IsVirtualFunctionCall(ExpressionContext &ctx, FunctionData *function, TypeBase *type)
@@ -5751,6 +5874,9 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	jmp_buf prevErrorHandler;
 	memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));
 
+	bool prevErrorHandlerNested = ctx.errorHandlerNested;
+	ctx.errorHandlerNested = true;
+
 	ExprBase *expr = NULL;
 	
 	if(!setjmp(ctx.errorHandler))
@@ -5802,9 +5928,13 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 			}
 
 			AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBuf, ctx.errorBufSize);
+
+			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 		}
 
 		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+		ctx.errorHandlerNested = prevErrorHandlerNested;
+
 		longjmp(ctx.errorHandler, 1);
 	}
 
@@ -5814,6 +5944,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
 
 	memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+	ctx.errorHandlerNested = prevErrorHandlerNested;
 
 	ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(expr);
 
@@ -5964,12 +6095,26 @@ ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, Inpl
 		ArrayView<FunctionValue> functions;
 		ArrayView<unsigned> ratings;
 
-		char *errPos = ctx.errorBuf;
+		if(ctx.errorBuf && ctx.errorBufSize)
+		{
+			if(ctx.errorCount == 0)
+			{
+				ctx.errorPos = source->pos.begin;
+				ctx.errorBufLocation = ctx.errorBuf;
+			}
 
-		if(errPos)
-			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(name));
+			SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(name));
 
-		StopOnFunctionSelectError(ctx, source, errPos, name, functions, arguments, ratings, ~0u, true);
+			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+			ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), functions);
+
+			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+		}
+
+		assert(ctx.errorHandlerActive);
+
+		longjmp(ctx.errorHandler, 1);
 	}
 
 	return NULL;
@@ -6092,6 +6237,15 @@ ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, 
 
 ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, bool allowFailure)
 {
+	if(isType<ExprError>(value))
+		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
+	for(unsigned i = 0; i < arguments.size(); i++)
+	{
+		if(isType<ExprError>(arguments[i].value))
+			return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+	}
+
 	TypeFunction *type = getType<TypeFunction>(value->type);
 
 	for(unsigned i = 0; i < arguments.size(); i++)
@@ -6123,12 +6277,26 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 				return result;
 			}
 
-			char *errPos = ctx.errorBuf;
+			if(ctx.errorBuf && ctx.errorBufSize)
+			{
+				if(ctx.errorCount == 0)
+				{
+					ctx.errorPos = source->pos.begin;
+					ctx.errorBufLocation = ctx.errorBuf;
+				}
 
-			if(errPos)
-				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(functions[0].function->name));
+				SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(functions[0].function->name));
 
-			StopOnFunctionSelectError(ctx, source, errPos, functions[0].function->name, functions, arguments, ratings, ~0u, true);
+				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+				ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), functions[0].function->name, functions, arguments, ratings, ~0u, true);
+
+				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+			}
+
+			assert(ctx.errorHandlerActive);
+
+			longjmp(ctx.errorHandler, 1);
 		}
 
 		unsigned bestRating = ~0u;
@@ -6144,12 +6312,26 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 		{
 			if(functions[i].function != bestOverload.function && ratings[i] == bestRating)
 			{
-				char *errPos = ctx.errorBuf;
+				if(ctx.errorBuf && ctx.errorBufSize)
+				{
+					if(ctx.errorCount == 0)
+					{
+						ctx.errorPos = source->pos.begin;
+						ctx.errorBufLocation = ctx.errorBuf;
+					}
 
-				if(errPos)
-					errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available for the call:\n");
+					SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: ambiguity, there is more than one overloaded function available for the call:\n");
 
-				StopOnFunctionSelectError(ctx, source, errPos, functions[0].function->name, functions, arguments, ratings, bestRating, true);
+					ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+					ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), functions[0].function->name, functions, arguments, ratings, bestRating, true);
+
+					ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+				}
+
+				assert(ctx.errorHandlerActive);
+
+				longjmp(ctx.errorHandler, 1);
 			}
 		}
 
@@ -6200,37 +6382,46 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 			if(allowFailure)
 				return NULL;
 
-			char *errPos = ctx.errorBuf;
-
-			if(!errPos)
+			if(ctx.errorBuf && ctx.errorBufSize)
 			{
-				ctx.errorPos = source->pos.begin;
+				if(ctx.errorCount == 0)
+				{
+					ctx.errorPos = source->pos.begin;
+					ctx.errorBufLocation = ctx.errorBuf;
+				}
 
-				longjmp(ctx.errorHandler, 1);
+				char *errorBuf = ctx.errorBufLocation;
+				unsigned errorBufSize = ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf);
+
+				char *errPos = ctx.errorBufLocation;
+
+				if(arguments.size() != functionArguments.size())
+					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "ERROR: function expects %d argument(s), while %d are supplied\n", functionArguments.size(), arguments.size());
+				else
+					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "ERROR: there is no conversion from specified arguments and the ones that function accepts\n");
+
+				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "\tExpected: (");
+
+				for(unsigned i = 0; i < functionArguments.size(); i++)
+					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(functionArguments[i].type->name));
+
+				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")\n");
+			
+				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "\tProvided: (");
+
+				for(unsigned i = 0; i < arguments.size(); i++)
+					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
+
+				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")");
+
+				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+				AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf));
+
+				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 			}
 
-			if(arguments.size() != functionArguments.size())
-				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: function expects %d argument(s), while %d are supplied\n", functionArguments.size(), arguments.size());
-			else
-				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: there is no conversion from specified arguments and the ones that function accepts\n");
-
-			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "\tExpected: (");
-
-			for(unsigned i = 0; i < functionArguments.size(); i++)
-				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(functionArguments[i].type->name));
-
-			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")\n");
-			
-			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "\tProvided: (");
-
-			for(unsigned i = 0; i < arguments.size(); i++)
-				errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
-
-			errPos += SafeSprintf(errPos, ctx.errorBufSize - int(errPos - ctx.errorBuf), ")");
-
-			ctx.errorPos = source->pos.begin;
-
-			AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBuf, ctx.errorBufSize);
+			assert(ctx.errorHandlerActive);
 
 			longjmp(ctx.errorHandler, 1);
 		}
@@ -6730,12 +6921,26 @@ ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprB
 
 			GetNodeFunctions(ctx, initializer->source, initializer, functions);
 
-			char *errPos = ctx.errorBuf;
+			if(ctx.errorBuf && ctx.errorBufSize)
+			{
+				if(ctx.errorCount == 0)
+				{
+					ctx.errorPos = source->pos.begin;
+					ctx.errorBufLocation = ctx.errorBuf;
+				}
 
-			if(errPos)
-				errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available:\n");
+				SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: ambiguity, there is more than one overloaded function available:\n");
 
-			StopOnFunctionSelectError(ctx, source, errPos, functions);
+				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+				ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), functions);
+
+				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+			}
+
+			assert(ctx.errorHandlerActive);
+
+			longjmp(ctx.errorHandler, 1);
 		}
 	}
 
@@ -6745,7 +6950,7 @@ ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprB
 	return initializer;
 }
 
-ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinition *syntax, unsigned alignment, TypeBase *type)
+ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinition *syntax, unsigned alignment, TypeBase *type)
 {
 	if(syntax->name == InplaceStr("this"))
 		Stop(ctx, syntax->pos, "ERROR: 'this' is a reserved keyword");
@@ -6766,6 +6971,13 @@ ExprVariableDefinition* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVar
 	if(type == ctx.typeAuto)
 	{
 		initializer = ResolveInitializerValue(ctx, syntax, initializer);
+
+		if(isType<ExprError>(initializer))
+		{
+			ctx.variableMap.remove(variable->nameHash, variable);
+
+			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+		}
 
 		type = initializer->type;
 	}
@@ -6864,7 +7076,7 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 	if(parentType)
 		ctx.PopScope(SCOPE_TEMPORARY);
 
-	IntrusiveList<ExprVariableDefinition> definitions;
+	IntrusiveList<ExprBase> definitions;
 
 	for(SynVariableDefinition *el = syntax->definitions.head; el; el = getType<SynVariableDefinition>(el->next))
 		definitions.push_back(AnalyzeVariableDefinition(ctx, el, alignment, type));
@@ -7793,12 +8005,26 @@ ExprBase* AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBas
 
 		GetNodeFunctions(ctx, source, expr, functions);
 
-		char *errPos = ctx.errorBuf;
+		if(ctx.errorBuf && ctx.errorBufSize)
+		{
+			if(ctx.errorCount == 0)
+			{
+				ctx.errorPos = source->pos.begin;
+				ctx.errorBufLocation = ctx.errorBuf;
+			}
 
-		if(errPos)
-			errPos += SafeSprintf(errPos, ctx.errorBufSize, "ERROR: ambiguity, there is more than one overloaded function available:\n");
+			SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: ambiguity, there is more than one overloaded function available:\n");
 
-		StopOnFunctionSelectError(ctx, source, errPos, functions);
+			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+			ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), functions);
+
+			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+		}
+
+		assert(ctx.errorHandlerActive);
+
+		longjmp(ctx.errorHandler, 1);
 	}
 
 	if(isType<ExprGenericFunctionPrototype>(expr))
@@ -8346,12 +8572,19 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 		{
 			ExprVariableDefinitions *node = AnalyzeVariableDefinitions(ctx, member);
 
-			for(ExprVariableDefinition *definition = node->definitions.head; definition; definition = getType<ExprVariableDefinition>(definition->next))
+			for(ExprBase *definition = node->definitions.head; definition; definition = definition->next)
 			{
-				if(definition->initializer)
-					Stop(ctx, syntax->pos, "ERROR: member can't have an initializer");
+				if(isType<ExprError>(definition))
+					continue;
 
-				classDefinition->classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(definition->variable));
+				ExprVariableDefinition *variableDefinition = getType<ExprVariableDefinition>(definition);
+
+				assert(variableDefinition);
+
+				if(variableDefinition->initializer)
+					Report(ctx, syntax->pos, "ERROR: member can't have an initializer");
+
+				classDefinition->classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(variableDefinition->variable));
 			}
 		}
 	}
@@ -8705,6 +8938,9 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 	jmp_buf prevErrorHandler;
 	memcpy(&prevErrorHandler, &ctx.errorHandler, sizeof(jmp_buf));
 
+	bool prevErrorHandlerNested = ctx.errorHandlerNested;
+	ctx.errorHandlerNested = true;
+
 	if(!setjmp(ctx.errorHandler))
 	{
 		// Create conversion operator int int(enum_type)
@@ -8795,6 +9031,8 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		ctx.SwitchToScopeAtPoint(NULL, scope, NULL);
 
 		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+		ctx.errorHandlerNested = prevErrorHandlerNested;
+
 		longjmp(ctx.errorHandler, 1);
 	}
 
@@ -8802,6 +9040,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 	ctx.SwitchToScopeAtPoint(NULL, scope, NULL);
 
 	memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
+	ctx.errorHandlerNested = prevErrorHandlerNested;
 
 	return new (ctx.get<ExprEnumDefinition>()) ExprEnumDefinition(syntax, ctx.typeVoid, enumType, castToInt, castToEnum);
 }
@@ -8873,9 +9112,20 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 
 		TypeBase *type = AnalyzeType(ctx, definitions->type);
 
-		ExprVariableDefinition *definition = AnalyzeVariableDefinition(ctx, definitions->definitions.head, 0, type);
+		ExprBase *definition = AnalyzeVariableDefinition(ctx, definitions->definitions.head, 0, type);
 
-		condition = CreateSequence(ctx, syntax, definition, CreateVariableAccess(ctx, syntax, definition->variable, false));
+		if(isType<ExprError>(definition))
+		{
+			condition = new (ctx.get<ExprError>()) ExprError(syntax, ctx.typeBool);
+		}
+		else
+		{
+			ExprVariableDefinition *variableDefinition = getType<ExprVariableDefinition>(definition);
+
+			assert(variableDefinition);
+
+			condition = CreateSequence(ctx, syntax, definition, CreateVariableAccess(ctx, syntax, variableDefinition->variable, false));
+		}
 	}
 	else
 	{
@@ -10945,6 +11195,8 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 
 		return module;
 	}
+
+	assert(ctx.errorPos != NULL);
 
 	ctx.code = NULL;
 

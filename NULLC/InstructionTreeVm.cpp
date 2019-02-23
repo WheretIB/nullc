@@ -2280,7 +2280,7 @@ VmValue* CompileVmArraySetup(ExpressionContext &ctx, VmModule *module, ExprArray
 
 VmValue* CompileVmVariableDefinitions(ExpressionContext &ctx, VmModule *module, ExprVariableDefinitions *node)
 {
-	for(ExprVariableDefinition *value = node->definitions.head; value; value = getType<ExprVariableDefinition>(value->next))
+	for(ExprBase *value = node->definitions.head; value; value = value->next)
 		CompileVm(ctx, module, value);
 
 	return CheckType(ctx, node, CreateVoid(module));

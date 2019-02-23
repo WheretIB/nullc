@@ -630,6 +630,15 @@ struct TypeBase
 	TypeUnsizedArray *unsizedArrayType; // An unsized array type derived from this type
 };
 
+struct TypeError: TypeBase
+{
+	TypeError(): TypeBase(myTypeID, InplaceStr("%error-type%"))
+	{
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct TypeVoid: TypeBase
 {
 	TypeVoid(InplaceStr name): TypeBase(myTypeID, name)
