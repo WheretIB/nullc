@@ -595,7 +595,7 @@ return int(y() + z());",
 	TEST_FOR_FAIL("namespace error", "namespace Test{ int foo(){ return 12; } } return foo();", "ERROR: unknown identifier 'foo'");
 	TEST_FOR_FAIL("namespace error", "namespace Test{ namespace Nested{ int x; } } return Nested.x;", "ERROR: unknown identifier 'Nested'");
 
-	TEST_FOR_FAIL("no biggy", "int[1024][1024][1024][4] f; f[3][3][3][0] = 0;", "ERROR: variable size limit exceeded");
+	TEST_FOR_FAIL("no biggy", "int[1024 * 1024 * 1024] f; f[3] = 0;", "ERROR: variable size limit exceeded");
 
 	TEST_FOR_FAIL("namespace error", "int foo(){ namespace Test{ int x; } return Test.x; }", "ERROR: a namespace definition must appear either at file scope or immediately within another namespace definition");
 
@@ -829,6 +829,13 @@ auto m = bar;",
 	TEST_FOR_FAIL("invalid cast", "int ref(bool ref) x = int f(bool ref x){ return *x; }; return x(2);", "ERROR: cannot convert 'int' to 'bool ref'");
 
 	TEST_FOR_FAIL("scope switch restore", "auto bar(generic x){ retprn x; } class Foo<T>{} int Foo:foo(typeof(bar(1)) e){ return 1; } Foo<int ref> test2; return test2.foo(1);", "ERROR: can't find function 'Foo::foo' with following arguments:");
+
+	TEST_FOR_FAIL("invalid array element size 1", "int[2][100000] a;", "ERROR: array element size cannot exceed 65535 bytes");
+	TEST_FOR_FAIL("invalid array element size 2", "int[][100000] a;", "ERROR: array element size cannot exceed 65535 bytes");
+	TEST_FOR_FAIL("invalid array element size 3", "int[100000] b; typeof(b)[2] a2;", "ERROR: array element size cannot exceed 65535 bytes");
+	TEST_FOR_FAIL("invalid array element size 4", "int[100000] b; typeof(b)[] a2;", "ERROR: array element size cannot exceed 65535 bytes");
+	TEST_FOR_FAIL("invalid array element size 5", "int[100000] b; auto x = { b, b };", "ERROR: array element size cannot exceed 65535 bytes");
+	TEST_FOR_FAIL("invalid array element size 6", "auto x = new (int[100000])[2];", "ERROR: array element size cannot exceed 65535 bytes");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

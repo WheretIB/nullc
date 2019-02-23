@@ -1401,6 +1401,8 @@ TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 		}
 	}
 
+	assert(type->size < 64 * 1024);
+
 	// Create new type
 	TypeArray* result = new (get<TypeArray>()) TypeArray(GetArrayTypeName(*this, type, length), type, length);
 
@@ -1435,6 +1437,8 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 
 	if(type->unsizedArrayType)
 		return type->unsizedArrayType;
+
+	assert(type->size < 64 * 1024);
 
 	// Create new type
 	TypeUnsizedArray* result = new (get<TypeUnsizedArray>()) TypeUnsizedArray(GetUnsizedArrayTypeName(*this, type), type);
@@ -2614,7 +2618,12 @@ TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase 
 		Stop(ctx, sizes->pos, "ERROR: cannot specify array size for void");
 
 	if(!size)
+	{
+		if(type->size >= 64 * 1024)
+			Stop(ctx, sizes->pos, "ERROR: array element size cannot exceed 65535 bytes");
+
 		return ctx.GetUnsizedArrayType(type);
+	}
 
 	ExprBase *sizeValue = AnalyzeExpression(ctx, size);
 
@@ -2631,6 +2640,9 @@ TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase 
 			if(typeClass->hasFinalizer)
 				Stop(ctx, size->pos, "ERROR: class '%.*s' implements 'finalize' so only an unsized array type can be created", FMT_ISTR(type->name));
 		}
+
+		if(type->size >= 64 * 1024)
+			Stop(ctx, size->pos, "ERROR: array element size cannot exceed 65535 bytes");
 
 		return ctx.GetArrayType(type, number->value);
 	}
@@ -2760,7 +2772,12 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		}
 
 		if(node->arguments.empty())
+		{
+			if(type->size >= 64 * 1024)
+				Stop(ctx, syntax->pos, "ERROR: array element size cannot exceed 65535 bytes");
+
 			return ctx.GetUnsizedArrayType(type);
+		}
 
 		if(node->arguments.size() > 1)
 			Stop(ctx, syntax->pos, "ERROR: ',' is not expected in array type size");
@@ -2796,6 +2813,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 				if(typeClass->hasFinalizer)
 					Stop(ctx, syntax->pos, "ERROR: class '%.*s' implements 'finalize' so only an unsized array type can be created", FMT_ISTR(type->name));
 			}
+
+			if(type->size >= 64 * 1024)
+				Stop(ctx, syntax->pos, "ERROR: array element size cannot exceed 65535 bytes");
 
 			return ctx.GetArrayType(type, number->value);
 		}
@@ -3196,6 +3216,9 @@ ExprArray* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 		if(typeClass->hasFinalizer)
 			Stop(ctx, syntax->pos, "ERROR: class '%.*s' implements 'finalize' so only an unsized array type can be created", FMT_ISTR(subType->name));
 	}
+
+	if(subType->size >= 64 * 1024)
+		Stop(ctx, syntax->pos, "ERROR: array element size cannot exceed 65535 bytes");
 
 	return new (ctx.get<ExprArray>()) ExprArray(syntax, ctx.GetArrayType(subType, values.size()), values);
 }
@@ -6287,6 +6310,9 @@ ExprBase* CreateArrayAllocation(ExpressionContext &ctx, SynBase *source, TypeBas
 	count = CreateCast(ctx, source, count, ctx.typeInt, true);
 
 	ExprFunctionCall *alloc = getType<ExprFunctionCall>(CreateFunctionCall3(ctx, source, InplaceStr("__newA"), size, count, typeId, false, true));
+
+	if(type->size >= 64 * 1024)
+		Stop(ctx, source->pos, "ERROR: array element size cannot exceed 65535 bytes");
 
 	return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, ctx.GetUnsizedArrayType(type), alloc, EXPR_CAST_REINTERPRET);
 }

@@ -631,6 +631,8 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 
 				InstructionCode cmd = inst->type.size == 4 ? cmdPushInt : (inst->type.size == 8 ? cmdPushDorL : cmdPushCmplx);
 
+				assert((unsigned short)inst->type.size == inst->type.size);
+
 				lowBlock->AddInstruction(ctx, inst->source, cmd, IsLocalScope(constant->container->scope), (unsigned short)inst->type.size, constant);
 			}
 			else
@@ -640,6 +642,8 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 				LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
 
 				InstructionCode cmd = inst->type.size == 4 ? cmdPushIntStk : (inst->type.size == 8 ? cmdPushDorLStk : cmdPushCmplxStk);
+
+				assert((unsigned short)inst->type.size == inst->type.size);
 
 				lowBlock->AddInstruction(ctx, inst->source, cmd, (unsigned short)inst->type.size, offset->iValue);
 			}
@@ -768,6 +772,8 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 				(void)offset;
 				assert(offset->iValue == 0);
 
+				assert((unsigned short)inst->arguments[2]->type.size == inst->arguments[2]->type.size);
+
 				lowBlock->AddInstruction(ctx, inst->source, inst->arguments[2]->type.size == 8 ? cmdMovDorL : cmdMovCmplx, IsLocalScope(constant->container->scope), (unsigned short)inst->arguments[2]->type.size, constant);
 			}
 			else
@@ -775,6 +781,9 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
 				LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
+
+				assert((unsigned short)inst->arguments[2]->type.size == inst->arguments[2]->type.size);
+
 				lowBlock->AddInstruction(ctx, inst->source, inst->arguments[2]->type.size == 8 ? cmdMovDorLStk : cmdMovCmplxStk, (unsigned short)inst->arguments[2]->type.size, offset->iValue);
 			}
 
@@ -839,6 +848,8 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 			LowerIntoBlock(ctx, lowBlock, pointer);
 			LowerIntoBlock(ctx, lowBlock, index);
 
+			assert((unsigned short)elementSize->iValue == elementSize->iValue);
+
 			lowBlock->AddInstruction(ctx, inst->source, cmdIndex, (unsigned short)elementSize->iValue, arrSize->iValue);
 		}
 		break;
@@ -852,6 +863,8 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 
 			LowerIntoBlock(ctx, lowBlock, arr);
 			LowerIntoBlock(ctx, lowBlock, index);
+
+			assert((unsigned short)elementSize->iValue == elementSize->iValue);
 
 			lowBlock->AddInstruction(ctx, inst->source, cmdIndexStk, (unsigned short)elementSize->iValue, 0u);
 		}
@@ -923,6 +936,8 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 			VmInstruction *target = getType<VmInstruction>(inst->arguments[0]);
 
 			assert(target);
+
+			assert((unsigned short)inst->type.size == inst->type.size);
 
 			unsigned short helper = (unsigned short)inst->type.size;
 
