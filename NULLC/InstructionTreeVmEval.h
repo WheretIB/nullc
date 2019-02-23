@@ -71,7 +71,7 @@ struct InstructionVMEvalContext
 
 		VmFunction *owner;
 
-		SmallArray<VmConstant*, 128> instructionValues;
+		SmallArray<VmConstant*, 32> instructionValues;
 
 		Storage allocas;
 		Storage stack;
