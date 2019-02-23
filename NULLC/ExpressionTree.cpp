@@ -7610,7 +7610,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			function->type = ctx.GetFunctionType(source, ctx.typeVoid, function->type->arguments);
 
 		if(function->type->returnType != ctx.typeVoid && !function->hasExplicitReturn)
-			Stop(ctx, source->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+			Report(ctx, source->pos, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
 
 		// User might have not returned from all control paths, for a void function we will generate a return
 		if(function->type->returnType == ctx.typeVoid)
