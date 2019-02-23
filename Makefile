@@ -6,8 +6,8 @@ config=debug
 extcall=manual
 check=none
 
-REG_CFLAGS=-g -W
-COMP_CFLAGS=-g -W -D NULLC_NO_EXECUTOR
+REG_CFLAGS=-g -Wall -Wextra
+COMP_CFLAGS=-g -Wall -Wextra -D NULLC_NO_EXECUTOR
 STDLIB_FLAGS=-lstdc++ -lm
 FUZZ_FLAGS=
 
