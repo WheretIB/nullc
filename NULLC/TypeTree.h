@@ -109,7 +109,7 @@ struct ModuleData
 
 struct NamespaceData
 {
-	NamespaceData(Allocator *allocator, SynBase *source, ScopeData *scope, NamespaceData *parent, InplaceStr name, unsigned uniqueId): source(source), scope(scope), parent(parent), name(name), uniqueId(uniqueId), children(allocator)
+	NamespaceData(Allocator *allocator, SynBase *source, ScopeData *scope, NamespaceData *parent, InplaceStr name, unsigned uniqueId): source(source), scope(scope), parent(parent), children(allocator), name(name), uniqueId(uniqueId)
 	{
 		nameHash = GetStringHash(name.begin, name.end);
 
@@ -366,9 +366,9 @@ struct FunctionData
 
 	unsigned functionIndex;
 
-	unsigned uniqueId;
-
 	IntrusiveList<MatchData> generics;
+
+	unsigned uniqueId;
 
 	IntrusiveList<MatchData> aliases;
 

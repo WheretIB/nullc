@@ -81,8 +81,10 @@ struct SynBinaryOpElement
 
 struct SynNamespaceElement;
 
+#if defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable: 4324) // structure was padded due to __declspec(align())
+#endif
 
 struct ParseContext
 {
@@ -146,7 +148,9 @@ struct ParseContext
 	}
 };
 
+#if defined(_MSC_VER)
 #pragma warning(pop)
+#endif
 
 struct SynBase
 {

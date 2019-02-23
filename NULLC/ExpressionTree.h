@@ -12,8 +12,10 @@
 
 struct ExprBase;
 
+#if defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable: 4324) // structure was padded due to __declspec(align())
+#endif
 
 struct ExpressionContext
 {
@@ -161,7 +163,9 @@ struct ExpressionContext
 	}
 };
 
+#if defined(_MSC_VER)
 #pragma warning(pop)
+#endif
 
 struct ExprBase
 {
@@ -870,7 +874,7 @@ struct ExprSequence: ExprBase
 
 struct ExprModule: ExprBase
 {
-	ExprModule(Allocator *allocator, SynBase *source, TypeBase *type, ScopeData *moduleScope, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), moduleScope(moduleScope), expressions(expressions), definitions(allocator)
+	ExprModule(Allocator *allocator, SynBase *source, TypeBase *type, ScopeData *moduleScope, IntrusiveList<ExprBase> expressions): ExprBase(myTypeID, source, type), moduleScope(moduleScope), definitions(allocator), expressions(expressions)
 	{
 	}
 

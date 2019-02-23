@@ -9,7 +9,7 @@ struct FunctionData;
 
 struct ExpressionTranslateContext
 {
-	ExpressionTranslateContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), allocator(allocator), loopIdStack(allocator)
+	ExpressionTranslateContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), loopIdStack(allocator), allocator(allocator)
 	{
 		file = 0;
 

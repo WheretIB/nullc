@@ -17,7 +17,7 @@ struct ExpressionContext;
 
 struct InstructionVMEvalContext
 {
-	InstructionVMEvalContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), allocator(allocator), stackFrames(allocator), heap(allocator, NULL, "heap"), storageSet(allocator)
+	InstructionVMEvalContext(ExpressionContext &ctx, Allocator *allocator): ctx(ctx), stackFrames(allocator), heap(allocator, NULL, "heap"), storageSet(allocator), allocator(allocator)
 	{
 		errorBuf = 0;
 		errorBufSize = 0;

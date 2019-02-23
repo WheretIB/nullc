@@ -1,6 +1,9 @@
 #include "TestBase.h"
 
+#if defined(_MSC_VER)
 #pragma warning(disable: 4530)
+#endif
+
 #if defined(_MSC_VER)
 	#include "../stdafx.h"
 	#include <Windows.h>

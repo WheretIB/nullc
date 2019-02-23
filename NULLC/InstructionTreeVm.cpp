@@ -82,27 +82,6 @@ namespace
 		return false;
 	}
 
-	bool HasMemoryWrite(VmInstructionType cmd)
-	{
-		switch(cmd)
-		{
-		case VM_INST_STORE_BYTE:
-		case VM_INST_STORE_SHORT:
-		case VM_INST_STORE_INT:
-		case VM_INST_STORE_FLOAT:
-		case VM_INST_STORE_DOUBLE:
-		case VM_INST_STORE_LONG:
-		case VM_INST_STORE_STRUCT:
-		case VM_INST_SET_RANGE:
-		case VM_INST_CALL:
-			return true;
-		default:
-			break;
-		}
-
-		return false;
-	}
-
 	bool HasMemoryAccess(VmInstructionType cmd)
 	{
 		switch(cmd)
@@ -142,25 +121,6 @@ namespace
 		case VM_INST_LOAD_DOUBLE:
 		case VM_INST_LOAD_LONG:
 		case VM_INST_LOAD_STRUCT:
-			return true;
-		default:
-			break;
-		}
-
-		return false;
-	}
-
-	bool IsStore(VmInstructionType cmd)
-	{
-		switch(cmd)
-		{
-		case VM_INST_STORE_BYTE:
-		case VM_INST_STORE_SHORT:
-		case VM_INST_STORE_INT:
-		case VM_INST_STORE_FLOAT:
-		case VM_INST_STORE_DOUBLE:
-		case VM_INST_STORE_LONG:
-		case VM_INST_STORE_STRUCT:
 			return true;
 		default:
 			break;

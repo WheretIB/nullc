@@ -6,7 +6,9 @@
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
-#pragma warning(disable: 4702)
+#if defined(_MSC_VER)
+#pragma warning(disable: 4702) // unreachable code
+#endif
 
 void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize);
 InplaceStr FindModuleNameWithSourceLocation(ExpressionContext &ctx, const char *position);

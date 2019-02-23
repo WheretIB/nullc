@@ -412,8 +412,8 @@ x.z = 0x45;\r\n\
 return CheckAlignmentStruct(&x);";
 TEST_RESULT("Type padding for correct array element alignment 4", testAlignmentPadding4, "1");
 
-class TestAlignment5StructX{ double x; int y; };
-class TestAlignment5StructY{ TestAlignment5StructX x; int y; };
+struct TestAlignment5StructX{ double x; int y; };
+struct TestAlignment5StructY{ TestAlignment5StructX x; int y; };
 
 int TestAlignment5StructYSizeof()
 {

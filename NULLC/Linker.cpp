@@ -16,7 +16,7 @@ namespace NULLC
 	extern bool enableLogFiles;
 }
 
-Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(256), exSymbols(8192), exLocals(1024), jumpTargets(1024)
+Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(256), exLocals(1024), exSymbols(8192), jumpTargets(1024)
 {
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;

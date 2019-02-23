@@ -4,7 +4,9 @@
 	#define BUILD_FOR_WINDOWS
 #endif
 
-#pragma warning(disable : 4996)
+#if defined(_MSC_VER)
+#pragma warning(disable: 4996)
+#endif
 
 #include <stdio.h>
 #include <string.h>

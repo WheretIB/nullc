@@ -390,7 +390,7 @@ struct VmFunction: VmValue
 
 struct VmModule
 {
-	VmModule(Allocator *allocator, const char *code): allocator(allocator), loopInfo(allocator), loadStoreInfo(allocator), code(code)
+	VmModule(Allocator *allocator, const char *code): code(code), loopInfo(allocator), loadStoreInfo(allocator), allocator(allocator)
 	{
 		globalCodeStart = 0;
 

@@ -33,7 +33,9 @@
 #include "tests/TestParseFail.h"
 #include "tests/TestInterface.h"
 
+#if defined(_MSC_VER)
 #pragma warning(disable: 4127 4996)
+#endif
 
 //#define ALLOC_TOP_DOWN
 //#define NO_CUSTOM_ALLOCATOR

@@ -594,7 +594,6 @@ nullres	nullcRunFunction(const char* funcName, ...)
 	unsigned functionID = ~0u;
 
 #ifndef NULLC_NO_EXECUTOR
-	static char	errorBuf[512];
 	const char* argBuf = NULL;
 
 	// If function is called, find it's index

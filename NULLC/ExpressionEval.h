@@ -52,7 +52,7 @@ struct ExpressionEvalContext
 
 	struct StackFrame
 	{
-		StackFrame(Allocator *allocator, FunctionData *owner): owner(owner), returnValue(0), targetYield(0), breakDepth(0), continueDepth(0), variables(allocator)
+		StackFrame(Allocator *allocator, FunctionData *owner): owner(owner), variables(allocator), returnValue(0), targetYield(0), breakDepth(0), continueDepth(0)
 		{
 		}
 
