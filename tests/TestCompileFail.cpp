@@ -656,7 +656,7 @@ return y;", "ERROR: unknown identifier 'y'");
 
 	TEST_FOR_FAIL_FULL("ambiguity",
 "class A{ void run(char x){} }\r\n\
-class B{ void run(float x){} }\r\b\
+class B{ void run(float x){} }\r\n\
 A a; B b; auto ref[2] arr; arr[0] = &a; arr[1] = &b;\r\n\
 for(i in arr) i.run(5.0);\r\n\
 return 0;",
@@ -666,7 +666,7 @@ return 0;",
   void A::run(char)\n\
   void B::run(float)\n\
 \n\
-  at line 3: 'for(i in arr) i.run(5.0);'\n\
+  at line 4: 'for(i in arr) i.run(5.0);'\n\
                                  ^\n");
 
 	TEST_FOR_FAIL("incorrect template type", "class Foo<T>{} Foo<auto> x;", "ERROR: 'auto' type cannot be used as template argument");
