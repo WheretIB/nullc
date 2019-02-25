@@ -261,11 +261,11 @@ public:
 		}
 	}
 
-	void set_allocator(Allocator *allocator)
+	void set_allocator(Allocator *newAllocator)
 	{
 		assert(data == little);
 
-		this->allocator = allocator;
+		this->allocator = newAllocator;
 	}
 
 	void reset()

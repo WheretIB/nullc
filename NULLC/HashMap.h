@@ -49,11 +49,11 @@ public:
 		entries = NULL;
 	}
 
-	void set_allocator(Allocator *allocator)
+	void set_allocator(Allocator *newAllocator)
 	{
 		assert(entries == NULL);
 
-		this->allocator = allocator;
+		this->allocator = newAllocator;
 	}
 
 	void reset()

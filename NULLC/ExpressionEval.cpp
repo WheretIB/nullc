@@ -193,8 +193,8 @@ bool CreateStore(ExpressionEvalContext &ctx, ExprBase *target, ExprBase *value)
 
 		if(isType<ExprNullptrLiteral>(expr->context))
 			memset(ptr->ptr + 4, 0, sizeof(void*));
-		else if(ExprPointerLiteral *value = getType<ExprPointerLiteral>(expr->context))
-			memcpy(ptr->ptr + 4, &value->ptr, sizeof(void*));
+		else if(ExprPointerLiteral *context = getType<ExprPointerLiteral>(expr->context))
+			memcpy(ptr->ptr + 4, &context->ptr, sizeof(void*));
 		else
 			return false;
 
@@ -1929,16 +1929,16 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		ExprMemoryLiteral *memory = getType<ExprMemoryLiteral>(arguments[1]);
 
-		ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(CreateExtract(ctx, memory, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
+		ExprPointerLiteral *str = getType<ExprPointerLiteral>(CreateExtract(ctx, memory, 0, ctx.ctx.GetReferenceType(ctx.ctx.typeChar)));
 		ExprIntegerLiteral *length = getType<ExprIntegerLiteral>(CreateExtract(ctx, memory, sizeof(void*), ctx.ctx.typeInt));
 
-		if(!ptr)
+		if(!str)
 			return Report(ctx, "ERROR: null pointer access");
 
 		assert(length);
 
 		if(value == 0)
-			return Report(ctx, "ERROR: %.*s", int(length->value), ptr->ptr);
+			return Report(ctx, "ERROR: %.*s", int(length->value), str->ptr);
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
@@ -2245,12 +2245,12 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 	}
 	else if(ptr->data->name == InplaceStr("duplicate") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
 	{
-		ExprMemoryLiteral *ptr = getType<ExprMemoryLiteral>(arguments[0]);
+		ExprMemoryLiteral *object = getType<ExprMemoryLiteral>(arguments[0]);
 
-		assert(ptr);
+		assert(object);
 
-		ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, ptr, 0, ctx.ctx.typeTypeID));
-		ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, ptr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
+		ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, object, 0, ctx.ctx.typeTypeID));
+		ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, object, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
 
 		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, ctx.ctx.typeAutoRef);
 
@@ -2448,16 +2448,16 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 	}
 	else if(ptr->data->name == InplaceStr("__assertCoroutine") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
 	{
-		ExprMemoryLiteral *ptr = getType<ExprMemoryLiteral>(arguments[0]);
+		ExprMemoryLiteral *functionPtr = getType<ExprMemoryLiteral>(arguments[0]);
 
-		assert(ptr);
+		assert(functionPtr);
 
-		ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, ptr, 0, ctx.ctx.typeTypeID));
+		ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, functionPtr, 0, ctx.ctx.typeTypeID));
 
 		if(!isType<TypeFunction>(ptrTypeID->value))
 			return Report(ctx, "ERROR: '%.*s' is not a function'", FMT_ISTR(ptrTypeID->value->name));
 
-		ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, ptr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
+		ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, functionPtr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
 
 		assert(ptrPtr);
 
@@ -2470,16 +2470,16 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 	}
 	else if(ptr->data->name == InplaceStr("isCoroutineReset") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
 	{
-		ExprMemoryLiteral *ptr = getType<ExprMemoryLiteral>(arguments[0]);
+		ExprMemoryLiteral *functionPtr = getType<ExprMemoryLiteral>(arguments[0]);
 
-		assert(ptr);
+		assert(functionPtr);
 
-		ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, ptr, 0, ctx.ctx.typeTypeID));
+		ExprTypeLiteral *ptrTypeID = getType<ExprTypeLiteral>(CreateExtract(ctx, functionPtr, 0, ctx.ctx.typeTypeID));
 
 		if(!isType<TypeFunction>(ptrTypeID->value))
 			return Report(ctx, "ERROR: '%.*s' is not a function'", FMT_ISTR(ptrTypeID->value->name));
 
-		ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, ptr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
+		ExprPointerLiteral *ptrPtr = getType<ExprPointerLiteral>(CreateExtract(ctx, functionPtr, 4, ctx.ctx.GetReferenceType(ptrTypeID->value)));
 
 		assert(ptrPtr);
 
@@ -2505,15 +2505,15 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 	}
 	else if(ptr->data->name == InplaceStr("assert_derived_from_base") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && arguments[1]->type == ctx.ctx.typeTypeID)
 	{
-		ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(arguments[0]);
+		ExprPointerLiteral *object = getType<ExprPointerLiteral>(arguments[0]);
 		ExprTypeLiteral *base = getType<ExprTypeLiteral>(arguments[1]);
 
-		if(!ptr)
+		if(!object)
 			return CheckType(expression, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid)));
 
-		assert(uintptr_t(ptr->end - ptr->ptr) >= sizeof(unsigned));
+		assert(uintptr_t(object->end - object->ptr) >= sizeof(unsigned));
 
-		ExprTypeLiteral *derived = getType<ExprTypeLiteral>(CreateLoad(ctx, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeTypeID), ptr->ptr, ptr->end)));
+		ExprTypeLiteral *derived = getType<ExprTypeLiteral>(CreateLoad(ctx, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeTypeID), object->ptr, object->end)));
 
 		assert(derived);
 
@@ -2522,7 +2522,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 		while(curr)
 		{
 			if(curr == base->value)
-				return new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(curr), ptr->ptr, ptr->ptr + curr->size);
+				return new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(curr), object->ptr, object->ptr + curr->size);
 
 			if(TypeClass *classType = getType<TypeClass>(curr))
 				curr = classType->baseClass;

@@ -954,10 +954,10 @@ void ExpressionContext::PushTemporaryScope()
 	scope = new (get<ScopeData>()) ScopeData(allocator, scope, 0, SCOPE_TEMPORARY);
 }
 
-void ExpressionContext::PopScope(ScopeType type, SynBase *location, bool keepFunctions)
+void ExpressionContext::PopScope(ScopeType scopeType, SynBase *location, bool keepFunctions)
 {
-	(void)type;
-	assert(scope->type == type);
+	(void)scopeType;
+	assert(scope->type == scopeType);
 
 	// When namespace scope ends, all the contents remain accessible through an outer namespace/global scope
 	if(!location && scope->ownerNamespace)
@@ -1177,14 +1177,14 @@ TypeBase* ExpressionContext::GetCurrentType()
 	return NULL;
 }
 
-FunctionData* ExpressionContext::GetFunctionOwner(ScopeData *scope)
+FunctionData* ExpressionContext::GetFunctionOwner(ScopeData *scopeData)
 {
 	// Temporary scopes have no owner
-	if(scope->type == SCOPE_TEMPORARY)
+	if(scopeData->type == SCOPE_TEMPORARY)
 		return NULL;
 
 	// Walk up, but if we reach a type or namespace owner, stop - we're not in a context of a function
-	for(ScopeData *curr = scope; curr; curr = curr->scope)
+	for(ScopeData *curr = scopeData; curr; curr = curr->scope)
 	{
 		if(curr->ownerType)
 			return NULL;
@@ -1199,32 +1199,32 @@ FunctionData* ExpressionContext::GetFunctionOwner(ScopeData *scope)
 	return NULL;
 }
 
-ScopeData* ExpressionContext::NamespaceScopeFrom(ScopeData *scope)
+ScopeData* ExpressionContext::NamespaceScopeFrom(ScopeData *scopeData)
 {
-	if(!scope || scope->ownerNamespace)
-		return scope;
+	if(!scopeData || scopeData->ownerNamespace)
+		return scopeData;
 
-	return NamespaceScopeFrom(scope->scope);
+	return NamespaceScopeFrom(scopeData->scope);
 }
 
-ScopeData* ExpressionContext::GlobalScopeFrom(ScopeData *scope)
+ScopeData* ExpressionContext::GlobalScopeFrom(ScopeData *scopeData)
 {
-	if(!scope)
+	if(!scopeData)
 		return NULL;
 
-	if(scope->type == SCOPE_TEMPORARY)
+	if(scopeData->type == SCOPE_TEMPORARY)
 		return NULL;
 
-	if(scope->ownerFunction)
+	if(scopeData->ownerFunction)
 		return NULL;
 
-	if(scope->ownerType)
+	if(scopeData->ownerType)
 		return NULL;
 
-	if(scope->scope)
-		return GlobalScopeFrom(scope->scope);
+	if(scopeData->scope)
+		return GlobalScopeFrom(scopeData->scope);
 
-	return scope;
+	return scopeData;
 }
 
 unsigned ExpressionContext::GetGenericClassInstantiationDepth()
@@ -1347,14 +1347,14 @@ void ExpressionContext::HideFunction(FunctionData *function)
 	if(*function->name.begin != '$')
 		functionMap.remove(function->nameHash, function);
 
-	SmallArray<FunctionData*, 2> &functions = function->scope->functions;
+	SmallArray<FunctionData*, 2> &scopeFunctions = function->scope->functions;
 
-	for(unsigned i = 0; i < functions.size(); i++)
+	for(unsigned i = 0; i < scopeFunctions.size(); i++)
 	{
-		if(functions[i] == function)
+		if(scopeFunctions[i] == function)
 		{
-			functions[i] = functions.back();
-			functions.pop_back();
+			scopeFunctions[i] = scopeFunctions.back();
+			scopeFunctions.pop_back();
 		}
 	}
 }
@@ -1481,10 +1481,10 @@ TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 
 	for(TypeHandle *curr = type->arrayTypes.head; curr; curr = curr->next)
 	{
-		if(TypeArray *type = getType<TypeArray>(curr->type))
+		if(TypeArray *typeArray = getType<TypeArray>(curr->type))
 		{
-			if(type->length == length)
-				return type;
+			if(typeArray->length == length)
+				return typeArray;
 		}
 	}
 
@@ -1602,22 +1602,22 @@ TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* retu
 
 TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* returnType, ArrayView<ArgumentData> arguments)
 {
-	IntrusiveList<TypeHandle> types;
+	IntrusiveList<TypeHandle> argumentTypes;
 
 	for(unsigned i = 0; i < arguments.size(); i++)
-		types.push_back(new (get<TypeHandle>()) TypeHandle(arguments[i].type));
+		argumentTypes.push_back(new (get<TypeHandle>()) TypeHandle(arguments[i].type));
 
-	return GetFunctionType(source, returnType, types);
+	return GetFunctionType(source, returnType, argumentTypes);
 }
 
-TypeFunctionSet* ExpressionContext::GetFunctionSetType(IntrusiveList<TypeHandle> types)
+TypeFunctionSet* ExpressionContext::GetFunctionSetType(IntrusiveList<TypeHandle> setTypes)
 {
 	for(unsigned i = 0, e = functionSetTypes.count; i < e; i++)
 	{
 		if(TypeFunctionSet *type = functionSetTypes.data[i])
 		{
 			TypeHandle *leftArg = type->types.head;
-			TypeHandle *rightArg = types.head;
+			TypeHandle *rightArg = setTypes.head;
 
 			while(leftArg && rightArg && leftArg->type == rightArg->type)
 			{
@@ -1633,7 +1633,7 @@ TypeFunctionSet* ExpressionContext::GetFunctionSetType(IntrusiveList<TypeHandle>
 	}
 
 	// Create new type
-	TypeFunctionSet* result = new (get<TypeFunctionSet>()) TypeFunctionSet(GetFunctionSetTypeName(*this, types), types);
+	TypeFunctionSet* result = new (get<TypeFunctionSet>()) TypeFunctionSet(GetFunctionSetTypeName(*this, setTypes), setTypes);
 
 	functionSetTypes.push_back(result);
 
@@ -4218,12 +4218,12 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 					// Member access only shifts an address, so we are left with a reference to get value from
 					ExprMemberAccess *shift = new (ctx.get<ExprMemberAccess>()) ExprMemberAccess(source, ctx.GetReferenceType(el->variable->type), wrapped, el->variable);
 
-					ExprBase *value = new (ctx.get<ExprDereference>()) ExprDereference(source, el->variable->type, shift);
+					ExprBase *memberValue = new (ctx.get<ExprDereference>()) ExprDereference(source, el->variable->type, shift);
 
 					if(el->variable->isReadonly)
-						return new (ctx.get<ExprPassthrough>()) ExprPassthrough(source, el->variable->type, value);
+						return new (ctx.get<ExprPassthrough>()) ExprPassthrough(source, el->variable->type, memberValue);
 
-					return value;
+					return memberValue;
 				}
 			}
 
@@ -4897,7 +4897,7 @@ unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, TypeF
 				{
 					if(actualArgument.value && (isType<TypeFunction>(actualArgument.type) || isType<TypeFunctionSet>(actualArgument.type)))
 					{
-						if(FunctionValue function = GetFunctionForType(ctx, actualArgument.value->source, actualArgument.value, target))
+						if(FunctionValue functionValue = GetFunctionForType(ctx, actualArgument.value->source, actualArgument.value, target))
 							continue;
 					}
 				}
@@ -4988,7 +4988,7 @@ unsigned GetFunctionRating(ExpressionContext &ctx, FunctionData *function, TypeF
 
 				if(actualArgument.value && (isType<TypeFunction>(actualArgument.type) || isType<TypeFunctionSet>(actualArgument.type)))
 				{
-					if(FunctionValue function = GetFunctionForType(ctx, actualArgument.value->source, actualArgument.value, lFunction))
+					if(FunctionValue functionValue = GetFunctionForType(ctx, actualArgument.value->source, actualArgument.value, lFunction))
 						continue;
 				}
 				
@@ -5293,14 +5293,14 @@ TypeBase* ResolveGenericTypeAliases(ExpressionContext &ctx, SynBase *source, Typ
 
 		for(TypeHandle *curr = lhs->generics.head; curr; curr = curr->next)
 		{
-			TypeBase *type = ResolveGenericTypeAliases(ctx, source, curr->type, aliases);
+			TypeBase *resolvedType = ResolveGenericTypeAliases(ctx, source, curr->type, aliases);
 
-			if(type == ctx.typeAuto)
+			if(resolvedType == ctx.typeAuto)
 				Stop(ctx, source->pos, "ERROR: 'auto' type cannot be used as template argument");
 
-			isGeneric |= type->isGeneric;
+			isGeneric |= resolvedType->isGeneric;
 
-			types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(type));
+			types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(resolvedType));
 		}
 
 		if(isGeneric)
@@ -5983,8 +5983,8 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 	if(definition->contextVariable)
 	{
-		if(ExprGenericFunctionPrototype *proto = getType<ExprGenericFunctionPrototype>(function->declaration))
-			proto->contextVariables.push_back(definition->contextVariable);
+		if(ExprGenericFunctionPrototype *genericProto = getType<ExprGenericFunctionPrototype>(function->declaration))
+			genericProto->contextVariables.push_back(definition->contextVariable);
 		else
 			ctx.setup.push_back(definition->contextVariable);
 	}

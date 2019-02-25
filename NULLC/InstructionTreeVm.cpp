@@ -3459,12 +3459,12 @@ void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmValue* va
 			// Remove incoming branches that are never executed (phi instruction is the only user)
 			for(unsigned i = 0; i < inst->arguments.size();)
 			{
-				VmValue *value = inst->arguments[i];
+				VmValue *option = inst->arguments[i];
 				VmValue *edge = inst->arguments[i + 1];
 
 				if(edge->users.size() == 1 && edge->users[0] == inst)
 				{
-					value->RemoveUse(inst);
+					option->RemoveUse(inst);
 					edge->RemoveUse(inst);
 
 					inst->arguments[i] = inst->arguments[inst->arguments.size() - 2];
@@ -3582,13 +3582,13 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 				{
 					for(unsigned i = 0; i < phi->arguments.size(); i += 2)
 					{
-						VmInstruction *value = getType<VmInstruction>(phi->arguments[i]);
+						VmInstruction *option = getType<VmInstruction>(phi->arguments[i]);
 						VmBlock *edge = getType<VmBlock>(phi->arguments[i + 1]);
 
-						if(value->cmd != VM_INST_LOAD_IMMEDIATE)
+						if(option->cmd != VM_INST_LOAD_IMMEDIATE)
 							continue;
 
-						VmConstant *condition = getType<VmConstant>(value->arguments[0]);
+						VmConstant *condition = getType<VmConstant>(option->arguments[0]);
 
 						VmValue *target = condition->iValue != 0 ? (currLastInst->cmd == VM_INST_JUMP_NZ ? trueBlock : falseBlock) : (currLastInst->cmd == VM_INST_JUMP_NZ ? falseBlock : trueBlock);
 
@@ -3615,7 +3615,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 				{
 					for(unsigned i = 0; i < phi->arguments.size(); i += 2)
 					{
-						VmInstruction *value = getType<VmInstruction>(phi->arguments[i]);
+						VmInstruction *option = getType<VmInstruction>(phi->arguments[i]);
 						VmBlock *edge = getType<VmBlock>(phi->arguments[i + 1]);
 
 						VmInstruction *terminator = edge->lastInstruction;
@@ -3624,7 +3624,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 						{
 							assert(terminator->arguments[0] == curr);
 
-							ChangeInstructionTo(module, terminator, VM_INST_RETURN, value, 0, 0, 0, &module->controlFlowSimplifications);
+							ChangeInstructionTo(module, terminator, VM_INST_RETURN, option, 0, 0, 0, &module->controlFlowSimplifications);
 						}
 					}
 				}
@@ -3766,19 +3766,19 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 			switch(curr->cmd)
 			{
 			case VM_INST_LOAD_BYTE:
-				if(VmValue* value = GetLoadStoreInfo(module, curr))
+				if(VmValue* prevValue = GetLoadStoreInfo(module, curr))
 				{
-					if(VmConstant* constant = getType<VmConstant>(value))
-						ReplaceValueUsersWith(module, curr, CreateConstantInt(module->allocator, value->source, (int)(char)(constant->iValue)), &module->loadStorePropagations);
+					if(VmConstant* constant = getType<VmConstant>(prevValue))
+						ReplaceValueUsersWith(module, curr, CreateConstantInt(module->allocator, prevValue->source, (int)(char)(constant->iValue)), &module->loadStorePropagations);
 				}
 
 				AddLoadInfo(module, curr);
 				break;
 			case VM_INST_LOAD_SHORT:
-				if(VmValue* value = GetLoadStoreInfo(module, curr))
+				if(VmValue* prevValue = GetLoadStoreInfo(module, curr))
 				{
-					if(VmConstant* constant = getType<VmConstant>(value))
-						ReplaceValueUsersWith(module, curr, CreateConstantInt(module->allocator, value->source, (int)(short)(constant->iValue)), &module->loadStorePropagations);
+					if(VmConstant* constant = getType<VmConstant>(prevValue))
+						ReplaceValueUsersWith(module, curr, CreateConstantInt(module->allocator, prevValue->source, (int)(short)(constant->iValue)), &module->loadStorePropagations);
 				}
 
 				AddLoadInfo(module, curr);
@@ -3788,27 +3788,27 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 			case VM_INST_LOAD_DOUBLE:
 			case VM_INST_LOAD_LONG:
 			case VM_INST_LOAD_STRUCT:
-				if(VmValue* value = GetLoadStoreInfo(module, curr))
+				if(VmValue* prevValue = GetLoadStoreInfo(module, curr))
 				{
-					if(curr->type != value->type)
+					if(curr->type != prevValue->type)
 					{
-						assert(curr->type.size == value->type.size);
+						assert(curr->type.size == prevValue->type.size);
 
 						module->currentBlock = block;
 
 						block->insertPoint = curr->prevSibling;
 
-						value = CreateBitcast(module, curr->source, curr->type, value);
+						prevValue = CreateBitcast(module, curr->source, curr->type, prevValue);
 
 						block->insertPoint = block->lastInstruction;
 
 						module->currentBlock = NULL;
 
-						ReplaceValueUsersWith(module, curr, value, &module->loadStorePropagations);
+						ReplaceValueUsersWith(module, curr, prevValue, &module->loadStorePropagations);
 					}
 					else
 					{
-						ReplaceValueUsersWith(module, curr, value, &module->loadStorePropagations);
+						ReplaceValueUsersWith(module, curr, prevValue, &module->loadStorePropagations);
 					}
 
 					break;

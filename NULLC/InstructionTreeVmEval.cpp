@@ -262,21 +262,21 @@ VmConstant* ExtractValue(InstructionVMEvalContext &ctx, VmConstant *value, unsig
 
 	if(type == VmType::Int)
 	{
-		int value = 0;
-		memcpy(&value, source, sizeof(value));
-		return CreateConstantInt(ctx.allocator, NULL, value);
+		int tmp = 0;
+		memcpy(&tmp, source, sizeof(tmp));
+		return CreateConstantInt(ctx.allocator, NULL, tmp);
 	}
 	else if(type == VmType::Double)
 	{
-		double value = 0;
-		memcpy(&value, source, sizeof(value));
-		return CreateConstantDouble(ctx.allocator, NULL, value);
+		double tmp = 0;
+		memcpy(&tmp, source, sizeof(tmp));
+		return CreateConstantDouble(ctx.allocator, NULL, tmp);
 	}
 	else if(type == VmType::Long)
 	{
-		long long value = 0;
-		memcpy(&value, source, sizeof(value));
-		return CreateConstantLong(ctx.allocator, NULL, value);
+		long long tmp = 0;
+		memcpy(&tmp, source, sizeof(tmp));
+		return CreateConstantLong(ctx.allocator, NULL, tmp);
 	}
 	else if(type.type == VM_TYPE_POINTER)
 	{
@@ -299,12 +299,12 @@ VmConstant* ExtractValue(InstructionVMEvalContext &ctx, VmConstant *value, unsig
 	}
 	else
 	{
-		char *value = (char*)ctx.allocator->alloc(type.size);
-		memcpy(value, source, type.size);
+		char *tmp = (char*)ctx.allocator->alloc(type.size);
+		memcpy(tmp, source, type.size);
 
 		VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, type, NULL);
 
-		result->sValue = value;
+		result->sValue = tmp;
 
 		return result;
 	}
@@ -1781,10 +1781,10 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		if(unsigned(functionIndex->iValue) >= ctx.ctx.functions.size())
 			return (VmConstant*)Report(ctx, "ERROR: invalid function index");
 
-		FunctionData *function = ctx.ctx.functions[functionIndex->iValue];
+		FunctionData *functionValue = ctx.ctx.functions[functionIndex->iValue];
 
-		if(!function->coroutine)
-			return (VmConstant*)Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->name));
+		if(!functionValue->coroutine)
+			return (VmConstant*)Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(functionValue->name));
 
 		return CreateConstantVoid(ctx.allocator);
 	}
@@ -1814,17 +1814,17 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		if(unsigned(functionIndex->iValue) >= ctx.ctx.functions.size())
 			return (VmConstant*)Report(ctx, "ERROR: invalid function index");
 
-		FunctionData *function = ctx.ctx.functions[functionIndex->iValue];
+		FunctionData *functionValue = ctx.ctx.functions[functionIndex->iValue];
 
-		if(!function->coroutine)
-			return (VmConstant*)Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->name));
+		if(!functionValue->coroutine)
+			return (VmConstant*)Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(functionValue->name));
 
-		VmConstant *functionContextPtr = ExtractValue(ctx, functionRef, 0, GetVmType(ctx.ctx, function->contextType));
+		VmConstant *functionContextPtr = ExtractValue(ctx, functionRef, 0, GetVmType(ctx.ctx, functionValue->contextType));
 
 		if(!functionContextPtr->iValue)
 			return (VmConstant*)Report(ctx, "ERROR: null pointer access");
 
-		TypeRef *refType = getType<TypeRef>(function->contextType);
+		TypeRef *refType = getType<TypeRef>(functionValue->contextType);
 
 		VmType contextType = GetVmType(ctx.ctx, refType->subType);
 
