@@ -21,5 +21,8 @@
     <ClInclude Include="context.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="document.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,5 +1,9 @@
 #pragma once
 
+#include <map>
+
+#include "document.h"
+
 struct Context
 {
 	Context()
@@ -11,4 +15,6 @@ struct Context
 	bool debugMode;
 
 	bool nullcInitialized;
+
+	std::map<std::string, Document> documents;
 };

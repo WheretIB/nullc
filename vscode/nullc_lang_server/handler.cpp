@@ -69,6 +69,35 @@ std::string UrlDecode(const char *url)
 	return result;
 }
 
+bool IsInside(SynBase *syntax, unsigned line, unsigned column)
+{
+	if(line > syntax->begin->line || (line == syntax->begin->line && column >= syntax->begin->column))
+	{
+		if(line < syntax->end->line || (line == syntax->end->line && column < syntax->end->column + syntax->end->length))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool IsSmaller(SynBase *current, SynBase *next)
+{
+	if(!current)
+		return true;
+
+	if(next->begin->line > current->begin->line || (next->begin->line == current->begin->line && next->begin->column > current->begin->column))
+	{
+		if(next->end->line < current->end->line || (next->end->line == current->end->line && next->end->column + next->end->length < current->end->column + current->end->length))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool HandleMessage(Context& ctx, char *message, unsigned length)
 {
 	(void)length;
@@ -203,13 +232,7 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 	textDocumentSync.AddMember("willSaveWaitUntil", false, response.GetAllocator());
 	textDocumentSync.AddMember("save", save, response.GetAllocator());
 
-	rapidjson::Value completionProvider;
-	completionProvider.SetObject();
-
-	completionProvider.AddMember("resolveProvider", true, response.GetAllocator());
-
 	capabilities.AddMember("textDocumentSync", textDocumentSync, response.GetAllocator());
-	//capabilities.AddMember("completionProvider", completionProvider, response.GetAllocator());
 	capabilities.AddMember("foldingRangeProvider", true, response.GetAllocator());
 	capabilities.AddMember("documentSymbolProvider", true, response.GetAllocator());
 	capabilities.AddMember("hoverProvider", true, response.GetAllocator());
@@ -225,39 +248,14 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
 {
-	auto target = arguments["textDocument"]["uri"].GetString();
+	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
 
-	if(!target)
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "target document path required");
-
-	if(strstr(target, "file:///") != target)
+	if(documentIt == ctx.documents.end())
 	{
-		fprintf(stderr, "ERROR: Can't handle non-local document '%s'\n", target);
+		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
 
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "only local documents are supported");
+		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
 	}
-
-	auto fileName = UrlDecode(target + strlen("file:///"));
-
-	FILE *fIn = fopen(fileName.c_str(), "rb");
-
-	if(!fIn)
-	{
-		fprintf(stderr, "ERROR: Failed to open file '%s'\n", fileName.c_str());
-
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to open target file");
-	}
-
-	if(ctx.debugMode)
-		fprintf(stderr, "INFO: Loading '%s'\n", fileName.c_str());
-
-	fseek(fIn, 0, SEEK_END);
-	unsigned textSize = ftell(fIn);
-	fseek(fIn, 0, SEEK_SET);
-	char *code = new char[textSize + 1];
-	fread(code, 1, textSize, fIn);
-	code[textSize] = 0;
-	fclose(fIn);
 
 	static const char *foldingRangeComment = "comment";
 	static const char *foldingRangeImports = "imports";
@@ -284,7 +282,7 @@ bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Do
 
 	std::vector<FoldingRange> foldingRanges;
 
-	if(nullcAnalyze(code))
+	if(nullcAnalyze(documentIt->second.code.c_str()))
 	{
 		if(ctx.debugMode)
 			fprintf(stderr, "INFO: Successfully compiled\n");
@@ -381,75 +379,21 @@ bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Do
 	return true;
 }
 
-bool IsInside(SynBase *syntax, unsigned line, unsigned column)
-{
-	if(line > syntax->begin->line || (line == syntax->begin->line && column >= syntax->begin->column))
-	{
-		if(line < syntax->end->line || (line == syntax->end->line && column < syntax->end->column + syntax->end->length))
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-bool IsSmaller(SynBase *current, SynBase *next)
-{
-	if(!current)
-		return true;
-
-	if(next->begin->line > current->begin->line || (next->begin->line == current->begin->line && next->begin->column > current->begin->column))
-	{
-		if(next->end->line < current->end->line || (next->end->line == current->end->line && next->end->column + next->end->length < current->end->column + current->end->length))
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
 bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
 {
-	auto target = arguments["textDocument"]["uri"].GetString();
+	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+
+	if(documentIt == ctx.documents.end())
+	{
+		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
+
+		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
+	}
 
 	auto positionLine = arguments["position"]["line"].GetUint();
 	auto positionColumn = arguments["position"]["character"].GetUint();
 
-	if(!target)
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "target document path required");
-
-	if(strstr(target, "file:///") != target)
-	{
-		fprintf(stderr, "ERROR: Can't handle non-local document '%s'\n", target);
-
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "only local documents are supported");
-	}
-
-	auto fileName = UrlDecode(target + strlen("file:///"));
-
-	FILE *fIn = fopen(fileName.c_str(), "rb");
-
-	if(!fIn)
-	{
-		fprintf(stderr, "ERROR: Failed to open file '%s'\n", fileName.c_str());
-
-		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to open target file");
-	}
-
-	if(ctx.debugMode)
-		fprintf(stderr, "INFO: Loading '%s'\n", fileName.c_str());
-
-	fseek(fIn, 0, SEEK_END);
-	unsigned textSize = ftell(fIn);
-	fseek(fIn, 0, SEEK_SET);
-	char *code = new char[textSize + 1];
-	fread(code, 1, textSize, fIn);
-	code[textSize] = 0;
-	fclose(fIn);
-
-	if(nullcAnalyze(code))
+	if(nullcAnalyze(documentIt->second.code.c_str()))
 	{
 		if(ctx.debugMode)
 			fprintf(stderr, "INFO: Successfully compiled\n");
@@ -611,6 +555,40 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 	return true;
 }
 
+bool HandleDidOpen(Context& ctx, rapidjson::Value& arguments)
+{
+	auto uri = arguments["textDocument"]["uri"].GetString();
+
+	auto &document = ctx.documents[uri];
+
+	if(ctx.debugMode)
+		fprintf(stderr, "INFO: Created document '%s'\n", uri);
+
+	document.code = arguments["textDocument"]["text"].GetString();
+
+	return true;
+}
+
+bool HandleDidChange(Context& ctx, rapidjson::Value& arguments)
+{
+	auto uri = arguments["textDocument"]["uri"].GetString();
+
+	auto &document = ctx.documents[uri];
+
+	for(auto &&el : arguments["contentChanges"].GetArray())
+	{
+		if(el.HasMember("text"))
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "INFO: Updated document '%s'\n", uri);
+
+			document.code = el["text"].GetString();
+		}
+	}
+
+	return true;
+}
+
 bool HandleMessage(Context& ctx, unsigned idNumber, const char *idString, const char *method, rapidjson::Value& arguments)
 {
 	rapidjson::Document response;
@@ -637,7 +615,10 @@ bool HandleNotification(Context& ctx, const char *method, rapidjson::Value& argu
 	if(ctx.debugMode)
 		fprintf(stderr, "INFO: HandleNotification(%s)\n", method);
 
-	//workspace/didChangeWatchedFiles
+	if(strcmp(method, "textDocument/didOpen") == 0)
+		return HandleDidOpen(ctx, arguments);
+	else if(strcmp(method, "textDocument/didChange") == 0)
+		return HandleDidChange(ctx, arguments);
 
 	return true;
 }

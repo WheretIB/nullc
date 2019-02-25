@@ -128,6 +128,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="context.h" />
+    <ClInclude Include="document.h" />
     <ClInclude Include="handler.h" />
   </ItemGroup>
   <ItemGroup>
