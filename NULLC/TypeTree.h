@@ -527,15 +527,16 @@ struct ScopeData
 
 struct FunctionValue
 {
-	FunctionValue(): function(0), context(0)
+	FunctionValue(): source(0), function(0), context(0)
 	{
 	}
 
-	FunctionValue(FunctionData *function, ExprBase *context): function(function), context(context)
+	FunctionValue(SynBase *source, FunctionData *function, ExprBase *context): source(source), function(function), context(context)
 	{
 		assert(context);
 	}
 
+	SynBase *source;
 	FunctionData *function;
 	ExprBase *context;
 

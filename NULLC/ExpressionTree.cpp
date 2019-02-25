@@ -1959,7 +1959,7 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 	{
 		if(FunctionValue function = GetFunctionForType(ctx, source, value, target))
 		{
-			ExprBase *access = new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, type, function.function, function.context);
+			ExprBase *access = new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(function.source, type, function.function, function.context);
 
 			if(isType<ExprFunctionDefinition>(value) || isType<ExprGenericFunctionPrototype>(value))
 				return CreateSequence(ctx, source, value, access);
@@ -4363,7 +4363,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 				if(node->function->scope->ownerType && node->function->scope->ownerType->isGeneric && !node->function->type->isGeneric)
 				{
 					if(FunctionValue bestOverload = GetFunctionForType(ctx, source, baseFunction, node->function->type))
-						return new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, bestOverload.function->type, bestOverload.function, bestOverload.context);
+						return new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(bestOverload.source, bestOverload.function->type, bestOverload.function, bestOverload.context);
 				}
 			}
 
@@ -5885,7 +5885,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 			context = CreateFunctionContextAccess(ctx, source, data);
 		}
 
-		return FunctionValue(function->instances[i], context);
+		return FunctionValue(source, function->instances[i], context);
 	}
 
 	// Switch to original function scope
@@ -6001,7 +6001,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		context = CreateFunctionContextAccess(ctx, source, definition->function);
 	}
 
-	return FunctionValue(definition->function, CreateSequence(ctx, source, definition, context));
+	return FunctionValue(source, definition->function, CreateSequence(ctx, source, definition, context));
 }
 
 void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *function, SmallArray<FunctionValue, 32> &functions)
@@ -6011,15 +6011,15 @@ void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *functio
 
 	if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(function))
 	{
-		functions.push_back(FunctionValue(node->function, node->context));
+		functions.push_back(FunctionValue(node->source, node->function, node->context));
 	}
 	else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(function))
 	{
-		functions.push_back(FunctionValue(node->function, CreateFunctionContextAccess(ctx, source, node->function)));
+		functions.push_back(FunctionValue(node->source, node->function, CreateFunctionContextAccess(ctx, source, node->function)));
 	}
 	else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(function))
 	{
-		functions.push_back(FunctionValue(node->function, CreateFunctionContextAccess(ctx, source, node->function)));
+		functions.push_back(FunctionValue(node->source, node->function, CreateFunctionContextAccess(ctx, source, node->function)));
 	}
 	else if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(function))
 	{
@@ -6030,7 +6030,7 @@ void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *functio
 			if(!context)
 				context = CreateFunctionContextAccess(ctx, source, arg->function);
 
-			functions.push_back(FunctionValue(arg->function, context));
+			functions.push_back(FunctionValue(node->source, arg->function, context));
 		}
 	}
 }
@@ -6385,7 +6385,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 		}
 		else
 		{
-			value = new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, function->type, function, bestOverload.context);
+			value = new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(bestOverload.source, function->type, function, bestOverload.context);
 		}
 
 		SmallArray<CallArgumentData, 16> result(ctx.allocator);
@@ -6813,7 +6813,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		// Call this member function
 		SmallArray<FunctionValue, 32> functions(ctx.allocator);
-		functions.push_back(FunctionValue(functionDefinition->function, CreateVariableAccess(ctx, syntax, variable, false)));
+		functions.push_back(FunctionValue(syntax, functionDefinition->function, CreateVariableAccess(ctx, syntax, variable, false)));
 
 		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
@@ -6932,7 +6932,7 @@ ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprB
 	if(TypeFunction *target = getType<TypeFunction>(initializer->type))
 	{
 		if(FunctionValue bestOverload = GetFunctionForType(ctx, initializer->source, initializer, target))
-			initializer = new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(initializer->source, bestOverload.function->type, bestOverload.function, bestOverload.context);
+			initializer = new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(bestOverload.source, bestOverload.function->type, bestOverload.function, bestOverload.context);
 	}
 
 	if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(initializer))
@@ -8248,7 +8248,7 @@ bool HasDefautConstructor(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 		{
 			FunctionData *curr = functions[i];
 
-			overloads.push_back(FunctionValue(curr, new (ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(source, curr->contextType)));
+			overloads.push_back(FunctionValue(source, curr, new (ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(source, curr->contextType)));
 		}
 
 		SmallArray<unsigned, 32> ratings(ctx.allocator);
