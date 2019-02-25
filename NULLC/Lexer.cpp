@@ -16,6 +16,9 @@ void Lexer::Lexify(const char* code)
 {
 	lexems.reserve(2048);
 
+	const char *lineStart = code;
+	line = 0;
+
 	LexemeType lType = lex_none;
 	int lLength = 1;
 
@@ -23,12 +26,27 @@ void Lexer::Lexify(const char* code)
 	{
 		switch(*code)
 		{
-		case ' ':
 		case '\r':
+			code++;
+
+			if(*code == '\n')
+				code++;
+
+			lineStart = code;
+			line++;
+
+			continue;
 		case '\n':
+			code++;
+
+			lineStart = code;
+			line++;
+
+			continue;
+		case ' ':
 		case '\t':
 			code++;
-			while((unsigned char)(code[0] - 1) < ' ')
+			while((unsigned char)(code[0] - 1) < ' ' && *code != '\r' && *code != '\n')
 				code++;
 			continue;
 		case '\"':
@@ -402,19 +420,32 @@ void Lexer::Lexify(const char* code)
 			}
 		}
 		Lexeme lex;
+
 		lex.type = lType;
 		lex.length = lLength;
+
 		lex.pos = code;
+
+		lex.line = line;
+		lex.column = unsigned(code - lineStart);
+
 		lexems.push_back(lex);
 
 		code += lLength;
 		lType = lex_none;
 		lLength = 1;
 	}
+
 	Lexeme lex;
+
 	lex.type = lex_none;
 	lex.length = 1;
+
 	lex.pos = code;
+
+	lex.line = line;
+	lex.column = unsigned(code - lineStart);
+
 	lexems.push_back(lex);
 }
 

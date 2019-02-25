@@ -59,7 +59,11 @@ struct Lexeme
 {
 	LexemeType type;
 	const char *pos;
-	unsigned int length;
+	unsigned length;
+
+	// Zero-based values
+	unsigned line;
+	unsigned column;
 };
 
 class Lexer
@@ -76,4 +80,6 @@ public:
 
 private:
 	SmallArray<Lexeme, 32>	lexems;
+
+	unsigned line;
 };
