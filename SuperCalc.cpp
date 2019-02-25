@@ -307,7 +307,7 @@ char* PipeReceiveResponce(PipeData &data)
 			else if(result == -1)
 				MessageBox(hWnd, GetLastErrorDesc(), "Error", MB_OK);
 			else
-				printf("%d != %d || %d != %d || %d\n", result, sizeof(data), data.cmd, cmd, data.question);
+				printf("%d != %d || %d != %d || %d\n", result, int(sizeof(data)), data.cmd, cmd, data.question);
 			return NULL;
 		}
 		if(!recvSize)
