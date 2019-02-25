@@ -141,6 +141,9 @@ int			nullcInitDynamicModule();
 /************************************************************************/
 /*							Extended functions							*/
 
+/*	Analyzes the code and returns 1 on success	*/
+nullres		nullcAnalyze(const char* code);
+
 /*	Compiles the code and returns 1 on success	*/
 nullres		nullcCompile(const char* code);
 
@@ -164,7 +167,7 @@ void		nullcClean();
 nullres		nullcLinkCode(const char *bytecode);
 
 /************************************************************************/
-/*							Internal testing functions							*/
+/*							Internal testing functions					*/
 
 nullres		nullcTestEvaluateExpressionTree(char *resultBuf, unsigned resultBufSize);
 nullres		nullcTestEvaluateInstructionTree(char *resultBuf, unsigned resultBufSize);

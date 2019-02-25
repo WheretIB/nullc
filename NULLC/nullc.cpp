@@ -290,6 +290,49 @@ const char* nullcEnumerateModules(unsigned id)
 	return BinaryCache::EnumerateModules(id);
 }
 
+nullres nullcAnalyze(const char* code)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
+	nullcLastError = "";
+
+	NULLC::destruct(compilerCtx);
+
+	allocator.Clear();
+
+	compilerCtx = new(NULLC::alloc(sizeof(CompilerContext))) CompilerContext(&allocator, ArrayView<InplaceStr>());
+
+	*errorBuf = 0;
+
+	compilerCtx->errorBuf = errorBuf;
+	compilerCtx->errorBufSize = NULLC_ERROR_BUFFER_SIZE;
+
+	compilerCtx->enableLogFiles = enableLogFiles;
+
+	compilerCtx->outputCtx.openStream = openStream;
+	compilerCtx->outputCtx.writeStream = writeStream;
+	compilerCtx->outputCtx.closeStream = closeStream;
+
+	compilerCtx->outputCtx.outputBuf = outputBuf;
+	compilerCtx->outputCtx.outputBufSize = NULLC_OUTPUT_BUFFER_SIZE;
+
+	compilerCtx->outputCtx.tempBuf = tempOutputBuf;
+	compilerCtx->outputCtx.tempBufSize = NULLC_TEMP_OUTPUT_BUFFER_SIZE;
+
+	if(!AnalyzeModuleFromSource(*compilerCtx, code))
+	{
+		if(compilerCtx->errorPos)
+			nullcLastError = compilerCtx->errorBuf;
+		else
+			nullcLastError = "ERROR: internal error";
+
+		return 0;
+	}
+
+	return 1;
+}
+
 nullres	nullcCompile(const char* code)
 {
 	using namespace NULLC;
