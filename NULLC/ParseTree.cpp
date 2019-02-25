@@ -2790,6 +2790,342 @@ SynModule* Parse(ParseContext &ctx, const char *code)
 	return NULL;
 }
 
+void VisitParseTreeNodes(SynBase *syntax, void *context, void(*accept)(void *context, SynBase *child))
+{
+	if(!syntax)
+		return;
+
+	accept(context, syntax);
+
+	if(SynTypeSimple *node = getType<SynTypeSimple>(syntax))
+	{
+		for(SynIdentifier *part = node->path.head; part; part = getType<SynIdentifier>(part->next))
+			VisitParseTreeNodes(part, context, accept);
+	}
+	else if(SynTypeArray *node = getType<SynTypeArray>(syntax))
+	{
+		VisitParseTreeNodes(node->type, context, accept);
+
+		for(SynBase *size = node->sizes.head; size; size = size->next)
+			VisitParseTreeNodes(size, context, accept);
+	}
+	else if(SynTypeReference *node = getType<SynTypeReference>(syntax))
+	{
+		VisitParseTreeNodes(node->type, context, accept);
+	}
+	else if(SynTypeFunction *node = getType<SynTypeFunction>(syntax))
+	{
+		VisitParseTreeNodes(node->returnType, context, accept);
+
+		for(SynBase *arg = node->arguments.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+	}
+	else if(SynTypeGenericInstance *node = getType<SynTypeGenericInstance>(syntax))
+	{
+		VisitParseTreeNodes(node->baseType, context, accept);
+
+		for(SynBase *type = node->types.head; type; type = type->next)
+			VisitParseTreeNodes(type, context, accept);
+	}
+	else if(SynTypeof *node = getType<SynTypeof>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynArray *node = getType<SynArray>(syntax))
+	{
+		for(SynBase *value = node->values.head; value; value = value->next)
+			VisitParseTreeNodes(value, context, accept);
+	}
+	else if(SynGenerator *node = getType<SynGenerator>(syntax))
+	{
+		for(SynBase *value = node->expressions.head; value; value = value->next)
+			VisitParseTreeNodes(value, context, accept);
+	}
+	else if(SynAlign *node = getType<SynAlign>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynTypedef *node = getType<SynTypedef>(syntax))
+	{
+		VisitParseTreeNodes(node->type, context, accept);
+	}
+	else if(SynMemberAccess *node = getType<SynMemberAccess>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynCallArgument *node = getType<SynCallArgument>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynArrayIndex *node = getType<SynArrayIndex>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+
+		for(SynBase *arg = node->arguments.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+	}
+	else if(SynFunctionCall *node = getType<SynFunctionCall>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+
+		for(SynBase *arg = node->aliases.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+
+		for(SynBase *arg = node->arguments.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+	}
+	else if(SynPreModify *node = getType<SynPreModify>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynPostModify *node = getType<SynPostModify>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynGetAddress *node = getType<SynGetAddress>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynDereference *node = getType<SynDereference>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynSizeof *node = getType<SynSizeof>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynNew *node = getType<SynNew>(syntax))
+	{
+		VisitParseTreeNodes(node->type, context, accept);
+
+		for(SynBase *arg = node->arguments.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+
+		VisitParseTreeNodes(node->count, context, accept);
+
+		for(SynBase *arg = node->constructor.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+	}
+	else if(SynConditional *node = getType<SynConditional>(syntax))
+	{
+		VisitParseTreeNodes(node->condition, context, accept);
+		VisitParseTreeNodes(node->trueBlock, context, accept);
+		VisitParseTreeNodes(node->falseBlock, context, accept);
+	}
+	else if(SynReturn *node = getType<SynReturn>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynYield *node = getType<SynYield>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynBreak *node = getType<SynBreak>(syntax))
+	{
+		VisitParseTreeNodes(node->number, context, accept);
+	}
+	else if(SynContinue *node = getType<SynContinue>(syntax))
+	{
+		VisitParseTreeNodes(node->number, context, accept);
+	}
+	else if(SynBlock *node = getType<SynBlock>(syntax))
+	{
+		for(SynBase *expr = node->expressions.head; expr; expr = expr->next)
+			VisitParseTreeNodes(expr, context, accept);
+	}
+	else if(SynIfElse *node = getType<SynIfElse>(syntax))
+	{
+		VisitParseTreeNodes(node->condition, context, accept);
+		VisitParseTreeNodes(node->trueBlock, context, accept);
+		VisitParseTreeNodes(node->falseBlock, context, accept);
+	}
+	else if(SynFor *node = getType<SynFor>(syntax))
+	{
+		VisitParseTreeNodes(node->initializer, context, accept);
+		VisitParseTreeNodes(node->condition, context, accept);
+		VisitParseTreeNodes(node->increment, context, accept);
+		VisitParseTreeNodes(node->body, context, accept);
+	}
+	else if(SynForEachIterator *node = getType<SynForEachIterator>(syntax))
+	{
+		VisitParseTreeNodes(node->type, context, accept);
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynForEach *node = getType<SynForEach>(syntax))
+	{
+		for(SynBase *arg = node->iterators.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+
+		VisitParseTreeNodes(node->body, context, accept);
+	}
+	else if(SynWhile *node = getType<SynWhile>(syntax))
+	{
+		VisitParseTreeNodes(node->condition, context, accept);
+		VisitParseTreeNodes(node->body, context, accept);
+	}
+	else if(SynDoWhile *node = getType<SynDoWhile>(syntax))
+	{
+		for(SynBase *arg = node->expressions.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+
+		VisitParseTreeNodes(node->condition, context, accept);
+	}
+	else if(SynSwitchCase *node = getType<SynSwitchCase>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+
+		for(SynBase *arg = node->expressions.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+	}
+	else if(SynSwitch *node = getType<SynSwitch>(syntax))
+	{
+		VisitParseTreeNodes(node->condition, context, accept);
+
+		for(SynBase *arg = node->cases.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+	}
+	else if(SynUnaryOp *node = getType<SynUnaryOp>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynBinaryOp *node = getType<SynBinaryOp>(syntax))
+	{
+		VisitParseTreeNodes(node->lhs, context, accept);
+		VisitParseTreeNodes(node->rhs, context, accept);
+	}
+	else if(SynAssignment *node = getType<SynAssignment>(syntax))
+	{
+		VisitParseTreeNodes(node->lhs, context, accept);
+		VisitParseTreeNodes(node->rhs, context, accept);
+	}
+	else if(SynModifyAssignment *node = getType<SynModifyAssignment>(syntax))
+	{
+		VisitParseTreeNodes(node->lhs, context, accept);
+		VisitParseTreeNodes(node->rhs, context, accept);
+	}
+	else if(SynVariableDefinition *node = getType<SynVariableDefinition>(syntax))
+	{
+		VisitParseTreeNodes(node->initializer, context, accept);
+	}
+	else if(SynVariableDefinitions *node = getType<SynVariableDefinitions>(syntax))
+	{
+		VisitParseTreeNodes(node->align, context, accept);
+		VisitParseTreeNodes(node->type, context, accept);
+
+		for(SynBase *arg = node->definitions.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+	}
+	else if(SynAccessor *node = getType<SynAccessor>(syntax))
+	{
+		VisitParseTreeNodes(node->getBlock, context, accept);
+		VisitParseTreeNodes(node->setBlock, context, accept);
+	}
+	else if(SynFunctionArgument *node = getType<SynFunctionArgument>(syntax))
+	{
+		VisitParseTreeNodes(node->type, context, accept);
+		VisitParseTreeNodes(node->initializer, context, accept);
+	}
+	else if(SynFunctionDefinition *node = getType<SynFunctionDefinition>(syntax))
+	{
+		VisitParseTreeNodes(node->parentType, context, accept);
+		VisitParseTreeNodes(node->returnType, context, accept);
+
+		for(SynBase *arg = node->aliases.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+
+		for(SynBase *arg = node->arguments.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+
+		for(SynBase *arg = node->expressions.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+	}
+	else if(SynShortFunctionArgument *node = getType<SynShortFunctionArgument>(syntax))
+	{
+		VisitParseTreeNodes(node->type, context, accept);
+	}
+	else if(SynShortFunctionDefinition *node = getType<SynShortFunctionDefinition>(syntax))
+	{
+		for(SynBase *arg = node->arguments.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+
+		for(SynBase *arg = node->expressions.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+	}
+	else if(SynConstant *node = getType<SynConstant>(syntax))
+	{
+		VisitParseTreeNodes(node->value, context, accept);
+	}
+	else if(SynConstantSet *node = getType<SynConstantSet>(syntax))
+	{
+		VisitParseTreeNodes(node->type, context, accept);
+
+		for(SynBase *arg = node->constants.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+	}
+	else if(SynClassStaticIf *node = getType<SynClassStaticIf>(syntax))
+	{
+		VisitParseTreeNodes(node->condition, context, accept);
+		VisitParseTreeNodes(node->trueBlock, context, accept);
+		VisitParseTreeNodes(node->falseBlock, context, accept);
+	}
+	else if(SynClassElements *node = getType<SynClassElements>(syntax))
+	{
+		for(SynBase *arg = node->typedefs.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+
+		for(SynBase *arg = node->functions.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+
+		for(SynBase *arg = node->accessors.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+
+		for(SynBase *arg = node->members.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+
+		for(SynBase *arg = node->constantSets.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+
+		for(SynBase *arg = node->staticIfs.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+	}
+	else if(SynClassDefinition *node = getType<SynClassDefinition>(syntax))
+	{
+		VisitParseTreeNodes(node->align, context, accept);
+
+		for(SynBase *arg = node->aliases.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+
+		VisitParseTreeNodes(node->baseClass, context, accept);
+		VisitParseTreeNodes(node->elements, context, accept);
+	}
+	else if(SynEnumDefinition *node = getType<SynEnumDefinition>(syntax))
+	{
+		for(SynBase *arg = node->values.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+	}
+	else if(SynNamespaceDefinition *node = getType<SynNamespaceDefinition>(syntax))
+	{
+		for(SynIdentifier *part = node->path.head; part; part = getType<SynIdentifier>(part->next))
+			VisitParseTreeNodes(part, context, accept);
+
+		for(SynBase *arg = node->expressions.head; arg; arg = arg->next)
+			VisitParseTreeNodes(arg, context, accept);
+	}
+	else if(SynModuleImport *node = getType<SynModuleImport>(syntax))
+	{
+		for(SynIdentifier *part = node->path.head; part; part = getType<SynIdentifier>(part->next))
+			VisitParseTreeNodes(part, context, accept);
+	}
+	else if(SynModule *node = getType<SynModule>(syntax))
+	{
+		for(SynModuleImport *import = node->imports.head; import; import = getType<SynModuleImport>(import->next))
+			VisitParseTreeNodes(import, context, accept);
+
+		for(SynBase *expr = node->expressions.head; expr; expr = expr->next)
+			VisitParseTreeNodes(expr, context, accept);
+	}
+}
+
 const char* GetOpName(SynUnaryOpType type)
 {
 	switch(type)

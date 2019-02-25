@@ -1003,6 +1003,8 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx);
 SynBase* ParseClassDefinition(ParseContext &ctx);
 SynModule* Parse(ParseContext &context, const char *code);
 
+void VisitParseTreeNodes(SynBase *syntax, void *context, void(*accept)(void *context, SynBase *child));
+
 const char* GetOpName(SynUnaryOpType type);
 const char* GetOpName(SynBinaryOpType type);
 const char* GetOpName(SynModifyAssignType type);

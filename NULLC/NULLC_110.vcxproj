@@ -260,6 +260,7 @@
     <ClInclude Include="nullbind.h" />
     <ClInclude Include="nullc.h" />
     <ClInclude Include="nullc_debug.h" />
+    <ClInclude Include="nullc_internal.h" />
     <ClInclude Include="nullc_remote.h" />
     <ClInclude Include="nullcdef.h" />
     <ClInclude Include="Output.h" />

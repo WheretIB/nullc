@@ -11232,3 +11232,219 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 
 	return NULL;
 }
+
+void VisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)(void *context, ExprBase *child))
+{
+	if(!expression)
+		return;
+
+	accept(context, expression);
+
+	if(ExprPassthrough *node = getType<ExprPassthrough>(expression))
+	{
+		VisitExpressionTreeNodes(node->value, context, accept);
+	}
+	else if(ExprArray *node = getType<ExprArray>(expression))
+	{
+		for(ExprBase *value = node->values.head; value; value = value->next)
+			VisitExpressionTreeNodes(value, context, accept);
+	}
+	else if(ExprPreModify *node = getType<ExprPreModify>(expression))
+	{
+		VisitExpressionTreeNodes(node->value, context, accept);
+	}
+	else if(ExprPostModify *node = getType<ExprPostModify>(expression))
+	{
+		VisitExpressionTreeNodes(node->value, context, accept);
+	}
+	else if(ExprTypeCast *node = getType<ExprTypeCast>(expression))
+	{
+		VisitExpressionTreeNodes(node->value, context, accept);
+	}
+	else if(ExprUnaryOp *node = getType<ExprUnaryOp>(expression))
+	{
+		VisitExpressionTreeNodes(node->value, context, accept);
+	}
+	else if(ExprBinaryOp *node = getType<ExprBinaryOp>(expression))
+	{
+		VisitExpressionTreeNodes(node->lhs, context, accept);
+		VisitExpressionTreeNodes(node->rhs, context, accept);
+	}
+	else if(ExprDereference *node = getType<ExprDereference>(expression))
+	{
+		VisitExpressionTreeNodes(node->value, context, accept);
+	}
+	else if(ExprUnboxing *node = getType<ExprUnboxing>(expression))
+	{
+		VisitExpressionTreeNodes(node->value, context, accept);
+	}
+	else if(ExprConditional *node = getType<ExprConditional>(expression))
+	{
+		VisitExpressionTreeNodes(node->condition, context, accept);
+		VisitExpressionTreeNodes(node->trueBlock, context, accept);
+		VisitExpressionTreeNodes(node->falseBlock, context, accept);
+	}
+	else if(ExprAssignment *node = getType<ExprAssignment>(expression))
+	{
+		VisitExpressionTreeNodes(node->lhs, context, accept);
+		VisitExpressionTreeNodes(node->rhs, context, accept);
+	}
+	else if(ExprMemberAccess *node = getType<ExprMemberAccess>(expression))
+	{
+		VisitExpressionTreeNodes(node->value, context, accept);
+	}
+	else if(ExprArrayIndex *node = getType<ExprArrayIndex>(expression))
+	{
+		VisitExpressionTreeNodes(node->value, context, accept);
+		VisitExpressionTreeNodes(node->index, context, accept);
+	}
+	else if(ExprReturn *node = getType<ExprReturn>(expression))
+	{
+		VisitExpressionTreeNodes(node->value, context, accept);
+
+		VisitExpressionTreeNodes(node->coroutineStateUpdate, context, accept);
+
+		VisitExpressionTreeNodes(node->closures, context, accept);
+	}
+	else if(ExprYield *node = getType<ExprYield>(expression))
+	{
+		VisitExpressionTreeNodes(node->value, context, accept);
+
+		VisitExpressionTreeNodes(node->coroutineStateUpdate, context, accept);
+
+		VisitExpressionTreeNodes(node->closures, context, accept);
+	}
+	else if(ExprVariableDefinition *node = getType<ExprVariableDefinition>(expression))
+	{
+		VisitExpressionTreeNodes(node->initializer, context, accept);
+	}
+	else if(ExprArraySetup *node = getType<ExprArraySetup>(expression))
+	{
+		VisitExpressionTreeNodes(node->lhs, context, accept);
+		VisitExpressionTreeNodes(node->initializer, context, accept);
+	}
+	else if(ExprVariableDefinitions *node = getType<ExprVariableDefinitions>(expression))
+	{
+		for(ExprBase *value = node->definitions.head; value; value = value->next)
+			VisitExpressionTreeNodes(value, context, accept);
+	}
+	else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(expression))
+	{
+		VisitExpressionTreeNodes(node->contextArgument, context, accept);
+
+		for(ExprBase *arg = node->arguments.head; arg; arg = arg->next)
+			VisitExpressionTreeNodes(arg, context, accept);
+
+		VisitExpressionTreeNodes(node->coroutineStateRead, context, accept);
+
+		for(ExprBase *expr = node->expressions.head; expr; expr = expr->next)
+			VisitExpressionTreeNodes(expr, context, accept);
+	}
+	else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(expression))
+	{
+		for(ExprBase *expr = node->contextVariables.head; expr; expr = expr->next)
+			VisitExpressionTreeNodes(expr, context, accept);
+	}
+	else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expression))
+	{
+		VisitExpressionTreeNodes(node->context, context, accept);
+	}
+	else if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(expression))
+	{
+		VisitExpressionTreeNodes(node->context, context, accept);
+	}
+	else if(ExprFunctionCall *node = getType<ExprFunctionCall>(expression))
+	{
+		VisitExpressionTreeNodes(node->function, context, accept);
+
+		for(ExprBase *arg = node->arguments.head; arg; arg = arg->next)
+			VisitExpressionTreeNodes(arg, context, accept);
+	}
+	else if(ExprGenericClassPrototype *node = getType<ExprGenericClassPrototype>(expression))
+	{
+		for(ExprBase *value = node->genericProtoType->instances.head; value; value = value->next)
+			VisitExpressionTreeNodes(value, context, accept);
+	}
+	else if(ExprClassDefinition *node = getType<ExprClassDefinition>(expression))
+	{
+		for(ExprBase *value = node->functions.head; value; value = value->next)
+			VisitExpressionTreeNodes(value, context, accept);
+
+		for(ConstantData *value = node->classType->constants.head; value; value = value->next)
+			VisitExpressionTreeNodes(value->value, context, accept);
+	}
+	else if(ExprEnumDefinition *node = getType<ExprEnumDefinition>(expression))
+	{
+		for(ConstantData *value = node->enumType->constants.head; value; value = value->next)
+			VisitExpressionTreeNodes(value->value, context, accept);
+
+		VisitExpressionTreeNodes(node->toInt, context, accept);
+		VisitExpressionTreeNodes(node->toEnum, context, accept);
+	}
+	else if(ExprIfElse *node = getType<ExprIfElse>(expression))
+	{
+		VisitExpressionTreeNodes(node->condition, context, accept);
+		VisitExpressionTreeNodes(node->trueBlock, context, accept);
+		VisitExpressionTreeNodes(node->falseBlock, context, accept);
+	}
+	else if(ExprFor *node = getType<ExprFor>(expression))
+	{
+		VisitExpressionTreeNodes(node->initializer, context, accept);
+		VisitExpressionTreeNodes(node->condition, context, accept);
+		VisitExpressionTreeNodes(node->increment, context, accept);
+		VisitExpressionTreeNodes(node->body, context, accept);
+	}
+	else if(ExprWhile *node = getType<ExprWhile>(expression))
+	{
+		VisitExpressionTreeNodes(node->condition, context, accept);
+		VisitExpressionTreeNodes(node->body, context, accept);
+	}
+	else if(ExprDoWhile *node = getType<ExprDoWhile>(expression))
+	{
+		VisitExpressionTreeNodes(node->body, context, accept);
+		VisitExpressionTreeNodes(node->condition, context, accept);
+	}
+	else if(ExprSwitch *node = getType<ExprSwitch>(expression))
+	{
+		VisitExpressionTreeNodes(node->condition, context, accept);
+
+		for(ExprBase *value = node->cases.head; value; value = value->next)
+			VisitExpressionTreeNodes(value, context, accept);
+
+		for(ExprBase *value = node->blocks.head; value; value = value->next)
+			VisitExpressionTreeNodes(value, context, accept);
+
+		VisitExpressionTreeNodes(node->defaultBlock, context, accept);
+	}
+	else if(ExprBreak *node = getType<ExprBreak>(expression))
+	{
+		VisitExpressionTreeNodes(node->closures, context, accept);
+	}
+	else if(ExprContinue *node = getType<ExprContinue>(expression))
+	{
+		VisitExpressionTreeNodes(node->closures, context, accept);
+	}
+	else if(ExprBlock *node = getType<ExprBlock>(expression))
+	{
+		for(ExprBase *value = node->expressions.head; value; value = value->next)
+			VisitExpressionTreeNodes(value, context, accept);
+
+		VisitExpressionTreeNodes(node->closures, context, accept);
+	}
+	else if(ExprSequence *node = getType<ExprSequence>(expression))
+	{
+		for(ExprBase *value = node->expressions.head; value; value = value->next)
+			VisitExpressionTreeNodes(value, context, accept);
+	}
+	else if(ExprModule *node = getType<ExprModule>(expression))
+	{
+		for(unsigned i = 0; i < node->definitions.size(); i++)
+			VisitExpressionTreeNodes(node->definitions[i], context, accept);
+
+		for(ExprBase *value = node->setup.head; value; value = value->next)
+			VisitExpressionTreeNodes(value, context, accept);
+
+		for(ExprBase *value = node->expressions.head; value; value = value->next)
+			VisitExpressionTreeNodes(value, context, accept);
+	}
+}

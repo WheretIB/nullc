@@ -905,3 +905,4 @@ T* getType(ExprBase *node)
 }
 
 ExprModule* Analyze(ExpressionContext &context, SynModule *syntax, const char *code);
+void VisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)(void *context, ExprBase *child));

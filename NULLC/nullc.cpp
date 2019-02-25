@@ -1511,3 +1511,17 @@ ExternFuncInfo* nullcDebugConvertAddressToFunction(int instruction, ExternFuncIn
 
 #endif
 
+CompilerContext* nullcGetCompilerContext()
+{
+	return NULLC::compilerCtx;
+}
+
+void nullcVisitParseTreeNodes(SynBase *syntax, void *context, void(*accept)(void *context, SynBase *child))
+{
+	VisitParseTreeNodes(syntax, context, accept);
+}
+
+void nullcVisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)(void *context, ExprBase *child))
+{
+	VisitExpressionTreeNodes(expression, context, accept);
+}
