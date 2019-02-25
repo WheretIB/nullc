@@ -7385,7 +7385,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		generics.push_back(new (ctx.get<MatchData>()) MatchData(curr->name, target));
 	}
 
-	SmallArray<ArgumentData, 32> argData(ctx.allocator);
+	SmallArray<ArgumentData, 8> argData(ctx.allocator);
 
 	TypeHandle *instanceArg = instance ? instance->arguments.head : NULL;
 
