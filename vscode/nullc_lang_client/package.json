@@ -1,0 +1,86 @@
+{
+    "name": "nullc",
+    "displayName": "nullc",
+    "description": "nullc language support",
+    "author": {
+        "name": "Vyacheslav Egorov",
+        "email": "wheretib@gmail.com"
+    },
+    "license": "MIT",
+    "version": "0.1.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/WheretIB/nullc"
+    },
+    "engines": {
+        "vscode": "^1.31.0"
+    },
+    "activationEvents": [
+        "onLanguage:nullc"
+    ],
+    "main": "./out/extension",
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "nullc",
+                "aliases": [
+                    "nullc",
+                    "NULLC"
+                ],
+                "extensions": [
+                    ".nc"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+		"grammars": [
+			{
+				"language": "nullc",
+				"scopeName": "source.nullc",
+				"path": "./syntaxes/nullc.tmLanguage.json"
+			}
+		],
+        "configuration": {
+            "type": "object",
+            "title": "nullc configuration",
+            "properties": {
+                "nullc.maxNumberOfProblems": {
+                    "scope": "resource",
+                    "type": "number",
+                    "default": 100,
+                    "description": "Controls the maximum number of problems produced by the server."
+                },
+                "nullc.trace.server": {
+                    "scope": "window",
+                    "type": "string",
+                    "enum": [
+                        "off",
+                        "messages",
+                        "verbose"
+                    ],
+                    "default": "off",
+                    "description": "Traces the communication between VS Code and the language server."
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run update-vscode && npm run compile",
+        "compile": "tsc -b",
+        "watch": "tsc -b -w",
+        "postinstall": "node ./node_modules/vscode/bin/install"
+    },
+    "dependencies": {
+        "vscode-languageclient": "^5.2.0",
+        "vscode": "^1.1.30"
+    },
+    "devDependencies": {
+        "@types/mocha": "^5.2.6",
+        "@types/node": "^11.9.5",
+        "tslint": "^5.13.0",
+        "typescript": "^3.3.0"
+    }
+}

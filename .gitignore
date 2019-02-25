@@ -9,3 +9,7 @@ bin/*.exe
 *.opensdf
 /.vs
 /tests/fuzzer
+node_modules
+/vscode/nullc_lang_client/out
+/vscode/nullc_lang_server/out
+package-lock.json

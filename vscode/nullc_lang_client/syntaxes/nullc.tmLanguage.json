@@ -1,0 +1,45 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "nullc",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#base_types"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control.nullc",
+				"match": "\\b(if|else|while|for|return|yield|operator|coroutine)\\b"
+			},
+			{
+				"name": "keyword.operator.new.nullc",
+				"match": "\\b(new)\\b"
+			}]
+		},
+		"strings": {
+			"name": "string.quoted.double.nullc",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.nullc",
+					"match": "\\\\."
+				}
+			]
+		},
+		"base_types": {
+			"patterns": [{
+				"name": "entity.name.type.nullc",
+				"match": "\\b(void|bool|char|short|int|long|float|double|typeid|__function|__nullptr|generic|auto)\\b"
+			}]
+		}
+	},
+	"scopeName": "source.nullc"
+}
