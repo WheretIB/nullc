@@ -21,8 +21,8 @@ struct ExpressionContext
 {
 	ExpressionContext(Allocator *allocator);
 
-	void Stop(const char *pos, const char *msg, ...) NULLC_PRINT_FORMAT_CHECK(3, 4);
-	void Stop(InplaceStr pos, const char *msg, ...) NULLC_PRINT_FORMAT_CHECK(3, 4);
+	void StopAt(SynBase *source, const char *pos, const char *msg, ...) NULLC_PRINT_FORMAT_CHECK(4, 5);
+	void Stop(SynBase *source, const char *msg, ...) NULLC_PRINT_FORMAT_CHECK(3, 4);
 
 	void PushScope(ScopeType type);
 	void PushScope(NamespaceData *nameSpace);
@@ -119,6 +119,8 @@ struct ExpressionContext
 	char *errorBuf;
 	unsigned errorBufSize;
 	char *errorBufLocation;
+
+	SmallArray<ErrorInfo*, 4> errorInfo;
 
 	// Base types
 	TypeBase* typeVoid;

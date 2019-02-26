@@ -12,7 +12,7 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 
 namespace
 {
-	void Report(ParseContext &ctx, const char *pos, const char *msg, va_list args)
+	void ReportAt(ParseContext &ctx, Lexeme *begin, Lexeme *end, const char *pos, const char *msg, va_list args)
 	{
 		if(ctx.errorBuf && ctx.errorBufSize)
 		{
@@ -22,10 +22,16 @@ namespace
 				ctx.errorBufLocation = ctx.errorBuf;
 			}
 
+			const char *messageStart = ctx.errorBufLocation;
+
 			vsnprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), msg, args);
 			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
 
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
+			const char *messageEnd = ctx.errorBufLocation;
+
+			ctx.errorInfo.push_back(new (ctx.get<ErrorInfo>()) ErrorInfo(ctx.allocator, messageStart, messageEnd, begin, end, pos));
 
 			AddErrorLocationInfo(ctx.code, pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf));
 
@@ -46,29 +52,21 @@ namespace
 		}
 	}
 
-	NULLC_PRINT_FORMAT_CHECK(3, 4) void Report(ParseContext &ctx, const char *pos, const char *msg, ...)
+	NULLC_PRINT_FORMAT_CHECK(3, 4) void Report(ParseContext &ctx, Lexeme *pos, const char *msg, ...)
 	{
 		va_list args;
 		va_start(args, msg);
 
-		Report(ctx, pos, msg, args);
+		ReportAt(ctx, pos, pos, pos->pos, msg, args);
 	}
 
-	void Stop(ParseContext &ctx, const char *pos, const char *msg, va_list args)
+	void StopAt(ParseContext &ctx, Lexeme *begin, Lexeme *end, const char *pos, const char *msg, va_list args)
 	{
-		Report(ctx, pos, msg, args);
+		ReportAt(ctx, begin, end, pos, msg, args);
 
 		assert(ctx.errorHandlerActive);
 
 		longjmp(ctx.errorHandler, 1);
-	}
-
-	NULLC_PRINT_FORMAT_CHECK(3, 4) void Stop(ParseContext &ctx, const char *pos, const char *msg, ...)
-	{
-		va_list args;
-		va_start(args, msg);
-
-		Stop(ctx, pos, msg, args);
 	}
 
 	NULLC_PRINT_FORMAT_CHECK(3, 4) void Stop(ParseContext &ctx, Lexeme *pos, const char *msg, ...)
@@ -76,7 +74,7 @@ namespace
 		va_list args;
 		va_start(args, msg);
 
-		Stop(ctx, pos->pos, msg, args);
+		StopAt(ctx, pos, pos, pos->pos, msg, args);
 	}
 
 	NULLC_PRINT_FORMAT_CHECK(3, 4) void AssertAt(ParseContext &ctx, LexemeType type, const char *msg, ...)
@@ -86,7 +84,7 @@ namespace
 			va_list args;
 			va_start(args, msg);
 
-			Stop(ctx, ctx.Position(), msg, args);
+			Stop(ctx, ctx.Current(), msg, args);
 		}
 	}
 
@@ -97,7 +95,7 @@ namespace
 			va_list args;
 			va_start(args, msg);
 
-			Stop(ctx, ctx.Position(), msg, args);
+			Stop(ctx, ctx.Current(), msg, args);
 		}
 	}
 
@@ -108,7 +106,7 @@ namespace
 			va_list args;
 			va_start(args, msg);
 
-			Stop(ctx, ctx.Position(), msg, args);
+			Stop(ctx, ctx.Current(), msg, args);
 		}
 	}
 }
@@ -271,7 +269,7 @@ SynModifyAssignType GetModifyAssignType(LexemeType type)
 	return SYN_MODIFY_ASSIGN_UNKNOWN;
 }
 
-ParseContext::ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): lexer(allocator), binaryOpStack(allocator), namespaceList(allocator), activeImports(allocator), allocator(allocator)
+ParseContext::ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): lexer(allocator), binaryOpStack(allocator), namespaceList(allocator), activeImports(allocator), errorInfo(allocator), allocator(allocator)
 {
 	code = NULL;
 
@@ -500,7 +498,7 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 			if(!type)
 			{
 				if(ctx.Peek() == lex_greater)
-					Stop(ctx, ctx.Position(), "ERROR: typename required after '<'");
+					Stop(ctx, ctx.Current(), "ERROR: typename required after '<'");
 
 				// Backtrack
 				ctx.currentLexeme = start;
@@ -515,7 +513,7 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 				type = ParseType(ctx, &shrBorrow);
 
 				if(!type)
-					Stop(ctx, ctx.Position(), "ERROR: typename required after ','");
+					Stop(ctx, ctx.Current(), "ERROR: typename required after ','");
 
 				types.push_back(type);
 			}
@@ -536,7 +534,7 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 			{
 				if(types.size() > 1)
 				{
-					Stop(ctx, ctx.Position(), "ERROR: '>' expected after generic type alias list");
+					Stop(ctx, ctx.Current(), "ERROR: '>' expected after generic type alias list");
 				}
 				else
 				{
@@ -566,7 +564,7 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 		SynBase *value = ParseAssignment(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Position(), "ERROR: expression not found after typeof(");
+			Stop(ctx, ctx.Current(), "ERROR: expression not found after typeof(");
 
 		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after expression in typeof");
 
@@ -634,7 +632,7 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow, bool onlyType)
 				if(size && !ctx.At(lex_cbracket))
 				{
 					if(onlyType)
-						Stop(ctx, ctx.Position(), "ERROR: ']' not found after expression");
+						Stop(ctx, ctx.Current(), "ERROR: ']' not found after expression");
 
 					// Backtrack
 					ctx.currentLexeme = start;
@@ -669,7 +667,7 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow, bool onlyType)
 						argument = ParseType(ctx);
 
 						if(!argument)
-							Stop(ctx, ctx.Position(), "ERROR: type is expected after ','");
+							Stop(ctx, ctx.Current(), "ERROR: type is expected after ','");
 
 						arguments.push_back(argument);
 					}
@@ -713,7 +711,7 @@ SynBase* ParseArray(ParseContext &ctx)
 		const unsigned blockLimit = 256;
 
 		if(ctx.expressionBlockDepth >= blockLimit)
-			Stop(ctx, ctx.Position(), "ERROR: reached nested array limit of %d", blockLimit);
+			Stop(ctx, ctx.Current(), "ERROR: reached nested array limit of %d", blockLimit);
 
 		ctx.expressionBlockDepth++;
 
@@ -722,7 +720,7 @@ SynBase* ParseArray(ParseContext &ctx)
 		SynBase *value = ParseTernaryExpr(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Position(), "ERROR: value not found after '{'");
+			Stop(ctx, ctx.Current(), "ERROR: value not found after '{'");
 
 		values.push_back(value);
 
@@ -731,7 +729,7 @@ SynBase* ParseArray(ParseContext &ctx)
 			value = ParseTernaryExpr(ctx);
 
 			if(!value)
-				Stop(ctx, ctx.Position(), "ERROR: value not found after ','");
+				Stop(ctx, ctx.Current(), "ERROR: value not found after ','");
 
 			values.push_back(value);
 		}
@@ -757,7 +755,7 @@ SynBase* ParseString(ParseContext &ctx)
 		InplaceStr str = ctx.Consume();
 
 		if(str.length() == 1 || str.begin[str.length() - 1] != '\"')
-			Stop(ctx, start->pos, "ERROR: unclosed string constant");
+			Stop(ctx, start, "ERROR: unclosed string constant");
 
 		return new (ctx.get<SynString>()) SynString(start, ctx.Previous(), rawLiteral, str);
 	}
@@ -782,7 +780,7 @@ SynBase* ParseSizeof(ParseContext &ctx)
 		SynBase *value = ParseAssignment(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Position(), "ERROR: expression or type not found after sizeof(");
+			Stop(ctx, ctx.Current(), "ERROR: expression or type not found after sizeof(");
 
 		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after expression in sizeof");
 
@@ -850,7 +848,7 @@ SynNew* ParseNew(ParseContext &ctx)
 			type = ParseType(ctx);
 
 			if(!type)
-				Stop(ctx, ctx.Position(), "ERROR: type name expected after 'new'");
+				Stop(ctx, ctx.Current(), "ERROR: type name expected after 'new'");
 
 			AssertConsume(ctx, lex_cparen, "ERROR: matching ')' not found after '('");
 		}
@@ -859,7 +857,7 @@ SynNew* ParseNew(ParseContext &ctx)
 			type = ParseType(ctx, NULL, true);
 
 			if(!type)
-				Stop(ctx, ctx.Position(), "ERROR: type name expected after 'new'");
+				Stop(ctx, ctx.Current(), "ERROR: type name expected after 'new'");
 		}
 
 		IntrusiveList<SynCallArgument> arguments;
@@ -871,7 +869,7 @@ SynNew* ParseNew(ParseContext &ctx)
 			SynBase *count = ParseTernaryExpr(ctx);
 
 			if(!count)
-				Stop(ctx, ctx.Position(), "ERROR: expression not found after '['");
+				Stop(ctx, ctx.Current(), "ERROR: expression not found after '['");
 
 			AssertConsume(ctx, lex_cbracket, "ERROR: ']' not found after expression");
 
@@ -936,7 +934,7 @@ SynCallArgument* ParseCallArgument(ParseContext &ctx)
 			SynBase *value = ParseAssignment(ctx);
 
 			if(!value)
-				Stop(ctx, ctx.Position(), "ERROR: expression not found after ':' in function argument list");
+				Stop(ctx, ctx.Current(), "ERROR: expression not found after ':' in function argument list");
 
 			return new (ctx.get<SynCallArgument>()) SynCallArgument(start, ctx.Previous(), name, value);
 		}
@@ -970,10 +968,10 @@ IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx)
 			argument = ParseCallArgument(ctx);
 
 			if(!argument)
-				Stop(ctx, ctx.Position(), "ERROR: expression not found after ',' in function argument list");
+				Stop(ctx, ctx.Current(), "ERROR: expression not found after ',' in function argument list");
 
 			if(namedCall && argument->name.empty())
-				Stop(ctx, ctx.Position(), "ERROR: function argument name expected after ','");
+				Stop(ctx, ctx.Current(), "ERROR: function argument name expected after ','");
 
 			namedCall |= !argument->name.empty();
 
@@ -1022,9 +1020,9 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 				if(!type)
 				{
 					if(aliases.empty())
-						Stop(ctx, ctx.Position(), "ERROR: type name is expected after 'with'");
+						Stop(ctx, ctx.Current(), "ERROR: type name is expected after 'with'");
 					else
-						Stop(ctx, ctx.Position(), "ERROR: type name is expected after ','");
+						Stop(ctx, ctx.Current(), "ERROR: type name is expected after ','");
 				}
 
 				aliases.push_back(type);
@@ -1052,7 +1050,7 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 		}
 		else
 		{
-			Stop(ctx, ctx.Position(), "ERROR: not implemented");
+			Stop(ctx, ctx.Current(), "ERROR: not implemented");
 		}
 	}
 
@@ -1075,7 +1073,7 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 		SynBase *node = ParseTerminal(ctx);
 
 		if(!node)
-			Stop(ctx, ctx.Position(), "ERROR: expression not found after '*'");
+			Stop(ctx, ctx.Current(), "ERROR: expression not found after '*'");
 
 		return new (ctx.get<SynDereference>()) SynDereference(start, ctx.Previous(), node);
 	}
@@ -1087,7 +1085,7 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 		const unsigned groupLimit = 256;
 
 		if(ctx.expressionGroupDepth >= groupLimit)
-			Stop(ctx, ctx.Position(), "ERROR: reached nested '(' limit of %d", groupLimit);
+			Stop(ctx, ctx.Current(), "ERROR: reached nested '(' limit of %d", groupLimit);
 
 		ctx.expressionGroupDepth++;
 
@@ -1096,7 +1094,7 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 		ctx.expressionGroupDepth--;
 
 		if(!node)
-			Stop(ctx, ctx.Position(), "ERROR: expression not found after '('");
+			Stop(ctx, ctx.Current(), "ERROR: expression not found after '('");
 
 		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after '('");
 	}
@@ -1122,7 +1120,7 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 		bool isOperator = (ctx.Peek() >= lex_add && ctx.Peek() <= lex_in) || (ctx.Peek() >= lex_set && ctx.Peek() <= lex_xorset) || ctx.Peek() == lex_bitnot || ctx.Peek() == lex_lognot;
 
 		if(!isOperator)
-			Stop(ctx, ctx.Position(), "ERROR: name expected after '@'");
+			Stop(ctx, ctx.Current(), "ERROR: name expected after '@'");
 
 		InplaceStr value = ctx.Consume();
 
@@ -1153,7 +1151,7 @@ SynBase* ParseTerminal(ParseContext &ctx)
 		SynBase *node = ParseComplexTerminal(ctx);
 
 		if(!node)
-			Stop(ctx, ctx.Position(), "ERROR: variable not found after '&'");
+			Stop(ctx, ctx.Current(), "ERROR: variable not found after '&'");
 
 		return new (ctx.get<SynGetAddress>()) SynGetAddress(start, ctx.Previous(), node);
 	}
@@ -1179,7 +1177,7 @@ SynBase* ParseTerminal(ParseContext &ctx)
 		SynBase *value = ParseTerminal(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Position(), "ERROR: expression not found after '%.*s'", name.length(), name.begin);
+			Stop(ctx, ctx.Current(), "ERROR: expression not found after '%.*s'", name.length(), name.begin);
 
 		return new (ctx.get<SynUnaryOp>()) SynUnaryOp(start, ctx.Previous(), type, value);
 	}
@@ -1189,7 +1187,7 @@ SynBase* ParseTerminal(ParseContext &ctx)
 		SynBase *value = ParseTerminal(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Position(), "ERROR: variable not found after '--'");
+			Stop(ctx, ctx.Current(), "ERROR: variable not found after '--'");
 
 		return new (ctx.get<SynPreModify>()) SynPreModify(start, ctx.Previous(), value, false);
 	}
@@ -1199,7 +1197,7 @@ SynBase* ParseTerminal(ParseContext &ctx)
 		SynBase *value = ParseTerminal(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Position(), "ERROR: variable not found after '++'");
+			Stop(ctx, ctx.Current(), "ERROR: variable not found after '++'");
 
 		return new (ctx.get<SynPreModify>()) SynPreModify(start, ctx.Previous(), value, true);
 	}
@@ -1255,7 +1253,7 @@ SynBase* ParseArithmetic(ParseContext &ctx)
 
 		if(!lhs)
 		{
-			Report(ctx, ctx.Position(), "ERROR: expression not found after binary operation");
+			Report(ctx, ctx.Current(), "ERROR: expression not found after binary operation");
 
 			lhs = new (ctx.get<SynError>()) SynError(start, ctx.Previous());
 		}
@@ -1284,14 +1282,14 @@ SynBase* ParseTernaryExpr(ParseContext &ctx)
 			SynBase *trueBlock = ParseAssignment(ctx);
 
 			if(!trueBlock)
-				Stop(ctx, ctx.Position(), "ERROR: expression not found after '?'");
+				Stop(ctx, ctx.Current(), "ERROR: expression not found after '?'");
 
 			AssertConsume(ctx, lex_colon, "ERROR: ':' not found after expression in ternary operator");
 
 			SynBase *falseBlock = ParseAssignment(ctx);
 
 			if(!falseBlock)
-				Stop(ctx, ctx.Position(), "ERROR: expression not found after ':'");
+				Stop(ctx, ctx.Current(), "ERROR: expression not found after ':'");
 
 			value = new (ctx.get<SynConditional>()) SynConditional(pos, ctx.Previous(), value, trueBlock, falseBlock);
 		}
@@ -1313,7 +1311,7 @@ SynBase* ParseAssignment(ParseContext &ctx)
 			SynBase *rhs = ParseAssignment(ctx);
 
 			if(!rhs)
-				Stop(ctx, ctx.Position(), "ERROR: expression not found after '='");
+				Stop(ctx, ctx.Current(), "ERROR: expression not found after '='");
 
 			return new (ctx.get<SynAssignment>()) SynAssignment(pos, ctx.Previous(), lhs, rhs);
 		}
@@ -1324,7 +1322,7 @@ SynBase* ParseAssignment(ParseContext &ctx)
 			SynBase *rhs = ParseAssignment(ctx);
 
 			if(!rhs)
-				Stop(ctx, ctx.Position(), "ERROR: expression not found after '%.*s' operator", name.length(), name.begin);
+				Stop(ctx, ctx.Current(), "ERROR: expression not found after '%.*s' operator", name.length(), name.begin);
 
 			return new (ctx.get<SynModifyAssignment>()) SynModifyAssignment(pos, ctx.Previous(), modifyType, lhs, rhs);
 		}
@@ -1398,7 +1396,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 		if(ctx.Consume(lex_semicolon))
 		{
 			if(align)
-				Stop(ctx, ctx.Position(), "ERROR: can't specify alignment of a class prototype");
+				Stop(ctx, ctx.Current(), "ERROR: can't specify alignment of a class prototype");
 
 			return new (ctx.get<SynClassPrototype>()) SynClassPrototype(start, ctx.Previous(), name);
 		}
@@ -1436,7 +1434,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 			baseClass = ParseType(ctx);
 
 			if(!baseClass)
-				Stop(ctx, ctx.Position(), "ERROR: base type name is expected at this point");
+				Stop(ctx, ctx.Current(), "ERROR: base type name is expected at this point");
 		}
 
 		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after class name");
@@ -1485,7 +1483,7 @@ SynEnumDefinition* ParseEnumDefinition(ParseContext &ctx)
 				value = ParseTernaryExpr(ctx);
 
 				if(!value)
-					Stop(ctx, ctx.Position(), "ERROR: expression not found after '='");
+					Stop(ctx, ctx.Current(), "ERROR: expression not found after '='");
 			}
 
 			values.push_back(new (ctx.get<SynConstant>()) SynConstant(pos, ctx.Previous(), name, value));
@@ -1623,7 +1621,7 @@ SynTypedef* ParseTypedef(ParseContext &ctx)
 		SynBase *type = ParseType(ctx);
 
 		if(!type)
-			Stop(ctx, ctx.Position(), "ERROR: typename expected after typedef");
+			Stop(ctx, ctx.Current(), "ERROR: typename expected after typedef");
 
 		AssertAt(ctx, lex_string, "ERROR: alias name expected after typename in typedef expression");
 
@@ -1646,7 +1644,7 @@ SynBlock* ParseBlock(ParseContext &ctx)
 		const unsigned blockLimit = 256;
 
 		if(ctx.statementBlockDepth >= blockLimit)
-			Stop(ctx, ctx.Position(), "ERROR: reached nested '{' limit of %d", blockLimit);
+			Stop(ctx, ctx.Current(), "ERROR: reached nested '{' limit of %d", blockLimit);
 
 		ctx.statementBlockDepth++;
 
@@ -1699,14 +1697,14 @@ SynIfElse* ParseIfElse(ParseContext &ctx, bool forceStaticIf)
 			condition = ParseAssignment(ctx);
 
 		if(!condition)
-			Stop(ctx, ctx.Position(), "ERROR: condition not found in 'if' statement");
+			Stop(ctx, ctx.Current(), "ERROR: condition not found in 'if' statement");
 
 		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after 'if' condition");
 
 		SynBase *trueBlock = ParseExpression(ctx);
 
 		if(!trueBlock)
-			Stop(ctx, ctx.Position(), "ERROR: expression not found after 'if'");
+			Stop(ctx, ctx.Current(), "ERROR: expression not found after 'if'");
 
 		SynBase *falseBlock = NULL;
 
@@ -1721,7 +1719,7 @@ SynIfElse* ParseIfElse(ParseContext &ctx, bool forceStaticIf)
 				falseBlock = ParseExpression(ctx);
 
 			if(!falseBlock)
-				Stop(ctx, ctx.Position(), "ERROR: expression not found after 'else'");
+				Stop(ctx, ctx.Current(), "ERROR: expression not found after 'else'");
 
 			if(staticIf)
 				ctx.Consume(lex_semicolon);
@@ -1772,7 +1770,7 @@ SynForEachIterator* ParseForEachIterator(ParseContext &ctx, bool isFirst)
 		SynBase *value = ParseTernaryExpr(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Position(), "ERROR: expression expected after 'in'");
+			Stop(ctx, ctx.Current(), "ERROR: expression expected after 'in'");
 
 		return new (ctx.get<SynForEachIterator>()) SynForEachIterator(start, ctx.Previous(), type, name, value);
 	}
@@ -1807,7 +1805,7 @@ SynForEach* ParseForEach(ParseContext &ctx)
 			iterator = ParseForEachIterator(ctx, false);
 
 			if(!iterator)
-				Stop(ctx, ctx.Position(), "ERROR: variable name or type expected before 'in'");
+				Stop(ctx, ctx.Current(), "ERROR: variable name or type expected before 'in'");
 
 			iterators.push_back(iterator);
 		}
@@ -1817,7 +1815,7 @@ SynForEach* ParseForEach(ParseContext &ctx)
 		SynBase *body = ParseExpression(ctx);
 
 		if(!body)
-			Stop(ctx, ctx.Position(), "ERROR: body not found after 'for' header");
+			Stop(ctx, ctx.Current(), "ERROR: body not found after 'for' header");
 
 		return new (ctx.get<SynForEach>()) SynForEach(start, ctx.Previous(), iterators, body);
 	}
@@ -1853,13 +1851,13 @@ SynFor* ParseFor(ParseContext &ctx)
 		}
 		else if(!ctx.Consume(lex_semicolon))
 		{
-			Stop(ctx, ctx.Position(), "ERROR: ';' not found after initializer in 'for'");
+			Stop(ctx, ctx.Current(), "ERROR: ';' not found after initializer in 'for'");
 		}
 
 		SynBase *condition = ParseAssignment(ctx);
 
 		if(!condition)
-			Stop(ctx, ctx.Position(), "ERROR: condition not found in 'for' statement");
+			Stop(ctx, ctx.Current(), "ERROR: condition not found in 'for' statement");
 
 		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after condition in 'for'");
 
@@ -1875,7 +1873,7 @@ SynFor* ParseFor(ParseContext &ctx)
 		SynBase *body = ParseExpression(ctx);
 
 		if(!body)
-			Stop(ctx, ctx.Position(), "ERROR: body not found after 'for' header");
+			Stop(ctx, ctx.Current(), "ERROR: body not found after 'for' header");
 
 		return new (ctx.get<SynFor>()) SynFor(start, ctx.Previous(), initializer, condition, increment, body);
 	}
@@ -1894,14 +1892,14 @@ SynWhile* ParseWhile(ParseContext &ctx)
 		SynBase *condition = ParseAssignment(ctx);
 
 		if(!condition)
-			Stop(ctx, ctx.Position(), "ERROR: expression expected after 'while('");
+			Stop(ctx, ctx.Current(), "ERROR: expression expected after 'while('");
 
 		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after expression in 'while' statement");
 
 		SynBase *body = ParseExpression(ctx);
 
 		if(!body && !ctx.Consume(lex_semicolon))
-			Stop(ctx, ctx.Position(), "ERROR: body not found after 'while' header");
+			Stop(ctx, ctx.Current(), "ERROR: body not found after 'while' header");
 
 		return new (ctx.get<SynWhile>()) SynWhile(start, ctx.Previous(), condition, body);
 	}
@@ -1929,7 +1927,7 @@ SynDoWhile* ParseDoWhile(ParseContext &ctx)
 		}
 		else
 		{
-			Stop(ctx, ctx.Position(), "ERROR: expression expected after 'do'");
+			Stop(ctx, ctx.Current(), "ERROR: expression expected after 'do'");
 		}
 
 		AssertConsume(ctx, lex_while, "ERROR: 'while' expected after 'do' statement");
@@ -1939,7 +1937,7 @@ SynDoWhile* ParseDoWhile(ParseContext &ctx)
 		SynBase *condition = ParseAssignment(ctx);
 
 		if(!condition)
-			Stop(ctx, ctx.Position(), "ERROR: expression expected after 'while('");
+			Stop(ctx, ctx.Current(), "ERROR: expression expected after 'while('");
 
 		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after expression in 'while' statement");
 
@@ -1962,7 +1960,7 @@ SynSwitch* ParseSwitch(ParseContext &ctx)
 		SynBase *condition = ParseAssignment(ctx);
 
 		if(!condition)
-			Stop(ctx, ctx.Position(), "ERROR: expression not found after 'switch('");
+			Stop(ctx, ctx.Current(), "ERROR: expression not found after 'switch('");
 
 		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after expression in 'switch' statement");
 
@@ -1981,17 +1979,17 @@ SynSwitch* ParseSwitch(ParseContext &ctx)
 			if(ctx.Consume(lex_case))
 			{
 				if(hadDefautltCase)
-					Stop(ctx, ctx.Position(), "ERROR: default switch case can't be followed by more cases");
+					Stop(ctx, ctx.Current(), "ERROR: default switch case can't be followed by more cases");
 
 				value = ParseAssignment(ctx);
 
 				if(!value)
-					Stop(ctx, ctx.Position(), "ERROR: expression expected after 'case'");
+					Stop(ctx, ctx.Current(), "ERROR: expression expected after 'case'");
 			}
 			else
 			{
 				if(hadDefautltCase)
-					Stop(ctx, ctx.Position(), "ERROR: default switch case is already defined");
+					Stop(ctx, ctx.Current(), "ERROR: default switch case is already defined");
 
 				ctx.Consume(lex_default);
 
@@ -2022,7 +2020,7 @@ SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 		InplaceStr name = ctx.Consume();
 
 		if(name.length() >= NULLC_MAX_VARIABLE_NAME_LENGTH)
-			Stop(ctx, ctx.Position(), "ERROR: variable name length is limited to %d symbols", NULLC_MAX_VARIABLE_NAME_LENGTH);
+			Stop(ctx, ctx.Current(), "ERROR: variable name length is limited to %d symbols", NULLC_MAX_VARIABLE_NAME_LENGTH);
 
 		SynBase *initializer = NULL;
 
@@ -2031,7 +2029,7 @@ SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 			initializer = ParseAssignment(ctx);
 
 			if(!initializer)
-				Stop(ctx, ctx.Position(), "ERROR: expression not found after '='");
+				Stop(ctx, ctx.Current(), "ERROR: expression not found after '='");
 		}
 
 		return new (ctx.get<SynVariableDefinition>()) SynVariableDefinition(start, ctx.Previous(), name, initializer);
@@ -2055,7 +2053,7 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx, bool classMe
 		if(!definition)
 		{
 			if(align)
-				Stop(ctx, ctx.Position(), "ERROR: variable or class definition is expected after alignment specifier");
+				Stop(ctx, ctx.Current(), "ERROR: variable or class definition is expected after alignment specifier");
 
 			// Backtrack
 			ctx.currentLexeme = start;
@@ -2072,9 +2070,9 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx, bool classMe
 			if(!definition)
 			{
 				if(classMembers)
-					Stop(ctx, ctx.Position(), "ERROR: member name expected after ','");
+					Stop(ctx, ctx.Current(), "ERROR: member name expected after ','");
 				else
-					Stop(ctx, ctx.Position(), "ERROR: next variable definition excepted after ','");
+					Stop(ctx, ctx.Current(), "ERROR: next variable definition excepted after ','");
 			}
 
 			definitions.push_back(definition);
@@ -2126,7 +2124,7 @@ SynAccessor* ParseAccessorDefinition(ParseContext &ctx)
 		SynBlock *getBlock = ParseBlock(ctx);
 
 		if(!getBlock)
-			Stop(ctx, ctx.Position(), "ERROR: function body expected after 'get'");
+			Stop(ctx, ctx.Current(), "ERROR: function body expected after 'get'");
 
 		SynBlock *setBlock = NULL;
 		InplaceStr setName;
@@ -2145,7 +2143,7 @@ SynAccessor* ParseAccessorDefinition(ParseContext &ctx)
 			setBlock = ParseBlock(ctx);
 
 			if(!setBlock)
-				Stop(ctx, ctx.Position(), "ERROR: function body expected after 'set'");
+				Stop(ctx, ctx.Current(), "ERROR: function body expected after 'set'");
 		}
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '}' is expected after property");
@@ -2167,7 +2165,7 @@ SynConstantSet* ParseConstantSet(ParseContext &ctx)
 		SynBase *type = ParseType(ctx);
 
 		if(!type)
-			Stop(ctx, ctx.Position(), "ERROR: type name expected after const");
+			Stop(ctx, ctx.Current(), "ERROR: type name expected after const");
 
 		IntrusiveList<SynConstant> constantSet;
 
@@ -2181,7 +2179,7 @@ SynConstantSet* ParseConstantSet(ParseContext &ctx)
 		SynBase *value = ParseTernaryExpr(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Position(), "ERROR: expression not found after '='");
+			Stop(ctx, ctx.Current(), "ERROR: expression not found after '='");
 
 		constantSet.push_back(new (ctx.get<SynConstant>()) SynConstant(pos, ctx.Previous(), name, value));
 
@@ -2199,7 +2197,7 @@ SynConstantSet* ParseConstantSet(ParseContext &ctx)
 				value = ParseTernaryExpr(ctx);
 
 				if(!value)
-					Stop(ctx, ctx.Position(), "ERROR: expression not found after '='");
+					Stop(ctx, ctx.Current(), "ERROR: expression not found after '='");
 			}
 
 			constantSet.push_back(new (ctx.get<SynConstant>()) SynConstant(pos, ctx.Previous(), name, value));
@@ -2232,7 +2230,7 @@ SynClassStaticIf* ParseClassStaticIf(ParseContext &ctx, bool nested)
 		SynBase *condition = ParseAssignment(ctx);
 
 		if(!condition)
-			Stop(ctx, ctx.Position(), "ERROR: condition not found in 'if' statement");
+			Stop(ctx, ctx.Current(), "ERROR: condition not found in 'if' statement");
 
 		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after 'if' condition");
 
@@ -2285,7 +2283,7 @@ SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, bool lastExplicit,
 		if(!ctx.At(lex_string) && lastType)
 		{
 			if(isExplicit)
-				Stop(ctx, ctx.Position(), "ERROR: variable name not found after type in function variable list");
+				Stop(ctx, ctx.Current(), "ERROR: variable name not found after type in function variable list");
 
 			// Backtrack
 			ctx.currentLexeme = start;
@@ -2308,14 +2306,14 @@ SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, bool lastExplicit,
 			initializer = ParseTernaryExpr(ctx);
 
 			if(!initializer)
-				Stop(ctx, ctx.Position(), "ERROR: default argument value not found after '='");
+				Stop(ctx, ctx.Current(), "ERROR: default argument value not found after '='");
 		}
 
 		return new (ctx.get<SynFunctionArgument>()) SynFunctionArgument(start, ctx.Previous(), isExplicit, type, name, initializer);
 	}
 
 	if(isExplicit)
-		Stop(ctx, ctx.Position(), "ERROR: type name not found after 'explicit' specifier");
+		Stop(ctx, ctx.Current(), "ERROR: type name not found after 'explicit' specifier");
 
 	return NULL;
 }
@@ -2333,7 +2331,7 @@ IntrusiveList<SynFunctionArgument> ParseFunctionArguments(ParseContext &ctx)
 			argument = ParseFunctionArgument(ctx, arguments.tail->isExplicit, arguments.tail->type);
 
 			if(!argument)
-				Stop(ctx, ctx.Position(), "ERROR: argument name not found after ',' in function argument list");
+				Stop(ctx, ctx.Current(), "ERROR: argument name not found after ',' in function argument list");
 
 			arguments.push_back(argument);
 		}
@@ -2405,7 +2403,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 			}
 			else
 			{
-				Stop(ctx, ctx.Position(), "ERROR: invalid operator name");
+				Stop(ctx, ctx.Current(), "ERROR: invalid operator name");
 			}
 		}
 		else if(ctx.At(lex_string))
@@ -2415,11 +2413,11 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		}
 		else if(parentType)
 		{
-			Stop(ctx, ctx.Position(), "ERROR: function name expected after ':' or '.'");
+			Stop(ctx, ctx.Current(), "ERROR: function name expected after ':' or '.'");
 		}
 		else if(coroutine && !allowEmptyName)
 		{
-			Stop(ctx, ctx.Position(), "ERROR: function name not found after return type");
+			Stop(ctx, ctx.Current(), "ERROR: function name not found after return type");
 		}
 
 		IntrusiveList<SynIdentifier> aliases;
@@ -2475,7 +2473,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 	}
 	else if(coroutine)
 	{
-		Stop(ctx, ctx.Position(), "ERROR: function return type not found after 'coroutine'");
+		Stop(ctx, ctx.Current(), "ERROR: function return type not found after 'coroutine'");
 	}
 
 	return NULL;
@@ -2593,7 +2591,7 @@ SynBase* ParseExpression(ParseContext &ctx)
 	if(SynBase *node = ParseAssignment(ctx))
 	{
 		if(ctx.Peek() == lex_none && ctx.Current() != ctx.Last())
-			Stop(ctx, ctx.Position(), "ERROR: unknown lexeme");
+			Stop(ctx, ctx.Current(), "ERROR: unknown lexeme");
 
 		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after expression");
 
@@ -2613,7 +2611,7 @@ IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx)
 	return expressions;
 }
 
-const char* GetBytecodeFromPath(ParseContext &ctx, const char *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream, ArrayView<InplaceStr> activeImports)
+const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream, ArrayView<InplaceStr> activeImports)
 {
 	const char *importPath = BinaryCache::GetImportPath();
 
@@ -2639,7 +2637,7 @@ const char* GetBytecodeFromPath(ParseContext &ctx, const char *start, IntrusiveL
 
 		if(!bytecode)
 		{
-			ctx.errorPos = start;
+			ctx.errorPos = start->pos;
 
 			assert(ctx.errorHandlerActive);
 
@@ -2650,7 +2648,7 @@ const char* GetBytecodeFromPath(ParseContext &ctx, const char *start, IntrusiveL
 	return bytecode;
 }
 
-void ImportModuleNamespaces(ParseContext &ctx, const char *pos, ByteCode *bCode)
+void ImportModuleNamespaces(ParseContext &ctx, Lexeme *pos, ByteCode *bCode)
 {
 	char *symbols = FindSymbols(bCode);
 
@@ -2726,9 +2724,9 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 		unsigned lexCount = 0;
 		Lexeme *lexStream = NULL;
 
-		if(const char *binary = GetBytecodeFromPath(ctx, start->pos, path, lexCount, lexStream, ctx.activeImports))
+		if(const char *binary = GetBytecodeFromPath(ctx, start, path, lexCount, lexStream, ctx.activeImports))
 		{
-			ImportModuleNamespaces(ctx, start->pos, (ByteCode*)binary);
+			ImportModuleNamespaces(ctx, start, (ByteCode*)binary);
 
 			ctx.activeImports.pop_back();
 
@@ -2758,10 +2756,10 @@ SynModule* ParseModule(ParseContext &ctx)
 	IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
 
 	if(!ctx.Consume(lex_none))
-		Stop(ctx, ctx.Position(), "ERROR: unexpected symbol");
+		Stop(ctx, ctx.Current(), "ERROR: unexpected symbol");
 
 	if(expressions.empty())
-		Stop(ctx, ctx.Position(), "ERROR: module contains no code");
+		Stop(ctx, ctx.Current(), "ERROR: module contains no code");
 
 	return new (ctx.get<SynModule>()) SynModule(start, ctx.Previous(), imports, expressions);
 }

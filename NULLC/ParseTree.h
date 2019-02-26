@@ -81,6 +81,23 @@ struct SynBinaryOpElement
 
 struct SynNamespaceElement;
 
+struct ErrorInfo
+{
+	ErrorInfo(Allocator *allocator, const char* messageStart, const char* messageEnd, Lexeme* begin, Lexeme* end, const char* pos): messageStart(messageStart), messageEnd(messageEnd), begin(begin), end(end), pos(pos), related(allocator)
+	{
+	}
+
+	const char* messageStart;
+	const char* messageEnd;
+
+	Lexeme* begin;
+	Lexeme* end;
+
+	const char* pos;
+
+	SmallArray<ErrorInfo*, 4> related;
+};
+
 #if defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable: 4324) // structure was padded due to __declspec(align())
@@ -137,6 +154,8 @@ struct ParseContext
 	char *errorBuf;
 	unsigned errorBufSize;
 	char *errorBufLocation;
+
+	SmallArray<ErrorInfo*, 4> errorInfo;
 
 	// Memory pool
 	Allocator *allocator;

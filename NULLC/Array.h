@@ -344,6 +344,16 @@ public:
 		count = 0;
 	}
 
+	T* begin()
+	{
+		return data;
+	}
+
+	T* end()
+	{
+		return data + count;
+	}
+
 	__forceinline T& operator[](unsigned index)
 	{
 		assert(index < count);
