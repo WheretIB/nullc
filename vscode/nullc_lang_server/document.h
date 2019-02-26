@@ -4,5 +4,6 @@
 
 struct Document
 {
+	std::string uri;
 	std::string code;
 };

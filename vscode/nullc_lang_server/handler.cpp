@@ -251,7 +251,7 @@ bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Do
 	else
 	{
 		if(ctx.debugMode)
-			fprintf(stderr, "INFO: Failed to compile: %s\n", nullcGetLastError());
+			fprintf(stderr, "INFO: Failed to compile\n");
 	}
 
 	if(CompilerContext *context = nullcGetCompilerContext())
@@ -350,7 +350,7 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 	else
 	{
 		if(ctx.debugMode)
-			fprintf(stderr, "INFO: Failed to compile: %s\n", nullcGetLastError());
+			fprintf(stderr, "INFO: Failed to compile\n");
 	}
 
 	struct HoverInfo
@@ -623,6 +623,88 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 	return true;
 }
 
+void UpdateDiagnostics(Context& ctx, Document &document)
+{
+	rapidjson::Document response;
+	response.SetObject();
+
+	response.AddMember("jsonrpc", "2.0", response.GetAllocator());
+
+	response.AddMember("method", "textDocument/publishDiagnostics", response.GetAllocator());
+
+	rapidjson::Value params;
+	params.SetObject();
+
+	params.AddMember("uri", document.uri, response.GetAllocator());
+
+	rapidjson::Value diagnostics;
+	diagnostics.SetArray();
+
+	if(!nullcAnalyze(document.code.c_str()))
+	{
+		if(CompilerContext *context = nullcGetCompilerContext())
+		{
+			for(auto &&el : context->parseCtx.errorInfo)
+			{
+				Diagnostic diagnostic;
+
+				diagnostic.range = Range(Position(el->begin->line, el->begin->column), Position(el->end->line, el->end->column + el->end->length));
+
+				diagnostic.severity = DiagnosticSeverity::Error;
+				diagnostic.code = "parsing";
+				diagnostic.source = "nullc";
+
+				diagnostic.message = std::string(el->messageStart, el->messageEnd);
+
+				for(auto &&extra : el->related)
+				{
+					DiagnosticRelatedInformation info;
+
+					info.location = Location(document.uri, Range(Position(extra->begin->line, extra->begin->column), Position(extra->end->line, extra->end->column + extra->end->length)));
+					info.message = std::string(extra->messageStart, extra->messageEnd);
+
+					diagnostic.relatedInformation.push_back(info);
+				}
+
+				diagnostics.PushBack(diagnostic.ToJson(response), response.GetAllocator());
+			}
+
+			for(auto &&el : context->exprCtx.errorInfo)
+			{
+				Diagnostic diagnostic;
+
+				diagnostic.range = Range(Position(el->begin->line, el->begin->column), Position(el->end->line, el->end->column + el->end->length));
+
+				diagnostic.severity = DiagnosticSeverity::Error;
+				diagnostic.code = "analysis";
+				diagnostic.source = "nullc";
+
+				diagnostic.message = std::string(el->messageStart, el->messageEnd);
+
+				for(auto &&extra : el->related)
+				{
+					DiagnosticRelatedInformation info;
+
+					info.location = Location(document.uri, Range(Position(extra->begin->line, extra->begin->column), Position(extra->end->line, extra->end->column + extra->end->length)));
+					info.message = std::string(extra->messageStart, extra->messageEnd);
+
+					diagnostic.relatedInformation.push_back(info);
+				}
+
+				diagnostics.PushBack(diagnostic.ToJson(response), response.GetAllocator());
+			}
+		}
+	}
+
+	params.AddMember("diagnostics", diagnostics, response.GetAllocator());
+
+	response.AddMember("params", params, response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	nullcClean();
+}
+
 bool HandleDidOpen(Context& ctx, rapidjson::Value& arguments)
 {
 	auto uri = arguments["textDocument"]["uri"].GetString();
@@ -632,7 +714,10 @@ bool HandleDidOpen(Context& ctx, rapidjson::Value& arguments)
 	if(ctx.debugMode)
 		fprintf(stderr, "INFO: Created document '%s'\n", uri);
 
+	document.uri = uri;
 	document.code = arguments["textDocument"]["text"].GetString();
+
+	UpdateDiagnostics(ctx, document);
 
 	return true;
 }
@@ -642,6 +727,8 @@ bool HandleDidChange(Context& ctx, rapidjson::Value& arguments)
 	auto uri = arguments["textDocument"]["uri"].GetString();
 
 	auto &document = ctx.documents[uri];
+
+	document.uri = uri;
 
 	for(auto &&el : arguments["contentChanges"].GetArray())
 	{
@@ -653,6 +740,8 @@ bool HandleDidChange(Context& ctx, rapidjson::Value& arguments)
 			document.code = el["text"].GetString();
 		}
 	}
+
+	UpdateDiagnostics(ctx, document);
 
 	return true;
 }

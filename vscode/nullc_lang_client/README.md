@@ -8,6 +8,7 @@ This extension provides support for editing nullc programming language inside Vi
 * Diagnostics
 * Code region folding
 * Information on symbol hover
+* Document symbol list
 * ...and many more features planned but not implemented yet
 
 ## Requirements

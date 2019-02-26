@@ -18,6 +18,11 @@ struct Allocator
 		NULLC::dealloc(ptr);
 	}
 
+	virtual unsigned requested()
+	{
+		return 0;
+	}
+
 	template<typename T>
 	T* construct()
 	{
@@ -53,7 +58,7 @@ struct Allocator
 template<typename T, unsigned fallbackSize>
 struct GrowingAllocatorRef: Allocator
 {
-	GrowingAllocatorRef(T &pool): pool(pool)
+	GrowingAllocatorRef(T &pool): pool(pool), total(0)
 	{
 	}
 
@@ -64,6 +69,8 @@ struct GrowingAllocatorRef: Allocator
 
 	virtual void* alloc(int size)
 	{
+		total += size;
+
 		if(unsigned(size) > fallbackSize)
 		{
 			void *result = NULLC::alloc(size);
@@ -79,8 +86,15 @@ struct GrowingAllocatorRef: Allocator
 		(void)ptr;
 	}
 
+	virtual unsigned requested()
+	{
+		return total;
+	}
+
 	void Clear()
 	{
+		total = 0;
+
 		pool.Clear();
 
 		for(unsigned i = 0; i < largeObjects.count; i++)
@@ -90,6 +104,8 @@ struct GrowingAllocatorRef: Allocator
 
 	void Reset()
 	{
+		total = 0;
+
 		pool.Reset();
 
 		for(unsigned i = 0; i < largeObjects.count; i++)
@@ -98,6 +114,8 @@ struct GrowingAllocatorRef: Allocator
 	}
 
 	T &pool;
+
+	unsigned total;
 
 	class Vector
 	{
