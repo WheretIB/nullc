@@ -61,7 +61,7 @@ bool UseNonStaticTemplate(ExpressionTranslateContext &ctx, FunctionData *functio
 {
 	if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
 		return false;
-	else if(*function->name.begin == '$')
+	else if(*function->name.name.begin == '$')
 		return false;
 	else if(function->isHidden)
 		return false;
@@ -330,7 +330,7 @@ void TranslateTypeDefinition(ExpressionTranslateContext &ctx, TypeBase *type)
 
 void TranslateFunctionName(ExpressionTranslateContext &ctx, FunctionData *function)
 {
-	InplaceStr name = function->name;
+	InplaceStr name = function->name.name;
 
 	if(function->implementation)
 		function = function->implementation;
@@ -1146,7 +1146,7 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 
 		if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
 			isStatic = true;
-		else if(*function->name.begin == '$')
+		else if(*function->name.name.begin == '$')
 			isStatic = true;
 		else if(function->isHidden)
 			isStatic = true;
@@ -1297,7 +1297,7 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 
 void TranslateGenericFunctionPrototype(ExpressionTranslateContext &ctx, ExprGenericFunctionPrototype *expression)
 {
-	Print(ctx, "/* Definition of generic function prototype '%.*s' */", FMT_ISTR(expression->function->name));
+	Print(ctx, "/* Definition of generic function prototype '%.*s' */", FMT_ISTR(expression->function->name.name));
 
 	if(!expression->contextVariables.head)
 	{
@@ -2003,7 +2003,7 @@ void TranslateModuleFunctionPrototypes(ExpressionTranslateContext &ctx)
 
 		if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
 			isStatic = true;
-		else if(*function->name.begin == '$')
+		else if(*function->name.name.begin == '$')
 			isStatic = true;
 		else if(function->isHidden)
 			isStatic = true;
@@ -2330,7 +2330,7 @@ void TranslateModuleGlobalFunctionInformation(ExpressionTranslateContext &ctx)
 
 		if(ctx.ctx.IsGenericFunction(function))
 		{
-			PrintIndentedLine(ctx, "__nullcFR[%d] = 0; // generic function '%.*s'", i, FMT_ISTR(function->name));
+			PrintIndentedLine(ctx, "__nullcFR[%d] = 0; // generic function '%.*s'", i, FMT_ISTR(function->name.name));
 			continue;
 		}
 
@@ -2338,14 +2338,14 @@ void TranslateModuleGlobalFunctionInformation(ExpressionTranslateContext &ctx)
 
 		if(function->scope != ctx.ctx.globalScope && !function->scope->ownerNamespace && !function->scope->ownerType)
 			isStatic = true;
-		else if(*function->name.begin == '$')
+		else if(*function->name.name.begin == '$')
 			isStatic = true;
 		else if(function->isHidden)
 			isStatic = true;
 
 		if(isStatic && function->importModule)
 		{
-			PrintIndentedLine(ctx, "__nullcFR[%d] = 0; // module '%.*s' internal function '%.*s'", i, FMT_ISTR(function->importModule->name), FMT_ISTR(function->name));
+			PrintIndentedLine(ctx, "__nullcFR[%d] = 0; // module '%.*s' internal function '%.*s'", i, FMT_ISTR(function->importModule->name), FMT_ISTR(function->name.name));
 			continue;
 		}
 

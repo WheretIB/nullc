@@ -323,7 +323,7 @@ InplaceStr GetFunctionContextTypeName(ExpressionContext &ctx, InplaceStr functio
 
 InplaceStr GetFunctionContextVariableName(ExpressionContext &ctx, FunctionData *function, unsigned index)
 {
-	InplaceStr functionName = function->name;
+	InplaceStr functionName = function->name.name;
 	InplaceStr operatorName = GetOperatorName(functionName);
 
 	if(!operatorName.empty())
@@ -340,11 +340,11 @@ InplaceStr GetFunctionTableName(ExpressionContext &ctx, FunctionData *function)
 {
 	assert(function->scope->ownerType);
 
-	const char *pos = strstr(function->name.begin, "::");
+	const char *pos = strstr(function->name.name.begin, "::");
 
 	assert(pos);
 
-	unsigned nameLength = function->name.length() + 32;
+	unsigned nameLength = function->name.name.length() + 32;
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
 	sprintf(name, "$vtbl%010u%s", function->type->name.hash(), pos + 2);
 
@@ -370,7 +370,7 @@ InplaceStr GetFunctionVariableUpvalueName(ExpressionContext &ctx, VariableData *
 
 	assert(function);
 
-	InplaceStr functionName = function->name;
+	InplaceStr functionName = function->name.name;
 	InplaceStr operatorName = GetOperatorName(functionName);
 
 	if(!operatorName.empty())

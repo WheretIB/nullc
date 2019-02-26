@@ -2109,7 +2109,9 @@ SynAccessor* ParseAccessorDefinition(ParseContext &ctx)
 	{
 		AssertAt(ctx, lex_string, "ERROR: class member name expected after type");
 
+		Lexeme *namePos = ctx.currentLexeme;
 		InplaceStr name = ctx.Consume();
+		SynIdentifier nameId = SynIdentifier(namePos, ctx.Previous(), name);
 
 		if(!ctx.Consume(lex_ofigure))
 		{
@@ -2150,7 +2152,7 @@ SynAccessor* ParseAccessorDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after class member list");
 
-		return new (ctx.get<SynAccessor>()) SynAccessor(start, ctx.Previous(), type, name, getBlock, setBlock, setName);
+		return new (ctx.get<SynAccessor>()) SynAccessor(start, ctx.Previous(), type, nameId, getBlock, setBlock, setName);
 	}
 
 	return NULL;
@@ -2375,8 +2377,10 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 		bool allowEmptyName = isType<SynTypeAuto>(returnType);
 
-		InplaceStr name;
 		bool isOperator = ctx.Consume(lex_operator);
+
+		Lexeme *namePos = ctx.currentLexeme;
+		SynIdentifier nameId = SynIdentifier(namePos, ctx.Current(), InplaceStr());
 
 		if(isOperator)
 		{
@@ -2384,17 +2388,20 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 			{
 				AssertConsume(ctx, lex_cbracket, "ERROR: ']' not found after '[' in operator definition");
 
-				name = InplaceStr("[]");
+				InplaceStr name = InplaceStr("[]");
+				nameId = SynIdentifier(namePos, ctx.Previous(), name);
 			}
 			else if(ctx.Consume(lex_oparen))
 			{
 				AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after '(' in operator definition");
 
-				name = InplaceStr("()");
+				InplaceStr name = InplaceStr("()");
+				nameId = SynIdentifier(namePos, ctx.Previous(), name);
 			}
 			else if((ctx.Peek() >= lex_add && ctx.Peek() <= lex_in) || (ctx.Peek() >= lex_set && ctx.Peek() <= lex_xorset) || ctx.Peek() == lex_bitnot || ctx.Peek() == lex_lognot)
 			{
-				name = ctx.Consume();
+				InplaceStr name = ctx.Consume();
+				nameId = SynIdentifier(namePos, ctx.Previous(), name);
 			}
 			else
 			{
@@ -2403,7 +2410,8 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		}
 		else if(ctx.At(lex_string))
 		{
-			name = ctx.Consume();
+			InplaceStr name = ctx.Consume();
+			nameId = SynIdentifier(namePos, ctx.Previous(), name);
 		}
 		else if(parentType)
 		{
@@ -2416,7 +2424,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 		IntrusiveList<SynIdentifier> aliases;
 
-		if(name.begin != NULL && ctx.Consume(lex_less))
+		if(nameId.name.begin != NULL && ctx.Consume(lex_less))
 		{
 			do
 			{
@@ -2440,7 +2448,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		if(parentType || coroutine || !aliases.empty())
 			AssertAt(ctx, lex_oparen, "ERROR: '(' expected after function name");
 
-		if((name.begin == NULL && !allowEmptyName) || !ctx.Consume(lex_oparen))
+		if((nameId.name.begin == NULL && !allowEmptyName) || !ctx.Consume(lex_oparen))
 		{
 			// Backtrack
 			ctx.currentLexeme = start;
@@ -2455,7 +2463,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 		IntrusiveList<SynBase> expressions;
 
 		if(ctx.Consume(lex_semicolon))
-			return new (ctx.get<SynFunctionDefinition>()) SynFunctionDefinition(start, ctx.Previous(), true, coroutine, parentType, accessor, returnType, isOperator, name, aliases, arguments, expressions);
+			return new (ctx.get<SynFunctionDefinition>()) SynFunctionDefinition(start, ctx.Previous(), true, coroutine, parentType, accessor, returnType, isOperator, nameId, aliases, arguments, expressions);
 
 		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after function header");
 
@@ -2463,7 +2471,7 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after function body");
 
-		return new (ctx.get<SynFunctionDefinition>()) SynFunctionDefinition(start, ctx.Previous(), false, coroutine, parentType, accessor, returnType, isOperator, name, aliases, arguments, expressions);
+		return new (ctx.get<SynFunctionDefinition>()) SynFunctionDefinition(start, ctx.Previous(), false, coroutine, parentType, accessor, returnType, isOperator, nameId, aliases, arguments, expressions);
 	}
 	else if(coroutine)
 	{

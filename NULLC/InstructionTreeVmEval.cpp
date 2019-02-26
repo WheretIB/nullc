@@ -541,7 +541,7 @@ VmConstant* LoadFrameValue(InstructionVMEvalContext &ctx, VmConstant *pointer, V
 	{
 		if(ctx.printExecution)
 		{
-			InplaceStr functionName = target->functionOwner && target->functionOwner->function? target->functionOwner->function->name : InplaceStr("---");
+			InplaceStr functionName = target->functionOwner && target->functionOwner->function? target->functionOwner->function->name.name : InplaceStr("---");
 
 			printf("      LoadFrameValue %.*s [%s] @ %04x + %02x [%02x]\n", FMT_ISTR(functionName), target->tag, base, pointer->iValue & memoryOffsetMask, loadSize);
 		}
@@ -585,7 +585,7 @@ bool StoreFrameValue(InstructionVMEvalContext &ctx, VmConstant *pointer, VmConst
 	{
 		if(ctx.printExecution)
 		{
-			InplaceStr functionName = target->functionOwner && target->functionOwner->function ? target->functionOwner->function->name : InplaceStr("---");
+			InplaceStr functionName = target->functionOwner && target->functionOwner->function ? target->functionOwner->function->name.name : InplaceStr("---");
 
 			printf("      StoreFrameValue %.*s [%s] @ %04x + %02x [%02x]\n", FMT_ISTR(functionName), target->tag, base, pointer->iValue & memoryOffsetMask, storeSize);
 		}
@@ -1314,7 +1314,7 @@ VmConstant* GetContextValue(InstructionVMEvalContext &ctx, FunctionData *data)
 
 VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, FunctionData *function)
 {
-	if(function->name == InplaceStr("assert") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeInt)
+	if(function->name.name == InplaceStr("assert") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeInt)
 	{
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
@@ -1326,7 +1326,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantVoid(ctx.allocator);
 	}
-	else if(function->name == InplaceStr("bool") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeBool)
+	else if(function->name.name == InplaceStr("bool") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeBool)
 	{
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
@@ -1335,7 +1335,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantInt(ctx.allocator, NULL, value->iValue != 0);
 	}
-	else if(function->name == InplaceStr("char") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeChar)
+	else if(function->name.name == InplaceStr("char") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeChar)
 	{
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
@@ -1344,7 +1344,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantInt(ctx.allocator, NULL, char(value->iValue));
 	}
-	else if(function->name == InplaceStr("short") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeShort)
+	else if(function->name.name == InplaceStr("short") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeShort)
 	{
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
@@ -1353,15 +1353,15 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantInt(ctx.allocator, NULL, short(value->iValue));
 	}
-	else if(function->name == InplaceStr("int") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeInt)
+	else if(function->name.name == InplaceStr("int") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeInt)
 	{
 		return GetArgumentValue(ctx, function, 0);
 	}
-	else if(function->name == InplaceStr("long") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeLong)
+	else if(function->name.name == InplaceStr("long") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeLong)
 	{
 		return GetArgumentValue(ctx, function, 0);
 	}
-	else if(function->name == InplaceStr("float") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeFloat)
+	else if(function->name.name == InplaceStr("float") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeFloat)
 	{
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
@@ -1370,11 +1370,11 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantDouble(ctx.allocator, NULL, float(value->dValue));
 	}
-	else if(function->name == InplaceStr("double") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeDouble)
+	else if(function->name.name == InplaceStr("double") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeDouble)
 	{
 		return GetArgumentValue(ctx, function, 0);
 	}
-	else if(function->name == InplaceStr("bool::bool") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeBool)
+	else if(function->name.name == InplaceStr("bool::bool") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeBool)
 	{
 		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
@@ -1387,7 +1387,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantVoid(ctx.allocator);
 	}
-	else if(function->name == InplaceStr("char::char") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeChar)
+	else if(function->name.name == InplaceStr("char::char") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeChar)
 	{
 		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
@@ -1400,7 +1400,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantVoid(ctx.allocator);
 	}
-	else if(function->name == InplaceStr("short::short") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeShort)
+	else if(function->name.name == InplaceStr("short::short") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeShort)
 	{
 		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
@@ -1413,7 +1413,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantVoid(ctx.allocator);
 	}
-	else if(function->name == InplaceStr("int::int") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeInt)
+	else if(function->name.name == InplaceStr("int::int") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeInt)
 	{
 		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
@@ -1426,7 +1426,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantVoid(ctx.allocator);
 	}
-	else if(function->name == InplaceStr("long::long") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeLong)
+	else if(function->name.name == InplaceStr("long::long") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeLong)
 	{
 		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
@@ -1439,7 +1439,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantVoid(ctx.allocator);
 	}
-	else if(function->name == InplaceStr("float::float") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeFloat)
+	else if(function->name.name == InplaceStr("float::float") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeFloat)
 	{
 		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
@@ -1452,7 +1452,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantVoid(ctx.allocator);
 	}
-	else if(function->name == InplaceStr("double::double") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeDouble)
+	else if(function->name.name == InplaceStr("double::double") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeDouble)
 	{
 		VmConstant *context = GetContextValue(ctx, function);
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
@@ -1465,7 +1465,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantVoid(ctx.allocator);
 	}
-	else if(function->name == InplaceStr("__newS"))
+	else if(function->name.name == InplaceStr("__newS"))
 	{
 		VmConstant *size = GetArgumentValue(ctx, function, 0);
 
@@ -1483,7 +1483,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return AllocateHeapObject(ctx, target);
 	}
-	else if(function->name == InplaceStr("__newA"))
+	else if(function->name.name == InplaceStr("__newA"))
 	{
 		VmConstant *size = GetArgumentValue(ctx, function, 0);
 
@@ -1509,7 +1509,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return AllocateHeapArray(ctx, target, count->iValue);
 	}
-	else if(function->name == InplaceStr("__rcomp") || function->name == InplaceStr("__rncomp"))
+	else if(function->name.name == InplaceStr("__rcomp") || function->name.name == InplaceStr("__rncomp"))
 	{
 		VmConstant *a = GetArgumentValue(ctx, function, 0);
 
@@ -1526,9 +1526,9 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		assert(a && b);
 
-		return CreateConstantInt(ctx.allocator, NULL, function->name == InplaceStr("__rcomp") ? a->iValue == b->iValue : a->iValue != b->iValue);
+		return CreateConstantInt(ctx.allocator, NULL, function->name.name == InplaceStr("__rcomp") ? a->iValue == b->iValue : a->iValue != b->iValue);
 	}
-	else if(function->name == InplaceStr("__pcomp") || function->name == InplaceStr("__pncomp"))
+	else if(function->name.name == InplaceStr("__pcomp") || function->name.name == InplaceStr("__pncomp"))
 	{
 		VmConstant *a = GetArgumentValue(ctx, function, 0);
 
@@ -1542,9 +1542,9 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		int order = memcmp(a->sValue, b->sValue, NULLC_PTR_SIZE + 4);
 
-		return CreateConstantInt(ctx.allocator, NULL, function->name == InplaceStr("__pcomp") ? order == 0 : order != 0);
+		return CreateConstantInt(ctx.allocator, NULL, function->name.name == InplaceStr("__pcomp") ? order == 0 : order != 0);
 	}
-	else if(function->name == InplaceStr("__acomp") || function->name == InplaceStr("__ancomp"))
+	else if(function->name.name == InplaceStr("__acomp") || function->name.name == InplaceStr("__ancomp"))
 	{
 		VmConstant *a = GetArgumentValue(ctx, function, 0);
 
@@ -1558,13 +1558,13 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		int order = memcmp(a->sValue, b->sValue, NULLC_PTR_SIZE + 4);
 
-		return CreateConstantInt(ctx.allocator, NULL, function->name == InplaceStr("__acomp") ? order == 0 : order != 0);
+		return CreateConstantInt(ctx.allocator, NULL, function->name.name == InplaceStr("__acomp") ? order == 0 : order != 0);
 	}
-	else if(function->name == InplaceStr("__typeCount"))
+	else if(function->name.name == InplaceStr("__typeCount"))
 	{
 		return CreateConstantInt(ctx.allocator, NULL, ctx.ctx.types.size());
 	}
-	else if(function->name == InplaceStr("__redirect") || function->name == InplaceStr("__redirect_ptr"))
+	else if(function->name.name == InplaceStr("__redirect") || function->name.name == InplaceStr("__redirect_ptr"))
 	{
 		VmConstant *autoRef = GetArgumentValue(ctx, function, 0);
 
@@ -1608,7 +1608,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		if(index->iValue == 0)
 		{
-			if(function->name == InplaceStr("__redirect"))
+			if(function->name.name == InplaceStr("__redirect"))
 				return (VmConstant*)Report(ctx, "ERROR: type '%.*s' doesn't implement method", FMT_ISTR(ctx.ctx.types[typeIndex]->name));
 
 			context = CreateConstantPointer(ctx.allocator, NULL, 0, NULL, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]), false);
@@ -1627,7 +1627,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return result;
 	}
-	else if(function->name == InplaceStr("duplicate") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeAutoRef)
+	else if(function->name.name == InplaceStr("duplicate") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeAutoRef)
 	{
 		VmConstant *ptr = GetArgumentValue(ctx, function, 0);
 
@@ -1675,7 +1675,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return result;
 	}
-	else if(function->name == InplaceStr("typeid") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeAutoRef)
+	else if(function->name.name == InplaceStr("typeid") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeAutoRef)
 	{
 		VmConstant *reference = GetArgumentValue(ctx, function, 0);
 
@@ -1684,7 +1684,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return ExtractValue(ctx, reference, 0, GetVmType(ctx.ctx, ctx.ctx.typeTypeID));
 	}
-	else if(function->name == InplaceStr("auto_array") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.typeTypeID && function->arguments[1].type == ctx.ctx.typeInt)
+	else if(function->name.name == InplaceStr("auto_array") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.typeTypeID && function->arguments[1].type == ctx.ctx.typeInt)
 	{
 		VmConstant *type = GetArgumentValue(ctx, function, 0);
 
@@ -1712,7 +1712,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return result;
 	}
-	else if(function->name == InplaceStr("array_copy") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.typeAutoArray && function->arguments[1].type == ctx.ctx.typeAutoArray)
+	else if(function->name.name == InplaceStr("array_copy") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.typeAutoArray && function->arguments[1].type == ctx.ctx.typeAutoArray)
 	{
 		VmConstant *dst = GetArgumentValue(ctx, function, 0);
 
@@ -1755,7 +1755,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantVoid(ctx.allocator);
 	}
-	else if(function->name == InplaceStr("__assertCoroutine") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeAutoRef)
+	else if(function->name.name == InplaceStr("__assertCoroutine") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeAutoRef)
 	{
 		VmConstant *ptr = GetArgumentValue(ctx, function, 0);
 
@@ -1784,11 +1784,11 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		FunctionData *functionValue = ctx.ctx.functions[functionIndex->iValue];
 
 		if(!functionValue->coroutine)
-			return (VmConstant*)Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(functionValue->name));
+			return (VmConstant*)Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(functionValue->name.name));
 
 		return CreateConstantVoid(ctx.allocator);
 	}
-	else if(function->name == InplaceStr("isCoroutineReset") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeAutoRef)
+	else if(function->name.name == InplaceStr("isCoroutineReset") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.typeAutoRef)
 	{
 		VmConstant *ptr = GetArgumentValue(ctx, function, 0);
 
@@ -1817,7 +1817,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		FunctionData *functionValue = ctx.ctx.functions[functionIndex->iValue];
 
 		if(!functionValue->coroutine)
-			return (VmConstant*)Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(functionValue->name));
+			return (VmConstant*)Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(functionValue->name.name));
 
 		VmConstant *functionContextPtr = ExtractValue(ctx, functionRef, 0, GetVmType(ctx.ctx, functionValue->contextType));
 
@@ -1837,7 +1837,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantInt(ctx.allocator, NULL, jmpOffset->iValue == 0);
 	}
-	else if(function->name == InplaceStr("assert_derived_from_base") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && function->arguments[1].type == ctx.ctx.typeTypeID)
+	else if(function->name.name == InplaceStr("assert_derived_from_base") && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && function->arguments[1].type == ctx.ctx.typeTypeID)
 	{
 		VmConstant *ptr = GetArgumentValue(ctx, function, 0);
 
@@ -1872,7 +1872,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return (VmConstant*)Report(ctx, "ERROR: cannot convert from '%.*s' to '%.*s'", FMT_ISTR(ctx.ctx.types[derived->iValue]->name), FMT_ISTR(ctx.ctx.types[base->iValue]->name));
 	}
-	else if(function->name == InplaceStr("int::str") && function->arguments.size() == 0)
+	else if(function->name.name == InplaceStr("int::str") && function->arguments.size() == 0)
 	{
 		VmConstant *context = GetContextValue(ctx, function);
 
@@ -1897,7 +1897,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return result;
 	}
-	else if(function->name == InplaceStr("long::str") && function->arguments.size() == 0)
+	else if(function->name.name == InplaceStr("long::str") && function->arguments.size() == 0)
 	{
 		VmConstant *context = GetContextValue(ctx, function);
 
@@ -1922,7 +1922,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return result;
 	}
-	else if(function->name == InplaceStr("int") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
+	else if(function->name.name == InplaceStr("int") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
 	{
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
@@ -1945,7 +1945,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantInt(ctx.allocator, NULL, strtol(buf, 0, 10));
 	}
-	else if(function->name == InplaceStr("long") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
+	else if(function->name.name == InplaceStr("long") && function->arguments.size() == 1 && function->arguments[0].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
 	{
 		VmConstant *value = GetArgumentValue(ctx, function, 0);
 
@@ -1968,7 +1968,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		return CreateConstantLong(ctx.allocator, NULL, StrToLong(buf));
 	}
-	else if((function->name == InplaceStr("==") || function->name == InplaceStr("!=")) && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar) && function->arguments[1].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
+	else if((function->name.name == InplaceStr("==") || function->name.name == InplaceStr("!=")) && function->arguments.size() == 2 && function->arguments[0].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar) && function->arguments[1].type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
 	{
 		VmConstant *lhs = GetArgumentValue(ctx, function, 0);
 
@@ -1987,7 +1987,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		VmConstant *rhsLen = ExtractValue(ctx, rhs, sizeof(void*), GetVmType(ctx.ctx, ctx.ctx.typeInt));
 
 		if(lhsLen->iValue != rhsLen->iValue)
-			return CreateConstantInt(ctx.allocator, NULL, function->name == InplaceStr("==") ? 0 : 1);
+			return CreateConstantInt(ctx.allocator, NULL, function->name.name == InplaceStr("==") ? 0 : 1);
 
 		VmConstant *lhsBuf = LoadFrameValue(ctx, lhsPtr, NULL, GetVmType(ctx.ctx, ctx.ctx.GetArrayType(ctx.ctx.typeChar, lhsLen->iValue)), lhsLen->iValue);
 
@@ -2001,9 +2001,9 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		int order = memcmp(lhsBuf->sValue, rhsBuf->sValue, lhsLen->iValue);
 
-		return CreateConstantInt(ctx.allocator, NULL, function->name == InplaceStr("==") ? order == 0 : order != 0);
+		return CreateConstantInt(ctx.allocator, NULL, function->name.name == InplaceStr("==") ? order == 0 : order != 0);
 	}
-	else if(function->name == InplaceStr("__closeUpvalue"))
+	else if(function->name.name == InplaceStr("__closeUpvalue"))
 	{
 		VmConstant *upvalueListLocation = GetArgumentValue(ctx, function, 0);
 
@@ -2084,7 +2084,7 @@ VmConstant* EvaluateFunction(InstructionVMEvalContext &ctx, VmFunction *function
 			if(VmConstant *result = EvaluateKnownExternalFunction(ctx, function->function))
 				return result;
 
-			return (VmConstant*)Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(function->function->name));
+			return (VmConstant*)Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(function->function->name.name));
 		}
 
 		return (VmConstant*)Report(ctx, "ERROR: imported function has no source");
@@ -2096,7 +2096,7 @@ VmConstant* EvaluateFunction(InstructionVMEvalContext &ctx, VmFunction *function
 	if(ctx.printExecution)
 	{
 		if(function->function)
-			printf("EvaluateFunction %.*s\n", FMT_ISTR(function->function->name));
+			printf("EvaluateFunction %.*s\n", FMT_ISTR(function->function->name.name));
 		else
 			printf("EvaluateFunction 'global'\n");
 	}

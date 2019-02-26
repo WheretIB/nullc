@@ -623,7 +623,7 @@ namespace
 
 			// TODO: generic function list
 
-			if(curr->isPrototype && curr->type == function->type && curr->name == function->name)
+			if(curr->isPrototype && curr->type == function->type && curr->name.name == function->name.name)
 			{
 				curr->implementation = function;
 
@@ -1013,7 +1013,7 @@ void ExpressionContext::PopScope(ScopeType scopeType, SynBase *location, bool ke
 				continue;
 
 			if(scope->scope && function->isPrototype && !function->implementation)
-				Stop(function->source->pos, "ERROR: local function '%.*s' went out of scope unimplemented", FMT_ISTR(function->name));
+				Stop(function->source->pos, "ERROR: local function '%.*s' went out of scope unimplemented", FMT_ISTR(function->name.name));
 
 			if(functionMap.find(function->nameHash, function))
 				functionMap.remove(function->nameHash, function);
@@ -1278,7 +1278,7 @@ void ExpressionContext::AddFunction(FunctionData *function)
 	functions.push_back(function);
 
 	// Don't add internal functions to named lookup
-	if(*function->name.begin != '$')
+	if(*function->name.name.begin != '$')
 		functionMap.insert(function->nameHash, function);
 
 	while(VariableData **variable = variableMap.find(function->nameHash))
@@ -1344,7 +1344,7 @@ unsigned ExpressionContext::GetFunctionIndex(FunctionData *data)
 void ExpressionContext::HideFunction(FunctionData *function)
 {
 	// Don't have to remove internal functions since they are never added to lookup
-	if(*function->name.begin != '$')
+	if(*function->name.name.begin != '$')
 		functionMap.remove(function->nameHash, function);
 
 	SmallArray<FunctionData*, 2> &scopeFunctions = function->scope->functions;
@@ -1765,7 +1765,7 @@ ExprBase* CreateObjectAllocation(ExpressionContext &ctx, SynBase *source, TypeBa
 ExprBase* CreateArrayAllocation(ExpressionContext &ctx, SynBase *source, TypeBase *type, ExprBase *count);
 
 bool RestoreParentTypeScope(ExpressionContext &ctx, SynBase *source, TypeBase *parentType);
-ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, InplaceStr name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches);
+ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, SynIdentifier name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches);
 
 FunctionValue GetFunctionForType(ExpressionContext &ctx, SynBase *source, ExprBase *value, TypeFunction *type)
 {
@@ -2265,7 +2265,7 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 				SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 				arguments.push_back(ArgumentData(rhs->source, false, InplaceStr(), rhs->type, rhs));
 
-				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(access->function->name.hash()))
+				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(access->function->nameHash))
 				{
 					ExprBase *overloads = CreateFunctionAccess(ctx, source, function, access->context);
 
@@ -2275,7 +2275,7 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 
 				if(FunctionData *proto = access->function->proto)
 				{
-					if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(proto->name.hash()))
+					if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(proto->nameHash))
 					{
 						ExprBase *overloads = CreateFunctionAccess(ctx, source, function, access->context);
 
@@ -2513,9 +2513,11 @@ ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *
 	else
 		contextRefType = ctx.GetReferenceType(CreateFunctionContextType(ctx, source, functionName));
 
-	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(source, value->type, arguments), contextRefType, functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+	SynIdentifier functionNameIdentifier = SynIdentifier(source->begin, source->end, functionName);
 
-	CheckFunctionConflict(ctx, source, function->name);
+	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(source, value->type, arguments), contextRefType, functionNameIdentifier, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+
+	CheckFunctionConflict(ctx, source, function->name.name);
 
 	ctx.AddFunction(function);
 
@@ -3560,7 +3562,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Variable
 	if(externalAccess)
 	{
 		if(currentFunction->scope->ownerType)
-			Stop(ctx, source->pos, "ERROR: member function '%.*s' cannot access external variable '%.*s'", FMT_ISTR(currentFunction->name), FMT_ISTR(variable->name));
+			Stop(ctx, source->pos, "ERROR: member function '%.*s' cannot access external variable '%.*s'", FMT_ISTR(currentFunction->name.name), FMT_ISTR(variable->name));
 
 		ExprBase *context = new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(source, currentFunction->contextArgument->type, currentFunction->contextArgument);
 
@@ -4649,8 +4651,8 @@ InplaceStr GetTemporaryFunctionName(ExpressionContext &ctx)
 
 InplaceStr GetDefaultArgumentWrapperFunctionName(ExpressionContext &ctx, FunctionData *function, InplaceStr argumentName)
 {
-	char *name = (char*)ctx.allocator->alloc(function->name.length() + argumentName.length() + 16);
-	sprintf(name, "%.*s_%u_%.*s$", FMT_ISTR(function->name), function->type->nameHash, FMT_ISTR(argumentName));
+	char *name = (char*)ctx.allocator->alloc(function->name.name.length() + argumentName.length() + 16);
+	sprintf(name, "%.*s_%u_%.*s$", FMT_ISTR(function->name.name), function->type->nameHash, FMT_ISTR(argumentName));
 
 	return InplaceStr(name);
 }
@@ -5482,7 +5484,7 @@ void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* 
 		if(!ratings.empty() && ratings[i] != bestRating)
 			continue;
 
-		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "  %.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name));
+		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "  %.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name.name));
 
 		if(!function->generics.empty())
 		{
@@ -5533,7 +5535,7 @@ void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* 
 			{
 				GetFunctionRating(ctx, function, instance, result);
 
-				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") instanced to\n    %.*s %.*s(", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name));
+				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") instanced to\n    %.*s %.*s(", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name.name));
 
 				TypeHandle *curr = instance->arguments.head;
 
@@ -5927,7 +5929,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		{
 			char *errorCurr = ctx.errorBuf + strlen(ctx.errorBuf);
 
-			errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "while instantiating generic function %.*s(", FMT_ISTR(function->name));
+			errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "while instantiating generic function %.*s(", FMT_ISTR(function->name.name));
 
 			for(TypeHandle *curr = function->type->arguments.head; curr; curr = curr->next)
 				errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "%s%.*s", curr != function->type->arguments.head ? ", " : "", FMT_ISTR(curr->type->name));
@@ -6312,11 +6314,11 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 					ctx.errorBufLocation = ctx.errorBuf;
 				}
 
-				SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(functions[0].function->name));
+				SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(functions[0].function->name.name));
 
 				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
-				ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), functions[0].function->name, functions, arguments, ratings, ~0u, true);
+				ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), functions[0].function->name.name, functions, arguments, ratings, ~0u, true);
 
 				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 			}
@@ -6351,7 +6353,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 
 					ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
-					ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), functions[0].function->name, functions, arguments, ratings, bestRating, true);
+					ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), functions[0].function->name.name, functions, arguments, ratings, bestRating, true);
 
 					ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 				}
@@ -6807,7 +6809,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		// Create a member function with the constructor body
 		InplaceStr name = GetTemporaryFunctionName(ctx);
 
-		ExprBase *function = CreateFunctionDefinition(ctx, syntax, false, false, parentType, false, ctx.typeVoid, false, name, IntrusiveList<SynIdentifier>(), IntrusiveList<SynFunctionArgument>(), syntax->constructor, NULL, IntrusiveList<MatchData>());
+		ExprBase *function = CreateFunctionDefinition(ctx, syntax, false, false, parentType, false, ctx.typeVoid, false, SynIdentifier(name), IntrusiveList<SynIdentifier>(), IntrusiveList<SynFunctionArgument>(), syntax->constructor, NULL, IntrusiveList<MatchData>());
 
 		ExprFunctionDefinition *functionDefinition = getType<ExprFunctionDefinition>(function);
 
@@ -7345,48 +7347,33 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	return value;
 }
 
-ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, InplaceStr name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches)
+void CheckOperatorName(ExpressionContext &ctx, SynBase *source, InplaceStr name, ArrayView<ArgumentData> argData)
 {
-	bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
-
-	if(ctx.scope->ownerType && !parentType)
-		parentType = ctx.scope->ownerType;
-
-	if(parentType && coroutine)
-		Stop(ctx, source->pos, "ERROR: coroutine cannot be a member function");
-
-	IntrusiveList<MatchData> generics;
-
-	for(SynIdentifier *curr = aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
+	if(name == InplaceStr("~") || name == InplaceStr("!"))
 	{
-		if(ctx.typeMap.find(curr->name.hash()))
-			Stop(ctx, curr->pos, "ERROR: there is already a type with the same name");
-
-		for(SynIdentifier *prev = aliases.head; prev && prev != curr; prev = getType<SynIdentifier>(prev->next))
-		{
-			if(prev->name == curr->name)
-				Stop(ctx, curr->pos, "ERROR: there is already an alias with the same name");
-		}
-
-		TypeBase *target = NULL;
-
-		for(MatchData *match = matches.head; match; match = match->next)
-		{
-			if(curr->name == match->name)
-			{
-				target = match->type;
-				break;
-			}
-		}
-
-		if(!target)
-			target = ctx.GetGenericAliasType(curr->name);
-
-		generics.push_back(new (ctx.get<MatchData>()) MatchData(curr->name, target));
+		if(argData.size() != 1)
+			Stop(ctx, source->pos, "ERROR: operator '%.*s' definition must accept exactly one argument", FMT_ISTR(name));
 	}
+	else if(name == InplaceStr("+") || name == InplaceStr("-"))
+	{
+		if(argData.size() != 1 && argData.size() != 2)
+			Stop(ctx, source->pos, "ERROR: operator '%.*s' definition must accept one or two arguments", FMT_ISTR(name));
+	}
+	else if(name == InplaceStr("&&") || name == InplaceStr("||"))
+	{
+		// Two arguments with the second argument being special
+		if(argData.size() != 2 || !isType<TypeFunction>(argData[1].type) || getType<TypeFunction>(argData[1].type)->arguments.size() != 0)
+			Stop(ctx, source->pos, "ERROR: operator '%.*s' definition must accept a function returning desired type as the second argument", FMT_ISTR(name));
+	}
+	else if(name != InplaceStr("()") && name != InplaceStr("[]"))
+	{
+		if(argData.size() != 2)
+			Stop(ctx, source->pos, "ERROR: operator '%.*s' definition must accept exactly two arguments", FMT_ISTR(name));
+	}
+}
 
-	SmallArray<ArgumentData, 8> argData(ctx.allocator);
-
+void AnalyzeFunctionArguments(ExpressionContext &ctx, IntrusiveList<SynFunctionArgument> arguments, TypeBase *parentType, TypeFunction *instance, SmallArray<ArgumentData, 8> &argData)
+{
 	TypeHandle *instanceArg = instance ? instance->arguments.head : NULL;
 
 	bool hadGenericArgument = parentType ? parentType->isGeneric : false;
@@ -7447,34 +7434,57 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 		argData.push_back(ArgumentData(argument, argument->isExplicit, argument->name, type, initializer));
 	}
+}
+
+ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, SynIdentifier name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches)
+{
+	bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
+
+	if(ctx.scope->ownerType && !parentType)
+		parentType = ctx.scope->ownerType;
+
+	if(parentType && coroutine)
+		Stop(ctx, source->pos, "ERROR: coroutine cannot be a member function");
+
+	IntrusiveList<MatchData> generics;
+
+	for(SynIdentifier *curr = aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
+	{
+		if(ctx.typeMap.find(curr->name.hash()))
+			Stop(ctx, curr->pos, "ERROR: there is already a type with the same name");
+
+		for(SynIdentifier *prev = aliases.head; prev && prev != curr; prev = getType<SynIdentifier>(prev->next))
+		{
+			if(prev->name == curr->name)
+				Stop(ctx, curr->pos, "ERROR: there is already an alias with the same name");
+		}
+
+		TypeBase *target = NULL;
+
+		for(MatchData *match = matches.head; match; match = match->next)
+		{
+			if(curr->name == match->name)
+			{
+				target = match->type;
+				break;
+			}
+		}
+
+		if(!target)
+			target = ctx.GetGenericAliasType(curr->name);
+
+		generics.push_back(new (ctx.get<MatchData>()) MatchData(curr->name, target));
+	}
+
+	SmallArray<ArgumentData, 8> argData(ctx.allocator);
+
+	AnalyzeFunctionArguments(ctx, arguments, parentType, instance, argData);
 
 	// Check required operator properties
 	if(isOperator)
-	{
-		if(name == InplaceStr("~") || name == InplaceStr("!"))
-		{
-			if(argData.size() != 1)
-				Stop(ctx, source->pos, "ERROR: operator '%.*s' definition must accept exactly one argument", FMT_ISTR(name));
-		}
-		else if(name == InplaceStr("+") || name == InplaceStr("-"))
-		{
-			if(argData.size() != 1 && argData.size() != 2)
-				Stop(ctx, source->pos, "ERROR: operator '%.*s' definition must accept one or two arguments", FMT_ISTR(name));
-		}
-		else if(name == InplaceStr("&&") || name == InplaceStr("||"))
-		{
-			// Two arguments with the second argument being special
-			if(argData.size() != 2 || !isType<TypeFunction>(argData[1].type) || getType<TypeFunction>(argData[1].type)->arguments.size() != 0)
-				Stop(ctx, source->pos, "ERROR: operator '%.*s' definition must accept a function returning desired type as the second argument", FMT_ISTR(name));
-		}
-		else if(name != InplaceStr("()") && name != InplaceStr("[]"))
-		{
-			if(argData.size() != 2)
-				Stop(ctx, source->pos, "ERROR: operator '%.*s' definition must accept exactly two arguments", FMT_ISTR(name));
-		}
-	}
+		CheckOperatorName(ctx, source, name.name, argData);
 
-	InplaceStr functionName = GetFunctionName(ctx, ctx.scope, parentType, name, isOperator, accessor);
+	InplaceStr functionName = GetFunctionName(ctx, ctx.scope, parentType, name.name, isOperator, accessor);
 
 	TypeBase *contextRefType = NULL;
 
@@ -7493,16 +7503,16 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	if(VariableData **variable = ctx.variableMap.find(functionName.hash()))
 	{
 		if((*variable)->scope == ctx.scope)
-			Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
+			Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name.name));
 	}
 
 	if(TypeClass *classType = getType<TypeClass>(parentType))
 	{
-		if(name == InplaceStr("finalize"))
+		if(name.name == InplaceStr("finalize"))
 			classType->hasFinalizer = true;
 	}
 
-	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, coroutine, accessor, isOperator, functionType, contextRefType, functionName, generics, ctx.uniqueFunctionId++);
+	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, coroutine, accessor, isOperator, functionType, contextRefType, SynIdentifier(name, functionName), generics, ctx.uniqueFunctionId++);
 
 	function->aliases = matches;
 
@@ -7526,7 +7536,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		}
 	}
 
-	CheckFunctionConflict(ctx, source, function->name);
+	CheckFunctionConflict(ctx, source, function->name.name);
 
 	ctx.AddFunction(function);
 
@@ -7600,7 +7610,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		// If this is a custom default constructor, add a prolog
 		if(TypeClass *classType = getType<TypeClass>(function->scope->ownerType))
 		{
-			if(GetTypeConstructorName(classType) == name)
+			if(GetTypeConstructorName(classType) == name.name)
 				CreateDefaultConstructorCode(ctx, source, classType, code);
 		}
 
@@ -7636,7 +7646,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 				parentName = classType->proto->name;
 		}
 
-		if(name == parentName && function->type->returnType != ctx.typeVoid)
+		if(name.name == parentName && function->type->returnType != ctx.typeVoid)
 			Stop(ctx, source->pos, "ERROR: type constructor return type must be 'void'");
 	}
 
@@ -7686,7 +7696,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			assert(classType);
 
 			if(!classType->members.empty())
-				Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name));
+				Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name.name));
 		}
 	}
 
@@ -7697,7 +7707,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	FunctionData *conflict = CheckUniqueness(ctx, function);
 
 	if(conflict)
-		Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name));
+		Stop(ctx, source->pos, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name.name));
 
 	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, variables, coroutineStateRead, code, contextVariableDefinition);
 
@@ -7810,13 +7820,13 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	TypeBase *contextClassType = CreateFunctionContextType(ctx, syntax, functionName);
 
-	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(syntax, returnType, argData), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(syntax, returnType, argData), ctx.GetReferenceType(contextClassType), SynIdentifier(functionName), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 	// Fill in argument data
 	for(unsigned i = 0; i < argData.size(); i++)
 		function->arguments.push_back(argData[i]);
 
-	CheckFunctionConflict(ctx, syntax, function->name);
+	CheckFunctionConflict(ctx, syntax, function->name.name);
 
 	ctx.AddFunction(function);
 
@@ -7907,9 +7917,9 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	TypeBase *contextClassType = CreateFunctionContextType(ctx, syntax, functionName);
 
-	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, true, false, false, ctx.GetFunctionType(syntax, ctx.typeAuto, arguments), ctx.GetReferenceType(contextClassType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, true, false, false, ctx.GetFunctionType(syntax, ctx.typeAuto, arguments), ctx.GetReferenceType(contextClassType), SynIdentifier(functionName), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
-	CheckFunctionConflict(ctx, syntax, function->name);
+	CheckFunctionConflict(ctx, syntax, function->name.name);
 
 	ctx.AddFunction(function);
 
@@ -8063,10 +8073,10 @@ ExprBase* AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBas
 	if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expr))
 	{
 		if(ctx.IsGenericFunction(node->function))
-			Stop(ctx, source->pos, "ERROR: ambiguity, '%.*s' is a generic function", FMT_ISTR(node->function->name));
+			Stop(ctx, source->pos, "ERROR: ambiguity, '%.*s' is a generic function", FMT_ISTR(node->function->name.name));
 
 		if(node->function->type->returnType == ctx.typeAuto)
-			Stop(ctx, source->pos, "ERROR: function '%.*s' type is unresolved at this point", FMT_ISTR(node->function->name));
+			Stop(ctx, source->pos, "ERROR: function '%.*s' type is unresolved at this point", FMT_ISTR(node->function->name.name));
 	}
 
 	AssertResolvableTypeLiteral(ctx, source, expr);
@@ -8357,9 +8367,9 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 
 		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
-		FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(source, ctx.typeVoid, arguments), ctx.GetReferenceType(classType), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+		FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(source, ctx.typeVoid, arguments), ctx.GetReferenceType(classType), SynIdentifier(functionName), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
-		CheckFunctionConflict(ctx, source, function->name);
+		CheckFunctionConflict(ctx, source, function->name.name);
 
 		ctx.AddFunction(function);
 
@@ -8462,13 +8472,13 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 		arguments.push_back(ArgumentData(source, false, InplaceStr("left"), ctx.GetReferenceType(classType), NULL));
 		arguments.push_back(ArgumentData(source, false, InplaceStr("right"), classType, NULL));
 
-		FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(source, ctx.typeVoid, arguments), ctx.GetReferenceType(ctx.typeVoid), functionName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+		FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(source, ctx.typeVoid, arguments), ctx.GetReferenceType(ctx.typeVoid), SynIdentifier(functionName), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 		// Fill in argument data
 		for(unsigned i = 0; i < arguments.size(); i++)
 			function->arguments.push_back(arguments[i]);
 
-		CheckFunctionConflict(ctx, source, function->name);
+		CheckFunctionConflict(ctx, source, function->name.name);
 
 		ctx.AddFunction(function);
 
@@ -8978,13 +8988,13 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 			arguments.push_back(ArgumentData(syntax, false, InplaceStr("$x"), enumType, NULL));
 
-			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(syntax, ctx.typeInt, arguments), ctx.GetReferenceType(ctx.typeVoid), InplaceStr("int"), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(syntax, ctx.typeInt, arguments), ctx.GetReferenceType(ctx.typeVoid), SynIdentifier(InplaceStr("int")), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 			// Fill in argument data
 			for(unsigned i = 0; i < arguments.size(); i++)
 				function->arguments.push_back(arguments[i]);
 
-			CheckFunctionConflict(ctx, syntax, function->name);
+			CheckFunctionConflict(ctx, syntax, function->name.name);
 
 			ctx.AddFunction(function);
 
@@ -9019,13 +9029,13 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 			arguments.push_back(ArgumentData(syntax, false, InplaceStr("$x"), ctx.typeInt, NULL));
 
-			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(syntax, enumType, arguments), ctx.GetReferenceType(ctx.typeVoid), typeName, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(syntax, enumType, arguments), ctx.GetReferenceType(ctx.typeVoid), SynIdentifier(typeName), IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 			// Fill in argument data
 			for(unsigned i = 0; i < arguments.size(); i++)
 				function->arguments.push_back(arguments[i]);
 
-			CheckFunctionConflict(ctx, syntax, function->name);
+			CheckFunctionConflict(ctx, syntax, function->name.name);
 
 			ctx.AddFunction(function);
 
@@ -10687,10 +10697,10 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		if(prev)
 		{
-			if(*prev->name.begin == '$' || prev->isGenericInstance)
+			if(*prev->name.name.begin == '$' || prev->isGenericInstance)
 				ctx.functions.push_back(prev);
 			else
-				Stop(ctx, source->pos, "ERROR: function %.*s (type %.*s) is already defined. While importing %.*s", FMT_ISTR(prev->name), FMT_ISTR(prev->type->name), FMT_ISTR(moduleCtx.data->name));
+				Stop(ctx, source->pos, "ERROR: function %.*s (type %.*s) is already defined. While importing %.*s", FMT_ISTR(prev->name.name), FMT_ISTR(prev->type->name), FMT_ISTR(moduleCtx.data->name));
 
 			continue;
 		}
@@ -10739,7 +10749,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		if(parentType)
 			ctx.PushScope(parentType);
 
-		FunctionData *data = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, coroutine, accessor, isOperator, getType<TypeFunction>(functionType), contextType, functionName, generics, ctx.uniqueFunctionId++);
+		FunctionData *data = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, coroutine, accessor, isOperator, getType<TypeFunction>(functionType), contextType, SynIdentifier(functionName), generics, ctx.uniqueFunctionId++);
 
 		data->importModule = moduleCtx.data;
 
@@ -10751,7 +10761,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		// TODO: find function proto
 		data->isGenericInstance = !!function.isGenericInstance;
 
-		if(data->name == InplaceStr("__newS") || data->name == InplaceStr("__newA") || data->name == InplaceStr("__closeUpvalue"))
+		if(data->name.name == InplaceStr("__newS") || data->name.name == InplaceStr("__newA") || data->name.name == InplaceStr("__closeUpvalue"))
 			data->isInternal = true;
 
 		if(function.funcCat == ExternFuncInfo::LOCAL)
@@ -11058,7 +11068,7 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 		if(parentType->importModule && vtable->importModule && parentType->importModule == vtable->importModule)
 			continue;
 
-		const char *pos = strstr(function->name.begin, "::");
+		const char *pos = strstr(function->name.name.begin, "::");
 
 		if(!pos)
 			continue;

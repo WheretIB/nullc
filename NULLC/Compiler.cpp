@@ -917,7 +917,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 		exportedFunctionCount++;
 
-		symbolStorageSize += function->name.length() + 1;
+		symbolStorageSize += function->name.name.length() + 1;
 
 		localCount += function->arguments.size();
 
@@ -1675,7 +1675,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		funcInfo.externCount = function->upvalues.size();
 
 		funcInfo.offsetToName = debugSymbols.count;
-		debugSymbols.push_back(function->name.begin, function->name.length());
+		debugSymbols.push_back(function->name.name.begin, function->name.name.length());
 		debugSymbols.push_back(0);
 
 		for(MatchData *curr = function->generics.head; curr; curr = curr->next)

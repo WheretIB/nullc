@@ -61,7 +61,7 @@ void PrintConstant(InstructionVmLowerGraphContext &ctx, VmConstant *constant)
 	else if(constant->type.type == VM_TYPE_BLOCK)
 		Print(ctx, "%.*s.b%d", FMT_ISTR(constant->bValue->name), constant->bValue->uniqueId);
 	else if(constant->type.type == VM_TYPE_FUNCTION && constant->fValue->function)
-		Print(ctx, "%.*s.f%04x", FMT_ISTR(constant->fValue->function->name), constant->fValue->function->uniqueId);
+		Print(ctx, "%.*s.f%04x", FMT_ISTR(constant->fValue->function->name.name), constant->fValue->function->uniqueId);
 	else if(constant->type.type == VM_TYPE_FUNCTION)
 		Print(ctx, "global.f0000");
 	else
@@ -198,7 +198,7 @@ void PrintFunction(InstructionVmLowerGraphContext &ctx, VmLoweredFunction *lowFu
 {
 	if(FunctionData *fData = lowFunction->vmFunction->function)
 	{
-		Print(ctx, "function %.*s.f%04x(", FMT_ISTR(fData->name), fData->uniqueId);
+		Print(ctx, "function %.*s.f%04x(", FMT_ISTR(fData->name.name), fData->uniqueId);
 
 		for(unsigned i = 0; i < fData->arguments.size(); i++)
 		{
@@ -384,11 +384,11 @@ void PrintInstructions(InstructionVmLowerGraphContext &ctx, InstructionVmFinaliz
 		{
 		case cmdCall:
 			if(FunctionData *function = lowerCtx.ctx.functions[cmd.argument])
-				Print(ctx, "// %4d: %s (%.*s [%.*s]) param size %u\n", i, buf, FMT_ISTR(function->name), FMT_ISTR(function->type->name), (unsigned)function->argumentsSize);
+				Print(ctx, "// %4d: %s (%.*s [%.*s]) param size %u\n", i, buf, FMT_ISTR(function->name.name), FMT_ISTR(function->type->name), (unsigned)function->argumentsSize);
 			break;
 		case cmdFuncAddr:
 			if(FunctionData *function = lowerCtx.ctx.functions[cmd.argument])
-				Print(ctx, "// %4d: %s (%.*s [%.*s])\n", i, buf, FMT_ISTR(function->name), FMT_ISTR(function->type->name));
+				Print(ctx, "// %4d: %s (%.*s [%.*s])\n", i, buf, FMT_ISTR(function->name.name), FMT_ISTR(function->type->name));
 			break;
 		case cmdPushTypeID:
 			Print(ctx, "// %4d: %s (%.*s)\n", i, buf, FMT_ISTR(lowerCtx.ctx.types[cmd.argument]->name));

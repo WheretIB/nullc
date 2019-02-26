@@ -154,7 +154,7 @@ struct ParseContext
 
 struct SynBase
 {
-	SynBase(unsigned typeID, Lexeme *begin, Lexeme *end): typeID(typeID), begin(begin), end(end), pos(begin->pos, end->pos + end->length), next(0), listed(false)
+	SynBase(unsigned typeID, Lexeme *begin, Lexeme *end): typeID(typeID), begin(begin), end(end), pos(begin ? begin->pos : 0, end ? end->pos + end->length : 0), next(0), listed(false)
 	{
 	}
 
@@ -206,6 +206,14 @@ struct SynNothing: SynBase
 
 struct SynIdentifier: SynBase
 {
+	explicit SynIdentifier(InplaceStr name): SynBase(myTypeID, 0, 0), name(name)
+	{
+	}
+
+	SynIdentifier(SynIdentifier source, InplaceStr name): SynBase(myTypeID, source.begin, source.end), name(name)
+	{
+	}
+
 	SynIdentifier(Lexeme *begin, Lexeme *end, InplaceStr name): SynBase(myTypeID, begin, end), name(name)
 	{
 	}
@@ -780,12 +788,12 @@ struct SynVariableDefinitions: SynBase
 
 struct SynAccessor: SynBase
 {
-	SynAccessor(Lexeme *begin, Lexeme *end, SynBase *type, InplaceStr name, SynBlock *getBlock, SynBlock *setBlock, InplaceStr setName): SynBase(myTypeID, begin, end), type(type), name(name), getBlock(getBlock), setBlock(setBlock), setName(setName)
+	SynAccessor(Lexeme *begin, Lexeme *end, SynBase *type, SynIdentifier name, SynBlock *getBlock, SynBlock *setBlock, InplaceStr setName): SynBase(myTypeID, begin, end), type(type), name(name), getBlock(getBlock), setBlock(setBlock), setName(setName)
 	{
 	}
 
 	SynBase *type;
-	InplaceStr name;
+	SynIdentifier name;
 	SynBlock *getBlock;
 	SynBlock *setBlock;
 	InplaceStr setName;
@@ -809,7 +817,7 @@ struct SynFunctionArgument: SynBase
 
 struct SynFunctionDefinition: SynBase
 {
-	SynFunctionDefinition(Lexeme *begin, Lexeme *end, bool prototype, bool coroutine, SynBase *parentType, bool accessor, SynBase *returnType, bool isOperator, InplaceStr name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, begin, end), prototype(prototype), coroutine(coroutine), parentType(parentType), accessor(accessor), returnType(returnType), isOperator(isOperator), name(name), aliases(aliases), arguments(arguments), expressions(expressions)
+	SynFunctionDefinition(Lexeme *begin, Lexeme *end, bool prototype, bool coroutine, SynBase *parentType, bool accessor, SynBase *returnType, bool isOperator, SynIdentifier name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, begin, end), prototype(prototype), coroutine(coroutine), parentType(parentType), accessor(accessor), returnType(returnType), isOperator(isOperator), name(name), aliases(aliases), arguments(arguments), expressions(expressions)
 	{
 	}
 
@@ -819,7 +827,7 @@ struct SynFunctionDefinition: SynBase
 	bool accessor;
 	SynBase *returnType;
 	bool isOperator;
-	InplaceStr name;
+	SynIdentifier name;
 	IntrusiveList<SynIdentifier> aliases;
 	IntrusiveList<SynFunctionArgument> arguments;
 	IntrusiveList<SynBase> expressions;
