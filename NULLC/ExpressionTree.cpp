@@ -444,7 +444,7 @@ namespace
 
 		for(unsigned i = 0; i < namespaces.size(); i++)
 		{
-			if(namespaces[i]->name == name)
+			if(namespaces[i]->name.name == name)
 				return namespaces[i];
 		}
 
@@ -496,18 +496,18 @@ namespace
 	void CheckNamespaceConflict(ExpressionContext &ctx, SynBase *source, NamespaceData *ns)
 	{
 		if(ctx.typeMap.find(ns->fullNameHash))
-			Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(ns->name));
+			Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(ns->name.name));
 
 		if(VariableData **variable = ctx.variableMap.find(ns->nameHash))
 		{
 			if((*variable)->scope == ctx.scope)
-				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(ns->name));
+				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(ns->name.name));
 		}
 
 		if(FunctionData **functions = ctx.functionMap.find(ns->nameHash))
 		{
 			if((*functions)->scope == ctx.scope)
-				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(ns->name));
+				Stop(ctx, source->pos, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(ns->name.name));
 		}
 	}
 
@@ -9094,7 +9094,7 @@ ExprBlock* AnalyzeNamespaceDefinition(ExpressionContext &ctx, SynNamespaceDefini
 	{
 		NamespaceData *parent = ctx.GetCurrentNamespace();
 
-		NamespaceData *ns = new (ctx.get<NamespaceData>()) NamespaceData(ctx.allocator, syntax, ctx.scope, parent, name->name, ctx.uniqueNamespaceId++);
+		NamespaceData *ns = new (ctx.get<NamespaceData>()) NamespaceData(ctx.allocator, syntax, ctx.scope, parent, *name, ctx.uniqueNamespaceId++);
 
 		CheckNamespaceConflict(ctx, syntax, ns);
 
@@ -10138,7 +10138,7 @@ void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleConte
 				Stop(ctx, source->pos, "ERROR: namespace %s parent not found", symbols + namespaceData.offsetToName);
 		}
 
-		NamespaceData *ns = new (ctx.get<NamespaceData>()) NamespaceData(ctx.allocator, source, ctx.scope, parent, InplaceStr(symbols + namespaceData.offsetToName), ctx.uniqueNamespaceId++);
+		NamespaceData *ns = new (ctx.get<NamespaceData>()) NamespaceData(ctx.allocator, source, ctx.scope, parent, SynIdentifier(InplaceStr(symbols + namespaceData.offsetToName)), ctx.uniqueNamespaceId++);
 
 		if(parent)
 			parent->children.push_back(ns);

@@ -999,7 +999,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	{
 		NamespaceData *nameSpace = ctx.exprCtx.namespaces[i];
 
-		symbolStorageSize += nameSpace->name.length() + 1;
+		symbolStorageSize += nameSpace->name.name.length() + 1;
 	}
 
 	unsigned offsetToNamespace = size;
@@ -1797,7 +1797,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		ExternNamespaceInfo &namespaceInfo = namespaceList.push_back();
 
 		namespaceInfo.offsetToName = debugSymbols.count;
-		debugSymbols.push_back(nameSpace->name.begin, nameSpace->name.length());
+		debugSymbols.push_back(nameSpace->name.name.begin, nameSpace->name.name.length());
 		debugSymbols.push_back(0);
 
 		namespaceInfo.parentHash = nameSpace->parent ? nameSpace->parent->fullNameHash : ~0u;

@@ -109,12 +109,12 @@ struct ModuleData
 
 struct NamespaceData
 {
-	NamespaceData(Allocator *allocator, SynBase *source, ScopeData *scope, NamespaceData *parent, InplaceStr name, unsigned uniqueId): source(source), scope(scope), parent(parent), children(allocator), name(name), uniqueId(uniqueId)
+	NamespaceData(Allocator *allocator, SynBase *source, ScopeData *scope, NamespaceData *parent, SynIdentifier name, unsigned uniqueId): source(source), scope(scope), parent(parent), children(allocator), name(name), uniqueId(uniqueId)
 	{
-		nameHash = GetStringHash(name.begin, name.end);
+		nameHash = name.name.hash();
 
 		if(parent)
-			fullNameHash = StringHashContinue(StringHashContinue(parent->fullNameHash, "."), name.begin, name.end);
+			fullNameHash = StringHashContinue(StringHashContinue(parent->fullNameHash, "."), name.name.begin, name.name.end);
 		else
 			fullNameHash = nameHash;
 	}
@@ -127,7 +127,7 @@ struct NamespaceData
 
 	SmallArray<NamespaceData*, 2> children;
 
-	InplaceStr name;
+	SynIdentifier name;
 	unsigned nameHash;
 
 	unsigned fullNameHash;

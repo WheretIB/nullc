@@ -191,7 +191,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 	else if(TypeBase *owner = scope->ownerType)
 		Print(ctx, "ScopeData(%s, {%.*s}: s%04x){\n", type, FMT_ISTR(owner->name), scope->uniqueId);
 	else if(NamespaceData *owner = scope->ownerNamespace)
-		Print(ctx, "ScopeData(%s, {%.*s: n%04x}: s%04x){\n", type, FMT_ISTR(owner->name), owner->uniqueId, scope->uniqueId);
+		Print(ctx, "ScopeData(%s, {%.*s: n%04x}: s%04x){\n", type, FMT_ISTR(owner->name.name), owner->uniqueId, scope->uniqueId);
 	else
 		Print(ctx, "ScopeData(%s, {}: s%04x) @ 0x%x-0x%x {\n", type, scope->uniqueId, unsigned(scope->startOffset), unsigned(scope->dataSize));
 

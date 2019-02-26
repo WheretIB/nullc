@@ -396,7 +396,7 @@ InplaceStr GetTypeNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceS
 
 		if(curr->ownerNamespace)
 		{
-			nameLength += curr->ownerNamespace->name.length() + 1;
+			nameLength += curr->ownerNamespace->name.name.length() + 1;
 
 			foundNamespace = true;
 		}
@@ -420,7 +420,7 @@ InplaceStr GetTypeNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceS
 	{
 		if(curr->ownerNamespace)
 		{
-			InplaceStr nsName = curr->ownerNamespace->name;
+			InplaceStr nsName = curr->ownerNamespace->name.name;
 
 			pos -= 1;
 			*pos = '.';
@@ -471,7 +471,7 @@ InplaceStr GetFunctionNameInScope(ExpressionContext &ctx, ScopeData *scope, Type
 
 		if(curr->ownerNamespace)
 		{
-			nameLength += curr->ownerNamespace->name.length() + 1;
+			nameLength += curr->ownerNamespace->name.name.length() + 1;
 
 			foundNamespace = true;
 		}
@@ -495,7 +495,7 @@ InplaceStr GetFunctionNameInScope(ExpressionContext &ctx, ScopeData *scope, Type
 	{
 		if(curr->ownerNamespace)
 		{
-			InplaceStr nsName = curr->ownerNamespace->name;
+			InplaceStr nsName = curr->ownerNamespace->name.name;
 
 			pos -= 1;
 			*pos = '.';
