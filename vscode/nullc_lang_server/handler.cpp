@@ -241,29 +241,6 @@ bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Do
 		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
 	}
 
-	static const char *foldingRangeComment = "comment";
-	static const char *foldingRangeImports = "imports";
-	static const char *foldingRangeRegion = "region";
-
-	struct FoldingRange
-	{
-		FoldingRange(): startLine(0), startCharacter(0), endLine(0), endCharacter(0), kind(nullptr)
-		{
-		}
-
-		FoldingRange(int startLine, int startCharacter, int endLine, int endCharacter, const char *kind): startLine(startLine), startCharacter(startCharacter), endLine(endLine), endCharacter(endCharacter), kind(kind)
-		{
-		}
-
-		int startLine;
-		int startCharacter;
-
-		int endLine;
-		int endCharacter;
-
-		const char *kind;
-	};
-
 	std::vector<FoldingRange> foldingRanges;
 
 	if(nullcAnalyze(documentIt->second.code.c_str()))
@@ -291,34 +268,34 @@ bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Do
 				{
 					SynBase *trueBlock = node->trueBlock;
 
-					foldingRanges.push_back(FoldingRange(trueBlock->begin->line, trueBlock->begin->column, trueBlock->end->line, trueBlock->end->column, foldingRangeRegion));
+					foldingRanges.push_back(FoldingRange(trueBlock->begin->line, trueBlock->begin->column, trueBlock->end->line, trueBlock->end->column, FoldingRangeKind::region));
 
 					if(SynBase *falseBlock = node->falseBlock)
-						foldingRanges.push_back(FoldingRange(falseBlock->begin->line, falseBlock->begin->column, falseBlock->end->line, falseBlock->end->column, foldingRangeRegion));
+						foldingRanges.push_back(FoldingRange(falseBlock->begin->line, falseBlock->begin->column, falseBlock->end->line, falseBlock->end->column, FoldingRangeKind::region));
 				}
 				else if(SynFor *node = getType<SynFor>(child))
 				{
-					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, foldingRangeRegion));
+					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
 				}
 				else if(SynWhile *node = getType<SynWhile>(child))
 				{
-					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, foldingRangeRegion));
+					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
 				}
 				else if(SynDoWhile *node = getType<SynDoWhile>(child))
 				{
-					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, foldingRangeRegion));
+					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
 				}
 				else if(SynFunctionDefinition *node = getType<SynFunctionDefinition>(child))
 				{
-					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, foldingRangeRegion));
+					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
 				}
 				else if(SynClassDefinition *node = getType<SynClassDefinition>(child))
 				{
-					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, foldingRangeRegion));
+					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
 				}
 				else if(SynEnumDefinition *node = getType<SynEnumDefinition>(child))
 				{
-					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, foldingRangeRegion));
+					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
 				}
 			});
 		}
@@ -340,18 +317,7 @@ bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Do
 		result.SetArray();
 
 		for(auto &&el : foldingRanges)
-		{
-			rapidjson::Value foldingRange;
-			foldingRange.SetObject();
-
-			foldingRange.AddMember("startLine", el.startLine, response.GetAllocator());
-			foldingRange.AddMember("startCharacter", el.startCharacter, response.GetAllocator());
-			foldingRange.AddMember("endLine", el.endLine, response.GetAllocator());
-			foldingRange.AddMember("endCharacter", el.endCharacter, response.GetAllocator());
-			foldingRange.AddMember("kind", rapidjson::StringRef(el.kind), response.GetAllocator());
-
-			result.PushBack(foldingRange, response.GetAllocator());
-		}
+			result.PushBack(el.ToJson(response), response.GetAllocator());
 	}
 
 	response.AddMember("result", result, response.GetAllocator());
@@ -374,8 +340,7 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
 	}
 
-	auto positionLine = arguments["position"]["line"].GetUint();
-	auto positionColumn = arguments["position"]["character"].GetUint();
+	auto position = Position(arguments["position"]);
 
 	if(nullcAnalyze(documentIt->second.code.c_str()))
 	{
@@ -403,8 +368,8 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 
 	HoverInfo hoverInfo;
 
-	hoverInfo.line = positionLine;
-	hoverInfo.column = positionColumn;
+	hoverInfo.line = position.line;
+	hoverInfo.column = position.character;
 
 	if(CompilerContext *context = nullcGetCompilerContext())
 	{
@@ -566,7 +531,7 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 
 			DocumentSymbol symbol;
 
-			symbol.name = ns->name.name;
+			symbol.name = std::string(ns->name.name.begin, ns->name.name.end);
 			symbol.kind = SymbolKind::Namespace;
 			symbol.range = Range(Position(ns->source->begin->line, ns->source->begin->column), Position(ns->source->end->line, ns->source->end->column + ns->source->end->length));
 			symbol.selectionRange = Range(Position(ns->name.begin->line, ns->name.begin->column), Position(ns->name.end->line, ns->name.end->column + ns->name.end->length));
@@ -584,10 +549,46 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 
 			DocumentSymbol symbol;
 
-			symbol.name = function->name.name;
+			symbol.name = std::string(function->name.name.begin, function->name.name.end);
 			symbol.kind = SymbolKind::Function;
 			symbol.range = Range(Position(function->source->begin->line, function->source->begin->column), Position(function->source->end->line, function->source->end->column + function->source->end->length));
 			symbol.selectionRange = Range(Position(function->name.begin->line, function->name.begin->column), Position(function->name.end->line, function->name.end->column + function->name.end->length));
+
+			// Format function signature
+			const unsigned bufSize = 4096;
+			char buf[bufSize];
+
+			char *pos = buf;
+			*pos = 0;
+
+			pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name.name));
+
+			if(!function->generics.empty())
+			{
+				pos += SafeSprintf(pos, bufSize - int(pos - buf), "<");
+
+				for(unsigned k = 0; k < function->generics.size(); k++)
+				{
+					MatchData *match = function->generics[k];
+
+					pos += SafeSprintf(pos, bufSize - int(pos - buf), "%s%.*s", k != 0 ? ", " : "", FMT_ISTR(match->type->name));
+				}
+
+				pos += SafeSprintf(pos, bufSize - int(pos - buf), ">");
+			}
+
+			pos += SafeSprintf(pos, bufSize - int(pos - buf), "(");
+
+			for(unsigned k = 0; k < function->arguments.size(); k++)
+			{
+				ArgumentData &argument = function->arguments[k];
+
+				pos += SafeSprintf(pos, bufSize - int(pos - buf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name));
+			}
+
+			pos += SafeSprintf(pos, bufSize - int(pos - buf), ")");
+
+			symbol.detail = buf;
 
 			symbols.push_back(symbol);
 		}

@@ -1,10 +1,11 @@
 #pragma once
 
+#define RAPIDJSON_HAS_STDSTRING 1
+
 #include "external/rapidjson/document.h"
 
+#include <string>
 #include <vector>
-
-#include "../../NULLC/StrAlgo.h"
 
 enum class ErrorCode
 {
@@ -53,6 +54,12 @@ enum class SymbolKind
 	TypeParameter = 26,
 };
 
+namespace FoldingRangeKind
+{
+	static const char *comment = "comment";
+	static const char *imports = "imports";
+	static const char *region = "region";
+};
 
 struct Position
 {
@@ -126,14 +133,75 @@ struct Range
 	Position end;
 };
 
+struct FoldingRange
+{
+	FoldingRange() = default;
+
+	FoldingRange(int startLine, int startCharacter, int endLine, int endCharacter, const char *kind): startLine(startLine), startCharacter(startCharacter), endLine(endLine), endCharacter(endCharacter), kind(kind)
+	{
+	}
+
+	explicit FoldingRange(rapidjson::Value &source)
+	{
+		if(source.IsNull())
+			return;
+
+		startLine = source["startLine"].GetInt();
+
+		if(source.HasMember("startCharacter"))
+			startCharacter = source["startCharacter"].GetInt();
+
+		endLine = source["endLine"].GetInt();
+
+		if(source.HasMember("endCharacter"))
+			endCharacter = source["endCharacter"].GetInt();
+
+		if(source.HasMember("kind"))
+			kind = source["kind"].GetString();
+	}
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document)
+	{
+		target.SetObject();
+
+		target.AddMember("startLine", startLine, document.GetAllocator());
+
+		if(startCharacter != -1)
+			target.AddMember("startCharacter", startCharacter, document.GetAllocator());
+
+		target.AddMember("endLine", endLine, document.GetAllocator());
+
+		if(endCharacter != -1)
+			target.AddMember("endCharacter", endCharacter, document.GetAllocator());
+
+		if(kind)
+			target.AddMember("kind", rapidjson::StringRef(kind), document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document)
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	int startLine = 0;
+	int startCharacter = -1;
+
+	int endLine = 0;
+	int endCharacter = -1;
+
+	const char *kind = nullptr;
+};
+
 struct DocumentSymbol
 {
 	DocumentSymbol() = default;
 
 	explicit DocumentSymbol(rapidjson::Value &source)
 	{
-		name = InplaceStr(source["name"].GetString());
-		detail = source.HasMember("detail") ? InplaceStr(source["detail"].GetString()) : InplaceStr();
+		name = source["name"].GetString();
+		detail = source.HasMember("detail") ? source["detail"].GetString() : "";
 		kind = SymbolKind(source["kind"].GetUint());
 		deprecated = source.HasMember("deprecated") ? source["deprecated"].GetBool() : false;
 		range = Range(source["range"]);
@@ -150,10 +218,10 @@ struct DocumentSymbol
 	{
 		target.SetObject();
 
-		target.AddMember("name", std::string(name.begin, name.end), document.GetAllocator());
+		target.AddMember("name", name, document.GetAllocator());
 
 		if(!detail.empty())
-			target.AddMember("detail", std::string(detail.begin, detail.end), document.GetAllocator());
+			target.AddMember("detail", detail, document.GetAllocator());
 
 		target.AddMember("kind", unsigned(kind), document.GetAllocator());
 
@@ -183,8 +251,8 @@ struct DocumentSymbol
 		return result;
 	}
 
-	InplaceStr name;
-	InplaceStr detail;
+	std::string name;
+	std::string detail;
 	SymbolKind kind;
 	bool deprecated = false;
 	Range range;
