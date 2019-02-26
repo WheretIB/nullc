@@ -130,6 +130,7 @@
     <ClInclude Include="context.h" />
     <ClInclude Include="document.h" />
     <ClInclude Include="handler.h" />
+    <ClInclude Include="schema.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\NULLC\NULLC_110.vcxproj">

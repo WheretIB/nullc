@@ -1,5 +1,7 @@
 #pragma once
 
+#define RAPIDJSON_HAS_STDSTRING 1
+
 #include "external/rapidjson/fwd.h"
 
 struct Context;

@@ -12,25 +12,9 @@
 #include "../../NULLC/nullc_internal.h"
 
 #include "context.h"
+#include "schema.h"
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
-
-enum class ErrorCode
-{
-	ParseError = -32700,
-	InvalidRequest = -32600,
-	MethodNotFound = -32601,
-	InvalidParams = -32602,
-	InternalError = -32603,
-	serverErrorStart = -32099,
-	serverErrorEnd = -32000,
-	ServerNotInitialized = -32002,
-	UnknownErrorCode = -32001,
-
-	// Defined by the protocol.
-	RequestCancelled = -32800,
-	ContentModified = -32801
-};
 
 std::string UrlDecode(const char *url)
 {
@@ -555,6 +539,89 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 	return true;
 }
 
+bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
+{
+	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+
+	if(documentIt == ctx.documents.end())
+	{
+		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
+
+		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
+	}
+
+	nullcAnalyze(documentIt->second.code.c_str());
+
+	std::vector<DocumentSymbol> symbols;
+
+	if(CompilerContext *context = nullcGetCompilerContext())
+	{
+		for(unsigned i = 0; i < context->exprCtx.namespaces.size(); i++)
+		{
+			auto ns = context->exprCtx.namespaces[i];
+
+			// Filter functions with location information
+			if(!ns->name.begin)
+				continue;
+
+			DocumentSymbol symbol;
+
+			symbol.name = ns->name.name;
+			symbol.kind = SymbolKind::Namespace;
+			symbol.range = Range(Position(ns->source->begin->line, ns->source->begin->column), Position(ns->source->end->line, ns->source->end->column + ns->source->end->length));
+			symbol.selectionRange = Range(Position(ns->name.begin->line, ns->name.begin->column), Position(ns->name.end->line, ns->name.end->column + ns->name.end->length));
+
+			symbols.push_back(symbol);
+		}
+
+		for(unsigned i = 0; i < context->exprCtx.functions.size(); i++)
+		{
+			auto function = context->exprCtx.functions[i];
+
+			// Filter functions with location information
+			if(!function->name.begin)
+				continue;
+
+			DocumentSymbol symbol;
+
+			symbol.name = function->name.name;
+			symbol.kind = SymbolKind::Function;
+			symbol.range = Range(Position(function->source->begin->line, function->source->begin->column), Position(function->source->end->line, function->source->end->column + function->source->end->length));
+			symbol.selectionRange = Range(Position(function->name.begin->line, function->name.begin->column), Position(function->name.end->line, function->name.end->column + function->name.end->length));
+
+			symbols.push_back(symbol);
+		}
+	}
+
+	rapidjson::Value result;
+
+	if(symbols.empty())
+	{
+		result.SetNull();
+	}
+	else
+	{
+		result.SetArray();
+
+		for(auto &&el : symbols)
+		{
+			rapidjson::Value symbol;
+
+			el.SaveTo(symbol, response);
+
+			result.PushBack(symbol, response.GetAllocator());
+		}
+	}
+
+	response.AddMember("result", result, response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	nullcClean();
+
+	return true;
+}
+
 bool HandleDidOpen(Context& ctx, rapidjson::Value& arguments)
 {
 	auto uri = arguments["textDocument"]["uri"].GetString();
@@ -604,6 +671,8 @@ bool HandleMessage(Context& ctx, unsigned idNumber, const char *idString, const 
 		return HandleFoldingRange(ctx, arguments, response);
 	else if(strcmp(method, "textDocument/hover") == 0)
 		return HandleHover(ctx, arguments, response);
+	else if(strcmp(method, "textDocument/documentSymbol") == 0)
+		return HandleDocumentSymbol(ctx, arguments, response);
 	
 	return RespondWithError(ctx, response, method, ErrorCode::MethodNotFound, "not implemented");
 }
