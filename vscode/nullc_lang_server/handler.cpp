@@ -82,6 +82,44 @@ bool IsSmaller(SynBase *current, SynBase *next)
 	return false;
 }
 
+std::string GetFunctionSignature(FunctionData *function)
+{
+	const unsigned bufSize = 8192;
+	char buf[bufSize];
+
+	char *pos = buf;
+	*pos = 0;
+
+	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name.name));
+
+	if(!function->generics.empty())
+	{
+		pos += SafeSprintf(pos, bufSize - int(pos - buf), "<");
+
+		for(unsigned k = 0; k < function->generics.size(); k++)
+		{
+			MatchData *match = function->generics[k];
+
+			pos += SafeSprintf(pos, bufSize - int(pos - buf), "%s%.*s", k != 0 ? ", " : "", FMT_ISTR(match->type->name));
+		}
+
+		pos += SafeSprintf(pos, bufSize - int(pos - buf), ">");
+	}
+
+	pos += SafeSprintf(pos, bufSize - int(pos - buf), "(");
+
+	for(unsigned k = 0; k < function->arguments.size(); k++)
+	{
+		ArgumentData &argument = function->arguments[k];
+
+		pos += SafeSprintf(pos, bufSize - int(pos - buf), "%s%s%.*s %.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name), FMT_ISTR(argument.name));
+	}
+
+	pos += SafeSprintf(pos, bufSize - int(pos - buf), ")");
+
+	return buf;
+}
+
 bool HandleMessage(Context& ctx, char *message, unsigned length)
 {
 	(void)length;
@@ -422,11 +460,11 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 					if(!IsSmaller(hoverInfo.identifier, node->source))
 						return;
 
-					hoverInfo.identifier = node->source;
+					if(isType<SynFunctionDefinition>(node->source))
+						return;
 
-					char buf[256];
-					SafeSprintf(buf, 256, "Function '%.*s %.*s'", FMT_ISTR(node->function->type->name), FMT_ISTR(node->function->name));
-					hoverInfo.description = buf;
+					hoverInfo.identifier = node->source;
+					hoverInfo.description = "Function \'" + GetFunctionSignature(node->function) + "\'";
 				}
 				else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(child))
 				{
@@ -440,7 +478,7 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 							hoverInfo.identifier = source->returnType;
 
 							char buf[256];
-							SafeSprintf(buf, 256, "Function '%.*s %.*s' return type", FMT_ISTR(node->function->type->name), FMT_ISTR(node->function->name));
+							SafeSprintf(buf, 256, "Type '%.*s'", FMT_ISTR(node->function->type->returnType->name));
 							hoverInfo.description = buf;
 						}
 					}
@@ -550,45 +588,10 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 			DocumentSymbol symbol;
 
 			symbol.name = std::string(function->name.name.begin, function->name.name.end);
+			symbol.detail = GetFunctionSignature(function);
 			symbol.kind = SymbolKind::Function;
 			symbol.range = Range(Position(function->source->begin->line, function->source->begin->column), Position(function->source->end->line, function->source->end->column + function->source->end->length));
 			symbol.selectionRange = Range(Position(function->name.begin->line, function->name.begin->column), Position(function->name.end->line, function->name.end->column + function->name.end->length));
-
-			// Format function signature
-			const unsigned bufSize = 4096;
-			char buf[bufSize];
-
-			char *pos = buf;
-			*pos = 0;
-
-			pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name.name));
-
-			if(!function->generics.empty())
-			{
-				pos += SafeSprintf(pos, bufSize - int(pos - buf), "<");
-
-				for(unsigned k = 0; k < function->generics.size(); k++)
-				{
-					MatchData *match = function->generics[k];
-
-					pos += SafeSprintf(pos, bufSize - int(pos - buf), "%s%.*s", k != 0 ? ", " : "", FMT_ISTR(match->type->name));
-				}
-
-				pos += SafeSprintf(pos, bufSize - int(pos - buf), ">");
-			}
-
-			pos += SafeSprintf(pos, bufSize - int(pos - buf), "(");
-
-			for(unsigned k = 0; k < function->arguments.size(); k++)
-			{
-				ArgumentData &argument = function->arguments[k];
-
-				pos += SafeSprintf(pos, bufSize - int(pos - buf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name));
-			}
-
-			pos += SafeSprintf(pos, bufSize - int(pos - buf), ")");
-
-			symbol.detail = buf;
 
 			symbols.push_back(symbol);
 		}
