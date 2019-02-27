@@ -148,13 +148,51 @@ void Lexer::Lexify(const char* code)
 						while(code[0] && code[0] != '\"')
 						{
 							if(code[0] == '\\' && code[1])
+							{
 								code += 2;
+							}
+							else if(code[0] == '\r')
+							{
+								code++;
+
+								if(*code == '\n')
+									code++;
+
+								lineStart = code;
+								line++;
+							}
+							else if(code[0] == '\n')
+							{
+								code++;
+
+								lineStart = code;
+								line++;
+							}
 							else
+							{
 								code += 1;
+							}
 						}
 
 						if(code[0] == '\"')
 							code++;
+					}
+					else if(code[0] == '\r')
+					{
+						code++;
+
+						if(*code == '\n')
+							code++;
+
+						lineStart = code;
+						line++;
+					}
+					else if(code[0] == '\n')
+					{
+						code++;
+
+						lineStart = code;
+						line++;
 					}
 					else
 					{
