@@ -1962,8 +1962,8 @@ ExprBase* CreateFunctionPointer(ExpressionContext &ctx, SynBase *source, ExprFun
 
 ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, TypeBase *type, bool isFunctionArgument)
 {
-	if(isType<ExprError>(value))
-		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+	if(isType<TypeError>(value->type))
+		return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, value, EXPR_CAST_REINTERPRET);
 
 	// When function is used as value, hide its visibility immediately after use
 	if(ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(value))
@@ -2216,8 +2216,8 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 
 ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase *value)
 {
-	if(isType<ExprError>(value))
-		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+	if(isType<TypeError>(value->type))
+		return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, ctx.typeBool, value, EXPR_CAST_REINTERPRET);
 
 	if(!ctx.IsIntegerType(value->type) && !value->type->isGeneric)
 	{
@@ -2577,8 +2577,8 @@ ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *
 
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs)
 {
-	if(isType<ExprError>(lhs) || isType<ExprError>(rhs))
-		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+	if(isType<TypeError>(lhs->type) || isType<TypeError>(rhs->type))
+		return new (ctx.get<ExprBinaryOp>()) ExprBinaryOp(source, ctx.GetErrorType(), op, lhs, rhs);
 
 	if(op == SYN_BINARY_OP_IN)
 		return CreateFunctionCall2(ctx, source, InplaceStr("in"), lhs, rhs, false, false);
@@ -3931,8 +3931,8 @@ ExprBase* AnalyzeAssignment(ExpressionContext &ctx, SynAssignment *syntax)
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
-	if(isType<ExprError>(lhs) || isType<ExprError>(rhs))
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+	if(isType<TypeError>(lhs->type) || isType<TypeError>(rhs->type))
+		return new (ctx.get<ExprAssignment>()) ExprAssignment(syntax, ctx.GetErrorType(), lhs, rhs);
 
 	return CreateAssignment(ctx, syntax, lhs, rhs);
 }
@@ -7132,6 +7132,9 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 
 	if(initializer)
 	{
+		if(isType<TypeError>(initializer->type))
+			return new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, variable, initializer);
+
 		ExprBase *access = CreateVariableAccess(ctx, syntax, variable, true);
 
 		TypeArray *arrType = getType<TypeArray>(variable->type);
@@ -9994,6 +9997,9 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 	if(isType<SynTypeGeneric>(syntax))
 		Stop(ctx, syntax, "ERROR: cannot take typeid from generic type");
+
+	if(isType<SynError>(syntax))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
 
 	Stop(ctx, syntax, "ERROR: unknown expression type");
 

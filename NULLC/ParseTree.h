@@ -115,6 +115,7 @@ struct ParseContext
 	InplaceStr Consume();
 	void Skip();
 
+	Lexeme* First();
 	Lexeme* Current();
 	Lexeme* Previous();
 	Lexeme* Last();

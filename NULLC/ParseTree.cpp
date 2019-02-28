@@ -57,7 +57,10 @@ namespace
 		va_list args;
 		va_start(args, msg);
 
-		ReportAt(ctx, pos, pos, pos->pos, msg, args);
+		if(pos == ctx.Last() && pos != ctx.First())
+			ReportAt(ctx, pos - 1, pos - 1, (pos - 1)->pos + (pos - 1)->length, msg, args);
+		else
+			ReportAt(ctx, pos, pos, pos->pos, msg, args);
 	}
 
 	void StopAt(ParseContext &ctx, Lexeme *begin, Lexeme *end, const char *pos, const char *msg, va_list args)
@@ -74,7 +77,10 @@ namespace
 		va_list args;
 		va_start(args, msg);
 
-		StopAt(ctx, pos, pos, pos->pos, msg, args);
+		if(pos == ctx.Last() && pos != ctx.First())
+			StopAt(ctx, pos - 1, pos - 1, (pos - 1)->pos + (pos - 1)->length, msg, args);
+		else
+			StopAt(ctx, pos, pos, pos->pos, msg, args);
 	}
 
 	NULLC_PRINT_FORMAT_CHECK(3, 4) void AssertAt(ParseContext &ctx, LexemeType type, const char *msg, ...)
@@ -86,7 +92,7 @@ namespace
 
 			Lexeme *curr = ctx.Current();
 
-			if(curr == ctx.Last())
+			if(curr == ctx.Last() && curr != ctx.First())
 				StopAt(ctx, curr - 1, curr - 1, (curr - 1)->pos + (curr - 1)->length, msg, args);
 			else
 				StopAt(ctx, curr, curr, curr->pos, msg, args);
@@ -102,7 +108,7 @@ namespace
 
 			Lexeme *curr = ctx.Current();
 
-			if(curr == ctx.Last())
+			if(curr == ctx.Last() && curr != ctx.First())
 				ReportAt(ctx, curr - 1, curr - 1, (curr - 1)->pos + (curr - 1)->length, msg, args);
 			else
 				ReportAt(ctx, curr, curr, curr->pos, msg, args);
@@ -122,11 +128,31 @@ namespace
 
 			Lexeme *curr = ctx.Current();
 
-			if(curr == ctx.Last())
+			if(curr == ctx.Last() && curr != ctx.First())
 				StopAt(ctx, curr - 1, curr - 1, (curr - 1)->pos + (curr - 1)->length, msg, args);
 			else
 				StopAt(ctx, curr, curr, curr->pos, msg, args);
 		}
+	}
+
+	NULLC_PRINT_FORMAT_CHECK(3, 4) bool CheckConsume(ParseContext &ctx, LexemeType type, const char *msg, ...)
+	{
+		if(!ctx.Consume(type))
+		{
+			va_list args;
+			va_start(args, msg);
+
+			Lexeme *curr = ctx.Current();
+
+			if(curr == ctx.Last() && curr != ctx.First())
+				ReportAt(ctx, curr - 1, curr - 1, (curr - 1)->pos + (curr - 1)->length, msg, args);
+			else
+				ReportAt(ctx, curr, curr, curr->pos, msg, args);
+
+			return false;
+		}
+
+		return true;
 	}
 
 	NULLC_PRINT_FORMAT_CHECK(3, 4) void AssertConsume(ParseContext &ctx, const char *str, const char *msg, ...)
@@ -138,7 +164,7 @@ namespace
 
 			Lexeme *curr = ctx.Current();
 
-			if(curr == ctx.Last())
+			if(curr == ctx.Last() && curr != ctx.First())
 				StopAt(ctx, curr - 1, curr - 1, (curr - 1)->pos + (curr - 1)->length, msg, args);
 			else
 				StopAt(ctx, curr, curr, curr->pos, msg, args);
@@ -379,6 +405,11 @@ void ParseContext::Skip()
 {
 	if(currentLexeme->type != lex_none)
 		currentLexeme++;
+}
+
+Lexeme* ParseContext::First()
+{
+	return firstLexeme;
 }
 
 Lexeme* ParseContext::Current()
@@ -1354,7 +1385,11 @@ SynBase* ParseAssignment(ParseContext &ctx)
 			SynBase *rhs = ParseAssignment(ctx);
 
 			if(!rhs)
-				Stop(ctx, ctx.Current(), "ERROR: expression not found after '='");
+			{
+				Report(ctx, ctx.Current(), "ERROR: expression not found after '='");
+
+				rhs = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+			}
 
 			return new (ctx.get<SynAssignment>()) SynAssignment(pos, ctx.Previous(), lhs, rhs);
 		}
@@ -1596,7 +1631,7 @@ SynReturn* ParseReturn(ParseContext &ctx)
 		// Optional
 		SynBase *value = ParseAssignment(ctx);
 
-		AssertConsume(ctx, lex_semicolon, "ERROR: return statement must be followed by an expression or ';'");
+		CheckConsume(ctx, lex_semicolon, "ERROR: return statement must be followed by an expression or ';'");
 
 		return new (ctx.get<SynReturn>()) SynReturn(start, ctx.Previous(), value);
 	}
@@ -1613,7 +1648,7 @@ SynYield* ParseYield(ParseContext &ctx)
 		// Optional
 		SynBase *value = ParseAssignment(ctx);
 
-		AssertConsume(ctx, lex_semicolon, "ERROR: yield statement must be followed by an expression or ';'");
+		CheckConsume(ctx, lex_semicolon, "ERROR: yield statement must be followed by an expression or ';'");
 
 		return new (ctx.get<SynYield>()) SynYield(start, ctx.Previous(), value);
 	}
@@ -1711,7 +1746,7 @@ SynIfElse* ParseIfElse(ParseContext &ctx, bool forceStaticIf)
 
 	if(ctx.Consume(lex_if))
 	{
-		AssertConsume(ctx, lex_oparen, "ERROR: '(' not found after 'if'");
+		CheckConsume(ctx, lex_oparen, "ERROR: '(' not found after 'if'");
 
 		Lexeme *conditionPos = ctx.currentLexeme;
 
@@ -1740,14 +1775,22 @@ SynIfElse* ParseIfElse(ParseContext &ctx, bool forceStaticIf)
 			condition = ParseAssignment(ctx);
 
 		if(!condition)
-			Stop(ctx, ctx.Current(), "ERROR: condition not found in 'if' statement");
+		{
+			Report(ctx, ctx.Current(), "ERROR: condition not found in 'if' statement");
 
-		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after 'if' condition");
+			condition = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+		}
+
+		CheckConsume(ctx, lex_cparen, "ERROR: closing ')' not found after 'if' condition");
 
 		SynBase *trueBlock = ParseExpression(ctx);
 
 		if(!trueBlock)
-			Stop(ctx, ctx.Current(), "ERROR: expression not found after 'if'");
+		{
+			Report(ctx, ctx.Current(), "ERROR: expression not found after 'if'");
+
+			trueBlock = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+		}
 
 		SynBase *falseBlock = NULL;
 
@@ -1762,7 +1805,11 @@ SynIfElse* ParseIfElse(ParseContext &ctx, bool forceStaticIf)
 				falseBlock = ParseExpression(ctx);
 
 			if(!falseBlock)
-				Stop(ctx, ctx.Current(), "ERROR: expression not found after 'else'");
+			{
+				Report(ctx, ctx.Current(), "ERROR: expression not found after 'else'");
+
+				falseBlock = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+			}
 
 			if(staticIf)
 				ctx.Consume(lex_semicolon);
@@ -2072,7 +2119,11 @@ SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 			initializer = ParseAssignment(ctx);
 
 			if(!initializer)
-				Stop(ctx, ctx.Current(), "ERROR: expression not found after '='");
+			{
+				Report(ctx, ctx.Current(), "ERROR: expression not found after '='");
+
+				initializer = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+			}
 		}
 
 		return new (ctx.get<SynVariableDefinition>()) SynVariableDefinition(start, ctx.Previous(), name, initializer);
@@ -2130,7 +2181,7 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx, bool classMe
 			if(ctx.Peek() == lex_obracket)
 				AssertConsume(ctx, lex_semicolon, "ERROR: array size must be specified after type name");
 			else
-				AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after variable definition");
+				CheckConsume(ctx, lex_semicolon, "ERROR: ';' not found after variable definition");
 		}
 
 		return new (ctx.get<SynVariableDefinitions>()) SynVariableDefinitions(start, ctx.Previous(), align, type, definitions);
@@ -2636,7 +2687,7 @@ SynBase* ParseExpression(ParseContext &ctx)
 		if(ctx.Peek() == lex_none && ctx.Current() != ctx.Last())
 			Stop(ctx, ctx.Current(), "ERROR: unknown lexeme");
 
-		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after expression");
+		CheckConsume(ctx, lex_semicolon, "ERROR: ';' not found after expression");
 
 		return node;
 	}
@@ -2799,10 +2850,10 @@ SynModule* ParseModule(ParseContext &ctx)
 	IntrusiveList<SynBase> expressions = ParseExpressions(ctx);
 
 	if(!ctx.Consume(lex_none))
-		Stop(ctx, ctx.Current(), "ERROR: unexpected symbol");
+		Report(ctx, ctx.Current(), "ERROR: unexpected symbol");
 
 	if(expressions.empty())
-		Stop(ctx, ctx.Current(), "ERROR: module contains no code");
+		Report(ctx, ctx.Current(), "ERROR: module contains no code");
 
 	return new (ctx.get<SynModule>()) SynModule(start, ctx.Previous(), imports, expressions);
 }

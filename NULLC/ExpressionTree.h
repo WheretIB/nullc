@@ -485,11 +485,14 @@ struct ExprAssignment: ExprBase
 {
 	ExprAssignment(SynBase *source, TypeBase *type, ExprBase *lhs, ExprBase *rhs): ExprBase(myTypeID, source, type), lhs(lhs), rhs(rhs)
 	{
-		TypeRef *refType = getType<TypeRef>(lhs->type);
+		if(!isType<TypeError>(type))
+		{
+			TypeRef *refType = getType<TypeRef>(lhs->type);
 
-		(void)refType;
-		assert(refType);
-		assert(refType->subType == rhs->type);
+			(void)refType;
+			assert(refType);
+			assert(refType->subType == rhs->type);
+		}
 	}
 
 	ExprBase *lhs;
