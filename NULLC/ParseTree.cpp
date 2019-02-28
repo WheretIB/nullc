@@ -706,12 +706,12 @@ SynBase* ParseType(ParseContext &ctx, bool *shrBorrow, bool onlyType)
 					return NULL;
 				}
 
-				AssertConsume(ctx, lex_cbracket, "ERROR: matching ']' not found");
+				bool hasClose = CheckConsume(ctx, lex_cbracket, "ERROR: matching ']' not found");
 
 				if(size)
 					sizes.push_back(size);
 				else
-					sizes.push_back(new (ctx.get<SynNothing>()) SynNothing(sizeStart, ctx.Previous()));
+					sizes.push_back(new (ctx.get<SynNothing>()) SynNothing(sizeStart, hasClose ? ctx.Previous() : ctx.Current()));
 			}
 
 			base = new (ctx.get<SynTypeArray>()) SynTypeArray(start, ctx.Previous(), base, sizes);
@@ -1075,7 +1075,7 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 		{
 			IntrusiveList<SynCallArgument> arguments = ParseCallArguments(ctx);
 
-			AssertConsume(ctx, lex_cbracket, "ERROR: ']' not found after expression");
+			CheckConsume(ctx, lex_cbracket, "ERROR: ']' not found after expression");
 
 			node = new (ctx.get<SynArrayIndex>()) SynArrayIndex(pos, ctx.Previous(), node, arguments);
 		}
@@ -1168,9 +1168,13 @@ SynBase* ParseComplexTerminal(ParseContext &ctx)
 		ctx.expressionGroupDepth--;
 
 		if(!node)
-			Stop(ctx, ctx.Current(), "ERROR: expression not found after '('");
+		{
+			Report(ctx, ctx.Current(), "ERROR: expression not found after '('");
 
-		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after '('");
+			node = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+		}
+
+		CheckConsume(ctx, lex_cparen, "ERROR: closing ')' not found after '('");
 	}
 
 	if(!node)
@@ -1225,7 +1229,11 @@ SynBase* ParseTerminal(ParseContext &ctx)
 		SynBase *node = ParseComplexTerminal(ctx);
 
 		if(!node)
-			Stop(ctx, ctx.Current(), "ERROR: variable not found after '&'");
+		{
+			Report(ctx, ctx.Current(), "ERROR: variable not found after '&'");
+
+			node = new (ctx.get<SynError>()) SynError(start, ctx.Previous());
+		}
 
 		return new (ctx.get<SynGetAddress>()) SynGetAddress(start, ctx.Previous(), node);
 	}
@@ -1251,7 +1259,11 @@ SynBase* ParseTerminal(ParseContext &ctx)
 		SynBase *value = ParseTerminal(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Current(), "ERROR: expression not found after '%.*s'", name.length(), name.begin);
+		{
+			Report(ctx, ctx.Current(), "ERROR: expression not found after '%.*s'", name.length(), name.begin);
+
+			value = new (ctx.get<SynError>()) SynError(start, ctx.Previous());
+		}
 
 		return new (ctx.get<SynUnaryOp>()) SynUnaryOp(start, ctx.Previous(), type, value);
 	}
@@ -1261,7 +1273,11 @@ SynBase* ParseTerminal(ParseContext &ctx)
 		SynBase *value = ParseTerminal(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Current(), "ERROR: variable not found after '--'");
+		{
+			Report(ctx, ctx.Current(), "ERROR: variable not found after '--'");
+
+			value = new (ctx.get<SynError>()) SynError(start, ctx.Previous());
+		}
 
 		return new (ctx.get<SynPreModify>()) SynPreModify(start, ctx.Previous(), value, false);
 	}
@@ -1271,7 +1287,11 @@ SynBase* ParseTerminal(ParseContext &ctx)
 		SynBase *value = ParseTerminal(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Current(), "ERROR: variable not found after '++'");
+		{
+			Report(ctx, ctx.Current(), "ERROR: variable not found after '++'");
+
+			value = new (ctx.get<SynError>()) SynError(start, ctx.Previous());
+		}
 
 		return new (ctx.get<SynPreModify>()) SynPreModify(start, ctx.Previous(), value, true);
 	}
@@ -1356,14 +1376,22 @@ SynBase* ParseTernaryExpr(ParseContext &ctx)
 			SynBase *trueBlock = ParseAssignment(ctx);
 
 			if(!trueBlock)
-				Stop(ctx, ctx.Current(), "ERROR: expression not found after '?'");
+			{
+				Report(ctx, ctx.Current(), "ERROR: expression not found after '?'");
 
-			AssertConsume(ctx, lex_colon, "ERROR: ':' not found after expression in ternary operator");
+				trueBlock = new (ctx.get<SynError>()) SynError(pos, ctx.Previous());
+			}
+
+			CheckConsume(ctx, lex_colon, "ERROR: ':' not found after expression in ternary operator");
 
 			SynBase *falseBlock = ParseAssignment(ctx);
 
 			if(!falseBlock)
-				Stop(ctx, ctx.Current(), "ERROR: expression not found after ':'");
+			{
+				Report(ctx, ctx.Current(), "ERROR: expression not found after ':'");
+
+				falseBlock = new (ctx.get<SynError>()) SynError(pos, ctx.Previous());
+			}
 
 			value = new (ctx.get<SynConditional>()) SynConditional(pos, ctx.Previous(), value, trueBlock, falseBlock);
 		}
@@ -1400,7 +1428,11 @@ SynBase* ParseAssignment(ParseContext &ctx)
 			SynBase *rhs = ParseAssignment(ctx);
 
 			if(!rhs)
-				Stop(ctx, ctx.Current(), "ERROR: expression not found after '%.*s' operator", name.length(), name.begin);
+			{
+				Report(ctx, ctx.Current(), "ERROR: expression not found after '%.*s' operator", name.length(), name.begin);
+
+				rhs = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+			}
 
 			return new (ctx.get<SynModifyAssignment>()) SynModifyAssignment(pos, ctx.Previous(), modifyType, lhs, rhs);
 		}
@@ -2179,7 +2211,7 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx, bool classMe
 		else if(!ctx.Consume(lex_semicolon))
 		{
 			if(ctx.Peek() == lex_obracket)
-				AssertConsume(ctx, lex_semicolon, "ERROR: array size must be specified after type name");
+				CheckConsume(ctx, lex_semicolon, "ERROR: array size must be specified after type name");
 			else
 				CheckConsume(ctx, lex_semicolon, "ERROR: ';' not found after variable definition");
 		}

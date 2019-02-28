@@ -312,7 +312,19 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 {
 	if(ExprError *node = getType<ExprError>(expression))
 	{
-		PrintIndented(ctx, name, node->type, "ExprError()");
+		if(!node->values.empty())
+		{
+			PrintEnterBlock(ctx, name, node->type, "ExprError()");
+
+			for(unsigned i = 0; i < node->values.size(); i++)
+				PrintGraph(ctx, node->values[i], "");
+
+			PrintLeaveBlock(ctx);
+		}
+		else
+		{
+			PrintIndented(ctx, name, node->type, "ExprError()");
+		}
 	}
 	else if(ExprVoid *node = getType<ExprVoid>(expression))
 	{

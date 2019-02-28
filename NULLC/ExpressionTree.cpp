@@ -460,22 +460,22 @@ namespace
 	void CheckVariableConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
 	{
 		if(ctx.typeMap.find(name.hash()))
-			Stop(ctx, source, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(name));
+			Report(ctx, source, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(name));
 
 		if(VariableData **variable = ctx.variableMap.find(name.hash()))
 		{
 			if((*variable)->scope == ctx.scope)
-				Stop(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
+				Report(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
 		}
 
 		if(FunctionData **functions = ctx.functionMap.find(name.hash()))
 		{
 			if((*functions)->scope == ctx.scope)
-				Stop(ctx, source, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(name));
+				Report(ctx, source, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(name));
 		}
 
 		if(FindNamespaceInCurrentScope(ctx, name))
-			Stop(ctx, source, "ERROR: name '%.*s' is already taken for a namespace", FMT_ISTR(name));
+			Report(ctx, source, "ERROR: name '%.*s' is already taken for a namespace", FMT_ISTR(name));
 	}
 
 	void CheckFunctionConflict(ExpressionContext &ctx, SynBase *source, InplaceStr name)
@@ -483,7 +483,7 @@ namespace
 		if(FunctionData **function = ctx.functionMap.find(name.hash()))
 		{
 			if((*function)->isInternal)
-				Stop(ctx, source, "ERROR: function '%.*s' is reserved", FMT_ISTR(name));
+				Report(ctx, source, "ERROR: function '%.*s' is reserved", FMT_ISTR(name));
 		}
 	}
 
@@ -492,28 +492,28 @@ namespace
 		if(VariableData **variable = ctx.variableMap.find(name.hash()))
 		{
 			if((*variable)->scope == ctx.scope)
-				Stop(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
+				Report(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name));
 		}
 
 		if(FindNamespaceInCurrentScope(ctx, name))
-			Stop(ctx, source, "ERROR: name '%.*s' is already taken for a namespace", FMT_ISTR(name));
+			Report(ctx, source, "ERROR: name '%.*s' is already taken for a namespace", FMT_ISTR(name));
 	}
 
 	void CheckNamespaceConflict(ExpressionContext &ctx, SynBase *source, NamespaceData *ns)
 	{
 		if(ctx.typeMap.find(ns->fullNameHash))
-			Stop(ctx, source, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(ns->name.name));
+			Report(ctx, source, "ERROR: name '%.*s' is already taken for a class", FMT_ISTR(ns->name.name));
 
 		if(VariableData **variable = ctx.variableMap.find(ns->nameHash))
 		{
 			if((*variable)->scope == ctx.scope)
-				Stop(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(ns->name.name));
+				Report(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(ns->name.name));
 		}
 
 		if(FunctionData **functions = ctx.functionMap.find(ns->nameHash))
 		{
 			if((*functions)->scope == ctx.scope)
-				Stop(ctx, source, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(ns->name.name));
+				Report(ctx, source, "ERROR: name '%.*s' is already taken for a function", FMT_ISTR(ns->name.name));
 		}
 	}
 
@@ -2260,6 +2260,9 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase 
 
 ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs)
 {
+	if(isType<TypeError>(lhs->type) || isType<TypeError>(lhs->type))
+		return new (ctx.get<ExprAssignment>()) ExprAssignment(source, ctx.GetErrorType(), lhs, rhs);
+
 	if(isType<ExprUnboxing>(lhs))
 	{
 		lhs = CreateCast(ctx, source, lhs, ctx.GetReferenceType(rhs->type), false);
@@ -3733,8 +3736,8 @@ ExprBase* AnalyzePreModify(ExpressionContext &ctx, SynPreModify *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-	if(isType<ExprError>(value))
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+	if(isType<TypeError>(value->type))
+		return new (ctx.get<ExprPreModify>()) ExprPreModify(syntax, ctx.GetErrorType(), value, syntax->isIncrement);
 
 	ExprBase* wrapped = value;
 
@@ -3756,8 +3759,8 @@ ExprBase* AnalyzePostModify(ExpressionContext &ctx, SynPostModify *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-	if(isType<ExprError>(value))
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+	if(isType<TypeError>(value->type))
+		return new (ctx.get<ExprPreModify>()) ExprPreModify(syntax, ctx.GetErrorType(), value, syntax->isIncrement);
 
 	ExprBase* wrapped = value;
 
@@ -3781,8 +3784,8 @@ ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-	if(isType<ExprError>(value))
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+	if(isType<TypeError>(value->type))
+		return new (ctx.get<ExprUnaryOp>()) ExprUnaryOp(syntax, ctx.GetErrorType(), syntax->type, value);
 
 	if(ExprBase *result = CreateFunctionCall1(ctx, syntax, InplaceStr(GetOpName(syntax->type)), value, true, false))
 		return result;
@@ -3828,6 +3831,9 @@ ExprBase* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
+	if(isType<TypeError>(lhs->type) || isType<TypeError>(rhs->type))
+		return new (ctx.get<ExprBinaryOp>()) ExprBinaryOp(syntax, ctx.GetErrorType(), syntax->type, lhs, rhs);
+
 	return CreateBinaryOp(ctx, syntax, syntax->type, lhs, rhs);
 }
 
@@ -3853,8 +3859,8 @@ ExprBase* AnalyzeGetAddress(ExpressionContext &ctx, SynGetAddress *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-	if(isType<ExprError>(value))
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+	if(isType<TypeError>(value->type))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), value);
 
 	return CreateGetAddress(ctx, syntax, value);
 }
@@ -3863,8 +3869,8 @@ ExprBase* AnalyzeDereference(ExpressionContext &ctx, SynDereference *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-	if(isType<ExprError>(value))
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+	if(isType<TypeError>(value->type))
+		return new (ctx.get<ExprDereference>()) ExprDereference(syntax, ctx.GetErrorType(), value);
 
 	if(TypeRef *type = getType<TypeRef>(value->type))
 	{
@@ -3890,8 +3896,8 @@ ExprBase* AnalyzeConditional(ExpressionContext &ctx, SynConditional *syntax)
 	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
 	ExprBase *falseBlock = AnalyzeStatement(ctx, syntax->falseBlock);
 
-	if(isType<ExprError>(condition) || isType<ExprError>(trueBlock) || isType<ExprError>(falseBlock))
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+	if(isType<TypeError>(condition->type) || isType<TypeError>(trueBlock->type) || isType<TypeError>(falseBlock->type))
+		return new (ctx.get<ExprConditional>()) ExprConditional(syntax, ctx.GetErrorType(), condition, trueBlock, falseBlock);
 
 	// Handle null pointer promotion
 	if(trueBlock->type != falseBlock->type)
@@ -3918,7 +3924,9 @@ ExprBase* AnalyzeConditional(ExpressionContext &ctx, SynConditional *syntax)
 	}
 	else
 	{
-		Stop(ctx, syntax, "ERROR: can't find common type between '%.*s' and '%.*s'", FMT_ISTR(trueBlock->type->name), FMT_ISTR(falseBlock->type->name));
+		Report(ctx, syntax, "ERROR: can't find common type between '%.*s' and '%.*s'", FMT_ISTR(trueBlock->type->name), FMT_ISTR(falseBlock->type->name));
+
+		resultType = ctx.GetErrorType();
 	}
 
 	AssertValueExpression(ctx, syntax, condition);
@@ -3942,8 +3950,8 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
-	if(isType<ExprError>(lhs) || isType<ExprError>(rhs))
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+	if(isType<TypeError>(lhs->type) || isType<TypeError>(rhs->type))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), lhs, rhs);
 
 	if(ExprBase *result = CreateFunctionCall2(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, rhs, true, false))
 		return result;
@@ -3963,7 +3971,11 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 	TypeRef *typeRef = getType<TypeRef>(wrapped->type);
 
 	if(!typeRef)
-		Stop(ctx, syntax, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
+	{
+		Report(ctx, syntax, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
+
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), lhs, rhs);
+	}
 
 	VariableData *storage = AllocateTemporary(ctx, syntax, wrapped->type);
 
@@ -4492,8 +4504,8 @@ ExprBase* AnalyzeMemberAccess(ExpressionContext &ctx, SynMemberAccess *syntax)
 
 	ExprBase* value = AnalyzeExpression(ctx, syntax->value);
 
-	if(isType<ExprError>(value))
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+	if(isType<TypeError>(value->type))
+		return new (ctx.get<ExprMemberAccess>()) ExprMemberAccess(syntax, ctx.GetErrorType(), value, NULL);
 
 	return CreateMemberAccess(ctx, syntax, value, syntax->member, false);
 }
@@ -4638,19 +4650,40 @@ ExprBase* AnalyzeArrayIndex(ExpressionContext &ctx, SynArrayIndex *syntax)
 {
 	ExprBase *value = AnalyzeExpression(ctx, syntax->value);
 
-	if(isType<ExprError>(value))
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
-
 	SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
 	for(SynCallArgument *curr = syntax->arguments.head; curr; curr = getType<SynCallArgument>(curr->next))
 	{
 		ExprBase *index = AnalyzeExpression(ctx, curr->value);
 
-		if(isType<ExprError>(value))
-			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
-
 		arguments.push_back(ArgumentData(index->source, false, curr->name, index->type, index));
+	}
+
+	if(isType<TypeError>(value->type))
+	{
+		SmallArray<ExprBase*, 8> values;
+
+		values.push_back(value);
+
+		for(unsigned i = 0; i < arguments.size(); i++)
+			values.push_back(arguments[i].value);
+
+		return new (ctx.get<ExprError>()) ExprError(ctx.allocator, syntax, ctx.GetErrorType(), values);
+	}
+
+	for(unsigned i = 0; i < arguments.size(); i++)
+	{
+		if(isType<TypeError>(arguments[i].value->type))
+		{
+			SmallArray<ExprBase*, 8> values;
+
+			values.push_back(value);
+
+			for(unsigned i = 0; i < arguments.size(); i++)
+				values.push_back(arguments[i].value);
+
+			return new (ctx.get<ExprError>()) ExprError(ctx.allocator, syntax, ctx.GetErrorType(), values);
+		}
 	}
 
 	return CreateArrayIndex(ctx, syntax, value, arguments);
@@ -6946,12 +6979,12 @@ ExprBase* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 {
 	ExprBase *result = syntax->value ? AnalyzeExpression(ctx, syntax->value) : new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
 
-	if(isType<ExprError>(result))
+	if(isType<TypeError>(result->type))
 	{
 		if(FunctionData *function = ctx.GetCurrentFunction())
 			function->hasExplicitReturn = true;
 
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+		return new (ctx.get<ExprYield>()) ExprYield(syntax, result->type, result, NULL, NULL, 0);
 	}
 
 	if(FunctionData *function = ctx.GetCurrentFunction())
@@ -11327,7 +11360,12 @@ void VisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)
 
 	accept(context, expression);
 
-	if(ExprPassthrough *node = getType<ExprPassthrough>(expression))
+	if(ExprError *node = getType<ExprError>(expression))
+	{
+		for(unsigned i = 0; i < node->values.size(); i++)
+			VisitExpressionTreeNodes(node->values[i], context, accept);
+	}
+	else if(ExprPassthrough *node = getType<ExprPassthrough>(expression))
 	{
 		VisitExpressionTreeNodes(node->value, context, accept);
 	}

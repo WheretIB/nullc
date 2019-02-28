@@ -193,6 +193,25 @@ struct ExprError: ExprBase
 	{
 	}
 
+	ExprError(SynBase *source, TypeBase *type, ExprBase *value): ExprBase(myTypeID, source, type)
+	{
+		values.push_back(value);
+	}
+
+	ExprError(SynBase *source, TypeBase *type, ExprBase *value1, ExprBase *value2): ExprBase(myTypeID, source, type)
+	{
+		values.push_back(value1);
+		values.push_back(value2);
+	}
+
+	ExprError(Allocator *allocator, SynBase *source, TypeBase *type, ArrayView<ExprBase*> arr): ExprBase(myTypeID, source, type), values(allocator)
+	{
+		for(unsigned i = 0; i < arr.size(); i++)
+			values.push_back(arr[i]);
+	}
+
+	SmallArray<ExprBase*, 4> values;
+
 	static const unsigned myTypeID = __LINE__;
 };
 
