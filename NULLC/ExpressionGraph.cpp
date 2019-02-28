@@ -502,7 +502,10 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	}
 	else if(ExprMemberAccess *node = getType<ExprMemberAccess>(expression))
 	{
-		PrintEnterBlock(ctx, name, node->type, "ExprMemberAccess(%.*s: v%04x)", FMT_ISTR(node->member->name), node->member->uniqueId);
+		if(node->member)
+			PrintEnterBlock(ctx, name, node->type, "ExprMemberAccess(%.*s: v%04x)", FMT_ISTR(node->member->name), node->member->uniqueId);
+		else
+			PrintEnterBlock(ctx, name, node->type, "ExprMemberAccess(%%missing%%)");
 
 		PrintGraph(ctx, node->value, "value");
 

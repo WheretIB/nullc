@@ -240,7 +240,10 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynMemberAccess *node = getType<SynMemberAccess>(syntax))
 	{
-		PrintEnterBlock(ctx, name, "SynMemberAccess(%.*s)", FMT_ISTR(node->member));
+		if(node->member)
+			PrintEnterBlock(ctx, name, "SynMemberAccess(%.*s)", FMT_ISTR(node->member->name));
+		else
+			PrintEnterBlock(ctx, name, "SynMemberAccess(%%missing%%)");
 
 		PrintGraph(ctx, node->value, "value");
 

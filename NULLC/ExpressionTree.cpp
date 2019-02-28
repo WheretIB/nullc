@@ -1731,7 +1731,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeFunction *argumentType);
 ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctionDefinition *syntax, TypeBase *type, ArrayView<ArgumentData> arguments, IntrusiveList<MatchData> aliases);
 
-ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr member);
+ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, SynIdentifier *member);
 
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs);
 
@@ -1740,7 +1740,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 ExprBase* CreateGetAddress(ExpressionContext &ctx, SynBase *source, ExprBase *value);
 
-ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, bool allowFailure);
+ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, SynIdentifier *member, bool allowFailure);
 
 ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs);
 
@@ -3672,7 +3672,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 		{
 			if(VariableData **variable = ctx.variableMap.find(InplaceStr("this").hash()))
 			{
-				if(ExprBase *member = CreateMemberAccess(ctx, source, CreateVariableAccess(ctx, source, *variable, true), name, true))
+				if(ExprBase *member = CreateMemberAccess(ctx, source, CreateVariableAccess(ctx, source, *variable, true), new (ctx.get<SynIdentifier>()) SynIdentifier(name), true))
 					return member;
 			}
 		}
@@ -3978,24 +3978,27 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 	return CreateSequence(ctx, syntax, definition, CreateAssignment(ctx, syntax, new (ctx.get<ExprDereference>()) ExprDereference(syntax, typeRef->subType, CreateVariableAccess(ctx, syntax, storage, false)), result));
 }
 
-ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, InplaceStr member)
+ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, SynIdentifier *member)
 {
-	if(member == InplaceStr("isReference"))
+	if(!member)
+		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
+	if(member->name == InplaceStr("isReference"))
 	{
 		return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.typeBool, isType<TypeRef>(type));
 	}
 
-	if(member == InplaceStr("isArray"))
+	if(member->name == InplaceStr("isArray"))
 	{
 		return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.typeBool, isType<TypeArray>(type) || isType<TypeUnsizedArray>(type));
 	}
 
-	if(member == InplaceStr("isFunction"))
+	if(member->name == InplaceStr("isFunction"))
 	{
 		return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.typeBool, isType<TypeFunction>(type));
 	}
 
-	if(member == InplaceStr("arraySize"))
+	if(member->name == InplaceStr("arraySize"))
 	{
 		if(TypeArray *arrType = getType<TypeArray>(type))
 			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, arrType->length);
@@ -4006,7 +4009,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 		Stop(ctx, source, "ERROR: 'arraySize' can only be applied to an array type, but we have '%.*s'", FMT_ISTR(type->name));
 	}
 
-	if(member == InplaceStr("size"))
+	if(member->name == InplaceStr("size"))
 	{
 		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
 			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, argumentsType->types.size());
@@ -4014,7 +4017,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 		Stop(ctx, source, "ERROR: 'size' can only be applied to an function type, but we have '%.*s'", FMT_ISTR(type->name));
 	}
 
-	if(member == InplaceStr("argument"))
+	if(member->name == InplaceStr("argument"))
 	{
 		if(TypeFunction *functionType = getType<TypeFunction>(type))
 			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, new (ctx.get<TypeArgumentSet>()) TypeArgumentSet(GetArgumentSetTypeName(ctx, functionType->arguments), functionType->arguments));
@@ -4022,7 +4025,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 		Stop(ctx, source, "ERROR: 'argument' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
 	}
 
-	if(member == InplaceStr("return"))
+	if(member->name == InplaceStr("return"))
 	{
 		if(TypeFunction *functionType = getType<TypeFunction>(type))
 			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, functionType->returnType);
@@ -4030,7 +4033,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 		Stop(ctx, source, "ERROR: 'return' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
 	}
 
-	if(member == InplaceStr("target"))
+	if(member->name == InplaceStr("target"))
 	{
 		if(TypeRef *refType = getType<TypeRef>(type))
 			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, refType->subType);
@@ -4044,7 +4047,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 		Stop(ctx, source, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%.*s'", FMT_ISTR(type->name));
 	}
 
-	if(member == InplaceStr("first"))
+	if(member->name == InplaceStr("first"))
 	{
 		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
 		{
@@ -4057,7 +4060,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 		Stop(ctx, source, "ERROR: 'first' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
 	}
 
-	if(member == InplaceStr("last"))
+	if(member->name == InplaceStr("last"))
 	{
 		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
 		{
@@ -4074,13 +4077,13 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 	{
 		for(MatchData *curr = classType->aliases.head; curr; curr = curr->next)
 		{
-			if(curr->name == member)
+			if(curr->name == member->name)
 				return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, curr->type);
 		}
 
 		for(MatchData *curr = classType->generics.head; curr; curr = curr->next)
 		{
-			if(curr->name == member)
+			if(curr->name == member->name)
 				return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, curr->type);
 		}
 	}
@@ -4089,17 +4092,17 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 	{
 		for(VariableHandle *curr = structType->members.head; curr; curr = curr->next)
 		{
-			if(curr->variable->name == member)
+			if(curr->variable->name == member->name)
 				return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, curr->variable->type);
 		}
 
 		for(ConstantData *curr = structType->constants.head; curr; curr = curr->next)
 		{
-			if(curr->name == member)
+			if(curr->name == member->name)
 				return CreateLiteralCopy(ctx, source, curr->value);
 		}
 
-		if(member == InplaceStr("hasMember"))
+		if(member->name == InplaceStr("hasMember"))
 			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, new (ctx.get<TypeMemberSet>()) TypeMemberSet(GetMemberSetTypeName(ctx, structType), structType));
 	}
 
@@ -4107,7 +4110,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 	{
 		for(SynIdentifier *curr = typeGenericClass->proto->definition->aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
 		{
-			if(curr->name == member)
+			if(curr->name == member->name)
 				return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, ctx.typeGeneric);
 		}
 	}
@@ -4187,7 +4190,7 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 	return new (ctx.get<ExprFunctionOverloadSet>()) ExprFunctionOverloadSet(source, type, functions, value);
 }
 
-ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, bool allowFailure)
+ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *value, SynIdentifier *member, bool allowFailure)
 {
 	ExprBase* wrapped = value;
 
@@ -4223,9 +4226,12 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		wrapped = CreateSequence(ctx, source, definition, CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false)));
 	}
 
+	if(!member)
+		return new (ctx.get<ExprMemberAccess>()) ExprMemberAccess(source, ctx.GetErrorType(), value, NULL);
+
 	if(TypeArray *node = getType<TypeArray>(value->type))
 	{
-		if(name == InplaceStr("size"))
+		if(member->name == InplaceStr("size"))
 			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, node->length);
 	}
 
@@ -4233,7 +4239,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 	{
 		if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(value))
 		{
-			if(ExprBase *result = CreateTypeidMemberAccess(ctx, source, node->value, name))
+			if(ExprBase *result = CreateTypeidMemberAccess(ctx, source, node->value, member))
 				return result;
 		}
 
@@ -4242,7 +4248,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 			// Search for a member variable
 			for(VariableHandle *el = node->members.head; el; el = el->next)
 			{
-				if(el->variable->name == name)
+				if(el->variable->name == member->name)
 				{
 					// Member access only shifts an address, so we are left with a reference to get value from
 					ExprMemberAccess *shift = new (ctx.get<ExprMemberAccess>()) ExprMemberAccess(source, ctx.GetReferenceType(el->variable->type), wrapped, el->variable);
@@ -4259,19 +4265,19 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 			// Search for a member constant
 			for(ConstantData *curr = node->constants.head; curr; curr = curr->next)
 			{
-				if(curr->name == name)
+				if(curr->name == member->name)
 					return CreateLiteralCopy(ctx, source, curr->value);
 			}
 		}
 
 		if(value->type == ctx.typeAutoRef)
-			return CreateAutoRefFunctionSet(ctx, source, value, name, NULL);
+			return CreateAutoRefFunctionSet(ctx, source, value, member->name, NULL);
 
 		if(TypeClass *classType = getType<TypeClass>(value->type))
 		{
 			if(classType->baseClass != NULL || classType->extendable)
 			{
-				if(ExprBase *overloads = CreateAutoRefFunctionSet(ctx, source, wrapped, name, classType))
+				if(ExprBase *overloads = CreateAutoRefFunctionSet(ctx, source, wrapped, member->name, classType))
 					return overloads;
 			}
 		}
@@ -4279,11 +4285,11 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		// Check if a name resembles a type alias of the value class
 		TypeBase *aliasType = NULL;
 
-		if(TypeBase **typeName = ctx.typeMap.find(name.hash()))
+		if(TypeBase **typeName = ctx.typeMap.find(member->name.hash()))
 		{
 			TypeBase *type = *typeName;
 
-			if(type == value->type && type->name != name)
+			if(type == value->type && type->name != member->name)
 			{
 				if(TypeClass *typeClass = getType<TypeClass>(type))
 				{
@@ -4300,7 +4306,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 		unsigned hash = StringHashContinue(value->type->nameHash, "::");
 
-		hash = StringHashContinue(hash, name.begin, name.end);
+		hash = StringHashContinue(hash, member->name.begin, member->name.end);
 
 		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
 			mainFuncton = CreateFunctionAccess(ctx, source, function, wrapped);
@@ -4316,7 +4322,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 				unsigned hash = StringHashContinue(arrayType->nameHash, "::");
 
-				hash = StringHashContinue(hash, name.begin, name.end);
+				hash = StringHashContinue(hash, member->name.begin, member->name.end);
 
 				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
 				{
@@ -4336,7 +4342,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 			{
 				unsigned hash = StringHashContinue(protoType->nameHash, "::");
 
-				hash = StringHashContinue(hash, name.begin, name.end);
+				hash = StringHashContinue(hash, member->name.begin, member->name.end);
 
 				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
 					baseFunction = CreateFunctionAccess(ctx, source, function, wrapped);
@@ -4415,7 +4421,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 				unsigned hash = StringHashContinue(arrayType->nameHash, "::");
 
-				hash = StringHashContinue(hash, name.begin, name.end);
+				hash = StringHashContinue(hash, member->name.begin, member->name.end);
 
 				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
 				{
@@ -4443,7 +4449,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 			{
 				unsigned hash = StringHashContinue(protoType->nameHash, "::");
 
-				hash = StringHashContinue(hash, name.begin, name.end);
+				hash = StringHashContinue(hash, member->name.begin, member->name.end);
 
 				// Look for an accessor
 				hash = StringHashContinue(hash, "$");
@@ -4465,10 +4471,12 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		if(allowFailure)
 			return NULL;
 
-		Stop(ctx, source, "ERROR: member variable or function '%.*s' is not defined in class '%.*s'", FMT_ISTR(name), FMT_ISTR(value->type->name));
+		Report(ctx, source, "ERROR: member variable or function '%.*s' is not defined in class '%.*s'", FMT_ISTR(member->name), FMT_ISTR(value->type->name));
+
+		return new (ctx.get<ExprMemberAccess>()) ExprMemberAccess(source, ctx.GetErrorType(), value, NULL);
 	}
 
-	Stop(ctx, source, "ERROR: can't access member '%.*s' of type '%.*s'", FMT_ISTR(name), FMT_ISTR(value->type->name));
+	Stop(ctx, source, "ERROR: can't access member '%.*s' of type '%.*s'", FMT_ISTR(member->name), FMT_ISTR(value->type->name));
 
 	return NULL;
 }
@@ -6886,12 +6894,12 @@ ExprBase* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 {
 	ExprBase *result = syntax->value ? AnalyzeExpression(ctx, syntax->value) : new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
 
-	if(isType<ExprError>(result))
+	if(isType<TypeError>(result->type))
 	{
 		if(FunctionData *function = ctx.GetCurrentFunction())
 			function->hasExplicitReturn = true;
 
-		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+		return new (ctx.get<ExprReturn>()) ExprReturn(syntax, result->type, result, NULL, NULL);
 	}
 
 	if(FunctionData *function = ctx.GetCurrentFunction())
@@ -8565,13 +8573,13 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 
 			ExprBase *left = CreateVariableAccess(ctx, source, leftArgument, false);
 
-			ExprBase *leftMember = CreateMemberAccess(ctx, source, left, curr->variable->name, false);
+			ExprBase *leftMember = CreateMemberAccess(ctx, source, left, new (ctx.get<SynIdentifier>()) SynIdentifier(curr->variable->name), false);
 
 			VariableData *rightArgument = getType<ExprVariableDefinition>(variables.head->next)->variable;
 
 			ExprBase *right = CreateVariableAccess(ctx, source, rightArgument, false);
 
-			ExprBase *rightMember = CreateMemberAccess(ctx, source, right, curr->variable->name, false);
+			ExprBase *rightMember = CreateMemberAccess(ctx, source, right, new (ctx.get<SynIdentifier>()) SynIdentifier(curr->variable->name), false);
 
 			expressions.push_back(CreateAssignment(ctx, source, leftMember, rightMember));
 		}
@@ -9363,7 +9371,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			initializers.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(curr, ctx.typeVoid, iterator, iteratorAssignment));
 
 			// Create condition
-			conditions.push_back(CreateBinaryOp(ctx, curr, SYN_BINARY_OP_LESS, CreateVariableAccess(ctx, curr, iterator, false), CreateMemberAccess(ctx, curr, value, InplaceStr("size"), false)));
+			conditions.push_back(CreateBinaryOp(ctx, curr, SYN_BINARY_OP_LESS, CreateVariableAccess(ctx, curr, iterator, false), CreateMemberAccess(ctx, curr, value, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("size")), false)));
 
 			// Create definition
 			type = ctx.GetReferenceType(type);
@@ -9403,7 +9411,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 		// If we don't have a function, get an iterator
 		if(!functionType)
 		{
-			startCall = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, value, InplaceStr("start"), false), IntrusiveList<TypeHandle>(), NULL, false);
+			startCall = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, value, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("start")), false), IntrusiveList<TypeHandle>(), NULL, false);
 
 			// Check if iteartor is a coroutine
 			functionType = getType<TypeFunction>(startCall->type);
@@ -9471,10 +9479,10 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			initializers.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(curr, ctx.typeVoid, iterator, CreateAssignment(ctx, curr, CreateVariableAccess(ctx, curr, iterator, false), startCall)));
 
 			// Create condition
-			conditions.push_back(CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, CreateVariableAccess(ctx, curr, iterator, false), InplaceStr("hasnext"), false), IntrusiveList<TypeHandle>(), NULL, false));
+			conditions.push_back(CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, CreateVariableAccess(ctx, curr, iterator, false), new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("hasnext")), false), IntrusiveList<TypeHandle>(), NULL, false));
 
 			// Create definition
-			ExprBase *call = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, CreateVariableAccess(ctx, curr, iterator, false), InplaceStr("next"), false), IntrusiveList<TypeHandle>(), NULL, false);
+			ExprBase *call = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, CreateVariableAccess(ctx, curr, iterator, false), new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("next")), false), IntrusiveList<TypeHandle>(), NULL, false);
 
 			if(!type)
 				type = call->type;

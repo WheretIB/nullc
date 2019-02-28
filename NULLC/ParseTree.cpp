@@ -84,8 +84,33 @@ namespace
 			va_list args;
 			va_start(args, msg);
 
-			Stop(ctx, ctx.Current(), msg, args);
+			Lexeme *curr = ctx.Current();
+
+			if(curr == ctx.Last())
+				StopAt(ctx, curr - 1, curr - 1, (curr - 1)->pos + (curr - 1)->length, msg, args);
+			else
+				StopAt(ctx, curr, curr, curr->pos, msg, args);
 		}
+	}
+
+	NULLC_PRINT_FORMAT_CHECK(3, 4) bool CheckAt(ParseContext &ctx, LexemeType type, const char *msg, ...)
+	{
+		if(!ctx.At(type))
+		{
+			va_list args;
+			va_start(args, msg);
+
+			Lexeme *curr = ctx.Current();
+
+			if(curr == ctx.Last())
+				ReportAt(ctx, curr - 1, curr - 1, (curr - 1)->pos + (curr - 1)->length, msg, args);
+			else
+				ReportAt(ctx, curr, curr, curr->pos, msg, args);
+
+			return false;
+		}
+
+		return true;
 	}
 
 	NULLC_PRINT_FORMAT_CHECK(3, 4) void AssertConsume(ParseContext &ctx, LexemeType type, const char *msg, ...)
@@ -95,7 +120,12 @@ namespace
 			va_list args;
 			va_start(args, msg);
 
-			Stop(ctx, ctx.Current(), msg, args);
+			Lexeme *curr = ctx.Current();
+
+			if(curr == ctx.Last())
+				StopAt(ctx, curr - 1, curr - 1, (curr - 1)->pos + (curr - 1)->length, msg, args);
+			else
+				StopAt(ctx, curr, curr, curr->pos, msg, args);
 		}
 	}
 
@@ -106,7 +136,12 @@ namespace
 			va_list args;
 			va_start(args, msg);
 
-			Stop(ctx, ctx.Current(), msg, args);
+			Lexeme *curr = ctx.Current();
+
+			if(curr == ctx.Last())
+				StopAt(ctx, curr - 1, curr - 1, (curr - 1)->pos + (curr - 1)->length, msg, args);
+			else
+				StopAt(ctx, curr, curr, curr->pos, msg, args);
 		}
 	}
 }
@@ -990,12 +1025,20 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 
 		if(ctx.Consume(lex_point))
 		{
-			if(!ctx.At(lex_return))
-				AssertAt(ctx, lex_string, "ERROR: member name expected after '.'");
+			Lexeme *memberPos = ctx.currentLexeme;
 
-			InplaceStr member = ctx.Consume();
+			if(ctx.At(lex_return) || CheckAt(ctx, lex_string, "ERROR: member name expected after '.'"))
+			{
+				InplaceStr member = ctx.Consume();
 
-			node = new (ctx.get<SynMemberAccess>()) SynMemberAccess(pos, ctx.Previous(), node, member);
+				SynIdentifier *identifier = new (ctx.get<SynIdentifier>()) SynIdentifier(pos, ctx.Previous(), member);
+
+				node = new (ctx.get<SynMemberAccess>()) SynMemberAccess(memberPos, ctx.Previous(), node, identifier);
+			}
+			else
+			{
+				node = new (ctx.get<SynMemberAccess>()) SynMemberAccess(memberPos - 1, ctx.Previous(), node, NULL);
+			}
 		}
 		else if(ctx.Consume(lex_obracket))
 		{

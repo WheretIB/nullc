@@ -441,7 +441,7 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 		}
 	}
 
-	if(!ctx.synModule || parseCtx.errorCount != 0)
+	if(!ctx.synModule)
 	{
 		if(parseCtx.errorPos)
 			ctx.errorPos = parseCtx.errorPos;
@@ -455,6 +455,14 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 
 	exprCtx.errorBuf = ctx.errorBuf;
 	exprCtx.errorBufSize = ctx.errorBufSize;
+
+	if(parseCtx.errorPos)
+	{
+		unsigned errorLength = unsigned(strlen(exprCtx.errorBuf));
+
+		exprCtx.errorBuf += errorLength;
+		exprCtx.errorBufSize -= errorLength;
+	}
 
 	ctx.exprModule = Analyze(exprCtx, ctx.synModule, ctx.code);
 
@@ -474,9 +482,11 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 		}
 	}
 
-	if(!ctx.exprModule || exprCtx.errorCount != 0)
+	if(!ctx.exprModule || exprCtx.errorCount != 0 || parseCtx.errorCount != 0)
 	{
-		if(exprCtx.errorPos)
+		if(parseCtx.errorPos)
+			ctx.errorPos = parseCtx.errorPos;
+		else if(exprCtx.errorPos)
 			ctx.errorPos = exprCtx.errorPos;
 
 		return NULL;

@@ -443,12 +443,12 @@ struct SynTypedef: SynBase
 
 struct SynMemberAccess: SynBase
 {
-	SynMemberAccess(Lexeme *begin, Lexeme *end, SynBase* value, InplaceStr member): SynBase(myTypeID, begin, end), value(value), member(member)
+	SynMemberAccess(Lexeme *begin, Lexeme *end, SynBase* value, SynIdentifier* member): SynBase(myTypeID, begin, end), value(value), member(member)
 	{
 	}
 
 	SynBase* value;
-	InplaceStr member;
+	SynIdentifier* member;
 
 	static const unsigned myTypeID = __LINE__;
 };
