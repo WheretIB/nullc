@@ -9276,18 +9276,11 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 
 		ExprBase *definition = AnalyzeVariableDefinition(ctx, definitions->definitions.head, 0, type);
 
-		if(isType<ExprError>(definition))
-		{
-			condition = new (ctx.get<ExprError>()) ExprError(syntax, ctx.typeBool);
-		}
-		else
-		{
-			ExprVariableDefinition *variableDefinition = getType<ExprVariableDefinition>(definition);
+		ExprVariableDefinition *variableDefinition = getType<ExprVariableDefinition>(definition);
 
-			assert(variableDefinition);
+		assert(variableDefinition);
 
-			condition = CreateSequence(ctx, syntax, definition, CreateVariableAccess(ctx, syntax, variableDefinition->variable, false));
-		}
+		condition = CreateSequence(ctx, syntax, definition, CreateVariableAccess(ctx, syntax, variableDefinition->variable, false));
 	}
 	else
 	{

@@ -1701,7 +1701,7 @@ SynBreak* ParseBreak(ParseContext &ctx)
 		// Optional
 		SynNumber *node = ParseNumber(ctx);
 
-		AssertConsume(ctx, lex_semicolon, "ERROR: break statement must be followed by ';' or a constant");
+		CheckConsume(ctx, lex_semicolon, "ERROR: break statement must be followed by ';' or a constant");
 
 		return new (ctx.get<SynBreak>()) SynBreak(start, ctx.Previous(), node);
 	}
@@ -1718,7 +1718,7 @@ SynContinue* ParseContinue(ParseContext &ctx)
 		// Optional
 		SynNumber *node = ParseNumber(ctx);
 
-		AssertConsume(ctx, lex_semicolon, "ERROR: continue statement must be followed by ';' or a constant");
+		CheckConsume(ctx, lex_semicolon, "ERROR: continue statement must be followed by ';' or a constant");
 
 		return new (ctx.get<SynContinue>()) SynContinue(start, ctx.Previous(), node);
 	}
@@ -1766,7 +1766,7 @@ SynBlock* ParseBlock(ParseContext &ctx)
 
 		ctx.statementBlockDepth--;
 
-		AssertConsume(ctx, lex_cfigure, "ERROR: closing '}' not found");
+		CheckConsume(ctx, lex_cfigure, "ERROR: closing '}' not found");
 
 		return new (ctx.get<SynBlock>()) SynBlock(start, ctx.Previous(), expressions);
 	}
@@ -1910,7 +1910,7 @@ SynForEach* ParseForEach(ParseContext &ctx)
 
 	if(ctx.Consume(lex_for))
 	{
-		AssertConsume(ctx, lex_oparen, "ERROR: '(' not found after 'for'");
+		CheckConsume(ctx, lex_oparen, "ERROR: '(' not found after 'for'");
 
 		IntrusiveList<SynForEachIterator> iterators;
 
@@ -1955,7 +1955,7 @@ SynFor* ParseFor(ParseContext &ctx)
 
 	if(ctx.Consume(lex_for))
 	{
-		AssertConsume(ctx, lex_oparen, "ERROR: '(' not found after 'for'");
+		CheckConsume(ctx, lex_oparen, "ERROR: '(' not found after 'for'");
 
 		SynBase *initializer = NULL;
 
@@ -1963,7 +1963,7 @@ SynFor* ParseFor(ParseContext &ctx)
 		{
 			initializer = ParseBlock(ctx);
 
-			AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after initializer in 'for'");
+			CheckConsume(ctx, lex_semicolon, "ERROR: ';' not found after initializer in 'for'");
 		}
 		else if(SynBase *node = ParseVariableDefinitions(ctx, false))
 		{
@@ -1973,19 +1973,23 @@ SynFor* ParseFor(ParseContext &ctx)
 		{
 			initializer = node;
 
-			AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after initializer in 'for'");
+			CheckConsume(ctx, lex_semicolon, "ERROR: ';' not found after initializer in 'for'");
 		}
 		else if(!ctx.Consume(lex_semicolon))
 		{
-			Stop(ctx, ctx.Current(), "ERROR: ';' not found after initializer in 'for'");
+			Report(ctx, ctx.Current(), "ERROR: ';' not found after initializer in 'for'");
 		}
 
 		SynBase *condition = ParseAssignment(ctx);
 
 		if(!condition)
-			Stop(ctx, ctx.Current(), "ERROR: condition not found in 'for' statement");
+		{
+			Report(ctx, ctx.Current(), "ERROR: condition not found in 'for' statement");
 
-		AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after condition in 'for'");
+			condition = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+		}
+
+		CheckConsume(ctx, lex_semicolon, "ERROR: ';' not found after condition in 'for'");
 
 		SynBase *increment = NULL;
 
@@ -1994,12 +1998,16 @@ SynFor* ParseFor(ParseContext &ctx)
 		else if(SynBase *node = ParseAssignment(ctx))
 			increment = node;
 
-		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after 'for' statement");
+		CheckConsume(ctx, lex_cparen, "ERROR: ')' not found after 'for' statement");
 
 		SynBase *body = ParseExpression(ctx);
 
 		if(!body)
-			Stop(ctx, ctx.Current(), "ERROR: body not found after 'for' header");
+		{
+			Report(ctx, ctx.Current(), "ERROR: body not found after 'for' header");
+
+			body = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+		}
 
 		return new (ctx.get<SynFor>()) SynFor(start, ctx.Previous(), initializer, condition, increment, body);
 	}
@@ -2013,19 +2021,23 @@ SynWhile* ParseWhile(ParseContext &ctx)
 
 	if(ctx.Consume(lex_while))
 	{
-		AssertConsume(ctx, lex_oparen, "ERROR: '(' not found after 'while'");
+		CheckConsume(ctx, lex_oparen, "ERROR: '(' not found after 'while'");
 
 		SynBase *condition = ParseAssignment(ctx);
 
 		if(!condition)
-			Stop(ctx, ctx.Current(), "ERROR: expression expected after 'while('");
+		{
+			Report(ctx, ctx.Current(), "ERROR: expression expected after 'while('");
 
-		AssertConsume(ctx, lex_cparen, "ERROR: closing ')' not found after expression in 'while' statement");
+			condition = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+		}
+
+		CheckConsume(ctx, lex_cparen, "ERROR: closing ')' not found after expression in 'while' statement");
 
 		SynBase *body = ParseExpression(ctx);
 
 		if(!body && !ctx.Consume(lex_semicolon))
-			Stop(ctx, ctx.Current(), "ERROR: body not found after 'while' header");
+			Report(ctx, ctx.Current(), "ERROR: body not found after 'while' header");
 
 		return new (ctx.get<SynWhile>()) SynWhile(start, ctx.Previous(), condition, body);
 	}
@@ -2889,7 +2901,11 @@ SynModule* ParseModule(ParseContext &ctx)
 		Report(ctx, ctx.Current(), "ERROR: unexpected symbol");
 
 	if(expressions.empty())
+	{
 		Report(ctx, ctx.Current(), "ERROR: module contains no code");
+
+		return new (ctx.get<SynModule>()) SynModule(start, ctx.Current(), imports, expressions);
+	}
 
 	return new (ctx.get<SynModule>()) SynModule(start, ctx.Previous(), imports, expressions);
 }
