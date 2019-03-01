@@ -3328,6 +3328,17 @@ ExprBase* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 		raw.push_back(value);
 	}
 
+	// First value type is required to complete array definition
+	if(!raw.empty() && isType<TypeError>(raw[0]->type))
+	{
+		IntrusiveList<ExprBase> values;
+
+		for(unsigned i = 0; i < raw.size(); i++)
+			values.push_back(raw[i]);
+
+		return new (ctx.get<ExprArray>()) ExprArray(syntax, ctx.GetErrorType(), values);
+	}
+
 	IntrusiveList<ExprBase> values;
 
 	TypeBase *subType = NULL;
@@ -3341,10 +3352,6 @@ ExprBase* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 
 		if(subType == NULL)
 		{
-			// Can't analyze other elements if the first one didn't compile
-			if(isType<ExprError>(value))
-				return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
-
 			subType = value->type;
 		}
 		else if(subType != value->type)
@@ -3356,7 +3363,7 @@ ExprBase* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 				value = CreateCast(ctx, value->source, value, subType, false);
 			else if(ctx.IsFloatingPointType(value->type) && ctx.IsFloatingPointType(subType) && subType->size > value->type->size)
 				value = CreateCast(ctx, value->source, value, subType, false);
-			else
+			else if(!isType<TypeError>(value->type))
 				value = ReportExpected(ctx, value->source, value->type, "ERROR: array element %d type '%.*s' doesn't match '%.*s'", i + 1, FMT_ISTR(value->type->name), FMT_ISTR(subType->name));
 		}
 
@@ -7026,10 +7033,18 @@ ExprBase* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprBase *initializer)
 {
 	if(!initializer)
-		Stop(ctx, source, "ERROR: auto variable must be initialized in place of definition");
+	{
+		Report(ctx, source, "ERROR: auto variable must be initialized in place of definition");
+
+		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+	}
 
 	if(initializer->type == ctx.typeVoid)
-		Stop(ctx, source, "ERROR: r-value type is 'void'");
+	{
+		Report(ctx, source, "ERROR: r-value type is 'void'");
+
+		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+	}
 
 	if(TypeFunction *target = getType<TypeFunction>(initializer->type))
 	{
@@ -7115,11 +7130,11 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 	{
 		initializer = ResolveInitializerValue(ctx, syntax, initializer);
 
-		if(isType<ExprError>(initializer))
+		if(isType<TypeError>(initializer->type))
 		{
 			ctx.variableMap.remove(variable->nameHash, variable);
 
-			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), initializer);
 		}
 
 		type = initializer->type;
@@ -10023,7 +10038,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 		return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(node, ctx.typeTypeID, AnalyzeType(ctx, syntax));
 
 	if(isType<SynTypeAuto>(syntax))
-		Stop(ctx, syntax, "ERROR: cannot take typeid from auto type");
+	{
+		Report(ctx, syntax, "ERROR: cannot take typeid from auto type");
+
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+	}
 
 	if(isType<SynTypeAlias>(syntax))
 		Stop(ctx, syntax, "ERROR: cannot take typeid from generic type");

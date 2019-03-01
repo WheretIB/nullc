@@ -786,7 +786,11 @@ SynBase* ParseArray(ParseContext &ctx)
 		SynBase *value = ParseTernaryExpr(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Current(), "ERROR: value not found after '{'");
+		{
+			Report(ctx, ctx.Current(), "ERROR: value not found after '{'");
+
+			value = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+		}
 
 		values.push_back(value);
 
@@ -795,14 +799,14 @@ SynBase* ParseArray(ParseContext &ctx)
 			value = ParseTernaryExpr(ctx);
 
 			if(!value)
-				Stop(ctx, ctx.Current(), "ERROR: value not found after ','");
-
-			values.push_back(value);
+				Report(ctx, ctx.Current(), "ERROR: value not found after ','");
+			else
+				values.push_back(value);
 		}
 
 		ctx.expressionBlockDepth--;
 
-		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after inline array");
+		CheckConsume(ctx, lex_cfigure, "ERROR: '}' not found after inline array");
 
 		return new (ctx.get<SynArray>()) SynArray(start, ctx.Previous(), values);
 	}
@@ -2582,18 +2586,18 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 		IntrusiveList<SynFunctionArgument> arguments = ParseFunctionArguments(ctx);
 
-		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function variable list");
+		CheckConsume(ctx, lex_cparen, "ERROR: ')' not found after function variable list");
 
 		IntrusiveList<SynBase> expressions;
 
 		if(ctx.Consume(lex_semicolon))
 			return new (ctx.get<SynFunctionDefinition>()) SynFunctionDefinition(start, ctx.Previous(), true, coroutine, parentType, accessor, returnType, isOperator, nameId, aliases, arguments, expressions);
 
-		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after function header");
+		CheckConsume(ctx, lex_ofigure, "ERROR: '{' not found after function header");
 
 		expressions = ParseExpressions(ctx);
 
-		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after function body");
+		CheckConsume(ctx, lex_cfigure, "ERROR: '}' not found after function body");
 
 		return new (ctx.get<SynFunctionDefinition>()) SynFunctionDefinition(start, ctx.Previous(), false, coroutine, parentType, accessor, returnType, isOperator, nameId, aliases, arguments, expressions);
 	}
