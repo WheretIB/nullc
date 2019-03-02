@@ -251,7 +251,10 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynCallArgument *node = getType<SynCallArgument>(syntax))
 	{
-		PrintEnterBlock(ctx, name, "SynCallArgument(%.*s)", FMT_ISTR(node->name->name));
+		if(node->name)
+			PrintEnterBlock(ctx, name, "SynCallArgument(%.*s)", FMT_ISTR(node->name->name));
+		else
+			PrintEnterBlock(ctx, name, "SynCallArgument()");
 
 		PrintGraph(ctx, node->value, "value");
 
