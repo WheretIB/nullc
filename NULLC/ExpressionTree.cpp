@@ -7565,7 +7565,7 @@ void AnalyzeFunctionArguments(ExpressionContext &ctx, IntrusiveList<SynFunctionA
 
 				type = initializer->type;
 			}
-			else if(initializer)
+			else if(initializer && !isType<TypeError>(initializer->type))
 			{
 				// Just a test
 				if(!type->isGeneric)
