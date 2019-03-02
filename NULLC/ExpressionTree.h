@@ -605,9 +605,11 @@ struct ExprArraySetup: ExprBase
 
 struct ExprVariableDefinitions: ExprBase
 {
-	ExprVariableDefinitions(SynBase *source, TypeBase *type, IntrusiveList<ExprBase> definitions): ExprBase(myTypeID, source, type), definitions(definitions)
+	ExprVariableDefinitions(SynBase *source, TypeBase *type, TypeBase *definitionType, IntrusiveList<ExprBase> definitions): ExprBase(myTypeID, source, type), definitionType(definitionType), definitions(definitions)
 	{
 	}
+
+	TypeBase *definitionType;
 
 	IntrusiveList<ExprBase> definitions;
 

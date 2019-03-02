@@ -649,6 +649,47 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 						}
 					}
 				}
+				else if(ExprVariableDefinitions *node = getType<ExprVariableDefinitions>(child))
+				{
+					if(SynVariableDefinitions *source = getType<SynVariableDefinitions>(node->source))
+					{
+						if(IsInside(source->type, data.position.line, data.position.character))
+						{
+							if(!IsSmaller(data.bestNode, source->type))
+							{
+								if(data.ctx.debugMode)
+									data.debugScopes += " <- skipped[larger]  \n";
+
+								return;
+							}
+
+							TypeBase *definitionType = node->definitionType;
+
+							if(definitionType == data.context->exprCtx.typeAuto && !node->definitions.empty())
+							{
+								if(ExprVariableDefinition *definition = getType<ExprVariableDefinition>(node->definitions.head))
+									definitionType = definition->variable->variable->type;
+							}
+
+							if(definitionType != data.context->exprCtx.typeAuto)
+							{
+								data.bestNode = source->type;
+
+								data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
+
+								char buf[256];
+								SafeSprintf(buf, 256, "Type '%.*s'", FMT_ISTR(definitionType->name));
+
+								data.hover.contents.kind = MarkupKind::Markdown;
+								data.hover.contents.value = buf;
+
+								if(data.ctx.debugMode)
+									data.debugScopes += " <- selected[returnType]";
+							}
+						}
+					}
+				}
+				
 
 				if(data.ctx.debugMode)
 					data.debugScopes += "  \n";

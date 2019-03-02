@@ -31,6 +31,9 @@ namespace
 			vsnprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), msg, args);
 			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
 
+			if(strstr(ctx.errorBufLocation, "%error-type%"))
+				printf("Can't be here\n");
+
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
 			const char *messageEnd = ctx.errorBufLocation;
@@ -7256,7 +7259,7 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 	for(SynVariableDefinition *el = syntax->definitions.head; el; el = getType<SynVariableDefinition>(el->next))
 		definitions.push_back(AnalyzeVariableDefinition(ctx, el, alignment, type));
 
-	return new (ctx.get<ExprVariableDefinitions>()) ExprVariableDefinitions(syntax, ctx.typeVoid, definitions);
+	return new (ctx.get<ExprVariableDefinitions>()) ExprVariableDefinitions(syntax, ctx.typeVoid, type, definitions);
 }
 
 TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, InplaceStr functionName)
