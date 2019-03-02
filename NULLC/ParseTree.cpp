@@ -625,14 +625,18 @@ SynBase* ParseTerminalType(ParseContext &ctx, bool &shrBorrow)
 
 	if(ctx.Consume(lex_typeof))
 	{
-		AssertConsume(ctx, lex_oparen, "ERROR: typeof must be followed by '('");
+		CheckConsume(ctx, lex_oparen, "ERROR: typeof must be followed by '('");
 
 		SynBase *value = ParseAssignment(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Current(), "ERROR: expression not found after typeof(");
+		{
+			Report(ctx, ctx.Current(), "ERROR: expression not found after typeof(");
 
-		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after expression in typeof");
+			value = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+		}
+
+		CheckConsume(ctx, lex_cparen, "ERROR: ')' not found after expression in typeof");
 
 		SynBase *node = new (ctx.get<SynTypeof>()) SynTypeof(start, ctx.Previous(), value);
 
@@ -845,14 +849,18 @@ SynBase* ParseSizeof(ParseContext &ctx)
 
 	if(ctx.Consume(lex_sizeof))
 	{
-		AssertConsume(ctx, lex_oparen, "ERROR: sizeof must be followed by '('");
+		CheckConsume(ctx, lex_oparen, "ERROR: sizeof must be followed by '('");
 
 		SynBase *value = ParseAssignment(ctx);
 
 		if(!value)
-			Stop(ctx, ctx.Current(), "ERROR: expression or type not found after sizeof(");
+		{
+			Report(ctx, ctx.Current(), "ERROR: expression or type not found after sizeof(");
 
-		AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after expression in sizeof");
+			value = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+		}
+
+		CheckConsume(ctx, lex_cparen, "ERROR: ')' not found after expression in sizeof");
 
 		return new (ctx.get<SynSizeof>()) SynSizeof(start, ctx.Previous(), value);
 	}
@@ -885,13 +893,16 @@ SynAlign* ParseAlign(ParseContext &ctx)
 
 	if(ctx.Consume(lex_align))
 	{
-		AssertConsume(ctx, lex_oparen, "ERROR: '(' expected after align");
+		CheckConsume(ctx, lex_oparen, "ERROR: '(' expected after align");
 
-		AssertAt(ctx, lex_number, "ERROR: alignment value not found after align(");
+		SynBase *value = NULL;
 
-		SynNumber *value = ParseNumber(ctx);
+		if(CheckAt(ctx, lex_number, "ERROR: alignment value not found after align("))
+			value = ParseNumber(ctx);
+		else
+			value = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
 
-		AssertConsume(ctx, lex_cparen, "ERROR: ')' expected after alignment value");
+		CheckConsume(ctx, lex_cparen, "ERROR: ')' expected after alignment value");
 
 		return new (ctx.get<SynAlign>()) SynAlign(start, ctx.Previous(), value);
 	}

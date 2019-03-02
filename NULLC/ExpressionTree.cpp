@@ -3165,7 +3165,11 @@ unsigned AnalyzeAlignment(ExpressionContext &ctx, SynAlign *syntax)
 	if(!syntax->value)
 		return 1;
 
-	ExprBase *align = AnalyzeNumber(ctx, syntax->value);
+	ExprBase *align = AnalyzeExpression(ctx, syntax->value);
+
+	// Some info about aignment expression tree is lost
+	if(isType<TypeError>(align->type))
+		return 0;
 
 	if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, syntax, align, ctx.typeLong, false))))
 	{

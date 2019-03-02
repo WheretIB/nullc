@@ -421,11 +421,11 @@ struct SynGenerator: SynBase
 
 struct SynAlign: SynBase
 {
-	SynAlign(Lexeme *begin, Lexeme *end, SynNumber* value): SynBase(myTypeID, begin, end), value(value)
+	SynAlign(Lexeme *begin, Lexeme *end, SynBase* value): SynBase(myTypeID, begin, end), value(value)
 	{
 	}
 
-	SynNumber* value;
+	SynBase* value;
 
 	static const unsigned myTypeID = __LINE__;
 };
