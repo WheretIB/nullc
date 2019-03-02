@@ -8838,7 +8838,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 			SynIdentifier *setName = accessor->setName;
 
 			if(!setName)
-				setName = new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$r"));
+				setName = new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("r"));
 
 			arguments.push_back(new (ctx.get<SynFunctionArgument>()) SynFunctionArgument(accessor->begin, accessor->end, false, accessor->type, setName, NULL));
 
