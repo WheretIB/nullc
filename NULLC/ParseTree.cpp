@@ -1587,16 +1587,22 @@ SynEnumDefinition* ParseEnumDefinition(ParseContext &ctx)
 
 		InplaceStr name = ctx.Consume();
 
-		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after enum name");
+		CheckConsume(ctx, lex_ofigure, "ERROR: '{' not found after enum name");
 
 		IntrusiveList<SynConstant> values;
 
 		do
 		{
 			if(values.empty())
-				AssertAt(ctx, lex_string, "ERROR: enumeration name expected after '{'");
+			{
+				if(!CheckAt(ctx, lex_string, "ERROR: enumeration name expected after '{'"))
+					break;
+			}
 			else
-				AssertAt(ctx, lex_string, "ERROR: enumeration name expected after ','");
+			{
+				if(!CheckAt(ctx, lex_string, "ERROR: enumeration name expected after ','"))
+					break;
+			}
 
 			Lexeme *pos = ctx.currentLexeme;
 			InplaceStr name = ctx.Consume();
@@ -1608,14 +1614,18 @@ SynEnumDefinition* ParseEnumDefinition(ParseContext &ctx)
 				value = ParseTernaryExpr(ctx);
 
 				if(!value)
-					Stop(ctx, ctx.Current(), "ERROR: expression not found after '='");
+				{
+					Report(ctx, ctx.Current(), "ERROR: expression not found after '='");
+
+					value = new (ctx.get<SynError>()) SynError(start, ctx.Previous());
+				}
 			}
 
 			values.push_back(new (ctx.get<SynConstant>()) SynConstant(pos, ctx.Previous(), name, value));
 		}
 		while(ctx.Consume(lex_comma));
 
-		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after enum definition");
+		CheckConsume(ctx, lex_cfigure, "ERROR: '}' not found after enum definition");
 
 		return new (ctx.get<SynEnumDefinition>()) SynEnumDefinition(start, ctx.Previous(), name, values);
 	}

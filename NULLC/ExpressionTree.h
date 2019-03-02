@@ -215,6 +215,17 @@ struct ExprError: ExprBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct ExprErrorTypeMemberAccess: ExprBase
+{
+	ExprErrorTypeMemberAccess(SynBase *source, TypeBase *type, TypeBase *value): ExprBase(myTypeID, source, type), value(value)
+	{
+	}
+
+	TypeBase *value;
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct ExprVoid: ExprBase
 {
 	ExprVoid(SynBase *source, TypeBase *type): ExprBase(myTypeID, source, type)

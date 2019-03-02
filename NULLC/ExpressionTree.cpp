@@ -4007,7 +4007,7 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, SynIdentifier *member)
 {
 	if(!member)
-		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+		return new (ctx.get<ExprErrorTypeMemberAccess>()) ExprErrorTypeMemberAccess(source, ctx.GetErrorType(), type);
 
 	if(member->name == InplaceStr("isReference"))
 	{
@@ -4040,7 +4040,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
 			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, argumentsType->types.size());
 
-		Stop(ctx, source, "ERROR: 'size' can only be applied to an function type, but we have '%.*s'", FMT_ISTR(type->name));
+		Stop(ctx, source, "ERROR: 'size' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
 	}
 
 	if(member->name == InplaceStr("argument"))
@@ -9060,7 +9060,12 @@ void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 			
 		if(constant->value)
 		{
-			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, constant, AnalyzeExpression(ctx, constant->value), ctx.typeInt, false)));
+			ExprBase *rhs = AnalyzeExpression(ctx, constant->value);
+
+			if(isType<TypeError>(rhs->type))
+				continue;
+
+			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, constant, rhs, ctx.typeInt, false)));
 		}
 		else if(last)
 		{
@@ -9068,18 +9073,22 @@ void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 		}
 		else
 		{
-			value = new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, 0);
+			value = new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, ctx.typeInt, 0);
 		}
 
 		if(!value)
-			Stop(ctx, source, "ERROR: expression didn't evaluate to a constant number");
+		{
+			Report(ctx, constant, "ERROR: expression didn't evaluate to a constant number");
+
+			value = new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, ctx.typeInt, 0);
+		}
 
 		last = value;
 
 		for(ConstantData *curr = target.head; curr; curr = curr->next)
 		{
 			if(constant->name == curr->name)
-				Stop(ctx, source, "ERROR: name '%.*s' is already taken", FMT_ISTR(curr->name));
+				Report(ctx, constant, "ERROR: name '%.*s' is already taken", FMT_ISTR(curr->name));
 		}
 
 		CheckVariableConflict(ctx, constant, constant->name);
@@ -11617,6 +11626,8 @@ const char* GetExpressionTreeNodeName(ExprBase *expression)
 	{
 	case ExprError::myTypeID:
 		return "ExprError";
+	case ExprErrorTypeMemberAccess::myTypeID:
+		return "ExprErrorTypeMemberAccess";
 	case ExprVoid::myTypeID:
 		return "ExprVoid";
 	case ExprBoolLiteral::myTypeID:

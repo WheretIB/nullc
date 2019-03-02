@@ -326,6 +326,10 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 			PrintIndented(ctx, name, node->type, "ExprError()");
 		}
 	}
+	else if(ExprErrorTypeMemberAccess *node = getType<ExprErrorTypeMemberAccess>(expression))
+	{
+		PrintIndented(ctx, name, node->type, "ExprErrorTypeMemberAccess(%.*s)", FMT_ISTR(node->value->name));
+	}
 	else if(ExprVoid *node = getType<ExprVoid>(expression))
 	{
 		PrintIndented(ctx, name, node->type, "ExprVoid()");

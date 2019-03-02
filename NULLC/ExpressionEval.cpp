@@ -3024,7 +3024,7 @@ ExprBase* EvaluateModule(ExpressionEvalContext &ctx, ExprModule *expression)
 
 ExprBase* Evaluate(ExpressionEvalContext &ctx, ExprBase *expression)
 {
-	if(isType<ExprError>(expression))
+	if(isType<ExprError>(expression) || isType<ExprErrorTypeMemberAccess>(expression))
 		return Report(ctx, "ERROR: invalid expression");
 
 	if(ExprVoid *expr = getType<ExprVoid>(expression))
