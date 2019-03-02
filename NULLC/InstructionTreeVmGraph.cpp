@@ -165,7 +165,7 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 	else if(constant->type == VmType::Long)
 		Print(ctx, "%lldl", constant->lValue);
 	else if(constant->type.type == VM_TYPE_POINTER && constant->container && ctx.showContainers)
-		Print(ctx, "%.*s+0x%x", FMT_ISTR(constant->container->name), constant->iValue);
+		Print(ctx, "%.*s+0x%x", FMT_ISTR(constant->container->name->name), constant->iValue);
 	else if(constant->type.type == VM_TYPE_POINTER && constant->container)
 		Print(ctx, "0x%x", constant->container->offset + constant->iValue);
 	else if(constant->type.type == VM_TYPE_POINTER)
@@ -402,7 +402,7 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 			if(variable->isAlloca && variable->users.empty())
 				continue;
 
-			Print(ctx, "// %s0x%x: %.*s %.*s", variable->importModule ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name));
+			Print(ctx, "// %s0x%x: %.*s %.*s", variable->importModule ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name->name));
 
 			if(ctx.showUsers)
 				Print(ctx, " [");

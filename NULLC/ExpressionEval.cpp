@@ -480,9 +480,9 @@ ExprPointerLiteral* FindVariableStorage(ExpressionEvalContext &ctx, VariableData
 	}
 
 	if(data->importModule != NULL)
-		return (ExprPointerLiteral*)Report(ctx, "ERROR: can't access external variable '%.*s'", FMT_ISTR(data->name));
+		return (ExprPointerLiteral*)Report(ctx, "ERROR: can't access external variable '%.*s'", FMT_ISTR(data->name->name));
 
-	return (ExprPointerLiteral*)Report(ctx, "ERROR: variable '%.*s' not found", FMT_ISTR(data->name));
+	return (ExprPointerLiteral*)Report(ctx, "ERROR: variable '%.*s' not found", FMT_ISTR(data->name->name));
 }
 
 bool TryTakeLong(ExprBase *expression, long long &result)

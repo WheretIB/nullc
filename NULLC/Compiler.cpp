@@ -804,12 +804,12 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				if(curr->variable->type->hasPointers)
 					allMemberCount++;
 
-				if(*curr->variable->name.begin == '$')
+				if(*curr->variable->name->name.begin == '$')
 					continue;
 
 				allMemberCount++;
 
-				symbolStorageSize += curr->variable->name.length() + 1;
+				symbolStorageSize += curr->variable->name->name.length() + 1;
 			}
 
 			for(ConstantData *curr = typeClass->constants.head; curr; curr = curr->next)
@@ -826,12 +826,12 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				if(curr->variable->type->hasPointers)
 					allMemberCount++;
 
-				if(*curr->variable->name.begin == '$')
+				if(*curr->variable->name->name.begin == '$')
 					continue;
 
 				allMemberCount++;
 
-				symbolStorageSize += curr->variable->name.length() + 1;
+				symbolStorageSize += curr->variable->name->name.length() + 1;
 			}
 
 			for(ConstantData *curr = typeStruct->constants.head; curr; curr = curr->next)
@@ -892,7 +892,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		if(variable->scope == ctx.exprCtx.globalScope || variable->scope->ownerNamespace)
 			exportVarCount++;
 
-		symbolStorageSize += variable->name.length() + 1;
+		symbolStorageSize += variable->name->name.length() + 1;
 	}
 
 	for(unsigned i = 0; i < ctx.exprCtx.functions.size(); i++)
@@ -942,7 +942,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		{
 			localCount++;
 
-			symbolStorageSize += variable->name.length() + 1;
+			symbolStorageSize += variable->name->name.length() + 1;
 		}
 
 		if (!ctx.exprCtx.IsGenericFunction(function))
@@ -973,7 +973,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 				localCount++;
 
-				symbolStorageSize += variable->name.length() + 1;
+				symbolStorageSize += variable->name->name.length() + 1;
 			}
 		}
 
@@ -983,7 +983,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		{
 			UpvalueData *upvalue = function->upvalues[i];
 
-			symbolStorageSize += upvalue->variable->name.length() + 1;
+			symbolStorageSize += upvalue->variable->name->name.length() + 1;
 		}
 	}
 
@@ -1220,7 +1220,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
-				if(*curr->variable->name.begin == '$')
+				if(*curr->variable->name->name.begin == '$')
 					continue;
 
 				target.memberCount++;
@@ -1230,7 +1230,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				member.type = curr->variable->type->typeIndex;
 				member.offset = curr->variable->offset;
 
-				debugSymbols.push_back(curr->variable->name.begin, curr->variable->name.length());
+				debugSymbols.push_back(curr->variable->name->name.begin, curr->variable->name->name.length());
 				debugSymbols.push_back(0);
 			}
 
@@ -1401,7 +1401,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		ExternVarInfo &varInfo = vInfo.push_back();
 
 		varInfo.offsetToName = debugSymbols.count;
-		debugSymbols.push_back(variable->name.begin, variable->name.length());
+		debugSymbols.push_back(variable->name->name.begin, variable->name->name.length());
 		debugSymbols.push_back(0);
 
 		varInfo.nameHash = variable->nameHash;
@@ -1426,7 +1426,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		ExternVarInfo &varInfo = vInfo.push_back();
 
 		varInfo.offsetToName = debugSymbols.count;
-		debugSymbols.push_back(variable->name.begin, variable->name.length());
+		debugSymbols.push_back(variable->name->name.begin, variable->name->name.length());
 		debugSymbols.push_back(0);
 
 		varInfo.nameHash = variable->nameHash;
@@ -1618,7 +1618,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			local.closeListID = 0;
 
 			local.offsetToName = debugSymbols.count;
-			debugSymbols.push_back(variable->name.begin, variable->name.length());
+			debugSymbols.push_back(variable->name->name.begin, variable->name->name.length());
 			debugSymbols.push_back(0);
 		}
 
@@ -1660,7 +1660,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				local.closeListID = 0;
 
 				local.offsetToName = debugSymbols.count;
-				debugSymbols.push_back(variable->name.begin, variable->name.length());
+				debugSymbols.push_back(variable->name->name.begin, variable->name->name.length());
 				debugSymbols.push_back(0);
 			}
 		}
@@ -1678,7 +1678,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			local.size = (unsigned)upvalue->variable->type->size;
 
 			local.offsetToName = debugSymbols.count;
-			debugSymbols.push_back(upvalue->variable->name.begin, upvalue->variable->name.length());
+			debugSymbols.push_back(upvalue->variable->name->name.begin, upvalue->variable->name->name.length());
 			debugSymbols.push_back(0);
 		}
 

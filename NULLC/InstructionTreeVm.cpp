@@ -691,7 +691,9 @@ namespace
 		char *name = (char*)ctx.allocator->alloc(16);
 		sprintf(name, "$temp%d_%s", ctx.unnamedVariableCount++, suffix);
 
-		VariableData *variable = new (module->get<VariableData>()) VariableData(ctx.allocator, NULL, scope, type->alignment, type, InplaceStr(name), 0, ctx.uniqueVariableId++);
+		SynIdentifier *nameIdentifier = new (module->get<SynIdentifier>()) SynIdentifier(InplaceStr(name));
+
+		VariableData *variable = new (module->get<VariableData>()) VariableData(ctx.allocator, NULL, scope, type->alignment, type, nameIdentifier, 0, ctx.uniqueVariableId++);
 
 		variable->isVmAlloca = true;
 		variable->offset = ~0u;
@@ -2111,7 +2113,7 @@ VmValue* CompileVmMemberAccess(ExpressionContext &ctx, VmModule *module, ExprMem
 
 	VmValue *offset = CreateConstantInt(module->allocator, node->source, node->member->variable->offset);
 
-	return CheckType(ctx, node, CreateMemberAccess(module, node->source, value, offset, ctx.GetReferenceType(node->member->variable->type), node->member->variable->name));
+	return CheckType(ctx, node, CreateMemberAccess(module, node->source, value, offset, ctx.GetReferenceType(node->member->variable->type), node->member->variable->name->name));
 }
 
 VmValue* CompileVmArrayIndex(ExpressionContext &ctx, VmModule *module, ExprArrayIndex *node)
@@ -2252,7 +2254,7 @@ VmValue* CompileVmVariableAccess(ExpressionContext &ctx, VmModule *module, ExprV
 
 	VmValue *value = CreateLoad(ctx, module, node->source, node->variable->type, address, 0);
 
-	value->comment = node->variable->name;
+	value->comment = node->variable->name->name;
 
 	return CheckType(ctx, node, value);
 }
@@ -2279,7 +2281,7 @@ VmValue* CompileVmFunctionContextAccess(ExpressionContext &ctx, VmModule *module
 
 		value = CreateLoad(ctx, module, node->source, node->function->contextVariable->type, address, 0);
 
-		value->comment = node->function->contextVariable->name;
+		value->comment = node->function->contextVariable->name->name;
 	}
 
 	return CheckType(ctx, node, value);

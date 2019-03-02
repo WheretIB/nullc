@@ -1092,7 +1092,7 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 			}
 			else
 			{
-				node = new (ctx.get<SynMemberAccess>()) SynMemberAccess(memberPos - 1, ctx.Previous(), node, NULL);
+				node = new (ctx.get<SynMemberAccess>()) SynMemberAccess(ctx.Previous(), ctx.Previous(), node, NULL);
 			}
 		}
 		else if(ctx.Consume(lex_obracket))

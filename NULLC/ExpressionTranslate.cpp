@@ -194,21 +194,21 @@ void TranslateTypeName(ExpressionTranslateContext &ctx, TypeBase *type)
 
 void TranslateVariableName(ExpressionTranslateContext &ctx, VariableData *variable)
 {
-	if(variable->name == InplaceStr("this"))
+	if(variable->name->name == InplaceStr("this"))
 	{
 		Print(ctx, "__context");
 	}
 	else
 	{
-		if(*variable->name.begin == '$')
+		if(*variable->name->name.begin == '$')
 		{
 			Print(ctx, "__");
 
-			PrintEscapedName(ctx, InplaceStr(variable->name.begin + 1, variable->name.end));
+			PrintEscapedName(ctx, InplaceStr(variable->name->name.begin + 1, variable->name->name.end));
 		}
 		else
 		{
-			PrintEscapedName(ctx, variable->name);
+			PrintEscapedName(ctx, variable->name->name);
 		}
 
 		if(variable->scope != ctx.ctx.globalScope && !variable->scope->ownerType && !variable->scope->ownerFunction && !variable->scope->ownerNamespace)
@@ -1037,7 +1037,7 @@ void TranslateYield(ExpressionTranslateContext &ctx, ExprYield *expression)
 
 void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDefinition *expression)
 {
-	Print(ctx, "/* Definition of variable '%.*s' */", FMT_ISTR(expression->variable->variable->name));
+	Print(ctx, "/* Definition of variable '%.*s' */", FMT_ISTR(expression->variable->variable->name->name));
 
 	if(expression->initializer)
 	{
@@ -2189,7 +2189,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 
 			for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
 			{
-				if(*curr->variable->name.begin == '$')
+				if(*curr->variable->name->name.begin == '$')
 					continue;
 
 				count++;
@@ -2215,7 +2215,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 
 			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
-				if(*curr->variable->name.begin == '$')
+				if(*curr->variable->name->name.begin == '$')
 					continue;
 
 				count++;
@@ -2265,7 +2265,7 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 
 			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
-				if(*curr->variable->name.begin == '$')
+				if(*curr->variable->name->name.begin == '$')
 					continue;
 
 				count++;
@@ -2276,12 +2276,12 @@ void TranslateModuleTypeInformation(ExpressionTranslateContext &ctx)
 
 			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
 			{
-				if(*curr->variable->name.begin == '$')
+				if(*curr->variable->name->name.begin == '$')
 					continue;
 
 				Print(ctx, ", __nullcTR[%d]", curr->variable->type->typeIndex);
 				Print(ctx, ", %d", curr->variable->offset);
-				Print(ctx, ", \"%.*s\"", FMT_ISTR(curr->variable->name));
+				Print(ctx, ", \"%.*s\"", FMT_ISTR(curr->variable->name->name));
 			}
 
 			Print(ctx, "); // type '%.*s' members", FMT_ISTR(type->name));

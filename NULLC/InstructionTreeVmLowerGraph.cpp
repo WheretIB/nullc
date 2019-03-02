@@ -51,9 +51,9 @@ void PrintConstant(InstructionVmLowerGraphContext &ctx, VmConstant *constant)
 	else if(constant->type == VmType::Long)
 		Print(ctx, "%lldl", constant->lValue);
 	else if(constant->type.type == VM_TYPE_POINTER && constant->container && constant->iValue)
-		Print(ctx, "%.*s.v%04x+0x%x%s", FMT_ISTR(constant->container->name), constant->container->uniqueId, constant->iValue, HasAddressTaken(constant->container) ? "" : " (noalias)");
+		Print(ctx, "%.*s.v%04x+0x%x%s", FMT_ISTR(constant->container->name->name), constant->container->uniqueId, constant->iValue, HasAddressTaken(constant->container) ? "" : " (noalias)");
 	else if(constant->type.type == VM_TYPE_POINTER && constant->container)
-		Print(ctx, "%.*s.v%04x%s", FMT_ISTR(constant->container->name), constant->container->uniqueId, HasAddressTaken(constant->container) ? "" : " (noalias)");
+		Print(ctx, "%.*s.v%04x%s", FMT_ISTR(constant->container->name->name), constant->container->uniqueId, HasAddressTaken(constant->container) ? "" : " (noalias)");
 	else if(constant->type.type == VM_TYPE_POINTER)
 		Print(ctx, "0x%x", constant->iValue);
 	else if(constant->type.type == VM_TYPE_STRUCT)
@@ -225,7 +225,7 @@ void PrintFunction(InstructionVmLowerGraphContext &ctx, VmLoweredFunction *lowFu
 			if(variable->isAlloca && variable->users.empty())
 				continue;
 
-			Print(ctx, "// %s0x%x: %.*s %.*s", variable->importModule ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name));
+			Print(ctx, "// %s0x%x: %.*s %.*s", variable->importModule ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name->name));
 
 			bool addressTaken = false;
 
@@ -412,16 +412,16 @@ void PrintInstructions(InstructionVmLowerGraphContext &ctx, InstructionVmFinaliz
 				if(global->importModule)
 				{
 					if(global->offset == cmd.argument)
-						Print(ctx, "// %4d: %s (%.*s [%.*s] from '%.*s')\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
+						Print(ctx, "// %4d: %s (%.*s [%.*s] from '%.*s')\n", i, buf, FMT_ISTR(global->name->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
 					else
-						Print(ctx, "// %4d: %s (inside %.*s [%.*s] from '%.*s')\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
+						Print(ctx, "// %4d: %s (inside %.*s [%.*s] from '%.*s')\n", i, buf, FMT_ISTR(global->name->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
 				}
 				else
 				{
 					if(global->offset == cmd.argument)
-						Print(ctx, "// %4d: %s (%.*s [%.*s])\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name));
+						Print(ctx, "// %4d: %s (%.*s [%.*s])\n", i, buf, FMT_ISTR(global->name->name), FMT_ISTR(global->type->name));
 					else
-						Print(ctx, "// %4d: %s (inside %.*s [%.*s])\n", i, buf, FMT_ISTR(global->name), FMT_ISTR(global->type->name));
+						Print(ctx, "// %4d: %s (inside %.*s [%.*s])\n", i, buf, FMT_ISTR(global->name->name), FMT_ISTR(global->type->name));
 				}
 			}
 			else

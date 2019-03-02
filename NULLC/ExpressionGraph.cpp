@@ -263,7 +263,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ScopeData *scope, bool printImporte
 			if(printImported != imported)
 				continue;
 
-			PrintIndented(ctx, InplaceStr(), data->type, "%.*s: v%04x @ 0x%x%s%s%s%s", FMT_ISTR(data->name), data->uniqueId, data->offset, data->isReadonly ? " readonly" : "", data->isReference ? " reference" : "", data->usedAsExternal ? " captured" : "", data->type->hasPointers ? " gc_check" : "");
+			PrintIndented(ctx, InplaceStr(), data->type, "%.*s: v%04x @ 0x%x%s%s%s%s", FMT_ISTR(data->name->name), data->uniqueId, data->offset, data->isReadonly ? " readonly" : "", data->isReference ? " reference" : "", data->usedAsExternal ? " captured" : "", data->type->hasPointers ? " gc_check" : "");
 		}
 
 		PrintLeaveBlock(ctx);
@@ -479,7 +479,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	}
 	else if(ExprGetAddress *node = getType<ExprGetAddress>(expression))
 	{
-		PrintIndented(ctx, name, node->type, "ExprGetAddress(%.*s: v%04x)", FMT_ISTR(node->variable->variable->name), node->variable->variable->uniqueId);
+		PrintIndented(ctx, name, node->type, "ExprGetAddress(%.*s: v%04x)", FMT_ISTR(node->variable->variable->name->name), node->variable->variable->uniqueId);
 	}
 	else if(ExprDereference *node = getType<ExprDereference>(expression))
 	{
@@ -519,7 +519,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	else if(ExprMemberAccess *node = getType<ExprMemberAccess>(expression))
 	{
 		if(node->member)
-			PrintEnterBlock(ctx, name, node->type, "ExprMemberAccess(%.*s: v%04x)", FMT_ISTR(node->member->variable->name), node->member->variable->uniqueId);
+			PrintEnterBlock(ctx, name, node->type, "ExprMemberAccess(%.*s: v%04x)", FMT_ISTR(node->member->variable->name->name), node->member->variable->uniqueId);
 		else
 			PrintEnterBlock(ctx, name, node->type, "ExprMemberAccess(%%missing%%)");
 
@@ -564,7 +564,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	}
 	else if(ExprVariableDefinition *node = getType<ExprVariableDefinition>(expression))
 	{
-		PrintEnterBlock(ctx, name, node->type, "ExprVariableDefinition(%.*s %.*s: v%04x)", FMT_ISTR(node->variable->variable->type->name), FMT_ISTR(node->variable->variable->name), node->variable->variable->uniqueId);
+		PrintEnterBlock(ctx, name, node->type, "ExprVariableDefinition(%.*s %.*s: v%04x)", FMT_ISTR(node->variable->variable->type->name), FMT_ISTR(node->variable->variable->name->name), node->variable->variable->uniqueId);
 
 		PrintGraph(ctx, node->initializer, "initializer");
 
@@ -590,7 +590,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	}
 	else if(ExprVariableAccess *node = getType<ExprVariableAccess>(expression))
 	{
-		PrintIndented(ctx, name, node->type, "ExprVariableAccess(%.*s: v%04x)", FMT_ISTR(node->variable->name), node->variable->uniqueId);
+		PrintIndented(ctx, name, node->type, "ExprVariableAccess(%.*s: v%04x)", FMT_ISTR(node->variable->name->name), node->variable->uniqueId);
 	}
 	else if(ExprFunctionContextAccess *node = getType<ExprFunctionContextAccess>(expression))
 	{
@@ -724,7 +724,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 		PrintEnterBlock(ctx, InplaceStr("variables"), 0);
 
 		for(VariableHandle *value = node->classType->members.head; value; value = value->next)
-			PrintIndented(ctx, InplaceStr(), value->variable->type, "%.*s: v%04x @ 0x%x", FMT_ISTR(value->variable->name), value->variable->uniqueId, value->variable->offset);
+			PrintIndented(ctx, InplaceStr(), value->variable->type, "%.*s: v%04x @ 0x%x", FMT_ISTR(value->variable->name->name), value->variable->uniqueId, value->variable->offset);
 
 		PrintLeaveBlock(ctx);
 

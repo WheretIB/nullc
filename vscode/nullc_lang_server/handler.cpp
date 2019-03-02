@@ -151,7 +151,7 @@ std::string GetMemberSignature(TypeBase *type, VariableData *member)
 	char *pos = buf;
 	*pos = 0;
 
-	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name));
+	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name->name));
 
 	return buf;
 }
@@ -517,7 +517,7 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 					data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
 
 					data.hover.contents.kind = MarkupKind::Markdown;
-					data.hover.contents.value = ToString("Variable '%.*s %.*s'", FMT_ISTR(node->variable->type->name), FMT_ISTR(node->variable->name));
+					data.hover.contents.value = ToString("Variable '%.*s %.*s'", FMT_ISTR(node->variable->type->name), FMT_ISTR(node->variable->name->name));
 
 					if(data.ctx.debugMode)
 						data.debugScopes += " <- selected";
@@ -560,7 +560,7 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 					data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
 
 					data.hover.contents.kind = MarkupKind::Markdown;
-					data.hover.contents.value = ToString("Variable '%.*s %.*s'", FMT_ISTR(node->variable->variable->type->name), FMT_ISTR(node->variable->variable->name));
+					data.hover.contents.value = ToString("Variable '%.*s %.*s'", FMT_ISTR(node->variable->variable->type->name), FMT_ISTR(node->variable->variable->name->name));
 
 					if(data.ctx.debugMode)
 						data.debugScopes += " <- selected";
@@ -1044,9 +1044,9 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 						{
 							CompletionItem item;
 
-							item.label = std::string(curr->variable->name.begin, curr->variable->name.end);
+							item.label = std::string(curr->variable->name->name.begin, curr->variable->name->name.end);
 							item.kind = CompletionItemKind::TypeParameter;
-							item.detail = ToString("typeid %.*s::%.*s = %.*s", FMT_ISTR(type->name), FMT_ISTR(curr->variable->name), FMT_ISTR(curr->variable->type->name));
+							item.detail = ToString("typeid %.*s::%.*s = %.*s", FMT_ISTR(type->name), FMT_ISTR(curr->variable->name->name), FMT_ISTR(curr->variable->type->name));
 
 							data.completions.items.push_back(item);
 						}
@@ -1151,7 +1151,7 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 							CompletionItem item;
 
-							item.label = std::string(variable->name.begin, variable->name.end);
+							item.label = std::string(variable->name->name.begin, variable->name->name.end);
 							item.kind = CompletionItemKind::Field;
 							item.detail = GetMemberSignature(node->value->type, variable);
 

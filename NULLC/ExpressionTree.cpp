@@ -560,7 +560,7 @@ namespace
 
 		assert(!type->isGeneric);
 
-		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, alignment, type, name, offset, uniqueId);
+		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, alignment, type, new (ctx.get<SynIdentifier>()) SynIdentifier(name), offset, uniqueId);
 
 		variable->isReadonly = readonly;
 
@@ -576,7 +576,7 @@ namespace
 
 		assert(!type->isGeneric);
 
-		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, type->alignment, type, InplaceStr(name), 0, ctx.uniqueVariableId++);
+		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, type->alignment, type, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr(name)), 0, ctx.uniqueVariableId++);
 
 		if (IsLookupOnlyVariable(ctx, variable))
 			variable->lookupOnly = true;
@@ -1558,7 +1558,7 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 
 	result->typeScope = scope;
 
-	result->members.push_back(new (get<VariableHandle>()) VariableHandle(NULL, new (get<VariableData>()) VariableData(allocator, NULL, scope, 4, typeInt, InplaceStr("size"), NULLC_PTR_SIZE, uniqueVariableId++)));
+	result->members.push_back(new (get<VariableHandle>()) VariableHandle(NULL, new (get<VariableData>()) VariableData(allocator, NULL, scope, 4, typeInt, new (get<SynIdentifier>()) SynIdentifier(InplaceStr("size")), NULLC_PTR_SIZE, uniqueVariableId++)));
 	result->members.tail->variable->isReadonly = true;
 
 	result->alignment = 4;
@@ -2356,7 +2356,7 @@ ExprBase* GetFunctionUpvalue(ExpressionContext &ctx, SynBase *source, VariableDa
 	TypeBase *type = ctx.GetReferenceType(ctx.typeVoid);
 
 	unsigned offset = AllocateGlobalVariable(ctx, source, type->alignment, type->size);
-	VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.globalScope, type->alignment, type, upvalueName, offset, ctx.uniqueVariableId++);
+	VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.globalScope, type->alignment, type, new (ctx.get<SynIdentifier>()) SynIdentifier(upvalueName), offset, ctx.uniqueVariableId++);
 
 	ctx.globalScope->variables.push_back(variable);
 	ctx.globalScope->allVariables.push_back(variable);
@@ -3496,21 +3496,21 @@ VariableData* AddFunctionUpvalue(ExpressionContext &ctx, SynBase *source, Functi
 
 	unsigned index = 0;
 
-	if(function->upvalueNameSet.contains(data->name))
+	if(function->upvalueNameSet.contains(data->name->name))
 		index = classType->members.size();
 
 	// Pointer to target variable
-	VariableData *target = AllocateClassMember(ctx, source, 0, ctx.GetReferenceType(data->type), GetFunctionContextMemberName(ctx, data->name, InplaceStr("target"), index), true, ctx.uniqueVariableId++);
+	VariableData *target = AllocateClassMember(ctx, source, 0, ctx.GetReferenceType(data->type), GetFunctionContextMemberName(ctx, data->name->name, InplaceStr("target"), index), true, ctx.uniqueVariableId++);
 
 	classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, target));
 
 	// Pointer to next upvalue
-	VariableData *nextUpvalue = AllocateClassMember(ctx, source, 0, ctx.GetReferenceType(ctx.typeVoid), GetFunctionContextMemberName(ctx, data->name, InplaceStr("nextUpvalue"), index), true, ctx.uniqueVariableId++);
+	VariableData *nextUpvalue = AllocateClassMember(ctx, source, 0, ctx.GetReferenceType(ctx.typeVoid), GetFunctionContextMemberName(ctx, data->name->name, InplaceStr("nextUpvalue"), index), true, ctx.uniqueVariableId++);
 
 	classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, nextUpvalue));
 
 	// Copy of the data
-	VariableData *copy = AllocateClassMember(ctx, source, data->alignment, data->type, GetFunctionContextMemberName(ctx, data->name, InplaceStr("copy"), index), true, ctx.uniqueVariableId++);
+	VariableData *copy = AllocateClassMember(ctx, source, data->alignment, data->type, GetFunctionContextMemberName(ctx, data->name->name, InplaceStr("copy"), index), true, ctx.uniqueVariableId++);
 
 	classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, copy));
 
@@ -3523,7 +3523,7 @@ VariableData* AddFunctionUpvalue(ExpressionContext &ctx, SynBase *source, Functi
 	function->upvalues.push_back(upvalue);
 
 	function->upvalueVariableMap.insert(data, upvalue);
-	function->upvalueNameSet.insert(data->name);
+	function->upvalueNameSet.insert(data->name->name);
 
 	return target;
 }
@@ -3547,11 +3547,11 @@ VariableData* AddFunctionCoroutineVariable(ExpressionContext &ctx, SynBase *sour
 
 	unsigned index = 0;
 
-	if(function->coroutineStateNameSet.contains(data->name))
+	if(function->coroutineStateNameSet.contains(data->name->name))
 		index = classType->members.size();
 
 	// Copy of the data
-	VariableData *storage = AllocateClassMember(ctx, source, data->alignment, data->type, GetFunctionContextMemberName(ctx, data->name, InplaceStr("storage"), index), true, ctx.uniqueVariableId++);
+	VariableData *storage = AllocateClassMember(ctx, source, data->alignment, data->type, GetFunctionContextMemberName(ctx, data->name->name, InplaceStr("storage"), index), true, ctx.uniqueVariableId++);
 
 	classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage));
 
@@ -3562,7 +3562,7 @@ VariableData* AddFunctionCoroutineVariable(ExpressionContext &ctx, SynBase *sour
 	function->coroutineState.push_back(state);
 
 	function->coroutineStateVariableMap.insert(data, state);
-	function->coroutineStateNameSet.insert(data->name);
+	function->coroutineStateNameSet.insert(data->name->name);
 
 	return storage;
 }
@@ -3570,7 +3570,7 @@ VariableData* AddFunctionCoroutineVariable(ExpressionContext &ctx, SynBase *sour
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, VariableData *variable, bool handleReference)
 {
 	if(variable->type == ctx.typeAuto)
-		Stop(ctx, source, "ERROR: variable '%.*s' is being used while its type is unknown", FMT_ISTR(variable->name));
+		Stop(ctx, source, "ERROR: variable '%.*s' is being used while its type is unknown", FMT_ISTR(variable->name->name));
 
 	// Is this is a class member access
 	if(variable->scope->ownerType)
@@ -3606,7 +3606,7 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Variable
 	if(externalAccess)
 	{
 		if(currentFunction->scope->ownerType)
-			Stop(ctx, source, "ERROR: member function '%.*s' cannot access external variable '%.*s'", FMT_ISTR(currentFunction->name->name), FMT_ISTR(variable->name));
+			Stop(ctx, source, "ERROR: member function '%.*s' cannot access external variable '%.*s'", FMT_ISTR(currentFunction->name->name), FMT_ISTR(variable->name->name));
 
 		ExprBase *context = new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(source, currentFunction->contextArgument->type, currentFunction->contextArgument);
 
@@ -4118,7 +4118,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 	{
 		for(VariableHandle *curr = structType->members.head; curr; curr = curr->next)
 		{
-			if(curr->variable->name == member->name)
+			if(curr->variable->name->name == member->name)
 				return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, curr->variable->type);
 		}
 
@@ -4274,7 +4274,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 			// Search for a member variable
 			for(VariableHandle *el = node->members.head; el; el = el->next)
 			{
-				if(el->variable->name == member->name)
+				if(el->variable->name->name == member->name)
 				{
 					// Member access only shifts an address, so we are left with a reference to get value from
 					ExprMemberAccess *shift = new (ctx.get<ExprMemberAccess>()) ExprMemberAccess(source, ctx.GetReferenceType(el->variable->type), wrapped, new (ctx.get<VariableHandle>()) VariableHandle(member, el->variable));
@@ -5468,7 +5468,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 				if(!type)
 					break;
 
-				ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, argument, ctx.scope, 0, type, argument->name->name, 0, ctx.uniqueVariableId++));
+				ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, argument, ctx.scope, 0, type, argument->name, 0, ctx.uniqueVariableId++));
 
 				types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(type));
 			}
@@ -6151,7 +6151,7 @@ ExprBase* GetFunctionTable(ExpressionContext &ctx, SynBase *source, FunctionData
 	TypeBase *type = ctx.GetUnsizedArrayType(ctx.typeFunctionID);
 
 	unsigned offset = AllocateGlobalVariable(ctx, source, type->alignment, type->size);
-	VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.globalScope, type->alignment, type, vtableName, offset, ctx.uniqueVariableId++);
+	VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.globalScope, type->alignment, type, new (ctx.get<SynIdentifier>()) SynIdentifier(vtableName), offset, ctx.uniqueVariableId++);
 
 	ctx.globalScope->variables.push_back(variable);
 	ctx.globalScope->allVariables.push_back(variable);
@@ -6704,7 +6704,7 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 					{
 						for(VariableHandle *curr = memberSet->type->members.head; curr; curr = curr->next)
 						{
-							if(curr->variable->name == name->name)
+							if(curr->variable->name->name == name->name)
 								return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(syntax, ctx.typeBool, true);
 						}
 
@@ -7146,7 +7146,7 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 
 	CheckVariableConflict(ctx, syntax, fullName);
 
-	VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, 0, type, fullName, 0, ctx.uniqueVariableId++);
+	VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, 0, type, new (ctx.get<SynIdentifier>()) SynIdentifier(syntax->name, fullName), 0, ctx.uniqueVariableId++);
 
 	if (IsLookupOnlyVariable(ctx, variable))
 		variable->lookupOnly = true;
@@ -7258,7 +7258,7 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 		// Introduce 'this' variable into a temporary scope
 		ctx.PushTemporaryScope();
 
-		ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, 0, ctx.GetReferenceType(parentType), InplaceStr("this"), 0, ctx.uniqueVariableId++));
+		ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, 0, ctx.GetReferenceType(parentType), new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("this")), 0, ctx.uniqueVariableId++));
 	}
 
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
@@ -7301,7 +7301,9 @@ ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, Sy
 
 	unsigned offset = AllocateArgumentInScope(ctx, source, 0, type);
 
-	function->contextArgument = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, type, InplaceStr(function->scope->ownerType ? "this" : "$context"), offset, ctx.uniqueVariableId++);
+	SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr(function->scope->ownerType ? "this" : "$context"));
+
+	function->contextArgument = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, type, nameIdentifier, offset, ctx.uniqueVariableId++);
 
 	ctx.AddVariable(function->contextArgument);
 
@@ -7339,7 +7341,10 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 	{
 		// Create a variable holding a reference to a closure
 		unsigned offset = AllocateVariableInScope(ctx, source, refType->alignment, refType);
-		context = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function, ctx.GetFunctionIndex(function)), offset, ctx.uniqueVariableId++);
+
+		SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(GetFunctionContextVariableName(ctx, function, ctx.GetFunctionIndex(function)));
+
+		context = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, refType->alignment, refType, nameIdentifier, offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(context);
 	}
@@ -7437,7 +7442,7 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, Fu
 		CheckVariableConflict(ctx, argument.source, argument.name->name);
 
 		unsigned offset = AllocateArgumentInScope(ctx, source, 4, argument.type);
-		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, argument.source, ctx.scope, 0, argument.type, argument.name->name, offset, ctx.uniqueVariableId++);
+		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, argument.source, ctx.scope, 0, argument.type, argument.name, offset, ctx.uniqueVariableId++);
 
 		if(TypeClass *classType = getType<TypeClass>(variable->type))
 		{
@@ -7550,7 +7555,7 @@ void AnalyzeFunctionArguments(ExpressionContext &ctx, IntrusiveList<SynFunctionA
 			{
 				ArgumentData &data = argData[pos++];
 
-				ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, prevArg, ctx.scope, 0, data.type, data.name->name, 0, ctx.uniqueVariableId++));
+				ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, prevArg, ctx.scope, 0, data.type, data.name, 0, ctx.uniqueVariableId++));
 			}
 
 			bool failed = false;
@@ -7746,7 +7751,10 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		if(function->coroutine)
 		{
 			unsigned offset = AllocateVariableInScope(ctx, source, ctx.typeInt->alignment, ctx.typeInt);
-			function->coroutineJumpOffset = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, ctx.typeInt, InplaceStr("$jmpOffset"), offset, ctx.uniqueVariableId++);
+
+			SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$jmpOffset"));
+
+			function->coroutineJumpOffset = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, ctx.typeInt, nameIdentifier, offset, ctx.uniqueVariableId++);
 
 			if (IsLookupOnlyVariable(ctx, function->coroutineJumpOffset))
 				function->coroutineJumpOffset->lookupOnly = true;
@@ -7817,7 +7825,9 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 		assert(refType);
 
-		VariableData *context = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, refType->alignment, refType, GetFunctionContextVariableName(ctx, function, ctx.GetFunctionIndex(function)), 0, ctx.uniqueVariableId++);
+		SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(GetFunctionContextVariableName(ctx, function, ctx.GetFunctionIndex(function)));
+
+		VariableData *context = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, refType->alignment, refType, nameIdentifier, 0, ctx.uniqueVariableId++);
 
 		context->isAlloca = true;
 		context->offset = ~0u;
@@ -8012,7 +8022,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		CheckVariableConflict(ctx, syntax, el->name->name);
 
 		unsigned offset = AllocateVariableInScope(ctx, syntax, el->type->alignment, el->type);
-		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, el->type->alignment, el->type, el->name->name, offset, ctx.uniqueVariableId++);
+		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, el->type->alignment, el->type, el->name, offset, ctx.uniqueVariableId++);
 
 		if (IsLookupOnlyVariable(ctx, variable))
 			variable->lookupOnly = true;
@@ -8093,7 +8103,10 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 	if(function->coroutine)
 	{
 		unsigned offset = AllocateVariableInScope(ctx, syntax, ctx.typeInt->alignment, ctx.typeInt);
-		function->coroutineJumpOffset = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, 0, ctx.typeInt, InplaceStr("$jmpOffset"), offset, ctx.uniqueVariableId++);
+
+		SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$jmpOffset"));
+
+		function->coroutineJumpOffset = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, 0, ctx.typeInt, nameIdentifier, offset, ctx.uniqueVariableId++);
 
 		if (IsLookupOnlyVariable(ctx, function->coroutineJumpOffset))
 			function->coroutineJumpOffset->lookupOnly = true;
@@ -8473,7 +8486,7 @@ void CreateDefaultConstructorCode(ExpressionContext &ctx, SynBase *source, TypeC
 
 		ExprBase *member = CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, variable, true));
 
-		if(variable->name == InplaceStr("$typeid"))
+		if(variable->name->name == InplaceStr("$typeid"))
 		{
 			expressions.push_back(CreateAssignment(ctx, source, member, new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, classType)));
 			continue;
@@ -8663,13 +8676,13 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 
 			ExprBase *left = CreateVariableAccess(ctx, source, leftArgument, false);
 
-			ExprBase *leftMember = CreateMemberAccess(ctx, source, left, new (ctx.get<SynIdentifier>()) SynIdentifier(curr->variable->name), false);
+			ExprBase *leftMember = CreateMemberAccess(ctx, source, left, curr->variable->name, false);
 
 			VariableData *rightArgument = getType<ExprVariableDefinition>(variables.head->next)->variable->variable;
 
 			ExprBase *right = CreateVariableAccess(ctx, source, rightArgument, false);
 
-			ExprBase *rightMember = CreateMemberAccess(ctx, source, right, new (ctx.get<SynIdentifier>()) SynIdentifier(curr->variable->name), false);
+			ExprBase *rightMember = CreateMemberAccess(ctx, source, right, curr->variable->name, false);
 
 			expressions.push_back(CreateAssignment(ctx, source, leftMember, rightMember));
 		}
@@ -8992,7 +9005,10 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	if(extendable)
 	{
 		unsigned offset = AllocateVariableInScope(ctx, syntax, ctx.typeTypeID->alignment, ctx.typeTypeID);
-		VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, ctx.typeTypeID->alignment, ctx.typeTypeID, InplaceStr("$typeid"), offset, ctx.uniqueVariableId++);
+
+		SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$typeid"));
+
+		VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, ctx.typeTypeID->alignment, ctx.typeTypeID, nameIdentifier, offset, ctx.uniqueVariableId++);
 
 		ctx.AddVariable(member);
 
@@ -9014,10 +9030,10 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		for(VariableHandle *el = baseClass->members.head; el; el = el->next)
 		{
-			if(el->variable->name == InplaceStr("$typeid"))
+			if(el->variable->name->name == InplaceStr("$typeid"))
 				continue;
 
-			CheckVariableConflict(ctx, syntax, el->variable->name);
+			CheckVariableConflict(ctx, syntax, el->variable->name->name);
 
 			unsigned offset = AllocateVariableInScope(ctx, syntax, el->variable->alignment, el->variable->type);
 
@@ -9489,7 +9505,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			CheckVariableConflict(ctx, curr, curr->name->name);
 
 			unsigned variableOffset = AllocateVariableInScope(ctx, curr, type->alignment, type);
-			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, curr, ctx.scope, type->alignment, type, curr->name->name, variableOffset, ctx.uniqueVariableId++);
+			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
 
 			variable->isReference = true;
 
@@ -9554,7 +9570,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			CheckVariableConflict(ctx, curr, curr->name->name);
 
 			unsigned variableOffset = AllocateVariableInScope(ctx, curr, type->alignment, type);
-			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, curr, ctx.scope, type->alignment, type, curr->name->name, variableOffset, ctx.uniqueVariableId++);
+			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
 
 			if (IsLookupOnlyVariable(ctx, variable))
 				variable->lookupOnly = true;
@@ -9604,7 +9620,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			CheckVariableConflict(ctx, curr, curr->name->name);
 
 			unsigned variableOffset = AllocateVariableInScope(ctx, curr, type->alignment, type);
-			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, curr, ctx.scope, type->alignment, type, curr->name->name, variableOffset, ctx.uniqueVariableId++);
+			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, curr, ctx.scope, type->alignment, type, curr->name, variableOffset, ctx.uniqueVariableId++);
 
 			variable->isReference = isType<TypeRef>(type);
 
@@ -10670,6 +10686,9 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					for(unsigned n = 0; n < type.memberCount; n++)
 					{
 						InplaceStr memberName = InplaceStr(memberNames);
+
+						SynIdentifier *memberNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(memberName);
+
 						memberNames = memberName.end + 1;
 
 						TypeBase *memberType = moduleCtx.types[memberList[type.memberOffset + n].type];
@@ -10677,7 +10696,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						if(!memberType)
 							Stop(ctx, source, "ERROR: can't find member %d type for '%s' in module %.*s", n + 1, symbols + type.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
-						VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, memberType, memberName, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
+						VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, memberType, memberNameIdentifier, memberList[type.memberOffset + n].offset, ctx.uniqueVariableId++);
 
 						structType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(source, member));
 					}
@@ -10755,7 +10774,9 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 		if(!type)
 			Stop(ctx, source, "ERROR: can't find variable '%s' type in module %.*s", symbols + variable.offsetToName, FMT_ISTR(moduleCtx.data->name));
 
-		VariableData *data = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, type, name, variable.offset, ctx.uniqueVariableId++);
+		SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(name);
+
+		VariableData *data = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, type, nameIdentifier, variable.offset, ctx.uniqueVariableId++);
 
 		data->importModule = moduleCtx.data;
 
@@ -10990,7 +11011,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			data->arguments.push_back(ArgumentData(source, isExplicit, argNameIdentifier, argType, NULL));
 
 			unsigned offset = AllocateArgumentInScope(ctx, source, 0, argType);
-			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, argType, argName, offset, ctx.uniqueVariableId++);
+			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, argType, argNameIdentifier, offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 		}
@@ -11002,14 +11023,20 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			TypeBase *type = ctx.GetReferenceType(parentType);
 
 			unsigned offset = AllocateArgumentInScope(ctx, source, 0, type);
-			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, type, InplaceStr("this"), offset, ctx.uniqueVariableId++);
+
+			SynIdentifier *argNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("this"));
+
+			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, type, argNameIdentifier, offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 		}
 		else if(contextType)
 		{
 			unsigned offset = AllocateArgumentInScope(ctx, source, 0, contextType);
-			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, contextType, InplaceStr("$context"), offset, ctx.uniqueVariableId++);
+
+			SynIdentifier *argNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$context"));
+
+			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, contextType, argNameIdentifier, offset, ctx.uniqueVariableId++);
 
 			ctx.AddVariable(variable);
 		}
@@ -11223,10 +11250,10 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 	IntrusiveList<ExprBase> expressions;
 
 	// Find function name
-	InplaceStr name = InplaceStr(vtable->name.begin + 15); // 15 to skip $vtbl0123456789 from name
+	InplaceStr name = InplaceStr(vtable->name->name.begin + 15); // 15 to skip $vtbl0123456789 from name
 
 	// Find function type from name
-	unsigned typeNameHash = strtoul(vtable->name.begin + 5, NULL, 10);
+	unsigned typeNameHash = strtoul(vtable->name->name.begin + 5, NULL, 10);
 
 	TypeBase *functionType = NULL;
 
@@ -11240,7 +11267,7 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 	}
 
 	if(!functionType)
-		Stop(ctx, source, "ERROR: Can't find function type for virtual function table '%.*s'", FMT_ISTR(vtable->name));
+		Stop(ctx, source, "ERROR: Can't find function type for virtual function table '%.*s'", FMT_ISTR(vtable->name->name));
 
 	if(vtable->importModule == NULL)
 	{
