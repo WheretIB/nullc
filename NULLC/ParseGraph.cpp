@@ -121,7 +121,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynTypeAlias *node = getType<SynTypeAlias>(syntax))
 	{
-		PrintIndented(ctx, name, "SynTypeAlias(%.*s)", FMT_ISTR(node->name));
+		PrintIndented(ctx, name, "SynTypeAlias(%.*s)", FMT_ISTR(node->name->name));
 	}
 	else if(SynTypeArray *node = getType<SynTypeArray>(syntax))
 	{
@@ -232,7 +232,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynTypedef *node = getType<SynTypedef>(syntax))
 	{
-		PrintEnterBlock(ctx, name, "SynTypedef(%.*s)", FMT_ISTR(node->alias));
+		PrintEnterBlock(ctx, name, "SynTypedef(%.*s)", FMT_ISTR(node->alias->name));
 
 		PrintGraph(ctx, node->type, "type");
 
@@ -251,7 +251,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynCallArgument *node = getType<SynCallArgument>(syntax))
 	{
-		PrintEnterBlock(ctx, name, "SynCallArgument(%.*s)", FMT_ISTR(node->name));
+		PrintEnterBlock(ctx, name, "SynCallArgument(%.*s)", FMT_ISTR(node->name->name));
 
 		PrintGraph(ctx, node->value, "value");
 
@@ -432,7 +432,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynForEachIterator *node = getType<SynForEachIterator>(syntax))
 	{
-		PrintEnterBlock(ctx, name, "SynForEachIterator(%.*s)", FMT_ISTR(node->name));
+		PrintEnterBlock(ctx, name, "SynForEachIterator(%.*s)", FMT_ISTR(node->name->name));
 
 		PrintGraph(ctx, node->type, "type");
 		PrintGraph(ctx, node->value, "value");
@@ -576,7 +576,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynAccessor *node = getType<SynAccessor>(syntax))
 	{
-		PrintEnterBlock(ctx, name, "SynAccessor(%.*s, %.*s)", FMT_ISTR(node->name.name), FMT_ISTR(node->setName));
+		PrintEnterBlock(ctx, name, "SynAccessor(%.*s, %.*s)", FMT_ISTR(node->name->name), FMT_ISTR(node->setName->name));
 
 		PrintGraph(ctx, node->getBlock, "getBlock");
 		PrintGraph(ctx, node->setBlock, "setBlock");
@@ -585,7 +585,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynFunctionArgument *node = getType<SynFunctionArgument>(syntax))
 	{
-		PrintEnterBlock(ctx, name, "SynFunctionArgument(%s%.*s)", node->isExplicit ? "explicit, " : "", FMT_ISTR(node->name));
+		PrintEnterBlock(ctx, name, "SynFunctionArgument(%s%.*s)", node->isExplicit ? "explicit, " : "", FMT_ISTR(node->name->name));
 
 		PrintGraph(ctx, node->type, "type");
 		PrintGraph(ctx, node->initializer, "initializer");
@@ -594,7 +594,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynFunctionDefinition *node = getType<SynFunctionDefinition>(syntax))
 	{
-		PrintEnterBlock(ctx, name, "SynFunctionDefinition(%s%s%s%.*s)", node->prototype ? "prototype, " : "", node->coroutine ? "coroutine, " : "", node->accessor ? "accessor, " : "", FMT_ISTR(node->name.name));
+		PrintEnterBlock(ctx, name, "SynFunctionDefinition(%s%s%s%.*s)", node->prototype ? "prototype, " : "", node->coroutine ? "coroutine, " : "", node->accessor ? "accessor, " : "", FMT_ISTR(node->name->name));
 
 		PrintGraph(ctx, node->parentType, "parentType");
 		PrintGraph(ctx, node->returnType, "returnType");
@@ -624,7 +624,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynShortFunctionArgument *node = getType<SynShortFunctionArgument>(syntax))
 	{
-		PrintEnterBlock(ctx, name, "SynShortFunctionArgument(%.*s)", FMT_ISTR(node->name));
+		PrintEnterBlock(ctx, name, "SynShortFunctionArgument(%.*s)", FMT_ISTR(node->name->name));
 
 		PrintGraph(ctx, node->type, "type");
 
@@ -652,7 +652,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynConstant *node = getType<SynConstant>(syntax))
 	{
-		PrintEnterBlock(ctx, name, "SynConstant(%.*s)", FMT_ISTR(node->name));
+		PrintEnterBlock(ctx, name, "SynConstant(%.*s)", FMT_ISTR(node->name->name));
 
 		PrintGraph(ctx, node->value, "value");
 
@@ -675,7 +675,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynClassPrototype *node = getType<SynClassPrototype>(syntax))
 	{
-		PrintIndented(ctx, name, "SynClassPrototype(%.*s)", FMT_ISTR(node->name));
+		PrintIndented(ctx, name, "SynClassPrototype(%.*s)", FMT_ISTR(node->name->name));
 	}
 	else if(SynClassStaticIf *node = getType<SynClassStaticIf>(syntax))
 	{
@@ -755,7 +755,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynClassDefinition *node = getType<SynClassDefinition>(syntax))
 	{
-		PrintEnterBlock(ctx, name, "SynClassDefinition(%.*s%s)", FMT_ISTR(node->name), node->extendable ? ", extendable" : "");
+		PrintEnterBlock(ctx, name, "SynClassDefinition(%.*s%s)", FMT_ISTR(node->name->name), node->extendable ? ", extendable" : "");
 
 		PrintGraph(ctx, node->align, "align");
 
@@ -773,7 +773,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynEnumDefinition *node = getType<SynEnumDefinition>(syntax))
 	{
-		PrintEnterBlock(ctx, name, "SynEnumDefinition(%.*s)", FMT_ISTR(node->name));
+		PrintEnterBlock(ctx, name, "SynEnumDefinition(%.*s)", FMT_ISTR(node->name->name));
 
 		for(SynBase *arg = node->values.head; arg; arg = arg->next)
 			PrintGraph(ctx, arg, "");

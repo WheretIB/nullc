@@ -205,11 +205,12 @@ struct VariableDataHasher
 
 struct MatchData
 {
-	MatchData(InplaceStr name, TypeBase *type): name(name), type(type), next(0), listed(false)
+	MatchData(SynIdentifier* name, TypeBase *type): name(name), type(type), next(0), listed(false)
 	{
+		assert(name);
 	}
 
-	InplaceStr name;
+	SynIdentifier* name;
 	TypeBase *type;
 
 	MatchData *next;
@@ -218,17 +219,17 @@ struct MatchData
 
 struct ArgumentData
 {
-	ArgumentData(): source(0), isExplicit(false), type(0), value(0), valueFunction(0)
+	ArgumentData(): source(0), isExplicit(false), name(0), type(0), value(0), valueFunction(0)
 	{
 	}
 
-	ArgumentData(SynBase *source, bool isExplicit, InplaceStr name, TypeBase *type, ExprBase *value): source(source), isExplicit(isExplicit), name(name), type(type), value(value), valueFunction(0)
+	ArgumentData(SynBase *source, bool isExplicit, SynIdentifier *name, TypeBase *type, ExprBase *value): source(source), isExplicit(isExplicit), name(name), type(type), value(value), valueFunction(0)
 	{
 	}
 
 	SynBase *source;
 	bool isExplicit;
-	InplaceStr name;
+	SynIdentifier *name;
 	TypeBase *type;
 	ExprBase *value;
 	FunctionData *valueFunction;
@@ -304,7 +305,7 @@ struct CloseUpvaluesData
 
 struct FunctionData
 {
-	FunctionData(Allocator *allocator, SynBase *source, ScopeData *scope, bool coroutine, bool accessor, bool isOperator, TypeFunction *type, TypeBase *contextType, SynIdentifier name, IntrusiveList<MatchData> generics, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), accessor(accessor), isOperator(isOperator), type(type), contextType(contextType), name(name), generics(generics), uniqueId(uniqueId), arguments(allocator), instances(allocator), upvalueVariableMap(allocator), upvalueNameSet(allocator), coroutineStateVariableMap(allocator), coroutineStateNameSet(allocator)
+	FunctionData(Allocator *allocator, SynBase *source, ScopeData *scope, bool coroutine, bool accessor, bool isOperator, TypeFunction *type, TypeBase *contextType, SynIdentifier *name, IntrusiveList<MatchData> generics, unsigned uniqueId): source(source), scope(scope), coroutine(coroutine), accessor(accessor), isOperator(isOperator), type(type), contextType(contextType), name(name), generics(generics), uniqueId(uniqueId), arguments(allocator), instances(allocator), upvalueVariableMap(allocator), upvalueNameSet(allocator), coroutineStateVariableMap(allocator), coroutineStateNameSet(allocator)
 	{
 		importModule = 0;
 
@@ -312,7 +313,7 @@ struct FunctionData
 
 		isHidden = false;
 
-		nameHash = name.name.hash();
+		nameHash = name->name.hash();
 
 		functionIndex = ~0u;
 
@@ -363,7 +364,7 @@ struct FunctionData
 
 	TypeBase *contextType;
 
-	SynIdentifier name;
+	SynIdentifier *name;
 	unsigned nameHash;
 
 	unsigned functionIndex;
@@ -427,11 +428,11 @@ struct FunctionData
 
 struct AliasData
 {
-	AliasData(SynBase *source, ScopeData *scope, TypeBase *type, InplaceStr name, unsigned uniqueId): source(source), scope(scope), type(type), name(name), uniqueId(uniqueId)
+	AliasData(SynBase *source, ScopeData *scope, TypeBase *type, SynIdentifier *name, unsigned uniqueId): source(source), scope(scope), type(type), name(name), uniqueId(uniqueId)
 	{
 		importModule = NULL;
 
-		nameHash = GetStringHash(name.begin, name.end);
+		nameHash = name->name.hash();
 	}
 
 	SynBase *source;
@@ -442,7 +443,7 @@ struct AliasData
 
 	TypeBase *type;
 
-	InplaceStr name;
+	SynIdentifier *name;
 	unsigned nameHash;
 
 	unsigned uniqueId;
@@ -560,11 +561,11 @@ private:
 
 struct ConstantData
 {
-	ConstantData(InplaceStr name, ExprBase *value): name(name), value(value), next(0), listed(false)
+	ConstantData(SynIdentifier *name, ExprBase *value): name(name), value(value), next(0), listed(false)
 	{
 	}
 
-	InplaceStr name;
+	SynIdentifier *name;
 	ExprBase *value;
 
 	ConstantData *next;
@@ -773,12 +774,14 @@ struct TypeGeneric: TypeBase
 
 struct TypeGenericAlias: TypeBase
 {
-	TypeGenericAlias(InplaceStr name, InplaceStr baseName): TypeBase(myTypeID, name), baseName(baseName)
+	TypeGenericAlias(InplaceStr name, SynIdentifier *baseName): TypeBase(myTypeID, name), baseName(baseName)
 	{
+		assert(baseName);
+
 		isGeneric = true;
 	}
 
-	InplaceStr baseName;
+	SynIdentifier *baseName;
 
 	static const unsigned myTypeID = __LINE__;
 };

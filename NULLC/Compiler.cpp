@@ -789,14 +789,14 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			{
 				typedefCount++;
 
-				symbolStorageSize += curr->name.length() + 1;
+				symbolStorageSize += curr->name->name.length() + 1;
 			}
 
 			for(MatchData *curr = typeClass->aliases.head; curr; curr = curr->next)
 			{
 				typedefCount++;
 
-				symbolStorageSize += curr->name.length() + 1;
+				symbolStorageSize += curr->name->name.length() + 1;
 			}
 
 			for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
@@ -816,7 +816,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			{
 				allConstantCount++;
 
-				symbolStorageSize += curr->name.length() + 1;
+				symbolStorageSize += curr->name->name.length() + 1;
 			}
 		}
 		else if(TypeStruct *typeStruct = getType<TypeStruct>(type))
@@ -838,7 +838,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			{
 				allConstantCount++;
 
-				symbolStorageSize += curr->name.length() + 1;
+				symbolStorageSize += curr->name->name.length() + 1;
 			}
 		}
 		else if(TypeFunction *typeFunction = getType<TypeFunction>(type))
@@ -906,7 +906,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		{
 			externVariableInfoCount++;
 
-			symbolStorageSize += curr->name.length() + 1;
+			symbolStorageSize += curr->name->name.length() + 1;
 		}
 	}
 
@@ -927,7 +927,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 		exportedFunctionCount++;
 
-		symbolStorageSize += function->name.name.length() + 1;
+		symbolStorageSize += function->name->name.length() + 1;
 
 		localCount += function->arguments.size();
 
@@ -935,7 +935,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		{
 			ArgumentData argument = function->arguments[i];
 
-			symbolStorageSize += argument.name.length() + 1;
+			symbolStorageSize += argument.name->name.length() + 1;
 		}
 
 		if(VariableData *variable = function->contextArgument)
@@ -999,7 +999,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 		typedefCount++;
 
-		symbolStorageSize += alias->name.length() + 1;
+		symbolStorageSize += alias->name->name.length() + 1;
 	}
 
 	unsigned offsetToTypedef = size;
@@ -1255,7 +1255,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 					memcpy(&constant.value, &node->value, sizeof(node->value));
 				}
 
-				debugSymbols.push_back(curr->name.begin, curr->name.length());
+				debugSymbols.push_back(curr->name->name.begin, curr->name->name.length());
 				debugSymbols.push_back(0);
 			}
 
@@ -1597,7 +1597,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			local.closeListID = 0;
 
 			local.offsetToName = debugSymbols.count;
-			debugSymbols.push_back(argument.name.begin, argument.name.length());
+			debugSymbols.push_back(argument.name->name.begin, argument.name->name.length());
 			debugSymbols.push_back(0);
 
 			if (!isGenericFunction)
@@ -1685,7 +1685,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		funcInfo.externCount = function->upvalues.size();
 
 		funcInfo.offsetToName = debugSymbols.count;
-		debugSymbols.push_back(function->name.name.begin, function->name.name.length());
+		debugSymbols.push_back(function->name->name.begin, function->name->name.length());
 		debugSymbols.push_back(0);
 
 		for(MatchData *curr = function->generics.head; curr; curr = curr->next)
@@ -1695,10 +1695,10 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			ExternVarInfo &varInfo = vInfo.push_back();
 
 			varInfo.offsetToName = debugSymbols.count;
-			debugSymbols.push_back(curr->name.begin, curr->name.length());
+			debugSymbols.push_back(curr->name->name.begin, curr->name->name.length());
 			debugSymbols.push_back(0);
 
-			varInfo.nameHash = curr->name.hash();
+			varInfo.nameHash = curr->name->name.hash();
 
 			varInfo.type = curr->type->typeIndex;
 			varInfo.offset = 0;
@@ -1747,7 +1747,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		AliasData *alias = ctx.exprCtx.globalScope->aliases[i];
 
 		currAlias->offsetToName = debugSymbols.count;
-		debugSymbols.push_back(alias->name.begin, alias->name.length());
+		debugSymbols.push_back(alias->name->name.begin, alias->name->name.length());
 		debugSymbols.push_back(0);
 
 		currAlias->targetType = alias->type->typeIndex;
@@ -1765,7 +1765,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			for(MatchData *curr = typeClass->generics.head; curr; curr = curr->next)
 			{
 				currAlias->offsetToName = debugSymbols.count;
-				debugSymbols.push_back(curr->name.begin, curr->name.length());
+				debugSymbols.push_back(curr->name->name.begin, curr->name->name.length());
 				debugSymbols.push_back(0);
 
 				currAlias->targetType = curr->type->typeIndex;
@@ -1776,7 +1776,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			for(MatchData *curr = typeClass->aliases.head; curr; curr = curr->next)
 			{
 				currAlias->offsetToName = debugSymbols.count;
-				debugSymbols.push_back(curr->name.begin, curr->name.length());
+				debugSymbols.push_back(curr->name->name.begin, curr->name->name.length());
 				debugSymbols.push_back(0);
 
 				currAlias->targetType = curr->type->typeIndex;

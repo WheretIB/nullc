@@ -1910,7 +1910,7 @@ ExprBase* EvaluateFunctionAccess(ExpressionEvalContext &ctx, ExprFunctionAccess 
 
 ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *expression, ExprFunctionLiteral *ptr, ArrayView<ExprBase*> arguments)
 {
-	if(ptr->data->name.name == InplaceStr("assert") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
+	if(ptr->data->name->name == InplaceStr("assert") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
 	{
 		long long value;
 		if(!TryTakeLong(arguments[0], value))
@@ -1921,7 +1921,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
-	else if(ptr->data->name.name == InplaceStr("assert") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeInt && arguments[1]->type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
+	else if(ptr->data->name->name == InplaceStr("assert") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeInt && arguments[1]->type == ctx.ctx.GetUnsizedArrayType(ctx.ctx.typeChar))
 	{
 		long long value;
 		if(!TryTakeLong(arguments[0], value))
@@ -1942,7 +1942,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
-	else if(ptr->data->name.name == InplaceStr("bool") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeBool)
+	else if(ptr->data->name->name == InplaceStr("bool") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeBool)
 	{
 		long long value;
 		if(!TryTakeLong(arguments[0], value))
@@ -1950,7 +1950,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(expression->source, ctx.ctx.typeBool, value != 0));
 	}
-	else if(ptr->data->name.name == InplaceStr("char") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeChar)
+	else if(ptr->data->name->name == InplaceStr("char") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeChar)
 	{
 		long long value;
 		if(!TryTakeLong(arguments[0], value))
@@ -1958,7 +1958,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeChar, char(value)));
 	}
-	else if(ptr->data->name.name == InplaceStr("short") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeShort)
+	else if(ptr->data->name->name == InplaceStr("short") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeShort)
 	{
 		long long value;
 		if(!TryTakeLong(arguments[0], value))
@@ -1966,7 +1966,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeShort, short(value)));
 	}
-	else if(ptr->data->name.name == InplaceStr("int") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
+	else if(ptr->data->name->name == InplaceStr("int") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
 	{
 		long long value;
 		if(!TryTakeLong(arguments[0], value))
@@ -1974,7 +1974,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, int(value)));
 	}
-	else if(ptr->data->name.name == InplaceStr("long") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeLong)
+	else if(ptr->data->name->name == InplaceStr("long") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeLong)
 	{
 		long long value;
 		if(!TryTakeLong(arguments[0], value))
@@ -1982,7 +1982,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeLong, value));
 	}
-	else if(ptr->data->name.name == InplaceStr("float") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeFloat)
+	else if(ptr->data->name->name == InplaceStr("float") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeFloat)
 	{
 		double value;
 		if(!TryTakeDouble(arguments[0], value))
@@ -1990,7 +1990,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, ctx.ctx.typeFloat, value));
 	}
-	else if(ptr->data->name.name == InplaceStr("double") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeDouble)
+	else if(ptr->data->name->name == InplaceStr("double") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeDouble)
 	{
 		double value;
 		if(!TryTakeDouble(arguments[0], value))
@@ -1998,56 +1998,56 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(expression->source, ctx.ctx.typeDouble, value));
 	}
-	else if(ptr->data->name.name == InplaceStr("bool::bool") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeBool)
+	else if(ptr->data->name->name == InplaceStr("bool::bool") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeBool)
 	{
 		if(!CreateStore(ctx, ptr->context, arguments[0]))
 			return NULL;
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
-	else if(ptr->data->name.name == InplaceStr("char::char") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeChar)
+	else if(ptr->data->name->name == InplaceStr("char::char") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeChar)
 	{
 		if(!CreateStore(ctx, ptr->context, arguments[0]))
 			return NULL;
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
-	else if(ptr->data->name.name == InplaceStr("short::short") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeShort)
+	else if(ptr->data->name->name == InplaceStr("short::short") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeShort)
 	{
 		if(!CreateStore(ctx, ptr->context, arguments[0]))
 			return NULL;
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
-	else if(ptr->data->name.name == InplaceStr("int::int") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
+	else if(ptr->data->name->name == InplaceStr("int::int") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeInt)
 	{
 		if(!CreateStore(ctx, ptr->context, arguments[0]))
 			return NULL;
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
-	else if(ptr->data->name.name == InplaceStr("long::long") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeLong)
+	else if(ptr->data->name->name == InplaceStr("long::long") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeLong)
 	{
 		if(!CreateStore(ctx, ptr->context, arguments[0]))
 			return NULL;
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
-	else if(ptr->data->name.name == InplaceStr("float::float") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeFloat)
+	else if(ptr->data->name->name == InplaceStr("float::float") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeFloat)
 	{
 		if(!CreateStore(ctx, ptr->context, arguments[0]))
 			return NULL;
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
-	else if(ptr->data->name.name == InplaceStr("double::double") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeDouble)
+	else if(ptr->data->name->name == InplaceStr("double::double") && ptr->context && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeDouble)
 	{
 		if(!CreateStore(ctx, ptr->context, arguments[0]))
 			return NULL;
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
-	else if(ptr->data->name.name == InplaceStr("__newS"))
+	else if(ptr->data->name->name == InplaceStr("__newS"))
 	{
 		long long size;
 		if(!TryTakeLong(arguments[0], size))
@@ -2068,7 +2068,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.typeVoid), storage->ptr, storage->end));
 	}
-	else if(ptr->data->name.name == InplaceStr("__newA"))
+	else if(ptr->data->name->name == InplaceStr("__newA"))
 	{
 		long long size;
 		if(!TryTakeLong(arguments[0], size))
@@ -2101,7 +2101,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, result);
 	}
-	else if(ptr->data->name.name == InplaceStr("__rcomp"))
+	else if(ptr->data->name->name == InplaceStr("__rcomp"))
 	{
 		ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
 		ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
@@ -2118,7 +2118,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, lPtr == rPtr));
 	}
-	else if(ptr->data->name.name == InplaceStr("__rncomp"))
+	else if(ptr->data->name->name == InplaceStr("__rncomp"))
 	{
 		ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
 		ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
@@ -2135,7 +2135,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, lPtr != rPtr));
 	}
-	else if(ptr->data->name.name == InplaceStr("__pcomp"))
+	else if(ptr->data->name->name == InplaceStr("__pcomp"))
 	{
 		ExprFunctionLiteral *a = getType<ExprFunctionLiteral>(arguments[0]);
 		ExprFunctionLiteral *b = getType<ExprFunctionLiteral>(arguments[1]);
@@ -2152,7 +2152,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, a->data == b->data && aContext == bContext));
 	}
-	else if(ptr->data->name.name == InplaceStr("__pncomp"))
+	else if(ptr->data->name->name == InplaceStr("__pncomp"))
 	{
 		ExprFunctionLiteral *a = getType<ExprFunctionLiteral>(arguments[0]);
 		ExprFunctionLiteral *b = getType<ExprFunctionLiteral>(arguments[1]);
@@ -2169,7 +2169,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, a->data != b->data || aContext != bContext));
 	}
-	else if(ptr->data->name.name == InplaceStr("__acomp"))
+	else if(ptr->data->name->name == InplaceStr("__acomp"))
 	{
 		ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
 		ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
@@ -2179,7 +2179,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, memcmp(a->ptr->ptr, b->ptr->ptr, unsigned(a->type->size)) == 0));
 	}
-	else if(ptr->data->name.name == InplaceStr("__ancomp"))
+	else if(ptr->data->name->name == InplaceStr("__ancomp"))
 	{
 		ExprMemoryLiteral *a = getType<ExprMemoryLiteral>(arguments[0]);
 		ExprMemoryLiteral *b = getType<ExprMemoryLiteral>(arguments[1]);
@@ -2189,11 +2189,11 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, memcmp(a->ptr->ptr, b->ptr->ptr, unsigned(a->type->size)) != 0));
 	}
-	else if(ptr->data->name.name == InplaceStr("__typeCount"))
+	else if(ptr->data->name->name == InplaceStr("__typeCount"))
 	{
 		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, ctx.ctx.types.size()));
 	}
-	else if(ptr->data->name.name == InplaceStr("__redirect") || ptr->data->name.name == InplaceStr("__redirect_ptr"))
+	else if(ptr->data->name->name == InplaceStr("__redirect") || ptr->data->name->name == InplaceStr("__redirect_ptr"))
 	{
 		ExprMemoryLiteral *autoRef = getType<ExprMemoryLiteral>(arguments[0]);
 		ExprPointerLiteral *tableRef = getType<ExprPointerLiteral>(arguments[1]);
@@ -2235,7 +2235,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		if(!data)
 		{
-			if(ptr->data->name.name == InplaceStr("__redirect_ptr"))
+			if(ptr->data->name->name == InplaceStr("__redirect_ptr"))
 				return CheckType(expression, new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, expression->type, NULL, new (ctx.ctx.get<ExprNullptrLiteral>()) ExprNullptrLiteral(expression->source, ctx.ctx.GetReferenceType(ctx.ctx.types[typeIndex]))));
 
 			return Report(ctx, "ERROR: type '%.*s' doesn't implement method", FMT_ISTR(ctx.ctx.types[typeIndex]->name));
@@ -2243,7 +2243,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprFunctionLiteral>()) ExprFunctionLiteral(expression->source, expression->type, data, context));
 	}
-	else if(ptr->data->name.name == InplaceStr("duplicate") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
+	else if(ptr->data->name->name == InplaceStr("duplicate") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
 	{
 		ExprMemoryLiteral *object = getType<ExprMemoryLiteral>(arguments[0]);
 
@@ -2284,7 +2284,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, result);
 	}
-	else if(ptr->data->name.name == InplaceStr("duplicate") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoArray)
+	else if(ptr->data->name->name == InplaceStr("duplicate") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoArray)
 	{
 		ExprMemoryLiteral *arr = getType<ExprMemoryLiteral>(arguments[0]);
 
@@ -2327,7 +2327,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, result);
 	}
-	else if(ptr->data->name.name == InplaceStr("typeid") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
+	else if(ptr->data->name->name == InplaceStr("typeid") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
 	{
 		ExprMemoryLiteral *reference = getType<ExprMemoryLiteral>(arguments[0]);
 
@@ -2337,7 +2337,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, typeID);
 	}
-	else if(ptr->data->name.name == InplaceStr("auto_array") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeTypeID && arguments[1]->type == ctx.ctx.typeInt)
+	else if(ptr->data->name->name == InplaceStr("auto_array") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeTypeID && arguments[1]->type == ctx.ctx.typeInt)
 	{
 		ExprTypeLiteral *type = getType<ExprTypeLiteral>(arguments[0]);
 		ExprIntegerLiteral *count = getType<ExprIntegerLiteral>(arguments[1]);
@@ -2363,7 +2363,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, result);
 	}
-	else if(ptr->data->name.name == InplaceStr("array_copy") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeAutoArray && arguments[1]->type == ctx.ctx.typeAutoArray)
+	else if(ptr->data->name->name == InplaceStr("array_copy") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.typeAutoArray && arguments[1]->type == ctx.ctx.typeAutoArray)
 	{
 		ExprMemoryLiteral *dst = getType<ExprMemoryLiteral>(arguments[0]);
 		ExprMemoryLiteral *src = getType<ExprMemoryLiteral>(arguments[1]);
@@ -2394,7 +2394,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
-	else if(ptr->data->name.name == InplaceStr("[]") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeAutoArray) && arguments[1]->type == ctx.ctx.typeInt)
+	else if(ptr->data->name->name == InplaceStr("[]") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeAutoArray) && arguments[1]->type == ctx.ctx.typeInt)
 	{
 		// Get arguments
 		ExprPointerLiteral *arrPtrArg = getType<ExprPointerLiteral>(arguments[0]);
@@ -2446,7 +2446,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return CheckType(expression, result);
 	}
-	else if(ptr->data->name.name == InplaceStr("__assertCoroutine") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
+	else if(ptr->data->name->name == InplaceStr("__assertCoroutine") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
 	{
 		ExprMemoryLiteral *functionPtr = getType<ExprMemoryLiteral>(arguments[0]);
 
@@ -2464,11 +2464,11 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 		ExprFunctionLiteral *function = getType<ExprFunctionLiteral>(CreateLoad(ctx, ptrPtr));
 
 		if(!function->data->coroutine)
-			return Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->data->name.name));
+			return Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->data->name->name));
 
 		return CheckType(expression, new (ctx.ctx.get<ExprVoid>()) ExprVoid(expression->source, ctx.ctx.typeVoid));
 	}
-	else if(ptr->data->name.name == InplaceStr("isCoroutineReset") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
+	else if(ptr->data->name->name == InplaceStr("isCoroutineReset") && arguments.size() == 1 && arguments[0]->type == ctx.ctx.typeAutoRef)
 	{
 		ExprMemoryLiteral *functionPtr = getType<ExprMemoryLiteral>(arguments[0]);
 
@@ -2486,7 +2486,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 		ExprFunctionLiteral *function = getType<ExprFunctionLiteral>(CreateLoad(ctx, ptrPtr));
 
 		if(!function->data->coroutine)
-			return Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->data->name.name));
+			return Report(ctx, "ERROR: '%.*s' is not a coroutine'", FMT_ISTR(function->data->name->name));
 
 		ExprBase *contextLoad = CreateLoad(ctx, function->context);
 
@@ -2497,13 +2497,13 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		// TODO: remove this check, all coroutines must have a context
 		if(!context)
-			return Report(ctx, "ERROR: '%.*s' coroutine has no context'", FMT_ISTR(function->data->name.name));
+			return Report(ctx, "ERROR: '%.*s' coroutine has no context'", FMT_ISTR(function->data->name->name));
 
 		ExprIntegerLiteral *jmpOffset = getType<ExprIntegerLiteral>(CreateExtract(ctx, context, 0, ctx.ctx.typeInt));
 
 		return CheckType(expression, new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(expression->source, ctx.ctx.typeInt, jmpOffset->value == 0));
 	}
-	else if(ptr->data->name.name == InplaceStr("assert_derived_from_base") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && arguments[1]->type == ctx.ctx.typeTypeID)
+	else if(ptr->data->name->name == InplaceStr("assert_derived_from_base") && arguments.size() == 2 && arguments[0]->type == ctx.ctx.GetReferenceType(ctx.ctx.typeVoid) && arguments[1]->type == ctx.ctx.typeTypeID)
 	{
 		ExprPointerLiteral *object = getType<ExprPointerLiteral>(arguments[0]);
 		ExprTypeLiteral *base = getType<ExprTypeLiteral>(arguments[1]);
@@ -2532,7 +2532,7 @@ ExprBase* EvaluateKnownExternalFunctionCall(ExpressionEvalContext &ctx, ExprFunc
 
 		return Report(ctx, "ERROR: cannot convert from '%.*s' to '%.*s'", FMT_ISTR(derived->value->name), FMT_ISTR(base->value->name));
 	}
-	else if(ptr->data->name.name == InplaceStr("__closeUpvalue") && arguments.size() == 4)
+	else if(ptr->data->name->name == InplaceStr("__closeUpvalue") && arguments.size() == 4)
 	{
 		ExprPointerLiteral *upvalueListLocation = getType<ExprPointerLiteral>(arguments[0]);
 		ExprPointerLiteral *variableLocation = getType<ExprPointerLiteral>(arguments[1]);
@@ -2622,11 +2622,11 @@ ExprBase* EvaluateFunctionCall(ExpressionEvalContext &ctx, ExprFunctionCall *exp
 				return result;
 		}
 
-		return Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(ptr->data->name.name));
+		return Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(ptr->data->name->name));
 	}
 
 	if(ptr->data->isPrototype)
-		return Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(ptr->data->name.name));
+		return Report(ctx, "ERROR: function '%.*s' has no source", FMT_ISTR(ptr->data->name->name));
 
 	ExprFunctionDefinition *declaration = getType<ExprFunctionDefinition>(ptr->data->declaration);
 

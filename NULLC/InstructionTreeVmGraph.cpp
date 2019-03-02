@@ -103,7 +103,7 @@ void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName, bo
 	else if(VmFunction *function = getType<VmFunction>(value))
 	{
 		if(FunctionData *fData = function->function)
-			Print(ctx, "%.*s.f%04x", FMT_ISTR(fData->name.name), fData->uniqueId);
+			Print(ctx, "%.*s.f%04x", FMT_ISTR(fData->name->name), fData->uniqueId);
 		else
 			Print(ctx, "global");
 	}
@@ -173,7 +173,7 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 	else if(constant->type.type == VM_TYPE_STRUCT)
 		Print(ctx, "{ %.*s }", FMT_ISTR(constant->type.structType->name));
 	else if(constant->type.type == VM_TYPE_FUNCTION && constant->fValue->function)
-		Print(ctx, "%.*s.f%04x", FMT_ISTR(constant->fValue->function->name.name), constant->fValue->function->uniqueId);
+		Print(ctx, "%.*s.f%04x", FMT_ISTR(constant->fValue->function->name->name), constant->fValue->function->uniqueId);
 	else if(constant->type.type == VM_TYPE_FUNCTION)
 		Print(ctx, "global.f0000");
 	else
@@ -369,13 +369,13 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 
 		Print(ctx, "function ");
 		PrintType(ctx, function->returnType);
-		Print(ctx, " %.*s.f%04x(", FMT_ISTR(fData->name.name), fData->uniqueId);
+		Print(ctx, " %.*s.f%04x(", FMT_ISTR(fData->name->name), fData->uniqueId);
 
 		for(unsigned i = 0; i < fData->arguments.size(); i++)
 		{
 			ArgumentData &argument = fData->arguments[i];
 
-			Print(ctx, "%s%s%.*s %.*s", i == 0 ? "" : ", ", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name), FMT_ISTR(argument.name));
+			Print(ctx, "%s%s%.*s %.*s", i == 0 ? "" : ", ", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name), FMT_ISTR(argument.name->name));
 		}
 
 		Print(ctx, ")%s", function->firstBlock == NULL ? ";" : "");

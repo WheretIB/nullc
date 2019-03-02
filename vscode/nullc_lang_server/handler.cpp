@@ -113,7 +113,7 @@ std::string GetFunctionSignature(FunctionData *function)
 	char *pos = buf;
 	*pos = 0;
 
-	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name.name));
+	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name->name));
 
 	if(!function->generics.empty())
 	{
@@ -135,7 +135,7 @@ std::string GetFunctionSignature(FunctionData *function)
 	{
 		ArgumentData &argument = function->arguments[k];
 
-		pos += SafeSprintf(pos, bufSize - int(pos - buf), "%s%s%.*s %.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name), FMT_ISTR(argument.name));
+		pos += SafeSprintf(pos, bufSize - int(pos - buf), "%s%s%.*s %.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name), FMT_ISTR(argument.name->name));
 	}
 
 	pos += SafeSprintf(pos, bufSize - int(pos - buf), ")");
@@ -164,7 +164,7 @@ std::string GetMemberSignature(TypeBase *type, ConstantData *member)
 	char *pos = buf;
 	*pos = 0;
 
-	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->value->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name));
+	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->value->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name->name));
 
 	return buf;
 }
@@ -178,7 +178,7 @@ std::string GetMemberSignature(TypeBase *type, MatchData *member)
 	char *pos = buf;
 	*pos = 0;
 
-	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name));
+	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name->name));
 
 	return buf;
 }
@@ -768,16 +768,16 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 			auto function = context->exprCtx.functions[i];
 
 			// Filter functions with location information
-			if(!function->name.begin)
+			if(!function->name->begin)
 				continue;
 
 			DocumentSymbol symbol;
 
-			symbol.name = std::string(function->name.name.begin, function->name.name.end);
+			symbol.name = std::string(function->name->name.begin, function->name->name.end);
 			symbol.detail = GetFunctionSignature(function);
 			symbol.kind = SymbolKind::Function;
 			symbol.range = Range(Position(function->source->begin->line, function->source->begin->column), Position(function->source->end->line, function->source->end->column + function->source->end->length));
-			symbol.selectionRange = Range(Position(function->name.begin->line, function->name.begin->column), Position(function->name.end->line, function->name.end->column + function->name.end->length));
+			symbol.selectionRange = Range(Position(function->name->begin->line, function->name->begin->column), Position(function->name->end->line, function->name->end->column + function->name->end->length));
 
 			symbols.push_back(symbol);
 		}
@@ -1019,9 +1019,9 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 						{
 							CompletionItem item;
 
-							item.label = std::string(curr->name.begin, curr->name.end);
+							item.label = std::string(curr->name->name.begin, curr->name->name.end);
 							item.kind = CompletionItemKind::TypeParameter;
-							item.detail = ToString("typeid %.*s::%.*s = %.*s", FMT_ISTR(type->name), FMT_ISTR(curr->name), FMT_ISTR(curr->type->name));
+							item.detail = ToString("typeid %.*s::%.*s = %.*s", FMT_ISTR(type->name), FMT_ISTR(curr->name->name), FMT_ISTR(curr->type->name));
 
 							data.completions.items.push_back(item);
 						}
@@ -1030,9 +1030,9 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 						{
 							CompletionItem item;
 
-							item.label = std::string(curr->name.begin, curr->name.end);
+							item.label = std::string(curr->name->name.begin, curr->name->name.end);
 							item.kind = CompletionItemKind::TypeParameter;
-							item.detail = ToString("typeid %.*s::%.*s = %.*s", FMT_ISTR(type->name), FMT_ISTR(curr->name), FMT_ISTR(curr->type->name));
+							item.detail = ToString("typeid %.*s::%.*s = %.*s", FMT_ISTR(type->name), FMT_ISTR(curr->name->name), FMT_ISTR(curr->type->name));
 
 							data.completions.items.push_back(item);
 						}
@@ -1055,9 +1055,9 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 						{
 							CompletionItem item;
 
-							item.label = std::string(curr->name.begin, curr->name.end);
+							item.label = std::string(curr->name->name.begin, curr->name->name.end);
 							item.kind = CompletionItemKind::Constant;
-							item.detail = ToString("%.*s %.*s::%.*s", FMT_ISTR(curr->value->type->name), FMT_ISTR(type->name), FMT_ISTR(curr->name));
+							item.detail = ToString("%.*s %.*s::%.*s", FMT_ISTR(curr->value->type->name), FMT_ISTR(type->name), FMT_ISTR(curr->name->name));
 
 							data.completions.items.push_back(item);
 						}
@@ -1120,9 +1120,9 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 							if(function->scope->ownerType != node->value->type)
 								continue;
 
-							const char *start = function->name.name.begin;
+							const char *start = function->name->name.begin;
 
-							while(start < function->name.name.end)
+							while(start < function->name->name.end)
 							{
 								if(start[0] == ':' && start[1] == ':')
 								{
@@ -1133,12 +1133,12 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 								start++;
 							}
 
-							if(start == function->name.name.end)
-								start = function->name.name.begin;
+							if(start == function->name->name.end)
+								start = function->name->name.begin;
 
 							CompletionItem item;
 
-							item.label = std::string(start, function->name.name.end);
+							item.label = std::string(start, function->name->name.end);
 							item.kind = CompletionItemKind::Method;
 							item.detail = GetFunctionSignature(function);
 
@@ -1162,7 +1162,7 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 						{
 							CompletionItem item;
 
-							item.label = std::string(curr->name.begin, curr->name.end);
+							item.label = std::string(curr->name->name.begin, curr->name->name.end);
 							item.kind = CompletionItemKind::Constant;
 							item.detail = GetMemberSignature(node->value->type, curr);
 
@@ -1173,7 +1173,7 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 						{
 							CompletionItem item;
 
-							item.label = std::string(curr->name.begin, curr->name.end);
+							item.label = std::string(curr->name->name.begin, curr->name->name.end);
 							item.kind = CompletionItemKind::TypeParameter;
 							item.detail = GetMemberSignature(node->value->type, curr);
 

@@ -71,7 +71,7 @@ struct ExpressionContext
 	TypeFunction* GetFunctionType(SynBase *source, TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
 	TypeFunction* GetFunctionType(SynBase *source, TypeBase* returnType, ArrayView<ArgumentData> arguments);
 	TypeFunctionSet* GetFunctionSetType(IntrusiveList<TypeHandle> types);
-	TypeGenericAlias* GetGenericAliasType(InplaceStr baseName);
+	TypeGenericAlias* GetGenericAliasType(SynIdentifier *baseName);
 	TypeGenericClass* GetGenericClassType(SynBase *source, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 
 	// Full state info

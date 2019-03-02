@@ -8,6 +8,7 @@
 struct ByteCode;
 
 struct SynBase;
+struct SynIdentifier;
 
 enum SynUnaryOpType
 {
@@ -124,7 +125,7 @@ struct ParseContext
 	const char* LastEnding();
 
 	SynNamespaceElement* IsNamespace(SynNamespaceElement *parent, InplaceStr name);
-	SynNamespaceElement* PushNamespace(InplaceStr name);
+	SynNamespaceElement* PushNamespace(SynIdentifier *name);
 	void PopNamespace();
 
 	const char *code;
@@ -234,6 +235,10 @@ struct SynIdentifier: SynBase
 	{
 	}
 
+	SynIdentifier(SynIdentifier* source, InplaceStr name): SynBase(myTypeID, source->begin, source->end), name(name)
+	{
+	}
+
 	SynIdentifier(Lexeme *begin, Lexeme *end, InplaceStr name): SynBase(myTypeID, begin, end), name(name)
 	{
 	}
@@ -275,11 +280,11 @@ struct SynTypeSimple: SynBase
 
 struct SynTypeAlias: SynBase
 {
-	SynTypeAlias(Lexeme *begin, Lexeme *end, InplaceStr name): SynBase(myTypeID, begin, end), name(name)
+	SynTypeAlias(Lexeme *begin, Lexeme *end, SynIdentifier *name): SynBase(myTypeID, begin, end), name(name)
 	{
 	}
 
-	InplaceStr name;
+	SynIdentifier *name;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -432,12 +437,12 @@ struct SynAlign: SynBase
 
 struct SynTypedef: SynBase
 {
-	SynTypedef(Lexeme *begin, Lexeme *end, SynBase *type, InplaceStr alias): SynBase(myTypeID, begin, end), type(type), alias(alias)
+	SynTypedef(Lexeme *begin, Lexeme *end, SynBase *type, SynIdentifier *alias): SynBase(myTypeID, begin, end), type(type), alias(alias)
 	{
 	}
 
 	SynBase *type;
-	InplaceStr alias;
+	SynIdentifier *alias;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -456,11 +461,11 @@ struct SynMemberAccess: SynBase
 
 struct SynCallArgument: SynBase
 {
-	SynCallArgument(Lexeme *begin, Lexeme *end, InplaceStr name, SynBase* value): SynBase(myTypeID, begin, end), name(name), value(value)
+	SynCallArgument(Lexeme *begin, Lexeme *end, SynIdentifier* name, SynBase* value): SynBase(myTypeID, begin, end), name(name), value(value)
 	{
 	}
 
-	InplaceStr name;
+	SynIdentifier* name;
 	SynBase* value;
 
 	static const unsigned myTypeID = __LINE__;
@@ -660,12 +665,12 @@ struct SynFor: SynBase
 
 struct SynForEachIterator: SynBase
 {
-	SynForEachIterator(Lexeme *begin, Lexeme *end, SynBase* type, InplaceStr name, SynBase* value): SynBase(myTypeID, begin, end), type(type), name(name), value(value)
+	SynForEachIterator(Lexeme *begin, Lexeme *end, SynBase* type, SynIdentifier* name, SynBase* value): SynBase(myTypeID, begin, end), type(type), name(name), value(value)
 	{
 	}
 
 	SynBase* type;
-	InplaceStr name;
+	SynIdentifier* name;
 	SynBase* value;
 
 	static const unsigned myTypeID = __LINE__;
@@ -808,28 +813,29 @@ struct SynVariableDefinitions: SynBase
 
 struct SynAccessor: SynBase
 {
-	SynAccessor(Lexeme *begin, Lexeme *end, SynBase *type, SynIdentifier name, SynBlock *getBlock, SynBlock *setBlock, InplaceStr setName): SynBase(myTypeID, begin, end), type(type), name(name), getBlock(getBlock), setBlock(setBlock), setName(setName)
+	SynAccessor(Lexeme *begin, Lexeme *end, SynBase *type, SynIdentifier *name, SynBlock *getBlock, SynBlock *setBlock, SynIdentifier *setName): SynBase(myTypeID, begin, end), type(type), name(name), getBlock(getBlock), setBlock(setBlock), setName(setName)
 	{
 	}
 
 	SynBase *type;
-	SynIdentifier name;
+	SynIdentifier *name;
 	SynBlock *getBlock;
 	SynBlock *setBlock;
-	InplaceStr setName;
+	SynIdentifier *setName;
 
 	static const unsigned myTypeID = __LINE__;
 };
 
 struct SynFunctionArgument: SynBase
 {
-	SynFunctionArgument(Lexeme *begin, Lexeme *end, bool isExplicit, SynBase* type, InplaceStr name, SynBase* initializer): SynBase(myTypeID, begin, end), isExplicit(isExplicit), type(type), name(name), initializer(initializer)
+	SynFunctionArgument(Lexeme *begin, Lexeme *end, bool isExplicit, SynBase* type, SynIdentifier* name, SynBase* initializer): SynBase(myTypeID, begin, end), isExplicit(isExplicit), type(type), name(name), initializer(initializer)
 	{
+		assert(name);
 	}
 
 	bool isExplicit;
 	SynBase* type;
-	InplaceStr name;
+	SynIdentifier* name;
 	SynBase* initializer;
 
 	static const unsigned myTypeID = __LINE__;
@@ -837,7 +843,7 @@ struct SynFunctionArgument: SynBase
 
 struct SynFunctionDefinition: SynBase
 {
-	SynFunctionDefinition(Lexeme *begin, Lexeme *end, bool prototype, bool coroutine, SynBase *parentType, bool accessor, SynBase *returnType, bool isOperator, SynIdentifier name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, begin, end), prototype(prototype), coroutine(coroutine), parentType(parentType), accessor(accessor), returnType(returnType), isOperator(isOperator), name(name), aliases(aliases), arguments(arguments), expressions(expressions)
+	SynFunctionDefinition(Lexeme *begin, Lexeme *end, bool prototype, bool coroutine, SynBase *parentType, bool accessor, SynBase *returnType, bool isOperator, SynIdentifier *name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions): SynBase(myTypeID, begin, end), prototype(prototype), coroutine(coroutine), parentType(parentType), accessor(accessor), returnType(returnType), isOperator(isOperator), name(name), aliases(aliases), arguments(arguments), expressions(expressions)
 	{
 	}
 
@@ -847,7 +853,7 @@ struct SynFunctionDefinition: SynBase
 	bool accessor;
 	SynBase *returnType;
 	bool isOperator;
-	SynIdentifier name;
+	SynIdentifier *name;
 	IntrusiveList<SynIdentifier> aliases;
 	IntrusiveList<SynFunctionArgument> arguments;
 	IntrusiveList<SynBase> expressions;
@@ -857,12 +863,12 @@ struct SynFunctionDefinition: SynBase
 
 struct SynShortFunctionArgument: SynBase
 {
-	SynShortFunctionArgument(Lexeme *begin, Lexeme *end, SynBase* type, InplaceStr name): SynBase(myTypeID, begin, end), type(type), name(name)
+	SynShortFunctionArgument(Lexeme *begin, Lexeme *end, SynBase* type, SynIdentifier* name): SynBase(myTypeID, begin, end), type(type), name(name)
 	{
 	}
 
 	SynBase* type;
-	InplaceStr name;
+	SynIdentifier* name;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -881,11 +887,11 @@ struct SynShortFunctionDefinition: SynBase
 
 struct SynConstant: SynBase
 {
-	SynConstant(Lexeme *begin, Lexeme *end, InplaceStr name, SynBase *value): SynBase(myTypeID, begin, end), name(name), value(value)
+	SynConstant(Lexeme *begin, Lexeme *end, SynIdentifier *name, SynBase *value): SynBase(myTypeID, begin, end), name(name), value(value)
 	{
 	}
 
-	InplaceStr name;
+	SynIdentifier *name;
 	SynBase *value;
 
 	static const unsigned myTypeID = __LINE__;
@@ -905,11 +911,11 @@ struct SynConstantSet: SynBase
 
 struct SynClassPrototype: SynBase
 {
-	SynClassPrototype(Lexeme *begin, Lexeme *end, InplaceStr name): SynBase(myTypeID, begin, end), name(name)
+	SynClassPrototype(Lexeme *begin, Lexeme *end, SynIdentifier *name): SynBase(myTypeID, begin, end), name(name)
 	{
 	}
 
-	InplaceStr name;
+	SynIdentifier *name;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -947,14 +953,14 @@ struct SynClassElements: SynBase
 
 struct SynClassDefinition: SynBase
 {
-	SynClassDefinition(Lexeme *begin, Lexeme *end, SynAlign* align, InplaceStr name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, SynClassElements *elements): SynBase(myTypeID, begin, end), align(align), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), elements(elements)
+	SynClassDefinition(Lexeme *begin, Lexeme *end, SynAlign* align, SynIdentifier* name, IntrusiveList<SynIdentifier> aliases, bool extendable, SynBase *baseClass, SynClassElements *elements): SynBase(myTypeID, begin, end), align(align), name(name), aliases(aliases), extendable(extendable), baseClass(baseClass), elements(elements)
 	{
 		imported = false;
 	}
 
 	bool imported;
 	SynAlign* align;
-	InplaceStr name;
+	SynIdentifier* name;
 	IntrusiveList<SynIdentifier> aliases;
 	bool extendable;
 	SynBase *baseClass;
@@ -965,11 +971,11 @@ struct SynClassDefinition: SynBase
 
 struct SynEnumDefinition: SynBase
 {
-	SynEnumDefinition(Lexeme *begin, Lexeme *end, InplaceStr name, IntrusiveList<SynConstant> values): SynBase(myTypeID, begin, end), name(name), values(values)
+	SynEnumDefinition(Lexeme *begin, Lexeme *end, SynIdentifier* name, IntrusiveList<SynConstant> values): SynBase(myTypeID, begin, end), name(name), values(values)
 	{
 	}
 
-	InplaceStr name;
+	SynIdentifier* name;
 	IntrusiveList<SynConstant> values;
 
 	static const unsigned myTypeID = __LINE__;
@@ -977,16 +983,16 @@ struct SynEnumDefinition: SynBase
 
 struct SynNamespaceElement
 {
-	SynNamespaceElement(SynNamespaceElement *parent, InplaceStr name): parent(parent), name(name)
+	SynNamespaceElement(SynNamespaceElement *parent, SynIdentifier* name): parent(parent), name(name)
 	{
 		if(parent)
-			fullNameHash = StringHashContinue(StringHashContinue(parent->fullNameHash, "."), name.begin, name.end);
+			fullNameHash = StringHashContinue(StringHashContinue(parent->fullNameHash, "."), name->name.begin, name->name.end);
 		else
-			fullNameHash = name.hash();
+			fullNameHash = name->name.hash();
 	}
 
 	SynNamespaceElement *parent;
-	InplaceStr name;
+	SynIdentifier* name;
 	unsigned fullNameHash;
 };
 
