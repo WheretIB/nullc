@@ -6984,9 +6984,9 @@ ExprBase* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 		}
 
 		if(returnType == ctx.typeVoid && result->type != ctx.typeVoid)
-			Stop(ctx, syntax, "ERROR: 'void' function returning a value");
+			Report(ctx, syntax, "ERROR: 'void' function returning a value");
 		if(returnType != ctx.typeVoid && result->type == ctx.typeVoid)
-			Stop(ctx, syntax, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+			Report(ctx, syntax, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
 
 		result = CreateCast(ctx, syntax, result, function->type->returnType, false);
 
@@ -7036,9 +7036,9 @@ ExprBase* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
 		}
 
 		if(returnType == ctx.typeVoid && result->type != ctx.typeVoid)
-			Stop(ctx, syntax, "ERROR: 'void' function returning a value");
+			Report(ctx, syntax, "ERROR: 'void' function returning a value");
 		if(returnType != ctx.typeVoid && result->type == ctx.typeVoid)
-			Stop(ctx, syntax, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+			Report(ctx, syntax, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
 
 		result = CreateCast(ctx, syntax, result, function->type->returnType, false);
 

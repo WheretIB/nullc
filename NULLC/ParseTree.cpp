@@ -1051,10 +1051,18 @@ IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx)
 			argument = ParseCallArgument(ctx);
 
 			if(!argument)
-				Stop(ctx, ctx.Current(), "ERROR: expression not found after ',' in function argument list");
+			{
+				Report(ctx, ctx.Current(), "ERROR: expression not found after ',' in function argument list");
+
+				break;
+			}
 
 			if(namedCall && !argument->name)
-				Stop(ctx, ctx.Current(), "ERROR: function argument name expected after ','");
+			{
+				Report(ctx, ctx.Current(), "ERROR: function argument name expected after ','");
+
+				break;
+			}
 
 			namedCall |= argument->name != NULL;
 
@@ -1134,7 +1142,7 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 			IntrusiveList<SynBase> aliases;
 			IntrusiveList<SynCallArgument> arguments = ParseCallArguments(ctx);
 
-			AssertConsume(ctx, lex_cparen, "ERROR: ')' not found after function argument list");
+			CheckConsume(ctx, lex_cparen, "ERROR: ')' not found after function argument list");
 
 			node = new (ctx.get<SynFunctionCall>()) SynFunctionCall(pos, ctx.Previous(), node, aliases, arguments);
 		}
@@ -2471,15 +2479,18 @@ SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, bool lastExplicit,
 			isExplicit = lastExplicit;
 			type = lastType;
 		}
+
+		SynIdentifier *nameIdentifier = NULL;
+
+		if(CheckAt(ctx, lex_string, "ERROR: variable name not found after type in function variable list"))
+		{
+			InplaceStr name = ctx.Consume();
+			nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
+		}
 		else
 		{
-			AssertAt(ctx, lex_string, "ERROR: variable name not found after type in function variable list");
+			nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), InplaceStr());
 		}
-
-		Lexeme *start = ctx.currentLexeme;
-
-		InplaceStr name = ctx.Consume();
-		SynIdentifier *nameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), name);
 
 		SynBase *initializer = NULL;
 
@@ -2488,7 +2499,11 @@ SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, bool lastExplicit,
 			initializer = ParseTernaryExpr(ctx);
 
 			if(!initializer)
-				Stop(ctx, ctx.Current(), "ERROR: default argument value not found after '='");
+			{
+				Report(ctx, ctx.Current(), "ERROR: default argument value not found after '='");
+
+				initializer = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
+			}
 		}
 
 		return new (ctx.get<SynFunctionArgument>()) SynFunctionArgument(start, ctx.Previous(), isExplicit, type, nameIdentifier, initializer);
@@ -2513,7 +2528,11 @@ IntrusiveList<SynFunctionArgument> ParseFunctionArguments(ParseContext &ctx)
 			argument = ParseFunctionArgument(ctx, arguments.tail->isExplicit, arguments.tail->type);
 
 			if(!argument)
-				Stop(ctx, ctx.Current(), "ERROR: argument name not found after ',' in function argument list");
+			{
+				Report(ctx, ctx.Current(), "ERROR: argument name not found after ',' in function argument list");
+
+				break;
+			}
 
 			arguments.push_back(argument);
 		}
