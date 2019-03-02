@@ -54,6 +54,85 @@ enum class SymbolKind
 	TypeParameter = 26,
 };
 
+/**
+* How a completion was triggered
+*/
+enum class CompletionTriggerKind
+{
+	Unknown = 0,
+
+	/**
+	* Completion was triggered by typing an identifier (24x7 code
+	* complete), manual invocation (e.g Ctrl+Space) or via API.
+	*/
+	Invoked = 1,
+
+	/**
+	* Completion was triggered by a trigger character specified by
+	* the `triggerCharacters` properties of the `CompletionRegistrationOptions`.
+	*/
+	TriggerCharacter = 2,
+
+	/**
+	* Completion was re-triggered as the current completion list is incomplete.
+	*/
+	TriggerForIncompleteCompletions = 3,
+};
+
+/**
+* Defines whether the insert text in a completion item should be interpreted as
+* plain text or a snippet.
+*/
+enum class InsertTextFormat
+{
+	None = 0,
+
+	/**
+	* The primary text to be inserted is treated as a plain string.
+	*/
+	PlainText = 1,
+
+	/**
+	* The primary text to be inserted is treated as a snippet.
+	*
+	* A snippet can define tab stops and placeholders with `$1`, `$2`
+	* and `${3:foo}`. `$0` defines the final tab stop, it defaults to
+	* the end of the snippet. Placeholders with equal identifiers are linked,
+	* that is typing in one will update others too.
+	*/
+	Snippet = 2,
+};
+
+enum class CompletionItemKind
+{
+	None = 0,
+	Text = 1,
+	Method = 2,
+	Function = 3,
+	Constructor = 4,
+	Field = 5,
+	Variable = 6,
+	Class = 7,
+	Interface = 8,
+	Module = 9,
+	Property = 10,
+	Unit = 11,
+	Value = 12,
+	Enum = 13,
+	Keyword = 14,
+	Snippet = 15,
+	Color = 16,
+	File = 17,
+	Reference = 18,
+	Folder = 19,
+	EnumMember = 20,
+	Constant = 21,
+	Struct = 22,
+	Event = 23,
+	Operator = 24,
+	TypeParameter = 25,
+};
+
 namespace FoldingRangeKind
 {
 	/**
@@ -524,4 +603,224 @@ struct Diagnostic
 	* a scope collide all definitions can be marked via this property.
 	*/
 	std::vector<DiagnosticRelatedInformation> relatedInformation;
+};
+
+struct CompletionContext
+{
+	CompletionContext() = default;
+
+	explicit CompletionContext(rapidjson::Value &source)
+	{
+		triggerKind = CompletionTriggerKind(source["triggerKind"].GetUint());
+
+		if(source.HasMember("triggerCharacter"))
+			triggerCharacter = source["triggerCharacter"].GetString();
+	}
+
+	/**
+	* The location of this related diagnostic information.
+	*/
+	CompletionTriggerKind triggerKind;
+
+	/**
+	* The message of this related diagnostic information.
+	*/
+	std::string triggerCharacter;
+};
+
+struct CompletionItem
+{
+	CompletionItem() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document)
+	{
+		target.SetObject();
+
+		target.AddMember("label", label, document.GetAllocator());
+
+		if(kind != CompletionItemKind::None)
+			target.AddMember("kind", int(kind), document.GetAllocator());
+
+		if(!detail.empty())
+			target.AddMember("detail", detail, document.GetAllocator());
+
+		if(deprecated)
+			target.AddMember("deprecated", deprecated, document.GetAllocator());
+
+		if(preselect)
+			target.AddMember("preselect", preselect, document.GetAllocator());
+
+		if(!sortText.empty())
+			target.AddMember("sortText", sortText, document.GetAllocator());
+
+		if(!filterText.empty())
+			target.AddMember("filterText", filterText, document.GetAllocator());
+
+		if(insertTextFormat != InsertTextFormat::None)
+			target.AddMember("insertTextFormat", int(insertTextFormat), document.GetAllocator());
+
+		if(!commitCharacters.empty())
+		{
+			rapidjson::Value arr;
+			arr.SetArray();
+
+			for(auto &&el : commitCharacters)
+				arr.PushBack(rapidjson::Value(el, document.GetAllocator()), document.GetAllocator());
+
+			target.AddMember("commitCharacters", arr, document.GetAllocator());
+		}
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document)
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* The label of this completion item. By default
+	* also the text that is inserted when selecting
+	* this completion.
+	*/
+	std::string label;
+
+	/**
+	* The kind of this completion item. Based of the kind
+	* an icon is chosen by the editor.
+	* Optional.
+	*/
+	CompletionItemKind kind = CompletionItemKind::None;
+
+	/**
+	* A human-readable string with additional information
+	* about this item, like type or symbol information.
+	* Optional.
+	*/
+	std::string detail;
+
+	/**
+	* A human-readable string that represents a doc-comment.
+	*/
+	//documentation
+
+	/**
+	* Indicates if this item is deprecated.
+	* Optional.
+	*/
+	bool deprecated = false;
+
+	/**
+	* Select this item when showing.
+	*
+	* *Note* that only one completion item can be selected and that the
+	* tool / client decides which item that is. The rule is that the *first*
+	* item of those that match best is selected.
+	* Optional
+	*/
+	bool preselect = false;
+
+	/**
+	* A string that should be used when comparing this item
+	* with other items. When `falsy` the label is used.
+	* Optional.
+	*/
+	std::string sortText;
+
+	/**
+	* A string that should be used when filtering a set of
+	* completion items. When `falsy` the label is used.
+	* Optional.
+	*/
+	std::string filterText;
+
+	/**
+	* The format of the insert text. The format applies to both the `insertText` property
+	* and the `newText` property of a provided `textEdit`.
+	* Optional.
+	*/
+	InsertTextFormat insertTextFormat = InsertTextFormat::None;
+
+	/**
+	* An edit which is applied to a document when selecting this completion. When an edit is provided the value of
+	* `insertText` is ignored.
+	*
+	* *Note:* The range of the edit must be a single line range and it must contain the position at which completion
+	* has been requested.
+	* Optional
+	*/
+	//TextEdit textEdit;
+
+	/**
+	* An optional array of additional text edits that are applied when
+	* selecting this completion. Edits must not overlap (including the same insert position)
+	* with the main edit nor with themselves.
+	*
+	* Additional text edits should be used to change text unrelated to the current cursor position
+	* (for example adding an import statement at the top of the file if the completion item will
+	* insert an unqualified type).
+	* Optional
+	*/
+	//std::vector<TextEdit> additionalTextEdits;
+
+	/**
+	* An optional set of characters that when pressed while this completion is active will accept it first and
+	* then type that character. *Note* that all commit characters should have `length=1` and that superfluous
+	* characters will be ignored.
+	* Optional.
+	*/
+	std::vector<std::string> commitCharacters;
+
+	/**
+	* An optional command that is executed *after* inserting this completion. *Note* that
+	* additional modifications to the current document should be described with the
+	* additionalTextEdits-property.
+	* Optional
+	*/
+	//Command command;
+};
+
+/**
+* Represents a collection of [completion items](#CompletionItem) to be presented
+* in the editor.
+*/
+struct CompletionList
+{
+	CompletionList() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document)
+	{
+		target.SetObject();
+
+		target.AddMember("isIncomplete", isIncomplete, document.GetAllocator());
+
+		if(!items.empty())
+		{
+			rapidjson::Value arr;
+			arr.SetArray();
+
+			for(auto &&el : items)
+				arr.PushBack(el.ToJson(document), document.GetAllocator());
+
+			target.AddMember("items", arr, document.GetAllocator());
+		}
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document)
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* This list it not complete. Further typing should result in recomputing
+	* this list.
+	*/
+	bool isIncomplete = false;
+
+	/**
+	* The completion items.
+	*/
+	std::vector<CompletionItem> items;
 };

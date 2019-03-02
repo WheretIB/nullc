@@ -66,6 +66,14 @@ bool IsInside(SynBase *syntax, unsigned line, unsigned column)
 	return false;
 }
 
+bool IsAtEnd(SynBase *syntax, unsigned line, unsigned column)
+{
+	if(line == syntax->end->line && column == syntax->end->column + syntax->end->length)
+		return true;
+
+	return false;
+}
+
 bool IsSmaller(SynBase *current, SynBase *next)
 {
 	if(!current)
@@ -116,6 +124,46 @@ std::string GetFunctionSignature(FunctionData *function)
 	}
 
 	pos += SafeSprintf(pos, bufSize - int(pos - buf), ")");
+
+	return buf;
+}
+
+std::string GetMemberSignature(TypeBase *type, VariableData *member)
+{
+	const unsigned bufSize = 8192;
+	char buf[bufSize];
+
+	char *pos = buf;
+	*pos = 0;
+
+	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name));
+
+	return buf;
+}
+
+std::string GetMemberSignature(TypeBase *type, ConstantData *member)
+{
+	const unsigned bufSize = 8192;
+	char buf[bufSize];
+
+	char *pos = buf;
+	*pos = 0;
+
+	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->value->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name));
+
+	return buf;
+}
+
+
+std::string GetMemberSignature(TypeBase *type, MatchData *member)
+{
+	const unsigned bufSize = 8192;
+	char buf[bufSize];
+
+	char *pos = buf;
+	*pos = 0;
+
+	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name));
 
 	return buf;
 }
@@ -254,10 +302,23 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 	textDocumentSync.AddMember("willSaveWaitUntil", false, response.GetAllocator());
 	textDocumentSync.AddMember("save", save, response.GetAllocator());
 
+	rapidjson::Value completionProvider;
+	completionProvider.SetObject();
+
+	completionProvider.AddMember("resolveProvider", false, response.GetAllocator());
+
+	rapidjson::Value triggerCharacters;
+	triggerCharacters.SetArray();
+
+	triggerCharacters.PushBack(".", response.GetAllocator());
+
+	completionProvider.AddMember("triggerCharacters", triggerCharacters, response.GetAllocator());
+
 	capabilities.AddMember("textDocumentSync", textDocumentSync, response.GetAllocator());
 	capabilities.AddMember("foldingRangeProvider", true, response.GetAllocator());
 	capabilities.AddMember("documentSymbolProvider", true, response.GetAllocator());
 	capabilities.AddMember("hoverProvider", true, response.GetAllocator());
+	capabilities.AddMember("completionProvider", completionProvider, response.GetAllocator());
 
 	result.AddMember("capabilities", capabilities, response.GetAllocator());
 
@@ -449,6 +510,9 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 					if(!IsSmaller(hoverInfo.identifier, node->source))
 						return;
 
+					if(!node->member)
+						return;
+
 					hoverInfo.identifier = node->source;
 
 					char buf[256];
@@ -485,19 +549,10 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 				}
 			});
 		}
-		/*else if(context->synModule)
-		{
-			if(ctx.debugMode)
-				fprintf(stderr, "INFO: Parse tree is available\n");
-
-			nullcVisitParseTreeNodes(context->synModule, &hoverInfo, [](void *context, SynBase *child){
-				HoverInfo &hoverInfo = *(HoverInfo*)context;
-			});
-		}*/
 		else
 		{
 			if(ctx.debugMode)
-				fprintf(stderr, "INFO: Parse tree unavailable\n");
+				fprintf(stderr, "INFO: Expression tree unavailable\n");
 		}
 	}
 
@@ -615,6 +670,185 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 
 			result.PushBack(symbol, response.GetAllocator());
 		}
+	}
+
+	response.AddMember("result", result, response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	nullcClean();
+
+	return true;
+}
+
+bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
+{
+	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+
+	if(documentIt == ctx.documents.end())
+	{
+		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
+
+		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
+	}
+
+	Position position = Position(arguments["position"]);
+
+	CompletionContext completionContext;
+
+	if(arguments.HasMember("context"))
+		completionContext = CompletionContext(arguments["context"]);
+
+	nullcAnalyze(documentIt->second.code.c_str());
+
+	CompletionList completions;
+
+	struct Data
+	{
+		Data(Context &ctx, Position &position, CompletionContext &completionContext, CompletionList &completions): ctx(ctx), position(position), completionContext(completionContext), completions(completions)
+		{
+		}
+
+		Context &ctx;
+
+		Position &position;
+		CompletionContext &completionContext;
+
+		CompletionList &completions;
+
+		CompilerContext *context = nullptr;
+	};
+
+	Data data(ctx, position, completionContext, completions);
+
+	if(CompilerContext *context = nullcGetCompilerContext())
+	{
+		data.context = context;
+
+		if(context->exprModule)
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "INFO: Expression tree is available\n");
+
+			nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
+				Data &data = *(Data*)context;
+
+				if(!IsAtEnd(child->source, data.position.line, data.position.character))
+					return;
+
+				if(ExprMemberAccess *node = getType<ExprMemberAccess>(child))
+				{
+					if(data.ctx.debugMode)
+					{
+						fprintf(stderr, "INFO: Found ExprMemberAccess at position (%d:%d)\n", data.position.line, data.position.character);
+						fprintf(stderr, "INFO: ExprMemberAccess location (%d:%d - %d:%d)\n", node->source->begin->line, node->source->begin->column, node->source->end->line, node->source->end->column + node->source->end->length);
+						fprintf(stderr, "INFO: ExprMemberAccess value type '%.*s'\n", FMT_ISTR(node->value->type->name));
+					}
+
+					if(isType<TypeArray>(node->value->type) || isType<TypeUnsizedArray>(node->value->type))
+					{
+						CompletionItem item;
+
+						item.label = "size";
+						item.kind = CompletionItemKind::Field;
+
+						char buf[256];
+						SafeSprintf(buf, 256, "int %.*s::size", FMT_ISTR(node->value->type->name));
+						item.detail = buf;
+
+						item.preselect = true;
+
+						data.completions.items.push_back(item);
+					}
+					else if(TypeClass *typeClass = getType<TypeClass>(node->value->type))
+					{
+						for(unsigned i = 0; i < data.context->exprCtx.functions.size(); i++)
+						{
+							auto function = data.context->exprCtx.functions[i];
+
+							// Filter functions with location information
+							if(function->scope->ownerType != node->value->type)
+								continue;
+
+							const char *start = function->name.name.begin;
+
+							while(start < function->name.name.end)
+							{
+								if(start[0] == ':' && start[1] == ':')
+								{
+									start += 2;
+									break;
+								}
+
+								start++;
+							}
+
+							if(start == function->name.name.end)
+								start = function->name.name.begin;
+
+							CompletionItem item;
+
+							item.label = std::string(start, function->name.name.end);
+							item.kind = CompletionItemKind::Method;
+							item.detail = GetFunctionSignature(function);
+
+							data.completions.items.push_back(item);
+						}
+
+						for(auto curr = typeClass->members.head; curr; curr = curr->next)
+						{
+							auto variable = curr->variable;
+
+							CompletionItem item;
+
+							item.label = std::string(variable->name.begin, variable->name.end);
+							item.kind = CompletionItemKind::Field;
+							item.detail = GetMemberSignature(node->value->type, variable);
+
+							data.completions.items.push_back(item);
+						}
+
+						for(auto curr = typeClass->constants.head; curr; curr = curr->next)
+						{
+							CompletionItem item;
+
+							item.label = std::string(curr->name.begin, curr->name.end);
+							item.kind = CompletionItemKind::Constant;
+							item.detail = GetMemberSignature(node->value->type, curr);
+
+							data.completions.items.push_back(item);
+						}
+
+						for(auto curr = typeClass->aliases.head; curr; curr = curr->next)
+						{
+							CompletionItem item;
+
+							item.label = std::string(curr->name.begin, curr->name.end);
+							item.kind = CompletionItemKind::TypeParameter;
+							item.detail = GetMemberSignature(node->value->type, curr);
+
+							data.completions.items.push_back(item);
+						}
+					}
+				}
+			});
+		}
+		else
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "INFO: Expression tree unavailable\n");
+		}
+	}
+
+	rapidjson::Value result;
+
+	if(completions.items.empty())
+	{
+		result.SetNull();
+	}
+	else
+	{
+		completions.SaveTo(result, response);
 	}
 
 	response.AddMember("result", result, response.GetAllocator());
@@ -766,6 +1000,8 @@ bool HandleMessage(Context& ctx, unsigned idNumber, const char *idString, const 
 		return HandleHover(ctx, arguments, response);
 	else if(strcmp(method, "textDocument/documentSymbol") == 0)
 		return HandleDocumentSymbol(ctx, arguments, response);
+	else if(strcmp(method, "textDocument/completion") == 0)
+		return HandleCompletion(ctx, arguments, response);
 	
 	return RespondWithError(ctx, response, method, ErrorCode::MethodNotFound, "not implemented");
 }
