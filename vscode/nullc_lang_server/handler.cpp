@@ -53,6 +53,21 @@ std::string UrlDecode(const char *url)
 	return result;
 }
 
+NULLC_PRINT_FORMAT_CHECK(1, 2) std::string ToString(const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+
+	static char buf[4096];
+
+	vsnprintf(buf, 4096, format, args);
+	buf[4095] = '\0';
+
+	va_end(args);
+
+	return buf;
+}
+
 bool IsInside(SynBase *syntax, unsigned line, unsigned column)
 {
 	if(line > syntax->begin->line || (line == syntax->begin->line && column >= syntax->begin->column))
@@ -484,10 +499,7 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 				if(data.ctx.debugMode)
 				{
 					data.debugScopes += GetExpressionTreeNodeName(child);
-					
-					char buf[256];
-					SafeSprintf(buf, 256, " (%d:%d-%d:%d)", child->source->begin->line + 1, child->source->begin->column, child->source->end->line + 1, child->source->end->column + child->source->end->length);
-					data.debugScopes += buf;
+					data.debugScopes += ToString(" (%d:%d-%d:%d)", child->source->begin->line + 1, child->source->begin->column, child->source->end->line + 1, child->source->end->column + child->source->end->length);
 				}
 
 				if(ExprVariableAccess *node = getType<ExprVariableAccess>(child))
@@ -504,11 +516,8 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 
 					data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
 
-					char buf[256];
-					SafeSprintf(buf, 256, "Variable '%.*s %.*s'", FMT_ISTR(node->variable->type->name), FMT_ISTR(node->variable->name));
-
 					data.hover.contents.kind = MarkupKind::Markdown;
-					data.hover.contents.value = buf;
+					data.hover.contents.value = ToString("Variable '%.*s %.*s'", FMT_ISTR(node->variable->type->name), FMT_ISTR(node->variable->name));
 
 					if(data.ctx.debugMode)
 						data.debugScopes += " <- selected";
@@ -519,9 +528,7 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 
 					if(data.ctx.debugMode)
 					{
-						char buf[256];
-						SafeSprintf(buf, 256, " name (%d:%d-%d:%d)", nameSource->begin->line + 1, nameSource->begin->column, nameSource->end->line + 1, nameSource->end->column + nameSource->end->length);
-						data.debugScopes += buf;
+						data.debugScopes += ToString(" name (%d:%d-%d:%d)", nameSource->begin->line + 1, nameSource->begin->column, nameSource->end->line + 1, nameSource->end->column + nameSource->end->length);
 					}
 
 					if(!nameSource)
@@ -552,11 +559,8 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 
 					data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
 
-					char buf[256];
-					SafeSprintf(buf, 256, "Variable '%.*s %.*s'", FMT_ISTR(node->variable->variable->type->name), FMT_ISTR(node->variable->variable->name));
-
 					data.hover.contents.kind = MarkupKind::Markdown;
-					data.hover.contents.value = buf;
+					data.hover.contents.value = ToString("Variable '%.*s %.*s'", FMT_ISTR(node->variable->variable->type->name), FMT_ISTR(node->variable->variable->name));
 
 					if(data.ctx.debugMode)
 						data.debugScopes += " <- selected";
@@ -638,11 +642,8 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 
 							data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
 
-							char buf[256];
-							SafeSprintf(buf, 256, "Type '%.*s'", FMT_ISTR(node->function->type->returnType->name));
-
 							data.hover.contents.kind = MarkupKind::Markdown;
-							data.hover.contents.value = buf;
+							data.hover.contents.value = ToString("Type '%.*s'", FMT_ISTR(node->function->type->returnType->name));
 
 							if(data.ctx.debugMode)
 								data.debugScopes += " <- selected[returnType]";
@@ -677,11 +678,8 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 
 								data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
 
-								char buf[256];
-								SafeSprintf(buf, 256, "Type '%.*s'", FMT_ISTR(definitionType->name));
-
 								data.hover.contents.kind = MarkupKind::Markdown;
-								data.hover.contents.value = buf;
+								data.hover.contents.value = ToString("Type '%.*s'", FMT_ISTR(definitionType->name));
 
 								if(data.ctx.debugMode)
 									data.debugScopes += " <- selected[returnType]";
@@ -869,6 +867,227 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 				if(!IsAtEnd(child->source, data.position.line, data.position.character))
 					return;
 
+				auto addTypeidCompletionOptions = [&data](TypeBase *type){
+					{
+						CompletionItem item;
+
+						item.label = "isReference";
+						item.kind = CompletionItemKind::Value;
+						item.detail = ToString("bool %.*s::isReference = %s", FMT_ISTR(type->name), isType<TypeRef>(type) ? "true" : "false");
+
+						data.completions.items.push_back(item);
+					}
+
+					{
+						CompletionItem item;
+
+						item.label = "isArray";
+						item.kind = CompletionItemKind::Value;
+						item.detail = ToString("bool %.*s::isArray = %s", FMT_ISTR(type->name), isType<TypeArray>(type) || isType<TypeUnsizedArray>(type) ? "true" : "false");
+
+						data.completions.items.push_back(item);
+					}
+
+					{
+						CompletionItem item;
+
+						item.label = "isFunction";
+						item.kind = CompletionItemKind::Value;
+						item.detail = ToString("bool %.*s::isFunction = %s", FMT_ISTR(type->name), isType<TypeFunction>(type) ? "true" : "false");
+
+						data.completions.items.push_back(item);
+					}
+
+					if(TypeArray *typeArray = getType<TypeArray>(type))
+					{
+						CompletionItem item;
+
+						item.label = "arraySize";
+						item.kind = CompletionItemKind::Value;
+						item.detail = ToString("int %.*s::arraySize = %lld", FMT_ISTR(type->name), typeArray->length);
+
+						data.completions.items.push_back(item);
+					}
+
+					if(isType<TypeUnsizedArray>(type))
+					{
+						CompletionItem item;
+
+						item.label = "arraySize";
+						item.kind = CompletionItemKind::Value;
+						item.detail = ToString("int %.*s::arraySize = -1 (dynamic)", FMT_ISTR(type->name));
+
+						data.completions.items.push_back(item);
+					}
+
+					if(TypeArgumentSet *typeArgumentSet = getType<TypeArgumentSet>(type))
+					{
+						CompletionItem item;
+
+						item.label = "size";
+						item.kind = CompletionItemKind::Value;
+						item.detail = ToString("int %.*s::size = %u", FMT_ISTR(type->name), typeArgumentSet->types.size());
+
+						data.completions.items.push_back(item);
+					}
+
+					if(isType<TypeFunction>(type))
+					{
+						CompletionItem item;
+
+						item.label = "argument";
+						item.kind = CompletionItemKind::TypeParameter;
+
+						data.completions.items.push_back(item);
+					}
+
+					if(TypeFunction *typeFunction = getType<TypeFunction>(type))
+					{
+						CompletionItem item;
+
+						item.label = "return";
+						item.kind = CompletionItemKind::TypeParameter;
+						item.detail = ToString("typeid %.*s::return = %.*s", FMT_ISTR(type->name), FMT_ISTR(typeFunction->returnType->name));
+
+						data.completions.items.push_back(item);
+					}
+
+					if(TypeRef *typeRef = getType<TypeRef>(type))
+					{
+						CompletionItem item;
+
+						item.label = "target";
+						item.kind = CompletionItemKind::TypeParameter;
+						item.detail = ToString("typeid %.*s::target = %.*s", FMT_ISTR(type->name), FMT_ISTR(typeRef->subType->name));
+
+						data.completions.items.push_back(item);
+					}
+
+					if(TypeArray *typeArray = getType<TypeArray>(type))
+					{
+						CompletionItem item;
+
+						item.label = "target";
+						item.kind = CompletionItemKind::TypeParameter;
+						item.detail = ToString("typeid %.*s::target = %.*s", FMT_ISTR(type->name), FMT_ISTR(typeArray->subType->name));
+
+						data.completions.items.push_back(item);
+					}
+
+					if(TypeUnsizedArray *typeUnsizedArray = getType<TypeUnsizedArray>(type))
+					{
+						CompletionItem item;
+
+						item.label = "target";
+						item.kind = CompletionItemKind::TypeParameter;
+						item.detail = ToString("typeid %.*s::target = %.*s", FMT_ISTR(type->name), FMT_ISTR(typeUnsizedArray->subType->name));
+
+						data.completions.items.push_back(item);
+					}
+
+					if(TypeArgumentSet *typeArgumentSet = getType<TypeArgumentSet>(type))
+					{
+						if(!typeArgumentSet->types.empty())
+						{
+							CompletionItem item;
+
+							item.label = "first";
+							item.kind = CompletionItemKind::Value;
+							item.detail = ToString("typeid %.*s::first = %.*s", FMT_ISTR(type->name), FMT_ISTR(typeArgumentSet->types.head->type->name));
+
+							data.completions.items.push_back(item);
+						}
+					}
+
+					if(TypeArgumentSet *typeArgumentSet = getType<TypeArgumentSet>(type))
+					{
+						if(!typeArgumentSet->types.empty())
+						{
+							CompletionItem item;
+
+							item.label = "last";
+							item.kind = CompletionItemKind::Value;
+							item.detail = ToString("typeid %.*s::last = %.*s", FMT_ISTR(type->name), FMT_ISTR(typeArgumentSet->types.tail->type->name));
+
+							data.completions.items.push_back(item);
+						}
+					}
+
+					if(TypeClass *classType = getType<TypeClass>(type))
+					{
+						for(MatchData *curr = classType->aliases.head; curr; curr = curr->next)
+						{
+							CompletionItem item;
+
+							item.label = std::string(curr->name.begin, curr->name.end);
+							item.kind = CompletionItemKind::TypeParameter;
+							item.detail = ToString("typeid %.*s::%.*s = %.*s", FMT_ISTR(type->name), FMT_ISTR(curr->name), FMT_ISTR(curr->type->name));
+
+							data.completions.items.push_back(item);
+						}
+
+						for(MatchData *curr = classType->generics.head; curr; curr = curr->next)
+						{
+							CompletionItem item;
+
+							item.label = std::string(curr->name.begin, curr->name.end);
+							item.kind = CompletionItemKind::TypeParameter;
+							item.detail = ToString("typeid %.*s::%.*s = %.*s", FMT_ISTR(type->name), FMT_ISTR(curr->name), FMT_ISTR(curr->type->name));
+
+							data.completions.items.push_back(item);
+						}
+					}
+
+					if(TypeStruct *structType = getType<TypeStruct>(type))
+					{
+						for(VariableHandle *curr = structType->members.head; curr; curr = curr->next)
+						{
+							CompletionItem item;
+
+							item.label = std::string(curr->variable->name.begin, curr->variable->name.end);
+							item.kind = CompletionItemKind::TypeParameter;
+							item.detail = ToString("typeid %.*s::%.*s = %.*s", FMT_ISTR(type->name), FMT_ISTR(curr->variable->name), FMT_ISTR(curr->variable->type->name));
+
+							data.completions.items.push_back(item);
+						}
+
+						for(ConstantData *curr = structType->constants.head; curr; curr = curr->next)
+						{
+							CompletionItem item;
+
+							item.label = std::string(curr->name.begin, curr->name.end);
+							item.kind = CompletionItemKind::Constant;
+							item.detail = ToString("%.*s %.*s::%.*s", FMT_ISTR(curr->value->type->name), FMT_ISTR(type->name), FMT_ISTR(curr->name));
+
+							data.completions.items.push_back(item);
+						}
+
+						{
+							CompletionItem item;
+
+							item.label = "hasMember";
+							item.kind = CompletionItemKind::Function;
+							item.detail = ToString("bool %.*s::hasMember(name)", FMT_ISTR(type->name));
+
+							data.completions.items.push_back(item);
+						}
+					}
+
+					if(TypeGenericClass *typeGenericClass = getType<TypeGenericClass>(type))
+					{
+						for(SynIdentifier *curr = typeGenericClass->proto->definition->aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
+						{
+							CompletionItem item;
+
+							item.label = std::string(curr->name.begin, curr->name.end);
+							item.kind = CompletionItemKind::TypeParameter;
+							item.detail = ToString("typeid %.*s::%.*s", FMT_ISTR(type->name), FMT_ISTR(curr->name));
+
+							data.completions.items.push_back(item);
+						}
+					}
+				};
+
 				if(ExprMemberAccess *node = getType<ExprMemberAccess>(child))
 				{
 					if(data.ctx.debugMode)
@@ -885,9 +1104,7 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 						item.label = "size";
 						item.kind = CompletionItemKind::Field;
 
-						char buf[256];
-						SafeSprintf(buf, 256, "int %.*s::size", FMT_ISTR(node->value->type->name));
-						item.detail = buf;
+						item.detail = ToString("int %.*s::size", FMT_ISTR(node->value->type->name));
 
 						item.preselect = true;
 
@@ -963,6 +1180,22 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 							data.completions.items.push_back(item);
 						}
 					}
+
+					if(ExprTypeLiteral *typeLiteral = getType<ExprTypeLiteral>(node->value))
+					{
+						addTypeidCompletionOptions(typeLiteral->value);
+					}
+				}
+				else if(ExprErrorTypeMemberAccess *node = getType<ExprErrorTypeMemberAccess>(child))
+				{
+					if(data.ctx.debugMode)
+					{
+						fprintf(stderr, "INFO: Found ExprErrorTypeMemberAccess at position (%d:%d)\n", data.position.line, data.position.character);
+						fprintf(stderr, "INFO: ExprErrorTypeMemberAccess location (%d:%d - %d:%d)\n", node->source->begin->line, node->source->begin->column, node->source->end->line, node->source->end->column + node->source->end->length);
+						fprintf(stderr, "INFO: ExprErrorTypeMemberAccess value type '%.*s'\n", FMT_ISTR(node->value->name));
+					}
+
+					addTypeidCompletionOptions(node->value);
 				}
 			});
 		}
