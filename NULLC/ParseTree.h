@@ -783,11 +783,11 @@ struct SynModifyAssignment: SynBase
 
 struct SynVariableDefinition: SynBase
 {
-	SynVariableDefinition(Lexeme *begin, Lexeme *end, InplaceStr name, SynBase *initializer): SynBase(myTypeID, begin, end), name(name), initializer(initializer)
+	SynVariableDefinition(Lexeme *begin, Lexeme *end, SynIdentifier *name, SynBase *initializer): SynBase(myTypeID, begin, end), name(name), initializer(initializer)
 	{
 	}
 
-	InplaceStr name;
+	SynIdentifier *name;
 	SynBase *initializer;
 
 	static const unsigned myTypeID = __LINE__;

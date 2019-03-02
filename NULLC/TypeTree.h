@@ -35,9 +35,11 @@ struct VmLoweredInstruction;
 
 struct VariableHandle
 {
-	VariableHandle(VariableData *variable): variable(variable), next(0), listed(false)
+	VariableHandle(SynBase *source, VariableData *variable): source(source), variable(variable), next(0), listed(false)
 	{
 	}
+
+	SynBase *source;
 
 	VariableData *variable;
 

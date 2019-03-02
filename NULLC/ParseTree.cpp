@@ -1562,11 +1562,11 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 				Stop(ctx, ctx.Current(), "ERROR: base type name is expected at this point");
 		}
 
-		AssertConsume(ctx, lex_ofigure, "ERROR: '{' not found after class name");
+		CheckConsume(ctx, lex_ofigure, "ERROR: '{' not found after class name");
 
 		SynClassElements *elements = ParseClassElements(ctx);
 
-		AssertConsume(ctx, lex_cfigure, "ERROR: '}' not found after class definition");
+		CheckConsume(ctx, lex_cfigure, "ERROR: '}' not found after class definition");
 
 		return new (ctx.get<SynClassDefinition>()) SynClassDefinition(start, ctx.Previous(), align, name, aliases, extendable, baseClass, elements);
 	}
@@ -2171,6 +2171,8 @@ SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 		if(name.length() >= NULLC_MAX_VARIABLE_NAME_LENGTH)
 			Stop(ctx, ctx.Current(), "ERROR: variable name length is limited to %d symbols", NULLC_MAX_VARIABLE_NAME_LENGTH);
 
+		SynIdentifier *identifier = new (ctx.get<SynIdentifier>()) SynIdentifier(start, ctx.Previous(), name);
+
 		SynBase *initializer = NULL;
 
 		if(ctx.Consume(lex_set))
@@ -2185,7 +2187,7 @@ SynVariableDefinition* ParseVariableDefinition(ParseContext &ctx)
 			}
 		}
 
-		return new (ctx.get<SynVariableDefinition>()) SynVariableDefinition(start, ctx.Previous(), name, initializer);
+		return new (ctx.get<SynVariableDefinition>()) SynVariableDefinition(start, ctx.Previous(), identifier, initializer);
 	}
 
 	return NULL;
@@ -2223,9 +2225,11 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx, bool classMe
 			if(!definition)
 			{
 				if(classMembers)
-					Stop(ctx, ctx.Current(), "ERROR: member name expected after ','");
+					Report(ctx, ctx.Current(), "ERROR: member name expected after ','");
 				else
-					Stop(ctx, ctx.Current(), "ERROR: next variable definition excepted after ','");
+					Report(ctx, ctx.Current(), "ERROR: next variable definition excepted after ','");
+
+				break;
 			}
 
 			definitions.push_back(definition);
@@ -2233,7 +2237,7 @@ SynVariableDefinitions* ParseVariableDefinitions(ParseContext &ctx, bool classMe
 
 		if(classMembers)
 		{
-			AssertConsume(ctx, lex_semicolon, "ERROR: ';' not found after class member list");
+			CheckConsume(ctx, lex_semicolon, "ERROR: ';' not found after class member list");
 		}
 		else if(!ctx.Consume(lex_semicolon))
 		{
@@ -2258,7 +2262,13 @@ SynAccessor* ParseAccessorDefinition(ParseContext &ctx)
 
 	if(SynBase *type = ParseType(ctx))
 	{
-		AssertAt(ctx, lex_string, "ERROR: class member name expected after type");
+		if(!CheckAt(ctx, lex_string, "ERROR: class member name expected after type"))
+		{
+			// Backtrack
+			ctx.currentLexeme = start;
+
+			return NULL;
+		}
 
 		Lexeme *namePos = ctx.currentLexeme;
 		InplaceStr name = ctx.Consume();

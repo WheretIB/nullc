@@ -829,7 +829,7 @@ void TranslateBinaryOp(ExpressionTranslateContext &ctx, ExprBinaryOp *expression
 void TranslateGetAddress(ExpressionTranslateContext &ctx, ExprGetAddress *expression)
 {
 	Print(ctx, "&");
-	TranslateVariableName(ctx, expression->variable);
+	TranslateVariableName(ctx, expression->variable->variable);
 }
 
 void TranslateDereference(ExpressionTranslateContext &ctx, ExprDereference *expression)
@@ -869,7 +869,7 @@ void TranslateMemberAccess(ExpressionTranslateContext &ctx, ExprMemberAccess *ex
 	Print(ctx, "&(");
 	Translate(ctx, expression->value);
 	Print(ctx, ")->");
-	TranslateVariableName(ctx, expression->member);
+	TranslateVariableName(ctx, expression->member->variable);
 }
 
 void TranslateArrayIndex(ExpressionTranslateContext &ctx, ExprArrayIndex *expression)
@@ -1037,7 +1037,7 @@ void TranslateYield(ExpressionTranslateContext &ctx, ExprYield *expression)
 
 void TranslateVariableDefinition(ExpressionTranslateContext &ctx, ExprVariableDefinition *expression)
 {
-	Print(ctx, "/* Definition of variable '%.*s' */", FMT_ISTR(expression->variable->name));
+	Print(ctx, "/* Definition of variable '%.*s' */", FMT_ISTR(expression->variable->variable->name));
 
 	if(expression->initializer)
 	{
@@ -1165,15 +1165,15 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 
 		for(ExprVariableDefinition *curr = expression->arguments.head; curr; curr = getType<ExprVariableDefinition>(curr->next))
 		{
-			TranslateTypeName(ctx, curr->variable->type);
+			TranslateTypeName(ctx, curr->variable->variable->type);
 			Print(ctx, " ");
-			TranslateVariableName(ctx, curr->variable);
+			TranslateVariableName(ctx, curr->variable->variable);
 			Print(ctx, ", ");
 		}
 
-		TranslateTypeName(ctx, expression->contextArgument->variable->type);
+		TranslateTypeName(ctx, expression->contextArgument->variable->variable->type);
 		Print(ctx, " ");
-		TranslateVariableName(ctx, expression->contextArgument->variable);
+		TranslateVariableName(ctx, expression->contextArgument->variable->variable);
 
 		Print(ctx, ")");
 		PrintLine(ctx);
@@ -1195,14 +1195,14 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 
 			for(ExprVariableDefinition *curr = expression->arguments.head; curr; curr = getType<ExprVariableDefinition>(curr->next))
 			{
-				if(variable == curr->variable)
+				if(variable == curr->variable->variable)
 				{
 					isArgument = true;
 					break;
 				}
 			}
 
-			if(isArgument || variable == expression->contextArgument->variable)
+			if(isArgument || variable == expression->contextArgument->variable->variable)
 				continue;
 
 			PrintIndent(ctx);
@@ -1270,15 +1270,15 @@ void TranslateFunctionDefinition(ExpressionTranslateContext &ctx, ExprFunctionDe
 
 			for(ExprVariableDefinition *curr = expression->arguments.head; curr; curr = getType<ExprVariableDefinition>(curr->next))
 			{
-				TranslateTypeName(ctx, curr->variable->type);
+				TranslateTypeName(ctx, curr->variable->variable->type);
 				Print(ctx, " ");
-				TranslateVariableName(ctx, curr->variable);
+				TranslateVariableName(ctx, curr->variable->variable);
 				Print(ctx, ", ");
 			}
 
-			TranslateTypeName(ctx, expression->contextArgument->variable->type);
+			TranslateTypeName(ctx, expression->contextArgument->variable->variable->type);
 			Print(ctx, " ");
-			TranslateVariableName(ctx, expression->contextArgument->variable);
+			TranslateVariableName(ctx, expression->contextArgument->variable->variable);
 
 			Print(ctx, ");");
 			PrintLine(ctx);

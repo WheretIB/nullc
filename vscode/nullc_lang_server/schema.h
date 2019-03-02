@@ -1,5 +1,7 @@
 #pragma once
 
+#include <assert.h>
+
 #define RAPIDJSON_HAS_STDSTRING 1
 
 #include "external/rapidjson/document.h"
@@ -149,6 +151,67 @@ namespace FoldingRangeKind
 	* Folding range for a region (e.g. `#region`)
 	*/
 	static const char *region = "region";
+}
+
+/**
+* Describes the content type that a client supports in various
+* result literals like `Hover`, `ParameterInfo` or `CompletionItem`.
+*
+* Please note that `MarkupKinds` must not start with a `$`. This kinds
+* are reserved for internal usage.
+*/
+namespace MarkupKind
+{
+	/**
+	* Plain text is supported as a content format
+	*/
+	static const char *PlainText = "plaintext";
+
+	/**
+	* Markdown is supported as a content format
+	*/
+	static const char *Markdown = "markdown";
+};
+
+// Simple optional that doesn't avoid value initialization
+template<typename T>
+struct Optional
+{
+	Optional() = default;
+
+	Optional(const T& value): active(true), value(value)
+	{
+	}
+
+	Optional& operator=(const T& rhs)
+	{
+		active = true;
+		value = rhs;
+
+		return *this;
+	}
+
+	T* operator ->()
+	{
+		assert(active);
+
+		return &value;
+	}
+
+	T& operator *()
+	{
+		assert(active);
+
+		return value;
+	}
+
+	explicit operator bool() const
+	{
+		return active;
+	}
+
+	bool active = false;
+	T value;
 };
 
 struct Position
@@ -823,4 +886,94 @@ struct CompletionList
 	* The completion items.
 	*/
 	std::vector<CompletionItem> items;
+};
+
+/**
+* A `MarkupContent` literal represents a string value which content is interpreted base on its
+* kind flag. Currently the protocol supports `plaintext` and `markdown` as markup kinds.
+*
+* If the kind is `markdown` then the value can contain fenced code blocks like in GitHub issues.
+* See https://help.github.com/articles/creating-and-highlighting-code-blocks/#syntax-highlighting
+*
+* Here is an example how such a string can be constructed using JavaScript / TypeScript:
+* ```typescript
+* let markdown: MarkdownContent = {
+*  kind: MarkupKind.Markdown,
+*	value: [
+*		'# Header',
+*		'Some text',
+*		'```typescript',
+*		'someCode();',
+*		'```'
+*	].join('\n')
+* };
+* ```
+*
+* *Please Note* that clients might sanitize the return markdown. A client could decide to
+* remove HTML from the markdown to avoid script execution.
+*/
+struct MarkupContent
+{
+	MarkupContent() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document)
+	{
+		target.SetObject();
+
+		target.AddMember("kind", rapidjson::Value(kind, document.GetAllocator()), document.GetAllocator());
+		target.AddMember("value", value, document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document)
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* The type of the Markup
+	*/
+	const char *kind = MarkupKind::PlainText;
+
+	/**
+	* The content itself
+	*/
+	std::string value;
+};
+
+/**
+* The result of a hover request.
+*/
+struct Hover
+{
+	Hover() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document)
+	{
+		target.SetObject();
+
+		target.AddMember("contents", contents.ToJson(document), document.GetAllocator());
+
+		if(range)
+			target.AddMember("range", range->ToJson(document), document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document)
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* The hover's content
+	*/
+	MarkupContent contents;
+
+	/**
+	* An optional range is a range inside a text document
+	* that is used to visualize a hover, e.g. by changing the background color.
+	*/
+	Optional<Range> range;
 };

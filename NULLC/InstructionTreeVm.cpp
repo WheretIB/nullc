@@ -2025,7 +2025,7 @@ VmValue* CompileVmBinaryOp(ExpressionContext &ctx, VmModule *module, ExprBinaryO
 
 VmValue* CompileVmGetAddress(ExpressionContext &ctx, VmModule *module, ExprGetAddress *node)
 {
-	return CheckType(ctx, node, CreateVariableAddress(module, node->source, node->variable, ctx.GetReferenceType(node->variable->type)));
+	return CheckType(ctx, node, CreateVariableAddress(module, node->source, node->variable->variable, ctx.GetReferenceType(node->variable->variable->type)));
 }
 
 VmValue* CompileVmDereference(ExpressionContext &ctx, VmModule *module, ExprDereference *node)
@@ -2109,9 +2109,9 @@ VmValue* CompileVmMemberAccess(ExpressionContext &ctx, VmModule *module, ExprMem
 
 	assert(isType<TypeRef>(node->value->type));
 
-	VmValue *offset = CreateConstantInt(module->allocator, node->source, node->member->offset);
+	VmValue *offset = CreateConstantInt(module->allocator, node->source, node->member->variable->offset);
 
-	return CheckType(ctx, node, CreateMemberAccess(module, node->source, value, offset, ctx.GetReferenceType(node->member->type), node->member->name));
+	return CheckType(ctx, node, CreateMemberAccess(module, node->source, value, offset, ctx.GetReferenceType(node->member->variable->type), node->member->variable->name));
 }
 
 VmValue* CompileVmArrayIndex(ExpressionContext &ctx, VmModule *module, ExprArrayIndex *node)

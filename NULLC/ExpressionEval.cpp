@@ -1379,7 +1379,7 @@ ExprBase* EvaluateGetAddress(ExpressionEvalContext &ctx, ExprGetAddress *express
 	if(!AddInstruction(ctx))
 		return NULL;
 
-	ExprPointerLiteral *ptr = FindVariableStorage(ctx, expression->variable);
+	ExprPointerLiteral *ptr = FindVariableStorage(ctx, expression->variable->variable);
 
 	if(!ptr)
 		return NULL;
@@ -1472,11 +1472,11 @@ ExprBase* EvaluateMemberAccess(ExpressionEvalContext &ctx, ExprMemberAccess *exp
 	ExprPointerLiteral *ptr = getType<ExprPointerLiteral>(value);
 
 	assert(ptr);
-	assert(ptr->ptr + expression->member->offset + expression->member->type->size <= ptr->end);
+	assert(ptr->ptr + expression->member->variable->offset + expression->member->variable->type->size <= ptr->end);
 
-	unsigned char *targetPtr = ptr->ptr + expression->member->offset;
+	unsigned char *targetPtr = ptr->ptr + expression->member->variable->offset;
 
-	ExprPointerLiteral *shifted = new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(expression->member->type), targetPtr, targetPtr + expression->member->type->size);
+	ExprPointerLiteral *shifted = new (ctx.ctx.get<ExprPointerLiteral>()) ExprPointerLiteral(expression->source, ctx.ctx.GetReferenceType(expression->member->variable->type), targetPtr, targetPtr + expression->member->variable->type->size);
 
 	return CheckType(expression, shifted);
 }
@@ -1647,16 +1647,16 @@ ExprBase* EvaluateVariableDefinition(ExpressionEvalContext &ctx, ExprVariableDef
 
 	ExpressionEvalContext::StackFrame *frame = ctx.stackFrames.back();
 
-	if(FindVariableStorage(ctx, expression->variable) == NULL)
+	if(FindVariableStorage(ctx, expression->variable->variable) == NULL)
 	{
-		TypeBase *type = expression->variable->type;
+		TypeBase *type = expression->variable->variable->type;
 
 		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, expression->source, type);
 
 		if(!storage)
 			return NULL;
 
-		frame->variables.push_back(ExpressionEvalContext::StackVariable(expression->variable, storage));
+		frame->variables.push_back(ExpressionEvalContext::StackVariable(expression->variable->variable, storage));
 	}
 
 	if(!frame->targetYield)
@@ -1826,12 +1826,12 @@ ExprBase* EvaluateFunction(ExpressionEvalContext &ctx, ExprFunctionDefinition *e
 
 	if(ExprVariableDefinition *curr = expression->contextArgument)
 	{
-		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, curr->source, curr->variable->type);
+		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, curr->source, curr->variable->variable->type);
 
 		if(!storage)
 			return NULL;
 
-		frame->variables.push_back(ExpressionEvalContext::StackVariable(curr->variable, storage));
+		frame->variables.push_back(ExpressionEvalContext::StackVariable(curr->variable->variable, storage));
 
 		if(!CreateStore(ctx, storage, context))
 			return NULL;
@@ -1841,12 +1841,12 @@ ExprBase* EvaluateFunction(ExpressionEvalContext &ctx, ExprFunctionDefinition *e
 
 	for(ExprVariableDefinition *curr = expression->arguments.head; curr; curr = getType<ExprVariableDefinition>(curr->next))
 	{
-		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, curr->source, curr->variable->type);
+		ExprPointerLiteral *storage = AllocateTypeStorage(ctx, curr->source, curr->variable->variable->type);
 
 		if(!storage)
 			return NULL;
 
-		frame->variables.push_back(ExpressionEvalContext::StackVariable(curr->variable, storage));
+		frame->variables.push_back(ExpressionEvalContext::StackVariable(curr->variable->variable, storage));
 
 		if(!CreateStore(ctx, storage, arguments[pos]))
 			return NULL;

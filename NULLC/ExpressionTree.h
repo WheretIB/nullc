@@ -455,12 +455,12 @@ struct ExprBinaryOp: ExprBase
 
 struct ExprGetAddress: ExprBase
 {
-	ExprGetAddress(SynBase *source, TypeBase *type, VariableData *variable): ExprBase(myTypeID, source, type), variable(variable)
+	ExprGetAddress(SynBase *source, TypeBase *type, VariableHandle *variable): ExprBase(myTypeID, source, type), variable(variable)
 	{
-		assert(!variable->lookupOnly);
+		assert(!variable->variable->lookupOnly);
 	}
 
-	VariableData *variable;
+	VariableHandle *variable;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -522,12 +522,12 @@ struct ExprAssignment: ExprBase
 
 struct ExprMemberAccess: ExprBase
 {
-	ExprMemberAccess(SynBase *source, TypeBase *type, ExprBase *value, VariableData *member): ExprBase(myTypeID, source, type), value(value), member(member)
+	ExprMemberAccess(SynBase *source, TypeBase *type, ExprBase *value, VariableHandle *member): ExprBase(myTypeID, source, type), value(value), member(member)
 	{
 	}
 
 	ExprBase *value;
-	VariableData *member;
+	VariableHandle *member;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -579,11 +579,11 @@ struct ExprYield: ExprBase
 
 struct ExprVariableDefinition: ExprBase
 {
-	ExprVariableDefinition(SynBase *source, TypeBase *type, VariableData* variable, ExprBase* initializer): ExprBase(myTypeID, source, type), variable(variable), initializer(initializer)
+	ExprVariableDefinition(SynBase *source, TypeBase *type, VariableHandle* variable, ExprBase* initializer): ExprBase(myTypeID, source, type), variable(variable), initializer(initializer)
 	{
 	}
 
-	VariableData* variable;
+	VariableHandle* variable;
 
 	ExprBase* initializer;
 
@@ -930,3 +930,4 @@ T* getType(ExprBase *node)
 
 ExprModule* Analyze(ExpressionContext &context, SynModule *syntax, const char *code);
 void VisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)(void *context, ExprBase *child));
+const char* GetExpressionTreeNodeName(ExprBase *expression);

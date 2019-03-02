@@ -81,7 +81,7 @@ bool IsSmaller(SynBase *current, SynBase *next)
 
 	if(next->begin->line > current->begin->line || (next->begin->line == current->begin->line && next->begin->column > current->begin->column))
 	{
-		if(next->end->line < current->end->line || (next->end->line == current->end->line && next->end->column + next->end->length < current->end->column + current->end->length))
+		if(next->end->line < current->end->line || (next->end->line == current->end->line && next->end->column + next->end->length <= current->end->column + current->end->length))
 		{
 			return true;
 		}
@@ -441,113 +441,226 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 
 	auto position = Position(arguments["position"]);
 
-	if(nullcAnalyze(documentIt->second.code.c_str()))
+	struct Data
 	{
-		if(ctx.debugMode)
-			fprintf(stderr, "INFO: Successfully compiled\n");
-	}
-	else
-	{
-		if(ctx.debugMode)
-			fprintf(stderr, "INFO: Failed to compile\n");
-	}
-
-	struct HoverInfo
-	{
-		HoverInfo(): identifier(nullptr)
+		Data(Context &ctx, Position &position, Hover &hover): ctx(ctx), position(position), hover(hover)
 		{
 		}
 
-		unsigned line;
-		unsigned column;
+		Context &ctx;
 
-		SynBase *identifier;
-		std::string description;
+		Position &position;
+
+		Hover &hover;
+
+		CompilerContext *context = nullptr;
+
+		SynBase *bestNode = nullptr;
+
+		std::string debugScopes;
 	};
 
-	HoverInfo hoverInfo;
+	nullcAnalyze(documentIt->second.code.c_str());
 
-	hoverInfo.line = position.line;
-	hoverInfo.column = position.character;
+	Hover hover;
+
+	Data data(ctx, position, hover);
 
 	if(CompilerContext *context = nullcGetCompilerContext())
 	{
+		data.context = context;
+
 		if(context->exprModule)
 		{
 			if(ctx.debugMode)
 				fprintf(stderr, "INFO: Expression tree is available\n");
 
-			nullcVisitExpressionTreeNodes(context->exprModule, &hoverInfo, [](void *context, ExprBase *child){
-				HoverInfo &hoverInfo = *(HoverInfo*)context;
+			nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
+				Data &data = *(Data*)context;
 
-				if(!IsInside(child->source, hoverInfo.line, hoverInfo.column))
+				if(!IsInside(child->source, data.position.line, data.position.character))
 					return;
+
+				if(data.ctx.debugMode)
+				{
+					data.debugScopes += GetExpressionTreeNodeName(child);
+					
+					char buf[256];
+					SafeSprintf(buf, 256, " (%d:%d-%d:%d)", child->source->begin->line + 1, child->source->begin->column, child->source->end->line + 1, child->source->end->column + child->source->end->length);
+					data.debugScopes += buf;
+				}
 
 				if(ExprVariableAccess *node = getType<ExprVariableAccess>(child))
 				{
-					if(!IsSmaller(hoverInfo.identifier, node->source))
-						return;
+					if(!IsSmaller(data.bestNode, node->source))
+					{
+						if(data.ctx.debugMode)
+							data.debugScopes += " <- skipped[larger]  \n";
 
-					hoverInfo.identifier = node->source;
+						return;
+					}
+
+					data.bestNode = node->source;
+
+					data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
 
 					char buf[256];
 					SafeSprintf(buf, 256, "Variable '%.*s %.*s'", FMT_ISTR(node->variable->type->name), FMT_ISTR(node->variable->name));
-					hoverInfo.description = buf;
+
+					data.hover.contents.kind = MarkupKind::Markdown;
+					data.hover.contents.value = buf;
+
+					if(data.ctx.debugMode)
+						data.debugScopes += " <- selected";
 				}
 				else if(ExprGetAddress *node = getType<ExprGetAddress>(child))
 				{
-					if(!IsSmaller(hoverInfo.identifier, node->source))
-						return;
+					SynBase *nameSource = node->variable->source;
 
-					hoverInfo.identifier = node->source;
+					if(data.ctx.debugMode)
+					{
+						char buf[256];
+						SafeSprintf(buf, 256, " name (%d:%d-%d:%d)", nameSource->begin->line + 1, nameSource->begin->column, nameSource->end->line + 1, nameSource->end->column + nameSource->end->length);
+						data.debugScopes += buf;
+					}
+
+					if(!nameSource)
+					{
+						if(data.ctx.debugMode)
+							data.debugScopes += " <- skipped[no name source]  \n";
+
+						return;
+					}
+
+					if(!IsInside(nameSource, data.position.line, data.position.character))
+					{
+						if(data.ctx.debugMode)
+							data.debugScopes += " <- skipped[outside name]  \n";
+
+						return;
+					}
+
+					if(!IsSmaller(data.bestNode, nameSource))
+					{
+						if(data.ctx.debugMode)
+							data.debugScopes += " <- skipped[larger]  \n";
+
+						return;
+					}
+
+					data.bestNode = nameSource;
+
+					data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
 
 					char buf[256];
-					SafeSprintf(buf, 256, "Variable '%.*s %.*s'", FMT_ISTR(node->variable->type->name), FMT_ISTR(node->variable->name));
-					hoverInfo.description = buf;
+					SafeSprintf(buf, 256, "Variable '%.*s %.*s'", FMT_ISTR(node->variable->variable->type->name), FMT_ISTR(node->variable->variable->name));
+
+					data.hover.contents.kind = MarkupKind::Markdown;
+					data.hover.contents.value = buf;
+
+					if(data.ctx.debugMode)
+						data.debugScopes += " <- selected";
 				}
 				else if(ExprMemberAccess *node = getType<ExprMemberAccess>(child))
 				{
-					if(!IsSmaller(hoverInfo.identifier, node->source))
+					if(!IsSmaller(data.bestNode, node->source))
+					{
+						if(data.ctx.debugMode)
+							data.debugScopes += " <- skipped[larger]  \n";
+
 						return;
+					}
 
 					if(!node->member)
+					{
+						if(data.ctx.debugMode)
+							data.debugScopes += " <- skipped[no member]  \n";
+
 						return;
+					}
 
-					hoverInfo.identifier = node->source;
+					if(TypeRef *typeRef = getType<TypeRef>(node->value->type))
+					{
+						data.bestNode = node->source;
 
-					char buf[256];
-					SafeSprintf(buf, 256, "Member '%.*s %.*s'", FMT_ISTR(node->member->type->name), FMT_ISTR(node->member->name));
-					hoverInfo.description = buf;
+						data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
+
+						data.hover.contents.kind = MarkupKind::Markdown;
+						data.hover.contents.value = GetMemberSignature(typeRef->subType, node->member->variable);
+
+						if(data.ctx.debugMode)
+							data.debugScopes += " <- selected";
+					}
 				}
 				else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(child))
 				{
-					if(!IsSmaller(hoverInfo.identifier, node->source))
+					if(!IsSmaller(data.bestNode, node->source))
+					{
+						if(data.ctx.debugMode)
+							data.debugScopes += " <- skipped[larger]  \n";
+
 						return;
+					}
 
 					if(isType<SynFunctionDefinition>(node->source))
-						return;
+					{
+						if(data.ctx.debugMode)
+							data.debugScopes += " <- skipped[definition]  \n";
 
-					hoverInfo.identifier = node->source;
-					hoverInfo.description = "Function \'" + GetFunctionSignature(node->function) + "\'";
+						return;
+					}
+
+					data.bestNode = node->source;
+
+					data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
+
+					data.hover.contents.kind = MarkupKind::Markdown;
+					data.hover.contents.value = "Function \'" + GetFunctionSignature(node->function) + "\'";
+
+					if(data.ctx.debugMode)
+						data.debugScopes += " <- selected";
 				}
 				else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(child))
 				{
 					if(SynFunctionDefinition *source = getType<SynFunctionDefinition>(node->source))
 					{
-						if(IsInside(source->returnType, hoverInfo.line, hoverInfo.column))
+						if(IsInside(source->returnType, data.position.line, data.position.character))
 						{
-							if(!IsSmaller(hoverInfo.identifier, source->returnType))
-								return;
+							if(!IsSmaller(data.bestNode, source->returnType))
+							{
+								if(data.ctx.debugMode)
+									data.debugScopes += " <- skipped[larger]  \n";
 
-							hoverInfo.identifier = source->returnType;
+								return;
+							}
+
+							data.bestNode = source->returnType;
+
+							data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
 
 							char buf[256];
 							SafeSprintf(buf, 256, "Type '%.*s'", FMT_ISTR(node->function->type->returnType->name));
-							hoverInfo.description = buf;
+
+							data.hover.contents.kind = MarkupKind::Markdown;
+							data.hover.contents.value = buf;
+
+							if(data.ctx.debugMode)
+								data.debugScopes += " <- selected[returnType]";
 						}
 					}
 				}
+
+				if(data.ctx.debugMode)
+					data.debugScopes += "  \n";
 			});
+
+			if(!data.debugScopes.empty())
+			{
+				if(hover.contents.value.empty())
+					hover.contents.value = "No info";
+
+				hover.contents.value += "  \n***  \n" + data.debugScopes;
+			}
 		}
 		else
 		{
@@ -558,34 +671,13 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 
 	rapidjson::Value result;
 
-	if(hoverInfo.identifier)
+	if(hover.contents.value.empty())
 	{
-		result.SetObject();
-
-		rapidjson::Value range;
-		range.SetObject();
-
-		rapidjson::Value start;
-		start.SetObject();
-
-		start.AddMember("line", hoverInfo.identifier->begin->line, response.GetAllocator());
-		start.AddMember("character", hoverInfo.identifier->begin->column, response.GetAllocator());
-
-		rapidjson::Value end;
-		end.SetObject();
-
-		end.AddMember("line", hoverInfo.identifier->begin->line, response.GetAllocator());
-		end.AddMember("character", hoverInfo.identifier->begin->column + hoverInfo.identifier->begin->length, response.GetAllocator());
-
-		range.AddMember("start", start, response.GetAllocator());
-		range.AddMember("end", end, response.GetAllocator());
-
-		result.AddMember("contents", rapidjson::StringRef(hoverInfo.description.c_str()), response.GetAllocator());
-		result.AddMember("range", range, response.GetAllocator());
+		result.SetNull();
 	}
 	else
 	{
-		result.SetNull();
+		hover.SaveTo(result, response);
 	}
 
 	response.AddMember("result", result, response.GetAllocator());
@@ -699,10 +791,6 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 	if(arguments.HasMember("context"))
 		completionContext = CompletionContext(arguments["context"]);
 
-	nullcAnalyze(documentIt->second.code.c_str());
-
-	CompletionList completions;
-
 	struct Data
 	{
 		Data(Context &ctx, Position &position, CompletionContext &completionContext, CompletionList &completions): ctx(ctx), position(position), completionContext(completionContext), completions(completions)
@@ -718,6 +806,10 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 		CompilerContext *context = nullptr;
 	};
+
+	nullcAnalyze(documentIt->second.code.c_str());
+
+	CompletionList completions;
 
 	Data data(ctx, position, completionContext, completions);
 

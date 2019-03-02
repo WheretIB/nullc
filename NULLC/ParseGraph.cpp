@@ -547,7 +547,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	{
 		if(node->initializer)
 		{
-			PrintEnterBlock(ctx, name, "SynVariableDefinition(%.*s)", FMT_ISTR(node->name));
+			PrintEnterBlock(ctx, name, "SynVariableDefinition(%.*s)", FMT_ISTR(node->name->name));
 
 			PrintGraph(ctx, node->initializer, "initializer");
 
@@ -555,7 +555,7 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 		}
 		else
 		{
-			PrintIndented(ctx, name, "SynVariableDefinition(%.*s)", FMT_ISTR(node->name));
+			PrintIndented(ctx, name, "SynVariableDefinition(%.*s)", FMT_ISTR(node->name->name));
 		}
 	}
 	else if(SynVariableDefinitions *node = getType<SynVariableDefinitions>(syntax))
