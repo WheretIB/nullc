@@ -164,7 +164,8 @@ InplaceStr GetFunctionTypeName(ExpressionContext &ctx, TypeBase* returnType, Int
 
 	char *pos = name;
 
-	memcpy(pos, returnType->name.begin, returnType->name.length());
+	if(returnType->name.begin)
+		memcpy(pos, returnType->name.begin, returnType->name.length());
 	pos += returnType->name.length();
 
 	memcpy(pos, " ref(", 5);
@@ -172,7 +173,8 @@ InplaceStr GetFunctionTypeName(ExpressionContext &ctx, TypeBase* returnType, Int
 
 	for(TypeHandle *arg = arguments.head; arg; arg = arg->next)
 	{
-		memcpy(pos, arg->type->name.begin, arg->type->name.length());
+		if(arg->type->name.begin)
+			memcpy(pos, arg->type->name.begin, arg->type->name.length());
 		pos += arg->type->name.length();
 
 		if(arg->next)
