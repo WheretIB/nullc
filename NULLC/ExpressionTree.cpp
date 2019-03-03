@@ -763,8 +763,12 @@ namespace
 		return GetDerivedFromDepth(type, target) != ~0u;
 	}
 
-	ExprBase* EvaluateExpression(ExpressionContext &ctx, ExprBase *expression)
+	ExprBase* EvaluateExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expression)
 	{
+		// Don't perform evaluations in an ill-formed program
+		if(ctx.errorCount != 0)
+			return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
 		ExpressionEvalContext evalCtx(ctx, ctx.allocator);
 
 		if(ctx.errorBuf && ctx.errorBufSize)
@@ -1587,10 +1591,12 @@ TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* retu
 {
 	// Can't derive from pseudo types
 	assert(!isType<TypeArgumentSet>(returnType) && !isType<TypeMemberSet>(returnType) && !isType<TypeFunctionSet>(returnType));
+	assert(!isType<TypeError>(returnType));
 
 	for(TypeHandle *curr = arguments.head; curr; curr = curr->next)
 	{
 		assert(!isType<TypeArgumentSet>(curr->type) && !isType<TypeMemberSet>(curr->type) && !isType<TypeFunctionSet>(curr->type));
+		assert(!isType<TypeError>(curr->type));
 
 		// Can't have auto as argument
 		assert(curr->type != typeAuto);
@@ -2760,7 +2766,7 @@ TypeBase* ApplyArraySizesToType(ExpressionContext &ctx, TypeBase *type, SynBase 
 
 	ExprBase *sizeValue = AnalyzeExpression(ctx, size);
 
-	if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, size, sizeValue, ctx.typeLong, false))))
+	if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, size, CreateCast(ctx, size, sizeValue, ctx.typeLong, false))))
 	{
 		if(number->value <= 0)
 			Stop(ctx, size, "ERROR: array size can't be negative or zero");
@@ -2890,6 +2896,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		if(isType<TypeAuto>(type))
 			return ctx.typeAutoRef;
 
+		if(isType<TypeError>(type))
+			return ctx.GetErrorType();
+
 		return ctx.GetReferenceType(type);
 	}
 
@@ -2899,6 +2908,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		if(!onlyType && !type)
 			return NULL;
+
+		if(isType<TypeError>(type))
+			return ctx.GetErrorType();
 
 		return ApplyArraySizesToType(ctx, type, node->sizes.head);
 	}
@@ -2918,6 +2930,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			return ctx.typeAutoArray;
 		}
 
+		if(isType<TypeError>(type))
+			return ctx.GetErrorType();
+
 		if(node->arguments.empty())
 		{
 			if(type->size >= 64 * 1024)
@@ -2936,7 +2951,7 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		ExprBase *size = AnalyzeExpression(ctx, argument->value);
 
-		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, node, size, ctx.typeLong, false))))
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, syntax, CreateCast(ctx, node, size, ctx.typeLong, false))))
 		{
 			if(TypeArgumentSet *lhs = getType<TypeArgumentSet>(type))
 			{
@@ -3130,6 +3145,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 	{
 		TypeBase *baseType = AnalyzeType(ctx, node->baseType, true, failed);
 
+		if(isType<TypeError>(baseType))
+			return ctx.GetErrorType();
+
 		// TODO: overloads with a different number of generic arguments
 
 		if(TypeGenericClassProto *proto = getType<TypeGenericClassProto>(baseType))
@@ -3189,7 +3207,7 @@ unsigned AnalyzeAlignment(ExpressionContext &ctx, SynAlign *syntax)
 	if(isType<TypeError>(align->type))
 		return 0;
 
-	if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, syntax, align, ctx.typeLong, false))))
+	if(ExprIntegerLiteral *alignValue = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, syntax, CreateCast(ctx, syntax, align, ctx.typeLong, false))))
 	{
 		if(alignValue->value > 16)
 		{
@@ -4549,7 +4567,7 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 		{
 			if(arguments.size() == 1)
 			{
-				if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, arguments[0].value)))
+				if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, source, arguments[0].value)))
 				{
 					if(number->value < 0)
 						Stop(ctx, source, "ERROR: argument index can't be negative");
@@ -4647,7 +4665,7 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 
 		ExprBase *index = CreateCast(ctx, source, arguments[0].value, ctx.typeInt, false);
 
-		ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, index));
+		ExprIntegerLiteral *indexValue = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, source, index));
 
 		if(indexValue && indexValue->value < 0)
 			Stop(ctx, source, "ERROR: array index cannot be negative");
@@ -6744,6 +6762,16 @@ ExprBase* AnalyzeFunctionCall(ExpressionContext &ctx, SynFunctionCall *syntax)
 
 	if(ExprTypeLiteral *type = getType<ExprTypeLiteral>(function))
 	{
+		if(isType<TypeError>(type->value))
+		{
+			IntrusiveList<ExprBase> arguments;
+
+			for(SynCallArgument *el = syntax->arguments.head; el; el = getType<SynCallArgument>(el->next))
+				arguments.push_back(AnalyzeExpression(ctx, el->value));
+
+			return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(syntax, ctx.GetErrorType(), function, arguments);
+		}
+
 		// Handle hasMember(x) expresion
 		if(TypeMemberSet *memberSet = getType<TypeMemberSet>(type->value))
 		{
@@ -7545,6 +7573,9 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	if(returnType->isGeneric)
 		Stop(ctx, syntax, "ERROR: return type can't be generic");
 
+	if(syntax->accessor && !parentType)
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+
 	ExprBase *value = CreateFunctionDefinition(ctx, syntax, syntax->prototype, syntax->coroutine, parentType, syntax->accessor, returnType, syntax->isOperator, syntax->name, syntax->aliases, syntax->arguments, syntax->expressions, instance, matches);
 
 	if(ExprFunctionDefinition *definition = getType<ExprFunctionDefinition>(value))
@@ -7706,6 +7737,15 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		contextRefType = ctx.GetReferenceType(ctx.typeVoid);
 	else
 		contextRefType = ctx.GetReferenceType(CreateFunctionContextType(ctx, source, functionName));
+
+	if(isType<TypeError>(returnType))
+		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+
+	for(unsigned i = 0; i < argData.size(); i++)
+	{
+		if(isType<TypeError>(argData[i].type))
+			return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+	}
 
 	TypeFunction *functionType = ctx.GetFunctionType(source, returnType, argData);
 
@@ -8799,7 +8839,7 @@ void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
-	if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(EvaluateExpression(ctx, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
+	if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(EvaluateExpression(ctx, syntax, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
 	{
 		if(number->value)
 			AnalyzeClassElements(ctx, classDefinition, syntax->trueBlock);
@@ -8831,11 +8871,11 @@ void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *ty
 			if(!ctx.IsNumericType(type))
 				Stop(ctx, source, "ERROR: only basic numeric types can be used as constants");
 
-			value = EvaluateExpression(ctx, CreateCast(ctx, constant, value, type, false));
+			value = EvaluateExpression(ctx, source, CreateCast(ctx, constant, value, type, false));
 		}
 		else if(ctx.IsIntegerType(type) && constant != constants.head)
 		{
-			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, constant, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, target.tail->value, new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, type, 1)), type, false)));
+			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, source, CreateCast(ctx, constant, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, target.tail->value, new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, type, 1)), type, false)));
 		}
 		else
 		{
@@ -8917,7 +8957,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 		TypeBase *accessorType = AnalyzeType(ctx, accessor->type);
 
-		if(accessor->getBlock)
+		if(accessor->getBlock && !isType<TypeError>(accessorType))
 		{
 			IntrusiveList<SynIdentifier> aliases;
 			IntrusiveList<SynFunctionArgument> arguments;
@@ -8941,7 +8981,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 			classDefinition->functions.push_back(definition);
 		}
 
-		if(accessor->setBlock)
+		if(accessor->setBlock && !isType<TypeError>(accessorType))
 		{
 			IntrusiveList<SynIdentifier> aliases;
 
@@ -9216,11 +9256,11 @@ void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 			if(isType<TypeError>(rhs->type))
 				continue;
 
-			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, constant, rhs, ctx.typeInt, false)));
+			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, source, CreateCast(ctx, constant, rhs, ctx.typeInt, false)));
 		}
 		else if(last)
 		{
-			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, last, new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, ctx.typeInt, 1))));
+			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, source, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, last, new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, ctx.typeInt, 1))));
 		}
 		else
 		{
@@ -9480,7 +9520,7 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 
 	if(syntax->staticIf)
 	{
-		if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(EvaluateExpression(ctx, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
+		if(ExprBoolLiteral *number = getType<ExprBoolLiteral>(EvaluateExpression(ctx, syntax, CreateCast(ctx, syntax, condition, ctx.typeBool, false))))
 		{
 			if(number->value)
 			{
@@ -9888,7 +9928,7 @@ ExprBreak* AnalyzeBreak(ExpressionContext &ctx, SynBreak *syntax)
 	{
 		ExprBase *numberValue = AnalyzeExpression(ctx, syntax->number);
 
-		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, syntax->number, numberValue, ctx.typeLong, false))))
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, syntax->number, CreateCast(ctx, syntax->number, numberValue, ctx.typeLong, false))))
 		{
 			if(number->value <= 0)
 				Stop(ctx, syntax->number, "ERROR: break level can't be negative or zero");
@@ -9915,7 +9955,7 @@ ExprContinue* AnalyzeContinue(ExpressionContext &ctx, SynContinue *syntax)
 	{
 		ExprBase *numberValue = AnalyzeExpression(ctx, syntax->number);
 
-		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, CreateCast(ctx, syntax->number, numberValue, ctx.typeLong, false))))
+		if(ExprIntegerLiteral *number = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, syntax->number, CreateCast(ctx, syntax->number, numberValue, ctx.typeLong, false))))
 		{
 			if(number->value <= 0)
 				Stop(ctx, syntax->number, "ERROR: continue level can't be negative or zero");
@@ -11524,7 +11564,9 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 		}
 	}
 
-	CreateDefaultArgumentFunctionWrappers(ctx);
+	// Don't create wrappers in ill-formed module
+	if(ctx.errorCount == 0)
+		CreateDefaultArgumentFunctionWrappers(ctx);
 
 	ExprModule *module = new (ctx.get<ExprModule>()) ExprModule(ctx.allocator, syntax, ctx.typeVoid, ctx.globalScope, expressions);
 

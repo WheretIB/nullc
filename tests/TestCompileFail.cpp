@@ -842,6 +842,16 @@ auto m = bar;",
 	TEST_FOR_FAIL("invalid array element size 6", "auto x = new (int[100000])[2];", "ERROR: array element size cannot exceed 65535 bytes");
 
 	TEST_FOR_FAIL("generic function instantiation creates a conflict", "auto foo(generic a, int f = 1){ return -a; } foo(1, 2); auto foo(generic a = 1, int f = 2){ return a; } return foo();", "ERROR: function 'foo' is being defined with the same set of arguments");
+
+	TEST_FOR_FAIL("fuzzing test crash", "fo<@T, @U(){}", "ERROR: '>' expected after generic type alias list");
+	TEST_FOR_FAIL("fuzzing test crash", "oid foo<@>(){}", "ERROR: explicit generic type alias is expected after '@'");
+	TEST_FOR_FAIL("fuzzing test crash", "t ref(int, int)> a; re;", "ERROR: 't' is not a known type name");
+	TEST_FOR_FAIL("fuzzing test crash", "aab[4] m;++++++i++;d;i.", "ERROR: member name expected after '.'");
+	TEST_FOR_FAIL("fuzzing test crash", "!!!!!!!!!!!!!!!!n f();", "ERROR: ';' not found after expression");
+	TEST_FOR_FAIL("fuzzing test crash", "class Test{ t a{ get{ return 0; } set } return 0;", "ERROR: function body expected after 'set'");
+	TEST_FOR_FAIL("fuzzing test crash", "namespace Test{ vourn Test.a.bab(3) + Test.b.bar(;", "ERROR: ')' not found after function variable list");
+	TEST_FOR_FAIL("fuzzing test crash", "int a = 4;@if(typeof(a) != inggggggggggggggt){f;}ora;", "ERROR: unknown identifier 'inggggggggggggggt'");
+	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T>{} auto foo(generic a, generic ref(Foo<typeof(()>) m){} return foo(1, <x>{ -4; });", "ERROR: expression not found after '('");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

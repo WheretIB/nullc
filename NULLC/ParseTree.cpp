@@ -2612,7 +2612,7 @@ SynFunctionArgument* ParseFunctionArgument(ParseContext &ctx, bool lastExplicit,
 			}
 		}
 
-		return new (ctx.get<SynFunctionArgument>()) SynFunctionArgument(start, ctx.Previous(), isExplicit, type, nameIdentifier, initializer);
+		return new (ctx.get<SynFunctionArgument>()) SynFunctionArgument(start, start == ctx.currentLexeme ? ctx.Current() : ctx.Previous(), isExplicit, type, nameIdentifier, initializer);
 	}
 
 	if(isExplicit)
