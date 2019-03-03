@@ -813,14 +813,14 @@ struct SynVariableDefinitions: SynBase
 
 struct SynAccessor: SynBase
 {
-	SynAccessor(Lexeme *begin, Lexeme *end, SynBase *type, SynIdentifier *name, SynBlock *getBlock, SynBlock *setBlock, SynIdentifier *setName): SynBase(myTypeID, begin, end), type(type), name(name), getBlock(getBlock), setBlock(setBlock), setName(setName)
+	SynAccessor(Lexeme *begin, Lexeme *end, SynBase *type, SynIdentifier *name, SynBase *getBlock, SynBase *setBlock, SynIdentifier *setName): SynBase(myTypeID, begin, end), type(type), name(name), getBlock(getBlock), setBlock(setBlock), setName(setName)
 	{
 	}
 
 	SynBase *type;
 	SynIdentifier *name;
-	SynBlock *getBlock;
-	SynBlock *setBlock;
+	SynBase *getBlock;
+	SynBase *setBlock;
 	SynIdentifier *setName;
 
 	static const unsigned myTypeID = __LINE__;

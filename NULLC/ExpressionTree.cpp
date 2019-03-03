@@ -31,8 +31,8 @@ namespace
 			vsnprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), msg, args);
 			ctx.errorBuf[ctx.errorBufSize - 1] = '\0';
 
-			if(strstr(ctx.errorBufLocation, "%error-type%"))
-				printf("Can't be here\n");
+			// Shouldn't report errors that are caused by error recovery
+			assert(strstr(ctx.errorBufLocation, "%error-type%") == NULL);
 
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
@@ -806,6 +806,12 @@ namespace
 
 			longjmp(ctx.errorHandler, 1);
 		}
+		else if(!result)
+		{
+			// Remove non-critical error from buffer
+			if(ctx.errorBuf && ctx.errorBufSize)
+				*evalCtx.errorBuf = 0;
+		}
 
 		return result;
 	}
@@ -1302,7 +1308,7 @@ void ExpressionContext::AddFunction(FunctionData *function)
 	functions.push_back(function);
 
 	// Don't add internal functions to named lookup
-	if(*function->name->name.begin != '$')
+	if(function->name->name.begin && *function->name->name.begin != '$')
 		functionMap.insert(function->nameHash, function);
 
 	while(VariableData **variable = variableMap.find(function->nameHash))
@@ -1368,7 +1374,7 @@ unsigned ExpressionContext::GetFunctionIndex(FunctionData *data)
 void ExpressionContext::HideFunction(FunctionData *function)
 {
 	// Don't have to remove internal functions since they are never added to lookup
-	if(*function->name->name.begin != '$')
+	if(function->name->name.begin && *function->name->name.begin != '$')
 		functionMap.remove(function->nameHash, function);
 
 	SmallArray<FunctionData*, 2> &scopeFunctions = function->scope->functions;
@@ -1471,6 +1477,7 @@ TypeRef* ExpressionContext::GetReferenceType(TypeBase* type)
 {
 	// Can't derive from pseudo types
 	assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
+	assert(!isType<TypeError>(type));
 
 	// Can't create reference to auto this way
 	assert(type != typeAuto);
@@ -1499,6 +1506,7 @@ TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 
 	// Can't derive from pseudo types
 	assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
+	assert(!isType<TypeError>(type));
 
 	if(TypeClass *typeClass = getType<TypeClass>(type))
 		assert(typeClass->completed && !typeClass->hasFinalizer);
@@ -1545,6 +1553,7 @@ TypeUnsizedArray* ExpressionContext::GetUnsizedArrayType(TypeBase* type)
 
 	// Can't derive from pseudo types
 	assert(!isType<TypeArgumentSet>(type) && !isType<TypeMemberSet>(type) && !isType<TypeFunctionSet>(type));
+	assert(!isType<TypeError>(type));
 
 	if(type->unsizedArrayType)
 		return type->unsizedArrayType;
@@ -1747,8 +1756,8 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs);
 
-ExprBase* AssertResolvableTypeLiteral(ExpressionContext &ctx, SynBase *source, ExprBase *expr);
-ExprBase* AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expr);
+bool AssertResolvableTypeLiteral(ExpressionContext &ctx, SynBase *source, ExprBase *expr);
+bool AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expr);
 
 InplaceStr GetTypeConstructorName(TypeClass *classType);
 bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool noArguments, SmallArray<FunctionData*, 32> &functions);
@@ -1995,7 +2004,8 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 			Stop(ctx, source, "ERROR: can't resolve generic type '%.*s' instance for '%.*s'", FMT_ISTR(value->type->name), FMT_ISTR(type->name));
 	}
 
-	AssertValueExpression(ctx, source, value);
+	if(!AssertValueExpression(ctx, source, value))
+		return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, value, EXPR_CAST_REINTERPRET);
 
 	if(ctx.IsNumericType(value->type) && ctx.IsNumericType(type))
 		return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, value, EXPR_CAST_NUMERICAL);
@@ -3084,7 +3094,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		if(!onlyType)
 			return NULL;
 
-		Stop(ctx, syntax, "ERROR: '%.*s' is not a known type name", FMT_ISTR(node->name));
+		Report(ctx, syntax, "ERROR: '%.*s' is not a known type name", FMT_ISTR(node->name));
+
+		return ctx.GetErrorType();
 	}
 
 	if(SynMemberAccess *node = getType<SynMemberAccess>(syntax))
@@ -3153,6 +3165,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		Stop(ctx, syntax, "ERROR: type '%.*s' can't have generic arguments", FMT_ISTR(baseType->name));
 	}
+
+	if(isType<SynError>(syntax))
+		return ctx.GetErrorType();
 
 	if(!onlyType)
 		return NULL;
@@ -4241,7 +4256,8 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 	}
 	else if(!isType<TypeRef>(wrapped->type))
 	{
-		AssertValueExpression(ctx, source, wrapped);
+		if(!AssertValueExpression(ctx, source, wrapped))
+			return new (ctx.get<ExprMemberAccess>()) ExprMemberAccess(source, ctx.GetErrorType(), value, NULL);
 
 		VariableData *storage = AllocateTemporary(ctx, source, wrapped->type);
 
@@ -4577,7 +4593,8 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 	}
 	else if(!isType<TypeRef>(wrapped->type))
 	{
-		AssertValueExpression(ctx, source, wrapped);
+		if(!AssertValueExpression(ctx, source, wrapped))
+			return new (ctx.get<ExprArrayIndex>()) ExprArrayIndex(source, ctx.GetErrorType(), value, new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType()));
 
 		VariableData *storage = AllocateTemporary(ctx, source, wrapped->type);
 
@@ -5952,12 +5969,23 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		TypeHandle *currGeneric = generics.head;
 
 		for(; currMatch && currGeneric; currMatch = currMatch->next, currGeneric = currGeneric->next)
+		{
+			if(isType<TypeError>(currGeneric->type))
+				return FunctionValue();
+
 			aliases.push_back(new (ctx.get<MatchData>()) MatchData(currMatch->name, currGeneric->type));
+		}
 	}
 
 	TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, parentType, function, result, aliases);
 
-	assert(instance);
+	if(!instance)
+	{
+		Report(ctx, source, "ERROR: failed to instantiate generic function '%.*s'", FMT_ISTR(function->name->name));
+
+		return FunctionValue();
+	}
+
 	assert(!instance->isGeneric);
 
 	// Search for an existing functions
@@ -6327,9 +6355,12 @@ ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, 
 			}
 
 			if(options.empty())
-				Stop(ctx, source, "ERROR: cannot find function which accepts a function with %d argument(s) as an argument #%d", node->arguments.size(), arguments.size() + 1);
+			{
+				Report(ctx, source, "ERROR: cannot find function which accepts a function with %d argument(s) as an argument #%d", node->arguments.size(), arguments.size() + 1);
 
-			if(options.size() == 1)
+				argument = new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+			}
+			else if(options.size() == 1)
 			{
 				argument = options[0];
 			}
@@ -6370,19 +6401,28 @@ ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, 
 
 ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprBase *value, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, bool allowFailure)
 {
-	if(isType<ExprError>(value))
-		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+	bool isErrorCall = false;
+
+	if(isType<TypeError>(value->type))
+		isErrorCall = true;
 
 	for(unsigned i = 0; i < arguments.size(); i++)
 	{
-		if(isType<ExprError>(arguments[i].value))
-			return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+		if(isType<TypeError>(arguments[i].value->type) || !AssertResolvableTypeLiteral(ctx, source, arguments[i].value))
+			isErrorCall = true;
+	}
+
+	if(isErrorCall)
+	{
+		IntrusiveList<ExprBase> actualArguments;
+
+		for(unsigned i = 0; i < arguments.size(); i++)
+			actualArguments.push_back(new (ctx.get<ExprPassthrough>()) ExprPassthrough(source, arguments[i].value->type, arguments[i].value));
+
+		return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(source, ctx.GetErrorType(), value, actualArguments);
 	}
 
 	TypeFunction *type = getType<TypeFunction>(value->type);
-
-	for(unsigned i = 0; i < arguments.size(); i++)
-		AssertResolvableTypeLiteral(ctx, source, arguments[i].value);
 
 	IntrusiveList<ExprBase> actualArguments;
 
@@ -6479,6 +6519,9 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 		if(ctx.IsGenericFunction(function))
 		{
 			bestOverload = CreateGenericFunctionInstance(ctx, source, bestOverload, generics, arguments, false);
+
+			if(!bestOverload)
+				return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(source, ctx.GetErrorType(), value, actualArguments);
 
 			function = bestOverload.function;
 
@@ -6609,7 +6652,9 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 		}
 		else
 		{
-			Stop(ctx, source, "ERROR: operator '()' accepting %d argument(s) is undefined for a class '%.*s'", arguments.size(), FMT_ISTR(value->type->name));
+			Report(ctx, source, "ERROR: operator '()' accepting %d argument(s) is undefined for a class '%.*s'", arguments.size(), FMT_ISTR(value->type->name));
+
+			return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(source, ctx.GetErrorType(), value, actualArguments);
 		}
 	}
 
@@ -6644,6 +6689,9 @@ ExprBase* CreateObjectAllocation(ExpressionContext &ctx, SynBase *source, TypeBa
 
 	ExprFunctionCall *alloc = getType<ExprFunctionCall>(CreateFunctionCall2(ctx, source, InplaceStr("__newS"), size, typeId, false, true));
 
+	if(isType<TypeError>(type))
+		return alloc;
+
 	return new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, ctx.GetReferenceType(type), alloc, EXPR_CAST_REINTERPRET);
 }
 
@@ -6655,6 +6703,9 @@ ExprBase* CreateArrayAllocation(ExpressionContext &ctx, SynBase *source, TypeBas
 	count = CreateCast(ctx, source, count, ctx.typeInt, true);
 
 	ExprFunctionCall *alloc = getType<ExprFunctionCall>(CreateFunctionCall3(ctx, source, InplaceStr("__newA"), size, count, typeId, false, true));
+
+	if(isType<TypeError>(type))
+		return alloc;
 
 	if(type->size >= 64 * 1024)
 		Stop(ctx, source, "ERROR: array element size cannot exceed 65535 bytes");
@@ -6832,7 +6883,11 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 	// Report the original error
 	if(!type)
+	{
 		AnalyzeType(ctx, syntax->type);
+
+		type = ctx.GetErrorType();
+	}
 
 	if(type->isGeneric)
 		Stop(ctx, syntax->type, "ERROR: generic type is not allowed");
@@ -6852,9 +6907,6 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 		assert(syntax->constructor.empty());
 
 		ExprBase *count = AnalyzeExpression(ctx, syntax->count);
-
-		if(isType<ExprError>(count))
-			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
 
 		ExprBase *alloc = CreateArrayAllocation(ctx, syntax, type, count);
 
@@ -7003,7 +7055,7 @@ ExprBase* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 	AssertValueExpression(ctx, result->source, result);
 
 	if(!ctx.IsNumericType(result->type) && !isType<TypeEnum>(result->type))
-		Stop(ctx, syntax, "ERROR: global return cannot accept '%.*s'", FMT_ISTR(result->type->name));
+		Report(ctx, syntax, "ERROR: global return cannot accept '%.*s'", FMT_ISTR(result->type->name));
 
 	return new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, result, NULL, NULL);
 }
@@ -7213,6 +7265,9 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 			return new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(syntax->name, variable), initializer);
 
 		ExprBase *access = CreateVariableAccess(ctx, syntax->name, variable, true);
+
+		if(isType<TypeError>(access->type))
+			return new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(syntax->name, variable), initializer);
 
 		TypeArray *arrType = getType<TypeArray>(variable->type);
 
@@ -7469,6 +7524,9 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 	else if(syntax->parentType)
 	{
 		parentType = AnalyzeType(ctx, syntax->parentType);
+
+		if(isType<TypeError>(parentType))
+			parentType = NULL;
 
 		if(checkParent)
 		{
@@ -7857,7 +7915,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			assert(classType);
 
 			if(!classType->members.empty())
-				Stop(ctx, source, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name->name));
+				Report(ctx, source, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name->name));
 		}
 	}
 
@@ -7868,7 +7926,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	FunctionData *conflict = CheckUniqueness(ctx, function);
 
 	if(conflict)
-		Stop(ctx, source, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name->name));
+		Report(ctx, source, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name->name));
 
 	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, variables, coroutineStateRead, code, contextVariableDefinition);
 
@@ -7896,7 +7954,7 @@ void DeduceShortFunctionReturnValue(ExpressionContext &ctx, SynBase *source, Fun
 	if(function->type->returnType == ctx.typeAuto)
 		function->type = ctx.GetFunctionType(source, actual, function->type->arguments);
 
-	ExprBase *result = expected == ctx.typeAuto ? expressions.tail : CreateCast(ctx, source, expressions.tail, expected, false);
+	ExprBase *result = expected == ctx.typeAuto || isType<TypeError>(actual) ? expressions.tail : CreateCast(ctx, source, expressions.tail, expected, false);
 	result = new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, source, function, 0), CreateFunctionUpvalueClose(ctx, source, function, ctx.scope));
 
 	if(expressions.head == expressions.tail)
@@ -8053,7 +8111,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		function->type = ctx.GetFunctionType(syntax, ctx.typeVoid, function->type->arguments);
 
 	if(function->type->returnType != ctx.typeVoid && !function->hasExplicitReturn)
-		Stop(ctx, syntax, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+		Report(ctx, syntax, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
 
 	// User might have not returned from all control paths, for a void function we will generate a return
 	if(function->type->returnType == ctx.typeVoid)
@@ -8122,14 +8180,19 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 		expressions.push_back(AnalyzeStatement(ctx, expression));
 
 	if(!function->hasExplicitReturn)
-		Stop(ctx, syntax, "ERROR: not a single element is generated, and an array element type is unknown");
+	{
+		Report(ctx, syntax, "ERROR: not a single element is generated, and an array element type is unknown");
+	}
+	else if(function->type->returnType == ctx.typeVoid)
+	{
+		Report(ctx, syntax, "ERROR: cannot generate an array of 'void' element type");
+	}
+	else
+	{
+		VariableData *empty = AllocateTemporary(ctx, syntax, function->type->returnType);
 
-	if(function->type->returnType == ctx.typeVoid)
-		Stop(ctx, syntax, "ERROR: cannot generate an array of 'void' element type");
-
-	VariableData *empty = AllocateTemporary(ctx, syntax, function->type->returnType);
-
-	expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, CreateVariableAccess(ctx, syntax, empty, false), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
+		expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, CreateVariableAccess(ctx, syntax, empty, false), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
+	}
 
 	ClosePendingUpvalues(ctx, function);
 
@@ -8188,24 +8251,36 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	return AnalyzeShortFunctionDefinition(ctx, syntax, argumentType);
 }
 
-ExprBase* AssertResolvableTypeLiteral(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
+bool AssertResolvableTypeLiteral(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
 {
 	if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(expr))
 	{
 		if(isType<TypeArgumentSet>(node->value))
-			Stop(ctx, source, "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
+		{
+			Report(ctx, source, "ERROR: expected '.first'/'.last'/'[N]'/'.size' after 'argument'");
+
+			return false;
+		}
 
 		if(isType<TypeMemberSet>(node->value))
-			Stop(ctx, source, "ERROR: expected '(' after 'hasMember'");
+		{
+			Report(ctx, source, "ERROR: expected '(' after 'hasMember'");
+
+			return false;
+		}
 
 		if(node->value->isGeneric)
-			Stop(ctx, source, "ERROR: cannot take typeid from generic type");
+		{
+			Report(ctx, source, "ERROR: cannot take typeid from generic type");
+
+			return false;
+		}
 	}
 
-	return expr;
+	return true;
 }
 
-ExprBase* AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
+bool AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expr)
 {
 	if(isType<ExprFunctionOverloadSet>(expr))
 	{
@@ -8238,20 +8313,30 @@ ExprBase* AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBas
 	}
 
 	if(isType<ExprGenericFunctionPrototype>(expr))
-		Stop(ctx, source, "ERROR: ambiguity, the expression is a generic function");
+	{
+		Report(ctx, source, "ERROR: ambiguity, the expression is a generic function");
+
+		return false;
+	}
 
 	if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(expr))
 	{
 		if(ctx.IsGenericFunction(node->function))
-			Stop(ctx, source, "ERROR: ambiguity, '%.*s' is a generic function", FMT_ISTR(node->function->name->name));
+		{
+			Report(ctx, source, "ERROR: ambiguity, '%.*s' is a generic function", FMT_ISTR(node->function->name->name));
+
+			return false;
+		}
 
 		if(node->function->type->returnType == ctx.typeAuto)
-			Stop(ctx, source, "ERROR: function '%.*s' type is unresolved at this point", FMT_ISTR(node->function->name->name));
+		{
+			Report(ctx, source, "ERROR: function '%.*s' type is unresolved at this point", FMT_ISTR(node->function->name->name));
+
+			return false;
+		}
 	}
 
-	AssertResolvableTypeLiteral(ctx, source, expr);
-
-	return expr;
+	return AssertResolvableTypeLiteral(ctx, source, expr);
 }
 
 InplaceStr GetTypeConstructorName(InplaceStr functionName)
@@ -8586,7 +8671,7 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 	{
 		TypeBase *type = curr->variable->type;
 
-		if(isType<TypeRef>(type) || isType<TypeArray>(type) || isType<TypeUnsizedArray>(type) || isType<TypeFunction>(type))
+		if(isType<TypeRef>(type) || isType<TypeArray>(type) || isType<TypeUnsizedArray>(type) || isType<TypeFunction>(type) || isType<TypeError>(type))
 			continue;
 
 		SmallArray<ArgumentData, 2> arguments(ctx.allocator);
@@ -8723,7 +8808,7 @@ void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefi
 	}
 	else
 	{
-		Stop(ctx, syntax, "ERROR: can't get condition value");
+		Report(ctx, syntax, "ERROR: can't get condition value");
 	}
 }
 
@@ -8736,6 +8821,9 @@ void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *ty
 		if(constant->value)
 		{
 			value = AnalyzeExpression(ctx, constant->value);
+
+			if(isType<TypeError>(value->type))
+				continue;
 
 			if(type == ctx.typeAuto)
 				type = value->type;
@@ -8752,18 +8840,24 @@ void AnalyzeClassConstants(ExpressionContext &ctx, SynBase *source, TypeBase *ty
 		else
 		{
 			if(constant == constants.head)
-				Stop(ctx, source, "ERROR: '=' not found after constant name");
+				Report(ctx, source, "ERROR: '=' not found after constant name");
 			else
-				Stop(ctx, source, "ERROR: only integer constant list gets automatically incremented by 1");
+				Report(ctx, source, "ERROR: only integer constant list gets automatically incremented by 1");
+
+			value = new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, ctx.typeInt, 0);
 		}
 
 		if(!value || (!isType<ExprBoolLiteral>(value) && !isType<ExprCharacterLiteral>(value) && !isType<ExprIntegerLiteral>(value) && !isType<ExprRationalLiteral>(value)))
-			Stop(ctx, source, "ERROR: expression didn't evaluate to a constant number");
+		{
+			Report(ctx, source, "ERROR: expression didn't evaluate to a constant number");
+
+			value = new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, ctx.typeInt, 0);
+		}
 
 		for(ConstantData *curr = target.head; curr; curr = curr->next)
 		{
 			if(constant->name->name == curr->name->name)
-				Stop(ctx, source, "ERROR: name '%.*s' is already taken", FMT_ISTR(curr->name->name));
+				Report(ctx, source, "ERROR: name '%.*s' is already taken", FMT_ISTR(curr->name->name));
 		}
 
 		CheckVariableConflict(ctx, constant, constant->name->name);
@@ -8788,7 +8882,7 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 			for(ExprBase *definition = node->definitions.head; definition; definition = definition->next)
 			{
-				if(isType<ExprError>(definition))
+				if(isType<TypeError>(definition->type))
 					continue;
 
 				ExprVariableDefinition *variableDefinition = getType<ExprVariableDefinition>(definition);
@@ -8828,7 +8922,12 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 			IntrusiveList<SynIdentifier> aliases;
 			IntrusiveList<SynFunctionArgument> arguments;
 
-			IntrusiveList<SynBase> expressions = accessor->getBlock->expressions;
+			IntrusiveList<SynBase> expressions;
+			
+			if(SynBlock *block = getType<SynBlock>(accessor->getBlock))
+				expressions = block->expressions;
+			else
+				expressions.push_back(accessor->getBlock);
 
 			SynFunctionDefinition *function = new (ctx.get<SynFunctionDefinition>()) SynFunctionDefinition(accessor->begin, accessor->end, false, false, parentType, true, accessor->type, false, accessor->name, aliases, arguments, expressions);
 
@@ -8855,7 +8954,12 @@ void AnalyzeClassElements(ExpressionContext &ctx, ExprClassDefinition *classDefi
 
 			arguments.push_back(new (ctx.get<SynFunctionArgument>()) SynFunctionArgument(accessor->begin, accessor->end, false, accessor->type, setName, NULL));
 
-			IntrusiveList<SynBase> expressions = accessor->setBlock->expressions;
+			IntrusiveList<SynBase> expressions;
+
+			if(SynBlock *block = getType<SynBlock>(accessor->setBlock))
+				expressions = block->expressions;
+			else
+				expressions.push_back(accessor->setBlock);
 
 			SynFunctionDefinition *function = new (ctx.get<SynFunctionDefinition>()) SynFunctionDefinition(accessor->begin, accessor->end, false, false, parentType, true, new (ctx.get<SynTypeAuto>()) SynTypeAuto(accessor->begin, accessor->end), false, accessor->name, aliases, arguments, expressions);
 
@@ -8923,7 +9027,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 		originalDefinition = getType<TypeClass>(*type);
 
 		if(!originalDefinition || originalDefinition->completed)
-			Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(className));
+			Report(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(className));
 	}
 
 	if(!generics.empty())
@@ -8965,10 +9069,13 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		ctx.PopScope(SCOPE_TEMPORARY);
 
-		baseClass = getType<TypeClass>(type);
+		if(!isType<TypeError>(type))
+		{
+			baseClass = getType<TypeClass>(type);
 
-		if(!baseClass || !baseClass->extendable)
-			Stop(ctx, syntax, "ERROR: type '%.*s' is not extendable", FMT_ISTR(type->name));
+			if(!baseClass || !baseClass->extendable)
+				Stop(ctx, syntax, "ERROR: type '%.*s' is not extendable", FMT_ISTR(type->name));
+		}
 	}
 	
 	bool extendable = syntax->extendable || baseClass;
@@ -9393,7 +9500,7 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 			return new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
 		}
 
-		Stop(ctx, syntax, "ERROR: couldn't evaluate condition at compilation time");
+		Report(ctx, syntax, "ERROR: couldn't evaluate condition at compilation time");
 	}
 
 	ExprBase *trueBlock = AnalyzeStatement(ctx, syntax->trueBlock);
@@ -9452,10 +9559,22 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 	{
 		ExprBase *value = AnalyzeExpression(ctx, curr->value);
 
+		if(isType<TypeError>(value->type))
+		{
+			initializers.push_back(value);
+			continue;
+		}
+
 		TypeBase *type = NULL;
 
 		if(curr->type)
 			type = AnalyzeType(ctx, curr->type);
+
+		if(isType<TypeError>(type))
+		{
+			initializers.push_back(value);
+			continue;
+		}
 
 		// Special implementation of for each for built-in arrays
 		if(isType<TypeArray>(value->type) || isType<TypeUnsizedArray>(value->type))
@@ -9538,6 +9657,12 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 		if(!functionType)
 		{
 			startCall = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, value, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("start")), false), IntrusiveList<TypeHandle>(), NULL, false);
+
+			if(isType<TypeError>(startCall->type))
+			{
+				initializers.push_back(value);
+				continue;
+			}
 
 			// Check if iteartor is a coroutine
 			functionType = getType<TypeFunction>(startCall->type);
@@ -9698,11 +9823,16 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 	ExprBase *condition = AnalyzeExpression(ctx, syntax->condition);
 
 	if(condition->type == ctx.typeVoid)
-		Stop(ctx, syntax->condition, "ERROR: condition type cannot be '%.*s'", FMT_ISTR(condition->type->name));
+		Report(ctx, syntax->condition, "ERROR: condition type cannot be '%.*s'", FMT_ISTR(condition->type->name));
 
-	VariableData *conditionVariable = AllocateTemporary(ctx, syntax, condition->type);
+	VariableData *conditionVariable = NULL;
+	
+	if(!isType<TypeError>(condition->type))
+	{
+		conditionVariable = AllocateTemporary(ctx, syntax, condition->type);
 
-	condition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax->condition, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, conditionVariable), CreateAssignment(ctx, syntax->condition, CreateVariableAccess(ctx, syntax, conditionVariable, false), condition));
+		condition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax->condition, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, conditionVariable), CreateAssignment(ctx, syntax->condition, CreateVariableAccess(ctx, syntax, conditionVariable, false), condition));
+	}
 
 	IntrusiveList<ExprBase> cases;
 	IntrusiveList<ExprBase> blocks;
@@ -9714,15 +9844,22 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 		{
 			ExprBase *caseValue = AnalyzeExpression(ctx, curr->value);
 
-			if(caseValue->type == ctx.typeVoid)
-				Stop(ctx, syntax->condition, "ERROR: case value type cannot be '%.*s'", FMT_ISTR(caseValue->type->name));
+			if(isType<TypeError>(caseValue->type) || isType<TypeError>(condition->type))
+			{
+				cases.push_back(caseValue);
+			}
+			else
+			{
+				if(caseValue->type == ctx.typeVoid)
+					Report(ctx, syntax->condition, "ERROR: case value type cannot be '%.*s'", FMT_ISTR(caseValue->type->name));
 
-			ExprBase *condition = CreateBinaryOp(ctx, curr->value, SYN_BINARY_OP_EQUAL, caseValue, CreateVariableAccess(ctx, syntax, conditionVariable, false));
+				ExprBase *conditionValue = CreateBinaryOp(ctx, curr->value, SYN_BINARY_OP_EQUAL, caseValue, CreateVariableAccess(ctx, syntax, conditionVariable, false));
 
-			if(!ctx.IsIntegerType(condition->type) || condition->type == ctx.typeLong)
-				Stop(ctx, curr, "ERROR: '==' operator result type must be bool, char, short or int");
+				if(!ctx.IsIntegerType(conditionValue->type) || conditionValue->type == ctx.typeLong)
+					Report(ctx, curr, "ERROR: '==' operator result type must be bool, char, short or int");
 
-			cases.push_back(condition);
+				cases.push_back(conditionValue);
+			}
 		}
 
 		IntrusiveList<ExprBase> expressions;
@@ -10082,7 +10219,9 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 
 	if(isType<SynShortFunctionDefinition>(syntax))
 	{
-		Stop(ctx, syntax, "ERROR: cannot infer type for inline function outside of the function call");
+		Report(ctx, syntax, "ERROR: cannot infer type for inline function outside of the function call");
+
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
 	}
 
 	if(SynGenerator *node = getType<SynGenerator>(syntax))
@@ -10120,7 +10259,11 @@ ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax)
 	}
 
 	if(isType<SynTypeAlias>(syntax))
-		Stop(ctx, syntax, "ERROR: cannot take typeid from generic type");
+	{
+		Report(ctx, syntax, "ERROR: cannot take typeid from generic type");
+
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+	}
 
 	if(isType<SynTypeGeneric>(syntax))
 		Stop(ctx, syntax, "ERROR: cannot take typeid from generic type");

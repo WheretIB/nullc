@@ -579,7 +579,10 @@ void PrintGraph(ParseGraphContext &ctx, SynBase *syntax, const char *name)
 	}
 	else if(SynAccessor *node = getType<SynAccessor>(syntax))
 	{
-		PrintEnterBlock(ctx, name, "SynAccessor(%.*s, %.*s)", FMT_ISTR(node->name->name), FMT_ISTR(node->setName->name));
+		if(node->setName)
+			PrintEnterBlock(ctx, name, "SynAccessor(%.*s, %.*s)", FMT_ISTR(node->name->name), FMT_ISTR(node->setName->name));
+		else
+			PrintEnterBlock(ctx, name, "SynAccessor(%.*s)", FMT_ISTR(node->name->name));
 
 		PrintGraph(ctx, node->getBlock, "getBlock");
 		PrintGraph(ctx, node->setBlock, "setBlock");
