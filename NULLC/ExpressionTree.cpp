@@ -3016,6 +3016,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			if(!onlyType && !argType)
 				return NULL;
 
+			if(isType<TypeError>(argType))
+				return ctx.GetErrorType();
+
 			if(argType == ctx.typeAuto)
 				Stop(ctx, syntax, "ERROR: function argument cannot be an auto type");
 
@@ -3178,6 +3181,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 				if(type == ctx.typeAuto)
 					Stop(ctx, syntax, "ERROR: 'auto' type cannot be used as template argument");
+
+				if(isType<TypeError>(type))
+					return ctx.GetErrorType();
 
 				isGeneric |= type->isGeneric;
 
@@ -7231,6 +7237,14 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 	if(syntax->name->name == InplaceStr("this"))
 		Stop(ctx, syntax, "ERROR: 'this' is a reserved keyword");
 
+	if(isType<TypeError>(type))
+	{
+		if(syntax->initializer)
+			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), AnalyzeExpression(ctx, syntax->initializer));
+
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType());
+	}
+
 	InplaceStr fullName = GetVariableNameInScope(ctx, ctx.scope, syntax->name->name);
 
 	CheckVariableConflict(ctx, syntax, fullName);
@@ -7302,9 +7316,6 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 			return new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(syntax->name, variable), initializer);
 
 		ExprBase *access = CreateVariableAccess(ctx, syntax->name, variable, true);
-
-		if(isType<TypeError>(access->type))
-			return new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(syntax->name, variable), initializer);
 
 		TypeArray *arrType = getType<TypeArray>(variable->type);
 
@@ -7567,7 +7578,7 @@ ExprBase* AnalyzeFunctionDefinition(ExpressionContext &ctx, SynFunctionDefinitio
 		if(isType<TypeError>(parentType))
 			parentType = NULL;
 
-		if(checkParent)
+		if(parentType && checkParent)
 		{
 			if(TypeBase *currentType = ctx.GetCurrentType())
 			{
@@ -7999,6 +8010,9 @@ void DeduceShortFunctionReturnValue(ExpressionContext &ctx, SynBase *source, Fun
 	TypeBase *actual = expressions.tail ? expressions.tail->type : ctx.typeVoid;
 
 	if(actual == ctx.typeVoid)
+		return;
+
+	if(isType<TypeError>(actual))
 		return;
 
 	// If return type is auto, set it to type that is being returned
@@ -9078,7 +9092,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 		originalDefinition = getType<TypeClass>(*type);
 
 		if(!originalDefinition || originalDefinition->completed)
-			Report(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(className));
+			Stop(ctx, syntax, "ERROR: '%.*s' is being redefined", FMT_ISTR(className));
 	}
 
 	if(!generics.empty())
@@ -9100,6 +9114,8 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		while(currType && currName)
 		{
+			assert(!isType<TypeError>(currType->type));
+
 			actualGenerics.push_back(new (ctx.get<MatchData>()) MatchData(currName, currType->type));
 
 			currType = currType->next;
@@ -9516,11 +9532,10 @@ ExprBase* AnalyzeIfElse(ExpressionContext &ctx, SynIfElse *syntax)
 
 		ExprBase *definition = AnalyzeVariableDefinition(ctx, definitions->definitions.head, 0, type);
 
-		ExprVariableDefinition *variableDefinition = getType<ExprVariableDefinition>(definition);
-
-		assert(variableDefinition);
-
-		condition = CreateSequence(ctx, syntax, definition, CreateVariableAccess(ctx, syntax, variableDefinition->variable->variable, false));
+		if(ExprVariableDefinition *variableDefinition = getType<ExprVariableDefinition>(definition))
+			condition = CreateSequence(ctx, syntax, definition, CreateVariableAccess(ctx, syntax, variableDefinition->variable->variable, false));
+		else
+			condition = definition;
 	}
 	else
 	{

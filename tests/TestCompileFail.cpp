@@ -853,6 +853,12 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "int a = 4;@if(typeof(a) != inggggggggggggggt){f;}ora;", "ERROR: unknown identifier 'inggggggggggggggt'");
 	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T>{} auto foo(generic a, generic ref(Foo<typeof(()>) m){} return foo(1, <x>{ -4; });", "ERROR: expression not found after '('");
 	TEST_FOR_FAIL("fuzzing test crash", "import std.list; import old.list; return 1;", "ERROR: type 'list_node' in module 'old/list.nc' is already defined in module 'std/list.nc'");
+	TEST_FOR_FAIL("fuzzing test crash", "coroutine auto __runner(){nt i = 1; return i.str() == \"0\" &else& int(i.str()) == i;}return __runner();", "ERROR: expression not found after binary operation");
+	TEST_FOR_FAIL("fuzzing test crash", "auto bar(auto ref x){ if(o tydefotypeoo<int> ", "ERROR: closing ')' not found after 'if' condition");
+	TEST_FOR_FAIL("fuzzing test crash", "auto average(generic ref(int) f){ return f(5); }return int(average(<i>{ i += 8; i * aaaaaaaaaaa5; }));", "ERROR: unknown identifier 'aaaaaaaaaaa5'");
+	TEST_FOR_FAIL("fuzzing test crash", "void int:rgba(int r, g, b, a){r(){ return (*this >> 16) & 0xff; }int ift.g() bm(b.y", "ERROR: ';' not found after expression");
+	TEST_FOR_FAIL("fuzzing test crash", "auto __runner(){class Foo<T>{ T t; }Foo<Foo<int>> b; b.t.t Foo<Foo<ijt>> b; b.t.t = 0;>> z)turn z.t.t; }returFoo<tin>> z){ return z.tuern __runner();", "ERROR: ';' not found after expression");
+	TEST_FOR_FAIL("fuzzing test crash", "class vec2 extendable{ float x, y; int foo(int i, j){ return i / j; } } class vec2 : vec2{ float z; int foo(int j, i){ return i / j; } }", "ERROR: 'vec2' is being redefined");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
