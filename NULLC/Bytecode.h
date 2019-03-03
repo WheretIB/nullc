@@ -23,7 +23,8 @@ struct ExternTypeInfo
 	{
 		TYPE_HAS_FINALIZER = 1 << 0,
 		TYPE_DEPENDS_ON_GENERIC = 1 << 1,
-		TYPE_IS_EXTENDABLE = 1 << 2
+		TYPE_IS_EXTENDABLE = 1 << 2,
+		TYPE_INTERNAL = 1 << 3,
 	};
 
 	unsigned char	defaultAlign;
@@ -44,8 +45,9 @@ struct ExternTypeInfo
 
 	unsigned int	nameHash;
 
-	// For generic types
 	unsigned int	definitionModule; // Index of the module containing the definition
+
+	// For generic types
 	unsigned int	definitionOffsetStart; // Offset in a lexeme stream to the point of class definition start
 	unsigned int	definitionOffset; // Offset in a lexeme stream to the point of type argument list
 	unsigned int	genericTypeCount;

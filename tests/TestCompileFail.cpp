@@ -852,6 +852,7 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "namespace Test{ vourn Test.a.bab(3) + Test.b.bar(;", "ERROR: ')' not found after function variable list");
 	TEST_FOR_FAIL("fuzzing test crash", "int a = 4;@if(typeof(a) != inggggggggggggggt){f;}ora;", "ERROR: unknown identifier 'inggggggggggggggt'");
 	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T>{} auto foo(generic a, generic ref(Foo<typeof(()>) m){} return foo(1, <x>{ -4; });", "ERROR: expression not found after '('");
+	TEST_FOR_FAIL("fuzzing test crash", "import std.list; import old.list; return 1;", "ERROR: type 'list_node' in module 'old/list.nc' is already defined in module 'std/list.nc'");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";

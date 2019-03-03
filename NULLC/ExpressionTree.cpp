@@ -1302,7 +1302,16 @@ void ExpressionContext::AddType(TypeBase *type)
 	scope->types.push_back(type);
 
 	types.push_back(type);
-	typeMap.insert(type->nameHash, type);
+
+	if(TypeClass *typeClass = getType<TypeClass>(type))
+	{
+		if(!typeClass->isInternal)
+			typeMap.insert(type->nameHash, type);
+	}
+	else
+	{
+		typeMap.insert(type->nameHash, type);
+	}
 }
 
 void ExpressionContext::AddFunction(FunctionData *function)
@@ -6286,7 +6295,7 @@ ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, Inpl
 
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
-			ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), messageStart, functions);
+			ReportOnFunctionSelectError(ctx, source, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), messageStart, name, functions, arguments, ratings, ~0u, true);
 
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 		}
@@ -7362,6 +7371,8 @@ TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, Inp
 	InplaceStr functionContextName = GetFunctionContextTypeName(ctx, functionName, ctx.functions.size());
 
 	TypeClass *contextClassType = new (ctx.get<TypeClass>()) TypeClass(functionContextName, source, ctx.scope, NULL, IntrusiveList<MatchData>(), false, NULL);
+
+	contextClassType->isInternal = true;
 
 	ctx.AddType(contextClassType);
 
@@ -10571,16 +10582,40 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 	{
 		ExternTypeInfo &type = typeList[i];
 
+		ModuleData *importModule = moduleCtx.data;
+
+		if(type.definitionModule != 0)
+			importModule = ctx.dependencies[moduleCtx.data->startingDependencyIndex + type.definitionModule - 1];
+
+		InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
+
 		// Skip existing types
 		if(TypeBase **prev = ctx.typeMap.find(type.nameHash))
 		{
-			moduleCtx.types[i] = *prev;
+			TypeBase *prevType = *prev;
+
+			if(type.definitionModule == 0 && prevType->importModule && moduleCtx.data->bytecode != prevType->importModule->bytecode)
+			{
+				//if(typeName.begin[0] == '_')
+				{
+					bool duplicate = isType<TypeGenericClassProto>(prevType);
+
+					if(TypeClass *typeClass = getType<TypeClass>(prevType))
+					{
+						if(typeClass->generics.empty())
+							duplicate = true;
+					}
+
+					if(duplicate)
+						Stop(ctx, source, "ERROR: type '%.*s' in module '%.*s' is already defined in module '%.*s'", FMT_ISTR(typeName), FMT_ISTR(moduleCtx.data->name), FMT_ISTR(prevType->importModule->name));
+				}
+			}
+
+			moduleCtx.types[i] = prevType;
 
 			currentConstant += type.constantCount;
 			continue;
 		}
-
-		InplaceStr typeName = InplaceStr(symbols + type.offsetToName);
 
 		switch(type.subCat)
 		{
@@ -10590,7 +10625,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				// TODO: explicit category
 				moduleCtx.types[i] = ctx.typeGeneric;
 
-				moduleCtx.types[i]->importModule = moduleCtx.data;
+				moduleCtx.types[i]->importModule = importModule;
 
 				assert(moduleCtx.types[i]->name == typeName);
 			}
@@ -10599,7 +10634,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				// TODO: explicit category
 				moduleCtx.types[i] = ctx.GetGenericAliasType(new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr(symbols + type.offsetToName + 1)));
 
-				moduleCtx.types[i]->importModule = moduleCtx.data;
+				moduleCtx.types[i]->importModule = importModule;
 
 				assert(moduleCtx.types[i]->name == typeName);
 			}
@@ -10616,7 +10651,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				else
 					moduleCtx.types[i] = ctx.GetArrayType(subType, type.arrSize);
 
-				moduleCtx.types[i]->importModule = moduleCtx.data;
+				moduleCtx.types[i]->importModule = importModule;
 
 				assert(moduleCtx.types[i]->name == typeName);
 			}
@@ -10630,7 +10665,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 			{
 				moduleCtx.types[i] = ctx.GetReferenceType(subType);
 
-				moduleCtx.types[i]->importModule = moduleCtx.data;
+				moduleCtx.types[i]->importModule = importModule;
 
 				assert(moduleCtx.types[i]->name == typeName);
 			}
@@ -10656,7 +10691,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 				moduleCtx.types[i] = ctx.GetFunctionType(source, returnType, arguments);
 
-				moduleCtx.types[i]->importModule = moduleCtx.data;
+				moduleCtx.types[i]->importModule = importModule;
 
 				assert(moduleCtx.types[i]->name == typeName);
 			}
@@ -10668,8 +10703,6 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 		case ExternTypeInfo::CAT_CLASS:
 			{
 				TypeBase *importedType = NULL;
-
-				ModuleData *importModule = moduleCtx.data;
 
 				NamespaceData *parentNamespace = NULL;
 
@@ -10753,6 +10786,9 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 						classType->completed = true;
 
+						if(type.typeFlags & ExternTypeInfo::TYPE_INTERNAL)
+							classType->isInternal = true;
+
 						importedType = classType;
 
 						ctx.AddType(importedType);
@@ -10767,9 +10803,6 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				}
 				else if(type.definitionOffsetStart != ~0u)
 				{
-					if(type.definitionModule != 0)
-						importModule = ctx.dependencies[moduleCtx.data->startingDependencyIndex + type.definitionModule - 1];
-
 					assert(type.definitionOffsetStart < importModule->lexStreamSize);
 					Lexeme *start = type.definitionOffsetStart + importModule->lexStream;
 
@@ -10805,7 +10838,11 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					IntrusiveList<MatchData> actualGenerics;
 
 					TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(typeName, source, ctx.scope, NULL, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
+
 					classType->completed = true;
+
+					if(type.typeFlags & ExternTypeInfo::TYPE_INTERNAL)
+						classType->isInternal = true;
 
 					importedType = classType;
 

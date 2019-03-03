@@ -935,6 +935,7 @@ struct TypeClass: TypeStruct
 	TypeClass(InplaceStr name, SynBase *source, ScopeData *scope, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, name), source(source), scope(scope), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass)
 	{
 		completed = false;
+		isInternal = false;
 
 		hasFinalizer = false;
 	}
@@ -954,6 +955,7 @@ struct TypeClass: TypeStruct
 	TypeClass *baseClass;
 
 	bool completed;
+	bool isInternal;
 
 	bool hasFinalizer;
 

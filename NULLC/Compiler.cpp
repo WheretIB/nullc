@@ -1124,7 +1124,11 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 		target.pointerCount = type->hasPointers ? 1 : 0;
 
-		target.definitionModule = ~0u;
+		if(ModuleData *moduleData = type->importModule)
+			target.definitionModule = moduleData->dependencyIndex;
+		else
+			target.definitionModule = 0;
+
 		target.definitionOffsetStart = ~0u;
 		target.definitionOffset = ~0u;
 		target.genericTypeCount = 0;
@@ -1201,6 +1205,9 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 				if(typeClass->hasFinalizer)
 					target.typeFlags |= ExternTypeInfo::TYPE_HAS_FINALIZER;
+
+				if(typeClass->isInternal)
+					target.typeFlags |= ExternTypeInfo::TYPE_INTERNAL;
 
 				if(typeClass->baseClass)
 					target.baseType = typeClass->baseClass->typeIndex;
@@ -1286,13 +1293,11 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 			if(ModuleData *moduleData = typeGenericClassProto->importModule)
 			{
-				target.definitionModule = moduleData->dependencyIndex;
 				target.definitionOffsetStart = unsigned(typeGenericClassProto->definition->begin - moduleData->lexStream);
 				assert(target.definitionOffsetStart < moduleData->lexStreamSize);
 			}
 			else
 			{
-				target.definitionModule = 0;
 				target.definitionOffsetStart = unsigned(typeGenericClassProto->definition->begin - ctx.parseCtx.lexer.GetStreamStart());
 				assert(target.definitionOffsetStart < ctx.parseCtx.lexer.GetStreamSize());
 			}
