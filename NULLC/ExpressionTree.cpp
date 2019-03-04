@@ -2288,7 +2288,7 @@ ExprBase* CreateConditionCast(ExpressionContext &ctx, SynBase *source, ExprBase 
 
 ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs)
 {
-	if(isType<TypeError>(lhs->type) || isType<TypeError>(lhs->type))
+	if(isType<TypeError>(lhs->type) || isType<TypeError>(rhs->type))
 		return new (ctx.get<ExprAssignment>()) ExprAssignment(source, ctx.GetErrorType(), lhs, rhs);
 
 	if(isType<ExprUnboxing>(lhs))
@@ -2347,7 +2347,7 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 	}
 
 	if(!isType<TypeRef>(wrapped->type))
-		return ReportExpected(ctx, source, lhs->type, "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
+		return ReportExpected(ctx, source, ctx.GetErrorType(), "ERROR: cannot change immutable value of type %.*s", FMT_ISTR(lhs->type->name));
 
 	if(rhs->type == ctx.typeVoid)
 		return ReportExpected(ctx, source, lhs->type, "ERROR: cannot convert from void to %.*s", FMT_ISTR(lhs->type->name));
@@ -3003,6 +3003,9 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		if(!onlyType && !returnType)
 			return NULL;
+
+		if(isType<TypeError>(returnType))
+			return ctx.GetErrorType();
 
 		if(returnType == ctx.typeAuto)
 			Stop(ctx, syntax, "ERROR: return type of a function type cannot be auto");
@@ -7185,7 +7188,8 @@ ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprB
 
 				initializer = CreateFunctionCall2(ctx, source, InplaceStr("__redirect_ptr"), node->context, table, false, true);
 
-				initializer = new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, function->type, initializer, EXPR_CAST_REINTERPRET);
+				if(!isType<TypeError>(initializer))
+					initializer = new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, function->type, initializer, EXPR_CAST_REINTERPRET);
 			}
 			else
 			{
@@ -7273,6 +7277,13 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 	}
 	else if(type->isGeneric && initializer)
 	{
+		if(isType<TypeError>(initializer->type))
+		{
+			ctx.variableMap.remove(variable->nameHash, variable);
+
+			return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), initializer);
+		}
+
 		IntrusiveList<MatchData> aliases;
 
 		TypeBase *match = MatchGenericType(ctx, syntax, type, initializer->type, aliases, true);
@@ -7684,7 +7695,7 @@ void AnalyzeFunctionArguments(ExpressionContext &ctx, IntrusiveList<SynFunctionA
 			else if(initializer && !isType<TypeError>(initializer->type))
 			{
 				// Just a test
-				if(!type->isGeneric)
+				if(!type->isGeneric && !isType<TypeError>(type))
 					CreateCast(ctx, argument->type, initializer, type, true);
 			}
 
@@ -7761,12 +7772,22 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		contextRefType = ctx.GetReferenceType(CreateFunctionContextType(ctx, source, functionName));
 
 	if(isType<TypeError>(returnType))
+	{
+		if(addedParentScope)
+			ctx.PopScope(SCOPE_TYPE);
+
 		return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+	}
 
 	for(unsigned i = 0; i < argData.size(); i++)
 	{
 		if(isType<TypeError>(argData[i].type))
+		{
+			if(addedParentScope)
+				ctx.PopScope(SCOPE_TYPE);
+
 			return new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType());
+		}
 	}
 
 	TypeFunction *functionType = ctx.GetFunctionType(source, returnType, argData);
@@ -8072,6 +8093,9 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 			if(type == ctx.typeVoid)
 				Stop(ctx, syntax, "ERROR: function argument cannot be a void type");
 
+			if(isType<TypeError>(type))
+				return NULL;
+
 			char *name = (char*)ctx.allocator->alloc(param->name->name.length() + 2);
 
 			sprintf(name, "%.*s$", FMT_ISTR(param->name->name));
@@ -8143,6 +8167,9 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	for(MatchData *el = argCasts.head; el; el = el->next)
 	{
 		CheckVariableConflict(ctx, syntax, el->name->name);
+
+		if(isType<TypeError>(el->type))
+			continue;
 
 		unsigned offset = AllocateVariableInScope(ctx, syntax, el->type->alignment, el->type);
 		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, el->type->alignment, el->type, el->name, offset, ctx.uniqueVariableId++);
@@ -9807,6 +9834,9 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 				type = call->type;
 			else
 				type = ctx.GetReferenceType(type);
+
+			if(isType<TypeError>(type))
+				continue;
 
 			CheckVariableConflict(ctx, curr, curr->name->name);
 

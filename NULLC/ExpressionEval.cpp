@@ -572,6 +572,9 @@ bool TryTakePointer(ExprBase *expression, void* &result)
 
 ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *unevaluatedRhs, SynBinaryOpType op)
 {
+	if(isType<TypeError>(lhs->type) || isType<TypeError>(unevaluatedRhs->type))
+		return Report(ctx, "ERROR: encountered an error node");
+
 	assert(lhs->type == unevaluatedRhs->type);
 
 	if((ctx.ctx.IsIntegerType(lhs->type) || isType<TypeEnum>(lhs->type)) && (ctx.ctx.IsIntegerType(unevaluatedRhs->type) || isType<TypeEnum>(unevaluatedRhs->type)))

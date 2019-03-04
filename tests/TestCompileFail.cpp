@@ -859,6 +859,11 @@ auto m = bar;",
 	TEST_FOR_FAIL("fuzzing test crash", "void int:rgba(int r, g, b, a){r(){ return (*this >> 16) & 0xff; }int ift.g() bm(b.y", "ERROR: ';' not found after expression");
 	TEST_FOR_FAIL("fuzzing test crash", "auto __runner(){class Foo<T>{ T t; }Foo<Foo<int>> b; b.t.t Foo<Foo<ijt>> b; b.t.t = 0;>> z)turn z.t.t; }returFoo<tin>> z){ return z.tuern __runner();", "ERROR: ';' not found after expression");
 	TEST_FOR_FAIL("fuzzing test crash", "class vec2 extendable{ float x, y; int foo(int i, j){ return i / j; } } class vec2 : vec2{ float z; int foo(int j, i){ return i / j; } }", "ERROR: 'vec2' is being redefined");
+	TEST_FOR_FAIL("fuzzing test crash", "coroutine int gen3from(int x){kint ref() m;for(int i = 0; i < 3; i++){int help(){return x + i;}help();m = help;}return m();i = gen3from2(2);t2 = t2 * 10 + i;}return (t1 == 567756) + (t2 == 442344);", "ERROR: 'kint' is not a known type name");
+	TEST_FOR_FAIL("fuzzing test crash", "import std.algorithm;coroutine auto __runner(){int[] arr = { 2, 6 };sort(arr, <int a, int b>{ a > b; });map(arr, <int ref x>{ *x = *x * 2; })==arr = filter(arr, <ynt x>{ x < 8; });int sum = 0;for(i in arr) sum += i;return sum;}return __runner();", "ERROR: 'ynt' is not a known type name");
+	TEST_FOR_FAIL("fuzzing test crash", "Auto int:toString(){}", "ERROR: 'Auto' is not a known type name");
+	TEST_FOR_FAIL("fuzzing test crash", "int a = 4;@if(typeof(a) !=)tn i{f;}ora;", "ERROR: expression not found after binary operation");
+	TEST_FOR_FAIL("fuzzing test crash", "class Foo<T>{ T x; }Foo a = Foo<int>((;a.x = 6;int foo(Foo a){return a.x;}foo(a);", "ERROR: expression not found after '('");
 }
 
 const char	*testModuleImportsSelf1 = "import n; return 1;";
