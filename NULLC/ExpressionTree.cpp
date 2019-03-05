@@ -7392,7 +7392,7 @@ TypeBase* CreateFunctionContextType(ExpressionContext &ctx, SynBase *source, Inp
 {
 	InplaceStr functionContextName = GetFunctionContextTypeName(ctx, functionName, ctx.functions.size());
 
-	TypeClass *contextClassType = new (ctx.get<TypeClass>()) TypeClass(functionContextName, source, ctx.scope, NULL, IntrusiveList<MatchData>(), false, NULL);
+	TypeClass *contextClassType = new (ctx.get<TypeClass>()) TypeClass(SynIdentifier(functionContextName), source, ctx.scope, NULL, IntrusiveList<MatchData>(), false, NULL);
 
 	contextClassType->isInternal = true;
 
@@ -9098,7 +9098,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 				Stop(ctx, syntax, "ERROR: type '%.*s' was forward declared as a non-generic type", FMT_ISTR(typeName));
 		}
 
-		TypeGenericClassProto *genericProtoType = new (ctx.get<TypeGenericClassProto>()) TypeGenericClassProto(syntax, ctx.scope, typeName, syntax);
+		TypeGenericClassProto *genericProtoType = new (ctx.get<TypeGenericClassProto>()) TypeGenericClassProto(SynIdentifier(syntax->name, typeName), syntax, ctx.scope, syntax);
 
 		ctx.AddType(genericProtoType);
 
@@ -9185,7 +9185,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 	}
 	else
 	{
-		classType = new (ctx.get<TypeClass>()) TypeClass(className, syntax, ctx.scope, proto, actualGenerics, extendable, baseClass);
+		classType = new (ctx.get<TypeClass>()) TypeClass(SynIdentifier(syntax->name, className), syntax, ctx.scope, proto, actualGenerics, extendable, baseClass);
 
 		ctx.AddType(classType);
 	}
@@ -9288,7 +9288,7 @@ ExprBase* AnalyzeClassPrototype(ExpressionContext &ctx, SynClassPrototype *synta
 
 	IntrusiveList<MatchData> actualGenerics;
 
-	TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(typeName, syntax, ctx.scope, NULL, actualGenerics, false, NULL);
+	TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(SynIdentifier(syntax->name, typeName), syntax, ctx.scope, NULL, actualGenerics, false, NULL);
 
 	ctx.AddType(classType);
 
@@ -9346,7 +9346,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 {
 	InplaceStr typeName = GetTypeNameInScope(ctx, ctx.scope, syntax->name->name);
 
-	TypeEnum *enumType = new (ctx.get<TypeEnum>()) TypeEnum(typeName, syntax, ctx.scope);
+	TypeEnum *enumType = new (ctx.get<TypeEnum>()) TypeEnum(SynIdentifier(syntax->name, typeName), syntax, ctx.scope);
 
 	ctx.AddType(enumType);
 
@@ -10827,7 +10827,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					}
 					else
 					{
-						TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(typeName, source, ctx.scope, protoClass, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
+						TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(SynIdentifier(typeName), source, ctx.scope, protoClass, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
 
 						classType->completed = true;
 
@@ -10862,7 +10862,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 					definition->imported = true;
 
-					importedType = new (ctx.get<TypeGenericClassProto>()) TypeGenericClassProto(source, ctx.scope, typeName, definition);
+					importedType = new (ctx.get<TypeGenericClassProto>()) TypeGenericClassProto(SynIdentifier(typeName), source, ctx.scope, definition);
 
 					ctx.AddType(importedType);
 
@@ -10870,7 +10870,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				}
 				else if(type.type != ExternTypeInfo::TYPE_COMPLEX)
 				{
-					TypeEnum *enumType = new (ctx.get<TypeEnum>()) TypeEnum(typeName, source, ctx.scope);
+					TypeEnum *enumType = new (ctx.get<TypeEnum>()) TypeEnum(SynIdentifier(typeName), source, ctx.scope);
 
 					importedType = enumType;
 
@@ -10882,7 +10882,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				{
 					IntrusiveList<MatchData> actualGenerics;
 
-					TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(typeName, source, ctx.scope, NULL, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
+					TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(SynIdentifier(typeName), source, ctx.scope, NULL, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
 
 					classType->completed = true;
 
