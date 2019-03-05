@@ -72,7 +72,12 @@ NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintIndented(ExpressionGraphContext &ctx, I
 	va_end(args);
 
 	if(node->source)
+	{
 		Print(ctx, " // [%d:%d]-[%d:%d]", node->source->begin->line + 1, node->source->begin->column, node->source->end->line + 1, node->source->end->column + node->source->end->length);
+
+		if(ModuleData *importModule = ctx.ctx.GetSourceOwner(node->source->begin))
+			Print(ctx, " from '%.*s'", FMT_ISTR(importModule->name));
+	}
 
 	ctx.output.Print("\n");
 }
@@ -113,7 +118,12 @@ NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintEnterBlock(ExpressionGraphContext &ctx,
 	ctx.output.Print('{');
 
 	if(node->source)
+	{
 		Print(ctx, " // [%d:%d]-[%d:%d]", node->source->begin->line + 1, node->source->begin->column, node->source->end->line + 1, node->source->end->column + node->source->end->length);
+
+		if(ModuleData *importModule = ctx.ctx.GetSourceOwner(node->source->begin))
+			Print(ctx, " from '%.*s'", FMT_ISTR(importModule->name));
+	}
 
 	ctx.output.Print('\n');
 
@@ -962,6 +972,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 
 void DumpGraph(ExprBase *tree)
 {
+	ExpressionContext exprCtx(0);
 	OutputContext outputCtx;
 
 	char outputBuf[4096];
@@ -975,7 +986,7 @@ void DumpGraph(ExprBase *tree)
 	outputCtx.stream = OutputContext::FileOpen("expr_graph.txt");
 	outputCtx.writeStream = OutputContext::FileWrite;
 
-	ExpressionGraphContext exprGraphCtx(outputCtx);
+	ExpressionGraphContext exprGraphCtx(exprCtx, outputCtx);
 
 	PrintGraph(exprGraphCtx, tree, "");
 
@@ -984,6 +995,7 @@ void DumpGraph(ExprBase *tree)
 
 void DumpGraph(ScopeData *scope)
 {
+	ExpressionContext exprCtx(0);
 	OutputContext outputCtx;
 
 	char outputBuf[4096];
@@ -997,7 +1009,7 @@ void DumpGraph(ScopeData *scope)
 	outputCtx.stream = OutputContext::FileOpen("expr_graph.txt");
 	outputCtx.writeStream = OutputContext::FileWrite;
 
-	ExpressionGraphContext exprGraphCtx(outputCtx);
+	ExpressionGraphContext exprGraphCtx(exprCtx, outputCtx);
 
 	PrintGraph(exprGraphCtx, scope, true);
 

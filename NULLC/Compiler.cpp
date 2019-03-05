@@ -473,7 +473,7 @@ ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 
 		if(ctx.outputCtx.stream)
 		{
-			ExpressionGraphContext exprGraphCtx(ctx.outputCtx);
+			ExpressionGraphContext exprGraphCtx(ctx.exprCtx, ctx.outputCtx);
 
 			PrintGraph(exprGraphCtx, ctx.exprModule, "");
 

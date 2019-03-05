@@ -824,6 +824,7 @@ namespace
 ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
 {
 	code = NULL;
+	codeEnd = NULL;
 
 	baseModuleFunctionCount = 0;
 
@@ -1745,6 +1746,24 @@ TypeGenericClass* ExpressionContext::GetGenericClassType(SynBase *source, TypeGe
 	types.push_back(result);
 
 	return result;
+}
+
+ModuleData* ExpressionContext::GetSourceOwner(Lexeme *lexeme)
+{
+	// Fast check for current module
+	if(lexeme->pos >= code && lexeme->pos <= codeEnd)
+		return NULL;
+
+	for(unsigned i = 0; i < dependencies.size(); i++)
+	{
+		ModuleData *moduleData = dependencies[i];
+
+		if(lexeme >= moduleData->lexStream && lexeme <= moduleData->lexStream + moduleData->lexStreamSize)
+			return moduleData;
+	}
+
+	// Should not get here
+	return NULL;
 }
 
 ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax);
@@ -11672,6 +11691,7 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 	assert(!ctx.globalScope);
 
 	ctx.code = code;
+	ctx.codeEnd = code + strlen(code);
 
 	ctx.PushScope(SCOPE_EXPLICIT);
 	ctx.globalScope = ctx.scope;

@@ -4,17 +4,20 @@
 
 struct ScopeData;
 
+struct ExpressionContext;
 struct ExprBase;
 
 struct ExpressionGraphContext
 {
-	ExpressionGraphContext(OutputContext &output): output(output)
+	ExpressionGraphContext(ExpressionContext &ctx, OutputContext &output): ctx(ctx), output(output)
 	{
 		depth = 0;
 
 		skipImported = false;
 		skipFunctionDefinitions = false;
 	}
+
+	ExpressionContext &ctx;
 
 	OutputContext &output;
 

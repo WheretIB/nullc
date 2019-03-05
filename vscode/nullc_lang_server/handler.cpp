@@ -105,19 +105,6 @@ bool IsSmaller(SynBase *current, SynBase *next)
 	return false;
 }
 
-ModuleData* FindLocationModule(CompilerContext *context, Lexeme *pos)
-{
-	for(unsigned i = 0; i < context->exprCtx.dependencies.size(); i++)
-	{
-		ModuleData *moduleData = context->exprCtx.dependencies[i];
-
-		if(pos >= moduleData->lexStream && pos <= moduleData->lexStream + moduleData->lexStreamSize)
-			return moduleData;
-	}
-
-	return nullptr;
-}
-
 std::string GetFunctionSignature(FunctionData *function)
 {
 	const unsigned bufSize = 8192;
@@ -510,6 +497,10 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 			nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
 				Data &data = *(Data*)context;
 
+				// Imported
+				if(data.context->exprCtx.GetSourceOwner(child->source->begin))
+					return;
+
 				if(!IsInside(child->source, data.position.line, data.position.character))
 					return;
 
@@ -791,7 +782,7 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 			if(context->exprCtx.IsGenericInstance(function))
 				continue;
 
-			if(FindLocationModule(context, function->name->begin))
+			if(context->exprCtx.GetSourceOwner(function->name->begin))
 				continue;
 
 			DocumentSymbol symbol;
@@ -812,7 +803,7 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 			if(TypeClass *typeClass = getType<TypeClass>(type))
 			{
 				// Filter types with location information
-				if(!typeClass->identifier.begin || FindLocationModule(context, typeClass->identifier.begin))
+				if(!typeClass->identifier.begin || context->exprCtx.GetSourceOwner(typeClass->identifier.begin))
 					continue;
 
 				Lexeme *sourceBegin = typeClass->source->begin, *sourceEnd = typeClass->source->end;
@@ -892,7 +883,7 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 			else if(TypeEnum *typeEnum = getType<TypeEnum>(type))
 			{
 				// Filter types with location information
-				if(!typeEnum->identifier.begin || FindLocationModule(context, typeEnum->identifier.begin))
+				if(!typeEnum->identifier.begin || context->exprCtx.GetSourceOwner(typeEnum->identifier.begin))
 					continue;
 
 				Lexeme *sourceBegin = typeEnum->source->begin, *sourceEnd = typeEnum->source->end;
@@ -928,7 +919,7 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 			else if(TypeGenericClassProto *typeGenericClassProto = getType<TypeGenericClassProto>(type))
 			{
 				// Filter types with location information
-				if(!typeGenericClassProto->identifier.begin || FindLocationModule(context, typeGenericClassProto->identifier.begin))
+				if(!typeGenericClassProto->identifier.begin || context->exprCtx.GetSourceOwner(typeGenericClassProto->identifier.begin))
 					continue;
 
 				Lexeme *sourceBegin = typeGenericClassProto->source->begin, *sourceEnd = typeGenericClassProto->source->end;

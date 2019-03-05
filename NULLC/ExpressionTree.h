@@ -74,8 +74,11 @@ struct ExpressionContext
 	TypeGenericAlias* GetGenericAliasType(SynIdentifier *baseName);
 	TypeGenericClass* GetGenericClassType(SynBase *source, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 
+	ModuleData* GetSourceOwner(Lexeme *lexeme);
+
 	// Full state info
 	const char *code;
+	const char *codeEnd;
 
 	SmallArray<ModuleData*, 128> dependencies;
 	SmallArray<ModuleData*, 128> imports;
