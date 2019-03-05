@@ -105,6 +105,19 @@ bool IsSmaller(SynBase *current, SynBase *next)
 	return false;
 }
 
+ModuleData* FindLocationModule(CompilerContext *context, Lexeme *pos)
+{
+	for(unsigned i = 0; i < context->exprCtx.dependencies.size(); i++)
+	{
+		ModuleData *moduleData = context->exprCtx.dependencies[i];
+
+		if(pos >= moduleData->lexStream && pos <= moduleData->lexStream + moduleData->lexStreamSize)
+			return moduleData;
+	}
+
+	return nullptr;
+}
+
 std::string GetFunctionSignature(FunctionData *function)
 {
 	const unsigned bufSize = 8192;
@@ -168,7 +181,6 @@ std::string GetMemberSignature(TypeBase *type, ConstantData *member)
 
 	return buf;
 }
-
 
 std::string GetMemberSignature(TypeBase *type, MatchData *member)
 {
@@ -334,6 +346,11 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 	capabilities.AddMember("documentSymbolProvider", true, response.GetAllocator());
 	capabilities.AddMember("hoverProvider", true, response.GetAllocator());
 	capabilities.AddMember("completionProvider", completionProvider, response.GetAllocator());
+
+	//signatureHelpProvider
+	//definitionProvider
+	//referencesProvider
+	//documentHighlightProvider
 
 	result.AddMember("capabilities", capabilities, response.GetAllocator());
 
@@ -771,6 +788,12 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 			if(!function->name->begin)
 				continue;
 
+			if(context->exprCtx.IsGenericInstance(function))
+				continue;
+
+			if(FindLocationModule(context, function->name->begin))
+				continue;
+
 			DocumentSymbol symbol;
 
 			symbol.name = std::string(function->name->name.begin, function->name->name.end);
@@ -780,6 +803,146 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 			symbol.selectionRange = Range(Position(function->name->begin->line, function->name->begin->column), Position(function->name->end->line, function->name->end->column + function->name->end->length));
 
 			symbols.push_back(symbol);
+		}
+
+		for(unsigned i = 0; i < context->exprCtx.types.size(); i++)
+		{
+			auto type = context->exprCtx.types[i];
+
+			if(TypeClass *typeClass = getType<TypeClass>(type))
+			{
+				// Filter types with location information
+				if(!typeClass->identifier.begin || FindLocationModule(context, typeClass->identifier.begin))
+					continue;
+
+				Lexeme *sourceBegin = typeClass->source->begin, *sourceEnd = typeClass->source->end;
+				Lexeme *nameBegin = typeClass->identifier.begin, *nameEnd = typeClass->identifier.end;
+
+				DocumentSymbol symbol;
+
+				symbol.name = std::string(typeClass->name.begin, typeClass->name.end);
+				symbol.kind = SymbolKind::Class;
+				symbol.range = Range(Position(sourceBegin->line, sourceBegin->column), Position(sourceEnd->line, sourceEnd->column + sourceEnd->length));
+				symbol.selectionRange = Range(Position(nameBegin->line, nameBegin->column), Position(nameEnd->line, nameEnd->column + nameEnd->length));
+
+				auto hasMember = [](TypeClass *type, VariableData *member) -> bool {
+					for(VariableHandle *curr = type->members.head; curr; curr = curr->next)
+					{
+						if(curr->variable->name == member->name)
+							return true;
+					}
+
+					return false;
+				};
+
+				for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+				{
+					if(!curr->source)
+						continue;
+
+					if(typeClass->baseClass && hasMember(typeClass->baseClass, curr->variable))
+						continue;
+
+					Lexeme *itemBegin = curr->source->begin, *itemEnd = curr->source->end;
+
+					DocumentSymbol item;
+
+					item.name = std::string(curr->variable->name->name.begin, curr->variable->name->name.end);
+					item.kind = SymbolKind::Variable;
+					item.range = Range(Position(itemBegin->line, itemBegin->column), Position(itemEnd->line, itemEnd->column + itemEnd->length));
+					item.selectionRange = Range(Position(itemBegin->line, itemBegin->column), Position(itemEnd->line, itemEnd->column + itemEnd->length));
+					//item.detail = ToString("%.*s %.*s::%.*s", FMT_ISTR(curr->variable->type->name), FMT_ISTR(typeClass->name), FMT_ISTR(curr->variable->name->name));
+
+					symbol.children.push_back(item);
+				}
+
+				auto hasConstant = [](TypeClass *type, ConstantData *member) -> bool {
+					for(ConstantData *curr = type->constants.head; curr; curr = curr->next)
+					{
+						if(curr->name == member->name)
+							return true;
+					}
+
+					return false;
+				};
+
+				for(ConstantData *curr = typeClass->constants.head; curr; curr = curr->next)
+				{
+					if(!curr->name)
+						continue;
+
+					if(typeClass->baseClass && hasConstant(typeClass->baseClass, curr))
+						continue;
+
+					Lexeme *itemBegin = curr->name->begin, *itemEnd = curr->name->end;
+
+					DocumentSymbol item;
+
+					item.name = std::string(curr->name->name.begin, curr->name->name.end);
+					item.kind = SymbolKind::Constant;
+					item.range = Range(Position(itemBegin->line, itemBegin->column), Position(itemEnd->line, itemEnd->column + itemEnd->length));
+					item.selectionRange = Range(Position(itemBegin->line, itemBegin->column), Position(itemEnd->line, itemEnd->column + itemEnd->length));
+					//item.detail = ToString("%.*s %.*s::%.*s", FMT_ISTR(curr->value->type->name), FMT_ISTR(type->name), FMT_ISTR(curr->name->name));
+
+					symbol.children.push_back(item);
+				}
+
+				symbols.push_back(symbol);
+			}
+			else if(TypeEnum *typeEnum = getType<TypeEnum>(type))
+			{
+				// Filter types with location information
+				if(!typeEnum->identifier.begin || FindLocationModule(context, typeEnum->identifier.begin))
+					continue;
+
+				Lexeme *sourceBegin = typeEnum->source->begin, *sourceEnd = typeEnum->source->end;
+				Lexeme *nameBegin = typeEnum->identifier.begin, *nameEnd = typeEnum->identifier.end;
+
+				DocumentSymbol symbol;
+
+				symbol.name = std::string(typeEnum->name.begin, typeEnum->name.end);
+				symbol.kind = SymbolKind::Enum;
+				symbol.range = Range(Position(sourceBegin->line, sourceBegin->column), Position(sourceEnd->line, sourceEnd->column + sourceEnd->length));
+				symbol.selectionRange = Range(Position(nameBegin->line, nameBegin->column), Position(nameEnd->line, nameEnd->column + nameEnd->length));
+
+				for(ConstantData *curr = typeEnum->constants.head; curr; curr = curr->next)
+				{
+					if(!curr->name)
+						continue;
+
+					Lexeme *itemBegin = curr->name->begin, *itemEnd = curr->name->end;
+
+					DocumentSymbol item;
+
+					item.name = std::string(curr->name->name.begin, curr->name->name.end);
+					item.kind = SymbolKind::Constant;
+					item.range = Range(Position(itemBegin->line, itemBegin->column), Position(itemEnd->line, itemEnd->column + itemEnd->length));
+					item.selectionRange = Range(Position(itemBegin->line, itemBegin->column), Position(itemEnd->line, itemEnd->column + itemEnd->length));
+					//item.detail = ToString("%.*s %.*s::%.*s", FMT_ISTR(curr->value->type->name), FMT_ISTR(type->name), FMT_ISTR(curr->name->name));
+
+					symbol.children.push_back(item);
+				}
+
+				symbols.push_back(symbol);
+			}
+			else if(TypeGenericClassProto *typeGenericClassProto = getType<TypeGenericClassProto>(type))
+			{
+				// Filter types with location information
+				if(!typeGenericClassProto->identifier.begin || FindLocationModule(context, typeGenericClassProto->identifier.begin))
+					continue;
+
+				Lexeme *sourceBegin = typeGenericClassProto->source->begin, *sourceEnd = typeGenericClassProto->source->end;
+				Lexeme *nameBegin = typeGenericClassProto->identifier.begin, *nameEnd = typeGenericClassProto->identifier.end;
+
+				DocumentSymbol symbol;
+
+				symbol.name = std::string(typeGenericClassProto->name.begin, typeGenericClassProto->name.end);
+				symbol.kind = SymbolKind::Class;
+				symbol.range = Range(Position(sourceBegin->line, sourceBegin->column), Position(sourceEnd->line, sourceEnd->column + sourceEnd->length));
+				symbol.selectionRange = Range(Position(nameBegin->line, nameBegin->column), Position(nameEnd->line, nameEnd->column + nameEnd->length));
+
+				symbols.push_back(symbol);
+			}
 		}
 	}
 
