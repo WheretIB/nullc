@@ -71,9 +71,9 @@ NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintIndented(ExpressionGraphContext &ctx, I
 
 	va_end(args);
 
-	if(node->source)
+	if(node->source && !node->source->isInternal)
 	{
-		Print(ctx, " // [%d:%d]-[%d:%d]", node->source->begin->line + 1, node->source->begin->column, node->source->end->line + 1, node->source->end->column + node->source->end->length);
+		Print(ctx, " // %s [%d:%d]-[%d:%d]", GetParseTreeNodeName(node->source), node->source->begin->line + 1, node->source->begin->column, node->source->end->line + 1, node->source->end->column + node->source->end->length);
 
 		if(ModuleData *importModule = ctx.ctx.GetSourceOwner(node->source->begin))
 			Print(ctx, " from '%.*s'", FMT_ISTR(importModule->name));
@@ -117,9 +117,9 @@ NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintEnterBlock(ExpressionGraphContext &ctx,
 
 	ctx.output.Print('{');
 
-	if(node->source)
+	if(node->source && !node->source->isInternal)
 	{
-		Print(ctx, " // [%d:%d]-[%d:%d]", node->source->begin->line + 1, node->source->begin->column, node->source->end->line + 1, node->source->end->column + node->source->end->length);
+		Print(ctx, " // %s [%d:%d]-[%d:%d]", GetParseTreeNodeName(node->source), node->source->begin->line + 1, node->source->begin->column, node->source->end->line + 1, node->source->end->column + node->source->end->length);
 
 		if(ModuleData *importModule = ctx.ctx.GetSourceOwner(node->source->begin))
 			Print(ctx, " from '%.*s'", FMT_ISTR(importModule->name));

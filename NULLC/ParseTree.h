@@ -175,7 +175,7 @@ struct ParseContext
 
 struct SynBase
 {
-	SynBase(unsigned typeID, Lexeme *begin, Lexeme *end): typeID(typeID), begin(begin), end(end), pos(begin ? begin->pos : 0, end ? end->pos + end->length : 0), next(0), listed(false)
+	SynBase(unsigned typeID, Lexeme *begin, Lexeme *end): typeID(typeID), begin(begin), end(end), pos(begin ? begin->pos : 0, end ? end->pos + end->length : 0), next(0), listed(false), isInternal(false)
 	{
 	}
 
@@ -187,9 +187,13 @@ struct SynBase
 
 	Lexeme *begin;
 	Lexeme *end;
+
 	InplaceStr pos;
+
 	SynBase *next;
 	bool listed;
+
+	bool isInternal;
 };
 
 template<typename T>
@@ -211,6 +215,16 @@ struct SynError: SynBase
 {
 	SynError(Lexeme *begin, Lexeme *end): SynBase(myTypeID, begin, end)
 	{
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
+struct SynInternal: SynBase
+{
+	SynInternal(SynBase *source): SynBase(myTypeID, source->begin, source->end)
+	{
+		isInternal = true;
 	}
 
 	static const unsigned myTypeID = __LINE__;
@@ -1038,6 +1052,7 @@ SynBase* ParseClassDefinition(ParseContext &ctx);
 SynModule* Parse(ParseContext &context, const char *code);
 
 void VisitParseTreeNodes(SynBase *syntax, void *context, void(*accept)(void *context, SynBase *child));
+const char* GetParseTreeNodeName(SynBase *syntax);
 
 const char* GetOpName(SynUnaryOpType type);
 const char* GetOpName(SynBinaryOpType type);

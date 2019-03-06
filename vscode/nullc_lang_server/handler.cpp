@@ -70,6 +70,9 @@ NULLC_PRINT_FORMAT_CHECK(1, 2) std::string ToString(const char *format, ...)
 
 bool IsInside(SynBase *syntax, unsigned line, unsigned column)
 {
+	if(syntax->isInternal)
+		return false;
+
 	if(line > syntax->begin->line || (line == syntax->begin->line && column >= syntax->begin->column))
 	{
 		if(line < syntax->end->line || (line == syntax->end->line && column < syntax->end->column + syntax->end->length))
@@ -83,6 +86,9 @@ bool IsInside(SynBase *syntax, unsigned line, unsigned column)
 
 bool IsAtEnd(SynBase *syntax, unsigned line, unsigned column)
 {
+	if(syntax->isInternal)
+		return false;
+
 	if(line == syntax->end->line && column == syntax->end->column + syntax->end->length)
 		return true;
 

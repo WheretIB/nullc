@@ -182,7 +182,7 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 
 void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction)
 {
-	if(ctx.showSource && instruction->source)
+	if(ctx.showSource && instruction->source && !instruction->source->isInternal)
 	{
 		const char *start = instruction->source->pos.begin;
 		const char *end = start + 1;

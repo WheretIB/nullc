@@ -70,7 +70,7 @@ void PrintConstant(InstructionVmLowerGraphContext &ctx, VmConstant *constant)
 
 void PrintInstruction(InstructionVmLowerGraphContext &ctx, VmLoweredInstruction *lowInstruction)
 {
-	if(ctx.showSource && lowInstruction->location)
+	if(ctx.showSource && lowInstruction->location && !lowInstruction->location->isInternal)
 	{
 		const char *start = lowInstruction->location->pos.begin;
 		const char *end = start + 1;

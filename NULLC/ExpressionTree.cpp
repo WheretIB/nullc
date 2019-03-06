@@ -1766,6 +1766,11 @@ ModuleData* ExpressionContext::GetSourceOwner(Lexeme *lexeme)
 	return NULL;
 }
 
+SynInternal* ExpressionContext::MakeInternal(SynBase *source)
+{
+	return new (get<SynInternal>()) SynInternal(source);
+}
+
 ExprBase* AnalyzeNumber(ExpressionContext &ctx, SynNumber *syntax);
 ExprBase* AnalyzeExpression(ExpressionContext &ctx, SynBase *syntax);
 ExprBase* AnalyzeStatement(ExpressionContext &ctx, SynBase *syntax);
@@ -2001,7 +2006,7 @@ ExprBase* CreateFunctionPointer(ExpressionContext &ctx, SynBase *source, ExprFun
 	if(definition->contextVariable)
 		expressions.push_back(definition->contextVariable);
 
-	expressions.push_back(new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, definition->function->type, definition->function, CreateFunctionContextAccess(ctx, source, definition->function)));
+	expressions.push_back(new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(ctx.MakeInternal(source), definition->function->type, definition->function, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), definition->function)));
 
 	return new (ctx.get<ExprSequence>()) ExprSequence(source, definition->function->type, expressions);
 }
@@ -2511,7 +2516,7 @@ void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 					VariableData *variable = scope->variables[i];
 
 					if(variable->usedAsExternal)
-						data.expr->expressions.push_back(CreateUpvalueClose(ctx, data.source, variable));
+						data.expr->expressions.push_back(CreateUpvalueClose(ctx, ctx.MakeInternal(data.source), variable));
 				}
 
 				if(scope->ownerFunction)
@@ -2524,7 +2529,7 @@ void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 				VariableData *variable = data.scope->variables[i];
 
 				if(variable->usedAsExternal)
-					data.expr->expressions.push_back(CreateUpvalueClose(ctx, data.source, variable));
+					data.expr->expressions.push_back(CreateUpvalueClose(ctx, ctx.MakeInternal(data.source), variable));
 			}
 			break;
 		case CLOSE_UPVALUES_BREAK:
@@ -2538,7 +2543,7 @@ void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 					VariableData *variable = scope->variables[i];
 
 					if(variable->usedAsExternal)
-						data.expr->expressions.push_back(CreateUpvalueClose(ctx, data.source, variable));
+						data.expr->expressions.push_back(CreateUpvalueClose(ctx, ctx.MakeInternal(data.source), variable));
 				}
 			}
 			break;
@@ -2553,7 +2558,7 @@ void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 					VariableData *variable = scope->variables[i];
 
 					if(variable->usedAsExternal)
-						data.expr->expressions.push_back(CreateUpvalueClose(ctx, data.source, variable));
+						data.expr->expressions.push_back(CreateUpvalueClose(ctx, ctx.MakeInternal(data.source), variable));
 				}
 			}
 			break;
@@ -2561,13 +2566,13 @@ void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 			for(VariableHandle *curr = function->argumentVariables.head; curr; curr = curr->next)
 			{
 				if(curr->variable->usedAsExternal)
-					data.expr->expressions.push_back(CreateUpvalueClose(ctx, data.source, curr->variable));
+					data.expr->expressions.push_back(CreateUpvalueClose(ctx, ctx.MakeInternal(data.source), curr->variable));
 			}
 
 			if(VariableData *variable = function->contextArgument)
 			{
 				if(variable->usedAsExternal)
-					data.expr->expressions.push_back(CreateUpvalueClose(ctx, data.source, variable));
+					data.expr->expressions.push_back(CreateUpvalueClose(ctx, ctx.MakeInternal(data.source), variable));
 			}
 		}
 	}
@@ -3532,7 +3537,7 @@ ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<
 	}
 
 	if(!context)
-		context = CreateFunctionContextAccess(ctx, source, function->value);
+		context = CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), function->value);
 
 	return new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, function->value->type, function->value, context);
 }
@@ -7945,7 +7950,11 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 		// User might have not returned from all control paths, for a void function we will generate a return
 		if(function->type->returnType == ctx.typeVoid)
-			code.push_back(new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, new (ctx.get<ExprVoid>()) ExprVoid(source, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, source, function, 0), CreateFunctionUpvalueClose(ctx, source, function, ctx.scope)));
+		{
+			SynBase *location = ctx.MakeInternal(source);
+
+			code.push_back(new (ctx.get<ExprReturn>()) ExprReturn(location, ctx.typeVoid, new (ctx.get<ExprVoid>()) ExprVoid(location, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, location, function, 0), CreateFunctionUpvalueClose(ctx, location, function, ctx.scope)));
+		}
 	}
 
 	ClosePendingUpvalues(ctx, function);
@@ -8226,7 +8235,11 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	// User might have not returned from all control paths, for a void function we will generate a return
 	if(function->type->returnType == ctx.typeVoid)
-		expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
+	{
+		SynBase *location = ctx.MakeInternal(syntax);
+
+		expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(location, ctx.typeVoid, new (ctx.get<ExprVoid>()) ExprVoid(location, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, location, function, 0), CreateFunctionUpvalueClose(ctx, location, function, ctx.scope)));
+	}
 
 	ClosePendingUpvalues(ctx, function);
 
@@ -11681,7 +11694,7 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 		module->setup.push_back(CreateVirtualTableUpdate(ctx, syntax, ctx.vtables[i]));
 
 	for(unsigned i = 0; i < ctx.upvalues.size(); i++)
-		module->setup.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, ctx.upvalues[i]), NULL));
+		module->setup.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(ctx.MakeInternal(syntax), ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, ctx.upvalues[i]), NULL));
 
 	return module;
 }
@@ -11968,9 +11981,6 @@ void VisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)
 	}
 	else if(ExprModule *node = getType<ExprModule>(expression))
 	{
-		for(unsigned i = 0; i < node->definitions.size(); i++)
-			VisitExpressionTreeNodes(node->definitions[i], context, accept);
-
 		for(ExprBase *value = node->setup.head; value; value = value->next)
 			VisitExpressionTreeNodes(value, context, accept);
 

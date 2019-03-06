@@ -76,6 +76,8 @@ struct ExpressionContext
 
 	ModuleData* GetSourceOwner(Lexeme *lexeme);
 
+	SynInternal* MakeInternal(SynBase *source);
+
 	// Full state info
 	const char *code;
 	const char *codeEnd;

@@ -3459,6 +3459,150 @@ void VisitParseTreeNodes(SynBase *syntax, void *context, void(*accept)(void *con
 	}
 }
 
+const char* GetParseTreeNodeName(SynBase *syntax)
+{
+	switch(syntax->typeID)
+	{
+	case SynError::myTypeID:
+		return "SynError";
+	case SynNothing::myTypeID:
+		return "SynNothing";
+	case SynIdentifier::myTypeID:
+		return "SynIdentifier";
+	case SynTypeAuto::myTypeID:
+		return "SynTypeAuto";
+	case SynTypeGeneric::myTypeID:
+		return "SynTypeGeneric";
+	case SynTypeSimple::myTypeID:
+		return "SynTypeSimple";
+	case SynTypeAlias::myTypeID:
+		return "SynTypeAlias";
+	case SynTypeArray::myTypeID:
+		return "SynTypeArray";
+	case SynTypeReference::myTypeID:
+		return "SynTypeReference";
+	case SynTypeFunction::myTypeID:
+		return "SynTypeFunction";
+	case SynTypeGenericInstance::myTypeID:
+		return "SynTypeGenericInstance";
+	case SynTypeof::myTypeID:
+		return "SynTypeof";
+	case SynBool::myTypeID:
+		return "SynBool";
+	case SynNumber::myTypeID:
+		return "SynNumber";
+	case SynNullptr::myTypeID:
+		return "SynNullptr";
+	case SynCharacter::myTypeID:
+		return "SynCharacter";
+	case SynString::myTypeID:
+		return "SynString";
+	case SynArray::myTypeID:
+		return "SynArray";
+	case SynGenerator::myTypeID:
+		return "SynGenerator";
+	case SynAlign::myTypeID:
+		return "SynAlign";
+	case SynTypedef::myTypeID:
+		return "SynTypedef";
+	case SynMemberAccess::myTypeID:
+		return "SynMemberAccess";
+	case SynCallArgument::myTypeID:
+		return "SynCallArgument";
+	case SynArrayIndex::myTypeID:
+		return "SynArrayIndex";
+	case SynFunctionCall::myTypeID:
+		return "SynFunctionCall";
+	case SynPreModify::myTypeID:
+		return "SynPreModify";
+	case SynPostModify::myTypeID:
+		return "SynPostModify";
+	case SynGetAddress::myTypeID:
+		return "SynGetAddress";
+	case SynDereference::myTypeID:
+		return "SynDereference";
+	case SynSizeof::myTypeID:
+		return "SynSizeof";
+	case SynNew::myTypeID:
+		return "SynNew";
+	case SynConditional::myTypeID:
+		return "SynConditional";
+	case SynReturn::myTypeID:
+		return "SynReturn";
+	case SynYield::myTypeID:
+		return "SynYield";
+	case SynBreak::myTypeID:
+		return "SynBreak";
+	case SynContinue::myTypeID:
+		return "SynContinue";
+	case SynBlock::myTypeID:
+		return "SynBlock";
+	case SynIfElse::myTypeID:
+		return "SynIfElse";
+	case SynFor::myTypeID:
+		return "SynFor";
+	case SynForEachIterator::myTypeID:
+		return "SynForEachIterator";
+	case SynForEach::myTypeID:
+		return "SynForEach";
+	case SynWhile::myTypeID:
+		return "SynWhile";
+	case SynDoWhile::myTypeID:
+		return "SynDoWhile";
+	case SynSwitchCase::myTypeID:
+		return "SynSwitchCase";
+	case SynSwitch::myTypeID:
+		return "SynSwitch";
+	case SynUnaryOp::myTypeID:
+		return "SynUnaryOp";
+	case SynBinaryOp::myTypeID:
+		return "SynBinaryOp";
+	case SynAssignment::myTypeID:
+		return "SynAssignment";
+	case SynModifyAssignment::myTypeID:
+		return "SynModifyAssignment";
+	case SynVariableDefinition::myTypeID:
+		return "SynVariableDefinition";
+	case SynVariableDefinitions::myTypeID:
+		return "SynVariableDefinitions";
+	case SynAccessor::myTypeID:
+		return "SynAccessor";
+	case SynFunctionArgument::myTypeID:
+		return "SynFunctionArgument";
+	case SynFunctionDefinition::myTypeID:
+		return "SynFunctionDefinition";
+	case SynShortFunctionArgument::myTypeID:
+		return "SynShortFunctionArgument";
+	case SynShortFunctionDefinition::myTypeID:
+		return "SynShortFunctionDefinition";
+	case SynConstant::myTypeID:
+		return "SynConstant";
+	case SynConstantSet::myTypeID:
+		return "SynConstantSet";
+	case SynClassPrototype::myTypeID:
+		return "SynClassPrototype";
+	case SynClassStaticIf::myTypeID:
+		return "SynClassStaticIf";
+	case SynClassElements::myTypeID:
+		return "SynClassElements";
+	case SynClassDefinition::myTypeID:
+		return "SynClassDefinition";
+	case SynEnumDefinition::myTypeID:
+		return "SynEnumDefinition";
+	case SynNamespaceDefinition::myTypeID:
+		return "SynNamespaceDefinition";
+	case SynModuleImport::myTypeID:
+		return "SynModuleImport";
+	case SynModule::myTypeID:
+		return "SynModule";
+	default:
+		break;
+	}
+
+	assert(!"unknown type");
+	return "unknown";
+}
+
 const char* GetOpName(SynUnaryOpType type)
 {
 	switch(type)
