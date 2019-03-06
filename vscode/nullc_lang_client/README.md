@@ -4,12 +4,12 @@ This extension provides support for editing nullc programming language inside Vi
 
 ## Features
 
-* Semantic coloring
+* Code coloring
 * Diagnostics
 * Code region folding
 * Information on symbol hover
 * Document symbol list
-* ...and many more features planned but not implemented yet
+* Goto definition
 
 ## Requirements
 

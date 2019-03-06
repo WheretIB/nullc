@@ -188,6 +188,246 @@ std::string GetMemberSignature(TypeBase *type, MatchData *member)
 	return buf;
 }
 
+struct FindEntityResponse
+{
+	explicit operator bool() const
+	{
+		return targetVariable || targetFunction || targetType;
+	}
+
+	SynBase *bestNode = nullptr;
+
+	VariableData *targetVariable = nullptr;
+	FunctionData *targetFunction = nullptr;
+	TypeBase *targetType = nullptr;
+
+	std::string debugScopes;
+};
+
+FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position position, bool captureScopes)
+{
+	struct Data
+	{
+		Data(CompilerContext *context, Position &position, bool captureScopes): context(context), position(position), captureScopes(captureScopes)
+		{
+		}
+
+		CompilerContext *context;
+
+		Position &position;
+
+		bool captureScopes;
+
+		FindEntityResponse response;
+	};
+
+	Data data(context, position, captureScopes);
+
+	nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
+		Data &data = *(Data*)context;
+		FindEntityResponse &response = data.response;
+
+		// Imported
+		if(data.context->exprCtx.GetSourceOwner(child->source->begin))
+			return;
+
+		if(!IsInside(child->source, data.position.line, data.position.character))
+			return;
+
+		if(data.captureScopes)
+		{
+			response.debugScopes += GetExpressionTreeNodeName(child);
+			response.debugScopes += ToString(" (%d:%d-%d:%d)", child->source->begin->line + 1, child->source->begin->column, child->source->end->line + 1, child->source->end->column + child->source->end->length);
+		}
+
+		if(ExprVariableAccess *node = getType<ExprVariableAccess>(child))
+		{
+			if(!IsSmaller(response.bestNode, node->source))
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[larger]  \n";
+
+				return;
+			}
+
+			response.bestNode = node->source;
+
+			response.targetVariable = node->variable;
+			response.targetFunction = nullptr;
+			response.targetType = nullptr;
+
+			if(data.captureScopes)
+				response.debugScopes += " <- selected";
+		}
+		else if(ExprGetAddress *node = getType<ExprGetAddress>(child))
+		{
+			SynBase *nameSource = node->variable->source;
+
+			if(data.captureScopes)
+			{
+				response.debugScopes += ToString(" name (%d:%d-%d:%d)", nameSource->begin->line + 1, nameSource->begin->column, nameSource->end->line + 1, nameSource->end->column + nameSource->end->length);
+			}
+
+			if(!nameSource)
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[no name source]  \n";
+
+				return;
+			}
+
+			if(!IsInside(nameSource, data.position.line, data.position.character))
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[outside name]  \n";
+
+				return;
+			}
+
+			if(!IsSmaller(response.bestNode, nameSource))
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[larger]  \n";
+
+				return;
+			}
+
+			response.bestNode = nameSource;
+
+			response.targetVariable = node->variable->variable;
+			response.targetFunction = nullptr;
+			response.targetType = nullptr;
+
+			if(data.captureScopes)
+				response.debugScopes += " <- selected";
+		}
+		else if(ExprMemberAccess *node = getType<ExprMemberAccess>(child))
+		{
+			if(!IsSmaller(response.bestNode, node->source))
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[larger]  \n";
+
+				return;
+			}
+
+			if(!node->member)
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[no member]  \n";
+
+				return;
+			}
+
+			if(TypeRef *typeRef = getType<TypeRef>(node->value->type))
+			{
+				response.bestNode = node->source;
+
+				response.targetVariable = node->member->variable;
+				response.targetFunction = nullptr;
+				response.targetType = nullptr;
+
+				if(data.captureScopes)
+					response.debugScopes += " <- selected";
+			}
+		}
+		else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(child))
+		{
+			if(!IsSmaller(response.bestNode, node->source))
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[larger]  \n";
+
+				return;
+			}
+
+			if(isType<SynFunctionDefinition>(node->source))
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[definition]  \n";
+
+				return;
+			}
+
+			response.bestNode = node->source;
+
+			response.targetVariable = nullptr;
+			response.targetFunction = node->function;
+			response.targetType = nullptr;
+
+			if(data.captureScopes)
+				response.debugScopes += " <- selected";
+		}
+		else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(child))
+		{
+			if(SynFunctionDefinition *source = getType<SynFunctionDefinition>(node->source))
+			{
+				if(IsInside(source->returnType, data.position.line, data.position.character))
+				{
+					if(!IsSmaller(response.bestNode, source->returnType))
+					{
+						if(data.captureScopes)
+							response.debugScopes += " <- skipped[larger]  \n";
+
+						return;
+					}
+
+					response.bestNode = source->returnType;
+
+					response.targetVariable = nullptr;
+					response.targetFunction = nullptr;
+					response.targetType = node->function->type->returnType;
+
+					if(data.captureScopes)
+						response.debugScopes += " <- selected[returnType]";
+				}
+			}
+		}
+		else if(ExprVariableDefinitions *node = getType<ExprVariableDefinitions>(child))
+		{
+			if(SynVariableDefinitions *source = getType<SynVariableDefinitions>(node->source))
+			{
+				if(IsInside(source->type, data.position.line, data.position.character))
+				{
+					if(!IsSmaller(response.bestNode, source->type))
+					{
+						if(data.captureScopes)
+							response.debugScopes += " <- skipped[larger]  \n";
+
+						return;
+					}
+
+					TypeBase *definitionType = node->definitionType;
+
+					if(definitionType == data.context->exprCtx.typeAuto && !node->definitions.empty())
+					{
+						if(ExprVariableDefinition *definition = getType<ExprVariableDefinition>(node->definitions.head))
+							definitionType = definition->variable->variable->type;
+					}
+
+					if(definitionType != data.context->exprCtx.typeAuto)
+					{
+						response.bestNode = source->type;
+
+						response.targetVariable = nullptr;
+						response.targetFunction = nullptr;
+						response.targetType = definitionType;
+
+						if(data.captureScopes)
+							response.debugScopes += " <- selected[definitionType]";
+					}
+				}
+			}
+		}
+
+
+		if(data.captureScopes)
+			response.debugScopes += "  \n";
+	});
+
+	return data.response;
+}
+
 bool HandleMessage(Context& ctx, char *message, unsigned length)
 {
 	(void)length;
@@ -339,9 +579,9 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 	capabilities.AddMember("documentSymbolProvider", true, response.GetAllocator());
 	capabilities.AddMember("hoverProvider", true, response.GetAllocator());
 	capabilities.AddMember("completionProvider", completionProvider, response.GetAllocator());
+	capabilities.AddMember("definitionProvider", true, response.GetAllocator());
 
 	//signatureHelpProvider
-	//definitionProvider
 	//referencesProvider
 	//documentHighlightProvider
 
@@ -466,253 +706,54 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 
 	auto position = Position(arguments["position"]);
 
-	struct Data
-	{
-		Data(Context &ctx, Position &position, Hover &hover): ctx(ctx), position(position), hover(hover)
-		{
-		}
-
-		Context &ctx;
-
-		Position &position;
-
-		Hover &hover;
-
-		CompilerContext *context = nullptr;
-
-		SynBase *bestNode = nullptr;
-
-		std::string debugScopes;
-	};
-
 	nullcAnalyze(documentIt->second.code.c_str());
 
 	Hover hover;
 
-	Data data(ctx, position, hover);
-
 	if(CompilerContext *context = nullcGetCompilerContext())
 	{
-		data.context = context;
-
 		if(context->exprModule)
 		{
 			if(ctx.debugMode)
 				fprintf(stderr, "INFO: Expression tree is available\n");
 
-			nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
-				Data &data = *(Data*)context;
+			FindEntityResponse result = FindEntityAtLocation(context, position, ctx.debugMode);
 
-				// Imported
-				if(data.context->exprCtx.GetSourceOwner(child->source->begin))
-					return;
-
-				if(!IsInside(child->source, data.position.line, data.position.character))
-					return;
-
-				if(data.ctx.debugMode)
+			if(result)
+			{
+				if(VariableData *variable = result.targetVariable)
 				{
-					data.debugScopes += GetExpressionTreeNodeName(child);
-					data.debugScopes += ToString(" (%d:%d-%d:%d)", child->source->begin->line + 1, child->source->begin->column, child->source->end->line + 1, child->source->end->column + child->source->end->length);
-				}
+					hover.range = Range(Position(result.bestNode->begin->line, result.bestNode->begin->column), Position(result.bestNode->begin->line, result.bestNode->begin->column + result.bestNode->begin->length));
 
-				if(ExprVariableAccess *node = getType<ExprVariableAccess>(child))
+					hover.contents.kind = MarkupKind::Markdown;
+
+					if(TypeBase *owner = variable->scope->ownerType)
+						hover.contents.value = GetMemberSignature(owner, variable);
+					else
+						hover.contents.value = ToString("Variable '%.*s %.*s'", FMT_ISTR(variable->type->name), FMT_ISTR(variable->name->name));
+				}
+				else if(FunctionData *function = result.targetFunction)
 				{
-					if(!IsSmaller(data.bestNode, node->source))
-					{
-						if(data.ctx.debugMode)
-							data.debugScopes += " <- skipped[larger]  \n";
+					hover.range = Range(Position(result.bestNode->begin->line, result.bestNode->begin->column), Position(result.bestNode->begin->line, result.bestNode->begin->column + result.bestNode->begin->length));
 
-						return;
-					}
-
-					data.bestNode = node->source;
-
-					data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
-
-					data.hover.contents.kind = MarkupKind::Markdown;
-					data.hover.contents.value = ToString("Variable '%.*s %.*s'", FMT_ISTR(node->variable->type->name), FMT_ISTR(node->variable->name->name));
-
-					if(data.ctx.debugMode)
-						data.debugScopes += " <- selected";
+					hover.contents.kind = MarkupKind::Markdown;
+					hover.contents.value = "Function \'" + GetFunctionSignature(function) + "\'";
 				}
-				else if(ExprGetAddress *node = getType<ExprGetAddress>(child))
+				else if(TypeBase *type = result.targetType)
 				{
-					SynBase *nameSource = node->variable->source;
+					hover.range = Range(Position(result.bestNode->begin->line, result.bestNode->begin->column), Position(result.bestNode->begin->line, result.bestNode->begin->column + result.bestNode->begin->length));
 
-					if(data.ctx.debugMode)
-					{
-						data.debugScopes += ToString(" name (%d:%d-%d:%d)", nameSource->begin->line + 1, nameSource->begin->column, nameSource->end->line + 1, nameSource->end->column + nameSource->end->length);
-					}
-
-					if(!nameSource)
-					{
-						if(data.ctx.debugMode)
-							data.debugScopes += " <- skipped[no name source]  \n";
-
-						return;
-					}
-
-					if(!IsInside(nameSource, data.position.line, data.position.character))
-					{
-						if(data.ctx.debugMode)
-							data.debugScopes += " <- skipped[outside name]  \n";
-
-						return;
-					}
-
-					if(!IsSmaller(data.bestNode, nameSource))
-					{
-						if(data.ctx.debugMode)
-							data.debugScopes += " <- skipped[larger]  \n";
-
-						return;
-					}
-
-					data.bestNode = nameSource;
-
-					data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
-
-					data.hover.contents.kind = MarkupKind::Markdown;
-					data.hover.contents.value = ToString("Variable '%.*s %.*s'", FMT_ISTR(node->variable->variable->type->name), FMT_ISTR(node->variable->variable->name->name));
-
-					if(data.ctx.debugMode)
-						data.debugScopes += " <- selected";
+					hover.contents.kind = MarkupKind::Markdown;
+					hover.contents.value = ToString("Type '%.*s'", FMT_ISTR(type->name));
 				}
-				else if(ExprMemberAccess *node = getType<ExprMemberAccess>(child))
-				{
-					if(!IsSmaller(data.bestNode, node->source))
-					{
-						if(data.ctx.debugMode)
-							data.debugScopes += " <- skipped[larger]  \n";
+			}
 
-						return;
-					}
-
-					if(!node->member)
-					{
-						if(data.ctx.debugMode)
-							data.debugScopes += " <- skipped[no member]  \n";
-
-						return;
-					}
-
-					if(TypeRef *typeRef = getType<TypeRef>(node->value->type))
-					{
-						data.bestNode = node->source;
-
-						data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
-
-						data.hover.contents.kind = MarkupKind::Markdown;
-						data.hover.contents.value = GetMemberSignature(typeRef->subType, node->member->variable);
-
-						if(data.ctx.debugMode)
-							data.debugScopes += " <- selected";
-					}
-				}
-				else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(child))
-				{
-					if(!IsSmaller(data.bestNode, node->source))
-					{
-						if(data.ctx.debugMode)
-							data.debugScopes += " <- skipped[larger]  \n";
-
-						return;
-					}
-
-					if(isType<SynFunctionDefinition>(node->source))
-					{
-						if(data.ctx.debugMode)
-							data.debugScopes += " <- skipped[definition]  \n";
-
-						return;
-					}
-
-					data.bestNode = node->source;
-
-					data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
-
-					data.hover.contents.kind = MarkupKind::Markdown;
-					data.hover.contents.value = "Function \'" + GetFunctionSignature(node->function) + "\'";
-
-					if(data.ctx.debugMode)
-						data.debugScopes += " <- selected";
-				}
-				else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(child))
-				{
-					if(SynFunctionDefinition *source = getType<SynFunctionDefinition>(node->source))
-					{
-						if(IsInside(source->returnType, data.position.line, data.position.character))
-						{
-							if(!IsSmaller(data.bestNode, source->returnType))
-							{
-								if(data.ctx.debugMode)
-									data.debugScopes += " <- skipped[larger]  \n";
-
-								return;
-							}
-
-							data.bestNode = source->returnType;
-
-							data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
-
-							data.hover.contents.kind = MarkupKind::Markdown;
-							data.hover.contents.value = ToString("Type '%.*s'", FMT_ISTR(node->function->type->returnType->name));
-
-							if(data.ctx.debugMode)
-								data.debugScopes += " <- selected[returnType]";
-						}
-					}
-				}
-				else if(ExprVariableDefinitions *node = getType<ExprVariableDefinitions>(child))
-				{
-					if(SynVariableDefinitions *source = getType<SynVariableDefinitions>(node->source))
-					{
-						if(IsInside(source->type, data.position.line, data.position.character))
-						{
-							if(!IsSmaller(data.bestNode, source->type))
-							{
-								if(data.ctx.debugMode)
-									data.debugScopes += " <- skipped[larger]  \n";
-
-								return;
-							}
-
-							TypeBase *definitionType = node->definitionType;
-
-							if(definitionType == data.context->exprCtx.typeAuto && !node->definitions.empty())
-							{
-								if(ExprVariableDefinition *definition = getType<ExprVariableDefinition>(node->definitions.head))
-									definitionType = definition->variable->variable->type;
-							}
-
-							if(definitionType != data.context->exprCtx.typeAuto)
-							{
-								data.bestNode = source->type;
-
-								data.hover.range = Range(Position(data.bestNode->begin->line, data.bestNode->begin->column), Position(data.bestNode->begin->line, data.bestNode->begin->column + data.bestNode->begin->length));
-
-								data.hover.contents.kind = MarkupKind::Markdown;
-								data.hover.contents.value = ToString("Type '%.*s'", FMT_ISTR(definitionType->name));
-
-								if(data.ctx.debugMode)
-									data.debugScopes += " <- selected[returnType]";
-							}
-						}
-					}
-				}
-				
-
-				if(data.ctx.debugMode)
-					data.debugScopes += "  \n";
-			});
-
-			if(!data.debugScopes.empty())
+			if(!result.debugScopes.empty())
 			{
 				if(hover.contents.value.empty())
 					hover.contents.value = "No info";
 
-				hover.contents.value += "  \n***  \n" + data.debugScopes;
+				hover.contents.value += "  \n***  \n" + result.debugScopes;
 			}
 		}
 		else
@@ -1386,6 +1427,136 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 	return true;
 }
 
+bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
+{
+	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+
+	if(documentIt == ctx.documents.end())
+	{
+		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
+
+		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
+	}
+
+	auto position = Position(arguments["position"]);
+
+	nullcAnalyze(documentIt->second.code.c_str());
+
+	std::vector<LocationLink> locations;
+
+	if(CompilerContext *context = nullcGetCompilerContext())
+	{
+		if(context->exprModule)
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "INFO: Expression tree is available\n");
+
+			FindEntityResponse result = FindEntityAtLocation(context, position, false);
+
+			if(result)
+			{
+				if(VariableData *variable = result.targetVariable)
+				{
+					if(!variable->importModule && variable->source && variable->name)
+					{
+						LocationLink location;
+
+						location.originSelectionRange = Range(Position(result.bestNode->begin->line, result.bestNode->begin->column), Position(result.bestNode->begin->line, result.bestNode->begin->column + result.bestNode->begin->length));
+
+						location.targetUri = documentIt->first;
+
+						location.targetRange = Range(Position(variable->source->begin->line, variable->source->begin->column), Position(variable->source->begin->line, variable->source->begin->column + variable->source->begin->length));
+
+						location.targetSelectionRange = Range(Position(variable->name->begin->line, variable->name->begin->column), Position(variable->name->begin->line, variable->name->begin->column + variable->name->begin->length));
+
+						locations.push_back(location);
+					}
+				}
+				else if(FunctionData *function = result.targetFunction)
+				{
+					if(!function->importModule && function->source && function->name)
+					{
+						LocationLink location;
+
+						location.originSelectionRange = Range(Position(result.bestNode->begin->line, result.bestNode->begin->column), Position(result.bestNode->begin->line, result.bestNode->begin->column + result.bestNode->begin->length));
+
+						location.targetUri = documentIt->first;
+
+						location.targetRange = Range(Position(function->source->begin->line, function->source->begin->column), Position(function->source->begin->line, function->source->begin->column + function->source->begin->length));
+
+						location.targetSelectionRange = Range(Position(function->name->begin->line, function->name->begin->column), Position(function->name->begin->line, function->name->begin->column + function->name->begin->length));
+
+						locations.push_back(location);
+					}
+				}
+				else if(TypeBase *type = result.targetType)
+				{
+					SynBase *source = nullptr;
+					SynIdentifier identifier = SynIdentifier(InplaceStr());
+
+					if(TypeClass *typeClass = getType<TypeClass>(type))
+					{
+						source = typeClass->source;
+						identifier = typeClass->identifier;
+					}
+					else if(TypeEnum *typeEnum = getType<TypeEnum>(type))
+					{
+						source = typeEnum->source;
+						identifier = typeEnum->identifier;
+					}
+					else if(TypeGenericClassProto *typeGenericClassProto = getType<TypeGenericClassProto>(type))
+					{
+						source = typeGenericClassProto->source;
+						identifier = typeGenericClassProto->identifier;
+					}
+
+					if(!type->importModule && source)
+					{
+						LocationLink location;
+
+						location.originSelectionRange = Range(Position(result.bestNode->begin->line, result.bestNode->begin->column), Position(result.bestNode->begin->line, result.bestNode->begin->column + result.bestNode->begin->length));
+
+						location.targetUri = documentIt->first;
+
+						location.targetRange = Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length));
+
+						location.targetSelectionRange = Range(Position(identifier.begin->line, identifier.begin->column), Position(identifier.begin->line, identifier.begin->column + identifier.begin->length));
+
+						locations.push_back(location);
+					}
+				}
+			}
+		}
+		else
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "INFO: Expression tree unavailable\n");
+		}
+	}
+
+	rapidjson::Value result;
+
+	if(locations.empty())
+	{
+		result.SetNull();
+	}
+	else
+	{
+		result.SetArray();
+
+		for(auto &&el : locations)
+			result.PushBack(el.ToJson(response), response.GetAllocator());
+	}
+
+	response.AddMember("result", result, response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	nullcClean();
+
+	return true;
+}
+
 void UpdateDiagnostics(Context& ctx, Document &document)
 {
 	rapidjson::Document response;
@@ -1528,6 +1699,8 @@ bool HandleMessage(Context& ctx, unsigned idNumber, const char *idString, const 
 		return HandleDocumentSymbol(ctx, arguments, response);
 	else if(strcmp(method, "textDocument/completion") == 0)
 		return HandleCompletion(ctx, arguments, response);
+	else if(strcmp(method, "textDocument/definition") == 0)
+		return HandleDefinition(ctx, arguments, response);
 	
 	return RespondWithError(ctx, response, method, ErrorCode::MethodNotFound, "not implemented");
 }
