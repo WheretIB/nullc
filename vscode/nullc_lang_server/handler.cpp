@@ -1303,6 +1303,10 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 							if(function->scope->ownerType != node->value->type)
 								continue;
 
+							// Skip prototypes that have an implementation
+							if(function->implementation)
+								continue;
+
 							const char *start = function->name->name.begin;
 
 							while(start < function->name->name.end)
