@@ -557,7 +557,7 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 	textDocumentSync.SetObject();
 
 	textDocumentSync.AddMember("openClose", true, response.GetAllocator());
-	textDocumentSync.AddMember("change", 1, response.GetAllocator()); // full
+	textDocumentSync.AddMember("change", unsigned(TextDocumentSyncKind::Incremental), response.GetAllocator());
 	textDocumentSync.AddMember("willSave", false, response.GetAllocator());
 	textDocumentSync.AddMember("willSaveWaitUntil", false, response.GetAllocator());
 	textDocumentSync.AddMember("save", save, response.GetAllocator());
@@ -1861,7 +1861,73 @@ bool HandleDidChange(Context& ctx, rapidjson::Value& arguments)
 
 	for(auto &&el : arguments["contentChanges"].GetArray())
 	{
-		if(el.HasMember("text"))
+		if(el.HasMember("range"))
+		{
+			Range range(el["range"]);
+
+			const char *code = document.code.c_str();
+
+			// Find start and end offset
+			const char *start = code;
+			int startLine = 0;
+
+			while(*start && startLine < range.start.line)
+			{
+				if(*start == '\r')
+				{
+					start++;
+
+					if(*start == '\n')
+						start++;
+
+					startLine++;
+				}
+				else if(*start == '\n')
+				{
+					start++;
+
+					startLine++;
+				}
+				else
+				{
+					start++;
+				}
+			}
+
+			const char *end = start;
+			int endLine = startLine;
+
+			while(*end && endLine < range.end.line)
+			{
+				if(*end == '\r')
+				{
+					end++;
+
+					if(*end == '\n')
+						end++;
+
+					endLine++;
+				}
+				else if(*end == '\n')
+				{
+					end++;
+
+					endLine++;
+				}
+				else
+				{
+					end++;
+				}
+			}
+
+			start += range.start.character;
+			end += range.end.character;
+
+			const char *replacement = el["text"].GetString();
+
+			document.code.replace(unsigned(start - code), unsigned(end - start), replacement, strlen(replacement));
+		}
+		else if(el.HasMember("text"))
 		{
 			if(ctx.debugMode)
 				fprintf(stderr, "INFO: Updated document '%s'\n", uri);
