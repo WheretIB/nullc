@@ -580,9 +580,9 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 	capabilities.AddMember("hoverProvider", true, response.GetAllocator());
 	capabilities.AddMember("completionProvider", completionProvider, response.GetAllocator());
 	capabilities.AddMember("definitionProvider", true, response.GetAllocator());
+	capabilities.AddMember("referencesProvider", true, response.GetAllocator());
 
 	//signatureHelpProvider
-	//referencesProvider
 	//documentHighlightProvider
 
 	result.AddMember("capabilities", capabilities, response.GetAllocator());
@@ -607,24 +607,12 @@ bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Do
 
 	std::vector<FoldingRange> foldingRanges;
 
-	if(nullcAnalyze(documentIt->second.code.c_str()))
-	{
-		if(ctx.debugMode)
-			fprintf(stderr, "INFO: Successfully compiled\n");
-	}
-	else
-	{
-		if(ctx.debugMode)
-			fprintf(stderr, "INFO: Failed to compile\n");
-	}
+	nullcAnalyze(documentIt->second.code.c_str());
 
 	if(CompilerContext *context = nullcGetCompilerContext())
 	{
 		if(context->synModule)
 		{
-			if(ctx.debugMode)
-				fprintf(stderr, "INFO: Parse tree is available\n");
-
 			nullcVisitParseTreeNodes(context->synModule, &foldingRanges, [](void *context, SynBase *child){
 				auto &foldingRanges = *(std::vector<FoldingRange>*)context;
 
@@ -714,9 +702,6 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 	{
 		if(context->exprModule)
 		{
-			if(ctx.debugMode)
-				fprintf(stderr, "INFO: Expression tree is available\n");
-
 			FindEntityResponse result = FindEntityAtLocation(context, position, ctx.debugMode);
 
 			if(result)
@@ -1059,9 +1044,6 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 		if(context->exprModule)
 		{
-			if(ctx.debugMode)
-				fprintf(stderr, "INFO: Expression tree is available\n");
-
 			nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
 				Data &data = *(Data*)context;
 
@@ -1448,9 +1430,6 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 	{
 		if(context->exprModule)
 		{
-			if(ctx.debugMode)
-				fprintf(stderr, "INFO: Expression tree is available\n");
-
 			FindEntityResponse result = FindEntityAtLocation(context, position, false);
 
 			if(result)
@@ -1524,6 +1503,218 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 						locations.push_back(location);
 					}
+				}
+			}
+		}
+		else
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "INFO: Expression tree unavailable\n");
+		}
+	}
+
+	rapidjson::Value result;
+
+	if(locations.empty())
+	{
+		result.SetNull();
+	}
+	else
+	{
+		result.SetArray();
+
+		for(auto &&el : locations)
+			result.PushBack(el.ToJson(response), response.GetAllocator());
+	}
+
+	response.AddMember("result", result, response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	nullcClean();
+
+	return true;
+}
+
+bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
+{
+	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+
+	if(documentIt == ctx.documents.end())
+	{
+		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
+
+		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
+	}
+
+	auto position = Position(arguments["position"]);
+
+	//auto includeDeclaration = arguments["includeDeclaration"].GetBool();
+
+	nullcAnalyze(documentIt->second.code.c_str());
+
+	std::vector<Location> locations;
+
+	if(CompilerContext *context = nullcGetCompilerContext())
+	{
+		if(context->exprModule)
+		{
+			FindEntityResponse result = FindEntityAtLocation(context, position, false);
+
+			if(result)
+			{
+				if(VariableData *variable = result.targetVariable)
+				{
+					struct Data
+					{
+						Data(CompilerContext *context, std::string uri, VariableData *variable, std::vector<Location> &locations): context(context), uri(uri), variable(variable), locations(locations)
+						{
+						}
+
+						CompilerContext *context;
+
+						std::string uri;
+
+						VariableData *variable;
+
+						std::vector<Location> &locations;
+					};
+
+					Data data(context, documentIt->first, variable, locations);
+
+					nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
+						Data &data = *(Data*)context;
+
+						if(ExprVariableAccess *node = getType<ExprVariableAccess>(child))
+						{
+							if(node->variable == data.variable)
+							{
+								auto source = node->source;
+
+								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
+									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
+							}
+						}
+						else if(ExprGetAddress *node = getType<ExprGetAddress>(child))
+						{
+							if(node->variable->variable == data.variable)
+							{
+								auto source = node->variable->source;
+
+								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
+									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
+							}
+						}
+						else if(ExprMemberAccess *node = getType<ExprMemberAccess>(child))
+						{
+							if(node->member->variable == data.variable)
+							{
+								auto source = node->member->source;
+
+								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
+									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
+							}
+						}
+						else if(ExprVariableDefinition *node = getType<ExprVariableDefinition>(child))
+						{
+							if(node->variable->variable == data.variable)
+							{
+								auto source = node->variable->source;
+
+								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
+									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
+							}
+						}
+					});
+				}
+				else if(FunctionData *function = result.targetFunction)
+				{
+					struct Data
+					{
+						Data(CompilerContext *context, std::string uri, FunctionData *function, std::vector<Location> &locations): context(context), uri(uri), function(function), locations(locations)
+						{
+						}
+
+						CompilerContext *context;
+
+						std::string uri;
+
+						FunctionData *function;
+
+						std::vector<Location> &locations;
+					};
+
+					Data data(context, documentIt->first, function, locations);
+
+					nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
+						Data &data = *(Data*)context;
+
+						if(ExprFunctionIndexLiteral *node = getType<ExprFunctionIndexLiteral>(child))
+						{
+							if(node->function == data.function)
+							{
+								auto source = node->source;
+
+								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
+									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
+							}
+						}
+						else if(ExprFunctionLiteral *node = getType<ExprFunctionLiteral>(child))
+						{
+							if(node->data == data.function)
+							{
+								auto source = node->source;
+
+								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
+									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
+							}
+						}
+						else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(child))
+						{
+							if(node->function == data.function)
+							{
+								auto source = node->function->name;
+
+								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
+									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
+							}
+						}
+						else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(child))
+						{
+							if(node->function == data.function)
+							{
+								auto source = node->function->name;
+
+								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
+									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
+							}
+						}
+						else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(child))
+						{
+							if(node->function == data.function)
+							{
+								auto source = node->source;
+
+								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
+									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
+							}
+						}
+						else if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(child))
+						{
+							for(auto curr = node->functions.head; curr; curr = curr->next)
+							{
+								if(curr->function == data.function)
+								{
+									auto source = node->source;
+
+									if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
+										data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
+
+									break;
+								}
+							}
+						}
+					});
 				}
 			}
 		}
@@ -1701,6 +1892,8 @@ bool HandleMessage(Context& ctx, unsigned idNumber, const char *idString, const 
 		return HandleCompletion(ctx, arguments, response);
 	else if(strcmp(method, "textDocument/definition") == 0)
 		return HandleDefinition(ctx, arguments, response);
+	else if(strcmp(method, "textDocument/references") == 0)
+		return HandleReferences(ctx, arguments, response);
 	
 	return RespondWithError(ctx, response, method, ErrorCode::MethodNotFound, "not implemented");
 }
