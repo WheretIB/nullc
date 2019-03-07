@@ -2601,12 +2601,12 @@ ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *
 
 	function->functionScope = ctx.scope;
 
-	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, source, function);
+	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, ctx.MakeInternal(source), function);
 
 	function->argumentsSize = function->functionScope->dataSize;
 
 	IntrusiveList<ExprBase> expressions;
-	expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, value, NULL, CreateFunctionUpvalueClose(ctx, source, function, ctx.scope)));
+	expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, value, NULL, CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(source), function, ctx.scope)));
 
 	ClosePendingUpvalues(ctx, function);
 
@@ -2627,7 +2627,7 @@ ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *
 
 	ctx.definitions.push_back(function->declaration);
 
-	return new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, function->type, function, CreateFunctionContextAccess(ctx, source, function));
+	return new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, function->type, function, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), function));
 }
 
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs)
@@ -6068,7 +6068,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		{
 			assert(isType<ExprNullptrLiteral>(context));
 
-			context = CreateFunctionContextAccess(ctx, source, data);
+			context = CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), data);
 		}
 
 		return FunctionValue(source, function->instances[i], context);
@@ -6190,7 +6190,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	{
 		assert(isType<ExprNullptrLiteral>(context));
 
-		context = CreateFunctionContextAccess(ctx, source, definition->function);
+		context = CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), definition->function);
 	}
 
 	return FunctionValue(source, definition->function, CreateSequence(ctx, source, definition, context));
@@ -6207,11 +6207,11 @@ void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *functio
 	}
 	else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(function))
 	{
-		functions.push_back(FunctionValue(node->source, node->function, CreateFunctionContextAccess(ctx, source, node->function)));
+		functions.push_back(FunctionValue(node->source, node->function, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), node->function)));
 	}
 	else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(function))
 	{
-		functions.push_back(FunctionValue(node->source, node->function, CreateFunctionContextAccess(ctx, source, node->function)));
+		functions.push_back(FunctionValue(node->source, node->function, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), node->function)));
 	}
 	else if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(function))
 	{
@@ -6220,7 +6220,7 @@ void GetNodeFunctions(ExpressionContext &ctx, SynBase *source, ExprBase *functio
 			ExprBase *context = node->context;
 
 			if(!context)
-				context = CreateFunctionContextAccess(ctx, source, arg->function);
+				context = CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), arg->function);
 
 			functions.push_back(FunctionValue(node->source, arg->function, context));
 		}
@@ -7116,7 +7116,7 @@ ExprBase* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 
 		// TODO: checked return value
 
-		return new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope));
+		return new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(syntax), function, ctx.scope));
 	}
 
 	if(isType<TypeFunction>(result->type))
@@ -7592,7 +7592,7 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, Fu
 
 		ctx.AddVariable(variable);
 
-		variables.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(argument.source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(argument.source, variable), NULL));
+		variables.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(argument.source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(argument.name, variable), NULL));
 
 		function->argumentVariables.push_back(new (ctx.get<VariableHandle>()) VariableHandle(argument.source, variable));
 	}
@@ -7896,7 +7896,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	CreateFunctionArgumentVariables(ctx, source, function, argData, variables);
 
-	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, source, function);
+	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, ctx.MakeInternal(source), function);
 
 	function->argumentsSize = function->functionScope->dataSize;
 
@@ -7953,7 +7953,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		{
 			SynBase *location = ctx.MakeInternal(source);
 
-			code.push_back(new (ctx.get<ExprReturn>()) ExprReturn(location, ctx.typeVoid, new (ctx.get<ExprVoid>()) ExprVoid(location, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, location, function, 0), CreateFunctionUpvalueClose(ctx, location, function, ctx.scope)));
+			code.push_back(new (ctx.get<ExprReturn>()) ExprReturn(location, ctx.typeVoid, new (ctx.get<ExprVoid>()) ExprVoid(location, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, location, function, 0), CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(location), function, ctx.scope)));
 		}
 	}
 
@@ -8069,7 +8069,7 @@ void DeduceShortFunctionReturnValue(ExpressionContext &ctx, SynBase *source, Fun
 		function->type = ctx.GetFunctionType(source, actual, function->type->arguments);
 
 	ExprBase *result = expected == ctx.typeAuto || isType<TypeError>(actual) ? expressions.tail : CreateCast(ctx, source, expressions.tail, expected, false);
-	result = new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, source, function, 0), CreateFunctionUpvalueClose(ctx, source, function, ctx.scope));
+	result = new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, source, function, 0), CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(source), function, ctx.scope));
 
 	if(expressions.head == expressions.tail)
 	{
@@ -8185,7 +8185,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 
 	CreateFunctionArgumentVariables(ctx, syntax, function, argData, arguments);
 
-	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
+	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, ctx.MakeInternal(syntax), function);
 
 	function->argumentsSize = function->functionScope->dataSize;
 
@@ -8238,7 +8238,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 	{
 		SynBase *location = ctx.MakeInternal(syntax);
 
-		expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(location, ctx.typeVoid, new (ctx.get<ExprVoid>()) ExprVoid(location, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, location, function, 0), CreateFunctionUpvalueClose(ctx, location, function, ctx.scope)));
+		expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(location, ctx.typeVoid, new (ctx.get<ExprVoid>()) ExprVoid(location, ctx.typeVoid), CreateFunctionCoroutineStateUpdate(ctx, location, function, 0), CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(location), function, ctx.scope)));
 	}
 
 	ClosePendingUpvalues(ctx, function);
@@ -8274,7 +8274,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 
 	function->functionScope = ctx.scope;
 
-	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
+	ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, ctx.MakeInternal(syntax), function);
 
 	function->argumentsSize = function->functionScope->dataSize;
 
@@ -8315,7 +8315,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 	{
 		VariableData *empty = AllocateTemporary(ctx, syntax, function->type->returnType);
 
-		expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, CreateVariableAccess(ctx, syntax, empty, false), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
+		expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, CreateVariableAccess(ctx, syntax, empty, false), CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(syntax), function, ctx.scope)));
 	}
 
 	ClosePendingUpvalues(ctx, function);
@@ -8758,7 +8758,7 @@ void CreateDefaultClassConstructor(ExpressionContext &ctx, SynBase *source, Expr
 
 		function->functionScope = ctx.scope;
 
-		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, source, function);
+		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, ctx.MakeInternal(source), function);
 
 		function->argumentsSize = function->functionScope->dataSize;
 
@@ -8873,7 +8873,7 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 
 		CreateFunctionArgumentVariables(ctx, source, function, arguments, variables);
 
-		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, source, function);
+		ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, ctx.MakeInternal(source), function);
 
 		function->argumentsSize = function->functionScope->dataSize;
 
@@ -9433,7 +9433,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 			CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
 
-			ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
+			ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, ctx.MakeInternal(syntax), function);
 
 			function->argumentsSize = function->functionScope->dataSize;
 
@@ -9442,7 +9442,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 			ExprBase *access = new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(syntax, enumType, variables.tail->variable->variable);
 			ExprBase *cast = new (ctx.get<ExprTypeCast>()) ExprTypeCast(syntax, ctx.typeInt, access, EXPR_CAST_REINTERPRET);
 
-			expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, cast, NULL, CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
+			expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, cast, NULL, CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(syntax), function, ctx.scope)));
 
 			ClosePendingUpvalues(ctx, function);
 
@@ -9480,7 +9480,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 			CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
 
-			ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntax, function);
+			ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, ctx.MakeInternal(syntax), function);
 
 			function->argumentsSize = function->functionScope->dataSize;
 
@@ -9489,7 +9489,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 			ExprBase *access = new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(syntax, ctx.typeInt, variables.tail->variable->variable);
 			ExprBase *cast = new (ctx.get<ExprTypeCast>()) ExprTypeCast(syntax, enumType, access, EXPR_CAST_REINTERPRET);
 
-			expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, cast, NULL, CreateFunctionUpvalueClose(ctx, syntax, function, ctx.scope)));
+			expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, cast, NULL, CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(syntax), function, ctx.scope)));
 
 			ClosePendingUpvalues(ctx, function);
 
@@ -9659,7 +9659,7 @@ ExprFor* AnalyzeFor(ExpressionContext &ctx, SynFor *syntax)
 
 	IntrusiveList<ExprBase> iteration;
 
-	if(ExprBase *closures = CreateBlockUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope))
+	if(ExprBase *closures = CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(), ctx.scope))
 		iteration.push_back(closures);
 
 	iteration.push_back(increment);
@@ -9903,7 +9903,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 	if(syntax->body)
 		definitions.push_back(AnalyzeStatement(ctx, syntax->body));
 
-	ExprBase *body = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, definitions, CreateBlockUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope));
+	ExprBase *body = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, definitions, CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(), ctx.scope));
 
 	ctx.PopScope(SCOPE_LOOP);
 
@@ -9937,7 +9937,7 @@ ExprDoWhile* AnalyzeDoWhile(ExpressionContext &ctx, SynDoWhile *syntax)
 
 	condition = CreateConditionCast(ctx, condition->source, condition);
 
-	ExprBase *block = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope));
+	ExprBase *block = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(), ctx.scope));
 
 	ctx.PopScope(SCOPE_LOOP);
 
@@ -10073,7 +10073,7 @@ ExprBlock* AnalyzeBlock(ExpressionContext &ctx, SynBlock *syntax, bool createSco
 		for(SynBase *expression = syntax->expressions.head; expression; expression = expression->next)
 			expressions.push_back(AnalyzeStatement(ctx, expression));
 
-		ExprBlock *block = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, syntax, ctx.GetCurrentFunction(), ctx.scope));
+		ExprBlock *block = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, expressions, CreateBlockUpvalueClose(ctx, ctx.MakeInternal(syntax), ctx.GetCurrentFunction(), ctx.scope));
 
 		ctx.PopScope(SCOPE_EXPLICIT);
 
