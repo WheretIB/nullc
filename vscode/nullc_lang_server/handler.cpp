@@ -120,6 +120,17 @@ bool IsSmaller(SynBase *current, SynBase *next)
 	return false;
 }
 
+bool IsToTheRightOf(SynBase *syntax, unsigned line, unsigned column)
+{
+	if(line > syntax->end->line)
+		return true;
+
+	if(line == syntax->end->line && column > syntax->end->column + syntax->end->length)
+		return true;
+
+	return false;
+}
+
 std::string GetFunctionSignature(FunctionData *function)
 {
 	const unsigned bufSize = 8192;
@@ -235,6 +246,9 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 	nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
 		Data &data = *(Data*)context;
 		FindEntityResponse &response = data.response;
+
+		if(!child->source)
+			return;
 
 		// Imported
 		if(data.context->exprCtx.GetSourceOwner(child->source->begin))
@@ -555,6 +569,9 @@ std::vector<SynBase*> FindVariableReferences(CompilerContext *context, VariableD
 	nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
 		Data &data = *(Data*)context;
 
+		if(!child->source)
+			return;
+
 		if(ExprVariableAccess *node = getType<ExprVariableAccess>(child))
 		{
 			if(node->variable == data.variable && node->source)
@@ -601,6 +618,9 @@ std::vector<SynBase*> FindFunctionReferences(CompilerContext *context, FunctionD
 
 	nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
 		Data &data = *(Data*)context;
+
+		if(!child->source)
+			return;
 
 		if(ExprFunctionIndexLiteral *node = getType<ExprFunctionIndexLiteral>(child))
 		{
@@ -783,12 +803,26 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 	completionProvider.AddMember("resolveProvider", false, response.GetAllocator());
 
-	rapidjson::Value triggerCharacters;
-	triggerCharacters.SetArray();
+	{
+		rapidjson::Value triggerCharacters;
+		triggerCharacters.SetArray();
 
-	triggerCharacters.PushBack(".", response.GetAllocator());
+		triggerCharacters.PushBack(".", response.GetAllocator());
 
-	completionProvider.AddMember("triggerCharacters", triggerCharacters, response.GetAllocator());
+		completionProvider.AddMember("triggerCharacters", triggerCharacters, response.GetAllocator());
+	}
+
+	rapidjson::Value signatureHelpProvider;
+	signatureHelpProvider.SetObject();
+
+	{
+		rapidjson::Value triggerCharacters;
+		triggerCharacters.SetArray();
+
+		triggerCharacters.PushBack("(", response.GetAllocator());
+
+		signatureHelpProvider.AddMember("triggerCharacters", triggerCharacters, response.GetAllocator());
+	}
 
 	capabilities.AddMember("textDocumentSync", textDocumentSync, response.GetAllocator());
 	capabilities.AddMember("foldingRangeProvider", true, response.GetAllocator());
@@ -798,8 +832,7 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 	capabilities.AddMember("definitionProvider", true, response.GetAllocator());
 	capabilities.AddMember("referencesProvider", true, response.GetAllocator());
 	capabilities.AddMember("documentHighlightProvider", true, response.GetAllocator());
-
-	//signatureHelpProvider
+	capabilities.AddMember("signatureHelpProvider", signatureHelpProvider, response.GetAllocator());
 
 	result.AddMember("capabilities", capabilities, response.GetAllocator());
 
@@ -1262,6 +1295,9 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 		{
 			nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
 				Data &data = *(Data*)context;
+
+				if(!child->source)
+					return;
 
 				if(!IsAtEnd(child->source, data.position.line, data.position.character))
 					return;
@@ -1912,6 +1948,185 @@ bool HandleDocumentHighlight(Context& ctx, rapidjson::Value& arguments, rapidjso
 	return true;
 }
 
+bool HandleSignatureHelp(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
+{
+	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+
+	if(documentIt == ctx.documents.end())
+	{
+		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
+
+		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
+	}
+
+	Position position = Position(arguments["position"]);
+
+	CompletionContext completionContext;
+
+	if(arguments.HasMember("context"))
+		completionContext = CompletionContext(arguments["context"]);
+
+	struct Data
+	{
+		Data(Context &ctx, Position &position, CompletionContext &completionContext, SignatureHelp &signatureHelp): ctx(ctx), position(position), completionContext(completionContext), signatureHelp(signatureHelp)
+		{
+		}
+
+		Context &ctx;
+
+		Position &position;
+		CompletionContext &completionContext;
+
+		SignatureHelp &signatureHelp;
+
+		CompilerContext *context = nullptr;
+	};
+
+	nullcAnalyze(documentIt->second.code.c_str());
+
+	SignatureHelp signatureHelp;
+
+	Data data(ctx, position, completionContext, signatureHelp);
+
+	if(CompilerContext *context = nullcGetCompilerContext())
+	{
+		data.context = context;
+
+		if(context->exprModule)
+		{
+			nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
+				Data &data = *(Data*)context;
+
+				if(!child->source)
+					return;
+
+				if(!IsInside(child->source, data.position.line, data.position.character))
+					return;
+
+				if(ExprFunctionCall *node = getType<ExprFunctionCall>(child))
+				{
+					if(data.ctx.debugMode)
+					{
+						fprintf(stderr, "INFO: Found ExprFunctionCall at position (%d:%d)\n", data.position.line, data.position.character);
+						fprintf(stderr, "INFO: ExprFunctionCall location (%d:%d - %d:%d)\n", node->source->begin->line, node->source->begin->column, node->source->end->line, node->source->end->column + node->source->end->length);
+						fprintf(stderr, "INFO: ExprFunctionCall function type '%.*s'\n", FMT_ISTR(node->function->type->name));
+					}
+
+					auto findActiveArgument = [](IntrusiveList<ExprBase> &arguments, Position &position, unsigned argumentCount){
+						int activeParameter = 0;
+
+						for(ExprBase *argument = arguments.head; argument; argument = argument->next)
+						{
+							if(activeParameter >= (int)argumentCount)
+								break;
+
+							if(IsToTheRightOf(argument->source, position.line, position.character))
+								activeParameter++;
+						}
+
+						return activeParameter;
+					};
+
+					auto addFunctionSignature = [](SignatureHelp &signatureHelp, FunctionData *function){
+						SignatureInformation signature;
+
+						signature.label = GetFunctionSignature(function);
+
+						for(unsigned i = 0; i < function->arguments.size(); i++)
+						{
+							ArgumentData &argument = function->arguments[i];
+
+							ParameterInformation parameter;
+
+							parameter.label = ToString("%.*s %.*s", FMT_ISTR(argument.type->name), FMT_ISTR(argument.name->name));
+
+							signature.parameters.push_back(parameter);
+						}
+
+						signatureHelp.signatures.push_back(signature);
+					};
+
+					auto addFunctionTypeSignature = [](SignatureHelp &signatureHelp, TypeFunction *typeFunction){
+						SignatureInformation signature;
+
+						signature.label = std::string(typeFunction->name.begin, typeFunction->name.end);
+
+						const char *start = typeFunction->name.begin;
+
+						const char *pos = start + typeFunction->returnType->name.length() + strlen(" ref(");
+
+						for(TypeHandle *argumentType = typeFunction->arguments.head; argumentType; argumentType = argumentType->next)
+						{
+							ParameterInformation parameter;
+
+							parameter.labelStart = int(pos - start);
+							parameter.labelEnd = int(pos - start) + argumentType->type->name.length();
+
+							pos += argumentType->type->name.length() + strlen(",");
+
+							signature.parameters.push_back(parameter);
+						}
+
+						signatureHelp.signatures.push_back(signature);
+					};
+
+					if(ExprFunctionAccess *function = getType<ExprFunctionAccess>(node->function))
+					{
+						addFunctionSignature(data.signatureHelp, function->function);
+
+						data.signatureHelp.activeSignature = 0;
+						data.signatureHelp.activeParameter = findActiveArgument(node->arguments, data.position, function->function->arguments.size());
+					}
+					else if(ExprFunctionOverloadSet *function = getType<ExprFunctionOverloadSet>(node->function))
+					{
+						for(FunctionHandle *option = function->functions.head; option; option = option->next)
+						{
+							addFunctionSignature(data.signatureHelp, option->function);
+
+							if(option == function->functions.head)
+							{
+								data.signatureHelp.activeSignature = 0;
+								data.signatureHelp.activeParameter = findActiveArgument(node->arguments, data.position, option->function->arguments.size());
+							}
+						}
+					}
+					else if(TypeFunction *typeFunction = getType<TypeFunction>(node->function->type))
+					{
+						addFunctionTypeSignature(data.signatureHelp, typeFunction);
+
+						data.signatureHelp.activeSignature = 0;
+						data.signatureHelp.activeParameter = findActiveArgument(node->arguments, data.position, typeFunction->arguments.size());
+					}
+				}
+			});
+		}
+		else
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "INFO: Expression tree unavailable\n");
+		}
+	}
+
+	rapidjson::Value result;
+
+	if(signatureHelp.signatures.empty())
+	{
+		result.SetNull();
+	}
+	else
+	{
+		signatureHelp.SaveTo(result, response);
+	}
+
+	response.AddMember("result", result, response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	nullcClean();
+
+	return true;
+}
+
 void UpdateDiagnostics(Context& ctx, Document &document)
 {
 	rapidjson::Document response;
@@ -2126,7 +2341,9 @@ bool HandleMessage(Context& ctx, unsigned idNumber, const char *idString, const 
 		return HandleReferences(ctx, arguments, response);
 	else if(strcmp(method, "textDocument/documentHighlight") == 0)
 		return HandleDocumentHighlight(ctx, arguments, response);
-	
+	else if(strcmp(method, "textDocument/signatureHelp") == 0)
+		return HandleSignatureHelp(ctx, arguments, response);
+
 	return RespondWithError(ctx, response, method, ErrorCode::MethodNotFound, "not implemented");
 }
 

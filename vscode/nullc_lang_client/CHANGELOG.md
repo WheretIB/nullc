@@ -10,3 +10,4 @@ All notable changes to the "nullc" extension will be documented in this file.
 - Added member and type info completion
 - Added goto definition for variables, functions and types
 - Added document symbol highlights
+- Added function signature help

@@ -1116,3 +1116,189 @@ struct DocumentHighlight
 	*/
 	DocumentHighlightKind kind = DocumentHighlightKind::None;
 };
+
+/**
+* Represents a parameter of a callable-signature. A parameter can
+* have a label and a doc-comment.
+*/
+struct ParameterInformation
+{
+	ParameterInformation() = default;
+
+	explicit ParameterInformation(std::string label, std::string documentation = std::string()): label(label), documentation(documentation)
+	{
+	}
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document)
+	{
+		target.SetObject();
+
+		if(labelStart != -1 && labelEnd != -1)
+		{
+			rapidjson::Value arr;
+			arr.SetArray();
+
+			arr.PushBack(labelStart, document.GetAllocator());
+			arr.PushBack(labelEnd, document.GetAllocator());
+
+			target.AddMember("label", arr, document.GetAllocator());
+		}
+		else
+		{
+			target.AddMember("label", label, document.GetAllocator());
+		}
+
+		if(!documentation.empty())
+			target.AddMember("documentation", documentation, document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document)
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* The label of this parameter information.
+	*
+	* Either a string or an inclusive start and exclusive end offsets within its containing
+	* signature label. (see SignatureInformation.label). The offsets are based on a UTF-16
+	* string representation as `Position` and `Range` does.
+	*
+	* *Note*: a label of type string should be a substring of its containing signature label.
+	* Its intended use case is to highlight the parameter label part in the `SignatureInformation.label`.
+	*/
+	std::string label;
+
+	int labelStart = -1;
+	int labelEnd = -1;
+
+	/**
+	* The human-readable doc-comment of this parameter. Will be shown
+	* in the UI but can be omitted.
+	* Optional
+	*/
+	std::string documentation;
+};
+
+/**
+* Represents the signature of something callable. A signature
+* can have a label, like a function-name, a doc-comment, and
+* a set of parameters.
+*/
+struct SignatureInformation
+{
+	SignatureInformation() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document)
+	{
+		target.SetObject();
+
+		target.AddMember("label", label, document.GetAllocator());
+
+		if(!documentation.empty())
+			target.AddMember("documentation", documentation, document.GetAllocator());
+
+		if(!parameters.empty())
+		{
+			rapidjson::Value arr;
+			arr.SetArray();
+
+			for(auto &&el : parameters)
+				arr.PushBack(el.ToJson(document), document.GetAllocator());
+
+			target.AddMember("parameters", arr, document.GetAllocator());
+		}
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document)
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* The label of this signature. Will be shown in
+	* the UI.
+	*/
+	std::string label;
+
+	/**
+	* The human-readable doc-comment of this signature. Will be shown
+	* in the UI but can be omitted.
+	* Optional.
+	*/
+	std::string documentation;
+
+	/**
+	* The parameters of this signature.
+	*/
+	std::vector<ParameterInformation> parameters;
+};
+
+/**
+* Signature help represents the signature of something
+* callable. There can be multiple signature but only one
+* active and only one active parameter.
+*/
+struct SignatureHelp
+{
+	SignatureHelp() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document)
+	{
+		target.SetObject();
+
+		{
+			rapidjson::Value arr;
+			arr.SetArray();
+
+			for(auto &&el : signatures)
+				arr.PushBack(el.ToJson(document), document.GetAllocator());
+
+			target.AddMember("signatures", arr, document.GetAllocator());
+		}
+
+		if(activeSignature != -1)
+			target.AddMember("activeSignature", activeSignature, document.GetAllocator());
+
+		if(activeParameter != -1)
+			target.AddMember("activeParameter", activeParameter, document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document)
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* One or more signatures.
+	*/
+	std::vector<SignatureInformation> signatures;
+
+	/**
+	* The active signature. If omitted or the value lies outside the
+	* range of `signatures` the value defaults to zero or is ignored if
+	* `signatures.length === 0`. Whenever possible implementors should
+	* make an active decision about the active signature and shouldn't
+	* rely on a default value.
+	* In future version of the protocol this property might become
+	* mandatory to better express this.
+	*/
+	int activeSignature = -1;
+
+	/**
+	* The active parameter of the active signature. If omitted or the value
+	* lies outside the range of `signatures[activeSignature].parameters`
+	* defaults to 0 if the active signature has parameters. If
+	* the active signature has no parameters it is ignored.
+	* In future version of the protocol this property might become
+	* mandatory to better express the active parameter if the
+	* active signature does have any.
+	*/
+	int activeParameter = -1;
+};
