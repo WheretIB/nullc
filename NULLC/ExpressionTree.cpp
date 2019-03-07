@@ -3452,10 +3452,14 @@ ExprBase* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 		if(value->type == ctx.typeVoid)
 			Stop(ctx, value->source, "ERROR: array cannot be constructed from void type elements");
 
-		AssertValueExpression(ctx, value->source, value);
+		if(!AssertValueExpression(ctx, value->source, value))
+			value = new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), value);
 
 		values.push_back(value);
 	}
+
+	if(!values.empty() && isType<TypeError>(values[0]->type))
+		return new (ctx.get<ExprArray>()) ExprArray(syntax, ctx.GetErrorType(), values);
 
 	if(TypeClass *typeClass = getType<TypeClass>(subType))
 	{
@@ -4075,6 +4079,9 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 	ExprBase *lhsValue = new (ctx.get<ExprDereference>()) ExprDereference(syntax, typeRef->subType, CreateVariableAccess(ctx, syntax, storage, false));
 
 	ExprBase *result = CreateBinaryOp(ctx, syntax, GetBinaryOpType(syntax->type), lhsValue, rhs);
+
+	if(isType<TypeError>(result->type))
+		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), lhs, rhs);
 
 	return CreateSequence(ctx, syntax, definition, CreateAssignment(ctx, syntax, new (ctx.get<ExprDereference>()) ExprDereference(syntax, typeRef->subType, CreateVariableAccess(ctx, syntax, storage, false)), result));
 }
@@ -7136,7 +7143,10 @@ ExprBase* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 		if(returnType == ctx.typeAuto)
 		{
 			if(result->type->isGeneric)
-				AssertValueExpression(ctx, syntax, result);
+			{
+				if(!AssertValueExpression(ctx, syntax, result))
+					return new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, new (ctx.get<ExprError>()) ExprError(result->source, ctx.GetErrorType(), result, NULL), NULL, NULL);
+			}
 
 			returnType = result->type;
 
@@ -7160,7 +7170,8 @@ ExprBase* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 	if(isType<TypeFunction>(result->type))
 		result = CreateCast(ctx, syntax, result, result->type, false);
 
-	AssertValueExpression(ctx, result->source, result);
+	if(!AssertValueExpression(ctx, result->source, result))
+		return new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, new (ctx.get<ExprError>()) ExprError(result->source, ctx.GetErrorType(), result, NULL), NULL, NULL);
 
 	if(!ctx.IsNumericType(result->type) && !isType<TypeEnum>(result->type))
 		Report(ctx, syntax, "ERROR: global return cannot accept '%.*s'", FMT_ISTR(result->type->name));
