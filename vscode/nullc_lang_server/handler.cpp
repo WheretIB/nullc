@@ -865,11 +865,15 @@ bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Do
 			nullcVisitParseTreeNodes(context->synModule, &foldingRanges, [](void *context, SynBase *child){
 				auto &foldingRanges = *(std::vector<FoldingRange>*)context;
 
-				if(SynIfElse *node = getType<SynIfElse>(child))
+				if(SynArray *node = getType<SynArray>(child))
+				{
+					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
+				}
+				else if(SynIfElse *node = getType<SynIfElse>(child))
 				{
 					SynBase *trueBlock = node->trueBlock;
 
-					foldingRanges.push_back(FoldingRange(trueBlock->begin->line, trueBlock->begin->column, trueBlock->end->line, trueBlock->end->column, FoldingRangeKind::region));
+					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, trueBlock->end->line, trueBlock->end->column, FoldingRangeKind::region));
 
 					if(SynBase *falseBlock = node->falseBlock)
 						foldingRanges.push_back(FoldingRange(falseBlock->begin->line, falseBlock->begin->column, falseBlock->end->line, falseBlock->end->column, FoldingRangeKind::region));
@@ -878,11 +882,19 @@ bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Do
 				{
 					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
 				}
+				else if(SynForEach *node = getType<SynForEach>(child))
+				{
+					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
+				}
 				else if(SynWhile *node = getType<SynWhile>(child))
 				{
 					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
 				}
 				else if(SynDoWhile *node = getType<SynDoWhile>(child))
+				{
+					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
+				}
+				else if(SynSwitch *node = getType<SynSwitch>(child))
 				{
 					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
 				}
@@ -895,6 +907,10 @@ bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Do
 					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
 				}
 				else if(SynEnumDefinition *node = getType<SynEnumDefinition>(child))
+				{
+					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
+				}
+				else if(SynNamespaceDefinition *node = getType<SynNamespaceDefinition>(child))
 				{
 					foldingRanges.push_back(FoldingRange(node->begin->line, node->begin->column, node->end->line, node->end->column + node->end->length, FoldingRangeKind::region));
 				}
