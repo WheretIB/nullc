@@ -1059,6 +1059,7 @@ IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx)
 			{
 				Report(ctx, ctx.Current(), "ERROR: expression not found after ',' in function argument list");
 
+				arguments.push_back(new (ctx.get<SynCallArgument>()) SynCallArgument(ctx.Current(), ctx.Current(), NULL, new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current())));
 				break;
 			}
 
