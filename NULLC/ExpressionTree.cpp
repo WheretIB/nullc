@@ -5744,11 +5744,13 @@ void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* 
 		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "\n");
 	}
 
+	ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+
 	const char *messageEnd = ctx.errorBufLocation;
 
 	ctx.errorInfo.push_back(new (ctx.get<ErrorInfo>()) ErrorInfo(ctx.allocator, messageStart, messageEnd, source->begin, source->end, source->begin->pos));
 
-	AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, errorBuf, errorBufSize);
+	AddErrorLocationInfo(FindModuleCodeWithSourceLocation(ctx, source->pos.begin), source->pos.begin, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf));
 }
 
 bool IsVirtualFunctionCall(ExpressionContext &ctx, FunctionData *function, TypeBase *type)
@@ -6474,12 +6476,12 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 
 	if(isErrorCall)
 	{
-		IntrusiveList<ExprBase> actualArguments;
+		IntrusiveList<ExprBase> errorArguments;
 
 		for(unsigned i = 0; i < arguments.size(); i++)
-			actualArguments.push_back(new (ctx.get<ExprPassthrough>()) ExprPassthrough(source, arguments[i].value->type, arguments[i].value));
+			errorArguments.push_back(new (ctx.get<ExprPassthrough>()) ExprPassthrough(source, arguments[i].value->type, arguments[i].value));
 
-		return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(source, ctx.GetErrorType(), value, actualArguments);
+		return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(source, ctx.GetErrorType(), value, errorArguments);
 	}
 
 	TypeFunction *type = getType<TypeFunction>(value->type);
@@ -6529,9 +6531,21 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 			}
 
-			assert(ctx.errorHandlerActive);
+			if(ctx.errorHandlerNested)
+			{
+				assert(ctx.errorHandlerActive);
 
-			longjmp(ctx.errorHandler, 1);
+				longjmp(ctx.errorHandler, 1);
+			}
+
+			ctx.errorCount++;
+
+			IntrusiveList<ExprBase> errorArguments;
+
+			for(unsigned i = 0; i < arguments.size(); i++)
+				errorArguments.push_back(new (ctx.get<ExprPassthrough>()) ExprPassthrough(source, arguments[i].value->type, arguments[i].value));
+
+			return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(source, ctx.GetErrorType(), value, errorArguments);
 		}
 
 		unsigned bestRating = ~0u;
@@ -6566,9 +6580,21 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 					ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 				}
 
-				assert(ctx.errorHandlerActive);
+				if(ctx.errorHandlerNested)
+				{
+					assert(ctx.errorHandlerActive);
 
-				longjmp(ctx.errorHandler, 1);
+					longjmp(ctx.errorHandler, 1);
+				}
+
+				ctx.errorCount++;
+
+				IntrusiveList<ExprBase> errorArguments;
+
+				for(unsigned i = 0; i < arguments.size(); i++)
+					errorArguments.push_back(new (ctx.get<ExprPassthrough>()) ExprPassthrough(source, arguments[i].value->type, arguments[i].value));
+
+				return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(source, ctx.GetErrorType(), value, errorArguments);
 			}
 		}
 
@@ -6667,9 +6693,21 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 			}
 
-			assert(ctx.errorHandlerActive);
+			if(ctx.errorHandlerNested)
+			{
+				assert(ctx.errorHandlerActive);
 
-			longjmp(ctx.errorHandler, 1);
+				longjmp(ctx.errorHandler, 1);
+			}
+
+			ctx.errorCount++;
+
+			IntrusiveList<ExprBase> errorArguments;
+
+			for(unsigned i = 0; i < arguments.size(); i++)
+				errorArguments.push_back(new (ctx.get<ExprPassthrough>()) ExprPassthrough(source, arguments[i].value->type, arguments[i].value));
+
+			return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(source, ctx.GetErrorType(), value, errorArguments);
 		}
 
 		for(unsigned i = 0; i < result.size(); i++)
@@ -8431,9 +8469,16 @@ bool AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *ex
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 		}
 
-		assert(ctx.errorHandlerActive);
+		if(ctx.errorHandlerNested)
+		{
+			assert(ctx.errorHandlerActive);
 
-		longjmp(ctx.errorHandler, 1);
+			longjmp(ctx.errorHandler, 1);
+		}
+
+		ctx.errorCount++;
+
+		return false;
 	}
 
 	if(isType<ExprGenericFunctionPrototype>(expr))
