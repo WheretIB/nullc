@@ -159,6 +159,29 @@ enum class TextDocumentSyncKind
 	Incremental = 2,
 };
 
+/**
+* A document highlight kind.
+*/
+enum class DocumentHighlightKind
+{
+	None = 0,
+
+	/**
+	* A textual occurrence.
+	*/
+	Text = 1,
+
+	/**
+	* Read-access of a symbol, like reading a variable.
+	*/
+	Read = 2,
+
+	/**
+	* Write-access of a symbol, like writing to a variable.
+	*/
+	Write = 3,
+};
+
 namespace FoldingRangeKind
 {
 	/**
@@ -1050,4 +1073,46 @@ struct Hover
 	* that is used to visualize a hover, e.g. by changing the background color.
 	*/
 	Optional<Range> range;
+};
+
+/**
+* A document highlight is a range inside a text document which deserves
+* special attention. Usually a document highlight is visualized by changing
+* the background color of its range.
+*
+*/
+struct DocumentHighlight
+{
+	DocumentHighlight() = default;
+
+	DocumentHighlight(Range range, DocumentHighlightKind kind): range(range), kind(kind)
+	{
+	}
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document)
+	{
+		target.SetObject();
+
+		target.AddMember("range", range.ToJson(document), document.GetAllocator());
+
+		if(kind != DocumentHighlightKind::None)
+			target.AddMember("kind", unsigned(kind), document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document)
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* The range this highlight applies to.
+	*/
+	Range range;
+
+	/**
+	* The highlight kind, default is DocumentHighlightKind.Text.
+	*/
+	DocumentHighlightKind kind = DocumentHighlightKind::None;
 };

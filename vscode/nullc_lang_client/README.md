@@ -11,6 +11,7 @@ This extension provides support for editing nullc programming language inside Vi
 * Document symbol list
 * Goto definition
 * Find all references
+* Document symbol highlights
 
 ## Requirements
 

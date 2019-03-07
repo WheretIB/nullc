@@ -263,7 +263,7 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 		{
 			SynBase *nameSource = node->variable->source;
 
-			if(data.captureScopes)
+			if(data.captureScopes && nameSource)
 			{
 				response.debugScopes += ToString(" name (%d:%d-%d:%d)", nameSource->begin->line + 1, nameSource->begin->column, nameSource->end->line + 1, nameSource->end->column + nameSource->end->length);
 			}
@@ -360,6 +360,13 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 		}
 		else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(child))
 		{
+			SynBase *nameSource = node->function->name;
+
+			if(data.captureScopes && nameSource)
+			{
+				response.debugScopes += ToString(" name (%d:%d-%d:%d)", nameSource->begin->line + 1, nameSource->begin->column, nameSource->end->line + 1, nameSource->end->column + nameSource->end->length);
+			}
+
 			if(SynFunctionDefinition *source = getType<SynFunctionDefinition>(node->source))
 			{
 				if(IsInside(source->returnType, data.position.line, data.position.character))
@@ -380,8 +387,85 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 
 					if(data.captureScopes)
 						response.debugScopes += " <- selected[returnType]";
+
+					return;
 				}
 			}
+
+			if(!nameSource)
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[no name source]  \n";
+
+				return;
+			}
+
+			if(!IsInside(nameSource, data.position.line, data.position.character))
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[outside name]  \n";
+
+				return;
+			}
+
+			if(!IsSmaller(response.bestNode, nameSource))
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[larger]  \n";
+
+				return;
+			}
+
+			response.bestNode = nameSource;
+
+			response.targetVariable = nullptr;
+			response.targetFunction = node->function;
+			response.targetType = nullptr;
+
+			if(data.captureScopes)
+				response.debugScopes += " <- selected";
+		}
+		else if(ExprVariableDefinition *node = getType<ExprVariableDefinition>(child))
+		{
+			SynBase *nameSource = node->variable->source;
+
+			if(data.captureScopes && nameSource)
+			{
+				response.debugScopes += ToString(" name (%d:%d-%d:%d)", nameSource->begin->line + 1, nameSource->begin->column, nameSource->end->line + 1, nameSource->end->column + nameSource->end->length);
+			}
+
+			if(!nameSource)
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[no name source]  \n";
+
+				return;
+			}
+
+			if(!IsInside(nameSource, data.position.line, data.position.character))
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[outside name]  \n";
+
+				return;
+			}
+
+			if(!IsSmaller(response.bestNode, nameSource))
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[larger]  \n";
+
+				return;
+			}
+
+			response.bestNode = nameSource;
+
+			response.targetVariable = node->variable->variable;
+			response.targetFunction = nullptr;
+			response.targetType = nullptr;
+
+			if(data.captureScopes)
+				response.debugScopes += " <- selected";
 		}
 		else if(ExprVariableDefinitions *node = getType<ExprVariableDefinitions>(child))
 		{
@@ -426,6 +510,117 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 	});
 
 	return data.response;
+}
+
+std::vector<SynBase*> FindVariableReferences(CompilerContext *context, VariableData *variable)
+{
+	std::vector<SynBase*> locations;
+
+	struct Data
+	{
+		Data(CompilerContext *context, VariableData *variable, std::vector<SynBase*> &locations): context(context), variable(variable), locations(locations)
+		{
+		}
+
+		CompilerContext *context;
+
+		VariableData *variable;
+
+		std::vector<SynBase*> &locations;
+	};
+
+	Data data(context, variable, locations);
+
+	nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
+		Data &data = *(Data*)context;
+
+		if(ExprVariableAccess *node = getType<ExprVariableAccess>(child))
+		{
+			if(node->variable == data.variable && node->source)
+				data.locations.push_back(node->source);
+		}
+		else if(ExprGetAddress *node = getType<ExprGetAddress>(child))
+		{
+			if(node->variable->variable == data.variable && node->variable->source)
+				data.locations.push_back(node->variable->source);
+		}
+		else if(ExprMemberAccess *node = getType<ExprMemberAccess>(child))
+		{
+			if(node->member->variable == data.variable && node->member->source)
+				data.locations.push_back(node->member->source);
+		}
+		else if(ExprVariableDefinition *node = getType<ExprVariableDefinition>(child))
+		{
+			if(node->variable->variable == data.variable && node->variable->source)
+				data.locations.push_back(node->variable->source);
+		}
+	});
+
+	return data.locations;
+}
+
+std::vector<SynBase*> FindFunctionReferences(CompilerContext *context, FunctionData *function)
+{
+	std::vector<SynBase*> locations;
+
+	struct Data
+	{
+		Data(CompilerContext *context, FunctionData *function, std::vector<SynBase*> &locations): context(context), function(function), locations(locations)
+		{
+		}
+
+		CompilerContext *context;
+
+		FunctionData *function;
+
+		std::vector<SynBase*> &locations;
+	};
+
+	Data data(context, function, locations);
+
+	nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
+		Data &data = *(Data*)context;
+
+		if(ExprFunctionIndexLiteral *node = getType<ExprFunctionIndexLiteral>(child))
+		{
+			if(node->function == data.function && node->source)
+				data.locations.push_back(node->source);
+		}
+		else if(ExprFunctionLiteral *node = getType<ExprFunctionLiteral>(child))
+		{
+			if(node->data == data.function && node->source)
+				data.locations.push_back(node->source);
+		}
+		else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(child))
+		{
+			if(node->function == data.function && node->function->name)
+				data.locations.push_back(node->function->name);
+		}
+		else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(child))
+		{
+			if(node->function == data.function && node->function->name)
+				data.locations.push_back(node->function->name);
+		}
+		else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(child))
+		{
+			if(node->function == data.function && node->source)
+				data.locations.push_back(node->source);
+		}
+		else if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(child))
+		{
+			for(auto curr = node->functions.head; curr; curr = curr->next)
+			{
+				if(curr->function == data.function && node->source)
+				{
+					data.locations.push_back(node->source);
+
+					break;
+				}
+			}
+		}
+	});
+
+	return data.locations;
 }
 
 bool HandleMessage(Context& ctx, char *message, unsigned length)
@@ -581,9 +776,9 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 	capabilities.AddMember("completionProvider", completionProvider, response.GetAllocator());
 	capabilities.AddMember("definitionProvider", true, response.GetAllocator());
 	capabilities.AddMember("referencesProvider", true, response.GetAllocator());
+	capabilities.AddMember("documentHighlightProvider", true, response.GetAllocator());
 
 	//signatureHelpProvider
-	//documentHighlightProvider
 
 	result.AddMember("capabilities", capabilities, response.GetAllocator());
 
@@ -1440,7 +1635,7 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 			{
 				if(VariableData *variable = result.targetVariable)
 				{
-					if(!variable->importModule && variable->source && variable->name)
+					if(!variable->importModule && variable->source && variable->name && variable->name->begin)
 					{
 						LocationLink location;
 
@@ -1457,7 +1652,7 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 				}
 				else if(FunctionData *function = result.targetFunction)
 				{
-					if(!function->importModule && function->source && function->name)
+					if(!function->importModule && function->source && function->name && function->name->begin)
 					{
 						LocationLink location;
 
@@ -1493,7 +1688,7 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 						identifier = typeGenericClassProto->identifier;
 					}
 
-					if(!type->importModule && source)
+					if(!type->importModule && source && identifier.begin)
 					{
 						LocationLink location;
 
@@ -1569,156 +1764,23 @@ bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 			{
 				if(VariableData *variable = result.targetVariable)
 				{
-					struct Data
+					std::vector<SynBase*> results = FindVariableReferences(context, variable);
+
+					for(auto &&el : results)
 					{
-						Data(CompilerContext *context, std::string uri, VariableData *variable, std::vector<Location> &locations): context(context), uri(uri), variable(variable), locations(locations)
-						{
-						}
-
-						CompilerContext *context;
-
-						std::string uri;
-
-						VariableData *variable;
-
-						std::vector<Location> &locations;
-					};
-
-					Data data(context, documentIt->first, variable, locations);
-
-					nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
-						Data &data = *(Data*)context;
-
-						if(ExprVariableAccess *node = getType<ExprVariableAccess>(child))
-						{
-							if(node->variable == data.variable)
-							{
-								auto source = node->source;
-
-								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
-									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
-							}
-						}
-						else if(ExprGetAddress *node = getType<ExprGetAddress>(child))
-						{
-							if(node->variable->variable == data.variable)
-							{
-								auto source = node->variable->source;
-
-								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
-									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
-							}
-						}
-						else if(ExprMemberAccess *node = getType<ExprMemberAccess>(child))
-						{
-							if(node->member->variable == data.variable)
-							{
-								auto source = node->member->source;
-
-								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
-									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
-							}
-						}
-						else if(ExprVariableDefinition *node = getType<ExprVariableDefinition>(child))
-						{
-							if(node->variable->variable == data.variable)
-							{
-								auto source = node->variable->source;
-
-								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
-									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
-							}
-						}
-					});
+						if(!el->isInternal && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
+							locations.push_back(Location(documentIt->first, Range(Position(el->begin->line, el->begin->column), Position(el->begin->line, el->begin->column + el->begin->length))));
+					}
 				}
 				else if(FunctionData *function = result.targetFunction)
 				{
-					struct Data
+					std::vector<SynBase*> results = FindFunctionReferences(context, function);
+
+					for(auto &&el : results)
 					{
-						Data(CompilerContext *context, std::string uri, FunctionData *function, std::vector<Location> &locations): context(context), uri(uri), function(function), locations(locations)
-						{
-						}
-
-						CompilerContext *context;
-
-						std::string uri;
-
-						FunctionData *function;
-
-						std::vector<Location> &locations;
-					};
-
-					Data data(context, documentIt->first, function, locations);
-
-					nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
-						Data &data = *(Data*)context;
-
-						if(ExprFunctionIndexLiteral *node = getType<ExprFunctionIndexLiteral>(child))
-						{
-							if(node->function == data.function)
-							{
-								auto source = node->source;
-
-								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
-									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
-							}
-						}
-						else if(ExprFunctionLiteral *node = getType<ExprFunctionLiteral>(child))
-						{
-							if(node->data == data.function)
-							{
-								auto source = node->source;
-
-								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
-									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
-							}
-						}
-						else if(ExprFunctionDefinition *node = getType<ExprFunctionDefinition>(child))
-						{
-							if(node->function == data.function)
-							{
-								auto source = node->function->name;
-
-								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
-									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
-							}
-						}
-						else if(ExprGenericFunctionPrototype *node = getType<ExprGenericFunctionPrototype>(child))
-						{
-							if(node->function == data.function)
-							{
-								auto source = node->function->name;
-
-								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
-									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
-							}
-						}
-						else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(child))
-						{
-							if(node->function == data.function)
-							{
-								auto source = node->source;
-
-								if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
-									data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
-							}
-						}
-						else if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(child))
-						{
-							for(auto curr = node->functions.head; curr; curr = curr->next)
-							{
-								if(curr->function == data.function)
-								{
-									auto source = node->source;
-
-									if(!node->source->isInternal && data.context->exprCtx.GetSourceOwner(source->begin) == nullptr)
-										data.locations.push_back(Location(data.uri, Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length))));
-
-									break;
-								}
-							}
-						}
-					});
+						if(!el->isInternal && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
+							locations.push_back(Location(documentIt->first, Range(Position(el->begin->line, el->begin->column), Position(el->begin->line, el->begin->column + el->begin->length))));
+					}
 				}
 			}
 		}
@@ -1740,6 +1802,83 @@ bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 		result.SetArray();
 
 		for(auto &&el : locations)
+			result.PushBack(el.ToJson(response), response.GetAllocator());
+	}
+
+	response.AddMember("result", result, response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	nullcClean();
+
+	return true;
+}
+
+bool HandleDocumentHighlight(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
+{
+	auto documentIt = ctx.documents.find(arguments["textDocument"]["uri"].GetString());
+
+	if(documentIt == ctx.documents.end())
+	{
+		fprintf(stderr, "ERROR: Failed to find document '%s'\n", arguments["textDocument"]["uri"].GetString());
+
+		return RespondWithError(ctx, response, "", ErrorCode::InvalidParams, "failed to find target document");
+	}
+
+	auto position = Position(arguments["position"]);
+
+	nullcAnalyze(documentIt->second.code.c_str());
+
+	std::vector<DocumentHighlight> highlights;
+
+	if(CompilerContext *context = nullcGetCompilerContext())
+	{
+		if(context->exprModule)
+		{
+			FindEntityResponse result = FindEntityAtLocation(context, position, false);
+
+			if(result)
+			{
+				if(VariableData *variable = result.targetVariable)
+				{
+					std::vector<SynBase*> results = FindVariableReferences(context, variable);
+
+					for(auto &&el : results)
+					{
+						if(!el->isInternal && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
+							highlights.push_back(DocumentHighlight(Range(Position(el->begin->line, el->begin->column), Position(el->begin->line, el->begin->column + el->begin->length)), DocumentHighlightKind::Text));
+					}
+				}
+				else if(FunctionData *function = result.targetFunction)
+				{
+					std::vector<SynBase*> results = FindFunctionReferences(context, function);
+
+					for(auto &&el : results)
+					{
+						if(!el->isInternal && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
+							highlights.push_back(DocumentHighlight(Range(Position(el->begin->line, el->begin->column), Position(el->begin->line, el->begin->column + el->begin->length)), DocumentHighlightKind::Text));
+					}
+				}
+			}
+		}
+		else
+		{
+			if(ctx.debugMode)
+				fprintf(stderr, "INFO: Expression tree unavailable\n");
+		}
+	}
+
+	rapidjson::Value result;
+
+	if(highlights.empty())
+	{
+		result.SetNull();
+	}
+	else
+	{
+		result.SetArray();
+
+		for(auto &&el : highlights)
 			result.PushBack(el.ToJson(response), response.GetAllocator());
 	}
 
@@ -1964,6 +2103,8 @@ bool HandleMessage(Context& ctx, unsigned idNumber, const char *idString, const 
 		return HandleDefinition(ctx, arguments, response);
 	else if(strcmp(method, "textDocument/references") == 0)
 		return HandleReferences(ctx, arguments, response);
+	else if(strcmp(method, "textDocument/documentHighlight") == 0)
+		return HandleDocumentHighlight(ctx, arguments, response);
 	
 	return RespondWithError(ctx, response, method, ErrorCode::MethodNotFound, "not implemented");
 }
