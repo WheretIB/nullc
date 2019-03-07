@@ -1093,7 +1093,7 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 				InplaceStr member = ctx.Consume();
 				SynIdentifier *memberIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(ctx.Previous(), ctx.Previous(), member);
 
-				node = new (ctx.get<SynMemberAccess>()) SynMemberAccess(memberPos, ctx.Previous(), node, memberIdentifier);
+				node = new (ctx.get<SynMemberAccess>()) SynMemberAccess(node->begin, ctx.Previous(), node, memberIdentifier);
 			}
 			else
 			{

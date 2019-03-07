@@ -100,11 +100,20 @@ bool IsSmaller(SynBase *current, SynBase *next)
 	if(!current)
 		return true;
 
-	if(next->begin->line > current->begin->line || (next->begin->line == current->begin->line && next->begin->column > current->begin->column))
+	if(next->begin->line > current->begin->line || (next->begin->line == current->begin->line && next->begin->column >= current->begin->column))
 	{
 		if(next->end->line < current->end->line || (next->end->line == current->end->line && next->end->column + next->end->length <= current->end->column + current->end->length))
 		{
-			return true;
+			// If line range is smaller
+			if(next->end->line - next->begin->line < current->end->line - current->begin->line)
+				return true;
+
+			// If line range is the same but beginning or ending are inside
+			if(next->begin->column > current->begin->column)
+				return true;
+
+			if(next->end->column + next->end->length < current->end->column + current->end->length)
+				return true;
 		}
 	}
 
@@ -303,7 +312,30 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 		}
 		else if(ExprMemberAccess *node = getType<ExprMemberAccess>(child))
 		{
-			if(!IsSmaller(response.bestNode, node->source))
+			SynBase *nameSource = node->member->source;
+
+			if(data.captureScopes && nameSource)
+			{
+				response.debugScopes += ToString(" name (%d:%d-%d:%d)", nameSource->begin->line + 1, nameSource->begin->column, nameSource->end->line + 1, nameSource->end->column + nameSource->end->length);
+			}
+
+			if(!nameSource)
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[no name source]  \n";
+
+				return;
+			}
+
+			if(!IsInside(nameSource, data.position.line, data.position.character))
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[outside name]  \n";
+
+				return;
+			}
+
+			if(!IsSmaller(response.bestNode, nameSource))
 			{
 				if(data.captureScopes)
 					response.debugScopes += " <- skipped[larger]  \n";
@@ -311,25 +343,14 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 				return;
 			}
 
-			if(!node->member)
-			{
-				if(data.captureScopes)
-					response.debugScopes += " <- skipped[no member]  \n";
+			response.bestNode = nameSource;
 
-				return;
-			}
+			response.targetVariable = node->member->variable;
+			response.targetFunction = nullptr;
+			response.targetType = nullptr;
 
-			if(TypeRef *typeRef = getType<TypeRef>(node->value->type))
-			{
-				response.bestNode = node->source;
-
-				response.targetVariable = node->member->variable;
-				response.targetFunction = nullptr;
-				response.targetType = nullptr;
-
-				if(data.captureScopes)
-					response.debugScopes += " <- selected";
-			}
+			if(data.captureScopes)
+				response.debugScopes += " <- selected";
 		}
 		else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(child))
 		{
