@@ -286,7 +286,7 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 		{
 			SynBase *nameSource = node->variable->source;
 
-			if(data.captureScopes && nameSource)
+			if(data.captureScopes && nameSource && nameSource->begin)
 			{
 				response.debugScopes += ToString(" name (%d:%d-%d:%d)", nameSource->begin->line + 1, nameSource->begin->column, nameSource->end->line + 1, nameSource->end->column + nameSource->end->length);
 			}
@@ -295,6 +295,14 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 			{
 				if(data.captureScopes)
 					response.debugScopes += " <- skipped[no name source]  \n";
+
+				return;
+			}
+
+			if(!nameSource->begin)
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[no name location]  \n";
 
 				return;
 			}
@@ -328,7 +336,7 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 		{
 			SynBase *nameSource = node->member->source;
 
-			if(data.captureScopes && nameSource)
+			if(data.captureScopes && nameSource && nameSource->begin)
 			{
 				response.debugScopes += ToString(" name (%d:%d-%d:%d)", nameSource->begin->line + 1, nameSource->begin->column, nameSource->end->line + 1, nameSource->end->column + nameSource->end->length);
 			}
@@ -337,6 +345,14 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 			{
 				if(data.captureScopes)
 					response.debugScopes += " <- skipped[no name source]  \n";
+
+				return;
+			}
+
+			if(!nameSource->begin)
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[no name location]  \n";
 
 				return;
 			}
@@ -397,7 +413,7 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 		{
 			SynBase *nameSource = node->function->name;
 
-			if(data.captureScopes && nameSource)
+			if(data.captureScopes && nameSource && nameSource->begin)
 			{
 				response.debugScopes += ToString(" name (%d:%d-%d:%d)", nameSource->begin->line + 1, nameSource->begin->column, nameSource->end->line + 1, nameSource->end->column + nameSource->end->length);
 			}
@@ -435,6 +451,14 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 				return;
 			}
 
+			if(!nameSource->begin)
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[no name location]  \n";
+
+				return;
+			}
+
 			if(!IsInside(nameSource, data.position.line, data.position.character))
 			{
 				if(data.captureScopes)
@@ -464,7 +488,7 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 		{
 			SynBase *nameSource = node->variable->source;
 
-			if(data.captureScopes && nameSource)
+			if(data.captureScopes && nameSource && nameSource->begin)
 			{
 				response.debugScopes += ToString(" name (%d:%d-%d:%d)", nameSource->begin->line + 1, nameSource->begin->column, nameSource->end->line + 1, nameSource->end->column + nameSource->end->length);
 			}
@@ -473,6 +497,14 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 			{
 				if(data.captureScopes)
 					response.debugScopes += " <- skipped[no name source]  \n";
+
+				return;
+			}
+
+			if(!nameSource->begin)
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[no name location]  \n";
 
 				return;
 			}
