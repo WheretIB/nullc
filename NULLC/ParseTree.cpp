@@ -1087,8 +1087,6 @@ SynBase* ParsePostExpressions(ParseContext &ctx, SynBase *node)
 
 		if(ctx.Consume(lex_point))
 		{
-			Lexeme *memberPos = ctx.currentLexeme;
-
 			if(ctx.At(lex_return) || CheckAt(ctx, lex_string, "ERROR: member name expected after '.'"))
 			{
 				InplaceStr member = ctx.Consume();
