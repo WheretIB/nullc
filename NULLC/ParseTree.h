@@ -220,6 +220,15 @@ struct SynError: SynBase
 	static const unsigned myTypeID = __LINE__;
 };
 
+struct SynImportLocation: SynBase
+{
+	SynImportLocation(Lexeme *begin, Lexeme *end): SynBase(myTypeID, begin, end)
+	{
+	}
+
+	static const unsigned myTypeID = __LINE__;
+};
+
 struct SynInternal: SynBase
 {
 	SynInternal(SynBase *source): SynBase(myTypeID, source->begin, source->end)

@@ -10929,6 +10929,17 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 						Stop(ctx, source, "ERROR: can't find type '%.*s' base type in module %.*s", FMT_ISTR(typeName), FMT_ISTR(moduleCtx.data->name));
 				}
 
+				assert(type.definitionLocationStart < importModule->lexStreamSize);
+				assert(type.definitionLocationEnd < importModule->lexStreamSize);
+				
+				SynBase *locationSource = type.definitionLocationStart != 0 || type.definitionLocationEnd != 0 ? new (ctx.get<SynImportLocation>()) SynImportLocation(type.definitionLocationStart + importModule->lexStream, type.definitionLocationEnd + importModule->lexStream) : source;
+
+				assert(type.definitionLocationName < importModule->lexStreamSize);
+
+				Lexeme *locationName = type.definitionLocationName + importModule->lexStream;
+
+				SynIdentifier identifier = type.definitionLocationName != 0 ? SynIdentifier(locationName, locationName, typeName) : SynIdentifier(typeName);
+
 				if(type.definitionOffset != ~0u && type.definitionOffset & 0x80000000)
 				{
 					TypeBase *proto = moduleCtx.types[type.definitionOffset & ~0x80000000];
@@ -10949,7 +10960,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					}
 					else
 					{
-						TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(SynIdentifier(typeName), source, ctx.scope, protoClass, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
+						TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(identifier, locationSource, ctx.scope, protoClass, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
 
 						classType->completed = true;
 
@@ -10984,7 +10995,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 					definition->imported = true;
 
-					importedType = new (ctx.get<TypeGenericClassProto>()) TypeGenericClassProto(SynIdentifier(typeName), source, ctx.scope, definition);
+					importedType = new (ctx.get<TypeGenericClassProto>()) TypeGenericClassProto(identifier, locationSource, ctx.scope, definition);
 
 					ctx.AddType(importedType);
 
@@ -10992,7 +11003,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				}
 				else if(type.type != ExternTypeInfo::TYPE_COMPLEX)
 				{
-					TypeEnum *enumType = new (ctx.get<TypeEnum>()) TypeEnum(SynIdentifier(typeName), source, ctx.scope);
+					TypeEnum *enumType = new (ctx.get<TypeEnum>()) TypeEnum(identifier, locationSource, ctx.scope);
 
 					importedType = enumType;
 
@@ -11004,7 +11015,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 				{
 					IntrusiveList<MatchData> actualGenerics;
 
-					TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(SynIdentifier(typeName), source, ctx.scope, NULL, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
+					TypeClass *classType = new (ctx.get<TypeClass>()) TypeClass(identifier, locationSource, ctx.scope, NULL, actualGenerics, (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0, baseType);
 
 					classType->completed = true;
 

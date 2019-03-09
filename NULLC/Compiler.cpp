@@ -1129,6 +1129,64 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		else
 			target.definitionModule = 0;
 
+		target.definitionLocationStart = 0;
+		target.definitionLocationEnd = 0;
+		target.definitionLocationName = 0;
+
+		Lexeme *sourceStreamStart = type->importModule ? type->importModule->lexStream : ctx.parseCtx.lexer.GetStreamStart();
+		unsigned sourceStreamSize = type->importModule ? type->importModule->lexStreamSize : ctx.parseCtx.lexer.GetStreamSize();
+
+		if(TypeClass *typeClass = getType<TypeClass>(type))
+		{
+			if(TypeGenericClassProto *typeGenericClassProto = typeClass->proto)
+			{
+				sourceStreamStart = typeGenericClassProto->importModule ? typeGenericClassProto->importModule->lexStream : ctx.parseCtx.lexer.GetStreamStart();
+				sourceStreamSize = typeGenericClassProto->importModule ? typeGenericClassProto->importModule->lexStreamSize : ctx.parseCtx.lexer.GetStreamSize();
+
+				if(typeGenericClassProto->source->begin >= sourceStreamStart && typeGenericClassProto->source->begin < sourceStreamStart + sourceStreamSize)
+				{
+					target.definitionLocationStart = unsigned(typeGenericClassProto->source->begin - sourceStreamStart);
+					target.definitionLocationEnd = unsigned(typeGenericClassProto->source->end - sourceStreamStart);
+
+					if(typeGenericClassProto->identifier.begin)
+						target.definitionLocationName = unsigned(typeGenericClassProto->identifier.begin - sourceStreamStart);
+				}
+			}
+			else
+			{
+				if(typeClass->source->begin >= sourceStreamStart && typeClass->source->begin < sourceStreamStart + sourceStreamSize)
+				{
+					target.definitionLocationStart = unsigned(typeClass->source->begin - sourceStreamStart);
+					target.definitionLocationEnd = unsigned(typeClass->source->end - sourceStreamStart);
+
+					if(typeClass->identifier.begin)
+						target.definitionLocationName = unsigned(typeClass->identifier.begin - sourceStreamStart);
+				}
+			}
+		}
+		else if(TypeEnum *typeEnum = getType<TypeEnum>(type))
+		{
+			if(typeEnum->source->begin >= sourceStreamStart && typeEnum->source->begin < sourceStreamStart + sourceStreamSize)
+			{
+				target.definitionLocationStart = unsigned(typeEnum->source->begin - sourceStreamStart);
+				target.definitionLocationEnd = unsigned(typeEnum->source->end - sourceStreamStart);
+
+				if(typeEnum->identifier.begin)
+					target.definitionLocationName = unsigned(typeEnum->identifier.begin - sourceStreamStart);
+			}
+		}
+		else if(TypeGenericClassProto *typeGenericClassProto = getType<TypeGenericClassProto>(type))
+		{
+			if(typeGenericClassProto->source->begin >= sourceStreamStart && typeGenericClassProto->source->begin < sourceStreamStart + sourceStreamSize)
+			{
+				target.definitionLocationStart = unsigned(typeGenericClassProto->source->begin - sourceStreamStart);
+				target.definitionLocationEnd = unsigned(typeGenericClassProto->source->end - sourceStreamStart);
+
+				if(typeGenericClassProto->identifier.begin)
+					target.definitionLocationName = unsigned(typeGenericClassProto->identifier.begin - sourceStreamStart);
+			}
+		}
+
 		target.definitionOffsetStart = ~0u;
 		target.definitionOffset = ~0u;
 		target.genericTypeCount = 0;

@@ -47,6 +47,11 @@ struct ExternTypeInfo
 
 	unsigned int	definitionModule; // Index of the module containing the definition
 
+	unsigned int	definitionLocationModule;
+	unsigned int	definitionLocationStart;
+	unsigned int	definitionLocationEnd;
+	unsigned int	definitionLocationName;
+
 	// For generic types
 	unsigned int	definitionOffsetStart; // Offset in a lexeme stream to the point of class definition start
 	unsigned int	definitionOffset; // Offset in a lexeme stream to the point of type argument list
