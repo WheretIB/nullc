@@ -19,5 +19,8 @@ struct Context
 
 	bool nullcInitialized;
 
+	std::string rootPath;
+	std::string modulePath;
+
 	std::map<std::string, Document> documents;
 };

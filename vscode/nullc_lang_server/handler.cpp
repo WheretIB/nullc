@@ -16,6 +16,21 @@
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
+NULLC_PRINT_FORMAT_CHECK(1, 2) std::string ToString(const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+
+	static char buf[4096];
+
+	vsnprintf(buf, 4096, format, args);
+	buf[4095] = '\0';
+
+	va_end(args);
+
+	return buf;
+}
+
 std::string UrlDecode(const char *url)
 {
 	std::string result;
@@ -53,19 +68,25 @@ std::string UrlDecode(const char *url)
 	return result;
 }
 
-NULLC_PRINT_FORMAT_CHECK(1, 2) std::string ToString(const char *format, ...)
+std::string UrlEncode(std::string str)
 {
-	va_list args;
-	va_start(args, format);
+	std::string result;
 
-	static char buf[4096];
+	result.reserve(str.length() + 1);
 
-	vsnprintf(buf, 4096, format, args);
-	buf[4095] = '\0';
+	const char *pos = str.c_str();
 
-	va_end(args);
+	while(char ch = *pos)
+	{
+		if(isalnum(ch) || ch == '~' || ch == '-' || ch == '.' || ch == '_')
+			result.append(ToString("%%%02X", ch));
+		else
+			result.push_back(ch);
 
-	return buf;
+		pos++;
+	}
+
+	return result;
 }
 
 bool IsInside(SynBase *syntax, unsigned line, unsigned column)
@@ -206,6 +227,38 @@ std::string GetMemberSignature(TypeBase *type, MatchData *member)
 	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name->name));
 
 	return buf;
+}
+
+std::string GetModuleFileName(Context &ctx, ModuleData *importModule)
+{
+	std::string test = ctx.rootPath + std::string(importModule->name.begin, importModule->name.end);
+
+	if(FILE *fIn = fopen(test.c_str(), "rb"))
+	{
+		fclose(fIn);
+
+		if(ctx.debugMode)
+			fprintf(stderr, "DEBUG: Found module '%.*s' at '%s'\n", FMT_ISTR(importModule->name), test.c_str());
+
+		return test;
+	}
+
+	test = ctx.modulePath + std::string(importModule->name.begin, importModule->name.end);
+
+	if(FILE *fIn = fopen(test.c_str(), "rb"))
+	{
+		fclose(fIn);
+
+		if(ctx.debugMode)
+			fprintf(stderr, "DEBUG: Found module '%.*s' at '%s'\n", FMT_ISTR(importModule->name), test.c_str());
+
+		return test;
+	}
+
+	if(ctx.infoMode)
+		fprintf(stderr, "WARNING: Failed to find module '%.*s' location (might be precompiled)\n", FMT_ISTR(importModule->name));
+
+	return "";
 }
 
 struct FindEntityResponse
@@ -861,6 +914,8 @@ bool HandleConfigurationResponse(Context& ctx, rapidjson::Value& response)
 				if(modulePath.back() != '/' && modulePath.back() != '\\')
 					modulePath.push_back('/');
 
+				ctx.modulePath = modulePath;
+
 				nullcInit(modulePath.c_str());
 
 				for(auto &&el : ctx.documents)
@@ -882,16 +937,16 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 			if(rootUri.find("file:///") == 0)
 			{
-				std::string rootPath = rootUri.substr(8);
+				ctx.rootPath = rootUri.substr(8);
+				ctx.rootPath.push_back('/');
 
-				std::string modulePath = rootPath;
-
-				modulePath += "/Modules/";
+				ctx.modulePath = ctx.rootPath;
+				ctx.modulePath += "Modules/";
 
 				if(ctx.debugMode)
-					fprintf(stderr, "DEBUG: Launching nullc with module path '%s'\n", modulePath.c_str());
+					fprintf(stderr, "DEBUG: Launching nullc with module path '%s'\n", ctx.modulePath.c_str());
 
-				nullcInit(modulePath.c_str());
+				nullcInit(ctx.modulePath.c_str());
 			}
 			else
 			{
@@ -1854,38 +1909,57 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 			if(result)
 			{
+				auto setupTargetUri = [&ctx, &context, &documentIt](std::string &targetUri, ModuleData *importModule, SynBase *source){
+					if(!importModule)
+						importModule = context->exprCtx.GetSourceOwner(source->begin);
+
+					if(importModule)
+					{
+						auto path = GetModuleFileName(ctx, importModule);
+
+						if(!path.empty())
+							targetUri = std::string("file:///") + UrlEncode(path);
+					}
+					else
+					{
+						targetUri = documentIt->first;
+					}
+				};
+
 				if(VariableData *variable = result.targetVariable)
 				{
-					if(!variable->importModule && variable->source && variable->name && variable->name->begin)
+					if(variable->source && variable->name && variable->name->begin)
 					{
 						LocationLink location;
 
 						location.originSelectionRange = Range(Position(result.bestNode->begin->line, result.bestNode->begin->column), Position(result.bestNode->begin->line, result.bestNode->begin->column + result.bestNode->begin->length));
 
-						location.targetUri = documentIt->first;
+						setupTargetUri(location.targetUri, variable->importModule, variable->source);
 
 						location.targetRange = Range(Position(variable->source->begin->line, variable->source->begin->column), Position(variable->source->begin->line, variable->source->begin->column + variable->source->begin->length));
 
 						location.targetSelectionRange = Range(Position(variable->name->begin->line, variable->name->begin->column), Position(variable->name->begin->line, variable->name->begin->column + variable->name->begin->length));
 
-						locations.push_back(location);
+						if(!location.targetUri.empty())
+							locations.push_back(location);
 					}
 				}
 				else if(FunctionData *function = result.targetFunction)
 				{
-					if(!function->importModule && function->source && function->name && function->name->begin)
+					if(function->source && function->name && function->name->begin)
 					{
 						LocationLink location;
 
 						location.originSelectionRange = Range(Position(result.bestNode->begin->line, result.bestNode->begin->column), Position(result.bestNode->begin->line, result.bestNode->begin->column + result.bestNode->begin->length));
 
-						location.targetUri = documentIt->first;
+						setupTargetUri(location.targetUri, function->importModule, function->source);
 
 						location.targetRange = Range(Position(function->source->begin->line, function->source->begin->column), Position(function->source->begin->line, function->source->begin->column + function->source->begin->length));
 
 						location.targetSelectionRange = Range(Position(function->name->begin->line, function->name->begin->column), Position(function->name->begin->line, function->name->begin->column + function->name->begin->length));
 
-						locations.push_back(location);
+						if(!location.targetUri.empty())
+							locations.push_back(location);
 					}
 				}
 				else if(TypeBase *type = result.targetType)
@@ -1909,19 +1983,20 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 						identifier = typeGenericClassProto->identifier;
 					}
 
-					if(!type->importModule && source && identifier.begin)
+					if(source && identifier.begin)
 					{
 						LocationLink location;
 
 						location.originSelectionRange = Range(Position(result.bestNode->begin->line, result.bestNode->begin->column), Position(result.bestNode->begin->line, result.bestNode->begin->column + result.bestNode->begin->length));
 
-						location.targetUri = documentIt->first;
+						setupTargetUri(location.targetUri, type->importModule, source);
 
 						location.targetRange = Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length));
 
 						location.targetSelectionRange = Range(Position(identifier.begin->line, identifier.begin->column), Position(identifier.begin->line, identifier.begin->column + identifier.begin->length));
 
-						locations.push_back(location);
+						if(!location.targetUri.empty())
+							locations.push_back(location);
 					}
 				}
 			}
