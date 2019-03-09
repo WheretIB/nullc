@@ -11849,14 +11849,10 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 
 		assert(ctx.scope == NULL);
 
-		ctx.code = NULL;
-
 		return module;
 	}
 
 	assert(ctx.errorPos != NULL);
-
-	ctx.code = NULL;
 
 	return NULL;
 }
