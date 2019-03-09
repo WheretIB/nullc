@@ -1968,13 +1968,23 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 				}
 				else if(TypeBase *type = result.targetType)
 				{
+					ModuleData *importModule = type->importModule;
 					SynBase *source = nullptr;
 					SynIdentifier identifier = SynIdentifier(InplaceStr());
 
 					if(TypeClass *typeClass = getType<TypeClass>(type))
 					{
-						source = typeClass->source;
-						identifier = typeClass->identifier;
+						if(TypeGenericClassProto *typeGenericClassProto = typeClass->proto)
+						{
+							importModule = typeGenericClassProto->importModule;
+							source = typeGenericClassProto->source;
+							identifier = typeGenericClassProto->identifier;
+						}
+						else
+						{
+							source = typeClass->source;
+							identifier = typeClass->identifier;
+						}
 					}
 					else if(TypeEnum *typeEnum = getType<TypeEnum>(type))
 					{
@@ -1993,7 +2003,7 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 						location.originSelectionRange = Range(Position(result.bestNode->begin->line, result.bestNode->begin->column), Position(result.bestNode->begin->line, result.bestNode->begin->column + result.bestNode->begin->length));
 
-						setupTargetUri(location.targetUri, type->importModule, source);
+						setupTargetUri(location.targetUri, importModule, source);
 
 						location.targetRange = Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length));
 
