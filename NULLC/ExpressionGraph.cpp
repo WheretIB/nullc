@@ -82,7 +82,7 @@ NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintIndented(ExpressionGraphContext &ctx, I
 	ctx.output.Print("\n");
 }
 
-NULLC_PRINT_FORMAT_CHECK(4, 5) void PrintEnterBlock(ExpressionGraphContext &ctx, const char *name)
+void PrintEnterBlock(ExpressionGraphContext &ctx, const char *name)
 {
 	PrintIndent(ctx);
 
