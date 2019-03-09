@@ -570,7 +570,25 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 				}
 			}
 		}
+		else if(ExprTypeLiteral *node = getType<ExprTypeLiteral>(child))
+		{
+			if(!IsSmaller(response.bestNode, node->source))
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[larger]  \n";
 
+				return;
+			}
+
+			response.bestNode = node->source;
+
+			response.targetVariable = nullptr;
+			response.targetFunction = nullptr;
+			response.targetType = node->value;
+
+			if(data.captureScopes)
+				response.debugScopes += " <- selected";
+		}
 
 		if(data.captureScopes)
 			response.debugScopes += "  \n";
