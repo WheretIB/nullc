@@ -79,9 +79,9 @@ std::string UrlEncode(std::string str)
 	while(char ch = *pos)
 	{
 		if(isalnum(ch) || ch == '~' || ch == '-' || ch == '.' || ch == '_')
-			result.append(ToString("%%%02X", ch));
-		else
 			result.push_back(ch);
+		else
+			result.append(ToString("%%%02X", ch));
 
 		pos++;
 	}
