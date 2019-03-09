@@ -1974,16 +1974,16 @@ ExprBase* CreateSequence(ExpressionContext &ctx, SynBase *source, ExprBase *firs
 ExprBase* CreateLiteralCopy(ExpressionContext &ctx, SynBase *source, ExprBase *value)
 {
 	if(ExprBoolLiteral *node = getType<ExprBoolLiteral>(value))
-		return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(node->source, node->type, node->value);
+		return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, node->type, node->value);
 
 	if(ExprCharacterLiteral *node = getType<ExprCharacterLiteral>(value))
-		return new (ctx.get<ExprCharacterLiteral>()) ExprCharacterLiteral(node->source, node->type, node->value);
+		return new (ctx.get<ExprCharacterLiteral>()) ExprCharacterLiteral(source, node->type, node->value);
 
 	if(ExprIntegerLiteral *node = getType<ExprIntegerLiteral>(value))
-		return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(node->source, node->type, node->value);
+		return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, node->type, node->value);
 
 	if(ExprRationalLiteral *node = getType<ExprRationalLiteral>(value))
-		return new (ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(node->source, node->type, node->value);
+		return new (ctx.get<ExprRationalLiteral>()) ExprRationalLiteral(source, node->type, node->value);
 
 	Stop(ctx, source, "ERROR: unknown literal type");
 
