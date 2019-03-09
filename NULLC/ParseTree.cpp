@@ -2957,17 +2957,32 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 			Stop(ctx, start, "ERROR: import builder is not provided");
 
 		if(ctx.errorCount == 0)
+		{
+			ctx.errorPos = start->pos;
 			ctx.errorBufLocation = ctx.errorBuf;
+		}
 
-		bytecode = ctx.bytecodeBuilder(ctx.allocator, path, pathNoImport, &ctx.errorPos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), activeImports);
+		const char *messageStart = ctx.errorBufLocation;
+
+		const char *pos = NULL;
+		bytecode = ctx.bytecodeBuilder(ctx.allocator, path, pathNoImport, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), activeImports);
 
 		if(!bytecode)
 		{
-			ctx.errorPos = start->pos;
+			if(ctx.errorBuf && ctx.errorBufSize)
+			{
+				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
-			assert(ctx.errorHandlerActive);
+				const char *messageEnd = ctx.errorBufLocation;
 
-			longjmp(ctx.errorHandler, 1);
+				ctx.errorInfo.push_back(new (ctx.get<ErrorInfo>()) ErrorInfo(ctx.allocator, messageStart, messageEnd, start, start, pos));
+
+				AddErrorLocationInfo(ctx.code, pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf));
+
+				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
+			}
+
+			ctx.errorCount++;
 		}
 	}
 
@@ -3065,8 +3080,11 @@ IntrusiveList<SynModuleImport> ParseImports(ParseContext &ctx)
 {
 	IntrusiveList<SynModuleImport> imports;
 
-	while(SynModuleImport *import = ParseImport(ctx))
-		imports.push_back(import);
+	while(ctx.At(lex_import))
+	{
+		if(SynModuleImport *import = ParseImport(ctx))
+			imports.push_back(import);
+	}
 
 	return imports;
 }
