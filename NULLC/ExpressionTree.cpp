@@ -10013,9 +10013,13 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 	
 	if(!isType<TypeError>(condition->type))
 	{
-		conditionVariable = AllocateTemporary(ctx, syntax, condition->type);
+		conditionVariable = AllocateTemporary(ctx, ctx.MakeInternal(syntax), condition->type);
 
-		condition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax->condition, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, conditionVariable), CreateAssignment(ctx, syntax->condition, CreateVariableAccess(ctx, syntax, conditionVariable, false), condition));
+		ExprBase *access = CreateVariableAccess(ctx, ctx.MakeInternal(syntax), conditionVariable, false);
+
+		ExprBase *initializer = CreateAssignment(ctx, syntax->condition, access, condition);
+
+		condition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax->condition, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, conditionVariable), initializer);
 	}
 
 	IntrusiveList<ExprBase> cases;
@@ -10037,7 +10041,7 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 				if(caseValue->type == ctx.typeVoid)
 					Report(ctx, syntax->condition, "ERROR: case value type cannot be '%.*s'", FMT_ISTR(caseValue->type->name));
 
-				ExprBase *conditionValue = CreateBinaryOp(ctx, curr->value, SYN_BINARY_OP_EQUAL, caseValue, CreateVariableAccess(ctx, syntax, conditionVariable, false));
+				ExprBase *conditionValue = CreateBinaryOp(ctx, curr->value, SYN_BINARY_OP_EQUAL, caseValue, CreateVariableAccess(ctx, ctx.MakeInternal(syntax), conditionVariable, false));
 
 				if(!ctx.IsIntegerType(conditionValue->type) || conditionValue->type == ctx.typeLong)
 					Report(ctx, curr, "ERROR: '==' operator result type must be bool, char, short or int");
@@ -10051,7 +10055,7 @@ ExprSwitch* AnalyzeSwitch(ExpressionContext &ctx, SynSwitch *syntax)
 		for(SynBase *expression = curr->expressions.head; expression; expression = expression->next)
 			expressions.push_back(AnalyzeStatement(ctx, expression));
 
-		ExprBase *block = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, expressions, NULL);
+		ExprBase *block = new (ctx.get<ExprBlock>()) ExprBlock(ctx.MakeInternal(syntax), ctx.typeVoid, expressions, NULL);
 
 		if(curr->value)
 			blocks.push_back(block);
