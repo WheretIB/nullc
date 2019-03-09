@@ -334,6 +334,14 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 		}
 		else if(ExprMemberAccess *node = getType<ExprMemberAccess>(child))
 		{
+			if(!node->member)
+			{
+				if(data.captureScopes)
+					response.debugScopes += " <- skipped[no member data]  \n";
+
+				return;
+			}
+
 			SynBase *nameSource = node->member->source;
 
 			if(data.captureScopes && nameSource && nameSource->begin)
@@ -629,17 +637,17 @@ std::vector<SynBase*> FindVariableReferences(CompilerContext *context, VariableD
 		}
 		else if(ExprGetAddress *node = getType<ExprGetAddress>(child))
 		{
-			if(node->variable->variable == data.variable && node->variable->source)
+			if(node->variable && node->variable->variable == data.variable && node->variable->source)
 				data.locations.push_back(node->variable->source);
 		}
 		else if(ExprMemberAccess *node = getType<ExprMemberAccess>(child))
 		{
-			if(node->member->variable == data.variable && node->member->source)
+			if(node->member && node->member->variable == data.variable && node->member->source)
 				data.locations.push_back(node->member->source);
 		}
 		else if(ExprVariableDefinition *node = getType<ExprVariableDefinition>(child))
 		{
-			if(node->variable->variable == data.variable && node->variable->source)
+			if(node->variable && node->variable->variable == data.variable && node->variable->source)
 				data.locations.push_back(node->variable->source);
 		}
 	});
@@ -714,49 +722,6 @@ std::vector<SynBase*> FindFunctionReferences(CompilerContext *context, FunctionD
 	return data.locations;
 }
 
-bool HandleMessage(Context& ctx, char *message, unsigned length)
-{
-	(void)length;
-
-	rapidjson::Document doc;
-
-	rapidjson::ParseResult ok = doc.ParseInsitu(message);
-
-	if(!ok)
-	{
-		fprintf(stderr, "ERROR: Failed to parse message: %s (%d)\n", rapidjson::GetParseError_En(ok.Code()), (int)ok.Offset());
-		return false;
-	}
-
-	if(!doc.HasMember("jsonrpc"))
-	{
-		fprintf(stderr, "ERROR: Message must have 'jsonrpc' member\n");
-		return false;
-	}
-
-	auto rpcVersion = doc["jsonrpc"].GetString();
-	(void)rpcVersion;
-
-	if(!doc.HasMember("method"))
-	{
-		fprintf(stderr, "ERROR: Message must have 'method' member\n");
-		return false;
-	}
-
-	auto method = doc["method"].GetString();
-
-	if(doc.HasMember("id"))
-	{
-		// id can be a number or a string
-		auto idNumber = doc["id"].IsUint() ? doc["id"].GetUint() : ~0u;
-		auto strNumber = doc["id"].IsString() ? doc["id"].GetString() : nullptr;
-
-		return HandleMessage(ctx, idNumber, strNumber, method, doc["params"]);
-	}
-
-	return HandleNotification(ctx, method, doc["params"]);
-}
-
 void PrepareResponse(rapidjson::Document &doc, unsigned idNumber, const char *idString)
 {
 	doc.SetObject();
@@ -779,7 +744,7 @@ void SendResponse(Context& ctx, rapidjson::Document &doc)
 	unsigned length = (unsigned)strlen(output);
 
 	if(ctx.debugMode)
-		fprintf(stderr, "INFO: Sending message '%.*s%s'\n", (int)(length > 96 ? 96 : length), output, length > 96 ? "..." : "");
+		fprintf(stderr, "DEBUG: Sending message '%.*s%s'\n", (int)(length > 96 ? 96 : length), output, length > 96 ? "..." : "");
 
 	fprintf(stdout, "Content-Length: %d\r\n", length);
 	fprintf(stdout, "\r\n");
@@ -788,7 +753,7 @@ void SendResponse(Context& ctx, rapidjson::Document &doc)
 
 bool RespondWithError(Context& ctx, rapidjson::Document &doc, const char *method, ErrorCode errorCode, const char *message)
 {
-	if(ctx.debugMode)
+	if(ctx.infoMode)
 		fprintf(stderr, "INFO: RespondWithError(%s, %d, %s)\n", method, int(errorCode), message);
 
 	rapidjson::Value error;
@@ -804,28 +769,149 @@ bool RespondWithError(Context& ctx, rapidjson::Document &doc, const char *method
 	return true;
 }
 
+void RequestConfiguration(Context& ctx)
+{
+	rapidjson::Document response;
+	response.SetObject();
+
+	response.AddMember("jsonrpc", "2.0", response.GetAllocator());
+
+	response.AddMember("id", "server.configuration", response.GetAllocator());
+
+	response.AddMember("method", "workspace/configuration", response.GetAllocator());
+
+	rapidjson::Value params;
+	params.SetObject();
+
+	rapidjson::Value items;
+	items.SetArray();
+
+	std::vector<ConfigurationItem> arr;
+
+	arr.push_back(ConfigurationItem("", "nullc"));
+
+	for(auto &&el : arr)
+	{
+		rapidjson::Value symbol;
+
+		el.SaveTo(symbol, response);
+
+		items.PushBack(symbol, response.GetAllocator());
+	}
+
+	params.AddMember("items", items, response.GetAllocator());
+
+	response.AddMember("params", params, response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	nullcClean();
+}
+
+bool HandleConfigurationResponse(Context& ctx, rapidjson::Value& response)
+{
+	if(!response.IsArray())
+	{
+		fprintf(stderr, "WARNING: Expected array in server configuration response\n");
+
+		return true;
+	}
+
+	for(auto &&el : response.GetArray())
+	{
+		if(el.HasMember("trace"))
+		{
+			auto &trace = el["trace"];
+
+			if(trace.HasMember("server") && trace["server"].IsString())
+			{
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Switching trace level to '%s'\n", trace["server"].GetString());
+
+				if(strcmp(trace["server"].GetString(), "off") == 0)
+				{
+					ctx.infoMode = false;
+					ctx.debugMode = false;
+				}
+				else if(strcmp(trace["server"].GetString(), "info") == 0)
+				{
+					ctx.infoMode = true;
+					ctx.debugMode = false;
+				}
+				else if(strcmp(trace["server"].GetString(), "debug") == 0)
+				{
+					ctx.infoMode = true;
+					ctx.debugMode = true;
+				}
+			}
+		}
+
+		if(el.HasMember("module_path") && el["module_path"].IsString())
+		{
+			std::string modulePath = el["module_path"].GetString();
+
+			if(!modulePath.empty())
+			{
+				if(ctx.nullcInitialized)
+					nullcTerminate();
+
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Restarting nullc with module path '%s'\n", modulePath.c_str());
+
+				if(modulePath.back() != '/' && modulePath.back() != '\\')
+					modulePath.push_back('/');
+
+				nullcInit(modulePath.c_str());
+
+				for(auto &&el : ctx.documents)
+					UpdateDiagnostics(ctx, el.second);
+			}
+		}
+	}
+
+	return true;
+}
+
 bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
 {
 	if(!ctx.nullcInitialized)
 	{
-		if(arguments["rootPath"].IsString())
+		if(arguments["rootUri"].IsString())
 		{
-			std::string modulePath = arguments["rootPath"].GetString();
+			std::string rootUri = UrlDecode(arguments["rootUri"].GetString());
 
-			modulePath += "/Modules/";
+			if(rootUri.find("file:///") == 0)
+			{
+				std::string rootPath = rootUri.substr(8);
 
-			if(ctx.debugMode)
-				fprintf(stderr, "INFO: Launching nullc with module path '%s'\n", modulePath.c_str());
+				std::string modulePath = rootPath;
 
-			nullcInit(modulePath.c_str());
+				modulePath += "/Modules/";
+
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Launching nullc with module path '%s'\n", modulePath.c_str());
+
+				nullcInit(modulePath.c_str());
+			}
+			else
+			{
+				fprintf(stderr, "WARNING: Non-file root path '%s'\n", rootUri.c_str());
+
+				if(ctx.debugMode)
+					fprintf(stderr, "DEBUG: Launching nullc without module path\n");
+
+				nullcInit("");
+			}
 		}
 		else
 		{
 			if(ctx.debugMode)
-				fprintf(stderr, "INFO: Launching nullc without module path\n");
+				fprintf(stderr, "DEBUG: Launching nullc without module path\n");
 
 			nullcInit("");
 		}
+
+		ctx.nullcInitialized = true;
 	}
 
 	rapidjson::Value result;
@@ -874,6 +960,16 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 		signatureHelpProvider.AddMember("triggerCharacters", triggerCharacters, response.GetAllocator());
 	}
 
+	rapidjson::Value workspace;
+	workspace.SetObject();
+
+	rapidjson::Value workspaceFolders;
+	workspaceFolders.SetObject();
+
+	workspaceFolders.AddMember("supported", true, response.GetAllocator());
+
+	workspace.AddMember("workspaceFolders", workspaceFolders, response.GetAllocator());
+
 	capabilities.AddMember("textDocumentSync", textDocumentSync, response.GetAllocator());
 	capabilities.AddMember("foldingRangeProvider", true, response.GetAllocator());
 	capabilities.AddMember("documentSymbolProvider", true, response.GetAllocator());
@@ -883,12 +979,15 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 	capabilities.AddMember("referencesProvider", true, response.GetAllocator());
 	capabilities.AddMember("documentHighlightProvider", true, response.GetAllocator());
 	capabilities.AddMember("signatureHelpProvider", signatureHelpProvider, response.GetAllocator());
+	capabilities.AddMember("workspace", workspace, response.GetAllocator());
 
 	result.AddMember("capabilities", capabilities, response.GetAllocator());
 
 	response.AddMember("result", result, response.GetAllocator());
 
 	SendResponse(ctx, response);
+
+	RequestConfiguration(ctx);
 
 	return true;
 }
@@ -968,7 +1067,7 @@ bool HandleFoldingRange(Context& ctx, rapidjson::Value& arguments, rapidjson::Do
 		}
 		else
 		{
-			if(ctx.debugMode)
+			if(ctx.infoMode)
 				fprintf(stderr, "INFO: Parse tree unavailable\n");
 		}
 	}
@@ -1058,8 +1157,7 @@ bool HandleHover(Context& ctx, rapidjson::Value& arguments, rapidjson::Document 
 		}
 		else
 		{
-			if(ctx.debugMode)
-				fprintf(stderr, "INFO: Expression tree unavailable\n");
+			fprintf(stderr, "INFO: Expression tree unavailable\n");
 		}
 	}
 
@@ -1593,9 +1691,9 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 				{
 					if(data.ctx.debugMode)
 					{
-						fprintf(stderr, "INFO: Found ExprMemberAccess at position (%d:%d)\n", data.position.line, data.position.character);
-						fprintf(stderr, "INFO: ExprMemberAccess location (%d:%d - %d:%d)\n", node->source->begin->line, node->source->begin->column, node->source->end->line, node->source->end->column + node->source->end->length);
-						fprintf(stderr, "INFO: ExprMemberAccess value type '%.*s'\n", FMT_ISTR(node->value->type->name));
+						fprintf(stderr, "DEBUG: Found ExprMemberAccess at position (%d:%d)\n", data.position.line, data.position.character);
+						fprintf(stderr, "DEBUG: ExprMemberAccess location (%d:%d - %d:%d)\n", node->source->begin->line, node->source->begin->column, node->source->end->line, node->source->end->column + node->source->end->length);
+						fprintf(stderr, "DEBUG: ExprMemberAccess value type '%.*s'\n", FMT_ISTR(node->value->type->name));
 					}
 
 					if(isType<TypeArray>(node->value->type) || isType<TypeUnsizedArray>(node->value->type))
@@ -1695,9 +1793,9 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 				{
 					if(data.ctx.debugMode)
 					{
-						fprintf(stderr, "INFO: Found ExprErrorTypeMemberAccess at position (%d:%d)\n", data.position.line, data.position.character);
-						fprintf(stderr, "INFO: ExprErrorTypeMemberAccess location (%d:%d - %d:%d)\n", node->source->begin->line, node->source->begin->column, node->source->end->line, node->source->end->column + node->source->end->length);
-						fprintf(stderr, "INFO: ExprErrorTypeMemberAccess value type '%.*s'\n", FMT_ISTR(node->value->name));
+						fprintf(stderr, "DEBUG: Found ExprErrorTypeMemberAccess at position (%d:%d)\n", data.position.line, data.position.character);
+						fprintf(stderr, "DEBUG: ExprErrorTypeMemberAccess location (%d:%d - %d:%d)\n", node->source->begin->line, node->source->begin->column, node->source->end->line, node->source->end->column + node->source->end->length);
+						fprintf(stderr, "DEBUG: ExprErrorTypeMemberAccess value type '%.*s'\n", FMT_ISTR(node->value->name));
 					}
 
 					addTypeidCompletionOptions(node->value);
@@ -1706,7 +1804,7 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 		}
 		else
 		{
-			if(ctx.debugMode)
+			if(ctx.infoMode)
 				fprintf(stderr, "INFO: Expression tree unavailable\n");
 		}
 	}
@@ -1830,7 +1928,7 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 		}
 		else
 		{
-			if(ctx.debugMode)
+			if(ctx.infoMode)
 				fprintf(stderr, "INFO: Expression tree unavailable\n");
 		}
 	}
@@ -1909,7 +2007,7 @@ bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 		}
 		else
 		{
-			if(ctx.debugMode)
+			if(ctx.infoMode)
 				fprintf(stderr, "INFO: Expression tree unavailable\n");
 		}
 	}
@@ -1986,7 +2084,7 @@ bool HandleDocumentHighlight(Context& ctx, rapidjson::Value& arguments, rapidjso
 		}
 		else
 		{
-			if(ctx.debugMode)
+			if(ctx.infoMode)
 				fprintf(stderr, "INFO: Expression tree unavailable\n");
 		}
 	}
@@ -2073,9 +2171,9 @@ bool HandleSignatureHelp(Context& ctx, rapidjson::Value& arguments, rapidjson::D
 				{
 					if(data.ctx.debugMode)
 					{
-						fprintf(stderr, "INFO: Found ExprFunctionCall at position (%d:%d)\n", data.position.line, data.position.character);
-						fprintf(stderr, "INFO: ExprFunctionCall location (%d:%d - %d:%d)\n", node->source->begin->line, node->source->begin->column, node->source->end->line, node->source->end->column + node->source->end->length);
-						fprintf(stderr, "INFO: ExprFunctionCall function type '%.*s'\n", FMT_ISTR(node->function->type->name));
+						fprintf(stderr, "DEBUG: Found ExprFunctionCall at position (%d:%d)\n", data.position.line, data.position.character);
+						fprintf(stderr, "DEBUG: ExprFunctionCall location (%d:%d - %d:%d)\n", node->source->begin->line, node->source->begin->column, node->source->end->line, node->source->end->column + node->source->end->length);
+						fprintf(stderr, "DEBUG: ExprFunctionCall function type '%.*s'\n", FMT_ISTR(node->function->type->name));
 					}
 
 					auto findActiveArgument = [](IntrusiveList<ExprBase> &arguments, Position &position, unsigned argumentCount){
@@ -2168,7 +2266,7 @@ bool HandleSignatureHelp(Context& ctx, rapidjson::Value& arguments, rapidjson::D
 		}
 		else
 		{
-			if(ctx.debugMode)
+			if(ctx.infoMode)
 				fprintf(stderr, "INFO: Expression tree unavailable\n");
 		}
 	}
@@ -2282,7 +2380,7 @@ bool HandleDidOpen(Context& ctx, rapidjson::Value& arguments)
 	auto &document = ctx.documents[uri];
 
 	if(ctx.debugMode)
-		fprintf(stderr, "INFO: Created document '%s'\n", uri);
+		fprintf(stderr, "DEBUG: Created document '%s'\n", uri);
 
 	document.uri = uri;
 	document.code = arguments["textDocument"]["text"].GetString();
@@ -2371,7 +2469,7 @@ bool HandleDidChange(Context& ctx, rapidjson::Value& arguments)
 		else if(el.HasMember("text"))
 		{
 			if(ctx.debugMode)
-				fprintf(stderr, "INFO: Updated document '%s'\n", uri);
+				fprintf(stderr, "DEBUG: Updated document '%s'\n", uri);
 
 			document.code = el["text"].GetString();
 		}
@@ -2389,7 +2487,7 @@ bool HandleMessage(Context& ctx, unsigned idNumber, const char *idString, const 
 	PrepareResponse(response, idNumber, idString);
 
 	if(ctx.debugMode)
-		fprintf(stderr, "INFO: HandleMessage(%s)\n", method);
+		fprintf(stderr, "DEBUG: HandleMessage(%s)\n", method);
 
 	if(strcmp(method, "initialize") == 0)
 		return HandleInitialize(ctx, arguments, response);
@@ -2418,7 +2516,7 @@ bool HandleNotification(Context& ctx, const char *method, rapidjson::Value& argu
 	(void)arguments;
 
 	if(ctx.debugMode)
-		fprintf(stderr, "INFO: HandleNotification(%s)\n", method);
+		fprintf(stderr, "DEBUG: HandleNotification(%s)\n", method);
 
 	if(strcmp(method, "textDocument/didOpen") == 0)
 		return HandleDidOpen(ctx, arguments);
@@ -2426,4 +2524,56 @@ bool HandleNotification(Context& ctx, const char *method, rapidjson::Value& argu
 		return HandleDidChange(ctx, arguments);
 
 	return true;
+}
+
+bool HandleMessage(Context& ctx, char *message, unsigned length)
+{
+	(void)length;
+
+	rapidjson::Document doc;
+
+	rapidjson::ParseResult ok = doc.ParseInsitu(message);
+
+	if(!ok)
+	{
+		fprintf(stderr, "ERROR: Failed to parse message: %s (%d)\n", rapidjson::GetParseError_En(ok.Code()), (int)ok.Offset());
+		return false;
+	}
+
+	if(!doc.HasMember("jsonrpc"))
+	{
+		fprintf(stderr, "ERROR: Message must have 'jsonrpc' member\n");
+		return false;
+	}
+
+	auto rpcVersion = doc["jsonrpc"].GetString();
+	(void)rpcVersion;
+
+	if(doc.HasMember("error"))
+	{
+		fprintf(stderr, "ERROR: Server request resulted in an error\n");
+		return false;
+	}
+
+	if(!doc.HasMember("method"))
+	{
+		if(doc.HasMember("id") && doc["id"].IsString() && strcmp(doc["id"].GetString(), "server.configuration") == 0)
+			return HandleConfigurationResponse(ctx, doc["result"]);
+
+		fprintf(stderr, "ERROR: Message must have 'method' member\n");
+		return false;
+	}
+
+	auto method = doc["method"].GetString();
+
+	if(doc.HasMember("id"))
+	{
+		// id can be a number or a string
+		auto idNumber = doc["id"].IsUint() ? doc["id"].GetUint() : ~0u;
+		auto strNumber = doc["id"].IsString() ? doc["id"].GetString() : nullptr;
+
+		return HandleMessage(ctx, idNumber, strNumber, method, doc["params"]);
+	}
+
+	return HandleNotification(ctx, method, doc["params"]);
 }

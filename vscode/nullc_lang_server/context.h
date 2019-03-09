@@ -8,10 +8,13 @@ struct Context
 {
 	Context()
 	{
+		infoMode = false;
 		debugMode = false;
+
 		nullcInitialized = false;
 	}
 
+	bool infoMode;
 	bool debugMode;
 
 	bool nullcInitialized;

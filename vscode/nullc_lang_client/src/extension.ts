@@ -8,9 +8,12 @@ let client: LanguageClient;
 export function activate(context: ExtensionContext) {
 	let serverModule = context.asAbsolutePath(path.join('..', 'nullc_lang_server', 'out', 'nullc_lang_server.exe'));
 
+	//let args = ['--debug'];
+	let args = [];
+
 	let serverOptions: ServerOptions = {
 		command: serverModule,
-		args: ['--debug']
+		args: args
 	};
 
 	let clientOptions: LanguageClientOptions = {

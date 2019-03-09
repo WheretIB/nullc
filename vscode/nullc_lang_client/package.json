@@ -52,11 +52,17 @@
                     "type": "string",
                     "enum": [
                         "off",
-                        "messages",
-                        "verbose"
+                        "info",
+                        "debug"
                     ],
                     "default": "off",
                     "description": "Traces the communication between VS Code and the language server."
+                },
+                "nullc.module_path": {
+                    "scope": "window",
+                    "type": "string",
+                    "default": "",
+                    "description": "Default non-project module search path"
                 }
             }
         }

@@ -1302,3 +1302,40 @@ struct SignatureHelp
 	*/
 	int activeParameter = -1;
 };
+
+struct ConfigurationItem
+{
+	ConfigurationItem() = default;
+
+	ConfigurationItem(std::string scopeUri, std::string section): scopeUri(scopeUri), section(section)
+	{
+	}
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document)
+	{
+		target.SetObject();
+
+		if(!scopeUri.empty())
+			target.AddMember("scopeUri", scopeUri, document.GetAllocator());
+
+		if(!section.empty())
+			target.AddMember("section", section, document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document)
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* The scope to get the configuration section for.
+	*/
+	std::string scopeUri;
+
+	/**
+	* The configuration section asked for.
+	*/
+	std::string section;
+};

@@ -21,10 +21,13 @@ int main(int argc, char **argv)
 	for(int i = 1; i < argc; i++)
 	{
 		if(strcmp(argv[i], "--debug") == 0 || strcmp(argv[i], "-d") == 0)
+		{
+			ctx.infoMode = true;
 			ctx.debugMode = true;
+		}
 	}
 
-	if(ctx.debugMode)
+	if(ctx.infoMode)
 		fprintf(stderr, "INFO: Launching\n");
 
 	std::vector<char> header;
@@ -59,7 +62,7 @@ int main(int argc, char **argv)
 				std::cin.read(message.data(), expectedLength);
 
 				if(ctx.debugMode)
-					fprintf(stderr, "INFO: Received message '%.*s'\n", (int)expectedLength, message.data());
+					fprintf(stderr, "DEBUG: Received message '%.*s'\n", (int)expectedLength, message.data());
 
 				message.back() = 0;
 

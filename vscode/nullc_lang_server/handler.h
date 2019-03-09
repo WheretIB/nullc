@@ -5,6 +5,9 @@
 #include "external/rapidjson/fwd.h"
 
 struct Context;
+struct Document;
+
+void UpdateDiagnostics(Context& ctx, Document &document);
 
 bool HandleMessage(Context& ctx, char *message, unsigned length);
 bool HandleMessage(Context& ctx, unsigned idNumber, const char *idString, const char *method, rapidjson::Value& arguments);
