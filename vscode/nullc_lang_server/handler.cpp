@@ -2058,6 +2058,20 @@ bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 			if(result)
 			{
+				auto getTargetUri = [&ctx, &context, &documentIt](SynBase *source) -> std::string {
+					if(ModuleData *importModule = context->exprCtx.GetSourceOwner(source->begin))
+					{
+						auto path = GetModuleFileName(ctx, importModule);
+
+						if(!path.empty())
+							return std::string("file:///") + UrlEncode(path);
+
+						return "";
+					}
+
+					return documentIt->first;
+				};
+
 				if(VariableData *variable = result.targetVariable)
 				{
 					std::vector<SynBase*> results = FindVariableReferences(context, variable);
@@ -2065,7 +2079,12 @@ bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 					for(auto &&el : results)
 					{
 						if(!el->isInternal && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
-							locations.push_back(Location(documentIt->first, Range(Position(el->begin->line, el->begin->column), Position(el->begin->line, el->begin->column + el->begin->length))));
+						{
+							std::string path = getTargetUri(el);
+
+							if(!path.empty())
+								locations.push_back(Location(path, Range(Position(el->begin->line, el->begin->column), Position(el->begin->line, el->begin->column + el->begin->length))));
+						}
 					}
 				}
 				else if(FunctionData *function = result.targetFunction)
@@ -2075,7 +2094,12 @@ bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 					for(auto &&el : results)
 					{
 						if(!el->isInternal && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
-							locations.push_back(Location(documentIt->first, Range(Position(el->begin->line, el->begin->column), Position(el->begin->line, el->begin->column + el->begin->length))));
+						{
+							std::string path = getTargetUri(el);
+
+							if(!path.empty())
+								locations.push_back(Location(path, Range(Position(el->begin->line, el->begin->column), Position(el->begin->line, el->begin->column + el->begin->length))));
+						}
 					}
 				}
 			}
