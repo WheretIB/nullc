@@ -7016,6 +7016,8 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 			Stop(ctx, syntax, "ERROR: type '%.*s' is not fully defined", FMT_ISTR(type->name));
 	}
 
+	SynBase *syntaxInternal = ctx.MakeInternal(syntax);
+
 	if(syntax->count)
 	{
 		assert(syntax->arguments.empty());
@@ -7023,22 +7025,23 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		ExprBase *count = AnalyzeExpression(ctx, syntax->count);
 
-		ExprBase *alloc = CreateArrayAllocation(ctx, syntax, type, count);
+		ExprBase *alloc = CreateArrayAllocation(ctx, syntaxInternal, type, count);
 
 		if(HasDefautConstructor(ctx, syntax, type))
 		{
 			VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
 
-			ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), CreateAssignment(ctx, syntax, CreateVariableAccess(ctx, syntax, variable, false), alloc));
+			ExprBase *initializer = CreateAssignment(ctx, syntax, CreateVariableAccess(ctx, syntaxInternal, variable, false), alloc);
+			ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntaxInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), initializer);
 
-			if(ExprBase *call = CreateDefaultConstructorCall(ctx, syntax, variable->type, CreateVariableAccess(ctx, syntax, variable, true)))
-				return CreateSequence(ctx, syntax, definition, call, CreateVariableAccess(ctx, syntax, variable, true));
+			if(ExprBase *call = CreateDefaultConstructorCall(ctx, syntax, variable->type, CreateVariableAccess(ctx, syntaxInternal, variable, true)))
+				return CreateSequence(ctx, syntax, definition, call, CreateVariableAccess(ctx, syntaxInternal, variable, true));
 		}
 
 		return alloc;
 	}
 
-	ExprBase *alloc = CreateObjectAllocation(ctx, syntax, type);
+	ExprBase *alloc = CreateObjectAllocation(ctx, syntaxInternal, type);
 
 	// Call constructor
 	TypeRef *allocType = getType<TypeRef>(alloc->type);
@@ -7051,9 +7054,10 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 	{
 		VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
 
-		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), CreateAssignment(ctx, syntax, CreateVariableAccess(ctx, syntax, variable, false), alloc));
+		ExprBase *initializer = CreateAssignment(ctx, syntaxInternal, CreateVariableAccess(ctx, syntaxInternal, variable, false), alloc);
+		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntaxInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), initializer);
 
-		ExprBase *overloads = CreateConstructorAccess(ctx, syntax, functions, CreateVariableAccess(ctx, syntax, variable, false));
+		ExprBase *overloads = CreateConstructorAccess(ctx, syntax, functions, CreateVariableAccess(ctx, syntaxInternal, variable, false));
 
 		if(ExprBase *call = CreateFunctionCall(ctx, syntax, overloads, IntrusiveList<TypeHandle>(), syntax->arguments.head, syntax->arguments.empty()))
 		{
@@ -7061,7 +7065,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 			expressions.push_back(definition);
 			expressions.push_back(call);
-			expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
+			expressions.push_back(CreateVariableAccess(ctx, syntaxInternal, variable, false));
 
 			alloc = new (ctx.get<ExprSequence>()) ExprSequence(syntax, allocType, expressions);
 		}
@@ -7070,15 +7074,16 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 	{
 		VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
 
-		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), CreateAssignment(ctx, syntax, CreateVariableAccess(ctx, syntax, variable, false), alloc));
+		ExprBase *initializer = CreateAssignment(ctx, syntaxInternal, CreateVariableAccess(ctx, syntaxInternal, variable, false), alloc);
+		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntaxInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), initializer);
 
-		ExprBase *copy = CreateAssignment(ctx, syntax, new (ctx.get<ExprDereference>()) ExprDereference(syntax, parentType, CreateVariableAccess(ctx, syntax, variable, false)), AnalyzeExpression(ctx, syntax->arguments.head->value));
+		ExprBase *copy = CreateAssignment(ctx, syntax, new (ctx.get<ExprDereference>()) ExprDereference(syntax, parentType, CreateVariableAccess(ctx, syntaxInternal, variable, false)), AnalyzeExpression(ctx, syntax->arguments.head->value));
 
 		IntrusiveList<ExprBase> expressions;
 
 		expressions.push_back(definition);
 		expressions.push_back(copy);
-		expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
+		expressions.push_back(CreateVariableAccess(ctx, syntaxInternal, variable, false));
 
 		alloc = new (ctx.get<ExprSequence>()) ExprSequence(syntax, allocType, expressions);
 	}
@@ -7092,7 +7097,8 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 	{
 		VariableData *variable = AllocateTemporary(ctx, syntax, alloc->type);
 
-		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), CreateAssignment(ctx, syntax, CreateVariableAccess(ctx, syntax, variable, false), alloc));
+		ExprBase *initializer = CreateAssignment(ctx, syntaxInternal, CreateVariableAccess(ctx, syntaxInternal, variable, false), alloc);
+		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntaxInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), initializer);
 
 		// Create a member function with the constructor body
 		InplaceStr name = GetTemporaryFunctionName(ctx);
@@ -7105,7 +7111,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		// Call this member function
 		SmallArray<FunctionValue, 32> functions(ctx.allocator);
-		functions.push_back(FunctionValue(syntax, functionDefinition->function, CreateVariableAccess(ctx, syntax, variable, false)));
+		functions.push_back(FunctionValue(syntax, functionDefinition->function, CreateVariableAccess(ctx, syntaxInternal, variable, false)));
 
 		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
@@ -7115,7 +7121,7 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 
 		expressions.push_back(definition);
 		expressions.push_back(call);
-		expressions.push_back(CreateVariableAccess(ctx, syntax, variable, false));
+		expressions.push_back(CreateVariableAccess(ctx, syntaxInternal, variable, false));
 
 		alloc = new (ctx.get<ExprSequence>()) ExprSequence(syntax, allocType, expressions);
 	}
@@ -9738,6 +9744,8 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 	for(SynForEachIterator *curr = syntax->iterators.head; curr; curr = getType<SynForEachIterator>(curr->next))
 	{
+		SynBase *sourceInternal = ctx.MakeInternal(curr);
+
 		ExprBase *value = AnalyzeExpression(ctx, curr->value);
 
 		if(isType<TypeError>(value->type))
@@ -9797,7 +9805,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			initializers.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(curr, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, iterator), iteratorAssignment));
 
 			// Create condition
-			conditions.push_back(CreateBinaryOp(ctx, curr, SYN_BINARY_OP_LESS, CreateVariableAccess(ctx, curr, iterator, false), CreateMemberAccess(ctx, curr, value, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("size")), false)));
+			conditions.push_back(CreateBinaryOp(ctx, curr, SYN_BINARY_OP_LESS, CreateVariableAccess(ctx, curr, iterator, false), CreateMemberAccess(ctx, curr->value, value, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("size")), false)));
 
 			// Create definition
 			type = ctx.GetReferenceType(type);
@@ -9837,7 +9845,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 		// If we don't have a function, get an iterator
 		if(!functionType)
 		{
-			startCall = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, value, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("start")), false), IntrusiveList<TypeHandle>(), NULL, false);
+			startCall = CreateFunctionCall(ctx, sourceInternal, CreateMemberAccess(ctx, curr->value, value, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("start")), false), IntrusiveList<TypeHandle>(), NULL, false);
 
 			if(isType<TypeError>(startCall->type))
 			{
@@ -9855,9 +9863,11 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 		if(functionType)
 		{
 			// Store function pointer in a variable
-			VariableData *functPtr = AllocateTemporary(ctx, curr, value->type);
+			VariableData *functPtr = AllocateTemporary(ctx, sourceInternal, value->type);
 
-			initializers.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(curr, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, functPtr), CreateAssignment(ctx, curr, CreateVariableAccess(ctx, curr, functPtr, false), value)));
+			ExprBase *funcPtrInitializer = CreateAssignment(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, functPtr, false), value);
+
+			initializers.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(sourceInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, functPtr), funcPtrInitializer));
 
 			if(ExprFunctionAccess *access = getType<ExprFunctionAccess>(value))
 			{
@@ -9866,7 +9876,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			}
 			else
 			{
-				initializers.push_back(CreateFunctionCall1(ctx, curr, InplaceStr("__assertCoroutine"), CreateVariableAccess(ctx, curr, functPtr, false), false, true));
+				initializers.push_back(CreateFunctionCall1(ctx, sourceInternal, InplaceStr("__assertCoroutine"), CreateVariableAccess(ctx, sourceInternal, functPtr, false), false, true));
 			}
 
 			// Create definition
@@ -9883,7 +9893,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 			ctx.AddVariable(variable);
 
-			if(ExprBase *call = CreateFunctionCall(ctx, curr, CreateVariableAccess(ctx, curr, functPtr, false), IntrusiveList<TypeHandle>(), NULL, false))
+			if(ExprBase *call = CreateFunctionCall(ctx, curr, CreateVariableAccess(ctx, sourceInternal, functPtr, false), IntrusiveList<TypeHandle>(), NULL, false))
 			{
 				if(ctx.GetReferenceType(type) == call->type)
 					call = new (ctx.get<ExprDereference>()) ExprDereference(curr, type, call);
@@ -9892,10 +9902,10 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			}
 
 			// Create condition
-			conditions.push_back(new (ctx.get<ExprUnaryOp>()) ExprUnaryOp(curr, ctx.typeBool, SYN_UNARY_OP_LOGICAL_NOT, CreateFunctionCall1(ctx, curr, InplaceStr("isCoroutineReset"), CreateVariableAccess(ctx, curr, functPtr, false), false, false)));
+			conditions.push_back(new (ctx.get<ExprUnaryOp>()) ExprUnaryOp(curr, ctx.typeBool, SYN_UNARY_OP_LOGICAL_NOT, CreateFunctionCall1(ctx, curr, InplaceStr("isCoroutineReset"), CreateVariableAccess(ctx, sourceInternal, functPtr, false), false, false)));
 
 			// Create increment
-			if(ExprBase *call = CreateFunctionCall(ctx, curr, CreateVariableAccess(ctx, curr, functPtr, false), IntrusiveList<TypeHandle>(), NULL, false))
+			if(ExprBase *call = CreateFunctionCall(ctx, curr, CreateVariableAccess(ctx, sourceInternal, functPtr, false), IntrusiveList<TypeHandle>(), NULL, false))
 			{
 				if(ctx.GetReferenceType(type) == call->type)
 					call = new (ctx.get<ExprDereference>()) ExprDereference(curr, type, call);
@@ -9906,15 +9916,17 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 		else
 		{
 			// Store iterator in a variable
-			VariableData *iterator = AllocateTemporary(ctx, curr, startCall->type);
+			VariableData *iterator = AllocateTemporary(ctx, sourceInternal, startCall->type);
 
-			initializers.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(curr, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, iterator), CreateAssignment(ctx, curr, CreateVariableAccess(ctx, curr, iterator, false), startCall)));
+			ExprBase *iteratorInitializer = CreateAssignment(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, iterator, false), startCall);
+			
+			initializers.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(sourceInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, iterator), iteratorInitializer));
 
 			// Create condition
-			conditions.push_back(CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, CreateVariableAccess(ctx, curr, iterator, false), new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("hasnext")), false), IntrusiveList<TypeHandle>(), NULL, false));
+			conditions.push_back(CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, iterator, false), new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("hasnext")), false), IntrusiveList<TypeHandle>(), NULL, false));
 
 			// Create definition
-			ExprBase *call = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, curr, CreateVariableAccess(ctx, curr, iterator, false), new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("next")), false), IntrusiveList<TypeHandle>(), NULL, false);
+			ExprBase *call = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, iterator, false), new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("next")), false), IntrusiveList<TypeHandle>(), NULL, false);
 
 			if(!type)
 				type = call->type;
@@ -9938,7 +9950,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 			ctx.AddVariable(variable);
 
-			definitions.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(curr, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), CreateAssignment(ctx, curr, CreateVariableAccess(ctx, curr, variable, false), call)));
+			definitions.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(curr, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), CreateAssignment(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, variable, false), call)));
 		}
 	}
 
