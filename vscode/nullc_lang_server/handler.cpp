@@ -1518,6 +1518,10 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 				if(!child->source)
 					return;
 
+				// Imported
+				if(data.context->exprCtx.GetSourceOwner(child->source->begin))
+					return;
+
 				if(!IsAtEnd(child->source, data.position.line, data.position.character))
 					return;
 
@@ -2261,6 +2265,10 @@ bool HandleSignatureHelp(Context& ctx, rapidjson::Value& arguments, rapidjson::D
 				Data &data = *(Data*)context;
 
 				if(!child->source)
+					return;
+
+				// Imported
+				if(data.context->exprCtx.GetSourceOwner(child->source->begin))
 					return;
 
 				if(!IsInside(child->source, data.position.line, data.position.character))
