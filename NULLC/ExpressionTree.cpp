@@ -2103,15 +2103,17 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 				}
 
 				// Allocate storage in heap and copy literal data into it
-				VariableData *storage = AllocateTemporary(ctx, source, ctx.GetReferenceType(valueType));
+				SynBase *sourceInternal = ctx.MakeInternal(source);
 
-				ExprBase *alloc = CreateObjectAllocation(ctx, source, valueType);
+				VariableData *storage = AllocateTemporary(ctx, sourceInternal, ctx.GetReferenceType(valueType));
 
-				ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(value->source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, storage, false), alloc));
+				ExprBase *alloc = CreateObjectAllocation(ctx, sourceInternal, valueType);
 
-				ExprBase *assignment = CreateAssignment(ctx, source, new (ctx.get<ExprDereference>()) ExprDereference(source, valueType, CreateVariableAccess(ctx, source, storage, false)), value);
+				ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(sourceInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), CreateAssignment(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, storage, false), alloc));
 
-				ExprBase *result = new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, type, CreateVariableAccess(ctx, source, storage, false), EXPR_CAST_ARRAY_PTR_TO_UNSIZED);
+				ExprBase *assignment = CreateAssignment(ctx, sourceInternal, new (ctx.get<ExprDereference>()) ExprDereference(sourceInternal, valueType, CreateVariableAccess(ctx, sourceInternal, storage, false)), value);
+
+				ExprBase *result = new (ctx.get<ExprTypeCast>()) ExprTypeCast(sourceInternal, type, CreateVariableAccess(ctx, sourceInternal, storage, false), EXPR_CAST_ARRAY_PTR_TO_UNSIZED);
 
 				return CreateSequence(ctx, source, definition, assignment, result);
 			}
@@ -2130,13 +2132,15 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 
 				if(targetSub->subType == sourceSub->subType)
 				{
-					VariableData *storage = AllocateTemporary(ctx, source, targetSub);
+					SynBase *sourceInternal = ctx.MakeInternal(source);
 
-					ExprBase *assignment = CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, storage, false), new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, targetSub, value, EXPR_CAST_ARRAY_PTR_TO_UNSIZED));
+					VariableData *storage = AllocateTemporary(ctx, sourceInternal, targetSub);
 
-					ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), assignment);
+					ExprBase *assignment = CreateAssignment(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, storage, false), new (ctx.get<ExprTypeCast>()) ExprTypeCast(sourceInternal, targetSub, value, EXPR_CAST_ARRAY_PTR_TO_UNSIZED));
 
-					ExprBase *result = CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false));
+					ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(sourceInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), assignment);
+
+					ExprBase *result = CreateGetAddress(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, storage, false));
 
 					return CreateSequence(ctx, source, definition, result);
 				}
@@ -2180,13 +2184,15 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 			}
 			else if(target->subType == value->type)
 			{
-				VariableData *storage = AllocateTemporary(ctx, source, target->subType);
+				SynBase *sourceInternal = ctx.MakeInternal(source);
 
-				ExprBase *assignment = new (ctx.get<ExprAssignment>()) ExprAssignment(source, storage->type, CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false)), value);
+				VariableData *storage = AllocateTemporary(ctx, sourceInternal, target->subType);
 
-				ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), assignment);
+				ExprBase *assignment = new (ctx.get<ExprAssignment>()) ExprAssignment(sourceInternal, storage->type, CreateGetAddress(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, storage, false)), value);
 
-				ExprBase *result = CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false));
+				ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(sourceInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), assignment);
+
+				ExprBase *result = CreateGetAddress(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, storage, false));
 
 				return CreateSequence(ctx, source, definition, result);
 			}
@@ -2251,13 +2257,15 @@ ExprBase* CreateCast(ExpressionContext &ctx, SynBase *source, ExprBase *value, T
 	{
 		if(IsDerivedFrom(getType<TypeClass>(value->type), target))
 		{
-			VariableData *storage = AllocateTemporary(ctx, source, value->type);
+			SynBase *sourceInternal = ctx.MakeInternal(source);
 
-			ExprBase *assignment = new (ctx.get<ExprAssignment>()) ExprAssignment(source, storage->type, CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false)), value);
+			VariableData *storage = AllocateTemporary(ctx, sourceInternal, value->type);
 
-			ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), assignment);
+			ExprBase *assignment = new (ctx.get<ExprAssignment>()) ExprAssignment(sourceInternal, storage->type, CreateGetAddress(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, storage, false)), value);
 
-			ExprBase *result = new (ctx.get<ExprDereference>()) ExprDereference(source, type, new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, ctx.GetReferenceType(type), CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false)), EXPR_CAST_REINTERPRET));
+			ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(sourceInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), assignment);
+
+			ExprBase *result = new (ctx.get<ExprDereference>()) ExprDereference(sourceInternal, type, new (ctx.get<ExprTypeCast>()) ExprTypeCast(sourceInternal, ctx.GetReferenceType(type), CreateGetAddress(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, storage, false)), EXPR_CAST_REINTERPRET));
 
 			return CreateSequence(ctx, source, definition, result);
 		}
@@ -4326,13 +4334,15 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		if(!AssertValueExpression(ctx, source, wrapped))
 			return new (ctx.get<ExprMemberAccess>()) ExprMemberAccess(source, ctx.GetErrorType(), value, NULL);
 
-		VariableData *storage = AllocateTemporary(ctx, source, wrapped->type);
+		SynBase *sourceInternal = ctx.MakeInternal(source);
 
-		ExprBase *assignment = CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, storage, false), value);
+		VariableData *storage = AllocateTemporary(ctx, sourceInternal, wrapped->type);
 
-		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(value->source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), assignment);
+		ExprBase *assignment = CreateAssignment(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, storage, false), value);
 
-		wrapped = CreateSequence(ctx, source, definition, CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false)));
+		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(sourceInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), assignment);
+
+		wrapped = CreateSequence(ctx, source, definition, CreateGetAddress(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, storage, false)));
 	}
 
 	if(!member)
@@ -4663,13 +4673,15 @@ ExprBase* CreateArrayIndex(ExpressionContext &ctx, SynBase *source, ExprBase *va
 		if(!AssertValueExpression(ctx, source, wrapped))
 			return new (ctx.get<ExprArrayIndex>()) ExprArrayIndex(source, ctx.GetErrorType(), value, new (ctx.get<ExprError>()) ExprError(source, ctx.GetErrorType()));
 
-		VariableData *storage = AllocateTemporary(ctx, source, wrapped->type);
+		SynBase *sourceInternal = ctx.MakeInternal(source);
 
-		ExprBase *assignment = CreateAssignment(ctx, source, CreateVariableAccess(ctx, source, storage, false), value);
+		VariableData *storage = AllocateTemporary(ctx, sourceInternal, wrapped->type);
 
-		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), assignment);
+		ExprBase *assignment = CreateAssignment(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, storage, false), value);
 
-		wrapped = CreateSequence(ctx, source, definition, CreateGetAddress(ctx, source, CreateVariableAccess(ctx, source, storage, false)));
+		ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(sourceInternal, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), assignment);
+
+		wrapped = CreateSequence(ctx, source, definition, CreateGetAddress(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, storage, false)));
 	}
 
 	if(isType<TypeRef>(wrapped->type) || isType<TypeUnsizedArray>(value->type))
@@ -8974,9 +8986,9 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 
 void CreateDefaultClassMembers(ExpressionContext &ctx, SynBase *source, ExprClassDefinition *classDefinition)
 {
-	CreateDefaultClassConstructor(ctx, source, classDefinition);
+	CreateDefaultClassConstructor(ctx, ctx.MakeInternal(source), classDefinition);
 
-	CreateDefaultClassAssignment(ctx, source, classDefinition);
+	CreateDefaultClassAssignment(ctx, ctx.MakeInternal(source), classDefinition);
 }
 
 void AnalyzeClassStaticIf(ExpressionContext &ctx, ExprClassDefinition *classDefinition, SynClassStaticIf *syntax)
@@ -9389,7 +9401,7 @@ ExprBase* AnalyzeClassPrototype(ExpressionContext &ctx, SynClassPrototype *synta
 	return new (ctx.get<ExprClassPrototype>()) ExprClassPrototype(syntax, ctx.typeVoid, classType);
 }
 
-void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *type, IntrusiveList<SynConstant> constants, IntrusiveList<ConstantData> &target)
+void AnalyzeEnumConstants(ExpressionContext &ctx, TypeBase *type, IntrusiveList<SynConstant> constants, IntrusiveList<ConstantData> &target)
 {
 	ExprIntegerLiteral *last = NULL;
 
@@ -9404,11 +9416,11 @@ void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 			if(isType<TypeError>(rhs->type))
 				continue;
 
-			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, source, CreateCast(ctx, constant, rhs, ctx.typeInt, false)));
+			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, constant, CreateCast(ctx, constant, rhs, ctx.typeInt, false)));
 		}
 		else if(last)
 		{
-			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, source, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, last, new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, ctx.typeInt, 1))));
+			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, constant, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, last, new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, ctx.typeInt, 1))));
 		}
 		else
 		{
@@ -9432,7 +9444,7 @@ void AnalyzeEnumConstants(ExpressionContext &ctx, SynBase *source, TypeBase *typ
 
 		CheckVariableConflict(ctx, constant, constant->name->name);
 
-		target.push_back(new (ctx.get<ConstantData>()) ConstantData(constant->name, new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, type, value->value)));
+		target.push_back(new (ctx.get<ConstantData>()) ConstantData(constant->name, new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, type, value->value)));
 	}
 }
 
@@ -9448,7 +9460,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 	enumType->typeScope = ctx.scope;
 
-	AnalyzeEnumConstants(ctx, syntax, enumType, syntax->values, enumType->constants);
+	AnalyzeEnumConstants(ctx, enumType, syntax->values, enumType->constants);
 
 	enumType->alignment = ctx.typeInt->alignment;
 
@@ -9470,14 +9482,18 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 	if(!setjmp(ctx.errorHandler))
 	{
+		SynBase *syntaxInternal = ctx.MakeInternal(syntax);
+
 		// Create conversion operator int int(enum_type)
 		{
 			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
-			arguments.push_back(ArgumentData(syntax, false, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$x")), enumType, NULL));
+			arguments.push_back(ArgumentData(syntaxInternal, false, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$x")), enumType, NULL));
 
 			SynIdentifier *functionNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("int"));
 
-			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(syntax, ctx.typeInt, arguments), ctx.GetReferenceType(ctx.typeVoid), functionNameIdentifier, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+			TypeFunction *typeFunction = ctx.GetFunctionType(syntaxInternal, ctx.typeInt, arguments);
+
+			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntaxInternal, ctx.scope, false, false, false, typeFunction, ctx.GetReferenceType(ctx.typeVoid), functionNameIdentifier, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 			// Fill in argument data
 			for(unsigned i = 0; i < arguments.size(); i++)
@@ -9493,24 +9509,24 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 			IntrusiveList<ExprVariableDefinition> variables;
 
-			CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
+			CreateFunctionArgumentVariables(ctx, syntaxInternal, function, arguments, variables);
 
-			ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, ctx.MakeInternal(syntax), function);
+			ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntaxInternal, function);
 
 			function->argumentsSize = function->functionScope->dataSize;
 
 			IntrusiveList<ExprBase> expressions;
 
-			ExprBase *access = new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(syntax, enumType, variables.tail->variable->variable);
-			ExprBase *cast = new (ctx.get<ExprTypeCast>()) ExprTypeCast(syntax, ctx.typeInt, access, EXPR_CAST_REINTERPRET);
+			ExprBase *access = new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(syntaxInternal, enumType, variables.tail->variable->variable);
+			ExprBase *cast = new (ctx.get<ExprTypeCast>()) ExprTypeCast(syntaxInternal, ctx.typeInt, access, EXPR_CAST_REINTERPRET);
 
-			expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, cast, NULL, CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(syntax), function, ctx.scope)));
+			expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntaxInternal, ctx.typeVoid, cast, NULL, CreateFunctionUpvalueClose(ctx, syntaxInternal, function, ctx.scope)));
 
 			ClosePendingUpvalues(ctx, function);
 
 			ctx.PopScope(SCOPE_FUNCTION);
 
-			function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntax, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL);
+			function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntaxInternal, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL);
 
 			ctx.definitions.push_back(function->declaration);
 
@@ -9520,11 +9536,13 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 		// Create conversion operator enum_type enum_type(int)
 		{
 			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
-			arguments.push_back(ArgumentData(syntax, false, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$x")), ctx.typeInt, NULL));
+			arguments.push_back(ArgumentData(syntaxInternal, false, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$x")), ctx.typeInt, NULL));
 
 			SynIdentifier *functionNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(typeName);
 
-			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntax, ctx.scope, false, false, false, ctx.GetFunctionType(syntax, enumType, arguments), ctx.GetReferenceType(ctx.typeVoid), functionNameIdentifier, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+			TypeFunction *typeFunction = ctx.GetFunctionType(syntaxInternal, enumType, arguments);
+
+			FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, syntaxInternal, ctx.scope, false, false, false, typeFunction, ctx.GetReferenceType(ctx.typeVoid), functionNameIdentifier, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 			// Fill in argument data
 			for(unsigned i = 0; i < arguments.size(); i++)
@@ -9540,24 +9558,24 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 			IntrusiveList<ExprVariableDefinition> variables;
 
-			CreateFunctionArgumentVariables(ctx, syntax, function, arguments, variables);
+			CreateFunctionArgumentVariables(ctx, syntaxInternal, function, arguments, variables);
 
-			ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, ctx.MakeInternal(syntax), function);
+			ExprVariableDefinition *contextArgumentDefinition = CreateFunctionContextArgument(ctx, syntaxInternal, function);
 
 			function->argumentsSize = function->functionScope->dataSize;
 
 			IntrusiveList<ExprBase> expressions;
 
-			ExprBase *access = new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(syntax, ctx.typeInt, variables.tail->variable->variable);
-			ExprBase *cast = new (ctx.get<ExprTypeCast>()) ExprTypeCast(syntax, enumType, access, EXPR_CAST_REINTERPRET);
+			ExprBase *access = new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(syntaxInternal, ctx.typeInt, variables.tail->variable->variable);
+			ExprBase *cast = new (ctx.get<ExprTypeCast>()) ExprTypeCast(syntaxInternal, enumType, access, EXPR_CAST_REINTERPRET);
 
-			expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, cast, NULL, CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(syntax), function, ctx.scope)));
+			expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(syntaxInternal, ctx.typeVoid, cast, NULL, CreateFunctionUpvalueClose(ctx, syntaxInternal, function, ctx.scope)));
 
 			ClosePendingUpvalues(ctx, function);
 
 			ctx.PopScope(SCOPE_FUNCTION);
 
-			function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntax, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL);
+			function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(syntaxInternal, function->type, function, contextArgumentDefinition, variables, NULL, expressions, NULL);
 
 			ctx.definitions.push_back(function->declaration);
 
