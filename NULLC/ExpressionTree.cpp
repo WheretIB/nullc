@@ -3901,7 +3901,7 @@ ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 	{
 		if(binaryOp || logicalOp)
 		{
-			ReportAt(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+			Report(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
 
 			return new (ctx.get<ExprUnaryOp>()) ExprUnaryOp(syntax, ctx.GetErrorType(), syntax->type, value);
 		}
@@ -3910,7 +3910,7 @@ ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 	{
 		if(!logicalOp)
 		{
-			ReportAt(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+			Report(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
 
 			return new (ctx.get<ExprUnaryOp>()) ExprUnaryOp(syntax, ctx.GetErrorType(), syntax->type, value);
 		}
@@ -3919,14 +3919,14 @@ ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 	{
 		if(!logicalOp)
 		{
-			ReportAt(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+			Report(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
 
 			return new (ctx.get<ExprUnaryOp>()) ExprUnaryOp(syntax, ctx.GetErrorType(), syntax->type, value);
 		}
 	}
 	else if(!ctx.IsNumericType(value->type))
 	{
-		ReportAt(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+		Report(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
 
 		return new (ctx.get<ExprUnaryOp>()) ExprUnaryOp(syntax, ctx.GetErrorType(), syntax->type, value);
 	}
