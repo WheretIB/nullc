@@ -461,6 +461,33 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 				return;
 			}
 
+			if(SynMemberAccess *source = getType<SynMemberAccess>(node->source))
+			{
+				SynBase *sourceName = source->member;
+
+				if(sourceName && IsInside(sourceName, data.position.line, data.position.character))
+				{
+					if(!IsSmaller(response.bestNode, sourceName))
+					{
+						if(data.captureScopes)
+							response.debugScopes += " <- skipped[larger]  \n";
+
+						return;
+					}
+
+					response.bestNode = sourceName;
+
+					response.targetVariable = nullptr;
+					response.targetFunction = node->function;
+					response.targetType = nullptr;
+
+					if(data.captureScopes)
+						response.debugScopes += " <- selected[access_name]";
+
+					return;
+				}
+			}
+
 			response.bestNode = node->source;
 
 			response.targetVariable = nullptr;
@@ -756,7 +783,18 @@ std::vector<SynBase*> FindFunctionReferences(CompilerContext *context, FunctionD
 		else if(ExprFunctionAccess *node = getType<ExprFunctionAccess>(child))
 		{
 			if(node->function == data.function && node->source)
+			{
+				if(SynMemberAccess *source = getType<SynMemberAccess>(node->source))
+				{
+					if(source->member)
+					{
+						data.locations.push_back(source->member);
+						return;
+					}
+				}
+
 				data.locations.push_back(node->source);
+			}
 		}
 		else if(ExprFunctionOverloadSet *node = getType<ExprFunctionOverloadSet>(child))
 		{
@@ -2310,7 +2348,7 @@ bool HandleSignatureHelp(Context& ctx, rapidjson::Value& arguments, rapidjson::D
 						for(ExprBase *argument = arguments.head; argument; argument = argument->next)
 						{
 							if(activeParameter >= (int)argumentCount)
-								break;
+								return -1;
 
 							if(IsToTheRightOf(argument->source, position.line, position.character))
 								activeParameter++;
@@ -2366,28 +2404,44 @@ bool HandleSignatureHelp(Context& ctx, rapidjson::Value& arguments, rapidjson::D
 					{
 						addFunctionSignature(data.signatureHelp, function->function);
 
+						int activeParameter = findActiveArgument(node->arguments, data.position, function->function->arguments.size());
+
 						data.signatureHelp.activeSignature = 0;
-						data.signatureHelp.activeParameter = findActiveArgument(node->arguments, data.position, function->function->arguments.size());
+						data.signatureHelp.activeParameter = activeParameter == -1 ? 0 : activeParameter;
 					}
 					else if(ExprFunctionOverloadSet *function = getType<ExprFunctionOverloadSet>(node->function))
 					{
+						int activeSignature = 0;
+
 						for(FunctionHandle *option = function->functions.head; option; option = option->next)
 						{
 							addFunctionSignature(data.signatureHelp, option->function);
 
-							if(option == function->functions.head)
+							int activeParameter = findActiveArgument(node->arguments, data.position, option->function->arguments.size());
+
+							if(data.signatureHelp.activeSignature == -1 && activeParameter != -1)
 							{
-								data.signatureHelp.activeSignature = 0;
-								data.signatureHelp.activeParameter = findActiveArgument(node->arguments, data.position, option->function->arguments.size());
+								data.signatureHelp.activeSignature = activeSignature;
+								data.signatureHelp.activeParameter = activeParameter;
 							}
+
+							activeSignature++;
+						}
+
+						if(data.signatureHelp.activeSignature == -1)
+						{
+							data.signatureHelp.activeSignature = 0;
+							data.signatureHelp.activeParameter = 0;
 						}
 					}
 					else if(TypeFunction *typeFunction = getType<TypeFunction>(node->function->type))
 					{
 						addFunctionTypeSignature(data.signatureHelp, typeFunction);
 
+						int activeParameter = findActiveArgument(node->arguments, data.position, typeFunction->arguments.size());
+
 						data.signatureHelp.activeSignature = 0;
-						data.signatureHelp.activeParameter = findActiveArgument(node->arguments, data.position, typeFunction->arguments.size());
+						data.signatureHelp.activeParameter = activeParameter == -1 ? 0 : activeParameter;
 					}
 				}
 			});
