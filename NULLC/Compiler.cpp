@@ -1138,30 +1138,13 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 		if(TypeClass *typeClass = getType<TypeClass>(type))
 		{
-			if(TypeGenericClassProto *typeGenericClassProto = typeClass->proto)
+			if(typeClass->source->begin >= sourceStreamStart && typeClass->source->begin < sourceStreamStart + sourceStreamSize)
 			{
-				sourceStreamStart = typeGenericClassProto->importModule ? typeGenericClassProto->importModule->lexStream : ctx.parseCtx.lexer.GetStreamStart();
-				sourceStreamSize = typeGenericClassProto->importModule ? typeGenericClassProto->importModule->lexStreamSize : ctx.parseCtx.lexer.GetStreamSize();
+				target.definitionLocationStart = unsigned(typeClass->source->begin - sourceStreamStart);
+				target.definitionLocationEnd = unsigned(typeClass->source->end - sourceStreamStart);
 
-				if(typeGenericClassProto->source->begin >= sourceStreamStart && typeGenericClassProto->source->begin < sourceStreamStart + sourceStreamSize)
-				{
-					target.definitionLocationStart = unsigned(typeGenericClassProto->source->begin - sourceStreamStart);
-					target.definitionLocationEnd = unsigned(typeGenericClassProto->source->end - sourceStreamStart);
-
-					if(typeGenericClassProto->identifier.begin)
-						target.definitionLocationName = unsigned(typeGenericClassProto->identifier.begin - sourceStreamStart);
-				}
-			}
-			else
-			{
-				if(typeClass->source->begin >= sourceStreamStart && typeClass->source->begin < sourceStreamStart + sourceStreamSize)
-				{
-					target.definitionLocationStart = unsigned(typeClass->source->begin - sourceStreamStart);
-					target.definitionLocationEnd = unsigned(typeClass->source->end - sourceStreamStart);
-
-					if(typeClass->identifier.begin)
-						target.definitionLocationName = unsigned(typeClass->identifier.begin - sourceStreamStart);
-				}
+				if(typeClass->identifier.begin)
+					target.definitionLocationName = unsigned(typeClass->identifier.begin - sourceStreamStart);
 			}
 		}
 		else if(TypeEnum *typeEnum = getType<TypeEnum>(type))
@@ -1538,6 +1521,27 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 		funcInfo.nameHash = function->nameHash;
 
+		if(ModuleData *moduleData = function->importModule)
+			funcInfo.definitionModule = moduleData->dependencyIndex;
+		else
+			funcInfo.definitionModule = 0;
+
+		funcInfo.definitionLocationStart = 0;
+		funcInfo.definitionLocationEnd = 0;
+		funcInfo.definitionLocationName = 0;
+
+		Lexeme *sourceStreamStart = function->importModule ? function->importModule->lexStream : ctx.parseCtx.lexer.GetStreamStart();
+		unsigned sourceStreamSize = function->importModule ? function->importModule->lexStreamSize : ctx.parseCtx.lexer.GetStreamSize();
+
+		if(function->source->begin >= sourceStreamStart && function->source->begin < sourceStreamStart + sourceStreamSize)
+		{
+			funcInfo.definitionLocationStart = unsigned(function->source->begin - sourceStreamStart);
+			funcInfo.definitionLocationEnd = unsigned(function->source->end - sourceStreamStart);
+
+			if(function->name->begin)
+				funcInfo.definitionLocationName = unsigned(function->name->begin - sourceStreamStart);
+		}
+
 		if(ScopeData *scope = ctx.exprCtx.NamespaceScopeFrom(function->scope))
 			funcInfo.namespaceHash = scope->ownerNamespace->fullNameHash;
 		else
@@ -1605,7 +1609,6 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			memset(funcInfo.fOffsets, 0, 8 * sizeof(unsigned));
 			funcInfo.ps3Callable = false;
 
-			funcInfo.genericModuleIndex = ~0u;
 			funcInfo.genericOffsetStart = ~0u;
 			funcInfo.genericOffset = ~0u;
 			funcInfo.genericReturnType = 0;
@@ -1623,13 +1626,11 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 			if(ModuleData *moduleData = function->importModule)
 			{
-				funcInfo.genericModuleIndex = moduleData->dependencyIndex;
 				funcInfo.genericOffsetStart = unsigned(function->declaration->source->begin - moduleData->lexStream);
 				assert(funcInfo.genericOffsetStart < moduleData->lexStreamSize);
 			}
 			else
 			{
-				funcInfo.genericModuleIndex = 0;
 				funcInfo.genericOffsetStart = unsigned(function->declaration->source->begin - ctx.parseCtx.lexer.GetStreamStart());
 				assert(funcInfo.genericOffsetStart < ctx.parseCtx.lexer.GetStreamSize());
 			}

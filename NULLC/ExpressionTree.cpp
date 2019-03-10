@@ -11365,11 +11365,25 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		if(parentType)
 			ctx.PushScope(parentType);
 
-		SynIdentifier *functionNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(functionName);
+		ModuleData *importModule = moduleCtx.data;
 
-		FunctionData *data = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, coroutine, accessor, isOperator, getType<TypeFunction>(functionType), contextType, functionNameIdentifier, generics, ctx.uniqueFunctionId++);
+		if(function.definitionModule != 0)
+			importModule = ctx.dependencies[moduleCtx.data->startingDependencyIndex + function.definitionModule - 1];
 
-		data->importModule = moduleCtx.data;
+		assert(function.definitionLocationStart < importModule->lexStreamSize);
+		assert(function.definitionLocationEnd < importModule->lexStreamSize);
+
+		SynBase *locationSource = function.definitionLocationStart != 0 || function.definitionLocationEnd != 0 ? new (ctx.get<SynImportLocation>()) SynImportLocation(function.definitionLocationStart + importModule->lexStream, function.definitionLocationEnd + importModule->lexStream) : source;
+
+		assert(function.definitionLocationName < importModule->lexStreamSize);
+
+		Lexeme *locationName = function.definitionLocationName + importModule->lexStream;
+
+		SynIdentifier *identifier = function.definitionLocationName != 0 ? new (ctx.get<SynIdentifier>()) SynIdentifier(locationName, locationName, functionName) : new (ctx.get<SynIdentifier>()) SynIdentifier(functionName);
+
+		FunctionData *data = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, locationSource, ctx.scope, coroutine, accessor, isOperator, getType<TypeFunction>(functionType), contextType, identifier, generics, ctx.uniqueFunctionId++);
+
+		data->importModule = importModule;
 
 		data->isPrototype = (function.codeSize & 0x80000000) != 0;
 
@@ -11444,9 +11458,6 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 		// TODO: explicit flag
 		if(function.funcType == 0 || functionType->isGeneric || hasGenericExplicitType || (parentType && parentType->isGeneric))
 		{
-			if(function.genericModuleIndex != 0)
-				data->importModule = ctx.dependencies[moduleCtx.data->startingDependencyIndex + function.genericModuleIndex - 1];
-
 			assert(function.genericOffsetStart < data->importModule->lexStreamSize);
 			Lexeme *start = function.genericOffsetStart + data->importModule->lexStream;
 

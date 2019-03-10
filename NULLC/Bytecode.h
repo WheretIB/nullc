@@ -47,7 +47,6 @@ struct ExternTypeInfo
 
 	unsigned int	definitionModule; // Index of the module containing the definition
 
-	unsigned int	definitionLocationModule;
 	unsigned int	definitionLocationStart;
 	unsigned int	definitionLocationEnd;
 	unsigned int	definitionLocationName;
@@ -159,7 +158,6 @@ struct ExternFuncInfo
 	unsigned int	ps3Callable;
 
 	// For generic functions
-	unsigned int	genericModuleIndex; // Index of the module containing the definition
 	unsigned int	genericOffsetStart; // Position in the lexeme stream of the definition
 	unsigned int	genericOffset;
 	unsigned int	genericReturnType;
@@ -168,6 +166,13 @@ struct ExternFuncInfo
 	unsigned int	explicitTypeCount;
 
 	unsigned int	nameHash;
+
+	unsigned int	definitionModule; // Index of the module containing the definition
+
+	unsigned int	definitionLocationModule;
+	unsigned int	definitionLocationStart;
+	unsigned int	definitionLocationEnd;
+	unsigned int	definitionLocationName;
 };
 
 struct ExternTypedefInfo
