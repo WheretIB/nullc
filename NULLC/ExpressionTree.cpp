@@ -3900,21 +3900,35 @@ ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 	if(ctx.IsFloatingPointType(value->type))
 	{
 		if(binaryOp || logicalOp)
-			Stop(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+		{
+			ReportAt(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+
+			return new (ctx.get<ExprUnaryOp>()) ExprUnaryOp(syntax, ctx.GetErrorType(), syntax->type, value);
+		}
 	}
 	else if(value->type == ctx.typeBool || value->type == ctx.typeAutoRef)
 	{
 		if(!logicalOp)
-			Stop(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+		{
+			ReportAt(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+
+			return new (ctx.get<ExprUnaryOp>()) ExprUnaryOp(syntax, ctx.GetErrorType(), syntax->type, value);
+		}
 	}
 	else if(isType<TypeRef>(value->type))
 	{
 		if(!logicalOp)
-			Stop(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+		{
+			ReportAt(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+
+			return new (ctx.get<ExprUnaryOp>()) ExprUnaryOp(syntax, ctx.GetErrorType(), syntax->type, value);
+		}
 	}
 	else if(!ctx.IsNumericType(value->type))
 	{
-		Stop(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+		ReportAt(ctx, syntax, "ERROR: unary operation '%s' is not supported on '%.*s'", GetOpName(syntax->type), FMT_ISTR(value->type->name));
+
+		return new (ctx.get<ExprUnaryOp>()) ExprUnaryOp(syntax, ctx.GetErrorType(), syntax->type, value);
 	}
 
 	TypeBase *resultType = NULL;
@@ -7805,13 +7819,15 @@ void AnalyzeFunctionArguments(ExpressionContext &ctx, IntrusiveList<SynFunctionA
 
 ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool prototype, bool coroutine, TypeBase *parentType, bool accessor, TypeBase *returnType, bool isOperator, SynIdentifier *name, IntrusiveList<SynIdentifier> aliases, IntrusiveList<SynFunctionArgument> arguments, IntrusiveList<SynBase> expressions, TypeFunction *instance, IntrusiveList<MatchData> matches)
 {
+	SynBase *errorLocation = name->begin ? name : source;
+
 	bool addedParentScope = RestoreParentTypeScope(ctx, source, parentType);
 
 	if(ctx.scope->ownerType && !parentType)
 		parentType = ctx.scope->ownerType;
 
 	if(parentType && coroutine)
-		Stop(ctx, source, "ERROR: coroutine cannot be a member function");
+		Stop(ctx, errorLocation, "ERROR: coroutine cannot be a member function");
 
 	IntrusiveList<MatchData> generics;
 
@@ -7889,7 +7905,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	if(VariableData **variable = ctx.variableMap.find(functionName.hash()))
 	{
 		if((*variable)->scope == ctx.scope)
-			Stop(ctx, source, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name->name));
+			Stop(ctx, errorLocation, "ERROR: name '%.*s' is already taken for a variable in current scope", FMT_ISTR(name->name));
 	}
 
 	if(TypeClass *classType = getType<TypeClass>(parentType))
@@ -7916,7 +7932,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		if(FunctionData *functionPrototype = ImplementPrototype(ctx, function))
 		{
 			if(prototype)
-				Stop(ctx, source, "ERROR: function is already defined");
+				Stop(ctx, errorLocation, "ERROR: function is already defined");
 
 			function->contextType = functionPrototype->contextType;
 
@@ -7933,7 +7949,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		assert(!instance);
 
 		if(prototype)
-			Stop(ctx, source, "ERROR: generic function cannot be forward-declared");
+			Stop(ctx, errorLocation, "ERROR: generic function cannot be forward-declared");
 
 		if(addedParentScope)
 			ctx.PopScope(SCOPE_TYPE);
@@ -7974,7 +7990,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	if(prototype)
 	{
 		if(function->type->returnType == ctx.typeAuto)
-			Stop(ctx, source, "ERROR: function prototype with unresolved return type");
+			Stop(ctx, errorLocation, "ERROR: function prototype with unresolved return type");
 
 		function->isPrototype = true;
 	}
@@ -8013,7 +8029,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			function->type = ctx.GetFunctionType(source, ctx.typeVoid, function->type->arguments);
 
 		if(function->type->returnType != ctx.typeVoid && !function->hasExplicitReturn)
-			Report(ctx, source, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+			Report(ctx, errorLocation, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
 
 		// User might have not returned from all control paths, for a void function we will generate a return
 		if(function->type->returnType == ctx.typeVoid)
@@ -8042,7 +8058,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 		}
 
 		if(name->name == parentName && function->type->returnType != ctx.typeVoid)
-			Stop(ctx, source, "ERROR: type constructor return type must be 'void'");
+			Stop(ctx, errorLocation, "ERROR: type constructor return type must be 'void'");
 	}
 
 	ExprVariableDefinition *contextVariableDefinition = NULL;
@@ -8093,7 +8109,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			assert(classType);
 
 			if(!classType->members.empty())
-				Report(ctx, source, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name->name));
+				Report(ctx, errorLocation, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name->name));
 		}
 	}
 
@@ -8104,7 +8120,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	FunctionData *conflict = CheckUniqueness(ctx, function);
 
 	if(conflict)
-		Report(ctx, source, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name->name));
+		Report(ctx, errorLocation, "ERROR: function '%.*s' is being defined with the same set of arguments", FMT_ISTR(function->name->name));
 
 	function->declaration = new (ctx.get<ExprFunctionDefinition>()) ExprFunctionDefinition(source, function->type, function, contextArgumentDefinition, variables, coroutineStateRead, code, contextVariableDefinition);
 
