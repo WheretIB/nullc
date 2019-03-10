@@ -1950,17 +1950,28 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 				}
 				else if(FunctionData *function = result.targetFunction)
 				{
-					if(function->source && function->name && function->name->begin)
+					ModuleData *importModule = function->importModule;
+					SynBase *source = function->source;
+					SynIdentifier *identifier = function->name;
+
+					if(function->proto)
+					{
+						importModule = function->proto->importModule;
+						source = function->proto->source;
+						identifier = function->proto->name;
+					}
+
+					if(source && identifier && identifier->begin)
 					{
 						LocationLink location;
 
 						location.originSelectionRange = Range(Position(result.bestNode->begin->line, result.bestNode->begin->column), Position(result.bestNode->begin->line, result.bestNode->begin->column + result.bestNode->begin->length));
 
-						setupTargetUri(location.targetUri, function->importModule, function->source);
+						setupTargetUri(location.targetUri, importModule, source);
 
-						location.targetRange = Range(Position(function->source->begin->line, function->source->begin->column), Position(function->source->begin->line, function->source->begin->column + function->source->begin->length));
+						location.targetRange = Range(Position(source->begin->line, source->begin->column), Position(source->begin->line, source->begin->column + source->begin->length));
 
-						location.targetSelectionRange = Range(Position(function->name->begin->line, function->name->begin->column), Position(function->name->begin->line, function->name->begin->column + function->name->begin->length));
+						location.targetSelectionRange = Range(Position(identifier->begin->line, identifier->begin->column), Position(identifier->begin->line, identifier->begin->column + identifier->begin->length));
 
 						if(!location.targetUri.empty())
 							locations.push_back(location);
