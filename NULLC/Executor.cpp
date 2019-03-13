@@ -2,6 +2,7 @@
 #include "Executor.h"
 
 #include "nullc.h"
+#include "nullc_debug.h"
 #include "StdLib.h"
 
 #if defined(NULLC_USE_DYNCALL)
@@ -843,6 +844,7 @@ Executor::Executor(Linker* linker): exLinker(linker), exTypes(linker->exTypes), 
 
 	codeRunning = false;
 
+	breakFunctionContext = NULL;
 	breakFunction = NULL;
 
 	dcCallVM = NULL;
@@ -1015,16 +1017,16 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		switch(cmd.cmd)
 		{
 		case cmdNop:
-			if(cmd.flag == EXEC_BREAK_SIGNAL || cmd.flag == EXEC_BREAK_ONE_HIT_WONDER)
+			if(cmd.flag == EXEC_BREAK_SIGNAL || cmd.flag == EXEC_BREAK_ONCE)
 			{
 				RUNTIME_ERROR(breakFunction == NULL, "ERROR: break function isn't set");
 				unsigned int target = cmd.argument;
 				fcallStack.push_back(cmdStream);
 				RUNTIME_ERROR(cmdStream < cmdBase || cmdStream > exLinker->exCode.data + exLinker->exCode.size() + 1, "ERROR: break position is out of range");
-				unsigned int response = breakFunction((unsigned int)(cmdStream - cmdBase));
+				unsigned int response = breakFunction(breakFunctionContext, unsigned(cmdStream - cmdBase));
 				fcallStack.pop_back();
 
-				RUNTIME_ERROR(response == 4, "ERROR: execution was stopped after breakpoint");
+				RUNTIME_ERROR(response == NULLC_BREAK_STOP, "ERROR: execution was stopped after breakpoint");
 
 				// Step command - set breakpoint on the next instruction, if there is no breakpoint already
 				if(response)
@@ -1063,12 +1065,12 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 						unsigned int pos = breakCode.size();
 						breakCode.push_back(*nextCommand);
 						nextCommand->cmd = cmdNop;
-						nextCommand->flag = EXEC_BREAK_ONE_HIT_WONDER;
+						nextCommand->flag = EXEC_BREAK_ONCE;
 						nextCommand->argument = pos;
 					}
 				}
 				// This flag means that breakpoint works only once
-				if(cmd.flag == EXEC_BREAK_ONE_HIT_WONDER)
+				if(cmd.flag == EXEC_BREAK_ONCE)
 				{
 					cmdStream[-1] = breakCode[target];
 					cmdStream--;
@@ -2861,8 +2863,9 @@ void* Executor::GetStackEnd()
 	return genStackTop;
 }
 
-void Executor::SetBreakFunction(unsigned (*callback)(unsigned int))
+void Executor::SetBreakFunction(void *context, unsigned (*callback)(void*, unsigned))
 {
+	breakFunctionContext = context;
 	breakFunction = callback;
 }
 
@@ -2896,7 +2899,7 @@ bool Executor::AddBreakpoint(unsigned int instruction, bool oneHit)
 	{
 		breakCode.push_back(exLinker->exCode[instruction]);
 		exLinker->exCode[instruction].cmd = cmdNop;
-		exLinker->exCode[instruction].flag = EXEC_BREAK_ONE_HIT_WONDER;
+		exLinker->exCode[instruction].flag = EXEC_BREAK_ONCE;
 		exLinker->exCode[instruction].argument = pos;
 	}else{
 		breakCode.push_back(exLinker->exCode[instruction]);

@@ -47,7 +47,7 @@ unsigned int		nullcDebugGetStackFrame();
 #define NULLC_BREAK_STOP		4
 
 // A function that is called when breakpoint is hit. Function accepts instruction number and returns how the break should be handled (constant above)
-nullres				nullcDebugSetBreakFunction(unsigned (*callback)(unsigned int));
+nullres				nullcDebugSetBreakFunction(void *context, unsigned (*callback)(void*, unsigned));
 // You can remove all breakpoints explicitly. nullcClean clears all breakpoints automatically
 nullres				nullcDebugClearBreakpoints();
 // Line number can be translated into instruction number by using nullcDebugCodeInfo and nullcDebugModuleInfo

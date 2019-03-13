@@ -37,7 +37,7 @@ public:
 	void*			GetStackStart();
 	void*			GetStackEnd();
 
-	void	SetBreakFunction(unsigned (*callback)(unsigned int));
+	void	SetBreakFunction(void *context, unsigned (*callback)(void*, unsigned));
 	void	ClearBreakpoints();
 	bool	AddBreakpoint(unsigned int instruction, bool oneHit);
 	bool	RemoveBreakpoint(unsigned int instruction);
@@ -84,7 +84,9 @@ private:
 public:
 	FastVector<unsigned char*>	instAddress;
 
-	unsigned (*breakFunction)(unsigned int);
+	void *breakFunctionContext;
+	unsigned (*breakFunction)(void*, unsigned);
+
 	struct Breakpoint
 	{
 		Breakpoint(): instIndex(0), oldOpcode(0){}

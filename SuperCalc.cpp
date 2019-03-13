@@ -391,8 +391,11 @@ void IDEDebugBreak()
 	SendMessage(hWnd, WM_USER + 2, 0, 0);
 	WaitForSingleObject(breakResponse, INFINITE);
 }
-unsigned IDEDebugBreakEx(unsigned int instruction)
+
+unsigned IDEDebugBreakEx(void *context, unsigned instruction)
 {
+	(void)context;
+
 	lastInstruction = instruction;
 	lastBreakCommand = breakCommand;
 	breakCommand = NULLC_BREAK_PROCEED;
@@ -573,7 +576,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	if(!InitInstance(hInstance, nCmdShow)) 
 		return 0;
 
-	if(!nullcDebugSetBreakFunction(IDEDebugBreakEx))
+	if(!nullcDebugSetBreakFunction(NULL, IDEDebugBreakEx))
 		strcat(initError, GetLastNullcErrorWindows());
 
 	WORD wVersionRequested = MAKEWORD(2, 2);

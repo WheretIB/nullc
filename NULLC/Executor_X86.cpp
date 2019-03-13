@@ -155,7 +155,7 @@ namespace NULLC
 			unsigned array[2] = { expInfo->ContextRecord->Eip, 0 };
 			NULLC::dataHead->instructionPtr = (unsigned)(uintptr_t)&array[1];
 
-			/*unsigned command = */currExecutor->breakFunction(currExecutor->breakInstructions[index].instIndex);
+			/*unsigned command = */currExecutor->breakFunction(currExecutor->breakFunctionContext, currExecutor->breakInstructions[index].instIndex);
 			//printf("Returned command %d\n", command);
 			*currExecutor->instAddress[currExecutor->breakInstructions[index].instIndex] = currExecutor->breakInstructions[index].oldOpcode;
 			return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
@@ -310,6 +310,9 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 	paramBase = NULL;
 	globalStartInBytecode = 0;
 	callContinue = 1;
+
+	breakFunctionContext = NULL;
+	breakFunction = NULL;
 
 	// Parameter stack must be aligned
 	assert(sizeof(NULLC::DataStackHeader) % 16 == 0);
@@ -1785,8 +1788,9 @@ void* ExecutorX86::GetStackEnd()
 	return genStackTop;
 }
 
-void ExecutorX86::SetBreakFunction(unsigned (*callback)(unsigned int))
+void ExecutorX86::SetBreakFunction(void *context, unsigned (*callback)(void*, unsigned))
 {
+	breakFunctionContext = context;
 	breakFunction = callback;
 }
 

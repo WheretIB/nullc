@@ -1389,7 +1389,7 @@ unsigned int nullcDebugGetStackFrame()
 }
 
 #ifndef NULLC_NO_EXECUTOR
-nullres nullcDebugSetBreakFunction(unsigned (*callback)(unsigned int))
+nullres nullcDebugSetBreakFunction(void *context, unsigned (*callback)(void*, unsigned))
 {
 	using namespace NULLC;
 
@@ -1398,14 +1398,14 @@ nullres nullcDebugSetBreakFunction(unsigned (*callback)(unsigned int))
 		nullcLastError = "ERROR: NULLC is not initialized";
 		return false;
 	}
-	executor->SetBreakFunction(callback);
+	executor->SetBreakFunction(context, callback);
 #ifdef NULLC_BUILD_X86_JIT
 	if(!executorX86)
 	{
 		nullcLastError = "ERROR: NULLC is not initialized";
 		return false;
 	}
-	executorX86->SetBreakFunction(callback);
+	executorX86->SetBreakFunction(context, callback);
 #endif
 	return true;
 }
