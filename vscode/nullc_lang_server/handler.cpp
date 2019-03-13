@@ -840,6 +840,7 @@ void SendResponse(Context& ctx, rapidjson::Document &doc)
 	fprintf(stdout, "Content-Length: %d\r\n", length);
 	fprintf(stdout, "\r\n");
 	fprintf(stdout, "%s", output);
+	fflush(stdout);
 }
 
 bool RespondWithError(Context& ctx, rapidjson::Document &doc, const char *method, ErrorCode errorCode, const char *message)
