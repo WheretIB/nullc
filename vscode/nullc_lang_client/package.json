@@ -16,7 +16,8 @@
         "vscode": "^1.31.0"
     },
     "activationEvents": [
-        "onLanguage:nullc"
+        "onLanguage:nullc",
+        "onCommand:extension.nullc.getProgramName"
     ],
     "main": "./out/extension",
     "categories": [
@@ -36,13 +37,66 @@
                 "configuration": "./language-configuration.json"
             }
         ],
-		"grammars": [
-			{
-				"language": "nullc",
-				"scopeName": "source.nullc",
-				"path": "./syntaxes/nullc.tmLanguage.json"
-			}
-		],
+        "grammars": [
+            {
+                "language": "nullc",
+                "scopeName": "source.nullc",
+                "path": "./syntaxes/nullc.tmLanguage.json"
+            }
+        ],
+        "breakpoints": [
+            {
+                "language": "nullc"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "nullc",
+                "label": "nullc Debug",
+                "configurationAttributes": {
+                    "launch": {
+                        "required": [
+                            "program"
+                        ],
+                        "properties": {
+                            "program": {
+                                "type": "string",
+                                "description": "Path to the launch module.",
+                                "default": "${workspaceFolder}/${command:AskForProgramName}"
+                            },
+                            "trace": {
+                                "type": "boolean",
+                                "description": "Enable logging of the Debug Adapter Protocol.",
+                                "default": true
+                            }
+                        }
+                    }
+                },
+                "initialConfigurations": [
+                    {
+                        "type": "nullc",
+                        "request": "launch",
+                        "name": "Ask for file name",
+                        "program": "${workspaceFolder}/${command:AskForProgramName}"
+                    }
+                ],
+                "configurationSnippets": [
+                    {
+                        "label": "nullc Debug: launch",
+                        "description": "A new configuration for debugging a user selected nullc file.",
+                        "body": {
+                            "type": "nullc",
+                            "request": "launch",
+                            "name": "Path to the launch module",
+                            "program": "^\"\\${workspaceFolder}/\\${command:AskForProgramName}\""
+                        }
+                    }
+                ],
+                "variables": {
+                    "AskForProgramName": "extension.nullc.getProgramName"
+                }
+            }
+        ],
         "configuration": {
             "type": "object",
             "title": "nullc configuration",

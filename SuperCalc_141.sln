@@ -1,5 +1,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Express 2012 for Windows Desktop
+# Visual Studio 15
+VisualStudioVersion = 15.0.26228.4
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SuperCalc", "SuperCalc_141.vcxproj", "{6A799BF2-225C-4CBB-A084-179CF87D019E}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NULLC", "NULLC\NULLC_141.vcxproj", "{5914662D-EBDB-4F94-8A1C-BC26E3E8B8C7}"
@@ -16,6 +18,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestRun", "TestRun_141.vcxp
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nullc_lang_server", "vscode\nullc_lang_server\nullc_lang_server.vcxproj", "{F37CE87F-FDDA-409E-AD1D-719DB04A3CD6}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nullc_lang_debugger", "vscode\nullc_lang_debugger\nullc_lang_debugger.vcxproj", "{413B3753-EE34-48DC-9E68-F8EB1BF5DB86}"
+	ProjectSection(ProjectDependencies) = postProject
+		{5914662D-EBDB-4F94-8A1C-BC26E3E8B8C7} = {5914662D-EBDB-4F94-8A1C-BC26E3E8B8C7}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -111,6 +118,18 @@ Global
 		{F37CE87F-FDDA-409E-AD1D-719DB04A3CD6}.Release|Win32.Build.0 = Release|Win32
 		{F37CE87F-FDDA-409E-AD1D-719DB04A3CD6}.Release|x64.ActiveCfg = Release|x64
 		{F37CE87F-FDDA-409E-AD1D-719DB04A3CD6}.Release|x64.Build.0 = Release|x64
+		{413B3753-EE34-48DC-9E68-F8EB1BF5DB86}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
+		{413B3753-EE34-48DC-9E68-F8EB1BF5DB86}.Debug|Mixed Platforms.Build.0 = Debug|Win32
+		{413B3753-EE34-48DC-9E68-F8EB1BF5DB86}.Debug|Win32.ActiveCfg = Debug|Win32
+		{413B3753-EE34-48DC-9E68-F8EB1BF5DB86}.Debug|Win32.Build.0 = Debug|Win32
+		{413B3753-EE34-48DC-9E68-F8EB1BF5DB86}.Debug|x64.ActiveCfg = Debug|x64
+		{413B3753-EE34-48DC-9E68-F8EB1BF5DB86}.Debug|x64.Build.0 = Debug|x64
+		{413B3753-EE34-48DC-9E68-F8EB1BF5DB86}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{413B3753-EE34-48DC-9E68-F8EB1BF5DB86}.Release|Mixed Platforms.Build.0 = Release|Win32
+		{413B3753-EE34-48DC-9E68-F8EB1BF5DB86}.Release|Win32.ActiveCfg = Release|Win32
+		{413B3753-EE34-48DC-9E68-F8EB1BF5DB86}.Release|Win32.Build.0 = Release|Win32
+		{413B3753-EE34-48DC-9E68-F8EB1BF5DB86}.Release|x64.ActiveCfg = Release|x64
+		{413B3753-EE34-48DC-9E68-F8EB1BF5DB86}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
