@@ -2015,3 +2015,96 @@ struct VariablesResponseData
 	*/
 	std::vector<Variable> variables;
 };
+
+struct ContinueArguments
+{
+	ContinueArguments() = default;
+
+	ContinueArguments(rapidjson::Value &json)
+	{
+		FromJson(threadId, json["threadId"]);
+	}
+
+	/**
+	* Continue execution for the specified thread (if possible). If the backend cannot continue on a single thread but will continue on all threads, it should set the 'allThreadsContinued' attribute in the response to true.
+	*/
+	int threadId;
+};
+
+struct ContinueResponseData
+{
+	ContinueResponseData() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document) const
+	{
+		target.SetObject();
+
+		if(allThreadsContinued)
+			target.AddMember("allThreadsContinued", ::ToJson(*allThreadsContinued, document), document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document) const
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* If true, the 'continue' request has ignored the specified thread and continued all threads instead. If this attribute is missing a value of 'true' is assumed for backward compatibility.
+	*/
+	Optional<bool> allThreadsContinued;
+};
+
+struct NextArguments
+{
+	NextArguments() = default;
+
+	NextArguments(rapidjson::Value &json)
+	{
+		FromJson(threadId, json["threadId"]);
+	}
+
+	/**
+	* Execute 'next' for this thread.
+	*/
+	int threadId;
+};
+
+struct StepInArguments
+{
+	StepInArguments() = default;
+
+	StepInArguments(rapidjson::Value &json)
+	{
+		FromJson(threadId, json["threadId"]);
+
+		if(json.HasMember("targetId"))
+			FromJson(targetId, json["targetId"]);
+	}
+
+	/**
+	* Execute 'stepIn' for this thread.
+	*/
+	int threadId;
+
+	/**
+	* Optional id of the target to step into.
+	*/
+	Optional<int> targetId;
+};
+
+struct StepOutArguments
+{
+	StepOutArguments() = default;
+
+	StepOutArguments(rapidjson::Value &json)
+	{
+		FromJson(threadId, json["threadId"]);
+	}
+
+	/**
+	* Execute 'stepOut' for this thread.
+	*/
+	int threadId;
+};

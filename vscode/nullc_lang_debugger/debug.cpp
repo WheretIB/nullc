@@ -14,6 +14,10 @@ unsigned OnDebugBreak(void *context, unsigned instruction)
 	Context &ctx = *(Context*)context;
 
 	//SendEventStopped(ctx, StoppedEventData("breakpoint", "Breakpoint Hit", 1, false, "Manual Breakpoint", true));
+
+	ctx.breakpointActive.store(true);
+	ctx.breakpointInstruction.store(instruction);
+
 	SendEventStopped(ctx, StoppedEventData("breakpoint", 1));
 
 	{
@@ -22,9 +26,9 @@ unsigned OnDebugBreak(void *context, unsigned instruction)
 		ctx.breakpointWait.wait(lock);
 	}
 
-	(void)instruction;
+	ctx.breakpointActive.store(false);
 
-	return NULLC_BREAK_PROCEED;
+	return ctx.breakpointAction.load();
 }
 
 void ApplicationThread(Context &ctx)

@@ -1047,6 +1047,83 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 	return true;
 }
 
+bool HandleRequestContinue(Context& ctx, rapidjson::Document &response, rapidjson::Value &arguments)
+{
+	ContinueArguments args{arguments};
+
+	ContinueResponseData data;
+
+	if(ctx.breakpointActive.load())
+	{
+		ctx.breakpointAction = NULLC_BREAK_PROCEED;
+
+		ctx.breakpointWait.notify_one();
+	}
+
+	data.allThreadsContinued = true;
+
+	response.AddMember("success", true, response.GetAllocator());
+	response.AddMember("body", ::ToJson(data, response), response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	return true;
+}
+
+bool HandleRequestNext(Context& ctx, rapidjson::Document &response, rapidjson::Value &arguments)
+{
+	NextArguments args{arguments};
+
+	if(ctx.breakpointActive.load())
+	{
+		ctx.breakpointAction = NULLC_BREAK_STEP;
+
+		ctx.breakpointWait.notify_one();
+	}
+
+	response.AddMember("success", true, response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	return true;
+}
+
+bool HandleRequestStepIn(Context& ctx, rapidjson::Document &response, rapidjson::Value &arguments)
+{
+	StepInArguments args{arguments};
+
+	if(ctx.breakpointActive.load())
+	{
+		ctx.breakpointAction = NULLC_BREAK_STEP_INTO;
+
+		ctx.breakpointWait.notify_one();
+	}
+
+	response.AddMember("success", true, response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	return true;
+}
+
+bool HandleRequestStepOut(Context& ctx, rapidjson::Document &response, rapidjson::Value &arguments)
+{
+	StepOutArguments args{arguments};
+
+	if(ctx.breakpointActive.load())
+	{
+		ctx.breakpointAction = NULLC_BREAK_STEP_OUT;
+
+		ctx.breakpointWait.notify_one();
+	}
+
+	response.AddMember("success", true, response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	return true;
+}
+
 bool HandleRequestTerminate(Context& ctx, rapidjson::Document &response, rapidjson::Value &arguments)
 {
 	TerminateArguments args{arguments};
@@ -1056,7 +1133,16 @@ bool HandleRequestTerminate(Context& ctx, rapidjson::Document &response, rapidjs
 		if(ctx.debugMode)
 			fprintf(stderr, "DEBUG: Stopping application\r\n");
 
-		// TODO: stop application thread if it still exists
+		if(ctx.breakpointActive.load())
+		{
+			ctx.breakpointAction = NULLC_BREAK_STOP;
+
+			ctx.breakpointWait.notify_one();
+		}
+		else
+		{
+			// TODO: stop application thread if it still exists
+		}
 
 		ctx.applicationThread.join();
 	}
@@ -1086,7 +1172,16 @@ bool HandleRequestDisconnect(Context& ctx, rapidjson::Document &response, rapidj
 		if(ctx.debugMode)
 			fprintf(stderr, "DEBUG: Stopping application\r\n");
 
-		// TODO: stop application thread if it still exists
+		if(ctx.breakpointActive.load())
+		{
+			ctx.breakpointAction = NULLC_BREAK_STOP;
+
+			ctx.breakpointWait.notify_one();
+		}
+		else
+		{
+			// TODO: stop application thread if it still exists
+		}
 
 		ctx.applicationThread.join();
 	}
@@ -1149,6 +1244,18 @@ bool HandleRequest(Context& ctx, int seq, const char *command, rapidjson::Value 
 
 	if(strcmp(command, "variables") == 0)
 		return HandleRequestVariables(ctx, response, arguments);
+
+	if(strcmp(command, "continue") == 0)
+		return HandleRequestContinue(ctx, response, arguments);
+
+	if(strcmp(command, "next") == 0)
+		return HandleRequestNext(ctx, response, arguments);
+
+	if(strcmp(command, "stepIn") == 0)
+		return HandleRequestStepIn(ctx, response, arguments);
+
+	if(strcmp(command, "stepOut") == 0)
+		return HandleRequestStepOut(ctx, response, arguments);
 
 	if(strcmp(command, "terminate") == 0)
 		return HandleRequestTerminate(ctx, response, arguments);

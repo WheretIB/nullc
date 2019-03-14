@@ -30,5 +30,9 @@ struct Context
 	std::mutex breakpointMutex;
 	std::condition_variable breakpointWait;
 
+	std::atomic<bool> breakpointActive;
+	std::atomic<unsigned> breakpointInstruction;
+	std::atomic<unsigned> breakpointAction;
+
 	std::thread applicationThread;
 };
