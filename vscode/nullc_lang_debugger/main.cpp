@@ -1,7 +1,10 @@
 #include <assert.h>
 #include <stdio.h>
+
+#if defined(_WIN32)
 #include <io.h>
 #include <fcntl.h>
+#endif
 
 #include <iostream>
 #include <string>
@@ -12,15 +15,10 @@
 #include "context.h"
 #include "handler.h"
 
-#include <Windows.h>
-
 #pragma warning(disable: 4996)
 
 int main(int argc, char **argv)
 {
-	while(!IsDebuggerPresent())
-		Sleep(1000);
-
 	Context ctx;
 
 	for(int i = 1; i < argc; i++)
@@ -32,8 +30,10 @@ int main(int argc, char **argv)
 		}
 	}
 
+#if defined(_WIN32)
 	_setmode(_fileno(stdin), _O_BINARY);
 	_setmode(_fileno(stdout), _O_BINARY);
+#endif
 
 	if(ctx.infoMode)
 		fprintf(stderr, "INFO: Launching\r\n");
