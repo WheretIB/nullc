@@ -1052,12 +1052,12 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 					// Step command - handle "return" step
 					if(breakCode[target].cmd == cmdReturn && fcallStack.size() != finalReturn)
 						nextCommand = fcallStack.back();
-					if(response == 2 && breakCode[target].cmd == cmdCall && exFunctions[breakCode[target].argument].address != -1)
+					if(response == NULLC_BREAK_STEP_INTO && breakCode[target].cmd == cmdCall && exFunctions[breakCode[target].argument].address != -1)
 						nextCommand = cmdBase + exFunctions[breakCode[target].argument].address;
-					if(response == 2 && breakCode[target].cmd == cmdCallPtr && genStackPtr[breakCode[target].argument >> 2] && exFunctions[genStackPtr[breakCode[target].argument >> 2]].address != -1)
+					if(response == NULLC_BREAK_STEP_INTO && breakCode[target].cmd == cmdCallPtr && genStackPtr[breakCode[target].argument >> 2] && exFunctions[genStackPtr[breakCode[target].argument >> 2]].address != -1)
 						nextCommand = cmdBase + exFunctions[genStackPtr[breakCode[target].argument >> 2]].address;
 
-					if(response == 3 && fcallStack.size() != finalReturn)
+					if(response == NULLC_BREAK_STEP_OUT && fcallStack.size() != finalReturn)
 						nextCommand = fcallStack.back();
 
 					if(nextCommand->cmd != cmdNop)
