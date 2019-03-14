@@ -268,7 +268,7 @@ bool HandleRequestSetBreakpoints(Context& ctx, rapidjson::Document &response, ra
 			{
 				if(moduleSource)
 				{
-					if(unsigned instruction = ConvertLineToInstruction(moduleSource, el.line))
+					if(unsigned instruction = ConvertLineToInstruction(moduleSource, el.line - (ctx.initArgs.linesStartAt1 && *ctx.initArgs.linesStartAt1 ? 1 : 0)))
 					{
 						if(nullcDebugAddBreakpoint(instruction))
 						{
@@ -307,7 +307,32 @@ bool HandleRequestSetBreakpoints(Context& ctx, rapidjson::Document &response, ra
 
 			breakpoint.id = (int)breakpoints.size() + 1;
 
-			breakpoint.verified = true;
+			breakpoint.verified = false;
+
+			if(moduleSource)
+			{
+				if(unsigned instruction = ConvertLineToInstruction(moduleSource, el))
+				{
+					if(nullcDebugAddBreakpoint(instruction))
+					{
+						breakpoint.line = el - (ctx.initArgs.linesStartAt1 && *ctx.initArgs.linesStartAt1 ? 1 : 0);
+
+						breakpoint.verified = true;
+					}
+					else
+					{
+						breakpoint.message = nullcGetLastError();
+					}
+				}
+				else
+				{
+					breakpoint.message = "can't find instruction at the target location";
+				}
+			}
+			else
+			{
+				breakpoint.message = "target source file not found in linked program";
+			}
 
 			breakpoints.push_back(breakpoint);
 		}
@@ -458,7 +483,11 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 			return RespondWithError(ctx, response, "failed to launch nullc");
 	}
 
-	nullcSetEnableLogFiles(0, NULL, NULL, NULL);
+	if(ctx.debugMode)
+		nullcSetEnableLogFiles(1, NULL, NULL, NULL);
+	else
+		nullcSetEnableLogFiles(0, NULL, NULL, NULL);
+
 	nullcSetExecutor(NULLC_VM);
 
 	if(!nullcDebugSetBreakFunction(&ctx, OnDebugBreak))
@@ -536,21 +565,16 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 	return true;
 }
 
-bool HandleRequestLoadedSources(Context& ctx, rapidjson::Document &response, rapidjson::Value &arguments)
+Source GetModuleSourceInfo(Context& ctx, unsigned moduleIndex)
 {
-	(void)arguments;
-
-	std::vector<Source> sources;
-
-	unsigned symbolCount = 0;
-	auto symbols = nullcDebugSymbols(&symbolCount);
-
 	unsigned moduleCount = 0;
 	auto modules = nullcDebugModuleInfo(&moduleCount);
 
-	for(unsigned i = 0; i < moduleCount; i++)
+	auto symbols = nullcDebugSymbols(nullptr);
+
+	if(moduleIndex < moduleCount)
 	{
-		ExternModuleInfo &moduleInfo = modules[i];
+		auto &moduleInfo = modules[moduleIndex];
 
 		Source source;
 
@@ -586,36 +610,50 @@ bool HandleRequestLoadedSources(Context& ctx, rapidjson::Document &response, rap
 			}
 			else
 			{
-				source.sourceReference = i + 1;
+				source.sourceReference = moduleIndex;
 
 				source.presentationHint = name[0] == '$' ? SourcePresentationHints::deemphasize : SourcePresentationHints::normal;
 			}
 		}
 		else
 		{
-			source.sourceReference = i + 1;
+			source.sourceReference = moduleIndex;
 
 			source.presentationHint = name[0] == '$' ? SourcePresentationHints::deemphasize : SourcePresentationHints::normal;
 		}
 
-		sources.push_back(source);
+		return source;
 	}
 
-	{
-		Source source;
+	Source source;
 
-		std::string name = "main.nc";
+	// TODO: take name from launch arguments
+	std::string name = "main.nc";
 
-		source.name = name;
+	source.name = name;
 
-		source.path = ctx.launchArgs.program;
+	source.path = ctx.launchArgs.program;
 
-		source.presentationHint = SourcePresentationHints::emphasize;
+	source.presentationHint = SourcePresentationHints::emphasize;
 
-		source.origin = "workspace";
+	source.origin = "workspace";
 
-		sources.push_back(source);
-	}
+	return source;
+}
+
+bool HandleRequestLoadedSources(Context& ctx, rapidjson::Document &response, rapidjson::Value &arguments)
+{
+	(void)arguments;
+
+	std::vector<Source> sources;
+
+	unsigned moduleCount = 0;
+	nullcDebugModuleInfo(&moduleCount);
+
+	for(unsigned i = 0; i < moduleCount; i++)
+		sources.push_back(GetModuleSourceInfo(ctx, i));
+
+	sources.push_back(GetModuleSourceInfo(ctx, ~0u));
 
 	rapidjson::Value body;
 	body.SetObject();
@@ -680,6 +718,326 @@ bool HandleRequestStackTrace(Context& ctx, rapidjson::Document &response, rapidj
 	StackTraceArguments args{arguments};
 
 	StackTraceResponseData data;
+
+	auto symbols = nullcDebugSymbols(nullptr);
+
+	unsigned functionCount = 0;
+	auto functions = nullcDebugFunctionInfo(&functionCount);
+
+	unsigned frameId = 0;
+	unsigned skipFrames = args.startFrame ? *args.startFrame : 0;
+
+	nullcDebugBeginCallStack();
+
+	while(int nextAddress = nullcDebugGetStackFrame())
+	{
+		if(skipFrames)
+		{
+			skipFrames--;
+
+			frameId++;
+			continue;
+		}
+
+		auto sourceLocation = GetInstructionSourceLocation(nextAddress - 1);
+
+		if(!sourceLocation)
+		{
+			fprintf(stderr, "ERROR: Failed to find location for stack frame %d\r\n", frameId);
+
+			frameId++;
+			continue;
+		}
+
+		unsigned moduleIndex = GetSourceLocationModuleIndex(sourceLocation);
+
+		auto function = nullcDebugConvertAddressToFunction(nextAddress, functions, functionCount);
+
+		StackFrame stackFrame;
+
+		stackFrame.id = frameId;
+
+		stackFrame.name = function ? symbols + function->offsetToName : "global";
+
+		stackFrame.source = GetModuleSourceInfo(ctx, moduleIndex);
+
+		unsigned column = 0;
+		unsigned line = ConvertSourceLocationToLine(sourceLocation, moduleIndex, column);
+
+		if(!ctx.initArgs.linesStartAt1 || *ctx.initArgs.linesStartAt1)
+			line++;
+
+		if(!ctx.initArgs.columnsStartAt1 || *ctx.initArgs.columnsStartAt1)
+			column++;
+
+		stackFrame.line = line;
+		stackFrame.column = column;
+
+		if(!args.levels || *args.levels == 0 || data.stackFrames.size() < *args.levels)
+			data.stackFrames.push_back(stackFrame);
+
+		frameId++;
+	}
+
+	data.totalFrames = frameId;
+
+	response.AddMember("success", true, response.GetAllocator());
+	response.AddMember("body", ::ToJson(data, response), response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	return true;
+}
+
+bool HandleRequestScopes(Context& ctx, rapidjson::Document &response, rapidjson::Value &arguments)
+{
+	ScopesArguments args{arguments};
+
+	ScopesResponseData data;
+
+	unsigned functionCount = 0;
+	auto functions = nullcDebugFunctionInfo(&functionCount);
+
+	unsigned variableCount = 0;
+	nullcDebugVariableInfo(&variableCount);
+
+	unsigned skipFrames = args.frameId;
+
+	nullcDebugBeginCallStack();
+
+	while(int nextAddress = nullcDebugGetStackFrame())
+	{
+		if(skipFrames)
+		{
+			skipFrames--;
+			continue;
+		}
+
+		auto sourceLocation = GetInstructionSourceLocation(nextAddress - 1);
+
+		if(!sourceLocation)
+		{
+			fprintf(stderr, "ERROR: Failed to find location for stack frame %d\r\n", args.frameId);
+			continue;
+		}
+
+		unsigned moduleIndex = GetSourceLocationModuleIndex(sourceLocation);
+
+		if(auto function = nullcDebugConvertAddressToFunction(nextAddress, functions, functionCount))
+		{
+			if(function->paramCount != 0)
+			{
+				Scope scope;
+
+				scope.name = "Arguments";
+
+				scope.variablesReference = args.frameId * 10 + 2;
+
+				scope.namedVariables = function->paramCount + 1;
+
+				data.scopes.push_back(scope);
+			}
+
+			if(function->localCount - (function->paramCount + 1) - function->externCount != 0)
+			{
+				Scope scope;
+
+				scope.name = "Locals";
+
+				scope.variablesReference = args.frameId * 10 + 3;
+
+				scope.namedVariables = function->localCount - (function->paramCount + 1) - function->externCount;
+
+				data.scopes.push_back(scope);
+			}
+
+			if(function->externCount != 0)
+			{
+				Scope scope;
+
+				scope.name = "Externals";
+
+				scope.variablesReference = args.frameId * 10 + 4;
+
+				scope.namedVariables = function->externCount;
+
+				data.scopes.push_back(scope);
+			}
+		}
+		else
+		{
+			Scope scope;
+
+			scope.name = "Globals";
+
+			scope.variablesReference = args.frameId * 10 + 1;
+
+			scope.namedVariables = variableCount;
+
+			scope.source = GetModuleSourceInfo(ctx, moduleIndex);
+
+			data.scopes.push_back(scope);
+		}
+
+		break;
+	}
+
+	response.AddMember("success", true, response.GetAllocator());
+	response.AddMember("body", ::ToJson(data, response), response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	return true;
+}
+
+Variable GetVariableInfo(unsigned typeIndex, const char *name, char *ptr, bool showHex)
+{
+	unsigned typeCount = 0;
+	auto types = nullcDebugTypeInfo(&typeCount);
+
+	auto symbols = nullcDebugSymbols(nullptr);
+
+	Variable variable;
+
+	variable.name = name;
+
+	variable.value = GetBasicVariableInfo(typeIndex, ptr, showHex);
+
+	variable.type = symbols + types[typeIndex].offsetToName;
+
+	variable.evaluateName = name;
+
+	// TODO: nested types
+	variable.variablesReference = 0;
+
+	return variable;
+}
+
+bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjson::Value &arguments)
+{
+	VariablesArguments args{arguments};
+
+	VariablesResponseData data;
+
+	unsigned typeCount = 0;
+	auto types = nullcDebugTypeInfo(&typeCount);
+
+	unsigned functionCount = 0;
+	auto functions = nullcDebugFunctionInfo(&functionCount);
+
+	unsigned variableCount = 0;
+	auto variables = nullcDebugVariableInfo(&variableCount);
+
+	unsigned localCount = 0;
+	auto locals = nullcDebugLocalInfo(&localCount);
+
+	unsigned stackSize = 0;
+	char *stack = (char*)nullcGetVariableData(&stackSize);
+
+	auto symbols = nullcDebugSymbols(nullptr);
+
+	// Stack frame references don't have their high bit set
+	if((args.variablesReference & 0x80000000) == 0)
+	{
+		unsigned frameId = args.variablesReference / 10;
+		unsigned scopeKind = args.variablesReference % 10;
+
+		unsigned skipFrames = frameId;
+
+		unsigned offset = 0;
+
+		for(unsigned i = 0; i < variableCount; i++)
+		{
+			auto variableInfo = variables[i];
+
+			auto &type = types[variableInfo.type];
+
+			if(variableInfo.offset + type.size > offset)
+				offset = variableInfo.offset + type.size;
+		}
+
+		nullcDebugBeginCallStack();
+
+		while(int nextAddress = nullcDebugGetStackFrame())
+		{
+			if(skipFrames)
+			{
+				skipFrames--;
+				continue;
+			}
+
+			auto sourceLocation = GetInstructionSourceLocation(nextAddress - 1);
+
+			if(!sourceLocation)
+			{
+				fprintf(stderr, "ERROR: Failed to find location for stack frame %d\r\n", frameId);
+				continue;
+			}
+
+			if(args.filter && *args.filter == VariablesArgumentsFilters::indexed)
+				break;
+
+			unsigned start = args.start ? *args.start : 0;
+
+			bool showHex = args.format && args.format->hex && *args.format->hex;
+
+			if(auto function = nullcDebugConvertAddressToFunction(nextAddress, functions, functionCount))
+			{
+				// Align offset to the first variable (by 16 byte boundary)
+				int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
+
+				offset += alignOffset;
+
+				if(scopeKind == 2) // Arguments
+				{
+					unsigned count = function->paramCount + 1;
+
+					for(unsigned i = start; i < count && (!args.count || data.variables.size() < *args.count); i++)
+					{
+						auto localinfo = locals[function->offsetToFirstLocal + i];
+
+						data.variables.push_back(GetVariableInfo(localinfo.type, symbols + localinfo.offsetToName, stack + offset + localinfo.offset, showHex));
+					}
+				}
+				else if(scopeKind == 3) // Locals
+				{
+					unsigned count = function->localCount - (function->paramCount + 1) - function->externCount;
+
+					for(unsigned i = start; i < count && (!args.count || data.variables.size() < *args.count); i++)
+					{
+						auto localinfo = locals[function->offsetToFirstLocal + function->paramCount + 1 + i];
+
+						data.variables.push_back(GetVariableInfo(localinfo.type, symbols + localinfo.offsetToName, stack + offset + localinfo.offset, showHex));
+					}
+				}
+				else if(scopeKind == 4) // Externals
+				{
+					unsigned count = function->externCount;
+
+					for(unsigned i = start; i < count && (!args.count || data.variables.size() < *args.count); i++)
+					{
+						auto localinfo = locals[function->offsetToFirstLocal + function->localCount - function->externCount + i];
+
+						data.variables.push_back(GetVariableInfo(localinfo.type, symbols + localinfo.offsetToName, stack + offset + localinfo.offset, showHex));
+					}
+				}
+			}
+			else if(scopeKind == 1) // Globals
+			{
+				for(unsigned i = args.start ? *args.start : 0; i < variableCount && (!args.count || data.variables.size() < *args.count); i++)
+				{
+					auto variableInfo = variables[i];
+
+					data.variables.push_back(GetVariableInfo(variableInfo.type, symbols + variableInfo.offsetToName, stack + variableInfo.offset, showHex));
+				}
+			}
+
+			break;
+		}
+	}
+	else
+	{
+	}
 
 	response.AddMember("success", true, response.GetAllocator());
 	response.AddMember("body", ::ToJson(data, response), response.GetAllocator());
@@ -785,6 +1143,12 @@ bool HandleRequest(Context& ctx, int seq, const char *command, rapidjson::Value 
 
 	if(strcmp(command, "stackTrace") == 0)
 		return HandleRequestStackTrace(ctx, response, arguments);
+
+	if(strcmp(command, "scopes") == 0)
+		return HandleRequestScopes(ctx, response, arguments);
+
+	if(strcmp(command, "variables") == 0)
+		return HandleRequestVariables(ctx, response, arguments);
 
 	if(strcmp(command, "terminate") == 0)
 		return HandleRequestTerminate(ctx, response, arguments);

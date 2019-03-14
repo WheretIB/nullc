@@ -211,6 +211,60 @@ namespace StackFramePresentationHints
 
 using StackFramePresentationHint = std::string;
 
+namespace VariablesArgumentsFilters
+{
+	static const char *indexed = "indexed";
+	static const char *named = "named";
+}
+
+using VariablesArgumentsFilter = std::string;
+
+namespace VariableKinds
+{
+	static const char *property_ = "property";
+	static const char *method = "method";
+	static const char *class_ = "class";
+	static const char *data = "data";
+	static const char *event = "event";
+	static const char *baseClass = "baseClass";
+	static const char *innerClass = "innerClass";
+	static const char *interface_ = "interface";
+	static const char *mostDerivedClass = "mostDerivedClass";
+	static const char *virtual_ = "virtual";
+	static const char *dataBreakpoint = "dataBreakpoint";
+}
+
+using VariableKind = std::string;
+
+namespace VariableAttributes
+{
+	static const char *static_ = "static";
+	static const char *constant_ = "constant";
+	static const char *readOnly = "readOnly";
+	static const char *rawString = "rawString";
+	static const char *hasObjectId = "hasObjectId";
+	static const char *canHaveObjectId = "canHaveObjectId";
+	static const char *hasSideEffects = "hasSideEffects";
+}
+
+using VariableAttribute = std::string;
+
+/**
+* Visibility of variable. Before introducing additional values, try to use the listed values.
+* Values: 'public', 'private', 'protected', 'internal', 'final', etc.
+*/
+
+namespace VariableVisibilities
+{
+	static const char *public_ = "public";
+	static const char *private_ = "private";
+	static const char *protected_ = "protected";
+	static const char *internal_ = "internal";
+	static const char *final_ = "final";
+}
+
+using VariableVisibility = std::string;
+
 struct InitializeRequestArguments
 {
 	InitializeRequestArguments() = default;
@@ -1634,4 +1688,330 @@ struct StackTraceResponseData
 	* The total number of frames available.
 	*/
 	Optional<int> totalFrames;
+};
+
+struct ScopesArguments
+{
+	ScopesArguments() = default;
+
+	ScopesArguments(rapidjson::Value &json)
+	{
+		FromJson(frameId, json["frameId"]);
+	}
+
+	/**
+	* Retrieve the scopes for this stackframe.
+	*/
+	int frameId;
+};
+
+struct Scope
+{
+	Scope() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document) const
+	{
+		target.SetObject();
+
+		target.AddMember("name", ::ToJson(name, document), document.GetAllocator());
+		target.AddMember("variablesReference", ::ToJson(variablesReference, document), document.GetAllocator());
+
+		if(namedVariables)
+			target.AddMember("namedVariables", ::ToJson(*namedVariables, document), document.GetAllocator());
+
+		if(indexedVariables)
+			target.AddMember("indexedVariables", ::ToJson(*indexedVariables, document), document.GetAllocator());
+
+		if(expensive)
+			target.AddMember("expensive", ::ToJson(*expensive, document), document.GetAllocator());
+
+		if(source)
+			target.AddMember("source", ::ToJson(*source, document), document.GetAllocator());
+
+		if(line)
+			target.AddMember("line", ::ToJson(*line, document), document.GetAllocator());
+
+		if(column)
+			target.AddMember("column", ::ToJson(*column, document), document.GetAllocator());
+
+		if(endLine)
+			target.AddMember("endLine", ::ToJson(*endLine, document), document.GetAllocator());
+
+		if(endColumn)
+			target.AddMember("endColumn", ::ToJson(*endColumn, document), document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document) const
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* Name of the scope such as 'Arguments', 'Locals'.
+	*/
+	std::string name;
+
+	/**
+	* The variables of this scope can be retrieved by passing the value of variablesReference to the VariablesRequest.
+	*/
+	int variablesReference = 0;
+
+	/**
+	* The number of named variables in this scope.
+	* The client can use this optional information to present the variables in a paged UI and fetch them in chunks.
+	*/
+	Optional<int> namedVariables;
+
+	/**
+	* The number of indexed variables in this scope.
+	* The client can use this optional information to present the variables in a paged UI and fetch them in chunks.
+	*/
+	Optional<int> indexedVariables;
+
+	/**
+	* If true, the number of variables in this scope is large or expensive to retrieve.
+	*/
+	Optional<bool> expensive;
+
+	/**
+	* Optional source for this scope.
+	*/
+	Optional<Source> source;
+
+	/**
+	* Optional start line of the range covered by this scope.
+	*/
+	Optional<int> line;
+
+	/**
+	* Optional start column of the range covered by this scope.
+	*/
+	Optional<int> column;
+
+	/**
+	* Optional end line of the range covered by this scope.
+	*/
+	Optional<int> endLine;
+
+	/**
+	* Optional end column of the range covered by this scope.
+	*/
+	Optional<int> endColumn;
+};
+
+struct ScopesResponseData
+{
+	ScopesResponseData() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document) const
+	{
+		target.SetObject();
+
+		target.AddMember("scopes", ::ToJson(scopes, document), document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document) const
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* The scopes of the stackframe. If the array has length zero, there are no scopes available.
+	*/
+	std::vector<Scope> scopes;
+};
+
+struct VariablesArguments
+{
+	VariablesArguments() = default;
+
+	VariablesArguments(rapidjson::Value &json)
+	{
+		FromJson(variablesReference, json["variablesReference"]);
+
+		if(json.HasMember("filter"))
+			FromJson(filter, json["filter"]);
+
+		if(json.HasMember("start"))
+			FromJson(start, json["start"]);
+
+		if(json.HasMember("count"))
+			FromJson(count, json["count"]);
+
+		if(json.HasMember("format"))
+			FromJson(format, json["format"]);
+	}
+
+	/**
+	* The Variable reference.
+	*/
+	int variablesReference = 0;
+
+	/**
+	* Optional filter to limit the child variables to either named or indexed. If ommited, both types are fetched.
+	*/
+	Optional<VariablesArgumentsFilter> filter;
+
+	/**
+	* The index of the first variable to return; if omitted children start at 0.
+	*/
+	Optional<int> start;
+
+	/**
+	* The number of variables to return. If count is missing or 0, all variables are returned.
+	*/
+	Optional<int> count;
+
+	/**
+	* Specifies details on how to format the Variable values.
+	*/
+	Optional<ValueFormat> format;
+};
+
+struct VariablePresentationHint
+{
+	VariablePresentationHint() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document) const
+	{
+		target.SetObject();
+
+		if(kind)
+			target.AddMember("kind", ::ToJson(*kind, document), document.GetAllocator());
+
+		if(attributes)
+			target.AddMember("attributes", ::ToJson(*attributes, document), document.GetAllocator());
+
+		if(visibility)
+			target.AddMember("visibility", ::ToJson(*visibility, document), document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document) const
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* The kind of variable.
+	*/
+	Optional<VariableKind> kind;
+
+	/**
+	* Set of attributes represented as an array of strings.
+	*/
+	Optional<std::vector<VariableAttribute>> attributes;
+
+	/**
+	* Visibility of variable.
+	*/
+	Optional<VariableVisibility> visibility;
+};
+
+struct Variable
+{
+	Variable() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document) const
+	{
+		target.SetObject();
+
+		target.AddMember("name", ::ToJson(name, document), document.GetAllocator());
+		target.AddMember("value", ::ToJson(value, document), document.GetAllocator());
+
+		if(type)
+			target.AddMember("type", ::ToJson(*type, document), document.GetAllocator());
+
+		if(presentationHint)
+			target.AddMember("presentationHint", ::ToJson(*presentationHint, document), document.GetAllocator());
+
+		if(evaluateName)
+			target.AddMember("evaluateName", ::ToJson(*evaluateName, document), document.GetAllocator());
+
+		target.AddMember("variablesReference", ::ToJson(variablesReference, document), document.GetAllocator());
+
+		if(namedVariables)
+			target.AddMember("namedVariables", ::ToJson(*namedVariables, document), document.GetAllocator());
+
+		if(indexedVariables)
+			target.AddMember("indexedVariables", ::ToJson(*indexedVariables, document), document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document) const
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* The variable's name.
+	*/
+	std::string name;
+
+	/**
+	* The variable's value. This can be a multi-line text, e.g. for a function the body of a function.
+	*/
+	std::string value;
+
+	/**
+	* The type of the variable's value. Typically shown in the UI when hovering over the value.
+	*/
+	Optional<std::string> type;
+
+	/**
+	* Properties of a variable that can be used to determine how to render the variable in the UI.
+	*/
+	Optional<VariablePresentationHint> presentationHint;
+
+	/**
+	* Optional evaluatable name of this variable which can be passed to the 'EvaluateRequest' to fetch the variable's value.
+	*/
+	Optional<std::string> evaluateName;
+
+	/**
+	* If variablesReference is > 0, the variable is structured and its children can be retrieved by passing variablesReference to the VariablesRequest.
+	*/
+	int variablesReference = 0;
+
+	/**
+	* The number of named child variables.
+	* The client can use this optional information to present the children in a paged UI and fetch them in chunks.
+	*/
+	Optional<int> namedVariables;
+
+	/**
+	* The number of indexed child variables.
+	* The client can use this optional information to present the children in a paged UI and fetch them in chunks.
+	*/
+	Optional<int> indexedVariables;
+};
+
+struct VariablesResponseData
+{
+	VariablesResponseData() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document) const
+	{
+		target.SetObject();
+
+		target.AddMember("variables", ::ToJson(variables, document), document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document &document) const
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	* All (or a range) of variables for the given variable reference.
+	*/
+	std::vector<Variable> variables;
 };

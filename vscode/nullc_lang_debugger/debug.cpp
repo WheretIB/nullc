@@ -13,16 +13,8 @@ unsigned OnDebugBreak(void *context, unsigned instruction)
 {
 	Context &ctx = *(Context*)context;
 
-	//SendEventOutput(ctx,  OutputEventData("stdout", "before breakpoint\n"));
 	//SendEventStopped(ctx, StoppedEventData("breakpoint", "Breakpoint Hit", 1, false, "Manual Breakpoint", true));
 	SendEventStopped(ctx, StoppedEventData("breakpoint", 1));
-
-	/*StoppedEventData data;
-	data.reason = "breakpoint";
-	data.allThreadsStopped = true;
-	SendEventStopped(ctx, data);*/
-
-	//SendEventOutput(ctx,  OutputEventData("stdout", "after breakpoint\n"));
 
 	{
 		std::unique_lock<std::mutex> lock(ctx.breakpointMutex);
@@ -47,9 +39,9 @@ void ApplicationThread(Context &ctx)
 
 		ctx.running.store(false);
 
-		/*SendEventThread(ctx, ThreadEventData("exited", 1));
+		SendEventThread(ctx, ThreadEventData("exited", 1));
 		SendEventExited(ctx, atoi(val));
-		SendEventTerminated(ctx);*/
+		SendEventTerminated(ctx);
 	}
 	else
 	{
@@ -92,8 +84,7 @@ const char* GetModuleSourceCode(Context &ctx, const Source& source)
 
 	std::string name = NormalizePath(*source.name);
 
-	unsigned symbolCount = 0;
-	auto symbols = nullcDebugSymbols(&symbolCount);
+	auto symbols = nullcDebugSymbols(nullptr);
 
 	unsigned moduleCount = 0;
 	auto modules = nullcDebugModuleInfo(&moduleCount);
@@ -205,4 +196,142 @@ unsigned ConvertLineToInstruction(const char *sourceCode, int line)
 	unsigned lineEndOffset = unsigned(lineEnd - fullSource);
 
 	return ConvertPositionToInstruction(lineStartOffset, lineEndOffset);
+}
+
+const char* GetInstructionSourceLocation(unsigned instruction)
+{
+	unsigned infoSize = 0;
+	auto codeInfo = nullcDebugCodeInfo(&infoSize);
+
+	if(!infoSize)
+		return nullptr;
+
+	auto fullSource = nullcDebugSource();
+
+	for(unsigned i = 0; i < infoSize - 1; i++)
+	{
+		if(instruction < codeInfo[i + 1].byteCodePos)
+			return fullSource + codeInfo[i + 1].sourceOffset;
+	}
+
+	return nullptr;
+}
+
+unsigned GetSourceLocationModuleIndex(const char *sourceLocation)
+{
+	unsigned moduleCount = 0;
+	auto modules = nullcDebugModuleInfo(&moduleCount);
+
+	auto fullSource = nullcDebugSource();
+
+	for(unsigned i = 0; i < moduleCount; i++)
+	{
+		auto &moduleInfo = modules[i];
+
+		const char *start = fullSource + moduleInfo.sourceOffset;
+		const char *end = start + moduleInfo.sourceSize;
+
+		if(sourceLocation >= start && sourceLocation < end)
+			return i;
+	}
+
+	return ~0u;
+}
+
+unsigned ConvertSourceLocationToLine(const char *sourceLocation, unsigned moduleIndex, unsigned &column)
+{
+	unsigned moduleCount = 0;
+	auto modules = nullcDebugModuleInfo(&moduleCount);
+
+	auto fullSource = nullcDebugSource();
+
+	const char *sourceStart = fullSource + (moduleIndex < moduleCount ? modules[moduleIndex].sourceOffset : modules[moduleCount - 1].sourceOffset + modules[moduleCount - 1].sourceSize);
+
+	unsigned line = 0;
+
+	const char *pos = sourceStart;
+	const char *lastLineStart = pos;
+
+	while(pos < sourceLocation)
+	{
+		if(*pos == '\r')
+		{
+			line++;
+
+			pos++;
+
+			if(*pos == '\n')
+				pos++;
+
+			lastLineStart = pos;
+		}
+		else if(*pos == '\n')
+		{
+			line++;
+
+			pos++;
+
+			lastLineStart = pos;
+		}
+		else
+		{
+			pos++;
+		}
+	}
+
+	column = int(pos - lastLineStart);
+
+	return line;
+}
+
+std::string GetBasicVariableInfo(unsigned typeIndex, char* ptr, bool hex)
+{
+	char buf[256];
+
+	unsigned typeCount = 0;
+	auto types = nullcDebugTypeInfo(&typeCount);
+	
+	auto &type = types[typeIndex];
+
+	if(type.subCat == ExternTypeInfo::CAT_POINTER)
+	{
+		snprintf(buf, 256, "0x%x", *(int*)ptr);
+		return buf;
+	}
+
+	switch(type.type)
+	{
+	case ExternTypeInfo::TYPE_CHAR:
+		if(typeIndex == NULLC_TYPE_BOOL)
+		{
+			snprintf(buf, 256, *(unsigned char*)ptr ? "true" : "false");
+		}
+		else
+		{
+			if(*(char*)ptr > 0)
+				snprintf(buf, 256, hex ? "'%c' (0x%x)" : "'%c' (%d)", *(char*)ptr, (int)*(char*)ptr);
+			else
+				snprintf(buf, 256, hex ? "0x%x" : "%d", *(char*)ptr);
+		}
+		break;
+	case ExternTypeInfo::TYPE_SHORT:
+		snprintf(buf, 256, "%d", *(short*)ptr);
+		break;
+	case ExternTypeInfo::TYPE_INT:
+		snprintf(buf, 256, hex ? "0x%x" : "%d", *(int*)ptr);
+		break;
+	case ExternTypeInfo::TYPE_LONG:
+		snprintf(buf, 256, hex ? "0x%llx" : "%lld", *(long long*)ptr);
+		break;
+	case ExternTypeInfo::TYPE_FLOAT:
+		snprintf(buf, 256, "%f", *(float*)ptr);
+		break;
+	case ExternTypeInfo::TYPE_DOUBLE:
+		snprintf(buf, 256, "%f", *(double*)ptr);
+		break;
+	default:
+		snprintf(buf, 256, "...");
+	}
+
+	return buf;
 }
