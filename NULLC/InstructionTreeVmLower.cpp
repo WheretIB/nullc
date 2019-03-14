@@ -2309,7 +2309,7 @@ void FinalizeRegisterSpills(ExpressionContext &ctx, VmLoweredModule *lowModule)
 			if(!variable->isVmRegSpill)
 				continue;
 
-			if(variable->users.empty())
+			if(variable->lowUsers.empty())
 				continue;
 
 			FinalizeAlloca(ctx, lowModule->vmModule, variable);
