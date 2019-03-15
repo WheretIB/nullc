@@ -1026,7 +1026,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	{
 		SynBase *location = ctx.instFinalizeCtx.locations[i];
 
-		if(location && location->pos.begin >= ctx.code && location->pos.begin < ctx.code + sourceLength)
+		if(location && location->pos.begin > ctx.code && location->pos.begin < ctx.code + sourceLength)
 			infoCount++;
 	}
 
@@ -1779,7 +1779,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	{
 		SynBase *location = ctx.instFinalizeCtx.locations[i];
 
-		if(location && location->pos.begin >= ctx.code && location->pos.begin < ctx.code + sourceLength)
+		if(location && location->pos.begin > ctx.code && location->pos.begin < ctx.code + sourceLength)
 		{
 			infoArray.push_back(i);
 			infoArray.push_back(unsigned(location->pos.begin - ctx.code));
