@@ -724,38 +724,42 @@ bool HandleRequestStackTrace(Context& ctx, rapidjson::Document &response, rapidj
 	unsigned functionCount = 0;
 	auto functions = nullcDebugFunctionInfo(&functionCount);
 
-	unsigned frameId = 0;
 	unsigned skipFrames = args.startFrame ? *args.startFrame : 0;
+
+	std::vector<int> stackFrames;
 
 	nullcDebugBeginCallStack();
 
 	while(int nextAddress = nullcDebugGetStackFrame())
+		stackFrames.push_back(nextAddress);
+
+	std::reverse(stackFrames.begin(), stackFrames.end());
+
+	for(unsigned i = 0; i < stackFrames.size(); i++)
 	{
 		if(skipFrames)
 		{
 			skipFrames--;
 
-			frameId++;
 			continue;
 		}
 
-		auto sourceLocation = GetInstructionSourceLocation(nextAddress - 1);
+		auto sourceLocation = GetInstructionSourceLocation(stackFrames[i]);
 
 		if(!sourceLocation)
 		{
-			fprintf(stderr, "ERROR: Failed to find location for stack frame %d\r\n", frameId);
+			fprintf(stderr, "ERROR: Failed to find location for stack frame %d\r\n", i);
 
-			frameId++;
 			continue;
 		}
 
 		unsigned moduleIndex = GetSourceLocationModuleIndex(sourceLocation);
 
-		auto function = nullcDebugConvertAddressToFunction(nextAddress, functions, functionCount);
+		auto function = nullcDebugConvertAddressToFunction(stackFrames[i], functions, functionCount);
 
 		StackFrame stackFrame;
 
-		stackFrame.id = frameId;
+		stackFrame.id = (int)stackFrames.size() - i - 1;
 
 		stackFrame.name = function ? symbols + function->offsetToName : "global";
 
@@ -775,11 +779,9 @@ bool HandleRequestStackTrace(Context& ctx, rapidjson::Document &response, rapidj
 
 		if(!args.levels || *args.levels == 0 || data.stackFrames.size() < *args.levels)
 			data.stackFrames.push_back(stackFrame);
-
-		frameId++;
 	}
 
-	data.totalFrames = frameId;
+	data.totalFrames = (int)stackFrames.size();
 
 	response.AddMember("success", true, response.GetAllocator());
 	response.AddMember("body", ::ToJson(data, response), response.GetAllocator());
