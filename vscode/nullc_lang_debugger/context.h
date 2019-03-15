@@ -31,7 +31,8 @@ struct Context
 	std::condition_variable breakpointWait;
 
 	std::atomic<bool> breakpointActive;
-	std::atomic<unsigned> breakpointInstruction;
+	std::atomic<unsigned> breakpointLastModule;
+	std::atomic<unsigned> breakpointLastLine;
 	std::atomic<unsigned> breakpointAction;
 
 	std::thread applicationThread;

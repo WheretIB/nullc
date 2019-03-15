@@ -19,5 +19,6 @@ unsigned ConvertLineToInstruction(const char *sourceCode, int line);
 const char* GetInstructionSourceLocation(unsigned instruction);
 unsigned GetSourceLocationModuleIndex(const char *sourceLocation);
 unsigned ConvertSourceLocationToLine(const char *sourceLocation, unsigned moduleIndex, unsigned &column);
+unsigned ConvertInstructionToLineAndModule(unsigned instruction, unsigned &moduleIndex);
 
 std::string GetBasicVariableInfo(unsigned typeIndex, char* ptr, bool hex);

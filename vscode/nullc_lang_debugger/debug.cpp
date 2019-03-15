@@ -13,10 +13,24 @@ unsigned OnDebugBreak(void *context, unsigned instruction)
 {
 	Context &ctx = *(Context*)context;
 
+	unsigned moduleIndex = 0;
+	auto line = ConvertInstructionToLineAndModule(instruction, moduleIndex);
+
+	// Skip instructions on same line
+	unsigned lastAction = ctx.breakpointAction.load();
+
+	if(lastAction == NULLC_BREAK_STEP || lastAction == NULLC_BREAK_STEP_INTO || lastAction == NULLC_BREAK_STEP_OUT)
+	{
+		if(ctx.breakpointLastLine.load() == line && ctx.breakpointLastModule.load() == moduleIndex)
+			return lastAction;
+	}
+
 	//SendEventStopped(ctx, StoppedEventData("breakpoint", "Breakpoint Hit", 1, false, "Manual Breakpoint", true));
 
 	ctx.breakpointActive.store(true);
-	ctx.breakpointInstruction.store(instruction);
+
+	ctx.breakpointLastLine.store(line);
+	ctx.breakpointLastModule.store(moduleIndex);
 
 	SendEventStopped(ctx, StoppedEventData("breakpoint", 1));
 
@@ -212,13 +226,16 @@ const char* GetInstructionSourceLocation(unsigned instruction)
 
 	auto fullSource = nullcDebugSource();
 
-	for(unsigned i = 0; i < infoSize - 1; i++)
+	for(unsigned i = 0; i < infoSize; i++)
 	{
-		if(instruction < codeInfo[i + 1].byteCodePos)
-			return fullSource + codeInfo[i + 1].sourceOffset;
+		if(instruction == codeInfo[i].byteCodePos)
+			return fullSource + codeInfo[i].sourceOffset;
+
+		if(i + 1 < infoSize && instruction < codeInfo[i + 1].byteCodePos)
+			return fullSource + codeInfo[i].sourceOffset;
 	}
 
-	return nullptr;
+	return fullSource + codeInfo[infoSize - 1].sourceOffset;
 }
 
 unsigned GetSourceLocationModuleIndex(const char *sourceLocation)
@@ -286,6 +303,16 @@ unsigned ConvertSourceLocationToLine(const char *sourceLocation, unsigned module
 	column = int(pos - lastLineStart);
 
 	return line;
+}
+
+unsigned ConvertInstructionToLineAndModule(unsigned instruction, unsigned &moduleIndex)
+{
+	auto sourceLocation = GetInstructionSourceLocation(instruction);
+
+	moduleIndex = GetSourceLocationModuleIndex(sourceLocation);
+
+	unsigned column = 0;
+	return ConvertSourceLocationToLine(sourceLocation, moduleIndex, column);
 }
 
 std::string GetBasicVariableInfo(unsigned typeIndex, char* ptr, bool hex)
