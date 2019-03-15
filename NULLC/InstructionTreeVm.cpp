@@ -2342,7 +2342,7 @@ VmValue* CompileVmFunctionDefinition(ExpressionContext &ctx, VmModule *module, E
 	for(ExprBase *value = node->expressions.head; value; value = value->next)
 		CompileVm(ctx, module, value);
 
-	CreateAbortNoReturn(module, node->source);
+	CreateAbortNoReturn(module, NULL);
 
 	// Restore state
 	module->currentFunction = currentFunction;
