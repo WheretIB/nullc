@@ -832,7 +832,12 @@ bool HandleRequestScopes(Context& ctx, rapidjson::Document &response, rapidjson:
 	auto functions = nullcDebugFunctionInfo(&functionCount);
 
 	unsigned variableCount = 0;
-	nullcDebugVariableInfo(&variableCount);
+	auto variables = nullcDebugVariableInfo(&variableCount);
+
+	unsigned localCount = 0;
+	auto locals = nullcDebugLocalInfo(&localCount);
+
+	auto symbols = nullcDebugSymbols(nullptr);
 
 	unsigned skipFrames = args.frameId;
 
@@ -858,54 +863,108 @@ bool HandleRequestScopes(Context& ctx, rapidjson::Document &response, rapidjson:
 
 		if(auto function = nullcDebugConvertAddressToFunction(nextAddress, functions, functionCount))
 		{
-			if(function->paramCount != 0)
+			if(unsigned count = function->paramCount + 1)
 			{
+				unsigned activeCount = 0;
+
+				for(unsigned i = 0; i < count; i++)
+				{
+					auto &localInfo = locals[function->offsetToFirstLocal + i];
+
+					const char *name = symbols + localInfo.offsetToName;
+
+					if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
+						continue;
+
+					activeCount++;
+				}
+
 				Scope scope;
 
 				scope.name = "Arguments";
 
 				scope.variablesReference = args.frameId * 10 + 2;
 
-				scope.namedVariables = function->paramCount + 1;
+				scope.namedVariables = activeCount;
 
 				data.scopes.push_back(scope);
 			}
 
-			if(function->localCount - (function->paramCount + 1) - function->externCount != 0)
+			if(unsigned count = function->localCount - (function->paramCount + 1) - function->externCount)
 			{
+				unsigned activeCount = 0;
+
+				for(unsigned i = 0; i < count; i++)
+				{
+					auto &localInfo = locals[function->offsetToFirstLocal + function->paramCount + 1 + i];
+
+					const char *name = symbols + localInfo.offsetToName;
+
+					if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
+						continue;
+
+					activeCount++;
+				}
+
 				Scope scope;
 
 				scope.name = "Locals";
 
 				scope.variablesReference = args.frameId * 10 + 3;
 
-				scope.namedVariables = function->localCount - (function->paramCount + 1) - function->externCount;
+				scope.namedVariables = activeCount;
 
 				data.scopes.push_back(scope);
 			}
 
-			if(function->externCount != 0)
+			if(unsigned count = function->externCount)
 			{
+				unsigned activeCount = 0;
+
+				for(unsigned i = 0; i < count; i++)
+				{
+					auto &localInfo = locals[function->offsetToFirstLocal + function->localCount - function->externCount + i];
+
+					const char *name = symbols + localInfo.offsetToName;
+
+					if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
+						continue;
+
+					activeCount++;
+				}
+
 				Scope scope;
 
 				scope.name = "Externals";
 
 				scope.variablesReference = args.frameId * 10 + 4;
 
-				scope.namedVariables = function->externCount;
+				scope.namedVariables = activeCount;
 
 				data.scopes.push_back(scope);
 			}
 		}
 		else
 		{
+			unsigned activeCount = 0;
+
+			for(unsigned i = 0; i < variableCount; i++)
+			{
+				const char *name = symbols + variables[i].offsetToName;
+
+				if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
+					continue;
+
+				activeCount++;
+			}
+
 			Scope scope;
 
 			scope.name = "Globals";
 
 			scope.variablesReference = args.frameId * 10 + 1;
 
-			scope.namedVariables = variableCount;
+			scope.namedVariables = activeCount;
 
 			scope.source = GetModuleSourceInfo(ctx, moduleIndex);
 
@@ -996,6 +1055,27 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 			if(skipFrames)
 			{
 				skipFrames--;
+
+				if(auto function = nullcDebugConvertAddressToFunction(nextAddress, functions, functionCount))
+				{
+					// Align offset to the first variable (by 16 byte boundary)
+					int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
+
+					offset += alignOffset;
+
+					unsigned offsetToNextFrame = function->bytesToPop;
+
+					for(unsigned int i = 0; i < function->localCount; i++)
+					{
+						auto &localInfo = locals[function->offsetToFirstLocal + i];
+
+						if(localInfo.offset + localInfo.size > offsetToNextFrame)
+							offsetToNextFrame = localInfo.offset + localInfo.size;
+					}
+
+					offset += offsetToNextFrame;
+				}
+
 				continue;
 			}
 
@@ -1025,41 +1105,109 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 				{
 					unsigned count = function->paramCount + 1;
 
-					for(unsigned i = start; i < count && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
-					{
-						auto localinfo = locals[function->offsetToFirstLocal + i];
+					std::vector<ExternLocalInfo*> filtered;
 
-						data.variables.push_back(GetVariableInfo(localinfo.type, symbols + localinfo.offsetToName, stack + offset + localinfo.offset, showHex));
+					for(unsigned i = 0; i < count; i++)
+					{
+						auto &localInfo = locals[function->offsetToFirstLocal + i];
+
+						const char *name = symbols + localInfo.offsetToName;
+
+						if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
+							continue;
+
+						filtered.push_back(&localInfo);
+					}
+
+					for(unsigned i = start; i < filtered.size() && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
+					{
+						auto &localInfo = *filtered[i];
+
+						data.variables.push_back(GetVariableInfo(localInfo.type, symbols + localInfo.offsetToName, stack + offset + localInfo.offset, showHex));
 					}
 				}
 				else if(scopeKind == 3) // Locals
 				{
 					unsigned count = function->localCount - (function->paramCount + 1) - function->externCount;
 
-					for(unsigned i = start; i < count && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
-					{
-						auto localinfo = locals[function->offsetToFirstLocal + function->paramCount + 1 + i];
+					std::vector<ExternLocalInfo*> filtered;
 
-						data.variables.push_back(GetVariableInfo(localinfo.type, symbols + localinfo.offsetToName, stack + offset + localinfo.offset, showHex));
+					for(unsigned i = 0; i < count; i++)
+					{
+						auto &localInfo = locals[function->offsetToFirstLocal + function->paramCount + 1 + i];
+
+						const char *name = symbols + localInfo.offsetToName;
+
+						if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
+							continue;
+
+						filtered.push_back(&localInfo);
+					}
+
+					for(unsigned i = start; i < filtered.size() && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
+					{
+						auto &localInfo = *filtered[i];
+
+						data.variables.push_back(GetVariableInfo(localInfo.type, symbols + localInfo.offsetToName, stack + offset + localInfo.offset, showHex));
 					}
 				}
 				else if(scopeKind == 4) // Externals
 				{
 					unsigned count = function->externCount;
 
-					for(unsigned i = start; i < count && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
-					{
-						auto localinfo = locals[function->offsetToFirstLocal + function->localCount - function->externCount + i];
+					std::vector<ExternLocalInfo*> filtered;
 
-						data.variables.push_back(GetVariableInfo(localinfo.type, symbols + localinfo.offsetToName, stack + offset + localinfo.offset, showHex));
+					for(unsigned i = 0; i < count; i++)
+					{
+						auto &localInfo = locals[function->offsetToFirstLocal + function->localCount - function->externCount + i];
+
+						const char *name = symbols + localInfo.offsetToName;
+
+						if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
+							continue;
+
+						filtered.push_back(&localInfo);
+					}
+
+					for(unsigned i = start; i < filtered.size() && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
+					{
+						auto &localInfo = *filtered[i];
+
+						data.variables.push_back(GetVariableInfo(localInfo.type, symbols + localInfo.offsetToName, stack + offset + localInfo.offset, showHex));
 					}
 				}
+
+				unsigned offsetToNextFrame = function->bytesToPop;
+
+				for(unsigned int i = 0; i < function->localCount; i++)
+				{
+					auto &localInfo = locals[function->offsetToFirstLocal + i];
+
+					if(localInfo.offset + localInfo.size > offsetToNextFrame)
+						offsetToNextFrame = localInfo.offset + localInfo.size;
+				}
+
+				offset += offsetToNextFrame;
 			}
 			else if(scopeKind == 1) // Globals
 			{
-				for(unsigned i = args.start ? *args.start : 0; i < variableCount && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
+				std::vector<ExternVarInfo*> filtered;
+
+				for(unsigned i = 0; i < variableCount; i++)
 				{
-					auto variableInfo = variables[i];
+					ExternVarInfo &variableInfo = variables[i];
+
+					const char *name = symbols + variableInfo.offsetToName;
+
+					if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
+						continue;
+
+					filtered.push_back(&variableInfo);
+				}
+
+				for(unsigned i = start; i < filtered.size() && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
+				{
+					auto variableInfo = *filtered[i];
 
 					data.variables.push_back(GetVariableInfo(variableInfo.type, symbols + variableInfo.offsetToName, stack + variableInfo.offset, showHex));
 				}
