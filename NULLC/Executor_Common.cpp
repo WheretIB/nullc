@@ -49,15 +49,9 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 	FastVector<char> &exSymbols = NULLC::commonLinker->exSymbols;
 	FastVector<ExternModuleInfo> &exModules = NULLC::commonLinker->exModules;
 
-	struct SourceInfo
-	{
-		unsigned int byteCodePos;
-		unsigned int sourceOffset;
-	};
-
-	SourceInfo *exInfo = (SourceInfo*)&NULLC::commonLinker->exCodeInfo[0];
+	ExternSourceInfo *exInfo = (ExternSourceInfo*)&NULLC::commonLinker->exSourceInfo[0];
 	const char *source = &NULLC::commonLinker->exSource[0];
-	unsigned int infoSize = NULLC::commonLinker->exCodeInfo.size() / 2;
+	unsigned int infoSize = NULLC::commonLinker->exSourceInfo.size();
 
 	int funcID = -1;
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
@@ -71,7 +65,7 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 	{
 		unsigned int infoID = 0;
 		unsigned int i = address - 1;
-		while((infoID < infoSize - 1) && (i >= exInfo[infoID + 1].byteCodePos))
+		while((infoID < infoSize - 1) && (i >= exInfo[infoID + 1].instruction))
 			infoID++;
 		const char *codeStart = source + exInfo[infoID].sourceOffset;
 		// Find beginning of the line

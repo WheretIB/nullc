@@ -1026,12 +1026,12 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	{
 		SynBase *location = ctx.instFinalizeCtx.locations[i];
 
-		if(location && location->pos.begin > ctx.code && location->pos.begin < ctx.code + sourceLength)
+		if(location && !location->isInternal)
 			infoCount++;
 	}
 
 	unsigned offsetToInfo = size;
-	size += sizeof(unsigned) * 2 * infoCount;
+	size += sizeof(ExternSourceInfo) * infoCount;
 
 	unsigned offsetToSymbols = size;
 	size += symbolStorageSize;
@@ -1770,24 +1770,51 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	}
 
 	code->offsetToInfo = offsetToInfo;
-	code->offsetToSource = offsetToSource;
-
 	code->infoSize = infoCount;
-	VectorView<unsigned> infoArray(FindSourceInfo(code), infoCount * 2);
+
+	VectorView<ExternSourceInfo> infoArray(FindSourceInfo(code), infoCount);
 
 	for(unsigned i = 0; i < ctx.instFinalizeCtx.locations.size(); i++)
 	{
 		SynBase *location = ctx.instFinalizeCtx.locations[i];
 
-		if(location && location->pos.begin > ctx.code && location->pos.begin < ctx.code + sourceLength)
+		if(location && !location->isInternal)
 		{
-			infoArray.push_back(i);
-			infoArray.push_back(unsigned(location->pos.begin - ctx.code));
+			ExternSourceInfo info;
+
+			info.instruction = i;
+
+			if(ModuleData *importModule = ctx.exprCtx.GetSourceOwner(location->begin))
+			{
+				const char *code = FindSource(importModule->bytecode);
+				unsigned codeLength = importModule->bytecode->sourceSize;
+
+				assert(location->pos.begin >= code && location->pos.begin < code + codeLength);
+
+				info.definitionModule = importModule->dependencyIndex;
+				info.sourceOffset = unsigned(location->begin->pos - code);
+
+				infoArray.push_back(info);
+			}
+			else
+			{
+				const char *code = ctx.code;
+				unsigned codeLength = sourceLength;
+
+				assert(location->pos.begin >= code && location->pos.begin < code + codeLength);
+
+				info.definitionModule = 0;
+				info.sourceOffset = unsigned(location->begin->pos - code);
+
+				infoArray.push_back(info);
+			}
 		}
 	}
 
 	char *sourceCode = (char*)code + offsetToSource;
 	memcpy(sourceCode, ctx.code, sourceLength);
+
+	code->offsetToSource = offsetToSource;
 	code->sourceSize = sourceLength;
 
 	code->globalCodeStart = ctx.vmModule->globalCodeStart;
@@ -1885,7 +1912,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	assert(vInfo.count == externVariableInfoCount);
 	assert(fInfo.count == exportedFunctionCount);
 	assert(localInfo.count == localCount);
-	assert(infoArray.count == infoCount * 2);
+	assert(infoArray.count == infoCount);
 	assert(namespaceList.count == ctx.exprCtx.namespaces.size());
 
 	return size;

@@ -482,7 +482,7 @@ nullres nullcLinkCode(const char *bytecode)
 	NULLC_CHECK_INITIALIZED(false);
 
 #ifndef NULLC_NO_EXECUTOR
-	if(!linker->LinkCode(bytecode))
+	if(!linker->LinkCode(bytecode, "main"))
 	{
 		nullcLastError = linker->GetLinkError();
 		return false;
@@ -1326,13 +1326,13 @@ char* nullcDebugSource()
 	return linker ? linker->exSource.data : NULL;
 }
 
-NULLCCodeInfo* nullcDebugCodeInfo(unsigned int *count)
+ExternSourceInfo* nullcDebugSourceInfo(unsigned int *count)
 {
 	using namespace NULLC;
 
 	if(count && linker)
-		*count = linker->exCodeInfo.size() >> 1;
-	return linker ? (NULLCCodeInfo*)linker->exCodeInfo.data : NULL;
+		*count = linker->exSourceInfo.size();
+	return linker ? (ExternSourceInfo*)linker->exSourceInfo.data : NULL;
 }
 
 VMCmd* nullcDebugCode(unsigned int *count)

@@ -194,6 +194,9 @@ struct ExternModuleInfo
 
 	unsigned int	sourceOffset;
 	unsigned int	sourceSize;
+
+	unsigned int	dependencyStart;
+	unsigned int	dependencyCount;
 };
 
 struct ExternMemberInfo
@@ -210,8 +213,15 @@ struct ExternConstantInfo
 
 struct ExternNamespaceInfo
 {
-	unsigned offsetToName;
-	unsigned parentHash;
+	unsigned int	offsetToName;
+	unsigned int	parentHash;
+};
+
+struct ExternSourceInfo
+{
+	unsigned int	instruction;
+	unsigned int	definitionModule; // Index of the module containing the definition
+	unsigned int	sourceOffset;
 };
 
 struct ByteCode
@@ -220,8 +230,8 @@ struct ByteCode
 
 	unsigned int	typeCount;
 
-	unsigned int		dependsCount;
-	unsigned int		offsetToFirstModule;
+	unsigned int	dependsCount;
+	unsigned int	offsetToFirstModule;
 	
 	unsigned int	globalVarSize;	// size of all global variables, in bytes
 	unsigned int	variableCount;	// variable info count
@@ -242,6 +252,7 @@ struct ByteCode
 
 	unsigned int	codeSize;
 	unsigned int	offsetToCode;
+
 	unsigned int	globalCodeStart;
 
 	unsigned int	symbolLength;
@@ -283,7 +294,7 @@ struct ByteCode
 
 //	char			code[codeSize];
 
-//	unsigned int	sourceInfo[infoLength * 2]
+//	ExternSourceInfo	sourceInfo[infoLength]
 
 //	char			debugSymbols[symbolLength];
 
@@ -302,7 +313,7 @@ ExternLocalInfo*	FindFirstLocal(ByteCode *code);
 ExternTypedefInfo*	FindFirstTypedef(ByteCode *code);
 ExternNamespaceInfo*FindFirstNamespace(ByteCode *code);
 char*				FindCode(ByteCode *code);
-unsigned int*		FindSourceInfo(ByteCode *code);
+ExternSourceInfo*	FindSourceInfo(ByteCode *code);
 char*				FindSymbols(ByteCode *code);
 char*				FindSource(ByteCode *code);
 

@@ -190,13 +190,13 @@ const char* GetLineEnd(const char *lineStart)
 unsigned ConvertPositionToInstruction(unsigned lineStartOffset, unsigned lineEndOffset)
 {
 	unsigned infoSize = 0;
-	auto codeInfo = nullcDebugCodeInfo(&infoSize);
+	auto sourceInfo = nullcDebugSourceInfo(&infoSize);
 
 	// Find instruction
 	for(unsigned i = 0; i < infoSize; i++)
 	{
-		if(codeInfo[i].sourceOffset >= lineStartOffset && codeInfo[i].sourceOffset <= lineEndOffset)
-			return codeInfo[i].byteCodePos;
+		if(sourceInfo[i].sourceOffset >= lineStartOffset && sourceInfo[i].sourceOffset <= lineEndOffset)
+			return sourceInfo[i].instruction;
 	}
 
 	return 0;
@@ -222,7 +222,7 @@ unsigned ConvertLineToInstruction(const char *sourceCode, int line)
 const char* GetInstructionSourceLocation(unsigned instruction)
 {
 	unsigned infoSize = 0;
-	auto codeInfo = nullcDebugCodeInfo(&infoSize);
+	auto sourceInfo = nullcDebugSourceInfo(&infoSize);
 
 	if(!infoSize)
 		return nullptr;
@@ -231,14 +231,14 @@ const char* GetInstructionSourceLocation(unsigned instruction)
 
 	for(unsigned i = 0; i < infoSize; i++)
 	{
-		if(instruction == codeInfo[i].byteCodePos)
-			return fullSource + codeInfo[i].sourceOffset;
+		if(instruction == sourceInfo[i].instruction)
+			return fullSource + sourceInfo[i].sourceOffset;
 
-		if(i + 1 < infoSize && instruction < codeInfo[i + 1].byteCodePos)
-			return fullSource + codeInfo[i].sourceOffset;
+		if(i + 1 < infoSize && instruction < sourceInfo[i + 1].instruction)
+			return fullSource + sourceInfo[i].sourceOffset;
 	}
 
-	return fullSource + codeInfo[infoSize - 1].sourceOffset;
+	return fullSource + sourceInfo[infoSize - 1].sourceOffset;
 }
 
 unsigned GetSourceLocationModuleIndex(const char *sourceLocation)

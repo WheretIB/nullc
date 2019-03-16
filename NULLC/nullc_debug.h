@@ -27,13 +27,7 @@ ExternFuncInfo*		nullcDebugFunctionInfo(unsigned int *count);
 ExternLocalInfo*	nullcDebugLocalInfo(unsigned int *count);
 char*				nullcDebugSymbols(unsigned int *count);
 char*				nullcDebugSource();
-
-struct NULLCCodeInfo
-{
-	unsigned int byteCodePos;
-	unsigned int sourceOffset;
-};
-NULLCCodeInfo*		nullcDebugCodeInfo(unsigned int *count);
+ExternSourceInfo*	nullcDebugSourceInfo(unsigned int *count);
 VMCmd*				nullcDebugCode(unsigned int *count);
 ExternModuleInfo*	nullcDebugModuleInfo(unsigned int *count);
 

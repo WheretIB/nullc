@@ -26,6 +26,8 @@ Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(
 
 	fptrUpdater = NULL;
 
+	debugOutputIndent = 0;
+
 	NULLC::SetLinker(this);
 }
 
@@ -46,8 +48,9 @@ void Linker::CleanCode()
 	exSymbols.clear();
 	exLocals.clear();
 	exModules.clear();
-	exCodeInfo.clear();
+	exSourceInfo.clear();
 	exSource.clear();
+	exDependencies.clear();
 
 #ifdef NULLC_LLVM_SUPPORT
 	llvmModuleSizes.clear();
@@ -73,12 +76,25 @@ void Linker::CleanCode()
 
 	funcMap.clear();
 
+	debugOutputIndent = 0;
+
 	NULLC::ClearMemory();
 }
 
-bool Linker::LinkCode(const char *code)
+bool Linker::LinkCode(const char *code, const char *moduleName)
 {
 	linkError[0] = 0;
+
+	unsigned dependeciesBase = exDependencies.size();
+
+#ifdef VERBOSE_DEBUG_OUTPUT
+	for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+		printf("  ");
+
+	printf("Linking %s (dependencies base %d).\r\n", moduleName, dependeciesBase);
+#endif
+
+	debugOutputIndent++;
 
 	ByteCode *bCode = (ByteCode*)code;
 
@@ -106,24 +122,40 @@ bool Linker::LinkCode(const char *code)
 		{
 			const char *bytecode = BinaryCache::FindBytecode(path, false);
 
+			unsigned dependencySlot = exDependencies.size();
+			exDependencies.push_back(~0u);
+
 			// last module is not imported
 			if(strcmp(path, "__last.nc") != 0)
 			{
 				if(bytecode)
 				{
-#ifdef VERBOSE_DEBUG_OUTPUT
-					printf("Linking %s.\r\n", path);
-#endif
-					if(!LinkCode(bytecode))
+					if(!LinkCode(bytecode, path))
 					{
+						debugOutputIndent--;
+
 						SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failure to load module %s", path);
 						return false;
 					}
-				}else{
+				}
+				else
+				{
+					debugOutputIndent--;
+
 					SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nFailure to load module %s", path);
 					return false;
 				}
 			}
+
+#ifdef VERBOSE_DEBUG_OUTPUT
+			for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+				printf("  ");
+
+			printf("Linking dependency %d to module %d (%s) (%d dependencies).\r\n", dependencySlot, exModules.size(), path, exDependencies.size() - dependencySlot);
+#endif
+
+			exDependencies[dependencySlot] = exModules.size();
+
 			exModules.push_back(*mInfo);
 			exModules.back().nameOffset = 0;
 			exModules.back().nameHash = GetStringHash(path);
@@ -131,11 +163,34 @@ bool Linker::LinkCode(const char *code)
 			exModules.back().variableOffset = globalVarSize - ((ByteCode*)bytecode)->globalVarSize;
 			exModules.back().sourceOffset = exSource.size() - ((ByteCode*)bytecode)->sourceSize;
 			exModules.back().sourceSize = ((ByteCode*)bytecode)->sourceSize;
+
+			exModules.back().dependencyStart = dependencySlot;
+			exModules.back().dependencyCount = exDependencies.size() - dependencySlot;
+
 #ifdef VERBOSE_DEBUG_OUTPUT
 			printf("Module %s variables are found at %d (size is %d).\r\n", path, exModules.back().variableOffset, ((ByteCode*)bytecode)->globalVarSize);
 #endif
 			loadedId = exModules.size() - 1;
 		}
+		else
+		{
+			ExternModuleInfo &prevData = exModules[loadedId];
+
+			for(unsigned k = 0; k < prevData.dependencyCount; k++)
+			{
+				unsigned targetModuleIndex = exDependencies[prevData.dependencyStart + k];
+
+#ifdef VERBOSE_DEBUG_OUTPUT
+				for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+					printf("  ");
+
+				printf("Linking dependency %d to module %d (%s) (%d dependencies) [skip].\r\n", exDependencies.size(), targetModuleIndex, exSymbols.data + exModules[targetModuleIndex].nameOffset, exModules[targetModuleIndex].dependencyCount);
+#endif
+
+				exDependencies.push_back(targetModuleIndex);
+			}
+		}
+
 		moduleFuncCount += mInfo->funcCount;
 		mInfo++;
 	}
@@ -176,9 +231,14 @@ bool Linker::LinkCode(const char *code)
 			rInfo->nameOffset = mInfo->nameOffset + oldSymbolSize;
 
 		moduleRemap[i] = loadedId;
+
 #ifdef VERBOSE_DEBUG_OUTPUT
+		for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+			printf("  ");
+
 		printf("Module %d (%s) is found at index %d.\r\n", i, path, loadedId);
 #endif
+
 		mInfo++;
 	}
 
@@ -188,6 +248,16 @@ bool Linker::LinkCode(const char *code)
 	exSymbols.resize(oldSymbolSize + bCode->symbolLength);
 	memcpy(&exSymbols[oldSymbolSize], FindSymbols(bCode), bCode->symbolLength);
 	const char *symbolInfo = FindSymbols(bCode);
+
+#ifdef VERBOSE_DEBUG_OUTPUT
+	for(unsigned i = dependeciesBase; i < exDependencies.size(); i++)
+	{
+		for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+			printf("  ");
+
+		printf("Dependency %d target is module %d (%s)\r\n", i - dependeciesBase, exDependencies[i], exSymbols.data + exModules[exDependencies[i]].nameOffset);
+	}
+#endif
 
 	// Create type map for fast searches
 	typeMap.clear();
@@ -202,6 +272,8 @@ bool Linker::LinkCode(const char *code)
 
 		if(lastType && exTypes[*lastType].size != tInfo->size)
 		{
+			debugOutputIndent--;
+
 			SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: type %s is redefined (%s) with a different size (%d != %d)", exTypes[*lastType].offsetToName + &exSymbols[0], tInfo->offsetToName + symbolInfo, exTypes[*lastType].size, tInfo->size);
 			return false;
 		}
@@ -268,9 +340,9 @@ bool Linker::LinkCode(const char *code)
 	memcpy(exLocals.data + oldLocalsSize, FindFirstLocal(bCode), bCode->localCount * sizeof(ExternLocalInfo));
 
 	// Add new code information
-	unsigned int oldCodeInfoSize = exCodeInfo.size();
-	exCodeInfo.resize(oldCodeInfoSize + bCode->infoSize * 2);
-	memcpy(exCodeInfo.data + oldCodeInfoSize, FindSourceInfo(bCode), bCode->infoSize * sizeof(unsigned int) * 2);
+	unsigned int oldSourceInfoSize = exSourceInfo.size();
+	exSourceInfo.resize(oldSourceInfoSize + bCode->infoSize);
+	memcpy(exSourceInfo.data + oldSourceInfoSize, FindSourceInfo(bCode), bCode->infoSize * sizeof(ExternSourceInfo));
 
 	// Add new source code
 	unsigned int oldSourceSize = exSource.size();
@@ -283,11 +355,21 @@ bool Linker::LinkCode(const char *code)
 	exCode.resize(oldCodeSize + bCode->codeSize);
 	memcpy(exCode.data + oldCodeSize, FindCode(bCode), bCode->codeSize * sizeof(VMCmd));
 
-	for(unsigned int i = oldCodeInfoSize / 2; i < exCodeInfo.size() / 2; i++)
+	unsigned temp = 0;
+
+	for(unsigned int i = oldSourceInfoSize; i < exSourceInfo.size(); i++)
 	{
-		exCodeInfo[i*2+0] += oldCodeSize;
-		exCodeInfo[i*2+1] += oldSourceSize;
+		ExternSourceInfo &sourceInfo = exSourceInfo[i];
+
+		sourceInfo.instruction += oldCodeSize;
+
+		if(sourceInfo.definitionModule)
+			sourceInfo.sourceOffset += exModules[exDependencies[dependeciesBase + sourceInfo.definitionModule - 1]].sourceOffset;
+		else
+			sourceInfo.sourceOffset += oldSourceSize;
 	}
+
+	debugOutputIndent--;
 
 	// Add new functions
 	ExternVarInfo *explicitInfo = FindFirstVar(bCode) + bCode->variableCount;
@@ -568,8 +650,8 @@ bool Linker::LinkCode(const char *code)
 	size += exLocals.size() * sizeof(ExternLocalInfo);
 	printf("Modules: %db, ", exModules.size() * sizeof(ExternModuleInfo));
 	size += exModules.size() * sizeof(ExternModuleInfo);
-	printf("Code info: %db, ", exCodeInfo.size() * sizeof(unsigned int) * 2);
-	size += exCodeInfo.size() * sizeof(unsigned int) * 2;
+	printf("Source info: %db, ", exSourceInfo.size() * sizeof(ExternSourceInfo));
+	size += exSourceInfo.size() * sizeof(ExternSourceInfo);
 	printf("Source: %db\r\n", exSource.size() * sizeof(char));
 	size += exSource.size() * sizeof(char);
 	printf("Overall: %d bytes\r\n\r\n", size);
@@ -583,26 +665,21 @@ bool Linker::SaveListing(OutputContext &output)
 	char instBuf[128];
 	unsigned line = 0, lastLine = ~0u;
 
-	struct SourceInfo
-	{
-		unsigned byteCodePos;
-		unsigned sourceOffset;
-	};
-
-	SourceInfo *info = (SourceInfo*)exCodeInfo.data;
-	unsigned infoSize = exCodeInfo.size() / 2;
+	ExternSourceInfo *info = (ExternSourceInfo*)exSourceInfo.data;
+	unsigned infoSize = exSourceInfo.size();
 
 	const char *lastSourcePos = exSource.data;
 	const char *lastCodeStart = NULL;
 
 	for(unsigned i = 0; infoSize && i < exCode.size(); i++)
 	{
-		while((line < infoSize - 1) && (i >= info[line + 1].byteCodePos))
+		while((line < infoSize - 1) && (i >= info[line + 1].instruction))
 			line++;
 
 		if(line != lastLine)
 		{
 			lastLine = line;
+
 			const char *codeStart = exSource.data + info[line].sourceOffset;
 
 			// Find beginning of the line

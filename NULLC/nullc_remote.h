@@ -470,9 +470,9 @@ NULLC_PROC_RETURN GeneralCommandThread(void* param)
 		{
 			printf("DEBUG_CODE_INFO\n");
 			unsigned int count;
-			NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&count);
+			ExternSourceInfo *sourceInfo = nullcDebugSourceInfo(&count);
 			data.question = false;
-			PipeSendData(client, data, (char*)codeInfo, count, count * sizeof(NULLCCodeInfo));
+			PipeSendData(client, data, (char*)sourceInfo, count, count * sizeof(ExternSourceInfo));
 		}
 			break;
 			case DEBUG_TYPE_INFO:

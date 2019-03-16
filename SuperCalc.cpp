@@ -169,7 +169,7 @@ namespace RemoteData
 	char				*moduleNames = NULL;
 
 	unsigned int		infoSize = 0;
-	NULLCCodeInfo		*codeInfo = NULL;
+	ExternSourceInfo	*sourceInfo = NULL;
 
 	char				*sourceCode = NULL;
 
@@ -403,7 +403,7 @@ unsigned IDEDebugBreakEx(void *context, unsigned instruction)
 	unsigned int codeLine = ~0u;
 
 	unsigned int infoSize = stateRemote ? RemoteData::infoSize : 0;
-	NULLCCodeInfo *codeInfo = stateRemote ? RemoteData::codeInfo : nullcDebugCodeInfo(&infoSize);
+	ExternSourceInfo *sourceInfo = stateRemote ? RemoteData::sourceInfo : nullcDebugSourceInfo(&infoSize);
 
 	unsigned int moduleSize = stateRemote ? RemoteData::moduleCount : 0;
 	ExternModuleInfo *modules = stateRemote ? RemoteData::modules : nullcDebugModuleInfo(&moduleSize);
@@ -416,13 +416,13 @@ unsigned IDEDebugBreakEx(void *context, unsigned instruction)
 	{
 		unsigned int line = 0;
 		unsigned int i = address - 1;
-		while((line < infoSize - 1) && (i >= codeInfo[line + 1].byteCodePos))
+		while((line < infoSize - 1) && (i >= sourceInfo[line + 1].instruction))
 			line++;
-		if(codeInfo[line].sourceOffset >= modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize)
+		if(sourceInfo[line].sourceOffset >= modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize)
 		{
 			const char *source = RichTextarea::GetAreaText(mainCodeWnd);
 			codeLine = 0;
-			const char *curr = source, *end = source + codeInfo[line].sourceOffset - modules[moduleSize-1].sourceOffset - modules[moduleSize-1].sourceSize;
+			const char *curr = source, *end = source + sourceInfo[line].sourceOffset - modules[moduleSize-1].sourceOffset - modules[moduleSize-1].sourceSize;
 			while(const char *next = strchr(curr, '\n'))
 			{
 				if(next > end)
@@ -436,11 +436,11 @@ unsigned IDEDebugBreakEx(void *context, unsigned instruction)
 			unsigned int module = 0;
 			for(module = 0; module < moduleSize; module++)
 			{
-				if(codeInfo[line].sourceOffset >= modules[module].sourceOffset && codeInfo[line].sourceOffset < modules[module].sourceOffset + modules[module].sourceSize)
+				if(sourceInfo[line].sourceOffset >= modules[module].sourceOffset && sourceInfo[line].sourceOffset < modules[module].sourceOffset + modules[module].sourceSize)
 					break;
 			}
 			codeLine = 0;
-			const char *curr = fullSource + modules[module].sourceOffset, *end = fullSource + codeInfo[line].sourceOffset;
+			const char *curr = fullSource + modules[module].sourceOffset, *end = fullSource + sourceInfo[line].sourceOffset;
 			while(const char *next = strchr(curr, '\n'))
 			{
 				if(next > end)
@@ -1430,7 +1430,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 	unsigned int retLine = ~0u;
 
 	unsigned int infoSize = stateRemote ? RemoteData::infoSize : 0;
-	NULLCCodeInfo *codeInfo = stateRemote ? RemoteData::codeInfo : nullcDebugCodeInfo(&infoSize);
+	ExternSourceInfo *sourceInfo = stateRemote ? RemoteData::sourceInfo : nullcDebugSourceInfo(&infoSize);
 
 	unsigned int moduleSize = stateRemote ? RemoteData::moduleCount : 0;
 	ExternModuleInfo *modules = stateRemote ? RemoteData::modules : nullcDebugModuleInfo(&moduleSize);
@@ -1457,12 +1457,12 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 		{
 			unsigned int line = 0;
 			unsigned int i = address - 1;
-			while((line < infoSize - 1) && (i >= codeInfo[line + 1].byteCodePos))
+			while((line < infoSize - 1) && (i >= sourceInfo[line + 1].instruction))
 				line++;
-			if(!moduleSize || (codeInfo[line].sourceOffset >= modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize))
+			if(!moduleSize || (sourceInfo[line].sourceOffset >= modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize))
 			{
 				codeLine = 0;
-				const char *curr = source, *end = source + codeInfo[line].sourceOffset - (moduleSize ? modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize : 0);
+				const char *curr = source, *end = source + sourceInfo[line].sourceOffset - (moduleSize ? modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize : 0);
 				while(const char *next = strchr(curr, '\n'))
 				{
 					if(next > end)
@@ -1486,7 +1486,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				unsigned int module = 0;
 				for(module = 0; module < moduleSize; module++)
 				{
-					if(codeInfo[line].sourceOffset >= modules[module].sourceOffset && codeInfo[line].sourceOffset < modules[module].sourceOffset + modules[module].sourceSize)
+					if(sourceInfo[line].sourceOffset >= modules[module].sourceOffset && sourceInfo[line].sourceOffset < modules[module].sourceOffset + modules[module].sourceSize)
 						break;
 				}
 				// Create module name (with prefix so that file couldn't be saved)
@@ -1513,7 +1513,7 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 				}
 				id = targetTab;
 				codeLine = 0;
-				const char *curr = fullSource + modules[module].sourceOffset, *end = fullSource + codeInfo[line].sourceOffset;
+				const char *curr = fullSource + modules[module].sourceOffset, *end = fullSource + sourceInfo[line].sourceOffset;
 				while(const char *next = strchr(curr, '\n'))
 				{
 					if(next > end)
@@ -1756,7 +1756,7 @@ void RefreshBreakpoints()
 FastVector<unsigned>	breakPos;
 FastVector<unsigned>	byteCodePos;
 
-unsigned int ConvertPositionToInstruction(unsigned int relPos, unsigned int infoSize, NULLCCodeInfo* codeInfo, unsigned int &sourceOffset)
+unsigned int ConvertPositionToInstruction(unsigned int relPos, unsigned int infoSize, ExternSourceInfo* sourceInfo, unsigned int &sourceOffset)
 {
 	breakPos.clear();
 	byteCodePos.clear();
@@ -1764,25 +1764,25 @@ unsigned int ConvertPositionToInstruction(unsigned int relPos, unsigned int info
 	unsigned int lastDistance = ~0u;
 	for(unsigned int infoID = 0; infoID < infoSize; infoID++)
 	{
-		if(codeInfo[infoID].sourceOffset >= relPos && (unsigned int)(codeInfo[infoID].sourceOffset - relPos) <= lastDistance)
+		if(sourceInfo[infoID].sourceOffset >= relPos && (unsigned int)(sourceInfo[infoID].sourceOffset - relPos) <= lastDistance)
 		{
 			breakPos.push_back(infoID);
-			lastDistance = (unsigned int)(codeInfo[infoID].sourceOffset - relPos);
+			lastDistance = (unsigned int)(sourceInfo[infoID].sourceOffset - relPos);
 		}
 	}
 	// Filter results so that only the best matches remain
 	for(unsigned int i = 0; i < breakPos.size(); i++)
 	{
-		if((unsigned int)(codeInfo[breakPos[i]].sourceOffset - relPos) <= lastDistance)
+		if((unsigned int)(sourceInfo[breakPos[i]].sourceOffset - relPos) <= lastDistance)
 		{
-			byteCodePos.push_back(codeInfo[breakPos[i]].byteCodePos);
-			sourceOffset = codeInfo[breakPos[i]].sourceOffset;
+			byteCodePos.push_back(sourceInfo[breakPos[i]].instruction);
+			sourceOffset = sourceInfo[breakPos[i]].sourceOffset;
 		}
 	}
 	return byteCodePos.size();
 }
 
-unsigned int ConvertLineToInstruction(const char *source, unsigned int line, const char* fullSource, unsigned int infoSize, NULLCCodeInfo *codeInfo, unsigned int moduleSize, ExternModuleInfo *modules)
+unsigned int ConvertLineToInstruction(const char *source, unsigned int line, const char* fullSource, unsigned int infoSize, ExternSourceInfo* sourceInfo, unsigned int moduleSize, ExternModuleInfo *modules)
 {
 	// Find source code position for this line
 	unsigned int origLine = line;
@@ -1808,7 +1808,7 @@ unsigned int ConvertLineToInstruction(const char *source, unsigned int line, con
 		if(shiftToLastModule && strcmp(source, fullSource + modules[moduleSize-1].sourceOffset + modules[moduleSize-1].sourceSize) == 0)
 			relPos += shiftToLastModule;
 		unsigned int offset = ~0u;
-		unsigned int matches = ConvertPositionToInstruction(relPos, infoSize, codeInfo, offset);
+		unsigned int matches = ConvertPositionToInstruction(relPos, infoSize, sourceInfo, offset);
 		if(offset != ~0u)
 		{
 			const char *pos = fullSource + offset;
@@ -1832,7 +1832,7 @@ void SuperCalcSetBreakpoints()
 {
 	nullcDebugClearBreakpoints();
 	unsigned int infoSize = 0;
-	NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&infoSize);
+	ExternSourceInfo *sourceInfo = nullcDebugSourceInfo(&infoSize);
 
 	const char *fullSource = nullcDebugSource();
 
@@ -1846,7 +1846,7 @@ void SuperCalcSetBreakpoints()
 		{
 			if(it.GetExtra())
 			{
-				unsigned int matches = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(richEdits[i]), it.number, fullSource, infoSize, codeInfo, moduleSize, modules);
+				unsigned int matches = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(richEdits[i]), it.number, fullSource, infoSize, sourceInfo, moduleSize, modules);
 				for(unsigned k = 0; k < matches; k++)
 				{
 					it.SetExtra(EXTRA_BREAKPOINT);
@@ -2009,7 +2009,7 @@ void PipeInit()
 	PipeReuqestData(DEBUG_MODULE_NAMES, (void**)&moduleNames);
 	char *moduleNamesTmp = moduleNames;
 	PipeReuqestData(DEBUG_SOURCE_INFO, (void**)&sourceCode);
-	infoSize = PipeReuqestData(DEBUG_CODE_INFO, (void**)&codeInfo);
+	infoSize = PipeReuqestData(DEBUG_CODE_INFO, (void**)&sourceInfo);
 
 	typeCount = PipeReuqestData(DEBUG_TYPE_INFO, (void**)&types);
 	funcCount = PipeReuqestData(DEBUG_FUNCTION_INFO, (void**)&functions);
@@ -2018,7 +2018,7 @@ void PipeInit()
 	PipeReuqestData(DEBUG_TYPE_EXTRA_INFO, (void**)&typeExtra);
 	PipeReuqestData(DEBUG_SYMBOL_INFO, (void**)&symbols);
 
-	if(!modules || !moduleNames || !sourceCode || !codeInfo || !types || !functions || !vars || !locals || !typeExtra || !symbols)
+	if(!modules || !moduleNames || !sourceCode || !sourceInfo || !types || !functions || !vars || !locals || !typeExtra || !symbols)
 		return;
 
 	char message[1024], *pos = message;
@@ -2489,8 +2489,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					RemoteData::modules = NULL;
 					delete[] RemoteData::moduleNames;
 					RemoteData::moduleNames = NULL;
-					delete[] RemoteData::codeInfo;
-					RemoteData::codeInfo = NULL;
+					delete[] RemoteData::sourceInfo;
+					RemoteData::sourceInfo = NULL;
 					delete[] RemoteData::sourceCode;
 					RemoteData::sourceCode = NULL;
 					delete[] RemoteData::vars;
@@ -2676,11 +2676,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 					if(!runRes.finished)
 					{
 						unsigned int infoSize = 0;
-						NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&infoSize);
+						ExternSourceInfo *sourceInfo = nullcDebugSourceInfo(&infoSize);
 						const char *fullSource = nullcDebugSource();
 						unsigned int moduleSize = 0;
 						ExternModuleInfo *modules = nullcDebugModuleInfo(&moduleSize);
-						unsigned int matches = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(wnd), line, fullSource, infoSize, codeInfo, moduleSize, modules);
+						unsigned int matches = ConvertLineToInstruction(RichTextarea::GetCachedAreaText(wnd), line, fullSource, infoSize, sourceInfo, moduleSize, modules);
 						for(unsigned k = 0; k < matches; k++)
 						{
 							if(breakSet)
@@ -2702,7 +2702,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 
 					if(stateRemote)
 					{
-						unsigned int matches = ConvertLineToInstruction(RichTextarea::GetAreaText(wnd), line, RemoteData::sourceCode, RemoteData::infoSize, RemoteData::codeInfo, RemoteData::moduleCount, RemoteData::modules);
+						unsigned int matches = ConvertLineToInstruction(RichTextarea::GetAreaText(wnd), line, RemoteData::sourceCode, RemoteData::infoSize, RemoteData::sourceInfo, RemoteData::moduleCount, RemoteData::modules);
 						for(unsigned k = 0; k < matches; k++)
 						{
 							PipeData data;
