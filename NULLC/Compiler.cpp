@@ -1794,9 +1794,8 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			if(ModuleData *importModule = ctx.exprCtx.GetSourceOwner(location->begin))
 			{
 				const char *code = FindSource(importModule->bytecode);
-				unsigned codeLength = importModule->bytecode->sourceSize;
 
-				assert(location->pos.begin >= code && location->pos.begin < code + codeLength);
+				assert(location->pos.begin >= code && location->pos.begin < code + importModule->bytecode->sourceSize);
 
 				info.definitionModule = importModule->dependencyIndex;
 				info.sourceOffset = unsigned(location->begin->pos - code);
@@ -1806,9 +1805,8 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			else
 			{
 				const char *code = ctx.code;
-				unsigned codeLength = sourceLength;
 
-				assert(location->pos.begin >= code && location->pos.begin < code + codeLength);
+				assert(location->pos.begin >= code && location->pos.begin < code + sourceLength);
 
 				info.definitionModule = 0;
 				info.sourceOffset = unsigned(location->begin->pos - code);

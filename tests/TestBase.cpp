@@ -253,7 +253,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 	}
 	else
 	{
-		char *bytecode;
+		char *bytecode = NULL;
 		nullcGetBytecode(&bytecode);
 
 		timeGetBytecode += myGetPreciseTime() - time;
