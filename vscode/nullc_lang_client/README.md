@@ -63,11 +63,6 @@ This extension provides support for editing and debugging nullc programming lang
     * Source files from module debug data
     * Variable value update
 
-## Requirements
-
-Native nullc language server is required to be built using nullc_lang_server project. 
-Native nullc language debugger is required to be built using nullc_lang_debugger project. 
-
 ## Extension Settings
 
 This extension contributes the following settings:
@@ -77,12 +72,13 @@ This extension contributes the following settings:
 
 ## Known Issues
 
-* Extension must be set up manually
-* Language server must be build from separate project
-* Language debugger must be build from separate project
+* Windows-only
 * Error recovery and symbol search from location is a work in progress 
 
 ## Release Notes
+
+### Version 0.2.2
+* Debugger improvements
 
 ### Version 0.2.1
 * Debugger improvements

@@ -1,6 +1,9 @@
 # Change Log
 All notable changes to the "nullc" extension will be documented in this file.
 
+## [Version 0.2.2]
+- Added display of 'typeid' and improved extendable class value display in debugger
+
 ## [Version 0.2.1]
 - Fixed debugger search for sources in root search path
 - Added support for debugger 'source' request

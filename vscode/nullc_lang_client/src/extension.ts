@@ -7,7 +7,7 @@ import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } f
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
-	let serverModule = context.asAbsolutePath(path.join('..', 'nullc_lang_server', 'out', 'nullc_lang_server.exe'));
+	let serverModule = context.asAbsolutePath(path.join('out', 'nullc_lang_server.exe'));
 
 	//let args = ['--debug'];
 	let args = [];
@@ -92,7 +92,7 @@ class NullcDebugAdapterDescriptorFactory implements DebugAdapterDescriptorFactor
 	private debuggerModule?: string;
 
 	constructor(context: ExtensionContext) {
-		this.debuggerModule = context.asAbsolutePath(path.join('..', 'nullc_lang_debugger', 'out', 'nullc_lang_debugger.exe'));
+		this.debuggerModule = context.asAbsolutePath(path.join('out', 'nullc_lang_debugger.exe'));
 	}
 
 	createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable | undefined): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {

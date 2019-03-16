@@ -3,3 +3,5 @@
 .gitignore
 vsc-extension-quickstart.md
 node_modules/**
+out/*.ilk
+out/*.pdb
