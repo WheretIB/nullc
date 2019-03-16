@@ -55,11 +55,13 @@ This extension provides support for editing and debugging nullc programming lang
 
 ---
 * Debugging
-    * Launch & Terminate
+    * Launch, Restart & Terminate
     * Step Over, Step Into, Step Out
     * Breakpoints
     * Stack trace
     * Variable information
+    * Source files from module debug data
+    * Variable value update
 
 ## Requirements
 
@@ -81,6 +83,9 @@ This extension contributes the following settings:
 * Error recovery and symbol search from location is a work in progress 
 
 ## Release Notes
+
+### Version 0.2.1
+* Debugger improvements
 
 ### Version 0.2.0
 * Added debugger

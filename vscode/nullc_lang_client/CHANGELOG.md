@@ -1,6 +1,13 @@
 # Change Log
 All notable changes to the "nullc" extension will be documented in this file.
 
+## [Version 0.2.1]
+- Fixed debugger search for sources in root search path
+- Added support for debugger 'source' request
+- Added support for breakpoint placement and removal during debugging session
+- Added support for debugger 'setVariable' request
+- Added support for debugger 'restart' request
+
 ## [Version 0.2.0]
 - Added debugger
 
