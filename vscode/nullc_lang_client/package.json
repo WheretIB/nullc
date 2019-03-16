@@ -65,9 +65,9 @@
                                 "default": "${workspaceFolder}/${command:AskForProgramName}"
                             },
                             "trace": {
-                                "type": "boolean",
+                                "type": "string",
                                 "description": "Enable logging of the Debug Adapter Protocol.",
-                                "default": true
+                                "default": "off"
                             }
                         }
                     }

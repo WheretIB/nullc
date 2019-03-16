@@ -452,6 +452,25 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 	if(!ctx.launchArgs.program)
 		return RespondWithError(ctx, response, "launch program argument required");
 
+	if(ctx.launchArgs.trace)
+	{
+		if(*ctx.launchArgs.trace == "off")
+		{
+			ctx.infoMode = false;
+			ctx.debugMode = false;
+		}
+		else if(*ctx.launchArgs.trace == "info")
+		{
+			ctx.infoMode = true;
+			ctx.debugMode = false;
+		}
+		else if(*ctx.launchArgs.trace == "debug")
+		{
+			ctx.infoMode = true;
+			ctx.debugMode = true;
+		}
+	}
+
 	// Initialize nullc with target module path
 	if(ctx.launchArgs.modulePath)
 	{

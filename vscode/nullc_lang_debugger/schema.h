@@ -709,6 +709,9 @@ struct LaunchRequestArguments
 		if(json.HasMember("program"))
 			program = json["program"].GetString();
 
+		if(json.HasMember("trace"))
+			trace = json["trace"].GetString();
+
 		if(json.HasMember("workspaceFolder"))
 			workspaceFolder = json["workspaceFolder"].GetString();
 
@@ -734,6 +737,8 @@ struct LaunchRequestArguments
 	Optional<std::string> request;
 
 	Optional<std::string> program;
+
+	Optional<std::string> trace;
 
 	Optional<std::string> workspaceFolder;
 

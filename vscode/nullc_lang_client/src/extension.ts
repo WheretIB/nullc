@@ -74,6 +74,7 @@ class NullcConfigurationProvider implements vscode.DebugConfigurationProvider {
 				config.program = '${file}';
 				config.workspaceFolder = '${workspaceFolder}';
 				config.modulePath = configuration.module_path;
+				config.trace = configuration.trace.server;
 			}
 		}
 
@@ -95,8 +96,8 @@ class NullcDebugAdapterDescriptorFactory implements DebugAdapterDescriptorFactor
 	}
 
 	createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable | undefined): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
-		let args = ['--debug'];
-		//let args = [];
+		//let args = ['--debug'];
+		let args = [];
 
 		let debuggerExecutable: vscode.DebugAdapterExecutable = new vscode.DebugAdapterExecutable(this.debuggerModule, args);
 
