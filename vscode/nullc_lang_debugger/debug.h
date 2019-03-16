@@ -22,3 +22,4 @@ unsigned ConvertSourceLocationToLine(const char *sourceLocation, unsigned module
 unsigned ConvertInstructionToLineAndModule(unsigned instruction, unsigned &moduleIndex);
 
 std::string GetBasicVariableInfo(unsigned typeIndex, char* ptr, bool hex);
+bool SetBasicVariableValue(unsigned typeIndex, char* ptr, const std::string& value);

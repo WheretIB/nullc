@@ -2045,3 +2045,89 @@ struct SourceResponseData
 	*/
 	Optional<std::string> mimeType;
 };
+
+struct SetVariableArguments
+{
+	SetVariableArguments() = default;
+
+	SetVariableArguments(rapidjson::Value &json)
+	{
+		FromJson(variablesReference, json["variablesReference"]);
+		FromJson(name, json["name"]);
+		FromJson(value, json["value"]);
+
+		if(json.HasMember("format"))
+			FromJson(format, json["format"]);
+	}
+
+	/**
+	* The reference of the variable container.
+	*/
+	int variablesReference;
+
+	/**
+	* The name of the variable in the container.
+	*/
+	std::string name;
+
+	/**
+	* The value of the variable.
+	*/
+	std::string value;
+
+	/**
+	* Specifies details on how to format the response value.
+	*/
+	Optional<ValueFormat> format;
+};
+
+struct SetVariableResponseData
+{
+	SetVariableResponseData() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document) const
+	{
+		target.SetObject();
+
+		target.AddMember("value", ::ToJson(value, document), document.GetAllocator());
+
+		if(type)
+			target.AddMember("type", ::ToJson(*type, document), document.GetAllocator());
+
+		if(variablesReference)
+			target.AddMember("variablesReference", ::ToJson(*variablesReference, document), document.GetAllocator());
+
+		if(namedVariables)
+			target.AddMember("namedVariables", ::ToJson(*namedVariables, document), document.GetAllocator());
+
+		if(indexedVariables)
+			target.AddMember("indexedVariables", ::ToJson(*indexedVariables, document), document.GetAllocator());
+	}
+
+	/**
+	* The new value of the variable.
+	*/
+	std::string value;
+
+	/**
+	* The type of the new value. Typically shown in the UI when hovering over the value.
+	*/
+	Optional<std::string> type;
+
+	/**
+	* If variablesReference is > 0, the new value is structured and its children can be retrieved by passing variablesReference to the VariablesRequest.
+	*/
+	Optional<int> variablesReference;
+
+	/**
+	* The number of named child variables.
+	* The client can use this optional information to present the variables in a paged UI and fetch them in chunks.
+	*/
+	Optional<int> namedVariables;
+
+	/**
+	* The number of indexed child variables.
+	* The client can use this optional information to present the variables in a paged UI and fetch them in chunks.
+	*/
+	Optional<int> indexedVariables;
+};

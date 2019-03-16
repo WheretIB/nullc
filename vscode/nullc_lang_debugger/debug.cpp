@@ -435,3 +435,69 @@ std::string GetBasicVariableInfo(unsigned typeIndex, char* ptr, bool hex)
 
 	return buf;
 }
+
+bool SetBasicVariableValue(unsigned typeIndex, char* ptr, const std::string& value)
+{
+	unsigned typeCount = 0;
+	auto types = nullcDebugTypeInfo(&typeCount);
+
+	auto &type = types[typeIndex];
+
+	if(type.subCat == ExternTypeInfo::CAT_POINTER)
+		return false;
+
+	if(type.subCat == ExternTypeInfo::CAT_CLASS)
+	{
+		if(type.type == ExternTypeInfo::TYPE_INT)
+		{
+			*(int*)ptr = strtol(value.c_str(), nullptr, 10);
+			return true;
+		}
+
+		return false;
+	}
+
+	if(type.subCat == ExternTypeInfo::CAT_ARRAY)
+		return false;
+
+	if(type.subCat == ExternTypeInfo::CAT_FUNCTION)
+		return false;
+
+	switch(type.type)
+	{
+	case ExternTypeInfo::TYPE_CHAR:
+		if(typeIndex == NULLC_TYPE_BOOL)
+		{
+			if(value == "true")
+				*(char*)ptr = 1;
+			else if(value == "false")
+				*(char*)ptr = 0;
+			else
+				*(char*)ptr = strtol(value.c_str(), nullptr, 10) != 0;
+		}
+		else
+		{
+			*(char*)ptr = (char)strtol(value.c_str(), nullptr, 10);
+		}
+		break;
+	case ExternTypeInfo::TYPE_SHORT:
+		*(short*)ptr = (short)strtol(value.c_str(), nullptr, 10);
+		break;
+	case ExternTypeInfo::TYPE_INT:
+		*(int*)ptr = strtol(value.c_str(), nullptr, 10);
+		break;
+	case ExternTypeInfo::TYPE_LONG:
+		*(long long*)ptr = strtoll(value.c_str(), nullptr, 10);
+		break;
+	case ExternTypeInfo::TYPE_FLOAT:
+		*(float*)ptr = strtof(value.c_str(), nullptr);
+		break;
+	case ExternTypeInfo::TYPE_DOUBLE:
+		*(double*)ptr = strtod(value.c_str(), nullptr);
+		break;
+	default:
+		return false;
+	}
+
+	return true;
+}

@@ -922,15 +922,18 @@ bool HandleRequestScopes(Context& ctx, rapidjson::Document &response, rapidjson:
 						activeCount++;
 				}
 
-				Scope scope;
+				if(activeCount)
+				{
+					Scope scope;
 
-				scope.name = "Arguments";
+					scope.name = "Arguments";
 
-				scope.variablesReference = args.frameId * 10 + 2;
+					scope.variablesReference = args.frameId * 10 + 2;
 
-				scope.namedVariables = activeCount;
+					scope.namedVariables = activeCount;
 
-				data.scopes.push_back(scope);
+					data.scopes.push_back(scope);
+				}
 			}
 
 			if(unsigned count = function->localCount - (function->paramCount + 1))
@@ -947,15 +950,18 @@ bool HandleRequestScopes(Context& ctx, rapidjson::Document &response, rapidjson:
 						activeCount++;
 				}
 
-				Scope scope;
+				if(activeCount)
+				{
+					Scope scope;
 
-				scope.name = "Locals";
+					scope.name = "Locals";
 
-				scope.variablesReference = args.frameId * 10 + 3;
+					scope.variablesReference = args.frameId * 10 + 3;
 
-				scope.namedVariables = activeCount;
+					scope.namedVariables = activeCount;
 
-				data.scopes.push_back(scope);
+					data.scopes.push_back(scope);
+				}
 			}
 
 			if(unsigned count = function->externCount)
@@ -972,15 +978,18 @@ bool HandleRequestScopes(Context& ctx, rapidjson::Document &response, rapidjson:
 						activeCount++;
 				}
 
-				Scope scope;
+				if(activeCount)
+				{
+					Scope scope;
 
-				scope.name = "Externals";
+					scope.name = "Externals";
 
-				scope.variablesReference = args.frameId * 10 + 4;
+					scope.variablesReference = args.frameId * 10 + 4;
 
-				scope.namedVariables = activeCount;
+					scope.namedVariables = activeCount;
 
-				data.scopes.push_back(scope);
+					data.scopes.push_back(scope);
+				}
 			}
 		}
 		else
@@ -1306,18 +1315,6 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 						data.variables.push_back(GetVariableInfo(ctx, localInfo.type, symbols + localInfo.offsetToName, *(char**)(contextPtr + localInfo.offset), showHex));
 					}
 				}
-
-				unsigned offsetToNextFrame = function->bytesToPop;
-
-				for(unsigned int i = 0; i < function->localCount; i++)
-				{
-					auto &localInfo = locals[function->offsetToFirstLocal + i];
-
-					if(localInfo.offset + localInfo.size > offsetToNextFrame)
-						offsetToNextFrame = localInfo.offset + localInfo.size;
-				}
-
-				offset += offsetToNextFrame;
 			}
 			else if(scopeKind == 1) // Globals
 			{
@@ -1426,6 +1423,257 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 			}
 		}
 	}
+
+	response.AddMember("success", true, response.GetAllocator());
+	response.AddMember("body", ::ToJson(data, response), response.GetAllocator());
+
+	SendResponse(ctx, response);
+
+	return true;
+}
+
+bool HandleRequestSetVariable(Context& ctx, rapidjson::Document &response, rapidjson::Value &arguments)
+{
+	SetVariableArguments args{arguments};
+
+	SetVariableResponseData data;
+
+	unsigned typeCount = 0;
+	auto types = nullcDebugTypeInfo(&typeCount);
+
+	unsigned functionCount = 0;
+	auto functions = nullcDebugFunctionInfo(&functionCount);
+
+	unsigned variableCount = 0;
+	auto variables = nullcDebugVariableInfo(&variableCount);
+
+	unsigned localCount = 0;
+	auto locals = nullcDebugLocalInfo(&localCount);
+
+	unsigned stackSize = 0;
+	char *stack = (char*)nullcGetVariableData(&stackSize);
+
+	unsigned typeExtraCount = 0;
+	auto typeExtras = nullcDebugTypeExtraInfo(&typeExtraCount);
+
+	auto symbols = nullcDebugSymbols(nullptr);
+
+	bool showHex = args.format && args.format->hex && *args.format->hex;
+
+	bool variableSet = false;
+
+	// Stack frame references don't have their high bit set
+	if((args.variablesReference & 0x40000000) == 0)
+	{
+		unsigned frameId = args.variablesReference / 10;
+		unsigned scopeKind = args.variablesReference % 10;
+
+		unsigned skipFrames = frameId;
+
+		unsigned offset = 0;
+
+		for(unsigned i = 0; i < variableCount; i++)
+		{
+			auto variableInfo = variables[i];
+
+			auto &type = types[variableInfo.type];
+
+			if(variableInfo.offset + type.size > offset)
+				offset = variableInfo.offset + type.size;
+		}
+
+		nullcDebugBeginCallStack();
+
+		while(int nextAddress = nullcDebugGetStackFrame())
+		{
+			if(skipFrames)
+			{
+				skipFrames--;
+
+				if(auto function = nullcDebugConvertAddressToFunction(nextAddress, functions, functionCount))
+				{
+					// Align offset to the first variable (by 16 byte boundary)
+					int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
+
+					offset += alignOffset;
+
+					unsigned offsetToNextFrame = function->bytesToPop;
+
+					for(unsigned int i = 0; i < function->localCount; i++)
+					{
+						auto &localInfo = locals[function->offsetToFirstLocal + i];
+
+						if(localInfo.offset + localInfo.size > offsetToNextFrame)
+							offsetToNextFrame = localInfo.offset + localInfo.size;
+					}
+
+					offset += offsetToNextFrame;
+				}
+
+				continue;
+			}
+
+			auto sourceLocation = GetInstructionSourceLocation(nextAddress - 1);
+
+			if(!sourceLocation)
+			{
+				fprintf(stderr, "ERROR: Failed to find location for stack frame %d\r\n", frameId);
+				continue;
+			}
+
+			if(auto function = nullcDebugConvertAddressToFunction(nextAddress, functions, functionCount))
+			{
+				// Align offset to the first variable (by 16 byte boundary)
+				int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
+
+				offset += alignOffset;
+
+				if(scopeKind == 2) // Arguments
+				{
+					unsigned count = function->paramCount + 1;
+
+					for(unsigned i = 0; i < count; i++)
+					{
+						auto &localInfo = locals[function->offsetToFirstLocal + i];
+
+						if(args.name == symbols + localInfo.offsetToName)
+						{
+							if(SetBasicVariableValue(localInfo.type, stack + offset + localInfo.offset, args.value))
+								variableSet = true;
+
+							data.value = GetBasicVariableInfo(localInfo.type, stack + offset + localInfo.offset, showHex);
+						}
+					}
+				}
+				else if(scopeKind == 3) // Locals
+				{
+					unsigned count = function->localCount - (function->paramCount + 1);
+
+					for(unsigned i = 0; i < count; i++)
+					{
+						auto &localInfo = locals[function->offsetToFirstLocal + function->paramCount + 1 + i];
+
+						if(args.name == symbols + localInfo.offsetToName)
+						{
+							if(SetBasicVariableValue(localInfo.type, stack + offset + localInfo.offset, args.value))
+								variableSet = true;
+
+							data.value = GetBasicVariableInfo(localInfo.type, stack + offset + localInfo.offset, showHex);
+						}
+					}
+				}
+				else if(scopeKind == 4) // Externals
+				{
+					auto &contextLocalInfo = locals[function->offsetToFirstLocal + function->paramCount];
+
+					char *contextPtr = *(char**)(stack + offset + contextLocalInfo.offset);
+
+					unsigned count = function->externCount;
+
+					for(unsigned i = 0; i < count; i++)
+					{
+						auto &localInfo = locals[function->offsetToFirstLocal + function->localCount + i];
+
+						if(args.name == symbols + localInfo.offsetToName)
+						{
+							if(SetBasicVariableValue(localInfo.type, *(char**)(contextPtr + localInfo.offset), args.value))
+								variableSet = true;
+
+							data.value = GetBasicVariableInfo(localInfo.type, *(char**)(contextPtr + localInfo.offset), showHex);
+						}
+					}
+				}
+			}
+			else if(scopeKind == 1) // Globals
+			{
+				for(unsigned i = 0; i < variableCount; i++)
+				{
+					auto &variableInfo = variables[i];
+
+					if(args.name == symbols + variableInfo.offsetToName)
+					{
+						if(SetBasicVariableValue(variableInfo.type, stack + variableInfo.offset, args.value))
+							variableSet = true;
+
+						data.value = GetBasicVariableInfo(variableInfo.type, stack + variableInfo.offset, showHex);
+					}
+				}
+			}
+
+			break;
+		}
+	}
+	else if((args.variablesReference & ~0x40000000) < ctx.variableReferences.size())
+	{
+		auto reference = ctx.variableReferences[args.variablesReference & ~0x40000000];
+
+		auto &type = types[reference.type];
+
+		if(type.subCat == ExternTypeInfo::CAT_CLASS)
+		{
+			const char *memberName = symbols + type.offsetToName + (unsigned int)strlen(symbols + type.offsetToName) + 1;
+
+			for(unsigned i = 0; i < type.memberCount; i++)
+			{
+				auto &member = typeExtras[type.memberOffset + i];
+
+				if(args.name == memberName)
+				{
+					if(SetBasicVariableValue(member.type, reference.ptr + member.offset, args.value))
+						variableSet = true;
+
+					data.value = GetBasicVariableInfo(member.type, reference.ptr + member.offset, showHex);
+				}
+
+				memberName += (unsigned int)strlen(memberName) + 1;
+			}
+		}
+		else if(type.subCat == ExternTypeInfo::CAT_ARRAY)
+		{
+			auto &subType = types[type.subType];
+
+			if(type.arrSize == ~0u)
+			{
+				NULLCArray &arr = *(NULLCArray*)reference.ptr;
+
+				unsigned index = strtoul(args.name.c_str(), nullptr, 10);
+
+				if(index < unsigned(arr.len))
+				{
+					if(SetBasicVariableValue(type.subType, arr.ptr + index * subType.size, args.value))
+						variableSet = true;
+
+					data.value = GetBasicVariableInfo(type.subType, arr.ptr + index * subType.size, showHex);
+				}
+			}
+			else
+			{
+				unsigned index = strtoul(args.name.c_str(), nullptr, 10);
+
+				if(index < type.arrSize)
+				{
+					if(SetBasicVariableValue(type.subType, reference.ptr + index * subType.size, args.value))
+						variableSet = true;
+
+					data.value = GetBasicVariableInfo(type.subType, reference.ptr + index * subType.size, showHex);
+				}
+			}
+		}
+		else
+		{
+			if(SetBasicVariableValue(reference.type, (char*)reference.ptr, args.value))
+				variableSet = true;
+
+			data.value = GetBasicVariableInfo(reference.type, (char*)reference.ptr, showHex);
+		}
+	}
+	else
+	{
+		return RespondWithError(ctx, response, "Unknown variables reference");
+	}
+
+	if(!variableSet)
+		return RespondWithError(ctx, response, "Failed to set variable value");
 
 	response.AddMember("success", true, response.GetAllocator());
 	response.AddMember("body", ::ToJson(data, response), response.GetAllocator());
@@ -1635,6 +1883,9 @@ bool HandleRequest(Context& ctx, int seq, const char *command, rapidjson::Value 
 
 	if(strcmp(command, "variables") == 0)
 		return HandleRequestVariables(ctx, response, arguments);
+
+	if(strcmp(command, "setVariable") == 0)
+		return HandleRequestSetVariable(ctx, response, arguments);
 
 	if(strcmp(command, "continue") == 0)
 		return HandleRequestContinue(ctx, response, arguments);
