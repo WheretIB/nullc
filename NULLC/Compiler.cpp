@@ -539,7 +539,7 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		}
 	}
 
-	/*RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
+	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONSTANT_PROPAGATION);
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
@@ -554,7 +554,7 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
-	}*/
+	}
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_CREATE_ALLOCA_STORAGE);
 
