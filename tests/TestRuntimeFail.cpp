@@ -241,16 +241,16 @@ struct Test_testDepthOverflow : TestQueue
 			good = nullcRun();
 			if(!good)
 			{
-				const char *error = "ERROR: allocated stack overflow";
+				const char *expected = "ERROR: allocated stack overflow";
 				char buf[512];
 				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
-				if(strcmp(error, buf) != 0)
+				if(strcmp(expected, buf) != 0)
 				{
 					if(!Tests::messageVerbose)
 						printf("Call depth test\r\n");
-					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
+					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, expected);
 				}else{
 					testsPassed[TEST_TYPE_X86]++;
 				}
@@ -300,16 +300,16 @@ struct Test_testGlobalOverflow : TestQueue
 			good = nullcRun();
 			if(!good)
 			{
-				const char *error = "ERROR: allocated stack overflow";
+				const char *expected = "ERROR: allocated stack overflow";
 				char buf[512];
 				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
-				if(strcmp(error, buf) != 0)
+				if(strcmp(expected, buf) != 0)
 				{
 					if(!Tests::messageVerbose)
 						printf("Global overflow test\r\n");
-					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
+					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, expected);
 				}else{
 					testsPassed[TEST_TYPE_X86]++;
 				}
@@ -350,16 +350,16 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 			good = nullcRun();
 			if(!good)
 			{
-				const char *error = "ERROR: failed to reserve new stack memory";
+				const char *expected = "ERROR: failed to reserve new stack memory";
 				char buf[512];\
 				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
-				if(strcmp(error, buf) != 0)
+				if(strcmp(expected, buf) != 0)
 				{
 					if(Tests::messageVerbose)
 						printf("Depth overflow in unmanaged memory\r\n");
-					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
+					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, expected);
 				}else{
 					testsPassed[TEST_TYPE_X86]++;
 				}
