@@ -506,6 +506,8 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 	else
 		nullcSetEnableLogFiles(0, NULL, NULL, NULL);
 
+	nullcSetOptimizationLevel(0);
+
 	nullcSetExecutor(NULLC_VM);
 
 	if(!nullcDebugSetBreakFunction(&ctx, OnDebugBreak))
