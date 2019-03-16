@@ -1049,7 +1049,7 @@ IntrusiveList<SynCallArgument> ParseCallArguments(ParseContext &ctx)
 	{
 		arguments.push_back(argument);
 
-		bool namedCall = argument->name;
+		bool namedCall = argument->name != NULL;
 
 		while(ctx.Consume(lex_comma))
 		{
