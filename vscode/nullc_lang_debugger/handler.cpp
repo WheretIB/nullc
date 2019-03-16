@@ -268,8 +268,13 @@ bool HandleRequestSetBreakpoints(Context& ctx, rapidjson::Document &response, ra
 			{
 				if(moduleSource)
 				{
-					if(unsigned instruction = ConvertLineToInstruction(moduleSource, el.line - (ctx.initArgs.linesStartAt1 && *ctx.initArgs.linesStartAt1 ? 1 : 0)))
+					unsigned zeroBasedLine = el.line - (ctx.initArgs.linesStartAt1 && *ctx.initArgs.linesStartAt1 ? 1 : 0);
+
+					if(unsigned instruction = ConvertLineToInstruction(moduleSource, zeroBasedLine))
 					{
+						if(ctx.debugMode)
+							fprintf(stderr, "INFO: Placing file '%s' breakpoint line %d at instruction %d\r\n", args.source.name->c_str(), zeroBasedLine, instruction);
+
 						if(nullcDebugAddBreakpoint(instruction))
 						{
 							breakpoint.line = el.line;
@@ -744,7 +749,7 @@ bool HandleRequestStackTrace(Context& ctx, rapidjson::Document &response, rapidj
 	nullcDebugBeginCallStack();
 
 	while(int nextAddress = nullcDebugGetStackFrame())
-		stackFrames.push_back(nextAddress);
+		stackFrames.push_back(nextAddress - 1);
 
 	std::reverse(stackFrames.begin(), stackFrames.end());
 
@@ -757,7 +762,11 @@ bool HandleRequestStackTrace(Context& ctx, rapidjson::Document &response, rapidj
 			continue;
 		}
 
-		auto sourceLocation = GetInstructionSourceLocation(stackFrames[i]);
+		unsigned frameId = (int)stackFrames.size() - i - 1;
+
+		unsigned instruction = stackFrames[i];
+
+		auto sourceLocation = GetInstructionSourceLocation(instruction);
 
 		if(!sourceLocation)
 		{
@@ -768,13 +777,18 @@ bool HandleRequestStackTrace(Context& ctx, rapidjson::Document &response, rapidj
 
 		unsigned moduleIndex = GetSourceLocationModuleIndex(sourceLocation);
 
-		auto function = nullcDebugConvertAddressToFunction(stackFrames[i], functions, functionCount);
+		auto function = nullcDebugConvertAddressToFunction(instruction, functions, functionCount);
+
+		auto functionName = function ? symbols + function->offsetToName : "global";
+
+		if(ctx.debugMode)
+			fprintf(stderr, "INFO: Stack trace frame %d on instruction %d in function '%s'\r\n", frameId, instruction, functionName);
 
 		StackFrame stackFrame;
 
-		stackFrame.id = (int)stackFrames.size() - i - 1;
+		stackFrame.id = frameId;
 
-		stackFrame.name = function ? symbols + function->offsetToName : "global";
+		stackFrame.name = functionName;
 
 		stackFrame.source = GetModuleSourceInfo(ctx, moduleIndex);
 

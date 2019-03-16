@@ -32,6 +32,9 @@ unsigned OnDebugBreak(void *context, unsigned instruction)
 	ctx.breakpointLastLine.store(line);
 	ctx.breakpointLastModule.store(moduleIndex);
 
+	if(ctx.infoMode)
+		fprintf(stderr, "INFO: Breaking on instruction %d at line %d of module %d\r\n", instruction, line, moduleIndex);
+
 	SendEventStopped(ctx, StoppedEventData("breakpoint", 1));
 
 	{
