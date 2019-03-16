@@ -2934,11 +2934,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 				compileErr = GetLastNullcErrorWindows();
 
 			RichTextarea::BeginStyleUpdate(wnd);
-			if(!colorer->ColorText(wnd, (char*)RichTextarea::GetAreaText(wnd), RichTextarea::SetStyleToSelection))
+
+			colorer->ColorText(wnd, (char*)RichTextarea::GetAreaText(wnd), RichTextarea::SetStyleToSelection);
+
+			if(compileErr)
 			{
-				SetWindowText(hCode, (compileErr ? compileErr + colorer->GetError() : colorer->GetError()).c_str());
-				TabbedFiles::SetCurrentTab(hDebugTabs, 0);
-			}else if(compileErr){
 				SetWindowText(hCode, compileErr);
 				TabbedFiles::SetCurrentTab(hDebugTabs, 0);
 			}
