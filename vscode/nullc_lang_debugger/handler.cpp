@@ -873,10 +873,8 @@ bool HandleRequestScopes(Context& ctx, rapidjson::Document &response, rapidjson:
 
 					const char *name = symbols + localInfo.offsetToName;
 
-					if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
-						continue;
-
-					activeCount++;
+					if(*name != '$')
+						activeCount++;
 				}
 
 				Scope scope;
@@ -890,7 +888,7 @@ bool HandleRequestScopes(Context& ctx, rapidjson::Document &response, rapidjson:
 				data.scopes.push_back(scope);
 			}
 
-			if(unsigned count = function->localCount - (function->paramCount + 1) - function->externCount)
+			if(unsigned count = function->localCount - (function->paramCount + 1))
 			{
 				unsigned activeCount = 0;
 
@@ -900,10 +898,8 @@ bool HandleRequestScopes(Context& ctx, rapidjson::Document &response, rapidjson:
 
 					const char *name = symbols + localInfo.offsetToName;
 
-					if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
-						continue;
-
-					activeCount++;
+					if(*name != '$')
+						activeCount++;
 				}
 
 				Scope scope;
@@ -923,14 +919,12 @@ bool HandleRequestScopes(Context& ctx, rapidjson::Document &response, rapidjson:
 
 				for(unsigned i = 0; i < count; i++)
 				{
-					auto &localInfo = locals[function->offsetToFirstLocal + function->localCount - function->externCount + i];
+					auto &localInfo = locals[function->offsetToFirstLocal + function->localCount + i];
 
 					const char *name = symbols + localInfo.offsetToName;
 
-					if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
-						continue;
-
-					activeCount++;
+					if(*name != '$')
+						activeCount++;
 				}
 
 				Scope scope;
@@ -952,10 +946,8 @@ bool HandleRequestScopes(Context& ctx, rapidjson::Document &response, rapidjson:
 			{
 				const char *name = symbols + variables[i].offsetToName;
 
-				if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
-					continue;
-
-				activeCount++;
+				if(*name != '$')
+					activeCount++;
 			}
 
 			Scope scope;
@@ -982,7 +974,7 @@ bool HandleRequestScopes(Context& ctx, rapidjson::Document &response, rapidjson:
 	return true;
 }
 
-Variable GetVariableInfo(unsigned typeIndex, const char *name, char *ptr, bool showHex)
+Variable GetVariableInfo(Context& ctx, unsigned typeIndex, const char *name, char *ptr, bool showHex)
 {
 	unsigned typeCount = 0;
 	auto types = nullcDebugTypeInfo(&typeCount);
@@ -995,12 +987,104 @@ Variable GetVariableInfo(unsigned typeIndex, const char *name, char *ptr, bool s
 
 	variable.value = GetBasicVariableInfo(typeIndex, ptr, showHex);
 
-	variable.type = symbols + types[typeIndex].offsetToName;
+	auto &type = types[typeIndex];
+
+	variable.type = symbols + type.offsetToName;
 
 	variable.evaluateName = name;
 
-	// TODO: nested types
-	variable.variablesReference = 0;
+	if(type.subCat == ExternTypeInfo::CAT_POINTER)
+	{
+		if(char *subPtr = *(char**)ptr)
+		{
+			variable.variablesReference = unsigned(0x40000000 | ctx.variableReferences.size());
+
+			ctx.variableReferences.push_back(Context::VariableReference(subPtr, type.subType));
+
+			auto &subType = types[type.subType];
+
+			if(subType.subCat == ExternTypeInfo::CAT_CLASS && subType.type != ExternTypeInfo::TYPE_INT)
+			{
+				variable.namedVariables = subType.memberCount;
+				variable.indexedVariables = 0;
+			}
+			else if(subType.subCat == ExternTypeInfo::CAT_ARRAY)
+			{
+				if(subType.arrSize == ~0u)
+				{
+					NULLCArray &arr = *(NULLCArray*)subPtr;
+
+					variable.namedVariables = 1;
+					variable.indexedVariables = arr.len;
+				}
+				else
+				{
+					variable.namedVariables = 1;
+					variable.indexedVariables = subType.arrSize;
+				}
+			}
+			else if(subType.subCat == ExternTypeInfo::CAT_FUNCTION)
+			{
+				variable.namedVariables = 2;
+				variable.indexedVariables = 0;
+			}
+			else if(type.subCat == ExternTypeInfo::CAT_POINTER)
+			{
+				variable.namedVariables = 0;
+				variable.indexedVariables = 0;
+			}
+			else
+			{
+				variable.namedVariables = 0;
+				variable.indexedVariables = 0;
+			}
+		}
+	}
+	else if(type.subCat == ExternTypeInfo::CAT_CLASS && type.type != ExternTypeInfo::TYPE_INT)
+	{
+		variable.variablesReference = unsigned(0x40000000 | ctx.variableReferences.size());
+
+		ctx.variableReferences.push_back(Context::VariableReference(ptr, typeIndex));
+
+		variable.namedVariables = type.memberCount;
+		variable.indexedVariables = 0;
+	}
+	else if(type.subCat == ExternTypeInfo::CAT_ARRAY)
+	{
+		if(type.arrSize == ~0u)
+		{
+			NULLCArray &arr = *(NULLCArray*)ptr;
+
+			variable.variablesReference = unsigned(0x40000000 | ctx.variableReferences.size());
+
+			ctx.variableReferences.push_back(Context::VariableReference(ptr, typeIndex));
+
+			variable.namedVariables = 1;
+			variable.indexedVariables = arr.len;
+		}
+		else
+		{
+			variable.variablesReference = unsigned(0x40000000 | ctx.variableReferences.size());
+
+			ctx.variableReferences.push_back(Context::VariableReference(ptr, typeIndex));
+
+			variable.namedVariables = 1;
+			variable.indexedVariables = type.arrSize;
+		}
+	}
+	else if(type.subCat == ExternTypeInfo::CAT_FUNCTION)
+	{
+		variable.variablesReference = unsigned(0x40000000 | ctx.variableReferences.size());
+
+		ctx.variableReferences.push_back(Context::VariableReference(ptr, typeIndex));
+
+		variable.namedVariables = 2;
+		variable.indexedVariables = 0;
+	}
+	else
+	{
+		variable.variablesReference = 0;
+	}
 
 	return variable;
 }
@@ -1026,10 +1110,17 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 	unsigned stackSize = 0;
 	char *stack = (char*)nullcGetVariableData(&stackSize);
 
+	unsigned typeExtraCount = 0;
+	auto typeExtras = nullcDebugTypeExtraInfo(&typeExtraCount);
+
 	auto symbols = nullcDebugSymbols(nullptr);
 
+	unsigned start = args.start ? *args.start : 0;
+
+	bool showHex = args.format && args.format->hex && *args.format->hex;
+
 	// Stack frame references don't have their high bit set
-	if((args.variablesReference & 0x80000000) == 0)
+	if((args.variablesReference & 0x40000000) == 0)
 	{
 		unsigned frameId = args.variablesReference / 10;
 		unsigned scopeKind = args.variablesReference % 10;
@@ -1090,10 +1181,6 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 			if(args.filter && *args.filter == VariablesArgumentsFilters::indexed)
 				break;
 
-			unsigned start = args.start ? *args.start : 0;
-
-			bool showHex = args.format && args.format->hex && *args.format->hex;
-
 			if(auto function = nullcDebugConvertAddressToFunction(nextAddress, functions, functionCount))
 			{
 				// Align offset to the first variable (by 16 byte boundary)
@@ -1113,22 +1200,20 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 
 						const char *name = symbols + localInfo.offsetToName;
 
-						if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
-							continue;
-
-						filtered.push_back(&localInfo);
+						if(*name != '$')
+							filtered.push_back(&localInfo);
 					}
 
 					for(unsigned i = start; i < filtered.size() && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
 					{
 						auto &localInfo = *filtered[i];
 
-						data.variables.push_back(GetVariableInfo(localInfo.type, symbols + localInfo.offsetToName, stack + offset + localInfo.offset, showHex));
+						data.variables.push_back(GetVariableInfo(ctx, localInfo.type, symbols + localInfo.offsetToName, stack + offset + localInfo.offset, showHex));
 					}
 				}
 				else if(scopeKind == 3) // Locals
 				{
-					unsigned count = function->localCount - (function->paramCount + 1) - function->externCount;
+					unsigned count = function->localCount - (function->paramCount + 1);
 
 					std::vector<ExternLocalInfo*> filtered;
 
@@ -1138,17 +1223,15 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 
 						const char *name = symbols + localInfo.offsetToName;
 
-						if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
-							continue;
-
-						filtered.push_back(&localInfo);
+						if(*name != '$')
+							filtered.push_back(&localInfo);
 					}
 
 					for(unsigned i = start; i < filtered.size() && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
 					{
 						auto &localInfo = *filtered[i];
 
-						data.variables.push_back(GetVariableInfo(localInfo.type, symbols + localInfo.offsetToName, stack + offset + localInfo.offset, showHex));
+						data.variables.push_back(GetVariableInfo(ctx, localInfo.type, symbols + localInfo.offsetToName, stack + offset + localInfo.offset, showHex));
 					}
 				}
 				else if(scopeKind == 4) // Externals
@@ -1159,21 +1242,23 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 
 					for(unsigned i = 0; i < count; i++)
 					{
-						auto &localInfo = locals[function->offsetToFirstLocal + function->localCount - function->externCount + i];
+						auto &localInfo = locals[function->offsetToFirstLocal + function->localCount + i];
 
 						const char *name = symbols + localInfo.offsetToName;
 
-						if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
-							continue;
-
-						filtered.push_back(&localInfo);
+						if(*name != '$')
+							filtered.push_back(&localInfo);
 					}
+
+					auto &contextLocalInfo = locals[function->offsetToFirstLocal + function->paramCount];
+
+					char *contextPtr = *(char**)(stack + offset + contextLocalInfo.offset);
 
 					for(unsigned i = start; i < filtered.size() && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
 					{
 						auto &localInfo = *filtered[i];
 
-						data.variables.push_back(GetVariableInfo(localInfo.type, symbols + localInfo.offsetToName, stack + offset + localInfo.offset, showHex));
+						data.variables.push_back(GetVariableInfo(ctx, localInfo.type, symbols + localInfo.offsetToName, *(char**)(contextPtr + localInfo.offset), showHex));
 					}
 				}
 
@@ -1199,17 +1284,15 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 
 					const char *name = symbols + variableInfo.offsetToName;
 
-					if(strncmp(name, "$temp", 5) == 0 || strncmp(name, "$vtbl", 5) == 0)
-						continue;
-
-					filtered.push_back(&variableInfo);
+					if(*name != '$')
+						filtered.push_back(&variableInfo);
 				}
 
 				for(unsigned i = start; i < filtered.size() && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
 				{
 					auto variableInfo = *filtered[i];
 
-					data.variables.push_back(GetVariableInfo(variableInfo.type, symbols + variableInfo.offsetToName, stack + variableInfo.offset, showHex));
+					data.variables.push_back(GetVariableInfo(ctx, variableInfo.type, symbols + variableInfo.offsetToName, stack + variableInfo.offset, showHex));
 				}
 			}
 
@@ -1218,6 +1301,85 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 	}
 	else
 	{
+		auto reference = ctx.variableReferences[args.variablesReference & ~0x40000000];
+
+		auto &type = types[reference.type];
+
+		if(type.subCat == ExternTypeInfo::CAT_CLASS)
+		{
+			const char *memberName = symbols + type.offsetToName + (unsigned int)strlen(symbols + type.offsetToName) + 1;
+
+			if(!args.filter || *args.filter == VariablesArgumentsFilters::named)
+			{
+				for(unsigned i = start; i < type.memberCount && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
+				{
+					auto &member = typeExtras[type.memberOffset + i];
+
+					data.variables.push_back(GetVariableInfo(ctx, member.type, memberName, reference.ptr + member.offset, showHex));
+
+					memberName += (unsigned int)strlen(memberName) + 1;
+				}
+			}
+		}
+		else if(type.subCat == ExternTypeInfo::CAT_ARRAY)
+		{
+			auto &subType = types[type.subType];
+
+			if(type.arrSize == ~0u)
+			{
+				NULLCArray &arr = *(NULLCArray*)reference.ptr;
+
+				if(!args.filter || *args.filter == VariablesArgumentsFilters::named)
+					data.variables.push_back(GetVariableInfo(ctx, NULLC_TYPE_INT, "size", (char*)&arr.len, showHex));
+
+				if(!args.filter || *args.filter == VariablesArgumentsFilters::indexed)
+				{
+					for(unsigned i = start; i < arr.len && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
+						data.variables.push_back(GetVariableInfo(ctx, type.subType, ToString("%d", i).c_str(), arr.ptr + i * subType.size, showHex));
+				}
+			}
+			else
+			{
+				if(!args.filter || *args.filter == VariablesArgumentsFilters::named)
+					data.variables.push_back(GetVariableInfo(ctx, NULLC_TYPE_INT, "size", (char*)&type.arrSize, showHex));
+
+				if(!args.filter || *args.filter == VariablesArgumentsFilters::indexed)
+				{
+					for(unsigned i = start; i < type.arrSize && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
+						data.variables.push_back(GetVariableInfo(ctx, type.subType, ToString("%d", i).c_str(), reference.ptr + i * subType.size, showHex));
+				}
+			}
+		}
+		else if(type.subCat == ExternTypeInfo::CAT_FUNCTION)
+		{
+			NULLCFuncPtr &funcPtr = *(NULLCFuncPtr*)reference.ptr;
+
+			auto &function = functions[funcPtr.id];
+
+			if(!args.filter || *args.filter == VariablesArgumentsFilters::named)
+			{
+				data.variables.push_back(GetVariableInfo(ctx, NULLC_TYPE_INT, "id", (char*)&funcPtr.id, showHex));
+
+				if(function.contextType == ~0u)
+					data.variables.push_back(GetVariableInfo(ctx, NULLC_TYPE_VOID_REF, "context", (char*)&funcPtr.context, showHex));
+				else
+					data.variables.push_back(GetVariableInfo(ctx, function.contextType, "context", (char*)&funcPtr.context, showHex));
+			}
+		}
+		else if(type.subCat == ExternTypeInfo::CAT_POINTER)
+		{
+			if(!args.filter || *args.filter == VariablesArgumentsFilters::named)
+			{
+				data.variables.push_back(GetVariableInfo(ctx, reference.type, "[ptr]", (char*)reference.ptr, showHex));
+			}
+		}
+		else
+		{
+			if(!args.filter || *args.filter == VariablesArgumentsFilters::named)
+			{
+				data.variables.push_back(GetVariableInfo(ctx, reference.type, "[value]", (char*)reference.ptr, showHex));
+			}
+		}
 	}
 
 	response.AddMember("success", true, response.GetAllocator());

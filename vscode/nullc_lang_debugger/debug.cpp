@@ -320,16 +320,82 @@ unsigned ConvertInstructionToLineAndModule(unsigned instruction, unsigned &modul
 
 std::string GetBasicVariableInfo(unsigned typeIndex, char* ptr, bool hex)
 {
-	char buf[256];
+	char buf[1024];
 
 	unsigned typeCount = 0;
 	auto types = nullcDebugTypeInfo(&typeCount);
-	
+
 	auto &type = types[typeIndex];
 
 	if(type.subCat == ExternTypeInfo::CAT_POINTER)
 	{
-		snprintf(buf, 256, "0x%x", *(int*)ptr);
+		snprintf(buf, 256, "0x%p", *(void**)ptr);
+		return buf;
+	}
+
+	if(type.subCat == ExternTypeInfo::CAT_CLASS)
+	{
+		if(type.type == ExternTypeInfo::TYPE_INT)
+		{
+			auto symbols = nullcDebugSymbols(nullptr);
+
+			const char *memberName = symbols + type.offsetToName + (unsigned int)strlen(symbols + type.offsetToName) + 1;
+
+			for(unsigned i = 0; i < *(unsigned*)ptr; i++)
+				memberName += strlen(memberName) + 1;
+
+			snprintf(buf, 256, hex ? "%s (0x%x)" : "%s (%d)", memberName, *(int*)ptr);
+			return buf;
+		}
+
+		return "{}";
+	}
+
+	if(type.subCat == ExternTypeInfo::CAT_ARRAY)
+	{
+		if(type.arrSize == ~0u)
+		{
+			NULLCArray &arr = *(NULLCArray*)ptr;
+
+			snprintf(buf, 256, "0x%p [%d]", arr.ptr, arr.len);
+			return buf;
+		}
+
+		snprintf(buf, 256, "[%d]", type.arrSize);
+		return buf;
+	}
+
+	if(type.subCat == ExternTypeInfo::CAT_FUNCTION)
+	{
+		unsigned functionCount = 0;
+		auto functions = nullcDebugFunctionInfo(&functionCount);
+
+		unsigned typeExtraCount = 0;
+		auto typeExtras = nullcDebugTypeExtraInfo(&typeExtraCount);
+
+		unsigned localCount = 0;
+		auto locals = nullcDebugLocalInfo(&localCount);
+
+		auto symbols = nullcDebugSymbols(nullptr);
+
+		NULLCFuncPtr &funcPtr = *(NULLCFuncPtr*)ptr;
+
+		auto &function = functions[funcPtr.id];
+		auto &returnType = types[typeExtras[type.memberOffset].type];
+
+		char *pos = buf;
+		*pos = 0;
+
+		pos += SafeSprintf(pos, 1024 - int(pos - buf), "%s %s(", symbols + returnType.offsetToName, symbols + function.offsetToName);
+
+		for(unsigned i = 0; i < function.paramCount; i++)
+		{
+			auto &localInfo = locals[function.offsetToFirstLocal + i];
+
+			pos += SafeSprintf(pos, 1024 - int(pos - buf), "%s %s%s", symbols + types[localInfo.type].offsetToName, symbols + localInfo.offsetToName, i == function.paramCount - 1 ? "" : ", ");
+		}
+		pos += SafeSprintf(pos, 1024 - int(pos - buf), ")");
+
 		return buf;
 	}
 
