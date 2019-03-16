@@ -645,10 +645,12 @@ Source GetModuleSourceInfo(Context& ctx, unsigned moduleIndex)
 
 	Source source;
 
-	// TODO: take name from launch arguments
-	std::string name = "main.nc";
+	auto folderPos = ctx.launchArgs.program->find_last_of("/\\");
 
-	source.name = name;
+	if(folderPos != std::string::npos)
+		source.name = ctx.launchArgs.program->substr(folderPos + 1);
+	else
+		source.name = "main.nc";
 
 	source.path = ctx.launchArgs.program;
 
