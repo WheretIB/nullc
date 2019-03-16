@@ -104,12 +104,7 @@ bool Linker::LinkCode(const char *code)
 		}
 		if(loadedId == -1)
 		{
-			char fullPath[256];
-			SafeSprintf(fullPath, 256, "%s%s", BinaryCache::GetImportPath() ? BinaryCache::GetImportPath() : "", path);
-
-			const char *bytecode = BinaryCache::GetBytecode(fullPath);
-			if(!bytecode && BinaryCache::GetImportPath())
-				bytecode = BinaryCache::GetBytecode(path);
+			const char *bytecode = BinaryCache::FindBytecode(path, false);
 
 			// last module is not imported
 			if(strcmp(path, "__last.nc") != 0)

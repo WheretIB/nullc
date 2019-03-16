@@ -2934,20 +2934,12 @@ IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx)
 
 const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream, ArrayView<InplaceStr> activeImports)
 {
-	const char *importPath = BinaryCache::GetImportPath();
+	InplaceStr moduleName = GetModuleName(ctx.allocator, parts);
 
-	InplaceStr path = GetImportPath(ctx.allocator, importPath, parts);
-	InplaceStr pathNoImport = importPath ? InplaceStr(path.begin + strlen(importPath)) : path;
+	const char *bytecode = BinaryCache::FindBytecode(moduleName.begin, false);
 
-	const char *bytecode = BinaryCache::GetBytecode(path.begin);
 	lexCount = 0;
-	lexStream = BinaryCache::GetLexems(path.begin, lexCount);
-
-	if(!bytecode)
-	{
-		bytecode = BinaryCache::GetBytecode(pathNoImport.begin);
-		lexStream = BinaryCache::GetLexems(pathNoImport.begin, lexCount);
-	}
+	lexStream = BinaryCache::FindLexems(moduleName.begin, false, lexCount);
 
 	if(!bytecode)
 	{
@@ -2963,7 +2955,7 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 		const char *messageStart = ctx.errorBufLocation;
 
 		const char *pos = NULL;
-		bytecode = ctx.bytecodeBuilder(ctx.allocator, path, pathNoImport, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), activeImports);
+		bytecode = ctx.bytecodeBuilder(ctx.allocator, moduleName, false, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), activeImports);
 
 		if(!bytecode)
 		{
@@ -3048,7 +3040,7 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 
 		CheckConsume(ctx, lex_semicolon, "ERROR: ';' not found after import expression");
 
-		InplaceStr moduleName = GetImportPath(ctx.allocator, NULL, path);
+		InplaceStr moduleName = GetModuleName(ctx.allocator, path);
 
 		for(unsigned i = 0; i < ctx.activeImports.size(); i++)
 		{
@@ -3728,31 +3720,9 @@ const char* GetOpName(SynModifyAssignType type)
 	return "";
 }
 
-InplaceStr GetImportPath(Allocator *allocator, const char *importPath, InplaceStr moduleFileName)
+InplaceStr GetModuleName(Allocator *allocator, IntrusiveList<SynIdentifier> parts)
 {
-	unsigned pathLength = unsigned(importPath ? strlen(importPath) : 0) + moduleFileName.length();
-
-	char *path = (char*)allocator->alloc(pathLength + 1);
-
-	char *pos = path;
-
-	if(importPath)
-	{
-		strcpy(pos, importPath);
-		pos += strlen(importPath);
-	}
-
-	memcpy(pos, moduleFileName.begin, moduleFileName.length());
-	pos += moduleFileName.length();
-
-	*pos = 0;
-
-	return InplaceStr(path);
-}
-
-InplaceStr GetImportPath(Allocator *allocator, const char *importPath, IntrusiveList<SynIdentifier> parts)
-{
-	unsigned pathLength = unsigned((importPath ? strlen(importPath) : 0) + parts.size() - 1 + strlen(".nc"));
+	unsigned pathLength = unsigned(parts.size() - 1 + strlen(".nc"));
 
 	for(SynIdentifier *part = parts.head; part; part = getType<SynIdentifier>(part->next))
 		pathLength += part->name.length();
@@ -3760,12 +3730,6 @@ InplaceStr GetImportPath(Allocator *allocator, const char *importPath, Intrusive
 	char *path = (char*)allocator->alloc(pathLength + 1);
 
 	char *pos = path;
-
-	if(importPath)
-	{
-		strcpy(pos, importPath);
-		pos += strlen(importPath);
-	}
 
 	for(SynIdentifier *part = parts.head; part; part = getType<SynIdentifier>(part->next))
 	{

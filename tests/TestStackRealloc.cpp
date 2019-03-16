@@ -395,7 +395,8 @@ struct TestEval : TestQueue
 	virtual void Run()
 	{
 		nullcTerminate();
-		nullcInit(MODULE_PATH);
+		nullcInit();
+		nullcAddImportPath(MODULE_PATH);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitDynamicModule();
@@ -420,7 +421,8 @@ return a;";
 			printf("Eval test finished in %f\n", myGetPreciseTime() - evalStart);
 		}
 		nullcTerminate();
-		nullcInit(MODULE_PATH);
+		nullcInit();
+		nullcAddImportPath(MODULE_PATH);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitDynamicModule();
@@ -455,7 +457,8 @@ struct TestVariableImportCorrectness : TestQueue
 	virtual void Run()
 	{
 		nullcTerminate();
-		nullcInit(MODULE_PATH);
+		nullcInit();
+		nullcAddImportPath(MODULE_PATH);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitDynamicModule();
@@ -485,7 +488,8 @@ struct TestGCGlobalLimit : TestQueue
 	virtual void Run()
 	{
 		nullcTerminate();
-		nullcInit(MODULE_PATH);
+		nullcInit();
+		nullcAddImportPath(MODULE_PATH);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitGCModule();
@@ -512,7 +516,8 @@ struct TestRestore : TestQueue
 	virtual void Run()
 	{
 		nullcTerminate();
-		nullcInit(MODULE_PATH);
+		nullcInit();
+		nullcAddImportPath(MODULE_PATH);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 

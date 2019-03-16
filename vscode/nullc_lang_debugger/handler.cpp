@@ -458,8 +458,19 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 		if(ctx.debugMode)
 			fprintf(stderr, "DEBUG: Launching nullc with module path '%s'\r\n", ctx.modulePath.c_str());
 
-		if(!nullcInit(ctx.modulePath.c_str()))
+		if(!nullcInit())
 			return RespondWithError(ctx, response, "failed to launch nullc");
+
+		nullcAddImportPath(ctx.modulePath.c_str());
+
+		if(ctx.launchArgs.workspaceFolder)
+		{
+			std::string workspacePath = *ctx.launchArgs.workspaceFolder;
+
+			workspacePath += "/";
+
+			nullcAddImportPath(workspacePath.c_str());
+		}
 	}
 	else if(ctx.launchArgs.workspaceFolder)
 	{
@@ -470,8 +481,10 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 		if(ctx.debugMode)
 			fprintf(stderr, "DEBUG: Launching nullc with module path '%s'\r\n", ctx.modulePath.c_str());
 
-		if(!nullcInit(ctx.modulePath.c_str()))
+		if(!nullcInit())
 			return RespondWithError(ctx, response, "failed to launch nullc");
+
+		nullcAddImportPath(ctx.modulePath.c_str());
 	}
 	else
 	{
@@ -479,7 +492,7 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 
 		fprintf(stderr, "WARNING: Launching nullc without module path\r\n");
 
-		if(!nullcInit(ctx.modulePath.c_str()))
+		if(!nullcInit())
 			return RespondWithError(ctx, response, "failed to launch nullc");
 	}
 

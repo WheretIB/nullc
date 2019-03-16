@@ -1816,41 +1816,36 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 
 		dependencies.push_back(targetName);
 
-		const char *importPath = BinaryCache::GetImportPath();
-
-		InplaceStr path = GetImportPath(ctx.ctx.allocator, importPath, data->name);
-		InplaceStr pathNoImport = importPath ? InplaceStr(path.begin + strlen(importPath)) : path;
-
-		char filePath[1024];
+		assert(*data->name.end == 0);
+		assert(strstr(data->name.begin, ".nc") != NULL);
 
 		unsigned fileSize = 0;
 		int needDelete = false;
+		char *fileContent = NULL;
 
-		assert(path.length() < 1024);
-		SafeSprintf(filePath, 1024, "%.*s", path.length(), path.begin);
+		const unsigned pathLength = 1024;
+		char path[pathLength];
 
-		char *fileContent = (char*)NULLC::fileLoad(filePath, &fileSize, &needDelete);
-
-		if(!fileContent)
+		unsigned modulePathPos = 0;
+		while(const char *modulePath = BinaryCache::EnumImportPath(modulePathPos++))
 		{
-			assert(pathNoImport.length() < 1024);
-			SafeSprintf(filePath, 1024, "%.*s", pathNoImport.length(), pathNoImport.begin);
+			SafeSprintf(path, pathLength, "%s%.*s", modulePath, FMT_ISTR(data->name));
 
-			fileContent = (char*)NULLC::fileLoad(filePath, &fileSize, &needDelete);
+			fileContent = (char*)NULLC::fileLoad(path, &fileSize, &needDelete);
+
+			if(fileContent)
+				break;
 		}
 
 		if(!fileContent)
 		{
-			const char *bytecode = BinaryCache::GetBytecode(path.begin);
+			assert(*data->name.end == 0);
+
+			const char *bytecode = BinaryCache::FindBytecode(data->name.begin, false);
 
 			if(!bytecode)
 			{
-				bytecode = BinaryCache::GetBytecode(pathNoImport.begin);
-			}
-
-			if(!bytecode)
-			{
-				SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' input file '%.*s' could not be opened", FMT_ISTR(data->name), FMT_ISTR(pathNoImport));
+				SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' input file '%s' could not be opened", FMT_ISTR(data->name), path);
 				return false;
 			}
 
@@ -1899,7 +1894,7 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 
 		if(!compilerCtx.outputCtx.stream)
 		{
-			SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' output file '%s' could not be opened", FMT_ISTR(data->name), filePath);
+			SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' output file '%s' could not be opened", FMT_ISTR(data->name), path);
 
 			if(needDelete)
 				NULLC::dealloc(fileContent);

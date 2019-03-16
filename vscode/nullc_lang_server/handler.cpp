@@ -955,7 +955,8 @@ bool HandleConfigurationResponse(Context& ctx, rapidjson::Value& response)
 
 				ctx.modulePath = modulePath;
 
-				nullcInit(modulePath.c_str());
+				nullcInit();
+				nullcAddImportPath(modulePath.c_str());
 
 				for(auto &&el : ctx.documents)
 					UpdateDiagnostics(ctx, el.second);
@@ -985,7 +986,8 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 				if(ctx.debugMode)
 					fprintf(stderr, "DEBUG: Launching nullc with module path '%s'\n", ctx.modulePath.c_str());
 
-				nullcInit(ctx.modulePath.c_str());
+				nullcInit();
+				nullcAddImportPath(ctx.modulePath.c_str());
 			}
 			else
 			{
@@ -994,7 +996,7 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 				if(ctx.debugMode)
 					fprintf(stderr, "DEBUG: Launching nullc without module path\n");
 
-				nullcInit("");
+				nullcInit();
 			}
 		}
 		else
@@ -1002,7 +1004,7 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 			if(ctx.debugMode)
 				fprintf(stderr, "DEBUG: Launching nullc without module path\n");
 
-			nullcInit("");
+			nullcInit();
 		}
 
 		ctx.nullcInitialized = true;

@@ -539,7 +539,7 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		}
 	}
 
-	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
+	/*RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONSTANT_PROPAGATION);
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
@@ -554,7 +554,7 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
-	}
+	}*/
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_CREATE_ALLOCA_STORAGE);
 
@@ -1996,24 +1996,44 @@ char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const 
 	return bytecode;
 }
 
-char* BuildModuleFromPath(Allocator *allocator, InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports)
+char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports)
 {
-	char filePath[1024];
+	assert(*moduleName.end == 0);
+
+	if(addExtension)
+		assert(strstr(moduleName.begin, ".nc") == NULL);
+	else
+		assert(strstr(moduleName.begin, ".nc") != NULL);
 
 	unsigned fileSize = 0;
 	int needDelete = false;
+	char *fileContent = NULL;
 
-	assert(path.length() < 1024);
-	SafeSprintf(filePath, 1024, "%.*s", path.length(), path.begin);
+	const unsigned pathLength = 1024;
+	char path[pathLength];
 
-	char *fileContent = (char*)NULLC::fileLoad(filePath, &fileSize, &needDelete);
-
-	if(!fileContent)
+	unsigned modulePathPos = 0;
+	while(const char *modulePath = BinaryCache::EnumImportPath(modulePathPos++))
 	{
-		assert(pathNoImport.length() < 1024);
-		SafeSprintf(filePath, 1024, "%.*s", pathNoImport.length(), pathNoImport.begin);
+		char *pathEnd = path + SafeSprintf(path, pathLength, "%s%.*s", modulePath, moduleName.length(), moduleName.begin);
 
-		fileContent = (char*)NULLC::fileLoad(filePath, &fileSize, &needDelete);
+		if(addExtension)
+		{
+			char *pathNoImport = path + strlen(modulePath);
+
+			for(unsigned i = 0, e = (unsigned)strlen(pathNoImport); i != e; i++)
+			{
+				if(pathNoImport[i] == '.')
+					pathNoImport[i] = '/';
+			}
+
+			SafeSprintf(pathEnd, pathLength - int(pathEnd - path), ".nc");
+		}
+
+		fileContent = (char*)NULLC::fileLoad(path, &fileSize, &needDelete);
+
+		if(fileContent)
+			break;
 	}
 
 	if(!fileContent)
@@ -2021,12 +2041,12 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr path, InplaceStr path
 		*errorPos = NULL;
 
 		if(errorBuf && errorBufSize)
-			SafeSprintf(errorBuf, errorBufSize, "ERROR: module file '%s' could not be opened", filePath);
+			SafeSprintf(errorBuf, errorBufSize, "ERROR: module file '%.*s' could not be opened", moduleName.length(), moduleName.begin);
 
 		return NULL;
 	}
 
-	char *bytecode = BuildModuleFromSource(allocator, filePath, fileContent, fileSize, errorPos, errorBuf, errorBufSize, activeImports);
+	char *bytecode = BuildModuleFromSource(allocator, path, fileContent, fileSize, errorPos, errorBuf, errorBufSize, activeImports);
 
 	if(needDelete)
 		NULLC::dealloc(fileContent);
@@ -2036,29 +2056,11 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr path, InplaceStr path
 
 bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize)
 {
-	const char *importPath = BinaryCache::GetImportPath();
-
-	// Find module
-	char path[256], *pathNoImport = path, *cPath = path;
-	cPath += SafeSprintf(path, 256, "%s%s", importPath ? importPath : "", module);
-	if(importPath)
-		pathNoImport = path + strlen(importPath);
-
-	for(unsigned i = 0, e = (unsigned)strlen(pathNoImport); i != e; i++)
-	{
-		if(pathNoImport[i] == '.')
-			pathNoImport[i] = '/';
-	}
-
-	SafeSprintf(cPath, 256 - int(cPath - path), ".nc");
-
-	const char *bytecode = BinaryCache::GetBytecode(path);
-	if(!bytecode && importPath)
-		bytecode = BinaryCache::GetBytecode(pathNoImport);
+	const char *bytecode = BinaryCache::FindBytecode(module, true);
 
 	// Create module if not found
 	if(!bytecode)
-		bytecode = BuildModuleFromPath(allocator, InplaceStr(path), InplaceStr(pathNoImport), errorPos, errorBuf, errorBufSize, ArrayView<InplaceStr>());
+		bytecode = BuildModuleFromPath(allocator, InplaceStr(module), true, errorPos, errorBuf, errorBufSize, ArrayView<InplaceStr>());
 
 	if(!bytecode)
 		return false;

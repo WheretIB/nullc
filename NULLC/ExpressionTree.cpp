@@ -10639,20 +10639,10 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 
 		const char *moduleFileName = symbols + moduleInfo.nameOffset;
 
-		const char *importPath = BinaryCache::GetImportPath();
+		const char *bytecode = BinaryCache::FindBytecode(moduleFileName, false);
 
-		InplaceStr path = GetImportPath(ctx.allocator, importPath, InplaceStr(moduleFileName));
-		InplaceStr pathNoImport = importPath ? InplaceStr(path.begin + strlen(importPath)) : path;
-
-		const char *bytecode = BinaryCache::GetBytecode(path.begin);
 		unsigned lexStreamSize = 0;
-		Lexeme *lexStream = BinaryCache::GetLexems(path.begin, lexStreamSize);
-
-		if(!bytecode)
-		{
-			bytecode = BinaryCache::GetBytecode(pathNoImport.begin);
-			lexStream = BinaryCache::GetLexems(pathNoImport.begin, lexStreamSize);
-		}
+		Lexeme *lexStream = BinaryCache::FindLexems(moduleFileName, false, lexStreamSize);
 
 		if(!bytecode)
 			Stop(ctx, source, "ERROR: module dependency import is not implemented");
@@ -10663,7 +10653,7 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 		printf("  importing module %.*s as dependency #%d\n", FMT_ISTR(pathNoImport), ctx.dependencies.size() + 1);
 #endif
 
-		ModuleData *moduleData = new (ctx.get<ModuleData>()) ModuleData(source, pathNoImport);
+		ModuleData *moduleData = new (ctx.get<ModuleData>()) ModuleData(source, InplaceStr(moduleFileName));
 
 		ctx.dependencies.push_back(moduleData);
 		moduleData->dependencyIndex = ctx.dependencies.size();
@@ -11562,6 +11552,9 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 
 	assert(bytecode);
 
+	assert(*name.end == 0);
+	assert(strstr(name.begin, ".nc") != 0);
+
 	ModuleData *moduleData = new (ctx.get<ModuleData>()) ModuleData(source, name);
 
 	ctx.imports.push_back(moduleData);
@@ -11609,25 +11602,17 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 
 void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 {
-	const char *importPath = BinaryCache::GetImportPath();
+	InplaceStr moduleName = GetModuleName(ctx.allocator, syntax->path);
 
-	InplaceStr path = GetImportPath(ctx.allocator, importPath, syntax->path);
-	InplaceStr pathNoImport = importPath ? InplaceStr(path.begin + strlen(importPath)) : path;
+	const char *bytecode = BinaryCache::FindBytecode(moduleName.begin, false);
 
-	const char *bytecode = BinaryCache::GetBytecode(path.begin);
 	unsigned lexStreamSize = 0;
-	Lexeme *lexStream = BinaryCache::GetLexems(path.begin, lexStreamSize);
-
-	if(!bytecode)
-	{
-		bytecode = BinaryCache::GetBytecode(pathNoImport.begin);
-		lexStream = BinaryCache::GetLexems(pathNoImport.begin, lexStreamSize);
-	}
+	Lexeme *lexStream = BinaryCache::FindLexems(moduleName.begin, false, lexStreamSize);
 
 	if(!bytecode)
 		Stop(ctx, syntax, "ERROR: module import is not implemented");
 
-	ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, lexStreamSize, pathNoImport);
+	ImportModule(ctx, syntax, (ByteCode*)bytecode, lexStream, lexStreamSize, moduleName);
 }
 
 void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)

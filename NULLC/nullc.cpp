@@ -61,12 +61,12 @@ unsigned nullcFindFunctionIndex(const char* name);
 
 #define NULLC_CHECK_INITIALIZED(retval) if(!initialized){ nullcLastError = "ERROR: NULLC is not initialized"; return retval; }
 
-nullres nullcInit(const char* importPath)
+nullres nullcInit()
 {
-	return nullcInitCustomAlloc(NULL, NULL, importPath);
+	return nullcInitCustomAlloc(NULL, NULL);
 }
 
-nullres nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*), const char* importPath)
+nullres nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*))
 {
 	using namespace NULLC;
 
@@ -87,7 +87,7 @@ nullres nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*)
 	tempOutputBuf = (char*)NULLC::alloc(NULLC_TEMP_OUTPUT_BUFFER_SIZE);
 
 	BinaryCache::Initialize();
-	BinaryCache::SetImportPath(importPath);
+	BinaryCache::AddImportPath("");
 
 #ifndef NULLC_NO_EXECUTOR
 	linker = NULLC::construct<Linker>();
@@ -125,9 +125,15 @@ nullres nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*)
 	return 1;
 }
 
-void nullcSetImportPath(const char* importPath)
+void nullcClearImportPaths()
 {
-	BinaryCache::SetImportPath(importPath);
+	BinaryCache::ClearImportPaths();
+	BinaryCache::AddImportPath("");
+}
+
+void nullcAddImportPath(const char* importPath)
+{
+	BinaryCache::AddImportPath(importPath);
 }
 
 void nullcSetFileReadHandler(const void* (*fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr))
@@ -1255,12 +1261,7 @@ unsigned int nullcGetCurrentExecutor(void **exec)
 
 const void* nullcGetModule(const char* path)
 {
-	char fullPath[256];
-	SafeSprintf(fullPath, 256, "%s%s", BinaryCache::GetImportPath(), path);
-	const char *bytecode = BinaryCache::GetBytecode(fullPath);
-	if(!bytecode)
-		bytecode = BinaryCache::GetBytecode(path);
-	return bytecode;
+	return BinaryCache::FindBytecode(path, false);
 }
 
 #ifndef NULLC_NO_EXECUTOR

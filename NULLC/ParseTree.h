@@ -130,7 +130,7 @@ struct ParseContext
 
 	const char *code;
 
-	char* (*bytecodeBuilder)(Allocator *allocator, InplaceStr path, InplaceStr pathNoImport, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports);
+	char* (*bytecodeBuilder)(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports);
 
 	Lexer lexer;
 
@@ -1067,5 +1067,4 @@ const char* GetOpName(SynUnaryOpType type);
 const char* GetOpName(SynBinaryOpType type);
 const char* GetOpName(SynModifyAssignType type);
 
-InplaceStr GetImportPath(Allocator *allocator, const char *importPath, InplaceStr moduleFileName);
-InplaceStr GetImportPath(Allocator *allocator, const char *importPath, IntrusiveList<SynIdentifier> parts);
+InplaceStr GetModuleName(Allocator *allocator, IntrusiveList<SynIdentifier> parts);

@@ -66,7 +66,8 @@ int main(int argc, char** argv)
 		return 0;
 	}
 
-	nullcInit("Modules/");
+	nullcInit();
+	nullcAddImportPath("Modules/");
 
 #ifdef __linux
 	#define X64_LIB "nullclib.ncm"

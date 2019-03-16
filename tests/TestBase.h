@@ -232,7 +232,8 @@ struct Test_##code : TestQueue {	\
 	virtual void Run(){	\
 		testsCount[0]++;	\
 		nullcTerminate();	\
-		nullcInit(MODULE_PATH);	\
+		nullcInit();	\
+		nullcAddImportPath(MODULE_PATH); \
 		nullcSetFileReadHandler(Tests::fileLoadFunc);	\
 		nullcInitTypeinfoModule();	\
 		nullcInitVectorModule();	\

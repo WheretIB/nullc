@@ -11,10 +11,12 @@ extern "C"
 /************************************************************************/
 /*				NULLC initialization and termination					*/
 
-nullres		nullcInit(const char* importPath);
-nullres		nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*), const char* importPath);
+nullres		nullcInit();
+nullres		nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*));
 
-void		nullcSetImportPath(const char* importPath);
+void		nullcClearImportPaths();
+void		nullcAddImportPath(const char* importPath);
+
 void		nullcSetFileReadHandler(const void* (*fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr));
 void		nullcSetGlobalMemoryLimit(unsigned limit);
 void		nullcSetEnableLogFiles(int enable, void* (*openStream)(const char* name), void (*writeStream)(void *stream, const char *data, unsigned size), void (*closeStream)(void* stream));

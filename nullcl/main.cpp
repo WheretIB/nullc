@@ -19,7 +19,8 @@ void AddDependency(const char *fileName)
 
 int main(int argc, char** argv)
 {
-	nullcInit("Modules/");
+	nullcInit();
+	nullcAddImportPath("Modules/");
 
 	if(argc == 1)
 	{

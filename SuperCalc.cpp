@@ -488,7 +488,8 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	_dup2(_dup(_fileno(stderr)), 2);
 #endif
 
-	nullcInit("Modules/");
+	nullcInit();
+	nullcAddImportPath("Modules/");
 
 	char modulePath[MAX_PATH];
 	GetModuleFileName(NULL, modulePath, MAX_PATH);

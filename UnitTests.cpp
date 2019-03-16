@@ -126,7 +126,8 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 #ifdef NO_CUSTOM_ALLOCATOR
 	nullcInit(MODULE_PATH);
 #else
-	nullcInitCustomAlloc(testAlloc, testDealloc, MODULE_PATH);
+	nullcInitCustomAlloc(testAlloc, testDealloc);
+	nullcAddImportPath(MODULE_PATH);
 #endif
 	nullcSetFileReadHandler(Tests::fileLoadFunc);
 	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
@@ -138,7 +139,8 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 #ifdef NO_CUSTOM_ALLOCATOR
 	nullcInit(MODULE_PATH);
 #else
-	nullcInitCustomAlloc(testAlloc, testDealloc, MODULE_PATH);
+	nullcInitCustomAlloc(testAlloc, testDealloc);
+	nullcAddImportPath(MODULE_PATH);
 #endif
 	nullcSetFileReadHandler(Tests::fileLoadFunc);
 	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);

@@ -651,9 +651,9 @@ void RunInterfaceTests()
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
 
 	// double initialization check
-	nullcInit(MODULE_PATH);
+	nullcInit();
 	TEST_COMPARES(nullcGetLastError(), "");
-	nullcInit(MODULE_PATH);
+	nullcInit();
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is already initialized");
 	nullcTerminate();
 	TEST_COMPARES(nullcGetLastError(), "");
