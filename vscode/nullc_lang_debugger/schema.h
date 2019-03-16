@@ -368,13 +368,6 @@ struct ExceptionBreakpointsFilter
 			target.AddMember("default", *default_, document.GetAllocator());
 	}
 
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
-	}
-
 	/**
 	* The internal ID of the filter. This value is passed to the setExceptionBreakpoints request.
 	*/
@@ -410,13 +403,6 @@ struct ColumnDescriptor
 
 		if(width)
 			target.AddMember("width", *width, document.GetAllocator());
-	}
-
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
 	}
 
 	/**
@@ -533,13 +519,6 @@ struct Capabilities
 
 		if(supportsDataBreakpoints)
 			target.AddMember("supportsDataBreakpoints", *supportsDataBreakpoints, document.GetAllocator());
-	}
-
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
 	}
 
 	/**
@@ -769,13 +748,6 @@ struct NullcSourceData
 
 		(void)document;
 	}
-
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
-	}
 };
 
 struct Checksum
@@ -794,13 +766,6 @@ struct Checksum
 
 		target.AddMember("algorithm", algorithm, document.GetAllocator());
 		target.AddMember("checksum", checksum, document.GetAllocator());
-	}
-
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
 	}
 
 	/**
@@ -872,13 +837,6 @@ struct Source
 
 		if(checksums)
 			target.AddMember("checksums", ::ToJson(*checksums, document), document.GetAllocator());
-	}
-
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
 	}
 
 	/**
@@ -974,13 +932,6 @@ struct Thread
 
 		target.AddMember("id", ::ToJson(id, document), document.GetAllocator());
 		target.AddMember("name", ::ToJson(name, document), document.GetAllocator());
-	}
-
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
 	}
 
 	/**
@@ -1112,13 +1063,6 @@ struct Breakpoint
 			target.AddMember("endColumn", ::ToJson(*endColumn, document), document.GetAllocator());
 	}
 
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
-	}
-
 	/**
 	* An optional identifier for the breakpoint. It is needed if breakpoint events are used to update or remove breakpoints.
 	*/
@@ -1176,13 +1120,6 @@ struct ThreadEventData
 		target.AddMember("threadId", ::ToJson(threadId, document), document.GetAllocator());
 	}
 
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
-	}
-
 	/**
 	* The reason for the event.
 	* Values: 'started', 'exited', etc.
@@ -1223,13 +1160,6 @@ struct OutputEventData
 
 		if(column)
 			target.AddMember("column", ::ToJson(*column, document), document.GetAllocator());
-	}
-
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
 	}
 
 	/**
@@ -1301,13 +1231,6 @@ struct StoppedEventData
 
 		if(allThreadsStopped)
 			target.AddMember("allThreadsStopped", ::ToJson(*allThreadsStopped, document), document.GetAllocator());
-	}
-
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
 	}
 
 	/**
@@ -1609,13 +1532,6 @@ struct StackFrame
 			target.AddMember("presentationHint", ::ToJson(*presentationHint, document), document.GetAllocator());
 	}
 
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
-	}
-
 	/**
 	* An identifier for the stack frame. It must be unique across all threads. This id can be used to retrieve the scopes of the frame with the 'scopesRequest' or to restart the execution of a stackframe.
 	*/
@@ -1674,13 +1590,6 @@ struct StackTraceResponseData
 
 		if(totalFrames)
 			target.AddMember("totalFrames", ::ToJson(*totalFrames, document), document.GetAllocator());
-	}
-
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
 	}
 
 	/**
@@ -1746,13 +1655,6 @@ struct Scope
 			target.AddMember("endColumn", ::ToJson(*endColumn, document), document.GetAllocator());
 	}
 
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
-	}
-
 	/**
 	* Name of the scope such as 'Arguments', 'Locals'.
 	*/
@@ -1815,13 +1717,6 @@ struct ScopesResponseData
 		target.SetObject();
 
 		target.AddMember("scopes", ::ToJson(scopes, document), document.GetAllocator());
-	}
-
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
 	}
 
 	/**
@@ -1895,13 +1790,6 @@ struct VariablePresentationHint
 			target.AddMember("visibility", ::ToJson(*visibility, document), document.GetAllocator());
 	}
 
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
-	}
-
 	/**
 	* The kind of variable.
 	*/
@@ -1945,13 +1833,6 @@ struct Variable
 
 		if(indexedVariables)
 			target.AddMember("indexedVariables", ::ToJson(*indexedVariables, document), document.GetAllocator());
-	}
-
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
 	}
 
 	/**
@@ -2008,13 +1889,6 @@ struct VariablesResponseData
 		target.AddMember("variables", ::ToJson(variables, document), document.GetAllocator());
 	}
 
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
-	}
-
 	/**
 	* All (or a range) of variables for the given variable reference.
 	*/
@@ -2046,13 +1920,6 @@ struct ContinueResponseData
 
 		if(allThreadsContinued)
 			target.AddMember("allThreadsContinued", ::ToJson(*allThreadsContinued, document), document.GetAllocator());
-	}
-
-	rapidjson::Value ToJson(rapidjson::Document &document) const
-	{
-		rapidjson::Value result;
-		SaveTo(result, document);
-		return result;
 	}
 
 	/**
@@ -2112,4 +1979,69 @@ struct StepOutArguments
 	* Execute 'stepOut' for this thread.
 	*/
 	int threadId;
+};
+
+struct LoadedSourcesResponseData
+{
+	LoadedSourcesResponseData() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document) const
+	{
+		target.SetObject();
+
+		target.AddMember("sources", ::ToJson(sources, document), document.GetAllocator());
+	}
+
+	/**
+	* Set of loaded sources.
+	*/
+	std::vector<Source> sources;
+};
+
+struct SourceArguments
+{
+	SourceArguments() = default;
+
+	SourceArguments(rapidjson::Value &json)
+	{
+		if(json.HasMember("source"))
+			FromJson(source, json["source"]);
+
+		FromJson(sourceReference, json["sourceReference"]);
+	}
+
+	/**
+	* Specifies the source content to load. Either source.path or source.sourceReference must be specified.
+	*/
+	Optional<Source> source;
+
+	/**
+	* The reference to the source. This is the same as source.sourceReference. This is provided for backward compatibility since old backends do not understand the 'source' attribute.
+	*/
+	int sourceReference;
+};
+
+struct SourceResponseData
+{
+	SourceResponseData() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document) const
+	{
+		target.SetObject();
+
+		target.AddMember("content", ::ToJson(content, document), document.GetAllocator());
+
+		if(mimeType)
+			target.AddMember("mimeType", ::ToJson(*mimeType, document), document.GetAllocator());
+	}
+
+	/**
+	* Content of the source reference.
+	*/
+	std::string content;
+
+	/**
+	* Optional content type (mime type) of the source.
+	*/
+	Optional<std::string> mimeType;
 };

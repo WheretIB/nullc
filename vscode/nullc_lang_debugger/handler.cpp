@@ -686,31 +686,52 @@ bool HandleRequestLoadedSources(Context& ctx, rapidjson::Document &response, rap
 {
 	(void)arguments;
 
-	std::vector<Source> sources;
+	LoadedSourcesResponseData data;
 
 	unsigned moduleCount = 0;
 	nullcDebugModuleInfo(&moduleCount);
 
 	for(unsigned i = 0; i < moduleCount; i++)
-		sources.push_back(GetModuleSourceInfo(ctx, i));
+		data.sources.push_back(GetModuleSourceInfo(ctx, i));
 
-	sources.push_back(GetModuleSourceInfo(ctx, ~0u));
+	data.sources.push_back(GetModuleSourceInfo(ctx, ~0u));
 
-	rapidjson::Value body;
-	body.SetObject();
+	response.AddMember("success", true, response.GetAllocator());
+	response.AddMember("body", ::ToJson(data, response), response.GetAllocator());
 
+	SendResponse(ctx, response);
+
+	return true;
+}
+
+bool HandleRequestSource(Context& ctx, rapidjson::Document &response, rapidjson::Value &arguments)
+{
+	SourceArguments args{arguments};
+
+	SourceResponseData data;
+
+	unsigned moduleCount = 0;
+	auto modules = nullcDebugModuleInfo(&moduleCount);
+
+	auto fullSource = nullcDebugSource();
+
+	if(args.source)
 	{
-		rapidjson::Value jsonSources;
-		jsonSources.SetArray();
+		if(args.source->sourceReference)
+		{
+			unsigned moduleIndex = *args.source->sourceReference;
 
-		for(auto &&el : sources)
-			jsonSources.PushBack(::ToJson(el, response), response.GetAllocator());
-
-		body.AddMember("sources", jsonSources, response.GetAllocator());
+			if(moduleIndex < moduleCount)
+				data.content = fullSource + modules[moduleIndex].sourceOffset;
+		}
+	}
+	else if(unsigned(args.sourceReference) < moduleCount)
+	{
+		data.content = fullSource + modules[args.sourceReference].sourceOffset;
 	}
 
 	response.AddMember("success", true, response.GetAllocator());
-	response.AddMember("body", body, response.GetAllocator());
+	response.AddMember("body", ::ToJson(data, response), response.GetAllocator());
 
 	SendResponse(ctx, response);
 
@@ -1594,6 +1615,9 @@ bool HandleRequest(Context& ctx, int seq, const char *command, rapidjson::Value 
 
 	if(strcmp(command, "loadedSources") == 0)
 		return HandleRequestLoadedSources(ctx, response, arguments);
+
+	if(strcmp(command, "source") == 0)
+		return HandleRequestSource(ctx, response, arguments);
 
 	if(strcmp(command, "threads") == 0)
 		return HandleRequestThreads(ctx, response, arguments);
