@@ -1746,6 +1746,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			local.paramType = ExternLocalInfo::EXTERNAL;
 			local.type = upvalue->variable->type->typeIndex;
 			local.size = (unsigned)upvalue->variable->type->size;
+			local.offset = (unsigned)upvalue->target->offset;
 
 			local.offsetToName = debugSymbols.count;
 			debugSymbols.push_back(upvalue->variable->name->name.begin, upvalue->variable->name->name.length());
