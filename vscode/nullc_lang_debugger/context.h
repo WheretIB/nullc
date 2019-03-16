@@ -23,6 +23,7 @@ struct Context
 	InitializeRequestArguments initArgs;
 	LaunchRequestArguments launchArgs;
 
+	std::string defaultModulePath;
 	std::string modulePath;
 
 	std::mutex outputMutex;

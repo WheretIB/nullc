@@ -118,6 +118,12 @@
                     "type": "string",
                     "default": "",
                     "description": "Default non-project module search path"
+                },
+                "nullc.debug": {
+                    "scope": "window",
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable extension serverand debugger --debug launch flag"
                 }
             }
         }

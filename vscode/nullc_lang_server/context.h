@@ -20,6 +20,8 @@ struct Context
 
 	bool nullcInitialized;
 
+	std::string defaultModulePath;
+
 	std::string rootPath;
 	std::string modulePath;
 

@@ -28,6 +28,14 @@ int main(int argc, char **argv)
 			ctx.infoMode = true;
 			ctx.debugMode = true;
 		}
+		else if(strncmp(argv[i], "--module_path=", strlen("--module_path=")) == 0)
+		{
+			ctx.defaultModulePath = argv[i] + strlen("--module_path=");
+		}
+		else if(strncmp(argv[i], "-mp=", strlen("-mp=")) == 0)
+		{
+			ctx.defaultModulePath = argv[i] + strlen("--mp=");
+		}
 	}
 
 #if defined(_WIN32)
@@ -36,7 +44,10 @@ int main(int argc, char **argv)
 #endif
 
 	if(ctx.infoMode)
-		fprintf(stderr, "INFO: Launching\r\n");
+	{
+		fprintf(stderr, "INFO: Launching\n");
+		fprintf(stderr, "INFO: Default module path: %s\n", ctx.defaultModulePath.c_str());
+	}
 
 	std::vector<char> header;
 	std::vector<char> message;

@@ -9,8 +9,11 @@ let client: LanguageClient;
 export function activate(context: ExtensionContext) {
 	let serverModule = context.asAbsolutePath(path.join('out', 'nullc_lang_server.exe'));
 
-	//let args = ['--debug'];
-	let args = [];
+	let defaultModulePath = context.asAbsolutePath(path.join('modules'));
+
+	const configuration = vscode.workspace.getConfiguration("nullc");
+
+	let args = configuration.debug ? ['--debug', '--module_path=' + defaultModulePath + "/"] : ['--module_path=' + defaultModulePath + "/"];
 
 	let serverOptions: ServerOptions = {
 		command: serverModule,
@@ -90,14 +93,18 @@ class NullcConfigurationProvider implements vscode.DebugConfigurationProvider {
 
 class NullcDebugAdapterDescriptorFactory implements DebugAdapterDescriptorFactory {
 	private debuggerModule?: string;
+	private defaultModulePath: string;
 
 	constructor(context: ExtensionContext) {
 		this.debuggerModule = context.asAbsolutePath(path.join('out', 'nullc_lang_debugger.exe'));
+
+		this.defaultModulePath = context.asAbsolutePath(path.join('modules'));
 	}
 
 	createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable | undefined): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
-		//let args = ['--debug'];
-		let args = [];
+		const configuration = vscode.workspace.getConfiguration("nullc");
+
+		let args = configuration.debug ? ['--debug', '--module_path=' + this.defaultModulePath + "/"] : ['--module_path=' + this.defaultModulePath + "/"];
 
 		let debuggerExecutable: vscode.DebugAdapterExecutable = new vscode.DebugAdapterExecutable(this.debuggerModule, args);
 

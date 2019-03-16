@@ -1,7 +1,10 @@
 #include <assert.h>
 #include <stdio.h>
+
+#if defined(_WIN32)
 #include <io.h>
 #include <fcntl.h>
+#endif
 
 #include <iostream>
 #include <string>
@@ -25,10 +28,21 @@ int main(int argc, char **argv)
 			ctx.infoMode = true;
 			ctx.debugMode = true;
 		}
+		else if(strncmp(argv[i], "--module_path=", strlen("--module_path=")) == 0)
+		{
+			ctx.defaultModulePath = argv[i] + strlen("--module_path=");
+		}
+		else if(strncmp(argv[i], "-mp=", strlen("-mp=")) == 0)
+		{
+			ctx.defaultModulePath = argv[i] + strlen("--mp=");
+		}
 	}
 
 	if(ctx.infoMode)
+	{
 		fprintf(stderr, "INFO: Launching\n");
+		fprintf(stderr, "INFO: Default module path: %s\n", ctx.defaultModulePath.c_str());
+	}
 
 	std::vector<char> header;
 	std::vector<char> message;
@@ -37,8 +51,10 @@ int main(int argc, char **argv)
 
 	char ch = 0;
 
+#if defined(_WIN32)
 	_setmode(_fileno(stdin), _O_BINARY);
 	_setmode(_fileno(stdout), _O_BINARY);
+#endif
 
 	while(std::cin.get(ch))
 	{

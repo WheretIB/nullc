@@ -958,6 +958,9 @@ bool HandleConfigurationResponse(Context& ctx, rapidjson::Value& response)
 				nullcInit();
 				nullcAddImportPath(modulePath.c_str());
 
+				if(!ctx.defaultModulePath.empty() && ctx.defaultModulePath != ctx.modulePath)
+					nullcAddImportPath(ctx.defaultModulePath.c_str());
+
 				for(auto &&el : ctx.documents)
 					UpdateDiagnostics(ctx, el.second);
 			}
@@ -1006,6 +1009,9 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 			nullcInit();
 		}
+
+		if(!ctx.defaultModulePath.empty() && ctx.defaultModulePath != ctx.modulePath)
+			nullcAddImportPath(ctx.defaultModulePath.c_str());
 
 		ctx.nullcInitialized = true;
 	}

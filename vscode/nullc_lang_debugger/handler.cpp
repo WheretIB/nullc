@@ -525,6 +525,9 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 			return RespondWithError(ctx, response, "failed to launch nullc");
 	}
 
+	if(!ctx.defaultModulePath.empty() && ctx.defaultModulePath != ctx.modulePath)
+		nullcAddImportPath(ctx.defaultModulePath.c_str());
+
 	if(ctx.debugMode)
 		nullcSetEnableLogFiles(1, NULL, NULL, NULL);
 	else
