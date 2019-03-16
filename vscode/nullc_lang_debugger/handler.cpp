@@ -635,11 +635,11 @@ Source GetModuleSourceInfo(Context& ctx, unsigned moduleIndex)
 		}
 		else if(ctx.launchArgs.workspaceFolder)
 		{
-			std::string rootSourcePath = ToString("%s%s", ctx.launchArgs.workspaceFolder->c_str(), name.c_str());
+			std::string rootSourcePath = ToString("%s/%s", ctx.launchArgs.workspaceFolder->c_str(), name.c_str());
 
 			if(FILE *fIn = fopen(rootSourcePath.c_str(), "rb"))
 			{
-				source.path = moduleSourcePath;
+				source.path = rootSourcePath;
 
 				source.presentationHint = SourcePresentationHints::emphasize;
 
