@@ -72,7 +72,9 @@ void ApplicationThread(Context &ctx)
 
 		SendEventThread(ctx, ThreadEventData("exited", 1));
 		SendEventExited(ctx, -1);
-		SendEventTerminated(ctx);
+
+		if(!ctx.pendingRestart.load())
+			SendEventTerminated(ctx);
 	}
 }
 

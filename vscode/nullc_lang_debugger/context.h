@@ -39,6 +39,8 @@ struct Context
 
 	std::thread applicationThread;
 
+	std::atomic<bool> pendingRestart;
+
 	struct VariableReference
 	{
 		VariableReference() = default;

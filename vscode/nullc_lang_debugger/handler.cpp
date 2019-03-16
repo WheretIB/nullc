@@ -231,7 +231,7 @@ bool HandleRequestInitialize(Context& ctx, rapidjson::Document &response, rapidj
 	capabilities.supportsDelayedStackTraceLoading = true;
 	capabilities.supportsLoadedSourcesRequest = true;
 	capabilities.supportsLogPoints = false;
-	capabilities.supportsTerminateThreadsRequest = true;
+	capabilities.supportsTerminateThreadsRequest = false;
 	capabilities.supportsSetExpression = false;
 	capabilities.supportsTerminateRequest = true;
 	capabilities.supportsDataBreakpoints = false;
@@ -1760,6 +1760,50 @@ bool HandleRequestStepOut(Context& ctx, rapidjson::Document &response, rapidjson
 	return true;
 }
 
+bool HandleRequestRestart(Context& ctx, rapidjson::Document &response, rapidjson::Value &arguments)
+{
+	(void)arguments;
+
+	response.AddMember("success", true, response.GetAllocator());
+
+	if(ctx.applicationThread.joinable())
+	{
+		if(ctx.debugMode)
+			fprintf(stderr, "DEBUG: Stopping application\r\n");
+
+		ctx.pendingRestart.store(true);
+
+		if(ctx.breakpointActive.load())
+		{
+			ctx.breakpointAction = NULLC_BREAK_STOP;
+
+			ctx.breakpointWait.notify_one();
+		}
+		else
+		{
+			// TODO: stop application thread if it still exists
+		}
+
+		ctx.applicationThread.join();
+	}
+
+	ctx.variableReferences.clear();
+	ctx.sourceBreakpoints.clear();
+
+	ctx.pendingRestart.store(false);
+
+	SendEventProcess(ctx);
+	SendEventThread(ctx, ThreadEventData("started", 1));
+
+	ctx.running.store(true);
+
+	LaunchApplicationThread(ctx);
+
+	SendResponse(ctx, response);
+
+	return true;
+}
+
 bool HandleRequestTerminate(Context& ctx, rapidjson::Document &response, rapidjson::Value &arguments)
 {
 	TerminateArguments args{arguments};
@@ -1898,6 +1942,9 @@ bool HandleRequest(Context& ctx, int seq, const char *command, rapidjson::Value 
 
 	if(strcmp(command, "stepOut") == 0)
 		return HandleRequestStepOut(ctx, response, arguments);
+
+	if(strcmp(command, "restart") == 0)
+		return HandleRequestRestart(ctx, response, arguments);
 
 	if(strcmp(command, "terminate") == 0)
 		return HandleRequestTerminate(ctx, response, arguments);
