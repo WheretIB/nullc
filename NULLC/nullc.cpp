@@ -55,6 +55,8 @@ namespace NULLC
 	void* (*openStream)(const char* name) = OutputContext::FileOpen;
 	void (*writeStream)(void *stream, const char *data, unsigned size) = OutputContext::FileWrite;
 	void (*closeStream)(void* stream) = OutputContext::FileClose;
+
+	int optimizationLevel = 2;
 }
 
 unsigned nullcFindFunctionIndex(const char* name);
@@ -188,6 +190,17 @@ void nullcSetEnableLogFiles(int enable, void* (*openStream)(const char* name), v
 	}
 }
 
+void nullcSetOptimizationLevel(int level)
+{
+	if(level < 0)
+		level = 0;
+
+	if(level > 2)
+		level = 2;
+
+	NULLC::optimizationLevel = level;
+}
+
 nullres	nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index)
 {
 	using namespace NULLC;
@@ -316,6 +329,8 @@ nullres nullcAnalyze(const char* code)
 
 	compilerCtx->enableLogFiles = enableLogFiles;
 
+	compilerCtx->optimizationLevel = optimizationLevel;
+
 	compilerCtx->outputCtx.openStream = openStream;
 	compilerCtx->outputCtx.writeStream = writeStream;
 	compilerCtx->outputCtx.closeStream = closeStream;
@@ -358,6 +373,8 @@ nullres	nullcCompile(const char* code)
 	compilerCtx->errorBufSize = NULLC_ERROR_BUFFER_SIZE;
 
 	compilerCtx->enableLogFiles = enableLogFiles;
+
+	compilerCtx->optimizationLevel = optimizationLevel;
 
 	compilerCtx->outputCtx.openStream = openStream;
 	compilerCtx->outputCtx.writeStream = writeStream;

@@ -539,21 +539,27 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		}
 	}
 
-	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
-	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONSTANT_PROPAGATION);
-	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
-	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
-	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
-
-	for(unsigned i = 0; i < 6; i++)
+	if(ctx.optimizationLevel >= 1)
 	{
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONSTANT_PROPAGATION);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_LOAD_STORE_PROPAGATION);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
+		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONSTANT_PROPAGATION);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+	}
+
+	if(ctx.optimizationLevel >= 2)
+	{
+		for(unsigned i = 0; i < 6; i++)
+		{
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONSTANT_PROPAGATION);
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_LOAD_STORE_PROPAGATION);
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION);
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+		}
 	}
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_CREATE_ALLOCA_STORAGE);

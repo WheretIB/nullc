@@ -20,6 +20,7 @@ void		nullcAddImportPath(const char* importPath);
 void		nullcSetFileReadHandler(const void* (*fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr));
 void		nullcSetGlobalMemoryLimit(unsigned limit);
 void		nullcSetEnableLogFiles(int enable, void* (*openStream)(const char* name), void (*writeStream)(void *stream, const char *data, unsigned size), void (*closeStream)(void* stream));
+void		nullcSetOptimizationLevel(int level);
 
 void		nullcTerminate();
 

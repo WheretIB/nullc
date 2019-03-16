@@ -34,6 +34,8 @@ struct CompilerContext
 		vmLoweredModule = 0;
 
 		enableLogFiles = false;
+
+		optimizationLevel = 0;
 	}
 
 	Allocator *allocator;
@@ -59,6 +61,8 @@ struct CompilerContext
 	InstructionVmFinalizeContext instFinalizeCtx;
 
 	bool enableLogFiles;
+
+	int optimizationLevel;
 };
 
 bool BuildBaseModule(Allocator *allocator);
