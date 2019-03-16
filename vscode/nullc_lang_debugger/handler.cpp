@@ -806,7 +806,7 @@ bool HandleRequestStackTrace(Context& ctx, rapidjson::Document &response, rapidj
 		stackFrame.line = line;
 		stackFrame.column = column;
 
-		if(!args.levels || *args.levels == 0 || data.stackFrames.size() < *args.levels)
+		if(!args.levels || *args.levels == 0 || data.stackFrames.size() < (unsigned)*args.levels)
 			data.stackFrames.push_back(stackFrame);
 	}
 
@@ -1023,7 +1023,7 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 				{
 					unsigned count = function->paramCount + 1;
 
-					for(unsigned i = start; i < count && (!args.count || data.variables.size() < *args.count); i++)
+					for(unsigned i = start; i < count && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
 					{
 						auto localinfo = locals[function->offsetToFirstLocal + i];
 
@@ -1034,7 +1034,7 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 				{
 					unsigned count = function->localCount - (function->paramCount + 1) - function->externCount;
 
-					for(unsigned i = start; i < count && (!args.count || data.variables.size() < *args.count); i++)
+					for(unsigned i = start; i < count && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
 					{
 						auto localinfo = locals[function->offsetToFirstLocal + function->paramCount + 1 + i];
 
@@ -1045,7 +1045,7 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 				{
 					unsigned count = function->externCount;
 
-					for(unsigned i = start; i < count && (!args.count || data.variables.size() < *args.count); i++)
+					for(unsigned i = start; i < count && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
 					{
 						auto localinfo = locals[function->offsetToFirstLocal + function->localCount - function->externCount + i];
 
@@ -1055,7 +1055,7 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 			}
 			else if(scopeKind == 1) // Globals
 			{
-				for(unsigned i = args.start ? *args.start : 0; i < variableCount && (!args.count || data.variables.size() < *args.count); i++)
+				for(unsigned i = args.start ? *args.start : 0; i < variableCount && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
 				{
 					auto variableInfo = variables[i];
 
@@ -1299,6 +1299,8 @@ bool HandleRequest(Context& ctx, int seq, const char *command, rapidjson::Value 
 
 bool HandleResponseSuccess(Context& ctx, int seq, int requestSeq, const char *command, rapidjson::Value &body)
 {
+	(void)body;
+
 	if(ctx.debugMode)
 		fprintf(stderr, "DEBUG: HandleResponseSuccess(%d, %d, '%s')\r\n", seq, requestSeq, command);
 
