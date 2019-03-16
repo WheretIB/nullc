@@ -250,9 +250,12 @@ bool HandleRequestSetBreakpoints(Context& ctx, rapidjson::Document &response, ra
 
 	std::vector<Breakpoint> breakpoints;
 
-	// TODO: create breakpoint objects in context
-
 	const char *moduleSource = GetModuleSourceCode(ctx, args.source);
+
+	auto &activeBreakpoints = ctx.sourceBreakpoints[uintptr_t(moduleSource)];
+
+	for(auto &&el : activeBreakpoints)
+		nullcDebugRemoveBreakpoint(el);
 
 	if(args.breakpoints)
 	{
@@ -277,6 +280,8 @@ bool HandleRequestSetBreakpoints(Context& ctx, rapidjson::Document &response, ra
 
 						if(nullcDebugAddBreakpoint(instruction))
 						{
+							activeBreakpoints.push_back(instruction);
+
 							breakpoint.line = el.line;
 
 							breakpoint.verified = true;

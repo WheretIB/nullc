@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <map>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -51,4 +52,6 @@ struct Context
 	};
 
 	std::vector<VariableReference> variableReferences;
+
+	std::map<uintptr_t, std::vector<unsigned>> sourceBreakpoints;
 };
