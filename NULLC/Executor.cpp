@@ -1023,7 +1023,8 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				unsigned int target = cmd.argument;
 				fcallStack.push_back(cmdStream);
 				RUNTIME_ERROR(cmdStream < cmdBase || cmdStream > exLinker->exCode.data + exLinker->exCode.size() + 1, "ERROR: break position is out of range");
-				unsigned int response = breakFunction(breakFunctionContext, unsigned(cmdStream - cmdBase));
+				unsigned int instruction = unsigned(cmdStream - cmdBase - 1);
+				unsigned int response = breakFunction(breakFunctionContext, instruction);
 				fcallStack.pop_back();
 
 				RUNTIME_ERROR(response == NULLC_BREAK_STOP, "ERROR: execution was stopped after breakpoint");
