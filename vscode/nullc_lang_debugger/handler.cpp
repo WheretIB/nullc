@@ -1059,7 +1059,9 @@ Variable GetVariableInfo(Context& ctx, unsigned typeIndex, const char *name, cha
 
 			if(subType.subCat == ExternTypeInfo::CAT_CLASS && subType.type != ExternTypeInfo::TYPE_INT)
 			{
-				variable.namedVariables = subType.memberCount;
+				bool isExtendable = (subType.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0;
+
+				variable.namedVariables = subType.memberCount + (isExtendable ? 1 : 0);
 				variable.indexedVariables = 0;
 			}
 			else if(subType.subCat == ExternTypeInfo::CAT_ARRAY)
@@ -1100,7 +1102,9 @@ Variable GetVariableInfo(Context& ctx, unsigned typeIndex, const char *name, cha
 
 		ctx.variableReferences.push_back(Context::VariableReference(ptr, typeIndex));
 
-		variable.namedVariables = type.memberCount;
+		bool isExtendable = (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0;
+
+		variable.namedVariables = type.memberCount + (isExtendable ? 1 : 0);
 		variable.indexedVariables = 0;
 	}
 	else if(type.subCat == ExternTypeInfo::CAT_ARRAY)
@@ -1349,17 +1353,30 @@ bool HandleRequestVariables(Context& ctx, rapidjson::Document &response, rapidjs
 
 		if(type.subCat == ExternTypeInfo::CAT_CLASS)
 		{
-			const char *memberName = symbols + type.offsetToName + (unsigned int)strlen(symbols + type.offsetToName) + 1;
+			bool isExtendable = (type.typeFlags & ExternTypeInfo::TYPE_IS_EXTENDABLE) != 0;
+
+			auto &realType = isExtendable ? types[*(int*)(reference.ptr)] : type;
+
+			const char *memberName = symbols + realType.offsetToName + (unsigned int)strlen(symbols + realType.offsetToName) + 1;
 
 			if(!args.filter || *args.filter == VariablesArgumentsFilters::named)
 			{
-				for(unsigned i = start; i < type.memberCount && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
+				unsigned memberCount = realType.memberCount + (isExtendable ? 1 : 0);
+
+				for(unsigned i = start; i < memberCount && (!args.count || data.variables.size() < (unsigned)*args.count); i++)
 				{
-					auto &member = typeExtras[type.memberOffset + i];
+					if(isExtendable && i == 0)
+					{
+						data.variables.push_back(GetVariableInfo(ctx, NULLC_TYPE_TYPEID, "typeid", reference.ptr, showHex));
+					}
+					else
+					{
+						auto &member = typeExtras[realType.memberOffset + i - (isExtendable ? 1 : 0)];
 
-					data.variables.push_back(GetVariableInfo(ctx, member.type, memberName, reference.ptr + member.offset, showHex));
+						data.variables.push_back(GetVariableInfo(ctx, member.type, memberName, reference.ptr + member.offset, showHex));
 
-					memberName += (unsigned int)strlen(memberName) + 1;
+						memberName += (unsigned int)strlen(memberName) + 1;
+					}
 				}
 			}
 		}

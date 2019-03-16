@@ -401,20 +401,27 @@ std::string GetBasicVariableInfo(unsigned typeIndex, char* ptr, bool hex)
 		return buf;
 	}
 
+	if(typeIndex == NULLC_TYPE_BOOL)
+	{
+		snprintf(buf, 256, *(unsigned char*)ptr ? "true" : "false");
+		return buf;
+	}
+
+	if(typeIndex == NULLC_TYPE_TYPEID)
+	{
+		auto symbols = nullcDebugSymbols(nullptr);
+
+		snprintf(buf, 256, symbols + types[*(int*)ptr].offsetToName);
+		return buf;
+	}
+
 	switch(type.type)
 	{
 	case ExternTypeInfo::TYPE_CHAR:
-		if(typeIndex == NULLC_TYPE_BOOL)
-		{
-			snprintf(buf, 256, *(unsigned char*)ptr ? "true" : "false");
-		}
+		if(*(char*)ptr > 0)
+			snprintf(buf, 256, hex ? "'%c' (0x%x)" : "'%c' (%d)", *(char*)ptr, (int)*(char*)ptr);
 		else
-		{
-			if(*(char*)ptr > 0)
-				snprintf(buf, 256, hex ? "'%c' (0x%x)" : "'%c' (%d)", *(char*)ptr, (int)*(char*)ptr);
-			else
-				snprintf(buf, 256, hex ? "0x%x" : "%d", *(char*)ptr);
-		}
+			snprintf(buf, 256, hex ? "0x%x" : "%d", *(char*)ptr);
 		break;
 	case ExternTypeInfo::TYPE_SHORT:
 		snprintf(buf, 256, "%d", *(short*)ptr);
