@@ -125,7 +125,6 @@ bool Linker::LinkCode(const char *code)
 				}
 			}
 			exModules.push_back(*mInfo);
-			exModules.back().name = path;
 			exModules.back().nameOffset = 0;
 			exModules.back().nameHash = GetStringHash(path);
 			exModules.back().funcStart = exFunctions.size() - mInfo->funcCount;
@@ -364,7 +363,7 @@ bool Linker::LinkCode(const char *code)
 				for(unsigned k = 0; k < exModules.size(); k++)
 				{
 					if(exModules[k].funcStart >= index && index < exModules[k].funcStart + exModules[k].funcCount)
-						SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: redefinition of module %s function '%s'", exModules[k].name, symbolInfo + fInfo->offsetToName);
+						SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: redefinition of module %s function '%s'", symbolInfo + exModules[k].nameOffset, symbolInfo + fInfo->offsetToName);
 				}
 				return false;
 			}

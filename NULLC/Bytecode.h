@@ -184,11 +184,6 @@ struct ExternTypedefInfo
 
 struct ExternModuleInfo
 {
-	const char		*name;
-#ifndef _M_X64
-	unsigned int	ptrPad;
-#endif
-
 	unsigned int	nameHash;
 	unsigned int	nameOffset;
 
@@ -224,41 +219,21 @@ struct ByteCode
 	unsigned int	size;	// Overall size
 
 	unsigned int	typeCount;
-	ExternTypeInfo	*firstType_; // deprecated, use FindFirstType
-#ifndef _M_X64
-	unsigned int	ptrPad0;
-#endif
 
 	unsigned int		dependsCount;
 	unsigned int		offsetToFirstModule;
-	ExternModuleInfo	*firstModule_; // deprecated, use FindFirstModule
-#ifndef _M_X64
-	unsigned int	ptrPad1;
-#endif
 	
 	unsigned int	globalVarSize;	// size of all global variables, in bytes
 	unsigned int	variableCount;	// variable info count
 	unsigned int	variableExportCount;	// exported variable count
-	ExternVarInfo	*firstVar_; // deprecated, use FindFirstVar
-#ifndef _M_X64
-	unsigned int	ptrPad2;
-#endif
 	unsigned int	offsetToFirstVar;
 
 	unsigned int	functionCount;
 	unsigned int	moduleFunctionCount;
 	unsigned int	offsetToFirstFunc;	// Offset from the beginning of a structure to the first ExternFuncInfo data
-	ExternFuncInfo	*firstFunc_; // deprecated, use FindFirstFunc
-#ifndef _M_X64
-	unsigned int	ptrPad3;
-#endif
 
 	unsigned int	localCount;
 	unsigned int	offsetToLocals;
-	ExternLocalInfo	*firstLocal_; // deprecated, use FindFirstLocal
-#ifndef _M_X64
-	unsigned int	ptrPad4;
-#endif
 
 	unsigned int	closureListCount;
 
@@ -268,17 +243,9 @@ struct ByteCode
 	unsigned int	codeSize;
 	unsigned int	offsetToCode;
 	unsigned int	globalCodeStart;
-	char			*code_;	// deprecated, use FindCode
-#ifndef _M_X64
-	unsigned int	ptrPad5;
-#endif
 
 	unsigned int	symbolLength;
 	unsigned int	offsetToSymbols;
-	char			*debugSymbols_; // deprecated, used FindSymbols
-#ifndef _M_X64
-	unsigned int	ptrPad6;
-#endif
 
 	unsigned int	sourceSize;
 	unsigned int	offsetToSource;

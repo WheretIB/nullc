@@ -2029,12 +2029,12 @@ void PipeInit()
 	attachedEdits.clear();
 	for(unsigned int i = 0; i < moduleCount; i++)
 	{
-		modules[i].name = moduleNamesTmp;
+		const char *moduleName = moduleNamesTmp;
 		moduleNamesTmp += strlen(moduleNamesTmp) + 1;
-		pos += safeprintf(pos, 1024 - (pos - message), "Received information about module '%s'\r\n", modules[i].name);
+		pos += safeprintf(pos, 1024 - (pos - message), "Received information about module '%s'\r\n", moduleName);
 
 		attachedEdits.push_back(CreateWindow("NULLCTEXT", NULL, WS_VISIBLE | WS_CHILD | WS_BORDER, 5, 25, areaWidth, areaHeight, hWnd, NULL, hInst, NULL));
-		TabbedFiles::AddTab(hAttachTabs, modules[i].name, attachedEdits.back());
+		TabbedFiles::AddTab(hAttachTabs, moduleName, attachedEdits.back());
 		RichTextarea::SetAreaText(attachedEdits.back(), sourceCode + modules[i].sourceOffset);
 		UpdateWindow(attachedEdits.back());
 	}
