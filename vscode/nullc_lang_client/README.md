@@ -1,6 +1,6 @@
 # nullc language client
 
-This extension provides support for editing nullc programming language inside Visual Studio Code.
+This extension provides support for editing and debugging nullc programming language inside Visual Studio Code.
 
 ## Features
 
@@ -53,9 +53,18 @@ This extension provides support for editing nullc programming language inside Vi
 
 ![Document Symbol List Example](img/example_symbols.png)
 
+---
+* Debugging
+    * Launch & Terminate
+    * Step Over, Step Into, Step Out
+    * Breakpoints
+    * Stack trace
+    * Variable information
+
 ## Requirements
 
 Native nullc language server is required to be built using nullc_lang_server project. 
+Native nullc language debugger is required to be built using nullc_lang_debugger project. 
 
 ## Extension Settings
 
@@ -68,9 +77,13 @@ This extension contributes the following settings:
 
 * Extension must be set up manually
 * Language server must be build from separate project
+* Language debugger must be build from separate project
 * Error recovery and symbol search from location is a work in progress 
 
 ## Release Notes
+
+### Version 0.2.0
+* Added debugger
 
 ### Version 0.1.0
 * Initial release
