@@ -1504,7 +1504,7 @@ ExternFuncInfo* nullcDebugConvertAddressToFunction(int instruction, ExternFuncIn
 {
 	for(unsigned i = 0; i < functionCount; i++)
 	{
-		if(instruction > codeFunctions[i].address && instruction <= (codeFunctions[i].address + codeFunctions[i].codeSize))
+		if(instruction >= codeFunctions[i].address && instruction < (codeFunctions[i].address + codeFunctions[i].codeSize))
 			return&codeFunctions[i];
 	}
 	return NULL;
