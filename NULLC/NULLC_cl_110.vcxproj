@@ -94,7 +94,7 @@
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>
       </ExceptionHandling>
-      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <BasicRuntimeChecks>UninitializedLocalUsageCheck</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <PrecompiledHeader>
@@ -117,7 +117,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;NULLC_NO_EXECUTOR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>
       </ExceptionHandling>
-      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <BasicRuntimeChecks>UninitializedLocalUsageCheck</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <PrecompiledHeader>
@@ -188,39 +188,54 @@
   <ItemGroup>
     <ClCompile Include="BinaryCache.cpp" />
     <ClCompile Include="Bytecode.cpp" />
-    <ClCompile Include="CodeInfo.cpp" />
+    <ClCompile Include="ExpressionEval.cpp" />
+    <ClCompile Include="ExpressionGraph.cpp" />
+    <ClCompile Include="ExpressionTranslate.cpp" />
+    <ClCompile Include="ExpressionTree.cpp" />
+    <ClCompile Include="InstructionTreeVM.cpp" />
+    <ClCompile Include="InstructionTreeVmCommon.cpp" />
+    <ClCompile Include="InstructionTreeVmEval.cpp" />
+    <ClCompile Include="InstructionTreeVmGraph.cpp" />
+    <ClCompile Include="InstructionTreeVmLower.cpp" />
+    <ClCompile Include="InstructionTreeVmLowerGraph.cpp" />
     <ClCompile Include="nullc.cpp" />
+    <ClCompile Include="ParseGraph.cpp" />
+    <ClCompile Include="ParseTree.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="StrAlgo.cpp" />
-    <ClCompile Include="Callbacks.cpp" />
     <ClCompile Include="Compiler.cpp" />
     <ClCompile Include="Lexer.cpp" />
-    <ClCompile Include="Parser.cpp" />
-    <ClCompile Include="SyntaxTree.cpp" />
-    <ClCompile Include="SyntaxTreeEvaluate.cpp" />
-    <ClCompile Include="SyntaxTreeGraph.cpp" />
-    <ClCompile Include="SyntaxTreeLLVM.cpp" />
-    <ClCompile Include="SyntaxTreeTranslate.cpp" />
+    <ClCompile Include="TypeTree.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Allocator.h" />
     <ClInclude Include="Array.h" />
     <ClInclude Include="BinaryCache.h" />
     <ClInclude Include="Bytecode.h" />
-    <ClInclude Include="CodeInfo.h" />
+    <ClInclude Include="DenseMap.h" />
+    <ClInclude Include="ExpressionEval.h" />
+    <ClInclude Include="ExpressionGraph.h" />
+    <ClInclude Include="ExpressionTranslate.h" />
+    <ClInclude Include="ExpressionTree.h" />
     <ClInclude Include="HashMap.h" />
     <ClInclude Include="InstructionSet.h" />
+    <ClInclude Include="InstructionTreeVM.h" />
+    <ClInclude Include="InstructionTreeVmCommon.h" />
+    <ClInclude Include="InstructionTreeVmEval.h" />
+    <ClInclude Include="InstructionTreeVmGraph.h" />
+    <ClInclude Include="InstructionTreeVmLower.h" />
+    <ClInclude Include="InstructionTreeVmLowerGraph.h" />
     <ClInclude Include="nullc.h" />
     <ClInclude Include="nullc_debug.h" />
     <ClInclude Include="nullcdef.h" />
-    <ClInclude Include="ParseClass.h" />
+    <ClInclude Include="ParseGraph.h" />
+    <ClInclude Include="ParseTree.h" />
     <ClInclude Include="Pool.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="StrAlgo.h" />
-    <ClInclude Include="Callbacks.h" />
     <ClInclude Include="Compiler.h" />
     <ClInclude Include="Lexer.h" />
-    <ClInclude Include="Parser.h" />
-    <ClInclude Include="SyntaxTree.h" />
+    <ClInclude Include="TypeTree.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

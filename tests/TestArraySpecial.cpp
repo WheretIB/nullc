@@ -15,9 +15,9 @@ for(iA in a, iB in b, iC in c)\r\n\
 return 0;";
 TEST("Array of type short definition", testShortArrayDefinition, "0")
 {
-	CHECK_INT("sumA", 0, 10);
-	CHECK_INT("sumB", 0, 10);
-	CHECK_INT("sumC", 0, 10);
+	CHECK_INT("sumA", 0, 10, lastFailed);
+	CHECK_INT("sumB", 0, 10, lastFailed);
+	CHECK_INT("sumC", 0, 10, lastFailed);
 }
 
 const char	*testFloatArrayDefinition =
@@ -35,9 +35,9 @@ for(iA in a, iB in b, iC in c)\r\n\
 return 0;";
 TEST("Array of type float definition", testFloatArrayDefinition, "0")
 {
-	CHECK_INT("sumA", 0, 12);
-	CHECK_INT("sumB", 0, 12);
-	CHECK_INT("sumC", 0, 12);
+	CHECK_INT("sumA", 0, 12, lastFailed);
+	CHECK_INT("sumB", 0, 12, lastFailed);
+	CHECK_INT("sumC", 0, 12, lastFailed);
 }
 
 const char	*testCharArrayDefinition =
@@ -55,9 +55,9 @@ for(iA in a, iB in b, iC in c)\r\n\
 return 0;";
 TEST("Array of type char definition", testCharArrayDefinition, "0")
 {
-	CHECK_INT("sumA", 0, 532);
-	CHECK_INT("sumB", 0, 532);
-	CHECK_INT("sumC", 0, 552);
+	CHECK_INT("sumA", 0, 532, lastFailed);
+	CHECK_INT("sumB", 0, 532, lastFailed);
+	CHECK_INT("sumC", 0, 552, lastFailed);
 }
 
 const char	*testBoolArrayDefinition = "auto x = { true, true }; return x.size;";

@@ -74,7 +74,7 @@ TEST("Build-In function checks", testBuildinFunc, "3")
 						2.7182818284590452353602874713527, 1.0 };
 	for(int i = 0; i < 27; i++)
 		if(i != 12 && i != 13)
-			CHECK_DOUBLE("res", i, resExp[i]);
+			CHECK_DOUBLE("res", i, resExp[i], lastFailed);
 }
 
 const char	*testFuncCall4 = 
@@ -107,7 +107,7 @@ res = 1+test(x, 3, 4);\r\n\
 return res;";
 TEST("Function Call test 5", testFuncCall5, "11")
 {
-	CHECK_INT("res", 0, 11);
+	CHECK_INT("res", 0, 11, lastFailed);
 }
 
 const char	*testFuncCall6 = 
@@ -136,8 +136,8 @@ int calls = 0;\r\n\
 return fib(15, &calls);";
 TEST("Call number test", testCalls, "610")
 {
-	CHECK_INT("calltest", 0, 1219);
-	CHECK_INT("calls", 0, 1219);
+	CHECK_INT("calltest", 0, 1219, lastFailed);
+	CHECK_INT("calls", 0, 1219, lastFailed);
 }
 
 const char	*testNegate = 
@@ -148,8 +148,8 @@ nx = neg(x);\r\n\
 return nx;";
 TEST("Negate test", testNegate, "-5.000000")
 {
-	CHECK_DOUBLE("x", 0, 5.0);
-	CHECK_DOUBLE("nx", 0, -5.0);
+	CHECK_DOUBLE("x", 0, 5.0, lastFailed);
+	CHECK_DOUBLE("nx", 0, -5.0, lastFailed);
 }
 
 const char	*testParametersExtraordinaire =
@@ -159,7 +159,7 @@ int i = u(1, 7, 18);\r\n\
 return func(1,7,18);";
 TEST("Function parameters with different stack type", testParametersExtraordinaire, "26")
 {
-	CHECK_INT("i", 0, 26);
+	CHECK_INT("i", 0, 26, lastFailed);
 }
 
 const char	*testPrototypePointer =
@@ -276,3 +276,11 @@ float bar(){ return 2.0; }\r\n\
 \r\n\
 return foo(bar);";
 TEST_RESULT("Explicit function arguments 3", testExplicitArguments3, "8");
+
+const char	*testEmptyClassReturnType =
+"class Empty{}\r\n\
+int sum = 0;\r\n\
+Empty foo(Empty x, int y){ sum += y; return x; }\r\n\
+foo(foo(Empty(), 1), 20);\r\n\
+return sum;";
+TEST_RESULT("Empty class return passed as argument", testEmptyClassReturnType, "21");

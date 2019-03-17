@@ -1,7 +1,5 @@
 #include "TestBase.h"
 
-#ifndef NULLC_ENABLE_C_TRANSLATION
-
 #include <stdint.h>
 
 int TestInt(int a)
@@ -447,22 +445,22 @@ Foo a, b;\r\n\
 return Call(-1, a, -3, b, -5, -6);";
 TEST_RESULT("External function call. Class types sizeof() == 0, arguments in registers. sx", testExternalCallB, "1");
 
-LOAD_MODULE_BIND(test_exte, "test.exte", "int Call(int[] a);")
+LOAD_MODULE_BIND(test_extE, "test.extE", "int Call(int[] a);")
 {
-	nullcBindModuleFunction("test.exte", (void (*)())TestExt14e, "Call", 0);
+	nullcBindModuleFunction("test.extE", (void (*)())TestExt14e, "Call", 0);
 }
 const char	*testExternalCalle =
-"import test.exte;\r\n\
+"import test.extE;\r\n\
 int[2] arr = { 1, 2 };\r\n\
 return Call(arr);";
 TEST_RESULT("External function call. int[] argument in registers.", testExternalCalle, "3");
 
-LOAD_MODULE_BIND(test_extE, "test.extE", "int[] Call(int[] a);")
+LOAD_MODULE_BIND(test_extE2, "test.extE2", "int[] Call(int[] a);")
 {
-	nullcBindModuleFunction("test.extE", (void (*)())TestExt14, "Call", 0);
+	nullcBindModuleFunction("test.extE2", (void (*)())TestExt14, "Call", 0);
 }
 const char	*testExternalCallE =
-"import test.extE;\r\n\
+"import test.extE2;\r\n\
 int[2] arr = { 1, 0 };\r\n\
 return Call(arr)[1];";
 TEST_RESULT("External function call. Complex return, arguments in registers.", testExternalCallE, "1");
@@ -983,8 +981,6 @@ TEST_RESULT("External function call. Small return type 3.", testSmallReturnType3
 
 #endif
 
-#endif
-
 #if !defined(ANDROID)
 
 const char	*testFile = 
@@ -1003,12 +999,10 @@ n.Close();\r\n\
 return test(uh, 3);";
 TEST("File and something else test", testFile, "309")
 {
-	CHECK_STR("uh", 0, "ehhhe");
-	CHECK_HEAP_STR("$temp1", 0, FILE_PATH "haha.txt");
-	CHECK_HEAP_STR("$temp2", 0, "wb");
-	CHECK_STR("text", 0, "Hello file!!!");
+	CHECK_STR("uh", 0, "ehhhe", lastFailed);
+	CHECK_STR("text", 0, "Hello file!!!", lastFailed);
 
-	CHECK_INT("k", 0, 5464321);
+	CHECK_INT("k", 0, 5464321, lastFailed);
 
 	remove(FILE_PATH "haha.txt");
 }
@@ -1060,28 +1054,28 @@ test.Close();\r\n\
 return 1;";
 TEST("File test 2", testFile2, "1")
 {
-	CHECK_STR("name", 0, FILE_PATH "extern.bin");
-	CHECK_STR("acc", 0, "wb");
-	CHECK_STR("acc2", 0, "rb");
-	CHECK_STR("text", 0, "Hello again");
-	CHECK_STR("textR1", 0, "Hello again");
+	CHECK_STR("name", 0, FILE_PATH "extern.bin", lastFailed);
+	CHECK_STR("acc", 0, "wb", lastFailed);
+	CHECK_STR("acc2", 0, "rb", lastFailed);
+	CHECK_STR("text", 0, "Hello again", lastFailed);
+	CHECK_STR("textR1", 0, "Hello again", lastFailed);
 
-	CHECK_CHAR("ch", 0, 45);
-	CHECK_SHORT("sh", 0, 1069);
-	CHECK_INT("num", 0, 12568);
-	CHECK_LONG("lnum", 0, 4586564);
+	CHECK_CHAR("ch", 0, 45, lastFailed);
+	CHECK_SHORT("sh", 0, 1069, lastFailed);
+	CHECK_INT("num", 0, 12568, lastFailed);
+	CHECK_LONG("lnum", 0, 4586564, lastFailed);
 
-	CHECK_CHAR("chR1", 0, 45);
-	CHECK_SHORT("shR1", 0, 1069);
-	CHECK_INT("numR1", 0, 12568);
-	CHECK_LONG("lnumR1", 0, 4586564);
+	CHECK_CHAR("chR1", 0, 45, lastFailed);
+	CHECK_SHORT("shR1", 0, 1069, lastFailed);
+	CHECK_INT("numR1", 0, 12568, lastFailed);
+	CHECK_LONG("lnumR1", 0, 4586564, lastFailed);
 
-	CHECK_CHAR("chR2", 0, 45);
-	CHECK_SHORT("shR2", 0, 1069);
-	CHECK_INT("numR2", 0, 12568);
-	CHECK_LONG("lnumR2", 0, 4586564);
+	CHECK_CHAR("chR2", 0, 45, lastFailed);
+	CHECK_SHORT("shR2", 0, 1069, lastFailed);
+	CHECK_INT("numR2", 0, 12568, lastFailed);
+	CHECK_LONG("lnumR2", 0, 4586564, lastFailed);
 
 	remove(FILE_PATH "extern.bin");
 }
-#endif
 
+#endif

@@ -213,22 +213,47 @@ struct x86Argument
 	int	Decode(char *buf)
 	{
 		char *curr = buf;
+
 		if(type == argNumber)
+		{
 			curr += sprintf(curr, "%d", num);
+		}
 		else if(type == argReg)
-			curr += sprintf(curr, "%s", x86RegText[reg]);
+		{
+			strcpy(curr, x86RegText[reg]);
+			curr += strlen(curr);
+		}
 		else if(type == argFPReg)
-			curr += sprintf(curr, "%s", x87RegText[fpArg]);
+		{
+			strcpy(curr, x87RegText[fpArg]);
+			curr += strlen(curr);
+		}
 		else if(type == argLabel)
+		{
 			curr += sprintf(curr, "'0x%p'", (int*)(intptr_t)labelID);
+		}
 		else if(type == argPtrLabel)
+		{
 			curr += sprintf(curr, "['0x%p'+%d]", (int*)(intptr_t)labelID, ptrNum);
-		else if(type == argPtr){
-			curr += sprintf(curr, "%s [", x86SizeText[ptrSize]);
+		}
+		else if(type == argPtr)
+		{
+			strcpy(curr, x86SizeText[ptrSize]);
+			curr += strlen(curr);
+
+			*curr++ = ' ';
+			*curr++ = '[';
+			*curr = 0;
+
 			if(ptrIndex != rNONE)
-				curr += sprintf(curr, "%s", x86RegText[ptrIndex]);
+			{
+				strcpy(curr, x86RegText[ptrIndex]);
+				curr += strlen(curr);
+			}
+
 			if(ptrMult > 1)
 				curr += sprintf(curr, "*%d", ptrMult);
+
 			if(ptrBase != rNONE)
 			{
 				if(ptrIndex != rNONE)
@@ -236,11 +261,14 @@ struct x86Argument
 				else
 					curr += sprintf(curr, "%s", x86RegText[ptrBase]);
 			}
+
 			if(ptrIndex == rNONE && ptrBase == rNONE)
 				curr += sprintf(curr, "%d", ptrNum);
 			else if(ptrNum != 0)
 				curr += sprintf(curr, "%+d", ptrNum);
-			curr += sprintf(curr, "]");
+
+			*curr++ = ']';
+			*curr = 0;
 		}
 
 		return (int)(curr-buf);
@@ -261,28 +289,35 @@ struct x86Instruction
 	unsigned int	instID;
 	x86Argument	argA, argB;
 
-#ifdef NULLC_LOG_FILES
 	union
 	{
 		unsigned int	labelID;
 		const char		*comment;
 	};
-#else
-	unsigned int	labelID;
-#endif
 
 	// returns string length
 	int	Decode(char *buf)
 	{
 		char *curr = buf;
+
 		if(name == o_label)
+		{
 			curr += sprintf(curr, "0x%p:", (int*)(intptr_t)labelID);
-#ifdef NULLC_LOG_FILES
+		}
 		else if(name == o_other)
-			curr += sprintf(curr, "  ; %s", comment);
-#endif
+		{
+			strcpy(curr, "  ; ");
+			curr += strlen(curr);
+
+			strcpy(curr, comment);
+			curr += strlen(curr);
+		}
 		else
-			curr += sprintf(curr, "%s", x86CmdText[name]);
+		{
+			strcpy(curr, x86CmdText[name]);
+			curr += strlen(curr);
+		}
+
 		if(name != o_none)
 		{
 			if(argA.type != x86Argument::argNone)

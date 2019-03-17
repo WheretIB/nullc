@@ -32,21 +32,6 @@ unsigned int NULLC::StringHashContinue(unsigned int hash, const char *str, const
 	return hash;
 }
 
-char* NULLC::PrintInteger(char* str, int number)
-{
-	char buf[16];
-	char *curr = buf;
-	*curr++ = (char)(number % 10 + '0');
-	while(number /= 10)
-		*curr++ = (char)(number % 10 + '0');
-	do 
-	{
-		--curr;
-		*str++ = *curr;
-	}while(curr != buf);
-	return str;
-}
-
 int	NULLC::SafeSprintf(char* dst, size_t size, const char* src, ...)
 {
 	va_list args;

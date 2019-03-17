@@ -65,7 +65,12 @@ namespace ColorerGrammar
 		{
 			(void)e;	// C4100
 			assert(err);
-			logStream << err << "\r\n";
+
+			int line = 1;
+			for(const char *pos = codeStart; pos < s; pos++)
+				line += *pos == '\n';
+
+			logStream << "line " << line << " - " << err << "\r\n";
 
 			const char *begin = s;
 			while((begin >= codeStart) && (*begin != '\n') && (*begin != '\r'))
@@ -384,7 +389,7 @@ namespace ColorerGrammar
 		{
 			symb		=	graphP - alnumP - chP(')') - chP('@');
 			symb2		=	graphP - alphaP;
-			typeName	=	idP - strP("return");
+			typeName	=	idP - strWP("return");
 
 			arrayDef	=
 				(
@@ -651,7 +656,7 @@ namespace ColorerGrammar
 				) |
 				fcallpart;
 
-			appval		=	(idP - (strP("case") | strP("default")))[ColorVar] >> ~chP('(') >> *postExpr;
+			appval		=	(idP - (strWP("case") | strWP("default")))[ColorVar] >> ~chP('(') >> *postExpr;
 			addvarp		=
 				(
 				idP[ColorVarDef] >> 
@@ -668,7 +673,10 @@ namespace ColorerGrammar
 				!chP('@')[ColorText] >> strWP("if")[ColorRWord] >>
 				(
 					('(' | epsP[LogError("ERROR: '(' not found after 'if'")])[ColorText] >>
-					(term5 | epsP[LogError("ERROR: condition not found in 'if' statement")]) >>
+					(
+						((typeExpr - (typeExpr >> chP('('))) >> addvarp) |
+						(term5) | epsP[LogError("ERROR: condition not found in 'if' statement")]
+					) >>
 					(')' | epsP[LogError("ERROR: ')' not found after 'if' condition")])[ColorText]
 				) >>
 				(expr | epsP[LogError("ERROR: expression not found after 'if' statement")]) >>

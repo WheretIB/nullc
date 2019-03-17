@@ -1,12 +1,6 @@
 #ifndef NULLC_DEF_INCLUDED
 #define NULLC_DEF_INCLUDED
 
-#ifdef _MSC_VER
-	#define NCDECL _cdecl
-#else
-	#define NCDECL
-#endif
-
 #pragma pack(push, 4)
 
 // Wrapper over NULLC array, for use in external functions
@@ -41,8 +35,11 @@ struct NULLCAutoArray
 #pragma pack(pop)
 
 #define NULLC_MAX_VARIABLE_NAME_LENGTH 2048
+#define NULLC_MAX_TYPE_NAME_LENGTH 8192
 #define NULLC_DEFAULT_GLOBAL_MEMORY_LIMIT 1024 * 1024 * 1024
 #define NULLC_ERROR_BUFFER_SIZE 64 * 1024
+#define NULLC_OUTPUT_BUFFER_SIZE 8 * 1024
+#define NULLC_TEMP_OUTPUT_BUFFER_SIZE 16 * 1024
 #define NULLC_MAX_GENERIC_INSTANCE_DEPTH 64
 #define NULLC_MAX_TYPE_SIZE	256 * 1024 * 1024
 
@@ -50,14 +47,11 @@ struct NULLCAutoArray
 //#define NULLC_STACK_TRACE_WITH_LOCALS
 //#define NULLC_VM_CALL_STACK_UNWRAP
 
-//#define NULLC_LOG_FILES
 #if defined(_MSC_VER) && defined(_DEBUG)
 //#define VERBOSE_DEBUG_OUTPUT
 //#define IMPORT_VERBOSE_DEBUG_OUTPUT
 //#define LINK_VERBOSE_DEBUG_OUTPUT
 #endif
-//#define NULLC_ENABLE_C_TRANSLATION
-#define NULLC_PURE_FUNCTIONS
 
 #if !defined(__CELLOS_LV2__) && !defined(__DMC__) && !defined(ANDROID)
 	#define NULLC_AUTOBINDING
@@ -71,13 +65,7 @@ struct NULLCAutoArray
 
 #if (defined(_MSC_VER) || defined(__DMC__) || defined(__linux)) && !defined(_M_X64) && !defined(NULLC_NO_EXECUTOR) && !defined(__x86_64__) && !defined(__arm__)
 	#define NULLC_BUILD_X86_JIT
-	#if !defined(NULLC_ENABLE_C_TRANSLATION)
-		#define NULLC_OPTIMIZE_X86
-	#endif
-#endif
-
-#if defined(NULLC_ENABLE_C_TRANSLATION) && defined(NULLC_OPTIMIZE_X86)
-	#error "Cannot enable translation to C and x86 optimizer simultaneously"
+	#define NULLC_OPTIMIZE_X86
 #endif
 
 #define NULLC_COMPLEX_RETURN
@@ -104,6 +92,13 @@ typedef unsigned char nullres;
 #else
 	#define NULLC_PTR_TYPE TYPE_INT
 	#define NULLC_PTR_SIZE 4
+#endif
+
+
+#if defined(__GNUC__)
+	#define NULLC_PRINT_FORMAT_CHECK(format, args) __attribute__((__format__(__printf__, format, args)))
+#else
+	#define NULLC_PRINT_FORMAT_CHECK(format, args)
 #endif
 
 #endif

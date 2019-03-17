@@ -1026,7 +1026,7 @@ void RichTextarea::SetStatusBar(HWND status, unsigned int barWidth)
 {
 	const int parts = 5;
 	int	miniPart = 64;
-	int widths[parts] = { barWidth - 4 * miniPart, barWidth - 3 * miniPart, barWidth - 2 * miniPart, barWidth - miniPart, -1 };
+	int widths[parts] = { int(barWidth) - 4 * miniPart, int(barWidth) - 3 * miniPart, int(barWidth) - 2 * miniPart, int(barWidth) - miniPart, -1 };
 	areaStatus = status;
 	SendMessage(areaStatus, SB_SETPARTS, parts, (LPARAM)widths);
 }
@@ -1190,7 +1190,7 @@ void TextareaData::OnPaint()
 	HDC memDC = CreateCompatibleDC(hdc);
 
 	curr = startLine;
-	unsigned int currLine = shiftCharY;
+	unsigned int currDrawLine = shiftCharY;
 	// While they are lines and they didn't go out of view
 	while(curr && charRect.top < updateRect.bottom)
 	{
@@ -1207,9 +1207,9 @@ void TextareaData::OnPaint()
 					// Find out, if the symbol is in the selected range
 					bool selected = false;
 					if(startY == endY)
-						selected = i >= startX && i < endX && currLine == startY;
+						selected = i >= startX && i < endX && currDrawLine == startY;
 					else
-						selected = (currLine == startY && i >= startX) || (currLine == endY && i < endX) || (currLine > startY && currLine < endY);
+						selected = (currDrawLine == startY && i >= startX) || (currDrawLine == endY && i < endX) || (currDrawLine > startY && currDrawLine < endY);
 					// If character is in the selection range and selection is active, invert colors
 					if(selected && selectionOn)
 					{
@@ -1267,7 +1267,7 @@ void TextareaData::OnPaint()
 		charRect.top += RichTextarea::charHeight;
 		charRect.bottom += RichTextarea::charHeight;
 		curr = curr->next;
-		currLine++;
+		currDrawLine++;
 		
 	}
 	// Fill the empty space after text with white color
@@ -1358,7 +1358,7 @@ void TextareaData::InputChar(char ch)
 	cursorCharX++;
 	ScrollToCursor();
 	// Force redraw on the modified line
-	RECT invalid = { 0, (cursorCharY - shiftCharY) * RichTextarea::charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * RichTextarea::charHeight };
+	RECT invalid = { 0, int(cursorCharY - shiftCharY) * RichTextarea::charHeight, areaWidth, int(cursorCharY - shiftCharY + 1) * RichTextarea::charHeight };
 	InvalidateRect(areaWnd, &invalid, false);
 }
 
@@ -1392,7 +1392,7 @@ void TextareaData::InputEnter()
 	cursorCharX = 0;
 
 	// Force redraw on the modified line and all that goes after it
-	RECT invalid = { 0, (cursorCharY - shiftCharY - 1) * RichTextarea::charHeight, areaWidth, areaHeight };
+	RECT invalid = { 0, int(cursorCharY - shiftCharY - 1) * RichTextarea::charHeight, areaWidth, areaHeight };
 	InvalidateRect(areaWnd, &invalid, false);
 }
 
@@ -1640,7 +1640,7 @@ void TextareaData::DeletePreviousChar()
 		currLine->length--;
 		cursorCharX--;
 		// Force redraw on the updated region
-		RECT invalid = { 0, (cursorCharY - shiftCharY) * RichTextarea::charHeight, areaWidth, (cursorCharY - shiftCharY + 1) * RichTextarea::charHeight };
+		RECT invalid = { 0, int(cursorCharY - shiftCharY) * RichTextarea::charHeight, areaWidth, int(cursorCharY - shiftCharY + 1) * RichTextarea::charHeight };
 		InvalidateRect(areaWnd, &invalid, false);
 	}else if(currLine->prev){	// If it's at the beginning of a line and there is a line before current
 		// Add current line to the previous, as if are removing the line break
@@ -1665,7 +1665,7 @@ void TextareaData::DeletePreviousChar()
 		lineCount--;
 
 		// Force redraw on the updated region
-		RECT invalid = { 0, (cursorCharY - shiftCharY - 1) * RichTextarea::charHeight, areaWidth, areaHeight };
+		RECT invalid = { 0, int(cursorCharY - shiftCharY - 1) * RichTextarea::charHeight, areaWidth, areaHeight };
 		InvalidateRect(areaWnd, &invalid, false);
 	}
 }
@@ -2229,7 +2229,7 @@ void TextareaData::OnLeftMouseDoubleclick(unsigned int x, unsigned int y)
 		cursorCharX = dragEndX;
 		cursorCharY = dragEndY;
 		// Force line redraw
-		RECT invalid = { 0, (dragStartY - shiftCharY) * RichTextarea::charHeight, areaWidth, (dragEndY - shiftCharY + 1) * RichTextarea::charHeight };
+		RECT invalid = { 0, int(dragStartY - shiftCharY) * RichTextarea::charHeight, areaWidth, int(dragEndY - shiftCharY + 1) * RichTextarea::charHeight };
 		InvalidateRect(areaWnd, &invalid, false);
 	}
 }
@@ -2251,7 +2251,7 @@ void TextareaData::OnLeftMouseDown(unsigned int x, unsigned int y)
 		// Sort selection range
 		SortSelPoints(startX, endX, startY, endY);
 		// Force selected part redraw
-		RECT invalid = { 0, (startY - shiftCharY) * RichTextarea::charHeight, areaWidth, (endY - shiftCharY + 1) * RichTextarea::charHeight };
+		RECT invalid = { 0, int(startY - shiftCharY) * RichTextarea::charHeight, areaWidth, int(endY - shiftCharY + 1) * RichTextarea::charHeight };
 		InvalidateRect(areaWnd, &invalid, false);
 	}
 	if(IsPressed(VK_SHIFT))

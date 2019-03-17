@@ -20,9 +20,9 @@ int a = 3, b = 0;\r\n\
 return u;";
 TEST("Switch test", testSwitch, "12")
 {
-	CHECK_INT("u", 0, 12);
-	CHECK_INT("a", 0, 3);
-	CHECK_INT("b", 0, 7);
+	CHECK_INT("u", 0, 12, lastFailed);
+	CHECK_INT("a", 0, 3, lastFailed);
+	CHECK_INT("b", 0, 7, lastFailed);
 }
 
 const char	*testSwitch2 = 
@@ -122,8 +122,8 @@ int b = k;\r\n\
 return a + b;";
 TEST("Multi-depth break and continue", testDepthBreakContinue, "24")
 {
-	CHECK_INT("a", 0, 10);
-	CHECK_INT("b", 0, 14);
+	CHECK_INT("a", 0, 10, lastFailed);
+	CHECK_INT("b", 0, 14, lastFailed);
 }
 
 const char	*testBreakContinueTests =
@@ -147,8 +147,8 @@ for(int k2 = 0; 1; k2++)\r\n\
 return 0;";
 TEST("More break and continue tests", testBreakContinueTests, "0")
 {
-	CHECK_INT("k", 0, 10);
-	CHECK_INT("k2", 0, 0);
+	CHECK_INT("k", 0, 10, lastFailed);
+	CHECK_INT("k2", 0, 0, lastFailed);
 }
 
 const char	*testDoWhileScope =
@@ -168,3 +168,99 @@ do\r\n\
 }while(0);\r\n\
 return 1;";
 TEST_RESULT("do...while cycle variable scope test 2", testDoWhileScope2, "1")
+
+const char	*testConditionType1 =
+"long i = 10;\r\n\
+while(i) i--;\r\n\
+return int(i);";
+TEST_RESULT("Unusual loop condition types 1", testConditionType1, "0")
+
+const char	*testConditionType2 =
+"float i = 10;\r\n\
+while(i) i = 0.0f;\r\n\
+return int(i);";
+TEST_RESULT("Unusual loop condition types 2", testConditionType2, "0")
+
+const char	*testConditionType3 =
+"double i = 10;\r\n\
+while(i) i = 0.0;\r\n\
+return int(i);";
+TEST_RESULT("Unusual loop condition types 3", testConditionType3, "0")
+
+const char	*testConditionType4 =
+"short i = 10;\r\n\
+while(i) i--;\r\n\
+return int(i);";
+TEST_RESULT("Unusual loop condition types 4", testConditionType4, "0")
+
+const char	*testSwitchContinue1 =
+"int s = 0;\r\n\
+\r\n\
+for(int i = 0; i < 10; i++)\r\n\
+{\r\n\
+	switch(i)\r\n\
+	{\r\n\
+	case 4:\r\n\
+		continue;\r\n\
+	}\r\n\
+\r\n\
+	s += i;\r\n\
+}\r\n\
+\r\n\
+return s;";
+TEST_RESULT("Continue from switch 1", testSwitchContinue1, "41")
+
+const char	*testSwitchContinue2 =
+"int s = 0;\r\n\
+\r\n\
+for(int i = 0; i < 10; i++)\r\n\
+{\r\n\
+	switch(i)\r\n\
+	{\r\n\
+	case 4:\r\n\
+		for(int k = 0; k < 10; k++)\r\n\
+		{\r\n\
+			switch(k)\r\n\
+			{\r\n\
+			case 4:\r\n\
+				continue 2;\r\n\
+			}\r\n\
+		}\r\n\
+		break;\r\n\
+	}\r\n\
+\r\n\
+	s += i;\r\n\
+}\r\n\
+\r\n\
+return s;";
+TEST_RESULT("Continue from switch 2", testSwitchContinue2, "41")
+
+const char	*testSwitchFallthrough1 = 
+"int a = 5;\r\n\
+\r\n\
+int i = 0;\r\n\
+\r\n\
+switch(a)\r\n\
+{\r\n\
+case 5:\r\n\
+	i = 5;\r\n\
+case 2:\r\n\
+	i = 2;\r\n\
+}\r\n\
+return i;";
+TEST_RESULT("Switch test (fallthrough)", testSwitchFallthrough1, "2")
+
+const char	*testSwitchFallthrough2 = 
+"int a = 5;\r\n\
+\r\n\
+int i = 0;\r\n\
+\r\n\
+switch(a)\r\n\
+{\r\n\
+case 5:\r\n\
+	i = 5;\r\n\
+default:\r\n\
+	i = 2;\r\n\
+}\r\n\
+return i;";
+TEST_RESULT("Switch test (fallthrough to default)", testSwitchFallthrough2, "2")

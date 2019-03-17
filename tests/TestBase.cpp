@@ -1,10 +1,15 @@
 #include "TestBase.h"
 
+#if defined(_MSC_VER)
 #pragma warning(disable: 4530)
+#endif
+
 #if defined(_MSC_VER)
 	#include "../stdafx.h"
 	#include <Windows.h>
 #endif
+
+#include <vector>
 
 #include "../NULLC/nullc_debug.h"
 
@@ -19,9 +24,9 @@
 TestQueue* TestQueue::head = NULL;
 TestQueue* TestQueue::tail = NULL;
 
-int testsPassed[] = { 0, 0, 0, 0, 0, 0 };
-int testsCount[] = { 0, 0, 0, 0, 0, 0 };
-unsigned int	testTarget[] = { NULLC_VM, NULLC_X86, NULLC_LLVM };
+int testsPassed[TEST_TYPE_COUNT] = { 0, 0, 0, 0, 0, 0 };
+int testsCount[TEST_TYPE_COUNT] = { 0, 0, 0, 0, 0, 0 };
+unsigned int testTarget[TEST_TARGET_COUNT] = { NULLC_VM, NULLC_X86, NULLC_LLVM };
 
 namespace Tests
 {
@@ -31,18 +36,25 @@ namespace Tests
 	const char *testMatch = NULL;
 
 	double timeCompile = 0.0;
-	double timeGetListing = 0.0;
 	double timeGetBytecode = 0.0;
+	double timeTranslate = 0.0;
+	double timeExprEvaluate = 0.0;
+	double timeInstEvaluate = 0.0;
 	double timeClean = 0.0;
 	double timeLinkCode = 0.0;
 	double timeRun = 0.0;
+
+	long long totalOutput = 0;
 
 	const char		*varData = NULL;
 	unsigned int	variableCount = 0;
 	ExternVarInfo	*varInfo = NULL;
 	const char		*symbols = NULL;
 
-	bool doTranslation = true;
+	bool doSaveTranslation = true;
+	bool doTranslation = false;
+	bool doExprEvaluation = true;
+	bool doInstEvaluation = true;
 
 	bool	testExecutor[3] = {
 		true,
@@ -58,31 +70,167 @@ namespace Tests
 #endif
 	};
 
-	const void* (NCDECL *fileLoadFunc)(const char*, unsigned int*, int*) = 0;
+	const void* (*fileLoadFunc)(const char*, unsigned int*, int*) = 0;
+
+	void* OpenStream(const char *name)
+	{
+		(void)name;
+
+		return new int;
+	}
+
+	void WriteStream(void *stream, const char *data, unsigned size)
+	{
+		(void)stream;
+		(void)data;
+
+		totalOutput += size;
+	}
+
+	void CloseStream(void* stream)
+	{
+		delete (int*)stream;
+	}
+
+	bool enableLogFiles = true;
+	void* (*openStreamFunc)(const char* name) = OpenStream;
+	void (*writeStreamFunc)(void *stream, const char *data, unsigned size) = WriteStream;
+	void (*closeStreamFunc)(void* stream) = CloseStream;
+
+	std::vector<char*> translationDependencies;
+
+	void AddDependency(const char *fileName)
+	{
+		translationDependencies.push_back(strdup(fileName));
+	}
 }
 
-void*	Tests::FindVar(const char* name)
+void* Tests::FindVar(const char* name)
 {
 	for(unsigned int i = 0; i < variableCount; i++)
 	{
 		if(strcmp(name, symbols + varInfo[i].offsetToName) == 0)
 			return (void*)(varData + varInfo[i].offset);
 	}
-	return (void*)varData;
+	return NULL;
 }
 
-bool	Tests::RunCode(const char *code, unsigned int executor, const char* expected, const char* message, bool execShouldFail)
+bool Tests::RunCode(const char *code, unsigned int executor, const char* expected, const char* message, bool execShouldFail)
 {
 	if(testMatch && !strstr(message, testMatch))
 		return false;
 
-	lastMessage = message;
 #ifndef NULLC_BUILD_X86_JIT
 	if(executor != NULLC_VM)
 		return false;
 #endif
+
+	if(!execShouldFail && strstr(code, "namespace") == NULL)
+	{
+		const unsigned extraCodeSize = 16 * 1024;
+		static char extraCode[extraCodeSize];
+
+		assert(strlen(code) < extraCodeSize - 128);
+
+		const char *headerEnd = strstr(code, "import");
+
+		while(headerEnd)
+		{
+			headerEnd = strchr(headerEnd, ';');
+
+			if(const char *next = strstr(headerEnd, "import"))
+				headerEnd = next;
+			else
+				break;
+		}
+
+		char *pos = extraCode;
+
+		if(headerEnd)
+		{
+			memcpy(pos, code, unsigned(headerEnd - code) + 1);
+			pos += unsigned(headerEnd - code) + 1;
+
+			strcpy(pos, "\r\n");
+			pos += strlen(pos);
+		}
+
+		strcpy(pos, "auto __runner(){\r\n");
+		pos += strlen(pos);
+
+		if(headerEnd)
+		{
+			strcpy(pos, headerEnd + 1);
+			pos += strlen(pos);
+		}
+		else
+		{
+			strcpy(pos, code);
+			pos += strlen(pos);
+		}
+
+		strcpy(pos, "\r\n}\r\nreturn __runner();");
+		pos += strlen(pos);
+
+		assert(pos < extraCode + extraCodeSize);
+
+		if(!RunCodeSimple(extraCode, executor, expected, message, execShouldFail))
+			return false;
+
+		pos = extraCode;
+
+		if(headerEnd)
+		{
+			memcpy(pos, code, unsigned(headerEnd - code) + 1);
+			pos += unsigned(headerEnd - code) + 1;
+
+			strcpy(pos, "\r\n");
+			pos += strlen(pos);
+		}
+
+		strcpy(pos, "coroutine auto __runner(){\r\n");
+		pos += strlen(pos);
+
+		if(headerEnd)
+		{
+			strcpy(pos, headerEnd + 1);
+			pos += strlen(pos);
+		}
+		else
+		{
+			strcpy(pos, code);
+			pos += strlen(pos);
+		}
+
+		strcpy(pos, "\r\n}\r\nreturn __runner();");
+		pos += strlen(pos);
+
+		assert(pos < extraCode + extraCodeSize);
+
+		if(!RunCodeSimple(extraCode, executor, expected, message, execShouldFail))
+			return false;
+	}
+
+	if(!RunCodeSimple(code, executor, expected, message, execShouldFail))
+		return false;
+
+	return true;
+}
+
+bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* expected, const char* message, bool execShouldFail)
+{
+	if(testMatch && !strstr(message, testMatch))
+		return false;
+
+#ifndef NULLC_BUILD_X86_JIT
+	if(executor != NULLC_VM)
+		return false;
+#endif
+
+	lastMessage = message;
+
 	if(message && messageVerbose && executor == NULLC_VM)
-		printf("%s\n", message);
+		printf("%4d/%4d %s\n", testsPassed[TEST_TYPE_VM], testsCount[TEST_TYPE_VM] - 1, message);
 
 	nullcSetExecutor(executor);
 
@@ -90,15 +238,11 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 	sprintf(buf, "%s", executor == NULLC_VM ? "VM " : executor == NULLC_X86 ? "X86" : "LLVM");
 
 	double time = myGetPreciseTime();
-	nullres good = nullcCompile(code);
-	double timePassed = myGetPreciseTime() - time;
-	timeCompile += timePassed;
-//	if(timePassed > 1.0)
-//		printf("%s took %fms\n", message, timePassed);
 
+	nullres good = nullcCompile(code);
+
+	timeCompile += myGetPreciseTime() - time;
 	time = myGetPreciseTime();
-	//nullcSaveListing("asm.txt");
-	timeGetListing += myGetPreciseTime() - time;
 
 	if(!good)
 	{
@@ -106,17 +250,62 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 			printf("%s\n", message);
 		printf("%s Compilation failed: %s\r\n", buf, nullcGetLastError());
 		return false;
-	}else{
-		char *bytecode;
-		time = myGetPreciseTime();
+	}
+	else
+	{
+		char *bytecode = NULL;
 		nullcGetBytecode(&bytecode);
+
 		timeGetBytecode += myGetPreciseTime() - time;
 		time = myGetPreciseTime();
+
+		if(executor == NULLC_VM && !execShouldFail && doSaveTranslation)
+		{
+			for(unsigned i = 0; i < translationDependencies.size(); i++)
+				free(translationDependencies[i]);
+
+			translationDependencies.clear();
+
+			if(!nullcTranslateToC("1test.cpp", "main", AddDependency))
+			{
+				if(message && !messageVerbose)
+					printf("%s\n", message);
+				printf("%s Translation failed: %s\r\n", buf, nullcGetLastError());
+				return false;
+			}
+		}
+
+		timeTranslate += myGetPreciseTime() - time;
+		time = myGetPreciseTime();
+
+		char exprEvalBuf[256];
+		bool exprCheckResult = false;
+
+		if(executor == NULLC_VM && !execShouldFail && doExprEvaluation)
+			exprCheckResult = nullcTestEvaluateExpressionTree(exprEvalBuf, 256) != 0;
+
+		timeExprEvaluate += myGetPreciseTime() - time;
+		time = myGetPreciseTime();
+
+		char instEvalBuf[256];
+		bool instCheckResult = false;
+
+		if(executor == NULLC_VM && !execShouldFail && doInstEvaluation)
+			instCheckResult = nullcTestEvaluateInstructionTree(instEvalBuf, 256) != 0;
+
+		timeInstEvaluate += myGetPreciseTime() - time;
+		time = myGetPreciseTime();
+
 		nullcClean();
+
 		timeClean += myGetPreciseTime() - time;
 		time = myGetPreciseTime();
+
 		int linkgood = nullcLinkCode(bytecode);
+
 		timeLinkCode += myGetPreciseTime() - time;
+		time = myGetPreciseTime();
+
 		delete[] bytecode;
 
 		if(!linkgood)
@@ -127,9 +316,10 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 			return false;
 		}
 
-		time = myGetPreciseTime();
 		nullres goodRun = nullcRun();
+
 		timeRun += myGetPreciseTime() - time;
+
 		if(goodRun)
 		{
 			if(execShouldFail)
@@ -139,6 +329,7 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 				printf("%s Execution should have failed with %s\r\n", buf, expected);
 				return false;
 			}
+
 			const char* val = nullcGetResult();
 			varData = (char*)nullcGetVariableData(NULL);
 
@@ -151,31 +342,61 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 				printf("%s Failed (%s != %s)\r\n", buf, val, expected);
 				return false;
 			}
-		}else{
-			if(execShouldFail)
+
+			if(exprCheckResult)
 			{
-				char buf[512];
+				testsCount[TEST_TYPE_EXPR_EVALUATION]++;
 
-				if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
-					strncpy(buf, pos, 511);
-				else
-					strncpy(buf, nullcGetLastError(), 511);
-
-				buf[511] = 0;
-
-				if(char *lineEnd = strchr(buf, '\r'))
-					*lineEnd = 0;
-
-				if(strcmp(expected, buf) != 0)
+				if(expected && strcmp(expected, exprEvalBuf) != 0)
 				{
 					if(message && !messageVerbose)
 						printf("%s\n", message);
-					printf("Failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, expected);
+					printf("%s Failed (%s != %s)\r\n", "Expression evaluation", exprEvalBuf, expected);
 					return false;
 				}
-				return true;
+
+				testsPassed[TEST_TYPE_EXPR_EVALUATION]++;
 			}
-			
+
+			if(instCheckResult)
+			{
+				testsCount[TEST_TYPE_INST_EVALUATION]++;
+
+				if(expected && strcmp(expected, instEvalBuf) != 0)
+				{
+					if(message && !messageVerbose)
+						printf("%s\n", message);
+					printf("%s Failed (%s != %s)\r\n", "Instruction evaluation", instEvalBuf, expected);
+					return false;
+				}
+
+				testsPassed[TEST_TYPE_INST_EVALUATION]++;
+			}
+		}
+		else if(execShouldFail)
+		{
+			char buf[512];
+
+			if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+				strncpy(buf, pos, 511);
+			else
+				strncpy(buf, nullcGetLastError(), 511);
+
+			buf[511] = 0;
+
+			if(char *lineEnd = strchr(buf, '\r'))
+				*lineEnd = 0;
+
+			if(strcmp(expected, buf) != 0)
+			{
+				if(message && !messageVerbose)
+					printf("%s\n", message);
+				printf("Failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, expected);
+				return false;
+			}
+		}
+		else
+		{
 			if(message && !messageVerbose)
 				printf("%s\n", message);
 			printf("%s Execution failed: %s\r\n", buf, nullcGetLastError());
@@ -187,122 +408,75 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 	varInfo = nullcDebugVariableInfo(&variableCount);
 	symbols = nullcDebugSymbols(NULL);
 
-#if defined(NULLC_ENABLE_C_TRANSLATION)
-	if(executor == NULLC_VM && doTranslation)
+	if(executor == NULLC_VM && !execShouldFail && doTranslation)
 	{
-		testsCount[TEST_TRANSLATION_INDEX]++;
-		nullcTranslateToC("1test.cpp", "main");
+		testsCount[TEST_TYPE_TRANSLATION]++;
 
 		char cmdLine[1024];
+		char *pos = cmdLine;
+
 #if defined(_MSC_VER)
 		STARTUPINFO stInfo;
 		PROCESS_INFORMATION prInfo;
 		memset(&stInfo, 0, sizeof(stInfo));
 		stInfo.cb = sizeof(stInfo);
 		memset(&prInfo, 0, sizeof(prInfo));
-		strcpy(cmdLine, "gcc.exe -o runnable.exe");
+
+		SafeSprintf(pos, 1024, "gcc.exe -o runnable.exe");
+		pos += strlen(pos);
 #else
-		strcpy(cmdLine, "gcc -o runnable");
+		SafeSprintf(pos, 1024, "gcc -o runnable");
+		pos += strlen(pos);
 #endif
 
-		strcat(cmdLine, " 1test.cpp");
-		strcat(cmdLine, " NULLC/translation/runtime.cpp -lstdc++");
-		if(strstr(code, "std.math;"))
+		SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " 1test.cpp");
+		pos += strlen(pos);
+
+		SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " NULLC/translation/runtime.cpp -lstdc++");
+		pos += strlen(pos);
+
+		for(unsigned i = 0; i < translationDependencies.size(); i++)
 		{
-			strcat(cmdLine, " NULLC/translation/std_math.cpp");
-			strcat(cmdLine, " NULLC/translation/std_math_bind.cpp");
-		}
-		if(strstr(code, "std.typeinfo;"))
-		{
-			strcat(cmdLine, " NULLC/translation/std_typeinfo.cpp");
-			strcat(cmdLine, " NULLC/translation/std_typeinfo_bind.cpp");
-		}
-		if(strstr(code, "std.file;"))
-		{
-			strcat(cmdLine, " NULLC/translation/std_file.cpp");
-			strcat(cmdLine, " NULLC/translation/std_file_bind.cpp");
-		}
-		if(strstr(code, "std.vector;"))
-		{
-			strcat(cmdLine, " NULLC/translation/std_vector.cpp");
-			strcat(cmdLine, " NULLC/translation/std_vector_bind.cpp");
-			if(!strstr(code, "std.typeinfo;"))
+			const char *dependency = translationDependencies[i];
+
+			SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " %s", dependency);
+			pos += strlen(pos);
+
+			if(strstr(dependency, "import_"))
 			{
-				strcat(cmdLine, " NULLC/translation/std_typeinfo.cpp");
-				strcat(cmdLine, " NULLC/translation/std_typeinfo_bind.cpp");
+				char tmp[256];
+				SafeSprintf(tmp, 256 - strlen("_bind"), "NULLC/translation/%s", dependency + strlen("import_"));
+
+				if(char *pos = strstr(tmp, "_nc.cpp"))
+					strcpy(pos, "_bind.cpp");
+
+				if(FILE *file = fopen(tmp, "r"))
+				{
+					SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " %s", tmp);
+					pos += strlen(pos);
+
+					fclose(file);
+				}
+
+				SafeSprintf(tmp, 256 - strlen("_bind"), "tests/translation/%s", dependency + strlen("import_"));
+
+				if(char *pos = strstr(tmp, "_nc.cpp"))
+					strcpy(pos, "_bind.cpp");
+
+				if(FILE *file = fopen(tmp, "r"))
+				{
+					SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " %s", tmp);
+					pos += strlen(pos);
+
+					fclose(file);
+				}
 			}
 		}
-		if(strstr(code, "std.list;"))
-		{
-			strcat(cmdLine, " NULLC/translation/std_list.cpp");
-			if(!strstr(code, "std.typeinfo;") && !strstr(code, "std.vector;"))
-			{
-				strcat(cmdLine, " NULLC/translation/std_typeinfo.cpp");
-				strcat(cmdLine, " NULLC/translation/std_typeinfo_bind.cpp");
-			}
-		}
-		if(strstr(code, "std.range;"))
-			strcat(cmdLine, " NULLC/translation/std_range.cpp");
-		if(strstr(code, "test.a;"))
-		{
-			strcat(cmdLine, " tests/translation/test_a.cpp");
-			if(!strstr(code, "std.math;"))
-			{
-				strcat(cmdLine, " NULLC/translation/std_math.cpp");
-				strcat(cmdLine, " NULLC/translation/std_math_bind.cpp");
-			}
-		}
-		if(strstr(code, "test.importhide;"))
-			strcat(cmdLine, " tests/translation/test_importhide.cpp");
-		if(strstr(code, "test.defargs;"))
-			strcat(cmdLine, " tests/translation/test_defargs.cpp");
-		if(strstr(code, "test.defargs2;"))
-			strcat(cmdLine, " tests/translation/test_defargs2.cpp");
-		if(strstr(code, "test.defargs3;"))
-			strcat(cmdLine, " tests/translation/test_defargs3.cpp");
-		if(strstr(code, "test.defargs4;"))
-		{
-			strcat(cmdLine, " tests/translation/test_defargs4.cpp");
-			strcat(cmdLine, " tests/translation/test_defargs4_bind.cpp");
-		}
-		if(strstr(code, "test.defargs5;"))
-			strcat(cmdLine, " tests/translation/test_defargs5.cpp");
-		if(strstr(code, "test.defargs6;"))
-			strcat(cmdLine, " tests/translation/test_defargs6.cpp");
-		if(strstr(code, "test.coroutine1;"))
-			strcat(cmdLine, " tests/translation/test_coroutine1.cpp");
-		if(strstr(code, "test.autorefcall;"))
-			strcat(cmdLine, " tests/translation/test_autorefcall.cpp");
-		if(strstr(code, "test.class_typedef;"))
-			strcat(cmdLine, " tests/translation/test_class_typedef.cpp");
-		
-		if(strstr(code, "test.list_comp1;"))
-		{
-			strcat(cmdLine, " NULLC/translation/std_range.cpp");
-			strcat(cmdLine, " tests/translation/test_list_comp1.cpp");
-		}
-		if(strstr(code, "test.list_comp2;"))
-		{
-			if(!strstr(code, "test.list_comp1;"))
-				strcat(cmdLine, " NULLC/translation/std_range.cpp");
-			strcat(cmdLine, " tests/translation/test_list_comp2.cpp");
-		}
-		
-		if(strstr(code, "test.alignment;"))
-		{
-			strcat(cmdLine, " tests/translation/test_alignment.cpp");
-			strcat(cmdLine, " tests/translation/test_alignment_bind.cpp");
-		}
-		if(strstr(code, "std.gc;"))
-		{
-			strcat(cmdLine, " NULLC/translation/std_gc.cpp");
-			strcat(cmdLine, " NULLC/translation/std_gc_bind.cpp");
-		}
-		if(strstr(code, "std.dynamic;"))
-		{
-			strcat(cmdLine, " NULLC/translation/std_dynamic.cpp");
-			strcat(cmdLine, " NULLC/translation/std_dynamic_bind.cpp");
-		}
+
+		for(unsigned i = 0; i < translationDependencies.size(); i++)
+			free(translationDependencies[i]);
+
+		translationDependencies.clear();
 
 #if defined(_MSC_VER)
 		DWORD res = CreateProcess(NULL, cmdLine, NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo);
@@ -324,6 +498,12 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 #endif
 			fgets(buf, 256, resPipe);
 
+#if defined(_MSC_VER)
+			_pclose(resPipe);
+#else
+			pclose(resPipe);
+#endif
+
 			char expectedCopy[256];
 			strcpy(expectedCopy, expected);
 			if(strchr(expectedCopy, 'L'))
@@ -334,7 +514,7 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 					printf("%s\n", message);
 				printf("C++: failed, expected %s, got %s\r\n", expected, buf);
 			}else{
-				testsPassed[TEST_TRANSLATION_INDEX]++;
+				testsPassed[TEST_TYPE_TRANSLATION]++;
 			}
 		}else{
 			if(message && !messageVerbose)
@@ -342,7 +522,6 @@ bool	Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 			printf("C++ compilation error (%d)\r\n", retCode);
 		}
 	}
-#endif
 
 	return true;
 }
@@ -363,8 +542,9 @@ char*	Tests::Format(const char *str, ...)
 
 void TEST_FOR_FAIL(const char* name, const char* str, const char* error)
 {
-	testsCount[TEST_FAILURE_INDEX]++;
+	testsCount[TEST_TYPE_FAILURE]++;
 	nullres good = nullcCompile(str);
+
 	if(!good)
 	{
 		char buf[1024];
@@ -376,23 +556,28 @@ void TEST_FOR_FAIL(const char* name, const char* str, const char* error)
 
 		buf[1023] = 0;
 
-		if(char *lineEnd = strchr(buf, '\r'))
+
+		if(char *lineEnd = strchr(buf, '\n'))
 			*lineEnd = 0;
 
 		if(strcmp(error, buf) != 0)
 		{
-			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error);
-		}else{
-			testsPassed[TEST_FAILURE_INDEX]++;
+			printf("Failed %s but for wrong reason:\n    %s\nexpected:\n    %s\n", name, buf, error);
 		}
-	}else{
-		printf("Test \"%s\" failed to fail.\r\n", name);
+		else
+		{
+			testsPassed[TEST_TYPE_FAILURE]++;
+		}
+	}
+	else
+	{
+		printf("Test \"%s\" failed to fail.\n", name);
 	}
 }
 
 void TEST_FOR_FAIL_GENERIC(const char* name, const char* str, const char* error1, const char* error2)
 {
-	testsCount[TEST_FAILURE_INDEX]++;
+	testsCount[TEST_TYPE_FAILURE]++;
 	nullres good = nullcCompile(str);
 	if(!good)
 	{
@@ -405,21 +590,37 @@ void TEST_FOR_FAIL_GENERIC(const char* name, const char* str, const char* error1
 
 		buf[1023] = 0;
 
+
 		if(memcmp(buf, error1, strlen(error1)) != 0)
 		{
-			printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, buf, error1);
-		}else{
-			char *bufNext = strstr(buf + 1, "ERROR:");
-			if(char *lineEnd = strchr(bufNext, '\r'))
-				*lineEnd = 0;
-			if(strcmp(error2, bufNext) != 0)
+			printf("Failed %s but for wrong reason:\n    %s\nexpected:\n    %s\n", name, buf, error1);
+		}
+		else
+		{
+			char *bufNext = strstr(buf + 1, "while instantiating");
+
+			if(!bufNext)
 			{
-				printf("Failed %s but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", name, bufNext, error2);
-			}else{
-				testsPassed[TEST_FAILURE_INDEX]++;
+				printf("Failed %s but with no second error:\nexpected:\n    %s\n", name, error2);
+			}
+			else
+			{
+				if(char *lineEnd = strchr(bufNext, '\n'))
+					*lineEnd = 0;
+
+				if(strcmp(error2, bufNext) != 0)
+				{
+					printf("Failed %s but for wrong reason:\n    %s\nexpected:\n    %s\n", name, bufNext, error2);
+				}
+				else
+				{
+					testsPassed[TEST_TYPE_FAILURE]++;
+				}
 			}
 		}
-	}else{
-		printf("Test \"%s\" failed to fail.\r\n", name);
+	}
+	else
+	{
+		printf("Test \"%s\" failed to fail.\n", name);
 	}
 }

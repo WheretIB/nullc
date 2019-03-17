@@ -6,21 +6,21 @@
 bool	initialized;
 
 #define TEST_COMPARE(test, result)\
-	testsCount[TEST_EXTRA_INDEX]++;\
+	testsCount[TEST_TYPE_EXTRA]++;\
 	if((test) != result)\
 	{\
 		printf("\"%s\" didn't return '%s'.\r\n", #test, #result);\
 	}else{\
-		testsPassed[TEST_EXTRA_INDEX]++;\
+		testsPassed[TEST_TYPE_EXTRA]++;\
 	}
 
 #define TEST_COMPARES(test, result)\
-	testsCount[TEST_EXTRA_INDEX]++;\
+	testsCount[TEST_TYPE_EXTRA]++;\
 	if(strcmp((test), result) != 0)\
 	{\
 		printf("\"%s\" didn't return '%s'.\r\n", #test, result);\
 	}else{\
-		testsPassed[TEST_EXTRA_INDEX]++;\
+		testsPassed[TEST_TYPE_EXTRA]++;\
 	}
 
 void RunInterfaceTests()
@@ -37,7 +37,7 @@ void RunInterfaceTests()
 	bytecodeA = NULL;
 	bytecodeB = NULL;
 
-	for(int t = 0; t < TEST_COUNT; t++)
+	for(int t = 0; t < TEST_TARGET_COUNT; t++)
 	{
 		if(!Tests::testExecutor[t])
 			continue;
@@ -130,8 +130,8 @@ void RunInterfaceTests()
 					if(Tests::varInfo)
 					{
 						bool lastFailed = false;
-						CHECK_INT("a", 0, 13);
-						CHECK_INT("aa", 0, 27);
+						CHECK_INT("a", 0, 13, lastFailed);
+						CHECK_INT("aa", 0, 27, lastFailed);
 						if(!lastFailed)
 							testsPassed[t]++;
 					}
@@ -148,9 +148,9 @@ void RunInterfaceTests()
 		const char *partA = "int foo(){ return 15; }";
 		const char *partB = "import __last; import std.dynamic; int new_foo(){ return 25; } void foo_update(){ override(foo, new_foo); }\r\n";
 		
-		int vmPassed = testsPassed[0], x86Passed = testsPassed[1];
+		int vmPassed = testsPassed[TEST_TYPE_VM], x86Passed = testsPassed[TEST_TYPE_X86];
 		(void)x86Passed;
-		for(int t = 0; t < TEST_COUNT; t++)
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
 			if(!Tests::testExecutor[t])
 				continue;
@@ -237,9 +237,9 @@ void RunInterfaceTests()
 		const char *partA = "int foo(){ return 15; }";
 		const char *partB = "int new_foo(){ return 25; }\r\n";
 
-		int vmPassed = testsPassed[0], x86Passed = testsPassed[1];
+		int vmPassed = testsPassed[TEST_TYPE_VM], x86Passed = testsPassed[TEST_TYPE_X86];
 		(void)x86Passed;
-		for(int t = 0; t < TEST_COUNT; t++)
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
 			if(!Tests::testExecutor[t])
 				continue;
@@ -349,9 +349,9 @@ void RunInterfaceTests()
 
 		const char *code = "int Char(char x){ return -x*2; } int Short(short x){ return -x*3; } int Int(int x){ return -x*4; } int Long(long x){ return -x*5; } int Float(float x){ return -x*6; } int Double(double x){ return -x*7; } int Ptr(int ref x){ return -*x; }";
 
-		int vmPassed = testsPassed[0], x86Passed = testsPassed[1];
+		int vmPassed = testsPassed[TEST_TYPE_VM], x86Passed = testsPassed[TEST_TYPE_X86];
 		(void)x86Passed;
-		for(int t = 0; t < TEST_COUNT; t++)
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
 			if(!Tests::testExecutor[t])
 				continue;
@@ -365,7 +365,7 @@ void RunInterfaceTests()
 				continue;
 			}
 #define TEST_CALL(name, arg, expected)\
-			if(!nullcRunFunction(name, arg)){ printf("nullcRunFunction("name") failed: %s\r\n", nullcGetLastError()); continue; }\
+			if(!nullcRunFunction(name, arg)){ printf("nullcRunFunction(" name ") failed: %s\r\n", nullcGetLastError()); continue; }\
 			if(nullcGetResultInt() != expected){ printf("nullcGetResultInt failed to return " #expected " result\r\n"); continue; }
 
 			TEST_CALL("Char", 12, -12*2);
@@ -391,9 +391,9 @@ void RunInterfaceTests()
 
 		const char *code = "int foo(int[] arr){ return arr[0] + arr.size; } int NULLCRef(auto ref x){ return -int(x); } int bar(){ return 127; } int NULLCFunc(int ref() x){ return x(); } int NULLCArray(auto[] arr){ return int(arr[0]); }";
 
-		int vmPassed = testsPassed[0], x86Passed = testsPassed[1];
+		int vmPassed = testsPassed[TEST_TYPE_VM], x86Passed = testsPassed[TEST_TYPE_X86];
 		(void)x86Passed;
-		for(int t = 0; t < TEST_COUNT; t++)
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
 			if(!Tests::testExecutor[t])
 				continue;
@@ -438,7 +438,7 @@ void RunInterfaceTests()
 	const char	*testLongRetrieval = "return 25l;";
 	if(Tests::messageVerbose)
 		printf("nullcGetResultLong test\r\n");
-	for(int t = 0; t < TEST_COUNT; t++)
+	for(int t = 0; t < TEST_TARGET_COUNT; t++)
 	{
 		if(!Tests::testExecutor[t])
 			continue;
@@ -472,7 +472,7 @@ void RunInterfaceTests()
 	const char	*testDoubleRetrieval = "return 25.0;";
 	if(Tests::messageVerbose)
 		printf("nullcGetResultDouble test\r\n");
-	for(int t = 0; t < TEST_COUNT; t++)
+	for(int t = 0; t < TEST_TARGET_COUNT; t++)
 	{
 		if(!Tests::testExecutor[t])
 			continue;
@@ -506,7 +506,7 @@ void RunInterfaceTests()
 	if(Tests::messageVerbose)
 		printf("nullcRunFunction test\r\n");
 
-	for(int t = 0; t < TEST_COUNT; t++)
+	for(int t = 0; t < TEST_TARGET_COUNT; t++)
 	{
 		if(!Tests::testExecutor[t])
 			continue;
@@ -531,7 +531,7 @@ void RunInterfaceTests()
 	if(Tests::messageVerbose)
 		printf("Type constant check\r\n");
 
-	for(int t = 0; t < TEST_COUNT; t++)
+	for(int t = 0; t < TEST_TARGET_COUNT; t++)
 	{
 		if(!Tests::testExecutor[t])
 			continue;
@@ -547,19 +547,25 @@ void RunInterfaceTests()
 			char *bytecode = NULL;
 			nullcGetBytecode(&bytecode);
 
-			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_VOID].offsetToName + FindSymbols((ByteCode*)bytecode), "void");
-			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_DOUBLE].offsetToName + FindSymbols((ByteCode*)bytecode), "double");
-			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_FLOAT].offsetToName + FindSymbols((ByteCode*)bytecode), "float");
-			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_LONG].offsetToName + FindSymbols((ByteCode*)bytecode), "long");
-			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_INT].offsetToName + FindSymbols((ByteCode*)bytecode), "int");
-			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_SHORT].offsetToName + FindSymbols((ByteCode*)bytecode), "short");
-			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_CHAR].offsetToName + FindSymbols((ByteCode*)bytecode), "char");
-			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_AUTO_REF].offsetToName + FindSymbols((ByteCode*)bytecode), "auto ref");
-			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_TYPEID].offsetToName + FindSymbols((ByteCode*)bytecode), "typeid");
-			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_AUTO_ARRAY].offsetToName + FindSymbols((ByteCode*)bytecode), "auto[]");
-			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_FUNCTION].offsetToName + FindSymbols((ByteCode*)bytecode), "__function");
-			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_GENERIC].offsetToName + FindSymbols((ByteCode*)bytecode), "generic");
-			TEST_COMPARES(FindFirstType((ByteCode*)bytecode)[NULLC_TYPE_BOOL].offsetToName + FindSymbols((ByteCode*)bytecode), "bool");
+			ExternTypeInfo *types = FindFirstType((ByteCode*)bytecode);
+			const char *symbols = FindSymbols((ByteCode*)bytecode);
+
+			TEST_COMPARES(types[NULLC_TYPE_VOID].offsetToName + symbols, "void");
+			TEST_COMPARES(types[NULLC_TYPE_BOOL].offsetToName + symbols, "bool");
+			TEST_COMPARES(types[NULLC_TYPE_CHAR].offsetToName + symbols, "char");
+			TEST_COMPARES(types[NULLC_TYPE_SHORT].offsetToName + symbols, "short");
+			TEST_COMPARES(types[NULLC_TYPE_INT].offsetToName + symbols, "int");
+			TEST_COMPARES(types[NULLC_TYPE_LONG].offsetToName + symbols, "long");
+			TEST_COMPARES(types[NULLC_TYPE_FLOAT].offsetToName + symbols, "float");
+			TEST_COMPARES(types[NULLC_TYPE_DOUBLE].offsetToName + symbols, "double");
+			TEST_COMPARES(types[NULLC_TYPE_TYPEID].offsetToName + symbols, "typeid");
+			TEST_COMPARES(types[NULLC_TYPE_FUNCTION].offsetToName + symbols, "__function");
+			TEST_COMPARES(types[NULLC_TYPE_NULLPTR].offsetToName + symbols, "__nullptr");
+			TEST_COMPARES(types[NULLC_TYPE_GENERIC].offsetToName + symbols, "generic");
+			TEST_COMPARES(types[NULLC_TYPE_AUTO].offsetToName + symbols, "auto");
+			TEST_COMPARES(types[NULLC_TYPE_AUTO_REF].offsetToName + symbols, "auto ref");
+			TEST_COMPARES(types[NULLC_TYPE_VOID_REF].offsetToName + symbols, "void ref");
+			TEST_COMPARES(types[NULLC_TYPE_AUTO_ARRAY].offsetToName + symbols, "auto[]");
 
 			delete[] bytecode;
 
@@ -626,7 +632,7 @@ void RunInterfaceTests()
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
 	nullcSaveListing("\\/\\/\\/\\/\\\\/\\");
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
-	nullcTranslateToC("\\/\\/\\/\\/\\\\/\\", "main");
+	nullcTranslateToC("\\/\\/\\/\\/\\\\/\\", "main", NULL);
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
 	nullcClean();
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
@@ -645,9 +651,9 @@ void RunInterfaceTests()
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
 
 	// double initialization check
-	nullcInit(MODULE_PATH);
+	nullcInit();
 	TEST_COMPARES(nullcGetLastError(), "");
-	nullcInit(MODULE_PATH);
+	nullcInit();
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is already initialized");
 	nullcTerminate();
 	TEST_COMPARES(nullcGetLastError(), "");

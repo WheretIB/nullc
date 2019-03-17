@@ -162,7 +162,7 @@ namespace TabbedFiles
 			LineTo(hdc, leftPos + 19 + textRect.right, TAB_HEIGHT - 17);
 
 			// Text
-			RECT textRectMod = { textRect.left + leftPos + 16, 3, textRect.right + leftPos, TAB_HEIGHT };
+			RECT textRectMod = { textRect.left + int(leftPos) + 16, 3, textRect.right + int(leftPos), TAB_HEIGHT };
 			SetBkMode(hdc, TRANSPARENT);
 			if(data->tabInfo[i].last)
 				ExtTextOut(hdc, textRectMod.left, textRectMod.top, 0, &textRectMod, data->tabInfo[i].last, (int)strlen(data->tabInfo[i].last), NULL);

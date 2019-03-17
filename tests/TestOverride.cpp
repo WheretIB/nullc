@@ -15,8 +15,8 @@ override(funcB, auto(int y){ return y * 3 - 2; });\r\n\
 return funcA(5) * funcB(5);";
 TEST("Function override between internal functions", testFunctionOverrideInternal, "130")
 {
-	CHECK_INT("a", 0, -5);
-	CHECK_INT("b", 0, 10);
+	CHECK_INT("a", 0, -5, lastFailed);
+	CHECK_INT("b", 0, 10, lastFailed);
 }
 
 int RewriteA(int x)
@@ -50,8 +50,8 @@ override(funcB, funcNew);\r\n\
 return funcA(5) * funcB(5);";
 TEST_VM("Function override between internal and external functions", testFunctionOverrideInternalExternal, "130")
 {
-	CHECK_INT("a", 0, -5);
-	CHECK_INT("b", 0, 10);
+	CHECK_INT("a", 0, -5, lastFailed);
+	CHECK_INT("b", 0, 10, lastFailed);
 }
 
 const char	*testFunctionOverrideInternalPtr =
@@ -71,8 +71,8 @@ override(funcB, auto(int y){ return y * 3 - 2; });\r\n\
 return a_(5) * b_(5);";
 TEST("Function override between internal functions (with function pointers)", testFunctionOverrideInternalPtr, "130")
 {
-	CHECK_INT("a", 0, -5);
-	CHECK_INT("b", 0, 10);
+	CHECK_INT("a", 0, -5, lastFailed);
+	CHECK_INT("b", 0, 10, lastFailed);
 }
 
 const char	*testFunctionOverrideInternalExternalPtr =
@@ -92,6 +92,6 @@ override(funcB, funcNew);\r\n\
 return a_(5) * b_(5);";
 TEST_VM("Function override between internal and external functions (with function pointers)", testFunctionOverrideInternalExternalPtr, "130")
 {
-	CHECK_INT("a", 0, -5);
-	CHECK_INT("b", 0, 10);
+	CHECK_INT("a", 0, -5, lastFailed);
+	CHECK_INT("b", 0, 10, lastFailed);
 }

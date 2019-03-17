@@ -164,7 +164,6 @@ void KILL_REG_IMPL(x86Reg reg)
 
 #endif
 
-#ifdef NULLC_LOG_FILES
 void EMIT_COMMENT(const char* text)
 {
 	(void)text;
@@ -172,9 +171,6 @@ void EMIT_COMMENT(const char* text)
 	x86Op->comment = text;
 	x86Op++;*/
 }
-#else
-#define EMIT_COMMENT(x)
-#endif
 
 void EMIT_LABEL(unsigned int labelID, int invalidate = true)
 {
@@ -801,7 +797,7 @@ void EMIT_OP_REG_REG(x86Command op, x86Reg reg1, x86Reg reg2)
 		NULLC::InvalidateDependand(reg1);
 	}else if(op == o_test && reg1 == reg2 && NULLC::reg[reg1].type == x86Argument::argReg){
 		reg1 = reg2 = NULLC::reg[reg1].reg;
-	}else{
+	}else if(op != o_sal && op != o_sar){
 		if(NULLC::reg[reg2].type == x86Argument::argReg)
 			reg2 = NULLC::reg[reg2].reg;
 	}
@@ -892,20 +888,24 @@ void EMIT_OP_REG_RPTR(x86Command op, x86Reg reg1, x86Size size, x86Reg index, un
 	}
 
 	x86Argument newArg = x86Argument(size, index, mult, base, shift);
-	unsigned int cIndex = NULLC::MemFind(newArg);
-	if(cIndex != ~0u)
+
+	if(op != o_movsx)
 	{
-		if(NULLC::mCache[cIndex].value.type == x86Argument::argNumber)
+		unsigned int cIndex = NULLC::MemFind(newArg);
+		if(cIndex != ~0u)
 		{
-			EMIT_OP_REG_NUM(op, reg1, NULLC::mCache[cIndex].value.num);
-			NULLC::MemUpdate(cIndex);
-			return;
-		}
-		if(NULLC::mCache[cIndex].value.type == x86Argument::argReg && op != o_imul && op != o_cmp)
-		{
-			EMIT_OP_REG_REG(op, reg1, NULLC::mCache[cIndex].value.reg);
-			NULLC::MemUpdate(cIndex);
-			return;
+			if(NULLC::mCache[cIndex].value.type == x86Argument::argNumber)
+			{
+				EMIT_OP_REG_NUM(op, reg1, NULLC::mCache[cIndex].value.num);
+				NULLC::MemUpdate(cIndex);
+				return;
+			}
+			if(NULLC::mCache[cIndex].value.type == x86Argument::argReg && op != o_imul && op != o_cmp)
+			{
+				EMIT_OP_REG_REG(op, reg1, NULLC::mCache[cIndex].value.reg);
+				NULLC::MemUpdate(cIndex);
+				return;
+			}
 		}
 	}
 	if(op == o_mov && base != rESP)
@@ -1030,7 +1030,7 @@ void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg index, int multiplier,
 		return;
 	}
 
-	if(NULLC::reg[reg2].type == x86Argument::argNumber)
+	if(size == sDWORD && NULLC::reg[reg2].type == x86Argument::argNumber)
 	{
 		EMIT_OP_RPTR_NUM(op, size, index, multiplier, base, shift, NULLC::reg[reg2].num);
 		return;
@@ -1530,13 +1530,14 @@ void GenCodeCmdMovCmplx(VMCmd cmd)
 		unsigned int currShift = 0;
 		while(currShift < cmd.helper)
 		{
+			EMIT_OP_REG_RPTR(o_mov, rEBX, sDWORD, rESP, currShift);
 			if(cmd.flag == ADDRESS_ABOLUTE)
-				EMIT_OP_ADDR(o_pop, sDWORD, cmd.argument+paramBase + currShift);
+				EMIT_OP_ADDR_REG(o_mov, sDWORD, cmd.argument + paramBase + currShift, rEBX);
 			else
-				EMIT_OP_RPTR(o_pop, sDWORD, rEBP, cmd.argument+paramBase + currShift);
+				EMIT_OP_RPTR_REG(o_mov, sDWORD, rEBP, cmd.argument + paramBase + currShift, rEBX);
+			KILL_REG(rEBX);
 			currShift += 4;
 		}
-		EMIT_OP_REG_NUM(o_sub, rESP, cmd.helper);
 		assert(currShift == cmd.helper);
 	}else{
 		EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
@@ -3155,36 +3156,6 @@ void GenCodeCmdDecL(VMCmd cmd)
 	EMIT_COMMENT("DEC long");
 	EMIT_OP_RPTR_NUM(o_sub, sDWORD, rESP, 0, 1);
 	EMIT_OP_RPTR_NUM(o_sbb, sDWORD, rESP, 4, 0);
-}
-
-void (*closureCreateFunc)() = (void(*)())ClosureCreate;
-
-void GenCodeCmdCreateClosure(VMCmd cmd)
-{
-	EMIT_COMMENT("CREATECLOSURE");
-
-	EMIT_OP_NUM(o_push, cmd.argument);
-	EMIT_OP_NUM(o_push, cmd.helper);
-	EMIT_OP_REG_RPTR(o_lea, rEBX, sNONE, rEBP, paramBase);
-	EMIT_OP_REG(o_push, rEBX);
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)closureCreateFunc);
-	EMIT_OP_REG(o_call, rECX);
-	EMIT_OP_REG_NUM(o_add, rESP, 16);
-}
-
-void (*upvaluesCloseFunc)() = (void(*)())CloseUpvalues;
-
-void GenCodeCmdCloseUpvalues(VMCmd cmd)
-{
-	EMIT_COMMENT("CLOSEUPVALUES");
-
-	EMIT_OP_NUM(o_push, cmd.argument);
-	EMIT_OP_NUM(o_push, cmd.flag);
-	EMIT_OP_REG_RPTR(o_lea, rEBX, sNONE, rEBP, paramBase);
-	EMIT_OP_REG(o_push, rEBX);
-	EMIT_OP_REG_NUM(o_mov, rECX, (int)(intptr_t)upvaluesCloseFunc);
-	EMIT_OP_REG(o_call, rECX);
-	EMIT_OP_REG_NUM(o_add, rESP, 12);
 }
 
 void (*convertPtrFunc)() = (void(*)())ConvertFromAutoRef;

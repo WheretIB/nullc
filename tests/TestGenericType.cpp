@@ -1069,7 +1069,7 @@ s.push_back(3);\r\n\
 s.push_back(4.0);\r\n\
 s.push_back(5);\r\n\
 return s.pop_back() + s.pop_back() + (s.back() = 8);";
-TEST_RESULT("Generic type test Stack type 1", testGenericType71, "17");
+TEST_RESULT("Generic type test Stack type 2", testGenericType71, "17");
 
 LOAD_MODULE(test_generic_type72, "test.generic_type72",
 "class Stack<T>\r\n\
@@ -2359,3 +2359,35 @@ Foo<double> b;\r\n\
 Foo<char> c;\r\n\
 return typeof(a).hasMember(a) && typeof(a.a) == int && !typeof(b).hasMember(a) && !typeof(c).hasMember(a);";
 TEST_RESULT("static if in type body 6", testGenericType146, "1");
+
+const char *testGenericType147 =
+"class Foo<T>{ T x; }\r\n\
+\r\n\
+Foo a = Foo<int>();\r\n\
+a.x = 5;\r\n\
+\r\n\
+int foo(Foo a)\r\n\
+{\r\n\
+	return a.x;\r\n\
+}\r\n\
+\r\n\
+return foo(a);";
+TEST_RESULT("Generic class name can be used if the generic arguments can be deduced", testGenericType147, "5");
+
+const char *testGenericType148 =
+"class F<T>{}\r\n\
+int F:f(){ return 2; }\r\n\
+F<int> a;\r\n\
+int operator+(int a, int ref() b){ return a + b(); }\r\n\
+return 1 + a.f;";
+TEST_RESULT("Generic class function pointer access performs instantiation", testGenericType148, "3");
+
+const char *testGenericType149 =
+"class F<T>{}\r\n\
+int F:f(){ return 2; }\r\n\
+float F:f(){ return 2; }\r\n\
+double F:f(){ return 2; }\r\n\
+F<int> a;\r\n\
+int operator+(int a, int ref() b){ return a + b(); }\r\n\
+return 1 + a.f;";
+TEST_RESULT("Generic class function pointer access performs instantiation", testGenericType149, "3");

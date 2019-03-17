@@ -50,9 +50,9 @@ char* FindCode(ByteCode *code)
 	return ((char*)(code) + code->offsetToCode);
 }
 
-unsigned int* FindSourceInfo(ByteCode *code)
+ExternSourceInfo* FindSourceInfo(ByteCode *code)
 {
-	return (unsigned int*)((char*)code + code->offsetToInfo);
+	return (ExternSourceInfo*)((char*)code + code->offsetToInfo);
 }
 
 char* FindSymbols(ByteCode *code)

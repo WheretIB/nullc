@@ -59,12 +59,18 @@ struct Lexeme
 {
 	LexemeType type;
 	const char *pos;
-	unsigned int length;
+	unsigned length;
+
+	// Zero-based values
+	unsigned line;
+	unsigned column;
 };
 
 class Lexer
 {
 public:
+	Lexer(Allocator *allocator);
+
 	void			Clear(unsigned count);
 	void			Lexify(const char* code);
 	void			Append(Lexeme* stream, unsigned count);
@@ -73,5 +79,7 @@ public:
 	unsigned int	GetStreamSize();
 
 private:
-	FastVector<Lexeme>	lexems;
+	SmallArray<Lexeme, 32>	lexems;
+
+	unsigned line;
 };

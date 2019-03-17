@@ -298,8 +298,10 @@ pthread_mutex_t breakContinue_m = PTHREAD_MUTEX_INITIALIZER;
 Dispatcher::DispatcherEvent breakProcessed = { NULL, NULL };
 #endif
 
-unsigned int PipeDebugBreak(unsigned int instruction)
+unsigned int PipeDebugBreak(void *context, unsigned instruction)
 {
+	(void)context;
+
 	if(!breakInitialized)
 	{
 		breakInitialized = 1;
@@ -468,9 +470,9 @@ NULLC_PROC_RETURN GeneralCommandThread(void* param)
 		{
 			printf("DEBUG_CODE_INFO\n");
 			unsigned int count;
-			NULLCCodeInfo *codeInfo = nullcDebugCodeInfo(&count);
+			ExternSourceInfo *sourceInfo = nullcDebugSourceInfo(&count);
 			data.question = false;
-			PipeSendData(client, data, (char*)codeInfo, count, count * sizeof(NULLCCodeInfo));
+			PipeSendData(client, data, (char*)sourceInfo, count, count * sizeof(ExternSourceInfo));
 		}
 			break;
 			case DEBUG_TYPE_INFO:
@@ -580,7 +582,7 @@ NULLC_PROC_RETURN GeneralCommandThread(void* param)
 NULLC_PROC_RETURN DispatcherThread(void* param)
 {
 	(void)param;
-	nullcDebugSetBreakFunction(PipeDebugBreak);
+	nullcDebugSetBreakFunction(NULL, PipeDebugBreak);
 
 	// Create a listening socket
 	SOCKET sck = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);

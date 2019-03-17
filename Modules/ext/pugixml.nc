@@ -262,20 +262,7 @@ class xml_document
 	
 	xml_node	root();
 }
-auto xml_document()
-{
-	return xml_document();
-}
 
-auto xml_node()
-{
-	return xml_node();
-}
-
-auto xml_attribute()
-{
-	return xml_attribute();
-}
 // xml_node constror from xml_document
 auto xml_node(xml_document ref r)
 {

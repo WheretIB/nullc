@@ -116,36 +116,27 @@ function toggleView(a, b, c)
 		<p class="code">
 <span class="rword">#define</span> <span class="comment">NULLC_MAX_VARIABLE_NAME_LENGTH</span> <span class="real">2048</span><br />
 		</p>
-		This define control the maximum variable, function or class name that NULLC will attempt to handle.<br />
+		This define controls the maximum variable, function or class name that NULLC will attempt to handle.<br />
+	</div>
+	<div class="function">
+		<p class="code">
+<span class="rword">#define</span> <span class="comment">NULLC_MAX_TYPE_NAME_LENGTH</span> <span class="real">8192</span><br />
+		</p>
+		This define controls the maximum type name that NULLC will attempt to handle.<br />
 	</div>
 	<div class="function">
 		<p class="code">
 <span class="rword">#define</span> <span class="comment">NULLC_DEFAULT_GLOBAL_MEMORY_LIMIT</span> <span class="real">1024 * 1024 * 1024</span><br />
 		</p>
-		This define control the default maximum global memory limit (1Gb by default).<br />
+		This define controls the default maximum global memory limit (1Gb by default).<br />
 		You can change this constant or use the <a href="#nullcSetGlobalMemoryLimit">nullcSetGlobalMemoryLimit</a> function.<br />
 	</div>
 	<div class="function">
 		<p class="code">
 <span class="rword">#define</span> <span class="comment">NULLC_STACK_TRACE_WITH_LOCALS</span><br />
 		</p>
-		This define control whether NULLC will write information about locals in call stack on execution error.<br />
-		This define is enabled by default.<br />
-	</div>
-	<div class="function">
-		<p class="code">
-<span class="rword">#define</span> <span class="comment">NULLC_ENABLE_C_TRANSLATION</span><br />
-		</p>
-		This define enables an ability to translate NULLC code into C++ code.<br />
-		Keep in mind that enabling this define will degrade performance of NULLC VM and JiT executors (additionally, NULLC_OPTIMIZE_X86 will be disabled).<br />
+		This define controls whether NULLC will write information about locals in call stack on execution error.<br />
 		This define is disabled by default.<br />
-	</div>
-	<div class="function">
-		<p class="code">
-<span class="rword">#define</span> <span class="comment">NULLC_PURE_FUNCTIONS</span><br />
-		</p>
-		This define enables compile-time function evaluation.<br />
-		This define is enabled by default.<br />
 	</div>
 	<div class="function">
 		<p class="code">
@@ -160,7 +151,7 @@ function toggleView(a, b, c)
 		</p>
 		This define enables x86 JiT executor code optimization.<br />
 		Code compilation speed is reduced greatly when JiT is in use and this flag is enabled.<br />
-		This define is enabled by default on platforms and compilers that support it, unless the <span class="comment">NULLC_ENABLE_C_TRANSLATION</span> is enabled.<br />
+		This define is enabled by default on platforms and compilers that support it.<br />
 	</div>
 	<div class="function">
 		<p class="code">
@@ -183,7 +174,7 @@ function toggleView(a, b, c)
 	
 	<div class="function">
 		<p class="code">
-<span class="rword">void</span>		<span class="func">nullcInit</span>(<span class="rword">const char</span>* importPath);<br />
+<span class="rword">nullres</span>		<span class="func">nullcInit</span>(<span class="rword">const char</span>* importPath);<br />
 		</p>
 		Function initializes NULLC library with default allocation and deallocation functions.<br />
 		-<b>importPath</b> parameter sets that path in which the modules will be searched.<br />
@@ -198,7 +189,7 @@ function toggleView(a, b, c)
 	</div>
 	<div class="function">
 		<p class="code">
-<span class="rword">void</span>		<span class="func">nullcInitCustomAlloc</span>(<span class="rword">void</span>* (<span class="comment">NCDECL</span> *allocFunc)(<span class="rword">int</span>), <span class="rword">void</span> (<span class="comment">NCDECL</span> *deallocFunc)(<span class="rword">void</span>*), <span class="rword">const char</span>* importPath);<br />
+<span class="rword">nullres</span>		<span class="func">nullcInitCustomAlloc</span>(<span class="rword">void</span>* (*allocFunc)(<span class="rword">int</span>), <span class="rword">void</span> (*deallocFunc)(<span class="rword">void</span>*), <span class="rword">const char</span>* importPath);<br />
 		</p>
 		Function initializes NULLC library with specified allocation and deallocation functions.<br />
 		-<b>allocFunc</b> parameter sets the allocation function. It must be _cdecl function accepting one argument (allocation size) and returning pointer to allocated memory block.<br />
@@ -207,7 +198,7 @@ function toggleView(a, b, c)
 	</div>
 	<div class="function">
 		<p class="code">
-<span class="rword">void</span>		<span class="func">nullcSetFileReadHandler</span>(<span class="rword">const void</span>* (<span class="comment">NCDECL</span> *fileLoadFunc)(<span class="rword">const char</span>* name, <span class="rword">unsigned int</span>* size, <span class="rword">int</span>* nullcShouldFreePtr));<br />
+<span class="rword">void</span>		<span class="func">nullcSetFileReadHandler</span>(<span class="rword">const void</span>* (*fileLoadFunc)(<span class="rword">const char</span>* name, <span class="rword">unsigned int</span>* size, <span class="rword">int</span>* nullcShouldFreePtr));<br />
 		</p>
 		Function allows to set a handler for module file read operation. By default, fopen/ftell/fread/fclose function are used.<br />
 		-<b>fileLoadFunc</b> parameter sets the handler function. It must be _cdecl function accepting three arguments and returning pointer to a memory, where file contents are placed.<br />
@@ -258,7 +249,7 @@ function toggleView(a, b, c)
 	</div>
 	<div class="function">
 		<p class="code">
-<span class="rword">nullres</span>		<span class="func">nullcBindModuleFunction</span>(<span class="rword">const char</span>* module, <span class="rword">void</span> (<span class="comment">NCDECL</span> *ptr)(), <span class="rword">const char</span>* name, <span class="rword">int</span> index);
+<span class="rword">nullres</span>		<span class="func">nullcBindModuleFunction</span>(<span class="rword">const char</span>* module, <span class="rword">void</span> (*ptr)(), <span class="rword">const char</span>* name, <span class="rword">int</span> index);
 		</p>
 		Function is used to bind unresolved module functions to external C functions.<br />
 		Read more abount C function binding in <a href="#interop_bind">interoperability</a> section.<br />
@@ -461,16 +452,15 @@ function toggleView(a, b, c)
 	</div>
 	<div class="function">
 		<p class="code">
-<span class="rword">void</span>			<span class="func">nullcSaveListing</span>(<span class="rword">const char</span>* fileName);
+<span class="rword">nullres</span>			<span class="func">nullcSaveListing</span>(<span class="rword">const char</span>* fileName);
 		</p>
 		This function saves disassembly of last compiled code into file.<br />
 	</div>
 	<div class="function">
 		<p class="code">
-<span class="rword">void</span>			<span class="func">nullcTranslateToC</span>(<span class="rword">const char</span>* fileName, <span class="rword">const char</span>* mainName);
-		</p>
+<span class="rword">nullres</span>			<span class="func">nullcTranslateToC</span>(<span class="rword">const char</span>* fileName, <span class="rword">const char</span>* mainName, <span class="rword">void</span> (*addDependency)(<span class="rword">const char</span> *fileName));
+</p>
 		This function saved analog of C++ code of last compiled code into file.<br />
-		Function works only if <span class="comment">NULLC_ENABLE_C_TRANSLATION</span> is defined.<br />
 	</div>
 </div>
 <hr />

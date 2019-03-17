@@ -21,52 +21,44 @@ long f2 = 3l << 12l;\r\n\
 int f4 = 0 - f1;\r\n\
 double f5 = 2 * 3.0, f6 = f1 - 0.0;\r\n\
 \r\n\
-return 1;";
-TEST("Group of tests", testMissingTests, "1")
+return (d1[0] == '\\\\') + (d1[1] == '\\\'') + (d1[2] == 0) + (d1[3] == '\\\"') + (d1[4] == 0);";
+TEST("Group of tests", testMissingTests, "5")
 {
-	CHECK_LONG("a1", 0, 1);
+	CHECK_LONG("a1", 0, 1, lastFailed);
 
-	CHECK_LONG("a2", 0, 255);
-	CHECK_LONG("a3", 0, 524287);
-	CHECK_LONG("a4", 0, 562949953421311ll);
+	CHECK_LONG("a2", 0, 255, lastFailed);
+	CHECK_LONG("a3", 0, 524287, lastFailed);
+	CHECK_LONG("a4", 0, 562949953421311ll, lastFailed);
 
-	CHECK_LONG("b1", 0, 0);
-	CHECK_LONG("b2", 0, 1);
-	CHECK_LONG("b3", 0, 33538725);
-	CHECK_LONG("b4", 0, 6154922420991617705ll);
+	CHECK_LONG("b1", 0, 0, lastFailed);
+	CHECK_LONG("b2", 0, 1, lastFailed);
+	CHECK_LONG("b3", 0, 33538725, lastFailed);
+	CHECK_LONG("b4", 0, 6154922420991617705ll, lastFailed);
 
-	CHECK_DOUBLE("c1", 0, 1e-3);
-	CHECK_DOUBLE("c2", 0, 1e6);
-	CHECK_DOUBLE("c3", 0, 123e2);
-	CHECK_DOUBLE("c4", 0, 0.121e-4);
+	CHECK_DOUBLE("c1", 0, 1e-3, lastFailed);
+	CHECK_DOUBLE("c2", 0, 1e6, lastFailed);
+	CHECK_DOUBLE("c3", 0, 123e2, lastFailed);
+	CHECK_DOUBLE("c4", 0, 0.121e-4, lastFailed);
 
-	CHECK_INT("d1size", 0, 5);
+	CHECK_INT("d1size", 0, 5, lastFailed);
 
-	char* str = *(char**)Tests::FindVar("$temp1");
-	if(str[0] != '\\' || str[1] != '\'' || str[2] != '\0' || str[3] != '\"' || str[4] != '\0')
-	{
-		TEST_NAME();
-		printf(" Failed\r\n");
-		lastFailed = true;
-	}
+	CHECK_INT("d2", 0, !4, lastFailed);
+	CHECK_INT("d3", 0, ~5, lastFailed);
+	CHECK_INT("d4", 0, -12, lastFailed);
 
-	CHECK_INT("d2", 0, !4);
-	CHECK_INT("d3", 0, ~5);
-	CHECK_INT("d4", 0, -12);
+	CHECK_FLOAT("e2", 0, -1.0f, lastFailed);
+	CHECK_DOUBLE("e3", 0, -3.0, lastFailed);
 
-	CHECK_FLOAT("e2", 0, -1.0f);
-	CHECK_DOUBLE("e3", 0, -3.0);
+	CHECK_LONG("e4", 0, !324324234324234423ll, lastFailed);
+	CHECK_LONG("e5", 0, ~89435763476541ll, lastFailed);
+	CHECK_LONG("e6", 0, -1687313675313735ll, lastFailed);
 
-	CHECK_LONG("e4", 0, !324324234324234423ll);
-	CHECK_LONG("e5", 0, ~89435763476541ll);
-	CHECK_LONG("e6", 0, -1687313675313735ll);
+	CHECK_INT("f1", 0, 2 << 4, lastFailed);
+	CHECK_LONG("f2", 0, 3ll << 12ll, lastFailed);
 
-	CHECK_INT("f1", 0, 2 << 4);
-	CHECK_LONG("f2", 0, 3ll << 12ll);
-
-	CHECK_INT("f4", 0, -(2 << 4));
-	CHECK_DOUBLE("f5", 0, 6.0);
-	CHECK_DOUBLE("f6", 0, (2 << 4));
+	CHECK_INT("f4", 0, -(2 << 4), lastFailed);
+	CHECK_DOUBLE("f5", 0, 6.0, lastFailed);
+	CHECK_DOUBLE("f6", 0, (2 << 4), lastFailed);
 }
 
 const char	*testMissingTests2 =
@@ -95,13 +87,13 @@ n44();\r\n\
 return 1;";
 TEST("Group of tests 2", testMissingTests2, "1")
 {
-	CHECK_INT("d", 0, 3);
-	CHECK_INT("e", 0, 4);
+	CHECK_INT("d", 0, 3, lastFailed);
+	CHECK_INT("e", 0, 4, lastFailed);
 
-	CHECK_INT("k1", 0, -5);
-	CHECK_INT("k2", 0, -12);
-	CHECK_INT("k3", 0, ~7);
-	CHECK_INT("k4", 0, 4096);
+	CHECK_INT("k1", 0, -5, lastFailed);
+	CHECK_INT("k2", 0, -12, lastFailed);
+	CHECK_INT("k3", 0, ~7, lastFailed);
+	CHECK_INT("k4", 0, 4096, lastFailed);
 }
 
 const char	*testMissingTests3 =
@@ -125,21 +117,21 @@ double opt4 = 8.0 % 3.0;\r\n\
 return 1;";
 TEST("Group of tests 3", testMissingTests3, "1")
 {
-	CHECK_INT("a1", 0, 3);
-	CHECK_INT("a2", 0, 2);
-	CHECK_INT("a3", 0, 7);
+	CHECK_INT("a1", 0, 3, lastFailed);
+	CHECK_INT("a2", 0, 2, lastFailed);
+	CHECK_INT("a3", 0, 7, lastFailed);
 
-	CHECK_INT("b1", 0, 3);
-	CHECK_INT("b2", 0, 2);
-	CHECK_INT("b3", 0, 7);
+	CHECK_INT("b1", 0, 3, lastFailed);
+	CHECK_INT("b2", 0, 2, lastFailed);
+	CHECK_INT("b3", 0, 7, lastFailed);
 
-	CHECK_INT("c1", 0, 512);
+	CHECK_INT("c1", 0, 512, lastFailed);
 
-	CHECK_INT("opt1", 0, (1 != 1 + (18 >> 2) % (4 & 4 ^ 0 | 0xffff) + 1) ? 1 : 0);
-	CHECK_LONG("opt2", 0, 18l >> 2l % 5l ^ 9l | 12l & 13l);
-	CHECK_LONG("opt3", 0, 1);
+	CHECK_INT("opt1", 0, (1 != 1 + (18 >> 2) % (((4 & 4) ^ 0) | 0xffff) + 1) ? 1 : 0, lastFailed);
+	CHECK_LONG("opt2", 0, (18l >> 2l % 5l ^ 9l) | (12l & 13l), lastFailed);
+	CHECK_LONG("opt3", 0, 1, lastFailed);
 
-	CHECK_DOUBLE("opt4", 0, 2.0);
+	CHECK_DOUBLE("opt4", 0, 2.0, lastFailed);
 }
 
 const char	*testMissingTests4 =
@@ -173,37 +165,13 @@ int k1 = k[0], k2 = k[1], k3 = k[2], k4 = k[3];\r\n\
 return m[1][3] + 2;";
 TEST("Group of tests 4", testMissingTests4, "6")
 {
-	int* str1 = *(int**)Tests::FindVar("$temp1");
-	if(str1[0] != 1 || str1[1] != 2 || str1[2] != 3 || str1[3] != 4)
-	{
-		TEST_NAME();
-		printf(" Failed\r\n");
-		lastFailed = true;
-	}
+	CHECK_INT("ksize", 0, 4, lastFailed);
+	CHECK_INT("isize", 0, 2, lastFailed);
 
-	int* str2 = *(int**)Tests::FindVar("$temp2");
-	if(str2[0] != 4 || str2[1] != 2 || str2[2] != 5 || str2[3] != 3)
-	{
-		TEST_NAME();
-		printf(" Failed\r\n");
-		lastFailed = true;
-	}
-
-	int* str3 = *(int**)Tests::FindVar("$temp3");
-	if(str3[0] != 4 || str3[1] != 7)
-	{
-		TEST_NAME();
-		printf(" Failed\r\n");
-		lastFailed = true;
-	}
-
-	CHECK_INT("ksize", 0, 4);
-	CHECK_INT("isize", 0, 2);
-
-	CHECK_INT("k1", 0, 5);
-	CHECK_INT("k2", 0, 4);
-	CHECK_INT("k3", 0, 8);
-	CHECK_INT("k4", 0, 7);
+	CHECK_INT("k1", 0, 5, lastFailed);
+	CHECK_INT("k2", 0, 4, lastFailed);
+	CHECK_INT("k3", 0, 8, lastFailed);
+	CHECK_INT("k4", 0, 7, lastFailed);
 }
 
 int CheckAlignment(NULLCRef ptr, int alignment)
@@ -234,10 +202,10 @@ good += r2();\r\n\
 return good;";
 TEST("Group of tests 5", testMissingTests5a, "2")
 {
-	CHECK_LONG("b1", 0, 7625597484987ll);
-	CHECK_LONG("b2", 0, 1);
-	CHECK_LONG("b3", 0, 1);
-	CHECK_LONG("b4", 0, 0);
+	CHECK_LONG("b1", 0, 7625597484987ll, lastFailed);
+	CHECK_LONG("b2", 0, 1, lastFailed);
+	CHECK_LONG("b3", 0, 1, lastFailed);
+	CHECK_LONG("b4", 0, 0, lastFailed);
 }
 
 const char	*testStaticIf1 =
@@ -294,10 +262,10 @@ int d = bar(4l);\r\n\
 return 1;";
 TEST("Static if test 4", testStaticIf4, "1")
 {
-	CHECK_INT("a", 0, 1);
-	CHECK_INT("b", 0, 0);
-	CHECK_INT("c", 0, 1);
-	CHECK_INT("d", 0, 0);
+	CHECK_INT("a", 0, 1, lastFailed);
+	CHECK_INT("b", 0, 0, lastFailed);
+	CHECK_INT("c", 0, 1, lastFailed);
+	CHECK_INT("d", 0, 0, lastFailed);
 }
 
 const char	*testStaticIf5 =
@@ -444,8 +412,8 @@ x.z = 0x45;\r\n\
 return CheckAlignmentStruct(&x);";
 TEST_RESULT("Type padding for correct array element alignment 4", testAlignmentPadding4, "1");
 
-class TestAlignment5StructX{ double x; int y; };
-class TestAlignment5StructY{ TestAlignment5StructX x; int y; };
+struct TestAlignment5StructX{ double x; int y; };
+struct TestAlignment5StructY{ TestAlignment5StructX x; int y; };
 
 int TestAlignment5StructYSizeof()
 {
@@ -617,3 +585,174 @@ class X{ char x; auto[] y; }\r\n\
 X x;\r\n\
 return CheckAlignment(&x.y, 4);";
 TEST_RESULT("Alignment of derived types 4", testAlignmentDerived4, "1");
+
+const char	*testAlignmentDerived5 =
+"import test.alignment;\r\n\
+class X{ char x; int ref() y; }\r\n\
+X x;\r\n\
+return CheckAlignment(&x.y, 4);";
+TEST_RESULT("Alignment of derived types 4", testAlignmentDerived5, "1");
+
+const char	*testSideEffectOrdering1 =
+"int a = 5;\r\n\
+int set(int x){ a = x; return a; }\r\n\
+int get(){ return a; }\r\n\
+int ref getr(){ return &a; }\r\n\
+return (getr() = 10) + get() + get();";
+TEST_RESULT("Side-effect ordering test 1", testSideEffectOrdering1, "30");
+
+const char	*testSideEffectOrdering2 =
+"int a = 5;\r\n\
+int set(int x){ a = x; return a; }\r\n\
+int get(){ return a; }\r\n\
+int ref getr(){ return &a; }\r\n\
+return get() + (getr() = 10) + get();";
+TEST_RESULT("Side-effect ordering test 2", testSideEffectOrdering2, "25");
+
+const char	*testSideEffectOrdering3 =
+"int a = 5;\r\n\
+int set(int x){ a = x; return a; }\r\n\
+int get(){ return a; }\r\n\
+int ref getr(){ return &a; }\r\n\
+return get() + get() + (getr() = 10);";
+TEST_RESULT("Side-effect ordering test 3", testSideEffectOrdering3, "20");
+
+const char	*testSideEffectOrdering4 =
+"int a = 5;\r\n\
+int set(int x){ a = x; return a; }\r\n\
+set(5); // optimization barrier\r\n\
+return (a = 10) + a + a;";
+TEST_RESULT("Side-effect ordering test 4", testSideEffectOrdering4, "30");
+
+const char	*testSideEffectOrdering5 =
+"int a = 5;\r\n\
+int set(int x){ a = x; return a; }\r\n\
+set(5); // optimization barrier\r\n\
+return a + (a = 10) + a;";
+TEST_RESULT("Side-effect ordering test 5", testSideEffectOrdering5, "25");
+
+const char	*testSideEffectOrdering6 =
+"int a = 5;\r\n\
+int set(int x){ a = x; return a; }\r\n\
+set(5); // optimization barrier\r\n\
+return a + a + (a = 10);";
+TEST_RESULT("Side-effect ordering test 6", testSideEffectOrdering6, "20");
+
+const char	*testNullPointerTypeUse =
+"__nullptr t;\r\n\
+__nullptr u;\r\n\
+int ref a = t;\r\n\
+a = new int(4);\r\n\
+t = u;\r\n\
+a = t;\r\n\
+return !a;";
+TEST_RESULT("nullptr type being explicitly used", testNullPointerTypeUse, "1");
+
+const char	*testChainedPhiLegalizeIssue =
+"int get(){ return 1987; }\r\n\
+int year = get();\r\n\
+int result = (year % 4 == 0) ? ((year % 400 == 0) ? 28 : 29) : 28;\r\n\
+return result;";
+TEST_RESULT("Issue with chained phi instruction legalization", testChainedPhiLegalizeIssue, "28");
+
+const char *testTypeAliasLexemeSkip =
+"int foo(@T x){ @U y = 4; return x * y; } return foo(4);";
+TEST_RESULT("Type alias definition should not be skipped", testTypeAliasLexemeSkip, "16");
+
+const char	*testFuzzingCrash1 =
+"1||1&&2; return 1;";
+TEST_RESULT("Fuzzing crash result 1", testFuzzingCrash1, "1");
+
+const char	*testFuzzingCrash2 =
+"1&&1||0&&1; return 1;";
+TEST_RESULT("Fuzzing crash result 2", testFuzzingCrash2, "1");
+
+const char	*testFuzzingCrash3 =
+"1||1^^1&&1||1; return 1;";
+TEST_RESULT("Fuzzing crash result 3", testFuzzingCrash3, "1");
+
+const char	*testFuzzingCrash4 =
+"1||1||1^^1&&1||1; return 1;";
+TEST_RESULT("Fuzzing crash result 4", testFuzzingCrash4, "1");
+
+const char	*testFuzzingCrash5 =
+"return 1; for(;1;) return 0;";
+TEST_RESULT("Fuzzing crash result 5", testFuzzingCrash5, "1");
+
+const char	*testFuzzingCrash6 =
+"int f(){ return 1; }\r\n\
+int i = f();\r\n\
+i ^= !16150l;\r\n\
+return i;";
+TEST_RESULT("Fuzzing crash result 6", testFuzzingCrash6, "1");
+
+const char	*testManualCast1 =
+"auto s = \"hello\"; char[] b = char[](s); return b[2];";
+TEST_RESULT("Manual type cast 1", testManualCast1, "108");
+
+const char	*testManualCast2 =
+"auto s = \"hello\"; char[] b = (char[])(s); return b[2];";
+TEST_RESULT("Manual type cast 2", testManualCast2, "108");
+
+const char	*testManualCast3 =
+"auto foo(generic x){ return x * 2; } auto f = int ref(int)(foo); return f(2);";
+TEST_RESULT("Manual type cast 3", testManualCast3, "4");
+
+const char	*testManualCast4 =
+"auto foo(generic x){ return x * 2; } auto f = (int ref(int))(foo); return f(2);";
+TEST_RESULT("Manual type cast 4", testManualCast4, "4");
+
+const char	*testManualCast5 =
+"auto a = int ref(4); return *a;";
+TEST_RESULT("Manual type cast 5", testManualCast5, "4");
+
+const char	*testManualCast6 =
+"auto a = (int ref)(4); return *a;";
+TEST_RESULT("Manual type cast 6", testManualCast6, "4");
+
+const char	*testManualCast7 =
+"int foo(int x){ return x * 2; } auto ref a = foo; return int ref(int)(a)(2);";
+TEST_RESULT("Manual type cast 7", testManualCast7, "4");
+
+const char	*testConsitionVariable1 =
+"int f(int x){ return x; }\r\n\
+int b = 0;\r\n\
+if(int a = f(15))\r\n\
+	b = a * 2;\r\n\
+return b;";
+TEST_RESULT("Variable definition inside a condition 1", testConsitionVariable1, "30");
+
+const char	*testCharSignExtension1 =
+"char a = -1;\r\n\
+int b = a;\r\n\
+\r\n\
+char a2 = 255;\r\n\
+int b2 = a2;\r\n\
+\r\n\
+char a3 = ' ' - '0';\r\n\
+int b3 = char(' ' - '0');\r\n\
+\r\n\
+int a4_ = 255;\r\n\
+char a4 = a4_;\r\n\
+int b4 = a4;\r\n\
+\r\n\
+return b + b2 + b3 + b4;";
+TEST_RESULT("Char loads are sign-extended 1", testCharSignExtension1, "-19");
+
+const char	*testShortSignExtension1 =
+"short a = -1;\r\n\
+int b = a;\r\n\
+\r\n\
+char a2 = 65535;\r\n\
+int b2 = a2;\r\n\
+\r\n\
+int a3_ = 65535;\r\n\
+char a3 = a3_;\r\n\
+int b3 = a3;\r\n\
+\r\n\
+return b + b2 + b3;";
+TEST_RESULT("Short loads are sign-extended 1", testShortSignExtension1, "-3");
+
+const char	*testInvalidOptimization =
+"int foo(int c){ return 1 - 1 / c; } return foo(2);";
+TEST_RESULT("Invald optimization (sub to dec transform)", testInvalidOptimization, "1");

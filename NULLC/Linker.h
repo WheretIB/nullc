@@ -3,10 +3,11 @@
 #define NULLC_LINKER_H
 
 #include "stdafx.h"
-#include "HashMap.h"
-#include "ParseClass.h"
 
 #include "Bytecode.h"
+#include "HashMap.h"
+#include "InstructionSet.h"
+#include "Output.h"
 
 const int LINK_ERROR_BUFFER_SIZE = 512;
 
@@ -17,7 +18,8 @@ public:
 	~Linker();
 
 	void	CleanCode();
-	bool	LinkCode(const char *bytecode);
+	bool	LinkCode(const char *bytecode, const char *moduleName);
+	bool	SaveListing(OutputContext &output);
 
 	const char*	GetLinkError();
 
@@ -30,13 +32,16 @@ public:
 	FastVector<ExternMemberInfo>	exTypeExtra;
 	FastVector<ExternVarInfo>		exVariables;
 	FastVector<ExternFuncInfo>		exFunctions;
+	FastVector<unsigned>			exFunctionExplicitTypeArrayOffsets;
+	FastVector<unsigned>			exFunctionExplicitTypes;
 	FastVector<ExternLocalInfo>		exLocals;
 	FastVector<ExternModuleInfo>	exModules;
-	FastVector<VMCmd>			exCode;
-	FastVector<char>			exSymbols;
-	FastVector<unsigned int>	exCodeInfo;
-	FastVector<char>			exSource;
-	FastVector<ExternFuncInfo::Upvalue*>	exCloseLists;
+	FastVector<VMCmd>				exCode;
+	FastVector<char>				exSymbols;
+	FastVector<ExternSourceInfo>	exSourceInfo;
+	FastVector<char>				exSource;
+	FastVector<unsigned int>		exDependencies;
+
 	unsigned int				globalVarSize;
 	unsigned int				offsetToGlobalCode;
 
@@ -63,6 +68,8 @@ public:
 
 	HashMap<unsigned int>		typeMap;
 	HashMap<unsigned int>		funcMap;
+
+	unsigned debugOutputIndent;
 };
 
 #endif

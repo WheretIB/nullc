@@ -8,7 +8,6 @@ const char	*testLocalClass1 =
 	a.i = x;\r\n\
 	return a.bar();\r\n\
 }\r\n\
-X ll;\r\n\
 return foo(5);";
 TEST_RESULT("Class defined locally test 1", testLocalClass1, "-5");
 
@@ -30,7 +29,6 @@ const char	*testLocalClass3 =
 	a.i = x;\r\n\
 	return a.foo();\r\n\
 }\r\n\
-X ll;\r\n\
 return foo(5);";
 TEST_RESULT("Class defined locally test 3", testLocalClass3, "10");
 
@@ -43,7 +41,6 @@ int foo(int x)\r\n\
 	a.i = x;\r\n\
 	return a.foo();\r\n\
 }\r\n\
-X ll;\r\n\
 return foo(5);";
 TEST_RESULT("Class defined locally test 4", testLocalClass4, "10");
 
@@ -56,7 +53,6 @@ const char	*testLocalClass5 =
 	a.i = x;\r\n\
 	return a.bar();\r\n\
 }\r\n\
-X ll;\r\n\
 return foo(5);";
 TEST_RESULT("Class defined locally test 5", testLocalClass5, "-5");
 
@@ -69,6 +65,5 @@ const char	*testLocalClass6 =
 	a.i = x;\r\n\
 	return a.foo();\r\n\
 }\r\n\
-X ll;\r\n\
 return foo(5);";
 TEST_RESULT("Class defined locally test 6", testLocalClass6, "10");

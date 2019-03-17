@@ -2,6 +2,8 @@
 #ifndef NULLC_ARRAY_H
 #define NULLC_ARRAY_H
 
+#include "Allocator.h"
+
 #ifndef _MSC_VER
 #undef __forceinline
 #define __forceinline inline // TODO: NULLC_FORCEINLINE?
@@ -13,27 +15,30 @@ class FastVector
 public:
 	FastVector()
 	{
-		data = &one;
-		if(zeroNewMemory)
-			memset(data, 0, sizeof(T));
-		max = 1;
+		data = 0;
+		max = 0;
 		count = 0;
 	}
-	explicit FastVector(unsigned int reserved)
+
+	explicit FastVector(unsigned reserved)
 	{
 		if(!skipConstructor)
 			data = NULLC::construct<T>(reserved);
 		else
 			data = (T*)NULLC::alignedAlloc(sizeof(T) * reserved);
+
 		assert(data);
+
 		if(zeroNewMemory)
 			memset(data, 0, reserved * sizeof(T));
+
 		max = reserved;
 		count = 0;
 	}
+
 	~FastVector()
 	{
-		if(data != &one)
+		if(data)
 		{
 			if(!skipConstructor)
 				NULLC::destruct(data, max);
@@ -41,119 +46,480 @@ public:
 				NULLC::alignedDealloc(data);
 		}
 	}
-	void	reset()
+
+	void reset()
 	{
-		if(data != &one)
+		if(data)
 		{
 			if(!skipConstructor)
 				NULLC::destruct(data, max);
 			else
 				NULLC::alignedDealloc(data);
 		}
-		data = &one;
-		if(zeroNewMemory)
-			memset(data, 0, sizeof(T));
-		max = 1;
+
+		data = 0;
+		max = 0;
 		count = 0;
 	}
 
-	T*		push_back()
+	T* push_back()
 	{
+		if(count == max)
+			grow(count);
+
 		count++;
-		if(count == max)
-			grow(count);
+
 		return &data[count - 1];
-	};
-	__forceinline void		push_back(const T& val)
+	}
+
+	__forceinline void push_back(const T& val)
 	{
-		assert(data);
-		data[count++] = val;
 		if(count == max)
 			grow(count);
-	};
-	__forceinline void		push_back(const T* valPtr, unsigned int elem)
+
+		data[count++] = val;
+	}
+
+	__forceinline void push_back(const T* valPtr, unsigned elem)
 	{
 		if(count + elem >= max)
 			grow(count + elem);
-		for(unsigned int i = 0; i < elem; i++)
+
+		for(unsigned i = 0; i < elem; i++)
 			data[count++] = valPtr[i];
-	};
-	__forceinline T&		back()
+	}
+
+	__forceinline T& back()
 	{
 		assert(count > 0);
-		return data[count-1];
+
+		return data[count - 1];
 	}
-	__forceinline unsigned int		size()
+
+	__forceinline unsigned size()
 	{
 		return count;
 	}
-	__forceinline bool		empty()
+
+	__forceinline bool empty()
 	{
 		return count == 0;
 	}
-	__forceinline void		pop_back()
+
+	__forceinline void pop_back()
 	{
 		assert(count > 0);
+
 		count--;
 	}
-	__forceinline void		clear()
+
+	__forceinline void clear()
 	{
 		count = 0;
 	}
-	__forceinline T&		operator[](unsigned int index)
+
+	__forceinline T& operator[](unsigned index)
 	{
 		assert(index < count);
+
 		return data[index];
 	}
-	__forceinline void		resize(unsigned int newSize)
+
+	__forceinline void resize(unsigned newSize)
 	{
 		if(newSize >= max)
 			grow(newSize);
+
 		count = newSize;
 	}
-	__forceinline void		shrink(unsigned int newSize)
+
+	__forceinline void shrink(unsigned newSize)
 	{
 		assert(newSize <= count);
+
 		count = newSize;
 	}
-	__forceinline void		reserve(unsigned int resSize)
+
+	__forceinline void reserve(unsigned resSize)
 	{
 		if(resSize >= max)
 			grow(resSize);
 	}
 
-	__inline void	grow(unsigned int newSize)
+	__inline void grow(unsigned newSize)
 	{
 		if(max + (max >> 1) > newSize)
 			newSize = max + (max >> 1);
 		else
 			newSize += 32;
+
 		T* newData;
+
 		if(!skipConstructor)
 			newData = NULLC::construct<T>(newSize);
 		else
 			newData = (T*)NULLC::alignedAlloc(sizeof(T) * newSize);
+
 		assert(newData);
+
 		if(zeroNewMemory)
 			memset(newData, 0, newSize * sizeof(T));
-		memcpy(newData, data, max * sizeof(T));
-		if(data != &one)
+
+		if(data)
 		{
+			memcpy(newData, data, max * sizeof(T));
+
 			if(!skipConstructor)
 				NULLC::destruct(data, max);
 			else
 				NULLC::alignedDealloc(data);
 		}
+
 		data = newData;
 		max = newSize;
 	}
-	T	*data;
-	T	one;
-	unsigned int	max, count;
+
+	T *data;
+	unsigned max, count;
+
 private:
 	// Disable assignment and copy constructor
 	void operator =(FastVector &r);
 	FastVector(FastVector &r);
+};
+
+template<typename T, unsigned N>
+class FixedArray
+{
+public:
+	__forceinline T& front()
+	{
+		return data[0];
+	}
+
+	__forceinline T& back()
+	{
+		return data[N - 1];
+	}
+
+	__forceinline T* begin()
+	{
+		return &data[0];
+	}
+	
+	__forceinline T* end()
+	{
+		return &data[N];
+	}
+	
+	__forceinline bool empty()
+	{
+		return false;
+	}
+
+	__forceinline unsigned size()
+	{
+		return N;
+	}
+
+	__forceinline T& operator[](unsigned index)
+	{
+		assert(index < N);
+
+		return data[index];
+	}
+
+	void fill(const T& value)
+	{
+		for(unsigned i = 0; i < N; i++)
+			data[i] = value;
+	}
+
+	T data[N];
+};
+
+template<typename T, unsigned N>
+class SmallArray
+{
+public:
+	SmallArray(Allocator *allocator = 0): allocator(allocator)
+	{
+		data = little;
+		max = N;
+
+		count = 0;
+	}
+
+	~SmallArray()
+	{
+		if(data != little)
+		{
+			if(allocator)
+				allocator->destruct(data, max);
+			else
+				NULLC::destruct(data, max);
+		}
+	}
+
+	void set_allocator(Allocator *newAllocator)
+	{
+		assert(data == little);
+
+		this->allocator = newAllocator;
+	}
+
+	void reset()
+	{
+		if(data != little)
+		{
+			if(allocator)
+				allocator->destruct(data, max);
+			else
+				NULLC::destruct(data, max);
+		}
+
+		data = little;
+		max = N;
+
+		count = 0;
+	}
+
+	T* push_back()
+	{
+		if(count == max)
+			grow(count);
+
+		assert(data);
+
+		count++;
+
+		return &data[count - 1];
+	}
+
+	__forceinline void push_back(const T& val)
+	{
+		if(count == max)
+			grow(count);
+
+		assert(data);
+
+		data[count++] = val;
+	}
+
+	__forceinline void push_back(const T* valPtr, unsigned elem)
+	{
+		if(count + elem >= max)
+			grow(count + elem);
+
+		for(unsigned i = 0; i < elem; i++)
+			data[count++] = valPtr[i];
+	}
+
+	__forceinline T& back()
+	{
+		assert(count > 0);
+
+		return data[count - 1];
+	}
+
+	__forceinline bool empty()
+	{
+		return count == 0;
+	}
+
+	__forceinline unsigned size()
+	{
+		return count;
+	}
+
+	__forceinline void pop_back()
+	{
+		assert(count > 0);
+
+		count--;
+	}
+
+	__forceinline void clear()
+	{
+		count = 0;
+	}
+
+	T* begin()
+	{
+		return data;
+	}
+
+	T* end()
+	{
+		return data + count;
+	}
+
+	__forceinline T& operator[](unsigned index)
+	{
+		assert(index < count);
+
+		return data[index];
+	}
+
+	void resize(unsigned newSize)
+	{
+		if(newSize >= max)
+			grow(newSize);
+
+		count = newSize;
+	}
+
+	void shrink(unsigned newSize)
+	{
+		assert(newSize <= count);
+
+		count = newSize;
+	}
+
+	void reserve(unsigned resSize)
+	{
+		if(resSize >= max)
+			grow(resSize);
+	}
+
+	void grow(unsigned newSize)
+	{
+		if(max + (max >> 1) > newSize)
+			newSize = max + (max >> 1);
+		else
+			newSize += 4;
+
+		T* newData = 0;
+		
+		if(allocator)
+			newData = allocator->construct<T>(newSize);
+		else
+			newData = NULLC::construct<T>(newSize);
+
+		for(unsigned i = 0; i < count; i++)
+			newData[i] = data[i];
+
+		if(data != little)
+		{
+			if(allocator)
+				allocator->destruct(data, max);
+			else
+				NULLC::destruct(data, max);
+		}
+
+		data = newData;
+
+		max = newSize;
+	}
+
+	T *data;
+	unsigned count, max;
+
+private:
+	// Disable assignment and copy constructor
+	void operator =(SmallArray &r);
+	SmallArray(SmallArray &r);
+
+	T little[N];
+
+	Allocator *allocator;
+};
+
+template<typename T>
+class ArrayView
+{
+public:
+	ArrayView()
+	{
+		data = 0;
+		count = 0;
+	}
+
+	ArrayView(FastVector<T> &rhs)
+	{
+		data = rhs.data;
+		count = rhs.size();
+	}
+
+	template<unsigned N>
+	ArrayView(FixedArray<T, N> &rhs)
+	{
+		data = rhs.data;
+		count = rhs.size();
+	}
+
+	template<unsigned N>
+	ArrayView(SmallArray<T, N> &rhs)
+	{
+		data = rhs.data;
+		count = rhs.size();
+	}
+
+	T& back()
+	{
+		assert(count > 0);
+
+		return data[count - 1];
+	}
+
+	bool empty()
+	{
+		return count == 0;
+	}
+
+	unsigned size()
+	{
+		return count;
+	}
+
+	T& operator[](unsigned index)
+	{
+		assert(index < count);
+
+		return data[index];
+	}
+
+	T *data;
+	unsigned count;
+};
+
+template<typename T>
+struct VectorView
+{
+	VectorView(): count(0), capacity(0), data(NULL)
+	{
+	}
+
+	VectorView(T* data, unsigned capacity): count(0), capacity(capacity), data(data)
+	{
+	}
+
+	T& push_back()
+	{
+		assert(count < capacity);
+
+		return data[count++];
+	}
+
+	void push_back(const T& elem)
+	{
+		assert(count < capacity);
+
+		data[count++] = elem;
+	}
+
+	void push_back(const T* elems, unsigned amount)
+	{
+		assert(count + amount <= capacity);
+
+		memcpy(data + count, elems, amount * sizeof(T));
+		count += amount;
+	}
+
+	unsigned count;
+	unsigned capacity;
+
+	T *data;
 };
 
 #endif

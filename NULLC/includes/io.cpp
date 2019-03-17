@@ -149,6 +149,9 @@ namespace NULLCIO
 	void SetConsoleCursorPos(int x, int y)
 	{
 #if !defined(_MSC_VER)
+		(void)x;
+		(void)y;
+
 		nullcThrowError("SetConsoleCursorPos: supported only under Windows");
 #else	
 		if(x < 0 || y < 0)
@@ -167,6 +170,8 @@ namespace NULLCIO
 	void GetKeyboardState(NULLCArray arr)
 	{
 #if !defined(_MSC_VER)
+		(void)arr;
+
 		nullcThrowError("GetKeyboardState: supported only under Windows");
 #else
 		if(arr.len < 256)
@@ -178,6 +183,9 @@ namespace NULLCIO
 	void GetMouseState(int* x, int* y)
 	{
 #if !defined(_MSC_VER)
+		(void)x;
+		(void)y;
+
 		nullcThrowError("GetMouseState: supported only under Windows");
 #else
 		if(!x)
@@ -201,6 +209,8 @@ namespace NULLCIO
 	bool IsPressed(int key)
 	{
 #if !defined(_MSC_VER)
+		(void)key;
+
 		nullcThrowError("GetMouseState: supported only under Windows");
 		return false;
 #else
@@ -214,6 +224,8 @@ namespace NULLCIO
 	bool IsToggled(int key)
 	{
 #if !defined(_MSC_VER)
+		(void)key;
+
 		nullcThrowError("GetMouseState: supported only under Windows");
 		return false;
 #else

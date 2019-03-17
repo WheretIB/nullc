@@ -175,4 +175,4 @@ void test(bool value)\r\n\
 	test(listener.lastY == 9);\r\n\
 }\r\n\
 return passed / count;";
-TEST_RESULT("std.event test (everything)", testSglEventFull, "1");
+TEST_RESULT_SIMPLE("std.event test (everything)", testSglEventFull, "1");

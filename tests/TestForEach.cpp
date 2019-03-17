@@ -65,6 +65,27 @@ for(int i in a)\r\n\
 return sum + sum2;";
 TEST_RESULT("For each with specified element type", testForEach2, "78");
 
+const char	*testForEach2b =
+"import std.vector;\r\n\
+auto a = vector<int>();\r\n\
+a.push_back(4);\r\n\
+a.push_back(8);\r\n\
+a.push_back(14);\r\n\
+\r\n\
+int sum = 0;\r\n\
+for(auto i in a)\r\n\
+{\r\n\
+	sum += i;\r\n\
+	i *= 2;\r\n\
+}\r\n\
+int sum2 = 0;\r\n\
+for(auto i in a)\r\n\
+{\r\n\
+	sum2 += i;\r\n\
+}\r\n\
+return sum + sum2;";
+TEST_RESULT("For each with specified element type 2", testForEach2b, "78");
+
 const char	*testForEach3 =
 "int[] arr1 = { 2, 6, 7 };\r\n\
 int sum1 = 0;\r\n\
@@ -93,11 +114,11 @@ for(i in { 1, 2, 3 })\r\n\
 return 0;";
 TEST("For each for standard arrays", testForEach3, "0")
 {
-	CHECK_INT("sum1", 0, 15);
-	CHECK_INT("sum2", 0, 15);
-	CHECK_INT("sum3", 0, 21);
-	CHECK_INT("sum4", 0, 7);
-	CHECK_INT("sum5", 0, 6);
+	CHECK_INT("sum1", 0, 15, lastFailed);
+	CHECK_INT("sum2", 0, 15, lastFailed);
+	CHECK_INT("sum3", 0, 21, lastFailed);
+	CHECK_INT("sum4", 0, 7, lastFailed);
+	CHECK_INT("sum5", 0, 6, lastFailed);
 }
 
 const char	*testForEach4 =
@@ -112,9 +133,9 @@ for(i in arr1, j in arr2)\r\n\
 return sum;";
 TEST("For each with multiple arrays", testForEach4, "21")
 {
-	CHECK_INT("arr1", 0, 10);
-	CHECK_INT("arr1", 1, 2);
-	CHECK_INT("arr1", 2, 9);
+	CHECK_INT("arr1", 0, 10, lastFailed);
+	CHECK_INT("arr1", 1, 2, lastFailed);
+	CHECK_INT("arr1", 2, 9, lastFailed);
 }
 
 const char	*testRangeIterator =

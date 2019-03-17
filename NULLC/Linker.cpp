@@ -11,7 +11,12 @@
 	#endif
 #endif
 
-Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(256), exSymbols(8192), exLocals(1024), jumpTargets(1024)
+namespace NULLC
+{
+	extern bool enableLogFiles;
+}
+
+Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(256), exLocals(1024), exSymbols(8192), jumpTargets(1024)
 {
 	globalVarSize = 0;
 	offsetToGlobalCode = 0;
@@ -20,6 +25,8 @@ Linker::Linker(): exTypes(128), exTypeExtra(256), exVariables(128), exFunctions(
 	funcMap.init();
 
 	fptrUpdater = NULL;
+
+	debugOutputIndent = 0;
 
 	NULLC::SetLinker(this);
 }
@@ -35,13 +42,15 @@ void Linker::CleanCode()
 	exTypeExtra.clear();
 	exVariables.clear();
 	exFunctions.clear();
+	exFunctionExplicitTypeArrayOffsets.clear();
+	exFunctionExplicitTypes.clear();
 	exCode.clear();
 	exSymbols.clear();
 	exLocals.clear();
 	exModules.clear();
-	exCodeInfo.clear();
+	exSourceInfo.clear();
 	exSource.clear();
-	exCloseLists.clear();
+	exDependencies.clear();
 
 #ifdef NULLC_LLVM_SUPPORT
 	llvmModuleSizes.clear();
@@ -67,12 +76,25 @@ void Linker::CleanCode()
 
 	funcMap.clear();
 
+	debugOutputIndent = 0;
+
 	NULLC::ClearMemory();
 }
 
-bool Linker::LinkCode(const char *code)
+bool Linker::LinkCode(const char *code, const char *moduleName)
 {
 	linkError[0] = 0;
+
+	unsigned dependeciesBase = exDependencies.size();
+
+#ifdef VERBOSE_DEBUG_OUTPUT
+	for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+		printf("  ");
+
+	printf("Linking %s (dependencies base %d).\r\n", moduleName, dependeciesBase);
+#endif
+
+	debugOutputIndent++;
 
 	ByteCode *bCode = (ByteCode*)code;
 
@@ -98,44 +120,77 @@ bool Linker::LinkCode(const char *code)
 		}
 		if(loadedId == -1)
 		{
-			char fullPath[256];
-			SafeSprintf(fullPath, 256, "%s%s", BinaryCache::GetImportPath() ? BinaryCache::GetImportPath() : "", path);
+			const char *bytecode = BinaryCache::FindBytecode(path, false);
 
-			const char *bytecode = BinaryCache::GetBytecode(fullPath);
-			if(!bytecode && BinaryCache::GetImportPath())
-				bytecode = BinaryCache::GetBytecode(path);
+			unsigned dependencySlot = exDependencies.size();
+			exDependencies.push_back(~0u);
 
 			// last module is not imported
 			if(strcmp(path, "__last.nc") != 0)
 			{
 				if(bytecode)
 				{
-#ifdef VERBOSE_DEBUG_OUTPUT
-					printf("Linking %s.\r\n", path);
-#endif
-					if(!LinkCode(bytecode))
+					if(!LinkCode(bytecode, path))
 					{
+						debugOutputIndent--;
+
 						SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failure to load module %s", path);
 						return false;
 					}
-				}else{
+				}
+				else
+				{
+					debugOutputIndent--;
+
 					SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nFailure to load module %s", path);
 					return false;
 				}
 			}
+
+#ifdef VERBOSE_DEBUG_OUTPUT
+			for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+				printf("  ");
+
+			printf("Linking dependency %d to module %d (%s) (%d dependencies).\r\n", dependencySlot, exModules.size(), path, exDependencies.size() - dependencySlot);
+#endif
+
+			exDependencies[dependencySlot] = exModules.size();
+
 			exModules.push_back(*mInfo);
-			exModules.back().name = path;
 			exModules.back().nameOffset = 0;
 			exModules.back().nameHash = GetStringHash(path);
 			exModules.back().funcStart = exFunctions.size() - mInfo->funcCount;
 			exModules.back().variableOffset = globalVarSize - ((ByteCode*)bytecode)->globalVarSize;
 			exModules.back().sourceOffset = exSource.size() - ((ByteCode*)bytecode)->sourceSize;
 			exModules.back().sourceSize = ((ByteCode*)bytecode)->sourceSize;
+
+			exModules.back().dependencyStart = dependencySlot;
+			exModules.back().dependencyCount = exDependencies.size() - dependencySlot;
+
 #ifdef VERBOSE_DEBUG_OUTPUT
 			printf("Module %s variables are found at %d (size is %d).\r\n", path, exModules.back().variableOffset, ((ByteCode*)bytecode)->globalVarSize);
 #endif
 			loadedId = exModules.size() - 1;
 		}
+		else
+		{
+			ExternModuleInfo &prevData = exModules[loadedId];
+
+			for(unsigned k = 0; k < prevData.dependencyCount; k++)
+			{
+				unsigned targetModuleIndex = exDependencies[prevData.dependencyStart + k];
+
+#ifdef VERBOSE_DEBUG_OUTPUT
+				for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+					printf("  ");
+
+				printf("Linking dependency %d to module %d (%s) (%d dependencies) [skip].\r\n", exDependencies.size(), targetModuleIndex, exSymbols.data + exModules[targetModuleIndex].nameOffset, exModules[targetModuleIndex].dependencyCount);
+#endif
+
+				exDependencies.push_back(targetModuleIndex);
+			}
+		}
+
 		moduleFuncCount += mInfo->funcCount;
 		mInfo++;
 	}
@@ -176,9 +231,14 @@ bool Linker::LinkCode(const char *code)
 			rInfo->nameOffset = mInfo->nameOffset + oldSymbolSize;
 
 		moduleRemap[i] = loadedId;
+
 #ifdef VERBOSE_DEBUG_OUTPUT
+		for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+			printf("  ");
+
 		printf("Module %d (%s) is found at index %d.\r\n", i, path, loadedId);
 #endif
+
 		mInfo++;
 	}
 
@@ -188,6 +248,16 @@ bool Linker::LinkCode(const char *code)
 	exSymbols.resize(oldSymbolSize + bCode->symbolLength);
 	memcpy(&exSymbols[oldSymbolSize], FindSymbols(bCode), bCode->symbolLength);
 	const char *symbolInfo = FindSymbols(bCode);
+
+#ifdef VERBOSE_DEBUG_OUTPUT
+	for(unsigned i = dependeciesBase; i < exDependencies.size(); i++)
+	{
+		for(unsigned indent = 0; indent < debugOutputIndent; indent++)
+			printf("  ");
+
+		printf("Dependency %d target is module %d (%s)\r\n", i - dependeciesBase, exDependencies[i], exSymbols.data + exModules[exDependencies[i]].nameOffset);
+	}
+#endif
 
 	// Create type map for fast searches
 	typeMap.clear();
@@ -202,6 +272,8 @@ bool Linker::LinkCode(const char *code)
 
 		if(lastType && exTypes[*lastType].size != tInfo->size)
 		{
+			debugOutputIndent--;
+
 			SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: type %s is redefined (%s) with a different size (%d != %d)", exTypes[*lastType].offsetToName + &exSymbols[0], tInfo->offsetToName + symbolInfo, exTypes[*lastType].size, tInfo->size);
 			return false;
 		}
@@ -268,9 +340,9 @@ bool Linker::LinkCode(const char *code)
 	memcpy(exLocals.data + oldLocalsSize, FindFirstLocal(bCode), bCode->localCount * sizeof(ExternLocalInfo));
 
 	// Add new code information
-	unsigned int oldCodeInfoSize = exCodeInfo.size();
-	exCodeInfo.resize(oldCodeInfoSize + bCode->infoSize * 2);
-	memcpy(exCodeInfo.data + oldCodeInfoSize, FindSourceInfo(bCode), bCode->infoSize * sizeof(unsigned int) * 2);
+	unsigned int oldSourceInfoSize = exSourceInfo.size();
+	exSourceInfo.resize(oldSourceInfoSize + bCode->infoSize);
+	memcpy(exSourceInfo.data + oldSourceInfoSize, FindSourceInfo(bCode), bCode->infoSize * sizeof(ExternSourceInfo));
 
 	// Add new source code
 	unsigned int oldSourceSize = exSource.size();
@@ -283,47 +355,89 @@ bool Linker::LinkCode(const char *code)
 	exCode.resize(oldCodeSize + bCode->codeSize);
 	memcpy(exCode.data + oldCodeSize, FindCode(bCode), bCode->codeSize * sizeof(VMCmd));
 
-	for(unsigned int i = oldCodeInfoSize / 2; i < exCodeInfo.size() / 2; i++)
+	unsigned temp = 0;
+
+	for(unsigned int i = oldSourceInfoSize; i < exSourceInfo.size(); i++)
 	{
-		exCodeInfo[i*2+0] += oldCodeSize;
-		exCodeInfo[i*2+1] += oldSourceSize;
+		ExternSourceInfo &sourceInfo = exSourceInfo[i];
+
+		sourceInfo.instruction += oldCodeSize;
+
+		if(sourceInfo.definitionModule)
+			sourceInfo.sourceOffset += exModules[exDependencies[dependeciesBase + sourceInfo.definitionModule - 1]].sourceOffset;
+		else
+			sourceInfo.sourceOffset += oldSourceSize;
 	}
 
-	unsigned int oldListCount = exCloseLists.size();
-	exCloseLists.resize(oldListCount + bCode->closureListCount);
-	memset(exCloseLists.data + oldListCount, 0, bCode->closureListCount * sizeof(ExternFuncInfo::Upvalue*));
+	debugOutputIndent--;
 
 	// Add new functions
+	ExternVarInfo *explicitInfo = FindFirstVar(bCode) + bCode->variableCount;
+
 	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
-	unsigned int end = bCode->functionCount - bCode->moduleFunctionCount;
-	for(unsigned int i = 0; i < end; i++, fInfo++)
+
+	for(unsigned i = 0; i < bCode->functionCount - bCode->moduleFunctionCount; i++, fInfo++)
 	{
 		const unsigned int index_none = ~0u;
 
 		unsigned int index = index_none;
+
+		ExternVarInfo *explicitInfoStart = explicitInfo;
+
 		if(fInfo->isVisible)
 		{
 			unsigned int remappedType = typeRemap[fInfo->funcType];
 			HashMap<unsigned int>::Node *curr = funcMap.first(fInfo->nameHash);
 			while(curr)
 			{
-				if(curr->value < oldFunctionCount && exFunctions[curr->value].funcType == remappedType)
+				ExternFuncInfo &prev = exFunctions[curr->value];
+
+				if(curr->value < oldFunctionCount && prev.funcType == remappedType && prev.explicitTypeCount == fInfo->explicitTypeCount)
 				{
-					index = curr->value;
-					break;
+					bool explicitTypeMatch = true;
+
+					for(unsigned k = 0; k < fInfo->explicitTypeCount; k++)
+					{
+						ExternTypeInfo &prevType = exTypes[exFunctionExplicitTypes[exFunctionExplicitTypeArrayOffsets[curr->value] + k]];
+						ExternTypeInfo &type = exTypes[typeRemap[explicitInfoStart[k].type]];
+
+						if(&prevType != &type)
+							explicitTypeMatch = false;
+					}
+
+					if(explicitTypeMatch)
+					{
+						index = curr->value;
+						break;
+					}
 				}
 				curr = funcMap.next(curr);
 			}
 		}
 
+		explicitInfo += fInfo->explicitTypeCount;
+
+		// There is no conflict between internal funcitons
+		if(*(symbolInfo + fInfo->offsetToName) == '$')
+			index = index_none;
+
 		// If the function exists, check if redefinition is allowed
 		if(index != index_none)
 		{
-			// It is allowed for generic base function, generic function instances and default argument values
-			if(*(symbolInfo + fInfo->offsetToName) == '$' || fInfo->isGenericInstance || fInfo->funcType == 0)
+			// It is allowed for generic base function and generic function instances
+			if(fInfo->isGenericInstance || fInfo->funcType == 0)
 			{
 				exFunctions.push_back(exFunctions[index]);
 				funcMap.insert(exFunctions.back().nameHash, exFunctions.size()-1);
+
+				exFunctionExplicitTypeArrayOffsets.push_back(exFunctionExplicitTypes.size());
+
+				for(unsigned k = 0; k < fInfo->explicitTypeCount; k++)
+					exFunctionExplicitTypes.push_back(typeRemap[explicitInfoStart[k].type]);
+
+#ifdef LINK_VERBOSE_DEBUG_OUTPUT
+				printf("Rebind function %3d %-20s (to address %4d [external %p] function %3d)\r\n", exFunctions.size() - 1, &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr, index);
+#endif
 				continue;
 			}else{
 				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: function '%s' is redefined", symbolInfo + fInfo->offsetToName);
@@ -331,7 +445,7 @@ bool Linker::LinkCode(const char *code)
 				for(unsigned k = 0; k < exModules.size(); k++)
 				{
 					if(exModules[k].funcStart >= index && index < exModules[k].funcStart + exModules[k].funcCount)
-						SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: redefinition of module %s function '%s'", exModules[k].name, symbolInfo + fInfo->offsetToName);
+						SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: redefinition of module %s function '%s'", symbolInfo + exModules[k].nameOffset, symbolInfo + fInfo->offsetToName);
 				}
 				return false;
 			}
@@ -340,6 +454,11 @@ bool Linker::LinkCode(const char *code)
 		{
 			exFunctions.push_back(*fInfo);
 			funcMap.insert(exFunctions.back().nameHash, exFunctions.size()-1);
+
+			exFunctionExplicitTypeArrayOffsets.push_back(exFunctionExplicitTypes.size());
+
+			for(unsigned k = 0; k < fInfo->explicitTypeCount; k++)
+				exFunctionExplicitTypes.push_back(typeRemap[explicitInfoStart[k].type]);
 
 			if(exFunctions.back().address == 0)
 			{
@@ -384,7 +503,6 @@ bool Linker::LinkCode(const char *code)
 			// Move based pointer to the new section of symbol information
 			exFunctions.back().offsetToName += oldSymbolSize;
 			exFunctions.back().offsetToFirstLocal += oldLocalsSize;
-			exFunctions.back().closeListStart += oldListCount;
 			exFunctions.back().funcType = typeRemap[exFunctions.back().funcType];
 
 			if(exFunctions.back().parentType != ~0u)
@@ -400,8 +518,7 @@ bool Linker::LinkCode(const char *code)
 			}
 
 #ifdef LINK_VERBOSE_DEBUG_OUTPUT
-			printf("Adding function %-16s (at address %4d [external %p])\r\n", &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr);
-			printf("Closure list start: %d\r\n", exFunctions.back().closeListStart);
+			printf("Adding function %3d %-20s (at address %4d [external %p])\r\n", exFunctions.size() - 1, &exSymbols[0] + exFunctions.back().offsetToName, exFunctions.back().address, exFunctions.back().funcPtr);
 #endif
 		}
 	}
@@ -410,8 +527,6 @@ bool Linker::LinkCode(const char *code)
 	{
 		exLocals[i].type = typeRemap[exLocals[i].type];
 		exLocals[i].offsetToName += oldSymbolSize;
-		if(exLocals[i].paramType == ExternLocalInfo::EXTERNAL)
-			exLocals[i].closeListID += oldListCount;
 	}
 
 	assert((fInfo = FindFirstFunc(bCode)) != NULL); // this is fine, we need this assignment only in debug configuration
@@ -465,12 +580,8 @@ bool Linker::LinkCode(const char *code)
 		case cmdCall:
 			assert(!(cmd.argument != funcRemap[cmd.argument] && int(cmd.argument - bCode->moduleFunctionCount) >= 0) ||
 				(fInfo[cmd.argument - bCode->moduleFunctionCount].nameHash == exFunctions[funcRemap[cmd.argument]].nameHash));
-		case cmdCreateClosure:
+
 			cmd.argument = funcRemap[cmd.argument];
-			break;
-		case cmdCloseUpvals:
-			cmd.helper = (unsigned short)funcRemap[cmd.helper];
-			cmd.argument += exFunctions[cmd.helper].closeListStart;
 			break;
 		case cmdPushTypeID:
 			cmd.cmd = cmdPushImmt;
@@ -527,6 +638,10 @@ bool Linker::LinkCode(const char *code)
 	size += exVariables.size() * sizeof(ExternVarInfo);
 	printf("Functions: %db, ", exFunctions.size() * sizeof(ExternFuncInfo));
 	size += exFunctions.size() * sizeof(ExternFuncInfo);
+	printf("Function explicit type array offsets: %db, ", exFunctionExplicitTypeArrayOffsets.size() * sizeof(unsigned));
+	size += exFunctionExplicitTypeArrayOffsets.size() * sizeof(unsigned);
+	printf("Function explicit types: %db, ", exFunctionExplicitTypes.size() * sizeof(unsigned));
+	size += exFunctionExplicitTypes.size() * sizeof(unsigned);
 	printf("Code: %db\r\n", exCode.size() * sizeof(VMCmd));
 	size += exCode.size() * sizeof(VMCmd);
 	printf("Symbols: %db, ", exSymbols.size() * sizeof(char));
@@ -535,61 +650,74 @@ bool Linker::LinkCode(const char *code)
 	size += exLocals.size() * sizeof(ExternLocalInfo);
 	printf("Modules: %db, ", exModules.size() * sizeof(ExternModuleInfo));
 	size += exModules.size() * sizeof(ExternModuleInfo);
-	printf("Code info: %db, ", exCodeInfo.size() * sizeof(unsigned int) * 2);
-	size += exCodeInfo.size() * sizeof(unsigned int) * 2;
+	printf("Source info: %db, ", exSourceInfo.size() * sizeof(ExternSourceInfo));
+	size += exSourceInfo.size() * sizeof(ExternSourceInfo);
 	printf("Source: %db\r\n", exSource.size() * sizeof(char));
 	size += exSource.size() * sizeof(char);
 	printf("Overall: %d bytes\r\n\r\n", size);
 #endif
 
-#ifdef NULLC_LOG_FILES
-	FILE *linkAsm = fopen("link.txt", "wb");
+	return true;
+}
+
+bool Linker::SaveListing(OutputContext &output)
+{
 	char instBuf[128];
-	unsigned int line = 0, lastLine = ~0u;
+	unsigned line = 0, lastLine = ~0u;
 
-	struct SourceInfo
-	{
-		unsigned int byteCodePos;
-		unsigned int sourceOffset;
-	};
-
-	SourceInfo *info = (SourceInfo*)exCodeInfo.data;
-	unsigned int infoSize = exCodeInfo.size() / 2;
+	ExternSourceInfo *info = (ExternSourceInfo*)exSourceInfo.data;
+	unsigned infoSize = exSourceInfo.size();
 
 	const char *lastSourcePos = exSource.data;
-	for(unsigned int i = 0; infoSize && i < exCode.size(); i++)
+	const char *lastCodeStart = NULL;
+
+	for(unsigned i = 0; infoSize && i < exCode.size(); i++)
 	{
-		while((line < infoSize - 1) && (i >= info[line + 1].byteCodePos))
+		while((line < infoSize - 1) && (i >= info[line + 1].instruction))
 			line++;
+
 		if(line != lastLine)
 		{
 			lastLine = line;
-			const char *codeStart = &exSource[0] + info[line].sourceOffset;
+
+			const char *codeStart = exSource.data + info[line].sourceOffset;
+
 			// Find beginning of the line
-			while(codeStart != &exSource[0] && *(codeStart-1) != '\n')
+			while(codeStart != exSource.data && *(codeStart-1) != '\n')
 				codeStart--;
+
 			// Skip whitespace
 			while(*codeStart == ' ' || *codeStart == '\t')
 				codeStart++;
+
 			const char *codeEnd = codeStart;
 			while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
 				codeEnd++;
+
 			if(codeEnd > lastSourcePos)
 			{
-				fprintf(linkAsm, "%.*s\r\n", codeEnd - lastSourcePos, lastSourcePos);
+				output.Printf("%.*s\r\n", int(codeEnd - lastSourcePos), lastSourcePos);
 				lastSourcePos = codeEnd;
-			}else{
-				fprintf(linkAsm, "%.*s\r\n", codeEnd - codeStart, codeStart);
+			}
+			else
+			{
+				if(codeStart != lastCodeStart)
+					output.Printf("%.*s\r\n", int(codeEnd - codeStart), codeStart);
+
+				lastCodeStart = codeStart;
 			}
 		}
+
 		exCode[i].Decode(instBuf);
-		if(exCode[i].cmd == cmdCall)
-			fprintf(linkAsm, "// %d %s (%s)\r\n", i, instBuf, &exSymbols[exFunctions[exCode[i].argument].offsetToName]);
+		if(exCode[i].cmd == cmdCall || exCode[i].cmd == cmdFuncAddr)
+			output.Printf("// %4d: %s (%s)\r\n", i, instBuf, exSymbols.data + exFunctions[exCode[i].argument].offsetToName);
+		else if(exCode[i].cmd == cmdPushTypeID)
+			output.Printf("// %4d: %s (%s)\r\n", i, instBuf, exSymbols.data + exTypes[exCode[i].argument].offsetToName);
 		else
-			fprintf(linkAsm, "// %d %s\r\n", i, instBuf);
+			output.Printf("// %4d: %s\r\n", i, instBuf);
 	}
-	fclose(linkAsm);
-#endif
+
+	output.Flush();
 
 	return true;
 }

@@ -23,7 +23,8 @@ struct ExternTypeInfo
 	{
 		TYPE_HAS_FINALIZER = 1 << 0,
 		TYPE_DEPENDS_ON_GENERIC = 1 << 1,
-		TYPE_IS_EXTENDABLE = 1 << 2
+		TYPE_IS_EXTENDABLE = 1 << 2,
+		TYPE_INTERNAL = 1 << 3,
 	};
 
 	unsigned char	defaultAlign;
@@ -43,8 +44,18 @@ struct ExternTypeInfo
 	};
 
 	unsigned int	nameHash;
-	unsigned int	definitionOffset; // For generic types, an offset in a lexeme stream to the point of type argument list
+
+	unsigned int	definitionModule; // Index of the module containing the definition
+
+	unsigned int	definitionLocationStart;
+	unsigned int	definitionLocationEnd;
+	unsigned int	definitionLocationName;
+
+	// For generic types
+	unsigned int	definitionOffsetStart; // Offset in a lexeme stream to the point of class definition start
+	unsigned int	definitionOffset; // Offset in a lexeme stream to the point of type argument list
 	unsigned int	genericTypeCount;
+
 	unsigned int	namespaceHash;
 	unsigned int	baseType;
 };
@@ -135,9 +146,7 @@ struct ExternFuncInfo
 	{
 		unsigned int	*ptr;
 		Upvalue			*next;
-		unsigned int	aligmentAndSize; // Top 2 bits contain packed alignment: 1 << (packedAligment + 2)
 	};
-	unsigned int	closeListStart;
 
 	unsigned int	namespaceHash;
 
@@ -148,6 +157,8 @@ struct ExternFuncInfo
 	unsigned int	fOffsets[8];
 	unsigned int	ps3Callable;
 
+	// For generic functions
+	unsigned int	genericOffsetStart; // Position in the lexeme stream of the definition
 	unsigned int	genericOffset;
 	unsigned int	genericReturnType;
 
@@ -155,6 +166,13 @@ struct ExternFuncInfo
 	unsigned int	explicitTypeCount;
 
 	unsigned int	nameHash;
+
+	unsigned int	definitionModule; // Index of the module containing the definition
+
+	unsigned int	definitionLocationModule;
+	unsigned int	definitionLocationStart;
+	unsigned int	definitionLocationEnd;
+	unsigned int	definitionLocationName;
 };
 
 struct ExternTypedefInfo
@@ -166,11 +184,6 @@ struct ExternTypedefInfo
 
 struct ExternModuleInfo
 {
-	const char		*name;
-#ifndef _M_X64
-	unsigned int	ptrPad;
-#endif
-
 	unsigned int	nameHash;
 	unsigned int	nameOffset;
 
@@ -181,6 +194,9 @@ struct ExternModuleInfo
 
 	unsigned int	sourceOffset;
 	unsigned int	sourceSize;
+
+	unsigned int	dependencyStart;
+	unsigned int	dependencyCount;
 };
 
 struct ExternMemberInfo
@@ -197,8 +213,15 @@ struct ExternConstantInfo
 
 struct ExternNamespaceInfo
 {
-	unsigned offsetToName;
-	unsigned parentHash;
+	unsigned int	offsetToName;
+	unsigned int	parentHash;
+};
+
+struct ExternSourceInfo
+{
+	unsigned int	instruction;
+	unsigned int	definitionModule; // Index of the module containing the definition
+	unsigned int	sourceOffset;
 };
 
 struct ByteCode
@@ -206,41 +229,21 @@ struct ByteCode
 	unsigned int	size;	// Overall size
 
 	unsigned int	typeCount;
-	ExternTypeInfo	*firstType_; // deprecated, use FindFirstType
-#ifndef _M_X64
-	unsigned int	ptrPad0;
-#endif
 
-	unsigned int		dependsCount;
-	unsigned int		offsetToFirstModule;
-	ExternModuleInfo	*firstModule_; // deprecated, use FindFirstModule
-#ifndef _M_X64
-	unsigned int	ptrPad1;
-#endif
+	unsigned int	dependsCount;
+	unsigned int	offsetToFirstModule;
 	
 	unsigned int	globalVarSize;	// size of all global variables, in bytes
 	unsigned int	variableCount;	// variable info count
 	unsigned int	variableExportCount;	// exported variable count
-	ExternVarInfo	*firstVar_; // deprecated, use FindFirstVar
-#ifndef _M_X64
-	unsigned int	ptrPad2;
-#endif
 	unsigned int	offsetToFirstVar;
 
 	unsigned int	functionCount;
 	unsigned int	moduleFunctionCount;
 	unsigned int	offsetToFirstFunc;	// Offset from the beginning of a structure to the first ExternFuncInfo data
-	ExternFuncInfo	*firstFunc_; // deprecated, use FindFirstFunc
-#ifndef _M_X64
-	unsigned int	ptrPad3;
-#endif
 
 	unsigned int	localCount;
 	unsigned int	offsetToLocals;
-	ExternLocalInfo	*firstLocal_; // deprecated, use FindFirstLocal
-#ifndef _M_X64
-	unsigned int	ptrPad4;
-#endif
 
 	unsigned int	closureListCount;
 
@@ -249,18 +252,11 @@ struct ByteCode
 
 	unsigned int	codeSize;
 	unsigned int	offsetToCode;
+
 	unsigned int	globalCodeStart;
-	char			*code_;	// deprecated, use FindCode
-#ifndef _M_X64
-	unsigned int	ptrPad5;
-#endif
 
 	unsigned int	symbolLength;
 	unsigned int	offsetToSymbols;
-	char			*debugSymbols_; // deprecated, used FindSymbols
-#ifndef _M_X64
-	unsigned int	ptrPad6;
-#endif
 
 	unsigned int	sourceSize;
 	unsigned int	offsetToSource;
@@ -298,7 +294,7 @@ struct ByteCode
 
 //	char			code[codeSize];
 
-//	unsigned int	sourceInfo[infoLength * 2]
+//	ExternSourceInfo	sourceInfo[infoLength]
 
 //	char			debugSymbols[symbolLength];
 
@@ -317,7 +313,7 @@ ExternLocalInfo*	FindFirstLocal(ByteCode *code);
 ExternTypedefInfo*	FindFirstTypedef(ByteCode *code);
 ExternNamespaceInfo*FindFirstNamespace(ByteCode *code);
 char*				FindCode(ByteCode *code);
-unsigned int*		FindSourceInfo(ByteCode *code);
+ExternSourceInfo*	FindSourceInfo(ByteCode *code);
 char*				FindSymbols(ByteCode *code);
 char*				FindSource(ByteCode *code);
 

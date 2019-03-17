@@ -1,6 +1,5 @@
 #include "TestBase.h"
 
-
 // function calls internal function, that perform a division
 long long Recaller(int test, int testB)
 {
@@ -73,7 +72,6 @@ LOAD_MODULE_BIND(func_test, "func.test", "long Recaller(int testA, testB); int R
 	nullcBindModuleFunction("func.test", (void(*)())RecallerCS, "recall", 0);
 }
 
-#ifndef NULLC_ENABLE_C_TRANSLATION
 const char	*testFunc1 =
 "import func.test;\r\n\
 int inside(int a, b){ return a / b; }\r\n\
@@ -83,7 +81,7 @@ int test(int i)\r\n\
 	return Recaller2(24, 2) * i;\r\n\
 }\r\n\
 return test(2);";
-TEST_RESULT("NULLC function call externally test 1", testFunc1, "24");
+TEST_RESULT_SIMPLE("NULLC function call externally test 1", testFunc1, "24");
 
 const char	*testFunc1Ptr =
 "import func.test;\r\n\
@@ -96,7 +94,7 @@ int test(int i)\r\n\
 	return Recaller2Ptr_(24, 2) * i;\r\n\
 }\r\n\
 return test(2);";
-TEST_RESULT("NULLC function call externally test 1 (with pointers to functions)", testFunc1Ptr, "24");
+TEST_RESULT_SIMPLE("NULLC function call externally test 1 (with pointers to functions)", testFunc1Ptr, "24");
 
 const char	*testFunc2 =
 "import func.test;\r\n\
@@ -107,7 +105,7 @@ int test(int i)\r\n\
 	return Recaller3(24, 2) * i;\r\n\
 }\r\n\
 return test(2);";
-TEST_RESULT("NULLC function call externally test 2", testFunc2, "24");
+TEST_RESULT_SIMPLE("NULLC function call externally test 2", testFunc2, "24");
 
 const char	*testFunc2Ptr =
 "import func.test;\r\n\
@@ -120,15 +118,19 @@ int test(int i)\r\n\
 	return Recaller3Ptr_(24, 2) * i;\r\n\
 }\r\n\
 return test(2);";
-TEST_RESULT("NULLC function call externally test 2 (with pointers to functions)", testFunc2Ptr, "24");
+TEST_RESULT_SIMPLE("NULLC function call externally test 2 (with pointers to functions)", testFunc2Ptr, "24");
 
 const char	*testFunc3 =
 "import func.test;\r\n\
+int inside(int a, b){ return 0; }\r\n\
+int inside2(int a, b){ return 0; }\r\n\
 return RecallerPtr(auto(int i){ return -i; });";
 TEST_RESULT("NULLC function call externally test 3", testFunc3, "-14");
 
 const char	*testFunc3b =
 "import func.test;\r\n\
+int inside(int a, b){ return 0; }\r\n\
+int inside2(int a, b){ return 0; }\r\n\
 int a = 3;\r\n\
 int foo(int x)\r\n\
 {\r\n\
@@ -145,12 +147,16 @@ TEST_RESULT("NULLC function call externally test 3 b", testFunc3b, "-14");
 
 const char	*testFunc3Ptr =
 "import func.test;\r\n\
+int inside(int a, b){ return 0; }\r\n\
+int inside2(int a, b){ return 0; }\r\n\
 auto RecallerPtr_ = RecallerPtr;\r\n\
 return RecallerPtr_(auto(int i){ return -i; });";
 TEST_RESULT("NULLC function call externally test 3 (with pointers to functions)", testFunc3Ptr, "-14");
 
 const char	*testFunc4 =
 "import func.test;\r\n\
+int inside(int a, b){ return 0; }\r\n\
+int inside2(int a, b){ return 0; }\r\n\
 auto generator(int start)\r\n\
 {\r\n\
 	return auto(int u){ return ++start; };\r\n\
@@ -160,6 +166,8 @@ TEST_RESULT("NULLC function call externally test 4", testFunc4, "8");
 
 const char	*testFunc5 =
 "import func.test;\r\n\
+int inside(int a, b){ return 0; }\r\n\
+int inside2(int a, b){ return 0; }\r\n\
 int seed = 5987;\r\n\
 int[512] arr;\r\n\
 for(int i = 0; i < 512; i++)\r\n\
@@ -167,4 +175,3 @@ for(int i = 0; i < 512; i++)\r\n\
 bubble(arr, auto(int a, b){ return int(a > b); });\r\n\
 return arr[8];";
 TEST_RESULT("NULLC function call externally test 5", testFunc5, "32053");
-#endif

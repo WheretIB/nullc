@@ -14,11 +14,11 @@ int c = func(12, 8);\r\n\
 return a;";
 TEST("Default function parameter values", testDefaultFuncVars1, "9")
 {
-	CHECK_INT("a", 0, 9);
-	CHECK_INT("b", 0, 11);
-	CHECK_INT("a2", 0, 17);
-	CHECK_INT("b2", 0, 19);
-	CHECK_INT("c", 0, 20);
+	CHECK_INT("a", 0, 9, lastFailed);
+	CHECK_INT("b", 0, 11, lastFailed);
+	CHECK_INT("a2", 0, 17, lastFailed);
+	CHECK_INT("b2", 0, 19, lastFailed);
+	CHECK_INT("c", 0, 20, lastFailed);
 }
 
 const char	*testDefaultFuncVars2 =
@@ -38,9 +38,9 @@ auto w = genEater(generator(8));\r\n\
 return 0;";
 TEST("Default function parameter values 2", testDefaultFuncVars2, "0")
 {
-	CHECK_INT("u", 0, 18);
-	CHECK_INT("v", 0, 3);
-	CHECK_INT("w", 0, 27);
+	CHECK_INT("u", 0, 18, lastFailed);
+	CHECK_INT("v", 0, 3, lastFailed);
+	CHECK_INT("w", 0, 27, lastFailed);
 }
 
 const char	*testDefaultFuncVars3 =

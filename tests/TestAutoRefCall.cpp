@@ -36,7 +36,7 @@ for(i in objs)\r\n\
 }\r\n\
 \r\n\
 return sum;";
-TEST_RESULT("auto ref type function call 1", testAutoRefCall1, "32");
+TEST_RESULT_SIMPLE("auto ref type function call 1", testAutoRefCall1, "32");
 
 const char	*testAutoRefCall2 =
 "import std.list;\r\n\

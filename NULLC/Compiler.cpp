@@ -1,134 +1,9 @@
-#include "stdafx.h"
-
-#include "CodeInfo.h"
-
-#include "Bytecode.h"
-
 #include "Compiler.h"
 
-#include "Parser.h"
-#include "Callbacks.h"
-
-#ifndef NULLC_NO_EXECUTOR
-	#include "StdLib.h"
-#endif
-
+#include "nullc.h"
 #include "BinaryCache.h"
-
 #include "Executor_Common.h"
-
-void ThrowError(const char* pos, const char* err, ...)
-{
-	char errorText[4096];
-
-	va_list args;
-	va_start(args, err);
-
-	vsnprintf(errorText, 4096, err, args);
-	errorText[4096-1] = '\0';
-
-	CodeInfo::lastError = CompilerError(errorText, pos);
-	longjmp(CodeInfo::errorHandler, 1);
-}
-
-jmp_buf CodeInfo::errorHandler;
-//////////////////////////////////////////////////////////////////////////
-//						Code gen ops
-//////////////////////////////////////////////////////////////////////////
-
-TypeInfo*	typeVoid = NULL;
-TypeInfo*	typeChar = NULL;
-TypeInfo*	typeShort = NULL;
-TypeInfo*	typeInt = NULL;
-TypeInfo*	typeFloat = NULL;
-TypeInfo*	typeLong = NULL;
-TypeInfo*	typeDouble = NULL;
-TypeInfo*	typeObject = NULL;
-TypeInfo*	typeTypeid = NULL;
-TypeInfo*	typeAutoArray = NULL;
-TypeInfo*	typeFunction = NULL;
-
-TypeInfo*	typeGeneric = NULL;
-TypeInfo*	typeBool = NULL;
-
-namespace NULLC
-{
-	FastVector<Compiler::CodeRange>	*codeSourceRange = NULL;
-
-	template<typename T>
-	unsigned GetTypeAlignment()
-	{
-		struct Helper
-		{
-			char x;
-			T y;
-		};
-
-		return sizeof(Helper) - sizeof(T);
-	}
-}
-
-CompilerError::CompilerError(const char* errStr, const char* apprPos)
-{
-	Init(errStr, apprPos);
-}
-
-void CompilerError::Init(const char* errStr, const char* apprPos)
-{
-	empty = 0;
-	unsigned int len = (unsigned int)strlen(errStr) < NULLC_ERROR_BUFFER_SIZE ? (unsigned int)strlen(errStr) : NULLC_ERROR_BUFFER_SIZE - 1;
-	memcpy(errLocal, errStr, len);
-	errLocal[len] = 0;
-	const char *intStart = codeStart, *intEnd = codeEnd;
-	if(apprPos < intStart || apprPos > intEnd)
-	{
-		for(unsigned i = 1; i < NULLC::codeSourceRange->size(); i++)
-		{
-			if(apprPos >= (*NULLC::codeSourceRange)[i].start && apprPos <= (*NULLC::codeSourceRange)[i].end)
-			{
-				intStart = (*NULLC::codeSourceRange)[i].start;
-				intEnd = (*NULLC::codeSourceRange)[i].end;
-				break;
-			}
-		}
-	}
-	if(apprPos && apprPos >= intStart && apprPos <= intEnd)
-	{
-		const char *begin = apprPos;
-		while((begin >= intStart) && (*begin != '\n') && (*begin != '\r'))
-			begin--;
-		if(begin < apprPos)
-			begin++;
-
-		lineNum = 1;
-		const char *scan = intStart;
-		while(*scan && scan < begin)
-			if(*(scan++) == '\n')
-				lineNum++;
-
-		const char *end = apprPos;
-		while((*end != '\r') && (*end != '\n') && (*end != 0))
-			end++;
-		len = (unsigned int)(end - begin) < 128 ? (unsigned int)(end - begin) : 127;
-		memcpy(line, begin, len);
-		for(unsigned int k = 0; k < len; k++)
-			if((unsigned char)line[k] < 0x20)
-				line[k] = ' ';
-		line[len] = 0;
-		shift = (unsigned int)(apprPos-begin);
-		shift = shift > 128 ? 0 : shift;
-	}else{
-		line[0] = 0;
-		shift = 0;
-		lineNum = 0;
-	}
-}
-
-const char *CompilerError::codeStart = NULL;
-const char *CompilerError::codeEnd = NULL;
-
-char* CompilerError::errLocal = NULL;
-char* CompilerError::errGlobal = NULL;
+#include "StdLib.h"
 
 const char *nullcBaseCode = "\
 void assert(int val);\r\n\
@@ -159,19 +34,14 @@ int as_unsigned(short a);\r\n\
 long as_unsigned(int a);\r\n\
 \r\n\
 short short(char[] str);\r\n\
-void short:short(char[] str){ *this = short(str); }\r\n\
 char[] short:str();\r\n\
 int int(char[] str);\r\n\
-void int:int(char[] str){ *this = int(str); }\r\n\
 char[] int:str();\r\n\
 long long(char[] str);\r\n\
-void long:long(char[] str){ *this = long(str); }\r\n\
 char[] long:str();\r\n\
 float float(char[] str);\r\n\
-void float:float(char[] str){ *this = float(str); }\r\n\
 char[] float:str(int precision = 6, bool showExponent = false);\r\n\
 double double(char[] str);\r\n\
-void double:double(char[] str){ *this = double(str); }\r\n\
 char[] double:str(int precision = 6, bool showExponent = false);\r\n\
 \r\n\
 void ref __newS(int size, int type);\r\n\
@@ -320,1615 +190,493 @@ auto __gen_list(@T ref() y)\r\n\
 	\r\n\
 	T[] r = res;\r\n\
 	return r;\r\n\
-}";
+}\r\n\
+void __init_array(@T[] arr)\r\n\
+{\r\n\
+	for(int i = 0; i < arr.size; i++)\r\n\
+	{\r\n\
+		@if(T.isArray)\r\n\
+			__init_array(arr[i]);\r\n\
+		else\r\n\
+			arr[i].T();\r\n\
+	}\r\n\
+}\r\n\
+void __closeUpvalue(void ref ref l, void ref v, int offset, int size);";
 
-Compiler::Compiler()
+bool BuildBaseModule(Allocator *allocator)
 {
-	CompilerError::errLocal = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
-	CompilerError::errGlobal = (char*)NULLC::alloc(NULLC_ERROR_BUFFER_SIZE);
+	const char *errorPos = NULL;
+	char errorBuf[256];
 
-	buildInTypes.clear();
-	buildInTypes.reserve(32);
-
-	NULLC::codeSourceRange = &codeSourceRange;
-
-	// Add basic types
-	TypeInfo* info;
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "void", 0, 0, 1, NULL, TypeInfo::TYPE_VOID);
-	info->size = 0;
-	typeVoid = info;
-	CodeInfo::typeInfo.push_back(info);
-
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "double", 0, 0, 1, NULL, TypeInfo::TYPE_DOUBLE);
-	info->alignBytes = GetTypeAlignment<double>();
-	info->size = 8;
-	typeDouble = info;
-	CodeInfo::typeInfo.push_back(info);
-
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "float", 0, 0, 1, NULL, TypeInfo::TYPE_FLOAT);
-	info->alignBytes = GetTypeAlignment<float>();
-	info->size = 4;
-	typeFloat = info;
-	CodeInfo::typeInfo.push_back(info);
-
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "long", 0, 0, 1, NULL, TypeInfo::TYPE_LONG);
-	info->alignBytes = GetTypeAlignment<long long>();
-	info->size = 8;
-	typeLong = info;
-	CodeInfo::typeInfo.push_back(info);
-
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "int", 0, 0, 1, NULL, TypeInfo::TYPE_INT);
-	info->alignBytes = GetTypeAlignment<int>();
-	info->size = 4;
-	typeInt = info;
-	CodeInfo::typeInfo.push_back(info);
-
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "short", 0, 0, 1, NULL, TypeInfo::TYPE_SHORT);
-	info->alignBytes = GetTypeAlignment<short>();
-	info->size = 2;
-	typeShort = info;
-	CodeInfo::typeInfo.push_back(info);
-
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "char", 0, 0, 1, NULL, TypeInfo::TYPE_CHAR);
-	info->size = 1;
-	typeChar = info;
-	CodeInfo::typeInfo.push_back(info);
-
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "auto ref", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
-	info->alignBytes = 4;
-	typeObject = info;
-	CodeInfo::typeInfo.push_back(info);
-
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "typeid", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
-	info->alignBytes = GetTypeAlignment<int>();
-	typeTypeid = info;
-	CodeInfo::typeInfo.push_back(info);
-
-	info->size = 4;
-
-	typeObject->AddMemberVariable("type", typeTypeid);
-	typeObject->AddMemberVariable("ptr", CodeInfo::GetReferenceType(typeVoid));
-	typeObject->size = 4 + NULLC_PTR_SIZE;
-
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "auto[]", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
-	info->alignBytes = 4;
-	typeAutoArray = info;
-	CodeInfo::typeInfo.push_back(info);
-
-	typeAutoArray->AddMemberVariable("type", typeTypeid);
-	typeAutoArray->AddMemberVariable("ptr", CodeInfo::GetReferenceType(typeVoid));
-	typeAutoArray->AddMemberVariable("size", typeInt);
-	typeAutoArray->size = 8 + NULLC_PTR_SIZE;
-
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "__function", 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX);
-	info->size = 4;
-	typeFunction = info;
-	CodeInfo::typeInfo.push_back(info);
-
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "generic", 0, 0, 1, NULL, TypeInfo::TYPE_VOID);
-	info->size = 0;
-	info->dependsOnGeneric = true;
-	typeGeneric = info;
-	CodeInfo::typeInfo.push_back(info);
-
-	info = new TypeInfo(CodeInfo::typeInfo.size(), "bool", 0, 0, 1, NULL, TypeInfo::TYPE_CHAR);
-	info->size = 1;
-	typeBool = info;
-	CodeInfo::typeInfo.push_back(info);
-
-	buildInTypes.resize(CodeInfo::typeInfo.size());
-	memcpy(&buildInTypes[0], &CodeInfo::typeInfo[0], CodeInfo::typeInfo.size() * sizeof(TypeInfo*));
-
-	typeTop = TypeInfo::GetPoolTop();
-
-	typeMap.init();
-	funcMap.init();
-
-	realGlobalCount = 0;
-
-	// Add base module with built-in functions
-	baseModuleSize = 0;
-	bool res = Compile(nullcBaseCode);
-	(void)res;
-	assert(res && "Failed to compile base NULLC module");
-	baseModuleSize = lexer.GetStreamSize();
-
-	char *bytecode = NULL;
-	GetBytecode(&bytecode);
-	BinaryCache::PutBytecode("$base$.nc", bytecode, NULL, 0);
+	if(!BuildModuleFromSource(allocator, "$base$.nc", nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256, ArrayView<InplaceStr>()))
+	{
+		assert("Failed to compile base NULLC module");
+		return false;
+	}
 
 #ifndef NULLC_NO_EXECUTOR
-	AddModuleFunction("$base$", (void (*)())NULLC::Assert, "assert", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::Assert2, "assert", 1);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::StrEqual, "==", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::StrNEqual, "!=", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::StrConcatenate, "+", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::StrConcatenateAndSet, "+=", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::Int, "bool", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::Char, "char", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::Short, "short", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::Int, "int", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::Long, "long", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::Float, "float", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::Double, "double", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::UnsignedValueChar, "as_unsigned", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::UnsignedValueShort, "as_unsigned", 1);
-	AddModuleFunction("$base$", (void (*)())NULLC::UnsignedValueInt, "as_unsigned", 2);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::StrToShort, "short", 1);
-	AddModuleFunction("$base$", (void (*)())NULLC::ShortToStr, "short::str", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::StrToInt, "int", 1);
-	AddModuleFunction("$base$", (void (*)())NULLC::IntToStr, "int::str", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::StrToLong, "long", 1);
-	AddModuleFunction("$base$", (void (*)())NULLC::LongToStr, "long::str", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::StrToFloat, "float", 1);
-	AddModuleFunction("$base$", (void (*)())NULLC::FloatToStr, "float::str", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::StrToDouble, "double", 1);
-	AddModuleFunction("$base$", (void (*)())NULLC::DoubleToStr, "double::str", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::AllocObject, "__newS", 0);
-	AddModuleFunction("$base$", (void (*)())(NULLCArray	(*)(unsigned, unsigned, unsigned))NULLC::AllocArray, "__newA", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::CopyObject, "duplicate", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::CopyArray, "__duplicate_array", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::ReplaceObject, "replace", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::SwapObjects, "swap", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::CompareObjects, "equal", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::AssignObject, "assign", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::ArrayCopy, "array_copy", 0);
-	
-	AddModuleFunction("$base$", (void (*)())NULLC::FunctionRedirect, "__redirect", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::FunctionRedirectPtr, "__redirect_ptr", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::Typeid, "typeid", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::TypeSize, "typeid::size$", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::TypesEqual, "==", 1);
-	AddModuleFunction("$base$", (void (*)())NULLC::TypesNEqual, "!=", 1);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::RefCompare, "__rcomp", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::RefNCompare, "__rncomp", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::RefLCompare, "<", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::RefLECompare, "<=", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::RefGCompare, ">", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::RefGECompare, ">=", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::RefHash, "hash_value", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::FuncCompare, "__pcomp", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::FuncNCompare, "__pncomp", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::ArrayCompare, "__acomp", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::ArrayNCompare, "__ancomp", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::TypeCount, "__typeCount", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssign, "=", 3);
-	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssignRev, "__aaassignrev", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::AutoArrayIndex, "[]", 0);
-
-	AddModuleFunction("$base$", (void (*)())IsPointerUnmanaged, "isStackPointer", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::AutoArray, "auto_array_impl", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::AutoArraySet, "auto[]::set", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::ShrinkAutoArray, "__force_size", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::IsCoroutineReset, "isCoroutineReset", 0);
-	AddModuleFunction("$base$", (void (*)())NULLC::AssertCoroutine, "__assertCoroutine", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::GetFinalizationList, "__getFinalizeList", 0);
-
-	AddModuleFunction("$base$", (void (*)())NULLC::AssertDerivedFromBase, "assert_derived_from_base", 0);
-#endif
-}
-
-Compiler::~Compiler()
-{
-	ParseReset();
-
-	CallbackReset();
-
-	CodeInfo::varInfo.clear();
-	CodeInfo::funcInfo.clear();
-	CodeInfo::typeInfo.clear();
-
-	NodeBreakOp::fixQueue.reset();
-	NodeContinueOp::fixQueue.reset();
-	NodeSwitchExpr::fixQueue.reset();
-
-	NodeFuncCall::memoList.reset();
-	NodeFuncCall::memoPool.~ChunkedStackPool();
-
-	NodeZeroOP::ResetNodes();
-
-	typeMap.reset();
-	funcMap.reset();
-
-	NULLC::dealloc(CompilerError::errLocal);
-	NULLC::dealloc(CompilerError::errGlobal);
-}
-
-void Compiler::ClearState()
-{
-	CodeInfo::varInfo.clear();
-
-	CodeInfo::typeInfo.resize(buildInTypes.size());
-	memcpy(&CodeInfo::typeInfo[0], &buildInTypes[0], buildInTypes.size() * sizeof(TypeInfo*));
-	for(unsigned int i = 0; i < buildInTypes.size(); i++)
-	{
-		TypeInfo *type = CodeInfo::typeInfo[i];
-
-		assert(type->typeIndex == i);
-		type->typeIndex = i;
-
-		if(type->refType && type->refType->typeIndex >= buildInTypes.size())
-			type->refType = NULL;
-
-		if(type->unsizedType && type->unsizedType->typeIndex >= buildInTypes.size())
-			type->unsizedType = NULL;
-
-		type->arrayType = NULL;
-
-		type->hasFinalizer = false;
-	}
-
-	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
-		CodeInfo::typeInfo[i]->fullName = NULL;
-
-	TypeInfo::SetPoolTop(typeTop);
-
-	funcMap.clear();
-	CodeInfo::funcInfo.resize(0);
-	FunctionInfo::SetPoolTop(0);
-
-	CodeInfo::nodeList.clear();
-
-	ClearStringList();
-
-	VariableInfo::SetPoolTop(0);
-
-	CallbackInitialize();
-
-	CodeInfo::lastError = CompilerError();
-
-	CodeInfo::cmdInfoList.Clear();
-	CodeInfo::cmdList.clear();
-}
-
-bool Compiler::AddModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index)
-{
-	char errBuf[256];
-
-	// Find module
-	const char *importPath = BinaryCache::GetImportPath();
-	char path[256], *pathNoImport = path, *cPath = path;
-	cPath += SafeSprintf(path, 256, "%s%.*s", importPath ? importPath : "", module, module);
-	if(importPath)
-		pathNoImport = path + strlen(importPath);
-
-	for(unsigned int i = 0, e = (unsigned int)strlen(pathNoImport); i != e; i++)
-	{
-		if(pathNoImport[i] == '.')
-			pathNoImport[i] = '/';
-	}
-	SafeSprintf(cPath, 256 - int(cPath - path), ".nc");
-	const char *bytecode = BinaryCache::GetBytecode(path);
-	if(!bytecode && importPath)
-		bytecode = BinaryCache::GetBytecode(pathNoImport);
-
-	// Create module if not found
-	if(!bytecode)
-		bytecode = BuildModule(path, pathNoImport);
-	if(!bytecode)
-	{
-		SafeSprintf(errBuf, 256, "Failed to build module %s", module);
-		CodeInfo::lastError.Init(errBuf, NULL);
-		return false;
-	}
-
-	unsigned int hash = GetStringHash(name);
-	ByteCode *code = (ByteCode*)bytecode;
-
-	// Find function and set pointer
-	ExternFuncInfo *fInfo = FindFirstFunc(code);
-	
-	unsigned int end = code->functionCount - code->moduleFunctionCount;
-	for(unsigned int i = 0; i < end; i++)
-	{
-		if(hash == fInfo->nameHash)
-		{
-			if(index == 0)
-			{
-				fInfo->address = -1;
-				fInfo->funcPtr = (void*)ptr;
-				index--;
-				break;
-			}
-			index--;
-		}
-		fInfo++;
-	}
-	if(index != -1)
-	{
-		SafeSprintf(errBuf, 256, "ERROR: function %s or one of it's overload is not found in module %s", name, module);
-		CodeInfo::lastError.Init(errBuf, NULL);
-		return false;
-	}
-
-	return true;
-}
-
-bool Compiler::ImportModuleNamespaces(const char* bytecode)
-{
-	ByteCode *bCode = (ByteCode*)bytecode;
-	char *symbols = FindSymbols(bCode);
-
-	// Import namespaces
-	ExternNamespaceInfo *namespaceList = FindFirstNamespace(bCode);
-	for(unsigned i = 0; i < bCode->namespaceCount; i++)
-	{
-		NamespaceInfo *parent = NULL;
-		if(namespaceList->parentHash != ~0u)
-		{
-			for(unsigned k = 0; k < CodeInfo::namespaceInfo.size() && !parent; k++)
-			{
-				if(CodeInfo::namespaceInfo[k]->hash == namespaceList->parentHash)
-					parent = CodeInfo::namespaceInfo[k];
-			}
-		}
-		unsigned hash = parent ? StringHashContinue(StringHashContinue(namespaceList->parentHash, "."), symbols + namespaceList->offsetToName) : GetStringHash(symbols + namespaceList->offsetToName);
-		CodeInfo::namespaceInfo.push_back(new NamespaceInfo(InplaceStr(symbols + namespaceList->offsetToName), hash, parent));
-		namespaceList++;
-	}
-
-	return true;
-}
-
-bool Compiler::ImportModuleTypes(const char* bytecode, const char* pos)
-{
-	char errBuf[256];
-	ByteCode *bCode = (ByteCode*)bytecode;
-	char *symbols = FindSymbols(bCode);
-
-	// Import types
-	ExternTypeInfo *tInfo = FindFirstType(bCode);
-	ExternTypeInfo *tInfoStart = tInfo;
-	ExternMemberInfo *memberList = (ExternMemberInfo*)(tInfo + bCode->typeCount);
-
-	unsigned int oldTypeCount = CodeInfo::typeInfo.size();
-
-	typeMap.clear();
-	for(unsigned int n = 0; n < oldTypeCount; n++)
-		typeMap.insert(CodeInfo::typeInfo[n]->GetFullNameHash(), CodeInfo::typeInfo[n]);
-
-	unsigned int lastTypeNum = CodeInfo::typeInfo.size();
-	for(unsigned int i = 0; i < bCode->typeCount; i++, tInfo++)
-	{
-		TypeInfo **info = typeMap.find(tInfo->nameHash);
-		if(info)
-			typeRemap.push_back((*info)->typeIndex);
-		else
-			typeRemap.push_back(lastTypeNum++);
-	}
-
-	unsigned skipConstants = 0;
-	tInfo = tInfoStart;
-	for(unsigned int i = 0; i < bCode->typeCount; i++, tInfo++)
-	{
-		if(typeRemap[i] >= oldTypeCount)
-		{
-#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
-			printf(" Importing type %s\r\n", symbols + tInfo->offsetToName);
-#endif
-			TypeInfo *newInfo = NULL, *tempInfo = NULL;
-			switch(tInfo->subCat)
-			{
-			case ExternTypeInfo::CAT_FUNCTION:
-				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, 0, 0, 1, NULL, TypeInfo::TYPE_COMPLEX));
-				newInfo = CodeInfo::typeInfo.back();
-				CodeInfo::typeFunctions.push_back(newInfo);
-				newInfo->CreateFunctionType(CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset].type]], tInfo->memberCount);
-
-				newInfo->size = tInfo->size;
-				newInfo->paddingBytes = tInfo->padding;
-
-				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
-
-				for(unsigned int n = 0; n < tInfo->memberCount; n++)
-					newInfo->funcType->paramType[n] = CodeInfo::typeInfo[typeRemap[memberList[tInfo->memberOffset + n + 1].type]];
-
-				for(unsigned int n = 0; n < newInfo->funcType->paramCount; n++)
-				{
-					unsigned size = tInfoStart[memberList[tInfo->memberOffset + n + 1].type].size;
-					newInfo->funcType->paramSize += size > 4 ? size : 4;
-				}
-
-#ifdef _DEBUG
-				newInfo->AddMemberVariable("context", typeInt, false);
-				newInfo->lastVariable->offset = 0;
-				newInfo->AddMemberVariable("ptr", typeInt, false);
-				newInfo->lastVariable->offset = 4;
-#endif
-				newInfo->hasPointers = true;
-				break;
-			case ExternTypeInfo::CAT_ARRAY:
-				tempInfo = CodeInfo::typeInfo[typeRemap[tInfo->subType]];
-				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, 0, tempInfo->arrLevel + 1, tInfo->arrSize, tempInfo, TypeInfo::TYPE_COMPLEX));
-				newInfo = CodeInfo::typeInfo.back();
-
-				newInfo->size = tInfo->size;
-				newInfo->paddingBytes = tInfo->padding;
-
-				if(tInfo->arrSize == TypeInfo::UNSIZED_ARRAY)
-				{
-					newInfo->AddMemberVariable("size", typeInt, false);
-					newInfo->lastVariable->offset = NULLC_PTR_SIZE;
-				}
-
-				newInfo->nextArrayType = tempInfo->arrayType;
-				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
-				tempInfo->arrayType = newInfo;
-				CodeInfo::typeArrays.push_back(newInfo);
-				break;
-			case ExternTypeInfo::CAT_POINTER:
-				assert(typeRemap[tInfo->subType] < CodeInfo::typeInfo.size());
-				tempInfo = CodeInfo::typeInfo[typeRemap[tInfo->subType]];
-				CodeInfo::typeInfo.push_back(new TypeInfo(CodeInfo::typeInfo.size(), NULL, tempInfo->refLevel + 1, 0, 1, tempInfo, TypeInfo::NULLC_PTR_TYPE));
-				newInfo = CodeInfo::typeInfo.back();
-
-				newInfo->size = tInfo->size;
-				newInfo->paddingBytes = tInfo->padding;
-
-				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
-
-				// Save it for future use
-				CodeInfo::typeInfo[typeRemap[tInfo->subType]]->refType = newInfo;
-				break;
-			case ExternTypeInfo::CAT_CLASS:
-			{
-				unsigned int strLength = (unsigned int)strlen(symbols + tInfo->offsetToName) + 1;
-				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), symbols + tInfo->offsetToName);
-				newInfo = new TypeInfo(CodeInfo::typeInfo.size(), nameCopy, 0, 0, 1, NULL, (TypeInfo::TypeCategory)tInfo->type);
-
-				newInfo->size = tInfo->size;
-				newInfo->paddingBytes = tInfo->padding;
-
-				newInfo->hasFinalizer = tInfo->typeFlags & ExternTypeInfo::TYPE_HAS_FINALIZER;
-				newInfo->dependsOnGeneric = !!(tInfo->typeFlags & ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC);
-
-				CodeInfo::typeInfo.push_back(newInfo);
-				CodeInfo::classMap.insert(newInfo->GetFullNameHash(), newInfo);
-
-				if(tInfo->namespaceHash != ~0u)
-				{
-					for(unsigned k = 0; k < CodeInfo::namespaceInfo.size() && !newInfo->parentNamespace; k++)
-					{
-						if(CodeInfo::namespaceInfo[k]->hash == tInfo->namespaceHash)
-							newInfo->parentNamespace = CodeInfo::namespaceInfo[k];
-					}
-				}
-
-				// This two pointers are used later to fill type member information
-				newInfo->firstVariable = (TypeInfo::MemberVariable*)(symbols + tInfo->offsetToName + strLength);
-				newInfo->lastVariable = (TypeInfo::MemberVariable*)tInfo;
-				newInfo->definitionDepth = skipConstants;
-				skipConstants += tInfo->constantCount;
-				// If definitionOffset offset is set
-				if(tInfo->definitionOffset != ~0u)
-				{
-					// It may be because it contains index of generic type base
-					if(tInfo->definitionOffset & 0x80000000)
-					{
-						newInfo->genericBase = CodeInfo::typeInfo[typeRemap[tInfo->definitionOffset & ~0x80000000]];
-					}else{ // Or because it is a generic type base
-						newInfo->genericInfo = newInfo->CreateGenericContext(tInfo->definitionOffset + int(CodeInfo::lexFullStart - CodeInfo::lexStart));
-
-						newInfo->genericInfo->aliasCount = tInfo->genericTypeCount;
-
-						CodeInfo::nodeList.push_back(new NodeZeroOP());
-						newInfo->definitionList = new NodeExpressionList();
-						CodeInfo::funcDefList.push_back(newInfo->definitionList);
-					}
-				}
-			}
-				break;
-			default:
-				SafeSprintf(errBuf, 256, "ERROR: new type in module %s named %s unsupported", pos, symbols + tInfo->offsetToName);
-				CodeInfo::lastError.Init(errBuf, NULL);
-				return false;
-			}
-			newInfo->alignBytes = tInfo->defaultAlign;
-		}else{
-			skipConstants += tInfo->constantCount;
-		}
-	}
-
-	ExternConstantInfo *constantList = FindFirstConstant(bCode);
-
-	for(unsigned int i = oldTypeCount; i < CodeInfo::typeInfo.size(); i++)
-	{
-		TypeInfo *type = CodeInfo::typeInfo[i];
-		if((type->type == TypeInfo::TYPE_COMPLEX || type->firstVariable) && !type->funcType && !type->subType)
-		{
-#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
-			printf(" Type %s fixup\r\n", type->name);
-#endif
-			// first and last variable pointer contained pointer that allow to fill all information about members
-			const char *memberName = (const char*)type->firstVariable;
-			ExternTypeInfo *typeInfo = (ExternTypeInfo*)type->lastVariable;
-			type->firstVariable = type->lastVariable = NULL;
-
-			for(unsigned int n = 0; n < typeInfo->memberCount; n++)
-			{
-				unsigned int strLength = (unsigned int)strlen(memberName) + 1;
-				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), memberName);
-				memberName += strLength;
-
-				TypeInfo *memberType = CodeInfo::typeInfo[typeRemap[memberList[typeInfo->memberOffset + n].type]];
-
-				type->AddMemberVariable(nameCopy, memberType, false);
-				type->lastVariable->offset = memberList[typeInfo->memberOffset + n].offset;
-			}
-			for(unsigned int n = 0; n < typeInfo->constantCount; n++)
-			{
-				TypeInfo *constantType = CodeInfo::typeInfo[typeRemap[constantList[type->definitionDepth + n].type]];
-				NodeNumber *value = new NodeNumber(0, constantType);
-				value->num.integer64 = constantList[type->definitionDepth + n].value;
-
-				unsigned int strLength = (unsigned int)strlen(memberName) + 1;
-				const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), memberName);
-				memberName += strLength;
-
-				type->AddMemberVariable(nameCopy, typeVoid, false, value);
-			}
-
-			type->definitionDepth = 1;
-		}
-	}
-
-#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
-	tInfo = FindFirstType(bCode);
-	for(unsigned int i = 0; i < typeRemap.size(); i++)
-		printf("Type\r\n\t%s\r\nis remapped from index %d to index %d with\r\n\t%s\r\ntype\r\n", symbols + tInfo[i].offsetToName, i, typeRemap[i], CodeInfo::typeInfo[typeRemap[i]]->GetFullTypeName());
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::Assert, "assert", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::Assert2, "assert", 1);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrEqual, "==", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrNEqual, "!=", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrConcatenate, "+", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrConcatenateAndSet, "+=", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::Int, "bool", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::Char, "char", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::Short, "short", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::Int, "int", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::Long, "long", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::Float, "float", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::Double, "double", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::UnsignedValueChar, "as_unsigned", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::UnsignedValueShort, "as_unsigned", 1);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::UnsignedValueInt, "as_unsigned", 2);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToShort, "short", 1);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::ShortToStr, "short::str", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToInt, "int", 1);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::IntToStr, "int::str", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToLong, "long", 1);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::LongToStr, "long::str", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToFloat, "float", 1);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::FloatToStr, "float::str", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToDouble, "double", 1);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::DoubleToStr, "double::str", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::AllocObject, "__newS", 0);
+	nullcBindModuleFunction("$base$", (void (*)())(NULLCArray	(*)(unsigned, unsigned, unsigned))NULLC::AllocArray, "__newA", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::CopyObject, "duplicate", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::CopyArray, "__duplicate_array", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::ReplaceObject, "replace", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::SwapObjects, "swap", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::CompareObjects, "equal", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::AssignObject, "assign", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::ArrayCopy, "array_copy", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::FunctionRedirect, "__redirect", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::FunctionRedirectPtr, "__redirect_ptr", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::Typeid, "typeid", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::TypeSize, "typeid::size$", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::TypesEqual, "==", 1);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::TypesNEqual, "!=", 1);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefCompare, "__rcomp", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefNCompare, "__rncomp", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefLCompare, "<", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefLECompare, "<=", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefGCompare, ">", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefGECompare, ">=", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefHash, "hash_value", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::FuncCompare, "__pcomp", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::FuncNCompare, "__pncomp", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::ArrayCompare, "__acomp", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::ArrayNCompare, "__ancomp", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::TypeCount, "__typeCount", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssign, "=", 3);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssignRev, "__aaassignrev", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArrayIndex, "[]", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())IsPointerUnmanaged, "isStackPointer", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArray, "auto_array_impl", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArraySet, "auto[]::set", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::ShrinkAutoArray, "__force_size", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::IsCoroutineReset, "isCoroutineReset", 0);
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::AssertCoroutine, "__assertCoroutine", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::GetFinalizationList, "__getFinalizeList", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::AssertDerivedFromBase, "assert_derived_from_base", 0);
+
+	nullcBindModuleFunction("$base$", (void (*)())NULLC::CloseUpvalue, "__closeUpvalue", 0);
 #endif
 
 	return true;
 }
 
-bool Compiler::ImportModuleVariables(const char* bytecode, const char* pos, unsigned int number)
+unsigned GetErrorLocationLineNumber(const char *codeStart, const char *errorPos)
 {
-	ByteCode *bCode = (ByteCode*)bytecode;
-	char *symbols = FindSymbols(bCode);
+	if(!codeStart)
+		return 0;
 
-	ExternVarInfo *vInfo = FindFirstVar(bCode);
+	if(!errorPos)
+		return 0;
 
-	if(!setjmp(CodeInfo::errorHandler))
-	{
-		// Import variables
-		for(unsigned int i = 0; i < bCode->variableExportCount; i++, vInfo++)
-		{
-			// Exclude temporary variables from import
-			if(memcmp(&symbols[vInfo->offsetToName], "$temp", 5) == 0)
-				continue;
-			SelectTypeByIndex(typeRemap[vInfo->type]);
-			AddVariable(pos, InplaceStr(symbols + vInfo->offsetToName), true, false, memcmp(&symbols[vInfo->offsetToName], "$vtbl", 5) == 0);
-			CodeInfo::varInfo.back()->parentModule = number;
-			CodeInfo::varInfo.back()->pos = (number << 24) + (vInfo->offset & 0x00ffffff);
-		}
-	}else{
-		return false;
-	}
+	int line = 1;
+	for(const char *pos = codeStart; pos < errorPos; pos++)
+		line += *pos == '\n';
 
-	return true;
+	return line;
 }
 
-bool Compiler::ImportModuleTypedefs(const char* bytecode)
+void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize)
 {
-	char errBuf[256];
-	ByteCode *bCode = (ByteCode*)bytecode;
-	char *symbols = FindSymbols(bCode);
+	if(!codeStart)
+		return;
 
-	// Import type aliases
-	ExternTypedefInfo *typedefInfo = FindFirstTypedef(bCode);
-	for(unsigned i = 0; i < bCode->typedefCount; i++)
+	if(!errorPos)
+		return;
+
+	if(!errorBuf)
+		return;
+
+	const char *codeEnd = codeStart + strlen(codeStart);
+
+	if(errorPos < codeStart || errorPos > codeEnd)
+		return;
+
+	const char *start = errorPos;
+	const char *end = start == codeEnd ? start : start + 1;
+
+	while(start > codeStart && *(start - 1) != '\r' && *(start - 1) != '\n')
+		start--;
+
+	while(*end && *end != '\r' && *end != '\n')
+		end++;
+
+	char *errorCurr = errorBuf + strlen(errorBuf);
+
+	if(errorBufSize > unsigned(errorCurr - errorBuf))
+		*(errorCurr++) = '\n';
+
+	char *errorCurrBefore = errorCurr;
+
+	if(unsigned line = GetErrorLocationLineNumber(codeStart, errorPos))
+		errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "  at line %d: '", line);
+	else
+		errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "  at '");
+
+	unsigned spacing = unsigned(errorCurr - errorCurrBefore);
+
+	for(const char *pos = start; *pos && pos < end; pos++)
 	{
-		// Find is this alias is already defined
-		unsigned int hash = GetStringHash(symbols + typedefInfo->offsetToName);
-		TypeInfo **type = CodeInfo::classMap.find(hash);
-		TypeInfo *targetType = CodeInfo::typeInfo[typeRemap[typedefInfo->targetType]];
-		if(!type)
-		{
-			SelectTypeByIndex(typeRemap[typedefInfo->targetType]);
-			if(typedefInfo->parentType != ~0u)
-			{
-				AliasInfo *info = TypeInfo::CreateAlias(InplaceStr(symbols + typedefInfo->offsetToName), GetSelectedType());
-				TypeInfo *parent = CodeInfo::typeInfo[typeRemap[typedefInfo->parentType]];
-				info->next = parent->childAlias;
-				parent->childAlias = info;
-			}else{
-				AddAliasType(InplaceStr(symbols + typedefInfo->offsetToName), true);
-			}
-		}else{
-			if((*type)->GetFullNameHash() == hash)
-			{
-				SafeSprintf(errBuf, 256, "ERROR: type '%s' alias '%s' is equal to previously imported class", targetType->GetFullTypeName(), symbols + typedefInfo->offsetToName);
-				CodeInfo::lastError.Init(errBuf, NULL);
-				return false;
-			}else if((*type) != targetType){
-				SafeSprintf(errBuf, 256, "ERROR: type '%s' alias '%s' is equal to previously imported alias", targetType->GetFullTypeName(), symbols + typedefInfo->offsetToName);
-				CodeInfo::lastError.Init(errBuf, NULL);
-				return false;
-			}
-		}
-		typedefInfo++;
+		if(errorBufSize > unsigned(errorCurr - errorBuf))
+			*(errorCurr++) = *pos == '\t' ? ' ' : *pos;
 	}
 
-	return true;
+	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "'\n");
+
+	for(unsigned i = 0; i < spacing + unsigned(errorPos - start); i++)
+	{
+		if(errorBufSize > unsigned(errorCurr - errorBuf))
+			*(errorCurr++) = ' ';
+	}
+
+	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "^\n");
 }
 
-bool Compiler::ImportModuleFunctions(const char* bytecode, const char* pos)
+bool HasSourceCode(ByteCode *bytecode, const char *position)
 {
-	char errBuf[256];
-	ByteCode *bCode = (ByteCode*)bytecode;
-	char *symbols = FindSymbols(bCode);
+	char *code = FindSource(bytecode);
+	unsigned length = bytecode->sourceSize;
 
-	ExternVarInfo *vInfo = FindFirstVar(bCode);
+	if(position >= code && position <= code + length)
+		return true;
 
-	// Import functions
-	ExternFuncInfo *fInfo = FindFirstFunc(bCode);
-	ExternLocalInfo *fLocals = FindFirstLocal(bCode);
-
-	unsigned int oldFuncCount = CodeInfo::funcInfo.size();
-	unsigned int end = bCode->functionCount - bCode->moduleFunctionCount;
-	for(unsigned int i = 0; i < end; i++)
-	{
-		const unsigned int INDEX_NONE = ~0u;
-
-		unsigned int index = INDEX_NONE;
-
-		TypeInfo* remappedType = CodeInfo::typeInfo[typeRemap[fInfo->funcType]];
-		HashMap<unsigned int>::Node *curr = funcMap.first(fInfo->nameHash);
-		while(curr)
-		{
-			if(curr->value < oldFuncCount && CodeInfo::funcInfo[curr->value]->funcType == remappedType)
-			{
-				index = curr->value;
-				break;
-			}
-			curr = funcMap.next(curr);
-		}
-		if(index == INDEX_NONE)
-		{
-			unsigned int strLength = (unsigned int)strlen(symbols + fInfo->offsetToName) + 1;
-			const char *nameCopy = strcpy((char*)dupStringsModule.Allocate(strLength), symbols + fInfo->offsetToName);
-
-			unsigned int hashOriginal = fInfo->nameHash;
-			const char *extendEnd = strstr(nameCopy, "::");
-			if(extendEnd)
-				hashOriginal = GetStringHash(extendEnd + 2);
-
-			CodeInfo::funcInfo.push_back(new FunctionInfo(nameCopy, fInfo->nameHash, hashOriginal));
-			funcMap.insert(CodeInfo::funcInfo.back()->nameHash, CodeInfo::funcInfo.size()-1);
-
-			FunctionInfo* lastFunc = CodeInfo::funcInfo.back();
-
-			static unsigned int hashNewS = GetStringHash("__newA");
-			static unsigned int hashNewA = GetStringHash("__newS");
-			if(lastFunc->nameHash == hashNewS || lastFunc->nameHash == hashNewA)
-				lastFunc->visible = false;
-
-			AddFunctionToSortedList(lastFunc);
-
-			lastFunc->indexInArr = CodeInfo::funcInfo.size() - 1;
-			lastFunc->address = fInfo->funcPtr ? ~0u : (fInfo->codeSize & 0x80000000 ? 0x80000000 : 0);
-			lastFunc->funcPtr = fInfo->funcPtr;
-			lastFunc->type = (FunctionInfo::FunctionCategory)fInfo->funcCat;
-
-			if(fInfo->namespaceHash != ~0u)
-			{
-				for(unsigned k = 0; k < CodeInfo::namespaceInfo.size() && !lastFunc->parentNamespace; k++)
-				{
-					if(CodeInfo::namespaceInfo[k]->hash == fInfo->namespaceHash)
-						lastFunc->parentNamespace = CodeInfo::namespaceInfo[k];
-				}
-
-				assert(lastFunc->parentNamespace);
-			}
-
-			for(unsigned int n = 0; n < fInfo->paramCount; n++)
-			{
-				ExternLocalInfo &lInfo = fLocals[fInfo->offsetToFirstLocal + n];
-				TypeInfo *currType = CodeInfo::typeInfo[typeRemap[lInfo.type]];
-				lastFunc->AddParameter(new VariableInfo(lastFunc, InplaceStr(symbols + lInfo.offsetToName), GetStringHash(symbols + lInfo.offsetToName), 0, currType, false));
-				lastFunc->allParamSize += currType->size < 4 ? 4 : currType->size;
-				lastFunc->lastParam->defaultValueFuncID = lInfo.defaultFuncId;
-				lastFunc->lastParam->isExplicit = !!(lInfo.paramFlags & ExternLocalInfo::IS_EXPLICIT);
-			}
-			lastFunc->implemented = fInfo->codeSize & 0x80000000 ? false : true;
-			lastFunc->funcType = CodeInfo::typeInfo[typeRemap[fInfo->funcType]];
-
-			if(lastFunc->funcType == typeVoid)
-			{
-				lastFunc->generic = lastFunc->CreateGenericContext(fInfo->genericOffset + int(CodeInfo::lexFullStart - CodeInfo::lexStart));
-				lastFunc->generic->parent = lastFunc;
-				lastFunc->vTopSize = 1;
-
-				lastFunc->retType = fInfo->genericReturnType != ~0u ? CodeInfo::typeInfo[typeRemap[fInfo->genericReturnType]] : NULL;
-				lastFunc->funcType = CodeInfo::GetFunctionType(lastFunc->retType, lastFunc->firstParam, lastFunc->paramCount);
-				if(lastFunc->type == FunctionInfo::COROUTINE)
-				{
-					CodeInfo::nodeList.push_back(new NodeZeroOP());
-					lastFunc->afterNode = new NodeExpressionList();
-					CodeInfo::funcDefList.push_back(lastFunc->afterNode);
-				}
-			}else{
-				lastFunc->retType = lastFunc->funcType->funcType->retType;
-			}
-			lastFunc->genericInstance = !!fInfo->isGenericInstance;
-
-			if(fInfo->parentType != ~0u)
-			{
-				lastFunc->parentClass = CodeInfo::typeInfo[typeRemap[fInfo->parentType]];
-				lastFunc->extraParam = new VariableInfo(lastFunc, InplaceStr("this"), GetStringHash("this"), 0, CodeInfo::GetReferenceType(lastFunc->parentClass), false);
-			}
-			if(fInfo->contextType != ~0u)
-			{
-				lastFunc->contextType = CodeInfo::typeInfo[typeRemap[fInfo->contextType]];
-			}
-
-			assert(lastFunc->funcType->funcType->paramCount == lastFunc->paramCount);
-
-			// Import function explicit type list
-			AliasInfo *aliasEnd = NULL;
-
-			for(unsigned k = 0; k < fInfo->explicitTypeCount; k++)
-			{
-				AliasInfo *info = TypeInfo::CreateAlias(InplaceStr(symbols + vInfo[k].offsetToName), CodeInfo::typeInfo[typeRemap[vInfo[k].type]]);
-
-				if(!lastFunc->explicitTypes)
-					lastFunc->explicitTypes = aliasEnd = info;
-				else
-					aliasEnd->next = info;
-				aliasEnd = info;
-			}
-
-#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
-			printf(" Importing function %s %s(", lastFunc->retType ? lastFunc->retType->GetFullTypeName() : "generic", lastFunc->name);
-			VariableInfo *curr = lastFunc->firstParam;
-			for(unsigned int n = 0; n < fInfo->paramCount; n++)
-			{
-				printf("%s%s %.*s", n == 0 ? "" : ", ", curr->varType->GetFullTypeName(), curr->name.end-curr->name.begin, curr->name.begin);
-				curr = curr->next;
-			}
-			printf(")\r\n");
-#endif
-		}else if(CodeInfo::funcInfo[index]->name[0] == '$' || CodeInfo::funcInfo[index]->genericInstance){
-			CodeInfo::funcInfo.push_back(CodeInfo::funcInfo[index]);
-		}else{
-			SafeSprintf(errBuf, 256, "ERROR: function %s (type %s) is already defined. While importing %s", CodeInfo::funcInfo[index]->name, CodeInfo::funcInfo[index]->funcType->GetFullTypeName(), pos);
-			CodeInfo::lastError.Init(errBuf, NULL);
-			return false;
-		}
-
-		vInfo += fInfo->explicitTypeCount;
-		fInfo++;
-	}
-
-	fInfo = FindFirstFunc(bCode);
-	for(unsigned int i = 0; i < end; i++)
-	{
-		FunctionInfo *func = CodeInfo::funcInfo[oldFuncCount + i];
-		// Handle only global visible functions
-		if(!func->visible || func->type == FunctionInfo::LOCAL || func->type == FunctionInfo::COROUTINE)
-			continue;
-		// Go through all function parameters
-		VariableInfo *param = func->firstParam;
-		while(param)
-		{
-			if(param->defaultValueFuncID != 0xffff)
-			{
-				FunctionInfo *targetFunc = CodeInfo::funcInfo[oldFuncCount + param->defaultValueFuncID - bCode->moduleFunctionCount];
-				AddFunctionCallNode(NULL, targetFunc->name, 0, false);
-				param->defaultValue = CodeInfo::nodeList.back();
-				CodeInfo::nodeList.pop_back();
-			}
-			param = param->next;
-		}
-	}
-
-	return true;
+	return false;
 }
 
-bool Compiler::ImportModule(const char* bytecode, const char* pos, unsigned int number)
+InplaceStr FindModuleNameWithSourceLocation(ExpressionContext &ctx, const char *position)
 {
-	typeRemap.clear();
+	for(unsigned i = 0; i < ctx.imports.size(); i++)
+	{
+		if(HasSourceCode(ctx.imports[i]->bytecode, position))
+			return ctx.imports[i]->name;
+	}
 
-#ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
-	printf("Importing module %s\r\n", pos);
-#endif
-
-	if(!ImportModuleNamespaces(bytecode))
-		return false;
-
-	if(!ImportModuleTypes(bytecode, pos))
-		return false;
-
-	if(!ImportModuleVariables(bytecode, pos, number))
-		return false;
-
-	if(!ImportModuleTypedefs(bytecode))
-		return false;
-
-	if(!ImportModuleFunctions(bytecode, pos))
-		return false;
-	
-	return true;
+	return InplaceStr();
 }
 
-char* Compiler::BuildModule(const char* file, const char* altFile)
+const char* FindModuleCodeWithSourceLocation(ExpressionContext &ctx, const char *position)
 {
-	unsigned int fileSize = 0;
-	int needDelete = false;
-	bool failedImportPath = false;
+	if(position >= ctx.code && position <= ctx.code + strlen(ctx.code))
+		return ctx.code;
 
-	char *fileContent = (char*)NULLC::fileLoad(file, &fileSize, &needDelete);
-	if(!fileContent && BinaryCache::GetImportPath())
+	for(unsigned i = 0; i < ctx.imports.size(); i++)
 	{
-		failedImportPath = true;
-		fileContent = (char*)NULLC::fileLoad(altFile, &fileSize, &needDelete);
+		if(HasSourceCode(ctx.imports[i]->bytecode, position))
+			return FindSource(ctx.imports[i]->bytecode);
 	}
 
-	if(fileContent)
-	{
-		unsigned lexPos = lexer.GetStreamSize();
-		if(!Compile(fileContent, true))
-		{
-			unsigned int currLen = (unsigned int)strlen(CodeInfo::lastError.errLocal);
-			SafeSprintf(CodeInfo::lastError.errLocal + currLen, NULLC_ERROR_BUFFER_SIZE - currLen, " [in module %s]", file);
-
-			if(needDelete)
-				NULLC::dealloc(fileContent);
-			return NULL;
-		}
-		char *bytecode = NULL;
-#ifdef VERBOSE_DEBUG_OUTPUT
-		printf("Bytecode for module %s. ", file);
-#endif
-		GetBytecode(&bytecode);
-
-		if(needDelete)
-		{
-			const char *newStart = FindSource((ByteCode*)bytecode);
-			// We have to fix lexeme positions to the code that is saved in bytecode
-			for(Lexeme *c = lexer.GetStreamStart() + lexPos, *e = lexer.GetStreamStart() + lexer.GetStreamSize(); c != e; c++)
-			{
-				// Exit fix up if lexemes exited scope of the current file
-				if(c->pos < fileContent || c->pos > (fileContent + fileSize))
-					break;
-				c->pos = (c->pos - fileContent) + newStart;
-			}
-			NULLC::dealloc(fileContent);
-		}
-
-		BinaryCache::PutBytecode(failedImportPath ? altFile : file, bytecode, lexer.GetStreamStart() + lexPos, lexer.GetStreamSize() - lexPos);
-
-		return bytecode;
-	}else{
-		CodeInfo::lastError.Init("", NULL);
-		SafeSprintf(CodeInfo::lastError.errLocal, NULLC_ERROR_BUFFER_SIZE, "ERROR: module %s not found", altFile);
-	}
 	return NULL;
 }
 
-#ifdef NULLC_LLVM_SUPPORT
-const char *llvmBinary = NULL;
-unsigned	llvmSize = 0;
-#endif
-
-void Compiler::RecursiveLexify(const char* bytecode)
+ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code)
 {
-	const char *importPath = BinaryCache::GetImportPath();
+	ctx.code = code;
 
-	ByteCode *bCode = (ByteCode*)bytecode;
+	ParseContext &parseCtx = ctx.parseCtx;
 
-	lexer.Lexify(bytecode + bCode->offsetToSource);
+	parseCtx.bytecodeBuilder = BuildModuleFromPath;
 
-	ExternModuleInfo *mInfo = FindFirstModule(bCode);
-	mInfo++;
-	for(unsigned int i = 1; i < bCode->dependsCount; i++, mInfo++)
+	parseCtx.errorBuf = ctx.errorBuf;
+	parseCtx.errorBufSize = ctx.errorBufSize;
+
+	ctx.synModule = Parse(parseCtx, ctx.code);
+
+	if(ctx.enableLogFiles && ctx.synModule)
 	{
-		const char *path = FindSymbols(bCode) + mInfo->nameOffset;
-
-		char fullPath[256];
-		SafeSprintf(fullPath, 256, "%s%s", importPath ? importPath : "", path);
-
-		const char *bytecode = BinaryCache::GetBytecode(fullPath);
-		unsigned lexCount = 0;
-		Lexeme *lexStream = BinaryCache::GetLexems(fullPath, lexCount);
-		if(!bytecode)
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("syntax_graph.txt");
+		
+		if(ctx.outputCtx.stream)
 		{
-			bytecode = BinaryCache::GetBytecode(path);
-			lexStream = BinaryCache::GetLexems(path, lexCount);
+			ParseGraphContext parseGraphCtx(ctx.outputCtx);
+
+			PrintGraph(parseGraphCtx, ctx.synModule, "");
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
 		}
-		assert(bytecode);
-		if(lexStream)
-			lexer.Append(lexStream, lexCount);
-		else
-			Compiler::RecursiveLexify(bytecode);
 	}
+
+	if(!ctx.synModule)
+	{
+		if(parseCtx.errorPos)
+			ctx.errorPos = parseCtx.errorPos;
+
+		return NULL;
+	}
+
+	//printf("# Parse memory %dkb\n", ctx.allocator->requested() / 1024);
+
+	ExpressionContext &exprCtx = ctx.exprCtx;
+
+	exprCtx.errorBuf = ctx.errorBuf;
+	exprCtx.errorBufSize = ctx.errorBufSize;
+
+	if(parseCtx.errorPos)
+	{
+		unsigned errorLength = unsigned(strlen(exprCtx.errorBuf));
+
+		exprCtx.errorBuf += errorLength;
+		exprCtx.errorBufSize -= errorLength;
+	}
+
+	ctx.exprModule = Analyze(exprCtx, ctx.synModule, ctx.code);
+
+	if(ctx.enableLogFiles && ctx.exprModule)
+	{
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("expr_graph.txt");
+
+		if(ctx.outputCtx.stream)
+		{
+			ExpressionGraphContext exprGraphCtx(ctx.exprCtx, ctx.outputCtx);
+
+			PrintGraph(exprGraphCtx, ctx.exprModule, "");
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
+	}
+
+	if(!ctx.exprModule || exprCtx.errorCount != 0 || parseCtx.errorCount != 0)
+	{
+		if(parseCtx.errorPos)
+			ctx.errorPos = parseCtx.errorPos;
+		else if(exprCtx.errorPos)
+			ctx.errorPos = exprCtx.errorPos;
+
+		return NULL;
+	}
+
+	//printf("# Compile memory %dkb\n", ctx.allocator->requested() / 1024);
+
+	return ctx.exprModule;
 }
 
-bool Compiler::Compile(const char* str, bool noClear)
+bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 {
-	CodeInfo::nodeList.clear();
-	NodeZeroOP::DeleteNodes();
-
-	if(!noClear)
-	{
-		lexer.Clear(baseModuleSize);
-		moduleSource.clear();
-		dupStringsModule.Clear();
-		funcMap.clear();
-		importStack.clear();
-		moduleStack.clear();
-		codeSourceRange.clear();
-	}
-	unsigned int lexStreamStart = lexer.GetStreamSize();
-	lexer.Lexify(str);
-	unsigned int lexStreamEnd = lexer.GetStreamSize();
-
-	unsigned moduleBase = moduleStack.size();
-
-	if(BinaryCache::GetBytecode("$base$.nc"))
-		moduleStack.push_back(ModuleInfo("$base$.nc", BinaryCache::GetBytecode("$base$.nc"), 0, CodeRange(lexer.GetStreamStart()[0].pos, lexer.GetStreamStart()[baseModuleSize - 1].pos)));
-
-	const char *importPath = BinaryCache::GetImportPath();
-
-	Lexeme *start = &lexer.GetStreamStart()[lexStreamStart];
-	while(start->type == lex_import)
-	{
-		start++;
-		char path[256], *cPath = path, *pathNoImport = path;
-		Lexeme *name = start;
-		if(start->type != lex_string)
-		{
-			CodeInfo::lastError.Init("ERROR: string expected after import", start->pos);
-			return false;
-		}
-		cPath += SafeSprintf(cPath, 256, "%s%.*s", importPath ? importPath : "", start->length, start->pos);
-		if(importPath)
-			pathNoImport = path + strlen(importPath);
-
-		start++;
-		while(start->type == lex_point)
-		{
-			start++;
-			if(start->type != lex_string)
-			{
-				CodeInfo::lastError.Init("ERROR: string expected after '.'", start->pos);
-				return false;
-			}
-			cPath += SafeSprintf(cPath, 256 - int(cPath - path), "/%.*s", start->length, start->pos);
-			start++;
-		}
-		if(start->type != lex_semicolon)
-		{
-			CodeInfo::lastError.Init("ERROR: ';' not found after import expression", name->pos);
-			return false;
-		}
-		start++;
-		SafeSprintf(cPath, 256 - int(cPath - path), ".nc");
-		const char *bytecode = BinaryCache::GetBytecode(path);
-		unsigned lexCount = 0;
-		Lexeme *lexStream = BinaryCache::GetLexems(path, lexCount);
-		if(!bytecode && importPath)
-		{
-			bytecode = BinaryCache::GetBytecode(pathNoImport);
-			lexStream = BinaryCache::GetLexems(pathNoImport, lexCount);
-		}
-
-		moduleStack.push_back(ModuleInfo(strcpy((char*)dupStringsModule.Allocate((unsigned int)strlen(pathNoImport) + 1), pathNoImport), NULL, 0, CodeRange()));
-		if(!bytecode)
-		{
-			unsigned pathHash = GetStringHash(pathNoImport);
-			for(unsigned i = 0; i < importStack.size(); i++)
-			{
-				if(pathHash == importStack[i])
-				{
-					char buf[512];
-					SafeSprintf(buf, 512, "ERROR: found cyclic dependency on module '%s'", pathNoImport);
-					CodeInfo::lastError.Init(buf, name->pos);
-					return false;
-				}
-			}
-			unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);
-			moduleStack.back().stream = lexer.GetStreamSize();
-			importStack.push_back(pathHash);
-			bytecode = BuildModule(path, pathNoImport);
-			importStack.pop_back();
-			start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
-			if(bytecode)
-				moduleStack.back().range = CodeRange(lexer.GetStreamStart()[moduleStack.back().stream].pos, lexer.GetStreamStart()[moduleStack.back().stream].pos + ((ByteCode*)bytecode)->sourceSize);
-		}else{
-			unsigned int lexPos = (unsigned int)(start - &lexer.GetStreamStart()[lexStreamStart]);
-			moduleStack.back().stream = lexer.GetStreamSize();
-
-			if(lexStream)
-				lexer.Append(lexStream, lexCount);
-			else
-				RecursiveLexify(bytecode);
-
-			start = &lexer.GetStreamStart()[lexStreamStart + lexPos];
-			moduleStack.back().range = CodeRange(lexer.GetStreamStart()[moduleStack.back().stream].pos, lexer.GetStreamStart()[lexer.GetStreamSize() - 1].pos);
-		}
-		if(!bytecode)
-			return false;
-		moduleStack.back().data = bytecode;
-	}
-
-	ClearState();
-
-	activeModules.clear();
-	CodeInfo::lexStart = lexer.GetStreamStart();
-
-	codeSourceRange.resize(moduleStack.size() - moduleBase);
-	for(unsigned int i = moduleBase; i < moduleStack.size(); i++)
-	{
-		activeModules.push_back();
-		activeModules.back().name = moduleStack[i].name;
-		activeModules.back().funcStart = CodeInfo::funcInfo.size();
-		CodeInfo::lexFullStart = lexer.GetStreamStart() + moduleStack[i].stream;
-		if(!ImportModule(moduleStack[i].data, moduleStack[i].name, i + 1 - moduleBase))
-			return false;
-		SetGlobalSize(0);
-		activeModules.back().funcCount = CodeInfo::funcInfo.size() - activeModules.back().funcStart;
-		codeSourceRange[i-moduleBase] = moduleStack[i].range;
-	}
-	moduleStack.shrink(moduleBase);
-
-	CompilerError::codeStart = str;
-	CompilerError::codeEnd = (lexer.GetStreamStart() + lexStreamEnd - 1)->pos;
-	CodeInfo::cmdInfoList.SetSourceStart(CompilerError::codeStart, CompilerError::codeEnd);
-	CodeInfo::lexFullStart = lexer.GetStreamStart() + lexStreamStart;
-
-	RestoreRedirectionTables();
-
-	bool res;
-	if(!setjmp(CodeInfo::errorHandler))
-	{
-		res = ParseCode(&start);
-		if(start->type != lex_none)
-		{
-			CodeInfo::lastError.Init("ERROR: unexpected symbol", start->pos);
-			return false;
-		}
-	}else{
+	if(!AnalyzeModuleFromSource(ctx, code))
 		return false;
-	}
-	if(!res)
+
+	ExpressionContext &exprCtx = ctx.exprCtx;
+
+	ctx.vmModule = CompileVm(exprCtx, ctx.exprModule, ctx.code);
+
+	if(!ctx.vmModule)
 	{
-		CodeInfo::lastError.Init("ERROR: module contains no code", str + strlen(str));
+		ctx.errorPos = NULL;
+
+		if(ctx.errorBuf && ctx.errorBufSize)
+			SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: internal compiler error: failed to create VmModule");
+
 		return false;
 	}
 
-	if(!setjmp(CodeInfo::errorHandler))
+	//printf("# Instruction memory %dkb\n", pool.GetSize() / 1024);
+
+	if(ctx.enableLogFiles)
 	{
-		// wrap all default function arguments in functions
-		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph.txt");
+
+		if(ctx.outputCtx.stream)
 		{
-			FunctionInfo *func = CodeInfo::funcInfo[i];
-			// Handle only global visible functions
-			if(!func->visible || func->type == FunctionInfo::LOCAL || func->type == FunctionInfo::COROUTINE)
-				continue;
-			// Go through all function parameters
-			VariableInfo *param = func->firstParam;
-			while(param)
-			{
-				if(param->defaultValue && param->defaultValueFuncID == ~0u)
-				{
-					// Wrap in function
-					char	*functionName = (char*)AllocateString(func->nameLength + param->name.length() + 3 + 12);
-					const char	*parentName = func->type == FunctionInfo::THISCALL ? strchr(func->name, ':') + 2 : func->name;
-					SafeSprintf(functionName, func->nameLength + param->name.length() + 3 + 12, "$%s_%.*s_%d", parentName, param->name.length(), param->name.begin, CodeInfo::FindFunctionByPtr(func));
+			InstructionVMGraphContext instGraphCtx(ctx.outputCtx);
 
-					SelectTypeByPointer(param->defaultValue->typeInfo);
-					FunctionAdd(CodeInfo::lastKnownStartPos, functionName);
-					FunctionStart(CodeInfo::lastKnownStartPos);
-					CodeInfo::nodeList.push_back(param->defaultValue);
-					AddReturnNode(CodeInfo::lastKnownStartPos);
-					FunctionEnd(CodeInfo::lastKnownStartPos);
+			instGraphCtx.showUsers = true;
+			instGraphCtx.displayAsTree = false;
+			instGraphCtx.showFullTypes = false;
+			instGraphCtx.showSource = true;
 
-					param->defaultValueFuncID = CodeInfo::FindFunctionByPtr(CodeInfo::funcInfo.back());
-					AddTwoExpressionNode(NULL);
-				}
-				param = param->next;
-			}
+			PrintGraph(instGraphCtx, ctx.vmModule);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
 		}
-	}else{
-		return false;
 	}
 
-	CreateRedirectionTables();
-
-	realGlobalCount = CodeInfo::varInfo.size();
-
-	RestoreScopedGlobals();
-
-#ifdef NULLC_LLVM_SUPPORT
-	unsigned functionsInModules = 0;
-	for(unsigned i = 0; i < activeModules.size(); i++)
-		functionsInModules += activeModules[i].funcCount;
-	StartLLVMGeneration(functionsInModules);
-#endif
-
-#ifdef NULLC_LOG_FILES
-	FILE *fGraph = fopen("graph.txt", "wb");
-	StartGraphGeneration();
-#endif
-
-	CodeInfo::cmdList.push_back(VMCmd(cmdJmp));
-	unsigned coroutineContext = 0;
-	for(unsigned int i = 0; i < CodeInfo::funcDefList.size(); i++)
+	if(ctx.optimizationLevel >= 1)
 	{
-		if(CodeInfo::funcDefList[i]->nodeType != typeNodeFuncDef)
+		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
+		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONSTANT_PROPAGATION);
+		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
+		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+	}
+
+	if(ctx.optimizationLevel >= 2)
+	{
+		for(unsigned i = 0; i < 6; i++)
 		{
-			coroutineContext++;
-			continue;
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONSTANT_PROPAGATION);
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_LOAD_STORE_PROPAGATION);
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION);
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
+			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
 		}
-		CodeInfo::funcDefList[i]->Compile();
-#ifdef NULLC_LOG_FILES
-		CodeInfo::funcDefList[i]->LogToStream(fGraph);
-#endif
-#ifdef NULLC_LLVM_SUPPORT
-		CodeInfo::funcDefList[i]->CompileLLVM();
-#endif
-		((NodeFuncDef*)CodeInfo::funcDefList[i])->Disable();
 	}
-	CodeInfo::cmdList[0].argument = CodeInfo::cmdList.size();
-	for(unsigned int i = 0; i < coroutineContext; i++)
-	{
-		CodeInfo::funcDefList[i]->Compile();
-#ifdef NULLC_LOG_FILES
-		CodeInfo::funcDefList[i]->LogToStream(fGraph);
-#endif
-	}
-	if(CodeInfo::nodeList.back())
-	{
-		CodeInfo::nodeList.back()->Compile();
-#ifdef NULLC_LOG_FILES
-		CodeInfo::nodeList.back()->LogToStream(fGraph);
-#endif
-#ifdef NULLC_LLVM_SUPPORT
-		StartGlobalCode();
-		CodeInfo::nodeList.back()->CompileLLVM();
-#endif
-	}
-#ifdef NULLC_LOG_FILES
-	EndGraphGeneration();
-	fclose(fGraph);
-#endif
-#ifdef NULLC_LLVM_SUPPORT
-	llvmBinary = GetLLVMIR(llvmSize);
 
-	EndLLVMGeneration();
-#endif
-	if(CodeInfo::nodeList.size() != 1)
+	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_CREATE_ALLOCA_STORAGE);
+
+	if(ctx.enableLogFiles)
 	{
-		CodeInfo::lastError.Init("Compilation failed, AST contains more than one node", NULL);
-		return false;
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_opt.txt");
+
+		if(ctx.outputCtx.stream)
+		{
+			InstructionVMGraphContext instGraphCtx(ctx.outputCtx);
+
+			instGraphCtx.showUsers = true;
+			instGraphCtx.displayAsTree = false;
+			instGraphCtx.showFullTypes = false;
+			instGraphCtx.showSource = true;
+
+			PrintGraph(instGraphCtx, ctx.vmModule);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
+	}
+
+	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_VM);
+
+	if(ctx.enableLogFiles)
+	{
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_legal.txt");
+
+		if(ctx.outputCtx.stream)
+		{
+			InstructionVMGraphContext instGraphCtx(ctx.outputCtx);
+
+			instGraphCtx.showUsers = false;
+			instGraphCtx.displayAsTree = false;
+			instGraphCtx.showFullTypes = false;
+			instGraphCtx.showSource = true;
+
+			PrintGraph(instGraphCtx, ctx.vmModule);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
+	}
+
+	ctx.vmLoweredModule = LowerModule(exprCtx, ctx.vmModule);
+
+	if(ctx.enableLogFiles)
+	{
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_low.txt");
+
+		if(ctx.outputCtx.stream)
+		{
+			InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
+
+			instLowerGraphCtx.showSource = true;
+
+			PrintGraph(instLowerGraphCtx, ctx.vmLoweredModule);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
+	}
+
+	OptimizeTemporaryRegisterSpills(ctx.vmLoweredModule);
+
+	if(ctx.enableLogFiles)
+	{
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_low_opt.txt");
+
+		if(ctx.outputCtx.stream)
+		{
+			InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
+
+			instLowerGraphCtx.showSource = true;
+
+			PrintGraph(instLowerGraphCtx, ctx.vmLoweredModule);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
+	}
+
+	FinalizeRegisterSpills(ctx.exprCtx, ctx.vmLoweredModule);
+
+	InstructionVmFinalizeContext &instFinalizeCtx = ctx.instFinalizeCtx;
+
+	FinalizeModule(instFinalizeCtx, ctx.vmLoweredModule);
+
+	if(ctx.enableLogFiles)
+	{
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_vm.txt");
+
+		if(ctx.outputCtx.stream)
+		{
+			InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
+
+			instLowerGraphCtx.showSource = true;
+
+			PrintInstructions(instLowerGraphCtx, instFinalizeCtx, ctx.code);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
 	}
 
 	return true;
 }
 
-const char* Compiler::GetError()
+bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionData &refFunc, ExternTypeInfo *typeArray)
 {
-	return CodeInfo::lastError.GetErrorString();
-}
-
-bool Compiler::SaveListing(const char *fileName)
-{
-	FILE *compiledAsm = fopen(fileName, "wb");
-	if(!compiledAsm)
-		return false;
-
-	char instBuf[128];
-	int line = 0, lastLine = ~0u;
-	const char *lastSourcePos = CompilerError::codeStart;
-	for(unsigned int i = 0; i < CodeInfo::cmdList.size(); i++)
-	{
-		while((line < (int)CodeInfo::cmdInfoList.sourceInfo.size() - 1) && (i >= CodeInfo::cmdInfoList.sourceInfo[line + 1].byteCodePos))
-			line++;
-		if(CodeInfo::cmdInfoList.sourceInfo.size() && line != lastLine)
-		{
-			lastLine = line;
-			const char *codeStart = CodeInfo::cmdInfoList.sourceInfo[line].sourcePos;
-			// Find beginning of the line
-			while(codeStart != CodeInfo::cmdInfoList.sourceStart && *(codeStart-1) != '\n')
-				codeStart--;
-			// Skip whitespace
-			while(*codeStart == ' ' || *codeStart == '\t')
-				codeStart++;
-			const char *codeEnd = codeStart;
-			while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
-				codeEnd++;
-			if(codeEnd > lastSourcePos)
-			{
-				fprintf(compiledAsm, "%.*s\r\n", int(codeEnd - lastSourcePos), lastSourcePos);
-				lastSourcePos = codeEnd;
-			}else{
-				fprintf(compiledAsm, "%.*s\r\n", int(codeEnd - codeStart), codeStart);
-			}
-		}
-		CodeInfo::cmdList[i].Decode(instBuf);
-		if(CodeInfo::cmdList[i].cmd == cmdCall)
-			fprintf(compiledAsm, "// %d %s (%s)\r\n", i, instBuf, CodeInfo::funcInfo[CodeInfo::cmdList[i].argument]->name);
-		else
-			fprintf(compiledAsm, "// %d %s\r\n", i, instBuf);
-	}
-	fclose(compiledAsm);
-
-	return true;
-}
-
-void Compiler::TranslateToC(const char* fileName, const char *mainName)
-{
-#ifdef NULLC_ENABLE_C_TRANSLATION
-	FILE *fC = fopen(fileName, "wb");
-
-	// Save all the types we need to translate
-	translationTypes.clear();
-	translationTypes.resize(CodeInfo::typeInfo.size());
-	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
-		translationTypes[i] = NULL;
-
-	// Sort them in their original order of definition
-	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
-		translationTypes[CodeInfo::typeInfo[i]->originalIndex] = CodeInfo::typeInfo[i];
-
-	for(unsigned int k = 0; k < translationTypes.size(); k++)
-	{
-		TypeInfo *type = translationTypes[k];
-		if(!type || type->arrSize == TypeInfo::UNSIZED_ARRAY || type->refLevel || type->funcType || type->arrLevel)
-			continue;
-		TypeInfo::MemberVariable *curr = type->firstVariable;
-		for(; curr; curr = curr->next)
-		{
-			if(curr->type->originalIndex > type->originalIndex)
-			{
-				printf("%s (%d) depends on %s (%d), but the latter is defined later\n", type->GetFullTypeName(), type->originalIndex, curr->type->GetFullTypeName(), curr->type->originalIndex);
-				unsigned index = curr->type->originalIndex;
-				for(unsigned int i = type->originalIndex + 1; i <= curr->type->originalIndex; i++)
-					translationTypes[i]->originalIndex--;
-				type->originalIndex = index;
-				printf("%s (%d) depends on %s (%d)\n", type->GetFullTypeName(), type->originalIndex, curr->type->GetFullTypeName(), curr->type->originalIndex);
-			}
-		}
-	}
-	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
-		translationTypes[CodeInfo::typeInfo[i]->originalIndex] = CodeInfo::typeInfo[i];
-
-	ByteCode* runtimeModule = (ByteCode*)BinaryCache::GetBytecode("$base$.nc");
-
-	fprintf(fC, "#include \"runtime.h\"\r\n");
-	fprintf(fC, "// Typeid redirect table\r\n");
-	fprintf(fC, "static unsigned __nullcTR[%d];\r\n", CodeInfo::typeInfo.size());
-	fprintf(fC, "// Function pointer table\r\n");
-	fprintf(fC, "static __nullcFunctionArray* __nullcFM;\r\n");
-	fprintf(fC, "// Function pointer redirect table\r\n");
-	fprintf(fC, "static unsigned __nullcFR[%d];\r\n", CodeInfo::funcInfo.size());
-	fprintf(fC, "// Function pointers, arrays, classes\r\n");
-	fprintf(fC, "#pragma pack(push, 4)\r\n");	
-	for(unsigned int i = buildInTypes.size(); i < CodeInfo::typeInfo.size(); i++)
-	{
-		TypeInfo *type = translationTypes[i];
-		if(type->funcType)
-		{
-			fprintf(fC, "struct __typeProxy_");
-			type->WriteCNameEscaped(fC, type->GetFullTypeName());
-			fprintf(fC, "{};\r\n");
-			continue;
-		}
-		if(!type || type->arrSize == TypeInfo::UNSIZED_ARRAY || type->refLevel || i < runtimeModule->typeCount)
-			continue;
-		if(type->arrLevel)
-		{
-			fprintf(fC, "struct ");
-			type->OutputCType(fC, "");
-			fprintf(fC, "\r\n{\r\n\t");
-			type->subType->OutputCType(fC, "ptr");
-			fprintf(fC, "[%d];\r\n\t", type->arrSize + ((4 - (type->arrSize * type->subType->size % 4)) & 3));
-			type->OutputCType(fC, "");
-			fprintf(fC, "& set(unsigned index, ");
-			if(type->subType->arrLevel && type->subType->arrSize != TypeInfo::UNSIZED_ARRAY && type->subType->subType == typeChar)
-			{
-				fprintf(fC, "const char* val){ memcpy(ptr, val, %d); return *this; }\r\n", type->subType->arrSize);
-			}else{
-				type->subType->OutputCType(fC, "const &");
-				fprintf(fC, " val){ ptr[index] = val; return *this; }\r\n");
-			}
-			if(type->arrLevel && type->arrSize != TypeInfo::UNSIZED_ARRAY && type->subType == typeChar)
-			{
-				fprintf(fC, "\t");
-				type->OutputCType(fC, "");
-				fprintf(fC, "(){}\r\n\t");
-				type->OutputCType(fC, "");
-				fprintf(fC, "(const char* data){ memcpy(ptr, data, %d); }\r\n", type->arrSize);
-			}
-			fprintf(fC, "};\r\n");
-		}else{
-			fprintf(fC, "struct ");
-			type->OutputCType(fC, "\r\n");
-			unsigned countMembers = 0;
-			if(type->name[0] == '_' && type->name[1] == '_' && 0 == memcmp("_cls", type->fullName + type->fullNameLength - 4, 5))
-				countMembers = 1;
-			fprintf(fC, "{\r\n");
-			TypeInfo::MemberVariable *curr = type->firstVariable;
-			for(; curr; curr = curr->next)
-			{
-				fprintf(fC, "\t");
-				if(strchr(type->name, ':') && curr == type->firstVariable)
-				{
-					fprintf(fC, "void *%s", curr->name);
-				}else{
-					curr->type->OutputCType(fC, curr->name);
-				}
-				if(countMembers)
-				{
-					if(countMembers > 2)
-						fprintf(fC, "%d", countMembers);
-					countMembers++;
-				}
-				fprintf(fC, ";\r\n");
-			}
-			fprintf(fC, "};\r\n");
-		}
-	}
-	fprintf(fC, "#pragma pack(pop)\r\n");
-
-	unsigned int functionsInModules = 0;
-	for(unsigned int i = 0; i < activeModules.size(); i++)
-		functionsInModules += activeModules[i].funcCount;
-	for(unsigned int i = functionsInModules; i < CodeInfo::funcInfo.size(); i++)
-	{
-		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
-		FunctionInfo *info = CodeInfo::funcInfo[i];
-		VariableInfo *local = info->firstParam;
-		for(; local; local = local->next)
-		{
-			if(local->usedAsExternal)
-			{
-				const char *namePrefix = *local->name.begin == '$' ? "__" : "";
-				unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-				sprintf(name, "%s%.*s_%d", namePrefix, local->name.length() - nameShift, local->name.begin + nameShift, local->pos);
-				GetEscapedName(name);
-				fprintf(fC, "__nullcUpvalue *__upvalue_%d_%s = 0;\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name);
-			}
-		}
-		if((info->type == FunctionInfo::LOCAL || info->type == FunctionInfo::COROUTINE) && info->closeUpvals)
-		{
-			fprintf(fC, "__nullcUpvalue *__upvalue_%d___", CodeInfo::FindFunctionByPtr(info));
-			FunctionInfo::FunctionCategory cat = info->type;
-			info->type = FunctionInfo::NORMAL;
-			info->visible = true;
-			OutputCFunctionName(fC, info);
-			info->type = cat;
-			info->visible = false;
-			fprintf(fC, "_%d_ext_%d = 0;\r\n", CodeInfo::FindFunctionByPtr(info), info->allParamSize);
-		}else if(info->type == FunctionInfo::THISCALL && info->closeUpvals){
-			fprintf(fC, "__nullcUpvalue *__upvalue_%d___context = 0;\r\n", CodeInfo::FindFunctionByPtr(info));
-		}
-		local = info->firstLocal;
-		for(; local; local = local->next)
-		{
-			if(local->usedAsExternal)
-			{
-				const char *namePrefix = *local->name.begin == '$' ? "__" : "";
-				unsigned int nameShift = *local->name.begin == '$' ? 1 : 0;
-				sprintf(name, "%s%.*s_%d", namePrefix, local->name.length() - nameShift, local->name.begin + nameShift, local->pos);
-				GetEscapedName(name);
-				if(info->name[0] == '$')
-					fprintf(fC, "static ");
-				fprintf(fC, "__nullcUpvalue *__upvalue_%d_%s = 0;\r\n", CodeInfo::FindFunctionByPtr(local->parentFunction), name);
-			}
-		}
-	}
-	for(unsigned int i = activeModules[0].funcCount; i < CodeInfo::funcInfo.size(); i++)
-	{
-		FunctionInfo *info = CodeInfo::funcInfo[i];
-		if(i < functionsInModules && (info->type == FunctionInfo::LOCAL))
-			continue;
-		if(!info->retType)
-			continue;
-		if(i < functionsInModules)
-			fprintf(fC, "extern ");
-		else if(strcmp(info->name, "$gen_list") == 0 || memcmp(info->name, "$genl", 5) == 0)
-			fprintf(fC, "static ");
-		info->retType->OutputCType(fC, "");
-
-		OutputCFunctionName(fC, info);
-		fprintf(fC, "(");
-
-		char name[NULLC_MAX_VARIABLE_NAME_LENGTH];
-		VariableInfo *param = info->firstParam;
-		for(; param; param = param->next)
-		{
-			sprintf(name, "%.*s", param->name.length(), param->name.begin);
-			param->varType->OutputCType(fC, name);
-			fprintf(fC, ", ");
-		}
-		if(info->type == FunctionInfo::THISCALL && info->parentClass)
-		{
-			info->parentClass->OutputCType(fC, "* __context");
-		}else if((info->type == FunctionInfo::LOCAL || info->type == FunctionInfo::COROUTINE)){
-			fprintf(fC, "void* __");
-			OutputCFunctionName(fC, info);
-			fprintf(fC, "_ext");
-		}else{
-			fprintf(fC, "void* unused");
-		}
-		fprintf(fC, ");\r\n");
-	}
-	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
-	{
-		VariableInfo *varInfo = CodeInfo::varInfo[i];
-		char vName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-		const char *namePrefix = varInfo->name.begin[0] == '$' ? (varInfo->name.begin[1] == '$' ? "___" : "__") : "";
-		unsigned int nameShift = varInfo->name.begin[0] == '$' ? (varInfo->name.begin[1] == '$' ? 2 : 1) : 0;
-		sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(varInfo->name.end-varInfo->name.begin)-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
-		GetEscapedName(vName);
-		if(varInfo->pos >> 24)
-			fprintf(fC, "extern ");
-		else if(*varInfo->name.begin == '$' && 0 != strcmp(varInfo->name.end-3, "ext") && 0 != memcmp(varInfo->name.begin, "$vtbl", 5))
-			fprintf(fC, "static ");
-		varInfo->varType->OutputCType(fC, vName);
-		fprintf(fC, ";\r\n");
-	}
-
-	for(unsigned int i = 0; i < CodeInfo::funcDefList.size(); i++)
-		((NodeFuncDef*)CodeInfo::funcDefList[i])->Enable();
-
-	for(unsigned int i = 0; i < CodeInfo::funcDefList.size(); i++)
-	{
-		CodeInfo::funcDefList[i]->TranslateToC(fC);
-		((NodeFuncDef*)CodeInfo::funcDefList[i])->Disable();
-	}
-
-	for(unsigned int i = 1; i < activeModules.size(); i++)
-	{
-		fprintf(fC, "extern int __init_");
-		unsigned int len = (unsigned int)strlen(activeModules[i].name);
-		for(unsigned int k = 0; k < len; k++)
-		{
-			if(activeModules[i].name[k] == '/' || activeModules[i].name[k] == '.')
-				fprintf(fC, "_");
-			else
-				fprintf(fC, "%c", activeModules[i].name[k]);
-		}
-		fprintf(fC, "();\r\n");
-	}
-	if(CodeInfo::nodeList.back())
-	{
-		fprintf(fC, "int %s()\r\n{\r\n", mainName);
-		fprintf(fC, "\tstatic int moduleInitialized = 0;\r\n\tif(moduleInitialized++)\r\n\t\treturn 0;\r\n");
-		fprintf(fC, "\t__nullcFM = __nullcGetFunctionTable();\r\n");
-		fprintf(fC, "\tint __local = 0;\r\n\t__nullcRegisterBase((void*)&__local);\r\n");
-		fprintf(fC, "\t__nullcInitBaseModule();\r\n");
-		for(unsigned int i = 1; i < activeModules.size(); i++)
-		{
-			fprintf(fC, "\t__init_");
-			unsigned int len = (unsigned int)strlen(activeModules[i].name);
-			for(unsigned int k = 0; k < len; k++)
-			{
-				if(activeModules[i].name[k] == '/' || activeModules[i].name[k] == '.')
-					fprintf(fC, "_");
-				else
-					fprintf(fC, "%c", activeModules[i].name[k]);
-			}
-			fprintf(fC, "();\r\n");
-		}
-		for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
-		{
-			TypeInfo *type = CodeInfo::typeInfo[i];
-			fprintf(fC, "\t__nullcTR[%d] = __nullcRegisterType(", i);
-			fprintf(fC, "%uu, ", type->GetFullNameHash());
-			fprintf(fC, "\"%s\", ", type->GetFullTypeName());
-			fprintf(fC, "%d, ", type->size);
-			fprintf(fC, "__nullcTR[%d], ", type->subType ? type->subType->typeIndex : 0);
-			if(type->arrLevel)
-				fprintf(fC, "%d, NULLC_ARRAY);\r\n", type->arrSize);
-			else if(type->refLevel)
-				fprintf(fC, "%d, NULLC_POINTER);\r\n", 1);
-			else if(type->funcType)
-				fprintf(fC, "%d, NULLC_FUNCTION);\r\n", type->funcType->paramCount);
-			else if(i >= 7) // 7 = { void, char, short, int, long, float, double }.length
-				fprintf(fC, "%d, NULLC_CLASS);\r\n", type->memberCount);
-			else
-				fprintf(fC, "%d, 0);\r\n", type->memberCount);
-		}
-		for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
-		{
-			TypeInfo *type = CodeInfo::typeInfo[i];
-			if(type->arrLevel)
-				continue;
-			else if(type->refLevel)
-				continue;
-			else if(type->funcType)
-				continue;
-			else if(i >= 7){ // 7 = { void, char, short, int, long, float, double }.length
-				fprintf(fC, "\t__nullcRegisterMembers(__nullcTR[%d], %d", i, type->memberCount);
-				for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
-				{
-					fprintf(fC, ", __nullcTR[%d]", curr->type->typeIndex);
-					fprintf(fC, ", %d", curr->offset);
-				}
-				fprintf(fC, ");\r\n");
-			}
-		}
-		for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
-		{
-			VariableInfo *varInfo = CodeInfo::varInfo[i];
-			if(varInfo->pos >> 24)
-				continue;
-			char vName[NULLC_MAX_VARIABLE_NAME_LENGTH];
-			const char *namePrefix = varInfo->name.begin[0] == '$' ? "__" : "";
-			unsigned int nameShift = varInfo->name.begin[0] == '$' ? 1 : 0;
-			sprintf(vName, varInfo->blockDepth > 1 ? "%s%.*s_%d" : "%s%.*s", namePrefix, int(varInfo->name.end-varInfo->name.begin)-nameShift, varInfo->name.begin+nameShift, varInfo->pos);
-			GetEscapedName(vName);
-			fprintf(fC, "\t__nullcRegisterGlobal((void*)&%s, __nullcTR[%d]);\r\n", vName, varInfo->varType->typeIndex);
-		}
-		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
-		{
-			char fName[NULLC_MAX_VARIABLE_NAME_LENGTH + 32];
-			GetCFunctionName(fName, NULLC_MAX_VARIABLE_NAME_LENGTH + 32, CodeInfo::funcInfo[i]);
-			CodeInfo::funcInfo[i]->nameInCHash = GetStringHash(fName);
-		}
-		for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
-		{
-			FunctionInfo *info = CodeInfo::funcInfo[i];
-			if(i < functionsInModules && (info->type == FunctionInfo::LOCAL || info->type == FunctionInfo::COROUTINE))
-				continue;
-			bool duplicate = false;
-			for(unsigned int l = 0; l < CodeInfo::funcInfo.size() && !duplicate; l++)
-			{
-				if(i == l)
-					continue;
-				bool functionIsPrototype = ((info->address & 0x80000000) && (info->address != -1));
-				if(info->nameInCHash == CodeInfo::funcInfo[l]->nameInCHash && !((CodeInfo::funcInfo[l]->address & 0x80000000) && (CodeInfo::funcInfo[l]->address != -1)) && !functionIsPrototype)
-					duplicate = true;
-			}
-			if(duplicate)
-			{
-				fprintf(fC, "\t__nullcFR[%d] = 0;\r\n", i);
-			}else{
-				fprintf(fC, "\t__nullcFR[%d] = __nullcRegisterFunction(\"", i);
-				OutputCFunctionName(fC, info);
-				fprintf(fC, "\", (void*)");
-				OutputCFunctionName(fC, info);
-				fprintf(fC, ", %uu, %d);\r\n", info->extraParam ? info->extraParam->varType->typeIndex : -1, (int)info->type);
-			}
-		}
-		CodeInfo::nodeList.back()->TranslateToC(fC);
-		fprintf(fC, "}\r\n");
-	}
-	fclose(fC);
-#else
-	(void)fileName;
-	(void)mainName;
-#endif
-}
-
-bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
-{
-	fInfo.bytesToPop = NULLC_PTR_SIZE;
-	for(VariableInfo *curr = refFunc.firstParam; curr; curr = curr->next)
-	{
-		unsigned int paramSize = curr->varType->size > 4 ? curr->varType->size : 4;
-		fInfo.bytesToPop += paramSize;
-	}
-
 	unsigned int rCount = 0, fCount = 0;
 	unsigned int rMaxCount = sizeof(fInfo.rOffsets) / sizeof(fInfo.rOffsets[0]);
 	unsigned int fMaxCount = sizeof(fInfo.fOffsets) / sizeof(fInfo.fOffsets[0]);
@@ -1938,49 +686,55 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 
 	fInfo.ps3Callable = 1;
 
-	for(VariableInfo *curr = refFunc.firstParam; curr; curr = curr->next)
+	for(unsigned i = 0; i < refFunc.arguments.size(); i++)
 	{
-		TypeInfo& type = *curr->varType;
+		ArgumentData &argument = refFunc.arguments[i];
 
-		TypeInfo::TypeCategory oldCategory = type.type;
-		if(type.type == TypeInfo::TYPE_COMPLEX)
+		ExternTypeInfo &type = typeArray[argument.type->typeIndex];
+
+		ExternTypeInfo::TypeCategory category = type.type;
+
+		if(category == ExternTypeInfo::TYPE_COMPLEX)
 		{
 			if(type.size <= 4)
-				type.type = TypeInfo::TYPE_INT;
+				category = ExternTypeInfo::TYPE_INT;
 			else if(type.size <= 8)
-				type.type = TypeInfo::TYPE_LONG;
+				category = ExternTypeInfo::TYPE_LONG;
 		}
+
 		if(fCount >= fMaxCount || rCount >= rMaxCount) // too many f/r parameters
 		{
 			fInfo.ps3Callable = 0;
 			break;
 		}
-		switch(type.type)
+
+		switch(category)
 		{
-		case TypeInfo::TYPE_CHAR:
-		case TypeInfo::TYPE_SHORT:
-		case TypeInfo::TYPE_INT:
-		case TypeInfo::TYPE_LONG:
-			if(type.refLevel)
+		case ExternTypeInfo::TYPE_CHAR:
+		case ExternTypeInfo::TYPE_SHORT:
+		case ExternTypeInfo::TYPE_INT:
+		case ExternTypeInfo::TYPE_LONG:
+			if(type.subCat == ExternTypeInfo::CAT_POINTER)
 				fInfo.rOffsets[rCount++] = offset | 2u << 30u;
 			else
-				fInfo.rOffsets[rCount++] = offset | (type.type == TypeInfo::TYPE_LONG ? 1u : 0u) << 30u;
-			offset += type.type == TypeInfo::TYPE_LONG ? 2 : 1;
-			break;
+				fInfo.rOffsets[rCount++] = offset | (category == ExternTypeInfo::TYPE_LONG ? 1u : 0u) << 30u;
 
-		case TypeInfo::TYPE_FLOAT:
-		case TypeInfo::TYPE_DOUBLE:
+			offset += category == ExternTypeInfo::TYPE_LONG ? 2 : 1;
+			break;
+		case ExternTypeInfo::TYPE_FLOAT:
+		case ExternTypeInfo::TYPE_DOUBLE:
 			fInfo.rOffsets[rCount++] = offset;
-			fInfo.fOffsets[fCount++] = offset | (type.type == TypeInfo::TYPE_FLOAT ? 1u : 0u) << 31u;
-			offset += type.type == TypeInfo::TYPE_DOUBLE ? 2 : 1;
-			break;
+			fInfo.fOffsets[fCount++] = offset | (category == ExternTypeInfo::TYPE_FLOAT ? 1u : 0u) << 31u;
 
+			offset += category == ExternTypeInfo::TYPE_DOUBLE ? 2 : 1;
+			break;
 		default:
 			if(rCount + type.size / 8 >= rMaxCount)
 			{
 				fInfo.ps3Callable = 0;
 				break;
 			}
+
 			for(unsigned i = 0; i < type.size / 8; i++)
 			{
 				fInfo.rOffsets[rCount++] = offset | 1u << 30u;
@@ -1988,14 +742,16 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 			}
 			break;
 		}
-		type.type = oldCategory;
 	}
-	if(refFunc.type != FunctionInfo::NORMAL)
+
+	if(refFunc.contextVariable)
 	{
 		if(fCount >= fMaxCount || rCount >= rMaxCount) // too many f/r parameters
 		{
 			fInfo.ps3Callable = 0;
-		}else{
+		}
+		else
+		{
 			fInfo.rOffsets[rCount++] = offset | 2u << 30u;
 			offset += 1;
 		}
@@ -2004,169 +760,295 @@ bool CreateExternalInfo(ExternFuncInfo &fInfo, FunctionInfo &refFunc)
 	// clear remaining offsets
 	for(unsigned int i = rCount; i < rMaxCount; ++i)
 		fInfo.rOffsets[i] = 0;
+
 	for(unsigned int i = fCount; i < fMaxCount; ++i)
 		fInfo.fOffsets[i] = 0;
 
 	return true;
 }
 
-unsigned int Compiler::GetBytecode(char **bytecode)
+unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 {
 	// find out the size of generated bytecode
-	unsigned int size = sizeof(ByteCode);
+	unsigned size = sizeof(ByteCode);
 
-	size += CodeInfo::typeInfo.size() * sizeof(ExternTypeInfo);
+	size += ctx.exprCtx.types.size() * sizeof(ExternTypeInfo);
 
 	unsigned symbolStorageSize = 0;
 	unsigned allMemberCount = 0, allConstantCount = 0;
 	unsigned typedefCount = 0;
-	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
-	{
-		TypeInfo *type = CodeInfo::typeInfo[i];
-		AliasInfo *typeAlias = type->childAlias;
-		while(typeAlias)
-		{
-			typedefCount++;
-			symbolStorageSize += typeAlias->name.length() + 1;
-			typeAlias = typeAlias->next;
-		}
 
-		symbolStorageSize += type->GetFullNameLength() + 1;
-		if((type->type == TypeInfo::TYPE_COMPLEX || type->firstVariable) && type->subType == NULL && type->funcType == NULL)
+	for(unsigned i = 0; i < ctx.exprCtx.types.size(); i++)
+	{
+		TypeBase *type = ctx.exprCtx.types[i];
+
+		type->typeIndex = i;
+
+		symbolStorageSize += type->name.length() + 1;
+
+		if(isType<TypeUnsizedArray>(type))
+			continue;
+
+		else if(TypeClass *typeClass = getType<TypeClass>(type))
 		{
-			for(TypeInfo::MemberVariable *curr = type->firstVariable; curr; curr = curr->next)
+			for(MatchData *curr = typeClass->generics.head; curr; curr = curr->next)
 			{
-				symbolStorageSize += (unsigned int)strlen(curr->name) + 1;
-				if(curr->type->hasPointers)
-					allMemberCount += 2;
-				if(curr->defaultValue)
-					allConstantCount++;
+				typedefCount++;
+
+				symbolStorageSize += curr->name->name.length() + 1;
+			}
+
+			for(MatchData *curr = typeClass->aliases.head; curr; curr = curr->next)
+			{
+				typedefCount++;
+
+				symbolStorageSize += curr->name->name.length() + 1;
+			}
+
+			for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
+			{
+				if(curr->variable->type->hasPointers)
+					allMemberCount++;
+
+				if(*curr->variable->name->name.begin == '$')
+					continue;
+
+				allMemberCount++;
+
+				symbolStorageSize += curr->variable->name->name.length() + 1;
+			}
+
+			for(ConstantData *curr = typeClass->constants.head; curr; curr = curr->next)
+			{
+				allConstantCount++;
+
+				symbolStorageSize += curr->name->name.length() + 1;
 			}
 		}
-		allMemberCount += type->funcType ? type->funcType->paramCount + 1 : type->memberCount;
+		else if(TypeStruct *typeStruct = getType<TypeStruct>(type))
+		{
+			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			{
+				if(curr->variable->type->hasPointers)
+					allMemberCount++;
+
+				if(*curr->variable->name->name.begin == '$')
+					continue;
+
+				allMemberCount++;
+
+				symbolStorageSize += curr->variable->name->name.length() + 1;
+			}
+
+			for(ConstantData *curr = typeStruct->constants.head; curr; curr = curr->next)
+			{
+				allConstantCount++;
+
+				symbolStorageSize += curr->name->name.length() + 1;
+			}
+		}
+		else if(TypeFunction *typeFunction = getType<TypeFunction>(type))
+		{
+			allMemberCount += typeFunction->arguments.size() + 1;
+		}
+		else if(TypeGenericClass *typeGenericClass = getType<TypeGenericClass>(type))
+		{
+			for(TypeHandle *curr = typeGenericClass->generics.head; curr; curr = curr->next)
+			{
+				typedefCount++;
+
+				symbolStorageSize += 1;
+			}
+		}
 	}
+
 	size += allMemberCount * sizeof(ExternMemberInfo);
 
-	unsigned int offsetToConstants = size;
+	unsigned offsetToConstants = size;
 	size += allConstantCount * sizeof(ExternConstantInfo);
 
-	unsigned int functionsInModules = 0;
-	unsigned int offsetToModule = size;
-	size += activeModules.size() * sizeof(ExternModuleInfo);
-	for(unsigned int i = 0; i < activeModules.size(); i++)
+	unsigned offsetToModule = size;
+	size += ctx.exprCtx.imports.size() * sizeof(ExternModuleInfo);
+
+	for(unsigned i = 0; i < ctx.exprCtx.imports.size(); i++)
 	{
-		functionsInModules += activeModules[i].funcCount;
-		symbolStorageSize += (unsigned int)strlen(activeModules[i].name) + 1;
+		ModuleData *module = ctx.exprCtx.imports[i];
+
+		symbolStorageSize += module->name.length() + 1;
 	}
 
-	unsigned int offsetToVar = size;
-	unsigned int globalVarCount = 0, exportVarCount = 0;
-	unsigned int externVariableInfoCount = 0;
-	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
-	{
-		VariableInfo *curr = CodeInfo::varInfo[i];
+	unsigned offsetToVar = size;
+	unsigned globalVarCount = 0, exportVarCount = 0;
+	unsigned externVariableInfoCount = 0;
 
-		if(curr->pos >> 24)
+	for(unsigned i = 0; i < ctx.exprCtx.variables.size(); i++)
+	{
+		VariableData *variable = ctx.exprCtx.variables[i];
+
+		if(variable->importModule != NULL)
+			continue;
+
+		if(!ctx.exprCtx.GlobalScopeFrom(variable->scope))
 			continue;
 
 		externVariableInfoCount++;
 
 		globalVarCount++;
-		if(i < realGlobalCount)
+
+		if(variable->scope == ctx.exprCtx.globalScope || variable->scope->ownerNamespace)
 			exportVarCount++;
 
-		symbolStorageSize += curr->name.length() + 1;
+		symbolStorageSize += variable->name->name.length() + 1;
 	}
-	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+
+	for(unsigned i = 0; i < ctx.exprCtx.functions.size(); i++)
 	{
-		if(i < functionsInModules)
+		FunctionData *function = ctx.exprCtx.functions[i];
+
+		if(function->importModule != NULL)
 			continue;
 
-		FunctionInfo *func = CodeInfo::funcInfo[i];
-
-		AliasInfo *explicitType = func->explicitTypes;
-		while(explicitType)
+		for(MatchData *curr = function->generics.head; curr; curr = curr->next)
 		{
 			externVariableInfoCount++;
 
-			symbolStorageSize += explicitType->name.length() + 1;
-
-			explicitType = explicitType->next;
+			symbolStorageSize += curr->name->name.length() + 1;
 		}
 	}
+
 	size += externVariableInfoCount * sizeof(ExternVarInfo);
 
-	unsigned int offsetToFunc = size;
+	unsigned offsetToFunc = size;
 
-	unsigned int clsListCount = 0;
-	unsigned int localCount = 0;
-	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+	unsigned localCount = 0;
+
+	unsigned exportedFunctionCount = 0;
+
+	for(unsigned i = 0; i < ctx.exprCtx.functions.size(); i++)
 	{
-		if(functionsInModules && i < functionsInModules)
-			continue;
-		
-		FunctionInfo	*func = CodeInfo::funcInfo[i];
-		symbolStorageSize += func->nameLength + 1;
+		FunctionData *function = ctx.exprCtx.functions[i];
 
-		if(func->closeUpvals)
+		if(function->importModule != NULL)
+			continue;
+
+		exportedFunctionCount++;
+
+		symbolStorageSize += function->name->name.length() + 1;
+
+		localCount += function->arguments.size();
+
+		for(unsigned i = 0; i < function->arguments.size(); i++)
 		{
-			clsListCount += func->maxBlockDepth;
-			assert(func->maxBlockDepth > 0);
+			ArgumentData argument = function->arguments[i];
+
+			symbolStorageSize += argument.name->name.length() + 1;
 		}
 
-		localCount += (unsigned int)func->paramCount;
-		for(VariableInfo *curr = func->firstParam; curr; curr = curr->next)
-			symbolStorageSize += curr->name.length() + 1;
+		if(VariableData *variable = function->contextArgument)
+		{
+			localCount++;
 
-		localCount += (unsigned int)func->localCount;
-		for(VariableInfo *curr = func->firstLocal; curr; curr = curr->next)
-			symbolStorageSize += curr->name.length() + 1;
+			symbolStorageSize += variable->name->name.length() + 1;
+		}
 
-		localCount += (unsigned int)func->externalCount;
-		for(FunctionInfo::ExternalInfo *curr = func->firstExternal; curr; curr = curr->next)
-			symbolStorageSize += curr->variable->name.length() + 1;
+		if (!ctx.exprCtx.IsGenericFunction(function))
+		{
+			for(unsigned i = 0; i < function->functionScope->allVariables.size(); i++)
+			{
+				VariableData *variable = function->functionScope->allVariables[i];
+
+				VariableHandle *argumentVariable = NULL;
+
+				for(VariableHandle *curr = function->argumentVariables.head; curr; curr = curr->next)
+				{
+					if(curr->variable == variable)
+					{
+						argumentVariable = curr;
+						break;
+					}
+				}
+
+				if(argumentVariable || variable == function->contextArgument)
+					continue;
+
+				if(variable->isAlloca && variable->users.empty())
+					continue;
+
+				if(variable->lookupOnly)
+					continue;
+
+				localCount++;
+
+				symbolStorageSize += variable->name->name.length() + 1;
+			}
+		}
+
+		localCount += function->upvalues.size();
+
+		for(unsigned i = 0; i < function->upvalues.size(); i++)
+		{
+			UpvalueData *upvalue = function->upvalues[i];
+
+			symbolStorageSize += upvalue->variable->name->name.length() + 1;
+		}
 	}
-	size += (CodeInfo::funcInfo.size() - functionsInModules) * sizeof(ExternFuncInfo);
 
-	unsigned int offsetToFirstLocal = size;
+	size += exportedFunctionCount * sizeof(ExternFuncInfo);
+
+	unsigned offsetToFirstLocal = size;
 
 	size += localCount * sizeof(ExternLocalInfo);
 
-	size += clsListCount * sizeof(unsigned int);
-
-	AliasInfo *aliasInfo = CodeInfo::globalAliases;
-	while(aliasInfo)
+	for(unsigned i = 0; i < ctx.exprCtx.globalScope->aliases.size(); i++)
 	{
+		AliasData *alias = ctx.exprCtx.globalScope->aliases[i];
+
 		typedefCount++;
-		symbolStorageSize += aliasInfo->name.length() + 1;
-		aliasInfo = aliasInfo->next;
+
+		symbolStorageSize += alias->name->name.length() + 1;
 	}
+
 	unsigned offsetToTypedef = size;
 	size += typedefCount * sizeof(ExternTypedefInfo);
 
-	for(unsigned i = 0; i < CodeInfo::namespaceInfo.size(); i++)
-		symbolStorageSize += CodeInfo::namespaceInfo[i]->name.length() + 1;
+	for(unsigned i = 0; i < ctx.exprCtx.namespaces.size(); i++)
+	{
+		NamespaceData *nameSpace = ctx.exprCtx.namespaces[i];
+
+		symbolStorageSize += nameSpace->name.name.length() + 1;
+	}
+
 	unsigned offsetToNamespace = size;
-	size += CodeInfo::namespaceInfo.size() * sizeof(ExternNamespaceInfo);
+	size += ctx.exprCtx.namespaces.size() * sizeof(ExternNamespaceInfo);
 
-	unsigned int offsetToCode = size;
-	size += CodeInfo::cmdList.size() * sizeof(VMCmd);
+	unsigned offsetToCode = size;
+	size += ctx.instFinalizeCtx.cmds.size() * sizeof(VMCmd);
 
-	unsigned int offsetToInfo = size;
-	size += sizeof(unsigned int) * 2 * CodeInfo::cmdInfoList.sourceInfo.size();
+	unsigned sourceLength = (unsigned)strlen(ctx.code) + 1;
 
-	unsigned int offsetToSymbols = size;
+	unsigned infoCount = 0;
+
+	for(unsigned i = 0; i < ctx.instFinalizeCtx.locations.size(); i++)
+	{
+		SynBase *location = ctx.instFinalizeCtx.locations[i];
+
+		if(location && !location->isInternal)
+			infoCount++;
+	}
+
+	unsigned offsetToInfo = size;
+	size += sizeof(ExternSourceInfo) * infoCount;
+
+	unsigned offsetToSymbols = size;
 	size += symbolStorageSize;
 
-	unsigned int sourceLength = (unsigned int)strlen(CodeInfo::cmdInfoList.sourceStart) + 1;
-	unsigned int offsetToSource = size;
+	unsigned offsetToSource = size;
 	size += sourceLength;
 
 #ifdef NULLC_LLVM_SUPPORT
-	unsigned int offsetToLLVM = size;
-	size += llvmSize;
+	// TODO: llvm support
 #endif
-	
+
 #ifdef VERBOSE_DEBUG_OUTPUT
 	printf("Statistics. Overall: %d bytes\r\n", size);
 	printf("Types: %db, ", offsetToModule - sizeof(ByteCode));
@@ -2178,20 +1060,20 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	printf("Code info: %db, ", offsetToSymbols - offsetToInfo);
 	printf("Symbols: %db, ", offsetToSource - offsetToSymbols);
 	printf("Source: %db\r\n\r\n", size - offsetToSource);
-	printf("%d closure lists\r\n", clsListCount);
 #endif
+
 	*bytecode = new char[size];
 	memset(*bytecode, 0, size);
 
-	ByteCode	*code = (ByteCode*)(*bytecode);
+	ByteCode *code = (ByteCode*)(*bytecode);
 	code->size = size;
 
-	code->typeCount = (unsigned int)CodeInfo::typeInfo.size();
+	code->typeCount = (unsigned)ctx.exprCtx.types.size();
 
-	code->dependsCount = activeModules.size();
+	code->dependsCount = ctx.exprCtx.imports.size();
 	code->offsetToFirstModule = offsetToModule;
 
-	code->globalVarSize = GetGlobalSize();
+	code->globalVarSize = (unsigned)ctx.exprCtx.globalScope->dataSize;
 	// Make sure modules that are linked together will not break global variable alignment
 	code->globalVarSize = (code->globalVarSize + 0xf) & ~0xf;
 
@@ -2199,16 +1081,16 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 	code->variableExportCount = exportVarCount;
 	code->offsetToFirstVar = offsetToVar;
 
-	code->functionCount = (unsigned int)CodeInfo::funcInfo.size();
-	code->moduleFunctionCount = functionsInModules;
+	code->functionCount = ctx.exprCtx.functions.size();
+	code->moduleFunctionCount = ctx.exprCtx.functions.size() - exportedFunctionCount;
 	code->offsetToFirstFunc = offsetToFunc;
 
 	code->localCount = localCount;
 	code->offsetToLocals = offsetToFirstLocal;
 
-	code->closureListCount = clsListCount;
+	code->closureListCount = 0;
 
-	code->codeSize = CodeInfo::cmdList.size();
+	code->codeSize = ctx.instFinalizeCtx.cmds.size();
 	code->offsetToCode = offsetToCode;
 
 	code->symbolLength = symbolStorageSize;
@@ -2216,346 +1098,734 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	code->offsetToConstants = offsetToConstants;
 
-	code->namespaceCount = CodeInfo::namespaceInfo.size();
+	code->namespaceCount = ctx.exprCtx.namespaces.size();
 	code->offsetToNamespaces = offsetToNamespace;
 
-	char *debugSymbols = FindSymbols(code);
-	char *symbolPos = debugSymbols;
+	VectorView<char> debugSymbols(FindSymbols(code), symbolStorageSize);
 
-	ExternTypeInfo *tInfo = FindFirstType(code);
-	ExternMemberInfo *memberList = FindFirstMember(code);
-	ExternConstantInfo *constantList = FindFirstConstant(code);
+	VectorView<ExternTypeInfo> tInfo(FindFirstType(code), code->typeCount);
+	VectorView<ExternMemberInfo> memberList(FindFirstMember(code), allMemberCount);
+	VectorView<ExternConstantInfo> constantList(FindFirstConstant(code), allConstantCount);
 
-	unsigned int memberOffset = 0;
-	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+	for(unsigned i = 0; i < ctx.exprCtx.types.size(); i++)
 	{
-		ExternTypeInfo &typeInfo = *tInfo;
-		TypeInfo &refType = *CodeInfo::typeInfo[i];
+		TypeBase *type = ctx.exprCtx.types[i];
 
-		typeInfo.offsetToName = int(symbolPos - debugSymbols);
-		memcpy(symbolPos, refType.GetFullTypeName(), refType.GetFullNameLength() + 1);
-		symbolPos += refType.GetFullNameLength() + 1;
+		ExternTypeInfo &target = tInfo.push_back();
 
-		typeInfo.size = refType.size;
-		typeInfo.padding = refType.paddingBytes;
-		typeInfo.type = (ExternTypeInfo::TypeCategory)refType.type;
-		typeInfo.nameHash = refType.GetFullNameHash();
-		typeInfo.namespaceHash = refType.parentNamespace ? refType.parentNamespace->hash : ~0u;
+		target.offsetToName = debugSymbols.count;
+		debugSymbols.push_back(type->name.begin, type->name.length());
+		debugSymbols.push_back(0);
 
-		typeInfo.defaultAlign = (unsigned char)refType.alignBytes;
-		typeInfo.typeFlags = refType.hasFinalizer ? ExternTypeInfo::TYPE_HAS_FINALIZER : 0;
-		typeInfo.typeFlags |= refType.dependsOnGeneric ? ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC : 0;
-		typeInfo.typeFlags |= (refType.firstVariable && refType.firstVariable->nameHash == GetStringHash("$typeid")) ? ExternTypeInfo::TYPE_IS_EXTENDABLE : 0;
+		target.nameHash = type->nameHash;
 
-		typeInfo.constantCount = 0;
+		target.size = (unsigned)type->size;
+		target.defaultAlign = (unsigned char)type->alignment;
+		target.padding = type->padding;
 
-		typeInfo.pointerCount = refType.hasPointers;
-		if(refType.funcType != 0)						// Function type
+		target.constantCount = 0;
+
+		target.memberCount = 0;
+		target.memberOffset = 0;
+
+		target.pointerCount = type->hasPointers ? 1 : 0;
+
+		if(ModuleData *moduleData = type->importModule)
+			target.definitionModule = moduleData->dependencyIndex;
+		else
+			target.definitionModule = 0;
+
+		target.definitionLocationStart = 0;
+		target.definitionLocationEnd = 0;
+		target.definitionLocationName = 0;
+
+		Lexeme *sourceStreamStart = type->importModule ? type->importModule->lexStream : ctx.parseCtx.lexer.GetStreamStart();
+		unsigned sourceStreamSize = type->importModule ? type->importModule->lexStreamSize : ctx.parseCtx.lexer.GetStreamSize();
+
+		if(TypeClass *typeClass = getType<TypeClass>(type))
 		{
-			typeInfo.subCat = ExternTypeInfo::CAT_FUNCTION;
-			typeInfo.memberCount = refType.funcType->paramCount;
-			typeInfo.memberOffset = memberOffset;
-
-			memberList[memberOffset].type = refType.funcType->retType->typeIndex;
-			memberList[memberOffset].offset = 0;
-			memberOffset++;
-
-			for(unsigned int k = 0; k < refType.funcType->paramCount; k++)
+			if(typeClass->source->begin >= sourceStreamStart && typeClass->source->begin < sourceStreamStart + sourceStreamSize)
 			{
-				memberList[memberOffset].type = refType.funcType->paramType[k]->typeIndex;
-				memberList[memberOffset].offset = 0;
-				memberOffset++;
+				target.definitionLocationStart = unsigned(typeClass->source->begin - sourceStreamStart);
+				target.definitionLocationEnd = unsigned(typeClass->source->end - sourceStreamStart);
+
+				if(typeClass->identifier.begin)
+					target.definitionLocationName = unsigned(typeClass->identifier.begin - sourceStreamStart);
 			}
-		}else if(refType.arrLevel != 0){				// Array type
-			typeInfo.subCat = ExternTypeInfo::CAT_ARRAY;
-			typeInfo.arrSize = refType.arrSize;
-			typeInfo.subType = refType.subType->typeIndex;
-		}else if(refType.refLevel != 0){				// Pointer type
-			typeInfo.subCat = ExternTypeInfo::CAT_POINTER;
-			typeInfo.subType = refType.subType->typeIndex;
-			typeInfo.memberCount = 0;
-		}else if(refType.type == TypeInfo::TYPE_COMPLEX || refType.firstVariable){	// Complex type
-			typeInfo.subCat = ExternTypeInfo::CAT_CLASS;
-			typeInfo.memberCount = refType.memberCount;
-			typeInfo.memberOffset = memberOffset;
-			// Export type members
-			for(TypeInfo::MemberVariable *curr = refType.firstVariable; curr; curr = curr->next)
+		}
+		else if(TypeEnum *typeEnum = getType<TypeEnum>(type))
+		{
+			if(typeEnum->source->begin >= sourceStreamStart && typeEnum->source->begin < sourceStreamStart + sourceStreamSize)
 			{
-				if(curr->defaultValue)
-					continue;
+				target.definitionLocationStart = unsigned(typeEnum->source->begin - sourceStreamStart);
+				target.definitionLocationEnd = unsigned(typeEnum->source->end - sourceStreamStart);
 
-				memberList[memberOffset].type = curr->type->typeIndex;
-				memberList[memberOffset].offset = curr->offset;
-				memberOffset++;
+				if(typeEnum->identifier.begin)
+					target.definitionLocationName = unsigned(typeEnum->identifier.begin - sourceStreamStart);
+			}
+		}
+		else if(TypeGenericClassProto *typeGenericClassProto = getType<TypeGenericClassProto>(type))
+		{
+			if(typeGenericClassProto->source->begin >= sourceStreamStart && typeGenericClassProto->source->begin < sourceStreamStart + sourceStreamSize)
+			{
+				target.definitionLocationStart = unsigned(typeGenericClassProto->source->begin - sourceStreamStart);
+				target.definitionLocationEnd = unsigned(typeGenericClassProto->source->end - sourceStreamStart);
 
-				memcpy(symbolPos, curr->name, strlen(curr->name) + 1);
-				symbolPos += strlen(curr->name) + 1;
+				if(typeGenericClassProto->identifier.begin)
+					target.definitionLocationName = unsigned(typeGenericClassProto->identifier.begin - sourceStreamStart);
 			}
-			// Export type constants
-			for(TypeInfo::MemberVariable *curr = refType.firstVariable; curr; curr = curr->next)
+		}
+
+		target.definitionOffsetStart = ~0u;
+		target.definitionOffset = ~0u;
+		target.genericTypeCount = 0;
+
+		target.typeFlags = 0;
+
+		if(type->isGeneric)
+			target.typeFlags |= ExternTypeInfo::TYPE_DEPENDS_ON_GENERIC;
+
+		target.namespaceHash = ~0u;
+
+		if(TypeFunction *typeFunction = getType<TypeFunction>(type))
+		{
+			target.type = ExternTypeInfo::TYPE_COMPLEX;
+
+			target.subCat = ExternTypeInfo::CAT_FUNCTION;
+			target.memberCount = typeFunction->arguments.size();
+			target.memberOffset = memberList.count;
+
+			ExternMemberInfo &member = memberList.push_back();
+
+			member.type = typeFunction->returnType->typeIndex;
+			member.offset = 0;
+
+			for(TypeHandle *curr = typeFunction->arguments.head; curr; curr = curr->next)
 			{
-				if(!curr->defaultValue)
-					continue;
-				typeInfo.constantCount++;
-				assert(curr->defaultValue->nodeType == typeNodeNumber);
-				constantList->type = curr->defaultValue->typeInfo->typeIndex;
-				constantList->value = ((NodeNumber*)curr->defaultValue)->num.integer64;
-				constantList++;
-				memcpy(symbolPos, curr->name, strlen(curr->name) + 1);
-				symbolPos += strlen(curr->name) + 1;
+				ExternMemberInfo &member = memberList.push_back();
+
+				member.type = curr->type->typeIndex;
+				member.offset = 0;
 			}
-			// Export type pointer members for GC
-			typeInfo.pointerCount = 0;
-			for(TypeInfo::MemberVariable *curr = refType.firstVariable; curr; curr = curr->next)
+		}
+		else if(TypeArray *typeArray = getType<TypeArray>(type))
+		{
+			target.type = ExternTypeInfo::TYPE_COMPLEX;
+
+			target.subCat = ExternTypeInfo::CAT_ARRAY;
+			target.arrSize = (unsigned)typeArray->length;
+			target.subType = typeArray->subType->typeIndex;
+		}
+		else if(TypeUnsizedArray *typeUnsizedArray = getType<TypeUnsizedArray>(type))
+		{
+			target.type = ExternTypeInfo::TYPE_COMPLEX;
+
+			target.subCat = ExternTypeInfo::CAT_ARRAY;
+			target.arrSize = ~0u;
+			target.subType = typeUnsizedArray->subType->typeIndex;
+		}
+		else if(TypeRef *typeRef = getType<TypeRef>(type))
+		{
+			target.type = sizeof(void*) == 4 ? ExternTypeInfo::TYPE_INT : ExternTypeInfo::TYPE_LONG;
+
+			target.subCat = ExternTypeInfo::CAT_POINTER;
+			target.subType = typeRef->subType->typeIndex;
+		}
+		else if(TypeStruct *typeStruct = getType<TypeStruct>(type))
+		{
+			target.type = ExternTypeInfo::TYPE_COMPLEX;
+
+			if(TypeEnum *typeEnum = getType<TypeEnum>(type))
 			{
-				if(curr->type->hasPointers)
+				target.type = ExternTypeInfo::TYPE_INT;
+
+				if(ScopeData *scope = ctx.exprCtx.NamespaceScopeFrom(typeEnum->scope))
+					target.namespaceHash = scope->ownerNamespace->fullNameHash;
+			}
+			else if(TypeClass *typeClass = getType<TypeClass>(type))
+			{
+				if(ScopeData *scope = ctx.exprCtx.NamespaceScopeFrom(typeClass->scope))
+					target.namespaceHash = scope->ownerNamespace->fullNameHash;
+
+				if(typeClass->extendable)
+					target.typeFlags |= ExternTypeInfo::TYPE_IS_EXTENDABLE;
+
+				if(typeClass->hasFinalizer)
+					target.typeFlags |= ExternTypeInfo::TYPE_HAS_FINALIZER;
+
+				if(typeClass->isInternal)
+					target.typeFlags |= ExternTypeInfo::TYPE_INTERNAL;
+
+				if(typeClass->baseClass)
+					target.baseType = typeClass->baseClass->typeIndex;
+
+				if(!typeClass->generics.empty())
 				{
-					typeInfo.pointerCount++;
-					memberList[memberOffset].type = curr->type->typeIndex;
-					memberList[memberOffset].offset = curr->offset;
-					memberOffset++;
+					target.definitionOffset = 0x80000000 | typeClass->proto->typeIndex;
+
+					target.genericTypeCount = typeClass->generics.size();
 				}
 			}
-		}else{
-			typeInfo.subCat = ExternTypeInfo::CAT_NONE;
-			typeInfo.subType = 0;
-			typeInfo.memberCount = 0;
+
+			target.subCat = ExternTypeInfo::CAT_CLASS;
+
+			target.memberCount = 0;
+			target.memberOffset = memberList.count;
+
+			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			{
+				if(*curr->variable->name->name.begin == '$')
+					continue;
+
+				target.memberCount++;
+
+				ExternMemberInfo &member = memberList.push_back();
+
+				member.type = curr->variable->type->typeIndex;
+				member.offset = curr->variable->offset;
+
+				debugSymbols.push_back(curr->variable->name->name.begin, curr->variable->name->name.length());
+				debugSymbols.push_back(0);
+			}
+
+			for(ConstantData *curr = typeStruct->constants.head; curr; curr = curr->next)
+			{
+				target.constantCount++;
+
+				ExternConstantInfo &constant = constantList.push_back();
+
+				constant.type = curr->value->type->typeIndex;
+
+				if(ExprBoolLiteral *node = getType<ExprBoolLiteral>(curr->value))
+				{
+					constant.value = node->value;
+				}
+				else if(ExprIntegerLiteral *node = getType<ExprIntegerLiteral>(curr->value))
+				{
+					constant.value = node->value;
+				}
+				else if(ExprRationalLiteral *node = getType<ExprRationalLiteral>(curr->value))
+				{
+					memcpy(&constant.value, &node->value, sizeof(node->value));
+				}
+
+				debugSymbols.push_back(curr->name->name.begin, curr->name->name.length());
+				debugSymbols.push_back(0);
+			}
+
+			// Export type pointer members for GC
+			target.pointerCount = 0;
+
+			for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+			{
+				if(curr->variable->type->hasPointers)
+				{
+					target.pointerCount++;
+
+					ExternMemberInfo &member = memberList.push_back();
+
+					member.type = curr->variable->type->typeIndex;
+					member.offset = curr->variable->offset;
+				}
+			}
 		}
-		typeInfo.definitionOffset = refType.genericInfo ? refType.genericInfo->start - int(CodeInfo::lexFullStart - CodeInfo::lexStart) : ~0u;
-		if(refType.genericBase)
-			typeInfo.definitionOffset = 0x80000000 | refType.genericBase->typeIndex;
+		else if(TypeGenericClassProto *typeGenericClassProto = getType<TypeGenericClassProto>(type))
+		{
+			if(ScopeData *scope = ctx.exprCtx.NamespaceScopeFrom(typeGenericClassProto->scope))
+				target.namespaceHash = scope->ownerNamespace->fullNameHash;
 
-		typeInfo.genericTypeCount = refType.genericInfo ? refType.genericInfo->aliasCount : 0;
+			target.type = ExternTypeInfo::TYPE_COMPLEX;
 
-		typeInfo.baseType = refType.parentType ? refType.parentType->typeIndex : 0;
+			target.subCat = ExternTypeInfo::CAT_CLASS;
 
-		// Fill up next
-		tInfo++;
+			if(ModuleData *moduleData = typeGenericClassProto->importModule)
+			{
+				target.definitionOffsetStart = unsigned(typeGenericClassProto->definition->begin - moduleData->lexStream);
+				assert(target.definitionOffsetStart < moduleData->lexStreamSize);
+			}
+			else
+			{
+				target.definitionOffsetStart = unsigned(typeGenericClassProto->definition->begin - ctx.parseCtx.lexer.GetStreamStart());
+				assert(target.definitionOffsetStart < ctx.parseCtx.lexer.GetStreamSize());
+			}
+
+			target.definitionOffset = ~0u;
+		}
+		else if(TypeGenericClass *typeGenericClass = getType<TypeGenericClass>(type))
+		{
+			target.type = ExternTypeInfo::TYPE_COMPLEX;
+
+			target.subCat = ExternTypeInfo::CAT_CLASS;
+
+			target.definitionOffset = 0x80000000 | typeGenericClass->proto->typeIndex;
+
+			target.genericTypeCount = typeGenericClass->generics.size();
+		}
+		else if(isType<TypeVoid>(type))
+		{
+			target.type = ExternTypeInfo::TYPE_VOID;
+
+			target.subCat = ExternTypeInfo::CAT_NONE;
+		}
+		else if(isType<TypeBool>(type))
+		{
+			target.type = ExternTypeInfo::TYPE_CHAR;
+
+			target.subCat = ExternTypeInfo::CAT_NONE;
+		}
+		else if(isType<TypeChar>(type))
+		{
+			target.type = ExternTypeInfo::TYPE_CHAR;
+
+			target.subCat = ExternTypeInfo::CAT_NONE;
+		}
+		else if(isType<TypeShort>(type))
+		{
+			target.type = ExternTypeInfo::TYPE_SHORT;
+
+			target.subCat = ExternTypeInfo::CAT_NONE;
+		}
+		else if(isType<TypeInt>(type))
+		{
+			target.type = ExternTypeInfo::TYPE_INT;
+
+			target.subCat = ExternTypeInfo::CAT_NONE;
+		}
+		else if(isType<TypeLong>(type))
+		{
+			target.type = ExternTypeInfo::TYPE_LONG;
+
+			target.subCat = ExternTypeInfo::CAT_NONE;
+		}
+		else if(isType<TypeFloat>(type))
+		{
+			target.type = ExternTypeInfo::TYPE_FLOAT;
+
+			target.subCat = ExternTypeInfo::CAT_NONE;
+		}
+		else if(isType<TypeDouble>(type))
+		{
+			target.type = ExternTypeInfo::TYPE_DOUBLE;
+
+			target.subCat = ExternTypeInfo::CAT_NONE;
+		}
+		else
+		{
+			target.subCat = ExternTypeInfo::CAT_NONE;
+		}
 	}
 
-	ExternModuleInfo *mInfo = FindFirstModule(code);
-	for(unsigned int i = 0; i < activeModules.size(); i++)
+	VectorView<ExternModuleInfo> mInfo(FindFirstModule(code), ctx.exprCtx.imports.size());
+
+	for(unsigned i = 0; i < ctx.exprCtx.imports.size(); i++)
 	{
-		mInfo->nameOffset = int(symbolPos - debugSymbols);
-		memcpy(symbolPos, activeModules[i].name, strlen(activeModules[i].name) + 1);
-		symbolPos += strlen(activeModules[i].name) + 1;
+		ModuleData *moduleData = ctx.exprCtx.imports[i];
 
-		mInfo->funcStart = activeModules[i].funcStart;
-		mInfo->funcCount = activeModules[i].funcCount;
+		ExternModuleInfo &moduleInfo = mInfo.push_back();
 
-		mInfo->variableOffset = 0;
-		mInfo->nameHash = ~0u;
+		moduleInfo.nameOffset = debugSymbols.count;
+		debugSymbols.push_back(moduleData->name.begin, moduleData->name.length());
+		debugSymbols.push_back(0);
 
-		mInfo++;
+		moduleInfo.funcStart = moduleData->startingFunctionIndex;
+		moduleInfo.funcCount = moduleData->functionCount;
+
+		moduleInfo.variableOffset = 0;
+		moduleInfo.nameHash = ~0u;
 	}
 
-	unsigned int actualExternVariableInfoCount = 0;
+	VectorView<ExternVarInfo> vInfo(FindFirstVar(code), externVariableInfoCount);
 
-	ExternVarInfo *vInfo = FindFirstVar(code);
-
-	for(unsigned int i = 0; i < CodeInfo::varInfo.size(); i++)
+	// Handle visible global variables first
+	for(unsigned i = 0; i < ctx.exprCtx.variables.size(); i++)
 	{
-		ExternVarInfo &varInfo = *vInfo;
-		VariableInfo *refVar = CodeInfo::varInfo[i];
+		VariableData *variable = ctx.exprCtx.variables[i];
 
-		if(refVar->pos >> 24)
+		if(variable->importModule != NULL)
 			continue;
 
-		actualExternVariableInfoCount++;
+		if(!ctx.exprCtx.GlobalScopeFrom(variable->scope))
+			continue;
 
-		varInfo.offsetToName = int(symbolPos - debugSymbols);
-		memcpy(symbolPos, refVar->name.begin, refVar->name.length() + 1);
-		symbolPos += refVar->name.length();
-		*symbolPos++ = 0;
+		if(variable->scope != ctx.exprCtx.globalScope && !variable->scope->ownerNamespace)
+			continue;
 
-		varInfo.nameHash = GetStringHash(refVar->name.begin, refVar->name.end);
+		ExternVarInfo &varInfo = vInfo.push_back();
 
-		varInfo.type = refVar->varType->typeIndex;
-		varInfo.offset = refVar->pos;
+		varInfo.offsetToName = debugSymbols.count;
+		debugSymbols.push_back(variable->name->name.begin, variable->name->name.length());
+		debugSymbols.push_back(0);
 
-		// Fill up next
-		vInfo++;
+		varInfo.nameHash = variable->nameHash;
+
+		varInfo.type = variable->type->typeIndex;
+		varInfo.offset = variable->offset;
 	}
 
-	unsigned int localOffset = 0;
-	unsigned int offsetToGlobal = 0;
-	ExternFuncInfo *fInfo = FindFirstFunc(code);
-	ExternLocalInfo *localInfo = FindFirstLocal(code);
-
-	clsListCount = 0;
-	for(unsigned int i = 0; i < CodeInfo::funcInfo.size(); i++)
+	for(unsigned i = 0; i < ctx.exprCtx.variables.size(); i++)
 	{
-		if(functionsInModules && i < functionsInModules)
+		VariableData *variable = ctx.exprCtx.variables[i];
+
+		if(variable->importModule != NULL)
 			continue;
-		ExternFuncInfo &funcInfo = *fInfo;
-		FunctionInfo *refFunc = CodeInfo::funcInfo[i];
 
-		if(refFunc->codeSize == 0 && refFunc->address != -1 && (refFunc->address & 0x80000000))
+		if(!ctx.exprCtx.GlobalScopeFrom(variable->scope))
+			continue;
+
+		if(variable->scope == ctx.exprCtx.globalScope || variable->scope->ownerNamespace)
+			continue;
+
+		ExternVarInfo &varInfo = vInfo.push_back();
+
+		varInfo.offsetToName = debugSymbols.count;
+		debugSymbols.push_back(variable->name->name.begin, variable->name->name.length());
+		debugSymbols.push_back(0);
+
+		varInfo.nameHash = variable->nameHash;
+
+		varInfo.type = variable->type->typeIndex;
+		varInfo.offset = variable->offset;
+	}
+
+	VectorView<ExternFuncInfo> fInfo(FindFirstFunc(code), exportedFunctionCount);
+	VectorView<ExternLocalInfo> localInfo(FindFirstLocal(code), localCount);
+
+	for(unsigned i = 0; i < ctx.exprCtx.functions.size(); i++)
+	{
+		FunctionData *function = ctx.exprCtx.functions[i];
+
+		if(function->importModule != NULL)
+			continue;
+
+		ExternFuncInfo &funcInfo = fInfo.push_back();
+
+		if(function->isPrototype && function->implementation)
 		{
-			funcInfo.address = CodeInfo::funcInfo[refFunc->address & ~0x80000000]->address;
-			funcInfo.codeSize = refFunc->address | 0x80000000;
-		}else{
-			funcInfo.address = refFunc->address;
-			funcInfo.codeSize = refFunc->codeSize;
+			funcInfo.address = function->implementation->vmFunction->address;
+			funcInfo.codeSize = function->implementation->functionIndex | 0x80000000;
 		}
-		funcInfo.funcPtr = refFunc->funcPtr;
-		funcInfo.isVisible = refFunc->visible;
-
-		offsetToGlobal += refFunc->codeSize;
-
-		funcInfo.nameHash = refFunc->nameHash;
-		funcInfo.namespaceHash = refFunc->parentNamespace ? refFunc->parentNamespace->hash : ~0u;
-
-		funcInfo.funcCat = (unsigned char)refFunc->type;
-
-		funcInfo.isGenericInstance = !!refFunc->genericBase || refFunc->genericInstance || (refFunc->parentClass ? !!refFunc->parentClass->genericBase : false);
-
-		funcInfo.funcType = refFunc->funcType->typeIndex;
-		funcInfo.parentType = refFunc->parentClass ? refFunc->parentClass->typeIndex : ~0u;
-		funcInfo.contextType = refFunc->contextType ? refFunc->contextType->typeIndex : ~0u;
-		funcInfo.offsetToFirstLocal = localOffset;
-		funcInfo.paramCount = refFunc->paramCount;
-
-		if(!refFunc->generic)
+		else if(function->isPrototype)
 		{
+			funcInfo.address = 0;
+			funcInfo.codeSize = 0;
+		}
+		else if(function->vmFunction)
+		{
+			funcInfo.address = function->vmFunction->address;
+			funcInfo.codeSize = function->vmFunction->codeSize;
+		}
+		else
+		{
+			funcInfo.address = ~0u;
+			funcInfo.codeSize = 0;
+		}
+
+		funcInfo.funcPtr = 0;
+
+		// Only functions in global or namesapce scope remain visible
+		funcInfo.isVisible = (function->scope == ctx.exprCtx.globalScope || function->scope->ownerNamespace) && !function->isHidden;
+
+		funcInfo.nameHash = function->nameHash;
+
+		if(ModuleData *moduleData = function->importModule)
+			funcInfo.definitionModule = moduleData->dependencyIndex;
+		else
+			funcInfo.definitionModule = 0;
+
+		funcInfo.definitionLocationStart = 0;
+		funcInfo.definitionLocationEnd = 0;
+		funcInfo.definitionLocationName = 0;
+
+		Lexeme *sourceStreamStart = function->importModule ? function->importModule->lexStream : ctx.parseCtx.lexer.GetStreamStart();
+		unsigned sourceStreamSize = function->importModule ? function->importModule->lexStreamSize : ctx.parseCtx.lexer.GetStreamSize();
+
+		if(function->source->begin >= sourceStreamStart && function->source->begin < sourceStreamStart + sourceStreamSize)
+		{
+			funcInfo.definitionLocationStart = unsigned(function->source->begin - sourceStreamStart);
+			funcInfo.definitionLocationEnd = unsigned(function->source->end - sourceStreamStart);
+
+			if(function->name->begin)
+				funcInfo.definitionLocationName = unsigned(function->name->begin - sourceStreamStart);
+		}
+
+		if(ScopeData *scope = ctx.exprCtx.NamespaceScopeFrom(function->scope))
+			funcInfo.namespaceHash = scope->ownerNamespace->fullNameHash;
+		else
+			funcInfo.namespaceHash = ~0u;
+
+		funcInfo.funcCat = ExternFuncInfo::NORMAL;
+
+		if(function->scope->ownerType)
+			funcInfo.funcCat = ExternFuncInfo::THISCALL;
+		else if(function->coroutine)
+			funcInfo.funcCat = ExternFuncInfo::COROUTINE;
+		else if(function->isHidden)
+			funcInfo.funcCat = ExternFuncInfo::LOCAL;
+
+		funcInfo.isGenericInstance = ctx.exprCtx.IsGenericInstance(function);
+
+		funcInfo.funcType = function->type->typeIndex;
+
+		if(function->scope->ownerType)
+			funcInfo.parentType = function->scope->ownerType->typeIndex;
+		else
+			funcInfo.parentType = ~0u;
+
+		funcInfo.contextType = function->contextType ? function->contextType->typeIndex : ~0u;
+
+		funcInfo.offsetToFirstLocal = localInfo.count;
+		funcInfo.paramCount = function->arguments.size();
+
+		bool isGenericFunction = ctx.exprCtx.IsGenericFunction(function);
+
+		if(!isGenericFunction)
+		{
+			TypeBase *returnType = function->type->returnType;
+
 			funcInfo.retType = ExternFuncInfo::RETURN_UNKNOWN;
-			if(refFunc->retType->type == TypeInfo::TYPE_FLOAT || refFunc->retType->type == TypeInfo::TYPE_DOUBLE)
+
+			if(returnType == ctx.exprCtx.typeFloat || returnType == ctx.exprCtx.typeDouble)
 				funcInfo.retType = ExternFuncInfo::RETURN_DOUBLE;
 #if defined(__linux) && !defined(_M_X64)
-			else if(refFunc->retType->type == TypeInfo::TYPE_VOID)
+			else if(returnType == ctx.exprCtx.typeVoid)
 				funcInfo.retType = ExternFuncInfo::RETURN_VOID;
 #else
-			else if(refFunc->retType->type == TypeInfo::TYPE_VOID || refFunc->retType->size == 0)
+			else if(returnType == ctx.exprCtx.typeVoid || returnType->size == 0)
 				funcInfo.retType = ExternFuncInfo::RETURN_VOID;
 #endif
 #if defined(NULLC_COMPLEX_RETURN) && defined(__linux)
-			else if(refFunc->retType->type == TypeInfo::TYPE_CHAR ||
-				refFunc->retType->type == TypeInfo::TYPE_SHORT ||
-				refFunc->retType->type == TypeInfo::TYPE_INT)
+			else if(returnType == ctx.exprCtx.typeBool || returnType == ctx.exprCtx.typeChar || returnType == ctx.exprCtx.typeShort || returnType == ctx.exprCtx.typeInt)
 				funcInfo.retType = ExternFuncInfo::RETURN_INT;
-			else if(refFunc->retType->type == TypeInfo::TYPE_LONG)
+			else if(returnType == ctx.exprCtx.typeLong)
 				funcInfo.retType = ExternFuncInfo::RETURN_LONG;
 #else
-			else if(refFunc->retType->type == TypeInfo::TYPE_INT || refFunc->retType->size <= 4)
+			else if(returnType == ctx.exprCtx.typeInt || returnType->size <= 4)
 				funcInfo.retType = ExternFuncInfo::RETURN_INT;
-			else if(refFunc->retType->type == TypeInfo::TYPE_LONG || refFunc->retType->size == 8)
+			else if(returnType == ctx.exprCtx.typeLong || returnType->size == 8)
 				funcInfo.retType = ExternFuncInfo::RETURN_LONG;
 #endif
-			funcInfo.returnShift = (unsigned char)(refFunc->retType->size / 4);
-			CreateExternalInfo(funcInfo, *refFunc);
-		}else{
-			funcInfo.address = ~0u;
-			funcInfo.retType = ExternFuncInfo::RETURN_VOID;
-			funcInfo.funcType = 0;
+
+			funcInfo.returnShift = (unsigned char)(returnType->size / 4);
+
+			funcInfo.bytesToPop = (unsigned)function->argumentsSize;
+
+			CreateExternalInfo(funcInfo, *function, FindFirstType(code));
+
 			memset(funcInfo.rOffsets, 0, 8 * sizeof(unsigned));
 			memset(funcInfo.fOffsets, 0, 8 * sizeof(unsigned));
 			funcInfo.ps3Callable = false;
-			funcInfo.genericOffset = refFunc->generic->start - int(CodeInfo::lexFullStart - CodeInfo::lexStart);
-			funcInfo.genericReturnType = refFunc->retType ? refFunc->retType->typeIndex : ~0u;
-		}
 
-		ExternLocalInfo::LocalType paramType = refFunc->firstParam ? ExternLocalInfo::PARAMETER : ExternLocalInfo::LOCAL;
-		if(refFunc->firstParam)
-			refFunc->lastParam->next = refFunc->firstLocal;
-		for(VariableInfo *curr = refFunc->firstParam ? refFunc->firstParam : refFunc->firstLocal; curr; curr = curr->next, localOffset++)
+			funcInfo.genericOffsetStart = ~0u;
+			funcInfo.genericOffset = ~0u;
+			funcInfo.genericReturnType = 0;
+		}
+		else
 		{
-			localInfo[localOffset].paramType = (unsigned char)paramType;
-			localInfo[localOffset].paramFlags = (unsigned char)(curr->isExplicit ? ExternLocalInfo::IS_EXPLICIT : 0);
-			localInfo[localOffset].defaultFuncId = curr->defaultValue ? (unsigned short)curr->defaultValueFuncID : 0xffff;
-			localInfo[localOffset].type = curr->varType ? curr->varType->typeIndex : 0;
-			localInfo[localOffset].size = curr->varType ? curr->varType->size : 0;
-			localInfo[localOffset].offset = curr->pos;
-			localInfo[localOffset].closeListID = 0;
-			localInfo[localOffset].offsetToName = int(symbolPos - debugSymbols);
-			memcpy(symbolPos, curr->name.begin, curr->name.length() + 1);
-			symbolPos += curr->name.length();
-			*symbolPos++ = 0;
-			if(curr->next == refFunc->firstLocal)
-				paramType = ExternLocalInfo::LOCAL;
-		}
-		if(refFunc->firstParam)
-			refFunc->lastParam->next = NULL;
-		funcInfo.localCount = localOffset - funcInfo.offsetToFirstLocal;
+			TypeBase *returnType = function->type->returnType;
 
-		ExternLocalInfo *lInfo = &localInfo[localOffset];
-		for(FunctionInfo::ExternalInfo *curr = refFunc->firstExternal; curr; curr = curr->next, lInfo++)
+			funcInfo.address = ~0u;
+			funcInfo.retType = ExternFuncInfo::RETURN_VOID;
+
+			memset(funcInfo.rOffsets, 0, 8 * sizeof(unsigned));
+			memset(funcInfo.fOffsets, 0, 8 * sizeof(unsigned));
+			funcInfo.ps3Callable = false;
+
+			if(ModuleData *moduleData = function->importModule)
+			{
+				funcInfo.genericOffsetStart = unsigned(function->declaration->source->begin - moduleData->lexStream);
+				assert(funcInfo.genericOffsetStart < moduleData->lexStreamSize);
+			}
+			else
+			{
+				funcInfo.genericOffsetStart = unsigned(function->declaration->source->begin - ctx.parseCtx.lexer.GetStreamStart());
+				assert(funcInfo.genericOffsetStart < ctx.parseCtx.lexer.GetStreamSize());
+			}
+
+			funcInfo.genericOffset = ~0u;
+			funcInfo.genericReturnType = returnType->typeIndex;
+		}
+
+		VariableHandle *argumentVariable = function->argumentVariables.head;
+
+		for(unsigned i = 0; i < function->arguments.size(); i++)
 		{
-			TypeInfo *vType = curr->variable->varType;
-			InplaceStr vName = curr->variable->name;
-			lInfo->paramType = ExternLocalInfo::EXTERNAL;
-			lInfo->type = vType->typeIndex;
-			lInfo->size = vType->size;
-			lInfo->target = curr->targetVar ? curr->targetVar->pos : curr->targetPos;
-			lInfo->closeListID = (curr->targetDepth + CodeInfo::funcInfo[curr->targetFunc]->closeListStart) | (curr->targetLocal ? 0x80000000 : 0);
+			ArgumentData &argument = function->arguments[i];
 
-			lInfo->alignmentLog2 = 0;
-			unsigned alignment = curr->variable && curr->variable->alignBytes > 4 ? curr->variable->alignBytes : 4;
-			while(alignment >>= 1)
-				lInfo->alignmentLog2++;
+			ExternLocalInfo &local = localInfo.push_back();
 
-			assert((1u << lInfo->alignmentLog2) == (curr->variable && curr->variable->alignBytes > 4 ? curr->variable->alignBytes : 4));
+			local.paramType = ExternLocalInfo::PARAMETER;
+			local.paramFlags = (unsigned char)(argument.isExplicit ? ExternLocalInfo::IS_EXPLICIT : 0);
 
-			lInfo->offsetToName = int(symbolPos - debugSymbols);
-			memcpy(symbolPos, vName.begin, vName.length() + 1);
-			symbolPos += vName.length();
-			*symbolPos++ = 0;
+			if(argument.valueFunction)
+				local.defaultFuncId = (unsigned short)argument.valueFunction->functionIndex;
+			else
+				local.defaultFuncId = 0xffff;
+
+			local.type = argument.type->typeIndex;
+			local.size = (unsigned)argument.type->size;
+			local.offset = !isGenericFunction ? argumentVariable->variable->offset : 0;
+			local.closeListID = 0;
+
+			local.offsetToName = debugSymbols.count;
+			debugSymbols.push_back(argument.name->name.begin, argument.name->name.length());
+			debugSymbols.push_back(0);
+
+			if (!isGenericFunction)
+				argumentVariable = argumentVariable->next;
 		}
-		funcInfo.externCount = refFunc->externalCount;
-		localOffset += refFunc->externalCount;
 
-		funcInfo.offsetToName = int(symbolPos - debugSymbols);
-		memcpy(symbolPos, refFunc->name, refFunc->nameLength + 1);
-		symbolPos += refFunc->nameLength + 1;
+		if(VariableData *variable = function->contextArgument)
+		{
+			ExternLocalInfo &local = localInfo.push_back();
 
-		funcInfo.closeListStart = refFunc->closeListStart = clsListCount;
-		if(refFunc->closeUpvals)
-			clsListCount += refFunc->maxBlockDepth;
+			local.paramType = ExternLocalInfo::PARAMETER;
+			local.paramFlags = 0;
+			local.defaultFuncId = 0xffff;
 
-		AliasInfo *explicitType = refFunc->explicitTypes;
-		while(explicitType)
+			local.type = variable->type->typeIndex;
+			local.size = (unsigned)variable->type->size;
+			local.offset = !isGenericFunction ? variable->offset : 0;
+			local.closeListID = 0;
+
+			local.offsetToName = debugSymbols.count;
+			debugSymbols.push_back(variable->name->name.begin, variable->name->name.length());
+			debugSymbols.push_back(0);
+		}
+
+		if (!isGenericFunction)
+		{
+			for(unsigned i = 0; i < function->functionScope->allVariables.size(); i++)
+			{
+				VariableData *variable = function->functionScope->allVariables[i];
+
+				VariableHandle *argumentVariable = NULL;
+
+				for(VariableHandle *curr = function->argumentVariables.head; curr; curr = curr->next)
+				{
+					if(curr->variable == variable)
+					{
+						argumentVariable = curr;
+						break;
+					}
+				}
+
+				if(argumentVariable || variable == function->contextArgument)
+					continue;
+
+				if(variable->isAlloca && variable->users.empty())
+					continue;
+
+				if(variable->lookupOnly)
+					continue;
+
+				ExternLocalInfo &local = localInfo.push_back();
+
+				local.paramType = ExternLocalInfo::LOCAL;
+				local.paramFlags = 0;
+				local.defaultFuncId = 0xffff;
+
+				local.type = variable->type->typeIndex;
+				local.size = (unsigned)variable->type->size;
+				local.offset = variable->offset;
+				local.closeListID = 0;
+
+				local.offsetToName = debugSymbols.count;
+				debugSymbols.push_back(variable->name->name.begin, variable->name->name.length());
+				debugSymbols.push_back(0);
+			}
+		}
+
+		funcInfo.localCount = localInfo.count - funcInfo.offsetToFirstLocal;
+
+		for(unsigned i = 0; i < function->upvalues.size(); i++)
+		{
+			UpvalueData *upvalue = function->upvalues[i];
+
+			ExternLocalInfo &local = localInfo.push_back();
+
+			local.paramType = ExternLocalInfo::EXTERNAL;
+			local.type = upvalue->variable->type->typeIndex;
+			local.size = (unsigned)upvalue->variable->type->size;
+			local.offset = (unsigned)upvalue->target->offset;
+
+			local.offsetToName = debugSymbols.count;
+			debugSymbols.push_back(upvalue->variable->name->name.begin, upvalue->variable->name->name.length());
+			debugSymbols.push_back(0);
+		}
+
+		funcInfo.externCount = function->upvalues.size();
+
+		funcInfo.offsetToName = debugSymbols.count;
+		debugSymbols.push_back(function->name->name.begin, function->name->name.length());
+		debugSymbols.push_back(0);
+
+		for(MatchData *curr = function->generics.head; curr; curr = curr->next)
 		{
 			funcInfo.explicitTypeCount++;
 
-			ExternVarInfo &varInfo = *vInfo;
+			ExternVarInfo &varInfo = vInfo.push_back();
 
-			actualExternVariableInfoCount++;
+			varInfo.offsetToName = debugSymbols.count;
+			debugSymbols.push_back(curr->name->name.begin, curr->name->name.length());
+			debugSymbols.push_back(0);
 
-			varInfo.offsetToName = int(symbolPos - debugSymbols);
-			memcpy(symbolPos, explicitType->name.begin, explicitType->name.length());
-			symbolPos += explicitType->name.length();
-			*symbolPos++ = 0;
+			varInfo.nameHash = curr->name->name.hash();
 
-			varInfo.nameHash = explicitType->nameHash;
-
-			varInfo.type = explicitType->type->typeIndex;
+			varInfo.type = curr->type->typeIndex;
 			varInfo.offset = 0;
-
-			explicitType = explicitType->next;
-
-			vInfo++;
 		}
-
-		// Fill up next
-		fInfo++;
 	}
 
 	code->offsetToInfo = offsetToInfo;
-	code->offsetToSource = offsetToSource;
-
-	unsigned int infoCount = CodeInfo::cmdInfoList.sourceInfo.size();
 	code->infoSize = infoCount;
-	unsigned int *infoArray = FindSourceInfo(code);
-	for(unsigned int i = 0; i < infoCount; i++)
+
+	VectorView<ExternSourceInfo> infoArray(FindSourceInfo(code), infoCount);
+
+	for(unsigned i = 0; i < ctx.instFinalizeCtx.locations.size(); i++)
 	{
-		infoArray[i * 2 + 0] = CodeInfo::cmdInfoList.sourceInfo[i].byteCodePos;
-		infoArray[i * 2 + 1] = (unsigned int)(CodeInfo::cmdInfoList.sourceInfo[i].sourcePos - CodeInfo::cmdInfoList.sourceStart);
+		SynBase *location = ctx.instFinalizeCtx.locations[i];
+
+		if(location && !location->isInternal)
+		{
+			ExternSourceInfo info;
+
+			info.instruction = i;
+
+			if(ModuleData *importModule = ctx.exprCtx.GetSourceOwner(location->begin))
+			{
+				const char *code = FindSource(importModule->bytecode);
+
+				assert(location->pos.begin >= code && location->pos.begin < code + importModule->bytecode->sourceSize);
+
+				info.definitionModule = importModule->dependencyIndex;
+				info.sourceOffset = unsigned(location->begin->pos - code);
+
+				infoArray.push_back(info);
+			}
+			else
+			{
+				const char *code = ctx.code;
+
+				assert(location->pos.begin >= code && location->pos.begin < code + sourceLength);
+
+				info.definitionModule = 0;
+				info.sourceOffset = unsigned(location->begin->pos - code);
+
+				infoArray.push_back(info);
+			}
+		}
 	}
+
 	char *sourceCode = (char*)code + offsetToSource;
-	memcpy(sourceCode, CodeInfo::cmdInfoList.sourceStart, sourceLength);
+	memcpy(sourceCode, ctx.code, sourceLength);
+
+	code->offsetToSource = offsetToSource;
 	code->sourceSize = sourceLength;
 
-	code->globalCodeStart = offsetToGlobal;
-	memcpy(FindCode(code), &CodeInfo::cmdList[0], CodeInfo::cmdList.size() * sizeof(VMCmd));
+	code->globalCodeStart = ctx.vmModule->globalCodeStart;
+
+	if(ctx.instFinalizeCtx.cmds.size())
+		memcpy(FindCode(code), ctx.instFinalizeCtx.cmds.data, ctx.instFinalizeCtx.cmds.size() * sizeof(VMCmd));
 
 #ifdef NULLC_LLVM_SUPPORT
 	code->llvmSize = llvmSize;
@@ -2565,51 +1835,301 @@ unsigned int Compiler::GetBytecode(char **bytecode)
 
 	code->typedefCount = typedefCount;
 	code->offsetToTypedef = offsetToTypedef;
-	aliasInfo = CodeInfo::globalAliases;
+
 	ExternTypedefInfo *currAlias = FindFirstTypedef(code);
-	while(aliasInfo)
+
+	for(unsigned i = 0; i < ctx.exprCtx.globalScope->aliases.size(); i++)
 	{
-		currAlias->offsetToName = int(symbolPos - debugSymbols);
-		memcpy(symbolPos, aliasInfo->name.begin, aliasInfo->name.length() + 1);
-		symbolPos += aliasInfo->name.length();
-		*symbolPos++ = 0;
-		currAlias->targetType = aliasInfo->type->typeIndex;
+		AliasData *alias = ctx.exprCtx.globalScope->aliases[i];
+
+		currAlias->offsetToName = debugSymbols.count;
+		debugSymbols.push_back(alias->name->name.begin, alias->name->name.length());
+		debugSymbols.push_back(0);
+
+		currAlias->targetType = alias->type->typeIndex;
 		currAlias->parentType = ~0u;
+
 		currAlias++;
-		aliasInfo = aliasInfo->next;
 	}
-	for(unsigned int i = 0; i < CodeInfo::typeInfo.size(); i++)
+
+	for(unsigned i = 0; i < ctx.exprCtx.types.size(); i++)
 	{
-		TypeInfo *type = CodeInfo::typeInfo[i];
-		aliasInfo = type->childAlias;
-		while(aliasInfo)
+		TypeBase *type = ctx.exprCtx.types[i];
+
+		if(TypeClass *typeClass = getType<TypeClass>(type))
 		{
-			currAlias->offsetToName = int(symbolPos - debugSymbols);
-			memcpy(symbolPos, aliasInfo->name.begin, aliasInfo->name.length() + 1);
-			symbolPos += aliasInfo->name.length();
-			*symbolPos++ = 0;
-			currAlias->targetType = aliasInfo->type->typeIndex;
-			currAlias->parentType = type->typeIndex;
-			currAlias++;
-			aliasInfo = aliasInfo->next;
+			for(MatchData *curr = typeClass->generics.head; curr; curr = curr->next)
+			{
+				currAlias->offsetToName = debugSymbols.count;
+				debugSymbols.push_back(curr->name->name.begin, curr->name->name.length());
+				debugSymbols.push_back(0);
+
+				currAlias->targetType = curr->type->typeIndex;
+				currAlias->parentType = type->typeIndex;
+				currAlias++;
+			}
+
+			for(MatchData *curr = typeClass->aliases.head; curr; curr = curr->next)
+			{
+				currAlias->offsetToName = debugSymbols.count;
+				debugSymbols.push_back(curr->name->name.begin, curr->name->name.length());
+				debugSymbols.push_back(0);
+
+				currAlias->targetType = curr->type->typeIndex;
+				currAlias->parentType = type->typeIndex;
+				currAlias++;
+			}
+		}
+		else if(TypeGenericClass *typeGenericClass = getType<TypeGenericClass>(type))
+		{
+			for(TypeHandle *curr = typeGenericClass->generics.head; curr; curr = curr->next)
+			{
+				currAlias->offsetToName = debugSymbols.count;
+				debugSymbols.push_back(0); // No name
+
+				currAlias->targetType = curr->type->typeIndex;
+				currAlias->parentType = type->typeIndex;
+				currAlias++;
+			}
 		}
 	}
 
-	ExternNamespaceInfo *namespaceList = FindFirstNamespace(code);
-	for(unsigned i = 0; i < CodeInfo::namespaceInfo.size(); i++)
+	VectorView<ExternNamespaceInfo> namespaceList(FindFirstNamespace(code), ctx.exprCtx.namespaces.size());
+
+	for(unsigned i = 0; i < ctx.exprCtx.namespaces.size(); i++)
 	{
-		namespaceList->offsetToName = int(symbolPos - debugSymbols);
-		memcpy(symbolPos, CodeInfo::namespaceInfo[i]->name.begin, CodeInfo::namespaceInfo[i]->name.length() + 1);
-		symbolPos += CodeInfo::namespaceInfo[i]->name.length();
-		*symbolPos++ = 0;
+		NamespaceData *nameSpace = ctx.exprCtx.namespaces[i];
 
-		namespaceList->parentHash = CodeInfo::namespaceInfo[i]->parent ? CodeInfo::namespaceInfo[i]->parent->hash : ~0u;
+		ExternNamespaceInfo &namespaceInfo = namespaceList.push_back();
 
-		namespaceList++;
+		namespaceInfo.offsetToName = debugSymbols.count;
+		debugSymbols.push_back(nameSpace->name.name.begin, nameSpace->name.name.length());
+		debugSymbols.push_back(0);
+
+		namespaceInfo.parentHash = nameSpace->parent ? nameSpace->parent->fullNameHash : ~0u;
 	}
 
-	assert(externVariableInfoCount == actualExternVariableInfoCount);
+	assert(debugSymbols.count == symbolStorageSize);
+	assert(tInfo.count == code->typeCount);
+	assert(memberList.count == allMemberCount);
+	assert(constantList.count == allConstantCount);
+	assert(mInfo.count == ctx.exprCtx.imports.size());
+	assert(vInfo.count == externVariableInfoCount);
+	assert(fInfo.count == exportedFunctionCount);
+	assert(localInfo.count == localCount);
+	assert(infoArray.count == infoCount);
+	assert(namespaceList.count == ctx.exprCtx.namespaces.size());
 
 	return size;
 }
 
+bool SaveListing(CompilerContext &ctx, const char *fileName)
+{
+	assert(!ctx.outputCtx.stream);
+	ctx.outputCtx.stream = ctx.outputCtx.openStream(fileName);
+
+	if(!ctx.outputCtx.stream)
+	{
+		SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: failed to open file");
+		return false;
+	}
+
+	InstructionVmLowerGraphContext instLowerGraphCtx(ctx.outputCtx);
+
+	instLowerGraphCtx.showSource = true;
+
+	PrintInstructions(instLowerGraphCtx, ctx.instFinalizeCtx, ctx.code);
+
+	ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+	ctx.outputCtx.stream = NULL;
+
+	return true;
+}
+
+bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (*addDependency)(const char *fileName))
+{
+	assert(!ctx.outputCtx.stream);
+	ctx.outputCtx.stream = ctx.outputCtx.openStream(fileName);
+
+	if(!ctx.outputCtx.stream)
+	{
+		SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: failed to open file");
+		return false;
+	}
+
+	ExpressionTranslateContext exprTranslateCtx(ctx.exprCtx, ctx.outputCtx, ctx.allocator);
+
+	exprTranslateCtx.mainName = mainName;
+
+	exprTranslateCtx.errorBuf = ctx.errorBuf;
+	exprTranslateCtx.errorBufSize = ctx.errorBufSize;
+
+	SmallArray<const char*, 32> dependencies;
+
+	if(!TranslateModule(exprTranslateCtx, ctx.exprModule, dependencies))
+	{
+		ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+		ctx.outputCtx.stream = NULL;
+
+		return false;
+	}
+
+	ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+	ctx.outputCtx.stream = NULL;
+
+	if(addDependency)
+	{
+		for(unsigned i = 0; i < dependencies.size(); i++)
+			addDependency(dependencies[i]);
+	}
+
+	return true;
+}
+
+char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports)
+{
+	CompilerContext ctx(allocator, activeImports);
+
+	ctx.errorBuf = errorBuf;
+	ctx.errorBufSize = errorBufSize;
+
+	if(!CompileModuleFromSource(ctx, code))
+	{
+		*errorPos = ctx.errorPos;
+
+		if(errorBuf && errorBufSize)
+		{
+			unsigned currLen = (unsigned)strlen(errorBuf);
+			SafeSprintf(errorBuf + currLen, errorBufSize - currLen, " [in module '%s']", modulePath);
+		}
+
+		return NULL;
+	}
+
+	char *bytecode = NULL;
+	GetBytecode(ctx, &bytecode);
+
+	Lexer &lexer = ctx.parseCtx.lexer;
+
+	const char *newStart = FindSource((ByteCode*)bytecode);
+
+	// We have to fix lexeme positions to the code that is saved in bytecode
+	for(Lexeme *c = lexer.GetStreamStart(), *e = lexer.GetStreamStart() + lexer.GetStreamSize(); c != e; c++)
+	{
+		// Exit fix up if lexemes exited scope of the current file
+		if(c->pos < code || c->pos > (code + codeSize))
+			break;
+
+		c->pos = newStart + (c->pos - code);
+	}
+
+	BinaryCache::PutBytecode(modulePath, bytecode, lexer.GetStreamStart(), lexer.GetStreamSize());
+
+	return bytecode;
+}
+
+char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports)
+{
+	assert(*moduleName.end == 0);
+
+	if(addExtension)
+		assert(strstr(moduleName.begin, ".nc") == NULL);
+	else
+		assert(strstr(moduleName.begin, ".nc") != NULL);
+
+	unsigned fileSize = 0;
+	int needDelete = false;
+	char *fileContent = NULL;
+
+	const unsigned pathLength = 1024;
+	char path[pathLength];
+
+	unsigned modulePathPos = 0;
+	while(const char *modulePath = BinaryCache::EnumImportPath(modulePathPos++))
+	{
+		char *pathEnd = path + SafeSprintf(path, pathLength, "%s%.*s", modulePath, moduleName.length(), moduleName.begin);
+
+		if(addExtension)
+		{
+			char *pathNoImport = path + strlen(modulePath);
+
+			for(unsigned i = 0, e = (unsigned)strlen(pathNoImport); i != e; i++)
+			{
+				if(pathNoImport[i] == '.')
+					pathNoImport[i] = '/';
+			}
+
+			SafeSprintf(pathEnd, pathLength - int(pathEnd - path), ".nc");
+		}
+
+		fileContent = (char*)NULLC::fileLoad(path, &fileSize, &needDelete);
+
+		if(fileContent)
+			break;
+	}
+
+	if(!fileContent)
+	{
+		*errorPos = NULL;
+
+		if(errorBuf && errorBufSize)
+			SafeSprintf(errorBuf, errorBufSize, "ERROR: module file '%.*s' could not be opened", moduleName.length(), moduleName.begin);
+
+		return NULL;
+	}
+
+	char *bytecode = BuildModuleFromSource(allocator, path, fileContent, fileSize, errorPos, errorBuf, errorBufSize, activeImports);
+
+	if(needDelete)
+		NULLC::dealloc(fileContent);
+
+	return bytecode;
+}
+
+bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize)
+{
+	const char *bytecode = BinaryCache::FindBytecode(module, true);
+
+	// Create module if not found
+	if(!bytecode)
+		bytecode = BuildModuleFromPath(allocator, InplaceStr(module), true, errorPos, errorBuf, errorBufSize, ArrayView<InplaceStr>());
+
+	if(!bytecode)
+		return false;
+
+	unsigned hash = GetStringHash(name);
+	ByteCode *code = (ByteCode*)bytecode;
+
+	// Find function and set pointer
+	ExternFuncInfo *fInfo = FindFirstFunc(code);
+
+	unsigned end = code->functionCount - code->moduleFunctionCount;
+	for(unsigned i = 0; i < end; i++)
+	{
+		if(hash == fInfo->nameHash)
+		{
+			if(index == 0)
+			{
+				fInfo->address = -1;
+				fInfo->funcPtr = (void*)ptr;
+				index--;
+				break;
+			}
+
+			index--;
+		}
+
+		fInfo++;
+	}
+
+	if(index != -1)
+	{
+		*errorPos = NULL;
+
+		SafeSprintf(errorBuf, errorBufSize, "ERROR: function '%s' or one of it's overload is not found in module '%s'", name, module);
+
+		return false;
+	}
+
+	return true;
+}
