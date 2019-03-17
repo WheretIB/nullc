@@ -114,7 +114,7 @@ namespace Tests
 	{
 		(void)context;
 
-		if(node)
+		if(node && GetParseTreeNodeName(node))
 			totalSyntaxNodes++;
 	}
 
@@ -122,7 +122,7 @@ namespace Tests
 	{
 		(void)context;
 
-		if(node)
+		if(node && GetExpressionTreeNodeName(node))
 			totalExpressionNodes++;
 	}
 }
