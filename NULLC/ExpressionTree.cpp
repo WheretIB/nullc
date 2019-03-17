@@ -3483,7 +3483,8 @@ ExprBase* AnalyzeArray(ExpressionContext &ctx, SynArray *syntax)
 
 ExprBase* CreateFunctionContextAccess(ExpressionContext &ctx, SynBase *source, FunctionData *function)
 {
-	assert(!function->scope->ownerType);
+	if(function->scope->ownerType)
+		return ReportExpected(ctx, source, function->contextType, "ERROR: member function can't be called without a class instance");
 
 	bool inFunctionScope = false;
 

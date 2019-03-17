@@ -848,6 +848,10 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("generic function instantiation creates a conflict", "auto foo(generic a, int f = 1){ return -a; } foo(1, 2); auto foo(generic a = 1, int f = 2){ return a; } return foo();", "ERROR: function 'foo' is being defined with the same set of arguments");
 
+	TEST_FOR_FAIL("direct member function call 1", "class Foo{ int x; } (void Foo:reset(){ x = 0; })();", "ERROR: member function can't be called without a class instance");
+	TEST_FOR_FAIL("direct member function call 2", "class Foo{ int x; } (void Foo:reset(generic a){ x = 0; })(4);", "ERROR: member function can't be called without a class instance");
+	TEST_FOR_FAIL("direct member function call 3", "class Foo{ int x; } auto foo(void ref() f){ f(); } foo(void Foo:reset(){ x = 0; });", "ERROR: member function can't be called without a class instance");
+
 	TEST_FOR_FAIL("fuzzing test crash", "fo<@T, @U(){}", "ERROR: '>' expected after generic type alias list");
 	TEST_FOR_FAIL("fuzzing test crash", "oid foo<@>(){}", "ERROR: explicit generic type alias is expected after '@'");
 	TEST_FOR_FAIL("fuzzing test crash", "t ref(int, int)> a; re;", "ERROR: 't' is not a known type name");
