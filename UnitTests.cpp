@@ -124,7 +124,8 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 
 	// Init NULLC
 #ifdef NO_CUSTOM_ALLOCATOR
-	nullcInit(MODULE_PATH);
+	nullcInit();
+	nullcAddImportPath(MODULE_PATH);
 #else
 	nullcInitCustomAlloc(testAlloc, testDealloc);
 	nullcAddImportPath(MODULE_PATH);
@@ -137,7 +138,8 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	RunInterfaceTests();
 
 #ifdef NO_CUSTOM_ALLOCATOR
-	nullcInit(MODULE_PATH);
+	nullcInit();
+	nullcAddImportPath(MODULE_PATH);
 #else
 	nullcInitCustomAlloc(testAlloc, testDealloc);
 	nullcAddImportPath(MODULE_PATH);
