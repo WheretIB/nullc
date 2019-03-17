@@ -3,15 +3,19 @@ import * as vscode from 'vscode';
 import { debug, workspace, DebugAdapterDescriptorFactory, ExtensionContext } from 'vscode';
 
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient';
+import { print } from 'util';
 
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
+	const configuration = vscode.workspace.getConfiguration("nullc");
+
+	if(configuration.debug)
+		console.log("Activating nullc language client extension");
+
 	let serverModule = context.asAbsolutePath(path.join('out', 'nullc_lang_server.exe'));
 
 	let defaultModulePath = context.asAbsolutePath(path.join('modules'));
-
-	const configuration = vscode.workspace.getConfiguration("nullc");
 
 	let args = configuration.debug ? ['--debug', '--module_path=' + defaultModulePath + "/"] : ['--module_path=' + defaultModulePath + "/"];
 
@@ -27,12 +31,18 @@ export function activate(context: ExtensionContext) {
 		},
 	};
 
+	if(configuration.debug)
+		console.log("Launching client with arguments: " + args);
+
 	// Launch language client
 	client = new LanguageClient('nullc language server', serverOptions, clientOptions);
 
 	client.start();
 
 	// Launch name provider
+	if(configuration.debug)
+		console.log("Registering extension.nullc.getProgramName");
+
 	context.subscriptions.push(vscode.commands.registerCommand('extension.nullc.getProgramName', config => {
 		return vscode.window.showInputBox({
 			placeHolder: "Please enter the name of the main nullc module file in the workspace folder",
@@ -41,11 +51,17 @@ export function activate(context: ExtensionContext) {
 	}));
 
 	// Register launch configuration provider
+	if(configuration.debug)
+		console.log("Registering NullcConfigurationProvider");
+
 	const provider = new NullcConfigurationProvider();
 
 	context.subscriptions.push(debug.registerDebugConfigurationProvider('nullc', provider));
 
 	// Register debugger factory
+	if(configuration.debug)
+		console.log("Registering NullcDebugAdapterDescriptorFactory");
+
 	const factory = new NullcDebugAdapterDescriptorFactory(context);
 
 	context.subscriptions.push(debug.registerDebugAdapterDescriptorFactory('nullc', factory));
@@ -57,6 +73,12 @@ export function deactivate(): Thenable<void> | undefined {
 	if (!client) {
 		return undefined;
 	}
+
+	const configuration = vscode.workspace.getConfiguration("nullc");
+
+	if(configuration.debug)
+		console.log("Deactivating nullc language client extension");
+
 	return client.stop();
 }
 
@@ -105,6 +127,9 @@ class NullcDebugAdapterDescriptorFactory implements DebugAdapterDescriptorFactor
 		const configuration = vscode.workspace.getConfiguration("nullc");
 
 		let args = configuration.debug ? ['--debug', '--module_path=' + this.defaultModulePath + "/"] : ['--module_path=' + this.defaultModulePath + "/"];
+
+		if(configuration.debug)
+			console.log("Launching client with arguments: " + args);
 
 		let debuggerExecutable: vscode.DebugAdapterExecutable = new vscode.DebugAdapterExecutable(this.debuggerModule, args);
 

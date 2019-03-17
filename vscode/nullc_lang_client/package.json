@@ -8,7 +8,7 @@
     },
     "publisher": "wheretib",
     "license": "MIT",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "repository": {
         "type": "git",
         "url": "https://github.com/WheretIB/nullc"
@@ -123,7 +123,7 @@
                     "scope": "window",
                     "type": "boolean",
                     "default": false,
-                    "description": "Enable extension serverand debugger --debug launch flag"
+                    "description": "Enable extension server and debugger --debug launch flag"
                 }
             }
         }

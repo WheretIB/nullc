@@ -77,6 +77,9 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+### Version 0.3.1
+* Package configuration fixes
+
 ### Version 0.2.2
 * Debugger improvements
 
