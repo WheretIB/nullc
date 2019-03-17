@@ -6817,7 +6817,11 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 		Stop(ctx, source, "ERROR: generic function call is not supported");
 
 	if(type->returnType == ctx.typeAuto)
-		Stop(ctx, source, "ERROR: function can't return auto");
+	{
+		Report(ctx, source, "ERROR: function type is unresolved at this point");
+
+		return new (ctx.get<ExprFunctionCall>()) ExprFunctionCall(source, ctx.GetErrorType(), value, actualArguments);
+	}
 
 	assert(actualArguments.size() == type->arguments.size());
 
