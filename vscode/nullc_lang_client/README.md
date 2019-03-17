@@ -6,52 +6,52 @@ This extension provides support for editing and debugging nullc programming lang
 
 * Syntax Highlight
 
-![Syntax Highlight Example](img/example_coloring.png)
+![Syntax Highlight Example](vscode/nullc_lang_client/img/example_coloring.png)
 
 ---
 * Diagnostics
 
-![Diagnostics Example](img/example_diagnostics.png)
+![Diagnostics Example](vscode/nullc_lang_client/img/example_diagnostics.png)
 
 ---
 * Code region folding
 
-![Code Folding Example](img/example_folding.png)
+![Code Folding Example](vscode/nullc_lang_client/img/example_folding.png)
 
 ---
 * Information on symbol hover
 
-![Symbol Hover Example](img/example_hovers.png)
+![Symbol Hover Example](vscode/nullc_lang_client/img/example_hovers.png)
 
 ---
 * Code completion
 
-![Code Completion Example](img/example_completion.png)
+![Code Completion Example](vscode/nullc_lang_client/img/example_completion.png)
 
 ---
 * Function signature help
 
-![Signature Help Example](img/example_signature.png)
+![Signature Help Example](vscode/nullc_lang_client/img/example_signature.png)
 
 ---
 * Goto definition
 
-![Goto Definition Example](img/example_definition.png)
+![Goto Definition Example](vscode/nullc_lang_client/img/example_definition.png)
 
 ---
 * Find all references
 
-![Find All References Example](img/example_references.png)
+![Find All References Example](vscode/nullc_lang_client/img/example_references.png)
 
 ---
 * Document symbol highlights
 
-![Document Symbol Highlight Example](img/example_highlight.png)
+![Document Symbol Highlight Example](vscode/nullc_lang_client/img/example_highlight.png)
 
 ---
 * Document symbol list
 
-![Document Symbol List Example](img/example_symbols.png)
+![Document Symbol List Example](vscode/nullc_lang_client/img/example_symbols.png)
 
 ---
 * Debugging
