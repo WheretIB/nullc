@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "../NULLC/nullc_debug.h"
+#include "../NULLC/nullc_internal.h"
 
 #if !defined(_MSC_VER)
 #include <time.h>
@@ -37,6 +38,7 @@ namespace Tests
 
 	double timeCompile = 0.0;
 	double timeGetBytecode = 0.0;
+	double timeVisit = 0.0;
 	double timeTranslate = 0.0;
 	double timeExprEvaluate = 0.0;
 	double timeInstEvaluate = 0.0;
@@ -45,6 +47,9 @@ namespace Tests
 	double timeRun = 0.0;
 
 	long long totalOutput = 0;
+
+	unsigned totalSyntaxNodes = 0;
+	unsigned totalExpressionNodes = 0;
 
 	const char		*varData = NULL;
 	unsigned int	variableCount = 0;
@@ -55,6 +60,7 @@ namespace Tests
 	bool doTranslation = false;
 	bool doExprEvaluation = true;
 	bool doInstEvaluation = true;
+	bool doVisit = true;
 
 	bool	testExecutor[3] = {
 		true,
@@ -102,6 +108,22 @@ namespace Tests
 	void AddDependency(const char *fileName)
 	{
 		translationDependencies.push_back(strdup(fileName));
+	}
+
+	void AcceptSyntaxNode(void *context, SynBase *node)
+	{
+		(void)context;
+
+		if(node)
+			totalSyntaxNodes++;
+	}
+
+	void AcceptExpressionNode(void *context, ExprBase *node)
+	{
+		(void)context;
+
+		if(node)
+			totalExpressionNodes++;
 	}
 }
 
@@ -253,6 +275,19 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 	}
 	else
 	{
+		if(doVisit)
+		{
+			if(CompilerContext *context = nullcGetCompilerContext())
+			{
+				nullcVisitParseTreeNodes(context->synModule, NULL, AcceptSyntaxNode);
+
+				nullcVisitExpressionTreeNodes(context->exprModule, NULL, AcceptExpressionNode);
+			}
+
+			timeVisit += myGetPreciseTime() - time;
+			time = myGetPreciseTime();
+		}
+
 		char *bytecode = NULL;
 		nullcGetBytecode(&bytecode);
 

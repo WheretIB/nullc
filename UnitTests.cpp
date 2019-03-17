@@ -216,6 +216,7 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 
 	printf("Compilation time: %f\n", Tests::timeCompile);
 	printf("Get bytecode time: %f\n", Tests::timeGetBytecode);
+	printf("Tree visit time: %f\n", Tests::timeVisit);
 	printf("Expression evaluation time: %f\n", Tests::timeExprEvaluate);
 	printf("Instruction evaluation time: %f\n", Tests::timeInstEvaluate);
 	printf("Translation time: %f\n", Tests::timeTranslate);
@@ -224,6 +225,7 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	printf("Run time: %f\n", Tests::timeRun);
 
 	printf("Total log output: %lld\n", Tests::totalOutput);
+	printf("Total nodes: %d syntax, %d expression\n", Tests::totalSyntaxNodes, Tests::totalExpressionNodes);
 
 	printf("Passed %d of %d tests\n", allPassed, allTests);
 

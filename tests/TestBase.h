@@ -77,6 +77,7 @@ namespace Tests
 
 	extern double timeCompile;
 	extern double timeGetBytecode;
+	extern double timeVisit;
 	extern double timeTranslate;
 	extern double timeExprEvaluate;
 	extern double timeInstEvaluate;
@@ -85,6 +86,9 @@ namespace Tests
 	extern double timeRun;
 
 	extern long long totalOutput;
+
+	extern unsigned totalSyntaxNodes;
+	extern unsigned totalExpressionNodes;
 
 	extern const char		*varData;
 	extern unsigned int		variableCount;
