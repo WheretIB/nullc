@@ -1,6 +1,5 @@
 .vscode/**
 .vscode-test/**
 .gitignore
-node_modules/**
 out/*.ilk
 out/*.pdb
