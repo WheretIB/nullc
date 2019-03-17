@@ -206,6 +206,29 @@ assert(!(b && k()));\r\n\
 return 1;";
 TEST_RESULT("overloaded || and && operators do not break short-circuiting", testLogOrAndLogAndOperatorOverload1, "1");
 
+const char	*testLogAndOperatorFunctionWrapping1 =
+"class Foo{ int x; }\r\n\
+\r\n\
+bool operator&&(Foo a, Foo ref() b)\r\n\
+{\r\n\
+	return a.x && b().x;\r\n\
+}\r\n\
+\r\n\
+Foo get(int x)\r\n\
+{\r\n\
+	Foo result;\r\n\
+	result.x = x;\r\n\
+	return result;\r\n\
+}\r\n\
+\r\n\
+bool wrap(int a, int b)\r\n\
+{\r\n\
+	return get(a) && get(b);\r\n\
+}\r\n\
+\r\n\
+return wrap(3, 4);";
+TEST_RESULT("function wrapping for overloaded operator && or || might create a function with expternal access", testLogAndOperatorFunctionWrapping1, "1");
+
 const char	*testInOverload1 =
 "import std.vector;\r\n\
 \r\n\

@@ -1795,6 +1795,8 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 
 ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lhs, ExprBase *rhs);
 
+ExprBase* CreateReturn(ExpressionContext &ctx, SynBase *source, ExprBase *result);
+
 bool AssertResolvableTypeLiteral(ExpressionContext &ctx, SynBase *source, ExprBase *expr);
 bool AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *expr);
 
@@ -2586,7 +2588,7 @@ void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 	}
 }
 
-ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr functionName)
+ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, SynBase *synValue, ExprBase *exprValue, InplaceStr functionName)
 {
 	SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 
@@ -2599,7 +2601,9 @@ ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *
 
 	SynIdentifier *functionNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(source->begin, source->end, functionName);
 
-	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, ctx.GetFunctionType(source, value->type, arguments), contextRefType, functionNameIdentifier, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
+	TypeFunction *typeFunction = ctx.GetFunctionType(source, exprValue ? exprValue->type : ctx.typeAuto, arguments);
+
+	FunctionData *function = new (ctx.get<FunctionData>()) FunctionData(ctx.allocator, source, ctx.scope, false, false, false, typeFunction, contextRefType, functionNameIdentifier, IntrusiveList<MatchData>(), ctx.uniqueFunctionId++);
 
 	CheckFunctionConflict(ctx, source, function->name->name);
 
@@ -2614,7 +2618,11 @@ ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *
 	function->argumentsSize = function->functionScope->dataSize;
 
 	IntrusiveList<ExprBase> expressions;
-	expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, value, NULL, CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(source), function, ctx.scope)));
+
+	if (synValue)
+		expressions.push_back(CreateReturn(ctx, source, AnalyzeExpression(ctx, synValue)));
+	else
+		expressions.push_back(new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, exprValue, NULL, CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(source), function, ctx.scope)));
 
 	ClosePendingUpvalues(ctx, function);
 
@@ -2635,7 +2643,12 @@ ExprFunctionAccess* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *
 
 	ctx.definitions.push_back(function->declaration);
 
-	return new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, function->type, function, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), function));
+	ExprBase *access = new (ctx.get<ExprFunctionAccess>()) ExprFunctionAccess(source, function->type, function, CreateFunctionContextAccess(ctx, ctx.MakeInternal(source), function));
+
+	if(!contextVariableDefinition)
+		return access;
+
+	return CreateSequence(ctx, source, contextVariableDefinition, access);
 }
 
 ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpType op, ExprBase *lhs, ExprBase *rhs)
@@ -2694,7 +2707,7 @@ ExprBase* CreateBinaryOp(ExpressionContext &ctx, SynBase *source, SynBinaryOpTyp
 		// For && and || try to find a function that accepts a wrapped right-hand-side evaluation
 		if((op == SYN_BINARY_OP_LOGICAL_AND || op == SYN_BINARY_OP_LOGICAL_OR) && isType<TypeClass>(lhs->type))
 		{
-			if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, CreateValueFunctionWrapper(ctx, source, rhs, GetTemporaryFunctionName(ctx)), true, false))
+			if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr(GetOpName(op)), lhs, CreateValueFunctionWrapper(ctx, source, NULL, rhs, GetTemporaryFunctionName(ctx)), true, false))
 				return result;
 		}
 	}
@@ -3945,6 +3958,14 @@ ExprBase* AnalyzeUnaryOp(ExpressionContext &ctx, SynUnaryOp *syntax)
 ExprBase* AnalyzeBinaryOp(ExpressionContext &ctx, SynBinaryOp *syntax)
 {
 	ExprBase *lhs = AnalyzeExpression(ctx, syntax->lhs);
+
+	// For && and || try to find a function that accepts a wrapped right-hand-side evaluation
+	if((syntax->type == SYN_BINARY_OP_LOGICAL_AND || syntax->type == SYN_BINARY_OP_LOGICAL_OR) && isType<TypeClass>(lhs->type))
+	{
+		if(ExprBase *result = CreateFunctionCall2(ctx, syntax, InplaceStr(GetOpName(syntax->type)), lhs, CreateValueFunctionWrapper(ctx, syntax, syntax->rhs, NULL, GetTemporaryFunctionName(ctx)), true, false))
+			return result;
+	}
+
 	ExprBase *rhs = AnalyzeExpression(ctx, syntax->rhs);
 
 	if(isType<TypeError>(lhs->type) || isType<TypeError>(rhs->type))
@@ -7156,16 +7177,14 @@ ExprBase* AnalyzeNew(ExpressionContext &ctx, SynNew *syntax)
 	return alloc;
 }
 
-ExprBase* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
+ExprBase* CreateReturn(ExpressionContext &ctx, SynBase *source, ExprBase *result)
 {
-	ExprBase *result = syntax->value ? AnalyzeExpression(ctx, syntax->value) : new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
-
 	if(isType<TypeError>(result->type))
 	{
 		if(FunctionData *function = ctx.GetCurrentFunction())
 			function->hasExplicitReturn = true;
 
-		return new (ctx.get<ExprReturn>()) ExprReturn(syntax, result->type, result, NULL, NULL);
+		return new (ctx.get<ExprReturn>()) ExprReturn(source, result->type, result, NULL, NULL);
 	}
 
 	if(FunctionData *function = ctx.GetCurrentFunction())
@@ -7177,39 +7196,46 @@ ExprBase* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
 		{
 			if(result->type->isGeneric)
 			{
-				if(!AssertValueExpression(ctx, syntax, result))
-					return new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, new (ctx.get<ExprError>()) ExprError(result->source, ctx.GetErrorType(), result, NULL), NULL, NULL);
+				if(!AssertValueExpression(ctx, source, result))
+					return new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, new (ctx.get<ExprError>()) ExprError(result->source, ctx.GetErrorType(), result, NULL), NULL, NULL);
 			}
 
 			returnType = result->type;
 
-			function->type = ctx.GetFunctionType(syntax, returnType, function->type->arguments);
+			function->type = ctx.GetFunctionType(source, returnType, function->type->arguments);
 		}
 
 		if(returnType == ctx.typeVoid && result->type != ctx.typeVoid)
-			Report(ctx, syntax, "ERROR: 'void' function returning a value");
+			Report(ctx, source, "ERROR: 'void' function returning a value");
 		if(returnType != ctx.typeVoid && result->type == ctx.typeVoid)
-			Report(ctx, syntax, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
+			Report(ctx, source, "ERROR: function must return a value of type '%.*s'", FMT_ISTR(returnType->name));
 
-		result = CreateCast(ctx, syntax, result, function->type->returnType, false);
+		result = CreateCast(ctx, source, result, function->type->returnType, false);
 
 		function->hasExplicitReturn = true;
 
 		// TODO: checked return value
 
-		return new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, syntax, function, 0), CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(syntax), function, ctx.scope));
+		return new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, result, CreateFunctionCoroutineStateUpdate(ctx, source, function, 0), CreateFunctionUpvalueClose(ctx, ctx.MakeInternal(source), function, ctx.scope));
 	}
 
 	if(isType<TypeFunction>(result->type))
-		result = CreateCast(ctx, syntax, result, result->type, false);
+		result = CreateCast(ctx, source, result, result->type, false);
 
 	if(!AssertValueExpression(ctx, result->source, result))
-		return new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, new (ctx.get<ExprError>()) ExprError(result->source, ctx.GetErrorType(), result, NULL), NULL, NULL);
+		return new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, new (ctx.get<ExprError>()) ExprError(result->source, ctx.GetErrorType(), result, NULL), NULL, NULL);
 
 	if(!ctx.IsNumericType(result->type) && !isType<TypeEnum>(result->type))
-		Report(ctx, syntax, "ERROR: global return cannot accept '%.*s'", FMT_ISTR(result->type->name));
+		Report(ctx, source, "ERROR: global return cannot accept '%.*s'", FMT_ISTR(result->type->name));
 
-	return new (ctx.get<ExprReturn>()) ExprReturn(syntax, ctx.typeVoid, result, NULL, NULL);
+	return new (ctx.get<ExprReturn>()) ExprReturn(source, ctx.typeVoid, result, NULL, NULL);
+}
+
+ExprBase* AnalyzeReturn(ExpressionContext &ctx, SynReturn *syntax)
+{
+	ExprBase *result = syntax->value ? AnalyzeExpression(ctx, syntax->value) : new (ctx.get<ExprVoid>()) ExprVoid(syntax, ctx.typeVoid);
+
+	return CreateReturn(ctx, syntax, result);
 }
 
 ExprBase* AnalyzeYield(ExpressionContext &ctx, SynYield *syntax)
@@ -11648,9 +11674,12 @@ void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 
 				InplaceStr functionName = GetDefaultArgumentWrapperFunctionName(ctx, function, argument.name->name);
 
-				ExprFunctionAccess *access = CreateValueFunctionWrapper(ctx, argument.source, value, functionName);
+				ExprBase *access = CreateValueFunctionWrapper(ctx, argument.source, NULL, value, functionName);
 
-				argument.valueFunction = access->function;
+				assert(isType<ExprFunctionAccess>(access));
+
+				if(ExprFunctionAccess *expr = getType<ExprFunctionAccess>(access))
+					argument.valueFunction = expr->function;
 			}
 		}
 	}
