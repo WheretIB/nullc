@@ -83,6 +83,8 @@ void Linker::CleanCode()
 
 bool Linker::LinkCode(const char *code, const char *moduleName)
 {
+	(void)moduleName;
+
 	linkError[0] = 0;
 
 	unsigned dependeciesBase = exDependencies.size();
@@ -354,8 +356,6 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 	exCode.reserve(oldCodeSize + bCode->codeSize + 1);
 	exCode.resize(oldCodeSize + bCode->codeSize);
 	memcpy(exCode.data + oldCodeSize, FindCode(bCode), bCode->codeSize * sizeof(VMCmd));
-
-	unsigned temp = 0;
 
 	for(unsigned int i = oldSourceInfoSize; i < exSourceInfo.size(); i++)
 	{
