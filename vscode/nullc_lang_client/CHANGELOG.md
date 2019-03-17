@@ -1,6 +1,9 @@
 # Change Log
 All notable changes to the "nullc" extension will be documented in this file.
 
+## [Version 0.3.2]
+- Package configuration fixes
+
 ## [Version 0.3.1]
 - Package configuration fixes
 

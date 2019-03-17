@@ -3,7 +3,6 @@ import * as vscode from 'vscode';
 import { debug, workspace, DebugAdapterDescriptorFactory, ExtensionContext } from 'vscode';
 
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient';
-import { print } from 'util';
 
 let client: LanguageClient;
 
