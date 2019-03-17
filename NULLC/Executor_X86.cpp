@@ -938,7 +938,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 void ExecutorX86::Stop(const char* error)
 {
 	callContinue = false;
-	SafeSprintf(execError, 512, error);
+	SafeSprintf(execError, 512, "%s", error);
 }
 
 void ExecutorX86::ClearNative()

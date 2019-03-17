@@ -137,6 +137,14 @@ int bar(vec3 ref x){ return x.z; }\r\n\
 return bar(&x);";
 TEST_RUNTIME_FAIL("Base to derived type pointer conversion failure 2", testBaseToDerivedFail2, "ERROR: cannot convert from 'vec2' to 'vec3'");
 
+const char	*testAssertionFail1 =
+"assert(0, \"%s%s%s%s%s%s%s\");";
+TEST_RUNTIME_FAIL("Assertion fail correctly handles formatting string", testAssertionFail1, "%s%s%s%s%s%s%s");
+
+const char	*testAssertionFail2 =
+"char[4] a = 'a'; char[1024] b = 'b'; assert(0, a);";
+TEST_RUNTIME_FAIL("Assertion fail correctly handles string length", testAssertionFail2, "aaaa");
+
 void RecallerTransition(int x)
 {
 	nullcRunFunction("inside", x);
@@ -243,7 +251,14 @@ struct Test_testDepthOverflow : TestQueue
 			{
 				const char *expected = "ERROR: allocated stack overflow";
 				char buf[512];
-				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+
+				if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+					strncpy(buf, pos, 511);
+				else
+					strncpy(buf, nullcGetLastError(), 511);
+
+				buf[511] = 0;
+
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
 				if(strcmp(expected, buf) != 0)
@@ -302,7 +317,14 @@ struct Test_testGlobalOverflow : TestQueue
 			{
 				const char *expected = "ERROR: allocated stack overflow";
 				char buf[512];
-				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+
+				if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+					strncpy(buf, pos, 511);
+				else
+					strncpy(buf, nullcGetLastError(), 511);
+
+				buf[511] = 0;
+
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
 				if(strcmp(expected, buf) != 0)
@@ -351,8 +373,15 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 			if(!good)
 			{
 				const char *expected = "ERROR: failed to reserve new stack memory";
-				char buf[512];\
-				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+				char buf[512];
+
+				if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+					strncpy(buf, pos, 511);
+				else
+					strncpy(buf, nullcGetLastError(), 511);
+
+				buf[511] = 0;
+
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
 				if(strcmp(expected, buf) != 0)

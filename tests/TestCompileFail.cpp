@@ -231,6 +231,8 @@ int[foo(3)] arr;";
 	TEST_FOR_FAIL("Read-only member", "auto[] x = new int[2]; (&x.size)++; return x.size;", "ERROR: cannot get address of the expression");
 	TEST_FOR_FAIL("Read-only member", "auto[] x = new int[2]; (&x.size)--; return x.size;", "ERROR: cannot get address of the expression");
 	TEST_FOR_FAIL("Read-only member", "int[] x = new int[2]; (auto(int ref x){ return x; })(&x.size) = 56; return x.size;", "ERROR: cannot get address of the expression");
+	TEST_FOR_FAIL("Read-only member", "int[] x = { 1, 2 }; typedef int[] wrap; void wrap:rewrite(int x){ size = x; } x.rewrite(2048); return x[1000];", "ERROR: cannot change immutable value of type int");
+	TEST_FOR_FAIL("Read-only member", "auto[] x = { 1, 2 }; typedef auto[] wrap; void wrap:rewrite(){ type = long; } x.rewrite(); return long(x[0]);", "ERROR: cannot change immutable value of type typeid");
 
 	nullcLoadModuleBySource("test.redefinitionPartA", "int foo(int x){ return -x; }");
 	nullcLoadModuleBySource("test.redefinitionPartB", "int foo(int x){ return ~x; }");
@@ -717,6 +719,9 @@ while instantiating generic function foo(generic)\n\
 	TEST_FOR_FAIL("unknown type for operation", "return -nullptr;", "ERROR: unary operation '-' is not supported on '__nullptr'");
 	TEST_FOR_FAIL("unknown type for operation", "return ~nullptr;", "ERROR: unary operation '~' is not supported on '__nullptr'");
 	TEST_FOR_FAIL("unknown type for operation", "return !nullptr;", "ERROR: unary operation '!' is not supported on '__nullptr'");
+
+	TEST_FOR_FAIL("unknown type for operation", "auto ref x; return -x;", "ERROR: unary operation '-' is not supported on 'auto ref'");
+	TEST_FOR_FAIL("unknown type for operation", "auto ref x; return ~x;", "ERROR: unary operation '~' is not supported on 'auto ref'");
 
 	TEST_FOR_FAIL("fake nullptr", "void ref b; int ref a = b;", "ERROR: cannot convert 'void ref' to 'int ref'");
 

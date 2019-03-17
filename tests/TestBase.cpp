@@ -541,7 +541,14 @@ void TEST_FOR_FAIL(const char* name, const char* str, const char* error)
 	if(!good)
 	{
 		char buf[1024];
-		strncpy(buf, strstr(nullcGetLastError(), "ERROR:"), 1023); buf[1023] = 0;
+
+		if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+			strncpy(buf, pos, 1023);
+		else
+			strncpy(buf, nullcGetLastError(), 1023);
+
+		buf[1023] = 0;
+
 
 		if(char *lineEnd = strchr(buf, '\n'))
 			*lineEnd = 0;
@@ -568,7 +575,14 @@ void TEST_FOR_FAIL_GENERIC(const char* name, const char* str, const char* error1
 	if(!good)
 	{
 		char buf[1024];
-		strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+
+		if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+			strncpy(buf, pos, 1023);
+		else
+			strncpy(buf, nullcGetLastError(), 1023);
+
+		buf[1023] = 0;
+
 
 		if(memcmp(buf, error1, strlen(error1)) != 0)
 		{

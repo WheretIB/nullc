@@ -701,7 +701,7 @@ void NULLC::Assert(int val)
 void NULLC::Assert2(int val, NULLCArray message)
 {
 	if(!val)
-		nullcThrowError("%s", message.ptr);
+		nullcThrowError("%.*s", message.len, message.ptr);
 }
 
 NULLCRef NULLC::CopyObject(NULLCRef ptr)
