@@ -376,7 +376,14 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		else if(execShouldFail)
 		{
 			char buf[512];
-			strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+
+			if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+				strncpy(buf, pos, 511);
+			else
+				strncpy(buf, nullcGetLastError(), 511);
+
+			buf[511] = 0;
+
 			if(char *lineEnd = strchr(buf, '\r'))
 				*lineEnd = 0;
 
