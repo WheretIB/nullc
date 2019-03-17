@@ -257,6 +257,8 @@ bool HandleRequestSetBreakpoints(Context& ctx, rapidjson::Document &response, ra
 	for(auto &&el : activeBreakpoints)
 		nullcDebugRemoveBreakpoint(el);
 
+	activeBreakpoints.clear();
+
 	if(args.breakpoints)
 	{
 		for(auto &el : *args.breakpoints)
