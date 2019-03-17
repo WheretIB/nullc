@@ -30,8 +30,10 @@ void TestDrawRect(int, int, int, int, int)
 void	SpeedTestText(const char* name, const char* text)
 {
 	nullcTerminate();
-	nullcInit(MODULE_PATH);
+	nullcInit();
+	nullcAddImportPath(MODULE_PATH);
 	nullcSetFileReadHandler(Tests::fileLoadFunc);
+	nullcSetEnableLogFiles(false, NULL, NULL, NULL);
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();

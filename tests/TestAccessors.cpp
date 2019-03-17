@@ -17,8 +17,8 @@ b = a.doubleX = 5.0;\r\n\
 return a.sum;";
 TEST("Accessors", testAccessors, "6")
 {
-	CHECK_INT("c", 0, 29);
-	CHECK_DOUBLE("b", 0, 1.0);
+	CHECK_INT("c", 0, 29, lastFailed);
+	CHECK_DOUBLE("b", 0, 1.0, lastFailed);
 }
 
 const char	*testPropertyAfterFunctionCall =

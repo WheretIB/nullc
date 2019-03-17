@@ -11,12 +11,16 @@ extern "C"
 /************************************************************************/
 /*				NULLC initialization and termination					*/
 
-void		nullcInit(const char* importPath);
-void		nullcInitCustomAlloc(void* (NCDECL *allocFunc)(int), void (NCDECL *deallocFunc)(void*), const char* importPath);
+nullres		nullcInit();
+nullres		nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*));
 
-void		nullcSetImportPath(const char* importPath);
-void		nullcSetFileReadHandler(const void* (NCDECL *fileLoadFunc)(const char* name, unsigned int* size, int* nullcShouldFreePtr));
-void		nullcSetGlobalMemoryLimit(unsigned int limit);
+void		nullcClearImportPaths();
+void		nullcAddImportPath(const char* importPath);
+
+void		nullcSetFileReadHandler(const void* (*fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr));
+void		nullcSetGlobalMemoryLimit(unsigned limit);
+void		nullcSetEnableLogFiles(int enable, void* (*openStream)(const char* name), void (*writeStream)(void *stream, const char *data, unsigned size), void (*closeStream)(void* stream));
+void		nullcSetOptimizationLevel(int level);
 
 void		nullcTerminate();
 
@@ -24,17 +28,17 @@ void		nullcTerminate();
 /*				NULLC execution settings and environment				*/
 
 /*	Change current executor to either NULLC_VM or NULLC_X86	*/
-void		nullcSetExecutor(unsigned int id);
+void		nullcSetExecutor(unsigned id);
 #ifdef NULLC_BUILD_X86_JIT
 /*	Set memory range where JiT parameter stack will be placed.
 	If flagMemoryAllocated is not set, executor will allocate memory itself using VirtualAlloc with base == start.
 	When flagMemoryAllocated is not set, end can be set to NULL, meaning that x86 parameter stack can grow indefinitely.
 	Default mode: start = 0x20000000, end = NULL, flagMemoryAllocated = false	*/
-nullres		nullcSetJiTStack(void* start, void* end, unsigned int flagMemoryAllocated);
+nullres		nullcSetJiTStack(void* start, void* end, unsigned flagMemoryAllocated);
 #endif
 
 /*	Used to bind unresolved module functions to external C functions. Function index is the number of a function overload	*/
-nullres		nullcBindModuleFunction(const char* module, void (NCDECL *ptr)(), const char* name, int index);
+nullres		nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index);
 
 /*	Builds module and saves its binary into binary cache	*/
 nullres		nullcLoadModuleBySource(const char* module, const char* code);
@@ -81,26 +85,29 @@ nullres		nullcFinalize();
 
 // A list of indexes for NULLC build-in types
 #define	NULLC_TYPE_VOID			0
-#define	NULLC_TYPE_DOUBLE		1
-#define	NULLC_TYPE_FLOAT		2
-#define	NULLC_TYPE_LONG			3
+#define	NULLC_TYPE_BOOL			1
+#define	NULLC_TYPE_CHAR			2
+#define	NULLC_TYPE_SHORT		3
 #define	NULLC_TYPE_INT			4
-#define	NULLC_TYPE_SHORT		5
-#define	NULLC_TYPE_CHAR			6
-#define	NULLC_TYPE_AUTO_REF		7
+#define	NULLC_TYPE_LONG			5
+#define	NULLC_TYPE_FLOAT		6
+#define	NULLC_TYPE_DOUBLE		7
 #define	NULLC_TYPE_TYPEID		8
-#define	NULLC_TYPE_AUTO_ARRAY	10
-#define	NULLC_TYPE_FUNCTION		11
-#define	NULLC_TYPE_GENERIC		12
-#define	NULLC_TYPE_BOOL			13
+#define	NULLC_TYPE_FUNCTION		9
+#define	NULLC_TYPE_NULLPTR		10
+#define	NULLC_TYPE_GENERIC		11
+#define	NULLC_TYPE_AUTO			12
+#define	NULLC_TYPE_AUTO_REF		13
+#define	NULLC_TYPE_VOID_REF		14
+#define	NULLC_TYPE_AUTO_ARRAY	15
 
 /*	Allocates memory block that is managed by GC	*/
-void*		nullcAllocate(unsigned int size);
-void*		nullcAllocateTyped(unsigned int typeID);
-NULLCArray	nullcAllocateArrayTyped(unsigned int typeID, unsigned int count);
+void*		nullcAllocate(unsigned size);
+void*		nullcAllocateTyped(unsigned typeID);
+NULLCArray	nullcAllocateArrayTyped(unsigned typeID, unsigned count);
 
 /*	Abort NULLC program execution with specified error code	*/
-void		nullcThrowError(const char* error, ...);
+void		nullcThrowError(const char* error, ...) NULLC_PRINT_FORMAT_CHECK(1, 2);
 
 /*	Call function using NULLCFuncPtr	*/
 nullres		nullcCallFunction(NULLCFuncPtr ptr, ...);
@@ -109,7 +116,7 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...);
 void*		nullcGetGlobal(const char* name);
 
 /* Get global variable type */
-unsigned int	nullcGetGlobalType(const char* name);
+unsigned	nullcGetGlobalType(const char* name);
 
 /*	Set global variable value	*/
 nullres		nullcSetGlobal(const char* name, void* data);
@@ -137,28 +144,36 @@ int			nullcInitDynamicModule();
 /************************************************************************/
 /*							Extended functions							*/
 
+/*	Analyzes the code and returns 1 on success	*/
+nullres		nullcAnalyze(const char* code);
+
 /*	Compiles the code and returns 1 on success	*/
-nullres			nullcCompile(const char* code);
+nullres		nullcCompile(const char* code);
 
 /*	compiled bytecode to be used for linking and executing can be retrieved with this function
 	function returns bytecode size, and memory to which 'bytecode' points can be freed at any time	*/
-unsigned int	nullcGetBytecode(char **bytecode);
-unsigned int	nullcGetBytecodeNoCache(char **bytecode);
+unsigned	nullcGetBytecode(char **bytecode);
+unsigned	nullcGetBytecodeNoCache(char **bytecode);
 
 /*	This function saves disassembly of last compiled code into file	*/
-bool			nullcSaveListing(const char *fileName);
+nullres		nullcSaveListing(const char *fileName);
 
-/*	Function works only if NULLC_ENABLE_C_TRANSLATION is defined.
-	This function saved analog of C++ code of last compiled code into file	*/
-void			nullcTranslateToC(const char *fileName, const char *mainName);
+/*	This function saved analog of C++ code of last compiled code into file	*/
+nullres		nullcTranslateToC(const char *fileName, const char *mainName, void (*addDependency)(const char *fileName));
 
 /*	Clean all accumulated bytecode	*/
-void			nullcClean();
+void		nullcClean();
 
 /*	Link new chunk of code.
 	Type or function redefinition generates an error.
 	Global variables with the same name are ok. */
-nullres			nullcLinkCode(const char *bytecode);
+nullres		nullcLinkCode(const char *bytecode);
+
+/************************************************************************/
+/*							Internal testing functions					*/
+
+nullres		nullcTestEvaluateExpressionTree(char *resultBuf, unsigned resultBufSize);
+nullres		nullcTestEvaluateInstructionTree(char *resultBuf, unsigned resultBufSize);
 
 #ifdef __cplusplus
 }

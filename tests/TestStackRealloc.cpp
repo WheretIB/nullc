@@ -119,7 +119,7 @@ auto rurr()\r\n\
 	// stack frame alignment will translate this to 48 and 32, creating an error\r\n\
 	int d = 5;\r\n\
 	int pad = 8;\r\n\
-	auto b1 = int lambda(int b){ return b + d; };\r\n\
+	auto b1 = int lam_bda(int b){ return b + d; };\r\n\
 	test();\r\n\
 	d = 7;\r\n\
 	return b1(4);\r\n\
@@ -151,7 +151,7 @@ auto rurr()\r\n\
 	// stack frame end is at 20, but incorrect calculation will return 12\r\n\
 	// stack frame alignment will translate this to 32 and 16, creating an error\r\n\
 	int d = 5;\r\n\
-	auto b1 = int lambda(int b){ return b + d; };\r\n\
+	auto b1 = int lam_bda(int b){ return b + d; };\r\n\
 	test();\r\n\
 	d = 7;\r\n\
 	return b1(4);\r\n\
@@ -395,8 +395,10 @@ struct TestEval : TestQueue
 	virtual void Run()
 	{
 		nullcTerminate();
-		nullcInit(MODULE_PATH);
+		nullcInit();
+		nullcAddImportPath(MODULE_PATH);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitDynamicModule();
 
 		const char	*testEval =
@@ -414,13 +416,15 @@ return a;";
 			if(!Tests::testExecutor[t])
 				continue;
 			testsCount[t]++;
-			if(Tests::RunCode(testEval, t, "59705", "Dynamic code. eval()"))
+			if(Tests::RunCodeSimple(testEval, t, "59705", "Dynamic code. eval()"))
 				testsPassed[t]++;
-			printf("Eval test finished in %f\r", myGetPreciseTime() - evalStart);
+			printf("Eval test finished in %f\n", myGetPreciseTime() - evalStart);
 		}
 		nullcTerminate();
-		nullcInit(MODULE_PATH);
+		nullcInit();
+		nullcAddImportPath(MODULE_PATH);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitDynamicModule();
 	}
 };
@@ -444,7 +448,7 @@ for(int i = 0; i < 200; i++)\r\n\
 	eval(\"a = 3 * \" + i.str() + \";\");\r\n\
 int y = foo();\r\n\
 return x * 10 + y;";
-TEST("Coroutine and dynamic code. eval()", testCoroutineAndEval, "12")
+TEST_SIMPLE("Coroutine and dynamic code. eval()", testCoroutineAndEval, "12")
 {
 }
 
@@ -453,8 +457,10 @@ struct TestVariableImportCorrectness : TestQueue
 	virtual void Run()
 	{
 		nullcTerminate();
-		nullcInit(MODULE_PATH);
+		nullcInit();
+		nullcAddImportPath(MODULE_PATH);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitDynamicModule();
 
 		const char	*testVariableImportCorrectness =
@@ -470,7 +476,7 @@ return x * 10 + y;";
 			if(!Tests::testExecutor[t])
 				continue;
 			testsCount[t]++;
-			if(Tests::RunCode(testVariableImportCorrectness, t, "48", "Variable import correctness"))
+			if(Tests::RunCodeSimple(testVariableImportCorrectness, t, "48", "Variable import correctness"))
 				testsPassed[t]++;
 		}
 	}
@@ -482,8 +488,10 @@ struct TestGCGlobalLimit : TestQueue
 	virtual void Run()
 	{
 		nullcTerminate();
-		nullcInit(MODULE_PATH);
+		nullcInit();
+		nullcAddImportPath(MODULE_PATH);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitGCModule();
 		nullcSetGlobalMemoryLimit(1024 * 1024);
 
@@ -508,8 +516,10 @@ struct TestRestore : TestQueue
 	virtual void Run()
 	{
 		nullcTerminate();
-		nullcInit(MODULE_PATH);
+		nullcInit();
+		nullcAddImportPath(MODULE_PATH);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 
 		nullcInitTypeinfoModule();
 		nullcInitFileModule();

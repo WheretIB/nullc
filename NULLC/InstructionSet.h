@@ -188,9 +188,6 @@ enum InstructionCode
 	cmdDecD,
 	cmdDecL,
 
-	cmdCreateClosure,
-	cmdCloseUpvals,
-
 	cmdPushTypeID,
 	cmdConvertPtr,
 
@@ -269,7 +266,9 @@ struct VMCmd
 	int Decode(char *buf)
 	{
 		char *curr = buf;
-		curr += sprintf(curr, "%s", vmInstructionText[cmd]);
+
+		strcpy(curr, vmInstructionText[cmd]);
+		curr += strlen(curr);
 
 		switch(cmd)
 		{
@@ -288,12 +287,12 @@ struct VMCmd
 		case cmdPushDorLStk:
 		case cmdPushCmplxStk:
 		case cmdPushPtrStk:
-			curr += sprintf(curr, " [%d%s] sizeof(%d)", argument, flag ? " + base" : "", helper);
+			curr += sprintf(curr, " [%u%s] sizeof(%u)", argument, flag ? " + base" : "", helper);
 			break;
 
 		case cmdPushImmt:
 		case cmdPushPtrImmt:
-			curr += sprintf(curr, " %d", argument);
+			curr += sprintf(curr, " %u", argument);
 			break;
 
 		case cmdMovChar:
@@ -309,56 +308,59 @@ struct VMCmd
 		case cmdMovFloatStk:
 		case cmdMovDorLStk:
 		case cmdMovCmplxStk:
-			curr += sprintf(curr, " [%d%s] sizeof(%d)", argument, flag ? " + base" : "", helper);
+			curr += sprintf(curr, " [%u%s] sizeof(%u)", argument, flag ? " + base" : "", helper);
 			break;
 
 		case cmdPop:
+			curr += sprintf(curr, " sizeof(%u)", argument);
+			break;
 		case cmdIndex:
+			curr += sprintf(curr, " limit(%u) sizeof(%u)", argument, helper);
+			break;
 		case cmdIndexStk:
+			curr += sprintf(curr, " sizeof(%u)", helper);
+			break;
 		case cmdGetAddr:
+			curr += sprintf(curr, " [%u%s]", argument, flag ? " + base" : "");
+			break;
 		case cmdFuncAddr:
+			curr += sprintf(curr, " %u", argument);
+			break;
 		case cmdPushVTop:
-			curr += sprintf(curr, " %d", argument);
+			curr += sprintf(curr, " total(%u) arguments(%u)", argument, helper);
 			break;
 
 		case cmdSetRangeStk:
-			curr += sprintf(curr, " element count: %d dtype: %d", argument, helper);
+			curr += sprintf(curr, " element count: %u dtype: %u", argument, helper);
 			break;
 
 		case cmdJmp:
 		case cmdJmpZ:
 		case cmdJmpNZ:
-			curr += sprintf(curr, " %d", argument);
+			curr += sprintf(curr, " %u", argument);
 			break;
 
 		case cmdCall:
-			curr += sprintf(curr, " Function id: %d ret size: %d", argument, helper);
+			curr += sprintf(curr, " Function id: %u ret size: %u", argument, helper);
 			break;
 
 		case cmdCallPtr:
-			curr += sprintf(curr, " Param size: %d ret size: %d", argument, helper);
+			curr += sprintf(curr, " Param size: %u ret size: %u", argument, helper);
 			break;
 
 		case cmdReturn:
-			curr += sprintf(curr, " %s flag: %d sizeof: %d", helper ? "local" : "global", (int)flag, argument);
-			break;
-
-		case cmdCreateClosure:
-			curr += sprintf(curr, " Function id: %d Previous closure at %d", argument, helper);
-			break;
-		case cmdCloseUpvals:
-			curr += sprintf(curr, " Function id: %d Stack offset: %d", helper, argument);
+			curr += sprintf(curr, " %s flag: %d sizeof: %u", helper ? "local" : "global", (int)flag, argument);
 			break;
 
 		case cmdPushTypeID:
-			curr += sprintf(curr, " %d", argument);
+			curr += sprintf(curr, " %u", argument);
 			break;
 		case cmdConvertPtr:
-			curr += sprintf(curr, " Type id: %d", argument);
+			curr += sprintf(curr, " Type id: %u", argument);
 			break;
 
 		case cmdYield:
-			curr += sprintf(curr, " %s %s (context at %d)", flag ? "Restore" : "Save", flag ? " " : (helper ? "Yield" : "Return"), argument);
+			curr += sprintf(curr, " %s %s (context at %u)", flag ? "Restore" : "Save", flag ? " " : (helper ? "Yield" : "Return"), argument);
 			break;
 		}
 		return (int)(curr-buf);
@@ -401,27 +403,6 @@ enum asmOperType
 	OTYPE_LONG,
 	OTYPE_INT,
 };
-
-static int		stackTypeSize[] = { 4, 8, -1, 8 };
-
-// Conversion of asmStackType to appropriate asmOperType
-static asmOperType operTypeForStackType[] = { OTYPE_INT, OTYPE_LONG, OTYPE_COMPLEX, OTYPE_DOUBLE };
-
-// Conversion of asmStackType to appropriate asmDataType
-static asmDataType dataTypeForStackType[] = { DTYPE_INT, DTYPE_LONG, (asmDataType)0, DTYPE_DOUBLE };
-
-// Conversion of asmDataType to appropriate asmStackType
-static asmStackType stackTypeForDataTypeArr[] = { STYPE_INT, STYPE_INT, STYPE_INT, STYPE_LONG, STYPE_DOUBLE, STYPE_DOUBLE, STYPE_COMPLEX_TYPE };
-__forceinline asmStackType stackTypeForDataType(asmDataType dt){ return stackTypeForDataTypeArr[dt / 4]; }
-
-static InstructionCode cmdPushType[] = { cmdPushChar, cmdPushShort, cmdPushInt, cmdPushDorL, cmdPushFloat, cmdPushDorL, cmdPushCmplx };
-static InstructionCode cmdPushTypeStk[] = { cmdPushCharStk, cmdPushShortStk, cmdPushIntStk, cmdPushDorLStk, cmdPushFloatStk, cmdPushDorLStk, cmdPushCmplxStk };
-
-static InstructionCode cmdMovType[] = { cmdMovChar, cmdMovShort, cmdMovInt, cmdMovDorL, cmdMovFloat, cmdMovDorL, cmdMovCmplx };
-static InstructionCode cmdMovTypeStk[] = { cmdMovCharStk, cmdMovShortStk, cmdMovIntStk, cmdMovDorLStk, cmdMovFloatStk, cmdMovDorLStk, cmdMovCmplxStk };
-
-static InstructionCode cmdIncType[] = { cmdIncD, cmdNop, cmdIncL, cmdIncI };
-static InstructionCode cmdDecType[] = { cmdDecD, cmdNop, cmdDecL, cmdDecI };
 
 // Constants for RetFlag creation from different bits
 const unsigned int	bitRetError		= 1 << 7;	// User forgot to return a value, abort execution

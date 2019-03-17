@@ -382,8 +382,10 @@ auto bind(generic f, generic v0, v1)\r\n\
 		return auto(typeof(f).argument[0] x, typeof(f).argument[0] y){ return f(typeof(v0) == ph1 ? x : y, typeof(v1) == ph1 ? x : y); };\r\n\
 	else if(typeof(v0) == ph1)\r\n\
 		return bind(auto(typeof(f).argument[0] x){ return f(x, v1); }, v0);\r\n\
-	else if(typeof(v0) == ph2 || typeof(v1) == ph2)\r\n\
-		return auto(typeof(f).argument[1] x, typeof(f).argument[0] y){ return f(typeof(v0) == ph2 ? y : v0, typeof(v1) == ph2 ? y : v1); };\r\n\
+	else if(typeof(v0) == ph2)\r\n\
+		return auto(typeof(f).argument[1] x, typeof(f).argument[0] y){ return f(y, v1); };\r\n\
+	else if(typeof(v1) == ph2)\r\n\
+		return auto(typeof(f).argument[1] x, typeof(f).argument[0] y){ return f(v0, y); };\r\n\
 	else\r\n\
 		return bind(auto(typeof(f).argument[0] x){ return f(v0, x); }, v1);\r\n\
 }\r\n\
@@ -415,14 +417,14 @@ int r8 = y8(1000000, 7); // 3\r\n\
 return 1;";
 TEST("Function binding", testBind, "1")
 {
-	CHECK_INT("r1", 0, 20);
-	CHECK_INT("r2", 0, 3);
-	CHECK_INT("r3", 0, 10);
-	CHECK_INT("r4", 0, -9);
-	CHECK_INT("r5", 0, 0);
-	CHECK_INT("r6", 0, 0);
-	CHECK_INT("r7", 0, 2);
-	CHECK_INT("r8", 0, 3);
+	CHECK_INT("r1", 0, 20, lastFailed);
+	CHECK_INT("r2", 0, 3, lastFailed);
+	CHECK_INT("r3", 0, 10, lastFailed);
+	CHECK_INT("r4", 0, -9, lastFailed);
+	CHECK_INT("r5", 0, 0, lastFailed);
+	CHECK_INT("r6", 0, 0, lastFailed);
+	CHECK_INT("r7", 0, 2, lastFailed);
+	CHECK_INT("r8", 0, 3, lastFailed);
 }
 
 const char	*testVectorSplice =

@@ -147,7 +147,7 @@ namespace NULLCMath
 
 	float length2(float4* v)
 	{
-		return sqrt(v->x * v->x + v->y * v->y);
+		return sqrtf(v->x * v->x + v->y * v->y);
 	}
 	float normalize2(float4* v)
 	{
@@ -159,7 +159,7 @@ namespace NULLCMath
 
 	float length3(float4* v)
 	{
-		return sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
+		return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z);
 	}
 	float normalize3(float4* v)
 	{

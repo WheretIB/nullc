@@ -2,12 +2,6 @@
 
 #include <assert.h>
 
-#if !defined(_DEBUG) && !defined(NULLC_ENABLE_C_TRANSLATION) && !defined(NULLC_LLVM_SUPPORT)
-	#define FAILURE_TEST
-#endif
-
-#ifdef FAILURE_TEST
-
 const char	*testDivZeroInt = 
 "// Division by zero handling\r\n\
 int a = 5, b = 0;\r\n\
@@ -68,10 +62,14 @@ int[][] xr = x;\r\n\
 return xr[1][3];";
 TEST_RUNTIME_FAIL("Array out of bounds error check 3", testBounds3, "ERROR: array index out of bounds");
 
-const char	*testInvalidFuncPtr = 
+const char	*testInvalidFuncPtr1 = 
 "int ref(int) a;\r\n\
 return a(5);";
-TEST_RUNTIME_FAIL("Invalid function pointer check", testInvalidFuncPtr, "ERROR: invalid function pointer");
+TEST_RUNTIME_FAIL("Invalid function pointer check 1", testInvalidFuncPtr1, "ERROR: invalid function pointer");
+
+const char	*testInvalidFuncPtr2 = 
+"int foo(){ return 2; } int x = 0; auto a = x ? foo : nullptr; return a();";
+TEST_RUNTIME_FAIL("Invalid function pointer check 2", testInvalidFuncPtr2, "ERROR: invalid function pointer");
 
 const char	*testAutoReferenceMismatch =
 "int a = 17;\r\n\
@@ -139,6 +137,14 @@ int bar(vec3 ref x){ return x.z; }\r\n\
 return bar(&x);";
 TEST_RUNTIME_FAIL("Base to derived type pointer conversion failure 2", testBaseToDerivedFail2, "ERROR: cannot convert from 'vec2' to 'vec3'");
 
+const char	*testAssertionFail1 =
+"assert(0, \"%s%s%s%s%s%s%s\");";
+TEST_RUNTIME_FAIL("Assertion fail correctly handles formatting string", testAssertionFail1, "%s%s%s%s%s%s%s");
+
+const char	*testAssertionFail2 =
+"char[4] a = 'a'; char[1024] b = 'b'; assert(0, a);";
+TEST_RUNTIME_FAIL("Assertion fail correctly handles string length", testAssertionFail2, "aaaa");
+
 void RecallerTransition(int x)
 {
 	nullcRunFunction("inside", x);
@@ -175,13 +181,13 @@ inside (line 5: at recall(x-1);)\r\n\
 inside (line 5: at recall(x-1);)\r\n\
 inside (line 4: at assert(x);)\r\n";
 #endif
-struct Test_testMultipleTransiotions : TestQueue
+struct Test_testMultipleTransitions : TestQueue
 {
 	virtual void Run()
 	{
 		if(Tests::messageVerbose)
 			printf("Call stack when there are various transitions between NULLC and C\r\n");
-		for(int t = 0; t < TEST_COUNT; t++)
+		for(int t = 0; t < TEST_RUNTIME_FAIL_EXECUTORS; t++)
 		{
 			if(!Tests::testExecutor[t])
 				continue;
@@ -214,11 +220,9 @@ struct Test_testMultipleTransiotions : TestQueue
 		}
 	}
 };
-Test_testMultipleTransiotions test_testMultipleTransiotions;
+Test_testMultipleTransitions test_testMultipleTransitions;
 
-#endif
-
-#if defined(FAILURE_TEST) && defined(NULLC_BUILD_X86_JIT)
+#if defined(NULLC_BUILD_X86_JIT)
 
 const char	*testDepthOverflow = 
 "int fib(int n)\r\n\
@@ -236,7 +240,7 @@ struct Test_testDepthOverflow : TestQueue
 		nullcSetJiTStack(stackMem, stackMem + 32*1024, true);
 		if(Tests::messageVerbose)
 			printf("Call depth test\r\n");
-		if(Tests::testExecutor[1])
+		if(Tests::testExecutor[1] && 1 < TEST_RUNTIME_FAIL_EXECUTORS)
 		{
 			testsCount[1]++;
 			nullcSetExecutor(NULLC_X86);
@@ -245,18 +249,25 @@ struct Test_testDepthOverflow : TestQueue
 			good = nullcRun();
 			if(!good)
 			{
-				const char *error = "ERROR: allocated stack overflow";
+				const char *expected = "ERROR: allocated stack overflow";
 				char buf[512];
-				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+
+				if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+					strncpy(buf, pos, 511);
+				else
+					strncpy(buf, nullcGetLastError(), 511);
+
+				buf[511] = 0;
+
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
-				if(strcmp(error, buf) != 0)
+				if(strcmp(expected, buf) != 0)
 				{
 					if(!Tests::messageVerbose)
 						printf("Call depth test\r\n");
-					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
+					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, expected);
 				}else{
-					testsPassed[1]++;
+					testsPassed[TEST_TYPE_X86]++;
 				}
 			}else{
 				if(!Tests::messageVerbose)
@@ -295,7 +306,7 @@ struct Test_testGlobalOverflow : TestQueue
 		if(Tests::messageVerbose)
 			printf("Global overflow test\r\n");
 		nullcSetJiTStack(stackMem, stackMem + 32*1024, true);
-		if(Tests::testExecutor[1])
+		if(Tests::testExecutor[1] && 1 < TEST_RUNTIME_FAIL_EXECUTORS)
 		{
 			testsCount[1]++;
 			nullcSetExecutor(NULLC_X86);
@@ -304,18 +315,25 @@ struct Test_testGlobalOverflow : TestQueue
 			good = nullcRun();
 			if(!good)
 			{
-				const char *error = "ERROR: allocated stack overflow";
+				const char *expected = "ERROR: allocated stack overflow";
 				char buf[512];
-				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+
+				if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+					strncpy(buf, pos, 511);
+				else
+					strncpy(buf, nullcGetLastError(), 511);
+
+				buf[511] = 0;
+
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
-				if(strcmp(error, buf) != 0)
+				if(strcmp(expected, buf) != 0)
 				{
 					if(!Tests::messageVerbose)
 						printf("Global overflow test\r\n");
-					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
+					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, expected);
 				}else{
-					testsPassed[1]++;
+					testsPassed[TEST_TYPE_X86]++;
 				}
 			}else{
 				if(!Tests::messageVerbose)
@@ -345,7 +363,7 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 		nullcSetJiTStack((void*)0x20000000, (void*)(0x20000000 + 1024*1024), false);
 		if(Tests::messageVerbose)
 			printf("Depth overflow in unmanaged memory\r\n");
-		if(Tests::testExecutor[1])
+		if(Tests::testExecutor[1] && 1 < TEST_RUNTIME_FAIL_EXECUTORS)
 		{
 			testsCount[1]++;
 			nullcSetExecutor(NULLC_X86);
@@ -354,18 +372,25 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 			good = nullcRun();
 			if(!good)
 			{
-				const char *error = "ERROR: failed to reserve new stack memory";
-				char buf[512];\
-				strcpy(buf, strstr(nullcGetLastError(), "ERROR:"));
+				const char *expected = "ERROR: failed to reserve new stack memory";
+				char buf[512];
+
+				if(const char *pos = strstr(nullcGetLastError(), "ERROR:"))
+					strncpy(buf, pos, 511);
+				else
+					strncpy(buf, nullcGetLastError(), 511);
+
+				buf[511] = 0;
+
 				if(char *lineEnd = strchr(buf, '\r'))
 					*lineEnd = 0;
-				if(strcmp(error, buf) != 0)
+				if(strcmp(expected, buf) != 0)
 				{
 					if(Tests::messageVerbose)
 						printf("Depth overflow in unmanaged memory\r\n");
-					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, error);
+					printf("X86 failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", buf, expected);
 				}else{
-					testsPassed[1]++;
+					testsPassed[TEST_TYPE_X86]++;
 				}
 			}else{
 				if(Tests::messageVerbose)

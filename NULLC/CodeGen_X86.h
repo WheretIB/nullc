@@ -2,8 +2,8 @@
 
 #include "stdafx.h"
 
+#include "InstructionSet.h"
 #include "Instruction_X86.h"
-#include "ParseClass.h"
 #include "Bytecode.h"
 
 const unsigned int JUMP_NEAR = (unsigned int)(1 << 31);
@@ -11,13 +11,9 @@ const unsigned int JUMP_NEAR = (unsigned int)(1 << 31);
 const unsigned int LABEL_GLOBAL = 1 << 30;
 const unsigned int LABEL_ALU = 0;
 
-#ifdef NULLC_LOG_FILES
 void EMIT_COMMENT(const char* text);
-#else
-#define EMIT_COMMENT(x)
-#endif
-
 void EMIT_LABEL(unsigned int labelID, int invalidate);
+
 void EMIT_OP(x86Command op);
 void EMIT_OP_LABEL(x86Command op, unsigned int labelID, int invalidate, int longJump);
 void EMIT_OP_REG(x86Command op, x86Reg reg1);

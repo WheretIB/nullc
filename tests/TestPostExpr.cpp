@@ -31,15 +31,15 @@ int a4 = \"as\".size;\r\n\
 return 0;";
 TEST("Post expressions on arrays and strings", testPostExpressions, "0")
 {
-	CHECK_INT("a", 0, 9);
-	CHECK_INT("b", 0, 5);
-	CHECK_INT("l", 0, 3);
-	CHECK_INT("l2", 0, 2);
-	CHECK_INT("l3", 0, 4);
-	CHECK_INT("l4", 0, -1);
-	CHECK_INT("a2", 0, 3);
-	CHECK_INT("a3", 0, 3);
-	CHECK_INT("a4", 0, 3);
+	CHECK_INT("a", 0, 9, lastFailed);
+	CHECK_INT("b", 0, 5, lastFailed);
+	CHECK_INT("l", 0, 3, lastFailed);
+	CHECK_INT("l2", 0, 2, lastFailed);
+	CHECK_INT("l3", 0, 4, lastFailed);
+	CHECK_INT("l4", 0, -1, lastFailed);
+	CHECK_INT("a2", 0, 3, lastFailed);
+	CHECK_INT("a3", 0, 3, lastFailed);
+	CHECK_INT("a4", 0, 3, lastFailed);
 }
 
 const char	*testPreAndPostOnGroupA =

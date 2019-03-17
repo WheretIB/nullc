@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Allocator.h"
 #include "Pool.h"
 
 template<typename Value>
@@ -17,28 +18,54 @@ public:
 		Node			*next;
 	};
 
-	HashMap()
+	HashMap(Allocator *allocator = 0): allocator(allocator)
 	{
 		entries = NULL;
 	}
+
 	void init()
 	{
 		if(!entries)
 		{
-			entries = NULLC::construct<Node*>(bucketCount);
+			if(allocator)
+				entries = allocator->construct<Node*>(bucketCount);
+			else
+				entries = NULLC::construct<Node*>(bucketCount);
+
 			memset(entries, 0, sizeof(Node*) * bucketCount);
 		}
 	}
+
 	~HashMap()
 	{
 		if(entries)
-			NULLC::destruct(entries, bucketCount);
+		{
+			if(allocator)
+				allocator->destruct(entries, bucketCount);
+			else
+				NULLC::destruct(entries, bucketCount);
+		}
+
 		entries = NULL;
 	}
+
+	void set_allocator(Allocator *newAllocator)
+	{
+		assert(entries == NULL);
+
+		this->allocator = newAllocator;
+	}
+
 	void reset()
 	{
 		if(entries)
-			NULLC::destruct(entries, bucketCount);
+		{
+			if(allocator)
+				allocator->destruct(entries, bucketCount);
+			else
+				NULLC::destruct(entries, bucketCount);
+		}
+
 		entries = NULL;
 		nodePool.~ChunkedStackPool();
 	}
@@ -52,7 +79,7 @@ public:
 	void insert(unsigned int hash, Value value)
 	{
 		unsigned int bucket = hash & bucketMask;
-		Node *n = (Node*)nodePool.Allocate(sizeof(Node));
+		Node *n = (Node*)(allocator ? allocator->alloc(sizeof(Node)) : nodePool.Allocate(sizeof(Node)));
 		n->value = value;
 		n->hash = hash;
 		n->next = entries[bucket];
@@ -124,4 +151,6 @@ public:
 	}
 private:
 	Node	**entries;
+
+	Allocator *allocator;
 };

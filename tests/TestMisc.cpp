@@ -11,8 +11,8 @@ a.y = a/*[gg]*/.x + 3;\r\n\
 return a.x;";
 TEST("Compiler mislead test", testMislead, "2.000000")
 {
-	CHECK_FLOAT("a", 0, 2.0f);
-	CHECK_FLOAT("a", 1, 5.0f);
+	CHECK_FLOAT("a", 0, 2.0f, lastFailed);
+	CHECK_FLOAT("a", 1, 5.0f, lastFailed);
 }
 
 const char	*testLogicalAnd =
@@ -46,15 +46,15 @@ while(1){ n*=2; if(n>1000) break; }\r\n\
 return 2+test(2, 3)+a**b;";
 TEST("Old all-in-one test", testAllInOne, "19.000000")
 {
-	CHECK_INT("a", 0, 5);
-	CHECK_FLOAT("b", 0, 1.0f);
-	CHECK_FLOAT("c", 0, 62.0f);
-	CHECK_FLOAT("c", 1, 62.0f);
-	CHECK_FLOAT("c", 2, 62.0f);
+	CHECK_INT("a", 0, 5, lastFailed);
+	CHECK_FLOAT("b", 0, 1.0f, lastFailed);
+	CHECK_FLOAT("c", 0, 62.0f, lastFailed);
+	CHECK_FLOAT("c", 1, 62.0f, lastFailed);
+	CHECK_FLOAT("c", 2, 62.0f, lastFailed);
 	double values[] = { -0.0, -4.0, 0.0, 36.0, 128.0, 300.0, 576.0, 980.0, 1536.0, 2268.0 };
 	for(int i = 0; i < 10; i++)
-		CHECK_DOUBLE("d", i, values[i]);
-	CHECK_DOUBLE("n", 0, 1024);
+		CHECK_DOUBLE("d", i, values[i], lastFailed);
+	CHECK_DOUBLE("n", 0, 1024, lastFailed);
 }
 
 const char	*testLongSpeed = 
@@ -66,9 +66,9 @@ for(int i = 0; i < 1000; i++)\r\n\
 return 0;";
 TEST("longPow speed test", testLongSpeed, "0")
 {
-	CHECK_LONG("a", 0, 43);
-	CHECK_LONG("b", 0, 10);
-	CHECK_LONG("c", 0, 21611482313284249ll);
+	CHECK_LONG("a", 0, 43, lastFailed);
+	CHECK_LONG("b", 0, 10, lastFailed);
+	CHECK_LONG("c", 0, 21611482313284249ll, lastFailed);
 }
 
 const char	*testOptiA = 
@@ -83,13 +83,13 @@ res[5] = a*3*1;\r\n\
 return 1;";
 TEST("Simple optimizations", testOptiA, "1")
 {
-	CHECK_INT("a", 0, 12);
-	CHECK_INT("res", 0, 12);
-	CHECK_INT("res", 1, 0);
-	CHECK_INT("res", 2, 12);
-	CHECK_INT("res", 3, 12);
-	CHECK_INT("res", 4, 24);
-	CHECK_INT("res", 5, 36);
+	CHECK_INT("a", 0, 12, lastFailed);
+	CHECK_INT("res", 0, 12, lastFailed);
+	CHECK_INT("res", 1, 0, lastFailed);
+	CHECK_INT("res", 2, 12, lastFailed);
+	CHECK_INT("res", 3, 12, lastFailed);
+	CHECK_INT("res", 4, 24, lastFailed);
+	CHECK_INT("res", 5, 36, lastFailed);
 }
 
 const char	*testVarMod = 
@@ -101,14 +101,14 @@ arr[slow(/*40000000*/1000)] += 16; // 330 ms total. target - 140ms\r\n\
 return 3;";
 TEST("Variable modify test", testVarMod, "3")
 {
-	CHECK_INT("index", 0, 2);
+	CHECK_INT("index", 0, 2, lastFailed);
 	for(int i = 0; i < 10; i++)
 	{
 		if(i != 2)
 		{
-			CHECK_INT("arr", i, 4);
+			CHECK_INT("arr", i, 4, lastFailed);
 		}else{
-			CHECK_INT("arr", i, 20);
+			CHECK_INT("arr", i, 20, lastFailed);
 		}
 	}
 }
@@ -163,6 +163,18 @@ int foo(int x)\r\n\
 return foo(5);";
 TEST_RESULT("Function prototype is implemented at a correct time", testFunctionPrototypes3, "16");
 
+const char	*testFunctionPrototypes4 =
+"class Test{ int f(); }\r\n\
+int Test:f(){ return 2; }\r\n\
+return Test().f();";
+TEST_RESULT("Member function prototype implementation in a different scope 1", testFunctionPrototypes4, "2");
+
+const char	*testFunctionPrototypes5 =
+"class Test{ int f(int a); }\r\n\
+int Test:f(int a){ if(a) return f(0); return 10; }\r\n\
+return Test().f(1);";
+TEST_RESULT("Member function prototype implementation in a different scope 2", testFunctionPrototypes5, "10");
+
 const char	*testSingleArrayIndexCalculation =
 "int a = 0, b = 0;\r\n\
 int func(int ref v, int index){ *v += 5; return index; }\r\n\
@@ -172,15 +184,15 @@ arr[func(&b, 1)]++;\r\n\
 return 0;";
 TEST("Single array index calculation", testSingleArrayIndexCalculation, "0")
 {
-	CHECK_INT("a", 0, 5);
-	CHECK_INT("b", 0, 5);
+	CHECK_INT("a", 0, 5, lastFailed);
+	CHECK_INT("b", 0, 5, lastFailed);
 
-	CHECK_INT("arr", 0, 4);
-	CHECK_INT("arr", 1, 1);
+	CHECK_INT("arr", 0, 4, lastFailed);
+	CHECK_INT("arr", 1, 1, lastFailed);
 }
 
 const char *testBytecodeNoGlobal = "int func(){ return 0; }";
-TEST_RESULT("Bytecode with no global code", testBytecodeNoGlobal, "no return value");
+TEST_RESULT_SIMPLE("Bytecode with no global code", testBytecodeNoGlobal, "no return value");
 
 const char	*testRange =
 "import std.range;\r\n\
@@ -298,7 +310,7 @@ TEST_RESULT("Test string conversion 3", testStringConversion3, "1");
 const char *testStringConversion4 = "int i = 2147483647; return i.str() == \"2147483647\" && int(i.str()) == i;";
 TEST_RESULT("Test string conversion 4", testStringConversion4, "1");
 
-const char *testStringConversion5 = "int i = -2147483648; return i.str() == \"-2147483648\" && int(i.str()) == i;";
+const char *testStringConversion5 = "int i = -2147483647 - 1; return i.str() == \"-2147483648\" && int(i.str()) == i;";
 TEST_RESULT("Test string conversion 5", testStringConversion5, "1");
 
 const char *testStringConversion6 = "long i = 0; return i.str() == \"0\" && long(i.str()) == i;";
@@ -313,13 +325,13 @@ TEST_RESULT("Test string conversion 8", testStringConversion8, "1");
 const char *testStringConversion9 = "long i = 2147483647; return i.str() == \"2147483647\" && long(i.str()) == i;";
 TEST_RESULT("Test string conversion 9", testStringConversion9, "1");
 
-const char *testStringConversion10 = "long i = -2147483648; return i.str() == \"-2147483648\" && long(i.str()) == i;";
+const char *testStringConversion10 = "long i = -2147483647 - 1; return i.str() == \"-2147483648\" && long(i.str()) == i;";
 TEST_RESULT("Test string conversion 10", testStringConversion10, "1");
 
 const char *testStringConversion11 = "long i = 9223372036854775807l; return i.str() == \"9223372036854775807\" && long(i.str()) == i;";
 TEST_RESULT("Test string conversion 11", testStringConversion11, "1");
 
-const char *testStringConversion12 = "long i = -9223372036854775808l; return i.str() == \"-9223372036854775808\" && long(i.str()) == i;";
+const char *testStringConversion12 = "long i = -9223372036854775807l - 1; return i.str() == \"-9223372036854775808\" && long(i.str()) == i;";
 TEST_RESULT("Test string conversion 12", testStringConversion12, "1");
 
 const char *testStringConversion13 = "return short(\"120000\") == 120000;";

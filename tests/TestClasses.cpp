@@ -30,19 +30,19 @@ return 1;";
 
 TEST("Complex type test (simple)", testCmplxType1, "1")
 {
-	CHECK_FLOAT("f1", 0, 1);
+	CHECK_FLOAT("f1", 0, 1, lastFailed);
 
-	CHECK_FLOAT("f2", 0, 14);
-	CHECK_FLOAT("f2", 1, 9);
+	CHECK_FLOAT("f2", 0, 14, lastFailed);
+	CHECK_FLOAT("f2", 1, 9, lastFailed);
 
-	CHECK_FLOAT("f3", 0, 9);
-	CHECK_FLOAT("f3", 1, 1);
-	CHECK_FLOAT("f3", 2, 5);
+	CHECK_FLOAT("f3", 0, 9, lastFailed);
+	CHECK_FLOAT("f3", 1, 1, lastFailed);
+	CHECK_FLOAT("f3", 2, 5, lastFailed);
 
-	CHECK_FLOAT("f4", 0, 5);
-	CHECK_FLOAT("f4", 1, 6);
-	CHECK_FLOAT("f4", 2, 1);
-	CHECK_FLOAT("f4", 3, 84);
+	CHECK_FLOAT("f4", 0, 5, lastFailed);
+	CHECK_FLOAT("f4", 1, 6, lastFailed);
+	CHECK_FLOAT("f4", 2, 1, lastFailed);
+	CHECK_FLOAT("f4", 3, 84, lastFailed);
 }
 
 const char	*testCmplxType2 = 
@@ -61,7 +61,7 @@ TEST("Complex type test (complex)", testCmplxType2, "1")
 {
 	float values[] = { 1, 0, 100, 9, 4, 101, 17, 8, 102, 25, 12, 103, 33, 16, 104, 41, 20, 105, 49, 24, 106, 57, 28, 107, 65, 32, 108, 73, 36, 109 };
 	for(int i = 0; i < 30; i++)
-		CHECK_FLOAT("fa", i, values[i]);
+		CHECK_FLOAT("fa", i, values[i], lastFailed);
 }
 
 const char	*testCmplx3 = 
@@ -72,7 +72,7 @@ mat.row1.y = 5;\r\n\
 return 1;";
 TEST("Complex type test", testCmplx3, "1")
 {
-	CHECK_FLOAT("mat", 1, 5.0f);
+	CHECK_FLOAT("mat", 1, 5.0f, lastFailed);
 }
 
 const char	*testClass1 = 
@@ -98,10 +98,10 @@ two.c.x = 2;\r\n\
 return 1;";
 TEST("Class test", testClass1, "1")
 {
-	CHECK_INT("one", 0, 3);
-	CHECK_FLOAT("one", 3, 2.0f);
-	CHECK_INT("two", 0, 14);
-	CHECK_FLOAT("two", 10, 2.0f);
+	CHECK_INT("one", 0, 3, lastFailed);
+	CHECK_FLOAT("one", 3, 2.0f, lastFailed);
+	CHECK_INT("two", 0, 14, lastFailed);
+	CHECK_FLOAT("two", 10, 2.0f, lastFailed);
 }
 
 const char	*testClass2 = 
@@ -135,17 +135,17 @@ twonext = two;\r\n\
 return 1;";
 TEST("Class test 2", testClass2, "1")
 {
-	CHECK_CHAR("c", 0, 66);
-	CHECK_SHORT("u", 0, 15);
-	CHECK_LONG("l", 0, 45645ll * 4594454795ll);
+	CHECK_CHAR("c", 0, 66, lastFailed);
+	CHECK_SHORT("u", 0, 15, lastFailed);
+	CHECK_LONG("l", 0, 45645ll * 4594454795ll, lastFailed);
 	
-	CHECK_INT("two", 0, 14);
-	CHECK_FLOAT("two", 10, 2);
-	CHECK_INT("two", 13, 5);
+	CHECK_INT("two", 0, 14, lastFailed);
+	CHECK_FLOAT("two", 10, 2, lastFailed);
+	CHECK_INT("two", 13, 5, lastFailed);
 
-	CHECK_INT("twonext", 0, 14);
-	CHECK_FLOAT("twonext", 10, 2);
-	CHECK_INT("twonext", 13, 5);
+	CHECK_INT("twonext", 0, 14, lastFailed);
+	CHECK_FLOAT("twonext", 10, 2, lastFailed);
+	CHECK_INT("twonext", 13, 5, lastFailed);
 }
 
 const char	*testCmplx4 = 
@@ -182,27 +182,27 @@ TEST("Complex types test #4", testCmplx4, "56.000000")
 {
 	float values[] = { 6, 3, 5, 0, 2, 3, 7, 0, 12, 4.7f, 0, 11, 3, 5, 0, 2.5f, 1.2f, 5, 6, 5.9f, 5.9f, 5.9f, 5.9f, 12, 4.7f, 0, 2 };
 	for(int i = 0; i < 4; i++)
-		CHECK_FLOAT("n", i, values[i]);
+		CHECK_FLOAT("n", i, values[i], lastFailed);
 	for(int i = 0; i < 4; i++)
-		CHECK_FLOAT("m", i, values[i+4]);
+		CHECK_FLOAT("m", i, values[i+4], lastFailed);
 	for(int i = 0; i < 3; i++)
-		CHECK_FLOAT("k", i, values[i+8]);
+		CHECK_FLOAT("k", i, values[i+8], lastFailed);
 	for(int i = 0; i < 4; i++)
-		CHECK_FLOAT("u", i, values[i+11]);
+		CHECK_FLOAT("u", i, values[i+11], lastFailed);
 	for(int i = 0; i < 4; i++)
-		CHECK_FLOAT("v", i, values[i+15]);
+		CHECK_FLOAT("v", i, values[i+15], lastFailed);
 	for(int i = 0; i < 4; i++)
-		CHECK_FLOAT("w", i, values[i+19]);
+		CHECK_FLOAT("w", i, values[i+19], lastFailed);
 	for(int i = 0; i < 4; i++)
-		CHECK_FLOAT("q", i, values[i+23]);
+		CHECK_FLOAT("q", i, values[i+23], lastFailed);
 
 	float values2[] = { 0.0, 1.5, 3.0, 4.5, 6.0, 7.5, 9.0, 10.5, 12.0, 13.5 };
 	for(int i = 0; i < 10; i++)
-		CHECK_FLOAT("arr", i, values2[i]);
-	CHECK_FLOAT("arrSum", 0, 67.5f);
+		CHECK_FLOAT("arr", i, values2[i], lastFailed);
+	CHECK_FLOAT("arrSum", 0, 67.5f, lastFailed);
 	for(int i = 0; i < 10; i++)
-		CHECK_FLOAT("iArr", i, values2[i]+1.0f);
-	CHECK_FLOAT("iArrSum", 0, 77.5f);
+		CHECK_FLOAT("iArr", i, values2[i]+1.0f, lastFailed);
+	CHECK_FLOAT("iArrSum", 0, 77.5f, lastFailed);
 }
 
 const char	*testSmallClass =
@@ -319,7 +319,18 @@ class Foo\r\n\
 }\r\n\
 auto x = new Foo[32];\r\n\
 return x[19].x;";
-TEST_RESULT("constructor call for every array element 2", testConstructorForArrayElements2, "29");
+TEST_RESULT_SIMPLE("constructor call for every array element 2", testConstructorForArrayElements2, "29");
+
+const char	*testConstructorForArrayElements2b =
+"class Foo{ int x; void Foo(){ x = 42; } }\r\n\
+auto x = new Foo[32];\r\n\
+class Bar{ int x; void Bar(int y = 42){ x = y; } }\r\n\
+auto y = new Bar[32];\r\n\
+Foo[4][4] z;\r\n\
+class Fez{ int x; Foo y; void Fez(int a){ x = a; } }\r\n\
+auto w = new Fez[4];\r\n\
+return x.size + x[1].x + y[1].x + z[1][2].x + w[1].y.x;";
+TEST_RESULT_SIMPLE("constructor call for every array element 2b", testConstructorForArrayElements2b, "200");
 
 const char	*testImplicitConstructorCallForGenericType1 =
 "class Foo<T>\r\n\
@@ -392,7 +403,7 @@ class Foo<T>\r\n\
 }\r\n\
 auto x = new Foo<int>[32];\r\n\
 return x[19].x;";
-TEST_RESULT("constructor call for every array element 3", testConstructorForArrayElements3, "29");
+TEST_RESULT_SIMPLE("constructor call for every array element 3", testConstructorForArrayElements3, "29");
 
 const char	*testConstructorForArrayElements4 =
 "int m = 10;\r\n\
@@ -403,7 +414,7 @@ class Foo<T>\r\n\
 void Foo:Foo(){ x = m++; }\r\n\
 auto x = new Foo<int>[32];\r\n\
 return x[19].x;";
-TEST_RESULT("constructor call for every array element 4", testConstructorForArrayElements4, "29");
+TEST_RESULT_SIMPLE("constructor call for every array element 4", testConstructorForArrayElements4, "29");
 
 const char	*testConstructorForArrayElements5 =
 "int m = 10;\r\n\
@@ -415,7 +426,7 @@ void Foo:Foo(){ x = 10; }\r\n\
 void Foo<int>:Foo(){ x = m++; }\r\n\
 auto x = new Foo<int>[32];\r\n\
 return x[19].x;";
-TEST_RESULT("constructor call for every array element 5", testConstructorForArrayElements5, "29");
+TEST_RESULT_SIMPLE("constructor call for every array element 5", testConstructorForArrayElements5, "29");
 
 const char	*testConstructorCallOnStaticConstructionOfGenericType1 =
 "class Foo<T>{ T curr; }\r\n\
@@ -710,21 +721,36 @@ assert(a.a != b.a);\r\n\
 assert(*a.a == 4);\r\n\
 assert(*b.a == 10);\r\n\
 \r\n\
-class Bar\r\n\
+class Bar1\r\n\
 {\r\n\
 	int x;\r\n\
 	Foo y;\r\n\
 }\r\n\
-Bar m, n;\r\n\
-m.x = 7;\r\n\
-m.y.a = &m.x;\r\n\
+Bar1 m1, n1;\r\n\
+m1.x = 7;\r\n\
+m1.y.a = &m1.x;\r\n\
 \r\n\
-n = m;\r\n\
-*n.y.a = 14;\r\n\
+n1 = m1;\r\n\
+*n1.y.a = 14;\r\n\
 \r\n\
-assert(m.y.a != n.y.a);\r\n\
-assert(*m.y.a == 7);\r\n\
-assert(*n.y.a == 14);\r\n\
+assert(m1.y.a != n1.y.a);\r\n\
+assert(*m1.y.a == 7);\r\n\
+assert(*n1.y.a == 14);\r\n\
+\r\n\
+class Bar2\r\n\
+{\r\n\
+	Bar1 a;\r\n\
+}\r\n\
+Bar2 m2, n2;\r\n\
+m2.a.x = 7;\r\n\
+m2.a.y.a = &m2.a.x;\r\n\
+\r\n\
+n2 = m2;\r\n\
+*n2.a.y.a = 14;\r\n\
+\r\n\
+assert(m2.a.y.a != n2.a.y.a);\r\n\
+assert(*m2.a.y.a == 7);\r\n\
+assert(*n2.a.y.a == 14);\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("A default custom assignment operator is generated for classes that have members with a custom assignment operators", testClassAssignmentOperator, "1");
@@ -1043,6 +1069,12 @@ Foo.Bar y = Foo.Bar(1);\r\n\
 return int(y);";
 TEST_RESULT("Enumeration test 4", testEnumeration4, "1");
 
+const char	*testEnumeration5 =
+"enum x{ C, D }\r\n\
+x y = x(1);\r\n\
+return int(y);";
+TEST_RESULT("Enumeration test 5", testEnumeration5, "1");
+
 const char	*testMemberFunctionCallFromLocalFunctionInsideMemberFunction =
 "class Foo{}\r\n\
 auto Foo:foo(){ return 1; }\r\n\
@@ -1054,7 +1086,16 @@ const char	*testMemberAccessFromLocalFunctionInsideMemberFunction =
 "class X\r\n\
 {\r\n\
 	int a, b, c;\r\n\
-	auto Members(){ return coroutine auto(){ yield a; yield b; yield c; return 0; }; }\r\n\
+	auto Members()\r\n\
+	{\r\n\
+		return coroutine auto()\r\n\
+		{\r\n\
+			yield a;\r\n\
+			yield b;\r\n\
+			yield c;\r\n\
+			return 0;\r\n\
+		};\r\n\
+	}\r\n\
 }\r\n\
 X x;\r\n\
 x.a = 4;\r\n\
@@ -1090,3 +1131,25 @@ class X\r\n\
 X m = X();\r\n\
 return m.y.x.a;";
 TEST_RESULT("Default constructor call from explicit constructor", testDefaultConstructCallFromExplicitConstructor, "4");
+
+const char	*testMemberFunctionsWorkWithCompleteClass =
+"class Test\r\n\
+{\r\n\
+	int x, y;\r\n\
+	\r\n\
+	int sum(Test t, Test u)\r\n\
+	{\r\n\
+		return t.x + t.y + u.x + u.y;\r\n\
+	}\r\n\
+	\r\n\
+	int z, w;\r\n\
+}\r\n\
+\r\n\
+Test a;\r\n\
+a.x = 1; a.y = 2; a.z = 3; a.w = 4;\r\n\
+\r\n\
+Test b;\r\n\
+b.x = 10; b.y = 20; b.z = 30; b.w = 40;\r\n\
+\r\n\
+return a.sum(a, b);";
+TEST_RESULT("Member functions are analyzed when the class is complete", testMemberFunctionsWorkWithCompleteClass, "33");

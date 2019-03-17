@@ -11,9 +11,7 @@ namespace NULLC
 	unsigned int StringHashContinue(unsigned int hash, const char *str);
 	unsigned int StringHashContinue(unsigned int hash, const char *str, const char *end);
 
-	char*	PrintInteger(char* str, int number);
-
-	int		SafeSprintf(char* dst, size_t size, const char* src, ...);
+	int		SafeSprintf(char* dst, size_t size, const char* src, ...) NULLC_PRINT_FORMAT_CHECK(3, 4);
 
 	// A string that doesn't terminate with a \0 character
 	class InplaceStr
@@ -40,8 +38,15 @@ namespace NULLC
 		}
 		InplaceStr(const char *strBegin, const char *strEnd)
 		{
+			assert(strEnd >= strBegin);
+
 			begin = strBegin;
 			end = strEnd;
+		}
+
+		bool empty() const
+		{
+			return begin == end;
 		}
 
 		unsigned length() const
@@ -49,12 +54,33 @@ namespace NULLC
 			return unsigned(end - begin);
 		}
 
-		bool operator==(const InplaceStr& rhs)
+		unsigned hash() const
 		{
-			return length() == rhs.length() && memcmp(begin, rhs.begin, length()) == 0;
+			return GetStringHash(begin, end);
+		}
+
+		bool operator==(const InplaceStr& rhs) const
+		{
+			if(begin == rhs.begin && end == rhs.end)
+				return true;
+
+			return unsigned(end - begin) == unsigned(rhs.end - rhs.begin) && memcmp(begin, rhs.begin, unsigned(end - begin)) == 0;
+		}
+		
+		bool operator!=(const InplaceStr& rhs) const
+		{
+			return !(*this == rhs);
 		}
 
 		const char *begin, *end;
+	};
+
+	struct InplaceStrHasher
+	{
+		unsigned operator()(InplaceStr key)
+		{
+			return key.hash();
+		}
 	};
 }
 

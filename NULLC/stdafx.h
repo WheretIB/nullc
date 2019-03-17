@@ -4,6 +4,8 @@
 #pragma warning(disable: 4996)	// function is deprecated
 #pragma warning(disable: 4127)	// conditional expression is constant
 #pragma warning(disable: 4611)	// interaction between '_setjmp' and C++ object destruction is non-portable
+#pragma warning(disable: 4456)	// declaration of 'identifier' hides previous local declaration
+#pragma warning(disable: 4459)	// declaration of 'identifier' hides global declaration
 #endif
 
 #ifndef _MSC_VER

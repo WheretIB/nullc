@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #if defined(_WIN32)
+	#pragma warning(disable:4996)
 	#include <windows.h>
 #endif
 
@@ -10,7 +11,7 @@ void Print(NULLCArray<char > text, void* unused)
 	printf("%s", text.ptr);
 }
 
-long long abs(long long x){ return x < 0 ? -x : x; }
+long long std_io_absl(long long x){ return x < 0 ? -x : x; }
 
 void Print(double num, void* unused)
 {
@@ -32,9 +33,9 @@ void Print(long long number, int base, void* unused)
 	if(number < 0)
 		sign = 1;
 
-	*curr++ = *(abs(number % base) + symb);
+	*curr++ = *(std_io_absl(number % base) + symb);
 	while(number /= base)
-		*curr++ = *(abs(number % base) + symb);
+		*curr++ = *(std_io_absl(number % base) + symb);
 	if(sign)
 		*curr++ = '-';
 	*curr = 0;

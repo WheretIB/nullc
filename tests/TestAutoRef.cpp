@@ -12,10 +12,10 @@ int p1 = l == &a;\r\n\
 return *l;";
 TEST("Auto reference type", testAutoReference1, "17")
 {
-	CHECK_INT("a", 0, 17);
-	CHECK_DOUBLE("b", 0, 14.0);
+	CHECK_INT("a", 0, 17, lastFailed);
+	CHECK_DOUBLE("b", 0, 14.0, lastFailed);
 
-	CHECK_INT("p1", 0, 1);
+	CHECK_INT("p1", 0, 1, lastFailed);
 }
 
 const char	*testAutoReference2 =

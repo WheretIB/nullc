@@ -27,7 +27,7 @@ funcholder c = test;\r\n\
 return (c.ptr)(12);";
 TEST("Overloaded operator = with arrays and functions", testOverloadedOperator2, "-12")
 {
-	CHECK_INT("b", 0, 5);
+	CHECK_INT("b", 0, 5, lastFailed);
 }
 
 const char	*testOverloadedOperator3 =
@@ -100,9 +100,9 @@ int w = funcC(4, 8);\r\n\
 return u + v + w;";
 TEST("Local operator definition", testLocalOperators, "40")
 {
-	CHECK_INT("u", 0, 32);
-	CHECK_INT("v", 0, -4);
-	CHECK_INT("w", 0, 12);
+	CHECK_INT("u", 0, 32, lastFailed);
+	CHECK_INT("v", 0, -4, lastFailed);
+	CHECK_INT("w", 0, 12, lastFailed);
 }
 
 const char	*testClassOperators =
@@ -132,8 +132,8 @@ int v = funcA(test.x, test.y);\r\n\
 return u + v;";
 TEST("Class operator definition", testClassOperators, "37")
 {
-	CHECK_INT("u", 0, 35);
-	CHECK_INT("v", 0, -2);
+	CHECK_INT("u", 0, 35, lastFailed);
+	CHECK_INT("v", 0, -2, lastFailed);
 }
 
 const char	*testOverloadedOperatorFunctionCall =
@@ -205,6 +205,29 @@ assert(!(b && k()));\r\n\
 \r\n\
 return 1;";
 TEST_RESULT("overloaded || and && operators do not break short-circuiting", testLogOrAndLogAndOperatorOverload1, "1");
+
+const char	*testLogAndOperatorFunctionWrapping1 =
+"class Foo{ int x; }\r\n\
+\r\n\
+bool operator&&(Foo a, Foo ref() b)\r\n\
+{\r\n\
+	return a.x && b().x;\r\n\
+}\r\n\
+\r\n\
+Foo get(int x)\r\n\
+{\r\n\
+	Foo result;\r\n\
+	result.x = x;\r\n\
+	return result;\r\n\
+}\r\n\
+\r\n\
+bool wrap(int a, int b)\r\n\
+{\r\n\
+	return get(a) && get(b);\r\n\
+}\r\n\
+\r\n\
+return wrap(3, 4);";
+TEST_RESULT("function wrapping for overloaded operator && or || might create a function with expternal access", testLogAndOperatorFunctionWrapping1, "1");
 
 const char	*testInOverload1 =
 "import std.vector;\r\n\

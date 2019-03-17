@@ -2,6 +2,7 @@
 #include "Executor.h"
 
 #include "nullc.h"
+#include "nullc_debug.h"
 #include "StdLib.h"
 
 #if defined(NULLC_USE_DYNCALL)
@@ -57,22 +58,41 @@ long long vmLongPow(long long power, long long number)
 	return result;
 }
 
-#if defined(__arm__)
-long long vmLoadInt64(char* target)
+long long vmLoadLong(void* target)
 {
 	long long value;
-	memcpy(&value, target, 8);
+	memcpy(&value, target, sizeof(long long));
 	return value;
 }
 
-void vmStoreInt64(char* target, long long value)
+void vmStoreLong(void* target, long long value)
 {
-	memcpy(target, &value, 8);
+	memcpy(target, &value, sizeof(long long));
 }
-#else
-#define vmLoadInt64(x) (*(long long*)(x))
-#define vmStoreInt64(x, y) (*(long long*)(x) = y)
-#endif
+
+double vmLoadDouble(void* target)
+{
+	double value;
+	memcpy(&value, target, sizeof(double));
+	return value;
+}
+
+void vmStoreDouble(void* target, double value)
+{
+	memcpy(target, &value, sizeof(double));
+}
+
+char* vmLoadPointer(void* target)
+{
+	char* value;
+	memcpy(&value, target, sizeof(char*));
+	return value;
+}
+
+void vmStorePointer(void* target, char* value)
+{
+	memcpy(target, &value, sizeof(char*));
+}
 
 #if defined(_M_X64)
 #ifdef _WIN64
@@ -125,19 +145,27 @@ bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
 		//printf("member %s; ", exLinker->exSymbols.data + memberType.offsetToName);
 		switch(memberType.type)
 		{
-		case ExternTypeInfo::TYPE_CHAR:
+		case ExternTypeInfo::TYPE_COMPLEX:
 			break;
-		case ExternTypeInfo::TYPE_SHORT:
-			if(pos % 2 != 0)
-				aligned = 0;
+		case ExternTypeInfo::TYPE_VOID:
 			break;
 		case ExternTypeInfo::TYPE_INT:
 			if(pos % 4 != 0)
 				aligned = 0;
 			break;
+		case ExternTypeInfo::TYPE_FLOAT:
+			break;
 		case ExternTypeInfo::TYPE_LONG:
 			if(pos % 8 != 0)
 				aligned = 0;
+			break;
+		case ExternTypeInfo::TYPE_DOUBLE:
+			break;
+		case ExternTypeInfo::TYPE_SHORT:
+			if(pos % 2 != 0)
+				aligned = 0;
+			break;
+		case ExternTypeInfo::TYPE_CHAR:
 			break;
 		}
 		pos += memberType.size;
@@ -337,6 +365,8 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 
 		switch(typeCat)
 		{
+		case ExternTypeInfo::TYPE_VOID:
+			break;
 		case ExternTypeInfo::TYPE_FLOAT:
 		case ExternTypeInfo::TYPE_DOUBLE:
 #ifdef _WIN64
@@ -798,7 +828,7 @@ unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, un
 
 #endif
 
-Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunctions), exTypes(linker->exTypes), breakCode(128), gateCode(4096)
+Executor::Executor(Linker* linker): exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions), gateCode(4096), breakCode(128)
 {
 	genStackBase = NULL;
 	genStackPtr = NULL;
@@ -814,6 +844,7 @@ Executor::Executor(Linker* linker): exLinker(linker), exFunctions(linker->exFunc
 
 	codeRunning = false;
 
+	breakFunctionContext = NULL;
 	breakFunction = NULL;
 
 	dcCallVM = NULL;
@@ -831,7 +862,6 @@ Executor::~Executor()
 #endif
 }
 
-#define genStackSize (genStackTop-genStackPtr)
 #define RUNTIME_ERROR(test, desc)	if(test){ fcallStack.push_back(cmdStream); cmdStream = NULL; strcpy(execError, desc); break; }
 
 void Executor::InitExecution()
@@ -913,7 +943,6 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 	cmdBase = &exLinker->exCode[0];
 	VMCmd *cmdStream = &exLinker->exCode[exLinker->offsetToGlobalCode];
-#define cmdStreamPos (cmdStream-cmdStreamBase)
 
 	// By default error is flagged, normal return will clear it
 	bool	errorState = true;
@@ -988,16 +1017,17 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		switch(cmd.cmd)
 		{
 		case cmdNop:
-			if(cmd.flag == EXEC_BREAK_SIGNAL || cmd.flag == EXEC_BREAK_ONE_HIT_WONDER)
+			if(cmd.flag == EXEC_BREAK_SIGNAL || cmd.flag == EXEC_BREAK_ONCE)
 			{
 				RUNTIME_ERROR(breakFunction == NULL, "ERROR: break function isn't set");
 				unsigned int target = cmd.argument;
 				fcallStack.push_back(cmdStream);
 				RUNTIME_ERROR(cmdStream < cmdBase || cmdStream > exLinker->exCode.data + exLinker->exCode.size() + 1, "ERROR: break position is out of range");
-				unsigned int response = breakFunction((unsigned int)(cmdStream - cmdBase));
+				unsigned int instruction = unsigned(cmdStream - cmdBase - 1);
+				unsigned int response = breakFunction(breakFunctionContext, instruction);
 				fcallStack.pop_back();
 
-				RUNTIME_ERROR(response == 4, "ERROR: execution was stopped after breakpoint");
+				RUNTIME_ERROR(response == NULLC_BREAK_STOP, "ERROR: execution was stopped after breakpoint");
 
 				// Step command - set breakpoint on the next instruction, if there is no breakpoint already
 				if(response)
@@ -1023,12 +1053,12 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 					// Step command - handle "return" step
 					if(breakCode[target].cmd == cmdReturn && fcallStack.size() != finalReturn)
 						nextCommand = fcallStack.back();
-					if(response == 2 && breakCode[target].cmd == cmdCall && exFunctions[breakCode[target].argument].address != -1)
+					if(response == NULLC_BREAK_STEP_INTO && breakCode[target].cmd == cmdCall && exFunctions[breakCode[target].argument].address != -1)
 						nextCommand = cmdBase + exFunctions[breakCode[target].argument].address;
-					if(response == 2 && breakCode[target].cmd == cmdCallPtr && genStackPtr[breakCode[target].argument >> 2] && exFunctions[genStackPtr[breakCode[target].argument >> 2]].address != -1)
+					if(response == NULLC_BREAK_STEP_INTO && breakCode[target].cmd == cmdCallPtr && genStackPtr[breakCode[target].argument >> 2] && exFunctions[genStackPtr[breakCode[target].argument >> 2]].address != -1)
 						nextCommand = cmdBase + exFunctions[genStackPtr[breakCode[target].argument >> 2]].address;
 
-					if(response == 3 && fcallStack.size() != finalReturn)
+					if(response == NULLC_BREAK_STEP_OUT && fcallStack.size() != finalReturn)
 						nextCommand = fcallStack.back();
 
 					if(nextCommand->cmd != cmdNop)
@@ -1036,12 +1066,12 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 						unsigned int pos = breakCode.size();
 						breakCode.push_back(*nextCommand);
 						nextCommand->cmd = cmdNop;
-						nextCommand->flag = EXEC_BREAK_ONE_HIT_WONDER;
+						nextCommand->flag = EXEC_BREAK_ONCE;
 						nextCommand->argument = pos;
 					}
 				}
 				// This flag means that breakpoint works only once
-				if(cmd.flag == EXEC_BREAK_ONE_HIT_WONDER)
+				if(cmd.flag == EXEC_BREAK_ONCE)
 				{
 					cmdStream[-1] = breakCode[target];
 					cmdStream--;
@@ -1067,11 +1097,11 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 		case cmdPushFloat:
 			genStackPtr -= 2;
-			*(double*)(genStackPtr) = (double)*((float*)(&genParams[cmd.argument + (paramBase * cmd.flag)]));
+			vmStoreDouble(genStackPtr, (double)*((float*)(&genParams[cmd.argument + (paramBase * cmd.flag)])));
 			break;
 		case cmdPushDorL:
 			genStackPtr -= 2;
-			*(long long*)(genStackPtr) = vmLoadInt64(&genParams[cmd.argument + (paramBase * cmd.flag)]);
+			vmStoreLong(genStackPtr, vmLoadLong(&genParams[cmd.argument + (paramBase * cmd.flag)]));
 			break;
 		case cmdPushCmplx:
 		{
@@ -1088,62 +1118,62 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 		case cmdPushCharStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
-			*genStackPtr = *(char*)(cmd.argument + *(char**)(genStackPtr-1));
+			*genStackPtr = *(char*)(cmd.argument + vmLoadPointer(genStackPtr - 1));
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			*genStackPtr = *((char*)NULL + cmd.argument + *genStackPtr);
 #endif
 			break;
 		case cmdPushShortStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
-			*genStackPtr = *(short*)(cmd.argument + *(char**)(genStackPtr-1));
+			*genStackPtr = *(short*)(cmd.argument + vmLoadPointer(genStackPtr - 1));
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			*genStackPtr = *(short*)((char*)NULL + cmd.argument + *genStackPtr);
 #endif
 			break;
 		case cmdPushIntStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
-			*genStackPtr = *(int*)(cmd.argument + *(char**)(genStackPtr-1));
+			*genStackPtr = *(int*)(cmd.argument + vmLoadPointer(genStackPtr - 1));
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			*genStackPtr = *(int*)((char*)NULL + cmd.argument + *genStackPtr);
 #endif
 			break;
 		case cmdPushFloatStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
-			*(double*)(genStackPtr) = (double)*(float*)(cmd.argument + *(char**)(genStackPtr));
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
+			vmStoreDouble(genStackPtr, (double)*(float*)(cmd.argument + vmLoadPointer(genStackPtr)));
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr--;
-			*(double*)(genStackPtr) = (double)*(float*)((char*)NULL + cmd.argument + *(genStackPtr+1));
+			vmStoreDouble(genStackPtr, (double)*(float*)((char*)NULL + cmd.argument + *(genStackPtr + 1)));
 #endif
 			break;
 		case cmdPushDorLStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
-			*(long long*)(genStackPtr) = *(long long*)(cmd.argument + *(char**)(genStackPtr));
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
+			vmStoreLong(genStackPtr, vmLoadLong(cmd.argument + vmLoadPointer(genStackPtr)));
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr--;
-			*(long long*)(genStackPtr) = vmLoadInt64((char*)NULL + cmd.argument + *(genStackPtr+1));
+			vmStoreLong(genStackPtr, vmLoadLong((char*)NULL + cmd.argument + *(genStackPtr + 1)));
 #endif
 			break;
 		case cmdPushCmplxStk:
 		{
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
-			char *start = cmd.argument + *(char**)genStackPtr;
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
+			char *start = cmd.argument + vmLoadPointer(genStackPtr);
 			genStackPtr += 2;
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			char *start = (char*)NULL + cmd.argument + *genStackPtr;
 			genStackPtr++;
 #endif
@@ -1172,10 +1202,10 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			*((int*)(&genParams[cmd.argument + (paramBase * cmd.flag)])) = (int)(*genStackPtr);
 			break;
 		case cmdMovFloat:
-			*((float*)(&genParams[cmd.argument + (paramBase * cmd.flag)])) = (float)*(double*)(genStackPtr);
+			*((float*)(&genParams[cmd.argument + (paramBase * cmd.flag)])) = (float)vmLoadDouble(genStackPtr);
 			break;
 		case cmdMovDorL:
-			vmStoreInt64(&genParams[cmd.argument + (paramBase * cmd.flag)], *(long long*)(genStackPtr));
+			vmStoreLong(&genParams[cmd.argument + (paramBase * cmd.flag)], vmLoadLong(genStackPtr));
 			break;
 		case cmdMovCmplx:
 		{
@@ -1192,33 +1222,33 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 		case cmdMovCharStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr += 2;
-			*(cmd.argument + *(char**)(genStackPtr-2)) = (unsigned char)(*genStackPtr);
+			*(cmd.argument + vmLoadPointer(genStackPtr - 2)) = (unsigned char)(*genStackPtr);
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
 			*((char*)NULL + cmd.argument + *(genStackPtr-1)) = (unsigned char)(*genStackPtr);
 #endif
 			break;
 		case cmdMovShortStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr += 2;
-			*(unsigned short*)(cmd.argument + *(char**)(genStackPtr-2)) = (unsigned short)(*genStackPtr);
+			*(unsigned short*)(cmd.argument + vmLoadPointer(genStackPtr - 2)) = (unsigned short)(*genStackPtr);
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
 			*(unsigned short*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (unsigned short)(*genStackPtr);
 #endif
 			break;
 		case cmdMovIntStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr += 2;
-			*(int*)(cmd.argument + *(char**)(genStackPtr-2)) = (int)(*genStackPtr);
+			*(int*)(cmd.argument + vmLoadPointer(genStackPtr - 2)) = (int)(*genStackPtr);
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
 			*(int*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (int)(*genStackPtr);
 #endif
@@ -1226,34 +1256,34 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 		case cmdMovFloatStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr += 2;
-			*(float*)(cmd.argument + *(char**)(genStackPtr-2)) = (float)*(double*)(genStackPtr);
+			*(float*)(cmd.argument + vmLoadPointer(genStackPtr - 2)) = (float)vmLoadDouble(genStackPtr);
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
-			*(float*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (float)*(double*)(genStackPtr);
+			*(float*)((char*)NULL + cmd.argument + *(genStackPtr-1)) = (float)vmLoadDouble(genStackPtr);
 #endif
 			break;
 		case cmdMovDorLStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*(void**)genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
 			genStackPtr += 2;
-			*(long long*)(cmd.argument + *(char**)(genStackPtr-2)) = *(long long*)(genStackPtr);
+			vmStoreLong(cmd.argument + vmLoadPointer(genStackPtr - 2), vmLoadLong(genStackPtr));
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			genStackPtr++;
-			vmStoreInt64((char*)NULL + cmd.argument + *(genStackPtr-1), *(long long*)(genStackPtr));
+			vmStoreLong((char*)NULL + cmd.argument + *(genStackPtr-1), vmLoadLong(genStackPtr));
 #endif
 			break;
 		case cmdMovCmplxStk:
 		{
 #ifdef _M_X64
-			RUNTIME_ERROR(*(char**)genStackPtr == 0, "ERROR: null pointer access");
-			char *start = cmd.argument + *(char**)genStackPtr;
+			RUNTIME_ERROR(uintptr_t(vmLoadPointer(genStackPtr)) < 0x00010000, "ERROR: null pointer access");
+			char *start = cmd.argument + vmLoadPointer(genStackPtr);
 			genStackPtr += 2;
 #else
-			RUNTIME_ERROR(*genStackPtr == 0, "ERROR: null pointer access");
+			RUNTIME_ERROR(*genStackPtr < 0x00010000, "ERROR: null pointer access");
 			char *start = (char*)NULL + cmd.argument + *genStackPtr;
 			genStackPtr++;
 #endif
@@ -1273,67 +1303,63 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 
 		case cmdDtoI:
-			*(genStackPtr+1) = int(*(double*)(genStackPtr));
+			*(genStackPtr + 1) = int(vmLoadDouble(genStackPtr));
 			genStackPtr++;
 			break;
 		case cmdDtoL:
-			*(long long*)(genStackPtr) = (long long)*(double*)(genStackPtr);
+			vmStoreLong(genStackPtr, (long long)vmLoadDouble(genStackPtr));
 			break;
 		case cmdDtoF:
-			*((float*)(genStackPtr+1)) = float(*(double*)(genStackPtr));
+			*((float*)(genStackPtr + 1)) = float(vmLoadDouble(genStackPtr));
 			genStackPtr++;
 			break;
 		case cmdItoD:
 			genStackPtr--;
-			*(double*)(genStackPtr) = double(*(int*)(genStackPtr+1));
+			vmStoreDouble(genStackPtr, double(*(int*)(genStackPtr + 1)));
 			break;
 		case cmdLtoD:
-			*(double*)(genStackPtr) = double(*(long long*)(genStackPtr));
+			vmStoreDouble(genStackPtr, double(vmLoadLong(genStackPtr)));
 			break;
 		case cmdItoL:
 			genStackPtr--;
-			*(long long*)(genStackPtr) = (long long)(*(int*)(genStackPtr+1));
+			vmStoreLong(genStackPtr, (long long)(*(int*)(genStackPtr + 1)));
 			break;
 		case cmdLtoI:
 			genStackPtr++;
-			*genStackPtr = (int)*(long long*)(genStackPtr - 1);
+			*genStackPtr = (int)vmLoadLong(genStackPtr - 1);
 			break;
 
 		case cmdIndex:
 			RUNTIME_ERROR(*genStackPtr >= (unsigned int)cmd.argument, "ERROR: array index out of bounds");
-#ifdef _M_X64
-			*(char**)(genStackPtr+1) += cmd.helper * (*genStackPtr);
-#else
-			*(char**)(genStackPtr+1) += cmd.helper * (*genStackPtr);
-#endif
+			vmStorePointer(genStackPtr + 1, vmLoadPointer(genStackPtr + 1) + cmd.helper * (*genStackPtr));
 			genStackPtr++;
 			break;
 		case cmdIndexStk:
 #ifdef _M_X64
-			RUNTIME_ERROR(*genStackPtr >= *(genStackPtr+3), "ERROR: array index out of bounds");
-			*(char**)(genStackPtr+2) = *(char**)(genStackPtr+1) + cmd.helper * (*genStackPtr);
+			RUNTIME_ERROR(*genStackPtr >= *(genStackPtr + 3), "ERROR: array index out of bounds");
+			vmStorePointer(genStackPtr + 2, vmLoadPointer(genStackPtr + 1) + cmd.helper * (*genStackPtr));
 			genStackPtr += 2;
 #else
-			RUNTIME_ERROR(*genStackPtr >= *(genStackPtr+2), "ERROR: array index out of bounds");
-			*(int*)(genStackPtr+2) = *(genStackPtr+1) + cmd.helper * (*genStackPtr);
+			RUNTIME_ERROR(*genStackPtr >= *(genStackPtr + 2), "ERROR: array index out of bounds");
+			*(int*)(genStackPtr + 2) = *(genStackPtr + 1) + cmd.helper * (*genStackPtr);
 			genStackPtr += 2;
 #endif
 			break;
 
 		case cmdCopyDorL:
 			genStackPtr -= 2;
-			*genStackPtr = *(genStackPtr+2);
-			*(genStackPtr+1) = *(genStackPtr+3);
+			*genStackPtr = *(genStackPtr + 2);
+			*(genStackPtr + 1) = *(genStackPtr + 3);
 			break;
 		case cmdCopyI:
 			genStackPtr--;
-			*genStackPtr = *(genStackPtr+1);
+			*genStackPtr = *(genStackPtr + 1);
 			break;
 
 		case cmdGetAddr:
 #ifdef _M_X64
 			genStackPtr -= 2;
-			*(void**)genStackPtr = cmd.argument + paramBase * cmd.helper + genParams.data;
+			vmStorePointer(genStackPtr, cmd.argument + paramBase * cmd.helper + genParams.data);
 #else
 			genStackPtr--;
 			*genStackPtr = cmd.argument + paramBase * cmd.helper + (int)(intptr_t)genParams.data;
@@ -1347,10 +1373,10 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			unsigned int count = cmd.argument;
 
 #ifdef _M_X64
-			char *start =  *(char**)(genStackPtr);
+			char *start =  vmLoadPointer(genStackPtr);
 			genStackPtr += 2;
 #else
-			char *start = *(char**)(genStackPtr);
+			char *start = vmLoadPointer(genStackPtr);
 			genStackPtr++;
 #endif
 
@@ -1359,15 +1385,15 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				switch(cmd.helper)
 				{
 				case DTYPE_DOUBLE:
-					*((double*)start) = *(double*)(genStackPtr);
+					*((double*)start) = vmLoadDouble(genStackPtr);
 					start += 8;
 					break;
 				case DTYPE_FLOAT:
-					*((float*)start) = float(*(double*)(genStackPtr));
+					*((float*)start) = float(vmLoadDouble(genStackPtr));
 					start += 4;
 					break;
 				case DTYPE_LONG:
-					vmStoreInt64(start, *(long long*)(genStackPtr));
+					vmStoreLong(start, vmLoadLong(genStackPtr));
 					start += 8;
 					break;
 				case DTYPE_INT:
@@ -1433,12 +1459,16 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				unsigned int oldSize = genParams.max;
 
 				unsigned int paramSize = exFunctions[cmd.argument].bytesToPop;
+
 				// Parameter stack is always aligned to 16 bytes
 				assert(genParams.size() % 16 == 0);
+
 				// Reserve place for new stack frame (cmdPushVTop will resize)
 				genParams.reserve(genParams.size() + paramSize);
+
 				// Copy function arguments to new stack frame
 				memcpy((char*)(genParams.data + genParams.size()), genStackPtr, paramSize);
+
 				// Pop arguments from stack
 				genStackPtr += paramSize >> 2;
 
@@ -1482,10 +1512,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 				// Parameter stack is always aligned to 16 bytes
 				assert(genParams.size() % 16 == 0);
+
 				// Reserve place for new stack frame (cmdPushVTop will resize)
 				genParams.reserve(genParams.size() + paramSize);
+
 				// Copy function arguments to new stack frame
 				memcpy((char*)(genParams.data + genParams.size()), genStackPtr, paramSize);
+
 				// Pop arguments from stack
 				genStackPtr += (paramSize >> 2) + 1;
 				RUNTIME_ERROR(genStackPtr <= genStackBase + 8, "ERROR: stack overflow");
@@ -1521,7 +1554,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			}
 			if(fcallStack.size() == finalReturn)
 			{
-				if(retType == -1)
+				if(int(retType) == -1)
 					retType = (asmOperType)(int)cmd.flag;
 				cmdStream = NULL;
 				errorState = false;
@@ -1559,21 +1592,21 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			break;
 
 		case cmdAdd:
-			*(int*)(genStackPtr+1) += *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) += *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdSub:
-			*(int*)(genStackPtr+1) -= *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) -= *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdMul:
-			*(int*)(genStackPtr+1) *= *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) *= *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdDiv:
 			if(*(int*)(genStackPtr))
 			{
-				*(int*)(genStackPtr+1) /= *(int*)(genStackPtr);
+				*(int*)(genStackPtr + 1) /= *(int*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
 				fcallStack.push_back(cmdStream); 
@@ -1582,13 +1615,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			genStackPtr++;
 			break;
 		case cmdPow:
-			*(int*)(genStackPtr+1) = vmIntPow(*(int*)(genStackPtr), *(int*)(genStackPtr+1));
+			*(int*)(genStackPtr + 1) = vmIntPow(*(int*)(genStackPtr), *(int*)(genStackPtr + 1));
 			genStackPtr++;
 			break;
 		case cmdMod:
 			if(*(int*)(genStackPtr))
 			{
-				*(int*)(genStackPtr+1) %= *(int*)(genStackPtr);
+				*(int*)(genStackPtr + 1) %= *(int*)(genStackPtr);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
 				fcallStack.push_back(cmdStream); 
@@ -1597,74 +1630,76 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			genStackPtr++;
 			break;
 		case cmdLess:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) < *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) < *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdGreater:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) > *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) > *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdLEqual:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) <= *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) <= *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdGEqual:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) >= *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) >= *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdEqual:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) == *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) == *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdNEqual:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) != *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) != *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdShl:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) << *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) << *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdShr:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) >> *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) >> *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdBitAnd:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) & *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) & *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdBitOr:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) | *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) | *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdBitXor:
-			*(int*)(genStackPtr+1) = *(int*)(genStackPtr+1) ^ *(int*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = *(int*)(genStackPtr + 1) ^ *(int*)(genStackPtr);
 			genStackPtr++;
 			break;
 		case cmdLogAnd:
 		case cmdLogOr:
 			break;
 		case cmdLogXor:
-			*(int*)(genStackPtr+1) = !!(*(int*)(genStackPtr+1)) ^ !!(*(int*)(genStackPtr));
+			*(int*)(genStackPtr + 1) = !!(*(int*)(genStackPtr + 1)) ^ !!(*(int*)(genStackPtr));
 			genStackPtr++;
 			break;
 
 		case cmdAddL:
-			*(long long*)(genStackPtr+2) += *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) + vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdSubL:
-			*(long long*)(genStackPtr+2) -= *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) - vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdMulL:
-			*(long long*)(genStackPtr+2) *= *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) * vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdDivL:
-			if(*(long long*)(genStackPtr))
+			if(long long value = vmLoadLong(genStackPtr))
 			{
-				*(long long*)(genStackPtr+2) /= *(long long*)(genStackPtr);
-			}else{
+				vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) / value);
+			}
+			else
+			{
 				strcpy(execError, "ERROR: integer division by zero");
 				fcallStack.push_back(cmdStream); 
 				cmdStream = NULL;
@@ -1672,13 +1707,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			genStackPtr += 2;
 			break;
 		case cmdPowL:
-			*(long long*)(genStackPtr+2) = vmLongPow(*(long long*)(genStackPtr), *(long long*)(genStackPtr+2));
+			vmStoreLong(genStackPtr + 2, vmLongPow(vmLoadLong(genStackPtr), vmLoadLong(genStackPtr + 2)));
 			genStackPtr += 2;
 			break;
 		case cmdModL:
-			if(*(long long*)(genStackPtr))
+			if(long long value = vmLoadLong(genStackPtr))
 			{
-				*(long long*)(genStackPtr+2) %= *(long long*)(genStackPtr);
+				vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) % value);
 			}else{
 				strcpy(execError, "ERROR: integer division by zero");
 				fcallStack.push_back(cmdStream); 
@@ -1687,103 +1722,103 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			genStackPtr += 2;
 			break;
 		case cmdLessL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) < *(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadLong(genStackPtr + 2) < vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdGreaterL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) > *(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadLong(genStackPtr + 2) > vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdLEqualL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) <= *(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadLong(genStackPtr + 2) <= vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdGEqualL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) >= *(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadLong(genStackPtr + 2) >= vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdEqualL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) == *(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadLong(genStackPtr + 2) == vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdNEqualL:
-			*(int*)(genStackPtr+3) = *(long long*)(genStackPtr+2) != *(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadLong(genStackPtr + 2) != vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdShlL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) << *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) << vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdShrL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) >> *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) >> vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdBitAndL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) & *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) & vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdBitOrL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) | *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) | vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdBitXorL:
-			*(long long*)(genStackPtr+2) = *(long long*)(genStackPtr+2) ^ *(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr + 2, vmLoadLong(genStackPtr + 2) ^ vmLoadLong(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdLogAndL:
 		case cmdLogOrL:
 			break;
 		case cmdLogXorL:
-			*(int*)(genStackPtr+3) = !!(*(long long*)(genStackPtr+2)) ^ !!(*(long long*)(genStackPtr));
+			*(int*)(genStackPtr + 3) = !!vmLoadLong(genStackPtr + 2) ^ !!vmLoadLong(genStackPtr);
 			genStackPtr += 3;
 			break;
 
 		case cmdAddD:
-			*(double*)(genStackPtr+2) += *(double*)(genStackPtr);
+			vmStoreDouble(genStackPtr + 2, vmLoadDouble(genStackPtr + 2) + vmLoadDouble(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdSubD:
-			*(double*)(genStackPtr+2) -= *(double*)(genStackPtr);
+			vmStoreDouble(genStackPtr + 2, vmLoadDouble(genStackPtr + 2) - vmLoadDouble(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdMulD:
-			*(double*)(genStackPtr+2) *= *(double*)(genStackPtr);
+			vmStoreDouble(genStackPtr + 2, vmLoadDouble(genStackPtr + 2) * vmLoadDouble(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdDivD:
-			*(double*)(genStackPtr+2) /= *(double*)(genStackPtr);
+			vmStoreDouble(genStackPtr + 2, vmLoadDouble(genStackPtr + 2) / vmLoadDouble(genStackPtr));
 			genStackPtr += 2;
 			break;
 		case cmdPowD:
-			*(double*)(genStackPtr+2) = pow(*(double*)(genStackPtr+2), *(double*)(genStackPtr));
+			vmStoreDouble(genStackPtr + 2, pow(vmLoadDouble(genStackPtr + 2), vmLoadDouble(genStackPtr)));
 			genStackPtr += 2;
 			break;
 		case cmdModD:
-			*(double*)(genStackPtr+2) = fmod(*(double*)(genStackPtr+2), *(double*)(genStackPtr));
+			vmStoreDouble(genStackPtr + 2, fmod(vmLoadDouble(genStackPtr + 2), vmLoadDouble(genStackPtr)));
 			genStackPtr += 2;
 			break;
 		case cmdLessD:
-			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) < *(double*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadDouble(genStackPtr + 2) < vmLoadDouble(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdGreaterD:
-			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) > *(double*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadDouble(genStackPtr + 2) > vmLoadDouble(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdLEqualD:
-			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) <= *(double*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadDouble(genStackPtr + 2) <= vmLoadDouble(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdGEqualD:
-			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) >= *(double*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadDouble(genStackPtr + 2) >= vmLoadDouble(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdEqualD:
-			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) == *(double*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadDouble(genStackPtr + 2) == vmLoadDouble(genStackPtr);
 			genStackPtr += 3;
 			break;
 		case cmdNEqualD:
-			*(int*)(genStackPtr+3) = *(double*)(genStackPtr+2) != *(double*)(genStackPtr);
+			*(int*)(genStackPtr + 3) = vmLoadDouble(genStackPtr + 2) != vmLoadDouble(genStackPtr);
 			genStackPtr += 3;
 			break;
 
@@ -1791,24 +1826,24 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			*(int*)(genStackPtr) = -*(int*)(genStackPtr);
 			break;
 		case cmdNegL:
-			*(long long*)(genStackPtr) = -*(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr, -vmLoadLong(genStackPtr));
 			break;
 		case cmdNegD:
-			*(double*)(genStackPtr) = -*(double*)(genStackPtr);
+			vmStoreDouble(genStackPtr, -vmLoadDouble(genStackPtr));
 			break;
 
 		case cmdBitNot:
 			*(int*)(genStackPtr) = ~*(int*)(genStackPtr);
 			break;
 		case cmdBitNotL:
-			*(long long*)(genStackPtr) = ~*(long long*)(genStackPtr);
+			vmStoreLong(genStackPtr, ~vmLoadLong(genStackPtr));
 			break;
 
 		case cmdLogNot:
 			*(int*)(genStackPtr) = !*(int*)(genStackPtr);
 			break;
 		case cmdLogNotL:
-			*(int*)(genStackPtr+1) = !*(long long*)(genStackPtr);
+			*(int*)(genStackPtr + 1) = !vmLoadLong(genStackPtr);
 			genStackPtr++;
 			break;
 		
@@ -1816,33 +1851,20 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			(*(int*)(genStackPtr))++;
 			break;
 		case cmdIncD:
-			*(double*)(genStackPtr) += 1.0;
+			vmStoreDouble(genStackPtr, vmLoadDouble(genStackPtr) + 1.0f);
 			break;
 		case cmdIncL:
-			(*(long long*)(genStackPtr))++;
+			vmStoreLong(genStackPtr, vmLoadLong(genStackPtr) + 1);
 			break;
 
 		case cmdDecI:
 			(*(int*)(genStackPtr))--;
 			break;
 		case cmdDecD:
-			*(double*)(genStackPtr) -= 1.0;
+			vmStoreDouble(genStackPtr, vmLoadDouble(genStackPtr) - 1.0f);
 			break;
 		case cmdDecL:
-			(*(long long*)(genStackPtr))--;
-			break;
-
-		case cmdCreateClosure:
-#ifdef _M_X64
-			ClosureCreate(&genParams[paramBase], cmd.helper, cmd.argument, *(ExternFuncInfo::Upvalue**)genStackPtr);
-			genStackPtr += 2;
-#else
-			ClosureCreate(&genParams[paramBase], cmd.helper, cmd.argument, (ExternFuncInfo::Upvalue*)(intptr_t)*genStackPtr);
-			genStackPtr++;
-#endif
-			break;
-		case cmdCloseUpvals:
-			CloseUpvalues(&genParams[paramBase], cmd.flag, cmd.argument);
+			vmStoreLong(genStackPtr, vmLoadLong(genStackPtr) - 1);
 			break;
 
 		case cmdConvertPtr:
@@ -1886,20 +1908,20 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			}
 			break;
 		case cmdCheckedRet:
-			if(*(void**)genStackPtr >= &genParams[paramBase] && *(void**)genStackPtr <= genParams.data + genParams.size())
+			if(vmLoadPointer(genStackPtr) >= &genParams[paramBase] && vmLoadPointer(genStackPtr) <= genParams.data + genParams.size())
 			{
 				ExternTypeInfo &type = exLinker->exTypes[cmd.argument];
 				if(type.arrSize == ~0u)
 				{
 					unsigned length = *(int*)(((char*)genStackPtr) + sizeof(void*));
 					char *copy = (char*)NULLC::AllocObject(exLinker->exTypes[type.subType].size * length);
-					memcpy(copy, *(char**)genStackPtr, exLinker->exTypes[type.subType].size * length);
-					*(char**)genStackPtr = copy;
+					memcpy(copy, vmLoadPointer(genStackPtr), exLinker->exTypes[type.subType].size * length);
+					vmStorePointer(genStackPtr, copy);
 				}else{
 					unsigned int objSize = type.size;
 					char *copy = (char*)NULLC::AllocObject(objSize);
-					memcpy(copy, *(char**)genStackPtr, objSize);
-					*(char**)genStackPtr = copy;
+					memcpy(copy, vmLoadPointer(genStackPtr), objSize);
+					vmStorePointer(genStackPtr, copy);
 				}
 			}
 			break;
@@ -1916,7 +1938,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 			BeginCallStack();
 			while(unsigned int address = GetNextAddress())
-				currPos += PrintStackFrame(address, currPos, ERROR_BUFFER_SIZE - int(currPos - execError));
+				currPos += PrintStackFrame(address, currPos, ERROR_BUFFER_SIZE - int(currPos - execError), false);
 		}
 		// Ascertain that execution stops when there is a chain of nullcRunFunction
 		callContinue = false;
@@ -1926,10 +1948,10 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 	
 	lastResultType = retType;
 	lastResultInt = *(int*)genStackPtr;
-	if(genStackSize > 1)
+	if(genStackTop - genStackPtr > 1)
 	{
-		lastResultLong = *(long long*)genStackPtr;
-		lastResultDouble = *(double*)genStackPtr;
+		lastResultLong = vmLoadLong(genStackPtr);
+		lastResultDouble = vmLoadDouble(genStackPtr);
 	}
 
 	switch(retType)
@@ -1940,6 +1962,8 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		break;
 	case OTYPE_INT:
 		genStackPtr++;
+		break;
+	case OTYPE_COMPLEX:
 		break;
 	}
 	// If the call was started from an internal function call, a value pushed on stack for correct global return is still on stack
@@ -1952,7 +1976,7 @@ void Executor::Stop(const char* error)
 	codeRunning = false;
 
 	callContinue = false;
-	SafeSprintf(execError, ERROR_BUFFER_SIZE, error);
+	SafeSprintf(execError, ERROR_BUFFER_SIZE, "%s", error);
 }
 
 #ifdef NULLC_VM_CALL_STACK_UNWRAP
@@ -2145,6 +2169,8 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
 	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
 	void* fPtr = exFunctions[funcID].funcPtr;
+
+	assert(fPtr);
 
 	unsigned int *stackStart = genStackPtr;
 	unsigned int *newStackPtr = genStackPtr + dwordsToPop + extraPopDW;
@@ -2428,34 +2454,66 @@ namespace ExPriv
 	char *oldBase;
 	char *newBase;
 	unsigned int oldSize;
+	unsigned int newSize;
 	unsigned int objectName = GetStringHash("auto ref");
 	unsigned int autoArrayName = GetStringHash("auto[]");
 }
 
-void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type)
+#define RELOCATE_DEBUG_PRINT(...) (void)0
+//#define RELOCATE_DEBUG_PRINT printf
+
+void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType)
 {
-	char **rPtr = (char**)ptr;
-	if(*rPtr > (char*)0x00010000)
+	char *target = vmLoadPointer(ptr);
+
+	if(target > (char*)0x00010000)
 	{
-		if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
+		if(target >= ExPriv::oldBase && target < (ExPriv::oldBase + ExPriv::oldSize))
 		{
-//			printf("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
+			RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
 
-			*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
-		}else{
-			ExternTypeInfo &subType = exTypes[type.subType];
-//			printf("\tGlobal pointer %s %p (at %p)\r\n", symbols + subType.offsetToName, *rPtr, ptr);
+			vmStorePointer(ptr, target - ExPriv::oldBase + ExPriv::newBase);
+		}
+		else if(target >= ExPriv::newBase && target < (ExPriv::newBase + ExPriv::newSize))
+		{
+			const ExternTypeInfo &subType = takeSubType ? exTypes[type.subType] : type;
+			(void)subType;
+			RELOCATE_DEBUG_PRINT("\tStack%s pointer %s %p (at %p)\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, target, ptr);
+		}
+		else
+		{
+			const ExternTypeInfo &subType = takeSubType ? exTypes[type.subType] : type;
+			RELOCATE_DEBUG_PRINT("\tGlobal%s pointer %s %p (at %p) base %p\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, target, ptr, NULLC::GetBasePointer(target));
 
-			if(NULLC::IsBasePointer(*rPtr))
+			if(type.subType != 0 && NULLC::IsBasePointer(target))
 			{
-				markerType *marker = (markerType*)((char*)*rPtr - sizeof(markerType));
-//				printf("\tMarker is %d\r\n", *marker);
+				markerType *marker = (markerType*)((char*)target - sizeof(markerType));
+				RELOCATE_DEBUG_PRINT("\tMarker is %d", *marker);
+
+				const uintptr_t OBJECT_VISIBLE		= 1 << 0;
+				const uintptr_t OBJECT_FREED		= 1 << 1;
+				const uintptr_t OBJECT_FINALIZABLE	= 1 << 2;
+				const uintptr_t OBJECT_FINALIZED	= 1 << 3;
+				const uintptr_t OBJECT_ARRAY		= 1 << 4;
+
+				if(*marker & OBJECT_VISIBLE)
+					RELOCATE_DEBUG_PRINT(" visible");
+				if(*marker & OBJECT_FREED)
+					RELOCATE_DEBUG_PRINT(" freed");
+				if(*marker & OBJECT_FINALIZABLE)
+					RELOCATE_DEBUG_PRINT(" finalizable");
+				if(*marker & OBJECT_FINALIZED)
+					RELOCATE_DEBUG_PRINT(" finalized");
+				if(*marker & OBJECT_ARRAY)
+					RELOCATE_DEBUG_PRINT(" array");
+
+				RELOCATE_DEBUG_PRINT(" %s\r\n", symbols + exTypes[unsigned(*marker >> 8)].offsetToName);
 
 				if(*marker & 1)
 				{
 					*marker &= ~1;
 					if(type.subCat != ExternTypeInfo::CAT_NONE)
-						FixupVariable(*rPtr, subType);
+						FixupVariable(target, subType);
 				}
 			}
 		}
@@ -2466,21 +2524,21 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 {
 	ExternTypeInfo *subType = type.nameHash == ExPriv::autoArrayName ? NULL : &exTypes[type.subType];
 	unsigned int size = type.arrSize;
-	if(type.arrSize == TypeInfo::UNSIZED_ARRAY)
+	if(type.arrSize == ~0u)
 	{
 		// Get real array size
 		size = *(int*)(ptr + NULLC_PTR_SIZE);
 
 		// Switch pointer to array data
-		char **rPtr = (char**)ptr;
+		char *target = vmLoadPointer(ptr);
 
 		// If it points to stack, fix it and return
-		if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
+		if(target >= ExPriv::oldBase && target < (ExPriv::oldBase + ExPriv::oldSize))
 		{
-			*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
+			vmStorePointer(ptr, target - ExPriv::oldBase + ExPriv::newBase);
 			return;
 		}
-		ptr = *rPtr;
+		ptr = target;
 
 		// If uninitialized, return
 		if(!ptr || ptr <= (char*)0x00010000)
@@ -2511,7 +2569,7 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 			data->ptr = data->ptr - ExPriv::oldBase + ExPriv::newBase;
 
 		// Mark target data
-		FixupPointer(data->ptr, *subType);
+		FixupPointer(data->ptr, *subType, false);
 
 		// Switch pointer to target
 		ptr = data->ptr;
@@ -2519,25 +2577,29 @@ void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
 		// Get array size
 		size = data->len;
 	}
+
 	if(!subType->pointerCount)
 		return;
+
 	switch(subType->subCat)
 	{
+	case ExternTypeInfo::CAT_NONE:
+		break;
 	case ExternTypeInfo::CAT_ARRAY:
 		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
 			FixupArray(ptr, *subType);
 		break;
 	case ExternTypeInfo::CAT_POINTER:
 		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-			FixupPointer(ptr, *subType);
-		break;
-	case ExternTypeInfo::CAT_CLASS:
-		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-			FixupClass(ptr, *subType);
+			FixupPointer(ptr, *subType, true);
 		break;
 	case ExternTypeInfo::CAT_FUNCTION:
 		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
 			FixupFunction(ptr);
+		break;
+	case ExternTypeInfo::CAT_CLASS:
+		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
+			FixupClass(ptr, *subType);
 		break;
 	}
 }
@@ -2549,15 +2611,18 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 	{
 		// Get real variable type
 		realType = &exTypes[*(int*)ptr];
+
 		// Switch pointer to target
-		char **rPtr = (char**)(ptr + 4);
+		char *target = vmLoadPointer(ptr + 4);
+
 		// If it points to stack, fix it and return
-		if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
+		if(target >= ExPriv::oldBase && target < (ExPriv::oldBase + ExPriv::oldSize))
 		{
-			*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
+			vmStorePointer(ptr + 4, target - ExPriv::oldBase + ExPriv::newBase);
 			return;
 		}
-		ptr = *rPtr;
+		ptr = target;
+
 		// If uninitialized, return
 		if(!ptr || ptr <= (char*)0x00010000)
 			return;
@@ -2570,7 +2635,7 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 		// Mark memory as used
 		*marker &= ~1;
 		// Fixup target
-		FixupVariable(*rPtr, *realType);
+		FixupVariable(target, *realType);
 		// Exit
 		return;
 	}else if(type.nameHash == ExPriv::autoArrayName){
@@ -2581,18 +2646,21 @@ void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
 
 	// Get class member type list
 	ExternMemberInfo *memberList = &exLinker->exTypeExtra[realType->memberOffset + realType->memberCount];
-	//char *str = symbols + type.offsetToName;
-	//const char *memberName = symbols + type.offsetToName + strlen(str) + 1;
+	char *str = symbols + type.offsetToName;
+	const char *memberName = symbols + type.offsetToName + strlen(str) + 1;
 	// Check pointer members
 	for(unsigned int n = 0; n < realType->pointerCount; n++)
 	{
 		// Get member type
 		ExternTypeInfo &subType = exTypes[memberList[n].type];
 		unsigned int pos = memberList[n].offset;
+
+		RELOCATE_DEBUG_PRINT("\tChecking member %s at offset %d\r\n", memberName, pos);
+
 		// Check member
 		FixupVariable(ptr + pos, subType);
-		//unsigned int strLength = (unsigned int)strlen(memberName) + 1;
-		//memberName += strLength;
+		unsigned int strLength = (unsigned int)strlen(memberName) + 1;
+		memberName += strLength;
 	}
 }
 
@@ -2608,7 +2676,7 @@ void Executor::FixupFunction(char* ptr)
 
 	// If function context type is valid
 	if(func.contextType != ~0u)
-		FixupPointer((char*)&fPtr->context, exTypes[func.contextType]);
+		FixupPointer((char*)&fPtr->context, exTypes[func.contextType], true);
 }
 
 void Executor::FixupVariable(char* ptr, const ExternTypeInfo& type)
@@ -2618,25 +2686,27 @@ void Executor::FixupVariable(char* ptr, const ExternTypeInfo& type)
 
 	switch(type.subCat)
 	{
+	case ExternTypeInfo::CAT_NONE:
+		break;
 	case ExternTypeInfo::CAT_ARRAY:
 		FixupArray(ptr, type);
 		break;
 	case ExternTypeInfo::CAT_POINTER:
-		FixupPointer(ptr, type);
-		break;
-	case ExternTypeInfo::CAT_CLASS:
-		FixupClass(ptr, type);
+		FixupPointer(ptr, type, true);
 		break;
 	case ExternTypeInfo::CAT_FUNCTION:
 		FixupFunction(ptr);
+		break;
+	case ExternTypeInfo::CAT_CLASS:
+		FixupClass(ptr, type);
 		break;
 	}
 }
 
 bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *current)
 {
-//	printf("Old base: %p-%p\r\n", oldBase, oldBase + oldSize);
-//	printf("New base: %p-%p\r\n", genParams.data, genParams.data + genParams.max);
+	RELOCATE_DEBUG_PRINT("Old base: %p-%p\r\n", oldBase, oldBase + oldSize);
+	RELOCATE_DEBUG_PRINT("New base: %p-%p\r\n", genParams.data, genParams.data + genParams.max);
 
 	SetUnmanagableRange(genParams.data, genParams.max);
 
@@ -2645,6 +2715,7 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 	ExPriv::oldBase = oldBase;
 	ExPriv::newBase = genParams.data;
 	ExPriv::oldSize = oldSize;
+	ExPriv::newSize = genParams.max;
 
 	symbols = exLinker->exSymbols.data;
 
@@ -2652,7 +2723,13 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 	ExternTypeInfo *types = exLinker->exTypes.data;
 	// Fix global variables
 	for(unsigned int i = 0; i < exLinker->exVariables.size(); i++)
-		FixupVariable(genParams.data + vars[i].offset, types[vars[i].type]);
+	{
+		ExternVarInfo &varInfo = vars[i];
+
+		RELOCATE_DEBUG_PRINT("Global variable %s (with offset of %d)\r\n", symbols + varInfo.offsetToName, varInfo.offset);
+
+		FixupVariable(genParams.data + varInfo.offset, types[varInfo.type]);
+	}
 
 	int offset = exLinker->globalVarSize;
 	int n = 0;
@@ -2674,7 +2751,7 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 			ExternFuncInfo &funcInfo = exFunctions[funcID];
 
 			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
-//			printf("In function %s (with offset of %d)\r\n", symbols + funcInfo.offsetToName, alignOffset);
+			RELOCATE_DEBUG_PRINT("In function %s (with offset of %d)\r\n", symbols + funcInfo.offsetToName, alignOffset);
 			offset += alignOffset;
 
 			unsigned int offsetToNextFrame = funcInfo.bytesToPop;
@@ -2683,30 +2760,32 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 			{
 				// Get information about local
 				ExternLocalInfo &lInfo = exLinker->exLocals[funcInfo.offsetToFirstLocal + i];
-				if(funcInfo.funcCat == ExternFuncInfo::COROUTINE && lInfo.offset >= funcInfo.bytesToPop)
-					break;
-//				printf("Local %s %s (with offset of %d+%d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
+
+				RELOCATE_DEBUG_PRINT("Local %s %s (with offset of %d+%d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
 				FixupVariable(genParams.data + offset + lInfo.offset, types[lInfo.type]);
 				if(lInfo.offset + lInfo.size > offsetToNextFrame)
 					offsetToNextFrame = lInfo.offset + lInfo.size;
 			}
 			if(funcInfo.contextType != ~0u)
 			{
-//				printf("Local %s $context (with offset of %d+%d)\r\n", symbols + types[funcInfo.contextType].offsetToName, offset, funcInfo.bytesToPop - NULLC_PTR_SIZE);
+				RELOCATE_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[funcInfo.contextType].offsetToName, offset, funcInfo.bytesToPop - NULLC_PTR_SIZE);
 				char *ptr = genParams.data + offset + funcInfo.bytesToPop - NULLC_PTR_SIZE;
+
 				// Fixup pointer itself
-				char **rPtr = (char**)ptr;
-				if(*rPtr >= ExPriv::oldBase && *rPtr < (ExPriv::oldBase + ExPriv::oldSize))
+				char *target = vmLoadPointer(ptr);
+
+				if(target >= ExPriv::oldBase && target < (ExPriv::oldBase + ExPriv::oldSize))
 				{
-//					printf("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
-					*rPtr = *rPtr - ExPriv::oldBase + ExPriv::newBase;
+					RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
+					vmStorePointer(ptr, target - ExPriv::oldBase + ExPriv::newBase);
 				}
+
 				// Fixup what it was pointing to
-				if(*rPtr)
-					FixupVariable(*rPtr, types[funcInfo.contextType]);
+				if(char *fixedTarget = vmLoadPointer(ptr))
+					FixupVariable(fixedTarget, types[funcInfo.contextType]);
 			}
 			offset += offsetToNextFrame;
-//			printf("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
+			RELOCATE_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
 		}
 	}
 	fcallStack.pop_back();
@@ -2716,9 +2795,9 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 
 const char* Executor::GetResult()
 {
-	if(!codeRunning && genStackSize > (lastResultType == -1 ? 1 : 0))
+	if(!codeRunning && genStackTop - genStackPtr > (int(lastResultType) == -1 ? 1 : 0))
 	{
-		SafeSprintf(execResult, 64, "There is more than one value on the stack (%d)", genStackSize);
+		SafeSprintf(execResult, 64, "There is more than one value on the stack (%d)", int(genStackTop - genStackPtr));
 		return execResult;
 	}
 
@@ -2785,8 +2864,9 @@ void* Executor::GetStackEnd()
 	return genStackTop;
 }
 
-void Executor::SetBreakFunction(unsigned (*callback)(unsigned int))
+void Executor::SetBreakFunction(void *context, unsigned (*callback)(void*, unsigned))
 {
+	breakFunctionContext = context;
 	breakFunction = callback;
 }
 
@@ -2820,7 +2900,7 @@ bool Executor::AddBreakpoint(unsigned int instruction, bool oneHit)
 	{
 		breakCode.push_back(exLinker->exCode[instruction]);
 		exLinker->exCode[instruction].cmd = cmdNop;
-		exLinker->exCode[instruction].flag = EXEC_BREAK_ONE_HIT_WONDER;
+		exLinker->exCode[instruction].flag = EXEC_BREAK_ONCE;
 		exLinker->exCode[instruction].argument = pos;
 	}else{
 		breakCode.push_back(exLinker->exCode[instruction]);

@@ -19,22 +19,22 @@ auto u = &b;\r\n\
 return *u;";
 TEST("Auto type tests", testAuto, "15")
 {
-	CHECK_INT("b", 0, 15);
-	CHECK_DOUBLE("c", 0, 12.0);
+	CHECK_INT("b", 0, 15, lastFailed);
+	CHECK_DOUBLE("c", 0, 12.0, lastFailed);
 
-	CHECK_FLOAT("m", 0, 3.0f);
-	CHECK_FLOAT("m", 1, 0.0f);
-	CHECK_FLOAT("m", 2, 1.0f);
+	CHECK_FLOAT("m", 0, 3.0f, lastFailed);
+	CHECK_FLOAT("m", 1, 0.0f, lastFailed);
+	CHECK_FLOAT("m", 2, 1.0f, lastFailed);
 
-	CHECK_FLOAT("n", 0, 3.0f);
-	CHECK_FLOAT("m", 1, 0.0f);
-	CHECK_FLOAT("n", 2, 1.0f);
+	CHECK_FLOAT("n", 0, 3.0f, lastFailed);
+	CHECK_FLOAT("m", 1, 0.0f, lastFailed);
+	CHECK_FLOAT("n", 2, 1.0f, lastFailed);
 
-	CHECK_FLOAT("nd", 0, 10.0f);
-	CHECK_DOUBLE("k", 0, 12.0f);
+	CHECK_FLOAT("nd", 0, 10.0f, lastFailed);
+	CHECK_DOUBLE("k", 0, 12.0f, lastFailed);
 
 	for(int i = 0; i < 10; i++)
-		CHECK_FLOAT("ar", i, 3.0);
+		CHECK_FLOAT("ar", i, 3.0, lastFailed);
 }
 
 const char	*testSizeof = 
@@ -48,11 +48,11 @@ int t5 = sizeof(t2*0.5); // 8\r\n\
 return 1;";
 TEST("sizeof tests", testSizeof, "1")
 {
-	CHECK_INT("t1", 0, 4);
-	CHECK_INT("t2", 0, 16);
-	CHECK_INT("t3", 0, 12);
-	CHECK_INT("t4", 0, 4);
-	CHECK_INT("t5", 0, 8);
+	CHECK_INT("t1", 0, 4, lastFailed);
+	CHECK_INT("t2", 0, 16, lastFailed);
+	CHECK_INT("t3", 0, 12, lastFailed);
+	CHECK_INT("t4", 0, 4, lastFailed);
+	CHECK_INT("t5", 0, 8, lastFailed);
 }
 
 const char	*testTypeof = 
@@ -71,14 +71,14 @@ int rr = sizeof(typeof(fr));\r\n\
 return 1;";
 TEST("typeof tests", testTypeof, "1")
 {
-	CHECK_INT("i", 0, 1);
-	CHECK_INT("m", 0, 0);
-	CHECK_INT("i2", 0, 4);
-	CHECK_INT("n", 0, 0);
+	CHECK_INT("i", 0, 1, lastFailed);
+	CHECK_INT("m", 0, 0, lastFailed);
+	CHECK_INT("i2", 0, 4, lastFailed);
+	CHECK_INT("n", 0, 0, lastFailed);
 
-	CHECK_DOUBLE("d", 0, 3.0f);
-	CHECK_INT("fr", 0, 0);
-	CHECK_INT("rr", 0, 4 + NULLC_PTR_SIZE);
+	CHECK_DOUBLE("d", 0, 3.0f, lastFailed);
+	CHECK_INT("fr", 0, 0, lastFailed);
+	CHECK_INT("rr", 0, 4 + NULLC_PTR_SIZE, lastFailed);
 }
 
 const char	*testAutoReturn = 
@@ -551,7 +551,7 @@ auto Foo:foo()\r\n\
 	return m(2.5);\r\n\
 }\r\n\
 return x.foo();";
-TEST_RESULT("generic function pointer resolve 3", testGenericTypePointerResolve3, "15");
+TEST_RESULT_SIMPLE("generic function pointer resolve 3", testGenericTypePointerResolve3, "15");
 
 const char	*testGenericTypePointerResolve4 = 
 "class Foo\r\n\
@@ -566,7 +566,7 @@ auto Foo:foo()\r\n\
 	return m(2.5);\r\n\
 }\r\n\
 return x.foo();";
-TEST_RESULT("generic function pointer resolve 4", testGenericTypePointerResolve4, "15");
+TEST_RESULT_SIMPLE("generic function pointer resolve 4", testGenericTypePointerResolve4, "15");
 
 const char	*testGenericTypePointerResolve5 = 
 "{\r\n\

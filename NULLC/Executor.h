@@ -1,6 +1,5 @@
 #pragma once
 #include "stdafx.h"
-#include "ParseClass.h"
 
 #include "Executor_Common.h"
 
@@ -32,7 +31,7 @@ public:
 	void*			GetStackStart();
 	void*			GetStackEnd();
 
-	void	SetBreakFunction(unsigned (*callback)(unsigned int));
+	void	SetBreakFunction(void *context, unsigned (*callback)(void*, unsigned));
 	void	ClearBreakpoints();
 	bool	AddBreakpoint(unsigned int instruction, bool oneHit);
 	bool	RemoveBreakpoint(unsigned int instruction);
@@ -76,7 +75,9 @@ private:
 
 	DCCallVM		*dcCallVM;
 
-	unsigned (*breakFunction)(unsigned int);
+	void *breakFunctionContext;
+	unsigned (*breakFunction)(void*, unsigned);
+
 	FastVector<VMCmd>	breakCode;
 
 #ifdef NULLC_VM_CALL_STACK_UNWRAP
@@ -86,7 +87,7 @@ private:
 
 	bool RunExternalFunction(unsigned int funcID, unsigned int extraPopDW);
 
-	void FixupPointer(char* ptr, const ExternTypeInfo& type);
+	void FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType);
 	void FixupArray(char* ptr, const ExternTypeInfo& type);
 	void FixupClass(char* ptr, const ExternTypeInfo& type);
 	void FixupFunction(char* ptr);
@@ -98,7 +99,7 @@ private:
 
 	static const unsigned int	EXEC_BREAK_SIGNAL = 0;
 	static const unsigned int	EXEC_BREAK_RETURN = 1;
-	static const unsigned int	EXEC_BREAK_ONE_HIT_WONDER = 2;
+	static const unsigned int	EXEC_BREAK_ONCE = 2;
 };
 
 void PrintInstructionText(FILE* stream, VMCmd cmd, unsigned int rel, unsigned int top);

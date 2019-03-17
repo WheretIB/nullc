@@ -24,11 +24,11 @@ TEST("Variable get and set", testVarGetSet1, "4")
 {
 	int val[] = { 4, 4, 4, 5, 7, 9, 5, 7, 5, 5, };
 	for(int i = 0; i < 10; i++)
-		CHECK_INT("a", i, val[i]);
-	CHECK_FLOAT("c", 1, 5.0f);
+		CHECK_INT("a", i, val[i], lastFailed);
+	CHECK_FLOAT("c", 1, 5.0f, lastFailed);
 
-	CHECK_INT("t1", 0, 4);
-	CHECK_INT("t2", 0, 10);
+	CHECK_INT("t1", 0, 4, lastFailed);
+	CHECK_INT("t2", 0, 10, lastFailed);
 }
 
 const char	*testGetSet = 
@@ -106,61 +106,61 @@ df1 = d3;\r\n\
 return 1;";
 TEST("New get and set functions test", testGetSet, "1")
 {
-	CHECK_INT("s1", 0, 5);
-	CHECK_INT("d1", 0, 5);
+	CHECK_INT("s1", 0, 5, lastFailed);
+	CHECK_INT("d1", 0, 5, lastFailed);
 
-	CHECK_INT("k", 0, 1);
-	CHECK_INT("k", 1, 4);
-	CHECK_INT("k", 2, 8);
-	CHECK_INT("k", 3, 64);
-	CHECK_INT("k", 4, 7);
+	CHECK_INT("k", 0, 1, lastFailed);
+	CHECK_INT("k", 1, 4, lastFailed);
+	CHECK_INT("k", 2, 8, lastFailed);
+	CHECK_INT("k", 3, 64, lastFailed);
+	CHECK_INT("k", 4, 7, lastFailed);
 
-	CHECK_INT("t1", 0, 5);
+	CHECK_INT("t1", 0, 5, lastFailed);
 
-	CHECK_FLOAT("t2", 0, 6.0f);
-	CHECK_FLOAT("t2", 1, 4.0f);
+	CHECK_FLOAT("t2", 0, 6.0f, lastFailed);
+	CHECK_FLOAT("t2", 1, 4.0f, lastFailed);
 
-	CHECK_FLOAT("t3", 4, 5.0f);
-	CHECK_FLOAT("t3", 10, 14.0f);
+	CHECK_FLOAT("t3", 4, 5.0f, lastFailed);
+	CHECK_FLOAT("t3", 10, 14.0f, lastFailed);
 
-	CHECK_FLOAT("er2", 0, 4.0f);
-	CHECK_FLOAT("er1", 0, 8.0f);
+	CHECK_FLOAT("er2", 0, 4.0f, lastFailed);
+	CHECK_FLOAT("er1", 0, 8.0f, lastFailed);
 
-	CHECK_INT("r1", 0, 5);
-	CHECK_INT("r2", 0, 8);
+	CHECK_INT("r1", 0, 5, lastFailed);
+	CHECK_INT("r2", 0, 8, lastFailed);
 
-	CHECK_FLOAT("r3s", 0, 4.0f);
-	CHECK_FLOAT("r3", 0, 4.0f);
-	CHECK_FLOAT("r4", 0, 14.0f);
+	CHECK_FLOAT("r3s", 0, 4.0f, lastFailed);
+	CHECK_FLOAT("r3", 0, 4.0f, lastFailed);
+	CHECK_FLOAT("r4", 0, 14.0f, lastFailed);
 
-	CHECK_INT("r5", 0, 5);
-	CHECK_INT("r6", 0, 8);
+	CHECK_INT("r5", 0, 5, lastFailed);
+	CHECK_INT("r6", 0, 8, lastFailed);
 
-	CHECK_FLOAT("r7", 0, 4.0f);
+	CHECK_FLOAT("r7", 0, 4.0f, lastFailed);
 
-	CHECK_INT("r8", 0, 5);
-	CHECK_INT("r9", 0, 5);
-	CHECK_INT("r11", 0, 5);
+	CHECK_INT("r8", 0, 5, lastFailed);
+	CHECK_INT("r9", 0, 5, lastFailed);
+	CHECK_INT("r11", 0, 5, lastFailed);
 
-	CHECK_FLOAT("t11", 0, 5.0f);
+	CHECK_FLOAT("t11", 0, 5.0f, lastFailed);
 
-	CHECK_INT("i", 0, 1);
-	CHECK_INT("j", 0, 2);
+	CHECK_INT("i", 0, 1, lastFailed);
+	CHECK_INT("j", 0, 2, lastFailed);
 
-	CHECK_INT("spec", 0, 1);
-	CHECK_INT("spec", 1, 2);
-	CHECK_INT("spec", 2, 3);
-	CHECK_INT("spec", 3, 4);
-	CHECK_INT("spec", 4, 5);
-	CHECK_INT("spec", 5, 6);
-	CHECK_INT("spec", 6, 7);
-	CHECK_INT("spec", 7, 8);
-	CHECK_INT("spec", 8, 9);
+	CHECK_INT("spec", 0, 1, lastFailed);
+	CHECK_INT("spec", 1, 2, lastFailed);
+	CHECK_INT("spec", 2, 3, lastFailed);
+	CHECK_INT("spec", 3, 4, lastFailed);
+	CHECK_INT("spec", 4, 5, lastFailed);
+	CHECK_INT("spec", 5, 6, lastFailed);
+	CHECK_INT("spec", 6, 7, lastFailed);
+	CHECK_INT("spec", 7, 8, lastFailed);
+	CHECK_INT("spec", 8, 9, lastFailed);
 
-	CHECK_INT("r2a", 0, 8);
-	CHECK_INT("r2b", 0, 8);
-	CHECK_INT("r2c", 0, 6);
-	CHECK_INT("r2d", 0, 6);
+	CHECK_INT("r2a", 0, 8, lastFailed);
+	CHECK_INT("r2b", 0, 8, lastFailed);
+	CHECK_INT("r2c", 0, 6, lastFailed);
+	CHECK_INT("r2d", 0, 6, lastFailed);
 }
 
 const char	*testArrayMemberAfterCall =
@@ -171,7 +171,7 @@ int y = float2(45, 98).y;\r\n\
 return int(f()[1].y);";
 TEST("Array and class member access after function call", testArrayMemberAfterCall, "15")
 {
-	CHECK_INT("x", 0, 12);
-	CHECK_INT("y", 0, 98);
+	CHECK_INT("x", 0, 12, lastFailed);
+	CHECK_INT("y", 0, 98, lastFailed);
 }
 

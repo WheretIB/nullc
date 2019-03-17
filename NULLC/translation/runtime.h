@@ -9,13 +9,15 @@
 template<typename T>
 struct NULLCArray
 {
-	char			*ptr;
-	unsigned int	size;
+	char *ptr;
+	int size;
+
 	NULLCArray()
 	{
 		ptr = NULL;
 		size = 0;
 	}
+
 	template<typename Y>
 	NULLCArray(const NULLCArray<Y> r)
 	{
@@ -56,35 +58,72 @@ struct NULLCFuncPtr
 };
 
 // Wrapper over NULLC auto[] class for use in external functions
-typedef struct
+struct NULLCAutoArray
 {
-	unsigned int	typeID;
+	union
+	{
+		unsigned int	typeID;
+		unsigned int	type;
+	};
 	char			*ptr;
 	union
 	{
-		unsigned	len;
-		unsigned	size;
+		int	len;
+		int	size;
 	};
-} NULLCAutoArray;
+};
 #pragma pack(pop)
 
-typedef struct
+struct NULLCTypeInfo
 {
 	unsigned int	hash;
 	const char		*name;
 	unsigned int	size;
-	unsigned int	subTypeID;
+	union
+	{
+		unsigned int	subTypeID;
+		unsigned int	baseClassID;
+		unsigned int	returnTypeID;
+	};
 	int				memberCount;
 	unsigned int	category;
+	unsigned int	alignment;
+	unsigned int	flags;
 	unsigned int	members;
+};
 
-} NULLCTypeInfo;
+struct NULLCMemberInfo
+{
+	unsigned int typeID;
+	unsigned int offset;
+	const char *name;
+};
+
+struct NULLCFuncInfo
+{
+	unsigned	hash;
+	const char	*name;
+	unsigned	extraType;
+	unsigned	funcType;
+};
+
+#define NULLC_BASETYPE_VOID 0
+#define NULLC_BASETYPE_BOOL 1
+#define NULLC_BASETYPE_CHAR 2
+#define NULLC_BASETYPE_SHORT 3
+#define NULLC_BASETYPE_INT 4
+#define NULLC_BASETYPE_LONG 5
+#define NULLC_BASETYPE_FLOAT 6
+#define NULLC_BASETYPE_DOUBLE 7
 
 #define NULLC_NONE 0
 #define NULLC_CLASS 1
 #define NULLC_ARRAY 2
 #define NULLC_POINTER 3
 #define NULLC_FUNCTION 4
+
+#define NULLC_TYPE_FLAG_HAS_FINALIZER 1 << 0
+#define NULLC_TYPE_FLAG_IS_EXTENDABLE 1 << 1
 
 namespace FunctionCategory
 {
@@ -105,18 +144,16 @@ inline NULLCArray<T> __makeNullcArray(void* ptr, unsigned int size)
 	ret.size = size;
 	return ret;
 }
+
 template<typename T>
 inline NULLCArray<T> __makeNullcArray(unsigned int zero, void* unused)
 {
-#ifdef _MSC_VER
-	if(zero != 0 || unused != 0)
-		__asm int 3;
-#endif
 	NULLCArray<T> ret;
 	ret.ptr = 0;
 	ret.size = 0;
 	return ret;
 }
+
 int			__nullcPow(int a, int b);
 double		__nullcPow(double a, double b);
 long long	__nullcPow(long long a, long long b);
@@ -133,6 +170,13 @@ void	__nullcSetArray(float arr[], float val, unsigned int count);
 void	__nullcSetArray(double arr[], double val, unsigned int count);
 void	__nullcSetArray(long long arr[], long long val, unsigned int count);
 
+template<typename T>
+void __nullcSetupArray(T* ptr, unsigned size, T value)
+{
+	for(unsigned i = 0; i < size; i++)
+		ptr[i] = value;
+}
+
 struct __nullcUpvalue
 {
 	void *ptr;
@@ -142,8 +186,11 @@ struct __nullcUpvalue
 void __nullcCloseUpvalue(__nullcUpvalue *&head, void *ptr);
 NULLCFuncPtr<>	__nullcMakeFunction(unsigned int id, void* context);
 NULLCRef		__nullcMakeAutoRef(void* ptr, unsigned int typeID);
+NULLCRef		__nullcMakeExtendableAutoRef(void* ptr);
 void*			__nullcGetAutoRef(const NULLCRef &ref, unsigned int typeID);
 NULLCAutoArray	__makeAutoArray(unsigned type, NULLCArray<void> arr);
+
+typedef int __function;
 
 bool operator ==(const NULLCRef& a, const NULLCRef& b);
 bool operator !=(const NULLCRef& a, const NULLCRef& b);
@@ -152,95 +199,137 @@ bool operator !(const NULLCRef& a);
 int  __operatorEqual(unsigned int a, unsigned int b, void* unused);
 int  __operatorNEqual(unsigned int a, unsigned int b, void* unused);
 
-#undef assert
-void	assert(int val, void* unused);
-void	assert(int val, const char* message, void* unused);
-void	assert(int val, NULLCArray<char> message, void* unused);
-int	__operatorEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused);
-int	__operatorNEqual(NULLCArray<char> a, NULLCArray<char> b, void* unused);
-NULLCArray<char>	__operatorAdd(NULLCArray<char> a, NULLCArray<char> b, void* unused);
-NULLCArray<char>	__operatorAddSet(NULLCArray<char> * a, NULLCArray<char> b, void* unused);
-char		char__(char a, void* unused);
-short		short__(short a, void* unused);
-int			int__(int a, void* unused);
-long long	long__(long long a, void* unused);
-float	float__(float a, void* unused);
-double	double__(double a, void* unused);
-void	char__char_void_ref_char_(char a, char *target);
-void	short__short_void_ref_short_(short a, short *target);
-void	int__int_void_ref_int_(int a, int *target);
-void	long__long_void_ref_long_(long long a, long long *target);
-void	float__float_void_ref_float_(float a, float *target);
-void	double__double_void_ref_double_(double a, double *target);
-NULLCArray<char>	int__str_char___ref__(int* __context);
-NULLCArray<char>	double__str_char___ref_int_(int precision, int* __context);
+// Base module types
+struct __FinalizeProxy;
+struct __typeProxy_void_ref__;
+struct __typeProxy_void_ref_int_;
+struct const_string;
 
-inline int __str_precision_19(){ return 6; }
-
-int	__newS(int size, unsigned typeID, void* unused = NULL);
-NULLCArray<void>	__newA(int size, int count, unsigned typeID, void* unused = NULL);
-NULLCRef		duplicate(NULLCRef obj, void* unused);
-void			__duplicate_array(NULLCAutoArray* dst, NULLCAutoArray src, void* unused);
-NULLCAutoArray	duplicate(NULLCAutoArray arr, void* unused);
-NULLCRef	replace(NULLCRef l, NULLCRef r, void* unused);
-void		swap(NULLCRef l, NULLCRef r, void* unused);
-int			equal(NULLCRef l, NULLCRef r, void* unused);
-
-int __rcomp(NULLCRef a, NULLCRef b, void* unused);
-int __rncomp(NULLCRef a, NULLCRef b, void* unused);
-
-// const string implementation
-struct const_string
-{
-	NULLCArray<char> arr;
-};
-
-int const_string__size__int_ref__(const_string* str);
-const_string const_string__(NULLCArray<char> arr, void* unused);
-
-char __char_a_12();
-short __short_a_13();
-int __int_a_14();
-long long __long_a_15();
-float __float_a_16();
-double __double_a_17();
+// Base module functions
+void assert_void_ref_int_(int val, void* __context);
+void assert_void_ref_int_char___(int val, NULLCArray<char> message, void* __context);
+int __operatorEqual_int_ref_char___char___(NULLCArray<char> a, NULLCArray<char> b, void* __context);
+int __operatorNEqual_int_ref_char___char___(NULLCArray<char> a, NULLCArray<char> b, void* __context);
+NULLCArray<char> __operatorAdd_char___ref_char___char___(NULLCArray<char> a, NULLCArray<char> b, void* __context);
+NULLCArray<char> __operatorAddSet_char___ref_char___ref_char___(NULLCArray<char>* a, NULLCArray<char> b, void* __context);
+bool bool_bool_ref_bool_(bool a, void* __context);
+char char_char_ref_char_(char a, void* __context);
+short short_short_ref_short_(short a, void* __context);
+int int_int_ref_int_(int a, void* __context);
+long long long_long_ref_long_(long long a, void* __context);
+float float_float_ref_float_(float a, void* __context);
+double double_double_ref_double_(double a, void* __context);
+void bool__bool_void_ref_bool_(bool a, bool* __context);
+void char__char_void_ref_char_(char a, char* __context);
+void short__short_void_ref_short_(short a, short* __context);
+void int__int_void_ref_int_(int a, int* __context);
+void long__long_void_ref_long_(long long a, long long* __context);
+void float__float_void_ref_float_(float a, float* __context);
+void double__double_void_ref_double_(double a, double* __context);
+int as_unsigned_int_ref_char_(char a, void* __context);
+int as_unsigned_int_ref_short_(short a, void* __context);
+long long as_unsigned_long_ref_int_(int a, void* __context);
+short short_short_ref_char___(NULLCArray<char> str, void* __context);
+void short__short_void_ref_char___(NULLCArray<char> str, short* __context);
+NULLCArray<char> short__str_char___ref__(short* __context);
+int int_int_ref_char___(NULLCArray<char> str, void* __context);
+void int__int_void_ref_char___(NULLCArray<char> str, int* __context);
+NULLCArray<char> int__str_char___ref__(int* __context);
+long long long_long_ref_char___(NULLCArray<char> str, void* __context);
+void long__long_void_ref_char___(NULLCArray<char> str, long long* __context);
+NULLCArray<char> long__str_char___ref__(long long* __context);
+float float_float_ref_char___(NULLCArray<char> str, void* __context);
+void float__float_void_ref_char___(NULLCArray<char> str, float* __context);
+NULLCArray<char> float__str_char___ref_int_bool_(int precision, bool showExponent, float* __context);
+double double_double_ref_char___(NULLCArray<char> str, void* __context);
+void double__double_void_ref_char___(NULLCArray<char> str, double* __context);
+NULLCArray<char> double__str_char___ref_int_bool_(int precision, bool showExponent, double* __context);
+void* __newS_void_ref_ref_int_int_(int size, int type, void* __context);
+NULLCArray<int> __newA_int___ref_int_int_int_(int size, int count, int type, void* __context);
+NULLCRef duplicate_auto_ref_ref_auto_ref_(NULLCRef obj, void* __context);
+void __duplicate_array_void_ref_auto___ref_auto___(NULLCAutoArray* dst, NULLCAutoArray src, void* __context);
+NULLCAutoArray duplicate_auto___ref_auto___(NULLCAutoArray arr, void* __context);
+NULLCRef replace_auto_ref_ref_auto_ref_auto_ref_(NULLCRef l, NULLCRef r, void* __context);
+void swap_void_ref_auto_ref_auto_ref_(NULLCRef l, NULLCRef r, void* __context);
+int equal_int_ref_auto_ref_auto_ref_(NULLCRef l, NULLCRef r, void* __context);
+void assign_void_ref_auto_ref_auto_ref_(NULLCRef l, NULLCRef r, void* __context);
+void array_copy_void_ref_auto___auto___(NULLCAutoArray l, NULLCAutoArray r, void* __context);
+NULLCFuncPtr<__typeProxy_void_ref__> __redirect_void_ref___ref_auto_ref___function___ref_(NULLCRef r, NULLCArray<__function>* f, void* __context);
+NULLCFuncPtr<__typeProxy_void_ref__> __redirect_ptr_void_ref___ref_auto_ref___function___ref_(NULLCRef r, NULLCArray<__function>* f, void* __context);
+NULLCArray<char>* __operatorSet_char___ref_ref_char___ref_int___(NULLCArray<char>* dst, NULLCArray<int> src, void* __context);
+NULLCArray<short>* __operatorSet_short___ref_ref_short___ref_int___(NULLCArray<short>* dst, NULLCArray<int> src, void* __context);
+NULLCArray<float>* __operatorSet_float___ref_ref_float___ref_double___(NULLCArray<float>* dst, NULLCArray<double> src, void* __context);
+unsigned typeid_typeid_ref_auto_ref_(NULLCRef type, void* __context);
+int typeid__size__int_ref___(unsigned* __context);
+int __operatorEqual_int_ref_typeid_typeid_(unsigned a, unsigned b, void* __context);
+int __operatorNEqual_int_ref_typeid_typeid_(unsigned a, unsigned b, void* __context);
+int __rcomp_int_ref_auto_ref_auto_ref_(NULLCRef a, NULLCRef b, void* __context);
+int __rncomp_int_ref_auto_ref_auto_ref_(NULLCRef a, NULLCRef b, void* __context);
+bool __operatorLess_bool_ref_auto_ref_auto_ref_(NULLCRef a, NULLCRef b, void* __context);
+bool __operatorLEqual_bool_ref_auto_ref_auto_ref_(NULLCRef a, NULLCRef b, void* __context);
+bool __operatorGreater_bool_ref_auto_ref_auto_ref_(NULLCRef a, NULLCRef b, void* __context);
+bool __operatorGEqual_bool_ref_auto_ref_auto_ref_(NULLCRef a, NULLCRef b, void* __context);
+int hash_value_int_ref_auto_ref_(NULLCRef x, void* __context);
+int __pcomp_int_ref_void_ref_int__void_ref_int__(NULLCFuncPtr<__typeProxy_void_ref_int_> a, NULLCFuncPtr<__typeProxy_void_ref_int_> b, void* __context);
+int __pncomp_int_ref_void_ref_int__void_ref_int__(NULLCFuncPtr<__typeProxy_void_ref_int_> a, NULLCFuncPtr<__typeProxy_void_ref_int_> b, void* __context);
+int __acomp_int_ref_auto___auto___(NULLCAutoArray a, NULLCAutoArray b, void* __context);
+int __ancomp_int_ref_auto___auto___(NULLCAutoArray a, NULLCAutoArray b, void* __context);
+int __typeCount_int_ref__(void* __context);
+NULLCAutoArray* __operatorSet_auto___ref_ref_auto___ref_auto_ref_(NULLCAutoArray* l, NULLCRef r, void* __context);
+NULLCRef __aaassignrev_auto_ref_ref_auto_ref_auto___ref_(NULLCRef l, NULLCAutoArray* r, void* __context);
+NULLCRef __operatorIndex_auto_ref_ref_auto___ref_int_(NULLCAutoArray* l, int index, void* __context);
+int const_string__size__int_ref___(const_string* __context);
+const_string* __operatorSet_const_string_ref_ref_const_string_ref_char___(const_string* l, NULLCArray<char> arr, void* __context);
+const_string const_string_const_string_ref_char___(NULLCArray<char> arr, void* __context);
+char __operatorIndex_char_ref_const_string_ref_int_(const_string* l, int index, void* __context);
+int __operatorEqual_int_ref_const_string_const_string_(const_string a, const_string b, void* __context);
+int __operatorEqual_int_ref_const_string_char___(const_string a, NULLCArray<char> b, void* __context);
+int __operatorEqual_int_ref_char___const_string_(NULLCArray<char> a, const_string b, void* __context);
+int __operatorNEqual_int_ref_const_string_const_string_(const_string a, const_string b, void* __context);
+int __operatorNEqual_int_ref_const_string_char___(const_string a, NULLCArray<char> b, void* __context);
+int __operatorNEqual_int_ref_char___const_string_(NULLCArray<char> a, const_string b, void* __context);
+const_string __operatorAdd_const_string_ref_const_string_const_string_(const_string a, const_string b, void* __context);
+const_string __operatorAdd_const_string_ref_const_string_char___(const_string a, NULLCArray<char> b, void* __context);
+const_string __operatorAdd_const_string_ref_char___const_string_(NULLCArray<char> a, const_string b, void* __context);
+int isStackPointer_int_ref_auto_ref_(NULLCRef x, void* __context);
+void auto_array_impl_void_ref_auto___ref_typeid_int_(NULLCAutoArray* arr, unsigned type, int count, void* __context);
+NULLCAutoArray auto_array_auto___ref_typeid_int_(unsigned type, int count, void* __context);
+void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, NULLCAutoArray* __context);
+void __force_size_void_ref_auto___ref_int_(NULLCAutoArray* s, int size, void* __context);
+int isCoroutineReset_int_ref_auto_ref_(NULLCRef f, void* __context);
+void __assertCoroutine_void_ref_auto_ref_(NULLCRef f, void* __context);
+NULLCArray<NULLCRef> __getFinalizeList_auto_ref___ref__(void* __context);
+void __FinalizeProxy__finalize_void_ref__(__FinalizeProxy* __context);
+void __finalizeObjects_void_ref__(void* __context);
+void* assert_derived_from_base_void_ref_ref_void_ref_typeid_(void* derived, unsigned base, void* __context);
+void __closeUpvalue_void_ref_void_ref_ref_void_ref_int_int_(void** l, void* v, int offset, int size, void* __context);
+int float__str_610894668_precision__int_ref___(void* __context);
+bool float__str_610894668_showExponent__bool_ref___(void* __context);
+int double__str_610894668_precision__int_ref___(void* __context);
+bool double__str_610894668_showExponent__bool_ref___(void* __context);
 
 inline unsigned int	__nullcIndex(unsigned int index, unsigned int size)
 {
-	assert(index < size, 0);
+	assert_void_ref_int_(index < size, 0);
 	return index;
 }
 
 void nullcThrowError(const char* error, ...);
-unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, unsigned subTypeID, int memberCount, unsigned category);
+unsigned __nullcRegisterType(unsigned hash, const char *name, unsigned size, unsigned subTypeID, int memberCount, unsigned category, unsigned alignment, unsigned flags);
 void __nullcRegisterMembers(unsigned id, unsigned count, ...);
+unsigned __nullcGetTypeCount();
 NULLCTypeInfo* __nullcGetTypeInfo(unsigned id);
+NULLCMemberInfo* __nullcGetTypeMembers(unsigned id);
 
 unsigned int typeid__(NULLCRef type, void* unused);
 
-int __pcomp(NULLCFuncPtr<> a, NULLCFuncPtr<> b, void* unused);
-int __pncomp(NULLCFuncPtr<> a, NULLCFuncPtr<> b, void* unused);
-
-int __typeCount(void* unused);
-
-NULLCAutoArray* __operatorSet(NULLCAutoArray* l, NULLCRef r, void* unused);
-NULLCRef __operatorSet(NULLCRef l, NULLCAutoArray* r, void* unused);
-NULLCAutoArray* __operatorSet(NULLCAutoArray* l, NULLCAutoArray* r, void* unused);
-NULLCRef __operatorIndex(NULLCAutoArray* l, unsigned int index, void* unused);
-
-NULLCFuncPtr<> __redirect(NULLCRef r, NULLCArray<int>* f, void* unused);
-
-// char inline array definition support
-NULLCArray<char>* __operatorSet(NULLCArray<char>* dst, NULLCArray<int> src, void* unused);
-// short inline array definition support
-NULLCArray<short>* __operatorSet(NULLCArray<short>* dst, NULLCArray<int> src, void* unused);
-// float inline array definition support
-NULLCArray<float>* __operatorSet(NULLCArray<float>* dst, NULLCArray<double> src, void* unused);
+unsigned int __nullcGetStringHash(const char *str);
 
 typedef void* __nullcFunction;
 typedef __nullcFunction* __nullcFunctionArray;
 __nullcFunctionArray* __nullcGetFunctionTable();
 unsigned __nullcRegisterFunction(const char* name, void* fPtr, unsigned extraType, unsigned funcType);
+NULLCFuncInfo* __nullcGetFunctionInfo(unsigned id);
 
 void __nullcRegisterGlobal(void* ptr, unsigned typeID);
 void __nullcRegisterBase(void* ptr);
@@ -248,7 +337,7 @@ void __nullcRegisterBase(void* ptr);
 namespace NULLC
 {
 	void*		AllocObject(int size, unsigned typeID);
-	NULLCArray<void>	AllocArray(int size, int count, unsigned typeID);
+	NULLCArray<int>	AllocArray(int size, int count, unsigned typeID);
 	NULLCRef	CopyObject(NULLCRef ptr);
 
 	void		MarkMemory(unsigned int number);
@@ -260,6 +349,8 @@ namespace NULLC
 	unsigned int	UsedMemory();
 	double		MarkTime();
 	double		CollectTime();
+
+	void		FinalizeMemory();
 }
 
 inline double __nullcZero()
@@ -267,21 +358,19 @@ inline double __nullcZero()
 	return 0.0;
 }
 
-int isStackPointer(NULLCRef ptr, void* unused);
-
-int typeid__size__int_ref__(unsigned int * __context);
-
-void auto_array_impl(NULLCAutoArray* arr, unsigned type, int count, void* unused);
-NULLCAutoArray auto_array__(unsigned type, int count, void* unused);
-void auto____set_void_ref_auto_ref_int_(NULLCRef x, int pos, void* unused);
-
-void __force_size(NULLCAutoArray* arr, int size, void* unused);
-int isCoroutineReset(NULLCRef f, void* unused);
-void __assertCoroutine(NULLCRef f, void* unused);
-
 int	__nullcOutputResultInt(int x);
 int	__nullcOutputResultLong(long long x);
 int	__nullcOutputResultDouble(double x);
+
+template<typename T>
+T* __nullcIndexUnsizedArray(const NULLCArray<T>& arr, int index, int elemSize)
+{
+	if(unsigned(index) < unsigned(arr.size))
+		return (T*)(arr.ptr + index * elemSize);
+
+	nullcThrowError("ERROR: array index out of bounds");
+	return 0;
+}
 
 template<typename T> T __nullcCheckedRet(unsigned typeID, T data, void* top, ...)
 {
@@ -302,7 +391,7 @@ template<typename T> T* __nullcCheckedRet(unsigned typeID, T* data, void* top, .
 	}
 	if(data <= maxp && (char*)data >= ((char*)maxp - (1024 * 1024))) // assume 1Mb for stack -_-
 	{
-		unsigned int objSize = (unsigned)typeid__size__int_ref__(&typeID);
+		unsigned int objSize = (unsigned)typeid__size__int_ref___(&typeID);
 		char *copy = (char*)NULLC::AllocObject(objSize, typeID);
 		memcpy(copy, data, objSize);
 		return (T*)copy;
@@ -329,8 +418,4 @@ template<typename T> NULLCArray<T> __nullcCheckedRet(unsigned typeID, NULLCArray
 	return data;
 }
 
-NULLCArray<NULLCRef> __getFinalizeList();
-void __FinalizeProxy__finalize_void_ref__();
-void __finalizeObjects();
-
-void __nullcInitBaseModule();
+int __nullcInitBaseModule();

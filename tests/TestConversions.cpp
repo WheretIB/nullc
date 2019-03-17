@@ -23,18 +23,18 @@ float2 bb = float2(3, 4) += float2(1, 4);\r\n\
 return 0;";
 TEST("Implicit type to type ref conversions", testImplicitToRef, "0")
 {
-	CHECK_FLOAT("a", 0, 1);
-	CHECK_FLOAT("a", 1, 3);
-	CHECK_FLOAT("b", 0, 5);
-	CHECK_FLOAT("b", 1, 10);
-	CHECK_FLOAT("c", 0, 6);
-	CHECK_FLOAT("c", 1, 13);
-	CHECK_FLOAT("d", 0, 106);
-	CHECK_FLOAT("d", 1, 27);
-	CHECK_FLOAT("aa", 0, 1);
-	CHECK_FLOAT("aa", 1, 1);
-	CHECK_FLOAT("bb", 0, 4);
-	CHECK_FLOAT("bb", 1, 8);
+	CHECK_FLOAT("a", 0, 1, lastFailed);
+	CHECK_FLOAT("a", 1, 3, lastFailed);
+	CHECK_FLOAT("b", 0, 5, lastFailed);
+	CHECK_FLOAT("b", 1, 10, lastFailed);
+	CHECK_FLOAT("c", 0, 6, lastFailed);
+	CHECK_FLOAT("c", 1, 13, lastFailed);
+	CHECK_FLOAT("d", 0, 106, lastFailed);
+	CHECK_FLOAT("d", 1, 27, lastFailed);
+	CHECK_FLOAT("aa", 0, 1, lastFailed);
+	CHECK_FLOAT("aa", 1, 1, lastFailed);
+	CHECK_FLOAT("bb", 0, 4, lastFailed);
+	CHECK_FLOAT("bb", 1, 8, lastFailed);
 }
 
 const char	*testAutoRefToValue =

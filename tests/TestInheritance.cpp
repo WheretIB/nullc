@@ -542,3 +542,26 @@ int y = 2;\r\n\
 \r\n\
 return x;";
 TEST_RESULT("Inheritance test 43 - incorrect variable stack size after extended class definition", testInheritance43, "1");
+
+const char	*testInheritance44 =
+"class int2 extendable{ int x, y; void int2(){ x = 10; y = 20; } }\r\n\
+class int3 : int2{ int z; void int3(){ x = 1; y = 2; z = 3; } }\r\n\
+\r\n\
+int3 a;\r\n\
+auto b = int2 ref(&a);\r\n\
+auto c = int3 ref(b);\r\n\
+\r\n\
+int2 a2;\r\n\
+auto b2 = int2 ref(&a2);\r\n\
+\r\n\
+return b.x + c.z + b2.y;";
+TEST_RESULT("Inheritance test 44 - manual type casts", testInheritance44, "24");
+
+const char	*testInheritance45 =
+"class int2 extendable{ int x, y; void int2(){ x = 10; y = 20; } }\r\n\
+class int3 : int2{ int z; void int3(){ x = 1; y = 2; z = 3; } }\r\n\
+\r\n\
+int2 ref a = new int3;\r\n\
+int3 ref b = int3 ref(a);\r\n\
+return b.z;";
+TEST_RESULT("Inheritance test 44 - manual type casts", testInheritance45, "3");

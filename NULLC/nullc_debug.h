@@ -27,13 +27,7 @@ ExternFuncInfo*		nullcDebugFunctionInfo(unsigned int *count);
 ExternLocalInfo*	nullcDebugLocalInfo(unsigned int *count);
 char*				nullcDebugSymbols(unsigned int *count);
 char*				nullcDebugSource();
-
-struct NULLCCodeInfo
-{
-	unsigned int byteCodePos;
-	unsigned int sourceOffset;
-};
-NULLCCodeInfo*		nullcDebugCodeInfo(unsigned int *count);
+ExternSourceInfo*	nullcDebugSourceInfo(unsigned int *count);
 VMCmd*				nullcDebugCode(unsigned int *count);
 ExternModuleInfo*	nullcDebugModuleInfo(unsigned int *count);
 
@@ -47,7 +41,7 @@ unsigned int		nullcDebugGetStackFrame();
 #define NULLC_BREAK_STOP		4
 
 // A function that is called when breakpoint is hit. Function accepts instruction number and returns how the break should be handled (constant above)
-nullres				nullcDebugSetBreakFunction(unsigned (*callback)(unsigned int));
+nullres				nullcDebugSetBreakFunction(void *context, unsigned (*callback)(void*, unsigned));
 // You can remove all breakpoints explicitly. nullcClean clears all breakpoints automatically
 nullres				nullcDebugClearBreakpoints();
 // Line number can be translated into instruction number by using nullcDebugCodeInfo and nullcDebugModuleInfo

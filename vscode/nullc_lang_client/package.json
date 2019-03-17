@@ -1,0 +1,147 @@
+{
+    "name": "nullc",
+    "displayName": "nullc",
+    "description": "nullc language support",
+    "author": {
+        "name": "Vyacheslav Egorov",
+        "email": "wheretib@gmail.com"
+    },
+    "publisher": "wheretib",
+    "license": "MIT",
+    "version": "0.3.3",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/WheretIB/nullc"
+    },
+    "engines": {
+        "vscode": "^1.31.0"
+    },
+    "activationEvents": [
+        "onLanguage:nullc",
+        "onCommand:extension.nullc.getProgramName"
+    ],
+    "main": "./out/extension",
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "nullc",
+                "aliases": [
+                    "nullc",
+                    "NULLC"
+                ],
+                "extensions": [
+                    ".nc"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "nullc",
+                "scopeName": "source.nullc",
+                "path": "./syntaxes/nullc.tmLanguage.json"
+            }
+        ],
+        "breakpoints": [
+            {
+                "language": "nullc"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "nullc",
+                "label": "nullc Debug",
+                "configurationAttributes": {
+                    "launch": {
+                        "required": [
+                            "program"
+                        ],
+                        "properties": {
+                            "program": {
+                                "type": "string",
+                                "description": "Path to the launch module.",
+                                "default": "${workspaceFolder}/${command:AskForProgramName}"
+                            },
+                            "trace": {
+                                "type": "string",
+                                "description": "Enable logging of the Debug Adapter Protocol.",
+                                "default": "off"
+                            }
+                        }
+                    }
+                },
+                "initialConfigurations": [
+                    {
+                        "type": "nullc",
+                        "request": "launch",
+                        "name": "Ask for file name",
+                        "program": "${workspaceFolder}/${command:AskForProgramName}"
+                    }
+                ],
+                "configurationSnippets": [
+                    {
+                        "label": "nullc Debug: launch",
+                        "description": "A new configuration for debugging a user selected nullc file.",
+                        "body": {
+                            "type": "nullc",
+                            "request": "launch",
+                            "name": "Path to the launch module",
+                            "program": "^\"\\${workspaceFolder}/\\${command:AskForProgramName}\""
+                        }
+                    }
+                ],
+                "variables": {
+                    "AskForProgramName": "extension.nullc.getProgramName"
+                }
+            }
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "nullc configuration",
+            "properties": {
+                "nullc.trace.server": {
+                    "scope": "window",
+                    "type": "string",
+                    "enum": [
+                        "off",
+                        "info",
+                        "debug"
+                    ],
+                    "default": "off",
+                    "description": "Traces the communication between VS Code and the language server."
+                },
+                "nullc.module_path": {
+                    "scope": "window",
+                    "type": "string",
+                    "default": "",
+                    "description": "Default non-project module search path"
+                },
+                "nullc.debug": {
+                    "scope": "window",
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable extension server and debugger --debug launch flag"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -b",
+        "watch": "tsc -b -w",
+        "postinstall": "npm install && node ./node_modules/vscode/bin/install"
+    },
+    "dependencies": {
+        "vscode-languageclient": "^5.2.0"
+    },
+    "devDependencies": {
+        "@types/mocha": "^5.2.6",
+        "@types/node": "^11.9.5",
+        "tslint": "^5.13.0",
+        "typescript": "^3.3.0",
+        "vscode": "^1.1.30"
+    }
+}

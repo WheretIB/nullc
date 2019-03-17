@@ -155,7 +155,7 @@ namespace NULLC
 			unsigned array[2] = { expInfo->ContextRecord->Eip, 0 };
 			NULLC::dataHead->instructionPtr = (unsigned)(uintptr_t)&array[1];
 
-			/*unsigned command = */currExecutor->breakFunction(currExecutor->breakInstructions[index].instIndex);
+			/*unsigned command = */currExecutor->breakFunction(currExecutor->breakFunctionContext, currExecutor->breakInstructions[index].instIndex);
 			//printf("Returned command %d\n", command);
 			*currExecutor->instAddress[currExecutor->breakInstructions[index].instIndex] = currExecutor->breakInstructions[index].oldOpcode;
 			return (DWORD)EXCEPTION_CONTINUE_EXECUTION;
@@ -310,6 +310,9 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 	paramBase = NULL;
 	globalStartInBytecode = 0;
 	callContinue = 1;
+
+	breakFunctionContext = NULL;
+	breakFunction = NULL;
 
 	// Parameter stack must be aligned
 	assert(sizeof(NULLC::DataStackHeader) % 16 == 0);
@@ -515,9 +518,6 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdDecI] = GenCodeCmdDecI;
 	cgFuncs[cmdDecD] = GenCodeCmdDecD;
 	cgFuncs[cmdDecL] = GenCodeCmdDecL;
-
-	cgFuncs[cmdCreateClosure] = GenCodeCmdCreateClosure;
-	cgFuncs[cmdCloseUpvals] = GenCodeCmdCloseUpvalues;
 
 	cgFuncs[cmdConvertPtr] = GenCodeCmdConvertPtr;
 
@@ -921,7 +921,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 			BeginCallStack();
 			while(unsigned int address = GetNextAddress())
-				currPos += PrintStackFrame(address, currPos, 512 - int(currPos - execError));
+				currPos += PrintStackFrame(address, currPos, 512 - int(currPos - execError), false);
 		}
 		codeRunning = false;
 		NULLC::dataHead->instructionPtr = 0;
@@ -938,7 +938,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 void ExecutorX86::Stop(const char* error)
 {
 	callContinue = false;
-	SafeSprintf(execError, 512, error);
+	SafeSprintf(execError, 512, "%s", error);
 }
 
 void ExecutorX86::ClearNative()
@@ -958,7 +958,7 @@ void ExecutorX86::ClearNative()
 	oldFunctionSize = 0;
 }
 
-bool ExecutorX86::TranslateToNative()
+bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 {
 	execError[0] = 0;
 
@@ -967,7 +967,7 @@ bool ExecutorX86::TranslateToNative()
 	if(functionAddress.max <= exFunctions.size() * 2)
 	{
 		unsigned *newStorage = (unsigned*)NULLC::alloc(exFunctions.size() * 3 * sizeof(unsigned));
-		if(functionAddress.data != &functionAddress.one)
+		if(functionAddress.count != 0)
 			oldFunctionLists.push_back(FunctionListInfo(functionAddress.data, functionAddress.count));
 		memcpy(newStorage, functionAddress.data, functionAddress.count * sizeof(unsigned));
 		functionAddress.data = newStorage;
@@ -979,6 +979,7 @@ bool ExecutorX86::TranslateToNative()
 
 	memset(instList.data, 0, sizeof(x86Instruction) * instList.size());
 	instList.clear();
+	instList.reserve(64);
 
 	SetParamBase((unsigned int)(long long)paramBase);
 	SetFunctionList(exFunctions.data, functionAddress.data);
@@ -1031,6 +1032,21 @@ bool ExecutorX86::TranslateToNative()
 
 	// Once again, mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
 	codeJumpTargets.push_back(false);
+
+	if(enableLogFiles)
+	{
+		assert(!output.stream);
+		output.stream = output.openStream("asmX86.txt");
+
+		if(output.stream)
+		{
+			SaveListing(output);
+
+			output.closeStream(output.stream);
+			output.stream = NULL;
+		}
+	}
+
 #ifdef NULLC_OPTIMIZE_X86
 	// Second optimization pass, just feed generated instructions again
 
@@ -1122,31 +1138,20 @@ bool ExecutorX86::TranslateToNative()
 	}
 #endif
 
-#ifdef NULLC_LOG_FILES
-	static unsigned int instCount = 0;
-	for(unsigned int i = 0; i < instList.size(); i++)
+	if(enableLogFiles)
 	{
-		if(instList[i].name != o_none && instList[i].name != o_other)
-			instCount++;
-	}
-	printf("So far, %d optimizations (%d instructions)\r\n", GetOptimizationCount(), instCount);
+		assert(!output.stream);
+		output.stream = output.openStream("asmX86_opt.txt");
 
-	FILE *fAsm = fopen("asmX86.txt", "wb");
-	char instBuf[128];
-	for(unsigned int i = 0; i < instList.size(); i++)
-	{
-		if(instList[i].name == o_other)
-			continue;
-		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
+		if(output.stream)
 		{
-			fprintf(fAsm, "; ------------------- Invalidation ----------------\r\n");
-			fprintf(fAsm, "0x%x\r\n", 0xc0000000 | (instList[i].instID - 1));
+			SaveListing(output);
+
+			output.closeStream(output.stream);
+			output.stream = NULL;
 		}
-		instList[i].Decode(instBuf);
-		fprintf(fAsm, "%s\r\n", instBuf);
 	}
-	fclose(fAsm);
-#endif
+
 	codeJumpTargets.pop_back();
 
 	bool codeRelocated = false;
@@ -1243,6 +1248,7 @@ bool ExecutorX86::TranslateToNative()
 			}
 			break;
 		case o_movsx:
+			assert(cmd.argB.type == x86Argument::argPtr);
 			code += x86MOVSX(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			break;
 		case o_push:
@@ -1445,9 +1451,11 @@ bool ExecutorX86::TranslateToNative()
 				code += x86SHL(code, cmd.argA.reg, cmd.argB.num);
 			break;
 		case o_sal:
+			assert(cmd.argA.reg == rEAX && cmd.argB.reg == rECX);
 			code += x86SAL(code);
 			break;
 		case o_sar:
+			assert(cmd.argA.reg == rEAX && cmd.argB.reg == rECX);
 			code += x86SAR(code);
 			break;
 		case o_not:
@@ -1646,6 +1654,40 @@ bool ExecutorX86::TranslateToNative()
 	return true;
 }
 
+void ExecutorX86::SaveListing(OutputContext &output)
+{
+	char instBuf[128];
+
+	for(unsigned int i = 0; i < instList.size(); i++)
+	{
+		if(instList[i].name == o_other)
+			continue;
+
+		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
+		{
+			output.Print("; ------------------- Invalidation ----------------\n");
+			output.Printf("0x%x: ; %4d\n", 0xc0000000 | (instList[i].instID - 1), instList[i].instID - 1);
+		}
+
+		if(instList[i].instID && instList[i].instID - 1 < exCode.size())
+		{
+			VMCmd &cmd = exCode[instList[i].instID - 1];
+
+			char buf[256];
+			cmd.Decode(buf);
+
+			output.Printf("; %4d: %s\n", instList[i].instID - 1, buf);
+		}
+
+		instList[i].Decode(instBuf);
+
+		output.Print(instBuf);
+		output.Print('\n');
+	}
+
+	output.Flush();
+}
+
 const char* ExecutorX86::GetResult()
 {
 	long long combined = (long long)(((unsigned long long)(unsigned)NULLC::runResult << 32ull) + (unsigned long long)(unsigned)NULLC::runResult2);
@@ -1746,8 +1788,9 @@ void* ExecutorX86::GetStackEnd()
 	return genStackTop;
 }
 
-void ExecutorX86::SetBreakFunction(unsigned (*callback)(unsigned int))
+void ExecutorX86::SetBreakFunction(void *context, unsigned (*callback)(void*, unsigned))
 {
+	breakFunctionContext = context;
 	breakFunction = callback;
 }
 

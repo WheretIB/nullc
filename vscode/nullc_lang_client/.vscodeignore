@@ -1,0 +1,5 @@
+.vscode/**
+.vscode-test/**
+.gitignore
+out/*.ilk
+out/*.pdb

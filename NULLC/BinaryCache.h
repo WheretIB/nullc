@@ -9,15 +9,25 @@ namespace BinaryCache
 	void Terminate();
 
 	void		PutBytecode(const char* path, const char* bytecode, Lexeme* lexStart, unsigned lexCount);
+
 	const char*	GetBytecode(const char* path);
+
+	// Find module bytecode in any of the import paths or by name alone
+	const char*	FindBytecode(const char* moduleName, bool addExtension);
+
 	Lexeme*		GetLexems(const char* path, unsigned& count);
+
+	// Find module source lexems in any of the import paths or by name alone
+	Lexeme*		FindLexems(const char* moduleName, bool addExtension, unsigned& count);
+
 	void		RemoveBytecode(const char* path);
 	const char*	EnumerateModules(unsigned id);
 
 	void		LastBytecode(const char* bytecode);
 
-	void		SetImportPath(const char* path);
-	const char*	GetImportPath();
+	void		ClearImportPaths();
+	void		AddImportPath(const char* path);
+	const char*	EnumImportPath(unsigned pos);
 
 	struct	CodeDescriptor
 	{

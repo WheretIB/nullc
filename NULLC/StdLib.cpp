@@ -18,6 +18,21 @@
 // small array storage:				marker, count, data...
 // big array storage:		size,	marker, count, data...
 
+namespace
+{
+	void* ReadVmMemoryPointer(void* address)
+	{
+		void *result;
+		memcpy(&result, address, sizeof(void*));
+		return result;
+	}
+
+	void WriteVmMemoryPointer(void* address, void *value)
+	{
+		memcpy(address, &value, sizeof(void*));
+	}
+}
+
 namespace NULLC
 {
 	static Linker	*linker = NULL;
@@ -686,7 +701,7 @@ void NULLC::Assert(int val)
 void NULLC::Assert2(int val, NULLCArray message)
 {
 	if(!val)
-		nullcThrowError(message.ptr);
+		nullcThrowError("%.*s", message.len, message.ptr);
 }
 
 NULLCRef NULLC::CopyObject(NULLCRef ptr)
@@ -709,7 +724,9 @@ void NULLC::CopyArray(NULLCAutoArray* dst, NULLCAutoArray src)
 	dst->typeID = src.typeID;
 	dst->len = src.len;
 	dst->ptr = (char*)NULLC::AllocObject(src.len * linker->exTypes[src.typeID].size);
-	memcpy(dst->ptr, src.ptr, src.len * linker->exTypes[src.typeID].size);
+
+	if(src.len)
+		memcpy(dst->ptr, src.ptr, src.len * linker->exTypes[src.typeID].size);
 }
 
 NULLCRef NULLC::ReplaceObject(NULLCRef l, NULLCRef r)
@@ -786,8 +803,11 @@ NULLCArray NULLC::StrConcatenate(NULLCArray a, NULLCArray b)
 	if(!ret.ptr)
 		return ret;
 
-	memcpy(ret.ptr, a.ptr, a.len);
-	memcpy(ret.ptr + a.len - shift, b.ptr, b.len);
+	if(a.len)
+		memcpy(ret.ptr, a.ptr, a.len);
+
+	if(b.len)
+		memcpy(ret.ptr + a.len - shift, b.ptr, b.len);
 
 	return ret;
 }
@@ -948,9 +968,9 @@ NULLCArray NULLC::LongToStr(long long* r)
 	if(number < 0)
 		sign = 1;
 
-	*curr++ = (char)(abs(number % 10) + '0');
+	*curr++ = (char)(abs(int(number % 10)) + '0');
 	while(number /= 10)
-		*curr++ = (char)(abs(number % 10) + '0');
+		*curr++ = (char)(abs(int(number % 10)) + '0');
 	if(sign)
 		*curr++ = '-';
 	arr = AllocArray(1, (int)(curr - buf) + 1);
@@ -1331,7 +1351,9 @@ int NULLC::IsCoroutineReset(NULLCRef f)
 		nullcThrowError("Function is not a coroutine");
 		return 0;
 	}
-	return !**(int**)fPtr->context;
+
+	unsigned jmpOffset = *(unsigned*)fPtr->context;
+	return jmpOffset == 0;
 }
 
 void NULLC::AssertCoroutine(NULLCRef f)
@@ -1364,9 +1386,12 @@ void NULLC::ArrayCopy(NULLCAutoArray dst, NULLCAutoArray src)
 	}
 	if(dst.len < src.len)
 	{
-		nullcThrowError("ERROR: destination array size '%d' is smaller than source array size '%s'", dst.len, src.len);
+		nullcThrowError("ERROR: destination array size '%d' is smaller than source array size '%d'", dst.len, src.len);
 		return;
 	}
+
+	if(src.len == 0)
+		return;
 
 	memcpy(dst.ptr, src.ptr, nullcGetTypeSize(dst.typeID) * src.len);
 }
@@ -1390,4 +1415,35 @@ void* NULLC::AssertDerivedFromBase(unsigned* derived, unsigned base)
 	}
 	nullcThrowError("ERROR: cannot convert from '%s' to '%s'", nullcGetTypeName(*derived), nullcGetTypeName(base));
 	return derived;
+}
+
+void NULLC::CloseUpvalue(void **upvalueList, void *variable, int offset, int size)
+{
+	if (!upvalueList || !variable)
+	{
+		nullcThrowError("ERROR: null pointer access");
+		return;
+	}
+
+	struct Upvalue
+	{
+		void *target;
+		Upvalue *next;
+	};
+
+	Upvalue *upvalue = (Upvalue*)ReadVmMemoryPointer(upvalueList);
+
+	while (upvalue && ReadVmMemoryPointer(&upvalue->target) == variable)
+	{
+		Upvalue *next = (Upvalue*)ReadVmMemoryPointer(&upvalue->next);
+
+		char *copy = (char*)upvalue + offset;
+		memcpy(copy, variable, unsigned(size));
+		WriteVmMemoryPointer(&upvalue->target, copy);
+		WriteVmMemoryPointer(&upvalue->next, NULL);
+
+		upvalue = next;
+	}
+
+	WriteVmMemoryPointer(upvalueList, upvalue);
 }

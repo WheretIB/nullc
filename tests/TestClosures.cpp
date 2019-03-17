@@ -25,8 +25,8 @@ int r; // (28)\r\n\
 return r; // 19398";
 TEST("Local function context test", testLocalFunc1, "19398")
 {
-	CHECK_INT("g1", 0, 3);
-	CHECK_INT("r", 0, 19398);
+	CHECK_INT("g1", 0, 3, lastFailed);
+	CHECK_INT("r", 0, 19398, lastFailed);
 }
 
 const char	*testLocalFunc2 = 
@@ -57,8 +57,8 @@ glob();\r\n\
 return r; // 990579";
 TEST("Local function context test 2", testLocalFunc2, "990579")
 {
-	CHECK_INT("g1", 0, 3);
-	CHECK_INT("r", 0, 990579);
+	CHECK_INT("g1", 0, 3, lastFailed);
+	CHECK_INT("r", 0, 990579, lastFailed);
 }
 
 const char	*testClosure = 
@@ -118,53 +118,53 @@ char ee;\r\n\
 return 1;";
 TEST("Closure test", testClosure, "1")
 {
-	CHECK_INT("global", 0, 100);
-	CHECK_INT("fp", 0, 0);
-	CHECK_INT("res1a", 0, 106);
-	CHECK_INT("res1b", 0, 108);
-	CHECK_INT("res1c", 0, 110);
-	CHECK_INT("res1d", 0, 112);
+	CHECK_INT("global", 0, 100, lastFailed);
+	CHECK_INT("fp", 0, 0, lastFailed);
+	CHECK_INT("res1a", 0, 106, lastFailed);
+	CHECK_INT("res1b", 0, 108, lastFailed);
+	CHECK_INT("res1c", 0, 110, lastFailed);
+	CHECK_INT("res1d", 0, 112, lastFailed);
 
-	CHECK_INT("res2a", 0, 206);
-	CHECK_INT("res2b", 0, 208);
-	CHECK_INT("res2c", 0, 210);
-	CHECK_INT("res2d", 0, 212);
+	CHECK_INT("res2a", 0, 206, lastFailed);
+	CHECK_INT("res2b", 0, 208, lastFailed);
+	CHECK_INT("res2c", 0, 210, lastFailed);
+	CHECK_INT("res2d", 0, 212, lastFailed);
 
-	CHECK_INT("res3a", 0, 306);
-	CHECK_INT("res3b", 0, 308);
-	CHECK_INT("res3c", 0, 310);
-	CHECK_INT("res3d", 0, 312);
+	CHECK_INT("res3a", 0, 306, lastFailed);
+	CHECK_INT("res3b", 0, 308, lastFailed);
+	CHECK_INT("res3c", 0, 310, lastFailed);
+	CHECK_INT("res3d", 0, 312, lastFailed);
 
-	CHECK_INT("result", 0, 12);
+	CHECK_INT("result", 0, 12, lastFailed);
 }
 
 const char	*testClosure2 = 
 "int test(int n, int ref(int) ptr){ return ptr(n); }\r\n\
 \r\n\
 int n = 5;\r\n\
-auto a = int lambda(int b){ return b + 5; };\r\n\
-auto b = int lambda(int b){ return b + n; };\r\n\
+auto a = int lam_bda(int b){ return b + 5; };\r\n\
+auto b = int lam_bda(int b){ return b + n; };\r\n\
 \r\n\
-int res1 = test(3, int lambda(int b){ return b+n; });\r\n\
+int res1 = test(3, int lam_bda(int b){ return b+n; });\r\n\
 \r\n\
 int resA, resB, resC, resD, resE, resF;\r\n\
 void rurr(){\r\n\
   int d = 7;\r\n\
   int ref(int) a0, a1;\r\n\
-  a0 = int lambda(int b){ return b + 2; };\r\n\
-  a1 = int lambda(int b){ return b + d; };\r\n\
+  a0 = int lam_bda(int b){ return b + 2; };\r\n\
+  a1 = int lam_bda(int b){ return b + d; };\r\n\
 \r\n\
   resA = a0(3);\r\n\
   resB = a1(3);\r\n\
 \r\n\
-  auto b0 = int lambda(int b){ return b + 2; };\r\n\
-  auto b1 = int lambda(int b){ return b + d; };\r\n\
+  auto b0 = int lam_bda(int b){ return b + 2; };\r\n\
+  auto b1 = int lam_bda(int b){ return b + d; };\r\n\
 \r\n\
   resC = b0(4);\r\n\
   resD = b1(4);\r\n\
 \r\n\
-  resE = test(5, int lambda(int b){ return b + 2; });\r\n\
-  resF = test(5, int lambda(int b){ return b + d; });\r\n\
+  resE = test(5, int lam_bda(int b){ return b + 2; });\r\n\
+  resF = test(5, int lam_bda(int b){ return b + d; });\r\n\
 }\r\n\
 rurr();\r\n\
 int c=0;\r\n\
@@ -172,19 +172,19 @@ int c=0;\r\n\
 return 1;";
 TEST("Closure test 2", testClosure2, "1")
 {
-	CHECK_INT("n", 0, 5);
-	CHECK_INT("a", 0, 0);
-	CHECK_INT("b", 0, 0);
+	CHECK_INT("n", 0, 5, lastFailed);
+	CHECK_INT("a", 0, 0, lastFailed);
+	CHECK_INT("b", 0, 0, lastFailed);
 
-	CHECK_INT("res1", 0, 8);
-	CHECK_INT("resA", 0, 5);
-	CHECK_INT("resB", 0, 10);
-	CHECK_INT("resC", 0, 6);
+	CHECK_INT("res1", 0, 8, lastFailed);
+	CHECK_INT("resA", 0, 5, lastFailed);
+	CHECK_INT("resB", 0, 10, lastFailed);
+	CHECK_INT("resC", 0, 6, lastFailed);
 
-	CHECK_INT("resD", 0, 11);
-	CHECK_INT("resE", 0, 7);
-	CHECK_INT("resF", 0, 12);
-	CHECK_INT("c", 0, 0);
+	CHECK_INT("resD", 0, 11, lastFailed);
+	CHECK_INT("resE", 0, 7, lastFailed);
+	CHECK_INT("resF", 0, 12, lastFailed);
+	CHECK_INT("c", 0, 0, lastFailed);
 }
 
 const char	*testClosure3 = 
@@ -193,7 +193,7 @@ const char	*testClosure3 =
   int test(int n, int ref(int) ptr){ return ptr(n); }\r\n\
 \r\n\
   int n = 5;\r\n\
-  int res1 = test(3, int lambda(int b){ return b+n; });\r\n\
+  int res1 = test(3, int lam_bda(int b){ return b+n; });\r\n\
   return res1;\r\n\
 }\r\n\
 \r\n\
@@ -227,11 +227,11 @@ r5 = a2();\r\n\
 return 1;";
 TEST("Closure test 5", testClosure5, "1")
 {
-	CHECK_INT("r1", 0, 2);
-	CHECK_INT("r2", 0, 2);
-	CHECK_INT("r3", 0, 2);
-	CHECK_INT("r4", 0, 2);
-	CHECK_INT("r5", 0, 2);
+	CHECK_INT("r1", 0, 2, lastFailed);
+	CHECK_INT("r2", 0, 2, lastFailed);
+	CHECK_INT("r3", 0, 2, lastFailed);
+	CHECK_INT("r4", 0, 2, lastFailed);
+	CHECK_INT("r5", 0, 2, lastFailed);
 }
 
 const char	*testUpvalues1 =
@@ -248,10 +248,10 @@ int i4 = a();	// 5\r\n\
 return b();		// 4";
 TEST("Closure with upvalues test 1", testUpvalues1, "4")
 {
-	CHECK_INT("i1", 0, 3);
-	CHECK_INT("i2", 0, 4);
-	CHECK_INT("i3", 0, 3);
-	CHECK_INT("i4", 0, 5);
+	CHECK_INT("i1", 0, 3, lastFailed);
+	CHECK_INT("i2", 0, 4, lastFailed);
+	CHECK_INT("i3", 0, 3, lastFailed);
+	CHECK_INT("i4", 0, 5, lastFailed);
 }
 
 const char	*testUpvalues2 =
@@ -269,8 +269,8 @@ int i2 = add13(7);	// 20\r\n\
 return add3(add13(4));";
 TEST("Closure with upvalues test 2", testUpvalues2, "20")
 {
-	CHECK_INT("i1", 0, 8);
-	CHECK_INT("i2", 0, 20);
+	CHECK_INT("i1", 0, 8, lastFailed);
+	CHECK_INT("i2", 0, 20, lastFailed);
 }
 
 // Test checks if values of recursive function are captured correctly and that at the end of recursive function, it closes only upvalues that target it's stack frame
@@ -315,15 +315,15 @@ int b = f2(&bb);\r\n\
 return 1;";
 TEST("Closure with upvalues test 3", testUpvalues3, "1")
 {
-	CHECK_INT("k1", 0, 13);
-	CHECK_INT("k2", 0, 10);
-	CHECK_INT("k3", 0, 23);
-	CHECK_INT("dh", 0, 602);
-	CHECK_INT("ddd", 0, 602);
-	CHECK_INT("aa", 0, 902);
-	CHECK_INT("bb", 0, 902);
-	CHECK_INT("a", 0, 15);
-	CHECK_INT("b", 0, 12);
+	CHECK_INT("k1", 0, 13, lastFailed);
+	CHECK_INT("k2", 0, 10, lastFailed);
+	CHECK_INT("k3", 0, 23, lastFailed);
+	CHECK_INT("dh", 0, 602, lastFailed);
+	CHECK_INT("ddd", 0, 602, lastFailed);
+	CHECK_INT("aa", 0, 902, lastFailed);
+	CHECK_INT("bb", 0, 902, lastFailed);
+	CHECK_INT("a", 0, 15, lastFailed);
+	CHECK_INT("b", 0, 12, lastFailed);
 }
 
 // Partial upvalue list closure
@@ -355,14 +355,37 @@ int i1 = arr[0]();\r\n\
 int i2 = arr[1]();\r\n\
 int i3 = arr[2]();\r\n\
 int i4 = arr[3]();\r\n\
-return 1;";
-TEST("Closure with upvalues test 4", testUpvalues4, "1")
-{
-	CHECK_INT("i1", 0, 17);
-	CHECK_INT("i2", 0, 9);
-	CHECK_INT("i3", 0, 22);
-	CHECK_INT("i4", 0, 10);
-}
+return i1 * 1000000 + i2 * 10000 + i3 * 100 + i4;";
+TEST_RESULT("Closure with upvalues test 4", testUpvalues4, "17092210");
+
+const char	*testUpvalues4b =
+"int ref()[4] arr;\r\n\
+\r\n\
+int func()\r\n\
+{\r\n\
+	int m = 8;\r\n\
+	for(int i = 0; i < 2; i++)\r\n\
+	{\r\n\
+		arr[i*2+0] = auto(){ return 5 * (i + 1) + m; };\r\n\
+		arr[i*2+1] = auto(){ return i - 3 + m; };\r\n\
+	}\r\n\
+	m = 12;\r\n\
+	return 0;\r\n\
+}\r\n\
+int clear()\r\n\
+{\r\n\
+	int[20] clr = 0;\r\n\
+	int ref a = &clr[0];\r\n\
+	return *a;\r\n\
+}\r\n\
+func();\r\n\
+clear();\r\n\
+int i1 = arr[0]();\r\n\
+int i2 = arr[1]();\r\n\
+int i3 = arr[2]();\r\n\
+int i4 = arr[3]();\r\n\
+return i1 * 1000000 + i2 * 10000 + i3 * 100 + i4;";
+TEST_RESULT("Closure with upvalues test 4b", testUpvalues4b, "17092210");
 
 const char	*testUpvalues5 =
 "int func()\r\n\
@@ -421,7 +444,16 @@ return array[2];";
 TEST_RESULT("External variable that should be dereferenced automatically.", testExternalAutoDerefVariable, "8");
 
 const char	*testLocalFunctionPrototype =
-"int foo(){ int bar(); return bar(); int bar(){ return 5; } } return foo();";
+"int foo()\r\n\
+{\r\n\
+	int bar();\r\n\
+	return bar();\r\n\
+	int bar()\r\n\
+	{\r\n\
+		return 5;\r\n\
+	}\r\n\
+}\r\n\
+return foo();";
 TEST_RESULT("Local function prototype", testLocalFunctionPrototype, "5");
 
 const char	*testLocalFunctionPrototype2 =
@@ -541,6 +573,31 @@ const char	*testLocalFunctionPrototype8 =
 }\r\n\
 return foo(5);";
 TEST_RESULT("Local function prototype 8", testLocalFunctionPrototype8, "-4");
+
+const char	*testLocalFunctionPrototype9 =
+"int foo(int x)\r\n\
+{\r\n\
+	int bar();\r\n\
+	int hell()\r\n\
+	{\r\n\
+		auto y = bar;\r\n\
+		return y();\r\n\
+	}\r\n\
+	auto m = bar();\r\n\
+	int bar()\r\n\
+	{\r\n\
+		auto y1 = bar;\r\n\
+		auto y2 = bar;\r\n\
+		auto y3 = bar;\r\n\
+		auto y4 = bar;\r\n\
+		auto y5 = bar;\r\n\
+		return -2;\r\n\
+	}\r\n\
+	auto z = bar;\r\n\
+	return m + z();\r\n\
+}\r\n\
+return foo(5);";
+TEST_RESULT("Local function prototype 9", testLocalFunctionPrototype9, "-4");
 
 const char	*testLocalFunctionMultilevelReturn =
 "auto foo()\r\n\
@@ -695,3 +752,71 @@ for(int i = 0; i < 128; i++)\r\n\
 	m += (coroutine auto(){ int[1024] x; align(16) int y = 2; return CheckAlignment(y, 16); })();\r\n\
 return x() + m;";
 TEST_RESULT("Closure alignment test 4", testClosureAlignment4, "129");
+
+const char	*testBreakClosure =
+"auto foo()\r\n\
+{\r\n\
+	int ref() f; \r\n\
+	for(int k = 0; k < 5; k++)\r\n\
+	{\r\n\
+		for(int i = 0; i < 5; i++)\r\n\
+		{\r\n\
+			if(k == 0)\r\n\
+				f = auto() { return k * 100 + i; };\r\n\
+			if(k == 0 && i == 0)\r\n\
+			{ \r\n\
+				k = 3;\r\n\
+				i = 1;\r\n\
+				break 2;\r\n\
+			}\r\n\
+		}\r\n\
+	}\r\n\
+	return f;\r\n\
+}\r\n\
+return foo()();";
+TEST_RESULT("Closure on loop break", testBreakClosure, "301");
+
+const char	*testContinueClosure =
+"auto foo()\r\n\
+{\r\n\
+	int ref() f; \r\n\
+	for(int k = 0; k < 5; k++)\r\n\
+	{\r\n\
+		for(int i = 0; i < 5; i++)\r\n\
+		{\r\n\
+			if(k == 0)\r\n\
+				f = auto() { return k * 100 + i; };\r\n\
+			if(k == 0 && i == 0)\r\n\
+			{ \r\n\
+				k = 3;\r\n\
+				i = 1;\r\n\
+				continue 2;\r\n\
+			}\r\n\
+		}\r\n\
+	}\r\n\
+	return f;\r\n\
+}\r\n\
+return foo()();";
+TEST_RESULT("Closure on loop continue", testContinueClosure, "301");
+
+const char	*testFunctionPointerUpvalueClosure =
+"auto runner()\r\n\
+{\r\n\
+	int ref() k;\r\n\
+	auto foo(int x)\r\n\
+	{\r\n\
+		int ref() m;\r\n\
+		for(int y = 0; y < 10; y++)\r\n\
+		{\r\n\
+			m = auto(){ return y + x; };\r\n\
+			if(y == 6)\r\n\
+				k = m;\r\n\
+		}\r\n\
+		return m;\r\n\
+	}\r\n\
+	return foo(5)() + k();\r\n\
+}\r\n\
+int result = runner();\r\n\
+\r\n\
+return result;";
+TEST_RESULT("Closure of function pointer upvalue", testFunctionPointerUpvalueClosure, "25");

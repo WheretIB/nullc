@@ -1,11 +1,11 @@
 #pragma once
+
 #include "stdafx.h"
 
-#include "Instruction_X86.h"
-
-#include "ParseClass.h"
-
 #include "Executor_Common.h"
+#include "InstructionSet.h"
+#include "Instruction_X86.h"
+#include "Output.h"
 
 class ExecutorX86
 {
@@ -16,7 +16,8 @@ public:
 	bool	Initialize();
 
 	void	ClearNative();
-	bool	TranslateToNative();
+	bool	TranslateToNative(bool enableLogFiles, OutputContext &output);
+	void	SaveListing(OutputContext &output);
 
 	void	Run(unsigned int functionID, const char *arguments);
 	void	Stop(const char* error);
@@ -36,7 +37,7 @@ public:
 	void*			GetStackStart();
 	void*			GetStackEnd();
 
-	void	SetBreakFunction(unsigned (*callback)(unsigned int));
+	void	SetBreakFunction(void *context, unsigned (*callback)(void*, unsigned));
 	void	ClearBreakpoints();
 	bool	AddBreakpoint(unsigned int instruction, bool oneHit);
 	bool	RemoveBreakpoint(unsigned int instruction);
@@ -83,7 +84,9 @@ private:
 public:
 	FastVector<unsigned char*>	instAddress;
 
-	unsigned (*breakFunction)(unsigned int);
+	void *breakFunctionContext;
+	unsigned (*breakFunction)(void*, unsigned);
+
 	struct Breakpoint
 	{
 		Breakpoint(): instIndex(0), oldOpcode(0){}
