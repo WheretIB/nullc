@@ -1908,8 +1908,8 @@ SynIfElse* ParseIfElse(ParseContext &ctx, bool forceStaticIf)
 
 		SynBase *falseBlock = NULL;
 
-		if(staticIf)
-			ctx.Consume(lex_semicolon);
+		if(staticIf && ctx.At(lex_semicolon))
+			ctx.Skip();
 
 		if(ctx.Consume(lex_else))
 		{
@@ -1925,8 +1925,8 @@ SynIfElse* ParseIfElse(ParseContext &ctx, bool forceStaticIf)
 				falseBlock = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
 			}
 
-			if(staticIf)
-				ctx.Consume(lex_semicolon);
+			if(staticIf && ctx.At(lex_semicolon))
+				ctx.Skip();
 		}
 
 		return new (ctx.get<SynIfElse>()) SynIfElse(start, ctx.Previous(), staticIf, condition, trueBlock, falseBlock);
@@ -2234,7 +2234,7 @@ SynSwitch* ParseSwitch(ParseContext &ctx)
 				if(hadDefautltCase)
 					Report(ctx, ctx.Current(), "ERROR: default switch case is already defined");
 
-				ctx.Consume(lex_default);
+				ctx.Skip();
 
 				hadDefautltCase = true;
 			}
