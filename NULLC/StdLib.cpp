@@ -610,7 +610,7 @@ void NULLC::CollectMemory()
 	if(usedMemory + (usedMemory >> 1) >= collectableMinimum)
 		collectableMinimum <<= 1;
 
-	nullcRunFunction("__finalizeObjects");
+	(void)nullcRunFunction("__finalizeObjects");
 	finalizeList.clear();
 }
 
@@ -646,7 +646,7 @@ void NULLC::FinalizeMemory()
 
 	bigBlocks.for_each(FinalizeBlock);
 
-	nullcRunFunction("__finalizeObjects");
+	(void)nullcRunFunction("__finalizeObjects");
 	finalizeList.clear();
 }
 

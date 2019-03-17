@@ -59,7 +59,7 @@ void BubbleSortArray(NULLCArray arr, NULLCFuncPtr comparator)
 // function calls internal function
 void RecallerCS(int x)
 {
-	nullcRunFunction("inside", x);
+	(void)nullcRunFunction("inside", x);
 }
 
 LOAD_MODULE_BIND(func_test, "func.test", "long Recaller(int testA, testB); int Recaller2(int testA, testB); int Recaller3(int testA, testB); int RecallerPtr(int ref(int) fPtr); void bubble(int[] arr, int ref(int, int) comp); void recall(int x);")
