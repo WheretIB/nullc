@@ -878,6 +878,8 @@ ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
 	typeFunctionID = NULL;
 	typeNullPtr = NULL;
 
+	typeGeneric = NULL;
+
 	typeAuto = NULL;
 	typeAutoRef = NULL;
 	typeAutoArray = NULL;
