@@ -479,7 +479,7 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 	}
 
 	// Initialize nullc with target module path
-	if(ctx.launchArgs.modulePath)
+	if(ctx.launchArgs.modulePath && !ctx.launchArgs.modulePath->empty())
 	{
 		ctx.modulePath = *ctx.launchArgs.modulePath;
 
