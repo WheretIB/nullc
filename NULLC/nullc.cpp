@@ -816,6 +816,8 @@ void nullcThrowError(const char* error, ...)
 		buf[0] = 0;
 	buf[1024 - 1] = '\0';
 
+	va_end(args);
+
 	if(currExec == NULLC_VM)
 	{
 		executor->Stop(buf);

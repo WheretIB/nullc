@@ -65,6 +65,8 @@ namespace
 			ReportAt(ctx, pos - 1, pos - 1, (pos - 1)->pos + (pos - 1)->length, msg, args);
 		else
 			ReportAt(ctx, pos, pos, pos->pos, msg, args);
+
+		va_end(args);
 	}
 
 	void StopAt(ParseContext &ctx, Lexeme *begin, Lexeme *end, const char *pos, const char *msg, va_list args)
@@ -101,6 +103,8 @@ namespace
 			else
 				ReportAt(ctx, curr, curr, curr->pos, msg, args);
 
+			va_end(args);
+
 			return false;
 		}
 
@@ -121,6 +125,8 @@ namespace
 			else
 				ReportAt(ctx, curr, curr, curr->pos, msg, args);
 
+			va_end(args);
+
 			return false;
 		}
 
@@ -140,6 +146,8 @@ namespace
 				ReportAt(ctx, curr - 1, curr - 1, (curr - 1)->pos + (curr - 1)->length, msg, args);
 			else
 				ReportAt(ctx, curr, curr, curr->pos, msg, args);
+
+			va_end(args);
 
 			return false;
 		}
