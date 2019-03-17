@@ -844,6 +844,11 @@ Executor::Executor(Linker* linker): exLinker(linker), exTypes(linker->exTypes), 
 
 	codeRunning = false;
 
+	lastResultType = OTYPE_COMPLEX;
+	lastResultInt = 0;
+	lastResultLong = 0ll;
+	lastResultDouble = 0.0f;
+
 	breakFunctionContext = NULL;
 	breakFunction = NULL;
 

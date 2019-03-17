@@ -476,7 +476,7 @@ namespace GC
 
 	struct RootInfo
 	{
-		RootInfo(){}
+		RootInfo(): ptr(0), type(0){}
 		RootInfo(char* ptr, const ExternTypeInfo* type): ptr(ptr), type(type){}
 
 		char *ptr;

@@ -318,6 +318,8 @@ ParseContext::ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImp
 {
 	code = NULL;
 
+	bytecodeBuilder = NULL;
+
 	firstLexeme = NULL;
 	currentLexeme = NULL;
 	lastLexeme = NULL;
