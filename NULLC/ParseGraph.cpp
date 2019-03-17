@@ -6,16 +6,6 @@
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
-NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(ParseGraphContext &ctx, const char *format, ...)
-{
-	va_list args;
-	va_start(args, format);
-
-	ctx.output.Print(format, args);
-
-	va_end(args);
-}
-
 void PrintIndent(ParseGraphContext &ctx)
 {
 	for(unsigned i = 0; i < ctx.depth; i++)
