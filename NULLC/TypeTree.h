@@ -111,7 +111,7 @@ struct ModuleData
 
 struct NamespaceData
 {
-	NamespaceData(Allocator *allocator, SynBase *source, ScopeData *scope, NamespaceData *parent, SynIdentifier name, unsigned uniqueId): source(source), scope(scope), parent(parent), children(allocator), name(name), uniqueId(uniqueId)
+	NamespaceData(Allocator *allocator, SynBase *source, ScopeData *scope, NamespaceData *parent, const SynIdentifier& name, unsigned uniqueId): source(source), scope(scope), parent(parent), children(allocator), name(name), uniqueId(uniqueId)
 	{
 		nameHash = name.name.hash();
 
@@ -900,7 +900,7 @@ struct TypeFunction: TypeBase
 
 struct TypeGenericClassProto: TypeBase
 {
-	TypeGenericClassProto(SynIdentifier identifier, SynBase *source, ScopeData *scope, SynClassDefinition *definition): TypeBase(myTypeID, identifier.name), identifier(identifier), source(source), scope(scope), definition(definition)
+	TypeGenericClassProto(const SynIdentifier& identifier, SynBase *source, ScopeData *scope, SynClassDefinition *definition): TypeBase(myTypeID, identifier.name), identifier(identifier), source(source), scope(scope), definition(definition)
 	{
 		isGeneric = true;
 	}
@@ -934,7 +934,7 @@ struct TypeGenericClass: TypeBase
 
 struct TypeClass: TypeStruct
 {
-	TypeClass(SynIdentifier identifier, SynBase *source, ScopeData *scope, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, identifier.name), identifier(identifier), source(source), scope(scope), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass)
+	TypeClass(const SynIdentifier& identifier, SynBase *source, ScopeData *scope, TypeGenericClassProto *proto, IntrusiveList<MatchData> generics, bool extendable, TypeClass *baseClass): TypeStruct(myTypeID, identifier.name), identifier(identifier), source(source), scope(scope), proto(proto), generics(generics), extendable(extendable), baseClass(baseClass)
 	{
 		completed = false;
 		isInternal = false;
@@ -968,7 +968,7 @@ struct TypeClass: TypeStruct
 
 struct TypeEnum: TypeStruct
 {
-	TypeEnum(SynIdentifier identifier, SynBase *source, ScopeData *scope): TypeStruct(myTypeID, identifier.name), identifier(identifier), source(source), scope(scope)
+	TypeEnum(const SynIdentifier& identifier, SynBase *source, ScopeData *scope): TypeStruct(myTypeID, identifier.name), identifier(identifier), source(source), scope(scope)
 	{
 		size = 4;
 		alignment = GetTypeAlignment<int>();
