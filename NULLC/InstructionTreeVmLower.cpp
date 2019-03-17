@@ -41,6 +41,8 @@ void VmLoweredBlock::AddInstruction(ExpressionContext &ctx, VmLoweredInstruction
 		stackDepth += 2;
 		break;
 	case cmdPushCmplx:
+		assert(instruction->helper);
+
 		stackDepth += instruction->helper->iValue / 4;
 		break;
 	case cmdPushCharStk:
@@ -55,6 +57,8 @@ void VmLoweredBlock::AddInstruction(ExpressionContext &ctx, VmLoweredInstruction
 		stackDepth += 2;
 		break;
 	case cmdPushCmplxStk:
+		assert(instruction->helper);
+
 		stackDepth -= pointerSlots;
 		stackDepth += instruction->helper->iValue / 4;
 		break;
@@ -77,6 +81,8 @@ void VmLoweredBlock::AddInstruction(ExpressionContext &ctx, VmLoweredInstruction
 		stackDepth -= pointerSlots;
 		break;
 	case cmdPop:
+		assert(instruction->argument);
+
 		stackDepth -= instruction->argument->iValue / 4;
 		break;
 	case cmdDtoI:
@@ -126,6 +132,8 @@ void VmLoweredBlock::AddInstruction(ExpressionContext &ctx, VmLoweredInstruction
 		stackDepth -= 1;
 		break;
 	case cmdCall:
+		assert(instruction->argument);
+
 		if(FunctionData *function = instruction->argument->fValue->function)
 		{
 			stackDepth -= int(function->argumentsSize) / 4;
@@ -141,6 +149,9 @@ void VmLoweredBlock::AddInstruction(ExpressionContext &ctx, VmLoweredInstruction
 		}
 		break;
 	case cmdCallPtr:
+		assert(instruction->helper);
+		assert(instruction->argument);
+
 		stackDepth -= 1;
 		stackDepth -= instruction->argument->iValue / 4;
 
@@ -159,6 +170,8 @@ void VmLoweredBlock::AddInstruction(ExpressionContext &ctx, VmLoweredInstruction
 		}
 		break;
 	case cmdReturn:
+		assert(instruction->argument);
+
 		stackDepth -= instruction->argument->iValue / 4;
 		break;
 	case cmdYield:
