@@ -199,6 +199,7 @@ int main(int argc, char** argv)
 	while(argIndex < argc)
 	{
 		const char *fileName = argv[argIndex++];
+
 		FILE *ncFile = fopen(fileName, "rb");
 		if(!ncFile)
 		{
@@ -234,8 +235,25 @@ int main(int argc, char** argv)
 				printf("Module name not found after -m\n");
 				break;
 			}
-			strcpy(moduleName, argv[argIndex++]);
-		}else{
+
+			if(strlen(argv[argIndex]) + 1 >= 1024)
+			{
+				printf("Module name is too long\n");
+				break;
+			}
+
+			strcpy(moduleName, argv[argIndex]);
+
+			argIndex++;
+		}
+		else
+		{
+			if(strlen(fileName) + 1 >= 1024)
+			{
+				printf("File name is too long\n");
+				break;
+			}
+
 			strcpy(moduleName, fileName);
 			if(char *extensionPos = strchr(moduleName, '.'))
 				*extensionPos = '\0';
@@ -251,6 +269,14 @@ int main(int argc, char** argv)
 		if(!mergeFile)
 		{
 			char newName[1024];
+
+			// Ont extra character for 'm' appended at the end
+			if(strlen(fileName) + 1 >= 1024 - 1)
+			{
+				printf("File name is too long\n");
+				break;
+			}
+
 			strcpy(newName, fileName);
 			strcat(newName, "m");
 			FILE *nmcFile = fopen(newName, "wb");
