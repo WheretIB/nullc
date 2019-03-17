@@ -3718,9 +3718,6 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 					{
 						assert(!"invalid constant use");
 					}
-
-					if(nonStoreUse)
-						break;
 				}
 
 				if(nonStoreUse)
