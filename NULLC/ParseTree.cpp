@@ -65,6 +65,8 @@ namespace
 			ReportAt(ctx, pos - 1, pos - 1, (pos - 1)->pos + (pos - 1)->length, msg, args);
 		else
 			ReportAt(ctx, pos, pos, pos->pos, msg, args);
+
+		va_end(args);
 	}
 
 	void StopAt(ParseContext &ctx, Lexeme *begin, Lexeme *end, const char *pos, const char *msg, va_list args)
@@ -101,6 +103,8 @@ namespace
 			else
 				ReportAt(ctx, curr, curr, curr->pos, msg, args);
 
+			va_end(args);
+
 			return false;
 		}
 
@@ -121,6 +125,8 @@ namespace
 			else
 				ReportAt(ctx, curr, curr, curr->pos, msg, args);
 
+			va_end(args);
+
 			return false;
 		}
 
@@ -140,6 +146,8 @@ namespace
 				ReportAt(ctx, curr - 1, curr - 1, (curr - 1)->pos + (curr - 1)->length, msg, args);
 			else
 				ReportAt(ctx, curr, curr, curr->pos, msg, args);
+
+			va_end(args);
 
 			return false;
 		}
@@ -309,6 +317,8 @@ SynModifyAssignType GetModifyAssignType(LexemeType type)
 ParseContext::ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): lexer(allocator), binaryOpStack(allocator), namespaceList(allocator), activeImports(allocator), errorInfo(allocator), allocator(allocator)
 {
 	code = NULL;
+
+	bytecodeBuilder = NULL;
 
 	firstLexeme = NULL;
 	currentLexeme = NULL;
@@ -1900,8 +1910,8 @@ SynIfElse* ParseIfElse(ParseContext &ctx, bool forceStaticIf)
 
 		SynBase *falseBlock = NULL;
 
-		if(staticIf)
-			ctx.Consume(lex_semicolon);
+		if(staticIf && ctx.At(lex_semicolon))
+			ctx.Skip();
 
 		if(ctx.Consume(lex_else))
 		{
@@ -1917,8 +1927,8 @@ SynIfElse* ParseIfElse(ParseContext &ctx, bool forceStaticIf)
 				falseBlock = new (ctx.get<SynError>()) SynError(ctx.Current(), ctx.Current());
 			}
 
-			if(staticIf)
-				ctx.Consume(lex_semicolon);
+			if(staticIf && ctx.At(lex_semicolon))
+				ctx.Skip();
 		}
 
 		return new (ctx.get<SynIfElse>()) SynIfElse(start, ctx.Previous(), staticIf, condition, trueBlock, falseBlock);
@@ -2226,7 +2236,7 @@ SynSwitch* ParseSwitch(ParseContext &ctx)
 				if(hadDefautltCase)
 					Report(ctx, ctx.Current(), "ERROR: default switch case is already defined");
 
-				ctx.Consume(lex_default);
+				ctx.Skip();
 
 				hadDefautltCase = true;
 			}

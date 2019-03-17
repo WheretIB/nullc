@@ -254,7 +254,7 @@ struct SynIdentifier: SynBase
 	{
 	}
 
-	SynIdentifier(SynIdentifier source, InplaceStr name): SynBase(myTypeID, source.begin, source.end), name(name)
+	SynIdentifier(const SynIdentifier& source, InplaceStr name): SynBase(myTypeID, source.begin, source.end), name(name)
 	{
 	}
 

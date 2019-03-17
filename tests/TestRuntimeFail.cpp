@@ -147,7 +147,7 @@ TEST_RUNTIME_FAIL("Assertion fail correctly handles string length", testAssertio
 
 void RecallerTransition(int x)
 {
-	nullcRunFunction("inside", x);
+	(void)nullcRunFunction("inside", x);
 }
 
 LOAD_MODULE_BIND(func_testX, "func.testX", "void recall(int x);")

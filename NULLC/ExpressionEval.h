@@ -38,7 +38,7 @@ struct ExpressionEvalContext
 
 	struct StackVariable
 	{
-		StackVariable(): variable(0)
+		StackVariable(): variable(0), ptr(0)
 		{
 		}
 

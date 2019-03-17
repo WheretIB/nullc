@@ -102,6 +102,20 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 			testsPassed[TEST_TYPE_EXTRA]++;
 	}
 
+	{
+		testsCount[TEST_TYPE_EXTRA]++;
+
+		char buf[8];
+		char *pos = buf + NULLC::SafeSprintf(buf, 8, "this string");
+		pos += NULLC::SafeSprintf(pos, 8 - int(pos - buf), " is too long");
+		if(memcmp(buf, "this st", 8) != 0)
+			printf("Safe sprintf test failed: string is incorrect\n");
+		else if(pos != buf + 8)
+			printf("Safe sprintf test failed: iterator is incorrect\n");
+		else
+			testsPassed[TEST_TYPE_EXTRA]++;
+	}
+
 /*
 	unsigned int tStart = clock();
 	for(unsigned int i = 0; i < 10000; i++)

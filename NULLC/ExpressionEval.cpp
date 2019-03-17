@@ -647,7 +647,7 @@ ExprBase* CreateBinaryOp(ExpressionEvalContext &ctx, SynBase *source, ExprBase *
 				case SYN_BINARY_OP_SUB:
 					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValueInt - rhsValueInt);
 				case SYN_BINARY_OP_MUL:
-					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, lhsValueInt * rhsValueInt);
+					return new (ctx.ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, lhs->type, int(lhsValueInt * rhsValueInt));
 				case SYN_BINARY_OP_DIV:
 					if(rhsValueInt == 0)
 						return ReportCritical(ctx, "ERROR: division by zero during constant folding");

@@ -610,7 +610,7 @@ void NULLC::CollectMemory()
 	if(usedMemory + (usedMemory >> 1) >= collectableMinimum)
 		collectableMinimum <<= 1;
 
-	nullcRunFunction("__finalizeObjects");
+	(void)nullcRunFunction("__finalizeObjects");
 	finalizeList.clear();
 }
 
@@ -646,7 +646,7 @@ void NULLC::FinalizeMemory()
 
 	bigBlocks.for_each(FinalizeBlock);
 
-	nullcRunFunction("__finalizeObjects");
+	(void)nullcRunFunction("__finalizeObjects");
 	finalizeList.clear();
 }
 
@@ -726,7 +726,7 @@ void NULLC::CopyArray(NULLCAutoArray* dst, NULLCAutoArray src)
 	dst->ptr = (char*)NULLC::AllocObject(src.len * linker->exTypes[src.typeID].size);
 
 	if(src.len)
-		memcpy(dst->ptr, src.ptr, src.len * linker->exTypes[src.typeID].size);
+		memcpy(dst->ptr, src.ptr, unsigned(src.len * linker->exTypes[src.typeID].size));
 }
 
 NULLCRef NULLC::ReplaceObject(NULLCRef l, NULLCRef r)
@@ -1251,7 +1251,7 @@ NULLCRef NULLC::AutoArrayAssignRev(NULLCRef left, NULLCAutoArray *right)
 			nullcThrowError("ERROR: cannot convert from 'auto[]' (actual type '%s[%d]') to '%s'", nullcGetTypeName(right->typeID), right->len, nullcGetTypeName(left.typeID));
 			return ret;
 		}
-		memcpy(left.ptr, right->ptr, leftLength * nullcGetTypeSize(right->typeID));
+		memcpy(left.ptr, right->ptr, unsigned(leftLength * nullcGetTypeSize(right->typeID)));
 	}
 
 	return left;
@@ -1317,7 +1317,7 @@ void NULLC::AutoArraySet(NULLCRef x, unsigned pos, NULLCAutoArray* arr)
 		AutoArray(&n, arr->typeID, newSize);
 		if(!n.ptr)
 			return;
-		memcpy(n.ptr, arr->ptr, arr->len * elemSize);
+		memcpy(n.ptr, arr->ptr, unsigned(arr->len * elemSize));
 		*arr = n;
 	}
 	memcpy(arr->ptr + elemSize * pos, x.ptr, elemSize);
@@ -1393,7 +1393,7 @@ void NULLC::ArrayCopy(NULLCAutoArray dst, NULLCAutoArray src)
 	if(src.len == 0)
 		return;
 
-	memcpy(dst.ptr, src.ptr, nullcGetTypeSize(dst.typeID) * src.len);
+	memcpy(dst.ptr, src.ptr, unsigned(nullcGetTypeSize(dst.typeID) * src.len));
 }
 
 void* NULLC::AssertDerivedFromBase(unsigned* derived, unsigned base)

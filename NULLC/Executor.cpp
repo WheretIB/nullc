@@ -844,6 +844,11 @@ Executor::Executor(Linker* linker): exLinker(linker), exTypes(linker->exTypes), 
 
 	codeRunning = false;
 
+	lastResultType = OTYPE_COMPLEX;
+	lastResultInt = 0;
+	lastResultLong = 0ll;
+	lastResultDouble = 0.0f;
+
 	breakFunctionContext = NULL;
 	breakFunction = NULL;
 
@@ -1915,7 +1920,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				{
 					unsigned length = *(int*)(((char*)genStackPtr) + sizeof(void*));
 					char *copy = (char*)NULLC::AllocObject(exLinker->exTypes[type.subType].size * length);
-					memcpy(copy, vmLoadPointer(genStackPtr), exLinker->exTypes[type.subType].size * length);
+					memcpy(copy, vmLoadPointer(genStackPtr), unsigned(exLinker->exTypes[type.subType].size * length));
 					vmStorePointer(genStackPtr, copy);
 				}else{
 					unsigned int objSize = type.size;

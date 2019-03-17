@@ -87,6 +87,8 @@ namespace
 		va_start(args, msg);
 
 		ReportAt(ctx, source, pos, msg, args);
+
+		va_end(args);
 	}
 
 	NULLC_PRINT_FORMAT_CHECK(3, 4) void Report(ExpressionContext &ctx, SynBase *source, const char *msg, ...)
@@ -95,6 +97,8 @@ namespace
 		va_start(args, msg);
 
 		ReportAt(ctx, source, source->pos.begin, msg, args);
+
+		va_end(args);
 	}
 
 	NULLC_PRINT_FORMAT_CHECK(4, 5) ExprError* ReportExpected(ExpressionContext &ctx, SynBase *source, TypeBase *type, const char *msg, ...)
@@ -103,6 +107,8 @@ namespace
 		va_start(args, msg);
 
 		ReportAt(ctx, source, source->pos.begin, msg, args);
+
+		va_end(args);
 
 		return new (ctx.get<ExprError>()) ExprError(source, type);
 	}
@@ -871,6 +877,8 @@ ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
 	typeTypeID = NULL;
 	typeFunctionID = NULL;
 	typeNullPtr = NULL;
+
+	typeGeneric = NULL;
 
 	typeAuto = NULL;
 	typeAutoRef = NULL;

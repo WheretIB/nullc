@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { debug, workspace, DebugAdapterDescriptorFactory, ExtensionContext } from 'vscode';
 
-import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient';
+import { LanguageClient, LanguageClientOptions, ServerOptions } from 'vscode-languageclient';
 
 let client: LanguageClient;
 
