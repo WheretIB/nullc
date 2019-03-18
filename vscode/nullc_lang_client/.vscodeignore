@@ -3,3 +3,4 @@
 .gitignore
 out/*.ilk
 out/*.pdb
+out/*.tmp
