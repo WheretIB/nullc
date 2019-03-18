@@ -1625,7 +1625,7 @@ bool HandleRequestSetVariable(Context& ctx, rapidjson::Document &response, rapid
 			break;
 		}
 	}
-	else if((args.variablesReference & ~0x40000000) < ctx.variableReferences.size())
+	else if(unsigned(args.variablesReference & ~0x40000000) < ctx.variableReferences.size())
 	{
 		auto reference = ctx.variableReferences[args.variablesReference & ~0x40000000];
 
