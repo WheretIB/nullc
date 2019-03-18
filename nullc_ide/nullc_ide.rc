@@ -1,0 +1,143 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#define APSTUDIO_HIDDEN_SYMBOLS
+#include "windows.h"
+#undef APSTUDIO_HIDDEN_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Russian resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_RUS)
+#ifdef _WIN32
+LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
+#pragma code_page(1251)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_NULLC_IDE           ICON                    "nullc_ide.ico"
+IDI_SMALL               ICON                    "small.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDC_NULLC_IDE MENU 
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "Open",                        ID_FILE_LOAD
+        MENUITEM "Save",                        ID_FILE_SAVE, INACTIVE
+        MENUITEM "Save All",                    ID_FILE_SAVEALL
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit",                       IDM_EXIT
+    END
+    POPUP "Debug"
+    BEGIN
+        MENUITEM "Run",                         ID_RUN_DEBUG
+        MENUITEM "Run w/out breakpoints",       ID_RUN
+        MENUITEM SEPARATOR
+        MENUITEM "Attach to process",           ID_DEBUG_ATTACHTOPROCESS
+    END
+END
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#define APSTUDIO_HIDDEN_SYMBOLS\r\n"
+    "#include ""windows.h""\r\n"
+    "#undef APSTUDIO_HIDDEN_SYMBOLS\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDB_LASTCALL            BITMAP                  "GUI\\lLastcall.bmp"
+IDB_CALL                BITMAP                  "GUI\\lCall.bmp"
+IDB_CURR                BITMAP                  "GUI\\lCurr.bmp"
+IDB_BREAK               BITMAP                  "GUI\\lBreak.bmp"
+IDB_UNREACHABLE         BITMAP                  "gui\\lUnreachable.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Accelerator
+//
+
+IDR_SHORTCUTS ACCELERATORS 
+BEGIN
+    VK_F10,         ID_DEBUG_STEP,          VIRTKEY, NOINVERT
+    VK_F11,         ID_DEBUG_STEP_INTO,     VIRTKEY, NOINVERT
+    VK_F11,         ID_DEBUG_STEP_OUT,      VIRTKEY, SHIFT, NOINVERT
+    VK_F5,          ID_RUN,                 VIRTKEY, CONTROL, NOINVERT
+    VK_F5,          ID_RUN_DEBUG,           VIRTKEY, NOINVERT
+    VK_F9,          ID_TOGGLE_BREAK,        VIRTKEY, NOINVERT
+    VK_F3,          ID_SAVE_AS_HTML,        VIRTKEY, CONTROL, NOINVERT
+    VK_F4,          ID_CLOSE_TAB,           VIRTKEY, CONTROL, NOINVERT
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE 
+BEGIN
+    IDS_APP_TITLE           "nullc IDE"
+    IDC_NULLC_IDE           "NULLC_IDE"
+END
+
+#endif    // Russian resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

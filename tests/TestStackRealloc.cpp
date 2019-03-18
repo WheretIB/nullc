@@ -2,7 +2,6 @@
 
 #if defined(_MSC_VER)
 	#pragma warning(disable: 4530)
-	#include "../stdafx.h"
 #endif
 
 #include "../NULLC/includes/file.h"
@@ -396,7 +395,8 @@ struct TestEval : TestQueue
 	{
 		nullcTerminate();
 		nullcInit();
-		nullcAddImportPath(MODULE_PATH);
+		nullcAddImportPath(MODULE_PATH_A);
+		nullcAddImportPath(MODULE_PATH_B);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitDynamicModule();
@@ -422,7 +422,8 @@ return a;";
 		}
 		nullcTerminate();
 		nullcInit();
-		nullcAddImportPath(MODULE_PATH);
+		nullcAddImportPath(MODULE_PATH_A);
+		nullcAddImportPath(MODULE_PATH_B);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitDynamicModule();
@@ -458,7 +459,8 @@ struct TestVariableImportCorrectness : TestQueue
 	{
 		nullcTerminate();
 		nullcInit();
-		nullcAddImportPath(MODULE_PATH);
+		nullcAddImportPath(MODULE_PATH_A);
+		nullcAddImportPath(MODULE_PATH_B);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitDynamicModule();
@@ -489,7 +491,8 @@ struct TestGCGlobalLimit : TestQueue
 	{
 		nullcTerminate();
 		nullcInit();
-		nullcAddImportPath(MODULE_PATH);
+		nullcAddImportPath(MODULE_PATH_A);
+		nullcAddImportPath(MODULE_PATH_B);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitGCModule();
@@ -517,7 +520,8 @@ struct TestRestore : TestQueue
 	{
 		nullcTerminate();
 		nullcInit();
-		nullcAddImportPath(MODULE_PATH);
+		nullcAddImportPath(MODULE_PATH_A);
+		nullcAddImportPath(MODULE_PATH_B);
 		nullcSetFileReadHandler(Tests::fileLoadFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 

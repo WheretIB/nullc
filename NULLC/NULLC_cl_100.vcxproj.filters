@@ -20,9 +20,6 @@
     <ClCompile Include="Bytecode.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="CodeInfo.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="nullc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -32,31 +29,49 @@
     <ClCompile Include="StrAlgo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Callbacks.cpp">
-      <Filter>Compiler</Filter>
-    </ClCompile>
     <ClCompile Include="Compiler.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
     <ClCompile Include="Lexer.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="Parser.cpp">
+    <ClCompile Include="ExpressionEval.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="SyntaxTree.cpp">
+    <ClCompile Include="ExpressionGraph.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="SyntaxTreeEvaluate.cpp">
+    <ClCompile Include="ExpressionTranslate.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="SyntaxTreeGraph.cpp">
+    <ClCompile Include="ExpressionTree.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="SyntaxTreeLLVM.cpp">
+    <ClCompile Include="InstructionTreeVm.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="SyntaxTreeTranslate.cpp">
+    <ClCompile Include="InstructionTreeVmCommon.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeVmEval.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeVmGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeVmLower.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeVmLowerGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="ParseGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="ParseTree.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="TypeTree.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
   </ItemGroup>
@@ -68,9 +83,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Bytecode.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CodeInfo.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="HashMap.h">
@@ -88,9 +100,6 @@
     <ClInclude Include="nullcdef.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ParseClass.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Pool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -100,19 +109,58 @@
     <ClInclude Include="StrAlgo.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Callbacks.h">
-      <Filter>Compiler</Filter>
-    </ClInclude>
     <ClInclude Include="Compiler.h">
       <Filter>Compiler</Filter>
     </ClInclude>
     <ClInclude Include="Lexer.h">
       <Filter>Compiler</Filter>
     </ClInclude>
-    <ClInclude Include="Parser.h">
+    <ClInclude Include="Allocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DenseMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Output.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpressionTree.h">
       <Filter>Compiler</Filter>
     </ClInclude>
-    <ClInclude Include="SyntaxTree.h">
+    <ClInclude Include="ExpressionEval.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpressionGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpressionTranslate.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVmLowerGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVm.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVmCommon.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVmEval.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVmGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeVmLower.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="ParseTree.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="ParseGraph.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="TypeTree.h">
       <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>

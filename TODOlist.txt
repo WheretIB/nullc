@@ -5,17 +5,13 @@ Core:
 	5. f. when external/internal function is overridden with internal/external function, functions cannot be called when JiT is enabled.
 	9. b. Fix alignment of dynamically allocated variables.
 	11. f. function should know if it is used as pointer, so that closure will not be created or closed(?)
-	13. f. coroutine should access context variables without one extra indirection.
-	15. f. AST optimizations shouldn't be disabled when translation to C or LLVM is enabled.
 	18. f. stack trace with locals should print values
-	20. f. context address tracking in not neccessary in most cases (?)
 	21. u. need to clarify when external variables in a local function inside a coroutine are closed.
 	28. u. how is generic variable argument function is instanced?
 	30. f. tuples and/or multiple return values 
-	34. f. one-number-node constant folding should support |, &, || and &&
 	35. f. fix local class operators to be normal functions
 	53. f. add exception handling
-	54. b. new int(); expression creates a temporary variable that is not used
+	55. f. internal module imports to hide internal types/functions from escaping to module users
 
 Library:
 	1. f. string
@@ -25,223 +21,12 @@ Debug:
 	3. u. check all generic type tests with generic types _and_ functions that use these types in modules
 	4. u. check how generic type defined in model C is visible in module A with dependancy A->B->C
 
-SuperCalc:
+nullc_ide:
 	4. f. Tooltips with variable values
 	12 f. Editing code should be disabled\warning shown\edit & continue
 	13 f. persistent undo file in a temp folder
 	14 f. persistent undo on a per-file basis
 	15 b. breakpoint in generic function should break in all instances
 	
-ConsoleCalc:
+nullc_exec:
 	1. b. return value should come from the nullc program and nothing should be printed out
-
-DONE: ref variables - pointers
-DONE: multidimensional arrays
-DONE: e1	сделать поддержку всех заявленых бинарных и унарных операций
-DONE: е2	Вернуть работоспособность операций ++ и --
-DONE: е5	правильный размер Узлов дерева
-DONE: е6	возвратить работу функций
-DONE: е7	сделать выбор типов параметров у функций
-DONE: е8	сделать выбор возвратного значения функции
-DONE: е9	доступ к переменным в глобальной зоне видимости от нуля, а не от вершины стека параметров
-DONE: е11	возвратить к работе стандартный набор функций
-DONE: e13	вернуть работоспособность операций с присваиванием
-DONE: е14	передавать полную информацию о переменной в такие классы, как VarSetExpression
-DONE: e15 преобразование отрицателного short в int работает неверно
-DONE: е16	ошибка при делении числа на 0
-DONE: е17 вернуть условные операторы и циклы
-DONE: е18	проверить работу вызова функции внутри вызова функции
-DONE: n1:	константные сдвиги должны расчитыватся при компиляции. 0 не должен применяться вовсе :)
-DONE: n2: смена между префиксным и постфиксным операторами должна производиться флагом команды а не компилятором
-DONE: n3: print
-DONE: n4: операции с файлами
-DONE: Т1: Возможность присвоения композитных переменных
-DONE: Т2: Возможность возврата из функций композитных значений
-DONE: Т3: Возможность передачи композитных переменных в функции
-DONE: Определение строк в месте передачи в функцию.
-DONE: Определение значений массивов.
-DONE: escape последовательности.
-DONE: Возможность присвоить значение в виде символа ('n')
-DONE: Объеденить повторяющиеся действия в addSetVar и addFuncCallNode.
-DONE: Исправить PreValOp и SetTwoAndCmd для указателя на массив. (они не знают, что это такое)
-DONE: Не работает arr[arr[i]]. Починить.
-DONE: Функции, которые ничего не возвращают, не должны ничего возвращать!
-DONE: При возврате значения из функции, проверять соответствие возвращаемого типа и заявленного.
-DONE: Возможность использовать return; в функции возвращающей void
-DONE: Область видимости у функций.
-DONE: Определение вложенных массивов.
-DONE: Починить Colorer.
-DONE: Ввод из консоли.
-DONE: Возможность присвоить значение в 16-ричной системе (0xdeadbeef)
-DONE: Исправить ошибку с узлом выравнивания переменной, который объеденяет себя с предыдущим узлом.
-DONE: continue оператор.
-DONE:	Функции для классов.
-DONE: Автоматические тесты.
-DONE: Передача локальных функций с контекстом в другие функции:
-DONE:	- Флаг локальной функции
-DONE:	- Определение переменных, используемых в локальной функции
-DONE:	- Пункт выше, но с учётом вложенных локальных функций
-DONE:	- Добавления скрытого параметра - указателя на блок ссылок на внешние переменные
-DONE:	- Переадресация адресов внешних переменных на блок памяти с ссылками на них
-DONE:	- Сборка блока ссылок на внешние переменные функции
-DONE:	- Автоматическая передача указателя на блок ссылок в функцию
-DONE:	- Тип - указатель на функцию
-DONE:	- Передача указателя на функцию и вызова её по указателю
-DONE:	- Тоже самое для локальных
-DONE: Собирать отдельные PUSHV в один.
-DROPPED: Закрытие консоли не должно закрывать программу.
-DONE: Исправить warnings при компиляции nullc
-DONE:	Убрать зависимость от windows.h
-DONE: Убрать исключения
-DONE: Вызов отдельной функции
-DONE: в папку NULLC переместить supspi/sharedptr
-DONE: Integer division should fail in VM.
-DONE:  "Auto type tests" isn't perfectly fine when x86 optimisation is enabled
-DONE: long type is sent to external functions with wrong DWORD order when running under VM
-DONE: Проблемы с вызовом функций, начинающихся на do (грамматика цикла не проверяет whitespace)
-DONE: Сохранение и загрузка байткода.
-DONE: - Информация о функции должна хранить её размер в байткоде
-DONE: - В байткоде необходимо сохранять упрощённые структуры данных, описывающих глобальные переменные, все функции и типы.
-DONE:	- При реаллокации FastVector, указатели в описывающих структурах сломаются
-DONE: Убрать cleanBuf из addStringNode.
-DONE:	Одна функция EscapeSymbol
-DONE: е10	разрешить неопределённость возвратного значения условного оператора
-DONE: Все указатели глобальные.
-DON'T NEED: Когда в VM увеличивается стек переменных, указатель от nullcGetVariableData больше не валидный, но необходим для преобразования указателей во внешних функциях.
-DONE: Динамическая память
-DONE: Array under- and overflow tests have to work again.
-DONE: Перегрузка операторов.
-DONE: Убрать ошибки при constant folding типов short и char.
-DONE: Починить выравнивание переменных в стеке.
-DONE: continue cannot be used inside a switch.
-DONE: assert
-DONE: Остановка расчёта в х86 при зависании
-DONE: Если результат функции - составной тип, должна быть возможность адресовать его поля прямо после вызова.
-DONE: Добавить функцию для объеденения двух узлов в один (случаи if(unifyTwo){})
-DONE: Возможность определить свой аллокатор
-DONE: Модули должны иметь возможность содержать прототипы внешних функций.
-DONE: Перегруженный оператор = должен вызываться и при присвоении значения переменной в момент определения.
-DONE: Выдавать ошибку при создании указателя на внешнюю функцию.
-DONE: Исходный код с привязкой к строкам должен храниться в байткоде и Executor не должны заглядывать в CodeInfo.
-DONE: Add operators for floatn classes
-DONE: Fix double array index calculation for += -= *= /= **= operators
-DONE: auto ref
-DONE: Unary operators shouldn't work on pointers
-DONE: Comparison operators should work on pointers
-DON'T NEED: - Need to restore last known good state after link failure.
-DONE: When calling a member function of an array, convert array to an unsized one, and call its member function.
-DONE: Fix x86 error when global variable size is bigger than reserved parameter stack size.
-DONE: Add ability to call external function by pointer.
-DONE: Add variable import from modules.
-DONE: Garbage collection.
-DON'T NEED: const flag must be inside type information, not variable information
-DONE: Fix && and || operators logic to support short-circuiting
-DONE: Information about variables at every line.
-DONE: Add optimization with known number conversion to desired type.
-DONE: extended use of FindFirstFunctionIndex
-DONE: Add null pointer.
-DONE: vector
-DONE: list
-DONE: Fix module linkage with different set of base external functions. - no more base external functions
-DONE: ability to save bytecode
-DONE: internal function call externally with parameters
-DONE: internal function call by pointer externally
-DONE: nullcGet/SetGlobal functions
-DONE: varargs (functions accepting variable number of arguments)
-DONE: auto ref function call redirection to function of current type 
-DONE: Add ability to define inline arrays of types float, short and char.
-DONE: Add ability to set parameter stack base for x86 executor.
-DONE: call stack is correct in jit when there are various transitions from C->NULLC->C->NULLC->...
-DONE: external function call by pointer in NULLC leaves enough information for call stack trace.
-DONE: when external/internal function is overridden with internal/external function, pointers to those functions can be called when JiT is enabled.
-DONE: default function argument values are saved in bytecode and imported
-DONE: Fix alignment of statically allocated variables when global allocator returns memory not aligned by 16 byte boundary.
-DONE: stand-alone compiler
-DONE: optimize variable searches
-FIXED: Attach button is "hard" to press
-FIXED: When IDE is closed, remote aplication hangs
-FIXED: If nullctab config is not found, main.nc will be rewritten even if it exists
-FIXED: If last modified tab is closed, "new tab" window has modified flag
-DONE: Menu items should be diabled after attach
-DONE: Mark breakpoints on unexecutable positions as invalid
-DONE: Scroll to breakpoint
-FIXED: Inifine loop of arrays with implicit size crashes GC
-FIXED: Inifine loop of arrays with implicit size crashes SuperCalc
-FIXED: Every time pointer value is viewed in variable info tree, new subitems are created
-DONE: Context menu
-DONE: Breapoint positions should be updated when code changes
-FIXED: Repeated F9 key presses while execution is breaked can cause NULLC to crash
-DONE: Allow breakpoint setup using mouse
-DONE: typedefs should be scoped
-FIXED: variable argument list doesn't work if function is called by pointer
-FIXED: redirection table size is fixed.
-FIXED: eval is not safe when reallocation of code is performed
-DONE: Open tab with breakpoint
-DONE: Function check is needed in VM stack relocation
-DONE: Constant expressions. (via pure function compile-time evaluation)
-DONE: CheckClass should check only pointer members
-DONE: Classes should have a global mark that they do not contain pointer elements, so that an array of classes will not be iterated through.
-DONE: auto[]
-DONE: stack frames should be cleared in jit
-DONE: Let user set the global memory maximum.
-DONE: fmod is used in x86 JiT for double modulus division.
-DONE: Fix pointer constructors
-DONE: Array size must be read-only
-DONE: auto ref and auto[] fields should be read-only
-DONE: Enable conversion of default argument values
-DONE: member constructors for basic types
-DONE: const_string
-DROPPED: create gateways under x86 (performance is not improved)
-DONE: Function to check if pointer points to stack
-DONE: double->int and double->long conversion should be done using chop rounding mode
-DONE: coroutine shouldn't have local variables in its stack frame 
-DONE: check ! on pointer (not auto ref) under x64
-DONE: automatic function binding
-DONE: fixed custom allocator
-DONE: fixed variable argument functions to accept 0 arguments through 'auto ref[]'
-DONE: fixed selection of function overloads which are varaible arguments functions
-DONE: GC should not fail with stack overflow.
-DONE: redo
-DONE: short inline function in function pointer call
-DONE: multiple function prototypes should be disallowed
-DONE: Functions called without nullcInit should not crash
-DONE: sort
-DONE: finalizers
-DONE: nullcFinalize shouldn't destroy objects in memory
-DONE: @ followed by lexeme of operator should take an address of a function with operators' name
-DONE: fix process deadlock on breakpoint (and on infinite loops) in finalizer called by nullcFinalize
-DONE: list comprehension should support arrays of pointers
-DONE: typedef should be exported
-DONE: memberaccess is fixed for function pointer, but what if member function pointer is taken inside a class?
-DONE: looks like there could be failures in GC with pointers inside markers, because they are 8 bytes big.
-DONE: Foo<@T, @T> should fail
-DONE: recursive intantiation of a function with typedef should work
-DONE: extended typeof expresions should be able to access members
-DONE: extended typeof expressions should be available after type name
-DONE: Is it possible to shorten alias copy from parent?
-DONE: generic type constructor call
-DONE: add functions for bestFunctionList filling and for full rating calculation
-DONE: generic type accessors are instanced
-DONE: how varargs function is called through "auto ref"?
-DONE: how are generic functions called through "auto ref"?
-DONE: constructor call for an array of objects
-DONE: AddForEachNode doesn't decrease cycle count
-DONE: check all generic type tests with generic types in modules
-DONE: ability to replace parts of function type with generic
-DONE: aliases shouldn't be spilled in short function definition for generic function
-DONE: static constructor should default to... nothing, if not available
-DONE: support more assign and modify operators
-DONE: hash_map
-DONE: containers for pointers
-DONE: new StructName() { field1 = 1, field2 = 2 }
-DONE: prevent module from importing itself (and in any tree complexity)
-DONE: nullcSetJiTStack to a user buffer marks pages as noaccess but removes flag only on nullcSetJiTStack/destruction, need to clarify this in documentation.
-DONE: "in" operator
-DONE: how does the GC work in cases of various transitions between NULLC and C (especially in JiT); - nicely
-DONE: Compiled modules must recompile after changes.
-DONE: enum
-DONE: add namespaces
-DONE: functions with explicit template parameters
-DONE: move gen_list to base module as a generic function
-DONE: add compile-time checks for class members
-DONE: add allocation of unsized arrays and arrays of unsized arrays.

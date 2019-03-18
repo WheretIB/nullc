@@ -1,0 +1,72 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="Modules">
+      <UniqueIdentifier>{9a9b3e11-5564-4550-9289-a26b15ac6a7e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules\std">
+      <UniqueIdentifier>{582f998c-a299-438a-a895-a3d24ebdbfe0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules\win">
+      <UniqueIdentifier>{5ad6820a-daa5-4d27-a1ee-1f714cc37c42}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules\img">
+      <UniqueIdentifier>{fd7768c9-6408-44af-9830-4cb4b9012eb5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\NULLC\includes\file.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="..\NULLC\includes\io.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="..\NULLC\includes\math.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="..\NULLC\includes\string.cpp">
+      <Filter>Modules\std</Filter>
+    </ClCompile>
+    <ClCompile Include="..\NULLC\includes\window.cpp">
+      <Filter>Modules\win</Filter>
+    </ClCompile>
+    <ClCompile Include="..\NULLC\includes\canvas.cpp">
+      <Filter>Modules\img</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\NULLC\includes\file.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="..\NULLC\includes\io.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="..\NULLC\includes\math.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="..\NULLC\includes\string.h">
+      <Filter>Modules\std</Filter>
+    </ClInclude>
+    <ClInclude Include="..\NULLC\includes\window.h">
+      <Filter>Modules\win</Filter>
+    </ClInclude>
+    <ClInclude Include="..\NULLC\includes\canvas.h">
+      <Filter>Modules\img</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

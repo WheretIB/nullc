@@ -149,17 +149,17 @@ DYNCALL_TARGETS = \
   temp/dyncall_s/dyncall_call.o
 
 all: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/testrun/.dummy \
-    bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
+    bin/nullcl bin/TestRun bin/nullc_exec bin/nullclib
 
 ifeq ($(config),coverage)
 test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/testrun/.dummy \
-    bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
-	./TestRun -v -o -t
+    bin/nullcl bin/TestRun bin/nullc_exec bin/nullclib
+	./bin/TestRun -v -o -t
 	gcov -o temp NULLC/BinaryCache.cpp NULLC/Bytecode.cpp NULLC/Compiler.cpp NULLC/Executor_Common.cpp NULLC/Executor.cpp NULLC/ExpressionEval.cpp NULLC/ExpressionGraph.cpp NULLC/ExpressionTranslate.cpp NULLC/ExpressionTree.cpp NULLC/InstructionTreeVm.cpp NULLC/InstructionTreeVmCommon.cpp NULLC/InstructionTreeVmEval.cpp NULLC/InstructionTreeVmGraph.cpp NULLC/InstructionTreeVmLower.cpp NULLC/InstructionTreeVmLowerGraph.cpp NULLC/Lexer.cpp NULLC/Linker.cpp NULLC/nullc.cpp NULLC/ParseGraph.cpp NULLC/ParseTree.cpp NULLC/stdafx.cpp NULLC/StdLib.cpp NULLC/StrAlgo.cpp NULLC/TypeTree.cpp
 else
 test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/testrun/.dummy \
-    bin/nullcl TestRun bin/ConsoleCalc bin/nullclib
-	./TestRun
+    bin/nullcl bin/TestRun bin/nullc_exec bin/nullclib
+	./bin/TestRun
 endif
 
 temp/lib/%.o: NULLC/includes/%.cpp
@@ -218,6 +218,9 @@ endif
 clean:
 	rm -rf temp/
 	rm -f bin/*.a
+	rm -f bin/nullc_exec
+	rm -f bin/nullcl
+	rm -f bin/TestRun
 
 # Compiling NULLC compiler-only lib
 COMPILERLIB_SOURCES = \
@@ -270,10 +273,10 @@ temp/compiler/%.o: NULLC/%.cpp
 bin/libnullc_cl.a: ${COMPILERLIB_TARGETS}
 	$(AR) rcs $@ $^
 
-temp/ConsoleCalc.o: ConsoleCalc/ConsoleCalc.cpp
+temp/nullc_exec.o: nullc_exec/main.cpp
 	$(CXX) $(REG_CFLAGS) -c $< -o $@
 
-bin/ConsoleCalc: temp/ConsoleCalc.o bin/libnullc.a
+bin/nullc_exec: temp/nullc_exec.o bin/libnullc.a
 	$(CXX) $(REG_CFLAGS) -o $@ $< -Lbin -lnullc -ldl $(STDLIB_FLAGS)
 
 temp/main.o: nullcl/main.cpp bin/libnullc.a
@@ -283,8 +286,8 @@ bin/nullcl: temp/main.o bin/libnullc_cl.a
 	$(CXX) $(REG_CFLAGS) -o $@ $<  -Lbin -lnullc_cl $(STDLIB_FLAGS) 
 
 TEST_SOURCES = \
-	TestRun.cpp \
-	UnitTests.cpp \
+	tests/TestRun.cpp \
+	tests/UnitTests.cpp \
 	tests/TestAccessors.cpp          tests/TestInference.cpp \
 	tests/TestArray.cpp              tests/TestInterface.cpp \
 	tests/TestArraySpecial.cpp       tests/TestListComprehension.cpp \
@@ -350,13 +353,13 @@ TEST_OBJECTS = \
 	temp/tests/TestGenericExplicit.o    temp/tests/TestNamedArguments.o \
 	temp/tests/TestSglEvent.o           temp/tests/TestSglString.o
 
-temp/testrun/%.o: %.cpp
+temp/testrun/%.o: tests/%.cpp
 	$(CXX) $(REG_CFLAGS) $(FUZZ_FLAGS) -o $@ -c $<
 
 temp/tests/%.o: tests/%.cpp
 	$(CXX) $(REG_CFLAGS) -o $@ -c $<
 
-TestRun: ${TEST_OBJECTS} bin/libnullc.a
+bin/TestRun: ${TEST_OBJECTS} bin/libnullc.a
 	$(CXX) $(FUZZ_FLAGS) -rdynamic $(REG_CFLAGS) -o $@ $(TEST_OBJECTS) -Lbin $(STDLIB_FLAGS) -lnullc -ldl
 
 bin/nullclib:

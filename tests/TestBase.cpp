@@ -1,25 +1,30 @@
 #include "TestBase.h"
 
-#if defined(_MSC_VER)
-#pragma warning(disable: 4530)
-#endif
-
-#if defined(_MSC_VER)
-	#include "../stdafx.h"
-	#include <Windows.h>
-#endif
-
 #include <vector>
 
 #include "../NULLC/nullc_debug.h"
 #include "../NULLC/nullc_internal.h"
 
-#if !defined(_MSC_VER)
+#if defined(_MSC_VER)
+#include <Windows.h>
+
+double myGetPreciseTime()
+{
+	LARGE_INTEGER freq, count;
+	QueryPerformanceFrequency(&freq);
+	QueryPerformanceCounter(&count);
+	double temp = double(count.QuadPart) / double(freq.QuadPart);
+	return temp*1000.0;
+}
+
+#else
+
 #include <time.h>
-	double myGetPreciseTime()
-	{
-		return (clock() / double(CLOCKS_PER_SEC)) * 1000.0;
-	}
+double myGetPreciseTime()
+{
+	return (clock() / double(CLOCKS_PER_SEC)) * 1000.0;
+}
+
 #endif
 
 TestQueue* TestQueue::head = NULL;
@@ -467,7 +472,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " 1test.cpp");
 		pos += strlen(pos);
 
-		SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " NULLC/translation/runtime.cpp -lstdc++");
+		SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " ../NULLC/translation/runtime.cpp -lstdc++");
 		pos += strlen(pos);
 
 		for(unsigned i = 0; i < translationDependencies.size(); i++)
@@ -480,7 +485,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 			if(strstr(dependency, "import_"))
 			{
 				char tmp[256];
-				SafeSprintf(tmp, 256 - strlen("_bind"), "NULLC/translation/%s", dependency + strlen("import_"));
+				SafeSprintf(tmp, 256 - strlen("_bind"), "../NULLC/translation/%s", dependency + strlen("import_"));
 
 				if(char *pos = strstr(tmp, "_nc.cpp"))
 					strcpy(pos, "_bind.cpp");
@@ -493,7 +498,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 					fclose(file);
 				}
 
-				SafeSprintf(tmp, 256 - strlen("_bind"), "tests/translation/%s", dependency + strlen("import_"));
+				SafeSprintf(tmp, 256 - strlen("_bind"), "translation/%s", dependency + strlen("import_"));
 
 				if(char *pos = strstr(tmp, "_nc.cpp"))
 					strcpy(pos, "_bind.cpp");

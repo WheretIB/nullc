@@ -3,7 +3,6 @@
 
 #if defined(_MSC_VER)
 	#pragma warning(disable: 4530)
-	#include "../stdafx.h"
 #endif
 
 #include "../NULLC/includes/file.h"
@@ -31,7 +30,8 @@ void	SpeedTestText(const char* name, const char* text)
 {
 	nullcTerminate();
 	nullcInit();
-	nullcAddImportPath(MODULE_PATH);
+	nullcAddImportPath(MODULE_PATH_A);
+	nullcAddImportPath(MODULE_PATH_B);
 	nullcSetFileReadHandler(Tests::fileLoadFunc);
 	nullcSetEnableLogFiles(false, NULL, NULL, NULL);
 

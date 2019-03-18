@@ -6,9 +6,7 @@
 #include <math.h>
 #include <string.h>
 
-#if !defined(_MSC_VER)
 double myGetPreciseTime();
-#endif
 
 #if defined(__CELLOS_LV2__)
 #	define FILE_PATH "/app_home/"
@@ -16,7 +14,8 @@ double myGetPreciseTime();
 #	define FILE_PATH ""
 #endif
 
-#define MODULE_PATH FILE_PATH "Modules/"
+#define MODULE_PATH_A FILE_PATH "Modules/"
+#define MODULE_PATH_B FILE_PATH "../Modules/"
 
 enum TestTypeIndex
 {
@@ -237,7 +236,8 @@ struct Test_##code : TestQueue {	\
 		testsCount[0]++;	\
 		nullcTerminate();	\
 		nullcInit();	\
-		nullcAddImportPath(MODULE_PATH); \
+		nullcAddImportPath(MODULE_PATH_A); \
+		nullcAddImportPath(MODULE_PATH_B); \
 		nullcSetFileReadHandler(Tests::fileLoadFunc);	\
 		nullcInitTypeinfoModule();	\
 		nullcInitVectorModule();	\
