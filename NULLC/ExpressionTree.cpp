@@ -5583,6 +5583,25 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 {
 	assert(function->arguments.size() == arguments.size());
 
+	// Lookup previous match for this function
+	IntrusiveList<TypeHandle> incomingArguments;
+	IntrusiveList<MatchData> incomingAliases;
+
+	for(unsigned i = 0; i < arguments.size(); i++)
+		incomingArguments.push_back(new (ctx.get<TypeHandle>()) TypeHandle(arguments[i].type));
+
+	for(MatchData *curr = aliases.head; curr; curr = curr->next)
+		incomingAliases.push_back(new (ctx.get<MatchData>()) MatchData(curr->name, curr->type));
+
+	GenericFunctionInstanceTypeRequest request(parentType, function, incomingArguments, incomingAliases);
+
+	if(GenericFunctionInstanceTypeResponse* response = ctx.genericFunctionInstanceTypeMap.find(request))
+	{
+		aliases = response->aliases;
+
+		return response->functionType;
+	}
+
 	// Switch to original function scope
 	ScopeData *scope = ctx.scope;
 
@@ -5647,6 +5666,8 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 
 				if(!type)
 				{
+					ctx.genericFunctionInstanceTypeMap.insert(request, GenericFunctionInstanceTypeResponse(NULL, aliases));
+
 					// TODO: what about scope restore
 					return NULL;
 				}
@@ -5673,7 +5694,11 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 	ctx.errorHandlerNested = prevErrorHandlerNested;
 
 	if(types.size() != arguments.size())
+	{
+		ctx.genericFunctionInstanceTypeMap.insert(request, GenericFunctionInstanceTypeResponse(NULL, aliases));
+
 		return NULL;
+	}
 
 	// Check that all generics have been resolved
 	for(MatchData *curr = function->generics.head; curr; curr = curr->next)
@@ -5690,10 +5715,18 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 		}
 
 		if(!matched)
+		{
+			ctx.genericFunctionInstanceTypeMap.insert(request, GenericFunctionInstanceTypeResponse(NULL, aliases));
+
 			return NULL;
+		}
 	}
 
-	return ctx.GetFunctionType(source, function->type->returnType, types);
+	TypeFunction *typeFunction = ctx.GetFunctionType(source, function->type->returnType, types);
+
+	ctx.genericFunctionInstanceTypeMap.insert(request, GenericFunctionInstanceTypeResponse(typeFunction, aliases));
+
+	return typeFunction;
 }
 
 void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* errorBuf, unsigned errorBufSize, const char *messageStart, ArrayView<FunctionValue> functions)

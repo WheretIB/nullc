@@ -17,6 +17,86 @@ struct ExprBase;
 #pragma warning(disable: 4324) // structure was padded due to __declspec(align())
 #endif
 
+struct GenericFunctionInstanceTypeRequest
+{
+	GenericFunctionInstanceTypeRequest(): hash(0), parentType(NULL), function(NULL)
+	{
+	}
+
+	GenericFunctionInstanceTypeRequest(TypeBase *parentType, FunctionData *function, IntrusiveList<TypeHandle> arguments, IntrusiveList<MatchData> aliases): parentType(parentType), function(function), arguments(arguments), aliases(aliases)
+	{
+		hash = parentType ? parentType->nameHash : 0;
+
+		hash = hash + (hash << 5) + function->nameHash;
+
+		for(TypeHandle *curr = arguments.head; curr; curr = curr->next)
+			hash = hash + (hash << 5) + curr->type->nameHash;
+
+		for(MatchData *curr = aliases.head; curr; curr = curr->next)
+			hash = hash + (hash << 5) + curr->type->nameHash;
+	}
+
+	bool operator==(const GenericFunctionInstanceTypeRequest& rhs) const
+	{
+		if(parentType != rhs.parentType)
+			return false;
+
+		if(function != rhs.function)
+			return false;
+
+		for(TypeHandle *leftArg = arguments.head, *rightArg = rhs.arguments.head; leftArg || rightArg; leftArg = leftArg->next, rightArg = rightArg->next)
+		{
+			if(leftArg->type != rightArg->type)
+				return false;
+		}
+
+		for(MatchData *leftAlias = aliases.head, *rightAlias = rhs.aliases.head; leftAlias || rightAlias; leftAlias = leftAlias->next, rightAlias = rightAlias->next)
+		{
+			if(leftAlias->name != rightAlias->name || leftAlias->type != rightAlias->type)
+				return false;
+		}
+
+		return true;
+	}
+
+	bool operator!=(const GenericFunctionInstanceTypeRequest& rhs) const
+	{
+		return !(*this == rhs);
+	}
+
+	unsigned hash;
+
+	TypeBase *parentType;
+
+	FunctionData *function;
+
+	IntrusiveList<TypeHandle> arguments;
+	IntrusiveList<MatchData> aliases;
+};
+
+struct GenericFunctionInstanceTypeRequestHasher
+{
+	unsigned operator()(const GenericFunctionInstanceTypeRequest& key)
+	{
+		return key.hash;
+	}
+};
+
+struct GenericFunctionInstanceTypeResponse
+{
+	GenericFunctionInstanceTypeResponse(): functionType(NULL)
+	{
+	}
+
+	GenericFunctionInstanceTypeResponse(TypeFunction *functionType, IntrusiveList<MatchData> aliases): functionType(functionType), aliases(aliases)
+	{
+	}
+
+	TypeFunction *functionType;
+
+	IntrusiveList<MatchData> aliases;
+};
+
 struct ExpressionContext
 {
 	ExpressionContext(Allocator *allocator);
@@ -104,6 +184,8 @@ struct ExpressionContext
 	SmallArray<TypeGenericClass*, 128> genericClassTypes;
 
 	HashMap<TypeClass*> genericTypeMap;
+
+	SmallDenseMap<GenericFunctionInstanceTypeRequest, GenericFunctionInstanceTypeResponse, GenericFunctionInstanceTypeRequestHasher, 32> genericFunctionInstanceTypeMap;
 
 	unsigned baseModuleFunctionCount;
 
