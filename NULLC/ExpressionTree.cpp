@@ -5004,21 +5004,21 @@ bool HasNamedCallArguments(ArrayView<ArgumentData> arguments)
 
 bool HasMatchingArgumentNames(ArrayView<ArgumentData> &functionArguments, ArrayView<ArgumentData> arguments)
 {
-	for(unsigned i = 0; i < arguments.size(); i++)
+	for(unsigned i = 0, e = arguments.count; i < e; i++)
 	{
-		if(!arguments[i].name)
+		if(!arguments.data[i].name)
 			continue;
 
-		InplaceStr argumentName = arguments[i].name->name;
+		InplaceStr argumentName = arguments.data[i].name->name;
 
 		bool found = false;
 
-		for(unsigned k = 0; k < functionArguments.size(); k++)
+		for(unsigned k = 0; k < functionArguments.count; k++)
 		{
-			if(!functionArguments[k].name)
+			if(!functionArguments.data[k].name)
 				continue;
 
-			InplaceStr functionArgumentName = functionArguments[k].name->name;
+			InplaceStr functionArgumentName = functionArguments.data[k].name->name;
 
 			if(functionArgumentName == argumentName)
 			{
@@ -5044,9 +5044,9 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SynBase *source, Ar
 			return false;
 
 		// Add first unnamed arguments
-		for(unsigned i = 0; i < arguments.size(); i++)
+		for(unsigned i = 0; i < arguments.count; i++)
 		{
-			ArgumentData &argument = arguments[i];
+			ArgumentData &argument = arguments.data[i];
 
 			if(!argument.name)
 				result.push_back(CallArgumentData(argument.type, argument.value));
@@ -5057,22 +5057,22 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SynBase *source, Ar
 		unsigned unnamedCount = result.size();
 
 		// Reserve slots for all remaining arguments
-		for(unsigned i = unnamedCount; i < functionArguments.size(); i++)
+		for(unsigned i = unnamedCount; i < functionArguments.count; i++)
 			result.push_back(CallArgumentData(NULL, NULL));
 
 		// Put named arguments in appropriate slots
-		for(unsigned i = unnamedCount; i < arguments.size(); i++)
+		for(unsigned i = unnamedCount; i < arguments.count; i++)
 		{
-			ArgumentData &argument = arguments[i];
+			ArgumentData &argument = arguments.data[i];
 
 			if(!argument.name)
 				continue;
 
 			unsigned targetPos = 0;
 
-			for(unsigned k = 0; k < functionArguments.size(); k++)
+			for(unsigned k = 0; k < functionArguments.count; k++)
 			{
-				ArgumentData &functionArgument = functionArguments[k];
+				ArgumentData &functionArgument = functionArguments.data[k];
 
 				if(functionArgument.name && functionArgument.name->name == argument.name->name)
 				{
@@ -5088,9 +5088,9 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SynBase *source, Ar
 		}
 
 		// Fill in any unset arguments with default values
-		for(unsigned i = 0; i < functionArguments.size(); i++)
+		for(unsigned i = 0; i < functionArguments.count; i++)
 		{
-			ArgumentData &argument = functionArguments[i];
+			ArgumentData &argument = functionArguments.data[i];
 
 			if(result[i].type == NULL)
 			{
@@ -5100,7 +5100,7 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SynBase *source, Ar
 		}
 
 		// All arguments must be set
-		for(unsigned i = unnamedCount; i < arguments.size(); i++)
+		for(unsigned i = unnamedCount; i < arguments.count; i++)
 		{
 			if(result[i].type == NULL)
 				return false;
@@ -5109,17 +5109,17 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SynBase *source, Ar
 	else
 	{
 		// Add arguments
-		for(unsigned i = 0; i < arguments.size(); i++)
+		for(unsigned i = 0; i < arguments.count; i++)
 		{
-			ArgumentData &argument = arguments[i];
+			ArgumentData &argument = arguments.data[i];
 
 			result.push_back(CallArgumentData(argument.type, argument.value));
 		}
 
 		// Add any arguments with default values
-		for(unsigned i = result.size(); i < functionArguments.size(); i++)
+		for(unsigned i = result.count; i < functionArguments.count; i++)
 		{
-			ArgumentData &argument = functionArguments[i];
+			ArgumentData &argument = functionArguments.data[i];
 
 			if(ExprBase *value = argument.value)
 				result.push_back(CallArgumentData(value->type, new (ctx.get<ExprPassthrough>()) ExprPassthrough(value->source, value->type, value)));
@@ -5177,13 +5177,13 @@ bool PrepareArgumentsForFunctionCall(ExpressionContext &ctx, SynBase *source, Ar
 	// Convert all arguments to target type if this is a real call
 	if(prepareValues)
 	{
-		for(unsigned i = 0; i < result.size(); i++)
+		for(unsigned i = 0; i < result.count; i++)
 		{
-			CallArgumentData &argument = result[i];
+			CallArgumentData &argument = result.data[i];
 
 			assert(argument.value);
 
-			TypeBase *target = functionArguments[i].type;
+			TypeBase *target = functionArguments.data[i].type;
 
 			argument.value = CreateCast(ctx, argument.value->source, argument.value, target, true);
 		}
@@ -5985,7 +5985,7 @@ bool IsVirtualFunctionCall(ExpressionContext &ctx, FunctionData *function, TypeB
 
 FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayView<FunctionValue> functions, IntrusiveList<TypeHandle> generics, ArrayView<ArgumentData> arguments, SmallArray<unsigned, 32> &ratings)
 {
-	ratings.resize(functions.size());
+	ratings.resize(functions.count);
 
 	SmallArray<TypeFunction*, 16> instanceTypes(ctx.allocator);
 
@@ -5993,9 +5993,9 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 
 	TypeClass *preferredParent = NULL;
 
-	for(unsigned i = 0; i < functions.size(); i++)
+	for(unsigned i = 0; i < functions.count; i++)
 	{
-		FunctionValue value = functions[i];
+		FunctionValue value = functions.data[i];
 
 		FunctionData *function = value.function;
 
@@ -6034,14 +6034,14 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 			// Fail if provided explicit type list elements can't match
 			if(!sameGenerics)
 			{
-				ratings[i] = ~0u;
+				ratings.data[i] = ~0u;
 				continue;
 			}
 
 			// Fail if provided explicit type list is larger than expected explicit type list
 			if(cb)
 			{
-				ratings[i] = ~0u;
+				ratings.data[i] = ~0u;
 				continue;
 			}
 		}
@@ -6051,16 +6051,16 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 		// Handle named argument order, default argument values and variadic functions
 		if(!PrepareArgumentsForFunctionCall(ctx, source, function->arguments, arguments, result, &extraRating, false))
 		{
-			ratings[i] = ~0u;
+			ratings.data[i] = ~0u;
 			continue;
 		}
 
-		ratings[i] = GetFunctionRating(ctx, function, function->type, result);
+		ratings.data[i] = GetFunctionRating(ctx, function, function->type, result);
 
-		if(ratings[i] == ~0u)
+		if(ratings.data[i] == ~0u)
 			continue;
 
-		ratings[i] += extraRating;
+		ratings.data[i] += extraRating;
 
 		if(ctx.IsGenericFunction(function))
 		{
@@ -6092,13 +6092,13 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 
 			if(!instance)
 			{
-				ratings[i] = ~0u;
+				ratings.data[i] = ~0u;
 				continue;
 			}
 			
-			ratings[i] = GetFunctionRating(ctx, function, instance, result);
+			ratings.data[i] = GetFunctionRating(ctx, function, instance, result);
 
-			if(ratings[i] == ~0u)
+			if(ratings.data[i] == ~0u)
 				continue;
 		}
 	}
@@ -6106,21 +6106,21 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 	// For member functions, if there are multiple functions with the same rating and arguments, hide those which parent is derived further from preferred parent
 	if(preferredParent)
 	{
-		for(unsigned i = 0; i < functions.size(); i++)
+		for(unsigned i = 0; i < functions.count; i++)
 		{
-			FunctionData *a = functions[i].function;
+			FunctionData *a = functions.data[i].function;
 
 			for(unsigned k = 0; k < functions.size(); k++)
 			{
 				if(i == k)
 					continue;
 
-				if(ratings[k] == ~0u)
+				if(ratings.data[k] == ~0u)
 					continue;
 
-				FunctionData *b = functions[k].function;
+				FunctionData *b = functions.data[k].function;
 
-				if(ratings[i] == ratings[k] && instanceTypes[i]->arguments.size() == instanceTypes[k]->arguments.size())
+				if(ratings.data[i] == ratings.data[k] && instanceTypes[i]->arguments.size() == instanceTypes[k]->arguments.size())
 				{
 					bool sameArguments = true;
 
@@ -6136,7 +6136,7 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 						unsigned bDepth = GetDerivedFromDepth(preferredParent, getType<TypeClass>(b->scope->ownerType));
 
 						if (aDepth < bDepth)
-							ratings[k] = ~0u;
+							ratings.data[k] = ~0u;
 					}
 				}
 			}
@@ -6150,25 +6150,25 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 	unsigned bestGenericRating = ~0u;
 	FunctionValue bestGenericFunction;
 
-	for(unsigned i = 0; i < functions.size(); i++)
+	for(unsigned i = 0; i < functions.count; i++)
 	{
-		FunctionValue value = functions[i];
+		FunctionValue value = functions.data[i];
 
 		FunctionData *function = value.function;
 
 		if(ctx.IsGenericFunction(function))
 		{
-			if(ratings[i] < bestGenericRating)
+			if(ratings.data[i] < bestGenericRating)
 			{
-				bestGenericRating = ratings[i];
+				bestGenericRating = ratings.data[i];
 				bestGenericFunction = value;
 			}
 		}
 		else
 		{
-			if(ratings[i] < bestRating)
+			if(ratings.data[i] < bestRating)
 			{
-				bestRating = ratings[i];
+				bestRating = ratings.data[i];
 				bestFunction = value;
 			}
 		}
@@ -6183,16 +6183,16 @@ FunctionValue SelectBestFunction(ExpressionContext &ctx, SynBase *source, ArrayV
 	else
 	{
 		// Hide all generic functions from selection
-		for(unsigned i = 0; i < functions.size(); i++)
+		for(unsigned i = 0; i < functions.count; i++)
 		{
-			FunctionData *function = functions[i].function;
+			FunctionData *function = functions.data[i].function;
 
 			if(ctx.IsGenericFunction(function))
 			{
-				if(bestRating != ~0u && ratings[i] == bestRating && functions[i].context->type == ctx.typeAutoRef)
-					CreateGenericFunctionInstance(ctx, source, functions[i], generics, arguments, true);
+				if(bestRating != ~0u && ratings.data[i] == bestRating && functions.data[i].context->type == ctx.typeAutoRef)
+					CreateGenericFunctionInstance(ctx, source, functions.data[i], generics, arguments, true);
 
-				ratings[i] = ~0u;
+				ratings.data[i] = ~0u;
 			}
 		}
 	}
