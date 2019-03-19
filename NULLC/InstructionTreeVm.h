@@ -465,6 +465,8 @@ struct VmModule
 
 	SmallArray<LoadStoreInfo, 32> loadStoreInfo;
 
+	SmallArray<VmValue*, 128> tempUsers;
+
 	// Memory pool
 	Allocator *allocator;
 

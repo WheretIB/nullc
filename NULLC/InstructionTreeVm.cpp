@@ -881,12 +881,13 @@ namespace
 
 	void ReplaceValueUsersWith(VmModule *module, VmValue *original, VmValue *replacement, unsigned *optCount)
 	{
-		SmallArray<VmValue*, 256> users(module->allocator);
-		users.reserve(original->users.size());
-		users.push_back(original->users.data, original->users.size());
+		assert(module->tempUsers.empty());
 
-		for(unsigned i = 0; i < users.size(); i++)
-			ReplaceValue(module, users[i], original, replacement);
+		module->tempUsers.reserve(original->users.size());
+		module->tempUsers.push_back(original->users.data, original->users.size());
+
+		for(unsigned i = 0; i < module->tempUsers.size(); i++)
+			ReplaceValue(module, module->tempUsers[i], original, replacement);
 
 		if(VmBlock *block = getType<VmBlock>(original))
 		{
@@ -901,6 +902,8 @@ namespace
 
 		if(optCount)
 			(*optCount)++;
+
+		module->tempUsers.clear();
 	}
 
 	void ClearLoadStoreInfo(VmModule *module)
