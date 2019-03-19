@@ -11,21 +11,28 @@ LOCAL_MODULE    := nullc
 # nullc
 LOCAL_SRC_FILES := NULLC/BinaryCache.cpp
 LOCAL_SRC_FILES += NULLC/Bytecode.cpp
-LOCAL_SRC_FILES += NULLC/Callbacks.cpp
-LOCAL_SRC_FILES += NULLC/CodeInfo.cpp
 LOCAL_SRC_FILES += NULLC/Compiler.cpp
 LOCAL_SRC_FILES += NULLC/Executor.cpp
 LOCAL_SRC_FILES += NULLC/Executor_Common.cpp
+LOCAL_SRC_FILES += NULLC/ExpressionEval.cpp
+LOCAL_SRC_FILES += NULLC/ExpressionGraph.cpp
+LOCAL_SRC_FILES += NULLC/ExpressionTranslate.cpp
+LOCAL_SRC_FILES += NULLC/ExpressionTree.cpp
+LOCAL_SRC_FILES += NULLC/InstructionTreeVm.cpp
+LOCAL_SRC_FILES += NULLC/InstructionTreeVmCommon.cpp
+LOCAL_SRC_FILES += NULLC/InstructionTreeVmEval.cpp
+LOCAL_SRC_FILES += NULLC/InstructionTreeVmGraph.cpp
+LOCAL_SRC_FILES += NULLC/InstructionTreeVmLower.cpp
+LOCAL_SRC_FILES += NULLC/InstructionTreeVmLowerGraph.cpp
 LOCAL_SRC_FILES += NULLC/Lexer.cpp
 LOCAL_SRC_FILES += NULLC/Linker.cpp
 LOCAL_SRC_FILES += NULLC/nullc.cpp
-LOCAL_SRC_FILES += NULLC/Parser.cpp
+LOCAL_SRC_FILES += NULLC/ParseGraph.cpp
+LOCAL_SRC_FILES += NULLC/ParseTree.cpp
 LOCAL_SRC_FILES += NULLC/stdafx.cpp
 LOCAL_SRC_FILES += NULLC/StdLib.cpp
 LOCAL_SRC_FILES += NULLC/StrAlgo.cpp
-LOCAL_SRC_FILES += NULLC/SyntaxTree.cpp
-LOCAL_SRC_FILES += NULLC/SyntaxTreeEvaluate.cpp
-LOCAL_SRC_FILES += NULLC/SyntaxTreeGraph.cpp
+LOCAL_SRC_FILES += NULLC/TypeTree.cpp
 
 # nullc x86 jit
 ifeq ($(APP_ABI),x86)
@@ -36,6 +43,7 @@ endif
 
 # ext
 LOCAL_SRC_FILES += NULLC/includes/pugi.cpp
+LOCAL_SRC_FILES += external/pugixml/pugixml.cpp
 
 # img
 LOCAL_SRC_FILES += NULLC/includes/canvas.cpp
@@ -61,24 +69,23 @@ LOCAL_SRC_FILES += NULLC/includes/typeinfo.cpp
 # JNI
 LOCAL_SRC_FILES += NULLC/nullc_android.cpp
 
-ifneq ($(APP_ABI),x86)
-	# dyncall
-	LOCAL_SRC_FILES += external/dyncall/dyncall_api.c
-	LOCAL_SRC_FILES += external/dyncall/dyncall_callvm.c
-	LOCAL_SRC_FILES += external/dyncall/dyncall_callvm_base.c
-	LOCAL_SRC_FILES += external/dyncall/dyncall_struct.c
-	LOCAL_SRC_FILES += external/dyncall/dyncall_vector.c
+# dyncall
+LOCAL_SRC_FILES += external/dyncall/dyncall_api.c
+LOCAL_SRC_FILES += external/dyncall/dyncall_callvm.c
+LOCAL_SRC_FILES += external/dyncall/dyncall_callvm_base.c
+LOCAL_SRC_FILES += external/dyncall/dyncall_struct.c
+LOCAL_SRC_FILES += external/dyncall/dyncall_vector.c
 
-	LOCAL_SRC_FILES += external/dyncall/dyncall_call_arm32_arm_gas.s
-	LOCAL_SRC_FILES += external/dyncall/dyncall_call_arm32_thumb_gas.s
-endif
+LOCAL_SRC_FILES += external/dyncall/dyncall_call.S
 
 # tests
-# LOCAL_SRC_FILES += UnitTests.cpp
+# LOCAL_CFLAGS += -DBUILD_TESTS
+# LOCAL_SRC_FILES += tests/TestBase.cpp
+# LOCAL_SRC_FILES += tests/UnitTests.cpp
 # LOCAL_SRC_FILES += $(wildcard tests/Test*.cpp)
 
 LOCAL_ARM_MODE := arm
 
-LOCAL_CFLAGS := -DARM -fsigned-char -fno-omit-frame-pointer
+LOCAL_CFLAGS += -DARM -DNULLC_USE_DYNCALL -fsigned-char -fno-omit-frame-pointer
 
 include $(BUILD_SHARED_LIBRARY)
