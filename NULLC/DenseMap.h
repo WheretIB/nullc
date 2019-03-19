@@ -190,11 +190,11 @@ public:
 		}
 	}
 
-	void set_allocator(Allocator *allocator)
+	void set_allocator(Allocator *newAllocator)
 	{
 		assert(count == 0);
 
-		this->allocator = allocator;
+		this->allocator = newAllocator;
 	}
 
 	void clear()
