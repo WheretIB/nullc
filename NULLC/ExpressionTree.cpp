@@ -1851,6 +1851,9 @@ ModuleData* ExpressionContext::GetSourceOwner(Lexeme *lexeme)
 
 SynInternal* ExpressionContext::MakeInternal(SynBase *source)
 {
+	if(SynInternal *synInternal = getType<SynInternal>(source))
+		return synInternal;
+
 	return new (get<SynInternal>()) SynInternal(source);
 }
 
