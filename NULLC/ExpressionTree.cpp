@@ -1728,30 +1728,44 @@ TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* retu
 	return GetFunctionType(source, returnType, argumentTypes);
 }
 
-TypeFunctionSet* ExpressionContext::GetFunctionSetType(IntrusiveList<TypeHandle> setTypes)
+TypeFunctionSet* ExpressionContext::GetFunctionSetType(ArrayView<TypeBase*> setTypes)
 {
 	for(unsigned i = 0, e = functionSetTypes.count; i < e; i++)
 	{
 		if(TypeFunctionSet *type = functionSetTypes.data[i])
 		{
 			TypeHandle *leftArg = type->types.head;
-			TypeHandle *rightArg = setTypes.head;
 
-			while(leftArg && rightArg && leftArg->type == rightArg->type)
+			bool match = true;
+
+			for(unsigned i = 0; i < setTypes.size(); i++)
 			{
+				if(!leftArg || leftArg->type != setTypes[i])
+				{
+					match = false;
+					break;
+				}
+
 				leftArg = leftArg->next;
-				rightArg = rightArg->next;
 			}
 
-			if(leftArg != rightArg)
+			if(!match)
+				continue;
+
+			if(leftArg)
 				continue;
 
 			return type;
 		}
 	}
 
+	IntrusiveList<TypeHandle> setTypeList;
+
+	for(unsigned i = 0; i < setTypes.size(); i++)
+		setTypeList.push_back(new (get<TypeHandle>()) TypeHandle(setTypes[i]));
+
 	// Create new type
-	TypeFunctionSet* result = new (get<TypeFunctionSet>()) TypeFunctionSet(GetFunctionSetTypeName(*this, setTypes), setTypes);
+	TypeFunctionSet* result = new (get<TypeFunctionSet>()) TypeFunctionSet(GetFunctionSetTypeName(*this, setTypeList), setTypeList);
 
 	functionSetTypes.push_back(result);
 
@@ -3612,15 +3626,15 @@ ExprBase* CreateFunctionAccess(ExpressionContext &ctx, SynBase *source, HashMap<
 {
 	if(HashMap<FunctionData*>::Node *curr = ctx.functionMap.next(function))
 	{
-		IntrusiveList<TypeHandle> types;
+		SmallArray<TypeBase*, 16> types(ctx.allocator);
 		IntrusiveList<FunctionHandle> functions;
 
-		types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(function->value->type));
+		types.push_back(function->value->type);
 		functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function->value));
 
 		while(curr)
 		{
-			types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(curr->value->type));
+			types.push_back(curr->value->type);
 			functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(curr->value));
 
 			curr = ctx.functionMap.next(curr);
@@ -4341,7 +4355,7 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 
 ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, ExprBase *value, InplaceStr name, TypeClass *preferredParent)
 {
-	IntrusiveList<TypeHandle> types;
+	SmallArray<TypeBase*, 16> types(ctx.allocator);
 	IntrusiveList<FunctionHandle> functions;
 
 	// Find all member functions with the specified name
@@ -4394,7 +4408,7 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 			continue;
 		}
 
-		types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(function->type));
+		types.push_back(function->type);
 		functions.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function));
 	}
 
@@ -4579,7 +4593,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		// Add together instantiated and generic base functions
 		if(mainFuncton && baseFunction)
 		{
-			IntrusiveList<TypeHandle> types;
+			SmallArray<TypeBase*, 16> types(ctx.allocator);
 			IntrusiveList<FunctionHandle> overloads;
 
 			// Collect a set of available functions
@@ -4603,7 +4617,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 				if(instantiated)
 					continue;
 
-				types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(function.function->type));
+				types.push_back(function.function->type);
 				overloads.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function.function));
 			}
 
@@ -6585,7 +6599,7 @@ ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, 
 			}
 			else
 			{
-				IntrusiveList<TypeHandle> types;
+				SmallArray<TypeBase*, 16> types(ctx.allocator);
 				IntrusiveList<FunctionHandle> overloads;
 
 				for(unsigned i = 0; i < options.size(); i++)
@@ -6594,7 +6608,7 @@ ExprBase* CreateFunctionCallOverloaded(ExpressionContext &ctx, SynBase *source, 
 
 					assert(isType<ExprFunctionDefinition>(option) || isType<ExprGenericFunctionPrototype>(option));
 
-					types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(option->type));
+					types.push_back(option->type);
 
 					if(ExprFunctionDefinition *function = getType<ExprFunctionDefinition>(option))
 						overloads.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(function->function));
@@ -8815,14 +8829,14 @@ ExprBase* CreateConstructorAccess(ExpressionContext &ctx, SynBase *source, Array
 {
 	if(functions.size() > 1)
 	{
-		IntrusiveList<TypeHandle> types;
+		SmallArray<TypeBase*, 16> types(ctx.allocator);
 		IntrusiveList<FunctionHandle> handles;
 
 		for(unsigned i = 0; i < functions.size(); i++)
 		{
 			FunctionData *curr = functions[i];
 
-			types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(curr->type));
+			types.push_back(curr->type);
 			handles.push_back(new (ctx.get<FunctionHandle>()) FunctionHandle(curr));
 		}
 

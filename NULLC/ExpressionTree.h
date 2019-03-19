@@ -150,7 +150,7 @@ struct ExpressionContext
 	TypeUnsizedArray* GetUnsizedArrayType(TypeBase* type);
 	TypeFunction* GetFunctionType(SynBase *source, TypeBase* returnType, IntrusiveList<TypeHandle> arguments);
 	TypeFunction* GetFunctionType(SynBase *source, TypeBase* returnType, ArrayView<ArgumentData> arguments);
-	TypeFunctionSet* GetFunctionSetType(IntrusiveList<TypeHandle> types);
+	TypeFunctionSet* GetFunctionSetType(ArrayView<TypeBase*> types);
 	TypeGenericAlias* GetGenericAliasType(SynIdentifier *baseName);
 	TypeGenericClass* GetGenericClassType(SynBase *source, TypeGenericClassProto *proto, IntrusiveList<TypeHandle> generics);
 
