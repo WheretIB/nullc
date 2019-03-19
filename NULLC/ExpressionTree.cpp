@@ -1673,6 +1673,53 @@ TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* retu
 
 TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* returnType, ArrayView<ArgumentData> arguments)
 {
+	// Can't derive from pseudo types
+	assert(!isType<TypeArgumentSet>(returnType) && !isType<TypeMemberSet>(returnType) && !isType<TypeFunctionSet>(returnType));
+	assert(!isType<TypeError>(returnType));
+
+	for(unsigned i = 0; i < arguments.size(); i++)
+	{
+		TypeBase *curr = arguments[i].type;
+
+		assert(!isType<TypeArgumentSet>(curr) && !isType<TypeMemberSet>(curr) && !isType<TypeFunctionSet>(curr));
+		assert(!isType<TypeError>(curr));
+
+		// Can't have auto as argument
+		assert(curr != typeAuto);
+	}
+
+	for(unsigned i = 0, e = functionTypes.count; i < e; i++)
+	{
+		if(TypeFunction *type = functionTypes.data[i])
+		{
+			if(type->returnType != returnType)
+				continue;
+
+			TypeHandle *leftArg = type->arguments.head;
+
+			bool match = true;
+
+			for(unsigned i = 0; i < arguments.size(); i++)
+			{
+				if(!leftArg || leftArg->type != arguments[i].type)
+				{
+					match = false;
+					break;
+				}
+
+				leftArg = leftArg->next;
+			}
+
+			if(!match)
+				continue;
+
+			if(leftArg)
+				continue;
+
+			return type;
+		}
+	}
+
 	IntrusiveList<TypeHandle> argumentTypes;
 
 	for(unsigned i = 0; i < arguments.size(); i++)
