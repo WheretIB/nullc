@@ -851,6 +851,10 @@ ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
 	genericAliasTypes.set_allocator(allocator);
 	genericClassTypes.set_allocator(allocator);
 
+	genericFunctionInstanceTypeMap.set_allocator(allocator);
+
+	noAssignmentOperatorForTypePair.set_allocator(allocator);
+
 	genericTypeMap.set_allocator(allocator);
 	typeMap.set_allocator(allocator);
 	functionMap.set_allocator(allocator);
@@ -1067,7 +1071,12 @@ void ExpressionContext::PopScope(ScopeType scopeType, SynBase *location, bool ke
 				Stop(function->source, "ERROR: local function '%.*s' went out of scope unimplemented", FMT_ISTR(function->name->name));
 
 			if(functionMap.find(function->nameHash, function))
+			{
 				functionMap.remove(function->nameHash, function);
+
+				if(function->isOperator)
+					noAssignmentOperatorForTypePair.clear();
+			}
 		}
 	}
 
@@ -1339,7 +1348,12 @@ void ExpressionContext::AddFunction(FunctionData *function)
 
 	// Don't add internal functions to named lookup
 	if(function->name->name.begin && *function->name->name.begin != '$')
+	{
 		functionMap.insert(function->nameHash, function);
+
+		if(function->isOperator)
+			noAssignmentOperatorForTypePair.clear();
+	}
 
 	while(VariableData **variable = variableMap.find(function->nameHash))
 	{
@@ -1411,7 +1425,12 @@ void ExpressionContext::HideFunction(FunctionData *function)
 {
 	// Don't have to remove internal functions since they are never added to lookup
 	if(function->name->name.begin && *function->name->name.begin != '$')
+	{
 		functionMap.remove(function->nameHash, function);
+
+		if(function->isOperator)
+			noAssignmentOperatorForTypePair.clear();
+	}
 
 	SmallArray<FunctionData*, 2> &scopeFunctions = function->scope->functions;
 
@@ -2475,8 +2494,15 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 	if(lhs->type == ctx.typeVoid)
 		return ReportExpected(ctx, source, lhs->type, "ERROR: cannot convert from %.*s to void", FMT_ISTR(rhs->type->name));
 
-	if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr("="), wrapped, rhs, true, false))
-		return result;
+	TypePair typePair(wrapped->type, rhs->type);
+
+	if(!ctx.noAssignmentOperatorForTypePair.contains(typePair))
+	{
+		if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr("="), wrapped, rhs, true, false))
+			return result;
+		else
+			ctx.noAssignmentOperatorForTypePair.insert(typePair);
+	}
 
 	if(ExprBase *result = CreateFunctionCall2(ctx, source, InplaceStr("default_assign$_"), wrapped, rhs, true, false))
 		return result;
@@ -8116,7 +8142,11 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	// Operator overloads can't be called recursively and become available at the end of the definition
 	if (isOperator)
+	{
 		ctx.functionMap.remove(function->nameHash, function);
+
+		ctx.noAssignmentOperatorForTypePair.clear();
+	}
 
 	ctx.PushScope(function);
 
@@ -8265,7 +8295,11 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	// Time to make operator overload visible
 	if(isOperator)
+	{
 		ctx.functionMap.insert(function->nameHash, function);
+
+		ctx.noAssignmentOperatorForTypePair.clear();
+	}
 
 	FunctionData *conflict = CheckUniqueness(ctx, function);
 
@@ -11519,7 +11553,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		bool coroutine = function.funcCat == ExternFuncInfo::COROUTINE;
 		bool accessor = *(functionName.end - 1) == '$';
-		bool isOperator = false; // TODO: detect operators
+		bool isOperator = function.isOperator;
 
 		if(parentType)
 			ctx.PushScope(parentType);

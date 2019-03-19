@@ -129,6 +129,7 @@ struct ExternFuncInfo
 	};
 	unsigned char	funcCat;
 	unsigned char	isGenericInstance;
+	unsigned char	isOperator;
 	unsigned char	returnShift;
 	unsigned int	funcType;	// index to the type array
 

@@ -97,6 +97,38 @@ struct GenericFunctionInstanceTypeResponse
 	IntrusiveList<MatchData> aliases;
 };
 
+struct TypePair
+{
+	TypePair(): a(NULL), b(NULL)
+	{
+	}
+
+	TypePair(TypeBase *a, TypeBase *b): a(a), b(b)
+	{
+	}
+
+	bool operator==(const TypePair& rhs) const
+	{
+		return a == rhs.a && b == rhs.b;
+	}
+
+	bool operator!=(const TypePair& rhs) const
+	{
+		return a != rhs.a || b != rhs.b;
+	}
+
+	TypeBase *a;
+	TypeBase *b;
+};
+
+struct TypePairHasher
+{
+	unsigned operator()(const TypePair& key)
+	{
+		return key.a->nameHash + key.b->nameHash;
+	}
+};
+
 struct ExpressionContext
 {
 	ExpressionContext(Allocator *allocator);
@@ -186,6 +218,8 @@ struct ExpressionContext
 	HashMap<TypeClass*> genericTypeMap;
 
 	SmallDenseMap<GenericFunctionInstanceTypeRequest, GenericFunctionInstanceTypeResponse, GenericFunctionInstanceTypeRequestHasher, 32> genericFunctionInstanceTypeMap;
+
+	SmallDenseSet<TypePair, TypePairHasher, 32> noAssignmentOperatorForTypePair;
 
 	unsigned baseModuleFunctionCount;
 

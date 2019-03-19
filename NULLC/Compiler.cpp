@@ -1564,6 +1564,8 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 		funcInfo.isGenericInstance = ctx.exprCtx.IsGenericInstance(function);
 
+		funcInfo.isOperator = function->isOperator;
+
 		funcInfo.funcType = function->type->typeIndex;
 
 		if(function->scope->ownerType)
