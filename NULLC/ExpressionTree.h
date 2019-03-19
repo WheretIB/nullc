@@ -49,7 +49,7 @@ struct ExpressionContext
 
 	void AddType(TypeBase *type);
 	void AddFunction(FunctionData *function);
-	void AddVariable(VariableData *variable);
+	void AddVariable(VariableData *variable, bool visible);
 	void AddAlias(AliasData *alias);
 
 	unsigned GetTypeIndex(TypeBase *type);
@@ -91,8 +91,12 @@ struct ExpressionContext
 
 	SmallArray<ExprBase*, 128> definitions;
 	SmallArray<ExprBase*, 128> setup;
+
 	SmallArray<VariableData*, 128> vtables;
+	SmallDenseMap<InplaceStr, VariableData*, InplaceStrHasher, 128> vtableMap;
+
 	SmallArray<VariableData*, 128> upvalues;
+	SmallDenseMap<InplaceStr, VariableData*, InplaceStrHasher, 128> upvalueMap;
 
 	SmallArray<TypeFunction*, 128> functionTypes;
 	SmallArray<TypeFunctionSet*, 128> functionSetTypes;

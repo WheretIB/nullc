@@ -570,7 +570,7 @@ namespace
 
 		variable->isReadonly = readonly;
 
-		ctx.AddVariable(variable);
+		ctx.AddVariable(variable, true);
 
 		return variable;
 	}
@@ -590,7 +590,7 @@ namespace
 		variable->isAlloca = true;
 		variable->offset = ~0u;
 
-		ctx.AddVariable(variable);
+		ctx.AddVariable(variable, false);
 
 		return variable;
 	}
@@ -839,8 +839,12 @@ ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
 	functions.set_allocator(allocator);
 	variables.set_allocator(allocator);
 	definitions.set_allocator(allocator);
+
 	vtables.set_allocator(allocator);
+	vtableMap.set_allocator(allocator);
+
 	upvalues.set_allocator(allocator);
+	upvalueMap.set_allocator(allocator);
 
 	functionTypes.set_allocator(allocator);
 	functionSetTypes.set_allocator(allocator);
@@ -1015,12 +1019,16 @@ void ExpressionContext::PopScope(ScopeType scopeType, SynBase *location, bool ke
 		adopter->types.push_back(scope->types.data, scope->types.size());
 		adopter->aliases.push_back(scope->aliases.data, scope->aliases.size());
 
+		adopter->visibleVariables.push_back(scope->visibleVariables.data, scope->visibleVariables.size());
+
 		adopter->allVariables.push_back(scope->allVariables.data, scope->allVariables.size());
 
 		scope->variables.clear();
 		scope->functions.clear();
 		scope->types.clear();
 		scope->aliases.clear();
+
+		scope->visibleVariables.clear();
 
 		scope->allVariables.clear();
 
@@ -1037,9 +1045,9 @@ void ExpressionContext::PopScope(ScopeType scopeType, SynBase *location, bool ke
 	}
 
 	// Remove scope members from lookup maps
-	for(int i = int(scope->variables.count) - 1; i >= 0; i--)
+	for(int i = int(scope->visibleVariables.count) - 1; i >= 0; i--)
 	{
-		VariableData *variable = scope->variables[i];
+		VariableData *variable = scope->visibleVariables[i];
 
 		if(variableMap.find(variable->nameHash, variable))
 			variableMap.remove(variable->nameHash, variable);
@@ -1100,9 +1108,9 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 	if(target->scope != scope)
 		RestoreScopesAtPoint(target->scope, location);
 
-	for(unsigned i = 0, e = target->variables.count; i < e; i++)
+	for(unsigned i = 0, e = target->visibleVariables.count; i < e; i++)
 	{
-		VariableData *variable = target->variables.data[i];
+		VariableData *variable = target->visibleVariables.data[i];
 
 		if(!location || variable->importModule != NULL || variable->source->pos.begin <= location->pos.begin)
 			variableMap.insert(variable->nameHash, variable);
@@ -1341,13 +1349,19 @@ void ExpressionContext::AddFunction(FunctionData *function)
 	}
 }
 
-void ExpressionContext::AddVariable(VariableData *variable)
+void ExpressionContext::AddVariable(VariableData *variable, bool visible)
 {
 	scope->variables.push_back(variable);
 	scope->allVariables.push_back(variable);
 
 	variables.push_back(variable);
-	variableMap.insert(variable->nameHash, variable);
+
+	if(visible)
+	{
+		scope->visibleVariables.push_back(variable);
+
+		variableMap.insert(variable->nameHash, variable);
+	}
 }
 
 void ExpressionContext::AddAlias(AliasData *alias)
@@ -2415,7 +2429,7 @@ ExprBase* GetFunctionUpvalue(ExpressionContext &ctx, SynBase *source, VariableDa
 {
 	InplaceStr upvalueName = GetFunctionVariableUpvalueName(ctx, target);
 
-	if(VariableData **variable = ctx.variableMap.find(upvalueName.hash()))
+	if(VariableData **variable = ctx.upvalueMap.find(upvalueName))
 	{
 		return new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(source, (*variable)->type, *variable);
 	}
@@ -2429,9 +2443,9 @@ ExprBase* GetFunctionUpvalue(ExpressionContext &ctx, SynBase *source, VariableDa
 	ctx.globalScope->allVariables.push_back(variable);
 
 	ctx.variables.push_back(variable);
-	ctx.variableMap.insert(variable->nameHash, variable);
 
 	ctx.upvalues.push_back(variable);
+	ctx.upvalueMap.insert(upvalueName, variable);
 
 	return new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(source, variable->type, variable);
 }
@@ -5608,7 +5622,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 				if(!type)
 					break;
 
-				ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, argument, ctx.scope, 0, type, argument->name, 0, ctx.uniqueVariableId++));
+				ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, argument, ctx.scope, 0, type, argument->name, 0, ctx.uniqueVariableId++), true);
 
 				types.push_back(new (ctx.get<TypeHandle>()) TypeHandle(type));
 			}
@@ -6296,7 +6310,7 @@ ExprBase* GetFunctionTable(ExpressionContext &ctx, SynBase *source, FunctionData
 {
 	InplaceStr vtableName = GetFunctionTableName(ctx, function);
 
-	if(VariableData **variable = ctx.variableMap.find(vtableName.hash()))
+	if(VariableData **variable = ctx.vtableMap.find(vtableName))
 	{
 		return new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(source, (*variable)->type, *variable);
 	}
@@ -6310,9 +6324,9 @@ ExprBase* GetFunctionTable(ExpressionContext &ctx, SynBase *source, FunctionData
 	ctx.globalScope->allVariables.push_back(variable);
 
 	ctx.variables.push_back(variable);
-	ctx.variableMap.insert(variable->nameHash, variable);
 
 	ctx.vtables.push_back(variable);
+	ctx.vtableMap.insert(vtableName, variable);
 
 	return new (ctx.get<ExprVariableAccess>()) ExprVariableAccess(source, variable->type, variable);
 }
@@ -7402,7 +7416,7 @@ ExprBase* AnalyzeVariableDefinition(ExpressionContext &ctx, SynVariableDefinitio
 	if (IsLookupOnlyVariable(ctx, variable))
 		variable->lookupOnly = true;
 
-	ctx.AddVariable(variable);
+	ctx.AddVariable(variable, true);
 
 	ExprBase *initializer = syntax->initializer ? AnalyzeExpression(ctx, syntax->initializer) : NULL;
 
@@ -7516,7 +7530,7 @@ ExprVariableDefinitions* AnalyzeVariableDefinitions(ExpressionContext &ctx, SynV
 		// Introduce 'this' variable into a temporary scope
 		ctx.PushTemporaryScope();
 
-		ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, 0, ctx.GetReferenceType(parentType), new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("this")), 0, ctx.uniqueVariableId++));
+		ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, 0, ctx.GetReferenceType(parentType), new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("this")), 0, ctx.uniqueVariableId++), true);
 	}
 
 	TypeBase *type = AnalyzeType(ctx, syntax->type);
@@ -7565,7 +7579,7 @@ ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, Sy
 
 	function->contextArgument = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, type, nameIdentifier, offset, ctx.uniqueVariableId++);
 
-	ctx.AddVariable(function->contextArgument);
+	ctx.AddVariable(function->contextArgument, true);
 
 	return new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, function->contextArgument), NULL);
 }
@@ -7606,7 +7620,7 @@ ExprVariableDefinition* CreateFunctionContextVariable(ExpressionContext &ctx, Sy
 
 		context = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, refType->alignment, refType, nameIdentifier, offset, ctx.uniqueVariableId++);
 
-		ctx.AddVariable(context);
+		ctx.AddVariable(context, true);
 	}
 
 	function->contextVariable = context;
@@ -7675,7 +7689,7 @@ bool RestoreParentTypeScope(ExpressionContext &ctx, SynBase *source, TypeBase *p
 				ctx.AddAlias(new (ctx.get<AliasData>()) AliasData(source, ctx.scope, el->type, el->name, ctx.uniqueAliasId++));
 
 			for(VariableHandle *el = classType->members.head; el; el = el->next)
-				ctx.AddVariable(el->variable);
+				ctx.AddVariable(el->variable, true);
 		}
 		else if(TypeGenericClassProto *genericProto = getType<TypeGenericClassProto>(parentType))
 		{
@@ -7710,7 +7724,7 @@ void CreateFunctionArgumentVariables(ExpressionContext &ctx, SynBase *source, Fu
 				Stop(ctx, argument.source, "ERROR: cannot create '%.*s' that implements 'finalize' on stack", FMT_ISTR(classType->name));
 		}
 
-		ctx.AddVariable(variable);
+		ctx.AddVariable(variable, true);
 
 		variables.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(argument.source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(argument.name, variable), NULL));
 
@@ -7821,7 +7835,7 @@ void AnalyzeFunctionArguments(ExpressionContext &ctx, IntrusiveList<SynFunctionA
 			{
 				ArgumentData &data = argData[pos++];
 
-				ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, prevArg, ctx.scope, 0, data.type, data.name, 0, ctx.uniqueVariableId++));
+				ctx.AddVariable(new (ctx.get<VariableData>()) VariableData(ctx.allocator, prevArg, ctx.scope, 0, data.type, data.name, 0, ctx.uniqueVariableId++), true);
 			}
 
 			bool failed = false;
@@ -8046,7 +8060,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 			if (IsLookupOnlyVariable(ctx, function->coroutineJumpOffset))
 				function->coroutineJumpOffset->lookupOnly = true;
 
-			ctx.AddVariable(function->coroutineJumpOffset);
+			ctx.AddVariable(function->coroutineJumpOffset, false);
 
 			AddFunctionCoroutineVariable(ctx, source, function, function->coroutineJumpOffset);
 
@@ -8125,7 +8139,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 		function->contextVariable = context;
 
-		ctx.AddVariable(context);
+		ctx.AddVariable(context, true);
 
 		contextVariableDefinition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, context), NULL);
 	}
@@ -8327,7 +8341,7 @@ ExprBase* AnalyzeShortFunctionDefinition(ExpressionContext &ctx, SynShortFunctio
 		if (IsLookupOnlyVariable(ctx, variable))
 			variable->lookupOnly = true;
 
-		ctx.AddVariable(variable);
+		ctx.AddVariable(variable, true);
 
 		char *name = (char*)ctx.allocator->alloc(el->name->name.length() + 2);
 
@@ -8415,7 +8429,7 @@ ExprBase* AnalyzeGenerator(ExpressionContext &ctx, SynGenerator *syntax)
 		if (IsLookupOnlyVariable(ctx, function->coroutineJumpOffset))
 			function->coroutineJumpOffset->lookupOnly = true;
 
-		ctx.AddVariable(function->coroutineJumpOffset);
+		ctx.AddVariable(function->coroutineJumpOffset, false);
 
 		AddFunctionCoroutineVariable(ctx, syntax, function, function->coroutineJumpOffset);
 
@@ -9372,7 +9386,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 		VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, ctx.typeTypeID->alignment, ctx.typeTypeID, nameIdentifier, offset, ctx.uniqueVariableId++);
 
-		ctx.AddVariable(member);
+		ctx.AddVariable(member, false);
 
 		classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(NULL, member));
 	}
@@ -9403,7 +9417,7 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 			VariableData *member = new (ctx.get<VariableData>()) VariableData(ctx.allocator, syntax, ctx.scope, el->variable->alignment, el->variable->type, el->variable->name, offset, ctx.uniqueVariableId++);
 
-			ctx.AddVariable(member);
+			ctx.AddVariable(member, true);
 
 			classType->members.push_back(new (ctx.get<VariableHandle>()) VariableHandle(el->variable->source, member));
 		}
@@ -9893,7 +9907,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			if (IsLookupOnlyVariable(ctx, variable))
 				variable->lookupOnly = true;
 
-			ctx.AddVariable(variable);
+			ctx.AddVariable(variable, true);
 
 			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 			arguments.push_back(ArgumentData(curr, false, NULL, ctx.typeInt, CreateVariableAccess(ctx, curr, iterator, false)));
@@ -9964,7 +9978,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			if (IsLookupOnlyVariable(ctx, variable))
 				variable->lookupOnly = true;
 
-			ctx.AddVariable(variable);
+			ctx.AddVariable(variable, true);
 
 			if(ExprBase *call = CreateFunctionCall(ctx, curr, CreateVariableAccess(ctx, sourceInternal, functPtr, false), IntrusiveList<TypeHandle>(), NULL, false))
 			{
@@ -10021,7 +10035,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			if (IsLookupOnlyVariable(ctx, variable))
 				variable->lookupOnly = true;
 
-			ctx.AddVariable(variable);
+			ctx.AddVariable(variable, true);
 
 			definitions.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(curr, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), CreateAssignment(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, variable, false), call)));
 		}
@@ -11223,10 +11237,13 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		data->importModule = moduleCtx.data;
 
-		ctx.AddVariable(data);
+		ctx.AddVariable(data, true);
 
 		if(name.length() > 5 && memcmp(name.begin, "$vtbl", 5) == 0)
+		{
 			ctx.vtables.push_back(data);
+			ctx.vtableMap.insert(name, data);
+		}
 	}
 }
 
@@ -11470,7 +11487,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			unsigned offset = AllocateArgumentInScope(ctx, source, 0, argType);
 			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, argType, argNameIdentifier, offset, ctx.uniqueVariableId++);
 
-			ctx.AddVariable(variable);
+			ctx.AddVariable(variable, true);
 		}
 
 		assert(contextType);
@@ -11485,7 +11502,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, type, argNameIdentifier, offset, ctx.uniqueVariableId++);
 
-			ctx.AddVariable(variable);
+			ctx.AddVariable(variable, true);
 		}
 		else if(contextType)
 		{
@@ -11495,7 +11512,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 			VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, 0, contextType, argNameIdentifier, offset, ctx.uniqueVariableId++);
 
-			ctx.AddVariable(variable);
+			ctx.AddVariable(variable, false);
 		}
 
 		data->argumentsSize = data->functionScope->dataSize;
