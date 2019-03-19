@@ -1111,6 +1111,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			case x86Argument::argPtrLabel:
 				EMIT_OP_REG_LABEL(inst.name, inst.argA.reg, inst.argB.labelID, inst.argB.ptrNum);
 				break;
+			default:
+				break;
 			}
 			break;
 		case x86Argument::argPtr:
@@ -1124,6 +1126,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				break;
 			case x86Argument::argReg:
 				EMIT_OP_RPTR_REG(inst.name, inst.argA.ptrSize, inst.argA.ptrIndex, inst.argA.ptrMult, inst.argA.ptrBase, inst.argA.ptrNum, inst.argB.reg);
+				break;
+			default:
 				break;
 			}
 			break;
@@ -1230,6 +1234,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		switch(cmd.name)
 		{
 		case o_none:
+		case o_nop:
 			break;
 		case o_mov:
 			if(cmd.argA.type != x86Argument::argPtr)
