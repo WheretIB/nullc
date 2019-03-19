@@ -210,7 +210,7 @@ bool BuildBaseModule(Allocator *allocator)
 
 	if(!BuildModuleFromSource(allocator, "$base$.nc", nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256, ArrayView<InplaceStr>()))
 	{
-		assert("Failed to compile base NULLC module");
+		assert(!"Failed to compile base NULLC module");
 		return false;
 	}
 
