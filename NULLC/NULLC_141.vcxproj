@@ -204,6 +204,8 @@
     <ClCompile Include="..\external\dyncall\dyncall_api.c" />
     <ClCompile Include="..\external\dyncall\dyncall_callvm.c" />
     <ClCompile Include="..\external\dyncall\dyncall_callvm_base.c" />
+    <ClCompile Include="..\external\dyncall\dyncall_struct.c" />
+    <ClCompile Include="..\external\dyncall\dyncall_vector.c" />
     <ClCompile Include="BinaryCache.cpp" />
     <ClCompile Include="Bytecode.cpp" />
     <ClCompile Include="ExpressionGraph.cpp" />

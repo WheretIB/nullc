@@ -6,7 +6,7 @@
  Description: 
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -36,7 +36,7 @@ extern "C" {
 struct DCRegData_ppc32_
 {
   DCint     mIntData[8];
-  DCdouble  mFloatData[13];
+  DCdouble  mFloatData[13];	/* 13 for darwin, 8 for sysv */
 };
 
 /* 

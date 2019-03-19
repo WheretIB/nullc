@@ -3,10 +3,10 @@
  Package: dyncall
  Library: dyncall
  File: dyncall/dyncall_call_mips_n32_gas.s
- Description: mips "n32" abi call kernel implementation in GNU Assembler
+ Description: mips64 "n32" abi call kernel implementation in GNU Assembler
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2016 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -177,8 +177,8 @@ dcCall_mips_n32:
 	/* jump-and-link to register $25 */
 
 	jal	$31, $25
-
-	/* no nop according to gcc assembly output */	
+	nop /* branch-delay slot - no nop according to gcc assembly */
+	    /* output, but let's play safe */	
 
 	/* Stack-frame epilog */	
 	move	$sp,$fp 

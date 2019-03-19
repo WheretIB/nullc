@@ -6,7 +6,7 @@
  Description: C interface to call vm
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -22,6 +22,7 @@
    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
+
 
 
 #include "dyncall.h"
@@ -156,6 +157,7 @@ DCint dcGetError(DCCallVM *vm)
   return vm->mError;
 }
 
+/*@@@ not used, (re)introduce or cleanup
 const char* dcGetErrorString(int mode)
 {
   switch(mode) {
@@ -164,4 +166,5 @@ const char* dcGetErrorString(int mode)
     default: return "(unknown mode id)";
   }
 }
+*/
 

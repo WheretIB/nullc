@@ -6,7 +6,7 @@
  Description: All - except Plan9 - x86 abi call kernel implementation
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>,
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>,
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -24,6 +24,7 @@
 */
 
 
+
 #include "portasm-x86.S"
 BEGIN_ASM
 /* ============================================================================
@@ -34,7 +35,7 @@ BEGIN_ASM
       ddCall_x86_sys_XXX(int_ptr target, void* args, size_t size);
  
    Where XXX is one of calling-conventions,
-	cdecl, win32_msthis, win32_std, win32_fastcall.
+      cdecl, win32_msthis, win32_std, win32_fastcall.
 
    Parameter Stack layout:
       size    :=  EBP + 16
@@ -64,21 +65,21 @@ BEGIN_PROC(dcCall_x86_cdecl)
 	MOVL(DWORD(EBP,16),ECX)		/* ECX = arg buffer size */
 	ADDL(LIT(15),ECX)		/* ECX = align(ECX,16) */
 	ANDL(LIT(-16),ECX)
-	MOVL(ESP,DWORD(EBP,16))		/* save ECX. */
+	MOVL(ECX,DWORD(EBP,16))		/* save ECX. */
 	SUBL(ECX,ESP)			/* allocate stack size */
-	MOVL(ESP,EDI)			/* EDI = stack ptr */			
-	
+	MOVL(ESP,EDI)			/* EDI = stack ptr */
+
 	/* 
 		work around for rep movsd (not supported by SunPro) 
-	
-	SHRL(LIT(2),ECX)		
+
+	SHRL(LIT(2),ECX)
 	REP(MOVSD)
-	
+
 	*/
 
 	REP(MOVSB)
 	CALL_DWORD(EBP,8)
-	MOVL(DWORD(EBP,16),ESP)
+	ADDL(DWORD(EBP,16),ESP)
 	POP(EDI)
 	POP(ESI)
 	MOVL(EBP,ESP)
@@ -184,7 +185,7 @@ END_PROC(dcCall_x86_win32_fast)
 GLOBAL(dcCall_x86_sys_int80h_linux)
 BEGIN_PROC(dcCall_x86_sys_int80h_linux)
 	PUSH(EBP)        		/* prolog. */
- 	MOVL(ESP,EBP)
+	MOVL(ESP,EBP)
 	PUSH(EBX)			/* save preserved. */
 	PUSH(ESI)               
 	PUSH(EDI)
@@ -214,7 +215,7 @@ END_PROC(dcCall_x86_sys_int80h_linux)
 GLOBAL(dcCall_x86_sys_int80h_bsd)
 BEGIN_PROC(dcCall_x86_sys_int80h_bsd)
 	PUSH(EBP)			/* prolog. */
- 	MOVL(ESP,EBP)
+	MOVL(ESP,EBP)
 	PUSH(ESI)			/* save preserved. */
 	PUSH(EDI)
 	MOVL(DWORD(EBP,12),ESI)    	/* ESI = pointer on args. */

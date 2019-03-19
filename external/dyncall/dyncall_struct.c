@@ -6,7 +6,7 @@
  Description: C interface to compute struct size
  License:
 
-   Copyright (c) 2010-2011 Olivier Chafik <olivier.chafik@centraliens.net>
+   Copyright (c) 2010-2015 Olivier Chafik <olivier.chafik@centraliens.net>
 
    Permission to use, copy, modify, and distribute this software for any
    purpose with or without fee is hereby granted, provided that the above
@@ -23,13 +23,13 @@
 */
 
 
+
 #include "dyncall.h"
 #include "dyncall_signature.h"
 #include "dyncall_struct.h"
 #include "dyncall_alloc.h"
 #include <stdio.h>
 #include <assert.h>
-#include <stdlib.h>
 
 
 DCstruct* dcNewStruct(DCsize fieldCount, DCint alignment)
@@ -142,7 +142,7 @@ void dcCloseStruct(DCstruct* s)
 {
 	assert(s);
 	assert(s->pCurrentStruct);
-	assert(s->pCurrentStruct->nextField == s->pCurrentStruct->fieldCount);
+	assert((DCsize)s->pCurrentStruct->nextField == s->pCurrentStruct->fieldCount);
 	if (!s->pCurrentStruct->pLastStruct) {
 		dcComputeStructSize(s->pCurrentStruct);
 	}
@@ -159,8 +159,8 @@ void dcFreeStruct(DCstruct* s)
 		if (f->type == DC_SIGCHAR_STRUCT)
 			dcFreeStruct(f->pSubStruct);
 	}
-	dcFreeMem(s->pFields);
-	dcFreeMem(s);
+	free(s->pFields);
+	free(s);
 }
 
 
@@ -168,6 +168,12 @@ DCsize dcStructSize(DCstruct* s)
 {
 	assert(!s->pCurrentStruct && "Struct was not closed");
 	return s->size;
+}
+
+DCsize dcStructAlignment(DCstruct* s)
+{
+	assert(!s->pCurrentStruct && "Struct was not closed");
+	return s->alignment;
 }
 
 

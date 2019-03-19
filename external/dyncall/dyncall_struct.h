@@ -6,7 +6,7 @@
  Description: C interface to compute struct size
  License:
 
-   Copyright (c) 2010-2011 Olivier Chafik <olivier.chafik@centraliens.net>
+   Copyright (c) 2010-2015 Olivier Chafik <olivier.chafik@centraliens.net>
 
    Permission to use, copy, modify, and distribute this software for any
    purpose with or without fee is hereby granted, provided that the above
@@ -21,6 +21,7 @@
    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
+
 
 
 /*

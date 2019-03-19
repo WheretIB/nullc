@@ -2204,15 +2204,15 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 
 #elif defined(NULLC_USE_DYNCALL)
 
-DCcomplexdd dcCallComplexDD(DCCallVM* vm, DCpointer funcptr);
-DCcomplexdl dcCallComplexDL(DCCallVM* vm, DCpointer funcptr);
-DCcomplexld dcCallComplexLD(DCCallVM* vm, DCpointer funcptr);
-DCcomplexll dcCallComplexLL(DCCallVM* vm, DCpointer funcptr);
+extern "C" DCcomplexdd dcCallComplexDD(DCCallVM* vm, DCpointer funcptr);
+extern "C" DCcomplexdl dcCallComplexDL(DCCallVM* vm, DCpointer funcptr);
+extern "C" DCcomplexld dcCallComplexLD(DCCallVM* vm, DCpointer funcptr);
+extern "C" DCcomplexll dcCallComplexLL(DCCallVM* vm, DCpointer funcptr);
 
-void dcArgStack(DCCallVM* in_self, void *ptr, unsigned size);
+extern "C" void dcArgStack(DCCallVM* in_self, void *ptr, unsigned size);
 
-int dcFreeIRegs(DCCallVM* in_self);
-int dcFreeFRegs(DCCallVM* in_self);
+extern "C" int dcFreeIRegs(DCCallVM* in_self);
+extern "C" int dcFreeFRegs(DCCallVM* in_self);
 
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {

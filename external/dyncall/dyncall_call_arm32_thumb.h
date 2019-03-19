@@ -6,7 +6,7 @@
  Description: 
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -22,6 +22,7 @@
    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
+
 
 
 /*
@@ -49,13 +50,14 @@ extern "C" {
 **
 ** - hybrid return-type call (bool ... pointer)
 **
+** Note the return type of this declaration is intentially of double-word size.
+** On some platforms (FreeBSD/arm, Nintendo DS, ...) the compiler generates cleanup code
+** in the caller (dc_callvm_call_arm32_thumb) that reuses, thus overwrites r0 and r1.
+** With this "hint", we preserve those registers by letting the compiler assume both
+** registers are used for the return type.
 */
 
-void dcCall_arm32_thumb(DCpointer target, DCpointer stackdata, DCsize size);
-
-/* Internally used to avoid compiler overwriting r0 and r1 in call stub */
-DClong     dcCall_arm32_thumb_word (DCpointer target, DCpointer stackdata, DCsize size);
-DClonglong dcCall_arm32_thumb_dword(DCpointer target, DCpointer stackdata, DCsize size);
+DClonglong dcCall_arm32_thumb(DCpointer target, DCpointer stackdata, DCsize size);
 
 #ifdef __cplusplus
 }

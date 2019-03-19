@@ -6,7 +6,7 @@
  Description: auto-select default callvm (includes other C sources).
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -24,13 +24,14 @@
 */
 
 
+
 #include "dyncall_macros.h"
 
 #if defined(DC__Arch_Intel_x86)
 #  include "dyncall_callvm_x86.c"
 #elif defined(DC__Arch_AMD64)
 #  include "dyncall_callvm_x64.c"
-#elif defined(DC__Arch_PowerPC)
+#elif defined(DC__Arch_PPC32)
 #  include "dyncall_callvm_ppc32.c"
 #elif defined(DC__Arch_PPC64)
 #  include "dyncall_callvm_ppc64.c"
@@ -47,13 +48,29 @@
 #    error Unknown MIPS ABI.
 #  endif /* DC__Arch_MIPS || DC__Arch_MIPS64 */
 #elif defined(DC__Arch_ARM_ARM)
-#  include "dyncall_callvm_arm32_arm.c"
+#  if defined(DC__ABI_ARM_HF)
+#    include "dyncall_callvm_arm32_arm_armhf.c"
+#  else
+#    include "dyncall_callvm_arm32_arm.c"
+#  endif
 #elif defined(DC__Arch_ARM_THUMB)
-#  include "dyncall_callvm_arm32_thumb.c"
+#  if defined(DC__ABI_ARM_HF)
+#    include "dyncall_callvm_arm32_arm_armhf.c"
+#  else
+#    include "dyncall_callvm_arm32_thumb.c"
+#  endif
+#elif defined(DC__Arch_ARM64)
+#  if defined(DC__OS_Darwin)
+#    include "dyncall_callvm_arm64_apple.c"
+#  else
+#    include "dyncall_callvm_arm64.c"
+#  endif
 #elif defined(DC__Arch_Sparc)
 #  include "dyncall_callvm_sparc.c"
-#elif defined(DC__Arch_Sparcv9)
+#elif defined(DC__Arch_Sparc64)
 #  include "dyncall_callvm_sparc64.c"
+#elif defined(DC__Arch_RiscV)
+#  include "dyncall_callvm_riscv.c"
 #else
 #  error unsupported platform
 #endif

@@ -6,7 +6,7 @@
  Description: Simple dynamic vector container type header
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -22,6 +22,7 @@
    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
+
 
 
 #ifndef DC_VECTOR_H
@@ -44,6 +45,7 @@ typedef struct
 #define dcVecData(p)        ( (unsigned char*) (((DCVecHead*)(p))+1) )
 #define dcVecAt(p,index)    ( dcVecData(p)+index )
 #define dcVecSize(p)        ( (p)->mSize )
+#define dcVecAlign(p,align) (p)->mSize=( (p)->mSize + align-1 ) & -align
 
 /*
 #include <string.h>

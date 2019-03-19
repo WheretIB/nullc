@@ -6,7 +6,7 @@
  Description: Call kernel for sparc processor architecture.
  License:
 
-   Copyright (c) 2011 Daniel Adler <dadler@uni-goettingen.de>
+   Copyright (c) 2011-2015 Daniel Adler <dadler@uni-goettingen.de>
 
    Permission to use, copy, modify, and distribute this software for any
    purpose with or without fee is hereby granted, provided that the above
@@ -24,7 +24,10 @@
 
 
 
+
 /* --------------------------------------------------------------------------- 
+
+@@@ this should all go in manual
 
 call kernel for sparc 32-bit
 ----------------------------
@@ -44,7 +47,7 @@ in sparc, this is simply a leaf-function layer using %o3.
 
 old C Interface:
   void dcCall_sparc (DCpointer target, DCsize size, DCpointer data);
-		     %i0             , %i1        , %i2
+                     %i0             , %i1        , %i2
 
 
 Input:
@@ -94,11 +97,11 @@ Stack Layout 32-Bit Model:
 	 0: 16 registers save area
 
 Stack Layout 64-Bit Model:
-        XX: should be 16 byte aligned (min stack frame size is 172).
-       168: on stack argument 6
-       136: input argument 0 spill
-       128: struct/union poiner return value
-	 0: 16 registers save area
+	 XX: should be 16 byte aligned (min stack frame size is 172).
+	168: on stack argument 6
+	136: input argument 0 spill
+	128: struct/union poiner return value
+	  0: 16 registers save area
 
 
 
@@ -120,26 +123,20 @@ r24-r31 -> ins
 
 */
 
-#if defined __arch64__
-#define REGSIZE 8
-#error invalid arch
-#else
-#define REGSIZE 4
-#endif
-
-#define ALIGN   16
+REGSIZE        =  4
+ALIGN          = 16
 CALLVM_size    = 12
 CALLVM_dataoff = 16
+
+.text
 .global dcCall_sparc
 dcCall_sparc:
 
 /* Basic Prolog: supports up to 6 arguments. */
 
-	/* new C interface */
 	/* o0-1: callvm,target */
-	
-	or   %o0, %g0, %o3	       /* %o3: callvm */
-	or   %o1, %g0, %o0	       /* %o0: target */
+	or   %o0, %g0, %o3             /* %o3: callvm */
+	or   %o1, %g0, %o0             /* %o0: target */
 	ld  [%o3+CALLVM_size], %o1     /* %o1: size */
 	add  %o3, CALLVM_dataoff, %o2  /* %o2: data */
 	/*o0-2:target,size,data*/
@@ -147,45 +144,45 @@ dcCall_sparc:
 	/*leaf functions: may use the first six output registers.*/
 	/*o3-5:free to use */
 
-	/* Compute a matiching stack size (approximate): o3 = align(92+o1,16) */
-
+	/* Compute a matching stack size (approximate): o3 = align(92+o1,16) */
 	add     %o1, (16+1+6)*REGSIZE+ALIGN-1, %o3
 	and     %o3,   -ALIGN, %o3
 	neg     %o3
-	
-	/* Prolog. */
-	save	%sp, %o3, %sp	/* min stack size (16+1+6)*sizeof(ptr)=92 paddded to 8-byte alignment => min frame size of 96 bytes. */
-	
-	/* Load output registers. */
 
-	ld	[%i2           ],%o0
-	ld	[%i2+REGSIZE*1 ],%o1
-	ld	[%i2+REGSIZE*2 ],%o2
-	ld	[%i2+REGSIZE*3 ],%o3
-	ld	[%i2+REGSIZE*4 ],%o4
-	ld	[%i2+REGSIZE*5 ],%o5
+	/* Prolog. */
+	save    %sp, %o3, %sp    /* min stack size (16+1+6)*sizeof(ptr)=92 paddded to 8-byte alignment => min frame size of 96 bytes. */
+
+	/* Load output registers. */
+	ld      [%i2           ],%o0
+	ld      [%i2+REGSIZE*1 ],%o1
+	ld      [%i2+REGSIZE*2 ],%o2
+	ld      [%i2+REGSIZE*3 ],%o3
+	ld      [%i2+REGSIZE*4 ],%o4
+	ld      [%i2+REGSIZE*5 ],%o5
 
 	/* Copy on stack? */
-	sub	%i1,  REGSIZE*6, %i1   		/* i1 = decrement copy size by 6 regs (=6 regs x 4 bytes = 24 bytes total). */
+	sub     %i1, REGSIZE*6, %i1   /* i1 = decrement copy size by 6 regs (=6 regs x 4 bytes = 24 bytes total). */
 	cmp     %i1, 0
-        ble	.do_call
-	 nop
+	ble     .do_call
+	nop
 
 	/* Copy loop: */
-	add     %i2,  REGSIZE*6, %i2		/* i2 = address of 7th word of args buffer. */
-	or	%g0, %g0, %l0			/* l0 = offset initialized to 0. */
-	add     %sp,  (16+1+6)*REGSIZE, %l2	/* l2 = argument area on stack space (7th word). (64+4+6*4 = byte offset 92). */
+	add     %i2, REGSIZE*6, %i2         /* i2 = address of 7th word of args buffer. */
+	or      %g0, %g0, %l0               /* l0 = offset initialized to 0. */
+	add     %sp, (16+1+6)*REGSIZE, %l2  /* l2 = argument area on stack space (7th word). (64+4+6*4 = byte offset 92). */
 .next:
-	ld      [%i2+%l0],%l1			/* Read from arg buffer(%i2) to %l1. */
-	st      %l1, [%l2+%l0]			/* Write %l1 to stack space(%l2). */
-	add     %l0, REGSIZE, %l0		/* Increment offset. */
-	sub     %i1, REGSIZE, %i1		/* Decrement copy size. */
+	ld      [%i2+%l0],%l1      /* Read from arg buffer(%i2) to %l1. */
+	st      %l1, [%l2+%l0]     /* Write %l1 to stack space(%l2). */
+	add     %l0, REGSIZE, %l0  /* Increment offset. */
+	sub     %i1, REGSIZE, %i1  /* Decrement copy size. */
 	cmp     %i1, 0
-        bgt     .next
-	 nop
+	bgt     .next
+	nop
 .do_call:
-	call	%i0				/* Call target. */
-	 nop
-        jmpl %i7 + 8, %g0			/* Return from proc. */
-	 nop
-	
+	call    %i0   /* Call target. */
+	nop
+	or      %o0, %g0, %i0
+	or      %o1, %g0, %i1
+	jmpl    %i7 + 8, %g0       /* optimized restore;retl;nop */
+	restore
+

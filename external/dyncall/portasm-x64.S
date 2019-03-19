@@ -2,11 +2,11 @@
 
  Package: dyncall
  Library: portasm
- File: portasm/portasm-x64-att.S
+ File: portasm/portasm-x64.S
  Description: Portable Assembler Macros for X64
  License:
 
-   Copyright (c) 2011 Daniel Adler <dadler@uni-goettingen.de>
+   Copyright (c) 2011-2018 Daniel Adler <dadler@uni-goettingen.de>
 
    Permission to use, copy, modify, and distribute this software for any
    purpose with or without fee is hereby granted, provided that the above
@@ -21,6 +21,7 @@
    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
+
 
 
 /* Common macros. */
@@ -68,12 +69,15 @@
 #  define JNE(X) jne X
 #  define CMP(A,B) cmp B,A
 #  define LOCAL(X) X
+/* @@@ check if masm support wanted/needed */
+#  define SECTION_NOTE_NXSTACK
 #else
 /* GNU/SunPro Assembler AT&T Syntax */
 	.text
 #  define BEGIN_ASM
 #  define END_ASM
-#  if defined(__APPLE__) || defined(__Darwin__)
+#  include "autovar_ABI.h"
+#  if defined (OS_Darwin)
 #    define CSYM(X) _##X
 #  else
 #    define CSYM(X) X
@@ -148,7 +152,8 @@
 #  define JNE(X)    jne X
 #  define FLDS(X)  flds X
 #  define FLDL(X)  fldl X
-#  define SET(K,V) .set K,V
+/* not available on some platforms, e.g. old solaris, so use K=V syntax #  define SET(K,V) .set K,V */
+#  define SET(K,V) K = V
 #  define LOCAL(X) .X
 #endif
 

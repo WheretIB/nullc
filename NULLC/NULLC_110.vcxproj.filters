@@ -194,6 +194,12 @@
     <ClCompile Include="InstructionTreeVmLowerGraph.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_vector.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_struct.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">

@@ -6,7 +6,7 @@
  Description: Call VM for sparc processor architecture.
  License:
 
-   Copyright (c) 2011 Daniel Adler <dadler@uni-goettingen.de>
+   Copyright (c) 2011-2018 Daniel Adler <dadler@uni-goettingen.de>
 
    Permission to use, copy, modify, and distribute this software for any
    purpose with or without fee is hereby granted, provided that the above
@@ -23,21 +23,12 @@
 */
 
 
+
 #include "dyncall_callvm_sparc.h"
 #include "dyncall_call_sparc.h"
 #include "dyncall_utils.h"
 #include "dyncall_alloc.h"
 #define DEFAULT_STACK_ALIGN	16
-/* Construtor. */
-/* the six output registers %o0-%o5 are always loaded, thus we need to ensure the argument buffer has space for at least 24 bytes. */
-static DCCallVM* dc_callvm_new_sparc(DCCallVM_vt* vt, DCsize size)
-{
-  size=DC_MAX(size,sizeof(void*)*(6+1));
-  DCCallVM_sparc* self = (DCCallVM_sparc*) dcAllocMem(sizeof(DCCallVM_sparc)+size);
-  dc_callvm_base_init(&self->mInterface, vt);
-  dcVecInit(&self->mVecHead,size);
-  return (DCCallVM*)self;
-}
 
 /* Destructor. */
 static void dc_callvm_free_sparc(DCCallVM* in_self)
@@ -94,20 +85,6 @@ static void dc_callvm_argDouble_sparc(DCCallVM* in_self, DCdouble x)
   dcVecAppend(&self->mVecHead, &x, sizeof(DCdouble));
 }
   
-/* mode: only a single mode available currently. */
-static void dc_callvm_mode_sparc(DCCallVM* in_self, DCint mode)
-{
-  switch(mode) {
-    case DC_CALL_C_DEFAULT:
-    case DC_CALL_C_ELLIPSIS:
-    case DC_CALL_C_SPARC32:
-      break;
-    default:
-      in_self->mError = DC_ERROR_UNSUPPORTED_MODE;
-      break; 
-  }
-}
-
 /* we call directly with 'RTYPE dcCall(DCCallVM* in_self, DCpointer target)' */
 #if 0
 /* call: delegate to default call kernel */
@@ -117,6 +94,8 @@ static void dc_callvm_call_sparc(DCCallVM* in_self, DCpointer target)
   dcCall_sparc(target, dcVecSize(&self->mVecHead), dcVecData(&self->mVecHead));
 }
 #endif
+
+static void dc_callvm_mode_sparc(DCCallVM* in_self, DCint mode);
 
 /* CallVM virtual table. */
 DCCallVM_vt gVT_sparc =
@@ -147,9 +126,39 @@ DCCallVM_vt gVT_sparc =
   NULL /* callStruct */
 };
 
+/* mode: only a single mode available currently. */
+static void dc_callvm_mode_sparc(DCCallVM* in_self, DCint mode)
+{
+  DCCallVM_sparc* self = (DCCallVM_sparc*)in_self;
+  DCCallVM_vt* vt;
+
+  switch(mode) {
+    case DC_CALL_C_DEFAULT:
+    case DC_CALL_C_SPARC32:
+    case DC_CALL_C_ELLIPSIS:
+    case DC_CALL_C_ELLIPSIS_VARARGS:
+      vt = &gVT_sparc;
+      break;
+    default:
+      self->mInterface.mError = DC_ERROR_UNSUPPORTED_MODE; 
+      return;
+  }
+  dc_callvm_base_init(&self->mInterface, vt);
+}
+
 /* Public API. */
 DCCallVM* dcNewCallVM(DCsize size)
 {
-  return dc_callvm_new_sparc(&gVT_sparc,size);
+  DCCallVM_sparc* p;
+
+  /* the six output registers %o0-%o5 are always loaded, thus we need to ensure the argument buffer has space for at least 24 bytes. */
+  size = DC_MAX(size, sizeof(void*)*(6+1));
+  p = (DCCallVM_sparc*)dcAllocMem(sizeof(DCCallVM_sparc)+size);
+
+  dc_callvm_mode_sparc((DCCallVM*)p, DC_CALL_C_DEFAULT);
+
+  dcVecInit(&p->mVecHead, size);
+
+  return (DCCallVM*)p;
 }
 

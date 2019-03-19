@@ -6,7 +6,7 @@
  Description: 
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -22,6 +22,7 @@
    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
+
 
 
 /*
@@ -44,7 +45,6 @@
 #include "dyncall_callvm.h"
 #include "dyncall_vector.h"
 
-
 typedef struct
 {
   DCCallVM  mInterface;
@@ -53,9 +53,6 @@ typedef struct
   struct DCRegData_mips_eabi mRegData;
   DCVecHead mVecHead;
 } DCCallVM_mips_eabi;
-
-DCCallVM* dcNewCallVM_mips_eabi(DCsize size);
-
 
 #endif /* DYNCALL_CALLVM_MIPS_EABI_H */
 

@@ -6,7 +6,7 @@
  Description: mips "o32" ABI callvm C interface.
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -24,6 +24,7 @@
 */
 
 
+
 #ifndef DYNCALL_CALLVM_MIPS_O32_H
 #define DYNCALL_CALLVM_MIPS_O32_H
 
@@ -38,8 +39,6 @@ typedef struct
   DCRegData_mips_o32 mRegData;
   DCVecHead          mVecHead;
 } DCCallVM_mips_o32;
-
-DCCallVM* dcNewCallVM_mips_o32(DCsize size);
 
 #endif /* DYNCALL_CALLVM_MIPS_O32_H */
 

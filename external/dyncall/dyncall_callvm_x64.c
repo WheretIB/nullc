@@ -6,7 +6,7 @@
  Description: 
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -25,29 +25,13 @@
 
 
 
+
 /* MS Windows x64 calling convention, AMD64 SystemV ABI. */
 
 
 #include "dyncall_callvm_x64.h"
 #include "dyncall_alloc.h"
 #include "dyncall_struct.h"
-
-static DCCallVM* dc_callvm_new_x64(DCCallVM_vt* vt, DCsize size)
-{
-  DCCallVM_x64* self = (DCCallVM_x64*)dcAllocMem(sizeof(DCCallVM_x64)+size);
-  
-  dc_callvm_base_init(&self->mInterface, vt);
-
-  /* Since we store register parameters in DCCallVM_x64 directly, adjust the stack size. */
-  size -= sizeof(DCRegData_x64);
-  size = size < 0 ? 0 : size;
-
-
-  self->mRegCount.i = self->mRegCount.f =  0;
-
-  dcVecInit(&self->mVecHead, size);
-  return (DCCallVM*)self;
-}
 
 
 static void dc_callvm_free_x64(DCCallVM* in_self)
@@ -60,20 +44,7 @@ static void dc_callvm_reset_x64(DCCallVM* in_self)
 {
   DCCallVM_x64* self = (DCCallVM_x64*)in_self;
   dcVecReset(&self->mVecHead);
-  self->mRegCount.i = self->mRegCount.f =  0;
-}
-
-
-static void dc_callvm_mode_x64(DCCallVM* self, DCint mode)
-{
-  switch(mode) {
-    case DC_CALL_C_DEFAULT:
-    case DC_CALL_C_ELLIPSIS:
-      break;
-    default:
-      self->mError = DC_ERROR_UNSUPPORTED_MODE;
-      break;
-  }
+  self->mRegCount.i = self->mRegCount.f = 0;
 }
 
 
@@ -132,7 +103,7 @@ static void dc_callvm_argFloat_x64(DCCallVM* in_self, DCfloat x)
   if(self->mRegCount.f < numFloatRegs)
     *(DCfloat*)&self->mRegData.f[self->mRegCount.f++] = x;
   else
-    dcVecAppend(&self->mVecHead, &f.f, sizeof(DCdouble)); // This is a very strange way to align stack on 8-byte boundary
+    dcVecAppend(&self->mVecHead, &f.f, sizeof(DCdouble));
 }
 
 
@@ -186,6 +157,8 @@ void dc_callvm_call_x64(DCCallVM* in_self, DCpointer target)
   );
 }
 
+
+static void dc_callvm_mode_x64(DCCallVM* in_self, DCint mode);
 
 DCCallVM_vt gVT_x64 =
 {
@@ -253,13 +226,43 @@ int dcFreeFRegs(DCCallVM* in_self)
 	return numFloatRegs - self->mRegCount.f;
 }
 
-DCCallVM* dcNewCallVM_x64(DCsize size) 
+/* mode: only a single mode available currently. */
+static void dc_callvm_mode_x64(DCCallVM* in_self, DCint mode)
 {
-  return dc_callvm_new_x64(&gVT_x64, size);
+  DCCallVM_x64* self = (DCCallVM_x64*)in_self;
+  DCCallVM_vt* vt;
+
+  switch(mode) {
+    case DC_CALL_C_DEFAULT:
+#if defined(DC_UNIX)
+    case DC_CALL_C_X64_SYSV:
+#else
+    case DC_CALL_C_X64_WIN64:
+#endif
+    case DC_CALL_C_ELLIPSIS:
+    case DC_CALL_C_ELLIPSIS_VARARGS:
+      vt = &gVT_x64;
+      break;
+    default:
+      self->mInterface.mError = DC_ERROR_UNSUPPORTED_MODE; 
+      return;
+  }
+  dc_callvm_base_init(&self->mInterface, vt);
 }
 
+/* Public API. */
 DCCallVM* dcNewCallVM(DCsize size)
 {
-  return dcNewCallVM_x64(size);
+  DCCallVM_x64* p = (DCCallVM_x64*)dcAllocMem(sizeof(DCCallVM_x64)+size);
+
+  dc_callvm_mode_x64((DCCallVM*)p, DC_CALL_C_DEFAULT);
+
+  /* Since we store register parameters in DCCallVM_x64 directly, adjust the stack size. */
+  size -= sizeof(DCRegData_x64);
+  size = (((signed long)size) < 0) ? 0 : size;
+  dcVecInit(&p->mVecHead, size);
+  dc_callvm_reset_x64((DCCallVM*)p);
+
+  return (DCCallVM*)p;
 }
 

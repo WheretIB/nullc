@@ -6,7 +6,7 @@
  Description: Platform detection macros
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>,
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -22,6 +22,7 @@
    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
+
 
 
 /*
@@ -71,7 +72,7 @@
 #define DC__OS_Linux
 
 /* The most powerful open source Unix-like OS - FreeBSD. */
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__) /* latter is (also) used by systems using FreeBSD kernel, e.g. Debian/kFreeBSD, which could be detected specifically by also checking for __GLIBC__ */
 #define DC__OS_FreeBSD
 
 /* The most secure open source Unix-like OS - OpenBSD. */
@@ -122,7 +123,9 @@
 #define DC__OS_Minix
 
 #else
-	#error Unsupported OS.
+
+/* Unable to determine OS, which is probably ok (e.g. baremetal stuff, etc.). */
+#define DC__OS_UNKNOWN
 #endif
 
 
@@ -137,6 +140,10 @@
 /* MS C/C++ compiler. */
 #elif defined(_MSC_VER)
 #define DC__C_MSVC
+
+/* LLVM clang. */
+#elif defined(__clang__) || defined(__llvm__)
+#define DC__C_CLANG
 
 /* The GNU Compiler Collection - GCC. */
 #elif defined(__GNUC__)
@@ -164,31 +171,34 @@
 /* Architecture. */
 
 /* Check architecture. */
-#if defined(_M_IX86) || defined(__i386__) || defined(__i486__) || defined(__i586__) || defined(__i686__) || defined(__386__) || defined(__i386)
-# define DC__Arch_Intel_x86
-#elif defined(_M_X64_) || defined(_M_AMD64) || defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64) 
+#if defined(_M_X64_) || defined(_M_AMD64) || defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64) 
 # define DC__Arch_AMD64
+#elif defined(_M_IX86) || defined(__i386__) || defined(__i486__) || defined(__i586__) || defined(__i686__) || defined(__386__) || defined(__i386)
+# define DC__Arch_Intel_x86
 #elif defined(_M_IA64) || defined(__ia64__)
 # define DC__Arch_Itanium
 #elif defined(_M_PPC) || defined(__powerpc__) || defined(__powerpc) || defined(__POWERPC__) || defined(__ppc__) || defined(__power__)
-# define DC__Arch_PowerPC
-#elif defined(__ppc64__) || defined(_ARCH_PPC64) || defined(__power64__)
-# define DC__Arch_PPC64
-#elif defined(__mips64__)
+# if defined(__ppc64__) || defined(_ARCH_PPC64) || defined(__power64__) || defined(__powerpc64__)
+#   define DC__Arch_PPC64
+# else
+#   define DC__Arch_PPC32
+# endif
+#elif defined(__mips64__) || defined(__mips64)
 # define DC__Arch_MIPS64
 #elif defined(_M_MRX000) || defined(__mips__) || defined(__mips) || defined(_mips)
 # define DC__Arch_MIPS
-#elif defined(__arm__) && !defined(__thumb__)
-# define DC__Arch_ARM_ARM
-#elif defined(__arm__) && defined(__thumb__)
-# define DC__Arch_ARM_THUMB
+#elif defined(__arm__)
+# define DC__Arch_ARM
+#elif defined(__aarch64__)
+# define DC__Arch_ARM64
 #elif defined(__sh__)
 # define DC__Arch_SuperH
-#elif defined(__sparcv9) || defined(__sparc64__) || ( defined(__sparc) && defined(__arch64__) ) 
-/* this could be needed on Linux/GNU sparc64 in the future: || ( defined(__sparc) && defined(__arch64__) ) */
-# define DC__Arch_Sparcv9
-#elif defined(__sparc)
-# define DC__Arch_Sparc
+#elif defined(__sparc) || defined(__sparc__)
+# if defined(__sparcv9) || defined(__sparc_v9__) || defined(__sparc64__) || defined(__arch64__)
+#  define DC__Arch_Sparc64
+# else
+#  define DC__Arch_Sparc
+# endif
 #endif
 
 
@@ -197,6 +207,8 @@
 
 #if defined(DC__OS_Win32) || defined(DC__OS_Win64)
 # define DC_WINDOWS
+#elif defined(DC__OS_Plan9)
+# define DC_PLAN9
 #elif defined(DC__OS_NDS) || defined(DC__OS_PSP)
 # define DC_OTHER
 #else
@@ -205,33 +217,81 @@
 
 
 
-/* Misc machine-dependent quirks. */
+/* Misc machine-dependent modes, ABIs, etc.. */
+
+#if defined(__arm__) && !defined(__thumb__)
+# define DC__Arch_ARM_ARM
+#elif defined(__arm__) && defined(__thumb__)
+# define DC__Arch_ARM_THUMB
+#endif
 
 #if defined(DC__Arch_ARM_ARM) || defined(DC__Arch_ARM_THUMB)
 # if defined(__ARM_EABI__) || defined(DC__OS_NDS)
-#  define DC__ABI_ARM_EABI
+#  if defined (__ARM_PCS_VFP) && (__ARM_PCS_VFP == 1)
+#    define DC__ABI_ARM_HF
+#  else
+#    define DC__ABI_ARM_EABI
+#  endif
 # elif defined(__APCS_32__)
-#  define DC__ABI_ARM_APCS32
+#  define DC__ABI_ARM_OABI
 # endif
 #endif /* ARM */
 
 #if defined(DC__Arch_MIPS) || defined(DC__Arch_MIPS64)
 # if defined(_ABIO32) || defined(_MIPS_ARCH_MIPS1) || defined(_MIPS_ARCH_MIPS2)
 #  define DC__ABI_MIPS_O32
+# elif defined(_ABI64) || defined(_mips_n64)
+#  define DC__ABI_MIPS_N64
 # elif defined(_ABIN32)
 #  define DC__ABI_MIPS_N32
-# elif defined(_ABI64)
-#  define DC__ABI_MIPS_N64
 # else
 #  define DC__ABI_MIPS_EABI
 # endif
+/*@@@implement/support: __mips_hard_float*/
 #endif /* MIPS */
 
+#if defined(DC__Arch_PPC64)
+# if defined(_CALL_ELF)
+#  define DC__ABI_PPC64_ELF_V _CALL_ELF
+# else
+#  define DC__ABI_PPC64_ELF_V 0 /* 0 means not explicitly set, otherwise this is 1 (big endian) and 2 (little endian) */
+# endif
+#endif /* PPC64 */
+
+
+/* Endian detection. */
+#if defined(DC__Arch_Intel_x86) || defined(DC__Arch_AMD64) /* always little */
+# define DC__Endian_LITTLE
+#elif defined(DC__Arch_Sparc)                              /* always purely big until v9 */
+# define DC__Endian_BIG
+#else                                                      /* all others are bi-endian */
+/* @@@check flags used on following bi-endianness archs:
+DC__Arch_ARM
+DC__Arch_ARM64
+DC__Arch_Itanium
+DC__Arch_PPC32
+DC__Arch_PPC64
+DC__Arch_SuperH
+*/
+# if (defined(DC__Arch_PPC64) && (DC__ABI_PPC64_ELF_V == 1)) || defined(_BIG_ENDIAN) || defined(MIPSEB) || defined(_MIPSEB) || defined(__MIPSEB) || defined(__MIPSEB__)
+#  define DC__Endian_BIG
+# elif (defined(DC__Arch_PPC64) && (DC__ABI_PPC64_ELF_V == 2)) || defined(_LITTLE_ENDIAN) || defined(MIPSEL) || defined(_MIPSEL) || defined(__MIPSEL) || defined(__MIPSEL__)
+#  define DC__Endian_LITTLE
+# elif defined(DC__Arch_Sparc64) && !defined(__BYTE_ORDER__) /* Sparc64 default is big-endian, except if explicitly defined */
+#    define DC__Endian_BIG
+# elif defined(__BYTE_ORDER__) /* explicitly set */
+#  if defined(__ORDER_BIG_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#    define DC__Endian_BIG
+#  elif defined(__ORDER_LITTLE_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#    define DC__Endian_LITTLE
+#  endif
+# endif /* no else, leave unset if not sure */
+#endif
 
 
 /* Internal macro/tag. */
 #if !defined(DC_API)
-#define DC_API
+# define DC_API
 #endif
 
 #endif /* DYNCALL_MACROS_H */

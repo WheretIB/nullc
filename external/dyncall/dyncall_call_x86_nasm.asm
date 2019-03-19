@@ -226,9 +226,9 @@ EXPORT_C dcCall_x86_win32_fast
 
 	ret    
 
-; Stack markings for ELF/GNU to specify no executable stack */
-
-%ifidn __OUTPUT_FORMAT__,elf
-section .note.GNU-stack noalloc noexec nowrite progbits
-%endif
+;; Stack markings for ELF/GNU to specify no executable stack */
+;
+;%ifidn __OUTPUT_FORMAT__,elf
+;section .note.GNU-stack noalloc noexec nowrite progbits
+;%endif
 

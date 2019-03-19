@@ -25,7 +25,9 @@
 
 
 .text
+#if !defined(__thumb2__)
 .code 16	/* THUMB mode */
+#endif
 
 .globl dcCall_arm32_thumb
 
@@ -34,17 +36,13 @@
 dcCall_arm32_thumb:
 
 	/* Prolog. This function never needs to spill inside its prolog, so just store the permanent registers. */
-	push	{%r4-%r7, %r14}	   	/* Frame ptr, permanent registers, link register -> save area on stack. */
+	/* Code below is not using high registers, so not storing them in prolog, which is more involved with thumb, anyways. */
+	push	{%r4-%r7, %r14}		/* Frame ptr, permanent registers, link register -> save area on stack. */
 	mov		%r7, %r13	/* Set frame ptr. */
+	sub		%r13, #4	/* Realign stack to 8 bytes (b/c we stored 5 regs = 20b). */
 
 	/* Call. */
 	mov		%r4, %r0	/* Move 'fptr' to r4 (1st argument is passed in r0). */
-
-	/* Disable 'thumb' address forcing... */
-
-	/* mov		%r0, #1	*/	/* Assure that LSB is set to 1 (THUMB call). - Not Required and not useful for interworking calls */
-	/* orr		%r4, %r0 */
-	
 	mov		%r5, %r1	/* Move 'args' to r5 (2nd argument is passed in r1). */
 	mov		%r6, %r2	/* Move 'size' to r6 (3rd argument is passed in r2). */
 
@@ -80,20 +78,4 @@ call:
 	/* Epilog. */
 	mov		%r13, %r7	/* Reset stack ptr. */
 	pop		{%r4-%r7, %r15}	/* Restore permanent registers and program counter. (Force a stay in THUMB in ARMv4, whether ARMv5 can return in ARM or THUMB depending on the bit 0. */
-
-
-
-/* Internally used to avoid compiler overwriting r0 and r1 in call stub */
-.globl dcCall_arm32_thumb_word
-
-.thumb_func
-dcCall_arm32_thumb_word:
-	b	dcCall_arm32_thumb
-
-
-.globl dcCall_arm32_thumb_dword
-
-.thumb_func
-dcCall_arm32_thumb_dword:
-	b	dcCall_arm32_thumb
 

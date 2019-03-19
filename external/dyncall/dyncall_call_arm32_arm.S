@@ -6,7 +6,7 @@
  Description: Call Kernel for ARM 32-bit ARM Architecture
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -23,6 +23,10 @@
 
 */
 
+
+
+#include "portasm-arm.S"
+
 /* ============================================================================
    DynCall Call Kernel for ARM 32-bit ARM Architecture
    ----------------------------------------------------------------------------
@@ -30,16 +34,14 @@
      dcCall_arm32_arm(DCpointer target, DCpointer argv, DCsize size);
 
    This Call Kernel works across multiple OS.
-   It has been tested on Nintendo DS, Linux and Darwin(iOS).
 
 */
 
 .text
 .code 32	/* ARM mode */
-
-.globl dcCall_arm32_arm
-
-dcCall_arm32_arm:
+.align 4
+GLOBAL_C(dcCall_arm32_arm)
+ENTRY_C(dcCall_arm32_arm)
 	/* Prolog. This function never needs to spill inside its prolog, so just store the permanent registers. */
 	mov	r12, r13	/* Stack ptr (r13) -> temporary (r12). */
 	stmdb	r13!, {r4-r12, r14}	/* Permanent registers and stack pointer (now in r12), etc... -> save area on stack (except counter). */

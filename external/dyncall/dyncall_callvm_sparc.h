@@ -6,7 +6,7 @@
  Description: Call VM for sparc processor architecture.
  License:
 
-   Copyright (c) 2011 Daniel Adler <dadler@uni-goettingen.de>
+   Copyright (c) 2011-2018 Daniel Adler <dadler@uni-goettingen.de>
 
    Permission to use, copy, modify, and distribute this software for any
    purpose with or without fee is hereby granted, provided that the above
@@ -23,6 +23,7 @@
 */
 
 
+
 #ifndef DYNCALL_CALLVM_SPARC_H
 #define DYNCALL_CALLVM_SPARC_H
 
@@ -37,8 +38,6 @@ struct DCCallVM_sparc_
   DCCallVM  mInterface;	/* 8 bytes (vtable,errorid) */
   DCVecHead mVecHead;	/* 8 bytes (max,size)       */
 };
-
-DCCallVM* dcNewCallVM_sparc(DCsize size);
 
 #endif /* DYNCALL_CALLVM_SPARC_H */
 

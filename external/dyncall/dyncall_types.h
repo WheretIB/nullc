@@ -6,7 +6,7 @@
  Description: Typedefs
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -22,6 +22,7 @@
    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
+
 
 
 /*
@@ -44,30 +45,29 @@
 extern "C" {
 #endif 
 
-typedef void            DCvoid;
-typedef DC_BOOL         DCbool;
-typedef char            DCchar;
-typedef unsigned char   DCuchar;
-typedef short           DCshort;
-typedef unsigned short  DCushort;
-typedef int             DCint;
-typedef unsigned int    DCuint;
-typedef long            DClong;
-typedef unsigned long   DCulong;
-typedef DC_LONG_LONG    DClonglong;
+typedef void                  DCvoid;
+typedef DC_BOOL               DCbool;
+typedef char                  DCchar;
+typedef unsigned char         DCuchar;
+typedef short                 DCshort;
+typedef unsigned short        DCushort;
+typedef int                   DCint;
+typedef unsigned int          DCuint;
+typedef long                  DClong;
+typedef unsigned long         DCulong;
+typedef DC_LONG_LONG          DClonglong;
 typedef unsigned DC_LONG_LONG DCulonglong;
-typedef float           DCfloat;
-typedef double          DCdouble;
-typedef DC_POINTER      DCpointer;
-typedef const char*     DCstring;
+typedef float                 DCfloat;
+typedef double                DCdouble;
+typedef DC_POINTER            DCpointer;
+typedef const char*           DCstring;
+typedef size_t                DCsize;
 
 // x64 on linux has a special way of returning aggregates <= 16 bytes
 typedef struct{ double a; double b; } DCcomplexdd;
 typedef struct{ double a; DC_LONG_LONG b; } DCcomplexdl;
 typedef struct{ DC_LONG_LONG a; double b; } DCcomplexld;
 typedef struct{ DC_LONG_LONG a; DC_LONG_LONG b; } DCcomplexll;
-
-typedef size_t          DCsize;
 
 #define DC_TRUE   1
 #define DC_FALSE  0

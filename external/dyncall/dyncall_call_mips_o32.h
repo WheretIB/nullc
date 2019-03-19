@@ -6,7 +6,7 @@
  Description: mips "o32" abi call kernel C interface.
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -22,6 +22,7 @@
    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
+
 
 
 #ifndef DYNCALL_CALL_MIPS_O32_H
@@ -42,15 +43,18 @@ extern "C" {
   32-bit floating pointer registers.
   Float arguments map as following:
   
-    float argument 0 is at floats[1] and
-    float argument 1 is at floats[3] of DCRegData_mips_o32 union.
+    float argument 0 is at u[0][0] for little, u[0][1] for big endian and
+    float argument 1 is at u[1][0] for little, u[1][1] for big endian of
+	DCRegData_mips_o32 union.
 
 */
 
-typedef union DCRegData_mips_o32_
+typedef struct DCRegData_mips_o32_
 {
-  double doubles[2];
-  float  floats [4];	 /* float 0 is at index 1 and float 1 is at index 3 */
+  union {
+    double d;
+    float  f[2];
+  } u[2];
 } DCRegData_mips_o32;
 
 

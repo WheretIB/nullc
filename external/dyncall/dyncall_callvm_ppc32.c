@@ -6,7 +6,7 @@
  Description: 
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -24,6 +24,7 @@
 */
 
 
+
 /*
 
   dyncall callvm for ppc32 architectures
@@ -31,10 +32,12 @@
   SUPPORTED CALLING CONVENTIONS
   ppc32/osx 
   ppc32/linux (sysv abi)
+  ppc32/syscall 
 
   REVISION
-  2007/12/11 initial support for Darwin ABI
+  2015/01/15 added syscall (tested on Linux)
   2009/01/09 added System V ABI support
+  2007/12/11 initial support for Darwin ABI
 
 */
 
@@ -47,12 +50,14 @@
 
 /* Support for Mac OS X (Darwin) and Systen V ABI for Power PC 32-bit */
 
-#if defined(DC__OS_Darwin)
-#define DC__ABI_Darwin
-#elif defined(DC__OS_Linux) || defined(DC__OS_FreeBSD) || defined(DC__OS_OpenBSD) || defined(DC__OS_NetBSD) || defined(DC__OS_DragonFlyBSD) || defined(DC__OS_SunOS)
-#define DC__ABI_SysV
+#if defined(DC_UNIX)
+#  if defined(DC__OS_Darwin)
+#    define DC__ABI_Darwin
+#  else
+#    define DC__ABI_SysV
+#  endif
 #else
-#error Unsupported OS for ppc32 architecture.
+#  error Unsupported OS for ppc32 architecture.
 #endif
 
 static void dc_callvm_free_ppc32(DCCallVM* in_self)
@@ -266,6 +271,12 @@ void dc_callvm_call_ppc32_sysv(DCCallVM* in_self, DCpointer target)
   dcCall_ppc32_sysv( target, &self->mRegData, dcVecSize(&self->mVecHead) , dcVecData(&self->mVecHead));
 }
 
+void dc_callvm_call_ppc32_syscall(DCCallVM* in_self, DCpointer target)
+{
+  DCCallVM_ppc32* self = (DCCallVM_ppc32*) in_self;
+  dcCall_ppc32_syscall( target, &self->mRegData, dcVecSize(&self->mVecHead) , dcVecData(&self->mVecHead));
+}
+
 void dc_callvm_mode_ppc32(DCCallVM* in_self, DCint mode);
 
 DCCallVM_vt gVT_ppc32_darwin =
@@ -324,49 +335,83 @@ DCCallVM_vt gVT_ppc32_sysv =
 , NULL /* callStruct */
 };
 
+DCCallVM_vt gVT_ppc32_syscall =
+{
+  &dc_callvm_free_ppc32
+, &dc_callvm_reset_ppc32
+, &dc_callvm_mode_ppc32
+, &dc_callvm_argBool_ppc32
+, &dc_callvm_argChar_ppc32
+, &dc_callvm_argShort_ppc32 
+, &dc_callvm_argInt_ppc32_sysv
+, &dc_callvm_argLong_ppc32
+, &dc_callvm_argLongLong_ppc32_sysv
+, &dc_callvm_argFloat_ppc32_sysv
+, &dc_callvm_argDouble_ppc32_sysv
+, &dc_callvm_argPointer_ppc32
+, NULL /* argStruct */
+, (DCvoidvmfunc*)       &dc_callvm_call_ppc32_syscall
+, (DCboolvmfunc*)       &dc_callvm_call_ppc32_syscall
+, (DCcharvmfunc*)       &dc_callvm_call_ppc32_syscall
+, (DCshortvmfunc*)      &dc_callvm_call_ppc32_syscall
+, (DCintvmfunc*)        &dc_callvm_call_ppc32_syscall
+, (DClongvmfunc*)       &dc_callvm_call_ppc32_syscall
+, (DClonglongvmfunc*)   &dc_callvm_call_ppc32_syscall
+, (DCfloatvmfunc*)      &dc_callvm_call_ppc32_syscall
+, (DCdoublevmfunc*)     &dc_callvm_call_ppc32_syscall
+, (DCpointervmfunc*)    &dc_callvm_call_ppc32_syscall
+, NULL /* callStruct */
+};
+
+
 void dc_callvm_mode_ppc32(DCCallVM* in_self, DCint mode)
 {
-  DCCallVM_ppc32* self = (DCCallVM_ppc32*) in_self;
+  DCCallVM_ppc32* self = (DCCallVM_ppc32*)in_self;
   DCCallVM_vt* vt;
-  switch(mode) {
 
-    case DC_CALL_C_PPC32_OSX:  
+  switch(mode) {
 
 #if defined(DC__ABI_Darwin)
     case DC_CALL_C_DEFAULT:
     case DC_CALL_C_ELLIPSIS:
     case DC_CALL_C_ELLIPSIS_VARARGS:
 #endif
-
+    case DC_CALL_C_PPC32_OSX:  
       vt = &gVT_ppc32_darwin; 
       break;
-
-    case DC_CALL_C_PPC32_SYSV: 
 
 #if defined(DC__ABI_SysV)
     case DC_CALL_C_DEFAULT:
     case DC_CALL_C_ELLIPSIS:
     case DC_CALL_C_ELLIPSIS_VARARGS:
 #endif
-
+    case DC_CALL_C_PPC32_SYSV: 
       vt = &gVT_ppc32_sysv;
+      break;
+
+    case DC_CALL_SYS_DEFAULT:
+    case DC_CALL_SYS_PPC32:
+      vt = &gVT_ppc32_syscall;
       break;
 
     default: 
       self->mInterface.mError = DC_ERROR_UNSUPPORTED_MODE; 
       return;
   }
-  
+
   dc_callvm_base_init(&self->mInterface, vt);
 }
 
+/* Public API. */
 DCCallVM* dcNewCallVM(DCsize size)
 {
-  DCCallVM_ppc32* self = (DCCallVM_ppc32*)dcAllocMem(sizeof(DCCallVM_ppc32)+size);
-  dcVecInit(&self->mVecHead, size);
-  self->mIntRegs              = 0;
-  self->mFloatRegs            = 0;
-  dc_callvm_mode_ppc32( (DCCallVM*) self, DC_CALL_C_DEFAULT );
-  return (DCCallVM*)self;
+  DCCallVM_ppc32* p = (DCCallVM_ppc32*)dcAllocMem(sizeof(DCCallVM_ppc32)+size);
+
+  dc_callvm_mode_ppc32((DCCallVM*)p, DC_CALL_C_DEFAULT);
+
+  dcVecInit(&p->mVecHead, size);
+  dc_callvm_reset_ppc32((DCCallVM*)p);
+
+  return (DCCallVM*)p;
 }
 

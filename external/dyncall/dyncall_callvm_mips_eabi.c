@@ -6,7 +6,7 @@
  Description: Implementation of Call VM for mips "eabi" abi.
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -24,6 +24,7 @@
 */
 
 
+
 #include "dyncall_callvm_mips_eabi.h"
 #include "dyncall_alloc.h"
 
@@ -35,32 +36,9 @@ static void dc_callvm_reset_mips_eabi(DCCallVM* in_self)
   self->mSingleRegs = 0;
 }
 
-static DCCallVM* dc_callvm_new_mips_eabi(DCCallVM_vt* vt, DCsize size)
-{
-  /* Store at least 16 bytes (4 words) for internal spill area. Assembly code depends on it. */
-  DCCallVM_mips_eabi* self = (DCCallVM_mips_eabi*)dcAllocMem(sizeof(DCCallVM_mips_eabi)+size+16);
-  dc_callvm_base_init(&self->mInterface, vt);
-  dcVecInit(&self->mVecHead, size);
-  dc_callvm_reset_mips_eabi( (DCCallVM*) self );
-  return (DCCallVM*)self;
-}
-
-
 static void dc_callvm_free_mips_eabi(DCCallVM* in_self)
 {
   dcFreeMem(in_self);
-}
-
-static void dc_callvm_mode_mips_eabi(DCCallVM* in_self,DCint mode)
-{
-  switch(mode) {
-    case DC_CALL_C_DEFAULT:
-    case DC_CALL_C_ELLIPSIS:
-    case DC_CALL_C_MIPS32_EABI:
-      break;
-    default:
-      in_self->mError = DC_ERROR_UNSUPPORTED_MODE; return;
-  }
 }
 
 /* arg int -- fillup integer register file OR push on stack */
@@ -141,6 +119,8 @@ void dc_callvm_call_mips_eabi(DCCallVM* in_self, DCpointer target)
   dcCall_mips_eabi(target, &self->mRegData, dcVecSize(&self->mVecHead), dcVecData(&self->mVecHead));
 }
 
+static void dc_callvm_mode_mips_eabi(DCCallVM* in_self, DCint mode);
+
 DCCallVM_vt gVT_mips_eabi =
 {
   &dc_callvm_free_mips_eabi
@@ -169,13 +149,37 @@ DCCallVM_vt gVT_mips_eabi =
 , NULL /* callStruct */
 };
 
-DCCallVM* dcNewCallVM_mips_eabi(DCsize size) 
+/* mode: only a single mode available currently. */
+static void dc_callvm_mode_mips_eabi(DCCallVM* in_self, DCint mode)
 {
-  return dc_callvm_new_mips_eabi(&gVT_mips_eabi, size);
+  DCCallVM_mips_eabi* self = (DCCallVM_mips_eabi*)in_self;
+  DCCallVM_vt* vt;
+
+  switch(mode) {
+    case DC_CALL_C_DEFAULT:
+    case DC_CALL_C_MIPS32_EABI:
+    case DC_CALL_C_ELLIPSIS:
+    case DC_CALL_C_ELLIPSIS_VARARGS:
+      vt = &gVT_mips_eabi;
+      break;
+    default:
+      self->mInterface.mError = DC_ERROR_UNSUPPORTED_MODE; 
+      return;
+  }
+  dc_callvm_base_init(&self->mInterface, vt);
 }
 
+/* Public API. */
 DCCallVM* dcNewCallVM(DCsize size)
 {
-  return dcNewCallVM_mips_eabi(size);
+  /* Store at least 16 bytes (4 words) for internal spill area. Assembly code depends on it. */
+  DCCallVM_mips_eabi* p = (DCCallVM_mips_eabi*)dcAllocMem(sizeof(DCCallVM_mips_eabi)+size+16);
+
+  dc_callvm_mode_mips_eabi((DCCallVM*)p, DC_CALL_C_DEFAULT);
+
+  dcVecInit(&p->mVecHead, size);
+  dc_callvm_reset_mips_eabi((DCCallVM*)p);
+
+  return (DCCallVM*)p;
 }
 

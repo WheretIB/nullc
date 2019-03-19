@@ -6,7 +6,7 @@
  Description: public header for library dyncall
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -29,6 +29,8 @@
   dyncall C API
 
   REVISION
+  2015/07/08 added SYS_PPC64 system call
+  2015/01/16 added SYS_PPC32 system call
   2007/12/11 initial
   
 */
@@ -48,8 +50,8 @@ typedef struct DCstruct_    DCstruct;
 /* Supported Calling Convention Modes */
 
 #define DC_CALL_C_DEFAULT               0
-#define DC_CALL_C_ELLIPSIS		100
-#define DC_CALL_C_ELLIPSIS_VARARGS      101
+#define DC_CALL_C_ELLIPSIS            100
+#define DC_CALL_C_ELLIPSIS_VARARGS    101
 #define DC_CALL_C_X86_CDECL             1
 #define DC_CALL_C_X86_WIN32_STD         2
 #define DC_CALL_C_X86_WIN32_FAST_MS     3
@@ -59,13 +61,14 @@ typedef struct DCstruct_    DCstruct;
 #define DC_CALL_C_X64_WIN64             7
 #define DC_CALL_C_X64_SYSV              8
 #define DC_CALL_C_PPC32_DARWIN          9
-#define DC_CALL_C_PPC32_OSX             9 /* alias for DC_CALL_C_PPC32_DARWIN */
+#define DC_CALL_C_PPC32_OSX            DC_CALL_C_PPC32_DARWIN /* alias */
 #define DC_CALL_C_ARM_ARM_EABI         10
 #define DC_CALL_C_ARM_THUMB_EABI       11
+#define DC_CALL_C_ARM_ARMHF            30
 #define DC_CALL_C_MIPS32_EABI          12
-#define DC_CALL_C_MIPS32_PSPSDK        DC_CALL_C_MIPS_EABI /* deprecated. */
+#define DC_CALL_C_MIPS32_PSPSDK        DC_CALL_C_MIPS32_EABI /* alias - deprecated. */
 #define DC_CALL_C_PPC32_SYSV           13
-#define DC_CALL_C_PPC32_LINUX          13 /* alias for DC_CALL_C_PPC32_SYSV */
+#define DC_CALL_C_PPC32_LINUX          DC_CALL_C_PPC32_SYSV /* alias */
 #define DC_CALL_C_ARM_ARM              14
 #define DC_CALL_C_ARM_THUMB            15
 #define DC_CALL_C_MIPS32_O32           16
@@ -74,14 +77,19 @@ typedef struct DCstruct_    DCstruct;
 #define DC_CALL_C_X86_PLAN9            19
 #define DC_CALL_C_SPARC32              20
 #define DC_CALL_C_SPARC64              21
+#define DC_CALL_C_ARM64                22
+#define DC_CALL_C_PPC64                23
+#define DC_CALL_C_PPC64_LINUX          DC_CALL_C_PPC64 /* alias */
 #define DC_CALL_SYS_DEFAULT           200
 #define DC_CALL_SYS_X86_INT80H_LINUX  201
 #define DC_CALL_SYS_X86_INT80H_BSD    202
+#define DC_CALL_SYS_PPC32             210
+#define DC_CALL_SYS_PPC64             211
+
 /* Error codes. */
 
-#define DC_ERROR_NONE 		     0
+#define DC_ERROR_NONE                0
 #define DC_ERROR_UNSUPPORTED_MODE   -1
-
 
 DC_API DCCallVM*  dcNewCallVM     (DCsize size);
 DC_API void       dcFree          (DCCallVM* vm);

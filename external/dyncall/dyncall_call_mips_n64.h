@@ -6,7 +6,7 @@
  Description: mips "n64" ABI call-kernel C interface.
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -22,6 +22,7 @@
    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
+
 
 
 #ifndef DYNCALL_CALL_MIPS_N64_H
@@ -51,9 +52,9 @@ extern "C" {
 
 struct DCRegData_mips_n64
 {
-  DClonglong   mIntData[8];
+  DClonglong                       mIntData[8];
   union { DCfloat f; DCdouble d; } mFloatData[8];
-  DClonglong   mUseDouble; /* bitmask: lower 8 bits specifies to use float or double from union array. */
+  DClonglong                       mUseDouble; /* bitmask: lower 8 bits specify to use float or double from union array. */
 };
 
 void dcCall_mips_n64(DCpointer target, struct DCRegData_mips_n64* regdata, DCsize stksize, DCpointer stkdata);

@@ -6,7 +6,7 @@
  Description: ARM 32-bit "arm" ABI callvm implementation
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>, 
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>, 
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -24,6 +24,7 @@
 */
 
 
+
 /*
 
   dyncall callvm for 32bit ARM32 family of processors
@@ -39,18 +40,6 @@
 
 #include "dyncall_callvm_arm32_arm.h"
 #include "dyncall_alloc.h"
-
-static void dc_callvm_mode_arm32_arm(DCCallVM* in_self,DCint mode);
-
-static DCCallVM* dc_callvm_new_arm32_arm(DCCallVM_vt* vt, DCsize size)
-{
-  /* Store at least 16 bytes (4 words) for internal spill area. Assembly code depends on it. */
-  DCCallVM_arm32_arm* self = (DCCallVM_arm32_arm*)dcAllocMem(sizeof(DCCallVM_arm32_arm)+size+16);
-  dc_callvm_base_init(&self->mInterface, vt);
-  dcVecInit(&self->mVecHead, size);
-  return (DCCallVM*)self;
-}
-
 
 static void dc_callvm_free_arm32_arm(DCCallVM* in_self)
 {
@@ -151,6 +140,7 @@ void dc_callvm_call_arm32_arm(DCCallVM* in_self, DCpointer target)
   dcCall_arm32_arm(target, dcVecData(&self->mVecHead), dcVecSize(&self->mVecHead));
 }
 
+static void dc_callvm_mode_arm32_arm(DCCallVM* in_self, DCint mode);
 
 DCCallVM_vt gVT_arm32_arm =
 {
@@ -180,7 +170,6 @@ DCCallVM_vt gVT_arm32_arm =
 , NULL /* callStruct */
 };
 
-
 DCCallVM_vt gVT_arm32_arm_eabi =
 {
   &dc_callvm_free_arm32_arm
@@ -209,42 +198,39 @@ DCCallVM_vt gVT_arm32_arm_eabi =
 , NULL /* callStruct */
 };
 
-
-DCCallVM* dcNewCallVM_arm32_arm(DCsize size) 
+static void dc_callvm_mode_arm32_arm(DCCallVM* in_self, DCint mode)
 {
-/* Check OS if we need EABI as default. */
-#if defined(DC__ABI_ARM_EABI)
-  return dc_callvm_new_arm32_arm(&gVT_arm32_arm_eabi, size);
-#else
-  return dc_callvm_new_arm32_arm(&gVT_arm32_arm, size);
-#endif
-}
+  DCCallVM_arm32_arm* self = (DCCallVM_arm32_arm*)in_self;
+  DCCallVM_vt* vt;
 
-
-DCCallVM* dcNewCallVM(DCsize size)
-{
-  return dcNewCallVM_arm32_arm(size);
-}
-
-static void dc_callvm_mode_arm32_arm(DCCallVM* in_self,DCint mode)
-{
-  DCCallVM_arm32_arm* self = (DCCallVM_arm32_arm*) in_self;
-  DCCallVM_vt*  vt;
   switch(mode) {
-/* Check OS if we need EABI as default. */
     case DC_CALL_C_ELLIPSIS:
     case DC_CALL_C_ELLIPSIS_VARARGS:
+/* Check OS if we need EABI as default. */
 #if defined(DC__ABI_ARM_EABI)
-    case DC_CALL_C_DEFAULT:          vt = &gVT_arm32_arm_eabi; break;
+    case DC_CALL_C_DEFAULT:       vt = &gVT_arm32_arm_eabi; break;
 #else
-    case DC_CALL_C_DEFAULT:          vt = &gVT_arm32_arm;      break;
+    case DC_CALL_C_DEFAULT:       vt = &gVT_arm32_arm;      break;
 #endif
-    case DC_CALL_C_ARM_ARM:          vt = &gVT_arm32_arm;      break;
-    case DC_CALL_C_ARM_ARM_EABI:     vt = &gVT_arm32_arm_eabi; break;
+    case DC_CALL_C_ARM_ARM:       vt = &gVT_arm32_arm;      break;
+    case DC_CALL_C_ARM_ARM_EABI:  vt = &gVT_arm32_arm_eabi; break;
     default: 
-      in_self->mError = DC_ERROR_UNSUPPORTED_MODE;
+      self->mInterface.mError = DC_ERROR_UNSUPPORTED_MODE; 
       return;
   }
-  self->mInterface.mVTpointer = vt;
+  dc_callvm_base_init(&self->mInterface, vt);
+}
+
+/* Public API. */
+DCCallVM* dcNewCallVM(DCsize size)
+{
+  /* Store at least 16 bytes (4 words) for internal spill area. Assembly code depends on it. */
+  DCCallVM_arm32_arm* p = (DCCallVM_arm32_arm*)dcAllocMem(sizeof(DCCallVM_arm32_arm)+size+16);
+
+  dc_callvm_mode_arm32_arm((DCCallVM*)p, DC_CALL_C_DEFAULT);
+
+  dcVecInit(&p->mVecHead, size);
+
+  return (DCCallVM*)p;
 }
 

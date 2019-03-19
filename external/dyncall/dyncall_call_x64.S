@@ -6,7 +6,7 @@
  Description: All x64 abi call kernel implementation
  License:
 
-   Copyright (c) 2007-2011 Daniel Adler <dadler@uni-goettingen.de>,
+   Copyright (c) 2007-2018 Daniel Adler <dadler@uni-goettingen.de>,
                            Tassilo Philipp <tphilipp@potion-studios.com>
 
    Permission to use, copy, modify, and distribute this software for any
@@ -24,80 +24,74 @@
 */
 
 
-#include "../portasm/portasm-x64.S"
+
+#include "portasm-x64.S"
 
 BEGIN_ASM
 
 /*---------------------------------------------------------------------------
-  
-  Call Kernel for x64 System V
-  
-  Input:
-    RDI : size of arguments to be passed via stack 
-    RSI : pointer to arguments to be passed via the stack 
-    RDX : pointer to arguments of integral/pointer type to be passed via registers 
-    RCX : pointer to arguments of floating point type to be passed via registers 
-    R8  : target function pointer 
 
+  Call Kernel for x64 System V
+
+  Input:
+    RDI : size of arguments to be passed via stack
+    RSI : pointer to arguments to be passed via the stack
+    RDX : pointer to arguments of integral/pointer type to be passed via registers
+    RCX : pointer to arguments of floating point type to be passed via registers
+    R8  : target function pointer
+  Notes:
+    RSP+8: is always 16-byte aligned (32-byte align if __m256 is used)
 */
 
 GLOBAL(dcCall_x64_sysv)
 BEGIN_PROC(dcCall_x64_sysv)
+	PUSH(RBP)			/* Pseudo-prolog - preserve RBP. */
+	PUSH(RBX)			/* Preserve RBX and store pointer to function in it. */
+	MOV(RSP,RBP)			/* Store stack pointer in RBP. */
+	MOV(R8 ,RBX)
+	MOVSD(QWORD(RCX,0) ,XMM0)	/* Copy first 8 floats to XMM0-XMM7. */
+	MOVSD(QWORD(RCX,8) ,XMM1)
+	MOVSD(QWORD(RCX,16),XMM2)
+	MOVSD(QWORD(RCX,24),XMM3)
+	MOVSD(QWORD(RCX,32),XMM4)
+	MOVSD(QWORD(RCX,40),XMM5)
+	MOVSD(QWORD(RCX,48),XMM6)
+	MOVSD(QWORD(RCX,56),XMM7)
 
-	push	RBP			/* Pseudo-prolog - preserve RBP. */
-	push	RBX			/* Preserve RBX and store pointer to function in it. */
+	ADD(LIT(31),RDI)		/* Align stack to 32-byte. */
+	AND(LIT(-32),RDI)
+	ADD(LIT(8),RDI)		/* Adjust by 8-byte for the return-address. */
+	SUB(RDI,RSP)			/* Setup stack frame by subtracting the size of arguments. */
 
-	mov	RBP, RSP		/* Store stack pointer in RBP.   */
+	MOV(RDI,RCX)			/* Store number of bytes to copy to stack in RCX (for rep movsb). */
+	MOV(RSP,RDI)			/* Store pointer to beginning of stack arguments in RDI (for rep movsb). */
 
-	mov	RBX, R8
+	REP(MOVSB)			/* copy bytes (@@@ should be optimized, movq?). */
 
-	movsd	XMM0, qword ptr[RCX   ]	/* Copy first 8 floats to XMM0-XMM7 (this makes RCX free to use). */
-	movsd	XMM1, qword ptr[RCX+ 8]
-	movsd	XMM2, qword ptr[RCX+16]
-	movsd	XMM3, qword ptr[RCX+24]
-	movsd	XMM4, qword ptr[RCX+32]
-	movsd	XMM5, qword ptr[RCX+40]
-	movsd	XMM6, qword ptr[RCX+48]
-	movsd	XMM7, qword ptr[RCX+56]
+	MOV(QWORD(RDX,0),RDI)		/* copy first six int/pointer arguments to RDI, RSI, RDX, RCX, R8, R9. */
+	MOV(QWORD(RDX,8),RSI)
+	MOV(QWORD(RDX,24),RCX)
+	MOV(QWORD(RDX,32),R8)
+	MOV(QWORD(RDX,40),R9)
+	MOV(QWORD(RDX,16),RDX)		/* Set RDX last to not overwrite it to soon. */
 
-	sub	RSP, RDI		/* Setup stack frame by subtracting the size of the arguments. */
+	MOVB(LIT(8),AL)			/* Put upper bound of number of used xmm registers in AL. */
+	CALL_REG(RBX)			/* Call function. */
 
-	mov	RAX, RDI		/* Align stack. */
-	add	RAX, 8
-	and	RAX, 15
-	sub	RSP, RAX
-
-	mov	RCX, RDI		/* Store number of bytes to copy to stack in RCX (for rep movsb). */
-	mov	RDI, RSP		/* Store pointer to beginning of stack arguments in RDI (for rep movsb). */
-
-	rep movsb			/* @@@ should be optimized (e.g. movq) */
-
-	mov	RDI, qword ptr[RDX   ]	/* Copy first six int/pointer arguments to RDI, RSI, RDX, RCX, R8, R9. */
-	mov	RSI, qword ptr[RDX+ 8]
-	mov	RCX, qword ptr[RDX+24]
-	mov	R8,  qword ptr[RDX+32]
-	mov	R9,  qword ptr[RDX+40]
-	mov	RDX, qword ptr[RDX+16]	/* Set RDX last to not overwrite it to soon. */
-
-	mov	AL, 8						/* Put upper bound of number of used xmm registers in AL. */
-	call	RBX						/* Invoke function. */
-
-	mov	RSP, RBP					/* Restore stack pointer (such that we can pop the preserved vALues). */
-
-	pop	RBX						/* Restore RBX. */
-	pop	RBP						/* Pseudo-epilog. */
-
-	ret
-END_PROC(dcCALl_x64_sysv)
+	MOV(RBP,RSP)			/* Restore stack pointer. */
+	POP(RBX)			/* Restore RBX. */
+	POP(RBP)			/* Pseudo-epilog. */
+	RET()
+END_PROC(dcCall_x64_sysv)
 
 /*---------------------------------------------------------------------------
 
   Call Kernel for x64 Win64
-	
+
   Input:
-    RCX : size of arguments to be passed via stack 
-    RDX : pointer to arguments to be passed via the stack 
-    R8  : pointer to arguments of integral/pointer type to be passed via registers 
+    RCX : size of arguments to be passed via stack
+    RDX : pointer to arguments to be passed via the stack
+    R8  : pointer to arguments of integral/pointer type to be passed via registers
     R9  : target function pointer
 
 */
@@ -105,46 +99,47 @@ END_PROC(dcCALl_x64_sysv)
 GLOBAL(dcCall_x64_win64)
 BEGIN_PROC(dcCall_x64_win64)
 
-	push	RBP			/* Pseudo-prolog - preserve RBP. */
-	push	RSI			/* Preserve RSI and RDI. */
-	push	RDI
-	
-	/* and  RSP, -16		/* Align frame to 16 bytes.    */
-	mov	RBP, RSP		/* Store stack pointer in RBP. */
+	PUSH(RBP)			/* Pseudo-prolog - preserve RBP. */
+	PUSH(RSI)			/* Preserve RSI and RDI. */
+	PUSH(RDI)
 
-	add	RCX, 15			/* Align stack size to 16 bytes. */
-	and	RCX, -16
-	sub	RSP, RCX		/* Setup stack frame by subtracting the size of the arguments. */
+	MOV(RSP,RBP)			/* Store stack pointer in RBP. */
 
-	mov	RSI, RDX		/* Let RSI point to the arguments. */
-	mov	RDI, RSP		/* Store pointer to beginning of stack arguments in RDI (for rep movsb). */
-	mov	RAX, R9			/* Put function address in RAX. */
+	ADD(LIT(15),RCX)		/* Align stack size to 16 bytes. */
+	AND(LIT(-16),RCX)
+	SUB(RCX,RSP)			/* Setup stack frame by subtracting the size of the arguments. */
 
-	rep movsb			/* @@@ should be optimized (e.g. movq) */
 
-	mov	RCX,  qword ptr[R8   ]	/* Copy first four arguments to RCX, RDX, R8, R9 and XMM0-XMM3. */
-	mov	RDX,  qword ptr[R8+ 8]
-	mov	R9,   qword ptr[R8+24]	/* Set R9 first to not overwrite R8 too soon. */
-	mov	R8,   qword ptr[R8+16]
-	movd	XMM0, RCX
-	movd	XMM1, RDX
-	movd	XMM2, R8
-	movd	XMM3, R9
+	MOV(RDX, RSI)			/* Let RSI point to the arguments. */
+	MOV(RSP, RDI)			/* Store pointer to beginning of stack arguments in RDI (for rep movsb). */
+	MOV(R9,  RAX)			/* Put function address in RAX. */
 
-	push	R9			/* Push first four arguments onto the stack preserve area. */
-	push	R8
-	push	RDX
-	push	RCX
+	REP(MOVSB) 			/* @@@ should be optimized (e.g. movq) */
 
-	call	RAX			/* Invoke function. */
+	MOV(QWORD(R8,0),RCX)		/* Copy first four arguments to RCX, RDX, R9, R8 ( and XMM0-XMM3. ) */
+	MOV(QWORD(R8,8),RDX)
+	MOV(QWORD(R8,24),R9)
+	MOV(QWORD(R8,16),R8)
 
-	mov	RSP, RBP		/* Restore stack pointer (such that we can pop the preserved vALues). */
+	MOVD(RCX, XMM0)
+	MOVD(RDX, XMM1)
+	MOVD(R8,  XMM2)
+	MOVD(R9,  XMM3)
 
-	pop	RDI			/* Restore RSI and RDI. */
-	pop	RSI
-	pop	RBP			/* Pseudo-epilog. */
+	PUSH(R9)			/* Push first four arguments onto the stack preserve area. */
+	PUSH(R8)
+	PUSH(RDX)
+	PUSH(RCX)
 
-	ret
+	CALL_REG(RAX)			/* Invoke function. */
+
+	MOV(RBP, RSP)			/* Restore stack pointer (such that we can pop the preserved vALues). */
+
+	POP(RDI)			/* Restore RSI and RDI. */
+	POP(RSI)
+	POP(RBP)			/* Pseudo-epilog. */
+
+	RET()
 
 END_PROC(dcCall_x64_win64)
 
