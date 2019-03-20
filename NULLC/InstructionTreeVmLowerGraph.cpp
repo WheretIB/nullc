@@ -459,4 +459,5 @@ void DumpGraph(VmLoweredModule *lowModule)
 	PrintGraph(instLowerGraphCtx, lowModule);
 
 	OutputContext::FileClose(outputCtx.stream);
+	outputCtx.stream = NULL;
 }

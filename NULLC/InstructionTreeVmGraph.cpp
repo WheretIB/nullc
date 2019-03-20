@@ -512,4 +512,5 @@ void DumpGraph(VmModule *module)
 	PrintGraph(instGraphCtx, module);
 
 	OutputContext::FileClose(outputCtx.stream);
+	outputCtx.stream = NULL;
 }

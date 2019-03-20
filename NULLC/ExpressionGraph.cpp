@@ -991,6 +991,7 @@ void DumpGraph(ExprBase *tree)
 	PrintGraph(exprGraphCtx, tree, "");
 
 	OutputContext::FileClose(outputCtx.stream);
+	outputCtx.stream = NULL;
 }
 
 void DumpGraph(ScopeData *scope)
@@ -1016,4 +1017,5 @@ void DumpGraph(ScopeData *scope)
 	PrintGraph(exprGraphCtx, scope, false);
 
 	OutputContext::FileClose(outputCtx.stream);
+	outputCtx.stream = NULL;
 }
