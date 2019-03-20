@@ -919,6 +919,16 @@ namespace
 
 			if(el.address && el.address->container && !HasAddressTaken(el.address->container))
 			{
+				VariableData *container = el.address->container;
+
+				// Check if there is only a dead store user for this simple-use variable
+				if(container->users.count == 1 && container->users[0]->users.count == 1 && container->users[0]->users[0] == el.storeInst)
+				{
+					module->loadStoreInfo[i] = module->loadStoreInfo.back();
+					module->loadStoreInfo.pop_back();
+					continue;
+				}
+
 				i++;
 				continue;
 			}
