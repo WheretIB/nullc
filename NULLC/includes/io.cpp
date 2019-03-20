@@ -1,5 +1,7 @@
 #include "io.h"
+
 #include "../../NULLC/nullc.h"
+
 #if defined(_MSC_VER)
 	#include <windows.h>
 #endif
@@ -13,44 +15,99 @@
 
 namespace NULLCIO
 {
-	void InitConsole()
+	void *contextFunc = NULL;
+	unsigned (*writeFunc)(void *context, char *data, unsigned length) = NULL;
+	unsigned (*readFunc)(void *context, char *target, unsigned length) = NULL;
+
+	void DefaultInitialize()
 	{
 #if defined(_MSC_VER)
-		AllocConsole();
+		static bool initialized = false;
 
-		freopen("CONOUT$", "w", stdout);
-		freopen("CONIN$", "r", stdin);
+		if(!initialized)
+		{
+			AllocConsole();
+
+			freopen("CONOUT$", "w", stdout);
+			freopen("CONIN$", "r", stdin);
+
+			initialized = true;
+		}
 #endif
 	}
 
-	void DeInitConsole()
+	unsigned DefaultWrite(void *context, char *data, unsigned length)
 	{
-#if defined(_MSC_VER)
-		FreeConsole();
-#endif
+		(void)context;
+
+		DefaultInitialize();
+
+		return (unsigned)fwrite(data, 1, length, stdout);
+	}
+
+	unsigned DefaultRead(void *context, char *target, unsigned length)
+	{
+		(void)context;
+
+		DefaultInitialize();
+
+		return (unsigned)fread(target, 1, length, stdin);
+	}
+
+	void ReadString(char *buf, unsigned length)
+	{
+		if(!length)
+			return;
+
+		*buf = 0;
+
+		char *pos = buf;
+		char ch = 0;
+
+		while(readFunc(contextFunc, &ch, 1))
+		{
+			if(ch == '\n')
+				break;
+
+			*pos++ = ch;
+
+			if(pos + 1 == buf + length)
+				break;
+		}
+
+		*pos = 0;
 	}
 
 	int abs(int x){ return x < 0 ? -x : x; }
 
 	void WriteToConsole(NULLCArray data)
 	{
-		InitConsole();
+		if(!writeFunc)
+			return;
 
 		// Empty arrays are silently ignored
 		if(!data.ptr)
 			return;
 		
-		printf("%.*s", data.len, data.ptr);
+		for(unsigned i = 0; i < data.len; i++)
+		{
+			if(!data.ptr[i])
+				return;
+
+			writeFunc(contextFunc, data.ptr + i, 1);
+		}
 	}
 
 	void WriteLongConsole(long long number, int base)
 	{
-		InitConsole();
 		if(!(base > 1 && base <= 16))
 		{
 			nullcThrowError("ERROR: incorrect base %d", base);
 			return;
 		}
+
+		if(!writeFunc)
+			return;
 
 		static char symb[] = "0123456789abcdef";
 		bool sign = 0;
@@ -72,7 +129,8 @@ namespace NULLCIO
 			buf[i] = buf[size-i-1];
 			buf[size-i-1] = tmp;
 		}
-		printf("%s", buf);
+
+		writeFunc(contextFunc, buf, (unsigned)strlen(buf));
 	}
 
 	void WriteIntConsole(int number, int base)
@@ -82,14 +140,24 @@ namespace NULLCIO
 
 	void WriteDoubleConsole(double num, int precision)
 	{
-		InitConsole();
-		printf("%.*f", precision, num);
+		if(!writeFunc)
+			return;
+
+		char buf[128];
+		snprintf(buf, 128, "%.*f", precision, num);
+
+		writeFunc(contextFunc, buf, (unsigned)strlen(buf));
 	}
 
 	void WriteCharConsole(char ch)
 	{
-		InitConsole();
-		printf("%c", ch);
+		if(!writeFunc)
+			return;
+
+		char buf[128];
+		snprintf(buf, 128, "%c", ch);
+
+		writeFunc(contextFunc, buf, (unsigned)strlen(buf));
 	}
 
 	void ReadIntFromConsole(int* val)
@@ -100,35 +168,39 @@ namespace NULLCIO
 			return;
 		}
 
-		InitConsole();
-		scanf("%d", val);
+		if(!readFunc)
+		{
+			nullcThrowError("ERROR: read stream is not avaiable");
+			return;
+		}
+
+		char buf[128];
+		ReadString(buf, 128);
+
+		sscanf(buf, "%d", val);
 	}
 
 	int ReadTextFromConsole(NULLCArray data)
 	{
-		char buffer[2048];
-
 		if(!data.ptr)
 		{
 			nullcThrowError("ERROR: argument should not be a nullptr");
 			return 0;
 		}
 
-		InitConsole();
-		if(fgets(buffer, 2048, stdin))
-		{
-			char *pos = strchr(buffer, '\n');
-			if(pos)
-				*pos = '\0'; 
-		}
+		if(!readFunc)
+			return 0;
+
+		char buf[2048];
+		ReadString(buf, 2048);
 
 		if(!data.len)
 			return 0;
 
-		unsigned int len = (unsigned int)strlen(buffer) + 1;
+		unsigned int len = (unsigned int)strlen(buf) + 1;
 		char *target = data.ptr;
 		for(unsigned int i = 0; i < (data.len < len ? data.len : len); i++)
-			target[i] = buffer[i];
+			target[i] = buf[i];
 		target[data.len - 1] = 0;
 		
 		return ((unsigned int)len < data.len - 1 ? len : data.len - 1);
@@ -142,8 +214,10 @@ namespace NULLCIO
 			return;
 		}
 
-		InitConsole();
-		fwrite(data.ptr, 1, data.len, stdout);
+		if(!writeFunc)
+			return;
+
+		writeFunc(contextFunc, data.ptr, data.len);
 	}
 
 	void SetConsoleCursorPos(int x, int y)
@@ -237,8 +311,13 @@ namespace NULLCIO
 }
 
 #define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.io", (void(*)())NULLCIO::funcPtr, name, index)) return false;
-bool	nullcInitIOModule()
+
+bool nullcInitIOModule(void *context, unsigned (*writeFunc)(void *context, char *data, unsigned length), unsigned (*readFunc)(void *context, char *target, unsigned length))
 {
+	NULLCIO::contextFunc = context;
+	NULLCIO::writeFunc = writeFunc;
+	NULLCIO::readFunc = readFunc;
+
 	REGISTER_FUNC(WriteToConsole, "Print", 0);
 	REGISTER_FUNC(WriteIntConsole, "Print", 1);
 	REGISTER_FUNC(WriteDoubleConsole, "Print", 2);
@@ -257,4 +336,9 @@ bool	nullcInitIOModule()
 	REGISTER_FUNC(IsToggled, "IsToggled", 1);
 
 	return true;
+}
+
+bool nullcInitIOModule()
+{
+	return nullcInitIOModule(NULL, NULLCIO::DefaultWrite, NULLCIO::DefaultRead);
 }

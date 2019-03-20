@@ -148,7 +148,7 @@ StdOut operator <<(StdOut out, const_string str)
 
 StdOut operator <<(StdOut out, StdEndline str)
 {
-	Print("\r\n");
+	Print("\n");
 	return out;
 }
 
