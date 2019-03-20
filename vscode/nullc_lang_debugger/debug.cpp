@@ -510,3 +510,12 @@ bool SetBasicVariableValue(unsigned typeIndex, char* ptr, const std::string& val
 
 	return true;
 }
+
+unsigned OnIoWrite(void *context, char *data, unsigned length)
+{
+	Context &ctx = *(Context*)context;
+
+	SendEventOutput(ctx, OutputEventData("stdout", std::string(data, data + length)));
+
+	return length;
+}

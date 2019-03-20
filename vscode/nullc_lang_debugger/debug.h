@@ -23,3 +23,5 @@ unsigned ConvertInstructionToLineAndModule(unsigned instruction, unsigned &modul
 
 std::string GetBasicVariableInfo(unsigned typeIndex, char* ptr, bool hex);
 bool SetBasicVariableValue(unsigned typeIndex, char* ptr, const std::string& value);
+
+unsigned OnIoWrite(void *context, char *data, unsigned length);

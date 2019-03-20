@@ -561,7 +561,7 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 
 	if(!nullcInitFileModule())
 		return RespondWithError(ctx, response, "failed to init std.file module");
-	if(!nullcInitIOModule())
+	if(!nullcInitIOModule(&ctx, OnIoWrite, NULL))
 		return RespondWithError(ctx, response, "failed to init std.io module");
 	if(!nullcInitMathModule())
 		return RespondWithError(ctx, response, "failed to init std.math module");
