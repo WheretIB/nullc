@@ -226,7 +226,6 @@ static const char *vmInstructionText[] =
 	"LogNot", "LogNotL",
 	"IncI", "IncD", "IncL",
 	"DecI", "DecD", "DecL",
-	"CreateClosure", "CloseUpvals",
 	"PushTypeID", "ConvertPtr",
 	"PushPtr", "PushPtrStk", "PushPtrImmt",
 	"CheckedRet"

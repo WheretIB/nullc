@@ -204,10 +204,6 @@ void GenCodeCmdDecI(VMCmd cmd);
 void GenCodeCmdDecD(VMCmd cmd);
 void GenCodeCmdDecL(VMCmd cmd);
 
-void GenCodeCmdCreateClosure(VMCmd cmd);
-
-void GenCodeCmdCloseUpvalues(VMCmd cmd);
-
 void GenCodeCmdConvertPtr(VMCmd cmd);
 
 void GenCodeCmdCheckedRet(VMCmd cmd);
