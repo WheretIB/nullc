@@ -516,6 +516,14 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 			return RespondWithError(ctx, response, "failed to launch nullc");
 
 		nullcAddImportPath(ctx.modulePath.c_str());
+
+		{
+			std::string workspacePath = *ctx.launchArgs.workspaceFolder;
+
+			workspacePath += "/";
+
+			nullcAddImportPath(workspacePath.c_str());
+		}
 	}
 	else
 	{
