@@ -183,7 +183,7 @@ struct Test_##code : TestQueue {	\
 		}	\
 	}	\
 };	\
-Test_##code test_##code;
+Test_##code test_##code
 
 #define TEST_RESULT_SIMPLE(name, code, result)	\
 struct Test_##code : TestQueue {	\
@@ -198,7 +198,7 @@ struct Test_##code : TestQueue {	\
 		}	\
 	}	\
 };	\
-Test_##code test_##code;
+Test_##code test_##code
 
 #define LOAD_MODULE(id, name, code)	\
 struct Test_##id : TestQueue {	\
@@ -210,7 +210,7 @@ struct Test_##id : TestQueue {	\
 			printf("Test " name " failed: %s\n", nullcGetLastError());	\
 	}	\
 };	\
-Test_##id test_##id;
+Test_##id test_##id
 
 #define LOAD_MODULE_BIND(id, name, code)	\
 struct Test_##id : TestQueue {	\

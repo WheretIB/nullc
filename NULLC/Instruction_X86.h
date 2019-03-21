@@ -2,13 +2,13 @@
 
 #include "stdafx.h"
 
-enum x86Reg{ rNONE, rEAX, rEBX, rECX, rEDX, rESP, rEDI, rEBP, rESI, };
+enum x86Reg{ rNONE, rEAX, rEBX, rECX, rEDX, rESP, rEDI, rEBP, rESI };
 static const char* x86RegText[] = { "none", "eax", "ebx", "ecx", "edx", "esp", "edi", "ebp", "esi" };
 
-enum x87Reg{ rST0, rST1, rST2, rST3, rST4, rST5, rST6, rST7, };
+enum x87Reg{ rST0, rST1, rST2, rST3, rST4, rST5, rST6, rST7 };
 static const char* x87RegText[] = { "st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7" };
 
-enum x86Size{ sNONE, sBYTE, sWORD, sDWORD, sQWORD, };
+enum x86Size{ sNONE, sBYTE, sWORD, sDWORD, sQWORD };
 static const char* x86SizeText[] = { "none", "byte", "word", "dword", "qword" };
 
 enum x86Cond{ condO, condNO, condB, condC, condNAE, condAE, condNB, condNC, condE, condZ, condNE, condNZ,
@@ -108,10 +108,12 @@ enum x86Command
 	o_use32,
 	o_nop,
 	o_other,
+
+	// Aliases
+	o_jc = o_jb,
+	o_jz = o_je,
+	o_jnz = o_jne
 };
-#define o_jc o_jb
-#define o_jz o_je
-#define o_jnz o_jne
 
 static const char* x86CmdText[] = 
 {	"", "mov", "movsx", "push", "pop", "lea", "cdq", "rep movsd",
@@ -230,11 +232,11 @@ struct x86Argument
 		}
 		else if(type == argLabel)
 		{
-			curr += sprintf(curr, "'0x%p'", (int*)(intptr_t)labelID);
+			curr += sprintf(curr, "'0x%p'", (void*)(intptr_t)labelID);
 		}
 		else if(type == argPtrLabel)
 		{
-			curr += sprintf(curr, "['0x%p'+%d]", (int*)(intptr_t)labelID, ptrNum);
+			curr += sprintf(curr, "['0x%p'+%d]", (void*)(intptr_t)labelID, ptrNum);
 		}
 		else if(type == argPtr)
 		{
@@ -302,7 +304,7 @@ struct x86Instruction
 
 		if(name == o_label)
 		{
-			curr += sprintf(curr, "0x%p:", (int*)(intptr_t)labelID);
+			curr += sprintf(curr, "0x%p:", (void*)(intptr_t)labelID);
 		}
 		else if(name == o_other)
 		{

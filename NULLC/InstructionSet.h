@@ -197,7 +197,7 @@ enum InstructionCode
 
 	cmdCheckedRet,
 
-	cmdEnumCount,
+	cmdEnumCount
 };
 
 static const char *vmInstructionText[] =
@@ -378,7 +378,7 @@ enum asmStackType
 	STYPE_LONG,
 	STYPE_COMPLEX_TYPE,
 	STYPE_DOUBLE,
-	STYPE_FORCE_DWORD = 1<<30,
+	STYPE_FORCE_DWORD = 1<<30
 };
 
 // Types of values on variable stack
@@ -391,7 +391,7 @@ enum asmDataType
 	DTYPE_FLOAT=16,
 	DTYPE_DOUBLE=20,
 	DTYPE_COMPLEX_TYPE=24,
-	DTYPE_FORCE_DWORD = 1<<30,
+	DTYPE_FORCE_DWORD = 1<<30
 };
 
 // Type of operation (for operation flag)
@@ -400,7 +400,7 @@ enum asmOperType
 	OTYPE_DOUBLE,
 	OTYPE_COMPLEX,
 	OTYPE_LONG,
-	OTYPE_INT,
+	OTYPE_INT
 };
 
 // Constants for RetFlag creation from different bits

@@ -37,7 +37,7 @@ enum VmValueType
 	VM_TYPE_AUTO_REF,
 	VM_TYPE_AUTO_ARRAY,
 
-	VM_TYPE_STRUCT,
+	VM_TYPE_STRUCT
 };
 
 enum VmInstructionType
@@ -117,7 +117,7 @@ enum VmInstructionType
 	VM_INST_EXTRACT, // Pseudo instruction to extract an element from a composite value
 	VM_INST_UNYIELD, // Pseudo instruction to restore function execution state
 	VM_INST_PHI, // Pseudo instruction to create a value based on control flow
-	VM_INST_BITCAST, // Pseudo instruction to transform value type
+	VM_INST_BITCAST // Pseudo instruction to transform value type
 };
 
 enum VmPassType
@@ -131,7 +131,7 @@ enum VmPassType
 
 	VM_PASS_CREATE_ALLOCA_STORAGE,
 
-	VM_PASS_LEGALIZE_VM,
+	VM_PASS_LEGALIZE_VM
 };
 
 struct VmType

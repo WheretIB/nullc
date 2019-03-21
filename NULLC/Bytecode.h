@@ -8,7 +8,7 @@
 
 struct ExternTypeInfo
 {
-	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR, };
+	enum TypeCategory{ TYPE_COMPLEX, TYPE_VOID, TYPE_INT, TYPE_FLOAT, TYPE_LONG, TYPE_DOUBLE, TYPE_SHORT, TYPE_CHAR };
 
 	unsigned int	offsetToName;
 
@@ -16,7 +16,7 @@ struct ExternTypeInfo
 	unsigned int	padding;
 	TypeCategory	type;
 
-	enum SubCategory{ CAT_NONE, CAT_ARRAY, CAT_POINTER, CAT_FUNCTION, CAT_CLASS, };
+	enum SubCategory{ CAT_NONE, CAT_ARRAY, CAT_POINTER, CAT_FUNCTION, CAT_CLASS };
 	SubCategory		subCat;
 
 	enum TypeFlags
@@ -24,7 +24,7 @@ struct ExternTypeInfo
 		TYPE_HAS_FINALIZER = 1 << 0,
 		TYPE_DEPENDS_ON_GENERIC = 1 << 1,
 		TYPE_IS_EXTENDABLE = 1 << 2,
-		TYPE_INTERNAL = 1 << 3,
+		TYPE_INTERNAL = 1 << 3
 	};
 
 	unsigned char	defaultAlign;
@@ -117,7 +117,7 @@ struct ExternFuncInfo
 		RETURN_VOID,
 		RETURN_INT,
 		RETURN_DOUBLE,
-		RETURN_LONG,
+		RETURN_LONG
 	};
 	unsigned char	retType;	// one of the ReturnType enumeration values
 	enum FunctionCategory

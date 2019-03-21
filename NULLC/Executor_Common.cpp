@@ -227,7 +227,7 @@ void nullcPrintAutoArrayInfo(char* ptr, unsigned indentDepth)
 	nullcPrintDepthIndent(indentDepth);
 	printf("typeid type = %d (%s)\n", arr->typeID, codeSymbols + codeTypes[arr->typeID].offsetToName);
 	nullcPrintDepthIndent(indentDepth);
-	printf("%s[] data = %p\n", codeSymbols + codeTypes[arr->typeID].offsetToName, arr->ptr);
+	printf("%s[] data = %p\n", codeSymbols + codeTypes[arr->typeID].offsetToName, (void*)arr->ptr);
 }
 
 void nullcPrintVariableInfo(const ExternTypeInfo& type, char* ptr, unsigned indentDepth);
@@ -253,7 +253,7 @@ void nullcPrintFunctionPointerInfo(const ExternTypeInfo& type, char* ptr, unsign
 	printf(")\n");
 
 	nullcPrintDepthIndent(indentDepth);
-	printf("%s context = %p\n", func.contextType == ~0u ? "void ref" : codeSymbols + codeTypes[func.contextType].offsetToName, *(char**)(ptr));
+	printf("%s context = %p\n", func.contextType == ~0u ? "void ref" : codeSymbols + codeTypes[func.contextType].offsetToName, *(void**)(ptr));
 
 	if(*(char**)(ptr))
 		nullcPrintVariableInfo(codeTypes[codeTypes[func.contextType].subType], *(char**)(ptr), indentDepth + 1);
@@ -371,7 +371,7 @@ void nullcDumpStackData()
 			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
 			offset += alignOffset;
 
-			printf("%p: function %s(", data + offset, codeSymbols + function.offsetToName);
+			printf("%p: function %s(", (void*)(data + offset), codeSymbols + function.offsetToName);
 			for(unsigned arg = 0; arg < function.paramCount; arg++)
 			{
 				ExternLocalInfo &lInfo = codeLocals[function.offsetToFirstLocal + arg];
@@ -389,7 +389,7 @@ void nullcDumpStackData()
 				ExternTypeInfo &localType = codeTypes[lInfo.type];
 
 				nullcPrintDepthIndent(indent);
-				printf("%p: %s %s", data + offset + lInfo.offset, codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
+				printf("%p: %s %s", (void*)(data + offset + lInfo.offset), codeSymbols + codeTypes[lInfo.type].offsetToName, codeSymbols + lInfo.offsetToName);
 
 				if(localType.subCat == ExternTypeInfo::CAT_NONE || localType.subCat == ExternTypeInfo::CAT_POINTER)
 				{
@@ -416,7 +416,7 @@ void nullcDumpStackData()
 				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
 
 				nullcPrintDepthIndent(indent);
-				printf("%p: %s %s = %p\n", ptr, "$this", codeSymbols + codeTypes[function.parentType].offsetToName, *(char**)ptr);
+				printf("%p: %s %s = %p\n", (void*)ptr, "$this", codeSymbols + codeTypes[function.parentType].offsetToName, *(void**)ptr);
 			}
 
 			if(function.contextType != ~0u)
@@ -424,7 +424,7 @@ void nullcDumpStackData()
 				char *ptr = (char*)(data + offset + function.bytesToPop - NULLC_PTR_SIZE);
 
 				nullcPrintDepthIndent(indent);
-				printf("%p: %s %s = %p\n", ptr, "$context", codeSymbols + codeTypes[function.contextType].offsetToName, *(char**)ptr);
+				printf("%p: %s %s = %p\n", (void*)ptr, "$context", codeSymbols + codeTypes[function.contextType].offsetToName, *(void**)ptr);
 			}
 
 			offset += offsetToNextFrame;
@@ -436,7 +436,7 @@ void nullcDumpStackData()
 				ExternTypeInfo &type = codeTypes[codeVars[i].type];
 
 				nullcPrintDepthIndent(indent);
-				printf("%p: %s %s", data + codeVars[i].offset, codeSymbols + type.offsetToName, codeSymbols + codeVars[i].offsetToName);
+				printf("%p: %s %s", (void*)(data + codeVars[i].offset), codeSymbols + type.offsetToName, codeSymbols + codeVars[i].offsetToName);
 
 				if(type.subCat == ExternTypeInfo::CAT_NONE || type.subCat == ExternTypeInfo::CAT_POINTER)
 				{

@@ -43,7 +43,7 @@ default:\r\n\
 	i = 4;\r\n\
 }\r\n\
 return i;";
-TEST_RESULT("Switch test (double)", testSwitch2, "2")
+TEST_RESULT("Switch test (double)", testSwitch2, "2");
 
 const char	*testSwitch3 = 
 "int a = 1;\r\n\
@@ -60,7 +60,7 @@ case 4l:\r\n\
 }\r\n\
 \r\n\
 return b;";
-TEST_RESULT("Switch test (int switch, double case)", testSwitch3, "2")
+TEST_RESULT("Switch test (int switch, double case)", testSwitch3, "2");
 
 const char	*testSwitch4 = 
 "int a = 4;\r\n\
@@ -77,7 +77,7 @@ case 4l:\r\n\
 }\r\n\
 \r\n\
 return b;";
-TEST_RESULT("Switch test (int switch, long case)", testSwitch4, "5")
+TEST_RESULT("Switch test (int switch, long case)", testSwitch4, "5");
 
 const char	*testSwitch5 = 
 "float a = 4.0f;\r\n\
@@ -94,7 +94,7 @@ case 4l:\r\n\
 }\r\n\
 \r\n\
 return b;";
-TEST_RESULT("Switch test (float switch, long case)", testSwitch5, "5")
+TEST_RESULT("Switch test (float switch, long case)", testSwitch5, "5");
 
 const char	*testDepthBreakContinue = 
 "int i, k = 0;\r\n\
@@ -158,7 +158,7 @@ do\r\n\
 	bool wrong = ++i < 10;\r\n\
 }while(wrong);\r\n\
 return i;";
-TEST_RESULT("do...while cycle variable scope test", testDoWhileScope, "10")
+TEST_RESULT("do...while cycle variable scope test", testDoWhileScope, "10");
 
 const char	*testDoWhileScope2 =
 "int i;\r\n\
@@ -167,31 +167,31 @@ do\r\n\
 	int i;\r\n\
 }while(0);\r\n\
 return 1;";
-TEST_RESULT("do...while cycle variable scope test 2", testDoWhileScope2, "1")
+TEST_RESULT("do...while cycle variable scope test 2", testDoWhileScope2, "1");
 
 const char	*testConditionType1 =
 "long i = 10;\r\n\
 while(i) i--;\r\n\
 return int(i);";
-TEST_RESULT("Unusual loop condition types 1", testConditionType1, "0")
+TEST_RESULT("Unusual loop condition types 1", testConditionType1, "0");
 
 const char	*testConditionType2 =
 "float i = 10;\r\n\
 while(i) i = 0.0f;\r\n\
 return int(i);";
-TEST_RESULT("Unusual loop condition types 2", testConditionType2, "0")
+TEST_RESULT("Unusual loop condition types 2", testConditionType2, "0");
 
 const char	*testConditionType3 =
 "double i = 10;\r\n\
 while(i) i = 0.0;\r\n\
 return int(i);";
-TEST_RESULT("Unusual loop condition types 3", testConditionType3, "0")
+TEST_RESULT("Unusual loop condition types 3", testConditionType3, "0");
 
 const char	*testConditionType4 =
 "short i = 10;\r\n\
 while(i) i--;\r\n\
 return int(i);";
-TEST_RESULT("Unusual loop condition types 4", testConditionType4, "0")
+TEST_RESULT("Unusual loop condition types 4", testConditionType4, "0");
 
 const char	*testSwitchContinue1 =
 "int s = 0;\r\n\
@@ -208,7 +208,7 @@ for(int i = 0; i < 10; i++)\r\n\
 }\r\n\
 \r\n\
 return s;";
-TEST_RESULT("Continue from switch 1", testSwitchContinue1, "41")
+TEST_RESULT("Continue from switch 1", testSwitchContinue1, "41");
 
 const char	*testSwitchContinue2 =
 "int s = 0;\r\n\
@@ -233,7 +233,7 @@ for(int i = 0; i < 10; i++)\r\n\
 }\r\n\
 \r\n\
 return s;";
-TEST_RESULT("Continue from switch 2", testSwitchContinue2, "41")
+TEST_RESULT("Continue from switch 2", testSwitchContinue2, "41");
 
 const char	*testSwitchFallthrough1 = 
 "int a = 5;\r\n\
@@ -248,7 +248,7 @@ case 2:\r\n\
 	i = 2;\r\n\
 }\r\n\
 return i;";
-TEST_RESULT("Switch test (fallthrough)", testSwitchFallthrough1, "2")
+TEST_RESULT("Switch test (fallthrough)", testSwitchFallthrough1, "2");
 
 const char	*testSwitchFallthrough2 = 
 "int a = 5;\r\n\
@@ -263,4 +263,4 @@ default:\r\n\
 	i = 2;\r\n\
 }\r\n\
 return i;";
-TEST_RESULT("Switch test (fallthrough to default)", testSwitchFallthrough2, "2")
+TEST_RESULT("Switch test (fallthrough to default)", testSwitchFallthrough2, "2");
