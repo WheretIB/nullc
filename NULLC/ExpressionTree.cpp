@@ -11596,7 +11596,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		bool coroutine = function.funcCat == ExternFuncInfo::COROUTINE;
 		bool accessor = *(functionName.end - 1) == '$';
-		bool isOperator = function.isOperator;
+		bool isOperator = function.isOperator != 0;
 
 		if(parentType)
 			ctx.PushScope(parentType);
