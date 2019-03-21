@@ -486,13 +486,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 				return false;
 			}
 #endif
-#if defined(__CELLOS_LV2__)
-			if(exFunctions.back().funcPtr != NULL && !exFunctions.back().ps3Callable)
-			{
-				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' is not callable on PS3", FindSymbols(bCode) + exFunctions.back().offsetToName);
-				return false;
-			}
-#endif
+
 			// For function prototypes
 			if(exFunctions.back().codeSize & 0x80000000)
 			{

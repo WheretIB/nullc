@@ -70,7 +70,7 @@ struct NULLCAutoArray
 
 #define NULLC_COMPLEX_RETURN
 
-#if defined(__arm__)
+#if defined(__CELLOS_LV2__) || defined(__arm__)
 	#define NULLC_USE_DYNCALL
 #endif
 

@@ -1998,7 +1998,7 @@ bool Executor::RunCallStackHelper(unsigned funcID, unsigned extraPopDW, unsigned
 }
 #endif
 
-#if !defined(__CELLOS_LV2__) && !defined(_M_X64) && !defined(NULLC_USE_DYNCALL)
+#if !defined(_M_X64) && !defined(NULLC_USE_DYNCALL)
 
 // X86 implementation
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
@@ -2074,96 +2074,6 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	__asm mov eax, dwordsToPop
 	__asm lea esp, [eax * 4 + esp]
 #endif
-	return callContinue;
-}
-
-#elif defined(__CELLOS_LV2__)
-// PS3 implementation
-#define MAKE_FUNC_PTR_TYPE(retType, typeName) typedef retType (*typeName)(			\
-	unsigned long long, unsigned long long, unsigned long long, unsigned long long,	\
-	unsigned long long, unsigned long long, unsigned long long, unsigned long long,	\
-	double, double, double, double, double, double, double, double					\
-	);
-MAKE_FUNC_PTR_TYPE(void, VoidFunctionPtr)
-MAKE_FUNC_PTR_TYPE(int, IntFunctionPtr)
-MAKE_FUNC_PTR_TYPE(double, DoubleFunctionPtr)
-MAKE_FUNC_PTR_TYPE(long long, LongFunctionPtr)
-
-bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
-{
-	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2) + extraPopDW;
-
-	struct BigReturnForce
-	{
-		unsigned	unused[128];
-	};
-	MAKE_FUNC_PTR_TYPE(BigReturnForce, BigReturnFunctionPtr)
-
-	// Ireg argument variants
-	unsigned long long argsI[8][4];
-	for(unsigned i = 0; i < 8; i++)
-	{
-		const void *ptr = genStackPtr + (exFunctions[funcID].rOffsets[i] & 0x3fffffff);
-		// int
-		argsI[i][0] = (unsigned long long)*(const int*)ptr;
-		// long long
-		argsI[i][1] = *(const unsigned long long*)ptr;
-		// pointer
-		argsI[i][2] = (unsigned long long)*(const unsigned*)ptr;
-		// struct
-		argsI[i][3] = (unsigned long long)(uintptr_t)ptr;
-	}
-	// Freg argument variants
-	double argsF[8][2];
-	for(unsigned i = 0; i < 8; i++)
-	{
-		const void *ptr = genStackPtr + (exFunctions[funcID].fOffsets[i] & 0x7fffffff);
-		// double
-		argsF[i][0] = *(const double*)ptr;
-		// float
-		argsF[i][1] = (double)*(const float*)ptr;
-	}
-
-	#define R(i) argsI[i][exFunctions[funcID].rOffsets[i] >> 30]
-	#define F(i) argsF[i][exFunctions[funcID].fOffsets[i] >> 31]
-
-	unsigned int *newStackPtr = genStackPtr + dwordsToPop;
-	// call function
-	switch(exFunctions[funcID].retType)
-	{
-	case ExternFuncInfo::RETURN_VOID:
-		// cast function pointer so we can call it and call it
-		((VoidFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
-		break;
-	case ExternFuncInfo::RETURN_INT:
-		newStackPtr -= 1;
-		// cast function pointer so we can call it and call it
-		*newStackPtr = ((IntFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
-		break;
-	case ExternFuncInfo::RETURN_DOUBLE:
-		newStackPtr -= 2;
-		// cast function pointer so we can call it and call it
-		*(double*)newStackPtr = ((DoubleFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
-		break;
-	case ExternFuncInfo::RETURN_LONG:
-		newStackPtr -= 2;
-		// cast function pointer so we can call it and call it
-		*(long long*)newStackPtr = ((LongFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
-		break;
-	case ExternFuncInfo::RETURN_UNKNOWN:
-	{
-		unsigned int ret[128];
-		*(BigReturnForce*)ret = ((BigReturnFunctionPtr)exFunctions[funcID].funcPtr)(R(0), R(1), R(2), R(3), R(4), R(5), R(6), R(7), F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(7));
-		newStackPtr -= exFunctions[funcID].returnShift;
-		memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
-	}
-		break;
-	}
-	genStackPtr = newStackPtr;
-
-	#undef F
-	#undef R
-
 	return callContinue;
 }
 

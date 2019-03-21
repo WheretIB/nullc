@@ -331,9 +331,6 @@ TEST_RESULT("External function call. float type.", testExternalCallBasic5, "3");
 const char	*testExternalCallBasic6 = "import test.ext1;\r\n	auto Double = double_;\r\n	return int(Double(2.0));";
 TEST_RESULT("External function call. double type.", testExternalCallBasic6, "2");
 
-// Tests check parameter passing through stack, so PS3 is disabled, since such external functions are unsupported
-#if !defined(__CELLOS_LV2__)
-
 LOAD_MODULE_BIND(test_ext2, "test.ext2", "int Call(char a, short b, int c, long d, char e, short f, int g, long h, char i, short j, int k, long l);")
 {
 	nullcBindModuleFunction("test.ext2", (void (*)())TestExt2, "Call", 0);
@@ -369,7 +366,6 @@ const char	*testExternalCall4d =
 "import test.ext4d;\r\n\
 return Call(-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12);";
 TEST_RESULT("External function call. Basic types (more FP), arguments through stack. sx", testExternalCall4d, "1");
-#endif
 
 LOAD_MODULE_BIND(test_ext5, "test.ext5", "int Call(char a, short b, int c, char d, short e, int f);")
 {
@@ -771,7 +767,6 @@ LOAD_MODULE_BIND(test_extK3, "test.extK3", "auto ref Call(auto ref a, int ref b)
 const char	*testExternalCallK3 = "import test.extK3;\r\n int a = 3, b = 2;\r\nauto ref u = Call(a, &b); return int(u) == 30 && b == 20;";
 TEST_RESULT("External function call. auto ref and int ref, auto ref return.", testExternalCallK3, "1");
 
-#if !defined(__CELLOS_LV2__)
 LOAD_MODULE_BIND(test_extK4, "test.extK4", "int Call(auto ref x, y, z, w, a, b, c);")
 {
 	nullcBindModuleFunction("test.extK4", (void (*)())TestExtK4, "Call", 0);
@@ -792,7 +787,6 @@ LOAD_MODULE_BIND(test_extK6, "test.extK6", "int Call(int[] x, int w, int[] y, z)
 }
 const char	*testExternalCallK6 = "import test.extK6;\r\n return Call({10}, 4, {20,2}, {30,1,2});";
 TEST_RESULT("External function call. Class divided between reg/stack (amd64)", testExternalCallK6, "1");
-#endif
 
 LOAD_MODULE_BIND(test_extL, "test.extL", "void Call(int ref a);")
 {

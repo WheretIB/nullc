@@ -153,10 +153,6 @@ struct ExternFuncInfo
 
 // For x86 function call
 	unsigned int	bytesToPop;
-// For PS3 function call
-	unsigned int	rOffsets[8];
-	unsigned int	fOffsets[8];
-	unsigned int	ps3Callable;
 
 	// For generic functions
 	unsigned int	genericOffsetStart; // Position in the lexeme stream of the definition
