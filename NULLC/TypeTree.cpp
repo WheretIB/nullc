@@ -119,9 +119,13 @@ InplaceStr GetOperatorName(InplaceStr name)
 
 InplaceStr GetReferenceTypeName(ExpressionContext &ctx, TypeBase* type)
 {
-	unsigned nameLength = unsigned(type->name.length() + strlen(" ref"));
+	unsigned typeNameLength = unsigned(type->name.end - type->name.begin);
+
+	unsigned nameLength = unsigned(typeNameLength + 4);
 	char *name = (char*)ctx.allocator->alloc(nameLength + 1);
-	sprintf(name, "%.*s ref", FMT_ISTR(type->name));
+
+	memcpy(name, type->name.begin, typeNameLength);
+	memcpy(name + typeNameLength, " ref", 5);
 
 	return InplaceStr(name);
 }
