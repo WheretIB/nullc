@@ -6,6 +6,8 @@
 #include "InstructionTreeVmLower.h"
 #include "InstructionTreeVmCommon.h"
 
+void (*nullcDumpGraphVmLoweredModule)(VmLoweredModule*) = DumpGraph;
+
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
 NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(InstructionVmLowerGraphContext &ctx, const char *format, ...)

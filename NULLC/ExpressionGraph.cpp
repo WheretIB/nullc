@@ -4,6 +4,8 @@
 
 #include "ExpressionTree.h"
 
+void (*nullcDumpGraphExprBase)(ExprBase*) = DumpGraph;
+
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
 NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(ExpressionGraphContext &ctx, const char *format, ...)
