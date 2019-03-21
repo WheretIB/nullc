@@ -31,9 +31,9 @@ public:
 	{
 		colorer->ColorCode(style, start, end);
 	}
-	void operator()(int style, const char* start, const char* end)
+	void operator()(int codeStyle, const char* start, const char* end)
 	{
-		colorer->ColorCode(style, start, end);
+		colorer->ColorCode(codeStyle, start, end);
 	}
 private:
 	Colorer *colorer;
