@@ -1,7 +1,5 @@
 #include "TestBase.h"
 
-#include <vector>
-
 #include "../NULLC/nullc_debug.h"
 #include "../NULLC/nullc_internal.h"
 
@@ -108,11 +106,14 @@ namespace Tests
 	void (*writeStreamFunc)(void *stream, const char *data, unsigned size) = WriteStream;
 	void (*closeStreamFunc)(void* stream) = CloseStream;
 
-	std::vector<char*> translationDependencies;
+	unsigned translationDependencyCount = 0;
+	char *translationDependencies[128];
 
 	void AddDependency(const char *fileName)
 	{
-		translationDependencies.push_back(strdup(fileName));
+		assert(translationDependencyCount < 128);
+
+		translationDependencies[translationDependencyCount++] = strdup(fileName);
 	}
 
 	void AcceptSyntaxNode(void *context, SynBase *node)
@@ -301,10 +302,10 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 
 		if(executor == NULLC_VM && !execShouldFail && doSaveTranslation)
 		{
-			for(unsigned i = 0; i < translationDependencies.size(); i++)
+			for(unsigned i = 0; i < translationDependencyCount; i++)
 				free(translationDependencies[i]);
 
-			translationDependencies.clear();
+			translationDependencyCount = 0;
 
 			if(!nullcTranslateToC("1test.cpp", "main", AddDependency))
 			{
@@ -475,7 +476,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " ../NULLC/translation/runtime.cpp -lstdc++");
 		pos += strlen(pos);
 
-		for(unsigned i = 0; i < translationDependencies.size(); i++)
+		for(unsigned i = 0; i < translationDependencyCount; i++)
 		{
 			const char *dependency = translationDependencies[i];
 
@@ -513,10 +514,10 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 			}
 		}
 
-		for(unsigned i = 0; i < translationDependencies.size(); i++)
+		for(unsigned i = 0; i < translationDependencyCount; i++)
 			free(translationDependencies[i]);
 
-		translationDependencies.clear();
+		translationDependencyCount = 0;
 
 #if defined(_MSC_VER)
 		DWORD res = CreateProcess(NULL, cmdLine, NULL, NULL, false, 0, NULL, ".\\", &stInfo, &prInfo);
