@@ -685,7 +685,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			unsigned int count = cmd.argument;
 
 #ifdef _M_X64
-			char *start =  vmLoadPointer(genStackPtr);
+			char *start = vmLoadPointer(genStackPtr);
 			genStackPtr += 2;
 #else
 			char *start = vmLoadPointer(genStackPtr);
@@ -1323,6 +1323,18 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	bool returnByPointer = func.returnShift > 1;
 #elif !defined(_M_X64)
 	bool returnByPointer = true;
+#elif defined(__aarch64__)
+	ExternTypeInfo &funcType = exTypes[func.funcType];
+
+	ExternMemberInfo &member = exLinker->exTypeExtra[funcType.memberOffset];
+	ExternTypeInfo &returnType = exLinker->exTypes[member.type];
+
+	bool returnByPointer = false;
+
+	bool opaqueType = returnType.subCat != ExternTypeInfo::CAT_CLASS || returnType.memberCount == 0;
+
+	bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 0, 8, exLinker);
+	bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(returnType, 8, 16, exLinker);
 #else
 	ExternTypeInfo &funcType = exTypes[func.funcType];
 
@@ -1352,7 +1364,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		switch(tInfo.type)
 		{
 		case ExternTypeInfo::TYPE_COMPLEX:
-#if defined(_WIN64)
+#if defined(_WIN64) || defined(__aarch64__)
 			if(tInfo.size <= 4)
 			{
 				// This branch also handles 0 byte structs
@@ -1488,44 +1500,76 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		}else{
 			dcCallVoid(dcCallVM, fPtr);
 
-			newStackPtr -= exFunctions[funcID].returnShift;
+			newStackPtr -= func.returnShift;
 			// copy return value on top of the stack
-			memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
+			memcpy(newStackPtr, ret, func.returnShift * 4);
 		}
 #elif !defined(_M_X64)
 		dcCallPointer(dcCallVM, fPtr);
 
-		newStackPtr -= exFunctions[funcID].returnShift;
+		newStackPtr -= func.returnShift;
 		// copy return value on top of the stack
-		memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
-#else
-		if(returnByPointer)
+		memcpy(newStackPtr, ret, func.returnShift * 4);
+#elif defined(__aarch64__)
+		if(func.returnShift > 4)
 		{
-			dcCallPointer(dcCallVM, fPtr);
+			newStackPtr -= func.returnShift;
 
-			newStackPtr -= exFunctions[funcID].returnShift;
-			// copy return value on top of the stack
-			memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
-		}else{
-			newStackPtr -= exFunctions[funcID].returnShift;
+			DCcomplexbig res = dcCallComplexBig(dcCallVM, fPtr);
+
+			memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+		}
+		else
+		{
+			newStackPtr -= func.returnShift;
 
 			if(!firstQwordInteger && !secondQwordInteger)
 			{
 				DCcomplexdd res = dcCallComplexDD(dcCallVM, fPtr);
 
-				memcpy(newStackPtr, &res, exFunctions[funcID].returnShift * 4); // copy return value on top of the stack
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
 			}else if(firstQwordInteger && !secondQwordInteger){
 				DCcomplexld res = dcCallComplexLD(dcCallVM, fPtr);
 
-				memcpy(newStackPtr, &res, exFunctions[funcID].returnShift * 4); // copy return value on top of the stack
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
 			}else if(!firstQwordInteger && secondQwordInteger){
 				DCcomplexdl res = dcCallComplexDL(dcCallVM, fPtr);
 
-				memcpy(newStackPtr, &res, exFunctions[funcID].returnShift * 4); // copy return value on top of the stack
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
 			}else{
 				DCcomplexll res = dcCallComplexLL(dcCallVM, fPtr);
 
-				memcpy(newStackPtr, &res, exFunctions[funcID].returnShift * 4); // copy return value on top of the stack
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}
+		}
+#else
+		if(returnByPointer)
+		{
+			dcCallPointer(dcCallVM, fPtr);
+
+			newStackPtr -= func.returnShift;
+			// copy return value on top of the stack
+			memcpy(newStackPtr, ret, func.returnShift * 4);
+		}else{
+			newStackPtr -= func.returnShift;
+
+			if(!firstQwordInteger && !secondQwordInteger)
+			{
+				DCcomplexdd res = dcCallComplexDD(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}else if(firstQwordInteger && !secondQwordInteger){
+				DCcomplexld res = dcCallComplexLD(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}else if(!firstQwordInteger && secondQwordInteger){
+				DCcomplexdl res = dcCallComplexDL(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
+			}else{
+				DCcomplexll res = dcCallComplexLL(dcCallVM, fPtr);
+
+				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
 			}
 		}
 #endif

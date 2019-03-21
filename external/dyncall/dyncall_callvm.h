@@ -86,6 +86,7 @@ typedef DCcomplexdd    (DCcomplexddvmfunc)   (DCCallVM* vm,DCpointer funcptr);
 typedef DCcomplexdl    (DCcomplexdlvmfunc)   (DCCallVM* vm,DCpointer funcptr);
 typedef DCcomplexld    (DCcomplexldvmfunc)   (DCCallVM* vm,DCpointer funcptr);
 typedef DCcomplexll    (DCcomplexllvmfunc)   (DCCallVM* vm,DCpointer funcptr);
+typedef DCcomplexbig   (DCcomplexbigvmfunc)  (DCCallVM* vm,DCpointer funcptr);
 
 /* Common base functions for CallVM implementations. */
 

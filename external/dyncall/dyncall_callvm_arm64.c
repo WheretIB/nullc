@@ -127,6 +127,27 @@ DCCallVM_vt vt_arm64 =
 , NULL /* callStruct */
 };
 
+DCcomplexdd dcCallComplexDD(DCCallVM* vm, DCpointer funcptr)
+{
+  return ((DCcomplexddvmfunc*)&call)(vm, funcptr);
+}
+DCcomplexdl dcCallComplexDL(DCCallVM* vm, DCpointer funcptr)
+{
+  return ((DCcomplexdlvmfunc*)&call)(vm, funcptr);
+}
+DCcomplexld dcCallComplexLD(DCCallVM* vm, DCpointer funcptr)
+{
+  return ((DCcomplexldvmfunc*)&call)(vm, funcptr);
+}
+DCcomplexll dcCallComplexLL(DCCallVM* vm, DCpointer funcptr)
+{
+  return ((DCcomplexllvmfunc*)&call)(vm, funcptr);
+}
+DCcomplexbig dcCallComplexBig(DCCallVM* vm, DCpointer funcptr)
+{
+  return ((DCcomplexbigvmfunc*)&call)(vm, funcptr);
+}
+
 static void mode(DCCallVM* in_self, DCint mode)
 {
   DCCallVM_arm64* self = (DCCallVM_arm64*)in_self;

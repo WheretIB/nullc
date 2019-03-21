@@ -63,7 +63,7 @@ struct NULLCAutoArray
 	#define NULLC_BIND extern "C" __declspec(dllexport)
 #endif
 
-#if (defined(_MSC_VER) || defined(__DMC__) || defined(__linux)) && !defined(_M_X64) && !defined(NULLC_NO_EXECUTOR) && !defined(__x86_64__) && !defined(__arm__)
+#if (defined(_MSC_VER) || defined(__DMC__) || defined(__linux)) && !defined(_M_X64) && !defined(NULLC_NO_EXECUTOR) && !defined(__x86_64__) && !defined(__arm__) && !defined(__aarch64__)
 	#define NULLC_BUILD_X86_JIT
 	#define NULLC_OPTIMIZE_X86
 #endif
@@ -77,6 +77,10 @@ typedef unsigned char nullres;
 #define NULLC_LLVM	2
 
 #ifdef __x86_64__
+	#define _M_X64
+#endif
+
+#ifdef __aarch64__
 	#define _M_X64
 #endif
 

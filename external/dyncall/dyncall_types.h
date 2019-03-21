@@ -68,6 +68,7 @@ typedef struct{ double a; double b; } DCcomplexdd;
 typedef struct{ double a; DC_LONG_LONG b; } DCcomplexdl;
 typedef struct{ DC_LONG_LONG a; double b; } DCcomplexld;
 typedef struct{ DC_LONG_LONG a; DC_LONG_LONG b; } DCcomplexll;
+typedef struct{ int arr[128]; } DCcomplexbig;
 
 #define DC_TRUE   1
 #define DC_FALSE  0

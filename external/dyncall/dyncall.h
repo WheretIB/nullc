@@ -139,6 +139,7 @@ DC_API DCcomplexdd dcCallComplexDD(DCCallVM* vm, DCpointer funcptr);
 DC_API DCcomplexdl dcCallComplexDL(DCCallVM* vm, DCpointer funcptr);
 DC_API DCcomplexld dcCallComplexLD(DCCallVM* vm, DCpointer funcptr);
 DC_API DCcomplexll dcCallComplexLL(DCCallVM* vm, DCpointer funcptr);
+DC_API DCcomplexbig dcCallComplexBig(DCCallVM* vm, DCpointer funcptr);
 
 DC_API void dcArgStack(DCCallVM* in_self, void *ptr, unsigned size);
 
