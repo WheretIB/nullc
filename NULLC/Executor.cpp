@@ -1364,7 +1364,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		switch(tInfo.type)
 		{
 		case ExternTypeInfo::TYPE_COMPLEX:
-#if defined(_WIN64) || defined(__aarch64__)
+#if defined(_WIN64)
 			if(tInfo.size <= 4)
 			{
 				// This branch also handles 0 byte structs
