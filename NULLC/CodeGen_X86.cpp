@@ -1051,13 +1051,13 @@ void EMIT_OP_RPTR_REG(x86Command op, x86Size size, x86Reg index, int multiplier,
 	}
 	if(size == sDWORD && base == rESP && shift < (NULLC::STACK_STATE_SIZE * 4))
 	{
-		unsigned int index = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
-		x86Argument &target = NULLC::stack[index];
+		unsigned int stackIndex = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
+		x86Argument &target = NULLC::stack[stackIndex];
 		if(op == o_mov)
 		{
 			target = x86Argument(reg2);
-			NULLC::stackRead[index] = false;
-			NULLC::stackUpdate[index] = (unsigned int)(x86Op - x86Base);
+			NULLC::stackRead[stackIndex] = false;
+			NULLC::stackUpdate[stackIndex] = (unsigned int)(x86Op - x86Base);
 		}else{
 			target.type = x86Argument::argNone;
 		}
@@ -1124,13 +1124,13 @@ void EMIT_OP_RPTR_NUM(x86Command op, x86Size size, x86Reg index, int multiplier,
 
 	if(size == sDWORD && base == rESP && shift < (NULLC::STACK_STATE_SIZE * 4))
 	{
-		unsigned int index = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
-		x86Argument &target = NULLC::stack[index];
+		unsigned int stackIndex = (16 + NULLC::stackTop - (shift >> 2)) % NULLC::STACK_STATE_SIZE;
+		x86Argument &target = NULLC::stack[stackIndex];
 		if(op == o_mov)
 		{
 			target = x86Argument(num);
-			NULLC::stackRead[index] = false;
-			NULLC::stackUpdate[index] = (unsigned int)(x86Op - x86Base);
+			NULLC::stackRead[stackIndex] = false;
+			NULLC::stackUpdate[stackIndex] = (unsigned int)(x86Op - x86Base);
 		}else{
 			target.type = x86Argument::argNone;
 		}
