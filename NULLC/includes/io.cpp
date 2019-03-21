@@ -19,6 +19,22 @@ namespace NULLCIO
 	unsigned (*writeFunc)(void *context, char *data, unsigned length) = NULL;
 	unsigned (*readFunc)(void *context, char *target, unsigned length) = NULL;
 
+	int	SafeSprintf(char* dst, size_t size, const char* src, ...)
+	{
+		if(size == 0)
+			return 0;
+
+		va_list args;
+		va_start(args, src);
+
+		int result = vsnprintf(dst, size, src, args);
+		dst[size-1] = '\0';
+
+		va_end(args);
+
+		return (result == -1 || (size_t)result >= size) ? (int)size : result;
+	}
+
 	void DefaultInitialize()
 	{
 #if defined(_MSC_VER)
@@ -144,7 +160,7 @@ namespace NULLCIO
 			return;
 
 		char buf[128];
-		snprintf(buf, 128, "%.*f", precision, num);
+		SafeSprintf(buf, 128, "%.*f", precision, num);
 
 		writeFunc(contextFunc, buf, (unsigned)strlen(buf));
 	}
@@ -155,7 +171,7 @@ namespace NULLCIO
 			return;
 
 		char buf[128];
-		snprintf(buf, 128, "%c", ch);
+		sprintf(buf, "%c", ch);
 
 		writeFunc(contextFunc, buf, (unsigned)strlen(buf));
 	}
