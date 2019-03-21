@@ -577,7 +577,7 @@ VmConstant* LoadFrameValue(InstructionVMEvalContext &ctx, VmConstant *pointer, V
 	return NULL;
 }
 
-bool StoreFrameValue(InstructionVMEvalContext &ctx, VmConstant *pointer, VmConstant *offset, VmConstant *value, unsigned storeSize)
+bool StoreFrameValue(InstructionVMEvalContext &ctx, VmConstant *pointer, int offset, VmConstant *value, unsigned storeSize)
 {
 	unsigned base = 0;
 
@@ -592,8 +592,7 @@ bool StoreFrameValue(InstructionVMEvalContext &ctx, VmConstant *pointer, VmConst
 
 		unsigned location = (pointer->iValue & memoryOffsetMask) + base;
 
-		if(offset)
-			location += offset->iValue;
+		location += offset;
 
 		if(!target->Reserve(ctx, location, value->type.size))
 		{
@@ -695,7 +694,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 	case VM_INST_STORE_DOUBLE:
 	case VM_INST_STORE_LONG:
 	case VM_INST_STORE_STRUCT:
-		StoreFrameValue(ctx, arguments[0], arguments[1], arguments[2], GetAccessSize(instruction));
+		StoreFrameValue(ctx, arguments[0], arguments[1]->iValue, arguments[2], GetAccessSize(instruction));
 
 		return NULL;
 	case VM_INST_DOUBLE_TO_INT:
@@ -768,6 +767,34 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 	case VM_INST_TYPE_ID:
 		return arguments[0];
 	case VM_INST_SET_RANGE:
+		{
+			VmConstant *address = arguments[0];
+			VmConstant *count = arguments[1];
+			VmConstant *initializer = arguments[2];
+			VmConstant *elementSize = arguments[3];
+
+			unsigned base = 0;
+
+			if(InstructionVMEvalContext::Storage *target = FindTarget(ctx, address, base))
+			{
+				for(int i = 0; i < count->iValue; i++)
+				{
+					unsigned location = (address->iValue & memoryOffsetMask) + base;
+
+					location += i * elementSize->iValue;
+
+					if(!target->Reserve(ctx, location, initializer->type.size))
+					{
+						Report(ctx, "ERROR: out of stack space");
+						return NULL;
+					}
+
+					CopyConstantRaw(ctx, target->data.data + location, target->data.size() - location, initializer, elementSize->iValue);
+				}
+			}
+
+			return NULL;
+		}
 		break;
 	case VM_INST_JUMP:
 		assert(arguments[0]->type == VmType::Block && arguments[0]->bValue);
@@ -1382,7 +1409,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, NULL, value, 1))
+		if(!StoreFrameValue(ctx, context, 0, value, 1))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1395,7 +1422,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, NULL, value, 1))
+		if(!StoreFrameValue(ctx, context, 0, value, 1))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1408,7 +1435,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, NULL, value, 2))
+		if(!StoreFrameValue(ctx, context, 0, value, 2))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1421,7 +1448,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, NULL, value, 4))
+		if(!StoreFrameValue(ctx, context, 0, value, 4))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1434,7 +1461,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, NULL, value, 8))
+		if(!StoreFrameValue(ctx, context, 0, value, 8))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1447,7 +1474,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, NULL, value, 4))
+		if(!StoreFrameValue(ctx, context, 0, value, 4))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1460,7 +1487,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		if(!context || !value)
 			return NULL;
 
-		if(!StoreFrameValue(ctx, context, NULL, value, 8))
+		if(!StoreFrameValue(ctx, context, 0, value, 8))
 			return NULL;
 
 		return CreateConstantVoid(ctx.allocator);
@@ -1666,7 +1693,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 			if(!copy)
 				return NULL;
 
-			StoreFrameValue(ctx, resultPtr, NULL, copy, unsigned(targetType->size));
+			StoreFrameValue(ctx, resultPtr, 0, copy, unsigned(targetType->size));
 		}
 
 		VmConstant *result = new (ctx.get<VmConstant>()) VmConstant(ctx.allocator, storageType, NULL);
@@ -1751,7 +1778,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 		if(!copy)
 			return NULL;
 
-		StoreFrameValue(ctx, dstPtr, NULL, copy, unsigned(arrayType->size));
+		StoreFrameValue(ctx, dstPtr, 0, copy, unsigned(arrayType->size));
 
 		return CreateConstantVoid(ctx.allocator);
 	}
@@ -1893,7 +1920,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		VmConstant *pointer = ExtractValue(ctx, result, 0, VmType::Pointer(ctx.ctx.typeChar));
 
-		StoreFrameValue(ctx, pointer, NULL, CreateConstantStruct(ctx.allocator, NULL, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
+		StoreFrameValue(ctx, pointer, 0, CreateConstantStruct(ctx.allocator, NULL, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
 
 		return result;
 	}
@@ -1918,7 +1945,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 
 		VmConstant *pointer = ExtractValue(ctx, result, 0, VmType::Pointer(ctx.ctx.typeChar));
 
-		StoreFrameValue(ctx, pointer, NULL, CreateConstantStruct(ctx.allocator, NULL, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
+		StoreFrameValue(ctx, pointer, 0, CreateConstantStruct(ctx.allocator, NULL, buf, (length + 3) & ~3, ctx.ctx.GetArrayType(ctx.ctx.typeChar, length)), length);
 
 		return result;
 	}
@@ -2060,7 +2087,7 @@ VmConstant* EvaluateKnownExternalFunction(InstructionVMEvalContext &ctx, Functio
 			upvalueDataPtr = nextDataPtr;
 		}
 
-		StoreFrameValue(ctx, upvalueListLocation, NULL, CreateConstantPointer(ctx.allocator, NULL, upvalueVmPtr, NULL, ctx.ctx.typeVoid, false), NULLC_PTR_SIZE);
+		StoreFrameValue(ctx, upvalueListLocation, 0, CreateConstantPointer(ctx.allocator, NULL, upvalueVmPtr, NULL, ctx.ctx.typeVoid, false), NULLC_PTR_SIZE);
 
 		return CreateConstantVoid(ctx.allocator);
 	}

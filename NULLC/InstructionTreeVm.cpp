@@ -637,6 +637,11 @@ namespace
 		return CreateInstruction(module, source, VmType::Int, VM_INST_FUNCTION_ADDRESS, CreateConstantFunction(module->allocator, source, function->vmFunction));
 	}
 
+	VmValue* CreateSetRange(VmModule *module, SynBase *source, VmValue *address, int count, VmValue *value, int elementSize)
+	{
+		return CreateInstruction(module, source, VmType::Void, VM_INST_SET_RANGE, address, CreateConstantInt(module->allocator, source, count), value, CreateConstantInt(module->allocator, source, elementSize));
+	}
+
 	VmValue* CreateConvertPtr(VmModule *module, SynBase *source, VmValue *ptr, TypeBase *type, TypeBase *structType)
 	{
 		return CreateInstruction(module, source, VmType::Pointer(structType), VM_INST_CONVERT_POINTER, ptr, CreateConstantInt(module->allocator, source, type->typeIndex));
@@ -2216,7 +2221,11 @@ VmValue* CompileVmArraySetup(ExpressionContext &ctx, VmModule *module, ExprArray
 
 	VmValue *address = CompileVm(ctx, module, node->lhs);
 
-	// TODO: use cmdSetRange for supported types
+	TypeBase *elementType = arrayType->subType;
+
+	// Fast memset for supported types
+	if(isType<TypeBool>(elementType) || isType<TypeChar>(elementType) || isType<TypeShort>(elementType) || isType<TypeInt>(elementType) || isType<TypeLong>(elementType) || isType<TypeFloat>(elementType) || isType<TypeDouble>(elementType))
+		return CheckType(ctx, node, CreateSetRange(module, node->source, address, int(arrayType->length), initializer, int(elementType->size)));
 
 	VmValue *offsetPtr = CreateAlloca(ctx, module, node->source, ctx.typeInt, "arr_it");
 

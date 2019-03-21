@@ -892,7 +892,30 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 		}
 		break;
 		case VM_INST_SET_RANGE:
-			assert(!"not implemented");
+		{
+			VmValue *address = inst->arguments[0];
+			VmConstant *count = getType<VmConstant>(inst->arguments[1]);
+			VmValue *initializer = inst->arguments[2];
+			VmConstant *elementSize = getType<VmConstant>(inst->arguments[3]);
+
+			LowerIntoBlock(ctx, lowBlock, initializer);
+			LowerIntoBlock(ctx, lowBlock, address);
+
+			if(initializer->type == VmType::Int && elementSize->iValue == 1)
+				lowBlock->AddInstruction(ctx, inst->source, cmdSetRangeStk, DTYPE_CHAR, count->iValue);
+			else if(initializer->type == VmType::Int && elementSize->iValue == 2)
+				lowBlock->AddInstruction(ctx, inst->source, cmdSetRangeStk, DTYPE_SHORT, count->iValue);
+			else if(initializer->type == VmType::Int && elementSize->iValue == 4)
+				lowBlock->AddInstruction(ctx, inst->source, cmdSetRangeStk, DTYPE_INT, count->iValue);
+			else if(initializer->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, cmdSetRangeStk, DTYPE_LONG, count->iValue);
+			else if(initializer->type == VmType::Double && elementSize->iValue == 4)
+				lowBlock->AddInstruction(ctx, inst->source, cmdSetRangeStk, DTYPE_FLOAT, count->iValue);
+			else if(initializer->type == VmType::Double && elementSize->iValue == 8)
+				lowBlock->AddInstruction(ctx, inst->source, cmdSetRangeStk, DTYPE_DOUBLE, count->iValue);
+
+			lowBlock->AddInstruction(ctx, inst->source, cmdPop, initializer->type.size);
+		}
 			break;
 		case VM_INST_JUMP:
 			// Check if jump is fall-through
