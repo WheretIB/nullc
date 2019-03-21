@@ -160,32 +160,32 @@ std::string GetFunctionSignature(FunctionData *function)
 	char *pos = buf;
 	*pos = 0;
 
-	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name->name));
+	pos += NULLC::SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name->name));
 
 	if(!function->generics.empty())
 	{
-		pos += SafeSprintf(pos, bufSize - int(pos - buf), "<");
+		pos += NULLC::SafeSprintf(pos, bufSize - int(pos - buf), "<");
 
 		for(unsigned k = 0; k < function->generics.size(); k++)
 		{
 			MatchData *match = function->generics[k];
 
-			pos += SafeSprintf(pos, bufSize - int(pos - buf), "%s%.*s", k != 0 ? ", " : "", FMT_ISTR(match->type->name));
+			pos += NULLC::SafeSprintf(pos, bufSize - int(pos - buf), "%s%.*s", k != 0 ? ", " : "", FMT_ISTR(match->type->name));
 		}
 
-		pos += SafeSprintf(pos, bufSize - int(pos - buf), ">");
+		pos += NULLC::SafeSprintf(pos, bufSize - int(pos - buf), ">");
 	}
 
-	pos += SafeSprintf(pos, bufSize - int(pos - buf), "(");
+	pos += NULLC::SafeSprintf(pos, bufSize - int(pos - buf), "(");
 
 	for(unsigned k = 0; k < function->arguments.size(); k++)
 	{
 		ArgumentData &argument = function->arguments[k];
 
-		pos += SafeSprintf(pos, bufSize - int(pos - buf), "%s%s%.*s %.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name), FMT_ISTR(argument.name->name));
+		pos += NULLC::SafeSprintf(pos, bufSize - int(pos - buf), "%s%s%.*s %.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name), FMT_ISTR(argument.name->name));
 	}
 
-	pos += SafeSprintf(pos, bufSize - int(pos - buf), ")");
+	pos += NULLC::SafeSprintf(pos, bufSize - int(pos - buf), ")");
 
 	return buf;
 }
@@ -198,7 +198,7 @@ std::string GetMemberSignature(TypeBase *type, VariableData *member)
 	char *pos = buf;
 	*pos = 0;
 
-	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name->name));
+	pos += NULLC::SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name->name));
 
 	return buf;
 }
@@ -211,7 +211,7 @@ std::string GetMemberSignature(TypeBase *type, ConstantData *member)
 	char *pos = buf;
 	*pos = 0;
 
-	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->value->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name->name));
+	pos += NULLC::SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->value->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name->name));
 
 	return buf;
 }
@@ -224,7 +224,7 @@ std::string GetMemberSignature(TypeBase *type, MatchData *member)
 	char *pos = buf;
 	*pos = 0;
 
-	pos += SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name->name));
+	pos += NULLC::SafeSprintf(pos, bufSize - int(pos - buf), "%.*s %.*s::%.*s", FMT_ISTR(member->type->name), FMT_ISTR(type->name), FMT_ISTR(member->name->name));
 
 	return buf;
 }

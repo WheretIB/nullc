@@ -8,7 +8,7 @@ namespace BinaryCache
 
 	unsigned int	lastReserved = 0;
 	char*			lastBytecode = NULL;
-	const unsigned int	lastHash = GetStringHash("__last.nc");
+	const unsigned int	lastHash = NULLC::GetStringHash("__last.nc");
 }
 
 void BinaryCache::ClearImportPaths()
@@ -57,7 +57,7 @@ void BinaryCache::Terminate()
 
 void BinaryCache::PutBytecode(const char* path, const char* bytecode, Lexeme* lexStart, unsigned lexCount)
 {
-	unsigned int hash = GetStringHash(path);
+	unsigned int hash = NULLC::GetStringHash(path);
 	unsigned int i = 0;
 	for(; i < cache.size(); i++)
 	{
@@ -84,7 +84,7 @@ void BinaryCache::PutBytecode(const char* path, const char* bytecode, Lexeme* le
 
 const char* BinaryCache::GetBytecode(const char* path)
 {
-	unsigned int hash = GetStringHash(path);
+	unsigned int hash = NULLC::GetStringHash(path);
 	if(hash == lastHash)
 		return lastBytecode;
 
@@ -104,7 +104,7 @@ const char*	BinaryCache::FindBytecode(const char* moduleName, bool addExtension)
 {
 	if(!addExtension)
 	{
-		unsigned int hash = GetStringHash(moduleName);
+		unsigned int hash = NULLC::GetStringHash(moduleName);
 
 		if(hash == lastHash)
 			return lastBytecode;
@@ -121,7 +121,7 @@ const char*	BinaryCache::FindBytecode(const char* moduleName, bool addExtension)
 	unsigned modulePathPos = 0;
 	while(const char *modulePath = BinaryCache::EnumImportPath(modulePathPos++))
 	{
-		char *pathEnd = path + SafeSprintf(path, pathLength, "%s%s", modulePath, moduleName);
+		char *pathEnd = path + NULLC::SafeSprintf(path, pathLength, "%s%s", modulePath, moduleName);
 
 		if(addExtension)
 		{
@@ -133,7 +133,7 @@ const char*	BinaryCache::FindBytecode(const char* moduleName, bool addExtension)
 					pathNoImport[i] = '/';
 			}
 
-			SafeSprintf(pathEnd, pathLength - int(pathEnd - path), ".nc");
+			NULLC::SafeSprintf(pathEnd, pathLength - int(pathEnd - path), ".nc");
 		}
 
 		if(const char *bytecode = BinaryCache::GetBytecode(path))
@@ -145,7 +145,7 @@ const char*	BinaryCache::FindBytecode(const char* moduleName, bool addExtension)
 
 Lexeme* BinaryCache::GetLexems(const char* path, unsigned& count)
 {
-	unsigned int hash = GetStringHash(path);
+	unsigned int hash = NULLC::GetStringHash(path);
 	for(unsigned int i = 0; i < cache.size(); i++)
 	{
 		if(hash == cache[i].nameHash)
@@ -170,7 +170,7 @@ Lexeme* BinaryCache::FindLexems(const char* moduleName, bool addExtension, unsig
 	unsigned modulePathPos = 0;
 	while(const char *modulePath = BinaryCache::EnumImportPath(modulePathPos++))
 	{
-		char *pathEnd = path + SafeSprintf(path, pathLength, "%s%s", modulePath, moduleName);
+		char *pathEnd = path + NULLC::SafeSprintf(path, pathLength, "%s%s", modulePath, moduleName);
 
 		if(addExtension)
 		{
@@ -182,7 +182,7 @@ Lexeme* BinaryCache::FindLexems(const char* moduleName, bool addExtension, unsig
 					pathNoImport[i] = '/';
 			}
 
-			SafeSprintf(pathEnd, pathLength - int(pathEnd - path), ".nc");
+			NULLC::SafeSprintf(pathEnd, pathLength - int(pathEnd - path), ".nc");
 		}
 
 		if(Lexeme *lexems = BinaryCache::GetLexems(path, count))
@@ -194,7 +194,7 @@ Lexeme* BinaryCache::FindLexems(const char* moduleName, bool addExtension, unsig
 
 void BinaryCache::RemoveBytecode(const char* path)
 {
-	unsigned int hash = GetStringHash(path);
+	unsigned int hash = NULLC::GetStringHash(path);
 	unsigned int i = 0;
 	for(; i < cache.size(); i++)
 	{

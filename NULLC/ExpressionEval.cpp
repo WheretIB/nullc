@@ -3191,26 +3191,26 @@ bool EvaluateToBuffer(ExpressionEvalContext &ctx, ExprBase *expression, char *re
 	{
 		if(ExprBoolLiteral *result = getType<ExprBoolLiteral>(value))
 		{
-			SafeSprintf(resultBuf, resultBufSize, "%d", result->value ? 1 : 0);
+			NULLC::SafeSprintf(resultBuf, resultBufSize, "%d", result->value ? 1 : 0);
 		}
 		else if(ExprCharacterLiteral *result = getType<ExprCharacterLiteral>(value))
 		{
-			SafeSprintf(resultBuf, resultBufSize, "%d", result->value);
+			NULLC::SafeSprintf(resultBuf, resultBufSize, "%d", result->value);
 		}
 		else if(ExprIntegerLiteral *result = getType<ExprIntegerLiteral>(value))
 		{
 			if(result->type == ctx.ctx.typeLong)
-				SafeSprintf(resultBuf, resultBufSize, "%lldL", result->value);
+				NULLC::SafeSprintf(resultBuf, resultBufSize, "%lldL", result->value);
 			else
-				SafeSprintf(resultBuf, resultBufSize, "%d", int(result->value));
+				NULLC::SafeSprintf(resultBuf, resultBufSize, "%d", int(result->value));
 		}
 		else if(ExprRationalLiteral *result = getType<ExprRationalLiteral>(value))
 		{
-			SafeSprintf(resultBuf, resultBufSize, "%f", result->value);
+			NULLC::SafeSprintf(resultBuf, resultBufSize, "%f", result->value);
 		}
 		else
 		{
-			SafeSprintf(resultBuf, resultBufSize, "unknown");
+			NULLC::SafeSprintf(resultBuf, resultBufSize, "unknown");
 		}
 
 		return true;

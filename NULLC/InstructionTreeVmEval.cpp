@@ -2208,19 +2208,19 @@ bool EvaluateToBuffer(InstructionVMEvalContext &ctx, VmModule *module, char *res
 	{
 		if(value->type == VmType::Int)
 		{
-			SafeSprintf(resultBuf, resultBufSize, "%d", value->iValue);
+			NULLC::SafeSprintf(resultBuf, resultBufSize, "%d", value->iValue);
 		}
 		else if(value->type == VmType::Double)
 		{
-			SafeSprintf(resultBuf, resultBufSize, "%f", value->dValue);
+			NULLC::SafeSprintf(resultBuf, resultBufSize, "%f", value->dValue);
 		}
 		else if(value->type == VmType::Long)
 		{
-			SafeSprintf(resultBuf, resultBufSize, "%lldL", value->lValue);
+			NULLC::SafeSprintf(resultBuf, resultBufSize, "%lldL", value->lValue);
 		}
 		else
 		{
-			SafeSprintf(resultBuf, resultBufSize, "unknown");
+			NULLC::SafeSprintf(resultBuf, resultBufSize, "unknown");
 		}
 
 		return true;

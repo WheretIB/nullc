@@ -462,50 +462,50 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		stInfo.cb = sizeof(stInfo);
 		memset(&prInfo, 0, sizeof(prInfo));
 
-		SafeSprintf(pos, 1024, "gcc.exe -o runnable.exe");
+		NULLC::SafeSprintf(pos, 1024, "gcc.exe -o runnable.exe");
 		pos += strlen(pos);
 #else
-		SafeSprintf(pos, 1024, "gcc -o runnable");
+		NULLC::SafeSprintf(pos, 1024, "gcc -o runnable");
 		pos += strlen(pos);
 #endif
 
-		SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " 1test.cpp");
+		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " 1test.cpp");
 		pos += strlen(pos);
 
-		SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " ../NULLC/translation/runtime.cpp -lstdc++");
+		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " ../NULLC/translation/runtime.cpp -lstdc++");
 		pos += strlen(pos);
 
 		for(unsigned i = 0; i < translationDependencies.size(); i++)
 		{
 			const char *dependency = translationDependencies[i];
 
-			SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " %s", dependency);
+			NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " %s", dependency);
 			pos += strlen(pos);
 
 			if(strstr(dependency, "import_"))
 			{
 				char tmp[256];
-				SafeSprintf(tmp, 256 - strlen("_bind"), "../NULLC/translation/%s", dependency + strlen("import_"));
+				NULLC::SafeSprintf(tmp, 256 - strlen("_bind"), "../NULLC/translation/%s", dependency + strlen("import_"));
 
 				if(char *pos = strstr(tmp, "_nc.cpp"))
 					strcpy(pos, "_bind.cpp");
 
 				if(FILE *file = fopen(tmp, "r"))
 				{
-					SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " %s", tmp);
+					NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " %s", tmp);
 					pos += strlen(pos);
 
 					fclose(file);
 				}
 
-				SafeSprintf(tmp, 256 - strlen("_bind"), "translation/%s", dependency + strlen("import_"));
+				NULLC::SafeSprintf(tmp, 256 - strlen("_bind"), "translation/%s", dependency + strlen("import_"));
 
 				if(char *pos = strstr(tmp, "_nc.cpp"))
 					strcpy(pos, "_bind.cpp");
 
 				if(FILE *file = fopen(tmp, "r"))
 				{
-					SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " %s", tmp);
+					NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " %s", tmp);
 					pos += strlen(pos);
 
 					fclose(file);

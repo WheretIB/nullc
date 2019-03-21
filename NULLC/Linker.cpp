@@ -114,7 +114,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		int loadedId = -1;
 		for(unsigned int n = 0; n < exModules.size(); n++)
 		{
-			if(exModules[n].nameHash == GetStringHash(path))
+			if(exModules[n].nameHash == NULLC::GetStringHash(path))
 			{
 				loadedId = n;
 				break;
@@ -136,7 +136,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 					{
 						debugOutputIndent--;
 
-						SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failure to load module %s", path);
+						NULLC::SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nLink Error: failure to load module %s", path);
 						return false;
 					}
 				}
@@ -144,7 +144,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 				{
 					debugOutputIndent--;
 
-					SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nFailure to load module %s", path);
+					NULLC::SafeSprintf(linkError + strlen(linkError), LINK_ERROR_BUFFER_SIZE - strlen(linkError), "\r\nFailure to load module %s", path);
 					return false;
 				}
 			}
@@ -160,7 +160,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 
 			exModules.push_back(*mInfo);
 			exModules.back().nameOffset = 0;
-			exModules.back().nameHash = GetStringHash(path);
+			exModules.back().nameHash = NULLC::GetStringHash(path);
 			exModules.back().funcStart = exFunctions.size() - mInfo->funcCount;
 			exModules.back().variableOffset = globalVarSize - ((ByteCode*)bytecode)->globalVarSize;
 			exModules.back().sourceOffset = exSource.size() - ((ByteCode*)bytecode)->sourceSize;
@@ -220,7 +220,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		int loadedId = -1;
 		for(unsigned int n = 0; n < exModules.size(); n++)
 		{
-			if(exModules[n].nameHash == GetStringHash(path))
+			if(exModules[n].nameHash == NULLC::GetStringHash(path))
 			{
 				loadedId = n;
 				break;
@@ -276,7 +276,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		{
 			debugOutputIndent--;
 
-			SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: type %s is redefined (%s) with a different size (%d != %d)", exTypes[*lastType].offsetToName + &exSymbols[0], tInfo->offsetToName + symbolInfo, exTypes[*lastType].size, tInfo->size);
+			NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: type %s is redefined (%s) with a different size (%d != %d)", exTypes[*lastType].offsetToName + &exSymbols[0], tInfo->offsetToName + symbolInfo, exTypes[*lastType].size, tInfo->size);
 			return false;
 		}
 		if(!lastType)
@@ -440,12 +440,12 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 #endif
 				continue;
 			}else{
-				SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: function '%s' is redefined", symbolInfo + fInfo->offsetToName);
+				NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: function '%s' is redefined", symbolInfo + fInfo->offsetToName);
 				// Try to find module where previous definition was found
 				for(unsigned k = 0; k < exModules.size(); k++)
 				{
 					if(exModules[k].funcStart >= index && index < exModules[k].funcStart + exModules[k].funcCount)
-						SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: redefinition of module %s function '%s'", symbolInfo + exModules[k].nameOffset, symbolInfo + fInfo->offsetToName);
+						NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: redefinition of module %s function '%s'", symbolInfo + exModules[k].nameOffset, symbolInfo + fInfo->offsetToName);
 				}
 				return false;
 			}
@@ -475,7 +475,7 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 				{
 					exFunctions.back().address = ~0u;
 				}else{
-					SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' '%s' doesn't have implementation", FindSymbols(bCode) + exFunctions.back().offsetToName, &exSymbols[0] + exTypes[exFunctions.back().funcType].offsetToName);
+					NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' '%s' doesn't have implementation", FindSymbols(bCode) + exFunctions.back().offsetToName, &exSymbols[0] + exTypes[exFunctions.back().funcType].offsetToName);
 					return false;
 				}
 			}

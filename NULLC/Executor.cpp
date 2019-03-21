@@ -1875,7 +1875,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		case cmdConvertPtr:
 			if(!ConvertFromAutoRef(cmd.argument, *genStackPtr))
 			{
-				SafeSprintf(execError, 1024, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[*genStackPtr].offsetToName], &exLinker->exSymbols[exLinker->exTypes[cmd.argument].offsetToName]);
+				NULLC::SafeSprintf(execError, 1024, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[*genStackPtr].offsetToName], &exLinker->exSymbols[exLinker->exTypes[cmd.argument].offsetToName]);
 				fcallStack.push_back(cmdStream); 
 				cmdStream = NULL;
 			}
@@ -1939,7 +1939,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		if(!finalReturn)
 		{
 			char *currPos = execError + strlen(execError);
-			currPos += SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
+			currPos += NULLC::SafeSprintf(currPos, ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
 
 			BeginCallStack();
 			while(unsigned int address = GetNextAddress())
@@ -1981,7 +1981,7 @@ void Executor::Stop(const char* error)
 	codeRunning = false;
 
 	callContinue = false;
-	SafeSprintf(execError, ERROR_BUFFER_SIZE, "%s", error);
+	NULLC::SafeSprintf(execError, ERROR_BUFFER_SIZE, "%s", error);
 }
 
 #ifdef NULLC_VM_CALL_STACK_UNWRAP
@@ -2460,8 +2460,8 @@ namespace ExPriv
 	char *newBase;
 	unsigned int oldSize;
 	unsigned int newSize;
-	unsigned int objectName = GetStringHash("auto ref");
-	unsigned int autoArrayName = GetStringHash("auto[]");
+	unsigned int objectName = NULLC::GetStringHash("auto ref");
+	unsigned int autoArrayName = NULLC::GetStringHash("auto[]");
 }
 
 #define RELOCATE_DEBUG_PRINT(...) (void)0
@@ -2802,23 +2802,23 @@ const char* Executor::GetResult()
 {
 	if(!codeRunning && genStackTop - genStackPtr > (int(lastResultType) == -1 ? 1 : 0))
 	{
-		SafeSprintf(execResult, 64, "There is more than one value on the stack (%d)", int(genStackTop - genStackPtr));
+		NULLC::SafeSprintf(execResult, 64, "There is more than one value on the stack (%d)", int(genStackTop - genStackPtr));
 		return execResult;
 	}
 
 	switch(lastResultType)
 	{
 	case OTYPE_DOUBLE:
-		SafeSprintf(execResult, 64, "%f", lastResultDouble);
+		NULLC::SafeSprintf(execResult, 64, "%f", lastResultDouble);
 		break;
 	case OTYPE_LONG:
-		SafeSprintf(execResult, 64, "%lldL", lastResultLong);
+		NULLC::SafeSprintf(execResult, 64, "%lldL", lastResultLong);
 		break;
 	case OTYPE_INT:
-		SafeSprintf(execResult, 64, "%d", lastResultInt);
+		NULLC::SafeSprintf(execResult, 64, "%d", lastResultInt);
 		break;
 	default:
-		SafeSprintf(execResult, 64, "no return value");
+		NULLC::SafeSprintf(execResult, 64, "no return value");
 		break;
 	}
 	return execResult;
@@ -2892,13 +2892,13 @@ bool Executor::AddBreakpoint(unsigned int instruction, bool oneHit)
 {
 	if(instruction >= exLinker->exCode.size())
 	{
-		SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
 		return false;
 	}
 	unsigned int pos = breakCode.size();
 	if(exLinker->exCode[instruction].cmd == cmdNop)
 	{
-		SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: cannot set breakpoint on breakpoint");
+		NULLC::SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: cannot set breakpoint on breakpoint");
 		return false;
 	}
 	if(oneHit)
@@ -2921,12 +2921,12 @@ bool Executor::RemoveBreakpoint(unsigned int instruction)
 {
 	if(instruction > exLinker->exCode.size())
 	{
-		SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
 		return false;
 	}
 	if(exLinker->exCode[instruction].cmd != cmdNop)
 	{
-		SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: there is no breakpoint at instruction %d", instruction);
+		NULLC::SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: there is no breakpoint at instruction %d", instruction);
 		return false;
 	}
 	exLinker->exCode[instruction] = breakCode[exLinker->exCode[instruction].argument];

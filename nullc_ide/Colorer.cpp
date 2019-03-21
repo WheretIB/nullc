@@ -120,7 +120,7 @@ namespace ColorerGrammar
 			m_a->Parse(str, NULL);
 			if(curr == *str)
 				return false;
-			unsigned hash = GetStringHash(curr, *str);
+			unsigned hash = NULLC::GetStringHash(curr, *str);
 			for(unsigned int i = 0; i < typeInfo.size(); i++)
 				if(typeInfo[i] == hash)
 					return true;
@@ -318,11 +318,11 @@ namespace ColorerGrammar
 				if(found)
 					continue;
 				const char *typeName = symbols + tInfo->offsetToName;
-				typeInfo.push_back(GetStringHash(typeName));
+				typeInfo.push_back(NULLC::GetStringHash(typeName));
 				while((typeName = strchr(typeName, '.')) != NULL)
 				{
 					typeName++;
-					typeInfo.push_back(GetStringHash(typeName));
+					typeInfo.push_back(NULLC::GetStringHash(typeName));
 				}
 			}
 
@@ -330,7 +330,7 @@ namespace ColorerGrammar
 			ExternNamespaceInfo *namespaceList = FindFirstNamespace(code);
 			for(unsigned i = 0; i < code->namespaceCount; i++)
 			{
-				typeInfo.push_back(GetStringHash(symbols + namespaceList->offsetToName));
+				typeInfo.push_back(NULLC::GetStringHash(symbols + namespaceList->offsetToName));
 				namespaceList++;
 			}
 
@@ -338,7 +338,7 @@ namespace ColorerGrammar
 			ExternTypedefInfo *typedefList = FindFirstTypedef(code);
 			for(unsigned i = 0; i < code->typedefCount; i++)
 			{
-				typeInfo.push_back(GetStringHash(symbols + typedefList->offsetToName));
+				typeInfo.push_back(NULLC::GetStringHash(symbols + typedefList->offsetToName));
 				typedefList++;
 			}
 		}
@@ -346,7 +346,7 @@ namespace ColorerGrammar
 
 	void StartType(char const* s, char const* e)
 	{
-		typeInfo.push_back(GetStringHash(s, e));
+		typeInfo.push_back(NULLC::GetStringHash(s, e));
 	}
 
 	void OnError(char const* s, char const* e)
@@ -874,17 +874,17 @@ bool Colorer::ColorText(HWND wnd, char *text, void (*ColFunc)(HWND, unsigned int
 
 	ColorerGrammar::typeInfo.clear();
 
-	ColorerGrammar::typeInfo.push_back(GetStringHash("void"));
-	ColorerGrammar::typeInfo.push_back(GetStringHash("char"));
-	ColorerGrammar::typeInfo.push_back(GetStringHash("short"));
-	ColorerGrammar::typeInfo.push_back(GetStringHash("int"));
-	ColorerGrammar::typeInfo.push_back(GetStringHash("long"));
-	ColorerGrammar::typeInfo.push_back(GetStringHash("float"));
-	ColorerGrammar::typeInfo.push_back(GetStringHash("double"));
-	ColorerGrammar::typeInfo.push_back(GetStringHash("typeid"));
-	ColorerGrammar::typeInfo.push_back(GetStringHash("const_string"));
-	ColorerGrammar::typeInfo.push_back(GetStringHash("generic"));
-	ColorerGrammar::typeInfo.push_back(GetStringHash("bool"));
+	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("void"));
+	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("char"));
+	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("short"));
+	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("int"));
+	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("long"));
+	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("float"));
+	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("double"));
+	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("typeid"));
+	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("const_string"));
+	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("generic"));
+	ColorerGrammar::typeInfo.push_back(NULLC::GetStringHash("bool"));
 
 	ColorerGrammar::logStream.str("");
 

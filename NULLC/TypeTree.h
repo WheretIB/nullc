@@ -116,7 +116,7 @@ struct NamespaceData
 		nameHash = name.name.hash();
 
 		if(parent)
-			fullNameHash = StringHashContinue(StringHashContinue(parent->fullNameHash, "."), name.name.begin, name.name.end);
+			fullNameHash = NULLC::StringHashContinue(NULLC::StringHashContinue(parent->fullNameHash, "."), name.name.begin, name.name.end);
 		else
 			fullNameHash = nameHash;
 	}
@@ -594,7 +594,7 @@ struct TypeBase
 {
 	TypeBase(unsigned typeID, InplaceStr name): typeID(typeID), name(name)
 	{
-		nameHash = GetStringHash(name.begin, name.end);
+		nameHash = NULLC::GetStringHash(name.begin, name.end);
 
 		importModule = NULL;
 

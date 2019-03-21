@@ -564,7 +564,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 
 	// Save a list of base modules
 	while(const char* moduleName = nullcEnumerateModules((unsigned)baseModules.size()))
-		baseModules.push_back(GetStringHash(moduleName));
+		baseModules.push_back(NULLC::GetStringHash(moduleName));
 
 	colorer = NULL;
 
@@ -1906,7 +1906,7 @@ void IdeRun(bool debug)
 	id = 0;
 	while(const char* moduleName = nullcEnumerateModules(id))
 	{
-		if(std::find(baseModules.begin(), baseModules.end(), GetStringHash(moduleName)) == baseModules.end())
+		if(std::find(baseModules.begin(), baseModules.end(), NULLC::GetStringHash(moduleName)) == baseModules.end())
 		{
 			nullcRemoveModule(moduleName);
 		}else{

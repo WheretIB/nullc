@@ -58,9 +58,9 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 		if(address >= exFunctions[i].address && address <= (exFunctions[i].address + exFunctions[i].codeSize))
 			funcID = i;
 	if(funcID != -1)
-		current += SafeSprintf(current, bufSize - int(current - start), "%s", &exSymbols[exFunctions[funcID].offsetToName]);
+		current += NULLC::SafeSprintf(current, bufSize - int(current - start), "%s", &exSymbols[exFunctions[funcID].offsetToName]);
 	else
-		current += SafeSprintf(current, bufSize - int(current - start), "%s", address == -1 ? "external" : "global scope");
+		current += NULLC::SafeSprintf(current, bufSize - int(current - start), "%s", address == -1 ? "external" : "global scope");
 	if(address != -1)
 	{
 		unsigned int infoID = 0;
@@ -103,7 +103,7 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 		while(*codeEnd != '\0' && *codeEnd != '\r' && *codeEnd != '\n')
 			codeEnd++;
 		int codeLength = (int)(codeEnd - codeStart);
-		current += SafeSprintf(current, bufSize - int(current - start), " (line %d: at %.*s)\r\n", line + 1, codeLength, codeStart);
+		current += NULLC::SafeSprintf(current, bufSize - int(current - start), " (line %d: at %.*s)\r\n", line + 1, codeLength, codeStart);
 	}
 
 	if(withVariables)
@@ -121,7 +121,7 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 				const char *localName = &exSymbols[lInfo.offsetToName];
 				const char *localType = lInfo.paramType == ExternLocalInfo::PARAMETER ? "param" : (lInfo.paramType == ExternLocalInfo::EXTERNAL ? "extern" : "local");
 				const char *offsetType = (lInfo.paramType == ExternLocalInfo::PARAMETER || lInfo.paramType == ExternLocalInfo::LOCAL) ? "base" : (lInfo.closeListID & 0x80000000 ? "local" : "closure");
-				current += SafeSprintf(current, bufSize - int(current - start), " %s %d: %s %s (at %s+%d size %d)\r\n",	localType, i, typeName, localName, offsetType, lInfo.offset, exTypes[lInfo.type].size);
+				current += NULLC::SafeSprintf(current, bufSize - int(current - start), " %s %d: %s %s (at %s+%d size %d)\r\n",	localType, i, typeName, localName, offsetType, lInfo.offset, exTypes[lInfo.type].size);
 			}
 		}
 		else
@@ -135,7 +135,7 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 				const char *typeName = &exSymbols[exTypes[vInfo.type].offsetToName];
 				const char *localName = &exSymbols[vInfo.offsetToName];
 				const char *localType = "global";
-				current += SafeSprintf(current, bufSize - int(current - start), " %s %d: %s %s (at %d size %d)\r\n", localType, i, typeName, localName, vInfo.offset, exTypes[vInfo.type].size);
+				current += NULLC::SafeSprintf(current, bufSize - int(current - start), " %s %d: %s %s (at %d size %d)\r\n", localType, i, typeName, localName, vInfo.offset, exTypes[vInfo.type].size);
 			}
 		}
 	}
@@ -466,8 +466,8 @@ void nullcDumpStackData()
 
 namespace GC
 {
-	unsigned int	objectName = GetStringHash("auto ref");
-	unsigned int	autoArrayName = GetStringHash("auto[]");
+	unsigned int	objectName = NULLC::GetStringHash("auto ref");
+	unsigned int	autoArrayName = NULLC::GetStringHash("auto[]");
 
 	void CheckArray(char* ptr, const ExternTypeInfo& type);
 	void CheckClass(char* ptr, const ExternTypeInfo& type);

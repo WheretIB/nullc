@@ -388,15 +388,15 @@ std::string GetBasicVariableInfo(unsigned typeIndex, char* ptr, bool hex)
 		char *pos = buf;
 		*pos = 0;
 
-		pos += SafeSprintf(pos, 1024 - int(pos - buf), "%s %s(", symbols + returnType.offsetToName, symbols + function.offsetToName);
+		pos += NULLC::SafeSprintf(pos, 1024 - int(pos - buf), "%s %s(", symbols + returnType.offsetToName, symbols + function.offsetToName);
 
 		for(unsigned i = 0; i < function.paramCount; i++)
 		{
 			auto &localInfo = locals[function.offsetToFirstLocal + i];
 
-			pos += SafeSprintf(pos, 1024 - int(pos - buf), "%s %s%s", symbols + types[localInfo.type].offsetToName, symbols + localInfo.offsetToName, i == function.paramCount - 1 ? "" : ", ");
+			pos += NULLC::SafeSprintf(pos, 1024 - int(pos - buf), "%s %s%s", symbols + types[localInfo.type].offsetToName, symbols + localInfo.offsetToName, i == function.paramCount - 1 ? "" : ", ");
 		}
-		pos += SafeSprintf(pos, 1024 - int(pos - buf), ")");
+		pos += NULLC::SafeSprintf(pos, 1024 - int(pos - buf), ")");
 
 		return buf;
 	}

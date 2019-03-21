@@ -567,16 +567,16 @@ const char*	ExecutorLLVM::GetResult()
 	switch(llvmReturnedType)
 	{
 	case LLVM_DOUBLE:
-		SafeSprintf(execResult, 64, "%f", llvmReturnedDouble);
+		NULLC::SafeSprintf(execResult, 64, "%f", llvmReturnedDouble);
 		break;
 	case LLVM_LONG:
-		SafeSprintf(execResult, 64, "%lldL", llvmReturnedLong);
+		NULLC::SafeSprintf(execResult, 64, "%lldL", llvmReturnedLong);
 		break;
 	case LLVM_INT:
-		SafeSprintf(execResult, 64, "%d", llvmReturnedInt);
+		NULLC::SafeSprintf(execResult, 64, "%d", llvmReturnedInt);
 		break;
 	default:
-		SafeSprintf(execResult, 64, "no return value");
+		NULLC::SafeSprintf(execResult, 64, "no return value");
 		break;
 	}
 	return execResult;

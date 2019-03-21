@@ -11,7 +11,7 @@ struct TestLongVariable : TestQueue
 		for(unsigned int i = 0; i < NULLC_MAX_VARIABLE_NAME_LENGTH; i++)
 			name[i] = 'a';
 		name[NULLC_MAX_VARIABLE_NAME_LENGTH - 1] = 0;
-		SafeSprintf(code, 8192, "int %s = 12; return %s;", name, name);
+		NULLC::SafeSprintf(code, 8192, "int %s = 12; return %s;", name, name);
 		for(int t = 0; t < 2; t++)
 		{
 			testsCount[t]++;
@@ -31,7 +31,7 @@ struct TestLongFunction : TestQueue
 		for(unsigned int i = 0; i < NULLC_MAX_VARIABLE_NAME_LENGTH; i++)
 			name[i] = 'a';
 		name[NULLC_MAX_VARIABLE_NAME_LENGTH - 1] = 0;
-		SafeSprintf(code, 8192, "void foo(int bar){ int %s(){ return bar; } int %s(int u){ return bar + u; } } return 1;", name, name);
+		NULLC::SafeSprintf(code, 8192, "void foo(int bar){ int %s(){ return bar; } int %s(int u){ return bar + u; } } return 1;", name, name);
 		for(int t = 0; t < 2; t++)
 		{
 			testsCount[t]++;

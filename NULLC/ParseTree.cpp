@@ -46,7 +46,7 @@ namespace
 
 		if(ctx.errorCount == 100)
 		{
-			SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: error limit reached");
+			NULLC::SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: error limit reached");
 
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 

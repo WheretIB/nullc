@@ -52,7 +52,7 @@ namespace
 
 					if(!parentModule.empty())
 					{
-						SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), " [in module '%.*s']\n", FMT_ISTR(parentModule));
+						NULLC::SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), " [in module '%.*s']\n", FMT_ISTR(parentModule));
 
 						ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 					}
@@ -71,7 +71,7 @@ namespace
 
 		if(ctx.errorCount == 100)
 		{
-			SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: error limit reached");
+			NULLC::SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: error limit reached");
 
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
@@ -2996,16 +2996,16 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 
 			const char *messageStart = errorCurr;
 
-			errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "while instantiating generic type %.*s<", FMT_ISTR(proto->name));
+			errorCurr += NULLC::SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "while instantiating generic type %.*s<", FMT_ISTR(proto->name));
 
 			for(TypeHandle *curr = types.head; curr; curr = curr->next)
 			{
 				TypeBase *type = curr->type;
 
-				errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "%s%.*s", curr != types.head ? ", " : "", FMT_ISTR(type->name));
+				errorCurr += NULLC::SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "%s%.*s", curr != types.head ? ", " : "", FMT_ISTR(type->name));
 			}
 
-			errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), ">");
+			errorCurr += NULLC::SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), ">");
 
 			const char *messageEnd = errorCurr;
 
@@ -3263,15 +3263,15 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 
 		for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scope); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
 		{
-			unsigned hash = nsScope->ownerNamespace ? StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : GetStringHash("");
+			unsigned hash = nsScope->ownerNamespace ? NULLC::StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : NULLC::GetStringHash("");
 
 			for(SynIdentifier *part = node->path.head; part; part = getType<SynIdentifier>(part->next))
 			{
-				hash = StringHashContinue(hash, part->name.begin, part->name.end);
-				hash = StringHashContinue(hash, ".");
+				hash = NULLC::StringHashContinue(hash, part->name.begin, part->name.end);
+				hash = NULLC::StringHashContinue(hash, ".");
 			}
 
-			hash = StringHashContinue(hash, node->name.begin, node->name.end);
+			hash = NULLC::StringHashContinue(hash, node->name.begin, node->name.end);
 
 			type = ctx.typeMap.find(hash);
 
@@ -3866,15 +3866,15 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 	for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scope); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
 	{
-		unsigned hash = nsScope->ownerNamespace ? StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : GetStringHash("");
+		unsigned hash = nsScope->ownerNamespace ? NULLC::StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : NULLC::GetStringHash("");
 
 		for(SynIdentifier *part = path.head; part; part = getType<SynIdentifier>(part->next))
 		{
-			hash = StringHashContinue(hash, part->name.begin, part->name.end);
-			hash = StringHashContinue(hash, ".");
+			hash = NULLC::StringHashContinue(hash, part->name.begin, part->name.end);
+			hash = NULLC::StringHashContinue(hash, ".");
 		}
 
-		hash = StringHashContinue(hash, name.begin, name.end);
+		hash = NULLC::StringHashContinue(hash, name.begin, name.end);
 
 		variable = ctx.variableMap.find(hash);
 
@@ -3914,15 +3914,15 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 	for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scope); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
 	{
-		unsigned hash = nsScope->ownerNamespace ? StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : GetStringHash("");
+		unsigned hash = nsScope->ownerNamespace ? NULLC::StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : NULLC::GetStringHash("");
 
 		for(SynIdentifier *part = path.head; part; part = getType<SynIdentifier>(part->next))
 		{
-			hash = StringHashContinue(hash, part->name.begin, part->name.end);
-			hash = StringHashContinue(hash, ".");
+			hash = NULLC::StringHashContinue(hash, part->name.begin, part->name.end);
+			hash = NULLC::StringHashContinue(hash, ".");
 		}
 
-		hash = StringHashContinue(hash, name.begin, name.end);
+		hash = NULLC::StringHashContinue(hash, name.begin, name.end);
 
 		function = ctx.functionMap.first(hash);
 
@@ -4399,9 +4399,9 @@ ExprBase* CreateAutoRefFunctionSet(ExpressionContext &ctx, SynBase *source, Expr
 		if(!parentType)
 			continue;
 
-		unsigned hash = StringHashContinue(parentType->nameHash, "::");
+		unsigned hash = NULLC::StringHashContinue(parentType->nameHash, "::");
 
-		hash = StringHashContinue(hash, name.begin, name.end);
+		hash = NULLC::StringHashContinue(hash, name.begin, name.end);
 
 		if(function->nameHash != hash)
 			continue;
@@ -4573,9 +4573,9 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		// Look for a member function
 		ExprBase *mainFuncton = NULL;
 
-		unsigned hash = StringHashContinue(value->type->nameHash, "::");
+		unsigned hash = NULLC::StringHashContinue(value->type->nameHash, "::");
 
-		hash = StringHashContinue(hash, member->name.begin, member->name.end);
+		hash = NULLC::StringHashContinue(hash, member->name.begin, member->name.end);
 
 		if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
 			mainFuncton = CreateFunctionAccess(ctx, source, function, wrapped);
@@ -4589,9 +4589,9 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 			{
 				TypeUnsizedArray *arrayType = ctx.GetUnsizedArrayType(node->subType);
 
-				unsigned hash = StringHashContinue(arrayType->nameHash, "::");
+				unsigned hash = NULLC::StringHashContinue(arrayType->nameHash, "::");
 
-				hash = StringHashContinue(hash, member->name.begin, member->name.end);
+				hash = NULLC::StringHashContinue(hash, member->name.begin, member->name.end);
 
 				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
 				{
@@ -4609,9 +4609,9 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		{
 			if(TypeGenericClassProto *protoType = classType->proto)
 			{
-				unsigned hash = StringHashContinue(protoType->nameHash, "::");
+				unsigned hash = NULLC::StringHashContinue(protoType->nameHash, "::");
 
-				hash = StringHashContinue(hash, member->name.begin, member->name.end);
+				hash = NULLC::StringHashContinue(hash, member->name.begin, member->name.end);
 
 				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
 					baseFunction = CreateFunctionAccess(ctx, source, function, wrapped);
@@ -4675,7 +4675,7 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		}
 
 		// Look for an accessor
-		hash = StringHashContinue(hash, "$");
+		hash = NULLC::StringHashContinue(hash, "$");
 
 		ExprBase *access = NULL;
 
@@ -4688,9 +4688,9 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 			{
 				TypeUnsizedArray *arrayType = ctx.GetUnsizedArrayType(node->subType);
 
-				unsigned hash = StringHashContinue(arrayType->nameHash, "::");
+				unsigned hash = NULLC::StringHashContinue(arrayType->nameHash, "::");
 
-				hash = StringHashContinue(hash, member->name.begin, member->name.end);
+				hash = NULLC::StringHashContinue(hash, member->name.begin, member->name.end);
 
 				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
 				{
@@ -4716,12 +4716,12 @@ ExprBase* CreateMemberAccess(ExpressionContext &ctx, SynBase *source, ExprBase *
 		{
 			if(TypeGenericClassProto *protoType = classType->proto)
 			{
-				unsigned hash = StringHashContinue(protoType->nameHash, "::");
+				unsigned hash = NULLC::StringHashContinue(protoType->nameHash, "::");
 
-				hash = StringHashContinue(hash, member->name.begin, member->name.end);
+				hash = NULLC::StringHashContinue(hash, member->name.begin, member->name.end);
 
 				// Look for an accessor
-				hash = StringHashContinue(hash, "$");
+				hash = NULLC::StringHashContinue(hash, "$");
 
 				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
 				{
@@ -5837,16 +5837,16 @@ void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* 
 
 	if(!functionName.empty())
 	{
-		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "  %.*s(", FMT_ISTR(functionName));
+		errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "  %.*s(", FMT_ISTR(functionName));
 
 		for(unsigned i = 0; i < arguments.size(); i++)
-			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
+			errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
 
-		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), !functions.empty() ? ")\n" : ")");
+		errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), !functions.empty() ? ")\n" : ")");
 	}
 
 	if(!functions.empty())
-		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), bestRating == ~0u ? " the only available are:\n" : " candidates are:\n");
+		errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), bestRating == ~0u ? " the only available are:\n" : " candidates are:\n");
 
 	for(unsigned i = 0; i < functions.size(); i++)
 	{
@@ -5855,29 +5855,29 @@ void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* 
 		if(!ratings.empty() && ratings[i] != bestRating)
 			continue;
 
-		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "  %.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name->name));
+		errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "  %.*s %.*s", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name->name));
 
 		if(!function->generics.empty())
 		{
-			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "<");
+			errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "<");
 
 			for(unsigned k = 0; k < function->generics.size(); k++)
 			{
 				MatchData *match = function->generics[k];
 
-				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", k != 0 ? ", " : "", FMT_ISTR(match->type->name));
+				errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", k != 0 ? ", " : "", FMT_ISTR(match->type->name));
 			}
 
-			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ">");
+			errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ">");
 		}
 
-		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "(");
+		errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "(");
 
 		for(unsigned k = 0; k < function->arguments.size(); k++)
 		{
 			ArgumentData &argument = function->arguments[k];
 
-			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name));
+			errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name));
 		}
 
 		if(ctx.IsGenericFunction(function) && showInstanceInfo)
@@ -5900,13 +5900,13 @@ void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* 
 			// Handle named argument order, default argument values and variadic functions
 			if(!PrepareArgumentsForFunctionCall(ctx, source, function->arguments, arguments, result, NULL, false))
 			{
-				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") (wasn't instanced here)");
+				errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") (wasn't instanced here)");
 			}
 			else if(TypeFunction *instance = GetGenericFunctionInstanceType(ctx, source, parentType, function, result, aliases))
 			{
 				GetFunctionRating(ctx, function, instance, result);
 
-				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") instanced to\n    %.*s %.*s(", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name->name));
+				errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") instanced to\n    %.*s %.*s(", FMT_ISTR(function->type->returnType->name), FMT_ISTR(function->name->name));
 
 				TypeHandle *curr = instance->arguments.head;
 
@@ -5914,36 +5914,36 @@ void ReportOnFunctionSelectError(ExpressionContext &ctx, SynBase *source, char* 
 				{
 					ArgumentData &argument = function->arguments[k];
 
-					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(curr->type->name));
+					errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%s%.*s", k != 0 ? ", " : "", argument.isExplicit ? "explicit " : "", FMT_ISTR(curr->type->name));
 
 					curr = curr->next;
 				}
 
 				if(!aliases.empty())
 				{
-					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") with [");
+					errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") with [");
 
 					for(MatchData *curr = aliases.head; curr; curr = curr->next)
-						errPos += SafeSprintf(errPos, errorBufSize - unsigned(errPos - errorBuf), "%s%.*s = %.*s", curr != aliases.head ? ", " : "", FMT_ISTR(curr->name->name), FMT_ISTR(curr->type->name));
+						errPos += NULLC::SafeSprintf(errPos, errorBufSize - unsigned(errPos - errorBuf), "%s%.*s = %.*s", curr != aliases.head ? ", " : "", FMT_ISTR(curr->name->name), FMT_ISTR(curr->type->name));
 
-					errPos += SafeSprintf(errPos, errorBufSize - unsigned(errPos - errorBuf), "]");
+					errPos += NULLC::SafeSprintf(errPos, errorBufSize - unsigned(errPos - errorBuf), "]");
 				}
 				else
 				{
-					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")");
+					errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")");
 				}
 			}
 			else
 			{
-				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") (wasn't instanced here)");
+				errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ") (wasn't instanced here)");
 			}
 		}
 		else
 		{
-			errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")");
+			errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")");
 		}
 
-		errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "\n");
+		errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "\n");
 	}
 
 	ctx.errorBufLocation += strlen(ctx.errorBufLocation);
@@ -5968,13 +5968,13 @@ bool IsVirtualFunctionCall(ExpressionContext &ctx, FunctionData *function, TypeB
 		{
 			if(classType->extendable || classType->baseClass != NULL)
 			{
-				unsigned hash = StringHashContinue(classType->nameHash, "::");
+				unsigned hash = NULLC::StringHashContinue(classType->nameHash, "::");
 
 				InplaceStr constructor = GetTypeConstructorName(classType);
 
-				hash = StringHashContinue(hash, constructor.begin, constructor.end);
+				hash = NULLC::StringHashContinue(hash, constructor.begin, constructor.end);
 
-				if(function->nameHash == hash || function->nameHash == StringHashContinue(hash, "$"))
+				if(function->nameHash == hash || function->nameHash == NULLC::StringHashContinue(hash, "$"))
 					return false;
 
 				return true;
@@ -6319,31 +6319,31 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 			const char *messageStart = errorCurr;
 
-			errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "while instantiating generic function %.*s(", FMT_ISTR(function->name->name));
+			errorCurr += NULLC::SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "while instantiating generic function %.*s(", FMT_ISTR(function->name->name));
 
 			for(TypeHandle *curr = function->type->arguments.head; curr; curr = curr->next)
-				errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "%s%.*s", curr != function->type->arguments.head ? ", " : "", FMT_ISTR(curr->type->name));
+				errorCurr += NULLC::SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "%s%.*s", curr != function->type->arguments.head ? ", " : "", FMT_ISTR(curr->type->name));
 
-			errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), ")");
+			errorCurr += NULLC::SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), ")");
 
 			if(!arguments.empty())
 			{
-				errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "\n  using argument(s) (");
+				errorCurr += NULLC::SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "\n  using argument(s) (");
 
 				for(unsigned i = 0; i < arguments.size(); i++)
-					errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
+					errorCurr += NULLC::SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
 
-				errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), ")");
+				errorCurr += NULLC::SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), ")");
 			}
 
 			if(!aliases.empty())
 			{
-				errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "\n  with [");
+				errorCurr += NULLC::SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "\n  with [");
 
 				for(MatchData *curr = aliases.head; curr; curr = curr->next)
-					errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "%s%.*s = %.*s", curr != aliases.head ? ", " : "", FMT_ISTR(curr->name->name), FMT_ISTR(curr->type->name));
+					errorCurr += NULLC::SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "%s%.*s = %.*s", curr != aliases.head ? ", " : "", FMT_ISTR(curr->name->name), FMT_ISTR(curr->type->name));
 
-				errorCurr += SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "]");
+				errorCurr += NULLC::SafeSprintf(errorCurr, ctx.errorBufSize - unsigned(errorCurr - ctx.errorBuf), "]");
 			}
 
 			const char *messageEnd = errorCurr;
@@ -6513,8 +6513,8 @@ ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, Inpl
 		{
 			unsigned hash = nextType->nameHash;
 
-			hash = StringHashContinue(hash, "::");
-			hash = StringHashContinue(hash, name.begin, name.end);
+			hash = NULLC::StringHashContinue(hash, "::");
+			hash = NULLC::StringHashContinue(hash, name.begin, name.end);
 
 			if(ctx.functionMap.first(hash))
 			{
@@ -6566,7 +6566,7 @@ ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, Inpl
 
 			const char *messageStart = ctx.errorBufLocation;
 
-			SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(name));
+			NULLC::SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(name));
 
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
@@ -6765,7 +6765,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 
 				const char *messageStart = ctx.errorBufLocation;
 
-				SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(functions[0].function->name->name));
+				NULLC::SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: can't find function '%.*s' with following arguments:\n", FMT_ISTR(functions[0].function->name->name));
 
 				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
@@ -6814,7 +6814,7 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 
 					const char *messageStart = ctx.errorBufLocation;
 
-					SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: ambiguity, there is more than one overloaded function available for the call:\n");
+					NULLC::SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: ambiguity, there is more than one overloaded function available for the call:\n");
 
 					ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
@@ -6907,23 +6907,23 @@ ExprBase* CreateFunctionCallFinal(ExpressionContext &ctx, SynBase *source, ExprB
 				char *errPos = ctx.errorBufLocation;
 
 				if(arguments.size() != functionArguments.size())
-					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "ERROR: function expects %d argument(s), while %d are supplied\n", functionArguments.size(), arguments.size());
+					errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "ERROR: function expects %d argument(s), while %d are supplied\n", functionArguments.size(), arguments.size());
 				else
-					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "ERROR: there is no conversion from specified arguments and the ones that function accepts\n");
+					errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "ERROR: there is no conversion from specified arguments and the ones that function accepts\n");
 
-				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "\tExpected: (");
+				errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "\tExpected: (");
 
 				for(unsigned i = 0; i < functionArguments.size(); i++)
-					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(functionArguments[i].type->name));
+					errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(functionArguments[i].type->name));
 
-				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")\n");
+				errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")\n");
 			
-				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "\tProvided: (");
+				errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "\tProvided: (");
 
 				for(unsigned i = 0; i < arguments.size(); i++)
-					errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
+					errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), "%s%.*s", i != 0 ? ", " : "", FMT_ISTR(arguments[i].type->name));
 
-				errPos += SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")");
+				errPos += NULLC::SafeSprintf(errPos, errorBufSize - int(errPos - errorBuf), ")");
 
 				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
@@ -7536,7 +7536,7 @@ ExprBase* ResolveInitializerValue(ExpressionContext &ctx, SynBase *source, ExprB
 
 				const char *messageStart = ctx.errorBufLocation;
 
-				SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: ambiguity, there is more than one overloaded function available:\n");
+				NULLC::SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: ambiguity, there is more than one overloaded function available:\n");
 
 				ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
@@ -8732,7 +8732,7 @@ bool AssertValueExpression(ExpressionContext &ctx, SynBase *source, ExprBase *ex
 
 			const char *messageStart = ctx.errorBufLocation;
 
-			SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: ambiguity, there is more than one overloaded function available:\n");
+			NULLC::SafeSprintf(ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), "ERROR: ambiguity, there is more than one overloaded function available:\n");
 
 			ctx.errorBufLocation += strlen(ctx.errorBufLocation);
 
@@ -8837,17 +8837,17 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 	if(classType && classType->proto)
 		typeGenericClassProto = classType->proto;
 
-	unsigned hash = StringHashContinue(type->nameHash, "::");
+	unsigned hash = NULLC::StringHashContinue(type->nameHash, "::");
 
 	if(classType)
 	{
 		InplaceStr functionName = GetTypeConstructorName(classType);
 
-		hash = StringHashContinue(hash, functionName.begin, functionName.end);
+		hash = NULLC::StringHashContinue(hash, functionName.begin, functionName.end);
 	}
 	else
 	{
-		hash = StringHashContinue(hash, type->name.begin, type->name.end);
+		hash = NULLC::StringHashContinue(hash, type->name.begin, type->name.end);
 	}
 
 	for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash); node; node = ctx.functionMap.next(node))
@@ -8862,9 +8862,9 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 	if(typeGenericClassProto)
 	{
 		// Look for a member function in a generic class base and instantiate them
-		unsigned hash = StringHashContinue(typeGenericClassProto->nameHash, "::");
+		unsigned hash = NULLC::StringHashContinue(typeGenericClassProto->nameHash, "::");
 
-		hash = StringHashContinue(hash, typeGenericClassProto->name.begin, typeGenericClassProto->name.end);
+		hash = NULLC::StringHashContinue(hash, typeGenericClassProto->name.begin, typeGenericClassProto->name.end);
 
 		for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash); node; node = ctx.functionMap.next(node))
 		{
@@ -8876,7 +8876,7 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 		}
 	}
 
-	for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(StringHashContinue(hash, "$")); node; node = ctx.functionMap.next(node))
+	for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(NULLC::StringHashContinue(hash, "$")); node; node = ctx.functionMap.next(node))
 	{
 		if(noArguments && !node->value->arguments.empty() && !node->value->arguments[0].value)
 			continue;
@@ -8888,11 +8888,11 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 	if(typeGenericClassProto)
 	{
 		// Look for a member function in a generic class base and instantiate them
-		unsigned hash = StringHashContinue(typeGenericClassProto->nameHash, "::");
+		unsigned hash = NULLC::StringHashContinue(typeGenericClassProto->nameHash, "::");
 
-		hash = StringHashContinue(hash, typeGenericClassProto->name.begin, typeGenericClassProto->name.end);
+		hash = NULLC::StringHashContinue(hash, typeGenericClassProto->name.begin, typeGenericClassProto->name.end);
 
-		for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(StringHashContinue(hash, "$")); node; node = ctx.functionMap.next(node))
+		for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(NULLC::StringHashContinue(hash, "$")); node; node = ctx.functionMap.next(node))
 		{
 			if(noArguments && !node->value->arguments.empty() && !node->value->arguments[0].value)
 				continue;

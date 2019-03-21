@@ -263,7 +263,7 @@ namespace NULLCTypeInfo
 		if(!name.ptr)
 			return getTypeID(0);
 
-		unsigned hash = GetStringHash(name.ptr);
+		unsigned hash = NULLC::GetStringHash(name.ptr);
 
 		for(unsigned i = 0; i < linker->exTypes.size(); i++)
 		{

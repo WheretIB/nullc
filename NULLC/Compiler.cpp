@@ -353,9 +353,9 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 	char *errorCurrBefore = errorCurr;
 
 	if(unsigned line = GetErrorLocationLineNumber(codeStart, errorPos))
-		errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "  at line %d: '", line);
+		errorCurr += NULLC::SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "  at line %d: '", line);
 	else
-		errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "  at '");
+		errorCurr += NULLC::SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "  at '");
 
 	unsigned spacing = unsigned(errorCurr - errorCurrBefore);
 
@@ -365,7 +365,7 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 			*(errorCurr++) = *pos == '\t' ? ' ' : *pos;
 	}
 
-	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "'\n");
+	errorCurr += NULLC::SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "'\n");
 
 	for(unsigned i = 0; i < spacing + unsigned(errorPos - start); i++)
 	{
@@ -373,7 +373,7 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 			*(errorCurr++) = ' ';
 	}
 
-	errorCurr += SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "^\n");
+	errorCurr += NULLC::SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "^\n");
 }
 
 bool HasSourceCode(ByteCode *bytecode, const char *position)
@@ -511,7 +511,7 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		ctx.errorPos = NULL;
 
 		if(ctx.errorBuf && ctx.errorBufSize)
-			SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: internal compiler error: failed to create VmModule");
+			NULLC::SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: internal compiler error: failed to create VmModule");
 
 		return false;
 	}
@@ -1933,7 +1933,7 @@ bool SaveListing(CompilerContext &ctx, const char *fileName)
 
 	if(!ctx.outputCtx.stream)
 	{
-		SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: failed to open file");
+		NULLC::SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: failed to open file");
 		return false;
 	}
 
@@ -1956,7 +1956,7 @@ bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainNa
 
 	if(!ctx.outputCtx.stream)
 	{
-		SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: failed to open file");
+		NULLC::SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: failed to open file");
 		return false;
 	}
 
@@ -2003,7 +2003,7 @@ char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const 
 		if(errorBuf && errorBufSize)
 		{
 			unsigned currLen = (unsigned)strlen(errorBuf);
-			SafeSprintf(errorBuf + currLen, errorBufSize - currLen, " [in module '%s']", modulePath);
+			NULLC::SafeSprintf(errorBuf + currLen, errorBufSize - currLen, " [in module '%s']", modulePath);
 		}
 
 		return NULL;
@@ -2050,7 +2050,7 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addE
 	unsigned modulePathPos = 0;
 	while(const char *modulePath = BinaryCache::EnumImportPath(modulePathPos++))
 	{
-		char *pathEnd = path + SafeSprintf(path, pathLength, "%s%.*s", modulePath, moduleName.length(), moduleName.begin);
+		char *pathEnd = path + NULLC::SafeSprintf(path, pathLength, "%s%.*s", modulePath, moduleName.length(), moduleName.begin);
 
 		if(addExtension)
 		{
@@ -2062,7 +2062,7 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addE
 					pathNoImport[i] = '/';
 			}
 
-			SafeSprintf(pathEnd, pathLength - int(pathEnd - path), ".nc");
+			NULLC::SafeSprintf(pathEnd, pathLength - int(pathEnd - path), ".nc");
 		}
 
 		fileContent = (char*)NULLC::fileLoad(path, &fileSize, &needDelete);
@@ -2076,7 +2076,7 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addE
 		*errorPos = NULL;
 
 		if(errorBuf && errorBufSize)
-			SafeSprintf(errorBuf, errorBufSize, "ERROR: module file '%.*s' could not be opened", moduleName.length(), moduleName.begin);
+			NULLC::SafeSprintf(errorBuf, errorBufSize, "ERROR: module file '%.*s' could not be opened", moduleName.length(), moduleName.begin);
 
 		return NULL;
 	}
@@ -2100,7 +2100,7 @@ bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), 
 	if(!bytecode)
 		return false;
 
-	unsigned hash = GetStringHash(name);
+	unsigned hash = NULLC::GetStringHash(name);
 	ByteCode *code = (ByteCode*)bytecode;
 
 	// Find function and set pointer
@@ -2129,7 +2129,7 @@ bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), 
 	{
 		*errorPos = NULL;
 
-		SafeSprintf(errorBuf, errorBufSize, "ERROR: function '%s' or one of it's overload is not found in module '%s'", name, module);
+		NULLC::SafeSprintf(errorBuf, errorBufSize, "ERROR: function '%s' or one of it's overload is not found in module '%s'", name, module);
 
 		return false;
 	}

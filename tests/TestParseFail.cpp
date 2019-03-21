@@ -157,9 +157,9 @@ void RunParseFailTests()
 		for(unsigned int i = 0; i < NULLC_MAX_VARIABLE_NAME_LENGTH + 1; i++)
 			name[i] = 'a';
 		name[NULLC_MAX_VARIABLE_NAME_LENGTH] = 0;
-		SafeSprintf(code, 8192, "int %s = 12; return %s;", name, name);
+		NULLC::SafeSprintf(code, 8192, "int %s = 12; return %s;", name, name);
 		char error[128];
-		SafeSprintf(error, 128, "ERROR: variable name length is limited to %d symbols", NULLC_MAX_VARIABLE_NAME_LENGTH);
+		NULLC::SafeSprintf(error, 128, "ERROR: variable name length is limited to %d symbols", NULLC_MAX_VARIABLE_NAME_LENGTH);
 		TEST_FOR_FAIL("Variable name is too long.", code, error);
 	}
 

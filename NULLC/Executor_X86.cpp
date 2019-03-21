@@ -806,7 +806,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		else if(errorCode == EXCEPTION_INVALID_FUNCTION)
 			strcpy(execError, "ERROR: invalid function pointer");
 		else if((errorCode & 0xff) == EXCEPTION_CONVERSION_ERROR)
-			SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
+			NULLC::SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
 			&exLinker->exSymbols[exLinker->exTypes[NULLC::dataHead->unused1].offsetToName],
 			&exLinker->exSymbols[exLinker->exTypes[errorCode >> 8].offsetToName]);
 		else if(errorCode == EXCEPTION_ALLOCATED_STACK_OVERFLOW)
@@ -867,7 +867,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		}else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate == 0xDEADBEEF){
 			strcpy(execError, "ERROR: invalid function pointer");
 		}else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate != NULLC::expESPstate){
-			SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
+			NULLC::SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
 			NULLC::expEAXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[NULLC::expEAXstate].offsetToName],
 			NULLC::expECXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[NULLC::expECXstate].offsetToName]);
 		}else if(NULLC::expCodePublic == EXCEPTION_STACK_OVERFLOW){
@@ -917,7 +917,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		if(execError[0] != '\0')
 		{
 			char *currPos = execError + strlen(execError);
-			currPos += SafeSprintf(currPos, 512 - int(currPos - execError), "\r\nCall stack:\r\n");
+			currPos += NULLC::SafeSprintf(currPos, 512 - int(currPos - execError), "\r\nCall stack:\r\n");
 
 			BeginCallStack();
 			while(unsigned int address = GetNextAddress())
@@ -938,7 +938,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 void ExecutorX86::Stop(const char* error)
 {
 	callContinue = false;
-	SafeSprintf(execError, 512, "%s", error);
+	NULLC::SafeSprintf(execError, 512, "%s", error);
 }
 
 void ExecutorX86::ClearNative()
@@ -1700,16 +1700,16 @@ const char* ExecutorX86::GetResult()
 	switch(NULLC::runResultType)
 	{
 	case OTYPE_DOUBLE:
-		SafeSprintf(execResult, 64, "%f", *(double*)(&combined));
+		NULLC::SafeSprintf(execResult, 64, "%f", *(double*)(&combined));
 		break;
 	case OTYPE_LONG:
-		SafeSprintf(execResult, 64, "%lldL", combined);
+		NULLC::SafeSprintf(execResult, 64, "%lldL", combined);
 		break;
 	case OTYPE_INT:
-		SafeSprintf(execResult, 64, "%d", NULLC::runResult);
+		NULLC::SafeSprintf(execResult, 64, "%d", NULLC::runResult);
 		break;
 	default:
-		SafeSprintf(execResult, 64, "no return value");
+		NULLC::SafeSprintf(execResult, 64, "no return value");
 		break;
 	}
 	return execResult;
@@ -1813,14 +1813,14 @@ bool ExecutorX86::AddBreakpoint(unsigned int instruction, bool oneHit)
 {
 	if(instruction > instAddress.size())
 	{
-		SafeSprintf(execError, 512, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execError, 512, "ERROR: break position out of code range");
 		return false;
 	}
 	while(instruction < instAddress.size() && !instAddress[instruction])
 		instruction++;
 	if(instruction >= instAddress.size())
 	{
-		SafeSprintf(execError, 512, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execError, 512, "ERROR: break position out of code range");
 		return false;
 	}
 	breakInstructions.push_back(Breakpoint(instruction, *instAddress[instruction], oneHit));
@@ -1832,7 +1832,7 @@ bool ExecutorX86::RemoveBreakpoint(unsigned int instruction)
 {
 	if(instruction > instAddress.size())
 	{
-		SafeSprintf(execError, 512, "ERROR: break position out of code range");
+		NULLC::SafeSprintf(execError, 512, "ERROR: break position out of code range");
 		return false;
 	}
 	unsigned index = ~0u;
@@ -1841,7 +1841,7 @@ bool ExecutorX86::RemoveBreakpoint(unsigned int instruction)
 			index = i;
 	if(index == ~0u || *instAddress[breakInstructions[index].instIndex] != 0xcc)
 	{
-		SafeSprintf(execError, 512, "ERROR: there is no breakpoint at instruction %d", instruction);
+		NULLC::SafeSprintf(execError, 512, "ERROR: there is no breakpoint at instruction %d", instruction);
 		return false;
 	}
 	*instAddress[breakInstructions[index].instIndex] = breakInstructions[index].oldOpcode;
