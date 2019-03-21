@@ -80,9 +80,8 @@ LOCAL_SRC_FILES += external/dyncall/dyncall_call.S
 
 # tests
 # LOCAL_CFLAGS += -DBUILD_TESTS
-# LOCAL_SRC_FILES += tests/TestBase.cpp
+# LOCAL_SRC_FILES += $(wildcard $(LOCAL_PATH)/tests/Test*.cpp)
 # LOCAL_SRC_FILES += tests/UnitTests.cpp
-# LOCAL_SRC_FILES += $(wildcard tests/Test*.cpp)
 
 LOCAL_ARM_MODE := arm
 
