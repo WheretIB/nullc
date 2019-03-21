@@ -8,6 +8,10 @@
 
 struct Allocator
 {
+	virtual ~Allocator()
+	{
+	}
+
 	virtual void* alloc(int size)
 	{
 		return NULLC::alloc(size);
