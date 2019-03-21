@@ -293,8 +293,8 @@ JNIEXPORT jboolean JNICALL Java_org_nullc_Nullc_nullcRunFunction(JNIEnv *env, jc
 
 	if(argCount != function.paramCount)
 	{
-		SafeSprintf(errorText, 512, "ERROR: function '%s' expects %d arguments, but %d were supplied", funcNameStr, function.paramCount, argCount);
-		nullcLastError = errorText;
+		NULLC::SafeSprintf(errorText, 512, "ERROR: function '%s' expects %d arguments, but %d were supplied", funcNameStr, function.paramCount, argCount);
+		NULLC::nullcLastError = errorText;
 		return false;
 	}
 
@@ -318,8 +318,8 @@ JNIEXPORT jboolean JNICALL Java_org_nullc_Nullc_nullcRunFunction(JNIEnv *env, jc
 			}else if(objClass == classChar){
 				*(int*)argPos = (int)env->CallCharMethod(obj, env->GetMethodID(classChar, "charValue", "()C"));
 			}else{
-				SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
-				nullcLastError = errorText;
+				NULLC::SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
+				NULLC::nullcLastError = errorText;
 				return false;
 			}
 			argPos += 4;
@@ -329,8 +329,8 @@ JNIEXPORT jboolean JNICALL Java_org_nullc_Nullc_nullcRunFunction(JNIEnv *env, jc
 			{
 				*(int*)argPos = (int)env->CallShortMethod(obj, env->GetMethodID(classShort, "shortValue", "()S"));
 			}else{
-				SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
-				nullcLastError = errorText;
+				NULLC::SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
+				NULLC::nullcLastError = errorText;
 				return false;
 			}
 			argPos += 4;
@@ -340,8 +340,8 @@ JNIEXPORT jboolean JNICALL Java_org_nullc_Nullc_nullcRunFunction(JNIEnv *env, jc
 			{
 				*(int*)argPos = env->CallIntMethod(obj, env->GetMethodID(classInt, "intValue", "()I"));
 			}else{
-				SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
-				nullcLastError = errorText;
+				NULLC::SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
+				NULLC::nullcLastError = errorText;
 				return false;
 			}
 			argPos += 4;
@@ -351,8 +351,8 @@ JNIEXPORT jboolean JNICALL Java_org_nullc_Nullc_nullcRunFunction(JNIEnv *env, jc
 			{
 				*(long long*)argPos = env->CallLongMethod(obj, env->GetMethodID(classLong, "longValue", "()J"));
 			}else{
-				SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
-				nullcLastError = errorText;
+				NULLC::SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
+				NULLC::nullcLastError = errorText;
 				return false;
 			}
 			argPos += 8;
@@ -362,8 +362,8 @@ JNIEXPORT jboolean JNICALL Java_org_nullc_Nullc_nullcRunFunction(JNIEnv *env, jc
 			{
 				*(float*)argPos = env->CallFloatMethod(obj, env->GetMethodID(classFloat, "floatValue", "()F"));
 			}else{
-				SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
-				nullcLastError = errorText;
+				NULLC::SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
+				NULLC::nullcLastError = errorText;
 				return false;
 			}
 			argPos += 4;
@@ -373,8 +373,8 @@ JNIEXPORT jboolean JNICALL Java_org_nullc_Nullc_nullcRunFunction(JNIEnv *env, jc
 			{
 				*(double*)argPos = env->CallDoubleMethod(obj, env->GetMethodID(classDouble, "doubleValue", "()D"));
 			}else{
-				SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
-				nullcLastError = errorText;
+				NULLC::SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
+				NULLC::nullcLastError = errorText;
 				return false;
 			}
 			argPos += 8;
@@ -422,8 +422,8 @@ JNIEXPORT jboolean JNICALL Java_org_nullc_Nullc_nullcRunFunction(JNIEnv *env, jc
 				*(int*)argPos = env->GetIntField(obj, lengthField);
 				argPos += 4;
 			}else{
-				SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
-				nullcLastError = errorText;
+				NULLC::SafeSprintf(errorText, 512, "ERROR: function argument %d is of type %s", i, nullcDebugSource() + tInfo.offsetToName);
+				NULLC::nullcLastError = errorText;
 				return false;
 			}
 			break;
