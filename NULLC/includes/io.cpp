@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <varargs.h>
 
 #if defined(_MSC_VER)
 	#pragma warning(disable: 4996)
