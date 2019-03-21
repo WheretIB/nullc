@@ -16,7 +16,6 @@
 #include <sstream>
 #include <math.h>
 #include <vector>
-using namespace std;
 
 #include <assert.h>
 #include <time.h>

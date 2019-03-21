@@ -52,7 +52,7 @@ namespace ColorerGrammar
 	ColorCodeCallback ColorCode;
 
 	//Error log
-	ostringstream logStream;
+	std::ostringstream logStream;
 	std::string	lastError;
 
 	class LogError
