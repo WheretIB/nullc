@@ -734,9 +734,11 @@ nullres	nullcRunFunction(const char* funcName, ...)
 
 		// Copy arguments in argument buffer
 		va_list args;
+
 		va_start(args, funcName);
 		argBuf = nullcGetArgumentVector(functionID, 0, args);
 		va_end(args);
+
 		if(!argBuf)
 			return false;
 	}
@@ -834,13 +836,17 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 	NULLC_CHECK_INITIALIZED(false);
 
 	const char* error = NULL;
+
 	// Copy arguments in argument buffer
 	va_list args;
+
 	va_start(args, ptr);
 	const char *argBuf = nullcGetArgumentVector(ptr.id, (uintptr_t)ptr.context, args);
+	va_end(args);
+
 	if(!argBuf)
 		return false;
-	va_end(args);
+	
 	if(currExec == NULLC_VM)
 	{
 		executor->Run(ptr.id, argBuf);
