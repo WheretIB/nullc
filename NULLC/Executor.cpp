@@ -1371,7 +1371,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 				dcArgInt(dcCallVM, *(int*)stackStart);
 				stackStart += 1;
 			}else if(tInfo.size <= 8){
-				dcArgLongLong(dcCallVM, *(long long*)stackStart);
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
 				stackStart += 2;
 			}else{
 				dcArgPointer(dcCallVM, stackStart);
@@ -1401,9 +1401,9 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 					}
 				}else if(tInfo.size <= 8){
 					if(firstQwordInteger)
-						dcArgLongLong(dcCallVM, *(long long*)stackStart);
+						dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
 					else
-						dcArgDouble(dcCallVM, *(double*)stackStart);
+						dcArgDouble(dcCallVM, vmLoadDouble(stackStart));
 				}else{
 					int requredIRegs = (firstQwordInteger ? 1 : 0) + (secondQwordInteger ? 1 : 0);
 
@@ -1412,14 +1412,14 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 						dcArgStack(dcCallVM, stackStart, (tInfo.size + 7) & ~7);
 					}else{
 						if(firstQwordInteger)
-							dcArgLongLong(dcCallVM, *(long long*)stackStart);
+							dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
 						else
-							dcArgDouble(dcCallVM, *(double*)stackStart);
+							dcArgDouble(dcCallVM, vmLoadDouble(stackStart));
 
 						if(secondQwordInteger)
-							dcArgLongLong(dcCallVM, *(long long*)(stackStart + 2));
+							dcArgLongLong(dcCallVM, vmLoadLong(stackStart + 2));
 						else
-							dcArgDouble(dcCallVM, *(double*)(stackStart + 2));
+							dcArgDouble(dcCallVM, vmLoadDouble(stackStart + 2));
 					}
 				}
 				
@@ -1451,11 +1451,11 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 			stackStart += 1;
 			break;
 		case ExternTypeInfo::TYPE_LONG:
-			dcArgLongLong(dcCallVM, *(long long*)stackStart);
+			dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
 			stackStart += 2;
 			break;
 		case ExternTypeInfo::TYPE_DOUBLE:
-			dcArgDouble(dcCallVM, *(double*)stackStart);
+			dcArgDouble(dcCallVM, vmLoadDouble(stackStart));
 			stackStart += 2;
 			break;
 		case ExternTypeInfo::TYPE_SHORT:
@@ -1469,7 +1469,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		}
 	}
 
-	dcArgPointer(dcCallVM, *(DCpointer*)stackStart);
+	dcArgPointer(dcCallVM, (DCpointer)vmLoadPointer(stackStart));
 
 	switch(retType)
 	{
@@ -1483,13 +1483,13 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	case ExternFuncInfo::RETURN_DOUBLE:
 		newStackPtr -= 2;
 		if(func.returnShift == 1)
-			*(double*)newStackPtr = dcCallFloat(dcCallVM, fPtr);
+			vmStoreDouble(newStackPtr, dcCallFloat(dcCallVM, fPtr));
 		else
-			*(double*)newStackPtr = dcCallDouble(dcCallVM, fPtr);
+			vmStoreDouble(newStackPtr, dcCallDouble(dcCallVM, fPtr));
 		break;
 	case ExternFuncInfo::RETURN_LONG:
 		newStackPtr -= 2;
-		*(long long*)newStackPtr = dcCallLongLong(dcCallVM, fPtr);
+		vmStoreLong(newStackPtr, dcCallLongLong(dcCallVM, fPtr));
 		break;
 	case ExternFuncInfo::RETURN_UNKNOWN:
 #if defined(_WIN64)
