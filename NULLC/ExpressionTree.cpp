@@ -6516,7 +6516,7 @@ ExprBase* CreateFunctionCallByName(ExpressionContext &ctx, SynBase *source, Inpl
 			hash = StringHashContinue(hash, "::");
 			hash = StringHashContinue(hash, name.begin, name.end);
 
-			if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(hash))
+			if(ctx.functionMap.first(hash))
 			{
 				if(ExprBase *overloads = CreateVariableAccess(ctx, source, IntrusiveList<SynIdentifier>(), name, allowInternal))
 				{
