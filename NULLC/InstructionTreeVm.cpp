@@ -18,6 +18,8 @@ namespace
 	{
 		VmType exprType = GetVmType(ctx, expr->type);
 
+		(void)exprType;
+
 		assert(exprType == value->type);
 		assert(exprType.structType == value->type.structType);
 

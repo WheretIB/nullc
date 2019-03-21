@@ -1700,6 +1700,8 @@ TypeFunction* ExpressionContext::GetFunctionType(SynBase *source, TypeBase* retu
 	{
 		TypeBase *curr = arguments[i].type;
 
+		(void)curr;
+
 		assert(!isType<TypeArgumentSet>(curr) && !isType<TypeMemberSet>(curr) && !isType<TypeFunctionSet>(curr));
 		assert(!isType<TypeError>(curr));
 
