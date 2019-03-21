@@ -6,7 +6,7 @@
 #include "Instruction_X86.h"
 #include "Bytecode.h"
 
-const unsigned int JUMP_NEAR = (unsigned int)(1 << 31);
+const unsigned int JUMP_NEAR = (unsigned int)(1u << 31u);
 // jump ID markers for assembly printout
 const unsigned int LABEL_GLOBAL = 1 << 30;
 const unsigned int LABEL_ALU = 0;
