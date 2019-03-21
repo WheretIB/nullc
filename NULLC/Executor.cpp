@@ -847,7 +847,7 @@ Executor::Executor(Linker* linker): exLinker(linker), exTypes(linker->exTypes), 
 	lastResultType = OTYPE_COMPLEX;
 	lastResultInt = 0;
 	lastResultLong = 0ll;
-	lastResultDouble = 0.0f;
+	lastResultDouble = 0.0;
 
 	breakFunctionContext = NULL;
 	breakFunction = NULL;
@@ -1856,7 +1856,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			(*(int*)(genStackPtr))++;
 			break;
 		case cmdIncD:
-			vmStoreDouble(genStackPtr, vmLoadDouble(genStackPtr) + 1.0f);
+			vmStoreDouble(genStackPtr, vmLoadDouble(genStackPtr) + 1.0);
 			break;
 		case cmdIncL:
 			vmStoreLong(genStackPtr, vmLoadLong(genStackPtr) + 1);
@@ -1866,7 +1866,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			(*(int*)(genStackPtr))--;
 			break;
 		case cmdDecD:
-			vmStoreDouble(genStackPtr, vmLoadDouble(genStackPtr) - 1.0f);
+			vmStoreDouble(genStackPtr, vmLoadDouble(genStackPtr) - 1.0);
 			break;
 		case cmdDecL:
 			vmStoreLong(genStackPtr, vmLoadLong(genStackPtr) - 1);
