@@ -5,14 +5,10 @@
 #include "nullc_debug.h"
 #include "StdLib.h"
 
-#if defined(NULLC_USE_DYNCALL)
+#define dcAllocMem NULLC::alloc
+#define dcFreeMem  NULLC::dealloc
 
-	#define dcAllocMem NULLC::alloc
-	#define dcFreeMem  NULLC::dealloc
-
-	#include "../external/dyncall/dyncall.h"
-
-#endif
+#include "../external/dyncall/dyncall.h"
 
 #ifdef NULLC_VM_CALL_STACK_UNWRAP
 #define NULLC_UNWRAP(x) x
@@ -20,813 +16,154 @@
 #define NULLC_UNWRAP(x)
 #endif
 
-int vmIntPow(int power, int number)
+namespace
 {
-	if(power < 0)
-		return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
-
-	int result = 1;
-	while(power)
+	int vmIntPow(int power, int number)
 	{
-		if(power & 1)
+		if(power < 0)
+			return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
+
+		int result = 1;
+		while(power)
 		{
-			result *= number;
-			power--;
-		}
-		number *= number;
-		power >>= 1;
-	}
-	return result;
-}
-
-long long vmLongPow(long long power, long long number)
-{
-	if(power < 0)
-		return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
-
-	long long result = 1;
-	while(power)
-	{
-		if(power & 1)
-		{
-			result *= number;
-			power--;
-		}
-		number *= number;
-		power >>= 1;
-	}
-	return result;
-}
-
-long long vmLoadLong(void* target)
-{
-	long long value;
-	memcpy(&value, target, sizeof(long long));
-	return value;
-}
-
-void vmStoreLong(void* target, long long value)
-{
-	memcpy(target, &value, sizeof(long long));
-}
-
-double vmLoadDouble(void* target)
-{
-	double value;
-	memcpy(&value, target, sizeof(double));
-	return value;
-}
-
-void vmStoreDouble(void* target, double value)
-{
-	memcpy(target, &value, sizeof(double));
-}
-
-char* vmLoadPointer(void* target)
-{
-	char* value;
-	memcpy(&value, target, sizeof(char*));
-	return value;
-}
-
-void vmStorePointer(void* target, char* value)
-{
-	memcpy(target, &value, sizeof(char*));
-}
-
-#if defined(_M_X64)
-#ifdef _WIN64
-	#include <Windows.h>
-	#define NULLC_X64_IREGARGS 4
-	#define NULLC_X64_FREGARGS 4
-#else
-	#include <sys/mman.h>
-	#include <limits.h>
-	#ifndef PAGESIZE
-		#define PAGESIZE 4096
-	#endif
-	#define NULLC_X64_IREGARGS 6
-	#define NULLC_X64_FREGARGS 8
-#endif
-
-static const unsigned char gatePrologue[] =
-{
-#ifdef _WIN64
-	0x4C, 0x89, 0x44, 0x24, 0x18,	// mov qword [rsp+18h], r8	// spill r8
-	0x48, 0x89, 0x54, 0x24, 0x10,	// mov qword [rsp+10h], rdx	// spill RDX
-	0x48, 0x89, 0x4C, 0x24, 0x08,	// mov qword [rsp+8h], rcx	// spill RCX
-#endif
-	0x57,	// push RDI
-	0x50,	// push RAX
-	0x53,	// push RBX
-	0x56,	// push RSI
-	0x49, 0x54,	// push R12
-#ifdef _WIN64
-	0x48, 0x8b, 0301,// mov RAX, RCX
-	0x48, 0x8b, 0332,// mov RBX, RDX
-	0x4d, 0x8b, 0330,// mov R11, R8
-#else
-	0x48, 0x8b, 0307,// mov RAX, RDI
-	0x48, 0x8b, 0336,// mov RBX, RSI
-	0x4c, 0x8b, 0332,// mov R11, RDX
-#endif
-};
-
-bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
-{
-	bool aligned = 1;
-	//printf("checking class %s: ", exLinker->exSymbols.data + lType->offsetToName);
-	for(unsigned m = 0; m < lType->memberCount; m++)
-	{
-		ExternMemberInfo &member = exLinker->exTypeExtra[lType->memberOffset + m];
-		ExternTypeInfo &memberType = exLinker->exTypes[member.type];
-		unsigned pos = member.offset;
-
-		//printf("member %s; ", exLinker->exSymbols.data + memberType.offsetToName);
-		switch(memberType.type)
-		{
-		case ExternTypeInfo::TYPE_COMPLEX:
-			break;
-		case ExternTypeInfo::TYPE_VOID:
-			break;
-		case ExternTypeInfo::TYPE_INT:
-			if(pos % 4 != 0)
-				aligned = 0;
-			break;
-		case ExternTypeInfo::TYPE_FLOAT:
-			break;
-		case ExternTypeInfo::TYPE_LONG:
-			if(pos % 8 != 0)
-				aligned = 0;
-			break;
-		case ExternTypeInfo::TYPE_DOUBLE:
-			break;
-		case ExternTypeInfo::TYPE_SHORT:
-			if(pos % 2 != 0)
-				aligned = 0;
-			break;
-		case ExternTypeInfo::TYPE_CHAR:
-			break;
-		}
-		pos += memberType.size;
-	}
-	//printf("%s\n", aligned ? "aligned" : "unaligned");
-	return aligned;
-}
-
-bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, Linker *linker)
-{
-	for(unsigned m = 0; m < type.memberCount; m++)
-	{
-		ExternMemberInfo &member = linker->exTypeExtra[type.memberOffset + m];
-
-		ExternTypeInfo &memberType = linker->exTypes[member.type];
-
-		if(memberType.type == ExternTypeInfo::TYPE_COMPLEX)
-		{
-			// Handle opaque types
-			bool opaqueType = memberType.subCat != ExternTypeInfo::CAT_CLASS || memberType.memberCount == 0;
-
-			if(opaqueType)
+			if(power & 1)
 			{
+				result *= number;
+				power--;
+			}
+			number *= number;
+			power >>= 1;
+		}
+		return result;
+	}
+
+	long long vmLongPow(long long power, long long number)
+	{
+		if(power < 0)
+			return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
+
+		long long result = 1;
+		while(power)
+		{
+			if(power & 1)
+			{
+				result *= number;
+				power--;
+			}
+			number *= number;
+			power >>= 1;
+		}
+		return result;
+	}
+
+	long long vmLoadLong(void* target)
+	{
+		long long value;
+		memcpy(&value, target, sizeof(long long));
+		return value;
+	}
+
+	void vmStoreLong(void* target, long long value)
+	{
+		memcpy(target, &value, sizeof(long long));
+	}
+
+	double vmLoadDouble(void* target)
+	{
+		double value;
+		memcpy(&value, target, sizeof(double));
+		return value;
+	}
+
+	void vmStoreDouble(void* target, double value)
+	{
+		memcpy(target, &value, sizeof(double));
+	}
+
+	char* vmLoadPointer(void* target)
+	{
+		char* value;
+		memcpy(&value, target, sizeof(char*));
+		return value;
+	}
+
+	void vmStorePointer(void* target, char* value)
+	{
+		memcpy(target, &value, sizeof(char*));
+	}
+
+	bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
+	{
+		bool aligned = 1;
+		//printf("checking class %s: ", exLinker->exSymbols.data + lType->offsetToName);
+		for(unsigned m = 0; m < lType->memberCount; m++)
+		{
+			ExternMemberInfo &member = exLinker->exTypeExtra[lType->memberOffset + m];
+			ExternTypeInfo &memberType = exLinker->exTypes[member.type];
+			unsigned pos = member.offset;
+
+			//printf("member %s; ", exLinker->exSymbols.data + memberType.offsetToName);
+			switch(memberType.type)
+			{
+			case ExternTypeInfo::TYPE_COMPLEX:
+				break;
+			case ExternTypeInfo::TYPE_VOID:
+				break;
+			case ExternTypeInfo::TYPE_INT:
+				if(pos % 4 != 0)
+					aligned = 0;
+				break;
+			case ExternTypeInfo::TYPE_FLOAT:
+				break;
+			case ExternTypeInfo::TYPE_LONG:
+				if(pos % 8 != 0)
+					aligned = 0;
+				break;
+			case ExternTypeInfo::TYPE_DOUBLE:
+				break;
+			case ExternTypeInfo::TYPE_SHORT:
+				if(pos % 2 != 0)
+					aligned = 0;
+				break;
+			case ExternTypeInfo::TYPE_CHAR:
+				break;
+			}
+			pos += memberType.size;
+		}
+		//printf("%s\n", aligned ? "aligned" : "unaligned");
+		return aligned;
+	}
+
+	bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, Linker *linker)
+	{
+		for(unsigned m = 0; m < type.memberCount; m++)
+		{
+			ExternMemberInfo &member = linker->exTypeExtra[type.memberOffset + m];
+
+			ExternTypeInfo &memberType = linker->exTypes[member.type];
+
+			if(memberType.type == ExternTypeInfo::TYPE_COMPLEX)
+			{
+				// Handle opaque types
+				bool opaqueType = memberType.subCat != ExternTypeInfo::CAT_CLASS || memberType.memberCount == 0;
+
+				if(opaqueType)
+				{
+					if(member.offset + memberType.size > fromOffset && member.offset < toOffset)
+						return true;
+				}else{
+					if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, linker))
+						return true;
+				}
+			}else if(memberType.type != ExternTypeInfo::TYPE_FLOAT && memberType.type != ExternTypeInfo::TYPE_DOUBLE){
 				if(member.offset + memberType.size > fromOffset && member.offset < toOffset)
 					return true;
-			}else{
-				if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, linker))
-					return true;
 			}
-		}else if(memberType.type != ExternTypeInfo::TYPE_FLOAT && memberType.type != ExternTypeInfo::TYPE_DOUBLE){
-			if(member.offset + memberType.size > fromOffset && member.offset < toOffset)
-				return true;
 		}
-	}
 
-	return false;
+		return false;
+	}
 }
-
-unsigned int Executor::CreateFunctionGateway(FastVector<unsigned char>& code, unsigned int funcID)
-{
-	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
-	unsigned int tmp;
-
-	/*printf("Creating gateway for function %s(", exLinker->exSymbols.data + exFunctions[funcID].offsetToName);
-	// Check every function local
-	for(unsigned int i = 0; i < exFunctions[funcID].paramCount; i++)
-	{
-		// Get information about local
-		ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
-		printf("%s, ", exLinker->exSymbols.data + exTypes[lInfo.type].offsetToName);
-	}
-	printf(") arg count %d\n", exFunctions[funcID].paramCount + (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 0 : 1));*/
-
-	// Create function call code, clear it out, copy call prologue to the beginning
-	code.push_back(gatePrologue, sizeof(gatePrologue) / sizeof(gatePrologue[0]));
-
-	// complex type return is handled by passing pointer to a place, where the return value will be placed. This uses first register.
-	unsigned int rvs = exFunctions[funcID].retType == ExternFuncInfo::RETURN_UNKNOWN ? 1 : 0;
-
-#ifndef _WIN64
-	ExternTypeInfo &funcType = exTypes[exFunctions[funcID].funcType];
-	unsigned returnTypeID = exLinker->exTypeExtra[funcType.memberOffset].type;
-	ExternTypeInfo &returnType = exTypes[returnTypeID];
-
-	if(rvs && returnType.size <= 16 && returnTypeID != NULLC_TYPE_AUTO_REF)
-		rvs = 0;
-	if(returnType.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&returnType, exLinker))
-		rvs = 1;
-
-	// in AMD64, int and FP registers are independant, so we have to count, how much arguments to save in registers
-	unsigned int usedIRegs = rvs, usedFRegs = 0;
-
-	// This two variables will help later to know we've reached the boundary of arguments that are placed in registers
-	unsigned int argsToIReg = 0, argsToFReg = 0;
-
-	bool onStack[32] = { false };
-
-	for(unsigned int k = 0; k < exFunctions[funcID].paramCount + (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 0 : 1); k++)
-	{
-		unsigned int typeID = NULLC_TYPE_LONG;
-		ExternTypeInfo *lType = NULL;
-
-		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
-		unsigned int typeSize = 8;
-
-		bool firstQwordInteger = true;
-		bool secondQwordInteger = false;
-
-		if((unsigned int)k != exFunctions[funcID].paramCount)
-		{
-			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + k];
-
-			typeID = lInfo.type;
-			lType = &exLinker->exTypes[typeID];
-			typeCat = lType->type;
-			typeSize = lType->size;
-
-			bool opaqueType = lType->subCat != ExternTypeInfo::CAT_CLASS || lType->memberCount == 0;
-
-			firstQwordInteger = opaqueType || HasIntegerMembersInRange(*lType, 0, 8, exLinker);
-			secondQwordInteger = opaqueType || HasIntegerMembersInRange(*lType, 8, 16, exLinker);
-		}
-
-		int requredIRegs = (typeSize > 0 ? (firstQwordInteger ? 1 : 0) : 0) + (typeSize > 8 ? (secondQwordInteger ? 1 : 0) : 0);
-		int requredFRegs = (typeSize > 0 ? (firstQwordInteger ? 0 : 1) : 0) + (typeSize > 8 ? (secondQwordInteger ? 0 : 1) : 0);
-
-		switch(typeCat)
-		{
-		case ExternTypeInfo::TYPE_FLOAT:
-		case ExternTypeInfo::TYPE_DOUBLE:
-			if(usedFRegs < NULLC_X64_FREGARGS)
-			{
-				usedFRegs++;
-				argsToFReg = k + 1;
-			}
-			break;
-		case ExternTypeInfo::TYPE_CHAR:
-		case ExternTypeInfo::TYPE_SHORT:
-		case ExternTypeInfo::TYPE_INT:
-		case ExternTypeInfo::TYPE_LONG:
-			if(typeSize && usedIRegs < NULLC_X64_IREGARGS)
-			{
-				usedIRegs++;
-				argsToIReg = k + 1;
-				if(k < 32)
-					onStack[k] = true;
-			}
-			break;
-		case ExternTypeInfo::TYPE_COMPLEX:
-			// Parameters larger than 16 bytes are sent through stack
-			// Unaligned types such as auto ref type are sent through stack
-			if(typeSize > 16 || typeID == NULLC_TYPE_AUTO_REF)
-				break;
-
-			// Check class structure to see if it has some unaligned fields
-			if(lType->subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(lType, exLinker))
-				break;
-
-			// If the class if being divided in the middle, between registers and stack, sent through stack
-			if(usedIRegs + requredIRegs > NULLC_X64_IREGARGS || usedFRegs + requredFRegs > NULLC_X64_FREGARGS)
-				break;
-
-			// Request registers
-			usedIRegs += requredIRegs;
-			usedFRegs += requredFRegs;
-
-			// Mark this argument as being sent through stack
-			if(requredIRegs)
-				argsToIReg = k + 1;
-
-			if(requredFRegs)
-				argsToFReg = k + 1;
-
-			if(k < 32)
-				onStack[k] = true;
-			break;
-		default:
-			assert(!"parameter type unsupported");
-		}
-	}
-	//printf("Used Iregs: %d Fregs: %d\n", usedIRegs, usedFRegs);
-	//printf("Arguments to Ireg limit: %d Freg limit: %d\n", argsToIReg, argsToFReg);
-#endif
-	
-	// compute how much we are going to pop
-	unsigned int needPopPrev = 0;
-	int i = exFunctions[funcID].paramCount - (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 1 : 0);
-	for(; i >= 0; i--)
-	{
-		// By default, suppose we have last hidden argument, that is a pointer, represented as long number of size 8
-		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
-		ExternTypeInfo *lType = NULL;
-		unsigned int typeSize = 8;
-		
-		// If this is not the last argument, update data above
-		if((unsigned int)i != exFunctions[funcID].paramCount)
-		{
-			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
-
-			lType = &exLinker->exTypes[lInfo.type];
-			typeCat = lType->type;
-			typeSize = lType->size;
-		}
-
-		// Aggregate types are passed in registers
-#ifdef _WIN64
-		if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize != 0 && typeSize <= 4)
-#else
-		if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize <= 4)
-#endif
-			typeCat = ExternTypeInfo::TYPE_INT;
-
-#ifdef _WIN64
-		if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 8)
-			typeCat = ExternTypeInfo::TYPE_LONG;
-#endif
-
-		switch(typeCat)
-		{
-		case ExternTypeInfo::TYPE_VOID:
-			break;
-		case ExternTypeInfo::TYPE_FLOAT:
-		case ExternTypeInfo::TYPE_DOUBLE:
-#ifdef _WIN64
-			if(rvs + i > NULLC_X64_FREGARGS - 1)
-#else
-			if((unsigned)i >= argsToFReg)
-#endif
-				needPopPrev += 8;
-			break;
-		case ExternTypeInfo::TYPE_CHAR:
-		case ExternTypeInfo::TYPE_SHORT:
-		case ExternTypeInfo::TYPE_INT:
-		case ExternTypeInfo::TYPE_LONG:
-#ifdef _WIN64
-			if(rvs + i > NULLC_X64_IREGARGS - 1)
-#else
-			if((unsigned)i >= argsToIReg || !typeSize)
-#endif
-				needPopPrev += 8;
-			break;
-		case ExternTypeInfo::TYPE_COMPLEX:
-#ifdef _WIN64
-			if(rvs + i > NULLC_X64_IREGARGS - 1)
-				needPopPrev += 8;
-#else
-			if(!(typeSize <= 16 && exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i].type != 7 &&
-				!(lType->subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(lType, exLinker)) && i < 32 && onStack[i]))
-				needPopPrev += (typeSize + 7) & ~7;
-#endif
-			break;
-		}
-	}
-
-	// normal function doesn't accept context, so start of the stack skips those 2 dwords
-	unsigned int currentShift = (dwordsToPop - (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 2 : 0)) * 4;
-	unsigned int needpop = 0;
-
-	if(needPopPrev % 16 != 0)
-	{
-		code.push_back(0x56); // push RSI for alignment
-		needpop += 8;
-		needPopPrev += 8;
-	}
-
-	i = exFunctions[funcID].paramCount - (exFunctions[funcID].funcCat == ExternFuncInfo::NORMAL ? 1 : 0);
-
-	for(; i >= 0; i--)
-	{
-		// By default, suppose we have last hidden argument, that is a pointer, represented as long number of size 8
-		unsigned int typeID = NULLC_TYPE_LONG;
-		ExternTypeInfo *lType = NULL;
-
-		ExternTypeInfo::TypeCategory typeCat = ExternTypeInfo::TYPE_LONG;
-		unsigned int typeSize = 8;
-
-		bool firstQwordInteger = true;
-		bool secondQwordInteger = false;
-
-		// If this is not the last argument, update data above
-		if((unsigned int)i != exFunctions[funcID].paramCount)
-		{
-			ExternLocalInfo &lInfo = exLinker->exLocals[exFunctions[funcID].offsetToFirstLocal + i];
-
-			typeID = lInfo.type;
-			lType = &exLinker->exTypes[typeID];
-			typeCat = lType->type;
-			typeSize = lType->size;
-
-			bool opaqueType = lType->subCat != ExternTypeInfo::CAT_CLASS || lType->memberCount == 0;
-
-			firstQwordInteger = opaqueType || HasIntegerMembersInRange(*lType, 0, 8, exLinker);
-			secondQwordInteger = opaqueType || HasIntegerMembersInRange(*lType, 8, 16, exLinker);
-
-			// Check for aggregate types that are passed in registers
-#ifdef _WIN64
-			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize != 0 && typeSize <= 4)
-				typeCat = ExternTypeInfo::TYPE_INT;
-
-			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 8)
-				typeCat = ExternTypeInfo::TYPE_LONG;
-#else
-			if(typeCat == ExternTypeInfo::TYPE_COMPLEX && typeSize == 0)
-				typeCat = ExternTypeInfo::TYPE_INT;
-#endif
-		}
-
-		switch(typeCat)
-		{
-		case ExternTypeInfo::TYPE_FLOAT:
-		case ExternTypeInfo::TYPE_DOUBLE:
-#ifdef _WIN64
-			if(rvs + i > NULLC_X64_FREGARGS - 1)
-#else
-			if((unsigned)i >= argsToFReg)
-#endif
-			{
-				// mov rsi, [rax+shift]
-				if(typeCat == ExternTypeInfo::TYPE_DOUBLE)
-					code.push_back(0x48);	// 64bit mode
-				code.push_back(0x8b);
-				code.push_back(0264);	// modR/M mod = 10 (32-bit shift), spare = 6 (RSI is destination), r/m = 4 (SIB active)
-				code.push_back(0040);	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
-				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
-				code.push_back((unsigned char*)&tmp, 4);
-
-				// push rsi
-				code.push_back(0x56);
-				needpop += 8;
-			}else{
-				// movsd/movss xmm, [rax+shift]
-				code.push_back(typeCat == ExternTypeInfo::TYPE_DOUBLE ? 0xf2 : 0xf3);
-				code.push_back(0x0f);
-				code.push_back(0x10);
-#ifdef _WIN64
-				code.push_back((unsigned char)(0200 | (i << 3)));	// modR/M mod = 10 (32-bit shift), spare = XMMn, r/m = 0 (RAX is base)
-#else
-				assert(usedFRegs - 1 < NULLC_X64_FREGARGS);
-				code.push_back((unsigned char)(0200 | ((usedFRegs - 1) << 3)));
-				usedFRegs--;
-#endif
-				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
-				code.push_back((unsigned char*)&tmp, 4);
-			}
-			currentShift -= (typeCat == ExternTypeInfo::TYPE_DOUBLE ? 8 : 4);
-			break;
-		case ExternTypeInfo::TYPE_CHAR:
-		case ExternTypeInfo::TYPE_SHORT:
-		case ExternTypeInfo::TYPE_INT:
-		case ExternTypeInfo::TYPE_LONG:
-#ifdef _WIN64
-			if(rvs + i > NULLC_X64_IREGARGS - 1)
-#else
-			if((unsigned)i >= argsToIReg || !typeSize)
-#endif
-			{
-				// mov r12, [rax+shift]
-				if(typeCat == ExternTypeInfo::TYPE_LONG)
-					code.push_back(0x4c);	// 64bit mode
-				else
-					code.push_back(0x44);
-				code.push_back(0x8b);
-				code.push_back(0244);	// modR/M mod = 10 (32-bit shift), spare = 4 (R12 is destination), r/m = 4 (SIB active)
-				code.push_back(0040);	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
-				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
-				code.push_back((unsigned char*)&tmp, 4);
-
-				// push r12
-				code.push_back(0x49);
-				code.push_back(0x54);
-				needpop += 8;
-			}else{
-				unsigned int regID = rvs + i;
-#ifndef _WIN64
-				assert(usedIRegs - 1 < NULLC_X64_IREGARGS);
-				regID = (usedIRegs - 1);
-				usedIRegs--;
-#endif
-				if(regID == (NULLC_X64_IREGARGS - 2) || regID == (NULLC_X64_IREGARGS - 1))
-					code.push_back(typeCat == ExternTypeInfo::TYPE_LONG ? 0x4c : 0x44);
-				else if(typeCat == ExternTypeInfo::TYPE_LONG)
-					code.push_back(0x48);	// 64bit mode
-				code.push_back(0x8b);
-#ifdef _WIN64
-				unsigned regCodes[] = { 0214, 0224, 0204, 0214 }; // rcx, rdx, r8, r9
-#else
-				unsigned regCodes[] = { 0274, 0264, 0224, 0214, 0204, 0214 }; // rdi, rsi, rdx, rcx, r8, r9
-#endif
-				code.push_back((unsigned char)regCodes[regID]);
-				code.push_back(0040);
-				tmp = currentShift - (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
-				code.push_back((unsigned char*)&tmp, 4);
-			}
-			currentShift -= (typeCat == ExternTypeInfo::TYPE_LONG ? 8 : 4);
-			break;
-		case ExternTypeInfo::TYPE_COMPLEX:
-#ifdef _WIN64
-			if(typeSize != 0 && typeSize <= 8)
-				assert(!"parameter type unsupported (small aggregate)");
-			// under windows, a pointer to a structure is passed
-			// lea r12, [rax+shift]
-			code.push_back(0x4c);	// 64bit mode
-			code.push_back(0x8d);
-			code.push_back(0244);	// modR/M mod = 10 (32-bit shift), spare = 4 (R12 destination), r/m = 4 (SIB active)
-			code.push_back(0040);	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
-			
-			tmp = currentShift - typeSize;
-			code.push_back((unsigned char*)&tmp, 4);
-
-			if(rvs + i > NULLC_X64_IREGARGS - 1)
-			{
-				// push r12
-				code.push_back(0x41);	// 64bit mode
-				code.push_back(0x54);
-				needpop += 8;
-			}else{
-				// mov reg, r12
-				if(rvs + i == (NULLC_X64_IREGARGS - 2) || rvs + i == (NULLC_X64_IREGARGS - 1))
-					code.push_back(0x4d);	// 64bit mode
-				else
-					code.push_back(0x49);	// 64bit mode
-				code.push_back(0x8b);
-
-				unsigned regCodes[] = { 0314, 0324, 0304, 0314 }; // rcx, rdx, r8, r9
-				code.push_back((unsigned char)regCodes[rvs + i]);
-			}
-#else
-			// under linux, structure is passed through registers or stack
-			if(typeSize <= 16 && typeID != NULLC_TYPE_AUTO_REF &&
-				!(lType->subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(lType, exLinker)) && i < 32 && onStack[i])
-			{
-				unsigned regCodes[] = { 0274, 0264, 0224, 0214, 0204, 0214 }; // rdi, rsi, rdx, rcx, r8, r9
-
-				unsigned int regID = 0;
-				if(typeSize > 8)
-				{
-					// pass high dword/qword
-					if(secondQwordInteger)
-					{
-						assert(usedIRegs - 1 < NULLC_X64_IREGARGS);
-						regID = (usedIRegs - 1);
-						usedIRegs--;
-						if(regID == (NULLC_X64_IREGARGS - 2) || regID == (NULLC_X64_IREGARGS - 1))
-							code.push_back(typeSize == 16 ? 0x4c : 0x44);	// 64bit mode
-						else if(typeSize == 16)
-							code.push_back(0x48);	// 64bit mode
-						code.push_back(0x8b);
-						code.push_back((unsigned char)regCodes[regID]);
-						code.push_back(0040);
-						tmp = currentShift - (typeSize == 16 ? 8 : 4);
-						code.push_back((unsigned char*)&tmp, 4);
-					}else{
-						// movsd/movss xmm, [rax+shift]
-						code.push_back(typeSize == 16 ? 0xf2 : 0xf3);
-						code.push_back(0x0f);
-						code.push_back(0x10);
-						assert(usedFRegs - 1 < NULLC_X64_FREGARGS);
-						code.push_back((unsigned char)(0200 | ((usedFRegs - 1) << 3)));
-						usedFRegs--;
-						tmp = currentShift - (typeSize == 16 ? 8 : 4);
-						code.push_back((unsigned char*)&tmp, 4);
-					}
-				}
-
-				// pass low qword
-				if(firstQwordInteger)
-				{
-					assert(usedIRegs - 1 < NULLC_X64_IREGARGS);
-					regID = (usedIRegs - 1);
-					usedIRegs--;
-					if(regID == (NULLC_X64_IREGARGS - 2) || regID == (NULLC_X64_IREGARGS - 1))
-						code.push_back(0x4c);	// 64bit mode
-					else
-						code.push_back(0x48);	// 64bit mode
-					code.push_back(0x8b);
-					code.push_back((unsigned char)regCodes[regID]);
-					code.push_back(0040);
-					tmp = currentShift - typeSize;
-					code.push_back((unsigned char*)&tmp, 4);
-				}else{
-					// movsd/movss xmm, [rax+shift]
-					code.push_back(typeSize >= 8 ? 0xf2 : 0xf3);
-					code.push_back(0x0f);
-					code.push_back(0x10);
-					assert(usedFRegs - 1 < NULLC_X64_FREGARGS);
-					code.push_back((unsigned char)(0200 | ((usedFRegs - 1) << 3)));
-					usedFRegs--;
-					tmp = currentShift - typeSize;
-					code.push_back((unsigned char*)&tmp, 4);
-				}
-			}else{
-				for(unsigned p = 0; p < (typeSize + 7) / 8; p++)
-				{
-					// mov r12, [rax+shift]
-					if(p || typeSize % 8 == 0)
-						code.push_back(0x4c);	// 64bit mode
-					else
-						code.push_back(0x44);
-					code.push_back(0x8b);
-					code.push_back(0244);	// modR/M mod = 10 (32-bit shift), spare = 4 (R12 is destination), r/m = 4 (SIB active)
-					code.push_back(0040);	// sib	scale = 0 (1), index = 4 (NONE), base = 0 (EAX)
-					tmp = currentShift - p * 8 - (typeSize % 8 == 0 ? 8 : 4);
-					code.push_back((unsigned char*)&tmp, 4);
-
-					// push rsi
-					code.push_back(0x41);	// 64bit mode
-					code.push_back(0x54);
-					needpop += 8;
-				}
-			}
-#endif
-			currentShift -= typeSize == 0 ? 4 : typeSize;
-			break;
-		default:
-			assert(!"parameter type unsupported");
-		}
-	}
-	// for complex return value, pass a pointer in first register
-	if(rvs)
-	{
-		code.push_back(0x48);	// 64bit mode
-		code.push_back(0x8b);
-#ifdef _WIN64
-		code.push_back(0313);	// modR/M mod = 11 (register), spare = 1 (RCX is a destination), r/m = 3 (RBX is source)
-#else
-		code.push_back(0373);	// modR/M mod = 11 (register), spare = 7 (RDI is a destination), r/m = 3 (RBX is source)
-#endif
-	}
-#ifdef _WIN64
-	// sub rsp, 32
-	code.push_back(0x48);
-	code.push_back(0x81);
-	code.push_back(0354);	// modR/M mod = 11 (register), spare = 5 (sub), r/m = 4 (RSP is changed)
-	tmp = 32;
-	code.push_back((unsigned char*)&tmp, 4);
-#endif
-
-	// call r11
-	code.push_back(0x49);
-	code.push_back(0xff);
-	code.push_back(0323);	// modR/M mod = 11 (register), spare = 2, r/m = 3 (R11 is source)
-
-#ifdef _WIN64
-	tmp = 32 + needpop;
-#else
-	tmp = needpop;
-#endif
-	if(tmp)
-	{
-		// add rsp, 32 + needpop
-		code.push_back(0x48);
-		code.push_back(0x81);
-		code.push_back(0304);	// modR/M mod = 11 (register), spare = 0 (add), r/m = 4 (RSP is changed)
-		code.push_back((unsigned char*)&tmp, 4);
-	}
-
-	// handle return value
-	ExternFuncInfo::ReturnType retType = (ExternFuncInfo::ReturnType)exFunctions[funcID].retType;
-	unsigned int retTypeID = exLinker->exTypeExtra[exTypes[exFunctions[funcID].funcType].memberOffset].type;
-	unsigned int retTypeSize = exTypes[retTypeID].size;
-
-	if(retType == ExternFuncInfo::RETURN_UNKNOWN)
-	{
-		if(retTypeSize == 0)
-			retType = ExternFuncInfo::RETURN_VOID;
-#ifdef _WIN64
-		else if(retTypeSize <= 4)
-			retType = ExternFuncInfo::RETURN_INT;
-		else if(retTypeSize == 8)
-			retType = ExternFuncInfo::RETURN_LONG;
-#endif
-	}
-
-	if(rvs)
-		retType = ExternFuncInfo::RETURN_UNKNOWN;
-
-	unsigned int returnShift = 0;
-	switch(retType)
-	{
-	case ExternFuncInfo::RETURN_DOUBLE:
-		if(retTypeID == NULLC_TYPE_FLOAT)
-		{
-			// cvtss2sd xmm0, xmm0
-			code.push_back(0xf3);
-			code.push_back(0x0f);
-			code.push_back(0x5a);
-			code.push_back(0xc0);
-		}
-
-		returnShift = 2;
-
-		// movsd qword [rbx], xmm0
-		code.push_back(0xf2);
-		code.push_back(0x0f);
-		code.push_back(0x11);
-		code.push_back(0003);	// modR/M mod = 00 (no shift), spare = XMM0, r/m = 3 (RBX is base)
-		break;
-	case ExternFuncInfo::RETURN_LONG:
-		returnShift = 1;
-
-		// mov qword [rbx], rax
-		code.push_back(0x48);	// 64bit mode
-	case ExternFuncInfo::RETURN_INT:
-		returnShift += 1;
-
-		// mov dword [rbx], eax
-		code.push_back(0x89);
-		code.push_back(0003);	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 3 (RBX is base)
-		break;
-	case ExternFuncInfo::RETURN_VOID:
-		break;
-	case ExternFuncInfo::RETURN_UNKNOWN:
-#ifndef _WIN64
-		if(!rvs)
-		{
-			ExternTypeInfo &retType = exLinker->exTypes[retTypeID];
-
-			bool opaqueType = retType.subCat != ExternTypeInfo::CAT_CLASS || retType.memberCount == 0;
-
-			bool firstQwordInteger = opaqueType || HasIntegerMembersInRange(retType, 0, 8, exLinker);
-			bool secondQwordInteger = opaqueType || HasIntegerMembersInRange(retType, 8, 16, exLinker);
-
-			if(firstQwordInteger)
-			{
-				// mov qword [rbx], rax
-				code.push_back(0x48);	// 64bit mode
-				code.push_back(0x89);
-				code.push_back(0003);	// modR/M mod = 00 (no shift), spare = 0 (RAX is source), r/m = 3 (RBX is base)
-			}else{
-				// movsd qword [rbx], xmm0
-				code.push_back(0xf2);
-				code.push_back(0x0f);
-				code.push_back(0x11);
-				code.push_back(0003);	// modR/M mod = 00 (no shift), spare = XMM0, r/m = 3 (RBX is base)
-			}
-
-			if(retTypeSize > 8)
-			{
-				if(secondQwordInteger)
-				{
-					// mov qword [rbx+8], rax/rdx
-					code.push_back(0x48);	// 64bit mode
-					code.push_back(0x89);
-					if(firstQwordInteger)
-						code.push_back(0123);	// modR/M mod = 01 (8bit shift), spare = 2 (RDX is source), r/m = 3 (RBX is base)
-					else
-						code.push_back(0103);	// modR/M mod = 01 (8bit shift), spare = 0 (RAX is source), r/m = 3 (RBX is base)
-					code.push_back(8);
-				}else{
-					// movsd qword [rbx + 8], xmm0/xmm1
-					code.push_back(0xf2);
-					code.push_back(0x0f);
-					code.push_back(0x11);
-					if(firstQwordInteger)
-						code.push_back(0103);	// modR/M mod = 01 (8bit shift), spare = XMM0, r/m = 3 (RBX is base)
-					else
-						code.push_back(0113);	// modR/M mod = 01 (8bit shift), spare = XMM1, r/m = 3 (RBX is base)
-					code.push_back(8);
-				}
-			}
-		}
-#else
-		if(retTypeSize <= 8)
-			assert(!"return type unsupported (small aggregate)");
-#endif
-		returnShift = retTypeSize / 4;
-		break;
-	}
-
-	code.push_back(0x49);
-	code.push_back(0x5c);	// pop R12
-	code.push_back(0x5e);	// pop RSI
-	code.push_back(0x5b);	// pop RBX
-	code.push_back(0x58);	// pop RAX
-	code.push_back(0x5f);	// pop RDI
-	code.push_back(0xc3);	// ret
-
-	return returnShift;
-}
-
-#endif
 
 Executor::Executor(Linker* linker): exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions), gateCode(4096), breakCode(128)
 {
@@ -860,11 +197,9 @@ Executor::~Executor()
 	NULLC::dealloc(genStackBase);
 	genStackBase = NULL;
 
-#if defined(NULLC_USE_DYNCALL)
 	if(dcCallVM)
 		dcFree(dcCallVM);
 	dcCallVM = NULL;
-#endif
 }
 
 #define RUNTIME_ERROR(test, desc)	if(test){ fcallStack.push_back(cmdStream); cmdStream = NULL; strcpy(execError, desc); break; }
@@ -903,39 +238,11 @@ void Executor::InitExecution()
 
 	paramBase = 0;
 
-#if defined(NULLC_USE_DYNCALL)
 	if(!dcCallVM)
 	{
 		dcCallVM = dcNewCallVM(4096);
 		dcMode(dcCallVM, DC_CALL_C_DEFAULT);
 	}
-#endif
-
-#if defined(_M_X64) && !defined(NULLC_USE_DYNCALL)
-	// Generate gateway code for all functions
-	gateCode.clear();
-	for(unsigned int i = 0; i < exFunctions.size(); i++)
-	{
-		if(!exFunctions[i].funcType)
-		{
-			exFunctions[i].startInByteCode = 0;
-			exFunctions[i].returnShift = 0;
-		}else{
-			exFunctions[i].startInByteCode = gateCode.size();
-			exFunctions[i].returnShift = (unsigned char)CreateFunctionGateway(gateCode, i);
-		}
-	}
-#ifdef _WIN64
-	DWORD old;
-	VirtualProtect(gateCode.data, gateCode.size(), PAGE_EXECUTE_READWRITE, &old);
-#else
-	char *alignedAddr = (char*)((intptr_t)((char*)gateCode.data + PAGESIZE - 1) & ~(PAGESIZE - 1)) - PAGESIZE;
-	char *alignedEnd = (char*)((intptr_t)((char*)gateCode.data + gateCode.size() + PAGESIZE - 1) & ~(PAGESIZE - 1));
-
-	mprotect(alignedAddr, alignedEnd - alignedAddr, PROT_READ | PROT_WRITE | PROT_EXEC);
-#endif
-
-#endif
 }
 
 void Executor::Run(unsigned int functionID, const char *arguments)
@@ -1998,132 +1305,6 @@ bool Executor::RunCallStackHelper(unsigned funcID, unsigned extraPopDW, unsigned
 }
 #endif
 
-#if !defined(_M_X64) && !defined(NULLC_USE_DYNCALL)
-
-// X86 implementation
-bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
-{
-	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
-
-	void* fPtr = exFunctions[funcID].funcPtr;
-	unsigned int retType = exFunctions[funcID].retType;
-
-	unsigned int *stackStart = (genStackPtr + dwordsToPop - 1);
-	for(unsigned int i = 0; i < dwordsToPop; i++)
-	{
-#ifdef __GNUC__
-		asm("movl %0, %%eax"::"r"(stackStart):"%eax");
-		asm("pushl (%eax)");
-#else
-	__asm{ mov eax, dword ptr[stackStart] }
-	__asm{ push dword ptr[eax] }
-#endif
-		stackStart--;
-	}
-	unsigned int *newStackPtr = genStackPtr + dwordsToPop + extraPopDW;
-
-	switch(retType)
-	{
-	case ExternFuncInfo::RETURN_VOID:
-		((void (*)())fPtr)();
-		break;
-	case ExternFuncInfo::RETURN_INT:
-		newStackPtr -= 1;
-		*newStackPtr = ((int (*)())fPtr)();
-		break;
-	case ExternFuncInfo::RETURN_DOUBLE:
-		newStackPtr -= 2;
-		*(double*)newStackPtr = ((double (*)())fPtr)();
-		break;
-	case ExternFuncInfo::RETURN_LONG:
-		newStackPtr -= 2;
-		*(long long*)newStackPtr = ((long long (*)())fPtr)();
-		break;
-#ifdef NULLC_COMPLEX_RETURN
-	case ExternFuncInfo::RETURN_UNKNOWN:
-	{
-		unsigned int ret[128];
-		unsigned int *ptr_ = &ret[0];
-
-#ifdef __GNUC__
-		asm("movl %0, %%eax"::"r"(ptr_):"%eax");
-		asm("pushl %eax");
-#else
-		__asm mov eax, ptr_
-		__asm push eax
-#endif
-		((void (*)())fPtr)();
-		
-#ifdef _MSC_VER
-		__asm add esp, 4
-#endif
-
-		// adjust new stack top
-		newStackPtr -= exFunctions[funcID].returnShift;
-		// copy return value on top of the stack
-		memcpy(newStackPtr, ret, exFunctions[funcID].returnShift * 4);
-	}
-		break;
-#endif
-	}
-	genStackPtr = newStackPtr;
-#ifdef __GNUC__
-	asm("movl %0, %%eax"::"r"(dwordsToPop):"%eax");
-	asm("leal (%esp, %eax, 0x4), %esp");
-#else
-	__asm mov eax, dwordsToPop
-	__asm lea esp, [eax * 4 + esp]
-#endif
-	return callContinue;
-}
-
-#elif defined(_M_X64) && !defined(NULLC_USE_DYNCALL)
-
-// X64 implementation
-bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
-{
-	unsigned int dwordsToPop = (exFunctions[funcID].bytesToPop >> 2);
-	void* fPtr = exFunctions[funcID].funcPtr;
-
-	assert(fPtr);
-
-	unsigned int *stackStart = genStackPtr;
-	unsigned int *newStackPtr = genStackPtr + dwordsToPop + extraPopDW;
-
-	// buffer for return value
-	unsigned int ret[128];
-	unsigned int returnShift = exFunctions[funcID].returnShift;
-
-	assert(exFunctions[funcID].returnShift < 128);	// maximum supported return type size is 512 bytes
-
-	// call external function through gateway
-	void (*gate)(unsigned int*, unsigned int*, void*) = (void (*)(unsigned int*, unsigned int*, void*))(void*)(gateCode.data + exFunctions[funcID].startInByteCode);
-	gate(stackStart, ret, fPtr);
-
-	// adjust new stack top
-	newStackPtr -= returnShift;
-
-	// copy return value on top of the stack
-	memcpy(newStackPtr, ret, returnShift * 4);
-
-	// set new stack top
-	genStackPtr = newStackPtr;
-
-	return callContinue;
-}
-
-#elif defined(NULLC_USE_DYNCALL)
-
-DCcomplexdd dcCallComplexDD(DCCallVM* vm, DCpointer funcptr);
-DCcomplexdl dcCallComplexDL(DCCallVM* vm, DCpointer funcptr);
-DCcomplexld dcCallComplexLD(DCCallVM* vm, DCpointer funcptr);
-DCcomplexll dcCallComplexLL(DCCallVM* vm, DCpointer funcptr);
-
-void dcArgStack(DCCallVM* in_self, void *ptr, unsigned size);
-
-int dcFreeIRegs(DCCallVM* in_self);
-int dcFreeFRegs(DCCallVM* in_self);
-
 bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 {
 	ExternFuncInfo &func = exFunctions[funcID];
@@ -2354,15 +1535,6 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 
 	return callContinue;
 }
-#else
-
-bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
-{
-	strcpy(execError, "ERROR: external function call failed");
-	return false;
-}
-
-#endif
 
 namespace ExPriv
 {

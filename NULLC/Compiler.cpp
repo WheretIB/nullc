@@ -1504,7 +1504,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			else if(returnType == ctx.exprCtx.typeVoid || returnType->size == 0)
 				funcInfo.retType = ExternFuncInfo::RETURN_VOID;
 #endif
-#if defined(NULLC_COMPLEX_RETURN) && defined(__linux)
+#if defined(__linux)
 			else if(returnType == ctx.exprCtx.typeBool || returnType == ctx.exprCtx.typeChar || returnType == ctx.exprCtx.typeShort || returnType == ctx.exprCtx.typeInt)
 				funcInfo.retType = ExternFuncInfo::RETURN_INT;
 			else if(returnType == ctx.exprCtx.typeLong)

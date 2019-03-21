@@ -479,13 +479,6 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 					return false;
 				}
 			}
-#if !defined(_M_X64) && !defined(NULLC_COMPLEX_RETURN)
-			if(exFunctions.back().funcPtr != NULL && exFunctions.back().retType == ExternFuncInfo::RETURN_UNKNOWN)
-			{
-				strcpy(linkError, "ERROR: user functions with return type size larger than 8 bytes are not supported");
-				return false;
-			}
-#endif
 
 			// For function prototypes
 			if(exFunctions.back().codeSize & 0x80000000)

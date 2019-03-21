@@ -3,7 +3,6 @@
 # Aug 3, 2010
 
 config=debug
-extcall=manual
 check=none
 
 REG_CFLAGS=-g -Wall -Wextra
@@ -19,11 +18,6 @@ endif
 ifeq ($(config),coverage)
 	REG_CFLAGS += -coverage
 	COMP_CFLAGS += -coverage
-endif
-
-ifeq ($(extcall),dyncall)
-	REG_CFLAGS += -DNULLC_USE_DYNCALL
-	COMP_CFLAGS += -DNULLC_USE_DYNCALL
 endif
 
 ifeq ($(check),sanitize)
@@ -207,13 +201,8 @@ temp/testrun/.dummy:
 	mkdir -p temp/testrun
 	touch temp/testrun/.dummy
 	
-ifeq ($(extcall),dyncall)
 bin/libnullc.a: ${LIB_TARGETS} ${STDLIB_TARGETS} ${PUGIXML_TARGETS} ${DYNCALL_TARGETS}
 	$(AR) rcs $@ $^
-else
-bin/libnullc.a: ${LIB_TARGETS} ${STDLIB_TARGETS} ${PUGIXML_TARGETS}
-	$(AR) rcs $@ $^
-endif
 
 clean:
 	rm -rf temp/

@@ -134,6 +134,16 @@ DC_API void       dcFreeStruct     (DCstruct* s);
 
 DC_API DCstruct*  dcDefineStruct  (const char* signature);
 
+// x64 on linux has a special way of returning aggregates <= 16 bytes
+DC_API DCcomplexdd dcCallComplexDD(DCCallVM* vm, DCpointer funcptr);
+DC_API DCcomplexdl dcCallComplexDL(DCCallVM* vm, DCpointer funcptr);
+DC_API DCcomplexld dcCallComplexLD(DCCallVM* vm, DCpointer funcptr);
+DC_API DCcomplexll dcCallComplexLL(DCCallVM* vm, DCpointer funcptr);
+
+DC_API void dcArgStack(DCCallVM* in_self, void *ptr, unsigned size);
+
+DC_API int dcFreeIRegs(DCCallVM* in_self);
+DC_API int dcFreeFRegs(DCCallVM* in_self);
 
 #ifdef __cplusplus
 }

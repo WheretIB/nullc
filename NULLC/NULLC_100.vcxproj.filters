@@ -45,6 +45,12 @@
     <Filter Include="Executor_LLVM">
       <UniqueIdentifier>{84d3adf5-d1bc-439a-8297-91f3957125f2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="external">
+      <UniqueIdentifier>{49b5eea1-992a-49af-b5f9-70010de12114}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external\dyncall">
+      <UniqueIdentifier>{d8bc43ba-73e6-453f-9fb8-4a60fbf72a0d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BinaryCache.cpp">
@@ -178,6 +184,21 @@
     </ClCompile>
     <ClCompile Include="TypeTree.cpp">
       <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_api.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_callvm.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_callvm_base.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_struct.c">
+      <Filter>external\dyncall</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dyncall\dyncall_vector.c">
+      <Filter>external\dyncall</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -364,6 +385,15 @@
     <ClInclude Include="TypeTree.h">
       <Filter>Compiler</Filter>
     </ClInclude>
+    <ClInclude Include="..\external\dyncall\dyncall.h">
+      <Filter>external\dyncall</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\dyncall\dyncall_callvm.h">
+      <Filter>external\dyncall</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\dyncall\dyncall_types.h">
+      <Filter>external\dyncall</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Modules\std\algorithm.nc">
@@ -435,5 +465,13 @@
     <None Include="..\Modules\std\stringio.nc">
       <Filter>Modules\std</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="..\external\dyncall\dyncall_call_x64_generic_masm.asm">
+      <Filter>external\dyncall</Filter>
+    </MASM>
+    <MASM Include="..\external\dyncall\dyncall_call_x86_generic_masm.asm">
+      <Filter>external\dyncall</Filter>
+    </MASM>
   </ItemGroup>
 </Project>

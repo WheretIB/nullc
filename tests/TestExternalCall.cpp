@@ -826,7 +826,7 @@ TEST_RESULT("External function call. alignment test 4.", testExternalCallM4, "1"
 // big argument tests
 // big arguments with int and float/double
 
-#if defined(NULLC_COMPLEX_RETURN) && !defined(NULLC_LLVM_SUPPORT)
+#if !defined(NULLC_LLVM_SUPPORT)
 
 struct ReturnBig1{ int a, b, c, d; };
 ReturnBig1 TestReturnBig1()

@@ -68,12 +68,6 @@ struct NULLCAutoArray
 	#define NULLC_OPTIMIZE_X86
 #endif
 
-#define NULLC_COMPLEX_RETURN
-
-#if defined(__CELLOS_LV2__) || defined(__arm__)
-	#define NULLC_USE_DYNCALL
-#endif
-
 //#define NULLC_LLVM_SUPPORT
 
 typedef unsigned char nullres;
