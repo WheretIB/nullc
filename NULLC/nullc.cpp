@@ -655,6 +655,30 @@ const char*	nullcGetArgumentVector(unsigned functionID, uintptr_t extra, va_list
 			else
 				memcpy(argPos, va_arg(args, char*), tInfo.size);
 			argPos += tInfo.size;
+#elif defined(__aarch64__)
+			if(tInfo.size <= 4)
+			{
+				*(int*)argPos = va_arg(args, int);
+			}
+			else if(tInfo.size <= 8)
+			{
+				*(long long*)argPos = va_arg(args, long long);
+			}
+			else if(tInfo.size <= 12)
+			{
+				*(long long*)argPos = va_arg(args, long long);
+				*(long long*)(argPos + 8) = va_arg(args, long long);
+			}
+			else if(tInfo.size <= 16)
+			{
+				*(long long*)argPos = va_arg(args, long long);
+				*(long long*)(argPos + 8) = va_arg(args, long long);
+			}
+			else
+			{
+				memcpy(argPos, va_arg(args, char*), tInfo.size);
+			}
+			argPos += tInfo.size;
 #elif defined(__x86_64__)
 			if((tInfo.subCat == ExternTypeInfo::CAT_ARRAY && tInfo.arrSize == ~0u) || tInfo.subCat == ExternTypeInfo::CAT_FUNCTION)
 			{

@@ -1377,6 +1377,27 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 				dcArgPointer(dcCallVM, stackStart);
 				stackStart += tInfo.size / 4;
 			}
+#elif defined(__aarch64__)
+			if(tInfo.size <= 4)
+			{
+				// This branch also handles 0 byte structs
+				dcArgInt(dcCallVM, *(int*)stackStart);
+				stackStart += 1;
+			}else if(tInfo.size <= 8){
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+				stackStart += 2;
+			}else if(tInfo.size <= 12){
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+				dcArgInt(dcCallVM, *(int*)(stackStart + 2));
+				stackStart += 3;
+			}else if(tInfo.size <= 16){
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
+				dcArgLongLong(dcCallVM, vmLoadLong(stackStart + 2));
+				stackStart += 4;
+			}else{
+				dcArgPointer(dcCallVM, stackStart);
+				stackStart += tInfo.size / 4;
+			}
 #elif defined(_M_X64)
 			if(tInfo.size > 16 || lInfo.type == NULLC_TYPE_AUTO_REF || (tInfo.subCat == ExternTypeInfo::CAT_CLASS && !AreMembersAligned(&tInfo, exLinker)))
 			{
