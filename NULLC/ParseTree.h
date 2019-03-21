@@ -1009,7 +1009,7 @@ struct SynNamespaceElement
 	SynNamespaceElement(SynNamespaceElement *parent, SynIdentifier* name): parent(parent), name(name)
 	{
 		if(parent)
-			fullNameHash = StringHashContinue(StringHashContinue(parent->fullNameHash, "."), name->name.begin, name->name.end);
+			fullNameHash = NULLC::StringHashContinue(NULLC::StringHashContinue(parent->fullNameHash, "."), name->name.begin, name->name.end);
 		else
 			fullNameHash = name->name.hash();
 	}
