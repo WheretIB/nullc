@@ -23,7 +23,7 @@
 int vmIntPow(int power, int number)
 {
 	if(power < 0)
-		return number == 1 ? 1 : (number == -1 ? (power & 1 ? -1 : 1) : 0);
+		return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
 
 	int result = 1;
 	while(power)
@@ -42,7 +42,7 @@ int vmIntPow(int power, int number)
 long long vmLongPow(long long power, long long number)
 {
 	if(power < 0)
-		return number == 1 ? 1 : (number == -1 ? (power & 1 ? -1 : 1) : 0);
+		return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
 
 	long long result = 1;
 	while(power)

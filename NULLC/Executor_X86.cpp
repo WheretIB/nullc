@@ -1289,43 +1289,43 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			if(cmd.argA.type == x86Argument::argPtr)
 				code += x86JMP(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum);
 			else
-				code += x86JMP(code, cmd.argA.labelID, cmd.argA.labelID & JUMP_NEAR ? true : false);
+				code += x86JMP(code, cmd.argA.labelID, (cmd.argA.labelID & JUMP_NEAR) != 0);
 			break;
 		case o_ja:
-			code += x86Jcc(code, cmd.argA.labelID, condA, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condA, (cmd.argA.labelID & JUMP_NEAR) != 0);
 			break;
 		case o_jae:
-			code += x86Jcc(code, cmd.argA.labelID, condAE, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condAE, (cmd.argA.labelID & JUMP_NEAR) != 0);
 			break;
 		case o_jb:
-			code += x86Jcc(code, cmd.argA.labelID, condB, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condB, (cmd.argA.labelID & JUMP_NEAR) != 0);
 			break;
 		case o_jbe:
-			code += x86Jcc(code, cmd.argA.labelID, condBE, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condBE, (cmd.argA.labelID & JUMP_NEAR) != 0);
 			break;
 		case o_je:
-			code += x86Jcc(code, cmd.argA.labelID, condE, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condE, (cmd.argA.labelID & JUMP_NEAR) != 0);
 			break;
 		case o_jg:
-			code += x86Jcc(code, cmd.argA.labelID, condG, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condG, (cmd.argA.labelID & JUMP_NEAR) != 0);
 			break;
 		case o_jl:
-			code += x86Jcc(code, cmd.argA.labelID, condL, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condL, (cmd.argA.labelID & JUMP_NEAR) != 0);
 			break;
 		case o_jne:
-			code += x86Jcc(code, cmd.argA.labelID, condNE, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condNE, (cmd.argA.labelID & JUMP_NEAR) != 0);
 			break;
 		case o_jnp:
-			code += x86Jcc(code, cmd.argA.labelID, condNP, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condNP, (cmd.argA.labelID & JUMP_NEAR) != 0);
 			break;
 		case o_jp:
-			code += x86Jcc(code, cmd.argA.labelID, condP, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condP, (cmd.argA.labelID & JUMP_NEAR) != 0);
 			break;
 		case o_jge:
-			code += x86Jcc(code, cmd.argA.labelID, condGE, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condGE, (cmd.argA.labelID & JUMP_NEAR) != 0);
 			break;
 		case o_jle:
-			code += x86Jcc(code, cmd.argA.labelID, condLE, cmd.argA.labelID & JUMP_NEAR ? true : false);
+			code += x86Jcc(code, cmd.argA.labelID, condLE, (cmd.argA.labelID & JUMP_NEAR) != 0);
 			break;
 		case o_call:
 			if(cmd.argA.type == x86Argument::argLabel)

@@ -6,7 +6,7 @@
 int intPow(int power, int number)
 {
 	if(power < 0)
-		return number == 1 ? 1 : (number == -1 ? (power & 1 ? -1 : 1) : 0);
+		return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
 
 	int result = 1;
 	while(power)
@@ -60,7 +60,7 @@ long long longShr(long long a, long long b)
 long long longPow(long long power, long long number)
 {
 	if(power < 0)
-		return number == 1 ? 1 : (number == -1 ? (power & 1 ? -1 : 1) : 0);
+		return number == 1 ? 1 : (number == -1 ? ((power & 1) ? -1 : 1) : 0);
 
 	long long result = 1;
 	while(power)
