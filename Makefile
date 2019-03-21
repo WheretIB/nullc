@@ -7,12 +7,14 @@ check=none
 
 REG_CFLAGS=-g -Wall -Wextra
 COMP_CFLAGS=-g -Wall -Wextra -D NULLC_NO_EXECUTOR
+DYNCALL_FLAGS=-g -Wall -Wextra
 STDLIB_FLAGS=-lstdc++ -lm
 FUZZ_FLAGS=
 
 ifeq ($(config),release)
 	REG_CFLAGS += -O3 -fno-omit-frame-pointer -DNDEBUG
 	COMP_CFLAGS += -O3 -fno-omit-frame-pointer -DNDEBUG
+	DYNCALL_FLAGS += -O3 -fno-omit-frame-pointer -DNDEBUG
 endif
 
 ifeq ($(config),coverage)
@@ -23,6 +25,7 @@ endif
 ifeq ($(check),sanitize)
 	REG_CFLAGS += -fsanitize=undefined -fsanitize=address
 	COMP_CFLAGS += -fsanitize=undefined -fsanitize=address
+	DYNCALL_FLAGS += -fsanitize=undefined -fsanitize=address
 
 ifeq ($(CXX),clang)
 	STDLIB_FLAGS += -lubsan
@@ -32,6 +35,7 @@ endif
 ifeq ($(check),fuzz)
 	REG_CFLAGS += -fsanitize=undefined -fsanitize=address -fsanitize=fuzzer-no-link
 	COMP_CFLAGS += -fsanitize=undefined -fsanitize=address -fsanitize=fuzzer-no-link
+	DYNCALL_FLAGS += -fsanitize=undefined -fsanitize=address -fsanitize=fuzzer-no-link
 
 	STDLIB_FLAGS += -lubsan
 	FUZZ_FLAGS = -fsanitize=fuzzer -DSANITIZE_FUZZER
@@ -166,10 +170,10 @@ ${PUGIXML_TARGETS}: $(PUGIXML_SOURCES)
 	$(CXX) $(REG_CFLAGS) -c $< -o $@
 
 temp/dyncall/%.o: external/dyncall/%.c
-	$(CXX) $(REG_CFLAGS) -c $< -o $@
+	$(CXX) $(DYNCALL_FLAGS) -c $< -o $@
 
 temp/dyncall_s/%.o: external/dyncall/%.S
-	$(CXX) $(REG_CFLAGS) -c $< -o $@
+	$(CXX) $(DYNCALL_FLAGS) -c $< -o $@
 
 #~ ${LIB_TARGETS}: ${LIB_SOURCES}
 #~ $(CXX) $(REG_CFLAGS) -c $^ -o $@
