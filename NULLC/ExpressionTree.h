@@ -145,7 +145,7 @@ struct ExpressionContext
 	void PopScope(ScopeType type, bool ejectContents, bool keepFunctions);
 	void PopScope(ScopeType type);
 	void RestoreScopesAtPoint(ScopeData *target, SynBase *location);
-	void SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *target, SynBase *targetLocation);
+	void SwitchToScopeAtPoint(ScopeData *target, SynBase *targetLocation);
 
 	NamespaceData* GetCurrentNamespace();
 	FunctionData* GetCurrentFunction();

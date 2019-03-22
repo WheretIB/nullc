@@ -1168,7 +1168,7 @@ void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *locatio
 	scope = target;
 }
 
-void ExpressionContext::SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *target, SynBase *targetLocation)
+void ExpressionContext::SwitchToScopeAtPoint(ScopeData *target, SynBase *targetLocation)
 {
 	// Reach the same depth
 	while(scope->scopeDepth > target->scopeDepth)
@@ -2970,7 +2970,7 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 	// Switch to original type scope
 	ScopeData *scope = ctx.scope;
 
-	ctx.SwitchToScopeAtPoint(NULL, proto->scope, proto->source);
+	ctx.SwitchToScopeAtPoint(proto->scope, proto->source);
 
 	ExprBase *result = NULL;
 
@@ -2987,7 +2987,7 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 	else
 	{
 		// Restore old scope
-		ctx.SwitchToScopeAtPoint(proto->source, scope, NULL);
+		ctx.SwitchToScopeAtPoint(scope, NULL);
 
 		// Additional error info
 		if(ctx.errorBuf)
@@ -3023,7 +3023,7 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 	}
 
 	// Restore old scope
-	ctx.SwitchToScopeAtPoint(proto->source, scope, NULL);
+	ctx.SwitchToScopeAtPoint(scope, NULL);
 
 	memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 	ctx.errorHandlerNested = prevErrorHandlerNested;
@@ -5697,7 +5697,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 	// Switch to original function scope
 	ScopeData *scope = ctx.scope;
 
-	ctx.SwitchToScopeAtPoint(NULL, function->scope, function->source);
+	ctx.SwitchToScopeAtPoint(function->scope, function->source);
 
 	IntrusiveList<TypeHandle> types;
 
@@ -5771,7 +5771,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 	else
 	{
 		// Restore old scope
-		ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
+		ctx.SwitchToScopeAtPoint(scope, NULL);
 
 		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 		ctx.errorHandlerNested = prevErrorHandlerNested;
@@ -5780,7 +5780,7 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 	}
 
 	// Restore old scope
-	ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
+	ctx.SwitchToScopeAtPoint(scope, NULL);
 
 	memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 	ctx.errorHandlerNested = prevErrorHandlerNested;
@@ -6281,7 +6281,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	// Switch to original function scope
 	ScopeData *scope = ctx.scope;
 
-	ctx.SwitchToScopeAtPoint(NULL, function->scope, function->source);
+	ctx.SwitchToScopeAtPoint(function->scope, function->source);
 
 	ctx.instanceDepth++;
 
@@ -6310,7 +6310,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		ctx.instanceDepth--;
 
 		// Restore old scope
-		ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
+		ctx.SwitchToScopeAtPoint(scope, NULL);
 
 		// Additional error info
 		if(ctx.errorBuf)
@@ -6364,7 +6364,7 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	ctx.instanceDepth--;
 
 	// Restore old scope
-	ctx.SwitchToScopeAtPoint(function->source, scope, NULL);
+	ctx.SwitchToScopeAtPoint(scope, NULL);
 
 	memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 	ctx.errorHandlerNested = prevErrorHandlerNested;
@@ -9712,7 +9712,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 	ScopeData *scope = ctx.scope;
 
 	// Switch to global scope
-	ctx.SwitchToScopeAtPoint(NULL, ctx.globalScope, NULL);
+	ctx.SwitchToScopeAtPoint(ctx.globalScope, NULL);
 
 	ExprBase *castToInt = NULL;
 	ExprBase *castToEnum = NULL;
@@ -9828,7 +9828,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 	else
 	{
 		// Restore old scope
-		ctx.SwitchToScopeAtPoint(NULL, scope, NULL);
+		ctx.SwitchToScopeAtPoint(scope, NULL);
 
 		memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 		ctx.errorHandlerNested = prevErrorHandlerNested;
@@ -9837,7 +9837,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 	}
 
 	// Restore old scope
-	ctx.SwitchToScopeAtPoint(NULL, scope, NULL);
+	ctx.SwitchToScopeAtPoint(scope, NULL);
 
 	memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 	ctx.errorHandlerNested = prevErrorHandlerNested;
