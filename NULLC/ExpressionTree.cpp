@@ -8877,7 +8877,9 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 		// Look for a member function in a generic class base and instantiate them
 		unsigned hash = NULLC::StringHashContinue(typeGenericClassProto->nameHash, "::");
 
-		hash = NULLC::StringHashContinue(hash, typeGenericClassProto->name.begin, typeGenericClassProto->name.end);
+		InplaceStr functionName = GetTypeConstructorName(typeGenericClassProto);
+
+		hash = NULLC::StringHashContinue(hash, functionName.begin, functionName.end);
 
 		for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(hash); node; node = ctx.functionMap.next(node))
 		{
@@ -8903,7 +8905,9 @@ bool GetTypeConstructorFunctions(ExpressionContext &ctx, TypeBase *type, bool no
 		// Look for a member function in a generic class base and instantiate them
 		unsigned hash = NULLC::StringHashContinue(typeGenericClassProto->nameHash, "::");
 
-		hash = NULLC::StringHashContinue(hash, typeGenericClassProto->name.begin, typeGenericClassProto->name.end);
+		InplaceStr functionName = GetTypeConstructorName(typeGenericClassProto);
+
+		hash = NULLC::StringHashContinue(hash, functionName.begin, functionName.end);
 
 		for(HashMap<FunctionData*>::Node *node = ctx.functionMap.first(NULLC::StringHashContinue(hash, "$")); node; node = ctx.functionMap.next(node))
 		{
