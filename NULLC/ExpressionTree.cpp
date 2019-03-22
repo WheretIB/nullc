@@ -9180,7 +9180,7 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 
 	if(!customAssignMembers.empty())
 	{
-		InplaceStr functionName = GetFunctionNameInScope(ctx, ctx.scope, NULL, InplaceStr("default_assign$_"), false, false);
+		InplaceStr functionName = InplaceStr("default_assign$_");
 
 		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
 

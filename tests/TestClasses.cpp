@@ -705,7 +705,7 @@ switch(1){ case DIR.UP: case DIR.DOWN: }\r\n\
 int foo(int a){ return -a; } auto x = foo; return foo(DIR.UP);";
 TEST_RESULT("Class constant 6 (test for a bug with constant wrap into a list)", testClassConstant6, "-2");
 
-const char	*testClassAssignmentOperator =
+const char	*testClassAssignmentOperator1 =
 "class Foo\r\n\
 {\r\n\
 	int ref a;\r\n\
@@ -753,7 +753,46 @@ assert(*m2.a.y.a == 7);\r\n\
 assert(*n2.a.y.a == 14);\r\n\
 \r\n\
 return 1;";
-TEST_RESULT("A default custom assignment operator is generated for classes that have members with a custom assignment operators", testClassAssignmentOperator, "1");
+TEST_RESULT("A default custom assignment operator is generated for classes that have members with a custom assignment operators 1", testClassAssignmentOperator1, "1");
+
+const char	*testClassAssignmentOperator2 =
+"namespace A\r\n\
+{\r\n\
+	class Foo\r\n\
+	{\r\n\
+		int ref a;\r\n\
+	}\r\n\
+	auto operator=(Foo ref a, Foo b){ a.a = new int(*b.a); return a; }\r\n\
+\r\n\
+	class Bar1\r\n\
+	{\r\n\
+		int x;\r\n\
+		Foo y;\r\n\
+	}\r\n\
+}\r\n\
+\r\n\
+A.Foo a;\r\n\
+a.a = new int(4);\r\n\
+A.Foo b = a;\r\n\
+*b.a = 10;\r\n\
+\r\n\
+assert(a.a != b.a);\r\n\
+assert(*a.a == 4);\r\n\
+assert(*b.a == 10);\r\n\
+\r\n\
+A.Bar1 m1, n1;\r\n\
+m1.x = 7;\r\n\
+m1.y.a = &m1.x;\r\n\
+\r\n\
+n1 = m1;\r\n\
+*n1.y.a = 14;\r\n\
+\r\n\
+assert(m1.y.a != n1.y.a);\r\n\
+assert(*m1.y.a == 7);\r\n\
+assert(*n1.y.a == 14);\r\n\
+\r\n\
+return 1;";
+TEST_RESULT("A default custom assignment operator is generated for classes that have members with a custom assignment operators 2", testClassAssignmentOperator2, "1");
 
 const char	*testEnumeration1 =
 "enum Foo\r\n\
