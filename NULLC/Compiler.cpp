@@ -1505,9 +1505,9 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				funcInfo.retType = ExternFuncInfo::RETURN_VOID;
 #endif
 #if defined(__linux)
-			else if(returnType == ctx.exprCtx.typeBool || returnType == ctx.exprCtx.typeChar || returnType == ctx.exprCtx.typeShort || returnType == ctx.exprCtx.typeInt)
+			else if(returnType == ctx.exprCtx.typeBool || returnType == ctx.exprCtx.typeChar || returnType == ctx.exprCtx.typeShort || returnType == ctx.exprCtx.typeInt || (sizeof(void*) == 4 && isType<TypeRef>(returnType)))
 				funcInfo.retType = ExternFuncInfo::RETURN_INT;
-			else if(returnType == ctx.exprCtx.typeLong)
+			else if(returnType == ctx.exprCtx.typeLong || (sizeof(void*) == 8 && isType<TypeRef>(returnType)))
 				funcInfo.retType = ExternFuncInfo::RETURN_LONG;
 #else
 			else if(returnType == ctx.exprCtx.typeInt || returnType->size <= 4)
