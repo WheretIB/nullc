@@ -1005,13 +1005,13 @@ void ExpressionContext::PushTemporaryScope()
 	scope = new (get<ScopeData>()) ScopeData(allocator, scope, 0, SCOPE_TEMPORARY);
 }
 
-void ExpressionContext::PopScope(ScopeType scopeType, SynBase *location, bool keepFunctions)
+void ExpressionContext::PopScope(ScopeType scopeType, bool ejectContents, bool keepFunctions)
 {
 	(void)scopeType;
 	assert(scope->type == scopeType);
 
 	// When namespace scope ends, all the contents remain accessible through an outer namespace/global scope
-	if(!location && scope->ownerNamespace)
+	if(ejectContents && scope->ownerNamespace)
 	{
 		ScopeData *adopter = scope->scope;
 
@@ -1041,7 +1041,7 @@ void ExpressionContext::PopScope(ScopeType scopeType, SynBase *location, bool ke
 	}
 
 	// Full set of scope variables is moved to the outer scope untill we reach function, namespace or a global scope
-	if(!location && scope->scope && (scope->type == SCOPE_EXPLICIT || scope->type == SCOPE_LOOP))
+	if(ejectContents && scope->scope && (scope->type == SCOPE_EXPLICIT || scope->type == SCOPE_LOOP))
 	{
 		scope->scope->allVariables.push_back(scope->allVariables.data, scope->allVariables.size());
 
@@ -1108,7 +1108,7 @@ void ExpressionContext::PopScope(ScopeType scopeType, SynBase *location, bool ke
 
 void ExpressionContext::PopScope(ScopeType type)
 {
-	PopScope(type, 0, false);
+	PopScope(type, true, false);
 }
 
 void ExpressionContext::RestoreScopesAtPoint(ScopeData *target, SynBase *location)
@@ -1172,7 +1172,7 @@ void ExpressionContext::SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *t
 {
 	// Reach the same depth
 	while(scope->scopeDepth > target->scopeDepth)
-		PopScope(scope->type, NULL, true);
+		PopScope(scope->type, false, true);
 
 	// Reach the same parent
 	ScopeData *curr = target;
@@ -1182,17 +1182,17 @@ void ExpressionContext::SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *t
 
 	while(scope->scope != curr->scope)
 	{
-		PopScope(scope->type, NULL, true);
+		PopScope(scope->type, false, true);
 
 		curr = curr->scope;
 	}
 
 	// We have common parent, but we are in different scopes, go to common parent
 	if(scope != curr)
-		PopScope(scope->type, NULL, true);
+		PopScope(scope->type, false, true);
 
 	// When the common parent is reached, remove it without ejecting namespace variables into the outer scope
-	PopScope(scope->type, currLocation, true);
+	PopScope(scope->type, false, true);
 
 	// Now restore each namespace data up to the source location
 	RestoreScopesAtPoint(target, targetLocation);

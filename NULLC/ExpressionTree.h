@@ -142,7 +142,7 @@ struct ExpressionContext
 	void PushScope(TypeBase *type);
 	void PushLoopScope(bool allowBreak, bool allowContinue);
 	void PushTemporaryScope();
-	void PopScope(ScopeType type, SynBase *location, bool keepFunctions);
+	void PopScope(ScopeType type, bool ejectContents, bool keepFunctions);
 	void PopScope(ScopeType type);
 	void RestoreScopesAtPoint(ScopeData *target, SynBase *location);
 	void SwitchToScopeAtPoint(SynBase *currLocation, ScopeData *target, SynBase *targetLocation);
