@@ -9,6 +9,7 @@ namespace BinaryCache
 	void Terminate();
 
 	void		PutBytecode(const char* path, const char* bytecode, Lexeme* lexStart, unsigned lexCount);
+	void		PutLexemes(const char* path, Lexeme* lexStart, unsigned lexCount);
 
 	const char*	GetBytecode(const char* path);
 

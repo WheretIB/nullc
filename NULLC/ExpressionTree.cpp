@@ -10911,6 +10911,8 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 			moduleData->lexer->Lexify(FindSource(moduleData->bytecode));
 			lexStream = moduleData->lexer->GetStreamStart();
 			lexStreamSize = moduleData->lexer->GetStreamSize();
+
+			BinaryCache::PutLexemes(moduleFileName, lexStream, lexStreamSize);
 		}
 
 		moduleData->lexStream = lexStream;
@@ -11819,6 +11821,10 @@ void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, L
 		moduleData->lexer->Lexify(FindSource(bytecode));
 		lexStream = moduleData->lexer->GetStreamStart();
 		lexStreamSize = moduleData->lexer->GetStreamSize();
+
+		assert(!*name.end);
+
+		BinaryCache::PutLexemes(name.begin, lexStream, lexStreamSize);
 	}
 
 	moduleData->lexStream = lexStream;

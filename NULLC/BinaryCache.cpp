@@ -58,6 +58,10 @@ void BinaryCache::Terminate()
 void BinaryCache::PutBytecode(const char* path, const char* bytecode, Lexeme* lexStart, unsigned lexCount)
 {
 	unsigned int hash = NULLC::GetStringHash(path);
+
+	if(hash == lastHash)
+		return;
+
 	unsigned int i = 0;
 	for(; i < cache.size(); i++)
 	{
@@ -80,6 +84,32 @@ void BinaryCache::PutBytecode(const char* path, const char* bytecode, Lexeme* le
 		desc->lexemes = NULL;
 		desc->lexemeCount = 0;
 	}
+}
+
+void BinaryCache::PutLexemes(const char* path, Lexeme* lexStart, unsigned lexCount)
+{
+	unsigned int hash = NULLC::GetStringHash(path);
+
+	if(hash == lastHash)
+		return;
+
+	for(unsigned i = 0; i < cache.size(); i++)
+	{
+		BinaryCache::CodeDescriptor &desc = cache[i];
+
+		if(hash == cache[i].nameHash)
+		{
+			assert(!cache[i].lexemes);
+
+			desc.lexemes = new Lexeme[lexCount];
+			memcpy(desc.lexemes, lexStart, lexCount * sizeof(Lexeme));
+			desc.lexemeCount = lexCount;
+
+			return;
+		}
+	}
+
+	assert(!"module not found");
 }
 
 const char* BinaryCache::GetBytecode(const char* path)
