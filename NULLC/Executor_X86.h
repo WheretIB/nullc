@@ -7,6 +7,8 @@
 #include "Instruction_X86.h"
 #include "Output.h"
 
+typedef struct DCCallVM_ DCCallVM;
+
 class ExecutorX86
 {
 public:
@@ -80,6 +82,8 @@ private:
 
 	unsigned int	oldCodeHeadProtect;
 	unsigned int	oldCodeBodyProtect;
+
+	DCCallVM		*dcCallVM;
 
 public:
 	FastVector<unsigned char*>	instAddress;

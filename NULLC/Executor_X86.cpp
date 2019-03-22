@@ -5,6 +5,11 @@
 #include "CodeGen_X86.h"
 #include "Translator_X86.h"
 
+#define dcAllocMem NULLC::alloc
+#define dcFreeMem  NULLC::dealloc
+
+#include "../external/dyncall/dyncall.h"
+
 #ifndef __linux
 	#define WIN32_LEAN_AND_MEAN
 	#include <Windows.h>
@@ -314,6 +319,8 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 	breakFunctionContext = NULL;
 	breakFunction = NULL;
 
+	dcCallVM = NULL;
+
 	// Parameter stack must be aligned
 	assert(sizeof(NULLC::DataStackHeader) % 16 == 0);
 
@@ -372,6 +379,10 @@ ExecutorX86::~ExecutorX86()
 		NULLC::dealloc(oldFunctionLists[i].list);
 	oldFunctionLists.clear();
 	functionAddress.clear();
+
+	if(dcCallVM)
+		dcFree(dcCallVM);
+	dcCallVM = NULL;
 
 	x86ResetLabels();
 }
@@ -522,6 +533,12 @@ bool ExecutorX86::Initialize()
 	cgFuncs[cmdConvertPtr] = GenCodeCmdConvertPtr;
 
 	cgFuncs[cmdCheckedRet] = GenCodeCmdCheckedRet;
+
+	if(!dcCallVM)
+	{
+		dcCallVM = dcNewCallVM(4096);
+		dcMode(dcCallVM, DC_CALL_C_DEFAULT);
+	}
 
 #ifndef __linux
 	HMODULE hDLL = LoadLibrary("kernel32");
@@ -685,31 +702,36 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			void* fPtr = exFunctions[functionID].funcPtr;
 			unsigned int retType = exFunctions[functionID].retType;
 
-			unsigned int *stackStart = ((unsigned int*)arguments) + dwordsToPop - 1;
-			for(unsigned int i = 0; i < dwordsToPop; i++)
+			// Can't return complex types here
+			if(retType == ExternFuncInfo::RETURN_UNKNOWN)
 			{
-#ifdef __GNUC__
-				asm("movl %0, %%eax"::"r"(stackStart):"%eax");
-				asm("pushl (%eax)");
-#else
-				__asm{ mov eax, dword ptr[stackStart] }
-				__asm{ push dword ptr[eax] }
-#endif
-				stackStart--;
+				strcpy(execError, "ERROR: can't call external function with complex return type");
+				return;
 			}
+
+			dcReset(dcCallVM);
+
+			unsigned int *stackStart = ((unsigned int*)arguments);
+
+			for(unsigned i = 0; i < dwordsToPop; i++)
+			{
+				dcArgInt(dcCallVM, *(int*)stackStart);
+				stackStart += 1;
+			}
+
 			switch(retType)
 			{
 			case ExternFuncInfo::RETURN_VOID:
 				NULLC::runResultType = OTYPE_COMPLEX;
-				((void (*)())fPtr)();
+				dcCallVoid(dcCallVM, fPtr);
 				break;
 			case ExternFuncInfo::RETURN_INT:
 				NULLC::runResultType = OTYPE_INT;
-				NULLC::runResult = ((int (*)())fPtr)();
+				NULLC::runResult = dcCallInt(dcCallVM, fPtr);
 				break;
 			case ExternFuncInfo::RETURN_DOUBLE:
 			{
-				double tmp = ((double (*)())fPtr)();
+				double tmp = dcCallDouble(dcCallVM, fPtr);
 				NULLC::runResultType = OTYPE_DOUBLE;
 				NULLC::runResult2 = ((int*)&tmp)[0];
 				NULLC::runResult = ((int*)&tmp)[1];
@@ -717,20 +739,13 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				break;
 			case ExternFuncInfo::RETURN_LONG:
 			{
-				long long tmp = ((long long (*)())fPtr)();
+				long long tmp = dcCallLongLong(dcCallVM, fPtr);
 				NULLC::runResultType = OTYPE_LONG;
 				NULLC::runResult2 = ((int*)&tmp)[0];
 				NULLC::runResult = ((int*)&tmp)[1];
 			}
 				break;
 			}
-#ifdef __GNUC__
-			asm("movl %0, %%eax"::"r"(dwordsToPop):"%eax");
-			asm("leal (%esp, %eax, 0x4), %esp");
-#else
-			__asm{ mov eax, dwordsToPop }
-			__asm{ lea esp, [eax * 4 + esp] }
-#endif
 			return;
 		}else{
 			if(NULLC::dataHead->lastEDI)
