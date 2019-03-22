@@ -3862,8 +3862,27 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Variable
 
 ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, IntrusiveList<SynIdentifier> path, InplaceStr name, bool allowInternal)
 {
-	VariableData **variable = NULL;
+	// Check local scope first
+	{
+		unsigned hash = NULLC::GetStringHash("");
 
+		for(SynIdentifier *part = path.head; part; part = getType<SynIdentifier>(part->next))
+		{
+			hash = NULLC::StringHashContinue(hash, part->name.begin, part->name.end);
+			hash = NULLC::StringHashContinue(hash, ".");
+		}
+
+		hash = NULLC::StringHashContinue(hash, name.begin, name.end);
+
+		if(VariableData **variable = ctx.variableMap.find(hash))
+		{
+			// Must be non-global scope
+			if(NamedOrGlobalScopeFrom((*variable)->scope) != ctx.globalScope)
+				return CreateVariableAccess(ctx, source, *variable, true);
+		}
+	}
+
+	// Search for variable starting from current namespace to global scope
 	for(ScopeData *nsScope = NamedOrGlobalScopeFrom(ctx.scope); nsScope; nsScope = NamedOrGlobalScopeFrom(nsScope->scope))
 	{
 		unsigned hash = nsScope->ownerNamespace ? NULLC::StringHashContinue(nsScope->ownerNamespace->fullNameHash, ".") : NULLC::GetStringHash("");
@@ -3876,16 +3895,10 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Intrusiv
 
 		hash = NULLC::StringHashContinue(hash, name.begin, name.end);
 
-		variable = ctx.variableMap.find(hash);
-
-		if(variable)
-			break;
+		if(VariableData **variable = ctx.variableMap.find(hash))
+			return CreateVariableAccess(ctx, source, *variable, true);
 	}
 
-	if(variable)
-		return CreateVariableAccess(ctx, source, *variable, true);
-
-	if(path.empty())
 	{
 		// Try a class constant or an alias
 		if(TypeStruct *structType = getType<TypeStruct>(ctx.GetCurrentType()))

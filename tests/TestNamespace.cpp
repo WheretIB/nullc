@@ -853,3 +853,48 @@ const char	*testNamespace68 =
 A.B.C.x += 10000;\r\n\
 return A.B.C.x;";
 TEST_RESULT("namespace test 68", testNamespace68, "74757");
+
+const char	*testNamespace69 =
+"namespace Runner{\r\n\
+	int x = 10;\r\n\
+\r\n\
+	int foo()\r\n\
+	{\r\n\
+		int x = 5;\r\n\
+		return x;\r\n\
+	}\r\n\
+\r\n\
+	return foo();\r\n\
+}";
+TEST_RESULT("namespace test 69 (local scope priority)", testNamespace69, "5");
+
+const char	*testNamespace70 =
+"int x = 10;\r\n\
+\r\n\
+namespace A\r\n\
+{\r\n\
+	int x = 5;\r\n\
+\r\n\
+	namespace B\r\n\
+	{\r\n\
+		return x;\r\n\
+	}\r\n\
+}";
+TEST_RESULT("namespace test 70 (namespace scope priority)", testNamespace70, "5");
+
+const char	*testNamespace71 =
+"int x = 10;\r\n\
+\r\n\
+namespace A\r\n\
+{\r\n\
+	int x = 5;\r\n\
+\r\n\
+	int foo()\r\n\
+	{\r\n\
+		int x = 2;\r\n\
+		return x;\r\n\
+	}\r\n\
+\r\n\
+	return foo();\r\n\
+}";
+TEST_RESULT("namespace test 71 (local scope priority 2)", testNamespace71, "2");
