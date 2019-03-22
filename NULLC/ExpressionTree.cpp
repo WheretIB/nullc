@@ -4231,6 +4231,42 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 	{
 		wrapped = node->value;
 	}
+	else if(ExprFunctionCall *node = getType<ExprFunctionCall>(lhs))
+	{
+		// Will try to transform 'get' accessor to 'set'
+		if(ExprFunctionAccess *access = getType<ExprFunctionAccess>(node->function))
+		{
+			if(access->function)
+			{
+				ExprBase *result = CreateBinaryOp(ctx, syntax, GetBinaryOpType(syntax->type), lhs, rhs);
+
+				if(isType<TypeError>(result->type))
+					return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), lhs, rhs);
+
+				SmallArray<ArgumentData, 1> arguments(ctx.allocator);
+				arguments.push_back(ArgumentData(syntax, false, NULL, result->type, result));
+
+				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(access->function->nameHash))
+				{
+					ExprBase *overloads = CreateFunctionAccess(ctx, syntax, function, access->context);
+
+					if(ExprBase *call = CreateFunctionCall(ctx, syntax, overloads, arguments, true))
+						return call;
+				}
+
+				if(FunctionData *proto = access->function->proto)
+				{
+					if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(proto->nameHash))
+					{
+						ExprBase *overloads = CreateFunctionAccess(ctx, syntax, function, access->context);
+
+						if(ExprBase *call = CreateFunctionCall(ctx, syntax, overloads, arguments, true))
+							return call;
+					}
+				}
+			}
+		}
+	}
 
 	TypeRef *typeRef = getType<TypeRef>(wrapped->type);
 
@@ -4247,14 +4283,14 @@ ExprBase* AnalyzeModifyAssignment(ExpressionContext &ctx, SynModifyAssignment *s
 
 	ExprBase *definition = new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(syntax, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, storage), assignment);
 
-	ExprBase *lhsValue = new (ctx.get<ExprDereference>()) ExprDereference(syntax, typeRef->subType, CreateVariableAccess(ctx, syntax, storage, false));
+	ExprBase *lhsValue = new (ctx.get<ExprDereference>()) ExprDereference(syntax, lhs->type, CreateVariableAccess(ctx, syntax, storage, false));
 
 	ExprBase *result = CreateBinaryOp(ctx, syntax, GetBinaryOpType(syntax->type), lhsValue, rhs);
 
 	if(isType<TypeError>(result->type))
 		return new (ctx.get<ExprError>()) ExprError(syntax, ctx.GetErrorType(), lhs, rhs);
 
-	return CreateSequence(ctx, syntax, definition, CreateAssignment(ctx, syntax, new (ctx.get<ExprDereference>()) ExprDereference(syntax, typeRef->subType, CreateVariableAccess(ctx, syntax, storage, false)), result));
+	return CreateSequence(ctx, syntax, definition, CreateAssignment(ctx, syntax, new (ctx.get<ExprDereference>()) ExprDereference(syntax, lhs->type, CreateVariableAccess(ctx, syntax, storage, false)), result));
 }
 
 ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, TypeBase *type, SynIdentifier *member)

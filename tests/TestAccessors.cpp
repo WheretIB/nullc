@@ -39,3 +39,16 @@ void Foo:Foo(){ x = 4; }\r\n\
 Foo a;\r\n\
 return a.x;";
 TEST_RESULT("Accessor access inside a member function", testAccessorAccessInsideAMemberFunction, "2");
+
+const char	*testAccessorModifyAssignment =
+"class Scaled\r\n\
+{\r\n\
+	int internal;\r\n\
+	int value{ get{ return internal / 100; }set{ internal = r * 100; } };\r\n\
+}\r\n\
+Scaled x;\r\n\
+x.value = 5;\r\n\
+x.value *= 2;\r\n\
+x.value += x.value;\r\n\
+return x.internal;";
+TEST_RESULT("Accessor in a modify-assignment expression", testAccessorModifyAssignment, "2000");
