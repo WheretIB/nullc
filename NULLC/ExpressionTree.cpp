@@ -2455,7 +2455,7 @@ ExprBase* CreateAssignment(ExpressionContext &ctx, SynBase *source, ExprBase *lh
 		{
 			if(access->function->accessor)
 			{
-				SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+				SmallArray<ArgumentData, 1> arguments(ctx.allocator);
 				arguments.push_back(ArgumentData(rhs->source, false, NULL, rhs->type, rhs));
 
 				if(HashMap<FunctionData*>::Node *function = ctx.functionMap.first(access->function->nameHash))
@@ -9182,7 +9182,7 @@ void CreateDefaultClassAssignment(ExpressionContext &ctx, SynBase *source, ExprC
 	{
 		InplaceStr functionName = InplaceStr("default_assign$_");
 
-		SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+		SmallArray<ArgumentData, 2> arguments(ctx.allocator);
 
 		arguments.push_back(ArgumentData(source, false, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$left")), ctx.GetReferenceType(classType), NULL));
 		arguments.push_back(ArgumentData(source, false, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$right")), classType, NULL));
@@ -9746,7 +9746,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 		// Create conversion operator int int(enum_type)
 		{
-			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+			SmallArray<ArgumentData, 1> arguments(ctx.allocator);
 			arguments.push_back(ArgumentData(syntaxInternal, false, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$x")), enumType, NULL));
 
 			SynIdentifier *functionNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("int"));
@@ -9795,7 +9795,7 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 
 		// Create conversion operator enum_type enum_type(int)
 		{
-			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+			SmallArray<ArgumentData, 1> arguments(ctx.allocator);
 			arguments.push_back(ArgumentData(syntaxInternal, false, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("$x")), ctx.typeInt, NULL));
 
 			SynIdentifier *functionNameIdentifier = new (ctx.get<SynIdentifier>()) SynIdentifier(typeName);
@@ -10100,7 +10100,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 			ctx.AddVariable(variable, true);
 
-			SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+			SmallArray<ArgumentData, 1> arguments(ctx.allocator);
 			arguments.push_back(ArgumentData(curr, false, NULL, ctx.typeInt, CreateVariableAccess(ctx, curr, iterator, false)));
 
 			ExprBase *arrayIndex = CreateArrayIndex(ctx, curr, value, arguments);
@@ -11986,7 +11986,7 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 
 					ExprBase *typeId = new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, ctx.types[i]);
 
-					SmallArray<ArgumentData, 32> arguments(ctx.allocator);
+					SmallArray<ArgumentData, 1> arguments(ctx.allocator);
 					arguments.push_back(ArgumentData(source, false, NULL, ctx.typeInt, new (ctx.get<ExprTypeCast>()) ExprTypeCast(source, ctx.typeInt, typeId, EXPR_CAST_REINTERPRET)));
 
 					ExprBase *arraySlot = CreateArrayIndex(ctx, source, vtableAccess, arguments);
