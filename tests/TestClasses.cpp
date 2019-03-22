@@ -178,7 +178,7 @@ float arrSum = sum(arr);\r\n\
 float[10] iArr = inc(arr);\r\n\
 float iArrSum = sum(iArr);\r\n\
 return test(n, m); // 56.0";
-TEST("Complex types test #4", testCmplx4, "56.000000")
+TEST_SIMPLE("Complex types test #4", testCmplx4, "56.000000")
 {
 	float values[] = { 6, 3, 5, 0, 2, 3, 7, 0, 12, 4.7f, 0, 11, 3, 5, 0, 2.5f, 1.2f, 5, 6, 5.9f, 5.9f, 5.9f, 5.9f, 12, 4.7f, 0, 2 };
 	for(int i = 0; i < 4; i++)

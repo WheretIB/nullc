@@ -172,6 +172,7 @@ bool Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 				break;
 		}
 
+		// Place code inside a function
 		char *pos = extraCode;
 
 		if(headerEnd)
@@ -205,6 +206,7 @@ bool Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 		if(!RunCodeSimple(extraCode, executor, expected, message, execShouldFail))
 			return false;
 
+		// Place code inside a coroutine
 		pos = extraCode;
 
 		if(headerEnd)
@@ -231,6 +233,40 @@ bool Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 		}
 
 		strcpy(pos, "\r\n}\r\nreturn __runner();");
+		pos += strlen(pos);
+
+		assert(pos < extraCode + extraCodeSize);
+
+		if(!RunCodeSimple(extraCode, executor, expected, message, execShouldFail))
+			return false;
+
+		// Place code inside a namespace
+		pos = extraCode;
+
+		if(headerEnd)
+		{
+			memcpy(pos, code, unsigned(headerEnd - code) + 1);
+			pos += unsigned(headerEnd - code) + 1;
+
+			strcpy(pos, "\r\n");
+			pos += strlen(pos);
+		}
+
+		strcpy(pos, "namespace Runner{\r\n");
+		pos += strlen(pos);
+
+		if(headerEnd)
+		{
+			strcpy(pos, headerEnd + 1);
+			pos += strlen(pos);
+		}
+		else
+		{
+			strcpy(pos, code);
+			pos += strlen(pos);
+		}
+
+		strcpy(pos, "\r\n}");
 		pos += strlen(pos);
 
 		assert(pos < extraCode + extraCodeSize);
