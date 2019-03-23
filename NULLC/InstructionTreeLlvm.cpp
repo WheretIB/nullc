@@ -708,11 +708,21 @@ LLVMValueRef CompileLlvmUnaryOp(LlvmCompilationContext &ctx, ExprUnaryOp *node)
 		{
 			LLVMValueRef ptr = LLVMBuildExtractValue(ctx.builder, value, 1, "ref_ptr");
 
-			result = LLVMBuildNot(ctx.builder, ptr, "");
+			LLVMValueRef rhs = LLVMConstInt(CompileLlvmType(ctx, GetStackType(ctx, node->value->type)), 0, true);
+
+			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntEQ, ptr, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
+		}
+		else if(isType<TypeRef>(node->value->type))
+		{
+			LLVMValueRef rhs = LLVMConstPointerNull(CompileLlvmType(ctx, GetStackType(ctx, node->value->type)));
+
+			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntEQ, value, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		}
 		else
 		{
-			result = LLVMBuildNot(ctx.builder, value, "");
+			LLVMValueRef rhs = LLVMConstInt(CompileLlvmType(ctx, GetStackType(ctx, node->value->type)), 0, true);
+
+			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntEQ, value, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		}
 		break;
 	}
@@ -841,7 +851,24 @@ LLVMValueRef CompileLlvmBinaryOp(LlvmCompilationContext &ctx, ExprBinaryOp *node
 			result = LLVMBuildFRem(ctx.builder, lhs, rhs, "");
 		break;
 	case SYN_BINARY_OP_POW:
-		assert(!"not implemented");
+		if(node->type == ctx.ctx.typeInt)
+		{
+			LLVMValueRef arguments[] = { lhs, rhs };
+
+			result = LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmPowInt"), arguments, 2, "");
+		}
+		else if(node->type == ctx.ctx.typeLong)
+		{
+			LLVMValueRef arguments[] = { lhs, rhs };
+
+			result = LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmPowLong"), arguments, 2, "");
+		}
+		else if(node->type == ctx.ctx.typeDouble)
+		{
+			LLVMValueRef arguments[] = { lhs, rhs };
+
+			result = LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmPowDouble"), arguments, 2, "");
+		}
 		break;
 	case SYN_BINARY_OP_SHL:
 		result = LLVMBuildShl(ctx.builder, lhs, rhs, "");
@@ -874,13 +901,13 @@ LLVMValueRef CompileLlvmBinaryOp(LlvmCompilationContext &ctx, ExprBinaryOp *node
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealUGE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		break;
 	case SYN_BINARY_OP_EQUAL:
-		if(isType<TypeRef>(node->lhs->type) || ctx.ctx.IsIntegerType(node->lhs->type))
+		if(isType<TypeRef>(node->lhs->type) || ctx.ctx.IsIntegerType(node->lhs->type) || node->lhs->type == ctx.ctx.typeTypeID)
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntEQ, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		else
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealUEQ, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		break;
 	case SYN_BINARY_OP_NOT_EQUAL:
-		if(isType<TypeRef>(node->lhs->type) || ctx.ctx.IsIntegerType(node->lhs->type))
+		if(isType<TypeRef>(node->lhs->type) || ctx.ctx.IsIntegerType(node->lhs->type) || node->lhs->type == ctx.ctx.typeTypeID)
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntNE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		else
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealUNE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
@@ -1305,7 +1332,9 @@ LLVMValueRef CompileLlvmFunctionDefinition(LlvmCompilationContext &ctx, ExprFunc
 
 LLVMValueRef CompileLlvmGenericFunctionPrototype(LlvmCompilationContext &ctx, ExprGenericFunctionPrototype *node)
 {
-	assert(!"not implemented");
+	for(ExprBase *expr = node->contextVariables.head; expr; expr = expr->next)
+		CompileLlvm(ctx, expr);
+
 	return NULL;
 }
 
@@ -1711,6 +1740,24 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression, cons
 		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeAutoRef), CompileLlvmType(ctx, ctx.ctx.typeTypeID) };
 
 		LLVMAddFunction(ctx.module, "__llvmConvertPtr", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeNullPtr), arguments, 2, false));
+	}
+
+	{
+		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeInt), CompileLlvmType(ctx, ctx.ctx.typeInt) };
+
+		LLVMAddFunction(ctx.module, "__llvmPowInt", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeInt), arguments, 2, false));
+	}
+
+	{
+		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeLong), CompileLlvmType(ctx, ctx.ctx.typeLong) };
+
+		LLVMAddFunction(ctx.module, "__llvmPowLong", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeLong), arguments, 2, false));
+	}
+
+	{
+		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeDouble), CompileLlvmType(ctx, ctx.ctx.typeDouble) };
+
+		LLVMAddFunction(ctx.module, "__llvmPowDouble", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeDouble), arguments, 2, false));
 	}
 
 	// Generate functions
