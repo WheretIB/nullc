@@ -218,9 +218,7 @@ LLVMTypeRef CompileLlvmType(LlvmCompilationContext &ctx, TypeBase *type)
 	}
 	else
 	{
-		return LLVMInt32TypeInContext(ctx.context);
-
-		//assert(!"unknown type");
+		assert(!"unknown type");
 	}
 
 	return ctx.types[type->typeIndex];
@@ -605,8 +603,12 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 	case EXPR_CAST_AUTO_PTR_TO_PTR:
 		if(TypeRef *refType = getType<TypeRef>(node->type))
 		{
-			assert(!"not implemented");
-			//return CheckType(ctx, node, CreateConvertPtr(module, node->source, value, refType->subType, ctx.GetReferenceType(refType->subType)));
+			// TODO: use global type index values for a later remap
+			LLVMValueRef arguments[] = { value, LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeTypeID), refType->subType->typeIndex, true) };
+
+			LLVMValueRef result = LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmConvertPtr"), arguments, 2, "");
+
+			return CheckType(ctx, node, LLVMBuildPointerCast(ctx.builder, result, CompileLlvmType(ctx, node->type), "auto_ptr_to_ptr"));
 		}
 
 		break;
@@ -872,13 +874,13 @@ LLVMValueRef CompileLlvmBinaryOp(LlvmCompilationContext &ctx, ExprBinaryOp *node
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealUGE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		break;
 	case SYN_BINARY_OP_EQUAL:
-		if(ctx.ctx.IsIntegerType(node->lhs->type))
+		if(isType<TypeRef>(node->lhs->type) || ctx.ctx.IsIntegerType(node->lhs->type))
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntEQ, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		else
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealUEQ, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		break;
 	case SYN_BINARY_OP_NOT_EQUAL:
-		if(ctx.ctx.IsIntegerType(node->lhs->type))
+		if(isType<TypeRef>(node->lhs->type) || ctx.ctx.IsIntegerType(node->lhs->type))
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntNE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		else
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealUNE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
@@ -922,8 +924,9 @@ LLVMValueRef CompileLlvmDereference(LlvmCompilationContext &ctx, ExprDereference
 
 LLVMValueRef CompileLlvmUnboxing(LlvmCompilationContext &ctx, ExprUnboxing *node)
 {
-	assert(!"not implemented");
-	return NULL;
+	LLVMValueRef value = CompileLlvm(ctx, node->value);
+
+	return CheckType(ctx, node, value);
 }
 
 LLVMValueRef CompileLlvmConditional(LlvmCompilationContext &ctx, ExprConditional *node)
@@ -1683,9 +1686,6 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression, cons
 
 	LLVMInitializeFunctionPassManager(ctx.functionPassManager);
 
-	// Create helper functions
-	LLVMAddFunction(ctx.module, "__llvmAbortNoReturn", LLVMFunctionType(LLVMVoidTypeInContext(ctx.context), NULL, 0, false));
-
 	// Generate type indexes
 	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
 		ctx.ctx.types[i]->typeIndex = i;
@@ -1698,10 +1698,22 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression, cons
 	ctx.types.resize(ctx.ctx.types.size());
 	memset(ctx.types.data, 0, ctx.types.count * sizeof(ctx.types[0]));
 
-	// Reserve and generate functions
+	// Reserve functions
 	ctx.functions.resize(ctx.ctx.functions.size());
 	memset(ctx.functions.data, 0, ctx.functions.count * sizeof(ctx.functions[0]));
 
+	// Create runtime support functions
+	{
+		LLVMAddFunction(ctx.module, "__llvmAbortNoReturn", LLVMFunctionType(LLVMVoidTypeInContext(ctx.context), NULL, 0, false));
+	}
+
+	{
+		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeAutoRef), CompileLlvmType(ctx, ctx.ctx.typeTypeID) };
+
+		LLVMAddFunction(ctx.module, "__llvmConvertPtr", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeNullPtr), arguments, 2, false));
+	}
+
+	// Generate functions
 	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
 	{
 		FunctionData *function = ctx.ctx.functions[i];
