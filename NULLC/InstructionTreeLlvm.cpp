@@ -1,5 +1,6 @@
 #include "InstructionTreeLlvm.h"
 
+#include "../external/llvm/include/llvm-c/Analysis.h"
 #include "../external/llvm/include/llvm-c/BitWriter.h"
 #include "../external/llvm/include/llvm-c/Core.h"
 
@@ -370,8 +371,26 @@ LLVMValueRef CompileLlvmPassthrough(LlvmCompilationContext &ctx, ExprPassthrough
 
 LLVMValueRef CompileLlvmArray(LlvmCompilationContext &ctx, ExprArray *node)
 {
-	assert(!"not implemented");
-	return NULL;
+	LLVMValueRef storage = LLVMBuildAlloca(ctx.builder, CompileLlvmType(ctx, node->type), "arr_lit");
+
+	unsigned i = 0;
+
+	for(ExprBase *value = node->values.head; value; value = value->next)
+	{
+		LLVMValueRef element = CompileLlvm(ctx, value);
+
+		LLVMValueRef indices[] = { LLVMConstInt(LLVMInt32TypeInContext(ctx.context), 0, true), LLVMConstInt(LLVMInt32TypeInContext(ctx.context), i, true) };
+
+		LLVMValueRef address = LLVMBuildGEP(ctx.builder, storage, indices, 2, "");
+
+		LLVMBuildStore(ctx.builder, element, address);
+
+		i++;
+	}
+
+	LLVMValueRef result = LLVMBuildLoad(ctx.builder, storage, "");
+
+	return CheckType(ctx, node, result);
 }
 
 LLVMValueRef CompileLlvmPreModify(LlvmCompilationContext &ctx, ExprPreModify *node)
@@ -997,9 +1016,21 @@ LLVMValueRef CompileLlvmReturn(LlvmCompilationContext &ctx, ExprReturn *node)
 		CompileLlvm(ctx, node->closures);
 
 	if(node->value->type == ctx.ctx.typeVoid)
-		return CheckType(ctx, node, LLVMBuildRetVoid(ctx.builder));
+	{
+		LLVMBuildRetVoid(ctx.builder);
+	}
+	else
+	{
+		value = ConvertToDataType(ctx, value, GetStackType(ctx, node->value->type), node->value->type);
 
-	return CheckType(ctx, node, LLVMBuildRet(ctx.builder, value));
+		LLVMBuildRet(ctx.builder, value);
+	}
+
+	LLVMBasicBlockRef afterReturn = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "after_return");
+
+	LLVMPositionBuilderAtEnd(ctx.builder, afterReturn);
+
+	return CheckType(ctx, node, NULL);
 }
 
 LLVMValueRef CompileLlvmYield(LlvmCompilationContext &ctx, ExprYield *node)
@@ -1167,8 +1198,29 @@ LLVMValueRef CompileLlvmFunctionDefinition(LlvmCompilationContext &ctx, ExprFunc
 	for(ExprBase *value = node->expressions.head; value; value = value->next)
 		CompileLlvm(ctx, value);
 
-	// TODO:
-	//CreateAbortNoReturn(module, NULL);
+	LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmAbortNoReturn"), NULL, 0, "");
+
+	if(node->function->type->returnType == ctx.ctx.typeVoid)
+		LLVMBuildRetVoid(ctx.builder);
+	else
+		LLVMBuildRet(ctx.builder, LLVMConstNull(CompileLlvmType(ctx, node->function->type->returnType)));
+
+#if !defined(NDEBUG)
+	// Check result
+	if(LLVMVerifyFunction(ctx.currentFunction, LLVMReturnStatusAction))
+	{
+		LLVMDumpValue(function);
+
+		printf("LLVM function '%.*s' verification failed\n", node->function->name->name.length(), node->function->name->name.begin);
+
+		char *error = NULL;
+
+		if(LLVMVerifyModule(ctx.module, LLVMReturnStatusAction, &error))
+			printf("%s\n", error);
+
+		LLVMDisposeMessage(error);
+	}
+#endif
 
 	// Restore state
 	ctx.currentFunction = currentFunction;
@@ -1278,14 +1330,12 @@ LLVMValueRef CompileLlvmIfElse(LlvmCompilationContext &ctx, ExprIfElse *node)
 
 	LLVMBuildBr(ctx.builder, exitBlock);
 
-	if(node->falseBlock)
-	{
-		LLVMPositionBuilderAtEnd(ctx.builder, falseBlock);
+	LLVMPositionBuilderAtEnd(ctx.builder, falseBlock);
 
+	if(node->falseBlock)
 		CompileLlvm(ctx, node->falseBlock);
 
-		LLVMBuildBr(ctx.builder, exitBlock);
-	}
+	LLVMBuildBr(ctx.builder, exitBlock);
 
 	LLVMPositionBuilderAtEnd(ctx.builder, exitBlock);
 
@@ -1549,16 +1599,8 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression, cons
 
 	LlvmModule *module = new (ctx.get<LlvmModule>()) LlvmModule();
 
-	// Generate global function
-	/*VmFunction *global = new (module->get<VmFunction>()) VmFunction(module->allocator, VmType::Void, node->source, NULL, node->moduleScope, VmType::Void);
-
-	for(unsigned k = 0; k < global->scope->allVariables.size(); k++)
-	{
-		VariableData *variable = global->scope->allVariables[k];
-
-		if(variable->isAlloca)
-			global->allocas.push_back(variable);
-	}*/
+	// Create helper functions
+	LLVMAddFunction(ctx.module, "__llvmAbortNoReturn", LLVMFunctionType(LLVMVoidTypeInContext(ctx.context), NULL, 0, false));
 
 	// Generate type indexes
 	for(unsigned i = 0; i < ctx.ctx.types.size(); i++)
@@ -1616,6 +1658,24 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression, cons
 		CompileLlvm(ctx, expression->definitions[i]);
 
 	ctx.skipFunctionDefinitions = true;
+
+	// Generate global function
+	/*VmFunction *global = new (module->get<VmFunction>()) VmFunction(module->allocator, VmType::Void, node->source, NULL, node->moduleScope, VmType::Void);
+
+	for(unsigned k = 0; k < global->scope->allVariables.size(); k++)
+	{
+	VariableData *variable = global->scope->allVariables[k];
+
+	if(variable->isAlloca)
+	global->allocas.push_back(variable);
+	}*/
+
+	char *error = NULL;
+
+	if(LLVMVerifyModule(ctx.module, LLVMReturnStatusAction, &error))
+		printf("LLVM module verification failed with:\n%s\n", error);
+
+	LLVMDisposeMessage(error);
 
 	//LLVMWriteBitcodeToFile(llvmModule, "inst_llvm.bc");
 
