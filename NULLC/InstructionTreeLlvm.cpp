@@ -49,6 +49,8 @@ struct LlvmCompilationContext
 		skipFunctionDefinitions = false;
 
 		currentFunction = NULL;
+
+		currentNextRestoreBlock = 0;
 	}
 
 	ExpressionContext &ctx;
@@ -71,6 +73,8 @@ struct LlvmCompilationContext
 	bool skipFunctionDefinitions;
 
 	LLVMValueRef currentFunction;
+	unsigned currentNextRestoreBlock;
+	SmallArray<LLVMBasicBlockRef, 16> currentRestoreBlocks;
 
 	struct LoopInfo
 	{
@@ -360,7 +364,7 @@ LLVMValueRef CompileLlvmIntegerLiteral(LlvmCompilationContext &ctx, ExprIntegerL
 
 LLVMValueRef CompileLlvmRationalLiteral(LlvmCompilationContext &ctx, ExprRationalLiteral *node)
 {
-	return CheckType(ctx, node, LLVMConstReal(CompileLlvmType(ctx, node->type), node->value));
+	return CheckType(ctx, node, LLVMConstReal(CompileLlvmType(ctx, ctx.ctx.typeDouble), node->value));
 }
 
 LLVMValueRef CompileLlvmTypeLiteral(LlvmCompilationContext &ctx, ExprTypeLiteral *node)
@@ -398,6 +402,8 @@ LLVMValueRef CompileLlvmArray(LlvmCompilationContext &ctx, ExprArray *node)
 		LLVMValueRef indices[] = { LLVMConstInt(LLVMInt32TypeInContext(ctx.context), 0, true), LLVMConstInt(LLVMInt32TypeInContext(ctx.context), i, true) };
 
 		LLVMValueRef address = LLVMBuildGEP(ctx.builder, storage, indices, 2, "");
+
+		element = ConvertToDataType(ctx, element, GetStackType(ctx, value->type), value->type);
 
 		LLVMBuildStore(ctx.builder, element, address);
 
@@ -560,11 +566,11 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 			assert(arrType);
 			assert(unsigned(arrType->length) == arrType->length);
 
-			LLVMValueRef constants[] = { LLVMConstPointerNull(CompileLlvmType(ctx, ctx.ctx.typeNullPtr)), LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeInt), unsigned(arrType->length), true) };
+			LLVMValueRef constants[] = { LLVMConstPointerNull(LLVMPointerType(CompileLlvmType(ctx, arrType->subType), 0)), LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeInt), unsigned(arrType->length), true) };
 
 			LLVMValueRef result = LLVMConstNamedStruct(CompileLlvmType(ctx, node->type), constants, 2);
 
-			LLVMValueRef ptr = LLVMBuildPointerCast(ctx.builder, value, CompileLlvmType(ctx, ctx.ctx.typeNullPtr), "arr_to_unsized");
+			LLVMValueRef ptr = LLVMBuildPointerCast(ctx.builder, value, LLVMPointerType(CompileLlvmType(ctx, arrType->subType), 0), "arr_to_unsized");
 
 			result = LLVMBuildInsertValue(ctx.builder, result, ptr, 0, "");
 
@@ -1071,8 +1077,54 @@ LLVMValueRef CompileLlvmVariableDefinition(LlvmCompilationContext &ctx, ExprVari
 
 LLVMValueRef CompileLlvmArraySetup(LlvmCompilationContext &ctx, ExprArraySetup *node)
 {
-	assert(!"not implemented");
-	return NULL;
+	TypeRef *refType = getType<TypeRef>(node->lhs->type);
+
+	assert(refType);
+
+	TypeArray *arrayType = getType<TypeArray>(refType->subType);
+
+	assert(arrayType);
+
+	LLVMValueRef initializer = CompileLlvm(ctx, node->initializer);
+
+	initializer = ConvertToDataType(ctx, initializer, GetStackType(ctx, node->initializer->type), node->initializer->type);
+
+	LLVMValueRef address = CompileLlvm(ctx, node->lhs);
+
+	LLVMValueRef offsetPtr = LLVMBuildAlloca(ctx.builder, CompileLlvmType(ctx, ctx.ctx.typeInt), "arr_it");
+
+	LLVMBasicBlockRef conditionBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "arr_setup_cond");
+	LLVMBasicBlockRef bodyBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "arr_setup_body");
+	LLVMBasicBlockRef exitBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "arr_setup_exit");
+
+	LLVMBuildStore(ctx.builder, LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeInt), 0, true), offsetPtr);
+
+	LLVMBuildBr(ctx.builder, conditionBlock);
+
+	LLVMPositionBuilderAtEnd(ctx.builder, conditionBlock);
+
+	// Offset will move in element size steps, so it will reach the full size of the array
+	assert(int(arrayType->length * arrayType->subType->size) == arrayType->length * arrayType->subType->size);
+
+	// While offset is less than array size
+	LLVMValueRef condition = LLVMBuildICmp(ctx.builder, LLVMIntSLT, LLVMBuildLoad(ctx.builder, offsetPtr, ""), LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeInt), int(arrayType->length * arrayType->subType->size), true), "");
+
+	LLVMBuildCondBr(ctx.builder, condition, bodyBlock, exitBlock);
+
+	LLVMPositionBuilderAtEnd(ctx.builder, bodyBlock);
+
+	LLVMValueRef offset = LLVMBuildLoad(ctx.builder, offsetPtr, "");
+
+	LLVMValueRef indices[] = { LLVMConstInt(LLVMInt32TypeInContext(ctx.context), 0, true), offset };
+
+	LLVMBuildStore(ctx.builder, initializer, LLVMBuildGEP(ctx.builder, address, indices, 2, ""));
+	LLVMBuildStore(ctx.builder, LLVMBuildAdd(ctx.builder, offset, LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeInt), 1, true), ""), offsetPtr);
+
+	LLVMBuildBr(ctx.builder, conditionBlock);
+
+	LLVMPositionBuilderAtEnd(ctx.builder, exitBlock);
+
+	return CheckType(ctx, node, NULL);
 }
 
 LLVMValueRef CompileLlvmVariableDefinitions(LlvmCompilationContext &ctx, ExprVariableDefinitions *node)
@@ -1149,6 +1201,8 @@ LLVMValueRef CompileLlvmFunctionDefinition(LlvmCompilationContext &ctx, ExprFunc
 
 	// Switch to new function
 	ctx.currentFunction = function;
+	assert(ctx.currentNextRestoreBlock == 0);
+	assert(ctx.currentRestoreBlocks.empty());
 
 	LLVMBasicBlockRef block = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "start");
 
@@ -1185,30 +1239,22 @@ LLVMValueRef CompileLlvmFunctionDefinition(LlvmCompilationContext &ctx, ExprFunc
 
 	if(node->function->coroutine)
 	{
-		assert(!"not supported");
-		/*VmValue *state = CompileVm(ctx, module, node->coroutineStateRead);
+		LLVMValueRef state = CompileLlvm(ctx, node->coroutineStateRead);
 
-		VmInstruction *inst = CreateInstruction(module, node->source, VmType::Void, VM_INST_UNYIELD, state, NULL, NULL, NULL);
+		LLVMBasicBlockRef startBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "start");
 
-		{
-			VmBlock *block = CreateBlock(module, node->source, "co_start");
+		LLVMValueRef switchInst = LLVMBuildSwitch(ctx.builder, state, startBlock, node->function->yieldCount);
 
-			inst->AddArgument(block);
-
-			module->currentFunction->AddBlock(block);
-			module->currentBlock = block;
-
-			function->restoreBlocks.push_back(block);
-		}
+		LLVMPositionBuilderAtEnd(ctx.builder, startBlock);
 
 		for(unsigned i = 0; i < node->function->yieldCount; i++)
 		{
-			VmBlock *block = CreateBlock(module, node->source, "restore");
+			LLVMBasicBlockRef restoreBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "restore");
 
-			inst->AddArgument(block);
+			LLVMAddCase(switchInst, LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeInt), i + 1, true), restoreBlock);
 
-			function->restoreBlocks.push_back(block);
-		}*/
+			ctx.currentRestoreBlocks.push_back(restoreBlock);
+		}
 	}
 
 	for(ExprBase *value = node->expressions.head; value; value = value->next)
@@ -1246,6 +1292,8 @@ LLVMValueRef CompileLlvmFunctionDefinition(LlvmCompilationContext &ctx, ExprFunc
 
 	// Restore state
 	ctx.currentFunction = currentFunction;
+	ctx.currentNextRestoreBlock = 0;
+	ctx.currentRestoreBlocks.clear();
 
 	ctx.skipFunctionDefinitions = false;
 
