@@ -625,7 +625,9 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 
 			if(classType && (classType->extendable || classType->baseClass))
 			{
-				assert(!"not implemented");
+				LLVMValueRef indices[] = { LLVMConstInt(LLVMInt32TypeInContext(ctx.context), 0, true), LLVMConstInt(LLVMInt32TypeInContext(ctx.context), 0, true) };
+
+				result = LLVMBuildInsertValue(ctx.builder, result, LLVMBuildLoad(ctx.builder, LLVMBuildGEP(ctx.builder, value, indices, 2, ""), "$typeid"), 0, "");
 			}
 			else
 			{
@@ -960,7 +962,11 @@ LLVMValueRef CompileLlvmBinaryOp(LlvmCompilationContext &ctx, ExprBinaryOp *node
 		result = LLVMBuildXor(ctx.builder, lhs, rhs, "");
 		break;
 	case SYN_BINARY_OP_LOGICAL_XOR:
-		assert(!"not implemented");
+		// (lhs != 0) != (rhs != 0)
+		lhs = LLVMBuildICmp(ctx.builder, LLVMIntNE, lhs, LLVMConstInt(CompileLlvmType(ctx, GetStackType(ctx, node->lhs->type)), 0, true), "");
+		rhs = LLVMBuildICmp(ctx.builder, LLVMIntNE, rhs, LLVMConstInt(CompileLlvmType(ctx, GetStackType(ctx, node->rhs->type)), 0, true), "");
+
+		result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntNE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		break;
 	default:
 		break;
@@ -1004,30 +1010,25 @@ LLVMValueRef CompileLlvmConditional(LlvmCompilationContext &ctx, ExprConditional
 	LLVMBasicBlockRef falseBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "cond_false");
 	LLVMBasicBlockRef exitBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "cond_exit");
 
+	LLVMValueRef result = LLVMBuildAlloca(ctx.builder, CompileLlvmType(ctx, node->type), "cond");
+
 	LLVMBuildCondBr(ctx.builder, condition, trueBlock, falseBlock);
 
 	LLVMPositionBuilderAtEnd(ctx.builder, trueBlock);
 
-	LLVMValueRef trueValue = CompileLlvm(ctx, node->trueBlock);
+	LLVMBuildStore(ctx.builder, CompileLlvm(ctx, node->trueBlock), result);
 
 	LLVMBuildBr(ctx.builder, exitBlock);
 
 	LLVMPositionBuilderAtEnd(ctx.builder, falseBlock);
 
-	LLVMValueRef falseValue = CompileLlvm(ctx, node->falseBlock);
+	LLVMBuildStore(ctx.builder, CompileLlvm(ctx, node->falseBlock), result);
 
 	LLVMBuildBr(ctx.builder, exitBlock);
 
 	LLVMPositionBuilderAtEnd(ctx.builder, exitBlock);
 
-	LLVMValueRef phi = LLVMBuildPhi(ctx.builder, CompileLlvmType(ctx, node->type), "cond");
-
-	LLVMValueRef values[] = { trueValue, falseValue };
-	LLVMBasicBlockRef blocks[] = { trueBlock, falseBlock };
-
-	LLVMAddIncoming(phi, values, blocks, 2);
-
-	return CheckType(ctx, node, phi);
+	return CheckType(ctx, node, LLVMBuildLoad(ctx.builder, result, ""));
 }
 
 LLVMValueRef CompileLlvmAssignment(LlvmCompilationContext &ctx, ExprAssignment *node)
