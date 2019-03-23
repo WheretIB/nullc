@@ -395,7 +395,7 @@ LLVMValueRef CompileLlvmStringLiteral(LlvmCompilationContext &ctx, ExprStringLit
 
 LLVMValueRef CompileLlvmIntegerLiteral(LlvmCompilationContext &ctx, ExprIntegerLiteral *node)
 {
-	return CheckType(ctx, node, LLVMConstInt(CompileLlvmType(ctx, node->type), node->value, true));
+	return CheckType(ctx, node, LLVMConstInt(CompileLlvmType(ctx, GetStackType(ctx, node->type)), node->value, true));
 }
 
 LLVMValueRef CompileLlvmRationalLiteral(LlvmCompilationContext &ctx, ExprRationalLiteral *node)
@@ -537,7 +537,7 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 			}
 			else if(resultStackType == ctx.ctx.typeDouble)
 			{
-				if(node->value->type == ctx.ctx.typeChar || node->value->type == ctx.ctx.typeShort || node->value->type == ctx.ctx.typeInt || node->value->type == ctx.ctx.typeLong)
+				if(node->value->type == ctx.ctx.typeBool || node->value->type == ctx.ctx.typeChar || node->value->type == ctx.ctx.typeShort || node->value->type == ctx.ctx.typeInt || node->value->type == ctx.ctx.typeLong)
 					return CheckType(ctx, node, LLVMBuildSIToFP(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
 
 				if(node->value->type == ctx.ctx.typeFloat || node->value->type == ctx.ctx.typeDouble)
@@ -555,7 +555,7 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 		{
 			LLVMValueRef ptr = LLVMBuildExtractValue(ctx.builder, value, 0, "arr_ptr");
 
-			return CheckType(ctx, node, LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntNE, ptr, LLVMConstPointerNull(CompileLlvmType(ctx, ctx.ctx.typeNullPtr)), ""), CompileLlvmType(ctx, ctx.ctx.typeInt), ""));
+			return CheckType(ctx, node, LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntNE, ptr, LLVMConstPointerNull(LLVMPointerType(CompileLlvmType(ctx, unsizedArrType->subType), 0)), ""), CompileLlvmType(ctx, ctx.ctx.typeInt), ""));
 		}
 
 		break;
@@ -891,23 +891,27 @@ LLVMValueRef CompileLlvmBinaryOp(LlvmCompilationContext &ctx, ExprBinaryOp *node
 			result = LLVMBuildFRem(ctx.builder, lhs, rhs, "");
 		break;
 	case SYN_BINARY_OP_POW:
-		if(node->type == ctx.ctx.typeInt)
+		if(GetStackType(ctx, node->type) == ctx.ctx.typeInt)
 		{
 			LLVMValueRef arguments[] = { lhs, rhs };
 
 			result = LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmPowInt"), arguments, 2, "");
 		}
-		else if(node->type == ctx.ctx.typeLong)
+		else if(GetStackType(ctx, node->type) == ctx.ctx.typeLong)
 		{
 			LLVMValueRef arguments[] = { lhs, rhs };
 
 			result = LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmPowLong"), arguments, 2, "");
 		}
-		else if(node->type == ctx.ctx.typeDouble)
+		else if(GetStackType(ctx, node->type) == ctx.ctx.typeDouble)
 		{
 			LLVMValueRef arguments[] = { lhs, rhs };
 
 			result = LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmPowDouble"), arguments, 2, "");
+		}
+		else
+		{
+			assert(!"unknown operand type");
 		}
 		break;
 	case SYN_BINARY_OP_SHL:
@@ -1016,19 +1020,19 @@ LLVMValueRef CompileLlvmConditional(LlvmCompilationContext &ctx, ExprConditional
 
 	LLVMPositionBuilderAtEnd(ctx.builder, trueBlock);
 
-	LLVMBuildStore(ctx.builder, CompileLlvm(ctx, node->trueBlock), result);
+	LLVMBuildStore(ctx.builder, ConvertToDataType(ctx, CompileLlvm(ctx, node->trueBlock), GetStackType(ctx, node->trueBlock->type), node->trueBlock->type), result);
 
 	LLVMBuildBr(ctx.builder, exitBlock);
 
 	LLVMPositionBuilderAtEnd(ctx.builder, falseBlock);
 
-	LLVMBuildStore(ctx.builder, CompileLlvm(ctx, node->falseBlock), result);
+	LLVMBuildStore(ctx.builder, ConvertToDataType(ctx, CompileLlvm(ctx, node->falseBlock), GetStackType(ctx, node->falseBlock->type), node->falseBlock->type), result);
 
 	LLVMBuildBr(ctx.builder, exitBlock);
 
 	LLVMPositionBuilderAtEnd(ctx.builder, exitBlock);
 
-	return CheckType(ctx, node, LLVMBuildLoad(ctx.builder, result, ""));
+	return CheckType(ctx, node, ConvertToStackType(ctx, LLVMBuildLoad(ctx.builder, result, ""), node->type));
 }
 
 LLVMValueRef CompileLlvmAssignment(LlvmCompilationContext &ctx, ExprAssignment *node)
@@ -1178,6 +1182,8 @@ LLVMValueRef CompileLlvmYield(LlvmCompilationContext &ctx, ExprYield *node)
 	}
 	else
 	{
+		value = ConvertToDataType(ctx, value, GetStackType(ctx, node->value->type), node->value->type);
+
 		LLVMBuildRet(ctx.builder, value);
 	}
 
