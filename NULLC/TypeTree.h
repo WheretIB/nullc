@@ -190,8 +190,10 @@ struct VariableData
 
 	unsigned uniqueId;
 
+	// Data for IR module construction
 	SmallArray<VmConstant*, 8> users;
 
+	// Data for VM module construction
 	SmallArray<VmLoweredInstruction*, 4> lowUsers;
 };
 
@@ -421,6 +423,7 @@ struct FunctionData
 
 	IntrusiveList<CloseUpvaluesData> closeUpvalues;
 
+	// Data for IR module construction
 	VmFunction *vmFunction;
 
 	unsigned nextTranslateRestoreBlock;
