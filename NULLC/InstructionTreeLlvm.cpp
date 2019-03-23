@@ -49,6 +49,7 @@ struct LlvmCompilationContext
 		skipFunctionDefinitions = false;
 
 		currentFunction = NULL;
+		currentFunctionGlobal = false;
 
 		currentNextRestoreBlock = 0;
 	}
@@ -73,6 +74,8 @@ struct LlvmCompilationContext
 	bool skipFunctionDefinitions;
 
 	LLVMValueRef currentFunction;
+	bool currentFunctionGlobal;
+
 	unsigned currentNextRestoreBlock;
 	SmallArray<LLVMBasicBlockRef, 16> currentRestoreBlocks;
 
@@ -322,6 +325,26 @@ LLVMValueRef CheckType(LlvmCompilationContext &ctx, ExprBase *node, LLVMValueRef
 	return value;
 }
 
+void CheckFunction(LlvmCompilationContext &ctx, LLVMValueRef function, InplaceStr name)
+{
+#if !defined(NDEBUG)
+	// Check result
+	if(LLVMVerifyFunction(function, LLVMReturnStatusAction))
+	{
+		LLVMDumpValue(function);
+
+		printf("LLVM function '%.*s' verification failed\n", name.length(), name.begin);
+
+		char *error = NULL;
+
+		if(LLVMVerifyModule(ctx.module, LLVMReturnStatusAction, &error))
+			printf("%s\n", error);
+
+		LLVMDisposeMessage(error);
+	}
+#endif
+}
+
 LLVMValueRef CompileLlvmVoid(LlvmCompilationContext &ctx, ExprVoid *node)
 {
 	return CheckType(ctx, node, NULL);
@@ -378,8 +401,8 @@ LLVMValueRef CompileLlvmNullptrLiteral(LlvmCompilationContext &ctx, ExprNullptrL
 
 LLVMValueRef CompileLlvmFunctionIndexLiteral(LlvmCompilationContext &ctx, ExprFunctionIndexLiteral *node)
 {
-	assert(!"not implemented");
-	return NULL;
+	// TODO: use global function index values for a later remap
+	return CheckType(ctx, node, LLVMConstInt(CompileLlvmType(ctx, node->type), node->function->functionIndex, true));
 }
 
 LLVMValueRef CompileLlvmPassthrough(LlvmCompilationContext &ctx, ExprPassthrough *node)
@@ -1069,13 +1092,49 @@ LLVMValueRef CompileLlvmReturn(LlvmCompilationContext &ctx, ExprReturn *node)
 
 	if(node->value->type == ctx.ctx.typeVoid)
 	{
+		assert(!ctx.currentFunctionGlobal);
+
 		LLVMBuildRetVoid(ctx.builder);
 	}
 	else
 	{
-		value = ConvertToDataType(ctx, value, GetStackType(ctx, node->value->type), node->value->type);
+		if(ctx.currentFunctionGlobal)
+		{
+			if(GetStackType(ctx, node->value->type) == ctx.ctx.typeInt)
+			{
+				LLVMValueRef arguments[] = { value };
 
-		LLVMBuildRet(ctx.builder, value);
+				LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmReturnInt"), arguments, 1, "");
+
+				LLVMBuildRetVoid(ctx.builder);
+			}
+			else if(GetStackType(ctx, node->value->type) == ctx.ctx.typeLong)
+			{
+				LLVMValueRef arguments[] = { value };
+
+				LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmReturnLong"), arguments, 1, "");
+
+				LLVMBuildRetVoid(ctx.builder);
+			}
+			else if(GetStackType(ctx, node->value->type) == ctx.ctx.typeDouble)
+			{
+				LLVMValueRef arguments[] = { value };
+
+				LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmReturnDouble"), arguments, 1, "");
+
+				LLVMBuildRetVoid(ctx.builder);
+			}
+			else
+			{
+				assert(!"unknown global return type");
+			}
+		}
+		else
+		{
+			value = ConvertToDataType(ctx, value, GetStackType(ctx, node->value->type), node->value->type);
+
+			LLVMBuildRet(ctx.builder, value);
+		}
 	}
 
 	LLVMBasicBlockRef afterReturn = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "after_return");
@@ -1297,22 +1356,7 @@ LLVMValueRef CompileLlvmFunctionDefinition(LlvmCompilationContext &ctx, ExprFunc
 	else
 		LLVMBuildRet(ctx.builder, LLVMConstNull(CompileLlvmType(ctx, node->function->type->returnType)));
 
-#if !defined(NDEBUG)
-	// Check result
-	if(LLVMVerifyFunction(ctx.currentFunction, LLVMReturnStatusAction))
-	{
-		LLVMDumpValue(function);
-
-		printf("LLVM function '%.*s' verification failed\n", node->function->name->name.length(), node->function->name->name.begin);
-
-		char *error = NULL;
-
-		if(LLVMVerifyModule(ctx.module, LLVMReturnStatusAction, &error))
-			printf("%s\n", error);
-
-		LLVMDisposeMessage(error);
-	}
-#endif
+	CheckFunction(ctx, ctx.currentFunction, node->function->name->name);
 
 	if(ctx.enableOptimization)
 	{
@@ -1760,6 +1804,24 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression, cons
 		LLVMAddFunction(ctx.module, "__llvmPowDouble", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeDouble), arguments, 2, false));
 	}
 
+	{
+		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeInt) };
+
+		LLVMAddFunction(ctx.module, "__llvmReturnInt", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeVoid), arguments, 1, false));
+	}
+
+	{
+		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeLong) };
+
+		LLVMAddFunction(ctx.module, "__llvmReturnLong", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeVoid), arguments, 1, false));
+	}
+
+	{
+		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeDouble) };
+
+		LLVMAddFunction(ctx.module, "__llvmReturnDouble", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeVoid), arguments, 1, false));
+	}
+
 	// Generate functions
 	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
 	{
@@ -1803,15 +1865,30 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression, cons
 	ctx.skipFunctionDefinitions = true;
 
 	// Generate global function
-	/*VmFunction *global = new (module->get<VmFunction>()) VmFunction(module->allocator, VmType::Void, node->source, NULL, node->moduleScope, VmType::Void);
-
-	for(unsigned k = 0; k < global->scope->allVariables.size(); k++)
 	{
-	VariableData *variable = global->scope->allVariables[k];
+		LLVMValueRef globalFunction = LLVMAddFunction(ctx.module, "__llvmEntry", LLVMFunctionType(LLVMVoidTypeInContext(ctx.context), NULL, 0, false));
 
-	if(variable->isAlloca)
-	global->allocas.push_back(variable);
-	}*/
+		// Setup global function
+		ctx.currentFunction = globalFunction;
+		ctx.currentFunctionGlobal = true;
+
+		LLVMBasicBlockRef block = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "start");
+
+		LLVMPositionBuilderAtEnd(ctx.builder, block);
+
+		for(ExprBase *value = expression->setup.head; value; value = value->next)
+			CompileLlvm(ctx, value);
+
+		for(ExprBase *value = expression->expressions.head; value; value = value->next)
+			CompileLlvm(ctx, value);
+
+		LLVMBuildRetVoid(ctx.builder);
+
+		CheckFunction(ctx, ctx.currentFunction, InplaceStr("global"));
+
+		ctx.currentFunction = NULL;
+		ctx.currentFunctionGlobal = false;
+	}
 
 	char *error = NULL;
 
