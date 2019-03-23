@@ -8,4 +8,4 @@ struct LlvmModule
 {
 };
 
-LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression, const char *code);
+LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression);

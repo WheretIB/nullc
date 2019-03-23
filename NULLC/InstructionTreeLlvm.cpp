@@ -506,9 +506,9 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 		if(node->type == ctx.ctx.typeBool)
 		{
 			if(ctx.ctx.IsIntegerType(node->value->type))
-				return CheckType(ctx, node, LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntNE, value, LLVMConstInt(CompileLlvmType(ctx, node->value->type), 0, true), ""), CompileLlvmType(ctx, ctx.ctx.typeInt), ""));
+				return CheckType(ctx, node, LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntNE, value, LLVMConstInt(CompileLlvmType(ctx, GetStackType(ctx, node->value->type)), 0, true), ""), CompileLlvmType(ctx, ctx.ctx.typeInt), ""));
 
-			return CheckType(ctx, node, LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealUNE, value, LLVMConstReal(CompileLlvmType(ctx, node->value->type), 0.0), ""), CompileLlvmType(ctx, ctx.ctx.typeInt), ""));
+			return CheckType(ctx, node, LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealUNE, value, LLVMConstReal(CompileLlvmType(ctx, GetStackType(ctx, node->value->type)), 0.0), ""), CompileLlvmType(ctx, ctx.ctx.typeInt), ""));
 		}
 
 		if(TypeBase *resultStackType = GetStackType(ctx, node->type))
@@ -746,7 +746,7 @@ LLVMValueRef CompileLlvmUnaryOp(LlvmCompilationContext &ctx, ExprUnaryOp *node)
 		{
 			LLVMValueRef ptr = LLVMBuildExtractValue(ctx.builder, value, 1, "ref_ptr");
 
-			LLVMValueRef rhs = LLVMConstInt(CompileLlvmType(ctx, GetStackType(ctx, node->value->type)), 0, true);
+			LLVMValueRef rhs = LLVMConstPointerNull(CompileLlvmType(ctx, ctx.ctx.typeNullPtr));
 
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntEQ, ptr, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		}
@@ -1161,8 +1161,28 @@ LLVMValueRef CompileLlvmReturn(LlvmCompilationContext &ctx, ExprReturn *node)
 
 LLVMValueRef CompileLlvmYield(LlvmCompilationContext &ctx, ExprYield *node)
 {
-	assert(!"not implemented");
-	return NULL;
+	LLVMValueRef value = CompileLlvm(ctx, node->value);
+
+	if(node->coroutineStateUpdate)
+		CompileLlvm(ctx, node->coroutineStateUpdate);
+
+	if(node->closures)
+		CompileLlvm(ctx, node->closures);
+
+	LLVMBasicBlockRef block = ctx.currentRestoreBlocks[ctx.currentNextRestoreBlock++];
+
+	if(node->value->type == ctx.ctx.typeVoid)
+	{
+		LLVMBuildRetVoid(ctx.builder);
+	}
+	else
+	{
+		LLVMBuildRet(ctx.builder, value);
+	}
+
+	LLVMPositionBuilderAtEnd(ctx.builder, block);
+
+	return CheckType(ctx, node, NULL);
 }
 
 LLVMValueRef CompileLlvmVariableDefinition(LlvmCompilationContext &ctx, ExprVariableDefinition *node)
@@ -1171,7 +1191,10 @@ LLVMValueRef CompileLlvmVariableDefinition(LlvmCompilationContext &ctx, ExprVari
 
 	LLVMValueRef storage = LLVMBuildAlloca(ctx.builder, CompileLlvmType(ctx, variable->type), CreateLlvmName(ctx, variable->name->name));
 
-	ctx.variables.insert(variable->uniqueId, storage);
+	if(!ctx.variables.find(variable->uniqueId))
+		ctx.variables.insert(variable->uniqueId, storage);
+	else if(!ctx.currentFunctionGlobal)
+		assert(!"duplicate variable definition");
 
 	if(node->initializer)
 		CompileLlvm(ctx, node->initializer);
@@ -1325,6 +1348,8 @@ LLVMValueRef CompileLlvmFunctionDefinition(LlvmCompilationContext &ctx, ExprFunc
 
 		LLVMBuildStore(ctx.builder, argument, storage);
 
+		assert(!ctx.variables.find(variable->uniqueId));
+
 		ctx.variables.insert(variable->uniqueId, storage);
 	}
 
@@ -1337,6 +1362,8 @@ LLVMValueRef CompileLlvmFunctionDefinition(LlvmCompilationContext &ctx, ExprFunc
 		argument = LLVMBuildPointerCast(ctx.builder, argument, CompileLlvmType(ctx, node->function->contextType), "context_reinterpret");
 
 		LLVMBuildStore(ctx.builder, argument, storage);
+
+		assert(!ctx.variables.find(variable->uniqueId));
 
 		ctx.variables.insert(variable->uniqueId, storage);
 	}
@@ -1875,7 +1902,7 @@ LLVMValueRef CompileLlvm(LlvmCompilationContext &ctx, ExprBase *expression)
 	return NULL;
 }
 
-LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression, const char *code)
+LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 {
 	LlvmCompilationContext ctx(exprCtx);
 
@@ -1992,13 +2019,18 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression, cons
 	}
 
 	// Generate global valriables
-	for(unsigned i = 0; i < ctx.ctx.globalScope->variables.size(); i++)
+	for(unsigned i = 0; i < ctx.ctx.variables.size(); i++)
 	{
-		VariableData *variable = ctx.ctx.globalScope->variables[i];
+		VariableData *variable = ctx.ctx.variables[i];
 
-		LLVMValueRef value = LLVMAddGlobal(ctx.module, CompileLlvmType(ctx, variable->type), CreateLlvmName(ctx, variable->name->name));
+		if(ctx.ctx.GlobalScopeFrom(variable->scope))
+		{
+			LLVMValueRef value = LLVMAddGlobal(ctx.module, CompileLlvmType(ctx, variable->type), CreateLlvmName(ctx, variable->name->name));
 
-		ctx.variables.insert(variable->uniqueId, value);
+			assert(!ctx.variables.find(variable->uniqueId));
+
+			ctx.variables.insert(variable->uniqueId, value);
+		}
 	}
 
 	for(unsigned i = 0; i < expression->definitions.size(); i++)
