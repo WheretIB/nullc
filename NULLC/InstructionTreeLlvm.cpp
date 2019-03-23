@@ -4,6 +4,8 @@
 #include "../external/llvm/include/llvm-c/BitWriter.h"
 #include "../external/llvm/include/llvm-c/Core.h"
 
+#include "../external/llvm/include/llvm-c/Transforms/Scalar.h"
+
 #pragma comment(lib, "../external/llvm/lib/LLVMAnalysis.lib")
 #pragma comment(lib, "../external/llvm/lib/LLVMBinaryFormat.lib")
 #pragma comment(lib, "../external/llvm/lib/LLVMBitReader.lib")
@@ -14,6 +16,10 @@
 #pragma comment(lib, "../external/llvm/lib/LLVMObject.lib")
 #pragma comment(lib, "../external/llvm/lib/LLVMProfileData.lib")
 #pragma comment(lib, "../external/llvm/lib/LLVMSupport.lib")
+
+#pragma comment(lib, "../external/llvm/lib/LLVMInstCombine.lib")
+#pragma comment(lib, "../external/llvm/lib/LLVMScalarOpts.lib")
+#pragma comment(lib, "../external/llvm/lib/LLVMTransformUtils.lib")
 
 #include "ExpressionTree.h"
 #include "DenseMap.h"
@@ -30,9 +36,15 @@ struct LlvmCompilationContext
 {
 	LlvmCompilationContext(ExpressionContext &ctx): ctx(ctx), allocator(ctx.allocator), types(ctx.allocator), functions(ctx.allocator)
 	{
+		enableOptimization = false;
+
 		context = NULL;
 
 		module = NULL;
+
+		builder = NULL;
+
+		functionPassManager = NULL;
 
 		skipFunctionDefinitions = false;
 
@@ -41,11 +53,15 @@ struct LlvmCompilationContext
 
 	ExpressionContext &ctx;
 
+	bool enableOptimization;
+
 	LLVMContextRef context;
 
 	LLVMModuleRef module;
 
 	LLVMBuilderRef builder;
+
+	LLVMPassManagerRef functionPassManager;
 
 	SmallArray<LLVMTypeRef, 128> types;
 	SmallArray<LLVMValueRef, 128> functions;
@@ -1222,6 +1238,12 @@ LLVMValueRef CompileLlvmFunctionDefinition(LlvmCompilationContext &ctx, ExprFunc
 	}
 #endif
 
+	if(ctx.enableOptimization)
+	{
+		if(LLVMRunFunctionPassManager(ctx.functionPassManager, function))
+			LLVMRunFunctionPassManager(ctx.functionPassManager, function);
+	}
+
 	// Restore state
 	ctx.currentFunction = currentFunction;
 
@@ -1599,6 +1621,20 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression, cons
 
 	LlvmModule *module = new (ctx.get<LlvmModule>()) LlvmModule();
 
+	ctx.functionPassManager = LLVMCreateFunctionPassManagerForModule(ctx.module);
+
+	LLVMAddBasicAliasAnalysisPass(ctx.functionPassManager);
+	LLVMAddScalarReplAggregatesPass(ctx.functionPassManager);
+	LLVMAddInstructionCombiningPass(ctx.functionPassManager);
+	LLVMAddEarlyCSEPass(ctx.functionPassManager);
+	LLVMAddReassociatePass(ctx.functionPassManager);
+	LLVMAddGVNPass(ctx.functionPassManager);
+	LLVMAddConstantPropagationPass(ctx.functionPassManager);
+	LLVMAddCFGSimplificationPass(ctx.functionPassManager);
+	LLVMAddAggressiveDCEPass(ctx.functionPassManager);
+
+	LLVMInitializeFunctionPassManager(ctx.functionPassManager);
+
 	// Create helper functions
 	LLVMAddFunction(ctx.module, "__llvmAbortNoReturn", LLVMFunctionType(LLVMVoidTypeInContext(ctx.context), NULL, 0, false));
 
@@ -1680,6 +1716,10 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression, cons
 	//LLVMWriteBitcodeToFile(llvmModule, "inst_llvm.bc");
 
 	//LLVMDumpModule(ctx.module);
+
+	LLVMFinalizeFunctionPassManager(ctx.functionPassManager);
+
+	LLVMDisposePassManager(ctx.functionPassManager);
 
 	LLVMDisposeBuilder(ctx.builder);
 
