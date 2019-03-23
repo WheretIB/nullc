@@ -345,6 +345,21 @@ void CheckFunction(LlvmCompilationContext &ctx, LLVMValueRef function, InplaceSt
 #endif
 }
 
+LLVMBasicBlockRef GetLoopContinueBlock(LlvmCompilationContext &ctx, unsigned depth)
+{
+	unsigned pos = ctx.loopInfo.size();
+
+	for(unsigned i = 0; i < depth; i++)
+	{
+		pos--;
+
+		while(!ctx.loopInfo[pos].continueBlock)
+			pos--;
+	}
+
+	return ctx.loopInfo[pos].continueBlock;
+}
+
 LLVMValueRef CompileLlvmVoid(LlvmCompilationContext &ctx, ExprVoid *node)
 {
 	return CheckType(ctx, node, NULL);
@@ -924,13 +939,13 @@ LLVMValueRef CompileLlvmBinaryOp(LlvmCompilationContext &ctx, ExprBinaryOp *node
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealUGE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		break;
 	case SYN_BINARY_OP_EQUAL:
-		if(isType<TypeRef>(node->lhs->type) || ctx.ctx.IsIntegerType(node->lhs->type) || node->lhs->type == ctx.ctx.typeTypeID)
+		if(isType<TypeRef>(node->lhs->type) || ctx.ctx.IsIntegerType(node->lhs->type) || isType<TypeEnum>(node->lhs->type) || node->lhs->type == ctx.ctx.typeTypeID)
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntEQ, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		else
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealUEQ, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		break;
 	case SYN_BINARY_OP_NOT_EQUAL:
-		if(isType<TypeRef>(node->lhs->type) || ctx.ctx.IsIntegerType(node->lhs->type) || node->lhs->type == ctx.ctx.typeTypeID)
+		if(isType<TypeRef>(node->lhs->type) || ctx.ctx.IsIntegerType(node->lhs->type) || isType<TypeEnum>(node->lhs->type) || node->lhs->type == ctx.ctx.typeTypeID)
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntNE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		else
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealUNE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
@@ -1100,7 +1115,7 @@ LLVMValueRef CompileLlvmReturn(LlvmCompilationContext &ctx, ExprReturn *node)
 	{
 		if(ctx.currentFunctionGlobal)
 		{
-			if(GetStackType(ctx, node->value->type) == ctx.ctx.typeInt)
+			if(GetStackType(ctx, node->value->type) == ctx.ctx.typeInt || isType<TypeEnum>(node->value->type))
 			{
 				LLVMValueRef arguments[] = { value };
 
@@ -1530,32 +1545,159 @@ LLVMValueRef CompileLlvmFor(LlvmCompilationContext &ctx, ExprFor *node)
 
 LLVMValueRef CompileLlvmWhile(LlvmCompilationContext &ctx, ExprWhile *node)
 {
-	assert(!"not implemented");
-	return NULL;
+	LLVMBasicBlockRef conditionBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "while_cond");
+	LLVMBasicBlockRef bodyBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "while_body");
+	LLVMBasicBlockRef exitBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "while_exit");
+
+	ctx.loopInfo.push_back(LlvmCompilationContext::LoopInfo(exitBlock, conditionBlock));
+
+	LLVMBuildBr(ctx.builder, conditionBlock);
+
+	LLVMPositionBuilderAtEnd(ctx.builder, conditionBlock);
+
+	LLVMValueRef condition = CompileLlvm(ctx, node->condition);
+
+	condition = LLVMBuildICmp(ctx.builder, LLVMIntNE, condition, LLVMConstInt(CompileLlvmType(ctx, GetStackType(ctx, node->condition->type)), 0, true), "");
+
+	LLVMBuildCondBr(ctx.builder, condition, bodyBlock, exitBlock);
+
+	LLVMPositionBuilderAtEnd(ctx.builder, bodyBlock);
+
+	CompileLlvm(ctx, node->body);
+
+	LLVMBuildBr(ctx.builder, conditionBlock);
+
+	LLVMPositionBuilderAtEnd(ctx.builder, exitBlock);
+
+	ctx.loopInfo.pop_back();
+
+	return CheckType(ctx, node, NULL);
 }
 
 LLVMValueRef CompileLlvmDoWhile(LlvmCompilationContext &ctx, ExprDoWhile *node)
 {
-	assert(!"not implemented");
-	return NULL;
+	LLVMBasicBlockRef bodyBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "do_body");
+	LLVMBasicBlockRef condBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "do_cond");
+	LLVMBasicBlockRef exitBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "do_exit");
+
+	LLVMBuildBr(ctx.builder, bodyBlock);
+
+	LLVMPositionBuilderAtEnd(ctx.builder, bodyBlock);
+
+	ctx.loopInfo.push_back(LlvmCompilationContext::LoopInfo(exitBlock, condBlock));
+
+	CompileLlvm(ctx, node->body);
+
+	LLVMBuildBr(ctx.builder, condBlock);
+
+	LLVMPositionBuilderAtEnd(ctx.builder, condBlock);
+
+	LLVMValueRef condition = CompileLlvm(ctx, node->condition);
+
+	condition = LLVMBuildICmp(ctx.builder, LLVMIntNE, condition, LLVMConstInt(CompileLlvmType(ctx, GetStackType(ctx, node->condition->type)), 0, true), "");
+
+	LLVMBuildCondBr(ctx.builder, condition, bodyBlock, exitBlock);
+
+	LLVMPositionBuilderAtEnd(ctx.builder, exitBlock);
+
+	ctx.loopInfo.pop_back();
+
+	return CheckType(ctx, node, NULL);
 }
 
 LLVMValueRef CompileLlvmSwitch(LlvmCompilationContext &ctx, ExprSwitch *node)
 {
-	assert(!"not implemented");
-	return NULL;
+	CompileLlvm(ctx, node->condition);
+
+	SmallArray<LLVMBasicBlockRef, 16> conditionBlocks(ctx.allocator);
+	SmallArray<LLVMBasicBlockRef, 16> caseBlocks(ctx.allocator);
+
+	// Generate blocks for all cases
+	for(ExprBase *curr = node->cases.head; curr; curr = curr->next)
+		conditionBlocks.push_back(LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "switch_case"));
+
+	// Generate blocks for all cases
+	for(ExprBase *curr = node->blocks.head; curr; curr = curr->next)
+		caseBlocks.push_back(LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "case_block"));
+
+	LLVMBasicBlockRef defaultBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "default_block");
+	LLVMBasicBlockRef exitBlock = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "switch_exit");
+
+	LLVMBuildBr(ctx.builder, conditionBlocks.empty() ? defaultBlock : conditionBlocks[0]);
+
+	unsigned i;
+
+	// Generate code for all conditions
+	i = 0;
+	for(ExprBase *curr = node->cases.head; curr; curr = curr->next, i++)
+	{
+		LLVMPositionBuilderAtEnd(ctx.builder, conditionBlocks[i]);
+
+		LLVMValueRef condition = CompileLlvm(ctx, curr);
+
+		condition = LLVMBuildICmp(ctx.builder, LLVMIntNE, condition, LLVMConstInt(CompileLlvmType(ctx, GetStackType(ctx, curr->type)), 0, true), "");
+
+		LLVMBuildCondBr(ctx.builder, condition, caseBlocks[i], curr->next ? conditionBlocks[i + 1] : defaultBlock);
+	}
+
+	ctx.loopInfo.push_back(LlvmCompilationContext::LoopInfo(exitBlock, NULL));
+
+	// Generate code for all cases
+	i = 0;
+	for(ExprBase *curr = node->blocks.head; curr; curr = curr->next, i++)
+	{
+		LLVMPositionBuilderAtEnd(ctx.builder, caseBlocks[i]);
+
+		CompileLlvm(ctx, curr);
+
+		LLVMBuildBr(ctx.builder, curr->next ? caseBlocks[i + 1] : defaultBlock);
+	}
+
+	// Create default block
+	LLVMPositionBuilderAtEnd(ctx.builder, defaultBlock);
+
+	if(node->defaultBlock)
+		CompileLlvm(ctx, node->defaultBlock);
+
+	LLVMBuildBr(ctx.builder, exitBlock);
+
+	LLVMPositionBuilderAtEnd(ctx.builder, exitBlock);
+
+	ctx.loopInfo.pop_back();
+
+	return CheckType(ctx, node, NULL);
 }
 
 LLVMValueRef CompileLlvmBreak(LlvmCompilationContext &ctx, ExprBreak *node)
 {
-	assert(!"not implemented");
-	return NULL;
+	if(node->closures)
+		CompileLlvm(ctx, node->closures);
+
+	LLVMBasicBlockRef target = ctx.loopInfo[ctx.loopInfo.size() - node->depth].breakBlock;
+
+	LLVMBuildBr(ctx.builder, target);
+
+	LLVMBasicBlockRef afterReturn = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "after_break");
+
+	LLVMPositionBuilderAtEnd(ctx.builder, afterReturn);
+
+	return CheckType(ctx, node, NULL);
 }
 
 LLVMValueRef CompileLlvmContinue(LlvmCompilationContext &ctx, ExprContinue *node)
 {
-	assert(!"not implemented");
-	return NULL;
+	if(node->closures)
+		CompileLlvm(ctx, node->closures);
+
+	LLVMBasicBlockRef target = GetLoopContinueBlock(ctx, node->depth);
+
+	LLVMBuildBr(ctx.builder, target);
+
+	LLVMBasicBlockRef afterReturn = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "after_continue");
+
+	LLVMPositionBuilderAtEnd(ctx.builder, afterReturn);
+
+	return CheckType(ctx, node, NULL);
 }
 
 LLVMValueRef CompileLlvmBlock(LlvmCompilationContext &ctx, ExprBlock *node)
