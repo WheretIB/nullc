@@ -311,6 +311,21 @@ get3GenFrom();\r\n\
 return m[5]() + m[4]() * 10 + m[3]() * 100 + m[2]() * 1000 + m[1]() * 10000 + m[0]() * 100000;";
 TEST_RESULT("Coroutine 15 (for each loop is the same as a regular loop).", testCoroutine14, "567567");
 
+const char	*testCoroutine15 =
+"coroutine int foo()\r\n\
+{\r\n\
+	int i = 1;\r\n\
+	yield i++;\r\n\
+	yield i++;\r\n\
+	yield i++;\r\n\
+	return i;\r\n\
+}\r\n\
+int[6] arr;\r\n\
+for(auto i in foo, j in arr)\r\n\
+	j = i;\r\n\
+return arr[0] * 100000 + arr[1] * 10000 + arr[2] * 1000 + arr[3] * 100 + arr[4] * 10 + arr[5];";
+TEST_RESULT("Coroutine 16 (explicit iterator type is auto).", testCoroutine15, "123000");
+
 const char	*testCoroutineExampleA =
 "import std.vector;\r\n\
 auto forward_iterator(vector<@T> ref x)\r\n\

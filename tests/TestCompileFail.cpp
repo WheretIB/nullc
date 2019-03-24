@@ -856,6 +856,8 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("scope switch in the same scope", "namespace Runner{ int foo(generic a){ return x + a; } int x = foo(2); return x; }", "ERROR: unknown identifier 'x'");
 
+	TEST_FOR_FAIL("for each variables scope", "auto arr = { { 1, 2, 3, 4 }, { 1, 2, 3, 4 } }; for(auto a in arr, auto b in a){ return 0; }", "ERROR: unknown identifier 'a'");
+
 	TEST_FOR_FAIL("fuzzing test crash", "fo<@T, @U(){}", "ERROR: '>' expected after generic type alias list");
 	TEST_FOR_FAIL("fuzzing test crash", "oid foo<@>(){}", "ERROR: explicit generic type alias is expected after '@'");
 	TEST_FOR_FAIL("fuzzing test crash", "t ref(int, int)> a; re;", "ERROR: 't' is not a known type name");

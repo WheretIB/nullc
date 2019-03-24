@@ -10056,6 +10056,8 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 	IntrusiveList<ExprBase> definitions;
 	IntrusiveList<ExprBase> increments;
 
+	SmallArray<VariableData*, 4> iterators;
+
 	for(SynForEachIterator *curr = syntax->iterators.head; curr; curr = getType<SynForEachIterator>(curr->next))
 	{
 		SynBase *sourceInternal = ctx.MakeInternal(curr);
@@ -10082,7 +10084,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 		// Special implementation of for each for built-in arrays
 		if(isType<TypeArray>(value->type) || isType<TypeUnsizedArray>(value->type))
 		{
-			if(!type)
+			if(!type || type == ctx.typeAuto)
 			{
 				if(TypeArray *valueType = getType<TypeArray>(value->type))
 					type = valueType->subType;
@@ -10134,7 +10136,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			if (IsLookupOnlyVariable(ctx, variable))
 				variable->lookupOnly = true;
 
-			ctx.AddVariable(variable, true);
+			iterators.push_back(variable);
 
 			SmallArray<ArgumentData, 1> arguments(ctx.allocator);
 			arguments.push_back(ArgumentData(curr, false, NULL, ctx.typeInt, CreateVariableAccess(ctx, curr, iterator, false)));
@@ -10194,7 +10196,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			}
 
 			// Create definition
-			if(!type)
+			if(!type || type == ctx.typeAuto)
 				type = functionType->returnType;
 
 			CheckVariableConflict(ctx, curr, curr->name->name);
@@ -10205,7 +10207,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			if (IsLookupOnlyVariable(ctx, variable))
 				variable->lookupOnly = true;
 
-			ctx.AddVariable(variable, true);
+			iterators.push_back(variable);
 
 			if(ExprBase *call = CreateFunctionCall(ctx, curr, CreateVariableAccess(ctx, sourceInternal, functPtr, false), IntrusiveList<TypeHandle>(), NULL, false))
 			{
@@ -10244,8 +10246,6 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 
 			if(!type)
 				type = call->type;
-			else if(type == ctx.typeAuto)
-				type = call->type;
 			else
 				type = ctx.GetReferenceType(type);
 
@@ -10262,11 +10262,14 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			if (IsLookupOnlyVariable(ctx, variable))
 				variable->lookupOnly = true;
 
-			ctx.AddVariable(variable, true);
+			iterators.push_back(variable);
 
 			definitions.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(curr, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, variable), CreateAssignment(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, variable, false), call)));
 		}
 	}
+
+	for(unsigned i = 0; i < iterators.size(); i++)
+		ctx.AddVariable(iterators[i], true);
 
 	ExprBase *initializer = new (ctx.get<ExprBlock>()) ExprBlock(syntax, ctx.typeVoid, initializers, NULL);
 

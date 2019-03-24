@@ -189,22 +189,6 @@ for(int i in a.a) sum += i;\r\n\
 return sum;";
 TEST_RESULT("For each on a member of a type that we had a reference to", testForEach5, "115");
 
-const char	*testIllFormedForEach =
-"import std.vector;\r\n\
-\r\n\
-auto a = vector<vector<int>>(3);\r\n\
-a.push_back(vector<int>());\r\n\
-a.back().push_back(1);\r\n\
-a.back().push_back(2);\r\n\
-a.push_back(vector<int>());\r\n\
-a.back().push_back(3);\r\n\
-a.back().push_back(4);\r\n\
-int z = 1;\r\n\
-for(vector<int> i in a, int x in i)\r\n\
-	z = 0;\r\n\
-return z;";
-TEST_RESULT("Ill-formed for_each test", testIllFormedForEach, "1");
-
 const char	*testInOperatorOnArray =
 "int[] arr = { 1, 2, 3, 4 };\r\n\
 return (3 in arr) && !(6 in arr);";
