@@ -2576,36 +2576,33 @@ ExprBase* CreateFunctionUpvalueClose(ExpressionContext &ctx, SynBase *source, Fu
 
 ExprBase* CreateBlockUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *scope)
 {
-	if(!onwerFunction)
-		return NULL;
-
 	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, IntrusiveList<ExprBase>());
 
-	onwerFunction->closeUpvalues.push_back(new (ctx.get<CloseUpvaluesData>()) CloseUpvaluesData(holder, CLOSE_UPVALUES_BLOCK, source, scope, 0));
+	IntrusiveList<CloseUpvaluesData> &closeUpvalues = onwerFunction ? onwerFunction->closeUpvalues : ctx.globalCloseUpvalues;
+
+	closeUpvalues.push_back(new (ctx.get<CloseUpvaluesData>()) CloseUpvaluesData(holder, CLOSE_UPVALUES_BLOCK, source, scope, 0));
 
 	return holder;
 }
 
 ExprBase* CreateBreakUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *fromScope, unsigned depth)
 {
-	if(!onwerFunction)
-		return NULL;
-
 	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, IntrusiveList<ExprBase>());
 
-	onwerFunction->closeUpvalues.push_back(new (ctx.get<CloseUpvaluesData>()) CloseUpvaluesData(holder, CLOSE_UPVALUES_BREAK, source, fromScope, depth));
+	IntrusiveList<CloseUpvaluesData> &closeUpvalues = onwerFunction ? onwerFunction->closeUpvalues : ctx.globalCloseUpvalues;
+
+	closeUpvalues.push_back(new (ctx.get<CloseUpvaluesData>()) CloseUpvaluesData(holder, CLOSE_UPVALUES_BREAK, source, fromScope, depth));
 
 	return holder;
 }
 
 ExprBase* CreateContinueUpvalueClose(ExpressionContext &ctx, SynBase *source, FunctionData *onwerFunction, ScopeData *fromScope, unsigned depth)
 {
-	if(!onwerFunction)
-		return NULL;
-
 	ExprSequence *holder = new (ctx.get<ExprSequence>()) ExprSequence(source, ctx.typeVoid, IntrusiveList<ExprBase>());
 
-	onwerFunction->closeUpvalues.push_back(new (ctx.get<CloseUpvaluesData>()) CloseUpvaluesData(holder, CLOSE_UPVALUES_CONTINUE, source, fromScope, depth));
+	IntrusiveList<CloseUpvaluesData> &closeUpvalues = onwerFunction ? onwerFunction->closeUpvalues : ctx.globalCloseUpvalues;
+
+	closeUpvalues.push_back(new (ctx.get<CloseUpvaluesData>()) CloseUpvaluesData(holder, CLOSE_UPVALUES_CONTINUE, source, fromScope, depth));
 
 	return holder;
 }
@@ -2624,15 +2621,19 @@ ExprBase* CreateArgumentUpvalueClose(ExpressionContext &ctx, SynBase *source, Fu
 
 void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 {
-	for(CloseUpvaluesData *curr = function->closeUpvalues.head; curr; curr = curr->next)
+	IntrusiveList<CloseUpvaluesData> &closeUpvalues = function ? function->closeUpvalues : ctx.globalCloseUpvalues;
+
+	assert(function == ctx.GetCurrentFunction());
+
+	for(CloseUpvaluesData *curr = closeUpvalues.head; curr; curr = curr->next)
 	{
 		CloseUpvaluesData &data = *curr;
-
-		assert(function == ctx.GetCurrentFunction());
 
 		switch(data.type)
 		{
 		case CLOSE_UPVALUES_FUNCTION:
+			assert(function);
+
 			for(ScopeData *scope = data.scope; scope; scope = scope->scope)
 			{
 				for(unsigned i = 0; i < scope->variables.size(); i++)
@@ -2687,6 +2688,8 @@ void ClosePendingUpvalues(ExpressionContext &ctx, FunctionData *function)
 			}
 			break;
 		case CLOSE_UPVALUES_ARGUMENT:
+			assert(function);
+
 			for(VariableHandle *curr = function->argumentVariables.head; curr; curr = curr->next)
 			{
 				if(curr->variable->usedAsExternal)
@@ -2708,7 +2711,7 @@ ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, Sy
 
 	TypeBase *contextRefType = NULL;
 
-	if(ctx.GetFunctionOwner(ctx.scope) == NULL)
+	if(ctx.scope == ctx.globalScope || ctx.scope->ownerNamespace)
 		contextRefType = ctx.GetReferenceType(ctx.typeVoid);
 	else
 		contextRefType = ctx.GetReferenceType(CreateFunctionContextType(ctx, source, functionName));
@@ -2744,7 +2747,7 @@ ExprBase* CreateValueFunctionWrapper(ExpressionContext &ctx, SynBase *source, Sy
 
 	ExprVariableDefinition *contextVariableDefinition = NULL;
 
-	if(ctx.GetFunctionOwner(ctx.scope) == NULL)
+	if(ctx.scope == ctx.globalScope || ctx.scope->ownerNamespace)
 	{
 		contextVariableDefinition = NULL;
 	}
@@ -3810,11 +3813,13 @@ ExprBase* CreateVariableAccess(ExpressionContext &ctx, SynBase *source, Variable
 	bool externalAccess = false;
 	bool coroutineAccess = false;
 
-	if(currentFunction && variableFunctionOwner)
+	if(currentFunction && variable->scope->type != SCOPE_TEMPORARY)
 	{
-		if(variableFunctionOwner != currentFunction)
+		if(variableFunctionOwner && variableFunctionOwner != currentFunction)
 			externalAccess = true;
-		else if(currentFunction->coroutine && !IsArgumentVariable(currentFunction, variable))
+		else if(!variableFunctionOwner && !(variable->scope == ctx.globalScope || variable->scope->ownerNamespace))
+			externalAccess = true;
+		else if(variableFunctionOwner == currentFunction && currentFunction->coroutine && !IsArgumentVariable(currentFunction, variable))
 			coroutineAccess = true;
 	}
 
@@ -8141,7 +8146,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	if(parentType)
 		contextRefType = ctx.GetReferenceType(parentType);
-	else if(!coroutine && ctx.GetFunctionOwner(ctx.scope) == NULL)
+	else if(!coroutine && (ctx.scope == ctx.globalScope || ctx.scope->ownerNamespace))
 		contextRefType = ctx.GetReferenceType(ctx.typeVoid);
 	else
 		contextRefType = ctx.GetReferenceType(CreateFunctionContextType(ctx, source, functionName));
@@ -8339,7 +8344,7 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 	{
 		contextVariableDefinition = NULL;
 	}
-	else if(!coroutine && ctx.GetFunctionOwner(ctx.scope) == NULL)
+	else if(!coroutine && (ctx.scope == ctx.globalScope || ctx.scope->ownerNamespace))
 	{
 		contextVariableDefinition = NULL;
 	}
@@ -12071,6 +12076,8 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 
 	for(SynBase *expr = syntax->expressions.head; expr; expr = expr->next)
 		expressions.push_back(AnalyzeStatement(ctx, expr));
+
+	ClosePendingUpvalues(ctx, NULL);
 
 	for(unsigned i = 0; i < ctx.types.size(); i++)
 	{

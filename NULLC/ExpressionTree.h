@@ -234,6 +234,7 @@ struct ExpressionContext
 
 	ScopeData *globalScope;
 	SmallArray<NamespaceData*, 2> globalNamespaces;
+	IntrusiveList<CloseUpvaluesData> globalCloseUpvalues;
 
 	unsigned instanceDepth;
 

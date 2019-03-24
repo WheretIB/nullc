@@ -600,8 +600,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintGraph(ctx, node->coroutineStateUpdate, "coroutineStateUpdate");
 
-		if(node->closures)
-			PrintGraph(ctx, node->closures, "closures");
+		PrintGraph(ctx, node->closures, "closures");
 
 		PrintLeaveBlock(ctx);
 	}
@@ -613,8 +612,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 
 		PrintGraph(ctx, node->coroutineStateUpdate, "coroutineStateUpdate");
 
-		if(node->closures)
-			PrintGraph(ctx, node->closures, "closures");
+		PrintGraph(ctx, node->closures, "closures");
 
 		PrintLeaveBlock(ctx);
 	}
@@ -883,8 +881,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintEnterBlock(ctx, name, node, "ExprBreak(%d)", node->depth);
 
-		if(node->closures)
-			PrintGraph(ctx, node->closures, "closures");
+		PrintGraph(ctx, node->closures, "closures");
 
 		PrintLeaveBlock(ctx);
 	}
@@ -892,8 +889,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 	{
 		PrintEnterBlock(ctx, name, node, "ExprContinue(%d)", node->depth);
 
-		if(node->closures)
-			PrintGraph(ctx, node->closures, "closures");
+		PrintGraph(ctx, node->closures, "closures");
 
 		PrintLeaveBlock(ctx);
 	}
@@ -904,8 +900,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, InplaceStr na
 		for(ExprBase *value = node->expressions.head; value; value = value->next)
 			PrintGraph(ctx, value, "");
 
-		if(node->closures)
-			PrintGraph(ctx, node->closures, "closures");
+		PrintGraph(ctx, node->closures, "closures");
 
 		PrintLeaveBlock(ctx);
 	}

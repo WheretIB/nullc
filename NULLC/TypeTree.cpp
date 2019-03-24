@@ -374,9 +374,7 @@ InplaceStr GetFunctionVariableUpvalueName(ExpressionContext &ctx, VariableData *
 {
 	FunctionData *function = ctx.GetFunctionOwner(variable->scope);
 
-	assert(function);
-
-	InplaceStr functionName = function->name->name;
+	InplaceStr functionName = function ? function->name->name : InplaceStr("global");
 	InplaceStr operatorName = GetOperatorName(functionName);
 
 	if(!operatorName.empty())

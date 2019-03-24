@@ -9,7 +9,7 @@ for(i in a, n in range(0, 4))\r\n\
 	b[n] = auto(){ return a[n]; };\r\n\
 \r\n\
 return b[0]() + b[1]() + b[4]();";
-TEST_RESULT_SIMPLE("new call with function type", testFunctionTypeNew, "15");
+TEST_RESULT("new call with function type", testFunctionTypeNew, "8");
 
 const char	*testTypeOfNew =
 "import std.range;\r\n\
@@ -20,7 +20,7 @@ for(i in a, n in range(0, 4))\r\n\
 	b[n] = auto(){ return a[n]; };\r\n\
 \r\n\
 return b[0]() + b[1]() + b[4]();";
-TEST_RESULT_SIMPLE("new call with typeof", testTypeOfNew, "15");
+TEST_RESULT("new call with typeof", testTypeOfNew, "8");
 
 const char	*testConstructorAfterNew =
 "void int:int(int x, y){ *this = x; }\r\n\

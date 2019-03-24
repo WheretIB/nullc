@@ -820,3 +820,50 @@ int result = runner();\r\n\
 \r\n\
 return result;";
 TEST_RESULT("Closure of function pointer upvalue", testFunctionPointerUpvalueClosure, "25");
+
+const char	*testBlockClosuresGlobalCode =
+"int ref()[10] arr;\r\n\
+\r\n\
+for(int i = 0; i < 10; i++)\r\n\
+	arr[i] = auto(){ return i * 2; };\r\n\
+\r\n\
+return arr[3]() + arr[7]();";
+TEST_RESULT("Closure of local variables in global code", testBlockClosuresGlobalCode, "20");
+
+const char	*testBreakClosureGlobalCode =
+"int ref() f; \r\n\
+for(int k = 0; k < 5; k++)\r\n\
+{\r\n\
+	for(int i = 0; i < 5; i++)\r\n\
+	{\r\n\
+		if(k == 0)\r\n\
+			f = auto() { return k * 100 + i; };\r\n\
+		if(k == 0 && i == 0)\r\n\
+		{ \r\n\
+			k = 3;\r\n\
+			i = 1;\r\n\
+			break 2;\r\n\
+		}\r\n\
+	}\r\n\
+}\r\n\
+return f();";
+TEST_RESULT("Closure on loop break in global code", testBreakClosureGlobalCode, "301");
+
+const char	*testContinueClosureGlobalCode =
+"int ref() f; \r\n\
+for(int k = 0; k < 5; k++)\r\n\
+{\r\n\
+	for(int i = 0; i < 5; i++)\r\n\
+	{\r\n\
+		if(k == 0)\r\n\
+			f = auto() { return k * 100 + i; };\r\n\
+		if(k == 0 && i == 0)\r\n\
+		{ \r\n\
+			k = 3;\r\n\
+			i = 1;\r\n\
+			continue 2;\r\n\
+		}\r\n\
+	}\r\n\
+}\r\n\
+return f();";
+TEST_RESULT("Closure on loop continue in global code", testContinueClosureGlobalCode, "301");
