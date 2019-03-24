@@ -1114,6 +1114,11 @@ x y = x(1);\r\n\
 return int(y);";
 TEST_RESULT("Enumeration test 5", testEnumeration5, "1");
 
+const char	*testEnumeration6 =
+"enum X{ a = 1, b = 2, c = a, d }\r\n\
+return X.c + X.d;";
+TEST_RESULT("Enumeration test 6", testEnumeration6, "3");
+
 const char	*testMemberFunctionCallFromLocalFunctionInsideMemberFunction =
 "class Foo{}\r\n\
 auto Foo:foo(){ return 1; }\r\n\

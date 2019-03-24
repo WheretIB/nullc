@@ -861,37 +861,37 @@ LLVMValueRef CompileLlvmBinaryOp(LlvmCompilationContext &ctx, ExprBinaryOp *node
 	switch(node->op)
 	{
 	case SYN_BINARY_OP_ADD:
-		if(ctx.ctx.IsIntegerType(node->lhs->type))
+		if(ctx.ctx.IsIntegerType(node->lhs->type) || isType<TypeEnum>(node->lhs->type))
 			result = LLVMBuildAdd(ctx.builder, lhs, rhs, "");
 		else
 			result = LLVMBuildFAdd(ctx.builder, lhs, rhs, "");
 		break;
 	case SYN_BINARY_OP_SUB:
-		if(ctx.ctx.IsIntegerType(node->lhs->type))
+		if(ctx.ctx.IsIntegerType(node->lhs->type) || isType<TypeEnum>(node->lhs->type))
 			result = LLVMBuildSub(ctx.builder, lhs, rhs, "");
 		else
 			result = LLVMBuildFSub(ctx.builder, lhs, rhs, "");
 		break;
 	case SYN_BINARY_OP_MUL:
-		if(ctx.ctx.IsIntegerType(node->lhs->type))
+		if(ctx.ctx.IsIntegerType(node->lhs->type) || isType<TypeEnum>(node->lhs->type))
 			result = LLVMBuildMul(ctx.builder, lhs, rhs, "");
 		else
 			result = LLVMBuildFMul(ctx.builder, lhs, rhs, "");
 		break;
 	case SYN_BINARY_OP_DIV:
-		if(ctx.ctx.IsIntegerType(node->lhs->type))
+		if(ctx.ctx.IsIntegerType(node->lhs->type) || isType<TypeEnum>(node->lhs->type))
 			result = LLVMBuildSDiv(ctx.builder, lhs, rhs, "");
 		else
 			result = LLVMBuildFDiv(ctx.builder, lhs, rhs, "");
 		break;
 	case SYN_BINARY_OP_MOD:
-		if(ctx.ctx.IsIntegerType(node->lhs->type))
+		if(ctx.ctx.IsIntegerType(node->lhs->type) || isType<TypeEnum>(node->lhs->type))
 			result = LLVMBuildSRem(ctx.builder, lhs, rhs, "");
 		else
 			result = LLVMBuildFRem(ctx.builder, lhs, rhs, "");
 		break;
 	case SYN_BINARY_OP_POW:
-		if(GetStackType(ctx, node->type) == ctx.ctx.typeInt)
+		if(GetStackType(ctx, node->type) == ctx.ctx.typeInt || isType<TypeEnum>(node->type))
 		{
 			LLVMValueRef arguments[] = { lhs, rhs };
 
@@ -921,25 +921,25 @@ LLVMValueRef CompileLlvmBinaryOp(LlvmCompilationContext &ctx, ExprBinaryOp *node
 		result = LLVMBuildAShr(ctx.builder, lhs, rhs, "");
 		break;
 	case SYN_BINARY_OP_LESS:
-		if(ctx.ctx.IsIntegerType(node->lhs->type))
+		if(ctx.ctx.IsIntegerType(node->lhs->type) || isType<TypeEnum>(node->lhs->type))
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntSLT, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		else
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealULT, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		break;
 	case SYN_BINARY_OP_LESS_EQUAL:
-		if(ctx.ctx.IsIntegerType(node->lhs->type))
+		if(ctx.ctx.IsIntegerType(node->lhs->type) || isType<TypeEnum>(node->lhs->type))
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntSLE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		else
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealULE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		break;
 	case SYN_BINARY_OP_GREATER:
-		if(ctx.ctx.IsIntegerType(node->lhs->type))
+		if(ctx.ctx.IsIntegerType(node->lhs->type) || isType<TypeEnum>(node->lhs->type))
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntSGT, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		else
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealUGT, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		break;
 	case SYN_BINARY_OP_GREATER_EQUAL:
-		if(ctx.ctx.IsIntegerType(node->lhs->type))
+		if(ctx.ctx.IsIntegerType(node->lhs->type) || isType<TypeEnum>(node->lhs->type))
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildICmp(ctx.builder, LLVMIntSGE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");
 		else
 			result = LLVMBuildZExt(ctx.builder, LLVMBuildFCmp(ctx.builder, LLVMRealUGE, lhs, rhs, ""), CompileLlvmType(ctx, ctx.ctx.typeInt), "");

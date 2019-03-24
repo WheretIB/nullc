@@ -9725,11 +9725,14 @@ void AnalyzeEnumConstants(ExpressionContext &ctx, TypeBase *type, IntrusiveList<
 			if(isType<TypeError>(rhs->type))
 				continue;
 
-			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, constant, CreateCast(ctx, constant, rhs, ctx.typeInt, false)));
+			if(rhs->type == type)
+				value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, constant, rhs));
+			else
+				value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, constant, CreateCast(ctx, constant, rhs, ctx.typeInt, false)));
 		}
 		else if(last)
 		{
-			value = getType<ExprIntegerLiteral>(EvaluateExpression(ctx, constant, CreateBinaryOp(ctx, constant, SYN_BINARY_OP_ADD, last, new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, ctx.typeInt, 1))));
+			value = new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(constant, ctx.typeInt, last->value + 1);
 		}
 		else
 		{
