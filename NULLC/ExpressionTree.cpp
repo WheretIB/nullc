@@ -4303,96 +4303,6 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 	if(!member)
 		return new (ctx.get<ExprErrorTypeMemberAccess>()) ExprErrorTypeMemberAccess(source, ctx.GetErrorType(), type);
 
-	if(member->name == InplaceStr("isReference"))
-	{
-		return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.typeBool, isType<TypeRef>(type));
-	}
-
-	if(member->name == InplaceStr("isArray"))
-	{
-		return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.typeBool, isType<TypeArray>(type) || isType<TypeUnsizedArray>(type));
-	}
-
-	if(member->name == InplaceStr("isFunction"))
-	{
-		return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.typeBool, isType<TypeFunction>(type));
-	}
-
-	if(member->name == InplaceStr("arraySize"))
-	{
-		if(TypeArray *arrType = getType<TypeArray>(type))
-			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, arrType->length);
-
-		if(isType<TypeUnsizedArray>(type))
-			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, -1);
-
-		Stop(ctx, source, "ERROR: 'arraySize' can only be applied to an array type, but we have '%.*s'", FMT_ISTR(type->name));
-	}
-
-	if(member->name == InplaceStr("size"))
-	{
-		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
-			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, argumentsType->types.size());
-
-		Stop(ctx, source, "ERROR: 'size' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
-	}
-
-	if(member->name == InplaceStr("argument"))
-	{
-		if(TypeFunction *functionType = getType<TypeFunction>(type))
-			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, new (ctx.get<TypeArgumentSet>()) TypeArgumentSet(GetArgumentSetTypeName(ctx, functionType->arguments), functionType->arguments));
-
-		Stop(ctx, source, "ERROR: 'argument' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
-	}
-
-	if(member->name == InplaceStr("return"))
-	{
-		if(TypeFunction *functionType = getType<TypeFunction>(type))
-			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, functionType->returnType);
-
-		Stop(ctx, source, "ERROR: 'return' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
-	}
-
-	if(member->name == InplaceStr("target"))
-	{
-		if(TypeRef *refType = getType<TypeRef>(type))
-			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, refType->subType);
-
-		if(TypeArray *arrType = getType<TypeArray>(type))
-			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, arrType->subType);
-
-		if(TypeUnsizedArray *arrType = getType<TypeUnsizedArray>(type))
-			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, arrType->subType);
-
-		Stop(ctx, source, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%.*s'", FMT_ISTR(type->name));
-	}
-
-	if(member->name == InplaceStr("first"))
-	{
-		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
-		{
-			if(argumentsType->types.empty())
-				Stop(ctx, source, "ERROR: function argument set is empty");
-
-			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, argumentsType->types.head->type);
-		}
-
-		Stop(ctx, source, "ERROR: 'first' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
-	}
-
-	if(member->name == InplaceStr("last"))
-	{
-		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
-		{
-			if(argumentsType->types.empty())
-				Stop(ctx, source, "ERROR: function argument set is empty");
-
-			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, argumentsType->types.tail->type);
-		}
-
-		Stop(ctx, source, "ERROR: 'last' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
-	}
-
 	if(TypeClass *classType = getType<TypeClass>(type))
 	{
 		for(MatchData *curr = classType->aliases.head; curr; curr = curr->next)
@@ -4433,6 +4343,104 @@ ExprBase* CreateTypeidMemberAccess(ExpressionContext &ctx, SynBase *source, Type
 			if(curr->name == member->name)
 				return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, ctx.typeGeneric);
 		}
+	}
+
+	if(member->name == InplaceStr("isReference"))
+	{
+		return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.typeBool, isType<TypeRef>(type));
+	}
+
+	if(member->name == InplaceStr("isArray"))
+	{
+		return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.typeBool, isType<TypeArray>(type) || isType<TypeUnsizedArray>(type));
+	}
+
+	if(member->name == InplaceStr("isFunction"))
+	{
+		return new (ctx.get<ExprBoolLiteral>()) ExprBoolLiteral(source, ctx.typeBool, isType<TypeFunction>(type));
+	}
+
+	if(member->name == InplaceStr("arraySize"))
+	{
+		if(TypeArray *arrType = getType<TypeArray>(type))
+			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, arrType->length);
+
+		if(isType<TypeUnsizedArray>(type))
+			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, -1);
+
+		Report(ctx, source, "ERROR: 'arraySize' can only be applied to an array type, but we have '%.*s'", FMT_ISTR(type->name));
+	}
+
+	if(member->name == InplaceStr("size"))
+	{
+		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
+			return new (ctx.get<ExprIntegerLiteral>()) ExprIntegerLiteral(source, ctx.typeInt, argumentsType->types.size());
+
+		Report(ctx, source, "ERROR: 'size' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
+	}
+
+	if(member->name == InplaceStr("argument"))
+	{
+		if(TypeFunction *functionType = getType<TypeFunction>(type))
+			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, new (ctx.get<TypeArgumentSet>()) TypeArgumentSet(GetArgumentSetTypeName(ctx, functionType->arguments), functionType->arguments));
+
+		Report(ctx, source, "ERROR: 'argument' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
+	}
+
+	if(member->name == InplaceStr("return"))
+	{
+		if(TypeFunction *functionType = getType<TypeFunction>(type))
+			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, functionType->returnType);
+
+		Report(ctx, source, "ERROR: 'return' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
+	}
+
+	if(member->name == InplaceStr("target"))
+	{
+		if(TypeRef *refType = getType<TypeRef>(type))
+			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, refType->subType);
+
+		if(TypeArray *arrType = getType<TypeArray>(type))
+			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, arrType->subType);
+
+		if(TypeUnsizedArray *arrType = getType<TypeUnsizedArray>(type))
+			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, arrType->subType);
+
+		Report(ctx, source, "ERROR: 'target' can only be applied to a pointer or array type, but we have '%.*s'", FMT_ISTR(type->name));
+	}
+
+	if(member->name == InplaceStr("first"))
+	{
+		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
+		{
+			if(argumentsType->types.empty())
+			{
+				Report(ctx, source, "ERROR: function argument set is empty");
+
+				return NULL;
+			}
+
+			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, argumentsType->types.head->type);
+		}
+
+		Report(ctx, source, "ERROR: 'first' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
+	}
+
+	if(member->name == InplaceStr("last"))
+	{
+		if(TypeArgumentSet *argumentsType = getType<TypeArgumentSet>(type))
+		{
+			if(argumentsType->types.empty())
+			{
+				Report(ctx, source, "ERROR: function argument set is empty");
+
+				return NULL;
+			}
+
+			return new (ctx.get<ExprTypeLiteral>()) ExprTypeLiteral(source, ctx.typeTypeID, argumentsType->types.tail->type);
+		}
+
+		Report(ctx, source, "ERROR: 'last' can only be applied to a function type, but we have '%.*s'", FMT_ISTR(type->name));
 	}
 
 	return NULL;

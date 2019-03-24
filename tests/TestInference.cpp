@@ -637,6 +637,22 @@ assert(Foo.hasMember(c) == false);\r\n\
 return 1;";
 TEST_RESULT("typeof on extended typeof expressions (hasMember)", testTypeofExtenendedExpr3, "1");
 
+const char	*testTypeofExtenendedExpr4 = 
+"class X{ int first, second; float arraySize; }\r\n\
+\r\n\
+auto x = X.first;\r\n\
+assert(x == int);\r\n\
+auto y = X.arraySize;\r\n\
+assert(y == float);\r\n\
+return 1;";
+TEST_RESULT("typeof on extended typeof expressions (members)", testTypeofExtenendedExpr4, "1");
+
+const char	*testTypeofExtenendedExpr5 = 
+"class X{ const int first = 3; }\r\n\
+\r\n\
+return X.first;";
+TEST_RESULT("typeof on extended typeof expressions (constants)", testTypeofExtenendedExpr5, "3");
+
 const char	*testShortInlineFunctionNoArguments = 
 "int foo(int ref() f){ return f(); }\r\n\
 return foo(<>{ 5; });";
