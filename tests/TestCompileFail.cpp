@@ -949,7 +949,7 @@ struct Test_testModuleImportsSelf2 : TestQueue
 			char buf[4096];
 			strncpy(buf, nullcGetLastError(), 4095); buf[4095] = 0;
 
-			const char *expected = "ERROR: found cyclic dependency on module 'b.nc'\n  at line 1: 'import b; return 1;'\n              ^\n [in module 'a.nc'] [in module 'b.nc']";
+			const char *expected = "ERROR: found cyclic dependency on module 'b.nc'\n  at line 1: 'import b; return 1;'\n              ^\n [in module 'a.nc']\n [in module 'b.nc']\n";
 
 			if(strcmp(expected, buf) != 0)
 			{

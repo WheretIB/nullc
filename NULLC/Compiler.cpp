@@ -322,19 +322,24 @@ unsigned GetErrorLocationLineNumber(const char *codeStart, const char *errorPos)
 
 void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize)
 {
-	if(!codeStart)
-		return;
-
-	if(!errorPos)
-		return;
-
 	if(!errorBuf)
 		return;
+
+	char *errorCurr = errorBuf + strlen(errorBuf);
+
+	if(!codeStart || !errorPos)
+	{
+		errorCurr += NULLC::SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "\n");
+		return;
+	}
 
 	const char *codeEnd = codeStart + strlen(codeStart);
 
 	if(errorPos < codeStart || errorPos > codeEnd)
+	{
+		errorCurr += NULLC::SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "\n");
 		return;
+	}
 
 	const char *start = errorPos;
 	const char *end = start == codeEnd ? start : start + 1;
@@ -344,8 +349,6 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 
 	while(*end && *end != '\r' && *end != '\n')
 		end++;
-
-	char *errorCurr = errorBuf + strlen(errorBuf);
 
 	if(errorBufSize > unsigned(errorCurr - errorBuf))
 		*(errorCurr++) = '\n';
