@@ -4193,9 +4193,22 @@ ExprBase* AnalyzeConditional(ExpressionContext &ctx, SynConditional *syntax)
 	}
 	else
 	{
-		Report(ctx, syntax, "ERROR: can't find common type between '%.*s' and '%.*s'", FMT_ISTR(trueBlock->type->name), FMT_ISTR(falseBlock->type->name));
+		TypeArray *trueBlockTypeArray = getType<TypeArray>(trueBlock->type);
+		TypeArray *falseBlockTypeArray = getType<TypeArray>(falseBlock->type);
 
-		resultType = ctx.GetErrorType();
+		if(trueBlockTypeArray && falseBlockTypeArray && trueBlockTypeArray->subType == falseBlockTypeArray->subType)
+		{
+			resultType = ctx.GetUnsizedArrayType(trueBlockTypeArray->subType);
+
+			trueBlock = CreateCast(ctx, syntax->trueBlock, trueBlock, resultType, false);
+			falseBlock = CreateCast(ctx, syntax->falseBlock, falseBlock, resultType, false);
+		}
+		else
+		{
+			Report(ctx, syntax, "ERROR: can't find common type between '%.*s' and '%.*s'", FMT_ISTR(trueBlock->type->name), FMT_ISTR(falseBlock->type->name));
+
+			resultType = ctx.GetErrorType();
+		}
 	}
 
 	AssertValueExpression(ctx, syntax, condition);

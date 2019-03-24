@@ -67,3 +67,8 @@ const char	*testInplaceArrayDouble =
 "double[] arr = { 12.0, 14, 18.0f };\r\n\
 return int(arr[0]+arr[1]+arr[2]);";
 TEST_RESULT("Inplace double array with integer elements", testInplaceArrayDouble, "44");
+
+const char	*testArrayConditionalCommonType =
+"auto arr = sizeof(int) == 4 ? \"four\" : \"eight\";\r\n\
+return arr.size == (\"four\").size;";
+TEST_RESULT("Unsized array is selected betweeen arrays of different length", testArrayConditionalCommonType, "1");
