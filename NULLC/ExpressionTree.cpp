@@ -10244,7 +10244,7 @@ ExprFor* AnalyzeForEach(ExpressionContext &ctx, SynForEach *syntax)
 			// Create definition
 			ExprBase *call = CreateFunctionCall(ctx, curr, CreateMemberAccess(ctx, sourceInternal, CreateVariableAccess(ctx, sourceInternal, iterator, false), new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr("next")), false), IntrusiveList<TypeHandle>(), NULL, false);
 
-			if(!type)
+			if(!type || type == ctx.typeAuto)
 				type = call->type;
 			else
 				type = ctx.GetReferenceType(type);
