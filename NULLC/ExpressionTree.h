@@ -131,7 +131,7 @@ struct TypePairHasher
 
 struct ExpressionContext
 {
-	ExpressionContext(Allocator *allocator);
+	ExpressionContext(Allocator *allocator, int optimizationLevel);
 
 	void StopAt(SynBase *source, const char *pos, const char *msg, ...) NULLC_PRINT_FORMAT_CHECK(4, 5);
 	void Stop(SynBase *source, const char *msg, ...) NULLC_PRINT_FORMAT_CHECK(3, 4);
@@ -189,6 +189,8 @@ struct ExpressionContext
 	ModuleData* GetSourceOwner(Lexeme *lexeme);
 
 	SynInternal* MakeInternal(SynBase *source);
+
+	int optimizationLevel;
 
 	// Full state info
 	const char *code;

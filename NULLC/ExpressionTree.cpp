@@ -827,7 +827,7 @@ namespace
 	}
 }
 
-ExpressionContext::ExpressionContext(Allocator *allocator): allocator(allocator)
+ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel): allocator(allocator), optimizationLevel(optimizationLevel)
 {
 	code = NULL;
 	codeEnd = NULL;
@@ -11275,7 +11275,7 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 					assert(type.definitionOffsetStart < importModule->lexStreamSize);
 					Lexeme *start = type.definitionOffsetStart + importModule->lexStream;
 
-					ParseContext *parser = new (ctx.get<ParseContext>()) ParseContext(ctx.allocator, ArrayView<InplaceStr>());
+					ParseContext *parser = new (ctx.get<ParseContext>()) ParseContext(ctx.allocator, ctx.optimizationLevel, ArrayView<InplaceStr>());
 
 					parser->currentLexeme = start;
 
@@ -11755,7 +11755,7 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 			assert(function.genericOffsetStart < data->importModule->lexStreamSize);
 			Lexeme *start = function.genericOffsetStart + data->importModule->lexStream;
 
-			ParseContext *parser = new (ctx.get<ParseContext>()) ParseContext(ctx.allocator, ArrayView<InplaceStr>());
+			ParseContext *parser = new (ctx.get<ParseContext>()) ParseContext(ctx.allocator, ctx.optimizationLevel, ArrayView<InplaceStr>());
 
 			parser->currentLexeme = start;
 

@@ -314,7 +314,7 @@ SynModifyAssignType GetModifyAssignType(LexemeType type)
 	return SYN_MODIFY_ASSIGN_UNKNOWN;
 }
 
-ParseContext::ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): lexer(allocator), binaryOpStack(allocator), namespaceList(allocator), activeImports(allocator), errorInfo(allocator), allocator(allocator)
+ParseContext::ParseContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): lexer(allocator), binaryOpStack(allocator), namespaceList(allocator), optimizationLevel(optimizationLevel), activeImports(allocator), errorInfo(allocator), allocator(allocator)
 {
 	code = NULL;
 
@@ -2942,7 +2942,7 @@ IntrusiveList<SynBase> ParseExpressions(ParseContext &ctx)
 	return expressions;
 }
 
-const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream, ArrayView<InplaceStr> activeImports)
+const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<SynIdentifier> parts, unsigned &lexCount, Lexeme* &lexStream, int optimizationLevel, ArrayView<InplaceStr> activeImports)
 {
 	InplaceStr moduleName = GetModuleName(ctx.allocator, parts);
 
@@ -2965,7 +2965,7 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 		const char *messageStart = ctx.errorBufLocation;
 
 		const char *pos = NULL;
-		bytecode = ctx.bytecodeBuilder(ctx.allocator, moduleName, false, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), activeImports);
+		bytecode = ctx.bytecodeBuilder(ctx.allocator, moduleName, false, &pos, ctx.errorBufLocation, ctx.errorBufSize - unsigned(ctx.errorBufLocation - ctx.errorBuf), optimizationLevel, activeImports);
 
 		if(!bytecode)
 		{
@@ -3063,7 +3063,7 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 		unsigned lexCount = 0;
 		Lexeme *lexStream = NULL;
 
-		if(const char *binary = GetBytecodeFromPath(ctx, start, path, lexCount, lexStream, ctx.activeImports))
+		if(const char *binary = GetBytecodeFromPath(ctx, start, path, lexCount, lexStream, ctx.optimizationLevel, ctx.activeImports))
 		{
 			ImportModuleNamespaces(ctx, start, (ByteCode*)binary);
 

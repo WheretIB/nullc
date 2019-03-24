@@ -114,7 +114,7 @@ nullres nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*)
 
 	initialized = true;
 
-	if(!BuildBaseModule(&allocator))
+	if(!BuildBaseModule(&allocator, NULLC::optimizationLevel))
 	{
 		allocator.Clear();
 
@@ -210,7 +210,7 @@ nullres	nullcBindModuleFunction(const char* module, void (*ptr)(), const char* n
 
 	const char *errorPos = NULL;
 
-	if(!AddModuleFunction(&allocator, module, ptr, name, index, &errorPos, errorBuf, NULLC_ERROR_BUFFER_SIZE))
+	if(!AddModuleFunction(&allocator, module, ptr, name, index, &errorPos, errorBuf, NULLC_ERROR_BUFFER_SIZE, NULLC::optimizationLevel))
 	{
 		allocator.Clear();
 
@@ -320,7 +320,7 @@ nullres nullcAnalyze(const char* code)
 
 	allocator.Clear();
 
-	compilerCtx = new(NULLC::alloc(sizeof(CompilerContext))) CompilerContext(&allocator, ArrayView<InplaceStr>());
+	compilerCtx = new(NULLC::alloc(sizeof(CompilerContext))) CompilerContext(&allocator, optimizationLevel, ArrayView<InplaceStr>());
 
 	*errorBuf = 0;
 
@@ -328,8 +328,6 @@ nullres nullcAnalyze(const char* code)
 	compilerCtx->errorBufSize = NULLC_ERROR_BUFFER_SIZE;
 
 	compilerCtx->enableLogFiles = enableLogFiles;
-
-	compilerCtx->optimizationLevel = optimizationLevel;
 
 	compilerCtx->outputCtx.openStream = openStream;
 	compilerCtx->outputCtx.writeStream = writeStream;
@@ -365,7 +363,7 @@ nullres	nullcCompile(const char* code)
 
 	allocator.Clear();
 
-	compilerCtx = new(NULLC::alloc(sizeof(CompilerContext))) CompilerContext(&allocator, ArrayView<InplaceStr>());
+	compilerCtx = new(NULLC::alloc(sizeof(CompilerContext))) CompilerContext(&allocator, optimizationLevel, ArrayView<InplaceStr>());
 
 	*errorBuf = 0;
 
@@ -373,8 +371,6 @@ nullres	nullcCompile(const char* code)
 	compilerCtx->errorBufSize = NULLC_ERROR_BUFFER_SIZE;
 
 	compilerCtx->enableLogFiles = enableLogFiles;
-
-	compilerCtx->optimizationLevel = optimizationLevel;
 
 	compilerCtx->outputCtx.openStream = openStream;
 	compilerCtx->outputCtx.writeStream = writeStream;

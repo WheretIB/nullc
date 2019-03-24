@@ -203,12 +203,12 @@ void __init_array(@T[] arr)\r\n\
 }\r\n\
 void __closeUpvalue(void ref ref l, void ref v, int offset, int size);";
 
-bool BuildBaseModule(Allocator *allocator)
+bool BuildBaseModule(Allocator *allocator, int optimizationLevel)
 {
 	const char *errorPos = NULL;
 	char errorBuf[256];
 
-	if(!BuildModuleFromSource(allocator, "$base$.nc", nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256, ArrayView<InplaceStr>()))
+	if(!BuildModuleFromSource(allocator, "$base$.nc", nullcBaseCode, unsigned(strlen(nullcBaseCode)), &errorPos, errorBuf, 256, optimizationLevel, ArrayView<InplaceStr>()))
 	{
 		assert(!"Failed to compile base NULLC module");
 		return false;
@@ -1887,9 +1887,9 @@ bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainNa
 	return true;
 }
 
-char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports)
+char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports)
 {
-	CompilerContext ctx(allocator, activeImports);
+	CompilerContext ctx(allocator, optimizationLevel, activeImports);
 
 	ctx.errorBuf = errorBuf;
 	ctx.errorBufSize = errorBufSize;
@@ -1929,7 +1929,7 @@ char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const 
 	return bytecode;
 }
 
-char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports)
+char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports)
 {
 	assert(*moduleName.end == 0);
 
@@ -1979,7 +1979,7 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addE
 		return NULL;
 	}
 
-	char *bytecode = BuildModuleFromSource(allocator, path, fileContent, fileSize, errorPos, errorBuf, errorBufSize, activeImports);
+	char *bytecode = BuildModuleFromSource(allocator, path, fileContent, fileSize, errorPos, errorBuf, errorBufSize, optimizationLevel, activeImports);
 
 	if(needDelete)
 		NULLC::dealloc(fileContent);
@@ -1987,13 +1987,13 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addE
 	return bytecode;
 }
 
-bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize)
+bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel)
 {
 	const char *bytecode = BinaryCache::FindBytecode(module, true);
 
 	// Create module if not found
 	if(!bytecode)
-		bytecode = BuildModuleFromPath(allocator, InplaceStr(module), true, errorPos, errorBuf, errorBufSize, ArrayView<InplaceStr>());
+		bytecode = BuildModuleFromPath(allocator, InplaceStr(module), true, errorPos, errorBuf, errorBufSize, optimizationLevel, ArrayView<InplaceStr>());
 
 	if(!bytecode)
 		return false;

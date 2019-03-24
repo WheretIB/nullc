@@ -5,6 +5,8 @@
 #include "Allocator.h"
 #include "Array.h"
 
+struct CompilerContext;
+
 struct ByteCode;
 
 struct SynBase;
@@ -106,7 +108,7 @@ struct ErrorInfo
 
 struct ParseContext
 {
-	ParseContext(Allocator *allocator, ArrayView<InplaceStr> activeImports);
+	ParseContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports);
 
 	LexemeType Peek();
 	InplaceStr Value();
@@ -130,7 +132,7 @@ struct ParseContext
 
 	const char *code;
 
-	char* (*bytecodeBuilder)(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports);
+	char* (*bytecodeBuilder)(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
 
 	Lexer lexer;
 
@@ -147,6 +149,7 @@ struct ParseContext
 	SmallArray<SynNamespaceElement*, 32> namespaceList;
 	SynNamespaceElement *currentNamespace;
 
+	int optimizationLevel;
 	SmallArray<InplaceStr, 8> activeImports;
 
 	bool errorHandlerActive;

@@ -974,7 +974,7 @@ void PrintGraph(ExpressionGraphContext &ctx, ExprBase *expression, const char *n
 
 void DumpGraph(ExprBase *tree)
 {
-	ExpressionContext exprCtx(0);
+	ExpressionContext exprCtx(0, 0);
 	OutputContext outputCtx;
 
 	char outputBuf[4096];
@@ -998,7 +998,7 @@ void DumpGraph(ExprBase *tree)
 
 void DumpGraph(ScopeData *scope)
 {
-	ExpressionContext exprCtx(0);
+	ExpressionContext exprCtx(0, 0);
 	OutputContext outputCtx;
 
 	char outputBuf[4096];

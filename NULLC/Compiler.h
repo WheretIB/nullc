@@ -17,7 +17,7 @@
 
 struct CompilerContext
 {
-	CompilerContext(Allocator *allocator, ArrayView<InplaceStr> activeImports): allocator(allocator), parseCtx(allocator, activeImports), exprCtx(allocator), instFinalizeCtx(exprCtx, allocator)
+	CompilerContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): allocator(allocator), parseCtx(allocator, optimizationLevel, activeImports), exprCtx(allocator, optimizationLevel), instFinalizeCtx(exprCtx, allocator), optimizationLevel(optimizationLevel)
 	{
 		code = 0;
 
@@ -34,8 +34,6 @@ struct CompilerContext
 		vmLoweredModule = 0;
 
 		enableLogFiles = false;
-
-		optimizationLevel = 0;
 	}
 
 	Allocator *allocator;
@@ -65,7 +63,7 @@ struct CompilerContext
 	int optimizationLevel;
 };
 
-bool BuildBaseModule(Allocator *allocator);
+bool BuildBaseModule(Allocator *allocator, int optimizationLevel);
 
 ExprModule* AnalyzeModuleFromSource(CompilerContext &ctx, const char *code);
 
@@ -77,7 +75,7 @@ bool SaveListing(CompilerContext &ctx, const char *fileName);
 
 bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainName, void (*addDependency)(const char *fileName));
 
-char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports);
-char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, ArrayView<InplaceStr> activeImports);
+char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
+char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
 
-bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize);
+bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel);
