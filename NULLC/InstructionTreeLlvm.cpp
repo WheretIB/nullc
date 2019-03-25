@@ -1,25 +1,25 @@
 #include "InstructionTreeLlvm.h"
 
-#include "../external/llvm/include/llvm-c/Analysis.h"
-#include "../external/llvm/include/llvm-c/BitWriter.h"
-#include "../external/llvm/include/llvm-c/Core.h"
+#include "llvm-c/Analysis.h"
+#include "llvm-c/BitWriter.h"
+#include "llvm-c/Core.h"
 
-#include "../external/llvm/include/llvm-c/Transforms/Scalar.h"
+#include "llvm-c/Transforms/Scalar.h"
 
-#pragma comment(lib, "../external/llvm/lib/LLVMAnalysis.lib")
-#pragma comment(lib, "../external/llvm/lib/LLVMBinaryFormat.lib")
-#pragma comment(lib, "../external/llvm/lib/LLVMBitReader.lib")
-#pragma comment(lib, "../external/llvm/lib/LLVMBitWriter.lib")
-#pragma comment(lib, "../external/llvm/lib/LLVMCore.lib")
-#pragma comment(lib, "../external/llvm/lib/LLVMMC.lib")
-#pragma comment(lib, "../external/llvm/lib/LLVMMCParser.lib")
-#pragma comment(lib, "../external/llvm/lib/LLVMObject.lib")
-#pragma comment(lib, "../external/llvm/lib/LLVMProfileData.lib")
-#pragma comment(lib, "../external/llvm/lib/LLVMSupport.lib")
+#pragma comment(lib, "llvm-c/lib/LLVMAnalysis.lib")
+#pragma comment(lib, "llvm-c/lib/LLVMBinaryFormat.lib")
+#pragma comment(lib, "llvm-c/lib/LLVMBitReader.lib")
+#pragma comment(lib, "llvm-c/lib/LLVMBitWriter.lib")
+#pragma comment(lib, "llvm-c/lib/LLVMCore.lib")
+#pragma comment(lib, "llvm-c/lib/LLVMMC.lib")
+#pragma comment(lib, "llvm-c/lib/LLVMMCParser.lib")
+#pragma comment(lib, "llvm-c/lib/LLVMObject.lib")
+#pragma comment(lib, "llvm-c/lib/LLVMProfileData.lib")
+#pragma comment(lib, "llvm-c/lib/LLVMSupport.lib")
 
-#pragma comment(lib, "../external/llvm/lib/LLVMInstCombine.lib")
-#pragma comment(lib, "../external/llvm/lib/LLVMScalarOpts.lib")
-#pragma comment(lib, "../external/llvm/lib/LLVMTransformUtils.lib")
+#pragma comment(lib, "llvm-c/lib/LLVMInstCombine.lib")
+#pragma comment(lib, "llvm-c/lib/LLVMScalarOpts.lib")
+#pragma comment(lib, "llvm-c/lib/LLVMTransformUtils.lib")
 
 #include "ExpressionTree.h"
 #include "DenseMap.h"

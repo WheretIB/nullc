@@ -99,6 +99,7 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <OutputFile>$(TargetPath)</OutputFile>
+      <AdditionalLibraryDirectories>$(SolutionDir)external</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>$(OutDir)$(TargetName).exe</Command>
@@ -118,6 +119,7 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <OutputFile>$(TargetPath)</OutputFile>
+      <AdditionalLibraryDirectories>$(SolutionDir)external</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>$(OutDir)$(TargetName).exe</Command>
@@ -139,6 +141,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <OutputFile>$(TargetPath)</OutputFile>
+      <AdditionalLibraryDirectories>$(SolutionDir)external</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>$(OutDir)$(TargetName).exe</Command>
@@ -160,6 +163,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <OutputFile>$(TargetPath)</OutputFile>
+      <AdditionalLibraryDirectories>$(SolutionDir)external</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>$(OutDir)$(TargetName).exe</Command>
