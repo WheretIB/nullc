@@ -2,7 +2,7 @@
 
 #define RAPIDJSON_HAS_STDSTRING 1
 
-#include "external/rapidjson/fwd.h"
+#include "rapidjson/fwd.h"
 
 struct Context;
 
