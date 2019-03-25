@@ -4,7 +4,7 @@
 
 #define RAPIDJSON_HAS_STDSTRING 1
 
-#include "external/rapidjson/document.h"
+#include "rapidjson/document.h"
 
 #include <string>
 #include <vector>

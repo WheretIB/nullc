@@ -2,9 +2,9 @@
 
 #include <stdio.h>
 
-#include "external/rapidjson/document.h"
-#include "external/rapidjson/prettywriter.h"
-#include "external/rapidjson/error/en.h"
+#include "rapidjson/document.h"
+#include "rapidjson/prettywriter.h"
+#include "rapidjson/error/en.h"
 
 #include "../../NULLC/nullc.h"
 #include "../../NULLC/nullc_debug.h"
