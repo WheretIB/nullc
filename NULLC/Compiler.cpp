@@ -542,6 +542,13 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		}
 	}
 
+	// Build LLVM module is support is enabled or just to test execution paths in debug build
+#if defined(NULLC_LLVM_SUPPORT)
+	ctx.llvmModule = CompileLlvm(exprCtx, ctx.exprModule);
+#elif !defined(NDEBUG)
+	ctx.llvmModule = CompileLlvm(exprCtx, ctx.exprModule);
+#endif
+
 	if(ctx.optimizationLevel >= 1)
 	{
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_PEEPHOLE);

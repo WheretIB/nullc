@@ -1,5 +1,6 @@
 #include "InstructionTreeLlvm.h"
 
+#if defined(NULLC_LLVM_SUPPORT)
 #include "llvm-c/Analysis.h"
 #include "llvm-c/BitWriter.h"
 #include "llvm-c/Core.h"
@@ -21,6 +22,161 @@
 #pragma comment(lib, "llvm-c/lib/LLVMScalarOpts.lib")
 #pragma comment(lib, "llvm-c/lib/LLVMTransformUtils.lib")
 
+#else
+
+// Stub
+struct LLVMContextRefOpaque{};
+struct LLVMModuleRefOpaque{};
+struct LLVMBuilderRefOpaque{};
+struct LLVMPassManagerRefOpaque{};
+struct LLVMTypeRefOpaque{};
+struct LLVMValueRefOpaque{};
+struct LLVMBasicBlockRefOpaque{};
+struct LLVMMemoryBufferRefOpaque{};
+
+typedef LLVMContextRefOpaque* LLVMContextRef;
+typedef LLVMModuleRefOpaque* LLVMModuleRef;
+typedef LLVMBuilderRefOpaque* LLVMBuilderRef;
+typedef LLVMPassManagerRefOpaque* LLVMPassManagerRef;
+typedef LLVMTypeRefOpaque* LLVMTypeRef;
+typedef LLVMValueRefOpaque* LLVMValueRef;
+typedef LLVMBasicBlockRefOpaque* LLVMBasicBlockRef;
+typedef LLVMMemoryBufferRefOpaque* LLVMMemoryBufferRef;
+
+static LLVMTypeRefOpaque placeholderType;
+static LLVMValueRefOpaque placeholderValue;
+static LLVMBasicBlockRefOpaque placeholderBasicBlock;
+
+LLVMTypeRef LLVMVoidTypeInContext(LLVMContextRef){ return &placeholderType; }
+LLVMTypeRef LLVMInt1TypeInContext(LLVMContextRef){ return &placeholderType; }
+LLVMTypeRef LLVMInt8TypeInContext(LLVMContextRef){ return &placeholderType; }
+LLVMTypeRef LLVMInt16TypeInContext(LLVMContextRef){ return &placeholderType; }
+LLVMTypeRef LLVMInt32TypeInContext(LLVMContextRef){ return &placeholderType; }
+LLVMTypeRef LLVMInt64TypeInContext(LLVMContextRef){ return &placeholderType; }
+LLVMTypeRef LLVMFloatTypeInContext(LLVMContextRef){ return &placeholderType; }
+LLVMTypeRef LLVMDoubleTypeInContext(LLVMContextRef){ return &placeholderType; }
+
+LLVMTypeRef LLVMPointerType(LLVMTypeRef, unsigned){ return &placeholderType; }
+LLVMTypeRef LLVMStructTypeInContext(LLVMContextRef, LLVMTypeRef*, unsigned, bool){ return &placeholderType; }
+LLVMTypeRef LLVMArrayType(LLVMTypeRef, unsigned){ return &placeholderType; }
+LLVMTypeRef LLVMStructCreateNamed(LLVMContextRef, const char*){ return &placeholderType; }
+void LLVMStructSetBody(LLVMTypeRef, LLVMTypeRef*, unsigned, bool){}
+LLVMTypeRef LLVMFunctionType(LLVMTypeRef, LLVMTypeRef*, unsigned, bool){ return &placeholderType; }
+
+static int LLVMIntNE = 0;
+static int LLVMRealUNE = 0;
+static int LLVMIntEQ = 0;
+static int LLVMIntSLT = 0;
+static int LLVMRealULT = 0;
+static int LLVMIntSLE = 0;
+static int LLVMRealULE = 0;
+static int LLVMIntSGT = 0;
+static int LLVMRealUGT = 0;
+static int LLVMIntSGE = 0;
+static int LLVMRealUGE = 0;
+static int LLVMRealUEQ = 0;
+
+LLVMValueRef LLVMBuildSExt(LLVMBuilderRef, LLVMValueRef, LLVMTypeRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildFPCast(LLVMBuilderRef, LLVMValueRef, LLVMTypeRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildTrunc(LLVMBuilderRef, LLVMValueRef, LLVMTypeRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildFPToSI(LLVMBuilderRef, LLVMValueRef, LLVMTypeRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildSIToFP(LLVMBuilderRef, LLVMValueRef, LLVMTypeRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildAlloca(LLVMBuilderRef, LLVMTypeRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildGEP(LLVMBuilderRef, LLVMValueRef, LLVMValueRef*, unsigned, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildStore(LLVMBuilderRef, LLVMValueRef, LLVMValueRef){ return &placeholderValue; }
+LLVMValueRef LLVMBuildLoad(LLVMBuilderRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildAdd(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildFAdd(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildZExt(LLVMBuilderRef, LLVMValueRef, LLVMTypeRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildICmp(LLVMBuilderRef, int, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildFCmp(LLVMBuilderRef, int, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildExtractValue(LLVMBuilderRef, LLVMValueRef, unsigned, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildInsertValue(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, unsigned, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildPointerCast(LLVMBuilderRef, LLVMValueRef, LLVMTypeRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildCall(LLVMBuilderRef, LLVMValueRef, LLVMValueRef*, unsigned, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildNeg(LLVMBuilderRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildFNeg(LLVMBuilderRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildNot(LLVMBuilderRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildCondBr(LLVMBuilderRef, LLVMValueRef, LLVMBasicBlockRef, LLVMBasicBlockRef){ return &placeholderValue; }
+LLVMValueRef LLVMBuildBr(LLVMBuilderRef, LLVMBasicBlockRef){ return &placeholderValue; }
+LLVMValueRef LLVMBuildPhi(LLVMBuilderRef, LLVMTypeRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildSub(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildFSub(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildMul(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildFMul(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildSDiv(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildFDiv(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildSRem(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildFRem(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildShl(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildAShr(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildAnd(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildOr(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildXor(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMBuildRetVoid(LLVMBuilderRef){ return &placeholderValue; }
+LLVMValueRef LLVMBuildRet(LLVMBuilderRef, LLVMValueRef){ return &placeholderValue; }
+LLVMValueRef LLVMBuildSwitch(LLVMBuilderRef, LLVMValueRef, LLVMBasicBlockRef, unsigned){ return &placeholderValue; }
+
+LLVMValueRef LLVMConstInt(LLVMTypeRef, unsigned long long, bool){ return &placeholderValue; }
+LLVMValueRef LLVMConstReal(LLVMTypeRef, double){ return &placeholderValue; }
+LLVMValueRef LLVMConstStringInContext(LLVMContextRef, char*, unsigned, bool){ return &placeholderValue; }
+LLVMValueRef LLVMConstNamedStruct(LLVMTypeRef, LLVMValueRef*, unsigned){ return &placeholderValue; }
+LLVMValueRef LLVMConstPointerNull(LLVMTypeRef){ return &placeholderValue; }
+LLVMValueRef LLVMConstNull(LLVMTypeRef){ return &placeholderValue; }
+
+LLVMBasicBlockRef LLVMAppendBasicBlockInContext(LLVMContextRef, LLVMValueRef, const char*){ return &placeholderBasicBlock; }
+void LLVMPositionBuilderAtEnd(LLVMBuilderRef, LLVMBasicBlockRef){}
+void LLVMAddIncoming(LLVMValueRef, LLVMValueRef*, LLVMBasicBlockRef*, unsigned){}
+void LLVMAddCase(LLVMValueRef, LLVMValueRef, LLVMBasicBlockRef){}
+
+LLVMValueRef LLVMAddFunction(LLVMModuleRef, const char*, LLVMTypeRef){ return &placeholderValue; }
+LLVMValueRef LLVMGetNamedFunction(LLVMModuleRef, const char*){ return &placeholderValue; }
+LLVMValueRef LLVMGetParam(LLVMValueRef, unsigned){ return &placeholderValue; }
+LLVMValueRef LLVMAddGlobal(LLVMModuleRef, LLVMTypeRef, const char*){ return &placeholderValue; }
+
+LLVMTypeRef LLVMTypeOf(LLVMValueRef){ return &placeholderType; }
+void LLVMDumpType(LLVMTypeRef){}
+void LLVMDumpValue(LLVMValueRef){}
+
+static int LLVMReturnStatusAction = 0;
+int LLVMVerifyFunction(LLVMValueRef, int){ return 0; }
+
+int LLVMVerifyModule(LLVMModuleRef, int, char**){ return 0; }
+
+void LLVMDisposeMessage(const char*){}
+
+int LLVMRunFunctionPassManager(LLVMPassManagerRef, LLVMValueRef){ return 0; }
+
+LLVMContextRef LLVMContextCreate(){ return 0; }
+LLVMModuleRef LLVMModuleCreateWithNameInContext(const char*, LLVMContextRef){ return 0; }
+LLVMBuilderRef LLVMCreateBuilderInContext(LLVMContextRef){ return 0; }
+LLVMPassManagerRef LLVMCreateFunctionPassManagerForModule(LLVMModuleRef){ return 0; }
+
+void LLVMAddBasicAliasAnalysisPass(LLVMPassManagerRef){}
+void LLVMAddScalarReplAggregatesPass(LLVMPassManagerRef){}
+void LLVMAddInstructionCombiningPass(LLVMPassManagerRef){}
+void LLVMAddEarlyCSEPass(LLVMPassManagerRef){}
+void LLVMAddReassociatePass(LLVMPassManagerRef){}
+void LLVMAddGVNPass(LLVMPassManagerRef){}
+void LLVMAddConstantPropagationPass(LLVMPassManagerRef){}
+void LLVMAddCFGSimplificationPass(LLVMPassManagerRef){}
+void LLVMAddAggressiveDCEPass(LLVMPassManagerRef){}
+
+void LLVMInitializeFunctionPassManager(LLVMPassManagerRef){}
+void LLVMFinalizeFunctionPassManager(LLVMPassManagerRef){}
+
+void LLVMDisposePassManager(LLVMPassManagerRef){}
+void LLVMDisposeBuilder(LLVMBuilderRef){}
+void LLVMDisposeModule(LLVMModuleRef){}
+void LLVMContextDispose(LLVMContextRef){}
+
+LLVMMemoryBufferRef LLVMWriteBitcodeToMemoryBuffer(LLVMModuleRef){ return 0; }
+unsigned LLVMGetBufferSize(LLVMMemoryBufferRef){ return 0; }
+const char* LLVMGetBufferStart(LLVMMemoryBufferRef){ return 0; }
+void LLVMDisposeMemoryBuffer(LLVMMemoryBufferRef){}
+
+#endif
+
 #include "ExpressionTree.h"
 #include "DenseMap.h"
 
@@ -34,7 +190,7 @@ struct UnsignedHasher
 
 struct LlvmCompilationContext
 {
-	LlvmCompilationContext(ExpressionContext &ctx): ctx(ctx), allocator(ctx.allocator), types(ctx.allocator), functions(ctx.allocator)
+	LlvmCompilationContext(ExpressionContext &ctx): ctx(ctx), types(ctx.allocator), functions(ctx.allocator), allocator(ctx.allocator)
 	{
 		enableOptimization = false;
 
@@ -327,6 +483,10 @@ LLVMValueRef CheckType(LlvmCompilationContext &ctx, ExprBase *node, LLVMValueRef
 
 void CheckFunction(LlvmCompilationContext &ctx, LLVMValueRef function, InplaceStr name)
 {
+	(void)ctx;
+	(void)function;
+	(void)name;
+
 #if !defined(NDEBUG)
 	// Check result
 	if(LLVMVerifyFunction(function, LLVMReturnStatusAction))
@@ -1919,8 +2079,6 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 
 	ctx.builder = LLVMCreateBuilderInContext(ctx.context);
 
-	LlvmModule *module = new (ctx.get<LlvmModule>()) LlvmModule();
-
 	ctx.functionPassManager = LLVMCreateFunctionPassManagerForModule(ctx.module);
 
 	LLVMAddBasicAliasAnalysisPass(ctx.functionPassManager);
@@ -2047,10 +2205,10 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 
 	// Generate global function
 	{
-		LLVMValueRef globalFunction = LLVMAddFunction(ctx.module, "__llvmEntry", LLVMFunctionType(LLVMVoidTypeInContext(ctx.context), NULL, 0, false));
+		LLVMValueRef function = LLVMAddFunction(ctx.module, "__llvmEntry", LLVMFunctionType(LLVMVoidTypeInContext(ctx.context), NULL, 0, false));
 
 		// Setup global function
-		ctx.currentFunction = globalFunction;
+		ctx.currentFunction = function;
 		ctx.currentFunctionGlobal = true;
 
 		LLVMBasicBlockRef block = LLVMAppendBasicBlockInContext(ctx.context, ctx.currentFunction, "start");
@@ -2067,22 +2225,51 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 
 		CheckFunction(ctx, ctx.currentFunction, InplaceStr("global"));
 
+		if(ctx.enableOptimization)
+		{
+			if(LLVMRunFunctionPassManager(ctx.functionPassManager, function))
+				LLVMRunFunctionPassManager(ctx.functionPassManager, function);
+		}
+
 		ctx.currentFunction = NULL;
 		ctx.currentFunctionGlobal = false;
 	}
 
+	LLVMFinalizeFunctionPassManager(ctx.functionPassManager);
+
 	char *error = NULL;
 
 	if(LLVMVerifyModule(ctx.module, LLVMReturnStatusAction, &error))
+	{
 		printf("LLVM module verification failed with:\n%s\n", error);
+
+		LLVMDisposeMessage(error);
+
+		LLVMDisposePassManager(ctx.functionPassManager);
+
+		LLVMDisposeBuilder(ctx.builder);
+
+		LLVMDisposeModule(ctx.module);
+
+		LLVMContextDispose(ctx.context);
+
+		return NULL;
+	}
 
 	LLVMDisposeMessage(error);
 
-	//LLVMWriteBitcodeToFile(llvmModule, "inst_llvm.bc");
+	LlvmModule *module = new (ctx.get<LlvmModule>()) LlvmModule();
 
-	//LLVMDumpModule(ctx.module);
+	LLVMMemoryBufferRef buffer = LLVMWriteBitcodeToMemoryBuffer(ctx.module);
 
-	LLVMFinalizeFunctionPassManager(ctx.functionPassManager);
+	module->moduleSize = (unsigned)LLVMGetBufferSize(buffer);
+
+	module->moduleData = (char*)ctx.allocator->alloc(module->moduleSize);
+
+	if(const char *start = LLVMGetBufferStart(buffer))
+		memcpy(module->moduleData, start, module->moduleSize);
+
+	LLVMDisposeMemoryBuffer(buffer);
 
 	LLVMDisposePassManager(ctx.functionPassManager);
 

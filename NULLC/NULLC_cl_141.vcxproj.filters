@@ -74,6 +74,9 @@
     <ClCompile Include="InstructionTreeVmLowerGraph.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
+    <ClCompile Include="InstructionTreeLlvm.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -159,6 +162,9 @@
     </ClInclude>
     <ClInclude Include="Allocator.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeLlvm.h">
+      <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

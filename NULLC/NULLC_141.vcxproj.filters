@@ -200,6 +200,9 @@
     <ClCompile Include="..\external\dyncall\dyncall_struct.c">
       <Filter>external\dyncall</Filter>
     </ClCompile>
+    <ClCompile Include="InstructionTreeLlvm.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -393,6 +396,9 @@
     </ClInclude>
     <ClInclude Include="nullc_internal.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeLlvm.h">
+      <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -827,7 +827,7 @@ namespace
 	}
 }
 
-ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel): allocator(allocator), optimizationLevel(optimizationLevel)
+ExpressionContext::ExpressionContext(Allocator *allocator, int optimizationLevel): optimizationLevel(optimizationLevel), allocator(allocator)
 {
 	code = NULL;
 	codeEnd = NULL;

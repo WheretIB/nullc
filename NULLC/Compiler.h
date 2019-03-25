@@ -13,6 +13,7 @@
 #include "InstructionTreeVmEval.h"
 #include "InstructionTreeVmLower.h"
 #include "InstructionTreeVmLowerGraph.h"
+#include "InstructionTreeLlvm.h"
 #include "Output.h"
 
 struct CompilerContext
@@ -30,6 +31,8 @@ struct CompilerContext
 		exprModule = 0;
 
 		vmModule = 0;
+
+		llvmModule = 0;
 
 		vmLoweredModule = 0;
 
@@ -53,6 +56,8 @@ struct CompilerContext
 	ExprModule *exprModule;
 
 	VmModule *vmModule;
+
+	LlvmModule *llvmModule;
 
 	VmLoweredModule *vmLoweredModule;
 

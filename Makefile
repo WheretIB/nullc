@@ -53,6 +53,7 @@ LIB_SOURCES = \
   NULLC/ExpressionGraph.cpp \
   NULLC/ExpressionTranslate.cpp \
   NULLC/ExpressionTree.cpp \
+  NULLC/InstructionTreeLlvm.cpp \
   NULLC/InstructionTreeVm.cpp \
   NULLC/InstructionTreeVmCommon.cpp \
   NULLC/InstructionTreeVmEval.cpp \
@@ -82,6 +83,7 @@ LIB_TARGETS = \
   temp/ExpressionGraph.o \
   temp/ExpressionTranslate.o \
   temp/ExpressionTree.o \
+  temp/InstructionTreeLlvm.o \
   temp/InstructionTreeVm.o \
   temp/InstructionTreeVmCommon.o \
   temp/InstructionTreeVmEval.o \
@@ -153,7 +155,7 @@ ifeq ($(config),coverage)
 test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/testrun/.dummy \
     bin/nullcl bin/TestRun bin/nullc_exec bin/nullclib
 	./bin/TestRun -v -o -t
-	gcov -o temp NULLC/BinaryCache.cpp NULLC/Bytecode.cpp NULLC/Compiler.cpp NULLC/Executor_Common.cpp NULLC/Executor.cpp NULLC/ExpressionEval.cpp NULLC/ExpressionGraph.cpp NULLC/ExpressionTranslate.cpp NULLC/ExpressionTree.cpp NULLC/InstructionTreeVm.cpp NULLC/InstructionTreeVmCommon.cpp NULLC/InstructionTreeVmEval.cpp NULLC/InstructionTreeVmGraph.cpp NULLC/InstructionTreeVmLower.cpp NULLC/InstructionTreeVmLowerGraph.cpp NULLC/Lexer.cpp NULLC/Linker.cpp NULLC/nullc.cpp NULLC/ParseGraph.cpp NULLC/ParseTree.cpp NULLC/stdafx.cpp NULLC/StdLib.cpp NULLC/StrAlgo.cpp NULLC/TypeTree.cpp
+	gcov -o temp NULLC/BinaryCache.cpp NULLC/Bytecode.cpp NULLC/Compiler.cpp NULLC/Executor_Common.cpp NULLC/Executor.cpp NULLC/ExpressionEval.cpp NULLC/ExpressionGraph.cpp NULLC/ExpressionTranslate.cpp NULLC/ExpressionTree.cpp NULLC/InstructionTreeLlvm.cpp NULLC/InstructionTreeVm.cpp NULLC/InstructionTreeVmCommon.cpp NULLC/InstructionTreeVmEval.cpp NULLC/InstructionTreeVmGraph.cpp NULLC/InstructionTreeVmLower.cpp NULLC/InstructionTreeVmLowerGraph.cpp NULLC/Lexer.cpp NULLC/Linker.cpp NULLC/nullc.cpp NULLC/ParseGraph.cpp NULLC/ParseTree.cpp NULLC/stdafx.cpp NULLC/StdLib.cpp NULLC/StrAlgo.cpp NULLC/TypeTree.cpp
 else
 test: temp/.dummy temp/compiler/.dummy temp/lib/.dummy temp/tests/.dummy temp/testrun/.dummy \
     bin/nullcl bin/TestRun bin/nullc_exec bin/nullclib
@@ -224,6 +226,7 @@ COMPILERLIB_SOURCES = \
   NULLC/ExpressionGraph.cpp \
   NULLC/ExpressionTranslate.cpp \
   NULLC/ExpressionTree.cpp \
+  NULLC/InstructionTreeLlvm.cpp \
   NULLC/InstructionTreeVm.cpp \
   NULLC/InstructionTreeVmCommon.cpp \
   NULLC/InstructionTreeVmEval.cpp \
@@ -246,6 +249,7 @@ COMPILERLIB_TARGETS = \
   temp/compiler/ExpressionGraph.o \
   temp/compiler/ExpressionTranslate.o \
   temp/compiler/ExpressionTree.o \
+  temp/compiler/InstructionTreeLlvm.o \
   temp/compiler/InstructionTreeVm.o \
   temp/compiler/InstructionTreeVmCommon.o \
   temp/compiler/InstructionTreeVmEval.o \
