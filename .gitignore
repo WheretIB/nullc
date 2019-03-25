@@ -17,3 +17,5 @@ node_modules
 /vscode/nullc_lang_server/out
 package-lock.json
 legacy/
+/tests/*.txt
+euler/
