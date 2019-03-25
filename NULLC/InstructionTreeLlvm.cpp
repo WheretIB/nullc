@@ -351,7 +351,7 @@ LLVMTypeRef CompileLlvmType(LlvmCompilationContext &ctx, TypeBase *type)
 
 		ctx.types[type->typeIndex] = LLVMStructTypeInContext(ctx.context, members, 2, true);
 	}
-	else if(TypeFunction *typeFunction = getType<TypeFunction>(type))
+	else if(isType<TypeFunction>(type))
 	{
 		// TODO: use function indices and remap before execution
 		//LLVMTypeRef members[2] = { LLVMPointerType(CompileLlvmType(ctx, ctx.ctx.typeChar), 0), LLVMInt32TypeInContext(ctx.context) };
@@ -371,7 +371,7 @@ LLVMTypeRef CompileLlvmType(LlvmCompilationContext &ctx, TypeBase *type)
 		// TODO: create packed type with custom padding
 		LLVMStructSetBody(ctx.types[type->typeIndex], members.data, members.count, false);
 	}
-	else if(TypeEnum *typeEnum = getType<TypeEnum>(type))
+	else if(isType<TypeEnum>(type))
 	{
 		ctx.types[type->typeIndex] = LLVMInt32TypeInContext(ctx.context);
 	}
@@ -1244,7 +1244,7 @@ LLVMValueRef CompileLlvmArrayIndex(LlvmCompilationContext &ctx, ExprArrayIndex *
 	LLVMValueRef value = CompileLlvm(ctx, node->value);
 	LLVMValueRef index = CompileLlvm(ctx, node->index);
 
-	if(TypeUnsizedArray *arrayType = getType<TypeUnsizedArray>(node->value->type))
+	if(isType<TypeUnsizedArray>(node->value->type))
 	{
 		// TODO: bounds checking
 		LLVMValueRef start = LLVMBuildExtractValue(ctx.builder, value, 0, "arr_ptr");
