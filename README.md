@@ -1,10 +1,68 @@
-# nullc [![Build Status](https://travis-ci.org/WheretIB/nullc.svg)](https://travis-ci.org/WheretIB/nullc) [![Build status](https://ci.appveyor.com/api/projects/status/3xt4fr4s8pja2chn?svg=true)](https://ci.appveyor.com/project/WheretIB/nullc) [![codecov.io](http://codecov.io/github/WheretIB/nullc/coverage.svg?branch=master)](http://codecov.io/github/WheretIB/nullc?branch=master)
-nullc is a C-like scripting language with advanced features such as function overloading, operator overloading, class member functions and properties, automatic garbage collection, closures, coroutines, local functions, type inference, runtime type information, modules, list comprehension, generic functions and classes, enum and namespaces.
+# nullc
+[![Build Status](https://travis-ci.org/WheretIB/nullc.svg)](https://travis-ci.org/WheretIB/nullc)
+[![Build status](https://ci.appveyor.com/api/projects/status/3xt4fr4s8pja2chn?svg=true)](https://ci.appveyor.com/project/WheretIB/nullc)
+[![codecov.io](http://codecov.io/github/WheretIB/nullc/coverage.svg?branch=master)](http://codecov.io/github/WheretIB/nullc?branch=master)
+[![Coverity Scan](https://scan.coverity.com/projects/6629/badge.svg)](https://scan.coverity.com/projects/wheretib-nullc)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/ee1882a970074461847d999ed6fd642f)](https://app.codacy.com/project/WheretIB/nullc/dashboard)
+[![Language grade](https://img.shields.io/lgtm/grade/cpp/g/WheretIB/nullc.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/WheretIB/nullc/context:cpp)
 
-Language is type-safe and there is no pointer arithmetic.
+---
+nullc is a C-like embeddable programming language with advanced features such as function overloading, operator overloading, class member functions and properties, automatic garbage collection, closures, coroutines, local functions, type inference, runtime type information, modules, list comprehension, enums, namespaces, generic functions and classes.
 
-Library can execute code on VM or translate it to x86 code for fast execution.
-SuperCalc is language IDE with code colorizing and simple debug compatibilities.
+Language is type-safe and memory-safe.
+
+nullc library can execute code on a VM or translate it to x86 code for fast execution. It can also translate nullc files into C source files.
+
+This repository builds multiple additional tools:  
+* nullcl - a tool to compile nullc source files into a binary module, C source files or an executable (using gcc).  
+* nullcexec - a tool to execute nullc source files.  
+* nullc_ide - a simple text editor with code colorizing and simple debug compatibilities (including remote debugging for applications that execute nullc scripts).
+* nullc_lang_server - a language server implementation for integration with IDEs
+* nullc_lang_debugger - a debug adapter that also includes language runtime for execution of nullc programs
+* nullc_lang_client - a Visual Studio Code extension adapter that includes nullc_lang_server and nullc_lang_debugger
+
+## March 2019 Update ##
+
+Core:
+ * New two-phase (parse/analyze) compiler
+ * Improved syntax and expression trees
+ * Parse error recovery with multiple error reports
+ * Partial analyzer error recovery
+ * Extended constant evaluation
+ * Additional SSA intermediate representation with optimization passes
+ * Improved source location tracking
+ * Language improvements:
+   * Member functions defined inside class body have access to complete class definition
+   * Local function external variables are captures the same way in global code, functions and coroutines: when they go out of scope
+   * Support for partial type inference when only parts of target type are marked as generic
+   * Support for explicit type casts
+   * Variable can be defined inside an 'if' condition
+   * Class accessors can be used in modify-assignment expressions
+   * enum constants can reference previous constants
+   * Conditional expression will find common type between arrays of different explicit size
+ * Compiler fixes:
+   * Numerical unary operations can no longer be performed on 'auto ref' pointers
+   * Read-only array size and type members can't be changed using member functions
+   * Local classes can't be used after owning scope has ended
+   * Fixed missing class constructor calls
+   * Fixed alignment of function pointers
+   * Fixed type inference for for-each iterator values
+   * Fixed lookup of names inside a namespace
+   * Fixed variable visibility after shadowing of said variable has ended
+   * Fixed integer literal value overflow
+ * Runtime fixes:
+   * Fixed crash on external function calls with non-zero terminated character arrays
+
+Misc:
+ * Fixed translation to C++
+ * VS Code extension with language server and debugger
+ * arm and arm64 support
+ * External function calls are handled by dyncall library on all supported platforms (x86, x64, arm, arm64, powerpc)
+
+Interface:
+ * Support for multiple module search paths
+ * Log file output control
+ * Optimization level control
 
 ## Changes in 2015 ##
 
@@ -14,6 +72,7 @@ Core:
 Misc:
   * Fixed bugs, crashes and hangs in the compiler found by extensive fuzz-testing
   * Fixed compilation with gcc and clang on x86/x64
+  * dyncall library can be used to perform external function calls
 
 ## Changes in 2013 ##
 
