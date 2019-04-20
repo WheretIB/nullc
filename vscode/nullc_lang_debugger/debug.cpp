@@ -411,7 +411,7 @@ std::string GetBasicVariableInfo(unsigned typeIndex, char* ptr, bool hex)
 	{
 		auto symbols = nullcDebugSymbols(nullptr);
 
-		snprintf(buf, 256, symbols + types[*(int*)ptr].offsetToName);
+		snprintf(buf, 256, "%s", symbols + types[*(int*)ptr].offsetToName);
 		return buf;
 	}
 
