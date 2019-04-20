@@ -149,7 +149,7 @@ bool Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 		return false;
 
 #ifndef NULLC_BUILD_X86_JIT
-	if(executor != NULLC_VM)
+	if(executor == NULLC_X86)
 		return false;
 #endif
 
@@ -287,7 +287,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		return false;
 
 #ifndef NULLC_BUILD_X86_JIT
-	if(executor != NULLC_VM)
+	if(executor == NULLC_X86)
 		return false;
 #endif
 

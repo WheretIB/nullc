@@ -1,6 +1,11 @@
 #pragma once
+
 #include "stdafx.h"
 #include "Executor_Common.h"
+
+struct LlvmExecutionContext;
+
+typedef struct DCCallVM_ DCCallVM;
 
 class ExecutorLLVM
 {
@@ -27,12 +32,8 @@ public:
 
 	void*			GetStackStart();
 	void*			GetStackEnd();
+
 private:
-	void	InitExecution();
-
-	bool *mapped;
-	unsigned	GetFunctionID(const char* name, unsigned nameLength, const char* type, unsigned typeLength, unsigned variant);
-
 	bool	codeRunning;
 
 	static const int ERROR_BUFFER_SIZE = 1024;
@@ -40,6 +41,10 @@ private:
 	char		execResult[64];
 
 	Linker		*exLinker;
+
+	LlvmExecutionContext *ctx;
+
+	DCCallVM	*dcCallVM;
 
 	void operator=(ExecutorLLVM& r);
 };
