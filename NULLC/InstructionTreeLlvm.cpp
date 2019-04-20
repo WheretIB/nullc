@@ -1,9 +1,12 @@
 #include "InstructionTreeLlvm.h"
 
+#include "nullcdef.h"
+
 #if defined(NULLC_LLVM_SUPPORT)
 #include "llvm-c/Analysis.h"
 #include "llvm-c/BitWriter.h"
 #include "llvm-c/Core.h"
+#include "llvm-c/Target.h"
 
 #include "llvm-c/Transforms/Scalar.h"
 
@@ -33,6 +36,7 @@ struct LLVMTypeRefOpaque{};
 struct LLVMValueRefOpaque{};
 struct LLVMBasicBlockRefOpaque{};
 struct LLVMMemoryBufferRefOpaque{};
+struct LLVMAttributeRefOpaque{};
 
 typedef LLVMContextRefOpaque* LLVMContextRef;
 typedef LLVMModuleRefOpaque* LLVMModuleRef;
@@ -42,10 +46,14 @@ typedef LLVMTypeRefOpaque* LLVMTypeRef;
 typedef LLVMValueRefOpaque* LLVMValueRef;
 typedef LLVMBasicBlockRefOpaque* LLVMBasicBlockRef;
 typedef LLVMMemoryBufferRefOpaque* LLVMMemoryBufferRef;
+typedef LLVMAttributeRefOpaque* LLVMAttributeRef;
 
 static LLVMTypeRefOpaque placeholderType;
 static LLVMValueRefOpaque placeholderValue;
 static LLVMBasicBlockRefOpaque placeholderBasicBlock;
+static LLVMAttributeRefOpaque placeholderAttribute;
+
+typedef unsigned LLVMAttributeIndex;
 
 LLVMTypeRef LLVMVoidTypeInContext(LLVMContextRef){ return &placeholderType; }
 LLVMTypeRef LLVMInt1TypeInContext(LLVMContextRef){ return &placeholderType; }
@@ -175,6 +183,16 @@ unsigned LLVMGetBufferSize(LLVMMemoryBufferRef){ return 0; }
 const char* LLVMGetBufferStart(LLVMMemoryBufferRef){ return 0; }
 void LLVMDisposeMemoryBuffer(LLVMMemoryBufferRef){}
 
+int LLVMExternalLinkage = 0;
+void LLVMSetLinkage(LLVMValueRef, int) {}
+void LLVMSetAlignment(LLVMValueRef, int){}
+void LLVMSetInitializer(LLVMValueRef, LLVMValueRef){}
+
+unsigned LLVMGetEnumAttributeKindForName(const char*, size_t){ return 0; }
+LLVMAttributeRef LLVMCreateEnumAttribute(LLVMContextRef, unsigned, unsigned){ return &placeholderAttribute; }
+void LLVMAddCallSiteAttribute(LLVMValueRef, LLVMAttributeIndex, LLVMAttributeRef){}
+void LLVMAddAttributeAtIndex(LLVMValueRef, LLVMAttributeIndex, LLVMAttributeRef){}
+
 #endif
 
 #include "ExpressionTree.h"
@@ -205,6 +223,7 @@ struct LlvmCompilationContext
 		skipFunctionDefinitions = false;
 
 		currentFunction = NULL;
+		currentFunctionSource = NULL;
 		currentFunctionGlobal = false;
 
 		currentNextRestoreBlock = 0;
@@ -230,6 +249,7 @@ struct LlvmCompilationContext
 	bool skipFunctionDefinitions;
 
 	LLVMValueRef currentFunction;
+	FunctionData *currentFunctionSource;
 	bool currentFunctionGlobal;
 
 	unsigned currentNextRestoreBlock;
@@ -269,6 +289,56 @@ char* CreateLlvmName(LlvmCompilationContext &ctx, InplaceStr str)
 
 	memcpy(name, str.begin, str.length());
 	name[str.length()] = 0;
+
+	return name;
+}
+
+char* CreateLlvmFunctionName(LlvmCompilationContext &ctx, FunctionData *function)
+{
+	unsigned length = function->name->name.length();
+	length++; // '#'
+	length += function->type->name.length();
+
+	if(function->generics.head)
+	{
+		length++; // '$'
+
+		for(MatchData *curr = function->generics.head; curr; curr = curr->next)
+		{
+			length += curr->type->name.length();
+
+			if(curr->next)
+				length++; // ','
+		}
+	}
+
+	char *name = (char*)ctx.allocator->alloc(length + 1);
+
+	char *pos = name;
+
+	memcpy(pos, function->name->name.begin, function->name->name.length());
+	pos += function->name->name.length();
+
+	*pos++ = '#';
+
+	memcpy(pos, function->type->name.begin, function->type->name.length());
+	pos += function->type->name.length();
+
+	if(function->generics.head)
+	{
+		*pos++ = '$';
+
+		for(MatchData *curr = function->generics.head; curr; curr = curr->next)
+		{
+			memcpy(pos, curr->type->name.begin, curr->type->name.length());
+			pos += curr->type->name.length();
+
+			if(curr->next)
+				*pos++ = ',';
+		}
+	}
+
+	*pos = 0;
 
 	return name;
 }
@@ -383,16 +453,98 @@ LLVMTypeRef CompileLlvmType(LlvmCompilationContext &ctx, TypeBase *type)
 	return ctx.types[type->typeIndex];
 }
 
-LLVMTypeRef CompileLlvmFunctionType(LlvmCompilationContext &ctx, TypeFunction *functionType)
+bool IsStructReturnType(TypeBase *type)
 {
+#if defined(_WIN64)
+	if(isType<TypeVoid>(type))
+		return false;
+
+	if(TypeStruct *typeStruct = getType<TypeStruct>(type))
+	{
+		for(VariableHandle *curr = typeStruct->members.head; curr; curr = curr->next)
+		{
+			if(IsStructReturnType(curr->variable->type))
+				return true;
+		}
+	}
+	return type->size != 1 && type->size != 2 && type->size != 4 && type->size != 8;
+#else
+	return false;
+#endif
+}
+
+bool IsStructArgumentType(TypeBase *type)
+{
+#if defined(_WIN64)
+	if(isType<TypeVoid>(type))
+		return false;
+
+	return type->size != 1 && type->size != 2 && type->size != 4 && type->size != 8;
+#else
+	return false;
+#endif
+}
+
+LLVMTypeRef CompileLlvmFunctionType(LlvmCompilationContext& ctx, TypeBase *returnType, ArrayView<TypeBase*> argumentTypes)
+{
+	bool isStructReturnType = IsStructReturnType(returnType);
+
 	SmallArray<LLVMTypeRef, 8> arguments;
 
+	if (isStructReturnType)
+	{
+		TypeBase* newType = ctx.ctx.GetReferenceType(returnType);
+
+		if (newType->typeIndex == ~0u)
+		{
+			assert(newType == ctx.ctx.types.back());
+
+			ctx.ctx.types.back()->typeIndex = ctx.ctx.types.size() - 1;
+			ctx.types.push_back(NULL);
+		}
+
+		arguments.push_back(CompileLlvmType(ctx, newType));
+	}
+
+	for (unsigned i = 0; i < argumentTypes.size(); i++)
+	{
+		TypeBase* argumentType = argumentTypes[i];
+
+		if (IsStructArgumentType(argumentType))
+		{
+			TypeBase* newType = ctx.ctx.GetReferenceType(argumentType);
+
+			if (newType->typeIndex == ~0u)
+			{
+				assert(newType == ctx.ctx.types.back());
+
+				ctx.ctx.types.back()->typeIndex = ctx.ctx.types.size() - 1;
+				ctx.types.push_back(NULL);
+			}
+
+			arguments.push_back(CompileLlvmType(ctx, newType));
+		}
+		else
+		{
+			arguments.push_back(CompileLlvmType(ctx, argumentType));
+		}
+	}
+
+	LLVMTypeRef resultType = isStructReturnType ? LLVMVoidTypeInContext(ctx.context) : CompileLlvmType(ctx, returnType);
+
+	return LLVMFunctionType(resultType, arguments.data, arguments.count, false);
+}
+
+LLVMTypeRef CompileLlvmFunctionType(LlvmCompilationContext &ctx, TypeFunction *functionType)
+{
+	SmallArray<TypeBase*, 8> argumentTypes;
+
 	for(TypeHandle *curr = functionType->arguments.head; curr; curr = curr->next)
-		arguments.push_back(CompileLlvmType(ctx, curr->type));
+		argumentTypes.push_back(curr->type);
 
-	arguments.push_back(CompileLlvmType(ctx, ctx.ctx.typeNullPtr));
+	argumentTypes.push_back(ctx.ctx.typeNullPtr);
 
-	return LLVMFunctionType(CompileLlvmType(ctx, functionType->returnType), arguments.data, arguments.count, false);
+	return CompileLlvmFunctionType(ctx, functionType->returnType, argumentTypes);
 }
 
 LLVMValueRef ConvertToStackType(LlvmCompilationContext &ctx, LLVMValueRef value, TypeBase *valueType)
@@ -453,6 +605,31 @@ LLVMValueRef ConvertToDataType(LlvmCompilationContext &ctx, LLVMValueRef value, 
 	}
 
 	return value;
+}
+
+LLVMValueRef CompileArgument(LlvmCompilationContext& ctx, TypeBase *argumentType, LLVMValueRef argument)
+{
+	if (IsStructArgumentType(argumentType))
+	{
+		LLVMValueRef storage = LLVMBuildAlloca(ctx.builder, CompileLlvmType(ctx, argumentType), "");
+
+		LLVMSetAlignment(storage, 16);
+
+		LLVMBuildStore(ctx.builder, argument, storage);
+
+		return storage;
+	}
+
+	return argument;
+}
+
+LLVMValueRef CompileArgument(LlvmCompilationContext& ctx, TypeBase* argumentType, ExprBase* value)
+{
+	LLVMValueRef argument = CompileLlvm(ctx, value);
+
+	argument = ConvertToDataType(ctx, argument, GetStackType(ctx, value->type), value->type);
+
+	return CompileArgument(ctx, argumentType, argument);
 }
 
 LLVMValueRef CheckType(LlvmCompilationContext &ctx, ExprBase *node, LLVMValueRef value)
@@ -804,9 +981,12 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 		if(TypeRef *refType = getType<TypeRef>(node->type))
 		{
 			// TODO: use global type index values for a later remap
-			LLVMValueRef arguments[] = { value, LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeTypeID), refType->subType->typeIndex, true) };
+			SmallArray<LLVMValueRef, 2> arguments;
 
-			LLVMValueRef result = LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmConvertPtr"), arguments, 2, "");
+			arguments.push_back(CompileArgument(ctx, ctx.ctx.typeAutoRef, value));
+			arguments.push_back(CompileArgument(ctx, ctx.ctx.typeTypeID, LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeTypeID), refType->subType->typeIndex, true)));
+
+			LLVMValueRef result = LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmConvertPtr"), arguments.data, arguments.count, "");
 
 			return CheckType(ctx, node, LLVMBuildPointerCast(ctx.builder, result, CompileLlvmType(ctx, node->type), "auto_ptr_to_ptr"));
 		}
@@ -1313,7 +1493,16 @@ LLVMValueRef CompileLlvmReturn(LlvmCompilationContext &ctx, ExprReturn *node)
 		{
 			value = ConvertToDataType(ctx, value, GetStackType(ctx, node->value->type), node->value->type);
 
-			LLVMBuildRet(ctx.builder, value);
+			if(IsStructReturnType(ctx.currentFunctionSource->type->returnType))
+			{
+				LLVMBuildStore(ctx.builder, value, LLVMGetParam(ctx.currentFunction, 0));
+
+				LLVMBuildRetVoid(ctx.builder);
+			}
+			else
+			{
+				LLVMBuildRet(ctx.builder, value);
+			}
 		}
 	}
 
@@ -1344,7 +1533,16 @@ LLVMValueRef CompileLlvmYield(LlvmCompilationContext &ctx, ExprYield *node)
 	{
 		value = ConvertToDataType(ctx, value, GetStackType(ctx, node->value->type), node->value->type);
 
-		LLVMBuildRet(ctx.builder, value);
+		if(IsStructReturnType(ctx.currentFunctionSource->type->returnType))
+		{
+			LLVMBuildStore(ctx.builder, value, LLVMGetParam(ctx.currentFunction, 0));
+
+			LLVMBuildRetVoid(ctx.builder);
+		}
+		else
+		{
+			LLVMBuildRet(ctx.builder, value);
+		}
 	}
 
 	LLVMPositionBuilderAtEnd(ctx.builder, block);
@@ -1492,9 +1690,12 @@ LLVMValueRef CompileLlvmFunctionDefinition(LlvmCompilationContext &ctx, ExprFunc
 
 	// Store state
 	LLVMValueRef currentFunction = ctx.currentFunction;
+	FunctionData *currentFunctionSource = ctx.currentFunctionSource;
 
 	// Switch to new function
 	ctx.currentFunction = function;
+	ctx.currentFunctionSource = node->function;
+
 	assert(ctx.currentNextRestoreBlock == 0);
 	assert(ctx.currentRestoreBlocks.empty());
 
@@ -1505,19 +1706,33 @@ LLVMValueRef CompileLlvmFunctionDefinition(LlvmCompilationContext &ctx, ExprFunc
 	// Allocate all arguments
 	unsigned argIndex = 0;
 
+	if(IsStructReturnType(node->function->type->returnType))
+		argIndex++;
+
 	for(VariableHandle *curr = node->function->argumentVariables.head; curr; curr = curr->next)
 	{
 		VariableData *variable = curr->variable;
 
-		LLVMValueRef storage = LLVMBuildAlloca(ctx.builder, CompileLlvmType(ctx, variable->type), CreateLlvmName(ctx, variable->name->name));
+		if(IsStructArgumentType(variable->type))
+		{
+			LLVMValueRef argument = LLVMGetParam(function, argIndex++);
 
-		LLVMValueRef argument = LLVMGetParam(function, argIndex++);
+			assert(!ctx.variables.find(variable->uniqueId));
 
-		LLVMBuildStore(ctx.builder, argument, storage);
+			ctx.variables.insert(variable->uniqueId, argument);
+		}
+		else
+		{
+			LLVMValueRef storage = LLVMBuildAlloca(ctx.builder, CompileLlvmType(ctx, variable->type), CreateLlvmName(ctx, variable->name->name));
 
-		assert(!ctx.variables.find(variable->uniqueId));
+			LLVMValueRef argument = LLVMGetParam(function, argIndex++);
 
-		ctx.variables.insert(variable->uniqueId, storage);
+			LLVMBuildStore(ctx.builder, argument, storage);
+
+			assert(!ctx.variables.find(variable->uniqueId));
+
+			ctx.variables.insert(variable->uniqueId, storage);
+		}
 	}
 
 	if(VariableData *variable = node->function->contextArgument)
@@ -1560,21 +1775,20 @@ LLVMValueRef CompileLlvmFunctionDefinition(LlvmCompilationContext &ctx, ExprFunc
 
 	LLVMBuildCall(ctx.builder, LLVMGetNamedFunction(ctx.module, "__llvmAbortNoReturn"), NULL, 0, "");
 
-	if(node->function->type->returnType == ctx.ctx.typeVoid)
+	if(node->function->type->returnType == ctx.ctx.typeVoid || IsStructReturnType(node->function->type->returnType))
 		LLVMBuildRetVoid(ctx.builder);
 	else
 		LLVMBuildRet(ctx.builder, LLVMConstNull(CompileLlvmType(ctx, node->function->type->returnType)));
 
 	CheckFunction(ctx, ctx.currentFunction, node->function->name->name);
 
-	if(ctx.enableOptimization)
-	{
-		if(LLVMRunFunctionPassManager(ctx.functionPassManager, function))
-			LLVMRunFunctionPassManager(ctx.functionPassManager, function);
-	}
+	if(LLVMRunFunctionPassManager(ctx.functionPassManager, function))
+		LLVMRunFunctionPassManager(ctx.functionPassManager, function);
 
 	// Restore state
 	ctx.currentFunction = currentFunction;
+	ctx.currentFunctionSource = currentFunctionSource;
+
 	ctx.currentNextRestoreBlock = 0;
 	ctx.currentRestoreBlocks.clear();
 
@@ -1613,28 +1827,47 @@ LLVMValueRef CompileLlvmFunctionAccess(LlvmCompilationContext &ctx, ExprFunction
 
 LLVMValueRef CompileLlvmFunctionCall(LlvmCompilationContext &ctx, ExprFunctionCall *node)
 {
+	TypeFunction *typeFunction = getType<TypeFunction>(node->function->type);
+
 	LLVMValueRef function = CompileLlvm(ctx, node->function);
 
 	SmallArray<LLVMValueRef, 32> arguments(ctx.allocator);
 
+	bool isStructReturnType = IsStructReturnType(typeFunction->returnType);
+	LLVMValueRef resultStorage = NULL;
+
+	if(isStructReturnType)
+	{
+		resultStorage = LLVMBuildAlloca(ctx.builder, CompileLlvmType(ctx, typeFunction->returnType), "call_return_storage");
+
+		arguments.push_back(resultStorage);
+	}
+
+	TypeHandle *argumentType = typeFunction->arguments.head;
+
 	for(ExprBase *value = node->arguments.head; value; value = value->next)
 	{
-		LLVMValueRef argument = CompileLlvm(ctx, value);
+		arguments.push_back(CompileArgument(ctx, argumentType->type, value));
 
-		argument = ConvertToDataType(ctx, argument, GetStackType(ctx, value->type), value->type);
-
-		arguments.push_back(argument);
+		argumentType = argumentType->next;
 	}
 
 	arguments.push_back(LLVMBuildExtractValue(ctx.builder, function, 0, "context"));
 
 	LLVMValueRef functionRef = LLVMBuildExtractValue(ctx.builder, function, 1, "function");
 
-	LLVMTypeRef functionType = LLVMPointerType(CompileLlvmFunctionType(ctx, getType<TypeFunction>(node->function->type)), 0);
+	LLVMTypeRef functionType = LLVMPointerType(CompileLlvmFunctionType(ctx, typeFunction), 0);
 
 	functionRef = LLVMBuildPointerCast(ctx.builder, functionRef, functionType, "to_func_type");
 
 	LLVMValueRef result = LLVMBuildCall(ctx.builder, functionRef, arguments.data, arguments.count, "");
+
+	if(isStructReturnType)
+	{
+		LLVMAddCallSiteAttribute(result, 1, LLVMCreateEnumAttribute(ctx.context, LLVMGetEnumAttributeKindForName("sret", strlen("sret")), 0));
+
+		result = LLVMBuildLoad(ctx.builder, resultStorage, "");
+	}
 
 	return CheckType(ctx, node, ConvertToStackType(ctx, result, node->type));
 }
@@ -2082,12 +2315,17 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 	ctx.functionPassManager = LLVMCreateFunctionPassManagerForModule(ctx.module);
 
 	LLVMAddBasicAliasAnalysisPass(ctx.functionPassManager);
-	LLVMAddScalarReplAggregatesPass(ctx.functionPassManager);
-	LLVMAddInstructionCombiningPass(ctx.functionPassManager);
-	LLVMAddEarlyCSEPass(ctx.functionPassManager);
-	LLVMAddReassociatePass(ctx.functionPassManager);
-	LLVMAddGVNPass(ctx.functionPassManager);
-	LLVMAddConstantPropagationPass(ctx.functionPassManager);
+
+	if(ctx.enableOptimization)
+	{
+		LLVMAddScalarReplAggregatesPass(ctx.functionPassManager);
+		LLVMAddInstructionCombiningPass(ctx.functionPassManager);
+		LLVMAddEarlyCSEPass(ctx.functionPassManager);
+		LLVMAddReassociatePass(ctx.functionPassManager);
+		LLVMAddGVNPass(ctx.functionPassManager);
+		LLVMAddConstantPropagationPass(ctx.functionPassManager);
+	}
+
 	LLVMAddCFGSimplificationPass(ctx.functionPassManager);
 	LLVMAddAggressiveDCEPass(ctx.functionPassManager);
 
@@ -2111,49 +2349,57 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 
 	// Create runtime support functions
 	{
-		LLVMAddFunction(ctx.module, "__llvmAbortNoReturn", LLVMFunctionType(LLVMVoidTypeInContext(ctx.context), NULL, 0, false));
+		LLVMValueRef function = LLVMAddFunction(ctx.module, "__llvmAbortNoReturn", CompileLlvmFunctionType(ctx, ctx.ctx.typeVoid, ArrayView<TypeBase*>()));
+		LLVMSetLinkage(function, LLVMExternalLinkage);
 	}
 
 	{
-		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeAutoRef), CompileLlvmType(ctx, ctx.ctx.typeTypeID) };
+		TypeBase* arguments[] = { ctx.ctx.typeAutoRef, ctx.ctx.typeTypeID };
 
-		LLVMAddFunction(ctx.module, "__llvmConvertPtr", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeNullPtr), arguments, 2, false));
+		LLVMValueRef function = LLVMAddFunction(ctx.module, "__llvmConvertPtr", CompileLlvmFunctionType(ctx, ctx.ctx.typeNullPtr, arguments));
+		LLVMSetLinkage(function, LLVMExternalLinkage);
 	}
 
 	{
-		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeInt), CompileLlvmType(ctx, ctx.ctx.typeInt) };
+		TypeBase* arguments[] = { ctx.ctx.typeInt, ctx.ctx.typeInt };
 
-		LLVMAddFunction(ctx.module, "__llvmPowInt", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeInt), arguments, 2, false));
+		LLVMValueRef function = LLVMAddFunction(ctx.module, "__llvmPowInt", CompileLlvmFunctionType(ctx, ctx.ctx.typeInt, arguments));
+		LLVMSetLinkage(function, LLVMExternalLinkage);
 	}
 
 	{
-		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeLong), CompileLlvmType(ctx, ctx.ctx.typeLong) };
+		TypeBase* arguments[] = { ctx.ctx.typeLong, ctx.ctx.typeLong };
 
-		LLVMAddFunction(ctx.module, "__llvmPowLong", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeLong), arguments, 2, false));
+		LLVMValueRef function = LLVMAddFunction(ctx.module, "__llvmPowLong", CompileLlvmFunctionType(ctx, ctx.ctx.typeLong, arguments));
+		LLVMSetLinkage(function, LLVMExternalLinkage);
 	}
 
 	{
-		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeDouble), CompileLlvmType(ctx, ctx.ctx.typeDouble) };
+		TypeBase* arguments[] = { ctx.ctx.typeDouble, ctx.ctx.typeDouble };
 
-		LLVMAddFunction(ctx.module, "__llvmPowDouble", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeDouble), arguments, 2, false));
+		LLVMValueRef function = LLVMAddFunction(ctx.module, "__llvmPowDouble", CompileLlvmFunctionType(ctx, ctx.ctx.typeDouble, arguments));
+		LLVMSetLinkage(function, LLVMExternalLinkage);
 	}
 
 	{
-		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeInt) };
+		TypeBase* arguments[] = { ctx.ctx.typeInt };
 
-		LLVMAddFunction(ctx.module, "__llvmReturnInt", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeVoid), arguments, 1, false));
+		LLVMValueRef function = LLVMAddFunction(ctx.module, "__llvmReturnInt", CompileLlvmFunctionType(ctx, ctx.ctx.typeVoid, arguments));
+		LLVMSetLinkage(function, LLVMExternalLinkage);
 	}
 
 	{
-		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeLong) };
+		TypeBase* arguments[] = { ctx.ctx.typeLong };
 
-		LLVMAddFunction(ctx.module, "__llvmReturnLong", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeVoid), arguments, 1, false));
+		LLVMValueRef function = LLVMAddFunction(ctx.module, "__llvmReturnLong", CompileLlvmFunctionType(ctx, ctx.ctx.typeVoid, arguments));
+		LLVMSetLinkage(function, LLVMExternalLinkage);
 	}
 
 	{
-		LLVMTypeRef arguments[] = { CompileLlvmType(ctx, ctx.ctx.typeDouble) };
+		TypeBase* arguments[] = { ctx.ctx.typeDouble };
 
-		LLVMAddFunction(ctx.module, "__llvmReturnDouble", LLVMFunctionType(CompileLlvmType(ctx, ctx.ctx.typeVoid), arguments, 1, false));
+		LLVMValueRef function = LLVMAddFunction(ctx.module, "__llvmReturnDouble", CompileLlvmFunctionType(ctx, ctx.ctx.typeVoid, arguments));
+		LLVMSetLinkage(function, LLVMExternalLinkage);
 	}
 
 	// Generate functions
@@ -2172,7 +2418,15 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 		if(ctx.functions[function->functionIndex])
 			continue;
 
-		ctx.functions[function->functionIndex] = LLVMAddFunction(ctx.module, CreateLlvmName(ctx, function->name->name), CompileLlvmFunctionType(ctx, function->type));
+		LLVMValueRef llvmFunction = LLVMAddFunction(ctx.module, CreateLlvmFunctionName(ctx, function), CompileLlvmFunctionType(ctx, function->type));
+
+		if(IsStructReturnType(function->type->returnType))
+		{
+			LLVMAddAttributeAtIndex(llvmFunction, 1, LLVMCreateEnumAttribute(ctx.context, LLVMGetEnumAttributeKindForName("nonnull", strlen("nonnull")), 0));
+			LLVMAddAttributeAtIndex(llvmFunction, 1, LLVMCreateEnumAttribute(ctx.context, LLVMGetEnumAttributeKindForName("sret", strlen("sret")), 0));
+		}
+
+		ctx.functions[function->functionIndex] = llvmFunction;
 	}
 
 	for(unsigned i = 0; i < ctx.ctx.functions.size(); i++)
@@ -2207,6 +2461,8 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 	{
 		LLVMValueRef function = LLVMAddFunction(ctx.module, "__llvmEntry", LLVMFunctionType(LLVMVoidTypeInContext(ctx.context), NULL, 0, false));
 
+		LLVMSetLinkage(function, LLVMExternalLinkage);
+
 		// Setup global function
 		ctx.currentFunction = function;
 		ctx.currentFunctionGlobal = true;
@@ -2225,11 +2481,8 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 
 		CheckFunction(ctx, ctx.currentFunction, InplaceStr("global"));
 
-		if(ctx.enableOptimization)
-		{
-			if(LLVMRunFunctionPassManager(ctx.functionPassManager, function))
-				LLVMRunFunctionPassManager(ctx.functionPassManager, function);
-		}
+		if(LLVMRunFunctionPassManager(ctx.functionPassManager, function))
+			LLVMRunFunctionPassManager(ctx.functionPassManager, function);
 
 		ctx.currentFunction = NULL;
 		ctx.currentFunctionGlobal = false;
