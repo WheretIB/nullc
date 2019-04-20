@@ -1564,7 +1564,11 @@ TypeArray* ExpressionContext::GetArrayType(TypeBase* type, long long length)
 	assert(!isType<TypeError>(type));
 
 	if(TypeClass *typeClass = getType<TypeClass>(type))
+	{
+		(void)typeClass;
+
 		assert(typeClass->completed && !typeClass->hasFinalizer);
+	}
 
 	for(TypeHandle *curr = type->arrayTypes.head; curr; curr = curr->next)
 	{

@@ -1255,6 +1255,8 @@ void VmValue::RemoveUse(VmValue* user)
 					}
 				}
 
+				(void)found;
+
 				assert(found);
 			}
 		}
