@@ -188,7 +188,7 @@ void LLVMSetLinkage(LLVMValueRef, int) {}
 void LLVMSetAlignment(LLVMValueRef, int){}
 void LLVMSetInitializer(LLVMValueRef, LLVMValueRef){}
 
-unsigned LLVMGetEnumAttributeKindForName(const char*, size_t){ return 0; }
+unsigned LLVMGetEnumAttributeKindForName(const char*, unsigned){ return 0; }
 LLVMAttributeRef LLVMCreateEnumAttribute(LLVMContextRef, unsigned, unsigned){ return &placeholderAttribute; }
 void LLVMAddCallSiteAttribute(LLVMValueRef, LLVMAttributeIndex, LLVMAttributeRef){}
 void LLVMAddAttributeAtIndex(LLVMValueRef, LLVMAttributeIndex, LLVMAttributeRef){}
@@ -469,6 +469,8 @@ bool IsStructReturnType(TypeBase *type)
 	}
 	return type->size != 1 && type->size != 2 && type->size != 4 && type->size != 8;
 #else
+	(void)type;
+
 	return false;
 #endif
 }
@@ -481,6 +483,8 @@ bool IsStructArgumentType(TypeBase *type)
 
 	return type->size != 1 && type->size != 2 && type->size != 4 && type->size != 8;
 #else
+	(void)type;
+
 	return false;
 #endif
 }
@@ -1864,7 +1868,7 @@ LLVMValueRef CompileLlvmFunctionCall(LlvmCompilationContext &ctx, ExprFunctionCa
 
 	if(isStructReturnType)
 	{
-		LLVMAddCallSiteAttribute(result, 1, LLVMCreateEnumAttribute(ctx.context, LLVMGetEnumAttributeKindForName("sret", strlen("sret")), 0));
+		LLVMAddCallSiteAttribute(result, 1, LLVMCreateEnumAttribute(ctx.context, LLVMGetEnumAttributeKindForName("sret", unsigned(strlen("sret"))), 0));
 
 		result = LLVMBuildLoad(ctx.builder, resultStorage, "");
 	}
@@ -2422,8 +2426,8 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 
 		if(IsStructReturnType(function->type->returnType))
 		{
-			LLVMAddAttributeAtIndex(llvmFunction, 1, LLVMCreateEnumAttribute(ctx.context, LLVMGetEnumAttributeKindForName("nonnull", strlen("nonnull")), 0));
-			LLVMAddAttributeAtIndex(llvmFunction, 1, LLVMCreateEnumAttribute(ctx.context, LLVMGetEnumAttributeKindForName("sret", strlen("sret")), 0));
+			LLVMAddAttributeAtIndex(llvmFunction, 1, LLVMCreateEnumAttribute(ctx.context, LLVMGetEnumAttributeKindForName("nonnull", unsigned(strlen("nonnull"))), 0));
+			LLVMAddAttributeAtIndex(llvmFunction, 1, LLVMCreateEnumAttribute(ctx.context, LLVMGetEnumAttributeKindForName("sret", unsigned(strlen("sret"))), 0));
 		}
 
 		ctx.functions[function->functionIndex] = llvmFunction;
