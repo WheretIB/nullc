@@ -455,6 +455,13 @@ public:
 		count = rhs.size();
 	}
 
+	template<unsigned N>
+	ArrayView(T (&rhs)[N])
+	{
+		data = rhs;
+		count = N;
+	}
+
 	T& back()
 	{
 		assert(count > 0);
