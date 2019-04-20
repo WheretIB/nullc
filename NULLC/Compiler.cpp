@@ -964,9 +964,8 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	unsigned offsetToSource = size;
 	size += sourceLength;
 
-#ifdef NULLC_LLVM_SUPPORT
-	// TODO: llvm support
-#endif
+	unsigned int offsetToLLVM = size;
+	size += ctx.llvmModule ? ctx.llvmModule->moduleSize : 0;
 
 #ifdef VERBOSE_DEBUG_OUTPUT
 	printf("Statistics. Overall: %d bytes\r\n", size);
@@ -1738,11 +1737,11 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	if(ctx.instFinalizeCtx.cmds.size())
 		memcpy(FindCode(code), ctx.instFinalizeCtx.cmds.data, ctx.instFinalizeCtx.cmds.size() * sizeof(VMCmd));
 
-#ifdef NULLC_LLVM_SUPPORT
-	code->llvmSize = llvmSize;
+	code->llvmSize = ctx.llvmModule ? ctx.llvmModule->moduleSize : 0;
 	code->llvmOffset = offsetToLLVM;
-	memcpy(((char*)(code) + code->llvmOffset), llvmBinary, llvmSize);
-#endif
+
+	if(ctx.llvmModule)
+		memcpy(((char*)(code) + code->llvmOffset), ctx.llvmModule->moduleData, ctx.llvmModule->moduleSize);
 
 	code->typedefCount = typedefCount;
 	code->offsetToTypedef = offsetToTypedef;

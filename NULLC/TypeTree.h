@@ -371,10 +371,12 @@ struct FunctionData
 
 	unsigned functionIndex;
 
+	// Explicit generic function type arguments
 	IntrusiveList<MatchData> generics;
 
 	unsigned uniqueId;
 
+	// All function generic type aliases including explicit type arguments and type aliases from argument types
 	IntrusiveList<MatchData> aliases;
 
 	SmallArray<ArgumentData, 4> arguments;
