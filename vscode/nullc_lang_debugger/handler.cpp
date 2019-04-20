@@ -580,8 +580,11 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 
 	if(!nullcInitCanvasModule())
 		return RespondWithError(ctx, response, "failed to init img.canvas module");
+
+#if defined(_WIN32)
 	if(!nullcInitWindowModule())
 		return RespondWithError(ctx, response, "failed to init win.window module");
+#endif
 
 	if(!nullcInitPugiXMLModule())
 		return RespondWithError(ctx, response, "failed to init ext.pugixml module");
