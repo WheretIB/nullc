@@ -1,5 +1,7 @@
 #include "handler.h"
 
+#include <algorithm>
+
 #include <stdio.h>
 
 #include "rapidjson/document.h"
