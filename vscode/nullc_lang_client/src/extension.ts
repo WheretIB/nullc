@@ -12,7 +12,9 @@ export function activate(context: ExtensionContext) {
 	if(configuration.debug)
 		console.log("Activating nullc language client extension");
 
-	let serverModule = context.asAbsolutePath(path.join('out', 'nullc_lang_server.exe'));
+	let isWin = process.platform === "win32";
+
+	let serverModule = context.asAbsolutePath(path.join('out', isWin ? 'nullc_lang_server.exe' : 'nullc_lang_server'));
 
 	let defaultModulePath = context.asAbsolutePath(path.join('modules'));
 
@@ -117,7 +119,9 @@ class NullcDebugAdapterDescriptorFactory implements DebugAdapterDescriptorFactor
 	private defaultModulePath: string;
 
 	constructor(context: ExtensionContext) {
-		this.debuggerModule = context.asAbsolutePath(path.join('out', 'nullc_lang_debugger.exe'));
+		let isWin = process.platform === "win32";
+
+		this.debuggerModule = context.asAbsolutePath(path.join('out', isWin ? 'nullc_lang_debugger.exe' : 'nullc_lang_debugger'));
 
 		this.defaultModulePath = context.asAbsolutePath(path.join('modules'));
 	}

@@ -77,6 +77,11 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+### Version 0.3.5
+* Unix build
+* Standard output redirection
+* Compiler update
+
 ### Version 0.3.3
 * Package configuration fixes
 
