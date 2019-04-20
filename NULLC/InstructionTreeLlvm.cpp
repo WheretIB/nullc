@@ -1599,7 +1599,7 @@ LLVMValueRef CompileLlvmArraySetup(LlvmCompilationContext &ctx, ExprArraySetup *
 	assert(int(arrayType->length * arrayType->subType->size) == arrayType->length * arrayType->subType->size);
 
 	// While offset is less than array size
-	LLVMValueRef condition = LLVMBuildICmp(ctx.builder, LLVMIntSLT, LLVMBuildLoad(ctx.builder, offsetPtr, ""), LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeInt), int(arrayType->length * arrayType->subType->size), true), "");
+	LLVMValueRef condition = LLVMBuildICmp(ctx.builder, LLVMIntSLT, LLVMBuildLoad(ctx.builder, offsetPtr, ""), LLVMConstInt(CompileLlvmType(ctx, ctx.ctx.typeInt), int(arrayType->length), true), "");
 
 	LLVMBuildCondBr(ctx.builder, condition, bodyBlock, exitBlock);
 
