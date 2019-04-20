@@ -2446,6 +2446,9 @@ LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 		{
 			LLVMValueRef value = LLVMAddGlobal(ctx.module, CompileLlvmType(ctx, variable->type), CreateLlvmName(ctx, variable->name->name));
 
+			if(!variable->importModule)
+				LLVMSetInitializer(value, LLVMConstNull(CompileLlvmType(ctx, variable->type)));
+
 			assert(!ctx.variables.find(variable->uniqueId));
 
 			ctx.variables.insert(variable->uniqueId, value);
