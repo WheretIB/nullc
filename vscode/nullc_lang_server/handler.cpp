@@ -968,7 +968,8 @@ bool HandleConfigurationResponse(Context& ctx, rapidjson::Value& response)
 				ctx.modulePath = modulePath;
 
 				nullcInit();
-				nullcAddImportPath(modulePath.c_str());
+				nullcAddImportPath(ctx.rootPath.c_str());
+				nullcAddImportPath(ctx.modulePath.c_str());
 
 				if(!ctx.defaultModulePath.empty() && ctx.defaultModulePath != ctx.modulePath)
 					nullcAddImportPath(ctx.defaultModulePath.c_str());
@@ -1028,6 +1029,7 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 					fprintf(stderr, "DEBUG: Launching nullc with module path '%s'\n", ctx.modulePath.c_str());
 
 				nullcInit();
+				nullcAddImportPath(ctx.rootPath.c_str());
 				nullcAddImportPath(ctx.modulePath.c_str());
 			}
 			else
