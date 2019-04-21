@@ -2618,12 +2618,40 @@ void UpdateDiagnostics(Context& ctx, Document &document)
 
 bool HandleDidOpen(Context& ctx, rapidjson::Value& arguments)
 {
-	auto uri = arguments["textDocument"]["uri"].GetString();
+	std::string uri = arguments["textDocument"]["uri"].GetString();
+
+	if(ctx.rootPath.empty())
+	{
+		if(uri.find("file:///") == 0 && uri.find_last_of('/') != std::string::npos)
+		{
+			ctx.rootPath = uri.substr(8, uri.find_last_of('/') - 8);
+			ctx.rootPath.push_back('/');
+
+			if(ctx.modulePath.empty())
+			{
+				ctx.modulePath = ctx.rootPath;
+				ctx.modulePath += "Modules/";
+			}
+
+			if(ctx.nullcInitialized)
+				nullcTerminate();
+
+			if(ctx.debugMode)
+				fprintf(stderr, "DEBUG: Restarting nullc with root path '%s'\n", ctx.rootPath.c_str());
+
+			nullcInit();
+			nullcAddImportPath(ctx.rootPath.c_str());
+			nullcAddImportPath(ctx.modulePath.c_str());
+
+			if(!ctx.defaultModulePath.empty() && ctx.defaultModulePath != ctx.modulePath)
+				nullcAddImportPath(ctx.defaultModulePath.c_str());
+		}
+	}
 
 	auto &document = ctx.documents[uri];
 
 	if(ctx.debugMode)
-		fprintf(stderr, "DEBUG: Created document '%s'\n", uri);
+		fprintf(stderr, "DEBUG: Created document '%s'\n", uri.c_str());
 
 	document.uri = uri;
 	document.code = arguments["textDocument"]["text"].GetString();
