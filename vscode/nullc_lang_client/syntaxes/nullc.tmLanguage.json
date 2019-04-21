@@ -1,6 +1,10 @@
 {
 	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
 	"name": "nullc",
+	"fileTypes": [
+		".nc",
+		".nullc"
+	],
 	"patterns": [
 		{
 			"include": "#comments"
