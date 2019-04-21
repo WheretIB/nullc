@@ -12,6 +12,12 @@ using System.IO;
 using System.Reflection;
 using Microsoft.VisualStudio.Utilities;
 using System.ComponentModel.Composition;
+using Microsoft.VisualStudio.Shell.Interop;
+using Microsoft.VisualStudio;
+using System.ComponentModel.Design;
+using EnvDTE80;
+using System.Globalization;
+using Newtonsoft.Json;
 
 namespace nullc_language_client_vs
 {
@@ -34,12 +40,18 @@ namespace nullc_language_client_vs
     /// </remarks>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(nullc_language_client_vsPackage.PackageGuidString)]
+    [ProvideMenuResource("Menus.ctmenu", 1)]
     public sealed class nullc_language_client_vsPackage : AsyncPackage
     {
         /// <summary>
         /// nullc_language_client_vsPackage GUID string.
         /// </summary>
         public const string PackageGuidString = "a179464d-38b7-4986-94bc-8ec0add18ab3";
+
+        public const int CommandId = 0x0100;
+        public static readonly Guid CommandSet = new Guid("789965FA-B258-4243-8136-AD618B62F6F2");
+
+        private IServiceProvider ServiceProvider => this;
 
         #region Package Members
 
@@ -55,6 +67,102 @@ namespace nullc_language_client_vs
             // When initialized asynchronously, the current thread may be a background thread at this point.
             // Do any initialization that requires the UI thread after switching to the UI thread.
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+            OleMenuCommandService commandService = ServiceProvider.GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
+
+            if (commandService != null)
+            {
+                CommandID menuCommandID = new CommandID(CommandSet, CommandId);
+
+                MenuCommand menuItem = new MenuCommand(MenuItemCallback, menuCommandID);
+
+                commandService.AddCommand(menuItem);
+            }
+        }
+
+        private void MenuItemCallback(object sender, EventArgs e)
+        {
+            try
+            {
+                try
+                {
+                    Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
+                }
+                catch (Exception)
+                {
+                    VsShellUtilities.ShowMessageBox(ServiceProvider, "Error: Wrong thread context", null, OLEMSGICON.OLEMSGICON_WARNING, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                    return;
+                }
+
+                DTE2 dte = (DTE2)ServiceProvider.GetService(typeof(SDTE));
+
+                if (dte == null)
+                {
+                    VsShellUtilities.ShowMessageBox(ServiceProvider, "Error: Extension context is unavailable", null, OLEMSGICON.OLEMSGICON_WARNING, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                    return;
+                }
+
+                string currentFile;
+
+                try
+                {
+                    currentFile = dte.ActiveDocument.FullName;
+                }
+                catch (Exception)
+                {
+                    VsShellUtilities.ShowMessageBox(ServiceProvider, "Error: Open .nc file to debug", null, OLEMSGICON.OLEMSGICON_WARNING, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                    return;
+                }
+
+                if (!currentFile.EndsWith(".nc"))
+                {
+                    VsShellUtilities.ShowMessageBox(ServiceProvider, "Error: Open .nc file to debug", null, OLEMSGICON.OLEMSGICON_WARNING, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                    return;
+                }
+
+                var index = currentFile.LastIndexOfAny(new char[]{ '/', '\\'});
+
+                var drive = Char.ToLower(currentFile[0]);
+
+                currentFile = drive + currentFile.Substring(1);
+
+                if (index < 0)
+                {
+                    VsShellUtilities.ShowMessageBox(ServiceProvider, String.Format("Error: Path {0} is not an absolute path", currentFile), null, OLEMSGICON.OLEMSGICON_WARNING, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                    return;
+                }
+
+                string configName = currentFile.Substring(0, index) + "\\nc_launch.json";
+                string configData = $"{{ \"type\": \"nullc\", \"request\": \"launch\", \"program\": {JsonConvert.ToString(currentFile)} }}";
+
+                try
+                {
+                    File.WriteAllText(configName, configData);
+                }
+                catch (Exception ex)
+                {
+                    VsShellUtilities.ShowMessageBox(ServiceProvider, String.Format("Error: Failed to create launch configuraiton file {0}. {1}", configName, ex.Message), null, OLEMSGICON.OLEMSGICON_WARNING, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                    return;
+                }
+
+                string engineName = "5B6BC5F3-2D50-40EE-97F7-105B6FA4EC49";
+
+                string parameters = FormattableString.Invariant($@"/LaunchJson:""{configName}"" /EngineGuid:""{engineName}""");
+                dte.Commands.Raise("0ddba113-7ac1-4c6e-a2ef-dcac3f9e731e", 0x0101, parameters, IntPtr.Zero);
+
+                try
+                {
+                    File.Delete(configName);
+                }
+                catch (Exception)
+                {
+                    // Ignore error
+                }
+            }
+            catch (Exception ex)
+            {
+                VsShellUtilities.ShowMessageBox(ServiceProvider, String.Format(CultureInfo.CurrentCulture, "Launch failed. Error: {0}", ex.Message), null, OLEMSGICON.OLEMSGICON_WARNING, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+            }
         }
 
         #endregion

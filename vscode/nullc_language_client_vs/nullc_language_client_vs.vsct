@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <Extern href="stdidcmd.h"/>
+  <Extern href="vsshlids.h"/>
+
+  <Commands package="guidNullcAdapterLauncherPackage">
+    <Groups>
+      <Group guid="guidNullcAdapterLauncherPackageCmdSet" id="MyMenuGroup" priority="0x0600">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_BUILD"/>
+      </Group>
+    </Groups>
+
+    <Buttons>
+      <Button guid="guidNullcAdapterLauncherPackageCmdSet" id="LaunchNullcAdapterCommandId" priority="0x0100" type="Button">
+        <Parent guid="guidNullcAdapterLauncherPackageCmdSet" id="MyMenuGroup" />
+        <Strings>
+          <ButtonText>Start nullc Debugging</ButtonText>
+        </Strings>
+      </Button>
+    </Buttons>
+  </Commands>
+
+  <Symbols>
+    <GuidSymbol name="guidNullcAdapterLauncherPackage" value="{a179464d-38b7-4986-94bc-8ec0add18ab3}" />
+
+    <GuidSymbol name="guidNullcAdapterLauncherPackageCmdSet" value="{789965FA-B258-4243-8136-AD618B62F6F2}">
+      <IDSymbol name="MyMenuGroup" value="0x1020" />
+      <IDSymbol name="LaunchNullcAdapterCommandId" value="0x0100" />
+    </GuidSymbol>
+  </Symbols>
+</CommandTable>
