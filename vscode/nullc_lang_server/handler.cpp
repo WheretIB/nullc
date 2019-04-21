@@ -312,7 +312,7 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 		Data &data = *(Data*)context;
 		FindEntityResponse &response = data.response;
 
-		if(!child->source)
+		if(!child->source || !child->source->begin)
 			return;
 
 		// Imported
@@ -1620,7 +1620,7 @@ bool HandleCompletion(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 			nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
 				Data &data = *(Data*)context;
 
-				if(!child->source)
+				if(!child->source || !child->source->begin)
 					return;
 
 				// Imported
@@ -2019,7 +2019,7 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 			if(result)
 			{
 				auto setupTargetUri = [&ctx, &context, &documentIt](std::string &targetUri, ModuleData *importModule, SynBase *source){
-					if(!importModule)
+					if(!importModule && source->begin)
 						importModule = context->exprCtx.GetSourceOwner(source->begin);
 
 					if(importModule)
@@ -2200,7 +2200,7 @@ bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 			if(result)
 			{
 				auto getTargetUri = [&ctx, &context, &documentIt](SynBase *source) -> std::string {
-					if(ModuleData *importModule = context->exprCtx.GetSourceOwner(source->begin))
+					if(ModuleData *importModule = source->begin ? context->exprCtx.GetSourceOwner(source->begin) : nullptr)
 					{
 						auto path = GetModuleFileName(ctx, importModule);
 
@@ -2219,7 +2219,7 @@ bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 					for(auto &&el : results)
 					{
-						if(!el->isInternal && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
+						if(!el->isInternal && el->begin && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
 						{
 							std::string path = getTargetUri(el);
 
@@ -2234,7 +2234,7 @@ bool HandleReferences(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 					for(auto &&el : results)
 					{
-						if(!el->isInternal && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
+						if(!el->isInternal && el->begin && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
 						{
 							std::string path = getTargetUri(el);
 
@@ -2306,7 +2306,7 @@ bool HandleDocumentHighlight(Context& ctx, rapidjson::Value& arguments, rapidjso
 
 					for(auto &&el : results)
 					{
-						if(!el->isInternal && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
+						if(!el->isInternal && el->begin && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
 							highlights.push_back(DocumentHighlight(Range(Position(el->begin->line, el->begin->column), Position(el->begin->line, el->begin->column + el->begin->length)), DocumentHighlightKind::Text));
 					}
 				}
@@ -2316,7 +2316,7 @@ bool HandleDocumentHighlight(Context& ctx, rapidjson::Value& arguments, rapidjso
 
 					for(auto &&el : results)
 					{
-						if(!el->isInternal && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
+						if(!el->isInternal && el->begin && context->exprCtx.GetSourceOwner(el->begin) == nullptr)
 							highlights.push_back(DocumentHighlight(Range(Position(el->begin->line, el->begin->column), Position(el->begin->line, el->begin->column + el->begin->length)), DocumentHighlightKind::Text));
 					}
 				}
@@ -2401,7 +2401,7 @@ bool HandleSignatureHelp(Context& ctx, rapidjson::Value& arguments, rapidjson::D
 			nullcVisitExpressionTreeNodes(context->exprModule, &data, [](void *context, ExprBase *child){
 				Data &data = *(Data*)context;
 
-				if(!child->source)
+				if(!child->source || !child->source->begin)
 					return;
 
 				// Imported
