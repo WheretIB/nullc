@@ -255,6 +255,18 @@ std::string GetModuleFileName(Context &ctx, ModuleData *importModule)
 		return test;
 	}
 
+	test = ctx.defaultModulePath + std::string(importModule->name.begin, importModule->name.end);
+
+	if(FILE * fIn = fopen(test.c_str(), "rb"))
+	{
+		fclose(fIn);
+
+		if(ctx.debugMode)
+			fprintf(stderr, "DEBUG: Found module '%.*s' at '%s'\n", FMT_ISTR(importModule->name), test.c_str());
+
+		return test;
+	}
+
 	if(ctx.infoMode)
 		fprintf(stderr, "WARNING: Failed to find module '%.*s' location (might be precompiled)\n", FMT_ISTR(importModule->name));
 
