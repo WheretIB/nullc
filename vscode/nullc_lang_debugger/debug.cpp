@@ -356,10 +356,20 @@ std::string GetBasicVariableInfo(unsigned typeIndex, char* ptr, bool hex)
 
 			const char *memberName = symbols + type.offsetToName + (unsigned int)strlen(symbols + type.offsetToName) + 1;
 
-			for(unsigned i = 0; i < *(unsigned*)ptr; i++)
-				memberName += strlen(memberName) + 1;
+			unsigned value = *(unsigned*)ptr;
 
-			snprintf(buf, 256, hex ? "%s (0x%x)" : "%s (%d)", memberName, *(int*)ptr);
+			if(value < type.constantCount)
+			{
+				for(unsigned i = 0; i < value; i++)
+					memberName += strlen(memberName) + 1;
+
+				snprintf(buf, 256, hex ? "%s (0x%x)" : "%s (%d)", memberName, int(value));
+			}
+			else
+			{
+				snprintf(buf, 256, hex ? "(0x%x)" : "(%d)", int(value));
+			}
+
 			return buf;
 		}
 
