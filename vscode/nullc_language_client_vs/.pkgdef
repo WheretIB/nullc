@@ -1,2 +1,35 @@
 [$RootKey$\TextMate\Repositories]
 "nullc"="$PackageFolder$\syntaxes"
+
+; Registration
+[$RootKey$\AD7Metrics\Engine\{5B6BC5F3-2D50-40EE-97F7-105B6FA4EC49}]
+"Name"="nullc Debug Adapter"
+
+; Boilerplate settings
+"CLSID"="{DAB324E9-7B35-454C-ACA8-F6BB0D5C8673}"
+"AlwaysLoadLocal"=dword:00000001
+"AddressBP"=dword:00000000
+"CallStackBP"=dword:00000000
+"AutoSelectPriority"=dword:00000004 
+
+; Adapter capabilities
+"Attach"=dword:00000000
+"Exceptions"=dword:00000000
+"ExceptionConditions"=dword:00000000
+
+; Debug Adapter Host settings
+
+; Path to the debug adapter executable
+"Adapter"="$PackageFolder$\out\nullc_lang_debugger.exe"
+
+; Arguments for the debug adapter executable (optional)
+"AdapterArgs"="--module_path=$PackageFolder$\modules\"
+
+; Language name
+"Language"="nullc"
+
+; Language service (optional)
+;   If the adapter has an associated VS Language Service, specify its GUID in the "LanguageId" property
+;"LanguageId"="{language-service-guid}"
+
+"LocalsScopeName"="Locals"
