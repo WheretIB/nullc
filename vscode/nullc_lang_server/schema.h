@@ -623,6 +623,83 @@ struct DocumentSymbol
 	std::vector<DocumentSymbol> children;
 };
 
+/**
+ * Represents information about programming constructs like variables, classes,
+ * interfaces etc.
+ */
+struct SymbolInformation
+{
+	SymbolInformation() = default;
+
+	explicit SymbolInformation(const std::string& uri, DocumentSymbol& rhs)
+	{
+		name = rhs.name;
+		kind = rhs.kind;
+		deprecated = rhs.deprecated;
+		location = Location(uri, rhs.selectionRange);
+	}
+
+	void SaveTo(rapidjson::Value & target, rapidjson::Document & document)
+	{
+		target.SetObject();
+
+		target.AddMember("name", name, document.GetAllocator());
+
+		target.AddMember("kind", unsigned(kind), document.GetAllocator());
+
+		if(deprecated)
+			target.AddMember("deprecated", deprecated, document.GetAllocator());
+
+		target.AddMember("location", location.ToJson(document), document.GetAllocator());
+
+		if(containerName)
+			target.AddMember("containerName", *containerName, document.GetAllocator());
+	}
+
+	rapidjson::Value ToJson(rapidjson::Document & document)
+	{
+		rapidjson::Value result;
+		SaveTo(result, document);
+		return result;
+	}
+
+	/**
+	 * The name of this symbol.
+	 */
+	std::string name;
+
+	/**
+	 * The kind of this symbol.
+	 */
+	SymbolKind kind;
+
+	/**
+	 * Indicates if this symbol is deprecated.
+	 */
+	bool deprecated = false;
+
+	/**
+	 * The location of this symbol. The location's range is used by a tool
+	 * to reveal the location in the editor. If the symbol is selected in the
+	 * tool the range's start information is used to position the cursor. So
+	 * the range usually spans more then the actual symbol's name and does
+	 * normally include things like visibility modifiers.
+	 *
+	 * The range doesn't have to denote a node range in the sense of a abstract
+	 * syntax tree. It can therefore not be used to re-construct a hierarchy of
+	 * the symbols.
+	 */
+	Location location;
+
+	/**
+	 * The name of the symbol containing this symbol. This information is for
+	 * user interface purposes (e.g. to render a qualifier in the user interface
+	 * if necessary). It can't be used to re-infer a hierarchy for the document
+	 * symbols.
+	 */
+	Optional<std::string> containerName;
+};
+
 enum class DiagnosticSeverity
 {
 	None = 0,

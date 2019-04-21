@@ -1008,6 +1008,14 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 				if(definition.HasMember("linkSupport") && definition["linkSupport"].IsBool() && definition["linkSupport"].GetBool())
 					ctx.textDocumentDefinitionLinkSupport = true;
 			}
+
+			if(textDocument.HasMember("documentSymbol"))
+			{
+				auto& documentSymbol = textDocument["documentSymbol"];
+
+				if(documentSymbol.HasMember("hierarchicalDocumentSymbolSupport") && documentSymbol["hierarchicalDocumentSymbolSupport"].IsBool() && documentSymbol["hierarchicalDocumentSymbolSupport"].GetBool())
+					ctx.textDocumentHierarchicalDocumentSymbolSupport = true;
+			}
 		}
 	}
 
@@ -1539,7 +1547,16 @@ bool HandleDocumentSymbol(Context& ctx, rapidjson::Value& arguments, rapidjson::
 		{
 			rapidjson::Value symbol;
 
-			el.SaveTo(symbol, response);
+			if(ctx.textDocumentHierarchicalDocumentSymbolSupport)
+			{
+				el.SaveTo(symbol, response);
+			}
+			else
+			{
+				SymbolInformation info{ arguments["textDocument"]["uri"].GetString(), el };
+
+				info.SaveTo(symbol, response);
+			}
 
 			result.PushBack(symbol, response.GetAllocator());
 		}

@@ -16,6 +16,7 @@ struct Context
 
 		workspaceConfiguration = false;
 		textDocumentDefinitionLinkSupport = false;
+		textDocumentHierarchicalDocumentSymbolSupport = false;
 	}
 
 	bool infoMode;
@@ -25,6 +26,7 @@ struct Context
 
 	bool workspaceConfiguration;
 	bool textDocumentDefinitionLinkSupport;
+	bool textDocumentHierarchicalDocumentSymbolSupport;
 
 	std::string defaultModulePath;
 
