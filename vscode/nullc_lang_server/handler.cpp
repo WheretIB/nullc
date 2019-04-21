@@ -2843,7 +2843,9 @@ bool HandleMessage(Context& ctx, char *message, unsigned length)
 		auto idNumber = doc["id"].IsUint() ? doc["id"].GetUint() : ~0u;
 		auto strNumber = doc["id"].IsString() ? doc["id"].GetString() : nullptr;
 
-		return HandleMessage(ctx, idNumber, strNumber, method, doc["params"]);
+		rapidjson::Value null;
+
+		return HandleMessage(ctx, idNumber, strNumber, method, doc.HasMember("params") ? doc["params"] : null);
 	}
 
 	return HandleNotification(ctx, method, doc["params"]);
