@@ -2837,16 +2837,16 @@ bool HandleMessage(Context& ctx, char *message, unsigned length)
 
 	auto method = doc["method"].GetString();
 
+	rapidjson::Value null;
+
 	if(doc.HasMember("id"))
 	{
 		// id can be a number or a string
 		auto idNumber = doc["id"].IsUint() ? doc["id"].GetUint() : ~0u;
 		auto strNumber = doc["id"].IsString() ? doc["id"].GetString() : nullptr;
 
-		rapidjson::Value null;
-
 		return HandleMessage(ctx, idNumber, strNumber, method, doc.HasMember("params") ? doc["params"] : null);
 	}
 
-	return HandleNotification(ctx, method, doc["params"]);
+	return HandleNotification(ctx, method, doc.HasMember("params") ? doc["params"] : null);
 }
