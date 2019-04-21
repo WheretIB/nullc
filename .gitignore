@@ -19,3 +19,6 @@ package-lock.json
 legacy/
 /tests/*.txt
 euler/
+/vscode/nullc_language_client_vs/bin
+/vscode/nullc_language_client_vs/obj
+/vscode/nullc_lang_client/.vscode/ipch
