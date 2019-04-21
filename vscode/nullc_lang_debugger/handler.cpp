@@ -852,6 +852,12 @@ bool HandleRequestStackTrace(Context& ctx, rapidjson::Document &response, rapidj
 	unsigned functionCount = 0;
 	auto functions = nullcDebugFunctionInfo(&functionCount);
 
+	unsigned localCount = 0;
+	auto locals = nullcDebugLocalInfo(&localCount);
+
+	unsigned typeCount = 0;
+	auto types = nullcDebugTypeInfo(&typeCount);
+
 	unsigned skipFrames = args.startFrame ? *args.startFrame : 0;
 
 	std::vector<int> stackFrames;
@@ -913,6 +919,52 @@ bool HandleRequestStackTrace(Context& ctx, rapidjson::Document &response, rapidj
 
 		stackFrame.line = line;
 		stackFrame.column = column;
+
+		if(args.format)
+		{
+			if(function && args.format->parameters && *args.format->parameters)
+			{
+				stackFrame.name += "(";
+
+				for(unsigned i = 0; i < function->paramCount + 1; i++)
+				{
+					auto& localInfo = locals[function->offsetToFirstLocal + i];
+
+					const char* name = symbols + localInfo.offsetToName;
+
+					if(*name == '$')
+						continue;
+
+					if(i != 0)
+						stackFrame.name += ", ";
+
+					if(args.format->parameterTypes && *args.format->parameterTypes)
+					{
+						const char* type = symbols + types[localInfo.type].offsetToName;
+
+						stackFrame.name += type;
+
+						if(args.format->parameterNames && *args.format->parameterNames)
+						{
+							stackFrame.name += " ";
+
+							stackFrame.name += name;
+						}
+					}
+					else if(args.format->parameterNames && *args.format->parameterNames)
+					{
+						stackFrame.name += name;
+					}
+				}
+
+				stackFrame.name += ")";
+			}
+
+			if(args.format->line && *args.format->line)
+			{
+				stackFrame.name += ToString(" Line %u", line);
+			}
+		}
 
 		if(!args.levels || *args.levels == 0 || data.stackFrames.size() < (unsigned)*args.levels)
 			data.stackFrames.push_back(stackFrame);
