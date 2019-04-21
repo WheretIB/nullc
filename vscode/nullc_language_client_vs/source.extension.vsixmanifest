@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="nullc_language_client_vs.3dcb13fe-3589-4c80-a7af-328aafcbce30" Version="0.3.6" Language="en-US" Publisher="WheretIB" />
+        <Identity Id="nullc_language_client_vs.3dcb13fe-3589-4c80-a7af-328aafcbce30" Version="0.3.7" Language="en-US" Publisher="WheretIB" />
         <DisplayName>nullc</DisplayName>
         <Description xml:space="preserve">This extension provides support for editing and debugging nullc programs inside Visual Studio.</Description>
-        <Tags>nullc, programming languages</Tags>
+        <MoreInfo>https://marketplace.visualstudio.com/items?itemName=wheretib.nullcvs</MoreInfo>
+        <License>license.txt</License>
+        <Tags>nullc, programming languages, debugger</Tags>
     </Metadata>
     <Installation>
         <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[15.0, 17.0)" />
