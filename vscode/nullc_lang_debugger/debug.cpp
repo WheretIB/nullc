@@ -101,11 +101,24 @@ std::string NormalizePath(std::string path)
 
 const char* GetModuleSourceCode(Context &ctx, const Source& source)
 {
-	// Name is required
-	if(!source.name)
-		return nullptr;
+	std::string name;
 
-	std::string name = NormalizePath(*source.name);
+	// Name is required
+	if(source.name)
+	{
+		name = NormalizePath(*source.name);
+	}
+	else if(source.path && !ctx.rootPath.empty() && source.path->length() > ctx.rootPath.length())
+	{
+		if(strstr(source.path->c_str(), ctx.rootPath.c_str()) == source.path->c_str())
+			name = source.path->substr(ctx.rootPath.length());
+		else
+			return nullptr;
+	}
+	else
+	{
+		return nullptr;
+	}
 
 	auto symbols = nullcDebugSymbols(nullptr);
 

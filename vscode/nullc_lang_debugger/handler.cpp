@@ -480,6 +480,13 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 		}
 	}
 
+	if(ctx.launchArgs.program && (ctx.launchArgs.program->find_last_of('/') != std::string::npos || ctx.launchArgs.program->find_last_of('\\') != std::string::npos))
+	{
+		auto pos = ctx.launchArgs.program->find_last_of('/') != std::string::npos ? ctx.launchArgs.program->find_last_of('/') : ctx.launchArgs.program->find_last_of('\\');
+
+		ctx.rootPath = ctx.launchArgs.program->substr(0, pos + 1);
+	}
+
 	// Initialize nullc with target module path
 	if(ctx.launchArgs.modulePath && !ctx.launchArgs.modulePath->empty())
 	{
@@ -526,6 +533,21 @@ bool HandleRequestLaunch(Context& ctx, rapidjson::Document &response, rapidjson:
 
 			nullcAddImportPath(workspacePath.c_str());
 		}
+	}
+	else if(!ctx.rootPath.empty())
+	{
+		ctx.modulePath = ctx.rootPath;
+
+		ctx.modulePath += "Modules/";
+
+		if(ctx.debugMode)
+			fprintf(stderr, "DEBUG: Launching nullc with module path '%s'\r\n", ctx.modulePath.c_str());
+
+		if(!nullcInit())
+			return RespondWithError(ctx, response, "failed to launch nullc");
+
+		nullcAddImportPath(ctx.modulePath.c_str());
+		nullcAddImportPath(ctx.rootPath.c_str());
 	}
 	else
 	{
@@ -667,6 +689,27 @@ Source GetModuleSourceInfo(Context& ctx, unsigned moduleIndex)
 				source.presentationHint = SourcePresentationHints::emphasize;
 
 				source.origin = "workspace";
+
+				fclose(fIn);
+			}
+			else
+			{
+				source.sourceReference = moduleIndex;
+
+				source.presentationHint = name[0] == '$' ? SourcePresentationHints::deemphasize : SourcePresentationHints::normal;
+			}
+		}
+		else if(!ctx.rootPath.empty())
+		{
+			std::string rootSourcePath = ToString("%s%s", ctx.rootPath.c_str(), name.c_str());
+
+			if(FILE * fIn = fopen(rootSourcePath.c_str(), "rb"))
+			{
+				source.path = rootSourcePath;
+
+				source.presentationHint = SourcePresentationHints::emphasize;
+
+				source.origin = "root";
 
 				fclose(fIn);
 			}

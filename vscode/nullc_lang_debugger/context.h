@@ -26,6 +26,7 @@ struct Context
 
 	std::string defaultModulePath;
 	std::string modulePath;
+	std::string rootPath;
 
 	std::mutex outputMutex;
 
