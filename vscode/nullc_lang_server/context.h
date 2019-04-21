@@ -13,12 +13,18 @@ struct Context
 		debugMode = false;
 
 		nullcInitialized = false;
+
+		workspaceConfiguration = false;
+		textDocumentDefinitionLinkSupport = false;
 	}
 
 	bool infoMode;
 	bool debugMode;
 
 	bool nullcInitialized;
+
+	bool workspaceConfiguration;
+	bool textDocumentDefinitionLinkSupport;
 
 	std::string defaultModulePath;
 

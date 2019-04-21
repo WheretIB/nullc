@@ -970,8 +970,34 @@ bool HandleConfigurationResponse(Context& ctx, rapidjson::Value& response)
 	return true;
 }
 
-bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Document &response)
+bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Document& response)
 {
+	if(arguments.HasMember("capabilities"))
+	{
+		auto& inCapabilities = arguments["capabilities"];
+
+		if(inCapabilities.HasMember("workspace"))
+		{
+			auto& workspace = inCapabilities["workspace"];
+
+			if(workspace.HasMember("configuration") && workspace["configuration"].IsBool() && workspace["configuration"].GetBool())
+				ctx.workspaceConfiguration = true;
+		}
+
+		if(inCapabilities.HasMember("textDocument"))
+		{
+			auto& textDocument = inCapabilities["textDocument"];
+
+			if(textDocument.HasMember("definition"))
+			{
+				auto& definition = textDocument["definition"];
+
+				if(definition.HasMember("linkSupport") && definition["linkSupport"].IsBool() && definition["linkSupport"].GetBool())
+					ctx.textDocumentDefinitionLinkSupport = true;
+			}
+		}
+	}
+
 	if(!ctx.nullcInitialized)
 	{
 		if(arguments["rootUri"].IsString())
@@ -1089,7 +1115,8 @@ bool HandleInitialize(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 
 	SendResponse(ctx, response);
 
-	RequestConfiguration(ctx);
+	if(ctx.workspaceConfiguration)
+		RequestConfiguration(ctx);
 
 	return true;
 }
@@ -2090,8 +2117,19 @@ bool HandleDefinition(Context& ctx, rapidjson::Value& arguments, rapidjson::Docu
 	{
 		result.SetArray();
 
-		for(auto &&el : locations)
-			result.PushBack(el.ToJson(response), response.GetAllocator());
+		for(auto&& el : locations)
+		{
+			if(ctx.textDocumentDefinitionLinkSupport)
+			{
+				result.PushBack(el.ToJson(response), response.GetAllocator());
+			}
+			else
+			{
+				Location location(el.targetUri, el.targetSelectionRange);
+
+				result.PushBack(location.ToJson(response), response.GetAllocator());
+			}
+		}
 	}
 
 	response.AddMember("result", result, response.GetAllocator());
