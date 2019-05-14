@@ -249,7 +249,7 @@
     <ClCompile Include="UnitTests.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\NULLC\NULLC_110.vcxproj">
+    <ProjectReference Include="..\NULLC\NULLC_141.vcxproj">
       <Project>{5914662d-ebdb-4f94-8a1c-bc26e3e8b8c7}</Project>
     </ProjectReference>
   </ItemGroup>

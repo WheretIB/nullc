@@ -204,7 +204,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\NULLC\NULLC_cl_110.vcxproj">
+    <ProjectReference Include="..\NULLC\NULLC_cl_141.vcxproj">
       <Project>{536f47bb-3bf0-45e9-a174-332a43b511d9}</Project>
     </ProjectReference>
   </ItemGroup>
