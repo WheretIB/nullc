@@ -102,10 +102,11 @@
       <AdditionalIncludeDirectories>$(SolutionDir)external;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
       <OutputFile>$(TargetPath)</OutputFile>
       <LargeAddressAware>true</LargeAddressAware>
       <AdditionalLibraryDirectories>$(SolutionDir)external</AdditionalLibraryDirectories>
+      <SubSystem>Console</SubSystem>
     </Link>
     <PostBuildEvent>
       <Command>$(OutDir)$(TargetName).exe</Command>
@@ -123,9 +124,10 @@
       <AdditionalIncludeDirectories>$(SolutionDir)external;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
       <OutputFile>$(TargetPath)</OutputFile>
       <AdditionalLibraryDirectories>$(SolutionDir)external</AdditionalLibraryDirectories>
+      <SubSystem>Console</SubSystem>
     </Link>
     <PostBuildEvent>
       <Command>$(OutDir)$(TargetName).exe</Command>
@@ -144,11 +146,12 @@
       <AdditionalIncludeDirectories>$(SolutionDir)external;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <OutputFile>$(TargetPath)</OutputFile>
       <AdditionalLibraryDirectories>$(SolutionDir)external</AdditionalLibraryDirectories>
+      <SubSystem>Console</SubSystem>
     </Link>
     <PostBuildEvent>
       <Command>$(OutDir)$(TargetName).exe</Command>
@@ -167,11 +170,12 @@
       <AdditionalIncludeDirectories>$(SolutionDir)external;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <OutputFile>$(TargetPath)</OutputFile>
       <AdditionalLibraryDirectories>$(SolutionDir)external</AdditionalLibraryDirectories>
+      <SubSystem>Console</SubSystem>
     </Link>
     <PostBuildEvent>
       <Command>$(OutDir)$(TargetName).exe</Command>
