@@ -19,6 +19,7 @@ int main(int argc, char** argv)
 	bool runSpeedTests = false;
 	bool testOutput = false;
 	bool testTranslationSave = false;
+	bool testTranslation = false;
 
 	for(int i = 1; i < argc; i++)
 	{
@@ -30,9 +31,11 @@ int main(int argc, char** argv)
 			testOutput = true;
 		else if(strcmp(argv[i], "--translate") == 0 || strcmp(argv[i], "-t") == 0)
 			testTranslationSave = true;
+		else if(strcmp(argv[i], "--executable") == 0 || strcmp(argv[i], "-e") == 0)
+			testTranslation = true;
 	}
 
-	return RunTests(verbose, 0, runSpeedTests, testOutput, testTranslationSave);
+	return RunTests(verbose, 0, runSpeedTests, testOutput, testTranslationSave, testTranslation);
 }
 
 #else

@@ -336,7 +336,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		timeGetBytecode += myGetPreciseTime() - time;
 		time = myGetPreciseTime();
 
-		if(executor == NULLC_VM && !execShouldFail && doSaveTranslation)
+		if(executor == NULLC_VM && !execShouldFail && (doSaveTranslation || doTranslation))
 		{
 			for(unsigned i = 0; i < translationDependencyCount; i++)
 				free(translationDependencies[i]);
@@ -507,6 +507,15 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 #endif
 
 		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " 1test.cpp");
+		pos += strlen(pos);
+
+		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " -lstdc++");
+		pos += strlen(pos);
+
+		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " -Itranslation");
+		pos += strlen(pos);
+
+		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " -I../NULLC/translation");
 		pos += strlen(pos);
 
 		NULLC::SafeSprintf(pos, 1024 - unsigned(pos - cmdLine), " ../NULLC/translation/runtime.cpp -lstdc++");

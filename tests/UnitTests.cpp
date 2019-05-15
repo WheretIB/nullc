@@ -2,6 +2,7 @@
 
 #include "../NULLC/nullc.h"
 #include "../NULLC/nullc_debug.h"
+#include "../NULLC/nullc_internal.h"
 
 // Check that remote debug module compiles correctly
 #if defined(_MSC_VER)
@@ -76,7 +77,7 @@ nullres CompileFile(const char* fileName)
 	return nullcCompile(content);
 }
 
-int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int*, int*), bool runSpeedTests, bool testOutput, bool testTranslationSave)
+int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int*, int*), bool runSpeedTests, bool testOutput, bool testTranslationSave, bool testTranslation)
 {
 	Tests::messageVerbose = verbose;
 	Tests::fileLoadFunc = fileLoadFunc;
@@ -124,6 +125,15 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 
 	Tests::enableLogFiles = testOutput;
 	Tests::doSaveTranslation = testTranslationSave;
+	Tests::doTranslation = testTranslation;
+
+	if(testTranslation)
+	{
+		Tests::messageVerbose = true;
+		Tests::openStreamFunc = 0;
+		Tests::writeStreamFunc = 0;
+		Tests::closeStreamFunc = 0;
+	}
 
 	// To test translation to C with build and execution
 	/*
@@ -144,7 +154,7 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	Tests::closeStreamFunc = 0;
 	*/
 
-	// Init NULLC
+	// Init NULLC for interface tests
 #ifdef NO_CUSTOM_ALLOCATOR
 	nullcInit();
 	nullcAddImportPath(MODULE_PATH_A);
@@ -161,6 +171,7 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	nullcInitDynamicModule();
 	RunInterfaceTests();
 
+	// Init NULLC for test set
 #ifdef NO_CUSTOM_ALLOCATOR
 	nullcInit();
 	nullcAddImportPath(MODULE_PATH_A);
@@ -198,14 +209,6 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 
 	RunParseFailTests();
 	RunCompileFailTests();
-
-#ifdef __linux
-	system("cp ../NULLC/translation/runtime.h runtime.h");
-	system("cp ../NULLC/translation/runtime.h translation/runtime.h");
-#else
-	_popen("copy \"..\\NULLC\\translation\\runtime.h\" \"runtime.h\"", "r");
-	_popen("copy \"..\\NULLC\\translation\\runtime.h\" \"translation\\runtime.h\"", "r");
-#endif
 
 	TestQueue queue;
 	queue.RunTests();
@@ -259,14 +262,6 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 
 	if(runSpeedTests)
 		RunSpeedTests();
-
-#ifdef __linux
-	system("rm runtime.h");
-	system("rm translation/runtime.h");
-#else
-	_popen("del \"runtime.h\"", "r");
-	_popen("del \"translation\\runtime.h\"", "r");
-#endif
 
 	// Terminate NULLC
 	nullcTerminate();
