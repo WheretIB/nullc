@@ -1796,8 +1796,6 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 	{
 		ModuleData *data = ctx.ctx.imports[i];
 
-		PrintIndentedLine(ctx, "// Requires '%.*s'", FMT_ISTR(data->name));
-
 		const char *targetName = GetModuleOutputPath(ctx.allocator, data->name);
 
 		bool found = false;
@@ -1928,6 +1926,14 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 
 		if(needDelete)
 			NULLC::dealloc(fileContent);
+	}
+
+	// Translate all imports (expept base)
+	for(unsigned i = 1; i < ctx.ctx.imports.size(); i++)
+	{
+		ModuleData* data = ctx.ctx.imports[i];
+
+		PrintIndentedLine(ctx, "// Requires '%.*s'", FMT_ISTR(data->name));
 	}
 
 	return true;
