@@ -302,7 +302,7 @@ namespace NULLCIO
 #if !defined(_MSC_VER)
 		(void)key;
 
-		nullcThrowError("GetMouseState: supported only under Windows");
+		nullcThrowError("IsPressed: supported only under Windows");
 		return false;
 #else
 		unsigned char arr[256];
@@ -317,7 +317,7 @@ namespace NULLCIO
 #if !defined(_MSC_VER)
 		(void)key;
 
-		nullcThrowError("GetMouseState: supported only under Windows");
+		nullcThrowError("IsToggled: supported only under Windows");
 		return false;
 #else
 		unsigned char arr[256];
