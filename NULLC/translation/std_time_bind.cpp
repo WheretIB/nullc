@@ -8,11 +8,11 @@
 	#pragma comment(lib, "Winmm.lib")
 #endif
 
-int clock(void* unused)
+int clock_int_ref__(void* unused)
 {
 	return ::clock() * 1000 / CLOCKS_PER_SEC;
 }
-double clock_precise(void* unused)
+double clock_precise_double_ref__(void* unused)
 {
 #ifdef WIN32
 	LARGE_INTEGER freq, count;

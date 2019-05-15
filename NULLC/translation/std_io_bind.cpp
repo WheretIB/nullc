@@ -6,19 +6,29 @@
 	#include <windows.h>
 #endif
 
-void Print(NULLCArray<char > text, void* unused)
+long long std_io_absl(long long x)
+{
+	return x < 0 ? -x : x;
+}
+
+void Print_void_ref_long_int_(long long number, int base, void* unused);
+
+void Print_void_ref_char___(NULLCArray<char > text, void* unused)
 {
 	printf("%s", text.ptr);
 }
 
-long long std_io_absl(long long x){ return x < 0 ? -x : x; }
-
-void Print(double num, void* unused)
+void Print_void_ref_int_int_(int num, int base, void* unused)
 {
-	printf("%.12f", num);
+	Print_void_ref_long_int_((long long)num, base, NULL);
 }
 
-void Print(long long number, int base, void* unused)
+void Print_void_ref_double_int_(double num, int precision, void* unused)
+{
+	printf("%.*f", precision, num);
+}
+
+void Print_void_ref_long_int_(long long number, int base, void* unused)
 {
 	if(!(base > 1 && base <= 16))
 	{
@@ -49,17 +59,12 @@ void Print(long long number, int base, void* unused)
 	printf("%s", buf);
 }
 
-void Print(int num, int base, void* unused)
-{
-	Print((long long)num, base, NULL);
-}
-
-void Print(char ch, void* unused)
+void Print_void_ref_char_(char ch, void* unused)
 {
 	printf("%c", ch);
 }
 
-int Input(NULLCArray<char > data, void* unused)
+int Input_int_ref_char___(NULLCArray<char > data, void* unused)
 {
 	char buffer[2048];
 
@@ -78,17 +83,17 @@ int Input(NULLCArray<char > data, void* unused)
 	return ((unsigned int)len < data.size ? len : data.size);
 }
 
-void Input(int * num, void* unused)
+void Input_void_ref_int_ref_(int * num, void* unused)
 {
 	scanf("%d", num);
 }
 
-void Write(NULLCArray<char > buf, void* unused)
+void Write_void_ref_char___(NULLCArray<char > buf, void* unused)
 {
 	fwrite(buf.ptr, 1, buf.size, stdout);
 }
 
-void SetConsoleCursorPos(int x, int y, void* unused)
+void SetConsoleCursorPos_void_ref_int_int_(int x, int y, void* unused)
 {
 #if !defined(_WIN32)
 	nullcThrowError("SetConsoleCursorPos: supported only under Windows");
@@ -106,7 +111,7 @@ void SetConsoleCursorPos(int x, int y, void* unused)
 #endif
 }
 
-void GetKeyboardState(NULLCArray<char > state, void* unused)
+void GetKeyboardState_void_ref_char___(NULLCArray<char > state, void* unused)
 {
 #if !defined(_WIN32)
 	nullcThrowError("GetKeyboardState: supported only under Windows");
@@ -117,7 +122,7 @@ void GetKeyboardState(NULLCArray<char > state, void* unused)
 #endif
 }
 
-void GetMouseState(int * x, int * y, void* unused)
+void GetMouseState_void_ref_int_ref_int_ref_(int * x, int * y, void* unused)
 {
 #if !defined(_WIN32)
 	nullcThrowError("GetMouseState: supported only under Windows");
@@ -129,3 +134,67 @@ void GetMouseState(int * x, int * y, void* unused)
 #endif
 }
 
+struct VK
+{
+	int value;
+};
+
+bool IsPressed_bool_ref_VK_(VK key, void* __context)
+{
+#if !defined(_MSC_VER)
+	(void)key;
+
+	nullcThrowError("IsPressed: supported only under Windows");
+	return false;
+#else
+	unsigned char arr[256];
+	::GetKeyboardState(arr);
+	if(arr[key & 0xff] > 1)
+		key = key;
+	return !!(arr[unsigned(key.value) & 0xff] & 0x80);
+#endif
+}
+
+bool IsPressed_bool_ref_char_(char key, void* __context)
+{
+#if !defined(_MSC_VER)
+	(void)key;
+
+	nullcThrowError("IsPressed: supported only under Windows");
+	return false;
+#else
+	unsigned char arr[256];
+	::GetKeyboardState(arr);
+	if(arr[key & 0xff] > 1)
+		key = key;
+	return !!(arr[unsigned(key) & 0xff] & 0x80);
+#endif
+}
+
+bool IsToggled_bool_ref_VK_(VK key, void* __context)
+{
+#if !defined(_MSC_VER)
+	(void)key;
+
+	nullcThrowError("IsToggled: supported only under Windows");
+	return false;
+#else
+	unsigned char arr[256];
+	::GetKeyboardState(arr);
+	return !!(arr[unsigned(key.value) & 0xff] & 0x1);
+#endif
+}
+
+bool IsToggled_bool_ref_char_(char key, void* __context)
+{
+#if !defined(_MSC_VER)
+	(void)key;
+
+	nullcThrowError("IsToggled: supported only under Windows");
+	return false;
+#else
+	unsigned char arr[256];
+	::GetKeyboardState(arr);
+	return !!(arr[unsigned(key) & 0xff] & 0x1);
+#endif
+}
