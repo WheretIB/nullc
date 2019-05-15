@@ -17,6 +17,43 @@ void AddDependency(const char *fileName)
 		translationDependencies[translationDependencyCount++] = fileName;
 }
 
+bool AddSourceFile(char *&buf, const char *name)
+{
+	if(FILE *file = fopen(name, "r"))
+	{
+		*(buf++) = ' ';
+		strcpy(buf, name);
+		buf += strlen(buf);
+
+		fclose(file);
+
+		return true;
+	}
+
+	return false;
+}
+
+bool SearchAndAddSourceFile(char*& buf, const char* name)
+{
+	char tmp[256];
+	sprintf(tmp, "%s", name);
+
+	if(AddSourceFile(buf, tmp))
+		return true;
+
+	sprintf(tmp, "translation/%s", name);
+
+	if(AddSourceFile(buf, tmp))
+		return true;
+
+	sprintf(tmp, "../NULLC/translation/%s", name);
+
+	if(AddSourceFile(buf, tmp))
+		return true;
+
+	return false;
+}
+
 int main(int argc, char** argv)
 {
 	nullcInit();
@@ -32,6 +69,14 @@ int main(int argc, char** argv)
 
 	int argIndex = 1;
 	FILE *mergeFile = NULL;
+	bool verbose = false;
+
+	if(strcmp("-v", argv[argIndex]) == 0)
+	{
+		argIndex++;
+
+		verbose = true;
+	}
 
 	if(strcmp("-o", argv[argIndex]) == 0)
 	{
@@ -117,30 +162,17 @@ int main(int argc, char** argv)
 			strcpy(pos, " -lstdc++");
 			pos += strlen(pos);
 
-			char tmp[256];
-			sprintf(tmp, "runtime.cpp");
+			strcpy(pos, " -Itranslation");
+			pos += strlen(pos);
 
-			if(FILE *file = fopen(tmp, "r"))
-			{
-				*(pos++) = ' ';
-				strcpy(pos, tmp);
-				pos += strlen(pos);
+			strcpy(pos, " -I../NULLC/translation");
+			pos += strlen(pos);
 
-				fclose(file);
-			}
-			else
-			{
-				sprintf(tmp, "translation/runtime.cpp");
+			strcpy(pos, " -O2");
+			pos += strlen(pos);
 
-				if(FILE *file = fopen(tmp, "r"))
-				{
-					*(pos++) = ' ';
-					strcpy(pos, tmp);
-					pos += strlen(pos);
-
-					fclose(file);
-				}
-			}
+			if(!SearchAndAddSourceFile(pos, "runtime.cpp"))
+				printf("Failed to find 'runtime.cpp' input file");
 
 			for(unsigned i = 0; i < translationDependencyCount; i++)
 			{
@@ -153,41 +185,19 @@ int main(int argc, char** argv)
 
 				if(strstr(dependency, "import_"))
 				{
+					char tmp[256];
 					sprintf(tmp, "%s", dependency + strlen("import_"));
 
 					if(char *pos = strstr(tmp, "_nc.cpp"))
 						strcpy(pos, "_bind.cpp");
 
-					if(FILE *file = fopen(tmp, "r"))
-					{
-						*(pos++) = ' ';
-						strcpy(pos, tmp);
-						pos += strlen(pos);
-
-						fclose(file);
-					}
-					else
-					{
-						sprintf(tmp, "translation/%s", dependency + strlen("import_"));
-
-						if(char *pos = strstr(tmp, "_nc.cpp"))
-							strcpy(pos, "_bind.cpp");
-
-						if(FILE *file = fopen(tmp, "r"))
-						{
-							*(pos++) = ' ';
-							strcpy(pos, tmp);
-							pos += strlen(pos);
-
-							fclose(file);
-						}
-					}
+					if(!SearchAndAddSourceFile(pos, tmp))
+						printf("Failed to find '%s' input file", tmp);
 				}
 			}
 			
-			printf("Command line: %s\n", cmdLine);
-
-			
+			if (verbose)
+				printf("Command line: %s\n", cmdLine);
 
 			system(cmdLine);
 		}
