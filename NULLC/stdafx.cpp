@@ -18,7 +18,7 @@ void* NULLC::alignedAlloc(int size)
 	if(!unaligned)
 		return NULL;
 	void *ptr = (void*)(((intptr_t)unaligned + sizeof(void*) + 16 - 1) & ~(16 - 1));
-	*((void**)ptr - 1) = unaligned;
+	memcpy((void**)ptr - 1, &unaligned, sizeof(unaligned));
 	return ptr;
 }
 
@@ -28,13 +28,15 @@ void* NULLC::alignedAlloc(int size, int extraSize)
 	if(!unaligned)
 		return NULL;
 	void *ptr = (void*)((((intptr_t)unaligned + sizeof(void*) + extraSize + 16 - 1) & ~(16 - 1)) - extraSize);
-	*((void**)ptr - 1) = unaligned;
+	memcpy((void**)ptr - 1, &unaligned, sizeof(unaligned));
 	return ptr;
 }
 
 void NULLC::alignedDealloc(void* ptr)
 {
-	dealloc(*((void **)ptr - 1));
+	void* unaligned = NULL;
+	memcpy(&unaligned, (void**)ptr - 1, sizeof(unaligned));
+	dealloc(unaligned);
 }
 
 const void*	NULLC::defaultFileLoad(const char* name, unsigned int* size, int* nullcShouldFreePtr)
