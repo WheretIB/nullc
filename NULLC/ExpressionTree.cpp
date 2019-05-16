@@ -12134,7 +12134,7 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 		module->setup.push_back(ctx.setup[i]);
 
 	for(unsigned i = 0; i < ctx.vtables.size(); i++)
-		module->setup.push_back(CreateVirtualTableUpdate(ctx, syntax, ctx.vtables[i]));
+		module->setup.push_back(CreateVirtualTableUpdate(ctx, ctx.MakeInternal(syntax), ctx.vtables[i]));
 
 	for(unsigned i = 0; i < ctx.upvalues.size(); i++)
 		module->setup.push_back(new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(ctx.MakeInternal(syntax), ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, ctx.upvalues[i]), NULL));
