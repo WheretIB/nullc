@@ -105,6 +105,11 @@ public:
 	}
 	~ObjectBlockPool()
 	{
+		Reset();
+	}
+
+	void Reset()
+	{
 		if(!activePages)
 			return;
 		do
@@ -659,13 +664,13 @@ void NULLC::ClearMemory()
 {
 	usedMemory = 0;
 
-	pool8.~ObjectBlockPool();
-	pool16.~ObjectBlockPool();
-	pool32.~ObjectBlockPool();
-	pool64.~ObjectBlockPool();
-	pool128.~ObjectBlockPool();
-	pool256.~ObjectBlockPool();
-	pool512.~ObjectBlockPool();
+	pool8.Reset();
+	pool16.Reset();
+	pool32.Reset();
+	pool64.Reset();
+	pool128.Reset();
+	pool256.Reset();
+	pool512.Reset();
 
 	bigBlocks.for_each(ClearBlock);
 	bigBlocks.clear();
