@@ -280,6 +280,10 @@ struct VmInstruction: VmValue
 
 		prevSibling = NULL;
 		nextSibling = NULL;
+
+		hasRegVmRegister = false;
+		regVmRegister = 0;
+		regVmCompletedUsers = 0;
 	}
 
 	void AddArgument(VmValue *argument);
@@ -294,6 +298,10 @@ struct VmInstruction: VmValue
 
 	VmInstruction *prevSibling;
 	VmInstruction *nextSibling;
+
+	bool hasRegVmRegister;
+	unsigned char regVmRegister;
+	unsigned regVmCompletedUsers;
 
 	static const unsigned myTypeID = __LINE__;
 };

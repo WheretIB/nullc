@@ -15,6 +15,8 @@ struct VariableData;
 struct ScopeData;
 struct TypeBase;
 
+struct ExpressionContext;
+
 bool IsGlobalScope(ScopeData *scope);
 bool IsMemberScope(ScopeData *scope);
 bool IsLocalScope(ScopeData *scope);
@@ -39,3 +41,5 @@ unsigned GetAccessSize(VmInstruction *inst);
 bool HasAddressTaken(VariableData *container);
 
 const char* GetInstructionName(VmInstruction *inst);
+
+VariableData* FindGlobalAt(ExpressionContext &exprCtx, unsigned offset);

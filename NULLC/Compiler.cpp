@@ -596,6 +596,26 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		}
 	}
 
+	ctx.regVmLoweredModule = RegVmLowerModule(exprCtx, ctx.vmModule);
+
+	if(ctx.enableLogFiles)
+	{
+		assert(!ctx.outputCtx.stream);
+		ctx.outputCtx.stream = ctx.outputCtx.openStream("inst_graph_reg_low.txt");
+
+		if(ctx.outputCtx.stream)
+		{
+			InstructionRegVmLowerGraphContext instRegVmLowerGraphCtx(ctx.outputCtx);
+
+			instRegVmLowerGraphCtx.showSource = true;
+
+			PrintGraph(instRegVmLowerGraphCtx, ctx.regVmLoweredModule);
+
+			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
+			ctx.outputCtx.stream = NULL;
+		}
+	}
+
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_VM);
 
 	if(ctx.enableLogFiles)

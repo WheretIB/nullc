@@ -33,6 +33,8 @@ struct VmFunction;
 
 struct VmLoweredInstruction;
 
+struct RegVmLoweredInstruction;
+
 struct VariableHandle
 {
 	VariableHandle(SynBase *source, VariableData *variable): source(source), variable(variable), next(0), listed(false)
@@ -195,6 +197,9 @@ struct VariableData
 
 	// Data for VM module construction
 	SmallArray<VmLoweredInstruction*, 4> lowUsers;
+
+	// Data for RegVm module construction
+	SmallArray<RegVmLoweredInstruction*, 4> regVmUsers;
 };
 
 struct VariableDataHasher

@@ -77,6 +77,12 @@
     <ClCompile Include="InstructionTreeLlvm.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
+    <ClCompile Include="InstructionTreeRegVmLowerGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVmLower.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -164,6 +170,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="InstructionTreeLlvm.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVmLower.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVmLowerGraph.h">
       <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>

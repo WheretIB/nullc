@@ -2,6 +2,7 @@
 
 #include "TypeTree.h"
 #include "InstructionTreeVm.h"
+#include "ExpressionTree.h"
 
 namespace
 {
@@ -409,4 +410,24 @@ const char* GetInstructionName(VmInstruction *inst)
 	}
 
 	return "unknown";
+}
+
+VariableData* FindGlobalAt(ExpressionContext &exprCtx, unsigned offset)
+{
+	unsigned targetModuleIndex = offset >> 24;
+
+	if(targetModuleIndex)
+		offset = offset & 0xffffff;
+
+	for(unsigned i = 0; i < exprCtx.variables.size(); i++)
+	{
+		VariableData *variable = exprCtx.variables[i];
+
+		unsigned variableModuleIndex = variable->importModule ? variable->importModule->importIndex : 0;
+
+		if(IsGlobalScope(variable->scope) && variableModuleIndex == targetModuleIndex && offset >= variable->offset && (offset < variable->offset + variable->type->size || variable->type->size == 0))
+			return variable;
+	}
+
+	return NULL;
 }

@@ -13,12 +13,14 @@
 #include "InstructionTreeVmEval.h"
 #include "InstructionTreeVmLower.h"
 #include "InstructionTreeVmLowerGraph.h"
+#include "InstructionTreeRegVmLower.h"
+#include "InstructionTreeRegVmLowerGraph.h"
 #include "InstructionTreeLlvm.h"
 #include "Output.h"
 
 struct CompilerContext
 {
-	CompilerContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): allocator(allocator), parseCtx(allocator, optimizationLevel, activeImports), exprCtx(allocator, optimizationLevel), instFinalizeCtx(exprCtx, allocator), optimizationLevel(optimizationLevel)
+	CompilerContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): allocator(allocator), parseCtx(allocator, optimizationLevel, activeImports), exprCtx(allocator, optimizationLevel), instFinalizeCtx(exprCtx, allocator), instRegVmFinalizeCtx(exprCtx, allocator), optimizationLevel(optimizationLevel)
 	{
 		code = 0;
 
@@ -35,6 +37,8 @@ struct CompilerContext
 		llvmModule = 0;
 
 		vmLoweredModule = 0;
+
+		regVmLoweredModule = 0;
 
 		enableLogFiles = false;
 	}
@@ -62,6 +66,10 @@ struct CompilerContext
 	VmLoweredModule *vmLoweredModule;
 
 	InstructionVmFinalizeContext instFinalizeCtx;
+
+	RegVmLoweredModule *regVmLoweredModule;
+
+	InstructionRegVmFinalizeContext instRegVmFinalizeCtx;
 
 	bool enableLogFiles;
 

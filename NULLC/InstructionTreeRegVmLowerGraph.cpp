@@ -1,16 +1,15 @@
-#include "InstructionTreeVmLowerGraph.h"
+#include "InstructionTreeRegVmLowerGraph.h"
 
 #include "ExpressionTree.h"
-#include "InstructionSet.h"
 #include "InstructionTreeVm.h"
-#include "InstructionTreeVmLower.h"
 #include "InstructionTreeVmCommon.h"
+#include "InstructionTreeRegVmLower.h"
 
-void (*nullcDumpGraphVmLoweredModule)(VmLoweredModule*) = DumpGraph;
+void (*nullcDumpGraphRegVmLoweredModule)(RegVmLoweredModule*) = DumpGraph;
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
-NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(InstructionVmLowerGraphContext &ctx, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(InstructionRegVmLowerGraphContext &ctx, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -20,17 +19,17 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(InstructionVmLowerGraphContext &ctx, c
 	va_end(args);
 }
 
-void PrintIndent(InstructionVmLowerGraphContext &ctx)
+void PrintIndent(InstructionRegVmLowerGraphContext &ctx)
 {
 	ctx.output.Print("  ");
 }
 
-void PrintLine(InstructionVmLowerGraphContext &ctx)
+void PrintLine(InstructionRegVmLowerGraphContext &ctx)
 {
 	ctx.output.Print("\n");
 }
 
-NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintLine(InstructionVmLowerGraphContext &ctx, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintLine(InstructionRegVmLowerGraphContext &ctx, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -42,7 +41,17 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintLine(InstructionVmLowerGraphContext &ct
 	PrintLine(ctx);
 }
 
-void PrintConstant(InstructionVmLowerGraphContext &ctx, VmConstant *constant)
+void PrintRegister(InstructionRegVmLowerGraphContext &ctx, unsigned char value)
+{
+	Print(ctx, "r%d", value);
+}
+
+void PrintFrameFlag(InstructionRegVmLowerGraphContext &ctx, unsigned char value)
+{
+	Print(ctx, value ? "relative" : "absolute");
+}
+
+void PrintConstant(InstructionRegVmLowerGraphContext &ctx, VmConstant *constant)
 {
 	if(constant->type == VmType::Void)
 		Print(ctx, "{}");
@@ -70,7 +79,7 @@ void PrintConstant(InstructionVmLowerGraphContext &ctx, VmConstant *constant)
 		assert(!"unknown type");
 }
 
-void PrintInstruction(InstructionVmLowerGraphContext &ctx, VmLoweredInstruction *lowInstruction)
+void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstruction *lowInstruction)
 {
 	if(ctx.showSource && lowInstruction->location && !lowInstruction->location->isInternal)
 	{
@@ -137,23 +146,215 @@ void PrintInstruction(InstructionVmLowerGraphContext &ctx, VmLoweredInstruction 
 		}
 	}
 
-	if(lowInstruction->stackDepthBefore == lowInstruction->stackDepthAfter)
-		Print(ctx, "[    %2d] ", lowInstruction->stackDepthAfter);
-	else
-		Print(ctx, "[%2d->%2d] ", lowInstruction->stackDepthBefore, lowInstruction->stackDepthAfter);
+	Print(ctx, "%s ", GetInstructionName(RegVmInstructionCode(lowInstruction->code)));
 
-	Print(ctx, "%s", vmInstructionText[lowInstruction->cmd]);
-
-	if(lowInstruction->flag)
+	switch(lowInstruction->code)
 	{
+	case rviNop:
+		break;
+	case rviLoadByte:
+	case rviLoadWord:
+	case rviLoadDword:
+	case rviLoadQword:
+	case rviLoadFloat:
+		PrintRegister(ctx, lowInstruction->rA);
 		Print(ctx, ", ");
-		PrintConstant(ctx, lowInstruction->flag);
-	}
+		PrintFrameFlag(ctx, lowInstruction->rB);
+		break;
+	case rviLoadBytePtr:
+	case rviLoadWordPtr:
+	case rviLoadDwordPtr:
+	case rviLoadQwordPtr:
+	case rviLoadFloatPtr:
+		PrintRegister(ctx, lowInstruction->rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	case rviLoadImm:
+	case rviLoadImmHigh:
+		PrintRegister(ctx, lowInstruction->rA);
+		break;
+	case rviStoreByte:
+	case rviStoreWord:
+	case rviStoreDword:
+	case rviStoreQword:
+	case rviStoreFloat:
+		PrintRegister(ctx, lowInstruction->rA);
+		Print(ctx, ", ");
+		PrintFrameFlag(ctx, lowInstruction->rB);
+		break;
+	case rviStoreBytePtr:
+	case rviStoreWordPtr:
+	case rviStoreDwordPtr:
+	case rviStoreQwordPtr:
+	case rviStoreFloatPtr:
+		PrintRegister(ctx, lowInstruction->rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	case rviDtoi:
+	case rviDtol:
+	case rviDtof:
+	case rviItod:
+	case rviLtod:
+	case rviItol:
+	case rviLtoi:
+		PrintRegister(ctx, lowInstruction->rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	case rviIndex:
+		PrintRegister(ctx, lowInstruction->rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, lowInstruction->rB);
+		Print(ctx, ", ");
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	case rviGetAddr:
+		PrintFrameFlag(ctx, lowInstruction->rB);
+		Print(ctx, ", ");
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	case rviSetRange:
+		PrintRegister(ctx, lowInstruction->rA);
+		Print(ctx, ", ");
 
-	if(lowInstruction->helper)
-	{
+		switch(lowInstruction->rB)
+		{
+		case rvsrDouble:
+			Print(ctx, "double");
+			break;
+		case rvsrFloat:
+			Print(ctx, "float");
+			break;
+		case rvsrLong:
+			Print(ctx, "long");
+			break;
+		case rvsrInt:
+			Print(ctx, "int");
+			break;
+		case rvsrShort:
+			Print(ctx, "short");
+			break;
+		case rvsrChar:
+			Print(ctx, "char");
+			break;
+		default:
+			assert(!"unknown type");
+		}
+
 		Print(ctx, ", ");
-		PrintConstant(ctx, lowInstruction->helper);
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	case rviJmp:
+		break;
+	case rviJmpz:
+	case rviJmpnz:
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	case rviCall:
+		break;
+	case rviCallPtr:
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	case rviReturn:
+		switch(lowInstruction->rB)
+		{
+		case rvrDouble:
+			Print(ctx, "double");
+			break;
+		case rvrLong:
+			Print(ctx, "long");
+			break;
+		case rvrInt:
+			Print(ctx, "int");
+			break;
+		case rvrStruct:
+			Print(ctx, "struct");
+			break;
+		case rvrError:
+			Print(ctx, "error");
+			break;
+		default:
+			assert(!"unknown type");
+		}
+		break;
+	case rviPushvtop:
+		Print(ctx, "%d", lowInstruction->rB * 256 + lowInstruction->rC);
+		break;
+	case rviAdd:
+	case rviSub:
+	case rviMul:
+	case rviDiv:
+	case rviPow:
+	case rviMod:
+	case rviLess:
+	case rviGreater:
+	case rviLequal:
+	case rviGequal:
+	case rviEqual:
+	case rviNequal:
+	case rviShl:
+	case rviShr:
+	case rviBitAnd:
+	case rviBitOr:
+	case rviBitXor:
+	case rviLogXor:
+	case rviAddl:
+	case rviSubl:
+	case rviMull:
+	case rviDivl:
+	case rviPowl:
+	case rviModl:
+	case rviLessl:
+	case rviGreaterl:
+	case rviLequall:
+	case rviGequall:
+	case rviEquall:
+	case rviNequall:
+	case rviShll:
+	case rviShrl:
+	case rviBitAndl:
+	case rviBitOrl:
+	case rviBitXorl:
+	case rviLogXorl:
+	case rviAddd:
+	case rviSubd:
+	case rviMuld:
+	case rviDivd:
+	case rviPowd:
+	case rviModd:
+	case rviLessd:
+	case rviGreaterd:
+	case rviLequald:
+	case rviGequald:
+	case rviEquald:
+	case rviNequald:
+		PrintRegister(ctx, lowInstruction->rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, lowInstruction->rB);
+		Print(ctx, ", ");
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	case rviNeg:
+	case rviNegl:
+	case rviNegd:
+	case rviBitNot:
+	case rviBitNotl:
+	case rviLogNot:
+	case rviLogNotl:
+		PrintRegister(ctx, lowInstruction->rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	case rviConvertPtr:
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	case rviCheckRet:
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	default:
+		assert(!"unknown instruction");
 	}
 
 	if(lowInstruction->argument)
@@ -162,41 +363,26 @@ void PrintInstruction(InstructionVmLowerGraphContext &ctx, VmLoweredInstruction 
 		PrintConstant(ctx, lowInstruction->argument);
 	}
 
-	bool isTerminator = IsBlockTerminator(lowInstruction);
-	bool isMemoryWrite = HasMemoryWrite(lowInstruction);
-	bool isMemoryAccess = HasMemoryAccess(lowInstruction);
-
-	if(isTerminator || isMemoryWrite || isMemoryAccess)
-		Print(ctx, "\t//");
-
-	if(isTerminator)
-		Print(ctx, " block_term");
-
-	if(isMemoryWrite)
-		Print(ctx, " mem_write");
-	else if(isMemoryAccess)
-		Print(ctx, " mem_access");
-
 	PrintLine(ctx);
 }
 
-void PrintBlock(InstructionVmLowerGraphContext &ctx, VmLoweredBlock *lowblock)
+void PrintBlock(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredBlock *lowblock)
 {
 	PrintLine(ctx, "%.*s.b%d:", FMT_ISTR(lowblock->vmBlock->name), lowblock->vmBlock->uniqueId);
 
-	for(VmLoweredInstruction *lowInstruction = lowblock->firstInstruction; lowInstruction; lowInstruction = lowInstruction->nextSibling)
+	for(RegVmLoweredInstruction *lowInstruction = lowblock->firstInstruction; lowInstruction; lowInstruction = lowInstruction->nextSibling)
 	{
 		PrintIndent(ctx);
 		PrintInstruction(ctx, lowInstruction);
 	}
 
-	if(lowblock->lastInstruction && !IsBlockTerminator(lowblock->lastInstruction))
-		PrintLine(ctx, "  // fallthrough");
+	//if(lowblock->lastInstruction && !IsBlockTerminator(lowblock->lastInstruction))
+	//	PrintLine(ctx, "  // fallthrough");
 
 	PrintLine(ctx);
 }
 
-void PrintFunction(InstructionVmLowerGraphContext &ctx, VmLoweredFunction *lowFunction)
+void PrintFunction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredFunction *lowFunction)
 {
 	if(FunctionData *fData = lowFunction->vmFunction->function)
 	{
@@ -280,146 +466,17 @@ void PrintFunction(InstructionVmLowerGraphContext &ctx, VmLoweredFunction *lowFu
 	PrintLine(ctx);
 }
 
-void PrintGraph(InstructionVmLowerGraphContext &ctx, VmLoweredModule *lowModule)
+void PrintGraph(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredModule *lowModule)
 {
 	ctx.code = lowModule->vmModule->code;
 
 	for(unsigned i = 0; i < lowModule->functions.size(); i++)
 		PrintFunction(ctx, lowModule->functions[i]);
 
-	Print(ctx, "// Removed register spill count: %d\n", lowModule->removedSpilledRegisters);
-
 	ctx.output.Flush();
 }
 
-void PrintInstructions(InstructionVmLowerGraphContext &ctx, InstructionVmFinalizeContext &lowerCtx, const char *code)
-{
-	assert(lowerCtx.locations.size() == lowerCtx.cmds.size());
-
-	for(unsigned i = 0; i < lowerCtx.cmds.size(); i++)
-	{
-		SynBase *source = lowerCtx.locations[i];
-		VMCmd &cmd = lowerCtx.cmds[i];
-
-		if(ctx.showSource && source)
-		{
-			const char *start = source->pos.begin;
-			const char *end = start + 1;
-
-			// TODO: handle source locations from imported modules
-			while(start > code && *(start - 1) != '\r' && *(start - 1) != '\n')
-				start--;
-
-			while(*end && *end != '\r' && *end != '\n')
-				end++;
-
-			if (ctx.showAnnotatedSource)
-			{
-				unsigned startOffset = unsigned(source->pos.begin - start);
-				unsigned endOffset = unsigned(source->pos.end - start);
-
-				if(start != ctx.lastStart || startOffset != ctx.lastStartOffset || endOffset != ctx.lastEndOffset)
-				{
-					Print(ctx, "%.*s\n", unsigned(end - start), start);
-
-					if (source->pos.end < end)
-					{
-						for (unsigned k = 0; k < startOffset; k++)
-						{
-							Print(ctx, " ");
-
-							if (start[k] == '\t')
-								Print(ctx, "   ");
-						}
-
-						for (unsigned k = startOffset; k < endOffset; k++)
-						{
-							Print(ctx, "~");
-
-							if (start[k] == '\t')
-								Print(ctx, "~~~");
-						}
-
-						Print(ctx, "\n");
-					}
-
-					ctx.lastStart = start;
-					ctx.lastStartOffset = startOffset;
-					ctx.lastEndOffset = endOffset;
-				}
-			}
-			else
-			{
-				if(start != ctx.lastStart)
-				{
-					Print(ctx, "%.*s\n", unsigned(end - start), start);
-
-					ctx.lastStart = start;
-				}
-			}
-		}
-
-		char buf[256];
-		cmd.Decode(buf);
-
-		switch(cmd.cmd)
-		{
-		case cmdCall:
-			if(FunctionData *function = lowerCtx.ctx.functions[cmd.argument])
-				Print(ctx, "// %4d: %s (%.*s [%.*s]) param size %u\n", i, buf, FMT_ISTR(function->name->name), FMT_ISTR(function->type->name), (unsigned)function->argumentsSize);
-			break;
-		case cmdFuncAddr:
-			if(FunctionData *function = lowerCtx.ctx.functions[cmd.argument])
-				Print(ctx, "// %4d: %s (%.*s [%.*s])\n", i, buf, FMT_ISTR(function->name->name), FMT_ISTR(function->type->name));
-			break;
-		case cmdPushTypeID:
-			Print(ctx, "// %4d: %s (%.*s)\n", i, buf, FMT_ISTR(lowerCtx.ctx.types[cmd.argument]->name));
-			break;
-		case cmdPushChar:
-		case cmdPushShort:
-		case cmdPushInt:
-		case cmdPushFloat:
-		case cmdPushDorL:
-		case cmdPushCmplx:
-		case cmdPushPtr:
-		case cmdMovChar:
-		case cmdMovShort:
-		case cmdMovInt:
-		case cmdMovFloat:
-		case cmdMovDorL:
-		case cmdMovCmplx:
-		case cmdGetAddr:
-			if(VariableData *global = cmd.flag == 0 ? FindGlobalAt(lowerCtx.ctx, cmd.argument) : NULL)
-			{
-				if(global->importModule)
-				{
-					if(global->offset == cmd.argument)
-						Print(ctx, "// %4d: %s (%.*s [%.*s] from '%.*s')\n", i, buf, FMT_ISTR(global->name->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
-					else
-						Print(ctx, "// %4d: %s (inside %.*s [%.*s] from '%.*s')\n", i, buf, FMT_ISTR(global->name->name), FMT_ISTR(global->type->name), FMT_ISTR(global->importModule->name));
-				}
-				else
-				{
-					if(global->offset == cmd.argument)
-						Print(ctx, "// %4d: %s (%.*s [%.*s])\n", i, buf, FMT_ISTR(global->name->name), FMT_ISTR(global->type->name));
-					else
-						Print(ctx, "// %4d: %s (inside %.*s [%.*s])\n", i, buf, FMT_ISTR(global->name->name), FMT_ISTR(global->type->name));
-				}
-			}
-			else
-			{
-				Print(ctx, "// %4d: %s\n", i, buf);
-			}
-			break;
-		default:
-			Print(ctx, "// %4d: %s\n", i, buf);
-		}
-	}
-
-	ctx.output.Flush();
-}
-
-void DumpGraph(VmLoweredModule *lowModule)
+void DumpGraph(RegVmLoweredModule *lowModule)
 {
 	OutputContext outputCtx;
 
@@ -431,10 +488,10 @@ void DumpGraph(VmLoweredModule *lowModule)
 	outputCtx.tempBuf = tempBuf;
 	outputCtx.tempBufSize = 4096;
 
-	outputCtx.stream = OutputContext::FileOpen("inst_graph_low.txt");
+	outputCtx.stream = OutputContext::FileOpen("inst_graph_reg_low.txt");
 	outputCtx.writeStream = OutputContext::FileWrite;
 
-	InstructionVmLowerGraphContext instLowerGraphCtx(outputCtx);
+	InstructionRegVmLowerGraphContext instLowerGraphCtx(outputCtx);
 
 	instLowerGraphCtx.showSource = true;
 
