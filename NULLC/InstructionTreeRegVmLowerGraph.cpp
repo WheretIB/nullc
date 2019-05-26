@@ -51,11 +51,6 @@ void PrintRegister(InstructionRegVmLowerGraphContext &ctx, unsigned char value)
 		Print(ctx, "r%d", value);
 }
 
-void PrintFrameFlag(InstructionRegVmLowerGraphContext &ctx, unsigned char value)
-{
-	Print(ctx, value ? "relative" : "absolute");
-}
-
 void PrintConstant(InstructionRegVmLowerGraphContext &ctx, VmConstant *constant)
 {
 	if(constant->type == VmType::Void)
@@ -167,19 +162,6 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviLoadFloat:
 		PrintRegister(ctx, lowInstruction->rA);
 		Print(ctx, ", [");
-		PrintFrameFlag(ctx, lowInstruction->rB);
-		Print(ctx, " + ");
-		PrintConstant(ctx, lowInstruction->argument);
-		Print(ctx, "]");
-		skipArgument = true;
-		break;
-	case rviLoadBytePtr:
-	case rviLoadWordPtr:
-	case rviLoadDwordPtr:
-	case rviLoadQwordPtr:
-	case rviLoadFloatPtr:
-		PrintRegister(ctx, lowInstruction->rA);
-		Print(ctx, ", [");
 		PrintRegister(ctx, lowInstruction->rC);
 		Print(ctx, " + ");
 		PrintConstant(ctx, lowInstruction->argument);
@@ -195,19 +177,6 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviStoreDword:
 	case rviStoreQword:
 	case rviStoreFloat:
-		PrintRegister(ctx, lowInstruction->rA);
-		Print(ctx, ", [");
-		PrintFrameFlag(ctx, lowInstruction->rB);
-		Print(ctx, " + ");
-		PrintConstant(ctx, lowInstruction->argument);
-		Print(ctx, "]");
-		skipArgument = true;
-		break;
-	case rviStoreBytePtr:
-	case rviStoreWordPtr:
-	case rviStoreDwordPtr:
-	case rviStoreQwordPtr:
-	case rviStoreFloatPtr:
 		PrintRegister(ctx, lowInstruction->rA);
 		Print(ctx, ", [");
 		PrintRegister(ctx, lowInstruction->rC);
@@ -250,7 +219,7 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviGetAddr:
 		PrintRegister(ctx, lowInstruction->rA);
 		Print(ctx, ", [");
-		PrintFrameFlag(ctx, lowInstruction->rB);
+		PrintRegister(ctx, lowInstruction->rC);
 		Print(ctx, " + ");
 		PrintConstant(ctx, lowInstruction->argument);
 		Print(ctx, "]");

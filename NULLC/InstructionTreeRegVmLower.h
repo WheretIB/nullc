@@ -27,12 +27,6 @@ enum RegVmInstructionCode
 	rviLoadQword,
 	rviLoadFloat,
 
-	rviLoadBytePtr,
-	rviLoadWordPtr,
-	rviLoadDwordPtr,
-	rviLoadQwordPtr,
-	rviLoadFloatPtr,
-
 	rviLoadImm,
 	rviLoadImmHigh,
 
@@ -41,12 +35,6 @@ enum RegVmInstructionCode
 	rviStoreDword,
 	rviStoreQword,
 	rviStoreFloat,
-
-	rviStoreBytePtr,
-	rviStoreWordPtr,
-	rviStoreDwordPtr,
-	rviStoreQwordPtr,
-	rviStoreFloatPtr,
 
 	rviCombinedd,
 	rviMov,
@@ -183,13 +171,10 @@ enum RegVmReturnType
 	rvrError,
 };
 
-enum RegVmReservedRegister
-{
-	rvrrGlobals,
-	rvrrFrame,
+#define rvrrGlobals 0
+#define rvrrFrame 1
 
-	rvrrCount
-};
+#define rvrrCount 2
 
 struct RegVmCmd
 {
