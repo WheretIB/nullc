@@ -274,15 +274,13 @@ struct VmConstant: VmValue
 
 struct VmInstruction: VmValue
 {
-	VmInstruction(Allocator *allocator, VmType type, SynBase *source, VmInstructionType cmd, unsigned uniqueId): VmValue(myTypeID, allocator, type, source), cmd(cmd), uniqueId(uniqueId), arguments(allocator)
+	VmInstruction(Allocator *allocator, VmType type, SynBase *source, VmInstructionType cmd, unsigned uniqueId): VmValue(myTypeID, allocator, type, source), cmd(cmd), uniqueId(uniqueId), arguments(allocator), regVmRegisters(allocator)
 	{
 		parent = NULL;
 
 		prevSibling = NULL;
 		nextSibling = NULL;
 
-		hasRegVmRegister = false;
-		regVmRegister = 0;
 		regVmCompletedUsers = 0;
 	}
 
@@ -299,8 +297,8 @@ struct VmInstruction: VmValue
 	VmInstruction *prevSibling;
 	VmInstruction *nextSibling;
 
-	bool hasRegVmRegister;
-	unsigned char regVmRegister;
+	SmallArray<unsigned char, 8> regVmRegisters;
+
 	unsigned regVmCompletedUsers;
 
 	static const unsigned myTypeID = __LINE__;

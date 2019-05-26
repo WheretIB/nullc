@@ -48,6 +48,9 @@ enum RegVmInstructionCode
 	rviStoreQwordPtr,
 	rviStoreFloatPtr,
 
+	rviCombinedd,
+	rviMov,
+
 	rviDtoi,
 	rviDtol,
 	rviDtof,
@@ -65,6 +68,9 @@ enum RegVmInstructionCode
 	rviJmp,
 	rviJmpz,
 	rviJmpnz,
+
+	rviPush,
+	rviPushq,
 
 	rviCall,
 	rviCallPtr,
@@ -149,6 +155,7 @@ enum RegVmInstructionCode
 
 	// Temporary instructions, no execution
 	rviFuncAddr,
+	rviTypeid,
 };
 
 const char* GetInstructionName(RegVmInstructionCode code);
@@ -165,6 +172,7 @@ enum RegVmSetRangeType
 
 enum RegVmReturnType
 {
+	rvrVoid,
 	rvrDouble,
 	rvrLong,
 	rvrInt,
@@ -238,18 +246,30 @@ struct RegVmLoweredFunction
 {
 	RegVmLoweredFunction(Allocator *allocator, VmFunction *vmFunction): vmFunction(vmFunction), blocks(allocator)
 	{
+		registerUsers.fill(0);
+
 		nextRegister = 0;
 	}
 
 	unsigned char GetRegister();
-	unsigned char GetRegister(VmValue *value, bool isDefinition);
+	void FreeRegister(unsigned char reg);
+
+	void CompleteUse(VmValue *value);
+	unsigned char GetRegister(VmValue *value);
+	void GetRegisters(SmallArray<unsigned char, 8> &result, VmValue *value);
+	unsigned char AllocateRegister(VmValue *value, bool additional = false);
+
 	unsigned char GetRegisterForConstant();
 
 	void FreeConstantRegisters();
 
+	bool TransferRegisterTo(VmValue *value, unsigned char reg);
+
 	VmFunction *vmFunction;
 
 	SmallArray<RegVmLoweredBlock*, 16> blocks;
+
+	FixedArray<unsigned short, 256> registerUsers;
 
 	unsigned char nextRegister;
 	SmallArray<unsigned char, 16> freedRegisters;

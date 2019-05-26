@@ -148,6 +148,8 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 
 	Print(ctx, "%s ", GetInstructionName(RegVmInstructionCode(lowInstruction->code)));
 
+	bool skipComma = false;
+
 	switch(lowInstruction->code)
 	{
 	case rviNop:
@@ -192,6 +194,14 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 		Print(ctx, ", ");
 		PrintRegister(ctx, lowInstruction->rC);
 		break;
+	case rviCombinedd:
+		PrintRegister(ctx, lowInstruction->rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, lowInstruction->rB);
+		Print(ctx, ", ");
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	case rviMov:
 	case rviDtoi:
 	case rviDtol:
 	case rviDtof:
@@ -247,19 +257,84 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 		PrintRegister(ctx, lowInstruction->rC);
 		break;
 	case rviJmp:
+		skipComma = true;
 		break;
 	case rviJmpz:
 	case rviJmpnz:
 		PrintRegister(ctx, lowInstruction->rC);
 		break;
+	case rviPush:
+	case rviPushq:
+		PrintRegister(ctx, lowInstruction->rC);
+		break;
 	case rviCall:
+		if(lowInstruction->rB != rvrVoid)
+		{
+			PrintRegister(ctx, lowInstruction->rA);
+			Print(ctx, ", ");
+		}
+		switch(lowInstruction->rB)
+		{
+		case rvrVoid:
+			Print(ctx, "void");
+			break;
+		case rvrDouble:
+			Print(ctx, "double");
+			break;
+		case rvrLong:
+			Print(ctx, "long");
+			break;
+		case rvrInt:
+			Print(ctx, "int");
+			break;
+		case rvrStruct:
+			Print(ctx, "struct");
+			break;
+		case rvrError:
+			Print(ctx, "error");
+			break;
+		default:
+			assert(!"unknown type");
+		}
 		break;
 	case rviCallPtr:
+		if(lowInstruction->rB != rvrVoid)
+		{
+			PrintRegister(ctx, lowInstruction->rA);
+			Print(ctx, ", ");
+		}
+		switch(lowInstruction->rB)
+		{
+		case rvrVoid:
+			Print(ctx, "void");
+			break;
+		case rvrDouble:
+			Print(ctx, "double");
+			break;
+		case rvrLong:
+			Print(ctx, "long");
+			break;
+		case rvrInt:
+			Print(ctx, "int");
+			break;
+		case rvrStruct:
+			Print(ctx, "struct");
+			break;
+		case rvrError:
+			Print(ctx, "error");
+			break;
+		default:
+			assert(!"unknown type");
+		}
+		Print(ctx, ", ");
 		PrintRegister(ctx, lowInstruction->rC);
 		break;
 	case rviReturn:
 		switch(lowInstruction->rB)
 		{
+		case rvrVoid:
+			Print(ctx, "void");
+			break;
 		case rvrDouble:
 			Print(ctx, "double");
 			break;
@@ -353,13 +428,19 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviCheckRet:
 		PrintRegister(ctx, lowInstruction->rC);
 		break;
+	case rviFuncAddr:
+	case rviTypeid:
+		PrintRegister(ctx, lowInstruction->rA);
+		break;
 	default:
 		assert(!"unknown instruction");
 	}
 
 	if(lowInstruction->argument)
 	{
-		Print(ctx, ", ");
+		if(!skipComma)
+			Print(ctx, ", ");
+
 		PrintConstant(ctx, lowInstruction->argument);
 	}
 
