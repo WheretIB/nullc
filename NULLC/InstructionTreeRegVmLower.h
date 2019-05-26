@@ -72,6 +72,9 @@ enum RegVmInstructionCode
 	rviPush,
 	rviPushq,
 
+	rviPop,
+	rviPopq,
+
 	rviCall,
 	rviCallPtr,
 
@@ -180,6 +183,14 @@ enum RegVmReturnType
 	rvrError,
 };
 
+enum RegVmReservedRegister
+{
+	rvrrGlobals,
+	rvrrFrame,
+
+	rvrrCount
+};
+
 struct RegVmCmd
 {
 	RegVmCmd(): code(0), rA(0), rB(0), rC(0), argument(0)
@@ -248,7 +259,7 @@ struct RegVmLoweredFunction
 	{
 		registerUsers.fill(0);
 
-		nextRegister = 0;
+		nextRegister = rvrrCount;
 	}
 
 	unsigned char GetRegister();
@@ -262,6 +273,7 @@ struct RegVmLoweredFunction
 	unsigned char GetRegisterForConstant();
 
 	void FreeConstantRegisters();
+	void FreeDelayedRegisters();
 
 	bool TransferRegisterTo(VmValue *value, unsigned char reg);
 
@@ -272,6 +284,7 @@ struct RegVmLoweredFunction
 	FixedArray<unsigned short, 256> registerUsers;
 
 	unsigned char nextRegister;
+	SmallArray<unsigned char, 16> delayedFreedRegisters;
 	SmallArray<unsigned char, 16> freedRegisters;
 
 	SmallArray<unsigned char, 16> constantRegisters;

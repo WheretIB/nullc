@@ -43,7 +43,12 @@ NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintLine(InstructionRegVmLowerGraphContext 
 
 void PrintRegister(InstructionRegVmLowerGraphContext &ctx, unsigned char value)
 {
-	Print(ctx, "r%d", value);
+	if(value == rvrrGlobals)
+		Print(ctx, "rG");
+	else if(value == rvrrFrame)
+		Print(ctx, "rF");
+	else
+		Print(ctx, "r%d", value);
 }
 
 void PrintFrameFlag(InstructionRegVmLowerGraphContext &ctx, unsigned char value)
@@ -149,6 +154,7 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	Print(ctx, "%s ", GetInstructionName(RegVmInstructionCode(lowInstruction->code)));
 
 	bool skipComma = false;
+	bool skipArgument = false;
 
 	switch(lowInstruction->code)
 	{
@@ -160,8 +166,12 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviLoadQword:
 	case rviLoadFloat:
 		PrintRegister(ctx, lowInstruction->rA);
-		Print(ctx, ", ");
+		Print(ctx, ", [");
 		PrintFrameFlag(ctx, lowInstruction->rB);
+		Print(ctx, " + ");
+		PrintConstant(ctx, lowInstruction->argument);
+		Print(ctx, "]");
+		skipArgument = true;
 		break;
 	case rviLoadBytePtr:
 	case rviLoadWordPtr:
@@ -169,8 +179,12 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviLoadQwordPtr:
 	case rviLoadFloatPtr:
 		PrintRegister(ctx, lowInstruction->rA);
-		Print(ctx, ", ");
+		Print(ctx, ", [");
 		PrintRegister(ctx, lowInstruction->rC);
+		Print(ctx, " + ");
+		PrintConstant(ctx, lowInstruction->argument);
+		Print(ctx, "]");
+		skipArgument = true;
 		break;
 	case rviLoadImm:
 	case rviLoadImmHigh:
@@ -182,8 +196,12 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviStoreQword:
 	case rviStoreFloat:
 		PrintRegister(ctx, lowInstruction->rA);
-		Print(ctx, ", ");
+		Print(ctx, ", [");
 		PrintFrameFlag(ctx, lowInstruction->rB);
+		Print(ctx, " + ");
+		PrintConstant(ctx, lowInstruction->argument);
+		Print(ctx, "]");
+		skipArgument = true;
 		break;
 	case rviStoreBytePtr:
 	case rviStoreWordPtr:
@@ -191,8 +209,12 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviStoreQwordPtr:
 	case rviStoreFloatPtr:
 		PrintRegister(ctx, lowInstruction->rA);
-		Print(ctx, ", ");
+		Print(ctx, ", [");
 		PrintRegister(ctx, lowInstruction->rC);
+		Print(ctx, " + ");
+		PrintConstant(ctx, lowInstruction->argument);
+		Print(ctx, "]");
+		skipArgument = true;
 		break;
 	case rviCombinedd:
 		PrintRegister(ctx, lowInstruction->rA);
@@ -219,11 +241,20 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 		PrintRegister(ctx, lowInstruction->rB);
 		Print(ctx, ", ");
 		PrintRegister(ctx, lowInstruction->rC);
+		Print(ctx, ", ");
+		PrintRegister(ctx, (lowInstruction->argument->iValue >> 16) & 0xff);
+		Print(ctx, ", %d", lowInstruction->argument->iValue & 0xffff);
+		skipArgument = true;
+
 		break;
 	case rviGetAddr:
+		PrintRegister(ctx, lowInstruction->rA);
+		Print(ctx, ", [");
 		PrintFrameFlag(ctx, lowInstruction->rB);
-		Print(ctx, ", ");
-		PrintRegister(ctx, lowInstruction->rC);
+		Print(ctx, " + ");
+		PrintConstant(ctx, lowInstruction->argument);
+		Print(ctx, "]");
+		skipArgument = true;
 		break;
 	case rviSetRange:
 		PrintRegister(ctx, lowInstruction->rA);
@@ -262,6 +293,10 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviJmpz:
 	case rviJmpnz:
 		PrintRegister(ctx, lowInstruction->rC);
+		break;
+	case rviPop:
+	case rviPopq:
+		PrintRegister(ctx, lowInstruction->rA);
 		break;
 	case rviPush:
 	case rviPushq:
@@ -423,10 +458,11 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 		PrintRegister(ctx, lowInstruction->rC);
 		break;
 	case rviConvertPtr:
+		PrintRegister(ctx, lowInstruction->rA);
+		Print(ctx, ", ");
 		PrintRegister(ctx, lowInstruction->rC);
 		break;
 	case rviCheckRet:
-		PrintRegister(ctx, lowInstruction->rC);
 		break;
 	case rviFuncAddr:
 	case rviTypeid:
@@ -436,7 +472,7 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 		assert(!"unknown instruction");
 	}
 
-	if(lowInstruction->argument)
+	if(lowInstruction->argument && !skipArgument)
 	{
 		if(!skipComma)
 			Print(ctx, ", ");
