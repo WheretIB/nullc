@@ -266,7 +266,8 @@ unsigned char RegVmLoweredFunction::GetRegister()
 	}
 	else
 	{
-		assert(nextRegister <= 255);
+		// We start from rvrrCount register, so 0 means that we wrapped around from 255
+		assert(nextRegister != 0);
 
 		reg = nextRegister;
 		nextRegister++;
@@ -359,16 +360,14 @@ unsigned char RegVmLoweredFunction::AllocateRegister(VmValue *value, bool additi
 		{
 			if(user->cmd == VM_INST_PHI)
 			{
-				assert(!additional);
-
 				// First value must have allocated registers, unless it's the current instruction
 				VmInstruction *option = getType<VmInstruction>(user->arguments[0]);
 
 				if(instruction != option)
 				{
-					assert(option->regVmRegisters.size() == 1);
+					unsigned regPos = instruction->regVmRegisters.size();
 
-					unsigned char reg = option->regVmRegisters[0];
+					unsigned char reg = option->regVmRegisters[regPos];
 
 					instruction->regVmRegisters.push_back(reg);
 
@@ -2432,9 +2431,11 @@ void RegFinalizeFunction(InstructionRegVmFinalizeContext &ctx, RegVmLoweredFunct
 		// Stack frame should remain aligned, so its size should multiple of 16
 		unsigned size = (data->stackSize + 0xf) & ~0xf;
 
+		unsigned char lastRegister = (unsigned char)(lowFunction->nextRegister == 0 ? 255 : lowFunction->nextRegister - 1);
+
 		// Save previous stack frame, and expand current by shift bytes
 		ctx.locations.push_back(data->source);
-		ctx.cmds.push_back(RegVmCmd(rviPushvtop, 0, (unsigned char)(data->argumentsSize >> 8), (unsigned char)(data->argumentsSize & 0xff), size));
+		ctx.cmds.push_back(RegVmCmd(rviPushvtop, lastRegister, (unsigned char)(data->argumentsSize >> 8), (unsigned char)(data->argumentsSize & 0xff), size));
 	}
 
 	for(unsigned i = 0; i < lowFunction->blocks.size(); i++)
