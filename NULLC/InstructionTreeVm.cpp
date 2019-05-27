@@ -913,12 +913,57 @@ namespace
 		module->tempUsers.clear();
 	}
 
+	bool IsBuiltInStructLoadStore(VmInstruction *instruction)
+	{
+		if(instruction->cmd == VM_INST_LOAD_STRUCT)
+		{
+			if(instruction->type.type == VM_TYPE_ARRAY_REF || instruction->type.type == VM_TYPE_AUTO_ARRAY || instruction->type.type == VM_TYPE_AUTO_REF || instruction->type.type == VM_TYPE_FUNCTION_REF)
+				return true;
+		}
+
+		if(instruction->cmd == VM_INST_STORE_STRUCT)
+		{
+			VmValue *value = instruction->arguments[2];
+
+			if(value->type.type == VM_TYPE_ARRAY_REF || value->type.type == VM_TYPE_AUTO_ARRAY || value->type.type == VM_TYPE_AUTO_REF || value->type.type == VM_TYPE_FUNCTION_REF)
+				return true;
+		}
+
+		return false;
+	}
+
+	bool IsLoadAliasedWithStore(VmInstruction *loadInst, VmInstruction *storeInst)
+	{
+		if(loadInst->cmd == VM_INST_LOAD_BYTE && storeInst->cmd == VM_INST_STORE_BYTE)
+			return true;
+
+		if(loadInst->cmd == VM_INST_LOAD_SHORT && storeInst->cmd == VM_INST_STORE_SHORT)
+			return true;
+
+		if(loadInst->cmd == VM_INST_LOAD_INT && storeInst->cmd == VM_INST_STORE_INT)
+			return true;
+
+		if(loadInst->cmd == VM_INST_LOAD_LONG && storeInst->cmd == VM_INST_STORE_LONG)
+			return true;
+
+		if(loadInst->cmd == VM_INST_LOAD_FLOAT && storeInst->cmd == VM_INST_STORE_FLOAT)
+			return true;
+
+		if(loadInst->cmd == VM_INST_LOAD_DOUBLE && storeInst->cmd == VM_INST_STORE_DOUBLE)
+			return true;
+
+		if(IsBuiltInStructLoadStore(loadInst) && IsBuiltInStructLoadStore(storeInst))
+			return true;
+
+		return false;
+	}
+
 	void ClearLoadStoreInfo(VmModule *module)
 	{
 		module->loadStoreInfo.clear();
 	}
 
-	void ClearLoadStoreInfoAliasing(VmModule *module)
+	void ClearLoadStoreInfoAliasing(VmModule *module, VmInstruction *storeInst)
 	{
 		for(unsigned i = 0; i < module->loadStoreInfo.size();)
 		{
@@ -936,6 +981,12 @@ namespace
 					continue;
 				}
 
+				i++;
+				continue;
+			}
+
+			if(storeInst && el.loadInst && !IsLoadAliasedWithStore(el.loadInst, storeInst))
+			{
 				i++;
 				continue;
 			}
@@ -1078,7 +1129,7 @@ namespace
 				}
 			}
 
-			ClearLoadStoreInfoAliasing(module);
+			ClearLoadStoreInfoAliasing(module, inst);
 		}
 	}
 
@@ -3852,7 +3903,7 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 				break;
 			case VM_INST_SET_RANGE:
 			case VM_INST_CALL:
-				ClearLoadStoreInfoAliasing(module);
+				ClearLoadStoreInfoAliasing(module, NULL);
 				ClearLoadStoreInfoGlobal(module);
 				break;
 			default:
