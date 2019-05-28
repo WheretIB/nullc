@@ -271,6 +271,10 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviPushq:
 		PrintRegister(ctx, lowInstruction->rC);
 		break;
+	case rviPushImm:
+	case rviPushImmq:
+		skipComma = true;
+		break;
 	case rviCall:
 		if(lowInstruction->rB != rvrVoid)
 		{

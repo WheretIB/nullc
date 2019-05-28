@@ -59,6 +59,8 @@ enum RegVmInstructionCode
 
 	rviPush,
 	rviPushq,
+	rviPushImm,
+	rviPushImmq,
 
 	rviPop,
 	rviPopq,
@@ -231,6 +233,7 @@ struct RegVmLoweredBlock
 	void AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, VmConstant *argument);
 	void AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, unsigned argument);
 	void AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, VmBlock *argument);
+	void AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, VmFunction *argument);
 
 	VmBlock *vmBlock;
 

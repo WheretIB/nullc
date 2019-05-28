@@ -72,6 +72,10 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "push";
 	case rviPushq:
 		return "pushq";
+	case rviPushImm:
+		return "pushimm";
+	case rviPushImmq:
+		return "pushimmq";
 	case rviCall:
 		return "call";
 	case rviCallPtr:
@@ -252,7 +256,12 @@ void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location
 
 void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, VmBlock *argument)
 {
-	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(location, code, rA, rB, rC, CreateConstantBlock(ctx.allocator, NULL, argument)));
+	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(location, code, rA, rB, rC, argument ? CreateConstantBlock(ctx.allocator, NULL, argument) : NULL));
+}
+
+void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, VmFunction *argument)
+{
+	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(location, code, rA, rB, rC, argument ? CreateConstantFunction(ctx.allocator, NULL, argument) : NULL));
 }
 
 unsigned char RegVmLoweredFunction::GetRegister()
@@ -1473,13 +1482,38 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 		assert((unsigned short)inst->type.size == inst->type.size);
 
-		SmallArray<unsigned char, 8> targetRegs;
-		GetArgumentRegisters(ctx, lowFunction, lowBlock, targetRegs, target);
+		RegVmInstructionCode targetInst = rviNop;
 
-		if(NULLC_PTR_SIZE == 8)
-			lowBlock->AddInstruction(ctx, inst->source, rviPushq, 0, 0, targetRegs[0]);
+		VmFunction *targetFunction = NULL;
+
+		SmallArray<unsigned char, 8> targetRegs;
+		
+		if(target->cmd == VM_INST_CONSTRUCT && getType<VmConstant>(target->arguments[0]) && getType<VmFunction>(target->arguments[1]))
+		{
+			targetRegs.push_back(0);
+			targetRegs.push_back(0);
+
+			VmConstant *context = getType<VmConstant>(target->arguments[0]);
+			targetFunction = getType<VmFunction>(target->arguments[1]);
+
+			if(NULLC_PTR_SIZE == 8)
+				lowBlock->AddInstruction(ctx, inst->source, rviPushImmq, 0, 0, 0, context->iValue);
+			else
+				lowBlock->AddInstruction(ctx, inst->source, rviPushImm, 0, 0, 0, context->iValue);
+
+			targetInst = rviCall;
+		}
 		else
-			lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, targetRegs[0]);
+		{
+			GetArgumentRegisters(ctx, lowFunction, lowBlock, targetRegs, target);
+
+			if(NULLC_PTR_SIZE == 8)
+				lowBlock->AddInstruction(ctx, inst->source, rviPushq, 0, 0, targetRegs[0]);
+			else
+				lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, targetRegs[0]);
+
+			targetInst = rviCallPtr;
+		}
 
 		for(int i = int(inst->arguments.size() - 1); i >= 1; i--)
 		{
@@ -1487,10 +1521,68 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			if(argument->type.size == 0)
 			{
-				lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, 0); // Don't care about 0 register size
+				lowBlock->AddInstruction(ctx, inst->source, rviPushImm, 0, 0, 0, 0u);
 			}
 			else
 			{
+				if(VmConstant *constant = getType<VmConstant>(argument))
+				{
+					if(constant->type == VmType::Int)
+					{
+						lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, constant->iValue);
+
+						continue;
+					}
+					else if(constant->type == VmType::Double)
+					{
+						unsigned data[2];
+						memcpy(data, &constant->dValue, 8);
+
+						if(constant->dValue == 0.0)
+						{
+							lowBlock->AddInstruction(ctx, constant->source, rviPushImmq, 0, 0, 0, 0u);
+						}
+						else
+						{
+							lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[0]);
+							lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[1]);
+						}
+
+						continue;
+					}
+					else if(constant->type == VmType::Long)
+					{
+						unsigned data[2];
+						memcpy(data, &constant->lValue, 8);
+
+						if(data[1] == 0)
+						{
+							lowBlock->AddInstruction(ctx, constant->source, rviPushImmq, 0, 0, 0, data[0]);
+						}
+						else
+						{
+							lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[0]);
+							lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[1]);
+						}
+
+						continue;
+					}
+					else if(constant->type.type == VM_TYPE_POINTER)
+					{
+						if(!constant->container)
+						{
+							assert(constant->iValue == 0);
+
+							if(NULLC_PTR_SIZE == 8)
+								lowBlock->AddInstruction(ctx, constant->source, rviPushImmq, 0, 0, 0, 0u);
+							else
+								lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, 0u);
+
+							continue;
+						}
+					}
+				}
+
 				SmallArray<unsigned char, 8> argumentRegs;
 				GetArgumentRegisters(ctx, lowFunction, lowBlock, argumentRegs, argument);
 
@@ -1568,23 +1660,23 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 		if(inst->type.type == VM_TYPE_VOID || inst->users.empty())
 		{
-			lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, rvrVoid, targetRegs[1]);
+			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, rvrVoid, targetRegs[1], targetFunction);
 		}
 		else if(inst->type.type == VM_TYPE_INT || (NULLC_PTR_SIZE == 4 && inst->type.type == VM_TYPE_POINTER))
 		{
 			unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-			lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, targetReg, rvrInt, targetRegs[1]);
+			lowBlock->AddInstruction(ctx, inst->source, targetInst, targetReg, rvrInt, targetRegs[1], targetFunction);
 		}
 		else if(inst->type.type == VM_TYPE_DOUBLE || inst->type.type == VM_TYPE_LONG || (NULLC_PTR_SIZE == 8 && inst->type.type == VM_TYPE_POINTER))
 		{
 			unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-			lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, targetReg, (unsigned char)(inst->type.type == VM_TYPE_DOUBLE ? rvrDouble : rvrLong), targetRegs[1]);
+			lowBlock->AddInstruction(ctx, inst->source, targetInst, targetReg, (unsigned char)(inst->type.type == VM_TYPE_DOUBLE ? rvrDouble : rvrLong), targetRegs[1], targetFunction);
 		}
 		else if(inst->type.type == VM_TYPE_FUNCTION_REF || inst->type.type == VM_TYPE_ARRAY_REF)
 		{
-			lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, 0, targetRegs[1]);
+			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, 0, targetRegs[1], targetFunction);
 
 			unsigned char regA = lowFunction->AllocateRegister(inst, true);
 			unsigned char regB = lowFunction->AllocateRegister(inst, true);
@@ -1602,7 +1694,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		else if(inst->type.type == VM_TYPE_AUTO_REF)
 		{
-			lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, 0, targetRegs[1]);
+			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, 0, targetRegs[1], targetFunction);
 
 			unsigned char regA = lowFunction->AllocateRegister(inst, true);
 			unsigned char regB = lowFunction->AllocateRegister(inst, true);
@@ -1620,7 +1712,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		else if(inst->type.type == VM_TYPE_AUTO_ARRAY)
 		{
-			lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, 0, targetRegs[1]);
+			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, 0, targetRegs[1], targetFunction);
 
 			unsigned char regA = lowFunction->AllocateRegister(inst, true);
 			unsigned char regB = lowFunction->AllocateRegister(inst, true);
@@ -1641,7 +1733,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		else if(inst->type.type == VM_TYPE_STRUCT)
 		{
-			lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, 0, targetRegs[1]);
+			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, 0, targetRegs[1], targetFunction);
 
 			unsigned remainingSize = inst->type.size;
 
@@ -2112,6 +2204,28 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 	case VM_INST_CONSTRUCT:
 		if(inst->type.type == VM_TYPE_FUNCTION_REF)
 		{
+			if(isType<VmConstant>(inst->arguments[0]) && isType<VmFunction>(inst->arguments[1]))
+			{
+				bool onlyCallUsers = true;
+
+				for(unsigned i = 0; i < inst->users.size() && onlyCallUsers; i++)
+				{
+					if(VmInstruction *instUser = getType<VmInstruction>(inst->users[i]))
+					{
+						if(instUser->cmd != VM_INST_CALL)
+							onlyCallUsers = false;
+					}
+					else
+					{
+						onlyCallUsers = false;
+					}
+				}
+
+				// Constant construct values are inlined in the call lowering
+				if(onlyCallUsers)
+					break;
+			}
+
 			unsigned char ptrReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
 			unsigned char idReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
 

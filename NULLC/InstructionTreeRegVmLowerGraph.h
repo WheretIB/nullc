@@ -2,6 +2,7 @@
 
 #include "Output.h"
 
+struct ExpressionContext;
 struct RegVmLoweredModule;
 struct InstructionRegVmFinalizeContext;
 
