@@ -7,6 +7,10 @@ void CommonSetLinker(Linker* linker);
 
 unsigned ConvertFromAutoRef(unsigned int source, unsigned int target);
 
+bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker);
+
+bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, Linker *linker);
+
 ExternTypeInfo*	GetTypeList();
 
 unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, bool withVariables);

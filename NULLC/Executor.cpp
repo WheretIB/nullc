@@ -91,81 +91,9 @@ namespace
 	{
 		memcpy(target, &value, sizeof(char*));
 	}
-
-	bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
-	{
-		bool aligned = 1;
-		//printf("checking class %s: ", exLinker->exSymbols.data + lType->offsetToName);
-		for(unsigned m = 0; m < lType->memberCount; m++)
-		{
-			ExternMemberInfo &member = exLinker->exTypeExtra[lType->memberOffset + m];
-			ExternTypeInfo &memberType = exLinker->exTypes[member.type];
-			unsigned pos = member.offset;
-
-			//printf("member %s; ", exLinker->exSymbols.data + memberType.offsetToName);
-			switch(memberType.type)
-			{
-			case ExternTypeInfo::TYPE_COMPLEX:
-				break;
-			case ExternTypeInfo::TYPE_VOID:
-				break;
-			case ExternTypeInfo::TYPE_INT:
-				if(pos % 4 != 0)
-					aligned = 0;
-				break;
-			case ExternTypeInfo::TYPE_FLOAT:
-				break;
-			case ExternTypeInfo::TYPE_LONG:
-				if(pos % 8 != 0)
-					aligned = 0;
-				break;
-			case ExternTypeInfo::TYPE_DOUBLE:
-				break;
-			case ExternTypeInfo::TYPE_SHORT:
-				if(pos % 2 != 0)
-					aligned = 0;
-				break;
-			case ExternTypeInfo::TYPE_CHAR:
-				break;
-			}
-			pos += memberType.size;
-		}
-		//printf("%s\n", aligned ? "aligned" : "unaligned");
-		return aligned;
-	}
-
-	bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, Linker *linker)
-	{
-		for(unsigned m = 0; m < type.memberCount; m++)
-		{
-			ExternMemberInfo &member = linker->exTypeExtra[type.memberOffset + m];
-
-			ExternTypeInfo &memberType = linker->exTypes[member.type];
-
-			if(memberType.type == ExternTypeInfo::TYPE_COMPLEX)
-			{
-				// Handle opaque types
-				bool opaqueType = memberType.subCat != ExternTypeInfo::CAT_CLASS || memberType.memberCount == 0;
-
-				if(opaqueType)
-				{
-					if(member.offset + memberType.size > fromOffset && member.offset < toOffset)
-						return true;
-				}else{
-					if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, linker))
-						return true;
-				}
-			}else if(memberType.type != ExternTypeInfo::TYPE_FLOAT && memberType.type != ExternTypeInfo::TYPE_DOUBLE){
-				if(member.offset + memberType.size > fromOffset && member.offset < toOffset)
-					return true;
-			}
-		}
-
-		return false;
-	}
 }
 
-Executor::Executor(Linker* linker): exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions), gateCode(4096), breakCode(128)
+Executor::Executor(Linker* linker): exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions), breakCode(128)
 {
 	genStackBase = NULL;
 	genStackPtr = NULL;

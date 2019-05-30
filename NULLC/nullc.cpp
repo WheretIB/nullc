@@ -11,6 +11,7 @@
 #if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	#include "Executor_LLVM.h"
 #endif
+#include "Executor_RegVm.h"
 
 #include "StdLib.h"
 #include "BinaryCache.h"
@@ -21,6 +22,7 @@
 class Executor;
 class ExecutorX86;
 class ExecutorLLVM;
+class ExecutorRegVm;
 
 class Linker;
 
@@ -31,10 +33,11 @@ namespace NULLC
 	Executor*		executor;
 	ExecutorX86*	executorX86;
 	ExecutorLLVM*	executorLLVM;
+	ExecutorRegVm*	executorRegVm;
 
 	const char*	nullcLastError = NULL;
 
-	unsigned currExec = 0;
+	unsigned currExec = NULLC_REG_VM;
 	char *argBuf = NULL;
 
 	bool initialized = false;
@@ -96,14 +99,20 @@ nullres nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*)
 	executor = new(NULLC::alloc(sizeof(Executor))) Executor(linker);
 	NULLC::SetGlobalLimit(NULLC_DEFAULT_GLOBAL_MEMORY_LIMIT);
 #endif
+
 #ifdef NULLC_BUILD_X86_JIT
 	executorX86 = new(NULLC::alloc(sizeof(ExecutorX86))) ExecutorX86(linker);
 	bool initx86 = executorX86->Initialize();
 	assert(initx86);
 	(void)initx86;
 #endif
+
 #if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
 	executorLLVM = new(NULLC::alloc(sizeof(ExecutorLLVM))) ExecutorLLVM(linker);
+#endif
+
+#ifndef NULLC_NO_EXECUTOR
+	executorRegVm = new(NULLC::alloc(sizeof(ExecutorRegVm))) ExecutorRegVm(linker);
 #endif
 
 	argBuf = (char*)NULLC::alloc(64 * 1024);
@@ -479,6 +488,8 @@ void nullcClean()
 	#ifdef NULLC_BUILD_X86_JIT
 	executorX86->ClearNative();
 	#endif
+
+	executorRegVm->ClearBreakpoints();
 #endif
 
 	nullcLastError = "";
@@ -574,6 +585,11 @@ nullres nullcLinkCode(const char *bytecode)
 		return false;
 #endif
 	}
+
+#ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_REG_VM)
+		executor->UpdateInstructionPointer();
+#endif
 
 #ifndef NULLC_NO_EXECUTOR
 	return true;
@@ -797,7 +813,9 @@ nullres nullcRunFunctionInternal(unsigned functionID, const char* argBuf)
 			nullcLastError = error;
 		}
 #endif
-	}else if(currExec == NULLC_X86){
+	}
+	else if(currExec == NULLC_X86)
+	{
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Run(functionID, argBuf);
 		const char* error = executorX86->GetExecError();
@@ -811,7 +829,9 @@ nullres nullcRunFunctionInternal(unsigned functionID, const char* argBuf)
 		nullcLastError = "X86 JIT isn't available";
 #endif
 #if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
-	}else if(currExec == NULLC_LLVM){
+	}
+	else if(currExec == NULLC_LLVM)
+	{
 		executorLLVM->Run(functionID, argBuf);
 		const char* error = executorLLVM->GetExecError();
 		if(error[0] != '\0')
@@ -820,7 +840,21 @@ nullres nullcRunFunctionInternal(unsigned functionID, const char* argBuf)
 			nullcLastError = error;
 		}
 #endif
-	}else{
+	}
+	else if(currExec == NULLC_REG_VM)
+	{
+#ifndef NULLC_NO_EXECUTOR
+		executorRegVm->Run(functionID, argBuf);
+		const char* error = executorRegVm->GetExecError();
+		if(error[0] != '\0')
+		{
+			good = false;
+			nullcLastError = error;
+		}
+#endif
+	}
+	else
+	{
 		(void)functionID;
 		(void)argBuf;
 
@@ -853,10 +887,16 @@ void nullcThrowError(const char* error, ...)
 	if(currExec == NULLC_VM)
 	{
 		executor->Stop(buf);
-	}else if(currExec == NULLC_X86){
+	}
+	else if(currExec == NULLC_X86)
+	{
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Stop(buf);
 #endif
+	}
+	else if(currExec == NULLC_REG_VM)
+	{
+		executorRegVm->Stop(buf);
 	}
 }
 
@@ -881,17 +921,27 @@ nullres		nullcCallFunction(NULLCFuncPtr ptr, ...)
 	{
 		executor->Run(ptr.id, argBuf);
 		error = executor->GetExecError();
-	}else if(currExec == NULLC_X86){
+	}
+	else if(currExec == NULLC_X86)
+	{
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->Run(ptr.id, argBuf);
 		error = executorX86->GetExecError();
 #endif
-	}else if(currExec == NULLC_LLVM){
+	}
+	else if(currExec == NULLC_LLVM)
+	{
 #ifdef NULLC_LLVM_SUPPORT
 		executorLLVM->Run(ptr.id, argBuf);
 		error = executorLLVM->GetExecError();
 #endif
 	}
+	else if(currExec == NULLC_REG_VM)
+	{
+		executorRegVm->Run(ptr.id, argBuf);
+		error = executorRegVm->GetExecError();
+	}
+
 	if(error && error[0] != '\0')
 	{
 		nullcLastError = error;
@@ -1021,11 +1071,13 @@ nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 	unsigned index = nullcFindFunctionIndex(name);
 	if(index == ~0u)
 		return false;
+
 	if(linker->exFunctions[func.id].funcCat != ExternFuncInfo::NORMAL)
 	{
 		nullcLastError = "ERROR: source function uses context, which is unavailable";
 		return false;
 	}
+
 	if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
 	{
 		linker->UpdateFunctionPointer(index, func.id);
@@ -1082,8 +1134,14 @@ const char* nullcGetResult()
 	if(currExec == NULLC_LLVM)
 		return executorLLVM->GetResult();
 #endif
+#ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_REG_VM)
+		return executorRegVm->GetResult();
+#endif
+
 	return "unknown executor";
 }
+
 int nullcGetResultInt()
 {
 	using namespace NULLC;
@@ -1101,8 +1159,14 @@ int nullcGetResultInt()
 	if(currExec == NULLC_LLVM)
 		return executorLLVM->GetResultInt();
 #endif
+#ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_REG_VM)
+		return executorRegVm->GetResultInt();
+#endif
+
 	return 0;
 }
+
 double nullcGetResultDouble()
 {
 	using namespace NULLC;
@@ -1120,6 +1184,11 @@ double nullcGetResultDouble()
 	if(currExec == NULLC_LLVM)
 		return executorLLVM->GetResultDouble();
 #endif
+#ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_REG_VM)
+		return executorRegVm->GetResultDouble();
+#endif
+
 	return 0.0;
 }
 long long nullcGetResultLong()
@@ -1139,6 +1208,11 @@ long long nullcGetResultLong()
 	if(currExec == NULLC_LLVM)
 		return executorLLVM->GetResultLong();
 #endif
+#ifndef NULLC_NO_EXECUTOR
+	if(currExec == NULLC_REG_VM)
+		return executorRegVm->GetResultLong();
+#endif
+
 	return 0;
 }
 
@@ -1232,6 +1306,11 @@ void nullcTerminate()
 	executorX86 = NULL;
 #endif
 #ifndef NULLC_NO_EXECUTOR
+	NULLC::destruct(executorRegVm);
+	executorRegVm = NULL;
+#endif
+
+#ifndef NULLC_NO_EXECUTOR
 	NULLC::ResetMemory();
 #endif
 
@@ -1290,15 +1369,26 @@ void* nullcGetVariableData(unsigned int *count)
 #ifndef NULLC_NO_EXECUTOR
 		return executor->GetVariableData(count);
 #endif
-	}else if(currExec == NULLC_X86){
+	}
+	else if(currExec == NULLC_X86)
+	{
 #ifdef NULLC_BUILD_X86_JIT
 		return executorX86->GetVariableData(count);
 #endif
 #if defined(NULLC_LLVM_SUPPORT) && !defined(NULLC_NO_EXECUTOR)
-	}else if(currExec == NULLC_LLVM){
+	}
+	else if(currExec == NULLC_LLVM)
+	{
 		return executorLLVM->GetVariableData(count);
 #endif
 	}
+	else if(currExec == NULLC_REG_VM)
+	{
+#ifndef NULLC_NO_EXECUTOR
+		return executorRegVm->GetVariableData(count);
+#endif
+	}
+
 	(void)count;
 	return NULL;
 }
@@ -1309,13 +1399,14 @@ unsigned int nullcGetCurrentExecutor(void **exec)
 
 #ifdef NULLC_BUILD_X86_JIT
 	if(exec)
-		*exec = (currExec == NULLC_VM ? (void*)executor : (currExec == NULLC_X86 ? (void*)executorX86 : (void*)executorLLVM));
+		*exec = (currExec == NULLC_VM ? (void*)executor : (currExec == NULLC_X86 ? (void*)executorX86 : (currExec == NULLC_LLVM ? (void*)executorLLVM : (void*)executorRegVm)));
 #elif !defined(NULLC_NO_EXECUTOR)
 	if(exec)
 		*exec = executor;
 #else
 	*exec = NULL;
 #endif
+
 	return currExec;
 }
 
@@ -1423,9 +1514,17 @@ void nullcDebugBeginCallStack()
 #ifndef NULLC_NO_EXECUTOR
 		executor->BeginCallStack();
 #endif
-	}else if(currExec == NULLC_X86){
+	}
+	else if(currExec == NULLC_X86)
+	{
 #ifdef NULLC_BUILD_X86_JIT
 		executorX86->BeginCallStack();
+#endif
+	}
+	else if(currExec == NULLC_REG_VM)
+	{
+#ifndef NULLC_NO_EXECUTOR
+		executorRegVm->BeginCallStack();
 #endif
 	}
 }
@@ -1441,11 +1540,20 @@ unsigned int nullcDebugGetStackFrame()
 #ifndef NULLC_NO_EXECUTOR
 		address = executor->GetNextAddress();
 #endif
-	}else if(currExec == NULLC_X86){
+	}
+	else if(currExec == NULLC_X86)
+	{
 #ifdef NULLC_BUILD_X86_JIT
 		address = executorX86->GetNextAddress();
 #endif
 	}
+	else if(currExec == NULLC_REG_VM)
+	{
+#ifndef NULLC_NO_EXECUTOR
+		address = executorRegVm->GetNextAddress();
+#endif
+	}
+
 	return address;
 }
 
@@ -1460,6 +1568,7 @@ nullres nullcDebugSetBreakFunction(void *context, unsigned (*callback)(void*, un
 		return false;
 	}
 	executor->SetBreakFunction(context, callback);
+
 #ifdef NULLC_BUILD_X86_JIT
 	if(!executorX86)
 	{
@@ -1468,6 +1577,14 @@ nullres nullcDebugSetBreakFunction(void *context, unsigned (*callback)(void*, un
 	}
 	executorX86->SetBreakFunction(context, callback);
 #endif
+
+	if(!executorRegVm)
+	{
+		nullcLastError = "ERROR: NULLC is not initialized";
+		return false;
+	}
+	executorRegVm->SetBreakFunction(context, callback);
+
 	return true;
 }
 
@@ -1481,6 +1598,7 @@ nullres nullcDebugClearBreakpoints()
 		return false;
 	}
 	executor->ClearBreakpoints();
+
 #ifdef NULLC_BUILD_X86_JIT
 	if(!executorX86)
 	{
@@ -1489,6 +1607,14 @@ nullres nullcDebugClearBreakpoints()
 	}
 	executorX86->ClearBreakpoints();
 #endif
+
+	if(!executorRegVm)
+	{
+		nullcLastError = "ERROR: NULLC is not initialized";
+		return false;
+	}
+	executorRegVm->ClearBreakpoints();
+
 	return true;
 }
 
@@ -1501,11 +1627,13 @@ nullres nullcDebugAddBreakpointImpl(unsigned int instruction, bool oneHit)
 		nullcLastError = "ERROR: NULLC is not initialized";
 		return false;
 	}
+
 	if(!executor->AddBreakpoint(instruction, oneHit))
 	{
 		nullcLastError = executor->GetExecError();
 		return false;
 	}
+
 #ifdef NULLC_BUILD_X86_JIT
 	if(!executorX86)
 	{
@@ -1518,6 +1646,19 @@ nullres nullcDebugAddBreakpointImpl(unsigned int instruction, bool oneHit)
 		return false;
 	}
 #endif
+
+	if(!executorRegVm)
+	{
+		nullcLastError = "ERROR: NULLC is not initialized";
+		return false;
+	}
+
+	if(!executorRegVm->AddBreakpoint(instruction, oneHit))
+	{
+		nullcLastError = executorRegVm->GetExecError();
+		return false;
+	}
+
 	return true;
 }
 
@@ -1545,6 +1686,7 @@ nullres nullcDebugRemoveBreakpoint(unsigned int instruction)
 		nullcLastError = executor->GetExecError();
 		return false;
 	}
+
 #ifdef NULLC_BUILD_X86_JIT
 	if(!executorX86)
 	{
@@ -1557,6 +1699,18 @@ nullres nullcDebugRemoveBreakpoint(unsigned int instruction)
 		return false;
 	}
 #endif
+
+	if(!executorRegVm)
+	{
+		nullcLastError = "ERROR: NULLC is not initialized";
+		return false;
+	}
+	if(!executorRegVm->RemoveBreakpoint(instruction))
+	{
+		nullcLastError = executorRegVm->GetExecError();
+		return false;
+	}
+
 	return true;
 }
 

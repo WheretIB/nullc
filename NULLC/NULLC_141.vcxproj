@@ -210,11 +210,13 @@
     <ClCompile Include="..\external\dyncall\dyncall_vector.c" />
     <ClCompile Include="BinaryCache.cpp" />
     <ClCompile Include="Bytecode.cpp" />
+    <ClCompile Include="Executor_RegVm.cpp" />
     <ClCompile Include="ExpressionGraph.cpp" />
     <ClCompile Include="ExpressionTranslate.cpp" />
     <ClCompile Include="ExpressionTree.cpp" />
     <ClCompile Include="ExpressionEval.cpp" />
     <ClCompile Include="InstructionTreeLlvm.cpp" />
+    <ClCompile Include="InstructionTreeRegVm.cpp" />
     <ClCompile Include="InstructionTreeRegVmLower.cpp" />
     <ClCompile Include="InstructionTreeRegVmLowerGraph.cpp" />
     <ClCompile Include="InstructionTreeVm.cpp" />
@@ -265,6 +267,7 @@
     <ClInclude Include="BinaryCache.h" />
     <ClInclude Include="Bytecode.h" />
     <ClInclude Include="DenseMap.h" />
+    <ClInclude Include="Executor_RegVm.h" />
     <ClInclude Include="ExpressionGraph.h" />
     <ClInclude Include="ExpressionTranslate.h" />
     <ClInclude Include="ExpressionTree.h" />
@@ -272,6 +275,7 @@
     <ClInclude Include="HashMap.h" />
     <ClInclude Include="InstructionSet.h" />
     <ClInclude Include="InstructionTreeLlvm.h" />
+    <ClInclude Include="InstructionTreeRegVm.h" />
     <ClInclude Include="InstructionTreeRegVmLower.h" />
     <ClInclude Include="InstructionTreeRegVmLowerGraph.h" />
     <ClInclude Include="InstructionTreeVm.h" />

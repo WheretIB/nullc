@@ -38,7 +38,6 @@ public:
 
 	void	UpdateInstructionPointer();
 private:
-	unsigned int	CreateFunctionGateway(FastVector<unsigned char>	&code, unsigned int funcID);
 	void	InitExecution();
 
 	bool	codeRunning;
@@ -56,8 +55,6 @@ private:
 	FastVector<ExternTypeInfo>	&exTypes;
 	FastVector<ExternFuncInfo>	&exFunctions;
 	char			*symbols;
-
-	FastVector<unsigned char>	gateCode;
 
 	FastVector<char, true, true>	genParams;
 	FastVector<VMCmd*>	fcallStack;
@@ -101,5 +98,3 @@ private:
 	static const unsigned int	EXEC_BREAK_RETURN = 1;
 	static const unsigned int	EXEC_BREAK_ONCE = 2;
 };
-
-void PrintInstructionText(FILE* stream, VMCmd cmd, unsigned int rel, unsigned int top);

@@ -31,7 +31,7 @@ enum TestTypeIndex
 	TEST_TYPE_COUNT
 };
 
-#define TEST_TARGET_COUNT 3
+#define TEST_TARGET_COUNT 4
 
 struct TestQueue
 {

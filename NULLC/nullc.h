@@ -27,7 +27,7 @@ void		nullcTerminate();
 /************************************************************************/
 /*				NULLC execution settings and environment				*/
 
-/*	Change current executor to either NULLC_VM or NULLC_X86	*/
+/*	Change current executor to either NULLC_VM/NULLC_X86/NULLC_LLVM/NULLC_REGVM	*/
 void		nullcSetExecutor(unsigned id);
 #ifdef NULLC_BUILD_X86_JIT
 /*	Set memory range where JiT parameter stack will be placed.

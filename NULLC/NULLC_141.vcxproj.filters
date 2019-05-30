@@ -51,6 +51,9 @@
     <Filter Include="external\dyncall">
       <UniqueIdentifier>{fa4e4a8c-0ba8-49fe-8eec-c8b20ee0e48d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Executor_RegVm">
+      <UniqueIdentifier>{26fc8e81-66cb-4da2-b564-dbb09229eae4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BinaryCache.cpp">
@@ -207,6 +210,12 @@
       <Filter>Compiler</Filter>
     </ClCompile>
     <ClCompile Include="InstructionTreeRegVmLowerGraph.cpp">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="Executor_RegVm.cpp">
+      <Filter>Executor_RegVm</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionTreeRegVm.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
   </ItemGroup>
@@ -410,6 +419,12 @@
       <Filter>Compiler</Filter>
     </ClInclude>
     <ClInclude Include="InstructionTreeRegVmLower.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="Executor_RegVm.h">
+      <Filter>Executor_RegVm</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionTreeRegVm.h">
       <Filter>Compiler</Filter>
     </ClInclude>
   </ItemGroup>

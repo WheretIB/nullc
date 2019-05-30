@@ -5,6 +5,7 @@
 #include "Executor.h"
 #include "Executor_X86.h"
 #include "Executor_LLVM.h"
+#include "Executor_RegVm.h"
 
 namespace NULLC
 {
@@ -34,6 +35,82 @@ unsigned ConvertFromAutoRef(unsigned int target, unsigned int source)
 			return 1;
 	}
 	return 0;
+}
+
+bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker)
+{
+	bool aligned = 1;
+	//printf("checking class %s: ", exLinker->exSymbols.data + lType->offsetToName);
+	for(unsigned m = 0; m < lType->memberCount; m++)
+	{
+		ExternMemberInfo &member = exLinker->exTypeExtra[lType->memberOffset + m];
+		ExternTypeInfo &memberType = exLinker->exTypes[member.type];
+		unsigned pos = member.offset;
+
+		//printf("member %s; ", exLinker->exSymbols.data + memberType.offsetToName);
+		switch(memberType.type)
+		{
+		case ExternTypeInfo::TYPE_COMPLEX:
+			break;
+		case ExternTypeInfo::TYPE_VOID:
+			break;
+		case ExternTypeInfo::TYPE_INT:
+			if(pos % 4 != 0)
+				aligned = 0;
+			break;
+		case ExternTypeInfo::TYPE_FLOAT:
+			break;
+		case ExternTypeInfo::TYPE_LONG:
+			if(pos % 8 != 0)
+				aligned = 0;
+			break;
+		case ExternTypeInfo::TYPE_DOUBLE:
+			break;
+		case ExternTypeInfo::TYPE_SHORT:
+			if(pos % 2 != 0)
+				aligned = 0;
+			break;
+		case ExternTypeInfo::TYPE_CHAR:
+			break;
+		}
+		pos += memberType.size;
+	}
+	//printf("%s\n", aligned ? "aligned" : "unaligned");
+	return aligned;
+}
+
+bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, Linker *linker)
+{
+	for(unsigned m = 0; m < type.memberCount; m++)
+	{
+		ExternMemberInfo &member = linker->exTypeExtra[type.memberOffset + m];
+
+		ExternTypeInfo &memberType = linker->exTypes[member.type];
+
+		if(memberType.type == ExternTypeInfo::TYPE_COMPLEX)
+		{
+			// Handle opaque types
+			bool opaqueType = memberType.subCat != ExternTypeInfo::CAT_CLASS || memberType.memberCount == 0;
+
+			if(opaqueType)
+			{
+				if(member.offset + memberType.size > fromOffset && member.offset < toOffset)
+					return true;
+			}
+			else
+			{
+				if(HasIntegerMembersInRange(memberType, fromOffset - member.offset, toOffset - member.offset, linker))
+					return true;
+			}
+		}
+		else if(memberType.type != ExternTypeInfo::TYPE_FLOAT && memberType.type != ExternTypeInfo::TYPE_DOUBLE)
+		{
+			if(member.offset + memberType.size > fromOffset && member.offset < toOffset)
+				return true;
+		}
+	}
+
+	return false;
 }
 
 ExternTypeInfo*	GetTypeList()
@@ -860,6 +937,12 @@ void MarkUsedBlocks()
 	}
 #endif
 
+	if(execID == NULLC_REG_VM)
+	{
+		ExecutorRegVm *exec = (ExecutorRegVm*)unknownExec;
+		exec->BeginCallStack();
+	}
+
 	// Mark local variables
 	while(true)
 	{
@@ -886,6 +969,13 @@ void MarkUsedBlocks()
 			address = exec->GetNextAddress();
 		}
 #endif
+
+		if(execID == NULLC_REG_VM)
+		{
+			ExecutorRegVm *exec = (ExecutorRegVm*)unknownExec;
+			address = exec->GetNextAddress();
+		}
+
 		// If failed, exit
 		if(address == 0)
 			break;
@@ -943,6 +1033,7 @@ void MarkUsedBlocks()
 
 	// Check for pointers in stack
 	char *tempStackBase = NULL, *tempStackTop = NULL;
+
 	if(execID == NULLC_VM)
 	{
 		Executor *exec = (Executor*)unknownExec;
@@ -967,6 +1058,13 @@ void MarkUsedBlocks()
 		tempStackTop = (char*)exec->GetStackEnd();
 	}
 #endif
+
+	if(execID == NULLC_REG_VM)
+	{
+		ExecutorRegVm *exec = (ExecutorRegVm*)unknownExec;
+		tempStackBase = (char*)exec->GetStackStart();
+		tempStackTop = (char*)exec->GetStackEnd();
+	}
 
 	GC_DEBUG_PRINT("Check stack from %p to %p\r\n", tempStackBase, tempStackTop);
 

@@ -30,7 +30,7 @@ TestQueue* TestQueue::tail = NULL;
 
 int testsPassed[TEST_TYPE_COUNT] = { 0, 0, 0, 0, 0, 0 };
 int testsCount[TEST_TYPE_COUNT] = { 0, 0, 0, 0, 0, 0 };
-unsigned int testTarget[TEST_TARGET_COUNT] = { NULLC_VM, NULLC_X86, NULLC_LLVM };
+unsigned int testTarget[TEST_TARGET_COUNT] = { NULLC_VM, NULLC_X86, NULLC_LLVM, NULLC_REG_VM };
 
 namespace Tests
 {
@@ -299,7 +299,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 	nullcSetExecutor(executor);
 
 	char buf[256];
-	sprintf(buf, "%s", executor == NULLC_VM ? "VM " : executor == NULLC_X86 ? "X86" : "LLVM");
+	sprintf(buf, "%s", executor == NULLC_VM ? "VM " : executor == NULLC_X86 ? "X86" : (executor == NULLC_LLVM ? "LLVM" : "REGVM"));
 
 	double time = myGetPreciseTime();
 

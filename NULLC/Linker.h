@@ -8,7 +8,7 @@
 #include "HashMap.h"
 #include "InstructionSet.h"
 #include "Output.h"
-#include "InstructionTreeRegVmLower.h"
+#include "InstructionTreeRegVm.h"
 
 const int LINK_ERROR_BUFFER_SIZE = 512;
 

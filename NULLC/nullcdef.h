@@ -72,9 +72,10 @@ struct NULLCAutoArray
 
 typedef unsigned char nullres;
 
-#define NULLC_VM	0
-#define NULLC_X86	1
-#define NULLC_LLVM	2
+#define NULLC_VM		0
+#define NULLC_X86		1
+#define NULLC_LLVM		2
+#define NULLC_REG_VM	3
 
 #ifdef __x86_64__
 	#define _M_X64
