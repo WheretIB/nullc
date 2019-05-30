@@ -305,7 +305,7 @@ static const unsigned char codeHead[] = {
 	0xC3,							// ret
 };
 
-ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions), exCode(linker->exCode), exTypes(linker->exTypes)
+ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions), exCode(linker->exVmCode), exTypes(linker->exTypes)
 {
 	binCode = NULL;
 	binCodeStart = 0;
@@ -1011,8 +1011,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	// Mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
 	codeJumpTargets.push_back(false);
-	for(unsigned int i = oldJumpTargetCount, e = exLinker->jumpTargets.size(); i != e; i++)
-		codeJumpTargets[exLinker->jumpTargets[i]] = true;
+	for(unsigned int i = oldJumpTargetCount, e = exLinker->vmJumpTargets.size(); i != e; i++)
+		codeJumpTargets[exLinker->vmJumpTargets[i]] = true;
 	// Remove cmdNop, because we don't want to generate code for it
 	codeJumpTargets.pop_back();
 
@@ -1243,7 +1243,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		{
 			instAddress[cmd.instID - 1] = code;	// Save VM instruction address in x86 bytecode
 
-			if(int(cmd.instID - 1) == (int)exLinker->offsetToGlobalCode)
+			if(int(cmd.instID - 1) == (int)exLinker->vmOffsetToGlobalCode)
 				code += x86PUSH(code, rEBP);
 		}
 		switch(cmd.name)
@@ -1648,10 +1648,10 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	for(unsigned int i = (codeRelocated ? 0 : oldFunctionSize); i < exFunctions.size(); i++)
 	{
-		if(exFunctions[i].address != -1)
+		if(exFunctions[i].vmAddress != -1)
 		{
-			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].address] - (binCode + 16));
-			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].address];
+			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].vmAddress] - (binCode + 16));
+			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].vmAddress];
 			functionAddress[i * 2 + 1] = 0;
 		}else{
 			exFunctions[i].startInByteCode = 0xffffffff;
@@ -1664,11 +1664,11 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		for(unsigned i = 0; i < oldFunctionLists.size(); i++)
 			memcpy(oldFunctionLists[i].list, functionAddress.data, oldFunctionLists[i].count * sizeof(unsigned));
 	}
-	globalStartInBytecode = (int)(instAddress[exLinker->offsetToGlobalCode] - (binCode + 16));
+	globalStartInBytecode = (int)(instAddress[exLinker->vmOffsetToGlobalCode] - (binCode + 16));
 
 	lastInstructionCount = exCode.size();
 
-	oldJumpTargetCount = exLinker->jumpTargets.size();
+	oldJumpTargetCount = exLinker->vmJumpTargets.size();
 	oldFunctionSize = exFunctions.size();
 
 	return true;

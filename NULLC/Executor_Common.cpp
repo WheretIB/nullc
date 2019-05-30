@@ -49,13 +49,13 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 	FastVector<char> &exSymbols = NULLC::commonLinker->exSymbols;
 	FastVector<ExternModuleInfo> &exModules = NULLC::commonLinker->exModules;
 
-	ExternSourceInfo *exInfo = (ExternSourceInfo*)&NULLC::commonLinker->exSourceInfo[0];
+	ExternSourceInfo *exInfo = (ExternSourceInfo*)&NULLC::commonLinker->exVmSourceInfo[0];
 	const char *source = &NULLC::commonLinker->exSource[0];
-	unsigned int infoSize = NULLC::commonLinker->exSourceInfo.size();
+	unsigned int infoSize = NULLC::commonLinker->exVmSourceInfo.size();
 
 	int funcID = -1;
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
-		if(address >= exFunctions[i].address && address <= (exFunctions[i].address + exFunctions[i].codeSize))
+		if(address >= exFunctions[i].vmAddress && address <= (exFunctions[i].vmAddress + exFunctions[i].vmCodeSize))
 			funcID = i;
 	if(funcID != -1)
 		current += NULLC::SafeSprintf(current, bufSize - int(current - start), "%s", &exSymbols[exFunctions[funcID].offsetToName]);
@@ -734,7 +734,7 @@ namespace GC
 
 		const ExternFuncInfo &func = NULLC::commonLinker->exFunctions[fPtr->id];
 		// External functions shouldn't be checked
-		if(func.address == -1)
+		if(func.vmAddress == -1)
 			return;
 
 		// If context is "this" pointer
@@ -900,7 +900,7 @@ void MarkUsedBlocks()
 		}else{
 			for(unsigned int i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
 			{
-				if(address >= functions[i].address && address < (functions[i].address + functions[i].codeSize))
+				if(address >= functions[i].vmAddress && address < (functions[i].vmAddress + functions[i].vmCodeSize))
 				{
 					funcID = i;
 				}

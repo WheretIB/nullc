@@ -206,7 +206,7 @@ Executor::~Executor()
 
 void Executor::InitExecution()
 {
-	if(!exLinker->exCode.size())
+	if(!exLinker->exVmCode.size())
 	{
 		strcpy(execError, "ERROR: no code to run");
 		return;
@@ -226,7 +226,7 @@ void Executor::InitExecution()
 	callContinue = true;
 
 	// Add return after the last instruction to end execution of code with no return at the end
-	exLinker->exCode.push_back(VMCmd(cmdReturn, bitRetError, 0, 1));
+	exLinker->exVmCode.push_back(VMCmd(cmdReturn, bitRetError, 0, 1));
 
 	// General stack
 	if(!genStackBase)
@@ -253,8 +253,8 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 
 	asmOperType retType = (asmOperType)-1;
 
-	cmdBase = &exLinker->exCode[0];
-	VMCmd *cmdStream = &exLinker->exCode[exLinker->offsetToGlobalCode];
+	cmdBase = &exLinker->exVmCode[0];
+	VMCmd *cmdStream = &exLinker->exVmCode[exLinker->vmOffsetToGlobalCode];
 
 	// By default error is flagged, normal return will clear it
 	bool	errorState = true;
@@ -264,7 +264,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 	if(functionID != ~0u)
 	{
 		unsigned int funcPos = ~0u;
-		funcPos = exFunctions[functionID].address;
+		funcPos = exFunctions[functionID].vmAddress;
 		if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_VOID)
 		{
 			retType = OTYPE_COMPLEX;
@@ -286,7 +286,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			// This will disable NULLC code execution while leaving error check and result retrieval
 			cmdStream = NULL;
 		}else{
-			cmdStream = &exLinker->exCode[funcPos];
+			cmdStream = &exLinker->exVmCode[funcPos];
 
 			// Copy from argument buffer to next stack frame
 			char* oldBase = genParams.data;
@@ -334,7 +334,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				RUNTIME_ERROR(breakFunction == NULL, "ERROR: break function isn't set");
 				unsigned int target = cmd.argument;
 				fcallStack.push_back(cmdStream);
-				RUNTIME_ERROR(cmdStream < cmdBase || cmdStream > exLinker->exCode.data + exLinker->exCode.size() + 1, "ERROR: break position is out of range");
+				RUNTIME_ERROR(cmdStream < cmdBase || cmdStream > exLinker->exVmCode.data + exLinker->exVmCode.size() + 1, "ERROR: break position is out of range");
 				unsigned int instruction = unsigned(cmdStream - cmdBase - 1);
 				unsigned int response = breakFunction(breakFunctionContext, instruction);
 				fcallStack.pop_back();
@@ -365,10 +365,10 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 					// Step command - handle "return" step
 					if(breakCode[target].cmd == cmdReturn && fcallStack.size() != finalReturn)
 						nextCommand = fcallStack.back();
-					if(response == NULLC_BREAK_STEP_INTO && breakCode[target].cmd == cmdCall && exFunctions[breakCode[target].argument].address != -1)
-						nextCommand = cmdBase + exFunctions[breakCode[target].argument].address;
-					if(response == NULLC_BREAK_STEP_INTO && breakCode[target].cmd == cmdCallPtr && genStackPtr[breakCode[target].argument >> 2] && exFunctions[genStackPtr[breakCode[target].argument >> 2]].address != -1)
-						nextCommand = cmdBase + exFunctions[genStackPtr[breakCode[target].argument >> 2]].address;
+					if(response == NULLC_BREAK_STEP_INTO && breakCode[target].cmd == cmdCall && exFunctions[breakCode[target].argument].vmAddress != -1)
+						nextCommand = cmdBase + exFunctions[breakCode[target].argument].vmAddress;
+					if(response == NULLC_BREAK_STEP_INTO && breakCode[target].cmd == cmdCallPtr && genStackPtr[breakCode[target].argument >> 2] && exFunctions[genStackPtr[breakCode[target].argument >> 2]].vmAddress != -1)
+						nextCommand = cmdBase + exFunctions[genStackPtr[breakCode[target].argument >> 2]].vmAddress;
 
 					if(response == NULLC_BREAK_STEP_OUT && fcallStack.size() != finalReturn)
 						nextCommand = fcallStack.back();
@@ -744,7 +744,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		case cmdCall:
 		{
 			RUNTIME_ERROR(genStackPtr <= genStackBase+8, "ERROR: stack overflow");
-			unsigned int fAddress = exFunctions[cmd.argument].address;
+			unsigned int fAddress = exFunctions[cmd.argument].vmAddress;
 
 			if(fAddress == EXTERNAL_FUNCTION)
 			{
@@ -796,7 +796,7 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			unsigned int paramSize = cmd.argument;
 			unsigned int fID = genStackPtr[paramSize >> 2];
 			RUNTIME_ERROR(fID == 0, "ERROR: invalid function pointer");
-			unsigned int fAddress = exFunctions[fID].address;
+			unsigned int fAddress = exFunctions[fID].vmAddress;
 
 			if(fAddress == EXTERNAL_FUNCTION)
 			{
@@ -1894,7 +1894,7 @@ bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *
 
 		for(unsigned int i = 0; i < exFunctions.size(); i++)
 		{
-			if(address >= exFunctions[i].address && address < (exFunctions[i].address + exFunctions[i].codeSize))
+			if(address >= exFunctions[i].vmAddress && address < (exFunctions[i].vmAddress + exFunctions[i].vmCodeSize))
 				funcID = i;
 		}
 
@@ -2025,70 +2025,70 @@ void Executor::SetBreakFunction(void *context, unsigned (*callback)(void*, unsig
 void Executor::ClearBreakpoints()
 {
 	// Check all instructions for break instructions
-	for(unsigned int i = 0; i < exLinker->exCode.size(); i++)
+	for(unsigned int i = 0; i < exLinker->exVmCode.size(); i++)
 	{
 		// nop instruction is used for breaks
 		// break structure: cmdOriginal, cmdNop
-		if(exLinker->exCode[i].cmd == cmdNop)
-			exLinker->exCode[i] = breakCode[exLinker->exCode[i].argument];	// replace it with original instruction
+		if(exLinker->exVmCode[i].cmd == cmdNop)
+			exLinker->exVmCode[i] = breakCode[exLinker->exVmCode[i].argument];	// replace it with original instruction
 	}
 	breakCode.clear();
 }
 
 bool Executor::AddBreakpoint(unsigned int instruction, bool oneHit)
 {
-	if(instruction >= exLinker->exCode.size())
+	if(instruction >= exLinker->exVmCode.size())
 	{
 		NULLC::SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
 		return false;
 	}
 	unsigned int pos = breakCode.size();
-	if(exLinker->exCode[instruction].cmd == cmdNop)
+	if(exLinker->exVmCode[instruction].cmd == cmdNop)
 	{
 		NULLC::SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: cannot set breakpoint on breakpoint");
 		return false;
 	}
 	if(oneHit)
 	{
-		breakCode.push_back(exLinker->exCode[instruction]);
-		exLinker->exCode[instruction].cmd = cmdNop;
-		exLinker->exCode[instruction].flag = EXEC_BREAK_ONCE;
-		exLinker->exCode[instruction].argument = pos;
+		breakCode.push_back(exLinker->exVmCode[instruction]);
+		exLinker->exVmCode[instruction].cmd = cmdNop;
+		exLinker->exVmCode[instruction].flag = EXEC_BREAK_ONCE;
+		exLinker->exVmCode[instruction].argument = pos;
 	}else{
-		breakCode.push_back(exLinker->exCode[instruction]);
+		breakCode.push_back(exLinker->exVmCode[instruction]);
 		breakCode.push_back(VMCmd(cmdNop, EXEC_BREAK_RETURN, 0, instruction + 1));
-		exLinker->exCode[instruction].cmd = cmdNop;
-		exLinker->exCode[instruction].flag = EXEC_BREAK_SIGNAL;
-		exLinker->exCode[instruction].argument = pos;
+		exLinker->exVmCode[instruction].cmd = cmdNop;
+		exLinker->exVmCode[instruction].flag = EXEC_BREAK_SIGNAL;
+		exLinker->exVmCode[instruction].argument = pos;
 	}
 	return true;
 }
 
 bool Executor::RemoveBreakpoint(unsigned int instruction)
 {
-	if(instruction > exLinker->exCode.size())
+	if(instruction > exLinker->exVmCode.size())
 	{
 		NULLC::SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: break position out of code range");
 		return false;
 	}
-	if(exLinker->exCode[instruction].cmd != cmdNop)
+	if(exLinker->exVmCode[instruction].cmd != cmdNop)
 	{
 		NULLC::SafeSprintf(execError, ERROR_BUFFER_SIZE, "ERROR: there is no breakpoint at instruction %d", instruction);
 		return false;
 	}
-	exLinker->exCode[instruction] = breakCode[exLinker->exCode[instruction].argument];
+	exLinker->exVmCode[instruction] = breakCode[exLinker->exVmCode[instruction].argument];
 	return true;
 }
 
 void Executor::UpdateInstructionPointer()
 {
-	if(!cmdBase || !fcallStack.size() || cmdBase == &exLinker->exCode[0])
+	if(!cmdBase || !fcallStack.size() || cmdBase == &exLinker->exVmCode[0])
 		return;
 	for(unsigned int i = 0; i < fcallStack.size(); i++)
 	{
 		int currentPos = int(fcallStack[i] - cmdBase);
 		assert(currentPos >= 0);
-		fcallStack[i] = &exLinker->exCode[0] + currentPos;
+		fcallStack[i] = &exLinker->exVmCode[0] + currentPos;
 	}
-	cmdBase = &exLinker->exCode[0];
+	cmdBase = &exLinker->exVmCode[0];
 }

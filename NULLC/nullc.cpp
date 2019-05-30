@@ -517,11 +517,21 @@ nullres nullcLinkCode(const char *bytecode)
 
 	if(enableLogFiles)
 	{
-		outputCtx.stream = outputCtx.openStream("link.txt");
+		outputCtx.stream = outputCtx.openStream("link_vm.txt");
 
 		if(outputCtx.stream)
 		{
-			linker->SaveListing(outputCtx);
+			linker->SaveVmListing(outputCtx);
+
+			outputCtx.closeStream(outputCtx.stream);
+			outputCtx.stream = NULL;
+		}
+
+		outputCtx.stream = outputCtx.openStream("link_reg_vm.txt");
+
+		if(outputCtx.stream)
+		{
+			linker->SaveRegVmListing(outputCtx);
 
 			outputCtx.closeStream(outputCtx.stream);
 			outputCtx.stream = NULL;
@@ -1030,9 +1040,14 @@ nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 			return false;
 		}
 	}
-	linker->exFunctions[index].address = linker->exFunctions[func.id].address;
+
+	linker->exFunctions[index].vmAddress = linker->exFunctions[func.id].vmAddress;
+	linker->exFunctions[index].vmCodeSize = linker->exFunctions[func.id].vmCodeSize;
+
+	linker->exFunctions[index].regVmAddress = linker->exFunctions[func.id].regVmAddress;
+	linker->exFunctions[index].regVmCodeSize = linker->exFunctions[func.id].regVmCodeSize;
+
 	linker->exFunctions[index].funcPtr = linker->exFunctions[func.id].funcPtr;
-	linker->exFunctions[index].codeSize = linker->exFunctions[func.id].codeSize;
 	return true;
 }
 
@@ -1376,8 +1391,8 @@ ExternSourceInfo* nullcDebugSourceInfo(unsigned int *count)
 	using namespace NULLC;
 
 	if(count && linker)
-		*count = linker->exSourceInfo.size();
-	return linker ? (ExternSourceInfo*)linker->exSourceInfo.data : NULL;
+		*count = linker->exVmSourceInfo.size();
+	return linker ? (ExternSourceInfo*)linker->exVmSourceInfo.data : NULL;
 }
 
 VMCmd* nullcDebugCode(unsigned int *count)
@@ -1385,8 +1400,8 @@ VMCmd* nullcDebugCode(unsigned int *count)
 	using namespace NULLC;
 
 	if(count && linker)
-		*count = linker->exCode.size();
-	return linker ? (VMCmd*)linker->exCode.data : NULL;
+		*count = linker->exVmCode.size();
+	return linker ? (VMCmd*)linker->exVmCode.data : NULL;
 }
 
 ExternModuleInfo* nullcDebugModuleInfo(unsigned int *count)
@@ -1549,8 +1564,8 @@ ExternFuncInfo* nullcDebugConvertAddressToFunction(int instruction, ExternFuncIn
 {
 	for(unsigned i = 0; i < functionCount; i++)
 	{
-		if(instruction >= codeFunctions[i].address && instruction < (codeFunctions[i].address + codeFunctions[i].codeSize))
-			return&codeFunctions[i];
+		if(instruction >= codeFunctions[i].vmAddress && instruction < (codeFunctions[i].vmAddress + codeFunctions[i].vmCodeSize))
+			return &codeFunctions[i];
 	}
 	return NULL;
 }

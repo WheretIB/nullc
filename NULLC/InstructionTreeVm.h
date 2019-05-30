@@ -357,8 +357,11 @@ struct VmFunction: VmValue
 		next = NULL;
 		listed = false;
 
-		address = ~0u;
-		codeSize = 0;
+		vmAddress = ~0u;
+		vmCodeSize = 0;
+
+		regVmAddress = ~0u;
+		regVmCodeSize = 0;
 
 		nextRestoreBlock = 0;
 	}
@@ -383,8 +386,11 @@ struct VmFunction: VmValue
 	VmFunction *next;
 	bool listed;
 
-	unsigned address;
-	unsigned codeSize;
+	unsigned vmAddress;
+	unsigned vmCodeSize;
+
+	unsigned regVmAddress;
+	unsigned regVmCodeSize;
 
 	SmallArray<VariableData*, 4> allocas;
 
@@ -398,7 +404,8 @@ struct VmModule
 {
 	VmModule(Allocator *allocator, const char *code): code(code), loopInfo(allocator), loadStoreInfo(allocator), allocator(allocator)
 	{
-		globalCodeStart = 0;
+		vmGlobalCodeStart = 0;
+		regVmGlobalCodeStart = 0;
 
 		skipFunctionDefinitions = false;
 
@@ -417,7 +424,8 @@ struct VmModule
 
 	IntrusiveList<VmFunction> functions;
 
-	unsigned globalCodeStart;
+	unsigned vmGlobalCodeStart;
+	unsigned regVmGlobalCodeStart;
 
 	bool skipFunctionDefinitions;
 

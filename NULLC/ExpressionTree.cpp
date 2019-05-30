@@ -11712,7 +11712,9 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 		data->importModule = importModule;
 
-		data->isPrototype = (function.codeSize & 0x80000000) != 0;
+		data->isPrototype = (function.vmCodeSize & 0x80000000) != 0;
+
+		assert(data->isPrototype == (function.regVmCodeSize & 0x80000000) != 0);
 
 		if(prototype)
 			prototype->implementation = data;

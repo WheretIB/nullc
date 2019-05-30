@@ -9,39 +9,39 @@ void (*nullcDumpGraphRegVmLoweredModule)(RegVmLoweredModule*) = DumpGraph;
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
-NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(InstructionRegVmLowerGraphContext &ctx, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(OutputContext &ctx, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
 
-	ctx.output.Print(format, args);
+	ctx.Print(format, args);
 
 	va_end(args);
 }
 
-void PrintIndent(InstructionRegVmLowerGraphContext &ctx)
+void PrintIndent(OutputContext &ctx)
 {
-	ctx.output.Print("  ");
+	ctx.Print("  ");
 }
 
-void PrintLine(InstructionRegVmLowerGraphContext &ctx)
+void PrintLine(OutputContext &ctx)
 {
-	ctx.output.Print("\n");
+	ctx.Print("\n");
 }
 
-NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintLine(InstructionRegVmLowerGraphContext &ctx, const char *format, ...)
+NULLC_PRINT_FORMAT_CHECK(2, 3) void PrintLine(OutputContext &ctx, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
 
-	ctx.output.Print(format, args);
+	ctx.Print(format, args);
 
 	va_end(args);
 
 	PrintLine(ctx);
 }
 
-void PrintRegister(InstructionRegVmLowerGraphContext &ctx, unsigned char value)
+void PrintRegister(OutputContext &ctx, unsigned char value)
 {
 	if(value == rvrrGlobals)
 		Print(ctx, "rG");
@@ -51,7 +51,7 @@ void PrintRegister(InstructionRegVmLowerGraphContext &ctx, unsigned char value)
 		Print(ctx, "r%d", value);
 }
 
-void PrintConstant(InstructionRegVmLowerGraphContext &ctx, VmConstant *constant)
+void PrintConstant(OutputContext &ctx, VmConstant *constant)
 {
 	if(constant->type == VmType::Void)
 		Print(ctx, "{}");
@@ -79,79 +79,19 @@ void PrintConstant(InstructionRegVmLowerGraphContext &ctx, VmConstant *constant)
 		assert(!"unknown type");
 }
 
-void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstruction *lowInstruction)
+void PrintConstant(OutputContext &ctx, unsigned argument, VmConstant *constant)
 {
-	if(ctx.showSource && lowInstruction->location && !lowInstruction->location->isInternal)
-	{
-		const char *start = lowInstruction->location->pos.begin;
-		const char *end = start + 1;
+	if(constant)
+		PrintConstant(ctx, constant);
+	else
+		Print(ctx, "%d", argument);
+}
 
-		// TODO: handle source locations from imported modules
-		while(start > ctx.code && *(start - 1) != '\r' && *(start - 1) != '\n')
-			start--;
+void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, unsigned argument, VmConstant *constant)
+{
+	Print(ctx, "%s ", GetInstructionName(code));
 
-		while(*end && *end != '\r' && *end != '\n')
-			end++;
-
-		if (ctx.showAnnotatedSource)
-		{
-			unsigned startOffset = unsigned(lowInstruction->location->pos.begin - start);
-			unsigned endOffset = unsigned(lowInstruction->location->pos.end - start);
-
-			if(start != ctx.lastStart || startOffset != ctx.lastStartOffset || endOffset != ctx.lastEndOffset)
-			{
-				Print(ctx, "// %.*s", unsigned(end - start), start);
-				PrintLine(ctx);
-				PrintIndent(ctx);
-
-				if (lowInstruction->location->pos.end < end)
-				{
-					Print(ctx, "// ");
-
-					for (unsigned i = 0; i < startOffset; i++)
-					{
-						Print(ctx, " ");
-
-						if (start[i] == '\t')
-							Print(ctx, i == 0 ? "  " : "   ");
-					}
-
-					for (unsigned i = startOffset; i < endOffset; i++)
-					{
-						Print(ctx, "~");
-
-						if (start[i] == '\t')
-							Print(ctx, i == 0 ? "~~" : "~~~");
-					}
-
-					PrintLine(ctx);
-					PrintIndent(ctx);
-				}
-
-				ctx.lastStart = start;
-				ctx.lastStartOffset = startOffset;
-				ctx.lastEndOffset = endOffset;
-			}
-		}
-		else
-		{
-			if(start != ctx.lastStart)
-			{
-				Print(ctx, "// %.*s", unsigned(end - start), start);
-				PrintLine(ctx);
-				PrintIndent(ctx);
-
-				ctx.lastStart = start;
-			}
-		}
-	}
-
-	Print(ctx, "%s ", GetInstructionName(RegVmInstructionCode(lowInstruction->code)));
-
-	bool skipComma = false;
-	bool skipArgument = false;
-
-	switch(lowInstruction->code)
+	switch(code)
 	{
 	case rviNop:
 		break;
@@ -160,37 +100,37 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviLoadDword:
 	case rviLoadQword:
 	case rviLoadFloat:
-		PrintRegister(ctx, lowInstruction->rA);
+		PrintRegister(ctx, rA);
 		Print(ctx, ", [");
-		PrintRegister(ctx, lowInstruction->rC);
+		PrintRegister(ctx, rC);
 		Print(ctx, " + ");
-		PrintConstant(ctx, lowInstruction->argument);
+		PrintConstant(ctx, argument, constant);
 		Print(ctx, "]");
-		skipArgument = true;
 		break;
 	case rviLoadImm:
 	case rviLoadImmHigh:
-		PrintRegister(ctx, lowInstruction->rA);
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviStoreByte:
 	case rviStoreWord:
 	case rviStoreDword:
 	case rviStoreQword:
 	case rviStoreFloat:
-		PrintRegister(ctx, lowInstruction->rA);
+		PrintRegister(ctx, rA);
 		Print(ctx, ", [");
-		PrintRegister(ctx, lowInstruction->rC);
+		PrintRegister(ctx, rC);
 		Print(ctx, " + ");
-		PrintConstant(ctx, lowInstruction->argument);
+		PrintConstant(ctx, argument, constant);
 		Print(ctx, "]");
-		skipArgument = true;
 		break;
 	case rviCombinedd:
-		PrintRegister(ctx, lowInstruction->rA);
+		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
-		PrintRegister(ctx, lowInstruction->rB);
+		PrintRegister(ctx, rB);
 		Print(ctx, ", ");
-		PrintRegister(ctx, lowInstruction->rC);
+		PrintRegister(ctx, rC);
 		break;
 	case rviMov:
 	case rviDtoi:
@@ -200,36 +140,42 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviLtod:
 	case rviItol:
 	case rviLtoi:
-		PrintRegister(ctx, lowInstruction->rA);
+		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
-		PrintRegister(ctx, lowInstruction->rC);
+		PrintRegister(ctx, rC);
 		break;
 	case rviIndex:
-		PrintRegister(ctx, lowInstruction->rA);
+		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
-		PrintRegister(ctx, lowInstruction->rB);
+		PrintRegister(ctx, rB);
 		Print(ctx, ", ");
-		PrintRegister(ctx, lowInstruction->rC);
+		PrintRegister(ctx, rC);
 		Print(ctx, ", ");
-		PrintRegister(ctx, (lowInstruction->argument->iValue >> 16) & 0xff);
-		Print(ctx, ", %d", lowInstruction->argument->iValue & 0xffff);
-		skipArgument = true;
 
+		if(constant)
+		{
+			PrintRegister(ctx, (constant->iValue >> 16) & 0xff);
+			Print(ctx, ", %d", constant->iValue & 0xffff);
+		}
+		else
+		{
+			PrintRegister(ctx, (argument >> 16) & 0xff);
+			Print(ctx, ", %d", argument & 0xffff);
+		}
 		break;
 	case rviGetAddr:
-		PrintRegister(ctx, lowInstruction->rA);
+		PrintRegister(ctx, rA);
 		Print(ctx, ", [");
-		PrintRegister(ctx, lowInstruction->rC);
+		PrintRegister(ctx, rC);
 		Print(ctx, " + ");
-		PrintConstant(ctx, lowInstruction->argument);
+		PrintConstant(ctx, argument, constant);
 		Print(ctx, "]");
-		skipArgument = true;
 		break;
 	case rviSetRange:
-		PrintRegister(ctx, lowInstruction->rA);
+		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
 
-		switch(lowInstruction->rB)
+		switch(rB)
 		{
 		case rvsrDouble:
 			Print(ctx, "double");
@@ -254,64 +200,38 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 		}
 
 		Print(ctx, ", ");
-		PrintRegister(ctx, lowInstruction->rC);
+		PrintRegister(ctx, rC);
+		Print(ctx, ", ");
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviJmp:
-		skipComma = true;
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviJmpz:
 	case rviJmpnz:
-		PrintRegister(ctx, lowInstruction->rC);
+		PrintRegister(ctx, rC);
+		Print(ctx, ", ");
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviPop:
 	case rviPopq:
-		PrintRegister(ctx, lowInstruction->rA);
+		PrintRegister(ctx, rA);
 		break;
 	case rviPush:
 	case rviPushq:
-		PrintRegister(ctx, lowInstruction->rC);
+		PrintRegister(ctx, rC);
 		break;
 	case rviPushImm:
 	case rviPushImmq:
-		skipComma = true;
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviCall:
-		if(lowInstruction->rB != rvrVoid)
+		if(rB != rvrVoid)
 		{
-			PrintRegister(ctx, lowInstruction->rA);
+			PrintRegister(ctx, rA);
 			Print(ctx, ", ");
 		}
-		switch(lowInstruction->rB)
-		{
-		case rvrVoid:
-			Print(ctx, "void");
-			break;
-		case rvrDouble:
-			Print(ctx, "double");
-			break;
-		case rvrLong:
-			Print(ctx, "long");
-			break;
-		case rvrInt:
-			Print(ctx, "int");
-			break;
-		case rvrStruct:
-			Print(ctx, "struct");
-			break;
-		case rvrError:
-			Print(ctx, "error");
-			break;
-		default:
-			assert(!"unknown type");
-		}
-		break;
-	case rviCallPtr:
-		if(lowInstruction->rB != rvrVoid)
-		{
-			PrintRegister(ctx, lowInstruction->rA);
-			Print(ctx, ", ");
-		}
-		switch(lowInstruction->rB)
+		switch(rB)
 		{
 		case rvrVoid:
 			Print(ctx, "void");
@@ -335,10 +255,15 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 			assert(!"unknown type");
 		}
 		Print(ctx, ", ");
-		PrintRegister(ctx, lowInstruction->rC);
+		PrintConstant(ctx, argument, constant);
 		break;
-	case rviReturn:
-		switch(lowInstruction->rB)
+	case rviCallPtr:
+		if(rB != rvrVoid)
+		{
+			PrintRegister(ctx, rA);
+			Print(ctx, ", ");
+		}
+		switch(rB)
 		{
 		case rvrVoid:
 			Print(ctx, "void");
@@ -361,9 +286,40 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 		default:
 			assert(!"unknown type");
 		}
+		Print(ctx, ", ");
+		PrintRegister(ctx, rC);
+		break;
+	case rviReturn:
+		switch(rB)
+		{
+		case rvrVoid:
+			Print(ctx, "void");
+			break;
+		case rvrDouble:
+			Print(ctx, "double");
+			break;
+		case rvrLong:
+			Print(ctx, "long");
+			break;
+		case rvrInt:
+			Print(ctx, "int");
+			break;
+		case rvrStruct:
+			Print(ctx, "struct");
+			break;
+		case rvrError:
+			Print(ctx, "error");
+			break;
+		default:
+			assert(!"unknown type");
+		}
+		Print(ctx, ", ");
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviPushvtop:
-		Print(ctx, "%d", lowInstruction->rB * 256 + lowInstruction->rC);
+		Print(ctx, "%d", rB * 256 + rC);
+		Print(ctx, ", ");
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviAdd:
 	case rviSub:
@@ -413,11 +369,11 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviGequald:
 	case rviEquald:
 	case rviNequald:
-		PrintRegister(ctx, lowInstruction->rA);
+		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
-		PrintRegister(ctx, lowInstruction->rB);
+		PrintRegister(ctx, rB);
 		Print(ctx, ", ");
-		PrintRegister(ctx, lowInstruction->rC);
+		PrintRegister(ctx, rC);
 		break;
 	case rviNeg:
 	case rviNegl:
@@ -426,72 +382,134 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 	case rviBitNotl:
 	case rviLogNot:
 	case rviLogNotl:
-		PrintRegister(ctx, lowInstruction->rA);
+		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
-		PrintRegister(ctx, lowInstruction->rC);
+		PrintRegister(ctx, rC);
 		break;
 	case rviConvertPtr:
-		PrintRegister(ctx, lowInstruction->rA);
+		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
-		PrintRegister(ctx, lowInstruction->rC);
+		PrintRegister(ctx, rC);
 		break;
 	case rviCheckRet:
 		break;
 	case rviFuncAddr:
 	case rviTypeid:
-		PrintRegister(ctx, lowInstruction->rA);
+		PrintRegister(ctx, rA);
 		break;
 	default:
 		assert(!"unknown instruction");
 	}
+}
 
-	if(lowInstruction->argument && !skipArgument)
+void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstruction *lowInstruction)
+{
+	if(ctx.showSource && lowInstruction->location && !lowInstruction->location->isInternal)
 	{
-		if(!skipComma)
-			Print(ctx, ", ");
+		const char *start = lowInstruction->location->pos.begin;
+		const char *end = start + 1;
 
-		PrintConstant(ctx, lowInstruction->argument);
+		// TODO: handle source locations from imported modules
+		while(start > ctx.code && *(start - 1) != '\r' && *(start - 1) != '\n')
+			start--;
+
+		while(*end && *end != '\r' && *end != '\n')
+			end++;
+
+		if (ctx.showAnnotatedSource)
+		{
+			unsigned startOffset = unsigned(lowInstruction->location->pos.begin - start);
+			unsigned endOffset = unsigned(lowInstruction->location->pos.end - start);
+
+			if(start != ctx.lastStart || startOffset != ctx.lastStartOffset || endOffset != ctx.lastEndOffset)
+			{
+				Print(ctx.output, "// %.*s", unsigned(end - start), start);
+				PrintLine(ctx.output);
+				PrintIndent(ctx.output);
+
+				if (lowInstruction->location->pos.end < end)
+				{
+					Print(ctx.output, "// ");
+
+					for (unsigned i = 0; i < startOffset; i++)
+					{
+						Print(ctx.output, " ");
+
+						if (start[i] == '\t')
+							Print(ctx.output, i == 0 ? "  " : "   ");
+					}
+
+					for (unsigned i = startOffset; i < endOffset; i++)
+					{
+						Print(ctx.output, "~");
+
+						if (start[i] == '\t')
+							Print(ctx.output, i == 0 ? "~~" : "~~~");
+					}
+
+					PrintLine(ctx.output);
+					PrintIndent(ctx.output);
+				}
+
+				ctx.lastStart = start;
+				ctx.lastStartOffset = startOffset;
+				ctx.lastEndOffset = endOffset;
+			}
+		}
+		else
+		{
+			if(start != ctx.lastStart)
+			{
+				Print(ctx.output, "// %.*s", unsigned(end - start), start);
+				PrintLine(ctx.output);
+				PrintIndent(ctx.output);
+
+				ctx.lastStart = start;
+			}
+		}
 	}
 
-	PrintLine(ctx);
+	PrintInstruction(ctx.output, RegVmInstructionCode(lowInstruction->code), lowInstruction->rA, lowInstruction->rB, lowInstruction->rC, 0, lowInstruction->argument);
+
+	PrintLine(ctx.output);
 }
 
 void PrintBlock(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredBlock *lowblock)
 {
-	PrintLine(ctx, "%.*s.b%d:", FMT_ISTR(lowblock->vmBlock->name), lowblock->vmBlock->uniqueId);
+	PrintLine(ctx.output, "%.*s.b%d:", FMT_ISTR(lowblock->vmBlock->name), lowblock->vmBlock->uniqueId);
 
 	for(RegVmLoweredInstruction *lowInstruction = lowblock->firstInstruction; lowInstruction; lowInstruction = lowInstruction->nextSibling)
 	{
-		PrintIndent(ctx);
+		PrintIndent(ctx.output);
 		PrintInstruction(ctx, lowInstruction);
 	}
 
 	//if(lowblock->lastInstruction && !IsBlockTerminator(lowblock->lastInstruction))
 	//	PrintLine(ctx, "  // fallthrough");
 
-	PrintLine(ctx);
+	PrintLine(ctx.output);
 }
 
 void PrintFunction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredFunction *lowFunction)
 {
 	if(FunctionData *fData = lowFunction->vmFunction->function)
 	{
-		Print(ctx, "function %.*s.f%04x(", FMT_ISTR(fData->name->name), fData->uniqueId);
+		Print(ctx.output, "function %.*s.f%04x(", FMT_ISTR(fData->name->name), fData->uniqueId);
 
 		for(unsigned i = 0; i < fData->arguments.size(); i++)
 		{
 			ArgumentData &argument = fData->arguments[i];
 
-			Print(ctx, "%s%s%.*s %.*s", i == 0 ? "" : ", ", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name), FMT_ISTR(argument.name->name));
+			Print(ctx.output, "%s%s%.*s %.*s", i == 0 ? "" : ", ", argument.isExplicit ? "explicit " : "", FMT_ISTR(argument.type->name), FMT_ISTR(argument.name->name));
 		}
 
-		PrintLine(ctx, ")");
+		PrintLine(ctx.output, ")");
 
-		PrintLine(ctx, "// argument size %lld", fData->argumentsSize);
+		PrintLine(ctx.output, "// argument size %lld", fData->argumentsSize);
 	}
 	else
 	{
-		PrintLine(ctx, "function global()");
+		PrintLine(ctx.output, "function global()");
 	}
 
 	if(ScopeData *scope = lowFunction->vmFunction->scope)
@@ -503,7 +521,7 @@ void PrintFunction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredFunction 
 			if(variable->isAlloca && variable->users.empty())
 				continue;
 
-			Print(ctx, "// %s0x%x: %.*s %.*s", variable->importModule ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name->name));
+			Print(ctx.output, "// %s0x%x: %.*s %.*s", variable->importModule ? "imported " : "", variable->offset, FMT_ISTR(variable->type->name), FMT_ISTR(variable->name->name));
 
 			bool addressTaken = false;
 
@@ -535,25 +553,25 @@ void PrintFunction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredFunction 
 			}
 
 			if(!addressTaken)
-				Print(ctx, " noalias");
+				Print(ctx.output, " noalias");
 
 			if(variable->isAlloca)
-				Print(ctx, " alloca");
+				Print(ctx.output, " alloca");
 
 			if(variable->importModule)
-				Print(ctx, " from '%.*s'", FMT_ISTR(variable->importModule->name));
+				Print(ctx.output, " from '%.*s'", FMT_ISTR(variable->importModule->name));
 
-			PrintLine(ctx);
+			PrintLine(ctx.output);
 		}
 	}
 
-	PrintLine(ctx, "{");
+	PrintLine(ctx.output, "{");
 
 	for(unsigned i = 0; i < lowFunction->blocks.size(); i++)
 		PrintBlock(ctx, lowFunction->blocks[i]);
 
-	PrintLine(ctx, "}");
-	PrintLine(ctx);
+	PrintLine(ctx.output, "}");
+	PrintLine(ctx.output);
 }
 
 void PrintGraph(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredModule *lowModule)

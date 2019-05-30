@@ -1,8 +1,10 @@
 #pragma once
 
+#include "InstructionTreeRegVmLower.h"
 #include "Output.h"
 
 struct ExpressionContext;
+struct VmConstant;
 struct RegVmLoweredModule;
 struct InstructionRegVmFinalizeContext;
 
@@ -35,6 +37,8 @@ private:
 	InstructionRegVmLowerGraphContext(const InstructionRegVmLowerGraphContext&);
 	InstructionRegVmLowerGraphContext& operator=(const InstructionRegVmLowerGraphContext&);
 };
+
+void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, unsigned argument, VmConstant *constant);
 
 void PrintGraph(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredModule *lowModule);
 

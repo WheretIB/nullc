@@ -45,9 +45,14 @@ namespace NULLCDynamic
 		ExternFuncInfo &srcFunc = linker->exFunctions[((NULLCFuncPtr*)src.ptr)->id];
 		if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
 			RewriteX86(((NULLCFuncPtr*)dest.ptr)->id, ((NULLCFuncPtr*)src.ptr)->id);
-		destFunc.address = srcFunc.address;
+
+		destFunc.vmAddress = srcFunc.vmAddress;
+		destFunc.vmCodeSize = srcFunc.vmCodeSize;
+
+		destFunc.regVmAddress = srcFunc.regVmAddress;
+		destFunc.regVmCodeSize = srcFunc.regVmCodeSize;
+
 		destFunc.funcPtr = srcFunc.funcPtr;
-		destFunc.codeSize = srcFunc.codeSize;
 	}
 
 	void Override(NULLCRef dest, NULLCArray code)
@@ -91,8 +96,14 @@ namespace NULLCDynamic
 		ExternFuncInfo &srcFunc = linker->exFunctions.back();
 		if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
 			RewriteX86(((NULLCFuncPtr*)dest.ptr)->id, linker->exFunctions.size() - 1);
-		destFunc.address = srcFunc.address;
-		destFunc.codeSize = srcFunc.codeSize;
+
+		destFunc.vmAddress = srcFunc.vmAddress;
+		destFunc.vmCodeSize = srcFunc.vmCodeSize;
+
+		destFunc.regVmAddress = srcFunc.regVmAddress;
+		destFunc.regVmCodeSize = srcFunc.regVmCodeSize;
+
+		destFunc.funcPtr = srcFunc.funcPtr;
 	}
 }
 

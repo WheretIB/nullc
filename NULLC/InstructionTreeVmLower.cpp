@@ -2416,7 +2416,7 @@ void FinalizeBlock(InstructionVmFinalizeContext &ctx, VmLoweredBlock *lowBlock)
 
 void FinalizeFunction(InstructionVmFinalizeContext &ctx, VmLoweredFunction *lowFunction)
 {
-	lowFunction->vmFunction->address = ctx.cmds.size();
+	lowFunction->vmFunction->vmAddress = ctx.cmds.size();
 
 	if(FunctionData *data = lowFunction->vmFunction->function)
 	{
@@ -2449,7 +2449,7 @@ void FinalizeFunction(InstructionVmFinalizeContext &ctx, VmLoweredFunction *lowF
 
 	ctx.fixupPoints.clear();
 
-	lowFunction->vmFunction->codeSize = ctx.cmds.size() - lowFunction->vmFunction->address;
+	lowFunction->vmFunction->vmCodeSize = ctx.cmds.size() - lowFunction->vmFunction->vmAddress;
 
 	ctx.currentFunction = NULL;
 }
@@ -2465,9 +2465,9 @@ void FinalizeModule(InstructionVmFinalizeContext &ctx, VmLoweredModule *lowModul
 
 		if(!lowFunction->vmFunction->function)
 		{
-			lowModule->vmModule->globalCodeStart = ctx.cmds.size();
+			lowModule->vmModule->vmGlobalCodeStart = ctx.cmds.size();
 
-			ctx.cmds[0].argument = lowModule->vmModule->globalCodeStart;
+			ctx.cmds[0].argument = lowModule->vmModule->vmGlobalCodeStart;
 		}
 
 		FinalizeFunction(ctx, lowFunction);

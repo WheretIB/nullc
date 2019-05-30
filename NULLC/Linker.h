@@ -8,6 +8,7 @@
 #include "HashMap.h"
 #include "InstructionSet.h"
 #include "Output.h"
+#include "InstructionTreeRegVmLower.h"
 
 const int LINK_ERROR_BUFFER_SIZE = 512;
 
@@ -19,7 +20,8 @@ public:
 
 	void	CleanCode();
 	bool	LinkCode(const char *bytecode, const char *moduleName);
-	bool	SaveListing(OutputContext &output);
+	bool	SaveVmListing(OutputContext &output);
+	bool	SaveRegVmListing(OutputContext &output);
 
 	const char*	GetLinkError();
 
@@ -36,16 +38,25 @@ public:
 	FastVector<unsigned>			exFunctionExplicitTypes;
 	FastVector<ExternLocalInfo>		exLocals;
 	FastVector<ExternModuleInfo>	exModules;
-	FastVector<VMCmd>				exCode;
 	FastVector<char>				exSymbols;
-	FastVector<ExternSourceInfo>	exSourceInfo;
 	FastVector<char>				exSource;
 	FastVector<unsigned int>		exDependencies;
 
-	unsigned int				globalVarSize;
-	unsigned int				offsetToGlobalCode;
+	FastVector<VMCmd>				exVmCode;
+	FastVector<ExternSourceInfo>	exVmSourceInfo;
 
-	FastVector<unsigned int>	jumpTargets;
+	unsigned int					vmOffsetToGlobalCode;
+
+	FastVector<unsigned int>		vmJumpTargets;
+
+	FastVector<RegVmCmd>			exRegVmCode;
+	FastVector<ExternSourceInfo>	exRegVmSourceInfo;
+
+	unsigned int					regVmOffsetToGlobalCode;
+
+	FastVector<unsigned int>		regVmJumpTargets;
+
+	unsigned int					globalVarSize;
 
 	void (*fptrUpdater)(unsigned, unsigned);
 

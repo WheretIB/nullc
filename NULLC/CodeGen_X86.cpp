@@ -1972,7 +1972,7 @@ void GenCodeCmdCall(VMCmd cmd)
 	static unsigned int ret[128];
 	EMIT_COMMENT("CALL");
 
-	if(x86Functions[cmd.argument].address != -1)
+	if(x86Functions[cmd.argument].vmAddress != -1)
 	{
 		GenCodeCmdCallEpilog(x86Functions[cmd.argument].bytesToPop);
 

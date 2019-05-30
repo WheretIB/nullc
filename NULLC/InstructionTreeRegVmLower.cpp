@@ -2536,7 +2536,7 @@ void RegFinalizeBlock(InstructionRegVmFinalizeContext &ctx, RegVmLoweredBlock *l
 
 void RegFinalizeFunction(InstructionRegVmFinalizeContext &ctx, RegVmLoweredFunction *lowFunction)
 {
-	lowFunction->vmFunction->address = ctx.cmds.size();
+	lowFunction->vmFunction->regVmAddress = ctx.cmds.size();
 
 	if(FunctionData *data = lowFunction->vmFunction->function)
 	{
@@ -2571,7 +2571,7 @@ void RegFinalizeFunction(InstructionRegVmFinalizeContext &ctx, RegVmLoweredFunct
 
 	ctx.fixupPoints.clear();
 
-	lowFunction->vmFunction->codeSize = ctx.cmds.size() - lowFunction->vmFunction->address;
+	lowFunction->vmFunction->regVmCodeSize = ctx.cmds.size() - lowFunction->vmFunction->regVmAddress;
 
 	ctx.currentFunction = NULL;
 }
@@ -2587,9 +2587,9 @@ void RegVmFinalizeModule(InstructionRegVmFinalizeContext &ctx, RegVmLoweredModul
 
 		if(!lowFunction->vmFunction->function)
 		{
-			lowModule->vmModule->globalCodeStart = ctx.cmds.size();
+			lowModule->vmModule->regVmGlobalCodeStart = ctx.cmds.size();
 
-			ctx.cmds[0].argument = lowModule->vmModule->globalCodeStart;
+			ctx.cmds[0].argument = lowModule->vmModule->regVmGlobalCodeStart;
 		}
 
 		RegFinalizeFunction(ctx, lowFunction);

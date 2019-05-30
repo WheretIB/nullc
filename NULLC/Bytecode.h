@@ -102,8 +102,12 @@ struct ExternFuncInfo
 {
 	unsigned int	offsetToName;
 
-	int				address;
-	int				codeSize;
+	int				vmAddress;
+	int				vmCodeSize;
+
+	int				regVmAddress;
+	int				regVmCodeSize;
+
 	int				isVisible;
 
 	void			*funcPtr;
@@ -244,13 +248,19 @@ struct ByteCode
 
 	unsigned int	closureListCount;
 
-	unsigned int	infoSize;
-	unsigned int	offsetToInfo;
+	unsigned int	vmInfoSize;
+	unsigned int	vmOffsetToInfo;
 
-	unsigned int	codeSize;
-	unsigned int	offsetToCode;
+	unsigned int	vmCodeSize;
+	unsigned int	vmOffsetToCode;
+	unsigned int	vmGlobalCodeStart;
 
-	unsigned int	globalCodeStart;
+	unsigned int	regVmInfoSize;
+	unsigned int	regVmOffsetToInfo;
+
+	unsigned int	regVmCodeSize;
+	unsigned int	regVmOffsetToCode;
+	unsigned int	regVmGlobalCodeStart;
 
 	unsigned int	symbolLength;
 	unsigned int	offsetToSymbols;
@@ -309,8 +319,10 @@ ExternFuncInfo*		FindFirstFunc(ByteCode *code);
 ExternLocalInfo*	FindFirstLocal(ByteCode *code);
 ExternTypedefInfo*	FindFirstTypedef(ByteCode *code);
 ExternNamespaceInfo*FindFirstNamespace(ByteCode *code);
-char*				FindCode(ByteCode *code);
-ExternSourceInfo*	FindSourceInfo(ByteCode *code);
+char*				FindVmCode(ByteCode *code);
+ExternSourceInfo*	FindVmSourceInfo(ByteCode *code);
+char*				FindRegVmCode(ByteCode *code);
+ExternSourceInfo*	FindRegVmSourceInfo(ByteCode *code);
 char*				FindSymbols(ByteCode *code);
 char*				FindSource(ByteCode *code);
 

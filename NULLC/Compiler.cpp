@@ -598,6 +598,8 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 
 	ctx.regVmLoweredModule = RegVmLowerModule(exprCtx, ctx.vmModule);
 
+	RegVmFinalizeModule(ctx.instRegVmFinalizeCtx, ctx.regVmLoweredModule);
+
 	if(ctx.enableLogFiles)
 	{
 		assert(!ctx.outputCtx.stream);
@@ -681,9 +683,9 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 
 	FinalizeRegisterSpills(ctx.exprCtx, ctx.vmLoweredModule);
 
-	InstructionVmFinalizeContext &instFinalizeCtx = ctx.instFinalizeCtx;
+	InstructionVmFinalizeContext &instVmFinalizeCtx = ctx.instVmFinalizeCtx;
 
-	FinalizeModule(instFinalizeCtx, ctx.vmLoweredModule);
+	FinalizeModule(instVmFinalizeCtx, ctx.vmLoweredModule);
 
 	if(ctx.enableLogFiles)
 	{
@@ -696,7 +698,7 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 
 			instLowerGraphCtx.showSource = true;
 
-			PrintInstructions(instLowerGraphCtx, instFinalizeCtx, ctx.code);
+			PrintInstructions(instLowerGraphCtx, instVmFinalizeCtx, ctx.code);
 
 			ctx.outputCtx.closeStream(ctx.outputCtx.stream);
 			ctx.outputCtx.stream = NULL;
@@ -960,23 +962,39 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	unsigned offsetToNamespace = size;
 	size += ctx.exprCtx.namespaces.size() * sizeof(ExternNamespaceInfo);
 
-	unsigned offsetToCode = size;
-	size += ctx.instFinalizeCtx.cmds.size() * sizeof(VMCmd);
+	unsigned offsetToVmCode = size;
+	size += ctx.instVmFinalizeCtx.cmds.size() * sizeof(VMCmd);
+
+	unsigned offsetToRegVmCode = size;
+	size += ctx.instRegVmFinalizeCtx.cmds.size() * sizeof(VMCmd);
 
 	unsigned sourceLength = (unsigned)strlen(ctx.code) + 1;
 
-	unsigned infoCount = 0;
+	unsigned vmInfoCount = 0;
 
-	for(unsigned i = 0; i < ctx.instFinalizeCtx.locations.size(); i++)
+	for(unsigned i = 0; i < ctx.instVmFinalizeCtx.locations.size(); i++)
 	{
-		SynBase *location = ctx.instFinalizeCtx.locations[i];
+		SynBase *location = ctx.instVmFinalizeCtx.locations[i];
 
 		if(location && !location->isInternal)
-			infoCount++;
+			vmInfoCount++;
 	}
 
-	unsigned offsetToInfo = size;
-	size += sizeof(ExternSourceInfo) * infoCount;
+	unsigned offsetToVmInfo = size;
+	size += sizeof(ExternSourceInfo) * vmInfoCount;
+
+	unsigned regVmInfoCount = 0;
+
+	for(unsigned i = 0; i < ctx.instRegVmFinalizeCtx.locations.size(); i++)
+	{
+		SynBase *location = ctx.instRegVmFinalizeCtx.locations[i];
+
+		if(location && !location->isInternal)
+			regVmInfoCount++;
+	}
+
+	unsigned offsetToRegVmInfo = size;
+	size += sizeof(ExternSourceInfo) * regVmInfoCount;
 
 	unsigned offsetToSymbols = size;
 	size += symbolStorageSize;
@@ -1028,8 +1046,11 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 	code->closureListCount = 0;
 
-	code->codeSize = ctx.instFinalizeCtx.cmds.size();
-	code->offsetToCode = offsetToCode;
+	code->vmCodeSize = ctx.instVmFinalizeCtx.cmds.size();
+	code->vmOffsetToCode = offsetToVmCode;
+
+	code->regVmCodeSize = ctx.instRegVmFinalizeCtx.cmds.size();
+	code->regVmOffsetToCode = offsetToRegVmCode;
 
 	code->symbolLength = symbolStorageSize;
 	code->offsetToSymbols = offsetToSymbols;
@@ -1439,23 +1460,35 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 		if(function->isPrototype && function->implementation)
 		{
-			funcInfo.address = function->implementation->vmFunction->address;
-			funcInfo.codeSize = function->implementation->functionIndex | 0x80000000;
+			funcInfo.vmAddress = function->implementation->vmFunction->vmAddress;
+			funcInfo.vmCodeSize = function->implementation->functionIndex | 0x80000000;
+
+			funcInfo.regVmAddress = function->implementation->vmFunction->regVmAddress;
+			funcInfo.regVmCodeSize = function->implementation->functionIndex | 0x80000000;
 		}
 		else if(function->isPrototype)
 		{
-			funcInfo.address = 0;
-			funcInfo.codeSize = 0;
+			funcInfo.vmAddress = 0;
+			funcInfo.vmCodeSize = 0;
+
+			funcInfo.regVmAddress = 0;
+			funcInfo.regVmCodeSize = 0;
 		}
 		else if(function->vmFunction)
 		{
-			funcInfo.address = function->vmFunction->address;
-			funcInfo.codeSize = function->vmFunction->codeSize;
+			funcInfo.vmAddress = function->vmFunction->vmAddress;
+			funcInfo.vmCodeSize = function->vmFunction->vmCodeSize;
+
+			funcInfo.regVmAddress = function->vmFunction->regVmAddress;
+			funcInfo.regVmCodeSize = function->vmFunction->regVmCodeSize;
 		}
 		else
 		{
-			funcInfo.address = ~0u;
-			funcInfo.codeSize = 0;
+			funcInfo.vmAddress = ~0u;
+			funcInfo.vmCodeSize = 0;
+
+			funcInfo.regVmAddress = ~0u;
+			funcInfo.regVmCodeSize = 0;
 		}
 
 		funcInfo.funcPtr = 0;
@@ -1557,7 +1590,9 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		{
 			TypeBase *returnType = function->type->returnType;
 
-			funcInfo.address = ~0u;
+			funcInfo.vmAddress = ~0u;
+			funcInfo.regVmAddress = ~0u;
+
 			funcInfo.retType = ExternFuncInfo::RETURN_VOID;
 
 			if(ModuleData *moduleData = function->importModule)
@@ -1706,14 +1741,17 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 		}
 	}
 
-	code->offsetToInfo = offsetToInfo;
-	code->infoSize = infoCount;
+	code->vmOffsetToInfo = offsetToVmInfo;
+	code->vmInfoSize = vmInfoCount;
 
-	VectorView<ExternSourceInfo> infoArray(FindSourceInfo(code), infoCount);
+	code->regVmOffsetToInfo = offsetToRegVmInfo;
+	code->regVmInfoSize = regVmInfoCount;
 
-	for(unsigned i = 0; i < ctx.instFinalizeCtx.locations.size(); i++)
+	VectorView<ExternSourceInfo> vmInfoArray(FindVmSourceInfo(code), vmInfoCount);
+
+	for(unsigned i = 0; i < ctx.instVmFinalizeCtx.locations.size(); i++)
 	{
-		SynBase *location = ctx.instFinalizeCtx.locations[i];
+		SynBase *location = ctx.instVmFinalizeCtx.locations[i];
 
 		if(location && !location->isInternal)
 		{
@@ -1730,7 +1768,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				info.definitionModule = importModule->dependencyIndex;
 				info.sourceOffset = unsigned(location->begin->pos - code);
 
-				infoArray.push_back(info);
+				vmInfoArray.push_back(info);
 			}
 			else
 			{
@@ -1741,21 +1779,63 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 				info.definitionModule = 0;
 				info.sourceOffset = unsigned(location->begin->pos - code);
 
-				infoArray.push_back(info);
+				vmInfoArray.push_back(info);
 			}
 		}
 	}
+
+	code->vmGlobalCodeStart = ctx.vmModule->vmGlobalCodeStart;
+
+	if(ctx.instVmFinalizeCtx.cmds.size())
+		memcpy(FindVmCode(code), ctx.instVmFinalizeCtx.cmds.data, ctx.instVmFinalizeCtx.cmds.size() * sizeof(VMCmd));
+
+	VectorView<ExternSourceInfo> regVmInfoArray(FindRegVmSourceInfo(code), regVmInfoCount);
+
+	for(unsigned i = 0; i < ctx.instRegVmFinalizeCtx.locations.size(); i++)
+	{
+		SynBase *location = ctx.instRegVmFinalizeCtx.locations[i];
+
+		if(location && !location->isInternal)
+		{
+			ExternSourceInfo info;
+
+			info.instruction = i;
+
+			if(ModuleData *importModule = ctx.exprCtx.GetSourceOwner(location->begin))
+			{
+				const char *code = FindSource(importModule->bytecode);
+
+				assert(location->pos.begin >= code && location->pos.begin < code + importModule->bytecode->sourceSize);
+
+				info.definitionModule = importModule->dependencyIndex;
+				info.sourceOffset = unsigned(location->begin->pos - code);
+
+				regVmInfoArray.push_back(info);
+			}
+			else
+			{
+				const char *code = ctx.code;
+
+				assert(location->pos.begin >= code && location->pos.begin < code + sourceLength);
+
+				info.definitionModule = 0;
+				info.sourceOffset = unsigned(location->begin->pos - code);
+
+				regVmInfoArray.push_back(info);
+			}
+		}
+	}
+
+	code->regVmGlobalCodeStart = ctx.vmModule->regVmGlobalCodeStart;
+
+	if(ctx.instRegVmFinalizeCtx.cmds.size())
+		memcpy(FindRegVmCode(code), ctx.instRegVmFinalizeCtx.cmds.data, ctx.instRegVmFinalizeCtx.cmds.size() * sizeof(VMCmd));
 
 	char *sourceCode = (char*)code + offsetToSource;
 	memcpy(sourceCode, ctx.code, sourceLength);
 
 	code->offsetToSource = offsetToSource;
 	code->sourceSize = sourceLength;
-
-	code->globalCodeStart = ctx.vmModule->globalCodeStart;
-
-	if(ctx.instFinalizeCtx.cmds.size())
-		memcpy(FindCode(code), ctx.instFinalizeCtx.cmds.data, ctx.instFinalizeCtx.cmds.size() * sizeof(VMCmd));
 
 	code->llvmSize = ctx.llvmModule ? ctx.llvmModule->moduleSize : 0;
 	code->llvmOffset = offsetToLLVM;
@@ -1847,7 +1927,8 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	assert(vInfo.count == externVariableInfoCount);
 	assert(fInfo.count == exportedFunctionCount);
 	assert(localInfo.count == localCount);
-	assert(infoArray.count == infoCount);
+	assert(vmInfoArray.count == vmInfoCount);
+	assert(regVmInfoArray.count == regVmInfoCount);
 	assert(namespaceList.count == ctx.exprCtx.namespaces.size());
 
 	return size;
@@ -1868,7 +1949,7 @@ bool SaveListing(CompilerContext &ctx, const char *fileName)
 
 	instLowerGraphCtx.showSource = true;
 
-	PrintInstructions(instLowerGraphCtx, ctx.instFinalizeCtx, ctx.code);
+	PrintInstructions(instLowerGraphCtx, ctx.instVmFinalizeCtx, ctx.code);
 
 	ctx.outputCtx.closeStream(ctx.outputCtx.stream);
 	ctx.outputCtx.stream = NULL;
@@ -2040,8 +2121,11 @@ bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), 
 		{
 			if(index == 0)
 			{
-				fInfo->address = -1;
+				fInfo->vmAddress = -1;
+				fInfo->regVmAddress = -1;
+
 				fInfo->funcPtr = (void*)ptr;
+
 				index--;
 				break;
 			}

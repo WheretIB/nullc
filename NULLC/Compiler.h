@@ -20,7 +20,7 @@
 
 struct CompilerContext
 {
-	CompilerContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): allocator(allocator), parseCtx(allocator, optimizationLevel, activeImports), exprCtx(allocator, optimizationLevel), instFinalizeCtx(exprCtx, allocator), instRegVmFinalizeCtx(exprCtx, allocator), optimizationLevel(optimizationLevel)
+	CompilerContext(Allocator *allocator, int optimizationLevel, ArrayView<InplaceStr> activeImports): allocator(allocator), parseCtx(allocator, optimizationLevel, activeImports), exprCtx(allocator, optimizationLevel), instVmFinalizeCtx(exprCtx, allocator), instRegVmFinalizeCtx(exprCtx, allocator), optimizationLevel(optimizationLevel)
 	{
 		code = 0;
 
@@ -65,7 +65,7 @@ struct CompilerContext
 
 	VmLoweredModule *vmLoweredModule;
 
-	InstructionVmFinalizeContext instFinalizeCtx;
+	InstructionVmFinalizeContext instVmFinalizeCtx;
 
 	RegVmLoweredModule *regVmLoweredModule;
 
