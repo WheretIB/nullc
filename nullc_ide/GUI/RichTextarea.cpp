@@ -1007,9 +1007,21 @@ void RichTextarea::SetAreaText(HWND wnd, const char *text)
 	while(*text)
 	{
 		if((unsigned char)*text >= 0x20 || *text == '\t')
+		{
 			data->InputChar(*text);
+		}
 		else if(*text == '\r')
+		{
 			data->InputEnter();
+
+			if(*text == '\n')
+				text++;
+		}
+		else if(*text == '\n')
+		{
+			data->InputEnter();
+		}
+
 		text++;
 	}
 	// Colorer should update text
