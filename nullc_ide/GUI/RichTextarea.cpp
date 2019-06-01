@@ -1014,7 +1014,7 @@ void RichTextarea::SetAreaText(HWND wnd, const char *text)
 		{
 			data->InputEnter();
 
-			if(*text == '\n')
+			if(text[1] == '\n')
 				text++;
 		}
 		else if(*text == '\n')
