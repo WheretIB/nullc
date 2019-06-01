@@ -14,24 +14,30 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "loadw";
 	case rviLoadDword:
 		return "load";
-	case rviLoadQword:
+	case rviLoadLong:
 		return "loadq";
 	case rviLoadFloat:
 		return "loadf";
+	case rviLoadDouble:
+		return "loadd";
 	case rviLoadImm:
 		return "loadimm";
-	case rviLoadImmHigh:
-		return "loadimmh";
+	case rviLoadImmLong:
+		return "loadimmqh";
+	case rviLoadImmDouble:
+		return "loadimmdh";
 	case rviStoreByte:
 		return "storeb";
 	case rviStoreWord:
 		return "storew";
 	case rviStoreDword:
 		return "store";
-	case rviStoreQword:
+	case rviStoreLong:
 		return "storeq";
 	case rviStoreFloat:
 		return "storef";
+	case rviStoreDouble:
+		return "stored";
 	case rviCombinedd:
 		return "combdd";
 	case rviMov:
@@ -68,8 +74,10 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "popq";
 	case rviPush:
 		return "push";
-	case rviPushq:
+	case rviPushLong:
 		return "pushq";
+	case rviPushDouble:
+		return "pushd";
 	case rviPushImm:
 		return "pushimm";
 	case rviPushImmq:

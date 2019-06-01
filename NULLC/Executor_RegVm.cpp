@@ -95,7 +95,7 @@ namespace
 	}
 }
 
-ExecutorRegVm::ExecutorRegVm(Linker* linker): exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions)
+ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions)
 {
 	codeRunning = false;
 
@@ -107,13 +107,14 @@ ExecutorRegVm::ExecutorRegVm(Linker* linker): exLinker(linker), exTypes(linker->
 
 	currentFrame = 0;
 
-	tempStackBase = NULL;
+	tempStackArrayBase = NULL;
 	tempStackPtr = NULL;
-	tempStackEnd = NULL;
+	tempStackArrayEnd = NULL;
 
-	regFileBase = NULL;
+	regFileArrayBase = NULL;
 	regFilePtr = NULL;
-	regFileEnd = NULL;
+	regFileTop = NULL;
+	regFileArrayEnd = NULL;
 
 	callContinue = true;
 
@@ -125,13 +126,16 @@ ExecutorRegVm::ExecutorRegVm(Linker* linker): exLinker(linker), exTypes(linker->
 
 ExecutorRegVm::~ExecutorRegVm()
 {
-	NULLC::dealloc(tempStackBase);
+	NULLC::dealloc(tempStackArrayBase);
 
-	NULLC::dealloc(regFileBase);
+	NULLC::dealloc(regFileArrayBase);
 
 	if(dcCallVM)
 		dcFree(dcCallVM);
 }
+
+#define REGVM_DEBUG(x)
+//#define REGVM_DEBUG(x) x
 
 //#define RUNTIME_ERROR(test, desc)	if(test){ fcallStack.push_back(cmdStream); cmdStream = NULL; strcpy(execError, desc); break; }
 
@@ -160,19 +164,22 @@ void ExecutorRegVm::InitExecution()
 	// Add return after the last instruction to end execution of code with no return at the end
 	exLinker->exRegVmCode.push_back(RegVmCmd(rviReturn, 0, rvrError, 0, 0));
 
-	if(!tempStackBase)
+	if(!tempStackArrayBase)
 	{
-		tempStackBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 16);
-		tempStackEnd = tempStackBase + 1024 * 16;
+		tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 16);
+		memset(tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 16);
+		tempStackArrayEnd = tempStackArrayBase + 1024 * 16;
 	}
-	tempStackPtr = tempStackBase;
+	tempStackPtr = tempStackArrayBase;
 
-	if(!regFileBase)
+	if(!regFileArrayBase)
 	{
-		regFileBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 16);
-		regFileEnd = regFileBase + 1024 * 16;
+		regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 16);
+		memset(regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 16);
+		regFileArrayEnd = regFileArrayBase + 1024 * 16;
 	}
-	regFilePtr = regFileBase;
+	regFilePtr = regFileArrayBase;
+	regFileTop = regFileArrayBase + 256;
 
 	if(!dcCallVM)
 	{
@@ -185,9 +192,10 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 {
 	if(!codeRunning || functionID == ~0u)
 		InitExecution();
+
 	codeRunning = true;
 
-	asmOperType retType = (asmOperType)-1;
+	RegVmReturnType retType = rvrVoid;
 
 	codeBase = &exLinker->exRegVmCode[0];
 	RegVmCmd *instruction = &exLinker->exRegVmCode[exLinker->regVmOffsetToGlobalCode];
@@ -204,13 +212,13 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		funcPos = exFunctions[functionID].regVmAddress;
 
 		if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_VOID)
-			retType = OTYPE_COMPLEX;
+			retType = rvrStruct;
 		else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_INT)
-			retType = OTYPE_INT;
+			retType = rvrInt;
 		else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_DOUBLE)
-			retType = OTYPE_DOUBLE;
+			retType = rvrDouble;
 		else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_LONG)
-			retType = OTYPE_LONG;
+			retType = rvrLong;
 
 		if(funcPos == ~0u)
 		{
@@ -232,22 +240,21 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		{
 			instruction = &exLinker->exRegVmCode[funcPos];
 
-			// TODO
-			/*// Copy from argument buffer to next stack frame
-			char* oldBase = genParams.data;
-			unsigned oldSize = genParams.max;
+			// Copy from argument buffer to next stack frame
+			char* oldBase = dataStack.data;
+			unsigned oldSize = dataStack.max;
 
 			unsigned paramSize = exFunctions[functionID].bytesToPop;
 			// Keep stack frames aligned to 16 byte boundary
-			unsigned alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
+			unsigned alignOffset = (dataStack.size() % 16 != 0) ? (16 - (dataStack.size() % 16)) : 0;
 			// Reserve new stack frame
-			genParams.reserve(genParams.size() + alignOffset + paramSize);
+			dataStack.reserve(dataStack.size() + alignOffset + paramSize);
 			// Copy arguments to new stack frame
-			memcpy((char*)(genParams.data + genParams.size() + alignOffset), arguments, paramSize);
+			memcpy((char*)(dataStack.data + dataStack.size() + alignOffset), arguments, paramSize);
 
 			// Ensure that stack is resized, if needed
-			if(genParams.size() + alignOffset + paramSize >= oldSize)
-				ExtendParameterStack(oldBase, oldSize, cmdStream);*/
+			if(dataStack.size() + alignOffset + paramSize >= oldSize)
+				ExtendParameterStack(oldBase, oldSize, instruction);
 		}
 	}
 	else
@@ -255,6 +262,12 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		// If global code is executed, reset all global variables
 		assert(dataStack.size() >= exLinker->globalVarSize);
 		memset(dataStack.data, 0, exLinker->globalVarSize);
+
+		REGVM_DEBUG(regFilePtr[rvrrGlobals].activeType = rvrPointer);
+		REGVM_DEBUG(regFilePtr[rvrrFrame].activeType = rvrPointer);
+
+		regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
+		regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data);
 	}
 
 #ifdef NULLC_VM_PROFILE_INSTRUCTIONS
@@ -276,289 +289,851 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		switch(cmd.code)
 		{
 		case rviNop:
-			printf("unhandled rviNop\n");
 			break;
 		case rviLoadByte:
-			printf("unhandled rviLoadByte\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = *(char*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
 			break;
 		case rviLoadWord:
-			printf("unhandled rviLoadWord\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = *(short*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
 			break;
 		case rviLoadDword:
-			printf("unhandled rviLoadDword\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = *(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
 			break;
-		case rviLoadQword:
-			printf("unhandled rviLoadQword\n");
+		case rviLoadLong:
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = vmLoadLong((void*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument));
 			break;
 		case rviLoadFloat:
-			printf("unhandled rviLoadFloat\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = *(float*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+			break;
+		case rviLoadDouble:
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = *(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
 			break;
 		case rviLoadImm:
-			printf("unhandled rviLoadImm\n");
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = cmd.argument;
 			break;
-		case rviLoadImmHigh:
-			printf("unhandled rviLoadImmHigh\n");
+		case rviLoadImmLong:
+			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = ((int64_t)cmd.argument << 32ll) | regFilePtr[cmd.rA].intValue;
+			break;
+		case rviLoadImmDouble:
+			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			{
+				uint64_t bits = ((uint64_t)cmd.argument << 32ll) | regFilePtr[cmd.rA].intValue;
+
+				memcpy(&regFilePtr[cmd.rA].doubleValue, &bits, sizeof(double));
+			}
 			break;
 		case rviStoreByte:
-			printf("unhandled rviStoreByte\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+
+			*(char*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = (char)regFilePtr[cmd.rA].intValue;
 			break;
 		case rviStoreWord:
-			printf("unhandled rviStoreWord\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+
+			*(short*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = (short)regFilePtr[cmd.rA].intValue;
 			break;
 		case rviStoreDword:
-			printf("unhandled rviStoreDword\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+
+			*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = regFilePtr[cmd.rA].intValue;
 			break;
-		case rviStoreQword:
-			printf("unhandled rviStoreQword\n");
+		case rviStoreLong:
+			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+
+			*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = regFilePtr[cmd.rA].longValue;
 			break;
 		case rviStoreFloat:
-			printf("unhandled rviStoreFloat\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+
+			*(float*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = (float)regFilePtr[cmd.rA].doubleValue;
+			break;
+		case rviStoreDouble:
+			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+
+			*(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = regFilePtr[cmd.rA].doubleValue;
 			break;
 		case rviCombinedd:
-			printf("unhandled rviCombinedd\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = ((int64_t)regFilePtr[cmd.rB].intValue << 32ll) | regFilePtr[cmd.rC].intValue;
 			break;
 		case rviMov:
-			printf("unhandled rviMov\n");
+			memcpy(&regFilePtr[cmd.rA], &regFilePtr[cmd.rC], sizeof(RegVmRegister));
 			break;
 		case rviDtoi:
-			printf("unhandled rviDtoi\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = (int)regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviDtol:
-			printf("unhandled rviDtol\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = (long long)regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviDtof:
-			printf("unhandled rviDtof\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			{
+				float tmp = (float)regFilePtr[cmd.rC].doubleValue;
+
+				memcpy(&regFilePtr[cmd.rA].intValue, &tmp, sizeof(float));
+			}
 			break;
 		case rviItod:
-			printf("unhandled rviItod\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = (double)regFilePtr[cmd.rC].intValue;
 			break;
 		case rviLtod:
-			printf("unhandled rviLtod\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = (double)regFilePtr[cmd.rC].longValue;
 			break;
 		case rviItol:
-			printf("unhandled rviItol\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = (long long)regFilePtr[cmd.rC].intValue;
 			break;
 		case rviLtoi:
-			printf("unhandled rviLtoi\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = (int)regFilePtr[cmd.rC].longValue;
 			break;
 		case rviIndex:
-			printf("unhandled rviIndex\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+			REGVM_DEBUG(assert(regFilePtr[(cmd.argument >> 16) & 0xff].activeType == rvrInt));
+
+			regFilePtr[cmd.rA].ptrValue = regFilePtr[cmd.rC].ptrValue + regFilePtr[cmd.rB].intValue * (cmd.argument & 0xffff);
 			break;
 		case rviGetAddr:
-			printf("unhandled rviGetAddr\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrPointer);
+
+			regFilePtr[cmd.rA].ptrValue = regFilePtr[cmd.rC].ptrValue + cmd.argument;
 			break;
 		case rviSetRange:
-			printf("unhandled rviSetRange\n");
+			//printf("%4d: unhandled rviSetRange\n", int(instruction - codeBase - 1));
 			break;
 		case rviJmp:
-			printf("unhandled rviJmp\n");
+			instruction = codeBase + cmd.argument;
 			break;
 		case rviJmpz:
-			printf("unhandled rviJmpz\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+
+			if(regFilePtr[cmd.rC].intValue == 0)
+				instruction = codeBase + cmd.argument;
 			break;
 		case rviJmpnz:
-			printf("unhandled rviJmpnz\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+
+			if(regFilePtr[cmd.rC].intValue != 0)
+				instruction = codeBase + cmd.argument;
 			break;
 		case rviPop:
-			printf("unhandled rviPop\n");
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = tempStackPtr[cmd.argument];
 			break;
 		case rviPopq:
-			printf("unhandled rviPopq\n");
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = vmLoadLong(&tempStackPtr[cmd.argument]);
 			break;
 		case rviPush:
-			printf("unhandled rviPush\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+
+			*tempStackPtr++ = regFilePtr[cmd.rC].intValue;
 			break;
-		case rviPushq:
-			printf("unhandled rviPushq\n");
+		case rviPushLong:
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+
+			vmStoreLong(tempStackPtr, regFilePtr[cmd.rC].longValue);
+			tempStackPtr += 2;
+			break;
+		case rviPushDouble:
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+
+			vmStoreDouble(tempStackPtr, regFilePtr[cmd.rC].doubleValue);
+			tempStackPtr += 2;
 			break;
 		case rviPushImm:
-			printf("unhandled rviPushImm\n");
+			*tempStackPtr = cmd.argument;
+			tempStackPtr += 1;
 			break;
 		case rviPushImmq:
-			printf("unhandled rviPushImmq\n");
+			vmStoreLong(tempStackPtr, cmd.argument);
+			tempStackPtr += 2;
 			break;
 		case rviCall:
-			printf("unhandled rviCall\n");
-			break;
+		{
+			unsigned address = exFunctions[cmd.argument].regVmAddress;
+
+			if(address == EXTERNAL_FUNCTION)
+			{
+				callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, cmd.rA));
+
+				if(!RunExternalFunction(cmd.argument, 0))
+				{
+					instruction = NULL;
+				}
+				else
+				{
+					instruction = callStack.back().instruction;
+
+					assert(dataStack.size() == callStack.back().dataSize);
+					assert(regFilePtr == callStack.back().regFilePtr);
+
+					callStack.pop_back();
+
+					switch(cmd.rB)
+					{
+					case rvrDouble:
+						REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+						regFilePtr[cmd.rA].doubleValue = vmLoadDouble(tempStackPtr);
+						break;
+					case rvrLong:
+						REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+						regFilePtr[cmd.rA].longValue = vmLoadLong(tempStackPtr);
+						break;
+					case rvrInt:
+						REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+						regFilePtr[cmd.rA].intValue = *tempStackPtr;
+						break;
+					default:
+						break;
+					}
+				}
+			}
+			else
+			{
+				callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, cmd.rA));
+
+				instruction = codeBase + address;
+
+				char* oldBase = dataStack.data;
+				unsigned oldSize = dataStack.max;
+
+				unsigned paramSize = exFunctions[cmd.argument].bytesToPop;
+
+				// Data stack is always aligned to 16 bytes
+				assert(dataStack.size() % 16 == 0);
+
+				// Reserve place for new stack frame (cmdPushVTop will resize)
+				dataStack.reserve(dataStack.size() + paramSize);
+
+				// Copy function arguments to new stack frame
+				memcpy((char*)(dataStack.data + dataStack.size()), (char*)tempStackPtr - paramSize, paramSize);
+
+				// Pop arguments from stack
+				tempStackPtr -= paramSize >> 2;
+
+				// If parameter stack was reallocated
+				if(dataStack.size() + paramSize >= oldSize)
+					ExtendParameterStack(oldBase, oldSize, instruction);
+			}
+		}
+		break;
 		case rviCallPtr:
-			printf("unhandled rviCallPtr\n");
-			break;
+		{
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+
+			unsigned functionId = regFilePtr[cmd.rC].intValue;
+
+			unsigned address = exFunctions[functionId].regVmAddress;
+
+			if(address == EXTERNAL_FUNCTION)
+			{
+				callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, cmd.rA));
+
+				if(!RunExternalFunction(functionId, 0))
+				{
+					instruction = NULL;
+				}
+				else
+				{
+					instruction = callStack.back().instruction;
+
+					assert(dataStack.size() == callStack.back().dataSize);
+					assert(regFilePtr == callStack.back().regFilePtr);
+
+					callStack.pop_back();
+
+					switch(cmd.rB)
+					{
+					case rvrDouble:
+						REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+						regFilePtr[cmd.rA].doubleValue = vmLoadDouble(tempStackPtr);
+						break;
+					case rvrLong:
+						REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+						regFilePtr[cmd.rA].longValue = vmLoadLong(tempStackPtr);
+						break;
+					case rvrInt:
+						REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+						regFilePtr[cmd.rA].intValue = *tempStackPtr;
+						break;
+					default:
+						break;
+					}
+				}
+			}
+			else
+			{
+				callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, cmd.rA));
+
+				instruction = codeBase + address;
+
+				char* oldBase = dataStack.data;
+				unsigned oldSize = dataStack.max;
+
+				unsigned paramSize = exFunctions[functionId].bytesToPop;
+
+				// Data stack is always aligned to 16 bytes
+				assert(dataStack.size() % 16 == 0);
+
+				// Reserve place for new stack frame (cmdPushVTop will resize)
+				dataStack.reserve(dataStack.size() + paramSize);
+
+				// Copy function arguments to new stack frame
+				memcpy((char*)(dataStack.data + dataStack.size()), (char*)tempStackPtr - paramSize, paramSize);
+
+				// Pop arguments from stack
+				tempStackPtr -= paramSize >> 2;
+
+				// If parameter stack was reallocated
+				if(dataStack.size() + paramSize >= oldSize)
+					ExtendParameterStack(oldBase, oldSize, instruction);
+			}
+		}
+		break;
 		case rviReturn:
-			printf("unhandled rviReturn\n");
+			if(cmd.rB == rvrError)
+			{
+				instruction = NULL;
+				errorState = !callStack.empty();
+
+				callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, 0));
+
+				if(errorState)
+					strcpy(execError, "ERROR: function didn't return a value");
+
+				codeRunning = false;
+				break;
+			}
+
+			tempStackPtr -= cmd.argument / 4;
+
+			if(callStack.size() == finalReturn)
+			{
+				if(retType == rvrVoid)
+					retType = RegVmReturnType(cmd.rB);
+
+				instruction = NULL;
+				errorState = false;
+
+				if(finalReturn == 0)
+					codeRunning = false;
+				break;
+			}
+
+			instruction = callStack.back().instruction;
+
+			dataStack.shrink(callStack.back().dataSize);
+
+			regFileTop = regFilePtr;
+			regFilePtr = callStack.back().regFilePtr;
+
+			if(unsigned char resultReg = callStack.back().resultReg)
+			{
+				switch(cmd.rB)
+				{
+				case rvrDouble:
+					REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrDouble);
+
+					regFilePtr[resultReg].doubleValue = vmLoadDouble(tempStackPtr);
+					break;
+				case rvrLong:
+					REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrLong);
+
+					regFilePtr[resultReg].longValue = vmLoadLong(tempStackPtr);
+					break;
+				case rvrInt:
+					REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrInt);
+
+					regFilePtr[resultReg].intValue = *tempStackPtr;
+					break;
+				default:
+					break;
+				}
+			}
+
+			REGVM_DEBUG(assert(regFilePtr[rvrrGlobals].activeType == rvrPointer));
+			REGVM_DEBUG(assert(regFilePtr[rvrrFrame].activeType == rvrPointer));
+
+			callStack.pop_back();
 			break;
 		case rviPushvtop:
-			printf("unhandled rviPushvtop\n");
+			regFilePtr = regFileTop;
+			regFileTop = regFilePtr + (cmd.rA == 0 ? 256 : cmd.rA);
+
+			REGVM_DEBUG(regFilePtr[rvrrGlobals].activeType = rvrPointer);
+			REGVM_DEBUG(regFilePtr[rvrrFrame].activeType = rvrPointer);
+
+			regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
+			regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data + dataStack.size());
+
+			assert(dataStack.size() % 16 == 0);
+
+			if(dataStack.size() + cmd.argument >= dataStack.max)
+			{
+				unsigned argumentSize = cmd.rB * 256 + cmd.rC;
+				unsigned frameSize = cmd.argument;
+
+				char* oldBase = dataStack.data;
+				unsigned oldSize = dataStack.max;
+
+				dataStack.resize(dataStack.size() + frameSize);
+
+				assert(argumentSize <= frameSize);
+
+				if(frameSize - argumentSize)
+					memset(dataStack.data + dataStack.size() + argumentSize, 0, frameSize - argumentSize);
+
+				ExtendParameterStack(oldBase, oldSize, instruction);
+			}
+			else
+			{
+				unsigned argumentSize = cmd.rB * 256 + cmd.rC;
+				unsigned frameSize = cmd.argument;
+
+				dataStack.resize(dataStack.size() + frameSize);
+
+				assert(argumentSize <= frameSize);
+
+				if(frameSize - argumentSize)
+					memset(dataStack.data + dataStack.size() + argumentSize, 0, frameSize - argumentSize);
+			}
 			break;
 		case rviAdd:
-			printf("unhandled rviAdd\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue + regFilePtr[cmd.rC].intValue;
 			break;
 		case rviSub:
-			printf("unhandled rviSub\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue - regFilePtr[cmd.rC].intValue;
 			break;
 		case rviMul:
-			printf("unhandled rviMul\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue * regFilePtr[cmd.rC].intValue;
 			break;
 		case rviDiv:
-			printf("unhandled rviDiv\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue / regFilePtr[cmd.rC].intValue;
 			break;
 		case rviPow:
-			printf("unhandled rviPow\n");
+			//printf("%4d: unhandled rviPow\n", int(instruction - codeBase - 1));
 			break;
 		case rviMod:
-			printf("unhandled rviMod\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue % regFilePtr[cmd.rC].intValue;
 			break;
 		case rviLess:
-			printf("unhandled rviLess\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue < regFilePtr[cmd.rC].intValue;
 			break;
 		case rviGreater:
-			printf("unhandled rviGreater\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue > regFilePtr[cmd.rC].intValue;
 			break;
 		case rviLequal:
-			printf("unhandled rviLequal\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue <= regFilePtr[cmd.rC].intValue;
 			break;
 		case rviGequal:
-			printf("unhandled rviGequal\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue >= regFilePtr[cmd.rC].intValue;
 			break;
 		case rviEqual:
-			printf("unhandled rviEqual\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue == regFilePtr[cmd.rC].intValue;
 			break;
 		case rviNequal:
-			printf("unhandled rviNequal\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue != regFilePtr[cmd.rC].intValue;
 			break;
 		case rviShl:
-			printf("unhandled rviShl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue << regFilePtr[cmd.rC].intValue;
 			break;
 		case rviShr:
-			printf("unhandled rviShr\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue >> regFilePtr[cmd.rC].intValue;
 			break;
 		case rviBitAnd:
-			printf("unhandled rviBitAnd\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue & regFilePtr[cmd.rC].intValue;
 			break;
 		case rviBitOr:
-			printf("unhandled rviBitOr\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue | regFilePtr[cmd.rC].intValue;
 			break;
 		case rviBitXor:
-			printf("unhandled rviBitXor\n");
+
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue ^ regFilePtr[cmd.rC].intValue;
 			break;
 		case rviLogXor:
-			printf("unhandled rviLogXor\n");
+
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = (regFilePtr[cmd.rB].intValue != 0) != (regFilePtr[cmd.rC].intValue != 0);
 			break;
 		case rviAddl:
-			printf("unhandled rviAddl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue + regFilePtr[cmd.rC].longValue;
 			break;
 		case rviSubl:
-			printf("unhandled rviSubl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue - regFilePtr[cmd.rC].longValue;
 			break;
 		case rviMull:
-			printf("unhandled rviMull\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue * regFilePtr[cmd.rC].longValue;
 			break;
 		case rviDivl:
-			printf("unhandled rviDivl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue / regFilePtr[cmd.rC].longValue;
 			break;
 		case rviPowl:
-			printf("unhandled rviPowl\n");
+			//printf("%4d: unhandled rviPowl\n", int(instruction - codeBase - 1));
 			break;
 		case rviModl:
-			printf("unhandled rviModl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue % regFilePtr[cmd.rC].longValue;
 			break;
 		case rviLessl:
-			printf("unhandled rviLessl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue < regFilePtr[cmd.rC].longValue;
 			break;
 		case rviGreaterl:
-			printf("unhandled rviGreaterl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue > regFilePtr[cmd.rC].longValue;
 			break;
 		case rviLequall:
-			printf("unhandled rviLequall\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue <= regFilePtr[cmd.rC].longValue;
 			break;
 		case rviGequall:
-			printf("unhandled rviGequall\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue >= regFilePtr[cmd.rC].longValue;
 			break;
 		case rviEquall:
-			printf("unhandled rviEquall\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue == regFilePtr[cmd.rC].longValue;
 			break;
 		case rviNequall:
-			printf("unhandled rviNequall\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue != regFilePtr[cmd.rC].longValue;
 			break;
 		case rviShll:
-			printf("unhandled rviShll\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue << regFilePtr[cmd.rC].longValue;
 			break;
 		case rviShrl:
-			printf("unhandled rviShrl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue >> regFilePtr[cmd.rC].longValue;
 			break;
 		case rviBitAndl:
-			printf("unhandled rviBitAndl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue & regFilePtr[cmd.rC].longValue;
 			break;
 		case rviBitOrl:
-			printf("unhandled rviBitOrl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue | regFilePtr[cmd.rC].longValue;
 			break;
 		case rviBitXorl:
-			printf("unhandled rviBitXorl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue ^ regFilePtr[cmd.rC].longValue;
 			break;
 		case rviLogXorl:
-			printf("unhandled rviLogXorl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = (regFilePtr[cmd.rB].longValue != 0) != (regFilePtr[cmd.rC].longValue != 0);
 			break;
 		case rviAddd:
-			printf("unhandled rviAddd\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue + regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviSubd:
-			printf("unhandled rviSubd\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue - regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviMuld:
-			printf("unhandled rviMuld\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue * regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviDivd:
-			printf("unhandled rviDivd\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue / regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviPowd:
-			printf("unhandled rviPowd\n");
+			//printf("%4d: unhandled rviPowd\n", int(instruction - codeBase - 1));
 			break;
 		case rviModd:
-			printf("unhandled rviModd\n");
+			//printf("%4d: unhandled rviModd\n", int(instruction - codeBase - 1));
 			break;
 		case rviLessd:
-			printf("unhandled rviLessd\n");
+
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue < regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviGreaterd:
-			printf("unhandled rviGreaterd\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue > regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviLequald:
-			printf("unhandled rviLequald\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue <= regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviGequald:
-			printf("unhandled rviGequald\n");
+
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue >= regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviEquald:
-			printf("unhandled rviEquald\n");
+
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue == regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviNequald:
-			printf("unhandled rviNequald\n");
+
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue != regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviNeg:
-			printf("unhandled rviNeg\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = -regFilePtr[cmd.rC].intValue;
 			break;
 		case rviNegl:
-			printf("unhandled rviNegl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = -regFilePtr[cmd.rC].longValue;
 			break;
 		case rviNegd:
-			printf("unhandled rviNegd\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = -regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviBitNot:
-			printf("unhandled rviBitNot\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = ~regFilePtr[cmd.rC].intValue;
 			break;
 		case rviBitNotl:
-			printf("unhandled rviBitNotl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = ~regFilePtr[cmd.rC].longValue;
 			break;
 		case rviLogNot:
-			printf("unhandled rviLogNot\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = !regFilePtr[cmd.rC].intValue;
 			break;
 		case rviLogNotl:
-			printf("unhandled rviLogNotl\n");
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].longValue = !regFilePtr[cmd.rC].longValue;
 			break;
 		case rviConvertPtr:
-			printf("unhandled rviConvertPtr\n");
+			//printf("%4d: unhandled rviConvertPtr\n", int(instruction - codeBase - 1));
 			break;
 		case rviCheckRet:
-			printf("unhandled rviCheckRet\n");
+			//printf("%4d: unhandled rviCheckRet\n", int(instruction - codeBase - 1));
 			break;
 		default:
 			assert(!"unknown instruction");
@@ -572,7 +1147,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		if(!finalReturn)
 		{
 			char *currPos = execError + strlen(execError);
-			currPos += NULLC::SafeSprintf(currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
+			currPos += NULLC::SafeSprintf(currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n", int(instruction - codeBase - 1));
 
 			// TODO:
 			/*BeginCallStack();
@@ -585,32 +1160,23 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		codeRunning = false;
 		return;
 	}
-	
-	// TODO:
-	/*lastResultType = retType;
-	lastResultInt = *(int*)genStackPtr;
-	if(genStackTop - genStackPtr > 1)
-	{
-		lastResultLong = vmLoadLong(genStackPtr);
-		lastResultDouble = vmLoadDouble(genStackPtr);
-	}
 
-	switch(retType)
+	lastResultType = retType;
+
+	switch(lastResultType)
 	{
-	case OTYPE_DOUBLE:
-	case OTYPE_LONG:
-		genStackPtr += 2;
+	case rvrInt:
+		lastResult.intValue = tempStackPtr[0];
 		break;
-	case OTYPE_INT:
-		genStackPtr++;
+	case rvrDouble:
+		lastResult.doubleValue = vmLoadDouble(tempStackPtr);
 		break;
-	case OTYPE_COMPLEX:
+	case rvrLong:
+		lastResult.longValue = vmLoadLong(tempStackPtr);
+		break;
+	default:
 		break;
 	}
-
-	// If the call was started from an internal function call, a value pushed on stack for correct global return is still on stack
-	if(!codeRunning && functionID != ~0u)
-		genStackPtr++;*/
 }
 
 void ExecutorRegVm::Stop(const char* error)
@@ -767,7 +1333,9 @@ bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned extraPopDW)
 					if(dcFreeIRegs(dcCallVM) < requredIRegs || dcFreeFRegs(dcCallVM) < (2 - requredIRegs))
 					{
 						dcArgStack(dcCallVM, stackStart, (tInfo.size + 7) & ~7);
-					}else{
+					}
+					else
+					{
 						if(firstQwordInteger)
 							dcArgLongLong(dcCallVM, vmLoadLong(stackStart));
 						else
@@ -779,7 +1347,7 @@ bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned extraPopDW)
 							dcArgDouble(dcCallVM, vmLoadDouble(stackStart + 2));
 					}
 				}
-				
+
 				stackStart += tInfo.size / 4;
 			}
 #else
@@ -836,66 +1404,64 @@ bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned extraPopDW)
 		dcCallVoid(dcCallVM, fPtr);
 		break;
 	case ExternFuncInfo::RETURN_INT:
-		newStackPtr -= 1;
 		*newStackPtr = dcCallInt(dcCallVM, fPtr);
 		break;
 	case ExternFuncInfo::RETURN_DOUBLE:
-		newStackPtr -= 2;
 		if(func.returnShift == 1)
 			vmStoreDouble(newStackPtr, dcCallFloat(dcCallVM, fPtr));
 		else
 			vmStoreDouble(newStackPtr, dcCallDouble(dcCallVM, fPtr));
 		break;
 	case ExternFuncInfo::RETURN_LONG:
-		newStackPtr -= 2;
 		vmStoreLong(newStackPtr, dcCallLongLong(dcCallVM, fPtr));
 		break;
 	case ExternFuncInfo::RETURN_UNKNOWN:
 #if defined(_WIN64)
 		if(func.returnShift == 1)
 		{
-			newStackPtr -= 1;
 			*newStackPtr = dcCallInt(dcCallVM, fPtr);
-		}else{
+		}
+		else
+		{
 			dcCallVoid(dcCallVM, fPtr);
 
-			newStackPtr -= func.returnShift;
 			// copy return value on top of the stack
 			memcpy(newStackPtr, ret, func.returnShift * 4);
 		}
 #elif !defined(_M_X64)
 		dcCallPointer(dcCallVM, fPtr);
 
-		newStackPtr -= func.returnShift;
 		// copy return value on top of the stack
 		memcpy(newStackPtr, ret, func.returnShift * 4);
 #elif defined(__aarch64__)
 		if(func.returnShift > 4)
 		{
-			newStackPtr -= func.returnShift;
-
 			DCcomplexbig res = dcCallComplexBig(dcCallVM, fPtr);
 
 			memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
 		}
 		else
 		{
-			newStackPtr -= func.returnShift;
-
 			if(!firstQwordInteger && !secondQwordInteger)
 			{
 				DCcomplexdd res = dcCallComplexDD(dcCallVM, fPtr);
 
 				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}else if(firstQwordInteger && !secondQwordInteger){
+			}
+			else if(firstQwordInteger && !secondQwordInteger)
+			{
 				DCcomplexld res = dcCallComplexLD(dcCallVM, fPtr);
 
 				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}else if(!firstQwordInteger && secondQwordInteger){
+			}
+			else if(!firstQwordInteger && secondQwordInteger)
+			{
 				DCcomplexdl res = dcCallComplexDL(dcCallVM, fPtr);
 
 				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}else{
+			}
+			else
+			{
 				DCcomplexll res = dcCallComplexLL(dcCallVM, fPtr);
 
 				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
@@ -906,26 +1472,31 @@ bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned extraPopDW)
 		{
 			dcCallPointer(dcCallVM, fPtr);
 
-			newStackPtr -= func.returnShift;
 			// copy return value on top of the stack
 			memcpy(newStackPtr, ret, func.returnShift * 4);
-		}else{
-			newStackPtr -= func.returnShift;
-
+		}
+		else
+		{
 			if(!firstQwordInteger && !secondQwordInteger)
 			{
 				DCcomplexdd res = dcCallComplexDD(dcCallVM, fPtr);
 
 				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}else if(firstQwordInteger && !secondQwordInteger){
+			}
+			else if(firstQwordInteger && !secondQwordInteger)
+			{
 				DCcomplexld res = dcCallComplexLD(dcCallVM, fPtr);
 
 				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}else if(!firstQwordInteger && secondQwordInteger){
+			}
+			else if(!firstQwordInteger && secondQwordInteger)
+			{
 				DCcomplexdl res = dcCallComplexDL(dcCallVM, fPtr);
 
 				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
-			}else{
+			}
+			else
+			{
 				DCcomplexll res = dcCallComplexLL(dcCallVM, fPtr);
 
 				memcpy(newStackPtr, &res, func.returnShift * 4); // copy return value on top of the stack
@@ -1231,7 +1802,7 @@ bool ExecutorRegVm::ExtendParameterStack(char* oldBase, unsigned oldSize, RegVmC
 	int offset = exLinker->globalVarSize;
 	int n = 0;
 
-	callStack.push_back(RegVmCallFrame(current, dataStack.size(), unsigned(regFilePtr - regFileBase)));
+	callStack.push_back(RegVmCallFrame(current, dataStack.size(), regFilePtr, 0));
 
 	// Fixup local variables
 	for(; n < (int)callStack.size(); n++)
@@ -1297,28 +1868,26 @@ bool ExecutorRegVm::ExtendParameterStack(char* oldBase, unsigned oldSize, RegVmC
 
 const char* ExecutorRegVm::GetResult()
 {
-	// TODO:
-	/*if(!codeRunning && genStackTop - genStackPtr > (int(lastResultType) == -1 ? 1 : 0))
-	{
-		NULLC::SafeSprintf(execResult, 64, "There is more than one value on the stack (%d)", int(genStackTop - genStackPtr));
-		return execResult;
-	}
-
 	switch(lastResultType)
 	{
-	case OTYPE_DOUBLE:
-		NULLC::SafeSprintf(execResult, 64, "%f", lastResultDouble);
+	case rvrDouble:
+		NULLC::SafeSprintf(execResult, 64, "%f", lastResult.doubleValue);
 		break;
-	case OTYPE_LONG:
-		NULLC::SafeSprintf(execResult, 64, "%lldL", lastResultLong);
+	case rvrLong:
+		NULLC::SafeSprintf(execResult, 64, "%lldL", lastResult.longValue);
 		break;
-	case OTYPE_INT:
-		NULLC::SafeSprintf(execResult, 64, "%d", lastResultInt);
+	case rvrInt:
+		NULLC::SafeSprintf(execResult, 64, "%d", lastResult.intValue);
 		break;
-	default:
+	case rvrVoid:
 		NULLC::SafeSprintf(execResult, 64, "no return value");
 		break;
-	}*/
+	case rvrStruct:
+		NULLC::SafeSprintf(execResult, 64, "complex return value");
+		break;
+	default:
+		break;
+	}
 
 	return execResult;
 }
@@ -1326,7 +1895,7 @@ const char* ExecutorRegVm::GetResult()
 int ExecutorRegVm::GetResultInt()
 {
 	assert(lastResultType == rvrInt);
-	assert(lastResult.activeType == rvrInt); // Temp check
+	REGVM_DEBUG(assert(lastResult.activeType == rvrInt));
 
 	return lastResult.intValue;
 }
@@ -1334,7 +1903,7 @@ int ExecutorRegVm::GetResultInt()
 double ExecutorRegVm::GetResultDouble()
 {
 	assert(lastResultType == rvrDouble);
-	assert(lastResult.activeType == rvrDouble); // Temp check
+	REGVM_DEBUG(assert(lastResult.activeType == rvrDouble));
 
 	return lastResult.doubleValue;
 }
@@ -1342,7 +1911,7 @@ double ExecutorRegVm::GetResultDouble()
 long long ExecutorRegVm::GetResultLong()
 {
 	assert(lastResultType == rvrLong);
-	assert(lastResult.activeType == rvrLong); // Temp check
+	REGVM_DEBUG(assert(lastResult.activeType == rvrLong));
 
 	return lastResult.longValue;
 }
@@ -1373,13 +1942,13 @@ unsigned ExecutorRegVm::GetNextAddress()
 void* ExecutorRegVm::GetStackStart()
 {
 	// TODO: what about temp stack?
-	return regFileBase;
+	return regFileArrayBase;
 }
 
 void* ExecutorRegVm::GetStackEnd()
 {
 	// TODO: what about temp stack?
-	return regFilePtr;
+	return regFileTop;
 }
 
 void ExecutorRegVm::SetBreakFunction(void *context, unsigned (*callback)(void*, unsigned))

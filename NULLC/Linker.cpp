@@ -653,13 +653,15 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		case rviLoadByte:
 		case rviLoadWord:
 		case rviLoadDword:
+		case rviLoadLong:
 		case rviLoadFloat:
-		case rviLoadQword:
+		case rviLoadDouble:
 		case rviStoreByte:
 		case rviStoreWord:
 		case rviStoreDword:
+		case rviStoreLong:
 		case rviStoreFloat:
-		case rviStoreQword:
+		case rviStoreDouble:
 		case rviGetAddr:
 			if(cmd.rC == rvrrGlobals)
 			{
@@ -868,9 +870,14 @@ bool Linker::SaveRegVmListing(OutputContext &output)
 		}
 
 		if(found)
+		{
 			output.Printf("// %4d:\n", i);
-
-		output.Printf("//      ", i);
+			output.Printf("//      ", i);
+		}
+		else
+		{
+			output.Printf("// %4d ", i);
+		}
 
 		PrintInstruction(output, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
 

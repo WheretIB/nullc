@@ -197,6 +197,7 @@
     <ClCompile Include="ExpressionTranslate.cpp" />
     <ClCompile Include="ExpressionTree.cpp" />
     <ClCompile Include="InstructionTreeLlvm.cpp" />
+    <ClCompile Include="InstructionTreeRegVm.cpp" />
     <ClCompile Include="InstructionTreeRegVmLower.cpp" />
     <ClCompile Include="InstructionTreeRegVmLowerGraph.cpp" />
     <ClCompile Include="InstructionTreeVM.cpp" />
@@ -227,6 +228,7 @@
     <ClInclude Include="HashMap.h" />
     <ClInclude Include="InstructionSet.h" />
     <ClInclude Include="InstructionTreeLlvm.h" />
+    <ClInclude Include="InstructionTreeRegVm.h" />
     <ClInclude Include="InstructionTreeRegVmLower.h" />
     <ClInclude Include="InstructionTreeRegVmLowerGraph.h" />
     <ClInclude Include="InstructionTreeVM.h" />

@@ -67,14 +67,15 @@ private:
 	unsigned	currentFrame;
 
 	// Stack for call argument/return result data
-	unsigned	*tempStackBase;
+	unsigned	*tempStackArrayBase;
 	unsigned	*tempStackPtr;
-	unsigned	*tempStackEnd;
+	unsigned	*tempStackArrayEnd;
 
 	// Register file
-	RegVmRegister	*regFileBase;
-	RegVmRegister	*regFilePtr;
-	RegVmRegister	*regFileEnd;
+	RegVmRegister	*regFileArrayBase;
+	RegVmRegister	*regFilePtr; // Current frame start
+	RegVmRegister	*regFileTop; // Current frame end
+	RegVmRegister	*regFileArrayEnd;
 
 	bool		callContinue;
 

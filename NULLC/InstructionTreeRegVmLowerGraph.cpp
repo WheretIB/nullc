@@ -98,8 +98,9 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 	case rviLoadByte:
 	case rviLoadWord:
 	case rviLoadDword:
-	case rviLoadQword:
+	case rviLoadLong:
 	case rviLoadFloat:
+	case rviLoadDouble:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", [");
 		PrintRegister(ctx, rC);
@@ -108,7 +109,8 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 		Print(ctx, "]");
 		break;
 	case rviLoadImm:
-	case rviLoadImmHigh:
+	case rviLoadImmLong:
+	case rviLoadImmDouble:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
 		PrintConstant(ctx, argument, constant);
@@ -116,8 +118,9 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 	case rviStoreByte:
 	case rviStoreWord:
 	case rviStoreDword:
-	case rviStoreQword:
+	case rviStoreLong:
 	case rviStoreFloat:
+	case rviStoreDouble:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", [");
 		PrintRegister(ctx, rC);
@@ -216,9 +219,13 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 	case rviPop:
 	case rviPopq:
 		PrintRegister(ctx, rA);
+		Print(ctx, ", [result + ");
+		PrintConstant(ctx, argument, constant);
+		Print(ctx, " * 4]");
 		break;
 	case rviPush:
-	case rviPushq:
+	case rviPushLong:
+	case rviPushDouble:
 		PrintRegister(ctx, rC);
 		break;
 	case rviPushImm:

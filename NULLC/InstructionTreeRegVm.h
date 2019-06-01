@@ -9,17 +9,20 @@ enum RegVmInstructionCode
 	rviLoadByte,
 	rviLoadWord,
 	rviLoadDword,
-	rviLoadQword,
+	rviLoadLong,
 	rviLoadFloat,
+	rviLoadDouble,
 
 	rviLoadImm,
-	rviLoadImmHigh,
+	rviLoadImmLong,
+	rviLoadImmDouble,
 
 	rviStoreByte,
 	rviStoreWord,
 	rviStoreDword,
-	rviStoreQword,
+	rviStoreLong,
 	rviStoreFloat,
+	rviStoreDouble,
 
 	rviCombinedd,
 	rviMov,
@@ -43,7 +46,9 @@ enum RegVmInstructionCode
 	rviJmpnz,
 
 	rviPush,
-	rviPushq,
+	rviPushLong,
+	rviPushDouble,
+
 	rviPushImm,
 	rviPushImmq,
 
@@ -156,6 +161,12 @@ enum RegVmReturnType
 	rvrError,
 };
 
+#if NULLC_PTR_SIZE == 4
+#define rvrPointer rvrInt
+#else
+#define rvrPointer rvrLong
+#endif
+
 #define rvrrGlobals 0
 #define rvrrFrame 1
 
@@ -178,29 +189,39 @@ struct RegVmCmd
 	unsigned argument;
 };
 
-union RegVmRegister
+struct RegVmRegister
 {
 	// Debug testing only
-	RegVmReturnType activeType;
+	//RegVmReturnType activeType;
 
-	int32_t	intValue;
-	int64_t longValue;
-	double doubleValue;
+	union
+	{
+		int32_t	intValue;
+		int64_t longValue;
+		double doubleValue;
+	};
 };
+
+#if NULLC_PTR_SIZE == 4
+#define ptrValue intValue
+#else
+#define ptrValue longValue
+#endif
 
 struct RegVmCallFrame
 {
-	RegVmCallFrame() : instruction(0), dataSize(0), regFileSize(0)
+	RegVmCallFrame() : instruction(0), dataSize(0), regFilePtr(0), resultReg(0)
 	{
 	}
 
-	RegVmCallFrame(RegVmCmd *instruction, unsigned dataSize, unsigned regFileSize) : instruction(instruction), dataSize(dataSize), regFileSize(regFileSize)
+	RegVmCallFrame(RegVmCmd *instruction, unsigned dataSize, RegVmRegister *regFilePtr, unsigned char resultReg) : instruction(instruction), dataSize(dataSize), regFilePtr(regFilePtr), resultReg(resultReg)
 	{
 	}
 
 	RegVmCmd *instruction;
 	unsigned dataSize;
-	unsigned regFileSize;
+	RegVmRegister *regFilePtr;
+	unsigned char resultReg;
 };
 
 const char* GetInstructionName(RegVmInstructionCode code);
