@@ -371,16 +371,6 @@ struct VMCmd
 	unsigned int	argument;
 };
 
-// Types of values on temporary stack
-enum asmStackType
-{
-	STYPE_INT,
-	STYPE_LONG,
-	STYPE_COMPLEX_TYPE,
-	STYPE_DOUBLE,
-	STYPE_FORCE_DWORD = 1<<30
-};
-
 // Types of values on variable stack
 enum asmDataType
 {
@@ -391,7 +381,7 @@ enum asmDataType
 	DTYPE_FLOAT=16,
 	DTYPE_DOUBLE=20,
 	DTYPE_COMPLEX_TYPE=24,
-	DTYPE_FORCE_DWORD = 1<<30
+	DTYPE_FORCE_DWORD = 0xffffffffu
 };
 
 // Type of operation (for operation flag)
@@ -400,7 +390,8 @@ enum asmOperType
 	OTYPE_DOUBLE,
 	OTYPE_COMPLEX,
 	OTYPE_LONG,
-	OTYPE_INT
+	OTYPE_INT,
+	OTYPE_FORCE_DWORD = 0xffffffffu
 };
 
 // Constants for RetFlag creation from different bits
