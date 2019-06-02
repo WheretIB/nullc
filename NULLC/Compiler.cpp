@@ -966,7 +966,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	size += ctx.instVmFinalizeCtx.cmds.size() * sizeof(VMCmd);
 
 	unsigned offsetToRegVmCode = size;
-	size += ctx.instRegVmFinalizeCtx.cmds.size() * sizeof(VMCmd);
+	size += ctx.instRegVmFinalizeCtx.cmds.size() * sizeof(RegVmCmd);
 
 	unsigned sourceLength = (unsigned)strlen(ctx.code) + 1;
 
@@ -1829,7 +1829,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	code->regVmGlobalCodeStart = ctx.vmModule->regVmGlobalCodeStart;
 
 	if(ctx.instRegVmFinalizeCtx.cmds.size())
-		memcpy(FindRegVmCode(code), ctx.instRegVmFinalizeCtx.cmds.data, ctx.instRegVmFinalizeCtx.cmds.size() * sizeof(VMCmd));
+		memcpy(FindRegVmCode(code), ctx.instRegVmFinalizeCtx.cmds.data, ctx.instRegVmFinalizeCtx.cmds.size() * sizeof(RegVmCmd));
 
 	char *sourceCode = (char*)code + offsetToSource;
 	memcpy(sourceCode, ctx.code, sourceLength);
