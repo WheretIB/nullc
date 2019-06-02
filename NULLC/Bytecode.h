@@ -107,6 +107,7 @@ struct ExternFuncInfo
 
 	int				regVmAddress;
 	int				regVmCodeSize;
+	int				regVmRegisters;
 
 	int				isVisible;
 
@@ -155,8 +156,8 @@ struct ExternFuncInfo
 
 	unsigned int	namespaceHash;
 
-// For x86 function call
-	unsigned int	bytesToPop;
+	unsigned int	bytesToPop; // Arguments size
+	unsigned int	stackSize; // Including arguments
 
 	// For generic functions
 	unsigned int	genericOffsetStart; // Position in the lexeme stream of the definition

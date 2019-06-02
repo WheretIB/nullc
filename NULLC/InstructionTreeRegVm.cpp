@@ -88,8 +88,6 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "callp";
 	case rviReturn:
 		return "ret";
-	case rviPushvtop:
-		return "pushvtop";
 	case rviAdd:
 		return "add";
 	case rviSub:

@@ -60,8 +60,6 @@ enum RegVmInstructionCode
 
 	rviReturn,
 
-	rviPushvtop,
-
 	rviAdd,
 	rviSub,
 	rviMul,

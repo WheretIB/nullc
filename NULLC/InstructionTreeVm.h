@@ -362,6 +362,7 @@ struct VmFunction: VmValue
 
 		regVmAddress = ~0u;
 		regVmCodeSize = 0;
+		regVmRegisters = 0;
 
 		nextRestoreBlock = 0;
 	}
@@ -391,6 +392,7 @@ struct VmFunction: VmValue
 
 	unsigned regVmAddress;
 	unsigned regVmCodeSize;
+	unsigned regVmRegisters;
 
 	SmallArray<VariableData*, 4> allocas;
 

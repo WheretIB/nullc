@@ -2429,20 +2429,7 @@ void RegFinalizeBlock(InstructionRegVmFinalizeContext &ctx, RegVmLoweredBlock *l
 void RegFinalizeFunction(InstructionRegVmFinalizeContext &ctx, RegVmLoweredFunction *lowFunction)
 {
 	lowFunction->vmFunction->regVmAddress = ctx.cmds.size();
-
-	if(FunctionData *data = lowFunction->vmFunction->function)
-	{
-		assert(data->argumentsSize < 65536);
-
-		// Stack frame should remain aligned, so its size should multiple of 16
-		unsigned size = (data->stackSize + 0xf) & ~0xf;
-
-		unsigned char lastRegister = (unsigned char)(lowFunction->nextRegister == 0 ? 255 : lowFunction->nextRegister - 1);
-
-		// Save previous stack frame, and expand current by shift bytes
-		ctx.locations.push_back(data->source);
-		ctx.cmds.push_back(RegVmCmd(rviPushvtop, lastRegister, (unsigned char)(data->argumentsSize >> 8), (unsigned char)(data->argumentsSize & 0xff), size));
-	}
+	lowFunction->vmFunction->regVmRegisters = lowFunction->nextRegister == 0 ? 255 : lowFunction->nextRegister - 1;
 
 	for(unsigned i = 0; i < lowFunction->blocks.size(); i++)
 	{

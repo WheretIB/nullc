@@ -73,8 +73,7 @@ private:
 
 	// Register file
 	RegVmRegister	*regFileArrayBase;
-	RegVmRegister	*regFilePtr; // Current frame start
-	RegVmRegister	*regFileTop; // Current frame end
+	RegVmRegister	*regFileLastTop;
 	RegVmRegister	*regFileArrayEnd;
 
 	bool		callContinue;
@@ -86,9 +85,13 @@ private:
 
 	FastVector<RegVmCmd>	breakCode;
 
+	static RegVmReturnType RunCode(ExecutorRegVm *rvm, RegVmCmd * const codeBase, RegVmCmd *instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop, unsigned *&tempStackPtr);
+
 	bool RunExternalFunction(unsigned funcID, unsigned extraPopDW);
 
-	RegVmCmd* ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, unsigned finalReturn);
+	RegVmCmd* ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr);
+	bool ExecCall(unsigned char resultReg, unsigned char resultType, unsigned functionId, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop);
+	RegVmReturnType ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr);
 
 	void FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType);
 	void FixupArray(char* ptr, const ExternTypeInfo& type);

@@ -323,11 +323,6 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 		Print(ctx, ", ");
 		PrintConstant(ctx, argument, constant);
 		break;
-	case rviPushvtop:
-		Print(ctx, "%d", rB * 256 + rC);
-		Print(ctx, ", ");
-		PrintConstant(ctx, argument, constant);
-		break;
 	case rviAdd:
 	case rviSub:
 	case rviMul:

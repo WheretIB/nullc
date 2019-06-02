@@ -113,8 +113,7 @@ ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker-
 	tempStackArrayEnd = NULL;
 
 	regFileArrayBase = NULL;
-	regFilePtr = NULL;
-	regFileTop = NULL;
+	regFileLastTop = NULL;
 	regFileArrayEnd = NULL;
 
 	callContinue = true;
@@ -180,8 +179,6 @@ void ExecutorRegVm::InitExecution()
 		memset(regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 16);
 		regFileArrayEnd = regFileArrayBase + 1024 * 16;
 	}
-	regFilePtr = regFileArrayBase;
-	regFileTop = regFileArrayBase + 256;
 
 	if(!dcCallVM)
 	{
@@ -206,11 +203,13 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 	unsigned *executions = exLinker->exRegVmExecCount.data;
 #endif
 
-	// By default error is flagged, normal return will clear it
-	bool errorState = true;
+	bool errorState = false;
 
 	// We will know that return is global if call stack size is equal to current
 	unsigned finalReturn = callStack.size();
+
+	RegVmRegister *regFilePtr = regFileArrayBase;
+	RegVmRegister *regFileTop = regFilePtr + 256;
 
 	if(functionID != ~0u)
 	{
@@ -218,7 +217,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		funcPos = exFunctions[functionID].regVmAddress;
 
 		if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_VOID)
-			retType = rvrStruct;
+			retType = rvrVoid;
 		else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_INT)
 			retType = rvrInt;
 		else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_DOUBLE)
@@ -236,8 +235,8 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 			*/
 
 			// Call function
-			if(RunExternalFunction(functionID, 0))
-				errorState = false;
+			if(!RunExternalFunction(functionID, 0))
+				errorState = true;
 
 			// This will disable NULLC code execution while leaving error check and result retrieval
 			instruction = NULL;
@@ -276,9 +275,74 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data);
 	}
 
-	while(instruction)
+	regFileLastTop = regFileTop;
+
+	RegVmReturnType resultType = RunCode(this, codeBase, instruction, finalReturn, regFilePtr, regFileTop, tempStackPtr);
+
+	if(resultType == rvrError)
 	{
-		const RegVmCmd cmd = *instruction;
+		errorState = true;
+	}
+	else
+	{
+		if(retType == rvrVoid)
+			retType = resultType;
+		else
+			assert(retType == resultType && "expected different result");
+	}
+
+	// If there was an execution error
+	if(errorState)
+	{
+		// Print call stack on error, when we get to the first function
+		if(!finalReturn)
+		{
+			char *currPos = execError + strlen(execError);
+			currPos += NULLC::SafeSprintf(currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n", int(instruction - codeBase - 1));
+
+			// TODO:
+			/*BeginCallStack();
+			while(unsigned address = GetNextAddress())
+				currPos += PrintStackFrame(address, currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), false);*/
+		}
+
+		// Ascertain that execution stops when there is a chain of nullcRunFunction
+		callContinue = false;
+		codeRunning = false;
+		return;
+	}
+
+	lastResultType = retType;
+
+	switch(lastResultType)
+	{
+	case rvrInt:
+		lastResult.intValue = tempStackPtr[0];
+		break;
+	case rvrDouble:
+		lastResult.doubleValue = vmLoadDouble(tempStackPtr);
+		break;
+	case rvrLong:
+		lastResult.longValue = vmLoadLong(tempStackPtr);
+		break;
+	default:
+		break;
+	}
+}
+
+void ExecutorRegVm::Stop(const char* error)
+{
+	codeRunning = false;
+
+	callContinue = false;
+	NULLC::SafeSprintf(execError, REGVM_ERROR_BUFFER_SIZE, "%s", error);
+}
+
+RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const codeBase, RegVmCmd *instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop, unsigned *&tempStackPtr)
+{
+	for(;;)
+	{
+		const RegVmCmd &cmd = *instruction;
 
 #if defined(NULLC_REG_VM_PROFILE_INSTRUCTIONS)
 		executions[unsigned(instruction - codeBase)]++;
@@ -289,7 +353,11 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		switch(cmd.code)
 		{
 		case rviNop:
-			instruction = ExecNop(cmd, instruction, finalReturn);
+			instruction = rvm->ExecNop(cmd, instruction, finalReturn, regFilePtr);
+
+			if(!instruction)
+				return rvrError;
+
 			break;
 		case rviLoadByte:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
@@ -507,261 +575,19 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 			tempStackPtr += 2;
 			break;
 		case rviCall:
-		{
-			unsigned address = exFunctions[cmd.argument].regVmAddress;
+			if(!rvm->ExecCall(cmd.rA, cmd.rB, cmd.argument, instruction, finalReturn, regFilePtr, regFileTop))
+				return rvrError;
 
-			if(address == EXTERNAL_FUNCTION)
-			{
-				callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, cmd.rA));
-
-				if(!RunExternalFunction(cmd.argument, 0))
-				{
-					instruction = NULL;
-				}
-				else
-				{
-					instruction = callStack.back().instruction;
-
-					assert(dataStack.size() == callStack.back().dataSize);
-					assert(regFilePtr == callStack.back().regFilePtr);
-
-					callStack.pop_back();
-
-					switch(cmd.rB)
-					{
-					case rvrDouble:
-						REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
-
-						regFilePtr[cmd.rA].doubleValue = vmLoadDouble(tempStackPtr);
-						break;
-					case rvrLong:
-						REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
-
-						regFilePtr[cmd.rA].longValue = vmLoadLong(tempStackPtr);
-						break;
-					case rvrInt:
-						REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
-
-						regFilePtr[cmd.rA].intValue = *tempStackPtr;
-						break;
-					default:
-						break;
-					}
-				}
-			}
-			else
-			{
-				callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, cmd.rA));
-
-				instruction = codeBase + address;
-
-				char* oldBase = dataStack.data;
-				unsigned oldSize = dataStack.max;
-
-				unsigned paramSize = exFunctions[cmd.argument].bytesToPop;
-
-				// Data stack is always aligned to 16 bytes
-				assert(dataStack.size() % 16 == 0);
-
-				// Reserve place for new stack frame (cmdPushVTop will resize)
-				dataStack.reserve(dataStack.size() + paramSize);
-
-				// Copy function arguments to new stack frame
-				memcpy((char*)(dataStack.data + dataStack.size()), (char*)tempStackPtr - paramSize, paramSize);
-
-				// Pop arguments from stack
-				tempStackPtr -= paramSize >> 2;
-
-				// If parameter stack was reallocated
-				if(dataStack.size() + paramSize >= oldSize)
-					ExtendParameterStack(oldBase, oldSize, instruction);
-			}
-		}
-		break;
+			break;
 		case rviCallPtr:
-		{
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 
-			unsigned functionId = regFilePtr[cmd.rC].intValue;
+			if(!rvm->ExecCall(cmd.rA, cmd.rB, regFilePtr[cmd.rC].intValue, instruction, finalReturn, regFilePtr, regFileTop))
+				return rvrError;
 
-			unsigned address = exFunctions[functionId].regVmAddress;
-
-			if(address == EXTERNAL_FUNCTION)
-			{
-				callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, cmd.rA));
-
-				if(!RunExternalFunction(functionId, 0))
-				{
-					instruction = NULL;
-				}
-				else
-				{
-					instruction = callStack.back().instruction;
-
-					assert(dataStack.size() == callStack.back().dataSize);
-					assert(regFilePtr == callStack.back().regFilePtr);
-
-					callStack.pop_back();
-
-					switch(cmd.rB)
-					{
-					case rvrDouble:
-						REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
-
-						regFilePtr[cmd.rA].doubleValue = vmLoadDouble(tempStackPtr);
-						break;
-					case rvrLong:
-						REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
-
-						regFilePtr[cmd.rA].longValue = vmLoadLong(tempStackPtr);
-						break;
-					case rvrInt:
-						REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
-
-						regFilePtr[cmd.rA].intValue = *tempStackPtr;
-						break;
-					default:
-						break;
-					}
-				}
-			}
-			else
-			{
-				callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, cmd.rA));
-
-				instruction = codeBase + address;
-
-				char* oldBase = dataStack.data;
-				unsigned oldSize = dataStack.max;
-
-				unsigned paramSize = exFunctions[functionId].bytesToPop;
-
-				// Data stack is always aligned to 16 bytes
-				assert(dataStack.size() % 16 == 0);
-
-				// Reserve place for new stack frame (cmdPushVTop will resize)
-				dataStack.reserve(dataStack.size() + paramSize);
-
-				// Copy function arguments to new stack frame
-				memcpy((char*)(dataStack.data + dataStack.size()), (char*)tempStackPtr - paramSize, paramSize);
-
-				// Pop arguments from stack
-				tempStackPtr -= paramSize >> 2;
-
-				// If parameter stack was reallocated
-				if(dataStack.size() + paramSize >= oldSize)
-					ExtendParameterStack(oldBase, oldSize, instruction);
-			}
-		}
-		break;
+			break;
 		case rviReturn:
-			if(cmd.rB == rvrError)
-			{
-				instruction = NULL;
-				errorState = !callStack.empty();
-
-				callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, 0));
-
-				if(errorState)
-					strcpy(execError, "ERROR: function didn't return a value");
-
-				codeRunning = false;
-				break;
-			}
-
-			tempStackPtr -= cmd.argument / 4;
-
-			if(callStack.size() == finalReturn)
-			{
-				if(retType == rvrVoid)
-					retType = RegVmReturnType(cmd.rB);
-
-				instruction = NULL;
-				errorState = false;
-
-				if(finalReturn == 0)
-					codeRunning = false;
-				break;
-			}
-
-			instruction = callStack.back().instruction;
-
-			dataStack.shrink(callStack.back().dataSize);
-
-			regFileTop = regFilePtr;
-			regFilePtr = callStack.back().regFilePtr;
-
-			if(unsigned char resultReg = callStack.back().resultReg)
-			{
-				switch(cmd.rB)
-				{
-				case rvrDouble:
-					REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrDouble);
-
-					regFilePtr[resultReg].doubleValue = vmLoadDouble(tempStackPtr);
-					break;
-				case rvrLong:
-					REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrLong);
-
-					regFilePtr[resultReg].longValue = vmLoadLong(tempStackPtr);
-					break;
-				case rvrInt:
-					REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrInt);
-
-					regFilePtr[resultReg].intValue = *tempStackPtr;
-					break;
-				default:
-					break;
-				}
-			}
-
-			REGVM_DEBUG(assert(regFilePtr[rvrrGlobals].activeType == rvrPointer));
-			REGVM_DEBUG(assert(regFilePtr[rvrrFrame].activeType == rvrPointer));
-
-			callStack.pop_back();
-			break;
-		case rviPushvtop:
-			regFilePtr = regFileTop;
-			regFileTop = regFilePtr + (cmd.rA == 0 ? 256 : cmd.rA);
-
-			REGVM_DEBUG(regFilePtr[rvrrGlobals].activeType = rvrPointer);
-			REGVM_DEBUG(regFilePtr[rvrrFrame].activeType = rvrPointer);
-
-			regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
-			regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data + dataStack.size());
-
-			assert(dataStack.size() % 16 == 0);
-
-			if(dataStack.size() + cmd.argument >= dataStack.max)
-			{
-				unsigned argumentSize = cmd.rB * 256 + cmd.rC;
-				unsigned frameSize = cmd.argument;
-
-				char* oldBase = dataStack.data;
-				unsigned oldSize = dataStack.max;
-
-				dataStack.resize(dataStack.size() + frameSize);
-
-				assert(argumentSize <= frameSize);
-
-				if(frameSize - argumentSize)
-					memset(dataStack.data + dataStack.size() + argumentSize, 0, frameSize - argumentSize);
-
-				ExtendParameterStack(oldBase, oldSize, instruction);
-			}
-			else
-			{
-				unsigned argumentSize = cmd.rB * 256 + cmd.rC;
-				unsigned frameSize = cmd.argument;
-
-				dataStack.resize(dataStack.size() + frameSize);
-
-				assert(argumentSize <= frameSize);
-
-				if(frameSize - argumentSize)
-					memset(dataStack.data + dataStack.size() + argumentSize, 0, frameSize - argumentSize);
-			}
-			break;
+			return rvm->ExecReturn(cmd, instruction, finalReturn, regFilePtr);
 		case rviAdd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
@@ -1141,51 +967,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		}
 	}
 
-	// If there was an execution error
-	if(errorState)
-	{
-		// Print call stack on error, when we get to the first function
-		if(!finalReturn)
-		{
-			char *currPos = execError + strlen(execError);
-			currPos += NULLC::SafeSprintf(currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n", int(instruction - codeBase - 1));
-
-			// TODO:
-			/*BeginCallStack();
-			while(unsigned address = GetNextAddress())
-				currPos += PrintStackFrame(address, currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), false);*/
-		}
-
-		// Ascertain that execution stops when there is a chain of nullcRunFunction
-		callContinue = false;
-		codeRunning = false;
-		return;
-	}
-
-	lastResultType = retType;
-
-	switch(lastResultType)
-	{
-	case rvrInt:
-		lastResult.intValue = tempStackPtr[0];
-		break;
-	case rvrDouble:
-		lastResult.doubleValue = vmLoadDouble(tempStackPtr);
-		break;
-	case rvrLong:
-		lastResult.longValue = vmLoadLong(tempStackPtr);
-		break;
-	default:
-		break;
-	}
-}
-
-void ExecutorRegVm::Stop(const char* error)
-{
-	codeRunning = false;
-
-	callContinue = false;
-	NULLC::SafeSprintf(execError, REGVM_ERROR_BUFFER_SIZE, "%s", error);
+	return rvrError;
 }
 
 bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned extraPopDW)
@@ -1512,7 +1294,7 @@ bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned extraPopDW)
 	return callContinue;
 }
 
-RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, unsigned finalReturn)
+RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr)
 {
 	if(cmd.rB == EXEC_BREAK_SIGNAL || cmd.rB == EXEC_BREAK_ONCE)
 	{
@@ -1577,6 +1359,177 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 	}
 
 	return codeBase + cmd.argument;
+}
+
+bool ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultType, unsigned functionId, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop)
+{
+	ExternFuncInfo &target = exFunctions[functionId];
+
+	unsigned address = target.regVmAddress;
+
+	if(address == EXTERNAL_FUNCTION)
+	{
+		callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, resultReg));
+
+		if(!RunExternalFunction(functionId, 0))
+			return false;
+
+		assert(dataStack.size() == callStack.back().dataSize);
+		assert(regFilePtr == callStack.back().regFilePtr);
+
+		callStack.pop_back();
+
+		switch(resultType)
+		{
+		case rvrDouble:
+			REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrDouble);
+
+			regFilePtr[resultReg].doubleValue = vmLoadDouble(tempStackPtr);
+			break;
+		case rvrLong:
+			REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrLong);
+
+			regFilePtr[resultReg].longValue = vmLoadLong(tempStackPtr);
+			break;
+		case rvrInt:
+			REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrInt);
+
+			regFilePtr[resultReg].intValue = *tempStackPtr;
+			break;
+		default:
+			break;
+		}
+
+		return true;
+	}
+
+	callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, resultReg));
+
+	char* oldBase = dataStack.data;
+	unsigned oldSize = dataStack.max;
+
+	unsigned argumentsSize = target.bytesToPop;
+
+	// Data stack is always aligned to 16 bytes
+	assert(dataStack.size() % 16 == 0);
+
+	// Reserve place for new stack frame (cmdPushVTop will resize)
+	dataStack.reserve(dataStack.size() + argumentsSize);
+
+	// Copy function arguments to new stack frame
+	memcpy((char*)(dataStack.data + dataStack.size()), (char*)tempStackPtr - argumentsSize, argumentsSize);
+
+	// Pop arguments from stack
+	tempStackPtr -= argumentsSize >> 2;
+
+	// If parameter stack was reallocated
+	if(dataStack.size() + argumentsSize >= oldSize)
+		ExtendParameterStack(oldBase, oldSize, instruction);
+
+	unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
+
+	//regFilePtr = regFileTop;
+	//regFileTop = regFilePtr + (cmd.rA == 0 ? 256 : cmd.rA);
+
+	REGVM_DEBUG(regFileTop[rvrrGlobals].activeType = rvrPointer);
+	REGVM_DEBUG(regFileTop[rvrrFrame].activeType = rvrPointer);
+
+	regFileTop[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
+	regFileTop[rvrrFrame].ptrValue = uintptr_t(dataStack.data + dataStack.size());
+
+	assert(dataStack.size() % 16 == 0);
+
+	if(dataStack.size() + stackSize >= dataStack.max)
+	{
+		char* oldBase = dataStack.data;
+		unsigned oldSize = dataStack.max;
+
+		dataStack.resize(dataStack.size() + stackSize);
+
+		assert(argumentsSize <= stackSize);
+
+		if(stackSize - argumentsSize)
+			memset(dataStack.data + dataStack.size() + argumentsSize, 0, stackSize - argumentsSize);
+
+		ExtendParameterStack(oldBase, oldSize, instruction);
+	}
+	else
+	{
+		dataStack.resize(dataStack.size() + stackSize);
+
+		assert(argumentsSize <= stackSize);
+
+		if(stackSize - argumentsSize)
+			memset(dataStack.data + dataStack.size() + argumentsSize, 0, stackSize - argumentsSize);
+	}
+
+	regFileLastTop = regFileTop + target.regVmRegisters;
+
+	RegVmReturnType execResultType = RunCode(this, codeBase, codeBase + address, finalReturn, regFileTop, regFileTop + target.regVmRegisters, tempStackPtr);
+
+	if(execResultType == rvrError)
+		return false;
+
+	assert(execResultType == resultType);
+
+	regFileLastTop = regFileTop;
+
+	switch(resultType)
+	{
+	case rvrDouble:
+		REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrDouble);
+
+		regFilePtr[resultReg].doubleValue = vmLoadDouble(tempStackPtr);
+		break;
+	case rvrLong:
+		REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrLong);
+
+		regFilePtr[resultReg].longValue = vmLoadLong(tempStackPtr);
+		break;
+	case rvrInt:
+		REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrInt);
+
+		regFilePtr[resultReg].intValue = *tempStackPtr;
+		break;
+	default:
+		break;
+	}
+
+	return true;
+}
+
+RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr)
+{
+	if(cmd.rB == rvrError)
+	{
+		//instruction = NULL;
+		bool errorState = !callStack.empty();
+
+		callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, 0));
+
+		if(errorState)
+			strcpy(execError, "ERROR: function didn't return a value");
+
+		codeRunning = false;
+
+		return errorState ? rvrError : rvrVoid;
+	}
+
+	tempStackPtr -= cmd.argument / 4;
+
+	if(callStack.size() == finalReturn)
+	{
+		if(finalReturn == 0)
+			codeRunning = false;
+
+		return RegVmReturnType(cmd.rB);
+	}
+
+	dataStack.shrink(callStack.back().dataSize);
+
+	callStack.pop_back();
+
+	return RegVmReturnType(cmd.rB);
 }
 
 namespace
@@ -1870,7 +1823,7 @@ bool ExecutorRegVm::ExtendParameterStack(char* oldBase, unsigned oldSize, RegVmC
 	int offset = exLinker->globalVarSize;
 	int n = 0;
 
-	callStack.push_back(RegVmCallFrame(current, dataStack.size(), regFilePtr, 0));
+	callStack.push_back(RegVmCallFrame(current, dataStack.size(), NULL, 0));
 
 	// Fixup local variables
 	for(; n < (int)callStack.size(); n++)
@@ -2016,7 +1969,7 @@ void* ExecutorRegVm::GetStackStart()
 void* ExecutorRegVm::GetStackEnd()
 {
 	// TODO: what about temp stack?
-	return regFileTop;
+	return regFileLastTop;
 }
 
 void ExecutorRegVm::SetBreakFunction(void *context, unsigned (*callback)(void*, unsigned))

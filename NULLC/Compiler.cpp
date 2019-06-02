@@ -1465,6 +1465,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 			funcInfo.regVmAddress = function->implementation->vmFunction->regVmAddress;
 			funcInfo.regVmCodeSize = function->implementation->functionIndex | 0x80000000;
+			funcInfo.regVmRegisters = function->implementation->vmFunction->regVmRegisters;
 		}
 		else if(function->isPrototype)
 		{
@@ -1473,6 +1474,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 			funcInfo.regVmAddress = 0;
 			funcInfo.regVmCodeSize = 0;
+			funcInfo.regVmRegisters = 0;
 		}
 		else if(function->vmFunction)
 		{
@@ -1481,6 +1483,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 			funcInfo.regVmAddress = function->vmFunction->regVmAddress;
 			funcInfo.regVmCodeSize = function->vmFunction->regVmCodeSize;
+			funcInfo.regVmRegisters = function->vmFunction->regVmRegisters;
 		}
 		else
 		{
@@ -1489,6 +1492,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 			funcInfo.regVmAddress = ~0u;
 			funcInfo.regVmCodeSize = 0;
+			funcInfo.regVmRegisters = 0;
 		}
 
 		funcInfo.funcPtr = 0;
@@ -1581,6 +1585,7 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			funcInfo.returnShift = (unsigned char)(returnType->size / 4);
 
 			funcInfo.bytesToPop = (unsigned)function->argumentsSize;
+			funcInfo.stackSize = (unsigned)function->stackSize;
 
 			funcInfo.genericOffsetStart = ~0u;
 			funcInfo.genericOffset = ~0u;
