@@ -963,7 +963,11 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 			//printf("%4d: unhandled rviCheckRet\n", int(instruction - codeBase - 1));
 			break;
 		default:
-			assert(!"unknown instruction");
+#if defined(_MSC_VER)
+			__assume(false);
+#elif defined(__GNUC__)
+			__builtin_unreachable();
+#endif
 		}
 	}
 
