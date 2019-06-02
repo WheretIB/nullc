@@ -11,6 +11,7 @@ int		IsPointerUnmanaged(NULLCRef ptr);
 void	MarkUsedBlocks();
 void	ResetGC();
 
+#include "nullc_debug.h"
 #include "StdLib.h"
 
 #define dcAllocMem NULLC::alloc
@@ -288,6 +289,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		switch(cmd.code)
 		{
 		case rviNop:
+			instruction = ExecNop(cmd, instruction, finalReturn);
 			break;
 		case rviLoadByte:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
@@ -1508,6 +1510,73 @@ bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned extraPopDW)
 	tempStackPtr = newStackPtr;
 
 	return callContinue;
+}
+
+RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, unsigned finalReturn)
+{
+	if(cmd.rB == EXEC_BREAK_SIGNAL || cmd.rB == EXEC_BREAK_ONCE)
+	{
+		//RUNTIME_ERROR(breakFunction == NULL, "ERROR: break function isn't set");
+
+		unsigned target = cmd.argument;
+		callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, 0));
+
+		//RUNTIME_ERROR(instruction < codeBase || instruction > exLinker->exRegVmCode.data + exLinker->exRegVmCode.size() + 1, "ERROR: break position is out of range");
+
+		unsigned response = breakFunction(breakFunctionContext, unsigned(instruction - codeBase - 1));
+		callStack.pop_back();
+
+		//RUNTIME_ERROR(response == NULLC_BREAK_STOP, "ERROR: execution was stopped after breakpoint");
+
+		// Step command - set breakpoint on the next instruction, if there is no breakpoint already
+		if(response)
+		{
+			// Next instruction for step command
+			RegVmCmd *nextCommand = instruction;
+
+			// Step command - handle unconditional jump step
+			if(breakCode[target].code == rviJmp)
+				nextCommand = codeBase + breakCode[target].argument;
+			// Step command - handle conditional "jump on false" step
+			if(breakCode[target].code == rviJmpz && regFilePtr[cmd.rC].intValue == 0)
+				nextCommand = codeBase + breakCode[target].argument;
+			// Step command - handle conditional "jump on true" step
+			if(breakCode[target].code == rviJmpnz && regFilePtr[cmd.rC].intValue != 0)
+				nextCommand = codeBase + breakCode[target].argument;
+			// Step command - handle "return" step
+			if(breakCode[target].code == rviReturn && callStack.size() != finalReturn)
+				nextCommand = callStack.back().instruction;
+
+			if(response == NULLC_BREAK_STEP_INTO && breakCode[target].code == rviCall && exFunctions[breakCode[target].argument].regVmAddress != -1)
+				nextCommand = codeBase + exFunctions[breakCode[target].argument].regVmAddress;
+			if(response == NULLC_BREAK_STEP_INTO && breakCode[target].code == rviCallPtr && regFilePtr[cmd.rC].intValue && exFunctions[regFilePtr[cmd.rC].intValue].regVmAddress != -1)
+				nextCommand = codeBase + exFunctions[regFilePtr[cmd.rC].intValue].regVmAddress;
+
+			if(response == NULLC_BREAK_STEP_OUT && callStack.size() != finalReturn)
+				nextCommand = callStack.back().instruction;
+
+			if(nextCommand->code != rviNop)
+			{
+				unsigned pos = breakCode.size();
+				breakCode.push_back(*nextCommand);
+				nextCommand->code = rviNop;
+				nextCommand->rB = EXEC_BREAK_ONCE;
+				nextCommand->argument = pos;
+			}
+		}
+		// This flag means that breakpoint works only once
+		if(cmd.rB == EXEC_BREAK_ONCE)
+		{
+			*(instruction - 1) = breakCode[target];
+
+			return instruction - 1;
+		}
+
+		// Jump to external code
+		return &breakCode[target];
+	}
+
+	return codeBase + cmd.argument;
 }
 
 namespace

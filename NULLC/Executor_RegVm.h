@@ -88,6 +88,8 @@ private:
 
 	bool RunExternalFunction(unsigned funcID, unsigned extraPopDW);
 
+	RegVmCmd* ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, unsigned finalReturn);
+
 	void FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType);
 	void FixupArray(char* ptr, const ExternTypeInfo& type);
 	void FixupClass(char* ptr, const ExternTypeInfo& type);
