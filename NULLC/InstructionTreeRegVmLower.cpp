@@ -6,6 +6,8 @@
 
 void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, RegVmLoweredInstruction* instruction)
 {
+	(void)ctx;
+
 	assert(instruction);
 	assert(instruction->parent == NULL);
 	assert(instruction->prevSibling == NULL);
