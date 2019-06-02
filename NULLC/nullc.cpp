@@ -542,7 +542,7 @@ nullres nullcLinkCode(const char *bytecode)
 
 		if(outputCtx.stream)
 		{
-			linker->SaveRegVmListing(outputCtx);
+			linker->SaveRegVmListing(outputCtx, false);
 
 			outputCtx.closeStream(outputCtx.stream);
 			outputCtx.stream = NULL;
@@ -861,6 +861,34 @@ nullres nullcRunFunctionInternal(unsigned functionID, const char* argBuf)
 		good = false;
 		nullcLastError = "Unknown executor code";
 	}
+
+#if !defined(NULLC_NO_EXECUTOR) && defined(NULLC_REG_VM_PROFILE_INSTRUCTIONS)
+	if(currExec == NULLC_REG_VM && enableLogFiles)
+	{
+		OutputContext outputCtx;
+
+		outputCtx.openStream = openStream;
+		outputCtx.writeStream = writeStream;
+		outputCtx.closeStream = closeStream;
+
+		outputCtx.outputBuf = outputBuf;
+		outputCtx.outputBufSize = NULLC_OUTPUT_BUFFER_SIZE;
+
+		outputCtx.tempBuf = tempOutputBuf;
+		outputCtx.tempBufSize = NULLC_TEMP_OUTPUT_BUFFER_SIZE;
+
+		outputCtx.stream = outputCtx.openStream("link_reg_vm_exec.txt");
+
+		if(outputCtx.stream)
+		{
+			linker->SaveRegVmListing(outputCtx, true);
+
+			outputCtx.closeStream(outputCtx.stream);
+			outputCtx.stream = NULL;
+		}
+	}
+#endif
+
 	return good;
 }
 

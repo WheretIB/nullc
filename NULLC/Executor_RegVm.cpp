@@ -163,6 +163,7 @@ void ExecutorRegVm::InitExecution()
 
 	// Add return after the last instruction to end execution of code with no return at the end
 	exLinker->exRegVmCode.push_back(RegVmCmd(rviReturn, 0, rvrError, 0, 0));
+	exLinker->exRegVmExecCount.push_back(0);
 
 	if(!tempStackArrayBase)
 	{
@@ -199,6 +200,10 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 	codeBase = &exLinker->exRegVmCode[0];
 	RegVmCmd *instruction = &exLinker->exRegVmCode[exLinker->regVmOffsetToGlobalCode];
+
+#if defined(NULLC_REG_VM_PROFILE_INSTRUCTIONS)
+	unsigned *executions = exLinker->exRegVmExecCount.data;
+#endif
 
 	// By default error is flagged, normal return will clear it
 	bool errorState = true;
@@ -270,21 +275,15 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data);
 	}
 
-#ifdef NULLC_VM_PROFILE_INSTRUCTIONS
-	unsigned instCallCount[256];
-	memset(instCallCount, 0, 256 * sizeof(unsigned));
-	unsigned instExecuted = 0;
-#endif
-
 	while(instruction)
 	{
 		const RegVmCmd cmd = *instruction;
-		instruction++;
 
-#ifdef NULLC_VM_PROFILE_INSTRUCTIONS
-		instCallCount[cmd.code]++;
-		instExecuted++;
+#if defined(NULLC_REG_VM_PROFILE_INSTRUCTIONS)
+		executions[unsigned(instruction - codeBase)]++;
 #endif
+
+		instruction++;
 
 		switch(cmd.code)
 		{

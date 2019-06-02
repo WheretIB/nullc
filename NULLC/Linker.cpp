@@ -57,6 +57,7 @@ void Linker::CleanCode()
 
 	exRegVmCode.clear();
 	exRegVmSourceInfo.clear();
+	exRegVmExecCount.clear();
 
 #ifdef NULLC_LLVM_SUPPORT
 	llvmModuleSizes.clear();
@@ -384,10 +385,16 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 			sourceInfo.sourceOffset += oldSourceSize;
 	}
 
+	assert(exRegVmCode.size() == exRegVmExecCount.size());
+
 	unsigned int oldRegVmCodeSize = exRegVmCode.size();
 	exRegVmCode.reserve(oldRegVmCodeSize + bCode->regVmCodeSize + 1);
 	exRegVmCode.resize(oldRegVmCodeSize + bCode->regVmCodeSize);
 	memcpy(exRegVmCode.data + oldRegVmCodeSize, FindRegVmCode(bCode), bCode->regVmCodeSize * sizeof(RegVmCmd));
+
+	exRegVmExecCount.reserve(oldRegVmCodeSize + bCode->regVmCodeSize + 1);
+	exRegVmExecCount.resize(oldRegVmCodeSize + bCode->regVmCodeSize);
+	memset(exRegVmExecCount.data + oldRegVmCodeSize, 0, bCode->regVmCodeSize * sizeof(unsigned));
 
 	for(unsigned int i = oldRegVmSourceInfoSize; i < exRegVmSourceInfo.size(); i++)
 	{
@@ -809,7 +816,7 @@ bool Linker::SaveVmListing(OutputContext &output)
 	return true;
 }
 
-bool Linker::SaveRegVmListing(OutputContext &output)
+bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 {
 	unsigned line = 0, lastLine = ~0u;
 
@@ -869,14 +876,29 @@ bool Linker::SaveRegVmListing(OutputContext &output)
 			}
 		}
 
-		if(found)
+		if(withProfileInfo)
 		{
-			output.Printf("// %4d:\n", i);
-			output.Printf("//      ", i);
+			if(found)
+			{
+				output.Printf("//            %4d:\n", i);
+				output.Printf("// (%8d)      ", exRegVmExecCount[i]);
+			}
+			else
+			{
+				output.Printf("// (%8d) %4d ", exRegVmExecCount[i], i);
+			}
 		}
 		else
 		{
-			output.Printf("// %4d ", i);
+			if(found)
+			{
+				output.Printf("// %4d:\n", i);
+				output.Printf("//       ");
+			}
+			else
+			{
+				output.Printf("// %4d ", i);
+			}
 		}
 
 		PrintInstruction(output, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);

@@ -21,7 +21,7 @@ public:
 	void	CleanCode();
 	bool	LinkCode(const char *bytecode, const char *moduleName);
 	bool	SaveVmListing(OutputContext &output);
-	bool	SaveRegVmListing(OutputContext &output);
+	bool	SaveRegVmListing(OutputContext &output, bool withProfileInfo);
 
 	const char*	GetLinkError();
 
@@ -51,6 +51,7 @@ public:
 
 	FastVector<RegVmCmd>			exRegVmCode;
 	FastVector<ExternSourceInfo>	exRegVmSourceInfo;
+	FastVector<unsigned int>		exRegVmExecCount;
 
 	unsigned int					regVmOffsetToGlobalCode;
 
