@@ -934,26 +934,88 @@ namespace
 
 	bool IsLoadAliasedWithStore(VmInstruction *loadInst, VmInstruction *storeInst)
 	{
+		VmValue *loadAddress = loadInst->arguments[0];
+		VmConstant *loadOffset = getType<VmConstant>(loadInst->arguments[1]);
+
+		VmValue *storeAddress = storeInst->arguments[0];
+		VmConstant *storeOffset = getType<VmConstant>(storeInst->arguments[1]);
+
 		if(loadInst->cmd == VM_INST_LOAD_BYTE && storeInst->cmd == VM_INST_STORE_BYTE)
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
 			return true;
+		}
 
 		if(loadInst->cmd == VM_INST_LOAD_SHORT && storeInst->cmd == VM_INST_STORE_SHORT)
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
 			return true;
+		}
 
 		if(loadInst->cmd == VM_INST_LOAD_INT && storeInst->cmd == VM_INST_STORE_INT)
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
 			return true;
+		}
 
 		if(loadInst->cmd == VM_INST_LOAD_LONG && storeInst->cmd == VM_INST_STORE_LONG)
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
 			return true;
+		}
 
 		if(loadInst->cmd == VM_INST_LOAD_FLOAT && storeInst->cmd == VM_INST_STORE_FLOAT)
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
 			return true;
+		}
 
 		if(loadInst->cmd == VM_INST_LOAD_DOUBLE && storeInst->cmd == VM_INST_STORE_DOUBLE)
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
 			return true;
+		}
 
 		if(IsBuiltInStructLoadStore(loadInst) && IsBuiltInStructLoadStore(storeInst))
+		{
+			if(loadAddress->type.structType && loadAddress->type.structType == storeAddress->type.structType)
+			{
+				if(loadOffset->iValue != storeOffset->iValue)
+					return false;
+			}
+
 			return true;
+		}
 
 		return false;
 	}
