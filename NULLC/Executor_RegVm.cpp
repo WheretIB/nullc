@@ -344,17 +344,16 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 		executions[unsigned(instruction - codeBase)]++;
 #endif
 
-		instruction++;
-
 		switch(cmd.code)
 		{
 		case rviNop:
-			instruction = rvm->ExecNop(cmd, instruction, finalReturn, regFilePtr);
+			instruction = rvm->ExecNop(cmd, instruction + 1, finalReturn, regFilePtr);
 
 			if(!instruction)
 				return rvrError;
 
-			break;
+			// Skip increment at the end by continuing outer loop
+			continue;
 		case rviLoadByte:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
@@ -518,22 +517,34 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 			regFilePtr[cmd.rA].ptrValue = regFilePtr[cmd.rC].ptrValue + cmd.argument;
 			break;
 		case rviSetRange:
-			//printf("%4d: unhandled rviSetRange\n", int(instruction - codeBase - 1));
+			//printf("%4d: unhandled rviSetRange\n", int(instruction - codeBase));
 			break;
 		case rviJmp:
 			instruction = codeBase + cmd.argument;
-			break;
+
+			// Skip increment at the end by continuing outer loop
+			continue;
 		case rviJmpz:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 
 			if(regFilePtr[cmd.rC].intValue == 0)
-				instruction = codeBase + cmd.argument;
+			{
+				instruction = codeBase + cmd.argument;;
+
+				// Skip increment at the end by continuing outer loop
+				continue;
+			}
 			break;
 		case rviJmpnz:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 
 			if(regFilePtr[cmd.rC].intValue != 0)
+			{
 				instruction = codeBase + cmd.argument;
+
+				// Skip increment at the end by continuing outer loop
+				continue;
+			}
 			break;
 		case rviPop:
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
@@ -571,7 +582,7 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 			tempStackPtr += 2;
 			break;
 		case rviCall:
-			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, cmd.argument, instruction, finalReturn, regFilePtr, regFileTop, tempStackPtr);
+			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, cmd.argument, instruction + 1, finalReturn, regFilePtr, regFileTop, tempStackPtr);
 
 			if(!tempStackPtr)
 				return rvrError;
@@ -580,14 +591,14 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 		case rviCallPtr:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 
-			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, regFilePtr[cmd.rC].intValue, instruction, finalReturn, regFilePtr, regFileTop, tempStackPtr);
+			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, regFilePtr[cmd.rC].intValue, instruction + 1, finalReturn, regFilePtr, regFileTop, tempStackPtr);
 
 			if(!tempStackPtr)
 				return rvrError;
 
 			break;
 		case rviReturn:
-			return rvm->ExecReturn(cmd, instruction, finalReturn, regFilePtr);
+			return rvm->ExecReturn(cmd, instruction + 1, finalReturn, regFilePtr);
 		case rviAdd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
@@ -617,7 +628,7 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue / regFilePtr[cmd.rC].intValue;
 			break;
 		case rviPow:
-			//printf("%4d: unhandled rviPow\n", int(instruction - codeBase - 1));
+			//printf("%4d: unhandled rviPow\n", int(instruction - codeBase));
 			break;
 		case rviMod:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -741,7 +752,7 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue / regFilePtr[cmd.rC].longValue;
 			break;
 		case rviPowl:
-			//printf("%4d: unhandled rviPowl\n", int(instruction - codeBase - 1));
+			//printf("%4d: unhandled rviPowl\n", int(instruction - codeBase));
 			break;
 		case rviModl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -863,10 +874,10 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue / regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviPowd:
-			//printf("%4d: unhandled rviPowd\n", int(instruction - codeBase - 1));
+			//printf("%4d: unhandled rviPowd\n", int(instruction - codeBase));
 			break;
 		case rviModd:
-			//printf("%4d: unhandled rviModd\n", int(instruction - codeBase - 1));
+			//printf("%4d: unhandled rviModd\n", int(instruction - codeBase));
 			break;
 		case rviLessd:
 
@@ -957,10 +968,10 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 			regFilePtr[cmd.rA].longValue = !regFilePtr[cmd.rC].longValue;
 			break;
 		case rviConvertPtr:
-			//printf("%4d: unhandled rviConvertPtr\n", int(instruction - codeBase - 1));
+			//printf("%4d: unhandled rviConvertPtr\n", int(instruction - codeBase));
 			break;
 		case rviCheckRet:
-			//printf("%4d: unhandled rviCheckRet\n", int(instruction - codeBase - 1));
+			//printf("%4d: unhandled rviCheckRet\n", int(instruction - codeBase));
 			break;
 		default:
 #if defined(_MSC_VER)
@@ -969,6 +980,8 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 			__builtin_unreachable();
 #endif
 		}
+
+		instruction++;
 	}
 
 	return rvrError;
