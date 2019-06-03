@@ -404,14 +404,14 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
-			regFilePtr[cmd.rA].longValue = ((int64_t)cmd.argument << 32ll) | regFilePtr[cmd.rA].intValue;
+			regFilePtr[cmd.rA].longValue = ((int64_t)cmd.argument << 32ll) | (unsigned)regFilePtr[cmd.rA].intValue;
 			break;
 		case rviLoadImmDouble:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
 			{
-				uint64_t bits = ((uint64_t)cmd.argument << 32ll) | regFilePtr[cmd.rA].intValue;
+				uint64_t bits = ((uint64_t)cmd.argument << 32ll) | (unsigned)regFilePtr[cmd.rA].intValue;
 
 				memcpy(&regFilePtr[cmd.rA].doubleValue, &bits, sizeof(double));
 			}
