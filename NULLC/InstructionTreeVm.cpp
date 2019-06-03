@@ -1386,6 +1386,14 @@ void VmBlock::AddInstruction(VmInstruction* instruction)
 
 		firstInstruction = lastInstruction = instruction;
 	}
+	else if(!insertPoint)
+	{
+		instruction->nextSibling = firstInstruction;
+
+		firstInstruction->prevSibling = instruction;
+
+		firstInstruction = instruction;
+	}
 	else
 	{
 		assert(insertPoint);
@@ -4213,6 +4221,63 @@ void RunCommonSubexpressionElimination(ExpressionContext &ctx, VmModule *module,
 	}
 }
 
+void RunDeadAlocaStoreElimination(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		if(ScopeData *scope = function->scope)
+		{
+			// Keep stores to globals
+			if(scope == ctx.globalScope)
+				return;
+
+			for(unsigned i = 0; i < scope->allVariables.size(); i++)
+			{
+				VariableData *variable = scope->allVariables[i];
+
+				if(variable->isAlloca && variable->users.empty())
+					continue;
+
+				if(HasAddressTaken(variable))
+					continue;
+
+				bool hasLoadUsers = false;
+
+				SmallArray<VmInstruction*, 128> stores(ctx.allocator);
+
+				for(unsigned i = 0; i < variable->users.size(); i++)
+				{
+					VmConstant *user = variable->users[i];
+
+					for(unsigned k = 0; k < user->users.size(); k++)
+					{
+						if(VmInstruction *inst = getType<VmInstruction>(user->users[k]))
+						{
+							if(inst->cmd >= VM_INST_LOAD_BYTE && inst->cmd <= VM_INST_LOAD_STRUCT)
+								hasLoadUsers = true;
+
+							if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
+								stores.push_back(inst);
+						}
+					}
+				}
+
+				if(!stores.empty() && !hasLoadUsers)
+				{
+					for(unsigned i = 0; i < stores.size(); i++)
+					{
+						VmInstruction *storeInst = stores[i];
+
+						module->deadAllocaStoreEliminations++;
+
+						storeInst->parent->RemoveInstruction(storeInst);
+					}
+				}
+			}
+		}
+	}
+}
+
 void RunCreateAllocaStorage(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
@@ -4470,6 +4535,9 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 			break;
 		case VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION:
 			RunCommonSubexpressionElimination(ctx, module, value);
+			break;
+		case VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION:
+			RunDeadAlocaStoreElimination(ctx, module, value);
 			break;
 		case VM_PASS_CREATE_ALLOCA_STORAGE:
 			RunCreateAllocaStorage(ctx, module, value);

@@ -128,6 +128,7 @@ enum VmPassType
 	VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION,
 	VM_PASS_OPT_LOAD_STORE_PROPAGATION,
 	VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION,
+	VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION,
 
 	VM_PASS_CREATE_ALLOCA_STORAGE,
 
@@ -436,6 +437,7 @@ struct VmModule
 		controlFlowSimplifications = 0;
 		loadStorePropagations = 0;
 		commonSubexprEliminations = 0;
+		deadAllocaStoreEliminations = 0;
 	}
 
 	const char *code;
@@ -472,6 +474,7 @@ struct VmModule
 	unsigned controlFlowSimplifications;
 	unsigned loadStorePropagations;
 	unsigned commonSubexprEliminations;
+	unsigned deadAllocaStoreEliminations;
 
 	struct LoadStoreInfo
 	{
