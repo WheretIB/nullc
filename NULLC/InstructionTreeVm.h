@@ -306,7 +306,7 @@ struct VmInstruction: VmValue
 
 struct VmBlock: VmValue
 {
-	VmBlock(Allocator *allocator, SynBase *source, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Block, source), name(name), uniqueId(uniqueId)
+	VmBlock(Allocator *allocator, SynBase *source, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Block, source), name(name), uniqueId(uniqueId), predecessors(allocator), successors(allocator), dominators(allocator)
 	{
 		parent = NULL;
 
@@ -319,6 +319,10 @@ struct VmBlock: VmValue
 		insertPoint = NULL;
 
 		address = ~0u;
+
+		visited = false;
+		postOrderID = 0;
+		idom = NULL;
 	}
 
 	void AddInstruction(VmInstruction* instruction);
@@ -340,6 +344,16 @@ struct VmBlock: VmValue
 	VmInstruction *insertPoint;
 
 	unsigned address;
+
+	// Dominator frontier creation
+	SmallArray<VmBlock*, 4> predecessors;
+	SmallArray<VmBlock*, 4> successors;
+
+	bool visited;
+	unsigned postOrderID;
+	VmBlock *idom;
+
+	SmallArray<VmBlock*, 4> dominators;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -372,6 +386,8 @@ struct VmFunction: VmValue
 	void RemoveBlock(VmBlock *block);
 
 	void MoveEntryBlockToStart();
+
+	void UpdateDominatorTree();
 
 	FunctionData *function;
 	ScopeData *scope;

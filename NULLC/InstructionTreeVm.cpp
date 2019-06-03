@@ -1249,6 +1249,34 @@ namespace
 
 		return NULL;
 	}
+
+	void GetPostOrder(SmallArray<VmBlock*, 32>& order, VmBlock* start)
+	{
+		if(start->visited)
+			return;
+
+		start->visited = true;
+
+		for(unsigned i = 0; i < start->successors.size(); i++)
+			GetPostOrder(order, start->successors[i]);
+
+		start->postOrderID = order.size();
+		order.push_back(start);
+	}
+
+	VmBlock* BlockIdomIntersect(VmBlock* b1, VmBlock* b2)
+	{
+		while(b1 != b2)
+		{
+			while(b1->postOrderID < b2->postOrderID)
+				b1 = b1->idom;
+
+			while(b2->postOrderID < b1->postOrderID)
+				b2 = b2->idom;
+		}
+
+		return b1;
+	}
 }
 
 const VmType VmType::Void = VmType(VM_TYPE_VOID, 0, NULL);
@@ -1503,6 +1531,121 @@ void VmFunction::MoveEntryBlockToStart()
 		}
 
 		entryBlock->parent = this;
+	}
+}
+
+void VmFunction::UpdateDominatorTree()
+{
+	if(!firstBlock)
+		return;
+
+	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
+	{
+		curr->predecessors.clear();
+		curr->successors.clear();
+
+		curr->visited = false;
+		curr->idom = NULL;
+		curr->dominators.clear();
+	}
+
+	// Get block predecessors and successors
+	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
+	{
+		for(unsigned i = 0; i < curr->users.size(); i++)
+		{
+			VmValue *user = curr->users[i];
+
+			if(VmInstruction *inst = getType<VmInstruction>(user))
+			{
+				curr->predecessors.push_back(inst->parent);
+				inst->parent->successors.push_back(curr);
+			}
+		}
+	}
+
+	firstBlock->idom = firstBlock;
+
+	SmallArray<VmBlock*, 32> order;
+	GetPostOrder(order, firstBlock);
+
+	// Reverse
+	for(unsigned i = 0; i < order.size() / 2; i++)
+	{
+		VmBlock *tmp = order[i];
+		order[i] = order[order.size() - i - 1];
+		order[order.size() - i - 1] = tmp;
+	}
+
+	bool changed = true;
+
+	while(changed)
+	{
+		changed = false;
+
+		for(unsigned i = 0; i < order.size(); i++)
+		{
+			VmBlock *b = order[i];
+
+			if(b == firstBlock)
+				continue;
+
+			VmBlock *firstProcessed = NULL;
+
+			for(unsigned k = 0; k < b->predecessors.size() && !firstProcessed; k++)
+			{
+				if(b->predecessors[k]->idom)
+					firstProcessed = b->predecessors[k];
+			}
+
+			assert(firstProcessed);
+			VmBlock *newIdom = firstProcessed;
+
+			for(unsigned k = 0; k < b->predecessors.size(); k++)
+			{
+				VmBlock *p = b->predecessors[k];
+
+				if(p == firstProcessed)
+					continue;
+
+				if(p->idom)
+					newIdom = BlockIdomIntersect(p, newIdom);
+			}
+
+			if(b->idom != newIdom)
+			{
+				b->idom = newIdom;
+				changed = true;
+			}
+		}
+	}
+
+	// Fill the dominance frontier
+	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
+	{
+		if(curr->predecessors.size() >= 2)
+		{
+			for(unsigned i = 0; i < curr->predecessors.size(); i++)
+			{
+				VmBlock *p = curr->predecessors[i];
+
+				VmBlock *runner = p;
+
+				while(runner != curr->idom)
+				{
+					bool found = false;
+					for(unsigned k = 0; k < runner->dominators.size() && !found; k++)
+					{
+						if(runner->dominators[k] == curr)
+							found = true;
+					}
+					if(!found)
+						runner->dominators.push_back(curr);
+
+					runner = runner->idom;
+				}
+			}
+		}
 	}
 }
 

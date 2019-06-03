@@ -346,6 +346,55 @@ void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 
 	ctx.depth++;
 
+	Print(ctx, "  // incoming blocks: [");
+
+	for(unsigned i = 0; i < block->predecessors.size(); i++)
+	{
+		VmBlock *predecessor = block->predecessors[i];
+
+		if(i != 0)
+			Print(ctx, ", ");
+
+		Print(ctx, "'%.*s.b%d'", FMT_ISTR(predecessor->name), predecessor->uniqueId);
+	}
+
+	PrintLine(ctx, "]");
+
+	Print(ctx, "  // successor blocks: [");
+
+	for(unsigned i = 0; i < block->successors.size(); i++)
+	{
+		VmBlock *successor = block->successors[i];
+
+		if(i != 0)
+			Print(ctx, ", ");
+
+		Print(ctx, "'%.*s.b%d'", FMT_ISTR(successor->name), successor->uniqueId);
+	}
+
+	PrintLine(ctx, "]");
+
+	Print(ctx, "  // immediate dominator: [");
+
+	if(block->idom)
+		Print(ctx, "'%.*s.b%d'", FMT_ISTR(block->idom->name), block->idom->uniqueId);
+
+	PrintLine(ctx, "]");
+
+	Print(ctx, "  // dominance frontier: [");
+
+	for(unsigned i = 0; i < block->dominators.size(); i++)
+	{
+		VmBlock *dominator = block->dominators[i];
+
+		if(i != 0)
+			Print(ctx, ", ");
+
+		Print(ctx, "'%.*s.b%d'", FMT_ISTR(dominator->name), dominator->uniqueId);
+	}
+
+	PrintLine(ctx, "]");
+
 	for(VmInstruction *value = block->firstInstruction; value; value = value->nextSibling)
 	{
 		if(ctx.displayAsTree && !value->users.empty())
