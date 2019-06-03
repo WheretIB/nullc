@@ -109,7 +109,6 @@ ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker-
 	currentFrame = 0;
 
 	tempStackArrayBase = NULL;
-	tempStackPtr = NULL;
 	tempStackArrayEnd = NULL;
 
 	regFileArrayBase = NULL;
@@ -171,7 +170,6 @@ void ExecutorRegVm::InitExecution()
 		memset(tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 16);
 		tempStackArrayEnd = tempStackArrayBase + 1024 * 16;
 	}
-	tempStackPtr = tempStackArrayBase;
 
 	if(!regFileArrayBase)
 	{
@@ -211,6 +209,8 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 	RegVmRegister *regFilePtr = regFileArrayBase;
 	RegVmRegister *regFileTop = regFilePtr + 256;
 
+	unsigned *tempStackPtr = tempStackArrayBase;
+
 	if(functionID != ~0u)
 	{
 		unsigned funcPos = ~0u;
@@ -227,15 +227,11 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 		if(funcPos == ~0u)
 		{
-			// TODO
-			/*
 			// Copy all arguments
-			memcpy(genStackPtr - (exFunctions[functionID].bytesToPop >> 2), arguments, exFunctions[functionID].bytesToPop);
-			genStackPtr -= (exFunctions[functionID].bytesToPop >> 2);
-			*/
+			memcpy(tempStackPtr, arguments, exFunctions[functionID].bytesToPop);
 
 			// Call function
-			if(!RunExternalFunction(functionID, 0))
+			if(!RunExternalFunction(functionID, tempStackPtr))
 				errorState = true;
 
 			// This will disable NULLC code execution while leaving error check and result retrieval
@@ -338,7 +334,7 @@ void ExecutorRegVm::Stop(const char* error)
 	NULLC::SafeSprintf(execError, REGVM_ERROR_BUFFER_SIZE, "%s", error);
 }
 
-RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const codeBase, RegVmCmd *instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop, unsigned *&tempStackPtr)
+RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const codeBase, RegVmCmd *instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop, unsigned *tempStackPtr)
 {
 	for(;;)
 	{
@@ -575,14 +571,18 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 			tempStackPtr += 2;
 			break;
 		case rviCall:
-			if(!rvm->ExecCall(cmd.rA, cmd.rB, cmd.argument, instruction, finalReturn, regFilePtr, regFileTop))
+			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, cmd.argument, instruction, finalReturn, regFilePtr, regFileTop, tempStackPtr);
+
+			if(!tempStackPtr)
 				return rvrError;
 
 			break;
 		case rviCallPtr:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 
-			if(!rvm->ExecCall(cmd.rA, cmd.rB, regFilePtr[cmd.rC].intValue, instruction, finalReturn, regFilePtr, regFileTop))
+			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, regFilePtr[cmd.rC].intValue, instruction, finalReturn, regFilePtr, regFileTop, tempStackPtr);
+
+			if(!tempStackPtr)
 				return rvrError;
 
 			break;
@@ -974,17 +974,14 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 	return rvrError;
 }
 
-bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned extraPopDW)
+bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned *callStorage)
 {
 	ExternFuncInfo &func = exFunctions[funcID];
-
-	unsigned dwordsToPop = (func.bytesToPop >> 2);
 
 	void* fPtr = func.funcPtr;
 	unsigned retType = func.retType;
 
-	unsigned *newStackPtr = tempStackPtr - (dwordsToPop + extraPopDW);
-	unsigned *stackStart = newStackPtr;
+	unsigned *stackStart = callStorage;
 
 	dcReset(dcCallVM);
 
@@ -1185,6 +1182,8 @@ bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned extraPopDW)
 
 	dcArgPointer(dcCallVM, (DCpointer)vmLoadPointer(stackStart));
 
+	unsigned *newStackPtr = callStorage;
+
 	switch(retType)
 	{
 	case ExternFuncInfo::RETURN_VOID:
@@ -1293,8 +1292,6 @@ bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned extraPopDW)
 		break;
 	}
 
-	tempStackPtr = newStackPtr;
-
 	return callContinue;
 }
 
@@ -1365,7 +1362,7 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 	return codeBase + cmd.argument;
 }
 
-bool ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultType, unsigned functionId, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop)
+unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultType, unsigned functionId, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop, unsigned *tempStackPtr)
 {
 	ExternFuncInfo &target = exFunctions[functionId];
 
@@ -1375,8 +1372,11 @@ bool ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultType, 
 	{
 		callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, resultReg));
 
-		if(!RunExternalFunction(functionId, 0))
-			return false;
+		// Take arguments
+		tempStackPtr -= target.bytesToPop >> 2;
+
+		if(!RunExternalFunction(functionId, tempStackPtr))
+			return NULL;
 
 		assert(dataStack.size() == callStack.back().dataSize);
 		assert(regFilePtr == callStack.back().regFilePtr);
@@ -1404,7 +1404,7 @@ bool ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultType, 
 			break;
 		}
 
-		return true;
+		return tempStackPtr;
 	}
 
 	callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, resultReg));
@@ -1420,11 +1420,11 @@ bool ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultType, 
 	// Reserve place for new stack frame (cmdPushVTop will resize)
 	dataStack.reserve(dataStack.size() + argumentsSize);
 
-	// Copy function arguments to new stack frame
-	memcpy((char*)(dataStack.data + dataStack.size()), (char*)tempStackPtr - argumentsSize, argumentsSize);
+	// Take arguments
+	tempStackPtr -= target.bytesToPop >> 2;
 
-	// Pop arguments from stack
-	tempStackPtr -= argumentsSize >> 2;
+	// Copy function arguments to new stack frame
+	memcpy((char*)(dataStack.data + dataStack.size()), tempStackPtr, argumentsSize);
 
 	// If parameter stack was reallocated
 	if(dataStack.size() + argumentsSize >= oldSize)
@@ -1472,7 +1472,7 @@ bool ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultType, 
 	RegVmReturnType execResultType = RunCode(this, codeBase, codeBase + address, finalReturn, regFileTop, regFileTop + target.regVmRegisters, tempStackPtr);
 
 	if(execResultType == rvrError)
-		return false;
+		return NULL;
 
 	assert(execResultType == resultType);
 
@@ -1499,7 +1499,7 @@ bool ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultType, 
 		break;
 	}
 
-	return true;
+	return tempStackPtr;
 }
 
 RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr)
@@ -1518,8 +1518,6 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 
 		return errorState ? rvrError : rvrVoid;
 	}
-
-	tempStackPtr -= cmd.argument / 4;
 
 	if(callStack.size() == finalReturn)
 	{

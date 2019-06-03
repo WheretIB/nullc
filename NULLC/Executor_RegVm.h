@@ -68,7 +68,6 @@ private:
 
 	// Stack for call argument/return result data
 	unsigned	*tempStackArrayBase;
-	unsigned	*tempStackPtr;
 	unsigned	*tempStackArrayEnd;
 
 	// Register file
@@ -85,12 +84,12 @@ private:
 
 	FastVector<RegVmCmd>	breakCode;
 
-	static RegVmReturnType RunCode(ExecutorRegVm *rvm, RegVmCmd * const codeBase, RegVmCmd *instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop, unsigned *&tempStackPtr);
+	static RegVmReturnType RunCode(ExecutorRegVm *rvm, RegVmCmd * const codeBase, RegVmCmd *instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop, unsigned *tempStackPtr);
 
-	bool RunExternalFunction(unsigned funcID, unsigned extraPopDW);
+	bool RunExternalFunction(unsigned funcID, unsigned *callStorage);
 
 	RegVmCmd* ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr);
-	bool ExecCall(unsigned char resultReg, unsigned char resultType, unsigned functionId, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop);
+	unsigned* ExecCall(unsigned char resultReg, unsigned char resultType, unsigned functionId, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop, unsigned *tempStackPtr);
 	RegVmReturnType ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr);
 
 	void FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType);
