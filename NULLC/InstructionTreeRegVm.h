@@ -206,20 +206,4 @@ struct RegVmRegister
 #define ptrValue longValue
 #endif
 
-struct RegVmCallFrame
-{
-	RegVmCallFrame() : instruction(0), dataSize(0), regFilePtr(0), resultReg(0)
-	{
-	}
-
-	RegVmCallFrame(RegVmCmd *instruction, unsigned dataSize, RegVmRegister *regFilePtr, unsigned char resultReg) : instruction(instruction), dataSize(dataSize), regFilePtr(regFilePtr), resultReg(resultReg)
-	{
-	}
-
-	RegVmCmd *instruction;
-	unsigned dataSize;
-	RegVmRegister *regFilePtr;
-	unsigned char resultReg;
-};
-
 const char* GetInstructionName(RegVmInstructionCode code);

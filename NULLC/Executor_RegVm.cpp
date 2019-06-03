@@ -148,6 +148,8 @@ void ExecutorRegVm::InitExecution()
 
 	callStack.clear();
 
+	lastFinalReturn = 0;
+
 	CommonSetLinker(exLinker);
 
 	dataStack.reserve(4096);
@@ -204,7 +206,8 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 	bool errorState = false;
 
 	// We will know that return is global if call stack size is equal to current
-	unsigned finalReturn = callStack.size();
+	unsigned prevLastFinalReturn = lastFinalReturn;
+	lastFinalReturn = callStack.size();
 
 	RegVmRegister *regFilePtr = regFileArrayBase;
 	RegVmRegister *regFileTop = regFilePtr + 256;
@@ -273,7 +276,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 	regFileLastTop = regFileTop;
 
-	RegVmReturnType resultType = RunCode(this, codeBase, instruction, finalReturn, regFilePtr, regFileTop, tempStackPtr);
+	RegVmReturnType resultType = RunCode(instruction, regFilePtr, tempStackPtr, this, codeBase);
 
 	if(resultType == rvrError)
 	{
@@ -291,7 +294,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 	if(errorState)
 	{
 		// Print call stack on error, when we get to the first function
-		if(!finalReturn)
+		if(lastFinalReturn == 0)
 		{
 			char *currPos = execError + strlen(execError);
 			currPos += NULLC::SafeSprintf(currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n", int(instruction - codeBase - 1));
@@ -302,11 +305,16 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 				currPos += PrintStackFrame(address, currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), false);*/
 		}
 
+		lastFinalReturn = prevLastFinalReturn;
+
 		// Ascertain that execution stops when there is a chain of nullcRunFunction
 		callContinue = false;
 		codeRunning = false;
+
 		return;
 	}
+
+	lastFinalReturn = prevLastFinalReturn;
 
 	lastResultType = retType;
 
@@ -334,8 +342,10 @@ void ExecutorRegVm::Stop(const char* error)
 	NULLC::SafeSprintf(execError, REGVM_ERROR_BUFFER_SIZE, "%s", error);
 }
 
-RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const codeBase, RegVmCmd *instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop, unsigned *tempStackPtr)
+RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr, ExecutorRegVm *rvm, RegVmCmd *codeBase)
 {
+	(void)codeBase;
+
 	for(;;)
 	{
 		const RegVmCmd &cmd = *instruction;
@@ -347,13 +357,13 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 		switch(cmd.code)
 		{
 		case rviNop:
-			instruction = rvm->ExecNop(cmd, instruction + 1, finalReturn, regFilePtr);
+			instruction = rvm->ExecNop(cmd, instruction + 1, regFilePtr);
 
 			if(!instruction)
 				return rvrError;
 
-			// Skip increment at the end by continuing outer loop
-			continue;
+			instruction--;
+			break;
 		case rviLoadByte:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
@@ -520,19 +530,22 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 			//printf("%4d: unhandled rviSetRange\n", int(instruction - codeBase));
 			break;
 		case rviJmp:
-			instruction = codeBase + cmd.argument;
-
-			// Skip increment at the end by continuing outer loop
-			continue;
+#ifdef _M_X64
+			instruction = codeBase + cmd.argument - 1;
+#else
+			instruction = rvm->codeBase + cmd.argument - 1;
+#endif
+			break;
 		case rviJmpz:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 
 			if(regFilePtr[cmd.rC].intValue == 0)
 			{
-				instruction = codeBase + cmd.argument;;
-
-				// Skip increment at the end by continuing outer loop
-				continue;
+#ifdef _M_X64
+				instruction = codeBase + cmd.argument - 1;
+#else
+				instruction = rvm->codeBase + cmd.argument - 1;
+#endif
 			}
 			break;
 		case rviJmpnz:
@@ -540,10 +553,11 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 
 			if(regFilePtr[cmd.rC].intValue != 0)
 			{
-				instruction = codeBase + cmd.argument;
-
-				// Skip increment at the end by continuing outer loop
-				continue;
+#ifdef _M_X64
+				instruction = codeBase + cmd.argument - 1;
+#else
+				instruction = rvm->codeBase + cmd.argument - 1;
+#endif
 			}
 			break;
 		case rviPop:
@@ -582,7 +596,7 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 			tempStackPtr += 2;
 			break;
 		case rviCall:
-			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, cmd.argument, instruction + 1, finalReturn, regFilePtr, regFileTop, tempStackPtr);
+			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, cmd.argument, instruction + 1, regFilePtr, tempStackPtr);
 
 			if(!tempStackPtr)
 				return rvrError;
@@ -591,14 +605,14 @@ RegVmReturnType ExecutorRegVm::RunCode(ExecutorRegVm *rvm, RegVmCmd * const code
 		case rviCallPtr:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 
-			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, regFilePtr[cmd.rC].intValue, instruction + 1, finalReturn, regFilePtr, regFileTop, tempStackPtr);
+			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, regFilePtr[cmd.rC].intValue, instruction + 1, regFilePtr, tempStackPtr);
 
 			if(!tempStackPtr)
 				return rvrError;
 
 			break;
 		case rviReturn:
-			return rvm->ExecReturn(cmd, instruction + 1, finalReturn, regFilePtr);
+			return rvm->ExecReturn(cmd, instruction + 1);
 		case rviAdd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
@@ -1308,14 +1322,14 @@ bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned *callStorage)
 	return callContinue;
 }
 
-RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr)
+RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr)
 {
 	if(cmd.rB == EXEC_BREAK_SIGNAL || cmd.rB == EXEC_BREAK_ONCE)
 	{
 		//RUNTIME_ERROR(breakFunction == NULL, "ERROR: break function isn't set");
 
 		unsigned target = cmd.argument;
-		callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, 0));
+		callStack.push_back(instruction);
 
 		//RUNTIME_ERROR(instruction < codeBase || instruction > exLinker->exRegVmCode.data + exLinker->exRegVmCode.size() + 1, "ERROR: break position is out of range");
 
@@ -1340,16 +1354,16 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 			if(breakCode[target].code == rviJmpnz && regFilePtr[cmd.rC].intValue != 0)
 				nextCommand = codeBase + breakCode[target].argument;
 			// Step command - handle "return" step
-			if(breakCode[target].code == rviReturn && callStack.size() != finalReturn)
-				nextCommand = callStack.back().instruction;
+			if(breakCode[target].code == rviReturn && callStack.size() != lastFinalReturn)
+				nextCommand = callStack.back();
 
 			if(response == NULLC_BREAK_STEP_INTO && breakCode[target].code == rviCall && exFunctions[breakCode[target].argument].regVmAddress != -1)
 				nextCommand = codeBase + exFunctions[breakCode[target].argument].regVmAddress;
 			if(response == NULLC_BREAK_STEP_INTO && breakCode[target].code == rviCallPtr && regFilePtr[cmd.rC].intValue && exFunctions[regFilePtr[cmd.rC].intValue].regVmAddress != -1)
 				nextCommand = codeBase + exFunctions[regFilePtr[cmd.rC].intValue].regVmAddress;
 
-			if(response == NULLC_BREAK_STEP_OUT && callStack.size() != finalReturn)
-				nextCommand = callStack.back().instruction;
+			if(response == NULLC_BREAK_STEP_OUT && callStack.size() != lastFinalReturn)
+				nextCommand = callStack.back();
 
 			if(nextCommand->code != rviNop)
 			{
@@ -1375,7 +1389,7 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 	return codeBase + cmd.argument;
 }
 
-unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultType, unsigned functionId, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr, RegVmRegister * const regFileTop, unsigned *tempStackPtr)
+unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultType, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr)
 {
 	ExternFuncInfo &target = exFunctions[functionId];
 
@@ -1383,16 +1397,13 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 
 	if(address == EXTERNAL_FUNCTION)
 	{
-		callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, resultReg));
+		callStack.push_back(instruction);
 
 		// Take arguments
 		tempStackPtr -= target.bytesToPop >> 2;
 
 		if(!RunExternalFunction(functionId, tempStackPtr))
 			return NULL;
-
-		assert(dataStack.size() == callStack.back().dataSize);
-		assert(regFilePtr == callStack.back().regFilePtr);
 
 		callStack.pop_back();
 
@@ -1420,7 +1431,9 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		return tempStackPtr;
 	}
 
-	callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, resultReg));
+	callStack.push_back(instruction);
+
+	unsigned prevDataSize = dataStack.size();
 
 	char* oldBase = dataStack.data;
 	unsigned oldSize = dataStack.max;
@@ -1445,8 +1458,9 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 
 	unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
-	//regFilePtr = regFileTop;
-	//regFileTop = regFilePtr + (cmd.rA == 0 ? 256 : cmd.rA);
+	RegVmRegister *regFileTop = regFileLastTop;
+
+	regFileLastTop = regFileTop + target.regVmRegisters;
 
 	REGVM_DEBUG(regFileTop[rvrrGlobals].activeType = rvrPointer);
 	REGVM_DEBUG(regFileTop[rvrrFrame].activeType = rvrPointer);
@@ -1480,9 +1494,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 			memset(dataStack.data + dataStack.size() + argumentsSize, 0, stackSize - argumentsSize);
 	}
 
-	regFileLastTop = regFileTop + target.regVmRegisters;
-
-	RegVmReturnType execResultType = RunCode(this, codeBase, codeBase + address, finalReturn, regFileTop, regFileTop + target.regVmRegisters, tempStackPtr);
+	RegVmReturnType execResultType = RunCode(codeBase + address, regFileTop, tempStackPtr, this, codeBase);
 
 	if(execResultType == rvrError)
 		return NULL;
@@ -1490,6 +1502,8 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 	assert(execResultType == resultType);
 
 	regFileLastTop = regFileTop;
+
+	dataStack.shrink(prevDataSize);
 
 	switch(resultType)
 	{
@@ -1515,14 +1529,14 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 	return tempStackPtr;
 }
 
-RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction, unsigned finalReturn, RegVmRegister * const regFilePtr)
+RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction)
 {
 	if(cmd.rB == rvrError)
 	{
 		//instruction = NULL;
 		bool errorState = !callStack.empty();
 
-		callStack.push_back(RegVmCallFrame(instruction, dataStack.size(), regFilePtr, 0));
+		callStack.push_back(instruction);
 
 		if(errorState)
 			strcpy(execError, "ERROR: function didn't return a value");
@@ -1532,15 +1546,13 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 		return errorState ? rvrError : rvrVoid;
 	}
 
-	if(callStack.size() == finalReturn)
+	if(callStack.size() == lastFinalReturn)
 	{
-		if(finalReturn == 0)
+		if(lastFinalReturn == 0)
 			codeRunning = false;
 
 		return RegVmReturnType(cmd.rB);
 	}
-
-	dataStack.shrink(callStack.back().dataSize);
 
 	callStack.pop_back();
 
@@ -1838,12 +1850,12 @@ bool ExecutorRegVm::ExtendParameterStack(char* oldBase, unsigned oldSize, RegVmC
 	int offset = exLinker->globalVarSize;
 	int n = 0;
 
-	callStack.push_back(RegVmCallFrame(current, dataStack.size(), NULL, 0));
+	callStack.push_back(current);
 
 	// Fixup local variables
 	for(; n < (int)callStack.size(); n++)
 	{
-		int address = int(callStack[n].instruction - codeBase);
+		int address = int(callStack[n] - codeBase);
 		int funcID = -1;
 
 		for(unsigned i = 0; i < exFunctions.size(); i++)
@@ -1972,7 +1984,7 @@ void ExecutorRegVm::BeginCallStack()
 
 unsigned ExecutorRegVm::GetNextAddress()
 {
-	return currentFrame == callStack.size() ? 0 : (unsigned)(callStack[currentFrame++].instruction - codeBase);
+	return currentFrame == callStack.size() ? 0 : (unsigned)(callStack[currentFrame++] - codeBase);
 }
 
 void* ExecutorRegVm::GetStackStart()
@@ -2066,11 +2078,11 @@ void ExecutorRegVm::UpdateInstructionPointer()
 
 	for(unsigned i = 0; i < callStack.size(); i++)
 	{
-		int currentPos = int(callStack[i].instruction - codeBase);
+		int currentPos = int(callStack[i] - codeBase);
 
 		assert(currentPos >= 0);
 
-		callStack[i].instruction = &exLinker->exRegVmCode[0] + currentPos;
+		callStack[i] = &exLinker->exRegVmCode[0] + currentPos;
 	}
 
 	codeBase = &exLinker->exRegVmCode[0];
