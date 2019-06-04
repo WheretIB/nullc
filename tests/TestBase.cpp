@@ -65,7 +65,7 @@ namespace Tests
 	bool doInstEvaluation = true;
 	bool doVisit = true;
 
-	bool	testExecutor[3] = {
+	bool	testExecutor[TEST_TARGET_COUNT] = {
 		true,
 #ifdef NULLC_BUILD_X86_JIT
 		true,
