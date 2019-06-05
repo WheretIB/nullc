@@ -91,4 +91,4 @@ bool TranslateToC(CompilerContext &ctx, const char *fileName, const char *mainNa
 char* BuildModuleFromSource(Allocator *allocator, const char *modulePath, const char *code, unsigned codeSize, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
 char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addExtension, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel, ArrayView<InplaceStr> activeImports);
 
-bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel);
+bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptrRaw)(), void *funcWrap, void (*ptrWrap)(void *func, char* retBuf, char* argBuf), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel);

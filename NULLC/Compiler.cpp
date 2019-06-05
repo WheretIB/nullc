@@ -1496,7 +1496,9 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 			funcInfo.regVmRegisters = 0;
 		}
 
-		funcInfo.funcPtr = 0;
+		funcInfo.funcPtrRaw = NULL;
+		funcInfo.funcPtrWrapTarget = NULL;
+		funcInfo.funcPtrWrap = NULL;
 
 		// Only functions in global or namesapce scope remain visible
 		funcInfo.isVisible = (function->scope == ctx.exprCtx.globalScope || function->scope->ownerNamespace) && !function->isHidden;
@@ -2103,7 +2105,7 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addE
 	return bytecode;
 }
 
-bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel)
+bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptrRaw)(), void *funcWrap, void (*ptrWrap)(void *func, char* retBuf, char* argBuf), const char* name, int index, const char **errorPos, char *errorBuf, unsigned errorBufSize, int optimizationLevel)
 {
 	const char *bytecode = BinaryCache::FindBytecode(module, true);
 
@@ -2130,7 +2132,9 @@ bool AddModuleFunction(Allocator *allocator, const char* module, void (*ptr)(), 
 				fInfo->vmAddress = -1;
 				fInfo->regVmAddress = -1;
 
-				fInfo->funcPtr = (void*)ptr;
+				fInfo->funcPtrRaw = ptrRaw;
+				fInfo->funcPtrWrapTarget = funcWrap;
+				fInfo->funcPtrWrap = ptrWrap;
 
 				index--;
 				break;

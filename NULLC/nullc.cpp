@@ -219,7 +219,30 @@ nullres	nullcBindModuleFunction(const char* module, void (*ptr)(), const char* n
 
 	const char *errorPos = NULL;
 
-	if(!AddModuleFunction(&allocator, module, ptr, name, index, &errorPos, errorBuf, NULLC_ERROR_BUFFER_SIZE, NULLC::optimizationLevel))
+	if(!AddModuleFunction(&allocator, module, ptr, NULL, NULL, name, index, &errorPos, errorBuf, NULLC_ERROR_BUFFER_SIZE, NULLC::optimizationLevel))
+	{
+		allocator.Clear();
+
+		nullcLastError = errorBuf;
+
+		return false;
+	}
+
+	allocator.Clear();
+
+	return true;
+}
+
+nullres nullcBindModuleFunctionWrapper(const char* module, void *func, void (*ptr)(void *func, char* retBuf, char* argBuf), const char* name, int index)
+{
+	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
+	assert(!compilerCtx);
+
+	const char *errorPos = NULL;
+
+	if(!AddModuleFunction(&allocator, module, NULL, func, ptr, name, index, &errorPos, errorBuf, NULLC_ERROR_BUFFER_SIZE, NULLC::optimizationLevel))
 	{
 		allocator.Clear();
 
@@ -1106,28 +1129,36 @@ nullres nullcSetFunction(const char* name, NULLCFuncPtr func)
 		return false;
 	}
 
+	ExternFuncInfo &destFunc = linker->exFunctions[index];
+	ExternFuncInfo &srcFunc = linker->exFunctions[func.id];
+
 	if(nullcGetCurrentExecutor(NULL) == NULLC_X86)
 	{
 		linker->UpdateFunctionPointer(index, func.id);
-		if(linker->exFunctions[index].funcPtr && !linker->exFunctions[func.id].funcPtr)
+
+		if((destFunc.funcPtrRaw && !srcFunc.funcPtrRaw) || (destFunc.funcPtrWrap && !srcFunc.funcPtrWrap))
 		{
 			nullcLastError = "Internal function cannot be overridden with external function on x86";
 			return false;
 		}
-		if(linker->exFunctions[func.id].funcPtr && !linker->exFunctions[index].funcPtr)
+
+		if((srcFunc.funcPtrRaw && !destFunc.funcPtrRaw) || (srcFunc.funcPtrWrap && !destFunc.funcPtrWrap))
 		{
 			nullcLastError = "External function cannot be overridden with internal function on x86";
 			return false;
 		}
 	}
 
-	linker->exFunctions[index].vmAddress = linker->exFunctions[func.id].vmAddress;
-	linker->exFunctions[index].vmCodeSize = linker->exFunctions[func.id].vmCodeSize;
+	destFunc.vmAddress = srcFunc.vmAddress;
+	destFunc.vmCodeSize = srcFunc.vmCodeSize;
 
-	linker->exFunctions[index].regVmAddress = linker->exFunctions[func.id].regVmAddress;
-	linker->exFunctions[index].regVmCodeSize = linker->exFunctions[func.id].regVmCodeSize;
+	destFunc.regVmAddress = srcFunc.regVmAddress;
+	destFunc.regVmCodeSize = srcFunc.regVmCodeSize;
 
-	linker->exFunctions[index].funcPtr = linker->exFunctions[func.id].funcPtr;
+	destFunc.funcPtrRaw = srcFunc.funcPtrRaw;
+	destFunc.funcPtrWrapTarget = srcFunc.funcPtrWrapTarget;
+	destFunc.funcPtrWrap = srcFunc.funcPtrWrap;
+
 	return true;
 }
 

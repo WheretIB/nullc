@@ -10,13 +10,15 @@ namespace NULLCDynamic
 	{
 		ExternFuncInfo &destFunc = linker->exFunctions[dest];
 		ExternFuncInfo &srcFunc = linker->exFunctions[src];
+
 		linker->UpdateFunctionPointer(dest, src);
-		if(srcFunc.funcPtr && !destFunc.funcPtr)
+
+		if((srcFunc.funcPtrRaw && !destFunc.funcPtrRaw) || (srcFunc.funcPtrWrap && !destFunc.funcPtrWrap))
 		{
 			nullcThrowError("Internal function cannot be overridden with external function on x86");
 			return;
 		}
-		if(destFunc.funcPtr && !srcFunc.funcPtr)
+		if((destFunc.funcPtrRaw && !srcFunc.funcPtrRaw) || (destFunc.funcPtrWrap && !srcFunc.funcPtrWrap))
 		{
 			nullcThrowError("External function cannot be overridden with internal function on x86");
 			return;
@@ -51,8 +53,11 @@ namespace NULLCDynamic
 
 		destFunc.regVmAddress = srcFunc.regVmAddress;
 		destFunc.regVmCodeSize = srcFunc.regVmCodeSize;
+		destFunc.regVmRegisters = srcFunc.regVmRegisters;
 
-		destFunc.funcPtr = srcFunc.funcPtr;
+		destFunc.funcPtrRaw = srcFunc.funcPtrRaw;
+		destFunc.funcPtrWrapTarget = srcFunc.funcPtrWrapTarget;
+		destFunc.funcPtrWrap = srcFunc.funcPtrWrap;
 	}
 
 	void Override(NULLCRef dest, NULLCArray code)
@@ -102,8 +107,11 @@ namespace NULLCDynamic
 
 		destFunc.regVmAddress = srcFunc.regVmAddress;
 		destFunc.regVmCodeSize = srcFunc.regVmCodeSize;
+		destFunc.regVmRegisters = srcFunc.regVmRegisters;
 
-		destFunc.funcPtr = srcFunc.funcPtr;
+		destFunc.funcPtrRaw = srcFunc.funcPtrRaw;
+		destFunc.funcPtrWrapTarget = srcFunc.funcPtrWrapTarget;
+		destFunc.funcPtrWrap = srcFunc.funcPtrWrap;
 	}
 }
 

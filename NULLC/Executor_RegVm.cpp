@@ -14,6 +14,10 @@ void	ResetGC();
 #include "nullc_debug.h"
 #include "StdLib.h"
 
+#if defined(_MSC_VER)
+#pragma warning(disable: 4702) // unreachable code
+#endif
+
 #define dcAllocMem NULLC::alloc
 #define dcFreeMem  NULLC::dealloc
 
@@ -216,26 +220,38 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 	if(functionID != ~0u)
 	{
-		unsigned funcPos = ~0u;
-		funcPos = exFunctions[functionID].regVmAddress;
+		ExternFuncInfo &target = exFunctions[functionID];
 
-		if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_VOID)
+		unsigned funcPos = ~0u;
+		funcPos = target.regVmAddress;
+
+		if(target.retType == ExternFuncInfo::RETURN_VOID)
 			retType = rvrVoid;
-		else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_INT)
+		else if(target.retType == ExternFuncInfo::RETURN_INT)
 			retType = rvrInt;
-		else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_DOUBLE)
+		else if(target.retType == ExternFuncInfo::RETURN_DOUBLE)
 			retType = rvrDouble;
-		else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_LONG)
+		else if(target.retType == ExternFuncInfo::RETURN_LONG)
 			retType = rvrLong;
 
 		if(funcPos == ~0u)
 		{
 			// Copy all arguments
-			memcpy(tempStackPtr, arguments, exFunctions[functionID].bytesToPop);
+			memcpy(tempStackPtr, arguments, target.bytesToPop);
 
 			// Call function
-			if(!RunExternalFunction(functionID, tempStackPtr))
-				errorState = true;
+			if(target.funcPtrWrap)
+			{
+				target.funcPtrWrap(target.funcPtrWrapTarget, (char*)tempStackPtr, (char*)tempStackPtr);
+
+				if(!callContinue)
+					errorState = true;
+			}
+			else
+			{
+				if(!RunExternalFunction(functionID, tempStackPtr))
+					errorState = true;
+			}
 
 			// This will disable NULLC code execution while leaving error check and result retrieval
 			instruction = NULL;
@@ -248,7 +264,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 			char* oldBase = dataStack.data;
 			unsigned oldSize = dataStack.max;
 
-			unsigned paramSize = exFunctions[functionID].bytesToPop;
+			unsigned paramSize = target.bytesToPop;
 			// Keep stack frames aligned to 16 byte boundary
 			unsigned alignOffset = (dataStack.size() % 16 != 0) ? (16 - (dataStack.size() % 16)) : 0;
 			// Reserve new stack frame
@@ -1005,7 +1021,9 @@ bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned *callStorage)
 {
 	ExternFuncInfo &func = exFunctions[funcID];
 
-	void* fPtr = func.funcPtr;
+	assert(func.funcPtrRaw);
+
+	void* fPtr = (void*)func.funcPtrRaw;
 	unsigned retType = func.retType;
 
 	unsigned *stackStart = callStorage;
@@ -1402,8 +1420,18 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		// Take arguments
 		tempStackPtr -= target.bytesToPop >> 2;
 
-		if(!RunExternalFunction(functionId, tempStackPtr))
-			return NULL;
+		if(target.funcPtrWrap)
+		{
+			target.funcPtrWrap(target.funcPtrWrapTarget, (char*)tempStackPtr, (char*)tempStackPtr);
+
+			if(!callContinue)
+				return NULL;
+		}
+		else
+		{
+			if(!RunExternalFunction(functionId, tempStackPtr))
+				return NULL;
+		}
 
 		callStack.pop_back();
 

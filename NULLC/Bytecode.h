@@ -111,9 +111,19 @@ struct ExternFuncInfo
 
 	int				isVisible;
 
-	void			*funcPtr;
+	void			(*funcPtrRaw)();
 #ifndef _M_X64
-	unsigned int	ptrPad;
+	unsigned int	ptrRawPad;
+#endif
+
+	void			*funcPtrWrapTarget;
+#ifndef _M_X64
+	unsigned int	ptrWrapTargetPad;
+#endif
+
+	void			(*funcPtrWrap)(void*, char*, char*);
+#ifndef _M_X64
+	unsigned int	ptrWrapPad;
 #endif
 
 	enum ReturnType

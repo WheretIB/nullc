@@ -673,7 +673,7 @@ void ExecutorX86::InitExecution()
 
 void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 {
-	int	callStackExtra[2];
+	int	callStackExtra[2] = { 0 };
 	bool firstRun = false;
 	if(!codeRunning || functionID == ~0u)
 	{
@@ -691,7 +691,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	bool wasCodeRunning = codeRunning;
 	codeRunning = true;
 
-	unsigned int binCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[16]));
+	unsigned int funcBinCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[16]));
 	unsigned int varSize = (exLinker->globalVarSize + 0xf) & ~0xf;
 
 	if(functionID != ~0u)
@@ -699,7 +699,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		if(exFunctions[functionID].startInByteCode == ~0u)
 		{
 			unsigned int dwordsToPop = (exFunctions[functionID].bytesToPop >> 2);
-			void* fPtr = exFunctions[functionID].funcPtr;
+			void* fPtr = exFunctions[functionID].funcPtrRaw;
 			unsigned int retType = exFunctions[functionID].retType;
 
 			// Can't return complex types here
@@ -751,10 +751,10 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			if(NULLC::dataHead->lastEDI)
 				varSize = NULLC::dataHead->lastEDI;
 			memcpy(paramBase + varSize, arguments, exFunctions[functionID].bytesToPop);
-			binCodeStart = functionAddress[functionID * 2];
+			funcBinCodeStart = functionAddress[functionID * 2];
 		}
 	}else{
-		binCodeStart += globalStartInBytecode;
+		funcBinCodeStart += globalStartInBytecode;
 #ifndef __linux
 		while(NULLC::commitedStack < exLinker->globalVarSize)
 		{
@@ -806,7 +806,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		typedef	void (*nullcFunc)(int /*varSize*/, int* /*returnStruct*/, unsigned /*codeStart*/, void** /*genStackTop*/);
 		nullcFunc gate = (nullcFunc)(intptr_t)codeHead;
 		int returnStruct[3] = { 1, 2, 3 };
-		gate(varSize, returnStruct, binCodeStart, firstRun ? &genStackTop : &dummy);
+		gate(varSize, returnStruct, funcBinCodeStart, firstRun ? &genStackTop : &dummy);
 		res1 = returnStruct[0];
 		res2 = returnStruct[1];
 		resT = returnStruct[2];
@@ -864,7 +864,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		typedef	void (*nullcFunc)(int /*varSize*/, int* /*returnStruct*/, unsigned /*codeStart*/, void** /*genStackTop*/);
 		nullcFunc gate = (nullcFunc)(intptr_t)codeHead;
 		int returnStruct[3] = { 1, 2, 3 };
-		gate(varSize, returnStruct, binCodeStart, firstRun ? &genStackTop : &dummy);
+		gate(varSize, returnStruct, funcBinCodeStart, firstRun ? &genStackTop : &dummy);
 		res1 = returnStruct[0];
 		res2 = returnStruct[1];
 		resT = returnStruct[2];
@@ -1651,11 +1651,15 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		if(exFunctions[i].vmAddress != -1)
 		{
 			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].vmAddress] - (binCode + 16));
+
 			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].vmAddress];
 			functionAddress[i * 2 + 1] = 0;
-		}else{
+		}
+		else
+		{
 			exFunctions[i].startInByteCode = 0xffffffff;
-			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)exFunctions[i].funcPtr;
+
+			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)exFunctions[i].funcPtrRaw;
 			functionAddress[i * 2 + 1] = 1;
 		}
 	}

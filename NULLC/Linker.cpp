@@ -506,17 +506,19 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 #ifdef NULLC_AUTOBINDING
 	#if defined(__linux)
 				void* handle = dlopen(0, RTLD_LAZY | RTLD_LOCAL);
-				exFunctions.back().funcPtr = dlsym(handle, FindSymbols(bCode) + exFunctions.back().offsetToName);
+				exFunctions.back().funcPtrRaw = (void (*)())dlsym(handle, FindSymbols(bCode) + exFunctions.back().offsetToName);
 				dlclose(handle);
 	#else
-				exFunctions.back().funcPtr = (void*)GetProcAddress(GetModuleHandle(NULL), FindSymbols(bCode) + exFunctions.back().offsetToName);
+				exFunctions.back().funcPtrRaw = (void (*)())GetProcAddress(GetModuleHandle(NULL), FindSymbols(bCode) + exFunctions.back().offsetToName);
 	#endif
 #endif
-				if(exFunctions.back().funcPtr)
+				if(exFunctions.back().funcPtrRaw || exFunctions.back().funcPtrWrap)
 				{
 					exFunctions.back().vmAddress = ~0u;
 					exFunctions.back().regVmAddress = ~0u;
-				}else{
+				}
+				else
+				{
 					NULLC::SafeSprintf(linkError, LINK_ERROR_BUFFER_SIZE, "Link Error: External function '%s' '%s' doesn't have implementation", FindSymbols(bCode) + exFunctions.back().offsetToName, &exSymbols[0] + exTypes[exFunctions.back().funcType].offsetToName);
 					return false;
 				}

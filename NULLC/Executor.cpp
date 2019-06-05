@@ -1239,7 +1239,14 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 
 	unsigned int dwordsToPop = (func.bytesToPop >> 2);
 
-	void* fPtr = func.funcPtr;
+	if(func.funcPtrWrap)
+	{
+		func.funcPtrWrap(func.funcPtrWrapTarget, (char*)(genStackPtr + dwordsToPop - func.returnShift), (char*)genStackPtr);
+
+		return callContinue;
+	}
+
+	void* fPtr = (void*)func.funcPtrRaw;
 	unsigned int retType = func.retType;
 
 	unsigned int *stackStart = genStackPtr;

@@ -39,6 +39,7 @@ nullres		nullcSetJiTStack(void* start, void* end, unsigned flagMemoryAllocated);
 
 /*	Used to bind unresolved module functions to external C functions. Function index is the number of a function overload	*/
 nullres		nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index);
+nullres		nullcBindModuleFunctionWrapper(const char* module, void *func, void (*ptr)(void *func, char* retBuf, char* argBuf), const char* name, int index);
 
 /*	Builds module and saves its binary into binary cache	*/
 nullres		nullcLoadModuleBySource(const char* module, const char* code);
