@@ -129,6 +129,7 @@ enum VmPassType
 	VM_PASS_OPT_LOAD_STORE_PROPAGATION,
 	VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION,
 	VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION,
+	VM_PASS_OPT_MEMORY_TO_REGISTER,
 
 	VM_PASS_CREATE_ALLOCA_STORAGE,
 
@@ -307,7 +308,7 @@ struct VmInstruction: VmValue
 
 struct VmBlock: VmValue
 {
-	VmBlock(Allocator *allocator, SynBase *source, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Block, source), name(name), uniqueId(uniqueId), predecessors(allocator), successors(allocator), dominators(allocator)
+	VmBlock(Allocator *allocator, SynBase *source, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Block, source), name(name), uniqueId(uniqueId), predecessors(allocator), successors(allocator), dominanceFrontier(allocator), dominanceChildren(allocator)
 	{
 		parent = NULL;
 
@@ -324,6 +325,9 @@ struct VmBlock: VmValue
 		visited = false;
 		postOrderID = 0;
 		idom = NULL;
+
+		hasAssignmentForId = 0;
+		hasPhiNodeForId = 0;
 	}
 
 	void AddInstruction(VmInstruction* instruction);
@@ -354,7 +358,11 @@ struct VmBlock: VmValue
 	unsigned postOrderID;
 	VmBlock *idom;
 
-	SmallArray<VmBlock*, 4> dominators;
+	SmallArray<VmBlock*, 4> dominanceFrontier;
+	SmallArray<VmBlock*, 4> dominanceChildren;
+
+	unsigned hasAssignmentForId;
+	unsigned hasPhiNodeForId;
 
 	static const unsigned myTypeID = __LINE__;
 };

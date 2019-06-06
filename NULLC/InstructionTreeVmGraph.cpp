@@ -269,12 +269,15 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 
 	if(instruction->cmd == VM_INST_PHI)
 	{
+		Print(ctx, " [");
+
 		for(unsigned i = 0; i < instruction->arguments.size(); i += 2)
 		{
 			VmValue *value = instruction->arguments[i];
 			VmValue *edge = instruction->arguments[i + 1];
 
-			Print(ctx, value == instruction->arguments[0] ? " [" : ", ");
+			if(i != 0)
+				Print(ctx, ", ");
 
 			PrintName(ctx, value, false, false);
 			Print(ctx, " from ");
@@ -346,7 +349,7 @@ void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 
 	ctx.depth++;
 
-	Print(ctx, "  // incoming blocks: [");
+	Print(ctx, "  // predecessor blocks: [");
 
 	for(unsigned i = 0; i < block->predecessors.size(); i++)
 	{
@@ -383,9 +386,23 @@ void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 
 	Print(ctx, "  // dominance frontier: [");
 
-	for(unsigned i = 0; i < block->dominators.size(); i++)
+	for(unsigned i = 0; i < block->dominanceFrontier.size(); i++)
 	{
-		VmBlock *dominator = block->dominators[i];
+		VmBlock *dominator = block->dominanceFrontier[i];
+
+		if(i != 0)
+			Print(ctx, ", ");
+
+		Print(ctx, "'%.*s.b%d'", FMT_ISTR(dominator->name), dominator->uniqueId);
+	}
+
+	PrintLine(ctx, "]");
+
+	Print(ctx, "  // dominance children: [");
+
+	for(unsigned i = 0; i < block->dominanceChildren.size(); i++)
+	{
+		VmBlock *dominator = block->dominanceChildren[i];
 
 		if(i != 0)
 			Print(ctx, ", ");

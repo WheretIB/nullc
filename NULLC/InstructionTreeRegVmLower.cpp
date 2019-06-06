@@ -769,7 +769,17 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-			lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, constant);
+			// Handle all integers but other types only with a value of 0
+			if(inst->arguments[0]->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, constant);
+			else if(inst->arguments[0]->type == VmType::Double && constant->dValue == 0.0)
+				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
+			else if(inst->arguments[0]->type == VmType::Long && constant->lValue == 0ll)
+				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
+			else if(inst->arguments[0]->type.type == VM_TYPE_POINTER)
+				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
+			else
+				assert(!"unknown type");
 		}
 		break;
 	case VM_INST_STORE_BYTE:
@@ -2303,6 +2313,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			VmInstruction *instruction = getType<VmInstruction>(inst->arguments[i]);
 
 			assert(instruction);
+
+			if(instruction->regVmRegisters.empty())
+			{
+				assert(i != 0);
+
+				continue;
+			}
+
 			assert(instruction->regVmRegisters.size() == 1);
 
 			unsigned char reg = lowFunction->GetRegister(instruction);

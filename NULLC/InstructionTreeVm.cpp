@@ -1616,7 +1616,7 @@ void VmFunction::UpdateDominatorTree()
 
 		curr->visited = false;
 		curr->idom = NULL;
-		curr->dominators.clear();
+		curr->dominanceFrontier.clear();
 	}
 
 	// Get block predecessors and successors
@@ -1690,7 +1690,7 @@ void VmFunction::UpdateDominatorTree()
 		}
 	}
 
-	// Fill the dominance frontier
+	// Fill the dominance frontier and dominator tree children
 	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
 	{
 		if(curr->predecessors.size() >= 2)
@@ -1704,18 +1704,21 @@ void VmFunction::UpdateDominatorTree()
 				while(runner != curr->idom)
 				{
 					bool found = false;
-					for(unsigned k = 0; k < runner->dominators.size() && !found; k++)
+					for(unsigned k = 0; k < runner->dominanceFrontier.size() && !found; k++)
 					{
-						if(runner->dominators[k] == curr)
+						if(runner->dominanceFrontier[k] == curr)
 							found = true;
 					}
 					if(!found)
-						runner->dominators.push_back(curr);
+						runner->dominanceFrontier.push_back(curr);
 
 					runner = runner->idom;
 				}
 			}
 		}
+
+		if(curr != firstBlock)
+			curr->idom->dominanceChildren.push_back(curr);
 	}
 }
 
@@ -4340,6 +4343,323 @@ void RunDeadAlocaStoreElimination(ExpressionContext &ctx, VmModule *module, VmVa
 	}
 }
 
+bool IsMemoryLoadOfVariable(VmInstruction *instruction, VariableData *variable)
+{
+	if(instruction->cmd >= VM_INST_LOAD_BYTE && instruction->cmd <= VM_INST_LOAD_STRUCT)
+	{
+		if(VmConstant *constant = getType<VmConstant>(instruction->arguments[0]))
+			return constant->container == variable;
+	}
+
+	return false;
+}
+
+bool IsMemoryStoreToVariable(VmInstruction *instruction, VariableData *variable)
+{
+	if(instruction->cmd >= VM_INST_STORE_BYTE && instruction->cmd <= VM_INST_STORE_STRUCT)
+	{
+		if(VmConstant *constant = getType<VmConstant>(instruction->arguments[0]))
+			return constant->container == variable;
+	}
+
+	return false;
+}
+
+bool IsPhiOfVariable(VmInstruction *instruction, ArrayView<VmInstruction*> phiNodes)
+{
+	if(instruction->cmd == VM_INST_PHI)
+	{
+		for(unsigned i = 0; i < phiNodes.size(); i++)
+		{
+			if(instruction == phiNodes[i])
+				return true;
+		}
+	}
+
+	return false;
+}
+
+bool IsArgumentVariable(FunctionData *function, VariableData *data)
+{
+	for(VariableHandle *curr = function->argumentVariables.head; curr; curr = curr->next)
+	{
+		if(data == curr->variable)
+			return true;
+	}
+
+	if(data == function->contextArgument)
+		return true;
+
+	return false;
+}
+
+void RenameMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmBlock *block, SmallArray<VmInstruction*, 32> &stack, VariableData *variable, ArrayView<VmInstruction*> phiNodes)
+{
+	unsigned oldSize = stack.size();
+
+	for(VmInstruction *instruction = block->firstInstruction; instruction; instruction = instruction->nextSibling)
+	{
+		if(IsMemoryLoadOfVariable(instruction, variable))
+		{
+			// Do not reorder instruction stream, perform a separate dead instruction elimination pass laters
+			instruction->canBeRemoved = false;
+
+			if(!block->prevSibling && stack.empty())
+				stack.push_back(instruction);
+			else
+				ReplaceValueUsersWith(module, instruction, stack.back(), NULL);
+
+			instruction->canBeRemoved = true;
+		}
+
+		if(IsMemoryStoreToVariable(instruction, variable))
+		{
+			if(VmInstruction *inst = getType<VmInstruction>(instruction->arguments[2]))
+			{
+				stack.push_back(inst);
+			}
+			else if(VmConstant *constant = getType<VmConstant>(instruction->arguments[2]))
+			{
+				module->currentBlock = block;
+				block->insertPoint = instruction->prevSibling;
+
+				VmValue *loadInst = CreateLoadImmediate(module, instruction->source, constant);
+
+				loadInst->comment = variable->name->name;
+
+				stack.push_back(getType<VmInstruction>(loadInst));
+
+				block->insertPoint = block->lastInstruction;
+				module->currentBlock = NULL;
+			}
+			else
+			{
+				assert(!"unknown argument type");
+			}
+		}
+		else if(IsPhiOfVariable(instruction, phiNodes))
+		{
+			stack.push_back(instruction);
+		}
+	}
+
+	// If we have completed the entry block and there was no definition of the variable, create an argument load or a constant zero for a local
+	if(!block->prevSibling && stack.empty())
+	{
+		module->currentBlock = block;
+
+		while(block->insertPoint && IsBlockTerminator(block->insertPoint->cmd))
+			block->insertPoint = block->insertPoint->prevSibling;
+
+		if(IsArgumentVariable(block->parent->function, variable))
+		{
+			VmValue *loadInst = CreateLoad(ctx, module, NULL, variable->type, CreateVariableAddress(module, NULL, variable, variable->type), 0);
+
+			loadInst->comment = variable->name->name;
+
+			stack.push_back(getType<VmInstruction>(loadInst));
+		}
+		else
+		{
+			VmValue *loadInst = NULL;
+
+			VmType vmType = GetVmType(ctx, variable->type);
+
+			if(vmType == VmType::Int || (NULLC_PTR_SIZE == 4 && vmType.type == VM_TYPE_POINTER))
+				loadInst = CreateLoadImmediate(module, NULL, CreateConstantInt(module->allocator, NULL, 0));
+			else if(vmType == VmType::Double)
+				loadInst = CreateLoadImmediate(module, NULL, CreateConstantDouble(module->allocator, NULL, 0));
+			else if(vmType == VmType::Long || (NULLC_PTR_SIZE == 8 && vmType.type == VM_TYPE_POINTER))
+				loadInst = CreateLoadImmediate(module, NULL, CreateConstantLong(module->allocator, NULL, 0));
+			else
+				assert(!"unknown type");
+
+			loadInst->comment = variable->name->name;
+
+			stack.push_back(getType<VmInstruction>(loadInst));
+		}
+
+		module->currentBlock = NULL;
+	}
+
+	for(unsigned i = 0; i < block->successors.size(); i++)
+	{
+		VmBlock *successor = block->successors[i];
+
+		// Find which predecessor is the X for Y
+		unsigned j = ~0u;
+
+		for(unsigned k = 0; k < successor->predecessors.size() && j == ~0u; k++)
+		{
+			if(block == successor->predecessors[k])
+				j = k;
+		}
+
+		assert(j != ~0u);
+
+		// Find phi node for current variable
+		for(VmInstruction *inst = successor->firstInstruction; inst; inst = inst->nextSibling)
+		{
+			// We won't find any phi instructions after the last one
+			if(inst->cmd != VM_INST_PHI)
+				break;
+
+			if(IsPhiOfVariable(inst, phiNodes))
+			{
+				inst->arguments[j * 2] = stack.back();
+
+				stack.back()->AddUse(inst);
+			}
+		}
+	}
+
+	for(unsigned i = 0; i < block->dominanceChildren.size(); i++)
+		RenameMemoryToRegister(ctx, module, block->dominanceChildren[i], stack, variable, phiNodes);
+
+	stack.shrink(oldSize);
+}
+
+void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		// Skip prototypes
+		if(!function->firstBlock)
+			return;
+
+		// Skip global code
+		if(!function->function)
+			return;
+
+		// Prepare dominator frontier data
+		function->UpdateDominatorTree();
+
+		ScopeData *scope = function->scope;
+
+		if(!scope)
+			return;
+
+		// Keep stores to globals
+		if(scope == ctx.globalScope)
+			return;
+
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+		{
+			curr->hasAssignmentForId = 0;
+			curr->hasPhiNodeForId = 0;
+		}
+
+		for(unsigned i = 0; i < scope->allVariables.size(); i++)
+		{
+			VariableData *variable = scope->allVariables[i];
+
+			if(variable->isAlloca && variable->users.empty())
+				continue;
+
+			assert(!IsMemberScope(variable->scope));
+			assert(!IsGlobalScope(variable->scope));
+
+			// Consider only the variables that don't have their address taken
+			if(HasAddressTaken(variable))
+				continue;
+
+			// Consider only variables of simple types
+			VmType vmType = GetVmType(ctx, variable->type);
+
+			if(vmType.type != VM_TYPE_INT && vmType.type != VM_TYPE_DOUBLE && vmType.type != VM_TYPE_LONG && vmType.type != VM_TYPE_POINTER)
+				continue;
+
+			// Initilize the worklist with a set of blocks that contain assignments to the variable
+			SmallArray<VmBlock*, 32> worklist;
+
+			// Value is either an argument that is implicitly initialized in the entry block or a local which is implicitly set to zero in the entry block
+			function->firstBlock->hasAssignmentForId = i + 1;
+			worklist.push_back(function->firstBlock);
+
+			// Find all explicit assignments
+			for(unsigned varUserPos = 0; varUserPos < variable->users.size(); varUserPos++)
+			{
+				VmConstant *user = variable->users[varUserPos];
+
+				for(unsigned containerUserPos = 0; containerUserPos < user->users.size(); containerUserPos++)
+				{
+					if(VmInstruction *inst = getType<VmInstruction>(user->users[containerUserPos]))
+					{
+						if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
+						{
+							bool found = false;
+
+							for(unsigned worklistPos = 0; worklistPos < worklist.size() && !found; worklistPos++)
+							{
+								if(worklist[worklistPos] == inst->parent)
+									found = true;
+							}
+
+							if(!found)
+							{
+								inst->parent->hasAssignmentForId = i + 1;
+								worklist.push_back(inst->parent);
+							}
+						}
+					}
+				}
+			}
+
+			module->currentFunction = function;
+
+			// Add placeholders for required phi nodes
+			SmallArray<VmInstruction*, 32> phiNodes;
+
+			while(!worklist.empty())
+			{
+				VmBlock *block = worklist.back();
+				worklist.pop_back();
+
+				for(unsigned dfPos = 0; dfPos < block->dominanceFrontier.size(); dfPos++)
+				{
+					VmBlock *dominator = block->dominanceFrontier[dfPos];
+
+					if(dominator->hasPhiNodeForId < i + 1)
+					{
+						// Add phi for variable
+						module->currentBlock = dominator;
+						dominator->insertPoint = NULL;
+
+						VmInstruction *placeholder = CreateInstruction(module, NULL, vmType, VM_INST_PHI);
+
+						for(unsigned predecessorPos = 0; predecessorPos < dominator->predecessors.size(); predecessorPos++)
+						{
+							placeholder->arguments.push_back(NULL);
+							placeholder->arguments.push_back(dominator->predecessors[predecessorPos]);
+						}
+
+						placeholder->comment = variable->name->name;
+
+						phiNodes.push_back(placeholder);
+
+						dominator->insertPoint = dominator->lastInstruction;
+						module->currentBlock = NULL;
+
+						dominator->hasPhiNodeForId = i + 1;
+
+						if(dominator->hasAssignmentForId < i + 1)
+						{
+							dominator->hasAssignmentForId = i + 1;
+							worklist.push_back(dominator);
+						}
+					}
+				}
+			}
+
+			SmallArray<VmInstruction*, 32> stack;
+
+			RenameMemoryToRegister(ctx, module, function->firstBlock, stack, variable, phiNodes);
+
+			module->currentFunction = NULL;
+		}
+	}
+}
+
 void RunCreateAllocaStorage(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
@@ -4507,11 +4827,27 @@ void LegalizeVmInstructions(ExpressionContext &ctx, VmModule *module, VmBlock *b
 
 void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *block)
 {
+	if(!block->firstInstruction)
+		return;
+
+	// Find last phi instruction to process them in reverse order
+	VmInstruction *last = block->firstInstruction;
+
+	while(last->cmd == VM_INST_PHI)
+		last = last->nextSibling;
+
+	assert(last);
+
 	// Alias phi argument registers to the same storage
-	for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
+	for(VmInstruction *curr = last->prevSibling; curr;)
 	{
+		auto prev = curr->prevSibling;
+
 		if(curr->cmd != VM_INST_PHI)
+		{
+			curr = prev;
 			continue;
+		}
 
 		// Can't have any instructions before phi
 		assert(curr->prevSibling == NULL || curr->prevSibling->cmd == VM_INST_PHI);
@@ -4547,6 +4883,8 @@ void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *blo
 		block->insertPoint = block->lastInstruction;
 
 		module->currentBlock = NULL;
+
+		curr = prev;
 	}
 }
 
@@ -4600,6 +4938,9 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 			break;
 		case VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION:
 			RunDeadAlocaStoreElimination(ctx, module, value);
+			break;
+		case VM_PASS_OPT_MEMORY_TO_REGISTER:
+			RunMemoryToRegister(ctx, module, value);
 			break;
 		case VM_PASS_CREATE_ALLOCA_STORAGE:
 			RunCreateAllocaStorage(ctx, module, value);
