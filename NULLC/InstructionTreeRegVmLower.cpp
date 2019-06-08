@@ -2369,6 +2369,8 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 {
 	RegVmLoweredBlock *lowBlock = new (ctx.get<RegVmLoweredBlock>()) RegVmLoweredBlock(ctx.allocator, vmBlock);
 
+	// TODO: create some kind of wrapper that will handle instruction with storage shared through phi instructions
+
 	// Get entry registers from instructions that already allocated them
 	for(unsigned i = 0; i < vmBlock->liveIn.size(); i++)
 	{
@@ -2432,6 +2434,25 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 					}
 				}
 			}
+		}
+
+		if(liveIn->cmd == VM_INST_PHI)
+		{
+			bool found = false;
+
+			for(unsigned argumentPos = 0; argumentPos < liveIn->arguments.size(); argumentPos += 2)
+			{
+				VmInstruction *instruction = getType<VmInstruction>(liveIn->arguments[argumentPos]);
+
+				if(vmBlock->liveIn.contains(instruction))
+				{
+					found = true;
+					break;
+				}
+			}
+
+			if(found)
+				continue;
 		}
 
 		if(!liveIn->regVmRegisters.empty())
@@ -2563,7 +2584,9 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 		LowerInstructionIntoBlock(ctx, lowFunction, lowBlock, vmInstruction);
 	}
 
-	// Collect exit registers
+	// Collect live out instructions with unique storage
+	SmallArray<VmInstruction*, 32> liveOutUniqueStorage(ctx.allocator);
+
 	for(unsigned i = 0; i < vmBlock->liveOut.size(); i++)
 	{
 		VmInstruction *liveOut = vmBlock->liveOut[i];
@@ -2571,6 +2594,68 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 		// TODO: inline before lowering
 		if(IsInlinedConstruct(liveOut))
 			continue;
+
+		if(liveOut->cmd == VM_INST_PHI)
+		{
+			// If it's a phi instruction, skip if the storage was already added to the list
+			bool found = false;
+
+			for(unsigned argumentPos = 0; argumentPos < liveOut->arguments.size(); argumentPos += 2)
+			{
+				VmInstruction *instruction = getType<VmInstruction>(liveOut->arguments[argumentPos]);
+
+				if(liveOutUniqueStorage.contains(instruction))
+				{
+					found = true;
+					break;
+				}
+			}
+
+			if(found)
+				continue;
+		}
+		else
+		{
+			// If the instruction is being used by phi instruction, check if register was already freed through a phi or a different incoming phi edge instruction
+			bool found = false;
+
+			for(unsigned userPos = 0; userPos < liveOut->users.size(); userPos++)
+			{
+				if(VmInstruction *user = getType<VmInstruction>(liveOut->users[userPos]))
+				{
+					if(user->cmd == VM_INST_PHI)
+					{
+						if(liveOutUniqueStorage.contains(user))
+						{
+							found = true;
+							break;
+						}
+
+						for(unsigned argumentPos = 0; argumentPos < user->arguments.size(); argumentPos += 2)
+						{
+							VmInstruction *instruction = getType<VmInstruction>(user->arguments[argumentPos]);
+
+							if(liveOutUniqueStorage.contains(instruction))
+							{
+								found = true;
+								break;
+							}
+						}
+					}
+				}
+			}
+
+			if(found)
+				continue;
+		}
+
+		liveOutUniqueStorage.push_back(liveOut);
+	}
+
+	// Collect exit registers
+	for(unsigned i = 0; i < liveOutUniqueStorage.size(); i++)
+	{
+		VmInstruction *liveOut = liveOutUniqueStorage[i];
 
 		SmallArray<unsigned char, 8> result;
 		lowFunction->GetRegisters(result, liveOut);
