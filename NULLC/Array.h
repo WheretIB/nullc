@@ -412,6 +412,17 @@ public:
 		max = newSize;
 	}
 
+	bool contains(const T& val)
+	{
+		for(unsigned i = 0; i < count; i++)
+		{
+			if(data[i] == val)
+				return true;
+		}
+
+		return false;
+	}
+
 	T *data;
 	unsigned count, max;
 

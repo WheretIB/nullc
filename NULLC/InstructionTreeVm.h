@@ -131,6 +131,8 @@ enum VmPassType
 	VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION,
 	VM_PASS_OPT_MEMORY_TO_REGISTER,
 
+	VM_PASS_UPDATE_LIVE_SETS,
+
 	VM_PASS_CREATE_ALLOCA_STORAGE,
 
 	VM_PASS_LEGALIZE_VM
@@ -308,7 +310,7 @@ struct VmInstruction: VmValue
 
 struct VmBlock: VmValue
 {
-	VmBlock(Allocator *allocator, SynBase *source, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Block, source), name(name), uniqueId(uniqueId), predecessors(allocator), successors(allocator), dominanceFrontier(allocator), dominanceChildren(allocator)
+	VmBlock(Allocator *allocator, SynBase *source, InplaceStr name, unsigned uniqueId): VmValue(myTypeID, allocator, VmType::Block, source), name(name), uniqueId(uniqueId), predecessors(allocator), successors(allocator), dominanceFrontier(allocator), dominanceChildren(allocator), liveIn(allocator), liveOut(allocator)
 	{
 		parent = NULL;
 
@@ -364,6 +366,9 @@ struct VmBlock: VmValue
 	unsigned hasAssignmentForId;
 	unsigned hasPhiNodeForId;
 
+	SmallArray<VmInstruction*, 4> liveIn;
+	SmallArray<VmInstruction*, 4> liveOut;
+
 	static const unsigned myTypeID = __LINE__;
 };
 
@@ -397,6 +402,7 @@ struct VmFunction: VmValue
 	void MoveEntryBlockToStart();
 
 	void UpdateDominatorTree();
+	void UpdateLiveSets();
 
 	FunctionData *function;
 	ScopeData *scope;

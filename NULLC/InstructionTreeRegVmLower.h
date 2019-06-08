@@ -20,7 +20,7 @@ struct RegVmLoweredModule;
 
 struct RegVmLoweredInstruction
 {
-	RegVmLoweredInstruction(SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, VmConstant *argument): location(location), code(code), rA(rA), rB(rB), rC(rC), argument(argument)
+	RegVmLoweredInstruction(Allocator *allocator, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, VmConstant *argument): location(location), code(code), rA(rA), rB(rB), rC(rC), argument(argument), preKillRegisters(allocator), postKillRegisters(allocator)
 	{
 		parent = NULL;
 
@@ -40,11 +40,14 @@ struct RegVmLoweredInstruction
 
 	RegVmLoweredInstruction *prevSibling;
 	RegVmLoweredInstruction *nextSibling;
+
+	SmallArray<unsigned char, 8> preKillRegisters;
+	SmallArray<unsigned char, 8> postKillRegisters;
 };
 
 struct RegVmLoweredBlock
 {
-	RegVmLoweredBlock(VmBlock *vmBlock): vmBlock(vmBlock)
+	RegVmLoweredBlock(Allocator *allocator, VmBlock *vmBlock): vmBlock(vmBlock), entryRegisters(allocator), exitRegisters(allocator), leakedRegisters(allocator)
 	{
 		firstInstruction = NULL;
 		lastInstruction = NULL;
@@ -62,11 +65,15 @@ struct RegVmLoweredBlock
 
 	RegVmLoweredInstruction *firstInstruction;
 	RegVmLoweredInstruction *lastInstruction;
+
+	SmallArray<unsigned char, 16> entryRegisters;
+	SmallArray<unsigned char, 16> exitRegisters;
+	SmallArray<unsigned char, 16> leakedRegisters;
 };
 
 struct RegVmLoweredFunction
 {
-	RegVmLoweredFunction(Allocator *allocator, VmFunction *vmFunction): vmFunction(vmFunction), blocks(allocator)
+	RegVmLoweredFunction(Allocator *allocator, VmFunction *vmFunction): vmFunction(vmFunction), blocks(allocator), delayedFreedRegisters(allocator), freedRegisters(allocator), constantRegisters(allocator), killedRegisters(allocator)
 	{
 		registerUsers.fill(0);
 
@@ -84,7 +91,7 @@ struct RegVmLoweredFunction
 	unsigned char GetRegisterForConstant();
 
 	void FreeConstantRegisters();
-	void FreeDelayedRegisters();
+	void FreeDelayedRegisters(RegVmLoweredBlock *lowBlock);
 
 	bool TransferRegisterTo(VmValue *value, unsigned char reg);
 
@@ -99,6 +106,8 @@ struct RegVmLoweredFunction
 	SmallArray<unsigned char, 16> freedRegisters;
 
 	SmallArray<unsigned char, 16> constantRegisters;
+
+	SmallArray<unsigned char, 16> killedRegisters;
 
 	// TODO: register spills
 };

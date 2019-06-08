@@ -4,6 +4,25 @@
 #include "InstructionTreeVm.h"
 #include "InstructionTreeVmCommon.h"
 
+namespace
+{
+	bool IsNonLocalValue(VmInstruction *value)
+	{
+		if(value->users.empty())
+			return false;
+
+		for(unsigned i = 0; i < value->users.size(); i++)
+		{
+			VmInstruction *user = getType<VmInstruction>(value->users[i]);
+
+			if(value->parent != user->parent)
+				return true;
+		}
+
+		return false;
+	}
+}
+
 void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, RegVmLoweredInstruction* instruction)
 {
 	(void)ctx;
@@ -33,32 +52,32 @@ void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, RegVmLoweredInstr
 
 void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code)
 {
-	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(location, code, 0, 0, 0, NULL));
+	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(ctx.allocator, location, code, 0, 0, 0, NULL));
 }
 
 void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC)
 {
-	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(location, code, rA, rB, rC, NULL));
+	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(ctx.allocator, location, code, rA, rB, rC, NULL));
 }
 
 void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, VmConstant *argument)
 {
-	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(location, code, rA, rB, rC, argument));
+	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(ctx.allocator, location, code, rA, rB, rC, argument));
 }
 
 void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, unsigned argument)
 {
-	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(location, code, rA, rB, rC, CreateConstantInt(ctx.allocator, NULL, argument)));
+	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(ctx.allocator, location, code, rA, rB, rC, CreateConstantInt(ctx.allocator, NULL, argument)));
 }
 
 void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, VmBlock *argument)
 {
-	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(location, code, rA, rB, rC, argument ? CreateConstantBlock(ctx.allocator, NULL, argument) : NULL));
+	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(ctx.allocator, location, code, rA, rB, rC, argument ? CreateConstantBlock(ctx.allocator, NULL, argument) : NULL));
 }
 
 void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, VmFunction *argument)
 {
-	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(location, code, rA, rB, rC, argument ? CreateConstantFunction(ctx.allocator, NULL, argument) : NULL));
+	AddInstruction(ctx, new (ctx.get<RegVmLoweredInstruction>()) RegVmLoweredInstruction(ctx.allocator, location, code, rA, rB, rC, argument ? CreateConstantFunction(ctx.allocator, NULL, argument) : NULL));
 }
 
 unsigned char RegVmLoweredFunction::GetRegister()
@@ -79,6 +98,7 @@ unsigned char RegVmLoweredFunction::GetRegister()
 		nextRegister++;
 	}
 
+	assert(registerUsers[reg] == 0);
 	registerUsers[reg]++;
 
 	return reg;
@@ -86,15 +106,10 @@ unsigned char RegVmLoweredFunction::GetRegister()
 
 void RegVmLoweredFunction::FreeRegister(unsigned char reg)
 {
-	if(reg == 255)
-		return;
-
-	assert(registerUsers[reg] > 0);
-
+	assert(registerUsers[reg] == 1);
 	registerUsers[reg]--;
 
-	if(registerUsers[reg] == 0)
-		delayedFreedRegisters.push_back(reg);
+	delayedFreedRegisters.push_back(reg);
 }
 
 void RegVmLoweredFunction::CompleteUse(VmValue *value)
@@ -102,6 +117,12 @@ void RegVmLoweredFunction::CompleteUse(VmValue *value)
 	VmInstruction *instruction = getType<VmInstruction>(value);
 
 	assert(instruction);
+
+	// If the value is used across multiple blocks we can free register only if it's not in a set of liveOut values and this is the last use in the current block
+	// TODO: try to actually do that ^
+	if(IsNonLocalValue(instruction))
+		return;
+
 	assert(instruction->regVmCompletedUsers < instruction->users.size());
 
 	instruction->regVmCompletedUsers++;
@@ -119,10 +140,6 @@ unsigned char RegVmLoweredFunction::GetRegister(VmValue *value)
 
 	CompleteUse(value);
 
-	// Temp
-	if(instruction->regVmRegisters.empty())
-		return 255;
-
 	return instruction->regVmRegisters[0];
 }
 
@@ -132,16 +149,7 @@ void RegVmLoweredFunction::GetRegisters(SmallArray<unsigned char, 8> &result, Vm
 
 	CompleteUse(value);
 
-	// Temp
-	if(instruction->regVmRegisters.empty())
-	{
-		result.push_back(255);
-		result.push_back(255);
-		result.push_back(255);
-		result.push_back(255);
-
-		return;
-	}
+	assert(!instruction->regVmRegisters.empty());
 
 	for(unsigned i = 0; i < instruction->regVmRegisters.size(); i++)
 		result.push_back(instruction->regVmRegisters[i]);
@@ -151,7 +159,7 @@ unsigned char RegVmLoweredFunction::AllocateRegister(VmValue *value, bool additi
 {
 	VmInstruction *instruction = getType<VmInstruction>(value);
 
-	FreeDelayedRegisters();
+	FreeDelayedRegisters(NULL);
 
 	assert(instruction);
 	assert(!instruction->users.empty());
@@ -176,8 +184,6 @@ unsigned char RegVmLoweredFunction::AllocateRegister(VmValue *value, bool additi
 					unsigned char reg = option->regVmRegisters[regPos];
 
 					instruction->regVmRegisters.push_back(reg);
-
-					registerUsers[reg]++;
 
 					return reg;
 				}
@@ -209,10 +215,18 @@ void RegVmLoweredFunction::FreeConstantRegisters()
 	constantRegisters.clear();
 }
 
-void RegVmLoweredFunction::FreeDelayedRegisters()
+void RegVmLoweredFunction::FreeDelayedRegisters(RegVmLoweredBlock *lowBlock)
 {
 	for(unsigned i = 0; i < delayedFreedRegisters.size(); i++)
+	{
+		if(lowBlock)
+			lowBlock->lastInstruction->postKillRegisters.push_back(delayedFreedRegisters[i]);
+		else
+			killedRegisters.push_back(delayedFreedRegisters[i]);
+
+		assert(!freedRegisters.contains(delayedFreedRegisters[i]));
 		freedRegisters.push_back(delayedFreedRegisters[i]);
+	}
 
 	delayedFreedRegisters.clear();
 }
@@ -222,14 +236,6 @@ bool RegVmLoweredFunction::TransferRegisterTo(VmValue *value, unsigned char reg)
 	VmInstruction *instruction = getType<VmInstruction>(value);
 
 	assert(instruction);
-
-	// Temp
-	if(reg == 255)
-	{
-		instruction->regVmRegisters.push_back(reg);
-
-		return true;
-	}
 
 	for(unsigned i = 0; i < constantRegisters.size(); i++)
 	{
@@ -419,6 +425,8 @@ void GetArgumentRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lowFunct
 
 void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, VmValue *value)
 {
+	RegVmLoweredInstruction *lastLowered = lowBlock->lastInstruction;
+
 	VmInstruction *inst = getType<VmInstruction>(value);
 
 	assert(inst);
@@ -771,15 +779,30 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			// Handle all integers but other types only with a value of 0
 			if(inst->arguments[0]->type == VmType::Int)
+			{
 				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, constant);
+			}
 			else if(inst->arguments[0]->type == VmType::Double && constant->dValue == 0.0)
+			{
 				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
+				lowBlock->AddInstruction(ctx, inst->source, rviLoadImmDouble, targetReg, 0, 0, 0u);
+			}
 			else if(inst->arguments[0]->type == VmType::Long && constant->lValue == 0ll)
+			{
 				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
+				lowBlock->AddInstruction(ctx, inst->source, rviLoadImmLong, targetReg, 0, 0, 0u);
+			}
 			else if(inst->arguments[0]->type.type == VM_TYPE_POINTER)
+			{
 				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
+
+				if(NULLC_PTR_SIZE == 8)
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadImmLong, targetReg, 0, 0, 0u);
+			}
 			else
+			{
 				assert(!"unknown type");
+			}
 		}
 		break;
 	case VM_INST_STORE_BYTE:
@@ -2306,6 +2329,9 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		break;
 	case VM_INST_PHI:
 	{
+		if(!inst->regVmRegisters.empty())
+			break;
+
 		unsigned char resultReg = 0;
 
 		for(unsigned i = 0; i < inst->arguments.size(); i += 2)
@@ -2331,25 +2357,218 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			resultReg = reg;
 		}
 
-		if(!lowFunction->TransferRegisterTo(inst, resultReg))
-			assert(!"phi failed to take result register");
+		inst->regVmRegisters.push_back(resultReg);
 	}
 		break;
 	default:
 		assert(!"unknown instruction");
 	}
 
+	RegVmLoweredInstruction *firstNewInstruction = lastLowered ? lastLowered->nextSibling : lowBlock->firstInstruction;
+
+	for(unsigned i = 0; i < lowFunction->killedRegisters.size(); i++)
+		firstNewInstruction->preKillRegisters.push_back(lowFunction->killedRegisters[i]);
+	lowFunction->killedRegisters.clear();
+
 	lowFunction->FreeConstantRegisters();
-	lowFunction->FreeDelayedRegisters();
+	lowFunction->FreeDelayedRegisters(lowBlock);
+}
+
+void CopyRegisters(VmInstruction *target, VmInstruction *source)
+{
+	for(unsigned i = 0; i < source->regVmRegisters.size(); i++)
+		target->regVmRegisters.push_back(source->regVmRegisters[i]);
+}
+
+void CompareRegisters(VmInstruction *a, VmInstruction *b)
+{
+	assert(a->regVmRegisters.size() == b->regVmRegisters.size());
+
+	for(unsigned i = 0; i < a->regVmRegisters.size(); i++)
+		assert(a->regVmRegisters[i] == b->regVmRegisters[i]);
 }
 
 RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, VmBlock *vmBlock)
 {
-	RegVmLoweredBlock *lowBlock = new (ctx.get<RegVmLoweredBlock>()) RegVmLoweredBlock(vmBlock);
+	RegVmLoweredBlock *lowBlock = new (ctx.get<RegVmLoweredBlock>()) RegVmLoweredBlock(ctx.allocator, vmBlock);
+
+	// Get entry registers from instructions that already allocated them
+	for(unsigned i = 0; i < vmBlock->liveIn.size(); i++)
+	{
+		VmInstruction *liveIn = vmBlock->liveIn[i];
+
+		// We might not have a register allocated, but might be aliased to some instruction that does
+		if(liveIn->regVmRegisters.empty())
+		{
+			// Phi instruction might take registers from incoming value
+			if(liveIn->cmd == VM_INST_PHI)
+			{
+				for(unsigned argumentPos = 0; argumentPos < liveIn->arguments.size(); argumentPos += 2)
+				{
+					VmInstruction *instruction = getType<VmInstruction>(liveIn->arguments[argumentPos]);
+
+					if(!instruction->regVmRegisters.empty())
+					{
+						CopyRegisters(liveIn, instruction);
+						break;
+					}
+				}
+
+				// Check that all incoming values use the same registers
+				for(unsigned argumentPos = 0; argumentPos < liveIn->arguments.size(); argumentPos += 2)
+				{
+					VmInstruction *instruction = getType<VmInstruction>(liveIn->arguments[argumentPos]);
+
+					if(!instruction->regVmRegisters.empty())
+						CompareRegisters(liveIn, instruction);
+				}
+			}
+			else
+			{
+				// If we are used by a phi instruction, it or other incoming values mught already have allocated registers
+				for(unsigned userPos = 0; userPos < liveIn->users.size(); userPos++)
+				{
+					if(VmInstruction *user = getType<VmInstruction>(liveIn->users[userPos]))
+					{
+						if(user->cmd == VM_INST_PHI)
+						{
+							if(!user->regVmRegisters.empty())
+							{
+								CopyRegisters(liveIn, user);
+							}
+							else
+							{
+								for(unsigned argumentPos = 0; argumentPos < user->arguments.size(); argumentPos += 2)
+								{
+									VmInstruction *instruction = getType<VmInstruction>(user->arguments[argumentPos]);
+
+									if(!instruction->regVmRegisters.empty())
+									{
+										CopyRegisters(liveIn, instruction);
+										break;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if(!liveIn->regVmRegisters.empty())
+		{
+			for(unsigned k = 0; k < liveIn->regVmRegisters.size(); k++)
+			{
+				unsigned char reg = liveIn->regVmRegisters[k];
+
+				assert(lowFunction->registerUsers[reg] == 0);
+				lowFunction->registerUsers[reg]++;
+
+				lowBlock->entryRegisters.push_back(reg);
+			}
+		}
+	}
+
+	// Reset free registers state
+	lowFunction->freedRegisters.clear();
+
+	for(unsigned i = unsigned(lowFunction->nextRegister == 0 ? 255 : lowFunction->nextRegister) - 1; i >= 2; i--)
+	{
+		if(lowFunction->registerUsers[i] == 0)
+			lowFunction->freedRegisters.push_back((unsigned char)i);
+	}
+
+	// Allocate entry registers for instructions that haven't been lowered yet
+	for(unsigned i = 0; i < vmBlock->liveIn.size(); i++)
+	{
+		VmInstruction *liveIn = vmBlock->liveIn[i];
+
+		if(liveIn->regVmRegisters.empty())
+		{
+			if(liveIn->type.type == VM_TYPE_INT || liveIn->type.type == VM_TYPE_LONG || liveIn->type.type == VM_TYPE_DOUBLE || liveIn->type.type == VM_TYPE_POINTER)
+			{
+				lowFunction->AllocateRegister(liveIn, false);
+			}
+			else if(liveIn->type.type == VM_TYPE_FUNCTION_REF || liveIn->type.type == VM_TYPE_ARRAY_REF || liveIn->type.type == VM_TYPE_AUTO_REF)
+			{
+				lowFunction->AllocateRegister(liveIn, false);
+				lowFunction->AllocateRegister(liveIn, true);
+			}
+			else if(liveIn->type.type == VM_TYPE_AUTO_ARRAY)
+			{
+				lowFunction->AllocateRegister(liveIn, false);
+				lowFunction->AllocateRegister(liveIn, false);
+				lowFunction->AllocateRegister(liveIn, true);
+			}
+			else if(liveIn->type.type == VM_TYPE_STRUCT)
+			{
+				for(unsigned k = 0; k < (liveIn->type.size + 4) / 8; k++)
+					lowFunction->AllocateRegister(liveIn, k != 0);
+			}
+
+			for(unsigned k = 0; k < liveIn->regVmRegisters.size(); k++)
+			{
+				unsigned char reg = liveIn->regVmRegisters[k];
+
+				assert(lowFunction->registerUsers[reg] == 0);
+				lowFunction->registerUsers[reg]++;
+
+				lowBlock->entryRegisters.push_back(reg);
+			}
+		}
+	}
 
 	for(VmInstruction *vmInstruction = vmBlock->firstInstruction; vmInstruction; vmInstruction = vmInstruction->nextSibling)
 	{
 		LowerInstructionIntoBlock(ctx, lowFunction, lowBlock, vmInstruction);
+	}
+
+	// Collect exit registers
+	for(unsigned i = 0; i < vmBlock->liveOut.size(); i++)
+	{
+		VmInstruction *liveOut = vmBlock->liveOut[i];
+
+		SmallArray<unsigned char, 8> result;
+		lowFunction->GetRegisters(result, liveOut);
+
+		for(unsigned k = 0; k < result.size(); k++)
+		{
+			unsigned char reg = result[k];
+
+			lowBlock->exitRegisters.push_back(reg);
+
+			lowFunction->registerUsers[reg]--;
+			assert(lowFunction->registerUsers[reg] == 0);
+
+			assert(!lowFunction->freedRegisters.contains(reg));
+			lowFunction->freedRegisters.push_back(reg);
+		}
+	}
+
+	// Free entry registers
+	for(unsigned i = 0; i < vmBlock->liveIn.size(); i++)
+	{
+		VmInstruction *liveIn = vmBlock->liveIn[i];
+
+		if(vmBlock->liveOut.contains(liveIn))
+			continue;
+
+		for(unsigned k = 0; k < liveIn->regVmRegisters.size(); k++)
+		{
+			unsigned char reg = liveIn->regVmRegisters[k];
+
+			lowFunction->registerUsers[reg]--;
+			assert(lowFunction->registerUsers[reg] == 0);
+
+			assert(!lowFunction->freedRegisters.contains(reg));
+			lowFunction->freedRegisters.push_back(reg);
+		}
+	}
+
+	for(unsigned i = 0; i < lowFunction->registerUsers.size(); i++)
+	{
+		if(lowFunction->registerUsers[i])
+			lowBlock->leakedRegisters.push_back((unsigned char)i);
 	}
 
 	return lowBlock;

@@ -412,6 +412,53 @@ void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 
 	PrintLine(ctx, "]");
 
+	Print(ctx, "  // live variables going in: [");
+
+	for(unsigned i = 0; i < block->liveIn.size(); i++)
+	{
+		VmInstruction *liveIn = block->liveIn[i];
+
+		if(i != 0)
+			Print(ctx, ", ");
+
+		if(liveIn->cmd == VM_INST_PHI)
+		{
+			Print(ctx, "%%%d [", liveIn->uniqueId);
+
+			for(unsigned k = 0; k < liveIn->arguments.size(); k += 2)
+			{
+				VmInstruction *value = getType<VmInstruction>(liveIn->arguments[k]);
+
+				if(k != 0)
+					Print(ctx, ", ");
+
+				Print(ctx, "%%%d", value->uniqueId);
+			}
+
+			Print(ctx, "]");
+		}
+		else
+		{
+			Print(ctx, "%%%d", liveIn->uniqueId);
+		}
+	}
+
+	PrintLine(ctx, "]");
+
+	Print(ctx, "  // live variables going out: [");
+
+	for(unsigned i = 0; i < block->liveOut.size(); i++)
+	{
+		VmInstruction *liveOut = block->liveOut[i];
+
+		if(i != 0)
+			Print(ctx, ", ");
+
+		Print(ctx, "%%%d", liveOut->uniqueId);
+	}
+
+	PrintLine(ctx, "]");
+
 	for(VmInstruction *value = block->firstInstruction; value; value = value->nextSibling)
 	{
 		if(ctx.displayAsTree && !value->users.empty())

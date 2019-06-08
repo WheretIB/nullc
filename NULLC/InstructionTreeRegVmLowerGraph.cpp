@@ -398,6 +398,8 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 	case rviFuncAddr:
 	case rviTypeid:
 		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintConstant(ctx, argument, constant);
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -473,12 +475,66 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredInstru
 
 	PrintInstruction(ctx.output, RegVmInstructionCode(lowInstruction->code), lowInstruction->rA, lowInstruction->rB, lowInstruction->rC, 0, lowInstruction->argument);
 
+	if(!lowInstruction->preKillRegisters.empty() || !lowInstruction->postKillRegisters.empty())
+	{
+		Print(ctx.output, "\t// kill[");
+
+		for(unsigned i = 0; i < lowInstruction->preKillRegisters.size(); i++)
+		{
+			if(i != 0)
+				Print(ctx.output, ", ");
+
+			Print(ctx.output, "r%d*", lowInstruction->preKillRegisters[i]);
+		}
+
+		for(unsigned i = 0; i < lowInstruction->postKillRegisters.size(); i++)
+		{
+			if(i != 0 || !lowInstruction->preKillRegisters.empty())
+				Print(ctx.output, ", ");
+
+			Print(ctx.output, "r%d", lowInstruction->postKillRegisters[i]);
+		}
+
+		Print(ctx.output, "]");
+	}
+
 	PrintLine(ctx.output);
+}
+
+bool IsBlockTerminator(RegVmLoweredInstruction *lowInstruction)
+{
+	switch(lowInstruction->code)
+	{
+	case rviJmp:
+	case rviJmpz:
+	case rviJmpnz:
+	case rviReturn:
+		return true;
+	default:
+		break;
+	}
+
+	return false;
 }
 
 void PrintBlock(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredBlock *lowblock)
 {
 	PrintLine(ctx.output, "%.*s.b%d:", FMT_ISTR(lowblock->vmBlock->name), lowblock->vmBlock->uniqueId);
+
+	if(!lowblock->entryRegisters.empty())
+	{
+		Print(ctx.output, "  // entry registers: [");
+
+		for(unsigned i = 0; i < lowblock->entryRegisters.size(); i++)
+		{
+			if(i != 0)
+				Print(ctx.output, ", ");
+
+			Print(ctx.output, "r%d", lowblock->entryRegisters[i]);
+		}
+
+		PrintLine(ctx.output, "]");
+	}
 
 	for(RegVmLoweredInstruction *lowInstruction = lowblock->firstInstruction; lowInstruction; lowInstruction = lowInstruction->nextSibling)
 	{
@@ -486,8 +542,38 @@ void PrintBlock(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredBlock *lowbl
 		PrintInstruction(ctx, lowInstruction);
 	}
 
-	//if(lowblock->lastInstruction && !IsBlockTerminator(lowblock->lastInstruction))
-	//	PrintLine(ctx, "  // fallthrough");
+	if(!lowblock->exitRegisters.empty())
+	{
+		Print(ctx.output, "  // exit registers: [");
+
+		for(unsigned i = 0; i < lowblock->exitRegisters.size(); i++)
+		{
+			if(i != 0)
+				Print(ctx.output, ", ");
+
+			Print(ctx.output, "r%d [%%%d]", lowblock->exitRegisters[i]);
+		}
+
+		PrintLine(ctx.output, "]");
+	}
+
+	if(!lowblock->leakedRegisters.empty())
+	{
+		Print(ctx.output, "  // leaked registers: [");
+
+		for(unsigned i = 0; i < lowblock->leakedRegisters.size(); i++)
+		{
+			if(i != 0)
+				Print(ctx.output, ", ");
+
+			Print(ctx.output, "r%d", lowblock->leakedRegisters[i]);
+		}
+
+		PrintLine(ctx.output, "]");
+	}
+
+	if(lowblock->lastInstruction && !IsBlockTerminator(lowblock->lastInstruction))
+		PrintLine(ctx.output, "  // fallthrough");
 
 	PrintLine(ctx.output);
 }

@@ -1722,6 +1722,118 @@ void VmFunction::UpdateDominatorTree()
 	}
 }
 
+void VmFunction::UpdateLiveSets()
+{
+	SmallArray<VmBlock*, 32> worklist;
+
+	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
+	{
+		curr->liveIn.clear();
+		curr->liveOut.clear();
+
+		worklist.push_back(curr);
+	}
+
+	while(!worklist.empty())
+	{
+		VmBlock *curr = worklist.back();
+		worklist.pop_back();
+
+		// Update block liveOut list
+		curr->liveOut.clear();
+
+		for(unsigned i = 0; i < curr->successors.size(); i++)
+		{
+			VmBlock *successor = curr->successors[i];
+
+			for(unsigned k = 0; k < successor->liveIn.size(); k++)
+			{
+				VmInstruction *liveIn = successor->liveIn[k];
+
+				bool found = false;
+
+				if(liveIn->cmd == VM_INST_PHI)
+				{
+					for(unsigned m = 0; m < liveIn->arguments.size(); m += 2)
+					{
+						VmInstruction *instruction = getType<VmInstruction>(liveIn->arguments[i]);
+						VmBlock *edge = getType<VmBlock>(liveIn->arguments[i + 1]);
+
+						if(edge == curr)
+						{
+							if(!curr->liveOut.contains(instruction))
+								curr->liveOut.push_back(instruction);
+
+							found = true;
+						}
+					}
+
+					if(!found)
+					{
+						if(!curr->liveOut.contains(liveIn))
+							curr->liveOut.push_back(liveIn);
+					}
+				}
+				else
+				{
+					if(!curr->liveOut.contains(liveIn))
+						curr->liveOut.push_back(liveIn);
+				}
+			}
+		}
+
+		unsigned liveInSize = curr->liveIn.size();
+
+		// Update block liveIn list
+		curr->liveIn.clear();
+
+		// Add all liveOut variables that are not defined by current block
+		for(unsigned i = 0; i < curr->liveOut.size(); i++)
+		{
+			if(curr->liveOut[i]->parent != curr)
+			{
+				assert(!curr->liveIn.contains(curr->liveOut[i]));
+				curr->liveIn.push_back(curr->liveOut[i]);
+			}
+		}
+
+		// Add all arguments from phi isntructions and all arguments that are not defined in current block
+		for(VmInstruction *inst = curr->firstInstruction; inst; inst = inst->nextSibling)
+		{
+			for(unsigned i = 0; i < inst->arguments.size(); i++)
+			{
+				if(VmInstruction *argument = getType<VmInstruction>(inst->arguments[i]))
+				{
+					if(inst->cmd == VM_INST_PHI)
+					{
+						if(!curr->liveIn.contains(inst))
+							curr->liveIn.push_back(inst);
+					}
+					else
+					{
+						if(argument->parent != curr)
+						{
+							if(!curr->liveIn.contains(argument))
+								curr->liveIn.push_back(argument);
+						}
+					}
+				}
+			}
+		}
+
+		if(liveInSize != curr->liveIn.size())
+		{
+			for(unsigned i = 0; i < curr->predecessors.size(); i++)
+			{
+				VmBlock *predecessor = curr->predecessors[i];
+
+				if(!worklist.contains(predecessor))
+					worklist.push_back(predecessor);
+			}
+		}
+	}
+}
+
 VmType GetVmType(ExpressionContext &ctx, TypeBase *type)
 {
 	if(type == ctx.typeVoid)
@@ -4657,7 +4769,15 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 
 			module->currentFunction = NULL;
 		}
+
+		function->UpdateLiveSets();
 	}
+}
+
+void RunUpdateLiveSets(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+		function->UpdateLiveSets();
 }
 
 void RunCreateAllocaStorage(ExpressionContext &ctx, VmModule *module, VmValue* value)
@@ -4941,6 +5061,9 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 			break;
 		case VM_PASS_OPT_MEMORY_TO_REGISTER:
 			RunMemoryToRegister(ctx, module, value);
+			break;
+		case VM_PASS_UPDATE_LIVE_SETS:
+			RunUpdateLiveSets(ctx, module, value);
 			break;
 		case VM_PASS_CREATE_ALLOCA_STORAGE:
 			RunCreateAllocaStorage(ctx, module, value);
