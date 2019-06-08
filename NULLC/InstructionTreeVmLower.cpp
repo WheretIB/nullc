@@ -960,10 +960,6 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 			break;
 		case VM_INST_CALL:
 		{
-			VmInstruction *target = getType<VmInstruction>(inst->arguments[0]);
-
-			assert(target);
-
 			assert((unsigned short)inst->type.size == inst->type.size);
 
 			unsigned short helper = (unsigned short)inst->type.size;
@@ -976,28 +972,11 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 			else if(inst->type == VmType::Long)
 				helper = bitRetSimple | OTYPE_LONG;
 
-			if(target->cmd == VM_INST_CONSTRUCT && getType<VmFunction>(target->arguments[1]))
-			{
-				VmValue *context = target->arguments[0];
-				VmFunction *function = getType<VmFunction>(target->arguments[1]);
-
-				LowerIntoBlock(ctx, lowBlock, context);
-
-				for(int i = int(inst->arguments.size() - 1); i >= 1; i--)
-				{
-					LowerIntoBlock(ctx, lowBlock, inst->arguments[i]);
-
-					if(inst->arguments[i]->type.size == 0)
-						lowBlock->AddInstruction(ctx, inst->arguments[i]->source, cmdPushImmt, 0u);
-				}
-
-				lowBlock->AddInstruction(ctx, inst->source, cmdCall, helper, CreateConstantFunction(ctx.allocator, NULL, function));
-			}
-			else
+			if(inst->arguments[0]->type.type == VM_TYPE_FUNCTION_REF)
 			{
 				unsigned paramSize = NULLC_PTR_SIZE;
 
-				LowerIntoBlock(ctx, lowBlock, target);
+				LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
 
 				for(int i = int(inst->arguments.size() - 1); i >= 1; i--)
 				{
@@ -1012,6 +991,23 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 				}
 
 				lowBlock->AddInstruction(ctx, inst->source, cmdCallPtr, helper, paramSize);
+			}
+			else
+			{
+				VmValue *context = inst->arguments[0];
+				VmFunction *function = getType<VmFunction>(inst->arguments[1]);
+
+				LowerIntoBlock(ctx, lowBlock, context);
+
+				for(int i = int(inst->arguments.size() - 1); i >= 2; i--)
+				{
+					LowerIntoBlock(ctx, lowBlock, inst->arguments[i]);
+
+					if(inst->arguments[i]->type.size == 0)
+						lowBlock->AddInstruction(ctx, inst->arguments[i]->source, cmdPushImmt, 0u);
+				}
+
+				lowBlock->AddInstruction(ctx, inst->source, cmdCall, helper, CreateConstantFunction(ctx.allocator, NULL, function));
 			}
 		}
 		break;

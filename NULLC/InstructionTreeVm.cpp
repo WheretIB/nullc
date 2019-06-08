@@ -2785,14 +2785,38 @@ VmValue* CompileVmFunctionCall(ExpressionContext &ctx, VmModule *module, ExprFun
 
 	VmInstruction *inst = new (module->get<VmInstruction>()) VmInstruction(module->allocator, GetVmType(ctx, node->type), node->source, VM_INST_CALL, module->currentFunction->nextInstructionId++);
 
+	// Inline call target for instruction without context
+	VmValue *functionContext = NULL;
+	VmFunction *functionId = NULL;
+
+	if(VmInstruction *target = getType<VmInstruction>(function))
+	{
+		if(target->cmd == VM_INST_CONSTRUCT && target->type.type == VM_TYPE_FUNCTION_REF)
+		{
+			functionContext = target->arguments[0];
+			functionId = getType<VmFunction>(target->arguments[1]);
+		}
+	}
+
 	unsigned argCount = 1;
+
+	if(functionContext && functionId)
+		argCount++;
 
 	for(ExprBase *value = node->arguments.head; value; value = value->next)
 		argCount++;
 
 	inst->arguments.reserve(argCount);
 
-	inst->AddArgument(function);
+	if(functionContext && functionId)
+	{
+		inst->AddArgument(functionContext);
+		inst->AddArgument(functionId);
+	}
+	else
+	{
+		inst->AddArgument(function);
+	}
 
 	for(ExprBase *value = node->arguments.head; value; value = value->next)
 	{

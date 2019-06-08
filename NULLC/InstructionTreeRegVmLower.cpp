@@ -21,36 +21,6 @@ namespace
 
 		return false;
 	}
-
-	bool IsInlinedConstruct(VmInstruction *inst)
-	{
-		if(inst->cmd == VM_INST_CONSTRUCT && inst->type.type == VM_TYPE_FUNCTION_REF)
-		{
-			if(isType<VmConstant>(inst->arguments[0]) && isType<VmFunction>(inst->arguments[1]))
-			{
-				bool onlyCallUsers = true;
-
-				for(unsigned i = 0; i < inst->users.size() && onlyCallUsers; i++)
-				{
-					if(VmInstruction *instUser = getType<VmInstruction>(inst->users[i]))
-					{
-						if(instUser->cmd != VM_INST_CALL)
-							onlyCallUsers = false;
-					}
-					else
-					{
-						onlyCallUsers = false;
-					}
-				}
-
-				// Constant construct values are inlined in the call lowering
-				if(onlyCallUsers)
-					return true;
-			}
-		}
-
-		return false;
-	}
 }
 
 void RegVmLoweredBlock::AddInstruction(ExpressionContext &ctx, RegVmLoweredInstruction* instruction)
@@ -1389,45 +1359,55 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		break;
 	case VM_INST_CALL:
 	{
-		VmInstruction *target = getType<VmInstruction>(inst->arguments[0]);
-
-		assert(target);
-
 		assert((unsigned short)inst->type.size == inst->type.size);
 
 		RegVmInstructionCode targetInst = rviNop;
 
+		VmValue *targetContext = NULL;
 		VmFunction *targetFunction = NULL;
 
+		unsigned firstArgument = ~0u;
+
 		SmallArray<unsigned char, 8> targetRegs;
-		
-		if(IsInlinedConstruct(target))
+
+		if(inst->arguments[0]->type.type == VM_TYPE_FUNCTION_REF)
 		{
-			VmConstant *context = getType<VmConstant>(target->arguments[0]);
+			GetArgumentRegisters(ctx, lowFunction, lowBlock, targetRegs, inst->arguments[0]);
 
-			targetFunction = getType<VmFunction>(target->arguments[1]);
+			targetInst = rviCallPtr;
 
-			if(context->container)
+			firstArgument = 1;
+		}
+		else
+		{
+			targetContext = inst->arguments[0];
+			targetFunction = getType<VmFunction>(inst->arguments[1]);
+
+			if(VmConstant *context = getType<VmConstant>(targetContext))
 			{
-				LowerConstantIntoBlock(ctx, lowFunction, lowBlock, targetRegs, context);
-				targetRegs.push_back(0);
+				if(context->container)
+				{
+					LowerConstantIntoBlock(ctx, lowFunction, lowBlock, targetRegs, context);
+					targetRegs.push_back(0);
+				}
+				else
+				{
+					targetRegs.push_back(0);
+					targetRegs.push_back(0);
+				}
 			}
 			else
 			{
-				targetRegs.push_back(0);
+				GetArgumentRegisters(ctx, lowFunction, lowBlock, targetRegs, targetContext);
 				targetRegs.push_back(0);
 			}
 
 			targetInst = rviCall;
-		}
-		else
-		{
-			GetArgumentRegisters(ctx, lowFunction, lowBlock, targetRegs, target);
 
-			targetInst = rviCallPtr;
+			firstArgument = 2;
 		}
 
-		for(unsigned i = 1; i < inst->arguments.size(); i++)
+		for(unsigned i = firstArgument; i < inst->arguments.size(); i++)
 		{
 			VmValue *argument = inst->arguments[i];
 
@@ -1567,10 +1547,8 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			}
 		}
 
-		if(target->cmd == VM_INST_CONSTRUCT && getType<VmConstant>(target->arguments[0]) && getType<VmFunction>(target->arguments[1]))
+		if(VmConstant *context = getType<VmConstant>(targetContext))
 		{
-			VmConstant *context = getType<VmConstant>(target->arguments[0]);
-
 			if(context->container)
 			{
 				if(NULLC_PTR_SIZE == 8)
@@ -2151,9 +2129,6 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		lowBlock->AddInstruction(ctx, inst->source, rviReturn, rvrError, 0, 0);
 		break;
 	case VM_INST_CONSTRUCT:
-		if(IsInlinedConstruct(inst))
-			break;
-
 		if(inst->type.type == VM_TYPE_FUNCTION_REF)
 		{
 			unsigned char ptrReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
@@ -2478,10 +2453,6 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 		if(vmBlock->liveIn.contains(liveOut))
 			continue;
 
-		// TODO: inline before lowering
-		if(IsInlinedConstruct(liveOut))
-			continue;
-
 		if(!liveOut->regVmRegisters.empty())
 			continue;
 
@@ -2539,10 +2510,6 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 	{
 		VmInstruction *liveIn = vmBlock->liveIn[i];
 
-		// TODO: inline before lowering
-		if(IsInlinedConstruct(liveIn))
-			continue;
-
 		if(liveIn->regVmRegisters.empty())
 		{
 			if(liveIn->type.type == VM_TYPE_INT || liveIn->type.type == VM_TYPE_LONG || liveIn->type.type == VM_TYPE_DOUBLE || liveIn->type.type == VM_TYPE_POINTER)
@@ -2590,10 +2557,6 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 	for(unsigned i = 0; i < vmBlock->liveOut.size(); i++)
 	{
 		VmInstruction *liveOut = vmBlock->liveOut[i];
-
-		// TODO: inline before lowering
-		if(IsInlinedConstruct(liveOut))
-			continue;
 
 		if(liveOut->cmd == VM_INST_PHI)
 		{
