@@ -2334,6 +2334,8 @@ void CopyRegisters(VmInstruction *target, VmInstruction *source)
 
 void CompareRegisters(VmInstruction *a, VmInstruction *b)
 {
+	(void)b;
+
 	assert(a->regVmRegisters.size() == b->regVmRegisters.size());
 
 	for(unsigned i = 0; i < a->regVmRegisters.size(); i++)

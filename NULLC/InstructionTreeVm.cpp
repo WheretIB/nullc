@@ -4800,6 +4800,9 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 
 void RunUpdateLiveSets(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
+	(void)ctx;
+	(void)module;
+
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
 		function->UpdateDominatorTree();
