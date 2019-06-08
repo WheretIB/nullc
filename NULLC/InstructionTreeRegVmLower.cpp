@@ -6,17 +6,47 @@
 
 namespace
 {
-	bool IsNonLocalValue(VmInstruction *value)
+	bool IsNonLocalValue(VmInstruction *inst)
 	{
-		if(value->users.empty())
+		if(inst->users.empty())
 			return false;
 
-		for(unsigned i = 0; i < value->users.size(); i++)
+		for(unsigned i = 0; i < inst->users.size(); i++)
 		{
-			VmInstruction *user = getType<VmInstruction>(value->users[i]);
+			VmInstruction *user = getType<VmInstruction>(inst->users[i]);
 
-			if(value->parent != user->parent)
+			if(inst->parent != user->parent)
 				return true;
+		}
+
+		return false;
+	}
+
+	bool IsInlinedConstruct(VmInstruction *inst)
+	{
+		if(inst->cmd == VM_INST_CONSTRUCT && inst->type.type == VM_TYPE_FUNCTION_REF)
+		{
+			if(isType<VmConstant>(inst->arguments[0]) && isType<VmFunction>(inst->arguments[1]))
+			{
+				bool onlyCallUsers = true;
+
+				for(unsigned i = 0; i < inst->users.size() && onlyCallUsers; i++)
+				{
+					if(VmInstruction *instUser = getType<VmInstruction>(inst->users[i]))
+					{
+						if(instUser->cmd != VM_INST_CALL)
+							onlyCallUsers = false;
+					}
+					else
+					{
+						onlyCallUsers = false;
+					}
+				}
+
+				// Constant construct values are inlined in the call lowering
+				if(onlyCallUsers)
+					return true;
+			}
 		}
 
 		return false;
@@ -123,6 +153,10 @@ void RegVmLoweredFunction::CompleteUse(VmValue *value)
 	if(IsNonLocalValue(instruction))
 		return;
 
+	// Phi instruction receive their register from live in values. Although it is still possible to free the register on its last use
+	if(instruction->cmd == VM_INST_PHI)
+		return;
+
 	assert(instruction->regVmCompletedUsers < instruction->users.size());
 
 	instruction->regVmCompletedUsers++;
@@ -164,9 +198,6 @@ unsigned char RegVmLoweredFunction::AllocateRegister(VmValue *value, bool additi
 	assert(instruction);
 	assert(!instruction->users.empty());
 
-	if(!additional)
-		assert(instruction->regVmRegisters.empty());
-
 	// Handle phi users, we might be forced to write to a different location
 	for(unsigned i = 0; i < instruction->users.size(); i++)
 	{
@@ -174,6 +205,10 @@ unsigned char RegVmLoweredFunction::AllocateRegister(VmValue *value, bool additi
 		{
 			if(user->cmd == VM_INST_PHI)
 			{
+				// Check if already allocated
+				if(!instruction->regVmRegisters.empty())
+					return instruction->regVmRegisters[0];
+
 				// First value must have allocated registers, unless it's the current instruction
 				VmInstruction *option = getType<VmInstruction>(user->arguments[0]);
 
@@ -183,6 +218,7 @@ unsigned char RegVmLoweredFunction::AllocateRegister(VmValue *value, bool additi
 
 					unsigned char reg = option->regVmRegisters[regPos];
 
+					assert(registerUsers[reg] == 1);
 					instruction->regVmRegisters.push_back(reg);
 
 					return reg;
@@ -192,6 +228,9 @@ unsigned char RegVmLoweredFunction::AllocateRegister(VmValue *value, bool additi
 			}
 		}
 	}
+
+	if(!additional)
+		assert(instruction->regVmRegisters.empty());
 
 	instruction->regVmRegisters.push_back(GetRegister());
 
@@ -1362,7 +1401,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 		SmallArray<unsigned char, 8> targetRegs;
 		
-		if(target->cmd == VM_INST_CONSTRUCT && getType<VmConstant>(target->arguments[0]) && getType<VmFunction>(target->arguments[1]))
+		if(IsInlinedConstruct(target))
 		{
 			VmConstant *context = getType<VmConstant>(target->arguments[0]);
 
@@ -1372,21 +1411,11 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				LowerConstantIntoBlock(ctx, lowFunction, lowBlock, targetRegs, context);
 				targetRegs.push_back(0);
-
-				/*if(NULLC_PTR_SIZE == 8)
-					lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, targetRegs[0]);
-				else
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, targetRegs[0]);*/
 			}
 			else
 			{
 				targetRegs.push_back(0);
 				targetRegs.push_back(0);
-				
-				/*if(NULLC_PTR_SIZE == 8)
-					lowBlock->AddInstruction(ctx, inst->source, rviPushImmq, 0, 0, 0, context->iValue);
-				else
-					lowBlock->AddInstruction(ctx, inst->source, rviPushImm, 0, 0, 0, context->iValue);*/
 			}
 
 			targetInst = rviCall;
@@ -1394,11 +1423,6 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		else
 		{
 			GetArgumentRegisters(ctx, lowFunction, lowBlock, targetRegs, target);
-
-			/*if(NULLC_PTR_SIZE == 8)
-				lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, targetRegs[0]);
-			else
-				lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, targetRegs[0]);*/
 
 			targetInst = rviCallPtr;
 		}
@@ -2127,30 +2151,11 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		lowBlock->AddInstruction(ctx, inst->source, rviReturn, rvrError, 0, 0);
 		break;
 	case VM_INST_CONSTRUCT:
+		if(IsInlinedConstruct(inst))
+			break;
+
 		if(inst->type.type == VM_TYPE_FUNCTION_REF)
 		{
-			if(isType<VmConstant>(inst->arguments[0]) && isType<VmFunction>(inst->arguments[1]))
-			{
-				bool onlyCallUsers = true;
-
-				for(unsigned i = 0; i < inst->users.size() && onlyCallUsers; i++)
-				{
-					if(VmInstruction *instUser = getType<VmInstruction>(inst->users[i]))
-					{
-						if(instUser->cmd != VM_INST_CALL)
-							onlyCallUsers = false;
-					}
-					else
-					{
-						onlyCallUsers = false;
-					}
-				}
-
-				// Constant construct values are inlined in the call lowering
-				if(onlyCallUsers)
-					break;
-			}
-
 			unsigned char ptrReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
 			unsigned char idReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
 
@@ -2328,37 +2333,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 	}
 		break;
 	case VM_INST_PHI:
-	{
-		if(!inst->regVmRegisters.empty())
-			break;
-
-		unsigned char resultReg = 0;
-
-		for(unsigned i = 0; i < inst->arguments.size(); i += 2)
-		{
-			VmInstruction *instruction = getType<VmInstruction>(inst->arguments[i]);
-
-			assert(instruction);
-
-			if(instruction->regVmRegisters.empty())
-			{
-				assert(i != 0);
-
-				continue;
-			}
-
-			assert(instruction->regVmRegisters.size() == 1);
-
-			unsigned char reg = lowFunction->GetRegister(instruction);
-
-			if(i != 0)
-				assert(reg == resultReg && "all phi instruction sources must write to the same location");
-
-			resultReg = reg;
-		}
-
-		inst->regVmRegisters.push_back(resultReg);
-	}
+		assert(!inst->regVmRegisters.empty());
 		break;
 	default:
 		assert(!"unknown instruction");
@@ -2376,6 +2351,8 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 void CopyRegisters(VmInstruction *target, VmInstruction *source)
 {
+	assert(target->regVmRegisters.empty());
+
 	for(unsigned i = 0; i < source->regVmRegisters.size(); i++)
 		target->regVmRegisters.push_back(source->regVmRegisters[i]);
 }
@@ -2421,6 +2398,8 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 
 					if(!instruction->regVmRegisters.empty())
 						CompareRegisters(liveIn, instruction);
+					else
+						CopyRegisters(instruction, liveIn);
 				}
 			}
 			else
@@ -2464,7 +2443,63 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 				assert(lowFunction->registerUsers[reg] == 0);
 				lowFunction->registerUsers[reg]++;
 
+				assert(!lowBlock->entryRegisters.contains(reg));
 				lowBlock->entryRegisters.push_back(reg);
+			}
+		}
+	}
+
+	// Check if new out variable registers are already fixed by accepting phi nodes
+	for(unsigned i = 0; i < vmBlock->liveOut.size(); i++)
+	{
+		VmInstruction *liveOut = vmBlock->liveOut[i];
+
+		if(vmBlock->liveIn.contains(liveOut))
+			continue;
+
+		// TODO: inline before lowering
+		if(IsInlinedConstruct(liveOut))
+			continue;
+
+		if(!liveOut->regVmRegisters.empty())
+			continue;
+
+		// If we are used by a phi instruction, it or other incoming values mught already have allocated registers
+		for(unsigned userPos = 0; userPos < liveOut->users.size(); userPos++)
+		{
+			if(VmInstruction *user = getType<VmInstruction>(liveOut->users[userPos]))
+			{
+				if(user->cmd == VM_INST_PHI)
+				{
+					if(!user->regVmRegisters.empty())
+					{
+						CopyRegisters(liveOut, user);
+					}
+					else
+					{
+						for(unsigned argumentPos = 0; argumentPos < user->arguments.size(); argumentPos += 2)
+						{
+							VmInstruction *instruction = getType<VmInstruction>(user->arguments[argumentPos]);
+
+							if(!instruction->regVmRegisters.empty())
+							{
+								CopyRegisters(liveOut, instruction);
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if(!liveOut->regVmRegisters.empty())
+		{
+			for(unsigned k = 0; k < liveOut->regVmRegisters.size(); k++)
+			{
+				unsigned char reg = liveOut->regVmRegisters[k];
+
+				assert(lowFunction->registerUsers[reg] == 0);
+				lowFunction->registerUsers[reg]++;
 			}
 		}
 	}
@@ -2482,6 +2517,10 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 	for(unsigned i = 0; i < vmBlock->liveIn.size(); i++)
 	{
 		VmInstruction *liveIn = vmBlock->liveIn[i];
+
+		// TODO: inline before lowering
+		if(IsInlinedConstruct(liveIn))
+			continue;
 
 		if(liveIn->regVmRegisters.empty())
 		{
@@ -2513,6 +2552,7 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 				assert(lowFunction->registerUsers[reg] == 0);
 				lowFunction->registerUsers[reg]++;
 
+				assert(!lowBlock->entryRegisters.contains(reg));
 				lowBlock->entryRegisters.push_back(reg);
 			}
 		}
@@ -2528,6 +2568,10 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 	{
 		VmInstruction *liveOut = vmBlock->liveOut[i];
 
+		// TODO: inline before lowering
+		if(IsInlinedConstruct(liveOut))
+			continue;
+
 		SmallArray<unsigned char, 8> result;
 		lowFunction->GetRegisters(result, liveOut);
 
@@ -2537,8 +2581,8 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 
 			lowBlock->exitRegisters.push_back(reg);
 
+			assert(lowFunction->registerUsers[reg] == 1);
 			lowFunction->registerUsers[reg]--;
-			assert(lowFunction->registerUsers[reg] == 0);
 
 			assert(!lowFunction->freedRegisters.contains(reg));
 			lowFunction->freedRegisters.push_back(reg);
@@ -2553,12 +2597,31 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 		if(vmBlock->liveOut.contains(liveIn))
 			continue;
 
+		if(liveIn->cmd == VM_INST_PHI)
+		{
+			bool found = false;
+
+			for(unsigned argumentPos = 0; argumentPos < liveIn->arguments.size(); argumentPos += 2)
+			{
+				VmInstruction *instruction = getType<VmInstruction>(liveIn->arguments[argumentPos]);
+
+				if(vmBlock->liveOut.contains(instruction))
+				{
+					found = true;
+					break;
+				}
+			}
+
+			if(found)
+				continue;
+		}
+
 		for(unsigned k = 0; k < liveIn->regVmRegisters.size(); k++)
 		{
 			unsigned char reg = liveIn->regVmRegisters[k];
 
+			assert(lowFunction->registerUsers[reg] == 1);
 			lowFunction->registerUsers[reg]--;
-			assert(lowFunction->registerUsers[reg] == 0);
 
 			assert(!lowFunction->freedRegisters.contains(reg));
 			lowFunction->freedRegisters.push_back(reg);

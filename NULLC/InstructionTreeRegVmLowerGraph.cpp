@@ -551,7 +551,7 @@ void PrintBlock(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredBlock *lowbl
 			if(i != 0)
 				Print(ctx.output, ", ");
 
-			Print(ctx.output, "r%d [%%%d]", lowblock->exitRegisters[i]);
+			Print(ctx.output, "r%d", lowblock->exitRegisters[i]);
 		}
 
 		PrintLine(ctx.output, "]");

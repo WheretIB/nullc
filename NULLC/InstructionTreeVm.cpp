@@ -1742,9 +1742,9 @@ void VmFunction::UpdateLiveSets()
 		// Update block liveOut list
 		curr->liveOut.clear();
 
-		for(unsigned i = 0; i < curr->successors.size(); i++)
+		for(unsigned successorPos = 0; successorPos < curr->successors.size(); successorPos++)
 		{
-			VmBlock *successor = curr->successors[i];
+			VmBlock *successor = curr->successors[successorPos];
 
 			for(unsigned k = 0; k < successor->liveIn.size(); k++)
 			{
@@ -1754,10 +1754,10 @@ void VmFunction::UpdateLiveSets()
 
 				if(liveIn->cmd == VM_INST_PHI)
 				{
-					for(unsigned m = 0; m < liveIn->arguments.size(); m += 2)
+					for(unsigned argument = 0; argument < liveIn->arguments.size(); argument += 2)
 					{
-						VmInstruction *instruction = getType<VmInstruction>(liveIn->arguments[i]);
-						VmBlock *edge = getType<VmBlock>(liveIn->arguments[i + 1]);
+						VmInstruction *instruction = getType<VmInstruction>(liveIn->arguments[argument]);
+						VmBlock *edge = getType<VmBlock>(liveIn->arguments[argument + 1]);
 
 						if(edge == curr)
 						{
@@ -4777,7 +4777,10 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 void RunUpdateLiveSets(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		function->UpdateDominatorTree();
 		function->UpdateLiveSets();
+	}
 }
 
 void RunCreateAllocaStorage(ExpressionContext &ctx, VmModule *module, VmValue* value)
