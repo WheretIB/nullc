@@ -61,7 +61,9 @@ enum RegVmInstructionCode
 	rviReturn,
 
 	rviAdd,
+	rviAddImm,
 	rviSub,
+	rviSubImm,
 	rviMul,
 	rviDiv,
 	rviPow,
@@ -84,7 +86,9 @@ enum RegVmInstructionCode
 	rviLogXor,
 
 	rviAddl,
+	rviAddImml,
 	rviSubl,
+	rviSubImml,
 	rviMull,
 	rviDivl,
 	rviPowl,

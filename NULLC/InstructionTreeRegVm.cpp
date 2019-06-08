@@ -90,8 +90,12 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "ret";
 	case rviAdd:
 		return "add";
+	case rviAddImm:
+		return "addimm";
 	case rviSub:
 		return "sub";
+	case rviSubImm:
+		return "subimm";
 	case rviMul:
 		return "mul";
 	case rviDiv:
@@ -126,8 +130,12 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "logxor";
 	case rviAddl:
 		return "addl";
+	case rviAddImml:
+		return "addimml";
 	case rviSubl:
 		return "subl";
+	case rviSubImml:
+		return "subimml";
 	case rviMull:
 		return "mull";
 	case rviDivl:

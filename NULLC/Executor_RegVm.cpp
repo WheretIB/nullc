@@ -636,12 +636,26 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue + regFilePtr[cmd.rC].intValue;
 			break;
+		case rviAddImm:
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue + cmd.argument;
+			break;
 		case rviSub:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue - regFilePtr[cmd.rC].intValue;
+			break;
+		case rviSubImm:
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue - cmd.argument;
 			break;
 		case rviMul:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -760,12 +774,26 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue + regFilePtr[cmd.rC].longValue;
 			break;
+		case rviAddImml:
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue + cmd.argument;
+			break;
 		case rviSubl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue - regFilePtr[cmd.rC].longValue;
+			break;
+		case rviSubImml:
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue - cmd.argument;
 			break;
 		case rviMull:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));

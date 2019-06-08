@@ -1790,6 +1790,25 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 	case VM_INST_ADD:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
+
+		if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+		{
+			if(inst->type == VmType::Int || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
+			{
+				unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+				lowBlock->AddInstruction(ctx, inst->source, rviAddImm, targetReg, lhsReg, 0, constant->iValue);
+				break;
+			}
+			else if((inst->type == VmType::Long || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8)) && int(constant->lValue) == constant->lValue)
+			{
+				unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+				lowBlock->AddInstruction(ctx, inst->source, rviAddImml, targetReg, lhsReg, 0, int(constant->lValue));
+				break;
+			}
+		}
+
 		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
@@ -1808,6 +1827,25 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 	case VM_INST_SUB:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
+
+		if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+		{
+			if(inst->type == VmType::Int || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
+			{
+				unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+				lowBlock->AddInstruction(ctx, inst->source, rviSubImm, targetReg, lhsReg, 0, constant->iValue);
+				break;
+			}
+			else if((inst->type == VmType::Long || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8)) && int(constant->lValue) == constant->lValue)
+			{
+				unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+				lowBlock->AddInstruction(ctx, inst->source, rviSubImml, targetReg, lhsReg, 0, int(constant->lValue));
+				break;
+			}
+		}
+
 		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
