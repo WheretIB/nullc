@@ -1578,7 +1578,15 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, targetRegs[0]);
 		}
 
-		if(inst->type.type == VM_TYPE_VOID || inst->users.empty())
+		bool fakeUser = false;
+
+		if(inst->type.type != VM_TYPE_VOID && inst->users.empty())
+		{
+			fakeUser = true;
+			inst->users.push_back(NULL);
+		}
+
+		if(inst->type.type == VM_TYPE_VOID)
 		{
 			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, rvrVoid, targetRegs[1], targetFunction);
 		}
@@ -1596,7 +1604,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		else if(inst->type.type == VM_TYPE_FUNCTION_REF || inst->type.type == VM_TYPE_ARRAY_REF)
 		{
-			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, 0, targetRegs[1], targetFunction);
+			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, rvrStruct, targetRegs[1], targetFunction);
 
 			unsigned char regA = lowFunction->AllocateRegister(inst, 0, false);
 			unsigned char regB = lowFunction->AllocateRegister(inst, 1, true);
@@ -1614,7 +1622,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		else if(inst->type.type == VM_TYPE_AUTO_REF)
 		{
-			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, 0, targetRegs[1], targetFunction);
+			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, rvrStruct, targetRegs[1], targetFunction);
 
 			unsigned char regA = lowFunction->AllocateRegister(inst, 0, false);
 			unsigned char regB = lowFunction->AllocateRegister(inst, 1, true);
@@ -1632,7 +1640,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		else if(inst->type.type == VM_TYPE_AUTO_ARRAY)
 		{
-			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, 0, targetRegs[1], targetFunction);
+			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, rvrStruct, targetRegs[1], targetFunction);
 
 			unsigned char regA = lowFunction->AllocateRegister(inst, 0, false);
 			unsigned char regB = lowFunction->AllocateRegister(inst, 1, false);
@@ -1653,7 +1661,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		else if(inst->type.type == VM_TYPE_STRUCT)
 		{
-			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, 0, targetRegs[1], targetFunction);
+			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, rvrStruct, targetRegs[1], targetFunction);
 
 			unsigned remainingSize = inst->type.size;
 
@@ -1679,6 +1687,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 				index++;
 			}
+		}
+
+		if(fakeUser)
+		{
+			for(unsigned i = 0; i < inst->regVmRegisters.size(); i++)
+				lowFunction->FreeRegister(inst->regVmRegisters[i]);
+
+			inst->users.clear();
 		}
 	}
 	break;
