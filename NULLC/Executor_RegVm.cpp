@@ -480,7 +480,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
-			regFilePtr[cmd.rA].longValue = ((int64_t)regFilePtr[cmd.rB].intValue << 32ll) | regFilePtr[cmd.rC].intValue;
+			regFilePtr[cmd.rA].longValue = ((int64_t)regFilePtr[cmd.rC].intValue << 32ll) | regFilePtr[cmd.rB].intValue;
 			break;
 		case rviMov:
 			memcpy(&regFilePtr[cmd.rA], &regFilePtr[cmd.rC], sizeof(RegVmRegister));
