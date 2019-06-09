@@ -535,6 +535,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(assert(regFilePtr[(cmd.argument >> 16) & 0xff].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrPointer);
 
 			regFilePtr[cmd.rA].ptrValue = regFilePtr[cmd.rC].ptrValue + regFilePtr[cmd.rB].intValue * (cmd.argument & 0xffff);
 			break;
@@ -640,7 +641,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			break;
 		case rviAddImm:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
-			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue + cmd.argument;
@@ -654,7 +654,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			break;
 		case rviSubImm:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
-			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue - cmd.argument;
@@ -778,7 +777,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			break;
 		case rviAddImml:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
-			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue + cmd.argument;
@@ -792,7 +790,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			break;
 		case rviSubImml:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
-			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue - cmd.argument;
