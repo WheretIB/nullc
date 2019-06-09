@@ -2385,13 +2385,23 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		break;
 	case VM_INST_BITCAST:
 	{
-		unsigned char argReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
+		SmallArray<unsigned char, 8> sourceRegs;
+		GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[0]);
 
-		if(!lowFunction->TransferRegisterTo(inst, argReg))
+		unsigned index = 0;
+
+		for(unsigned k = 0; k < sourceRegs.size(); k++)
 		{
-			unsigned char copyReg = lowFunction->AllocateRegister(inst, 0);
+			if(!lowFunction->TransferRegisterTo(inst, sourceRegs[k]))
+			{
+				unsigned char copyReg = lowFunction->AllocateRegister(inst, index++, k + 1 == sourceRegs.size());
 
-			lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, argReg);
+				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, sourceRegs[k]);
+			}
+			else
+			{
+				index++;
+			}
 		}
 	}
 		break;
