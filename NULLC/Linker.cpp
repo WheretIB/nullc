@@ -58,6 +58,7 @@ void Linker::CleanCode()
 	exRegVmCode.clear();
 	exRegVmSourceInfo.clear();
 	exRegVmExecCount.clear();
+	memset(exRegVmInstructionExecCount.data, 0, sizeof(exRegVmInstructionExecCount));
 
 #ifdef NULLC_LLVM_SUPPORT
 	llvmModuleSizes.clear();
@@ -911,6 +912,17 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 			output.Printf(" (%s)", exSymbols.data + exTypes[exRegVmCode[i].argument].offsetToName);
 
 		output.Printf("\n");
+	}
+
+	if(withProfileInfo)
+	{
+		output.Printf("\n");
+
+		for(unsigned i = 0; i < 256; i++)
+		{
+			if(unsigned count = exRegVmInstructionExecCount[i])
+				output.Printf("// %9s: %9d\n", GetInstructionName(RegVmInstructionCode(i)), count);
+		}
 	}
 
 	output.Flush();

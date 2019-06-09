@@ -203,10 +203,6 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 	codeBase = &exLinker->exRegVmCode[0];
 	RegVmCmd *instruction = &exLinker->exRegVmCode[exLinker->regVmOffsetToGlobalCode];
 
-#if defined(NULLC_REG_VM_PROFILE_INSTRUCTIONS)
-	unsigned *executions = exLinker->exRegVmExecCount.data;
-#endif
-
 	bool errorState = false;
 
 	// We will know that return is global if call stack size is equal to current
@@ -367,7 +363,13 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 		const RegVmCmd &cmd = *instruction;
 
 #if defined(NULLC_REG_VM_PROFILE_INSTRUCTIONS)
+		unsigned *executions = rvm->exLinker->exRegVmExecCount.data;
+
 		executions[unsigned(instruction - codeBase)]++;
+
+		unsigned *instructionExecutions = rvm->exLinker->exRegVmInstructionExecCount.data;
+
+		instructionExecutions[cmd.code]++;
 #endif
 
 		switch(cmd.code)
