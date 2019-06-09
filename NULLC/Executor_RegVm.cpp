@@ -1520,9 +1520,6 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 	REGVM_DEBUG(regFileTop[rvrrGlobals].activeType = rvrPointer);
 	REGVM_DEBUG(regFileTop[rvrrFrame].activeType = rvrPointer);
 
-	regFileTop[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
-	regFileTop[rvrrFrame].ptrValue = uintptr_t(dataStack.data + dataStack.size());
-
 	assert(dataStack.size() % 16 == 0);
 
 	if(dataStack.size() + stackSize >= dataStack.max)
@@ -1548,6 +1545,9 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		if(stackSize - argumentsSize)
 			memset(dataStack.data + dataStack.size() + argumentsSize, 0, stackSize - argumentsSize);
 	}
+
+	regFileTop[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
+	regFileTop[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevDataSize);
 
 	RegVmReturnType execResultType = RunCode(codeBase + address, regFileTop, tempStackPtr, this, codeBase);
 
