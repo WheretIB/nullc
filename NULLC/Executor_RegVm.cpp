@@ -277,7 +277,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 	regFileLastTop = regFileTop;
 
-	RegVmReturnType resultType = RunCode(instruction, regFilePtr, tempStackPtr, this, codeBase);
+	RegVmReturnType resultType = instruction ? RunCode(instruction, regFilePtr, tempStackPtr, this, codeBase) : retType;
 
 	if(resultType == rvrError)
 	{
