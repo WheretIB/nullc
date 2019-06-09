@@ -159,11 +159,12 @@ void RegVmLoweredFunction::GetRegisters(SmallArray<unsigned char, 8> &result, Vm
 		result.push_back(instruction->regVmRegisters[i]);
 }
 
-unsigned char RegVmLoweredFunction::AllocateRegister(VmValue *value, unsigned index)
+unsigned char RegVmLoweredFunction::AllocateRegister(VmValue *value, unsigned index, bool freeDelayed)
 {
 	VmInstruction *instruction = getType<VmInstruction>(value);
 
-	FreeDelayedRegisters(NULL);
+	if(freeDelayed)
+		FreeDelayedRegisters(NULL);
 
 	assert(instruction);
 	assert(!instruction->users.empty());
@@ -244,6 +245,8 @@ bool RegVmLoweredFunction::TransferRegisterTo(VmValue *value, unsigned char reg)
 	VmInstruction *instruction = getType<VmInstruction>(value);
 
 	assert(instruction);
+
+	assert(!IsNonLocalValue(instruction));
 
 	for(unsigned i = 0; i < constantRegisters.size(); i++)
 	{
@@ -597,18 +600,18 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				if(NULLC_PTR_SIZE == 8)
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, 0), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, 0, false), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 8;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1, true), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 4;
 				}
 				else
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0, false), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 4;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1, true), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 4;
 				}
 			}
@@ -616,18 +619,18 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				if(NULLC_PTR_SIZE == 8)
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0, false), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 4;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, 1), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, 1, true), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 8;
 				}
 				else
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0, false), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 4;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1, true), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 4;
 				}
 			}
@@ -635,24 +638,24 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				if(NULLC_PTR_SIZE == 8)
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0, false), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 4;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, 1), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, 1, false), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 8;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 2), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 2, true), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 4;
 				}
 				else
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0, false), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 4;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1, false), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 4;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 2), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 2, true), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 					pos += 4;
 				}
 			}
@@ -668,14 +671,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				{
 					if(remainingSize == 4)
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, index++), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+						lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, index++, true), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 						pos += 4;
 
 						remainingSize -= 4;
 					}
 					else
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, index++), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
+						lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, index++, remainingSize == 8), 0, addressReg, CreateConstantPointer(ctx.allocator, constant->source, constant->iValue + pos, constant->container, constant->type.structType, false));
 						pos += 8;
 
 						remainingSize -= 8;
@@ -697,18 +700,18 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				if(NULLC_PTR_SIZE == 8)
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, 0), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, 0, false), 0, addressReg, pos);
 					pos += 8;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1, true), 0, addressReg, pos);
 					pos += 4;
 				}
 				else
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0, false), 0, addressReg, pos);
 					pos += 4;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1, true), 0, addressReg, pos);
 					pos += 4;
 				}
 			}
@@ -716,18 +719,18 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				if(NULLC_PTR_SIZE == 8)
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0, false), 0, addressReg, pos);
 					pos += 4;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, 1), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, 1, true), 0, addressReg, pos);
 					pos += 8;
 				}
 				else
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0, false), 0, addressReg, pos);
 					pos += 4;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1, true), 0, addressReg, pos);
 					pos += 4;
 				}
 			}
@@ -735,24 +738,24 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				if(NULLC_PTR_SIZE == 8)
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0, false), 0, addressReg, pos);
 					pos += 4;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, 1), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, 1, false), 0, addressReg, pos);
 					pos += 8;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 2), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 2, true), 0, addressReg, pos);
 					pos += 4;
 				}
 				else
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 0, false), 0, addressReg, pos);
 					pos += 4;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 1, false), 0, addressReg, pos);
 					pos += 4;
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 2), 0, addressReg, pos);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, 2, true), 0, addressReg, pos);
 					pos += 4;
 				}
 			}
@@ -768,14 +771,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				{
 					if(remainingSize == 4)
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, index++), 0, addressReg, pos);
+						lowBlock->AddInstruction(ctx, inst->source, rviLoadDword, lowFunction->AllocateRegister(inst, index++, true), 0, addressReg, pos);
 						pos += 4;
 
 						remainingSize -= 4;
 					}
 					else
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, index++), 0, addressReg, pos);
+						lowBlock->AddInstruction(ctx, inst->source, rviLoadLong, lowFunction->AllocateRegister(inst, index++, remainingSize == 8), 0, addressReg, pos);
 						pos += 8;
 
 						remainingSize -= 8;
@@ -1595,8 +1598,8 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, 0, targetRegs[1], targetFunction);
 
-			unsigned char regA = lowFunction->AllocateRegister(inst, 0);
-			unsigned char regB = lowFunction->AllocateRegister(inst, 1);
+			unsigned char regA = lowFunction->AllocateRegister(inst, 0, false);
+			unsigned char regB = lowFunction->AllocateRegister(inst, 1, true);
 
 			if(NULLC_PTR_SIZE == 8)
 			{
@@ -1613,8 +1616,8 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, 0, targetRegs[1], targetFunction);
 
-			unsigned char regA = lowFunction->AllocateRegister(inst, 0);
-			unsigned char regB = lowFunction->AllocateRegister(inst, 1);
+			unsigned char regA = lowFunction->AllocateRegister(inst, 0, false);
+			unsigned char regB = lowFunction->AllocateRegister(inst, 1, true);
 
 			if(NULLC_PTR_SIZE == 8)
 			{
@@ -1631,9 +1634,9 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, 0, targetRegs[1], targetFunction);
 
-			unsigned char regA = lowFunction->AllocateRegister(inst, 0);
-			unsigned char regB = lowFunction->AllocateRegister(inst, 1);
-			unsigned char regC = lowFunction->AllocateRegister(inst, 2);
+			unsigned char regA = lowFunction->AllocateRegister(inst, 0, false);
+			unsigned char regB = lowFunction->AllocateRegister(inst, 1, false);
+			unsigned char regC = lowFunction->AllocateRegister(inst, 2, true);
 
 			if(NULLC_PTR_SIZE == 8)
 			{
@@ -1655,7 +1658,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			unsigned remainingSize = inst->type.size;
 
 			for(unsigned i = 0; i < (remainingSize + 4) / 8; i++)
-				lowFunction->AllocateRegister(inst, i);
+				lowFunction->AllocateRegister(inst, i, i + 1 == (remainingSize + 4) / 8);
 
 			unsigned index = 0;
 
@@ -2177,14 +2180,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			if(!lowFunction->TransferRegisterTo(inst, ptrReg))
 			{
-				unsigned char copyReg = lowFunction->AllocateRegister(inst, 0);
+				unsigned char copyReg = lowFunction->AllocateRegister(inst, 0, false);
 
 				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, ptrReg);
 			}
 
 			if(!lowFunction->TransferRegisterTo(inst, idReg))
 			{
-				unsigned char copyReg = lowFunction->AllocateRegister(inst, 1);
+				unsigned char copyReg = lowFunction->AllocateRegister(inst, 1, true);
 
 				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, idReg);
 			}
@@ -2196,14 +2199,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			if(!lowFunction->TransferRegisterTo(inst, ptrReg))
 			{
-				unsigned char copyReg = lowFunction->AllocateRegister(inst, 0);
+				unsigned char copyReg = lowFunction->AllocateRegister(inst, 0, false);
 
 				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, ptrReg);
 			}
 
 			if(!lowFunction->TransferRegisterTo(inst, lenReg))
 			{
-				unsigned char copyReg = lowFunction->AllocateRegister(inst, 1);
+				unsigned char copyReg = lowFunction->AllocateRegister(inst, 1, true);
 
 				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, lenReg);
 			}
@@ -2215,14 +2218,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			if(!lowFunction->TransferRegisterTo(inst, typeReg))
 			{
-				unsigned char copyReg = lowFunction->AllocateRegister(inst, 0);
+				unsigned char copyReg = lowFunction->AllocateRegister(inst, 0, false);
 
 				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, typeReg);
 			}
 
 			if(!lowFunction->TransferRegisterTo(inst, ptrReg))
 			{
-				unsigned char copyReg = lowFunction->AllocateRegister(inst, 1);
+				unsigned char copyReg = lowFunction->AllocateRegister(inst, 1, true);
 
 				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, ptrReg);
 			}
@@ -2236,21 +2239,21 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			if(!lowFunction->TransferRegisterTo(inst, typeReg))
 			{
-				unsigned char copyReg = lowFunction->AllocateRegister(inst, 0);
+				unsigned char copyReg = lowFunction->AllocateRegister(inst, 0, false);
 
 				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, typeReg);
 			}
 
 			if(!lowFunction->TransferRegisterTo(inst, arrayRegs[0]))
 			{
-				unsigned char copyReg = lowFunction->AllocateRegister(inst, 1);
+				unsigned char copyReg = lowFunction->AllocateRegister(inst, 1, false);
 
 				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, arrayRegs[0]);
 			}
 
 			if(!lowFunction->TransferRegisterTo(inst, arrayRegs[1]))
 			{
-				unsigned char copyReg = lowFunction->AllocateRegister(inst, 2);
+				unsigned char copyReg = lowFunction->AllocateRegister(inst, 2, true);
 
 				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, arrayRegs[1]);
 			}
@@ -2279,7 +2282,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 					unsigned char argReg1 = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[i]);
 					unsigned char argReg2 = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[i + 1]);
 
-					unsigned char copyReg = lowFunction->AllocateRegister(inst, index++);
+					unsigned char copyReg = lowFunction->AllocateRegister(inst, index++, true);
 
 					lowBlock->AddInstruction(ctx, inst->source, rviCombinedd, copyReg, argReg1, argReg2);
 
@@ -2291,7 +2294,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 					if(!lowFunction->TransferRegisterTo(inst, argReg))
 					{
-						unsigned char copyReg = lowFunction->AllocateRegister(inst, index++);
+						unsigned char copyReg = lowFunction->AllocateRegister(inst, index++, true);
 
 						lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, argReg);
 					}
@@ -2307,7 +2310,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 				if(!lowFunction->TransferRegisterTo(inst, argReg))
 				{
-					unsigned char copyReg = lowFunction->AllocateRegister(inst, index++);
+					unsigned char copyReg = lowFunction->AllocateRegister(inst, index++, true);
 
 					lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, argReg);
 				}
@@ -2325,7 +2328,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				{
 					if(!lowFunction->TransferRegisterTo(inst, sourceRegs[k]))
 					{
-						unsigned char copyReg = lowFunction->AllocateRegister(inst, index++);
+						unsigned char copyReg = lowFunction->AllocateRegister(inst, index++, k + 1 == sourceRegs.size());
 
 						lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, sourceRegs[k]);
 					}

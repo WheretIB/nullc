@@ -86,7 +86,7 @@ struct RegVmLoweredFunction
 	void CompleteUse(VmValue *value);
 	unsigned char GetRegister(VmValue *value);
 	void GetRegisters(SmallArray<unsigned char, 8> &result, VmValue *value);
-	unsigned char AllocateRegister(VmValue *value, unsigned index = 0u);
+	unsigned char AllocateRegister(VmValue *value, unsigned index = 0u, bool freeDelayed = true);
 
 	unsigned char GetRegisterForConstant();
 
