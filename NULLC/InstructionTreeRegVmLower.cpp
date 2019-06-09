@@ -1483,17 +1483,17 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				}
 				else if(argument->type.type == VM_TYPE_LONG || (NULLC_PTR_SIZE == 8 && argument->type.type == VM_TYPE_POINTER))
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, argumentRegs[0]);
+					lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, argumentRegs[0]);
 				}
 				else if(argument->type.type == VM_TYPE_DOUBLE)
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviPushDouble, 0, 0, argumentRegs[0]);
+					lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, argumentRegs[0]);
 				}
 				else if(argument->type.type == VM_TYPE_FUNCTION_REF || argument->type.type == VM_TYPE_ARRAY_REF)
 				{
 					if(NULLC_PTR_SIZE == 8)
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, argumentRegs[0]);
+						lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, argumentRegs[0]);
 						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[1]);
 					}
 					else
@@ -1507,7 +1507,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 					if(NULLC_PTR_SIZE == 8)
 					{
 						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[0]);
-						lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, argumentRegs[1]);
+						lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, argumentRegs[1]);
 					}
 					else
 					{
@@ -1520,7 +1520,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 					if(NULLC_PTR_SIZE == 8)
 					{
 						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[0]);
-						lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, argumentRegs[1]);
+						lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, argumentRegs[1]);
 						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[2]);
 					}
 					else
@@ -1544,7 +1544,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 						}
 						else
 						{
-							lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, argumentRegs[i]);
+							lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, argumentRegs[i]);
 
 							remainingSize -= 8;
 						}
@@ -1558,7 +1558,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			if(context->container)
 			{
 				if(NULLC_PTR_SIZE == 8)
-					lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, targetRegs[0]);
+					lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, targetRegs[0]);
 				else
 					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, targetRegs[0]);
 			}
@@ -1573,7 +1573,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		else
 		{
 			if(NULLC_PTR_SIZE == 8)
-				lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, targetRegs[0]);
+				lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, targetRegs[0]);
 			else
 				lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, targetRegs[0]);
 		}
@@ -1704,13 +1704,13 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				resultType = rvrLong;
 
-				lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, resultRegs[0]);
+				lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[0]);
 			}
 			else if(result->type.type == VM_TYPE_DOUBLE)
 			{
 				resultType = rvrDouble;
 
-				lowBlock->AddInstruction(ctx, inst->source, rviPushDouble, 0, 0, resultRegs[0]);
+				lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[0]);
 			}
 			else if(result->type.type == VM_TYPE_FUNCTION_REF || result->type.type == VM_TYPE_ARRAY_REF)
 			{
@@ -1718,7 +1718,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 				if(NULLC_PTR_SIZE == 8)
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, resultRegs[0]);
+					lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[0]);
 					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[1]);
 				}
 				else
@@ -1734,7 +1734,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				if(NULLC_PTR_SIZE == 8)
 				{
 					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
-					lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, resultRegs[1]);
+					lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[1]);
 				}
 				else
 				{
@@ -1749,7 +1749,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				if(NULLC_PTR_SIZE == 8)
 				{
 					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
-					lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, resultRegs[1]);
+					lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[1]);
 					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[2]);
 				}
 				else
@@ -1775,7 +1775,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 					}
 					else
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviPushLong, 0, 0, resultRegs[i]);
+						lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[i]);
 
 						remainingSize -= 8;
 					}

@@ -46,8 +46,7 @@ enum RegVmInstructionCode
 	rviJmpnz,
 
 	rviPush,
-	rviPushLong,
-	rviPushDouble,
+	rviPushQword,
 
 	rviPushImm,
 	rviPushImmq,

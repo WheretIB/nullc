@@ -224,8 +224,7 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 		Print(ctx, " * 4]");
 		break;
 	case rviPush:
-	case rviPushLong:
-	case rviPushDouble:
+	case rviPushQword:
 		PrintRegister(ctx, rC);
 		break;
 	case rviPushImm:

@@ -664,16 +664,10 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 
 			*tempStackPtr++ = regFilePtr[cmd.rC].intValue;
 			break;
-		case rviPushLong:
-			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+		case rviPushQword:
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong || regFilePtr[cmd.rC].activeType == rvrDouble));
 
-			vmStoreLong(tempStackPtr, regFilePtr[cmd.rC].longValue);
-			tempStackPtr += 2;
-			break;
-		case rviPushDouble:
-			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
-
-			vmStoreDouble(tempStackPtr, regFilePtr[cmd.rC].doubleValue);
+			memcpy(tempStackPtr, &regFilePtr[cmd.rC].longValue, sizeof(long long));
 			tempStackPtr += 2;
 			break;
 		case rviPushImm:

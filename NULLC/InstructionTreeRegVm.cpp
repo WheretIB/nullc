@@ -74,10 +74,8 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "popq";
 	case rviPush:
 		return "push";
-	case rviPushLong:
+	case rviPushQword:
 		return "pushq";
-	case rviPushDouble:
-		return "pushd";
 	case rviPushImm:
 		return "pushimm";
 	case rviPushImmq:
