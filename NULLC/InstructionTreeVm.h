@@ -286,6 +286,8 @@ struct VmInstruction: VmValue
 		nextSibling = NULL;
 
 		regVmCompletedUsers = 0;
+
+		regVmSearchMarker = 0;
 	}
 
 	void AddArgument(VmValue *argument);
@@ -304,6 +306,8 @@ struct VmInstruction: VmValue
 	SmallArray<unsigned char, 8> regVmRegisters;
 
 	unsigned regVmCompletedUsers;
+
+	unsigned regVmSearchMarker;
 
 	static const unsigned myTypeID = __LINE__;
 };
