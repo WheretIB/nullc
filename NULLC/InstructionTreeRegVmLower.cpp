@@ -2161,12 +2161,15 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		VmValue *pointer = inst->arguments[0];
 		VmConstant *typeIndex = getType<VmConstant>(inst->arguments[1]);
 
+		assert(pointer->type.type == VM_TYPE_AUTO_REF);
 		assert(typeIndex);
 
-		unsigned char sourceReg = GetArgumentRegister(ctx, lowFunction, lowBlock, pointer);
+		SmallArray<unsigned char, 8> sourceRegs;
+		GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, pointer);
+
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		lowBlock->AddInstruction(ctx, inst->source, rviConvertPtr, targetReg, 0, sourceReg, typeIndex->iValue);
+		lowBlock->AddInstruction(ctx, inst->source, rviConvertPtr, targetReg, sourceRegs[0], sourceRegs[1], typeIndex->iValue);
 	}
 	break;
 	case VM_INST_ABORT_NO_RETURN:

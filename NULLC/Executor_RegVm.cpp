@@ -1110,8 +1110,9 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			regFilePtr[cmd.rA].intValue = !regFilePtr[cmd.rC].longValue;
 			break;
 		case rviConvertPtr:
-			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
-			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrPointer);
 
 			if(!rvm->ExecConvertPtr(cmd, instruction, regFilePtr))
 				return rvrError;
@@ -1717,7 +1718,7 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 
 bool ExecutorRegVm::ExecConvertPtr(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr)
 {
-	unsigned typeId = regFilePtr[cmd.rC].intValue;
+	unsigned typeId = regFilePtr[cmd.rB].intValue;
 
 	if(!ConvertFromAutoRef(cmd.argument, typeId))
 	{
@@ -1729,6 +1730,8 @@ bool ExecutorRegVm::ExecConvertPtr(const RegVmCmd cmd, RegVmCmd * const instruct
 
 		return false;
 	}
+
+	regFilePtr[cmd.rA].ptrValue = regFilePtr[cmd.rC].ptrValue;
 
 	return true;
 }

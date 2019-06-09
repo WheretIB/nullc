@@ -442,7 +442,11 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 	case rviConvertPtr:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
+		PrintRegister(ctx, rB);
+		Print(ctx, ", ");
 		PrintRegister(ctx, rC);
+		Print(ctx, ", ");
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviCheckRet:
 		break;
