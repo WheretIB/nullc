@@ -1,15 +1,6 @@
 #include "Executor_RegVm.h"
 
-//#include "Executor_Common.h"
-
-void CommonSetLinker(Linker* linker);
-bool AreMembersAligned(ExternTypeInfo *lType, Linker *exLinker);
-bool HasIntegerMembersInRange(ExternTypeInfo &type, unsigned fromOffset, unsigned toOffset, Linker *linker);
-
-void	SetUnmanagableRange(char* base, unsigned int size);
-int		IsPointerUnmanaged(NULLCRef ptr);
-void	MarkUsedBlocks();
-void	ResetGC();
+#include "Executor_Common.h"
 
 #include "nullc_debug.h"
 #include "StdLib.h"
@@ -100,6 +91,9 @@ namespace
 	}
 }
 
+#define REGVM_DEBUG(x)
+//#define REGVM_DEBUG(x) x
+
 ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions)
 {
 	codeRunning = false;
@@ -136,11 +130,6 @@ ExecutorRegVm::~ExecutorRegVm()
 	if(dcCallVM)
 		dcFree(dcCallVM);
 }
-
-#define REGVM_DEBUG(x)
-//#define REGVM_DEBUG(x) x
-
-//#define RUNTIME_ERROR(test, desc)	if(test){ fcallStack.push_back(cmdStream); cmdStream = NULL; strcpy(execError, desc); break; }
 
 void ExecutorRegVm::InitExecution()
 {
@@ -375,7 +364,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 		switch(cmd.code)
 		{
 		case rviNop:
-			instruction = rvm->ExecNop(cmd, instruction + 1, regFilePtr);
+			instruction = rvm->ExecNop(cmd, instruction, regFilePtr);
 
 			if(!instruction)
 				return rvrError;
@@ -386,11 +375,17 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
+			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
+
 			regFilePtr[cmd.rA].intValue = *(char*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
 			break;
 		case rviLoadWord:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].intValue = *(short*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
 			break;
@@ -398,11 +393,17 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
+			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
+
 			regFilePtr[cmd.rA].intValue = *(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
 			break;
 		case rviLoadLong:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].longValue = vmLoadLong((void*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument));
 			break;
@@ -410,11 +411,17 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
+			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
+
 			regFilePtr[cmd.rA].doubleValue = *(float*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
 			break;
 		case rviLoadDouble:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].doubleValue = *(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
 			break;
@@ -443,11 +450,17 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 
+			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
+
 			*(char*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = (char)regFilePtr[cmd.rA].intValue;
 			break;
 		case rviStoreWord:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+
+			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(short*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = (short)regFilePtr[cmd.rA].intValue;
 			break;
@@ -455,11 +468,17 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 
+			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
+
 			*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = regFilePtr[cmd.rA].intValue;
 			break;
 		case rviStoreLong:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrLong));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+
+			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = regFilePtr[cmd.rA].longValue;
 			break;
@@ -467,11 +486,17 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrDouble));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 
+			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
+
 			*(float*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = (float)regFilePtr[cmd.rA].doubleValue;
 			break;
 		case rviStoreDouble:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrDouble));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+
+			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = regFilePtr[cmd.rA].doubleValue;
 			break;
@@ -537,6 +562,9 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[(cmd.argument >> 16) & 0xff].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrPointer);
 
+			if(regFilePtr[cmd.rB].intValue >= regFilePtr[(cmd.argument >> 16) & 0xff].intValue)
+				return rvm->ExecError(instruction, "ERROR: array index out of bounds");
+
 			regFilePtr[cmd.rA].ptrValue = regFilePtr[cmd.rC].ptrValue + regFilePtr[cmd.rB].intValue * (cmd.argument & 0xffff);
 			break;
 		case rviGetAddr:
@@ -546,7 +574,49 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			regFilePtr[cmd.rA].ptrValue = regFilePtr[cmd.rC].ptrValue + cmd.argument;
 			break;
 		case rviSetRange:
-			//printf("%4d: unhandled rviSetRange\n", int(instruction - codeBase));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+
+			switch(RegVmSetRangeType(cmd.rB))
+			{
+			case rvsrDouble:
+				REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrDouble));
+
+				for(unsigned i = 0; i < cmd.argument; i++)
+					((double*)regFilePtr[cmd.rC].ptrValue)[i] = regFilePtr[cmd.rA].doubleValue;
+				break;
+			case rvsrFloat:
+				REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrDouble));
+
+				for(unsigned i = 0; i < cmd.argument; i++)
+					((float*)regFilePtr[cmd.rC].ptrValue)[i] = (float)regFilePtr[cmd.rA].doubleValue;
+				break;
+			case rvsrLong:
+				REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrLong));
+
+				for(unsigned i = 0; i < cmd.argument; i++)
+					((long long*)regFilePtr[cmd.rC].ptrValue)[i] = regFilePtr[cmd.rA].longValue;
+				break;
+			case rvsrInt:
+				REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
+
+				for(unsigned i = 0; i < cmd.argument; i++)
+					((int*)regFilePtr[cmd.rC].ptrValue)[i] = regFilePtr[cmd.rA].intValue;
+				break;
+			case rvsrShort:
+				REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
+
+				for(unsigned i = 0; i < cmd.argument; i++)
+					((short*)regFilePtr[cmd.rC].ptrValue)[i] = (short)regFilePtr[cmd.rA].intValue;
+				break;
+			case rvsrChar:
+				REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
+
+				for(unsigned i = 0; i < cmd.argument; i++)
+					((char*)regFilePtr[cmd.rC].ptrValue)[i] = (char)regFilePtr[cmd.rA].intValue;
+				break;
+			default:
+				assert(!"unknown type");
+			}
 			break;
 		case rviJmp:
 #ifdef _M_X64
@@ -615,7 +685,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			tempStackPtr += 2;
 			break;
 		case rviCall:
-			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, cmd.argument, instruction + 1, regFilePtr, tempStackPtr);
+			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, cmd.argument, instruction, regFilePtr, tempStackPtr);
 
 			if(!tempStackPtr)
 				return rvrError;
@@ -624,14 +694,17 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 		case rviCallPtr:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 
-			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, regFilePtr[cmd.rC].intValue, instruction + 1, regFilePtr, tempStackPtr);
+			if(regFilePtr[cmd.rC].intValue == 0)
+				return rvm->ExecError(instruction, "ERROR: invalid function pointer");
+
+			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, regFilePtr[cmd.rC].intValue, instruction, regFilePtr, tempStackPtr);
 
 			if(!tempStackPtr)
 				return rvrError;
 
 			break;
 		case rviReturn:
-			return rvm->ExecReturn(cmd, instruction + 1);
+			return rvm->ExecReturn(cmd, instruction);
 		case rviAdd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
@@ -670,15 +743,25 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
+			if(regFilePtr[cmd.rC].intValue == 0)
+				return rvm->ExecError(instruction, "ERROR: integer division by zero");
+
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue / regFilePtr[cmd.rC].intValue;
 			break;
 		case rviPow:
-			//printf("%4d: unhandled rviPow\n", int(instruction - codeBase));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			regFilePtr[cmd.rA].intValue = vmIntPow(regFilePtr[cmd.rC].intValue, regFilePtr[cmd.rB].intValue);
 			break;
 		case rviMod:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			if(regFilePtr[cmd.rC].intValue == 0)
+				return rvm->ExecError(instruction, "ERROR: integer division by zero");
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue % regFilePtr[cmd.rC].intValue;
 			break;
@@ -809,7 +892,11 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue / regFilePtr[cmd.rC].longValue;
 			break;
 		case rviPowl:
-			//printf("%4d: unhandled rviPowl\n", int(instruction - codeBase));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			regFilePtr[cmd.rA].longValue = vmLongPow(regFilePtr[cmd.rC].longValue, regFilePtr[cmd.rB].longValue);
 			break;
 		case rviModl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -931,10 +1018,18 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue / regFilePtr[cmd.rC].doubleValue;
 			break;
 		case rviPowd:
-			//printf("%4d: unhandled rviPowd\n", int(instruction - codeBase));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = pow(regFilePtr[cmd.rB].doubleValue, regFilePtr[cmd.rC].doubleValue);
 			break;
 		case rviModd:
-			//printf("%4d: unhandled rviModd\n", int(instruction - codeBase));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			regFilePtr[cmd.rA].doubleValue = fmod(regFilePtr[cmd.rB].doubleValue, regFilePtr[cmd.rC].doubleValue);
 			break;
 		case rviLessd:
 
@@ -1025,10 +1120,15 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			regFilePtr[cmd.rA].longValue = !regFilePtr[cmd.rC].longValue;
 			break;
 		case rviConvertPtr:
-			//printf("%4d: unhandled rviConvertPtr\n", int(instruction - codeBase));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
+
+			if(!rvm->ExecConvertPtr(cmd, instruction, regFilePtr))
+				return rvrError;
+
 			break;
 		case rviCheckRet:
-			//printf("%4d: unhandled rviCheckRet\n", int(instruction - codeBase));
+			rvm->ExecCheckedReturn(cmd, regFilePtr, tempStackPtr);
 			break;
 		default:
 #if defined(_MSC_VER)
@@ -1371,23 +1471,35 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 {
 	if(cmd.rB == EXEC_BREAK_SIGNAL || cmd.rB == EXEC_BREAK_ONCE)
 	{
-		//RUNTIME_ERROR(breakFunction == NULL, "ERROR: break function isn't set");
+		if(breakFunction == NULL)
+		{
+			ExecError(instruction, "ERROR: break function isn't set");
+			return NULL;
+		}
 
 		unsigned target = cmd.argument;
-		callStack.push_back(instruction);
+		callStack.push_back(instruction + 1);
 
-		//RUNTIME_ERROR(instruction < codeBase || instruction > exLinker->exRegVmCode.data + exLinker->exRegVmCode.size() + 1, "ERROR: break position is out of range");
+		if(instruction < codeBase || instruction > exLinker->exRegVmCode.data + exLinker->exRegVmCode.size())
+		{
+			ExecError(instruction, "ERROR: break position is out of range");
+			return NULL;
+		}
 
-		unsigned response = breakFunction(breakFunctionContext, unsigned(instruction - codeBase - 1));
+		unsigned response = breakFunction(breakFunctionContext, unsigned(instruction - codeBase));
 		callStack.pop_back();
 
-		//RUNTIME_ERROR(response == NULLC_BREAK_STOP, "ERROR: execution was stopped after breakpoint");
+		if(response == NULLC_BREAK_STOP)
+		{
+			ExecError(instruction, "ERROR: execution was stopped after breakpoint");
+			return NULL;
+		}
 
 		// Step command - set breakpoint on the next instruction, if there is no breakpoint already
 		if(response)
 		{
 			// Next instruction for step command
-			RegVmCmd *nextCommand = instruction;
+			RegVmCmd *nextCommand = instruction + 1;
 
 			// Step command - handle unconditional jump step
 			if(breakCode[target].code == rviJmp)
@@ -1422,9 +1534,9 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 		// This flag means that breakpoint works only once
 		if(cmd.rB == EXEC_BREAK_ONCE)
 		{
-			*(instruction - 1) = breakCode[target];
+			*instruction = breakCode[target];
 
-			return instruction - 1;
+			return instruction;
 		}
 
 		// Jump to external code
@@ -1442,7 +1554,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 
 	if(address == EXTERNAL_FUNCTION)
 	{
-		callStack.push_back(instruction);
+		callStack.push_back(instruction + 1);
 
 		// Take arguments
 		tempStackPtr -= target.bytesToPop >> 2;
@@ -1486,7 +1598,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		return tempStackPtr;
 	}
 
-	callStack.push_back(instruction);
+	callStack.push_back(instruction + 1);
 
 	unsigned prevDataSize = dataStack.size();
 
@@ -1509,7 +1621,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 
 	// If parameter stack was reallocated
 	if(dataStack.size() + argumentsSize >= oldSize)
-		ExtendParameterStack(oldBase, oldSize, instruction);
+		ExtendParameterStack(oldBase, oldSize, instruction + 1);
 
 	unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
@@ -1534,7 +1646,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		if(stackSize - argumentsSize)
 			memset(dataStack.data + dataStack.size() + argumentsSize, 0, stackSize - argumentsSize);
 
-		ExtendParameterStack(oldBase, oldSize, instruction);
+		ExtendParameterStack(oldBase, oldSize, instruction + 1);
 	}
 	else
 	{
@@ -1588,10 +1700,9 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 {
 	if(cmd.rB == rvrError)
 	{
-		//instruction = NULL;
 		bool errorState = !callStack.empty();
 
-		callStack.push_back(instruction);
+		callStack.push_back(instruction + 1);
 
 		if(errorState)
 			strcpy(execError, "ERROR: function didn't return a value");
@@ -1612,6 +1723,67 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 	callStack.pop_back();
 
 	return RegVmReturnType(cmd.rB);
+}
+
+bool ExecutorRegVm::ExecConvertPtr(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr)
+{
+	unsigned typeId = regFilePtr[cmd.rC].intValue;
+
+	if(!ConvertFromAutoRef(cmd.argument, typeId))
+	{
+		callStack.push_back(instruction + 1);
+
+		codeRunning = false;
+
+		NULLC::SafeSprintf(execError, 1024, "ERROR: cannot convert from %s ref to %s ref", &exLinker->exSymbols[exLinker->exTypes[typeId].offsetToName], &exLinker->exSymbols[exLinker->exTypes[cmd.argument].offsetToName]);
+
+		return false;
+	}
+
+	return true;
+}
+
+void ExecutorRegVm::ExecCheckedReturn(const RegVmCmd cmd, RegVmRegister * const regFilePtr, unsigned * const tempStackPtr)
+{
+	char *returnValuePtr = (char*)tempStackPtr - NULLC_PTR_SIZE;
+
+	uintptr_t ptr = (uintptr_t)vmLoadPointer(returnValuePtr);
+
+	uintptr_t frameBase = regFilePtr[rvrrFrame].ptrValue;
+	uintptr_t frameEnd = regFilePtr[rvrrGlobals].ptrValue + dataStack.size();
+
+	if(ptr >= frameBase && ptr <= frameEnd)
+	{
+		ExternTypeInfo &type = exLinker->exTypes[cmd.argument];
+
+		if(type.arrSize == ~0u)
+		{
+			unsigned length = *(int*)(returnValuePtr + sizeof(void*));
+
+			char *copy = (char*)NULLC::AllocObject(exLinker->exTypes[type.subType].size * length);
+			memcpy(copy, returnValuePtr, unsigned(exLinker->exTypes[type.subType].size * length));
+			vmStorePointer(returnValuePtr, copy);
+		}
+		else
+		{
+			unsigned objSize = type.size;
+
+			char *copy = (char*)NULLC::AllocObject(objSize);
+			memcpy(copy, returnValuePtr, objSize);
+			vmStorePointer(returnValuePtr, copy);
+		}
+	}
+}
+
+RegVmReturnType ExecutorRegVm::ExecError(RegVmCmd * const instruction, const char *errorMessage)
+{
+	callStack.push_back(instruction + 1);
+
+	codeRunning = false;
+
+	strcpy(execError, errorMessage);
+
+	return rvrError;
 }
 
 namespace

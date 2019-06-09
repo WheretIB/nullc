@@ -93,6 +93,10 @@ private:
 	RegVmCmd* ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr);
 	unsigned* ExecCall(unsigned char resultReg, unsigned char resultType, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr);
 	RegVmReturnType ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction);
+	bool ExecConvertPtr(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr);
+	void ExecCheckedReturn(const RegVmCmd cmd, RegVmRegister * const regFilePtr, unsigned * const tempStackPtr);
+
+	RegVmReturnType ExecError(RegVmCmd * const instruction, const char *errorMessage);
 
 	void FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType);
 	void FixupArray(char* ptr, const ExternTypeInfo& type);
