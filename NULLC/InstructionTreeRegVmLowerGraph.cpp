@@ -337,19 +337,6 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 		PrintConstant(ctx, argument, constant);
 		break;
 	case rviSub:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rC);
-		break;
-	case rviSubImm:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", ");
-		PrintConstant(ctx, argument, constant);
-		break;
 	case rviMul:
 	case rviDiv:
 	case rviPow:
@@ -381,19 +368,6 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 		PrintConstant(ctx, argument, constant);
 		break;
 	case rviSubl:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rC);
-		break;
-	case rviSubImml:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", ");
-		PrintConstant(ctx, argument, constant);
-		break;
 	case rviMull:
 	case rviDivl:
 	case rviPowl:
