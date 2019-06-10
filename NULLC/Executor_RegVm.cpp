@@ -322,12 +322,18 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 	switch(lastResultType)
 	{
 	case rvrInt:
+		REGVM_DEBUG(lastResult.activeType = rvrInt);
+
 		lastResult.intValue = tempStackPtr[0];
 		break;
 	case rvrDouble:
+		REGVM_DEBUG(lastResult.activeType = rvrDouble);
+
 		lastResult.doubleValue = vmLoadDouble(tempStackPtr);
 		break;
 	case rvrLong:
+		REGVM_DEBUG(lastResult.activeType = rvrLong);
+
 		lastResult.longValue = vmLoadLong(tempStackPtr);
 		break;
 	default:
