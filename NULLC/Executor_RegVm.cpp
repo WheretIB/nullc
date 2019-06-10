@@ -107,6 +107,7 @@ ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker-
 	currentFrame = 0;
 
 	tempStackArrayBase = NULL;
+	tempStackLastTop = NULL;
 	tempStackArrayEnd = NULL;
 
 	regFileArrayBase = NULL;
@@ -166,12 +167,16 @@ void ExecutorRegVm::InitExecution()
 		tempStackArrayEnd = tempStackArrayBase + 1024 * 16;
 	}
 
+	tempStackLastTop = tempStackArrayBase;
+
 	if(!regFileArrayBase)
 	{
 		regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 16);
 		memset(regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 16);
 		regFileArrayEnd = regFileArrayBase + 1024 * 16;
 	}
+
+	regFileLastTop = regFileArrayBase;
 
 	if(!dcCallVM)
 	{
@@ -198,10 +203,12 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 	unsigned prevLastFinalReturn = lastFinalReturn;
 	lastFinalReturn = callStack.size();
 
-	RegVmRegister *regFilePtr = regFileArrayBase;
+	unsigned prevDataSize = dataStack.size();
+
+	RegVmRegister *regFilePtr = regFileLastTop;
 	RegVmRegister *regFileTop = regFilePtr + 256;
 
-	unsigned *tempStackPtr = tempStackArrayBase;
+	unsigned *tempStackPtr = tempStackLastTop;
 
 	if(functionID != ~0u)
 	{
@@ -249,17 +256,57 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 			char* oldBase = dataStack.data;
 			unsigned oldSize = dataStack.max;
 
-			unsigned paramSize = target.bytesToPop;
+			unsigned argumentsSize = target.bytesToPop;
+
 			// Keep stack frames aligned to 16 byte boundary
 			unsigned alignOffset = (dataStack.size() % 16 != 0) ? (16 - (dataStack.size() % 16)) : 0;
+
 			// Reserve new stack frame
-			dataStack.reserve(dataStack.size() + alignOffset + paramSize);
+			dataStack.reserve(dataStack.size() + alignOffset + argumentsSize);
+
 			// Copy arguments to new stack frame
-			memcpy((char*)(dataStack.data + dataStack.size() + alignOffset), arguments, paramSize);
+			memcpy((char*)(dataStack.data + dataStack.size() + alignOffset), arguments, argumentsSize);
 
 			// Ensure that stack is resized, if needed
-			if(dataStack.size() + alignOffset + paramSize >= oldSize)
+			if(dataStack.size() + alignOffset + argumentsSize >= oldSize)
 				ExtendParameterStack(oldBase, oldSize, instruction);
+
+			unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
+
+			regFilePtr = regFileLastTop;
+			regFileTop = regFilePtr + target.regVmRegisters;
+
+			REGVM_DEBUG(regFilePtr[rvrrGlobals].activeType = rvrPointer);
+			REGVM_DEBUG(regFilePtr[rvrrFrame].activeType = rvrPointer);
+
+			assert(dataStack.size() % 16 == 0);
+
+			if(dataStack.size() + stackSize >= dataStack.max)
+			{
+				char* oldBase = dataStack.data;
+				unsigned oldSize = dataStack.max;
+
+				dataStack.resize(dataStack.size() + stackSize);
+
+				assert(argumentsSize <= stackSize);
+
+				if(stackSize - argumentsSize)
+					memset(dataStack.data + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
+
+				ExtendParameterStack(oldBase, oldSize, instruction + 1);
+			}
+			else
+			{
+				dataStack.resize(dataStack.size() + stackSize);
+
+				assert(argumentsSize <= stackSize);
+
+				if(stackSize - argumentsSize)
+					memset(dataStack.data + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
+			}
+
+			regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
+			regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevDataSize);
 		}
 	}
 	else
@@ -275,9 +322,19 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data);
 	}
 
+	RegVmRegister *prevRegFileLastTop = regFileLastTop;
+
 	regFileLastTop = regFileTop;
 
+	tempStackLastTop = tempStackPtr;
+
 	RegVmReturnType resultType = instruction ? RunCode(instruction, regFilePtr, tempStackPtr, this, codeBase) : retType;
+
+	regFileLastTop = prevRegFileLastTop;
+
+	assert(tempStackLastTop == tempStackPtr);
+
+	dataStack.shrink(prevDataSize);
 
 	if(resultType == rvrError)
 	{
@@ -1556,6 +1613,10 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		// Take arguments
 		tempStackPtr -= target.bytesToPop >> 2;
 
+		unsigned *tempStackTop = tempStackLastTop;
+
+		tempStackLastTop = tempStackPtr;
+
 		if(target.funcPtrWrap)
 		{
 			target.funcPtrWrap(target.funcPtrWrapTarget, (char*)tempStackPtr, (char*)tempStackPtr);
@@ -1568,6 +1629,8 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 			if(!RunExternalFunction(functionId, tempStackPtr))
 				return NULL;
 		}
+
+		tempStackLastTop = tempStackTop;
 
 		callStack.pop_back();
 

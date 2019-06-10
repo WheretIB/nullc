@@ -70,6 +70,7 @@ private:
 
 	// Stack for call argument/return result data
 	unsigned	*tempStackArrayBase;
+	unsigned	*tempStackLastTop;
 	unsigned	*tempStackArrayEnd;
 
 	// Register file
