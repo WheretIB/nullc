@@ -798,18 +798,26 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, constant);
 			}
-			else if(inst->arguments[0]->type == VmType::Double && constant->dValue == 0.0)
+			else if(inst->arguments[0]->type == VmType::Double)
 			{
-				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
-				lowBlock->AddInstruction(ctx, inst->source, rviLoadImmDouble, targetReg, 0, 0, 0u);
+				unsigned data[2];
+				memcpy(data, &constant->dValue, 8);
+
+				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, data[0]);
+				lowBlock->AddInstruction(ctx, inst->source, rviLoadImmDouble, targetReg, 0, 0, data[1]);
 			}
-			else if(inst->arguments[0]->type == VmType::Long && constant->lValue == 0ll)
+			else if(inst->arguments[0]->type == VmType::Long)
 			{
-				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
-				lowBlock->AddInstruction(ctx, inst->source, rviLoadImmLong, targetReg, 0, 0, 0u);
+				unsigned data[2];
+				memcpy(data, &constant->lValue, 8);
+
+				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, data[0]);
+				lowBlock->AddInstruction(ctx, inst->source, rviLoadImmLong, targetReg, 0, 0, data[1]);
 			}
 			else if(inst->arguments[0]->type.type == VM_TYPE_POINTER)
 			{
+				assert(!constant->container);
+
 				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
 
 				if(NULLC_PTR_SIZE == 8)
