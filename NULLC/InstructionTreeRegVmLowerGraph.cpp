@@ -649,6 +649,8 @@ void PrintFunction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredFunction 
 		PrintLine(ctx.output, ")");
 
 		PrintLine(ctx.output, "// argument size %lld", fData->argumentsSize);
+		PrintLine(ctx.output, "// stack size %lld", fData->stackSize);
+		PrintLine(ctx.output, "// register count %d (r0-r%d)", fData->vmFunction->regVmRegisters, fData->vmFunction->regVmRegisters - 1);
 	}
 	else
 	{

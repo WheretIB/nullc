@@ -2942,7 +2942,7 @@ void RegFinalizeBlock(InstructionRegVmFinalizeContext &ctx, RegVmLoweredBlock *l
 void RegFinalizeFunction(InstructionRegVmFinalizeContext &ctx, RegVmLoweredFunction *lowFunction)
 {
 	lowFunction->vmFunction->regVmAddress = ctx.cmds.size();
-	lowFunction->vmFunction->regVmRegisters = lowFunction->nextRegister == 0 ? 255 : lowFunction->nextRegister - 1;
+	lowFunction->vmFunction->regVmRegisters = lowFunction->nextRegister == 0 ? 256 : lowFunction->nextRegister;
 
 	for(unsigned i = 0; i < lowFunction->blocks.size(); i++)
 	{
