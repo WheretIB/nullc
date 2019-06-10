@@ -2260,30 +2260,60 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		else if(inst->type.type == VM_TYPE_AUTO_ARRAY)
 		{
-			unsigned char typeReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-
-			SmallArray<unsigned char, 8> arrayRegs;
-			GetArgumentRegisters(ctx, lowFunction, lowBlock, arrayRegs, inst->arguments[1]);
-
-			if(!lowFunction->TransferRegisterTo(inst, typeReg))
+			if(inst->arguments.size() == 2)
 			{
-				unsigned char copyReg = lowFunction->AllocateRegister(inst, 0, false);
+				unsigned char typeReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
 
-				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, typeReg);
+				SmallArray<unsigned char, 8> arrayRegs;
+				GetArgumentRegisters(ctx, lowFunction, lowBlock, arrayRegs, inst->arguments[1]);
+
+				if(!lowFunction->TransferRegisterTo(inst, typeReg))
+				{
+					unsigned char copyReg = lowFunction->AllocateRegister(inst, 0, false);
+
+					lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, typeReg);
+				}
+
+				if(!lowFunction->TransferRegisterTo(inst, arrayRegs[0]))
+				{
+					unsigned char copyReg = lowFunction->AllocateRegister(inst, 1, false);
+
+					lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, arrayRegs[0]);
+				}
+
+				if(!lowFunction->TransferRegisterTo(inst, arrayRegs[1]))
+				{
+					unsigned char copyReg = lowFunction->AllocateRegister(inst, 2, true);
+
+					lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, arrayRegs[1]);
+				}
 			}
-
-			if(!lowFunction->TransferRegisterTo(inst, arrayRegs[0]))
+			else
 			{
-				unsigned char copyReg = lowFunction->AllocateRegister(inst, 1, false);
+				unsigned char typeReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
+				unsigned char ptrReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+				unsigned char sizeReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[2]);
 
-				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, arrayRegs[0]);
-			}
+				if(!lowFunction->TransferRegisterTo(inst, typeReg))
+				{
+					unsigned char copyReg = lowFunction->AllocateRegister(inst, 0, false);
 
-			if(!lowFunction->TransferRegisterTo(inst, arrayRegs[1]))
-			{
-				unsigned char copyReg = lowFunction->AllocateRegister(inst, 2, true);
+					lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, typeReg);
+				}
 
-				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, arrayRegs[1]);
+				if(!lowFunction->TransferRegisterTo(inst, ptrReg))
+				{
+					unsigned char copyReg = lowFunction->AllocateRegister(inst, 1, false);
+
+					lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, ptrReg);
+				}
+
+				if(!lowFunction->TransferRegisterTo(inst, sizeReg))
+				{
+					unsigned char copyReg = lowFunction->AllocateRegister(inst, 2, true);
+
+					lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, sizeReg);
+				}
 			}
 		}
 		else
