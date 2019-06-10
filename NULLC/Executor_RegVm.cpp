@@ -1658,6 +1658,8 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		return tempStackPtr;
 	}
 
+	uintptr_t prevStackFrameOffset = regFilePtr[rvrrFrame].ptrValue - regFilePtr[rvrrGlobals].ptrValue;
+
 	callStack.push_back(instruction + 1);
 
 	unsigned prevDataSize = dataStack.size();
@@ -1722,6 +1724,10 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 	regFileTop[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevDataSize);
 
 	RegVmReturnType execResultType = RunCode(codeBase + address, regFileTop, tempStackPtr, this, codeBase);
+
+	// Call might have extended the stack inside, global and stack frame pointers must be updated
+	regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
+	regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevStackFrameOffset);
 
 	if(execResultType == rvrError)
 		return NULL;
