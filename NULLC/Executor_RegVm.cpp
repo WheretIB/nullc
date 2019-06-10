@@ -1641,7 +1641,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		assert(argumentsSize <= stackSize);
 
 		if(stackSize - argumentsSize)
-			memset(dataStack.data + dataStack.size() + argumentsSize, 0, stackSize - argumentsSize);
+			memset(dataStack.data + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
 
 		ExtendParameterStack(oldBase, oldSize, instruction + 1);
 	}
@@ -1652,7 +1652,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		assert(argumentsSize <= stackSize);
 
 		if(stackSize - argumentsSize)
-			memset(dataStack.data + dataStack.size() + argumentsSize, 0, stackSize - argumentsSize);
+			memset(dataStack.data + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
 	}
 
 	regFileTop[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
