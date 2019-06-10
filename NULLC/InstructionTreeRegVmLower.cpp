@@ -246,7 +246,8 @@ bool RegVmLoweredFunction::TransferRegisterTo(VmValue *value, unsigned char reg)
 
 	assert(instruction);
 
-	assert(!IsNonLocalValue(instruction));
+	if(IsNonLocalValue(instruction))
+		return false;
 
 	for(unsigned i = 0; i < constantRegisters.size(); i++)
 	{

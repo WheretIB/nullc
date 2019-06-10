@@ -4572,7 +4572,7 @@ void RenameMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmBlock *b
 	{
 		if(IsMemoryLoadOfVariable(instruction, variable))
 		{
-			// Do not reorder instruction stream, perform a separate dead instruction elimination pass laters
+			// Do not reorder instruction stream, perform a separate dead instruction elimination pass later
 			instruction->canBeRemoved = false;
 
 			if(!block->prevSibling && stack.empty())
@@ -4587,7 +4587,17 @@ void RenameMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmBlock *b
 		{
 			if(VmInstruction *inst = getType<VmInstruction>(instruction->arguments[2]))
 			{
-				stack.push_back(inst);
+				module->currentBlock = block;
+				block->insertPoint = instruction->prevSibling;
+
+				VmValue *movInst = CreateBitcast(module, instruction->source, inst->type, inst);
+
+				movInst->comment = variable->name->name;
+
+				stack.push_back(getType<VmInstruction>(movInst));
+
+				block->insertPoint = block->lastInstruction;
+				module->currentBlock = NULL;
 			}
 			else if(VmConstant *constant = getType<VmConstant>(instruction->arguments[2]))
 			{
