@@ -557,7 +557,11 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_LOAD_STORE_PROPAGATION);
+		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_ARRAY_TO_ELEMENTS);
+		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
 	}
+
+	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_ARRAY_VALUES);
 
 	if(ctx.optimizationLevel >= 2)
 	{

@@ -323,14 +323,21 @@ namespace
 		return CreateInstruction(module, source, GetLoadResultType(ctx, type), GetLoadInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, offset));
 	}
 
-	VmValue* CreateStore(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, VmValue *address, VmValue *value)
+	VmValue* CreateStore(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, VmValue *address, VmValue *value, unsigned offset)
 	{
 		assert(value->type == GetVmType(ctx, type));
 
 		if(type->size == 0)
 			return CreateVoid(module);
 
-		return CreateInstruction(module, source, VmType::Void, GetStoreInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, 0), value);
+		if(VmConstant *constantAddress = getType<VmConstant>(address))
+		{
+			VmConstant *shiftAddress = CreateConstantPointer(module->allocator, source, constantAddress->iValue + offset, constantAddress->container, type, true);
+
+			return CreateInstruction(module, source, VmType::Void, GetStoreInstruction(ctx, type), shiftAddress, CreateConstantInt(ctx.allocator, source, 0), value);
+		}
+
+		return CreateInstruction(module, source, VmType::Void, GetStoreInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, offset), value);
 	}
 
 	VmValue* CreateCast(VmModule *module, SynBase *source, VmValue *value, VmType target)
@@ -2018,7 +2025,7 @@ VmValue* CompileVmArray(ExpressionContext &ctx, VmModule *module, ExprArray *nod
 
 			VmValue *address = CreateIndex(module, node->source, arrayLength, elementSize, storage, index, ctx.GetReferenceType(elementType));
 
-			CreateStore(ctx, module, node->source, elementType, address, element);
+			CreateStore(ctx, module, node->source, elementType, address, element, 0);
 
 			i++;
 		}
@@ -2062,7 +2069,7 @@ VmValue* CompileVmPreModify(ExpressionContext &ctx, VmModule *module, ExprPreMod
 	else
 		assert("!unknown type");
 
-	CreateStore(ctx, module, node->source, refType->subType, address, value);
+	CreateStore(ctx, module, node->source, refType->subType, address, value, 0);
 
 	return CheckType(ctx, node, value);
 }
@@ -2087,7 +2094,7 @@ VmValue* CompileVmPostModify(ExpressionContext &ctx, VmModule *module, ExprPostM
 	else
 		assert("!unknown type");
 
-	CreateStore(ctx, module, node->source, refType->subType, address, value);
+	CreateStore(ctx, module, node->source, refType->subType, address, value, 0);
 
 	return CheckType(ctx, node, result);
 }
@@ -2501,7 +2508,35 @@ VmValue* CompileVmAssignment(ExpressionContext &ctx, VmModule *module, ExprAssig
 
 	VmValue *initializer = CompileVm(ctx, module, node->rhs);
 
-	CreateStore(ctx, module, node->source, node->rhs->type, address, initializer);
+	if(VmInstruction *instInit = getType<VmInstruction>(initializer))
+	{
+		// Array initializers are compiled to per-element assignments
+		if(instInit->cmd == VM_INST_ARRAY)
+		{
+			TypeArray *typeArray = getType<TypeArray>(node->type);
+
+			TypeBase *elementType = typeArray->subType;
+
+			for(unsigned i = 0; i < instInit->arguments.size(); i++)
+			{
+				VmValue *element = instInit->arguments[i];
+
+				if(VmInstruction *elementInst = getType<VmInstruction>(element))
+				{
+					if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
+						element = elementInst->arguments[0];
+				}
+
+				CreateStore(ctx, module, node->source, elementType, address, element, unsigned(elementType->size * i));
+			}
+
+			VmValue *copy = CreateLoad(ctx, module, node->source, node->rhs->type, address, 0);
+
+			return CheckType(ctx, node, copy);
+		}
+	}
+
+	CreateStore(ctx, module, node->source, node->rhs->type, address, initializer, 0);
 
 	return CheckType(ctx, node, initializer);
 }
@@ -2614,7 +2649,7 @@ VmValue* CompileVmArraySetup(ExpressionContext &ctx, VmModule *module, ExprArray
 	VmBlock *bodyBlock = CreateBlock(module, node->source, "arr_setup_body");
 	VmBlock *exitBlock = CreateBlock(module, node->source, "arr_setup_exit");
 
-	CreateStore(ctx, module, node->source, ctx.typeInt, offsetPtr, CreateConstantInt(module->allocator, node->source, 0));
+	CreateStore(ctx, module, node->source, ctx.typeInt, offsetPtr, CreateConstantInt(module->allocator, node->source, 0), 0);
 
 	CreateJump(module, node->source, conditionBlock);
 
@@ -2634,8 +2669,8 @@ VmValue* CompileVmArraySetup(ExpressionContext &ctx, VmModule *module, ExprArray
 
 	VmValue *offset = CreateLoad(ctx, module, node->source, ctx.typeInt, offsetPtr, 0);
 
-	CreateStore(ctx, module, node->source, arrayType->subType, CreateMemberAccess(module, node->source, address, offset, ctx.GetReferenceType(arrayType->subType), InplaceStr()), initializer);
-	CreateStore(ctx, module, node->source, ctx.typeInt, offsetPtr, CreateAdd(module, node->source, offset, CreateConstantInt(module->allocator, node->source, int(arrayType->subType->size))));
+	CreateStore(ctx, module, node->source, arrayType->subType, CreateMemberAccess(module, node->source, address, offset, ctx.GetReferenceType(arrayType->subType), InplaceStr()), initializer, 0);
+	CreateStore(ctx, module, node->source, ctx.typeInt, offsetPtr, CreateAdd(module, node->source, offset, CreateConstantInt(module->allocator, node->source, int(arrayType->subType->size))), 0);
 
 	CreateJump(module, node->source, conditionBlock);
 
@@ -4798,6 +4833,72 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 	}
 }
 
+void RunArrayToElements(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		module->currentFunction = function;
+
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+			RunArrayToElements(ctx, module, curr);
+
+		module->currentFunction = NULL;
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		module->currentBlock = block;
+
+		for(VmInstruction *curr = block->firstInstruction; curr;)
+		{
+			// If replacement succeeds, we will continue from the same place to handle multi-level arrays
+			VmInstruction *next = curr->nextSibling;
+
+			if(curr->cmd == VM_INST_STORE_STRUCT)
+			{
+				VmValue *storeAddress = curr->arguments[0];
+				VmConstant *storeOffset = getType<VmConstant>(curr->arguments[1]);
+				VmInstruction *storeValue = getType<VmInstruction>(curr->arguments[2]);
+
+				if(storeValue)
+				{
+					if(storeValue->cmd == VM_INST_ARRAY && storeValue->users.size() == 1)
+					{
+						block->insertPoint = curr;
+
+						TypeArray *typeArray = getType<TypeArray>(storeValue->type.structType);
+
+						TypeBase *elementType = typeArray->subType;
+
+						for(unsigned i = 0; i < storeValue->arguments.size(); i++)
+						{
+							VmValue *element = storeValue->arguments[i];
+
+							if(VmInstruction *elementInst = getType<VmInstruction>(element))
+							{
+								if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
+									element = elementInst->arguments[0];
+							}
+
+							VmInstruction *storeInst = getType<VmInstruction>(CreateStore(ctx, module, curr->source, elementType, storeAddress, element, storeOffset->iValue + unsigned(elementType->size * i)));
+
+							if(i == 0)
+								next = storeInst;
+						}
+
+						block->insertPoint = block->lastInstruction;
+
+						block->RemoveInstruction(curr);
+					}
+				}
+			}
+
+			curr = next;
+		}
+
+		module->currentBlock = NULL;
+	}
+}
+
 void RunUpdateLiveSets(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	(void)ctx;
@@ -4893,7 +4994,7 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 
 		block->insertPoint = curr;
 
-		CreateStore(ctx, module, curr->source, type, address, curr);
+		CreateStore(ctx, module, curr->source, type, address, curr, 0);
 
 		block->insertPoint = block->lastInstruction;
 
@@ -4962,7 +5063,7 @@ void LegalizeVmInstructions(ExpressionContext &ctx, VmModule *module, VmBlock *b
 
 			block->insertPoint = curr;
 
-			CreateStore(ctx, module, curr->source, GetBaseType(ctx, target->type), address, target);
+			CreateStore(ctx, module, curr->source, GetBaseType(ctx, target->type), address, target, 0);
 
 			VmConstant *shiftAddress = CreateConstantPointer(module->allocator, curr->source, offset->iValue, address->container, ctx.GetReferenceType(GetBaseType(ctx, curr->type)), true);
 
@@ -5017,7 +5118,7 @@ void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *blo
 
 			edge->insertPoint = value;
 
-			CreateStore(ctx, module, value->source, GetBaseType(ctx, value->type), address, value);
+			CreateStore(ctx, module, value->source, GetBaseType(ctx, value->type), address, value, 0);
 
 			edge->insertPoint = edge->lastInstruction;
 
@@ -5035,6 +5136,67 @@ void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *blo
 		module->currentBlock = NULL;
 
 		curr = prev;
+	}
+}
+
+void RunLegalizeArrayValues(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		module->currentFunction = function;
+
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+			RunLegalizeArrayValues(ctx, module, curr);
+
+		module->currentFunction = NULL;
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		module->currentBlock = block;
+
+		for(VmInstruction *curr = block->firstInstruction; curr;)
+		{
+			// If replacement succeeds, we will continue from the same place to handle multi-level arrays
+			VmInstruction *next = curr->nextSibling;
+
+			if(curr->cmd == VM_INST_ARRAY)
+			{
+				TypeArray *typeArray = getType<TypeArray>(GetBaseType(ctx, curr->type));
+
+				TypeBase *elementType = typeArray->subType;
+
+				block->insertPoint = curr;
+
+				VmConstant *address = CreateAlloca(ctx, module, curr->source, GetBaseType(ctx, curr->type), "array");
+
+				FinalizeAlloca(ctx, module, address->container);
+
+				for(unsigned i = 0; i < curr->arguments.size(); i++)
+				{
+					VmValue *element = curr->arguments[i];
+
+					if(VmInstruction *elementInst = getType<VmInstruction>(element))
+					{
+						if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
+							element = elementInst->arguments[0];
+					}
+
+					CreateStore(ctx, module, curr->source, elementType, address, element, unsigned(elementType->size * i));
+				}
+
+				VmInstruction *loadInst = getType<VmInstruction>(CreateLoad(ctx, module, curr->source, GetBaseType(ctx, curr->type), address, 0));
+
+				next = loadInst;
+
+				ReplaceValueUsersWith(module, curr, loadInst, NULL);
+
+				block->insertPoint = block->lastInstruction;
+			}
+
+			curr = next;
+		}
+
+		module->currentBlock = NULL;
 	}
 }
 
@@ -5092,11 +5254,17 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 		case VM_PASS_OPT_MEMORY_TO_REGISTER:
 			RunMemoryToRegister(ctx, module, value);
 			break;
+		case VM_PASS_OPT_ARRAY_TO_ELEMENTS:
+			RunArrayToElements(ctx, module, value);
+			break;
 		case VM_PASS_UPDATE_LIVE_SETS:
 			RunUpdateLiveSets(ctx, module, value);
 			break;
 		case VM_PASS_CREATE_ALLOCA_STORAGE:
 			RunCreateAllocaStorage(ctx, module, value);
+			break;
+		case VM_PASS_LEGALIZE_ARRAY_VALUES:
+			RunLegalizeArrayValues(ctx, module, value);
 			break;
 		case VM_PASS_LEGALIZE_VM:
 			RunLegalizeVm(ctx, module, value);
