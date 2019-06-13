@@ -1558,6 +1558,8 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 							remainingSize -= 8;
 						}
 					}
+
+					assert(remainingSize == 0);
 				}
 			}
 		}
@@ -2323,6 +2325,8 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		break;
 	case VM_INST_ARRAY:
 	{
+		assert(!"must be lagalized");
+
 		assert(inst->arguments.size() <= 8);
 
 		unsigned index = 0;
