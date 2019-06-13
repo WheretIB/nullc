@@ -2716,30 +2716,30 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 	{
 		VmInstruction *liveOut = vmBlock->liveOut[i];
 
-		if(!liveOut->regVmRegisters.empty())
-			continue;
-
 		// If we are used by a phi instruction, it or other incoming values might already have allocated registers
-		for(unsigned userPos = 0; userPos < liveOut->users.size(); userPos++)
+		if(liveOut->regVmRegisters.empty())
 		{
-			if(VmInstruction *user = getType<VmInstruction>(liveOut->users[userPos]))
+			for(unsigned userPos = 0; userPos < liveOut->users.size(); userPos++)
 			{
-				if(user->cmd == VM_INST_PHI)
+				if(VmInstruction *user = getType<VmInstruction>(liveOut->users[userPos]))
 				{
-					if(!user->regVmRegisters.empty())
+					if(user->cmd == VM_INST_PHI)
 					{
-						CopyRegisters(liveOut, user);
-					}
-					else
-					{
-						for(unsigned argumentPos = 0; argumentPos < user->arguments.size(); argumentPos += 2)
+						if(!user->regVmRegisters.empty())
 						{
-							VmInstruction *instruction = getType<VmInstruction>(user->arguments[argumentPos]);
-
-							if(!instruction->regVmRegisters.empty())
+							CopyRegisters(liveOut, user);
+						}
+						else
+						{
+							for(unsigned argumentPos = 0; argumentPos < user->arguments.size(); argumentPos += 2)
 							{
-								CopyRegisters(liveOut, instruction);
-								break;
+								VmInstruction *instruction = getType<VmInstruction>(user->arguments[argumentPos]);
+
+								if(!instruction->regVmRegisters.empty())
+								{
+									CopyRegisters(liveOut, instruction);
+									break;
+								}
 							}
 						}
 					}
