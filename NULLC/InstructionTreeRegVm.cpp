@@ -40,6 +40,8 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "stored";
 	case rviCombinedd:
 		return "combdd";
+	case rviBreakupdd:
+		return "breakdd";
 	case rviMov:
 		return "mov";
 	case rviDtoi:

@@ -25,6 +25,7 @@ enum RegVmInstructionCode
 	rviStoreDouble,
 
 	rviCombinedd,
+	rviBreakupdd,
 	rviMov,
 
 	rviDtoi,

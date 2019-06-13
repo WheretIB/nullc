@@ -2424,6 +2424,85 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		break;
 	case VM_INST_BITCAST:
 	{
+		if((inst->arguments[0]->type.type == VM_TYPE_FUNCTION_REF || inst->arguments[0]->type.type == VM_TYPE_ARRAY_REF || inst->arguments[0]->type.type == VM_TYPE_AUTO_REF || inst->arguments[0]->type.type == VM_TYPE_AUTO_ARRAY) && inst->type.type == VM_TYPE_STRUCT)
+		{
+			SmallArray<unsigned char, 8> sourceRegs;
+			GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[0]);
+
+			if(NULLC_PTR_SIZE == 8)
+			{
+				if(inst->arguments[0]->type.type == VM_TYPE_FUNCTION_REF || inst->arguments[0]->type.type == VM_TYPE_ARRAY_REF)
+				{
+					unsigned index = 0;
+
+					if(!lowFunction->TransferRegisterTo(inst, sourceRegs[0]))
+					{
+						unsigned char copyReg = lowFunction->AllocateRegister(inst, index++, false);
+
+						lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, sourceRegs[0]);
+					}
+
+					if(!lowFunction->TransferRegisterTo(inst, sourceRegs[1]))
+					{
+						unsigned char copyReg = lowFunction->AllocateRegister(inst, index++, true);
+
+						lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, sourceRegs[1]);
+					}
+				}
+				else if(inst->arguments[0]->type.type == VM_TYPE_AUTO_REF)
+				{
+					unsigned char resRegA = lowFunction->AllocateRegister(inst, 0, false);
+					unsigned char resRegB = lowFunction->AllocateRegister(inst, 1, true);
+
+					unsigned char tempRegA = lowFunction->GetRegisterForConstant();
+
+					lowBlock->AddInstruction(ctx, inst->source, rviBreakupdd, tempRegA, resRegB, sourceRegs[1], 32u);
+
+					lowBlock->AddInstruction(ctx, inst->source, rviCombinedd, resRegA, sourceRegs[0], tempRegA);
+				}
+				else if(inst->arguments[0]->type.type == VM_TYPE_AUTO_ARRAY)
+				{
+					unsigned char resRegA = lowFunction->AllocateRegister(inst, 0, false);
+					unsigned char resRegB = lowFunction->AllocateRegister(inst, 1, true);
+
+					unsigned char tempRegA = lowFunction->GetRegisterForConstant();
+					unsigned char tempRegB = lowFunction->GetRegisterForConstant();
+
+					lowBlock->AddInstruction(ctx, inst->source, rviBreakupdd, tempRegA, tempRegB, sourceRegs[1], 32u);
+
+					lowBlock->AddInstruction(ctx, inst->source, rviCombinedd, resRegA, sourceRegs[0], tempRegA);
+					lowBlock->AddInstruction(ctx, inst->source, rviCombinedd, resRegB, tempRegB, sourceRegs[2]);
+				}
+			}
+			else
+			{
+				if(inst->arguments[0]->type.type == VM_TYPE_FUNCTION_REF || inst->arguments[0]->type.type == VM_TYPE_ARRAY_REF || inst->arguments[0]->type.type == VM_TYPE_AUTO_REF)
+				{
+					unsigned char combineReg = lowFunction->AllocateRegister(inst, 0, true);
+
+					lowBlock->AddInstruction(ctx, inst->source, rviCombinedd, combineReg, sourceRegs[0], sourceRegs[1]);
+				}
+				else if(inst->arguments[0]->type.type == VM_TYPE_AUTO_ARRAY)
+				{
+					unsigned char combineReg = lowFunction->AllocateRegister(inst, 0, false);
+
+					lowBlock->AddInstruction(ctx, inst->source, rviCombinedd, combineReg, sourceRegs[0], sourceRegs[1]);
+
+					if(!lowFunction->TransferRegisterTo(inst, sourceRegs[2]))
+					{
+						unsigned char copyReg = lowFunction->AllocateRegister(inst, 1, true);
+
+						lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, sourceRegs[2]);
+					}
+				}
+			}
+
+			break;
+		}
+
+		if((inst->type.type == VM_TYPE_FUNCTION_REF || inst->type.type == VM_TYPE_ARRAY_REF || inst->type.type == VM_TYPE_AUTO_REF || inst->type.type == VM_TYPE_AUTO_ARRAY) && inst->arguments[0]->type.type == VM_TYPE_STRUCT)
+			assert(!"can't bitcast structure to registers");
+
 		SmallArray<unsigned char, 8> sourceRegs;
 		GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[0]);
 

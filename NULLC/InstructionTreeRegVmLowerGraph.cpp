@@ -129,6 +129,7 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 		Print(ctx, "]");
 		break;
 	case rviCombinedd:
+	case rviBreakupdd:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
 		PrintRegister(ctx, rB);
