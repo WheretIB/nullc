@@ -5128,6 +5128,9 @@ void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *blo
 
 			edge->insertPoint = value;
 
+			while(edge->insertPoint->nextSibling && edge->insertPoint->nextSibling->cmd == VM_INST_PHI)
+				edge->insertPoint = edge->insertPoint->nextSibling;
+
 			CreateStore(ctx, module, value->source, GetBaseType(ctx, value->type), address, value, 0);
 
 			edge->insertPoint = edge->lastInstruction;
