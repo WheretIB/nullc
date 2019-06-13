@@ -2916,12 +2916,11 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 	{
 		VmInstruction *liveOut = liveOutUniqueStorage[i];
 
-		SmallArray<unsigned char, 8> result;
-		lowFunction->GetRegisters(result, liveOut);
+		assert(!liveOut->regVmRegisters.empty());
 
-		for(unsigned k = 0; k < result.size(); k++)
+		for(unsigned k = 0; k < liveOut->regVmRegisters.size(); k++)
 		{
-			unsigned char reg = result[k];
+			unsigned char reg = liveOut->regVmRegisters[k];
 
 			lowBlock->exitRegisters.push_back(reg);
 
