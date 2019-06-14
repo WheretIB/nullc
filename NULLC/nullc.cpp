@@ -1775,11 +1775,25 @@ nullres nullcDebugRemoveBreakpoint(unsigned int instruction)
 
 ExternFuncInfo* nullcDebugConvertAddressToFunction(int instruction, ExternFuncInfo* codeFunctions, unsigned functionCount)
 {
-	for(unsigned i = 0; i < functionCount; i++)
+	using namespace NULLC;
+
+	if(currExec == NULLC_VM || currExec == NULLC_X86)
 	{
-		if(instruction >= codeFunctions[i].vmAddress && instruction < (codeFunctions[i].vmAddress + codeFunctions[i].vmCodeSize))
-			return &codeFunctions[i];
+		for(unsigned i = 0; i < functionCount; i++)
+		{
+			if(instruction >= codeFunctions[i].vmAddress && instruction < (codeFunctions[i].vmAddress + codeFunctions[i].vmCodeSize))
+				return &codeFunctions[i];
+		}
 	}
+	else if(currExec == NULLC_REG_VM)
+	{
+		for(unsigned i = 0; i < functionCount; i++)
+		{
+			if(instruction >= codeFunctions[i].regVmAddress && instruction < (codeFunctions[i].regVmAddress + codeFunctions[i].regVmCodeSize))
+				return &codeFunctions[i];
+		}
+	}
+
 	return NULL;
 }
 

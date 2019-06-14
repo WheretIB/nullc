@@ -2151,7 +2151,7 @@ bool ExecutorRegVm::ExtendParameterStack(char* oldBase, unsigned oldSize, RegVmC
 
 		for(unsigned i = 0; i < exFunctions.size(); i++)
 		{
-			if(address >= exFunctions[i].vmAddress && address < (exFunctions[i].vmAddress + exFunctions[i].vmCodeSize))
+			if(address >= exFunctions[i].regVmAddress && address < (exFunctions[i].regVmAddress + exFunctions[i].regVmCodeSize))
 				funcID = i;
 		}
 

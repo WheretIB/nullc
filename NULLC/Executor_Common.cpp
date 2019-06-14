@@ -130,10 +130,24 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 	const char *source = &NULLC::commonLinker->exSource[0];
 	unsigned int infoSize = NULLC::commonLinker->exVmSourceInfo.size();
 
+	void *unknownExec = NULL;
+	unsigned int execID = nullcGetCurrentExecutor(&unknownExec);
+
 	int funcID = -1;
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
-		if(address >= exFunctions[i].vmAddress && address <= (exFunctions[i].vmAddress + exFunctions[i].vmCodeSize))
-			funcID = i;
+	{
+		if(execID == NULLC_REG_VM)
+		{
+			if(address >= exFunctions[i].regVmAddress && address < (exFunctions[i].regVmAddress + exFunctions[i].regVmCodeSize))
+				funcID = i;
+		}
+		else
+		{
+			if(address >= exFunctions[i].vmAddress && address <= (exFunctions[i].vmAddress + exFunctions[i].vmCodeSize))
+				funcID = i;
+		}
+	}
+
 	if(funcID != -1)
 		current += NULLC::SafeSprintf(current, bufSize - int(current - start), "%s", &exSymbols[exFunctions[funcID].offsetToName]);
 	else
@@ -810,9 +824,15 @@ namespace GC
 			return;
 
 		const ExternFuncInfo &func = NULLC::commonLinker->exFunctions[fPtr->id];
+
 		// External functions shouldn't be checked
 		if(func.vmAddress == -1)
+		{
+			assert(func.regVmAddress == -1);
 			return;
+		}
+
+		assert(func.regVmAddress != -1);
 
 		// If context is "this" pointer
 		if(func.contextType != ~0u)
@@ -884,7 +904,7 @@ void MarkUsedBlocks()
 	GC::curr->clear();
 	GC::next->clear();
 
-	// To check every stack frame, we have to get it first. But we have two different executors, so flow alternates depending on which executor we are running
+	// To check every stack frame, we have to get it first. But we have multiple executors, so flow alternates depending on which executor we are running
 	void *unknownExec = NULL;
 	unsigned int execID = nullcGetCurrentExecutor(&unknownExec);
 
@@ -990,9 +1010,15 @@ void MarkUsedBlocks()
 		}else{
 			for(unsigned int i = 0; i < NULLC::commonLinker->exFunctions.size(); i++)
 			{
-				if(address >= functions[i].vmAddress && address < (functions[i].vmAddress + functions[i].vmCodeSize))
+				if(execID == NULLC_REG_VM)
 				{
-					funcID = i;
+					if(address >= functions[i].regVmAddress && address < (functions[i].regVmAddress + functions[i].regVmCodeSize))
+						funcID = i;
+				}
+				else
+				{
+					if(address >= functions[i].vmAddress && address < (functions[i].vmAddress + functions[i].vmCodeSize))
+						funcID = i;
 				}
 			}
 
