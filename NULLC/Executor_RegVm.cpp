@@ -367,10 +367,9 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 			char *currPos = execError + strlen(execError);
 			currPos += NULLC::SafeSprintf(currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n", int(instruction - codeBase - 1));
 
-			// TODO:
-			/*BeginCallStack();
+			BeginCallStack();
 			while(unsigned address = GetNextAddress())
-				currPos += PrintStackFrame(address, currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), false);*/
+				currPos += PrintStackFrame(address, currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), false);
 		}
 
 		lastFinalReturn = prevLastFinalReturn;
