@@ -2854,9 +2854,6 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 			{
 				unsigned char reg = liveIn->regVmRegisters[k];
 
-				assert(lowFunction->registerUsers[reg] == 0);
-				lowFunction->registerUsers[reg]++;
-
 				assert(!lowBlock->entryRegisters.contains(reg));
 				lowBlock->entryRegisters.push_back(reg);
 			}
