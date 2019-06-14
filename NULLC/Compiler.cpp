@@ -584,6 +584,8 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_UPDATE_LIVE_SETS);
 
+	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_BITCASTS);
+
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_CREATE_ALLOCA_STORAGE);
 
 	if(ctx.enableLogFiles)

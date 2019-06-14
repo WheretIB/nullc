@@ -5213,6 +5213,49 @@ void RunLegalizeArrayValues(ExpressionContext &ctx, VmModule *module, VmValue* v
 	}
 }
 
+void RunLegalizeBitcasts(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		module->currentFunction = function;
+
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+			RunLegalizeBitcasts(ctx, module, curr);
+
+		module->currentFunction = NULL;
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		module->currentBlock = block;
+
+		for(VmInstruction *curr = block->firstInstruction; curr;)
+		{
+			VmInstruction *next = curr->nextSibling;
+
+			if(curr->cmd == VM_INST_BITCAST)
+			{
+				if(curr->arguments[0]->type.type == VM_TYPE_STRUCT && curr->type.type == VM_TYPE_DOUBLE)
+				{
+					TypeBase *type = GetBaseType(ctx, curr->type);
+
+					VmConstant *address = CreateAlloca(ctx, module, curr->source, type, "reg");
+
+					block->insertPoint = curr;
+
+					CreateStore(ctx, module, curr->source, GetBaseType(ctx, curr->arguments[0]->type), address, curr->arguments[0], 0);
+					VmValue *loadInst = CreateLoad(ctx, module, curr->source, type, address, 0);
+
+					block->insertPoint = block->lastInstruction;
+
+					ReplaceValueUsersWith(module, curr, loadInst, NULL);
+				}
+			}
+
+			curr = next;
+		}
+	}
+}
+
 void RunLegalizeVm(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
@@ -5278,6 +5321,9 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 			break;
 		case VM_PASS_LEGALIZE_ARRAY_VALUES:
 			RunLegalizeArrayValues(ctx, module, value);
+			break;
+		case VM_PASS_LEGALIZE_BITCASTS:
+			RunLegalizeBitcasts(ctx, module, value);
 			break;
 		case VM_PASS_LEGALIZE_VM:
 			RunLegalizeVm(ctx, module, value);
