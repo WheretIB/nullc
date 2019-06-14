@@ -1422,6 +1422,7 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 			}
 			break;
 		case VM_INST_BITCAST:
+		case VM_INST_MOV:
 			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
 			break;
 		default:

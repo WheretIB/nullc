@@ -698,6 +698,11 @@ namespace
 		return CreateInstruction(module, source, type, VM_INST_BITCAST, value, NULL, NULL, NULL);
 	}
 
+	VmValue* CreateMov(VmModule *module, SynBase *source, VmType type, VmValue *value)
+	{
+		return CreateInstruction(module, source, type, VM_INST_MOV, value, NULL, NULL, NULL);
+	}
+
 	VmConstant* CreateAlloca(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, const char *suffix)
 	{
 		ScopeData *scope = module->currentFunction->function ? module->currentFunction->function->functionScope : ctx.globalScope;
@@ -4564,9 +4569,11 @@ bool IsArgumentVariable(FunctionData *function, VariableData *data)
 	return false;
 }
 
-void RenameMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmBlock *block, SmallArray<VmInstruction*, 32> &stack, VariableData *variable, ArrayView<VmInstruction*> phiNodes)
+void RenameMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmBlock *block, SmallArray<VmValue*, 32> &stack, VariableData *variable, ArrayView<VmInstruction*> phiNodes)
 {
 	unsigned oldSize = stack.size();
+
+	bool hadUpdate = false;
 
 	for(VmInstruction *instruction = block->firstInstruction; instruction; instruction = instruction->nextSibling)
 	{
@@ -4587,31 +4594,15 @@ void RenameMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmBlock *b
 		{
 			if(VmInstruction *inst = getType<VmInstruction>(instruction->arguments[2]))
 			{
-				module->currentBlock = block;
-				block->insertPoint = instruction->prevSibling;
+				hadUpdate = true;
 
-				VmValue *movInst = CreateBitcast(module, instruction->source, inst->type, inst);
-
-				movInst->comment = variable->name->name;
-
-				stack.push_back(getType<VmInstruction>(movInst));
-
-				block->insertPoint = block->lastInstruction;
-				module->currentBlock = NULL;
+				stack.push_back(getType<VmInstruction>(inst));
 			}
 			else if(VmConstant *constant = getType<VmConstant>(instruction->arguments[2]))
 			{
-				module->currentBlock = block;
-				block->insertPoint = instruction->prevSibling;
+				hadUpdate = true;
 
-				VmValue *loadInst = CreateLoadImmediate(module, instruction->source, constant);
-
-				loadInst->comment = variable->name->name;
-
-				stack.push_back(getType<VmInstruction>(loadInst));
-
-				block->insertPoint = block->lastInstruction;
-				module->currentBlock = NULL;
+				stack.push_back(constant);
 			}
 			else
 			{
@@ -4660,6 +4651,34 @@ void RenameMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmBlock *b
 			stack.push_back(getType<VmInstruction>(loadInst));
 		}
 
+		module->currentBlock = NULL;
+	}
+	else if(hadUpdate)
+	{
+		// Finalize last value before terminator instruction
+		module->currentBlock = block;
+		block->insertPoint = block->lastInstruction->prevSibling;
+
+		if(VmConstant *constant = getType<VmConstant>(stack.back()))
+		{
+			// Create immediate load for final constant value
+			VmValue *loadInst = CreateLoadImmediate(module, constant->source, constant);
+
+			loadInst->comment = variable->name->name;
+
+			stack.back() = loadInst;
+		}
+		else if(VmInstruction *instruction = getType<VmInstruction>(stack.back()))
+		{
+			// Create a copy for final instruction value
+			VmValue *movInst = CreateMov(module, instruction->source, instruction->type, instruction);
+
+			movInst->comment = variable->name->name;
+
+			stack.back() = movInst;
+		}
+
+		block->insertPoint = block->lastInstruction;
 		module->currentBlock = NULL;
 	}
 
@@ -4832,7 +4851,7 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 				}
 			}
 
-			SmallArray<VmInstruction*, 32> stack;
+			SmallArray<VmValue*, 32> stack;
 
 			RenameMemoryToRegister(ctx, module, function->firstBlock, stack, variable, phiNodes);
 

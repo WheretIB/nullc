@@ -2527,6 +2527,21 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 	}
 		break;
+	case VM_INST_MOV:
+	{
+		SmallArray<unsigned char, 8> sourceRegs;
+		GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[0]);
+
+		for(unsigned k = 0; k < sourceRegs.size(); k++)
+		{
+			// We can never transfer source register to us, but since we should already have our target register allocated, it may match the source
+			unsigned char copyReg = lowFunction->AllocateRegister(inst, k, k + 1 == sourceRegs.size());
+
+			if(copyReg != sourceRegs[k])
+				lowBlock->AddInstruction(ctx, inst->source, rviMov, copyReg, 0, sourceRegs[k]);
+		}
+	}
+		break;
 	case VM_INST_PHI:
 		assert(!inst->regVmRegisters.empty());
 		break;
@@ -2534,10 +2549,12 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		assert(!"unknown instruction");
 	}
 
-	RegVmLoweredInstruction *firstNewInstruction = lastLowered ? lastLowered->nextSibling : lowBlock->firstInstruction;
+	if(RegVmLoweredInstruction *firstNewInstruction = lastLowered ? lastLowered->nextSibling : lowBlock->firstInstruction)
+	{
+		for(unsigned i = 0; i < lowFunction->killedRegisters.size(); i++)
+			firstNewInstruction->preKillRegisters.push_back(lowFunction->killedRegisters[i]);
+	}
 
-	for(unsigned i = 0; i < lowFunction->killedRegisters.size(); i++)
-		firstNewInstruction->preKillRegisters.push_back(lowFunction->killedRegisters[i]);
 	lowFunction->killedRegisters.clear();
 
 	lowFunction->FreeConstantRegisters();

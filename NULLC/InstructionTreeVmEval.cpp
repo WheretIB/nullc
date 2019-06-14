@@ -1242,6 +1242,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 		}
 		break;
 	case VM_INST_BITCAST:
+	case VM_INST_MOV:
 		{
 			VmConstant *value = arguments[0];
 

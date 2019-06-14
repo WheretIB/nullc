@@ -405,6 +405,8 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "phi";
 	case VM_INST_BITCAST:
 		return "bitcast";
+	case VM_INST_MOV:
+		return "mov";
 	default:
 		assert(!"unknown instruction");
 	}
