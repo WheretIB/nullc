@@ -109,6 +109,12 @@ void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName, bo
 		else
 			Print(ctx, "global");
 	}
+	else if(!value)
+	{
+		Print(ctx, "%%null%%");
+
+		noExtraInfo = true;
+	}
 	else
 	{
 		assert(!"unknown type");
