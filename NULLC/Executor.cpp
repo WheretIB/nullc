@@ -1245,6 +1245,20 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 
 		func.funcPtrWrap(func.funcPtrWrapTarget, (char*)newStackPtr, (char*)genStackPtr);
 
+		if(func.retType == ExternFuncInfo::RETURN_DOUBLE && func.returnShift == 1)
+		{
+			// Take float result
+			float tmp;
+			memcpy(&tmp, newStackPtr, sizeof(float));
+
+			// Reserve additional space
+			newStackPtr -= 1;
+
+			// Store as double
+			double res = double(tmp);
+			memcpy(newStackPtr, &res, sizeof(double));
+		}
+
 		genStackPtr = newStackPtr;
 
 		return callContinue;

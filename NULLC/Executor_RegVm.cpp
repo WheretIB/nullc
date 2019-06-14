@@ -238,6 +238,16 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 				if(!callContinue)
 					errorState = true;
+				
+				if(target.returnShift == 1)
+				{
+					// Convert float result to double
+					float tmp;
+					memcpy(&tmp, tempStackPtr, sizeof(float));
+
+					double res = double(tmp);
+					memcpy(tempStackPtr, &res, sizeof(double));
+				}
 			}
 			else
 			{
@@ -386,12 +396,12 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 	case rvrDouble:
 		REGVM_DEBUG(lastResult.activeType = rvrDouble);
 
-		lastResult.doubleValue = vmLoadDouble(tempStackPtr);
+		memcpy(&lastResult.doubleValue, tempStackPtr, sizeof(double));
 		break;
 	case rvrLong:
 		REGVM_DEBUG(lastResult.activeType = rvrLong);
 
-		lastResult.longValue = vmLoadLong(tempStackPtr);
+		memcpy(&lastResult.longValue, tempStackPtr, sizeof(long long));
 		break;
 	default:
 		break;
@@ -1635,12 +1645,22 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		case rvrDouble:
 			REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrDouble);
 
-			regFilePtr[resultReg].doubleValue = vmLoadDouble(tempStackPtr);
+			if(target.returnShift == 1)
+			{
+				// Convert float result to double
+				float res;
+				memcpy(&res, tempStackPtr, sizeof(float));
+				regFilePtr[resultReg].doubleValue = double(res);
+			}
+			else
+			{
+				memcpy(&regFilePtr[resultReg].doubleValue, tempStackPtr, sizeof(double));
+			}
 			break;
 		case rvrLong:
 			REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrLong);
 
-			regFilePtr[resultReg].longValue = vmLoadLong(tempStackPtr);
+			memcpy(&regFilePtr[resultReg].longValue, tempStackPtr, sizeof(long long));
 			break;
 		case rvrInt:
 			REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrInt);
@@ -1739,12 +1759,12 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 	case rvrDouble:
 		REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrDouble);
 
-		regFilePtr[resultReg].doubleValue = vmLoadDouble(tempStackPtr);
+		memcpy(&regFilePtr[resultReg].doubleValue, tempStackPtr, sizeof(double));
 		break;
 	case rvrLong:
 		REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrLong);
 
-		regFilePtr[resultReg].longValue = vmLoadLong(tempStackPtr);
+		memcpy(&regFilePtr[resultReg].longValue, tempStackPtr, sizeof(long long));
 		break;
 	case rvrInt:
 		REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrInt);
