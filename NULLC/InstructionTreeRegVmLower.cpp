@@ -2584,6 +2584,16 @@ bool HasSharedStorageWith(VmInstruction *inst, VmInstruction *other, unsigned ma
 			if(HasSharedStorageWith(other, instruction, marker))
 				return true;
 		}
+
+		for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+			assert(instruction);
+
+			if(instruction->cmd == VM_INST_PHI && HasSharedStorageWith(other, instruction, marker))
+				return true;
+		}
 	}
 
 	if(other->cmd == VM_INST_PHI)
@@ -2596,6 +2606,16 @@ bool HasSharedStorageWith(VmInstruction *inst, VmInstruction *other, unsigned ma
 				return true;
 
 			if(HasSharedStorageWith(inst, instruction, marker))
+				return true;
+		}
+
+		for(unsigned userPos = 0; userPos < other->users.size(); userPos++)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(other->users[userPos]);
+
+			assert(instruction);
+
+			if(instruction->cmd == VM_INST_PHI && HasSharedStorageWith(inst, instruction, marker))
 				return true;
 		}
 	}
