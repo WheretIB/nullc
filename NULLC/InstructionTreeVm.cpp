@@ -4928,6 +4928,59 @@ void RunArrayToElements(ExpressionContext &ctx, VmModule *module, VmValue* value
 	}
 }
 
+void RunForwardMove(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		module->currentFunction = function;
+
+		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
+			RunForwardMove(ctx, module, curr);
+
+		module->currentFunction = NULL;
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		module->currentBlock = block;
+
+		for(VmInstruction *curr = block->firstInstruction; curr;)
+		{
+			VmInstruction *next = curr->nextSibling;
+
+			if(curr->cmd == VM_INST_MOV)
+			{
+				// Check that source instruction arguments are not used between source instruciton and our move, since move can alias register storage it breaks SSA form guarantees
+				bool safe = true;
+
+				if(VmInstruction *source = getType<VmInstruction>(curr->arguments[0]))
+				{
+					if(source->parent != curr->parent)
+						safe = false;
+
+					for(VmInstruction *inst = source->nextSibling; inst != curr && safe; inst = inst->nextSibling)
+					{
+						for(unsigned i = 0; i < source->arguments.size() && safe; i++)
+						{
+							for(unsigned k = 0; k < inst->arguments.size() && safe; k++)
+							{
+								if(source->arguments[i] == inst->arguments[k])
+									safe = false;
+							}
+						}
+					}
+				}
+
+				if(safe)
+					ReplaceValueUsersWith(module, curr, curr->arguments[0], NULL);
+			}
+
+			curr = next;
+		}
+
+		module->currentBlock = NULL;
+	}
+}
+
 void RunUpdateLiveSets(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	(void)ctx;
@@ -5331,6 +5384,9 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 			break;
 		case VM_PASS_OPT_ARRAY_TO_ELEMENTS:
 			RunArrayToElements(ctx, module, value);
+			break;
+		case VM_PASS_OPT_FORWARD_MOVE:
+			RunForwardMove(ctx, module, value);
 			break;
 		case VM_PASS_UPDATE_LIVE_SETS:
 			RunUpdateLiveSets(ctx, module, value);

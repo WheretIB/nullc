@@ -580,6 +580,7 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_MEMORY_TO_REGISTER);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION);
+		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_FORWARD_MOVE);
 	}
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_UPDATE_LIVE_SETS);
