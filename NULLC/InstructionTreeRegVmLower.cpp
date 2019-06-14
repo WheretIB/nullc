@@ -2665,7 +2665,7 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 
 					if(!instruction->regVmRegisters.empty())
 						CompareRegisters(liveIn, instruction);
-					else
+					else if(!liveIn->regVmRegisters.empty())
 						CopyRegisters(instruction, liveIn);
 				}
 			}
