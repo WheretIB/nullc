@@ -1628,6 +1628,16 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 
 			if(!callContinue)
 				return NULL;
+
+			if(target.returnShift == 1)
+			{
+				// Convert float result to double
+				float tmp;
+				memcpy(&tmp, tempStackPtr, sizeof(float));
+
+				double res = double(tmp);
+				memcpy(tempStackPtr, &res, sizeof(double));
+			}
 		}
 		else
 		{
@@ -1644,17 +1654,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		case rvrDouble:
 			REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrDouble);
 
-			if(target.returnShift == 1)
-			{
-				// Convert float result to double
-				float res;
-				memcpy(&res, tempStackPtr, sizeof(float));
-				regFilePtr[resultReg].doubleValue = double(res);
-			}
-			else
-			{
-				memcpy(&regFilePtr[resultReg].doubleValue, tempStackPtr, sizeof(double));
-			}
+			memcpy(&regFilePtr[resultReg].doubleValue, tempStackPtr, sizeof(double));
 			break;
 		case rvrLong:
 			REGVM_DEBUG(regFilePtr[resultReg].activeType = rvrLong);
