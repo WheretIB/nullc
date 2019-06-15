@@ -4124,7 +4124,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 		{
 			VmBlock *next = curr->nextSibling;
 
-			if(curr->firstInstruction && curr->firstInstruction == curr->lastInstruction && curr->firstInstruction->cmd == VM_INST_JUMP)
+			if(curr->firstInstruction && curr->firstInstruction == curr->lastInstruction && curr->firstInstruction->cmd == VM_INST_JUMP && curr != function->firstBlock)
 			{
 				// Remove blocks that only contain an unconditional branch to some other block
 				VmBlock *target = getType<VmBlock>(curr->firstInstruction->arguments[0]);
