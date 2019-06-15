@@ -78,6 +78,8 @@ struct RegVmLoweredFunction
 		registerUsers.fill(0);
 
 		nextRegister = rvrrCount;
+
+		nextSearchMarker = 1;
 	}
 
 	unsigned char GetRegister();
@@ -98,6 +100,8 @@ struct RegVmLoweredFunction
 	VmFunction *vmFunction;
 
 	SmallArray<RegVmLoweredBlock*, 16> blocks;
+
+	unsigned nextSearchMarker;
 
 	FixedArray<unsigned short, 256> registerUsers;
 

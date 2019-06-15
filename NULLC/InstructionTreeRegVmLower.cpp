@@ -2661,15 +2661,47 @@ void CompareRegisters(VmInstruction *a, VmInstruction *b)
 		assert(a->regVmRegisters[i] == b->regVmRegisters[i]);
 }
 
+void MarkInstructionTree(VmInstruction *inst, unsigned marker)
+{
+	if(inst->regVmSearchMarker == marker)
+		return;
+
+	inst->regVmSearchMarker = marker;
+
+	if(inst->cmd == VM_INST_PHI)
+	{
+		for(unsigned argumentPos = 0; argumentPos < inst->arguments.size(); argumentPos += 2)
+		{
+			VmInstruction *argument = getType<VmInstruction>(inst->arguments[argumentPos]);
+
+			MarkInstructionTree(argument, marker);
+		}
+	}
+
+	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+		if(instruction->cmd == VM_INST_PHI)
+			MarkInstructionTree(instruction, marker);
+	}
+}
+
 bool HasSharedStorageWith(VmInstruction *inst, VmInstruction *other, unsigned marker)
 {
-	if(other->regVmSearchMarker == marker)
-		return false;
+	MarkInstructionTree(inst, marker);
 
-	other->regVmSearchMarker = marker;
+	return other->regVmSearchMarker == marker;
+}
 
-	if(inst == other)
-		return true;
+void UpdateSharedStorage(VmInstruction *inst, unsigned marker)
+{
+	if(inst->regVmSearchMarker == marker)
+		return;
+
+	assert(!inst->regVmRegisters.empty());
+
+	inst->regVmSearchMarker = marker;
 
 	if(inst->cmd == VM_INST_PHI)
 	{
@@ -2677,56 +2709,29 @@ bool HasSharedStorageWith(VmInstruction *inst, VmInstruction *other, unsigned ma
 		{
 			VmInstruction *instruction = getType<VmInstruction>(inst->arguments[argumentPos]);
 
-			if(other == instruction)
-				return true;
+			if(!instruction->regVmRegisters.empty())
+				CompareRegisters(instruction, inst);
+			else
+				CopyRegisters(instruction, inst);
 
-			if(HasSharedStorageWith(other, instruction, marker))
-				return true;
-		}
-
-		for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
-		{
-			VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
-
-			assert(instruction);
-
-			if(instruction->cmd == VM_INST_PHI && HasSharedStorageWith(other, instruction, marker))
-				return true;
+			UpdateSharedStorage(instruction, marker);
 		}
 	}
 
-	if(other->cmd == VM_INST_PHI)
+	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
 	{
-		for(unsigned argumentPos = 0; argumentPos < other->arguments.size(); argumentPos += 2)
+		VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+		if(instruction->cmd == VM_INST_PHI)
 		{
-			VmInstruction *instruction = getType<VmInstruction>(other->arguments[argumentPos]);
+			if(!instruction->regVmRegisters.empty())
+				CompareRegisters(instruction, inst);
+			else
+				CopyRegisters(instruction, inst);
 
-			if(inst == instruction)
-				return true;
-
-			if(HasSharedStorageWith(inst, instruction, marker))
-				return true;
-		}
-
-		for(unsigned userPos = 0; userPos < other->users.size(); userPos++)
-		{
-			VmInstruction *instruction = getType<VmInstruction>(other->users[userPos]);
-
-			assert(instruction);
-
-			if(instruction->cmd == VM_INST_PHI && HasSharedStorageWith(inst, instruction, marker))
-				return true;
+			UpdateSharedStorage(instruction, marker);
 		}
 	}
-
-	return false;
-}
-
-bool HasSharedStorageWith(VmInstruction *inst, VmInstruction *other)
-{
-	static unsigned nextMarker = 0;
-
-	return HasSharedStorageWith(inst, other, ++nextMarker);
 }
 
 RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, VmBlock *vmBlock)
@@ -2740,84 +2745,18 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 	{
 		VmInstruction *liveIn = vmBlock->liveIn[i];
 
-		// We might not have a register allocated, but might be aliased to some instruction that does
-		if(liveIn->regVmRegisters.empty())
+		bool found = false;
+
+		for(unsigned k = 0; k < i && !found; k++)
 		{
-			// Phi instruction might take registers from incoming value
-			if(liveIn->cmd == VM_INST_PHI)
-			{
-				for(unsigned argumentPos = 0; argumentPos < liveIn->arguments.size(); argumentPos += 2)
-				{
-					VmInstruction *instruction = getType<VmInstruction>(liveIn->arguments[argumentPos]);
+			VmInstruction *other = vmBlock->liveIn[k];
 
-					if(!instruction->regVmRegisters.empty())
-					{
-						CopyRegisters(liveIn, instruction);
-						break;
-					}
-				}
-
-				// Check that all incoming values use the same registers
-				for(unsigned argumentPos = 0; argumentPos < liveIn->arguments.size(); argumentPos += 2)
-				{
-					VmInstruction *instruction = getType<VmInstruction>(liveIn->arguments[argumentPos]);
-
-					if(!instruction->regVmRegisters.empty())
-						CompareRegisters(liveIn, instruction);
-					else if(!liveIn->regVmRegisters.empty())
-						CopyRegisters(instruction, liveIn);
-				}
-			}
-			else
-			{
-				// If we are used by a phi instruction, it or other incoming values mught already have allocated registers
-				for(unsigned userPos = 0; userPos < liveIn->users.size(); userPos++)
-				{
-					if(VmInstruction *user = getType<VmInstruction>(liveIn->users[userPos]))
-					{
-						if(user->cmd == VM_INST_PHI)
-						{
-							if(!user->regVmRegisters.empty())
-							{
-								CopyRegisters(liveIn, user);
-							}
-							else
-							{
-								for(unsigned argumentPos = 0; argumentPos < user->arguments.size(); argumentPos += 2)
-								{
-									VmInstruction *instruction = getType<VmInstruction>(user->arguments[argumentPos]);
-
-									if(!instruction->regVmRegisters.empty())
-									{
-										CopyRegisters(liveIn, instruction);
-										break;
-									}
-								}
-							}
-						}
-					}
-				}
-			}
+			if(HasSharedStorageWith(liveIn, other, lowFunction->nextSearchMarker++))
+				found = true;
 		}
 
-		if(liveIn->cmd == VM_INST_PHI)
-		{
-			bool found = false;
-
-			for(unsigned argumentPos = 0; argumentPos < liveIn->arguments.size(); argumentPos += 2)
-			{
-				VmInstruction *instruction = getType<VmInstruction>(liveIn->arguments[argumentPos]);
-
-				if(instruction != liveIn && vmBlock->liveIn.contains(instruction))
-				{
-					found = true;
-					break;
-				}
-			}
-
-			if(found)
-				continue;
-		}
+		if(found)
+			continue;
 
 		if(!liveIn->regVmRegisters.empty())
 		{
@@ -2834,41 +2773,10 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 		}
 	}
 
-	// Check if new out variable registers are already fixed by accepting phi nodes
+	// Check if exit variable registers are already allocated
 	for(unsigned i = 0; i < vmBlock->liveOut.size(); i++)
 	{
 		VmInstruction *liveOut = vmBlock->liveOut[i];
-
-		// If we are used by a phi instruction, it or other incoming values might already have allocated registers
-		if(liveOut->regVmRegisters.empty())
-		{
-			for(unsigned userPos = 0; userPos < liveOut->users.size(); userPos++)
-			{
-				if(VmInstruction *user = getType<VmInstruction>(liveOut->users[userPos]))
-				{
-					if(user->cmd == VM_INST_PHI)
-					{
-						if(!user->regVmRegisters.empty())
-						{
-							CopyRegisters(liveOut, user);
-						}
-						else
-						{
-							for(unsigned argumentPos = 0; argumentPos < user->arguments.size(); argumentPos += 2)
-							{
-								VmInstruction *instruction = getType<VmInstruction>(user->arguments[argumentPos]);
-
-								if(!instruction->regVmRegisters.empty())
-								{
-									CopyRegisters(liveOut, instruction);
-									break;
-								}
-							}
-						}
-					}
-				}
-			}
-		}
 
 		bool found = false;
 
@@ -2876,7 +2784,17 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 		{
 			VmInstruction *liveIn = vmBlock->liveIn[k];
 
-			if(HasSharedStorageWith(liveOut, liveIn))
+			if(liveOut == liveIn)
+				found = true;
+			else if(HasSharedStorageWith(liveOut, liveIn, lowFunction->nextSearchMarker++))
+				found = true;
+		}
+
+		for(unsigned k = 0; k < vmBlock->liveOut.size() && !found; k++)
+		{
+			VmInstruction *other = vmBlock->liveOut[k];
+
+			if(liveOut != other && HasSharedStorageWith(liveOut, other, lowFunction->nextSearchMarker++))
 				found = true;
 		}
 
@@ -2939,6 +2857,8 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 				assert(!lowBlock->entryRegisters.contains(reg));
 				lowBlock->entryRegisters.push_back(reg);
 			}
+
+			UpdateSharedStorage(liveIn, lowFunction->nextSearchMarker++);
 		}
 	}
 
@@ -2954,75 +2874,18 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 	{
 		VmInstruction *liveOut = vmBlock->liveOut[i];
 
-		if(liveOut->cmd == VM_INST_PHI)
-		{
-			// If it's a phi instruction, skip if the storage was already added to the list
-			bool found = false;
-
-			for(unsigned argumentPos = 0; argumentPos < liveOut->arguments.size(); argumentPos += 2)
-			{
-				VmInstruction *instruction = getType<VmInstruction>(liveOut->arguments[argumentPos]);
-
-				if(liveOutUniqueStorage.contains(instruction))
-				{
-					found = true;
-					break;
-				}
-			}
-
-			if(found)
-				continue;
-		}
-		else
-		{
-			// If the instruction is being used by phi instruction, check if register was already freed through a phi or a different incoming phi edge instruction
-			bool found = false;
-
-			for(unsigned userPos = 0; userPos < liveOut->users.size(); userPos++)
-			{
-				if(VmInstruction *user = getType<VmInstruction>(liveOut->users[userPos]))
-				{
-					if(user->cmd == VM_INST_PHI)
-					{
-						if(liveOutUniqueStorage.contains(user))
-						{
-							found = true;
-							break;
-						}
-
-						for(unsigned argumentPos = 0; argumentPos < user->arguments.size(); argumentPos += 2)
-						{
-							VmInstruction *instruction = getType<VmInstruction>(user->arguments[argumentPos]);
-
-							if(liveOutUniqueStorage.contains(instruction))
-							{
-								found = true;
-								break;
-							}
-						}
-					}
-				}
-			}
-
-			if(found)
-				continue;
-		}
-
 		bool found = false;
 
 		for(unsigned k = 0; k < liveOutUniqueStorage.size() && !found; k++)
 		{
-			VmInstruction *liveIn = liveOutUniqueStorage[k];
+			VmInstruction *previous = liveOutUniqueStorage[k];
 
-			if(HasSharedStorageWith(liveOut, liveIn))
+			if(HasSharedStorageWith(liveOut, previous, lowFunction->nextSearchMarker++))
 				found = true;
 		}
 
-		// TEST
-		assert(!found);
-
-		//if(found)
-		//	continue;
+		if(found)
+			continue;
 
 		liveOutUniqueStorage.push_back(liveOut);
 	}
@@ -3033,6 +2896,8 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 		VmInstruction *liveOut = liveOutUniqueStorage[i];
 
 		assert(!liveOut->regVmRegisters.empty());
+
+		UpdateSharedStorage(liveOut, lowFunction->nextSearchMarker++);
 
 		for(unsigned k = 0; k < liveOut->regVmRegisters.size(); k++)
 		{
@@ -3059,7 +2924,9 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 		{
 			VmInstruction *liveOut = vmBlock->liveOut[k];
 
-			if(HasSharedStorageWith(liveIn, liveOut))
+			if(liveOut == liveIn)
+				found = true;
+			else if(HasSharedStorageWith(liveIn, liveOut, lowFunction->nextSearchMarker++))
 				found = true;
 		}
 
