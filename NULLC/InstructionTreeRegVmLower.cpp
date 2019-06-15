@@ -2808,7 +2808,7 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 			{
 				VmInstruction *instruction = getType<VmInstruction>(liveIn->arguments[argumentPos]);
 
-				if(vmBlock->liveIn.contains(instruction))
+				if(instruction != liveIn && vmBlock->liveIn.contains(instruction))
 				{
 					found = true;
 					break;
