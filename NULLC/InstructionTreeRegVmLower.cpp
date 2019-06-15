@@ -183,7 +183,7 @@ unsigned char RegVmLoweredFunction::AllocateRegister(VmValue *value, unsigned in
 				// First value must have allocated registers, unless it's the current instruction
 				VmInstruction *option = getType<VmInstruction>(user->arguments[0]);
 
-				if(instruction != option)
+				if(instruction != option && !instruction->regVmRegisters.empty())
 				{
 					unsigned regPos = instruction->regVmRegisters.size();
 
