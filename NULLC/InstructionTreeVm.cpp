@@ -1629,6 +1629,7 @@ void VmFunction::UpdateDominatorTree()
 		curr->visited = false;
 		curr->idom = NULL;
 		curr->dominanceFrontier.clear();
+		curr->dominanceChildren.clear();
 	}
 
 	// Get block predecessors and successors
