@@ -424,6 +424,7 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 		PrintConstant(ctx, argument, constant);
 		break;
 	case rviCheckRet:
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviFuncAddr:
 	case rviTypeid:
