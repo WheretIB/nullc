@@ -2830,7 +2830,7 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 			{
 				unsigned char reg = liveOut->regVmRegisters[k];
 
-				assert(lowFunction->registerUsers[reg] == 0);
+				// Some pre-allocated exit registers might be the same as pre-allocated entry registers, it can happen when entry register has the last use in current block before being used by exit register
 				lowFunction->registerUsers[reg]++;
 			}
 		}
@@ -2928,11 +2928,14 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 
 			lowBlock->exitRegisters.push_back(reg);
 
-			assert(lowFunction->registerUsers[reg] == 1);
+			// Might not be the only use
 			lowFunction->registerUsers[reg]--;
 
-			assert(!lowFunction->freedRegisters.contains(reg));
-			lowFunction->freedRegisters.push_back(reg);
+			if(lowFunction->registerUsers[reg] == 0)
+			{
+				assert(!lowFunction->freedRegisters.contains(reg));
+				lowFunction->freedRegisters.push_back(reg);
+			}
 		}
 	}
 
