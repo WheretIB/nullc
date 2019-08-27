@@ -1681,41 +1681,50 @@ nullres nullcDebugAddBreakpointImpl(unsigned int instruction, bool oneHit)
 {
 	using namespace NULLC;
 
-	if(!executor)
+	if(currExec == NULLC_VM)
 	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
+		if(!executor)
+		{
+			nullcLastError = "ERROR: NULLC is not initialized";
+			return false;
+		}
 
-	if(!executor->AddBreakpoint(instruction, oneHit))
-	{
-		nullcLastError = executor->GetExecError();
-		return false;
+		if(!executor->AddBreakpoint(instruction, oneHit))
+		{
+			nullcLastError = executor->GetExecError();
+			return false;
+		}
 	}
 
 #ifdef NULLC_BUILD_X86_JIT
-	if(!executorX86)
+	if(currExec == NULLC_X86)
 	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
-	if(!executorX86->AddBreakpoint(instruction, oneHit))
-	{
-		nullcLastError = executorX86->GetExecError();
-		return false;
+		if(!executorX86)
+		{
+			nullcLastError = "ERROR: NULLC is not initialized";
+			return false;
+		}
+		if(!executorX86->AddBreakpoint(instruction, oneHit))
+		{
+			nullcLastError = executorX86->GetExecError();
+			return false;
+		}
 	}
 #endif
 
-	if(!executorRegVm)
+	if(currExec == NULLC_REG_VM)
 	{
-		nullcLastError = "ERROR: NULLC is not initialized";
-		return false;
-	}
+		if(!executorRegVm)
+		{
+			nullcLastError = "ERROR: NULLC is not initialized";
+			return false;
+		}
 
-	if(!executorRegVm->AddBreakpoint(instruction, oneHit))
-	{
-		nullcLastError = executorRegVm->GetExecError();
-		return false;
+		if(!executorRegVm->AddBreakpoint(instruction, oneHit))
+		{
+			nullcLastError = executorRegVm->GetExecError();
+			return false;
+		}
 	}
 
 	return true;
