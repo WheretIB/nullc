@@ -132,9 +132,9 @@ enum VmPassType
 	VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION,
 	VM_PASS_OPT_MEMORY_TO_REGISTER,
 	VM_PASS_OPT_ARRAY_TO_ELEMENTS,
-	VM_PASS_OPT_FORWARD_MOVE,
 
 	VM_PASS_UPDATE_LIVE_SETS,
+	VM_PASS_PREPARE_SSA_EXIT,
 
 	VM_PASS_CREATE_ALLOCA_STORAGE,
 
@@ -293,6 +293,12 @@ struct VmInstruction: VmValue
 		regVmCompletedUsers = 0;
 
 		regVmSearchMarker = 0;
+
+		color = 0;
+		marker = 0;
+
+		idom = NULL;
+		intersectingIdom = NULL;
 	}
 
 	void AddArgument(VmValue *argument);
@@ -314,6 +320,12 @@ struct VmInstruction: VmValue
 
 	unsigned regVmSearchMarker;
 
+	unsigned color;
+	unsigned marker;
+
+	VmInstruction *idom;
+	VmInstruction *intersectingIdom;
+
 	static const unsigned myTypeID = __LINE__;
 };
 
@@ -334,7 +346,13 @@ struct VmBlock: VmValue
 		address = ~0u;
 
 		visited = false;
-		postOrderID = 0;
+
+		controlGraphPreOrderId = ~0u;
+		controlGraphPostOrderId = ~0u;
+
+		dominanceGraphPreOrderId = ~0u;
+		dominanceGraphPostOrderId = ~0u;
+
 		idom = NULL;
 
 		hasAssignmentForId = 0;
@@ -366,7 +384,13 @@ struct VmBlock: VmValue
 	SmallArray<VmBlock*, 4> successors;
 
 	bool visited;
-	unsigned postOrderID;
+
+	unsigned controlGraphPreOrderId;
+	unsigned controlGraphPostOrderId;
+
+	unsigned dominanceGraphPreOrderId;
+	unsigned dominanceGraphPostOrderId;
+
 	VmBlock *idom;
 
 	SmallArray<VmBlock*, 4> dominanceFrontier;
@@ -402,6 +426,8 @@ struct VmFunction: VmValue
 		regVmRegisters = 0;
 
 		nextRestoreBlock = 0;
+
+		nextColor = 0;
 	}
 
 	void AddBlock(VmBlock *block);
@@ -438,6 +464,8 @@ struct VmFunction: VmValue
 
 	unsigned nextRestoreBlock;
 	SmallArray<VmBlock*, 4> restoreBlocks;
+
+	unsigned nextColor;
 
 	static const unsigned myTypeID = __LINE__;
 };

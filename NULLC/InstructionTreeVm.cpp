@@ -1324,28 +1324,50 @@ namespace
 		return NULL;
 	}
 
-	void GetPostOrder(SmallArray<VmBlock*, 32>& order, VmBlock* start)
+	void GetAndNumberControlGraphNodesDfs(SmallArray<VmBlock*, 32>& blocksPostOrder, VmBlock* block, unsigned &preOrder, unsigned &postOrder)
 	{
-		if(start->visited)
-			return;
+		block->controlGraphPreOrderId = preOrder++;
 
-		start->visited = true;
+		block->visited = true;
 
-		for(unsigned i = 0; i < start->successors.size(); i++)
-			GetPostOrder(order, start->successors[i]);
+		for(unsigned i = 0; i < block->successors.size(); i++)
+		{
+			VmBlock *successor = block->successors[i];
 
-		start->postOrderID = order.size();
-		order.push_back(start);
+			if(!successor->visited)
+				GetAndNumberControlGraphNodesDfs(blocksPostOrder, successor, preOrder, postOrder);
+		}
+
+		block->controlGraphPostOrderId = postOrder++;
+
+		blocksPostOrder.push_back(block);
+	}
+
+	void NumberDominanceGraphNodesDfs(VmBlock* block, unsigned &preOrder, unsigned &postOrder)
+	{
+		block->dominanceGraphPreOrderId = preOrder++;
+
+		block->visited = true;
+
+		for(unsigned i = 0; i < block->dominanceChildren.size(); i++)
+		{
+			VmBlock *child = block->dominanceChildren[i];
+
+			if(!child->visited)
+				NumberDominanceGraphNodesDfs(child, preOrder, postOrder);
+		}
+
+		block->dominanceGraphPostOrderId = postOrder++;
 	}
 
 	VmBlock* BlockIdomIntersect(VmBlock* b1, VmBlock* b2)
 	{
 		while(b1 != b2)
 		{
-			while(b1->postOrderID < b2->postOrderID)
+			while(b1->controlGraphPostOrderId < b2->controlGraphPostOrderId)
 				b1 = b1->idom;
 
-			while(b2->postOrderID < b1->postOrderID)
+			while(b2->controlGraphPostOrderId < b1->controlGraphPostOrderId)
 				b2 = b2->idom;
 		}
 
@@ -1641,23 +1663,29 @@ void VmFunction::UpdateDominatorTree()
 
 			if(VmInstruction *inst = getType<VmInstruction>(user))
 			{
-				curr->predecessors.push_back(inst->parent);
-				inst->parent->successors.push_back(curr);
+				if(inst->cmd != VM_INST_PHI)
+				{
+					curr->predecessors.push_back(inst->parent);
+					inst->parent->successors.push_back(curr);
+				}
 			}
 		}
 	}
 
 	firstBlock->idom = firstBlock;
 
-	SmallArray<VmBlock*, 32> order;
-	GetPostOrder(order, firstBlock);
+	SmallArray<VmBlock*, 32> blocksPostOrder;
+	unsigned preOrder = 0;
+	unsigned postOrder = 0;
 
-	// Reverse
-	for(unsigned i = 0; i < order.size() / 2; i++)
+	GetAndNumberControlGraphNodesDfs(blocksPostOrder, firstBlock, preOrder, postOrder);
+
+	// Get nodes in reverse post order
+	for(unsigned i = 0; i < blocksPostOrder.size() / 2; i++)
 	{
-		VmBlock *tmp = order[i];
-		order[i] = order[order.size() - i - 1];
-		order[order.size() - i - 1] = tmp;
+		VmBlock *tmp = blocksPostOrder[i];
+		blocksPostOrder[i] = blocksPostOrder[blocksPostOrder.size() - i - 1];
+		blocksPostOrder[blocksPostOrder.size() - i - 1] = tmp;
 	}
 
 	bool changed = true;
@@ -1666,9 +1694,9 @@ void VmFunction::UpdateDominatorTree()
 	{
 		changed = false;
 
-		for(unsigned i = 0; i < order.size(); i++)
+		for(unsigned i = 0; i < blocksPostOrder.size(); i++)
 		{
-			VmBlock *b = order[i];
+			VmBlock *b = blocksPostOrder[i];
 
 			if(b == firstBlock)
 				continue;
@@ -1733,6 +1761,13 @@ void VmFunction::UpdateDominatorTree()
 		if(curr != firstBlock)
 			curr->idom->dominanceChildren.push_back(curr);
 	}
+
+	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
+		curr->visited = false;
+
+	preOrder = 0;
+	postOrder = 0;
+	NumberDominanceGraphNodesDfs(firstBlock, preOrder, postOrder);
 }
 
 void VmFunction::UpdateLiveSets()
@@ -4669,15 +4704,6 @@ void RenameMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmBlock *b
 
 			stack.back() = loadInst;
 		}
-		else if(VmInstruction *instruction = getType<VmInstruction>(stack.back()))
-		{
-			// Create a copy for final instruction value
-			VmValue *movInst = CreateMov(module, instruction->source, instruction->type, instruction);
-
-			movInst->comment = variable->name->name;
-
-			stack.back() = movInst;
-		}
 
 		block->insertPoint = block->lastInstruction;
 		module->currentBlock = NULL;
@@ -4929,59 +4955,6 @@ void RunArrayToElements(ExpressionContext &ctx, VmModule *module, VmValue* value
 	}
 }
 
-void RunForwardMove(ExpressionContext &ctx, VmModule *module, VmValue* value)
-{
-	if(VmFunction *function = getType<VmFunction>(value))
-	{
-		module->currentFunction = function;
-
-		for(VmBlock *curr = function->firstBlock; curr; curr = curr->nextSibling)
-			RunForwardMove(ctx, module, curr);
-
-		module->currentFunction = NULL;
-	}
-	else if(VmBlock *block = getType<VmBlock>(value))
-	{
-		module->currentBlock = block;
-
-		for(VmInstruction *curr = block->firstInstruction; curr;)
-		{
-			VmInstruction *next = curr->nextSibling;
-
-			if(curr->cmd == VM_INST_MOV)
-			{
-				// Check that source instruction arguments are not used between source instruciton and our move, since move can alias register storage it breaks SSA form guarantees
-				bool safe = true;
-
-				if(VmInstruction *source = getType<VmInstruction>(curr->arguments[0]))
-				{
-					if(source->parent != curr->parent)
-						safe = false;
-
-					for(VmInstruction *inst = source->nextSibling; inst != curr && safe; inst = inst->nextSibling)
-					{
-						for(unsigned i = 0; i < source->arguments.size() && safe; i++)
-						{
-							for(unsigned k = 0; k < inst->arguments.size() && safe; k++)
-							{
-								if(source->arguments[i] == inst->arguments[k])
-									safe = false;
-							}
-						}
-					}
-				}
-
-				if(safe)
-					ReplaceValueUsersWith(module, curr, curr->arguments[0], NULL);
-			}
-
-			curr = next;
-		}
-
-		module->currentBlock = NULL;
-	}
-}
-
 void RunUpdateLiveSets(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	(void)ctx;
@@ -4991,6 +4964,498 @@ void RunUpdateLiveSets(ExpressionContext &ctx, VmModule *module, VmValue* value)
 	{
 		function->UpdateDominatorTree();
 		function->UpdateLiveSets();
+	}
+}
+
+void IsolatePhiNodes(VmModule *module, VmFunction* function)
+{
+	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
+	{
+		for(VmInstruction *inst = block->firstInstruction; inst; inst = inst->nextSibling)
+		{
+			// For each phi node
+			if(inst->cmd == VM_INST_PHI)
+			{
+				// Avoid surprises, each edge might introduce only a single variable
+				for(unsigned argumentA = 0; argumentA < inst->arguments.size(); argumentA += 2)
+				{
+					VmInstruction *instructionA = getType<VmInstruction>(inst->arguments[argumentA]);
+					VmBlock *edgeA = getType<VmBlock>(inst->arguments[argumentA + 1]);
+
+					for(unsigned argumentB = argumentA + 2; argumentB < inst->arguments.size(); argumentB += 2)
+					{
+						VmInstruction *instructionB = getType<VmInstruction>(inst->arguments[argumentB]);
+						VmBlock *edgeB = getType<VmBlock>(inst->arguments[argumentB + 1]);
+
+						if(edgeA == edgeB)
+							assert(instructionA != instructionB);
+					}
+				}
+
+				// Introduce a copy at the end of the predecessor block
+				for(unsigned argument = 0; argument < inst->arguments.size(); argument += 2)
+				{
+					VmInstruction *instruction = getType<VmInstruction>(inst->arguments[argument]);
+					VmBlock *edge = getType<VmBlock>(inst->arguments[argument + 1]);
+
+					// In a general case if instruction set contains instructions that modify the value after the branch, it won't be valid to insert a copy
+
+					// Place copy before the terminator instruction
+					module->currentBlock = edge;
+					edge->insertPoint = edge->lastInstruction->prevSibling;
+
+					// Create a copy for instruction value
+					VmValue *movInst = CreateMov(module, instruction->source, instruction->type, instruction);
+
+					movInst->comment = instruction->comment;
+
+					movInst->AddUse(inst);
+					inst->arguments[argument]->RemoveUse(inst);
+
+					inst->arguments[argument] = movInst;
+
+					edge->insertPoint = edge->lastInstruction;
+					module->currentBlock = NULL;
+				}
+
+				// In general case if optimization passes create multiple incoming edges from a single block, it won't be valid to insert a copy
+
+				// Introduce a copy right after the phi node
+				module->currentBlock = block;
+				block->insertPoint = inst;
+
+				while(block->insertPoint && block->insertPoint->cmd == VM_INST_PHI)
+					block->insertPoint = block->insertPoint->nextSibling;
+
+				assert(block->insertPoint);
+
+				block->insertPoint = block->insertPoint->prevSibling;
+
+				inst->canBeRemoved = false;
+
+				// Create a copy for phi value
+				VmInstruction *movInst = getType<VmInstruction>(CreateMov(module, inst->source, inst->type, NULL));
+
+				movInst->comment = inst->comment;
+
+				ReplaceValueUsersWith(module, inst, movInst, NULL);
+
+				movInst->AddArgument(inst);
+
+				inst->canBeRemoved = true;
+
+				block->insertPoint = block->lastInstruction;
+				module->currentBlock = NULL;
+			}
+		}
+	}
+}
+
+void ColorPhiWeb(VmInstruction *inst, unsigned color)
+{
+	if(inst->color != 0)
+		return;
+
+	inst->color = color;
+
+	if(inst->cmd == VM_INST_PHI)
+	{
+		for(unsigned argument = 0; argument < inst->arguments.size(); argument += 2)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->arguments[argument]);
+
+			ColorPhiWeb(instruction, color);
+		}
+	}
+
+	if(inst->cmd == VM_INST_MOV)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->arguments[0]);
+
+		ColorPhiWeb(instruction, color);
+	}
+
+	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+		if(instruction->cmd == VM_INST_PHI)
+			ColorPhiWeb(instruction, color);
+
+		if(instruction->cmd == VM_INST_MOV)
+			ColorPhiWeb(instruction, color);
+	}
+}
+
+void ColorPhiWebs(VmFunction* function)
+{
+	function->nextColor = 0;
+
+	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
+	{
+		for(VmInstruction *inst = block->firstInstruction; inst; inst = inst->nextSibling)
+		{
+			if(inst->cmd == VM_INST_PHI && inst->color == 0)
+				ColorPhiWeb(inst, ++function->nextColor);
+		}
+	}
+}
+
+bool IsAfter(VmInstruction *a, VmInstruction *b)
+{
+	assert(a->parent == b->parent);
+
+	while(b)
+	{
+		if(a == b)
+			return true;
+
+		b = b->nextSibling;
+	}
+
+	return false;
+}
+
+bool IsLiveAt(VmInstruction *inst, VmInstruction *point)
+{
+	VmBlock *definitionBlock = inst->parent;
+
+	VmBlock *pointBlock = point->parent;
+
+	// If both instructions are in the same block
+	if(pointBlock == definitionBlock)
+	{
+		// If definition is after the point, then it's not live yet
+		if(IsAfter(inst, point))
+			return false;
+
+		// If definition is before the point, we must find out if it's live yet
+
+		// If it's live-out, then it's live at point
+		for(unsigned i = 0; i < pointBlock->liveOut.size(); i++)
+		{
+			if(pointBlock->liveOut[i] == inst)
+				return true;
+		}
+
+		// Check if it's used at point or after it
+		VmInstruction *curr = point;
+
+		while(curr)
+		{
+			for(unsigned i = 0; i < curr->arguments.size(); i++)
+			{
+				if(curr->arguments[i] == inst)
+					return true;
+			}
+
+			curr = curr->nextSibling;
+		}
+	}
+	else
+	{
+		// If instruction is not live-in at point block then it's not live
+		bool liveIn = false;
+
+		for(unsigned i = 0; i < pointBlock->liveIn.size(); i++)
+		{
+			if(pointBlock->liveIn[i] == inst)
+			{
+				liveIn = true;
+				break;
+			}
+		}
+
+		if(liveIn)
+		{
+			// If it's live-out, then it's live at point
+			for(unsigned i = 0; i < pointBlock->liveOut.size(); i++)
+			{
+				if(pointBlock->liveOut[i] == inst)
+					return true;
+			}
+
+			// Check if it's used at point or after it
+			VmInstruction *curr = point;
+
+			while(curr)
+			{
+				for(unsigned i = 0; i < curr->arguments.size(); i++)
+				{
+					if(curr->arguments[i] == inst)
+						return true;
+				}
+
+				curr = curr->nextSibling;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool Dominates(VmBlock *a, VmBlock *b)
+{
+	if(a == b)
+		return true;
+
+	for(unsigned i = 0; i < a->dominanceChildren.size(); i++)
+	{
+		VmBlock *child = a->dominanceChildren[i];
+
+		if(child == b)
+			return true;
+
+		if(Dominates(child, b))
+			return true;
+	}
+
+	return false;
+}
+
+bool Dominates(VmInstruction *a, VmInstruction *b)
+{
+	// If instructions come from different blocks, check if blocks dominate each other
+	if(a->parent != b->parent)
+		return Dominates(a->parent, b->parent);
+
+	// a dominates b is b is defined after a in the same block
+	if(IsAfter(b, a))
+		return true;
+
+	return false;
+}
+
+bool Intersect(VmInstruction *a, VmInstruction *b)
+{
+	// Same definition
+	if(a == b)
+		return true;
+
+	// a dominates b and a is live just after the definition of b
+	if(IsLiveAt(a, b->nextSibling))
+		return true;
+
+	// b dominates a and b is live just after the definition of a
+	if(IsLiveAt(b, a->nextSibling))
+		return true;
+
+	return false;
+}
+
+void CollectMergedSet(VmInstruction *inst, unsigned marker, SmallArray<VmInstruction*, 32> &mergedSet)
+{
+	if(inst->marker != 0)
+		return;
+
+	mergedSet.push_back(inst);
+
+	inst->marker = marker;
+
+	if(inst->cmd == VM_INST_PHI)
+	{
+		for(unsigned argument = 0; argument < inst->arguments.size(); argument += 2)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->arguments[argument]);
+
+			CollectMergedSet(instruction, marker, mergedSet);
+		}
+	}
+
+	if(inst->cmd == VM_INST_MOV)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->arguments[0]);
+
+		CollectMergedSet(instruction, marker, mergedSet);
+	}
+
+	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+		if(instruction->cmd == VM_INST_PHI)
+			CollectMergedSet(instruction, marker, mergedSet);
+
+		if(instruction->cmd == VM_INST_MOV)
+			CollectMergedSet(instruction, marker, mergedSet);
+	}
+}
+
+int SortByDominancePreOrder(const void* a, const void* b)
+{
+	VmInstruction *aInst = *(VmInstruction**)a;
+	VmInstruction *bInst = *(VmInstruction**)b;
+
+	if(aInst->parent->dominanceGraphPreOrderId < bInst->parent->dominanceGraphPreOrderId)
+		return -1;
+
+	if(aInst->parent->dominanceGraphPreOrderId > bInst->parent->dominanceGraphPreOrderId)
+		return 1;
+
+	if(IsAfter(aInst, bInst))
+		return 1;
+
+	if(IsAfter(bInst, aInst))
+		return -1;
+
+	return 0;
+}
+
+bool Colored(VmInstruction *inst)
+{
+	return inst->color != 0;
+}
+
+bool Uncolored(VmInstruction *inst)
+{
+	return inst->color == 0;
+}
+
+VmInstruction* UnderlyingValue(VmInstruction *instruction)
+{
+	if(instruction->cmd == VM_INST_MOV)
+	{
+		VmInstruction *argument = getType<VmInstruction>(instruction->arguments[0]);
+
+		assert(argument);
+
+		return UnderlyingValue(argument);
+	}
+
+	return instruction;
+}
+
+void DeCoalesce(VmInstruction *variable, VmInstruction *currIdom)
+{
+	while(currIdom != NULL && (!Dominates(currIdom, variable) || Uncolored(currIdom)))
+		currIdom = currIdom->idom;
+
+	variable->idom = currIdom;
+	variable->intersectingIdom = NULL;
+
+	VmInstruction *currAncestor = variable->idom;
+
+	while(currAncestor)
+	{
+		while(currAncestor && !(Colored(currAncestor) && Intersect(currAncestor, variable)))
+			currAncestor = currAncestor->intersectingIdom;
+
+		if(currAncestor)
+		{
+			if(UnderlyingValue(currAncestor) == UnderlyingValue(variable))
+			{
+				variable->intersectingIdom = currAncestor;
+				break;
+			}
+			else
+			{
+				// v and currAnc interfere
+				// It's preferable to uncolor a single copy instruction
+				if(variable->cmd != VM_INST_PHI)
+				{
+					variable->color = 0;
+
+					break;
+				}
+				else
+				{
+					currAncestor->color = 0;
+
+					// Phi instruction registers are 'pinned' together
+					if(currAncestor->cmd == VM_INST_PHI)
+					{
+						for(unsigned argument = 0; argument < currAncestor->arguments.size(); argument += 2)
+						{
+							VmInstruction *instruction = getType<VmInstruction>(currAncestor->arguments[argument]);
+
+							instruction->color = 0;
+						}
+					}
+
+					currAncestor = currAncestor->intersectingIdom;
+				}
+			}
+		}
+	}
+}
+
+void DecoalesceMergedSets(VmFunction* function)
+{
+	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
+	{
+		for(VmInstruction *inst = block->firstInstruction; inst; inst = inst->nextSibling)
+		{
+			if(inst->cmd == VM_INST_PHI && inst->marker == 0)
+			{
+				SmallArray<VmInstruction*, 32> mergedSet;
+
+				CollectMergedSet(inst, inst->color, mergedSet);
+
+				// Now sort merged set in depth-first-search pre-order of the dominance tree
+				qsort(mergedSet.data, mergedSet.count, sizeof(mergedSet[0]), SortByDominancePreOrder);
+
+				VmInstruction *currImmediateDominator = NULL;
+
+				for(unsigned i = 0; i < mergedSet.size(); i++)
+				{
+					VmInstruction *variable = mergedSet[i];
+
+					DeCoalesce(variable, currImmediateDominator);
+
+					currImmediateDominator = variable;
+				}
+			}
+		}
+	}
+}
+
+void CoalesceTrivialCopies(ExpressionContext &ctx, VmModule *module, VmFunction* function)
+{
+	// Remove move instructions between same colors (aka coalesce)
+	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
+	{
+		SmallArray<VmInstruction*, 32> moves(ctx.allocator);
+
+		for(VmInstruction *curr = block->firstInstruction; curr; curr = curr->nextSibling)
+		{
+			if(curr->cmd == VM_INST_MOV)
+				moves.push_back(curr);
+		}
+
+		for(unsigned i = 0; i < moves.size(); i++)
+		{
+			VmInstruction *dst = moves[i];
+			VmInstruction *src = getType<VmInstruction>(dst->arguments[0]);
+
+			if(dst->color != 0 && dst->color == src->color)
+				ReplaceValueUsersWith(module, dst, src, NULL);
+		}
+	}
+}
+
+void RunPrepareSsaExit(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		module->currentFunction = function;
+
+		// Remove interferences between phi instruction registers by introducing copies
+		IsolatePhiNodes(module, function);
+
+		function->UpdateLiveSets();
+
+		// Mark each phi-copy instuction web with a color
+		ColorPhiWebs(function);
+
+		// Remove colors from registers that introduce interferences between registers
+		DecoalesceMergedSets(function);
+
+		// Remove copies between registers that still have the same color (no interference)
+		CoalesceTrivialCopies(ctx, module, function);
+
+		function->UpdateLiveSets();
+
+		module->currentFunction = NULL;
 	}
 }
 
@@ -5386,11 +5851,11 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 		case VM_PASS_OPT_ARRAY_TO_ELEMENTS:
 			RunArrayToElements(ctx, module, value);
 			break;
-		case VM_PASS_OPT_FORWARD_MOVE:
-			RunForwardMove(ctx, module, value);
-			break;
 		case VM_PASS_UPDATE_LIVE_SETS:
 			RunUpdateLiveSets(ctx, module, value);
+			break;
+		case VM_PASS_PREPARE_SSA_EXIT:
+			RunPrepareSsaExit(ctx, module, value);
 			break;
 		case VM_PASS_CREATE_ALLOCA_STORAGE:
 			RunCreateAllocaStorage(ctx, module, value);

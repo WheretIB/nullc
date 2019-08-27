@@ -580,10 +580,12 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_MEMORY_TO_REGISTER);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION);
-		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_FORWARD_MOVE);
 	}
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_UPDATE_LIVE_SETS);
+
+	if(ctx.optimizationLevel >= 2)
+		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_PREPARE_SSA_EXIT);
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_BITCASTS);
 
