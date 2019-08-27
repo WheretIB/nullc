@@ -816,12 +816,19 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			}
 			else if(inst->arguments[0]->type.type == VM_TYPE_POINTER)
 			{
-				assert(!constant->container);
+				if(constant->container)
+				{
+					lowBlock->AddInstruction(ctx, inst->source, rviGetAddr, targetReg, 0, IsLocalScope(constant->container->scope) ? rvrrFrame : rvrrGlobals, constant);
+				}
+				else
+				{
+					assert(!constant->container);
 
-				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
 
-				if(NULLC_PTR_SIZE == 8)
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadImmLong, targetReg, 0, 0, 0u);
+					if(NULLC_PTR_SIZE == 8)
+						lowBlock->AddInstruction(ctx, inst->source, rviLoadImmLong, targetReg, 0, 0, 0u);
+				}
 			}
 			else
 			{
