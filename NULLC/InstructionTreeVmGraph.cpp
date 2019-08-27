@@ -447,7 +447,10 @@ void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 
 		if(liveIn->cmd == VM_INST_PHI)
 		{
-			Print(ctx, "%%%d [", liveIn->uniqueId);
+			if(liveIn->comment.empty())
+				Print(ctx, "%%%d [", liveIn->uniqueId);
+			else
+				Print(ctx, "%%%d (%.*s) [", liveIn->uniqueId, FMT_ISTR(liveIn->comment));
 
 			for(unsigned k = 0; k < liveIn->arguments.size(); k += 2)
 			{
@@ -456,14 +459,20 @@ void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 				if(k != 0)
 					Print(ctx, ", ");
 
-				Print(ctx, "%%%d", value->uniqueId);
+				if(value->comment.empty())
+					Print(ctx, "%%%d", value->uniqueId);
+				else
+					Print(ctx, "%%%d (%.*s)", value->uniqueId, FMT_ISTR(value->comment));
 			}
 
 			Print(ctx, "]");
 		}
 		else
 		{
-			Print(ctx, "%%%d", liveIn->uniqueId);
+			if(liveIn->comment.empty())
+				Print(ctx, "%%%d", liveIn->uniqueId);
+			else
+				Print(ctx, "%%%d (%.*s)", liveIn->uniqueId, FMT_ISTR(liveIn->comment));
 		}
 	}
 
@@ -478,7 +487,10 @@ void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 		if(i != 0)
 			Print(ctx, ", ");
 
-		Print(ctx, "%%%d", liveOut->uniqueId);
+		if(liveOut->comment.empty())
+			Print(ctx, "%%%d", liveOut->uniqueId);
+		else
+			Print(ctx, "%%%d (%.*s)", liveOut->uniqueId, FMT_ISTR(liveOut->comment));
 	}
 
 	PrintLine(ctx, "]");
