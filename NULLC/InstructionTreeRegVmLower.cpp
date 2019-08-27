@@ -2201,9 +2201,25 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		SmallArray<unsigned char, 8> sourceRegs;
 		GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, pointer);
 
+		bool fakeUser = false;
+
+		if(inst->users.empty())
+		{
+			fakeUser = true;
+			inst->users.push_back(NULL);
+		}
+
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
 		lowBlock->AddInstruction(ctx, inst->source, rviConvertPtr, targetReg, sourceRegs[0], sourceRegs[1], typeIndex->iValue);
+
+		if(fakeUser)
+		{
+			for(unsigned i = 0; i < inst->regVmRegisters.size(); i++)
+				lowFunction->FreeRegister(inst->regVmRegisters[i]);
+
+			inst->users.clear();
+		}
 	}
 	break;
 	case VM_INST_ABORT_NO_RETURN:
