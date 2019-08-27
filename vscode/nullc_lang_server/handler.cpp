@@ -609,6 +609,22 @@ FindEntityResponse FindEntityAtLocation(CompilerContext *context, Position posit
 				return;
 			}
 
+			if(SynFunctionArgument *source = getType<SynFunctionArgument>(node->source))
+			{
+				if(source->type && IsInside(source->type, data.position.line, data.position.character) && IsSmaller(response.bestNode, source->type))
+				{
+					response.bestNode = source->type;
+
+					response.targetVariable = nullptr;
+					response.targetFunction = nullptr;
+					response.targetType = node->variable->variable->type;
+
+					if(data.captureScopes)
+						response.debugScopes += " <- selected[type]";
+					return;
+				}
+			}
+
 			if(!IsInside(nameSource, data.position.line, data.position.character))
 			{
 				if(data.captureScopes)
