@@ -588,6 +588,7 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_PREPARE_SSA_EXIT);
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_BITCASTS);
+	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_LEGALIZE_EXTRACTS);
 
 	RunVmPass(exprCtx, ctx.vmModule, VM_PASS_CREATE_ALLOCA_STORAGE);
 
