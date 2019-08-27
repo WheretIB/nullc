@@ -265,10 +265,15 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 			Print(ctx, " ");
 		}
 
+		Print(ctx, "%%%d", instruction->uniqueId);
+
+		if(instruction->color)
+			Print(ctx, ".c%d", instruction->color);
+
 		if(ctx.showComments && !instruction->comment.empty())
-			Print(ctx, "%%%d (%.*s) = ", instruction->uniqueId, FMT_ISTR(instruction->comment));
+			Print(ctx, " (%.*s) = ", FMT_ISTR(instruction->comment));
 		else
-			Print(ctx, "%%%d = ", instruction->uniqueId);
+			Print(ctx, " = ");
 	}
 
 	Print(ctx, "%s", GetInstructionName(instruction));
@@ -286,6 +291,13 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 				Print(ctx, ", ");
 
 			PrintName(ctx, value, false, false);
+
+			if(VmInstruction *inst = getType<VmInstruction>(value))
+			{
+				if(inst->color)
+					Print(ctx, ".c%d", inst->color);
+			}
+
 			Print(ctx, " from ");
 			PrintName(ctx, edge, false, false);
 		}
@@ -338,6 +350,12 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 				Print(ctx, ", ");
 
 			PrintName(ctx, value, false, false);
+
+			if(VmInstruction *inst = getType<VmInstruction>(value))
+			{
+				if(inst->color)
+					Print(ctx, ".c%d", inst->color);
+			}
 		}
 
 		if(instruction->type == VmType::Void)
