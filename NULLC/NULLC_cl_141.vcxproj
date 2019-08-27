@@ -200,7 +200,7 @@
     <ClCompile Include="InstructionTreeRegVm.cpp" />
     <ClCompile Include="InstructionTreeRegVmLower.cpp" />
     <ClCompile Include="InstructionTreeRegVmLowerGraph.cpp" />
-    <ClCompile Include="InstructionTreeVM.cpp" />
+    <ClCompile Include="InstructionTreeVm.cpp" />
     <ClCompile Include="InstructionTreeVmCommon.cpp" />
     <ClCompile Include="InstructionTreeVmEval.cpp" />
     <ClCompile Include="InstructionTreeVmGraph.cpp" />

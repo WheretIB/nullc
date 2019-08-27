@@ -53,7 +53,7 @@
     <ClCompile Include="ExpressionGraph.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
-    <ClCompile Include="InstructionTreeVM.cpp">
+    <ClCompile Include="InstructionTreeVm.cpp">
       <Filter>Compiler</Filter>
     </ClCompile>
     <ClCompile Include="InstructionTreeVmGraph.cpp">
