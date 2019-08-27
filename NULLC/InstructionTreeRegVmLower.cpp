@@ -2609,7 +2609,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			break;
 		}
 
-		if(inst->arguments[0]->type.type == VM_TYPE_STRUCT && !(inst->type.type == VM_TYPE_INT || inst->type.type == VM_TYPE_LONG))
+		if(inst->arguments[0]->type.type == VM_TYPE_STRUCT && !(inst->type.type == VM_TYPE_INT || inst->type.type == VM_TYPE_LONG || inst->type.type == VM_TYPE_POINTER))
 			assert(!"can't bitcast structure to registers");
 
 		SmallArray<unsigned char, 8> sourceRegs;
