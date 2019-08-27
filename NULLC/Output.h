@@ -16,18 +16,18 @@ struct OutputContext
 {
 	OutputContext()
 	{
-		outputBuf = 0;
-		outputBufSize = 0;
+		outputBuf = outputBufDef;
+		outputBufSize = 256;
 		outputBufPos = 0;
 
-		tempBuf = 0;
-		tempBufSize = 0;
+		tempBuf = tempBufDef;
+		tempBufSize = 256;
 
 		stream = 0;
 
-		openStream = 0;
-		writeStream = 0;
-		closeStream = 0;
+		openStream = FileOpen;
+		writeStream = FileWrite;
+		closeStream = FileClose;
 	}
 
 	~OutputContext()
@@ -177,10 +177,12 @@ struct OutputContext
 		fclose((FILE*)stream);
 	}
 
+	char outputBufDef[256];
 	char *outputBuf;
 	unsigned outputBufSize;
 	unsigned outputBufPos;
 
+	char tempBufDef[256];
 	char *tempBuf;
 	unsigned tempBufSize;
 
