@@ -2131,3 +2131,106 @@ struct SetVariableResponseData
 	*/
 	Optional<int> indexedVariables;
 };
+
+struct EvaluateArguments
+{
+	EvaluateArguments() = default;
+
+	EvaluateArguments(rapidjson::Value &json)
+	{
+		FromJson(expression, json["expression"]);
+
+		if(json.HasMember("frameId"))
+			FromJson(frameId, json["frameId"]);
+
+		if(json.HasMember("context"))
+			FromJson(context, json["context"]);
+
+		if(json.HasMember("format"))
+			FromJson(format, json["format"]);
+	}
+
+	/**
+	* The expression to evaluate.
+	*/
+	std::string expression;
+
+	/**
+	* Evaluate the expression in the scope of this stack frame. If not specified, the expression is evaluated in the global scope.
+	*/
+	Optional<int> frameId;
+
+	/**
+	* The context in which the evaluate request is run.
+	* Values: 
+	* 'watch': evaluate is run in a watch.
+	* 'repl': evaluate is run from REPL console.
+	* 'hover': evaluate is run from a data hover.
+	* etc.
+	*/
+	Optional<std::string> context;
+
+	/**
+	* Specifies details on how to format the Evaluate result.
+	*/
+	Optional<ValueFormat> format;
+};
+
+struct EvaluateResponseData
+{
+	EvaluateResponseData() = default;
+
+	void SaveTo(rapidjson::Value &target, rapidjson::Document &document) const
+	{
+		target.SetObject();
+
+		target.AddMember("result", ::ToJson(result, document), document.GetAllocator());
+
+		if(type)
+			target.AddMember("type", ::ToJson(*type, document), document.GetAllocator());
+
+		if(presentationHint)
+			target.AddMember("presentationHint", ::ToJson(*presentationHint, document), document.GetAllocator());
+
+		if(variablesReference)
+			target.AddMember("variablesReference", ::ToJson(*variablesReference, document), document.GetAllocator());
+
+		if(namedVariables)
+			target.AddMember("namedVariables", ::ToJson(*namedVariables, document), document.GetAllocator());
+
+		if(indexedVariables)
+			target.AddMember("indexedVariables", ::ToJson(*indexedVariables, document), document.GetAllocator());
+	}
+
+	/**
+	* The result of the evaluate request.
+	*/
+	std::string result;
+
+	/**
+	* The optional type of the evaluate result.
+	*/
+	Optional<std::string> type;
+
+	/**
+	* Properties of a evaluate result that can be used to determine how to render the result in the UI.
+	*/
+	Optional<VariablePresentationHint> presentationHint;
+
+	/**
+	* If variablesReference is > 0, the evaluate result is structured and its children can be retrieved by passing variablesReference to the VariablesRequest.
+	*/
+	Optional<int> variablesReference;
+
+	/**
+	* The number of named child variables.
+	* The client can use this optional information to present the variables in a paged UI and fetch them in chunks.
+	*/
+	Optional<int> namedVariables;
+
+	/**
+	* The number of indexed child variables.
+	* The client can use this optional information to present the variables in a paged UI and fetch them in chunks.
+	*/
+	Optional<int> indexedVariables;
+};
