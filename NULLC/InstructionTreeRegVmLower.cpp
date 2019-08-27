@@ -2006,7 +2006,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		else if(inst->arguments[0]->type == VmType::Double)
 			lowBlock->AddInstruction(ctx, inst->source, rviLequald, targetReg, lhsReg, rhsReg);
 		else if(inst->arguments[0]->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviLequal, targetReg, lhsReg, rhsReg);
+			lowBlock->AddInstruction(ctx, inst->source, rviLequall, targetReg, lhsReg, rhsReg);
 		else
 			assert(!"unknown type");
 	}
