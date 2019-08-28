@@ -951,6 +951,9 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
+			if(regFilePtr[cmd.rC].longValue == 0)
+				return rvm->ExecError(instruction, "ERROR: integer division by zero");
+
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue / regFilePtr[cmd.rC].longValue;
 			break;
 		case rviPowl:
@@ -964,6 +967,9 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
+
+			if(regFilePtr[cmd.rC].longValue == 0)
+				return rvm->ExecError(instruction, "ERROR: integer division by zero");
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue % regFilePtr[cmd.rC].longValue;
 			break;
