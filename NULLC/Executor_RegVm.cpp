@@ -1785,7 +1785,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 
 RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction)
 {
-	if(cmd.rB == rvrError)
+	if(cmd.rA == rvrError)
 	{
 		bool errorState = !callStack.empty();
 
