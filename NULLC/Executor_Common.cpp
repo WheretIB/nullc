@@ -126,12 +126,13 @@ unsigned int PrintStackFrame(int address, char* current, unsigned int bufSize, b
 	FastVector<char> &exSymbols = NULLC::commonLinker->exSymbols;
 	FastVector<ExternModuleInfo> &exModules = NULLC::commonLinker->exModules;
 
-	ExternSourceInfo *exInfo = (ExternSourceInfo*)&NULLC::commonLinker->exVmSourceInfo[0];
-	const char *source = &NULLC::commonLinker->exSource[0];
-	unsigned int infoSize = NULLC::commonLinker->exVmSourceInfo.size();
-
 	void *unknownExec = NULL;
 	unsigned int execID = nullcGetCurrentExecutor(&unknownExec);
+
+	ExternSourceInfo *exInfo = execID == NULLC_REG_VM ? &NULLC::commonLinker->exRegVmSourceInfo[0] : &NULLC::commonLinker->exVmSourceInfo[0];
+	unsigned int infoSize = execID == NULLC_REG_VM ? NULLC::commonLinker->exRegVmSourceInfo.size() : NULLC::commonLinker->exVmSourceInfo.size();
+
+	const char *source = &NULLC::commonLinker->exSource[0];
 
 	int funcID = -1;
 	for(unsigned int i = 0; i < exFunctions.size(); i++)
