@@ -1704,7 +1704,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 
 	// If parameter stack was reallocated
 	if(dataStack.size() + argumentsSize >= oldSize)
-		ExtendParameterStack(oldBase, oldSize, instruction + 1);
+		ExtendParameterStack(oldBase, oldSize, codeBase + address);
 
 	unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
@@ -1729,7 +1729,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		if(stackSize - argumentsSize)
 			memset(dataStack.data + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
 
-		ExtendParameterStack(oldBase, oldSize, instruction + 1);
+		ExtendParameterStack(oldBase, oldSize, codeBase + address + 1);
 	}
 	else
 	{
@@ -1875,7 +1875,10 @@ RegVmReturnType ExecutorRegVm::ExecError(RegVmCmd * const instruction, const cha
 	return rvrError;
 }
 
-namespace
+#define RELOCATE_DEBUG_PRINT(...) (void)0
+//#define RELOCATE_DEBUG_PRINT printf
+
+namespace RegVmExPriv
 {
 	char *oldBase;
 	char *newBase;
@@ -1883,10 +1886,34 @@ namespace
 	unsigned newSize;
 	unsigned objectName = NULLC::GetStringHash("auto ref");
 	unsigned autoArrayName = NULLC::GetStringHash("auto[]");
-}
 
-#define RELOCATE_DEBUG_PRINT(...) (void)0
-//#define RELOCATE_DEBUG_PRINT printf
+	void PrintMarker(markerType marker, char *symbols, FastVector<ExternTypeInfo> &exTypes)
+	{
+		RELOCATE_DEBUG_PRINT("\tMarker is 0x%2x [", marker);
+
+		const uintptr_t OBJECT_VISIBLE = 1 << 0;
+		const uintptr_t OBJECT_FREED = 1 << 1;
+		const uintptr_t OBJECT_FINALIZABLE = 1 << 2;
+		const uintptr_t OBJECT_FINALIZED = 1 << 3;
+		const uintptr_t OBJECT_ARRAY = 1 << 4;
+
+		if(marker & OBJECT_VISIBLE)
+			RELOCATE_DEBUG_PRINT("visible");
+		else
+			RELOCATE_DEBUG_PRINT("unmarked");
+
+		if(marker & OBJECT_FREED)
+			RELOCATE_DEBUG_PRINT(" freed");
+		if(marker & OBJECT_FINALIZABLE)
+			RELOCATE_DEBUG_PRINT(" finalizable");
+		if(marker & OBJECT_FINALIZED)
+			RELOCATE_DEBUG_PRINT(" finalized");
+		if(marker & OBJECT_ARRAY)
+			RELOCATE_DEBUG_PRINT(" array");
+
+		RELOCATE_DEBUG_PRINT("] type %d '%s'\r\n", unsigned(marker >> 8), symbols + exTypes[marker >> 8].offsetToName);
+	}
+}
 
 void ExecutorRegVm::FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType)
 {
@@ -1894,13 +1921,13 @@ void ExecutorRegVm::FixupPointer(char* ptr, const ExternTypeInfo& type, bool tak
 
 	if(target > (char*)0x00010000)
 	{
-		if(target >= oldBase && target < (oldBase + oldSize))
+		if(target >= RegVmExPriv::oldBase && target < RegVmExPriv::oldBase + RegVmExPriv::oldSize)
 		{
-			RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
+			RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase);
 
-			vmStorePointer(ptr, target - oldBase + newBase);
+			vmStorePointer(ptr, target - RegVmExPriv::oldBase + RegVmExPriv::newBase);
 		}
-		else if(target >= newBase && target < (newBase + newSize))
+		else if(target >= RegVmExPriv::newBase && target < RegVmExPriv::newBase + RegVmExPriv::newSize)
 		{
 			const ExternTypeInfo &subType = takeSubType ? exTypes[type.subType] : type;
 			(void)subType;
@@ -1911,33 +1938,37 @@ void ExecutorRegVm::FixupPointer(char* ptr, const ExternTypeInfo& type, bool tak
 			const ExternTypeInfo &subType = takeSubType ? exTypes[type.subType] : type;
 			RELOCATE_DEBUG_PRINT("\tGlobal%s pointer %s %p (at %p) base %p\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, target, ptr, NULLC::GetBasePointer(target));
 
-			if(type.subType != 0 && NULLC::IsBasePointer(target))
+			if(!NULLC::IsBasePointer(target))
+				return;
+
+			if(type.subType == 0)
 			{
 				markerType *marker = (markerType*)((char*)target - sizeof(markerType));
-				RELOCATE_DEBUG_PRINT("\tMarker is %d", *marker);
 
-				const uintptr_t OBJECT_VISIBLE		= 1 << 0;
-				const uintptr_t OBJECT_FREED		= 1 << 1;
-				const uintptr_t OBJECT_FINALIZABLE	= 1 << 2;
-				const uintptr_t OBJECT_FINALIZED	= 1 << 3;
-				const uintptr_t OBJECT_ARRAY		= 1 << 4;
+				RELOCATE_DEBUG_PRINT("\tOpaque pointer base is %p\r\n", target);
 
-				if(*marker & OBJECT_VISIBLE)
-					RELOCATE_DEBUG_PRINT(" visible");
-				if(*marker & OBJECT_FREED)
-					RELOCATE_DEBUG_PRINT(" freed");
-				if(*marker & OBJECT_FINALIZABLE)
-					RELOCATE_DEBUG_PRINT(" finalizable");
-				if(*marker & OBJECT_FINALIZED)
-					RELOCATE_DEBUG_PRINT(" finalized");
-				if(*marker & OBJECT_ARRAY)
-					RELOCATE_DEBUG_PRINT(" array");
+				RegVmExPriv::PrintMarker(*marker, symbols, exTypes);
 
-				RELOCATE_DEBUG_PRINT(" %s\r\n", symbols + exTypes[unsigned(*marker >> 8)].offsetToName);
+				if(*marker & 1)
+				{
+					ExternTypeInfo &opaqueType = exTypes[*marker >> 8];
+
+					*marker &= ~1;
+
+					if(opaqueType.subCat != ExternTypeInfo::CAT_NONE)
+						FixupVariable(target, opaqueType);
+				}
+			}
+			else
+			{
+				markerType *marker = (markerType*)((char*)target - sizeof(markerType));
+
+				RegVmExPriv::PrintMarker(*marker, symbols, exTypes);
 
 				if(*marker & 1)
 				{
 					*marker &= ~1;
+
 					if(type.subCat != ExternTypeInfo::CAT_NONE)
 						FixupVariable(target, subType);
 				}
@@ -1948,7 +1979,7 @@ void ExecutorRegVm::FixupPointer(char* ptr, const ExternTypeInfo& type, bool tak
 
 void ExecutorRegVm::FixupArray(char* ptr, const ExternTypeInfo& type)
 {
-	ExternTypeInfo *subType = type.nameHash == autoArrayName ? NULL : &exTypes[type.subType];
+	ExternTypeInfo *subType = type.nameHash == RegVmExPriv::autoArrayName ? NULL : &exTypes[type.subType];
 	unsigned size = type.arrSize;
 	if(type.arrSize == ~0u)
 	{
@@ -1959,9 +1990,9 @@ void ExecutorRegVm::FixupArray(char* ptr, const ExternTypeInfo& type)
 		char *target = vmLoadPointer(ptr);
 
 		// If it points to stack, fix it and return
-		if(target >= oldBase && target < (oldBase + oldSize))
+		if(target >= RegVmExPriv::oldBase && target < (RegVmExPriv::oldBase + RegVmExPriv::oldSize))
 		{
-			vmStorePointer(ptr, target - oldBase + newBase);
+			vmStorePointer(ptr, target - RegVmExPriv::oldBase + RegVmExPriv::newBase);
 			return;
 		}
 
@@ -1982,7 +2013,7 @@ void ExecutorRegVm::FixupArray(char* ptr, const ExternTypeInfo& type)
 		// Mark memory as used
 		*marker &= ~1;
 	}
-	else if(type.nameHash == autoArrayName)
+	else if(type.nameHash == RegVmExPriv::autoArrayName)
 	{
 		NULLCAutoArray *data = (NULLCAutoArray*)ptr;
 
@@ -1994,8 +2025,8 @@ void ExecutorRegVm::FixupArray(char* ptr, const ExternTypeInfo& type)
 			return;
 
 		// If it points to stack, fix it
-		if(data->ptr >= oldBase && data->ptr < (oldBase + oldSize))
-			data->ptr = data->ptr - oldBase + newBase;
+		if(data->ptr >= RegVmExPriv::oldBase && data->ptr < (RegVmExPriv::oldBase + RegVmExPriv::oldSize))
+			data->ptr = data->ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase;
 
 		// Mark target data
 		FixupPointer(data->ptr, *subType, false);
@@ -2037,7 +2068,7 @@ void ExecutorRegVm::FixupClass(char* ptr, const ExternTypeInfo& type)
 {
 	const ExternTypeInfo *realType = &type;
 
-	if(type.nameHash == objectName)
+	if(type.nameHash == RegVmExPriv::objectName)
 	{
 		// Get real variable type
 		realType = &exTypes[*(int*)ptr];
@@ -2046,9 +2077,9 @@ void ExecutorRegVm::FixupClass(char* ptr, const ExternTypeInfo& type)
 		char *target = vmLoadPointer(ptr + 4);
 
 		// If it points to stack, fix it and return
-		if(target >= oldBase && target < (oldBase + oldSize))
+		if(target >= RegVmExPriv::oldBase && target < (RegVmExPriv::oldBase + RegVmExPriv::oldSize))
 		{
-			vmStorePointer(ptr + 4, target - oldBase + newBase);
+			vmStorePointer(ptr + 4, target - RegVmExPriv::oldBase + RegVmExPriv::newBase);
 			return;
 		}
 		ptr = target;
@@ -2069,7 +2100,7 @@ void ExecutorRegVm::FixupClass(char* ptr, const ExternTypeInfo& type)
 		// Exit
 		return;
 	}
-	else if(type.nameHash == autoArrayName)
+	else if(type.nameHash == RegVmExPriv::autoArrayName)
 	{
 		FixupArray(ptr, type);
 		// Exit
@@ -2087,7 +2118,7 @@ void ExecutorRegVm::FixupClass(char* ptr, const ExternTypeInfo& type)
 		ExternTypeInfo &subType = exTypes[memberList[n].type];
 		unsigned pos = memberList[n].offset;
 
-		RELOCATE_DEBUG_PRINT("\tChecking member %s at offset %d\r\n", memberName, pos);
+		RELOCATE_DEBUG_PRINT("\tChecking member %s at offset %d type %d '%s'\r\n", memberName, pos, memberList[n].type, symbols + exTypes[memberList[n].type].offsetToName);
 
 		// Check member
 		FixupVariable(ptr + pos, subType);
@@ -2138,16 +2169,16 @@ void ExecutorRegVm::FixupVariable(char* ptr, const ExternTypeInfo& type)
 bool ExecutorRegVm::ExtendParameterStack(char* oldBase, unsigned oldSize, RegVmCmd *current)
 {
 	RELOCATE_DEBUG_PRINT("Old base: %p-%p\r\n", oldBase, oldBase + oldSize);
-	RELOCATE_DEBUG_PRINT("New base: %p-%p\r\n", genParams.data, genParams.data + genParams.max);
+	RELOCATE_DEBUG_PRINT("New base: %p-%p\r\n", dataStack.data, dataStack.data + dataStack.max);
 
 	SetUnmanagableRange(dataStack.data, dataStack.max);
 
 	NULLC::MarkMemory(1);
 
-	oldBase = oldBase;
-	newBase = dataStack.data;
-	oldSize = oldSize;
-	newSize = dataStack.max;
+	RegVmExPriv::oldBase = oldBase;
+	RegVmExPriv::newBase = dataStack.data;
+	RegVmExPriv::oldSize = oldSize;
+	RegVmExPriv::newSize = dataStack.max;
 
 	symbols = exLinker->exSymbols.data;
 
@@ -2164,12 +2195,11 @@ bool ExecutorRegVm::ExtendParameterStack(char* oldBase, unsigned oldSize, RegVmC
 	}
 
 	int offset = exLinker->globalVarSize;
-	int n = 0;
 
 	callStack.push_back(current);
 
 	// Fixup local variables
-	for(; n < (int)callStack.size(); n++)
+	for(int n = 0; n < (int)callStack.size(); n++)
 	{
 		int address = int(callStack[n] - codeBase);
 		int funcID = -1;
@@ -2209,10 +2239,10 @@ bool ExecutorRegVm::ExtendParameterStack(char* oldBase, unsigned oldSize, RegVmC
 				// Fixup pointer itself
 				char *target = vmLoadPointer(ptr);
 
-				if(target >= oldBase && target < (oldBase + oldSize))
+				if(target >= RegVmExPriv::oldBase && target < (RegVmExPriv::oldBase + RegVmExPriv::oldSize))
 				{
-					RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
-					vmStorePointer(ptr, target - oldBase + newBase);
+					RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase);
+					vmStorePointer(ptr, target - RegVmExPriv::oldBase + RegVmExPriv::newBase);
 				}
 
 				// Fixup what it was pointing to
@@ -2226,6 +2256,114 @@ bool ExecutorRegVm::ExtendParameterStack(char* oldBase, unsigned oldSize, RegVmC
 	}
 
 	callStack.pop_back();
+
+	// Check registers for pointers to classes that may contain pointers
+	char *currRegisterData = (char*)regFileArrayBase;
+
+	while(currRegisterData + sizeof(void*) <= (char*)regFileLastTop)
+	{
+		char *ptr = vmLoadPointer(currRegisterData);
+
+		// Check for unmanageable ranges. Range of 0x00000000-0x00010000 is unmanageable by default due to upvalues with offsets inside closures.
+		if(ptr > (char*)0x00010000 && (ptr < RegVmExPriv::oldBase || ptr > RegVmExPriv::oldBase + RegVmExPriv::oldSize))
+		{
+			// Get pointer base
+			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
+
+			// If there is no base, this pointer points to memory that is not GCs memory
+			if(basePtr)
+			{
+				RELOCATE_DEBUG_PRINT("\tGlobal pointer [register] %p\r\n", ptr);
+
+				RELOCATE_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
+
+				markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
+
+				RegVmExPriv::PrintMarker(*marker, symbols, exTypes);
+
+				if(*marker & 1)
+				{
+					unsigned typeID = unsigned(*marker >> 8);
+					ExternTypeInfo &type = types[typeID];
+
+					*marker &= ~1;
+
+					if(type.subCat != ExternTypeInfo::CAT_NONE)
+						FixupVariable((char*)basePtr, type);
+				}
+			}
+		}
+
+		if(ptr >= RegVmExPriv::oldBase && ptr < RegVmExPriv::oldBase + RegVmExPriv::oldSize)
+		{
+			int registerNumber = int((RegVmRegister*)currRegisterData - regFileArrayBase);
+
+			for(unsigned n = 0; n < callStack.size(); n++)
+			{
+				int address = int(callStack[n] - codeBase);
+				int funcID = -1;
+
+				for(unsigned i = 0; i < exFunctions.size(); i++)
+				{
+					if(address >= exFunctions[i].regVmAddress && address < (exFunctions[i].regVmAddress + exFunctions[i].regVmCodeSize))
+						funcID = i;
+				}
+
+				if(funcID != -1)
+				{
+					ExternFuncInfo &funcInfo = exFunctions[funcID];
+
+					if(registerNumber < funcInfo.regVmRegisters)
+					{
+						RELOCATE_DEBUG_PRINT("Function %s register r%d\r\n", symbols + funcInfo.offsetToName, registerNumber);
+
+						if(registerNumber == rvrrGlobals || registerNumber == rvrrFrame)
+						{
+							RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase);
+
+							vmStorePointer(currRegisterData, ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase);
+						}
+						else
+						{
+							RELOCATE_DEBUG_PRINT("\tLooks like a pointer but not enough info available\r\n");
+						}
+
+						break;
+					}
+					else
+					{
+						registerNumber -= funcInfo.regVmRegisters;
+					}
+				}
+				else
+				{
+					if(registerNumber < 256)
+					{
+						RELOCATE_DEBUG_PRINT("Global scope register r%d\r\n", registerNumber);
+
+						if(registerNumber == rvrrGlobals || registerNumber == rvrrFrame)
+						{
+							RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase);
+
+							vmStorePointer(currRegisterData, ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase);
+						}
+						else
+						{
+							RELOCATE_DEBUG_PRINT("\tLooks like a pointer but not enough info available\r\n");
+						}
+
+						break;
+					}
+					else
+					{
+						registerNumber -= 256;
+					}
+				}
+			}
+		}
+
+		currRegisterData += 4;
+	}
 
 	return true;
 }
