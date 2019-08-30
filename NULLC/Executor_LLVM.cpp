@@ -512,6 +512,13 @@ void ExecutorLLVM::Stop(const char* error)
 	assert(!"ExecutorLLVM::Stop");
 }
 
+bool ExecutorLLVM::SetStackSize(unsigned bytes)
+{
+	(void)bytes;
+
+	return true;
+}
+
 const char*	ExecutorLLVM::GetResult()
 {
 	switch(llvmReturnedType)

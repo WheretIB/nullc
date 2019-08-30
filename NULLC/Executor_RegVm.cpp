@@ -96,6 +96,9 @@ namespace
 
 ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions)
 {
+	memset(execError, 0, REGVM_ERROR_BUFFER_SIZE);
+	memset(execResult, 0, 64);
+
 	codeRunning = false;
 
 	lastResultType = rvrError;
@@ -103,6 +106,8 @@ ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker-
 	symbols = NULL;
 
 	codeBase = NULL;
+
+	minStackSize = 1 * 1024 * 1024;
 
 	currentFrame = 0;
 
@@ -146,7 +151,7 @@ void ExecutorRegVm::InitExecution()
 
 	CommonSetLinker(exLinker);
 
-	dataStack.reserve(4096);
+	dataStack.reserve(minStackSize);
 	dataStack.clear();
 	dataStack.resize((exLinker->globalVarSize + 0xf) & ~0xf);
 
@@ -262,61 +267,53 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		{
 			instruction = &exLinker->exRegVmCode[funcPos];
 
-			// Copy from argument buffer to next stack frame
-			char* oldBase = dataStack.data;
-			unsigned oldSize = dataStack.max;
-
 			unsigned argumentsSize = target.bytesToPop;
 
 			// Keep stack frames aligned to 16 byte boundary
 			unsigned alignOffset = (dataStack.size() % 16 != 0) ? (16 - (dataStack.size() % 16)) : 0;
 
-			// Reserve new stack frame
-			dataStack.reserve(dataStack.size() + alignOffset + argumentsSize);
-
-			// Copy arguments to new stack frame
-			memcpy((char*)(dataStack.data + dataStack.size() + alignOffset), arguments, argumentsSize);
-
-			// Ensure that stack is resized, if needed
-			if(dataStack.size() + alignOffset + argumentsSize >= oldSize)
-				ExtendParameterStack(oldBase, oldSize, instruction);
-
-			unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
-
-			regFilePtr = regFileLastTop;
-			regFileTop = regFilePtr + target.regVmRegisters;
-
-			REGVM_DEBUG(regFilePtr[rvrrGlobals].activeType = rvrPointer);
-			REGVM_DEBUG(regFilePtr[rvrrFrame].activeType = rvrPointer);
-
-			assert(dataStack.size() % 16 == 0);
-
-			if(dataStack.size() + stackSize >= dataStack.max)
+			if(dataStack.size() + alignOffset + argumentsSize >= dataStack.max)
 			{
-				char* oldBase = dataStack.data;
-				unsigned oldSize = dataStack.max;
-
-				dataStack.resize(dataStack.size() + stackSize);
-
-				assert(argumentsSize <= stackSize);
-
-				if(stackSize - argumentsSize)
-					memset(dataStack.data + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
-
-				ExtendParameterStack(oldBase, oldSize, instruction + 1);
+				callStack.push_back(instruction + 1);
+				instruction = NULL;
+				strcpy(execError, "ERROR: stack overflow");
+				retType = rvrError;
 			}
 			else
 			{
-				dataStack.resize(dataStack.size() + stackSize);
+				// Copy arguments to new stack frame
+				memcpy((char*)(dataStack.data + dataStack.size() + alignOffset), arguments, argumentsSize);
 
-				assert(argumentsSize <= stackSize);
+				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
-				if(stackSize - argumentsSize)
-					memset(dataStack.data + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
+				regFilePtr = regFileLastTop;
+				regFileTop = regFilePtr + target.regVmRegisters;
+
+				REGVM_DEBUG(regFilePtr[rvrrGlobals].activeType = rvrPointer);
+				REGVM_DEBUG(regFilePtr[rvrrFrame].activeType = rvrPointer);
+
+				assert(dataStack.size() % 16 == 0);
+
+				if(dataStack.size() + stackSize >= dataStack.max)
+				{
+					callStack.push_back(instruction + 1);
+					instruction = NULL;
+					strcpy(execError, "ERROR: stack overflow");
+					retType = rvrError;
+				}
+				else
+				{
+					dataStack.resize(dataStack.size() + stackSize);
+
+					assert(argumentsSize <= stackSize);
+
+					if(stackSize - argumentsSize)
+						memset(dataStack.data + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
+
+					regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
+					regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevDataSize);
+				}
 			}
-
-			regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
-			regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevDataSize);
 		}
 	}
 	else
@@ -413,6 +410,16 @@ void ExecutorRegVm::Stop(const char* error)
 
 	callContinue = false;
 	NULLC::SafeSprintf(execError, REGVM_ERROR_BUFFER_SIZE, "%s", error);
+}
+
+bool ExecutorRegVm::SetStackSize(unsigned bytes)
+{
+	if(codeRunning)
+		return false;
+
+	minStackSize = bytes;
+
+	return true;
 }
 
 RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr, ExecutorRegVm *rvm, RegVmCmd *codeBase)
@@ -1685,26 +1692,24 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 
 	unsigned prevDataSize = dataStack.size();
 
-	char* oldBase = dataStack.data;
-	unsigned oldSize = dataStack.max;
-
 	unsigned argumentsSize = target.bytesToPop;
 
 	// Data stack is always aligned to 16 bytes
 	assert(dataStack.size() % 16 == 0);
 
-	// Reserve place for new stack frame (cmdPushVTop will resize)
-	dataStack.reserve(dataStack.size() + argumentsSize);
+	if(dataStack.size() + argumentsSize >= dataStack.max)
+	{
+		codeRunning = false;
+		strcpy(execError, "ERROR: stack overflow");
+
+		return NULL;
+	}
 
 	// Take arguments
 	tempStackPtr -= target.bytesToPop >> 2;
 
 	// Copy function arguments to new stack frame
 	memcpy((char*)(dataStack.data + dataStack.size()), tempStackPtr, argumentsSize);
-
-	// If parameter stack was reallocated
-	if(dataStack.size() + argumentsSize >= oldSize)
-		ExtendParameterStack(oldBase, oldSize, codeBase + address);
 
 	unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
@@ -1719,27 +1724,18 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 
 	if(dataStack.size() + stackSize >= dataStack.max)
 	{
-		char* oldBase = dataStack.data;
-		unsigned oldSize = dataStack.max;
+		codeRunning = false;
+		strcpy(execError, "ERROR: stack overflow");
 
-		dataStack.resize(dataStack.size() + stackSize);
-
-		assert(argumentsSize <= stackSize);
-
-		if(stackSize - argumentsSize)
-			memset(dataStack.data + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
-
-		ExtendParameterStack(oldBase, oldSize, codeBase + address + 1);
+		return NULL;
 	}
-	else
-	{
-		dataStack.resize(dataStack.size() + stackSize);
 
-		assert(argumentsSize <= stackSize);
+	dataStack.resize(dataStack.size() + stackSize);
 
-		if(stackSize - argumentsSize)
-			memset(dataStack.data + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
-	}
+	assert(argumentsSize <= stackSize);
+
+	if(stackSize - argumentsSize)
+		memset(dataStack.data + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
 
 	regFileTop[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
 	regFileTop[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevDataSize);
@@ -1873,499 +1869,6 @@ RegVmReturnType ExecutorRegVm::ExecError(RegVmCmd * const instruction, const cha
 	strcpy(execError, errorMessage);
 
 	return rvrError;
-}
-
-#define RELOCATE_DEBUG_PRINT(...) (void)0
-//#define RELOCATE_DEBUG_PRINT printf
-
-namespace RegVmExPriv
-{
-	char *oldBase;
-	char *newBase;
-	unsigned oldSize;
-	unsigned newSize;
-	unsigned objectName = NULLC::GetStringHash("auto ref");
-	unsigned autoArrayName = NULLC::GetStringHash("auto[]");
-
-	void PrintMarker(markerType marker, char *symbols, FastVector<ExternTypeInfo> &exTypes)
-	{
-		RELOCATE_DEBUG_PRINT("\tMarker is 0x%2x [", marker);
-
-		const uintptr_t OBJECT_VISIBLE = 1 << 0;
-		const uintptr_t OBJECT_FREED = 1 << 1;
-		const uintptr_t OBJECT_FINALIZABLE = 1 << 2;
-		const uintptr_t OBJECT_FINALIZED = 1 << 3;
-		const uintptr_t OBJECT_ARRAY = 1 << 4;
-
-		if(marker & OBJECT_VISIBLE)
-			RELOCATE_DEBUG_PRINT("visible");
-		else
-			RELOCATE_DEBUG_PRINT("unmarked");
-
-		if(marker & OBJECT_FREED)
-			RELOCATE_DEBUG_PRINT(" freed");
-		if(marker & OBJECT_FINALIZABLE)
-			RELOCATE_DEBUG_PRINT(" finalizable");
-		if(marker & OBJECT_FINALIZED)
-			RELOCATE_DEBUG_PRINT(" finalized");
-		if(marker & OBJECT_ARRAY)
-			RELOCATE_DEBUG_PRINT(" array");
-
-		RELOCATE_DEBUG_PRINT("] type %d '%s'\r\n", unsigned(marker >> 8), symbols + exTypes[marker >> 8].offsetToName);
-	}
-}
-
-void ExecutorRegVm::FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType)
-{
-	char *target = vmLoadPointer(ptr);
-
-	if(target > (char*)0x00010000)
-	{
-		if(target >= RegVmExPriv::oldBase && target < RegVmExPriv::oldBase + RegVmExPriv::oldSize)
-		{
-			RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase);
-
-			vmStorePointer(ptr, target - RegVmExPriv::oldBase + RegVmExPriv::newBase);
-		}
-		else if(target >= RegVmExPriv::newBase && target < RegVmExPriv::newBase + RegVmExPriv::newSize)
-		{
-			const ExternTypeInfo &subType = takeSubType ? exTypes[type.subType] : type;
-			(void)subType;
-			RELOCATE_DEBUG_PRINT("\tStack%s pointer %s %p (at %p)\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, target, ptr);
-		}
-		else
-		{
-			const ExternTypeInfo &subType = takeSubType ? exTypes[type.subType] : type;
-			RELOCATE_DEBUG_PRINT("\tGlobal%s pointer %s %p (at %p) base %p\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, target, ptr, NULLC::GetBasePointer(target));
-
-			if(!NULLC::IsBasePointer(target))
-				return;
-
-			if(type.subType == 0)
-			{
-				markerType *marker = (markerType*)((char*)target - sizeof(markerType));
-
-				RELOCATE_DEBUG_PRINT("\tOpaque pointer base is %p\r\n", target);
-
-				RegVmExPriv::PrintMarker(*marker, symbols, exTypes);
-
-				if(*marker & 1)
-				{
-					ExternTypeInfo &opaqueType = exTypes[*marker >> 8];
-
-					*marker &= ~1;
-
-					if(opaqueType.subCat != ExternTypeInfo::CAT_NONE)
-						FixupVariable(target, opaqueType);
-				}
-			}
-			else
-			{
-				markerType *marker = (markerType*)((char*)target - sizeof(markerType));
-
-				RegVmExPriv::PrintMarker(*marker, symbols, exTypes);
-
-				if(*marker & 1)
-				{
-					*marker &= ~1;
-
-					if(type.subCat != ExternTypeInfo::CAT_NONE)
-						FixupVariable(target, subType);
-				}
-			}
-		}
-	}
-}
-
-void ExecutorRegVm::FixupArray(char* ptr, const ExternTypeInfo& type)
-{
-	ExternTypeInfo *subType = type.nameHash == RegVmExPriv::autoArrayName ? NULL : &exTypes[type.subType];
-	unsigned size = type.arrSize;
-	if(type.arrSize == ~0u)
-	{
-		// Get real array size
-		size = *(int*)(ptr + NULLC_PTR_SIZE);
-
-		// Switch pointer to array data
-		char *target = vmLoadPointer(ptr);
-
-		// If it points to stack, fix it and return
-		if(target >= RegVmExPriv::oldBase && target < (RegVmExPriv::oldBase + RegVmExPriv::oldSize))
-		{
-			vmStorePointer(ptr, target - RegVmExPriv::oldBase + RegVmExPriv::newBase);
-			return;
-		}
-
-		ptr = target;
-
-		// If uninitialized, return
-		if(!ptr || ptr <= (char*)0x00010000)
-			return;
-
-		// Get base pointer
-		unsigned *basePtr = (unsigned*)NULLC::GetBasePointer(ptr);
-		markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
-
-		// If there is no base pointer or memory already marked, exit
-		if(!basePtr || !(*marker & 1))
-			return;
-
-		// Mark memory as used
-		*marker &= ~1;
-	}
-	else if(type.nameHash == RegVmExPriv::autoArrayName)
-	{
-		NULLCAutoArray *data = (NULLCAutoArray*)ptr;
-
-		// Get real variable type
-		subType = &exTypes[data->typeID];
-
-		// Skip uninitialized array
-		if(!data->ptr)
-			return;
-
-		// If it points to stack, fix it
-		if(data->ptr >= RegVmExPriv::oldBase && data->ptr < (RegVmExPriv::oldBase + RegVmExPriv::oldSize))
-			data->ptr = data->ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase;
-
-		// Mark target data
-		FixupPointer(data->ptr, *subType, false);
-
-		// Switch pointer to target
-		ptr = data->ptr;
-
-		// Get array size
-		size = data->len;
-	}
-
-	if(!subType->pointerCount)
-		return;
-
-	switch(subType->subCat)
-	{
-	case ExternTypeInfo::CAT_NONE:
-		break;
-	case ExternTypeInfo::CAT_ARRAY:
-		for(unsigned i = 0; i < size; i++, ptr += subType->size)
-			FixupArray(ptr, *subType);
-		break;
-	case ExternTypeInfo::CAT_POINTER:
-		for(unsigned i = 0; i < size; i++, ptr += subType->size)
-			FixupPointer(ptr, *subType, true);
-		break;
-	case ExternTypeInfo::CAT_FUNCTION:
-		for(unsigned i = 0; i < size; i++, ptr += subType->size)
-			FixupFunction(ptr);
-		break;
-	case ExternTypeInfo::CAT_CLASS:
-		for(unsigned i = 0; i < size; i++, ptr += subType->size)
-			FixupClass(ptr, *subType);
-		break;
-	}
-}
-
-void ExecutorRegVm::FixupClass(char* ptr, const ExternTypeInfo& type)
-{
-	const ExternTypeInfo *realType = &type;
-
-	if(type.nameHash == RegVmExPriv::objectName)
-	{
-		// Get real variable type
-		realType = &exTypes[*(int*)ptr];
-
-		// Switch pointer to target
-		char *target = vmLoadPointer(ptr + 4);
-
-		// If it points to stack, fix it and return
-		if(target >= RegVmExPriv::oldBase && target < (RegVmExPriv::oldBase + RegVmExPriv::oldSize))
-		{
-			vmStorePointer(ptr + 4, target - RegVmExPriv::oldBase + RegVmExPriv::newBase);
-			return;
-		}
-		ptr = target;
-
-		// If uninitialized, return
-		if(!ptr || ptr <= (char*)0x00010000)
-			return;
-		// Get base pointer
-		unsigned *basePtr = (unsigned*)NULLC::GetBasePointer(ptr);
-		markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
-		// If there is no base pointer or memory already marked, exit
-		if(!basePtr || !(*marker & 1))
-			return;
-		// Mark memory as used
-		*marker &= ~1;
-		// Fixup target
-		FixupVariable(target, *realType);
-		// Exit
-		return;
-	}
-	else if(type.nameHash == RegVmExPriv::autoArrayName)
-	{
-		FixupArray(ptr, type);
-		// Exit
-		return;
-	}
-
-	// Get class member type list
-	ExternMemberInfo *memberList = &exLinker->exTypeExtra[realType->memberOffset + realType->memberCount];
-	char *str = symbols + type.offsetToName;
-	const char *memberName = symbols + type.offsetToName + strlen(str) + 1;
-	// Check pointer members
-	for(unsigned n = 0; n < realType->pointerCount; n++)
-	{
-		// Get member type
-		ExternTypeInfo &subType = exTypes[memberList[n].type];
-		unsigned pos = memberList[n].offset;
-
-		RELOCATE_DEBUG_PRINT("\tChecking member %s at offset %d type %d '%s'\r\n", memberName, pos, memberList[n].type, symbols + exTypes[memberList[n].type].offsetToName);
-
-		// Check member
-		FixupVariable(ptr + pos, subType);
-		unsigned strLength = (unsigned)strlen(memberName) + 1;
-		memberName += strLength;
-	}
-}
-
-void ExecutorRegVm::FixupFunction(char* ptr)
-{
-	NULLCFuncPtr *fPtr = (NULLCFuncPtr*)ptr;
-
-	// If there's no context, there's nothing to check
-	if(!fPtr->context)
-		return;
-
-	const ExternFuncInfo &func = exFunctions[fPtr->id];
-
-	// If function context type is valid
-	if(func.contextType != ~0u)
-		FixupPointer((char*)&fPtr->context, exTypes[func.contextType], true);
-}
-
-void ExecutorRegVm::FixupVariable(char* ptr, const ExternTypeInfo& type)
-{
-	if(!type.pointerCount)
-		return;
-
-	switch(type.subCat)
-	{
-	case ExternTypeInfo::CAT_NONE:
-		break;
-	case ExternTypeInfo::CAT_ARRAY:
-		FixupArray(ptr, type);
-		break;
-	case ExternTypeInfo::CAT_POINTER:
-		FixupPointer(ptr, type, true);
-		break;
-	case ExternTypeInfo::CAT_FUNCTION:
-		FixupFunction(ptr);
-		break;
-	case ExternTypeInfo::CAT_CLASS:
-		FixupClass(ptr, type);
-		break;
-	}
-}
-
-bool ExecutorRegVm::ExtendParameterStack(char* oldBase, unsigned oldSize, RegVmCmd *current)
-{
-	RELOCATE_DEBUG_PRINT("Old base: %p-%p\r\n", oldBase, oldBase + oldSize);
-	RELOCATE_DEBUG_PRINT("New base: %p-%p\r\n", dataStack.data, dataStack.data + dataStack.max);
-
-	SetUnmanagableRange(dataStack.data, dataStack.max);
-
-	NULLC::MarkMemory(1);
-
-	RegVmExPriv::oldBase = oldBase;
-	RegVmExPriv::newBase = dataStack.data;
-	RegVmExPriv::oldSize = oldSize;
-	RegVmExPriv::newSize = dataStack.max;
-
-	symbols = exLinker->exSymbols.data;
-
-	ExternVarInfo *vars = exLinker->exVariables.data;
-	ExternTypeInfo *types = exLinker->exTypes.data;
-	// Fix global variables
-	for(unsigned i = 0; i < exLinker->exVariables.size(); i++)
-	{
-		ExternVarInfo &varInfo = vars[i];
-
-		RELOCATE_DEBUG_PRINT("Global variable %s (with offset of %d)\r\n", symbols + varInfo.offsetToName, varInfo.offset);
-
-		FixupVariable(dataStack.data + varInfo.offset, types[varInfo.type]);
-	}
-
-	int offset = exLinker->globalVarSize;
-
-	callStack.push_back(current);
-
-	// Fixup local variables
-	for(int n = 0; n < (int)callStack.size(); n++)
-	{
-		int address = int(callStack[n] - codeBase);
-		int funcID = -1;
-
-		for(unsigned i = 0; i < exFunctions.size(); i++)
-		{
-			if(address >= exFunctions[i].regVmAddress && address < (exFunctions[i].regVmAddress + exFunctions[i].regVmCodeSize))
-				funcID = i;
-		}
-
-		if(funcID != -1)
-		{
-			ExternFuncInfo &funcInfo = exFunctions[funcID];
-
-			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
-			RELOCATE_DEBUG_PRINT("In function %s (with offset of %d)\r\n", symbols + funcInfo.offsetToName, alignOffset);
-			offset += alignOffset;
-
-			unsigned offsetToNextFrame = funcInfo.bytesToPop;
-			// Check every function local
-			for(unsigned i = 0; i < funcInfo.localCount; i++)
-			{
-				// Get information about local
-				ExternLocalInfo &lInfo = exLinker->exLocals[funcInfo.offsetToFirstLocal + i];
-
-				RELOCATE_DEBUG_PRINT("Local %s %s (with offset of %d+%d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
-				FixupVariable(dataStack.data + offset + lInfo.offset, types[lInfo.type]);
-				if(lInfo.offset + lInfo.size > offsetToNextFrame)
-					offsetToNextFrame = lInfo.offset + lInfo.size;
-			}
-
-			if(funcInfo.contextType != ~0u)
-			{
-				RELOCATE_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[funcInfo.contextType].offsetToName, offset, funcInfo.bytesToPop - NULLC_PTR_SIZE);
-				char *ptr = dataStack.data + offset + funcInfo.bytesToPop - NULLC_PTR_SIZE;
-
-				// Fixup pointer itself
-				char *target = vmLoadPointer(ptr);
-
-				if(target >= RegVmExPriv::oldBase && target < (RegVmExPriv::oldBase + RegVmExPriv::oldSize))
-				{
-					RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase);
-					vmStorePointer(ptr, target - RegVmExPriv::oldBase + RegVmExPriv::newBase);
-				}
-
-				// Fixup what it was pointing to
-				if(char *fixedTarget = vmLoadPointer(ptr))
-					FixupVariable(fixedTarget, types[funcInfo.contextType]);
-			}
-
-			offset += offsetToNextFrame;
-			RELOCATE_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
-		}
-	}
-
-	callStack.pop_back();
-
-	// Check registers for pointers to classes that may contain pointers
-	char *currRegisterData = (char*)regFileArrayBase;
-
-	while(currRegisterData + sizeof(void*) <= (char*)regFileLastTop)
-	{
-		char *ptr = vmLoadPointer(currRegisterData);
-
-		// Check for unmanageable ranges. Range of 0x00000000-0x00010000 is unmanageable by default due to upvalues with offsets inside closures.
-		if(ptr > (char*)0x00010000 && (ptr < RegVmExPriv::oldBase || ptr > RegVmExPriv::oldBase + RegVmExPriv::oldSize))
-		{
-			// Get pointer base
-			unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
-
-			// If there is no base, this pointer points to memory that is not GCs memory
-			if(basePtr)
-			{
-				RELOCATE_DEBUG_PRINT("\tGlobal pointer [register] %p\r\n", ptr);
-
-				RELOCATE_DEBUG_PRINT("\tPointer base is %p\r\n", basePtr);
-
-				markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
-
-				RegVmExPriv::PrintMarker(*marker, symbols, exTypes);
-
-				if(*marker & 1)
-				{
-					unsigned typeID = unsigned(*marker >> 8);
-					ExternTypeInfo &type = types[typeID];
-
-					*marker &= ~1;
-
-					if(type.subCat != ExternTypeInfo::CAT_NONE)
-						FixupVariable((char*)basePtr, type);
-				}
-			}
-		}
-
-		if(ptr >= RegVmExPriv::oldBase && ptr < RegVmExPriv::oldBase + RegVmExPriv::oldSize)
-		{
-			int registerNumber = int((RegVmRegister*)currRegisterData - regFileArrayBase);
-
-			for(unsigned n = 0; n < callStack.size(); n++)
-			{
-				int address = int(callStack[n] - codeBase);
-				int funcID = -1;
-
-				for(unsigned i = 0; i < exFunctions.size(); i++)
-				{
-					if(address >= exFunctions[i].regVmAddress && address < (exFunctions[i].regVmAddress + exFunctions[i].regVmCodeSize))
-						funcID = i;
-				}
-
-				if(funcID != -1)
-				{
-					ExternFuncInfo &funcInfo = exFunctions[funcID];
-
-					if(registerNumber < funcInfo.regVmRegisters)
-					{
-						RELOCATE_DEBUG_PRINT("Function %s register r%d\r\n", symbols + funcInfo.offsetToName, registerNumber);
-
-						if(registerNumber == rvrrGlobals || registerNumber == rvrrFrame)
-						{
-							RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase);
-
-							vmStorePointer(currRegisterData, ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase);
-						}
-						else
-						{
-							RELOCATE_DEBUG_PRINT("\tLooks like a pointer but not enough info available\r\n");
-						}
-
-						break;
-					}
-					else
-					{
-						registerNumber -= funcInfo.regVmRegisters;
-					}
-				}
-				else
-				{
-					if(registerNumber < 256)
-					{
-						RELOCATE_DEBUG_PRINT("Global scope register r%d\r\n", registerNumber);
-
-						if(registerNumber == rvrrGlobals || registerNumber == rvrrFrame)
-						{
-							RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase);
-
-							vmStorePointer(currRegisterData, ptr - RegVmExPriv::oldBase + RegVmExPriv::newBase);
-						}
-						else
-						{
-							RELOCATE_DEBUG_PRINT("\tLooks like a pointer but not enough info available\r\n");
-						}
-
-						break;
-					}
-					else
-					{
-						registerNumber -= 256;
-					}
-				}
-			}
-		}
-
-		currRegisterData += 4;
-	}
-
-	return true;
 }
 
 const char* ExecutorRegVm::GetResult()

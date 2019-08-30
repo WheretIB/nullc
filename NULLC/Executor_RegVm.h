@@ -19,6 +19,8 @@ public:
 	void	Run(unsigned functionID, const char *arguments);
 	void	Stop(const char* error);
 
+	bool	SetStackSize(unsigned bytes);
+
 	const char*	GetResult();
 	int			GetResultInt();
 	double		GetResultDouble();
@@ -61,6 +63,8 @@ private:
 
 	RegVmCmd	*codeBase;
 
+	unsigned	minStackSize;
+
 	FastVector<char, true, true>	dataStack;
 
 	FastVector<RegVmCmd*>	callStack;
@@ -98,14 +102,6 @@ private:
 	void ExecCheckedReturn(const RegVmCmd cmd, RegVmRegister * const regFilePtr, unsigned * const tempStackPtr);
 
 	RegVmReturnType ExecError(RegVmCmd * const instruction, const char *errorMessage);
-
-	void FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType);
-	void FixupArray(char* ptr, const ExternTypeInfo& type);
-	void FixupClass(char* ptr, const ExternTypeInfo& type);
-	void FixupFunction(char* ptr);
-	void FixupVariable(char* ptr, const ExternTypeInfo& type);
-
-	bool ExtendParameterStack(char* oldBase, unsigned oldSize, RegVmCmd *current);
 
 	static const unsigned EXEC_BREAK_SIGNAL = 0;
 	static const unsigned EXEC_BREAK_RETURN = 1;

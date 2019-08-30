@@ -16,6 +16,8 @@ public:
 	void	Run(unsigned int functionID, const char *arguments);
 	void	Stop(const char* error);
 
+	bool	SetStackSize(unsigned bytes);
+
 	const char*	GetResult();
 	int			GetResultInt();
 	double		GetResultDouble();
@@ -56,6 +58,8 @@ private:
 	FastVector<ExternFuncInfo>	&exFunctions;
 	char			*symbols;
 
+	unsigned int	minStackSize;
+
 	FastVector<char, true, true>	genParams;
 	FastVector<VMCmd*>	fcallStack;
 
@@ -84,17 +88,11 @@ private:
 
 	bool RunExternalFunction(unsigned int funcID, unsigned int extraPopDW);
 
-	void FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType);
-	void FixupArray(char* ptr, const ExternTypeInfo& type);
-	void FixupClass(char* ptr, const ExternTypeInfo& type);
-	void FixupFunction(char* ptr);
-	void FixupVariable(char* ptr, const ExternTypeInfo& type);
-
-	bool ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *current);
-
-	void operator=(Executor& r){ (void)r; assert(false); }
-
 	static const unsigned int	EXEC_BREAK_SIGNAL = 0;
 	static const unsigned int	EXEC_BREAK_RETURN = 1;
 	static const unsigned int	EXEC_BREAK_ONCE = 2;
+
+private:
+	Executor(const Executor&);
+	Executor& operator=(const Executor&);
 };

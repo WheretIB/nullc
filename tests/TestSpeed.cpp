@@ -176,8 +176,11 @@ io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collect
 return GC.UsedMemory() - memStart;";
 
 	printf("Garbage collection\r\n");
-	for(int t = 0; t < 2; t++)
+	for(int t = 0; t < TEST_TARGET_COUNT; t++)
 	{
+		if(!Tests::testExecutor[t])
+			continue;
+
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
 		if(Tests::RunCode(testGarbageCollection, t, sizeof(void*) == 8 ? "400" : "296"))
@@ -247,8 +250,11 @@ io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collect
 return GC.UsedMemory() - memStart;";
 
 	printf("Garbage collection 2 \r\n");
-	for(int t = 0; t < 2; t++)
+	for(int t = 0; t < TEST_TARGET_COUNT; t++)
 	{
+		if(!Tests::testExecutor[t])
+			continue;
+
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
 		if(Tests::RunCode(testGarbageCollection2, t, sizeof(void*) == 8 ? "400" : "296"))
@@ -286,8 +292,11 @@ io.out << \"Marking time: (\" << GC.MarkTime() - markTimeBegin << \"sec) Collect
 return GC.UsedMemory() - memStart;";
 
 	printf("Garbage collection 3\r\n");
-	for(int t = 0; t < 2; t++)
+	for(int t = 0; t < TEST_TARGET_COUNT; t++)
 	{
+		if(!Tests::testExecutor[t])
+			continue;
+
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
 		if(Tests::RunCode(testGarbageCollection3, t, sizeof(void*) == 8 ? "400" : "296"))
@@ -501,8 +510,11 @@ return 0;";
 
 	SpeedTestText("progressbar.nc inlined", testCompileSpeed2);
 
-	for(int t = 0; t < 2; t++)
+	for(int t = 0; t < TEST_TARGET_COUNT; t++)
 	{
+		if(!Tests::testExecutor[t])
+			continue;
+
 		testsCount[t]++;
 		double tStart = myGetPreciseTime();
 		if(Tests::RunCode(testCompileSpeed2, t, "0"))

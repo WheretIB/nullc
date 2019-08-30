@@ -24,6 +24,8 @@ public:
 	void	Run(unsigned int functionID, const char *arguments);
 	void	Stop(const char* error);
 
+	bool	SetStackSize(unsigned bytes);
+
 	const char*	GetResult();
 	int			GetResultInt();
 	double		GetResultDouble();
@@ -44,9 +46,9 @@ public:
 	bool	AddBreakpoint(unsigned int instruction, bool oneHit);
 	bool	RemoveBreakpoint(unsigned int instruction);
 
-	bool	SetStackPlacement(void* start, void* end, unsigned int flagMemoryAllocated);
 private:
-	void	InitExecution();
+	bool	InitStack();
+	bool	InitExecution();
 
 	bool	codeRunning;
 
@@ -62,7 +64,9 @@ private:
 
 	FastVector<x86Instruction, true, true>	instList;
 
-	unsigned int		globalStartInBytecode;
+	unsigned int	globalStartInBytecode;
+
+	unsigned int	minStackSize;
 
 	char			*paramBase;
 	void			*genStackTop, *genStackPtr;
@@ -93,7 +97,7 @@ public:
 
 	struct Breakpoint
 	{
-		Breakpoint(): instIndex(0), oldOpcode(0){}
+		Breakpoint(): instIndex(0), oldOpcode(0), oneHit(false){}
 		Breakpoint(unsigned int instIndex, unsigned char oldOpcode, bool oneHit): instIndex(instIndex), oldOpcode(oldOpcode), oneHit(oneHit){}
 		unsigned int	instIndex;
 		unsigned char	oldOpcode;
@@ -112,5 +116,6 @@ public:
 	FastVector<FunctionListInfo>	oldFunctionLists;
 
 private:
-	void operator=(ExecutorX86& r){ (void)r; assert(false); }
+	ExecutorX86(const ExecutorX86&);
+	ExecutorX86& operator=(const ExecutorX86&);
 };

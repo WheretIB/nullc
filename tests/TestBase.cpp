@@ -73,10 +73,29 @@ namespace Tests
 		false,
 #endif
 #ifdef NULLC_LLVM_SUPPORT
-		true
+		true,
 #else
-		false
+		false,
 #endif
+		true,
+	};
+
+	bool	testVmExecutor[TEST_TARGET_COUNT] = {
+		true,
+		false,
+		false,
+		true,
+	};
+
+	bool	testFailureExecutor[TEST_TARGET_COUNT] = {
+		true,
+#if defined(NULLC_BUILD_X86_JIT) && defined(NDEBUG)
+		true,
+#else
+		false,
+#endif
+		false,
+		true,
 	};
 
 	const void* (*fileLoadFunc)(const char*, unsigned int*, int*) = 0;
@@ -105,6 +124,8 @@ namespace Tests
 	void* (*openStreamFunc)(const char* name) = OpenStream;
 	void (*writeStreamFunc)(void *stream, const char *data, unsigned size) = WriteStream;
 	void (*closeStreamFunc)(void* stream) = CloseStream;
+
+	unsigned testStackSize = 1024 * 1024;
 
 	unsigned translationDependencyCount = 0;
 	char *translationDependencies[128];

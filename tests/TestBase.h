@@ -22,6 +22,7 @@ enum TestTypeIndex
 	TEST_TYPE_VM,
 	TEST_TYPE_X86,
 	TEST_TYPE_LLVM,
+	TEST_TYPE_REGVM,
 	TEST_TYPE_EXTRA,
 	TEST_TYPE_FAILURE,
 	TEST_TYPE_TRANSLATION,
@@ -98,6 +99,8 @@ namespace Tests
 	extern bool doTranslation;
 
 	extern bool	testExecutor[TEST_TARGET_COUNT];
+	extern bool	testVmExecutor[TEST_TARGET_COUNT];
+	extern bool	testFailureExecutor[TEST_TARGET_COUNT];
 
 	extern const void* (*fileLoadFunc)(const char*, unsigned int*, int*);
 
@@ -106,16 +109,18 @@ namespace Tests
 	extern void (*writeStreamFunc)(void *stream, const char *data, unsigned size);
 	extern void (*closeStreamFunc)(void* stream);
 
+	extern unsigned testStackSize;
+
 	void*	FindVar(const char* name);
 	bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = 0, bool execShouldFail = false);
 	bool	RunCodeSimple(const char *code, unsigned int executor, const char* expected, const char* message = 0, bool execShouldFail = false);
 	char*	Format(const char *str, ...);
 }
 
-#define TEST_IMPL(name, code, result, count)	\
+#define TEST(name, code, result)	\
 struct Test_##code : TestQueue {	\
 	virtual void Run(){	\
-		for(int t = 0; t < count; t++)	\
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)	\
 		{	\
 			if(!Tests::testExecutor[t])	\
 				continue;	\
@@ -138,10 +143,10 @@ struct Test_##code : TestQueue {	\
 Test_##code test_##code;	\
 void Test_##code::RunTest()
 
-#define TEST_IMPL_SIMPLE(name, code, result, count)	\
+#define TEST_SIMPLE(name, code, result)	\
 struct Test_##code : TestQueue {	\
 	virtual void Run(){	\
-		for(int t = 0; t < count; t++)	\
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)	\
 		{	\
 			if(!Tests::testExecutor[t])	\
 				continue;	\
@@ -164,11 +169,31 @@ struct Test_##code : TestQueue {	\
 Test_##code test_##code;	\
 void Test_##code::RunTest()
 
-#define TEST_VM(name, code, result) TEST_IMPL(name, code, result, 1)
-#define TEST(name, code, result) TEST_IMPL(name, code, result, TEST_TARGET_COUNT)
-
-#define TEST_VM_SIMPLE(name, code, result) TEST_IMPL_SIMPLE(name, code, result, 1)
-#define TEST_SIMPLE(name, code, result) TEST_IMPL_SIMPLE(name, code, result, TEST_TARGET_COUNT)
+#define TEST_VM(name, code, result)	\
+struct Test_##code : TestQueue {	\
+	virtual void Run(){	\
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)	\
+		{	\
+			if(!Tests::testVmExecutor[t])	\
+				continue;	\
+			testsCount[t]++;	\
+			lastFailed = false;	\
+			if(!Tests::RunCode(code, t, result, name))	\
+			{	\
+				lastFailed = true;	\
+				return;	\
+			}else{	\
+				RunTest();	\
+			}	\
+			if(!lastFailed)	\
+				testsPassed[t]++;	\
+		}	\
+	}	\
+	bool lastFailed;	\
+	void RunTest();	\
+};	\
+Test_##code test_##code;	\
+void Test_##code::RunTest()
 
 #define TEST_RESULT(name, code, result)	\
 struct Test_##code : TestQueue {	\
@@ -200,6 +225,21 @@ struct Test_##code : TestQueue {	\
 };	\
 Test_##code test_##code
 
+#define TEST_RUNTIME_FAIL(name, code, result)	\
+struct Test_##code : TestQueue {	\
+	virtual void Run(){	\
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)	\
+		{	\
+			if(!Tests::testFailureExecutor[t])	\
+				continue;	\
+			testsCount[t]++;	\
+			if(Tests::RunCode(code, t, result, name, true))	\
+				testsPassed[t]++;	\
+		}	\
+	}	\
+};	\
+Test_##code test_##code;
+
 #define LOAD_MODULE(id, name, code)	\
 struct Test_##id : TestQueue {	\
 	virtual void Run(){	\
@@ -229,23 +269,6 @@ struct Test_##id : TestQueue {	\
 };	\
 Test_##id test_##id;	\
 void Test_##id::RunTest()
-
-#define TEST_RELOCATE(name, code, result)	\
-struct Test_##code : TestQueue {	\
-	virtual void Run(){	\
-		testsCount[0]++;	\
-		nullcTerminate();	\
-		nullcInit();	\
-		nullcAddImportPath(MODULE_PATH_A); \
-		nullcAddImportPath(MODULE_PATH_B); \
-		nullcSetFileReadHandler(Tests::fileLoadFunc);	\
-		nullcInitTypeinfoModule();	\
-		nullcInitVectorModule();	\
-		if(Tests::RunCode(code, 0, result, name))	\
-			testsPassed[TEST_TYPE_VM]++;	\
-	}	\
-};	\
-Test_##code test_##code;
 
 #define TEST_NAME() if(Tests::lastMessage) printf("%s\r\n", Tests::lastMessage);
 
@@ -473,27 +496,6 @@ inline void CHECK_HEAP_STR(const char *var, unsigned index, const char* expected
 		lastFailed = true;
 	}
 }
-
-#if defined(NDEBUG)
-#define TEST_RUNTIME_FAIL_EXECUTORS 2
-#else
-#define TEST_RUNTIME_FAIL_EXECUTORS 1
-#endif
-
-#define TEST_RUNTIME_FAIL(name, code, result)	\
-struct Test_##code : TestQueue {	\
-	virtual void Run(){	\
-		for(int t = 0; t < TEST_RUNTIME_FAIL_EXECUTORS; t++)	\
-		{	\
-			if(!Tests::testExecutor[t])	\
-				continue;	\
-			testsCount[t]++;	\
-			if(Tests::RunCode(code, t, result, name, true))	\
-				testsPassed[t]++;	\
-		}	\
-	}	\
-};	\
-Test_##code test_##code;
 
 void TEST_FOR_FAIL(const char* name, const char* str, const char* error);
 void TEST_FOR_FAIL_GENERIC(const char* name, const char* str, const char* error1, const char* error2);

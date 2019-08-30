@@ -95,13 +95,19 @@ namespace
 
 Executor::Executor(Linker* linker): exLinker(linker), exTypes(linker->exTypes), exFunctions(linker->exFunctions), breakCode(128)
 {
+	memset(execError, 0, ERROR_BUFFER_SIZE);
+	memset(execResult, 0, 64);
+
+	minStackSize = 1 * 1024 * 1024;
+
+	paramBase = 0;
+
 	genStackBase = NULL;
 	genStackPtr = NULL;
 	genStackTop = NULL;
 
 	callContinue = true;
 
-	paramBase = 0;
 	currentFrame = 0;
 	cmdBase = NULL;
 
@@ -144,7 +150,7 @@ void Executor::InitExecution()
 
 	CommonSetLinker(exLinker);
 
-	genParams.reserve(4096);
+	genParams.reserve(minStackSize);
 	genParams.clear();
 	genParams.resize((exLinker->globalVarSize + 0xf) & ~0xf);
 
@@ -216,21 +222,22 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 		}else{
 			cmdStream = &exLinker->exVmCode[funcPos];
 
-			// Copy from argument buffer to next stack frame
-			char* oldBase = genParams.data;
-			unsigned int oldSize = genParams.max;
-
 			unsigned int paramSize = exFunctions[functionID].bytesToPop;
+
 			// Keep stack frames aligned to 16 byte boundary
 			unsigned int alignOffset = (genParams.size() % 16 != 0) ? (16 - (genParams.size() % 16)) : 0;
-			// Reserve new stack frame
-			genParams.reserve(genParams.size() + alignOffset + paramSize);
-			// Copy arguments to new stack frame
-			memcpy((char*)(genParams.data + genParams.size() + alignOffset), arguments, paramSize);
 
-			// Ensure that stack is resized, if needed
-			if(genParams.size() + alignOffset + paramSize >= oldSize)
-				ExtendParameterStack(oldBase, oldSize, cmdStream);
+			if(genParams.size() + alignOffset + paramSize >= genParams.max)
+			{
+				fcallStack.push_back(cmdStream);
+				cmdStream = NULL;
+				strcpy(execError, "ERROR: stack overflow");
+			}
+			else
+			{
+				// Copy arguments to new stack frame
+				memcpy((char*)(genParams.data + genParams.size() + alignOffset), arguments, paramSize);
+			}
 		}
 	}else{
 		// If global code is executed, reset all global variables
@@ -695,26 +702,18 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				NULLC_UNWRAP(funcIDStack.push_back(cmd.argument));
 				cmdStream = cmdBase + fAddress;
 
-				char* oldBase = genParams.data;
-				unsigned int oldSize = genParams.max;
-
 				unsigned int paramSize = exFunctions[cmd.argument].bytesToPop;
 
 				// Parameter stack is always aligned to 16 bytes
 				assert(genParams.size() % 16 == 0);
 
-				// Reserve place for new stack frame (cmdPushVTop will resize)
-				genParams.reserve(genParams.size() + paramSize);
+				RUNTIME_ERROR(genParams.size() + paramSize >= genParams.max, "ERROR: stack overflow");
 
 				// Copy function arguments to new stack frame
 				memcpy((char*)(genParams.data + genParams.size()), genStackPtr, paramSize);
 
 				// Pop arguments from stack
 				genStackPtr += paramSize >> 2;
-
-				// If parameter stack was reallocated
-				if(genParams.size() + paramSize >= oldSize)
-					ExtendParameterStack(oldBase, oldSize, cmdStream);
 			}
 		}
 			break;
@@ -747,14 +746,10 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				NULLC_UNWRAP(funcIDStack.push_back(fID));
 				cmdStream = cmdBase + fAddress;
 
-				char* oldBase = genParams.data;
-				unsigned int oldSize = genParams.max;
-
 				// Parameter stack is always aligned to 16 bytes
 				assert(genParams.size() % 16 == 0);
 
-				// Reserve place for new stack frame (cmdPushVTop will resize)
-				genParams.reserve(genParams.size() + paramSize);
+				RUNTIME_ERROR(genParams.size() + paramSize >= genParams.max, "ERROR: stack overflow");
 
 				// Copy function arguments to new stack frame
 				memcpy((char*)(genParams.data + genParams.size()), genStackPtr, paramSize);
@@ -762,10 +757,6 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 				// Pop arguments from stack
 				genStackPtr += (paramSize >> 2) + 1;
 				RUNTIME_ERROR(genStackPtr <= genStackBase + 8, "ERROR: stack overflow");
-
-				// If parameter stack was reallocated
-				if(genParams.size() + paramSize >= oldSize)
-					ExtendParameterStack(oldBase, oldSize, cmdStream);
 			}
 		}
 			break;
@@ -812,23 +803,13 @@ void Executor::Run(unsigned int functionID, const char *arguments)
 			*genStackPtr = paramBase;
 			paramBase = genParams.size();
 			assert(paramBase % 16 == 0);
-			if(paramBase + cmd.argument >= genParams.max)
-			{
-				char* oldBase = genParams.data;
-				unsigned int oldSize = genParams.max;
 
-				genParams.resize(paramBase + cmd.argument);
-				assert(cmd.helper <= cmd.argument);
-				if(cmd.argument - cmd.helper)
-					memset(genParams.data + paramBase + cmd.helper, 0, cmd.argument - cmd.helper);
+			RUNTIME_ERROR(paramBase + cmd.argument >= genParams.max, "ERROR: stack overflow");
 
-				ExtendParameterStack(oldBase, oldSize, cmdStream);
-			}else{
-				genParams.resize(paramBase + cmd.argument);
-				assert(cmd.helper <= cmd.argument);
-				if(cmd.argument - cmd.helper)
-					memset(genParams.data + paramBase + cmd.helper, 0, cmd.argument - cmd.helper);
-			}
+			genParams.resize(paramBase + cmd.argument);
+			assert(cmd.helper <= cmd.argument);
+			if(cmd.argument - cmd.helper)
+				memset(genParams.data + paramBase + cmd.helper, 0, cmd.argument - cmd.helper);
 			break;
 
 		case cmdAdd:
@@ -1219,6 +1200,16 @@ void Executor::Stop(const char* error)
 	NULLC::SafeSprintf(execError, ERROR_BUFFER_SIZE, "%s", error);
 }
 
+bool Executor::SetStackSize(unsigned bytes)
+{
+	if(codeRunning)
+		return false;
+
+	minStackSize = bytes;
+
+	return true;
+}
+
 #ifdef NULLC_VM_CALL_STACK_UNWRAP
 bool Executor::RunCallStackHelper(unsigned funcID, unsigned extraPopDW, unsigned callStackPos)
 {
@@ -1552,350 +1543,6 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	genStackPtr = newStackPtr;
 
 	return callContinue;
-}
-
-namespace ExPriv
-{
-	char *oldBase;
-	char *newBase;
-	unsigned int oldSize;
-	unsigned int newSize;
-	unsigned int objectName = NULLC::GetStringHash("auto ref");
-	unsigned int autoArrayName = NULLC::GetStringHash("auto[]");
-}
-
-#define RELOCATE_DEBUG_PRINT(...) (void)0
-//#define RELOCATE_DEBUG_PRINT printf
-
-void Executor::FixupPointer(char* ptr, const ExternTypeInfo& type, bool takeSubType)
-{
-	char *target = vmLoadPointer(ptr);
-
-	if(target > (char*)0x00010000)
-	{
-		if(target >= ExPriv::oldBase && target < (ExPriv::oldBase + ExPriv::oldSize))
-		{
-			RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
-
-			vmStorePointer(ptr, target - ExPriv::oldBase + ExPriv::newBase);
-		}
-		else if(target >= ExPriv::newBase && target < (ExPriv::newBase + ExPriv::newSize))
-		{
-			const ExternTypeInfo &subType = takeSubType ? exTypes[type.subType] : type;
-			(void)subType;
-			RELOCATE_DEBUG_PRINT("\tStack%s pointer %s %p (at %p)\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, target, ptr);
-		}
-		else
-		{
-			const ExternTypeInfo &subType = takeSubType ? exTypes[type.subType] : type;
-			RELOCATE_DEBUG_PRINT("\tGlobal%s pointer %s %p (at %p) base %p\r\n", type.subType == 0 ? " opaque" : "", symbols + subType.offsetToName, target, ptr, NULLC::GetBasePointer(target));
-
-			if(type.subType != 0 && NULLC::IsBasePointer(target))
-			{
-				markerType *marker = (markerType*)((char*)target - sizeof(markerType));
-				RELOCATE_DEBUG_PRINT("\tMarker is %d", *marker);
-
-				const uintptr_t OBJECT_VISIBLE		= 1 << 0;
-				const uintptr_t OBJECT_FREED		= 1 << 1;
-				const uintptr_t OBJECT_FINALIZABLE	= 1 << 2;
-				const uintptr_t OBJECT_FINALIZED	= 1 << 3;
-				const uintptr_t OBJECT_ARRAY		= 1 << 4;
-
-				if(*marker & OBJECT_VISIBLE)
-					RELOCATE_DEBUG_PRINT(" visible");
-				if(*marker & OBJECT_FREED)
-					RELOCATE_DEBUG_PRINT(" freed");
-				if(*marker & OBJECT_FINALIZABLE)
-					RELOCATE_DEBUG_PRINT(" finalizable");
-				if(*marker & OBJECT_FINALIZED)
-					RELOCATE_DEBUG_PRINT(" finalized");
-				if(*marker & OBJECT_ARRAY)
-					RELOCATE_DEBUG_PRINT(" array");
-
-				RELOCATE_DEBUG_PRINT(" %s\r\n", symbols + exTypes[unsigned(*marker >> 8)].offsetToName);
-
-				if(*marker & 1)
-				{
-					*marker &= ~1;
-					if(type.subCat != ExternTypeInfo::CAT_NONE)
-						FixupVariable(target, subType);
-				}
-			}
-		}
-	}
-}
-
-void Executor::FixupArray(char* ptr, const ExternTypeInfo& type)
-{
-	ExternTypeInfo *subType = type.nameHash == ExPriv::autoArrayName ? NULL : &exTypes[type.subType];
-	unsigned int size = type.arrSize;
-	if(type.arrSize == ~0u)
-	{
-		// Get real array size
-		size = *(int*)(ptr + NULLC_PTR_SIZE);
-
-		// Switch pointer to array data
-		char *target = vmLoadPointer(ptr);
-
-		// If it points to stack, fix it and return
-		if(target >= ExPriv::oldBase && target < (ExPriv::oldBase + ExPriv::oldSize))
-		{
-			vmStorePointer(ptr, target - ExPriv::oldBase + ExPriv::newBase);
-			return;
-		}
-		ptr = target;
-
-		// If uninitialized, return
-		if(!ptr || ptr <= (char*)0x00010000)
-			return;
-
-		// Get base pointer
-		unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
-		markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
-
-		// If there is no base pointer or memory already marked, exit
-		if(!basePtr || !(*marker & 1))
-			return;
-
-		// Mark memory as used
-		*marker &= ~1;
-	}else if(type.nameHash == ExPriv::autoArrayName){
-		NULLCAutoArray *data = (NULLCAutoArray*)ptr;
-
-		// Get real variable type
-		subType = &exTypes[data->typeID];
-
-		// Skip uninitialized array
-		if(!data->ptr)
-			return;
-
-		// If it points to stack, fix it
-		if(data->ptr >= ExPriv::oldBase && data->ptr < (ExPriv::oldBase + ExPriv::oldSize))
-			data->ptr = data->ptr - ExPriv::oldBase + ExPriv::newBase;
-
-		// Mark target data
-		FixupPointer(data->ptr, *subType, false);
-
-		// Switch pointer to target
-		ptr = data->ptr;
-
-		// Get array size
-		size = data->len;
-	}
-
-	if(!subType->pointerCount)
-		return;
-
-	switch(subType->subCat)
-	{
-	case ExternTypeInfo::CAT_NONE:
-		break;
-	case ExternTypeInfo::CAT_ARRAY:
-		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-			FixupArray(ptr, *subType);
-		break;
-	case ExternTypeInfo::CAT_POINTER:
-		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-			FixupPointer(ptr, *subType, true);
-		break;
-	case ExternTypeInfo::CAT_FUNCTION:
-		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-			FixupFunction(ptr);
-		break;
-	case ExternTypeInfo::CAT_CLASS:
-		for(unsigned int i = 0; i < size; i++, ptr += subType->size)
-			FixupClass(ptr, *subType);
-		break;
-	}
-}
-
-void Executor::FixupClass(char* ptr, const ExternTypeInfo& type)
-{
-	const ExternTypeInfo *realType = &type;
-	if(type.nameHash == ExPriv::objectName)
-	{
-		// Get real variable type
-		realType = &exTypes[*(int*)ptr];
-
-		// Switch pointer to target
-		char *target = vmLoadPointer(ptr + 4);
-
-		// If it points to stack, fix it and return
-		if(target >= ExPriv::oldBase && target < (ExPriv::oldBase + ExPriv::oldSize))
-		{
-			vmStorePointer(ptr + 4, target - ExPriv::oldBase + ExPriv::newBase);
-			return;
-		}
-		ptr = target;
-
-		// If uninitialized, return
-		if(!ptr || ptr <= (char*)0x00010000)
-			return;
-		// Get base pointer
-		unsigned int *basePtr = (unsigned int*)NULLC::GetBasePointer(ptr);
-		markerType *marker = (markerType*)((char*)basePtr - sizeof(markerType));
-		// If there is no base pointer or memory already marked, exit
-		if(!basePtr || !(*marker & 1))
-			return;
-		// Mark memory as used
-		*marker &= ~1;
-		// Fixup target
-		FixupVariable(target, *realType);
-		// Exit
-		return;
-	}else if(type.nameHash == ExPriv::autoArrayName){
-		FixupArray(ptr, type);
-		// Exit
-		return;
-	}
-
-	// Get class member type list
-	ExternMemberInfo *memberList = &exLinker->exTypeExtra[realType->memberOffset + realType->memberCount];
-	char *str = symbols + type.offsetToName;
-	const char *memberName = symbols + type.offsetToName + strlen(str) + 1;
-	// Check pointer members
-	for(unsigned int n = 0; n < realType->pointerCount; n++)
-	{
-		// Get member type
-		ExternTypeInfo &subType = exTypes[memberList[n].type];
-		unsigned int pos = memberList[n].offset;
-
-		RELOCATE_DEBUG_PRINT("\tChecking member %s at offset %d\r\n", memberName, pos);
-
-		// Check member
-		FixupVariable(ptr + pos, subType);
-		unsigned int strLength = (unsigned int)strlen(memberName) + 1;
-		memberName += strLength;
-	}
-}
-
-void Executor::FixupFunction(char* ptr)
-{
-	NULLCFuncPtr *fPtr = (NULLCFuncPtr*)ptr;
-
-	// If there's no context, there's nothing to check
-	if(!fPtr->context)
-		return;
-
-	const ExternFuncInfo &func = exFunctions[fPtr->id];
-
-	// If function context type is valid
-	if(func.contextType != ~0u)
-		FixupPointer((char*)&fPtr->context, exTypes[func.contextType], true);
-}
-
-void Executor::FixupVariable(char* ptr, const ExternTypeInfo& type)
-{
-	if(!type.pointerCount)
-		return;
-
-	switch(type.subCat)
-	{
-	case ExternTypeInfo::CAT_NONE:
-		break;
-	case ExternTypeInfo::CAT_ARRAY:
-		FixupArray(ptr, type);
-		break;
-	case ExternTypeInfo::CAT_POINTER:
-		FixupPointer(ptr, type, true);
-		break;
-	case ExternTypeInfo::CAT_FUNCTION:
-		FixupFunction(ptr);
-		break;
-	case ExternTypeInfo::CAT_CLASS:
-		FixupClass(ptr, type);
-		break;
-	}
-}
-
-bool Executor::ExtendParameterStack(char* oldBase, unsigned int oldSize, VMCmd *current)
-{
-	RELOCATE_DEBUG_PRINT("Old base: %p-%p\r\n", oldBase, oldBase + oldSize);
-	RELOCATE_DEBUG_PRINT("New base: %p-%p\r\n", genParams.data, genParams.data + genParams.max);
-
-	SetUnmanagableRange(genParams.data, genParams.max);
-
-	NULLC::MarkMemory(1);
-
-	ExPriv::oldBase = oldBase;
-	ExPriv::newBase = genParams.data;
-	ExPriv::oldSize = oldSize;
-	ExPriv::newSize = genParams.max;
-
-	symbols = exLinker->exSymbols.data;
-
-	ExternVarInfo *vars = exLinker->exVariables.data;
-	ExternTypeInfo *types = exLinker->exTypes.data;
-	// Fix global variables
-	for(unsigned int i = 0; i < exLinker->exVariables.size(); i++)
-	{
-		ExternVarInfo &varInfo = vars[i];
-
-		RELOCATE_DEBUG_PRINT("Global variable %s (with offset of %d)\r\n", symbols + varInfo.offsetToName, varInfo.offset);
-
-		FixupVariable(genParams.data + varInfo.offset, types[varInfo.type]);
-	}
-
-	int offset = exLinker->globalVarSize;
-	int n = 0;
-	fcallStack.push_back(current);
-	// Fixup local variables
-	for(; n < (int)fcallStack.size(); n++)
-	{
-		int address = int(fcallStack[n]-cmdBase);
-		int funcID = -1;
-
-		for(unsigned int i = 0; i < exFunctions.size(); i++)
-		{
-			if(address >= exFunctions[i].vmAddress && address < (exFunctions[i].vmAddress + exFunctions[i].vmCodeSize))
-				funcID = i;
-		}
-
-		if(funcID != -1)
-		{
-			ExternFuncInfo &funcInfo = exFunctions[funcID];
-
-			int alignOffset = (offset % 16 != 0) ? (16 - (offset % 16)) : 0;
-			RELOCATE_DEBUG_PRINT("In function %s (with offset of %d)\r\n", symbols + funcInfo.offsetToName, alignOffset);
-			offset += alignOffset;
-
-			unsigned int offsetToNextFrame = funcInfo.bytesToPop;
-			// Check every function local
-			for(unsigned int i = 0; i < funcInfo.localCount; i++)
-			{
-				// Get information about local
-				ExternLocalInfo &lInfo = exLinker->exLocals[funcInfo.offsetToFirstLocal + i];
-
-				RELOCATE_DEBUG_PRINT("Local %s %s (with offset of %d+%d)\r\n", symbols + types[lInfo.type].offsetToName, symbols + lInfo.offsetToName, offset, lInfo.offset);
-				FixupVariable(genParams.data + offset + lInfo.offset, types[lInfo.type]);
-				if(lInfo.offset + lInfo.size > offsetToNextFrame)
-					offsetToNextFrame = lInfo.offset + lInfo.size;
-			}
-			if(funcInfo.contextType != ~0u)
-			{
-				RELOCATE_DEBUG_PRINT("Local %s $context (with offset of %d+%d)\r\n", symbols + types[funcInfo.contextType].offsetToName, offset, funcInfo.bytesToPop - NULLC_PTR_SIZE);
-				char *ptr = genParams.data + offset + funcInfo.bytesToPop - NULLC_PTR_SIZE;
-
-				// Fixup pointer itself
-				char *target = vmLoadPointer(ptr);
-
-				if(target >= ExPriv::oldBase && target < (ExPriv::oldBase + ExPriv::oldSize))
-				{
-					RELOCATE_DEBUG_PRINT("\tFixing from %p to %p\r\n", ptr, ptr - ExPriv::oldBase + ExPriv::newBase);
-					vmStorePointer(ptr, target - ExPriv::oldBase + ExPriv::newBase);
-				}
-
-				// Fixup what it was pointing to
-				if(char *fixedTarget = vmLoadPointer(ptr))
-					FixupVariable(fixedTarget, types[funcInfo.contextType]);
-			}
-			offset += offsetToNextFrame;
-			RELOCATE_DEBUG_PRINT("Moving offset to next frame by %d bytes\r\n", offsetToNextFrame);
-		}
-	}
-	fcallStack.pop_back();
-
-	return true;
 }
 
 const char* Executor::GetResult()

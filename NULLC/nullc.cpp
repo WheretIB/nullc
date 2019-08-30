@@ -159,20 +159,30 @@ void nullcSetExecutor(unsigned id)
 	currExec = id;
 }
 
-#ifdef NULLC_BUILD_X86_JIT
-nullres nullcSetJiTStack(void* start, void* end, unsigned flagMemoryAllocated)
+nullres nullcSetExecutorStackSize(unsigned bytes)
 {
 	using namespace NULLC;
-	NULLC_CHECK_INITIALIZED(false);
 
-	if(!executorX86->SetStackPlacement(start, end, flagMemoryAllocated))
-	{
-		nullcLastError = executorX86->GetExecError();
+#ifndef NULLC_NO_EXECUTOR
+	if(!executor->SetStackSize(bytes))
 		return 0;
-	}
+
+#ifdef NULLC_BUILD_X86_JIT
+	if(!executorX86->SetStackSize(bytes))
+		return 0;
+#endif
+
+#if defined(NULLC_LLVM_SUPPORT)
+	if(!executorLLVM->SetStackSize(bytes))
+		return 0;
+#endif
+	if(!executorRegVm->SetStackSize(bytes))
+		return 0;
+#endif
+
+	(void)bytes;
 	return 1;
 }
-#endif
 
 #ifndef NULLC_NO_EXECUTOR
 void nullcSetGlobalMemoryLimit(unsigned limit)

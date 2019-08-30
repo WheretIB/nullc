@@ -187,9 +187,9 @@ struct Test_testMultipleTransitions : TestQueue
 	{
 		if(Tests::messageVerbose)
 			printf("Call stack when there are various transitions between NULLC and C\r\n");
-		for(int t = 0; t < TEST_RUNTIME_FAIL_EXECUTORS; t++)
+		for(int t = 0; t < TEST_TARGET_COUNT; t++)
 		{
-			if(!Tests::testExecutor[t])
+			if(!Tests::testFailureExecutor[t])
 				continue;
 			testsCount[t]++;
 			nullcSetExecutor(testTarget[t]);
@@ -208,7 +208,10 @@ struct Test_testMultipleTransitions : TestQueue
 				{
 					if(!Tests::messageVerbose)
 						printf("Call stack when there are various transitions between NULLC and C\r\n");
-					printf("%s failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", testTarget[t] == NULLC_VM ? "VM " : "X86", nullcGetLastError(), error);
+
+					const char *targetName = testTarget[t] == NULLC_VM ? "VM " : testTarget[t] == NULLC_X86 ? "X86" : (testTarget[t] == NULLC_LLVM ? "LLVM" : "REGVM");
+
+					printf("%s failed but for wrong reason:\r\n    %s\r\nexpected:\r\n    %s\r\n", targetName, nullcGetLastError(), error);
 				}else{
 					testsPassed[t]++;
 				}
@@ -236,11 +239,12 @@ struct Test_testDepthOverflow : TestQueue
 {
 	virtual void Run()
 	{
-		char *stackMem = new char[32*1024];
-		nullcSetJiTStack(stackMem, stackMem + 32*1024, true);
+		nullcSetExecutorStackSize(32 * 1024);
+
 		if(Tests::messageVerbose)
 			printf("Call depth test\r\n");
-		if(Tests::testExecutor[1] && 1 < TEST_RUNTIME_FAIL_EXECUTORS)
+
+		if(Tests::testFailureExecutor[1])
 		{
 			testsCount[1]++;
 			nullcSetExecutor(NULLC_X86);
@@ -275,8 +279,8 @@ struct Test_testDepthOverflow : TestQueue
 				printf("Test should have failed.\r\n");
 			}
 		}
-		nullcSetJiTStack((void*)0x20000000, NULL, false);
-		delete[] stackMem;
+
+		nullcSetExecutorStackSize(Tests::testStackSize);
 	}
 };
 Test_testDepthOverflow test_testDepthOverflow;
@@ -302,11 +306,12 @@ struct Test_testGlobalOverflow : TestQueue
 {
 	virtual void Run()
 	{
-		char *stackMem = new char[32*1024];
+		nullcSetExecutorStackSize(32 * 1024);
+
 		if(Tests::messageVerbose)
 			printf("Global overflow test\r\n");
-		nullcSetJiTStack(stackMem, stackMem + 32*1024, true);
-		if(Tests::testExecutor[1] && 1 < TEST_RUNTIME_FAIL_EXECUTORS)
+
+		if(Tests::testFailureExecutor[1])
 		{
 			testsCount[1]++;
 			nullcSetExecutor(NULLC_X86);
@@ -341,8 +346,8 @@ struct Test_testGlobalOverflow : TestQueue
 				printf("Test should have failed.\r\n");
 			}
 		}
-		nullcSetJiTStack((void*)0x20000000, NULL, false);
-		delete[] stackMem;
+
+		nullcSetExecutorStackSize(Tests::testStackSize);
 	}
 };
 Test_testGlobalOverflow test_testGlobalOverflow;
@@ -360,10 +365,10 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 {
 	virtual void Run()
 	{
-		nullcSetJiTStack((void*)0x20000000, (void*)(0x20000000 + 1024*1024), false);
+		nullcSetExecutorStackSize(1024 * 1024);
 		if(Tests::messageVerbose)
 			printf("Depth overflow in unmanaged memory\r\n");
-		if(Tests::testExecutor[1] && 1 < TEST_RUNTIME_FAIL_EXECUTORS)
+		if(Tests::testFailureExecutor[1])
 		{
 			testsCount[1]++;
 			nullcSetExecutor(NULLC_X86);
@@ -399,7 +404,7 @@ struct Test_testDepthOverflowUnmanaged : TestQueue
 			}
 		}
 
-		nullcSetJiTStack((void*)0x20000000, NULL, false);
+		nullcSetExecutorStackSize(Tests::testStackSize);
 	}
 };
 Test_testDepthOverflowUnmanaged test_testDepthOverflowUnmanaged;

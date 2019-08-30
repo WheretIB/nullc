@@ -640,7 +640,7 @@ void RunInterfaceTests()
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
 
 #ifdef NULLC_BUILD_X86_JIT
-	TEST_COMPARE(nullcSetJiTStack(NULL, NULL, true), false);
+	TEST_COMPARE(nullcSetExecutorStackSize(1024), false);
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
 #endif
 	TEST_COMPARE(nullcBindModuleFunction("std.test", NULL, "test", 0), false);

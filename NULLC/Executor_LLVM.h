@@ -18,6 +18,8 @@ public:
 	void	Run(unsigned int functionID, const char *arguments);
 	void	Stop(const char* error);
 
+	bool	SetStackSize(unsigned bytes);
+
 	const char*	GetResult();
 	int			GetResultInt();
 	double		GetResultDouble();
