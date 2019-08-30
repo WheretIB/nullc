@@ -1830,23 +1830,23 @@ bool ExecutorRegVm::ExecConvertPtr(const RegVmCmd cmd, RegVmCmd * const instruct
 
 void ExecutorRegVm::ExecCheckedReturn(const RegVmCmd cmd, RegVmRegister * const regFilePtr, unsigned * const tempStackPtr)
 {
-	char *returnValuePtr = (char*)tempStackPtr - NULLC_PTR_SIZE;
-
-	uintptr_t ptr = (uintptr_t)vmLoadPointer(returnValuePtr);
-
 	uintptr_t frameBase = regFilePtr[rvrrFrame].ptrValue;
 	uintptr_t frameEnd = regFilePtr[rvrrGlobals].ptrValue + dataStack.size();
 
-	if(ptr >= frameBase && ptr <= frameEnd)
-	{
-		ExternTypeInfo &type = exLinker->exTypes[cmd.argument];
+	ExternTypeInfo &type = exLinker->exTypes[cmd.argument];
 
+	char *returnValuePtr = (char*)tempStackPtr - type.size;
+
+	void *ptr = vmLoadPointer(returnValuePtr);
+
+	if(uintptr_t(ptr) >= frameBase && uintptr_t(ptr) <= frameEnd)
+	{
 		if(type.arrSize == ~0u)
 		{
 			unsigned length = *(int*)(returnValuePtr + sizeof(void*));
 
 			char *copy = (char*)NULLC::AllocObject(exLinker->exTypes[type.subType].size * length);
-			memcpy(copy, returnValuePtr, unsigned(exLinker->exTypes[type.subType].size * length));
+			memcpy(copy, ptr, unsigned(exLinker->exTypes[type.subType].size * length));
 			vmStorePointer(returnValuePtr, copy);
 		}
 		else
@@ -1854,7 +1854,7 @@ void ExecutorRegVm::ExecCheckedReturn(const RegVmCmd cmd, RegVmRegister * const 
 			unsigned objSize = type.size;
 
 			char *copy = (char*)NULLC::AllocObject(objSize);
-			memcpy(copy, returnValuePtr, objSize);
+			memcpy(copy, ptr, objSize);
 			vmStorePointer(returnValuePtr, copy);
 		}
 	}
