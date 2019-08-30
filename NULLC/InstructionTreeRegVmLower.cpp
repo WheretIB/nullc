@@ -1823,7 +1823,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		else
 		{
-			lowBlock->AddInstruction(ctx, inst->source, rviReturn, rvrVoid, 0, 0);
+			lowBlock->AddInstruction(ctx, inst->source, rviReturn, 0, rvrVoid, 0);
 		}
 	}
 	break;
@@ -2223,7 +2223,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 	}
 	break;
 	case VM_INST_ABORT_NO_RETURN:
-		lowBlock->AddInstruction(ctx, inst->source, rviReturn, rvrError, 0, 0);
+		lowBlock->AddInstruction(ctx, inst->source, rviReturn, 0, rvrError, 0);
 		break;
 	case VM_INST_CONSTRUCT:
 		if(inst->type.type == VM_TYPE_FUNCTION_REF)
