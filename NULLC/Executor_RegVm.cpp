@@ -313,6 +313,8 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 					regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
 					regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevDataSize);
 				}
+
+				memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr) * sizeof(regFilePtr[0]));
 			}
 		}
 	}
@@ -327,6 +329,8 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 		regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
 		regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data);
+
+		memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr) * sizeof(regFilePtr[0]));
 	}
 
 	RegVmRegister *prevRegFileLastTop = regFileLastTop;
@@ -1686,8 +1690,6 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		return tempStackPtr;
 	}
 
-	uintptr_t prevStackFrameOffset = regFilePtr[rvrrFrame].ptrValue - regFilePtr[rvrrGlobals].ptrValue;
-
 	callStack.push_back(instruction + 1);
 
 	unsigned prevDataSize = dataStack.size();
@@ -1740,11 +1742,9 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 	regFileTop[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
 	regFileTop[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevDataSize);
 
-	RegVmReturnType execResultType = RunCode(codeBase + address, regFileTop, tempStackPtr, this, codeBase);
+	memset(regFileTop + rvrrCount, 0, (regFileLastTop - regFileTop) * sizeof(regFilePtr[0]));
 
-	// Call might have extended the stack inside, global and stack frame pointers must be updated
-	regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
-	regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevStackFrameOffset);
+	RegVmReturnType execResultType = RunCode(codeBase + address, regFileTop, tempStackPtr, this, codeBase);
 
 	if(execResultType == rvrError)
 		return NULL;
