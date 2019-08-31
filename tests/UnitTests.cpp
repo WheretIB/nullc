@@ -303,6 +303,8 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	testsCount[TEST_TYPE_LLVM] = 0;
 #endif
 
+	printf("RegVM passed %d of %d tests\n", testsPassed[TEST_TYPE_REGVM], testsCount[TEST_TYPE_REGVM]);
+
 	printf("Failure tests: passed %d of %d tests\n", testsPassed[TEST_TYPE_FAILURE], testsCount[TEST_TYPE_FAILURE]);
 	printf("Extra tests: passed %d of %d tests\n", testsPassed[TEST_TYPE_EXTRA], testsCount[TEST_TYPE_EXTRA]);
 	printf("Translation tests: passed %d of %d tests\n", testsPassed[TEST_TYPE_TRANSLATION], testsCount[TEST_TYPE_TRANSLATION]);
@@ -324,6 +326,8 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	printf("Clean time: %f\n", Tests::timeClean);
 	printf("Link time: %f\n", Tests::timeLinkCode);
 	printf("Run time: %f\n", Tests::timeRun);
+
+	printf("Total time: %f\n", Tests::timeCompile + Tests::timeGetBytecode + Tests::timeVisit + Tests::timeExprEvaluate + Tests::timeInstEvaluate + Tests::timeTranslate + Tests::timeClean + Tests::timeLinkCode + Tests::timeRun);
 
 	printf("Total log output: %lld\n", Tests::totalOutput);
 	printf("Total nodes: %d syntax, %d expression\n", Tests::totalSyntaxNodes, Tests::totalExpressionNodes);
