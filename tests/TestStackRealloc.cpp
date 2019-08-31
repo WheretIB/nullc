@@ -131,7 +131,7 @@ struct TestGCGlobalLimit : TestQueue
 		const char	*testGCGlobalLimit =
 		"import std.gc;\r\n\
 		int[] arr1 = new int[200000];\r\n\
-		arr1 = nullptr;\r\n\
+		arr1 = new int[2];\r\n\
 		int[] arr2 = new int[200000];\r\n\
 		return arr2.size;";
 		for(int t = 0; t < TEST_TARGET_COUNT; t++)

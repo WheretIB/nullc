@@ -81,17 +81,17 @@ class A\r\n\
 }\r\n\
 A ref[] arr1 = new A ref[2];\r\n\
 A ref tmp;\r\n\
-arr1[0] = tmp = new A;\r\n\
+(auto(){arr1[0] = tmp = new A;\r\n\
 tmp.d = new A;\r\n\
 tmp.e = new A;\r\n\
 tmp.f = new A;\r\n\
 arr1[1] = new A;\r\n\
 arr1[1].d = new A;\r\n\
 arr1[1].e = new A;\r\n\
-arr1[1].f = new A;\r\n\
+arr1[1].f = new A;})();\r\n\
 GC.CollectMemory();\r\n\
 return GC.UsedMemory() - start;";
-TEST_RESULT("Garbage collection correctness 3.", testGarbageCollectionCorrectness3, sizeof(void*) == 8 ? "544" : "272");
+TEST_RESULT_SIMPLE("Garbage collection correctness 3.", testGarbageCollectionCorrectness3, sizeof(void*) == 8 ? "544" : "272");
 
 const char	*testStackFrameSizeX64 =
 "void test()\r\n\
