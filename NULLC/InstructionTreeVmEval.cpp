@@ -820,10 +820,26 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 		return NULL;
 	case VM_INST_CALL:
 		{
-			assert(arguments[0]->type.type == VM_TYPE_FUNCTION_REF);
-
 			unsigned functionIndex = 0;
-			memcpy(&functionIndex, arguments[0]->sValue + sizeof(void*), 4);
+			unsigned long long context = 0;
+			unsigned startArgument = ~0u;
+
+			if(arguments[0]->type.type == VM_TYPE_FUNCTION_REF)
+			{
+				memcpy(&functionIndex, arguments[0]->sValue + sizeof(void*), 4);
+
+				memcpy(&context, arguments[0]->sValue, sizeof(void*));
+
+				startArgument = 1;
+			}
+			else
+			{
+				assert(arguments[0]->sValue == 0 && arguments[0]->iValue == 0 && arguments[0]->lValue == 0);
+
+				functionIndex = arguments[1]->iValue;
+
+				startArgument = 2;
+			}
 
 			if(functionIndex >= ctx.ctx.functions.size())
 				return (VmConstant*)Report(ctx, "ERROR: invalid function index");
@@ -840,11 +856,11 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 			unsigned offset = 0;
 
-			for(unsigned i = 1; i < arguments.size(); i++)
+			for(unsigned i = startArgument; i < arguments.size(); i++)
 			{
 				VmConstant *argument = arguments[i];
 
-				ArgumentData &original = function->function->arguments[i - 1];
+				ArgumentData &original = function->function->arguments[i - startArgument];
 
 				if(original.type->size == 0)
 				{
@@ -861,9 +877,6 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 				offset += argumentSize > 4 ? argumentSize : 4;
 			}
-
-			unsigned long long context = 0;
-			memcpy(&context, arguments[0]->sValue, sizeof(void*));
 
 			if(!calleeFrame->stack.Reserve(ctx, offset, sizeof(void*)))
 				return (VmConstant*)Report(ctx, "ERROR: out of stack space");
