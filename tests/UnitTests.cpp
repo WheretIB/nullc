@@ -37,13 +37,69 @@
 //#define ALLOC_TOP_DOWN
 //#define NO_CUSTOM_ALLOCATOR
 
+unsigned testTotalMemoryAlloc = 0;
+unsigned testTotalMemoryFree = 0;
+unsigned testTotalMemoryRequested = 0;
+unsigned testTotalMemoryUsed = 0;
+
+struct MallocAllocatorRef : Allocator
+{
+	MallocAllocatorRef()
+	{
+	}
+
+	~MallocAllocatorRef()
+	{
+	}
+
+	virtual void* alloc(int size)
+	{
+		return malloc(size);
+	}
+
+	virtual void dealloc(void* ptr)
+	{
+		free(ptr);
+	}
+
+	virtual unsigned requested()
+	{
+		return 0;
+	}
+};
+
+struct PointerHasher
+{
+	unsigned operator()(void *key)
+	{
+		char data[sizeof(void*)];
+		memcpy(data, &key, sizeof(void*));
+
+		unsigned int hash = 5381;
+		for(unsigned i = 0; i < sizeof(void*); i++)
+			hash = ((hash << 5) + hash) + data[i];
+		return hash;
+	}
+};
+
+MallocAllocatorRef setAllocator;
+SmallDenseMap<void*, bool, PointerHasher, 1024> activePoiners(&setAllocator);
+
 void* testAlloc(int size)
 {
 #ifdef ALLOC_TOP_DOWN
 	return VirtualAlloc(NULL, size + 128, MEM_COMMIT | MEM_TOP_DOWN, PAGE_READWRITE);
 #else
+	testTotalMemoryAlloc++;
+	testTotalMemoryRequested += size;
+	testTotalMemoryUsed += size;
+
 	char *ptr = new char[size + 128];
 	memset(ptr, 0xee, 128);
+	*(unsigned*)ptr = size;
+
+	activePoiners.insert(ptr, 1);
+
 	return ptr + 128;
 #endif
 }
@@ -55,7 +111,21 @@ void testDealloc(void* ptr)
 	VirtualFree((char*)ptr - 128, 0, MEM_RELEASE);
 #else
 	ptr = (char*)ptr - 128;
-	for(unsigned i = 0; i < 128; i++)
+
+	bool* active = activePoiners.find(ptr);
+
+	if(!active || !*active)
+	{
+		printf("pointer was not allocated");
+		abort();
+	}
+
+	activePoiners.insert(ptr, 0);
+
+	testTotalMemoryFree++;
+	testTotalMemoryUsed -= *(unsigned*)ptr;
+
+	for(unsigned i = sizeof(unsigned); i < 128; i++)
 		assert(((unsigned char*)ptr)[i] == 0xee);
 	delete[] (char*)ptr;
 #endif
@@ -257,6 +327,8 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 
 	printf("Total log output: %lld\n", Tests::totalOutput);
 	printf("Total nodes: %d syntax, %d expression\n", Tests::totalSyntaxNodes, Tests::totalExpressionNodes);
+
+	printf("Total global allocs: %d (%.3fMB requested)\n", testTotalMemoryAlloc, testTotalMemoryRequested / 1024 / 1024.0);
 
 	printf("Passed %d of %d tests\n", allPassed, allTests);
 
