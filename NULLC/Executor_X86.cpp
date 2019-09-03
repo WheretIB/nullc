@@ -601,6 +601,8 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				return;
 			}
 
+			assert(fPtr);
+
 			dcReset(dcCallVM);
 
 			unsigned int *stackStart = ((unsigned int*)arguments);
@@ -1584,6 +1586,13 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].vmAddress];
 			functionAddress[i * 2 + 1] = 0;
+		}
+		else if(exFunctions[i].funcPtrWrap)
+		{
+			exFunctions[i].startInByteCode = 0xffffffff;
+
+			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)exFunctions[i].funcPtrWrap;
+			functionAddress[i * 2 + 1] = 2;
 		}
 		else
 		{

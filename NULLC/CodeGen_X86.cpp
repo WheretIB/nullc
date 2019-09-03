@@ -1972,9 +1972,19 @@ void GenCodeCmdCall(VMCmd cmd)
 	static unsigned int ret[128];
 	EMIT_COMMENT("CALL");
 
-	if(x86Functions[cmd.argument].vmAddress != -1)
+	ExternFuncInfo &funcInfo = x86Functions[cmd.argument];
+
+	unsigned int bytesToPop = funcInfo.bytesToPop;
+
+#if defined(__linux)
+	bool bigReturn = funcInfo.retType == ExternFuncInfo::RETURN_UNKNOWN;
+#else
+	bool bigReturn = funcInfo.retType == ExternFuncInfo::RETURN_UNKNOWN && funcInfo.returnShift;
+#endif
+
+	if(funcInfo.vmAddress != -1)
 	{
-		GenCodeCmdCallEpilog(x86Functions[cmd.argument].bytesToPop);
+		GenCodeCmdCallEpilog(bytesToPop);
 
 		EMIT_OP_ADDR(o_push, sDWORD, paramBase-4);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-4, rESP);
@@ -1982,15 +1992,58 @@ void GenCodeCmdCall(VMCmd cmd)
 		EMIT_OP_ADDR(o_pop, sDWORD, paramBase-4);
 		
 		GenCodeCmdCallProlog(cmd);
-	}else{
-		unsigned int bytesToPop = x86Functions[cmd.argument].bytesToPop;
+	}
+	else if(funcInfo.funcPtrWrap)
+	{
+		// Update data stack header
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
 
-#if defined(__linux)
-		bool bigReturn = x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_UNKNOWN;
+		unsigned returnSize = funcInfo.returnShift * 4;
+
+		if(funcInfo.retType == ExternFuncInfo::RETURN_VOID)
+			returnSize = 0;
+		else if(funcInfo.retType == ExternFuncInfo::RETURN_INT)
+			returnSize = 4;
+		else if(funcInfo.retType == ExternFuncInfo::RETURN_DOUBLE)
+			returnSize = 8;
+		else if(funcInfo.retType == ExternFuncInfo::RETURN_LONG)
+			returnSize = 8;
+
+		// Place arguments (context, argument buffer, return buffer)
+		EMIT_OP_REG_REG(o_mov, rEAX, rESP);
+
+		if(returnSize > bytesToPop)
+			EMIT_OP_REG_NUM(o_sub, rESP, returnSize - bytesToPop);
+		EMIT_OP_REG(o_push, rEAX);
+
+		EMIT_OP_REG_RPTR(o_lea, rEAX, sNONE, rEAX, bytesToPop - returnSize);
+		EMIT_OP_REG(o_push, rEAX);
+
+		EMIT_OP_NUM(o_push, (int)(intptr_t)funcInfo.funcPtrWrapTarget);
+
+		EMIT_OP_ADDR(o_call, sNONE, cmd.argument * 8 + (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
+
+		// Handle call exception
+		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
+		EMIT_OP_REG_REG(o_test, rECX, rECX);
+		EMIT_OP_LABEL(o_jnz, aluLabels);
+#ifdef __linux
+		// call siglongjmp(target_env, EXCEPTION_STOP_EXECUTION);
+		EMIT_OP_NUM(o_push, EXCEPTION_STOP_EXECUTION);
+		EMIT_OP_NUM(o_push, nullcJmpTarget);
+		EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&siglongjmpPtr);
 #else
-		bool bigReturn = x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_UNKNOWN && x86Functions[cmd.argument].returnShift;
+		EMIT_OP_REG_REG(o_mov, rECX, rESP);	// esp is very likely to contain neither 0 or ~0, so we can distinguish
+		EMIT_OP(o_int);						// array out of bounds and function with no return errors from this one
 #endif
+		EMIT_LABEL(aluLabels);
+		aluLabels++;
 
+		EMIT_OP_REG_NUM(o_add, rESP, bytesToPop - returnSize + 12);
+	}
+	else
+	{
 		if(bigReturn)
 			EMIT_OP_NUM(o_push, (int)(intptr_t)ret);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
@@ -2017,24 +2070,30 @@ void GenCodeCmdCall(VMCmd cmd)
 #else
 		EMIT_OP_REG_NUM(o_add, rESP, bytesToPop);
 #endif
-		if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_INT)
+		if(funcInfo.retType == ExternFuncInfo::RETURN_INT)
 		{
 			EMIT_OP_REG(o_push, rEAX);
-		}else if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_DOUBLE){
+		}
+		else if(funcInfo.retType == ExternFuncInfo::RETURN_DOUBLE)
+		{
 			EMIT_OP_REG_NUM(o_sub, rESP, 8);
 			EMIT_OP_RPTR(o_fstp, sQWORD, rESP, 0);
-		}else if(x86Functions[cmd.argument].retType == ExternFuncInfo::RETURN_LONG){
+		}
+		else if(funcInfo.retType == ExternFuncInfo::RETURN_LONG)
+		{
 			EMIT_OP_REG(o_push, rEDX);
 			EMIT_OP_REG(o_push, rEAX);
-		}else if(bigReturn){
+		}
+		else if(bigReturn)
+		{
 			// adjust new stack top
-			EMIT_OP_REG_NUM(o_sub, rESP, x86Functions[cmd.argument].returnShift * 4);
+			EMIT_OP_REG_NUM(o_sub, rESP, funcInfo.returnShift * 4);
 			// copy return value on top of the stack
 			EMIT_OP_REG_REG(o_mov, rEBX, rEDI);
 
 			EMIT_OP_REG_NUM(o_mov, rESI, (int)(intptr_t)ret);	
 			EMIT_OP_REG_REG(o_mov, rEDI, rESP);
-			EMIT_OP_REG_NUM(o_mov, rECX, x86Functions[cmd.argument].returnShift);
+			EMIT_OP_REG_NUM(o_mov, rECX, funcInfo.returnShift);
 			EMIT_OP(o_rep_movsd);
 
 			EMIT_OP_REG_REG(o_mov, rEDI, rEBX);
