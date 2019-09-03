@@ -1232,7 +1232,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 
 	if(func.funcPtrWrap)
 	{
-		unsigned int *newStackPtr = genStackPtr + dwordsToPop + extraPopDW - func.returnShift;
+		unsigned int *newStackPtr = genStackPtr + dwordsToPop + extraPopDW - (func.returnSize >> 2);
 
 		func.funcPtrWrap(func.funcPtrWrapTarget, (char*)newStackPtr, (char*)genStackPtr);
 

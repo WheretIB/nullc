@@ -1603,6 +1603,17 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 			funcInfo.returnShift = (unsigned char)(returnType->size / 4);
 
+			funcInfo.returnSize = funcInfo.returnShift * 4;
+
+			if(funcInfo.retType == ExternFuncInfo::RETURN_VOID)
+				funcInfo.returnSize = 0;
+			else if(funcInfo.retType == ExternFuncInfo::RETURN_INT)
+				funcInfo.returnSize = 4;
+			else if(funcInfo.retType == ExternFuncInfo::RETURN_DOUBLE)
+				funcInfo.returnSize = 8;
+			else if(funcInfo.retType == ExternFuncInfo::RETURN_LONG)
+				funcInfo.returnSize = 8;
+
 			funcInfo.bytesToPop = (unsigned)function->argumentsSize;
 			funcInfo.stackSize = (unsigned)function->stackSize;
 

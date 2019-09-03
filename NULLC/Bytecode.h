@@ -145,7 +145,8 @@ struct ExternFuncInfo
 	unsigned char	funcCat;
 	unsigned char	isGenericInstance;
 	unsigned char	isOperator;
-	unsigned char	returnShift;
+	unsigned char	returnShift; // Amount of dwords to remove for result type after raw external function call
+	unsigned int	returnSize; // Return size of the wrapped external function call
 	unsigned int	funcType;	// index to the type array
 
 	unsigned int	startInByteCode;
