@@ -1,6 +1,7 @@
 #include "Compiler.h"
 
 #include "nullc.h"
+#include "nullbind.h"
 #include "BinaryCache.h"
 #include "Executor_Common.h"
 #include "StdLib.h"
@@ -215,91 +216,91 @@ bool BuildBaseModule(Allocator *allocator, int optimizationLevel)
 	}
 
 #ifndef NULLC_NO_EXECUTOR
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Assert, "assert", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Assert2, "assert", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Assert, "assert", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Assert2, "assert", 1);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrEqual, "==", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrNEqual, "!=", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrConcatenate, "+", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrConcatenateAndSet, "+=", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrEqual, "==", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrNEqual, "!=", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrConcatenate, "+", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrConcatenateAndSet, "+=", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Int, "bool", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Char, "char", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Short, "short", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Int, "int", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Long, "long", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Float, "float", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Double, "double", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Int, "bool", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Char, "char", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Short, "short", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Int, "int", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Long, "long", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Float, "float", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Double, "double", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::UnsignedValueChar, "as_unsigned", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::UnsignedValueShort, "as_unsigned", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::UnsignedValueInt, "as_unsigned", 2);
+	nullcBindModuleFunctionHelper("$base$", NULLC::UnsignedValueChar, "as_unsigned", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::UnsignedValueShort, "as_unsigned", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::UnsignedValueInt, "as_unsigned", 2);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToShort, "short", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::ShortToStr, "short::str", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToInt, "int", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::IntToStr, "int::str", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToLong, "long", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::LongToStr, "long::str", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToFloat, "float", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::FloatToStr, "float::str", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::StrToDouble, "double", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::DoubleToStr, "double::str", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrToShort, "short", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::ShortToStr, "short::str", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrToInt, "int", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::IntToStr, "int::str", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrToLong, "long", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::LongToStr, "long::str", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrToFloat, "float", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::FloatToStr, "float::str", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::StrToDouble, "double", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::DoubleToStr, "double::str", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AllocObject, "__newS", 0);
-	nullcBindModuleFunction("$base$", (void (*)())(NULLCArray	(*)(unsigned, unsigned, unsigned))NULLC::AllocArray, "__newA", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::CopyObject, "duplicate", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::CopyArray, "__duplicate_array", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::ReplaceObject, "replace", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::SwapObjects, "swap", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::CompareObjects, "equal", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AssignObject, "assign", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AllocObject, "__newS", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AllocArray, "__newA", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::CopyObject, "duplicate", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::CopyArray, "__duplicate_array", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::ReplaceObject, "replace", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::SwapObjects, "swap", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::CompareObjects, "equal", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AssignObject, "assign", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::ArrayCopy, "array_copy", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::ArrayCopy, "array_copy", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::FunctionRedirect, "__redirect", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::FunctionRedirectPtr, "__redirect_ptr", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::FunctionRedirect, "__redirect", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::FunctionRedirectPtr, "__redirect_ptr", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::Typeid, "typeid", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::TypeSize, "typeid::size$", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::TypesEqual, "==", 1);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::TypesNEqual, "!=", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::Typeid, "typeid", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::TypeSize, "typeid::size$", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::TypesEqual, "==", 1);
+	nullcBindModuleFunctionHelper("$base$", NULLC::TypesNEqual, "!=", 1);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefCompare, "__rcomp", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefNCompare, "__rncomp", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefLCompare, "<", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefLECompare, "<=", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefGCompare, ">", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefGECompare, ">=", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefCompare, "__rcomp", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefNCompare, "__rncomp", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefLCompare, "<", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefLECompare, "<=", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefGCompare, ">", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefGECompare, ">=", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::RefHash, "hash_value", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::RefHash, "hash_value", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::FuncCompare, "__pcomp", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::FuncNCompare, "__pncomp", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::FuncCompare, "__pcomp", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::FuncNCompare, "__pncomp", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::ArrayCompare, "__acomp", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::ArrayNCompare, "__ancomp", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::ArrayCompare, "__acomp", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::ArrayNCompare, "__ancomp", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::TypeCount, "__typeCount", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::TypeCount, "__typeCount", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssign, "=", 3);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArrayAssignRev, "__aaassignrev", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArrayIndex, "[]", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArrayAssign, "=", 3);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArrayAssignRev, "__aaassignrev", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArrayIndex, "[]", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())IsPointerUnmanaged, "isStackPointer", 0);
+	nullcBindModuleFunctionHelper("$base$", IsPointerUnmanaged, "isStackPointer", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArray, "auto_array_impl", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AutoArraySet, "auto[]::set", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::ShrinkAutoArray, "__force_size", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArray, "auto_array_impl", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AutoArraySet, "auto[]::set", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::ShrinkAutoArray, "__force_size", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::IsCoroutineReset, "isCoroutineReset", 0);
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AssertCoroutine, "__assertCoroutine", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::IsCoroutineReset, "isCoroutineReset", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AssertCoroutine, "__assertCoroutine", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::GetFinalizationList, "__getFinalizeList", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::GetFinalizationList, "__getFinalizeList", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::AssertDerivedFromBase, "assert_derived_from_base", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::AssertDerivedFromBase, "assert_derived_from_base", 0);
 
-	nullcBindModuleFunction("$base$", (void (*)())NULLC::CloseUpvalue, "__closeUpvalue", 0);
+	nullcBindModuleFunctionHelper("$base$", NULLC::CloseUpvalue, "__closeUpvalue", 0);
 #endif
 
 	return true;
