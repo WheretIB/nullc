@@ -1645,16 +1645,6 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 
 			if(!callContinue)
 				return NULL;
-
-			if(target.returnShift == 1)
-			{
-				// Convert float result to double
-				float tmp;
-				memcpy(&tmp, tempStackPtr, sizeof(float));
-
-				double res = double(tmp);
-				memcpy(tempStackPtr, &res, sizeof(double));
-			}
 		}
 		else
 		{
