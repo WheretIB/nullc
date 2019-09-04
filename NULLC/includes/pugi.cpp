@@ -3,15 +3,32 @@
 #include "../nullc.h"
 #include "../nullbind.h"
 
+#include <assert.h>
 #include <string.h>
+#include <stdint.h>
 #include <new>
 #include "../../external/pugixml/pugixml.hpp"
 
-#if !defined(_MSC_VER)
-	#define POD_WRAP(x) *(size_t*)&x
-#else
-	#define POD_WRAP(x) x
-#endif
+namespace
+{
+	uintptr_t PodWrap(pugi::xml_node &node)
+	{
+		assert(sizeof(node) == sizeof(uintptr_t));
+
+		uintptr_t res;
+		memcpy(&res, &node, sizeof(uintptr_t));
+		return res;
+	}
+
+	uintptr_t PodWrap(pugi::xml_attribute& attribute)
+	{
+		assert(sizeof(attribute) == sizeof(uintptr_t));
+
+		uintptr_t res;
+		memcpy(&res, &attribute, sizeof(uintptr_t));
+		return res;
+	}
+}
 
 namespace NULLCPugiXML
 {
@@ -443,21 +460,21 @@ namespace NULLCPugiXML
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(beginCB, POD_WRAP(n.node));
+			nullcCallFunction(beginCB, PodWrap(n.node));
 			return !!nullcGetResultInt();
 		}
 		virtual bool for_each(pugi::xml_node& node)
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(for_eachCB, POD_WRAP(n.node));
+			nullcCallFunction(for_eachCB, PodWrap(n.node));
 			return !!nullcGetResultInt();
 		}
 		virtual bool end(pugi::xml_node& node)
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(endCB, POD_WRAP(n.node));
+			nullcCallFunction(endCB, PodWrap(n.node));
 			return !!nullcGetResultInt();
 		}
 	private:
@@ -511,7 +528,7 @@ namespace NULLCPugiXML
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(callback, POD_WRAP(n.node));
+			nullcCallFunction(callback, PodWrap(n.node));
 		}
 		void operator++()
 		{
@@ -531,7 +548,7 @@ namespace NULLCPugiXML
 		{
 			xml_attribute att;
 			att.attribute = attribute;
-			nullcCallFunction(callback, POD_WRAP(att.attribute));
+			nullcCallFunction(callback, PodWrap(att.attribute));
 			return !!nullcGetResultInt();
 		}
 		
@@ -550,7 +567,7 @@ namespace NULLCPugiXML
 		{
 			xml_node n;
 			n.node = node;
-			nullcCallFunction(callback, POD_WRAP(n.node));
+			nullcCallFunction(callback, PodWrap(n.node));
 			return !!nullcGetResultInt();
 		}
 	private:
