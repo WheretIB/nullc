@@ -465,6 +465,9 @@ ReturnSmall3 TestReturnSmall3()
 	ReturnSmall3 x;
 	return x;
 }
+
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+
 #define LOAD_MODULE_BIND_(id, name, code) LOAD_MODULE_BIND(id##_Raw, name, code)
 #define TEST_CODE(x) x##_Raw
 #define BIND_FUNCTION(moduleId, function, name, index) nullcBindModuleFunction(moduleId, (void (*)())function, name, index);
@@ -480,6 +483,8 @@ ReturnSmall3 TestReturnSmall3()
 #undef TEST_RESULT_
 #undef MODULE_SUFFIX
 #undef ALL_EXTERNAL_CALLS
+
+#endif
 
 #define LOAD_MODULE_BIND_(id, name, code) LOAD_MODULE_BIND(id##_Wrap, name ".wrap", code)
 #define TEST_CODE(x) x##_Wrap

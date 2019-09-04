@@ -4,7 +4,9 @@
 #include "Bytecode.h"
 #include "InstructionTreeRegVm.h"
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 typedef struct DCCallVM_ DCCallVM;
+#endif
 
 class Linker;
 
@@ -84,7 +86,9 @@ private:
 
 	bool		callContinue;
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	DCCallVM	*dcCallVM;
+#endif
 
 	void *breakFunctionContext;
 	unsigned (*breakFunction)(void*, unsigned);

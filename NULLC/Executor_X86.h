@@ -7,7 +7,9 @@
 #include "Instruction_X86.h"
 #include "Output.h"
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 typedef struct DCCallVM_ DCCallVM;
+#endif
 
 class ExecutorX86
 {
@@ -87,7 +89,9 @@ private:
 	unsigned int	oldCodeHeadProtect;
 	unsigned int	oldCodeBodyProtect;
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	DCCallVM		*dcCallVM;
+#endif
 
 public:
 	FastVector<unsigned char*>	instAddress;

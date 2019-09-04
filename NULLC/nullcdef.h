@@ -55,7 +55,9 @@ struct NULLCAutoArray
 //#define LINK_VERBOSE_DEBUG_OUTPUT
 #endif
 
-#if !defined(__CELLOS_LV2__) && !defined(__DMC__) && !defined(ANDROID)
+//#define NULLC_NO_RAW_EXTERNAL_CALL
+
+#if !defined(__CELLOS_LV2__) && !defined(__DMC__) && !defined(ANDROID) && !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	#define NULLC_AUTOBINDING
 #endif
 

@@ -5,10 +5,12 @@
 #include "CodeGen_X86.h"
 #include "Translator_X86.h"
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 #define dcAllocMem NULLC::alloc
 #define dcFreeMem  NULLC::dealloc
 
 #include "../external/dyncall/dyncall.h"
+#endif
 
 #ifndef __linux
 	#define WIN32_LEAN_AND_MEAN
@@ -264,7 +266,9 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 	breakFunctionContext = NULL;
 	breakFunction = NULL;
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	dcCallVM = NULL;
+#endif
 
 	// Parameter stack must be aligned
 	assert(sizeof(NULLC::DataStackHeader) % 16 == 0);
@@ -319,9 +323,11 @@ ExecutorX86::~ExecutorX86()
 	oldFunctionLists.clear();
 	functionAddress.clear();
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	if(dcCallVM)
 		dcFree(dcCallVM);
 	dcCallVM = NULL;
+#endif
 
 	x86ResetLabels();
 }
@@ -473,11 +479,13 @@ bool ExecutorX86::Initialize()
 
 	cgFuncs[cmdCheckedRet] = GenCodeCmdCheckedRet;
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	if(!dcCallVM)
 	{
 		dcCallVM = dcNewCallVM(4096);
 		dcMode(dcCallVM, DC_CALL_C_DEFAULT);
 	}
+#endif
 
 #ifndef __linux
 	if(HMODULE hDLL = LoadLibrary("kernel32"))
@@ -588,66 +596,111 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 	if(functionID != ~0u)
 	{
-		if(exFunctions[functionID].startInByteCode == ~0u)
-		{
-			unsigned int dwordsToPop = (exFunctions[functionID].bytesToPop >> 2);
-			void* fPtr = exFunctions[functionID].funcPtrRaw;
-			unsigned int retType = exFunctions[functionID].retType;
+		ExternFuncInfo &target = exFunctions[functionID];
 
+		if(target.startInByteCode == ~0u)
+		{
 			// Can't return complex types here
-			if(retType == ExternFuncInfo::RETURN_UNKNOWN)
+			if(target.retType == ExternFuncInfo::RETURN_UNKNOWN)
 			{
 				strcpy(execError, "ERROR: can't call external function with complex return type");
 				return;
 			}
 
-			assert(fPtr);
-
-			dcReset(dcCallVM);
-
-			unsigned int *stackStart = ((unsigned int*)arguments);
-
-			for(unsigned i = 0; i < dwordsToPop; i++)
+			if(target.funcPtrWrap)
 			{
-				dcArgInt(dcCallVM, *(int*)stackStart);
-				stackStart += 1;
+				assert(target.returnSize <= 8);
+
+				char returnBuf[8];
+
+				target.funcPtrWrap(target.funcPtrWrapTarget, returnBuf, (char*)arguments);
+
+				if(!callContinue)
+					return;
+
+				switch(target.retType)
+				{
+				case ExternFuncInfo::RETURN_VOID:
+					NULLC::runResultType = OTYPE_COMPLEX;
+					break;
+				case ExternFuncInfo::RETURN_INT:
+					NULLC::runResultType = OTYPE_INT;
+					memcpy(&NULLC::runResult, returnBuf, sizeof(NULLC::runResult));
+					break;
+				case ExternFuncInfo::RETURN_DOUBLE:
+					NULLC::runResultType = OTYPE_DOUBLE;
+
+					memcpy(&NULLC::runResult2, returnBuf, sizeof(NULLC::runResult2));
+					memcpy(&NULLC::runResult, returnBuf + 4, sizeof(NULLC::runResult));
+					break;
+				case ExternFuncInfo::RETURN_LONG:
+					NULLC::runResultType = OTYPE_LONG;
+
+					memcpy(&NULLC::runResult2, returnBuf, sizeof(NULLC::runResult2));
+					memcpy(&NULLC::runResult, returnBuf + 4, sizeof(NULLC::runResult));
+				break;
+				}
+			}
+			else
+			{
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+				unsigned int dwordsToPop = (target.bytesToPop >> 2);
+				void* fPtr = target.funcPtrRaw;
+
+				dcReset(dcCallVM);
+
+				unsigned int *stackStart = ((unsigned int*)arguments);
+
+				for(unsigned i = 0; i < dwordsToPop; i++)
+				{
+					dcArgInt(dcCallVM, *(int*)stackStart);
+					stackStart += 1;
+				}
+
+				switch(target.retType)
+				{
+				case ExternFuncInfo::RETURN_VOID:
+					NULLC::runResultType = OTYPE_COMPLEX;
+					dcCallVoid(dcCallVM, fPtr);
+					break;
+				case ExternFuncInfo::RETURN_INT:
+					NULLC::runResultType = OTYPE_INT;
+					NULLC::runResult = dcCallInt(dcCallVM, fPtr);
+					break;
+				case ExternFuncInfo::RETURN_DOUBLE:
+				{
+					double tmp = dcCallDouble(dcCallVM, fPtr);
+					NULLC::runResultType = OTYPE_DOUBLE;
+					NULLC::runResult2 = ((int*)&tmp)[0];
+					NULLC::runResult = ((int*)&tmp)[1];
+				}
+				break;
+				case ExternFuncInfo::RETURN_LONG:
+				{
+					long long tmp = dcCallLongLong(dcCallVM, fPtr);
+					NULLC::runResultType = OTYPE_LONG;
+					NULLC::runResult2 = ((int*)&tmp)[0];
+					NULLC::runResult = ((int*)&tmp)[1];
+				}
+				break;
+				}
+#else
+				strcpy(execError, "ERROR: external raw function calls are disabled");
+#endif
 			}
 
-			switch(retType)
-			{
-			case ExternFuncInfo::RETURN_VOID:
-				NULLC::runResultType = OTYPE_COMPLEX;
-				dcCallVoid(dcCallVM, fPtr);
-				break;
-			case ExternFuncInfo::RETURN_INT:
-				NULLC::runResultType = OTYPE_INT;
-				NULLC::runResult = dcCallInt(dcCallVM, fPtr);
-				break;
-			case ExternFuncInfo::RETURN_DOUBLE:
-			{
-				double tmp = dcCallDouble(dcCallVM, fPtr);
-				NULLC::runResultType = OTYPE_DOUBLE;
-				NULLC::runResult2 = ((int*)&tmp)[0];
-				NULLC::runResult = ((int*)&tmp)[1];
-			}
-				break;
-			case ExternFuncInfo::RETURN_LONG:
-			{
-				long long tmp = dcCallLongLong(dcCallVM, fPtr);
-				NULLC::runResultType = OTYPE_LONG;
-				NULLC::runResult2 = ((int*)&tmp)[0];
-				NULLC::runResult = ((int*)&tmp)[1];
-			}
-				break;
-			}
 			return;
-		}else{
+		}
+		else
+		{
 			if(NULLC::dataHead->lastEDI)
 				varSize = NULLC::dataHead->lastEDI;
-			memcpy(paramBase + varSize, arguments, exFunctions[functionID].bytesToPop);
+			memcpy(paramBase + varSize, arguments, target.bytesToPop);
 			funcBinCodeStart = functionAddress[functionID * 2];
 		}
-	}else{
+	}
+	else
+	{
 		funcBinCodeStart += globalStartInBytecode;
 
 		unsigned commitedStack = unsigned(NULLC::stackEndAddress - NULLC::parameterHead) - 8192;

@@ -5,10 +5,14 @@
 #include "nullc_debug.h"
 #include "StdLib.h"
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+
 #define dcAllocMem NULLC::alloc
 #define dcFreeMem  NULLC::dealloc
 
 #include "../external/dyncall/dyncall.h"
+
+#endif
 
 #ifdef NULLC_VM_CALL_STACK_UNWRAP
 #define NULLC_UNWRAP(x) x
@@ -123,7 +127,9 @@ Executor::Executor(Linker* linker): exLinker(linker), exTypes(linker->exTypes), 
 	breakFunctionContext = NULL;
 	breakFunction = NULL;
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	dcCallVM = NULL;
+#endif
 }
 
 Executor::~Executor()
@@ -131,9 +137,11 @@ Executor::~Executor()
 	NULLC::dealloc(genStackBase);
 	genStackBase = NULL;
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	if(dcCallVM)
 		dcFree(dcCallVM);
 	dcCallVM = NULL;
+#endif
 }
 
 #define RUNTIME_ERROR(test, desc)	if(test){ fcallStack.push_back(cmdStream); cmdStream = NULL; strcpy(execError, desc); break; }
@@ -172,11 +180,13 @@ void Executor::InitExecution()
 
 	paramBase = 0;
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	if(!dcCallVM)
 	{
 		dcCallVM = dcNewCallVM(4096);
 		dcMode(dcCallVM, DC_CALL_C_DEFAULT);
 	}
+#endif
 }
 
 void Executor::Run(unsigned int functionID, const char *arguments)
@@ -1241,6 +1251,7 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 		return callContinue;
 	}
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	void* fPtr = (void*)func.funcPtrRaw;
 	unsigned int retType = func.retType;
 
@@ -1529,6 +1540,11 @@ bool Executor::RunExternalFunction(unsigned int funcID, unsigned int extraPopDW)
 	genStackPtr = newStackPtr;
 
 	return callContinue;
+#else
+	Stop("ERROR: external raw function calls are disabled");
+
+	return false;
+#endif
 }
 
 const char* Executor::GetResult()

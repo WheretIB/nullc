@@ -9,10 +9,12 @@
 #pragma warning(disable: 4702) // unreachable code
 #endif
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 #define dcAllocMem NULLC::alloc
 #define dcFreeMem  NULLC::dealloc
 
 #include "../external/dyncall/dyncall.h"
+#endif
 
 namespace
 {
@@ -121,7 +123,9 @@ ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker-
 
 	callContinue = true;
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	dcCallVM = NULL;
+#endif
 
 	breakFunctionContext = NULL;
 	breakFunction = NULL;
@@ -133,8 +137,10 @@ ExecutorRegVm::~ExecutorRegVm()
 
 	NULLC::dealloc(regFileArrayBase);
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	if(dcCallVM)
 		dcFree(dcCallVM);
+#endif
 }
 
 void ExecutorRegVm::InitExecution()
@@ -183,11 +189,13 @@ void ExecutorRegVm::InitExecution()
 
 	regFileLastTop = regFileArrayBase;
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	if(!dcCallVM)
 	{
 		dcCallVM = dcNewCallVM(4096);
 		dcMode(dcCallVM, DC_CALL_C_DEFAULT);
 	}
+#endif
 }
 
 void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
@@ -1212,6 +1220,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 
 bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned *callStorage)
 {
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	ExternFuncInfo &func = exFunctions[funcID];
 
 	assert(func.funcPtrRaw);
@@ -1531,6 +1540,14 @@ bool ExecutorRegVm::RunExternalFunction(unsigned funcID, unsigned *callStorage)
 	}
 
 	return callContinue;
+#else
+	(void)funcID;
+	(void)callStorage;
+
+	Stop("ERROR: external raw function calls are disabled");
+
+	return false;
+#endif
 }
 
 RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr)

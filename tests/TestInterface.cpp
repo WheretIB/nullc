@@ -643,7 +643,12 @@ void RunInterfaceTests()
 	TEST_COMPARE(nullcSetExecutorStackSize(1024), false);
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
 #endif
+
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	TEST_COMPARE(nullcBindModuleFunction("std.test", NULL, "test", 0), false);
+#endif
+
+	TEST_COMPARE(nullcBindModuleFunctionWrapper("std.test", NULL, NULL, "test", 0), false);
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");
 	TEST_COMPARE(nullcLoadModuleBySource("std.test", "return 1;"), false);
 	TEST_COMPARES(nullcGetLastError(), "ERROR: NULLC is not initialized");

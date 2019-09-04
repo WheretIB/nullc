@@ -3,7 +3,9 @@
 
 #include "Executor_Common.h"
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 typedef struct DCCallVM_ DCCallVM;
+#endif
 
 const int ERROR_BUFFER_SIZE = 1024;
 
@@ -74,7 +76,9 @@ private:
 
 	bool			callContinue;
 
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	DCCallVM		*dcCallVM;
+#endif
 
 	void *breakFunctionContext;
 	unsigned (*breakFunction)(void*, unsigned);
