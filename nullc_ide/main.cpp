@@ -27,6 +27,7 @@
 #include <algorithm>
 
 #include "../NULLC/nullc.h"
+#include "../NULLC/nullbind.h"
 #include "../NULLC/nullc_debug.h"
 
 #include "Colorer.h"
@@ -560,7 +561,7 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 		strcat(initError, "ERROR: Failed to init ext.pugixml module\r\n");
 
 	nullcLoadModuleBySource("ide.debug", "void _debugBreak();");
-	nullcBindModuleFunction("ide.debug", (void(*)())IDEDebugBreak, "_debugBreak", 0);
+	nullcBindModuleFunctionHelper("ide.debug", IDEDebugBreak, "_debugBreak", 0);
 
 	// Save a list of base modules
 	while(const char* moduleName = nullcEnumerateModules((unsigned)baseModules.size()))
