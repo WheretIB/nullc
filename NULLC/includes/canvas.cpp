@@ -1,4 +1,8 @@
 #include "canvas.h"
+
+#include "../nullc.h"
+#include "../nullbind.h"
+
 #include <math.h>
 
 namespace NULLCCanvas
@@ -348,7 +352,7 @@ namespace NULLCCanvas
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("img.canvas", (void(*)())NULLCCanvas::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("img.canvas", NULLCCanvas::funcPtr, name, index)) return false;
 bool	nullcInitCanvasModule()
 {
 	REGISTER_FUNC(CanvasClearRGB, "Canvas::Clear", 0);

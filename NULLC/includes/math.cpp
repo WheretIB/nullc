@@ -1,5 +1,6 @@
 #include "math.h"
 #include "../../NULLC/nullc.h"
+#include "../../NULLC/nullbind.h"
 
 #include <math.h>
 
@@ -25,7 +26,6 @@ namespace NULLCMath
 		return 1.0 / tan(deg);
 	}
 
-
 	double Cosh(double deg)
 	{
 		return cosh(deg);
@@ -45,7 +45,6 @@ namespace NULLCMath
 	{
 		return 1.0 / tanh(deg);
 	}
-
 
 	double Acos(double deg)
 	{
@@ -184,8 +183,8 @@ namespace NULLCMath
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.math", (void(*)())NULLCMath::funcPtr, name, index)) return false;
-bool	nullcInitMathModule()
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("std.math", NULLCMath::funcPtr, name, index)) return false;
+bool nullcInitMathModule()
 {
 	REGISTER_FUNC(Cos, "cos", 0);
 	REGISTER_FUNC(Sin, "sin", 0);
@@ -229,5 +228,6 @@ bool	nullcInitMathModule()
 	REGISTER_FUNC(dot2, "dot", 0);
 	REGISTER_FUNC(dot3, "dot", 1);
 	REGISTER_FUNC(dot4, "dot", 2);
+
 	return true;
 }

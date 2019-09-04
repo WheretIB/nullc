@@ -1,5 +1,8 @@
 #include "time.h"
+
 #include "../nullc.h"
+#include "../nullbind.h"
+
 #include <time.h>
 
 #ifdef WIN32
@@ -29,7 +32,7 @@ namespace NULLCTime
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.time", (void(*)())NULLCTime::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("std.time", NULLCTime::funcPtr, name, index)) return false;
 bool	nullcInitTimeModule()
 {
 	REGISTER_FUNC(clock, "clock", 0);

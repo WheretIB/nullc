@@ -1,5 +1,8 @@
 #include "string.h"
+
 #include "../../NULLC/nullc.h"
+#include "../../NULLC/nullbind.h"
+
 #include <string.h>
 
 namespace NULLCString
@@ -29,7 +32,7 @@ namespace NULLCString
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.string", (void(*)())NULLCString::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("std.string", NULLCString::funcPtr, name, index)) return false;
 bool	nullcInitStringModule()
 {
 	REGISTER_FUNC(strstr, "strstr", 0);

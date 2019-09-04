@@ -1,5 +1,6 @@
 #include "file.h"
 #include "../../NULLC/nullc.h"
+#include "../../NULLC/nullbind.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -353,7 +354,7 @@ namespace NULLCFile
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.file", (void(*)())NULLCFile::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("std.file", NULLCFile::funcPtr, name, index)) return false;
 
 bool nullcInitFileModule()
 {

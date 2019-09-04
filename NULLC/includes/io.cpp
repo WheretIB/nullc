@@ -1,6 +1,7 @@
 #include "io.h"
 
 #include "../../NULLC/nullc.h"
+#include "../../NULLC/nullbind.h"
 
 #if defined(_MSC_VER)
 	#include <windows.h>
@@ -327,7 +328,7 @@ namespace NULLCIO
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.io", (void(*)())NULLCIO::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("std.io", NULLCIO::funcPtr, name, index)) return false;
 
 bool nullcInitIOModule(void *context, unsigned (*writeFunc)(void *context, char *data, unsigned length), unsigned (*readFunc)(void *context, char *target, unsigned length))
 {

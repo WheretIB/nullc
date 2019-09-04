@@ -1,5 +1,8 @@
 #include "random.h"
+
 #include "../nullc.h"
+#include "../nullbind.h"
+
 #include <stdlib.h>
 
 namespace NULLCRandom
@@ -14,7 +17,7 @@ namespace NULLCRandom
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.random", (void(*)())NULLCRandom::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("std.random", NULLCRandom::funcPtr, name, index)) return false;
 bool	nullcInitRandomModule()
 {
 	REGISTER_FUNC(srand, "srand", 0);

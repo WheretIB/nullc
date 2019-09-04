@@ -1,5 +1,6 @@
 #include "dynamic.h"
 #include "../nullc.h"
+#include "../nullbind.h"
 #include "../nullc_debug.h"
 
 namespace NULLCDynamic
@@ -115,7 +116,7 @@ namespace NULLCDynamic
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.dynamic", (void(*)())NULLCDynamic::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("std.dynamic", NULLCDynamic::funcPtr, name, index)) return false;
 bool	nullcInitDynamicModule(Linker* linker)
 {
 	NULLCDynamic::linker = linker;

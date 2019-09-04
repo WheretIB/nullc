@@ -1,5 +1,6 @@
 #include "window.h"
 #include "../../NULLC/nullc.h"
+#include "../../NULLC/nullbind.h"
 #if !defined(_MSC_VER)
 	#error "Only for Windows"
 #else
@@ -132,12 +133,12 @@ namespace NULLCWindow
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("win.window", (void(*)())NULLCWindow::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("win.window", NULLCWindow::funcPtr, name, index)) return false;
 bool	nullcInitWindowModule()
 {
 	NULLCWindow::RegisterClass("NCWND", NULL);
 
-	if(!nullcBindModuleFunction("win.window_ex", (void(*)())NULLCWindow::WindowCreate, "Window", 0)) return false;
+	if(!nullcBindModuleFunctionHelper("win.window_ex", NULLCWindow::WindowCreate, "Window", 0)) return false;
 
 	REGISTER_FUNC(WindowSetTitle, "Window::SetTitle", 0);
 	REGISTER_FUNC(WindowSetPosition, "Window::SetPosition", 0);

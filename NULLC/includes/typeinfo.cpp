@@ -1,5 +1,7 @@
 #include "typeinfo.h"
+
 #include "../nullc.h"
+#include "../nullbind.h"
 #include "../Linker.h"
 
 namespace NULLCTypeInfo
@@ -191,10 +193,10 @@ namespace NULLCTypeInfo
 		return ret;
 	}
 
-	TypeID TypeSubType(int &typeID)
+	TypeID TypeSubType(int* typeID)
 	{
 		assert(linker);
-		ExternTypeInfo &type = linker->exTypes[typeID];
+		ExternTypeInfo &type = linker->exTypes[*typeID];
 		if(type.subCat != ExternTypeInfo::CAT_ARRAY && type.subCat != ExternTypeInfo::CAT_POINTER)
 		{
 			nullcThrowError("typeid::subType received type (%s) that neither pointer nor array", &linker->exSymbols[type.offsetToName]);
@@ -203,10 +205,10 @@ namespace NULLCTypeInfo
 		return getTypeID(type.subType);
 	}
 
-	int TypeArraySize(int &typeID)
+	int TypeArraySize(int* typeID)
 	{
 		assert(linker);
-		ExternTypeInfo &type = linker->exTypes[typeID];
+		ExternTypeInfo &type = linker->exTypes[*typeID];
 		if(type.subCat != ExternTypeInfo::CAT_ARRAY)
 		{
 			nullcThrowError("typeid::arraySize received type (%s) that is not an array", &linker->exSymbols[type.offsetToName]);
@@ -215,10 +217,10 @@ namespace NULLCTypeInfo
 		return type.arrSize;
 	}
 
-	TypeID TypeReturnType(int &typeID)
+	TypeID TypeReturnType(int* typeID)
 	{
 		assert(linker);
-		ExternTypeInfo &type = linker->exTypes[typeID];
+		ExternTypeInfo &type = linker->exTypes[*typeID];
 		if(type.subCat != ExternTypeInfo::CAT_FUNCTION)
 		{
 			nullcThrowError("typeid::returnType received type (%s) that is not a function", &linker->exSymbols[type.offsetToName]);
@@ -228,10 +230,10 @@ namespace NULLCTypeInfo
 		return getTypeID(memberList[type.memberOffset].type);
 	}
 
-	int TypeArgumentCount(int &typeID)
+	int TypeArgumentCount(int* typeID)
 	{
 		assert(linker);
-		ExternTypeInfo &type = linker->exTypes[typeID];
+		ExternTypeInfo &type = linker->exTypes[*typeID];
 		if(type.subCat != ExternTypeInfo::CAT_FUNCTION)
 		{
 			nullcThrowError("typeid::argumentCount received type (%s) that is not a function", &linker->exSymbols[type.offsetToName]);
@@ -240,10 +242,10 @@ namespace NULLCTypeInfo
 		return type.memberCount;
 	}
 
-	TypeID TypeArgumentType(int argument, int &typeID)
+	TypeID TypeArgumentType(int argument, int* typeID)
 	{
 		assert(linker);
-		ExternTypeInfo &type = linker->exTypes[typeID];
+		ExternTypeInfo &type = linker->exTypes[*typeID];
 		if(type.subCat != ExternTypeInfo::CAT_FUNCTION)
 		{
 			nullcThrowError("typeid::argumentType received type (%s) that is not a function", &linker->exSymbols[type.offsetToName]);
@@ -405,7 +407,7 @@ namespace NULLCTypeInfo
 	}
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("std.typeinfo", (void(*)())NULLCTypeInfo::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("std.typeinfo", NULLCTypeInfo::funcPtr, name, index)) return false;
 bool	nullcInitTypeinfoModule(Linker* linker)
 {
 	NULLCTypeInfo::linker = linker;
@@ -488,7 +490,7 @@ const char*		nullcGetFunctionName(unsigned int funcID)
 unsigned int	nullcGetArraySize(unsigned int typeID)
 {
 	int ID = typeID;
-	return NULLCTypeInfo::TypeArraySize(ID);
+	return NULLCTypeInfo::TypeArraySize(&ID);
 }
 
 unsigned int	nullcGetTypeCount()
@@ -524,5 +526,5 @@ int				nullcIsPointer(unsigned int id)
 
 unsigned int	nullcGetSubType(int id)
 {
-	return NULLCTypeInfo::TypeSubType(id).typeID;
+	return NULLCTypeInfo::TypeSubType(&id).typeID;
 }

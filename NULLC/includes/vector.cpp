@@ -1,5 +1,6 @@
 #include "vector.h"
 #include "../nullc.h"
+#include "../nullbind.h"
 #include "typeinfo.h"
 
 #include <string.h>
@@ -171,7 +172,7 @@ namespace NULLCVector
 
 }
 
-#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunction("old.vector", (void(*)())NULLCVector::funcPtr, name, index)) return false;
+#define REGISTER_FUNC(funcPtr, name, index) if(!nullcBindModuleFunctionHelper("old.vector", NULLCVector::funcPtr, name, index)) return false;
 bool	nullcInitVectorModule()
 {
 	REGISTER_FUNC(ConstructVector, "cConstructVector", 0);
