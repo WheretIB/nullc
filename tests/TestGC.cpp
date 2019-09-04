@@ -559,9 +559,9 @@ int RecallerGC3()
 
 LOAD_MODULE_BIND(test_gctransition1, "func.gctransition1", "int Recaller1(); int Recaller2(); int Recaller3();")
 {
-	nullcBindModuleFunction("func.gctransition1", (void(*)())RecallerGC1, "Recaller1", 0);
-	nullcBindModuleFunction("func.gctransition1", (void(*)())RecallerGC2, "Recaller2", 0);
-	nullcBindModuleFunction("func.gctransition1", (void(*)())RecallerGC3, "Recaller3", 0);
+	nullcBindModuleFunctionHelper("func.gctransition1", RecallerGC1, "Recaller1", 0);
+	nullcBindModuleFunctionHelper("func.gctransition1", RecallerGC2, "Recaller2", 0);
+	nullcBindModuleFunctionHelper("func.gctransition1", RecallerGC3, "Recaller3", 0);
 }
 
 const char	*testGCWhenTransitions =

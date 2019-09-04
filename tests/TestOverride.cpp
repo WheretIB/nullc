@@ -31,8 +31,8 @@ int RewriteB(int x)
 
 LOAD_MODULE_BIND(func_rewrite, "func.rewrite", "int funcA(int x); int funcNew(int x);")
 {
-	nullcBindModuleFunction("func.rewrite", (void(*)())RewriteA, "funcA", 0);
-	nullcBindModuleFunction("func.rewrite", (void(*)())RewriteB, "funcNew", 0);
+	nullcBindModuleFunctionHelper("func.rewrite", RewriteA, "funcA", 0);
+	nullcBindModuleFunctionHelper("func.rewrite", RewriteB, "funcNew", 0);
 }
 
 const char	*testFunctionOverrideInternalExternal =

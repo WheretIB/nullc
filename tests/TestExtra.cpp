@@ -182,7 +182,7 @@ int CheckAlignment(NULLCRef ptr, int alignment)
 
 LOAD_MODULE_BIND(test_alignment, "test.alignment", "int CheckAlignment(auto ref ptr, int alignment);")
 {
-	nullcBindModuleFunction("test.alignment", (void(*)())CheckAlignment, "CheckAlignment", 0);
+	nullcBindModuleFunctionHelper("test.alignment", CheckAlignment, "CheckAlignment", 0);
 }
 
 const char	*testMissingTests5a =
@@ -399,7 +399,7 @@ int CheckAlignmentStruct(NULLCRef ptr)
 
 LOAD_MODULE_BIND(test_alignment_struct, "test.alignment.struct", "int CheckAlignmentStruct(auto ref ptr);")
 {
-	nullcBindModuleFunction("test.alignment.struct", (void(*)())CheckAlignmentStruct, "CheckAlignmentStruct", 0);
+	nullcBindModuleFunctionHelper("test.alignment.struct", CheckAlignmentStruct, "CheckAlignmentStruct", 0);
 }
 
 const char	*testAlignmentPadding4 =
@@ -422,7 +422,7 @@ int TestAlignment5StructYSizeof()
 
 LOAD_MODULE_BIND(test_alignment_sizeof, "test.alignment.size", "int TestAlignment5StructYSizeof();")
 {
-	nullcBindModuleFunction("test.alignment.size", (void(*)())TestAlignment5StructYSizeof, "TestAlignment5StructYSizeof", 0);
+	nullcBindModuleFunctionHelper("test.alignment.size", TestAlignment5StructYSizeof, "TestAlignment5StructYSizeof", 0);
 }
 
 const char	*testAlignmentPadding5 =

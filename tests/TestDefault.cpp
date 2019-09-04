@@ -74,7 +74,7 @@ int TestDefaultArgs(int a, int b)
 
 LOAD_MODULE_BIND(test_defargs4, "test.defargs4", "class Test{ int func(int a, b = 6); }")
 {
-	nullcBindModuleFunction("test.defargs4", (void(*)())TestDefaultArgs, "Test::func", 0);
+	nullcBindModuleFunctionHelper("test.defargs4", TestDefaultArgs, "Test::func", 0);
 }
 const char	*testDefaultFunctionArgumentExport4 =
 "import test.defargs4;\r\n\

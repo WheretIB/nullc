@@ -51,7 +51,7 @@ void	SpeedTestText(const char* name, const char* text)
 
 	// exclusive for progressbar test
 	nullcLoadModuleBySource("test.rect", "int draw_rect(int a, b, c, d, e);");
-	nullcBindModuleFunction("test.rect", (void(*)())TestDrawRect, "draw_rect", 0);
+	nullcBindModuleFunctionHelper("test.rect", TestDrawRect, "draw_rect", 0);
 
 #if defined(_MSC_VER)
 	nullcInitWindowModule();

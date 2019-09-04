@@ -64,12 +64,12 @@ void RecallerCS(int x)
 
 LOAD_MODULE_BIND(func_test, "func.test", "long Recaller(int testA, testB); int Recaller2(int testA, testB); int Recaller3(int testA, testB); int RecallerPtr(int ref(int) fPtr); void bubble(int[] arr, int ref(int, int) comp); void recall(int x);")
 {
-	nullcBindModuleFunction("func.test", (void(*)())Recaller, "Recaller", 0);
-	nullcBindModuleFunction("func.test", (void(*)())Recaller2, "Recaller2", 0);
-	nullcBindModuleFunction("func.test", (void(*)())Recaller3, "Recaller3", 0);
-	nullcBindModuleFunction("func.test", (void(*)())RecallerPtr, "RecallerPtr", 0);
-	nullcBindModuleFunction("func.test", (void(*)())BubbleSortArray, "bubble", 0);
-	nullcBindModuleFunction("func.test", (void(*)())RecallerCS, "recall", 0);
+	nullcBindModuleFunctionHelper("func.test", Recaller, "Recaller", 0);
+	nullcBindModuleFunctionHelper("func.test", Recaller2, "Recaller2", 0);
+	nullcBindModuleFunctionHelper("func.test", Recaller3, "Recaller3", 0);
+	nullcBindModuleFunctionHelper("func.test", RecallerPtr, "RecallerPtr", 0);
+	nullcBindModuleFunctionHelper("func.test", BubbleSortArray, "bubble", 0);
+	nullcBindModuleFunctionHelper("func.test", RecallerCS, "recall", 0);
 }
 
 const char	*testFunc1 =

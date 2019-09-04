@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../NULLC/nullc.h"
+#include "../NULLC/nullbind.h"
 
 #include <stdio.h>
 #include <math.h>

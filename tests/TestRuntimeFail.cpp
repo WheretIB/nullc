@@ -152,7 +152,7 @@ void RecallerTransition(int x)
 
 LOAD_MODULE_BIND(func_testX, "func.testX", "void recall(int x);")
 {
-	nullcBindModuleFunction("func.testX", (void(*)())RecallerTransition, "recall", 0);
+	nullcBindModuleFunctionHelper("func.testX", RecallerTransition, "recall", 0);
 }
 const char	*testCallStackWhenVariousTransitions =
 "import func.testX;\r\n\
