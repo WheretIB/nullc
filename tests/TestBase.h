@@ -265,7 +265,6 @@ struct Test_##id : TestQueue {	\
 			printf("Test " name " failed: %s\n", nullcGetLastError());	\
 		}	\
 	}	\
-	bool lastFailed;	\
 	void RunTest();	\
 };	\
 Test_##id test_##id;	\
