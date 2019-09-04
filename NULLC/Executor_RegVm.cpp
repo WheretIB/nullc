@@ -243,16 +243,6 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 				if(!callContinue)
 					errorState = true;
-				
-				if(target.returnShift == 1)
-				{
-					// Convert float result to double
-					float tmp;
-					memcpy(&tmp, tempStackPtr, sizeof(float));
-
-					double res = double(tmp);
-					memcpy(tempStackPtr, &res, sizeof(double));
-				}
 			}
 			else
 			{
