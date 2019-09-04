@@ -87,6 +87,11 @@ struct NullcCallBaseType
 	static const unsigned size = sizeof(T) == 0 ? 4 : (sizeof(T) + 3) & ~3;
 };
 
+template<typename T, bool IsReturn>
+struct NullcCallBaseType<T&, IsReturn>
+{
+};
+
 template<bool IsReturn>
 struct NullcCallBaseType<void, IsReturn>
 {
