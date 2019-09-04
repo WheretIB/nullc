@@ -2975,19 +2975,33 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			unsigned int middleOffsetY = mainPadding + topHeight + subPadding;
 
 			unsigned int tabHeight = 20;
-			SetWindowPos(hTabs,			HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
-			SetWindowPos(hAttachTabs,	HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
+
+			if(hTabs)
+				SetWindowPos(hTabs,			HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
+			if(hAttachTabs)
+				SetWindowPos(hAttachTabs,	HWND_TOP, mainPadding, 4, width - mainPadding * 2, tabHeight, NULL);
 
 			areaWidth = width - mainPadding * 2;
 			areaHeight = topHeight - tabHeight;
 			for(unsigned int i = 0; i < richEdits.size(); i++)
-				SetWindowPos(richEdits[i],	HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+			{
+				if(richEdits[i])
+					SetWindowPos(richEdits[i], HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+			}
 			for(unsigned int i = 0; i < attachedEdits.size(); i++)
-				SetWindowPos(attachedEdits[i],	HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
-			SetWindowPos(hNewTab,		HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
-			SetWindowPos(hAttachPanel,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 2, topHeight, NULL);
+			{
+				if(attachedEdits[i])
+					SetWindowPos(attachedEdits[i], HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+			}
 
-			SetWindowPos(hAttachList,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 4, topHeight - mainPadding * 2, NULL);
+			if(hNewTab)
+				SetWindowPos(hNewTab,		HWND_TOP, mainPadding, mainPadding + tabHeight, width - mainPadding * 2, topHeight - tabHeight, NULL);
+
+			if(hAttachPanel)
+				SetWindowPos(hAttachPanel,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 2, topHeight, NULL);
+
+			if(hAttachList)
+				SetWindowPos(hAttachList,	HWND_TOP, mainPadding, mainPadding, width - mainPadding * 4, topHeight - mainPadding * 2, NULL);
 
 			unsigned int buttonWidth = 120;
 			unsigned int resultWidth = width - 4 * buttonWidth - 3 * mainPadding - subPadding * 3;
@@ -2996,36 +3010,77 @@ LRESULT CALLBACK WndProc(HWND hWnd, unsigned int message, WPARAM wParam, LPARAM 
 			unsigned int resultOffsetX = calcOffsetX * 2 + buttonWidth * 2 + subPadding;
 			unsigned int x86OffsetX = resultOffsetX + buttonWidth + resultWidth + subPadding;
 
-			SetWindowPos(hButtonCalc,	HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
-			SetWindowPos(hResult,		HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
-			SetWindowPos(hContinue,		HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
-			SetWindowPos(hJITEnabled,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
-			SetWindowPos(hShowTemporaries, HWND_TOP, x86OffsetX - buttonWidth - subPadding, middleOffsetY, buttonWidth, middleHeight, NULL);
+			if(hButtonCalc)
+				SetWindowPos(hButtonCalc,	HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 
-			SetWindowPos(hAttachDo,		HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
-			SetWindowPos(hAttachAdd,	HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
-			SetWindowPos(hAttachAddName,HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
-			SetWindowPos(hAttachBack,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+			if(hResult)
+				SetWindowPos(hResult,		HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
+
+			if(hContinue)
+				SetWindowPos(hContinue,		HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+			if(hJITEnabled)
+				SetWindowPos(hJITEnabled,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+			if(hShowTemporaries)
+				SetWindowPos(hShowTemporaries, HWND_TOP, x86OffsetX - buttonWidth - subPadding, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+			if(hAttachDo)
+				SetWindowPos(hAttachDo,		HWND_TOP, calcOffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+			if(hAttachAdd)
+				SetWindowPos(hAttachAdd,	HWND_TOP, calcOffsetX * 2 + buttonWidth, middleOffsetY, buttonWidth, middleHeight, NULL);
+
+			if(hAttachAddName)
+				SetWindowPos(hAttachAddName,HWND_TOP, resultOffsetX, middleOffsetY, resultWidth, middleHeight, NULL);
+
+			if(hAttachBack)
+				SetWindowPos(hAttachBack,	HWND_TOP, x86OffsetX, middleOffsetY, buttonWidth, middleHeight, NULL);
 
 			unsigned int bottomOffsetY = middleOffsetY + middleHeight + subPadding;
 
 			unsigned int leftOffsetX = mainPadding;
-			SetWindowPos(hDebugTabs,	HWND_TOP, leftOffsetX, bottomOffsetY, width - mainPadding * 2, 20, NULL);
-			SetWindowPos(hCode,			HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
-			SetWindowPos(hVars,			HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
-			SetWindowPos(hWatch,		HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
+			if(hDebugTabs)
+				SetWindowPos(hDebugTabs,	HWND_TOP, leftOffsetX, bottomOffsetY, width - mainPadding * 2, 20, NULL);
 
-			SetWindowPos(hStatus,		HWND_TOP, 0, height-16, width, height, NULL);
+			if(hCode)
+				SetWindowPos(hCode,			HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
 
-			InvalidateRect(hNewTab, NULL, true);
-			InvalidateRect(hButtonCalc, NULL, true);
-			InvalidateRect(hResult, NULL, true);
-			InvalidateRect(hJITEnabled, NULL, true);
-			InvalidateRect(hShowTemporaries, NULL, true);
-			InvalidateRect(hStatus, NULL, true);
-			InvalidateRect(hVars, NULL, true);
-			InvalidateRect(hWatch, NULL, true);
-			InvalidateRect(hDebugTabs, NULL, true);
+			if(hVars)
+				SetWindowPos(hVars,			HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
+
+			if(hWatch)
+				SetWindowPos(hWatch,		HWND_TOP, leftOffsetX, bottomOffsetY + 20, width - mainPadding * 2, bottomHeight - 16 - 20, NULL);
+
+			if(hStatus)
+				SetWindowPos(hStatus,		HWND_TOP, 0, height-16, width, height, NULL);
+
+			if(hNewTab)
+				InvalidateRect(hNewTab, NULL, true);
+
+			if(hButtonCalc)
+				InvalidateRect(hButtonCalc, NULL, true);
+
+			if(hResult)
+				InvalidateRect(hResult, NULL, true);
+
+			if(hJITEnabled)
+				InvalidateRect(hJITEnabled, NULL, true);
+
+			if(hShowTemporaries)
+				InvalidateRect(hShowTemporaries, NULL, true);
+
+			if(hStatus)
+				InvalidateRect(hStatus, NULL, true);
+
+			if(hVars)
+				InvalidateRect(hVars, NULL, true);
+
+			if(hWatch)
+				InvalidateRect(hWatch, NULL, true);
+
+			if(hDebugTabs)
+				InvalidateRect(hDebugTabs, NULL, true);
 		}
 			break;
 		case WM_ERASEBKGND:
