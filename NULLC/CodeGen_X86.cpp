@@ -339,6 +339,8 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 		NULLC::stack[index] = x86Argument(reg1);
 		NULLC::stackRead[index] = false;
 		NULLC::stackUpdate[index] = (unsigned int)(x86Op - x86Base);
+
+		NULLC::InvalidateDependand(rESP);
 	}else{
 		if(op == o_pop)
 		{
@@ -377,6 +379,8 @@ void EMIT_OP_REG(x86Command op, x86Reg reg1)
 			NULLC::reg[reg1] = NULLC::stack[index];
 			NULLC::stackTop--;
 			NULLC::stack[index].type = x86Argument::argNone;
+
+			NULLC::InvalidateDependand(rESP);
 		}
 		NULLC::InvalidateDependand(reg1);
 	}
@@ -427,6 +431,8 @@ void EMIT_OP_NUM(x86Command op, unsigned int num)
 		NULLC::stack[index] = x86Argument(num);
 		NULLC::stackRead[index] = false;
 		NULLC::stackUpdate[index] = (unsigned int)(x86Op - x86Base);
+
+		NULLC::InvalidateDependand(rESP);
 	}
 	if(op == o_int)
 		NULLC::regRead[rECX] = true;
@@ -461,6 +467,8 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg index, unsigned int mult, 
 		NULLC::stack[sIndex] = x86Argument(size, index, mult, base, shift);
 		NULLC::stackRead[sIndex] = false;
 		NULLC::stackUpdate[sIndex] = (unsigned int)(x86Op - x86Base);
+
+		NULLC::InvalidateDependand(rESP);
 	}else if(op == o_pop){
 
 		unsigned int sIndex = (NULLC::stackTop) % NULLC::STACK_STATE_SIZE;
@@ -501,6 +509,7 @@ void EMIT_OP_RPTR(x86Command op, x86Size size, x86Reg index, unsigned int mult, 
 		NULLC::stackTop--;
 		NULLC::stack[sIndex].type = x86Argument::argNone;
 
+		NULLC::InvalidateDependand(rESP);
 	}else if(size == sDWORD && base == rESP && shift < (NULLC::STACK_STATE_SIZE * 4)){
 
 		if(x86LookBehind && op == o_fstp && size == sDWORD && shift == 0 &&
@@ -703,6 +712,8 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 				optiCount++;
 			}
 			NULLC::stack[index].type = x86Argument::argNone;
+
+			NULLC::InvalidateDependand(rESP);
 		}
 		num -= removed;
 		if(!num)
@@ -716,6 +727,8 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 		unsigned int bytes = num >> 2;
 		while(bytes--)
 			NULLC::stack[(++NULLC::stackTop) % NULLC::STACK_STATE_SIZE].type = x86Argument::argNone;
+
+		NULLC::InvalidateDependand(rESP);
 	}
 
 	if((op == o_add || op == o_sub) && reg1 == rESP)
@@ -755,6 +768,8 @@ void EMIT_OP_REG_NUM(x86Command op, x86Reg reg1, unsigned int num)
 			}
 		}
 		NULLC::regUpdate[rESP] = (unsigned int)(x86Op - x86Base);
+
+		NULLC::InvalidateDependand(rESP);
 	}else if(op == o_mov){
 		if(NULLC::reg[reg1].type == x86Argument::argNumber && NULLC::reg[reg1].num == (int)num)
 		{
