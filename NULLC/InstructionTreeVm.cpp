@@ -4976,6 +4976,7 @@ void IsolatePhiNodes(VmModule *module, VmFunction* function)
 			// For each phi node
 			if(inst->cmd == VM_INST_PHI)
 			{
+#if !defined(NDEBUG)
 				// Avoid surprises, each edge might introduce only a single variable
 				for(unsigned argumentA = 0; argumentA < inst->arguments.size(); argumentA += 2)
 				{
@@ -4991,6 +4992,7 @@ void IsolatePhiNodes(VmModule *module, VmFunction* function)
 							assert(instructionA != instructionB);
 					}
 				}
+#endif
 
 				// Introduce a copy at the end of the predecessor block
 				for(unsigned argument = 0; argument < inst->arguments.size(); argument += 2)
@@ -5570,7 +5572,7 @@ void LegalizeVmPhiStorage(ExpressionContext &ctx, VmModule *module, VmBlock *blo
 	// Alias phi argument registers to the same storage
 	for(VmInstruction *curr = last->prevSibling; curr;)
 	{
-		auto prev = curr->prevSibling;
+		VmInstruction *prev = curr->prevSibling;
 
 		if(curr->cmd != VM_INST_PHI)
 		{
