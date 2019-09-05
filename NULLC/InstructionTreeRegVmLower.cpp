@@ -347,7 +347,15 @@ void LowerConstantIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFun
 		{
 			assert(constant->iValue == 0);
 
-			lowBlock->AddInstruction(ctx, constant->source, rviLoadImm, targetReg, 0, 0, 0u);
+			if(NULLC_PTR_SIZE == 8)
+			{
+				lowBlock->AddInstruction(ctx, constant->source, rviLoadImm, targetReg, 0, 0, 0u);
+				lowBlock->AddInstruction(ctx, constant->source, rviLoadImmLong, targetReg, 0, 0, 0u);
+			}
+			else
+			{
+				lowBlock->AddInstruction(ctx, constant->source, rviLoadImm, targetReg, 0, 0, 0u);
+			}
 		}
 		else
 		{
