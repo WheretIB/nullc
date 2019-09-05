@@ -12,9 +12,9 @@ STDLIB_FLAGS=-lstdc++ -lm
 FUZZ_FLAGS=
 
 ifeq ($(config),release)
-	REG_CFLAGS += -O3 -fno-omit-frame-pointer -DNDEBUG
-	COMP_CFLAGS += -O3 -fno-omit-frame-pointer -DNDEBUG
-	DYNCALL_FLAGS += -O3 -fno-omit-frame-pointer -DNDEBUG
+	REG_CFLAGS += -O2 -fno-omit-frame-pointer -DNDEBUG
+	COMP_CFLAGS += -O2 -fno-omit-frame-pointer -DNDEBUG
+	DYNCALL_FLAGS += -O2 -fno-omit-frame-pointer -DNDEBUG
 endif
 
 ifeq ($(config),coverage)
@@ -48,12 +48,16 @@ LIB_SOURCES = \
   NULLC/Compiler.cpp \
   NULLC/Executor_Common.cpp \
   NULLC/Executor.cpp \
+  NULLC/Executor_RegVm.cpp \
   NULLC/Executor_X86.cpp \
   NULLC/ExpressionEval.cpp \
   NULLC/ExpressionGraph.cpp \
   NULLC/ExpressionTranslate.cpp \
   NULLC/ExpressionTree.cpp \
   NULLC/InstructionTreeLlvm.cpp \
+  NULLC/InstructionTreeRegVm.cpp \
+  NULLC/InstructionTreeRegVmLower.cpp \
+  NULLC/InstructionTreeRegVmLowerGraph.cpp \
   NULLC/InstructionTreeVm.cpp \
   NULLC/InstructionTreeVmCommon.cpp \
   NULLC/InstructionTreeVmEval.cpp \
@@ -78,12 +82,16 @@ LIB_TARGETS = \
   temp/Compiler.o \
   temp/Executor_Common.o \
   temp/Executor.o \
+  temp/Executor_RegVm.o \
   temp/Executor_X86.o \
   temp/ExpressionEval.o \
   temp/ExpressionGraph.o \
   temp/ExpressionTranslate.o \
   temp/ExpressionTree.o \
   temp/InstructionTreeLlvm.o \
+  temp/InstructionTreeRegVm.o \
+  temp/InstructionTreeRegVmLower.o \
+  temp/InstructionTreeRegVmLowerGraph.o \
   temp/InstructionTreeVm.o \
   temp/InstructionTreeVmCommon.o \
   temp/InstructionTreeVmEval.o \
@@ -227,6 +235,9 @@ COMPILERLIB_SOURCES = \
   NULLC/ExpressionTranslate.cpp \
   NULLC/ExpressionTree.cpp \
   NULLC/InstructionTreeLlvm.cpp \
+  NULLC/InstructionTreeRegVm.cpp \
+  NULLC/InstructionTreeRegVmLower.cpp \
+  NULLC/InstructionTreeRegVmLowerGraph.cpp \
   NULLC/InstructionTreeVm.cpp \
   NULLC/InstructionTreeVmCommon.cpp \
   NULLC/InstructionTreeVmEval.cpp \
@@ -250,6 +261,9 @@ COMPILERLIB_TARGETS = \
   temp/compiler/ExpressionTranslate.o \
   temp/compiler/ExpressionTree.o \
   temp/compiler/InstructionTreeLlvm.o \
+  temp/compiler/InstructionTreeRegVm.o \
+  temp/compiler/InstructionTreeRegVmLower.o \
+  temp/compiler/InstructionTreeRegVmLowerGraph.o \
   temp/compiler/InstructionTreeVm.o \
   temp/compiler/InstructionTreeVmCommon.o \
   temp/compiler/InstructionTreeVmEval.o \
