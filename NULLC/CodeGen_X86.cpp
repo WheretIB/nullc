@@ -2040,7 +2040,10 @@ void GenCodeCmdCall(VMCmd cmd)
 		EMIT_LABEL(aluLabels);
 		aluLabels++;
 
-		EMIT_OP_REG_NUM(o_add, rESP, bytesToPop - returnSize + 12);
+		if(returnSize > bytesToPop)
+			EMIT_OP_REG_NUM(o_add, rESP, 12);
+		else
+			EMIT_OP_REG_NUM(o_add, rESP, bytesToPop - returnSize + 12);
 	}
 	else
 	{
@@ -2125,13 +2128,76 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 	EMIT_OP_REG_REG(o_test, rEAX, rEAX);
 	EMIT_OP_LABEL(o_jz, aluLabels);
 
-	// external function call
+	EMIT_OP_REG_NUM(o_cmp, rEAX, 1);
+	EMIT_OP_LABEL(o_je, aluLabels + 4);
+
+	// wrapped external function call
+	{
+		// Update data stack header
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
+
+		unsigned bytesToPop = cmd.argument;
+
+		unsigned returnSize = cmd.helper * 4;
+
+		if(cmd.helper & bitRetSimple)
+		{
+			if((cmd.helper & 0xf) == OTYPE_INT)
+				returnSize = 4;
+			else if((cmd.helper & 0xf) == OTYPE_DOUBLE)
+				returnSize = 8;
+			else if((cmd.helper & 0xf) == OTYPE_LONG)
+				returnSize = 8;
+		}
+
+		// Place arguments (context, argument buffer, return buffer)
+		EMIT_OP_REG_REG(o_mov, rEAX, rESP);
+
+		if(returnSize > bytesToPop)
+			EMIT_OP_REG_NUM(o_sub, rESP, returnSize - bytesToPop);
+		EMIT_OP_REG(o_push, rEAX);
+
+		EMIT_OP_REG_RPTR(o_lea, rEAX, sNONE, rEAX, bytesToPop - returnSize + 4);
+		EMIT_OP_REG(o_push, rEAX);
+
+		EMIT_OP_RPTR(o_push, sDWORD, rEDX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr + 4);
+
+		//EMIT_OP_NUM(o_int, 3);
+
+		EMIT_OP_RPTR(o_call, sNONE, rEDX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
+
+		// Handle call exception
+		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
+		EMIT_OP_REG_REG(o_test, rECX, rECX);
+		EMIT_OP_LABEL(o_jnz, aluLabels + 5);
+#ifdef __linux
+		// call siglongjmp(target_env, EXCEPTION_STOP_EXECUTION);
+		EMIT_OP_NUM(o_push, EXCEPTION_STOP_EXECUTION);
+		EMIT_OP_NUM(o_push, nullcJmpTarget);
+		EMIT_OP_RPTR(o_call, sDWORD, rNONE, 1, rNONE, (unsigned)(intptr_t)&siglongjmpPtr);
+#else
+		EMIT_OP_REG_REG(o_mov, rECX, rESP);	// esp is very likely to contain neither 0 or ~0, so we can distinguish
+		EMIT_OP(o_int);						// array out of bounds and function with no return errors from this one
+#endif
+		EMIT_LABEL(aluLabels + 5);
+
+		if(returnSize > bytesToPop)
+			EMIT_OP_REG_NUM(o_add, rESP, 16);
+		else
+			EMIT_OP_REG_NUM(o_add, rESP, bytesToPop - returnSize + 16);
+
+		EMIT_OP_LABEL(o_jmp, aluLabels + 2);
+	}
+
+	EMIT_LABEL(aluLabels + 4);
+
+	// raw external function call
 	{
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
 		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
 		EMIT_OP_RPTR(o_call, sNONE, rEDX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
-	 
-		static int continueLabel = 0;
+
 		EMIT_OP_REG_ADDR(o_mov, rECX, sDWORD, (int)(intptr_t)x86Continue);
 		EMIT_OP_REG_REG(o_test, rECX, rECX);
 		EMIT_OP_LABEL(o_jnz, aluLabels + 3);
@@ -2180,7 +2246,7 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 
 	EMIT_LABEL(aluLabels + 2);
 
-	aluLabels += 4;
+	aluLabels += 6;
 }
 
 VMCmd	yieldCmd = VMCmd(cmdNop);

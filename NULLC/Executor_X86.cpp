@@ -1644,8 +1644,10 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		{
 			exFunctions[i].startInByteCode = 0xffffffff;
 
+			assert((uintptr_t)exFunctions[i].funcPtrWrapTarget > 1);
+
 			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)exFunctions[i].funcPtrWrap;
-			functionAddress[i * 2 + 1] = 2;
+			functionAddress[i * 2 + 1] = (unsigned int)(uintptr_t)exFunctions[i].funcPtrWrapTarget;
 		}
 		else
 		{
