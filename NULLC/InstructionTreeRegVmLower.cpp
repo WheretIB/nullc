@@ -397,7 +397,7 @@ void LowerConstantIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFun
 
 unsigned char GetArgumentRegister(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, VmValue *value)
 {
-	if(VmConstant *constant = getType<VmConstant>(value))
+	if(isType<VmConstant>(value))
 	{
 		SmallArray<unsigned char, 32> result(ctx.allocator);
 
