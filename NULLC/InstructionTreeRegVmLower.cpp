@@ -1843,16 +1843,25 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			if(inst->type == VmType::Int || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
 			{
+				assert(constant->type == VmType::Int);
+
 				unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
 				lowBlock->AddInstruction(ctx, inst->source, rviAddImm, targetReg, lhsReg, 0, constant->iValue);
 				break;
 			}
-			else if((inst->type == VmType::Long || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8)) && int(constant->lValue) == constant->lValue)
+			else if((inst->type == VmType::Long || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8)))
 			{
+				assert(int(constant->lValue) == constant->lValue);
+
 				unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-				lowBlock->AddInstruction(ctx, inst->source, rviAddImml, targetReg, lhsReg, 0, int(constant->lValue));
+				if(constant->type == VmType::Int)
+					lowBlock->AddInstruction(ctx, inst->source, rviAddImml, targetReg, lhsReg, 0, constant->iValue);
+				else if(inst->type == VmType::Long)
+					lowBlock->AddInstruction(ctx, inst->source, rviAddImml, targetReg, lhsReg, 0, int(constant->lValue));
+				else
+					assert(!"unknown type");
 				break;
 			}
 		}
