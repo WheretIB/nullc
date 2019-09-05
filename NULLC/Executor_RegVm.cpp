@@ -2,6 +2,7 @@
 
 #include "Executor_Common.h"
 
+#include "nullc.h"
 #include "nullc_debug.h"
 #include "StdLib.h"
 
@@ -364,7 +365,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		if(lastFinalReturn == 0)
 		{
 			char *currPos = execError + strlen(execError);
-			currPos += NULLC::SafeSprintf(currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n", int(instruction - codeBase - 1));
+			currPos += NULLC::SafeSprintf(currPos, REGVM_ERROR_BUFFER_SIZE - int(currPos - execError), "\r\nCall stack:\r\n");
 
 			BeginCallStack();
 			while(unsigned address = GetNextAddress())
@@ -1876,7 +1877,7 @@ const char* ExecutorRegVm::GetResult()
 		NULLC::SafeSprintf(execResult, 64, "%f", lastResult.doubleValue);
 		break;
 	case rvrLong:
-		NULLC::SafeSprintf(execResult, 64, "%lldL", lastResult.longValue);
+		NULLC::SafeSprintf(execResult, 64, "%lldL", (long long)lastResult.longValue);
 		break;
 	case rvrInt:
 		NULLC::SafeSprintf(execResult, 64, "%d", lastResult.intValue);
