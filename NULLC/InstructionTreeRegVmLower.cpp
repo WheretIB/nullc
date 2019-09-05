@@ -422,7 +422,7 @@ unsigned char GetArgumentRegister(ExpressionContext &ctx, RegVmLoweredFunction *
 
 void GetArgumentRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, SmallArray<unsigned char, 32> &result, VmValue *value)
 {
-	if(VmConstant *constant = getType<VmConstant>(value))
+	if(isType<VmConstant>(value))
 	{
 		LowerConstantIntoBlock(ctx, lowFunction, lowBlock, result, value);
 
