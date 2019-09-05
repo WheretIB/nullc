@@ -141,7 +141,7 @@ struct NamespaceData
 
 struct VariableData
 {
-	VariableData(Allocator *allocator, SynBase *source, ScopeData *scope, unsigned alignment, TypeBase *type, SynIdentifier *name, unsigned offset, unsigned uniqueId): source(source), scope(scope), alignment(alignment), type(type), name(name), offset(offset), uniqueId(uniqueId), users(allocator), lowUsers(allocator)
+	VariableData(Allocator *allocator, SynBase *source, ScopeData *scope, unsigned alignment, TypeBase *type, SynIdentifier *name, unsigned offset, unsigned uniqueId): source(source), scope(scope), alignment(alignment), type(type), name(name), offset(offset), uniqueId(uniqueId), users(allocator), lowUsers(allocator), regVmUsers(allocator)
 	{
 		importModule = NULL;
 
