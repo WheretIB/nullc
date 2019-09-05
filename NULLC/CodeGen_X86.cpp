@@ -1995,10 +1995,6 @@ void GenCodeCmdCall(VMCmd cmd)
 	}
 	else if(funcInfo.funcPtrWrap)
 	{
-		// Update data stack header
-		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
-		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
-
 		unsigned returnSize = funcInfo.returnShift * 4;
 
 		if(funcInfo.retType == ExternFuncInfo::RETURN_VOID)
@@ -2022,6 +2018,9 @@ void GenCodeCmdCall(VMCmd cmd)
 
 		EMIT_OP_NUM(o_push, (int)(intptr_t)funcInfo.funcPtrWrapTarget);
 
+		// Update data stack header
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
 		EMIT_OP_ADDR(o_call, sNONE, cmd.argument * 8 + (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 
 		// Handle call exception
@@ -2133,10 +2132,6 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 
 	// wrapped external function call
 	{
-		// Update data stack header
-		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
-		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
-
 		unsigned bytesToPop = cmd.argument;
 
 		unsigned returnSize = cmd.helper * 4;
@@ -2163,8 +2158,9 @@ void GenCodeCmdCallPtr(VMCmd cmd)
 
 		EMIT_OP_RPTR(o_push, sDWORD, rEDX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr + 4);
 
-		//EMIT_OP_NUM(o_int, 3);
-
+		// Update data stack header
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-12, rEDI);
+		EMIT_OP_ADDR_REG(o_mov, sDWORD, paramBase-8, rESP);
 		EMIT_OP_RPTR(o_call, sNONE, rEDX, 8, rNONE, (unsigned int)(uintptr_t)x86FuncAddr);	// Index array of function addresses
 
 		// Handle call exception
