@@ -1638,7 +1638,7 @@ void VmFunction::MoveEntryBlockToStart()
 	}
 }
 
-void VmFunction::UpdateDominatorTree()
+void VmFunction::UpdateDominatorTree(VmModule *module)
 {
 	if(!firstBlock)
 		return;
@@ -1674,7 +1674,7 @@ void VmFunction::UpdateDominatorTree()
 
 	firstBlock->idom = firstBlock;
 
-	SmallArray<VmBlock*, 32> blocksPostOrder;
+	SmallArray<VmBlock*, 32> blocksPostOrder(module->allocator);
 	unsigned preOrder = 0;
 	unsigned postOrder = 0;
 
@@ -1770,9 +1770,9 @@ void VmFunction::UpdateDominatorTree()
 	NumberDominanceGraphNodesDfs(firstBlock, preOrder, postOrder);
 }
 
-void VmFunction::UpdateLiveSets()
+void VmFunction::UpdateLiveSets(VmModule *module)
 {
-	SmallArray<VmBlock*, 32> worklist;
+	SmallArray<VmBlock*, 32> worklist(module->allocator);
 
 	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
 	{
@@ -4231,7 +4231,7 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 
 			if(!nonStoreUse)
 			{
-				SmallArray<VmInstruction*, 32> deadStores;
+				SmallArray<VmInstruction*, 32> deadStores(module->allocator);
 
 				for(unsigned k = 0; k < variable->users.size(); k++)
 				{
@@ -4759,7 +4759,7 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 			return;
 
 		// Prepare dominator frontier data
-		function->UpdateDominatorTree();
+		function->UpdateDominatorTree(module);
 
 		ScopeData *scope = function->scope;
 
@@ -4797,7 +4797,7 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 				continue;
 
 			// Initilize the worklist with a set of blocks that contain assignments to the variable
-			SmallArray<VmBlock*, 32> worklist;
+			SmallArray<VmBlock*, 32> worklist(module->allocator);
 
 			// Value is either an argument that is implicitly initialized in the entry block or a local which is implicitly set to zero in the entry block
 			function->firstBlock->hasAssignmentForId = i + 1;
@@ -4835,7 +4835,7 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 			module->currentFunction = function;
 
 			// Add placeholders for required phi nodes
-			SmallArray<VmInstruction*, 32> phiNodes;
+			SmallArray<VmInstruction*, 32> phiNodes(module->allocator);
 
 			while(!worklist.empty())
 			{
@@ -4878,14 +4878,14 @@ void RunMemoryToRegister(ExpressionContext &ctx, VmModule *module, VmValue* valu
 				}
 			}
 
-			SmallArray<VmValue*, 32> stack;
+			SmallArray<VmValue*, 32> stack(module->allocator);
 
 			RenameMemoryToRegister(ctx, module, function->firstBlock, stack, variable, phiNodes);
 
 			module->currentFunction = NULL;
 		}
 
-		function->UpdateLiveSets();
+		function->UpdateLiveSets(module);
 	}
 }
 
@@ -4962,8 +4962,8 @@ void RunUpdateLiveSets(ExpressionContext &ctx, VmModule *module, VmValue* value)
 
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
-		function->UpdateDominatorTree();
-		function->UpdateLiveSets();
+		function->UpdateDominatorTree(module);
+		function->UpdateLiveSets(module);
 	}
 }
 
@@ -5379,7 +5379,7 @@ void DeCoalesce(VmInstruction *variable, VmInstruction *currIdom)
 	}
 }
 
-void DecoalesceMergedSets(VmFunction* function)
+void DecoalesceMergedSets(ExpressionContext &ctx, VmFunction* function)
 {
 	for(VmBlock *block = function->firstBlock; block; block = block->nextSibling)
 	{
@@ -5387,7 +5387,7 @@ void DecoalesceMergedSets(VmFunction* function)
 		{
 			if(inst->cmd == VM_INST_PHI && inst->marker == 0)
 			{
-				SmallArray<VmInstruction*, 32> mergedSet;
+				SmallArray<VmInstruction*, 32> mergedSet(ctx.allocator);
 
 				CollectMergedSet(inst, inst->color, mergedSet);
 
@@ -5442,18 +5442,18 @@ void RunPrepareSsaExit(ExpressionContext &ctx, VmModule *module, VmValue* value)
 		// Remove interferences between phi instruction registers by introducing copies
 		IsolatePhiNodes(module, function);
 
-		function->UpdateLiveSets();
+		function->UpdateLiveSets(module);
 
 		// Mark each phi-copy instuction web with a color
 		ColorPhiWebs(function);
 
 		// Remove colors from registers that introduce interferences between registers
-		DecoalesceMergedSets(function);
+		DecoalesceMergedSets(ctx, function);
 
 		// Remove copies between registers that still have the same color (no interference)
 		CoalesceTrivialCopies(ctx, module, function);
 
-		function->UpdateLiveSets();
+		function->UpdateLiveSets(module);
 
 		module->currentFunction = NULL;
 	}

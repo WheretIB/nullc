@@ -437,8 +437,8 @@ struct VmFunction: VmValue
 
 	void MoveEntryBlockToStart();
 
-	void UpdateDominatorTree();
-	void UpdateLiveSets();
+	void UpdateDominatorTree(VmModule *module);
+	void UpdateLiveSets(VmModule *module);
 
 	FunctionData *function;
 	ScopeData *scope;

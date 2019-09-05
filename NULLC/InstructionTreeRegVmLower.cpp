@@ -147,7 +147,7 @@ unsigned char RegVmLoweredFunction::GetRegister(VmValue *value)
 	return instruction->regVmRegisters[0];
 }
 
-void RegVmLoweredFunction::GetRegisters(SmallArray<unsigned char, 8> &result, VmValue *value)
+void RegVmLoweredFunction::GetRegisters(SmallArray<unsigned char, 32> &result, VmValue *value)
 {
 	VmInstruction *instruction = getType<VmInstruction>(value);
 
@@ -301,7 +301,7 @@ bool RegVmLoweredFunction::TransferRegisterTo(VmValue *value, unsigned char reg)
 	return false;
 }
 
-void LowerConstantIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, SmallArray<unsigned char, 8> &result, VmValue *value)
+void LowerConstantIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, SmallArray<unsigned char, 32> &result, VmValue *value)
 {
 	VmConstant *constant = getType<VmConstant>(value);
 
@@ -391,7 +391,7 @@ unsigned char GetArgumentRegister(ExpressionContext &ctx, RegVmLoweredFunction *
 {
 	if(VmConstant *constant = getType<VmConstant>(value))
 	{
-		SmallArray<unsigned char, 8> result;
+		SmallArray<unsigned char, 32> result(ctx.allocator);
 
 		LowerConstantIntoBlock(ctx, lowFunction, lowBlock, result, value);
 
@@ -412,7 +412,7 @@ unsigned char GetArgumentRegister(ExpressionContext &ctx, RegVmLoweredFunction *
 	return lowFunction->GetRegister(value);
 }
 
-void GetArgumentRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, SmallArray<unsigned char, 8> &result, VmValue *value)
+void GetArgumentRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, SmallArray<unsigned char, 32> &result, VmValue *value)
 {
 	if(VmConstant *constant = getType<VmConstant>(value))
 	{
@@ -982,7 +982,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			(void)offset;
 			assert(offset->iValue == 0);
 
-			SmallArray<unsigned char, 8> sourceRegs;
+			SmallArray<unsigned char, 32> sourceRegs(ctx.allocator);
 			GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[2]);
 
 			assert((unsigned short)inst->arguments[2]->type.size == inst->arguments[2]->type.size);
@@ -1083,7 +1083,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
-			SmallArray<unsigned char, 8> sourceRegs;
+			SmallArray<unsigned char, 32> sourceRegs(ctx.allocator);
 			GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[2]);
 
 			unsigned char addressReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
@@ -1278,7 +1278,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 		unsigned char indexReg = GetArgumentRegister(ctx, lowFunction, lowBlock, index);
 
-		SmallArray<unsigned char, 8> arrRegs;
+		SmallArray<unsigned char, 32> arrRegs(ctx.allocator);
 		GetArgumentRegisters(ctx, lowFunction, lowBlock, arrRegs, arr);
 
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
@@ -1390,7 +1390,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 		unsigned firstArgument = ~0u;
 
-		SmallArray<unsigned char, 8> targetRegs;
+		SmallArray<unsigned char, 32> targetRegs(ctx.allocator);
 
 		if(inst->arguments[0]->type.type == VM_TYPE_FUNCTION_REF)
 		{
@@ -1490,7 +1490,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 					}
 				}
 
-				SmallArray<unsigned char, 8> argumentRegs;
+				SmallArray<unsigned char, 32> argumentRegs(ctx.allocator);
 				GetArgumentRegisters(ctx, lowFunction, lowBlock, argumentRegs, argument);
 
 				if(argument->type.type == VM_TYPE_INT || (NULLC_PTR_SIZE == 4 && argument->type.type == VM_TYPE_POINTER))
@@ -1723,7 +1723,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			VmValue *result = inst->arguments[0];
 
-			SmallArray<unsigned char, 8> resultRegs;
+			SmallArray<unsigned char, 32> resultRegs(ctx.allocator);
 			GetArgumentRegisters(ctx, lowFunction, lowBlock, resultRegs, result);
 
 			RegVmReturnType resultType = rvrVoid;
@@ -2198,7 +2198,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		assert(pointer->type.type == VM_TYPE_AUTO_REF);
 		assert(typeIndex);
 
-		SmallArray<unsigned char, 8> sourceRegs;
+		SmallArray<unsigned char, 32> sourceRegs(ctx.allocator);
 		GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, pointer);
 
 		bool fakeUser = false;
@@ -2289,7 +2289,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				unsigned char typeReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
 
-				SmallArray<unsigned char, 8> arrayRegs;
+				SmallArray<unsigned char, 32> arrayRegs(ctx.allocator);
 				GetArgumentRegisters(ctx, lowFunction, lowBlock, arrayRegs, inst->arguments[1]);
 
 				if(!lowFunction->TransferRegisterTo(inst, typeReg))
@@ -2406,7 +2406,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			}
 			else
 			{
-				SmallArray<unsigned char, 8> sourceRegs;
+				SmallArray<unsigned char, 32> sourceRegs(ctx.allocator);
 				GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[i]);
 
 				for(unsigned k = 0; k < sourceRegs.size(); k++)
@@ -2453,7 +2453,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 	{
 		if((inst->arguments[0]->type.type == VM_TYPE_FUNCTION_REF || inst->arguments[0]->type.type == VM_TYPE_ARRAY_REF || inst->arguments[0]->type.type == VM_TYPE_AUTO_REF || inst->arguments[0]->type.type == VM_TYPE_AUTO_ARRAY) && inst->type.type == VM_TYPE_STRUCT)
 		{
-			SmallArray<unsigned char, 8> sourceRegs;
+			SmallArray<unsigned char, 32> sourceRegs(ctx.allocator);
 			GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[0]);
 
 			if(NULLC_PTR_SIZE == 8)
@@ -2533,7 +2533,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 		if((inst->type.type == VM_TYPE_FUNCTION_REF || inst->type.type == VM_TYPE_ARRAY_REF || inst->type.type == VM_TYPE_AUTO_REF || inst->type.type == VM_TYPE_AUTO_ARRAY) && inst->arguments[0]->type.type == VM_TYPE_STRUCT)
 		{
-			SmallArray<unsigned char, 8> sourceRegs;
+			SmallArray<unsigned char, 32> sourceRegs(ctx.allocator);
 			GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[0]);
 
 			if(NULLC_PTR_SIZE == 8)
@@ -2612,7 +2612,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		if(inst->arguments[0]->type.type == VM_TYPE_STRUCT && !(inst->type.type == VM_TYPE_INT || inst->type.type == VM_TYPE_LONG || inst->type.type == VM_TYPE_POINTER))
 			assert(!"can't bitcast structure to registers");
 
-		SmallArray<unsigned char, 8> sourceRegs;
+		SmallArray<unsigned char, 32> sourceRegs(ctx.allocator);
 		GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[0]);
 
 		unsigned index = 0;
@@ -2634,7 +2634,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		break;
 	case VM_INST_MOV:
 	{
-		SmallArray<unsigned char, 8> sourceRegs;
+		SmallArray<unsigned char, 32> sourceRegs(ctx.allocator);
 		GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[0]);
 
 		for(unsigned k = 0; k < sourceRegs.size(); k++)

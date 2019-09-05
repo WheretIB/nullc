@@ -433,7 +433,7 @@ LLVMTypeRef CompileLlvmType(LlvmCompilationContext &ctx, TypeBase *type)
 	{
 		ctx.types[type->typeIndex] = LLVMStructCreateNamed(ctx.context, CreateLlvmName(ctx, typeClass->name));
 
-		SmallArray<LLVMTypeRef, 8> members;
+		SmallArray<LLVMTypeRef, 32> members(ctx.allocator);
 
 		for(VariableHandle *curr = typeClass->members.head; curr; curr = curr->next)
 			members.push_back(CompileLlvmType(ctx, curr->variable->type));
@@ -493,7 +493,7 @@ LLVMTypeRef CompileLlvmFunctionType(LlvmCompilationContext& ctx, TypeBase *retur
 {
 	bool isStructReturnType = IsStructReturnType(returnType);
 
-	SmallArray<LLVMTypeRef, 8> arguments;
+	SmallArray<LLVMTypeRef, 32> arguments(ctx.allocator);
 
 	if (isStructReturnType)
 	{
@@ -541,7 +541,7 @@ LLVMTypeRef CompileLlvmFunctionType(LlvmCompilationContext& ctx, TypeBase *retur
 
 LLVMTypeRef CompileLlvmFunctionType(LlvmCompilationContext &ctx, TypeFunction *functionType)
 {
-	SmallArray<TypeBase*, 8> argumentTypes;
+	SmallArray<TypeBase*, 32> argumentTypes(ctx.allocator);
 
 	for(TypeHandle *curr = functionType->arguments.head; curr; curr = curr->next)
 		argumentTypes.push_back(curr->type);
