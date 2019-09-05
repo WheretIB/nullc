@@ -232,11 +232,11 @@ struct x86Argument
 		}
 		else if(type == argLabel)
 		{
-			curr += sprintf(curr, "'0x%p'", (void*)(intptr_t)labelID);
+			curr += sprintf(curr, "'0x%x'", labelID);
 		}
 		else if(type == argPtrLabel)
 		{
-			curr += sprintf(curr, "['0x%p'+%d]", (void*)(intptr_t)labelID, ptrNum);
+			curr += sprintf(curr, "['0x%x'+%d]", labelID, ptrNum);
 		}
 		else if(type == argPtr)
 		{
