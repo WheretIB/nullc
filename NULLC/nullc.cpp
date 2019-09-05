@@ -162,6 +162,7 @@ void nullcSetExecutor(unsigned id)
 nullres nullcSetExecutorStackSize(unsigned bytes)
 {
 	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(0);
 
 #ifndef NULLC_NO_EXECUTOR
 	if(!executor->SetStackSize(bytes))
