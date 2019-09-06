@@ -645,7 +645,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			{
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 				unsigned int dwordsToPop = (target.bytesToPop >> 2);
-				void* fPtr = target.funcPtrRaw;
+				void* fPtr = (void*)target.funcPtrRaw;
 
 				dcReset(dcCallVM);
 
