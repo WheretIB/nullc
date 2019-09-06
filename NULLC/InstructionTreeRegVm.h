@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 
+#include "nullcdef.h"
+
 enum RegVmInstructionCode
 {
 	rviNop,
