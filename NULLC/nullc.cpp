@@ -1471,12 +1471,9 @@ unsigned int nullcGetCurrentExecutor(void **exec)
 {
 	using namespace NULLC;
 
-#ifdef NULLC_BUILD_X86_JIT
+#if !defined(NULLC_NO_EXECUTOR)
 	if(exec)
 		*exec = (currExec == NULLC_VM ? (void*)executor : (currExec == NULLC_X86 ? (void*)executorX86 : (currExec == NULLC_LLVM ? (void*)executorLLVM : (void*)executorRegVm)));
-#elif !defined(NULLC_NO_EXECUTOR)
-	if(exec)
-		*exec = executor;
 #else
 	*exec = NULL;
 #endif
