@@ -457,7 +457,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
-			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].intValue = *(char*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
@@ -466,7 +466,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
-			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].intValue = *(short*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
@@ -475,7 +475,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
-			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].intValue = *(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
@@ -484,7 +484,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
-			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].longValue = vmLoadLong((void*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument));
@@ -493,7 +493,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
-			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].doubleValue = *(float*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
@@ -502,7 +502,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
-			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].doubleValue = *(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
@@ -516,14 +516,14 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
-			regFilePtr[cmd.rA].longValue = ((int64_t)cmd.argument << 32ll) | (unsigned)regFilePtr[cmd.rA].intValue;
+			regFilePtr[cmd.rA].longValue = ((uint64_t)cmd.argument << 32ull) | (unsigned)regFilePtr[cmd.rA].intValue;
 			break;
 		case rviLoadImmDouble:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
 			{
-				uint64_t bits = ((uint64_t)cmd.argument << 32ll) | (unsigned)regFilePtr[cmd.rA].intValue;
+				uint64_t bits = ((uint64_t)cmd.argument << 32ull) | (unsigned)regFilePtr[cmd.rA].intValue;
 
 				memcpy(&regFilePtr[cmd.rA].doubleValue, &bits, sizeof(double));
 			}
@@ -532,7 +532,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 
-			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(char*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = (char)regFilePtr[cmd.rA].intValue;
@@ -541,7 +541,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 
-			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(short*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = (short)regFilePtr[cmd.rA].intValue;
@@ -550,7 +550,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 
-			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = regFilePtr[cmd.rA].intValue;
@@ -559,7 +559,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrLong));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 
-			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = regFilePtr[cmd.rA].longValue;
@@ -568,7 +568,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrDouble));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 
-			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(float*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = (float)regFilePtr[cmd.rA].doubleValue;
@@ -577,7 +577,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrDouble));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 
-			if(regFilePtr[cmd.rC].ptrValue < 0x00010000)
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = regFilePtr[cmd.rA].doubleValue;
@@ -587,14 +587,14 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
-			regFilePtr[cmd.rA].longValue = ((int64_t)regFilePtr[cmd.rC].intValue << 32ll) | regFilePtr[cmd.rB].intValue;
+			regFilePtr[cmd.rA].longValue = ((uint64_t)regFilePtr[cmd.rC].intValue << 32ull) | (unsigned)regFilePtr[cmd.rB].intValue;
 			break;
 		case rviBreakupdd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 			REGVM_DEBUG(regFilePtr[cmd.rB].activeType = rvrInt);
 
-			regFilePtr[cmd.rA].intValue = (int)(regFilePtr[cmd.rC].longValue >> 32ll);
+			regFilePtr[cmd.rA].intValue = (int)(regFilePtr[cmd.rC].longValue >> 32ull);
 			regFilePtr[cmd.rB].intValue = (int)(regFilePtr[cmd.rC].longValue);
 			break;
 		case rviMov:
