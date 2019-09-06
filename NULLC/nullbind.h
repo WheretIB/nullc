@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string.h>
+
 #include "nullc.h"
 
 namespace NULLC
@@ -141,26 +143,6 @@ struct NullcCallBaseType<float, false>
 	static const unsigned size = sizeof(float);
 };
 
-#define STYPE(X) typedef typename NullcCallBaseType<X>::type X##u
-#define SSIZE(X) const unsigned X##s = NullcCallBaseType<X>::size;
-
-#define SHORTS_0 (void)argBuf
-#define SHORTS_1 STYPE(A1)
-#define SHORTS_2 SHORTS_1; SSIZE(A1) STYPE(A2)
-#define SHORTS_3 SHORTS_2; SSIZE(A2) STYPE(A3)
-#define SHORTS_4 SHORTS_3; SSIZE(A3) STYPE(A4)
-#define SHORTS_5 SHORTS_4; SSIZE(A4) STYPE(A5)
-#define SHORTS_6 SHORTS_5; SSIZE(A5) STYPE(A6)
-#define SHORTS_7 SHORTS_6; SSIZE(A6) STYPE(A7)
-#define SHORTS_8 SHORTS_7; SSIZE(A7) STYPE(A8)
-#define SHORTS_9 SHORTS_8; SSIZE(A8) STYPE(A9)
-#define SHORTS_10 SHORTS_9; SSIZE(A9) STYPE(A10)
-#define SHORTS_11 SHORTS_10; SSIZE(A10) STYPE(A11)
-#define SHORTS_12 SHORTS_11; SSIZE(A11) STYPE(A12)
-#define SHORTS_13 SHORTS_12; SSIZE(A12) STYPE(A13)
-#define SHORTS_14 SHORTS_13; SSIZE(A13) STYPE(A14)
-#define SHORTS_15 SHORTS_14; SSIZE(A14) STYPE(A15)
-
 #define OFF_1 0
 #define OFF_2 A1s
 #define OFF_3 OFF_2 + A2s
@@ -177,7 +159,27 @@ struct NullcCallBaseType<float, false>
 #define OFF_14 OFF_13 + A13s
 #define OFF_15 OFF_14 + A14s
 
-#define ARG(X) (A##X)*(A##X##u*)(argBuf + OFF_##X)
+#define STYPE(X, N) typedef typename NullcCallBaseType<X>::type X##u; X##u X##v; memcpy(&X##v, argBuf + OFF_##N, sizeof(X##v))
+#define SSIZE(X) const unsigned X##s = NullcCallBaseType<X>::size;
+
+#define SHORTS_0 (void)argBuf
+#define SHORTS_1 STYPE(A1, 1)
+#define SHORTS_2 SHORTS_1; SSIZE(A1) STYPE(A2, 2)
+#define SHORTS_3 SHORTS_2; SSIZE(A2) STYPE(A3, 3)
+#define SHORTS_4 SHORTS_3; SSIZE(A3) STYPE(A4, 4)
+#define SHORTS_5 SHORTS_4; SSIZE(A4) STYPE(A5, 5)
+#define SHORTS_6 SHORTS_5; SSIZE(A5) STYPE(A6, 6)
+#define SHORTS_7 SHORTS_6; SSIZE(A6) STYPE(A7, 7)
+#define SHORTS_8 SHORTS_7; SSIZE(A7) STYPE(A8, 8)
+#define SHORTS_9 SHORTS_8; SSIZE(A8) STYPE(A9, 9)
+#define SHORTS_10 SHORTS_9; SSIZE(A9) STYPE(A10, 10)
+#define SHORTS_11 SHORTS_10; SSIZE(A10) STYPE(A11, 11)
+#define SHORTS_12 SHORTS_11; SSIZE(A11) STYPE(A12, 12)
+#define SHORTS_13 SHORTS_12; SSIZE(A12) STYPE(A13, 13)
+#define SHORTS_14 SHORTS_13; SSIZE(A13) STYPE(A14, 14)
+#define SHORTS_15 SHORTS_14; SSIZE(A14) STYPE(A15, 15)
+
+#define ARG(X) (A##X)A##X##v
 
 #define ARGS_0
 #define ARGS_1 ARG(1)
