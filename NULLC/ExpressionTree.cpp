@@ -577,12 +577,11 @@ namespace
 
 	VariableData* AllocateTemporary(ExpressionContext &ctx, SynBase *source, TypeBase *type)
 	{
-		char *name = (char*)ctx.allocator->alloc(16);
-		sprintf(name, "$temp%d", ctx.unnamedVariableCount++);
+		InplaceStr name = GetTemporaryName(ctx, ctx.unnamedVariableCount++, NULL);
 
 		assert(!type->isGeneric);
 
-		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, type->alignment, type, new (ctx.get<SynIdentifier>()) SynIdentifier(InplaceStr(name)), 0, ctx.uniqueVariableId++);
+		VariableData *variable = new (ctx.get<VariableData>()) VariableData(ctx.allocator, source, ctx.scope, type->alignment, type, new (ctx.get<SynIdentifier>()) SynIdentifier(name), 0, ctx.uniqueVariableId++);
 
 		if (IsLookupOnlyVariable(ctx, variable))
 			variable->lookupOnly = true;

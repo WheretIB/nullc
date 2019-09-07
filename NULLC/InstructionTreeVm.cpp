@@ -707,10 +707,9 @@ namespace
 	{
 		ScopeData *scope = module->currentFunction->function ? module->currentFunction->function->functionScope : ctx.globalScope;
 
-		char *name = (char*)ctx.allocator->alloc(16);
-		sprintf(name, "$temp%d_%s", ctx.unnamedVariableCount++, suffix);
+		InplaceStr name = GetTemporaryName(ctx, ctx.unnamedVariableCount++, suffix);
 
-		SynIdentifier *nameIdentifier = new (module->get<SynIdentifier>()) SynIdentifier(InplaceStr(name));
+		SynIdentifier *nameIdentifier = new (module->get<SynIdentifier>()) SynIdentifier(name);
 
 		VariableData *variable = new (module->get<VariableData>()) VariableData(ctx.allocator, NULL, scope, type->alignment, type, nameIdentifier, 0, ctx.uniqueVariableId++);
 

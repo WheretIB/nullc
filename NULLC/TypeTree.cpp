@@ -303,7 +303,6 @@ InplaceStr GetMemberSetTypeName(ExpressionContext &ctx, TypeBase* type)
 	return InplaceStr(name);
 }
 
-
 InplaceStr GetGenericAliasTypeName(ExpressionContext &ctx, InplaceStr baseName)
 {
 	unsigned nameLength = baseName.length() + 1;
@@ -512,6 +511,46 @@ InplaceStr GetFunctionNameInScope(ExpressionContext &ctx, ScopeData *scope, Type
 	assert(pos == name);
 
 	return InplaceStr(name);
+}
+
+InplaceStr GetTemporaryName(ExpressionContext &ctx, unsigned index, const char *suffix)
+{
+	char buf[16];
+
+	char *curr = buf;
+
+	*curr++ = (char)((index % 10) + '0');
+
+	while(index /= 10)
+		*curr++ = (char)((index % 10) + '0');
+
+	unsigned suffixLength = suffix ? (unsigned)strlen(suffix) : 0;
+
+	char *name = (char*)ctx.allocator->alloc(16 + suffixLength);
+
+	char *pos = name;
+
+	memcpy(pos, "$temp", 5);
+	pos += 5;
+
+	do
+	{
+		--curr;
+		*pos++ = *curr;
+	}
+	while(curr != buf);
+
+	if(suffix)
+	{
+		*pos++ = '_';
+
+		memcpy(pos, suffix, suffixLength);
+		pos += suffixLength;
+	}
+
+	*pos = 0;
+
+	return InplaceStr(name, pos);
 }
 
 unsigned GetAlignmentOffset(long long offset, unsigned alignment)

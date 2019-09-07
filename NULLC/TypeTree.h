@@ -1081,4 +1081,6 @@ InplaceStr GetTypeNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceS
 InplaceStr GetVariableNameInScope(ExpressionContext &ctx, ScopeData *scope, InplaceStr str);
 InplaceStr GetFunctionNameInScope(ExpressionContext &ctx, ScopeData *scope, TypeBase *parentType, InplaceStr str, bool isOperator, bool isAccessor);
 
+InplaceStr GetTemporaryName(ExpressionContext &ctx, unsigned index, const char *suffix);
+
 unsigned GetAlignmentOffset(long long offset, unsigned alignment);
