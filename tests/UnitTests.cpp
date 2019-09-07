@@ -87,29 +87,35 @@ SmallDenseMap<void*, bool, PointerHasher, 1024> activePoiners(&setAllocator);
 
 void* testAlloc(int size)
 {
-#ifdef ALLOC_TOP_DOWN
-	return VirtualAlloc(NULL, size + 128, MEM_COMMIT | MEM_TOP_DOWN, PAGE_READWRITE);
-#else
 	testTotalMemoryAlloc++;
 	testTotalMemoryRequested += size;
 	testTotalMemoryUsed += size;
 
+#ifdef ALLOC_TOP_DOWN
+	char *ptr = (char*)VirtualAlloc(NULL, size + 128, MEM_COMMIT | MEM_TOP_DOWN, PAGE_READWRITE);
+#else
 	char *ptr = new char[size + 128];
+#endif
+
+	if(size < 0 || !ptr)
+	{
+		assert(!"out of memory");
+		return 0;
+	}
+
 	memset(ptr, 0xee, 128);
 	*(unsigned*)ptr = size;
 
 	activePoiners.insert(ptr, 1);
 
 	return ptr + 128;
-#endif
 }
+
 void testDealloc(void* ptr)
 {
 	if(!ptr)
 		return;
-#ifdef ALLOC_TOP_DOWN
-	VirtualFree((char*)ptr - 128, 0, MEM_RELEASE);
-#else
+
 	ptr = (char*)ptr - 128;
 
 	bool* active = activePoiners.find(ptr);
@@ -127,6 +133,10 @@ void testDealloc(void* ptr)
 
 	for(unsigned i = sizeof(unsigned); i < 128; i++)
 		assert(((unsigned char*)ptr)[i] == 0xee);
+
+#ifdef ALLOC_TOP_DOWN
+	VirtualFree((char*)ptr, 0, MEM_RELEASE);
+#else
 	delete[] (char*)ptr;
 #endif
 }
