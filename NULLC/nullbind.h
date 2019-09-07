@@ -68,6 +68,18 @@ struct nullc_is_void<void>
 	static const bool value = true;
 };
 
+template<typename T>
+struct nullc_is_small
+{
+	static const bool value = sizeof(T) == 1;
+};
+
+template<>
+struct nullc_is_small<void>
+{
+	static const bool value = false;
+};
+
 template<bool Cond, typename T>
 struct nullc_enable_if
 {
@@ -233,7 +245,8 @@ struct NullcCallBaseType<float, false>
 #define TTYPE_15 TTYPE_14, typename A15
 
 #define VOID_RET typename nullc_enable_if<nullc_is_void<R>::value, void>::type
-#define NON_VOID_RET typename nullc_enable_if<!nullc_is_void<R>::value, void>::type
+#define NON_VOID_RET typename nullc_enable_if<!nullc_is_void<R>::value && nullc_is_small<R>::value, void>::type
+#define NON_VOID_RET_A typename nullc_enable_if<!nullc_is_void<R>::value && !nullc_is_small<R>::value, void>::type
 
 // Raw function wrappers
 template<typename R TTYPE_0>
@@ -256,6 +269,17 @@ NON_VOID_RET nullcWrapCall0(void *context, char* retBuf, char* argBuf)
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_0))context)(ARGS_0);
 }
 
+template<typename R TTYPE_0>
+NON_VOID_RET_A nullcWrapCall0(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_0;
+
+	Ru result = (Ru)((R(*)(ATYPE_0))context)(ARGS_0);
+	memcpy(retBuf, &result, sizeof(Ru));
+}
+
 template<typename R TTYPE_1>
 VOID_RET nullcWrapCall1(void *context, char* retBuf, char* argBuf)
 {
@@ -274,6 +298,17 @@ NON_VOID_RET nullcWrapCall1(void *context, char* retBuf, char* argBuf)
 	SHORTS_1;
 
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_1))context)(ARGS_1);
+}
+
+template<typename R TTYPE_1>
+NON_VOID_RET_A nullcWrapCall1(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_1;
+
+	Ru result = (Ru)((R(*)(ATYPE_1))context)(ARGS_1);
+	memcpy(retBuf, &result, sizeof(Ru));
 }
 
 template<typename R TTYPE_2>
@@ -296,6 +331,17 @@ NON_VOID_RET nullcWrapCall2(void *context, char* retBuf, char* argBuf)
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_2))context)(ARGS_2);
 }
 
+template<typename R TTYPE_2>
+NON_VOID_RET_A nullcWrapCall2(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_2;
+
+	Ru result = (Ru)((R(*)(ATYPE_2))context)(ARGS_2);
+	memcpy(retBuf, &result, sizeof(Ru));
+}
+
 template<typename R TTYPE_3>
 VOID_RET nullcWrapCall3(void *context, char* retBuf, char* argBuf)
 {
@@ -314,6 +360,17 @@ NON_VOID_RET nullcWrapCall3(void *context, char* retBuf, char* argBuf)
 	SHORTS_3;
 
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_3))context)(ARGS_3);
+}
+
+template<typename R TTYPE_3>
+NON_VOID_RET_A nullcWrapCall3(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_3;
+
+	Ru result = (Ru)((R(*)(ATYPE_3))context)(ARGS_3);
+	memcpy(retBuf, &result, sizeof(Ru));
 }
 
 template<typename R TTYPE_4>
@@ -336,6 +393,17 @@ NON_VOID_RET nullcWrapCall4(void *context, char* retBuf, char* argBuf)
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_4))context)(ARGS_4);
 }
 
+template<typename R TTYPE_4>
+NON_VOID_RET_A nullcWrapCall4(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_4;
+
+	Ru result = (Ru)((R(*)(ATYPE_4))context)(ARGS_4);
+	memcpy(retBuf, &result, sizeof(Ru));
+}
+
 template<typename R TTYPE_5>
 VOID_RET nullcWrapCall5(void *context, char* retBuf, char* argBuf)
 {
@@ -354,6 +422,17 @@ NON_VOID_RET nullcWrapCall5(void *context, char* retBuf, char* argBuf)
 	SHORTS_5;
 
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_5))context)(ARGS_5);
+}
+
+template<typename R TTYPE_5>
+NON_VOID_RET_A nullcWrapCall5(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_5;
+
+	Ru result = (Ru)((R(*)(ATYPE_5))context)(ARGS_5);
+	memcpy(retBuf, &result, sizeof(Ru));
 }
 
 template<typename R TTYPE_6>
@@ -376,6 +455,17 @@ NON_VOID_RET nullcWrapCall6(void *context, char* retBuf, char* argBuf)
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_6))context)(ARGS_6);
 }
 
+template<typename R TTYPE_6>
+NON_VOID_RET_A nullcWrapCall6(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_6;
+
+	Ru result = (Ru)((R(*)(ATYPE_6))context)(ARGS_6);
+	memcpy(retBuf, &result, sizeof(Ru));
+}
+
 template<typename R TTYPE_7>
 VOID_RET nullcWrapCall7(void *context, char* retBuf, char* argBuf)
 {
@@ -394,6 +484,17 @@ NON_VOID_RET nullcWrapCall7(void *context, char* retBuf, char* argBuf)
 	SHORTS_7;
 
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_7))context)(ARGS_7);
+}
+
+template<typename R TTYPE_7>
+NON_VOID_RET_A nullcWrapCall7(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_7;
+
+	Ru result = (Ru)((R(*)(ATYPE_7))context)(ARGS_7);
+	memcpy(retBuf, &result, sizeof(Ru));
 }
 
 template<typename R TTYPE_8>
@@ -416,6 +517,17 @@ NON_VOID_RET nullcWrapCall8(void *context, char* retBuf, char* argBuf)
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_8))context)(ARGS_8);
 }
 
+template<typename R TTYPE_8>
+NON_VOID_RET_A nullcWrapCall8(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_8;
+
+	Ru result = (Ru)((R(*)(ATYPE_8))context)(ARGS_8);
+	memcpy(retBuf, &result, sizeof(Ru));
+}
+
 template<typename R TTYPE_9>
 VOID_RET nullcWrapCall9(void *context, char* retBuf, char* argBuf)
 {
@@ -434,6 +546,17 @@ NON_VOID_RET nullcWrapCall9(void *context, char* retBuf, char* argBuf)
 	SHORTS_9;
 
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_9))context)(ARGS_9);
+}
+
+template<typename R TTYPE_9>
+NON_VOID_RET_A nullcWrapCall9(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_9;
+
+	Ru result = (Ru)((R(*)(ATYPE_9))context)(ARGS_9);
+	memcpy(retBuf, &result, sizeof(Ru));
 }
 
 template<typename R TTYPE_10>
@@ -456,6 +579,17 @@ NON_VOID_RET nullcWrapCall10(void *context, char* retBuf, char* argBuf)
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_10))context)(ARGS_10);
 }
 
+template<typename R TTYPE_10>
+NON_VOID_RET_A nullcWrapCall10(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_10;
+
+	Ru result = (Ru)((R(*)(ATYPE_10))context)(ARGS_10);
+	memcpy(retBuf, &result, sizeof(Ru));
+}
+
 template<typename R TTYPE_11>
 VOID_RET nullcWrapCall11(void *context, char* retBuf, char* argBuf)
 {
@@ -474,6 +608,17 @@ NON_VOID_RET nullcWrapCall11(void *context, char* retBuf, char* argBuf)
 	SHORTS_11;
 
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_11))context)(ARGS_11);
+}
+
+template<typename R TTYPE_11>
+NON_VOID_RET_A nullcWrapCall11(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_11;
+
+	Ru result = (Ru)((R(*)(ATYPE_11))context)(ARGS_11);
+	memcpy(retBuf, &result, sizeof(Ru));
 }
 
 template<typename R TTYPE_12>
@@ -496,6 +641,17 @@ NON_VOID_RET nullcWrapCall12(void *context, char* retBuf, char* argBuf)
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_12))context)(ARGS_12);
 }
 
+template<typename R TTYPE_12>
+NON_VOID_RET_A nullcWrapCall12(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_12;
+
+	Ru result = (Ru)((R(*)(ATYPE_12))context)(ARGS_12);
+	memcpy(retBuf, &result, sizeof(Ru));
+}
+
 template<typename R TTYPE_13>
 VOID_RET nullcWrapCall13(void *context, char* retBuf, char* argBuf)
 {
@@ -514,6 +670,17 @@ NON_VOID_RET nullcWrapCall13(void *context, char* retBuf, char* argBuf)
 	SHORTS_13;
 
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_13))context)(ARGS_13);
+}
+
+template<typename R TTYPE_13>
+NON_VOID_RET_A nullcWrapCall13(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_13;
+
+	Ru result = (Ru)((R(*)(ATYPE_13))context)(ARGS_13);
+	memcpy(retBuf, &result, sizeof(Ru));
 }
 
 template<typename R TTYPE_14>
@@ -536,6 +703,17 @@ NON_VOID_RET nullcWrapCall14(void *context, char* retBuf, char* argBuf)
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_14))context)(ARGS_14);
 }
 
+template<typename R TTYPE_14>
+NON_VOID_RET_A nullcWrapCall14(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_14;
+
+	Ru result = (Ru)((R(*)(ATYPE_14))context)(ARGS_14);
+	memcpy(retBuf, &result, sizeof(Ru));
+}
+
 template<typename R TTYPE_15>
 VOID_RET nullcWrapCall15(void *context, char* retBuf, char* argBuf)
 {
@@ -554,6 +732,17 @@ NON_VOID_RET nullcWrapCall15(void *context, char* retBuf, char* argBuf)
 	SHORTS_15;
 
 	*(Ru*)retBuf = (Ru)((R(*)(ATYPE_15))context)(ARGS_15);
+}
+
+template<typename R TTYPE_15>
+NON_VOID_RET_A nullcWrapCall15(void *context, char* retBuf, char* argBuf)
+{
+	typedef typename NullcCallBaseType<R, true>::type Ru;
+
+	SHORTS_15;
+
+	Ru result = (Ru)((R(*)(ATYPE_15))context)(ARGS_15);
+	memcpy(retBuf, &result, sizeof(Ru));
 }
 
 // Function wrapper creation
