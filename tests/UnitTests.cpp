@@ -147,10 +147,11 @@ nullres CompileFile(const char* fileName)
 	return nullcCompile(content);
 }
 
-int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int*, int*), bool runSpeedTests, bool testOutput, bool testTranslationSave, bool testTranslation)
+int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), void (*fileFreeFunc)(const char*), bool runSpeedTests, bool testOutput, bool testTranslationSave, bool testTranslation)
 {
 	Tests::messageVerbose = verbose;
 	Tests::fileLoadFunc = fileLoadFunc;
+	Tests::fileFreeFunc = fileFreeFunc;
 
 	// Extra tests
 
@@ -234,7 +235,7 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	nullcAddImportPath(MODULE_PATH_A);
 	nullcAddImportPath(MODULE_PATH_B);
 #endif
-	nullcSetFileReadHandler(Tests::fileLoadFunc);
+	nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 
 	nullcInitTypeinfoModule();
@@ -251,7 +252,7 @@ int RunTests(bool verbose, const void* (*fileLoadFunc)(const char*, unsigned int
 	nullcAddImportPath(MODULE_PATH_A);
 	nullcAddImportPath(MODULE_PATH_B);
 #endif
-	nullcSetFileReadHandler(Tests::fileLoadFunc);
+	nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 
 	nullcInitTypeinfoModule();

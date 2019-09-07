@@ -2085,8 +2085,7 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addE
 		assert(strstr(moduleName.begin, ".nc") != NULL);
 
 	unsigned fileSize = 0;
-	int needDelete = false;
-	char *fileContent = NULL;
+	const char *fileContent = NULL;
 
 	const unsigned pathLength = 1024;
 	char path[pathLength];
@@ -2109,7 +2108,7 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addE
 			NULLC::SafeSprintf(pathEnd, pathLength - int(pathEnd - path), ".nc");
 		}
 
-		fileContent = (char*)NULLC::fileLoad(path, &fileSize, &needDelete);
+		fileContent = NULLC::fileLoad(path, &fileSize);
 
 		if(fileContent)
 			break;
@@ -2127,8 +2126,7 @@ char* BuildModuleFromPath(Allocator *allocator, InplaceStr moduleName, bool addE
 
 	char *bytecode = BuildModuleFromSource(allocator, path, fileContent, fileSize, errorPos, errorBuf, errorBufSize, optimizationLevel, activeImports);
 
-	if(needDelete)
-		NULLC::dealloc(fileContent);
+	NULLC::fileFree(fileContent);
 
 	return bytecode;
 }

@@ -17,7 +17,7 @@ nullres		nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*
 void		nullcClearImportPaths();
 void		nullcAddImportPath(const char* importPath);
 
-void		nullcSetFileReadHandler(const void* (*fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr));
+void		nullcSetFileReadHandler(const char* (*fileLoadFunc)(const char* name, unsigned* size), void (*fileFreeFunc)(const char* data));
 void		nullcSetGlobalMemoryLimit(unsigned limit);
 void		nullcSetEnableLogFiles(int enable, void* (*openStream)(const char* name), void (*writeStream)(void *stream, const char *data, unsigned size), void (*closeStream)(void* stream));
 void		nullcSetOptimizationLevel(int level);

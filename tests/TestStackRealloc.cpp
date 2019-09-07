@@ -26,7 +26,7 @@ struct TestEval : TestQueue
 		nullcInit();
 		nullcAddImportPath(MODULE_PATH_A);
 		nullcAddImportPath(MODULE_PATH_B);
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitDynamicModule();
 
@@ -53,7 +53,7 @@ return a;";
 		nullcInit();
 		nullcAddImportPath(MODULE_PATH_A);
 		nullcAddImportPath(MODULE_PATH_B);
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitDynamicModule();
 	}
@@ -90,7 +90,7 @@ struct TestVariableImportCorrectness : TestQueue
 		nullcInit();
 		nullcAddImportPath(MODULE_PATH_A);
 		nullcAddImportPath(MODULE_PATH_B);
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitDynamicModule();
 
@@ -123,7 +123,7 @@ struct TestGCGlobalLimit : TestQueue
 		nullcInit();
 		nullcAddImportPath(MODULE_PATH_A);
 		nullcAddImportPath(MODULE_PATH_B);
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 		nullcInitGCModule();
 		nullcSetGlobalMemoryLimit(1024 * 1024);
@@ -155,7 +155,7 @@ struct TestRestore : TestQueue
 		nullcInit();
 		nullcAddImportPath(MODULE_PATH_A);
 		nullcAddImportPath(MODULE_PATH_B);
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
 
 		nullcInitTypeinfoModule();

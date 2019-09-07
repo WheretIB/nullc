@@ -98,7 +98,8 @@ namespace Tests
 		true,
 	};
 
-	const void* (*fileLoadFunc)(const char*, unsigned int*, int*) = 0;
+	const char* (*fileLoadFunc)(const char*, unsigned*) = 0;
+	void (*fileFreeFunc)(const char*) = 0;
 
 	void* OpenStream(const char *name)
 	{

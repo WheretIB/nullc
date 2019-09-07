@@ -103,7 +103,8 @@ namespace Tests
 	extern bool	testVmExecutor[TEST_TARGET_COUNT];
 	extern bool	testFailureExecutor[TEST_TARGET_COUNT];
 
-	extern const void* (*fileLoadFunc)(const char*, unsigned int*, int*);
+	extern const char* (*fileLoadFunc)(const char*, unsigned*);
+	extern void (*fileFreeFunc)(const char*);
 
 	extern bool enableLogFiles;
 	extern void* (*openStreamFunc)(const char* name);

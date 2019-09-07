@@ -147,9 +147,10 @@ void nullcAddImportPath(const char* importPath)
 	BinaryCache::AddImportPath(importPath);
 }
 
-void nullcSetFileReadHandler(const void* (*fileLoadFunc)(const char* name, unsigned* size, int* nullcShouldFreePtr))
+void nullcSetFileReadHandler(const char* (*fileLoadFunc)(const char* name, unsigned* size), void (*fileFreeFunc)(const char* data))
 {
 	NULLC::fileLoad = fileLoadFunc ? fileLoadFunc : NULLC::defaultFileLoad;
+	NULLC::fileFree = fileFreeFunc ? fileFreeFunc : NULLC::defaultFileFree;
 }
 
 void nullcSetExecutor(unsigned id)

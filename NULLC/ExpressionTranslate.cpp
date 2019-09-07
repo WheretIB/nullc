@@ -1818,7 +1818,6 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		assert(strstr(data->name.begin, ".nc") != NULL);
 
 		unsigned fileSize = 0;
-		int needDelete = false;
 		char *fileContent = NULL;
 
 		const unsigned pathLength = 1024;
@@ -1829,7 +1828,7 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		{
 			NULLC::SafeSprintf(path, pathLength, "%s%.*s", modulePath, FMT_ISTR(data->name));
 
-			fileContent = (char*)NULLC::fileLoad(path, &fileSize, &needDelete);
+			fileContent = (char*)NULLC::fileLoad(path, &fileSize);
 
 			if(fileContent)
 				break;
@@ -1878,8 +1877,7 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 				NULLC::SafeSprintf(ctx.errorBuf + currLen, ctx.errorBufSize - currLen, " [in module '%.*s']", FMT_ISTR(data->name));
 			}
 
-			if(needDelete)
-				NULLC::dealloc(fileContent);
+			NULLC::fileFree(fileContent);
 
 			return false;
 		}
@@ -1894,8 +1892,7 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		{
 			NULLC::SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' output file '%s' could not be opened", FMT_ISTR(data->name), path);
 
-			if(needDelete)
-				NULLC::dealloc(fileContent);
+			NULLC::fileFree(fileContent);
 
 			return false;
 		}
@@ -1915,8 +1912,7 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 			compilerCtx.outputCtx.closeStream(compilerCtx.outputCtx.stream);
 			compilerCtx.outputCtx.stream = NULL;
 
-			if(needDelete)
-				NULLC::dealloc(fileContent);
+			NULLC::fileFree(fileContent);
 
 			return false;
 		}
@@ -1924,8 +1920,7 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		compilerCtx.outputCtx.closeStream(compilerCtx.outputCtx.stream);
 		compilerCtx.outputCtx.stream = NULL;
 
-		if(needDelete)
-			NULLC::dealloc(fileContent);
+		NULLC::fileFree(fileContent);
 	}
 
 	// Translate all imports (expept base)

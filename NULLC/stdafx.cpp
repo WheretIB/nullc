@@ -39,11 +39,10 @@ void NULLC::alignedDealloc(void* ptr)
 	dealloc(unaligned);
 }
 
-const void*	NULLC::defaultFileLoad(const char* name, unsigned int* size, int* nullcShouldFreePtr)
+const char* NULLC::defaultFileLoad(const char* name, unsigned* size)
 {
 	assert(name);
 	assert(size);
-	assert(nullcShouldFreePtr);
 
 	FILE *file = fopen(name, "rb");
 	if(file)
@@ -55,12 +54,17 @@ const void*	NULLC::defaultFileLoad(const char* name, unsigned int* size, int* nu
 		fread(fileContent, 1, *size, file);
 		fileContent[*size] = 0;
 		fclose(file);
-		*nullcShouldFreePtr = 1;
 		return fileContent;
 	}
 	*size = 0;
-	*nullcShouldFreePtr = false;
 	return NULL;
 }
 
-const void*	(*NULLC::fileLoad)(const char*, unsigned int*, int*) = NULLC::defaultFileLoad;
+void NULLC::defaultFileFree(const char* data)
+{
+	if(data)
+		NULLC::dealloc((char*)data);
+}
+
+const char* (*NULLC::fileLoad)(const char*, unsigned*) = NULLC::defaultFileLoad;
+void (*NULLC::fileFree)(const char*) = NULLC::defaultFileFree;

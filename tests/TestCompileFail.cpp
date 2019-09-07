@@ -884,16 +884,19 @@ auto m = bar;",
 const char	*testModuleImportsSelf1 = "import n; return 1;";
 struct Test_testModuleImportsSelf1 : TestQueue
 {
-	static const void* FileHandler(const char* name, unsigned int* size, int* nullcShouldFreePtr)
+	static const char* FileReadHandler(const char* name, unsigned* size)
 	{
 		(void)name;
-		*nullcShouldFreePtr = 0;
 		*size = (unsigned)strlen(testModuleImportsSelf1) + 1;
-		return (const void*)testModuleImportsSelf1;
+		return testModuleImportsSelf1;
+	}
+	static void FileFreeHandler(const char *data)
+	{
+		(void)data;
 	}
 	virtual void Run()
 	{
-		nullcSetFileReadHandler(FileHandler);
+		nullcSetFileReadHandler(FileReadHandler, FileFreeHandler);
 		if(Tests::messageVerbose)
 			printf("Module imports itself 1 \r\n");
 
@@ -915,7 +918,7 @@ struct Test_testModuleImportsSelf1 : TestQueue
 		}else{
 			printf("Test \"%s\" failed to fail.\r\n", "Module imports itself 1");
 		}
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 	}
 };
 Test_testModuleImportsSelf1 testModuleImportSelf1;
@@ -924,21 +927,24 @@ const char	*testModuleImportsSelf2a = "import b; return 1;";
 const char	*testModuleImportsSelf2b = "import a; return 1;";
 struct Test_testModuleImportsSelf2 : TestQueue
 {
-	static const void* FileHandler(const char* name, unsigned int* size, int* nullcShouldFreePtr)
+	static const char* FileReadHandler(const char* name, unsigned* size)
 	{
-		*nullcShouldFreePtr = 0;
 		if(name[0] == 'a')
 		{
 			*size = (unsigned)strlen(testModuleImportsSelf2a) + 1;
-			return (const void*)testModuleImportsSelf2a;
+			return testModuleImportsSelf2a;
 		}else{
 			*size = (unsigned)strlen(testModuleImportsSelf2b) + 1;
-			return (const void*)testModuleImportsSelf2b;
+			return testModuleImportsSelf2b;
 		}
+	}
+	static void FileFreeHandler(const char *data)
+	{
+		(void)data;
 	}
 	virtual void Run()
 	{
-		nullcSetFileReadHandler(FileHandler);
+		nullcSetFileReadHandler(FileReadHandler, FileFreeHandler);
 		if(Tests::messageVerbose)
 			printf("Module imports itself 2 \r\n");
 
@@ -960,7 +966,7 @@ struct Test_testModuleImportsSelf2 : TestQueue
 		}else{
 			printf("Test \"%s\" failed to fail.\r\n", "Module imports itself 1");
 		}
-		nullcSetFileReadHandler(Tests::fileLoadFunc);
+		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 	}
 };
 Test_testModuleImportsSelf2 testModuleImportSelf2;

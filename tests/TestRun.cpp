@@ -35,7 +35,7 @@ int main(int argc, char** argv)
 			testTranslation = true;
 	}
 
-	return RunTests(verbose, 0, runSpeedTests, testOutput, testTranslationSave, testTranslation);
+	return RunTests(verbose, 0, 0, runSpeedTests, testOutput, testTranslationSave, testTranslation);
 }
 
 #else
