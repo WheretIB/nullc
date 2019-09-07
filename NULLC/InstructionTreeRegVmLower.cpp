@@ -399,6 +399,62 @@ void LowerConstantIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFun
 	}
 }
 
+bool TryLowerConstantPushIntoBlock(ExpressionContext &ctx, RegVmLoweredBlock *lowBlock, VmValue *value)
+{
+	if(VmConstant *constant = getType<VmConstant>(value))
+	{
+		if(constant->type == VmType::Int)
+		{
+			lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, constant->iValue);
+
+			return true;
+		}
+		else if(constant->type == VmType::Double)
+		{
+			unsigned data[2];
+			memcpy(data, &constant->dValue, 8);
+
+			lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[0]);
+			lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[1]);
+
+			return true;
+		}
+		else if(constant->type == VmType::Long)
+		{
+			unsigned data[2];
+			memcpy(data, &constant->lValue, 8);
+
+			if(data[1] == 0)
+			{
+				lowBlock->AddInstruction(ctx, constant->source, rviPushImmq, 0, 0, 0, data[0]);
+			}
+			else
+			{
+				lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[0]);
+				lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[1]);
+			}
+
+			return true;
+		}
+		else if(constant->type.type == VM_TYPE_POINTER)
+		{
+			if(!constant->container)
+			{
+				assert(constant->iValue == 0);
+
+				if(NULLC_PTR_SIZE == 8)
+					lowBlock->AddInstruction(ctx, constant->source, rviPushImmq, 0, 0, 0, 0u);
+				else
+					lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, 0u);
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 unsigned char GetArgumentRegister(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, VmValue *value)
 {
 	if(isType<VmConstant>(value))
@@ -1451,56 +1507,8 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			}
 			else
 			{
-				if(VmConstant *constant = getType<VmConstant>(argument))
-				{
-					if(constant->type == VmType::Int)
-					{
-						lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, constant->iValue);
-
-						continue;
-					}
-					else if(constant->type == VmType::Double)
-					{
-						unsigned data[2];
-						memcpy(data, &constant->dValue, 8);
-
-						lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[0]);
-						lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[1]);
-
-						continue;
-					}
-					else if(constant->type == VmType::Long)
-					{
-						unsigned data[2];
-						memcpy(data, &constant->lValue, 8);
-
-						if(data[1] == 0)
-						{
-							lowBlock->AddInstruction(ctx, constant->source, rviPushImmq, 0, 0, 0, data[0]);
-						}
-						else
-						{
-							lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[0]);
-							lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[1]);
-						}
-
-						continue;
-					}
-					else if(constant->type.type == VM_TYPE_POINTER)
-					{
-						if(!constant->container)
-						{
-							assert(constant->iValue == 0);
-
-							if(NULLC_PTR_SIZE == 8)
-								lowBlock->AddInstruction(ctx, constant->source, rviPushImmq, 0, 0, 0, 0u);
-							else
-								lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, 0u);
-
-							continue;
-						}
-					}
-				}
+				if(TryLowerConstantPushIntoBlock(ctx, lowBlock, argument))
+					continue;
 
 				SmallArray<unsigned char, 32> argumentRegs(ctx.allocator);
 				GetArgumentRegisters(ctx, lowFunction, lowBlock, argumentRegs, argument);
@@ -1735,95 +1743,99 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			VmValue *result = inst->arguments[0];
 
-			SmallArray<unsigned char, 32> resultRegs(ctx.allocator);
-			GetArgumentRegisters(ctx, lowFunction, lowBlock, resultRegs, result);
-
 			RegVmReturnType resultType = rvrVoid;
 
 			if(result->type.type == VM_TYPE_INT || (NULLC_PTR_SIZE == 4 && result->type.type == VM_TYPE_POINTER))
-			{
 				resultType = rvrInt;
-
-				lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
-			}
 			else if(result->type.type == VM_TYPE_LONG || (NULLC_PTR_SIZE == 8 && result->type.type == VM_TYPE_POINTER))
-			{
 				resultType = rvrLong;
-
-				lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[0]);
-			}
 			else if(result->type.type == VM_TYPE_DOUBLE)
-			{
 				resultType = rvrDouble;
-
-				lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[0]);
-			}
 			else if(result->type.type == VM_TYPE_FUNCTION_REF || result->type.type == VM_TYPE_ARRAY_REF)
-			{
+				resultType = rvrStruct;
+			else if(result->type.type == VM_TYPE_AUTO_REF)
+				resultType = rvrStruct;
+			else if(result->type.type == VM_TYPE_AUTO_ARRAY)
+				resultType = rvrStruct;
+			else if(result->type.type == VM_TYPE_STRUCT)
 				resultType = rvrStruct;
 
-				if(NULLC_PTR_SIZE == 8)
+			if(!TryLowerConstantPushIntoBlock(ctx, lowBlock, result))
+			{
+				SmallArray<unsigned char, 32> resultRegs(ctx.allocator);
+				GetArgumentRegisters(ctx, lowFunction, lowBlock, resultRegs, result);
+
+				if(result->type.type == VM_TYPE_INT || (NULLC_PTR_SIZE == 4 && result->type.type == VM_TYPE_POINTER))
+				{
+					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
+				}
+				else if(result->type.type == VM_TYPE_LONG || (NULLC_PTR_SIZE == 8 && result->type.type == VM_TYPE_POINTER))
 				{
 					lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[0]);
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[1]);
 				}
-				else
+				else if(result->type.type == VM_TYPE_DOUBLE)
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[1]);
+					lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[0]);
 				}
-			}
-			else if(result->type.type == VM_TYPE_AUTO_REF)
-			{
-				resultType = rvrStruct;
-
-				if(NULLC_PTR_SIZE == 8)
+				else if(result->type.type == VM_TYPE_FUNCTION_REF || result->type.type == VM_TYPE_ARRAY_REF)
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
-					lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[1]);
-				}
-				else
-				{
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[1]);
-				}
-			}
-			else if(result->type.type == VM_TYPE_AUTO_ARRAY)
-			{
-				resultType = rvrStruct;
-
-				if(NULLC_PTR_SIZE == 8)
-				{
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
-					lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[1]);
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[2]);
-				}
-				else
-				{
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[1]);
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[2]);
-				}
-			}
-			else if(result->type.type == VM_TYPE_STRUCT)
-			{
-				resultType = rvrStruct;
-
-				unsigned remainingSize = result->type.size;
-
-				for(unsigned i = 0; i < resultRegs.size(); i++)
-				{
-					if(remainingSize == 4)
+					if(NULLC_PTR_SIZE == 8)
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[i]);
-
-						remainingSize -= 4;
+						lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[0]);
+						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[1]);
 					}
 					else
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[i]);
+						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
+						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[1]);
+					}
+				}
+				else if(result->type.type == VM_TYPE_AUTO_REF)
+				{
+					if(NULLC_PTR_SIZE == 8)
+					{
+						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
+						lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[1]);
+					}
+					else
+					{
+						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
+						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[1]);
+					}
+				}
+				else if(result->type.type == VM_TYPE_AUTO_ARRAY)
+				{
+					if(NULLC_PTR_SIZE == 8)
+					{
+						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
+						lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[1]);
+						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[2]);
+					}
+					else
+					{
+						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[0]);
+						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[1]);
+						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[2]);
+					}
+				}
+				else if(result->type.type == VM_TYPE_STRUCT)
+				{
+					unsigned remainingSize = result->type.size;
 
-						remainingSize -= 8;
+					for(unsigned i = 0; i < resultRegs.size(); i++)
+					{
+						if(remainingSize == 4)
+						{
+							lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, resultRegs[i]);
+
+							remainingSize -= 4;
+						}
+						else
+						{
+							lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, resultRegs[i]);
+
+							remainingSize -= 8;
+						}
 					}
 				}
 			}
