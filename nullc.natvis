@@ -31,7 +31,7 @@
     </Expand>
   </Type>
   
-  <Type Name="NULLC::InplaceStr">
+  <Type Name="InplaceStr">
     <DisplayString>{begin,[end-begin]na}</DisplayString>
   </Type>
   
