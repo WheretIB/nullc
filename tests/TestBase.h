@@ -91,6 +91,8 @@ namespace Tests
 	extern unsigned totalSyntaxNodes;
 	extern unsigned totalExpressionNodes;
 
+	extern unsigned totalRegVmInstructions;
+
 	extern const char		*varData;
 	extern unsigned int		variableCount;
 	extern ExternVarInfo	*varInfo;

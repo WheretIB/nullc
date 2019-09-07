@@ -54,6 +54,8 @@ namespace Tests
 	unsigned totalSyntaxNodes = 0;
 	unsigned totalExpressionNodes = 0;
 
+	unsigned totalRegVmInstructions = 0;
+
 	const char		*varData = NULL;
 	unsigned int	variableCount = 0;
 	ExternVarInfo	*varInfo = NULL;
@@ -351,6 +353,9 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 			timeVisit += myGetPreciseTime() - time;
 			time = myGetPreciseTime();
 		}
+
+		if(CompilerContext *context = nullcGetCompilerContext())
+			totalRegVmInstructions += context->instRegVmFinalizeCtx.cmds.size();
 
 		char *bytecode = NULL;
 		nullcGetBytecode(&bytecode);

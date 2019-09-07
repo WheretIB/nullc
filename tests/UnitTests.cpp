@@ -342,6 +342,7 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 
 	printf("Total log output: %lld\n", Tests::totalOutput);
 	printf("Total nodes: %d syntax, %d expression\n", Tests::totalSyntaxNodes, Tests::totalExpressionNodes);
+	printf("Total RegVM instructions: %d\n", Tests::totalRegVmInstructions);
 
 	printf("Total global allocs: %d (%.3fMB requested)\n", testTotalMemoryAlloc, testTotalMemoryRequested / 1024 / 1024.0);
 
