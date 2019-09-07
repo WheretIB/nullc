@@ -92,7 +92,11 @@ unsigned char RegVmLoweredFunction::GetRegister()
 	else
 	{
 		// We start from rvrrCount register, so 0 means that we wrapped around from 255
-		assert(nextRegister != 0);
+		if(nextRegister == 0)
+		{
+			hasRegisterOverflow = true;
+			return 255;
+		}
 
 		reg = nextRegister;
 		nextRegister++;
@@ -2905,6 +2909,13 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 	for(VmInstruction *vmInstruction = vmBlock->firstInstruction; vmInstruction; vmInstruction = vmInstruction->nextSibling)
 	{
 		LowerInstructionIntoBlock(ctx, lowFunction, lowBlock, vmInstruction);
+
+		if(lowFunction->hasRegisterOverflow)
+		{
+			lowFunction->registerOverflowLocation = vmInstruction;
+
+			return lowBlock;
+		}
 	}
 
 	// Collect live out instructions with unique storage
@@ -3006,6 +3017,9 @@ RegVmLoweredFunction* RegVmLowerFunction(ExpressionContext &ctx, VmFunction *vmF
 	for(VmBlock *vmBlock = vmFunction->firstBlock; vmBlock; vmBlock = vmBlock->nextSibling)
 	{
 		lowFunction->blocks.push_back(RegVmLowerBlock(ctx, lowFunction, vmBlock));
+
+		if(lowFunction->hasRegisterOverflow)
+			break;
 	}
 
 	return lowFunction;
@@ -3023,7 +3037,12 @@ RegVmLoweredModule* RegVmLowerModule(ExpressionContext &ctx, VmModule *vmModule)
 		if(vmFunction->function && vmFunction->function->isPrototype && !vmFunction->function->implementation)
 			continue;
 
-		lowModule->functions.push_back(RegVmLowerFunction(ctx, vmFunction));
+		RegVmLoweredFunction *lowFunction = RegVmLowerFunction(ctx, vmFunction);
+
+		lowModule->functions.push_back(lowFunction);
+
+		if(lowFunction->hasRegisterOverflow)
+			break;
 	}
 
 	return lowModule;

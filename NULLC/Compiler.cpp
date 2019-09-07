@@ -616,6 +616,21 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 
 	ctx.regVmLoweredModule = RegVmLowerModule(exprCtx, ctx.vmModule);
 
+	if(!ctx.regVmLoweredModule->functions.empty() && ctx.regVmLoweredModule->functions.back()->hasRegisterOverflow)
+	{
+		RegVmLoweredFunction *function = ctx.regVmLoweredModule->functions.back();
+
+		if(function->registerOverflowLocation && function->registerOverflowLocation->source)
+			ctx.errorPos = function->registerOverflowLocation->source->begin->pos;
+		else
+			ctx.errorPos = NULL;
+
+		if(ctx.errorBuf && ctx.errorBufSize)
+			NULLC::SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: internal compiler error: register count overflow");
+
+		return false;
+	}
+
 	RegVmFinalizeModule(ctx.instRegVmFinalizeCtx, ctx.regVmLoweredModule);
 
 	if(ctx.enableLogFiles)

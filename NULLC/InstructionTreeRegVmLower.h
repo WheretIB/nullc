@@ -80,6 +80,9 @@ struct RegVmLoweredFunction
 		nextRegister = rvrrCount;
 
 		nextSearchMarker = 1;
+
+		hasRegisterOverflow = false;
+		registerOverflowLocation = NULL;
 	}
 
 	unsigned char GetRegister();
@@ -114,6 +117,8 @@ struct RegVmLoweredFunction
 	SmallArray<unsigned char, 16> killedRegisters;
 
 	// TODO: register spills
+	bool hasRegisterOverflow;
+	VmInstruction *registerOverflowLocation;
 };
 
 struct RegVmLoweredModule
