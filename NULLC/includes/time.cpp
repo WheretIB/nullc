@@ -5,7 +5,7 @@
 
 #include <time.h>
 
-#ifdef WIN32
+#if defined(_WIN32)
 	#include <Windows.h>
 	#include <MMSystem.h>
 	#pragma comment(lib, "Winmm.lib")
@@ -20,7 +20,7 @@ namespace NULLCTime
 
 	double clockPrecise()
 	{
-#ifdef WIN32
+#if defined(_WIN32)
 		LARGE_INTEGER freq, count;
 		QueryPerformanceFrequency(&freq);
 		QueryPerformanceCounter(&count);

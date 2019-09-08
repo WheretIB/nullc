@@ -5,6 +5,8 @@
 
 #if defined(_MSC_VER)
 	#include <windows.h>
+#elif defined(EMSCRIPTEN)
+	#include <SDL/SDL.h>
 #endif
 
 #include <stdio.h>
@@ -261,25 +263,30 @@ namespace NULLCIO
 
 	void GetKeyboardState(NULLCArray arr)
 	{
-#if !defined(_MSC_VER)
+#if defined(_MSC_VER)
+		if(arr.len < 256)
+			nullcThrowError("GetKeyboardState requires array with 256 or more elements");
+
+		::GetKeyboardState((unsigned char*)arr.ptr);
+#elif defined(EMSCRIPTEN)
+		if(arr.len < 256)
+			nullcThrowError("GetKeyboardState requires array with 256 or more elements");
+
+		int numKeys = 0;
+		const Uint8* keys = SDL_GetKeyboardState(&numKeys);
+
+		for(int i = 0; i < numKeys && i < arr.len; i++)
+			((unsigned char*)arr.ptr)[i] = keys[i];
+#else
 		(void)arr;
 
 		nullcThrowError("GetKeyboardState: supported only under Windows");
-#else
-		if(arr.len < 256)
-			nullcThrowError("GetKeyboardState requires array with 256 or more elements");
-		::GetKeyboardState((unsigned char*)arr.ptr);
 #endif
 	}
 
 	void GetMouseState(int* x, int* y)
 	{
-#if !defined(_MSC_VER)
-		(void)x;
-		(void)y;
-
-		nullcThrowError("GetMouseState: supported only under Windows");
-#else
+#if defined(_MSC_VER)
 		if(!x)
 		{
 			nullcThrowError("ERROR: 'x' argument should not be a nullptr");
@@ -295,35 +302,64 @@ namespace NULLCIO
 		GetCursorPos(&pos);
 		*x = pos.x;
 		*y = pos.y;
+#elif defined(EMSCRIPTEN)
+		SDL_GetMouseState(x, y);
+#else
+		(void)x;
+		(void)y;
+
+		nullcThrowError("GetMouseState: supported only under Windows");
 #endif
 	}
 
 	bool IsPressed(int key)
 	{
-#if !defined(_MSC_VER)
-		(void)key;
-
-		nullcThrowError("IsPressed: supported only under Windows");
-		return false;
-#else
+#if defined(_MSC_VER)
 		unsigned char arr[256];
 		::GetKeyboardState(arr);
 		if(arr[key & 0xff] > 1)
 			key = key;
 		return !!(arr[key & 0xff] & 0x80);
+#elif defined(EMSCRIPTEN)
+		int numKeys = 0;
+		const Uint8* keys = SDL_GetKeyboardState(&numKeys);
+
+		return key < numKeys ? keys[key] : false;
+#else
+		(void)key;
+
+		nullcThrowError("IsPressed: supported only under Windows");
+		return false;
 #endif
 	}
+
 	bool IsToggled(int key)
 	{
-#if !defined(_MSC_VER)
+#if defined(_MSC_VER)
+		unsigned char arr[256];
+		::GetKeyboardState(arr);
+		return !!(arr[key & 0xff] & 0x1);
+#elif defined(EMSCRIPTEN)
+		static Uint8 prevState[256];
+
+		int numKeys = 0;
+		const Uint8* keys = SDL_GetKeyboardState(&numKeys);
+
+		if(key < 256 && key < numKeys)
+		{
+			bool changed = prevState[key] != keys[key];
+
+			prevState[key] = keys[key];
+
+			return changed;
+		}
+
+		return false;
+#else
 		(void)key;
 
 		nullcThrowError("IsToggled: supported only under Windows");
 		return false;
-#else
-		unsigned char arr[256];
-		::GetKeyboardState(arr);
-		return !!(arr[key & 0xff] & 0x1);
 #endif
 	}
 }
