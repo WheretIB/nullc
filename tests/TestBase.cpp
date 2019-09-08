@@ -227,7 +227,7 @@ bool Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 
 		assert(pos < extraCode + extraCodeSize);
 
-		if(!RunCodeSimple(extraCode, executor, expected, message, execShouldFail))
+		if(!RunCodeSimple(extraCode, executor, expected, message, execShouldFail, "[function]"))
 			return false;
 
 		// Place code inside a coroutine
@@ -261,7 +261,7 @@ bool Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 
 		assert(pos < extraCode + extraCodeSize);
 
-		if(!RunCodeSimple(extraCode, executor, expected, message, execShouldFail))
+		if(!RunCodeSimple(extraCode, executor, expected, message, execShouldFail, "[coroutine]"))
 			return false;
 
 		// Place code inside a namespace
@@ -295,17 +295,17 @@ bool Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 
 		assert(pos < extraCode + extraCodeSize);
 
-		if(!RunCodeSimple(extraCode, executor, expected, message, execShouldFail))
+		if(!RunCodeSimple(extraCode, executor, expected, message, execShouldFail, "[namespace]"))
 			return false;
 	}
 
-	if(!RunCodeSimple(code, executor, expected, message, execShouldFail))
+	if(!RunCodeSimple(code, executor, expected, message, execShouldFail, ""))
 		return false;
 
 	return true;
 }
 
-bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* expected, const char* message, bool execShouldFail)
+bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* expected, const char* message, bool execShouldFail, const char *variant)
 {
 	if(testMatch && !strstr(message, testMatch))
 		return false;
@@ -318,7 +318,7 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 	lastMessage = message;
 
 	if(message && messageVerbose && executor == NULLC_VM)
-		printf("%4d/%4d %s\n", testsPassed[TEST_TYPE_VM], testsCount[TEST_TYPE_VM] - 1, message);
+		printf("%4d/%4d %s %s\n", testsPassed[TEST_TYPE_VM], testsCount[TEST_TYPE_VM] - 1, message, variant);
 
 	nullcSetExecutor(executor);
 

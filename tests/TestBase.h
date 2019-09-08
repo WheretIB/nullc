@@ -117,7 +117,7 @@ namespace Tests
 
 	void*	FindVar(const char* name);
 	bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = 0, bool execShouldFail = false);
-	bool	RunCodeSimple(const char *code, unsigned int executor, const char* expected, const char* message = 0, bool execShouldFail = false);
+	bool	RunCodeSimple(const char *code, unsigned int executor, const char* expected, const char* message, bool execShouldFail, const char *variant);
 	char*	Format(const char *str, ...);
 }
 
@@ -156,7 +156,7 @@ struct Test_##code : TestQueue {	\
 				continue;	\
 			testsCount[t]++;	\
 			lastFailed = false;	\
-			if(!Tests::RunCodeSimple(code, t, result, name))	\
+			if(!Tests::RunCodeSimple(code, t, result, name, false, ""))	\
 			{	\
 				lastFailed = true;	\
 				return;	\
@@ -222,7 +222,7 @@ struct Test_##code : TestQueue {	\
 			if(!Tests::testExecutor[t])	\
 				continue;	\
 			testsCount[t]++;	\
-			if(Tests::RunCodeSimple(code, t, result, name))	\
+			if(Tests::RunCodeSimple(code, t, result, name, false, ""))	\
 				testsPassed[t]++;	\
 		}	\
 	}	\

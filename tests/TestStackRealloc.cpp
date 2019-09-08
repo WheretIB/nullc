@@ -45,7 +45,7 @@ return a;";
 			if(!Tests::testExecutor[t])
 				continue;
 			testsCount[t]++;
-			if(Tests::RunCodeSimple(testEval, t, "59705", "Dynamic code. eval()"))
+			if(Tests::RunCodeSimple(testEval, t, "59705", "Dynamic code. eval()", false, ""))
 				testsPassed[t]++;
 			printf("Eval test finished in %f\n", myGetPreciseTime() - evalStart);
 		}
@@ -108,7 +108,7 @@ return x * 10 + y;";
 				continue;
 
 			testsCount[t]++;
-			if(Tests::RunCodeSimple(testVariableImportCorrectness, t, "48", "Variable import correctness"))
+			if(Tests::RunCodeSimple(testVariableImportCorrectness, t, "48", "Variable import correctness", false, ""))
 				testsPassed[t]++;
 		}
 	}
