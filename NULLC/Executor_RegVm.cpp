@@ -450,8 +450,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 
 			if(!instruction)
 				return rvrError;
-
-			instruction--;
 			break;
 		case rviLoadByte:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
@@ -461,6 +459,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].intValue = *(char*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+			instruction++;
 			break;
 		case rviLoadWord:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
@@ -470,6 +469,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].intValue = *(short*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+			instruction++;
 			break;
 		case rviLoadDword:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
@@ -479,6 +479,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].intValue = *(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+			instruction++;
 			break;
 		case rviLoadLong:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
@@ -488,6 +489,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].longValue = vmLoadLong((void*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument));
+			instruction++;
 			break;
 		case rviLoadFloat:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
@@ -497,6 +499,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].doubleValue = *(float*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+			instruction++;
 			break;
 		case rviLoadDouble:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
@@ -506,17 +509,20 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].doubleValue = *(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+			instruction++;
 			break;
 		case rviLoadImm:
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = cmd.argument;
+			instruction++;
 			break;
 		case rviLoadImmLong:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = ((uint64_t)cmd.argument << 32ull) | (unsigned)regFilePtr[cmd.rA].intValue;
+			instruction++;
 			break;
 		case rviLoadImmDouble:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
@@ -527,6 +533,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 
 				memcpy(&regFilePtr[cmd.rA].doubleValue, &bits, sizeof(double));
 			}
+			instruction++;
 			break;
 		case rviStoreByte:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
@@ -536,6 +543,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(char*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = (char)regFilePtr[cmd.rA].intValue;
+			instruction++;
 			break;
 		case rviStoreWord:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
@@ -545,6 +553,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(short*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = (short)regFilePtr[cmd.rA].intValue;
+			instruction++;
 			break;
 		case rviStoreDword:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrInt));
@@ -554,6 +563,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = regFilePtr[cmd.rA].intValue;
+			instruction++;
 			break;
 		case rviStoreLong:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrLong));
@@ -563,6 +573,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = regFilePtr[cmd.rA].longValue;
+			instruction++;
 			break;
 		case rviStoreFloat:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrDouble));
@@ -572,6 +583,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(float*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = (float)regFilePtr[cmd.rA].doubleValue;
+			instruction++;
 			break;
 		case rviStoreDouble:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rA].activeType == rvrDouble));
@@ -581,6 +593,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			*(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) = regFilePtr[cmd.rA].doubleValue;
+			instruction++;
 			break;
 		case rviCombinedd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -588,6 +601,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = ((uint64_t)regFilePtr[cmd.rC].intValue << 32ull) | (unsigned)regFilePtr[cmd.rB].intValue;
+			instruction++;
 			break;
 		case rviBreakupdd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
@@ -596,21 +610,25 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 
 			regFilePtr[cmd.rA].intValue = (int)(regFilePtr[cmd.rC].longValue >> 32ull);
 			regFilePtr[cmd.rB].intValue = (int)(regFilePtr[cmd.rC].longValue);
+			instruction++;
 			break;
 		case rviMov:
 			memcpy(&regFilePtr[cmd.rA], &regFilePtr[cmd.rC], sizeof(RegVmRegister));
+			instruction++;
 			break;
 		case rviDtoi:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = (int)regFilePtr[cmd.rC].doubleValue;
+			instruction++;
 			break;
 		case rviDtol:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = (long long)regFilePtr[cmd.rC].doubleValue;
+			instruction++;
 			break;
 		case rviDtof:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
@@ -621,30 +639,35 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 
 				memcpy(&regFilePtr[cmd.rA].intValue, &tmp, sizeof(float));
 			}
+			instruction++;
 			break;
 		case rviItod:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
 			regFilePtr[cmd.rA].doubleValue = (double)regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviLtod:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
 			regFilePtr[cmd.rA].doubleValue = (double)regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviItol:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = (long long)regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviLtoi:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = (int)regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviIndex:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -656,12 +679,14 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: array index out of bounds");
 
 			regFilePtr[cmd.rA].ptrValue = regFilePtr[cmd.rC].ptrValue + regFilePtr[cmd.rB].intValue * (cmd.argument & 0xffff);
+			instruction++;
 			break;
 		case rviGetAddr:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrPointer);
 
 			regFilePtr[cmd.rA].ptrValue = regFilePtr[cmd.rC].ptrValue + cmd.argument;
+			instruction++;
 			break;
 		case rviSetRange:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
@@ -707,6 +732,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			default:
 				assert(!"unknown type");
 			}
+			instruction++;
 			break;
 		case rviJmp:
 #ifdef _M_X64
@@ -714,6 +740,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 #else
 			instruction = rvm->codeBase + cmd.argument - 1;
 #endif
+			instruction++;
 			break;
 		case rviJmpz:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
@@ -726,6 +753,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				instruction = rvm->codeBase + cmd.argument - 1;
 #endif
 			}
+			instruction++;
 			break;
 		case rviJmpnz:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
@@ -738,35 +766,42 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				instruction = rvm->codeBase + cmd.argument - 1;
 #endif
 			}
+			instruction++;
 			break;
 		case rviPop:
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = tempStackPtr[cmd.argument];
+			instruction++;
 			break;
 		case rviPopq:
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = vmLoadLong(&tempStackPtr[cmd.argument]);
+			instruction++;
 			break;
 		case rviPush:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 
 			*tempStackPtr++ = regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviPushQword:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong || regFilePtr[cmd.rC].activeType == rvrDouble));
 
 			memcpy(tempStackPtr, &regFilePtr[cmd.rC].longValue, sizeof(long long));
 			tempStackPtr += 2;
+			instruction++;
 			break;
 		case rviPushImm:
 			*tempStackPtr = cmd.argument;
 			tempStackPtr += 1;
+			instruction++;
 			break;
 		case rviPushImmq:
 			vmStoreLong(tempStackPtr, cmd.argument);
 			tempStackPtr += 2;
+			instruction++;
 			break;
 		case rviCall:
 			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, cmd.argument, instruction, regFilePtr, tempStackPtr);
@@ -774,6 +809,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			if(!tempStackPtr)
 				return rvrError;
 
+			instruction++;
 			break;
 		case rviCallPtr:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
@@ -786,6 +822,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			if(!tempStackPtr)
 				return rvrError;
 
+			instruction++;
 			break;
 		case rviReturn:
 			return rvm->ExecReturn(cmd, instruction);
@@ -795,12 +832,14 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue + regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviAddImm:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue + (int)cmd.argument;
+			instruction++;
 			break;
 		case rviSub:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -808,6 +847,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue - regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviMul:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -815,6 +855,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue * regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviDiv:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -825,6 +866,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: integer division by zero");
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue / regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviPow:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -832,6 +874,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = vmIntPow(regFilePtr[cmd.rC].intValue, regFilePtr[cmd.rB].intValue);
+			instruction++;
 			break;
 		case rviMod:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -842,6 +885,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: integer division by zero");
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue % regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviLess:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -849,6 +893,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue < regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviGreater:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -856,6 +901,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue > regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviLequal:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -863,6 +909,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue <= regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviGequal:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -870,6 +917,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue >= regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviEqual:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -877,6 +925,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue == regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviNequal:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -884,6 +933,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue != regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviShl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -891,6 +941,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue << regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviShr:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -898,6 +949,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue >> regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviBitAnd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -905,6 +957,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue & regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviBitOr:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -912,22 +965,23 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue | regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviBitXor:
-
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue ^ regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviLogXor:
-
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = (regFilePtr[cmd.rB].intValue != 0) != (regFilePtr[cmd.rC].intValue != 0);
+			instruction++;
 			break;
 		case rviAddl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -935,12 +989,14 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue + regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviAddImml:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue + (int)cmd.argument;
+			instruction++;
 			break;
 		case rviSubl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -948,6 +1004,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue - regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviMull:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -955,6 +1012,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue * regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviDivl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -965,6 +1023,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: integer division by zero");
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue / regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviPowl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -972,6 +1031,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = vmLongPow(regFilePtr[cmd.rC].longValue, regFilePtr[cmd.rB].longValue);
+			instruction++;
 			break;
 		case rviModl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -982,6 +1042,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: integer division by zero");
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue % regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviLessl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -989,6 +1050,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].longValue < regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviGreaterl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -996,6 +1058,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].longValue > regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviLequall:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -1003,6 +1066,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].longValue <= regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviGequall:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -1010,6 +1074,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].longValue >= regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviEquall:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -1017,6 +1082,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].longValue == regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviNequall:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -1024,6 +1090,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].longValue != regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviShll:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -1031,6 +1098,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue << regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviShrl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -1038,6 +1106,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue >> regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviBitAndl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -1045,6 +1114,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue & regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviBitOrl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -1052,6 +1122,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue | regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviBitXorl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -1059,6 +1130,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue ^ regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviLogXorl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrLong));
@@ -1066,6 +1138,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = (regFilePtr[cmd.rB].longValue != 0) != (regFilePtr[cmd.rC].longValue != 0);
+			instruction++;
 			break;
 		case rviAddd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
@@ -1073,6 +1146,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
 			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue + regFilePtr[cmd.rC].doubleValue;
+			instruction++;
 			break;
 		case rviSubd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
@@ -1080,6 +1154,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
 			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue - regFilePtr[cmd.rC].doubleValue;
+			instruction++;
 			break;
 		case rviMuld:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
@@ -1087,6 +1162,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
 			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue * regFilePtr[cmd.rC].doubleValue;
+			instruction++;
 			break;
 		case rviDivd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
@@ -1094,6 +1170,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
 			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue / regFilePtr[cmd.rC].doubleValue;
+			instruction++;
 			break;
 		case rviPowd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
@@ -1101,6 +1178,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
 			regFilePtr[cmd.rA].doubleValue = pow(regFilePtr[cmd.rB].doubleValue, regFilePtr[cmd.rC].doubleValue);
+			instruction++;
 			break;
 		case rviModd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
@@ -1108,6 +1186,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
 			regFilePtr[cmd.rA].doubleValue = fmod(regFilePtr[cmd.rB].doubleValue, regFilePtr[cmd.rC].doubleValue);
+			instruction++;
 			break;
 		case rviLessd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
@@ -1115,6 +1194,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].doubleValue < regFilePtr[cmd.rC].doubleValue;
+			instruction++;
 			break;
 		case rviGreaterd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
@@ -1122,6 +1202,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].doubleValue > regFilePtr[cmd.rC].doubleValue;
+			instruction++;
 			break;
 		case rviLequald:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
@@ -1129,6 +1210,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].doubleValue <= regFilePtr[cmd.rC].doubleValue;
+			instruction++;
 			break;
 		case rviGequald:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
@@ -1136,6 +1218,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].doubleValue >= regFilePtr[cmd.rC].doubleValue;
+			instruction++;
 			break;
 		case rviEquald:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
@@ -1143,6 +1226,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].doubleValue == regFilePtr[cmd.rC].doubleValue;
+			instruction++;
 			break;
 		case rviNequald:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
@@ -1150,48 +1234,56 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].doubleValue != regFilePtr[cmd.rC].doubleValue;
+			instruction++;
 			break;
 		case rviNeg:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = -regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviNegl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = -regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviNegd:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrDouble));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
 
 			regFilePtr[cmd.rA].doubleValue = -regFilePtr[cmd.rC].doubleValue;
+			instruction++;
 			break;
 		case rviBitNot:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = ~regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviBitNotl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrLong);
 
 			regFilePtr[cmd.rA].longValue = ~regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviLogNot:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = !regFilePtr[cmd.rC].intValue;
+			instruction++;
 			break;
 		case rviLogNotl:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrLong));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
 
 			regFilePtr[cmd.rA].intValue = !regFilePtr[cmd.rC].longValue;
+			instruction++;
 			break;
 		case rviConvertPtr:
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
@@ -1201,9 +1293,11 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			if(!rvm->ExecConvertPtr(cmd, instruction, regFilePtr))
 				return rvrError;
 
+			instruction++;
 			break;
 		case rviCheckRet:
 			rvm->ExecCheckedReturn(cmd, regFilePtr, tempStackPtr);
+			instruction++;
 			break;
 		default:
 #if defined(_MSC_VER)
@@ -1212,8 +1306,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			__builtin_unreachable();
 #endif
 		}
-
-		instruction++;
 	}
 
 	return rvrError;
