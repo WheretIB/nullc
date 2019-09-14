@@ -918,11 +918,18 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 	{
 		output.Printf("\n");
 
+		unsigned long long total = 0;
+
+		for(unsigned i = 0; i < 256; i++)
+			total += exRegVmInstructionExecCount[i];
+
 		for(unsigned i = 0; i < 256; i++)
 		{
 			if(unsigned count = exRegVmInstructionExecCount[i])
-				output.Printf("// %9s: %9d\n", GetInstructionName(RegVmInstructionCode(i)), count);
+				output.Printf("// %9s: %10d (%4.1f%%)\n", GetInstructionName(RegVmInstructionCode(i)), count, float(count) / total * 100.0);
 		}
+
+		output.Printf("// %9s: %10lld (%4.0f%%)\n", "total", total, 100.0);
 	}
 
 	output.Flush();
