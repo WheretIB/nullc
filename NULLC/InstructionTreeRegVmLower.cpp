@@ -327,6 +327,8 @@ unsigned RegVmLoweredModule::FindConstant(unsigned value1, unsigned value2)
 	return 0;
 }
 
+unsigned TryLowerConstantToMemory(RegVmLoweredBlock *lowBlock, VmValue *value);
+
 void LowerConstantIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, SmallArray<unsigned char, 32> &result, VmValue *value)
 {
 	VmConstant *constant = getType<VmConstant>(value);
@@ -343,25 +345,39 @@ void LowerConstantIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFun
 	}
 	else if(constant->type == VmType::Double)
 	{
-		unsigned data[2];
-		memcpy(data, &constant->dValue, 8);
-
 		unsigned char targetReg = lowFunction->GetRegisterForConstant();
 
-		lowBlock->AddInstruction(ctx, constant->source, rviLoadImm, targetReg, 0, 0, data[0]);
-		lowBlock->AddInstruction(ctx, constant->source, rviLoadImmDouble, targetReg, 0, 0, data[1]);
+		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, value))
+		{
+			lowBlock->AddInstruction(ctx, constant->source, rviLoadDouble, targetReg, 0, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+		}
+		else
+		{
+			unsigned data[2];
+			memcpy(data, &constant->dValue, 8);
+
+			lowBlock->AddInstruction(ctx, constant->source, rviLoadImm, targetReg, 0, 0, data[0]);
+			lowBlock->AddInstruction(ctx, constant->source, rviLoadImmDouble, targetReg, 0, 0, data[1]);
+		}
 
 		result.push_back(targetReg);
 	}
 	else if(constant->type == VmType::Long)
 	{
-		unsigned data[2];
-		memcpy(data, &constant->lValue, 8);
-
 		unsigned char targetReg = lowFunction->GetRegisterForConstant();
 
-		lowBlock->AddInstruction(ctx, constant->source, rviLoadImm, targetReg, 0, 0, data[0]);
-		lowBlock->AddInstruction(ctx, constant->source, rviLoadImmLong, targetReg, 0, 0, data[1]);
+		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, value))
+		{
+			lowBlock->AddInstruction(ctx, constant->source, rviLoadLong, targetReg, 0, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+		}
+		else
+		{
+			unsigned data[2];
+			memcpy(data, &constant->lValue, 8);
+
+			lowBlock->AddInstruction(ctx, constant->source, rviLoadImm, targetReg, 0, 0, data[0]);
+			lowBlock->AddInstruction(ctx, constant->source, rviLoadImmLong, targetReg, 0, 0, data[1]);
+		}
 
 		result.push_back(targetReg);
 	}
@@ -375,8 +391,15 @@ void LowerConstantIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFun
 
 			if(NULLC_PTR_SIZE == 8)
 			{
-				lowBlock->AddInstruction(ctx, constant->source, rviLoadImm, targetReg, 0, 0, 0u);
-				lowBlock->AddInstruction(ctx, constant->source, rviLoadImmLong, targetReg, 0, 0, 0u);
+				if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, value))
+				{
+					lowBlock->AddInstruction(ctx, constant->source, rviLoadLong, targetReg, 0, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+				}
+				else
+				{
+					lowBlock->AddInstruction(ctx, constant->source, rviLoadImm, targetReg, 0, 0, 0u);
+					lowBlock->AddInstruction(ctx, constant->source, rviLoadImmLong, targetReg, 0, 0, 0u);
+				}
 			}
 			else
 			{
@@ -888,19 +911,33 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			}
 			else if(inst->arguments[0]->type == VmType::Double)
 			{
-				unsigned data[2];
-				memcpy(data, &constant->dValue, 8);
+				if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[0]))
+				{
+					lowBlock->AddInstruction(ctx, constant->source, rviLoadDouble, targetReg, 0, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+				}
+				else
+				{
+					unsigned data[2];
+					memcpy(data, &constant->dValue, 8);
 
-				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, data[0]);
-				lowBlock->AddInstruction(ctx, inst->source, rviLoadImmDouble, targetReg, 0, 0, data[1]);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, data[0]);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadImmDouble, targetReg, 0, 0, data[1]);
+				}
 			}
 			else if(inst->arguments[0]->type == VmType::Long)
 			{
-				unsigned data[2];
-				memcpy(data, &constant->lValue, 8);
+				if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[0]))
+				{
+					lowBlock->AddInstruction(ctx, constant->source, rviLoadLong, targetReg, 0, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+				}
+				else
+				{
+					unsigned data[2];
+					memcpy(data, &constant->lValue, 8);
 
-				lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, data[0]);
-				lowBlock->AddInstruction(ctx, inst->source, rviLoadImmLong, targetReg, 0, 0, data[1]);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, data[0]);
+					lowBlock->AddInstruction(ctx, inst->source, rviLoadImmLong, targetReg, 0, 0, data[1]);
+				}
 			}
 			else if(inst->arguments[0]->type.type == VM_TYPE_POINTER)
 			{
@@ -912,10 +949,22 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				{
 					assert(!constant->container);
 
-					lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
-
 					if(NULLC_PTR_SIZE == 8)
-						lowBlock->AddInstruction(ctx, inst->source, rviLoadImmLong, targetReg, 0, 0, 0u);
+					{
+						if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[0]))
+						{
+							lowBlock->AddInstruction(ctx, constant->source, rviLoadLong, targetReg, 0, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+						}
+						else
+						{
+							lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
+							lowBlock->AddInstruction(ctx, inst->source, rviLoadImmLong, targetReg, 0, 0, 0u);
+						}
+					}
+					else
+					{
+						lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, targetReg, 0, 0, 0u);
+					}
 				}
 			}
 			else
