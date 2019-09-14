@@ -98,6 +98,14 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "mul";
 	case rviDiv:
 		return "div";
+	case rviAddm:
+		return "addm";
+	case rviSubm:
+		return "subm";
+	case rviMulm:
+		return "mulm";
+	case rviDivm:
+		return "divm";
 	case rviPow:
 		return "pow";
 	case rviMod:
@@ -118,6 +126,10 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "shl";
 	case rviShr:
 		return "shr";
+	case rviShlm:
+		return "shlm";
+	case rviShrm:
+		return "shrm";
 	case rviBitAnd:
 		return "bitand";
 	case rviBitOr:
@@ -136,6 +148,14 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "mull";
 	case rviDivl:
 		return "divl";
+	case rviAddlm:
+		return "addlm";
+	case rviSublm:
+		return "sublm";
+	case rviMullm:
+		return "mullm";
+	case rviDivlm:
+		return "divlm";
 	case rviPowl:
 		return "powl";
 	case rviModl:
@@ -156,6 +176,10 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "shll";
 	case rviShrl:
 		return "shrl";
+	case rviShllm:
+		return "shllm";
+	case rviShrlm:
+		return "shrlm";
 	case rviBitAndl:
 		return "bitandl";
 	case rviBitOrl:
@@ -172,6 +196,14 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "muld";
 	case rviDivd:
 		return "divd";
+	case rviAdddm:
+		return "adddm";
+	case rviSubdm:
+		return "subdm";
+	case rviMuldm:
+		return "muldm";
+	case rviDivdm:
+		return "divdm";
 	case rviPowd:
 		return "powd";
 	case rviModd:

@@ -1337,6 +1337,246 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 			else
 				assert(!"unknown type");
 			break;
+		case VM_INST_ADD_LOAD:
+		{
+			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
+
+			if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+				(void)offset;
+				assert(offset->iValue == 0);
+
+				if(inst->type == VmType::Int)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushInt, IsLocalScope(constant->container->scope), 4, constant);
+				else if(inst->type == VmType::Double || inst->type == VmType::Long)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushDorL, IsLocalScope(constant->container->scope), 4, constant);
+				else
+					assert(!"unknown type");
+			}
+			else
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+				LowerIntoBlock(ctx, lowBlock, inst->arguments[1]);
+
+				if(inst->type == VmType::Int)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushIntStk, 4, offset->iValue);
+				else if(inst->type == VmType::Double || inst->type == VmType::Long)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushDorLStk, 4, offset->iValue);
+				else
+					assert(!"unknown type");
+			}
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, cmdAdd);
+			else if(inst->type == VmType::Double)
+				lowBlock->AddInstruction(ctx, inst->source, cmdAddD);
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, cmdAddL);
+			else
+				assert(!"unknown type");
+		}
+		break;
+		case VM_INST_SUB_LOAD:
+		{
+			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
+
+			if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+				(void)offset;
+				assert(offset->iValue == 0);
+
+				if(inst->type == VmType::Int)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushInt, IsLocalScope(constant->container->scope), 4, constant);
+				else if(inst->type == VmType::Double || inst->type == VmType::Long)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushDorL, IsLocalScope(constant->container->scope), 4, constant);
+				else
+					assert(!"unknown type");
+			}
+			else
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+				LowerIntoBlock(ctx, lowBlock, inst->arguments[1]);
+
+				if(inst->type == VmType::Int)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushIntStk, 4, offset->iValue);
+				else if(inst->type == VmType::Double || inst->type == VmType::Long)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushDorLStk, 4, offset->iValue);
+				else
+					assert(!"unknown type");
+			}
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, cmdSub);
+			else if(inst->type == VmType::Double)
+				lowBlock->AddInstruction(ctx, inst->source, cmdSubD);
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, cmdSubL);
+			else
+				assert(!"unknown type");
+		}
+		break;
+		case VM_INST_MUL_LOAD:
+			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
+
+			if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+				(void)offset;
+				assert(offset->iValue == 0);
+
+				if(inst->type == VmType::Int)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushInt, IsLocalScope(constant->container->scope), 4, constant);
+				else if(inst->type == VmType::Double || inst->type == VmType::Long)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushDorL, IsLocalScope(constant->container->scope), 4, constant);
+				else
+					assert(!"unknown type");
+			}
+			else
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+				LowerIntoBlock(ctx, lowBlock, inst->arguments[1]);
+
+				if(inst->type == VmType::Int)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushIntStk, 4, offset->iValue);
+				else if(inst->type == VmType::Double || inst->type == VmType::Long)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushDorLStk, 4, offset->iValue);
+				else
+					assert(!"unknown type");
+			}
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, cmdMul);
+			else if(inst->type == VmType::Double)
+				lowBlock->AddInstruction(ctx, inst->source, cmdMulD);
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, cmdMulL);
+			else
+				assert(!"unknown type");
+			break;
+		case VM_INST_DIV_LOAD:
+			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
+
+			if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+				(void)offset;
+				assert(offset->iValue == 0);
+
+				if(inst->type == VmType::Int)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushInt, IsLocalScope(constant->container->scope), 4, constant);
+				else if(inst->type == VmType::Double || inst->type == VmType::Long)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushDorL, IsLocalScope(constant->container->scope), 4, constant);
+				else
+					assert(!"unknown type");
+			}
+			else
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+				LowerIntoBlock(ctx, lowBlock, inst->arguments[1]);
+
+				if(inst->type == VmType::Int)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushIntStk, 4, offset->iValue);
+				else if(inst->type == VmType::Double || inst->type == VmType::Long)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushDorLStk, 4, offset->iValue);
+				else
+					assert(!"unknown type");
+			}
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, cmdDiv);
+			else if(inst->type == VmType::Double)
+				lowBlock->AddInstruction(ctx, inst->source, cmdDivD);
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, cmdDivL);
+			else
+				assert(!"unknown type");
+			break;
+		case VM_INST_SHL_LOAD:
+			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
+
+			if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+				(void)offset;
+				assert(offset->iValue == 0);
+
+				if(inst->type == VmType::Int)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushInt, IsLocalScope(constant->container->scope), 4, constant);
+				else if(inst->type == VmType::Long)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushDorL, IsLocalScope(constant->container->scope), 4, constant);
+				else
+					assert(!"unknown type");
+			}
+			else
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+				LowerIntoBlock(ctx, lowBlock, inst->arguments[1]);
+
+				if(inst->type == VmType::Int)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushIntStk, 4, offset->iValue);
+				else if(inst->type == VmType::Long)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushDorLStk, 4, offset->iValue);
+				else
+					assert(!"unknown type");
+			}
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, cmdShl);
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, cmdShlL);
+			else
+				assert(!"unknown type");
+			break;
+		case VM_INST_SHR_LOAD:
+			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
+
+			if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+				(void)offset;
+				assert(offset->iValue == 0);
+
+				if(inst->type == VmType::Int)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushInt, IsLocalScope(constant->container->scope), 4, constant);
+				else if(inst->type == VmType::Long)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushDorL, IsLocalScope(constant->container->scope), 4, constant);
+				else
+					assert(!"unknown type");
+			}
+			else
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+				LowerIntoBlock(ctx, lowBlock, inst->arguments[1]);
+
+				if(inst->type == VmType::Int)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushIntStk, 4, offset->iValue);
+				else if(inst->type == VmType::Long)
+					lowBlock->AddInstruction(ctx, inst->source, cmdPushDorLStk, 4, offset->iValue);
+				else
+					assert(!"unknown type");
+			}
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, cmdShr);
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, cmdShrL);
+			else
+				assert(!"unknown type");
+			break;
 		case VM_INST_NEG:
 			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
 

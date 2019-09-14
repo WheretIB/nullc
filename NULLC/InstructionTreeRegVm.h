@@ -67,6 +67,12 @@ enum RegVmInstructionCode
 	rviSub,
 	rviMul,
 	rviDiv,
+
+	rviAddm,
+	rviSubm,
+	rviMulm,
+	rviDivm,
+
 	rviPow,
 	rviMod,
 
@@ -79,6 +85,9 @@ enum RegVmInstructionCode
 
 	rviShl,
 	rviShr,
+
+	rviShlm,
+	rviShrm,
 	
 	rviBitAnd,
 	rviBitOr,
@@ -91,6 +100,12 @@ enum RegVmInstructionCode
 	rviSubl,
 	rviMull,
 	rviDivl,
+
+	rviAddlm,
+	rviSublm,
+	rviMullm,
+	rviDivlm,
+
 	rviPowl,
 	rviModl,
 
@@ -104,6 +119,9 @@ enum RegVmInstructionCode
 	rviShll,
 	rviShrl,
 
+	rviShllm,
+	rviShrlm,
+
 	rviBitAndl,
 	rviBitOrl,
 	rviBitXorl,
@@ -114,6 +132,12 @@ enum RegVmInstructionCode
 	rviSubd,
 	rviMuld,
 	rviDivd,
+
+	rviAdddm,
+	rviSubdm,
+	rviMuldm,
+	rviDivdm,
+
 	rviPowd,
 	rviModd,
 

@@ -216,6 +216,13 @@ unsigned GetAccessSize(VmInstruction *inst)
 		return 8;
 	case VM_INST_STORE_STRUCT:
 		return inst->arguments[2]->type.size;
+	case VM_INST_ADD_LOAD:
+	case VM_INST_SUB_LOAD:
+	case VM_INST_MUL_LOAD:
+	case VM_INST_DIV_LOAD:
+	case VM_INST_SHL_LOAD:
+	case VM_INST_SHR_LOAD:
+		return inst->type.size;
 	default:
 		break;
 	}
@@ -383,6 +390,18 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "xor";
 	case VM_INST_LOG_XOR:
 		return "lxor";
+	case VM_INST_ADD_LOAD:
+		return "add_load";
+	case VM_INST_SUB_LOAD:
+		return "sub_load";
+	case VM_INST_MUL_LOAD:
+		return "mul_load";
+	case VM_INST_DIV_LOAD:
+		return "div_load";
+	case VM_INST_SHL_LOAD:
+		return "shl_load";
+	case VM_INST_SHR_LOAD:
+		return "shr_load";
 	case VM_INST_NEG:
 		return "neg";
 	case VM_INST_BIT_NOT:

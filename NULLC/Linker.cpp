@@ -673,6 +673,22 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		case rviStoreFloat:
 		case rviStoreDouble:
 		case rviGetAddr:
+		case rviAddm:
+		case rviSubm:
+		case rviMulm:
+		case rviDivm:
+		case rviShlm:
+		case rviShrm:
+		case rviAddlm:
+		case rviSublm:
+		case rviMullm:
+		case rviDivlm:
+		case rviShllm:
+		case rviShrlm:
+		case rviAdddm:
+		case rviSubdm:
+		case rviMuldm:
+		case rviDivdm:
 			if(cmd.rC == rvrrGlobals)
 			{
 				if(cmd.argument >> 24)

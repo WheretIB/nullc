@@ -1105,6 +1105,107 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 		else if(arguments[0]->type == VmType::Long)
 			return CreateConstantInt(ctx.allocator, NULL, (arguments[0]->lValue != 0) != (arguments[1]->lValue != 0));
 		break;
+	case VM_INST_ADD_LOAD:
+		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
+		{
+			assert(arguments[0]->type == rhs->type);
+
+			if(arguments[0]->type == VmType::Int)
+				return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue + rhs->iValue);
+			else if(arguments[0]->type == VmType::Double)
+				return CreateConstantDouble(ctx.allocator, NULL, arguments[0]->dValue + rhs->dValue);
+			else if(arguments[0]->type == VmType::Long)
+				return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue + rhs->lValue);
+		}
+		else
+		{
+			return NULL;
+		}
+		break;
+	case VM_INST_SUB_LOAD:
+		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
+		{
+			assert(arguments[0]->type == rhs->type);
+
+			if(arguments[0]->type == VmType::Int)
+				return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue - rhs->iValue);
+			else if(arguments[0]->type == VmType::Double)
+				return CreateConstantDouble(ctx.allocator, NULL, arguments[0]->dValue - rhs->dValue);
+			else if(arguments[0]->type == VmType::Long)
+				return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue - rhs->lValue);
+		}
+		else
+		{
+			return NULL;
+		}
+		break;
+	case VM_INST_MUL_LOAD:
+		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
+		{
+			assert(arguments[0]->type == rhs->type);
+
+			if(arguments[0]->type == VmType::Int)
+				return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue * rhs->iValue);
+			else if(arguments[0]->type == VmType::Double)
+				return CreateConstantDouble(ctx.allocator, NULL, arguments[0]->dValue * rhs->dValue);
+			else if(arguments[0]->type == VmType::Long)
+				return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue * rhs->lValue);
+		}
+		else
+		{
+			return NULL;
+		}
+		break;
+	case VM_INST_DIV_LOAD:
+		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
+		{
+			assert(arguments[0]->type == rhs->type);
+
+			if(arguments[0]->type != VmType::Double && IsConstantZero(rhs))
+				return (VmConstant*)Report(ctx, "ERROR: division by zero");
+
+			if(arguments[0]->type == VmType::Int)
+				return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue / rhs->iValue);
+			else if(arguments[0]->type == VmType::Double)
+				return CreateConstantDouble(ctx.allocator, NULL, arguments[0]->dValue / rhs->dValue);
+			else if(arguments[0]->type == VmType::Long)
+				return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue / rhs->lValue);
+		}
+		else
+		{
+			return NULL;
+		}
+		break;
+	case VM_INST_SHL_LOAD:
+		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
+		{
+			assert(arguments[0]->type == rhs->type);
+
+			if(arguments[0]->type == VmType::Int)
+				return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue << rhs->iValue);
+			else if(arguments[0]->type == VmType::Long)
+				return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue << rhs->lValue);
+		}
+		else
+		{
+			return NULL;
+		}
+		break;
+	case VM_INST_SHR_LOAD:
+		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
+		{
+			assert(arguments[0]->type == rhs->type);
+
+			if(arguments[0]->type == VmType::Int)
+				return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue >> rhs->iValue);
+			else if(arguments[0]->type == VmType::Long)
+				return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue >> rhs->lValue);
+		}
+		else
+		{
+			return NULL;
+		}
+		break;
 	case VM_INST_NEG:
 		if(arguments[0]->type == VmType::Int)
 			return CreateConstantInt(ctx.allocator, NULL, -arguments[0]->iValue);

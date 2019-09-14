@@ -104,6 +104,12 @@ namespace
 		case VM_INST_STORE_STRUCT:
 		case VM_INST_SET_RANGE:
 		case VM_INST_CALL:
+		case VM_INST_ADD_LOAD:
+		case VM_INST_SUB_LOAD:
+		case VM_INST_MUL_LOAD:
+		case VM_INST_DIV_LOAD:
+		case VM_INST_SHL_LOAD:
+		case VM_INST_SHR_LOAD:
 			return true;
 		default:
 			break;
@@ -129,6 +135,44 @@ namespace
 		}
 
 		return false;
+	}
+
+	bool IsOperationNaturalLoad(VmInstruction *inst, VmInstruction *load)
+	{
+		if(inst->type.type == VM_TYPE_INT)
+			return load->cmd == VM_INST_LOAD_INT;
+
+		if(inst->type.type == VM_TYPE_DOUBLE)
+			return load->cmd == VM_INST_LOAD_DOUBLE;
+
+		if(inst->type.type == VM_TYPE_LONG)
+			return load->cmd == VM_INST_LOAD_LONG;
+
+		return false;
+	}
+
+	VmInstructionType GetOperationWithLoad(VmInstructionType cmd)
+	{
+		switch(cmd)
+		{
+		case VM_INST_ADD:
+			return VM_INST_ADD_LOAD;
+		case VM_INST_SUB:
+			return VM_INST_SUB_LOAD;
+		case VM_INST_MUL:
+			return VM_INST_MUL_LOAD;
+		case VM_INST_DIV:
+			return VM_INST_DIV_LOAD;
+		case VM_INST_SHL:
+			return VM_INST_SHL_LOAD;
+		case VM_INST_SHR:
+			return VM_INST_SHR_LOAD;
+		default:
+			break;
+		}
+
+		assert(!"unknown operation");
+		return VM_INST_ABORT_NO_RETURN;
 	}
 
 	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth)
@@ -4962,6 +5006,72 @@ void RunArrayToElements(ExpressionContext &ctx, VmModule *module, VmValue* value
 	}
 }
 
+void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue* value)
+{
+	if(VmFunction *function = getType<VmFunction>(value))
+	{
+		VmBlock *curr = function->firstBlock;
+
+		while(curr)
+		{
+			VmBlock *next = curr->nextSibling;
+			RunLatePeepholeOptimizations(ctx, module, curr);
+			curr = next;
+		}
+	}
+	else if(VmBlock *block = getType<VmBlock>(value))
+	{
+		VmInstruction *curr = block->firstInstruction;
+
+		while(curr)
+		{
+			VmInstruction *next = curr->nextSibling;
+			RunLatePeepholeOptimizations(ctx, module, curr);
+			curr = next;
+		}
+	}
+	else if(VmInstruction *inst = getType<VmInstruction>(value))
+	{
+		switch(inst->cmd)
+		{
+		case VM_INST_ADD:
+		case VM_INST_SUB:
+		case VM_INST_MUL:
+		case VM_INST_DIV:
+		case VM_INST_SHL:
+		case VM_INST_SHR:
+			if(VmInstruction *rhs = getType<VmInstruction>(inst->arguments[1]))
+			{
+				if(IsOperationNaturalLoad(inst, rhs) && rhs->users.size() == 1 && inst->arguments.size() == 2)
+				{
+					VmValue *loadAddress = rhs->arguments[0];
+					VmValue *loadOffset = rhs->arguments[1];
+
+					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[0], loadAddress, loadOffset, NULL, &module->peepholeOptimizations);
+				}
+			}
+			break;
+		}
+
+		switch(inst->cmd)
+		{
+		case VM_INST_ADD:
+		case VM_INST_MUL:
+			if(VmInstruction *lhs = getType<VmInstruction>(inst->arguments[0]))
+			{
+				if(IsOperationNaturalLoad(inst, lhs) && lhs->users.size() == 1 && inst->arguments.size() == 2)
+				{
+					VmValue *loadAddress = lhs->arguments[0];
+					VmValue *loadOffset = lhs->arguments[1];
+
+					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[1], loadAddress, loadOffset, NULL, &module->peepholeOptimizations);
+				}
+			}
+			break;
+		}
+	}
+}
+
 void RunUpdateLiveSets(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	(void)ctx;
@@ -5878,6 +5988,9 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 			break;
 		case VM_PASS_OPT_ARRAY_TO_ELEMENTS:
 			RunArrayToElements(ctx, module, value);
+			break;
+		case VM_PASS_OPT_LATE_PEEPHOLE:
+			RunLatePeepholeOptimizations(ctx, module, value);
 			break;
 		case VM_PASS_UPDATE_LIVE_SETS:
 			RunUpdateLiveSets(ctx, module, value);

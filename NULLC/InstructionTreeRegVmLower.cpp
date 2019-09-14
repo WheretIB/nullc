@@ -2179,6 +2179,219 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			assert(!"unknown type");
 	}
 		break;
+	case VM_INST_ADD_LOAD:
+	{
+		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
+
+		unsigned char sourceReg = 0;
+
+		VmConstant *shift = getType<VmConstant>(inst->arguments[2]);
+
+		if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+		{
+			VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+			(void)offset;
+			assert(offset->iValue == 0);
+
+			shift = constant;
+
+			sourceReg = IsLocalScope(constant->container->scope) ? rvrrFrame : rvrrGlobals;
+		}
+		else
+		{
+			sourceReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+		}
+
+		unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+		if(inst->type == VmType::Int || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
+			lowBlock->AddInstruction(ctx, inst->source, rviAddm, targetReg, lhsReg, sourceReg, shift);
+		else if(inst->type == VmType::Double)
+			lowBlock->AddInstruction(ctx, inst->source, rviAdddm, targetReg, lhsReg, sourceReg, shift);
+		else if(inst->type == VmType::Long || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
+			lowBlock->AddInstruction(ctx, inst->source, rviAddlm, targetReg, lhsReg, sourceReg, shift);
+		else
+			assert(!"unknown type");
+	}
+	break;
+	case VM_INST_SUB_LOAD:
+	{
+		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
+
+		unsigned char sourceReg = 0;
+
+		VmConstant *shift = getType<VmConstant>(inst->arguments[2]);
+
+		if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+		{
+			VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+			(void)offset;
+			assert(offset->iValue == 0);
+
+			shift = constant;
+
+			sourceReg = IsLocalScope(constant->container->scope) ? rvrrFrame : rvrrGlobals;
+		}
+		else
+		{
+			sourceReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+		}
+
+		unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+		if(inst->type == VmType::Int)
+			lowBlock->AddInstruction(ctx, inst->source, rviSubm, targetReg, lhsReg, sourceReg, shift);
+		else if(inst->type == VmType::Double)
+			lowBlock->AddInstruction(ctx, inst->source, rviSubdm, targetReg, lhsReg, sourceReg, shift);
+		else if(inst->type == VmType::Long)
+			lowBlock->AddInstruction(ctx, inst->source, rviSublm, targetReg, lhsReg, sourceReg, shift);
+		else
+			assert(!"unknown type");
+	}
+	break;
+	case VM_INST_MUL_LOAD:
+	{
+		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
+
+		unsigned char sourceReg = 0;
+
+		VmConstant *shift = getType<VmConstant>(inst->arguments[2]);
+
+		if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+		{
+			VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+			(void)offset;
+			assert(offset->iValue == 0);
+
+			shift = constant;
+
+			sourceReg = IsLocalScope(constant->container->scope) ? rvrrFrame : rvrrGlobals;
+		}
+		else
+		{
+			sourceReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+		}
+
+		unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+		if(inst->type == VmType::Int)
+			lowBlock->AddInstruction(ctx, inst->source, rviMulm, targetReg, lhsReg, sourceReg, shift);
+		else if(inst->type == VmType::Double)
+			lowBlock->AddInstruction(ctx, inst->source, rviMuldm, targetReg, lhsReg, sourceReg, shift);
+		else if(inst->type == VmType::Long)
+			lowBlock->AddInstruction(ctx, inst->source, rviMullm, targetReg, lhsReg, sourceReg, shift);
+		else
+			assert(!"unknown type");
+	}
+	break;
+	case VM_INST_DIV_LOAD:
+	{
+		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
+
+		unsigned char sourceReg = 0;
+
+		VmConstant *shift = getType<VmConstant>(inst->arguments[2]);
+
+		if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+		{
+			VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+			(void)offset;
+			assert(offset->iValue == 0);
+
+			shift = constant;
+
+			sourceReg = IsLocalScope(constant->container->scope) ? rvrrFrame : rvrrGlobals;
+		}
+		else
+		{
+			sourceReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+		}
+
+		unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+		if(inst->type == VmType::Int)
+			lowBlock->AddInstruction(ctx, inst->source, rviDivm, targetReg, lhsReg, sourceReg, shift);
+		else if(inst->type == VmType::Double)
+			lowBlock->AddInstruction(ctx, inst->source, rviDivdm, targetReg, lhsReg, sourceReg, shift);
+		else if(inst->type == VmType::Long)
+			lowBlock->AddInstruction(ctx, inst->source, rviDivlm, targetReg, lhsReg, sourceReg, shift);
+		else
+			assert(!"unknown type");
+	}
+	break;
+	case VM_INST_SHL_LOAD:
+	{
+		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
+
+		unsigned char sourceReg = 0;
+
+		VmConstant *shift = getType<VmConstant>(inst->arguments[2]);
+
+		if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+		{
+			VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+			(void)offset;
+			assert(offset->iValue == 0);
+
+			shift = constant;
+
+			sourceReg = IsLocalScope(constant->container->scope) ? rvrrFrame : rvrrGlobals;
+		}
+		else
+		{
+			sourceReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+		}
+
+		unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+		if(inst->type == VmType::Int)
+			lowBlock->AddInstruction(ctx, inst->source, rviShlm, targetReg, lhsReg, sourceReg, shift);
+		else if(inst->type == VmType::Long)
+			lowBlock->AddInstruction(ctx, inst->source, rviShllm, targetReg, lhsReg, sourceReg, shift);
+		else
+			assert(!"unknown type");
+	}
+	break;
+	case VM_INST_SHR_LOAD:
+	{
+		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
+
+		unsigned char sourceReg = 0;
+
+		VmConstant *shift = getType<VmConstant>(inst->arguments[2]);
+
+		if(VmConstant *constant = getType<VmConstant>(inst->arguments[1]))
+		{
+			VmConstant *offset = getType<VmConstant>(inst->arguments[2]);
+
+			(void)offset;
+			assert(offset->iValue == 0);
+
+			shift = constant;
+
+			sourceReg = IsLocalScope(constant->container->scope) ? rvrrFrame : rvrrGlobals;
+		}
+		else
+		{
+			sourceReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+		}
+
+		unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+		if(inst->type == VmType::Int)
+			lowBlock->AddInstruction(ctx, inst->source, rviShrm, targetReg, lhsReg, sourceReg, shift);
+		else if(inst->type == VmType::Long)
+			lowBlock->AddInstruction(ctx, inst->source, rviShrlm, targetReg, lhsReg, sourceReg, shift);
+		else
+			assert(!"unknown type");
+	}
+	break;
+
 	case VM_INST_NEG:
 	{
 		unsigned char sourceReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);

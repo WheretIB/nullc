@@ -340,6 +340,25 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 	case rviSub:
 	case rviMul:
 	case rviDiv:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rB);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rC);
+		break;
+	case rviAddm:
+	case rviSubm:
+	case rviMulm:
+	case rviDivm:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rB);
+		Print(ctx, ", [");
+		PrintRegister(ctx, rC);
+		Print(ctx, " + ");
+		PrintConstant(ctx, argument, constant);
+		Print(ctx, "]");
+		break;
 	case rviPow:
 	case rviMod:
 	case rviLess:
@@ -350,6 +369,23 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 	case rviNequal:
 	case rviShl:
 	case rviShr:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rB);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rC);
+		break;
+	case rviShlm:
+	case rviShrm:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rB);
+		Print(ctx, ", [");
+		PrintRegister(ctx, rC);
+		Print(ctx, " + ");
+		PrintConstant(ctx, argument, constant);
+		Print(ctx, "]");
+		break;
 	case rviBitAnd:
 	case rviBitOr:
 	case rviBitXor:
@@ -371,6 +407,25 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 	case rviSubl:
 	case rviMull:
 	case rviDivl:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rB);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rC);
+		break;
+	case rviAddlm:
+	case rviSublm:
+	case rviMullm:
+	case rviDivlm:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rB);
+		Print(ctx, ", [");
+		PrintRegister(ctx, rC);
+		Print(ctx, " + ");
+		PrintConstant(ctx, argument, constant);
+		Print(ctx, "]");
+		break;
 	case rviPowl:
 	case rviModl:
 	case rviLessl:
@@ -381,6 +436,23 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 	case rviNequall:
 	case rviShll:
 	case rviShrl:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rB);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rC);
+		break;
+	case rviShllm:
+	case rviShrlm:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rB);
+		Print(ctx, ", [");
+		PrintRegister(ctx, rC);
+		Print(ctx, " + ");
+		PrintConstant(ctx, argument, constant);
+		Print(ctx, "]");
+		break;
 	case rviBitAndl:
 	case rviBitOrl:
 	case rviBitXorl:
@@ -389,6 +461,25 @@ void PrintInstruction(OutputContext &ctx, RegVmInstructionCode code, unsigned ch
 	case rviSubd:
 	case rviMuld:
 	case rviDivd:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rB);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rC);
+		break;
+	case rviAdddm:
+	case rviSubdm:
+	case rviMuldm:
+	case rviDivdm:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rB);
+		Print(ctx, ", [");
+		PrintRegister(ctx, rC);
+		Print(ctx, " + ");
+		PrintConstant(ctx, argument, constant);
+		Print(ctx, "]");
+		break;
 	case rviPowd:
 	case rviModd:
 	case rviLessd:
