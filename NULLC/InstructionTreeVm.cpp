@@ -1249,7 +1249,11 @@ namespace
 
 				// Reuse previous load
 				if(el.loadInst && *el.address == *address && GetAccessSize(inst) == GetAccessSize(el.loadInst))
+				{
+					assert(el.loadInst->parent);
+
 					return el.loadInst;
+				}
 
 				// Reuse store argument
 				if(el.storeInst && *el.address == *address && GetAccessSize(inst) == GetAccessSize(el.storeInst))
@@ -1280,7 +1284,11 @@ namespace
 					continue;
 
 				if(el.loadInst && el.pointer == pointer && el.offset->iValue == loadOffset->iValue && GetAccessSize(inst) == GetAccessSize(el.loadInst))
+				{
+					assert(el.loadInst->parent);
+
 					return el.loadInst;
+				}
 			}
 		}
 
