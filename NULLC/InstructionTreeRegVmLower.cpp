@@ -2871,7 +2871,7 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 	// Reset free registers state
 	lowFunction->freedRegisters.clear();
 
-	for(unsigned i = unsigned(lowFunction->nextRegister == 0 ? 255 : lowFunction->nextRegister) - 1; i >= 2; i--)
+	for(unsigned i = unsigned(lowFunction->nextRegister == 0 ? 255 : lowFunction->nextRegister) - 1; i >= rvrrCount; i--)
 	{
 		if(lowFunction->registerUsers[i] == 0)
 			lowFunction->freedRegisters.push_back((unsigned char)i);
