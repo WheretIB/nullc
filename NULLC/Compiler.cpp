@@ -1033,6 +1033,9 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	unsigned offsetToRegVmInfo = size;
 	size += sizeof(ExternSourceInfo) * regVmInfoCount;
 
+	unsigned offsetToRegVmConstants = size;
+	size += ctx.instRegVmFinalizeCtx.constants.size() * sizeof(unsigned);
+
 	unsigned offsetToSymbols = size;
 	size += symbolStorageSize;
 
@@ -1089,9 +1092,13 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 	code->regVmCodeSize = ctx.instRegVmFinalizeCtx.cmds.size();
 	code->regVmOffsetToCode = offsetToRegVmCode;
 
+	code->regVmConstantCount = ctx.instRegVmFinalizeCtx.constants.size();
+	code->regVmOffsetToConstants = offsetToRegVmConstants;
+
 	code->symbolLength = symbolStorageSize;
 	code->offsetToSymbols = offsetToSymbols;
 
+	code->constantCount = allConstantCount;
 	code->offsetToConstants = offsetToConstants;
 
 	code->namespaceCount = ctx.exprCtx.namespaces.size();
@@ -1885,6 +1892,9 @@ unsigned GetBytecode(CompilerContext &ctx, char **bytecode)
 
 	if(ctx.instRegVmFinalizeCtx.cmds.size())
 		memcpy(FindRegVmCode(code), ctx.instRegVmFinalizeCtx.cmds.data, ctx.instRegVmFinalizeCtx.cmds.size() * sizeof(RegVmCmd));
+
+	if(ctx.instRegVmFinalizeCtx.constants.size())
+		memcpy(FindRegVmConstants(code), ctx.instRegVmFinalizeCtx.constants.data, ctx.instRegVmFinalizeCtx.constants.size() * sizeof(unsigned));
 
 	char *sourceCode = (char*)code + offsetToSource;
 	memcpy(sourceCode, ctx.code, sourceLength);

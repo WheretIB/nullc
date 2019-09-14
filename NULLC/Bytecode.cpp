@@ -74,3 +74,8 @@ char* FindSource(ByteCode *code)
 {
 	return (char*)(code) + code->offsetToSource;
 }
+
+unsigned* FindRegVmConstants(ByteCode *code)
+{
+	return (unsigned*)((char*)(code) + code->regVmOffsetToConstants);
+}

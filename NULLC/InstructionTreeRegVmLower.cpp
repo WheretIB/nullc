@@ -305,6 +305,28 @@ bool RegVmLoweredFunction::TransferRegisterTo(VmValue *value, unsigned char reg)
 	return false;
 }
 
+unsigned RegVmLoweredModule::FindConstant(unsigned value)
+{
+	for(unsigned i = 0; i < constants.size(); i++)
+	{
+		if(constants[i] == value)
+			return i + 1;
+	}
+
+	return 0;
+}
+
+unsigned RegVmLoweredModule::FindConstant(unsigned value1, unsigned value2)
+{
+	for(unsigned i = 0; i < constants.size(); i += 2)
+	{
+		if(constants[i] == value1 && constants[i + 1] == value2)
+			return i + 1;
+	}
+
+	return 0;
+}
+
 void LowerConstantIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, SmallArray<unsigned char, 32> &result, VmValue *value)
 {
 	VmConstant *constant = getType<VmConstant>(value);
@@ -453,6 +475,70 @@ bool TryLowerConstantPushIntoBlock(ExpressionContext &ctx, RegVmLoweredBlock *lo
 	}
 
 	return false;
+}
+
+unsigned TryLowerConstantToMemory(RegVmLoweredBlock *lowBlock, VmValue *value)
+{
+	if(VmConstant *constant = getType<VmConstant>(value))
+	{
+		RegVmLoweredModule *lowModule = lowBlock->parent->parent;
+
+		if(constant->type == VmType::Int || (constant->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4 && !constant->container))
+		{
+			if(constant->type.type == VM_TYPE_POINTER)
+				assert(constant->iValue == 0);
+
+			if(unsigned index = lowModule->FindConstant(constant->iValue))
+				return index;
+
+			unsigned index = lowModule->constants.size() + 1;
+
+			lowModule->constants.push_back(constant->iValue);
+
+			return index;
+		}
+		else if(constant->type == VmType::Double)
+		{
+			unsigned data[2];
+			memcpy(data, &constant->dValue, 8);
+
+			if(unsigned index = lowModule->FindConstant(data[0], data[1]))
+				return index;
+
+			if(lowModule->constants.size() % 2 != 0)
+				lowModule->constants.push_back(0);
+
+			unsigned index = lowModule->constants.size() + 1;
+
+			lowModule->constants.push_back(data[0]);
+			lowModule->constants.push_back(data[1]);
+
+			return index;
+		}
+		else if(constant->type == VmType::Long || (constant->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8 && !constant->container))
+		{
+			if(constant->type.type == VM_TYPE_POINTER)
+				assert(constant->iValue == 0);
+
+			unsigned data[2];
+			memcpy(data, &constant->lValue, 8);
+
+			if(unsigned index = lowModule->FindConstant(data[0], data[1]))
+				return index;
+
+			if(lowModule->constants.size() % 2 != 0)
+				lowModule->constants.push_back(0);
+
+			unsigned index = lowModule->constants.size() + 1;
+
+			lowModule->constants.push_back(data[0]);
+			lowModule->constants.push_back(data[1]);
+
+			return index;
+		}
+	}
+
+	return 0;
 }
 
 unsigned char GetArgumentRegister(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, VmValue *value)
@@ -1812,17 +1898,33 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			}
 		}
 
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
+		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[1]))
+		{
+			unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->type == VmType::Int || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
-			lowBlock->AddInstruction(ctx, inst->source, rviAdd, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Double)
-			lowBlock->AddInstruction(ctx, inst->source, rviAddd, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Long || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
-			lowBlock->AddInstruction(ctx, inst->source, rviAddl, targetReg, lhsReg, rhsReg);
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, rviAddm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else if(inst->type == VmType::Double)
+				lowBlock->AddInstruction(ctx, inst->source, rviAdddm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, rviAddlm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else
+				assert(!"unknown type");
+		}
 		else
-			assert(!"unknown type");
+		{
+			unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+			unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+			if(inst->type == VmType::Int || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
+				lowBlock->AddInstruction(ctx, inst->source, rviAdd, targetReg, lhsReg, rhsReg);
+			else if(inst->type == VmType::Double)
+				lowBlock->AddInstruction(ctx, inst->source, rviAddd, targetReg, lhsReg, rhsReg);
+			else if(inst->type == VmType::Long || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
+				lowBlock->AddInstruction(ctx, inst->source, rviAddl, targetReg, lhsReg, rhsReg);
+			else
+				assert(!"unknown type");
+		}
 	}
 	break;
 	case VM_INST_SUB:
@@ -1852,49 +1954,99 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			}
 		}
 
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
+		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[1]))
+		{
+			unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviSub, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Double)
-			lowBlock->AddInstruction(ctx, inst->source, rviSubd, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviSubl, targetReg, lhsReg, rhsReg);
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, rviSubm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else if(inst->type == VmType::Double)
+				lowBlock->AddInstruction(ctx, inst->source, rviSubdm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, rviSublm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else
+				assert(!"unknown type");
+		}
 		else
-			assert(!"unknown type");
+		{
+			unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+			unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, rviSub, targetReg, lhsReg, rhsReg);
+			else if(inst->type == VmType::Double)
+				lowBlock->AddInstruction(ctx, inst->source, rviSubd, targetReg, lhsReg, rhsReg);
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, rviSubl, targetReg, lhsReg, rhsReg);
+			else
+				assert(!"unknown type");
+		}
 	}
 	break;
 	case VM_INST_MUL:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviMul, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Double)
-			lowBlock->AddInstruction(ctx, inst->source, rviMuld, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviMull, targetReg, lhsReg, rhsReg);
+		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[1]))
+		{
+			unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, rviMulm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else if(inst->type == VmType::Double)
+				lowBlock->AddInstruction(ctx, inst->source, rviMuldm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, rviMullm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else
+				assert(!"unknown type");
+		}
 		else
-			assert(!"unknown type");
+		{
+			unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+			unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, rviMul, targetReg, lhsReg, rhsReg);
+			else if(inst->type == VmType::Double)
+				lowBlock->AddInstruction(ctx, inst->source, rviMuld, targetReg, lhsReg, rhsReg);
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, rviMull, targetReg, lhsReg, rhsReg);
+			else
+				assert(!"unknown type");
+		}
 	}
 		break;
 	case VM_INST_DIV:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviDiv, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Double)
-			lowBlock->AddInstruction(ctx, inst->source, rviDivd, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviDivl, targetReg, lhsReg, rhsReg);
+		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[1]))
+		{
+			unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, rviDivm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else if(inst->type == VmType::Double)
+				lowBlock->AddInstruction(ctx, inst->source, rviDivdm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, rviDivlm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else
+				assert(!"unknown type");
+		}
 		else
-			assert(!"unknown type");
+		{
+			unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+			unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, rviDiv, targetReg, lhsReg, rhsReg);
+			else if(inst->type == VmType::Double)
+				lowBlock->AddInstruction(ctx, inst->source, rviDivd, targetReg, lhsReg, rhsReg);
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, rviDivl, targetReg, lhsReg, rhsReg);
+			else
+				assert(!"unknown type");
+		}
 	}
 		break;
 	case VM_INST_POW:
@@ -2032,29 +2184,59 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 	case VM_INST_SHL:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviShl, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviShll, targetReg, lhsReg, rhsReg);
+		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[1]))
+		{
+			unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, rviShlm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, rviShllm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else
+				assert(!"unknown type");
+		}
 		else
-			assert(!"unknown type");
+		{
+			unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+			unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, rviShl, targetReg, lhsReg, rhsReg);
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, rviShll, targetReg, lhsReg, rhsReg);
+			else
+				assert(!"unknown type");
+		}
 	}
 		break;
 	case VM_INST_SHR:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviShr, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviShrl, targetReg, lhsReg, rhsReg);
+		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[1]))
+		{
+			unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, rviShrm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, rviShrlm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+			else
+				assert(!"unknown type");
+		}
 		else
-			assert(!"unknown type");
+		{
+			unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+			unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+			if(inst->type == VmType::Int)
+				lowBlock->AddInstruction(ctx, inst->source, rviShr, targetReg, lhsReg, rhsReg);
+			else if(inst->type == VmType::Long)
+				lowBlock->AddInstruction(ctx, inst->source, rviShrl, targetReg, lhsReg, rhsReg);
+			else
+				assert(!"unknown type");
+		}
 	}
 		break;
 	case VM_INST_BIT_AND:
@@ -2823,7 +3005,7 @@ void UpdateSharedStorage(VmInstruction *inst, unsigned marker)
 
 RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, VmBlock *vmBlock)
 {
-	RegVmLoweredBlock *lowBlock = new (ctx.get<RegVmLoweredBlock>()) RegVmLoweredBlock(ctx.allocator, vmBlock);
+	RegVmLoweredBlock *lowBlock = new (ctx.get<RegVmLoweredBlock>()) RegVmLoweredBlock(ctx.allocator, lowFunction, vmBlock);
 
 	// TODO: create some kind of wrapper that will handle instruction with storage shared through phi instructions
 
@@ -3051,9 +3233,9 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 	return lowBlock;
 }
 
-RegVmLoweredFunction* RegVmLowerFunction(ExpressionContext &ctx, VmFunction *vmFunction)
+RegVmLoweredFunction* RegVmLowerFunction(ExpressionContext &ctx, RegVmLoweredModule *lowModule, VmFunction *vmFunction)
 {
-	RegVmLoweredFunction *lowFunction = new (ctx.get<RegVmLoweredFunction>()) RegVmLoweredFunction(ctx.allocator, vmFunction);
+	RegVmLoweredFunction *lowFunction = new (ctx.get<RegVmLoweredFunction>()) RegVmLoweredFunction(ctx.allocator, lowModule, vmFunction);
 
 	assert(vmFunction->firstBlock);
 
@@ -3080,7 +3262,7 @@ RegVmLoweredModule* RegVmLowerModule(ExpressionContext &ctx, VmModule *vmModule)
 		if(vmFunction->function && vmFunction->function->isPrototype && !vmFunction->function->implementation)
 			continue;
 
-		RegVmLoweredFunction *lowFunction = RegVmLowerFunction(ctx, vmFunction);
+		RegVmLoweredFunction *lowFunction = RegVmLowerFunction(ctx, lowModule, vmFunction);
 
 		lowModule->functions.push_back(lowFunction);
 
@@ -3195,4 +3377,10 @@ void RegVmFinalizeModule(InstructionRegVmFinalizeContext &ctx, RegVmLoweredModul
 
 		RegFinalizeFunction(ctx, lowFunction);
 	}
+
+	ctx.constants.push_back(lowModule->constants.data, lowModule->constants.size());
+
+	// Keep 8 byte alignment after module link
+	if(ctx.constants.size() % 2 != 0)
+		ctx.constants.push_back(0);
 }

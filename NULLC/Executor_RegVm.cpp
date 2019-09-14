@@ -290,6 +290,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 				REGVM_DEBUG(regFilePtr[rvrrGlobals].activeType = rvrPointer);
 				REGVM_DEBUG(regFilePtr[rvrrFrame].activeType = rvrPointer);
+				REGVM_DEBUG(regFilePtr[rvrrConstants].activeType = rvrPointer);
 
 				assert(dataStack.size() % 16 == 0);
 
@@ -311,6 +312,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 					regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
 					regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevDataSize);
+					regFilePtr[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
 				}
 
 				memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr - rvrrCount) * sizeof(regFilePtr[0]));
@@ -325,9 +327,11 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 		REGVM_DEBUG(regFilePtr[rvrrGlobals].activeType = rvrPointer);
 		REGVM_DEBUG(regFilePtr[rvrrFrame].activeType = rvrPointer);
+		REGVM_DEBUG(regFilePtr[rvrrConstants].activeType = rvrPointer);
 
 		regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
 		regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data);
+		regFilePtr[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
 
 		memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr - rvrrCount) * sizeof(regFilePtr[0]));
 	}
@@ -1993,6 +1997,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 
 	REGVM_DEBUG(regFileTop[rvrrGlobals].activeType = rvrPointer);
 	REGVM_DEBUG(regFileTop[rvrrFrame].activeType = rvrPointer);
+	REGVM_DEBUG(regFileTop[rvrrConstants].activeType = rvrPointer);
 
 	assert(dataStack.size() % 16 == 0);
 
@@ -2013,6 +2018,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 
 	regFileTop[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
 	regFileTop[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevDataSize);
+	regFileTop[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
 
 	memset(regFileTop + rvrrCount, 0, (regFileLastTop - regFileTop - rvrrCount) * sizeof(regFilePtr[0]));
 

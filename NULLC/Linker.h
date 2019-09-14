@@ -53,6 +53,7 @@ public:
 	FastVector<ExternSourceInfo>	exRegVmSourceInfo;
 	FastVector<unsigned int>		exRegVmExecCount;
 	FixedArray<unsigned int, 256>	exRegVmInstructionExecCount;
+	FastVector<unsigned int>		exRegVmConstants;
 
 	unsigned int					regVmOffsetToGlobalCode;
 

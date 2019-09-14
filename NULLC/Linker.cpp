@@ -409,6 +409,10 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 			sourceInfo.sourceOffset += oldSourceSize;
 	}
 
+	unsigned int oldRegVmConstantsSize = exRegVmConstants.size();
+	exRegVmConstants.resize(oldRegVmConstantsSize + bCode->regVmConstantCount);
+	memcpy(exRegVmConstants.data + oldRegVmConstantsSize, FindRegVmConstants(bCode), bCode->regVmConstantCount * sizeof(unsigned));
+
 	debugOutputIndent--;
 
 	// Add new functions
@@ -696,6 +700,10 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 				else
 					cmd.argument += oldGlobalSize;
 			}
+			else if(cmd.rC == rvrrConstants)
+			{
+				cmd.argument += oldRegVmConstantsSize * 4;
+			}
 			break;
 		case rviJmp:
 		case rviJmpz:
@@ -920,7 +928,7 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 			}
 		}
 
-		PrintInstruction(output, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
+		PrintInstruction(output, NULL, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
 
 		if(cmd.code == rviCall || cmd.code == rviFuncAddr)
 			output.Printf(" (%s)", exSymbols.data + exFunctions[exRegVmCode[i].argument].offsetToName);

@@ -274,6 +274,9 @@ struct ByteCode
 	unsigned int	regVmOffsetToCode;
 	unsigned int	regVmGlobalCodeStart;
 
+	unsigned int	regVmConstantCount;
+	unsigned int	regVmOffsetToConstants;
+
 	unsigned int	symbolLength;
 	unsigned int	offsetToSymbols;
 
@@ -286,6 +289,7 @@ struct ByteCode
 	unsigned int	typedefCount;
 	unsigned int	offsetToTypedef;
 
+	unsigned int	constantCount;
 	unsigned int	offsetToConstants;
 
 	unsigned int	namespaceCount;
@@ -307,17 +311,25 @@ struct ByteCode
 
 //	ExternFuncInfo::Upvalue	closureLists[closureListCount];
 
-//	ExternTypedefInfo	typedefs[typedefCount]
+//	ExternTypedefInfo	typedefs[typedefCount];
 
-//	ExternNamespaceInfo	namespaces[namespaceCount]
+//	ExternNamespaceInfo	namespaces[namespaceCount];
 
-//	char			code[codeSize];
+//	char			vmCode[vmCodeSize];
 
-//	ExternSourceInfo	sourceInfo[infoLength]
+//	char			regVmCode[regVmCodeSize];
+
+//	ExternSourceInfo	vmSourceInfo[vmInfoSize];
+
+//	ExternSourceInfo	regVmSourceInfo[regVmInfoSize];
 
 //	char			debugSymbols[symbolLength];
 
 //	char			source[sourceSize]
+
+//	char			llvmCode[llvmSize];
+
+//	unsigned		regVmConstants[regVmConstantCount];
 };
 
 #pragma pack(pop)
@@ -337,5 +349,6 @@ char*				FindRegVmCode(ByteCode *code);
 ExternSourceInfo*	FindRegVmSourceInfo(ByteCode *code);
 char*				FindSymbols(ByteCode *code);
 char*				FindSource(ByteCode *code);
+unsigned*			FindRegVmConstants(ByteCode *code);
 
 #endif

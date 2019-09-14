@@ -195,8 +195,9 @@ enum RegVmReturnType
 
 #define rvrrGlobals 0
 #define rvrrFrame 1
+#define rvrrConstants 2
 
-#define rvrrCount 2
+#define rvrrCount 3
 
 struct RegVmCmd
 {

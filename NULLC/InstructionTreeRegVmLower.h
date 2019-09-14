@@ -47,7 +47,7 @@ struct RegVmLoweredInstruction
 
 struct RegVmLoweredBlock
 {
-	RegVmLoweredBlock(Allocator *allocator, VmBlock *vmBlock): vmBlock(vmBlock), entryRegisters(allocator), exitRegisters(allocator), leakedRegisters(allocator)
+	RegVmLoweredBlock(Allocator *allocator, RegVmLoweredFunction *parent, VmBlock *vmBlock): parent(parent), vmBlock(vmBlock), entryRegisters(allocator), exitRegisters(allocator), leakedRegisters(allocator)
 	{
 		firstInstruction = NULL;
 		lastInstruction = NULL;
@@ -61,6 +61,8 @@ struct RegVmLoweredBlock
 	void AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, VmBlock *argument);
 	void AddInstruction(ExpressionContext &ctx, SynBase *location, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, VmFunction *argument);
 
+	RegVmLoweredFunction *parent;
+
 	VmBlock *vmBlock;
 
 	RegVmLoweredInstruction *firstInstruction;
@@ -73,7 +75,7 @@ struct RegVmLoweredBlock
 
 struct RegVmLoweredFunction
 {
-	RegVmLoweredFunction(Allocator *allocator, VmFunction *vmFunction): vmFunction(vmFunction), blocks(allocator), delayedFreedRegisters(allocator), freedRegisters(allocator), constantRegisters(allocator), killedRegisters(allocator)
+	RegVmLoweredFunction(Allocator *allocator, RegVmLoweredModule *parent, VmFunction *vmFunction): parent(parent), vmFunction(vmFunction), blocks(allocator), delayedFreedRegisters(allocator), freedRegisters(allocator), constantRegisters(allocator), killedRegisters(allocator)
 	{
 		registerUsers.fill(0);
 
@@ -100,6 +102,8 @@ struct RegVmLoweredFunction
 
 	bool TransferRegisterTo(VmValue *value, unsigned char reg);
 
+	RegVmLoweredModule *parent;
+
 	VmFunction *vmFunction;
 
 	SmallArray<RegVmLoweredBlock*, 16> blocks;
@@ -123,15 +127,21 @@ struct RegVmLoweredFunction
 
 struct RegVmLoweredModule
 {
-	RegVmLoweredModule(Allocator *allocator, VmModule *vmModule): allocator(allocator), vmModule(vmModule), functions(allocator)
+	RegVmLoweredModule(Allocator *allocator, VmModule *vmModule): allocator(allocator), vmModule(vmModule), functions(allocator), constants(allocator)
 	{
 	}
+
+	// Returns index + 1 or 0 if not found
+	unsigned FindConstant(unsigned value);
+	unsigned FindConstant(unsigned value1, unsigned value2);
 
 	Allocator *allocator;
 
 	VmModule *vmModule;
 
-	SmallArray<RegVmLoweredFunction*, 16> functions;
+	SmallArray<RegVmLoweredFunction*, 32> functions;
+
+	SmallArray<unsigned, 256> constants;
 };
 
 RegVmLoweredModule* RegVmLowerModule(ExpressionContext &ctx, VmModule *module);
@@ -148,6 +158,7 @@ struct InstructionRegVmFinalizeContext
 
 	FastVector<SynBase*> locations;
 	FastVector<RegVmCmd> cmds;
+	FastVector<unsigned> constants;
 
 	struct FixupPoint
 	{
