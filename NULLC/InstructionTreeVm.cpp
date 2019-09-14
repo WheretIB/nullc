@@ -3708,6 +3708,41 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 				}
 			}
 			break;
+		case VM_INST_CALL:
+			if(inst->arguments[0]->type.type != VM_TYPE_FUNCTION_REF)
+			{
+				VmFunction *function = getType<VmFunction>(inst->arguments[1]);
+
+				assert(function);
+
+				if(function->function->functionIndex == 0x09)
+				{
+					assert(ctx.functions[function->function->functionIndex]->name->name == InplaceStr("int"));
+					assert(inst->arguments[2]->type == VmType::Int);
+
+					inst->hasSideEffects = false;
+
+					ReplaceValueUsersWith(module, inst, inst->arguments[2], &module->peepholeOptimizations);
+				}
+				else if(function->function->functionIndex == 0x0a)
+				{
+					assert(ctx.functions[function->function->functionIndex]->name->name == InplaceStr("long"));
+					assert(inst->arguments[2]->type == VmType::Long);
+
+					inst->hasSideEffects = false;
+
+					ReplaceValueUsersWith(module, inst, inst->arguments[2], &module->peepholeOptimizations);
+				}
+				else if(function->function->functionIndex == 0x0c)
+				{
+					assert(ctx.functions[function->function->functionIndex]->name->name == InplaceStr("double"));
+					assert(inst->arguments[2]->type == VmType::Double);
+
+					inst->hasSideEffects = false;
+
+					ReplaceValueUsersWith(module, inst, inst->arguments[2], &module->peepholeOptimizations);
+				}
+			}
 		default:
 			break;
 		}
