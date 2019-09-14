@@ -313,7 +313,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 					regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevDataSize);
 				}
 
-				memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr) * sizeof(regFilePtr[0]));
+				memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr - rvrrCount) * sizeof(regFilePtr[0]));
 			}
 		}
 	}
@@ -329,7 +329,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
 		regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data);
 
-		memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr) * sizeof(regFilePtr[0]));
+		memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr - rvrrCount) * sizeof(regFilePtr[0]));
 	}
 
 	RegVmRegister *prevRegFileLastTop = regFileLastTop;
@@ -1832,7 +1832,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 	regFileTop[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
 	regFileTop[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevDataSize);
 
-	memset(regFileTop + rvrrCount, 0, (regFileLastTop - regFileTop) * sizeof(regFilePtr[0]));
+	memset(regFileTop + rvrrCount, 0, (regFileLastTop - regFileTop - rvrrCount) * sizeof(regFilePtr[0]));
 
 	RegVmReturnType execResultType = RunCode(codeBase + address, regFileTop, tempStackPtr, this, codeBase);
 
