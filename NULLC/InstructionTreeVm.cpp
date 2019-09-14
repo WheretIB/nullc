@@ -5290,6 +5290,30 @@ void CollectMergedSet(VmInstruction *inst, unsigned marker, SmallArray<VmInstruc
 	}
 }
 
+void UncolorAtomicMergeSet(VmInstruction *inst)
+{
+	inst->color = 0;
+
+	if(inst->cmd == VM_INST_PHI)
+	{
+		for(unsigned argument = 0; argument < inst->arguments.size(); argument += 2)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->arguments[argument]);
+
+			if(instruction->color != 0)
+				UncolorAtomicMergeSet(instruction);
+		}
+	}
+
+	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+		if(instruction->cmd == VM_INST_PHI)
+			UncolorAtomicMergeSet(instruction);
+	}
+}
+
 int SortByDominancePreOrder(const void* a, const void* b)
 {
 	VmInstruction *aInst = *(VmInstruction**)a;
@@ -5362,24 +5386,13 @@ void DeCoalesce(VmInstruction *variable, VmInstruction *currIdom)
 				// It's preferable to uncolor a single copy instruction
 				if(variable->cmd != VM_INST_PHI)
 				{
-					variable->color = 0;
+					UncolorAtomicMergeSet(variable);
 
 					break;
 				}
 				else
 				{
-					currAncestor->color = 0;
-
-					// Phi instruction registers are 'pinned' together
-					if(currAncestor->cmd == VM_INST_PHI)
-					{
-						for(unsigned argument = 0; argument < currAncestor->arguments.size(); argument += 2)
-						{
-							VmInstruction *instruction = getType<VmInstruction>(currAncestor->arguments[argument]);
-
-							instruction->color = 0;
-						}
-					}
+					UncolorAtomicMergeSet(currAncestor);
 
 					currAncestor = currAncestor->intersectingIdom;
 				}

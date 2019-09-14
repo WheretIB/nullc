@@ -638,6 +638,10 @@ set(5); // optimization barrier\r\n\
 return a + a + (a = 10);";
 TEST_RESULT("Side-effect ordering test 6", testSideEffectOrdering6, "20");
 
+const char	*testSsaExit1 =
+"int test(int t){ int tmin = 0; if(t < tmin) tmin = t; return tmin; } return test(-5) + test(5);";
+TEST_RESULT("SSA exit error 1", testSsaExit1, "-5");
+
 const char	*testNullPointerTypeUse =
 "__nullptr t;\r\n\
 __nullptr u;\r\n\
