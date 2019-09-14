@@ -538,6 +538,10 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 		&&case_rviSubdm,
 		&&case_rviMuldm,
 		&&case_rviDivdm,
+		&&case_rviAddfm,
+		&&case_rviSubfm,
+		&&case_rviMulfm,
+		&&case_rviDivfm,
 		&&case_rviPowd,
 		&&case_rviModd,
 		&&case_rviLessd,
@@ -1494,6 +1498,50 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue / *(double*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+			instruction++;
+			BREAK;
+		CASE(rviAddfm)
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue + *(float*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+			instruction++;
+			BREAK;
+		CASE(rviSubfm)
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue - *(float*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+			instruction++;
+			BREAK;
+		CASE(rviMulfm)
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue * *(float*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
+			instruction++;
+			BREAK;
+		CASE(rviDivfm)
+			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrDouble));
+			REGVM_DEBUG(assert(regFilePtr[cmd.rC].activeType == rvrPointer));
+			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrDouble);
+
+			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
+				return rvm->ExecError(instruction, "ERROR: null pointer access");
+
+			regFilePtr[cmd.rA].doubleValue = regFilePtr[cmd.rB].doubleValue / *(float*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
 			instruction++;
 			BREAK;
 		CASE(rviPowd)

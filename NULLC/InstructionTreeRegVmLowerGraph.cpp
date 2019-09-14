@@ -504,6 +504,10 @@ void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmIn
 	case rviSubdm:
 	case rviMuldm:
 	case rviDivdm:
+	case rviAddfm:
+	case rviSubfm:
+	case rviMulfm:
+	case rviDivfm:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
 		PrintRegister(ctx, rB);

@@ -222,6 +222,12 @@ unsigned GetAccessSize(VmInstruction *inst)
 	case VM_INST_DIV_LOAD:
 	case VM_INST_SHL_LOAD:
 	case VM_INST_SHR_LOAD:
+		if(VmConstant *loadInst = getType<VmConstant>(inst->arguments[3]))
+		{
+			if(loadInst->iValue == VM_INST_LOAD_FLOAT)
+				return 4;
+		}
+
 		return inst->type.size;
 	default:
 		break;

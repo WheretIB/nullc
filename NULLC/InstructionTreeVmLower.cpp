@@ -528,21 +528,6 @@ bool HasMemoryAccess(VmLoweredInstruction *lowInstruction)
 	return false;
 }
 
-VmInstructionType GetTypeLoadType(const VmType &type)
-{
-	if(type == VmType::Int)
-		return VM_INST_LOAD_INT;
-
-	if(type == VmType::Double)
-		return VM_INST_LOAD_DOUBLE;
-
-	if(type == VmType::Long)
-		return VM_INST_LOAD_LONG;
-
-	assert(!"unknown type");
-	return VM_INST_ABORT_NO_RETURN;
-}
-
 void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *value);
 
 void LowerLoadIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, SynBase *source, VmInstructionType loadType, VmValue *address, VmValue *offset)
@@ -1314,7 +1299,7 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 		case VM_INST_ADD_LOAD:
 		{
 			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
-			LowerLoadIntoBlock(ctx, lowBlock, inst->source, GetTypeLoadType(inst->type), inst->arguments[1], inst->arguments[2]);
+			LowerLoadIntoBlock(ctx, lowBlock, inst->source, VmInstructionType(getType<VmConstant>(inst->arguments[3])->iValue), inst->arguments[1], inst->arguments[2]);
 
 			if(inst->type == VmType::Int)
 				lowBlock->AddInstruction(ctx, inst->source, cmdAdd);
@@ -1329,7 +1314,7 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 		case VM_INST_SUB_LOAD:
 		{
 			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
-			LowerLoadIntoBlock(ctx, lowBlock, inst->source, GetTypeLoadType(inst->type), inst->arguments[1], inst->arguments[2]);
+			LowerLoadIntoBlock(ctx, lowBlock, inst->source, VmInstructionType(getType<VmConstant>(inst->arguments[3])->iValue), inst->arguments[1], inst->arguments[2]);
 
 			if(inst->type == VmType::Int)
 				lowBlock->AddInstruction(ctx, inst->source, cmdSub);
@@ -1343,7 +1328,7 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 		break;
 		case VM_INST_MUL_LOAD:
 			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
-			LowerLoadIntoBlock(ctx, lowBlock, inst->source, GetTypeLoadType(inst->type), inst->arguments[1], inst->arguments[2]);
+			LowerLoadIntoBlock(ctx, lowBlock, inst->source, VmInstructionType(getType<VmConstant>(inst->arguments[3])->iValue), inst->arguments[1], inst->arguments[2]);
 
 			if(inst->type == VmType::Int)
 				lowBlock->AddInstruction(ctx, inst->source, cmdMul);
@@ -1356,7 +1341,7 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 			break;
 		case VM_INST_DIV_LOAD:
 			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
-			LowerLoadIntoBlock(ctx, lowBlock, inst->source, GetTypeLoadType(inst->type), inst->arguments[1], inst->arguments[2]);
+			LowerLoadIntoBlock(ctx, lowBlock, inst->source, VmInstructionType(getType<VmConstant>(inst->arguments[3])->iValue), inst->arguments[1], inst->arguments[2]);
 
 			if(inst->type == VmType::Int)
 				lowBlock->AddInstruction(ctx, inst->source, cmdDiv);
@@ -1369,7 +1354,7 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 			break;
 		case VM_INST_SHL_LOAD:
 			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
-			LowerLoadIntoBlock(ctx, lowBlock, inst->source, GetTypeLoadType(inst->type), inst->arguments[1], inst->arguments[2]);
+			LowerLoadIntoBlock(ctx, lowBlock, inst->source, VmInstructionType(getType<VmConstant>(inst->arguments[3])->iValue), inst->arguments[1], inst->arguments[2]);
 
 			if(inst->type == VmType::Int)
 				lowBlock->AddInstruction(ctx, inst->source, cmdShl);
@@ -1380,7 +1365,7 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 			break;
 		case VM_INST_SHR_LOAD:
 			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
-			LowerLoadIntoBlock(ctx, lowBlock, inst->source, GetTypeLoadType(inst->type), inst->arguments[1], inst->arguments[2]);
+			LowerLoadIntoBlock(ctx, lowBlock, inst->source, VmInstructionType(getType<VmConstant>(inst->arguments[3])->iValue), inst->arguments[1], inst->arguments[2]);
 
 			if(inst->type == VmType::Int)
 				lowBlock->AddInstruction(ctx, inst->source, cmdShr);

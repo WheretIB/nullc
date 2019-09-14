@@ -2349,11 +2349,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
 		unsigned char addressReg = 0;
 		VmConstant *constant = GetLoadRegisterAndOffset(ctx, lowFunction, lowBlock, inst->arguments[1], inst->arguments[2], addressReg);
+		VmConstant *loadType = getType<VmConstant>(inst->arguments[3]);
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
 		if(inst->type == VmType::Int || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
 			lowBlock->AddInstruction(ctx, inst->source, rviAddm, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Double)
+		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT)
+			lowBlock->AddInstruction(ctx, inst->source, rviAddfm, targetReg, lhsReg, addressReg, constant);
+		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE)
 			lowBlock->AddInstruction(ctx, inst->source, rviAdddm, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Long || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
 			lowBlock->AddInstruction(ctx, inst->source, rviAddlm, targetReg, lhsReg, addressReg, constant);
@@ -2366,11 +2369,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
 		unsigned char addressReg = 0;
 		VmConstant *constant = GetLoadRegisterAndOffset(ctx, lowFunction, lowBlock, inst->arguments[1], inst->arguments[2], addressReg);
+		VmConstant *loadType = getType<VmConstant>(inst->arguments[3]);
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
 		if(inst->type == VmType::Int)
 			lowBlock->AddInstruction(ctx, inst->source, rviSubm, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Double)
+		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT)
+			lowBlock->AddInstruction(ctx, inst->source, rviSubfm, targetReg, lhsReg, addressReg, constant);
+		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE)
 			lowBlock->AddInstruction(ctx, inst->source, rviSubdm, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Long)
 			lowBlock->AddInstruction(ctx, inst->source, rviSublm, targetReg, lhsReg, addressReg, constant);
@@ -2383,11 +2389,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
 		unsigned char addressReg = 0;
 		VmConstant *constant = GetLoadRegisterAndOffset(ctx, lowFunction, lowBlock, inst->arguments[1], inst->arguments[2], addressReg);
+		VmConstant *loadType = getType<VmConstant>(inst->arguments[3]);
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
 		if(inst->type == VmType::Int)
 			lowBlock->AddInstruction(ctx, inst->source, rviMulm, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Double)
+		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT)
+			lowBlock->AddInstruction(ctx, inst->source, rviMulfm, targetReg, lhsReg, addressReg, constant);
+		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE)
 			lowBlock->AddInstruction(ctx, inst->source, rviMuldm, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Long)
 			lowBlock->AddInstruction(ctx, inst->source, rviMullm, targetReg, lhsReg, addressReg, constant);
@@ -2400,11 +2409,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
 		unsigned char addressReg = 0;
 		VmConstant *constant = GetLoadRegisterAndOffset(ctx, lowFunction, lowBlock, inst->arguments[1], inst->arguments[2], addressReg);
+		VmConstant *loadType = getType<VmConstant>(inst->arguments[3]);
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
 		if(inst->type == VmType::Int)
 			lowBlock->AddInstruction(ctx, inst->source, rviDivm, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Double)
+		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT)
+			lowBlock->AddInstruction(ctx, inst->source, rviDivfm, targetReg, lhsReg, addressReg, constant);
+		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE)
 			lowBlock->AddInstruction(ctx, inst->source, rviDivdm, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Long)
 			lowBlock->AddInstruction(ctx, inst->source, rviDivlm, targetReg, lhsReg, addressReg, constant);

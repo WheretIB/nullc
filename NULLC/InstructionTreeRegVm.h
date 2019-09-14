@@ -138,6 +138,11 @@ enum RegVmInstructionCode
 	rviMuldm,
 	rviDivdm,
 
+	rviAddfm,
+	rviSubfm,
+	rviMulfm,
+	rviDivfm,
+
 	rviPowd,
 	rviModd,
 

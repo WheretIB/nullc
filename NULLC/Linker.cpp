@@ -693,6 +693,10 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		case rviSubdm:
 		case rviMuldm:
 		case rviDivdm:
+		case rviAddfm:
+		case rviSubfm:
+		case rviMulfm:
+		case rviDivfm:
 			if(cmd.rC == rvrrGlobals)
 			{
 				if(cmd.argument >> 24)

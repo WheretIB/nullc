@@ -204,6 +204,14 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "muldm";
 	case rviDivdm:
 		return "divdm";
+	case rviAddfm:
+		return "addfm";
+	case rviSubfm:
+		return "subfm";
+	case rviMulfm:
+		return "mulfm";
+	case rviDivfm:
+		return "divfm";
 	case rviPowd:
 		return "powd";
 	case rviModd:

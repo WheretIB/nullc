@@ -143,7 +143,7 @@ namespace
 			return load->cmd == VM_INST_LOAD_INT;
 
 		if(inst->type.type == VM_TYPE_DOUBLE)
-			return load->cmd == VM_INST_LOAD_DOUBLE;
+			return load->cmd == VM_INST_LOAD_FLOAT || load->cmd == VM_INST_LOAD_DOUBLE;
 
 		if(inst->type.type == VM_TYPE_LONG)
 			return load->cmd == VM_INST_LOAD_LONG;
@@ -5047,7 +5047,9 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 					VmValue *loadAddress = rhs->arguments[0];
 					VmValue *loadOffset = rhs->arguments[1];
 
-					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[0], loadAddress, loadOffset, NULL, &module->peepholeOptimizations);
+					VmConstant *loadType = CreateConstantInt(ctx.allocator, inst->source, int(rhs->cmd));
+
+					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[0], loadAddress, loadOffset, loadType, &module->peepholeOptimizations);
 				}
 			}
 			break;
@@ -5066,7 +5068,9 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 					VmValue *loadAddress = lhs->arguments[0];
 					VmValue *loadOffset = lhs->arguments[1];
 
-					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[1], loadAddress, loadOffset, NULL, &module->peepholeOptimizations);
+					VmConstant *loadType = CreateConstantInt(ctx.allocator, inst->source, int(lhs->cmd));
+
+					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[1], loadAddress, loadOffset, loadType, &module->peepholeOptimizations);
 				}
 			}
 			break;
