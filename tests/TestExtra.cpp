@@ -714,6 +714,10 @@ const char	*testManualCast7 =
 "int foo(int x){ return x * 2; } auto ref a = foo; return int ref(int)(a)(2);";
 TEST_RESULT("Manual type cast 7", testManualCast7, "4");
 
+const char	*testManualCast8 =
+"int i = 8; float y = float(i); return long(y);";
+TEST_RESULT("Manual type cast 8", testManualCast8, "8");
+
 const char	*testConsitionVariable1 =
 "int f(int x){ return x; }\r\n\
 int b = 0;\r\n\

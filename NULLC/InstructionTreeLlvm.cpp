@@ -873,7 +873,7 @@ LLVMValueRef CompileLlvmTypeCast(LlvmCompilationContext &ctx, ExprTypeCast *node
 				if(node->value->type == ctx.ctx.typeBool || node->value->type == ctx.ctx.typeChar || node->value->type == ctx.ctx.typeShort || node->value->type == ctx.ctx.typeInt)
 					return CheckType(ctx, node, LLVMBuildSExt(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
 
-				if(node->value->type == ctx.ctx.typeDouble)
+				if(node->value->type == ctx.ctx.typeFloat || node->value->type == ctx.ctx.typeDouble)
 					return CheckType(ctx, node, LLVMBuildFPToSI(ctx.builder, value, CompileLlvmType(ctx, resultStackType), ""));
 			}
 			else if(resultStackType == ctx.ctx.typeDouble)
