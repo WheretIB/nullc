@@ -5051,6 +5051,8 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 				}
 			}
 			break;
+		default:
+			break;
 		}
 
 		switch(inst->cmd)
@@ -5067,6 +5069,8 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[1], loadAddress, loadOffset, NULL, &module->peepholeOptimizations);
 				}
 			}
+			break;
+		default:
 			break;
 		}
 	}
