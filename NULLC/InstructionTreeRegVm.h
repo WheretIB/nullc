@@ -62,16 +62,12 @@ enum RegVmInstructionCode
 
 	rviReturn,
 
-	rviAdd,
 	rviAddImm,
+
+	rviAdd,
 	rviSub,
 	rviMul,
 	rviDiv,
-
-	rviAddm,
-	rviSubm,
-	rviMulm,
-	rviDivm,
 
 	rviPow,
 	rviMod,
@@ -85,9 +81,6 @@ enum RegVmInstructionCode
 
 	rviShl,
 	rviShr,
-
-	rviShlm,
-	rviShrm,
 	
 	rviBitAnd,
 	rviBitOr,
@@ -95,16 +88,12 @@ enum RegVmInstructionCode
 
 	rviLogXor,
 
-	rviAddl,
 	rviAddImml,
+
+	rviAddl,
 	rviSubl,
 	rviMull,
 	rviDivl,
-
-	rviAddlm,
-	rviSublm,
-	rviMullm,
-	rviDivlm,
 
 	rviPowl,
 	rviModl,
@@ -119,9 +108,6 @@ enum RegVmInstructionCode
 	rviShll,
 	rviShrl,
 
-	rviShllm,
-	rviShrlm,
-
 	rviBitAndl,
 	rviBitOrl,
 	rviBitXorl,
@@ -133,15 +119,10 @@ enum RegVmInstructionCode
 	rviMuld,
 	rviDivd,
 
-	rviAdddm,
-	rviSubdm,
-	rviMuldm,
-	rviDivdm,
-
-	rviAddfm,
-	rviSubfm,
-	rviMulfm,
-	rviDivfm,
+	rviAddf,
+	rviSubf,
+	rviMulf,
+	rviDivf,
 
 	rviPowd,
 	rviModd,
@@ -201,8 +182,9 @@ enum RegVmReturnType
 #define rvrrGlobals 0
 #define rvrrFrame 1
 #define rvrrConstants 2
+#define rvrrRegisters 3
 
-#define rvrrCount 3
+#define rvrrCount 4
 
 struct RegVmCmd
 {

@@ -88,24 +88,16 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "callp";
 	case rviReturn:
 		return "ret";
-	case rviAdd:
-		return "add";
 	case rviAddImm:
 		return "addimm";
+	case rviAdd:
+		return "add";
 	case rviSub:
 		return "sub";
 	case rviMul:
 		return "mul";
 	case rviDiv:
 		return "div";
-	case rviAddm:
-		return "addm";
-	case rviSubm:
-		return "subm";
-	case rviMulm:
-		return "mulm";
-	case rviDivm:
-		return "divm";
 	case rviPow:
 		return "pow";
 	case rviMod:
@@ -126,10 +118,6 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "shl";
 	case rviShr:
 		return "shr";
-	case rviShlm:
-		return "shlm";
-	case rviShrm:
-		return "shrm";
 	case rviBitAnd:
 		return "bitand";
 	case rviBitOr:
@@ -138,24 +126,16 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "bitxor";
 	case rviLogXor:
 		return "logxor";
-	case rviAddl:
-		return "addl";
 	case rviAddImml:
 		return "addimml";
+	case rviAddl:
+		return "addl";
 	case rviSubl:
 		return "subl";
 	case rviMull:
 		return "mull";
 	case rviDivl:
 		return "divl";
-	case rviAddlm:
-		return "addlm";
-	case rviSublm:
-		return "sublm";
-	case rviMullm:
-		return "mullm";
-	case rviDivlm:
-		return "divlm";
 	case rviPowl:
 		return "powl";
 	case rviModl:
@@ -176,10 +156,6 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "shll";
 	case rviShrl:
 		return "shrl";
-	case rviShllm:
-		return "shllm";
-	case rviShrlm:
-		return "shrlm";
 	case rviBitAndl:
 		return "bitandl";
 	case rviBitOrl:
@@ -196,22 +172,14 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "muld";
 	case rviDivd:
 		return "divd";
-	case rviAdddm:
-		return "adddm";
-	case rviSubdm:
-		return "subdm";
-	case rviMuldm:
-		return "muldm";
-	case rviDivdm:
-		return "divdm";
-	case rviAddfm:
-		return "addfm";
-	case rviSubfm:
-		return "subfm";
-	case rviMulfm:
-		return "mulfm";
-	case rviDivfm:
-		return "divfm";
+	case rviAddf:
+		return "addf";
+	case rviSubf:
+		return "subf";
+	case rviMulf:
+		return "mulf";
+	case rviDivf:
+		return "divf";
 	case rviPowd:
 		return "powd";
 	case rviModd:

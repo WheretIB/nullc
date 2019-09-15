@@ -677,26 +677,58 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		case rviStoreFloat:
 		case rviStoreDouble:
 		case rviGetAddr:
-		case rviAddm:
-		case rviSubm:
-		case rviMulm:
-		case rviDivm:
-		case rviShlm:
-		case rviShrm:
-		case rviAddlm:
-		case rviSublm:
-		case rviMullm:
-		case rviDivlm:
-		case rviShllm:
-		case rviShrlm:
-		case rviAdddm:
-		case rviSubdm:
-		case rviMuldm:
-		case rviDivdm:
-		case rviAddfm:
-		case rviSubfm:
-		case rviMulfm:
-		case rviDivfm:
+		case rviAdd:
+		case rviSub:
+		case rviMul:
+		case rviDiv:
+		case rviPow:
+		case rviMod:
+		case rviLess:
+		case rviGreater:
+		case rviLequal:
+		case rviGequal:
+		case rviEqual:
+		case rviNequal:
+		case rviShl:
+		case rviShr:
+		case rviBitAnd:
+		case rviBitOr:
+		case rviBitXor:
+		case rviLogXor:
+		case rviAddl:
+		case rviSubl:
+		case rviMull:
+		case rviDivl:
+		case rviPowl:
+		case rviModl:
+		case rviLessl:
+		case rviGreaterl:
+		case rviLequall:
+		case rviGequall:
+		case rviEquall:
+		case rviNequall:
+		case rviShll:
+		case rviShrl:
+		case rviBitAndl:
+		case rviBitOrl:
+		case rviBitXorl:
+		case rviLogXorl:
+		case rviAddd:
+		case rviSubd:
+		case rviMuld:
+		case rviDivd:
+		case rviAddf:
+		case rviSubf:
+		case rviMulf:
+		case rviDivf:
+		case rviPowd:
+		case rviModd:
+		case rviLessd:
+		case rviGreaterd:
+		case rviLequald:
+		case rviGequald:
+		case rviEquald:
+		case rviNequald:
 			if(cmd.rC == rvrrGlobals)
 			{
 				if(cmd.argument >> 24)
@@ -932,7 +964,7 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 			}
 		}
 
-		PrintInstruction(output, NULL, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
+		PrintInstruction(output, (char*)exRegVmConstants.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
 
 		if(cmd.code == rviCall || cmd.code == rviFuncAddr)
 			output.Printf(" (%s)", exSymbols.data + exFunctions[exRegVmCode[i].argument].offsetToName);

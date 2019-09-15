@@ -49,6 +49,8 @@ void PrintRegister(OutputContext &ctx, unsigned char value)
 		Print(ctx, "rF");
 	else if(value == rvrrConstants)
 		Print(ctx, "rC");
+	else if(value == rvrrRegisters)
+		Print(ctx, "rR");
 	else
 		Print(ctx, "r%d", value);
 }
@@ -81,46 +83,61 @@ void PrintConstant(OutputContext &ctx, VmConstant *constant)
 		assert(!"unknown type");
 }
 
-void PrintConstant(OutputContext &ctx, RegVmLoweredModule *lowModule, unsigned argument, VmConstant *constant, VmValueType memoryType)
+void PrintConstant(OutputContext &ctx, unsigned argument, VmConstant *constant)
 {
-	if(lowModule && memoryType != VM_TYPE_VOID)
-	{
-		if(constant)
-			argument = constant->iValue;
+	if(constant)
+		PrintConstant(ctx, constant);
+	else
+		Print(ctx, "%d", argument);
+}
 
+void PrintAddress(OutputContext &ctx, char *constantData, unsigned char rC, unsigned argument, VmConstant *constant, VmValueType memoryType)
+{
+	if(rC == rvrrConstants && constantData)
+	{
 		if(memoryType == VM_TYPE_INT || (memoryType == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
 		{
 			int value = 0;
-			memcpy(&value, (char*)lowModule->constants.data + argument, sizeof(value));
-			Print(ctx, "int_%d@%d", value, argument);
+			memcpy(&value, constantData + argument, sizeof(value));
+			Print(ctx, "%d @%d", value, argument);
 		}
 		else if(memoryType == VM_TYPE_DOUBLE)
 		{
 			double value = 0.0;
-			memcpy(&value, (char*)lowModule->constants.data + argument, sizeof(value));
-			Print(ctx, "double_%f@%d", value, argument);
+			memcpy(&value, constantData + argument, sizeof(value));
+			Print(ctx, "%f @%d", value, argument);
 		}
 		else if(memoryType == VM_TYPE_LONG || (memoryType == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
 		{
 			long long value = 0ll;
-			memcpy(&value, (char*)lowModule->constants.data + argument, sizeof(value));
-			Print(ctx, "long_%lld@%d", value, argument);
+			memcpy(&value, constantData + argument, sizeof(value));
+			Print(ctx, "%lldl @%d", value, argument);
 		}
 		else
 		{
 			assert(!"unknown type");
 		}
 	}
+	else if(rC == rvrrRegisters)
+	{
+		Print(ctx, "r%d", int(argument / sizeof(RegVmRegister)));
+	}
 	else
 	{
+		Print(ctx, "[");
+		PrintRegister(ctx, rC);
+		Print(ctx, " + ");
+
 		if(constant)
 			PrintConstant(ctx, constant);
 		else
 			Print(ctx, "%d", argument);
+
+		Print(ctx, "]");
 	}
 }
 
-void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, unsigned argument, VmConstant *constant)
+void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, unsigned argument, VmConstant *constant)
 {
 	Print(ctx, "%s ", GetInstructionName(code));
 
@@ -130,23 +147,36 @@ void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmIn
 		break;
 	case rviLoadByte:
 	case rviLoadWord:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintAddress(ctx, constantData, rC, argument, constant, VM_TYPE_VOID);
+		break;
 	case rviLoadDword:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintAddress(ctx, constantData, rC, argument, constant, VM_TYPE_INT);
+		break;
 	case rviLoadLong:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintAddress(ctx, constantData, rC, argument, constant, VM_TYPE_LONG);
+		break;
 	case rviLoadFloat:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintAddress(ctx, constantData, rC, argument, constant, VM_TYPE_VOID);
+		break;
 	case rviLoadDouble:
 		PrintRegister(ctx, rA);
-		Print(ctx, ", [");
-		PrintRegister(ctx, rC);
-		Print(ctx, " + ");
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
-		Print(ctx, "]");
+		Print(ctx, ", ");
+		PrintAddress(ctx, constantData, rC, argument, constant, VM_TYPE_DOUBLE);
 		break;
 	case rviLoadImm:
 	case rviLoadImmLong:
 	case rviLoadImmDouble:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviStoreByte:
 	case rviStoreWord:
@@ -155,11 +185,8 @@ void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmIn
 	case rviStoreFloat:
 	case rviStoreDouble:
 		PrintRegister(ctx, rA);
-		Print(ctx, ", [");
-		PrintRegister(ctx, rC);
-		Print(ctx, " + ");
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
-		Print(ctx, "]");
+		Print(ctx, ", ");
+		PrintAddress(ctx, constantData, rC, argument, constant, VM_TYPE_VOID);
 		break;
 	case rviCombinedd:
 	case rviBreakupdd:
@@ -202,11 +229,8 @@ void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmIn
 		break;
 	case rviGetAddr:
 		PrintRegister(ctx, rA);
-		Print(ctx, ", [");
-		PrintRegister(ctx, rC);
-		Print(ctx, " + ");
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
-		Print(ctx, "]");
+		Print(ctx, ", ");
+		PrintAddress(ctx, constantData, rC, argument, constant, VM_TYPE_VOID);
 		break;
 	case rviSetRange:
 		PrintRegister(ctx, rA);
@@ -239,22 +263,22 @@ void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmIn
 		Print(ctx, ", ");
 		PrintRegister(ctx, rC);
 		Print(ctx, ", ");
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviJmp:
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviJmpz:
 	case rviJmpnz:
 		PrintRegister(ctx, rC);
 		Print(ctx, ", ");
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviPop:
 	case rviPopq:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", [result + ");
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
+		PrintConstant(ctx, argument, constant);
 		Print(ctx, " * 4]");
 		break;
 	case rviPush:
@@ -263,7 +287,7 @@ void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmIn
 		break;
 	case rviPushImm:
 	case rviPushImmq:
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviCall:
 		if(rB != rvrVoid)
@@ -295,7 +319,7 @@ void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmIn
 			assert(!"unknown type");
 		}
 		Print(ctx, ", ");
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviCallPtr:
 		if(rB != rvrVoid)
@@ -354,44 +378,19 @@ void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmIn
 			assert(!"unknown type");
 		}
 		Print(ctx, ", ");
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
-		break;
-	case rviAdd:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rC);
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviAddImm:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
 		PrintRegister(ctx, rB);
 		Print(ctx, ", ");
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
+		PrintConstant(ctx, argument, constant);
 		break;
+	case rviAdd:
 	case rviSub:
 	case rviMul:
 	case rviDiv:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rC);
-		break;
-	case rviAddm:
-	case rviSubm:
-	case rviMulm:
-	case rviDivm:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", [");
-		PrintRegister(ctx, rC);
-		Print(ctx, " + ");
-		PrintConstant(ctx, lowModule, argument, constant, rC == rvrrConstants ? VM_TYPE_INT : VM_TYPE_VOID);
-		Print(ctx, "]");
-		break;
 	case rviPow:
 	case rviMod:
 	case rviLess:
@@ -402,63 +401,27 @@ void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmIn
 	case rviNequal:
 	case rviShl:
 	case rviShr:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rC);
-		break;
-	case rviShlm:
-	case rviShrm:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", [");
-		PrintRegister(ctx, rC);
-		Print(ctx, " + ");
-		PrintConstant(ctx, lowModule, argument, constant, rC == rvrrConstants ? VM_TYPE_INT : VM_TYPE_VOID);
-		Print(ctx, "]");
-		break;
 	case rviBitAnd:
 	case rviBitOr:
 	case rviBitXor:
 	case rviLogXor:
-	case rviAddl:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
 		PrintRegister(ctx, rB);
 		Print(ctx, ", ");
-		PrintRegister(ctx, rC);
+		PrintAddress(ctx, constantData, rC, argument, constant, VM_TYPE_INT);
 		break;
 	case rviAddImml:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
 		PrintRegister(ctx, rB);
 		Print(ctx, ", ");
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
+		PrintConstant(ctx, argument, constant);
 		break;
+	case rviAddl:
 	case rviSubl:
 	case rviMull:
 	case rviDivl:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rC);
-		break;
-	case rviAddlm:
-	case rviSublm:
-	case rviMullm:
-	case rviDivlm:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", [");
-		PrintRegister(ctx, rC);
-		Print(ctx, " + ");
-		PrintConstant(ctx, lowModule, argument, constant, rC == rvrrConstants ? VM_TYPE_LONG : VM_TYPE_VOID);
-		Print(ctx, "]");
-		break;
 	case rviPowl:
 	case rviModl:
 	case rviLessl:
@@ -469,54 +432,24 @@ void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmIn
 	case rviNequall:
 	case rviShll:
 	case rviShrl:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rC);
-		break;
-	case rviShllm:
-	case rviShrlm:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", [");
-		PrintRegister(ctx, rC);
-		Print(ctx, " + ");
-		PrintConstant(ctx, lowModule, argument, constant, rC == rvrrConstants ? VM_TYPE_LONG : VM_TYPE_VOID);
-		Print(ctx, "]");
-		break;
 	case rviBitAndl:
 	case rviBitOrl:
 	case rviBitXorl:
 	case rviLogXorl:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rB);
+		Print(ctx, ", ");
+		PrintAddress(ctx, constantData, rC, argument, constant, VM_TYPE_LONG);
+		break;
 	case rviAddd:
 	case rviSubd:
 	case rviMuld:
 	case rviDivd:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rC);
-		break;
-	case rviAdddm:
-	case rviSubdm:
-	case rviMuldm:
-	case rviDivdm:
-	case rviAddfm:
-	case rviSubfm:
-	case rviMulfm:
-	case rviDivfm:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", ");
-		PrintRegister(ctx, rB);
-		Print(ctx, ", [");
-		PrintRegister(ctx, rC);
-		Print(ctx, " + ");
-		PrintConstant(ctx, lowModule, argument, constant, rC == rvrrConstants ? VM_TYPE_DOUBLE : VM_TYPE_VOID);
-		Print(ctx, "]");
-		break;
+	case rviAddf:
+	case rviSubf:
+	case rviMulf:
+	case rviDivf:
 	case rviPowd:
 	case rviModd:
 	case rviLessd:
@@ -529,7 +462,7 @@ void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmIn
 		Print(ctx, ", ");
 		PrintRegister(ctx, rB);
 		Print(ctx, ", ");
-		PrintRegister(ctx, rC);
+		PrintAddress(ctx, constantData, rC, argument, constant, VM_TYPE_DOUBLE);
 		break;
 	case rviNeg:
 	case rviNegl:
@@ -549,23 +482,23 @@ void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmIn
 		Print(ctx, ", ");
 		PrintRegister(ctx, rC);
 		Print(ctx, ", ");
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviCheckRet:
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
+		PrintConstant(ctx, argument, constant);
 		break;
 	case rviFuncAddr:
 	case rviTypeid:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
-		PrintConstant(ctx, lowModule, argument, constant, VM_TYPE_VOID);
+		PrintConstant(ctx, argument, constant);
 		break;
 	default:
 		assert(!"unknown instruction");
 	}
 }
 
-void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredModule *lowModule, RegVmLoweredInstruction *lowInstruction)
+void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, char *constantData, RegVmLoweredInstruction *lowInstruction)
 {
 	if(ctx.showSource && lowInstruction->location && !lowInstruction->location->isInternal)
 	{
@@ -632,7 +565,7 @@ void PrintInstruction(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredModule
 		}
 	}
 
-	PrintInstruction(ctx.output, lowModule, RegVmInstructionCode(lowInstruction->code), lowInstruction->rA, lowInstruction->rB, lowInstruction->rC, 0, lowInstruction->argument);
+	PrintInstruction(ctx.output, constantData, RegVmInstructionCode(lowInstruction->code), lowInstruction->rA, lowInstruction->rB, lowInstruction->rC, lowInstruction->argument ? lowInstruction->argument->iValue : 0, lowInstruction->argument);
 
 	if(!lowInstruction->preKillRegisters.empty() || !lowInstruction->postKillRegisters.empty())
 	{
@@ -698,7 +631,7 @@ void PrintBlock(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredModule *lowM
 	for(RegVmLoweredInstruction *lowInstruction = lowblock->firstInstruction; lowInstruction; lowInstruction = lowInstruction->nextSibling)
 	{
 		PrintIndent(ctx.output);
-		PrintInstruction(ctx, lowModule, lowInstruction);
+		PrintInstruction(ctx, (char*)lowModule->constants.data, lowInstruction);
 	}
 
 	if(!lowblock->exitRegisters.empty())

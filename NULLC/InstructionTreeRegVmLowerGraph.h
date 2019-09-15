@@ -38,7 +38,7 @@ private:
 	InstructionRegVmLowerGraphContext& operator=(const InstructionRegVmLowerGraphContext&);
 };
 
-void PrintInstruction(OutputContext &ctx, RegVmLoweredModule *lowModule, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, unsigned argument, VmConstant *constant);
+void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, unsigned argument, VmConstant *constant);
 
 void PrintGraph(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredModule *lowModule);
 

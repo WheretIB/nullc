@@ -630,6 +630,39 @@ VmConstant* GetLoadRegisterAndOffset(ExpressionContext &ctx, RegVmLoweredFunctio
 	return constantOffset;
 }
 
+void LowerBinaryOperationIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, VmInstruction *inst, unsigned char lhsReg, RegVmInstructionCode iCode, RegVmInstructionCode dCode, RegVmInstructionCode lCode)
+{
+	VmValueType lhsType = inst->arguments[0]->type.type;
+
+	if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[1]))
+	{
+		unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+		if(lhsType == VM_TYPE_INT || (lhsType == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
+			lowBlock->AddInstruction(ctx, inst->source, iCode, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+		else if(lhsType == VM_TYPE_DOUBLE && dCode != rviNop)
+			lowBlock->AddInstruction(ctx, inst->source, dCode, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+		else if(lhsType == VM_TYPE_LONG || (lhsType == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
+			lowBlock->AddInstruction(ctx, inst->source, lCode, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+		else
+			assert(!"unknown type");
+	}
+	else
+	{
+		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
+		unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+		if(lhsType == VM_TYPE_INT || (lhsType == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
+			lowBlock->AddInstruction(ctx, inst->source, iCode, targetReg, lhsReg, rvrrRegisters, rhsReg * sizeof(RegVmRegister));
+		else if(lhsType == VM_TYPE_DOUBLE && dCode != rviNop)
+			lowBlock->AddInstruction(ctx, inst->source, dCode, targetReg, lhsReg, rvrrRegisters, rhsReg * sizeof(RegVmRegister));
+		else if(lhsType == VM_TYPE_LONG || (lhsType == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
+			lowBlock->AddInstruction(ctx, inst->source, lCode, targetReg, lhsReg, rvrrRegisters, rhsReg * sizeof(RegVmRegister));
+		else
+			assert(!"unknown type");
+	}
+}
+
 void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, VmValue *value)
 {
 	RegVmLoweredInstruction *lastLowered = lowBlock->lastInstruction;
@@ -1947,33 +1980,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			}
 		}
 
-		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[1]))
-		{
-			unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-			if(inst->type == VmType::Int)
-				lowBlock->AddInstruction(ctx, inst->source, rviAddm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else if(inst->type == VmType::Double)
-				lowBlock->AddInstruction(ctx, inst->source, rviAdddm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else if(inst->type == VmType::Long)
-				lowBlock->AddInstruction(ctx, inst->source, rviAddlm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else
-				assert(!"unknown type");
-		}
-		else
-		{
-			unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-			unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-			if(inst->type == VmType::Int || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
-				lowBlock->AddInstruction(ctx, inst->source, rviAdd, targetReg, lhsReg, rhsReg);
-			else if(inst->type == VmType::Double)
-				lowBlock->AddInstruction(ctx, inst->source, rviAddd, targetReg, lhsReg, rhsReg);
-			else if(inst->type == VmType::Long || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
-				lowBlock->AddInstruction(ctx, inst->source, rviAddl, targetReg, lhsReg, rhsReg);
-			else
-				assert(!"unknown type");
-		}
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviAdd, rviAddd, rviAddl);
 	}
 	break;
 	case VM_INST_SUB:
@@ -2003,345 +2010,119 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			}
 		}
 
-		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[1]))
-		{
-			unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-			if(inst->type == VmType::Int)
-				lowBlock->AddInstruction(ctx, inst->source, rviSubm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else if(inst->type == VmType::Double)
-				lowBlock->AddInstruction(ctx, inst->source, rviSubdm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else if(inst->type == VmType::Long)
-				lowBlock->AddInstruction(ctx, inst->source, rviSublm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else
-				assert(!"unknown type");
-		}
-		else
-		{
-			unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-			unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-			if(inst->type == VmType::Int)
-				lowBlock->AddInstruction(ctx, inst->source, rviSub, targetReg, lhsReg, rhsReg);
-			else if(inst->type == VmType::Double)
-				lowBlock->AddInstruction(ctx, inst->source, rviSubd, targetReg, lhsReg, rhsReg);
-			else if(inst->type == VmType::Long)
-				lowBlock->AddInstruction(ctx, inst->source, rviSubl, targetReg, lhsReg, rhsReg);
-			else
-				assert(!"unknown type");
-		}
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviSub, rviSubd, rviSubl);
 	}
 	break;
 	case VM_INST_MUL:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
 
-		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[1]))
-		{
-			unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-			if(inst->type == VmType::Int)
-				lowBlock->AddInstruction(ctx, inst->source, rviMulm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else if(inst->type == VmType::Double)
-				lowBlock->AddInstruction(ctx, inst->source, rviMuldm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else if(inst->type == VmType::Long)
-				lowBlock->AddInstruction(ctx, inst->source, rviMullm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else
-				assert(!"unknown type");
-		}
-		else
-		{
-			unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-			unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-			if(inst->type == VmType::Int)
-				lowBlock->AddInstruction(ctx, inst->source, rviMul, targetReg, lhsReg, rhsReg);
-			else if(inst->type == VmType::Double)
-				lowBlock->AddInstruction(ctx, inst->source, rviMuld, targetReg, lhsReg, rhsReg);
-			else if(inst->type == VmType::Long)
-				lowBlock->AddInstruction(ctx, inst->source, rviMull, targetReg, lhsReg, rhsReg);
-			else
-				assert(!"unknown type");
-		}
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviMul, rviMuld, rviMull);
 	}
 		break;
 	case VM_INST_DIV:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
 
-		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[1]))
-		{
-			unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-			if(inst->type == VmType::Int)
-				lowBlock->AddInstruction(ctx, inst->source, rviDivm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else if(inst->type == VmType::Double)
-				lowBlock->AddInstruction(ctx, inst->source, rviDivdm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else if(inst->type == VmType::Long)
-				lowBlock->AddInstruction(ctx, inst->source, rviDivlm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else
-				assert(!"unknown type");
-		}
-		else
-		{
-			unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-			unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-			if(inst->type == VmType::Int)
-				lowBlock->AddInstruction(ctx, inst->source, rviDiv, targetReg, lhsReg, rhsReg);
-			else if(inst->type == VmType::Double)
-				lowBlock->AddInstruction(ctx, inst->source, rviDivd, targetReg, lhsReg, rhsReg);
-			else if(inst->type == VmType::Long)
-				lowBlock->AddInstruction(ctx, inst->source, rviDivl, targetReg, lhsReg, rhsReg);
-			else
-				assert(!"unknown type");
-		}
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviDiv, rviDivd, rviDivl);
 	}
 		break;
 	case VM_INST_POW:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviPow, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Double)
-			lowBlock->AddInstruction(ctx, inst->source, rviPowd, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviPowl, targetReg, lhsReg, rhsReg);
-		else
-			assert(!"unknown type");
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviPow, rviPowd, rviPowl);
 	}
 		break;
 	case VM_INST_MOD:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviMod, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Double)
-			lowBlock->AddInstruction(ctx, inst->source, rviModd, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviModl, targetReg, lhsReg, rhsReg);
-		else
-			assert(!"unknown type");
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviMod, rviModd, rviModl);
 	}
 		break;
 	case VM_INST_LESS:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->arguments[0]->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviLess, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type == VmType::Double)
-			lowBlock->AddInstruction(ctx, inst->source, rviLessd, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviLessl, targetReg, lhsReg, rhsReg);
-		else
-			assert(!"unknown type");
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviLess, rviLessd, rviLessl);
 	}
 		break;
 	case VM_INST_GREATER:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->arguments[0]->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviGreater, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type == VmType::Double)
-			lowBlock->AddInstruction(ctx, inst->source, rviGreaterd, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviGreaterl, targetReg, lhsReg, rhsReg);
-		else
-			assert(!"unknown type");
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviGreater, rviGreaterd, rviGreaterl);
 	}
 		break;
 	case VM_INST_LESS_EQUAL:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->arguments[0]->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviLequal, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type == VmType::Double)
-			lowBlock->AddInstruction(ctx, inst->source, rviLequald, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviLequall, targetReg, lhsReg, rhsReg);
-		else
-			assert(!"unknown type");
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviLequal, rviLequald, rviLequall);
 	}
 		break;
 	case VM_INST_GREATER_EQUAL:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->arguments[0]->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviGequal, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type == VmType::Double)
-			lowBlock->AddInstruction(ctx, inst->source, rviGequald, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviGequall, targetReg, lhsReg, rhsReg);
-		else
-			assert(!"unknown type");
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviGequal, rviGequald, rviGequall);
 	}
 		break;
 	case VM_INST_EQUAL:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->arguments[0]->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviEqual, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type == VmType::Double)
-			lowBlock->AddInstruction(ctx, inst->source, rviEquald, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviEquall, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type.type == VM_TYPE_POINTER)
-			lowBlock->AddInstruction(ctx, inst->source, NULLC_PTR_SIZE == 4 ? rviEqual : rviEquall, targetReg, lhsReg, rhsReg);
-		else
-			assert(!"unknown type");
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviEqual, rviEquald, rviEquall);
 	}
 		break;
 	case VM_INST_NOT_EQUAL:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->arguments[0]->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviNequal, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type == VmType::Double)
-			lowBlock->AddInstruction(ctx, inst->source, rviNequald, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviNequall, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type.type == VM_TYPE_POINTER)
-			lowBlock->AddInstruction(ctx, inst->source, NULLC_PTR_SIZE == 4 ? rviNequal : rviNequall, targetReg, lhsReg, rhsReg);
-		else
-			assert(!"unknown type");
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviNequal, rviNequald, rviNequall);
 	}
 		break;
 	case VM_INST_SHL:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
 
-		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[1]))
-		{
-			unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-			if(inst->type == VmType::Int)
-				lowBlock->AddInstruction(ctx, inst->source, rviShlm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else if(inst->type == VmType::Long)
-				lowBlock->AddInstruction(ctx, inst->source, rviShllm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else
-				assert(!"unknown type");
-		}
-		else
-		{
-			unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-			unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-			if(inst->type == VmType::Int)
-				lowBlock->AddInstruction(ctx, inst->source, rviShl, targetReg, lhsReg, rhsReg);
-			else if(inst->type == VmType::Long)
-				lowBlock->AddInstruction(ctx, inst->source, rviShll, targetReg, lhsReg, rhsReg);
-			else
-				assert(!"unknown type");
-		}
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviShl, rviNop, rviShll);
 	}
 		break;
 	case VM_INST_SHR:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
 
-		if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[1]))
-		{
-			unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-			if(inst->type == VmType::Int)
-				lowBlock->AddInstruction(ctx, inst->source, rviShrm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else if(inst->type == VmType::Long)
-				lowBlock->AddInstruction(ctx, inst->source, rviShrlm, targetReg, lhsReg, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
-			else
-				assert(!"unknown type");
-		}
-		else
-		{
-			unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-			unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-			if(inst->type == VmType::Int)
-				lowBlock->AddInstruction(ctx, inst->source, rviShr, targetReg, lhsReg, rhsReg);
-			else if(inst->type == VmType::Long)
-				lowBlock->AddInstruction(ctx, inst->source, rviShrl, targetReg, lhsReg, rhsReg);
-			else
-				assert(!"unknown type");
-		}
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviShr, rviNop, rviShrl);
 	}
 		break;
 	case VM_INST_BIT_AND:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviBitAnd, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviBitAndl, targetReg, lhsReg, rhsReg);
-		else
-			assert(!"unknown type");
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviBitAnd, rviNop, rviBitAndl);
 	}
 		break;
 	case VM_INST_BIT_OR:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviBitOr, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviBitOrl, targetReg, lhsReg, rhsReg);
-		else
-			assert(!"unknown type");
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviBitOr, rviNop, rviBitOrl);
 	}
 		break;
 	case VM_INST_BIT_XOR:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviBitXor, targetReg, lhsReg, rhsReg);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviBitXorl, targetReg, lhsReg, rhsReg);
-		else
-			assert(!"unknown type");
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviBitXor, rviNop, rviBitXorl);
 	}
 		break;
 	case VM_INST_LOG_XOR:
 	{
 		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char rhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[1]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-		if(inst->arguments[0]->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviLogXor, targetReg, lhsReg, rhsReg);
-		else if(inst->arguments[0]->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviLogXorl);
-		else
-			assert(!"unknown type");
+		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviLogXor, rviNop, rviLogXorl);
 	}
 		break;
 	case VM_INST_ADD_LOAD:
@@ -2353,13 +2134,13 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
 		if(inst->type == VmType::Int || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
-			lowBlock->AddInstruction(ctx, inst->source, rviAddm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviAdd, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT)
-			lowBlock->AddInstruction(ctx, inst->source, rviAddfm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviAddf, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE)
-			lowBlock->AddInstruction(ctx, inst->source, rviAdddm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviAddd, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Long || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
-			lowBlock->AddInstruction(ctx, inst->source, rviAddlm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviAddl, targetReg, lhsReg, addressReg, constant);
 		else
 			assert(!"unknown type");
 	}
@@ -2373,13 +2154,13 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
 		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviSubm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviSub, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT)
-			lowBlock->AddInstruction(ctx, inst->source, rviSubfm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviSubf, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE)
-			lowBlock->AddInstruction(ctx, inst->source, rviSubdm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviSubd, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviSublm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviSubl, targetReg, lhsReg, addressReg, constant);
 		else
 			assert(!"unknown type");
 	}
@@ -2393,13 +2174,13 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
 		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviMulm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviMul, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT)
-			lowBlock->AddInstruction(ctx, inst->source, rviMulfm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviMulf, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE)
-			lowBlock->AddInstruction(ctx, inst->source, rviMuldm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviMuld, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviMullm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviMull, targetReg, lhsReg, addressReg, constant);
 		else
 			assert(!"unknown type");
 	}
@@ -2413,13 +2194,13 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
 		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviDivm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviDiv, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT)
-			lowBlock->AddInstruction(ctx, inst->source, rviDivfm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviDivf, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE)
-			lowBlock->AddInstruction(ctx, inst->source, rviDivdm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviDivd, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviDivlm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviDivl, targetReg, lhsReg, addressReg, constant);
 		else
 			assert(!"unknown type");
 	}
@@ -2432,9 +2213,9 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
 		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviShlm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviShl, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviShllm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviShll, targetReg, lhsReg, addressReg, constant);
 		else
 			assert(!"unknown type");
 	}
@@ -2447,9 +2228,9 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
 		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviShrm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviShr, targetReg, lhsReg, addressReg, constant);
 		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviShrlm, targetReg, lhsReg, addressReg, constant);
+			lowBlock->AddInstruction(ctx, inst->source, rviShrl, targetReg, lhsReg, addressReg, constant);
 		else
 			assert(!"unknown type");
 	}
