@@ -5443,6 +5443,50 @@ void CollectMergedSet(VmInstruction *inst, unsigned marker, SmallArray<VmInstruc
 	}
 }
 
+unsigned GetSplitCopyCount(VmInstruction *inst, unsigned marker)
+{
+	if(inst->regVmSearchMarker == marker)
+		return 0;
+
+	inst->regVmSearchMarker = marker;
+
+	unsigned count = 0;
+
+	if(inst->cmd == VM_INST_PHI)
+	{
+		for(unsigned argument = 0; argument < inst->arguments.size(); argument += 2)
+		{
+			VmInstruction *instruction = getType<VmInstruction>(inst->arguments[argument]);
+
+			count += GetSplitCopyCount(instruction, marker);
+		}
+	}
+
+	if(inst->cmd == VM_INST_MOV)
+	{
+		if(inst->color != 0 && inst->color == getType<VmInstruction>(inst->arguments[0])->color)
+			count++;
+	}
+
+	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
+	{
+		VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
+
+		if(instruction->cmd == VM_INST_PHI)
+			count += GetSplitCopyCount(instruction, marker);
+
+		if(instruction->cmd == VM_INST_MOV)
+		{
+			assert(inst == instruction->arguments[0]);
+
+			if(instruction->color != 0 && instruction->color == inst->color)
+				count++;
+		}
+	}
+
+	return count;
+}
+
 void UncolorAtomicMergeSet(VmInstruction *inst)
 {
 	inst->color = 0;
@@ -5511,7 +5555,7 @@ VmInstruction* UnderlyingValue(VmInstruction *instruction)
 	return instruction;
 }
 
-void DeCoalesce(VmInstruction *variable, VmInstruction *currIdom)
+void DeCoalesce(VmInstruction *variable, VmFunction* function, VmInstruction *currIdom)
 {
 	while(currIdom != NULL && (!Dominates(currIdom, variable) || Uncolored(currIdom)))
 		currIdom = currIdom->idom;
@@ -5535,9 +5579,12 @@ void DeCoalesce(VmInstruction *variable, VmInstruction *currIdom)
 			}
 			else
 			{
+				unsigned variableCopyCount = GetSplitCopyCount(variable, function->nextSearchMarker++);
+				unsigned currAncestoreCopyCount = GetSplitCopyCount(currAncestor, function->nextSearchMarker++);
+
 				// v and currAnc interfere
-				// It's preferable to uncolor a single copy instruction
-				if(variable->cmd != VM_INST_PHI)
+				// It's preferable to uncolor a variable that is already uncolored or a variable that will split the lesser number of copies
+				if(variable->color == 0 || variableCopyCount < currAncestoreCopyCount)
 				{
 					UncolorAtomicMergeSet(variable);
 
@@ -5575,7 +5622,7 @@ void DecoalesceMergedSets(ExpressionContext &ctx, VmFunction* function)
 				{
 					VmInstruction *variable = mergedSet[i];
 
-					DeCoalesce(variable, currImmediateDominator);
+					DeCoalesce(variable, function, currImmediateDominator);
 
 					currImmediateDominator = variable;
 				}

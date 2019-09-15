@@ -437,6 +437,7 @@ struct VmFunction: VmValue
 		nextRestoreBlock = 0;
 
 		nextColor = 0;
+		nextSearchMarker = 1;
 	}
 
 	void AddBlock(VmBlock *block);
@@ -475,6 +476,7 @@ struct VmFunction: VmValue
 	SmallArray<VmBlock*, 4> restoreBlocks;
 
 	unsigned nextColor;
+	unsigned nextSearchMarker;
 
 	static const unsigned myTypeID = __LINE__;
 };
