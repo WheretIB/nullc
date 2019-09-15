@@ -278,6 +278,31 @@ void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCo
 		PrintRegister(ctx, rC);
 		break;
 	case rviMov:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rC);
+		break;
+	case rviMovMult:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rC);
+
+		if(argument >> 24)
+		{
+			Print(ctx, "; ");
+			PrintRegister(ctx, argument >> 24);
+			Print(ctx, ", ");
+			PrintRegister(ctx, (argument >> 16) & 0xff);
+		}
+
+		if((argument >> 8) & 0xff)
+		{
+			Print(ctx, "; ");
+			PrintRegister(ctx, (argument >> 8) & 0xff);
+			Print(ctx, ", ");
+			PrintRegister(ctx, argument & 0xff);
+		}
+		break;
 	case rviDtoi:
 	case rviDtol:
 	case rviDtof:

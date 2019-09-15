@@ -44,6 +44,8 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "breakdd";
 	case rviMov:
 		return "mov";
+	case rviMovMult:
+		return "movmult";
 	case rviDtoi:
 		return "dtoi";
 	case rviDtol:

@@ -29,6 +29,7 @@ enum RegVmInstructionCode
 	rviCombinedd,
 	rviBreakupdd,
 	rviMov,
+	rviMovMult,
 
 	rviDtoi,
 	rviDtol,

@@ -462,6 +462,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 		&&case_rviCombinedd,
 		&&case_rviBreakupdd,
 		&&case_rviMov,
+		&&case_rviMovMult,
 		&&case_rviDtoi,
 		&&case_rviDtol,
 		&&case_rviDtof,
@@ -748,6 +749,12 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			BREAK;
 		CASE(rviMov)
 			memcpy(&regFilePtr[cmd.rA], &regFilePtr[cmd.rC], sizeof(RegVmRegister));
+			instruction++;
+			BREAK;
+		CASE(rviMovMult)
+			memcpy(&regFilePtr[cmd.rA], &regFilePtr[cmd.rC], sizeof(RegVmRegister));
+			memcpy(&regFilePtr[cmd.argument >> 24], &regFilePtr[(cmd.argument >> 16) & 0xff], sizeof(RegVmRegister));
+			memcpy(&regFilePtr[(cmd.argument >> 8) & 0xff], &regFilePtr[cmd.argument & 0xff], sizeof(RegVmRegister));
 			instruction++;
 			BREAK;
 		CASE(rviDtoi)
