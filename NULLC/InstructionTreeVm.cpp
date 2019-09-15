@@ -1782,6 +1782,8 @@ void VmFunction::UpdateDominatorTree(VmModule *module)
 		}
 	}
 
+	firstBlock->idom = NULL;
+
 	// Fill the dominance frontier and dominator tree children
 	for(VmBlock *curr = firstBlock; curr; curr = curr->nextSibling)
 	{
@@ -5154,6 +5156,8 @@ void IsolatePhiNodes(VmModule *module, VmFunction* function)
 				}
 #endif
 
+				SmallArray<VmInstruction*, 16> copyInstructions(module->allocator);
+
 				// Introduce a copy at the end of the predecessor block
 				for(unsigned argument = 0; argument < inst->arguments.size(); argument += 2)
 				{
@@ -5178,6 +5182,8 @@ void IsolatePhiNodes(VmModule *module, VmFunction* function)
 
 					edge->insertPoint = edge->lastInstruction;
 					module->currentBlock = NULL;
+
+					copyInstructions.push_back(getType<VmInstruction>(movInst));
 				}
 
 				// In general case if optimization passes create multiple incoming edges from a single block, it won't be valid to insert a copy
@@ -5208,6 +5214,47 @@ void IsolatePhiNodes(VmModule *module, VmFunction* function)
 
 				block->insertPoint = block->lastInstruction;
 				module->currentBlock = NULL;
+
+				// Remove redundant copies
+				for(unsigned i = 0; i < copyInstructions.size(); i++)
+				{
+					VmInstruction *copyA = copyInstructions[i];
+					VmBlock *parentA = copyA->parent;
+
+					for(VmBlock *curr = parentA->idom; curr; curr = curr->idom)
+					{
+						bool replaced = false;
+
+						for(unsigned k = 0; k < copyInstructions.size(); k++)
+						{
+							if(i == k)
+								continue;
+
+							VmInstruction *copyB = copyInstructions[k];
+
+							// Check if already dead
+							if(copyB->users.empty())
+								continue;
+
+							// Check if the copy is the same
+							if(copyA->arguments[0] != copyB->arguments[0])
+								continue;
+
+							VmBlock *parentB = copyB->parent;
+
+							// If immediate dominator contains the same copy, use it
+							if(parentB == curr)
+							{
+								ReplaceValueUsersWith(module, copyA, copyB, NULL);
+								replaced = true;
+								break;
+							}
+						}
+
+						if(replaced)
+							break;
+					}
+				}
 			}
 		}
 	}
