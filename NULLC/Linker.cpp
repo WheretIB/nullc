@@ -970,7 +970,7 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 			if(found)
 			{
 				output.Printf("// %4d:\n", i);
-				output.Printf("//       ");
+				output.Printf("//      ");
 			}
 			else
 			{
