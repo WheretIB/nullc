@@ -748,9 +748,22 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 			regVmJumpTargets.push_back(cmd.argument);
 			break;
 		case rviCall:
+		{
+			unsigned microcode = (cmd.rA << 16) | (cmd.rB << 8) | cmd.rC;
+
+			microcode += oldRegVmConstantsSize;
+
+			cmd.rA = (microcode >> 16) & 0xff;
+			cmd.rB = (microcode >> 8) & 0xff;
+			cmd.rC = microcode & 0xff;
+
 			assert(!(cmd.argument != funcRemap[cmd.argument] && int(cmd.argument - bCode->moduleFunctionCount) >= 0) || (fInfo[cmd.argument - bCode->moduleFunctionCount].nameHash == exFunctions[funcRemap[cmd.argument]].nameHash));
 
 			cmd.argument = funcRemap[cmd.argument];
+		}
+			break;
+		case rviCallPtr:
+			cmd.argument += oldRegVmConstantsSize;
 			break;
 		case rviConvertPtr:
 		case rviCheckRet:

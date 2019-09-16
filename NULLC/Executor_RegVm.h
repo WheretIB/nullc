@@ -100,7 +100,7 @@ private:
 	bool RunExternalFunction(unsigned funcID, unsigned *callStorage);
 
 	RegVmCmd* ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr);
-	unsigned* ExecCall(unsigned char resultReg, unsigned char resultType, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr);
+	unsigned* ExecCall(unsigned microcodePos, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr);
 	RegVmReturnType ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction);
 	bool ExecConvertPtr(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr);
 	void ExecCheckedReturn(const RegVmCmd cmd, RegVmRegister * const regFilePtr, unsigned * const tempStackPtr);

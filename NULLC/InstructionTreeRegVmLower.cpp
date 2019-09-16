@@ -444,13 +444,19 @@ void LowerConstantIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFun
 	}
 }
 
-bool TryLowerConstantPushIntoBlock(ExpressionContext &ctx, RegVmLoweredBlock *lowBlock, VmValue *value)
+bool TryLowerConstantPushIntoBlock(ExpressionContext &ctx, RegVmLoweredBlock *lowBlock, VmValue *value, bool useInstructions)
 {
 	if(VmConstant *constant = getType<VmConstant>(value))
 	{
+		RegVmLoweredModule *lowModule = lowBlock->parent->parent;
+
 		if(constant->type == VmType::Int)
 		{
-			lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, constant->iValue);
+			lowModule->constants.push_back(rviPushImm);
+			lowModule->constants.push_back(constant->iValue);
+
+			if(useInstructions)
+				lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, constant->iValue);
 
 			return true;
 		}
@@ -459,8 +465,17 @@ bool TryLowerConstantPushIntoBlock(ExpressionContext &ctx, RegVmLoweredBlock *lo
 			unsigned data[2];
 			memcpy(data, &constant->dValue, 8);
 
-			lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[0]);
-			lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[1]);
+			lowModule->constants.push_back(rviPushImm);
+			lowModule->constants.push_back(data[0]);
+
+			lowModule->constants.push_back(rviPushImm);
+			lowModule->constants.push_back(data[1]);
+
+			if(useInstructions)
+			{
+				lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[0]);
+				lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[1]);
+			}
 
 			return true;
 		}
@@ -471,12 +486,25 @@ bool TryLowerConstantPushIntoBlock(ExpressionContext &ctx, RegVmLoweredBlock *lo
 
 			if(data[1] == 0)
 			{
-				lowBlock->AddInstruction(ctx, constant->source, rviPushImmq, 0, 0, 0, data[0]);
+				lowModule->constants.push_back(rviPushImmq);
+				lowModule->constants.push_back(data[0]);
+
+				if(useInstructions)
+					lowBlock->AddInstruction(ctx, constant->source, rviPushImmq, 0, 0, 0, data[0]);
 			}
 			else
 			{
-				lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[0]);
-				lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[1]);
+				lowModule->constants.push_back(rviPushImm);
+				lowModule->constants.push_back(data[0]);
+
+				lowModule->constants.push_back(rviPushImm);
+				lowModule->constants.push_back(data[1]);
+
+				if(useInstructions)
+				{
+					lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[0]);
+					lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, data[1]);
+				}
 			}
 
 			return true;
@@ -488,9 +516,21 @@ bool TryLowerConstantPushIntoBlock(ExpressionContext &ctx, RegVmLoweredBlock *lo
 				assert(constant->iValue == 0);
 
 				if(NULLC_PTR_SIZE == 8)
-					lowBlock->AddInstruction(ctx, constant->source, rviPushImmq, 0, 0, 0, 0u);
+				{
+					lowModule->constants.push_back(rviPushImmq);
+					lowModule->constants.push_back(0);
+
+					if(useInstructions)
+						lowBlock->AddInstruction(ctx, constant->source, rviPushImmq, 0, 0, 0, 0u);
+				}
 				else
-					lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, 0u);
+				{
+					lowModule->constants.push_back(rviPushImm);
+					lowModule->constants.push_back(0);
+
+					if(useInstructions)
+						lowBlock->AddInstruction(ctx, constant->source, rviPushImm, 0, 0, 0, 0u);
+				}
 
 				return true;
 			}
@@ -1599,17 +1639,22 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			firstArgument = 2;
 		}
 
+		RegVmLoweredModule *lowModule = lowBlock->parent->parent;
+
+		unsigned microcodePos = lowModule->constants.size();
+
 		for(unsigned i = firstArgument; i < inst->arguments.size(); i++)
 		{
 			VmValue *argument = inst->arguments[i];
 
 			if(argument->type.size == 0)
 			{
-				lowBlock->AddInstruction(ctx, inst->source, rviPushImm, 0, 0, 0, 0u);
+				lowModule->constants.push_back(rviPushImm);
+				lowModule->constants.push_back(0);
 			}
 			else
 			{
-				if(TryLowerConstantPushIntoBlock(ctx, lowBlock, argument))
+				if(TryLowerConstantPushIntoBlock(ctx, lowBlock, argument, false))
 					continue;
 
 				SmallArray<unsigned char, 32> argumentRegs(ctx.allocator);
@@ -1617,55 +1662,80 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 				if(argument->type.type == VM_TYPE_INT || (NULLC_PTR_SIZE == 4 && argument->type.type == VM_TYPE_POINTER))
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[0]);
+					lowModule->constants.push_back(rviPush);
+					lowModule->constants.push_back(argumentRegs[0]);
 				}
 				else if(argument->type.type == VM_TYPE_LONG || (NULLC_PTR_SIZE == 8 && argument->type.type == VM_TYPE_POINTER))
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, argumentRegs[0]);
+					lowModule->constants.push_back(rviPushQword);
+					lowModule->constants.push_back(argumentRegs[0]);
 				}
 				else if(argument->type.type == VM_TYPE_DOUBLE)
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, argumentRegs[0]);
+					lowModule->constants.push_back(rviPushQword);
+					lowModule->constants.push_back(argumentRegs[0]);
 				}
 				else if(argument->type.type == VM_TYPE_FUNCTION_REF || argument->type.type == VM_TYPE_ARRAY_REF)
 				{
 					if(NULLC_PTR_SIZE == 8)
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, argumentRegs[0]);
-						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[1]);
+						lowModule->constants.push_back(rviPushQword);
+						lowModule->constants.push_back(argumentRegs[0]);
+
+						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(argumentRegs[1]);
 					}
 					else
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[0]);
-						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[1]);
+						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(argumentRegs[0]);
+
+						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(argumentRegs[1]);
 					}
 				}
 				else if(argument->type.type == VM_TYPE_AUTO_REF)
 				{
 					if(NULLC_PTR_SIZE == 8)
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[0]);
-						lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, argumentRegs[1]);
+						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(argumentRegs[0]);
+
+						lowModule->constants.push_back(rviPushQword);
+						lowModule->constants.push_back(argumentRegs[1]);
 					}
 					else
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[0]);
-						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[1]);
+						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(argumentRegs[0]);
+
+						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(argumentRegs[1]);
 					}
 				}
 				else if(argument->type.type == VM_TYPE_AUTO_ARRAY)
 				{
 					if(NULLC_PTR_SIZE == 8)
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[0]);
-						lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, argumentRegs[1]);
-						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[2]);
+						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(argumentRegs[0]);
+
+						lowModule->constants.push_back(rviPushQword);
+						lowModule->constants.push_back(argumentRegs[1]);
+
+						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(argumentRegs[2]);
 					}
 					else
 					{
-						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[0]);
-						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[1]);
-						lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[2]);
+						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(argumentRegs[0]);
+
+						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(argumentRegs[1]);
+
+						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(argumentRegs[2]);
 					}
 				}
 				else if(argument->type.type == VM_TYPE_STRUCT)
@@ -1676,13 +1746,15 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 					{
 						if(remainingSize == 4)
 						{
-							lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, argumentRegs[i]);
+							lowModule->constants.push_back(rviPush);
+							lowModule->constants.push_back(argumentRegs[i]);
 
 							remainingSize -= 4;
 						}
 						else
 						{
-							lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, argumentRegs[i]);
+							lowModule->constants.push_back(rviPushQword);
+							lowModule->constants.push_back(argumentRegs[i]);
 
 							remainingSize -= 8;
 						}
@@ -1698,24 +1770,42 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			if(context->container)
 			{
 				if(NULLC_PTR_SIZE == 8)
-					lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, targetRegs[0]);
+				{
+					lowModule->constants.push_back(rviPushQword);
+					lowModule->constants.push_back(targetRegs[0]);
+				}
 				else
-					lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, targetRegs[0]);
+				{
+					lowModule->constants.push_back(rviPush);
+					lowModule->constants.push_back(targetRegs[0]);
+				}
 			}
 			else
 			{
 				if(NULLC_PTR_SIZE == 8)
-					lowBlock->AddInstruction(ctx, inst->source, rviPushImmq, 0, 0, 0, context->iValue);
+				{
+					lowModule->constants.push_back(rviPushImmq);
+					lowModule->constants.push_back(context->iValue);
+				}
 				else
-					lowBlock->AddInstruction(ctx, inst->source, rviPushImm, 0, 0, 0, context->iValue);
+				{
+					lowModule->constants.push_back(rviPushImm);
+					lowModule->constants.push_back(context->iValue);
+				}
 			}
 		}
 		else
 		{
 			if(NULLC_PTR_SIZE == 8)
-				lowBlock->AddInstruction(ctx, inst->source, rviPushQword, 0, 0, targetRegs[0]);
+			{
+				lowModule->constants.push_back(rviPushQword);
+				lowModule->constants.push_back(targetRegs[0]);
+			}
 			else
-				lowBlock->AddInstruction(ctx, inst->source, rviPush, 0, 0, targetRegs[0]);
+			{
+				lowModule->constants.push_back(rviPush);
+				lowModule->constants.push_back(targetRegs[0]);
+			}
 		}
 
 		bool fakeUser = false;
@@ -1726,61 +1816,117 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			inst->users.push_back(NULL);
 		}
 
+		unsigned char regA = (microcodePos >> 16) & 0xff, regB = (microcodePos >> 8) & 0xff, regC = microcodePos & 0xff;
+
 		if(inst->type.type == VM_TYPE_VOID)
 		{
-			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, rvrVoid, targetRegs[1], targetFunction);
+			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(0);
+			lowModule->constants.push_back(rvrVoid);
+
+			if(targetInst == rviCall)
+				lowBlock->AddInstruction(ctx, inst->source, rviCall, regA, regB, regC, targetFunction);
+			else
+				lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, 0, targetRegs[1], microcodePos);
 		}
 		else if(inst->type.type == VM_TYPE_INT || (NULLC_PTR_SIZE == 4 && inst->type.type == VM_TYPE_POINTER))
 		{
 			unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-			lowBlock->AddInstruction(ctx, inst->source, targetInst, targetReg, rvrInt, targetRegs[1], targetFunction);
+			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(targetReg);
+			lowModule->constants.push_back(rvrInt);
+
+			if(targetInst == rviCall)
+				lowBlock->AddInstruction(ctx, inst->source, rviCall, regA, regB, regC, targetFunction);
+			else
+				lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, 0, targetRegs[1], microcodePos);
 		}
 		else if(inst->type.type == VM_TYPE_DOUBLE || inst->type.type == VM_TYPE_LONG || (NULLC_PTR_SIZE == 8 && inst->type.type == VM_TYPE_POINTER))
 		{
 			unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-			lowBlock->AddInstruction(ctx, inst->source, targetInst, targetReg, (unsigned char)(inst->type.type == VM_TYPE_DOUBLE ? rvrDouble : rvrLong), targetRegs[1], targetFunction);
+			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(targetReg);
+			lowModule->constants.push_back(inst->type.type == VM_TYPE_DOUBLE ? rvrDouble : rvrLong);
+
+			if(targetInst == rviCall)
+				lowBlock->AddInstruction(ctx, inst->source, rviCall, regA, regB, regC, targetFunction);
+			else
+				lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, 0, targetRegs[1], microcodePos);
 		}
 		else if(inst->type.type == VM_TYPE_FUNCTION_REF || inst->type.type == VM_TYPE_ARRAY_REF)
 		{
-			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, rvrStruct, targetRegs[1], targetFunction);
+			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(0);
+			lowModule->constants.push_back(rvrStruct);
+
+			if(targetInst == rviCall)
+				lowBlock->AddInstruction(ctx, inst->source, rviCall, regA, regB, regC, targetFunction);
+			else
+				lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, 0, targetRegs[1], microcodePos);
 
 			unsigned char regA = lowFunction->AllocateRegister(inst, 0, false);
 			unsigned char regB = lowFunction->AllocateRegister(inst, 1, true);
 
 			if(NULLC_PTR_SIZE == 8)
 			{
-				lowBlock->AddInstruction(ctx, inst->source, rviPopq, regA, 0, 0, 0u);
-				lowBlock->AddInstruction(ctx, inst->source, rviPop, regB, 0, 0, 2u);
+				lowModule->constants.push_back(rviPopq);
+				lowModule->constants.push_back(regA);
+
+				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(regB);
 			}
 			else
 			{
-				lowBlock->AddInstruction(ctx, inst->source, rviPop, regA, 0, 0, 0u);
-				lowBlock->AddInstruction(ctx, inst->source, rviPop, regB, 0, 0, 1u);
+				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(regA);
+
+				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(regB);
 			}
 		}
 		else if(inst->type.type == VM_TYPE_AUTO_REF)
 		{
-			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, rvrStruct, targetRegs[1], targetFunction);
+			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(0);
+			lowModule->constants.push_back(rvrStruct);
+
+			if(targetInst == rviCall)
+				lowBlock->AddInstruction(ctx, inst->source, rviCall, regA, regB, regC, targetFunction);
+			else
+				lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, 0, targetRegs[1], microcodePos);
 
 			unsigned char regA = lowFunction->AllocateRegister(inst, 0, false);
 			unsigned char regB = lowFunction->AllocateRegister(inst, 1, true);
 
 			if(NULLC_PTR_SIZE == 8)
 			{
-				lowBlock->AddInstruction(ctx, inst->source, rviPop, regA, 0, 0, 0u);
-				lowBlock->AddInstruction(ctx, inst->source, rviPopq, regB, 0, 0, 1u);
+				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(regA);
+
+				lowModule->constants.push_back(rviPopq);
+				lowModule->constants.push_back(regB);
 			}
 			else
 			{
-				lowBlock->AddInstruction(ctx, inst->source, rviPop, regA, 0, 0, 0u);
-				lowBlock->AddInstruction(ctx, inst->source, rviPop, regB, 0, 0, 1u);
+				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(regA);
+
+				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(regB);
 			}
 		}
 		else if(inst->type.type == VM_TYPE_AUTO_ARRAY)
 		{
-			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, rvrStruct, targetRegs[1], targetFunction);
+			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(0);
+			lowModule->constants.push_back(rvrStruct);
+
+			if(targetInst == rviCall)
+				lowBlock->AddInstruction(ctx, inst->source, rviCall, regA, regB, regC, targetFunction);
+			else
+				lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, 0, targetRegs[1], microcodePos);
 
 			unsigned char regA = lowFunction->AllocateRegister(inst, 0, false);
 			unsigned char regB = lowFunction->AllocateRegister(inst, 1, false);
@@ -1788,20 +1934,37 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			if(NULLC_PTR_SIZE == 8)
 			{
-				lowBlock->AddInstruction(ctx, inst->source, rviPop, regA, 0, 0, 0u);
-				lowBlock->AddInstruction(ctx, inst->source, rviPopq, regB, 0, 0, 1u);
-				lowBlock->AddInstruction(ctx, inst->source, rviPop, regC, 0, 0, 3u);
+				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(regA);
+
+				lowModule->constants.push_back(rviPopq);
+				lowModule->constants.push_back(regB);
+
+				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(regC);
 			}
 			else
 			{
-				lowBlock->AddInstruction(ctx, inst->source, rviPop, regA, 0, 0, 0u);
-				lowBlock->AddInstruction(ctx, inst->source, rviPop, regB, 0, 0, 1u);
-				lowBlock->AddInstruction(ctx, inst->source, rviPop, regC, 0, 0, 2u);
+				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(regA);
+
+				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(regB);
+
+				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(regC);
 			}
 		}
 		else if(inst->type.type == VM_TYPE_STRUCT)
 		{
-			lowBlock->AddInstruction(ctx, inst->source, targetInst, 0, rvrStruct, targetRegs[1], targetFunction);
+			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(0);
+			lowModule->constants.push_back(rvrStruct);
+
+			if(targetInst == rviCall)
+				lowBlock->AddInstruction(ctx, inst->source, rviCall, regA, regB, regC, targetFunction);
+			else
+				lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, 0, targetRegs[1], microcodePos);
 
 			unsigned remainingSize = inst->type.size;
 
@@ -1814,13 +1977,15 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				if(remainingSize == 4)
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviPop, inst->regVmRegisters[index], 0, 0, (inst->type.size - remainingSize) / 4);
+					lowModule->constants.push_back(rviPop);
+					lowModule->constants.push_back(inst->regVmRegisters[index]);
 
 					remainingSize -= 4;
 				}
 				else
 				{
-					lowBlock->AddInstruction(ctx, inst->source, rviPopq, inst->regVmRegisters[index], 0, 0, (inst->type.size - remainingSize) / 4);
+					lowModule->constants.push_back(rviPopq);
+					lowModule->constants.push_back(inst->regVmRegisters[index]);
 
 					remainingSize -= 8;
 				}
@@ -1828,6 +1993,8 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				index++;
 			}
 		}
+
+		lowModule->constants.push_back(rviReturn);
 
 		if(fakeUser)
 		{
@@ -1862,7 +2029,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			else if(result->type.type == VM_TYPE_STRUCT)
 				resultType = rvrStruct;
 
-			if(!TryLowerConstantPushIntoBlock(ctx, lowBlock, result))
+			if(!TryLowerConstantPushIntoBlock(ctx, lowBlock, result, true))
 			{
 				SmallArray<unsigned char, 32> resultRegs(ctx.allocator);
 				GetArgumentRegisters(ctx, lowFunction, lowBlock, resultRegs, result);

@@ -137,6 +137,87 @@ void PrintAddress(OutputContext &ctx, char *constantData, unsigned char rC, unsi
 	}
 }
 
+void PrintCall(OutputContext &ctx, char *constantData, unsigned microcodePos)
+{
+	Print(ctx, "(");
+
+	unsigned *microcode = (unsigned*)constantData + microcodePos;
+
+	while(*microcode != rviCall)
+	{
+		switch(*microcode++)
+		{
+		case rviPush:
+			Print(ctx, "r%d~", *microcode++);
+			break;
+		case rviPushQword:
+			Print(ctx, "r%d", *microcode++);
+			break;
+		case rviPushImm:
+			Print(ctx, "%d", *microcode++);
+			break;
+		case rviPushImmq:
+			Print(ctx, "%dL", *microcode++);
+			break;
+		}
+
+		if(*microcode != rviCall)
+			Print(ctx, ", ");
+	}
+
+	Print(ctx, ") -> ");
+
+	microcode++;
+
+	unsigned targetReg = *microcode++;
+	unsigned resultType = *microcode++;
+
+	switch(resultType)
+	{
+	case rvrVoid:
+		Print(ctx, "void");
+		break;
+	case rvrDouble:
+		Print(ctx, "double (r%d", targetReg);
+		break;
+	case rvrLong:
+		Print(ctx, "long (r%d", targetReg);
+		break;
+	case rvrInt:
+		Print(ctx, "int (r%d", targetReg);
+		break;
+	case rvrStruct:
+		Print(ctx, "struct (");
+		break;
+	case rvrError:
+		Print(ctx, "error");
+		break;
+	default:
+		assert(!"unknown type");
+	}
+
+	while(*microcode != rviReturn)
+	{
+		switch(*microcode++)
+		{
+		case rviPop:
+			Print(ctx, "r%d~", *microcode++);
+			break;
+		case rviPopq:
+			Print(ctx, "r%d", *microcode++);
+			break;
+		}
+
+		if(*microcode != rviReturn)
+			Print(ctx, ", ");
+	}
+
+	if(resultType == rvrVoid || resultType == rvrError)
+		Print(ctx, " @%d", microcodePos * 4);
+	else
+		Print(ctx, ") @%d", microcodePos * 4);
+}
+
 void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, unsigned argument, VmConstant *constant)
 {
 	Print(ctx, "%s ", GetInstructionName(code));
@@ -290,68 +371,12 @@ void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCo
 		PrintConstant(ctx, argument, constant);
 		break;
 	case rviCall:
-		if(rB != rvrVoid)
-		{
-			PrintRegister(ctx, rA);
-			Print(ctx, ", ");
-		}
-		switch(rB)
-		{
-		case rvrVoid:
-			Print(ctx, "void");
-			break;
-		case rvrDouble:
-			Print(ctx, "double");
-			break;
-		case rvrLong:
-			Print(ctx, "long");
-			break;
-		case rvrInt:
-			Print(ctx, "int");
-			break;
-		case rvrStruct:
-			Print(ctx, "struct");
-			break;
-		case rvrError:
-			Print(ctx, "error");
-			break;
-		default:
-			assert(!"unknown type");
-		}
-		Print(ctx, ", ");
 		PrintConstant(ctx, argument, constant);
+		PrintCall(ctx, constantData, (rA << 16) | (rB << 8) | rC);
 		break;
 	case rviCallPtr:
-		if(rB != rvrVoid)
-		{
-			PrintRegister(ctx, rA);
-			Print(ctx, ", ");
-		}
-		switch(rB)
-		{
-		case rvrVoid:
-			Print(ctx, "void");
-			break;
-		case rvrDouble:
-			Print(ctx, "double");
-			break;
-		case rvrLong:
-			Print(ctx, "long");
-			break;
-		case rvrInt:
-			Print(ctx, "int");
-			break;
-		case rvrStruct:
-			Print(ctx, "struct");
-			break;
-		case rvrError:
-			Print(ctx, "error");
-			break;
-		default:
-			assert(!"unknown type");
-		}
-		Print(ctx, ", ");
 		PrintRegister(ctx, rC);
+		PrintCall(ctx, constantData, argument);
 		break;
 	case rviReturn:
 		switch(rB)

@@ -938,7 +938,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			instruction++;
 			BREAK;
 		CASE(rviCall)
-			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, cmd.argument, instruction, regFilePtr, tempStackPtr);
+			tempStackPtr = rvm->ExecCall((cmd.rA << 16) | (cmd.rB << 8) | cmd.rC, cmd.argument, instruction, regFilePtr, tempStackPtr);
 
 			if(!tempStackPtr)
 				return rvrError;
@@ -951,7 +951,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			if(regFilePtr[cmd.rC].intValue == 0)
 				return rvm->ExecError(instruction, "ERROR: invalid function pointer");
 
-			tempStackPtr = rvm->ExecCall(cmd.rA, cmd.rB, regFilePtr[cmd.rC].intValue, instruction, regFilePtr, tempStackPtr);
+			tempStackPtr = rvm->ExecCall(cmd.argument, regFilePtr[cmd.rC].intValue, instruction, regFilePtr, tempStackPtr);
 
 			if(!tempStackPtr)
 				return rvrError;
@@ -2054,8 +2054,41 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 	return codeBase + cmd.argument;
 }
 
-unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultType, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr)
+unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr)
 {
+	unsigned *start = tempStackPtr;
+
+	// Push arguments
+	unsigned *microcode = exLinker->exRegVmConstants.data + microcodePos;
+
+	while(*microcode != rviCall)
+	{
+		switch(*microcode++)
+		{
+		case rviPush:
+			*tempStackPtr = regFilePtr[*microcode++].intValue;
+			tempStackPtr += 1;
+			break;
+		case rviPushQword:
+			memcpy(tempStackPtr, &regFilePtr[*microcode++].longValue, sizeof(long long));
+			tempStackPtr += 2;
+			break;
+		case rviPushImm:
+			*tempStackPtr = *microcode++;
+			tempStackPtr += 1;
+			break;
+		case rviPushImmq:
+			vmStoreLong(tempStackPtr, *microcode++);
+			tempStackPtr += 2;
+			break;
+		}
+	}
+
+	microcode++;
+
+	unsigned char resultReg = *microcode++ & 0xff;
+	unsigned char resultType = *microcode++ & 0xff;
+
 	ExternFuncInfo &target = exFunctions[functionId];
 
 	unsigned address = target.regVmAddress;
@@ -2108,6 +2141,25 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 		default:
 			break;
 		}
+
+		unsigned *curr = tempStackPtr;
+
+		while(*microcode != rviReturn)
+		{
+			switch(*microcode++)
+			{
+			case rviPop:
+				regFilePtr[*microcode++].intValue = *curr;
+				curr += 1;
+				break;
+			case rviPopq:
+				regFilePtr[*microcode++].longValue = vmLoadLong(curr);
+				curr += 2;
+				break;
+			}
+		}
+
+		assert(start == tempStackPtr);
 
 		return tempStackPtr;
 	}
@@ -2201,6 +2253,25 @@ unsigned* ExecutorRegVm::ExecCall(unsigned char resultReg, unsigned char resultT
 	default:
 		break;
 	}
+
+	unsigned *curr = tempStackPtr;
+
+	while(*microcode != rviReturn)
+	{
+		switch(*microcode++)
+		{
+		case rviPop:
+			regFilePtr[*microcode++].intValue = *curr;
+			curr += 1;
+			break;
+		case rviPopq:
+			regFilePtr[*microcode++].longValue = vmLoadLong(curr);
+			curr += 2;
+			break;
+		}
+	}
+
+	assert(start == tempStackPtr);
 
 	return tempStackPtr;
 }
