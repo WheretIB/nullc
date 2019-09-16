@@ -58,6 +58,7 @@ void Linker::CleanCode()
 	exRegVmCode.clear();
 	exRegVmSourceInfo.clear();
 	exRegVmExecCount.clear();
+	exRegVmConstants.clear();
 	memset(exRegVmInstructionExecCount.data, 0, sizeof(exRegVmInstructionExecCount));
 
 #ifdef NULLC_LLVM_SUPPORT
