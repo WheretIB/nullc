@@ -220,8 +220,20 @@ unsigned GetAccessSize(VmInstruction *inst)
 	case VM_INST_SUB_LOAD:
 	case VM_INST_MUL_LOAD:
 	case VM_INST_DIV_LOAD:
+	case VM_INST_POW_LOAD:
+	case VM_INST_MOD_LOAD:
+	case VM_INST_LESS_LOAD:
+	case VM_INST_GREATER_LOAD:
+	case VM_INST_LESS_EQUAL_LOAD:
+	case VM_INST_GREATER_EQUAL_LOAD:
+	case VM_INST_EQUAL_LOAD:
+	case VM_INST_NOT_EQUAL_LOAD:
 	case VM_INST_SHL_LOAD:
 	case VM_INST_SHR_LOAD:
+	case VM_INST_BIT_AND_LOAD:
+	case VM_INST_BIT_OR_LOAD:
+	case VM_INST_BIT_XOR_LOAD:
+	case VM_INST_LOG_XOR_LOAD:
 		if(VmConstant *loadInst = getType<VmConstant>(inst->arguments[3]))
 		{
 			if(loadInst->iValue == VM_INST_LOAD_FLOAT)
@@ -404,10 +416,34 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "mul_load";
 	case VM_INST_DIV_LOAD:
 		return "div_load";
+	case VM_INST_POW_LOAD:
+		return "pow_load";
+	case VM_INST_MOD_LOAD:
+		return "mod_load";
+	case VM_INST_LESS_LOAD:
+		return "lt_load";
+	case VM_INST_GREATER_LOAD:
+		return "gt_load";
+	case VM_INST_LESS_EQUAL_LOAD:
+		return "lte_load";
+	case VM_INST_GREATER_EQUAL_LOAD:
+		return "gte_load";
+	case VM_INST_EQUAL_LOAD:
+		return "eq_load";
+	case VM_INST_NOT_EQUAL_LOAD:
+		return "neq_load";
 	case VM_INST_SHL_LOAD:
 		return "shl_load";
 	case VM_INST_SHR_LOAD:
 		return "shr_load";
+	case VM_INST_BIT_AND_LOAD:
+		return "and_load";
+	case VM_INST_BIT_OR_LOAD:
+		return "or_load";
+	case VM_INST_BIT_XOR_LOAD:
+		return "xor_load";
+	case VM_INST_LOG_XOR_LOAD:
+		return "lxor_load";
 	case VM_INST_NEG:
 		return "neg";
 	case VM_INST_BIT_NOT:

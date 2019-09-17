@@ -703,6 +703,26 @@ void LowerBinaryOperationIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 	}
 }
 
+void LowerBinaryMemoryOperationIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, VmInstruction *inst, RegVmInstructionCode iCode, RegVmInstructionCode fCode, RegVmInstructionCode dCode, RegVmInstructionCode lCode)
+{
+	unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
+	unsigned char addressReg = 0;
+	VmConstant *constant = GetLoadRegisterAndOffset(ctx, lowFunction, lowBlock, inst->arguments[1], inst->arguments[2], addressReg);
+	VmConstant *loadType = getType<VmConstant>(inst->arguments[3]);
+	unsigned char targetReg = lowFunction->AllocateRegister(inst);
+
+	if(inst->type == VmType::Int || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
+		lowBlock->AddInstruction(ctx, inst->source, iCode, targetReg, lhsReg, addressReg, constant);
+	else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT && fCode != rviNop)
+		lowBlock->AddInstruction(ctx, inst->source, fCode, targetReg, lhsReg, addressReg, constant);
+	else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE && dCode != rviNop)
+		lowBlock->AddInstruction(ctx, inst->source, dCode, targetReg, lhsReg, addressReg, constant);
+	else if(inst->type == VmType::Long || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
+		lowBlock->AddInstruction(ctx, inst->source, lCode, targetReg, lhsReg, addressReg, constant);
+	else
+		assert(!"unknown type");
+}
+
 void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, RegVmLoweredBlock *lowBlock, VmValue *value)
 {
 	RegVmLoweredInstruction *lastLowered = lowBlock->lastInstruction;
@@ -2294,112 +2314,87 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		break;
 	case VM_INST_ADD_LOAD:
 	{
-		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char addressReg = 0;
-		VmConstant *constant = GetLoadRegisterAndOffset(ctx, lowFunction, lowBlock, inst->arguments[1], inst->arguments[2], addressReg);
-		VmConstant *loadType = getType<VmConstant>(inst->arguments[3]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-		if(inst->type == VmType::Int || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
-			lowBlock->AddInstruction(ctx, inst->source, rviAdd, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT)
-			lowBlock->AddInstruction(ctx, inst->source, rviAddf, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE)
-			lowBlock->AddInstruction(ctx, inst->source, rviAddd, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Long || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
-			lowBlock->AddInstruction(ctx, inst->source, rviAddl, targetReg, lhsReg, addressReg, constant);
-		else
-			assert(!"unknown type");
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviAdd, rviAddf, rviAddd, rviAddl);
 	}
 	break;
 	case VM_INST_SUB_LOAD:
 	{
-		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char addressReg = 0;
-		VmConstant *constant = GetLoadRegisterAndOffset(ctx, lowFunction, lowBlock, inst->arguments[1], inst->arguments[2], addressReg);
-		VmConstant *loadType = getType<VmConstant>(inst->arguments[3]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviSub, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT)
-			lowBlock->AddInstruction(ctx, inst->source, rviSubf, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE)
-			lowBlock->AddInstruction(ctx, inst->source, rviSubd, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviSubl, targetReg, lhsReg, addressReg, constant);
-		else
-			assert(!"unknown type");
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviSub, rviSubf, rviSubd, rviSubl);
 	}
 	break;
 	case VM_INST_MUL_LOAD:
 	{
-		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char addressReg = 0;
-		VmConstant *constant = GetLoadRegisterAndOffset(ctx, lowFunction, lowBlock, inst->arguments[1], inst->arguments[2], addressReg);
-		VmConstant *loadType = getType<VmConstant>(inst->arguments[3]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviMul, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT)
-			lowBlock->AddInstruction(ctx, inst->source, rviMulf, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE)
-			lowBlock->AddInstruction(ctx, inst->source, rviMuld, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviMull, targetReg, lhsReg, addressReg, constant);
-		else
-			assert(!"unknown type");
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviMul, rviMulf, rviMuld, rviMull);
 	}
 	break;
 	case VM_INST_DIV_LOAD:
 	{
-		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char addressReg = 0;
-		VmConstant *constant = GetLoadRegisterAndOffset(ctx, lowFunction, lowBlock, inst->arguments[1], inst->arguments[2], addressReg);
-		VmConstant *loadType = getType<VmConstant>(inst->arguments[3]);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviDiv, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT)
-			lowBlock->AddInstruction(ctx, inst->source, rviDivf, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE)
-			lowBlock->AddInstruction(ctx, inst->source, rviDivd, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviDivl, targetReg, lhsReg, addressReg, constant);
-		else
-			assert(!"unknown type");
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviDiv, rviDivf, rviDivd, rviDivl);
+	}
+	break;
+	case VM_INST_MOD_LOAD:
+	{
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviMod, rviNop, rviModd, rviModl);
+	}
+	break;
+	case VM_INST_LESS_LOAD:
+	{
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviLess, rviNop, rviLessd, rviLessl);
+	}
+	break;
+	case VM_INST_GREATER_LOAD:
+	{
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviGreater, rviNop, rviGreaterd, rviGreaterl);
+	}
+	break;
+	case VM_INST_LESS_EQUAL_LOAD:
+	{
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviLequal, rviNop, rviLequald, rviLequall);
+	}
+	break;
+	case VM_INST_GREATER_EQUAL_LOAD:
+	{
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviGequal, rviNop, rviGequald, rviGequall);
+	}
+	break;
+	case VM_INST_EQUAL_LOAD:
+	{
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviEqual, rviNop, rviEquald, rviEquall);
+	}
+	break;
+	case VM_INST_NOT_EQUAL_LOAD:
+	{
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviNequal, rviNop, rviNequald, rviNequall);
 	}
 	break;
 	case VM_INST_SHL_LOAD:
 	{
-		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char addressReg = 0;
-		VmConstant *constant = GetLoadRegisterAndOffset(ctx, lowFunction, lowBlock, inst->arguments[1], inst->arguments[2], addressReg);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviShl, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviShll, targetReg, lhsReg, addressReg, constant);
-		else
-			assert(!"unknown type");
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviShl, rviNop, rviNop, rviShll);
 	}
 	break;
 	case VM_INST_SHR_LOAD:
 	{
-		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-		unsigned char addressReg = 0;
-		VmConstant *constant = GetLoadRegisterAndOffset(ctx, lowFunction, lowBlock, inst->arguments[1], inst->arguments[2], addressReg);
-		unsigned char targetReg = lowFunction->AllocateRegister(inst);
-
-		if(inst->type == VmType::Int)
-			lowBlock->AddInstruction(ctx, inst->source, rviShr, targetReg, lhsReg, addressReg, constant);
-		else if(inst->type == VmType::Long)
-			lowBlock->AddInstruction(ctx, inst->source, rviShrl, targetReg, lhsReg, addressReg, constant);
-		else
-			assert(!"unknown type");
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviShr, rviNop, rviNop, rviShrl);
+	}
+	break;
+	case VM_INST_BIT_AND_LOAD:
+	{
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviBitAnd, rviNop, rviNop, rviBitAndl);
+	}
+	break;
+	case VM_INST_BIT_OR_LOAD:
+	{
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviBitOr, rviNop, rviNop, rviBitOrl);
+	}
+	break;
+	case VM_INST_BIT_XOR_LOAD:
+	{
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviBitXor, rviNop, rviNop, rviBitXorl);
+	}
+	break;
+	case VM_INST_LOG_XOR_LOAD:
+	{
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviLogXor, rviNop, rviNop, rviLogXorl);
 	}
 	break;
 	case VM_INST_NEG:

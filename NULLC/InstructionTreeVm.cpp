@@ -108,8 +108,20 @@ namespace
 		case VM_INST_SUB_LOAD:
 		case VM_INST_MUL_LOAD:
 		case VM_INST_DIV_LOAD:
+		case VM_INST_POW_LOAD:
+		case VM_INST_MOD_LOAD:
+		case VM_INST_LESS_LOAD:
+		case VM_INST_GREATER_LOAD:
+		case VM_INST_LESS_EQUAL_LOAD:
+		case VM_INST_GREATER_EQUAL_LOAD:
+		case VM_INST_EQUAL_LOAD:
+		case VM_INST_NOT_EQUAL_LOAD:
 		case VM_INST_SHL_LOAD:
 		case VM_INST_SHR_LOAD:
+		case VM_INST_BIT_AND_LOAD:
+		case VM_INST_BIT_OR_LOAD:
+		case VM_INST_BIT_XOR_LOAD:
+		case VM_INST_LOG_XOR_LOAD:
 			return true;
 		default:
 			break;
@@ -163,10 +175,54 @@ namespace
 			return VM_INST_MUL_LOAD;
 		case VM_INST_DIV:
 			return VM_INST_DIV_LOAD;
+		case VM_INST_POW:
+			return VM_INST_POW_LOAD;
+		case VM_INST_MOD:
+			return VM_INST_MOD_LOAD;
+		case VM_INST_LESS:
+			return VM_INST_LESS_LOAD;
+		case VM_INST_GREATER:
+			return VM_INST_GREATER_LOAD;
+		case VM_INST_LESS_EQUAL:
+			return VM_INST_LESS_EQUAL_LOAD;
+		case VM_INST_GREATER_EQUAL:
+			return VM_INST_GREATER_EQUAL_LOAD;
+		case VM_INST_EQUAL:
+			return VM_INST_EQUAL_LOAD;
+		case VM_INST_NOT_EQUAL:
+			return VM_INST_NOT_EQUAL_LOAD;
 		case VM_INST_SHL:
 			return VM_INST_SHL_LOAD;
 		case VM_INST_SHR:
 			return VM_INST_SHR_LOAD;
+		case VM_INST_BIT_AND:
+			return VM_INST_BIT_AND_LOAD;
+		case VM_INST_BIT_OR:
+			return VM_INST_BIT_OR_LOAD;
+		case VM_INST_BIT_XOR:
+			return VM_INST_BIT_XOR_LOAD;
+		case VM_INST_LOG_XOR:
+			return VM_INST_LOG_XOR_LOAD;
+		default:
+			break;
+		}
+
+		assert(!"unknown operation");
+		return VM_INST_ABORT_NO_RETURN;
+	}
+
+	VmInstructionType GetMirroredComparisonOperationWithLoad(VmInstructionType cmd)
+	{
+		switch(cmd)
+		{
+		case VM_INST_LESS:
+			return VM_INST_GREATER_LOAD;
+		case VM_INST_GREATER:
+			return VM_INST_LESS_LOAD;
+		case VM_INST_LESS_EQUAL:
+			return VM_INST_GREATER_EQUAL_LOAD;
+		case VM_INST_GREATER_EQUAL:
+			return VM_INST_LESS_EQUAL_LOAD;
 		default:
 			break;
 		}
@@ -5075,8 +5131,20 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 		case VM_INST_SUB:
 		case VM_INST_MUL:
 		case VM_INST_DIV:
+		case VM_INST_POW:
+		case VM_INST_MOD:
+		case VM_INST_LESS:
+		case VM_INST_GREATER:
+		case VM_INST_LESS_EQUAL:
+		case VM_INST_GREATER_EQUAL:
+		case VM_INST_EQUAL:
+		case VM_INST_NOT_EQUAL:
 		case VM_INST_SHL:
 		case VM_INST_SHR:
+		case VM_INST_BIT_AND:
+		case VM_INST_BIT_OR:
+		case VM_INST_BIT_XOR:
+		case VM_INST_LOG_XOR:
 			if(VmInstruction *rhs = getType<VmInstruction>(inst->arguments[1]))
 			{
 				if(IsOperationNaturalLoad(inst, rhs) && rhs->users.size() == 1 && inst->arguments.size() == 2)
@@ -5098,6 +5166,12 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 		{
 		case VM_INST_ADD:
 		case VM_INST_MUL:
+		case VM_INST_EQUAL:
+		case VM_INST_NOT_EQUAL:
+		case VM_INST_BIT_AND:
+		case VM_INST_BIT_OR:
+		case VM_INST_BIT_XOR:
+		case VM_INST_LOG_XOR:
 			if(VmInstruction *lhs = getType<VmInstruction>(inst->arguments[0]))
 			{
 				if(IsOperationNaturalLoad(inst, lhs) && lhs->users.size() == 1 && inst->arguments.size() == 2)
@@ -5108,6 +5182,23 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 					VmConstant *loadType = CreateConstantInt(ctx.allocator, inst->source, int(lhs->cmd));
 
 					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[1], loadAddress, loadOffset, loadType, &module->peepholeOptimizations);
+				}
+			}
+			break;
+		case VM_INST_LESS:
+		case VM_INST_GREATER:
+		case VM_INST_LESS_EQUAL:
+		case VM_INST_GREATER_EQUAL:
+			if(VmInstruction *lhs = getType<VmInstruction>(inst->arguments[0]))
+			{
+				if(IsOperationNaturalLoad(inst, lhs) && lhs->users.size() == 1 && inst->arguments.size() == 2)
+				{
+					VmValue *loadAddress = lhs->arguments[0];
+					VmValue *loadOffset = lhs->arguments[1];
+
+					VmConstant *loadType = CreateConstantInt(ctx.allocator, inst->source, int(lhs->cmd));
+
+					ChangeInstructionTo(module, inst, GetMirroredComparisonOperationWithLoad(inst->cmd), inst->arguments[1], loadAddress, loadOffset, loadType, &module->peepholeOptimizations);
 				}
 			}
 			break;
