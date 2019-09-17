@@ -3864,6 +3864,34 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 		case VM_INST_DOUBLE_TO_LONG:
 			ReplaceValueUsersWith(module, inst, CreateConstantLong(module->allocator, inst->source, (long long)(consts[0]->dValue)), &module->constantPropagations);
 			break;
+		case VM_INST_DOUBLE_TO_FLOAT:
+		{
+			float fValue = float(consts[0]->dValue);
+
+			int iValue;
+			assert(sizeof(int) == sizeof(float));
+			memcpy(&iValue, &fValue, sizeof(float));
+
+			VmConstant *constant = CreateConstantInt(module->allocator, inst->source, iValue);
+
+			constant->isFloat = true;
+
+			// Replace only call instuction users
+			for(unsigned i = 0; i < inst->users.size(); i++)
+			{
+				if(VmInstruction *userInst = getType<VmInstruction>(inst->users[i]))
+				{
+					if(userInst->cmd == VM_INST_CALL)
+					{
+						ReplaceValue(module, inst->users[i], inst, constant);
+						module->constantPropagations++;
+					}
+				}
+			}
+
+			module->tempUsers.clear();
+		}
+			break;
 		case VM_INST_INT_TO_DOUBLE:
 			ReplaceValueUsersWith(module, inst, CreateConstantDouble(module->allocator, inst->source, double(consts[0]->iValue)), &module->constantPropagations);
 			break;

@@ -10,6 +10,17 @@ void (*nullcDumpGraphVmModule)(VmModule*) = DumpGraph;
 
 #define FMT_ISTR(x) unsigned(x.end - x.begin), x.begin
 
+namespace
+{
+	float DecodeFloat(int value)
+	{
+		float result;
+		assert(sizeof(int) == sizeof(float));
+		memcpy(&result, &value, sizeof(float));
+		return result;
+	}
+}
+
 NULLC_PRINT_FORMAT_CHECK(2, 3) void Print(InstructionVMGraphContext &ctx, const char *format, ...)
 {
 	va_list args;
@@ -169,6 +180,8 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 {
 	if(constant->type == VmType::Void)
 		Print(ctx, "{}");
+	else if(constant->type == VmType::Int && constant->isFloat)
+		Print(ctx, "%ff", DecodeFloat(constant->iValue));
 	else if(constant->type == VmType::Int)
 		Print(ctx, "%d", constant->iValue);
 	else if(constant->type == VmType::Double)

@@ -283,6 +283,8 @@ struct VmConstant: VmValue
 		fValue = NULL;
 
 		container = NULL;
+
+		isFloat = false;
 	}
 
 	bool operator==(const VmConstant& rhs) const
@@ -298,6 +300,8 @@ struct VmConstant: VmValue
 	VmFunction *fValue;
 
 	VariableData *container;
+
+	bool isFloat;
 
 	static const unsigned myTypeID = __LINE__;
 };
