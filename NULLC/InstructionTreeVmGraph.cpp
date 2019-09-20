@@ -97,6 +97,9 @@ void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName, bo
 		}
 
 		Print(ctx, "%%%d", inst->uniqueId);
+
+		if(inst->color)
+			Print(ctx, ".c%d", inst->color);
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
 	{
@@ -291,13 +294,6 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 				Print(ctx, ", ");
 
 			PrintName(ctx, value, false, false);
-
-			if(VmInstruction *inst = getType<VmInstruction>(value))
-			{
-				if(inst->color)
-					Print(ctx, ".c%d", inst->color);
-			}
-
 			Print(ctx, " from ");
 			PrintName(ctx, edge, false, false);
 		}
@@ -350,12 +346,6 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 				Print(ctx, ", ");
 
 			PrintName(ctx, value, false, false);
-
-			if(VmInstruction *inst = getType<VmInstruction>(value))
-			{
-				if(inst->color)
-					Print(ctx, ".c%d", inst->color);
-			}
 		}
 
 		if(instruction->type == VmType::Void)
