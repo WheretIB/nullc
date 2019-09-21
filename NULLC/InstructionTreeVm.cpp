@@ -5099,6 +5099,45 @@ void RunArrayToElements(ExpressionContext &ctx, VmModule *module, VmValue* value
 	}
 }
 
+bool IsReachableLoadValue(VmInstruction *user, VmInstruction *load)
+{
+	if(user->parent != load->parent)
+		return false;
+
+	VmValue *loadAddress = load->arguments[0];
+	VmConstant *loadOffset = getType<VmConstant>(load->arguments[1]);
+
+	VmConstant *loadAddressConstant = getType<VmConstant>(loadAddress);
+
+	for(VmInstruction *curr = user->prevSibling; curr != load; curr = curr->prevSibling)
+	{
+		switch(curr->cmd)
+		{
+		case VM_INST_STORE_BYTE:
+		case VM_INST_STORE_SHORT:
+		case VM_INST_STORE_INT:
+		case VM_INST_STORE_FLOAT:
+		case VM_INST_STORE_DOUBLE:
+		case VM_INST_STORE_LONG:
+		case VM_INST_STORE_STRUCT:
+			if(IsLoadAliasedWithStore(load, curr))
+				return false;
+			break;
+		case VM_INST_SET_RANGE:
+			return false;
+		case VM_INST_CALL:
+			if(loadAddressConstant && loadAddressConstant->container && !HasAddressTaken(loadAddressConstant->container))
+				return true;
+
+			return false;
+		default:
+			break;
+		}
+	}
+
+	return true;
+}
+
 void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue* value)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
@@ -5133,7 +5172,7 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 		case VM_INST_DIV:
 			if(VmInstruction *rhs = getType<VmInstruction>(inst->arguments[1]))
 			{
-				if(IsOperationNaturalLoad(inst, rhs, true) && rhs->users.size() == 1 && inst->arguments.size() == 2)
+				if(IsOperationNaturalLoad(inst, rhs, true) && rhs->users.size() == 1 && inst->arguments.size() == 2 && IsReachableLoadValue(inst, rhs))
 				{
 					VmValue *loadAddress = rhs->arguments[0];
 					VmValue *loadOffset = rhs->arguments[1];
@@ -5160,7 +5199,7 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 		case VM_INST_LOG_XOR:
 			if(VmInstruction *rhs = getType<VmInstruction>(inst->arguments[1]))
 			{
-				if(IsOperationNaturalLoad(inst, rhs, false) && rhs->users.size() == 1 && inst->arguments.size() == 2)
+				if(IsOperationNaturalLoad(inst, rhs, false) && rhs->users.size() == 1 && inst->arguments.size() == 2 && IsReachableLoadValue(inst, rhs))
 				{
 					VmValue *loadAddress = rhs->arguments[0];
 					VmValue *loadOffset = rhs->arguments[1];
@@ -5187,7 +5226,7 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 		case VM_INST_LOG_XOR:
 			if(VmInstruction *lhs = getType<VmInstruction>(inst->arguments[0]))
 			{
-				if(IsOperationNaturalLoad(inst, lhs, false) && lhs->users.size() == 1 && inst->arguments.size() == 2)
+				if(IsOperationNaturalLoad(inst, lhs, false) && lhs->users.size() == 1 && inst->arguments.size() == 2 && IsReachableLoadValue(inst, lhs))
 				{
 					VmValue *loadAddress = lhs->arguments[0];
 					VmValue *loadOffset = lhs->arguments[1];
@@ -5204,7 +5243,7 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 		case VM_INST_GREATER_EQUAL:
 			if(VmInstruction *lhs = getType<VmInstruction>(inst->arguments[0]))
 			{
-				if(IsOperationNaturalLoad(inst, lhs, false) && lhs->users.size() == 1 && inst->arguments.size() == 2)
+				if(IsOperationNaturalLoad(inst, lhs, false) && lhs->users.size() == 1 && inst->arguments.size() == 2 && IsReachableLoadValue(inst, lhs))
 				{
 					VmValue *loadAddress = lhs->arguments[0];
 					VmValue *loadOffset = lhs->arguments[1];
