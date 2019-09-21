@@ -5105,7 +5105,6 @@ bool IsReachableLoadValue(VmInstruction *user, VmInstruction *load)
 		return false;
 
 	VmValue *loadAddress = load->arguments[0];
-	VmConstant *loadOffset = getType<VmConstant>(load->arguments[1]);
 
 	VmConstant *loadAddressConstant = getType<VmConstant>(loadAddress);
 
