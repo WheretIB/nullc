@@ -2693,7 +2693,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		for(unsigned i = 2; i < inst->arguments.size(); i++)
 		{
 			lowBlock->AddInstruction(ctx, inst->source, rviLoadImm, tempReg, 0, 0, i - 1);
-			lowBlock->AddInstruction(ctx, inst->source, rviEqual, tempReg, jumpPointReg, tempReg);
+			lowBlock->AddInstruction(ctx, inst->source, rviEqual, tempReg, jumpPointReg, rvrrRegisters, tempReg * sizeof(RegVmRegister));
 			lowBlock->AddInstruction(ctx, inst->source, rviJmpnz, 0, 0, tempReg, getType<VmBlock>(inst->arguments[i]));
 		}
 
