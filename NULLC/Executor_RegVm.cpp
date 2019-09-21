@@ -547,7 +547,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 		&&case_rviLogNot,
 		&&case_rviLogNotl,
 		&&case_rviConvertPtr,
-		&&case_rviCheckRet,
 	};
 
 #define SWITCH goto *switchTable[instruction->code];
@@ -2059,8 +2058,6 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 
 unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr)
 {
-	unsigned *start = tempStackPtr;
-
 	// Push arguments
 	unsigned *microcode = exLinker->exRegVmConstants.data + microcodePos;
 
@@ -2273,8 +2270,6 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 			break;
 		}
 	}
-
-	assert(start == tempStackPtr);
 
 	return tempStackPtr;
 }
