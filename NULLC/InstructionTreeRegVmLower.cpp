@@ -2332,6 +2332,11 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviDiv, rviDivf, rviDivd, rviDivl);
 	}
 	break;
+	case VM_INST_POW_LOAD:
+	{
+		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviPow, rviNop, rviPowd, rviPowl);
+	}
+	break;
 	case VM_INST_MOD_LOAD:
 	{
 		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviMod, rviNop, rviModd, rviModl);
