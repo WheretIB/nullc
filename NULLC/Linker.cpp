@@ -766,8 +766,12 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		case rviCallPtr:
 			cmd.argument += oldRegVmConstantsSize;
 			break;
+		case rviReturn:
+			cmd.argument += oldRegVmConstantsSize;
+
+			exRegVmConstants[cmd.argument] = typeRemap[exRegVmConstants[cmd.argument]];
+			break;
 		case rviConvertPtr:
-		case rviCheckRet:
 			cmd.argument = typeRemap[cmd.argument];
 			break;
 		case rviFuncAddr:
@@ -982,7 +986,7 @@ bool Linker::SaveRegVmListing(OutputContext &output, bool withProfileInfo)
 
 		if(cmd.code == rviCall || cmd.code == rviFuncAddr)
 			output.Printf(" (%s)", exSymbols.data + exFunctions[exRegVmCode[i].argument].offsetToName);
-		else if(cmd.code == rviConvertPtr || cmd.code == rviCheckRet)
+		else if(cmd.code == rviConvertPtr)
 			output.Printf(" (%s)", exSymbols.data + exTypes[exRegVmCode[i].argument].offsetToName);
 
 		output.Printf("\n");

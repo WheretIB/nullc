@@ -218,6 +218,39 @@ void PrintCall(OutputContext &ctx, char *constantData, unsigned microcodePos)
 		Print(ctx, ") @%d", microcodePos * 4);
 }
 
+void PrintReturn(OutputContext &ctx, char *constantData, unsigned microcodePos)
+{
+	unsigned *microcode = (unsigned*)constantData + microcodePos;
+
+	unsigned typeId = *microcode++;
+
+	Print(ctx, " (%d) -> (", typeId);
+
+	while(*microcode != rviReturn)
+	{
+		switch(*microcode++)
+		{
+		case rviPush:
+			Print(ctx, "r%d~", *microcode++);
+			break;
+		case rviPushQword:
+			Print(ctx, "r%d", *microcode++);
+			break;
+		case rviPushImm:
+			Print(ctx, "%d", *microcode++);
+			break;
+		case rviPushImmq:
+			Print(ctx, "%dL", *microcode++);
+			break;
+		}
+
+		if(*microcode != rviReturn)
+			Print(ctx, ", ");
+	}
+
+	Print(ctx, ") @%d", microcodePos * 4);
+}
+
 void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCode code, unsigned char rA, unsigned char rB, unsigned char rC, unsigned argument, VmConstant *constant)
 {
 	Print(ctx, "%s ", GetInstructionName(code));
@@ -404,6 +437,9 @@ void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCo
 		PrintCall(ctx, constantData, argument);
 		break;
 	case rviReturn:
+		if(rC)
+			Print(ctx, "checked ");
+
 		switch(rB)
 		{
 		case rvrVoid:
@@ -427,8 +463,7 @@ void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCo
 		default:
 			assert(!"unknown type");
 		}
-		Print(ctx, ", ");
-		PrintConstant(ctx, argument, constant);
+		PrintReturn(ctx, constantData, argument);
 		break;
 	case rviAddImm:
 		PrintRegister(ctx, rA);
@@ -532,9 +567,6 @@ void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCo
 		Print(ctx, ", ");
 		PrintRegister(ctx, rC);
 		Print(ctx, ", ");
-		PrintConstant(ctx, argument, constant);
-		break;
-	case rviCheckRet:
 		PrintConstant(ctx, argument, constant);
 		break;
 	case rviFuncAddr:

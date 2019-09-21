@@ -147,8 +147,6 @@ enum RegVmInstructionCode
 
 	rviConvertPtr,
 
-	rviCheckRet,
-
 	// Temporary instructions, no execution
 	rviFuncAddr,
 	rviTypeid,

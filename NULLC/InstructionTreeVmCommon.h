@@ -4,6 +4,7 @@ struct Allocator;
 
 struct SynBase;
 
+struct VmType;
 struct VmValue;
 struct VmConstant;
 struct VmInstruction;
@@ -43,3 +44,5 @@ bool HasAddressTaken(VariableData *container);
 const char* GetInstructionName(VmInstruction *inst);
 
 VariableData* FindGlobalAt(ExpressionContext &exprCtx, unsigned offset);
+
+TypeBase* GetBaseType(ExpressionContext &ctx, VmType type);

@@ -101,9 +101,9 @@ private:
 
 	RegVmCmd* ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr);
 	unsigned* ExecCall(unsigned microcodePos, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr);
-	RegVmReturnType ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction);
+	RegVmReturnType ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr);
 	bool ExecConvertPtr(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr);
-	void ExecCheckedReturn(const RegVmCmd cmd, RegVmRegister * const regFilePtr, unsigned * const tempStackPtr);
+	void ExecCheckedReturn(unsigned typeId, RegVmRegister * const regFilePtr, unsigned * const tempStackPtr);
 
 	RegVmReturnType ExecError(RegVmCmd * const instruction, const char *errorMessage);
 

@@ -214,8 +214,6 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "lognotl";
 	case rviConvertPtr:
 		return "convertptr";
-	case rviCheckRet:
-		return "checkret";
 	case rviFuncAddr:
 		return "funcaddr";
 	case rviTypeid:

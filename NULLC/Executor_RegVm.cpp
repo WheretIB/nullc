@@ -966,7 +966,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			instruction++;
 			BREAK;
 		CASE(rviReturn)
-			return rvm->ExecReturn(cmd, instruction);
+			return rvm->ExecReturn(cmd, instruction, regFilePtr, tempStackPtr);
 		CASE(rviAddImm)
 			REGVM_DEBUG(assert(regFilePtr[cmd.rB].activeType == rvrInt));
 			REGVM_DEBUG(regFilePtr[cmd.rA].activeType = rvrInt);
@@ -1624,10 +1624,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 
 			instruction++;
 			BREAK;
-		CASE(rviCheckRet)
-			rvm->ExecCheckedReturn(cmd, regFilePtr, tempStackPtr);
-			instruction++;
-			BREAK;
 #if !defined(USE_COMPUTED_GOTO)
 		default:
 #if defined(_MSC_VER)
@@ -2283,7 +2279,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 	return tempStackPtr;
 }
 
-RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction)
+RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr)
 {
 	if(cmd.rB == rvrError)
 	{
@@ -2297,6 +2293,40 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 		codeRunning = false;
 
 		return errorState ? rvrError : rvrVoid;
+	}
+
+	if(cmd.rB != rvrVoid)
+	{
+		unsigned *microcode = exLinker->exRegVmConstants.data + cmd.argument;
+
+		unsigned *tempStackPtrStart = tempStackPtr;
+		unsigned typeId = *microcode++;
+
+		while(*microcode != rviReturn)
+		{
+			switch(*microcode++)
+			{
+			case rviPush:
+				*tempStackPtr = regFilePtr[*microcode++].intValue;
+				tempStackPtr += 1;
+				break;
+			case rviPushQword:
+				memcpy(tempStackPtr, &regFilePtr[*microcode++].longValue, sizeof(long long));
+				tempStackPtr += 2;
+				break;
+			case rviPushImm:
+				*tempStackPtr = *microcode++;
+				tempStackPtr += 1;
+				break;
+			case rviPushImmq:
+				vmStoreLong(tempStackPtr, *microcode++);
+				tempStackPtr += 2;
+				break;
+			}
+		}
+
+		if(cmd.rC)
+			ExecCheckedReturn(typeId, regFilePtr, tempStackPtrStart);
 	}
 
 	if(callStack.size() == lastFinalReturn)
@@ -2332,14 +2362,14 @@ bool ExecutorRegVm::ExecConvertPtr(const RegVmCmd cmd, RegVmCmd * const instruct
 	return true;
 }
 
-void ExecutorRegVm::ExecCheckedReturn(const RegVmCmd cmd, RegVmRegister * const regFilePtr, unsigned * const tempStackPtr)
+void ExecutorRegVm::ExecCheckedReturn(unsigned typeId, RegVmRegister * const regFilePtr, unsigned * const tempStackPtr)
 {
 	uintptr_t frameBase = regFilePtr[rvrrFrame].ptrValue;
 	uintptr_t frameEnd = regFilePtr[rvrrGlobals].ptrValue + dataStack.size();
 
-	ExternTypeInfo &type = exLinker->exTypes[cmd.argument];
+	ExternTypeInfo &type = exLinker->exTypes[typeId];
 
-	char *returnValuePtr = (char*)tempStackPtr - type.size;
+	char *returnValuePtr = (char*)tempStackPtr;
 
 	void *ptr = vmLoadPointer(returnValuePtr);
 

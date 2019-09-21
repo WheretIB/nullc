@@ -1403,34 +1403,6 @@ namespace
 		return false;
 	}
 
-	TypeBase* GetBaseType(ExpressionContext &ctx, VmType type)
-	{
-		if(type == VmType::Void)
-			return ctx.typeVoid;
-		else if(type == VmType::Int)
-			return ctx.typeInt;
-		else if(type == VmType::Double)
-			return ctx.typeDouble;
-		else if(type == VmType::Long)
-			return ctx.typeLong;
-		else if(type.type == VM_TYPE_POINTER)
-			return type.structType;
-		else if(type.type == VM_TYPE_FUNCTION_REF)
-			return type.structType;
-		else if(type.type == VM_TYPE_ARRAY_REF)
-			return type.structType;
-		else if(type == VmType::AutoRef)
-			return ctx.typeAutoRef;
-		else if(type == VmType::AutoArray)
-			return ctx.typeAutoArray;
-		else if(type.type == VM_TYPE_STRUCT)
-			return type.structType;
-		else
-			assert(!"unknown type");
-
-		return NULL;
-	}
-
 	void GetAndNumberControlGraphNodesDfs(SmallArray<VmBlock*, 32>& blocksPostOrder, VmBlock* block, unsigned &preOrder, unsigned &postOrder)
 	{
 		block->controlGraphPreOrderId = preOrder++;
