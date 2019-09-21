@@ -720,7 +720,7 @@ TEST_RESULT("Manual type cast 7", testManualCast7, "4");
 
 const char	*testManualCast8 =
 "int i = 8; float y = float(i); return long(y);";
-TEST_RESULT("Manual type cast 8", testManualCast8, "8");
+TEST_RESULT("Manual type cast 8", testManualCast8, "8L");
 
 const char	*testConsitionVariable1 =
 "int f(int x){ return x; }\r\n\
