@@ -1033,7 +1033,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
-			if(regFilePtr[cmd.rC].intValue == 0)
+			if(*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) == 0)
 				return rvm->ExecError(instruction, "ERROR: integer division by zero");
 
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue % *(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
@@ -1244,7 +1244,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
-			if(regFilePtr[cmd.rC].longValue == 0)
+			if(*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) == 0)
 				return rvm->ExecError(instruction, "ERROR: integer division by zero");
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue % *(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
