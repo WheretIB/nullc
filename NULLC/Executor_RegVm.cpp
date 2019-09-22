@@ -2159,8 +2159,6 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 			}
 		}
 
-		assert(start == tempStackPtr);
-
 		return tempStackPtr;
 	}
 
