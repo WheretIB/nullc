@@ -642,6 +642,31 @@ const char	*testSsaExit1 =
 "int test(int t){ int tmin = 0; if(t < tmin) tmin = t; return tmin; } return test(-5) + test(5);";
 TEST_RESULT("SSA exit error 1", testSsaExit1, "-5");
 
+const char	*testSsaExit2 =
+"int[8] test()\r\n\
+{\r\n\
+	int h0 = 1; int h1 = 10; int h2 = 100; int h3 = 1000; int h4 = 10000; int h5 = 100000; int h6 = 1000000; int h7 = 10000000;\r\n\
+	for(int k = 0; k < 2; k++)\r\n\
+	{\r\n\
+		int a = h0; int b = h1; int c = h2; int d = h3; int e = h4; int f = h5; int g = h6; int h = h7;\r\n\
+		for(int i = 0; i < 1; i++)\r\n\
+		{\r\n\
+			int temp1 = h + 1; int temp2 = a + 1;\r\n\
+			h = g; g = f; f = e; e = d + temp1; d = c; c = b; b = a; a = temp1 + temp2;\r\n\
+			temp1 = h + 1; temp2 = a + 1;\r\n\
+			h = g; g = f; f = e; e = d + temp1; d = c; c = b; b = a; a = temp1 + temp2;\r\n\
+		}\r\n\
+		if(k == 1){ assert(a == 22110010); assert(e == 1010102); assert(g == 1010101); }\r\n\
+		if(k == 0){ assert(g == 10000); assert(h6 == 1000000); }\r\n\
+		h0 = h0 + a; h1 = h1 + b; h2 = h2 + c; h3 = h3 + d; h4 = h4 + e; h5 = h5 + f; h6 = h6 + g; h7 = h7 + h;\r\n\
+		if(k == 0){ assert(h6 == 1000000 + 10000); }\r\n\
+	}\r\n\
+	return { h0, h1, h2, h3, h4, h5, h6, h7 };\r\n\
+}\r\n\
+int[8] res = test();\r\n\
+return res[0] + res[1] + res[2] + res[3] + res[4];";
+TEST_RESULT("SSA exit error 2", testSsaExit2, "87231370");
+
 const char	*testNullPointerTypeUse =
 "__nullptr t;\r\n\
 __nullptr u;\r\n\

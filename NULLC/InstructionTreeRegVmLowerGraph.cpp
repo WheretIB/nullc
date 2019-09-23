@@ -710,6 +710,21 @@ void PrintBlock(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredModule *lowM
 		PrintLine(ctx.output, "]");
 	}
 
+	if(!lowblock->reservedRegisters.empty())
+	{
+		Print(ctx.output, "  // reserved registers: [");
+
+		for(unsigned i = 0; i < lowblock->reservedRegisters.size(); i++)
+		{
+			if(i != 0)
+				Print(ctx.output, ", ");
+
+			Print(ctx.output, "r%d", lowblock->reservedRegisters[i]);
+		}
+
+		PrintLine(ctx.output, "]");
+	}
+
 	for(RegVmLoweredInstruction *lowInstruction = lowblock->firstInstruction; lowInstruction; lowInstruction = lowInstruction->nextSibling)
 	{
 		PrintIndent(ctx.output);

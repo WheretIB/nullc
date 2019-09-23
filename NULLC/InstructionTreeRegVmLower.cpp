@@ -196,6 +196,9 @@ unsigned char RegVmLoweredFunction::AllocateRegister(VmValue *value, unsigned in
 					assert(registerUsers[reg] == 1);
 					instruction->regVmRegisters.push_back(reg);
 
+					if(instruction->color != 0)
+						colorRegisters[instruction->color] = instruction;
+
 					return reg;
 				}
 
@@ -206,7 +209,30 @@ unsigned char RegVmLoweredFunction::AllocateRegister(VmValue *value, unsigned in
 
 	assert(instruction->regVmRegisters.size() == index);
 
+	if(instruction->color != 0 && colorRegisters[instruction->color] && index < colorRegisters[instruction->color]->regVmRegisters.size())
+	{
+		assert(index == 0);
+
+		unsigned char reg = colorRegisters[instruction->color]->regVmRegisters[index];
+
+		assert(registerUsers[reg] == 0);
+		registerUsers[reg]++;
+
+		assert(!freedRegisters.contains(reg));
+
+		instruction->regVmRegisters.push_back(reg);
+
+		return reg;
+	}
+
 	instruction->regVmRegisters.push_back(GetRegister());
+
+	if(instruction->color != 0)
+	{
+		assert(colorRegisters[instruction->color] == NULL || colorRegisters[instruction->color] == instruction);
+
+		colorRegisters[instruction->color] = instruction;
+	}
 
 	return instruction->regVmRegisters.back();
 }
@@ -264,6 +290,12 @@ bool RegVmLoweredFunction::TransferRegisterTo(VmValue *value, unsigned char reg)
 
 			instruction->regVmRegisters.push_back(reg);
 
+			if(instruction->color != 0)
+			{
+				assert(colorRegisters[instruction->color] == NULL);
+				colorRegisters[instruction->color] = instruction;
+			}
+
 			return true;
 		}
 	}
@@ -278,6 +310,12 @@ bool RegVmLoweredFunction::TransferRegisterTo(VmValue *value, unsigned char reg)
 			delayedFreedRegisters.pop_back();
 
 			instruction->regVmRegisters.push_back(reg);
+
+			if(instruction->color != 0)
+			{
+				assert(colorRegisters[instruction->color] == NULL);
+				colorRegisters[instruction->color] = instruction;
+			}
 
 			registerUsers[reg]++;
 
@@ -295,6 +333,12 @@ bool RegVmLoweredFunction::TransferRegisterTo(VmValue *value, unsigned char reg)
 			freedRegisters.pop_back();
 
 			instruction->regVmRegisters.push_back(reg);
+
+			if(instruction->color != 0)
+			{
+				assert(colorRegisters[instruction->color] == NULL);
+				colorRegisters[instruction->color] = instruction;
+			}
 
 			registerUsers[reg]++;
 
@@ -3004,6 +3048,9 @@ void MarkInstructionTree(VmInstruction *inst, unsigned marker)
 
 bool HasSharedStorageWith(VmInstruction *inst, VmInstruction *other, unsigned marker)
 {
+	if(inst->color != 0 && inst->color == other->color)
+		return true;
+
 	MarkInstructionTree(inst, marker);
 
 	return other->regVmSearchMarker == marker;
@@ -3052,6 +3099,8 @@ void UpdateSharedStorage(VmInstruction *inst, unsigned marker)
 RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, VmBlock *vmBlock)
 {
 	RegVmLoweredBlock *lowBlock = new (ctx.get<RegVmLoweredBlock>()) RegVmLoweredBlock(ctx.allocator, lowFunction, vmBlock);
+
+	lowFunction->blocks.push_back(lowBlock);
 
 	// TODO: create some kind of wrapper that will handle instruction with storage shared through phi instructions
 
@@ -3116,11 +3165,22 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 		if(found)
 			continue;
 
+		if(liveOut->regVmRegisters.empty() && liveOut->color != 0 && lowFunction->colorRegisters[liveOut->color])
+		{
+			VmInstruction *source = lowFunction->colorRegisters[liveOut->color];
+
+			for(unsigned k = 0; k < source->regVmRegisters.size(); k++)
+				liveOut->regVmRegisters.push_back(source->regVmRegisters[k]);
+		}
+
 		if(!liveOut->regVmRegisters.empty())
 		{
 			for(unsigned k = 0; k < liveOut->regVmRegisters.size(); k++)
 			{
 				unsigned char reg = liveOut->regVmRegisters[k];
+
+				assert(!lowBlock->reservedRegisters.contains(reg));
+				lowBlock->reservedRegisters.push_back(reg);
 
 				// Some pre-allocated exit registers might be the same as pre-allocated entry registers, it can happen when entry register has the last use in current block before being used by exit register
 				lowFunction->registerUsers[reg]++;
@@ -3228,6 +3288,7 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 			lowBlock->exitRegisters.push_back(reg);
 
 			// Might not be the only use
+			assert(lowFunction->registerUsers[reg] != 0);
 			lowFunction->registerUsers[reg]--;
 
 			if(lowFunction->registerUsers[reg] == 0)
@@ -3283,11 +3344,16 @@ RegVmLoweredFunction* RegVmLowerFunction(ExpressionContext &ctx, RegVmLoweredMod
 {
 	RegVmLoweredFunction *lowFunction = new (ctx.get<RegVmLoweredFunction>()) RegVmLoweredFunction(ctx.allocator, lowModule, vmFunction);
 
+	lowModule->functions.push_back(lowFunction);
+
 	assert(vmFunction->firstBlock);
+
+	lowFunction->colorRegisters.resize(vmFunction->nextColor + 1);
+	memset(lowFunction->colorRegisters.data, 0, lowFunction->colorRegisters.size() * sizeof(lowFunction->colorRegisters[0]));
 
 	for(VmBlock *vmBlock = vmFunction->firstBlock; vmBlock; vmBlock = vmBlock->nextSibling)
 	{
-		lowFunction->blocks.push_back(RegVmLowerBlock(ctx, lowFunction, vmBlock));
+		RegVmLowerBlock(ctx, lowFunction, vmBlock);
 
 		if(lowFunction->hasRegisterOverflow)
 			break;
@@ -3309,8 +3375,6 @@ RegVmLoweredModule* RegVmLowerModule(ExpressionContext &ctx, VmModule *vmModule)
 			continue;
 
 		RegVmLoweredFunction *lowFunction = RegVmLowerFunction(ctx, lowModule, vmFunction);
-
-		lowModule->functions.push_back(lowFunction);
 
 		if(lowFunction->hasRegisterOverflow)
 			break;

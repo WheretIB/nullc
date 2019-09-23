@@ -47,7 +47,7 @@ struct RegVmLoweredInstruction
 
 struct RegVmLoweredBlock
 {
-	RegVmLoweredBlock(Allocator *allocator, RegVmLoweredFunction *parent, VmBlock *vmBlock): parent(parent), vmBlock(vmBlock), entryRegisters(allocator), exitRegisters(allocator), leakedRegisters(allocator)
+	RegVmLoweredBlock(Allocator *allocator, RegVmLoweredFunction *parent, VmBlock *vmBlock): parent(parent), vmBlock(vmBlock), entryRegisters(allocator), reservedRegisters(allocator), exitRegisters(allocator), leakedRegisters(allocator)
 	{
 		firstInstruction = NULL;
 		lastInstruction = NULL;
@@ -69,13 +69,14 @@ struct RegVmLoweredBlock
 	RegVmLoweredInstruction *lastInstruction;
 
 	SmallArray<unsigned char, 16> entryRegisters;
+	SmallArray<unsigned char, 16> reservedRegisters;
 	SmallArray<unsigned char, 16> exitRegisters;
 	SmallArray<unsigned char, 16> leakedRegisters;
 };
 
 struct RegVmLoweredFunction
 {
-	RegVmLoweredFunction(Allocator *allocator, RegVmLoweredModule *parent, VmFunction *vmFunction): parent(parent), vmFunction(vmFunction), blocks(allocator), delayedFreedRegisters(allocator), freedRegisters(allocator), constantRegisters(allocator), killedRegisters(allocator)
+	RegVmLoweredFunction(Allocator *allocator, RegVmLoweredModule *parent, VmFunction *vmFunction): parent(parent), vmFunction(vmFunction), blocks(allocator), delayedFreedRegisters(allocator), freedRegisters(allocator), constantRegisters(allocator), killedRegisters(allocator), colorRegisters(allocator)
 	{
 		registerUsers.fill(0);
 
@@ -119,6 +120,8 @@ struct RegVmLoweredFunction
 	SmallArray<unsigned char, 16> constantRegisters;
 
 	SmallArray<unsigned char, 16> killedRegisters;
+
+	SmallArray<VmInstruction*, 16> colorRegisters;
 
 	// TODO: register spills
 	bool hasRegisterOverflow;
