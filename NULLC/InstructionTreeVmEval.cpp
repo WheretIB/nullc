@@ -1599,6 +1599,9 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 				return result;
 			}
 
+			if(value->type == instruction->type)
+				return value;
+
 			assert(!"unsupported bitcast");
 		}
 		break;
