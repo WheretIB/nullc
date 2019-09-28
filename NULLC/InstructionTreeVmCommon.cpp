@@ -96,10 +96,10 @@ VmConstant* CreateConstantPointer(Allocator *allocator, SynBase *source, int off
 {
 	if(trackUsers && container)
 	{
-		for(unsigned i = 0; i < container->users.size(); i++)
+		if(VmConstant **cached = container->offsetUsers.find(offset + 1))
 		{
-			if(container->users[i]->iValue == offset)
-				return container->users[i];
+			if (VmConstant *constant = *cached)
+				return constant;
 		}
 	}
 
@@ -109,7 +109,10 @@ VmConstant* CreateConstantPointer(Allocator *allocator, SynBase *source, int off
 	result->container = container;
 
 	if(trackUsers && container)
+	{
 		container->users.push_back(result);
+		container->offsetUsers.insert(offset + 1, result);
+	}
 
 	return result;
 }

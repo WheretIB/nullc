@@ -139,9 +139,17 @@ struct NamespaceData
 	unsigned uniqueId;
 };
 
+struct IntHasher
+{
+	unsigned operator()(int key)
+	{
+		return key * 2654435761u;
+	}
+};
+
 struct VariableData
 {
-	VariableData(Allocator *allocator, SynBase *source, ScopeData *scope, unsigned alignment, TypeBase *type, SynIdentifier *name, unsigned offset, unsigned uniqueId): source(source), scope(scope), alignment(alignment), type(type), name(name), offset(offset), uniqueId(uniqueId), users(allocator), lowUsers(allocator), regVmUsers(allocator)
+	VariableData(Allocator *allocator, SynBase *source, ScopeData *scope, unsigned alignment, TypeBase *type, SynIdentifier *name, unsigned offset, unsigned uniqueId): source(source), scope(scope), alignment(alignment), type(type), name(name), offset(offset), uniqueId(uniqueId), users(allocator), offsetUsers(allocator), lowUsers(allocator), regVmUsers(allocator)
 	{
 		importModule = NULL;
 
@@ -194,6 +202,7 @@ struct VariableData
 
 	// Data for IR module construction
 	SmallArray<VmConstant*, 8> users;
+	SmallDenseMap<int, VmConstant*, IntHasher, 8> offsetUsers;
 
 	// Data for VM module construction
 	SmallArray<VmLoweredInstruction*, 4> lowUsers;

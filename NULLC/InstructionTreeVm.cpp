@@ -1519,6 +1519,8 @@ void VmValue::RemoveUse(VmValue* user)
 
 						container->users[i] = container->users.back();
 						container->users.pop_back();
+
+						container->offsetUsers.insert(constant->iValue + 1, NULL);
 						break;
 					}
 				}
