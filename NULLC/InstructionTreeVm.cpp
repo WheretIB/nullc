@@ -1240,6 +1240,13 @@ namespace
 		{
 			assert(loadOffset->iValue == 0);
 
+			// Do not track load-store into large arrays
+			if(TypeArray *typeArray = getType<TypeArray>(address->container->type))
+			{
+				if(typeArray->length > 32)
+					return;
+			}
+
 			info.address = address;
 		}
 		else
@@ -1259,6 +1266,13 @@ namespace
 		if(VmConstant *address = getType<VmConstant>(storeAddress))
 		{
 			assert(storeOffset->iValue == 0);
+
+			// Do not track load-store into large arrays
+			if(TypeArray *typeArray = getType<TypeArray>(address->container->type))
+			{
+				if(typeArray->length > 32)
+					return;
+			}
 
 			VmModule::LoadStoreInfo info;
 
