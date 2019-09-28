@@ -45,7 +45,7 @@ namespace ColorerGrammar
 	std::string	logStr;
 	const char *codeStart;
 
-	std::vector<unsigned>	typeInfo;
+	std::vector<unsigned> typeInfo;
 
 	// Callbacks
 	ColorCodeCallback ColorRWord, ColorVar, ColorVarDef, ColorFunc, ColorText, ColorChar, ColorReal, ColorInt, ColorBold, ColorErr, ColorComment;
@@ -120,10 +120,22 @@ namespace ColorerGrammar
 			m_a->Parse(str, NULL);
 			if(curr == *str)
 				return false;
+
 			unsigned hash = NULLC::GetStringHash(curr, *str);
-			for(unsigned int i = 0; i < typeInfo.size(); i++)
-				if(typeInfo[i] == hash)
+
+			unsigned count = typeInfo.size();
+
+			if(count == 0)
+				return false;
+
+			unsigned *typeInfoData = &typeInfo[0];
+
+			for(unsigned int i = 0; i < count; i++)
+			{
+				if(typeInfoData[i] == hash)
 					return true;
+			}
+
 			*str = curr;
 			return false;
 		}

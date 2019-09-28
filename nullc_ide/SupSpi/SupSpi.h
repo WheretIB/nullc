@@ -289,8 +289,6 @@ namespace supspi
 	extern FastVector<BaseP*>	parserList;
 
 	unsigned int AllocParser(BaseP* parser);
-	void		SetParser(unsigned int ptr, BaseP* parser);
-	BaseP*		GetParser(unsigned int ptr);
 
 	//Rule is a wrapper over BaseP
 	class Rule
@@ -311,7 +309,7 @@ namespace supspi
 		
 		Rule&	operator =(const Rule& r)
 		{
-			SetParser(myParser, GetParser(r.myParser));
+			parserList.data[myParser] = parserList.data[r.myParser];
 			return *this;
 		}
 		void	forceSet(unsigned int ptr)
@@ -321,12 +319,12 @@ namespace supspi
 		
 		BaseP*	operator ->() const
 		{
-			assert(GetParser(myParser) != NULL);
-			return GetParser(myParser);
+			assert(parserList.data[myParser] != NULL);
+			return parserList.data[myParser];
 		}
 		BaseP*	getParser() const
 		{
-			return GetParser(myParser);
+			return parserList.data[myParser];
 		};
 		unsigned int	getPtr() const
 		{
@@ -335,7 +333,7 @@ namespace supspi
 
 		template<typename ActionT>
 		Rule	operator [](ActionT act);
-	private:
+
 		unsigned int	myParser;
 	};
 	class AltRule : public Rule
