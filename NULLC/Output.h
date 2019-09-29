@@ -118,15 +118,62 @@ struct OutputContext
 
 				Print(str, length);
 			}
+			else if(pos[0] == '%' && pos[1] == '%')
+			{
+				pos += 2;
+
+				Print('%');
+			}
+			else if(pos[0] == '%' && pos[1] == 'd')
+			{
+				pos += 2;
+
+				int value = va_arg(args, int);
+
+				if(value < 0)
+					Print('-');
+
+				unsigned uvalue;
+
+				if(value < 0)
+					uvalue = -value;
+				else
+					uvalue = value;
+
+				char reverse[16];
+
+				char *curr = reverse;
+
+				*curr++ = (char)((uvalue % 10) + '0');
+
+				while(uvalue /= 10)
+					*curr++ = (char)((uvalue % 10) + '0');
+
+				char forward[16];
+
+				char *result = forward;
+
+				do
+				{
+					--curr;
+					*result++ = *curr;
+				}
+				while(curr != reverse);
+
+				*result = 0;
+
+				Print(forward);
+			}
+			else if(pos[0] == 0)
+			{
+				return;
+			}
 			else
 			{
 				break;
 			}
 			
 		}
-
-		if(!*pos)
-			return;
 
 		int length = vsnprintf(tempBuf, tempBufSize - 1, pos, args);
 
