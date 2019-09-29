@@ -236,12 +236,6 @@ bool RegVmLoweredFunction::TransferRegisterTo(VmValue *value, unsigned char reg)
 
 			instruction->regVmRegisters.push_back(reg);
 
-			if(instruction->color != 0)
-			{
-				assert(colorRegisters[instruction->color] == NULL);
-				colorRegisters[instruction->color] = instruction;
-			}
-
 			return true;
 		}
 	}
@@ -256,12 +250,6 @@ bool RegVmLoweredFunction::TransferRegisterTo(VmValue *value, unsigned char reg)
 			delayedFreedRegisters.pop_back();
 
 			instruction->regVmRegisters.push_back(reg);
-
-			if(instruction->color != 0)
-			{
-				assert(colorRegisters[instruction->color] == NULL);
-				colorRegisters[instruction->color] = instruction;
-			}
 
 			registerUsers[reg]++;
 
@@ -279,12 +267,6 @@ bool RegVmLoweredFunction::TransferRegisterTo(VmValue *value, unsigned char reg)
 			freedRegisters.pop_back();
 
 			instruction->regVmRegisters.push_back(reg);
-
-			if(instruction->color != 0)
-			{
-				assert(colorRegisters[instruction->color] == NULL);
-				colorRegisters[instruction->color] = instruction;
-			}
 
 			registerUsers[reg]++;
 
