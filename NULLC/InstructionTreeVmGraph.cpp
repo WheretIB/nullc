@@ -111,6 +111,14 @@ void PrintName(InstructionVMGraphContext &ctx, VmValue *value, bool fullName, bo
 
 		if(inst->color)
 			Print(ctx, ".c%d", inst->color);
+
+		if(!inst->regVmRegisters.empty())
+		{
+			Print(ctx, ".r");
+
+			for(unsigned i = 0; i < inst->regVmRegisters.size(); i++)
+				Print(ctx, i == 0 ? "%d" : "|%d", inst->regVmRegisters[i]);
+		}
 	}
 	else if(VmBlock *block = getType<VmBlock>(value))
 	{
@@ -286,6 +294,14 @@ void PrintInstruction(InstructionVMGraphContext &ctx, VmInstruction *instruction
 		if(instruction->color)
 			Print(ctx, ".c%d", instruction->color);
 
+		if(!instruction->regVmRegisters.empty())
+		{
+			Print(ctx, ".r");
+
+			for(unsigned i = 0; i < instruction->regVmRegisters.size(); i++)
+				Print(ctx, i == 0 ? "%d" : "|%d", instruction->regVmRegisters[i]);
+		}
+
 		if(ctx.showComments && !instruction->comment.empty())
 			Print(ctx, " (%.*s) = ", FMT_ISTR(instruction->comment));
 		else
@@ -455,6 +471,14 @@ void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 			if(liveIn->color)
 				Print(ctx, ".c%d", liveIn->color);
 
+			if(!liveIn->regVmRegisters.empty())
+			{
+				Print(ctx, ".r");
+
+				for(unsigned i = 0; i < liveIn->regVmRegisters.size(); i++)
+					Print(ctx, i == 0 ? "%d" : "|%d", liveIn->regVmRegisters[i]);
+			}
+
 			if(liveIn->comment.empty())
 				Print(ctx, " [");
 			else
@@ -482,6 +506,14 @@ void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 			if(liveIn->color)
 				Print(ctx, ".c%d", liveIn->color);
 
+			if(!liveIn->regVmRegisters.empty())
+			{
+				Print(ctx, ".r");
+
+				for(unsigned i = 0; i < liveIn->regVmRegisters.size(); i++)
+					Print(ctx, i == 0 ? "%d" : "|%d", liveIn->regVmRegisters[i]);
+			}
+
 			if(!liveIn->comment.empty())
 				Print(ctx, " (%.*s)", FMT_ISTR(liveIn->comment));
 		}
@@ -502,6 +534,14 @@ void PrintBlock(InstructionVMGraphContext &ctx, VmBlock *block)
 
 		if(liveOut->color)
 			Print(ctx, ".c%d", liveOut->color);
+
+		if(!liveOut->regVmRegisters.empty())
+		{
+			Print(ctx, ".r");
+
+			for(unsigned i = 0; i < liveOut->regVmRegisters.size(); i++)
+				Print(ctx, i == 0 ? "%d" : "|%d", liveOut->regVmRegisters[i]);
+		}
 
 		if(!liveOut->comment.empty())
 			Print(ctx, " (%.*s)", FMT_ISTR(liveOut->comment));
