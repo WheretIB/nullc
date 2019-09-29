@@ -315,6 +315,8 @@ struct VmInstruction: VmValue
 		prevSibling = NULL;
 		nextSibling = NULL;
 
+		regVmAllocated = false;
+
 		regVmCompletedUsers = 0;
 
 		regVmSearchMarker = 0;
@@ -339,6 +341,7 @@ struct VmInstruction: VmValue
 	VmInstruction *prevSibling;
 	VmInstruction *nextSibling;
 
+	bool regVmAllocated;
 	SmallArray<unsigned char, 8> regVmRegisters;
 
 	unsigned regVmCompletedUsers;

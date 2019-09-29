@@ -746,21 +746,6 @@ void PrintBlock(InstructionRegVmLowerGraphContext &ctx, RegVmLoweredModule *lowM
 		PrintLine(ctx.output, "]");
 	}
 
-	if(!lowblock->leakedRegisters.empty())
-	{
-		Print(ctx.output, "  // leaked registers: [");
-
-		for(unsigned i = 0; i < lowblock->leakedRegisters.size(); i++)
-		{
-			if(i != 0)
-				Print(ctx.output, ", ");
-
-			Print(ctx.output, "r%d", lowblock->leakedRegisters[i]);
-		}
-
-		PrintLine(ctx.output, "]");
-	}
-
 	if(lowblock->lastInstruction && !IsBlockTerminator(lowblock->lastInstruction))
 		PrintLine(ctx.output, "  // fallthrough");
 

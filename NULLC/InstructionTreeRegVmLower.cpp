@@ -110,10 +110,11 @@ unsigned char RegVmLoweredFunction::GetRegister()
 
 void RegVmLoweredFunction::FreeRegister(unsigned char reg)
 {
-	assert(registerUsers[reg] == 1);
+	assert(registerUsers[reg] != 0);
 	registerUsers[reg]--;
 
-	delayedFreedRegisters.push_back(reg);
+	if(registerUsers[reg] == 0)
+		delayedFreedRegisters.push_back(reg);
 }
 
 void RegVmLoweredFunction::CompleteUse(VmValue *value)
@@ -122,12 +123,11 @@ void RegVmLoweredFunction::CompleteUse(VmValue *value)
 
 	assert(instruction);
 
-	// If the value is used across multiple blocks we can free register only if it's not in a set of liveOut values and this is the last use in the current block
-	// TODO: try to actually do that ^
+	// Can't free instruction register if instruction has uses in multiple blocks, if the register gets used by a different instruction, they might intefere later
 	if(IsNonLocalValue(instruction))
 		return;
 
-	// Phi instruction receive their register from live in values. Although it is still possible to free the register on its last use
+	// Phi instruction shares register ownership for instructions in different blocks, if this registers gets used by a different instruction, they might intefere later
 	if(instruction->cmd == VM_INST_PHI)
 		return;
 
@@ -173,66 +173,12 @@ unsigned char RegVmLoweredFunction::AllocateRegister(VmValue *value, unsigned in
 	assert(instruction);
 	assert(!instruction->users.empty());
 
-	// Handle phi users, we might be forced to write to a different location
-	for(unsigned i = 0; i < instruction->users.size(); i++)
-	{
-		if(VmInstruction *user = getType<VmInstruction>(instruction->users[i]))
-		{
-			if(user->cmd == VM_INST_PHI)
-			{
-				// Check if already allocated
-				if(index < instruction->regVmRegisters.size())
-					return instruction->regVmRegisters[index];
-
-				// First value must have allocated registers, unless it's the current instruction
-				VmInstruction *option = getType<VmInstruction>(user->arguments[0]);
-
-				if(instruction != option && !instruction->regVmRegisters.empty())
-				{
-					unsigned regPos = instruction->regVmRegisters.size();
-
-					unsigned char reg = option->regVmRegisters[regPos];
-
-					assert(registerUsers[reg] == 1);
-					instruction->regVmRegisters.push_back(reg);
-
-					if(instruction->color != 0)
-						colorRegisters[instruction->color] = instruction;
-
-					return reg;
-				}
-
-				break;
-			}
-		}
-	}
+	if(instruction->regVmAllocated)
+		return instruction->regVmRegisters[index];
 
 	assert(instruction->regVmRegisters.size() == index);
 
-	if(instruction->color != 0 && colorRegisters[instruction->color] && index < colorRegisters[instruction->color]->regVmRegisters.size())
-	{
-		assert(index == 0);
-
-		unsigned char reg = colorRegisters[instruction->color]->regVmRegisters[index];
-
-		assert(registerUsers[reg] == 0);
-		registerUsers[reg]++;
-
-		assert(!freedRegisters.contains(reg));
-
-		instruction->regVmRegisters.push_back(reg);
-
-		return reg;
-	}
-
 	instruction->regVmRegisters.push_back(GetRegister());
-
-	if(instruction->color != 0)
-	{
-		assert(colorRegisters[instruction->color] == NULL || colorRegisters[instruction->color] == instruction);
-
-		colorRegisters[instruction->color] = instruction;
-	}
 
 	return instruction->regVmRegisters.back();
 }
@@ -3008,6 +2954,8 @@ void CopyRegisters(VmInstruction *target, VmInstruction *source)
 
 	for(unsigned i = 0; i < source->regVmRegisters.size(); i++)
 		target->regVmRegisters.push_back(source->regVmRegisters[i]);
+
+	target->regVmAllocated = true;
 }
 
 void CompareRegisters(VmInstruction *a, VmInstruction *b)
@@ -3018,42 +2966,6 @@ void CompareRegisters(VmInstruction *a, VmInstruction *b)
 
 	for(unsigned i = 0; i < a->regVmRegisters.size(); i++)
 		assert(a->regVmRegisters[i] == b->regVmRegisters[i]);
-}
-
-void MarkInstructionTree(VmInstruction *inst, unsigned marker)
-{
-	if(inst->regVmSearchMarker == marker)
-		return;
-
-	inst->regVmSearchMarker = marker;
-
-	if(inst->cmd == VM_INST_PHI)
-	{
-		for(unsigned argumentPos = 0; argumentPos < inst->arguments.size(); argumentPos += 2)
-		{
-			VmInstruction *argument = getType<VmInstruction>(inst->arguments[argumentPos]);
-
-			MarkInstructionTree(argument, marker);
-		}
-	}
-
-	for(unsigned userPos = 0; userPos < inst->users.size(); userPos++)
-	{
-		VmInstruction *instruction = getType<VmInstruction>(inst->users[userPos]);
-
-		if(instruction->cmd == VM_INST_PHI)
-			MarkInstructionTree(instruction, marker);
-	}
-}
-
-bool HasSharedStorageWith(VmInstruction *inst, VmInstruction *other, unsigned marker)
-{
-	if(inst->color != 0 && inst->color == other->color)
-		return true;
-
-	MarkInstructionTree(inst, marker);
-
-	return other->regVmSearchMarker == marker;
 }
 
 void UpdateSharedStorage(VmInstruction *inst, unsigned marker)
@@ -3096,31 +3008,43 @@ void UpdateSharedStorage(VmInstruction *inst, unsigned marker)
 	}
 }
 
-RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, VmBlock *vmBlock)
+void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, VmBlock *vmBlock)
 {
-	RegVmLoweredBlock *lowBlock = new (ctx.get<RegVmLoweredBlock>()) RegVmLoweredBlock(ctx.allocator, lowFunction, vmBlock);
-
-	lowFunction->blocks.push_back(lowBlock);
-
-	// TODO: create some kind of wrapper that will handle instruction with storage shared through phi instructions
-
-	// Get entry registers from instructions that already allocated them
+	// Check if live in has a color that is already allocated
 	for(unsigned i = 0; i < vmBlock->liveIn.size(); i++)
 	{
 		VmInstruction *liveIn = vmBlock->liveIn[i];
 
-		bool found = false;
-
-		for(unsigned k = 0; k < i && !found; k++)
+		if(liveIn->regVmRegisters.empty() && liveIn->color != 0 && lowFunction->colorRegisters[liveIn->color])
 		{
-			VmInstruction *other = vmBlock->liveIn[k];
+			VmInstruction *source = lowFunction->colorRegisters[liveIn->color];
 
-			if(HasSharedStorageWith(liveIn, other, lowFunction->nextSearchMarker++))
-				found = true;
+			CopyRegisters(liveIn, source);
+
+			UpdateSharedStorage(liveIn, lowFunction->nextSearchMarker++);
 		}
+	}
 
-		if(found)
-			continue;
+	// Check if live out has a color that is already allocated
+	for(unsigned i = 0; i < vmBlock->liveOut.size(); i++)
+	{
+		VmInstruction *liveOut = vmBlock->liveOut[i];
+
+		// Check if register color is already allocated
+		if(liveOut->regVmRegisters.empty() && liveOut->color != 0 && lowFunction->colorRegisters[liveOut->color])
+		{
+			VmInstruction *source = lowFunction->colorRegisters[liveOut->color];
+
+			CopyRegisters(liveOut, source);
+
+			UpdateSharedStorage(liveOut, lowFunction->nextSearchMarker++);
+		}
+	}
+
+	// Reserve registers already allocated by live in variables
+	for(unsigned i = 0; i < vmBlock->liveIn.size(); i++)
+	{
+		VmInstruction *liveIn = vmBlock->liveIn[i];
 
 		if(!liveIn->regVmRegisters.empty())
 		{
@@ -3128,50 +3052,15 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 			{
 				unsigned char reg = liveIn->regVmRegisters[k];
 
-				assert(lowFunction->registerUsers[reg] == 0);
 				lowFunction->registerUsers[reg]++;
-
-				assert(!lowBlock->entryRegisters.contains(reg));
-				lowBlock->entryRegisters.push_back(reg);
 			}
 		}
 	}
 
-	// Check if exit variable registers are already allocated
+	// Reserve registers already allocated by live out variables
 	for(unsigned i = 0; i < vmBlock->liveOut.size(); i++)
 	{
 		VmInstruction *liveOut = vmBlock->liveOut[i];
-
-		bool found = false;
-
-		for(unsigned k = 0; k < vmBlock->liveIn.size() && !found; k++)
-		{
-			VmInstruction *liveIn = vmBlock->liveIn[k];
-
-			if(liveOut == liveIn)
-				found = true;
-			else if(HasSharedStorageWith(liveOut, liveIn, lowFunction->nextSearchMarker++))
-				found = true;
-		}
-
-		for(unsigned k = 0; k < vmBlock->liveOut.size() && !found; k++)
-		{
-			VmInstruction *other = vmBlock->liveOut[k];
-
-			if(liveOut != other && HasSharedStorageWith(liveOut, other, lowFunction->nextSearchMarker++))
-				found = true;
-		}
-
-		if(found)
-			continue;
-
-		if(liveOut->regVmRegisters.empty() && liveOut->color != 0 && lowFunction->colorRegisters[liveOut->color])
-		{
-			VmInstruction *source = lowFunction->colorRegisters[liveOut->color];
-
-			for(unsigned k = 0; k < source->regVmRegisters.size(); k++)
-				liveOut->regVmRegisters.push_back(source->regVmRegisters[k]);
-		}
 
 		if(!liveOut->regVmRegisters.empty())
 		{
@@ -3179,10 +3068,6 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 			{
 				unsigned char reg = liveOut->regVmRegisters[k];
 
-				assert(!lowBlock->reservedRegisters.contains(reg));
-				lowBlock->reservedRegisters.push_back(reg);
-
-				// Some pre-allocated exit registers might be the same as pre-allocated entry registers, it can happen when entry register has the last use in current block before being used by exit register
 				lowFunction->registerUsers[reg]++;
 			}
 		}
@@ -3197,44 +3082,108 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 			lowFunction->freedRegisters.push_back((unsigned char)i);
 	}
 
-	// Allocate entry registers for instructions that haven't been lowered yet
+	// Allocate exit registers for instructions that haven't been lowered yet
+	for(unsigned i = 0; i < vmBlock->liveOut.size(); i++)
+	{
+		VmInstruction *liveOut = vmBlock->liveOut[i];
+
+		if(liveOut->regVmRegisters.empty())
+		{
+			if(liveOut->color != 0)
+				assert(lowFunction->colorRegisters[liveOut->color] == NULL);
+
+			if(liveOut->type.type == VM_TYPE_INT || liveOut->type.type == VM_TYPE_LONG || liveOut->type.type == VM_TYPE_DOUBLE || liveOut->type.type == VM_TYPE_POINTER)
+			{
+				lowFunction->AllocateRegister(liveOut, 0, false);
+			}
+			else if(liveOut->type.type == VM_TYPE_FUNCTION_REF || liveOut->type.type == VM_TYPE_ARRAY_REF || liveOut->type.type == VM_TYPE_AUTO_REF)
+			{
+				lowFunction->AllocateRegister(liveOut, 0, false);
+				lowFunction->AllocateRegister(liveOut, 1, false);
+			}
+			else if(liveOut->type.type == VM_TYPE_AUTO_ARRAY)
+			{
+				lowFunction->AllocateRegister(liveOut, 0, false);
+				lowFunction->AllocateRegister(liveOut, 1, false);
+				lowFunction->AllocateRegister(liveOut, 2, false);
+			}
+			else if(liveOut->type.type == VM_TYPE_STRUCT)
+			{
+				for(unsigned k = 0; k < (liveOut->type.size + 4) / 8; k++)
+					lowFunction->AllocateRegister(liveOut, k, false);
+			}
+
+			liveOut->regVmAllocated = true;
+
+			if(liveOut->color != 0)
+				lowFunction->colorRegisters[liveOut->color] = liveOut;
+
+			UpdateSharedStorage(liveOut, lowFunction->nextSearchMarker++);
+		}
+	}
+
+	// Clear register use counts
+	for(unsigned i = 0; i < 256; i++)
+		lowFunction->registerUsers[i] = 0;
+
+	// Proceed to children in dominance tree
+	for(unsigned i = 0; i < vmBlock->dominanceChildren.size(); i++)
+	{
+		VmBlock *curr = vmBlock->dominanceChildren[i];
+
+		AllocateLiveInOutRegisters(ctx, lowFunction, curr);
+	}
+}
+
+RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFunction, VmBlock *vmBlock)
+{
+	RegVmLoweredBlock *lowBlock = new (ctx.get<RegVmLoweredBlock>()) RegVmLoweredBlock(ctx.allocator, lowFunction, vmBlock);
+
+	lowFunction->blocks.push_back(lowBlock);
+
+	// Get entry registers from instructions that already allocated them
 	for(unsigned i = 0; i < vmBlock->liveIn.size(); i++)
 	{
 		VmInstruction *liveIn = vmBlock->liveIn[i];
 
-		if(liveIn->regVmRegisters.empty())
+		assert(!liveIn->regVmRegisters.empty());
+
+		for(unsigned k = 0; k < liveIn->regVmRegisters.size(); k++)
 		{
-			if(liveIn->type.type == VM_TYPE_INT || liveIn->type.type == VM_TYPE_LONG || liveIn->type.type == VM_TYPE_DOUBLE || liveIn->type.type == VM_TYPE_POINTER)
-			{
-				lowFunction->AllocateRegister(liveIn, 0);
-			}
-			else if(liveIn->type.type == VM_TYPE_FUNCTION_REF || liveIn->type.type == VM_TYPE_ARRAY_REF || liveIn->type.type == VM_TYPE_AUTO_REF)
-			{
-				lowFunction->AllocateRegister(liveIn, 1);
-				lowFunction->AllocateRegister(liveIn, 1);
-			}
-			else if(liveIn->type.type == VM_TYPE_AUTO_ARRAY)
-			{
-				lowFunction->AllocateRegister(liveIn, 0);
-				lowFunction->AllocateRegister(liveIn, 1);
-				lowFunction->AllocateRegister(liveIn, 2);
-			}
-			else if(liveIn->type.type == VM_TYPE_STRUCT)
-			{
-				for(unsigned k = 0; k < (liveIn->type.size + 4) / 8; k++)
-					lowFunction->AllocateRegister(liveIn, k);
-			}
+			unsigned char reg = liveIn->regVmRegisters[k];
 
-			for(unsigned k = 0; k < liveIn->regVmRegisters.size(); k++)
-			{
-				unsigned char reg = liveIn->regVmRegisters[k];
+			lowFunction->registerUsers[reg]++;
 
-				assert(!lowBlock->entryRegisters.contains(reg));
-				lowBlock->entryRegisters.push_back(reg);
-			}
-
-			UpdateSharedStorage(liveIn, lowFunction->nextSearchMarker++);
+			assert(!lowBlock->entryRegisters.contains(reg));
+			lowBlock->entryRegisters.push_back(reg);
 		}
+	}
+
+	// Check if exit variable registers are already allocated
+	for(unsigned i = 0; i < vmBlock->liveOut.size(); i++)
+	{
+		VmInstruction *liveOut = vmBlock->liveOut[i];
+
+		assert(!liveOut->regVmRegisters.empty());
+
+		for(unsigned k = 0; k < liveOut->regVmRegisters.size(); k++)
+		{
+			unsigned char reg = liveOut->regVmRegisters[k];
+
+			lowFunction->registerUsers[reg]++;
+
+			assert(!lowBlock->reservedRegisters.contains(reg));
+			lowBlock->reservedRegisters.push_back(reg);
+		}
+	}
+
+	// Reset free registers state
+	lowFunction->freedRegisters.clear();
+
+	for(unsigned i = unsigned(lowFunction->nextRegister == 0 ? 255 : lowFunction->nextRegister) - 1; i >= rvrrCount; i--)
+	{
+		if(lowFunction->registerUsers[i] == 0)
+			lowFunction->freedRegisters.push_back((unsigned char)i);
 	}
 
 	for(VmInstruction *vmInstruction = vmBlock->firstInstruction; vmInstruction; vmInstruction = vmInstruction->nextSibling)
@@ -3249,37 +3198,12 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 		}
 	}
 
-	// Collect live out instructions with unique storage
-	SmallArray<VmInstruction*, 32> liveOutUniqueStorage(ctx.allocator);
-
+	// Collect exit registers
 	for(unsigned i = 0; i < vmBlock->liveOut.size(); i++)
 	{
 		VmInstruction *liveOut = vmBlock->liveOut[i];
 
-		bool found = false;
-
-		for(unsigned k = 0; k < liveOutUniqueStorage.size() && !found; k++)
-		{
-			VmInstruction *previous = liveOutUniqueStorage[k];
-
-			if(HasSharedStorageWith(liveOut, previous, lowFunction->nextSearchMarker++))
-				found = true;
-		}
-
-		if(found)
-			continue;
-
-		liveOutUniqueStorage.push_back(liveOut);
-	}
-
-	// Collect exit registers
-	for(unsigned i = 0; i < liveOutUniqueStorage.size(); i++)
-	{
-		VmInstruction *liveOut = liveOutUniqueStorage[i];
-
 		assert(!liveOut->regVmRegisters.empty());
-
-		UpdateSharedStorage(liveOut, lowFunction->nextSearchMarker++);
 
 		for(unsigned k = 0; k < liveOut->regVmRegisters.size(); k++)
 		{
@@ -3304,38 +3228,23 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 	{
 		VmInstruction *liveIn = vmBlock->liveIn[i];
 
-		bool found = false;
-
-		for(unsigned k = 0; k < vmBlock->liveOut.size() && !found; k++)
-		{
-			VmInstruction *liveOut = vmBlock->liveOut[k];
-
-			if(liveOut == liveIn)
-				found = true;
-			else if(HasSharedStorageWith(liveIn, liveOut, lowFunction->nextSearchMarker++))
-				found = true;
-		}
-
-		if(found)
-			continue;
-
 		for(unsigned k = 0; k < liveIn->regVmRegisters.size(); k++)
 		{
 			unsigned char reg = liveIn->regVmRegisters[k];
 
-			assert(lowFunction->registerUsers[reg] == 1);
+			assert(lowFunction->registerUsers[reg] != 0);
 			lowFunction->registerUsers[reg]--;
 
-			assert(!lowFunction->freedRegisters.contains(reg));
-			lowFunction->freedRegisters.push_back(reg);
+			if(lowFunction->registerUsers[reg] == 0)
+			{
+				assert(!lowFunction->freedRegisters.contains(reg));
+				lowFunction->freedRegisters.push_back(reg);
+			}
 		}
 	}
 
 	for(unsigned i = 0; i < lowFunction->registerUsers.size(); i++)
-	{
-		if(lowFunction->registerUsers[i])
-			lowBlock->leakedRegisters.push_back((unsigned char)i);
-	}
+		assert(lowFunction->registerUsers[i] == 0);
 
 	return lowBlock;
 }
@@ -3350,6 +3259,8 @@ RegVmLoweredFunction* RegVmLowerFunction(ExpressionContext &ctx, RegVmLoweredMod
 
 	lowFunction->colorRegisters.resize(vmFunction->nextColor + 1);
 	memset(lowFunction->colorRegisters.data, 0, lowFunction->colorRegisters.size() * sizeof(lowFunction->colorRegisters[0]));
+
+	AllocateLiveInOutRegisters(ctx, lowFunction, vmFunction->firstBlock);
 
 	for(VmBlock *vmBlock = vmFunction->firstBlock; vmBlock; vmBlock = vmBlock->nextSibling)
 	{

@@ -47,7 +47,7 @@ struct RegVmLoweredInstruction
 
 struct RegVmLoweredBlock
 {
-	RegVmLoweredBlock(Allocator *allocator, RegVmLoweredFunction *parent, VmBlock *vmBlock): parent(parent), vmBlock(vmBlock), entryRegisters(allocator), reservedRegisters(allocator), exitRegisters(allocator), leakedRegisters(allocator)
+	RegVmLoweredBlock(Allocator *allocator, RegVmLoweredFunction *parent, VmBlock *vmBlock): parent(parent), vmBlock(vmBlock), entryRegisters(allocator), reservedRegisters(allocator), exitRegisters(allocator)
 	{
 		firstInstruction = NULL;
 		lastInstruction = NULL;
@@ -71,7 +71,6 @@ struct RegVmLoweredBlock
 	SmallArray<unsigned char, 16> entryRegisters;
 	SmallArray<unsigned char, 16> reservedRegisters;
 	SmallArray<unsigned char, 16> exitRegisters;
-	SmallArray<unsigned char, 16> leakedRegisters;
 };
 
 struct RegVmLoweredFunction
