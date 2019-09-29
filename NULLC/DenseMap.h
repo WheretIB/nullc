@@ -147,6 +147,11 @@ public:
 		}
 	}
 
+	unsigned size() const
+	{
+		return count;
+	}
+
 private:
 	unsigned bucketCount;
 	unsigned count;
