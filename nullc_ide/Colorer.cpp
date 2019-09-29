@@ -123,7 +123,7 @@ namespace ColorerGrammar
 
 			unsigned hash = NULLC::GetStringHash(curr, *str);
 
-			unsigned count = typeInfo.size();
+			unsigned count = (unsigned)typeInfo.size();
 
 			if(count == 0)
 				return false;
