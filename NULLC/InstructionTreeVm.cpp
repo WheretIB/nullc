@@ -4668,11 +4668,11 @@ void RunDeadAlocaStoreElimination(ExpressionContext &ctx, VmModule *module, VmVa
 			if(scope == ctx.globalScope)
 				return;
 
-			for(unsigned i = 0; i < scope->allVariables.size(); i++)
+			for(unsigned variablePos = 0, variableCount = scope->allVariables.count; variablePos < variableCount; variablePos++)
 			{
-				VariableData *variable = scope->allVariables[i];
+				VariableData *variable = scope->allVariables.data[variablePos];
 
-				if(variable->isAlloca && variable->users.empty())
+				if(variable->isAlloca && variable->users.count == 0)
 					continue;
 
 				if(HasAddressTaken(variable))
@@ -4680,30 +4680,30 @@ void RunDeadAlocaStoreElimination(ExpressionContext &ctx, VmModule *module, VmVa
 
 				bool hasLoadUsers = false;
 
-				SmallArray<VmInstruction*, 128> stores(ctx.allocator);
+				module->tempInstructions.clear();
 
-				for(unsigned i = 0; i < variable->users.size(); i++)
+				for(unsigned userPos = 0, userCount = variable->users.count; userPos < userCount; userPos++)
 				{
-					VmConstant *user = variable->users[i];
+					VmConstant *user = variable->users.data[userPos];
 
-					for(unsigned k = 0; k < user->users.size(); k++)
+					for(unsigned userUserPos = 0, userUserCount = user->users.count; userUserPos < userUserCount; userUserPos++)
 					{
-						if(VmInstruction *inst = getType<VmInstruction>(user->users[k]))
+						if(VmInstruction *inst = getType<VmInstruction>(user->users.data[userUserPos]))
 						{
 							if(inst->cmd >= VM_INST_LOAD_BYTE && inst->cmd <= VM_INST_LOAD_STRUCT)
 								hasLoadUsers = true;
 
 							if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
-								stores.push_back(inst);
+								module->tempInstructions.push_back(inst);
 						}
 					}
 				}
 
-				if(!stores.empty() && !hasLoadUsers)
+				if(!hasLoadUsers && module->tempInstructions.count != 0)
 				{
-					for(unsigned i = 0; i < stores.size(); i++)
+					for(unsigned storePos = 0, storeCount = module->tempInstructions.count; storePos < storeCount; storePos++)
 					{
-						VmInstruction *storeInst = stores[i];
+						VmInstruction *storeInst = module->tempInstructions.data[storePos];
 
 						module->deadAllocaStoreEliminations++;
 

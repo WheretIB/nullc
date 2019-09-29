@@ -499,7 +499,7 @@ struct VmFunction: VmValue
 
 struct VmModule
 {
-	VmModule(Allocator *allocator, const char *code): code(code), loopInfo(allocator), loadStoreInfo(allocator), tempUsers(allocator), allocator(allocator)
+	VmModule(Allocator *allocator, const char *code): code(code), loopInfo(allocator), loadStoreInfo(allocator), tempUsers(allocator), tempInstructions(allocator), allocator(allocator)
 	{
 		vmGlobalCodeStart = 0;
 		regVmGlobalCodeStart = 0;
@@ -579,6 +579,8 @@ struct VmModule
 	SmallArray<LoadStoreInfo, 32> loadStoreInfo;
 
 	SmallArray<VmValue*, 128> tempUsers;
+
+	SmallArray<VmInstruction*, 128> tempInstructions;
 
 	// Memory pool
 	Allocator *allocator;
