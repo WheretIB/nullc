@@ -2191,6 +2191,14 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 
 	regFileLastTop = regFileTop + target.regVmRegisters;
 
+	if(regFileLastTop >= regFileArrayEnd)
+	{
+		codeRunning = false;
+		strcpy(execError, "ERROR: register overflow");
+
+		return NULL;
+	}
+
 	REGVM_DEBUG(regFileTop[rvrrGlobals].activeType = rvrPointer);
 	REGVM_DEBUG(regFileTop[rvrrFrame].activeType = rvrPointer);
 	REGVM_DEBUG(regFileTop[rvrrConstants].activeType = rvrPointer);
