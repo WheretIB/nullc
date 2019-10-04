@@ -427,6 +427,9 @@
     <ClInclude Include="InstructionTreeRegVm.h">
       <Filter>Compiler</Filter>
     </ClInclude>
+    <ClInclude Include="Trace.h">
+      <Filter>Compiler</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Modules\std\algorithm.nc">

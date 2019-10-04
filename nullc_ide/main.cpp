@@ -493,6 +493,10 @@ int APIENTRY WinMain(HINSTANCE	hInstance,
 	nullcAddImportPath("Modules/");
 	nullcAddImportPath("../Modules/");
 
+#ifdef _DEBUG
+	nullcSetEnableTimeTrace(1);
+#endif
+
 	char modulePath[MAX_PATH];
 	GetModuleFileName(NULL, modulePath, MAX_PATH);
 

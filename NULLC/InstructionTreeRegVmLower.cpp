@@ -3233,6 +3233,11 @@ RegVmLoweredBlock* RegVmLowerBlock(ExpressionContext &ctx, RegVmLoweredFunction 
 
 RegVmLoweredFunction* RegVmLowerFunction(ExpressionContext &ctx, RegVmLoweredModule *lowModule, VmFunction *vmFunction)
 {
+	TRACE_SCOPE("InstructionTreeRegVmLower", "RegVmLowerFunction");
+
+	if(vmFunction->function && vmFunction->function->name)
+		TRACE_LABEL2(vmFunction->function->name->name.begin, vmFunction->function->name->name.end);
+
 	RegVmLoweredFunction *lowFunction = new (ctx.get<RegVmLoweredFunction>()) RegVmLoweredFunction(ctx.allocator, lowModule, vmFunction);
 
 	lowModule->functions.push_back(lowFunction);
@@ -3257,6 +3262,8 @@ RegVmLoweredFunction* RegVmLowerFunction(ExpressionContext &ctx, RegVmLoweredMod
 
 RegVmLoweredModule* RegVmLowerModule(ExpressionContext &ctx, VmModule *vmModule)
 {
+	TRACE_SCOPE("InstructionTreeRegVmLower", "RegVmLowerModule");
+
 	RegVmLoweredModule *lowModule = new (ctx.get<RegVmLoweredModule>()) RegVmLoweredModule(ctx.allocator, vmModule);
 
 	for(VmFunction *vmFunction = vmModule->functions.head; vmFunction; vmFunction = vmFunction->next)
@@ -3364,6 +3371,8 @@ void RegFinalizeFunction(InstructionRegVmFinalizeContext &ctx, RegVmLoweredFunct
 
 void RegVmFinalizeModule(InstructionRegVmFinalizeContext &ctx, RegVmLoweredModule *lowModule)
 {
+	TRACE_SCOPE("InstructionTreeRegVmLower", "RegVmFinalizeModule");
+
 	ctx.locations.push_back(NULL);
 	ctx.cmds.push_back(RegVmCmd(rviJmp, 0, 0, 0, 0));
 

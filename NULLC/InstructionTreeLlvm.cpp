@@ -2308,6 +2308,8 @@ LLVMValueRef CompileLlvm(LlvmCompilationContext &ctx, ExprBase *expression)
 
 LlvmModule* CompileLlvm(ExpressionContext &exprCtx, ExprModule *expression)
 {
+	TRACE_SCOPE("InstructionTreeLlvm", "CompileLlvm");
+
 	LlvmCompilationContext ctx(exprCtx);
 
 	ctx.context = LLVMContextCreate();

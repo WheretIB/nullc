@@ -15,6 +15,7 @@
 
 #include "StdLib.h"
 #include "BinaryCache.h"
+#include "Trace.h"
 
 #include "includes/typeinfo.h"
 #include "includes/dynamic.h"
@@ -60,6 +61,8 @@ namespace NULLC
 	void (*closeStream)(void* stream) = OutputContext::FileClose;
 
 	int optimizationLevel = 2;
+
+	TraceContext *traceContext = NULL;
 }
 
 unsigned nullcFindFunctionIndex(const char* name);
@@ -82,6 +85,10 @@ nullres nullcInitCustomAlloc(void* (*allocFunc)(int), void (*deallocFunc)(void*)
 		nullcLastError = "ERROR: NULLC is already initialized";
 		return 0;
 	}
+
+	NULLC::traceContext = TraceGetContext();
+
+	TRACE_SCOPE("nullc", "nullcInitCustomAlloc");
 
 	NULLC::alloc = allocFunc ? allocFunc : NULLC::defaultAlloc;
 	NULLC::dealloc = deallocFunc ? deallocFunc : NULLC::defaultDealloc;
@@ -222,12 +229,21 @@ void nullcSetOptimizationLevel(int level)
 	NULLC::optimizationLevel = level;
 }
 
+void nullcSetEnableTimeTrace(int enable)
+{
+	NULLC::traceContext = NULLC::TraceGetContext();
+	NULLC::TraceSetEnabled(enable != 0);
+}
+
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 
 nullres	nullcBindModuleFunction(const char* module, void (*ptr)(), const char* name, int index)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcBindModuleFunction");
+	TRACE_LABEL(module);
 
 	assert(!compilerCtx);
 
@@ -254,6 +270,9 @@ nullres nullcBindModuleFunctionWrapper(const char* module, void *func, void (*pt
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
+	TRACE_SCOPE("nullc", "nullcBindModuleFunctionWrapper");
+	TRACE_LABEL(module);
+
 	assert(!compilerCtx);
 
 	const char *errorPos = NULL;
@@ -276,6 +295,9 @@ nullres nullcLoadModuleBySource(const char* module, const char* code)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcLoadModuleBySource");
+	TRACE_LABEL(module);
 
 	if(!nullcCompile(code))
 		return false;
@@ -313,6 +335,9 @@ nullres nullcLoadModuleByBinary(const char* module, const char* binary)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
+	TRACE_SCOPE("nullc", "nullcLoadModuleByBinary");
+	TRACE_LABEL(module);
+
 	if(strlen(module) > 512)
 	{
 		nullcLastError = "ERROR: module name is too long";
@@ -346,6 +371,9 @@ void nullcRemoveModule(const char* module)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED((void)false);
 
+	TRACE_SCOPE("nullc", "nullcRemoveModule");
+	TRACE_LABEL(module);
+
 	BinaryCache::RemoveBytecode(module);
 }
 
@@ -361,6 +389,8 @@ nullres nullcAnalyze(const char* code)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcAnalyze");
 
 	nullcLastError = "";
 
@@ -405,6 +435,10 @@ nullres	nullcCompile(const char* code)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
+	NULLC::TraceDump();
+
+	TRACE_SCOPE("nullc", "nullcCompile");
+
 	nullcLastError = "";
 
 	NULLC::destruct(compilerCtx);
@@ -448,6 +482,8 @@ unsigned nullcGetBytecode(char **bytecode)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 
+	TRACE_SCOPE("nullc", "nullcGetBytecode");
+
 	if(!compilerCtx)
 	{
 		nullcLastError = "ERROR: there is no active compiler context";
@@ -466,6 +502,8 @@ unsigned nullcGetBytecodeNoCache(char **bytecode)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 
+	TRACE_SCOPE("nullc", "nullcGetBytecodeNoCache");
+
 	if(!compilerCtx)
 	{
 		nullcLastError = "ERROR: there is no active compiler context";
@@ -479,6 +517,8 @@ nullres nullcSaveListing(const char *fileName)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
+
+	TRACE_SCOPE("nullc", "nullcSaveListing");
 
 	if(!compilerCtx)
 	{
@@ -500,6 +540,8 @@ nullres	nullcTranslateToC(const char *fileName, const char *mainName, void (*add
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
 
+	TRACE_SCOPE("nullc", "nullcTranslateToC");
+
 	if(!compilerCtx)
 	{
 		nullcLastError = "ERROR: there is no active compiler context";
@@ -519,6 +561,8 @@ void nullcClean()
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED((void)0);
+
+	TRACE_SCOPE("nullc", "nullcClean");
 
 #ifndef NULLC_NO_EXECUTOR
 	linker->CleanCode();
@@ -543,6 +587,8 @@ nullres nullcLinkCode(const char *bytecode)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcLinkCode");
 
 #ifndef NULLC_NO_EXECUTOR
 	if(!linker->LinkCode(bytecode, "main"))
@@ -640,6 +686,11 @@ nullres nullcLinkCode(const char *bytecode)
 nullres nullcBuild(const char* code)
 {
 	using namespace NULLC;
+	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcBuild");
+
+	using namespace NULLC;
 
 	if(!nullcCompile(code))
 		return false;
@@ -662,6 +713,8 @@ nullres	nullcRun()
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcRun");
 
 #ifndef NULLC_NO_EXECUTOR
 	return nullcRunFunction(NULL);
@@ -1302,6 +1355,8 @@ nullres nullcFinalize()
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
+	TRACE_SCOPE("nullc", "nullcFinalize");
+
 	FinalizeMemory();
 
 	return 1;
@@ -1311,6 +1366,7 @@ void* nullcAllocate(unsigned size)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
+
 	return NULLC::AllocObject(size);
 }
 
@@ -1318,6 +1374,7 @@ void* nullcAllocateTyped(unsigned typeID)
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(0);
+
 	return NULLC::AllocObject(nullcGetTypeSize(typeID), typeID);
 }
 
@@ -1332,11 +1389,15 @@ NULLCArray nullcAllocateArrayTyped(unsigned typeID, unsigned count)
 
 int nullcInitTypeinfoModule()
 {
+	TRACE_SCOPE("nullc", "nullcInitTypeinfoModule");
+
 	return nullcInitTypeinfoModule(NULLC::linker);
 }
 
 int nullcInitDynamicModule()
 {
+	TRACE_SCOPE("nullc", "nullcInitDynamicModule");
+
 	return nullcInitDynamicModule(NULLC::linker);
 }
 #endif
@@ -1397,6 +1458,8 @@ nullres nullcTestEvaluateExpressionTree(char *resultBuf, unsigned resultBufSize)
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
 
+	TRACE_SCOPE("nullc", "nullcTestEvaluateExpressionTree");
+
 	if(!compilerCtx)
 	{
 		nullcLastError = "ERROR: there is no active compiler context";
@@ -1416,6 +1479,8 @@ nullres nullcTestEvaluateInstructionTree(char *resultBuf, unsigned resultBufSize
 {
 	using namespace NULLC;
 	NULLC_CHECK_INITIALIZED(false);
+
+	TRACE_SCOPE("nullc", "nullcTestEvaluateInstructionTree");
 
 	if(!compilerCtx)
 	{
@@ -1828,10 +1893,14 @@ CompilerContext* nullcGetCompilerContext()
 
 void nullcVisitParseTreeNodes(SynBase *syntax, void *context, void(*accept)(void *context, SynBase *child))
 {
+	TRACE_SCOPE("nullc", "nullcVisitParseTreeNodes");
+
 	VisitParseTreeNodes(syntax, context, accept);
 }
 
 void nullcVisitExpressionTreeNodes(ExprBase *expression, void *context, void(*accept)(void *context, ExprBase *child))
 {
+	TRACE_SCOPE("nullc", "nullcVisitExpressionTreeNodes");
+
 	VisitExpressionTreeNodes(expression, context, accept);
 }

@@ -1709,6 +1709,8 @@ VmLoweredFunction* LowerFunction(ExpressionContext &ctx, VmFunction *vmFunction)
 
 VmLoweredModule* LowerModule(ExpressionContext &ctx, VmModule *vmModule)
 {
+	TRACE_SCOPE("InstructionTreeVmLower", "LowerModule");
+
 	VmLoweredModule *lowModule = new (ctx.get<VmLoweredModule>()) VmLoweredModule(ctx.allocator, vmModule);
 
 	for(VmFunction *vmFunction = vmModule->functions.head; vmFunction; vmFunction = vmFunction->next)
@@ -2508,9 +2510,16 @@ void OptimizeTemporaryRegisterSpills(VmLoweredModule *lowModule, VmLoweredFuncti
 
 void OptimizeTemporaryRegisterSpills(VmLoweredModule *lowModule)
 {
+	TRACE_SCOPE("InstructionTreeVmLower", "OptimizeTemporaryRegisterSpills");
+
 	for(unsigned i = 0; i < lowModule->functions.size(); i++)
 	{
 		VmLoweredFunction *lowFunction = lowModule->functions[i];
+
+		TRACE_SCOPE("InstructionTreeVmLower", "FunctionPass");
+
+		if(lowFunction->vmFunction->function && lowFunction->vmFunction->function->name && lowFunction->vmFunction->function->name)
+			TRACE_LABEL2(lowFunction->vmFunction->function->name->name.begin, lowFunction->vmFunction->function->name->name.end);
 
 		OptimizeTemporaryRegisterSpills(lowModule, lowFunction);
 	}
@@ -2518,6 +2527,8 @@ void OptimizeTemporaryRegisterSpills(VmLoweredModule *lowModule)
 
 void FinalizeRegisterSpills(ExpressionContext &ctx, VmLoweredModule *lowModule)
 {
+	TRACE_SCOPE("InstructionTreeVmLower", "FinalizeRegisterSpills");
+
 	for(unsigned i = 0; i < lowModule->functions.size(); i++)
 	{
 		VmLoweredFunction *lowFunction = lowModule->functions[i];
@@ -2642,6 +2653,8 @@ void FinalizeFunction(InstructionVmFinalizeContext &ctx, VmLoweredFunction *lowF
 
 void FinalizeModule(InstructionVmFinalizeContext &ctx, VmLoweredModule *lowModule)
 {
+	TRACE_SCOPE("InstructionTreeVmLower", "FinalizeModule");
+
 	ctx.locations.push_back(NULL);
 	ctx.cmds.push_back(VMCmd(cmdJmp, 0));
 

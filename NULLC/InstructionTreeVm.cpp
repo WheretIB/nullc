@@ -2875,6 +2875,11 @@ VmValue* CompileVmFunctionDefinition(ExpressionContext &ctx, VmModule *module, E
 	if(node->function->isPrototype)
 		return CreateVoid(module);
 
+	TRACE_SCOPE("InstructionTreeVm", "CompileVmFunctionDefinition");
+
+	if(function->function && function->function->name)
+		TRACE_LABEL2(function->function->name->name.begin, function->function->name->name.end);
+
 	module->skipFunctionDefinitions = true;
 
 	// Store state
@@ -3458,6 +3463,8 @@ VmValue* CompileVm(ExpressionContext &ctx, VmModule *module, ExprBase *expressio
 
 VmModule* CompileVm(ExpressionContext &ctx, ExprBase *expression, const char *code)
 {
+	TRACE_SCOPE("InstructionTreeVm", "CompileVm");
+
 	if(ExprModule *node = getType<ExprModule>(expression))
 	{
 		VmModule *module = new (ctx.get<VmModule>()) VmModule(ctx.allocator, code);
@@ -6253,6 +6260,63 @@ void RunLegalizeVm(ExpressionContext &ctx, VmModule *module, VmValue* value)
 
 void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 {
+	TRACE_SCOPE("InstructionTreeVm", "RunVmPass");
+
+	switch(type)
+	{
+	case VM_PASS_OPT_PEEPHOLE:
+		TRACE_LABEL("VM_PASS_OPT_PEEPHOLE");
+		break;
+	case VM_PASS_OPT_CONSTANT_PROPAGATION:
+		TRACE_LABEL("VM_PASS_OPT_CONSTANT_PROPAGATION");
+		break;
+	case VM_PASS_OPT_DEAD_CODE_ELIMINATION:
+		TRACE_LABEL("VM_PASS_OPT_DEAD_CODE_ELIMINATION");
+		break;
+	case VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION:
+		TRACE_LABEL("VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION");
+		break;
+	case VM_PASS_OPT_LOAD_STORE_PROPAGATION:
+		TRACE_LABEL("VM_PASS_OPT_LOAD_STORE_PROPAGATION");
+		break;
+	case VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION:
+		TRACE_LABEL("VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION");
+		break;
+	case VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION:
+		TRACE_LABEL("VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION");
+		break;
+	case VM_PASS_OPT_MEMORY_TO_REGISTER:
+		TRACE_LABEL("VM_PASS_OPT_MEMORY_TO_REGISTER");
+		break;
+	case VM_PASS_OPT_ARRAY_TO_ELEMENTS:
+		TRACE_LABEL("VM_PASS_OPT_ARRAY_TO_ELEMENTS");
+		break;
+	case VM_PASS_OPT_LATE_PEEPHOLE:
+		TRACE_LABEL("VM_PASS_OPT_LATE_PEEPHOLE");
+		break;
+	case VM_PASS_UPDATE_LIVE_SETS:
+		TRACE_LABEL("VM_PASS_UPDATE_LIVE_SETS");
+		break;
+	case VM_PASS_PREPARE_SSA_EXIT:
+		TRACE_LABEL("VM_PASS_PREPARE_SSA_EXIT");
+		break;
+	case VM_PASS_CREATE_ALLOCA_STORAGE:
+		TRACE_LABEL("VM_PASS_CREATE_ALLOCA_STORAGE");
+		break;
+	case VM_PASS_LEGALIZE_ARRAY_VALUES:
+		TRACE_LABEL("VM_PASS_LEGALIZE_ARRAY_VALUES");
+		break;
+	case VM_PASS_LEGALIZE_BITCASTS:
+		TRACE_LABEL("VM_PASS_LEGALIZE_BITCASTS");
+		break;
+	case VM_PASS_LEGALIZE_EXTRACTS:
+		TRACE_LABEL("VM_PASS_LEGALIZE_EXTRACTS");
+		break;
+	case VM_PASS_LEGALIZE_VM:
+		TRACE_LABEL("VM_PASS_LEGALIZE_VM");
+		break;
+	}
+
 	for(VmFunction *value = module->functions.head; value; value = value->next)
 	{
 		switch(type)

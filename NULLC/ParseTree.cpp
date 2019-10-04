@@ -7,6 +7,7 @@
 #include "BinaryCache.h"
 #include "Bytecode.h"
 #include "Lexer.h"
+#include "Trace.h"
 
 void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize);
 
@@ -1605,6 +1606,11 @@ SynBase* ParseClassDefinition(ParseContext &ctx)
 
 		CheckConsume(ctx, lex_ofigure, "ERROR: '{' not found after class name");
 
+		TRACE_SCOPE("parse", "ParseClassBody");
+
+		if(nameIdentifier)
+			TRACE_LABEL2(nameIdentifier->name.begin, nameIdentifier->name.end);
+
 		SynClassElements *elements = ParseClassElements(ctx);
 
 		CheckConsume(ctx, lex_cfigure, "ERROR: '}' not found after class definition");
@@ -2782,6 +2788,11 @@ SynFunctionDefinition* ParseFunctionDefinition(ParseContext &ctx)
 
 		CheckConsume(ctx, lex_ofigure, "ERROR: '{' not found after function header");
 
+		TRACE_SCOPE("parse", "ParseFunctionBody");
+
+		if(nameIdentifier)
+			TRACE_LABEL2(nameIdentifier->name.begin, nameIdentifier->name.end);
+
 		expressions = ParseExpressions(ctx);
 
 		CheckConsume(ctx, lex_cfigure, "ERROR: '}' not found after function body");
@@ -2946,6 +2957,9 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 {
 	InplaceStr moduleName = GetModuleName(ctx.allocator, parts);
 
+	TRACE_SCOPE("parser", "GetBytecodeFromPath");
+	TRACE_LABEL2(moduleName.begin, moduleName.end);
+
 	const char *bytecode = BinaryCache::FindBytecode(moduleName.begin, false);
 
 	lexCount = 0;
@@ -2991,6 +3005,8 @@ const char* GetBytecodeFromPath(ParseContext &ctx, Lexeme *start, IntrusiveList<
 
 void ImportModuleNamespaces(ParseContext &ctx, Lexeme *pos, ByteCode *bCode)
 {
+	TRACE_SCOPE("parser", "ImportModuleNamespaces");
+
 	char *symbols = FindSymbols(bCode);
 
 	// Import namespaces
@@ -3027,6 +3043,8 @@ void ImportModuleNamespaces(ParseContext &ctx, Lexeme *pos, ByteCode *bCode)
 
 SynModuleImport* ParseImport(ParseContext &ctx)
 {
+	TRACE_SCOPE("parser", "ParseImport");
+
 	Lexeme *start = ctx.currentLexeme;
 
 	if(ctx.Consume(lex_import))
@@ -3078,6 +3096,8 @@ SynModuleImport* ParseImport(ParseContext &ctx)
 
 IntrusiveList<SynModuleImport> ParseImports(ParseContext &ctx)
 {
+	TRACE_SCOPE("parser", "ParseImports");
+
 	IntrusiveList<SynModuleImport> imports;
 
 	while(ctx.At(lex_import))
@@ -3091,6 +3111,8 @@ IntrusiveList<SynModuleImport> ParseImports(ParseContext &ctx)
 
 SynModule* ParseModule(ParseContext &ctx)
 {
+	TRACE_SCOPE("parser", "ParseModule");
+
 	Lexeme *start = ctx.currentLexeme;
 
 	IntrusiveList<SynModuleImport> imports = ParseImports(ctx);
@@ -3112,9 +3134,13 @@ SynModule* ParseModule(ParseContext &ctx)
 
 SynModule* Parse(ParseContext &ctx, const char *code)
 {
+	TRACE_SCOPE("parser", "Parse");
+
 	ctx.code = code;
 
 	ctx.lexer.Lexify(code);
+
+	unsigned traceDepth = NULLC::TraceGetDepth();
 
 	if(!setjmp(ctx.errorHandler))
 	{
@@ -3134,6 +3160,8 @@ SynModule* Parse(ParseContext &ctx, const char *code)
 
 		return module;
 	}
+
+	NULLC::TraceLeaveTo(traceDepth);
 
 	assert(ctx.errorPos);
 

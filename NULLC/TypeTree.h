@@ -5,8 +5,8 @@
 #include "DenseMap.h"
 #include "IntrusiveList.h"
 #include "StrAlgo.h"
-
 #include "ParseTree.h"
+#include "Trace.h"
 
 struct ByteCode;
 

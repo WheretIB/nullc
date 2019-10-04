@@ -55,6 +55,12 @@ struct NULLCAutoArray
 //#define LINK_VERBOSE_DEBUG_OUTPUT
 #endif
 
+#if !defined(NDEBUG)
+#define NULLC_TIME_TRACE
+#else
+//#define NULLC_TIME_TRACE
+#endif
+
 #if defined(EMSCRIPTEN)
 #define NULLC_NO_RAW_EXTERNAL_CALL
 #endif

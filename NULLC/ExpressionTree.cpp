@@ -2986,12 +2986,16 @@ TypeBase* CreateGenericTypeInstance(ExpressionContext &ctx, SynBase *source, Typ
 	bool prevErrorHandlerNested = ctx.errorHandlerNested;
 	ctx.errorHandlerNested = true;
 
+	unsigned traceDepth = NULLC::TraceGetDepth();
+
 	if(!setjmp(ctx.errorHandler))
 	{
 		result = AnalyzeClassDefinition(ctx, proto->definition, proto, types);
 	}
 	else
 	{
+		NULLC::TraceLeaveTo(traceDepth);
+
 		// Restore old scope
 		ctx.SwitchToScopeAtPoint(scope, NULL);
 
@@ -3216,6 +3220,8 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 			ctx.errorBufSize = 0;
 		}
 
+		unsigned traceDepth = NULLC::TraceGetDepth();
+
 		if(!setjmp(ctx.errorHandler))
 		{
 			TypeBase *type = AnalyzeType(ctx, node->value, false);
@@ -3247,6 +3253,8 @@ TypeBase* AnalyzeType(ExpressionContext &ctx, SynBase *syntax, bool onlyType = t
 		}
 		else
 		{
+			NULLC::TraceLeaveTo(traceDepth);
+
 			memcpy(&ctx.errorHandler, &prevErrorHandler, sizeof(jmp_buf));
 			ctx.errorHandlerNested = prevErrorHandlerNested;
 
@@ -5785,6 +5793,8 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 	bool prevErrorHandlerNested = ctx.errorHandlerNested;
 	ctx.errorHandlerNested = true;
 
+	unsigned traceDepth = NULLC::TraceGetDepth();
+
 	if(!setjmp(ctx.errorHandler))
 	{
 		if(SynFunctionDefinition *syntax = function->definition)
@@ -5848,6 +5858,8 @@ TypeFunction* GetGenericFunctionInstanceType(ExpressionContext &ctx, SynBase *so
 	}
 	else
 	{
+		NULLC::TraceLeaveTo(traceDepth);
+
 		// Restore old scope
 		ctx.SwitchToScopeAtPoint(scope, NULL);
 
@@ -6356,6 +6368,11 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 		return FunctionValue(source, function->instances[i], context);
 	}
 
+	TRACE_SCOPE("analyze", "CreateGenericFunctionInstance");
+
+	if(proto.function->name && proto.function->name->begin)
+		TRACE_LABEL2(proto.function->name->begin->pos, proto.function->name->end->pos);
+
 	// Switch to original function scope
 	ScopeData *scope = ctx.scope;
 
@@ -6374,6 +6391,8 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 
 	ExprBase *expr = NULL;
 	
+	unsigned traceDepth = NULLC::TraceGetDepth();
+
 	if(!setjmp(ctx.errorHandler))
 	{
 		if(SynFunctionDefinition *syntax = function->definition)
@@ -6385,6 +6404,8 @@ FunctionValue CreateGenericFunctionInstance(ExpressionContext &ctx, SynBase *sou
 	}
 	else
 	{
+		NULLC::TraceLeaveTo(traceDepth);
+
 		ctx.instanceDepth--;
 
 		// Restore old scope
@@ -8166,6 +8187,9 @@ ExprBase* CreateFunctionDefinition(ExpressionContext &ctx, SynBase *source, bool
 
 	InplaceStr functionName = GetFunctionName(ctx, ctx.scope, parentType, name->name, isOperator, accessor);
 
+	TRACE_SCOPE("analyze", "CreateFunctionDefinition");
+	TRACE_LABEL2(functionName.begin, functionName.end);
+
 	TypeBase *contextRefType = NULL;
 
 	if(parentType)
@@ -9507,6 +9531,9 @@ ExprBase* AnalyzeClassDefinition(ExpressionContext &ctx, SynClassDefinition *syn
 
 	InplaceStr typeName = GetTypeNameInScope(ctx, ctx.scope, syntax->name->name);
 
+	TRACE_SCOPE("analyze", "AnalyzeClassDefinition");
+	TRACE_LABEL2(typeName.begin, typeName.end);
+
 	if(!proto && !syntax->aliases.empty())
 	{
 		for(SynIdentifier *curr = syntax->aliases.head; curr; curr = getType<SynIdentifier>(curr->next))
@@ -9808,6 +9835,8 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 	bool prevErrorHandlerNested = ctx.errorHandlerNested;
 	ctx.errorHandlerNested = true;
 
+	unsigned traceDepth = NULLC::TraceGetDepth();
+
 	if(!setjmp(ctx.errorHandler))
 	{
 		SynBase *syntaxInternal = ctx.MakeInternal(syntax);
@@ -9912,6 +9941,8 @@ ExprBase* AnalyzeEnumDefinition(ExpressionContext &ctx, SynEnumDefinition *synta
 	}
 	else
 	{
+		NULLC::TraceLeaveTo(traceDepth);
+
 		// Restore old scope
 		ctx.SwitchToScopeAtPoint(scope, NULL);
 
@@ -10944,6 +10975,8 @@ struct ModuleContext
 
 void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx, ByteCode *moduleBytecode)
 {
+	TRACE_SCOPE("analyze", "ImportModuleDependencies");
+
 	char *symbols = FindSymbols(moduleBytecode);
 
 	ExternModuleInfo *moduleList = FindFirstModule(moduleBytecode);
@@ -10999,6 +11032,8 @@ void ImportModuleDependencies(ExpressionContext &ctx, SynBase *source, ModuleCon
 
 void ImportModuleNamespaces(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx)
 {
+	TRACE_SCOPE("analyze", "ImportModuleNamespaces");
+
 	ByteCode *bCode = moduleCtx.data->bytecode;
 	char *symbols = FindSymbols(bCode);
 
@@ -11048,6 +11083,8 @@ struct DelayedType
 
 void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx)
 {
+	TRACE_SCOPE("analyze", "ImportModuleTypes");
+
 	ByteCode *bCode = moduleCtx.data->bytecode;
 	char *symbols = FindSymbols(bCode);
 
@@ -11474,6 +11511,8 @@ void ImportModuleTypes(ExpressionContext &ctx, SynBase *source, ModuleContext &m
 
 void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx)
 {
+	TRACE_SCOPE("analyze", "ImportModuleVariables");
+
 	ByteCode *bCode = moduleCtx.data->bytecode;
 	char *symbols = FindSymbols(bCode);
 
@@ -11513,6 +11552,8 @@ void ImportModuleVariables(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx)
 {
+	TRACE_SCOPE("analyze", "ImportModuleTypedefs");
+
 	ByteCode *bCode = moduleCtx.data->bytecode;
 	char *symbols = FindSymbols(bCode);
 
@@ -11559,6 +11600,8 @@ void ImportModuleTypedefs(ExpressionContext &ctx, SynBase *source, ModuleContext
 
 void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContext &moduleCtx)
 {
+	TRACE_SCOPE("analyze", "ImportModuleFunctions");
+
 	ByteCode *bCode = moduleCtx.data->bytecode;
 	char *symbols = FindSymbols(bCode);
 
@@ -11868,6 +11911,8 @@ void ImportModuleFunctions(ExpressionContext &ctx, SynBase *source, ModuleContex
 
 void ImportModule(ExpressionContext &ctx, SynBase *source, ByteCode* bytecode, Lexeme *lexStream, unsigned lexStreamSize, InplaceStr name)
 {
+	TRACE_SCOPE("analyze", "ImportModule");
+
 #ifdef IMPORT_VERBOSE_DEBUG_OUTPUT
 	printf("  importing module %.*s as dependency #%d\n", FMT_ISTR(name), ctx.imports.size() + 1, ctx.dependencies.size() + 1);
 #endif
@@ -11930,6 +11975,9 @@ void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 {
 	InplaceStr moduleName = GetModuleName(ctx.allocator, syntax->path);
 
+	TRACE_SCOPE("analyze", "AnalyzeModuleImport");
+	TRACE_LABEL2(moduleName.begin, moduleName.end);
+
 	const char *bytecode = BinaryCache::FindBytecode(moduleName.begin, false);
 
 	unsigned lexStreamSize = 0;
@@ -11943,6 +11991,8 @@ void AnalyzeModuleImport(ExpressionContext &ctx, SynModuleImport *syntax)
 
 void CreateDefaultArgumentFunctionWrappers(ExpressionContext &ctx)
 {
+	TRACE_SCOPE("analyze", "CreateDefaultArgumentFunctionWrappers");
+
 	for(unsigned i = 0; i < ctx.functions.size(); i++)
 	{
 		FunctionData *function = ctx.functions[i];
@@ -12084,6 +12134,8 @@ ExprBase* CreateVirtualTableUpdate(ExpressionContext &ctx, SynBase *source, Vari
 
 ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 {
+	TRACE_SCOPE("analyze", "AnalyzeModule");
+
 	// Import base module
 	if(const char *bytecode = BinaryCache::GetBytecode("$base$.nc"))
 	{
@@ -12145,6 +12197,8 @@ ExprModule* AnalyzeModule(ExpressionContext &ctx, SynModule *syntax)
 
 ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 {
+	TRACE_SCOPE("analyze", "Analyze");
+
 	assert(!ctx.globalScope);
 
 	ctx.code = code;
@@ -12190,6 +12244,8 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 	FinalizeAlignment(ctx.typeAutoArray);
 	ctx.PopScope(SCOPE_TYPE);
 
+	unsigned traceDepth = NULLC::TraceGetDepth();
+
 	// Analyze module
 	if(!setjmp(ctx.errorHandler))
 	{
@@ -12205,6 +12261,8 @@ ExprModule* Analyze(ExpressionContext &ctx, SynModule *syntax, const char *code)
 
 		return module;
 	}
+
+	NULLC::TraceLeaveTo(traceDepth);
 
 	assert(ctx.errorPos != NULL);
 

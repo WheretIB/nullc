@@ -1,4 +1,5 @@
 #include "BinaryCache.h"
+
 #include "Lexer.h"
 
 namespace BinaryCache
