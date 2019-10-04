@@ -990,8 +990,6 @@ ExternFuncInfo	*codeFunctions = NULL;
 ExternLocalInfo	*codeLocals = NULL;
 ExternMemberInfo*codeTypeExtra = NULL;
 char			*codeSymbols = NULL;
-unsigned int	codeInstCount = 0;
-VMCmd			*codeInst = NULL;
 
 struct TreeItemExtra
 {
@@ -1446,9 +1444,6 @@ unsigned int FillVariableInfoTree(bool lastIsCurrent = false)
 
 	unsigned int moduleSize = stateRemote ? RemoteData::moduleCount : 0;
 	ExternModuleInfo *modules = stateRemote ? RemoteData::modules : nullcDebugModuleInfo(&moduleSize);
-
-	codeInstCount = stateRemote ? 0 : 0;
-	codeInst = stateRemote ? NULL : nullcDebugCode(&codeInstCount);
 
 	if(!mainCodeWnd && stateRemote)
 		mainCodeWnd = TabbedFiles::GetTabInfo(hAttachTabs, TabbedFiles::GetCurrentTab(hAttachTabs)).window;
