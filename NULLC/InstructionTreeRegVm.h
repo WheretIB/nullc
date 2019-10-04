@@ -204,9 +204,6 @@ struct RegVmCmd
 
 struct RegVmRegister
 {
-	// Debug testing only
-	//RegVmReturnType activeType;
-
 	union
 	{
 		int32_t	intValue;
