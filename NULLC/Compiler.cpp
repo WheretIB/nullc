@@ -584,6 +584,8 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 		{
 			TRACE_SCOPE("compiler", "iteration");
 
+			unsigned before = ctx.vmModule->peepholeOptimizations + ctx.vmModule->constantPropagations + ctx.vmModule->deadCodeEliminations + ctx.vmModule->controlFlowSimplifications + ctx.vmModule->loadStorePropagations + ctx.vmModule->commonSubexprEliminations + ctx.vmModule->deadAllocaStoreEliminations;
+
 			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONSTANT_PROPAGATION);
 			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_LOAD_STORE_PROPAGATION);
 			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_COMMON_SUBEXPRESSION_ELIMINATION);
@@ -592,6 +594,12 @@ bool CompileModuleFromSource(CompilerContext &ctx, const char *code)
 			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_CONTROL_FLOW_SIPLIFICATION);
 			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_CODE_ELIMINATION);
 			RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_DEAD_ALLOCA_STORE_ELIMINATION);
+
+			unsigned after = ctx.vmModule->peepholeOptimizations + ctx.vmModule->constantPropagations + ctx.vmModule->deadCodeEliminations + ctx.vmModule->controlFlowSimplifications + ctx.vmModule->loadStorePropagations + ctx.vmModule->commonSubexprEliminations + ctx.vmModule->deadAllocaStoreEliminations;
+
+			// Reached fixed point
+			if(before == after)
+				break;
 		}
 
 		RunVmPass(exprCtx, ctx.vmModule, VM_PASS_OPT_MEMORY_TO_REGISTER);
