@@ -1618,6 +1618,13 @@ ExternSourceInfo* nullcDebugSourceInfo(unsigned int *count)
 {
 	using namespace NULLC;
 
+	if(nullcGetCurrentExecutor(NULL) == NULLC_REG_VM)
+	{
+		if(count && linker)
+			*count = linker->exRegVmSourceInfo.size();
+		return linker ? (ExternSourceInfo*)linker->exRegVmSourceInfo.data : NULL;
+	}
+
 	if(count && linker)
 		*count = linker->exVmSourceInfo.size();
 	return linker ? (ExternSourceInfo*)linker->exVmSourceInfo.data : NULL;
