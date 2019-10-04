@@ -39,6 +39,7 @@ namespace Tests
 	const char *lastMessage = NULL;
 
 	const char *testMatch = NULL;
+	bool testMatchLoop = false;
 
 	double timeCompile = 0.0;
 	double timeGetBytecode = 0.0;
@@ -303,6 +304,15 @@ bool Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 
 		if(!RunCodeSimple(extraCode, executor, expected, message, execShouldFail, "[namespace]"))
 			return false;
+	}
+
+	if(testMatch && testMatchLoop)
+	{
+		for(unsigned i = 0; i < 5000; i++)
+		{
+			if(!RunCodeSimple(code, executor, expected, message, execShouldFail, ""))
+				return false;
+		}
 	}
 
 	if(!RunCodeSimple(code, executor, expected, message, execShouldFail, ""))
