@@ -2516,6 +2516,9 @@ void OptimizeTemporaryRegisterSpills(VmLoweredModule *lowModule)
 	{
 		VmLoweredFunction *lowFunction = lowModule->functions[i];
 
+		if(lowFunction->blocks.empty())
+			continue;
+
 		TRACE_SCOPE("InstructionTreeVmLower", "FunctionPass");
 
 		if(lowFunction->vmFunction->function && lowFunction->vmFunction->function->name && lowFunction->vmFunction->function->name)

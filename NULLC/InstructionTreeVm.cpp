@@ -6319,6 +6319,9 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 
 	for(VmFunction *value = module->functions.head; value; value = value->next)
 	{
+		if(!value->firstBlock)
+			continue;
+
 		switch(type)
 		{
 		case VM_PASS_OPT_PEEPHOLE:
