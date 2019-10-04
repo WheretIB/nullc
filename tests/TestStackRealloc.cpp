@@ -28,6 +28,7 @@ struct TestEval : TestQueue
 		nullcAddImportPath(MODULE_PATH_B);
 		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+		nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 		nullcInitDynamicModule();
 
 		const char	*testEval =
@@ -55,6 +56,7 @@ return a;";
 		nullcAddImportPath(MODULE_PATH_B);
 		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+		nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 		nullcInitDynamicModule();
 	}
 };
@@ -92,6 +94,7 @@ struct TestVariableImportCorrectness : TestQueue
 		nullcAddImportPath(MODULE_PATH_B);
 		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+		nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 		nullcInitDynamicModule();
 
 		const char	*testVariableImportCorrectness =
@@ -125,6 +128,7 @@ struct TestGCGlobalLimit : TestQueue
 		nullcAddImportPath(MODULE_PATH_B);
 		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+		nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 		nullcInitGCModule();
 		nullcSetGlobalMemoryLimit(1024 * 1024);
 
@@ -157,6 +161,7 @@ struct TestRestore : TestQueue
 		nullcAddImportPath(MODULE_PATH_B);
 		nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 		nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+		nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 
 		nullcInitTypeinfoModule();
 		nullcInitFileModule();

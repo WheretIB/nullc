@@ -157,7 +157,7 @@ nullres CompileFile(const char* fileName)
 	return nullcCompile(content);
 }
 
-int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), void (*fileFreeFunc)(const char*), bool runSpeedTests, bool testOutput, bool testTranslationSave, bool testTranslation)
+int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), void (*fileFreeFunc)(const char*), bool runSpeedTests, bool testOutput, bool testTranslationSave, bool testTranslation, bool testTimeTrace)
 {
 	Tests::messageVerbose = verbose;
 	Tests::fileLoadFunc = fileLoadFunc;
@@ -207,6 +207,7 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 	Tests::enableLogFiles = testOutput;
 	Tests::doSaveTranslation = testTranslationSave;
 	Tests::doTranslation = testTranslation;
+	Tests::enableTimeTrace = testTimeTrace;
 
 	if(testTranslation)
 	{
@@ -235,6 +236,9 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 	Tests::closeStreamFunc = 0;
 	*/
 
+	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+	nullcSetEnableTimeTrace(Tests::enableTimeTrace);
+
 	// Init NULLC for interface tests
 #ifdef NO_CUSTOM_ALLOCATOR
 	nullcInit();
@@ -247,6 +251,7 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 #endif
 	nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+	nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 
 	nullcInitTypeinfoModule();
 	nullcInitDynamicModule();
@@ -264,6 +269,7 @@ int RunTests(bool verbose, const char* (*fileLoadFunc)(const char*, unsigned*), 
 #endif
 	nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 	nullcSetEnableLogFiles(Tests::enableLogFiles, Tests::openStreamFunc, Tests::writeStreamFunc, Tests::closeStreamFunc);
+	nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();

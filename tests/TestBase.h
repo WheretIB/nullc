@@ -113,6 +113,8 @@ namespace Tests
 	extern void (*writeStreamFunc)(void *stream, const char *data, unsigned size);
 	extern void (*closeStreamFunc)(void* stream);
 
+	extern bool enableTimeTrace;
+
 	extern unsigned testStackSize;
 
 	void*	FindVar(const char* name);

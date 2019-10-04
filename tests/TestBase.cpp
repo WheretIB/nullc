@@ -2,6 +2,7 @@
 
 #include "../NULLC/nullc_debug.h"
 #include "../NULLC/nullc_internal.h"
+#include "../NULLC/Trace.h"
 
 #if defined(_MSC_VER)
 #include <Windows.h>
@@ -128,6 +129,8 @@ namespace Tests
 	void (*writeStreamFunc)(void *stream, const char *data, unsigned size) = WriteStream;
 	void (*closeStreamFunc)(void* stream) = CloseStream;
 
+	bool enableTimeTrace = true;
+
 	unsigned testStackSize = 1024 * 1024;
 
 	unsigned translationDependencyCount = 0;
@@ -169,6 +172,9 @@ void* Tests::FindVar(const char* name)
 
 bool Tests::RunCode(const char *code, unsigned int executor, const char* expected, const char* message, bool execShouldFail)
 {
+	TRACE_SCOPE("tests", "RunCode");
+	TRACE_LABEL(message);
+
 	if(testMatch && !strstr(message, testMatch))
 		return false;
 
@@ -307,6 +313,10 @@ bool Tests::RunCode(const char *code, unsigned int executor, const char* expecte
 
 bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* expected, const char* message, bool execShouldFail, const char *variant)
 {
+	TRACE_SCOPE("tests", "RunCodeSimple");
+	TRACE_LABEL(message);
+	TRACE_LABEL(variant);
+
 	if(testMatch && !strstr(message, testMatch))
 		return false;
 
@@ -655,6 +665,9 @@ char*	Tests::Format(const char *str, ...)
 
 void TEST_FOR_FAIL(const char* name, const char* str, const char* error)
 {
+	TRACE_SCOPE("tests", "TEST_FOR_FAIL");
+	TRACE_LABEL(name);
+
 	testsCount[TEST_TYPE_FAILURE]++;
 	nullres good = nullcCompile(str);
 

@@ -34,6 +34,7 @@ void	SpeedTestText(const char* name, const char* text)
 	nullcAddImportPath(MODULE_PATH_B);
 	nullcSetFileReadHandler(Tests::fileLoadFunc, Tests::fileFreeFunc);
 	nullcSetEnableLogFiles(false, NULL, NULL, NULL);
+	nullcSetEnableTimeTrace(Tests::enableTimeTrace);
 
 	nullcInitTypeinfoModule();
 	nullcInitFileModule();
