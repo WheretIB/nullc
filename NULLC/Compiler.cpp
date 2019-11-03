@@ -323,7 +323,7 @@ unsigned GetErrorLocationLineNumber(const char *codeStart, const char *errorPos)
 
 void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *errorBuf, unsigned errorBufSize)
 {
-	if(!errorBuf)
+	if(!errorBuf || !errorBufSize)
 		return;
 
 	char *errorCurr = errorBuf + strlen(errorBuf);
@@ -378,6 +378,8 @@ void AddErrorLocationInfo(const char *codeStart, const char *errorPos, char *err
 	}
 
 	errorCurr += NULLC::SafeSprintf(errorCurr, errorBufSize - unsigned(errorCurr - errorBuf), "^\n");
+
+	errorBuf[errorBufSize - 1] = '\0';
 }
 
 bool HasSourceCode(ByteCode *bytecode, const char *position)
