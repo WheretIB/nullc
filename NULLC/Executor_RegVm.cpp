@@ -463,14 +463,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 		&&case_rviJmp,
 		&&case_rviJmpz,
 		&&case_rviJmpnz,
-		&&case_rviPush,
-		&&case_rviPushQword,
-		&&case_rviPushImm,
-		&&case_rviPushImmq,
-		&&case_rviNop, // pushmem
-		&&case_rviPop,
-		&&case_rviPopq,
-		&&case_rviNop, // popmem
 		&&case_rviCall,
 		&&case_rviCallPtr,
 		&&case_rviReturn,
@@ -806,33 +798,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				instruction = rvm->codeBase + cmd.argument - 1;
 #endif
 			}
-			instruction++;
-			BREAK;
-		CASE(rviPop)
-			regFilePtr[cmd.rA].intValue = tempStackPtr[cmd.argument];
-			instruction++;
-			BREAK;
-		CASE(rviPopq)
-			regFilePtr[cmd.rA].longValue = vmLoadLong(&tempStackPtr[cmd.argument]);
-			instruction++;
-			BREAK;
-		CASE(rviPush)
-			*tempStackPtr++ = regFilePtr[cmd.rC].intValue;
-			instruction++;
-			BREAK;
-		CASE(rviPushQword)
-			memcpy(tempStackPtr, &regFilePtr[cmd.rC].longValue, sizeof(long long));
-			tempStackPtr += 2;
-			instruction++;
-			BREAK;
-		CASE(rviPushImm)
-			*tempStackPtr = cmd.argument;
-			tempStackPtr += 1;
-			instruction++;
-			BREAK;
-		CASE(rviPushImmq)
-			vmStoreLong(tempStackPtr, cmd.argument);
-			tempStackPtr += 2;
 			instruction++;
 			BREAK;
 		CASE(rviCall)
@@ -1713,27 +1678,27 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 	// Push arguments
 	unsigned *microcode = exLinker->exRegVmConstants.data + microcodePos;
 
-	while(*microcode != rviCall)
+	while(*microcode != rvmiCall)
 	{
 		switch(*microcode++)
 		{
-		case rviPush:
+		case rvmiPush:
 			*tempStackPtr = regFilePtr[*microcode++].intValue;
 			tempStackPtr += 1;
 			break;
-		case rviPushQword:
+		case rvmiPushQword:
 			memcpy(tempStackPtr, &regFilePtr[*microcode++].longValue, sizeof(long long));
 			tempStackPtr += 2;
 			break;
-		case rviPushImm:
+		case rvmiPushImm:
 			*tempStackPtr = *microcode++;
 			tempStackPtr += 1;
 			break;
-		case rviPushImmq:
+		case rvmiPushImmq:
 			vmStoreLong(tempStackPtr, *microcode++);
 			tempStackPtr += 2;
 			break;
-		case rviPushMem:
+		case rvmiPushMem:
 		{
 			unsigned reg = *microcode++;
 			unsigned offset = *microcode++;
@@ -1799,19 +1764,19 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 
 		unsigned *curr = tempStackPtr;
 
-		while(*microcode != rviReturn)
+		while(*microcode != rvmiReturn)
 		{
 			switch(*microcode++)
 			{
-			case rviPop:
+			case rvmiPop:
 				regFilePtr[*microcode++].intValue = *curr;
 				curr += 1;
 				break;
-			case rviPopq:
+			case rvmiPopq:
 				regFilePtr[*microcode++].longValue = vmLoadLong(curr);
 				curr += 2;
 				break;
-			case rviPopMem:
+			case rvmiPopMem:
 			{
 				unsigned reg = *microcode++;
 				unsigned offset = *microcode++;
@@ -1916,19 +1881,19 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 
 	unsigned *curr = tempStackPtr;
 
-	while(*microcode != rviReturn)
+	while(*microcode != rvmiReturn)
 	{
 		switch(*microcode++)
 		{
-		case rviPop:
+		case rvmiPop:
 			regFilePtr[*microcode++].intValue = *curr;
 			curr += 1;
 			break;
-		case rviPopq:
+		case rvmiPopq:
 			regFilePtr[*microcode++].longValue = vmLoadLong(curr);
 			curr += 2;
 			break;
-		case rviPopMem:
+		case rvmiPopMem:
 		{
 			unsigned reg = *microcode++;
 			unsigned offset = *microcode++;
@@ -1966,27 +1931,27 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 		unsigned *tempStackPtrStart = tempStackPtr;
 		unsigned typeId = *microcode++;
 
-		while(*microcode != rviReturn)
+		while(*microcode != rvmiReturn)
 		{
 			switch(*microcode++)
 			{
-			case rviPush:
+			case rvmiPush:
 				*tempStackPtr = regFilePtr[*microcode++].intValue;
 				tempStackPtr += 1;
 				break;
-			case rviPushQword:
+			case rvmiPushQword:
 				memcpy(tempStackPtr, &regFilePtr[*microcode++].longValue, sizeof(long long));
 				tempStackPtr += 2;
 				break;
-			case rviPushImm:
+			case rvmiPushImm:
 				*tempStackPtr = *microcode++;
 				tempStackPtr += 1;
 				break;
-			case rviPushImmq:
+			case rvmiPushImmq:
 				vmStoreLong(tempStackPtr, *microcode++);
 				tempStackPtr += 2;
 				break;
-			case rviPushMem:
+			case rvmiPushMem:
 			{
 				unsigned reg = *microcode++;
 				unsigned offset = *microcode++;

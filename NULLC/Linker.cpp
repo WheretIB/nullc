@@ -1037,23 +1037,23 @@ void Linker::UpdateFunctionPointer(unsigned dest, unsigned source)
 
 void Linker::FixupCallMicrocode(unsigned microcode, unsigned oldGlobalSize)
 {
-	while(exRegVmConstants[microcode] != rviCall)
+	while(exRegVmConstants[microcode] != rvmiCall)
 	{
 		switch(exRegVmConstants[microcode++])
 		{
-		case rviPush:
+		case rvmiPush:
 			microcode++;
 			break;
-		case rviPushQword:
+		case rvmiPushQword:
 			microcode++;
 			break;
-		case rviPushImm:
+		case rvmiPushImm:
 			microcode++;
 			break;
-		case rviPushImmq:
+		case rvmiPushImmq:
 			microcode++;
 			break;
-		case rviPushMem:
+		case rvmiPushMem:
 			if(exRegVmConstants[microcode] == rvrrGlobals)
 			{
 				unsigned &offset = exRegVmConstants[microcode + 1];
@@ -1071,15 +1071,15 @@ void Linker::FixupCallMicrocode(unsigned microcode, unsigned oldGlobalSize)
 
 	microcode += 3;
 
-	while(exRegVmConstants[microcode] != rviReturn)
+	while(exRegVmConstants[microcode] != rvmiReturn)
 	{
 		switch(exRegVmConstants[microcode++])
 		{
-		case rviPop:
-		case rviPopq:
+		case rvmiPop:
+		case rvmiPopq:
 			microcode++;
 			break;
-		case rviPopMem:
+		case rvmiPopMem:
 			if(exRegVmConstants[microcode] == rvrrGlobals)
 			{
 				unsigned &offset = exRegVmConstants[microcode + 1];

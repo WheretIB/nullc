@@ -426,7 +426,7 @@ bool TryLowerConstantPushIntoBlock(RegVmLoweredBlock *lowBlock, VmValue *value)
 
 		if(constant->type == VmType::Int)
 		{
-			lowModule->constants.push_back(rviPushImm);
+			lowModule->constants.push_back(rvmiPushImm);
 			lowModule->constants.push_back(constant->iValue);
 
 			return true;
@@ -436,10 +436,10 @@ bool TryLowerConstantPushIntoBlock(RegVmLoweredBlock *lowBlock, VmValue *value)
 			unsigned data[2];
 			memcpy(data, &constant->dValue, 8);
 
-			lowModule->constants.push_back(rviPushImm);
+			lowModule->constants.push_back(rvmiPushImm);
 			lowModule->constants.push_back(data[0]);
 
-			lowModule->constants.push_back(rviPushImm);
+			lowModule->constants.push_back(rvmiPushImm);
 			lowModule->constants.push_back(data[1]);
 
 			return true;
@@ -451,15 +451,15 @@ bool TryLowerConstantPushIntoBlock(RegVmLoweredBlock *lowBlock, VmValue *value)
 
 			if(data[1] == 0)
 			{
-				lowModule->constants.push_back(rviPushImmq);
+				lowModule->constants.push_back(rvmiPushImmq);
 				lowModule->constants.push_back(data[0]);
 			}
 			else
 			{
-				lowModule->constants.push_back(rviPushImm);
+				lowModule->constants.push_back(rvmiPushImm);
 				lowModule->constants.push_back(data[0]);
 
-				lowModule->constants.push_back(rviPushImm);
+				lowModule->constants.push_back(rvmiPushImm);
 				lowModule->constants.push_back(data[1]);
 			}
 
@@ -473,12 +473,12 @@ bool TryLowerConstantPushIntoBlock(RegVmLoweredBlock *lowBlock, VmValue *value)
 
 				if(NULLC_PTR_SIZE == 8)
 				{
-					lowModule->constants.push_back(rviPushImmq);
+					lowModule->constants.push_back(rvmiPushImmq);
 					lowModule->constants.push_back(0);
 				}
 				else
 				{
-					lowModule->constants.push_back(rviPushImm);
+					lowModule->constants.push_back(rvmiPushImm);
 					lowModule->constants.push_back(0);
 				}
 
@@ -494,7 +494,7 @@ bool TryLowerConstantPushIntoBlock(RegVmLoweredBlock *lowBlock, VmValue *value)
 
 			VmConstant *address = getType<VmConstant>(inst->arguments[0]);
 
-			lowModule->constants.push_back(rviPushMem);
+			lowModule->constants.push_back(rvmiPushMem);
 			lowModule->constants.push_back(IsLocalScope(address->container->scope) ? rvrrFrame : rvrrGlobals);
 			lowModule->constants.push_back(address->container->offset);
 			lowModule->constants.push_back(int(address->container->type->size));
@@ -1691,7 +1691,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			if(argument->type.size == 0)
 			{
-				lowModule->constants.push_back(rviPushImm);
+				lowModule->constants.push_back(rvmiPushImm);
 				lowModule->constants.push_back(0);
 			}
 			else
@@ -1704,35 +1704,35 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 				if(argument->type.type == VM_TYPE_INT || (NULLC_PTR_SIZE == 4 && argument->type.type == VM_TYPE_POINTER))
 				{
-					lowModule->constants.push_back(rviPush);
+					lowModule->constants.push_back(rvmiPush);
 					lowModule->constants.push_back(argumentRegs[0]);
 				}
 				else if(argument->type.type == VM_TYPE_LONG || (NULLC_PTR_SIZE == 8 && argument->type.type == VM_TYPE_POINTER))
 				{
-					lowModule->constants.push_back(rviPushQword);
+					lowModule->constants.push_back(rvmiPushQword);
 					lowModule->constants.push_back(argumentRegs[0]);
 				}
 				else if(argument->type.type == VM_TYPE_DOUBLE)
 				{
-					lowModule->constants.push_back(rviPushQword);
+					lowModule->constants.push_back(rvmiPushQword);
 					lowModule->constants.push_back(argumentRegs[0]);
 				}
 				else if(argument->type.type == VM_TYPE_FUNCTION_REF || argument->type.type == VM_TYPE_ARRAY_REF)
 				{
 					if(NULLC_PTR_SIZE == 8)
 					{
-						lowModule->constants.push_back(rviPushQword);
+						lowModule->constants.push_back(rvmiPushQword);
 						lowModule->constants.push_back(argumentRegs[0]);
 
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(argumentRegs[1]);
 					}
 					else
 					{
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(argumentRegs[0]);
 
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(argumentRegs[1]);
 					}
 				}
@@ -1740,18 +1740,18 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				{
 					if(NULLC_PTR_SIZE == 8)
 					{
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(argumentRegs[0]);
 
-						lowModule->constants.push_back(rviPushQword);
+						lowModule->constants.push_back(rvmiPushQword);
 						lowModule->constants.push_back(argumentRegs[1]);
 					}
 					else
 					{
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(argumentRegs[0]);
 
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(argumentRegs[1]);
 					}
 				}
@@ -1759,24 +1759,24 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				{
 					if(NULLC_PTR_SIZE == 8)
 					{
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(argumentRegs[0]);
 
-						lowModule->constants.push_back(rviPushQword);
+						lowModule->constants.push_back(rvmiPushQword);
 						lowModule->constants.push_back(argumentRegs[1]);
 
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(argumentRegs[2]);
 					}
 					else
 					{
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(argumentRegs[0]);
 
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(argumentRegs[1]);
 
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(argumentRegs[2]);
 					}
 				}
@@ -1788,14 +1788,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 					{
 						if(remainingSize == 4)
 						{
-							lowModule->constants.push_back(rviPush);
+							lowModule->constants.push_back(rvmiPush);
 							lowModule->constants.push_back(argumentRegs[i]);
 
 							remainingSize -= 4;
 						}
 						else
 						{
-							lowModule->constants.push_back(rviPushQword);
+							lowModule->constants.push_back(rvmiPushQword);
 							lowModule->constants.push_back(argumentRegs[i]);
 
 							remainingSize -= 8;
@@ -1813,12 +1813,12 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				if(NULLC_PTR_SIZE == 8)
 				{
-					lowModule->constants.push_back(rviPushQword);
+					lowModule->constants.push_back(rvmiPushQword);
 					lowModule->constants.push_back(targetRegs[0]);
 				}
 				else
 				{
-					lowModule->constants.push_back(rviPush);
+					lowModule->constants.push_back(rvmiPush);
 					lowModule->constants.push_back(targetRegs[0]);
 				}
 			}
@@ -1826,12 +1826,12 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				if(NULLC_PTR_SIZE == 8)
 				{
-					lowModule->constants.push_back(rviPushImmq);
+					lowModule->constants.push_back(rvmiPushImmq);
 					lowModule->constants.push_back(context->iValue);
 				}
 				else
 				{
-					lowModule->constants.push_back(rviPushImm);
+					lowModule->constants.push_back(rvmiPushImm);
 					lowModule->constants.push_back(context->iValue);
 				}
 			}
@@ -1840,12 +1840,12 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			if(NULLC_PTR_SIZE == 8)
 			{
-				lowModule->constants.push_back(rviPushQword);
+				lowModule->constants.push_back(rvmiPushQword);
 				lowModule->constants.push_back(targetRegs[0]);
 			}
 			else
 			{
-				lowModule->constants.push_back(rviPush);
+				lowModule->constants.push_back(rvmiPush);
 				lowModule->constants.push_back(targetRegs[0]);
 			}
 		}
@@ -1862,7 +1862,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 		if(inst->type.type == VM_TYPE_VOID)
 		{
-			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(rvmiCall);
 			lowModule->constants.push_back(0);
 			lowModule->constants.push_back(rvrVoid);
 
@@ -1875,7 +1875,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(rvmiCall);
 			lowModule->constants.push_back(targetReg);
 			lowModule->constants.push_back(rvrInt);
 
@@ -1888,7 +1888,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(rvmiCall);
 			lowModule->constants.push_back(targetReg);
 			lowModule->constants.push_back(inst->type.type == VM_TYPE_DOUBLE ? rvrDouble : rvrLong);
 
@@ -1899,7 +1899,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		else if(inst->type.type == VM_TYPE_FUNCTION_REF || inst->type.type == VM_TYPE_ARRAY_REF)
 		{
-			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(rvmiCall);
 			lowModule->constants.push_back(0);
 			lowModule->constants.push_back(rvrStruct);
 
@@ -1913,24 +1913,24 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			if(NULLC_PTR_SIZE == 8)
 			{
-				lowModule->constants.push_back(rviPopq);
+				lowModule->constants.push_back(rvmiPopq);
 				lowModule->constants.push_back(regA);
 
-				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(rvmiPop);
 				lowModule->constants.push_back(regB);
 			}
 			else
 			{
-				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(rvmiPop);
 				lowModule->constants.push_back(regA);
 
-				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(rvmiPop);
 				lowModule->constants.push_back(regB);
 			}
 		}
 		else if(inst->type.type == VM_TYPE_AUTO_REF)
 		{
-			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(rvmiCall);
 			lowModule->constants.push_back(0);
 			lowModule->constants.push_back(rvrStruct);
 
@@ -1944,24 +1944,24 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			if(NULLC_PTR_SIZE == 8)
 			{
-				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(rvmiPop);
 				lowModule->constants.push_back(regA);
 
-				lowModule->constants.push_back(rviPopq);
+				lowModule->constants.push_back(rvmiPopq);
 				lowModule->constants.push_back(regB);
 			}
 			else
 			{
-				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(rvmiPop);
 				lowModule->constants.push_back(regA);
 
-				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(rvmiPop);
 				lowModule->constants.push_back(regB);
 			}
 		}
 		else if(inst->type.type == VM_TYPE_AUTO_ARRAY)
 		{
-			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(rvmiCall);
 			lowModule->constants.push_back(0);
 			lowModule->constants.push_back(rvrStruct);
 
@@ -1976,30 +1976,30 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			if(NULLC_PTR_SIZE == 8)
 			{
-				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(rvmiPop);
 				lowModule->constants.push_back(regA);
 
-				lowModule->constants.push_back(rviPopq);
+				lowModule->constants.push_back(rvmiPopq);
 				lowModule->constants.push_back(regB);
 
-				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(rvmiPop);
 				lowModule->constants.push_back(regC);
 			}
 			else
 			{
-				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(rvmiPop);
 				lowModule->constants.push_back(regA);
 
-				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(rvmiPop);
 				lowModule->constants.push_back(regB);
 
-				lowModule->constants.push_back(rviPop);
+				lowModule->constants.push_back(rvmiPop);
 				lowModule->constants.push_back(regC);
 			}
 		}
 		else if(inst->type.type == VM_TYPE_STRUCT && resultAddress)
 		{
-			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(rvmiCall);
 			lowModule->constants.push_back(0);
 			lowModule->constants.push_back(rvrStruct);
 
@@ -2008,7 +2008,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			else
 				lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, 0, targetRegs[1], microcodePos);
 
-			lowModule->constants.push_back(rviPopMem);
+			lowModule->constants.push_back(rvmiPopMem);
 			lowModule->constants.push_back(IsLocalScope(resultAddress->container->scope) ? rvrrFrame : rvrrGlobals);
 			lowModule->constants.push_back(resultAddress->container->offset);
 			lowModule->constants.push_back(int(resultAddress->container->type->size));
@@ -2016,7 +2016,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		else if(inst->type.type == VM_TYPE_STRUCT)
 		{
-			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(rvmiCall);
 			lowModule->constants.push_back(0);
 			lowModule->constants.push_back(rvrStruct);
 
@@ -2036,14 +2036,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			{
 				if(remainingSize == 4)
 				{
-					lowModule->constants.push_back(rviPop);
+					lowModule->constants.push_back(rvmiPop);
 					lowModule->constants.push_back(inst->regVmRegisters[index]);
 
 					remainingSize -= 4;
 				}
 				else
 				{
-					lowModule->constants.push_back(rviPopq);
+					lowModule->constants.push_back(rvmiPopq);
 					lowModule->constants.push_back(inst->regVmRegisters[index]);
 
 					remainingSize -= 8;
@@ -2053,7 +2053,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			}
 		}
 
-		lowModule->constants.push_back(rviReturn);
+		lowModule->constants.push_back(rvmiReturn);
 
 		if(fakeUser)
 		{
@@ -2103,35 +2103,35 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 				if(result->type.type == VM_TYPE_INT || (NULLC_PTR_SIZE == 4 && result->type.type == VM_TYPE_POINTER))
 				{
-					lowModule->constants.push_back(rviPush);
+					lowModule->constants.push_back(rvmiPush);
 					lowModule->constants.push_back(resultRegs[0]);
 				}
 				else if(result->type.type == VM_TYPE_LONG || (NULLC_PTR_SIZE == 8 && result->type.type == VM_TYPE_POINTER))
 				{
-					lowModule->constants.push_back(rviPushQword);
+					lowModule->constants.push_back(rvmiPushQword);
 					lowModule->constants.push_back(resultRegs[0]);
 				}
 				else if(result->type.type == VM_TYPE_DOUBLE)
 				{
-					lowModule->constants.push_back(rviPushQword);
+					lowModule->constants.push_back(rvmiPushQword);
 					lowModule->constants.push_back(resultRegs[0]);
 				}
 				else if(result->type.type == VM_TYPE_FUNCTION_REF || result->type.type == VM_TYPE_ARRAY_REF)
 				{
 					if(NULLC_PTR_SIZE == 8)
 					{
-						lowModule->constants.push_back(rviPushQword);
+						lowModule->constants.push_back(rvmiPushQword);
 						lowModule->constants.push_back(resultRegs[0]);
 
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(resultRegs[1]);
 					}
 					else
 					{
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(resultRegs[0]);
 
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(resultRegs[1]);
 					}
 				}
@@ -2139,18 +2139,18 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				{
 					if(NULLC_PTR_SIZE == 8)
 					{
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(resultRegs[0]);
 
-						lowModule->constants.push_back(rviPushQword);
+						lowModule->constants.push_back(rvmiPushQword);
 						lowModule->constants.push_back(resultRegs[1]);
 					}
 					else
 					{
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(resultRegs[0]);
 
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(resultRegs[1]);
 					}
 				}
@@ -2158,24 +2158,24 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				{
 					if(NULLC_PTR_SIZE == 8)
 					{
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(resultRegs[0]);
 
-						lowModule->constants.push_back(rviPushQword);
+						lowModule->constants.push_back(rvmiPushQword);
 						lowModule->constants.push_back(resultRegs[1]);
 
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(resultRegs[2]);
 					}
 					else
 					{
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(resultRegs[0]);
 
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(resultRegs[1]);
 
-						lowModule->constants.push_back(rviPush);
+						lowModule->constants.push_back(rvmiPush);
 						lowModule->constants.push_back(resultRegs[2]);
 					}
 				}
@@ -2187,14 +2187,14 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 					{
 						if(remainingSize == 4)
 						{
-							lowModule->constants.push_back(rviPush);
+							lowModule->constants.push_back(rvmiPush);
 							lowModule->constants.push_back(resultRegs[i]);
 
 							remainingSize -= 4;
 						}
 						else
 						{
-							lowModule->constants.push_back(rviPushQword);
+							lowModule->constants.push_back(rvmiPushQword);
 							lowModule->constants.push_back(resultRegs[i]);
 
 							remainingSize -= 8;
@@ -2205,7 +2205,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			unsigned char checkReturn = isType<TypeRef>(resultBaseType) || isType<TypeUnsizedArray>(resultBaseType);
 
-			lowModule->constants.push_back(rviReturn);
+			lowModule->constants.push_back(rvmiReturn);
 
 			lowBlock->AddInstruction(ctx, inst->source, rviReturn, 0, (unsigned char)resultType, checkReturn, microcodePos);
 		}
@@ -2213,7 +2213,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			lowModule->constants.push_back(0);
 
-			lowModule->constants.push_back(rviReturn);
+			lowModule->constants.push_back(rvmiReturn);
 
 			lowBlock->AddInstruction(ctx, inst->source, rviReturn, 0, rvrVoid, 0, microcodePos);
 		}

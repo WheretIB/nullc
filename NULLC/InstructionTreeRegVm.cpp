@@ -74,22 +74,6 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "jmpz";
 	case rviJmpnz:
 		return "jmpnz";
-	case rviPush:
-		return "push";
-	case rviPushQword:
-		return "pushq";
-	case rviPushImm:
-		return "pushimm";
-	case rviPushImmq:
-		return "pushimmq";
-	case rviPushMem:
-		return "pushmem";
-	case rviPop:
-		return "pop";
-	case rviPopq:
-		return "popq";
-	case rviPopMem:
-		return "popmem";
 	case rviCall:
 		return "call";
 	case rviCallPtr:

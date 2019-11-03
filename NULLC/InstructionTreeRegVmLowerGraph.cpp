@@ -143,23 +143,23 @@ void PrintCall(OutputContext &ctx, char *constantData, unsigned microcodePos)
 
 	unsigned *microcode = (unsigned*)constantData + microcodePos;
 
-	while(*microcode != rviCall)
+	while(*microcode != rvmiCall)
 	{
 		switch(*microcode++)
 		{
-		case rviPush:
+		case rvmiPush:
 			Print(ctx, "r%d~", *microcode++);
 			break;
-		case rviPushQword:
+		case rvmiPushQword:
 			Print(ctx, "r%d", *microcode++);
 			break;
-		case rviPushImm:
+		case rvmiPushImm:
 			Print(ctx, "%d", *microcode++);
 			break;
-		case rviPushImmq:
+		case rvmiPushImmq:
 			Print(ctx, "%dL", *microcode++);
 			break;
-		case rviPushMem:
+		case rvmiPushMem:
 		{
 			unsigned reg = *microcode++;
 			unsigned offset = *microcode++;
@@ -172,7 +172,7 @@ void PrintCall(OutputContext &ctx, char *constantData, unsigned microcodePos)
 		break;
 		}
 
-		if(*microcode != rviCall)
+		if(*microcode != rvmiCall)
 			Print(ctx, ", ");
 	}
 
@@ -207,17 +207,17 @@ void PrintCall(OutputContext &ctx, char *constantData, unsigned microcodePos)
 		assert(!"unknown type");
 	}
 
-	while(*microcode != rviReturn)
+	while(*microcode != rvmiReturn)
 	{
 		switch(*microcode++)
 		{
-		case rviPop:
+		case rvmiPop:
 			Print(ctx, "r%d~", *microcode++);
 			break;
-		case rviPopq:
+		case rvmiPopq:
 			Print(ctx, "r%d", *microcode++);
 			break;
-		case rviPopMem:
+		case rvmiPopMem:
 		{
 			unsigned reg = *microcode++;
 			unsigned offset = *microcode++;
@@ -230,7 +230,7 @@ void PrintCall(OutputContext &ctx, char *constantData, unsigned microcodePos)
 		break;
 		}
 
-		if(*microcode != rviReturn)
+		if(*microcode != rvmiReturn)
 			Print(ctx, ", ");
 	}
 
@@ -248,23 +248,23 @@ void PrintReturn(OutputContext &ctx, char *constantData, unsigned microcodePos)
 
 	Print(ctx, " (%d) -> (", typeId);
 
-	while(*microcode != rviReturn)
+	while(*microcode != rvmiReturn)
 	{
 		switch(*microcode++)
 		{
-		case rviPush:
+		case rvmiPush:
 			Print(ctx, "r%d~", *microcode++);
 			break;
-		case rviPushQword:
+		case rvmiPushQword:
 			Print(ctx, "r%d", *microcode++);
 			break;
-		case rviPushImm:
+		case rvmiPushImm:
 			Print(ctx, "%d", *microcode++);
 			break;
-		case rviPushImmq:
+		case rvmiPushImmq:
 			Print(ctx, "%dL", *microcode++);
 			break;
-		case rviPushMem:
+		case rvmiPushMem:
 		{
 			unsigned reg = *microcode++;
 			unsigned offset = *microcode++;
@@ -277,7 +277,7 @@ void PrintReturn(OutputContext &ctx, char *constantData, unsigned microcodePos)
 		break;
 		}
 
-		if(*microcode != rviReturn)
+		if(*microcode != rvmiReturn)
 			Print(ctx, ", ");
 	}
 
@@ -452,25 +452,6 @@ void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCo
 		PrintRegister(ctx, rC);
 		Print(ctx, ", ");
 		PrintConstant(ctx, argument, constant);
-		break;
-	case rviPush:
-	case rviPushQword:
-		PrintRegister(ctx, rC);
-		break;
-	case rviPushImm:
-	case rviPushImmq:
-		PrintConstant(ctx, argument, constant);
-		break;
-	case rviPushMem:
-		break;
-	case rviPop:
-	case rviPopq:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", [result + ");
-		PrintConstant(ctx, argument, constant);
-		Print(ctx, " * 4]");
-		break;
-	case rviPopMem:
 		break;
 	case rviCall:
 		PrintConstant(ctx, argument, constant);

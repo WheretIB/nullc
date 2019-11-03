@@ -50,19 +50,6 @@ enum RegVmInstructionCode
 	rviJmpz,
 	rviJmpnz,
 
-	rviPush,
-	rviPushQword,
-
-	rviPushImm,
-	rviPushImmq,
-
-	rviPushMem,
-
-	rviPop,
-	rviPopq,
-
-	rviPopMem,
-
 	rviCall,
 	rviCallPtr,
 
@@ -175,6 +162,26 @@ enum RegVmReturnType
 	rvrInt,
 	rvrStruct,
 	rvrError,
+};
+
+enum RegVmMicrocodeInstruction
+{
+	rmviNop,
+
+	rvmiCall,
+
+	rvmiPush,
+	rvmiPushQword,
+
+	rvmiPushImm,
+	rvmiPushImmq,
+	rvmiPushMem,
+
+	rvmiReturn,
+
+	rvmiPop,
+	rvmiPopq,
+	rvmiPopMem,
 };
 
 #if NULLC_PTR_SIZE == 4
