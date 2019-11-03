@@ -820,13 +820,22 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 		return NULL;
 	case VM_INST_CALL:
 		{
-			unsigned functionIndex = 0;
-			unsigned long long context = 0;
+			VmFunction *function = NULL;
+			void *context = NULL;
 			unsigned startArgument = ~0u;
 
 			if(arguments[0]->type.type == VM_TYPE_FUNCTION_REF)
 			{
+				unsigned functionIndex = 0;
 				memcpy(&functionIndex, arguments[0]->sValue + sizeof(void*), 4);
+
+				if(functionIndex >= ctx.ctx.functions.size())
+					return (VmConstant*)Report(ctx, "ERROR: invalid function index");
+
+				if(functionIndex == 0)
+					return (VmConstant*)Report(ctx, "ERROR: null function pointer call");
+
+				function = ctx.ctx.functions[functionIndex]->vmFunction;
 
 				memcpy(&context, arguments[0]->sValue, sizeof(void*));
 
@@ -834,20 +843,14 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 			}
 			else
 			{
-				assert(arguments[0]->sValue == 0 && arguments[0]->iValue == 0 && arguments[0]->lValue == 0);
+				assert(arguments[1]->fValue);
 
-				functionIndex = arguments[1]->iValue;
+				function = arguments[1]->fValue;
+
+				CopyConstantRaw(ctx, (char*)&context, sizeof(void*), arguments[0], sizeof(void*));
 
 				startArgument = 2;
 			}
-
-			if(functionIndex >= ctx.ctx.functions.size())
-				return (VmConstant*)Report(ctx, "ERROR: invalid function index");
-
-			if(functionIndex == 0)
-				return (VmConstant*)Report(ctx, "ERROR: null function pointer call");
-
-			VmFunction *function = ctx.ctx.functions[functionIndex]->vmFunction;
 
 			InstructionVMEvalContext::StackFrame *calleeFrame = new (ctx.get<InstructionVMEvalContext::StackFrame>()) InstructionVMEvalContext::StackFrame(ctx.allocator, function);
 
