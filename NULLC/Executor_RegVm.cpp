@@ -459,6 +459,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 		&&case_rviIndex,
 		&&case_rviGetAddr,
 		&&case_rviSetRange,
+		&&case_rviMemCopy,
 		&&case_rviJmp,
 		&&case_rviJmpz,
 		&&case_rviJmpnz,
@@ -466,8 +467,10 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 		&&case_rviPushQword,
 		&&case_rviPushImm,
 		&&case_rviPushImmq,
+		&&case_rviNop, // pushmem
 		&&case_rviPop,
 		&&case_rviPopq,
+		&&case_rviNop, // popmem
 		&&case_rviCall,
 		&&case_rviCallPtr,
 		&&case_rviReturn,
@@ -769,6 +772,10 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			default:
 				assert(!"unknown type");
 			}
+			instruction++;
+			BREAK;
+		CASE(rviMemCopy)
+			memcpy((void*)regFilePtr[cmd.rA].ptrValue, (void*)regFilePtr[cmd.rC].ptrValue, cmd.argument);
 			instruction++;
 			BREAK;
 		CASE(rviJmp)
@@ -1726,6 +1733,15 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 			vmStoreLong(tempStackPtr, *microcode++);
 			tempStackPtr += 2;
 			break;
+		case rviPushMem:
+		{
+			unsigned reg = *microcode++;
+			unsigned offset = *microcode++;
+			unsigned size = *microcode++;
+			memcpy(tempStackPtr, (char*)regFilePtr[reg].ptrValue + offset, size);
+			tempStackPtr += size >> 2;
+		}
+		break;
 		}
 	}
 
@@ -1795,6 +1811,15 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 				regFilePtr[*microcode++].longValue = vmLoadLong(curr);
 				curr += 2;
 				break;
+			case rviPopMem:
+			{
+				unsigned reg = *microcode++;
+				unsigned offset = *microcode++;
+				unsigned size = *microcode++;
+				memcpy((char*)regFilePtr[reg].ptrValue + offset, curr, size);
+				curr += size >> 2;
+			}
+			break;
 			}
 		}
 
@@ -1903,6 +1928,15 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 			regFilePtr[*microcode++].longValue = vmLoadLong(curr);
 			curr += 2;
 			break;
+		case rviPopMem:
+		{
+			unsigned reg = *microcode++;
+			unsigned offset = *microcode++;
+			unsigned size = *microcode++;
+			memcpy((char*)regFilePtr[reg].ptrValue + offset, curr, size);
+			curr += size >> 2;
+		}
+		break;
 		}
 	}
 
@@ -1952,6 +1986,15 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 				vmStoreLong(tempStackPtr, *microcode++);
 				tempStackPtr += 2;
 				break;
+			case rviPushMem:
+			{
+				unsigned reg = *microcode++;
+				unsigned offset = *microcode++;
+				unsigned size = *microcode++;
+				memcpy(tempStackPtr, (char*)regFilePtr[reg].ptrValue + offset, size);
+				tempStackPtr += size >> 2;
+			}
+			break;
 			}
 		}
 

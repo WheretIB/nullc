@@ -155,6 +155,8 @@ void RegVmLoweredFunction::GetRegisters(SmallArray<unsigned char, 32> &result, V
 {
 	VmInstruction *instruction = getType<VmInstruction>(value);
 
+	assert(instruction->cmd != VM_INST_REFERENCE);
+
 	CompleteUse(value);
 
 	assert(!instruction->regVmRegisters.empty());
@@ -482,6 +484,22 @@ bool TryLowerConstantPushIntoBlock(RegVmLoweredBlock *lowBlock, VmValue *value)
 
 				return true;
 			}
+		}
+	}
+	else if(VmInstruction *inst = getType<VmInstruction>(value))
+	{
+		if(inst->cmd == VM_INST_REFERENCE)
+		{
+			RegVmLoweredModule *lowModule = lowBlock->parent->parent;
+
+			VmConstant *address = getType<VmConstant>(inst->arguments[0]);
+
+			lowModule->constants.push_back(rviPushMem);
+			lowModule->constants.push_back(IsLocalScope(address->container->scope) ? rvrrFrame : rvrrGlobals);
+			lowModule->constants.push_back(address->container->offset);
+			lowModule->constants.push_back(int(address->container->type->size));
+
+			return true;
 		}
 	}
 
@@ -1514,6 +1532,45 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			lowBlock->AddInstruction(ctx, inst->source, rviSetRange, initializerReg, rvsrDouble, addressReg, count->iValue);
 	}
 		break;
+	case VM_INST_MEM_COPY:
+	{
+		unsigned char dstAddressReg = 0;
+		VmConstant *dstConstant = GetLoadRegisterAndOffset(ctx, lowFunction, lowBlock, inst->arguments[0], inst->arguments[1], dstAddressReg);
+
+		if(dstConstant->container)
+		{
+			dstAddressReg = lowFunction->GetRegisterForConstant();
+
+			lowBlock->AddInstruction(ctx, inst->source, rviGetAddr, dstAddressReg, 0, IsLocalScope(dstConstant->container->scope) ? rvrrFrame : rvrrGlobals, dstConstant);
+		}
+		else if(dstConstant->iValue != 0)
+		{
+			assert(dstAddressReg >= rvrrCount);
+
+			lowBlock->AddInstruction(ctx, inst->source, rviAddImm, dstAddressReg, 0, dstAddressReg, dstConstant->iValue);
+		}
+
+		unsigned char srcAddressReg = 0;
+		VmConstant *srcConstant = GetLoadRegisterAndOffset(ctx, lowFunction, lowBlock, inst->arguments[2], inst->arguments[3], srcAddressReg);
+
+		if(srcConstant->container)
+		{
+			srcAddressReg = lowFunction->GetRegisterForConstant();
+
+			lowBlock->AddInstruction(ctx, inst->source, rviGetAddr, srcAddressReg, 0, IsLocalScope(srcConstant->container->scope) ? rvrrFrame : rvrrGlobals, srcConstant);
+		}
+		else if(srcConstant->iValue != 0)
+		{
+			assert(srcAddressReg >= rvrrCount);
+
+			lowBlock->AddInstruction(ctx, inst->source, rviAddImm, srcAddressReg, 0, srcAddressReg, srcConstant->iValue);
+		}
+
+		VmConstant *size = getType<VmConstant>(inst->arguments[4]);
+
+		lowBlock->AddInstruction(ctx, inst->source, rviMemCopy, dstAddressReg, 0, srcAddressReg, size->iValue);
+	}
+	break;
 	case VM_INST_JUMP:
 		// Check if jump is fall-through
 		if(!(lowBlock->vmBlock->nextSibling && lowBlock->vmBlock->nextSibling == inst->arguments[0]))
@@ -1568,6 +1625,8 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		VmValue *targetContext = NULL;
 		VmFunction *targetFunction = NULL;
 
+		VmValue *resultTarget = NULL;
+
 		unsigned firstArgument = ~0u;
 
 		SmallArray<unsigned char, 32> targetRegs(ctx.allocator);
@@ -1576,14 +1635,18 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			GetArgumentRegisters(ctx, lowFunction, lowBlock, targetRegs, inst->arguments[0]);
 
+			resultTarget = inst->arguments[1];
+
 			targetInst = rviCallPtr;
 
-			firstArgument = 1;
+			firstArgument = 2;
 		}
 		else
 		{
 			targetContext = inst->arguments[0];
 			targetFunction = getType<VmFunction>(inst->arguments[1]);
+
+			resultTarget = inst->arguments[2];
 
 			if(VmConstant *context = getType<VmConstant>(targetContext))
 			{
@@ -1606,7 +1669,16 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 
 			targetInst = rviCall;
 
-			firstArgument = 2;
+			firstArgument = 3;
+		}
+
+		VmConstant *resultAddress = NULL;
+
+		if(VmInstruction *result = getType<VmInstruction>(resultTarget))
+		{
+			assert(result->cmd == VM_INST_REFERENCE);
+
+			resultAddress = getType<VmConstant>(result->arguments[0]);
 		}
 
 		RegVmLoweredModule *lowModule = lowBlock->parent->parent;
@@ -1924,6 +1996,23 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 				lowModule->constants.push_back(rviPop);
 				lowModule->constants.push_back(regC);
 			}
+		}
+		else if(inst->type.type == VM_TYPE_STRUCT && resultAddress)
+		{
+			lowModule->constants.push_back(rviCall);
+			lowModule->constants.push_back(0);
+			lowModule->constants.push_back(rvrStruct);
+
+			if(targetInst == rviCall)
+				lowBlock->AddInstruction(ctx, inst->source, rviCall, regA, regB, regC, targetFunction);
+			else
+				lowBlock->AddInstruction(ctx, inst->source, rviCallPtr, 0, 0, targetRegs[1], microcodePos);
+
+			lowModule->constants.push_back(rviPopMem);
+			lowModule->constants.push_back(IsLocalScope(resultAddress->container->scope) ? rvrrFrame : rvrrGlobals);
+			lowModule->constants.push_back(resultAddress->container->offset);
+			lowModule->constants.push_back(int(resultAddress->container->type->size));
+
 		}
 		else if(inst->type.type == VM_TYPE_STRUCT)
 		{
@@ -2915,6 +3004,8 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		break;
 	case VM_INST_PHI:
 		assert(!inst->regVmRegisters.empty());
+		break;
+	case VM_INST_REFERENCE:
 		break;
 	default:
 		assert(!"unknown instruction");

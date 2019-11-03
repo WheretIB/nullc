@@ -75,6 +75,7 @@ enum VmInstructionType
 	VM_INST_TYPE_ID,
 
 	VM_INST_SET_RANGE,
+	VM_INST_MEM_COPY,
 
 	VM_INST_JUMP,
 	VM_INST_JUMP_Z,
@@ -138,6 +139,7 @@ enum VmInstructionType
 	VM_INST_PHI, // Pseudo instruction to create a value based on control flow
 	VM_INST_BITCAST, // Pseudo instruction to transform value type
 	VM_INST_MOV, // Pseudo instruction to create a separate value copy
+	VM_INST_REFERENCE, // Pseudo instruction to take a reference to a value
 };
 
 enum VmPassType

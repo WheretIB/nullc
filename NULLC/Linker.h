@@ -27,6 +27,8 @@ public:
 
 	void	SetFunctionPointerUpdater(void (*)(unsigned, unsigned));
 	void	UpdateFunctionPointer(unsigned dest, unsigned source);
+
+	void	FixupCallMicrocode(unsigned microcode, unsigned oldGlobalSize);
 public:
 	char		linkError[LINK_ERROR_BUFFER_SIZE];
 

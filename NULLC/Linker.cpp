@@ -761,10 +761,14 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 			assert(!(cmd.argument != funcRemap[cmd.argument] && int(cmd.argument - bCode->moduleFunctionCount) >= 0) || (fInfo[cmd.argument - bCode->moduleFunctionCount].nameHash == exFunctions[funcRemap[cmd.argument]].nameHash));
 
 			cmd.argument = funcRemap[cmd.argument];
+
+			FixupCallMicrocode(microcode, oldGlobalSize);
 		}
 			break;
 		case rviCallPtr:
 			cmd.argument += oldRegVmConstantsSize;
+
+			FixupCallMicrocode(cmd.argument, oldGlobalSize);
 			break;
 		case rviReturn:
 			cmd.argument += oldRegVmConstantsSize;
@@ -1024,8 +1028,71 @@ void Linker::SetFunctionPointerUpdater(void (*updater)(unsigned, unsigned))
 {
 	fptrUpdater = updater;
 }
+
 void Linker::UpdateFunctionPointer(unsigned dest, unsigned source)
 {
 	if(fptrUpdater)
 		fptrUpdater(dest, source);
 }
+
+void Linker::FixupCallMicrocode(unsigned microcode, unsigned oldGlobalSize)
+{
+	while(exRegVmConstants[microcode] != rviCall)
+	{
+		switch(exRegVmConstants[microcode++])
+		{
+		case rviPush:
+			microcode++;
+			break;
+		case rviPushQword:
+			microcode++;
+			break;
+		case rviPushImm:
+			microcode++;
+			break;
+		case rviPushImmq:
+			microcode++;
+			break;
+		case rviPushMem:
+			if(exRegVmConstants[microcode] == rvrrGlobals)
+			{
+				unsigned &offset = exRegVmConstants[microcode + 1];
+
+				if(offset >> 24)
+					offset = (offset & 0x00ffffff) + exModules[moduleRemap[(offset >> 24) - 1]].variableOffset;
+				else
+					offset += oldGlobalSize;
+			}
+
+			microcode += 3;
+			break;
+		}
+	}
+
+	microcode += 3;
+
+	while(exRegVmConstants[microcode] != rviReturn)
+	{
+		switch(exRegVmConstants[microcode++])
+		{
+		case rviPop:
+		case rviPopq:
+			microcode++;
+			break;
+		case rviPopMem:
+			if(exRegVmConstants[microcode] == rvrrGlobals)
+			{
+				unsigned &offset = exRegVmConstants[microcode + 1];
+
+				if(offset >> 24)
+					offset = (offset & 0x00ffffff) + exModules[moduleRemap[(offset >> 24) - 1]].variableOffset;
+				else
+					offset += oldGlobalSize;
+			}
+
+			microcode += 3;
+			break;
+		}
+	}
+}
+

@@ -66,16 +66,14 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "getaddr";
 	case rviSetRange:
 		return "setrange";
+	case rviMemCopy:
+		return "memcopy";
 	case rviJmp:
 		return "jmp";
 	case rviJmpz:
 		return "jmpz";
 	case rviJmpnz:
 		return "jmpnz";
-	case rviPop:
-		return "pop";
-	case rviPopq:
-		return "popq";
 	case rviPush:
 		return "push";
 	case rviPushQword:
@@ -84,6 +82,14 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "pushimm";
 	case rviPushImmq:
 		return "pushimmq";
+	case rviPushMem:
+		return "pushmem";
+	case rviPop:
+		return "pop";
+	case rviPopq:
+		return "popq";
+	case rviPopMem:
+		return "popmem";
 	case rviCall:
 		return "call";
 	case rviCallPtr:

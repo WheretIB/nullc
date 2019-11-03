@@ -12,6 +12,8 @@
 	#define VM_INST_STORE_POINTER VM_INST_STORE_INT
 #endif
 
+static const unsigned spillTypeSize = 64;
+
 namespace
 {
 	VmValue* CheckType(ExpressionContext &ctx, ExprBase* expr, VmValue *value)
@@ -67,6 +69,7 @@ namespace
 		case VM_INST_STORE_LONG:
 		case VM_INST_STORE_STRUCT:
 		case VM_INST_SET_RANGE:
+		case VM_INST_MEM_COPY:
 		case VM_INST_JUMP:
 		case VM_INST_JUMP_Z:
 		case VM_INST_JUMP_NZ:
@@ -103,6 +106,7 @@ namespace
 		case VM_INST_STORE_LONG:
 		case VM_INST_STORE_STRUCT:
 		case VM_INST_SET_RANGE:
+		case VM_INST_MEM_COPY:
 		case VM_INST_CALL:
 		case VM_INST_ADD_LOAD:
 		case VM_INST_SUB_LOAD:
@@ -237,7 +241,7 @@ namespace
 		return VM_INST_ABORT_NO_RETURN;
 	}
 
-	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth)
+	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth, VmValue *fifth)
 	{
 		assert(module->currentBlock);
 
@@ -264,6 +268,12 @@ namespace
 			inst->AddArgument(fourth);
 		}
 
+		if(fifth)
+		{
+			assert(fourth);
+			inst->AddArgument(fifth);
+		}
+
 		inst->hasSideEffects = HasSideEffects(inst->cmd);
 		inst->hasMemoryAccess = HasMemoryAccess(inst->cmd);
 
@@ -274,22 +284,27 @@ namespace
 
 	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd)
 	{
-		return CreateInstruction(module, source, type, cmd, NULL, NULL, NULL, NULL);
+		return CreateInstruction(module, source, type, cmd, NULL, NULL, NULL, NULL, NULL);
 	}
 
 	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first)
 	{
-		return CreateInstruction(module, source, type, cmd, first, NULL, NULL, NULL);
+		return CreateInstruction(module, source, type, cmd, first, NULL, NULL, NULL, NULL);
 	}
 
 	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second)
 	{
-		return CreateInstruction(module, source, type, cmd, first, second, NULL, NULL);
+		return CreateInstruction(module, source, type, cmd, first, second, NULL, NULL, NULL);
 	}
 
 	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third)
 	{
-		return CreateInstruction(module, source, type, cmd, first, second, third, NULL);
+		return CreateInstruction(module, source, type, cmd, first, second, third, NULL, NULL);
+	}
+
+	VmInstruction* CreateInstruction(VmModule *module, SynBase *source, VmType type, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth)
+	{
+		return CreateInstruction(module, source, type, cmd, first, second, third, fourth, NULL);
 	}
 
 	VmInstructionType GetLoadInstruction(ExpressionContext &ctx, TypeBase *type)
@@ -419,31 +434,6 @@ namespace
 		assert(type->size < NULLC_MAX_TYPE_SIZE);
 
 		return VmType::Struct(type->size, type);
-	}
-
-	VmValue* CreateLoad(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, VmValue *address, unsigned offset)
-	{
-		if(type->size == 0)
-			return CreateConstantStruct(ctx.allocator, source, NULL, 0, type);
-
-		return CreateInstruction(module, source, GetLoadResultType(ctx, type), GetLoadInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, offset));
-	}
-
-	VmValue* CreateStore(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, VmValue *address, VmValue *value, unsigned offset)
-	{
-		assert(value->type == GetVmType(ctx, type));
-
-		if(type->size == 0)
-			return CreateVoid(module);
-
-		if(VmConstant *constantAddress = getType<VmConstant>(address))
-		{
-			VmConstant *shiftAddress = CreateConstantPointer(module->allocator, source, constantAddress->iValue + offset, constantAddress->container, type, true);
-
-			return CreateInstruction(module, source, VmType::Void, GetStoreInstruction(ctx, type), shiftAddress, CreateConstantInt(ctx.allocator, source, 0), value);
-		}
-
-		return CreateInstruction(module, source, VmType::Void, GetStoreInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, offset), value);
 	}
 
 	VmValue* CreateCast(VmModule *module, SynBase *source, VmValue *value, VmType target)
@@ -755,6 +745,11 @@ namespace
 		return CreateInstruction(module, source, VmType::Void, VM_INST_SET_RANGE, address, CreateConstantInt(module->allocator, source, count), value, CreateConstantInt(module->allocator, source, elementSize));
 	}
 
+	VmValue* CreateMemCopy(VmModule *module, SynBase *source, VmValue *dst, unsigned dstOffset, VmValue *src, unsigned srcOffset, int size)
+	{
+		return CreateInstruction(module, source, VmType::Void, VM_INST_MEM_COPY, dst, CreateConstantInt(module->allocator, source, dstOffset), src, CreateConstantInt(module->allocator, source, srcOffset), CreateConstantInt(module->allocator, source, size));
+	}
+
 	VmValue* CreateConvertPtr(VmModule *module, SynBase *source, VmValue *ptr, TypeBase *type, TypeBase *structType)
 	{
 		return CreateInstruction(module, source, VmType::Pointer(structType), VM_INST_CONVERT_POINTER, ptr, CreateConstantInt(module->allocator, source, type->typeIndex));
@@ -809,6 +804,11 @@ namespace
 		return CreateInstruction(module, source, type, VM_INST_MOV, value, NULL, NULL, NULL);
 	}
 
+	VmValue* CreateReference(VmModule *module, SynBase *source, VmType type, VmValue *value)
+	{
+		return CreateInstruction(module, source, type, VM_INST_REFERENCE, value, NULL, NULL, NULL);
+	}
+
 	VmConstant* CreateAlloca(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, const char *suffix)
 	{
 		ScopeData *scope = module->currentFunction->function ? module->currentFunction->function->functionScope : ctx.globalScope;
@@ -827,6 +827,52 @@ namespace
 		module->currentFunction->allocas.push_back(variable);
 
 		return value;
+	}
+
+	VmValue* CreateLoad(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, VmValue *address, unsigned offset)
+	{
+		if(type->size == 0)
+			return CreateConstantStruct(ctx.allocator, source, NULL, 0, type);
+
+		if(type->size > spillTypeSize)
+		{
+			VmConstant *spill = CreateAlloca(ctx, module, source, type, "spill");
+
+			CreateMemCopy(module, source, spill, 0, address, offset, (int)type->size);
+
+			return CreateReference(module, source, GetVmType(ctx, type), spill);
+		}
+
+		return CreateInstruction(module, source, GetLoadResultType(ctx, type), GetLoadInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, offset));
+	}
+
+	VmValue* CreateStore(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, VmValue *address, VmValue *value, unsigned offset)
+	{
+		assert(value->type == GetVmType(ctx, type));
+
+		if(type->size == 0)
+			return CreateVoid(module);
+
+		if(VmConstant *constantAddress = getType<VmConstant>(address))
+		{
+			VmConstant *shiftAddress = CreateConstantPointer(module->allocator, source, constantAddress->iValue + offset, constantAddress->container, type, true);
+
+			if(VmInstruction *instValue = getType<VmInstruction>(value))
+			{
+				if(instValue->cmd == VM_INST_REFERENCE)
+					return CreateMemCopy(module, source, shiftAddress, 0, instValue->arguments[0], 0, int(type->size));
+			}
+
+			return CreateInstruction(module, source, VmType::Void, GetStoreInstruction(ctx, type), shiftAddress, CreateConstantInt(ctx.allocator, source, 0), value);
+		}
+
+		if(VmInstruction *instValue = getType<VmInstruction>(value))
+		{
+			if(instValue->cmd == VM_INST_REFERENCE)
+				return CreateMemCopy(module, source, address, offset, instValue->arguments[0], 0, int(type->size));
+		}
+
+		return CreateInstruction(module, source, VmType::Void, GetStoreInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, offset), value);
 	}
 
 	ScopeData* AllocateScopeSlot(ExpressionContext &ctx, VmModule *module, TypeBase *type, unsigned &offset)
@@ -2967,6 +3013,19 @@ VmValue* CompileVmFunctionCall(ExpressionContext &ctx, VmModule *module, ExprFun
 
 	assert(module->currentBlock);
 
+	VmValue *resultTarget = NULL;
+
+	if(node->type->size > spillTypeSize)
+	{
+		VmConstant *spill = CreateAlloca(ctx, module, node->source, node->type, "spill");
+
+		resultTarget = CreateReference(module, node->source, GetVmType(ctx, node->type), spill);
+	}
+	else
+	{
+		resultTarget = CreateConstantInt(ctx.allocator, node->source, 0);
+	}
+
 	VmInstruction *inst = new (module->get<VmInstruction>()) VmInstruction(module->allocator, GetVmType(ctx, node->type), node->source, VM_INST_CALL, module->currentFunction->nextInstructionId++);
 
 	// Inline call target for instruction without context
@@ -2982,7 +3041,7 @@ VmValue* CompileVmFunctionCall(ExpressionContext &ctx, VmModule *module, ExprFun
 		}
 	}
 
-	unsigned argCount = 1;
+	unsigned argCount = 2;
 
 	if(functionContext && functionId)
 		argCount++;
@@ -3002,6 +3061,8 @@ VmValue* CompileVmFunctionCall(ExpressionContext &ctx, VmModule *module, ExprFun
 		inst->AddArgument(function);
 	}
 
+	inst->AddArgument(resultTarget);
+
 	for(ExprBase *value = node->arguments.head; value; value = value->next)
 	{
 		VmValue *argument = CompileVm(ctx, module, value);
@@ -3018,6 +3079,9 @@ VmValue* CompileVmFunctionCall(ExpressionContext &ctx, VmModule *module, ExprFun
 	inst->hasMemoryAccess = HasMemoryAccess(inst->cmd);
 
 	module->currentBlock->AddInstruction(inst);
+
+	if(node->type->size > spillTypeSize)
+		return CheckType(ctx, node, resultTarget);
 
 	return CheckType(ctx, node, inst);
 }
@@ -3777,29 +3841,29 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 				if(function->function->functionIndex == 0x09)
 				{
 					assert(ctx.functions[function->function->functionIndex]->name->name == InplaceStr("int"));
-					assert(inst->arguments[2]->type == VmType::Int);
+					assert(inst->arguments[3]->type == VmType::Int);
 
 					inst->hasSideEffects = false;
 
-					ReplaceValueUsersWith(module, inst, inst->arguments[2], &module->peepholeOptimizations);
+					ReplaceValueUsersWith(module, inst, inst->arguments[3], &module->peepholeOptimizations);
 				}
 				else if(function->function->functionIndex == 0x0a)
 				{
 					assert(ctx.functions[function->function->functionIndex]->name->name == InplaceStr("long"));
-					assert(inst->arguments[2]->type == VmType::Long);
+					assert(inst->arguments[3]->type == VmType::Long);
 
 					inst->hasSideEffects = false;
 
-					ReplaceValueUsersWith(module, inst, inst->arguments[2], &module->peepholeOptimizations);
+					ReplaceValueUsersWith(module, inst, inst->arguments[3], &module->peepholeOptimizations);
 				}
 				else if(function->function->functionIndex == 0x0c)
 				{
 					assert(ctx.functions[function->function->functionIndex]->name->name == InplaceStr("double"));
-					assert(inst->arguments[2]->type == VmType::Double);
+					assert(inst->arguments[3]->type == VmType::Double);
 
 					inst->hasSideEffects = false;
 
-					ReplaceValueUsersWith(module, inst, inst->arguments[2], &module->peepholeOptimizations);
+					ReplaceValueUsersWith(module, inst, inst->arguments[3], &module->peepholeOptimizations);
 				}
 			}
 		default:
@@ -4503,6 +4567,7 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 				AddStoreInfo(module, curr);
 				break;
 			case VM_INST_SET_RANGE:
+			case VM_INST_MEM_COPY:
 			case VM_INST_CALL:
 				ClearLoadStoreInfoAliasing(module, NULL);
 				ClearLoadStoreInfoGlobal(module);
@@ -5152,6 +5217,7 @@ bool IsReachableLoadValue(VmInstruction *user, VmInstruction *load)
 				return false;
 			break;
 		case VM_INST_SET_RANGE:
+		case VM_INST_MEM_COPY:
 			return false;
 		case VM_INST_CALL:
 			if(loadAddressConstant && loadAddressConstant->container && !HasAddressTaken(loadAddressConstant->container))
@@ -5972,6 +6038,9 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 			continue;
 
 		if(curr->cmd == VM_INST_FUNCTION_ADDRESS || curr->cmd == VM_INST_TYPE_ID)
+			continue;
+
+		if(curr->cmd == VM_INST_REFERENCE)
 			continue;
 
 		TypeBase *type = GetBaseType(ctx, curr->type);

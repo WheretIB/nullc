@@ -44,6 +44,7 @@ enum RegVmInstructionCode
 	rviGetAddr,
 
 	rviSetRange,
+	rviMemCopy,
 
 	rviJmp,
 	rviJmpz,
@@ -55,8 +56,12 @@ enum RegVmInstructionCode
 	rviPushImm,
 	rviPushImmq,
 
+	rviPushMem,
+
 	rviPop,
 	rviPopq,
+
+	rviPopMem,
 
 	rviCall,
 	rviCallPtr,

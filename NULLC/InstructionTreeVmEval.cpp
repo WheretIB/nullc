@@ -796,6 +796,17 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 			return NULL;
 		}
 		break;
+	case VM_INST_MEM_COPY:
+	{
+		TypeRef *refType = getType<TypeRef>(arguments[2]->type.structType);
+
+		VmConstant *srcValue = LoadFrameValue(ctx, arguments[2], arguments[3], GetVmType(ctx.ctx, refType->subType), arguments[4]->iValue);
+
+		StoreFrameValue(ctx, arguments[0], arguments[1]->iValue, srcValue, arguments[4]->iValue);
+
+		return NULL;
+	}
+	break;
 	case VM_INST_JUMP:
 		assert(arguments[0]->type == VmType::Block && arguments[0]->bValue);
 
@@ -839,7 +850,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 				memcpy(&context, arguments[0]->sValue, sizeof(void*));
 
-				startArgument = 1;
+				startArgument = 2;
 			}
 			else
 			{
@@ -849,7 +860,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 				CopyConstantRaw(ctx, (char*)&context, sizeof(void*), arguments[0], sizeof(void*));
 
-				startArgument = 2;
+				startArgument = 3;
 			}
 
 			InstructionVMEvalContext::StackFrame *calleeFrame = new (ctx.get<InstructionVMEvalContext::StackFrame>()) InstructionVMEvalContext::StackFrame(ctx.allocator, function);
@@ -862,6 +873,12 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 			for(unsigned i = startArgument; i < arguments.size(); i++)
 			{
 				VmConstant *argument = arguments[i];
+
+				if(VmInstruction *argumentInst = getType<VmInstruction>(instruction->arguments[i]))
+				{
+					if(argumentInst->cmd == VM_INST_REFERENCE)
+						argument = LoadFrameValue(ctx, getType<VmConstant>(argumentInst->arguments[0]), NULL, argumentInst->type, argumentInst->type.size);
+				}
 
 				ArgumentData &original = function->function->arguments[i - startArgument];
 
@@ -896,12 +913,27 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 			ctx.stackFrames.pop_back();
 
+			if(result)
+			{
+				if(VmInstruction *resultInst = getType<VmInstruction>(instruction->arguments[startArgument - 1]))
+				{
+					if(resultInst && resultInst->cmd == VM_INST_REFERENCE)
+						StoreFrameValue(ctx, getType<VmConstant>(resultInst->arguments[0]), 0, result, resultInst->type.size);
+				}
+			}
+
 			return result;
 		}
 		break;
 	case VM_INST_RETURN:
 		if(arguments.empty())
 			return CreateConstantVoid(ctx.allocator);
+
+		if(VmInstruction *resultInst = getType<VmInstruction>(instruction->arguments[0]))
+		{
+			if(resultInst && resultInst->cmd == VM_INST_REFERENCE)
+				return LoadFrameValue(ctx, getType<VmConstant>(resultInst->arguments[0]), NULL, resultInst->type, resultInst->type.size);
+		}
 
 		return arguments[0];
 	case VM_INST_YIELD:
@@ -1618,6 +1650,8 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 			assert(!"unsupported bitcast");
 		}
 		break;
+	case VM_INST_REFERENCE:
+		return arguments[0];
 	default:
 		assert(!"unknown instruction");
 	}

@@ -159,6 +159,17 @@ void PrintCall(OutputContext &ctx, char *constantData, unsigned microcodePos)
 		case rviPushImmq:
 			Print(ctx, "%dL", *microcode++);
 			break;
+		case rviPushMem:
+		{
+			unsigned reg = *microcode++;
+			unsigned offset = *microcode++;
+			unsigned size = *microcode++;
+
+			Print(ctx, "[");
+			PrintRegister(ctx, (unsigned char)reg);
+			Print(ctx, " + 0x%x] x%d", offset, size);
+		}
+		break;
 		}
 
 		if(*microcode != rviCall)
@@ -206,6 +217,17 @@ void PrintCall(OutputContext &ctx, char *constantData, unsigned microcodePos)
 		case rviPopq:
 			Print(ctx, "r%d", *microcode++);
 			break;
+		case rviPopMem:
+		{
+			unsigned reg = *microcode++;
+			unsigned offset = *microcode++;
+			unsigned size = *microcode++;
+
+			Print(ctx, "[");
+			PrintRegister(ctx, (unsigned char)reg);
+			Print(ctx, " + 0x%x] x%d", offset, size);
+		}
+		break;
 		}
 
 		if(*microcode != rviReturn)
@@ -242,6 +264,17 @@ void PrintReturn(OutputContext &ctx, char *constantData, unsigned microcodePos)
 		case rviPushImmq:
 			Print(ctx, "%dL", *microcode++);
 			break;
+		case rviPushMem:
+		{
+			unsigned reg = *microcode++;
+			unsigned offset = *microcode++;
+			unsigned size = *microcode++;
+
+			Print(ctx, "[");
+			PrintRegister(ctx, (unsigned char)reg);
+			Print(ctx, " + 0x%x] x%d", offset, size);
+		}
+		break;
 		}
 
 		if(*microcode != rviReturn)
@@ -404,6 +437,13 @@ void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCo
 		Print(ctx, ", ");
 		PrintConstant(ctx, argument, constant);
 		break;
+	case rviMemCopy:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", ");
+		PrintRegister(ctx, rC);
+		Print(ctx, ", ");
+		PrintConstant(ctx, argument, constant);
+		break;
 	case rviJmp:
 		PrintConstant(ctx, argument, constant);
 		break;
@@ -413,13 +453,6 @@ void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCo
 		Print(ctx, ", ");
 		PrintConstant(ctx, argument, constant);
 		break;
-	case rviPop:
-	case rviPopq:
-		PrintRegister(ctx, rA);
-		Print(ctx, ", [result + ");
-		PrintConstant(ctx, argument, constant);
-		Print(ctx, " * 4]");
-		break;
 	case rviPush:
 	case rviPushQword:
 		PrintRegister(ctx, rC);
@@ -427,6 +460,17 @@ void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCo
 	case rviPushImm:
 	case rviPushImmq:
 		PrintConstant(ctx, argument, constant);
+		break;
+	case rviPushMem:
+		break;
+	case rviPop:
+	case rviPopq:
+		PrintRegister(ctx, rA);
+		Print(ctx, ", [result + ");
+		PrintConstant(ctx, argument, constant);
+		Print(ctx, " * 4]");
+		break;
+	case rviPopMem:
 		break;
 	case rviCall:
 		PrintConstant(ctx, argument, constant);
