@@ -121,6 +121,7 @@ namespace Tests
 	bool	RunCode(const char *code, unsigned int executor, const char* expected, const char* message = 0, bool execShouldFail = false);
 	bool	RunCodeSimple(const char *code, unsigned int executor, const char* expected, const char* message, bool execShouldFail, const char *variant);
 	char*	Format(const char *str, ...);
+	void	Cleanup();
 }
 
 #define TEST(name, code, result)	\

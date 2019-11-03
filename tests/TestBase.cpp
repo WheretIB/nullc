@@ -159,6 +159,58 @@ namespace Tests
 		if(node && GetExpressionTreeNodeName(node))
 			totalExpressionNodes++;
 	}
+
+	struct EvaluationFailReson
+	{
+		char *reason;
+		unsigned count;
+	};
+
+	unsigned expressionEvaluionFails = 0;
+	EvaluationFailReson expressionEvaluionFailInfo[128];
+
+	void AddExpressionEvaluionFail(const char *reason)
+	{
+		for(unsigned i = 0; i < expressionEvaluionFails; i++)
+		{
+			if(strcmp(expressionEvaluionFailInfo[i].reason, reason) == 0)
+			{
+				expressionEvaluionFailInfo[i].count++;
+				return;
+			}
+		}
+		assert(expressionEvaluionFails < 128);
+
+		if(expressionEvaluionFails < 128)
+		{
+			expressionEvaluionFailInfo[expressionEvaluionFails].reason = strdup(reason);
+			expressionEvaluionFailInfo[expressionEvaluionFails].count = 1;
+			expressionEvaluionFails++;
+		}
+	}
+
+	unsigned instructionEvaluionFails = 0;
+	EvaluationFailReson instructionEvaluionFailInfo[128];
+
+	void AddInstructionEvaluionFail(const char *reason)
+	{
+		for(unsigned i = 0; i < instructionEvaluionFails; i++)
+		{
+			if(strcmp(instructionEvaluionFailInfo[i].reason, reason) == 0)
+			{
+				instructionEvaluionFailInfo[i].count++;
+				return;
+			}
+		}
+		assert(instructionEvaluionFails < 128);
+
+		if(instructionEvaluionFails < 128)
+		{
+			instructionEvaluionFailInfo[instructionEvaluionFails].reason = strdup(reason);
+			instructionEvaluionFailInfo[instructionEvaluionFails].count = 1;
+			instructionEvaluionFails++;
+		}
+	}
 }
 
 void* Tests::FindVar(const char* name)
@@ -406,7 +458,12 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		bool exprCheckResult = false;
 
 		if(executor == NULLC_VM && !execShouldFail && doExprEvaluation)
+		{
 			exprCheckResult = nullcTestEvaluateExpressionTree(exprEvalBuf, 256) != 0;
+
+			if(!exprCheckResult)
+				AddExpressionEvaluionFail(nullcGetLastError());
+		}
 
 		timeExprEvaluate += myGetPreciseTime() - time;
 		time = myGetPreciseTime();
@@ -415,7 +472,12 @@ bool Tests::RunCodeSimple(const char *code, unsigned int executor, const char* e
 		bool instCheckResult = false;
 
 		if(executor == NULLC_VM && !execShouldFail && doInstEvaluation)
+		{
 			instCheckResult = nullcTestEvaluateInstructionTree(instEvalBuf, 256) != 0;
+
+			if(!instCheckResult)
+				AddInstructionEvaluionFail(nullcGetLastError());
+		}
 
 		timeInstEvaluate += myGetPreciseTime() - time;
 		time = myGetPreciseTime();
@@ -671,6 +733,17 @@ char*	Tests::Format(const char *str, ...)
 	vsnprintf(ptr, 1023, str, args);
 	va_end(args);
 	return ptr;
+}
+
+void Tests::Cleanup()
+{
+	for(unsigned i = 0; i < expressionEvaluionFails; i++)
+		free(expressionEvaluionFailInfo[i].reason);
+	expressionEvaluionFails = 0;
+
+	for(unsigned i = 0; i < instructionEvaluionFails; i++)
+		free(instructionEvaluionFailInfo[i].reason);
+	instructionEvaluionFails = 0;
 }
 
 void TEST_FOR_FAIL(const char* name, const char* str, const char* error)
