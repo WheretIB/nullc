@@ -1108,14 +1108,24 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 	case VM_INST_ADD_LOAD:
 		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
 		{
-			assert(arguments[0]->type == rhs->type);
+			if(arguments[0]->type.type == VM_TYPE_POINTER || rhs->type.type == VM_TYPE_POINTER)
+			{
+				// Both arguments can't be based on an offset
+				assert(!(arguments[0]->container && rhs->container));
 
-			if(arguments[0]->type == VmType::Int)
-				return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue + rhs->iValue);
-			else if(arguments[0]->type == VmType::Double)
-				return CreateConstantDouble(ctx.allocator, NULL, arguments[0]->dValue + rhs->dValue);
-			else if(arguments[0]->type == VmType::Long)
-				return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue + rhs->lValue);
+				return CreateConstantPointer(ctx.allocator, NULL, arguments[0]->iValue + rhs->iValue, arguments[0]->container ? arguments[0]->container : rhs->container, instruction->type.structType, false);
+			}
+			else
+			{
+				assert(arguments[0]->type == rhs->type || arguments[0]->type.type == VM_TYPE_INT && rhs->type.type == VM_TYPE_POINTER);
+
+				if(arguments[0]->type == VmType::Int)
+					return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue + rhs->iValue);
+				else if(arguments[0]->type == VmType::Double)
+					return CreateConstantDouble(ctx.allocator, NULL, arguments[0]->dValue + rhs->dValue);
+				else if(arguments[0]->type == VmType::Long)
+					return CreateConstantLong(ctx.allocator, NULL, arguments[0]->lValue + rhs->lValue);
+			}
 		}
 		else
 		{
