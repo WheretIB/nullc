@@ -1307,6 +1307,8 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 				lowBlock->AddInstruction(ctx, inst->source, cmdAddD);
 			else if(inst->type == VmType::Long)
 				lowBlock->AddInstruction(ctx, inst->source, cmdAddL);
+			else if(inst->type.type == VM_TYPE_POINTER)
+				lowBlock->AddInstruction(ctx, inst->source, cmdAdd); // TODO: what if the address is on a 32 bit value border
 			else
 				assert(!"unknown type");
 		}
