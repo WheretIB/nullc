@@ -1152,7 +1152,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 			}
 			else
 			{
-				assert(arguments[0]->type == rhs->type || arguments[0]->type.type == VM_TYPE_INT && rhs->type.type == VM_TYPE_POINTER);
+				assert(arguments[0]->type == rhs->type);
 
 				if(arguments[0]->type == VmType::Int)
 					return CreateConstantInt(ctx.allocator, NULL, arguments[0]->iValue + rhs->iValue);
