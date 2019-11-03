@@ -124,45 +124,87 @@ struct OutputContext
 
 				Print('%');
 			}
-			else if(pos[0] == '%' && pos[1] == 'd')
+			else if(pos[0] == '%')
 			{
-				pos += 2;
+				const char *tmpPos = pos + 1;
 
-				int value = va_arg(args, int);
+				bool leadingZeroes = true;
 
-				if(value < 0)
-					Print('-');
-
-				unsigned uvalue;
-
-				if(value < 0)
-					uvalue = -value;
-				else
-					uvalue = value;
-
-				char reverse[16];
-
-				char *curr = reverse;
-
-				*curr++ = (char)((uvalue % 10) + '0');
-
-				while(uvalue /= 10)
-					*curr++ = (char)((uvalue % 10) + '0');
-
-				char forward[16];
-
-				char *result = forward;
-
-				do
+				if(*tmpPos == '0')
 				{
-					--curr;
-					*result++ = *curr;
+					leadingZeroes = true;
+
+					tmpPos++;
 				}
-				while(curr != reverse);
 
-				*result = 0;
+				unsigned width = 0;
 
-				Print(forward);
+				if(unsigned(*tmpPos - '0') < 10)
+				{
+					width = unsigned(*tmpPos - '0');
+
+					tmpPos++;
+				}
+
+				if(*tmpPos == 'd' || *tmpPos == 'x')
+				{
+					pos = tmpPos + 1;
+
+					int value = va_arg(args, int);
+
+					if(value < 0)
+						Print('-');
+
+					unsigned uvalue;
+
+					if(value < 0)
+						uvalue = -value;
+					else
+						uvalue = value;
+
+					char reverse[16];
+
+					char *curr = reverse;
+
+					if(*tmpPos == 'd')
+					{
+						*curr++ = (char)((uvalue % 10) + '0');
+
+						while(uvalue /= 10)
+							*curr++ = (char)((uvalue % 10) + '0');
+					}
+					else
+					{
+						const char *symbols = "0123456789abcdef";
+
+						*curr++ = symbols[uvalue % 16];
+
+						while(uvalue /= 16)
+							*curr++ = symbols[uvalue % 16];
+					}
+
+					while(unsigned(curr - reverse) < width)
+						*curr++ = leadingZeroes ? '0' : ' ';
+
+					char forward[16];
+
+					char *result = forward;
+
+					do
+					{
+						--curr;
+						*result++ = *curr;
+					}
+					while(curr != reverse);
+
+					*result = 0;
+
+					Print(forward);
+				}
+				else
+				{
+					break;
+				}
 			}
 			else if(pos[0] == 0)
 			{
@@ -172,7 +214,6 @@ struct OutputContext
 			{
 				break;
 			}
-			
 		}
 
 		int length = vsnprintf(tempBuf, tempBufSize - 1, pos, args);
