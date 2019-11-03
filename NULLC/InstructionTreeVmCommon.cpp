@@ -239,11 +239,18 @@ unsigned GetAccessSize(VmInstruction *inst)
 	case VM_INST_LOG_XOR_LOAD:
 		if(VmConstant *loadInst = getType<VmConstant>(inst->arguments[3]))
 		{
-			if(loadInst->iValue == VM_INST_LOAD_FLOAT)
+			switch(loadInst->iValue)
+			{
+			case VM_INST_LOAD_INT:
+			case VM_INST_LOAD_FLOAT:
 				return 4;
+			case VM_INST_LOAD_DOUBLE:
+			case VM_INST_LOAD_LONG:
+				return 8;
+			}
 		}
 
-		return inst->type.size;
+		assert(!"unknown load type");
 	default:
 		break;
 	}
@@ -363,6 +370,8 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "typeid";
 	case VM_INST_SET_RANGE:
 		return "setrange";
+	case VM_INST_MEM_COPY:
+		return "memcopy";
 	case VM_INST_JUMP:
 		return "jmp";
 	case VM_INST_JUMP_Z:
@@ -471,6 +480,8 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "bitcast";
 	case VM_INST_MOV:
 		return "mov";
+	case VM_INST_REFERENCE:
+		return "reference";
 	default:
 		assert(!"unknown instruction");
 	}
