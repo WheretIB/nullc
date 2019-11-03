@@ -659,13 +659,15 @@ void LowerBinaryMemoryOperationIntoBlock(ExpressionContext &ctx, RegVmLoweredFun
 	VmConstant *loadType = getType<VmConstant>(inst->arguments[3]);
 	unsigned char targetReg = lowFunction->AllocateRegister(inst);
 
-	if(inst->type == VmType::Int || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
+	VmType type = inst->arguments[0]->type;
+
+	if(type == VmType::Int || (type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 4))
 		lowBlock->AddInstruction(ctx, inst->source, iCode, targetReg, lhsReg, addressReg, constant);
-	else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT && fCode != rviNop)
+	else if(type == VmType::Double && loadType->iValue == VM_INST_LOAD_FLOAT && fCode != rviNop)
 		lowBlock->AddInstruction(ctx, inst->source, fCode, targetReg, lhsReg, addressReg, constant);
-	else if(inst->type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE && dCode != rviNop)
+	else if(type == VmType::Double && loadType->iValue == VM_INST_LOAD_DOUBLE && dCode != rviNop)
 		lowBlock->AddInstruction(ctx, inst->source, dCode, targetReg, lhsReg, addressReg, constant);
-	else if(inst->type == VmType::Long || (inst->type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
+	else if(type == VmType::Long || (type.type == VM_TYPE_POINTER && NULLC_PTR_SIZE == 8))
 		lowBlock->AddInstruction(ctx, inst->source, lCode, targetReg, lhsReg, addressReg, constant);
 	else
 		assert(!"unknown type");
