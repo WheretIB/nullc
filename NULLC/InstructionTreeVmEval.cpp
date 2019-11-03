@@ -1216,7 +1216,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 		break;
 	case VM_INST_LESS_LOAD:
-		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
+		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], arguments[0]->type, GetAccessSize(instruction)))
 		{
 			assert(arguments[0]->type == rhs->type);
 
@@ -1234,7 +1234,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 		break;
 	case VM_INST_GREATER_LOAD:
-		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
+		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], arguments[0]->type, GetAccessSize(instruction)))
 		{
 			assert(arguments[0]->type == rhs->type);
 
@@ -1252,7 +1252,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 		break;
 	case VM_INST_LESS_EQUAL_LOAD:
-		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
+		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], arguments[0]->type, GetAccessSize(instruction)))
 		{
 			assert(arguments[0]->type == rhs->type);
 
@@ -1270,7 +1270,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 		break;
 	case VM_INST_GREATER_EQUAL_LOAD:
-		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
+		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], arguments[0]->type, GetAccessSize(instruction)))
 		{
 			assert(arguments[0]->type == rhs->type);
 
@@ -1288,7 +1288,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 		break;
 	case VM_INST_EQUAL_LOAD:
-		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
+		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], arguments[0]->type, GetAccessSize(instruction)))
 		{
 			assert(arguments[0]->type == rhs->type);
 
@@ -1308,7 +1308,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 
 		break;
 	case VM_INST_NOT_EQUAL_LOAD:
-		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
+		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], arguments[0]->type, GetAccessSize(instruction)))
 		{
 			assert(arguments[0]->type == rhs->type);
 
@@ -1403,7 +1403,7 @@ VmConstant* EvaluateInstruction(InstructionVMEvalContext &ctx, VmInstruction *in
 		}
 		break;
 	case VM_INST_LOG_XOR_LOAD:
-		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], instruction->type, GetAccessSize(instruction)))
+		if(VmConstant *rhs = LoadFrameValue(ctx, arguments[1], arguments[2], arguments[0]->type, GetAccessSize(instruction)))
 		{
 			assert(arguments[0]->type == rhs->type);
 

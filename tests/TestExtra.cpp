@@ -789,3 +789,9 @@ TEST_RESULT("Short loads are sign-extended 1", testShortSignExtension1, "-3");
 const char	*testInvalidOptimization =
 "int foo(int c){ return 1 - 1 / c; } return foo(2);";
 TEST_RESULT("Invald optimization (sub to dec transform)", testInvalidOptimization, "1");
+
+const char	*testEvaluationTypeError =
+"class Test{ double a, b, c; }\r\n\
+bool foo(Test x){ return x.b == 2.0; }\r\n\
+Test t; t.b = 2.0; return foo(t);";
+TEST_RESULT("Instruction evaluation comparison load type error", testEvaluationTypeError, "1");
