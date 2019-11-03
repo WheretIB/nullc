@@ -10,6 +10,7 @@ COMP_CFLAGS=-g -Wall -Wextra -D NULLC_NO_EXECUTOR
 DYNCALL_FLAGS=-g -Wall -Wextra
 STDLIB_FLAGS=-lstdc++ -lm
 FUZZ_FLAGS=
+ALIGN_FLAGS=
 
 ifeq ($(config),release)
 	REG_CFLAGS += -O2 -fno-omit-frame-pointer -DNDEBUG
@@ -41,14 +42,16 @@ ifeq ($(check),fuzz)
 	FUZZ_FLAGS = -fsanitize=fuzzer -DSANITIZE_FUZZER
 endif
 
+ifeq ($(CXX),clang)
+	ALIGN_FLAGS += -mllvm -align-all-nofallthru-blocks=4
+endif
+
 LIB_SOURCES = \
   NULLC/BinaryCache.cpp \
   NULLC/Bytecode.cpp \
   NULLC/CodeGen_X86.cpp \
   NULLC/Compiler.cpp \
   NULLC/Executor_Common.cpp \
-  NULLC/Executor.cpp \
-  NULLC/Executor_RegVm.cpp \
   NULLC/Executor_X86.cpp \
   NULLC/ExpressionEval.cpp \
   NULLC/ExpressionGraph.cpp \
@@ -75,14 +78,16 @@ LIB_SOURCES = \
   NULLC/Translator_X86.cpp \
   NULLC/TypeTree.cpp
 
+LIB_SOURCES_VM = \
+  NULLC/Executor.cpp \
+  NULLC/Executor_RegVm.cpp
+
 LIB_TARGETS = \
   temp/BinaryCache.o \
   temp/Bytecode.o \
   temp/CodeGen_X86.o \
   temp/Compiler.o \
   temp/Executor_Common.o \
-  temp/Executor.o \
-  temp/Executor_RegVm.o \
   temp/Executor_X86.o \
   temp/ExpressionEval.o \
   temp/ExpressionGraph.o \
@@ -109,22 +114,9 @@ LIB_TARGETS = \
   temp/Translator_X86.o \
   temp/TypeTree.o
 
-
-STDLIB_SOURCES = \
-  NULLC/includes/canvas.cpp \
-  NULLC/includes/dynamic.cpp \
-  NULLC/includes/file.cpp \
-  NULLC/includes/gc.cpp \
-  NULLC/includes/io.cpp \
-  NULLC/includes/list.cpp \
-  NULLC/includes/map.cpp \
-  NULLC/includes/math.cpp \
-  NULLC/includes/pugi.cpp \
-  NULLC/includes/random.cpp \
-  NULLC/includes/string.cpp \
-  NULLC/includes/time.cpp \
-  NULLC/includes/typeinfo.cpp \
-  NULLC/includes/vector.cpp
+LIB_TARGETS_VM = \
+  temp/Executor.o \
+  temp/Executor_RegVm.o
 
 PUGIXML_SOURCES = \
   external/pugixml/pugixml.cpp
@@ -173,8 +165,11 @@ endif
 temp/lib/%.o: NULLC/includes/%.cpp
 	$(CXX) $(REG_CFLAGS) -c $< -o $@
 
-temp/%.o: NULLC/%.cpp
-	$(CXX) $(REG_CFLAGS) -c $< -o $@
+${LIB_TARGETS}: ${LIB_SOURCES}
+	$(CXX) $(REG_CFLAGS) -c $(@:temp/%.o=NULLC/%.cpp) -o $@
+
+${LIB_TARGETS_VM}: ${LIB_SOURCES_VM}
+	$(CXX) $(REG_CFLAGS) $(ALIGN_FLAGS) -c $(@:temp/%.o=NULLC/%.cpp) -o $@
 
 ${PUGIXML_TARGETS}: $(PUGIXML_SOURCES)
 	$(CXX) $(REG_CFLAGS) -c $< -o $@
@@ -184,12 +179,6 @@ temp/dyncall/%.o: external/dyncall/%.c
 
 temp/dyncall_s/%.o: external/dyncall/%.S
 	$(CXX) $(DYNCALL_FLAGS) -c $< -o $@
-
-#~ ${LIB_TARGETS}: ${LIB_SOURCES}
-#~ $(CXX) $(REG_CFLAGS) -c $^ -o $@
-#~
-#~ ${STDLIB_TARGETS}: ${STDLIB_SOURCES}
-#~ $(CXX) $(REG_CFLAGS) -c $^ -o $@
 
 temp/.dummy:
 	mkdir -p temp
@@ -215,7 +204,7 @@ temp/testrun/.dummy:
 	mkdir -p temp/testrun
 	touch temp/testrun/.dummy
 	
-bin/libnullc.a: ${LIB_TARGETS} ${STDLIB_TARGETS} ${PUGIXML_TARGETS} ${DYNCALL_TARGETS}
+bin/libnullc.a: ${LIB_TARGETS} ${LIB_TARGETS_VM} ${STDLIB_TARGETS} ${PUGIXML_TARGETS} ${DYNCALL_TARGETS}
 	$(AR) rcs $@ $^
 
 clean:
