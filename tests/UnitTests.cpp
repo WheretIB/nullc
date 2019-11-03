@@ -70,20 +70,20 @@ struct MallocAllocatorRef : Allocator
 
 struct PointerHasher
 {
-	unsigned operator()(void *key)
+	unsigned operator()(uintptr_t key)
 	{
-		char data[sizeof(void*)];
-		memcpy(data, &key, sizeof(void*));
+		char data[sizeof(key)];
+		memcpy(data, &key, sizeof(key));
 
 		unsigned int hash = 5381;
-		for(unsigned i = 0; i < sizeof(void*); i++)
+		for(unsigned i = 0; i < sizeof(key); i++)
 			hash = ((hash << 5) + hash) + data[i];
 		return hash;
 	}
 };
 
 MallocAllocatorRef setAllocator;
-SmallDenseMap<void*, bool, PointerHasher, 1024> activePoiners(&setAllocator);
+SmallDenseMap<uintptr_t, bool, PointerHasher, 1024> activePoiners(&setAllocator);
 
 void* testAlloc(int size)
 {
@@ -106,7 +106,7 @@ void* testAlloc(int size)
 	memset(ptr, 0xee, 128);
 	*(unsigned*)ptr = size;
 
-	activePoiners.insert(ptr, 1);
+	activePoiners.insert(uintptr_t(ptr), 1);
 
 	return ptr + 128;
 }
@@ -118,15 +118,15 @@ void testDealloc(void* ptr)
 
 	ptr = (char*)ptr - 128;
 
-	bool* active = activePoiners.find(ptr);
+	bool* active = activePoiners.find(uintptr_t(ptr));
 
 	if(!active || !*active)
 	{
-		printf("pointer was not allocated");
+		printf("pointer was not allocated (%p)\n", ptr);
 		abort();
 	}
 
-	activePoiners.insert(ptr, 0);
+	activePoiners.insert(uintptr_t(ptr), 0);
 
 	testTotalMemoryFree++;
 	testTotalMemoryUsed -= *(unsigned*)ptr;
