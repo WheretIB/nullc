@@ -275,6 +275,8 @@ nullres nullcBindModuleFunctionWrapper(const char* module, void *func, void (*pt
 
 	assert(!compilerCtx);
 
+	assert(func);
+
 	const char *errorPos = NULL;
 
 	if(!AddModuleFunction(&allocator, module, NULL, func, ptr, name, index, &errorPos, errorBuf, NULLC_ERROR_BUFFER_SIZE, NULLC::optimizationLevel))
