@@ -1819,6 +1819,7 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 
 		unsigned fileSize = 0;
 		char *fileContent = NULL;
+		bool bytecodeFile = false;
 
 		const unsigned pathLength = 1024;
 		char path[pathLength];
@@ -1847,6 +1848,7 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 			}
 
 			fileContent = FindSource((ByteCode*)bytecode);
+			bytecodeFile = true;
 		}
 
 		CompilerContext compilerCtx(ctx.allocator, 0, ArrayView<InplaceStr>());
@@ -1877,7 +1879,8 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 				NULLC::SafeSprintf(ctx.errorBuf + currLen, ctx.errorBufSize - currLen, " [in module '%.*s']", FMT_ISTR(data->name));
 			}
 
-			NULLC::fileFree(fileContent);
+			if(!bytecodeFile)
+				NULLC::fileFree(fileContent);
 
 			return false;
 		}
@@ -1892,7 +1895,8 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		{
 			NULLC::SafeSprintf(ctx.errorBuf, ctx.errorBufSize, "ERROR: module '%.*s' output file '%s' could not be opened", FMT_ISTR(data->name), path);
 
-			NULLC::fileFree(fileContent);
+			if(!bytecodeFile)
+				NULLC::fileFree(fileContent);
 
 			return false;
 		}
@@ -1912,7 +1916,8 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 			compilerCtx.outputCtx.closeStream(compilerCtx.outputCtx.stream);
 			compilerCtx.outputCtx.stream = NULL;
 
-			NULLC::fileFree(fileContent);
+			if(!bytecodeFile)
+				NULLC::fileFree(fileContent);
 
 			return false;
 		}
@@ -1920,7 +1925,8 @@ bool TranslateModuleImports(ExpressionTranslateContext &ctx, SmallArray<const ch
 		compilerCtx.outputCtx.closeStream(compilerCtx.outputCtx.stream);
 		compilerCtx.outputCtx.stream = NULL;
 
-		NULLC::fileFree(fileContent);
+		if(!bytecodeFile)
+			NULLC::fileFree(fileContent);
 	}
 
 	// Translate all imports (expept base)
