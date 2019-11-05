@@ -637,6 +637,10 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 							simpleUse = true;
 						else if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
 							simpleUse = true;
+						else if(inst->cmd == VM_INST_MEM_COPY && (inst->arguments[0] == user || inst->arguments[2] == user))
+							simpleUse = true;
+						else if(inst->cmd == VM_INST_REFERENCE && inst->arguments[0] == user)
+							simpleUse = true; // References are used by call arguments and return values
 						else
 							simpleUse = false;
 

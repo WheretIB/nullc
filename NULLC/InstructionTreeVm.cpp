@@ -131,6 +131,8 @@ namespace
 			break;
 		}
 
+		// Note: memory access can be performed by reference in VM_INST_RETURN instruction
+
 		return false;
 	}
 
@@ -149,6 +151,9 @@ namespace
 		default:
 			break;
 		}
+
+		// Note: memory read can be performed by references in VM_INST_RETURN and VM_INST_CALL instructions
+		// Note: memory read can be performed from source argument of VM_INST_MEM_COPY instruction
 
 		return false;
 	}
@@ -908,7 +913,7 @@ namespace
 		return scope;
 	}
 
-	void ChangeInstructionTo(VmModule *module, VmInstruction *inst, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth, unsigned *optCount)
+	void ChangeInstructionTo(VmModule *module, VmInstruction *inst, VmInstructionType cmd, VmValue *first, VmValue *second, VmValue *third, VmValue *fourth, VmValue *fifth, unsigned *optCount)
 	{
 		inst->cmd = cmd;
 
@@ -937,6 +942,12 @@ namespace
 		{
 			assert(third);
 			inst->AddArgument(fourth);
+		}
+
+		if(fifth)
+		{
+			assert(fourth);
+			inst->AddArgument(fifth);
 		}
 
 		for(unsigned i = 0; i < arguments.size(); i++)
@@ -1035,7 +1046,32 @@ namespace
 					{
 						VmConstant *target = CreateConstantPointer(module->allocator, NULL, address->iValue + offset->iValue, address->container, address->type.structType, true);
 
-						ChangeInstructionTo(module, inst, inst->cmd, target, CreateConstantInt(module->allocator, NULL, 0), inst->arguments.size() == 3 ? inst->arguments[2] : NULL, NULL, NULL);
+						ChangeInstructionTo(module, inst, inst->cmd, target, CreateConstantInt(module->allocator, NULL, 0), inst->arguments.size() == 3 ? inst->arguments[2] : NULL, NULL, NULL, NULL);
+					}
+				}
+				break;
+			case VM_INST_MEM_COPY:
+				if(VmConstant *address = getType<VmConstant>(inst->arguments[0]))
+				{
+					VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
+
+					if(address->container && offset->iValue != 0)
+					{
+						VmConstant *target = CreateConstantPointer(module->allocator, NULL, address->iValue + offset->iValue, address->container, address->type.structType, true);
+
+						ChangeInstructionTo(module, inst, inst->cmd, target, CreateConstantInt(module->allocator, NULL, 0), inst->arguments[2], inst->arguments[3], inst->arguments[4], NULL);
+					}
+				}
+
+				if(VmConstant *address = getType<VmConstant>(inst->arguments[2]))
+				{
+					VmConstant *offset = getType<VmConstant>(inst->arguments[3]);
+
+					if(address->container && offset->iValue != 0)
+					{
+						VmConstant *target = CreateConstantPointer(module->allocator, NULL, address->iValue + offset->iValue, address->container, address->type.structType, true);
+
+						ChangeInstructionTo(module, inst, inst->cmd, inst->arguments[0], inst->arguments[1], target, CreateConstantInt(module->allocator, NULL, 0), inst->arguments[4], NULL);
 					}
 				}
 				break;
@@ -1517,6 +1553,30 @@ namespace
 		}
 
 		return b1;
+	}
+
+	VmValue* TryGetMemberAccessPointerAndOffset(ExpressionContext &ctx, VmInstruction *address, VmConstant *offset, VmConstant **totalOffset)
+	{
+		if(address->cmd == VM_INST_ADD)
+		{
+			VmConstant *lhsAsConstant = getType<VmConstant>(address->arguments[0]);
+			VmConstant *rhsAsConstant = getType<VmConstant>(address->arguments[1]);
+
+			if(lhsAsConstant && !lhsAsConstant->container && !rhsAsConstant)
+			{
+				*totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + lhsAsConstant->iValue);
+
+				return address->arguments[1];
+			}
+			else if(rhsAsConstant && !rhsAsConstant->container && !lhsAsConstant)
+			{
+				*totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + rhsAsConstant->iValue);
+
+				return address->arguments[0];
+			}
+		}
+
+		return NULL;
 	}
 }
 
@@ -3663,7 +3723,7 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 			break;
 		case VM_INST_SUB:
 			if(DoesConstantIntegerMatch(inst->arguments[0], 0)) // 0 - x, integer types
-				ChangeInstructionTo(module, inst, VM_INST_NEG, inst->arguments[1], NULL, NULL, NULL, &module->peepholeOptimizations);
+				ChangeInstructionTo(module, inst, VM_INST_NEG, inst->arguments[1], NULL, NULL, NULL, NULL, &module->peepholeOptimizations);
 			else if(IsConstantZero(inst->arguments[1])) // x - 0, all types
 				ReplaceValueUsersWith(module, inst, inst->arguments[0], &module->peepholeOptimizations);
 			break;
@@ -3691,7 +3751,7 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 			if(VmInstruction *objectConstruct = getType<VmInstruction>(inst->arguments[1]))
 			{
 				if(objectConstruct->cmd == VM_INST_ARRAY && isType<VmConstant>(objectConstruct->arguments[1]))
-					ChangeInstructionTo(module, inst, VM_INST_INDEX, objectConstruct->arguments[1], inst->arguments[0], objectConstruct->arguments[0], inst->arguments[2], &module->peepholeOptimizations);
+					ChangeInstructionTo(module, inst, VM_INST_INDEX, objectConstruct->arguments[1], inst->arguments[0], objectConstruct->arguments[0], inst->arguments[2], NULL, &module->peepholeOptimizations);
 			}
 			break;
 		case VM_INST_CONVERT_POINTER:
@@ -3751,24 +3811,10 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
-				if(address->cmd == VM_INST_ADD)
-				{
-					VmConstant *lhsAsConstant = getType<VmConstant>(address->arguments[0]);
-					VmConstant *rhsAsConstant = getType<VmConstant>(address->arguments[1]);
+				VmConstant *totalOffset = NULL;
 
-					if(lhsAsConstant && !lhsAsConstant->container && !rhsAsConstant)
-					{
-						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + lhsAsConstant->iValue);
-
-						ChangeInstructionTo(module, inst, inst->cmd, address->arguments[1], totalOffset, NULL, NULL, &module->peepholeOptimizations);
-					}
-					else if(rhsAsConstant && !rhsAsConstant->container && !lhsAsConstant)
-					{
-						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + rhsAsConstant->iValue);
-
-						ChangeInstructionTo(module, inst, inst->cmd, address->arguments[0], totalOffset, NULL, NULL, &module->peepholeOptimizations);
-					}
-				}
+				if(VmValue *ptr = TryGetMemberAccessPointerAndOffset(ctx, address, offset, &totalOffset))
+					ChangeInstructionTo(module, inst, inst->cmd, ptr, totalOffset, NULL, NULL, NULL, &module->peepholeOptimizations);
 			}
 			break;
 		case VM_INST_STORE_BYTE:
@@ -3782,24 +3828,31 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 			{
 				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
-				if(address->cmd == VM_INST_ADD)
-				{
-					VmConstant *lhsAsConstant = getType<VmConstant>(address->arguments[0]);
-					VmConstant *rhsAsConstant = getType<VmConstant>(address->arguments[1]);
+				VmConstant *totalOffset = NULL;
 
-					if(lhsAsConstant && !lhsAsConstant->container && !rhsAsConstant)
-					{
-						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + lhsAsConstant->iValue);
+				if(VmValue *ptr = TryGetMemberAccessPointerAndOffset(ctx, address, offset, &totalOffset))
+					ChangeInstructionTo(module, inst, inst->cmd, ptr, totalOffset, inst->arguments[2], NULL, NULL, &module->peepholeOptimizations);
+			}
+			break;
+		case VM_INST_MEM_COPY:
+			if(VmInstruction *address = getType<VmInstruction>(inst->arguments[0]))
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
-						ChangeInstructionTo(module, inst, inst->cmd, address->arguments[1], totalOffset, inst->arguments[2], NULL, &module->peepholeOptimizations);
-					}
-					else if(rhsAsConstant && !rhsAsConstant->container && !lhsAsConstant)
-					{
-						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + rhsAsConstant->iValue);
+				VmConstant *totalOffset = NULL;
 
-						ChangeInstructionTo(module, inst, inst->cmd, address->arguments[0], totalOffset, inst->arguments[2], NULL, &module->peepholeOptimizations);
-					}
-				}
+				if(VmValue *ptr = TryGetMemberAccessPointerAndOffset(ctx, address, offset, &totalOffset))
+					ChangeInstructionTo(module, inst, inst->cmd, ptr, totalOffset, inst->arguments[2], inst->arguments[3], inst->arguments[4], &module->peepholeOptimizations);
+			}
+
+			if(VmInstruction *address = getType<VmInstruction>(inst->arguments[2]))
+			{
+				VmConstant *offset = getType<VmConstant>(inst->arguments[3]);
+
+				VmConstant *totalOffset = NULL;
+
+				if(VmValue *ptr = TryGetMemberAccessPointerAndOffset(ctx, address, offset, &totalOffset))
+					ChangeInstructionTo(module, inst, inst->cmd, inst->arguments[0], inst->arguments[1], ptr, totalOffset, inst->arguments[4], &module->peepholeOptimizations);
 			}
 			break;
 		case VM_INST_EXTRACT:
@@ -3820,13 +3873,13 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 
 						VmConstant *shiftedTarget = CreateConstantPointer(module->allocator, NULL, addressAsConstant->iValue + offset->iValue, addressAsConstant->container, addressAsConstant->type.structType, true);
 
-						ChangeInstructionTo(module, inst, GetLoadInstruction(ctx, GetBaseType(ctx, inst->type)), shiftedTarget, CreateConstantInt(module->allocator, NULL, 0), NULL, NULL, &module->peepholeOptimizations);
+						ChangeInstructionTo(module, inst, GetLoadInstruction(ctx, GetBaseType(ctx, inst->type)), shiftedTarget, CreateConstantInt(module->allocator, NULL, 0), NULL, NULL, NULL, &module->peepholeOptimizations);
 					}
 					else
 					{
 						VmConstant *totalOffset = CreateConstantInt(ctx.allocator, NULL, offset->iValue + addressOffset->iValue);
 
-						ChangeInstructionTo(module, inst, GetLoadInstruction(ctx, GetBaseType(ctx, inst->type)), address, totalOffset, NULL, NULL, &module->peepholeOptimizations);
+						ChangeInstructionTo(module, inst, GetLoadInstruction(ctx, GetBaseType(ctx, inst->type)), address, totalOffset, NULL, NULL, NULL, &module->peepholeOptimizations);
 					}
 				}
 			}
@@ -4193,9 +4246,9 @@ void RunDeadCodeElimiation(ExpressionContext &ctx, VmModule *module, VmValue* va
 			if(VmConstant *condition = getType<VmConstant>(inst->arguments[0]))
 			{
 				if(inst->cmd == VM_INST_JUMP_Z)
-					ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[1] : inst->arguments[2], NULL, NULL, NULL, &module->deadCodeEliminations);
+					ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[1] : inst->arguments[2], NULL, NULL, NULL, NULL, &module->deadCodeEliminations);
 				else
-					ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[2] : inst->arguments[1], NULL, NULL, NULL, &module->deadCodeEliminations);
+					ChangeInstructionTo(module, inst, VM_INST_JUMP, condition->iValue == 0 ? inst->arguments[2] : inst->arguments[1], NULL, NULL, NULL, NULL, &module->deadCodeEliminations);
 			}
 		}
 		else if(inst->cmd == VM_INST_PHI)
@@ -4368,7 +4421,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 						{
 							assert(terminator->arguments[0] == curr);
 
-							ChangeInstructionTo(module, terminator, VM_INST_RETURN, option, 0, 0, 0, &module->controlFlowSimplifications);
+							ChangeInstructionTo(module, terminator, VM_INST_RETURN, option, NULL, NULL, NULL, NULL, &module->controlFlowSimplifications);
 						}
 					}
 				}
@@ -4381,7 +4434,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 				VmValue *falseBlock = currLastInst->arguments[2];
 
 				if(trueBlock == falseBlock)
-					ChangeInstructionTo(module, currLastInst, VM_INST_JUMP, trueBlock, 0, 0, 0, &module->controlFlowSimplifications);
+					ChangeInstructionTo(module, currLastInst, VM_INST_JUMP, trueBlock, NULL, NULL, NULL, NULL, &module->controlFlowSimplifications);
 			}
 
 			// Remove coroutine unyield that only contains a single target
@@ -4389,7 +4442,7 @@ void RunControlFlowOptimization(ExpressionContext &ctx, VmModule *module, VmValu
 			{
 				VmValue *targetBlock = currLastInst->arguments[1];
 
-				ChangeInstructionTo(module, currLastInst, VM_INST_JUMP, targetBlock, 0, 0, 0, &module->controlFlowSimplifications);
+				ChangeInstructionTo(module, currLastInst, VM_INST_JUMP, targetBlock, NULL, NULL, NULL, NULL, &module->controlFlowSimplifications);
 			}
 		}
 
@@ -4452,6 +4505,11 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 					{
 						if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
 							continue;
+
+						if(inst->cmd == VM_INST_MEM_COPY && inst->arguments[0] == user)
+							continue;
+
+						// Note: VM_INST_REFERENCE uses are non-store because references are used only by calls and returns
 
 						nonStoreUse = true;
 						break;
@@ -4773,6 +4831,15 @@ void RunDeadAlocaStoreElimination(ExpressionContext &ctx, VmModule *module, VmVa
 
 							if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
 								module->tempInstructions.push_back(inst);
+
+							if(inst->cmd == VM_INST_MEM_COPY && inst->arguments[0] == user)
+								module->tempInstructions.push_back(inst);
+
+							if(inst->cmd == VM_INST_MEM_COPY && inst->arguments[2] == user)
+								hasLoadUsers = true;
+
+							if(inst->cmd == VM_INST_REFERENCE && inst->arguments[0] == user)
+								hasLoadUsers = true;
 						}
 					}
 				}
@@ -4801,12 +4868,24 @@ bool IsMemoryLoadOfVariable(VmInstruction *instruction, VariableData *variable)
 			return constant->container == variable;
 	}
 
+	if(instruction->cmd == VM_INST_MEM_COPY)
+	{
+		if(VmConstant *constant = getType<VmConstant>(instruction->arguments[2]))
+			return constant->container == variable;
+	}
+
 	return false;
 }
 
 bool IsMemoryStoreToVariable(VmInstruction *instruction, VariableData *variable)
 {
 	if(instruction->cmd >= VM_INST_STORE_BYTE && instruction->cmd <= VM_INST_STORE_STRUCT)
+	{
+		if(VmConstant *constant = getType<VmConstant>(instruction->arguments[0]))
+			return constant->container == variable;
+	}
+
+	if(instruction->cmd == VM_INST_MEM_COPY)
 	{
 		if(VmConstant *constant = getType<VmConstant>(instruction->arguments[0]))
 			return constant->container == variable;
@@ -5275,7 +5354,7 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 
 					VmConstant *loadType = CreateConstantInt(ctx.allocator, inst->source, int(rhs->cmd));
 
-					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[0], loadAddress, loadOffset, loadType, &module->peepholeOptimizations);
+					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[0], loadAddress, loadOffset, loadType, NULL, &module->peepholeOptimizations);
 				}
 			}
 			break;
@@ -5304,7 +5383,7 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 
 					VmConstant *loadType = CreateConstantInt(ctx.allocator, inst->source, int(rhs->cmd));
 
-					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[0], loadAddress, loadOffset, loadType, &module->peepholeOptimizations);
+					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[0], loadAddress, loadOffset, loadType, NULL, &module->peepholeOptimizations);
 				}
 			}
 			break;
@@ -5333,7 +5412,7 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 
 					VmConstant *loadType = CreateConstantInt(ctx.allocator, inst->source, int(lhs->cmd));
 
-					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[1], loadAddress, loadOffset, loadType, &module->peepholeOptimizations);
+					ChangeInstructionTo(module, inst, GetOperationWithLoad(inst->cmd), inst->arguments[1], loadAddress, loadOffset, loadType, NULL, &module->peepholeOptimizations);
 				}
 			}
 			break;
@@ -5352,7 +5431,7 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 
 					VmConstant *loadType = CreateConstantInt(ctx.allocator, inst->source, int(lhs->cmd));
 
-					ChangeInstructionTo(module, inst, GetMirroredComparisonOperationWithLoad(inst->cmd), inst->arguments[1], loadAddress, loadOffset, loadType, &module->peepholeOptimizations);
+					ChangeInstructionTo(module, inst, GetMirroredComparisonOperationWithLoad(inst->cmd), inst->arguments[1], loadAddress, loadOffset, loadType, NULL, &module->peepholeOptimizations);
 				}
 			}
 			break;
