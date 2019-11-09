@@ -709,3 +709,318 @@ for(i in functionGetContextType(foo).subType().members(functionGetContext(foo)))
 }\r\n\
 return foo();";
 TEST_RESULT("Reflection test 3", testReflection3, "55");
+
+const char	*testBigIntValues =
+"class BigInt\r\n\
+{\r\n\
+	char[256]  data;\r\n\
+	int     size;\r\n\
+}\r\n\
+\r\n\
+BigInt BigInt(int num)\r\n\
+{\r\n\
+	BigInt ret;\r\n\
+\r\n\
+	ret.size = 0;\r\n\
+	while(num)\r\n\
+	{\r\n\
+		ret.data[ret.size] = num % 100;\r\n\
+		ret.size++;\r\n\
+		num /= 100;\r\n\
+	}\r\n\
+	ret.data[ret.size] = 0;\r\n\
+	return ret;\r\n\
+}\r\n\
+\r\n\
+BigInt BigInt(long num)\r\n\
+{\r\n\
+	BigInt ret;\r\n\
+\r\n\
+	ret.size = 0;\r\n\
+	while(num)\r\n\
+	{\r\n\
+		ret.data[ret.size] = num % 100;\r\n\
+		ret.size++;\r\n\
+		num /= 100;\r\n\
+	}\r\n\
+	ret.data[ret.size] = 0;\r\n\
+	return ret;\r\n\
+}\r\n\
+\r\n\
+BigInt ref operator =(BigInt ref a, int num)\r\n\
+{\r\n\
+	a.size = 0;\r\n\
+	while(num)\r\n\
+	{\r\n\
+		a.data[a.size] = num % 100;\r\n\
+		a.size++;\r\n\
+		num /= 100;\r\n\
+	}\r\n\
+	a.data[a.size] = 0;\r\n\
+	return a;\r\n\
+}\r\n\
+\r\n\
+BigInt operator +(BigInt a, b)\r\n\
+{\r\n\
+	BigInt res;\r\n\
+\r\n\
+	if(a.size < b.size)\r\n\
+	{\r\n\
+		res = b;\r\n\
+\r\n\
+		int carry = 0;\r\n\
+		for(int i = 0; i < a.size; i++)\r\n\
+		{\r\n\
+			int sum = b.data[i] + a.data[i] + carry;\r\n\
+			res.data[i] = sum % 100;\r\n\
+			carry = sum / 100;\r\n\
+		}\r\n\
+		for(int i = a.size; i < b.size; i++)\r\n\
+		{\r\n\
+			int sum = res.data[i] + carry;\r\n\
+			res.data[i] = sum % 100;\r\n\
+			carry = sum / 100;\r\n\
+		}\r\n\
+		while(carry)\r\n\
+		{\r\n\
+			res.data[res.size++] = carry % 100;\r\n\
+			carry /= 100;\r\n\
+		}\r\n\
+		return res;\r\n\
+	}\r\n\
+\r\n\
+	res = a;\r\n\
+\r\n\
+	int carry = 0;\r\n\
+	for(int i = 0; i < b.size; i++)\r\n\
+	{\r\n\
+		int sum = a.data[i] + b.data[i] + carry;\r\n\
+		res.data[i] = sum % 100;\r\n\
+		carry = sum / 100;\r\n\
+	}\r\n\
+	for(int i = b.size; i < a.size; i++)\r\n\
+	{\r\n\
+		int sum = res.data[i] + carry;\r\n\
+		res.data[i] = sum % 100;\r\n\
+		carry = sum / 100;\r\n\
+	}\r\n\
+	while(carry)\r\n\
+	{\r\n\
+		res.data[res.size++] = carry % 100;\r\n\
+		carry /= 100;\r\n\
+	}\r\n\
+	return res;\r\n\
+}\r\n\
+\r\n\
+BigInt operator -(BigInt a, b)\r\n\
+{\r\n\
+	assert(a.size >= b.size);\r\n\
+	BigInt res;\r\n\
+	res = a;\r\n\
+	int borrow = 0;\r\n\
+	for(int i = 0; i < b.size; i++)\r\n\
+	{\r\n\
+		int diff = a.data[i] - b.data[i] - borrow;\r\n\
+		if(diff < 0)\r\n\
+		{\r\n\
+			res.data[i] = 100 + diff;\r\n\
+			borrow = 1;\r\n\
+		}\r\n\
+		else\r\n\
+		{\r\n\
+			res.data[i] = diff;\r\n\
+			borrow = 0;\r\n\
+		}\r\n\
+	}\r\n\
+	for(int i = b.size; i < a.size; i++)\r\n\
+	{\r\n\
+		int diff = res.data[i] - borrow;\r\n\
+		if(diff < 0)\r\n\
+		{\r\n\
+			res.data[i] = 100 + diff;\r\n\
+			borrow = 1;\r\n\
+		}\r\n\
+		else\r\n\
+		{\r\n\
+			res.data[i] = diff;\r\n\
+			borrow = 0;\r\n\
+		}\r\n\
+	}\r\n\
+	while(res.size && res.data[res.size-1] == 0)\r\n\
+		res.size--;\r\n\
+	assert(borrow == 0);\r\n\
+	return res;\r\n\
+}\r\n\
+\r\n\
+int operator >(BigInt a, b)\r\n\
+{\r\n\
+	if(a.size > b.size)\r\n\
+		return 1;\r\n\
+	if(b.size > a.size)\r\n\
+		return 0;\r\n\
+	for(int i = a.size-1; i >= 0; i--)\r\n\
+	{\r\n\
+		if(a.data[i] > b.data[i])\r\n\
+			return 1;\r\n\
+		if(a.data[i] < b.data[i])\r\n\
+			return 0;\r\n\
+	}\r\n\
+	return 0;\r\n\
+}\r\n\
+\r\n\
+int operator <(BigInt a, b)\r\n\
+{\r\n\
+	if(a.size < b.size)\r\n\
+		return 1;\r\n\
+	if(b.size < a.size)\r\n\
+		return 0;\r\n\
+	for(int i = a.size-1; i >= 0; i--)\r\n\
+	{\r\n\
+		if(a.data[i] < b.data[i])\r\n\
+			return 1;\r\n\
+		if(a.data[i] > b.data[i])\r\n\
+			return 0;\r\n\
+	}\r\n\
+	return 0;\r\n\
+}\r\n\
+\r\n\
+int operator ==(BigInt a, b)\r\n\
+{\r\n\
+	if(a.size != b.size)\r\n\
+		return 0;\r\n\
+	for(int i = 0; i < a.size; i++)\r\n\
+		if(a.data[i] != b.data[i])\r\n\
+			return 0;\r\n\
+	return 1;\r\n\
+}\r\n\
+\r\n\
+int operator >=(BigInt a, b)\r\n\
+{\r\n\
+	return a > b || a == b;\r\n\
+}\r\n\
+\r\n\
+int operator <=(BigInt a, b)\r\n\
+{\r\n\
+	return a < b || a == b;\r\n\
+}\r\n\
+\r\n\
+BigInt operator *(BigInt a, b)\r\n\
+{\r\n\
+	BigInt res = 0, temp = 0;\r\n\
+	for(int i = 0; i < b.size; i++)\r\n\
+	{\r\n\
+		temp = 0;\r\n\
+		int curr = b.data[i], carry = 0;\r\n\
+		for(int k = 0; k < i; k++)\r\n\
+		{\r\n\
+			temp.data[k] = 0;\r\n\
+			temp.size++;\r\n\
+		}\r\n\
+		for(int k = 0; k < a.size; k++)\r\n\
+		{\r\n\
+			int mult = a.data[k] * curr + carry;\r\n\
+			temp.data[i+k] = mult % 100;\r\n\
+			carry = mult / 100;\r\n\
+			temp.size++;\r\n\
+		}\r\n\
+		while(carry)\r\n\
+		{\r\n\
+			temp.data[temp.size++] = carry % 100;\r\n\
+			carry /= 100;\r\n\
+		}\r\n\
+		res = res + temp;\r\n\
+	}\r\n\
+	return res;\r\n\
+}\r\n\
+\r\n\
+BigInt operator *(BigInt a, short b)\r\n\
+{\r\n\
+	BigInt res;\r\n\
+	res.size = 0;\r\n\
+	long mult, carry = 0;\r\n\
+	for(int k = 0; k < a.size; k++)\r\n\
+	{\r\n\
+		mult = b * a.data[k] + carry;\r\n\
+		res.data[k] = mult % 100;\r\n\
+		carry = mult / 100;\r\n\
+		res.size++;\r\n\
+	}\r\n\
+	while(carry)\r\n\
+	{\r\n\
+		res.data[res.size++] = carry % 100;\r\n\
+		carry /= 100;\r\n\
+	}\r\n\
+	return res;\r\n\
+}\r\n\
+\r\n\
+BigInt operator /(BigInt a, b)\r\n\
+{\r\n\
+	assert(a.size > b.size);\r\n\
+\r\n\
+	BigInt res;\r\n\
+\r\n\
+	res.size = 0;\r\n\
+\r\n\
+	int steps = 0;\r\n\
+\r\n\
+	{\r\n\
+		BigInt c = b;\r\n\
+		while(a > c * BigInt(10))\r\n\
+		{\r\n\
+			c = c * BigInt(10);\r\n\
+			steps++;\r\n\
+		}\r\n\
+	}\r\n\
+\r\n\
+	while(a >= b)\r\n\
+	{\r\n\
+		int mult = 0;\r\n\
+\r\n\
+		BigInt c = b;\r\n\
+\r\n\
+		for(int i = 0; i < steps; i++)\r\n\
+			c = c * BigInt(10);\r\n\
+		steps--;\r\n\
+\r\n\
+		while(a >= c)\r\n\
+		{\r\n\
+			a -= c;\r\n\
+			mult++;\r\n\
+		}\r\n\
+\r\n\
+		res = res * BigInt(10) + BigInt(mult);\r\n\
+	}\r\n\
+\r\n\
+	for(int i = 0; i <= steps; i++)\r\n\
+		res = res * BigInt(10);\r\n\
+\r\n\
+	return res;\r\n\
+}\r\n\
+\r\n\
+long long(BigInt a)\r\n\
+{\r\n\
+	assert(a.size <= 10);\r\n\
+	long sum = 0;\r\n\
+	long shift = 1;\r\n\
+	for(int i = 0; i < a.size; i++)\r\n\
+	{\r\n\
+		sum += shift * a.data[i];\r\n\
+		shift *= 100;\r\n\
+	}\r\n\
+	return sum;\r\n\
+}\r\n\
+\r\n\
+BigInt a = 1;\r\n\
+\r\n\
+a = a * 2 * 2 * 5 * 7 * 19 * 23 * 23 * 47 * 47;\r\n\
+\r\n\
+BigInt b = a;\r\n\
+\r\n\
+b = a * a * 41 * 41 * a * a;\r\n\
+\r\n\
+BigInt c = a / BigInt(10);\r\n\
+\r\n\
+BigInt e = b / a / a / a / a;\r\n\
+\r\n\
+return (a == BigInt(3108372260l)) + (long(a) == 3108372260l) + (b - a > a) + (long(c) == 310837226l) + (long(e) == 41 * 41);";
+TEST_RESULT("Big integer value passing", testBigIntValues, "5");

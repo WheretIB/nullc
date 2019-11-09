@@ -795,3 +795,71 @@ const char	*testEvaluationTypeError =
 bool foo(Test x){ return x.b == 2.0; }\r\n\
 Test t; t.b = 2.0; return foo(t);";
 TEST_RESULT("Instruction evaluation comparison load type error", testEvaluationTypeError, "1");
+
+const char	*testLargeValues1 =
+"class Large{ int x, y, z, w; int[16] pad; }\r\n\
+class Big{ Large a, b; }\r\n\
+\r\n\
+Big test4(Big a, b)\r\n\
+{\r\n\
+	Big c = a; a.a = a.b; return c;\r\n\
+}\r\n\
+\r\n\
+int test5()\r\n\
+{\r\n\
+	Big a, b; a.b.x = 5; return test4(a, b).b.x;\r\n\
+}\r\n\
+\r\n\
+Big test6(Big a, b)\r\n\
+{\r\n\
+	Big c = a; a.b.x = 4; return c;\r\n\
+}\r\n\
+\r\n\
+int test7()\r\n\
+{\r\n\
+	Big a, b; a.b.x = 5; return test6(a, b).b.x;\r\n\
+}\r\n\
+\r\n\
+return test5() + test7();";
+TEST_RESULT("Large value copy aliasing 1", testLargeValues1, "10");
+
+const char	*testLargeValues2 =
+"class Large{ int x, y, z, w; int[16] pad; }\r\n\
+\r\n\
+int test1()\r\n\
+{\r\n\
+	Large a, b; a.x = 1; a.y = 2; a = b; return a.x + a.y;\r\n\
+}\r\n\
+\r\n\
+int test2()\r\n\
+{\r\n\
+	Large a, b; a.x = 1; a.y = 2; b = a; return a.x + a.y;\r\n\
+}\r\n\
+\r\n\
+int test3()\r\n\
+{\r\n\
+	Large a, b; a.x = 1; a.y = 2; b = a; return b.x + b.y;\r\n\
+}\r\n\
+\r\n\
+Large test4()\r\n\
+{\r\n\
+	Large a; a.x = 1; a.y = 2; return a;\r\n\
+}\r\n\
+\r\n\
+Large test5(Large a)\r\n\
+{\r\n\
+	return a;\r\n\
+}\r\n\
+\r\n\
+int test6()\r\n\
+{\r\n\
+	Large a = test4(); return 1;\r\n\
+}\r\n\
+\r\n\
+int test7()\r\n\
+{\r\n\
+	Large a, b; a.x = 1; a.y = 2; b = a; return a.x + a.y + b.x + b.y;\r\n\
+}\r\n\
+\r\n\
+return (test1() == 0) + (test2() == 3) + (test3() == 3) + (test4().y == 2) + (test5(test4()).y == 2) + (test6() == 1) + (test7() == 6);";
+TEST_RESULT("Large value copy aliasing 2", testLargeValues2, "7");
