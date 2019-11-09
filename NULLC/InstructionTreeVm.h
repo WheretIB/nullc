@@ -139,7 +139,6 @@ enum VmInstructionType
 	VM_INST_PHI, // Pseudo instruction to create a value based on control flow
 	VM_INST_BITCAST, // Pseudo instruction to transform value type
 	VM_INST_MOV, // Pseudo instruction to create a separate value copy
-	VM_INST_REFERENCE, // Pseudo instruction to take a reference to a value
 };
 
 enum VmPassType
@@ -287,6 +286,7 @@ struct VmConstant: VmValue
 		container = NULL;
 
 		isFloat = false;
+		isReference = false;
 	}
 
 	bool operator==(const VmConstant& rhs) const
@@ -304,6 +304,7 @@ struct VmConstant: VmValue
 	VariableData *container;
 
 	bool isFloat;
+	bool isReference;
 
 	static const unsigned myTypeID = __LINE__;
 };
@@ -565,20 +566,36 @@ struct VmModule
 		{
 			loadInst = 0;
 			storeInst = 0;
+			copyInst = 0;
 
-			address = 0;
+			accessSize = 0;
 
-			pointer = 0;
-			offset = 0;
+			loadAddress = 0;
+
+			loadPointer = 0;
+			loadOffset = 0;
+
+			storeAddress = 0;
+
+			storePointer = 0;
+			storeOffset = 0;
 		}
 
 		VmInstruction *loadInst;
 		VmInstruction *storeInst;
+		VmInstruction *copyInst;
 
-		VmConstant *address;
+		unsigned accessSize;
 
-		VmValue *pointer;
-		VmConstant *offset;
+		VmConstant *loadAddress;
+
+		VmValue *loadPointer;
+		VmConstant *loadOffset;
+
+		VmConstant *storeAddress;
+
+		VmValue *storePointer;
+		VmConstant *storeOffset;
 	};
 
 	SmallArray<LoadStoreInfo, 32> loadStoreInfo;

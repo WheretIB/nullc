@@ -967,21 +967,14 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 
 				LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
 
-				if(VmInstruction *result = getType<VmInstruction>(inst->arguments[1]))
-				{
-					assert(result->cmd == VM_INST_REFERENCE);
-
-					resultAddress = getType<VmConstant>(result->arguments[0]);
-				}
+				resultAddress = getType<VmConstant>(inst->arguments[1]);
 
 				for(int i = int(inst->arguments.size() - 1); i >= 2; i--)
 				{
-					VmInstruction *argumentInst = getType<VmInstruction>(inst->arguments[i]);
+					VmConstant *constant = getType<VmConstant>(inst->arguments[i]);
 
-					if(argumentInst && argumentInst->cmd == VM_INST_REFERENCE)
+					if(constant && constant->isReference)
 					{
-						VmConstant *constant = getType<VmConstant>(argumentInst->arguments[0]);
-
 						assert(constant->iValue == 0);
 
 						lowBlock->AddInstruction(ctx, inst->source, cmdPushCmplx, IsLocalScope(constant->container->scope), (unsigned short)constant->container->type->size, constant);
@@ -1008,21 +1001,14 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 
 				LowerIntoBlock(ctx, lowBlock, context);
 
-				if(VmInstruction *result = getType<VmInstruction>(inst->arguments[2]))
-				{
-					assert(result->cmd == VM_INST_REFERENCE);
-
-					resultAddress = getType<VmConstant>(result->arguments[0]);
-				}
+				resultAddress = getType<VmConstant>(inst->arguments[2]);
 
 				for(int i = int(inst->arguments.size() - 1); i >= 3; i--)
 				{
-					VmInstruction *argumentInst = getType<VmInstruction>(inst->arguments[i]);
+					VmConstant *constant = getType<VmConstant>(inst->arguments[i]);
 
-					if(argumentInst && argumentInst->cmd == VM_INST_REFERENCE)
+					if(constant && constant->isReference)
 					{
-						VmConstant *constant = getType<VmConstant>(argumentInst->arguments[0]);
-
 						assert(constant->iValue == 0);
 
 						lowBlock->AddInstruction(ctx, inst->source, cmdPushCmplx, IsLocalScope(constant->container->scope), (unsigned short)constant->container->type->size, constant);
@@ -1039,7 +1025,7 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 				lowBlock->AddInstruction(ctx, inst->source, cmdCall, helper, CreateConstantFunction(ctx.allocator, NULL, function));
 			}
 
-			if(resultAddress)
+			if(resultAddress && resultAddress->isReference)
 			{
 				assert(resultAddress->iValue == 0);
 
@@ -1055,12 +1041,10 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 			{
 				VmValue *result = inst->arguments[0];
 
-				VmInstruction *resultInst = getType<VmInstruction>(result);
+				VmConstant *constant = getType<VmConstant>(result);
 
-				if(resultInst && resultInst->cmd == VM_INST_REFERENCE)
+				if(constant && constant->isReference)
 				{
-					VmConstant *constant = getType<VmConstant>(resultInst->arguments[0]);
-
 					assert(constant->iValue == 0);
 
 					lowBlock->AddInstruction(ctx, inst->source, cmdPushCmplx, IsLocalScope(constant->container->scope), (unsigned short)constant->container->type->size, constant);
@@ -1706,8 +1690,6 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 		case VM_INST_MOV:
 			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
 			break;
-		case VM_INST_REFERENCE:
-			break; // Handle in call and return instructions
 		default:
 			assert(!"unknown instruction");
 		}

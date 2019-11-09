@@ -202,6 +202,10 @@ void PrintConstant(InstructionVMGraphContext &ctx, VmConstant *constant)
 		Print(ctx, "0x%x", constant->container->offset + constant->iValue);
 	else if(constant->type.type == VM_TYPE_POINTER)
 		Print(ctx, "0x%x", constant->iValue);
+	else if(constant->type.type == VM_TYPE_STRUCT && constant->isReference && ctx.showContainers)
+		Print(ctx, "*(%.*s+0x%x)", FMT_ISTR(constant->container->name->name), constant->iValue);
+	else if(constant->type.type == VM_TYPE_STRUCT && constant->isReference)
+		Print(ctx, "*(0x%x)", constant->container->offset + constant->iValue);
 	else if(constant->type.type == VM_TYPE_STRUCT)
 		Print(ctx, "{ %.*s }", FMT_ISTR(constant->type.structType->name));
 	else if(constant->type.type == VM_TYPE_FUNCTION && constant->fValue->function)
@@ -634,15 +638,28 @@ void PrintFunction(InstructionVMGraphContext &ctx, VmFunction *function)
 						bool simpleUse = false;
 
 						if(inst->cmd >= VM_INST_LOAD_BYTE && inst->cmd <= VM_INST_LOAD_STRUCT)
+						{
 							simpleUse = true;
+						}
 						else if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
+						{
 							simpleUse = true;
+						}
 						else if(inst->cmd == VM_INST_MEM_COPY && (inst->arguments[0] == user || inst->arguments[2] == user))
+						{
 							simpleUse = true;
-						else if(inst->cmd == VM_INST_REFERENCE && inst->arguments[0] == user)
-							simpleUse = true; // References are used by call arguments and return values
+						}
+						else if(inst->cmd == VM_INST_RETURN || inst->cmd == VM_INST_CALL)
+						{
+							if(user->isReference)
+								simpleUse = true;
+							else
+								simpleUse = false;
+						}
 						else
+						{
 							simpleUse = false;
+						}
 
 						if(!simpleUse)
 							addressTaken = true;

@@ -219,6 +219,12 @@ unsigned GetAccessSize(VmInstruction *inst)
 		return 8;
 	case VM_INST_STORE_STRUCT:
 		return inst->arguments[2]->type.size;
+	case VM_INST_MEM_COPY:
+		if(VmConstant *size = getType<VmConstant>(inst->arguments[4]))
+			return size->iValue;
+
+		assert(!"invalid memcopy instruction");
+		break;
 	case VM_INST_ADD_LOAD:
 	case VM_INST_SUB_LOAD:
 	case VM_INST_MUL_LOAD:
@@ -251,10 +257,12 @@ unsigned GetAccessSize(VmInstruction *inst)
 		}
 
 		assert(!"unknown load type");
+		break;
 	default:
 		break;
 	}
 
+	assert(!"unknown access instruction");
 	return 0;
 }
 
@@ -285,15 +293,28 @@ bool HasAddressTaken(VariableData *container)
 				bool simpleUse = false;
 
 				if(inst->cmd >= VM_INST_LOAD_BYTE && inst->cmd <= VM_INST_LOAD_STRUCT)
+				{
 					simpleUse = true;
+				}
 				else if(inst->cmd >= VM_INST_STORE_BYTE && inst->cmd <= VM_INST_STORE_STRUCT && inst->arguments[0] == user)
+				{
 					simpleUse = true;
+				}
 				else if(inst->cmd == VM_INST_MEM_COPY && (inst->arguments[0] == user || inst->arguments[2] == user))
+				{
 					simpleUse = true;
-				else if(inst->cmd == VM_INST_REFERENCE && inst->arguments[0] == user)
-					simpleUse = true; // References are used by call arguments and return values
+				}
+				else if(inst->cmd == VM_INST_RETURN || inst->cmd == VM_INST_CALL)
+				{
+					if(user->isReference)
+						simpleUse = true;
+					else
+						simpleUse = false;
+				}
 				else
+				{
 					simpleUse = false;
+				}
 
 				if(!simpleUse)
 				{
@@ -484,8 +505,6 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "bitcast";
 	case VM_INST_MOV:
 		return "mov";
-	case VM_INST_REFERENCE:
-		return "reference";
 	default:
 		assert(!"unknown instruction");
 	}

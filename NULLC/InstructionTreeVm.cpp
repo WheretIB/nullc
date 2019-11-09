@@ -809,11 +809,6 @@ namespace
 		return CreateInstruction(module, source, type, VM_INST_MOV, value, NULL, NULL, NULL);
 	}
 
-	VmValue* CreateReference(VmModule *module, SynBase *source, VmType type, VmValue *value)
-	{
-		return CreateInstruction(module, source, type, VM_INST_REFERENCE, value, NULL, NULL, NULL);
-	}
-
 	VmConstant* CreateAlloca(ExpressionContext &ctx, VmModule *module, SynBase *source, TypeBase *type, const char *suffix)
 	{
 		ScopeData *scope = module->currentFunction->function ? module->currentFunction->function->functionScope : ctx.globalScope;
@@ -845,7 +840,15 @@ namespace
 
 			CreateMemCopy(module, source, spill, 0, address, offset, (int)type->size);
 
-			return CreateReference(module, source, GetVmType(ctx, type), spill);
+			VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, GetVmType(ctx, type), source);
+
+			reference->iValue = spill->iValue;
+			reference->container = spill->container;
+			reference->isReference = true;
+
+			reference->container->users.push_back(reference);
+
+			return reference;
 		}
 
 		return CreateInstruction(module, source, GetLoadResultType(ctx, type), GetLoadInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, offset));
@@ -862,19 +865,27 @@ namespace
 		{
 			VmConstant *shiftAddress = CreateConstantPointer(module->allocator, source, constantAddress->iValue + offset, constantAddress->container, type, true);
 
-			if(VmInstruction *instValue = getType<VmInstruction>(value))
+			if(VmConstant *constant = getType<VmConstant>(value))
 			{
-				if(instValue->cmd == VM_INST_REFERENCE)
-					return CreateMemCopy(module, source, shiftAddress, 0, instValue->arguments[0], 0, int(type->size));
+				if(constant->isReference)
+				{
+					VmConstant *pointer = CreateConstantPointer(ctx.allocator, source, constant->iValue, constant->container, type, true);
+
+					return CreateMemCopy(module, source, shiftAddress, 0, pointer, 0, int(type->size));
+				}
 			}
 
 			return CreateInstruction(module, source, VmType::Void, GetStoreInstruction(ctx, type), shiftAddress, CreateConstantInt(ctx.allocator, source, 0), value);
 		}
 
-		if(VmInstruction *instValue = getType<VmInstruction>(value))
+		if(VmConstant *constant = getType<VmConstant>(value))
 		{
-			if(instValue->cmd == VM_INST_REFERENCE)
-				return CreateMemCopy(module, source, address, offset, instValue->arguments[0], 0, int(type->size));
+			if(constant->isReference)
+			{
+				VmConstant *pointer = CreateConstantPointer(ctx.allocator, source, constant->iValue, constant->container, type, true);
+
+				return CreateMemCopy(module, source, address, offset, pointer, 0, int(type->size));
+			}
 		}
 
 		return CreateInstruction(module, source, VmType::Void, GetStoreInstruction(ctx, type), address, CreateConstantInt(ctx.allocator, source, offset), value);
@@ -1230,22 +1241,32 @@ namespace
 		{
 			VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
 
-			if(el.address && el.address->container && !HasAddressTaken(el.address->container))
-			{
-				VariableData *container = el.address->container;
+			bool hasLoad = el.loadAddress || el.loadPointer;
+			bool hasStore = el.storeAddress || el.storePointer;
 
+			bool noLoadOrNoContainerAlias = !hasLoad || (el.loadAddress && el.loadAddress->container && !HasAddressTaken(el.loadAddress->container));
+			bool noStoreOrNoContainerAlias = !hasStore || (el.storeAddress && el.storeAddress->container && !HasAddressTaken(el.storeAddress->container));
+
+			if(noLoadOrNoContainerAlias && noStoreOrNoContainerAlias)
+			{
 				// Check if there is only a dead store user for this simple-use variable
-				if(container->users.count == 1 && container->users[0]->users.count == 1 && container->users[0]->users[0] == el.storeInst)
+				if(hasStore && el.storeAddress)
 				{
-					module->loadStoreInfo[i] = module->loadStoreInfo.back();
-					module->loadStoreInfo.pop_back();
-					continue;
+					VariableData *container = el.storeAddress->container;
+
+					if(container->users.count == 1 && container->users[0]->users.count == 1 && container->users[0]->users[0] == el.storeInst)
+					{
+						module->loadStoreInfo[i] = module->loadStoreInfo.back();
+						module->loadStoreInfo.pop_back();
+						continue;
+					}
 				}
 
 				i++;
 				continue;
 			}
 
+			// If a potentially aliasing store is made, check strict aliasing to the load instruction
 			if(storeInst && el.loadInst && !IsLoadAliasedWithStore(el.loadInst, storeInst))
 			{
 				i++;
@@ -1263,7 +1284,10 @@ namespace
 		{
 			VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
 
-			if(el.address && el.address->container && IsGlobalScope(el.address->container->scope))
+			bool hasLoadFromGlobal = el.loadAddress && el.loadAddress->container && IsGlobalScope(el.loadAddress->container->scope);
+			bool hasStoreToGlobal = el.storeAddress && el.storeAddress->container && IsGlobalScope(el.storeAddress->container->scope);
+
+			if(hasLoadFromGlobal || hasStoreToGlobal)
 			{
 				module->loadStoreInfo[i] = module->loadStoreInfo.back();
 				module->loadStoreInfo.pop_back();
@@ -1284,28 +1308,50 @@ namespace
 		{
 			VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
 
-			// Any opaque pointer might be clobbered
-			if(el.pointer)
+			// Check load region intersection
+			if(el.loadAddress)
 			{
+				unsigned otherOffset = unsigned(el.loadAddress->iValue);
+				unsigned otherSize = el.accessSize;
+
+				assert(otherSize != 0);
+
+				// (a+aw >= b) && (a <= b+bw)
+				if(container == el.loadAddress->container && storeOffset + storeSize - 1 >= otherOffset && storeOffset <= otherOffset + otherSize - 1)
+				{
+					module->loadStoreInfo[i] = module->loadStoreInfo.back();
+					module->loadStoreInfo.pop_back();
+					continue;
+				}
+			}
+
+			// Check store region intersection
+			if(el.storeAddress)
+			{
+				unsigned otherOffset = unsigned(el.storeAddress->iValue);
+				unsigned otherSize = el.accessSize;
+
+				assert(otherSize != 0);
+
+				// (a+aw >= b) && (a <= b+bw)
+				if(container == el.storeAddress->container && storeOffset + storeSize - 1 >= otherOffset && storeOffset <= otherOffset + otherSize - 1)
+				{
+					module->loadStoreInfo[i] = module->loadStoreInfo.back();
+					module->loadStoreInfo.pop_back();
+					continue;
+				}
+			}
+
+			// Any opaque pointer might be clobbered
+			if(el.loadPointer || el.storePointer)
+			{
+				// Unless it's impossible to have an opaque pointer to this container
 				if(!HasAddressTaken(container))
 				{
 					i++;
 					continue;
 				}
 
-				module->loadStoreInfo[i] = module->loadStoreInfo.back();
-				module->loadStoreInfo.pop_back();
-				continue;
-			}
-
-			unsigned otherOffset = unsigned(el.address->iValue);
-			unsigned otherSize = GetAccessSize(el.loadInst ? el.loadInst : el.storeInst);
-
-			assert(otherSize != 0);
-
-			// (a+aw >= b) && (a <= b+bw)
-			if(container == el.address->container && storeOffset + storeSize - 1 >= otherOffset && storeOffset <= otherOffset + otherSize - 1)
-			{
 				module->loadStoreInfo[i] = module->loadStoreInfo.back();
 				module->loadStoreInfo.pop_back();
 				continue;
@@ -1321,26 +1367,28 @@ namespace
 
 		info.loadInst = inst;
 
-		VmValue *loadAddress = inst->arguments[0];
+		info.accessSize = GetAccessSize(inst);
+
+		VmValue *loadPointer = inst->arguments[0];
 		VmConstant *loadOffset = getType<VmConstant>(inst->arguments[1]);
 
-		if(VmConstant *address = getType<VmConstant>(loadAddress))
+		if(VmConstant *loadAddress = getType<VmConstant>(loadPointer))
 		{
 			assert(loadOffset->iValue == 0);
 
 			// Do not track load-store into large arrays
-			if(TypeArray *typeArray = getType<TypeArray>(address->container->type))
+			if(TypeArray *typeArray = getType<TypeArray>(loadAddress->container->type))
 			{
 				if(typeArray->length > 32)
 					return;
 			}
 
-			info.address = address;
+			info.loadAddress = loadAddress;
 		}
 		else
 		{
-			info.pointer = loadAddress;
-			info.offset = loadOffset;
+			info.loadPointer = loadPointer;
+			info.loadOffset = loadOffset;
 		}
 
 		module->loadStoreInfo.push_back(info);
@@ -1348,15 +1396,15 @@ namespace
 
 	void AddStoreInfo(VmModule *module, VmInstruction* inst)
 	{
-		VmValue *storeAddress = inst->arguments[0];
+		VmValue *storePointer = inst->arguments[0];
 		VmConstant *storeOffset = getType<VmConstant>(inst->arguments[1]);
 
-		if(VmConstant *address = getType<VmConstant>(storeAddress))
+		if(VmConstant *storeAddress = getType<VmConstant>(storePointer))
 		{
 			assert(storeOffset->iValue == 0);
 
 			// Do not track load-store into large arrays
-			if(TypeArray *typeArray = getType<TypeArray>(address->container->type))
+			if(TypeArray *typeArray = getType<TypeArray>(storeAddress->container->type))
 			{
 				if(typeArray->length > 32)
 					return;
@@ -1366,17 +1414,19 @@ namespace
 
 			info.storeInst = inst;
 
-			info.address = address;
+			info.accessSize = GetAccessSize(inst);
+
+			info.storeAddress = storeAddress;
 
 			// Remove previous loads and stores to this address range
-			ClearLoadStoreInfo(module, address->container, unsigned(address->iValue), GetAccessSize(inst));
+			ClearLoadStoreInfo(module, storeAddress->container, unsigned(storeAddress->iValue), info.accessSize);
 
 			module->loadStoreInfo.push_back(info);
 		}
 		else
 		{
 			// Check for index const const, const, ptr instruction, it might be possible to reduce the invalidation range
-			if(VmInstruction *ptrArg = getType<VmInstruction>(storeAddress))
+			if(VmInstruction *ptrArg = getType<VmInstruction>(storePointer))
 			{
 				if(ptrArg->cmd == VM_INST_INDEX)
 				{
@@ -1408,6 +1458,49 @@ namespace
 		}
 	}
 
+	void AddCopyInfo(VmModule *module, VmInstruction* inst)
+	{
+		VmValue *storePointer = inst->arguments[0];
+		VmConstant *storeOffset = getType<VmConstant>(inst->arguments[1]);
+
+		if(VmConstant *storeAddress = getType<VmConstant>(storePointer))
+		{
+			assert(storeOffset->iValue == 0);
+
+			VmModule::LoadStoreInfo info;
+
+			info.copyInst = inst;
+
+			info.accessSize = GetAccessSize(inst);
+
+			info.storeAddress = storeAddress;
+
+			VmValue *loadPointer = inst->arguments[2];
+			VmConstant *loadOffset = getType<VmConstant>(inst->arguments[3]);
+
+			if(VmConstant *loadAddress = getType<VmConstant>(loadPointer))
+			{
+				assert(storeOffset->iValue == 0);
+
+				info.loadAddress = loadAddress;
+			}
+			else
+			{
+				info.loadPointer = loadPointer;
+				info.loadOffset = loadOffset;
+			}
+
+			// Remove previous loads and stores to this address range
+			ClearLoadStoreInfo(module, storeAddress->container, unsigned(storeAddress->iValue), info.accessSize);
+
+			module->loadStoreInfo.push_back(info);
+		}
+		else
+		{
+			ClearLoadStoreInfoAliasing(module, inst);
+		}
+	}
+
 	VmValue* TryExtractConstructElement(VmValue* value, unsigned offset, unsigned size)
 	{
 		VmInstruction *inst = getType<VmInstruction>(value);
@@ -1435,10 +1528,12 @@ namespace
 
 	VmValue* GetLoadStoreInfo(VmModule *module, VmInstruction* inst)
 	{
-		VmValue *loadAddress = inst->arguments[0];
+		VmValue *loadPointer = inst->arguments[0];
 		VmConstant *loadOffset = getType<VmConstant>(inst->arguments[1]);
 
-		if(VmConstant *address = getType<VmConstant>(loadAddress))
+		unsigned accessSize = GetAccessSize(inst);
+
+		if(VmConstant *loadAddress = getType<VmConstant>(loadPointer))
 		{
 			assert(loadOffset->iValue == 0);
 
@@ -1446,50 +1541,98 @@ namespace
 			{
 				VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
 
-				if(el.pointer)
-					continue;
-
 				// Reuse previous load
-				if(el.loadInst && *el.address == *address && GetAccessSize(inst) == GetAccessSize(el.loadInst))
+				if(el.loadInst && el.loadAddress)
 				{
-					assert(el.loadInst->parent);
+					if(*el.loadAddress == *loadAddress && accessSize == el.accessSize)
+					{
+						assert(el.loadInst->parent);
 
-					return el.loadInst;
+						return el.loadInst;
+					}
 				}
 
 				// Reuse store argument
-				if(el.storeInst && *el.address == *address && GetAccessSize(inst) == GetAccessSize(el.storeInst))
+				if(el.storeInst && el.storeAddress)
 				{
-					VmValue *value = el.storeInst->arguments[2];
+					if(*el.storeAddress == *loadAddress && accessSize == el.accessSize)
+					{
+						VmValue *value = el.storeInst->arguments[2];
 
-					// Can't reuse arguments of a different size
-					if(value->type.size != inst->type.size)
-						return NULL;
+						// Can't reuse arguments of a different size
+						if(value->type.size != inst->type.size)
+							return NULL;
 
-					return value;
-				}
+						return value;
+					}
 
-				if(el.storeInst && el.address->container == address->container)
-				{
-					if(VmValue *component = TryExtractConstructElement(el.storeInst->arguments[2], address->iValue, GetAccessSize(inst)))
-						return component;
+					if(el.storeAddress->container == loadAddress->container)
+					{
+						if(VmValue *component = TryExtractConstructElement(el.storeInst->arguments[2], loadAddress->iValue, accessSize))
+							return component;
+					}
 				}
 			}
 		}
-		else if(VmValue *pointer = loadAddress)
+		else
 		{
 			for(unsigned i = 0; i < module->loadStoreInfo.size(); i++)
 			{
 				VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
 
-				if(el.address)
-					continue;
-
-				if(el.loadInst && el.pointer == pointer && el.offset->iValue == loadOffset->iValue && GetAccessSize(inst) == GetAccessSize(el.loadInst))
+				// Reuse previous load
+				if(el.loadInst && el.loadPointer)
 				{
-					assert(el.loadInst->parent);
+					if(el.loadPointer == loadPointer && el.loadOffset->iValue == loadOffset->iValue && accessSize == el.accessSize)
+					{
+						assert(el.loadInst->parent);
 
-					return el.loadInst;
+						return el.loadInst;
+					}
+				}
+			}
+		}
+
+		return NULL;
+	}
+
+	VmInstruction* GetCopyInfo(VmModule *module, VmValue *pointer, VmConstant *offset, unsigned accessSize)
+	{
+		int offsetValue = offset ? offset->iValue : 0;
+
+		if(VmConstant *address = getType<VmConstant>(pointer))
+		{
+			assert(offsetValue == 0);
+
+			for(unsigned i = 0; i < module->loadStoreInfo.size(); i++)
+			{
+				VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
+
+				if(el.copyInst && el.storeAddress)
+				{
+					if(el.storeAddress->container == address->container && el.storeAddress->iValue == address->iValue && accessSize == el.accessSize)
+					{
+						assert(el.copyInst->parent);
+
+						return el.copyInst;
+					}
+				}
+			}
+		}
+		else
+		{
+			for(unsigned i = 0; i < module->loadStoreInfo.size(); i++)
+			{
+				VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
+
+				if(el.copyInst && el.storePointer)
+				{
+					if(el.storePointer == pointer && el.storeOffset->iValue == offsetValue && accessSize == el.accessSize)
+					{
+						assert(el.copyInst->parent);
+
+						return el.copyInst;
+					}
 				}
 			}
 		}
@@ -3079,7 +3222,15 @@ VmValue* CompileVmFunctionCall(ExpressionContext &ctx, VmModule *module, ExprFun
 	{
 		VmConstant *spill = CreateAlloca(ctx, module, node->source, node->type, "spill");
 
-		resultTarget = CreateReference(module, node->source, GetVmType(ctx, node->type), spill);
+		VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, GetVmType(ctx, node->type), node->source);
+
+		reference->iValue = spill->iValue;
+		reference->container = spill->container;
+		reference->isReference = true;
+
+		reference->container->users.push_back(reference);
+
+		resultTarget = reference;
 	}
 	else
 	{
@@ -4509,8 +4660,6 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 						if(inst->cmd == VM_INST_MEM_COPY && inst->arguments[0] == user)
 							continue;
 
-						// Note: VM_INST_REFERENCE uses are non-store because references are used only by calls and returns
-
 						nonStoreUse = true;
 						break;
 					}
@@ -4624,11 +4773,98 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 			case VM_INST_STORE_STRUCT:
 				AddStoreInfo(module, curr);
 				break;
-			case VM_INST_SET_RANGE:
 			case VM_INST_MEM_COPY:
-			case VM_INST_CALL:
+				{
+					VmValue *address = curr->arguments[2];
+					VmConstant *offset = getType<VmConstant>(curr->arguments[3]);
+
+					if(VmInstruction* prevCopy = GetCopyInfo(module, address, offset, GetAccessSize(curr)))
+					{
+						ChangeInstructionTo(module, curr, curr->cmd, curr->arguments[0], curr->arguments[1], prevCopy->arguments[2], prevCopy->arguments[3], curr->arguments[4], &module->loadStorePropagations);
+					}
+				}
+
+				AddCopyInfo(module, curr);
+				break;
+			case VM_INST_SET_RANGE:
 				ClearLoadStoreInfoAliasing(module, NULL);
 				ClearLoadStoreInfoGlobal(module);
+				break;
+			case VM_INST_CALL:
+				unsigned firstArgument;
+
+				if(curr->arguments[0]->type.type == VM_TYPE_FUNCTION_REF)
+					firstArgument = 2;
+				else
+					firstArgument = 3;
+
+				for(unsigned i = firstArgument; i < curr->arguments.size(); i++)
+				{
+					if(VmConstant *constant = getType<VmConstant>(curr->arguments[i]))
+					{
+						if(constant->isReference)
+						{
+							if(VmInstruction* prevCopy = GetCopyInfo(module, constant, NULL, constant->type.size))
+							{
+								if(VmConstant *constAddress = getType<VmConstant>(prevCopy->arguments[2]))
+								{
+									VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, constant->type, curr->source);
+
+									reference->iValue = constAddress->iValue;
+									reference->container = constAddress->container;
+									reference->isReference = true;
+
+									reference->container->users.push_back(reference);
+
+									reference->comment = constant->comment;
+
+									reference->AddUse(curr);
+									curr->arguments[i]->RemoveUse(curr);
+
+									curr->arguments[i] = reference;
+								}
+							}
+						}
+					}
+				}
+
+				if(VmConstant *constant = getType<VmConstant>(curr->arguments[firstArgument - 1]))
+				{
+					if(constant->isReference)
+					{
+						// Remove previous loads and stores to the address range of the return value
+						ClearLoadStoreInfo(module, constant->container, unsigned(constant->iValue), constant->type.size);
+					}
+				}
+
+				ClearLoadStoreInfoAliasing(module, NULL);
+				ClearLoadStoreInfoGlobal(module);
+				break;
+			case VM_INST_RETURN:
+				if(!curr->arguments.empty())
+				{
+					if(VmConstant *constant = getType<VmConstant>(curr->arguments[0]))
+					{
+						if(constant->isReference)
+						{
+							if(VmInstruction* prevCopy = GetCopyInfo(module, constant, NULL, constant->type.size))
+							{
+								if(VmConstant *constAddress = getType<VmConstant>(prevCopy->arguments[2]))
+								{
+									VmConstant *reference = new (module->get<VmConstant>()) VmConstant(ctx.allocator, constant->type, curr->source);
+
+									reference->iValue = constAddress->iValue;
+									reference->container = constAddress->container;
+									reference->isReference = true;
+
+									reference->container->users.push_back(reference);
+
+									ChangeInstructionTo(module, curr, curr->cmd, reference, NULL, NULL, NULL, NULL, &module->loadStorePropagations);
+								}
+							}
+						}
+					}
+				}
 				break;
 			default:
 				break;
@@ -4838,8 +5074,22 @@ void RunDeadAlocaStoreElimination(ExpressionContext &ctx, VmModule *module, VmVa
 							if(inst->cmd == VM_INST_MEM_COPY && inst->arguments[2] == user)
 								hasLoadUsers = true;
 
-							if(inst->cmd == VM_INST_REFERENCE && inst->arguments[0] == user)
+							if(inst->cmd == VM_INST_RETURN && user->isReference)
 								hasLoadUsers = true;
+
+							if(inst->cmd == VM_INST_CALL && user->isReference)
+							{
+								unsigned firstArgument = 3;
+
+								if(inst->arguments[0]->type.type == VM_TYPE_FUNCTION_REF)
+									firstArgument = 2;
+
+								for(unsigned i = firstArgument; i < inst->arguments.size(); i++)
+								{
+									if(inst->arguments[i] == user)
+										hasLoadUsers = true;
+								}
+							}
 						}
 					}
 				}
@@ -6119,9 +6369,6 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 		if(curr->cmd == VM_INST_FUNCTION_ADDRESS || curr->cmd == VM_INST_TYPE_ID)
 			continue;
 
-		if(curr->cmd == VM_INST_REFERENCE)
-			continue;
-
 		TypeBase *type = GetBaseType(ctx, curr->type);
 
 		VmConstant *address = CreateAlloca(ctx, module, curr->source, type, "reg");
@@ -6261,11 +6508,12 @@ void RunLegalizeArrayValues(ExpressionContext &ctx, VmModule *module, VmValue* v
 					CreateStore(ctx, module, curr->source, elementType, address, element, unsigned(elementType->size * i));
 				}
 
-				VmInstruction *loadInst = getType<VmInstruction>(CreateLoad(ctx, module, curr->source, GetBaseType(ctx, curr->type), address, 0));
+				VmValue *load = CreateLoad(ctx, module, curr->source, GetBaseType(ctx, curr->type), address, 0);
 
-				next = loadInst;
+				if(VmInstruction *loadInst = getType<VmInstruction>(load))
+					next = loadInst;
 
-				ReplaceValueUsersWith(module, curr, loadInst, NULL);
+				ReplaceValueUsersWith(module, curr, load, NULL);
 
 				block->insertPoint = block->lastInstruction;
 			}
