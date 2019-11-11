@@ -5503,11 +5503,11 @@ void RunArrayToElements(ExpressionContext &ctx, VmModule *module, VmValue* value
 				{
 					if(storeValue->cmd == VM_INST_ARRAY && storeValue->users.size() == 1)
 					{
-						block->insertPoint = curr;
-
 						TypeArray *typeArray = getType<TypeArray>(storeValue->type.structType);
 
 						TypeBase *elementType = typeArray->subType;
+
+						VmConstant *tempAddress = CreateAlloca(ctx, module, curr->source, typeArray, "array_elem");
 
 						for(unsigned i = 0; i < storeValue->arguments.size(); i++)
 						{
@@ -5517,13 +5517,22 @@ void RunArrayToElements(ExpressionContext &ctx, VmModule *module, VmValue* value
 							{
 								if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
 									element = elementInst->arguments[0];
+
+								block->insertPoint = elementInst;
+
+								CreateStore(ctx, module, curr->source, elementType, tempAddress, element, unsigned(elementType->size * i));
+
+								block->insertPoint = block->lastInstruction;
 							}
-
-							VmInstruction *storeInst = getType<VmInstruction>(CreateStore(ctx, module, curr->source, elementType, storeAddress, element, storeOffset->iValue + unsigned(elementType->size * i)));
-
-							if(i == 0)
-								next = storeInst;
+							else
+							{
+								CreateStore(ctx, module, curr->source, elementType, tempAddress, element, unsigned(elementType->size * i));
+							}
 						}
+
+						block->insertPoint = curr;
+
+						CreateMemCopy(module, curr->source, storeAddress, storeOffset->iValue, tempAddress, 0, int(typeArray->size));
 
 						block->insertPoint = block->lastInstruction;
 
