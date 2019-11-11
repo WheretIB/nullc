@@ -579,6 +579,9 @@ struct VmModule
 
 			storePointer = 0;
 			storeOffset = 0;
+
+			noLoadOrNoContainerAlias = false;
+			noStoreOrNoContainerAlias = false;
 		}
 
 		VmInstruction *loadInst;
@@ -596,6 +599,9 @@ struct VmModule
 
 		VmValue *storePointer;
 		VmConstant *storeOffset;
+
+		bool noLoadOrNoContainerAlias;
+		bool noStoreOrNoContainerAlias;
 	};
 
 	SmallArray<LoadStoreInfo, 32> loadStoreInfo;

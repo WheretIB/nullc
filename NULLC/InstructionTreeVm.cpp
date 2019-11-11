@@ -1241,14 +1241,10 @@ namespace
 		{
 			VmModule::LoadStoreInfo &el = module->loadStoreInfo[i];
 
-			bool hasLoad = el.loadAddress || el.loadPointer;
-			bool hasStore = el.storeAddress || el.storePointer;
-
-			bool noLoadOrNoContainerAlias = !hasLoad || (el.loadAddress && el.loadAddress->container && !HasAddressTaken(el.loadAddress->container));
-			bool noStoreOrNoContainerAlias = !hasStore || (el.storeAddress && el.storeAddress->container && !HasAddressTaken(el.storeAddress->container));
-
-			if(noLoadOrNoContainerAlias && noStoreOrNoContainerAlias)
+			if(el.noLoadOrNoContainerAlias && el.noStoreOrNoContainerAlias)
 			{
+				bool hasStore = el.storeAddress || el.storePointer;
+
 				// Check if there is only a dead store user for this simple-use variable
 				if(hasStore && el.storeAddress)
 				{
@@ -1391,6 +1387,9 @@ namespace
 			info.loadOffset = loadOffset;
 		}
 
+		info.noLoadOrNoContainerAlias = !(info.loadAddress || info.loadPointer) || (info.loadAddress && info.loadAddress->container && !HasAddressTaken(info.loadAddress->container));
+		info.noStoreOrNoContainerAlias = !(info.storeAddress || info.storePointer) || (info.storeAddress && info.storeAddress->container && !HasAddressTaken(info.storeAddress->container));
+
 		module->loadStoreInfo.push_back(info);
 	}
 
@@ -1420,6 +1419,9 @@ namespace
 
 			// Remove previous loads and stores to this address range
 			ClearLoadStoreInfo(module, storeAddress->container, unsigned(storeAddress->iValue), info.accessSize);
+
+			info.noLoadOrNoContainerAlias = !(info.loadAddress || info.loadPointer) || (info.loadAddress && info.loadAddress->container && !HasAddressTaken(info.loadAddress->container));
+			info.noStoreOrNoContainerAlias = !(info.storeAddress || info.storePointer) || (info.storeAddress && info.storeAddress->container && !HasAddressTaken(info.storeAddress->container));
 
 			module->loadStoreInfo.push_back(info);
 		}
@@ -1492,6 +1494,9 @@ namespace
 
 			// Remove previous loads and stores to this address range
 			ClearLoadStoreInfo(module, storeAddress->container, unsigned(storeAddress->iValue), info.accessSize);
+
+			info.noLoadOrNoContainerAlias = !(info.loadAddress || info.loadPointer) || (info.loadAddress && info.loadAddress->container && !HasAddressTaken(info.loadAddress->container));
+			info.noStoreOrNoContainerAlias = !(info.storeAddress || info.storePointer) || (info.storeAddress && info.storeAddress->container && !HasAddressTaken(info.storeAddress->container));
 
 			module->loadStoreInfo.push_back(info);
 		}
