@@ -2073,6 +2073,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			TypeBase *resultBaseType = GetBaseType(ctx, result->type);
 
 			lowModule->constants.push_back(resultBaseType->typeIndex);
+			lowModule->constants.push_back(unsigned(resultBaseType->size));
 
 			RegVmReturnType resultType = rvrVoid;
 
@@ -2206,6 +2207,7 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		}
 		else
 		{
+			lowModule->constants.push_back(0);
 			lowModule->constants.push_back(0);
 
 			lowModule->constants.push_back(rvmiReturn);

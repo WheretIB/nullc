@@ -245,8 +245,9 @@ void PrintReturn(OutputContext &ctx, char *constantData, unsigned microcodePos)
 	unsigned *microcode = (unsigned*)constantData + microcodePos;
 
 	unsigned typeId = *microcode++;
+	unsigned typeSize = *microcode++;
 
-	Print(ctx, " (%d) -> (", typeId);
+	Print(ctx, " (%d, %d) -> (", typeId, typeSize);
 
 	while(*microcode != rvmiReturn)
 	{

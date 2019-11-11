@@ -1675,6 +1675,18 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 
 unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr)
 {
+	ExternFuncInfo &target = exFunctions[functionId];
+
+	if(tempStackPtr + (target.bytesToPop >> 2) >= tempStackArrayEnd)
+	{
+		callStack.push_back(instruction + 1);
+
+		codeRunning = false;
+		strcpy(execError, "ERROR: call argument buffer overflow");
+
+		return NULL;
+	}
+
 	// Push arguments
 	unsigned *microcode = exLinker->exRegVmConstants.data + microcodePos;
 
@@ -1714,8 +1726,6 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 
 	unsigned char resultReg = *microcode++ & 0xff;
 	unsigned char resultType = *microcode++ & 0xff;
-
-	ExternFuncInfo &target = exFunctions[functionId];
 
 	unsigned address = target.regVmAddress;
 
@@ -1930,6 +1940,18 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 
 		unsigned *tempStackPtrStart = tempStackPtr;
 		unsigned typeId = *microcode++;
+		unsigned typeSize = *microcode++;
+
+		if(tempStackPtr + (typeSize >> 2) >= tempStackArrayEnd)
+		{
+			callStack.push_back(instruction + 1);
+
+			strcpy(execError, "ERROR: call return buffer overflow");
+
+			codeRunning = false;
+
+			return rvrError;
+		}
 
 		while(*microcode != rvmiReturn)
 		{
