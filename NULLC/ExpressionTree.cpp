@@ -7846,6 +7846,9 @@ ExprVariableDefinition* CreateFunctionContextArgument(ExpressionContext &ctx, Sy
 
 	ctx.AddVariable(function->contextArgument, true);
 
+	if(function->functionScope->dataSize >= 65536)
+		Report(ctx, source, "ERROR: function argument size cannot exceed 65536");
+
 	return new (ctx.get<ExprVariableDefinition>()) ExprVariableDefinition(source, ctx.typeVoid, new (ctx.get<VariableHandle>()) VariableHandle(NULL, function->contextArgument), NULL);
 }
 

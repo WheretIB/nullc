@@ -858,6 +858,8 @@ auto m = bar;",
 
 	TEST_FOR_FAIL("for each variables scope", "auto arr = { { 1, 2, 3, 4 }, { 1, 2, 3, 4 } }; for(auto a in arr, auto b in a){ return 0; }", "ERROR: unknown identifier 'a'");
 
+	TEST_FOR_FAIL("function argument size limit", "class Large{ int x, y, z, w; int[16] pad; } class Huge{ Large[512] b; } auto test8(Huge a, b){ return b.b[110].x; }", "ERROR: function argument size cannot exceed 65536");
+
 	TEST_FOR_FAIL("fuzzing test crash", "fo<@T, @U(){}", "ERROR: '>' expected after generic type alias list");
 	TEST_FOR_FAIL("fuzzing test crash", "oid foo<@>(){}", "ERROR: explicit generic type alias is expected after '@'");
 	TEST_FOR_FAIL("fuzzing test crash", "t ref(int, int)> a; re;", "ERROR: 't' is not a known type name");
