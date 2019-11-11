@@ -1539,7 +1539,10 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			unsigned char targetReg = lowFunction->GetRegisterForConstant();
 
-			lowBlock->AddInstruction(ctx, inst->source, rviAddImm, targetReg, dstAddressReg, 0, dstConstant->iValue);
+			if (NULLC_PTR_SIZE == 4)
+				lowBlock->AddInstruction(ctx, inst->source, rviAddImm, targetReg, dstAddressReg, 0, dstConstant->iValue);
+			else
+				lowBlock->AddInstruction(ctx, inst->source, rviAddImml, targetReg, dstAddressReg, 0, dstConstant->iValue);
 
 			dstAddressReg = targetReg;
 		}
@@ -1557,7 +1560,10 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			unsigned char targetReg = lowFunction->GetRegisterForConstant();
 
-			lowBlock->AddInstruction(ctx, inst->source, rviAddImm, targetReg, srcAddressReg, 0, srcConstant->iValue);
+			if(NULLC_PTR_SIZE == 4)
+				lowBlock->AddInstruction(ctx, inst->source, rviAddImm, targetReg, srcAddressReg, 0, srcConstant->iValue);
+			else
+				lowBlock->AddInstruction(ctx, inst->source, rviAddImml, targetReg, srcAddressReg, 0, srcConstant->iValue);
 
 			srcAddressReg = targetReg;
 		}
