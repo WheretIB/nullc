@@ -2906,6 +2906,8 @@ VmValue* CompileVmAssignment(ExpressionContext &ctx, VmModule *module, ExprAssig
 		// Array initializers are compiled to per-element assignments
 		if(instInit->cmd == VM_INST_ARRAY)
 		{
+			VmConstant *tempAddress = CreateAlloca(ctx, module, node->source, node->rhs->type, "array");
+
 			TypeArray *typeArray = getType<TypeArray>(node->type);
 
 			TypeBase *elementType = typeArray->subType;
@@ -2918,10 +2920,20 @@ VmValue* CompileVmAssignment(ExpressionContext &ctx, VmModule *module, ExprAssig
 				{
 					if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
 						element = elementInst->arguments[0];
-				}
 
-				CreateStore(ctx, module, node->source, elementType, address, element, unsigned(elementType->size * i));
+					module->currentBlock->insertPoint = elementInst;
+
+					CreateStore(ctx, module, node->source, elementType, tempAddress, element, unsigned(elementType->size * i));
+
+					module->currentBlock->insertPoint = module->currentBlock->lastInstruction;
+				}
+				else
+				{
+					CreateStore(ctx, module, node->source, elementType, tempAddress, element, unsigned(elementType->size * i));
+				}
 			}
+
+			CreateMemCopy(module, node->source, address, 0, tempAddress, 0, int(typeArray->size));
 
 			VmValue *copy = CreateLoad(ctx, module, node->source, node->rhs->type, address, 0);
 
