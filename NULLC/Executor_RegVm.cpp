@@ -171,18 +171,18 @@ void ExecutorRegVm::InitExecution()
 
 	if(!tempStackArrayBase)
 	{
-		tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 16);
-		memset(tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 16);
-		tempStackArrayEnd = tempStackArrayBase + 1024 * 16;
+		tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 32);
+		memset(tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 32);
+		tempStackArrayEnd = tempStackArrayBase + 1024 * 32;
 	}
 
 	tempStackLastTop = tempStackArrayBase;
 
 	if(!regFileArrayBase)
 	{
-		regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 16);
-		memset(regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 16);
-		regFileArrayEnd = regFileArrayBase + 1024 * 16;
+		regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 32);
+		memset(regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 32);
+		regFileArrayEnd = regFileArrayBase + 1024 * 32;
 	}
 
 	regFileLastTop = regFileArrayBase;
