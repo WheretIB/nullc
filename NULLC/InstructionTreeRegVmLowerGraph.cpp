@@ -115,7 +115,7 @@ void PrintAddress(OutputContext &ctx, char *constantData, unsigned char rC, unsi
 		}
 		else
 		{
-			assert(!"unknown type");
+			Print(ctx, "@%d", argument);
 		}
 	}
 	else if(rC == rvrrRegisters)

@@ -561,6 +561,21 @@ unsigned TryLowerConstantToMemory(RegVmLoweredBlock *lowBlock, VmValue *value)
 
 			return index;
 		}
+		else if(constant->type.type == VM_TYPE_STRUCT)
+		{
+			unsigned index = lowModule->constants.size() + 1;
+
+			assert(constant->type.size % 4 == 0);
+
+			for(unsigned i = 0; i < constant->type.size / 4; i++)
+			{
+				unsigned elementValue;
+				memcpy(&elementValue, constant->sValue + i * 4, 4);
+				lowModule->constants.push_back(elementValue);
+			}
+
+			return index;
+		}
 	}
 
 	return 0;
@@ -1176,10 +1191,26 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 			(void)offset;
 			assert(offset->iValue == 0);
 
-			SmallArray<unsigned char, 32> sourceRegs(ctx.allocator);
-			GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[2]);
+			VmConstant *constantRhs = getType<VmConstant>(inst->arguments[2]);
 
 			assert((unsigned short)inst->arguments[2]->type.size == inst->arguments[2]->type.size);
+
+			if(constantRhs && inst->arguments[2]->type.type == VM_TYPE_STRUCT)
+			{
+				if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[2]))
+				{
+					unsigned char targetReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
+
+					unsigned char sourceReg = lowFunction->GetRegisterForConstant();
+					lowBlock->AddInstruction(ctx, inst->source, rviGetAddr, sourceReg, 0, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+
+					lowBlock->AddInstruction(ctx, inst->source, rviMemCopy, targetReg, 0, sourceReg, inst->arguments[2]->type.size);
+					break;
+				}
+			}
+
+			SmallArray<unsigned char, 32> sourceRegs(ctx.allocator);
+			GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[2]);
 
 			unsigned char addressReg = IsLocalScope(constant->container->scope) ? rvrrFrame : rvrrGlobals;
 
@@ -1277,12 +1308,40 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		{
 			VmConstant *offset = getType<VmConstant>(inst->arguments[1]);
 
+			VmConstant *constantRhs = getType<VmConstant>(inst->arguments[2]);
+
+			assert((unsigned short)inst->arguments[2]->type.size == inst->arguments[2]->type.size);
+
+			if(constantRhs && inst->arguments[2]->type.type == VM_TYPE_STRUCT)
+			{
+				if(unsigned constantIndex = TryLowerConstantToMemory(lowBlock, inst->arguments[2]))
+				{
+					unsigned char targetReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
+
+					if(offset->iValue != 0)
+					{
+						unsigned char dstAddressReg = lowFunction->GetRegisterForConstant();
+
+						if(NULLC_PTR_SIZE == 4)
+							lowBlock->AddInstruction(ctx, inst->source, rviAddImm, dstAddressReg, targetReg, 0, offset->iValue);
+						else
+							lowBlock->AddInstruction(ctx, inst->source, rviAddImml, dstAddressReg, targetReg, 0, offset->iValue);
+
+						targetReg = dstAddressReg;
+					}
+
+					unsigned char sourceReg = lowFunction->GetRegisterForConstant();
+					lowBlock->AddInstruction(ctx, inst->source, rviGetAddr, sourceReg, 0, rvrrConstants, (constantIndex - 1) * sizeof(unsigned));
+
+					lowBlock->AddInstruction(ctx, inst->source, rviMemCopy, targetReg, 0, sourceReg, inst->arguments[2]->type.size);
+					break;
+				}
+			}
+
 			SmallArray<unsigned char, 32> sourceRegs(ctx.allocator);
 			GetArgumentRegisters(ctx, lowFunction, lowBlock, sourceRegs, inst->arguments[2]);
 
 			unsigned char addressReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-
-			assert((unsigned short)inst->arguments[2]->type.size == inst->arguments[2]->type.size);
 
 			unsigned pos = offset->iValue;
 
