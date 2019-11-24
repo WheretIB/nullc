@@ -397,14 +397,18 @@ void LowerConstantIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *lowFun
 			{
 				unsigned char targetReg = result.back();
 
-				lowBlock->AddInstruction(ctx, constant->source, rviLoadImmLong, targetReg, 0, 0, ((unsigned*)constant->sValue)[i]);
+				unsigned elementValue;
+				memcpy(&elementValue, constant->sValue + i * 4, 4);
+				lowBlock->AddInstruction(ctx, constant->source, rviLoadImmLong, targetReg, 0, 0, elementValue);
 			}
 			else
 			{
 				unsigned char targetReg = lowFunction->GetRegisterForConstant();
 				result.push_back(targetReg);
 
-				lowBlock->AddInstruction(ctx, constant->source, rviLoadImm, targetReg, 0, 0, ((unsigned*)constant->sValue)[i]);
+				unsigned elementValue;
+				memcpy(&elementValue, constant->sValue + i * 4, 4);
+				lowBlock->AddInstruction(ctx, constant->source, rviLoadImm, targetReg, 0, 0, elementValue);
 			}
 
 			subPos = !subPos;
