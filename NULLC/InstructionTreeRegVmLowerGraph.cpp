@@ -170,6 +170,8 @@ void PrintCall(OutputContext &ctx, char *constantData, unsigned microcodePos)
 			Print(ctx, " + 0x%x] x%d", offset, size);
 		}
 		break;
+		default:
+			assert(!"unknown micro instruction");
 		}
 
 		if(*microcode != rvmiCall)
@@ -228,6 +230,8 @@ void PrintCall(OutputContext &ctx, char *constantData, unsigned microcodePos)
 			Print(ctx, " + 0x%x] x%d", offset, size);
 		}
 		break;
+		default:
+			assert(!"unknown micro instruction");
 		}
 
 		if(*microcode != rvmiReturn)
@@ -276,6 +280,8 @@ void PrintReturn(OutputContext &ctx, char *constantData, unsigned microcodePos)
 			Print(ctx, " + 0x%x] x%d", offset, size);
 		}
 		break;
+		default:
+			assert(!"unknown micro instruction");
 		}
 
 		if(*microcode != rvmiReturn)
@@ -489,7 +495,9 @@ void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCo
 		default:
 			assert(!"unknown type");
 		}
-		PrintReturn(ctx, constantData, argument);
+
+		if(rB != rvrError)
+			PrintReturn(ctx, constantData, argument);
 		break;
 	case rviAddImm:
 		PrintRegister(ctx, rA);
