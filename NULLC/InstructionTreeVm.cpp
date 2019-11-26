@@ -2115,7 +2115,7 @@ void VmFunction::UpdateDominatorTree(VmModule *module)
 			}
 		}
 
-		if(curr != firstBlock)
+		if(curr->idom)
 			curr->idom->dominanceChildren.push_back(curr);
 	}
 

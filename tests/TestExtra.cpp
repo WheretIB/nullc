@@ -921,3 +921,15 @@ for(int i = 0; i < names.size; i++)\r\n\
 }\r\n\
 return prod;";
 TEST_RESULT("Array lowering check 4", testArrayLowering4, "47520");
+
+const char	*testDeadBlocksWithUsers =
+"int test(int t)\r\n\
+{\r\n\
+	return 1;\r\n\
+	int sum = 0;\r\n\
+	for(int i = 0; i < t; i++)\r\n\
+		sum += i;\r\n\
+	return sum;\r\n\
+}\r\n\
+return test(5);";
+TEST_RESULT("Dead block with active users", testDeadBlocksWithUsers, "1");
