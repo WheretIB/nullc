@@ -1024,3 +1024,11 @@ const char	*testDeadBlocksWithUsers =
 }\r\n\
 return test(5);";
 TEST_RESULT("Dead block with active users", testDeadBlocksWithUsers, "1");
+
+const char	*testDeadInstructionInLoadStorePropagation =
+"int total = 0;\r\n\
+auto arr8 = \"bcdefghij\";\r\n\
+total += arr8[0] - 'a';\r\n\
+total += arr8[0] - 'a';\r\n\
+return total;";
+TEST_RESULT("Dead instruction in load store propagation", testDeadInstructionInLoadStorePropagation, "2");

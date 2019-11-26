@@ -4877,7 +4877,10 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 				if(VmValue* prevValue = GetLoadStoreInfo(module, curr))
 				{
 					if(VmConstant* constant = getType<VmConstant>(prevValue))
+					{
 						ReplaceValueUsersWith(module, curr, CreateConstantInt(module->allocator, prevValue->source, (int)(char)(constant->iValue)), &module->loadStorePropagations);
+						break;
+					}
 				}
 
 				AddLoadInfo(module, curr);
@@ -4886,7 +4889,10 @@ void RunLoadStorePropagation(ExpressionContext &ctx, VmModule *module, VmValue *
 				if(VmValue* prevValue = GetLoadStoreInfo(module, curr))
 				{
 					if(VmConstant* constant = getType<VmConstant>(prevValue))
+					{
 						ReplaceValueUsersWith(module, curr, CreateConstantInt(module->allocator, prevValue->source, (int)(short)(constant->iValue)), &module->loadStorePropagations);
+						break;
+					}
 				}
 
 				AddLoadInfo(module, curr);
