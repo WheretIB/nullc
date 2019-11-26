@@ -1013,6 +1013,13 @@ for(auto y in arr9) for(auto x in y) total += x ? int(x - 'a') : 0;\r\n\
 return total;";
 TEST_RESULT("Array lowering check 5", testArrayLowering5, "825");
 
+const char	*testArrayLowering6 =
+"int total = 0;\r\n\
+auto arr11 = { -1, -1 - 1, -3, -2 * 2, -5, -12 / 2, -7, -(16 >> 1), -9 };\r\n\
+total += -arr11[0] + -arr11[8];\r\n\
+return total;";
+TEST_RESULT("Array lowering check 6", testArrayLowering6, "10");
+
 const char	*testDeadBlocksWithUsers =
 "int test(int t)\r\n\
 {\r\n\

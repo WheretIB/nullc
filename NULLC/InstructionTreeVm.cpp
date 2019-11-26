@@ -2947,6 +2947,120 @@ VmValue* CompileVmConditional(ExpressionContext &ctx, VmModule *module, ExprCond
 	return CheckType(ctx, node, phi);
 }
 
+void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* value, bool nested);
+
+bool IsGoodConstantArray(ExpressionContext &ctx, VmModule *module, VmInstruction *instInit)
+{
+	assert(instInit->cmd == VM_INST_ARRAY);
+
+	for(unsigned i = 0; i < instInit->arguments.size(); i++)
+	{
+		VmValue *elementValue = instInit->arguments[i];
+
+		if(VmInstruction *elementInst = getType<VmInstruction>(elementValue))
+		{
+			if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
+			{
+				elementValue = elementInst->arguments[0];
+			}
+			else if(elementInst->cmd == VM_INST_ARRAY)
+			{
+				if(IsGoodConstantArray(ctx, module, elementInst))
+					continue;
+			}
+			else
+			{
+				RunConstantPropagation(ctx, module, elementInst, true);
+				elementValue = instInit->arguments[i];
+			}
+		}
+
+		VmConstant *element = getType<VmConstant>(elementValue);
+
+		if(!element || element->isReference)
+			return false;
+
+		if(element->type.type == VM_TYPE_INT)
+			continue;
+		else if(element->type.type == VM_TYPE_DOUBLE)
+			continue;
+		else if(element->type.type == VM_TYPE_LONG)
+			continue;
+		else if(element->type.type == VM_TYPE_STRUCT && element->sValue)
+			continue;
+
+		return false;
+	}
+
+	return true;
+}
+
+VmConstant* GetConstantArrayValue(ExpressionContext &ctx, SynBase *source, TypeArray *typeArray, VmInstruction *instInit)
+{
+	assert(typeArray);
+
+	TypeBase *elementType = typeArray->subType;
+
+	unsigned size = unsigned(typeArray->size);
+
+	char *value = (char*)ctx.allocator->alloc(size);
+	memset(value, 0, size);
+
+	for(unsigned i = 0; i < instInit->arguments.size(); i++)
+	{
+		VmValue *elementValue = instInit->arguments[i];
+
+		if(VmInstruction *elementInst = getType<VmInstruction>(elementValue))
+		{
+			if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
+			{
+				elementValue = elementInst->arguments[0];
+			}
+			else if(elementInst->cmd == VM_INST_ARRAY)
+			{
+				VmConstant *elemConst = GetConstantArrayValue(ctx, NULL, getType<TypeArray>(elementType), elementInst);
+
+				assert(elementType->size == elemConst->type.size);
+				memcpy(value + i * elementType->size, elemConst->sValue, elementType->size);
+				continue;
+			}
+		}
+
+		VmConstant *element = getType<VmConstant>(elementValue);
+
+		if(element->type.type == VM_TYPE_INT)
+		{
+			assert(elementType->size == element->type.size);
+			memcpy(value + i * sizeof(int), &element->iValue, sizeof(int));
+		}
+		else if(element->type.type == VM_TYPE_DOUBLE && elementType == ctx.typeDouble)
+		{
+			memcpy(value + i * sizeof(double), &element->dValue, sizeof(double));
+		}
+		else if(element->type.type == VM_TYPE_DOUBLE && elementType == ctx.typeFloat)
+		{
+			float fValue = float(element->dValue);
+			memcpy(value + i * sizeof(float), &fValue, sizeof(float));
+		}
+		else if(element->type.type == VM_TYPE_LONG)
+		{
+			assert(elementType->size == element->type.size);
+			memcpy(value + i * sizeof(long long), &element->lValue, sizeof(long long));
+		}
+		else if(element->type.type == VM_TYPE_STRUCT && element->sValue)
+		{
+			assert(elementType->size == element->type.size);
+			memcpy(value + i * element->type.size, element->sValue, element->type.size);
+		}
+		else
+		{
+			assert(!"unknown type");
+		}
+	}
+
+	return CreateConstantStruct(ctx.allocator, source, value, size, typeArray);
+}
+
 VmValue* CompileVmAssignment(ExpressionContext &ctx, VmModule *module, ExprAssignment *node)
 {
 	TypeRef *refType = getType<TypeRef>(node->lhs->type);
@@ -2964,92 +3078,13 @@ VmValue* CompileVmAssignment(ExpressionContext &ctx, VmModule *module, ExprAssig
 		// Array initializers are compiled to per-element assignments
 		if(instInit->cmd == VM_INST_ARRAY)
 		{
-			bool isGoodConstant = true;
-
-			for(unsigned i = 0; i < instInit->arguments.size(); i++)
-			{
-				VmValue *elementValue = instInit->arguments[i];
-
-				if(VmInstruction *elementInst = getType<VmInstruction>(elementValue))
-				{
-					if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
-						elementValue = elementInst->arguments[0];
-				}
-
-				VmConstant *element = getType<VmConstant>(elementValue);
-
-				if(!element || element->isReference)
-				{
-					isGoodConstant = false;
-					break;
-				}
-
-				if(element->type.type == VM_TYPE_INT)
-					continue;
-				else if(element->type.type == VM_TYPE_DOUBLE)
-					continue;
-				else if(element->type.type == VM_TYPE_LONG)
-					continue;
-				else if(element->type.type == VM_TYPE_STRUCT && element->sValue)
-					continue;
-
-				isGoodConstant = false;
-			}
-
 			TypeArray *typeArray = getType<TypeArray>(node->type);
 
 			TypeBase *elementType = typeArray->subType;
 
-			if(isGoodConstant)
+			if(IsGoodConstantArray(ctx, module, instInit))
 			{
-				unsigned size = unsigned(typeArray->size);
-
-				char *value = (char*)ctx.allocator->alloc(size);
-				memset(value, 0, size);
-
-				for(unsigned i = 0; i < instInit->arguments.size(); i++)
-				{
-					VmValue *elementValue = instInit->arguments[i];
-
-					if(VmInstruction *elementInst = getType<VmInstruction>(elementValue))
-					{
-						if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
-							elementValue = elementInst->arguments[0];
-					}
-
-					VmConstant *element = getType<VmConstant>(elementValue);
-
-					if(element->type.type == VM_TYPE_INT)
-					{
-						assert(elementType->size == element->type.size);
-						memcpy(value + i * sizeof(int), &element->iValue, sizeof(int));
-					}
-					else if(element->type.type == VM_TYPE_DOUBLE && elementType == ctx.typeDouble)
-					{
-						memcpy(value + i * sizeof(double), &element->dValue, sizeof(double));
-					}
-					else if(element->type.type == VM_TYPE_DOUBLE && elementType == ctx.typeFloat)
-					{
-						float fValue = float(element->dValue);
-						memcpy(value + i * sizeof(float), &fValue, sizeof(float));
-					}
-					else if(element->type.type == VM_TYPE_LONG)
-					{
-						assert(elementType->size == element->type.size);
-						memcpy(value + i * sizeof(long long), &element->lValue, sizeof(long long));
-					}
-					else if(element->type.type == VM_TYPE_STRUCT && element->sValue)
-					{
-						assert(elementType->size == element->type.size);
-						memcpy(value + i * element->type.size, element->sValue, element->type.size);
-					}
-					else
-					{
-						assert(!"unknown type");
-					}
-				}
-
-				VmValue *constant = CreateConstantStruct(module->allocator, node->source, value, size, typeArray);
+				VmValue *constant = GetConstantArrayValue(ctx, node->source, typeArray, instInit);
 
 				CreateStore(ctx, module, node->source, typeArray, address, constant, 0);
 
@@ -4236,7 +4271,7 @@ void RunPeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmValue*
 	}
 }
 
-void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* value)
+void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* value, bool nested)
 {
 	if(VmFunction *function = getType<VmFunction>(value))
 	{
@@ -4245,7 +4280,7 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 		while(curr)
 		{
 			VmBlock *next = curr->nextSibling;
-			RunConstantPropagation(ctx, module, curr);
+			RunConstantPropagation(ctx, module, curr, nested);
 			curr = next;
 		}
 	}
@@ -4256,7 +4291,7 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 		while(curr)
 		{
 			VmInstruction *next = curr->nextSibling;
-			RunConstantPropagation(ctx, module, curr);
+			RunConstantPropagation(ctx, module, curr, nested);
 			curr = next;
 		}
 	}
@@ -4272,7 +4307,17 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 			VmConstant *constant = getType<VmConstant>(inst->arguments[i]);
 
 			if(!constant)
-				return;
+			{
+				if(nested)
+				{
+					RunConstantPropagation(ctx, module, inst->arguments[i], true);
+
+					constant = getType<VmConstant>(inst->arguments[i]);
+				}
+
+				if(!constant)
+					return;
+			}
 
 			consts.push_back(constant);
 		}
@@ -6913,7 +6958,7 @@ void RunVmPass(ExpressionContext &ctx, VmModule *module, VmPassType type)
 			RunPeepholeOptimizations(ctx, module, value);
 			break;
 		case VM_PASS_OPT_CONSTANT_PROPAGATION:
-			RunConstantPropagation(ctx, module, value);
+			RunConstantPropagation(ctx, module, value, false);
 			break;
 		case VM_PASS_OPT_DEAD_CODE_ELIMINATION:
 			RunDeadCodeElimiation(ctx, module, value);
