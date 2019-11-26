@@ -953,6 +953,66 @@ for(int i = 0; i < names.size; i++)\r\n\
 return prod;";
 TEST_RESULT("Array lowering check 4", testArrayLowering4, "47520");
 
+const char	*testArrayLowering5 =
+"int total = 0;\r\n\
+\r\n\
+int[] arr1a = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };\r\n\
+total += arr1a[0] + arr1a[8];\r\n\
+for(auto x in arr1a) total += int(x);\r\n\
+\r\n\
+auto arr1b = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };\r\n\
+total += arr1b[0] + arr1b[8];\r\n\
+for(auto x in arr1b) total += int(x);\r\n\
+\r\n\
+short[] arr2a = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };\r\n\
+total += arr2a[0] + arr2a[8];\r\n\
+for(auto x in arr2a) total += int(x);\r\n\
+\r\n\
+char[] arr3a = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };\r\n\
+total += arr3a[0] + arr3a[8];\r\n\
+for(auto x in arr3a) total += int(x);\r\n\
+\r\n\
+long[] arr4a = { 1l, 2l, 3l, 4l, 5l, 6l, 7l, 8l, 9l };\r\n\
+total += arr4a[0] + arr4a[8];\r\n\
+for(auto x in arr4a) total += int(x);\r\n\
+\r\n\
+auto arr4b = { 1l, 2l, 3l, 4l, 5l, 6l, 7l, 8l, 9l };\r\n\
+total += arr4b[0] + arr4b[8];\r\n\
+for(auto x in arr4b) total += int(x);\r\n\
+\r\n\
+float[] arr5a = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };\r\n\
+total += arr5a[0] + arr5a[8];\r\n\
+for(auto x in arr5a) total += int(x);\r\n\
+\r\n\
+auto arr5b = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };\r\n\
+total += arr5b[0] + arr5b[8];\r\n\
+for(auto x in arr5b) total += int(x);\r\n\
+\r\n\
+double[] arr6a = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0 };\r\n\
+total += arr6a[0] + arr6a[8];\r\n\
+for(auto x in arr6a) total += int(x);\r\n\
+\r\n\
+auto arr6b = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0 };\r\n\
+total += arr6b[0] + arr6b[8];\r\n\
+for(auto x in arr6b) total += int(x);\r\n\
+\r\n\
+auto arr7 = { { 1, 2, 3, 4, 5, 6, 7, 8, 9 }, { 1, 2, 3, 4, 5, 6, 7, 8, 9 } };\r\n\
+total += arr7[0][0] + arr7[0][8];\r\n\
+total += arr7[1][0] + arr7[1][8];\r\n\
+for(auto y in arr7) for(auto x in y) total += int(x);\r\n\
+\r\n\
+auto arr8 = \"bcdefghij\";\r\n\
+total += arr8[0] - 'a' + arr8[8] - 'a';\r\n\
+for(auto x in arr8) total += x ? int(x - 'a') : 0;\r\n\
+\r\n\
+auto arr9 = { \"bcdefghij\", \"bcdefghij\" };\r\n\
+total += arr9[0][0] - 'a' + arr9[0][8] - 'a';\r\n\
+total += arr9[1][0] - 'a' + arr9[1][8] - 'a';\r\n\
+for(auto y in arr9) for(auto x in y) total += x ? int(x - 'a') : 0;\r\n\
+\r\n\
+return total;";
+TEST_RESULT("Array lowering check 5", testArrayLowering5, "825");
+
 const char	*testDeadBlocksWithUsers =
 "int test(int t)\r\n\
 {\r\n\

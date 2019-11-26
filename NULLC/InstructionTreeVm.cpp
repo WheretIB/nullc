@@ -1534,7 +1534,7 @@ namespace
 		return NULL;
 	}
 
-	VmValue* TryExtractConstant(VmModule *module, VmValue* value, unsigned storeOffset, unsigned storeSize, unsigned loadOffset, unsigned loadSize)
+	VmValue* TryExtractConstant(VmModule *module, VmValue* value, unsigned storeOffset, unsigned storeSize, unsigned loadOffset, unsigned loadSize, VmInstructionType loadCmd)
 	{
 		if(VmConstant *constant = getType<VmConstant>(value))
 		{
@@ -1543,10 +1543,38 @@ namespace
 			{
 				assert(constant->sValue);
 
-				if(constant->sValue && loadSize == 1)
+				if(constant->sValue && loadCmd == VM_INST_LOAD_BYTE)
+				{
 					return CreateConstantInt(module->allocator, NULL, constant->sValue[loadOffset - storeOffset]);
+				}
+				else if(constant->sValue && loadCmd == VM_INST_LOAD_INT)
+				{
+					int result = 0;
+					memcpy(&result, &constant->sValue[loadOffset - storeOffset], sizeof(result));
+					return CreateConstantInt(module->allocator, NULL, result);
+				}
+				else if(constant->sValue && loadCmd == VM_INST_LOAD_LONG)
+				{
+					long long result = 0ll;
+					memcpy(&result, &constant->sValue[loadOffset - storeOffset], sizeof(result));
+					return CreateConstantLong(module->allocator, NULL, result);
+				}
+				else if(constant->sValue && loadCmd == VM_INST_LOAD_DOUBLE)
+				{
+					double result = 0.0;
+					memcpy(&result, &constant->sValue[loadOffset - storeOffset], sizeof(result));
+					return CreateConstantDouble(module->allocator, NULL, result);
+				}
+				else if(constant->sValue && loadCmd == VM_INST_LOAD_FLOAT)
+				{
+					float result = 0.0f;
+					memcpy(&result, &constant->sValue[loadOffset - storeOffset], sizeof(result));
+					return CreateConstantDouble(module->allocator, NULL, result);
+				}
 				else
+				{
 					return NULL;
+				}
 			}
 		}
 
@@ -1598,7 +1626,7 @@ namespace
 						if(VmValue *component = TryExtractConstructElement(el.storeInst->arguments[2], el.storeAddress->iValue, loadAddress->iValue, accessSize))
 							return component;
 
-						if(VmValue *constant = TryExtractConstant(module, el.storeInst->arguments[2], el.storeAddress->iValue, el.accessSize, loadAddress->iValue, accessSize))
+						if(VmValue *constant = TryExtractConstant(module, el.storeInst->arguments[2], el.storeAddress->iValue, el.accessSize, loadAddress->iValue, accessSize, inst->cmd))
 							return constant;
 					}
 				}
@@ -2936,11 +2964,101 @@ VmValue* CompileVmAssignment(ExpressionContext &ctx, VmModule *module, ExprAssig
 		// Array initializers are compiled to per-element assignments
 		if(instInit->cmd == VM_INST_ARRAY)
 		{
-			VmConstant *tempAddress = CreateAlloca(ctx, module, node->source, node->rhs->type, "array");
+			bool isGoodConstant = true;
+
+			for(unsigned i = 0; i < instInit->arguments.size(); i++)
+			{
+				VmValue *elementValue = instInit->arguments[i];
+
+				if(VmInstruction *elementInst = getType<VmInstruction>(elementValue))
+				{
+					if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
+						elementValue = elementInst->arguments[0];
+				}
+
+				VmConstant *element = getType<VmConstant>(elementValue);
+
+				if(!element || element->isReference)
+				{
+					isGoodConstant = false;
+					break;
+				}
+
+				if(element->type.type == VM_TYPE_INT)
+					continue;
+				else if(element->type.type == VM_TYPE_DOUBLE)
+					continue;
+				else if(element->type.type == VM_TYPE_LONG)
+					continue;
+				else if(element->type.type == VM_TYPE_STRUCT && element->sValue)
+					continue;
+
+				isGoodConstant = false;
+			}
 
 			TypeArray *typeArray = getType<TypeArray>(node->type);
 
 			TypeBase *elementType = typeArray->subType;
+
+			if(isGoodConstant)
+			{
+				unsigned size = unsigned(typeArray->size);
+
+				char *value = (char*)ctx.allocator->alloc(size);
+				memset(value, 0, size);
+
+				for(unsigned i = 0; i < instInit->arguments.size(); i++)
+				{
+					VmValue *elementValue = instInit->arguments[i];
+
+					if(VmInstruction *elementInst = getType<VmInstruction>(elementValue))
+					{
+						if(elementInst->cmd == VM_INST_DOUBLE_TO_FLOAT)
+							elementValue = elementInst->arguments[0];
+					}
+
+					VmConstant *element = getType<VmConstant>(elementValue);
+
+					if(element->type.type == VM_TYPE_INT)
+					{
+						assert(elementType->size == element->type.size);
+						memcpy(value + i * sizeof(int), &element->iValue, sizeof(int));
+					}
+					else if(element->type.type == VM_TYPE_DOUBLE && elementType == ctx.typeDouble)
+					{
+						memcpy(value + i * sizeof(double), &element->dValue, sizeof(double));
+					}
+					else if(element->type.type == VM_TYPE_DOUBLE && elementType == ctx.typeFloat)
+					{
+						float fValue = float(element->dValue);
+						memcpy(value + i * sizeof(float), &fValue, sizeof(float));
+					}
+					else if(element->type.type == VM_TYPE_LONG)
+					{
+						assert(elementType->size == element->type.size);
+						memcpy(value + i * sizeof(long long), &element->lValue, sizeof(long long));
+					}
+					else if(element->type.type == VM_TYPE_STRUCT && element->sValue)
+					{
+						assert(elementType->size == element->type.size);
+						memcpy(value + i * element->type.size, element->sValue, element->type.size);
+					}
+					else
+					{
+						assert(!"unknown type");
+					}
+				}
+
+				VmValue *constant = CreateConstantStruct(module->allocator, node->source, value, size, typeArray);
+
+				CreateStore(ctx, module, node->source, typeArray, address, constant, 0);
+
+				VmValue *copy = CreateLoad(ctx, module, node->source, node->rhs->type, address, 0);
+
+				return CheckType(ctx, node, copy);
+			}
+
+			VmConstant *tempAddress = CreateAlloca(ctx, module, node->source, node->rhs->type, "array");
 
 			for(unsigned i = 0; i < instInit->arguments.size(); i++)
 			{
