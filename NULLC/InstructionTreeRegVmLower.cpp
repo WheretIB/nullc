@@ -3174,6 +3174,8 @@ void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lo
 		}
 	}
 
+	SmallArray<unsigned char, 16> usedRegisters;
+
 	// Reserve registers already allocated by live in variables
 	for(unsigned i = 0; i < vmBlock->liveIn.size(); i++)
 	{
@@ -3186,6 +3188,8 @@ void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lo
 				unsigned char reg = liveIn->regVmRegisters[k];
 
 				lowFunction->registerUsers[reg]++;
+
+				usedRegisters.push_back(reg);
 			}
 		}
 	}
@@ -3202,6 +3206,8 @@ void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lo
 				unsigned char reg = liveOut->regVmRegisters[k];
 
 				lowFunction->registerUsers[reg]++;
+
+				usedRegisters.push_back(reg);
 			}
 		}
 	}
@@ -3251,13 +3257,12 @@ void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lo
 			if(liveOut->color != 0)
 				lowFunction->colorRegisters[liveOut->color] = liveOut;
 
+			for(unsigned k = 0; k < liveOut->regVmRegisters.size(); k++)
+				usedRegisters.push_back(liveOut->regVmRegisters[k]);
+
 			UpdateSharedStorage(liveOut, lowFunction->nextSearchMarker++);
 		}
 	}
-
-	// Clear register use counts
-	for(unsigned i = 0; i < 256; i++)
-		lowFunction->registerUsers[i] = 0;
 
 	// Proceed to children in dominance tree
 	for(unsigned i = 0; i < vmBlock->dominanceChildren.size(); i++)
@@ -3265,6 +3270,15 @@ void AllocateLiveInOutRegisters(ExpressionContext &ctx, RegVmLoweredFunction *lo
 		VmBlock *curr = vmBlock->dominanceChildren[i];
 
 		AllocateLiveInOutRegisters(ctx, lowFunction, curr);
+	}
+
+	// Clear register users
+	for(unsigned i = 0; i < usedRegisters.size(); i++)
+	{
+		unsigned char reg = usedRegisters[i];
+
+		assert(lowFunction->registerUsers[reg]);
+		lowFunction->registerUsers[reg]--;
 	}
 }
 
@@ -3399,6 +3413,9 @@ RegVmLoweredFunction* RegVmLowerFunction(ExpressionContext &ctx, RegVmLoweredMod
 	memset(lowFunction->colorRegisters.data, 0, lowFunction->colorRegisters.size() * sizeof(lowFunction->colorRegisters[0]));
 
 	AllocateLiveInOutRegisters(ctx, lowFunction, vmFunction->firstBlock);
+
+	for(unsigned i = 0; i < 256; i++)
+		assert(lowFunction->registerUsers[i] == 0);
 
 	for(VmBlock *vmBlock = vmFunction->firstBlock; vmBlock; vmBlock = vmBlock->nextSibling)
 	{

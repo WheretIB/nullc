@@ -667,6 +667,37 @@ int[8] res = test();\r\n\
 return res[0] + res[1] + res[2] + res[3] + res[4];";
 TEST_RESULT("SSA exit error 2", testSsaExit2, "87231370");
 
+const char	*testSsaExit3 =
+"int EulerTest26()\r\n\
+{\r\n\
+	int n, i, maxlen, maxn;\r\n\
+	maxlen = 0;\r\n\
+	for(n = 2; n <= 100; n++)\r\n\
+	{\r\n\
+		int rest = 1;\r\n\
+		int r0;\r\n\
+		for(i = 0; i < n; i++)\r\n\
+			rest = (rest * 10) % n;\r\n\
+		r0 = rest;\r\n\
+		int len = 0;\r\n\
+		do\r\n\
+		{\r\n\
+			rest = (rest * 10) % n;\r\n\
+			len++;\r\n\
+		}\r\n\
+		while(rest != r0);\r\n\
+		if(len > maxlen)\r\n\
+		{\r\n\
+			maxn = n;\r\n\
+			maxlen = len;\r\n\
+		}\r\n\
+	}\r\n\
+\r\n\
+	return maxn;\r\n\
+}\r\n\
+return EulerTest26();";
+TEST_RESULT("SSA exit error 3", testSsaExit3, "97");
+
 const char	*testNullPointerTypeUse =
 "__nullptr t;\r\n\
 __nullptr u;\r\n\
