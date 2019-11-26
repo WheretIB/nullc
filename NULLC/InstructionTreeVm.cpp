@@ -1506,25 +1506,47 @@ namespace
 		}
 	}
 
-	VmValue* TryExtractConstructElement(VmValue* value, unsigned offset, unsigned size)
+	VmValue* TryExtractConstructElement(VmValue* value, unsigned storeOffset, unsigned loadOffset, unsigned loadSize)
 	{
 		VmInstruction *inst = getType<VmInstruction>(value);
 
 		if(inst && (inst->cmd == VM_INST_CONSTRUCT || inst->cmd == VM_INST_ARRAY))
 		{
+			if(storeOffset != 0)
+				return NULL;
+
 			unsigned pos = 0;
 
 			for(unsigned k = 0; k < inst->arguments.size(); k++)
 			{
 				VmValue *component = inst->arguments[k];
 
-				if(pos == offset && size == component->type.size)
+				if(pos == loadOffset && loadSize == component->type.size)
 					return component;
 
-				if(offset >= pos && offset + size <= pos + component->type.size)
-					return TryExtractConstructElement(component, offset - pos, size);
+				if(loadOffset >= pos && loadOffset + loadSize <= pos + component->type.size)
+					return TryExtractConstructElement(component, 0, loadOffset - pos, loadSize);
 
 				pos += component->type.size;
+			}
+		}
+
+		return NULL;
+	}
+
+	VmValue* TryExtractConstant(VmModule *module, VmValue* value, unsigned storeOffset, unsigned storeSize, unsigned loadOffset, unsigned loadSize)
+	{
+		if(VmConstant *constant = getType<VmConstant>(value))
+		{
+			// Do we even intersect
+			if(loadOffset >= storeOffset && loadOffset + loadSize <= storeOffset + storeSize)
+			{
+				assert(constant->sValue);
+
+				if(constant->sValue && loadSize == 1)
+					return CreateConstantInt(module->allocator, NULL, constant->sValue[loadOffset - storeOffset]);
+				else
+					return NULL;
 			}
 		}
 
@@ -1571,10 +1593,13 @@ namespace
 						return value;
 					}
 
-					if(el.storeAddress->container == loadAddress->container)
+					if(el.storeAddress->container == loadAddress->container && accessSize <= el.accessSize)
 					{
-						if(VmValue *component = TryExtractConstructElement(el.storeInst->arguments[2], loadAddress->iValue, accessSize))
+						if(VmValue *component = TryExtractConstructElement(el.storeInst->arguments[2], el.storeAddress->iValue, loadAddress->iValue, accessSize))
 							return component;
+
+						if(VmValue *constant = TryExtractConstant(module, el.storeInst->arguments[2], el.storeAddress->iValue, el.accessSize, loadAddress->iValue, accessSize))
+							return constant;
 					}
 				}
 			}
