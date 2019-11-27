@@ -1468,6 +1468,7 @@ namespace
 		if(VmConstant *storeAddress = getType<VmConstant>(storePointer))
 		{
 			assert(storeOffset->iValue == 0);
+			(void)storeOffset;
 
 			VmModule::LoadStoreInfo info;
 
@@ -1483,6 +1484,7 @@ namespace
 			if(VmConstant *loadAddress = getType<VmConstant>(loadPointer))
 			{
 				assert(storeOffset->iValue == 0);
+				(void)storeOffset;
 
 				info.loadAddress = loadAddress;
 			}
@@ -3021,7 +3023,7 @@ VmConstant* GetConstantArrayValue(ExpressionContext &ctx, SynBase *source, TypeA
 				VmConstant *elemConst = GetConstantArrayValue(ctx, NULL, getType<TypeArray>(elementType), elementInst);
 
 				assert(elementType->size == elemConst->type.size);
-				memcpy(value + i * elementType->size, elemConst->sValue, elementType->size);
+				memcpy(value + i * elementType->size, elemConst->sValue, unsigned(elementType->size));
 				continue;
 			}
 		}
