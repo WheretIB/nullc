@@ -152,12 +152,12 @@ struct OutputContext
 
 					int value = va_arg(args, int);
 
-					if(value < 0)
+					if(*tmpPos == 'd' && value < 0)
 						Print('-');
 
 					unsigned uvalue;
 
-					if(value < 0)
+					if(*tmpPos == 'd' && value < 0)
 						uvalue = -value;
 					else
 						uvalue = value;
