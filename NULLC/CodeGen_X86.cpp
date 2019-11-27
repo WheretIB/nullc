@@ -197,17 +197,10 @@ void EMIT_OP(x86Command op)
 		NULLC::regRead[rEAX] = NULLC::regRead[rEBX] = NULLC::regRead[rECX] = NULLC::regRead[rEDX] = true;
 	}else if(op == o_rep_movsd){
 		NULLC::regRead[rECX] = NULLC::regRead[rESI] = NULLC::regRead[rEDI] = true;
-		NULLC::InvalidateDependand(rESI);
-		NULLC::reg[rESI].type = x86Argument::argNone;
-		NULLC::InvalidateDependand(rEDI);
-		NULLC::reg[rEDI].type = x86Argument::argNone;
+
 		assert(NULLC::reg[rECX].type == x86Argument::argNumber);
-		unsigned int stackEntryCount = NULLC::reg[rECX].num;
-		stackEntryCount = stackEntryCount > NULLC::STACK_STATE_SIZE ? NULLC::STACK_STATE_SIZE : stackEntryCount;
-		for(unsigned int i = 0; i < stackEntryCount; i++)
-			NULLC::stackRead[(16 + NULLC::stackTop - i) % NULLC::STACK_STATE_SIZE] = true;
-		NULLC::InvalidateDependand(rECX);
-		NULLC::reg[rECX].type = x86Argument::argNone;
+
+		NULLC::InvalidateState();
 	}else if(op == o_cdq){
 		if(NULLC::reg[rEAX].type == x86Argument::argNumber)
 		{
