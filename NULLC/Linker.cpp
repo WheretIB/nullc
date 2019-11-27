@@ -695,7 +695,6 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		case rviBitAnd:
 		case rviBitOr:
 		case rviBitXor:
-		case rviLogXor:
 		case rviAddl:
 		case rviSubl:
 		case rviMull:
@@ -713,7 +712,6 @@ bool Linker::LinkCode(const char *code, const char *moduleName)
 		case rviBitAndl:
 		case rviBitOrl:
 		case rviBitXorl:
-		case rviLogXorl:
 		case rviAddd:
 		case rviSubd:
 		case rviMuld:

@@ -2444,13 +2444,6 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviBitXor, rviNop, rviBitXorl);
 	}
 		break;
-	case VM_INST_LOG_XOR:
-	{
-		unsigned char lhsReg = GetArgumentRegister(ctx, lowFunction, lowBlock, inst->arguments[0]);
-
-		LowerBinaryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, lhsReg, rviLogXor, rviNop, rviLogXorl);
-	}
-		break;
 	case VM_INST_ADD_LOAD:
 	{
 		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviAdd, rviAddf, rviAddd, rviAddl);
@@ -2534,11 +2527,6 @@ void LowerInstructionIntoBlock(ExpressionContext &ctx, RegVmLoweredFunction *low
 	case VM_INST_BIT_XOR_LOAD:
 	{
 		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviBitXor, rviNop, rviNop, rviBitXorl);
-	}
-	break;
-	case VM_INST_LOG_XOR_LOAD:
-	{
-		LowerBinaryMemoryOperationIntoBlock(ctx, lowFunction, lowBlock, inst, rviLogXor, rviNop, rviNop, rviLogXorl);
 	}
 	break;
 	case VM_INST_NEG:

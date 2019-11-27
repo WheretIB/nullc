@@ -523,7 +523,6 @@ void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCo
 	case rviBitAnd:
 	case rviBitOr:
 	case rviBitXor:
-	case rviLogXor:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
 		PrintRegister(ctx, rB);
@@ -554,7 +553,6 @@ void PrintInstruction(OutputContext &ctx, char *constantData, RegVmInstructionCo
 	case rviBitAndl:
 	case rviBitOrl:
 	case rviBitXorl:
-	case rviLogXorl:
 		PrintRegister(ctx, rA);
 		Print(ctx, ", ");
 		PrintRegister(ctx, rB);

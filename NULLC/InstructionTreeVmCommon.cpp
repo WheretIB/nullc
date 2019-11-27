@@ -146,6 +146,21 @@ VmConstant* CreateConstantFunction(Allocator *allocator, SynBase *source, VmFunc
 	return result;
 }
 
+VmConstant* CreateConstantZero(Allocator *allocator, SynBase *source, VmType type)
+{
+	if(type == VmType::Int)
+		return CreateConstantInt(allocator, source, 0);
+
+	if(type == VmType::Double)
+		return CreateConstantDouble(allocator, source, 0);
+
+	if(type == VmType::Long)
+		return CreateConstantLong(allocator, source, 0);
+
+	assert(!"unknown type");
+	return NULL;
+}
+
 bool DoesConstantIntegerMatch(VmValue* value, long long number)
 {
 	if(VmConstant *constant = getType<VmConstant>(value))
@@ -242,7 +257,6 @@ unsigned GetAccessSize(VmInstruction *inst)
 	case VM_INST_BIT_AND_LOAD:
 	case VM_INST_BIT_OR_LOAD:
 	case VM_INST_BIT_XOR_LOAD:
-	case VM_INST_LOG_XOR_LOAD:
 		if(VmConstant *loadInst = getType<VmConstant>(inst->arguments[3]))
 		{
 			switch(loadInst->iValue)
@@ -443,8 +457,6 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "or";
 	case VM_INST_BIT_XOR:
 		return "xor";
-	case VM_INST_LOG_XOR:
-		return "lxor";
 	case VM_INST_ADD_LOAD:
 		return "add_load";
 	case VM_INST_SUB_LOAD:
@@ -479,8 +491,6 @@ const char* GetInstructionName(VmInstruction *inst)
 		return "or_load";
 	case VM_INST_BIT_XOR_LOAD:
 		return "xor_load";
-	case VM_INST_LOG_XOR_LOAD:
-		return "lxor_load";
 	case VM_INST_NEG:
 		return "neg";
 	case VM_INST_BIT_NOT:

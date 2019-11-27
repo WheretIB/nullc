@@ -79,8 +79,6 @@ enum RegVmInstructionCode
 	rviBitOr,
 	rviBitXor,
 
-	rviLogXor,
-
 	rviAddImml,
 
 	rviAddl,
@@ -104,8 +102,6 @@ enum RegVmInstructionCode
 	rviBitAndl,
 	rviBitOrl,
 	rviBitXorl,
-
-	rviLogXorl,
 
 	rviAddd,
 	rviSubd,

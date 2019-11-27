@@ -1359,17 +1359,6 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 			else
 				assert(!"unknown type");
 			break;
-		case VM_INST_LOG_XOR:
-			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
-			LowerIntoBlock(ctx, lowBlock, inst->arguments[1]);
-
-			if(inst->arguments[0]->type == VmType::Int)
-				lowBlock->AddInstruction(ctx, inst->source, cmdLogXor);
-			else if(inst->arguments[0]->type == VmType::Long)
-				lowBlock->AddInstruction(ctx, inst->source, cmdLogXorL);
-			else
-				assert(!"unknown type");
-			break;
 		case VM_INST_ADD_LOAD:
 		{
 			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
@@ -1588,17 +1577,6 @@ void LowerIntoBlock(ExpressionContext &ctx, VmLoweredBlock *lowBlock, VmValue *v
 				lowBlock->AddInstruction(ctx, inst->source, cmdBitXor);
 			else if(inst->type == VmType::Long)
 				lowBlock->AddInstruction(ctx, inst->source, cmdBitXorL);
-			else
-				assert(!"unknown type");
-			break;
-		case VM_INST_LOG_XOR_LOAD:
-			LowerIntoBlock(ctx, lowBlock, inst->arguments[0]);
-			LowerLoadIntoBlock(ctx, lowBlock, inst->source, VmInstructionType(getType<VmConstant>(inst->arguments[3])->iValue), inst->arguments[1], inst->arguments[2]);
-
-			if(inst->arguments[0]->type == VmType::Int)
-				lowBlock->AddInstruction(ctx, inst->source, cmdLogXor);
-			else if(inst->arguments[0]->type == VmType::Long)
-				lowBlock->AddInstruction(ctx, inst->source, cmdLogXorL);
 			else
 				assert(!"unknown type");
 			break;

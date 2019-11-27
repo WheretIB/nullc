@@ -125,7 +125,6 @@ namespace
 		case VM_INST_BIT_AND_LOAD:
 		case VM_INST_BIT_OR_LOAD:
 		case VM_INST_BIT_XOR_LOAD:
-		case VM_INST_LOG_XOR_LOAD:
 			return true;
 		default:
 			break;
@@ -216,8 +215,6 @@ namespace
 			return VM_INST_BIT_OR_LOAD;
 		case VM_INST_BIT_XOR:
 			return VM_INST_BIT_XOR_LOAD;
-		case VM_INST_LOG_XOR:
-			return VM_INST_LOG_XOR_LOAD;
 		default:
 			break;
 		}
@@ -641,14 +638,6 @@ namespace
 		assert(lhs->type == rhs->type);
 
 		return CreateInstruction(module, source, lhs->type, VM_INST_BIT_XOR, lhs, rhs);
-	}
-
-	VmValue* CreateLogicalXor(VmModule *module, SynBase *source, VmValue *lhs, VmValue *rhs)
-	{
-		assert(lhs->type == VmType::Int || lhs->type == VmType::Long);
-		assert(lhs->type == rhs->type);
-
-		return CreateInstruction(module, source, VmType::Int, VM_INST_LOG_XOR, lhs, rhs);
 	}
 
 	VmValue* CreateNeg(VmModule *module, SynBase *source, VmValue *value)
@@ -2875,7 +2864,7 @@ VmValue* CompileVmBinaryOp(ExpressionContext &ctx, VmModule *module, ExprBinaryO
 		result = CreateXor(module, node->source, lhs, rhs);
 		break;
 	case SYN_BINARY_OP_LOGICAL_XOR:
-		result = CreateLogicalXor(module, node->source, lhs, rhs);
+		result = CreateCompareNotEqual(module, node->source, CreateCompareNotEqual(module, node->source, lhs, CreateConstantZero(module->allocator, node->source, lhs->type)), CreateCompareNotEqual(module, node->source, rhs, CreateConstantZero(module->allocator, node->source, rhs->type)));
 		break;
 	default:
 		break;
@@ -4512,12 +4501,6 @@ void RunConstantPropagation(ExpressionContext &ctx, VmModule *module, VmValue* v
 			else if(inst->type == VmType::Long)
 				ReplaceValueUsersWith(module, inst, CreateConstantLong(module->allocator, inst->source, consts[0]->lValue ^ consts[1]->lValue), &module->constantPropagations);
 			break;
-		case VM_INST_LOG_XOR:
-			if(consts[0]->type == VmType::Int)
-				ReplaceValueUsersWith(module, inst, CreateConstantInt(module->allocator, inst->source, (consts[0]->iValue != 0) != (consts[1]->iValue != 0)), &module->constantPropagations);
-			else if(consts[0]->type == VmType::Long)
-				ReplaceValueUsersWith(module, inst, CreateConstantInt(module->allocator, inst->source, (consts[0]->lValue != 0) != (consts[1]->lValue != 0)), &module->constantPropagations);
-			break;
 		case VM_INST_NEG:
 			if(inst->type == VmType::Int)
 				ReplaceValueUsersWith(module, inst, CreateConstantInt(module->allocator, inst->source, -consts[0]->iValue), &module->constantPropagations);
@@ -5843,7 +5826,6 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 		case VM_INST_BIT_AND:
 		case VM_INST_BIT_OR:
 		case VM_INST_BIT_XOR:
-		case VM_INST_LOG_XOR:
 			if(VmInstruction *rhs = getType<VmInstruction>(inst->arguments[1]))
 			{
 				VmValue *lhs = inst->arguments[0];
@@ -5872,7 +5854,6 @@ void RunLatePeepholeOptimizations(ExpressionContext &ctx, VmModule *module, VmVa
 		case VM_INST_BIT_AND:
 		case VM_INST_BIT_OR:
 		case VM_INST_BIT_XOR:
-		case VM_INST_LOG_XOR:
 			if(VmInstruction *lhs = getType<VmInstruction>(inst->arguments[0]))
 			{
 				VmValue *rhs = inst->arguments[1];

@@ -30,6 +30,7 @@ VmConstant* CreateConstantPointer(Allocator *allocator, SynBase *source, int off
 VmConstant* CreateConstantStruct(Allocator *allocator, SynBase *source, char *value, int size, TypeBase *structType);
 VmConstant* CreateConstantBlock(Allocator *allocator, SynBase *source, VmBlock *block);
 VmConstant* CreateConstantFunction(Allocator *allocator, SynBase *source, VmFunction *function);
+VmConstant* CreateConstantZero(Allocator *allocator, SynBase *source, VmType type);
 
 bool DoesConstantIntegerMatch(VmValue* value, long long number);
 bool DoesConstantMatchEither(VmValue* value, int iValue, double dValue, long long lValue);

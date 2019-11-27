@@ -116,8 +116,6 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "bitor";
 	case rviBitXor:
 		return "bitxor";
-	case rviLogXor:
-		return "logxor";
 	case rviAddImml:
 		return "addimml";
 	case rviAddl:
@@ -154,8 +152,6 @@ const char* GetInstructionName(RegVmInstructionCode code)
 		return "bitorl";
 	case rviBitXorl:
 		return "bitxorl";
-	case rviLogXorl:
-		return "logxorl";
 	case rviAddd:
 		return "addd";
 	case rviSubd:

@@ -484,7 +484,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 		&&case_rviBitAnd,
 		&&case_rviBitOr,
 		&&case_rviBitXor,
-		&&case_rviLogXor,
 		&&case_rviAddImml,
 		&&case_rviAddl,
 		&&case_rviSubl,
@@ -503,7 +502,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 		&&case_rviBitAndl,
 		&&case_rviBitOrl,
 		&&case_rviBitXorl,
-		&&case_rviLogXorl,
 		&&case_rviAddd,
 		&&case_rviSubd,
 		&&case_rviMuld,
@@ -951,13 +949,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue ^ *(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
 			instruction++;
 			BREAK;
-		CASE(rviLogXor)
-			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
-				return rvm->ExecError(instruction, "ERROR: null pointer access");
-
-			regFilePtr[cmd.rA].intValue = (regFilePtr[cmd.rB].intValue != 0) != (*(int*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) != 0);
-			instruction++;
-			BREAK;
 		CASE(rviAddImml)
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue + (int)cmd.argument;
 			instruction++;
@@ -1085,13 +1076,6 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 				return rvm->ExecError(instruction, "ERROR: null pointer access");
 
 			regFilePtr[cmd.rA].longValue = regFilePtr[cmd.rB].longValue ^ *(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument);
-			instruction++;
-			BREAK;
-		CASE(rviLogXorl)
-			if((uintptr_t)regFilePtr[cmd.rC].ptrValue < 0x00010000)
-				return rvm->ExecError(instruction, "ERROR: null pointer access");
-
-			regFilePtr[cmd.rA].intValue = (regFilePtr[cmd.rB].longValue != 0) != (*(long long*)(uintptr_t)(regFilePtr[cmd.rC].ptrValue + cmd.argument) != 0);
 			instruction++;
 			BREAK;
 		CASE(rviAddd)
