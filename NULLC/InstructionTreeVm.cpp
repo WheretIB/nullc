@@ -6599,19 +6599,24 @@ void LegalizeVmRegisterUsage(ExpressionContext &ctx, VmModule *module, VmBlock *
 
 		curr->canBeRemoved = false;
 
-		ReplaceValueUsersWith(module, curr, CreateLoad(ctx, module, curr->source, type, address, 0), NULL);
+		VmValue *loadValue = CreateLoad(ctx, module, curr->source, type, address, 0);
+
+		ReplaceValueUsersWith(module, curr, loadValue, NULL);
 
 		curr->canBeRemoved = true;
 
 		block->insertPoint = curr;
 
-		CreateStore(ctx, module, curr->source, type, address, curr, 0);
+		VmValue *storeValue = CreateStore(ctx, module, curr->source, type, address, curr, 0);
 
 		block->insertPoint = block->lastInstruction;
 
 		// Skip generated load and store instructions
-		curr = curr->nextSibling;
-		curr = curr->nextSibling;
+		if (isType<VmInstruction>(loadValue))
+			curr = curr->nextSibling;
+
+		if(isType<VmInstruction>(storeValue))
+			curr = curr->nextSibling;
 	}
 
 	module->currentBlock = NULL;

@@ -638,6 +638,15 @@ set(5); // optimization barrier\r\n\
 return a + a + (a = 10);";
 TEST_RESULT("Side-effect ordering test 6", testSideEffectOrdering6, "20");
 
+const char	*testSideEffectOrdering7 =
+"int sum = 0;\r\n\
+class Empty{}\r\n\
+Empty operator <<(Empty out, int ref num){ sum += *num; return out; }\r\n\
+Empty e;\r\n\
+e << new int(1) << new int(2) << new int(3) << new int(4) << new int(5) << new int(6) << new int(7) << new int(8) << new int(9);\r\n\
+return sum;";
+TEST_RESULT("Side-effect ordering test 7", testSideEffectOrdering7, "45");
+
 const char	*testSsaExit1 =
 "int test(int t){ int tmin = 0; if(t < tmin) tmin = t; return tmin; } return test(-5) + test(5);";
 TEST_RESULT("SSA exit error 1", testSsaExit1, "-5");
