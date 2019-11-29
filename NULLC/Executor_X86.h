@@ -2,14 +2,22 @@
 
 #include "stdafx.h"
 
-#include "Executor_Common.h"
-#include "InstructionSet.h"
-#include "Instruction_X86.h"
-#include "Output.h"
-
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 typedef struct DCCallVM_ DCCallVM;
 #endif
+
+class Linker;
+
+struct RegVmCmd;
+
+struct x86Instruction;
+
+struct ExternTypeInfo;
+struct ExternFuncInfo;
+
+struct OutputContext;
+
+struct CodeGenRegVmContext;
 
 class ExecutorX86
 {
@@ -52,6 +60,8 @@ private:
 	bool	InitStack();
 	bool	InitExecution();
 
+	CodeGenRegVmContext *codeGenCtx;
+
 	bool	codeRunning;
 
 	char	execError[512];
@@ -61,7 +71,8 @@ private:
 
 	FastVector<ExternTypeInfo>	&exTypes;
 	FastVector<ExternFuncInfo>	&exFunctions;
-	FastVector<VMCmd>			&exCode;
+	FastVector<RegVmCmd>		&exRegVmCode;
+	FastVector<unsigned int>	&exRegVmConstants;
 	FastVector<bool>			codeJumpTargets;
 
 	FastVector<x86Instruction, true, true>	instList;

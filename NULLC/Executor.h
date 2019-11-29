@@ -1,7 +1,9 @@
 #pragma once
-#include "stdafx.h"
 
+#include "stdafx.h"
+#include "Bytecode.h"
 #include "Executor_Common.h"
+#include "InstructionSet.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 typedef struct DCCallVM_ DCCallVM;

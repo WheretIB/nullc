@@ -20,6 +20,11 @@ const int rAL = rEAX;
 const int rBX = rEBX;
 const int rBL = rEBX;
 
+const unsigned int JUMP_NEAR = (unsigned int)(1u << 31u);
+
+// jump ID markers for assembly printout
+const unsigned int LABEL_GLOBAL = 1 << 30;
+
 enum x86Command
 {
 	o_none,

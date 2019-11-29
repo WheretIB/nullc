@@ -3,12 +3,13 @@
 #define NULLC_LINKER_H
 
 #include "stdafx.h"
-
 #include "Bytecode.h"
 #include "HashMap.h"
-#include "InstructionSet.h"
-#include "Output.h"
-#include "InstructionTreeRegVm.h"
+
+struct VMCmd;
+struct RegVmCmd;
+
+struct OutputContext;
 
 const int LINK_ERROR_BUFFER_SIZE = 512;
 

@@ -1,7 +1,9 @@
 #include "Linker.h"
+
 #include "StdLib.h"
 #include "BinaryCache.h"
-#include"InstructionTreeRegVmLowerGraph.h"
+#include "InstructionSet.h"
+#include "InstructionTreeRegVmLowerGraph.h"
 
 #ifdef NULLC_AUTOBINDING
 	#if defined(__linux)

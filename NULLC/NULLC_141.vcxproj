@@ -210,6 +210,7 @@
     <ClCompile Include="..\external\dyncall\dyncall_vector.c" />
     <ClCompile Include="BinaryCache.cpp" />
     <ClCompile Include="Bytecode.cpp" />
+    <ClCompile Include="CodeGenRegVm_X86.cpp" />
     <ClCompile Include="Executor_RegVm.cpp" />
     <ClCompile Include="ExpressionGraph.cpp" />
     <ClCompile Include="ExpressionTranslate.cpp" />
@@ -266,6 +267,7 @@
     <ClInclude Include="Array.h" />
     <ClInclude Include="BinaryCache.h" />
     <ClInclude Include="Bytecode.h" />
+    <ClInclude Include="CodeGenRegVm_X86.h" />
     <ClInclude Include="DenseMap.h" />
     <ClInclude Include="Executor_RegVm.h" />
     <ClInclude Include="ExpressionGraph.h" />

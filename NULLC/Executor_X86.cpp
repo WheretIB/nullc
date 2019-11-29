@@ -1,9 +1,14 @@
 #include "stdafx.h"
+
 #ifdef NULLC_BUILD_X86_JIT
 
 #include "Executor_X86.h"
 #include "CodeGen_X86.h"
+#include "CodeGenRegVm_X86.h"
 #include "Translator_X86.h"
+#include "Linker.h"
+#include "Executor_Common.h"
+#include "InstructionTreeRegVmLowerGraph.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 #define dcAllocMem NULLC::alloc
@@ -36,7 +41,7 @@ namespace NULLC
 	{
 		unsigned int	unused1;
 		unsigned int	lastEDI;
-		unsigned int	instructionPtr;
+		uintptr_t		instructionPtr;
 		unsigned int	nextElement;
 	};
 
@@ -53,7 +58,7 @@ namespace NULLC
 	// Code run result - two DWORDs for parts of result and a type flag
 	int runResult = 0;
 	int runResult2 = 0;
-	asmOperType runResultType = OTYPE_DOUBLE;
+	RegVmReturnType runResultType = rvrVoid;
 
 	// Call stack is made up by a linked list, starting from last frame, this array will hold call stack in correct order
 	const unsigned int STACK_TRACE_DEPTH = 1024;
@@ -64,35 +69,50 @@ namespace NULLC
 	// Part of state that SEH handler saves for future use
 	unsigned int expCodePublic;
 	unsigned int expAllocCode;
-	unsigned int expEAXstate;
-	unsigned int expECXstate;
-	unsigned int expESPstate;
+	uintptr_t expEAXstate;
+	uintptr_t expECXstate;
+	uintptr_t expESPstate;
 
 	ExecutorX86	*currExecutor = NULL;
 
 #ifndef __linux
+
+#if defined(_M_X64)
+#define RegisterIp Rip
+#define RegisterAx Rax
+#define RegisterCx Rcx
+#define RegisterSp Rsp
+#define RegisterDi Rdi
+#else
+#define RegisterIp Eip
+#define RegisterAx Eax
+#define RegisterCx Ecx
+#define RegisterSp Esp
+#define RegisterDi Edi
+#endif
+
 	DWORD CanWeHandleSEH(unsigned int expCode, _EXCEPTION_POINTERS* expInfo)
 	{
 		// Check that exception happened in NULLC code (division by zero and int overflow still catched)
-		bool externalCode = expInfo->ContextRecord->Eip < binCodeStart || expInfo->ContextRecord->Eip > binCodeEnd;
-		bool managedMemoryEnd = expInfo->ExceptionRecord->ExceptionInformation[1] > paramDataBase && expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->Edi + paramDataBase + 64 * 1024;
+		bool externalCode = expInfo->ContextRecord->RegisterIp < binCodeStart || expInfo->ContextRecord->RegisterIp > binCodeEnd;
+		bool managedMemoryEnd = expInfo->ExceptionRecord->ExceptionInformation[1] > paramDataBase && expInfo->ExceptionRecord->ExceptionInformation[1] < expInfo->ContextRecord->RegisterDi + paramDataBase + 64 * 1024;
 
 		if(externalCode && (expCode == EXCEPTION_BREAKPOINT || expCode == EXCEPTION_STACK_OVERFLOW || (expCode == EXCEPTION_ACCESS_VIOLATION && !managedMemoryEnd)))
 			return (DWORD)EXCEPTION_CONTINUE_SEARCH;
 
 		// Save part of state for later use
-		expEAXstate = expInfo->ContextRecord->Eax;
-		expECXstate = expInfo->ContextRecord->Ecx;
-		expESPstate = expInfo->ContextRecord->Esp;
+		expEAXstate = expInfo->ContextRecord->RegisterAx;
+		expECXstate = expInfo->ContextRecord->RegisterCx;
+		expESPstate = expInfo->ContextRecord->RegisterSp;
 		expCodePublic = expCode;
 		expAllocCode = ~0u;
 
-		if(!externalCode && *(unsigned char*)(intptr_t)expInfo->ContextRecord->Eip == 0xcc)
+		if(!externalCode && *(unsigned char*)(intptr_t)expInfo->ContextRecord->RegisterIp == 0xcc)
 		{
 			unsigned index = ~0u;
 			for(unsigned i = 0; i < currExecutor->breakInstructions.size() && index == ~0u; i++)
 			{
-				if((intptr_t)currExecutor->instAddress[currExecutor->breakInstructions[i].instIndex] == expInfo->ContextRecord->Eip)
+				if((uintptr_t)currExecutor->instAddress[currExecutor->breakInstructions[i].instIndex] == expInfo->ContextRecord->RegisterIp)
 					index = i;
 			}
 			//printf("Found at index %d\n", index);
@@ -100,8 +120,8 @@ namespace NULLC
 				return EXCEPTION_CONTINUE_SEARCH;
 			//printf("Returning execution (%d)\n", currExecutor->breakInstructions[index].instIndex);
 
-			unsigned array[2] = { expInfo->ContextRecord->Eip, 0 };
-			NULLC::dataHead->instructionPtr = (unsigned)(uintptr_t)&array[1];
+			uintptr_t array[2] = { expInfo->ContextRecord->RegisterIp, 0 };
+			NULLC::dataHead->instructionPtr = (uintptr_t)&array[1];
 
 			/*unsigned command = */currExecutor->breakFunction(currExecutor->breakFunctionContext, currExecutor->breakInstructions[index].instIndex);
 			//printf("Returned command %d\n", command);
@@ -113,7 +133,7 @@ namespace NULLC
 		if(!NULLC::abnormalTermination)
 		{
 			// Create call stack
-			dataHead->instructionPtr = expInfo->ContextRecord->Eip;
+			dataHead->instructionPtr = expInfo->ContextRecord->RegisterIp;
 			unsigned int *paramData = &dataHead->nextElement;
 			int count = 0;
 			while(count < (STACK_TRACE_DEPTH - 1) && paramData)
@@ -202,8 +222,8 @@ namespace NULLC
 	}
 #endif
 
-	typedef void (*codegenCallback)(VMCmd);
-	codegenCallback cgFuncs[cmdEnumCount];
+	typedef void (*codegenCallback)(CodeGenRegVmContext &ctx, RegVmCmd);
+	codegenCallback cgFuncs[rviConvertPtr + 1];
 
 	void UpdateFunctionPointer(unsigned dest, unsigned source)
 	{
@@ -250,7 +270,7 @@ static const unsigned char codeHead[] = {
 	0xC3,							// ret
 };
 
-ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions), exCode(linker->exVmCode), exTypes(linker->exTypes)
+ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->exFunctions), exRegVmCode(linker->exRegVmCode), exRegVmConstants(linker->exRegVmConstants), exTypes(linker->exTypes)
 {
 	binCode = NULL;
 	binCodeStart = 0;
@@ -323,6 +343,10 @@ ExecutorX86::~ExecutorX86()
 	oldFunctionLists.clear();
 	functionAddress.clear();
 
+	if(codeGenCtx)
+		NULLC::dealloc(codeGenCtx);
+	codeGenCtx = NULL;
+
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	if(dcCallVM)
 		dcFree(dcCallVM);
@@ -336,148 +360,103 @@ bool ExecutorX86::Initialize()
 {
 	using namespace NULLC;
 
-	cgFuncs[cmdNop] = GenCodeCmdNop;
-
-	cgFuncs[cmdPushChar] = GenCodeCmdPushChar;
-	cgFuncs[cmdPushShort] = GenCodeCmdPushShort;
-	cgFuncs[cmdPushInt] = GenCodeCmdPushInt;
-	cgFuncs[cmdPushFloat] = GenCodeCmdPushFloat;
-	cgFuncs[cmdPushDorL] = GenCodeCmdPushDorL;
-	cgFuncs[cmdPushCmplx] = GenCodeCmdPushCmplx;
-
-	cgFuncs[cmdPushCharStk] = GenCodeCmdPushCharStk;
-	cgFuncs[cmdPushShortStk] = GenCodeCmdPushShortStk;
-	cgFuncs[cmdPushIntStk] = GenCodeCmdPushIntStk;
-	cgFuncs[cmdPushFloatStk] = GenCodeCmdPushFloatStk;
-	cgFuncs[cmdPushDorLStk] = GenCodeCmdPushDorLStk;
-	cgFuncs[cmdPushCmplxStk] = GenCodeCmdPushCmplxStk;
-
-	cgFuncs[cmdPushImmt] = GenCodeCmdPushImmt;
-
-	cgFuncs[cmdMovChar] = GenCodeCmdMovChar;
-	cgFuncs[cmdMovShort] = GenCodeCmdMovShort;
-	cgFuncs[cmdMovInt] = GenCodeCmdMovInt;
-	cgFuncs[cmdMovFloat] = GenCodeCmdMovFloat;
-	cgFuncs[cmdMovDorL] = GenCodeCmdMovDorL;
-	cgFuncs[cmdMovCmplx] = GenCodeCmdMovCmplx;
-
-	cgFuncs[cmdMovCharStk] = GenCodeCmdMovCharStk;
-	cgFuncs[cmdMovShortStk] = GenCodeCmdMovShortStk;
-	cgFuncs[cmdMovIntStk] = GenCodeCmdMovIntStk;
-	cgFuncs[cmdMovFloatStk] = GenCodeCmdMovFloatStk;
-	cgFuncs[cmdMovDorLStk] = GenCodeCmdMovDorLStk;
-	cgFuncs[cmdMovCmplxStk] = GenCodeCmdMovCmplxStk;
-
-	cgFuncs[cmdPop] = GenCodeCmdPop;
-
-	cgFuncs[cmdDtoI] = GenCodeCmdDtoI;
-	cgFuncs[cmdDtoL] = GenCodeCmdDtoL;
-	cgFuncs[cmdDtoF] = GenCodeCmdDtoF;
-	cgFuncs[cmdItoD] = GenCodeCmdItoD;
-	cgFuncs[cmdLtoD] = GenCodeCmdLtoD;
-	cgFuncs[cmdItoL] = GenCodeCmdItoL;
-	cgFuncs[cmdLtoI] = GenCodeCmdLtoI;
-
-	cgFuncs[cmdIndex] = GenCodeCmdIndex;
-	cgFuncs[cmdIndexStk] = GenCodeCmdIndex;
-
-	cgFuncs[cmdCopyDorL] = GenCodeCmdCopyDorL;
-	cgFuncs[cmdCopyI] = GenCodeCmdCopyI;
-
-	cgFuncs[cmdGetAddr] = GenCodeCmdGetAddr;
-	cgFuncs[cmdFuncAddr] = GenCodeCmdFuncAddr;
-
-	cgFuncs[cmdSetRangeStk] = GenCodeCmdSetRangeStk;
-
-	cgFuncs[cmdJmp] = GenCodeCmdJmp;
-
-	cgFuncs[cmdJmpZ] = GenCodeCmdJmpZ;
-	cgFuncs[cmdJmpNZ] = GenCodeCmdJmpNZ;
-
-	cgFuncs[cmdCall] = GenCodeCmdCall;
-	cgFuncs[cmdCallPtr] = GenCodeCmdCallPtr;
-
-	cgFuncs[cmdReturn] = GenCodeCmdReturn;
-	cgFuncs[cmdYield] = GenCodeCmdYield;
-
-	cgFuncs[cmdPushVTop] = GenCodeCmdPushVTop;
-
-	cgFuncs[cmdAdd] = GenCodeCmdAdd;
-	cgFuncs[cmdSub] = GenCodeCmdSub;
-	cgFuncs[cmdMul] = GenCodeCmdMul;
-	cgFuncs[cmdDiv] = GenCodeCmdDiv;
-	cgFuncs[cmdPow] = GenCodeCmdPow;
-	cgFuncs[cmdMod] = GenCodeCmdMod;
-	cgFuncs[cmdLess] = GenCodeCmdLess;
-	cgFuncs[cmdGreater] = GenCodeCmdGreater;
-	cgFuncs[cmdLEqual] = GenCodeCmdLEqual;
-	cgFuncs[cmdGEqual] = GenCodeCmdGEqual;
-	cgFuncs[cmdEqual] = GenCodeCmdEqual;
-	cgFuncs[cmdNEqual] = GenCodeCmdNEqual;
-	cgFuncs[cmdShl] = GenCodeCmdShl;
-	cgFuncs[cmdShr] = GenCodeCmdShr;
-	cgFuncs[cmdBitAnd] = GenCodeCmdBitAnd;
-	cgFuncs[cmdBitOr] = GenCodeCmdBitOr;
-	cgFuncs[cmdBitXor] = GenCodeCmdBitXor;
-	cgFuncs[cmdLogAnd] = GenCodeCmdLogAnd;
-	cgFuncs[cmdLogOr] = GenCodeCmdLogOr;
-	cgFuncs[cmdLogXor] = GenCodeCmdLogXor;
-
-	cgFuncs[cmdAddL] = GenCodeCmdAddL;
-	cgFuncs[cmdSubL] = GenCodeCmdSubL;
-	cgFuncs[cmdMulL] = GenCodeCmdMulL;
-	cgFuncs[cmdDivL] = GenCodeCmdDivL;
-	cgFuncs[cmdPowL] = GenCodeCmdPowL;
-	cgFuncs[cmdModL] = GenCodeCmdModL;
-	cgFuncs[cmdLessL] = GenCodeCmdLessL;
-	cgFuncs[cmdGreaterL] = GenCodeCmdGreaterL;
-	cgFuncs[cmdLEqualL] = GenCodeCmdLEqualL;
-	cgFuncs[cmdGEqualL] = GenCodeCmdGEqualL;
-	cgFuncs[cmdEqualL] = GenCodeCmdEqualL;
-	cgFuncs[cmdNEqualL] = GenCodeCmdNEqualL;
-	cgFuncs[cmdShlL] = GenCodeCmdShlL;
-	cgFuncs[cmdShrL] = GenCodeCmdShrL;
-	cgFuncs[cmdBitAndL] = GenCodeCmdBitAndL;
-	cgFuncs[cmdBitOrL] = GenCodeCmdBitOrL;
-	cgFuncs[cmdBitXorL] = GenCodeCmdBitXorL;
-	cgFuncs[cmdLogAndL] = GenCodeCmdLogAndL;
-	cgFuncs[cmdLogOrL] = GenCodeCmdLogOrL;
-	cgFuncs[cmdLogXorL] = GenCodeCmdLogXorL;
-
-	cgFuncs[cmdAddD] = GenCodeCmdAddD;
-	cgFuncs[cmdSubD] = GenCodeCmdSubD;
-	cgFuncs[cmdMulD] = GenCodeCmdMulD;
-	cgFuncs[cmdDivD] = GenCodeCmdDivD;
-	cgFuncs[cmdPowD] = GenCodeCmdPowD;
-	cgFuncs[cmdModD] = GenCodeCmdModD;
-	cgFuncs[cmdLessD] = GenCodeCmdLessD;
-	cgFuncs[cmdGreaterD] = GenCodeCmdGreaterD;
-	cgFuncs[cmdLEqualD] = GenCodeCmdLEqualD;
-	cgFuncs[cmdGEqualD] = GenCodeCmdGEqualD;
-	cgFuncs[cmdEqualD] = GenCodeCmdEqualD;
-	cgFuncs[cmdNEqualD] = GenCodeCmdNEqualD;
-
-	cgFuncs[cmdNeg] = GenCodeCmdNeg;
-	cgFuncs[cmdNegL] = GenCodeCmdNegL;
-	cgFuncs[cmdNegD] = GenCodeCmdNegD;
-
-	cgFuncs[cmdBitNot] = GenCodeCmdBitNot;
-	cgFuncs[cmdBitNotL] = GenCodeCmdBitNotL;
-
-	cgFuncs[cmdLogNot] = GenCodeCmdLogNot;
-	cgFuncs[cmdLogNotL] = GenCodeCmdLogNotL;
-
-	cgFuncs[cmdIncI] = GenCodeCmdIncI;
-	cgFuncs[cmdIncD] = GenCodeCmdIncD;
-	cgFuncs[cmdIncL] = GenCodeCmdIncL;
-
-	cgFuncs[cmdDecI] = GenCodeCmdDecI;
-	cgFuncs[cmdDecD] = GenCodeCmdDecD;
-	cgFuncs[cmdDecL] = GenCodeCmdDecL;
-
-	cgFuncs[cmdConvertPtr] = GenCodeCmdConvertPtr;
-
-	cgFuncs[cmdCheckedRet] = GenCodeCmdCheckedRet;
+	cgFuncs[rviNop] = GenCodeCmdNop;
+	cgFuncs[rviLoadByte] = GenCodeCmdLoadByte;
+	cgFuncs[rviLoadWord] = GenCodeCmdLoadWord;
+	cgFuncs[rviLoadDword] = GenCodeCmdLoadDword;
+	cgFuncs[rviLoadLong] = GenCodeCmdLoadLong;
+	cgFuncs[rviLoadFloat] = GenCodeCmdLoadFloat;
+	cgFuncs[rviLoadDouble] = GenCodeCmdLoadDouble;
+	cgFuncs[rviLoadImm] = GenCodeCmdLoadImm;
+	cgFuncs[rviLoadImmLong] = GenCodeCmdLoadImmLong;
+	cgFuncs[rviLoadImmDouble] = GenCodeCmdLoadImmDouble;
+	cgFuncs[rviStoreByte] = GenCodeCmdStoreByte;
+	cgFuncs[rviStoreWord] = GenCodeCmdStoreWord;
+	cgFuncs[rviStoreDword] = GenCodeCmdStoreDword;
+	cgFuncs[rviStoreLong] = GenCodeCmdStoreLong;
+	cgFuncs[rviStoreFloat] = GenCodeCmdStoreFloat;
+	cgFuncs[rviStoreDouble] = GenCodeCmdStoreDouble;
+	cgFuncs[rviCombinedd] = GenCodeCmdCombinedd;
+	cgFuncs[rviBreakupdd] = GenCodeCmdBreakupdd;
+	cgFuncs[rviMov] = GenCodeCmdMov;
+	cgFuncs[rviMovMult] = GenCodeCmdMovMult;
+	cgFuncs[rviDtoi] = GenCodeCmdDtoi;
+	cgFuncs[rviDtol] = GenCodeCmdDtol;
+	cgFuncs[rviDtof] = GenCodeCmdDtof;
+	cgFuncs[rviItod] = GenCodeCmdItod;
+	cgFuncs[rviLtod] = GenCodeCmdLtod;
+	cgFuncs[rviItol] = GenCodeCmdItol;
+	cgFuncs[rviLtoi] = GenCodeCmdLtoi;
+	cgFuncs[rviIndex] = GenCodeCmdIndex;
+	cgFuncs[rviGetAddr] = GenCodeCmdGetAddr;
+	cgFuncs[rviSetRange] = GenCodeCmdSetRange;
+	cgFuncs[rviMemCopy] = GenCodeCmdMemCopy;
+	cgFuncs[rviJmp] = GenCodeCmdJmp;
+	cgFuncs[rviJmpz] = GenCodeCmdJmpz;
+	cgFuncs[rviJmpnz] = GenCodeCmdJmpnz;
+	cgFuncs[rviCall] = GenCodeCmdCall;
+	cgFuncs[rviCallPtr] = GenCodeCmdCallPtr;
+	cgFuncs[rviReturn] = GenCodeCmdReturn;
+	cgFuncs[rviAddImm] = GenCodeCmdAddImm;
+	cgFuncs[rviAdd] = GenCodeCmdAdd;
+	cgFuncs[rviSub] = GenCodeCmdSub;
+	cgFuncs[rviMul] = GenCodeCmdMul;
+	cgFuncs[rviDiv] = GenCodeCmdDiv;
+	cgFuncs[rviPow] = GenCodeCmdPow;
+	cgFuncs[rviMod] = GenCodeCmdMod;
+	cgFuncs[rviLess] = GenCodeCmdLess;
+	cgFuncs[rviGreater] = GenCodeCmdGreater;
+	cgFuncs[rviLequal] = GenCodeCmdLequal;
+	cgFuncs[rviGequal] = GenCodeCmdGequal;
+	cgFuncs[rviEqual] = GenCodeCmdEqual;
+	cgFuncs[rviNequal] = GenCodeCmdNequal;
+	cgFuncs[rviShl] = GenCodeCmdShl;
+	cgFuncs[rviShr] = GenCodeCmdShr;
+	cgFuncs[rviBitAnd] = GenCodeCmdBitAnd;
+	cgFuncs[rviBitOr] = GenCodeCmdBitOr;
+	cgFuncs[rviBitXor] = GenCodeCmdBitXor;
+	cgFuncs[rviAddImml] = GenCodeCmdAddImml;
+	cgFuncs[rviAddl] = GenCodeCmdAddl;
+	cgFuncs[rviSubl] = GenCodeCmdSubl;
+	cgFuncs[rviMull] = GenCodeCmdMull;
+	cgFuncs[rviDivl] = GenCodeCmdDivl;
+	cgFuncs[rviPowl] = GenCodeCmdPowl;
+	cgFuncs[rviModl] = GenCodeCmdModl;
+	cgFuncs[rviLessl] = GenCodeCmdLessl;
+	cgFuncs[rviGreaterl] = GenCodeCmdGreaterl;
+	cgFuncs[rviLequall] = GenCodeCmdLequall;
+	cgFuncs[rviGequall] = GenCodeCmdGequall;
+	cgFuncs[rviEquall] = GenCodeCmdEquall;
+	cgFuncs[rviNequall] = GenCodeCmdNequall;
+	cgFuncs[rviShll] = GenCodeCmdShll;
+	cgFuncs[rviShrl] = GenCodeCmdShrl;
+	cgFuncs[rviBitAndl] = GenCodeCmdBitAndl;
+	cgFuncs[rviBitOrl] = GenCodeCmdBitOrl;
+	cgFuncs[rviBitXorl] = GenCodeCmdBitXorl;
+	cgFuncs[rviAddd] = GenCodeCmdAddd;
+	cgFuncs[rviSubd] = GenCodeCmdSubd;
+	cgFuncs[rviMuld] = GenCodeCmdMuld;
+	cgFuncs[rviDivd] = GenCodeCmdDivd;
+	cgFuncs[rviAddf] = GenCodeCmdAddf;
+	cgFuncs[rviSubf] = GenCodeCmdSubf;
+	cgFuncs[rviMulf] = GenCodeCmdMulf;
+	cgFuncs[rviDivf] = GenCodeCmdDivf;
+	cgFuncs[rviPowd] = GenCodeCmdPowd;
+	cgFuncs[rviModd] = GenCodeCmdModd;
+	cgFuncs[rviLessd] = GenCodeCmdLessd;
+	cgFuncs[rviGreaterd] = GenCodeCmdGreaterd;
+	cgFuncs[rviLequald] = GenCodeCmdLequald;
+	cgFuncs[rviGequald] = GenCodeCmdGequald;
+	cgFuncs[rviEquald] = GenCodeCmdEquald;
+	cgFuncs[rviNequald] = GenCodeCmdNequald;
+	cgFuncs[rviNeg] = GenCodeCmdNeg;
+	cgFuncs[rviNegl] = GenCodeCmdNegl;
+	cgFuncs[rviNegd] = GenCodeCmdNegd;
+	cgFuncs[rviBitNot] = GenCodeCmdBitNot;
+	cgFuncs[rviBitNotl] = GenCodeCmdBitNotl;
+	cgFuncs[rviLogNot] = GenCodeCmdLogNot;
+	cgFuncs[rviLogNotl] = GenCodeCmdLogNotl;
+	cgFuncs[rviConvertPtr] = GenCodeCmdConvertPtr;
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	if(!dcCallVM)
@@ -534,7 +513,7 @@ bool ExecutorX86::InitStack()
 
 bool ExecutorX86::InitExecution()
 {
-	if(!exCode.size())
+	if(!exRegVmCode.size())
 	{
 		strcpy(execError, "ERROR: no code to run");
 		return false;
@@ -621,20 +600,20 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				switch(target.retType)
 				{
 				case ExternFuncInfo::RETURN_VOID:
-					NULLC::runResultType = OTYPE_COMPLEX;
+					NULLC::runResultType = rvrVoid;
 					break;
 				case ExternFuncInfo::RETURN_INT:
-					NULLC::runResultType = OTYPE_INT;
+					NULLC::runResultType = rvrInt;
 					memcpy(&NULLC::runResult, returnBuf, sizeof(NULLC::runResult));
 					break;
 				case ExternFuncInfo::RETURN_DOUBLE:
-					NULLC::runResultType = OTYPE_DOUBLE;
+					NULLC::runResultType = rvrDouble;
 
 					memcpy(&NULLC::runResult2, returnBuf, sizeof(NULLC::runResult2));
 					memcpy(&NULLC::runResult, returnBuf + 4, sizeof(NULLC::runResult));
 					break;
 				case ExternFuncInfo::RETURN_LONG:
-					NULLC::runResultType = OTYPE_LONG;
+					NULLC::runResultType = rvrLong;
 
 					memcpy(&NULLC::runResult2, returnBuf, sizeof(NULLC::runResult2));
 					memcpy(&NULLC::runResult, returnBuf + 4, sizeof(NULLC::runResult));
@@ -660,17 +639,17 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				switch(target.retType)
 				{
 				case ExternFuncInfo::RETURN_VOID:
-					NULLC::runResultType = OTYPE_COMPLEX;
+					NULLC::runResultType = rvrVoid;
 					dcCallVoid(dcCallVM, fPtr);
 					break;
 				case ExternFuncInfo::RETURN_INT:
-					NULLC::runResultType = OTYPE_INT;
+					NULLC::runResultType = rvrInt;
 					NULLC::runResult = dcCallInt(dcCallVM, fPtr);
 					break;
 				case ExternFuncInfo::RETURN_DOUBLE:
 				{
 					double tmp = dcCallDouble(dcCallVM, fPtr);
-					NULLC::runResultType = OTYPE_DOUBLE;
+					NULLC::runResultType = rvrDouble;
 					NULLC::runResult2 = ((int*)&tmp)[0];
 					NULLC::runResult = ((int*)&tmp)[1];
 				}
@@ -678,7 +657,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 				case ExternFuncInfo::RETURN_LONG:
 				{
 					long long tmp = dcCallLongLong(dcCallVM, fPtr);
-					NULLC::runResultType = OTYPE_LONG;
+					NULLC::runResultType = rvrLong;
 					NULLC::runResult2 = ((int*)&tmp)[0];
 					NULLC::runResult = ((int*)&tmp)[1];
 				}
@@ -830,8 +809,8 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			strcpy(execError, "ERROR: invalid function pointer");
 		}else if(NULLC::expCodePublic == EXCEPTION_BREAKPOINT && NULLC::expECXstate != NULLC::expESPstate){
 			NULLC::SafeSprintf(execError, 512, "ERROR: cannot convert from %s ref to %s ref",
-			NULLC::expEAXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[NULLC::expEAXstate].offsetToName],
-			NULLC::expECXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[NULLC::expECXstate].offsetToName]);
+			NULLC::expEAXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[unsigned(NULLC::expEAXstate)].offsetToName],
+			NULLC::expECXstate >= exLinker->exTypes.size() ? "%unknown%" : &exLinker->exSymbols[exLinker->exTypes[unsigned(NULLC::expECXstate)].offsetToName]);
 		}else if(NULLC::expCodePublic == EXCEPTION_STACK_OVERFLOW){
 #ifndef __DMC__
 			// Restore stack guard
@@ -858,20 +837,21 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 	NULLC::runResult = res1;
 	NULLC::runResult2 = res2;
+
 	if(functionID == ~0u)
 	{
-		NULLC::runResultType = (asmOperType)resT;
-	}else{
+		NULLC::runResultType = (RegVmReturnType)resT;
+	}
+	else
+	{
 		if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_VOID)
-		{
-			NULLC::runResultType = OTYPE_COMPLEX;
-		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_INT){
-			NULLC::runResultType = OTYPE_INT;
-		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_DOUBLE){
-			NULLC::runResultType = OTYPE_DOUBLE;
-		}else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_LONG){
-			NULLC::runResultType = OTYPE_LONG;
-		}
+			NULLC::runResultType = rvrVoid;
+		else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_INT)
+			NULLC::runResultType = rvrInt;
+		else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_DOUBLE)
+			NULLC::runResultType = rvrDouble;
+		else if(exFunctions[functionID].retType == ExternFuncInfo::RETURN_LONG)
+			NULLC::runResultType = rvrLong;
 	}
 
 	if(!wasCodeRunning)
@@ -981,16 +961,23 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	assert(paramBase);
 
-	SetParamBase((unsigned int)(long long)paramBase);
-	SetFunctionList(exFunctions.data, functionAddress.data);
-	SetContinuePtr(&callContinue);
-	SetLastInstruction(instList.data, instList.data);
+	// Create new code generation context
+	if(codeGenCtx)
+		NULLC::dealloc(codeGenCtx);
+
+	codeGenCtx = (CodeGenRegVmContext*)NULLC::alloc(sizeof(CodeGenRegVmContext));
+
+	//SetParamBase((unsigned int)(long long)paramBase);
+	//SetFunctionList(exFunctions.data, functionAddress.data);
+	//SetContinuePtr(&callContinue);
+
+	codeGenCtx->ctx.SetLastInstruction(instList.data, instList.data);
 
 	CommonSetLinker(exLinker);
 
-	EMIT_OP(o_use32);
+	EMIT_OP(codeGenCtx->ctx, o_use32);
 
-	codeJumpTargets.resize(exCode.size());
+	codeJumpTargets.resize(exRegVmCode.size());
 	if(codeJumpTargets.size())
 		memset(&codeJumpTargets[lastInstructionCount], 0, codeJumpTargets.size() - lastInstructionCount);
 
@@ -1001,34 +988,39 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	// Remove cmdNop, because we don't want to generate code for it
 	codeJumpTargets.pop_back();
 
-	OptimizationLookBehind(false);
-	unsigned int pos = lastInstructionCount;
-	while(pos < exCode.size())
-	{
-		VMCmd &cmd = exCode[pos];
+	SetOptimizationLookBehind(codeGenCtx->ctx, false);
 
-		unsigned int currSize = (int)(GetLastInstruction() - instList.data);
+	unsigned int pos = lastInstructionCount;
+	while(pos < exRegVmCode.size())
+	{
+		RegVmCmd &cmd = exRegVmCode[pos];
+
+		unsigned int currSize = (int)(codeGenCtx->ctx.GetLastInstruction() - instList.data);
 		instList.count = currSize;
 		if(currSize + 64 >= instList.max)
 			instList.grow(currSize + 64);
-		SetLastInstruction(instList.data + currSize, instList.data);
 
-		GetLastInstruction()->instID = pos + 1;
+		codeGenCtx->ctx.SetLastInstruction(instList.data + currSize, instList.data);
+
+		codeGenCtx->ctx.GetLastInstruction()->instID = pos + 1;
 
 		if(codeJumpTargets[pos])
-			OptimizationLookBehind(false);
+			SetOptimizationLookBehind(codeGenCtx->ctx,  false);
 
 		pos++;
-		NULLC::cgFuncs[cmd.cmd](cmd);
+		NULLC::cgFuncs[cmd.code](*codeGenCtx, cmd);
 
-		OptimizationLookBehind(true);
+		SetOptimizationLookBehind(codeGenCtx->ctx, true);
 	}
+
 	// Add extra global return if there is none
-	GetLastInstruction()->instID = pos + 1;
-	EMIT_OP_REG(o_pop, rEBP);
-	EMIT_OP_REG_NUM(o_mov, rEBX, ~0u);
-	EMIT_OP(o_ret);
-	instList.resize((int)(GetLastInstruction() - &instList[0]));
+	codeGenCtx->ctx.GetLastInstruction()->instID = pos + 1;
+
+	EMIT_OP_REG(codeGenCtx->ctx, o_pop, rEBP);
+	EMIT_OP_REG_NUM(codeGenCtx->ctx, o_mov, rEBX, ~0u);
+	EMIT_OP(codeGenCtx->ctx, o_ret);
+
+	instList.resize((int)(codeGenCtx->ctx.GetLastInstruction() - &instList[0]));
 
 	// Once again, mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
 	codeJumpTargets.push_back(false);
@@ -1205,7 +1197,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		binCode = binCodeNew;
 		binCodeStart = (unsigned int)(intptr_t)(binCode + 16);
 	}
-	SetBinaryCodeBase(binCode);
+
+	//SetBinaryCodeBase(binCode);
+
 	NULLC::binCodeStart = binCodeStart;
 	NULLC::binCodeEnd = binCodeStart + binCodeReserved;
 
@@ -1213,11 +1207,11 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	unsigned char *bytecode = binCode + 16 + binCodeSize;
 	unsigned char *code = bytecode + (!binCodeSize ? 0 : -7 /* we must destroy the pop ebp; mov ebx, code; ret; sequence */);
 
-	instAddress.resize(exCode.size() + 1); // Extra instruction for global return
-	memset(instAddress.data + lastInstructionCount, 0, (exCode.size() - lastInstructionCount + 1) * sizeof(unsigned int));
+	instAddress.resize(exRegVmCode.size() + 1); // Extra instruction for global return
+	memset(instAddress.data + lastInstructionCount, 0, (exRegVmCode.size() - lastInstructionCount + 1) * sizeof(unsigned int));
 
 	x86ClearLabels();
-	x86ReserveLabels(GetLastALULabel());
+	x86ReserveLabels(codeGenCtx->labelCount);
 
 	x86Instruction *curr = &instList[0];
 
@@ -1664,7 +1658,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	}
 	globalStartInBytecode = (int)(instAddress[exLinker->vmOffsetToGlobalCode] - (binCode + 16));
 
-	lastInstructionCount = exCode.size();
+	lastInstructionCount = exRegVmCode.size();
 
 	oldJumpTargetCount = exLinker->vmJumpTargets.size();
 	oldFunctionSize = exFunctions.size();
@@ -1687,14 +1681,15 @@ void ExecutorX86::SaveListing(OutputContext &output)
 			output.Printf("0x%x: ; %4d\n", 0xc0000000 | (instList[i].instID - 1), instList[i].instID - 1);
 		}
 
-		if(instList[i].instID && instList[i].instID - 1 < exCode.size())
+		if(instList[i].instID && instList[i].instID - 1 < exRegVmCode.size())
 		{
-			VMCmd &cmd = exCode[instList[i].instID - 1];
+			RegVmCmd &cmd = exRegVmCode[instList[i].instID - 1];
 
-			char buf[256];
-			cmd.Decode(buf);
+			output.Printf("; %4d: ", instList[i].instID - 1);
 
-			output.Printf("; %4d: %s\n", instList[i].instID - 1, buf);
+			PrintInstruction(output, (char*)exRegVmConstants.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
+
+			output.Print('\n');
 		}
 
 		instList[i].Decode(instBuf);
@@ -1712,13 +1707,13 @@ const char* ExecutorX86::GetResult()
 	
 	switch(NULLC::runResultType)
 	{
-	case OTYPE_DOUBLE:
+	case rvrDouble:
 		NULLC::SafeSprintf(execResult, 64, "%f", *(double*)(&combined));
 		break;
-	case OTYPE_LONG:
+	case rvrLong:
 		NULLC::SafeSprintf(execResult, 64, "%lldL", combined);
 		break;
-	case OTYPE_INT:
+	case rvrInt:
 		NULLC::SafeSprintf(execResult, 64, "%d", NULLC::runResult);
 		break;
 	default:
@@ -1727,21 +1722,33 @@ const char* ExecutorX86::GetResult()
 	}
 	return execResult;
 }
+
 int ExecutorX86::GetResultInt()
 {
-	assert(NULLC::runResultType == OTYPE_INT);
+	assert(NULLC::runResultType == rvrInt);
+
 	return NULLC::runResult;
 }
+
 double ExecutorX86::GetResultDouble()
 {
-	assert(NULLC::runResultType == OTYPE_DOUBLE);
+	assert(NULLC::runResultType == rvrDouble);
+
 	long long combined = (long long)(((unsigned long long)(unsigned)NULLC::runResult << 32ull) + (unsigned long long)(unsigned)NULLC::runResult2);
+	double result;
+
+	assert(sizeof(result) == sizeof(combined));
+	memcpy(&result, &combined, sizeof(result));
+
 	return *(double*)(&combined);
 }
+
 long long ExecutorX86::GetResultLong()
 {
-	assert(NULLC::runResultType == OTYPE_LONG);
+	assert(NULLC::runResultType == rvrLong);
+
 	long long combined = (long long)(((unsigned long long)(unsigned)NULLC::runResult << 32ull) + (unsigned long long)(unsigned)NULLC::runResult2);
+
 	return combined;
 }
 
@@ -1801,6 +1808,7 @@ void* ExecutorX86::GetStackStart()
 {
 	return genStackPtr;
 }
+
 void* ExecutorX86::GetStackEnd()
 {
 	return genStackTop;

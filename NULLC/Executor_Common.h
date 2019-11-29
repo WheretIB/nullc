@@ -1,7 +1,10 @@
 #pragma once
 
-#include "Bytecode.h"
-#include "Linker.h"
+class Linker;
+
+struct ExternTypeInfo;
+
+struct NULLCRef;
 
 void CommonSetLinker(Linker* linker);
 

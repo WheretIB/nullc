@@ -1,6 +1,7 @@
 #pragma once
 
-#ifdef NULLC_BUILD_X86_JIT
+#include <math.h>
+
 // Implementations of some functions, called from user binary code
 
 int intPow(int power, int number)
@@ -75,5 +76,3 @@ long long longPow(long long power, long long number)
 	}
 	return result;
 }
-
-#endif
