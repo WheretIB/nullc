@@ -85,7 +85,7 @@ private:
 	void			*genStackTop, *genStackPtr;
 
 	unsigned char	*binCode;
-	unsigned int	binCodeStart;
+	uintptr_t		binCodeStart;
 	unsigned int	binCodeSize, binCodeReserved;
 
 	unsigned int	lastInstructionCount;

@@ -39,21 +39,21 @@ namespace NULLC
 	// Four global variables
 	struct DataStackHeader
 	{
-		unsigned int	unused1;
-		unsigned int	lastEDI;
-		uintptr_t		instructionPtr;
-		unsigned int	nextElement;
+		uintptr_t	unused1;
+		uintptr_t	lastEDI;
+		uintptr_t	instructionPtr;
+		uintptr_t	nextElement;
 	};
 
 	DataStackHeader	*dataHead;
 	char* parameterHead;
 
 	// Hidden pointer to the beginning of NULLC parameter stack, skipping DataStackHeader
-	unsigned int paramDataBase;
+	uintptr_t paramDataBase;
 
 	// Binary code range in hidden pointers
-	unsigned int binCodeStart;
-	unsigned int binCodeEnd;
+	uintptr_t binCodeStart;
+	uintptr_t binCodeEnd;
 
 	// Code run result - two DWORDs for parts of result and a type flag
 	int runResult = 0;
@@ -61,8 +61,9 @@ namespace NULLC
 	RegVmReturnType runResultType = rvrVoid;
 
 	// Call stack is made up by a linked list, starting from last frame, this array will hold call stack in correct order
-	const unsigned int STACK_TRACE_DEPTH = 1024;
-	unsigned int stackTrace[STACK_TRACE_DEPTH];
+	const unsigned STACK_TRACE_DEPTH = 1024;
+	unsigned stackTrace[STACK_TRACE_DEPTH];
+
 	// Signal that call stack contains stack of execution that ended in SEH handler with a fatal exception
 	volatile bool abnormalTermination;
 
@@ -134,12 +135,12 @@ namespace NULLC
 		{
 			// Create call stack
 			dataHead->instructionPtr = expInfo->ContextRecord->RegisterIp;
-			unsigned int *paramData = &dataHead->nextElement;
+			uintptr_t *paramData = &dataHead->nextElement;
 			int count = 0;
 			while(count < (STACK_TRACE_DEPTH - 1) && paramData)
 			{
-				stackTrace[count++] = paramData[-1];
-				paramData = (unsigned int*)(long long)(*paramData);
+				stackTrace[count++] = unsigned(paramData[-1]);
+				paramData = (uintptr_t*)(*paramData);
 			}
 			stackTrace[count] = 0;
 			dataHead->nextElement = NULL;
@@ -504,7 +505,7 @@ bool ExecutorX86::InitStack()
 #endif
 
 		NULLC::parameterHead = paramBase = (char*)NULLC::stackBaseAddress + sizeof(NULLC::DataStackHeader);
-		NULLC::paramDataBase = static_cast<unsigned int>(reinterpret_cast<long long>(NULLC::stackBaseAddress));
+		NULLC::paramDataBase = (uintptr_t)NULLC::stackBaseAddress;
 		NULLC::dataHead = (NULLC::DataStackHeader*)NULLC::stackBaseAddress;
 	}
 
@@ -546,7 +547,7 @@ bool ExecutorX86::InitExecution()
 
 void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 {
-	int	callStackExtra[2] = { 0 };
+	uintptr_t callStackExtra[2] = { 0 };
 	bool firstRun = false;
 
 	if(!codeRunning || functionID == ~0u)
@@ -560,7 +561,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	else if(functionID != ~0u && exFunctions[functionID].startInByteCode != ~0u)
 	{
 		// Instruction pointer is expected one DWORD above pointer to next element
-		callStackExtra[0] = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
+		callStackExtra[0] = ((uintptr_t*)NULLC::dataHead->instructionPtr)[-1];
 		// Set next element
 		callStackExtra[1] = NULLC::dataHead->nextElement;
 		// Now this structure is current element
@@ -570,8 +571,8 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	bool wasCodeRunning = codeRunning;
 	codeRunning = true;
 
-	unsigned int funcBinCodeStart = static_cast<unsigned int>(reinterpret_cast<long long>(&binCode[16]));
-	unsigned int varSize = (exLinker->globalVarSize + 0xf) & ~0xf;
+	uintptr_t funcBinCodeStart = (uintptr_t)&binCode[16];
+	unsigned varSize = (exLinker->globalVarSize + 0xf) & ~0xf;
 
 	if(functionID != ~0u)
 	{
@@ -673,7 +674,8 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		else
 		{
 			if(NULLC::dataHead->lastEDI)
-				varSize = NULLC::dataHead->lastEDI;
+				varSize = unsigned(NULLC::dataHead->lastEDI);
+
 			memcpy(paramBase + varSize, arguments, target.bytesToPop);
 			funcBinCodeStart = functionAddress[functionID * 2];
 		}
@@ -764,7 +766,7 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			int count = 0;
 			while((unsigned)count < (NULLC::STACK_TRACE_DEPTH - 1) && paramData)
 			{
-				NULLC::stackTrace[count++] = paramData[-1];
+				NULLC::stackTrace[count++] = unsigned(paramData[-1]);
 				paramData = (unsigned int*)(long long)(*paramData);
 			}
 			NULLC::stackTrace[count] = 0;
@@ -785,9 +787,9 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 #else
 	__try
 	{
-		unsigned savedSize = NULLC::dataHead->lastEDI;
+		uintptr_t savedSize = NULLC::dataHead->lastEDI;
 		void *dummy = NULL;
-		typedef	void (*nullcFunc)(int /*varSize*/, int* /*returnStruct*/, unsigned /*codeStart*/, void** /*genStackTop*/);
+		typedef	void (*nullcFunc)(int /*varSize*/, int* /*returnStruct*/, uintptr_t /*codeStart*/, void** /*genStackTop*/);
 		nullcFunc gate = (nullcFunc)(intptr_t)codeHead;
 		int returnStruct[3] = { 1, 2, 3 };
 		gate(varSize, returnStruct, funcBinCodeStart, firstRun ? &genStackTop : &dummy);
@@ -983,8 +985,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	// Mirror extra global return so that jump to global return can be marked (cmdNop, because we will have some custom code)
 	codeJumpTargets.push_back(false);
-	for(unsigned int i = oldJumpTargetCount, e = exLinker->vmJumpTargets.size(); i != e; i++)
-		codeJumpTargets[exLinker->vmJumpTargets[i]] = true;
+	for(unsigned i = oldJumpTargetCount, e = exLinker->regVmJumpTargets.size(); i != e; i++)
+		codeJumpTargets[exLinker->regVmJumpTargets[i]] = true;
+
 	// Remove cmdNop, because we don't want to generate code for it
 	codeJumpTargets.pop_back();
 
@@ -1179,23 +1182,23 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			// This must be an external function call
 			assert(NULLC::dataHead->instructionPtr);
 			
-			unsigned *retvalpos = (unsigned*)(uintptr_t)NULLC::dataHead->instructionPtr - 1;
+			uintptr_t *retvalpos = (uintptr_t*)NULLC::dataHead->instructionPtr - 1;
 			if(*retvalpos >= NULLC::binCodeStart && *retvalpos <= NULLC::binCodeEnd)
-				*retvalpos = (*retvalpos - NULLC::binCodeStart) + (unsigned)(uintptr_t)(binCodeNew + 16);
+				*retvalpos = (*retvalpos - NULLC::binCodeStart) + (uintptr_t)(binCodeNew + 16);
 
-			unsigned *paramData = &NULLC::dataHead->nextElement;
+			uintptr_t *paramData = &NULLC::dataHead->nextElement;
 			while(paramData)
 			{
-				unsigned *retvalpos = paramData - 1;
+				uintptr_t *retvalpos = paramData - 1;
 				if(*retvalpos >= NULLC::binCodeStart && *retvalpos <= NULLC::binCodeEnd)
-					*retvalpos = (*retvalpos - NULLC::binCodeStart) + (unsigned)(uintptr_t)(binCodeNew + 16);
-				paramData = (unsigned int*)(long long)(*paramData);
+					*retvalpos = (*retvalpos - NULLC::binCodeStart) + (uintptr_t)(binCodeNew + 16);
+				paramData = (uintptr_t*)(*paramData);
 			}
 		}
 		for(unsigned i = 0; i < instAddress.size(); i++)
-			instAddress[i] = (instAddress[i] - NULLC::binCodeStart) + (unsigned)(uintptr_t)(binCodeNew + 16);
+			instAddress[i] = (instAddress[i] - NULLC::binCodeStart) + (uintptr_t)(binCodeNew + 16);
 		binCode = binCodeNew;
-		binCodeStart = (unsigned int)(intptr_t)(binCode + 16);
+		binCodeStart = (uintptr_t)(binCode + 16);
 	}
 
 	//SetBinaryCodeBase(binCode);
@@ -1208,7 +1211,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	unsigned char *code = bytecode + (!binCodeSize ? 0 : -7 /* we must destroy the pop ebp; mov ebx, code; ret; sequence */);
 
 	instAddress.resize(exRegVmCode.size() + 1); // Extra instruction for global return
-	memset(instAddress.data + lastInstructionCount, 0, (exRegVmCode.size() - lastInstructionCount + 1) * sizeof(unsigned int));
+	memset(instAddress.data + lastInstructionCount, 0, (exRegVmCode.size() - lastInstructionCount + 1) * sizeof(instAddress[0]));
 
 	x86ClearLabels();
 	x86ReserveLabels(codeGenCtx->labelCount);
@@ -1222,7 +1225,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		{
 			instAddress[cmd.instID - 1] = code;	// Save VM instruction address in x86 bytecode
 
-			if(int(cmd.instID - 1) == (int)exLinker->vmOffsetToGlobalCode)
+			if(int(cmd.instID - 1) == (int)exLinker->regVmOffsetToGlobalCode)
 				code += x86PUSH(code, rEBP);
 		}
 		switch(cmd.name)
@@ -1627,11 +1630,11 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	for(unsigned int i = (codeRelocated ? 0 : oldFunctionSize); i < exFunctions.size(); i++)
 	{
-		if(exFunctions[i].vmAddress != -1)
+		if(exFunctions[i].regVmAddress != -1)
 		{
-			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].vmAddress] - (binCode + 16));
+			exFunctions[i].startInByteCode = (int)(instAddress[exFunctions[i].regVmAddress] - (binCode + 16));
 
-			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].vmAddress];
+			functionAddress[i * 2 + 0] = (unsigned int)(uintptr_t)instAddress[exFunctions[i].regVmAddress];
 			functionAddress[i * 2 + 1] = 0;
 		}
 		else if(exFunctions[i].funcPtrWrap)
@@ -1656,11 +1659,11 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		for(unsigned i = 0; i < oldFunctionLists.size(); i++)
 			memcpy(oldFunctionLists[i].list, functionAddress.data, oldFunctionLists[i].count * sizeof(unsigned));
 	}
-	globalStartInBytecode = (int)(instAddress[exLinker->vmOffsetToGlobalCode] - (binCode + 16));
+	globalStartInBytecode = (int)(instAddress[exLinker->regVmOffsetToGlobalCode] - (binCode + 16));
 
 	lastInstructionCount = exRegVmCode.size();
 
-	oldJumpTargetCount = exLinker->vmJumpTargets.size();
+	oldJumpTargetCount = exLinker->regVmJumpTargets.size();
 	oldFunctionSize = exFunctions.size();
 
 	return true;
@@ -1760,7 +1763,8 @@ const char*	ExecutorX86::GetExecError()
 char* ExecutorX86::GetVariableData(unsigned int *count)
 {
 	if(count)
-		*count = NULLC::dataHead->lastEDI;
+		*count = unsigned(NULLC::dataHead->lastEDI);
+
 	return paramBase;
 }
 
@@ -1771,18 +1775,20 @@ void ExecutorX86::BeginCallStack()
 	{
 		if(NULLC::dataHead->instructionPtr)
 		{
-			genStackPtr = (void*)(intptr_t)NULLC::dataHead->instructionPtr;
-			NULLC::dataHead->instructionPtr = ((int*)(intptr_t)NULLC::dataHead->instructionPtr)[-1];
-			unsigned int *paramData = &NULLC::dataHead->nextElement;
+			genStackPtr = (void*)NULLC::dataHead->instructionPtr;
+			NULLC::dataHead->instructionPtr = ((uintptr_t*)NULLC::dataHead->instructionPtr)[-1];
+			uintptr_t *paramData = &NULLC::dataHead->nextElement;
 			while((unsigned)count < (NULLC::STACK_TRACE_DEPTH - 1) && paramData)
 			{
-				NULLC::stackTrace[count++] = paramData[-1];
-				paramData = (unsigned int*)(long long)(*paramData);
+				NULLC::stackTrace[count++] = unsigned(paramData[-1]);
+				paramData = (uintptr_t*)(*paramData);
 			}
 		}
 		NULLC::stackTrace[count] = 0;
-		NULLC::dataHead->instructionPtr = (unsigned int)(intptr_t)genStackPtr;
-	}else{
+		NULLC::dataHead->instructionPtr = (uintptr_t)genStackPtr;
+	}
+	else
+	{
 		while((unsigned)count < NULLC::STACK_TRACE_DEPTH && NULLC::stackTrace[count++]);
 		count--;
 	}
@@ -1794,6 +1800,7 @@ unsigned int ExecutorX86::GetNextAddress()
 {
 	if(int(callstackTop - NULLC::stackTrace) < 0)
 		return 0;
+
 	unsigned int address = 0;
 	for(; address < instAddress.size(); address++)
 	{
