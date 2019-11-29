@@ -127,7 +127,7 @@ static const char* x86CmdText[] =
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
 	"setl", "setg", "setle", "setge", "sete", "setne", "setz", "setnz",
 	"fadd", "faddp", "fmul", "fmulp", "fsub", "fsubr", "fsubp", "fsubrp", "fdiv", "fdivr", "fdivrp", "fchs", "fprem", "fcomp", "fldz", "fld1", "fsincos", "fptan", "fsqrt", "frndint",
-	"int", "dd", "label", "use32", "nop", "other"
+	"int", "label", "use32", "nop", "other"
 };
 
 struct x86Argument
