@@ -124,34 +124,6 @@ namespace NULLC
 }
 #endif
 
-#ifdef NULLC_OPTIMIZE_X86
-
-// Function is called to signal that the register value will no longer be used
-void KILL_REG_IMPL(x86Reg reg)
-{
-	// Eliminate dead stores to the register
-	if(!NULLC::regRead[reg] && NULLC::reg[reg].type != x86Argument::argNone)
-	{
-		x86Instruction *curr = NULLC::regUpdate[reg] + x86Base;
-		if(curr->name != o_none)
-		{
-			curr->name = o_none;
-			optiCount++;
-		}
-	}
-
-	// Invalidate the register value
-	NULLC::reg[reg].type = x86Argument::argNone;
-}
-
-#define KILL_REG(reg)	KILL_REG_IMPL(reg)
-
-#else
-
-#define KILL_REG(reg)
-
-#endif
-
 void EMIT_COMMENT(CodeGenGenericContext &ctx, const char* text)
 {
 #if !defined(NDEBUG)
@@ -163,7 +135,7 @@ void EMIT_COMMENT(CodeGenGenericContext &ctx, const char* text)
 #endif
 }
 
-void EMIT_LABEL(CodeGenGenericContext &ctx, unsigned int labelID, int invalidate = true)
+void EMIT_LABEL(CodeGenGenericContext &ctx, unsigned int labelID, int invalidate)
 {
 #ifdef NULLC_OPTIMIZE_X86
 	if(invalidate)
@@ -200,7 +172,7 @@ void EMIT_OP(CodeGenGenericContext &ctx, x86Command op)
 			return;
 		}
 		NULLC::regRead[rEAX] = true;
-		KILL_REG(rEDX);
+		EMIT_REG_KILL(ctx, rEDX);
 		NULLC::InvalidateDependand(rEDX);
 		NULLC::reg[rEDX].type = x86Argument::argNone;
 		NULLC::regRead[rEDX] = false;
@@ -213,18 +185,26 @@ void EMIT_OP(CodeGenGenericContext &ctx, x86Command op)
 	ctx.x86Op++;
 }
 
-void EMIT_OP_LABEL(CodeGenGenericContext &ctx, x86Command op, unsigned int labelID, int invalidate = true, int longJump = false)
+void EMIT_OP_LABEL(CodeGenGenericContext &ctx, x86Command op, unsigned int labelID, int invalidate, int longJump)
 {
 #ifdef NULLC_OPTIMIZE_X86
 	if(op == o_call)
 	{
-		KILL_REG(rEAX); KILL_REG(rEBX); KILL_REG(rECX); KILL_REG(rEDX); KILL_REG(rESI);
+		EMIT_REG_KILL(ctx, rEAX);
+		EMIT_REG_KILL(ctx, rEBX);
+		EMIT_REG_KILL(ctx, rECX);
+		EMIT_REG_KILL(ctx, rEDX);
+		EMIT_REG_KILL(ctx, rESI);
 	}
 	if(op >= o_jmp && op <= o_ret && invalidate)
 	{
 		if(longJump)
 		{
-			KILL_REG(rEAX); KILL_REG(rEBX); KILL_REG(rECX); KILL_REG(rEDX); KILL_REG(rESI);
+			EMIT_REG_KILL(ctx, rEAX);
+			EMIT_REG_KILL(ctx, rEBX);
+			EMIT_REG_KILL(ctx, rECX);
+			EMIT_REG_KILL(ctx, rEDX);
+			EMIT_REG_KILL(ctx, rESI);
 		}
 		NULLC::InvalidateState();
 	}
@@ -303,13 +283,13 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 	if(op == o_call)
 	{
 		if(reg1 != rEAX)
-			KILL_REG(rEAX);
+			EMIT_REG_KILL(ctx, rEAX);
 		if(reg1 != rEBX)
-			KILL_REG(rEBX);
+			EMIT_REG_KILL(ctx, rEBX);
 		if(reg1 != rECX)
-			KILL_REG(rECX);
+			EMIT_REG_KILL(ctx, rECX);
 		if(reg1 != rEDX)
-			KILL_REG(rEDX);
+			EMIT_REG_KILL(ctx, rEDX);
 		NULLC::InvalidateState();
 	}
 	if(op == o_push)
@@ -362,7 +342,7 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 				EMIT_OP_REG_NUM(o_add, rESP, 4);
 				return;
 			}
-			KILL_REG(reg1);
+			EMIT_REG_KILL(ctx, reg1);
 			NULLC::reg[reg1] = NULLC::stack[index];
 			NULLC::stackTop--;
 			NULLC::stack[index].type = x86Argument::argNone;
@@ -405,7 +385,7 @@ void EMIT_OP_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1)
 void EMIT_OP_FPUREG(CodeGenGenericContext &ctx, x86Command op, x87Reg reg1)
 {
 	ctx.x86Op->name = op;
-	ctx.x86Op->argA.type = x86Argument::argFPReg;
+	ctx.x86Op->argA.type = x86Argument::argFpReg;
 	ctx.x86Op->argA.fpArg = reg1;
 	ctx.x86Op->argB.type = x86Argument::argNone;
 	ctx.x86Op++;
@@ -591,7 +571,11 @@ void EMIT_OP_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Re
 
 	if(op == o_call)
 	{
-		KILL_REG(rEAX); KILL_REG(rEBX); KILL_REG(rECX); KILL_REG(rEDX); KILL_REG(rESI);
+		EMIT_REG_KILL(ctx, rEAX);
+		EMIT_REG_KILL(ctx, rEBX);
+		EMIT_REG_KILL(ctx, rECX);
+		EMIT_REG_KILL(ctx, rEDX);
+		EMIT_REG_KILL(ctx, rESI);
 		NULLC::InvalidateState();
 	}
 
@@ -767,7 +751,7 @@ void EMIT_OP_REG_NUM(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, uns
 			optiCount++;
 			return;
 		}
-		KILL_REG(reg1);
+		EMIT_REG_KILL(ctx, reg1);
 		NULLC::InvalidateDependand(reg1);
 		NULLC::reg[reg1] = x86Argument(num);
 		NULLC::regUpdate[reg1] = (unsigned int)(ctx.x86Op - x86Base);
@@ -800,7 +784,7 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 #ifdef NULLC_OPTIMIZE_X86
 	if(op == o_xor && reg1 == reg2)
 	{
-		KILL_REG(reg1);
+		EMIT_REG_KILL(ctx, reg1);
 		NULLC::InvalidateDependand(reg1);
 	}else if(op == o_test && reg1 == reg2 && NULLC::reg[reg1].type == x86Argument::argReg){
 		reg1 = reg2 = NULLC::reg[reg1].reg;
@@ -816,7 +800,7 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 			optiCount++;
 			return;
 		}
-		KILL_REG(reg1);
+		EMIT_REG_KILL(ctx, reg1);
 		NULLC::InvalidateDependand(reg1);
 
 		NULLC::reg[reg1] = x86Argument(reg2);
@@ -956,7 +940,7 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 
 	if(op == o_mov || op == o_movsx || op == o_lea)
 	{
-		KILL_REG(reg1);
+		EMIT_REG_KILL(ctx, reg1);
 		NULLC::InvalidateDependand(reg1);
 	}
 	if(op == o_mov || op == o_movsx || op == o_lea)
@@ -1011,11 +995,6 @@ void EMIT_OP_REG_LABEL(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, u
 	ctx.x86Op->argB.labelID = labelID;
 	ctx.x86Op->argB.ptrNum = shift;
 	ctx.x86Op++;
-}
-
-void EMIT_OP_REG_REG_MULT_REG_NUM(CodeGenGenericContext &ctx, x86Command op, x86Reg dst, x86Size size, x86Reg index, unsigned int mult, x86Reg base, unsigned int shift)
-{
-	EMIT_OP_REG_RPTR(ctx, op, dst, size, index, mult, base, shift);
 }
 
 void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned int shift, x86Reg reg2)
@@ -1178,7 +1157,7 @@ void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 	EMIT_OP_RPTR_NUM(ctx, op, size, rNONE, 1, reg1, shift, num);
 }
 
-void EMIT_OP_ADDR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, unsigned int addr, unsigned int number)
+void EMIT_OP_RPTR_NUM(CodeGenGenericContext &ctx, x86Command op, x86Size size, unsigned int addr, unsigned int number)
 {
 	EMIT_OP_RPTR_NUM(ctx, op, size, rNONE, 1, rNONE, addr, number);
 }
@@ -1193,6 +1172,29 @@ void EMIT_REG_READ(CodeGenGenericContext &ctx, x86Reg reg)
 #endif
 }
 
+void EMIT_REG_KILL(CodeGenGenericContext &ctx, x86Reg reg)
+{
+	(void)ctx;
+
+#ifdef NULLC_OPTIMIZE_X86
+	// Eliminate dead stores to the register
+	if(!NULLC::regRead[reg] && NULLC::reg[reg].type != x86Argument::argNone)
+	{
+		x86Instruction *curr = NULLC::regUpdate[reg] + x86Base;
+		if(curr->name != o_none)
+		{
+			curr->name = o_none;
+			optiCount++;
+		}
+	}
+
+	// Invalidate the register value
+	NULLC::reg[reg].type = x86Argument::argNone;
+#else
+	(void)reg;
+#endif
+}
+
 void SetOptimizationLookBehind(CodeGenGenericContext &ctx, bool allow)
 {
 	ctx.x86LookBehind = allow;
@@ -1200,8 +1202,11 @@ void SetOptimizationLookBehind(CodeGenGenericContext &ctx, bool allow)
 #ifdef NULLC_OPTIMIZE_X86
 	if(!allow)
 	{
-		KILL_REG(rEAX);KILL_REG(rEBX);KILL_REG(rECX);KILL_REG(rEDX);
-		KILL_REG(rESI);
+		EMIT_REG_KILL(ctx, rEAX);
+		EMIT_REG_KILL(ctx, rEBX);
+		EMIT_REG_KILL(ctx, rECX);
+		EMIT_REG_KILL(ctx, rEDX);
+		EMIT_REG_KILL(ctx, rESI);
 		NULLC::lastInvalidate = (unsigned int)(ctx.x86Op - x86Base);
 		NULLC::InvalidateState();
 		NULLC::regUpdate[rESP] = 0;

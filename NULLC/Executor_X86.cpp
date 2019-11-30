@@ -1730,6 +1730,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			break;
 		case o_other:
 			break;
+		default:
+			assert(!"unknown instruction");
 		}
 		curr++;
 	}

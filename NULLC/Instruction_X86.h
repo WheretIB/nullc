@@ -2,11 +2,101 @@
 
 #include "stdafx.h"
 
-enum x86Reg{ rNONE, rEAX, rEBX, rECX, rEDX, rESP, rEDI, rEBP, rESI };
-static const char* x86RegText[] = { "none", "eax", "ebx", "ecx", "edx", "esp", "edi", "ebp", "esi" };
+enum x86Reg
+{
+	rNONE,
 
-enum x87Reg{ rST0, rST1, rST2, rST3, rST4, rST5, rST6, rST7 };
-static const char* x87RegText[] = { "st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7" };
+	rEAX,
+	rEBX,
+	rECX,
+	rEDX,
+	rESP,
+	rEDI,
+	rEBP,
+	rESI,
+
+	rRAX = rEAX,
+	rRBX = rEBX,
+	rRCX = rECX,
+	rRDX = rEDX,
+	rRSP = rESP,
+	rRDI = rEDI,
+	rRBP = rEBP,
+	rRSI = rESI,
+	rR8,
+	rR9,
+	rR10,
+	rR11,
+	rR12,
+	rR13,
+	rR14,
+	rR15,
+};
+
+static const char* x86RegText[] = { "none", "eax", "ebx", "ecx", "edx", "esp", "edi", "ebp", "esi", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d" };
+static const char* x64RegText[] = { "none", "rax", "rbx", "rcx", "rdx", "rsp", "rdi", "rbp", "rsi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15" };
+
+enum x87Reg
+{
+	rST0,
+	rST1,
+	rST2,
+	rST3,
+	rST4,
+	rST5,
+	rST6,
+	rST7
+};
+
+static const char* x87RegText[] = {
+	"st0",
+	"st1",
+	"st2",
+	"st3",
+	"st4",
+	"st5",
+	"st6",
+	"st7"
+};
+
+enum x86XmmReg
+{
+	rXMM0,
+	rXMM1,
+	rXMM2,
+	rXMM3,
+	rXMM4,
+	rXMM5,
+	rXMM6,
+	rXMM7,
+	rXMM8,
+	rXMM9,
+	rXMM10,
+	rXMM11,
+	rXMM12,
+	rXMM13,
+	rXMM14,
+	rXMM15,
+};
+
+static const char* x86XmmRegText[] = {
+	"xmm0",
+	"xmm1",
+	"xmm2",
+	"xmm3",
+	"xmm4",
+	"xmm5",
+	"xmm6",
+	"xmm7",
+	"xmm8",
+	"xmm9",
+	"xmm10",
+	"xmm11",
+	"xmm12",
+	"xmm13",
+	"xmm14",
+	"xmm15"
+};
 
 enum x86Size{ sNONE, sBYTE, sWORD, sDWORD, sQWORD };
 static const char* x86SizeText[] = { "none", "byte", "word", "dword", "qword" };
@@ -14,11 +104,6 @@ static const char* x86SizeText[] = { "none", "byte", "word", "dword", "qword" };
 enum x86Cond{ condO, condNO, condB, condC, condNAE, condAE, condNB, condNC, condE, condZ, condNE, condNZ,
 				condBE, condNA, condA, condNBE, condS, condNS, condP, condPE, condNP, condPO,
 				condL, condNGE, condGE, condNL, condLE, condNG, condG, condNLE };
-
-const int rAX = rEAX;
-const int rAL = rEAX;
-const int rBX = rEBX;
-const int rBL = rEBX;
 
 const unsigned int JUMP_NEAR = (unsigned int)(1u << 31u);
 
@@ -108,11 +193,16 @@ enum x86Command
 	o_fsqrt,
 	o_frndint,
 
+	o_movsd,
+	o_cvtss2sd,
+
 	o_int,
 	o_label,
 	o_use32,
 	o_nop,
 	o_other,
+
+	o_mov64,
 
 	// Aliases
 	o_jc = o_jb,
@@ -127,16 +217,31 @@ static const char* x86CmdText[] =
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
 	"setl", "setg", "setle", "setge", "sete", "setne", "setz", "setnz",
 	"fadd", "faddp", "fmul", "fmulp", "fsub", "fsubr", "fsubp", "fsubrp", "fdiv", "fdivr", "fdivrp", "fchs", "fprem", "fcomp", "fldz", "fld1", "fsincos", "fptan", "fsqrt", "frndint",
-	"int", "label", "use32", "nop", "other"
+	"movss", "movsd",
+	"int", "label", "use32", "nop", "other",
+	"mov",
 };
 
 struct x86Argument
 {
 	// Argument type
-	enum ArgType{ argNone, argNumber, argReg, argFPReg, argPtr, argPtrLabel, argLabel };
+	enum ArgType
+	{
+		argNone,
+		
+		argNumber,
+		argReg,
+		argFpReg,
+		argXmmReg,
+		argPtr,
+		argPtrLabel,
+		argLabel
+	};
 
 	// no argument
-	x86Argument(){ }
+	x86Argument()
+	{
+	}
 
 	// immediate number
 	explicit x86Argument(int Num)
@@ -156,8 +261,15 @@ struct x86Argument
 	explicit x86Argument(x87Reg fpReg)
 	{
 		Empty();
-		type = argFPReg;
+		type = argFpReg;
 		fpArg = fpReg;
+	}
+	// sse register
+	explicit x86Argument(x86XmmReg xmmReg)
+	{
+		Empty();
+		type = argXmmReg;
+		xmmArg = xmmReg;
 	}
 	// size [num]
 	x86Argument(x86Size Size, unsigned int Num)
@@ -206,18 +318,19 @@ struct x86Argument
 
 	union
 	{
-		x86Reg	reg;				// Used only when type == argReg
-		int		num;				// Used only when type == argNumber
-		x87Reg	fpArg;				// Used only when type == argFPReg
-		unsigned int	labelID;	// Used only when type == argLabel or argPtrLabel
-		x86Size	ptrSize;			// Used only when type == argPtr
+		x86Reg reg;				// Used only when type == argReg
+		int num;				// Used only when type == argNumber
+		x87Reg fpArg;			// Used only when type == argFpReg
+		x86XmmReg xmmArg;		// Used only when type == argXmmReg
+		unsigned labelID;		// Used only when type == argLabel or argPtrLabel
+		x86Size	ptrSize;		// Used only when type == argPtr
 	};
 
 	x86Reg	ptrBase, ptrIndex;
 	int		ptrMult;
 	int		ptrNum;
 
-	int	Decode(char *buf)
+	int	Decode(char *buf, bool x64)
 	{
 		char *curr = buf;
 
@@ -227,12 +340,17 @@ struct x86Argument
 		}
 		else if(type == argReg)
 		{
-			strcpy(curr, x86RegText[reg]);
+			strcpy(curr, (x64 ? x64RegText : x86RegText)[reg]);
 			curr += strlen(curr);
 		}
-		else if(type == argFPReg)
+		else if(type == argFpReg)
 		{
 			strcpy(curr, x87RegText[fpArg]);
+			curr += strlen(curr);
+		}
+		else if(type == argXmmReg)
+		{
+			strcpy(curr, x86XmmRegText[fpArg]);
 			curr += strlen(curr);
 		}
 		else if(type == argLabel)
@@ -254,7 +372,7 @@ struct x86Argument
 
 			if(ptrIndex != rNONE)
 			{
-				strcpy(curr, x86RegText[ptrIndex]);
+				strcpy(curr, (x64 ? x64RegText : x86RegText)[ptrIndex]);
 				curr += strlen(curr);
 			}
 
@@ -264,9 +382,9 @@ struct x86Argument
 			if(ptrBase != rNONE)
 			{
 				if(ptrIndex != rNONE)
-					curr += sprintf(curr, " + %s", x86RegText[ptrBase]);
+					curr += sprintf(curr, " + %s", (x64 ? x64RegText : x86RegText)[ptrBase]);
 				else
-					curr += sprintf(curr, "%s", x86RegText[ptrBase]);
+					curr += sprintf(curr, "%s", (x64 ? x64RegText : x86RegText)[ptrBase]);
 			}
 
 			if(ptrIndex == rNONE && ptrBase == rNONE)
@@ -278,7 +396,7 @@ struct x86Argument
 			*curr = 0;
 		}
 
-		return (int)(curr-buf);
+		return (int)(curr - buf);
 	}
 };
 
@@ -286,14 +404,31 @@ const int INST_COMMENT = 1;
 
 struct x86Instruction
 {
-	x86Instruction(){ name = o_none; }
-	explicit x86Instruction(unsigned int LabelID){ name = o_label; labelID = LabelID; }
-	explicit x86Instruction(x86Command Name){ name = Name; }
-	x86Instruction(x86Command Name, const x86Argument& a){ name = Name; argA = a; }
-	x86Instruction(x86Command Name, const x86Argument& a, const x86Argument& b){ name = Name; argA = a; argB = b; }
+	x86Instruction() : name(o_none)
+	{
+	}
 
-	x86Command	name;
-	unsigned int	instID;
+	explicit x86Instruction(unsigned labelID) : labelID(labelID), name(o_label)
+	{
+	}
+
+	explicit x86Instruction(x86Command name): name(name)
+	{
+	}
+
+	x86Instruction(x86Command name, const x86Argument& a) : name(name)
+	{
+		argA = a;
+	}
+
+	x86Instruction(x86Command name, const x86Argument& a, const x86Argument& b) : name(name)
+	{
+		argA = a;
+		argB = b;
+	}
+
+	x86Command name;
+	unsigned instID;
 	x86Argument	argA, argB;
 
 	union
@@ -330,12 +465,12 @@ struct x86Instruction
 			if(argA.type != x86Argument::argNone)
 			{
 				curr += sprintf(curr, " ");
-				curr += argA.Decode(curr);
+				curr += argA.Decode(curr, name >= o_mov64 || argA.type == x86Argument::argPtr);
 			}
 			if(argB.type != x86Argument::argNone)
 			{
 				curr += sprintf(curr, ", ");
-				curr += argB.Decode(curr);
+				curr += argB.Decode(curr, name >= o_mov64 || argA.type == x86Argument::argPtr);
 			}
 		}
 
