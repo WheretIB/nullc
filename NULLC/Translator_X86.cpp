@@ -414,12 +414,25 @@ int x86POP(unsigned char *stream, x86Reg reg)
 	return 1;
 }
 
+int x86PUSHAD(unsigned char *stream)
+{
+	stream[0] = 0x60;
+	return 1;
+}
+
+int x86POPAD(unsigned char *stream)
+{
+	stream[0] = 0x61;
+	return 1;
+}
+
 int x86MOV(unsigned char *stream, x86Reg dst, int src)
 {
 	stream[0] = 0xb8 + regCode[dst];
 	*(int*)(stream+1) = src;
 	return 5;
 }
+
 int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src)
 {
 	stream[0] = 0x89;
@@ -892,6 +905,23 @@ int x86AND(unsigned char *stream, x86Reg op1, x86Reg op2)
 	stream[1] = encodeRegister(op1, regCode[op2]);
 	return 2;
 }
+
+// and op1, num
+int x86AND(unsigned char *stream, x86Reg op1, int num)
+{
+	if(op1 == rEAX)
+	{
+		stream[0] = 0x25;
+		memcpy(stream + 1, &num, sizeof(num));
+		return 5;
+	}
+
+	stream[0] = 0x81;
+	stream[1] = encodeRegister(op1, 4);
+	memcpy(stream + 2, &num, sizeof(num));
+	return 6;
+}
+
 // and dword [index*mult+base+shift], op2
 int x86AND(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2)
 {
@@ -901,6 +931,7 @@ int x86AND(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
 	return 1 + asize;
 }
+
 // and dword [index*mult+base+shift], num
 int x86AND(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num)
 {

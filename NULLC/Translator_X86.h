@@ -88,6 +88,12 @@ int x86POP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 // pop reg
 int x86POP(unsigned char *stream, x86Reg reg);
 
+// pushad
+int x86PUSHAD(unsigned char *stream);
+
+// popad
+int x86POPAD(unsigned char *stream);
+
 // mov dst, num
 int x86MOV(unsigned char *stream, x86Reg dst, int num);
 // mov dst, src
@@ -180,6 +186,8 @@ int x86NOT(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 
 // and op1, op2
 int x86AND(unsigned char *stream, x86Reg op1, x86Reg op2);
+// and op1, num
+int x86AND(unsigned char *stream, x86Reg op1, int num);
 // and dword [index*mult+base+shift], op2
 int x86AND(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
 // and dword [index*mult+base+shift], num
