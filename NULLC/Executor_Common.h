@@ -3,6 +3,8 @@
 class Linker;
 
 struct ExternTypeInfo;
+struct ExternFuncInfo;
+struct ExternLocalInfo;
 
 struct NULLCRef;
 
@@ -25,3 +27,9 @@ void	SetUnmanagableRange(char* base, unsigned int size);
 int		IsPointerUnmanaged(NULLCRef ptr);
 void	MarkUsedBlocks();
 void	ResetGC();
+
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+typedef struct DCCallVM_ DCCallVM;
+
+void RunRawExternalFunction(DCCallVM *dcCallVM, ExternFuncInfo &func, ExternLocalInfo *exLocals, ExternTypeInfo *exTypes, unsigned *callStorage);
+#endif
