@@ -197,6 +197,8 @@ enum x86Command
 	o_movsd,
 	o_cvtss2sd,
 	o_cvtsd2ss,
+	o_cvttsd2si,
+	o_cvtsi2sd,
 
 	o_int,
 	o_label,
@@ -205,7 +207,13 @@ enum x86Command
 	o_other,
 
 	o_mov64,
+	o_movzx64,
+	o_movsxd,
+	o_lea64,
+
 	o_add64,
+
+	o_cvttsd2si64,
 
 	// Aliases
 	o_jc = o_jb,
@@ -220,9 +228,12 @@ static const char* x86CmdText[] =
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
 	"setl", "setg", "setle", "setge", "sete", "setne", "setz", "setnz",
 	"fadd", "faddp", "fmul", "fmulp", "fsub", "fsubr", "fsubp", "fsubrp", "fdiv", "fdivr", "fdivrp", "fchs", "fprem", "fcomp", "fldz", "fld1", "fsincos", "fptan", "fsqrt", "frndint",
-	"movss", "movsd", "cvtss2sd", "cvtsd2ss",
+	"movss", "movsd", "cvtss2sd", "cvtsd2ss", "cvttsd2si", "cvtsi2sd",
 	"int", "label", "use32", "nop", "other",
-	"mov", "add"
+
+	"mov", "movzx", "movsxd", "lea",
+	"add",
+	"cvttsd2si64"
 };
 
 struct x86Argument
@@ -473,7 +484,7 @@ struct x86Instruction
 			if(argB.type != x86Argument::argNone)
 			{
 				curr += sprintf(curr, ", ");
-				curr += argB.Decode(curr, name >= o_mov64 || argA.type == x86Argument::argPtr);
+				curr += argB.Decode(curr, name >= o_mov64 || argB.type == x86Argument::argPtr);
 			}
 		}
 
