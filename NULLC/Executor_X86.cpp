@@ -1785,11 +1785,8 @@ void ExecutorX86::SaveListing(OutputContext &output)
 {
 	char instBuf[128];
 
-	for(unsigned int i = 0; i < instList.size(); i++)
+	for(unsigned i = 0; i < instList.size(); i++)
 	{
-		if(instList[i].name == o_other)
-			continue;
-
 		if(instList[i].instID && codeJumpTargets[instList[i].instID - 1])
 		{
 			output.Print("; ------------------- Invalidation ----------------\n");
@@ -1805,6 +1802,9 @@ void ExecutorX86::SaveListing(OutputContext &output)
 			PrintInstruction(output, (char*)exRegVmConstants.data, RegVmInstructionCode(cmd.code), cmd.rA, cmd.rB, cmd.rC, cmd.argument, NULL);
 
 			output.Print('\n');
+
+			if(instList[i].name == o_other)
+				continue;
 		}
 
 		instList[i].Decode(instBuf);

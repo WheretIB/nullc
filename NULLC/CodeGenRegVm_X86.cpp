@@ -24,9 +24,9 @@ void GenCodeCmdLoadByte(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8);
-	EMIT_OP_REG_RPTR(ctx.ctx, o_movsx, rEAX, sBYTE, rRAX, cmd.argument);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_movsx, rEAX, sBYTE, rRAX, cmd.argument); // Load byte value with sign extension
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
 	EMIT_REG_KILL(ctx.ctx, rEAX);
 #else
 	assert(!"not implemented");
@@ -38,9 +38,9 @@ void GenCodeCmdLoadWord(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8);
-	EMIT_OP_REG_RPTR(ctx.ctx, o_movsx, rEAX, sWORD, rRAX, cmd.argument);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_movsx, rEAX, sWORD, rRAX, cmd.argument); // Load short value with sign extension
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
 	EMIT_REG_KILL(ctx.ctx, rEAX);
 #else
 	assert(!"not implemented");
@@ -52,9 +52,9 @@ void GenCodeCmdLoadDword(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8);
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rRAX, cmd.argument);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rRAX, cmd.argument); // Load int value
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
 	EMIT_REG_KILL(ctx.ctx, rEAX);
 #else
 	assert(!"not implemented");
@@ -66,9 +66,9 @@ void GenCodeCmdLoadLong(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8);
-	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRAX, cmd.argument);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRAX, cmd.argument); // Load long value
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store long to target
 	EMIT_REG_KILL(ctx.ctx, rEAX);
 #else
 	assert(!"not implemented");
@@ -79,10 +79,11 @@ void GenCodeCmdLoadFloat(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_cvtss2sd, rXMM0, sQWORD, rRAX, cmd.argument); // Load float as double
+	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
+	EMIT_REG_KILL(ctx.ctx, rXMM0);
 #else
 	assert(!"not implemented");
 #endif
@@ -92,10 +93,11 @@ void GenCodeCmdLoadDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rRAX, cmd.argument); // Load double value
+	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
+	EMIT_REG_KILL(ctx.ctx, rXMM0);
 #else
 	assert(!"not implemented");
 #endif
@@ -106,7 +108,7 @@ void GenCodeCmdLoadImm(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, cmd.argument);
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, cmd.argument); // Store int to target
 #else
 	assert(!"not implemented");
 #endif
@@ -202,10 +204,12 @@ void GenCodeCmdStoreFloat(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_cvtsd2ss, rXMM0, sQWORD, rREG, cmd.rA * 8); // Load value
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load target pointer
+	EMIT_OP_RPTR_REG(ctx.ctx, o_movss, sDWORD, rRAX, cmd.argument, rXMM0); // Store value to target with an offset
+	EMIT_REG_KILL(ctx.ctx, rEAX);
+	EMIT_REG_KILL(ctx.ctx, rXMM0);
 #else
 	assert(!"not implemented");
 #endif
@@ -215,10 +219,12 @@ void GenCodeCmdStoreDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rA * 8); // Load value
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load target pointer
+	EMIT_OP_RPTR_REG(ctx.ctx, o_movss, sDWORD, rRAX, cmd.argument, rXMM0); // Store value to target with an offset
+	EMIT_REG_KILL(ctx.ctx, rEAX);
+	EMIT_REG_KILL(ctx.ctx, rXMM0);
 #else
 	assert(!"not implemented");
 #endif
@@ -384,10 +390,11 @@ void GenCodeCmdGetAddr(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
+	EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRAX, cmd.argument); // Add offset
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store to target
+	EMIT_REG_KILL(ctx.ctx, rEAX);
 #else
 	assert(!"not implemented");
 #endif
@@ -430,10 +437,10 @@ void GenCodeCmdJmpz(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load value
+	EMIT_OP_REG_REG(ctx.ctx, o_test, rEAX, rEAX);
+	EMIT_OP_LABEL(ctx.ctx, o_jz, LABEL_GLOBAL | JUMP_NEAR | cmd.argument, true, true);
 #else
 	assert(!"not implemented");
 #endif
@@ -443,10 +450,10 @@ void GenCodeCmdJmpnz(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load value
+	EMIT_OP_REG_REG(ctx.ctx, o_test, rEAX, rEAX);
+	EMIT_OP_LABEL(ctx.ctx, o_jnz, LABEL_GLOBAL | JUMP_NEAR | cmd.argument, true, true);
 #else
 	assert(!"not implemented");
 #endif
@@ -495,10 +502,11 @@ void GenCodeCmdAddImm(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load value
+	EMIT_OP_REG_NUM(ctx.ctx, o_add, rEAX, cmd.argument);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store to target
+	EMIT_REG_KILL(ctx.ctx, rEAX);
 #else
 	assert(!"not implemented");
 #endif
@@ -586,10 +594,20 @@ void GenCodeCmdLess(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rEDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rEDX, cmd.argument); // Load int rhs value
+
+	EMIT_OP_REG_REG(ctx.ctx, o_xor, rECX, rECX);
+	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_setl, rECX);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+
+	EMIT_REG_KILL(ctx.ctx, rEAX);
+	EMIT_REG_KILL(ctx.ctx, rEDX);
+	EMIT_REG_KILL(ctx.ctx, rECX);
 #else
 	assert(!"not implemented");
 #endif
@@ -599,10 +617,20 @@ void GenCodeCmdGreater(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rEDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rEDX, cmd.argument); // Load int rhs value
+
+	EMIT_OP_REG_REG(ctx.ctx, o_xor, rECX, rECX);
+	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_setg, rECX);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+
+	EMIT_REG_KILL(ctx.ctx, rEAX);
+	EMIT_REG_KILL(ctx.ctx, rEDX);
+	EMIT_REG_KILL(ctx.ctx, rECX);
 #else
 	assert(!"not implemented");
 #endif
@@ -612,10 +640,20 @@ void GenCodeCmdLequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rEDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rEDX, cmd.argument); // Load int rhs value
+
+	EMIT_OP_REG_REG(ctx.ctx, o_xor, rECX, rECX);
+	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_setle, rECX);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+
+	EMIT_REG_KILL(ctx.ctx, rEAX);
+	EMIT_REG_KILL(ctx.ctx, rEDX);
+	EMIT_REG_KILL(ctx.ctx, rECX);
 #else
 	assert(!"not implemented");
 #endif
@@ -625,10 +663,20 @@ void GenCodeCmdGequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rEDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rEDX, cmd.argument); // Load int rhs value
+
+	EMIT_OP_REG_REG(ctx.ctx, o_xor, rECX, rECX);
+	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_setge, rECX);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+
+	EMIT_REG_KILL(ctx.ctx, rEAX);
+	EMIT_REG_KILL(ctx.ctx, rEDX);
+	EMIT_REG_KILL(ctx.ctx, rECX);
 #else
 	assert(!"not implemented");
 #endif
@@ -638,10 +686,20 @@ void GenCodeCmdEqual(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rEDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rEDX, cmd.argument); // Load int rhs value
+
+	EMIT_OP_REG_REG(ctx.ctx, o_xor, rECX, rECX);
+	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_sete, rECX);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+
+	EMIT_REG_KILL(ctx.ctx, rEAX);
+	EMIT_REG_KILL(ctx.ctx, rEDX);
+	EMIT_REG_KILL(ctx.ctx, rECX);
 #else
 	assert(!"not implemented");
 #endif
@@ -651,10 +709,20 @@ void GenCodeCmdNequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rB * 8); // Load lhs
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rEDX, sQWORD, rREG, cmd.rC * 8); // Load rhs pointer
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rEDX, cmd.argument); // Load int rhs value
+
+	EMIT_OP_REG_REG(ctx.ctx, o_xor, rECX, rECX);
+	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
+	EMIT_OP_REG(ctx.ctx, o_setne, rECX);
+
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+
+	EMIT_REG_KILL(ctx.ctx, rEAX);
+	EMIT_REG_KILL(ctx.ctx, rEDX);
+	EMIT_REG_KILL(ctx.ctx, rECX);
 #else
 	assert(!"not implemented");
 #endif

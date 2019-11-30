@@ -193,8 +193,10 @@ enum x86Command
 	o_fsqrt,
 	o_frndint,
 
+	o_movss,
 	o_movsd,
 	o_cvtss2sd,
+	o_cvtsd2ss,
 
 	o_int,
 	o_label,
@@ -203,6 +205,7 @@ enum x86Command
 	o_other,
 
 	o_mov64,
+	o_add64,
 
 	// Aliases
 	o_jc = o_jb,
@@ -217,9 +220,9 @@ static const char* x86CmdText[] =
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
 	"setl", "setg", "setle", "setge", "sete", "setne", "setz", "setnz",
 	"fadd", "faddp", "fmul", "fmulp", "fsub", "fsubr", "fsubp", "fsubrp", "fdiv", "fdivr", "fdivrp", "fchs", "fprem", "fcomp", "fldz", "fld1", "fsincos", "fptan", "fsqrt", "frndint",
-	"movss", "movsd",
+	"movss", "movsd", "cvtss2sd", "cvtsd2ss",
 	"int", "label", "use32", "nop", "other",
-	"mov",
+	"mov", "add"
 };
 
 struct x86Argument

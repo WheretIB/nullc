@@ -972,12 +972,38 @@ void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x8
 	ctx.x86Op++;
 }
 
+
+void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86Size size, x86Reg index, unsigned int mult, x86Reg base, unsigned int shift)
+{
+	ctx.x86Op->name = op;
+	ctx.x86Op->argA.type = x86Argument::argXmmReg;
+	ctx.x86Op->argA.xmmArg = reg1;
+	ctx.x86Op->argB.type = x86Argument::argPtr;
+	ctx.x86Op->argB.ptrSize = size;
+	ctx.x86Op->argB.ptrIndex = index;
+	ctx.x86Op->argB.ptrMult = mult;
+	ctx.x86Op->argB.ptrBase = base;
+	ctx.x86Op->argB.ptrNum = shift;
+	ctx.x86Op++;
+}
+
 void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86Size size, x86Reg reg2, unsigned int shift)
 {
 	EMIT_OP_REG_RPTR(ctx, op, reg1, size, rNONE, 1, reg2, shift);
 }
 
+
+void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86Size size, x86Reg reg2, unsigned int shift)
+{
+	EMIT_OP_REG_RPTR(ctx, op, reg1, size, rNONE, 1, reg2, shift);
+}
+
 void EMIT_OP_REG_ADDR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86Size size, unsigned int addr)
+{
+	EMIT_OP_REG_RPTR(ctx, op, reg1, size, rNONE, 1, rNONE, addr);
+}
+
+void EMIT_OP_REG_ADDR(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86Size size, unsigned int addr)
 {
 	EMIT_OP_REG_RPTR(ctx, op, reg1, size, rNONE, 1, rNONE, addr);
 }
@@ -1081,12 +1107,36 @@ void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x
 	ctx.x86Op++;
 }
 
+void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg index, int multiplier, x86Reg base, unsigned int shift, x86XmmReg reg2)
+{
+	ctx.x86Op->name = op;
+	ctx.x86Op->argA.type = x86Argument::argPtr;
+	ctx.x86Op->argA.ptrSize = size;
+	ctx.x86Op->argA.ptrIndex = index;
+	ctx.x86Op->argA.ptrMult = multiplier;
+	ctx.x86Op->argA.ptrBase = base;
+	ctx.x86Op->argA.ptrNum = shift;
+	ctx.x86Op->argB.type = x86Argument::argXmmReg;
+	ctx.x86Op->argB.xmmArg = reg2;
+	ctx.x86Op++;
+}
+
 void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg reg1, unsigned int shift, x86Reg reg2)
 {
 	EMIT_OP_RPTR_REG(ctx, op, size, rNONE, 1, reg1, shift, reg2);
 }
 
+void EMIT_OP_RPTR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, x86Reg reg1, unsigned int shift, x86XmmReg reg2)
+{
+	EMIT_OP_RPTR_REG(ctx, op, size, rNONE, 1, reg1, shift, reg2);
+}
+
 void EMIT_OP_ADDR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, unsigned int addr, x86Reg reg2)
+{
+	EMIT_OP_RPTR_REG(ctx, op, size, rNONE, 1, rNONE, addr, reg2);
+}
+
+void EMIT_OP_ADDR_REG(CodeGenGenericContext &ctx, x86Command op, x86Size size, unsigned int addr, x86XmmReg reg2)
 {
 	EMIT_OP_RPTR_REG(ctx, op, size, rNONE, 1, rNONE, addr, reg2);
 }
@@ -1193,6 +1243,12 @@ void EMIT_REG_KILL(CodeGenGenericContext &ctx, x86Reg reg)
 #else
 	(void)reg;
 #endif
+}
+
+void EMIT_REG_KILL(CodeGenGenericContext &ctx, x86XmmReg reg)
+{
+	(void)ctx;
+	(void)reg;
 }
 
 void SetOptimizationLookBehind(CodeGenGenericContext &ctx, bool allow)
