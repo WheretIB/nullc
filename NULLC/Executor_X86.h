@@ -1,14 +1,13 @@
 #pragma once
 
 #include "stdafx.h"
+#include "InstructionTreeRegVm.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 typedef struct DCCallVM_ DCCallVM;
 #endif
 
 class Linker;
-
-struct RegVmCmd;
 
 struct x86Instruction;
 
@@ -18,6 +17,8 @@ struct ExternFuncInfo;
 struct OutputContext;
 
 struct CodeGenRegVmContext;
+
+const int REGVM_X86_ERROR_BUFFER_SIZE = 1024;
 
 class ExecutorX86
 {
@@ -57,16 +58,19 @@ public:
 	bool	RemoveBreakpoint(unsigned int instruction);
 
 private:
-	bool	InitStack();
 	bool	InitExecution();
 
 	CodeGenRegVmContext *codeGenCtx;
 
 	bool	codeRunning;
 
-	char	execError[512];
+	RegVmReturnType	lastResultType;
+	RegVmRegister	lastResult;
+
+	char	execError[REGVM_X86_ERROR_BUFFER_SIZE];
 	char	execResult[64];
 
+	// Linker and linker data
 	Linker		*exLinker;
 
 	FastVector<ExternTypeInfo>	&exTypes;
@@ -75,14 +79,38 @@ private:
 	FastVector<unsigned int>	&exRegVmConstants;
 	FastVector<bool>			codeJumpTargets;
 
-	FastVector<x86Instruction, true, true>	instList;
-
-	unsigned int	globalStartInBytecode;
-
+	// Data stack
 	unsigned int	minStackSize;
 
-	char			*paramBase;
-	void			*genStackTop, *genStackPtr;
+	FastVector<char, true, true>	dataStack;
+
+	FastVector<unsigned>	callStack;
+	unsigned	currentFrame;
+
+	unsigned	lastFinalReturn;
+
+	// Stack for call argument/return result data
+	unsigned		*tempStackArrayBase;
+	unsigned		*tempStackLastTop;
+	unsigned		*tempStackArrayEnd;
+
+	// Register file
+	RegVmRegister	*regFileArrayBase;
+	RegVmRegister	*regFileLastTop;
+	RegVmRegister	*regFileArrayEnd;
+
+	bool			callContinue;
+
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+	DCCallVM		*dcCallVM;
+#endif
+
+	// Native code data
+	static const unsigned codeLaunchHeaderSize = 128;
+	unsigned char codeLaunchHeader[codeLaunchHeaderSize];
+	unsigned oldCodeLaunchHeaderProtect;
+
+	FastVector<x86Instruction, true, true>	instList;
 
 	unsigned char	*binCode;
 	uintptr_t		binCodeStart;
@@ -90,22 +118,21 @@ private:
 
 	unsigned int	lastInstructionCount;
 
-	int				callContinue;
-
-	unsigned int	*callstackTop;
+	//unsigned int	*callstackTop;
 
 	unsigned int	oldJumpTargetCount;
 	unsigned int	oldFunctionSize;
-
-	unsigned int	oldCodeHeadProtect;
 	unsigned int	oldCodeBodyProtect;
-
-#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-	DCCallVM		*dcCallVM;
-#endif
 
 public:
 	FastVector<unsigned char*>	instAddress;
+
+	struct RegVmStateContext
+	{
+
+	};
+
+	RegVmStateContext vmState;
 
 	void *breakFunctionContext;
 	unsigned (*breakFunction)(void*, unsigned);
