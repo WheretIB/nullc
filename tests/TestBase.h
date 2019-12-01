@@ -21,9 +21,9 @@ double myGetPreciseTime();
 enum TestTypeIndex
 {
 	TEST_TYPE_VM,
+	TEST_TYPE_REGVM,
 	TEST_TYPE_X86,
 	TEST_TYPE_LLVM,
-	TEST_TYPE_REGVM,
 	TEST_TYPE_EXTRA,
 	TEST_TYPE_FAILURE,
 	TEST_TYPE_TRANSLATION,
@@ -133,7 +133,7 @@ struct Test_##code : TestQueue {	\
 				continue;	\
 			testsCount[t]++;	\
 			lastFailed = false;	\
-			if(!Tests::RunCode(code, t, result, name))	\
+			if(!Tests::RunCode(code, testTarget[t], result, name))	\
 			{	\
 				lastFailed = true;	\
 				return;	\
@@ -159,7 +159,7 @@ struct Test_##code : TestQueue {	\
 				continue;	\
 			testsCount[t]++;	\
 			lastFailed = false;	\
-			if(!Tests::RunCodeSimple(code, t, result, name, false, ""))	\
+			if(!Tests::RunCodeSimple(code, testTarget[t], result, name, false, ""))	\
 			{	\
 				lastFailed = true;	\
 				return;	\
@@ -185,7 +185,7 @@ struct Test_##code : TestQueue {	\
 				continue;	\
 			testsCount[t]++;	\
 			lastFailed = false;	\
-			if(!Tests::RunCode(code, t, result, name))	\
+			if(!Tests::RunCode(code, testTarget[t], result, name))	\
 			{	\
 				lastFailed = true;	\
 				return;	\
@@ -210,7 +210,7 @@ struct Test_##code : TestQueue {	\
 			if(!Tests::testExecutor[t])	\
 				continue;	\
 			testsCount[t]++;	\
-			if(Tests::RunCode(code, t, result, name))	\
+			if(Tests::RunCode(code, testTarget[t], result, name))	\
 				testsPassed[t]++;	\
 		}	\
 	}	\
@@ -225,7 +225,7 @@ struct Test_##code : TestQueue {	\
 			if(!Tests::testExecutor[t])	\
 				continue;	\
 			testsCount[t]++;	\
-			if(Tests::RunCodeSimple(code, t, result, name, false, ""))	\
+			if(Tests::RunCodeSimple(code, testTarget[t], result, name, false, ""))	\
 				testsPassed[t]++;	\
 		}	\
 	}	\
@@ -240,7 +240,7 @@ struct Test_##code : TestQueue {	\
 			if(!Tests::testFailureExecutor[t])	\
 				continue;	\
 			testsCount[t]++;	\
-			if(Tests::RunCode(code, t, result, name, true))	\
+			if(Tests::RunCode(code, testTarget[t], result, name, true))	\
 				testsPassed[t]++;	\
 		}	\
 	}	\
