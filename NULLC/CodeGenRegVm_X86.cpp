@@ -957,7 +957,7 @@ void GenCodeCmdLess(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
 	EMIT_OP_REG(ctx.ctx, o_setl, rECX);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
 
 	EMIT_REG_KILL(ctx.ctx, rEAX);
 	EMIT_REG_KILL(ctx.ctx, rEDX);
@@ -980,7 +980,7 @@ void GenCodeCmdGreater(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
 	EMIT_OP_REG(ctx.ctx, o_setg, rECX);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
 
 	EMIT_REG_KILL(ctx.ctx, rEAX);
 	EMIT_REG_KILL(ctx.ctx, rEDX);
@@ -1003,7 +1003,7 @@ void GenCodeCmdLequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
 	EMIT_OP_REG(ctx.ctx, o_setle, rECX);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
 
 	EMIT_REG_KILL(ctx.ctx, rEAX);
 	EMIT_REG_KILL(ctx.ctx, rEDX);
@@ -1026,7 +1026,7 @@ void GenCodeCmdGequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
 	EMIT_OP_REG(ctx.ctx, o_setge, rECX);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
 
 	EMIT_REG_KILL(ctx.ctx, rEAX);
 	EMIT_REG_KILL(ctx.ctx, rEDX);
@@ -1049,7 +1049,7 @@ void GenCodeCmdEqual(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
 	EMIT_OP_REG(ctx.ctx, o_sete, rECX);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
 
 	EMIT_REG_KILL(ctx.ctx, rEAX);
 	EMIT_REG_KILL(ctx.ctx, rEDX);
@@ -1072,7 +1072,7 @@ void GenCodeCmdNequal(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_REG(ctx.ctx, o_cmp, rEAX, rEDX);
 	EMIT_OP_REG(ctx.ctx, o_setne, rECX);
 
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
 
 	EMIT_REG_KILL(ctx.ctx, rEAX);
 	EMIT_REG_KILL(ctx.ctx, rEDX);
@@ -1390,7 +1390,7 @@ void GenCodeCmdAddd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rB * 8); // Load double value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM1, sQWORD, rRAX, cmd.argument); // Load double value
-	EMIT_OP_REG_REG(ctx.ctx, o_addss, rXMM0, rXMM1);
+	EMIT_OP_REG_REG(ctx.ctx, o_addsd, rXMM0, rXMM1);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
 	EMIT_REG_KILL(ctx.ctx, rXMM1);
@@ -1407,7 +1407,7 @@ void GenCodeCmdSubd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rB * 8); // Load double value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM1, sQWORD, rRAX, cmd.argument); // Load double value
-	EMIT_OP_REG_REG(ctx.ctx, o_subss, rXMM0, rXMM1);
+	EMIT_OP_REG_REG(ctx.ctx, o_subsd, rXMM0, rXMM1);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
 	EMIT_REG_KILL(ctx.ctx, rXMM1);
@@ -1424,7 +1424,7 @@ void GenCodeCmdMuld(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rB * 8); // Load double value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM1, sQWORD, rRAX, cmd.argument); // Load double value
-	EMIT_OP_REG_REG(ctx.ctx, o_mulss, rXMM0, rXMM1);
+	EMIT_OP_REG_REG(ctx.ctx, o_mulsd, rXMM0, rXMM1);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
 	EMIT_REG_KILL(ctx.ctx, rXMM1);
@@ -1441,7 +1441,7 @@ void GenCodeCmdDivd(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rB * 8); // Load double value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM1, sQWORD, rRAX, cmd.argument); // Load double value
-	EMIT_OP_REG_REG(ctx.ctx, o_divss, rXMM0, rXMM1);
+	EMIT_OP_REG_REG(ctx.ctx, o_divsd, rXMM0, rXMM1);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
 	EMIT_REG_KILL(ctx.ctx, rXMM1);
@@ -1458,7 +1458,7 @@ void GenCodeCmdAddf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rB * 8); // Load double value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
 	EMIT_OP_REG_RPTR(ctx.ctx, o_cvtss2sd, rXMM1, sDWORD, rRAX, cmd.argument); // Load float as double
-	EMIT_OP_REG_REG(ctx.ctx, o_addss, rXMM0, rXMM1);
+	EMIT_OP_REG_REG(ctx.ctx, o_addsd, rXMM0, rXMM1);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
 	EMIT_REG_KILL(ctx.ctx, rXMM1);
@@ -1475,7 +1475,7 @@ void GenCodeCmdSubf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rB * 8); // Load double value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
 	EMIT_OP_REG_RPTR(ctx.ctx, o_cvtss2sd, rXMM1, sDWORD, rRAX, cmd.argument); // Load float as double
-	EMIT_OP_REG_REG(ctx.ctx, o_subss, rXMM0, rXMM1);
+	EMIT_OP_REG_REG(ctx.ctx, o_subsd, rXMM0, rXMM1);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
 	EMIT_REG_KILL(ctx.ctx, rXMM1);
@@ -1492,7 +1492,7 @@ void GenCodeCmdMulf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rB * 8); // Load double value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
 	EMIT_OP_REG_RPTR(ctx.ctx, o_cvtss2sd, rXMM1, sDWORD, rRAX, cmd.argument); // Load float as double
-	EMIT_OP_REG_REG(ctx.ctx, o_mulss, rXMM0, rXMM1);
+	EMIT_OP_REG_REG(ctx.ctx, o_mulsd, rXMM0, rXMM1);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
 	EMIT_REG_KILL(ctx.ctx, rXMM1);
@@ -1509,7 +1509,7 @@ void GenCodeCmdDivf(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rB * 8); // Load double value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
 	EMIT_OP_REG_RPTR(ctx.ctx, o_cvtss2sd, rXMM1, sDWORD, rRAX, cmd.argument); // Load float as double
-	EMIT_OP_REG_REG(ctx.ctx, o_divss, rXMM0, rXMM1);
+	EMIT_OP_REG_REG(ctx.ctx, o_divsd, rXMM0, rXMM1);
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
 	EMIT_REG_KILL(ctx.ctx, rXMM1);

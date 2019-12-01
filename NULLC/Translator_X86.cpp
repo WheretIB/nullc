@@ -512,54 +512,54 @@ int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index
 	return int(stream - start);
 }
 
-int x86ADDSS(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
+int x86ADDSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 {
 	unsigned char *start = stream;
 
-	*stream++ = 0xf3;
+	*stream++ = 0xf2;
 	stream += encodeRex(stream, false, dst, src);
 	*stream++ = 0x0f;
 	*stream++ = 0x58;
-	stream += encodeRegister(dst, src);
+	*stream++ = encodeRegister(dst, src);
 
 	return int(stream - start);
 }
 
-int x86SUBSS(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
+int x86SUBSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 {
 	unsigned char *start = stream;
 
-	*stream++ = 0xf3;
+	*stream++ = 0xf2;
 	stream += encodeRex(stream, false, dst, src);
 	*stream++ = 0x0f;
 	*stream++ = 0x5c;
-	stream += encodeRegister(dst, src);
+	*stream++ = encodeRegister(dst, src);
 
 	return int(stream - start);
 }
 
-int x86MULSS(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
+int x86MULSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 {
 	unsigned char *start = stream;
 
-	*stream++ = 0xf3;
+	*stream++ = 0xf2;
 	stream += encodeRex(stream, false, dst, src);
 	*stream++ = 0x0f;
 	*stream++ = 0x59;
-	stream += encodeRegister(dst, src);
+	*stream++ = encodeRegister(dst, src);
 
 	return int(stream - start);
 }
 
-int x86DIVSS(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
+int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 {
 	unsigned char *start = stream;
 
-	*stream++ = 0xf3;
+	*stream++ = 0xf2;
 	stream += encodeRex(stream, false, dst, src);
 	*stream++ = 0x0f;
 	*stream++ = 0x5e;
-	stream += encodeRegister(dst, src);
+	*stream++ = encodeRegister(dst, src);
 
 	return int(stream - start);
 }

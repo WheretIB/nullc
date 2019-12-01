@@ -1797,25 +1797,25 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			assert(cmd.argB.type == x86Argument::argPtr);
 			code += x86CVTSI2SD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			break;
-		case o_addss:
+		case o_addsd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);
 			assert(cmd.argB.type == x86Argument::argXmmReg);
-			code += x86ADDSS(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			code += x86ADDSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
 			break;
-		case o_subss:
+		case o_subsd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);
 			assert(cmd.argB.type == x86Argument::argXmmReg);
-			code += x86SUBSS(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			code += x86SUBSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
 			break;
-		case o_mulss:
+		case o_mulsd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);
 			assert(cmd.argB.type == x86Argument::argXmmReg);
-			code += x86MULSS(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			code += x86MULSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
 			break;
-		case o_divss:
+		case o_divsd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);
 			assert(cmd.argB.type == x86Argument::argXmmReg);
-			code += x86DIVSS(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			code += x86DIVSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
 			break;
 
 		case o_int:

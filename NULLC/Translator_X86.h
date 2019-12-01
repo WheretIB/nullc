@@ -86,10 +86,10 @@ int x86CVTTSD2SI(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, 
 // cvtsi2sd xmm*, *word [index*mult+base+shift]
 int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
-int x86ADDSS(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
-int x86SUBSS(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
-int x86MULSS(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
-int x86DIVSS(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86ADDSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86SUBSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86MULSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 
 // fcomp *word [index*mult+base+shift]
 int x86FCOMP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);

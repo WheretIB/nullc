@@ -200,10 +200,10 @@ enum x86Command
 	o_cvtsd2ss,
 	o_cvttsd2si,
 	o_cvtsi2sd,
-	o_addss,
-	o_subss,
-	o_mulss,
-	o_divss,
+	o_addsd,
+	o_subsd,
+	o_mulsd,
+	o_divsd,
 
 	o_int,
 	o_label,
@@ -232,7 +232,7 @@ static const char* x86CmdText[] =
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
 	"setl", "setg", "setle", "setge", "sete", "setne", "setz", "setnz",
 	"fadd", "faddp", "fmul", "fmulp", "fsub", "fsubr", "fsubp", "fsubrp", "fdiv", "fdivr", "fdivrp", "fchs", "fprem", "fcomp", "fldz", "fld1", "fsincos", "fptan", "fsqrt", "frndint",
-	"movss", "movsd", "cvtss2sd", "cvtsd2ss", "cvttsd2si", "cvtsi2sd", "addss", "subss", "mulss", "divss",
+	"movss", "movsd", "cvtss2sd", "cvtsd2ss", "cvttsd2si", "cvtsi2sd", "addsd", "subsd", "mulsd", "divsd",
 	"int", "label", "use32", "nop", "other",
 
 	"mov", "movsxd",
