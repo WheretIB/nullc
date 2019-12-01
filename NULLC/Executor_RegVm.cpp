@@ -112,7 +112,6 @@ ExecutorRegVm::ExecutorRegVm(Linker* linker) : exLinker(linker), exTypes(linker-
 	currentFrame = 0;
 
 	tempStackArrayBase = NULL;
-	tempStackLastTop = NULL;
 	tempStackArrayEnd = NULL;
 
 	regFileArrayBase = NULL;
@@ -176,8 +175,6 @@ void ExecutorRegVm::InitExecution()
 		tempStackArrayEnd = tempStackArrayBase + 1024 * 32;
 	}
 
-	tempStackLastTop = tempStackArrayBase;
-
 	if(!regFileArrayBase)
 	{
 		regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 32);
@@ -219,7 +216,7 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 	RegVmRegister *regFilePtr = regFileLastTop;
 	RegVmRegister *regFileTop = regFilePtr + 256;
 
-	unsigned *tempStackPtr = tempStackLastTop;
+	unsigned *tempStackPtr = tempStackArrayBase;
 
 	if(functionID != ~0u)
 	{
@@ -320,7 +317,6 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 		assert(dataStack.size() >= exLinker->globalVarSize);
 		memset(dataStack.data, 0, exLinker->globalVarSize);
 
-
 		regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
 		regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data);
 		regFilePtr[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
@@ -333,16 +329,12 @@ void ExecutorRegVm::Run(unsigned functionID, const char *arguments)
 
 	regFileLastTop = regFileTop;
 
-	tempStackLastTop = tempStackPtr;
-
 	RegVmReturnType resultType = retType;
 
 	if(instruction)
-		resultType = RunCode(instruction, regFilePtr, tempStackPtr, this, codeBase);
+		resultType = RunCode(instruction, regFilePtr, this, codeBase);
 
 	regFileLastTop = prevRegFileLastTop;
-
-	assert(tempStackLastTop == tempStackPtr);
 
 	dataStack.shrink(prevDataSize);
 
@@ -426,7 +418,7 @@ bool ExecutorRegVm::SetStackSize(unsigned bytes)
 #define USE_COMPUTED_GOTO
 #endif
 
-RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr, ExecutorRegVm *rvm, RegVmCmd *codeBase)
+RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * const regFilePtr, ExecutorRegVm *rvm, RegVmCmd *codeBase)
 {
 	(void)codeBase;
 
@@ -802,9 +794,7 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			instruction++;
 			BREAK;
 		CASE(rviCall)
-			tempStackPtr = rvm->ExecCall((cmd.rA << 16) | (cmd.rB << 8) | cmd.rC, cmd.argument, instruction, regFilePtr, tempStackPtr);
-
-			if(!tempStackPtr)
+			if(!rvm->ExecCall((cmd.rA << 16) | (cmd.rB << 8) | cmd.rC, cmd.argument, instruction, regFilePtr))
 				return rvrError;
 
 			instruction++;
@@ -814,15 +804,13 @@ RegVmReturnType ExecutorRegVm::RunCode(RegVmCmd *instruction, RegVmRegister * co
 			if(regFilePtr[cmd.rC].intValue == 0)
 				return rvm->ExecError(instruction, "ERROR: invalid function pointer");
 
-			tempStackPtr = rvm->ExecCall(cmd.argument, regFilePtr[cmd.rC].intValue, instruction, regFilePtr, tempStackPtr);
-
-			if(!tempStackPtr)
+			if(!rvm->ExecCall(cmd.argument, regFilePtr[cmd.rC].intValue, instruction, regFilePtr))
 				return rvrError;
 
 			instruction++;
 			BREAK;
 		CASE(rviReturn)
-			return rvm->ExecReturn(cmd, instruction, regFilePtr, tempStackPtr);
+			return rvm->ExecReturn(cmd, instruction, regFilePtr);
 		CASE(rviAddImm)
 			regFilePtr[cmd.rA].intValue = regFilePtr[cmd.rB].intValue + (int)cmd.argument;
 			instruction++;
@@ -1344,8 +1332,10 @@ RegVmCmd* ExecutorRegVm::ExecNop(const RegVmCmd cmd, RegVmCmd * const instructio
 	return codeBase + cmd.argument;
 }
 
-unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr)
+bool ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr)
 {
+	unsigned *tempStackPtr = tempStackArrayBase;
+
 	ExternFuncInfo &target = exFunctions[functionId];
 
 	if(tempStackPtr + (target.bytesToPop >> 2) >= tempStackArrayEnd)
@@ -1355,7 +1345,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 		codeRunning = false;
 		strcpy(execError, "ERROR: call argument buffer overflow");
 
-		return NULL;
+		return false;
 	}
 
 	// Push arguments
@@ -1407,24 +1397,20 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 		// Take arguments
 		tempStackPtr -= target.bytesToPop >> 2;
 
-		unsigned *tempStackTop = tempStackLastTop;
-
-		tempStackLastTop = tempStackPtr;
+		assert(tempStackPtr == tempStackArrayBase);
 
 		if(target.funcPtrWrap)
 		{
 			target.funcPtrWrap(target.funcPtrWrapTarget, (char*)tempStackPtr, (char*)tempStackPtr);
 
 			if(!callContinue)
-				return NULL;
+				return false;
 		}
 		else
 		{
 			if(!RunExternalFunction(functionId, tempStackPtr))
-				return NULL;
+				return false;
 		}
-
-		tempStackLastTop = tempStackTop;
 
 		callStack.pop_back();
 
@@ -1469,7 +1455,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 			}
 		}
 
-		return tempStackPtr;
+		return true;
 	}
 
 	callStack.push_back(instruction + 1);
@@ -1486,11 +1472,13 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 		codeRunning = false;
 		strcpy(execError, "ERROR: stack overflow");
 
-		return NULL;
+		return false;
 	}
 
 	// Take arguments
 	tempStackPtr -= target.bytesToPop >> 2;
+
+	assert(tempStackPtr == tempStackArrayBase);
 
 	// Copy function arguments to new stack frame
 	memcpy((char*)(dataStack.data + dataStack.size()), tempStackPtr, argumentsSize);
@@ -1506,9 +1494,8 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 		codeRunning = false;
 		strcpy(execError, "ERROR: register overflow");
 
-		return NULL;
+		return false;
 	}
-
 
 	assert(dataStack.size() % 16 == 0);
 
@@ -1517,7 +1504,7 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 		codeRunning = false;
 		strcpy(execError, "ERROR: stack overflow");
 
-		return NULL;
+		return false;
 	}
 
 	dataStack.resize(dataStack.size() + stackSize);
@@ -1534,10 +1521,10 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 
 	memset(regFileTop + rvrrCount, 0, (regFileLastTop - regFileTop - rvrrCount) * sizeof(regFilePtr[0]));
 
-	RegVmReturnType execResultType = RunCode(codeBase + address, regFileTop, tempStackPtr, this, codeBase);
+	RegVmReturnType execResultType = RunCode(codeBase + address, regFileTop, this, codeBase);
 
 	if(execResultType == rvrError)
-		return NULL;
+		return false;
 
 	assert(execResultType == resultType);
 
@@ -1586,11 +1573,13 @@ unsigned* ExecutorRegVm::ExecCall(unsigned microcodePos, unsigned functionId, Re
 		}
 	}
 
-	return tempStackPtr;
+	return true;
 }
 
-RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr)
+RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr)
 {
+	unsigned *tempStackPtr = tempStackArrayBase;
+
 	if(cmd.rB == rvrError)
 	{
 		bool errorState = !callStack.empty();
@@ -1609,7 +1598,6 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 	{
 		unsigned *microcode = exLinker->exRegVmConstants.data + cmd.argument;
 
-		unsigned *tempStackPtrStart = tempStackPtr;
 		unsigned typeId = *microcode++;
 		unsigned typeSize = *microcode++;
 
@@ -1657,7 +1645,7 @@ RegVmReturnType ExecutorRegVm::ExecReturn(const RegVmCmd cmd, RegVmCmd * const i
 		}
 
 		if(cmd.rC)
-			ExecCheckedReturn(typeId, regFilePtr, tempStackPtrStart);
+			ExecCheckedReturn(typeId, regFilePtr);
 	}
 
 	if(callStack.size() == lastFinalReturn)
@@ -1693,14 +1681,14 @@ bool ExecutorRegVm::ExecConvertPtr(const RegVmCmd cmd, RegVmCmd * const instruct
 	return true;
 }
 
-void ExecutorRegVm::ExecCheckedReturn(unsigned typeId, RegVmRegister * const regFilePtr, unsigned * const tempStackPtr)
+void ExecutorRegVm::ExecCheckedReturn(unsigned typeId, RegVmRegister * const regFilePtr)
 {
 	uintptr_t frameBase = regFilePtr[rvrrFrame].ptrValue;
 	uintptr_t frameEnd = regFilePtr[rvrrGlobals].ptrValue + dataStack.size();
 
 	ExternTypeInfo &type = exLinker->exTypes[typeId];
 
-	char *returnValuePtr = (char*)tempStackPtr;
+	char *returnValuePtr = (char*)tempStackArrayBase;
 
 	void *ptr = vmLoadPointer(returnValuePtr);
 

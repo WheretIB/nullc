@@ -76,7 +76,6 @@ private:
 
 	// Stack for call argument/return result data
 	unsigned	*tempStackArrayBase;
-	unsigned	*tempStackLastTop;
 	unsigned	*tempStackArrayEnd;
 
 	// Register file
@@ -95,15 +94,15 @@ private:
 
 	FastVector<RegVmCmd>	breakCode;
 
-	static RegVmReturnType RunCode(RegVmCmd *instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr, ExecutorRegVm *rvm, RegVmCmd *codeBase);
+	static RegVmReturnType RunCode(RegVmCmd *instruction, RegVmRegister * const regFilePtr, ExecutorRegVm *rvm, RegVmCmd *codeBase);
 
 	bool RunExternalFunction(unsigned funcID, unsigned *callStorage);
 
 	RegVmCmd* ExecNop(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr);
-	unsigned* ExecCall(unsigned microcodePos, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr);
-	RegVmReturnType ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr, unsigned *tempStackPtr);
+	bool ExecCall(unsigned microcodePos, unsigned functionId, RegVmCmd * const instruction, RegVmRegister * const regFilePtr);
+	RegVmReturnType ExecReturn(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr);
 	bool ExecConvertPtr(const RegVmCmd cmd, RegVmCmd * const instruction, RegVmRegister * const regFilePtr);
-	void ExecCheckedReturn(unsigned typeId, RegVmRegister * const regFilePtr, unsigned * const tempStackPtr);
+	void ExecCheckedReturn(unsigned typeId, RegVmRegister * const regFilePtr);
 
 	RegVmReturnType ExecError(RegVmCmd * const instruction, const char *errorMessage);
 
