@@ -81,7 +81,7 @@ void GenCodeCmdLoadFloat(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_cvtss2sd, rXMM0, sQWORD, rRAX, cmd.argument); // Load float as double
+	EMIT_OP_REG_RPTR(ctx.ctx, o_cvtss2sd, rXMM0, sDWORD, rRAX, cmd.argument); // Load float as double
 	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rREG, cmd.rA * 8, rXMM0); // Store double to target
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
 #else
@@ -380,36 +380,36 @@ void GenCodeCmdIndex(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #if defined(_M_X64)
 	// TODO: index bounds check
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDX, sQWORD, rREG, cmd.rC * 8); // Load source pointer
-	EMIT_OP_REG_RPTR(ctx.ctx, o_movzx64, rRAX, sDWORD, rREG, cmd.rB * 8); // Load index with zero extension to use in lea
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sDWORD, rREG, cmd.rB * 8); // Load index with zero extension to use in lea
 
 	// Multiply index by size and add to source pointer
 	unsigned size = (cmd.argument & 0xffff);
 
 	if(size == 1)
 	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_lea64, rRAX, sNONE, rRAX, 1, rRDX, 0);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rRAX, 1, rRDX, 0);
 	}
 	else if(size == 2)
 	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_lea64, rRAX, sNONE, rRAX, 2, rRDX, 0);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rRAX, 2, rRDX, 0);
 	}
 	else if(size == 4)
 	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_lea64, rRAX, sNONE, rRAX, 4, rRDX, 0);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rRAX, 4, rRDX, 0);
 	}
 	else if(size == 8)
 	{
-		EMIT_OP_REG_RPTR(ctx.ctx, o_lea64, rRAX, sNONE, rRAX, 8, rRDX, 0);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rRAX, 8, rRDX, 0);
 	}
 	else if(size == 16)
 	{
 		EMIT_OP_REG_NUM(ctx.ctx, o_shl, rEAX, 4); // 32 bit shift is ok, top bits are zero
-		EMIT_OP_REG_RPTR(ctx.ctx, o_lea64, rRAX, sNONE, rRAX, 1, rRDX, 0);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rRAX, 1, rRDX, 0);
 	}
 	else
 	{
 		EMIT_OP_REG_NUM(ctx.ctx, o_imul, rEAX, size); // 32 bit multiplication is ok, top bits are zero
-		EMIT_OP_REG_RPTR(ctx.ctx, o_lea64, rRAX, sNONE, rRAX, 1, rRDX, 0);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRAX, sQWORD, rRAX, 1, rRDX, 0);
 	}
 
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store to target

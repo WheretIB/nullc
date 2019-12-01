@@ -207,9 +207,7 @@ enum x86Command
 	o_other,
 
 	o_mov64,
-	o_movzx64,
 	o_movsxd,
-	o_lea64,
 
 	o_add64,
 
@@ -231,7 +229,7 @@ static const char* x86CmdText[] =
 	"movss", "movsd", "cvtss2sd", "cvtsd2ss", "cvttsd2si", "cvtsi2sd",
 	"int", "label", "use32", "nop", "other",
 
-	"mov", "movzx", "movsxd", "lea",
+	"mov", "movsxd",
 	"add",
 	"cvttsd2si64"
 };

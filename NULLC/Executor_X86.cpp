@@ -478,7 +478,7 @@ bool ExecutorX86::Initialize()
 	pos += x86PUSH(pos, rESP);
 	// TODO: save non-volatile r12 r13 r14 and r15
 
-	pos += x86MOV(pos, rEBX, rEDX);
+	pos += x64MOV(pos, rRBX, rRDX);
 	pos += x86CALL(pos, rECX);
 
 	// Restore registers
@@ -1382,7 +1382,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			{
 				code += x86LEA(code, cmd.argA.reg, cmd.argB.labelID, (unsigned int)(intptr_t)bytecode);
 			}else{
-				code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				code += x86LEA(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			}
 			break;
 		case o_cdq:
@@ -1720,6 +1720,45 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			code += x86FRNDINT(code);
 			break;
 
+		case o_movss:
+			assert(cmd.argA.type == x86Argument::argPtr);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86MOVSS(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.xmmArg);
+			break;
+		case o_movsd:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				assert(cmd.argB.type == x86Argument::argXmmReg);
+				code += x86MOVSD(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.xmmArg);
+			}
+			else
+			{
+				assert(cmd.argA.type == x86Argument::argXmmReg);
+				assert(cmd.argB.type == x86Argument::argPtr);
+				code += x86MOVSD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			}
+			break;
+		case o_cvtss2sd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+			code += x86CVTSS2SD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+		case o_cvtsd2ss:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+			code += x86CVTSD2SS(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+		case o_cvttsd2si:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+			code += x86CVTTSD2SI(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+		case o_cvtsi2sd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+			code += x86CVTSI2SD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+
 		case o_int:
 			code += x86INT(code, 3);
 			break;
@@ -1729,6 +1768,48 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		case o_use32:
 			break;
 		case o_other:
+			break;
+		case o_mov64:
+			if(cmd.argA.type != x86Argument::argPtr)
+			{
+				if(cmd.argB.type == x86Argument::argNumber)
+					code += x64MOV(code, cmd.argA.reg, cmd.argB.num);
+				else if(cmd.argB.type == x86Argument::argPtr)
+					code += x86MOV(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				else
+					code += x64MOV(code, cmd.argA.reg, cmd.argB.reg);
+			}
+			else
+			{
+				if(cmd.argB.type == x86Argument::argNumber)
+					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+				else
+					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+			}
+			break;
+		case o_movsxd:
+			assert(!"unknown instruction");
+			break;
+		case o_add64:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86ADD(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86ADD(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+			}
+			else
+			{
+				if(cmd.argB.type == x86Argument::argPtr)
+					code += x86ADD(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+				else if(cmd.argB.type == x86Argument::argReg)
+					code += x64ADD(code, cmd.argA.reg, cmd.argB.reg);
+				else
+					code += x64ADD(code, cmd.argA.reg, cmd.argB.num);
+			}
+			break;
+		case o_cvttsd2si64:
+			assert(!"unknown instruction");
 			break;
 		default:
 			assert(!"unknown instruction");
