@@ -12,11 +12,19 @@ char	condCode[] = { 0, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 10
 
 // spareField can be found in nasmdoc as /0-7 or /r codes in instruction bytecode
 // encode register as address
-unsigned char	encodeRegister(x86Reg reg, char spareField)
+unsigned char encodeRegister(x86Reg reg, char spareField)
 {
 	unsigned char mod = 3 << 6;
 	unsigned char spare = spareField << 3;
 	unsigned char RM = regCode[reg];
+	return mod | spare | RM;
+}
+
+unsigned char encodeRegister(x86XmmReg dst, x86XmmReg src)
+{
+	unsigned char mod = 3 << 6;
+	unsigned char spare = (unsigned char)src << 3;
+	unsigned char RM = (unsigned char)dst;
 	return mod | spare | RM;
 }
 
@@ -102,6 +110,19 @@ unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86Reg reg, x86Reg 
 unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86XmmReg reg, x86Reg index, x86Reg base)
 {
 	unsigned char code = (operand64Bit ? 0x08 : 0x00) | (reg >= rXMM8 ? 0x04 : 0x00) | (index >= rR8 ? 0x02 : 0x00) | (base >= rR8 ? 0x01 : 0x00);
+
+	if(code)
+	{
+		*stream = 0x40 | code;
+		return 1;
+	}
+
+	return 0;
+}
+
+unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86XmmReg dst, x86XmmReg src)
+{
+	unsigned char code = (operand64Bit ? 0x08 : 0x00) | (dst >= rXMM8 ? 0x04 : 0x00) | (src >= rXMM8 ? 0x01 : 0x00);
 
 	if(code)
 	{
@@ -491,6 +512,58 @@ int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index
 	return int(stream - start);
 }
 
+int x86ADDSS(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xf3;
+	stream += encodeRex(stream, false, dst, src);
+	*stream++ = 0x0f;
+	*stream++ = 0x58;
+	stream += encodeRegister(dst, src);
+
+	return int(stream - start);
+}
+
+int x86SUBSS(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xf3;
+	stream += encodeRex(stream, false, dst, src);
+	*stream++ = 0x0f;
+	*stream++ = 0x5c;
+	stream += encodeRegister(dst, src);
+
+	return int(stream - start);
+}
+
+int x86MULSS(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xf3;
+	stream += encodeRex(stream, false, dst, src);
+	*stream++ = 0x0f;
+	*stream++ = 0x59;
+	stream += encodeRegister(dst, src);
+
+	return int(stream - start);
+}
+
+int x86DIVSS(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xf3;
+	stream += encodeRex(stream, false, dst, src);
+	*stream++ = 0x0f;
+	*stream++ = 0x5e;
+	stream += encodeRegister(dst, src);
+
+	return int(stream - start);
+}
+
 // fcomp *word [index*mult+base+shift]
 int x86FCOMP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
@@ -641,7 +714,7 @@ int x86MOV(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int mu
 	assert(size == sDWORD || size == sQWORD);
 
 	if(size == sQWORD)
-		stream += encodeRex(stream, true, dst, rNONE, rNONE);
+		stream += encodeRex(stream, true, dst, index, base);
 
 	if(dst == rEAX && (char)(shift) != shift && index == rNONE && base == rNONE)
 	{

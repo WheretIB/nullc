@@ -1021,6 +1021,9 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	default:
 		break;
 	}
+
+	if(lastFinalReturn == 0)
+		codeRunning = false;
 }
 
 void ExecutorX86::Stop(const char* error)
@@ -1367,21 +1370,29 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		case o_nop:
 			break;
 		case o_mov:
-			if(cmd.argA.type != x86Argument::argPtr)
+			if(cmd.argA.type == x86Argument::argReg)
 			{
-				assert(cmd.argB.type != x86Argument::argImm64);
-
 				if(cmd.argB.type == x86Argument::argNumber)
 					code += x86MOV(code, cmd.argA.reg, cmd.argB.num);
 				else if(cmd.argB.type == x86Argument::argPtr)
 					code += x86MOV(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
-				else
+				else if(cmd.argB.type == x86Argument::argReg)
 					code += x86MOV(code, cmd.argA.reg, cmd.argB.reg);
-			}else{
+				else
+					assert(!"unknown argument");
+			}
+			else if(cmd.argA.type == x86Argument::argPtr)
+			{
 				if(cmd.argB.type == x86Argument::argNumber)
 					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
-				else
+				else if(cmd.argB.type == x86Argument::argReg)
 					code += x86MOV(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					assert(!"unknown argument");
+			}
+			else
+			{
+				assert(!"unknown argument");
 			}
 			break;
 		case o_movsx:
@@ -1785,6 +1796,26 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			assert(cmd.argA.type == x86Argument::argXmmReg);
 			assert(cmd.argB.type == x86Argument::argPtr);
 			code += x86CVTSI2SD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
+			break;
+		case o_addss:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86ADDSS(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+		case o_subss:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86SUBSS(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+		case o_mulss:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86MULSS(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+		case o_divss:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86DIVSS(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
 			break;
 
 		case o_int:

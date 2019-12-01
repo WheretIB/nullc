@@ -866,6 +866,16 @@ void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86
 	ctx.x86Op++;
 }
 
+void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86XmmReg reg1, x86XmmReg reg2)
+{
+	ctx.x86Op->name = op;
+	ctx.x86Op->argA.type = x86Argument::argXmmReg;
+	ctx.x86Op->argA.xmmArg = reg1;
+	ctx.x86Op->argB.type = x86Argument::argXmmReg;
+	ctx.x86Op->argB.xmmArg = reg2;
+	ctx.x86Op++;
+}
+
 void EMIT_OP_REG_RPTR(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86Size size, x86Reg index, unsigned int mult, x86Reg base, unsigned int shift)
 {
 #ifdef NULLC_OPTIMIZE_X86
