@@ -753,8 +753,11 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	{
 		unsigned *microcode = ctx.exRegVmConstants + cmd.argument;
 
-		//unsigned typeId = *microcode++;
-		//unsigned typeSize = *microcode++;
+		unsigned typeId = *microcode++;
+		unsigned typeSize = *microcode++;
+
+		(void)typeId;
+		(void)typeSize;
 
 		// TODO: ERROR: call return buffer overflow
 
@@ -1139,10 +1142,12 @@ void GenCodeCmdAddImml(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rB * 8); // Load lhs
+	EMIT_OP_REG_NUM(ctx.ctx, o_add64, rEAX, cmd.argument);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
+	EMIT_REG_KILL(ctx.ctx, rEAX);
+	EMIT_REG_KILL(ctx.ctx, rEDX);
 #else
 	assert(!"not implemented");
 #endif
