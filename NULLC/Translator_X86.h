@@ -175,6 +175,12 @@ int x86ADC(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 int x86SUB(unsigned char *stream, x86Reg dst, int num);
 // sub dst, src
 int x86SUB(unsigned char *stream, x86Reg dst, x86Reg src);
+
+// REX.W add dst, num
+int x64SUB(unsigned char *stream, x86Reg dst, int num);
+// REX.W add dst, src
+int x64SUB(unsigned char *stream, x86Reg dst, x86Reg src);
+
 // sub dword [index*mult+base+shift], num
 int x86SUB(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int num);
 // sub dword [index*mult+base+shift], op2

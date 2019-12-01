@@ -904,9 +904,9 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 		{
 			unsigned char *codeStart = instAddress[instructionPos];
 
-			typedef	void (*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
+			typedef	uintptr_t (*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
 			nullcFunc gate = (nullcFunc)(uintptr_t)codeLaunchHeader;
-			gate(codeStart, regFilePtr);
+			resultType = (RegVmReturnType)gate(codeStart, regFilePtr);
 		}
 		__except(NULLC::CanWeHandleSEH(GetExceptionCode(), GetExceptionInformation()))
 		{
@@ -1010,15 +1010,12 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	switch(lastResultType)
 	{
 	case rvrInt:
-
 		lastResult.intValue = tempStackPtr[0];
 		break;
 	case rvrDouble:
-
 		memcpy(&lastResult.doubleValue, tempStackPtr, sizeof(double));
 		break;
 	case rvrLong:
-
 		memcpy(&lastResult.longValue, tempStackPtr, sizeof(long long));
 		break;
 	default:
@@ -1361,8 +1358,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		{
 			instAddress[cmd.instID - 1] = code;	// Save VM instruction address in x86 bytecode
 
-			if(int(cmd.instID - 1) == (int)exLinker->regVmOffsetToGlobalCode)
-				code += x86PUSH(code, rEBP);
+			//if(int(cmd.instID - 1) == (int)exLinker->regVmOffsetToGlobalCode)
+			//	code += x86PUSH(code, rEBP);
 		}
 		switch(cmd.name)
 		{
@@ -1839,6 +1836,22 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 					code += x64ADD(code, cmd.argA.reg, cmd.argB.reg);
 				else
 					code += x64ADD(code, cmd.argA.reg, cmd.argB.num);
+			}
+			break;
+		case o_sub64:
+			if(cmd.argA.type == x86Argument::argPtr)
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x86SUB(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.reg);
+				else
+					code += x86SUB(code, cmd.argA.ptrSize, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
+			}
+			else
+			{
+				if(cmd.argB.type == x86Argument::argReg)
+					code += x64SUB(code, cmd.argA.reg, cmd.argB.reg);
+				else
+					code += x64SUB(code, cmd.argA.reg, cmd.argB.num);
 			}
 			break;
 		case o_cvttsd2si64:

@@ -585,6 +585,8 @@ void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
 
 		vmState->regFileLastTop = regFileTop;
 		vmState->dataStackTop = vmState->dataStackBase + prevDataSize;
+
+		vmState->callStackTop--;
 	}
 }
 
@@ -660,7 +662,9 @@ void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
 	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDX, cmd.argument);
+	EMIT_OP_REG_NUM(ctx.ctx, o_sub64, rRSP, 16);
 	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
+	EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSP, 16);
 
 	switch(resultType)
 	{
@@ -736,9 +740,80 @@ void GenCodeCmdReturn(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	// TODO: complex instruction with microcode and exceptions
+	// TODO: ERROR: function didn't return a value
 
-	//assert(!"not implemented");
+	if(cmd.rB == rvrError)
+	{
+		EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, cmd.rB);
+		EMIT_OP(ctx.ctx, o_ret);
+		return;
+	}
+
+	if(cmd.rB != rvrVoid)
+	{
+		unsigned *microcode = ctx.exRegVmConstants + cmd.argument;
+
+		//unsigned typeId = *microcode++;
+		//unsigned typeSize = *microcode++;
+
+		// TODO: ERROR: call return buffer overflow
+
+		x86Reg rTempStack = rRBP;
+
+		EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rTempStack, (uintptr_t)&ctx.vmState->tempStackArrayBase);
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rTempStack, sQWORD, rTempStack, 0);
+
+		unsigned tempStackPtrOffset = 0;
+
+		while(*microcode != rvmiReturn)
+		{
+			switch(*microcode++)
+			{
+			case rvmiPush:
+				EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, *microcode++ * 8);
+				EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset, rEAX);
+				tempStackPtrOffset += sizeof(int);
+				break;
+			case rvmiPushQword:
+				EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, *microcode++ * 8);
+				EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rTempStack, tempStackPtrOffset, rRAX);
+				tempStackPtrOffset += sizeof(long long);
+				break;
+			case rvmiPushImm:
+				EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, *microcode++);
+				EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset, rEAX);
+				tempStackPtrOffset += sizeof(int);
+				break;
+			case rvmiPushImmq:
+				EMIT_OP_REG_NUM(ctx.ctx, o_mov64, rRAX, *microcode++);
+				EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rTempStack, tempStackPtrOffset, rRAX);
+				tempStackPtrOffset += sizeof(long long);
+				break;
+			case rvmiPushMem:
+			{
+				unsigned reg = *microcode++;
+				unsigned offset = *microcode++;
+				unsigned size = *microcode++;
+
+				EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRSI, sQWORD, rREG, reg * 8);
+				EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSI, offset);
+				EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRDI, sQWORD, rTempStack, tempStackPtrOffset);
+				EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
+				EMIT_OP(ctx.ctx, o_rep_movsd);
+
+				tempStackPtrOffset += size;
+			}
+			break;
+			}
+		}
+
+		// TODO:
+		//if(cmd.rC)
+		//	ExecCheckedReturn(typeId, regFilePtr);
+	}
+
+	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, cmd.rB);
+	EMIT_OP(ctx.ctx, o_ret);
 #else
 	assert(!"not implemented");
 #endif

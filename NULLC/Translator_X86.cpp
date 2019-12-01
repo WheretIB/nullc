@@ -990,57 +990,117 @@ int x86ADC(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 // sub dst, num
 int x86SUB(unsigned char *stream, x86Reg dst, int num)
 {
+	unsigned char *start = stream;
+
 	if((char)(num) == num)
 	{
-		stream[0] = 0x83;
-		stream[1] = encodeRegister(dst, 5);
-		stream[2] = (char)(num);
-		return 3;
+		*stream++ = 0x83;
+		*stream++ = encodeRegister(dst, 5);
+		stream += encodeImmByte(stream, (char)num);
+
+		return int(stream - start);
 	}
+
 	if(dst == rEAX)
 	{
-		stream[0] = 0x2d;
-		*(int*)(stream+1) = num;
-		return 5;
+		*stream++ = 0x2d;
+		stream += encodeImmDword(stream, num);
+
+		return int(stream - start);
 	}
-	stream[0] = 0x81;
-	stream[1] = encodeRegister(dst, 5);
-	*(int*)(stream+2) = num;
-	return 6;
+
+	*stream++ = 0x81;
+	*stream++ = encodeRegister(dst, 5);
+	stream += encodeImmDword(stream, num);
+
+	return int(stream - start);
 }
+
 // sub dst, src
 int x86SUB(unsigned char *stream, x86Reg dst, x86Reg src)
 {
-	stream[0] = 0x2B;
-	stream[1] = encodeRegister(src, regCode[dst]);
-	return 2;
+	unsigned char *start = stream;
+
+	*stream++ = 0x2B;
+	*stream++ = encodeRegister(src, regCode[dst]);
+
+	return int(stream - start);
 }
-// sub dword [index*mult+base+shift], num
-int x86SUB(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num)
+
+// REX.W add dst, num
+int x64SUB(unsigned char *stream, x86Reg dst, int num)
 {
-	(void)size;
-	assert(size == sDWORD);
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, true, dst, rNONE, rNONE);
+
 	if((char)(num) == num)
 	{
-		stream[0] = 0x83;
-		unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 5);
-		stream[1+asize] = (char)(num);
-		return asize + 2;
+		*stream++ = 0x83;
+		*stream++ = encodeRegister(dst, 5);
+		stream += encodeImmByte(stream, (char)num);
+
+		return int(stream - start);
 	}
-	// else
-	stream[0] = 0x81;
-	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, 5);
-	*(int*)(stream+1+asize) = num;
-	return asize + 5;
+
+	*stream++ = 0x81;
+	*stream++ = encodeRegister(dst, 5);
+	stream += encodeImmDword(stream, num);
+
+	return int(stream - start);
 }
-// sub dword [index*mult+base+shift], op2
+
+// REX.W add dst, src
+int x64SUB(unsigned char *stream, x86Reg dst, x86Reg src)
+{
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, true, dst, rNONE, src);
+
+	*stream++ = 0x2B;
+	*stream++ = encodeRegister(dst, regCode[src]);
+
+	return int(stream - start);
+}
+
+// sub *word [index*mult+base+shift], num
+int x86SUB(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num)
+{
+	unsigned char *start = stream;
+
+	assert(size == sDWORD || size == sQWORD);
+
+	stream += encodeRex(stream, size == sQWORD, rNONE, index, base);
+
+	if((char)(num) == num)
+	{
+		*stream++ = 0x83;
+		stream += encodeAddress(stream, index, multiplier, base, shift, 5);
+		stream += encodeImmByte(stream, (char)num);
+
+		return int(stream - start);
+	}
+
+	*stream++ = 0x81;
+	stream += encodeAddress(stream, index, multiplier, base, shift, 5);
+	stream += encodeImmDword(stream, num);
+
+	return int(stream - start);
+}
+
+// sub *word [index*mult+base+shift], op2
 int x86SUB(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2)
 {
-	(void)size;
-	assert(size == sDWORD);
-	stream[0] = 0x29;
-	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
-	return 1 + asize;
+	unsigned char *start = stream;
+
+	assert(size == sDWORD || size == sQWORD);
+
+	stream += encodeRex(stream, size == sQWORD, op2, index, base);
+
+	*stream++ = 0x29;
+	stream += encodeAddress(stream, index, multiplier, base, shift, regCode[op2]);
+
+	return int(stream - start);
 }
 
 // sbb dst, num
