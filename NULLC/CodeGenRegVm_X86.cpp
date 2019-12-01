@@ -1,6 +1,9 @@
 #include "CodeGenRegVm_X86.h"
 
+#include "Bytecode.h"
 #include "CodeGen_X86.h"
+#include "Executor_Common.h"
+#include "Executor_X86.h"
 #include "InstructionTreeRegVm.h"
 
 #if defined(_M_X64)
@@ -352,7 +355,7 @@ void GenCodeCmdItol(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
 #if defined(_M_X64)
-	EMIT_OP_REG_RPTR(ctx.ctx, o_movsxd, rRAX, sQWORD, rREG, cmd.rC * 8); // Load int as long with sign extension
+	EMIT_OP_REG_RPTR(ctx.ctx, o_movsxd, rRAX, sDWORD, rREG, cmd.rC * 8); // Load int as long with sign extension
 	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sQWORD, rREG, cmd.rA * 8, rRAX); // Store value
 	EMIT_REG_KILL(ctx.ctx, rEAX);
 #else
@@ -493,14 +496,223 @@ void GenCodeCmdJmpnz(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #endif
 }
 
+void CallWrap(CodeGenRegVmStateContext *vmState, unsigned functionId)
+{
+	CodeGenRegVmContext &ctx = *vmState->ctx;
+
+	ExternFuncInfo &target = vmState->ctx->exFunctions[functionId];
+
+	vmState->callStackTop->instruction = vmState->callInstructionPos + 1;
+	vmState->callStackTop++;
+
+	unsigned address = target.regVmAddress;
+
+	if(address == ~0u)
+	{
+		if(target.funcPtrWrap)
+		{
+			target.funcPtrWrap(target.funcPtrWrapTarget, (char*)vmState->tempStackArrayBase, (char*)vmState->tempStackArrayBase);
+		}
+		else
+		{
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+			RunRawExternalFunction(ctx.x86rvm->dcCallVM, ctx.exFunctions[functionId], ctx.exLocals, ctx.exTypes, vmState->tempStackArrayBase);
+#else
+			ctx.x86rvm->Stop("ERROR: external raw function calls are disabled");
+#endif
+		}
+
+		if(!ctx.x86rvm->callContinue)
+			return;
+
+		vmState->callStackTop--;
+	}
+	else
+	{
+		unsigned prevDataSize = unsigned(vmState->dataStackTop - vmState->dataStackBase);
+
+		unsigned argumentsSize = target.bytesToPop;
+
+		if(unsigned(vmState->dataStackTop - vmState->dataStackBase) + argumentsSize >= unsigned(vmState->dataStackEnd - vmState->dataStackBase))
+		{
+			ctx.x86rvm->Stop("ERROR: stack overflow");
+			return;
+		}
+
+		// Copy function arguments to new stack frame
+		memcpy(vmState->dataStackTop, vmState->tempStackArrayBase, argumentsSize);
+
+		unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
+
+		RegVmRegister *regFileTop = vmState->regFileLastTop;
+
+		vmState->regFileLastTop = regFileTop + target.regVmRegisters;
+
+		if(vmState->regFileLastTop >= vmState->regFileArrayEnd)
+		{
+			ctx.x86rvm->Stop("ERROR: register overflow");
+			return;
+		}
+
+		if(unsigned(vmState->dataStackTop - vmState->dataStackBase) + stackSize >= unsigned(vmState->dataStackEnd - vmState->dataStackBase))
+		{
+			ctx.x86rvm->Stop("ERROR: stack overflow");
+			return;
+		}
+
+		vmState->dataStackTop += stackSize;
+
+		assert(argumentsSize <= stackSize);
+
+		if(stackSize - argumentsSize)
+			memset(vmState->dataStackBase + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
+
+		regFileTop[rvrrGlobals].ptrValue = uintptr_t(vmState->dataStackBase);
+		regFileTop[rvrrFrame].ptrValue = uintptr_t(vmState->dataStackBase + prevDataSize);
+		regFileTop[rvrrConstants].ptrValue = uintptr_t(ctx.exRegVmConstants);
+		regFileTop[rvrrRegisters].ptrValue = uintptr_t(regFileTop);
+
+		memset(regFileTop + rvrrCount, 0, (vmState->regFileLastTop - regFileTop - rvrrCount) * sizeof(RegVmRegister));
+
+		unsigned char *codeStart = vmState->instAddress[target.regVmAddress];
+
+		typedef	void (*nullcFunc)(unsigned char *codeStart, RegVmRegister *regFilePtr);
+		nullcFunc gate = (nullcFunc)(uintptr_t)vmState->codeLaunchHeader;
+		gate(codeStart, regFileTop);
+
+		if(!ctx.x86rvm->callContinue)
+			return;
+
+		vmState->regFileLastTop = regFileTop;
+		vmState->dataStackTop = vmState->dataStackBase + prevDataSize;
+	}
+}
+
 void GenCodeCmdCall(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-#if defined(_M_X64)
-	// TODO: complex instruction with microcode and exceptions
+	unsigned microcodePos = (cmd.rA << 16) | (cmd.rB << 8) | cmd.rC;
 
-	//assert(!"not implemented");
+	ctx.vmState->callWrap = CallWrap;
+
+#if defined(_M_X64)
+	// TODO: ERROR: call argument buffer overflow
+
+	// Push arguments
+	unsigned *microcode = ctx.exRegVmConstants + microcodePos;
+
+	x86Reg rTempStack = rRBP;
+
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rTempStack, (uintptr_t)&ctx.vmState->tempStackArrayBase);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rTempStack, sQWORD, rTempStack, 0);
+
+	unsigned tempStackPtrOffset = 0;
+
+	while(*microcode != rvmiCall)
+	{
+		switch(*microcode++)
+		{
+		case rvmiPush:
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, *microcode++ * 8);
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset, rEAX);
+			tempStackPtrOffset += sizeof(int);
+			break;
+		case rvmiPushQword:
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, *microcode++ * 8);
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rTempStack, tempStackPtrOffset, rRAX);
+			tempStackPtrOffset += sizeof(long long);
+			break;
+		case rvmiPushImm:
+			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEAX, *microcode++);
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rTempStack, tempStackPtrOffset, rEAX);
+			tempStackPtrOffset += sizeof(int);
+			break;
+		case rvmiPushImmq:
+			EMIT_OP_REG_NUM(ctx.ctx, o_mov64, rRAX, *microcode++);
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rTempStack, tempStackPtrOffset, rRAX);
+			tempStackPtrOffset += sizeof(long long);
+			break;
+		case rvmiPushMem:
+		{
+			unsigned reg = *microcode++;
+			unsigned offset = *microcode++;
+			unsigned size = *microcode++;
+
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRSI, sQWORD, rREG, reg * 8);
+			EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRSI, offset);
+			EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRDI, sQWORD, rTempStack, tempStackPtrOffset);
+			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
+			EMIT_OP(ctx.ctx, o_rep_movsd);
+
+			tempStackPtrOffset += size;
+		}
+		break;
+		}
+	}
+
+	microcode++;
+
+	unsigned char resultReg = *microcode++ & 0xff;
+	unsigned char resultType = *microcode++ & 0xff;
+
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRCX, uintptr_t(ctx.vmState));
+	EMIT_OP_RPTR_NUM(ctx.ctx, o_mov, sDWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callInstructionPos) - uintptr_t(ctx.vmState)), ctx.currInstructionPos);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rRCX, unsigned(uintptr_t(&ctx.vmState->callWrap) - uintptr_t(ctx.vmState)));
+	EMIT_OP_REG_NUM(ctx.ctx, o_mov, rEDX, cmd.argument);
+	EMIT_OP_REG(ctx.ctx, o_call, rRAX);
+
+	switch(resultType)
+	{
+	case rvrDouble:
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rTempStack, 0);
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, resultReg * 8, rRAX);
+		break;
+	case rvrLong:
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rTempStack, 0);
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, resultReg * 8, rRAX);
+		break;
+	case rvrInt:
+		EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rTempStack, 0);
+		EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, resultReg * 8, rEAX);
+		break;
+	default:
+		break;
+	}
+
+	tempStackPtrOffset = 0;
+
+	while(*microcode != rvmiReturn)
+	{
+		switch(*microcode++)
+		{
+		case rvmiPop:
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rTempStack, tempStackPtrOffset);
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, *microcode++ * 8, rEAX);
+			tempStackPtrOffset += sizeof(int);
+			break;
+		case rvmiPopq:
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rTempStack, tempStackPtrOffset);
+			EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, *microcode++ * 8, rRAX);
+			tempStackPtrOffset += sizeof(long long);
+			break;
+		case rvmiPopMem:
+		{
+			unsigned reg = *microcode++;
+			unsigned offset = *microcode++;
+			unsigned size = *microcode++;
+
+			EMIT_OP_REG_RPTR(ctx.ctx, o_lea, rRSI, sQWORD, rTempStack, tempStackPtrOffset);
+			EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRDI, sQWORD, rREG, reg * 8);
+			EMIT_OP_REG_NUM(ctx.ctx, o_add64, rRDI, offset);
+			EMIT_OP_REG_NUM(ctx.ctx, o_mov, rECX, size >> 2);
+			EMIT_OP(ctx.ctx, o_rep_movsd);
+
+			tempStackPtrOffset += size;
+		}
+		break;
+		}
+	}
 #else
 	assert(!"not implemented");
 #endif

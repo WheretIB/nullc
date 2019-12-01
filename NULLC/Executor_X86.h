@@ -2,6 +2,7 @@
 
 #include "stdafx.h"
 #include "InstructionTreeRegVm.h"
+#include "CodeGenRegVm_X86.h"
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 typedef struct DCCallVM_ DCCallVM;
@@ -15,8 +16,6 @@ struct ExternTypeInfo;
 struct ExternFuncInfo;
 
 struct OutputContext;
-
-struct CodeGenRegVmContext;
 
 const int REGVM_X86_ERROR_BUFFER_SIZE = 1024;
 
@@ -82,28 +81,11 @@ private:
 	// Data stack
 	unsigned int	minStackSize;
 
-	FastVector<char, true, true>	dataStack;
-
-	FastVector<unsigned>	callStack;
 	unsigned	currentFrame;
 
 	unsigned	lastFinalReturn;
 
-	// Stack for call argument/return result data
-	unsigned		*tempStackArrayBase;
-	unsigned		*tempStackLastTop;
-	unsigned		*tempStackArrayEnd;
-
-	// Register file
-	RegVmRegister	*regFileArrayBase;
-	RegVmRegister	*regFileLastTop;
-	RegVmRegister	*regFileArrayEnd;
-
-	bool			callContinue;
-
-#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
-	DCCallVM		*dcCallVM;
-#endif
+	CodeGenRegVmStateContext vmState;
 
 	// Native code data
 	static const unsigned codeLaunchHeaderSize = 128;
@@ -118,21 +100,18 @@ private:
 
 	unsigned int	lastInstructionCount;
 
-	//unsigned int	*callstackTop;
-
 	unsigned int	oldJumpTargetCount;
 	unsigned int	oldFunctionSize;
 	unsigned int	oldCodeBodyProtect;
 
 public:
+	bool			callContinue;
+
+#if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
+	DCCallVM		*dcCallVM;
+#endif
+
 	FastVector<unsigned char*>	instAddress;
-
-	struct RegVmStateContext
-	{
-
-	};
-
-	RegVmStateContext vmState;
 
 	void *breakFunctionContext;
 	unsigned (*breakFunction)(void*, unsigned);

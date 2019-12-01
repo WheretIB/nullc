@@ -3,16 +3,94 @@
 #include "CodeGen_X86.h"
 
 struct RegVmCmd;
+struct RegVmRegister;
 
 struct ExternFuncInfo;
+struct ExternTypeInfo;
+struct ExternLocalInfo;
+
+struct CodeGenRegVmCallStackEntry
+{
+	unsigned instruction;
+};
+
+struct CodeGenRegVmContext;
+
+struct CodeGenRegVmStateContext
+{
+	CodeGenRegVmStateContext()
+	{
+		ctx = NULL;
+
+		dataStackBase = NULL;
+		dataStackTop = NULL;
+		dataStackEnd = NULL;
+
+		callStackBase = NULL;
+		callStackTop = NULL;
+		callStackEnd = NULL;
+
+		regFileArrayBase = NULL;
+		regFileLastTop = NULL;
+		regFileArrayEnd = NULL;
+
+		tempStackArrayBase = NULL;
+		tempStackArrayEnd = NULL;
+
+		callInstructionPos = 0;
+
+		instAddress = NULL;
+
+		codeLaunchHeader = NULL;
+
+		callWrap = NULL;
+	}
+
+	CodeGenRegVmContext *ctx;
+
+	char *dataStackBase;
+	char *dataStackTop;
+	char *dataStackEnd;
+
+	CodeGenRegVmCallStackEntry *callStackBase;
+	CodeGenRegVmCallStackEntry *callStackTop;
+	CodeGenRegVmCallStackEntry *callStackEnd;
+
+	RegVmRegister	*regFileArrayBase;
+	RegVmRegister	*regFileLastTop;
+	RegVmRegister	*regFileArrayEnd;
+
+	unsigned		*tempStackArrayBase;
+	unsigned		*tempStackArrayEnd;
+
+	unsigned callInstructionPos;
+
+	unsigned char **instAddress;
+
+	unsigned char *codeLaunchHeader;
+
+	void (*callWrap)(CodeGenRegVmStateContext *ctx, unsigned functionId);
+};
+
+class ExecutorX86;
 
 struct CodeGenRegVmContext
 {
 	CodeGenRegVmContext()
 	{
+		x86rvm = NULL;
+
 		labelCount = 0;
 
-		x86Functions = NULL;
+		exFunctions = NULL;
+		exTypes = NULL;
+		exLocals = NULL;
+		exRegVmConstants = NULL;
+
+		vmState = NULL;
+
+		currInstructionPos = 0;
+
 		x86FuncAddr = NULL;
 		x86Continue = NULL;
 
@@ -22,9 +100,18 @@ struct CodeGenRegVmContext
 
 	CodeGenGenericContext ctx;
 
+	ExecutorX86 *x86rvm;
+
 	unsigned labelCount;
 
-	ExternFuncInfo *x86Functions; // unused?
+	ExternFuncInfo *exFunctions;
+	ExternTypeInfo *exTypes;
+	ExternLocalInfo *exLocals;
+	unsigned *exRegVmConstants;
+
+	CodeGenRegVmStateContext *vmState;
+
+	unsigned currInstructionPos;
 
 	unsigned *x86FuncAddr; // unused?
 	int *x86Continue; // unused?

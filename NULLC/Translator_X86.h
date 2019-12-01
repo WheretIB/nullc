@@ -121,7 +121,7 @@ int x86MOV(unsigned char *stream, x86Reg dst, int num);
 int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src);
 
 // REX.W mov dst, num
-int x64MOV(unsigned char *stream, x86Reg dst, int num);
+int x64MOV(unsigned char *stream, x86Reg dst, uintptr_t num);
 // REX.W mov dst, src
 int x64MOV(unsigned char *stream, x86Reg dst, x86Reg src);
 
@@ -277,6 +277,9 @@ int x86RET(unsigned char *stream);
 
 // rep movsd
 int x86REP_MOVSD(unsigned char *stream);
+
+// rep stosd
+int x86REP_STOSD(unsigned char *stream);
 
 // int num
 int x86INT(unsigned char *stream, int interrupt);

@@ -120,6 +120,7 @@ enum x86Command
 	o_lea,
 	o_cdq,
 	o_rep_movsd,
+	o_rep_stosd,
 
 	o_jmp,
 	o_ja,
@@ -220,7 +221,7 @@ enum x86Command
 };
 
 static const char* x86CmdText[] = 
-{	"", "mov", "movsx", "push", "pop", "lea", "cdq", "rep movsd",
+{	"", "mov", "movsx", "push", "pop", "lea", "cdq", "rep movsd", "rep stosd",
 	"jmp", "ja", "jae", "jb", "jbe", "je", "jg", "jl", "jne", "jnp", "jp", "jge", "jle", "call", "ret",
 	"fld", "fild", "fistp", "fst", "fstp", "fnstsw", "fstcw", "fldcw",
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
@@ -247,7 +248,8 @@ struct x86Argument
 		argXmmReg,
 		argPtr,
 		argPtrLabel,
-		argLabel
+		argLabel,
+		argImm64
 	};
 
 	// no argument
@@ -311,6 +313,13 @@ struct x86Argument
 		type = argPtr;
 		ptrSize = Size; ptrBase = RegB; ptrMult = Mult; ptrIndex = RegA; ptrNum = Num;
 	}
+	// long immediate number
+	explicit x86Argument(long long Num)
+	{
+		Empty();
+		type = argImm64;
+		imm64Arg = Num;
+	}
 
 	void Empty()
 	{
@@ -336,6 +345,7 @@ struct x86Argument
 		x86XmmReg xmmArg;		// Used only when type == argXmmReg
 		unsigned labelID;		// Used only when type == argLabel or argPtrLabel
 		x86Size	ptrSize;		// Used only when type == argPtr
+		uintptr_t imm64Arg;		// Used only when type == argImm64
 	};
 
 	x86Reg	ptrBase, ptrIndex;
@@ -406,6 +416,10 @@ struct x86Argument
 
 			*curr++ = ']';
 			*curr = 0;
+		}
+		else if(type == argImm64)
+		{
+			curr += sprintf(curr, "%lld", imm64Arg);
 		}
 
 		return (int)(curr - buf);

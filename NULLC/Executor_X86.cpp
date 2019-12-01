@@ -257,14 +257,6 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 
 	lastFinalReturn = 0;
 
-	tempStackArrayBase = NULL;
-	tempStackLastTop = NULL;
-	tempStackArrayEnd = NULL;
-
-	regFileArrayBase = NULL;
-	regFileLastTop = NULL;
-	regFileArrayEnd = NULL;
-
 	callContinue = true;
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
@@ -307,9 +299,13 @@ ExecutorX86::ExecutorX86(Linker *linker): exLinker(linker), exFunctions(linker->
 
 ExecutorX86::~ExecutorX86()
 {
-	NULLC::dealloc(tempStackArrayBase);
+	NULLC::dealloc(vmState.dataStackBase);
 
-	NULLC::dealloc(regFileArrayBase);
+	NULLC::dealloc(vmState.callStackBase);
+
+	NULLC::dealloc(vmState.tempStackArrayBase);
+
+	NULLC::dealloc(vmState.regFileArrayBase);
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	if(dcCallVM)
@@ -471,8 +467,8 @@ bool ExecutorX86::Initialize()
 
 #if defined(_M_X64)
 	// Save non-volatile registers
-	pos += x86PUSH(pos, rEBX);
 	pos += x86PUSH(pos, rEBP);
+	pos += x86PUSH(pos, rEBX);
 	pos += x86PUSH(pos, rEDI);
 	pos += x86PUSH(pos, rESI);
 	pos += x86PUSH(pos, rESP);
@@ -485,8 +481,8 @@ bool ExecutorX86::Initialize()
 	pos += x86POP(pos, rESP);
 	pos += x86POP(pos, rESI);
 	pos += x86POP(pos, rEDI);
-	pos += x86POP(pos, rEBP);
 	pos += x86POP(pos, rEBX);
+	pos += x86POP(pos, rEBP);
 
 	pos += x86RET(pos);
 #else
@@ -585,39 +581,52 @@ bool ExecutorX86::InitExecution()
 		return false;
 	}
 
-	callStack.clear();
+	if(!vmState.callStackBase)
+	{
+		vmState.callStackBase = (CodeGenRegVmCallStackEntry*)NULLC::alloc(sizeof(CodeGenRegVmCallStackEntry) * 1024 * 8);
+		memset(vmState.callStackBase, 0, sizeof(CodeGenRegVmCallStackEntry) * 1024 * 8);
+		vmState.callStackEnd = vmState.callStackBase + 1024 * 8;
+	}
+
+	vmState.callStackTop = vmState.callStackBase;
 
 	lastFinalReturn = 0;
 
 	CommonSetLinker(exLinker);
 
-	dataStack.reserve(minStackSize);
-	dataStack.clear();
-	dataStack.resize((exLinker->globalVarSize + 0xf) & ~0xf);
+	if(!vmState.dataStackBase)
+	{
+		vmState.dataStackBase = (char*)NULLC::alloc(sizeof(char) * minStackSize);
+		memset(vmState.dataStackBase, 0, sizeof(char) * minStackSize);
+		vmState.dataStackEnd = vmState.dataStackBase + minStackSize;
+	}
 
-	SetUnmanagableRange(dataStack.data, dataStack.max);
+	vmState.dataStackTop = vmState.dataStackBase + ((exLinker->globalVarSize + 0xf) & ~0xf);
+
+	SetUnmanagableRange(vmState.dataStackBase, unsigned(vmState.dataStackEnd - vmState.dataStackBase));
 
 	execError[0] = 0;
 
 	callContinue = true;
 
-	if(!tempStackArrayBase)
+	if(!vmState.tempStackArrayBase)
 	{
-		tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 32);
-		memset(tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 32);
-		tempStackArrayEnd = tempStackArrayBase + 1024 * 32;
+		vmState.tempStackArrayBase = (unsigned*)NULLC::alloc(sizeof(unsigned) * 1024 * 32);
+		memset(vmState.tempStackArrayBase, 0, sizeof(unsigned) * 1024 * 32);
+		vmState.tempStackArrayEnd = vmState.tempStackArrayBase + 1024 * 32;
 	}
 
-	tempStackLastTop = tempStackArrayBase;
-
-	if(!regFileArrayBase)
+	if(!vmState.regFileArrayBase)
 	{
-		regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 32);
-		memset(regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 32);
-		regFileArrayEnd = regFileArrayBase + 1024 * 32;
+		vmState.regFileArrayBase = (RegVmRegister*)NULLC::alloc(sizeof(RegVmRegister) * 1024 * 32);
+		memset(vmState.regFileArrayBase, 0, sizeof(RegVmRegister) * 1024 * 32);
+		vmState.regFileArrayEnd = vmState.regFileArrayBase + 1024 * 32;
 	}
 
-	regFileLastTop = regFileArrayBase;
+	vmState.regFileLastTop = vmState.regFileArrayBase;
+
+	vmState.instAddress = instAddress.data;
+	vmState.codeLaunchHeader = codeLaunchHeader;
 
 #if !defined(NULLC_NO_RAW_EXTERNAL_CALL)
 	if(!dcCallVM)
@@ -665,14 +674,16 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 	// We will know that return is global if call stack size is equal to current
 	unsigned prevLastFinalReturn = lastFinalReturn;
-	lastFinalReturn = callStack.size();
+	lastFinalReturn = unsigned(vmState.callStackTop - vmState.callStackBase);
 
-	unsigned prevDataSize = dataStack.size();
+	unsigned prevDataSize = unsigned(vmState.dataStackTop - vmState.dataStackBase);
 
-	RegVmRegister *regFilePtr = regFileLastTop;
+	assert(prevDataSize % 16 == 0);
+
+	RegVmRegister *regFilePtr = vmState.regFileLastTop;
 	RegVmRegister *regFileTop = regFilePtr + 256;
 
-	unsigned *tempStackPtr = tempStackLastTop;
+	unsigned *tempStackPtr = vmState.tempStackArrayBase;
 
 	if(functionID != ~0u)
 	{
@@ -733,12 +744,14 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 
 			unsigned argumentsSize = target.bytesToPop;
 
-			// Keep stack frames aligned to 16 byte boundary
-			unsigned alignOffset = (dataStack.size() % 16 != 0) ? (16 - (dataStack.size() % 16)) : 0;
-
-			if(dataStack.size() + alignOffset + argumentsSize >= dataStack.max)
+			if(unsigned(vmState.dataStackTop - vmState.dataStackBase) + argumentsSize >= unsigned(vmState.dataStackEnd - vmState.dataStackBase))
 			{
-				callStack.push_back(instructionPos + 1);
+				CodeGenRegVmCallStackEntry *entry = vmState.callStackTop;
+
+				entry->instruction = instructionPos + 1;
+
+				vmState.callStackTop++;
+
 				instructionPos = ~0u;
 				strcpy(execError, "ERROR: stack overflow");
 				retType = rvrError;
@@ -746,33 +759,36 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 			else
 			{
 				// Copy arguments to new stack frame
-				memcpy((char*)(dataStack.data + dataStack.size() + alignOffset), arguments, argumentsSize);
+				memcpy(vmState.dataStackTop, arguments, argumentsSize);
 
 				unsigned stackSize = (target.stackSize + 0xf) & ~0xf;
 
-				regFilePtr = regFileLastTop;
+				regFilePtr = vmState.regFileLastTop;
 				regFileTop = regFilePtr + target.regVmRegisters;
 
-				assert(dataStack.size() % 16 == 0);
-
-				if(dataStack.size() + stackSize >= dataStack.max)
+				if(unsigned(vmState.dataStackTop - vmState.dataStackBase) + stackSize >= unsigned(vmState.dataStackEnd - vmState.dataStackBase))
 				{
-					callStack.push_back(instructionPos + 1);
+					CodeGenRegVmCallStackEntry *entry = vmState.callStackTop;
+
+					entry->instruction = instructionPos + 1;
+
+					vmState.callStackTop++;
+
 					instructionPos = ~0u;
 					strcpy(execError, "ERROR: stack overflow");
 					retType = rvrError;
 				}
 				else
 				{
-					dataStack.resize(dataStack.size() + stackSize);
+					vmState.dataStackTop += stackSize;
 
 					assert(argumentsSize <= stackSize);
 
 					if(stackSize - argumentsSize)
-						memset(dataStack.data + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
+						memset(vmState.dataStackBase + prevDataSize + argumentsSize, 0, stackSize - argumentsSize);
 
-					regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
-					regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data + prevDataSize);
+					regFilePtr[rvrrGlobals].ptrValue = uintptr_t(vmState.dataStackBase);
+					regFilePtr[rvrrFrame].ptrValue = uintptr_t(vmState.dataStackBase + prevDataSize);
 					regFilePtr[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
 					regFilePtr[rvrrRegisters].ptrValue = uintptr_t(regFilePtr);
 				}
@@ -784,23 +800,20 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 	else
 	{
 		// If global code is executed, reset all global variables
-		assert(dataStack.size() >= exLinker->globalVarSize);
-		memset(dataStack.data, 0, exLinker->globalVarSize);
+		assert(unsigned(vmState.dataStackTop - vmState.dataStackBase) >= exLinker->globalVarSize);
+		memset(vmState.dataStackBase, 0, exLinker->globalVarSize);
 
-
-		regFilePtr[rvrrGlobals].ptrValue = uintptr_t(dataStack.data);
-		regFilePtr[rvrrFrame].ptrValue = uintptr_t(dataStack.data);
+		regFilePtr[rvrrGlobals].ptrValue = uintptr_t(vmState.dataStackBase);
+		regFilePtr[rvrrFrame].ptrValue = uintptr_t(vmState.dataStackBase);
 		regFilePtr[rvrrConstants].ptrValue = uintptr_t(exLinker->exRegVmConstants.data);
 		regFilePtr[rvrrRegisters].ptrValue = uintptr_t(regFilePtr);
 
 		memset(regFilePtr + rvrrCount, 0, (regFileTop - regFilePtr - rvrrCount) * sizeof(regFilePtr[0]));
 	}
 
-	RegVmRegister *prevRegFileLastTop = regFileLastTop;
+	RegVmRegister *prevRegFileLastTop = vmState.regFileLastTop;
 
-	regFileLastTop = regFileTop;
-
-	tempStackLastTop = tempStackPtr;
+	vmState.regFileLastTop = regFileTop;
 
 	RegVmReturnType resultType = retType;
 
@@ -951,11 +964,9 @@ void ExecutorX86::Run(unsigned int functionID, const char *arguments)
 #endif
 	}
 
-	regFileLastTop = prevRegFileLastTop;
+	vmState.regFileLastTop = prevRegFileLastTop;
 
-	assert(tempStackLastTop == tempStackPtr);
-
-	dataStack.shrink(prevDataSize);
+	vmState.dataStackTop = vmState.dataStackBase + prevDataSize;
 
 	if(resultType == rvrError)
 	{
@@ -1079,6 +1090,19 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	codeGenCtx = (CodeGenRegVmContext*)NULLC::alloc(sizeof(CodeGenRegVmContext));
 
+	codeGenCtx->x86rvm = this;
+
+	codeGenCtx->exFunctions = exFunctions.data;
+	codeGenCtx->exTypes = exTypes.data;
+	codeGenCtx->exLocals = exLinker->exLocals.data;
+	codeGenCtx->exRegVmConstants = exRegVmConstants.data;
+
+	codeGenCtx->vmState = &vmState;
+
+	vmState.ctx = codeGenCtx;
+	//vmState.exRegVmConstants = exRegVmConstants.data;
+
+
 	//SetParamBase((unsigned int)(long long)paramBase);
 	//SetFunctionList(exFunctions.data, functionAddress.data);
 	//SetContinuePtr(&callContinue);
@@ -1119,6 +1143,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 		if(codeJumpTargets[pos])
 			SetOptimizationLookBehind(codeGenCtx->ctx,  false);
+
+		codeGenCtx->currInstructionPos = pos;
 
 		pos++;
 		NULLC::cgFuncs[cmd.code](*codeGenCtx, cmd);
@@ -1267,7 +1293,7 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	if((binCodeSize + instList.size() * 6) > binCodeReserved)
 	{
 		unsigned int oldBinCodeReserved = binCodeReserved;
-		binCodeReserved = binCodeSize + (instList.size()) * 6 + 4096;	// Average instruction size is 6 bytes.
+		binCodeReserved = binCodeSize + (instList.size()) * 8 + 4096;	// Average instruction size is 8 bytes.
 		unsigned char *binCodeNew = (unsigned char*)NULLC::alloc(binCodeReserved);
 
 		// Disable execution of old code body and enable execution of new code body
@@ -1346,6 +1372,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		case o_mov:
 			if(cmd.argA.type != x86Argument::argPtr)
 			{
+				assert(cmd.argB.type != x86Argument::argImm64);
+
 				if(cmd.argB.type == x86Argument::argNumber)
 					code += x86MOV(code, cmd.argA.reg, cmd.argB.num);
 				else if(cmd.argB.type == x86Argument::argPtr)
@@ -1390,6 +1418,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			break;
 		case o_rep_movsd:
 			code += x86REP_MOVSD(code);
+			break;
+		case o_rep_stosd:
+			code += x86REP_STOSD(code);
 			break;
 
 		case o_jmp:
@@ -1774,6 +1805,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			{
 				if(cmd.argB.type == x86Argument::argNumber)
 					code += x64MOV(code, cmd.argA.reg, cmd.argB.num);
+				else if(cmd.argB.type == x86Argument::argImm64)
+					code += x64MOV(code, cmd.argA.reg, cmd.argB.imm64Arg);
 				else if(cmd.argB.type == x86Argument::argPtr)
 					code += x86MOV(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 				else
@@ -1952,9 +1985,9 @@ const char*	ExecutorX86::GetExecError()
 char* ExecutorX86::GetVariableData(unsigned int *count)
 {
 	if(count)
-		*count = dataStack.size();
+		*count = unsigned(vmState.dataStackTop - vmState.dataStackBase);
 
-	return dataStack.data;
+	return vmState.dataStackBase;
 }
 
 void ExecutorX86::BeginCallStack()
@@ -1964,19 +1997,19 @@ void ExecutorX86::BeginCallStack()
 
 unsigned int ExecutorX86::GetNextAddress()
 {
-	return currentFrame == callStack.size() ? 0 : callStack[currentFrame++];
+	return currentFrame == unsigned(vmState.callStackTop - vmState.callStackBase) ? 0 : vmState.callStackBase[currentFrame++].instruction;
 }
 
 void* ExecutorX86::GetStackStart()
 {
 	// TODO: what about temp stack?
-	return regFileArrayBase;
+	return vmState.regFileArrayBase;
 }
 
 void* ExecutorX86::GetStackEnd()
 {
 	// TODO: what about temp stack?
-	return regFileLastTop;
+	return vmState.regFileLastTop;
 }
 
 void ExecutorX86::SetBreakFunction(void *context, unsigned (*callback)(void*, unsigned))

@@ -130,6 +130,12 @@ unsigned encodeImmDword(unsigned char* stream, int num)
 	return sizeof(num);
 }
 
+unsigned encodeImmQword(unsigned char* stream, uintptr_t num)
+{
+	memcpy(stream, &num, sizeof(num));
+	return sizeof(num);
+}
+
 struct UnsatisfiedJump
 {
 	UnsatisfiedJump():jmpPos(NULL){}
@@ -603,13 +609,13 @@ int x86MOV(unsigned char *stream, x86Reg dst, x86Reg src)
 }
 
 // REX.W mov dst, num
-int x64MOV(unsigned char *stream, x86Reg dst, int num)
+int x64MOV(unsigned char *stream, x86Reg dst, uintptr_t num)
 {
 	unsigned char *start = stream;
 
 	stream += encodeRex(stream, true, dst, rNONE, rNONE);
 	*stream++ = 0xb8 + regCode[dst];
-	stream += encodeImmDword(stream, num);
+	stream += encodeImmQword(stream, num);
 
 	return int(stream - start);
 }
@@ -619,7 +625,7 @@ int x64MOV(unsigned char *stream, x86Reg dst, x86Reg src)
 {
 	unsigned char *start = stream;
 
-	stream += encodeRex(stream, true, dst, rNONE, rNONE);
+	stream += encodeRex(stream, true, dst, rNONE, src);
 	*stream++ = 0x89;
 	*stream++ = encodeRegister(dst, regCode[src]);
 
@@ -1464,6 +1470,13 @@ int x86REP_MOVSD(unsigned char *stream)
 {
 	stream[0] = 0xf3;
 	stream[1] = 0xa5;
+	return 2;
+}
+
+int x86REP_STOSD(unsigned char *stream)
+{
+	stream[0] = 0xf3;
+	stream[1] = 0xab;
 	return 2;
 }
 

@@ -779,6 +779,16 @@ void EMIT_OP_REG_NUM(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, uns
 	ctx.x86Op++;
 }
 
+void EMIT_OP_REG_NUM64(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, uintptr_t num)
+{
+	ctx.x86Op->name = op;
+	ctx.x86Op->argA.type = x86Argument::argReg;
+	ctx.x86Op->argA.reg = reg1;
+	ctx.x86Op->argB.type = x86Argument::argImm64;
+	ctx.x86Op->argB.imm64Arg = num;
+	ctx.x86Op++;
+}
+
 void EMIT_OP_REG_REG(CodeGenGenericContext &ctx, x86Command op, x86Reg reg1, x86Reg reg2)
 {
 #ifdef NULLC_OPTIMIZE_X86
