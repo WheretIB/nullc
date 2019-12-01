@@ -46,7 +46,7 @@ return a;";
 			if(!Tests::testExecutor[t])
 				continue;
 			testsCount[t]++;
-			if(Tests::RunCodeSimple(testEval, t, "59705", "Dynamic code. eval()", false, ""))
+			if(Tests::RunCodeSimple(testEval, testTarget[t], "59705", "Dynamic code. eval()", false, ""))
 				testsPassed[t]++;
 			printf("Eval test finished in %f\n", myGetPreciseTime() - evalStart);
 		}
@@ -111,7 +111,7 @@ return x * 10 + y;";
 				continue;
 
 			testsCount[t]++;
-			if(Tests::RunCodeSimple(testVariableImportCorrectness, t, "48", "Variable import correctness", false, ""))
+			if(Tests::RunCodeSimple(testVariableImportCorrectness, testTarget[t], "48", "Variable import correctness", false, ""))
 				testsPassed[t]++;
 		}
 	}
@@ -144,7 +144,7 @@ struct TestGCGlobalLimit : TestQueue
 				continue;
 
 			testsCount[t]++;
-			if(Tests::RunCode(testGCGlobalLimit, t, "200000", "GC collection before global limit exceeded error"))
+			if(Tests::RunCode(testGCGlobalLimit, testTarget[t], "200000", "GC collection before global limit exceeded error"))
 				testsPassed[t]++;
 		}
 	}
