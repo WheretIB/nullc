@@ -348,7 +348,7 @@ ExecutorX86::~ExecutorX86()
 	oldFunctionLists.clear();
 
 	if(codeGenCtx)
-		NULLC::dealloc(codeGenCtx);
+		NULLC::destruct(codeGenCtx);
 	codeGenCtx = NULL;
 
 	x86ResetLabels();
@@ -1088,9 +1088,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	// Create new code generation context
 	if(codeGenCtx)
-		NULLC::dealloc(codeGenCtx);
+		NULLC::destruct(codeGenCtx);
 
-	codeGenCtx = (CodeGenRegVmContext*)NULLC::alloc(sizeof(CodeGenRegVmContext));
+	codeGenCtx = NULLC::construct<CodeGenRegVmContext>();
 
 	codeGenCtx->x86rvm = this;
 
