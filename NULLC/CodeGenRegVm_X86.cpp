@@ -121,10 +121,12 @@ void GenCodeCmdLoadImmLong(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 {
 	EMIT_COMMENT(ctx.ctx, GetInstructionName(RegVmInstructionCode(cmd.code)));
 
-	//
-
 #if defined(_M_X64)
-	assert(!"not implemented");
+	EMIT_OP_REG_NUM64(ctx.ctx, o_mov64, rRAX, ((uint64_t)cmd.argument << 32ull));
+	EMIT_OP_REG_REG(ctx.ctx, o_xor64, rRDX, rRDX);
+	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEDX, sDWORD, rREG, cmd.rA * 8); // Load int value
+	EMIT_OP_REG_REG(ctx.ctx, o_or64, rRAX, rRDX);
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov64, sQWORD, rREG, cmd.rA * 8, rRAX); // Store long to target
 #else
 	assert(!"not implemented");
 #endif
@@ -225,7 +227,7 @@ void GenCodeCmdStoreDouble(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_movsd, rXMM0, sQWORD, rREG, cmd.rA * 8); // Load value
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov64, rRAX, sQWORD, rREG, cmd.rC * 8); // Load target pointer
-	EMIT_OP_RPTR_REG(ctx.ctx, o_movss, sDWORD, rRAX, cmd.argument, rXMM0); // Store value to target with an offset
+	EMIT_OP_RPTR_REG(ctx.ctx, o_movsd, sQWORD, rRAX, cmd.argument, rXMM0); // Store value to target with an offset
 	EMIT_REG_KILL(ctx.ctx, rEAX);
 	EMIT_REG_KILL(ctx.ctx, rXMM0);
 #else
@@ -1884,7 +1886,7 @@ void GenCodeCmdNeg(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load int value
 	EMIT_OP_REG(ctx.ctx, o_neg, rEAX);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
 #else
 	assert(!"not implemented");
 #endif
@@ -1923,7 +1925,7 @@ void GenCodeCmdBitNot(CodeGenRegVmContext &ctx, RegVmCmd cmd)
 #if defined(_M_X64)
 	EMIT_OP_REG_RPTR(ctx.ctx, o_mov, rEAX, sDWORD, rREG, cmd.rC * 8); // Load int value
 	EMIT_OP_REG(ctx.ctx, o_not, rEAX);
-	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rECX); // Store int to target
+	EMIT_OP_RPTR_REG(ctx.ctx, o_mov, sDWORD, rREG, cmd.rA * 8, rEAX); // Store int to target
 #else
 	assert(!"not implemented");
 #endif
