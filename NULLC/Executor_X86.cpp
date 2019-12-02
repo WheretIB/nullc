@@ -1096,12 +1096,11 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 	codeGenCtx->exTypes = exTypes.data;
 	codeGenCtx->exLocals = exLinker->exLocals.data;
 	codeGenCtx->exRegVmConstants = exRegVmConstants.data;
+	codeGenCtx->exSymbols = exLinker->exSymbols.data;
 
 	codeGenCtx->vmState = &vmState;
 
 	vmState.ctx = codeGenCtx;
-	//vmState.exRegVmConstants = exRegVmConstants.data;
-
 
 	//SetParamBase((unsigned int)(long long)paramBase);
 	//SetFunctionList(exFunctions.data, functionAddress.data);
@@ -1828,6 +1827,26 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			assert(cmd.argB.type == x86Argument::argXmmReg);
 			code += x86DIVSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
 			break;
+		case o_cmpeqsd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86CMPEQSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+		case o_cmpltsd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86CMPLTSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+		case o_cmplesd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86CMPLESD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
+		case o_cmpneqsd:
+			assert(cmd.argA.type == x86Argument::argXmmReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86CMPNEQSD(code, cmd.argA.xmmArg, cmd.argB.xmmArg);
+			break;
 
 		case o_int:
 			code += x86INT(code, 3);
@@ -1860,7 +1879,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			}
 			break;
 		case o_movsxd:
-			assert(!"unknown instruction");
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+			code += x86MOVSXD(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			break;
 		case o_add64:
 			if(cmd.argA.type == x86Argument::argPtr)
@@ -1895,6 +1916,16 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				else
 					code += x64SUB(code, cmd.argA.reg, cmd.argB.num);
 			}
+			break;
+		case o_imul64:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argReg);
+			code += x64IMUL(code, cmd.argA.reg, cmd.argB.reg);
+			break;
+		case o_cmp64:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argReg);
+			code += x64CMP(code, cmd.argA.reg, cmd.argB.reg);
 			break;
 		case o_cvttsd2si64:
 			assert(!"unknown instruction");

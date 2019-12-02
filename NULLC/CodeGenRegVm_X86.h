@@ -44,6 +44,7 @@ struct CodeGenRegVmStateContext
 		codeLaunchHeader = NULL;
 
 		callWrap = NULL;
+		convertPtrWrap = NULL;
 	}
 
 	CodeGenRegVmContext *ctx;
@@ -70,6 +71,7 @@ struct CodeGenRegVmStateContext
 	unsigned char *codeLaunchHeader;
 
 	void (*callWrap)(CodeGenRegVmStateContext *ctx, unsigned functionId);
+	void (*convertPtrWrap)(CodeGenRegVmStateContext *vmState, unsigned targetTypeId, unsigned sourceTypeId);
 };
 
 class ExecutorX86;
@@ -86,6 +88,7 @@ struct CodeGenRegVmContext
 		exTypes = NULL;
 		exLocals = NULL;
 		exRegVmConstants = NULL;
+		exSymbols = NULL;
 
 		vmState = NULL;
 
@@ -108,6 +111,7 @@ struct CodeGenRegVmContext
 	ExternTypeInfo *exTypes;
 	ExternLocalInfo *exLocals;
 	unsigned *exRegVmConstants;
+	char *exSymbols;
 
 	CodeGenRegVmStateContext *vmState;
 

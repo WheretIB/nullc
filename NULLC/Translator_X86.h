@@ -77,6 +77,9 @@ int x86MOVSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, i
 // movd reg, xmm*
 int x86MOVD(unsigned char *stream, x86Reg dst, x86XmmReg src);
 
+// movsxd reg, dword [index*mult+base+shift]
+int x86MOVSXD(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+
 // cvtss2sd xmm*, dword [index*mult+base+shift]
 int x86CVTSS2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
@@ -93,6 +96,11 @@ int x86ADDSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 int x86SUBSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 int x86MULSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+
+int x86CMPEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86CMPLTSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86CMPLESD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
+int x86CMPNEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src);
 
 // fcomp *word [index*mult+base+shift]
 int x86FCOMP(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
@@ -203,10 +211,16 @@ int x86SBB(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 
 // imul srcdst, num
 int x86IMUL(unsigned char *stream, x86Reg srcdst, int num);
+
 // imul dst, src
 int x86IMUL(unsigned char *stream, x86Reg dst, x86Reg src);
+
+// REX.W imul dst, src
+int x64IMUL(unsigned char *stream, x86Reg dst, x86Reg src);
+
 // imul dst, dword [index*mult+base+shift]
 int x86IMUL(unsigned char *stream, x86Reg dst, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
+
 // imul src
 int x86IMUL(unsigned char *stream, x86Reg src);
 
@@ -257,12 +271,19 @@ int x86XOR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 
 // cmp reg, num
 int x86CMP(unsigned char *stream, x86Reg reg, int num);
+
 // cmp reg1, reg2
 int x86CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2);
+
+// REX.W cmp reg1, reg2
+int x64CMP(unsigned char *stream, x86Reg reg1, x86Reg reg2);
+
 // cmp dword [index*mult+base+shift], op2
 int x86CMP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
+
 // cmp op1, dword [index*mult+base+shift]
 int x86CMP(unsigned char *stream, x86Reg op1, x86Size, x86Reg index, int multiplier, x86Reg base, int shift);
+
 // cmp dword [index*mult+base+shift], num
 int x86CMP(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int op2);
 
