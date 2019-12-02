@@ -120,7 +120,10 @@ enum x86Command
 	o_lea,
 	o_cdq,
 	o_rep_movsd,
+	o_rep_stosb,
+	o_rep_stosw,
 	o_rep_stosd,
+	o_rep_stosq,
 
 	o_jmp,
 	o_ja,
@@ -196,6 +199,7 @@ enum x86Command
 
 	o_movss,
 	o_movsd,
+	o_movd,
 	o_cvtss2sd,
 	o_cvtsd2ss,
 	o_cvttsd2si,
@@ -226,13 +230,13 @@ enum x86Command
 };
 
 static const char* x86CmdText[] = 
-{	"", "mov", "movsx", "push", "pop", "lea", "cdq", "rep movsd", "rep stosd",
+{	"", "mov", "movsx", "push", "pop", "lea", "cdq", "rep movsd", "rep stosb", "rep stosw", "rep stosd", "rep stosq",
 	"jmp", "ja", "jae", "jb", "jbe", "je", "jg", "jl", "jne", "jnp", "jp", "jge", "jle", "call", "ret",
 	"fld", "fild", "fistp", "fst", "fstp", "fnstsw", "fstcw", "fldcw",
 	"neg", "add", "adc", "sub", "sbb", "imul", "idiv", "shl", "sal", "sar", "not", "and", "or", "xor", "cmp", "test",
 	"setl", "setg", "setle", "setge", "sete", "setne", "setz", "setnz",
 	"fadd", "faddp", "fmul", "fmulp", "fsub", "fsubr", "fsubp", "fsubrp", "fdiv", "fdivr", "fdivrp", "fchs", "fprem", "fcomp", "fldz", "fld1", "fsincos", "fptan", "fsqrt", "frndint",
-	"movss", "movsd", "cvtss2sd", "cvtsd2ss", "cvttsd2si", "cvtsi2sd", "addsd", "subsd", "mulsd", "divsd",
+	"movss", "movsd", "movd", "cvtss2sd", "cvtsd2ss", "cvttsd2si", "cvtsi2sd", "addsd", "subsd", "mulsd", "divsd",
 	"int", "label", "use32", "nop", "other",
 
 	"mov", "movsxd",

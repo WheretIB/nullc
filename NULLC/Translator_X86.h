@@ -74,6 +74,9 @@ int x86MOVSD(unsigned char *stream, x86Size size, x86Reg index, int multiplier, 
 // movsd xmm*, qword [index*mult+base+shift]
 int x86MOVSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
+// movd reg, xmm*
+int x86MOVD(unsigned char *stream, x86Reg dst, x86XmmReg src);
+
 // cvtss2sd xmm*, dword [index*mult+base+shift]
 int x86CVTSS2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
@@ -289,8 +292,17 @@ int x86RET(unsigned char *stream);
 // rep movsd
 int x86REP_MOVSD(unsigned char *stream);
 
+// rep stosb
+int x86REP_STOSB(unsigned char *stream);
+
+// rep stosw
+int x86REP_STOSW(unsigned char *stream);
+
 // rep stosd
 int x86REP_STOSD(unsigned char *stream);
+
+// rep stosq
+int x86REP_STOSQ(unsigned char *stream);
 
 // int num
 int x86INT(unsigned char *stream, int interrupt);

@@ -1356,14 +1356,11 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 
 	for(unsigned int i = 0, e = instList.size(); i != e; i++)
 	{
-		x86Instruction &cmd = *curr;	// Syntax sugar + too lazy to rewrite switch contents
+		x86Instruction &cmd = *curr;
+
 		if(cmd.instID)
-		{
 			instAddress[cmd.instID - 1] = code;	// Save VM instruction address in x86 bytecode
 
-			//if(int(cmd.instID - 1) == (int)exLinker->regVmOffsetToGlobalCode)
-			//	code += x86PUSH(code, rEBP);
-		}
 		switch(cmd.name)
 		{
 		case o_none:
@@ -1427,8 +1424,17 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 		case o_rep_movsd:
 			code += x86REP_MOVSD(code);
 			break;
+		case o_rep_stosb:
+			code += x86REP_STOSB(code);
+			break;
+		case o_rep_stosw:
+			code += x86REP_STOSW(code);
+			break;
 		case o_rep_stosd:
 			code += x86REP_STOSD(code);
+			break;
+		case o_rep_stosq:
+			code += x86REP_STOSQ(code);
 			break;
 
 		case o_jmp:
@@ -1776,6 +1782,11 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				assert(cmd.argB.type == x86Argument::argPtr);
 				code += x86MOVSD(code, cmd.argA.xmmArg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			}
+			break;
+		case o_movd:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argXmmReg);
+			code += x86MOVD(code, cmd.argA.reg, cmd.argB.xmmArg);
 			break;
 		case o_cvtss2sd:
 			assert(cmd.argA.type == x86Argument::argXmmReg);

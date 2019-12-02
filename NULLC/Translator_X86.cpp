@@ -28,6 +28,14 @@ unsigned char encodeRegister(x86XmmReg dst, x86XmmReg src)
 	return mod | spare | RM;
 }
 
+unsigned char encodeRegister(x86Reg dst, x86XmmReg src)
+{
+	unsigned char mod = 3 << 6;
+	unsigned char spare = (unsigned char)src << 3;
+	unsigned char RM = (unsigned char)dst;
+	return mod | spare | RM;
+}
+
 // encode [base], [base+displacement], [index*multiplier+displacement] and [index*multiplier+base+displacement]
 unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, x86Reg base, int displacement, char spareField)
 {
@@ -123,6 +131,19 @@ unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86XmmReg reg, x86R
 unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86XmmReg dst, x86XmmReg src)
 {
 	unsigned char code = (operand64Bit ? 0x08 : 0x00) | (dst >= rXMM8 ? 0x04 : 0x00) | (src >= rXMM8 ? 0x01 : 0x00);
+
+	if(code)
+	{
+		*stream = 0x40 | code;
+		return 1;
+	}
+
+	return 0;
+}
+
+unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86Reg dst, x86XmmReg src)
+{
+	unsigned char code = (operand64Bit ? 0x08 : 0x00) | (dst >= rR8 ? 0x04 : 0x00) | (src >= rXMM8 ? 0x01 : 0x00);
 
 	if(code)
 	{
@@ -444,6 +465,20 @@ int x86MOVSD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, i
 	*stream++ = 0x0f;
 	*stream++ = 0x10;
 	stream += encodeAddress(stream, index, multiplier, base, shift, (char)dst);
+
+	return int(stream - start);
+}
+
+// movd reg, xmm*
+int x86MOVD(unsigned char *stream, x86Reg dst, x86XmmReg src)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0x66;
+	stream += encodeRex(stream, false, dst, src);
+	*stream++ = 0x0f;
+	*stream++ = 0x7e;
+	*stream++ = encodeRegister(dst, src);
 
 	return int(stream - start);
 }
@@ -1601,16 +1636,54 @@ int x86RET(unsigned char *stream)
 
 int x86REP_MOVSD(unsigned char *stream)
 {
-	stream[0] = 0xf3;
-	stream[1] = 0xa5;
-	return 2;
+	unsigned char *start = stream;
+
+	*stream++ = 0xf3;
+	*stream++ = 0xa5;
+
+	return int(stream - start);
+}
+
+int x86REP_STOSB(unsigned char *stream)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xf3;
+	*stream++ = 0xaa;
+
+	return int(stream - start);
+}
+
+int x86REP_STOSW(unsigned char *stream)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xf3;
+	*stream++ = 0x66;
+	*stream++ = 0xab;
+
+	return int(stream - start);
 }
 
 int x86REP_STOSD(unsigned char *stream)
 {
-	stream[0] = 0xf3;
-	stream[1] = 0xab;
-	return 2;
+	unsigned char *start = stream;
+
+	*stream++ = 0xf3;
+	*stream++ = 0xab;
+
+	return int(stream - start);
+}
+
+int x86REP_STOSQ(unsigned char *stream)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xf3;
+	stream += encodeRex(stream, true, rNONE, rNONE, rNONE);
+	*stream++ = 0xab;
+
+	return int(stream - start);
 }
 
 int x86INT(unsigned char *stream, int interrupt)
