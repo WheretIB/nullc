@@ -36,6 +36,14 @@ unsigned char encodeRegister(x86Reg dst, x86XmmReg src)
 	return mod | spare | RM;
 }
 
+unsigned char encodeRegister(x86XmmReg dst, char spareField)
+{
+	unsigned char mod = 3 << 6;
+	unsigned char spare = spareField << 3;
+	unsigned char RM = (unsigned char)dst;
+	return mod | spare | RM;
+}
+
 // encode [base], [base+displacement], [index*multiplier+displacement] and [index*multiplier+base+displacement]
 unsigned int	encodeAddress(unsigned char* stream, x86Reg index, int multiplier, x86Reg base, int displacement, char spareField)
 {
@@ -157,6 +165,19 @@ unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86XmmReg dst, x86X
 unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86Reg dst, x86XmmReg src)
 {
 	unsigned char code = (operand64Bit ? 0x08 : 0x00) | (dst >= rR8 ? 0x04 : 0x00) | (src >= rXMM8 ? 0x01 : 0x00);
+
+	if(code)
+	{
+		*stream = 0x40 | code;
+		return 1;
+	}
+
+	return 0;
+}
+
+unsigned encodeRex(unsigned char* stream, bool operand64Bit, x86XmmReg dst, x86Reg src)
+{
+	unsigned char code = (operand64Bit ? 0x08 : 0x00) | (dst >= rXMM8 ? 0x04 : 0x00) | (src >= rR8 ? 0x01 : 0x00);
 
 	if(code)
 	{
@@ -488,10 +509,10 @@ int x86MOVD(unsigned char *stream, x86Reg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0x66;
-	stream += encodeRex(stream, false, dst, src);
+	stream += encodeRex(stream, false, src, dst);
 	*stream++ = 0x0f;
 	*stream++ = 0x7e;
-	*stream++ = encodeRegister(dst, src);
+	*stream++ = encodeRegister(src, regCode[dst]);
 
 	return int(stream - start);
 }
@@ -558,6 +579,22 @@ int x86CVTTSD2SI(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, 
 	return int(stream - start);
 }
 
+// REX.W cvttsd2si dst, qword [index*mult+base+shift]
+int x64CVTTSD2SI(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
+{
+	unsigned char *start = stream;
+
+	assert(size == sQWORD);
+
+	*stream++ = 0xf2;
+	stream += encodeRex(stream, true, dst, index, base);
+	*stream++ = 0x0f;
+	*stream++ = 0x2C;
+	stream += encodeAddress(stream, index, multiplier, base, shift, regCode[dst]);
+
+	return int(stream - start);
+}
+
 // cvtsi2sd xmm*, *word [index*mult+base+shift]
 int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
@@ -579,10 +616,10 @@ int x86ADDSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, dst, src);
+	stream += encodeRex(stream, false, src, dst);
 	*stream++ = 0x0f;
 	*stream++ = 0x58;
-	*stream++ = encodeRegister(dst, src);
+	*stream++ = encodeRegister(src, dst);
 
 	return int(stream - start);
 }
@@ -592,10 +629,10 @@ int x86SUBSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, dst, src);
+	stream += encodeRex(stream, false, src, dst);
 	*stream++ = 0x0f;
 	*stream++ = 0x5c;
-	*stream++ = encodeRegister(dst, src);
+	*stream++ = encodeRegister(src, dst);
 
 	return int(stream - start);
 }
@@ -605,10 +642,10 @@ int x86MULSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, dst, src);
+	stream += encodeRex(stream, false, src, dst);
 	*stream++ = 0x0f;
 	*stream++ = 0x59;
-	*stream++ = encodeRegister(dst, src);
+	*stream++ = encodeRegister(src, dst);
 
 	return int(stream - start);
 }
@@ -618,10 +655,10 @@ int x86DIVSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, dst, src);
+	stream += encodeRex(stream, false, src, dst);
 	*stream++ = 0x0f;
 	*stream++ = 0x5e;
-	*stream++ = encodeRegister(dst, src);
+	*stream++ = encodeRegister(src, dst);
 
 	return int(stream - start);
 }
@@ -631,10 +668,10 @@ int x86CMPEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, dst, src);
+	stream += encodeRex(stream, false, src, dst);
 	*stream++ = 0x0f;
 	*stream++ = 0xc2;
-	*stream++ = encodeRegister(dst, src);
+	*stream++ = encodeRegister(src, dst);
 	*stream++ = 0;
 
 	return int(stream - start);
@@ -645,10 +682,10 @@ int x86CMPLTSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, dst, src);
+	stream += encodeRex(stream, false, src, dst);
 	*stream++ = 0x0f;
 	*stream++ = 0xc2;
-	*stream++ = encodeRegister(dst, src);
+	*stream++ = encodeRegister(src, dst);
 	*stream++ = 1;
 
 	return int(stream - start);
@@ -659,10 +696,10 @@ int x86CMPLESD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, dst, src);
+	stream += encodeRex(stream, false, src, dst);
 	*stream++ = 0x0f;
 	*stream++ = 0xc2;
-	*stream++ = encodeRegister(dst, src);
+	*stream++ = encodeRegister(src, dst);
 	*stream++ = 2;
 
 	return int(stream - start);
@@ -673,10 +710,10 @@ int x86CMPNEQSD(unsigned char *stream, x86XmmReg dst, x86XmmReg src)
 	unsigned char *start = stream;
 
 	*stream++ = 0xf2;
-	stream += encodeRex(stream, false, dst, src);
+	stream += encodeRex(stream, false, src, dst);
 	*stream++ = 0x0f;
 	*stream++ = 0xc2;
-	*stream++ = encodeRegister(dst, src);
+	*stream++ = encodeRegister(src, dst);
 	*stream++ = 4;
 
 	return int(stream - start);

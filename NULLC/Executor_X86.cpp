@@ -1632,7 +1632,13 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				else if(cmd.argB.type == x86Argument::argNumber)
 					code += x86AND(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 			}else{
-				code += x86AND(code, cmd.argA.reg, cmd.argB.reg);
+				assert(cmd.argA.type == x86Argument::argReg);
+				assert(cmd.argB.type == x86Argument::argReg || cmd.argB.type == x86Argument::argNumber);
+
+				if(cmd.argB.type == x86Argument::argNumber)
+					code += x86AND(code, cmd.argA.reg, cmd.argB.num);
+				else
+					code += x86AND(code, cmd.argA.reg, cmd.argB.reg);
 			}
 			break;
 		case o_or:
@@ -1645,6 +1651,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			}else if(cmd.argB.type == x86Argument::argPtr){
 				code += x86OR(code, cmd.argA.reg, sDWORD, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			}else{
+				assert(cmd.argA.type == x86Argument::argReg);
+				assert(cmd.argB.type == x86Argument::argReg);
 				code += x86OR(code, cmd.argA.reg, cmd.argB.reg);
 			}
 			break;
@@ -1656,6 +1664,8 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				else
 					code += x86XOR(code, sDWORD, cmd.argA.ptrIndex, cmd.argA.ptrMult, cmd.argA.ptrBase, cmd.argA.ptrNum, cmd.argB.num);
 			}else{
+				assert(cmd.argA.type == x86Argument::argReg);
+				assert(cmd.argB.type == x86Argument::argReg);
 				code += x86XOR(code, cmd.argA.reg, cmd.argB.reg);
 			}
 			break;
@@ -1966,7 +1976,9 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			code += x64CMP(code, cmd.argA.reg, cmd.argB.reg);
 			break;
 		case o_cvttsd2si64:
-			assert(!"unknown instruction");
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argPtr);
+			code += x64CVTTSD2SI(code, cmd.argA.reg, cmd.argB.ptrSize, cmd.argB.ptrIndex, cmd.argB.ptrMult, cmd.argB.ptrBase, cmd.argB.ptrNum);
 			break;
 		default:
 			assert(!"unknown instruction");

@@ -89,6 +89,9 @@ int x86CVTSD2SS(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index
 // cvttsd2si dst, qword [index*mult+base+shift]
 int x86CVTTSD2SI(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
+// REX.W cvttsd2si dst, qword [index*mult+base+shift]
+int x64CVTTSD2SI(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
+
 // cvtsi2sd xmm*, *word [index*mult+base+shift]
 int x86CVTSI2SD(unsigned char *stream, x86XmmReg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift);
 
@@ -267,6 +270,7 @@ int x64AND(unsigned char *stream, x86Reg op1, x86Reg op2);
 
 // and op1, num
 int x86AND(unsigned char *stream, x86Reg op1, int num);
+
 // and dword [index*mult+base+shift], op2
 int x86AND(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
 // and dword [index*mult+base+shift], num
