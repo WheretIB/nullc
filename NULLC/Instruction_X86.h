@@ -225,6 +225,11 @@ enum x86Command
 	o_add64,
 	o_sub64,
 	o_imul64,
+	o_sal64,
+	o_sar64,
+	o_and64,
+	o_or64,
+	o_xor64,
 	o_cmp64,
 
 	o_cvttsd2si64,
@@ -246,7 +251,7 @@ static const char* x86CmdText[] =
 	"int", "label", "use32", "nop", "other",
 
 	"mov",
-	"add", "sub", "imul", "cmp",
+	"add", "sub", "imul", "sal", "sar", "and", "or", "xor", "cmp",
 	"cvttsd2si64"
 };
 

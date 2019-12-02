@@ -1607,12 +1607,14 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 				code += x86SHL(code, cmd.argA.reg, cmd.argB.num);
 			break;
 		case o_sal:
-			assert(cmd.argA.reg == rEAX && cmd.argB.reg == rECX);
-			code += x86SAL(code);
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.reg == rECX);
+			code += x86SAL(code, cmd.argA.reg);
 			break;
 		case o_sar:
-			assert(cmd.argA.reg == rEAX && cmd.argB.reg == rECX);
-			code += x86SAR(code);
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.reg == rECX);
+			code += x86SAR(code, cmd.argA.reg);
 			break;
 		case o_not:
 			if(cmd.argA.type == x86Argument::argPtr)
@@ -1921,6 +1923,31 @@ bool ExecutorX86::TranslateToNative(bool enableLogFiles, OutputContext &output)
 			assert(cmd.argA.type == x86Argument::argReg);
 			assert(cmd.argB.type == x86Argument::argReg);
 			code += x64IMUL(code, cmd.argA.reg, cmd.argB.reg);
+			break;
+		case o_sal64:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.reg == rECX);
+			code += x64SAL(code, cmd.argA.reg);
+			break;
+		case o_sar64:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.reg == rECX);
+			code += x64SAR(code, cmd.argA.reg);
+			break;
+		case o_and64:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argReg);
+			code += x64AND(code, cmd.argA.reg, cmd.argB.reg);
+			break;
+		case o_or64:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argReg);
+			code += x64OR(code, cmd.argA.reg, cmd.argB.reg);
+			break;
+		case o_xor64:
+			assert(cmd.argA.type == x86Argument::argReg);
+			assert(cmd.argB.type == x86Argument::argReg);
+			code += x64XOR(code, cmd.argA.reg, cmd.argB.reg);
 			break;
 		case o_cmp64:
 			assert(cmd.argA.type == x86Argument::argReg);

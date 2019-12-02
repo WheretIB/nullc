@@ -499,6 +499,8 @@ int x86MOVD(unsigned char *stream, x86Reg dst, x86XmmReg src)
 // movsxd reg, dword [index*mult+base+shift]
 int x86MOVSXD(unsigned char *stream, x86Reg dst, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
+	(void)size;
+
 	unsigned char *start = stream;
 
 	stream += encodeRex(stream, true, dst, index, base);
@@ -1434,28 +1436,63 @@ int x86SHL(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 	return (val == 1 ? 1 : 2) + asize;
 }
 
-// sal eax, cl
-int x86SAL(unsigned char *stream)
+// sal reg, cl
+int x86SAL(unsigned char *stream, x86Reg reg)
 {
-	stream[0] = 0xd3;
-	stream[1] = encodeRegister(rEAX, 4);
-	return 2;
+	unsigned char *start = stream;
+
+	*stream++ = 0xd3;
+	*stream++ = encodeRegister(reg, 4);
+
+	return int(stream - start);
 }
-// sar eax, cl
-int x86SAR(unsigned char *stream)
+
+// REX.W sal reg, cl
+int x64SAL(unsigned char *stream, x86Reg reg)
 {
-	stream[0] = 0xd3;
-	stream[1] = encodeRegister(rEAX, 7);
-	return 2;
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, true, reg, rNONE, rNONE);
+	*stream++ = 0xd3;
+	*stream++ = encodeRegister(reg, 4);
+
+	return int(stream - start);
+}
+
+// sar reg, cl
+int x86SAR(unsigned char *stream, x86Reg reg)
+{
+	unsigned char *start = stream;
+
+	*stream++ = 0xd3;
+	*stream++ = encodeRegister(reg, 7);
+
+	return int(stream - start);
+}
+
+// REX.W sar reg, cl
+int x64SAR(unsigned char *stream, x86Reg reg)
+{
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, true, reg, rNONE, rNONE);
+	*stream++ = 0xd3;
+	*stream++ = encodeRegister(reg, 7);
+
+	return int(stream - start);
 }
 
 // not reg
 int x86NOT(unsigned char *stream, x86Reg reg)
 {
-	stream[0] = 0xf7;
-	stream[1] = encodeRegister(reg, 2);
-	return 2;
+	unsigned char *start = stream;
+
+	*stream++ = 0xf7;
+	*stream++ = encodeRegister(reg, 2);
+
+	return int(stream - start);
 }
+
 // not dword [index*mult+base+shift]
 int x86NOT(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
@@ -1469,9 +1506,24 @@ int x86NOT(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 // and op1, op2
 int x86AND(unsigned char *stream, x86Reg op1, x86Reg op2)
 {
-	stream[0] = 0x21;
-	stream[1] = encodeRegister(op1, regCode[op2]);
-	return 2;
+	unsigned char *start = stream;
+
+	*stream++ = 0x21;
+	*stream++ = encodeRegister(op1, regCode[op2]);
+
+	return int(stream - start);
+}
+
+// REX.W and op1, op2
+int x64AND(unsigned char *stream, x86Reg op1, x86Reg op2)
+{
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, true, op1, op2);
+	*stream++ = 0x21;
+	*stream++ = encodeRegister(op1, regCode[op2]);
+
+	return int(stream - start);
 }
 
 // and op1, num
@@ -1520,10 +1572,26 @@ int x86AND(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 // or op1, op2
 int x86OR(unsigned char *stream, x86Reg op1, x86Reg op2)
 {
-	stream[0] = 0x09;
-	stream[1] = encodeRegister(op1, regCode[op2]);
-	return 2;
+	unsigned char *start = stream;
+
+	*stream++ = 0x09;
+	*stream++ = encodeRegister(op1, regCode[op2]);
+
+	return int(stream - start);
 }
+
+// REX.W or op1, op2
+int x64OR(unsigned char *stream, x86Reg op1, x86Reg op2)
+{
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, true, op1, op2);
+	*stream++ = 0x09;
+	*stream++ = encodeRegister(op1, regCode[op2]);
+
+	return int(stream - start);
+}
+
 // or dword [index*mult+base+shift], op2
 int x86OR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2)
 {
@@ -1533,6 +1601,7 @@ int x86OR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86
 	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
 	return 1 + asize;
 }
+
 // or dword [index*mult+base+shift], num
 int x86OR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int op2)
 {
@@ -1550,6 +1619,7 @@ int x86OR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86
 	*(int*)(stream+1+asize) = op2;
 	return 5+asize;
 }
+
 // or op1, dword [index*mult+base+shift]
 int x86OR(unsigned char *stream, x86Reg op1, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift)
 {
@@ -1563,10 +1633,26 @@ int x86OR(unsigned char *stream, x86Reg op1, x86Size size, x86Reg index, int mul
 // xor op1, op2
 int x86XOR(unsigned char *stream, x86Reg op1, x86Reg op2)
 {
-	stream[0] = 0x31;
-	stream[1] = encodeRegister(op1, regCode[op2]);
-	return 2;
+	unsigned char *start = stream;
+
+	*stream++ = 0x31;
+	*stream++ = encodeRegister(op1, regCode[op2]);
+
+	return int(stream - start);
 }
+
+// REX.W xor op1, op2
+int x64XOR(unsigned char *stream, x86Reg op1, x86Reg op2)
+{
+	unsigned char *start = stream;
+
+	stream += encodeRex(stream, true, op1, op2);
+	*stream++ = 0x31;
+	*stream++ = encodeRegister(op1, regCode[op2]);
+
+	return int(stream - start);
+}
+
 // xor dword [index*mult+base+shift], op2
 int x86XOR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2)
 {
@@ -1576,6 +1662,7 @@ int x86XOR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x8
 	unsigned int asize = encodeAddress(stream+1, index, multiplier, base, shift, regCode[op2]);
 	return 1 + asize;
 }
+
 // xor dword [index*mult+base+shift], num
 int x86XOR(unsigned char *stream, x86Size size, x86Reg index, int multiplier, x86Reg base, int shift, int num)
 {

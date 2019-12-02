@@ -234,10 +234,17 @@ int x86SHL(unsigned char *stream, x86Reg reg, int val);
 // shl dword [index*mult+base+shift], val
 int x86SHL(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, int val);
 
-// sal eax, cl
-int x86SAL(unsigned char *stream);
-// sar eax, cl
-int x86SAR(unsigned char *stream);
+// sal reg, cl
+int x86SAL(unsigned char *stream, x86Reg reg);
+
+// REX.W sal reg, cl
+int x64SAL(unsigned char *stream, x86Reg reg);
+
+// sar reg, cl
+int x86SAR(unsigned char *stream, x86Reg reg);
+
+// REX.W sar reg, cl
+int x64SAR(unsigned char *stream, x86Reg reg);
 
 // not reg
 int x86NOT(unsigned char *stream, x86Reg reg);
@@ -246,6 +253,10 @@ int x86NOT(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 
 // and op1, op2
 int x86AND(unsigned char *stream, x86Reg op1, x86Reg op2);
+
+// REX.W and op1, op2
+int x64AND(unsigned char *stream, x86Reg op1, x86Reg op2);
+
 // and op1, num
 int x86AND(unsigned char *stream, x86Reg op1, int num);
 // and dword [index*mult+base+shift], op2
@@ -255,6 +266,10 @@ int x86AND(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg 
 
 // or op1, op2
 int x86OR(unsigned char *stream, x86Reg op1, x86Reg op2);
+
+// REX.W or op1, op2
+int x64OR(unsigned char *stream, x86Reg op1, x86Reg op2);
+
 // or dword [index*mult+base+shift], op2
 int x86OR(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
 // or dword [index*mult+base+shift], num
@@ -264,6 +279,10 @@ int x86OR(unsigned char *stream, x86Reg op1, x86Size, x86Reg index, int multipli
 
 // xor op1, op2
 int x86XOR(unsigned char *stream, x86Reg op1, x86Reg op2);
+
+// REX.W xor op1, op2
+int x64XOR(unsigned char *stream, x86Reg op1, x86Reg op2);
+
 // xor dword [index*mult+base+shift], op2
 int x86XOR(unsigned char *stream, x86Size, x86Reg index, int multiplier, x86Reg base, int shift, x86Reg op2);
 // xor dword [index*mult+base+shift], num
